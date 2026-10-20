@@ -6774,6 +6774,26 @@ class CardEnhancer {
     Services.prefs.setBoolPref(PREF, true);
   }
 
+  // Apple Mail hat über den Postfächern keine eigene Knopfzeile – Abrufen und
+  // Verfassen stehen schon in der Toolbar. Einmalig Thunderbirds Kopfzeile der
+  // Ordnerliste ausblenden (zurück über ≡ → Ansicht → Ordner); nicht, wenn die
+  // eigene Toolbar keinen Verfassen-Knopf hat.
+  hideFolderHeaderOnce(win) {
+    const PREF = "extensions.mailcards.folderHeaderHidden";
+    if (Services.prefs.getBoolPref(PREF, false) || !win.folderPane?.toggleHeader) {
+      return;
+    }
+    try {
+      const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+      if (getState().mail?.includes("write-message")) {
+        win.folderPane.toggleHeader(true);
+      }
+      Services.prefs.setBoolPref(PREF, true);
+    } catch (e) {
+      log("folder header error", e);
+    }
+  }
+
   // Termin-Details: an den Inhalt anpassen (mindestens 480 px breit, höchstens
   // so groß wie der Bildschirm) und iClouds Platzhalter-Erinnerung ausblenden
   // (Apple legt für Standard-Erinnerungen eine feste vom 1. April 1976 an)
@@ -7304,6 +7324,7 @@ class CardEnhancer {
     });
 
     this.trackToolbarOffset(win);
+    this.hideFolderHeaderOnce(win);
     this.decorateFolders(win);
     this.hookFolderEvents(win);
 

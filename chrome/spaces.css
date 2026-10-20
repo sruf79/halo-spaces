@@ -2219,6 +2219,18 @@ input[type="number"].size4 {
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;
 }
 
+/* Thunderbird legt Leiste und Inhalt in ein Raster mit fester erster Spalte
+   (18em): breiter gezogen überdeckte die Leiste den Inhalt, ausgeblendet
+   rutschte der Inhalt in die schmale erste Spalte. Die Spalte folgt jetzt
+   der Leistenbreite, der Inhalt bleibt immer in der zweiten Spalte. */
+#full:has(> #sidebar categories-box) {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+}
+
+#full:has(> #sidebar categories-box) > #content {
+  grid-column: 2 !important;
+}
+
 categories-box > .category,
 #sidebar-footer .sidebar-footer-link {
   min-height: 34px !important;

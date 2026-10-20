@@ -222,6 +222,37 @@ global-search-bar {
   background: var(--mt-control-hover) !important;
 }
 
+/* Menüleiste unter Windows/Linux (falls eingeschaltet): Thunderbird setzt sie
+   zwischen Toolbar-Zeile und Spalten und zerschneidet so die Seitenleiste.
+   Hier als schmale graue Zeile ganz oben wie die Menüleiste des Mac –
+   darunter bleiben Toolbar-Zeile und Spalten direkt beieinander. */
+#toolbar-menubar {
+  order: -1 !important;
+  min-height: 0 !important;
+  background: var(--mt-sidebar) !important;
+  color: var(--mt-text) !important;
+}
+
+/* (nur wenn sichtbar – ausgeblendet hat sie Höhe 0, Rand und Abstand
+   ließen sonst einen Streifen mit angeschnittenen Menüs stehen; beim Start
+   steht autohide="true", nach Ansicht → Symbolleisten autohide="") */
+#toolbar-menubar:not([autohide][inactive="true"]) {
+  padding: 2px 6px !important;
+  border-bottom: 1px solid var(--mt-sidebar-border) !important;
+}
+
+#mail-menubar > menu {
+  margin: 0 !important;
+  padding: 2px 8px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+}
+
+#mail-menubar > menu:is([_moz-menuactive], [open]) {
+  background-color: var(--mt-control-hover) !important;
+  color: var(--mt-text) !important;
+}
+
 /* Spaces-Leiste links unauffällig */
 #spacesToolbar {
   background: var(--mt-sidebar) !important;
@@ -4074,6 +4105,18 @@ input[type="number"].size4 {
 #sidebar:has(categories-box) {
   background: var(--mt-sidebar) !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;
+}
+
+/* Thunderbird legt Leiste und Inhalt in ein Raster mit fester erster Spalte
+   (18em): breiter gezogen überdeckte die Leiste den Inhalt, ausgeblendet
+   rutschte der Inhalt in die schmale erste Spalte. Die Spalte folgt jetzt
+   der Leistenbreite, der Inhalt bleibt immer in der zweiten Spalte. */
+#full:has(> #sidebar categories-box) {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+}
+
+#full:has(> #sidebar categories-box) > #content {
+  grid-column: 2 !important;
 }
 
 categories-box > .category,

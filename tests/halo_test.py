@@ -371,6 +371,13 @@ def run_checks(m, version, profile, results):
         return v == [version, True], f"{v}"
     check("Erweiterung aktiv und richtige Version", addon, results)
 
+    def folder_header():
+        res = m.js("""const a3 = await toMail();
+          return { header: a3.document.getElementById("folderPaneHeaderBar").hidden,
+                   toolbar: ["get-messages", "write-message"].filter(id => d.querySelector(`#unifiedToolbarContent li[item-id="${id}"]`)) };""")
+        return res["header"] and len(res["toolbar"]) == 2, f"{res}"
+    check("Ordnerliste ohne eigene Knopfzeile, Abrufen/Verfassen in der Toolbar", folder_header, results)
+
     def list_width():
         res = m.js("""
           const out = {};
@@ -1268,6 +1275,36 @@ def run_checks(m, version, profile, results):
           return { last, ageSec: last ? Math.round(Date.now() / 1000 - last) : null };''')
         return bool(res["last"]) and res["ageSec"] < 600, f"Update-Prüfung beim Start gelaufen: {res}"
     check("Updates: Prüfung beim Start", auto_update, results)
+
+    def addons_and_menubar():
+        res = m.js('''
+          w.openAddonsMgr("addons://list/extension"); await wait(2500);
+          const doc = tm.currentTabInfo.browser.contentDocument; const sb = doc.getElementById("sidebar"), content = doc.getElementById("content");
+          // breite gemeinsame Seitenleiste (wie von der Erweiterung gesetzt) und ausgeblendete Leiste
+          sb.style.setProperty("width", "406px", "important"); await wait(300);
+          const wide = { sidebar: Math.round(sb.getBoundingClientRect().right), content: Math.round(content.getBoundingClientRect().left) };
+          sb.classList.add("mc-side-hidden"); await wait(300);
+          const hidden = Math.round(content.getBoundingClientRect().width), page = Math.round(doc.documentElement.clientWidth);
+          sb.classList.remove("mc-side-hidden"); sb.style.removeProperty("width");
+          let menubar = "Mac: Menüleiste des Systems";
+          if (Services.appinfo.OS != "Darwin") {
+            // ausgeblendet (Start: autohide="true") kein Streifen; eingeschaltet ganz oben über der Toolbar-Zeile;
+            // wieder aus wie über Ansicht → Symbolleisten (autohide="") ebenfalls kein Streifen
+            const mb = d.getElementById("toolbar-menubar"); const off = Math.round(mb.getBoundingClientRect().height);
+            mb.removeAttribute("autohide"); await wait(500);
+            const r = mb.getBoundingClientRect();
+            menubar = { off, h: Math.round(r.height), bottom: Math.round(r.bottom), toolbar: Math.round(d.getElementById("unifiedToolbarContainer").getBoundingClientRect().top) };
+            mb.setAttribute("autohide", ""); await wait(500);
+            menubar.toggledOff = Math.round(mb.getBoundingClientRect().height);
+            mb.setAttribute("autohide", "true");
+          }
+          tm.closeTab(tm.currentTabInfo); await toMail();
+          return { wide, hidden, page, menubar };''')
+        ok = (res["wide"]["content"] >= res["wide"]["sidebar"] - 1 and res["hidden"] >= res["page"] - 1
+              and (isinstance(res["menubar"], str) or (res["menubar"]["off"] == 0 and res["menubar"]["toggledOff"] == 0 and res["menubar"]["h"] >= 15
+                                                       and res["menubar"]["bottom"] <= res["menubar"]["toolbar"])))
+        return ok, f"{res}"
+    check("Add-ons: Inhalt neben breiter/ausgeblendeter Leiste; Menüleiste über der Toolbar", addons_and_menubar, results)
 
     def errors():
         res = m.js("""

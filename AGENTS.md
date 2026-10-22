@@ -138,8 +138,12 @@ SessionStart-Hook die offenen Einträge in jede Sitzung.
 
 - Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
   berücksichtigen und passende Aufgaben nennen.
-- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
-  Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in
+- Nur Bugs/Wünsche eintragen, die der Maintainer ausdrücklich als solche
+  meldet oder eintragen lässt – dann sofort und ohne Rückfrage als
+  Entwurf anlegen (Typ setzen, Status Todo). Laute Überlegungen, Ideen
+  und Fragen im Gespräch sind keine Einträge; im Zweifel nichts anlegen
+  (höchstens fragen). Einträge lassen sich aus Cloud-Sessions nicht
+  wieder löschen. Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
   Ursache klären und Lösungsidee in den Eintrag

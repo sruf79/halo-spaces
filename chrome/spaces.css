@@ -1447,14 +1447,19 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   user-select: none;
 }
 
+/* (in normaler Größe: auf 1 px geschrumpft rechnete Thunderbird unter Linux
+   beim Spaltenwechsel endlos am Layout) */
 :root[mc-task-list] #calendar-task-tree {
   position: absolute !important;
-  width: 1px !important;
+  inset-block-start: 0 !important;
+  inset-inline-start: 0 !important;
+  width: 360px !important;
   min-width: 0 !important;
-  height: 1px !important;
+  height: 240px !important;
   min-height: 0 !important;
   opacity: 0 !important;
   pointer-events: none !important;
+  z-index: -1;
 }
 
 .mc-tc {

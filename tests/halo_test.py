@@ -7428,7 +7428,7 @@ Neu
             const cs = csOf(card), r = card.getBoundingClientRect();
             out.look = { radius: cs.borderTopLeftRadius, shadow: cs.boxShadow.includes("inset"), h: Math.round(r.height),
                          lines: card.querySelectorAll(".mc-tc-title, .mc-tc-meta").length, prio: card.querySelector(".mc-tc-prio")?.textContent,
-                         meta: card.querySelector(".mc-tc-meta")?.textContent, treeShown: tree.getBoundingClientRect().height > 2 };
+                         meta: card.querySelector(".mc-tc-meta")?.textContent, treeShown: w.getComputedStyle(tree).opacity != "0" || w.getComputedStyle(tree).pointerEvents != "none" };
             out.mailRadius = csOf(d.documentElement).getPropertyValue("--mt-radius-row").trim();
             // Klick auf die Karte: Thunderbirds Liste wählt die Aufgabe, Details zeigen sie
             const rect = card.getBoundingClientRect();

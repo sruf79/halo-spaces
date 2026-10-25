@@ -3874,18 +3874,21 @@ def server_checks(m, results):
               MailServices.compose.OpenComposeWindowWithParams(null, params);
               const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose), 10000);
               await wait(1500);
-              const visible = () => !cw.document.hidden;
+              // (Windows und Linux ohne Fenstermanager melden ein verstecktes Fenster nicht über document.hidden –
+              // dann zählt der Sichtbarkeitszustand des Thunderbird-Fensters selbst)
+              const shown = () => { try { return cw.docShell.treeOwner.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIAppWindow)
+                .QueryInterface(Ci.nsIBaseWindow).visibility; } catch { return true; } };
+              const visible = () => !cw.document.hidden && shown();
               const out = { types: [], errs: [] };
               cw.addEventListener("compose-send-message", e => out.types.push([e.detail?.msgType, e.defaultPrevented]), false);
               const cl = { observe: m => { if (m instanceof Ci.nsIScriptError && m.flags == 0) out.errs.push(m.errorMessage.slice(0, 160)); } };
               Services.console.registerListener(cl);
               cw.goDoCommand("cmd_sendNow");
               const bar = await until(() => d.getElementById("mcUndoSend"), 4000);
-              // (Windows meldet das versteckte Fenster nicht über document.hidden – nur kurz warten)
-              await until(() => cw.document.hidden, 1200);
+              await until(() => !visible(), 1200);
               out.held = { visible: visible(), closed: cw.closed, bar: bar?.textContent };
               Services.console.unregisterListener(cl); out.errs = out.errs.filter(e => !/editorContent|security/i.test(e)).slice(0, 6);
-              bar?.querySelector(".mc-us-undo").click(); await until(() => !cw.document.hidden, 2000);
+              bar?.querySelector(".mc-us-undo").click(); await until(() => visible(), 2000);
               out.undone = { visible: visible(), closed: cw.closed, bar: !!d.getElementById("mcUndoSend") };
               w.__mcUndoWin = cw;
               return out;""" % key)

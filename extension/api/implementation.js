@@ -3095,6 +3095,8 @@ function taskView() {
 }
 
 function applyTaskView(win, mode = taskView()) {
+  try { dump("HALO-D applyTaskView " + mode + "\n"); } catch {}
+
   const doc = win.document;
   const tree = doc.getElementById("calendar-task-tree");
   const splitter = doc.getElementById("calendar-task-view-splitter");
@@ -3139,6 +3141,7 @@ function applyTaskView(win, mode = taskView()) {
   if (side == root.hasAttribute("mc-task-side")) {
     return;
   }
+  try { dump("HALO-D side " + side + " " + box.getBoundingClientRect().width + "\n"); } catch {}
   root.toggleAttribute("mc-task-side", side);
   if (side) {
     details.dataset.mcHeight = details.style.height || "";
@@ -3156,6 +3159,8 @@ function applyTaskView(win, mode = taskView()) {
 }
 
 function setTaskView(win, key) {
+  try { dump("HALO-D setTaskView\n"); } catch {}
+
   Services.prefs.setCharPref(TASK_VIEW_PREF, key);
   applyTaskView(win);
 }
@@ -3272,6 +3277,7 @@ function hookTaskCards(win, restorers) {
   };
   let pending = false;
   const render = () => {
+    try { dump("HALO-D render\n"); } catch {}
     pending = false;
     if (!list.isConnected || !doc.documentElement.hasAttribute("mc-task-list")) {
       return;
@@ -3315,7 +3321,9 @@ function hookTaskCards(win, restorers) {
     });
     list.replaceChildren(...cards);
     list.toggleAttribute("data-focused", doc.activeElement == tree);
+    try { dump("HALO-D render-cards " + cards.length + "\n"); } catch {}
     enhancer?.updateListHeader?.(win); // Anzahl im Listenkopf
+    try { dump("HALO-D render-ende\n"); } catch {}
   };
   const schedule = () => {
     if (!pending) {
@@ -7404,6 +7412,7 @@ class CardEnhancer {
       // rechts nehmen den Rest), darüber Titel/Anzahl, Filter und „…“; die Knöpfe
       // beginnen rechts der Liste
       if (tab.mode.name == "tasks") {
+        try { dump("HALO-D edge\n"); } catch {}
         const side = d.documentElement.hasAttribute("mc-task-side");
         const details = d.getElementById("calendar-task-details-container");
         const taskList = d.documentElement.hasAttribute("mc-task-list") ? d.getElementById("mcTaskCards") : d.getElementById("calendar-task-tree");
@@ -7442,6 +7451,7 @@ class CardEnhancer {
         } else {
           setBarVar(d, "--mc-task-list-right", `${Math.round(edge - 6 - rowLeft)}px`);
         }
+        try { dump("HALO-D edge-ende " + details?.style.width + "\n"); } catch {}
         d.documentElement.toggleAttribute("mc-task-table", !side);
         // Aktionsknöpfe gleich rechts vom „+“
         const plus = [...d.querySelectorAll('#unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"])')]

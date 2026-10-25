@@ -7254,8 +7254,8 @@ Neu
           // activateItem auf einem nicht offenen Menü kehrte dort nie zurück)
           const pick = async view => { S("pick " + view); btn.click(); S("clicked"); const opened = await until(() => popup.state == "open", 2000); await wait(200);
             const it = popup.querySelector(`menuitem[data-view="${view}"]`);
-            S("opened " + opened); if (opened && it) it.doCommand(); else Services.prefs.setCharPref("extensions.mailcards.taskView", view);
-            await wait(600); popup.hidePopup(); await wait(200); };
+            S("opened " + opened); if (opened && it) { it.doCommand(); S("cmd-done"); } else Services.prefs.setCharPref("extensions.mailcards.taskView", view);
+            S("w1"); await wait(600); S("w2"); popup.hidePopup(); S("hidden"); await wait(200); S("pick-ende"); };
           const cols = () => [...tree.querySelectorAll("treecol[itemproperty]")].filter(c => !c.hidden).map(c => c.getAttribute("itemproperty"));
           const geo = () => { const t = tree.getBoundingClientRect(), r = det.getBoundingClientRect();
             return { right: r.left >= t.right - 1 && Math.abs(r.top - t.top) < 40, below: r.top >= t.bottom - 1, detW: Math.round(r.width) }; };

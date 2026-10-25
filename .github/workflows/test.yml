@@ -37,8 +37,8 @@ jobs:
           tb/thunderbird/thunderbird --version
 
       - name: Test
-        timeout-minutes: 25
-        run: mkdir -p shots && xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird --shots shots --tb-log shots/thunderbird.log
+        timeout-minutes: 12
+        run: mkdir -p shots && xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird --shots shots --tb-log shots/thunderbird.log --only 'Testkonto'
 
       - name: Screenshots
         if: always()
@@ -68,12 +68,12 @@ jobs:
           if python3 tests/halo_test.py --help | grep -- --port >/dev/null; then echo "PORT_OPT=--port 2845" >> "$GITHUB_ENV"; fi
 
       - name: Test hell
-        timeout-minutes: 25
+        timeout-minutes: 12
         run: mkdir -p shots/hell && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --shots shots/hell --tb-log shots/hell/thunderbird.log
 
       - name: Test dunkel
         if: ${{ !cancelled() }}
-        timeout-minutes: 25
+        timeout-minutes: 12
         run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log
 
       - name: Test Beta

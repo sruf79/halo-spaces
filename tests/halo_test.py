@@ -7242,34 +7242,35 @@ Neu
         # Aufgaben wie die Mailliste: „Listenansicht“ (Details rechts, nur Erledigt/Titel/Fälligkeit) oder „Tabellenansicht“
         # (alle Spalten, Details unten) im Filtermenü; im schmalen Fenster Details auch in der Liste unten
         res = m.js(r"""
-          w.resizeTo(1500, 900); await wait(400);
+          Services.prefs.setBoolPref("browser.dom.window.dump.enabled", true); const S = x => dump("HALO-SCHRITT " + x + "\n");
+          S("start"); w.resizeTo(1500, 900); await wait(400);
           const c = testCalendar();
           const todo = new CalTodo(); todo.title = "Halo Ansichtsaufgabe"; todo.calendar = c; const saved = await c.addItem(todo);
-          tm.openTab("tasks", {}); await wait(1500);
+          S("openTab"); tm.openTab("tasks", {}); await wait(1500);
           const tree = d.getElementById("calendar-task-tree"), det = d.getElementById("calendar-task-details-container");
           await until(() => tree.mTreeView.rowCount > 0, 4000); tree.mTreeView.selection?.select(0); await wait(600);
-          const btn = d.querySelector("#mcListHeader .mc-lh-more"), popup = d.getElementById("mcTaskFilterPopup");
+          S("btn"); const btn = d.querySelector("#mcListHeader .mc-lh-more"), popup = d.getElementById("mcTaskFilterPopup");
           // (unter Linux/xvfb ohne Fenstermanager geht das Menü teils nicht ganz auf – dann über die Einstellung;
           // activateItem auf einem nicht offenen Menü kehrte dort nie zurück)
-          const pick = async view => { btn.click(); const opened = await until(() => popup.state == "open", 2000); await wait(200);
+          const pick = async view => { S("pick " + view); btn.click(); S("clicked"); const opened = await until(() => popup.state == "open", 2000); await wait(200);
             const it = popup.querySelector(`menuitem[data-view="${view}"]`);
-            if (opened && it) it.doCommand(); else Services.prefs.setCharPref("extensions.mailcards.taskView", view);
+            S("opened " + opened); if (opened && it) it.doCommand(); else Services.prefs.setCharPref("extensions.mailcards.taskView", view);
             await wait(600); popup.hidePopup(); await wait(200); };
           const cols = () => [...tree.querySelectorAll("treecol[itemproperty]")].filter(c => !c.hidden).map(c => c.getAttribute("itemproperty"));
           const geo = () => { const t = tree.getBoundingClientRect(), r = det.getBoundingClientRect();
             return { right: r.left >= t.right - 1 && Math.abs(r.top - t.top) < 40, below: r.top >= t.bottom - 1, detW: Math.round(r.width) }; };
           const out = { start: Services.prefs.getCharPref("extensions.mailcards.taskView", "list") };
-          btn.click(); await until(() => popup.state == "open", 2000); await wait(200);
+          S("menu1"); btn.click(); await until(() => popup.state == "open", 2000); await wait(200);
           out.menu = [...popup.children].map(i => i.localName == "menuseparator" ? "-" : i.dataset.view || i.getAttribute("label"));
           popup.hidePopup(); await wait(200);
-          await pick("table"); out.table = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
-          await pick("list"); out.list = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
-          w.resizeTo(820, 900); await wait(900);
+          S("pick-table"); await pick("table"); out.table = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
+          S("pick-list"); await pick("list"); out.list = { cols: cols(), ...geo(), side: d.documentElement.hasAttribute("mc-task-side") };
+          S("narrow"); w.resizeTo(820, 900); await wait(900);
           const boxW = Math.round(tree.parentElement.getBoundingClientRect().width);
           out.narrow = { boxW, side: d.documentElement.hasAttribute("mc-task-side"), ...geo() };
-          w.resizeTo(1500, 900); await wait(900); out.wideAgain = d.documentElement.hasAttribute("mc-task-side");
+          S("wide"); w.resizeTo(1500, 900); await wait(900); out.wideAgain = d.documentElement.hasAttribute("mc-task-side");
           await pick("table"); out.tableAgain = cols();
-          await pick(out.start);
+          S("end"); await pick(out.start);
           try { await c.deleteItem(saved); } catch {}
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")

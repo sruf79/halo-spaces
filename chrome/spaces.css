@@ -8849,6 +8849,13 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   padding-block: 4px !important;
 }
 
+/* Ort über die ganze Karte – sonst bleibt das Feld bei 20 Zeichen
+   (flex wirkt in der Tabellenzelle nicht) und „Add Location or Video Call“
+   wird mit der breiteren Windows-Schrift abgeschnitten */
+:root[mc-apple-event] #item-location {
+  width: 100% !important;
+}
+
 /* Teilnehmer: Text wie ein Platzhalter, mit Namen in Textfarbe */
 :root[mc-apple-event] .mc-invitees {
   appearance: none !important;

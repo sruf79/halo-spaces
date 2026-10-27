@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><img src="https://img.shields.io/github/v/release/sruf79/halo-spaces?label=version" alt="Latest version"></a>
   <a href="https://github.com/sruf79/halo-spaces/releases"><img src="https://img.shields.io/github/downloads/sruf79/halo-spaces/total?label=downloads" alt="Downloads"></a>
-  <img src="https://img.shields.io/badge/Thunderbird-128%2B-0a84ff" alt="Thunderbird 128 or newer">
+  <img src="https://img.shields.io/badge/Thunderbird-153%2B-0a84ff" alt="Thunderbird 153 or newer">
   <img src="https://img.shields.io/badge/macOS-first-lightgrey" alt="Made for macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MPL%202.0-green" alt="Mozilla Public License 2.0"></a>
 </p>
@@ -16,7 +16,7 @@ halo.spaces gives Mozilla Thunderbird on macOS a calm, tidy look that fits
 right in on the Mac. It adds coloured spaces on the left and uses the same
 layout in every space.
 
-It is one package for Thunderbird 128+: the theme, its own clean icons,
+It is one package for Thunderbird 153+: the theme, its own clean icons,
 and an extension for the things CSS alone can't do.
 
 Released under the Mozilla Public License 2.0

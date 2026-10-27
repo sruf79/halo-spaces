@@ -18,10 +18,13 @@ jobs:
     runs-on: ubuntu-24.04
     # ein Testlauf dauert gut 14 Minuten (über 180 Prüfungen) – mit Luft für langsame Läufer
     timeout-minutes: 40
+    # ESR (Mindestversion, siehe manifest.json): vorerst ohne den Lauf rot zu
+    # färben, bis die bekannten Abweichungen unter ESR 153 behoben sind
+    continue-on-error: ${{ matrix.channel == 'esr' }}
     strategy:
       fail-fast: false
       matrix:
-        channel: [release, beta]
+        channel: [release, beta, esr]
     steps:
       - uses: actions/checkout@v6
 
@@ -32,6 +35,7 @@ jobs:
         run: |
           PRODUCT=thunderbird-latest-SSL
           [ "${{ matrix.channel }}" = beta ] && PRODUCT=thunderbird-beta-latest-SSL
+          [ "${{ matrix.channel }}" = esr ] && PRODUCT=thunderbird-esr-latest-SSL
           curl -sSfL -o tb.tar "https://download.mozilla.org/?product=$PRODUCT&os=linux64&lang=en-US"
           mkdir tb && tar -xf tb.tar -C tb
           tb/thunderbird/thunderbird --version

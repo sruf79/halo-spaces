@@ -5,7 +5,7 @@ Für Nutzer siehe `README.md`, für den Store `store/README.md`.
 
 ## Worum es geht
 
-halo.spaces gibt Thunderbird (128+) unter macOS einen ruhigen Look im Stil von
+halo.spaces gibt Thunderbird (153+, also ab der aktuellen ESR) unter macOS einen ruhigen Look im Stil von
 Apple Mail, Kalender und Kontakte. Es ist **ein** Paket (`.xpi`): Design (CSS),
 eigene Symbole und eine Experiment-Erweiterung für alles, was CSS allein nicht
 kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
@@ -74,8 +74,16 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
 - Thunderbird muss unter `/Applications/Thunderbird.app` liegen (sonst `--tb`).
 - Testfenster, die macOS verdeckt, pausieren Animationen – Animationsprüfungen
   überspringen diesen Fall bewusst.
-- CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release
-  und Beta; Linux-spezifische Abweichungen der Toolbar sind dort Warnungen.
+- CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release,
+  Beta und ESR; Linux-spezifische Abweichungen der Toolbar sind dort Warnungen.
+  Der ESR-Job darf vorerst rot sein (`continue-on-error`), bis die bekannten
+  Abweichungen unter ESR 153 behoben sind; danach die Ausnahme entfernen.
+- Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
+  Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
+  einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).
+- `tests/update_test.py` stellt das Update von der letzten Version nach
+  (Einstellungen, Toolbar, Begrüßung, userChrome.css); mit `--github` über das
+  veröffentlichte `updates.json`. Vor einem Release laufen lassen.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
   an Stellen, an denen es schon Rückschritte gab.
 

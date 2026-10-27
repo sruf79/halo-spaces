@@ -54,7 +54,7 @@ if [[ -z "$SKIP_TESTS" ]]; then
   fi
 fi
 ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
-MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','128.0'))")
+MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")
 
 # updates.json: Thunderbird fragt diese Datei regelmäßig ab (Standard: alle 24 h)
 python3 - "$ID" "$VERSION" "$GITHUB_REPO" "$XPI" "$HASH" "$MIN" <<'PY'

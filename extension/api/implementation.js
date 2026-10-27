@@ -10195,10 +10195,11 @@ class CardEnhancer {
         // sonst rechts neben dem Knopf einen grauen Streifen stehen)
         row.toggleAttribute("data-mc-tp-none", width <= 0);
         setVar(row, "--mc-caption-w", `${caption}px`);
-        setVar(row, "--mc-row-tail", `${rowTail(d)}px`);
+        const tail = rowTail(d);
+        setVar(row, "--mc-row-tail", `${tail}px`);
         // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
-        // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. Fensterknöpfe
-        title.toggleAttribute("data-narrow", width - 60 - (60 + caption) < 110);
+        // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
+        title.toggleAttribute("data-narrow", width - 60 - (60 + Math.max(caption, tail)) < 110);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;

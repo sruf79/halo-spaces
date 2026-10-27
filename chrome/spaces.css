@@ -7193,8 +7193,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   /* Titel mittig in der Fläche, links und rechts Platz für den Knopf */
   justify-content: center;
   padding-inline: min(62px, var(--mc-tp-w, 0px));
-  /* rechts nie unter den Fensterknöpfen von Windows/Linux */
-  padding-inline-end: max(min(62px, var(--mc-tp-w, 0px)), calc(var(--mc-caption-w, 0px) + 8px));
+  /* rechts Platz für „+“ und davor ≡/Fensterknöpfe von Windows/Linux –
+     der Titel rückt nie darunter */
+  padding-inline-end: calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)));
   overflow: hidden;
 }
 

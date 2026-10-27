@@ -14004,6 +14004,11 @@ class CardEnhancer {
       if (extra > 0 || api.welcome) {
         hw.resizeBy(0, extra);
       }
+      // Windows mit 125/150 % Zoom: das Fenster landet auf ganzen Gerätepixeln
+      // und kann um Bruchteile zu niedrig sein – dann wäre es scrollbar
+      for (let i = 0; i < 3 && doc.documentElement.scrollHeight > hw.innerHeight; i++) {
+        hw.resizeBy(0, 1);
+      }
     }
   }
 

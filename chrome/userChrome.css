@@ -2216,8 +2216,10 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   width: 18px !important;
   height: 18px !important;
   background-color: var(--c) !important;
-  mask: var(--mi-chevron) center / contain no-repeat !important;
-  transform: rotate(-90deg) !important;
+  /* Chevron gleich nach rechts gezeichnet statt --mi-chevron gedreht: Maske
+     plus Drehung ließ bei Bruchteil-Zoom (Windows 125/150 %) oben einen
+     hellen Strich der gefüllten Fläche durchscheinen */
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m9.5 6.5 5.5 5.5-5.5 5.5%22/%3E%3C/svg%3E") center / contain no-repeat !important;
   pointer-events: none !important;
 }
 

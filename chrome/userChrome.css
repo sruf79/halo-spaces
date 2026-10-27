@@ -208,6 +208,16 @@ unified-toolbar,
   box-shadow: none !important;
 }
 
+/* Knöpfe der Erweiterung in der Toolbar-Zeile: Windows wertet die Zeile
+   sonst als Titelleiste (Fenster ziehen), der Klick käme nie an */
+@media (-moz-platform: windows) {
+  #mcListHeader button,
+  #mcTodayToggle,
+  #mcTodayNew {
+    -moz-window-dragging: no-drag !important;
+  }
+}
+
 /* Toolbar-Knöpfe als Kapseln */
 unified-toolbar button,
 .unified-toolbar-button,

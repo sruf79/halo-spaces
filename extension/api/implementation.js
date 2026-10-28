@@ -1237,18 +1237,20 @@ const STYLE_ID = "mail-cards-style";
 const TOOLBAR_PREF = "extensions.mailcards.toolbarApplied";
 const PREVIEW_PREF = "extensions.mailcards.previewLines";
 // Sortierungen im Menü „Sort by“ in Apples Reihenfolge mit den Namen der
-// Richtung: [Wert von Thunderbird, [aufsteigend, absteigend]]. Achtung: beim
-// Stern heißt aufsteigend bei Thunderbird „markierte zuerst“
+// Richtung: [Eintrag threadPaneSortBy…Menuitem, [aufsteigend, absteigend]].
+// Über die ID, weil die Werte der Einträge je Version anders heißen (ESR 153
+// „dateCol“, ab 159 „byDate“). Achtung: beim Stern heißt aufsteigend bei
+// Thunderbird „markierte zuerst“
 const SORT_CHOICES = [
-  ["byAttachments", ["Without Attachments First", "With Attachments First"]],
-  ["byDate", ["Oldest Message on Top", "Newest Message on Top"]],
-  ["byFlagged", ["Starred First", "Starred Last"]],
-  ["byAuthor", ["A to Z", "Z to A"]],
-  ["bySize", ["Smallest First", "Largest First"]],
-  ["bySubject", ["A to Z", "Z to A"]],
-  ["byRecipient", ["A to Z", "Z to A"]],
-  ["byUnread", ["Unread First", "Unread Last"]],
-  ["byTags", ["A to Z", "Z to A"]],
+  ["Attachments", ["Without Attachments First", "With Attachments First"]],
+  ["Date", ["Oldest Message on Top", "Newest Message on Top"]],
+  ["Flag", ["Starred First", "Starred Last"]],
+  ["From", ["A to Z", "Z to A"]],
+  ["Size", ["Smallest First", "Largest First"]],
+  ["Subject", ["A to Z", "Z to A"]],
+  ["Recipient", ["A to Z", "Z to A"]],
+  ["Unread", ["Unread First", "Unread Last"]],
+  ["Tags", ["A to Z", "Z to A"]],
 ];
 // Kontaktfoto bzw. Initialen links in den Karten (Drei-Punkte-Menü über der Liste)
 const CONTACT_PHOTOS_PREF = "extensions.mailcards.contactPhotos";
@@ -14477,8 +14479,8 @@ class CardEnhancer {
     }
     popup.__mcSortMenu = true;
     const original = [...popup.children];
-    const byValue = value => popup.querySelector(`menuitem[name="sortby"][value="${value}"]`);
-    const shown = SORT_CHOICES.map(([value]) => byValue(value)).filter(Boolean);
+    const byKey = key => doc.getElementById(`threadPaneSortBy${key}Menuitem`);
+    const shown = SORT_CHOICES.map(([key]) => byKey(key)).filter(Boolean);
     const hidden = [...popup.querySelectorAll('menuitem[name="sortby"]')].filter(el => !shown.includes(el));
     const asc = doc.getElementById("threadPaneSortAscending");
     const desc = doc.getElementById("threadPaneSortDescending");
@@ -14501,8 +14503,8 @@ class CardEnhancer {
       for (const el of hidden) {
         el.hidden = !el.hasAttribute("checked");
       }
-      const current = popup.querySelector('menuitem[name="sortby"][checked]')?.value;
-      const names = SORT_CHOICES.find(([value]) => value == current)?.[1];
+      const current = popup.querySelector('menuitem[name="sortby"][checked]');
+      const names = SORT_CHOICES.find(([key]) => byKey(key) == current)?.[1];
       if (asc && desc) {
         asc.setAttribute("label", names ? tr(names[0]) : labels.get(asc));
         desc.setAttribute("label", names ? tr(names[1]) : labels.get(desc));

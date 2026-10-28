@@ -1679,7 +1679,7 @@ def reading_checks(m, results):
           const ad = a3.document;
           const popup = ad.getElementById("menu_threadPaneSortPopup");
           const show = async () => { popup.dispatchEvent(new a3.Event("popupshowing")); await wait(200); };
-          const visible = () => [...popup.querySelectorAll('menuitem[name="sortby"]')].filter(x => !x.hidden).map(x => x.value);
+          const visible = () => [...popup.querySelectorAll('menuitem[name="sortby"]')].filter(x => !x.hidden).map(x => x.id.replace(/^threadPaneSortBy|Menuitem$/g, ""));
           const dir = () => [ad.getElementById("threadPaneSortAscending").label, ad.getElementById("threadPaneSortDescending").label];
           const out = {};
           a3.sortController.sortThreadPane("dateCol"); a3.sortController.sortDescending(); await wait(400);
@@ -1696,13 +1696,13 @@ def reading_checks(m, results):
             first: a3.gDBView.getMsgHdrAt(0)?.mime2DecodedSubject };
           // ausgeblendete, aber aktive Sortierung bleibt mit Haken sichtbar
           a3.sortController.sortThreadPane("priorityCol"); await wait(300); await show();
-          out.priority = visible().includes("byPriority");
+          out.priority = visible().includes("Priority");
           f.markMessagesFlagged([flagged], false);
           a3.sortController.sortThreadPane("dateCol"); a3.sortController.sortDescending(); await wait(300);
           await show(); out.back = visible().length;
           return out;""")
         d = res.get("date") or {}
-        want = ["byAttachments", "byDate", "byFlagged", "byAuthor", "bySize", "bySubject", "byRecipient", "byUnread", "byTags"]
+        want = ["Attachments", "Date", "Flag", "From", "Size", "Subject", "Recipient", "Unread", "Tags"]
         ok = (d.get("items") == want and d.get("dir") in (["Oldest Message on Top", "Newest Message on Top"], ["Älteste Nachricht oben", "Neueste Nachricht oben"])
               and res.get("subject") in (["A to Z", "Z to A"], ["A bis Z", "Z bis A"])
               and (res.get("star") or {}).get("first", "").startswith("Halo Viele") and (res.get("star") or {}).get("dir", [""])[0] in ("Starred First", "Markierte zuerst")
@@ -1768,7 +1768,8 @@ def reading_checks(m, results):
             await wait(800);
           }
           await showMail("Halo Eigene"); out.own = has();
-          if (added) acc.removeIdentity(added);
+          // (die einzige Identität eines Kontos lässt Thunderbird nicht entfernen)
+          if (added) try { acc.removeIdentity(added); } catch {}
           return out;""")
         sections = open(os.path.join(ROOT, "extension", "options", "sections.js"), encoding="utf-8").read()
         ok = (res.get("on") is True and res.get("off") is False and res.get("back") is True and res.get("own") is False
@@ -1853,7 +1854,9 @@ def reading_checks(m, results):
           k1?.querySelector(".mc-conv-summary")?.click();
           out.expanded = !!(await until(() => k1?.querySelector(".mc-conv-browser") && parseFloat(k1.querySelector(".mc-conv-browser").style.height) > 60, 6000));
           // Löschen in der Karte der ältesten Mail: nur diese Mail
-          await until(() => cdoc(k1)?.getElementById("mcHoverActions"), 4000);
+          // (unter Linux in der CI dauert das Laden der aufgeklappten Karte länger)
+          await until(() => cdoc(k1)?.getElementById("mcHoverActions") && cdoc(k1).defaultView.gMessage, 12000);
+          await wait(500);
           const before = f.getTotalMessages(false);
           cdoc(k1)?.querySelector("#mcHoverActions .mc-hover-delete")?.click(); await wait(1200);
           out.deleted = { before, after: f.getTotalMessages(false), cards: box.isConnected ? cards().length : null,

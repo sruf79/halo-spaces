@@ -288,7 +288,7 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
 - **Dauerhafte Kommunikations-Sitzung:** Die regelmäßige Prüfung läuft in der
   Cloud-Sitzung „halo.spaces: GitHub-Kommunikation (dauerhaft)“ (Repo als
   Quelle, daher mit GitHub-Zugriff), geweckt von der Routine
-  „halo.spaces: GitHub-Kommunikation“ täglich 7:43, 12:43 und 18:43 Wiener
+  „halo.spaces: GitHub-Kommunikation“ täglich 9:00, 14:00 und 19:00 Wiener
   Zeit; sie hat auch die offenen PRs abonniert. Keine zweite Routine anlegen;
   Routinen mit neuer Sitzung je Lauf haben keinen GitHub-Zugriff.
 - **Ton und Inhalt:** Englisch, freundlich, knapp, ohne Fachjargon des

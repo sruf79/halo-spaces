@@ -1747,6 +1747,11 @@ def reading_checks(m, results):
         # Schnellantwort: Standard an, in den Einstellungen abschaltbar (wirkt sofort); nie bei eigenen Mails
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Kontakt");
+          // eigene Adresse (Antworten braucht eine Identität; unten: eigene Mail ohne Feld)
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          let added = null;
+          if (!MailServices.accounts.allIdentities.some(i => i.email == "halo@example.invalid")) {
+            added = MailServices.accounts.createIdentity(); added.fullName = "Halo Test"; added.email = "halo@example.invalid"; acc.addIdentity(added); }
           const has = () => vis(md().getElementById("mcQuickReply"));
           const out = { on: has() };
           // „More …“ öffnet das normale Antwortfenster
@@ -1759,10 +1764,6 @@ def reading_checks(m, results):
           Services.prefs.clearUserPref("extensions.mailcards.quickReply"); await wait(400);
           out.back = has();
           // eigene Mail im Posteingang (Absender = eigene Identität): kein Feld
-          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
-          let added = null;
-          if (!MailServices.accounts.allIdentities.some(i => i.email == "halo@example.invalid")) {
-            added = MailServices.accounts.createIdentity(); added.fullName = "Halo Test"; added.email = "halo@example.invalid"; acc.addIdentity(added); }
           if (![...f.messages].some(h => h.messageId == "halo-kopf-eigen@example.invalid")) {
             f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(raw({ id: "halo-kopf-eigen", from: "Halo Test <halo@example.invalid>", to: "Anna Beispiel <anna@example.invalid>", subject: "Halo Eigene" }));
             await wait(800);

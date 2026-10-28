@@ -1959,6 +1959,8 @@ class ConversationCards {
         return;
       }
       card.__mcLoaded = true;
+      // Knöpfe anderer Erweiterungen wirken in der Karte nicht – Zeile ausblenden
+      browserEl.contentDocument.documentElement.setAttribute("mc-conv-card", "");
       try {
         cw.displayMessage(hdr.folder.getUriForMsg(hdr), this.win.gViewWrapper);
       } catch (e) {

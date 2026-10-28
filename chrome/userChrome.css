@@ -1561,7 +1561,16 @@ findbar .findbar-textbox:focus {
 /* Knöpfe im Mailkopf entfallen – sie sitzen jetzt oben in der Toolbar.
    Ausnahme: Nachricht im eigenen Fenster (dort gibt es keine Mail-Toolbar,
    die Erweiterung setzt mc-standalone) */
-:root:not([mc-standalone]) #header-view-toolbox {
+:root:not([mc-standalone]) #header-view-toolbox:not(:has(.webextension-action:not([hidden]))) {
+  display: none !important;
+}
+
+/* Knöpfe anderer Erweiterungen (z. B. Übersetzen) bleiben im Mailkopf –
+   oben gibt es für sie keinen Platz; nur die eigenen Knöpfe entfallen.
+   In den Karten der Konversation wirken sie nicht (Thunderbird hängt die
+   Erweiterungen nur an die Einzelansicht), dort entfällt die Zeile ganz */
+:root:not([mc-standalone]) #header-view-toolbar > :not(.webextension-action),
+:root[mc-conv-card] #header-view-toolbox {
   display: none !important;
 }
 

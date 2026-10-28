@@ -1487,6 +1487,28 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailkopf: eine Linie zum Mailtext (keine zweite darunter)", header_line, results)
 
+    def addon_buttons():
+        # Knopf einer anderen Erweiterung (messageDisplayAction, hier nachgestellt): Zeile bleibt mit
+        # nur diesem Knopf, die eigenen Knöpfe entfallen; ohne ihn und in Konversationskarten keine Zeile
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Jetzt");
+          const box = doc.getElementById("header-view-toolbox"), bar = doc.getElementById("header-view-toolbar");
+          const shown = e => !!e && cs(e).display != "none";
+          const out = { before: shown(box) };
+          const fake = doc.createXULElement("toolbarbutton");
+          fake.className = "toolbarbutton-1 webextension-action"; fake.id = "mc-test-action"; fake.setAttribute("label", "Test");
+          bar.append(fake); await wait(100);
+          out.withAddon = shown(box); out.addon = shown(fake);
+          out.builtin = [...bar.children].filter(e => e != fake && shown(e)).map(e => e.id);
+          fake.hidden = true; await wait(100); out.hiddenAddon = shown(box); fake.hidden = false;
+          doc.documentElement.setAttribute("mc-conv-card", ""); await wait(100); out.card = shown(box);
+          doc.documentElement.removeAttribute("mc-conv-card"); fake.remove();
+          return out;""")
+        ok = (not res["before"] and res["withAddon"] and res["addon"] and not res["builtin"]
+              and not res["hiddenAddon"] and not res["card"])
+        return ok, f"{res}"
+    check("Mailkopf: Knöpfe anderer Erweiterungen (z. B. Übersetzen) bleiben sichtbar, eigene Knöpfe nicht; ohne sie und in Konversationskarten keine Knopfzeile", addon_buttons, results)
+
     def recipients():
         # viele Empfänger: „Mehr“ als graue Kapsel in 11 px; Kommas in Cc wie in An
         res = m.js(READING_JS + r"""

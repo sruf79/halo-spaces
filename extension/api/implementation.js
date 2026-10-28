@@ -7155,7 +7155,12 @@ class CardEnhancer {
             // Fenster erscheint – mit Verzögerung sprang es sichtbar auf die neue Größe
             doc.documentElement.style.minWidth = "480px";
             dlg.addEventListener("DOMContentLoaded", () => {
-              dlg.addEventListener("load", () => this.fitSummaryDialog(dlg), { once: true });
+              dlg.addEventListener("load", () => {
+                this.fitSummaryDialog(dlg);
+                // Beschreibung steht hier in einem eigenen Inhaltsdokument
+                // (iframe.item-description) – dunkel sonst schwarz auf grau
+                this.styleItemDescription(dlg, 0, ".item-description");
+              }, { once: true });
             }, { once: true });
           }
           // Termin-/Aufgaben-Fenster: Titel und Beschriftungen ohne Doppelpunkt
@@ -13308,13 +13313,14 @@ class CardEnhancer {
 
   // Beschreibung im Termin-Fenster: Systemschrift 13 px als Benutzer-
   // Stylesheet im Editor-Dokument – kein <style> und kein Inline-Stil, die
-  // landeten sonst im gespeicherten Text der Beschreibung
-  styleItemDescription(iw, tries = 0) {
+  // landeten sonst im gespeicherten Text der Beschreibung. Ebenso im
+  // Lesefenster (Termin → Öffnen), dort mit selector ".item-description"
+  styleItemDescription(iw, tries = 0, selector = "#item-description") {
     try {
       if (iw.closed || !Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true)) {
         return;
       }
-      const cw = iw.document.getElementById("item-description")?.contentWindow;
+      const cw = iw.document.querySelector(selector)?.contentWindow;
       const doc = cw?.document;
       // gleich setzen (ab Thunderbird 160 hängt editorContent.css nicht mehr als
       // <link> im Dokument, auf das bisher gewartet wurde); noch 5 s nachsehen,
@@ -13324,7 +13330,7 @@ class CardEnhancer {
         doc.__mcDescSheet = true;
       }
       if (tries < 20) {
-        iw.setTimeout(() => this.styleItemDescription(iw, tries + 1), 250);
+        iw.setTimeout(() => this.styleItemDescription(iw, tries + 1, selector), 250);
       }
     } catch (e) {
       log("item description sheet error", String(e).slice(0, 120));

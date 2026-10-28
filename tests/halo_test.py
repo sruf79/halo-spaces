@@ -3331,6 +3331,47 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Trenner höchstens als Haarlinie, „Time as: Busy“ mit Abstand ohne Prägeschatten, Beschreibung lesbar (dunkel ≥ 4,5:1), Kategorie-Farbpunkte mit Ring", event_dialog_lines, results)
 
+    def summary_description():
+        # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel
+        # lesbar und in der Systemschrift – früher schwarz auf grau (Meldung unter Windows mit dunklem Theme)
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Lesetermin"; e.calendar = c;
+          const s = cal.dtz.now(); s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.setProperty("DESCRIPTION", "Erfundene Beschreibung zum Lesen."); const saved = await c.addItem(e);
+          const out = { dark };
+          let dw = null;
+          try {
+            await toCalendar(); w.openEventDialogForViewing(saved);
+            dw = await winUrl("calendar-summary-dialog"); if (!dw) return { dialog: false };
+            const fr = await till(() => dw.document.querySelector(".item-description"), 6000);
+            const body = fr && await till(() => { const b = fr.contentDocument?.body; return b && /Erfundene/.test(b.textContent) && b; }, 6000);
+            await pause(1200);
+            if (!body) return { ...out, body: false };
+            const bcs = fr.contentWindow.getComputedStyle(body);
+            const rgba = c => { const v = (c.match(/-?[\d.]+(?:e-?\d+)?/g) || []).map(Number); const k = c.startsWith("color(") ? 255 : 1;
+                                 return [v[0] * k, v[1] * k, v[2] * k, v.length > 3 ? v[3] : 1]; };
+            // Fläche hinter dem Text: Body des Inhaltsdokuments, dann die Elemente um das iframe bis zum ersten deckenden
+            const layers = [];
+            const add = b => { if (b == "transparent") return false; const v = rgba(b); if (v[3] == 0) return false; layers.push(v); return v[3] >= 1; };
+            if (!add(bcs.backgroundColor)) {
+              for (let el = fr; el && el.nodeType == 1; el = el.parentElement) if (add(csOf(el).backgroundColor)) break;
+            }
+            let mix = layers.length && layers.at(-1)[3] >= 1 ? layers.pop() : (out.dark ? [0, 0, 0, 1] : [255, 255, 255, 1]);
+            for (const l of layers.reverse()) mix = mix.map((m, i) => i < 3 ? l[i] * l[3] + m * (1 - l[3]) : 1);
+            out.desc = { color: bcs.color, field: `rgb(${mix.slice(0, 3).map(Math.round).join(", ")})`, size: bcs.fontSize };
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        if res.get("dialog") is False:
+            return False, "Lesefenster nicht offen"
+        desc = res.get("desc") or {}
+        ok = bool(desc) and desc.get("size") == "13px" and contrast(desc["color"], desc["field"]) >= 4.5
+        return ok, f"{res}"
+    check("Termin-Lesefenster: Beschreibung in Systemschrift und lesbar (≥ 4,5:1, auch dunkel)", summary_description, results)
+
     def reminder_dialog():
         # Erinnerungen anpassen: Liste ohne native Rahmenzeichnung, mit Haarlinie; Trenner neben den Überschriften fein
         res = m.js(CAL_CHECK_JS + r"""

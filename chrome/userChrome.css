@@ -10056,6 +10056,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   font-family: var(--mt-font) !important;
 }
 
+/* Beschreibung (eigenes Inhaltsdokument): folgt dem Schema des Dialogs,
+   Schrift und Farbe lädt die Erweiterung (event-description.css) – dunkel
+   stand sie sonst schwarz auf grau */
+#calendar-summary-dialog .item-description {
+  color-scheme: light dark !important;
+}
+
 #calendar-summary-dialog .item-summary-box > .calendar-caption {
   display: none !important;
 }

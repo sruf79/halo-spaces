@@ -1043,6 +1043,26 @@ hr[is="pane-splitter"]::after {
   visibility: hidden !important;
 }
 
+/* Stern wie Apples Fahne: einfarbig in --mt-star wie der Knopf der
+   Symbolleiste (statt Thunderbirds zweier Orangetöne), in der gewählten
+   Zeile mit Fokus weiß wie Text und Datum; Karten und Tabelle */
+#threadTree {
+  --thread-pane-flag-fill: var(--mt-star) !important;
+  --thread-pane-flag-stroke: var(--mt-star) !important;
+}
+
+#threadTree tr[data-properties~="flagged"] .tree-view-row-flag > button {
+  opacity: 1 !important;
+}
+
+#threadTree:focus-within tr.selected[data-properties~="flagged"] .tree-button-flag > img,
+#threadTree:focus-within tr[aria-selected="true"][data-properties~="flagged"] .tree-button-flag > img,
+#threadTree:focus-within tr.selected[data-properties~="flagged"] .button-star,
+#threadTree:focus-within tr[aria-selected="true"][data-properties~="flagged"] .button-star {
+  fill: var(--mt-accent-text) !important;
+  stroke: var(--mt-accent-text) !important;
+}
+
 /* Klassische Tabellenansicht (falls verwendet) */
 #threadTree tr:not([is="thread-card"]).selected,
 #threadTree tr:not([is="thread-card"])[aria-selected="true"] {
@@ -1205,6 +1225,98 @@ body:has(> #accountCentral),
 #attachmentList:not(:focus-within) .attachmentItem[selected] {
   background: var(--mt-selected-unfocused) !important;
   color: var(--mt-text) !important;
+}
+
+/* Kopfzeile der Anhänge als leise Überschrift: „4 attachments 239 KB“ klein
+   und grau, ohne Pfeil und Büroklammer (Einklappen weiter per Klick auf die
+   Zeile), bei einem Anhang ohne doppelten Dateinamen; „Save All“ als
+   Textknopf in Akzentfarbe, das Menü (Öffnen, Abtrennen, Löschen) über ein
+   kleines ⌄ direkt dahinter. Gilt auch in den Karten der Konversation */
+#attachmentToggle,
+#attachmentIcon,
+#attachmentNameSep,
+#attachmentName {
+  display: none !important;
+}
+
+#attachmentBar {
+  padding: 8px 14px 0 !important;
+  min-height: 0 !important;
+}
+
+#attachmentCount,
+#attachmentSize {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+/* (kein ::before – auf dem XUL-Label verschwindet sonst der Wert) */
+#attachmentSize {
+  font-weight: 400 !important;
+  margin-inline-start: 6px !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  border-radius: 4px !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) > :is(.box-inherit, toolbarbutton, .toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+  padding: 1px 2px !important;
+  margin: 0 !important;
+  border-radius: 4px !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-icon {
+  display: none !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: AccentColor !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Thunderbirds Pfeil liegt im Schatten-DOM und ist hier fast durchsichtig –
+   stattdessen ein kleines ⌄ als Maske in Akzentfarbe */
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-menubutton-dropmarker {
+  border-inline-start: none !important;
+  width: 14px !important;
+  min-width: 14px !important;
+  padding: 0 !important;
+  margin-inline-start: -2px !important;
+  list-style-image: none !important;
+  -moz-context-properties: none !important;
+  fill: transparent !important;
+  background: AccentColor !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E") center / 10px 10px no-repeat !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) > :is(.box-inherit, toolbarbutton, .toolbarbutton-menubutton-button):is(:hover, :focus-visible, [open]) {
+  background: var(--mt-hover) !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) > .toolbarbutton-menubutton-dropmarker:hover {
+  opacity: 0.7 !important;
+}
+
+@media (prefers-contrast: more) {
+  #attachmentCount,
+  #attachmentSize {
+    color: var(--mt-text) !important;
+  }
 }
 
 /* Suchleiste (Bearbeiten → Suchen, in Mail und Verfassen): ruhige Fläche mit
@@ -2017,6 +2129,8 @@ findbar .findbar-textbox:focus {
 #folderTree li[data-folder-type="junk"] > .container .icon { mask-image: var(--mi-junk) !important; }
 #folderTree li[data-folder-type="trash"] > .container .icon { mask-image: var(--mi-trash) !important; }
 #folderTree li[data-folder-type="outbox"] > .container .icon { mask-image: var(--mi-outbox) !important; }
+/* „Starred“ unter den Favoriten (setzt die Erweiterung) mit Stern in Sternfarbe wie der Stern in der Liste */
+#folderTree li[data-mc-starred] > .container .icon { mask-image: var(--mi-star) !important; color: var(--mt-star) !important; }
 
 /* Ordnermenüs („Verschieben“, „Kopieren“, Kontextmenüs von Mail und
    Ordnerliste): dieselben Umriss-Symbole in Akzentfarbe wie Ordnerliste und
@@ -3274,6 +3388,98 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   width: 100%;
   height: 160px;
   border: none;
+}
+
+/* eingeklappte Karte (ältere gelesene Mail): eine Zeile mit Bild, Absender,
+   Datum und Vorschau wie die Mailkarte; Klick klappt auf */
+#mcConversation .mc-conv-card.mc-collapsed {
+  min-height: 0;
+}
+
+#mcConversation .mc-conv-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: default;
+  outline: none;
+}
+
+#mcConversation .mc-conv-summary:hover {
+  background: var(--mt-hover);
+}
+
+#mcConversation .mc-conv-summary:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--mt-accent);
+  border-radius: 12px;
+}
+
+#mcConversation .mc-conv-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #B4CAE4, #8A97C5);
+  color: #fff;
+  font: 600 13px var(--mt-font, system-ui);
+}
+
+#mcConversation .mc-conv-avatar.mc-has-img {
+  background: #fff;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+
+#mcConversation .mc-conv-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#mcConversation .mc-conv-avatar.mc-small img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+}
+
+#mcConversation .mc-conv-summary-main {
+  flex: 1;
+  min-width: 0;
+}
+
+#mcConversation .mc-conv-summary-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+#mcConversation .mc-conv-from {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mt-text);
+}
+
+#mcConversation .mc-conv-date {
+  flex: none;
+  font-size: 11px;
+  color: var(--mt-text-tertiary);
+}
+
+#mcConversation .mc-conv-preview {
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--mt-text-secondary);
 }
 
 /* Kontextmenüs ohne „In neuem Tab/Fenster öffnen“ (Ordner, Mail, Mailkopf,
@@ -11302,6 +11508,23 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 :root[mc-standalone] #mcHdrMeta {
   /* (Knopfzeile oben, Höhe in userChrome.css) */
   top: calc(var(--mc-standalone-bar, 66px) + 14px) !important;
+}
+
+/* markierte Mail: Stern rechts unter der Uhrzeit, wo Apple Mail Fahne und
+   Büroklammer zeigt; nur Anzeige (.mc-hdr-star setzt die Erweiterung) */
+#mcHdrMeta .mc-hdr-star {
+  position: absolute !important;
+  top: calc(100% + 5px) !important;
+  /* bündig mit der Uhrzeit (Thunderbird gibt ihr 6 px Rand) */
+  inset-inline-end: 6px !important;
+  width: 13px !important;
+  height: 13px !important;
+  background-color: var(--mt-star) !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3.8 9.71 9.24l-5.89.5 4.47 3.87-1.34 5.75L12 16.3l5.05 3.06-1.34-5.75 4.47-3.87-5.89-.5z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat !important;
+}
+
+#mcHdrMeta .mc-hdr-star[hidden] {
+  display: none !important;
 }
 
 /* ohne Empfänger zeigt Thunderbird das Datum zusätzlich in der Betreffzeile */

@@ -305,6 +305,28 @@ const DE = {
   "Location access is off. Allow it in System Settings or enter a city.": "Ortungsdienste sind aus. Erlaube sie in den Systemeinstellungen oder gib eine Stadt ein.",
   "Location unavailable. Enter a city.": "Standort nicht verfügbar. Gib eine Stadt ein.",
   "macOS asks for access once.": "macOS fragt einmal um Erlaubnis.",
+  "Organize by Conversation": "Nach Konversation ordnen",
+  "Individual Messages": "Einzelne Nachrichten",
+  "In Sections": "In Abschnitten",
+  "Without Attachments First": "Ohne Anhänge zuerst",
+  "With Attachments First": "Mit Anhängen zuerst",
+  "Oldest Message on Top": "Älteste Nachricht oben",
+  "Newest Message on Top": "Neueste Nachricht oben",
+  "Starred First": "Markierte zuerst",
+  "Starred Last": "Markierte zuletzt",
+  "A to Z": "A bis Z",
+  "Z to A": "Z bis A",
+  "Smallest First": "Kleinste zuerst",
+  "Largest First": "Größte zuerst",
+  "Unread First": "Ungelesene zuerst",
+  "Unread Last": "Ungelesene zuletzt",
+  "Starred": "Markiert",
+  "You": "Ich",
+  "From all folders. Older read messages are collapsed.": "Aus allen Ordnern. Ältere gelesene Nachrichten sind eingeklappt.",
+  "Show most recent message at the top": "Neueste Nachricht oben anzeigen",
+  "Quick Reply": "Schnellantwort",
+  "Reply field below the message.": "Antwortfeld unter der Nachricht.",
+  "Sends a short reply without a new window. More opens the full reply.": "Sendet eine kurze Antwort ohne neues Fenster. Mehr öffnet die vollständige Antwort.",
 };
 const FR = {
   "Install version {v}": "Installer la version {v}",
@@ -581,6 +603,28 @@ const FR = {
   "Location access is off. Allow it in System Settings or enter a city.": "La localisation est désactivée. Autorisez-la dans les Réglages système ou saisissez une ville.",
   "Location unavailable. Enter a city.": "Position indisponible. Saisissez une ville.",
   "macOS asks for access once.": "macOS demande l’accès une fois.",
+  "Organize by Conversation": "Organiser par conversation",
+  "Individual Messages": "Messages individuels",
+  "In Sections": "Par sections",
+  "Without Attachments First": "Sans pièces jointes d’abord",
+  "With Attachments First": "Avec pièces jointes d’abord",
+  "Oldest Message on Top": "Message le plus ancien en haut",
+  "Newest Message on Top": "Message le plus récent en haut",
+  "Starred First": "Suivis d’abord",
+  "Starred Last": "Suivis en dernier",
+  "A to Z": "A à Z",
+  "Z to A": "Z à A",
+  "Smallest First": "Plus petits d’abord",
+  "Largest First": "Plus grands d’abord",
+  "Unread First": "Non lus d’abord",
+  "Unread Last": "Non lus en dernier",
+  "Starred": "Suivis",
+  "You": "Moi",
+  "From all folders. Older read messages are collapsed.": "De tous les dossiers. Les anciens messages lus sont réduits.",
+  "Show most recent message at the top": "Afficher le message le plus récent en haut",
+  "Quick Reply": "Réponse rapide",
+  "Reply field below the message.": "Champ de réponse sous le message.",
+  "Sends a short reply without a new window. More opens the full reply.": "Envoie une réponse courte sans nouvelle fenêtre. Plus ouvre la réponse complète.",
 };
 const ES = {
   "Install version {v}": "Instalar la versión {v}",
@@ -857,6 +901,28 @@ const ES = {
   "Location access is off. Allow it in System Settings or enter a city.": "El acceso a la ubicación está desactivado. Permítelo en Ajustes del sistema o escribe una ciudad.",
   "Location unavailable. Enter a city.": "Ubicación no disponible. Escribe una ciudad.",
   "macOS asks for access once.": "macOS pide acceso una vez.",
+  "Organize by Conversation": "Organizar por conversación",
+  "Individual Messages": "Mensajes individuales",
+  "In Sections": "En secciones",
+  "Without Attachments First": "Sin adjuntos primero",
+  "With Attachments First": "Con adjuntos primero",
+  "Oldest Message on Top": "Mensaje más antiguo arriba",
+  "Newest Message on Top": "Mensaje más reciente arriba",
+  "Starred First": "Destacados primero",
+  "Starred Last": "Destacados al final",
+  "A to Z": "A a Z",
+  "Z to A": "Z a A",
+  "Smallest First": "Más pequeños primero",
+  "Largest First": "Más grandes primero",
+  "Unread First": "No leídos primero",
+  "Unread Last": "No leídos al final",
+  "Starred": "Destacados",
+  "You": "Yo",
+  "From all folders. Older read messages are collapsed.": "De todas las carpetas. Los mensajes leídos antiguos se contraen.",
+  "Show most recent message at the top": "Mostrar el mensaje más reciente arriba",
+  "Quick Reply": "Respuesta rápida",
+  "Reply field below the message.": "Campo de respuesta bajo el mensaje.",
+  "Sends a short reply without a new window. More opens the full reply.": "Envía una respuesta breve sin ventana nueva. Más abre la respuesta completa.",
 };
 const IT = {
   "Install version {v}": "Installa la versione {v}",
@@ -1133,6 +1199,28 @@ const IT = {
   "Location access is off. Allow it in System Settings or enter a city.": "La localizzazione è disattivata. Consentila nelle Impostazioni di sistema o inserisci una città.",
   "Location unavailable. Enter a city.": "Posizione non disponibile. Inserisci una città.",
   "macOS asks for access once.": "macOS chiede l’accesso una volta.",
+  "Organize by Conversation": "Organizza per conversazione",
+  "Individual Messages": "Messaggi singoli",
+  "In Sections": "In sezioni",
+  "Without Attachments First": "Senza allegati prima",
+  "With Attachments First": "Con allegati prima",
+  "Oldest Message on Top": "Messaggio più vecchio in alto",
+  "Newest Message on Top": "Messaggio più recente in alto",
+  "Starred First": "Speciali prima",
+  "Starred Last": "Speciali per ultimi",
+  "A to Z": "A a Z",
+  "Z to A": "Z ad A",
+  "Smallest First": "Più piccoli prima",
+  "Largest First": "Più grandi prima",
+  "Unread First": "Non letti prima",
+  "Unread Last": "Non letti per ultimi",
+  "Starred": "Speciali",
+  "You": "Io",
+  "From all folders. Older read messages are collapsed.": "Da tutte le cartelle. I messaggi letti meno recenti sono compressi.",
+  "Show most recent message at the top": "Mostra il messaggio più recente in alto",
+  "Quick Reply": "Risposta rapida",
+  "Reply field below the message.": "Campo di risposta sotto il messaggio.",
+  "Sends a short reply without a new window. More opens the full reply.": "Invia una risposta breve senza nuova finestra. Altro apre la risposta completa.",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
 // tr("+{n} more", { n: 3 }) – Platzhalter in geschweiften Klammern
@@ -1148,6 +1236,20 @@ function tr(english, vars = null) {
 const STYLE_ID = "mail-cards-style";
 const TOOLBAR_PREF = "extensions.mailcards.toolbarApplied";
 const PREVIEW_PREF = "extensions.mailcards.previewLines";
+// Sortierungen im Menü „Sort by“ in Apples Reihenfolge mit den Namen der
+// Richtung: [Wert von Thunderbird, [aufsteigend, absteigend]]. Achtung: beim
+// Stern heißt aufsteigend bei Thunderbird „markierte zuerst“
+const SORT_CHOICES = [
+  ["byAttachments", ["Without Attachments First", "With Attachments First"]],
+  ["byDate", ["Oldest Message on Top", "Newest Message on Top"]],
+  ["byFlagged", ["Starred First", "Starred Last"]],
+  ["byAuthor", ["A to Z", "Z to A"]],
+  ["bySize", ["Smallest First", "Largest First"]],
+  ["bySubject", ["A to Z", "Z to A"]],
+  ["byRecipient", ["A to Z", "Z to A"]],
+  ["byUnread", ["Unread First", "Unread Last"]],
+  ["byTags", ["A to Z", "Z to A"]],
+];
 // Kontaktfoto bzw. Initialen links in den Karten (Drei-Punkte-Menü über der Liste)
 const CONTACT_PHOTOS_PREF = "extensions.mailcards.contactPhotos";
 // Reihenfolge wie in der Apple-Mail-Toolbar: Abrufen, Verfassen |
@@ -1713,7 +1815,11 @@ function syncViewChoice(changed) {
 // Faden eine Textzusammenfassung. Ohne Suchindex: die Mails des Fadens im
 // Ordner mit Hinweis. Einstellung „Show whole conversation“ (Standard an)
 const CONVERSATION_PREF = "extensions.mailcards.fullConversation";
+// Reihenfolge wie Apple Mail „Neueste Nachricht oben anzeigen“ (Standard an)
+const CONVERSATION_NEWEST_PREF = "extensions.mailcards.conversationNewestFirst";
 const CONVERSATION_MAX = 30;
+// Schnellantwort unter der Mail (Standard an, Einstellungen → Mail)
+const QUICK_REPLY_PREF = "extensions.mailcards.quickReply";
 class ConversationCards {
   constructor(win, pane) {
     this.win = win;
@@ -1777,8 +1883,13 @@ class ConversationCards {
       }
     }
     const out = [...byId.values()].filter(m => m == hdr || !(m.folder?.getFlag(F.Trash) || m.folder?.getFlag(F.Junk)));
+    // die neuesten 30 behalten, auch wenn die älteste oben stehen soll
     out.sort((a, b) => b.date - a.date);
-    return { messages: out.slice(0, CONVERSATION_MAX), indexed };
+    const messages = out.slice(0, CONVERSATION_MAX);
+    if (!Services.prefs.getBoolPref(CONVERSATION_NEWEST_PREF, true)) {
+      messages.reverse();
+    }
+    return { messages, indexed };
   }
 
   fromGloda(hdr) {
@@ -1902,13 +2013,22 @@ class ConversationCards {
         return false;
       }
     };
+    const newest = messages.reduce((a, b) => (b.date > a.date ? b : a));
+    // Schnellantwort nur einmal: an der neuesten Mail, die nicht von einem selbst ist
+    const replyTo = messages.filter(m => !ownMail(m)).reduce((a, b) => (!a || b.date > a.date ? b : a), null);
     const cards = messages.map(m => {
       const card = doc.createElementNS(X, "div");
       card.className = "mc-conv-card";
       card.classList.toggle("mc-own", ownMail(m));
       card.classList.toggle("mc-selected", m == selected || m.messageId == selected.messageId);
+      card.classList.toggle("mc-reply-target", m == replyTo);
       card.dataset.messageId = m.messageId;
       card.__mcHdr = m;
+      // wie Apple Mail: ältere gelesene Mails nur als kompakte Zeile; offen
+      // bleiben die gewählte, die neueste und ungelesene Mails
+      if (!card.classList.contains("mc-selected") && m != newest && m.isRead) {
+        this.collapse(card);
+      }
       box.append(card);
       return card;
     });
@@ -1923,11 +2043,68 @@ class ConversationCards {
         }
       }
     }, { root: box, rootMargin: "800px 0px" });
-    cards.forEach(card => this.observer.observe(card));
+    cards.filter(card => !card.classList.contains("mc-collapsed")).forEach(card => this.observer.observe(card));
     const sel = cards.find(c => c.classList.contains("mc-selected"));
     if (sel && sel != cards[0]) {
       win.requestAnimationFrame(() => sel.scrollIntoView({ block: "start" }));
     }
+  }
+
+  // eingeklappte Karte: Bild, Absender, Datum und eine Zeile Vorschau – ohne
+  // geladene Mail; Klick klappt auf
+  collapse(card) {
+    const doc = this.win.document;
+    const X = "http://www.w3.org/1999/xhtml";
+    const hdr = card.__mcHdr;
+    card.querySelector(".mc-conv-browser")?.remove();
+    card.__mcLoaded = false;
+    card.classList.add("mc-collapsed");
+    const row = doc.createElementNS(X, "div");
+    row.className = "mc-conv-summary";
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+    const avatar = doc.createElementNS(X, "div");
+    avatar.className = "mc-conv-avatar";
+    try {
+      enhancer?.fillAvatar(avatar, hdr);
+    } catch {}
+    const main = doc.createElementNS(X, "div");
+    main.className = "mc-conv-summary-main";
+    const top = doc.createElementNS(X, "div");
+    top.className = "mc-conv-summary-top";
+    const from = doc.createElementNS(X, "span");
+    from.className = "mc-conv-from";
+    let name = "";
+    try {
+      const p = MailServices.headerParser.parseDecodedHeader(hdr.mime2DecodedAuthor || hdr.author)[0];
+      name = senderLabel(p?.name || "", (p?.email || "").toLowerCase()) || p?.email || "";
+    } catch {}
+    from.textContent = card.classList.contains("mc-own") ? tr("You") : name;
+    const date = doc.createElementNS(X, "span");
+    date.className = "mc-conv-date";
+    date.textContent = appleListDate(hdr.date / 1000);
+    top.append(from, date);
+    const preview = doc.createElementNS(X, "div");
+    preview.className = "mc-conv-preview";
+    preview.textContent = cleanPreview(hdr.getStringProperty("preview"));
+    main.append(top, preview);
+    row.append(avatar, main);
+    const open = event => {
+      if (event.type == "keydown" && event.key != "Enter" && event.key != " ") {
+        return;
+      }
+      event.preventDefault();
+      this.expand(card);
+    };
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", open);
+    card.replaceChildren(row);
+  }
+
+  expand(card) {
+    card.classList.remove("mc-collapsed");
+    card.querySelector(".mc-conv-summary")?.remove();
+    this.loadCard(card);
   }
 
   loadCard(card) {
@@ -1960,7 +2137,21 @@ class ConversationCards {
       }
       card.__mcLoaded = true;
       // Knöpfe anderer Erweiterungen wirken in der Karte nicht – Zeile ausblenden
-      browserEl.contentDocument.documentElement.setAttribute("mc-conv-card", "");
+      const root = browserEl.contentDocument.documentElement;
+      root.setAttribute("mc-conv-card", "");
+      root.toggleAttribute("mc-conv-reply", card.classList.contains("mc-reply-target"));
+      // Klick auf den Kopf (nicht auf Namen oder Knöpfe) klappt die Karte wieder
+      // ein – nicht bei der gewählten und der neuesten Mail
+      browserEl.contentDocument.getElementById("messageHeader")?.addEventListener("click", event => {
+        if (card.classList.contains("mc-selected") || event.target.closest?.("button, a, input, textarea, select, li.header-recipient, [role='button'], #mcHoverActions, toolbarbutton, menu, menupopup")) {
+          return;
+        }
+        const cards = [...card.parentNode.querySelectorAll(".mc-conv-card")];
+        const newest = cards.reduce((a, b) => (b.__mcHdr.date > a.__mcHdr.date ? b : a));
+        if (card != newest) {
+          this.collapse(card);
+        }
+      });
       try {
         cw.displayMessage(hdr.folder.getUriForMsg(hdr), this.win.gViewWrapper);
       } catch (e) {
@@ -1973,8 +2164,27 @@ class ConversationCards {
       const iw = mp?.contentWindow;
       if (iw && !mp.__mcFit) {
         mp.__mcFit = true;
-        // Bilder laden nach, Zitate klappen auf: Höhe mitführen
+        // Bilder laden nach, Zitate klappen auf: Höhe mitführen – ebenso, wenn
+        // die Anhangsliste erst nach dem Laden ihre Höhe bekommt (sonst war bei
+        // einem Anhang die Dateizeile abgeschnitten), Kopf und Schnellantwort
         new iw.ResizeObserver(fit).observe(iw.document.documentElement);
+        const cdoc = browserEl.contentDocument;
+        const ro = new browserEl.contentWindow.ResizeObserver(fit);
+        for (const id of ["attachmentView", "attachmentList", "messageHeader", "mcQuickReply"]) {
+          const el = cdoc.getElementById(id);
+          if (el) {
+            ro.observe(el);
+          }
+        }
+        // Schnellantwort kommt evtl. erst später dazu
+        new browserEl.contentWindow.MutationObserver(() => {
+          const qr = cdoc.getElementById("mcQuickReply");
+          if (qr && !qr.__mcFitObserved) {
+            qr.__mcFitObserved = true;
+            ro.observe(qr);
+          }
+          fit();
+        }).observe(cdoc.getElementById("messagepanebox") || cdoc.documentElement, { childList: true });
         mp.addEventListener("load", () => this.win.setTimeout(fit, 50), true);
       }
       this.win.setTimeout(fit, 300);
@@ -3120,6 +3330,78 @@ const FifthSpace = {
 // verkleinern statt sie rechts abzuschneiden: der Mailtext bekommt einen Zoom,
 // sobald er breiter ist als die Leseansicht. Nur HTML-Mails (Textmails brechen
 // selbst um), neu gerechnet bei Größenänderung und nachgeladenen Bildern
+// Kurze Mail mit Anhängen: Mailtext nur so hoch wie sein Inhalt, damit die
+// Anhangsliste direkt darunter steht wie bei Apple Mail – statt mit großer
+// Lücke am unteren Rand. Lange Mails bleiben wie bisher (Text scrollt, Liste
+// unten). Nicht in den Karten der Konversation (dort hat jede Karte ohnehin
+// Inhaltshöhe)
+function fitShortMessage(target) {
+  try {
+    const doc = target?.document || target?.ownerDocument || target;
+    const mp = doc?.getElementById?.("messagepane");
+    const box = doc?.getElementById?.("messagepanebox");
+    const win = doc?.defaultView;
+    if (!mp || !box || !win || doc.documentElement.hasAttribute("mc-conv-card")) {
+      return;
+    }
+    const apply = () => {
+      try {
+        const inner = mp.contentDocument?.documentElement;
+        const view = doc.getElementById("attachmentView");
+        const shown = view && !view.hidden && !view.collapsed && view.getBoundingClientRect().height > 0;
+        if (!inner || !shown) {
+          if (mp.style.height) {
+            mp.style.removeProperty("flex");
+            mp.style.removeProperty("height");
+          }
+          return;
+        }
+        // Platz für den Text = Höhe des Bereichs minus alles andere darin
+        let others = 0;
+        for (const el of box.children) {
+          if (el != mp) {
+            others += el.getBoundingClientRect().height;
+          }
+        }
+        const avail = box.getBoundingClientRect().height - others;
+        const body = mp.contentDocument.body;
+        const need = Math.ceil(Math.max(body?.scrollHeight || 0, body?.getBoundingClientRect().bottom || 0)) + 16;
+        if (need > 0 && need < avail - 24) {
+          if (mp.style.height != `${need}px`) {
+            mp.style.setProperty("flex", "none");
+            mp.style.setProperty("height", `${need}px`);
+          }
+        } else if (mp.style.height) {
+          mp.style.removeProperty("flex");
+          mp.style.removeProperty("height");
+        }
+      } catch {}
+    };
+    const later = () => win.requestAnimationFrame(apply);
+    // neue Mail: erst ohne feste Höhe messen
+    mp.style.removeProperty("flex");
+    mp.style.removeProperty("height");
+    later();
+    win.setTimeout(apply, 300);
+    if (!box.__mcShortFit) {
+      box.__mcShortFit = new win.ResizeObserver(later);
+      box.__mcShortFit.observe(box);
+      const view = doc.getElementById("attachmentView");
+      if (view) {
+        box.__mcShortFit.observe(view);
+      }
+    }
+    const iw = mp.contentWindow;
+    const mdoc = mp.contentDocument;
+    if (iw && mdoc && !mdoc.__mcShortFit) {
+      mdoc.__mcShortFit = true;
+      // nachgeladene Bilder, aufgeklappte Zitate
+      new iw.ResizeObserver(later).observe(mdoc.body || mdoc.documentElement);
+      mdoc.addEventListener("load", later, true);
+    }
+  } catch {}
+}
+
 function fitWideMessage(target) {
   try {
     const doc = target?.document || target?.ownerDocument || target;
@@ -5258,6 +5540,8 @@ function cleanPreview(text) {
 // Treffer stehen in der Kartenliste, gelb markiert, oben mit Anzahl.
 // ---------------------------------------------------------------------------
 const SEARCH_FOLDER_NAME = "halo.spaces search";
+// Suchordner für „Markiert“ unter den Favoriten (versteckt unter „Lokale Ordner“)
+const STARRED_FOLDER_NAME = "halo.spaces starred";
 // Thunderbirds Index (Gloda): so lange wird vor der Suche auf seine Treffer
 // gewartet (sonst ohne ihn), höchstens so viele Treffer (neueste zuerst);
 // kürzere Begriffe fragen ihn nicht (riesige Präfix-Abfragen, die sich beim
@@ -5565,6 +5849,9 @@ function appleFolderName(folder) {
   const role = folderRole(folder);
   // frisch angelegte Ordner haben noch keinen prettyName (null) – dann name
   const plain = folder.prettyName || folder.localizedName || folder.name;
+  if (folder.name == STARRED_FOLDER_NAME && folder.getFlag(Ci.nsMsgFolderFlags.Virtual)) {
+    return tr("Starred");
+  }
   if (/^mailbox:\/\/[^/]*smart%20mailboxes\//i.test(folder.URI)) {
     if (role == "Inbox" && !L.native) return L.allInboxes;
     if (role == "SentMail" && !L.native) return L.allSent;
@@ -5576,7 +5863,7 @@ function appleFolderName(folder) {
 function appleFolderTitle(folder) {
   const L = appleLabels();
   const name = appleFolderName(folder);
-  if (/^mailbox:\/\/[^/]*smart%20mailboxes\//i.test(folder.URI)) {
+  if (/^mailbox:\/\/[^/]*smart%20mailboxes\//i.test(folder.URI) || folder.name == STARRED_FOLDER_NAME) {
     return name;
   }
   const account = folder.server?.type == "none" && !L.native ? L.onMyMac : folder.server?.prettyName;
@@ -10279,6 +10566,7 @@ class CardEnhancer {
         w.setTimeout(() => this.updateStarButton(w), 0);
         if (event?.type == "MsgLoaded") {
           fitWideMessage(event.target);
+          fitShortMessage(event.target);
         }
       };
       const tabs = w.document.getElementById("tabmail")?.tabContainer;
@@ -14177,6 +14465,63 @@ class CardEnhancer {
     });
   }
 
+  // „Sort by“ im Drei-Punkte-Menü wie Apple Mail: nur die üblichen
+  // Sortierungen in Apples Reihenfolge (Thunderbirds übrige ausgeblendet, eine
+  // gerade aktive bleibt sichtbar), die Richtung je Sortierung benannt statt
+  // Ascending/Descending, Gruppierung mit Apples Begriffen. Befehle bleiben
+  // Thunderbirds (cmd_sort mit dem Wert des Eintrags)
+  hookSortMenu(doc) {
+    const popup = doc.getElementById("menu_threadPaneSortPopup");
+    if (!popup || popup.__mcSortMenu) {
+      return;
+    }
+    popup.__mcSortMenu = true;
+    const original = [...popup.children];
+    const byValue = value => popup.querySelector(`menuitem[name="sortby"][value="${value}"]`);
+    const shown = SORT_CHOICES.map(([value]) => byValue(value)).filter(Boolean);
+    const hidden = [...popup.querySelectorAll('menuitem[name="sortby"]')].filter(el => !shown.includes(el));
+    const asc = doc.getElementById("threadPaneSortAscending");
+    const desc = doc.getElementById("threadPaneSortDescending");
+    const grouping = [
+      [doc.getElementById("threadPaneSortThreaded"), "Organize by Conversation"],
+      [doc.getElementById("threadPaneSortUnthreaded"), "Individual Messages"],
+      [doc.getElementById("threadPaneGroupBySort"), "In Sections"],
+    ].filter(([el]) => el);
+    const labels = new Map([asc, desc, ...grouping.map(([el]) => el)].filter(Boolean).map(el => [el, el.getAttribute("label")]));
+    // Apples Reihenfolge, ausgeblendete dahinter (nur sichtbar, wenn aktiv)
+    popup.prepend(...shown, ...hidden);
+    for (const [el, label] of grouping) {
+      el.setAttribute("label", tr(label));
+    }
+    const onShowing = event => {
+      if (event.target != popup) {
+        return;
+      }
+      // Thunderbirds eigener Handler hat die Haken schon gesetzt
+      for (const el of hidden) {
+        el.hidden = !el.hasAttribute("checked");
+      }
+      const current = popup.querySelector('menuitem[name="sortby"][checked]')?.value;
+      const names = SORT_CHOICES.find(([value]) => value == current)?.[1];
+      if (asc && desc) {
+        asc.setAttribute("label", names ? tr(names[0]) : labels.get(asc));
+        desc.setAttribute("label", names ? tr(names[1]) : labels.get(desc));
+      }
+    };
+    popup.addEventListener("popupshowing", onShowing);
+    this.addWinRestorer(doc.defaultView, () => {
+      popup.removeEventListener("popupshowing", onShowing);
+      popup.append(...original);
+      for (const el of hidden) {
+        el.hidden = false;
+      }
+      for (const [el, label] of labels) {
+        el.setAttribute("label", label);
+      }
+      delete popup.__mcSortMenu;
+    });
+  }
+
   // Filter wie in Apple Mail: nur ungelesene Mails bzw. wieder alle – über
   // Thunderbirds Schnellfilter „Ungelesen“, aber ohne dessen Leiste. Der
   // Filter bleibt beim Ordnerwechsel aktiv (wie „Filter beibehalten“), bis
@@ -14489,6 +14834,7 @@ class CardEnhancer {
     safely("mail context", () => this.hookMailContext(doc));
     safely("dialog box", () => shareDialogBox(win, { push: fn => this.addWinRestorer(win, fn) }));
     safely("view choice", () => this.hookViewChoice(doc));
+    safely("sort menu", () => this.hookSortMenu(doc));
     safely("unread filter", () => this.hookUnreadFilter(win));
     safely("card exit", () => this.hookCardExit(win));
     safely("remind menu", () => Remind.hookMenu(win.document));
@@ -14710,7 +15056,31 @@ class CardEnhancer {
         return false;
       }
     };
+    // „Markiert“ wie Apple Mail: eigene Zeile unter den Favoriten nach „Alle
+    // gesendeten“, nur solange es markierte Mails gibt
+    const starredRow = () => {
+      const smart = tree.querySelector(':scope > li[data-mode="smart"]');
+      const folder = this.starredAny ? this.starredFolder(true) : this.starredFolder(false);
+      let row = smart?.querySelector(':scope > ul > li[data-mc-starred]');
+      if (!smart || !folder || !win.folderPane?._createFolderRow) {
+        return;
+      }
+      if (!row) {
+        row = win.folderPane._createFolderRow("smart", folder);
+        row.setAttribute("data-mc-starred", "");
+        const list = smart.querySelector(":scope > ul");
+        const sent = list?.querySelector(':scope > li[data-folder-type="sent"]');
+        sent ? sent.after(row) : list?.append(row);
+      }
+      setAttr(row, "data-mc-hide", !this.starredAny);
+      setText(row.querySelector(":scope > .container .name"), tr("Starred"));
+    };
     const apply = () => {
+      try {
+        starredRow();
+      } catch (e) {
+        log("starred row error", e);
+      }
       // Favoriten nur straffen, wenn darunter auch „Alle Ordner“ angezeigt
       // wird – sonst wären die übrigen Ordner gar nicht erreichbar
       const allShown = !!tree.querySelector(':scope > li[data-mode="all"]');
@@ -14730,8 +15100,12 @@ class CardEnhancer {
         } catch {}
         const label = li.querySelector(":scope > .container .name");
         const topLevel = li.parentElement?.parentElement === modeLi;
-        // der Suchordner ist nur Mittel zum Zweck – nie in der Ordnerliste
-        if (this.isSearchFolder(folder)) {
+        // der Suchordner ist nur Mittel zum Zweck – nie in der Ordnerliste;
+        // der für „Markiert“ nur als eigene Zeile unter den Favoriten
+        if (li.hasAttribute("data-mc-starred")) {
+          continue;
+        }
+        if (this.isSearchFolder(folder) || this.isStarredFolder(folder)) {
           setAttr(li, "data-mc-hide", true);
           continue;
         }
@@ -14825,8 +15199,30 @@ class CardEnhancer {
       log("decorateFolders error", e);
     }
     observer.observe(tree, { childList: true, subtree: true, characterData: true });
+    // Stern gesetzt oder entfernt: Zeile „Markiert“ ein-/ausblenden
+    const starListener = {
+      onFolderPropertyFlagChanged: (hdr, property, oldFlag, newFlag) => {
+        if (property != "Flagged") {
+          return;
+        }
+        // nicht mitten in Thunderbirds Benachrichtigung Ordner anlegen oder suchen
+        win.setTimeout(() => {
+          if (newFlag & Ci.nsMsgMessageFlags.Marked) {
+            this.starredAny = true;
+            apply();
+          } else {
+            this.countStarred(() => apply());
+          }
+        }, 0);
+      },
+    };
+    MailServices.mailSession.AddFolderListener(starListener, Ci.nsIFolderListener.propertyFlagChanged);
+    win.addEventListener("unload", () => MailServices.mailSession.RemoveFolderListener(starListener), { once: true });
+    this.countStarred(() => apply());
     this.restorers.push(() => {
       observer.disconnect();
+      MailServices.mailSession.RemoveFolderListener(starListener);
+      tree.querySelectorAll("li[data-mc-starred]").forEach(li => li.remove());
       for (const li of tree.querySelectorAll("[data-mc-hide], [data-mc-flatten]")) {
         li.removeAttribute("data-mc-hide");
         li.removeAttribute("data-mc-flatten");
@@ -15022,7 +15418,7 @@ class CardEnhancer {
   // zählt nicht – er behält nach einer Suche die Trefferzahl; gespeicherte
   // Suchen des Nutzers zählen weiter
   localIsEmpty(root) {
-    return !root || root.subFolders.every(f => this.isSearchFolder(f) || (!f.hasSubFolders && f.getTotalMessages(false) == 0));
+    return !root || root.subFolders.every(f => this.isSearchFolder(f) || this.isStarredFolder(f) || (!f.hasSubFolders && f.getTotalMessages(false) == 0));
   }
 
   isSearchFolder(folder) {
@@ -15031,6 +15427,111 @@ class CardEnhancer {
         folder.parent?.isServer && folder.server == MailServices.accounts.localFoldersServer;
     } catch {
       return false;
+    }
+  }
+
+  isStarredFolder(folder) {
+    try {
+      return !!folder && folder.name == STARRED_FOLDER_NAME && folder.getFlag(Ci.nsMsgFolderFlags.Virtual) &&
+        folder.parent?.isServer && folder.server == MailServices.accounts.localFoldersServer;
+    } catch {
+      return false;
+    }
+  }
+
+  // Suchordner für „Markiert“: alle markierten Mails aller Konten ohne
+  // Papierkorb, Spam, Entwürfe, Vorlagen und Postausgang; nur lokale
+  // Datenbanken (keine Suche auf dem Server). Die Ordnerauswahl wird je
+  // Start erneuert, damit neue Konten und Ordner dazukommen
+  starredScope() {
+    const F = Ci.nsMsgFolderFlags;
+    return this.searchScope().filter(f => !(f.flags & (F.Drafts | F.Templates | F.Queue)));
+  }
+
+  starredFolder(create = false) {
+    let root = null;
+    try {
+      root = MailServices.accounts.localFoldersServer?.rootFolder;
+    } catch {}
+    if (!root) {
+      return null;
+    }
+    const { VirtualFolderHelper } = ChromeUtils.importESModule("resource:///modules/VirtualFolderWrapper.sys.mjs");
+    const existing = root.subFolders.find(f => this.isStarredFolder(f));
+    if (existing) {
+      // neue Konten und Ordner aufnehmen (nur wenn sich etwas geändert hat)
+      try {
+        const wrapped = VirtualFolderHelper.wrapVirtualFolder(existing);
+        const scope = this.starredScope();
+        if (wrapped.searchFolderURIs != scope.map(f => f.URI).join("|")) {
+          wrapped.searchFolders = scope;
+        }
+      } catch (e) {
+        log("starred scope error", e);
+      }
+      return existing;
+    }
+    if (!create) {
+      return null;
+    }
+    return VirtualFolderHelper.createNewVirtualFolder(STARRED_FOLDER_NAME, root, this.starredScope(), [this.starredTerm()], false).virtualFolder;
+  }
+
+  starredTerm(session = null) {
+    session ??= Cc["@mozilla.org/messenger/searchSession;1"].createInstance(Ci.nsIMsgSearchSession);
+    const term = session.createTerm();
+    term.attrib = Ci.nsMsgSearchAttrib.MsgStatus;
+    term.op = Ci.nsMsgSearchOp.Is;
+    const value = term.value;
+    value.attrib = Ci.nsMsgSearchAttrib.MsgStatus;
+    value.status = Ci.nsMsgMessageFlags.Marked;
+    term.value = value;
+    term.booleanAnd = true;
+    return term;
+  }
+
+  // gibt es irgendwo eine markierte Mail? (lokale Datenbanken) – setzt
+  // this.starredAny und ruft done()
+  countStarred(done) {
+    if (this.starredCounting) {
+      this.starredCountAgain = done;
+      return;
+    }
+    let found = false;
+    let session;
+    const finish = () => {
+      this.starredCounting = false;
+      this.starredAny = found;
+      done?.();
+      const again = this.starredCountAgain;
+      if (again) {
+        this.starredCountAgain = null;
+        this.countStarred(again);
+      }
+    };
+    try {
+      session = Cc["@mozilla.org/messenger/searchSession;1"].createInstance(Ci.nsIMsgSearchSession);
+      const scope = this.starredScope();
+      if (!scope.length) {
+        finish();
+        return;
+      }
+      for (const f of scope) {
+        session.addScopeTerm(Ci.nsMsgSearchScope.offlineMail, f);
+      }
+      session.appendTerm(this.starredTerm(session));
+      this.starredCounting = true;
+      session.registerListener({
+        onNewSearch() {},
+        onSearchHit: () => {
+          found = true;
+        },
+        onSearchDone: () => finish(),
+      }, Ci.nsIMsgSearchSession.allNotifications);
+      session.search(null);
+    } catch (e) {
+      log("starred count error", e);
+      finish();
     }
   }
 
@@ -15431,8 +15932,9 @@ class CardEnhancer {
 
   removeSearchFolder() {
     try {
-      const folder = this.searchFolder(false);
-      folder?.parent?.propagateDelete(folder, true);
+      for (const folder of [this.searchFolder(false), this.starredFolder(false)]) {
+        folder?.parent?.propagateDelete(folder, true);
+      }
       MailServices.accounts.saveVirtualFolders();
     } catch (e) {
       log("search folder remove error", e);
@@ -15743,7 +16245,24 @@ class CardEnhancer {
     run();
     this.hookNotificationLayout(doc);
     this.hookHoverActions(doc);
+    // Schnellantwort in den Einstellungen umgeschaltet: sofort ein-/ausblenden
+    const qrObs = {
+      observe: () => {
+        try {
+          if (win.gMessage) {
+            this.quickReply(doc, win.gMessage);
+          } else {
+            doc.getElementById("mcQuickReply")?.remove();
+          }
+        } catch (e) {
+          log("quick reply pref error", e);
+        }
+      },
+    };
+    Services.prefs.addObserver(QUICK_REPLY_PREF, qrObs);
+    win.addEventListener("unload", () => Services.prefs.removeObserver(QUICK_REPLY_PREF, qrObs), { once: true });
     this.addWinRestorer(win, () => {
+      Services.prefs.removeObserver(QUICK_REPLY_PREF, qrObs);
       mo.disconnect();
       delete doc.__mcHdrAvatar;
       // Datum zurück an seinen Platz, eigene Elemente entfernen
@@ -15775,13 +16294,12 @@ class CardEnhancer {
     if (!win || !header || doc.getElementById("mcHoverActions")) {
       return;
     }
-    // nicht in den Karten der Konversationsansicht: Thunderbirds Befehle
-    // wirken dort auf die Auswahl der Mailliste (Löschen träfe die gewählte
-    // Mail bzw. den ganzen Faden) oder sind mangels Auswahl gesperrt
+    // in den Karten der Konversationsansicht wirken Thunderbirds Befehle auf
+    // die Auswahl der Mailliste (Löschen träfe die gewählte Mail bzw. den
+    // ganzen Faden) – dort wirken die Knöpfe direkt auf die Mail der Karte
+    let card = null;
     try {
-      if (win.frameElement?.classList?.contains("mc-conv-browser")) {
-        return;
-      }
+      card = win.frameElement?.classList?.contains("mc-conv-browser") ? win.frameElement.closest(".mc-conv-card") : null;
     } catch {}
     const X = "http://www.w3.org/1999/xhtml";
     const box = doc.createElementNS(X, "div");
@@ -15799,7 +16317,11 @@ class CardEnhancer {
       b.addEventListener("click", event => {
         event.stopPropagation();
         try {
-          win.commandController?.doCommand(command, event);
+          if (card) {
+            this.cardAction(win, card, command);
+          } else {
+            win.commandController?.doCommand(command, event);
+          }
         } catch (e) {
           log("hover action error", command, e);
         }
@@ -15822,7 +16344,12 @@ class CardEnhancer {
       for (const b of buttons) {
         let ok = true;
         try {
-          ok = !!win.commandController?.isCommandEnabled(b.dataset.command);
+          if (card) {
+            const hdr = win.gMessage;
+            ok = !!hdr?.folder && (b.dataset.command != "cmd_deleteMessage" || hdr.folder.canDeleteMessages);
+          } else {
+            ok = !!win.commandController?.isCommandEnabled(b.dataset.command);
+          }
         } catch {}
         b.disabled = !ok;
       }
@@ -15832,6 +16359,40 @@ class CardEnhancer {
       doc.documentElement.removeEventListener("mouseenter", update);
       box.remove();
     });
+  }
+
+  // Kapsel in einer Karte der Konversation: Antworten, Allen antworten und
+  // Weiterleiten öffnen das Verfassen-Fenster für genau diese Mail; Löschen
+  // legt nur sie in den Papierkorb (mit Rückgängig) und nimmt die Karte weg
+  cardAction(win, card, command) {
+    const hdr = win.gMessage || card.__mcHdr;
+    if (!hdr?.folder) {
+      return;
+    }
+    const top = Services.wm.getMostRecentWindow("mail:3pane");
+    const msgWindow = top?.msgWindow || null;
+    const uri = hdr.folder.getUriForMsg(hdr);
+    const T = Ci.nsIMsgCompType;
+    if (command == "cmd_deleteMessage") {
+      hdr.folder.deleteMessages([hdr], msgWindow, false, false, null, true);
+      const box = card.parentNode;
+      card.remove();
+      const n = box?.querySelectorAll(".mc-conv-card").length || 0;
+      const count = box?.querySelector(".mc-conv-count");
+      if (count) {
+        count.textContent = tr("{n} messages", { n });
+      }
+      return;
+    }
+    const type = command == "cmd_reply" ? T.ReplyToSender
+      : command == "cmd_replyall" ? T.ReplyAll
+      : Services.prefs.getIntPref("mail.forward_message_mode", 2) == 0 ? T.ForwardAsAttachment : T.ForwardInline;
+    // wie Thunderbirds eigene Knöpfe (Identität, Rückfrage bei „no-reply“ …)
+    if (typeof top?.ComposeMessage == "function") {
+      top.ComposeMessage(type, Ci.nsIMsgCompFormat.Default, hdr.folder, [uri]);
+    } else {
+      MailServices.compose.OpenComposeWindow(null, hdr, uri, type, Ci.nsIMsgCompFormat.Default, null, null, msgWindow);
+    }
   }
 
   // Hinweise über der Mail (entfernte Inhalte, Spam …): bei wenig Platz bricht
@@ -15887,7 +16448,16 @@ class CardEnhancer {
     const box = doc.getElementById("messagepanebox");
     let bar = doc.getElementById("mcQuickReply");
     const F = Ci.nsMsgFolderFlags;
-    const skip = !Services.prefs.getBoolPref("extensions.mailcards.quickReply", true) || !hdr?.folder ||
+    const root = doc.documentElement;
+    // nie bei eigenen Mails (auch nicht im Posteingang); in der Konversation
+    // nur einmal – an der neuesten Mail, die nicht von einem selbst ist
+    let own = false;
+    try {
+      const from = (MailServices.headerParser.parseDecodedHeader(hdr?.mime2DecodedAuthor || hdr?.author || "")[0]?.email || "").toLowerCase();
+      own = !!from && MailServices.accounts.allIdentities.some(id => id.email?.toLowerCase() == from);
+    } catch {}
+    const skip = !Services.prefs.getBoolPref(QUICK_REPLY_PREF, true) || !hdr?.folder || own ||
+      (root.hasAttribute("mc-conv-card") && !root.hasAttribute("mc-conv-reply")) ||
       hdr.folder.isSpecialFolder(F.Drafts | F.Templates | F.Queue | F.SentMail, true) || hdr.folder.server?.type == "rss";
     if (skip || !box) {
       bar?.remove();
@@ -15932,7 +16502,12 @@ class CardEnhancer {
         const uri = current.folder.getUriForMsg(current);
         // normales Antworten; der Text kommt an den Anfang, sobald der Editor bereit ist
         const known = new Set(Services.wm.getEnumerator("msgcompose"));
-        MailServices.compose.OpenComposeWindow(null, current, uri, Ci.nsIMsgCompType.ReplyToSender, Ci.nsIMsgCompFormat.Default, null, null, win.msgWindow);
+        const top = Services.wm.getMostRecentWindow("mail:3pane");
+        if (typeof top?.ComposeMessage == "function") {
+          top.ComposeMessage(Ci.nsIMsgCompType.ReplyToSender, Ci.nsIMsgCompFormat.Default, current.folder, [uri]);
+        } else {
+          MailServices.compose.OpenComposeWindow(null, current, uri, Ci.nsIMsgCompType.ReplyToSender, Ci.nsIMsgCompFormat.Default, null, null, win.msgWindow);
+        }
         if (text.trim()) {
           let tries = 0;
           const attach = () => {
@@ -16072,6 +16647,41 @@ class CardEnhancer {
       accDot.style.setProperty("--mc-acc", accColor);
     } else {
       accDot?.remove();
+    }
+    // markierte Mail: Stern unter der Uhrzeit wie Apples Fahne (nur Anzeige);
+    // folgt Änderungen aus Liste, Symbolleiste oder Taste S
+    let star = meta.querySelector(".mc-hdr-star");
+    if (!star) {
+      star = doc.createElementNS(X, "span");
+      star.className = "mc-hdr-star";
+      star.setAttribute("role", "img");
+      date.before(star);
+    }
+    star.title = tr("Starred");
+    star.setAttribute("aria-label", tr("Starred"));
+    star.hidden = !hdr.isFlagged;
+    doc.__mcStarHdr = hdr;
+    if (!doc.__mcStarListener) {
+      const listener = {
+        onFolderPropertyFlagChanged: (item, property) => {
+          const cur = doc.__mcStarHdr;
+          if (property == "Flagged" && cur && item.messageKey == cur.messageKey && item.folder == cur.folder) {
+            const el = doc.querySelector("#mcHdrMeta .mc-hdr-star");
+            if (el) {
+              el.hidden = !item.isFlagged;
+            }
+          }
+        },
+      };
+      doc.__mcStarListener = listener;
+      MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.propertyFlagChanged);
+      const remove = () => {
+        MailServices.mailSession.RemoveFolderListener(listener);
+        delete doc.__mcStarListener;
+        delete doc.__mcStarHdr;
+      };
+      win.addEventListener("unload", remove, { once: true });
+      this.addWinRestorer(win, remove);
     }
     // genau so viel Platz rechts reservieren, wie Ordner und Uhrzeit brauchen
     const measure = () => header.style.setProperty("--mc-meta-w", `${Math.ceil(meta.getBoundingClientRect().width)}px`);
@@ -16454,6 +17064,8 @@ const SETTINGS = {
   inlinePrompts: [INLINE_PROMPTS_PREF, "bool", true],
   composeFormatBar: [COMPOSE_FORMAT_PREF, "bool", false],
   fullConversation: [CONVERSATION_PREF, "bool", true],
+  conversationNewestFirst: [CONVERSATION_NEWEST_PREF, "bool", true],
+  quickReply: [QUICK_REPLY_PREF, "bool", true],
   calendarEmoji: [EMOJI_PREF, "bool", true],
   emojiCustom: [EMOJI_CUSTOM_PREF, "string", ""],
   macContactPhotos: [MAC_PHOTOS_PREF, "bool", false],

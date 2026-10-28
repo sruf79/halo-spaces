@@ -71,7 +71,8 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
 - Der Test legt ein leeres, temporäres Profil an (keine Konten, keine echten
   Daten), installiert das Paket und prüft per Marionette (Port 2839). Ausgabe:
   eine Zeile `OK`/`FEHLER` je Prüfung, Exitcode 0 nur bei Erfolg.
-- Thunderbird muss unter `/Applications/Thunderbird.app` liegen (sonst `--tb`).
+- Thunderbird muss unter `/Applications/Thunderbird.app` liegen (sonst `--tb` oder
+  Umgebungsvariable `HALO_TB`, gilt auch für `release.sh` und `update_test.py`).
 - Testfenster, die macOS verdeckt, pausieren Animationen – Animationsprüfungen
   überspringen diesen Fall bewusst.
 - CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release,

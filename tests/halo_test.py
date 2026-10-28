@@ -28,7 +28,8 @@ import time
 ADDON_ID = "mail-cards@sebastian.local"
 PORT = 2839
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_TB = {
+# HALO_TB setzt einen anderen Thunderbird (z. B. ~/Applications, wenn /Applications nicht beschreibbar ist)
+DEFAULT_TB = os.environ.get("HALO_TB") or {
     "darwin": "/Applications/Thunderbird.app/Contents/MacOS/thunderbird",
     "win32": r"C:\Program Files\Mozilla Thunderbird\thunderbird.exe",
 }.get(sys.platform, "thunderbird")
@@ -1568,7 +1569,7 @@ def reading_checks(m, results):
                      heights: cards.map(c => Math.round(c.querySelector(".mc-conv-browser")?.getBoundingClientRect().height || 0)),
                      text: cards.map(c => c.querySelector(".mc-conv-browser")?.contentDocument?.getElementById("messagepane")?.contentDocument?.querySelector(".moz-text-plain, .moz-text-flowed, pre")?.textContent.trim().slice(0, 12)),
                      note: !!box.querySelector(".mc-conv-note"),
-                     // keine Kapsel „Aktionen beim Überfahren“ in den Karten (Befehle wirkten auf die Listenauswahl)
+                     // Kapsel „Aktionen beim Überfahren“ in jeder Karte (wirkt auf die Mail der Karte)
                      hover: cards.filter(c => c.querySelector(".mc-conv-browser")?.contentDocument?.getElementById("mcHoverActions")).length };
           };
           const out = {};
@@ -1597,10 +1598,285 @@ def reading_checks(m, results):
         ok = (s1.get("ids") == ["halo-konv-2", "halo-konv-1"] and s1.get("own") == [True, False] and all(h > 100 for h in s1.get("heights", [0]))
               and s1.get("count") == "2 messages" and (s1.get("text") or [None])[0] == "Text von Hal" and not s1.get("note")
               and th.get("ids") == ["halo-konv-4", "halo-konv-3"] and res.get("off") is False
-              and s1.get("hover") == 0 and th.get("hover") == 0
+              and s1.get("hover") == 2 and th.get("hover") == 2
               and res.get("flash", {}).get("early") is False and res["flash"].get("single", 9999) <= 600)
         return ok, f"{res}"
-    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, auch für zugeklappte Fäden, ohne Kapsel beim Überfahren; abschaltbar", conversation, results)
+    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, auch für zugeklappte Fäden, Kapsel je Karte; abschaltbar", conversation, results)
+
+    def star_list_header():
+        # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der
+        # Uhrzeit nur bei markierten Mails; folgt Änderungen sofort
+        res = m.js(READING_JS + r"""
+          const color = (dd, v) => { const e = dd.createElement("div"); e.style.color = v; dd.documentElement.append(e); const c = cs(e).color; e.remove(); return c; };
+          const doc = await showMail("Halo Jetzt");
+          const hdr = doc.defaultView.gMessage;
+          const out = { want: color(a3.document, "var(--mt-star)"), white: color(a3.document, "var(--mt-accent-text)") };
+          const star = () => doc.querySelector("#mcHdrMeta .mc-hdr-star");
+          out.before = !!star() && vis(star());
+          hdr.folder.markMessagesFlagged([hdr], true); await wait(500);
+          out.header = { shown: vis(star()), bg: star() && cs(star()).backgroundColor,
+                         under: !!star() && (() => { const a = star().getBoundingClientRect(), b = doc.getElementById("dateLabel").getBoundingClientRect();
+                           return a.top >= b.bottom - 1 && Math.abs(a.right - b.right) <= 2; })(),
+                         rects: !!star() && [star().getBoundingClientRect(), doc.getElementById("dateLabel").getBoundingClientRect()].map(r => [r.top, r.right, r.bottom].map(Math.round)) };
+          const row = () => a3.document.querySelector('#threadTree tr.selected[data-properties~="flagged"]');
+          const img = () => row()?.querySelector(".tree-button-flag img") || row()?.querySelector(".button-star");
+          // gewählt ohne Fokus: Sternfarbe; mit Fokus: weiß
+          doc.documentElement.focus?.(); a3.document.activeElement?.blur?.(); await wait(300);
+          a3.threadTree.blur?.(); await wait(300);
+          out.unfocused = img() ? [cs(img()).fill, cs(img()).stroke] : null;
+          w.focus(); a3.threadTree.focus(); await wait(400);
+          out.focused = img() ? [cs(img()).fill, cs(img()).stroke] : null;
+          out.focusOk = a3.threadTree.matches(":focus-within");
+          hdr.folder.markMessagesFlagged([hdr], false); await wait(500);
+          out.after = !!star() && vis(star());
+          return out;""")
+        h = res.get("header") or {}
+        ok = (res.get("before") is False and h.get("shown") and same_color(h.get("bg") or "", res["want"]) and h.get("under")
+              and res.get("after") is False and res.get("unfocused") and all(same_color(c, res["want"]) for c in res["unfocused"]))
+        if res.get("focusOk"):
+            ok = ok and res.get("focused") and all(same_color(c, res["white"]) for c in res["focused"])
+        return ok, f"{res}"
+    check("Mailliste und Mailkopf: Stern einfarbig in --mt-star (gewählt mit Fokus weiß), im Kopf rechts unter der Uhrzeit nur bei markierten Mails", star_list_header, results)
+
+    def starred_mailbox():
+        # Favoriten: „Starred“ über alle Konten wie Apples „Markiert“ – nur, solange es markierte Mails gibt
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Kontakt");
+          const hdr = doc.defaultView.gMessage;
+          const tree = a3.document.getElementById("folderTree");
+          const row = () => tree.querySelector('li[data-mode="smart"] li[data-mc-starred]');
+          const shown = () => !!row() && vis(row());
+          for (const h of [...f.messages]) if (h.isFlagged) f.markMessagesFlagged([h], false);
+          await wait(1500);
+          const out = { before: shown() };
+          f.markMessagesFlagged([hdr], true);
+          await until(shown, 4000);
+          out.flagged = { shown: shown(), name: row()?.querySelector(".name")?.textContent,
+                          afterSent: row()?.previousElementSibling?.dataset.folderType };
+          if (row()) {
+            a3.displayFolder(row().uri); await until(() => a3.gDBView?.rowCount >= 1, 6000); await wait(800);
+            out.view = { rows: a3.gDBView?.rowCount, subject: a3.gDBView?.getMsgHdrAt(0)?.mime2DecodedSubject,
+                         title: w.document.querySelector("#mcListHeader .mc-lh-title")?.textContent };
+          }
+          f.markMessagesFlagged([hdr], false);
+          await until(() => !shown(), 4000);
+          out.after = shown();
+          // im Bereich „Alle Ordner“ taucht der Suchordner nie auf
+          out.hiddenInAll = [...tree.querySelectorAll('li[data-mode="all"] li')].filter(li => /halo\.spaces starred/.test(li.uri || "") && vis(li)).length;
+          a3.displayFolder(f.URI); await wait(800);
+          return out;""")
+        fl, v = res.get("flagged") or {}, res.get("view") or {}
+        ok = (res.get("before") is False and fl.get("shown") and fl.get("name") in ("Starred", "Markiert")
+              and v.get("rows") == 1 and v.get("subject") == "Halo Kontakt" and res.get("after") is False and res.get("hiddenInAll") == 0)
+        return ok, f"{res}"
+    check("Ordnerliste: „Starred“ unter Favoriten über alle Konten, nur solange es markierte Mails gibt, zeigt die markierten Mails", starred_mailbox, results)
+
+    def sort_menu():
+        # „Sort by“ wie Apple Mail: neun Sortierungen, Richtung je Sortierung benannt, Gruppierung mit Apples Begriffen;
+        # „Starred First“ = Stern-Mails oben, darunter nach Datum
+        res = m.js(READING_JS + r"""
+          await showMail("Halo Kontakt");
+          const ad = a3.document;
+          const popup = ad.getElementById("menu_threadPaneSortPopup");
+          const show = async () => { popup.dispatchEvent(new a3.Event("popupshowing")); await wait(200); };
+          const visible = () => [...popup.querySelectorAll('menuitem[name="sortby"]')].filter(x => !x.hidden).map(x => x.value);
+          const dir = () => [ad.getElementById("threadPaneSortAscending").label, ad.getElementById("threadPaneSortDescending").label];
+          const out = {};
+          a3.sortController.sortThreadPane("dateCol"); a3.sortController.sortDescending(); await wait(400);
+          await show(); out.date = { items: visible(), dir: dir(),
+            grouping: ["threadPaneSortThreaded", "threadPaneSortUnthreaded", "threadPaneGroupBySort"].map(id => ad.getElementById(id)?.label) };
+          a3.sortController.sortThreadPane("subjectCol"); await wait(300); await show(); out.subject = dir();
+          // Stern zuerst: vorige Sortierung (Datum) wird die zweite
+          const hs = [...f.messages];
+          const flagged = hs.find(h => (h.mime2DecodedSubject || "").includes("Halo Viele"));
+          f.markMessagesFlagged([flagged], true); await wait(300);
+          a3.sortController.sortThreadPane("dateCol"); a3.sortController.sortDescending(); await wait(300);
+          a3.sortController.sortThreadPane("flaggedCol"); a3.sortController.sortAscending(); await wait(400);
+          await show(); out.star = { dir: dir(), checkedAsc: ad.getElementById("threadPaneSortAscending").hasAttribute("checked"),
+            first: a3.gDBView.getMsgHdrAt(0)?.mime2DecodedSubject };
+          // ausgeblendete, aber aktive Sortierung bleibt mit Haken sichtbar
+          a3.sortController.sortThreadPane("priorityCol"); await wait(300); await show();
+          out.priority = visible().includes("byPriority");
+          f.markMessagesFlagged([flagged], false);
+          a3.sortController.sortThreadPane("dateCol"); a3.sortController.sortDescending(); await wait(300);
+          await show(); out.back = visible().length;
+          return out;""")
+        d = res.get("date") or {}
+        want = ["byAttachments", "byDate", "byFlagged", "byAuthor", "bySize", "bySubject", "byRecipient", "byUnread", "byTags"]
+        ok = (d.get("items") == want and d.get("dir") in (["Oldest Message on Top", "Newest Message on Top"], ["Älteste Nachricht oben", "Neueste Nachricht oben"])
+              and res.get("subject") in (["A to Z", "Z to A"], ["A bis Z", "Z bis A"])
+              and (res.get("star") or {}).get("first", "").startswith("Halo Viele") and (res.get("star") or {}).get("dir", [""])[0] in ("Starred First", "Markierte zuerst")
+              and res.get("priority") is True and res.get("back") == 9
+              and (d.get("grouping") or [None])[0] in ("Organize by Conversation", "Nach Konversation ordnen"))
+        return ok, f"{res}"
+    check("Mailliste: Sortiermenü mit neun Sortierungen wie Apple Mail, Richtung je Sortierung benannt, Stern zuerst mit Datum als zweiter Sortierung", sort_menu, results)
+
+    def attachment_header():
+        # Anhänge: Kopfzeile als leise Überschrift (klein, grau, ohne Pfeil und Büroklammer), „Save All“ als Textknopf in
+        # Akzentfarbe mit kleinem ⌄ direkt dahinter; kurze Mail: Liste direkt unter dem Text statt am unteren Rand
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Anhänge");
+          doc.defaultView.toggleAttachmentList?.(false); await wait(600);
+          const g = id => doc.getElementById(id);
+          const accent = (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })();
+          const save = [g("attachmentSaveAllMultiple"), g("attachmentSaveAllSingle")].find(vis);
+          const text = save?.querySelector(".toolbarbutton-text");
+          const drop = save?.querySelector(".toolbarbutton-menubutton-dropmarker");
+          const name = doc.querySelector("#attachmentList .attachmentItem .attachmentcell-name, #attachmentList .attachmentItem");
+          const mp = g("messagepane"), view = g("attachmentView");
+          const body = mp.contentDocument.body;
+          const out = { toggle: vis(g("attachmentToggle")), icon: vis(g("attachmentIcon")),
+            count: { size: cs(g("attachmentCount")).fontSize, color: cs(g("attachmentCount")).color, text: cs(doc.getElementById("messageHeader")).color },
+            save: save && { bg: cs(save).backgroundColor, color: text && cs(text).color, accent, size: text && cs(text).fontSize,
+                            gap: text && drop && vis(drop) ? Math.round(drop.getBoundingClientRect().left - text.getBoundingClientRect().right) : null,
+                            dropBorder: drop && cs(drop).borderInlineStartWidth },
+            gap: Math.round(view.getBoundingClientRect().top - (mp.getBoundingClientRect().top + body.getBoundingClientRect().bottom)),
+            paneH: Math.round(g("messagepanebox").getBoundingClientRect().height) };
+          // Menü über ⌄ erreichbar
+          if (drop && vis(drop)) { save.open = true; await wait(500); out.menu = save.querySelector("menupopup")?.state; save.querySelector("menupopup")?.hidePopup(); await wait(300); }
+          return out;""")
+        c, sv = res.get("count") or {}, res.get("save") or {}
+        ok = (res.get("toggle") is False and res.get("icon") is False and c.get("size") == "11px" and not same_color(c.get("color", ""), c.get("text", ""))
+              and sv.get("size") == "11px" and same_color(sv.get("color") or "", sv.get("accent") or "x") and sv.get("bg") in ("rgba(0, 0, 0, 0)", "transparent")
+              and sv.get("gap") is not None and sv["gap"] <= 6 and res.get("menu") in ("open", "showing")
+              and res.get("gap", 999) <= 40)
+        return ok, f"{res}"
+    check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als Textknopf in Akzentfarbe mit ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
+
+    def quick_reply_setting():
+        # Schnellantwort: Standard an, in den Einstellungen abschaltbar (wirkt sofort); nie bei eigenen Mails
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Kontakt");
+          const has = () => vis(md().getElementById("mcQuickReply"));
+          const out = { on: has() };
+          // „More …“ öffnet das normale Antwortfenster
+          const known = new Set(Services.wm.getEnumerator("msgcompose"));
+          md().querySelector("#mcQuickReply .mc-qr-more")?.click();
+          const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => !known.has(x) && x.document.readyState == "complete" && x.gMsgCompose), 10000);
+          if (cw) { await wait(1000); out.more = cw.document.getElementById("msgSubject")?.value; cw.close(); await wait(800); }
+          Services.prefs.setBoolPref("extensions.mailcards.quickReply", false); await wait(400);
+          out.off = has();
+          Services.prefs.clearUserPref("extensions.mailcards.quickReply"); await wait(400);
+          out.back = has();
+          // eigene Mail im Posteingang (Absender = eigene Identität): kein Feld
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          if (![...f.messages].some(h => h.messageId == "halo-kopf-eigen@example.invalid")) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(raw({ id: "halo-kopf-eigen", from: "Halo Test <halo@example.invalid>", to: "Anna Beispiel <anna@example.invalid>", subject: "Halo Eigene" }));
+            await wait(800);
+          }
+          await showMail("Halo Eigene"); out.own = has();
+          return out;""")
+        sections = open(os.path.join(ROOT, "extension", "options", "sections.js"), encoding="utf-8").read()
+        ok = (res.get("on") is True and res.get("off") is False and res.get("back") is True and res.get("own") is False
+              and (res.get("more") or "").startswith("Re:")
+              and 'key: "quickReply"' in sections)
+        return ok, f"{res}"
+    check("Schnellantwort: Standard an, „More …“ öffnet die Antwort, Schalter in den Einstellungen wirkt sofort, nie bei eigenen Mails", quick_reply_setting, results)
+
+    def conversation_cards():
+        # Konversation wie Apple Mail: ältere gelesene Mails eingeklappt (ohne geladene Mail, Klick klappt auf), Karte mit einem
+        # Anhang nicht abgeschnitten, eine Schnellantwort (neueste fremde Mail), Kapsel je Karte wirkt auf deren Mail,
+        # Löschen nur dieser Mail; „Neueste Nachricht oben“ abschaltbar
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await wait(500); }
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvKarten")) { root.createSubfolder("KonvKarten", null); await wait(800); }
+          const f = root.getChildNamed("KonvKarten");
+          const b = "----=_halo_konvkarte";
+          const mail = (from, subject, id, refs, minutesAgo, attach) => unescape(encodeURIComponent([`From: ${from}`, `To: Halo Test <halo@example.invalid>`, `Subject: ${subject}`,
+            `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []), "MIME-Version: 1.0",
+            ...(attach ? [`Content-Type: multipart/mixed; boundary="${b}"`, "", `--${b}`, "Content-Type: text/plain; charset=UTF-8", "", "Mit einem Anhang.",
+                          `--${b}`, 'Content-Type: text/plain; name="Plakat.txt"', 'Content-Disposition: attachment; filename="Plakat.txt"', "Content-Transfer-Encoding: base64", "",
+                          btoa("Erfundene Testdatei"), `--${b}--`, ""]
+                       : ["Content-Type: text/plain; charset=UTF-8", "", `Text von ${from.split(" ")[0]}.`, ""])].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Halo Karten", "halo-karte-1", null, 30));
+            lf.addMessage(mail("Halo Test <halo@example.invalid>", "Re: Halo Karten", "halo-karte-2", "halo-karte-1", 20, true));
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Re: Halo Karten", "halo-karte-3", "halo-karte-2", 10));
+            await wait(1000);
+          }
+          const hdrs = () => [...f.messages];
+          const byId = id => hdrs().find(h => h.messageId == `${id}@example.invalid`);
+          f.markMessagesRead([byId("halo-karte-1")], true);
+          f.markMessagesRead([byId("halo-karte-2"), byId("halo-karte-3")], false);
+          const a3 = await toMail(); a3.displayFolder(f.URI); await wait(900);
+          a3.gViewWrapper.showThreaded = true; await wait(500);
+          const select = id => { const i = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == `${id}@example.invalid`); a3.threadTree.selectedIndex = i ?? -1; };
+          const cardOf = (box, id) => box.querySelector(`.mc-conv-card[data-message-id="${id}@example.invalid"]`);
+          const open = async () => {
+            a3.threadTree.selectedIndex = -1; await wait(300);
+            select("halo-karte-3");
+            const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
+            if (!box) return null;
+            await until(() => [...box.querySelectorAll(".mc-conv-card:not(.mc-collapsed) .mc-conv-browser")].every(x => parseFloat(x.style.height) > 60), 8000);
+            await wait(1200);
+            return box;
+          };
+          const out = {};
+          let box = await open();
+          if (!box) return { box: false };
+          const cards = () => [...box.querySelectorAll(".mc-conv-card")];
+          const cdoc = c => c.querySelector(".mc-conv-browser")?.contentDocument;
+          out.order = cards().map(c => c.dataset.messageId.split("@")[0]);
+          out.collapsed = cards().map(c => c.classList.contains("mc-collapsed"));
+          const k1 = cardOf(box, "halo-karte-1");
+          out.summary = { browser: !!k1?.querySelector(".mc-conv-browser"), from: k1?.querySelector(".mc-conv-from")?.textContent, preview: k1?.querySelector(".mc-conv-preview")?.textContent };
+          // eine Schnellantwort, an der neuesten fremden Mail
+          out.reply = cards().filter(c => cdoc(c)?.getElementById("mcQuickReply")).map(c => c.dataset.messageId.split("@")[0]);
+          // Kapsel in jeder offenen Karte
+          out.capsules = cards().filter(c => cdoc(c)?.getElementById("mcHoverActions")).length;
+          // Karte mit einem Anhang: Dateizeile ganz in der Karte
+          const k2 = cardOf(box, "halo-karte-2"), b2 = k2?.querySelector(".mc-conv-browser"), d2 = cdoc(k2);
+          const item = d2?.querySelector("#attachmentList .attachmentItem");
+          const br = b2?.getBoundingClientRect();
+          out.attach = item ? { itemBottom: Math.round(br.top + item.getBoundingClientRect().bottom), cardBottom: Math.round(br.bottom), scroll: d2.documentElement.scrollHeight - d2.documentElement.clientHeight } : null;
+          // Antworten in der Karte der mittleren (eigenen) Mail: Verfassen-Fenster für genau diese Mail
+          const known = new Set(Services.wm.getEnumerator("msgcompose"));
+          d2?.querySelector("#mcHoverActions .mc-hover-reply")?.click();
+          const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => !known.has(x) && x.gMsgCompose), 8000);
+          if (cw) {
+            await wait(1200);
+            out.compose = { subject: cw.document.getElementById("msgSubject")?.value, refs: cw.gMsgCompose?.compFields?.references || "" };
+            cw.gMsgCompose?.compFields && (cw.gContentChanged = false);
+            cw.close(); await wait(600);
+          }
+          // aufklappen per Klick
+          k1?.querySelector(".mc-conv-summary")?.click();
+          out.expanded = !!(await until(() => k1?.querySelector(".mc-conv-browser") && parseFloat(k1.querySelector(".mc-conv-browser").style.height) > 60, 6000));
+          // Löschen in der Karte der ältesten Mail: nur diese Mail
+          await until(() => cdoc(k1)?.getElementById("mcHoverActions"), 4000);
+          const before = f.getTotalMessages(false);
+          cdoc(k1)?.querySelector("#mcHoverActions .mc-hover-delete")?.click(); await wait(1200);
+          out.deleted = { before, after: f.getTotalMessages(false), cards: box.isConnected ? cards().length : null,
+                          gone: !byId("halo-karte-1") };
+          // zurückholen (Rückgängig) für spätere Läufe
+          const txn = w.messenger?.transactionManager ?? MailServices.txns?.transactionManager;
+          try { w.messenger ? w.messenger.undo(w.msgWindow) : txn?.undoTransaction(); } catch {}
+          await wait(1200);
+          out.undone = f.getTotalMessages(false);
+          // älteste oben
+          Services.prefs.setBoolPref("extensions.mailcards.conversationNewestFirst", false);
+          box = await open();
+          out.oldestFirst = box ? [...box.querySelectorAll(".mc-conv-card")].map(c => c.dataset.messageId.split("@")[0]) : null;
+          Services.prefs.clearUserPref("extensions.mailcards.conversationNewestFirst");
+          a3.threadTree.selectedIndex = -1; await wait(300);
+          return out;""")
+        a, cp, dl = res.get("attach") or {}, res.get("compose") or {}, res.get("deleted") or {}
+        ok = (res.get("order") == ["halo-karte-3", "halo-karte-2", "halo-karte-1"] and res.get("collapsed") == [False, False, True]
+              and (res.get("summary") or {}).get("browser") is False and (res.get("summary") or {}).get("preview") is not None
+              and res.get("reply") == ["halo-karte-3"] and res.get("capsules") == 2
+              and a and a["itemBottom"] <= a["cardBottom"] and a["scroll"] <= 1
+              and (cp.get("subject") or "").startswith("Re:") and "halo-karte-2@" in cp.get("refs", "")
+              and res.get("expanded") and dl.get("after") == dl.get("before", 0) - 1 and dl.get("cards") == 2
+              and res.get("oldestFirst") == ["halo-karte-1", "halo-karte-2", "halo-karte-3"])
+        return ok, f"{res}"
+    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, eine Schnellantwort, Kapsel je Karte für deren Mail, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
 
 
 # Verfassen-Fenster und seine Dialoge: Test-Identität (example.invalid, kein Server), Fenster öffnen/schließen,

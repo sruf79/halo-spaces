@@ -1859,6 +1859,9 @@ def reading_checks(m, results):
           await until(() => cdoc(k1)?.getElementById("mcHoverActions") && cdoc(k1).defaultView.gMessage, 12000);
           await wait(500);
           const before = f.getTotalMessages(false);
+          // (Maus über der ladenden Karte wie unter Linux in der CI: Knöpfe danach nicht gesperrt)
+          cdoc(k1)?.documentElement.dispatchEvent(new (cdoc(k1).defaultView.MouseEvent)("mouseenter"));
+          out.delDisabled = cdoc(k1)?.querySelector("#mcHoverActions .mc-hover-delete")?.disabled;
           cdoc(k1)?.querySelector("#mcHoverActions .mc-hover-delete")?.click(); await wait(1200);
           out.deleted = { before, after: f.getTotalMessages(false), cards: box.isConnected ? cards().length : null,
                           gone: !byId("halo-karte-1") };

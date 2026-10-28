@@ -16347,7 +16347,8 @@ class CardEnhancer {
         let ok = true;
         try {
           if (card) {
-            const hdr = win.gMessage;
+            // (während die Karte lädt, gibt es gMessage noch nicht)
+            const hdr = win.gMessage || card.__mcHdr;
             ok = !!hdr?.folder && (b.dataset.command != "cmd_deleteMessage" || hdr.folder.canDeleteMessages);
           } else {
             ok = !!win.commandController?.isCommandEnabled(b.dataset.command);

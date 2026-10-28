@@ -94,10 +94,11 @@ Das betrifft das echte Profil des Nutzers – nur auf ausdrücklichen Wunsch.
 
 Ein Mac mini übernimmt die Tests rund um die Uhr (Anleitung: `tests/MAC-MINI.md`):
 eigener Benutzer `neosky.cat` (Administrator) ohne echte Mails mit automatischer Anmeldung, erreichbar
-nur über Tailscale (keine Portfreigabe), Claude Code per SSH aus der Desktop-App.
+nur über Tailscale (keine Portfreigabe), Claude Code per SSH aus der Desktop-App
+und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 
 - `tests/mac-mini-setup.sh --check` prüft den Rechner (Ruhezustand, Thunderbird,
-  Python, gh, Bildschirm, Rechte, Anmeldung, Tailscale, SSH, Runner, Windows-VM) und ändert
+  Python, gh, Bildschirm, Rechte, Anmeldung, Tailscale, SSH, Runner, Remote Control, Windows-VM) und ändert
   nichts; ohne `--check` richtet es ein, was ohne Passwort geht, und macht einen
   Probelauf.
 - Marionette-Ports: 2839 Standard, 2845 CI-Jobs `mac` und `windows`, ab 2850 für Läufe von Hand
@@ -241,9 +242,24 @@ gh workflow run add-task.yml -R sruf79/halo-spaces \
 gh run list -R sruf79/halo-spaces -w add-task.yml -L 1   # Lauf erfolgreich?
 ```
 
-Lesen und Status ändern gehen in Cloud-Sessions nicht; das erledigt der
-Maintainer im Board. Das Repo ist öffentlich: Der Workflow schreibt Titel
+Lesen und Status ändern gehen in Cloud-Sessions nicht direkt – dafür die
+Sitzung auf neon beauftragen (unten), dort geht `gh project …`; sonst erledigt
+es der Maintainer im Board. Das Repo ist öffentlich: Der Workflow schreibt Titel
 und Text bewusst nicht ins Log – das beim Ändern beibehalten.
+
+**neon aus der Cloud steuern:** Cloud-Sessions erreichen neon nicht per SSH
+(kein Tailscale im Container), sondern über die Remote-Control-Sitzung, die
+dort als LaunchAgent dauerhaft läuft (`tests/MAC-MINI.md` Abschnitt 12).
+`ListAgents` zeigt sie (Name `neon`), `SendMessage` an `neon` übergibt eine
+Aufgabe; die Antwort kommt als eigene Nachricht zurück. Alles, was den Mac
+braucht – Testläufe (hell/dunkel, Beta, `--vm`), Screenshots, `gh project …`,
+Board-Status –, so an neon geben und deren Ergebnis weitergeben, nie
+selbst Ergebnisse erfinden. Auftrag vollständig formulieren (Zweig bzw.
+Commit, Befehl, Port ab 2850, was zurückgemeldet werden soll); die Regeln
+aus „Testrechner“ gelten dort unverändert. Fehlt neon in `ListAgents`, das
+dem Maintainer kurz sagen (LaunchAgent prüfen: `tests/mac-mini-setup.sh
+--check`) und ohne neon weiterarbeiten. Verlangt der Zugriff eine
+Bestätigung, fragt die Claude-App den Maintainer selbst.
 
 ## GitHub-Issues und Pull Requests von Nutzern
 

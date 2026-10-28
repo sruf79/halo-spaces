@@ -432,6 +432,81 @@ pruefe_runner() {
   fi
 }
 
+# Remote Control (tests/MAC-MINI.md Abschnitt 12): LaunchAgent hält
+# „claude remote-control“ im Checkout offen, damit Cloud-Sitzungen und die
+# Claude-App den Rechner steuern können, ohne ihn von außen erreichbar zu machen
+RC_LABEL=at.halo-spaces.remote-control
+RC_ZIEL=$HOME/.config/halo-spaces/remote-control.sh   # außerhalb des Checkouts, wie der Runner-Wächter
+RC_PLIST=$HOME/Library/LaunchAgents/$RC_LABEL.plist
+RC_LOG=$HOME/Library/Logs/halo-remote-control.log
+rc_plist() {
+  cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$RC_LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>$RC_ZIEL</string><string>$ROOT</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>$RC_LOG</string>
+  <key>StandardErrorPath</key><string>$RC_LOG</string>
+</dict>
+</plist>
+EOF
+}
+pruefe_remote_control() {
+  local quelle=$ROOT/tests/mac-remote-control.sh claude c dom=gui/$(id -u)
+  claude=${commands[claude]}
+  for c in ~/.local/bin/claude /opt/homebrew/bin/claude /usr/local/bin/claude; do
+    [[ -z $claude && -x $c ]] && claude=$c
+  done
+  if [[ -z $claude ]]; then
+    hinweis "Remote Control" "claude nicht installiert (nur für die Steuerung aus Cloud-Sitzungen nötig)"
+    tun "curl -fsSL https://claude.ai/install.sh | bash, dann im Repo claude starten und anmelden (Abschnitt 12)"
+    return
+  fi
+  # ohne Terminal kann remote-control nicht fragen, ob dem Ordner vertraut wird
+  if ! python3 - "$ROOT" <<'EOF' >/dev/null 2>&1
+import json, os, sys
+d = json.load(open(os.path.expanduser("~/.claude.json")))
+sys.exit(0 if d.get("projects", {}).get(sys.argv[1], {}).get("hasTrustDialogAccepted") else 1)
+EOF
+  then
+    hinweis "Remote Control" "$ROOT ist in Claude Code vermutlich noch nicht freigegeben"
+    tun "cd $ROOT && claude   (anmelden, „Trust this folder“ bestätigen, /exit)"
+  fi
+  if cmp -s $quelle $RC_ZIEL && [[ $(rc_plist) == "$(cat $RC_PLIST 2>/dev/null)" ]]; then
+    :
+  elif (( CHECK )); then
+    offen "Remote Control" "LaunchAgent fehlt oder ist veraltet – Cloud-Sitzungen erreichen den Rechner nicht"
+    tun "tests/mac-mini-setup.sh ohne --check ausführen"
+    return
+  elif mkdir -p ${RC_ZIEL:h} ${RC_PLIST:h} ${RC_LOG:h} && cp $quelle $RC_ZIEL && chmod 755 $RC_ZIEL &&
+       rc_plist > $RC_PLIST; then
+    launchctl bootout $dom/$RC_LABEL 2>/dev/null
+    if ! launchctl bootstrap $dom $RC_PLIST 2>/dev/null; then
+      offen "Remote Control" "LaunchAgent eingerichtet, ließ sich aber nicht starten"
+      tun "in der Bildschirmsitzung von $ME: launchctl bootstrap $dom $RC_PLIST"
+      return
+    fi
+    sleep 5
+  else
+    offen "Remote Control" "LaunchAgent ließ sich nicht einrichten"
+    return
+  fi
+  if launchctl print $dom/$RC_LABEL 2>/dev/null | grep -q 'state = running'; then
+    ok "Remote Control" "läuft als LaunchAgent in $ROOT ($RC_LOG)"
+  else
+    offen "Remote Control" "LaunchAgent eingerichtet, claude läuft aber nicht"
+    [[ -s $RC_LOG ]] && tail -3 $RC_LOG | sed 's/^/           /'
+    tun "Protokoll: $RC_LOG; neu starten: launchctl kickstart -k $dom/$RC_LABEL"
+  fi
+}
+
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über
 # tests/win-vm-setup.ps1 per prlctl exec. Mit --check wird eine pausierte VM nicht geweckt.
 VM=${HALO_VM:-Windows 11}
@@ -589,6 +664,7 @@ pruefe_anmeldung
 pruefe_tailscale
 pruefe_ssh
 pruefe_runner
+pruefe_remote_control
 pruefe_vm
 if (( PROBE )); then
   probelauf

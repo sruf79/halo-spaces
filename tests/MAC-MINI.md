@@ -28,6 +28,7 @@ Im Folgenden heißt der Testbenutzer `halotest` und der Mini in Tailscale
 | Zugriff | SSH über Tailscale, Claude Code aus der Desktop-App | Arbeiten am Mini ohne Bildschirm |
 | CI (optional) | GitHub-Runner als LaunchAgent im Testbenutzer | Tests unter macOS bei jedem Push auf `main` |
 | Windows (optional) | Parallels-VM mit Windows 11, Test per `halo_test.py --vm` | Windows-Abweichungen sehen, ohne zweiten Rechner |
+| Cloud (optional) | `claude remote-control` als LaunchAgent | Cloud-Sitzungen und die Claude-App steuern den Mini, ohne dass er von außen erreichbar ist |
 
 ## 1. Verwalteter Mac?
 
@@ -409,3 +410,39 @@ python3 tests/halo_test.py --vm --beta --port 2851                          # Th
 - Windows-Abweichungen werden wie die Linux-Abweichungen behandelt: in der VM
   ist `sys.platform` `win32`, Prüfungen mit `sys.platform != "darwin"` gelten
   dort genauso.
+
+## 12. Steuerung aus Cloud-Sitzungen (Remote Control)
+
+Cloud-Sitzungen (claude.ai/code, Claude-App) laufen in einem Container ohne
+Tailscale und erreichen den Mini nicht per SSH. Stattdessen hält ein
+LaunchAgent auf dem Mini `claude remote-control` im Checkout offen. claude
+verbindet sich dabei selbst nach außen – am Mini wird kein Port geöffnet,
+Tailscale und SSH bleiben, wie sie sind.
+
+Einmalig im Testbenutzer (per SSH oder am Bildschirm):
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash   # falls claude noch fehlt (landet in ~/.local/bin)
+cd ~/halo-spaces && claude                       # mit dem Claude-Konto anmelden, „Trust this folder“, /exit
+tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein und startet ihn
+```
+
+- LaunchAgent `at.halo-spaces.remote-control`, Skript nach
+  `~/.config/halo-spaces/remote-control.sh` kopiert (wie der Runner-Wächter
+  nicht aus dem Checkout), Protokoll `~/Library/Logs/halo-remote-control.log`.
+  Startet mit der automatischen Anmeldung und nach einem Absturz neu
+  (höchstens einmal pro Minute).
+- Die Sitzungen heißen `neon` (`HALO_RC_NAME` ändert das) und erscheinen in
+  der Claude-App unter Claude Code. Rückfragen zu Rechten zeigt die App.
+  Rechte-Modus: der von Claude Code auf dem Mini, mit `HALO_RC_MODUS` (z. B.
+  `acceptEdits`) im Skript fest einstellbar.
+- Aus einer Cloud-Sitzung: `ListAgents` zeigt die Sitzung auf dem Mini,
+  `SendMessage` an `neon` gibt ihr eine Aufgabe. Beim ersten Mal fragt die
+  Claude-App einmalig, ob Cloud-Sitzungen die eigenen Rechner erreichen
+  dürfen – nur auf einem vertrauenswürdigen Gerät bestätigen.
+- Die Sitzung auf dem Mini arbeitet im Checkout `~/halo-spaces` mit allem,
+  was der Mini hat (Thunderbird, Tests, Windows-VM, `gh project …`). Die
+  Regeln für Testläufe (Abschnitt 7) gelten auch für sie.
+- Neu starten: `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.remote-control`;
+  abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.remote-control`
+  und die plist in `~/Library/LaunchAgents/` löschen.

@@ -1760,12 +1760,15 @@ def reading_checks(m, results):
           out.back = has();
           // eigene Mail im Posteingang (Absender = eigene Identität): kein Feld
           const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
-          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          let added = null;
+          if (!MailServices.accounts.allIdentities.some(i => i.email == "halo@example.invalid")) {
+            added = MailServices.accounts.createIdentity(); added.fullName = "Halo Test"; added.email = "halo@example.invalid"; acc.addIdentity(added); }
           if (![...f.messages].some(h => h.messageId == "halo-kopf-eigen@example.invalid")) {
             f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(raw({ id: "halo-kopf-eigen", from: "Halo Test <halo@example.invalid>", to: "Anna Beispiel <anna@example.invalid>", subject: "Halo Eigene" }));
             await wait(800);
           }
           await showMail("Halo Eigene"); out.own = has();
+          if (added) acc.removeIdentity(added);
           return out;""")
         sections = open(os.path.join(ROOT, "extension", "options", "sections.js"), encoding="utf-8").read()
         ok = (res.get("on") is True and res.get("off") is False and res.get("back") is True and res.get("own") is False

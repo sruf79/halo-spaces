@@ -49,21 +49,16 @@ Features
 
 All screenshots show made-up test data.
 
-3.7.0 Release Notes
+3.8.0 Release Notes
 --------
-- **Undo Send**: after sending, the compose window disappears and "Undo Send" waits at the bottom for 10 seconds (Settings → halo.spaces: off, 10, 20 or 30 s). One click brings the message back
-- **Send Later**: a small arrow next to the Send button: tonight at 9 PM, tomorrow at 8 AM or a time of your choice. The message waits in Drafts and goes out on time while Thunderbird is running
-- **Remind Me**: right-click a message → Remind Me (in an hour, tonight, tomorrow, next week). It moves to a "Remind Me" mailbox and comes back unread at that time, with a notification
-- **Follow Up**: when a message you sent got no reply after 3 days, a quiet note above the Inbox offers to follow up
-- **Quick Reply**: a reply field right below the message. Type, press ⌘↩ (Ctrl+↩) and it is sent; "More …" opens the full reply window with your text
-- **Tasks like Mail**: tasks show as cards like mail cards (two lines, rounded, selection in the accent colour); filter and "…" sit above the list exactly where they are in Mail; Category, Mark Completed, Priority and Delete are icon buttons in the toolbar
-- **Fifth space**: Chat's place in the spaces bar can instead hold the space of another add-on, a website that opens like an app (no address bar, other links open in your browser) or nothing. Only one of them, so the buttons keep their size. Settings → halo.spaces → Spaces, and asked once on first start
-- **Simpler welcome and settings**: the welcome asks just yes or no for weather and Chat, details slide in only when needed (the city field suggests places as you type); Settings show only what matters, with details behind ⓘ and Troubleshooting folded away
-- **Today pane everywhere** but in the calendar (mail, tasks, contacts, chat and settings) with the same header and the + button, shown after installing. Optional: the sun next to its title shows the current weather (Open-Meteo, a city or your location; off by default)
-- **Dark mode**: new setting "Dark backgrounds for messages" for Thunderbird's own recolouring of HTML mail; wide newsletters are scaled down to the reading width instead of being cut off; printed messages get a calm, simple header
-- **Motion**: cards slide away when archived or deleted, new mail slides in, unread counts pop, calendar views fade in. All off with the system's "Reduce motion"
-- **Accessibility**: right-to-left languages lay out the toolbar row mirrored; Windows high contrast uses the system colours
-- **Fixes**: event windows no longer jump after opening; week and day view show the same coloured bar as the month view; sidebars no longer stutter at the end of their animation; "for 2h" across the clock change lasts 120 minutes again; background sending no longer leaves mail in the Outbox; Settings search finds halo.spaces options; a link to Thunderbird's keyboard shortcuts in Settings → General; "Invite Attendees" without hard lines; calendar checkboxes stay visible with light calendar colours (unchecked: an empty box); a message in its own window shows its buttons in one row above the sender, in the same capsules as the toolbar
+- **Stars like flags**: starred messages show one calm star colour in the list (white in the selected row) and a small star under the time in the message header
+- **Starred mailbox**: "Starred" appears under Favourites as soon as any message in any account has a star, and disappears again when none is left
+- **Sort by, simplified**: nine sort options (Attachments, Date, Star, From, Size, Subject, To, Read, Tags) and plain words for the order, such as "Newest Message on Top", "Starred First" or "A to Z"
+- **Conversations**: older read messages are folded into one line (click to open), each message has its own Delete, Reply, Reply All and Forward on hover, only one quick reply field at the newest message from someone else, and a new setting "Show most recent message at the top"
+- **Attachments**: the line above the files is a quiet heading with "Save All" as a text button; in short messages the files sit right below the text instead of at the bottom of the window
+- **Quick Reply** can be turned off in Settings → halo.spaces → Mail, and never shows for your own messages
+- **Fixes**: a conversation card with one attachment no longer cuts off the file; "More …" in the quick reply opens the reply window again; buttons of other add-ons (e.g. translation) stay in the message header; several Windows fixes (thanks to ahXN00); event descriptions are readable in dark mode
+- Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.
 

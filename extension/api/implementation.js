@@ -14003,13 +14003,21 @@ class CardEnhancer {
         ? Math.ceil([...body.children].filter(e => !e.hidden).reduce((h, e) => Math.max(h, e.getBoundingClientRect().bottom), 0) + parseFloat(style.paddingBottom))
         : doc.documentElement.scrollHeight;
       const extra = need - hw.innerHeight;
-      if (extra > 0 || api.welcome) {
-        hw.resizeBy(0, extra);
-      }
       // Windows mit 125/150 % Zoom: das Fenster landet auf ganzen Gerätepixeln
-      // und kann um Bruchteile zu niedrig sein – dann wäre es scrollbar
-      for (let i = 0; i < 3 && doc.documentElement.scrollHeight > hw.innerHeight; i++) {
-        hw.resizeBy(0, 1);
+      // und kann um Bruchteile zu niedrig sein – dann wäre es scrollbar.
+      // Erst nach der eigentlichen Größenänderung prüfen, sonst überschreibt
+      // das Nachbessern sie mit der alten Höhe
+      const settle = () => {
+        const short = doc.documentElement.scrollHeight - hw.innerHeight;
+        if (short > 0 && short <= 3) {
+          hw.resizeBy(0, short);
+        }
+      };
+      if (extra != 0 && (extra > 0 || api.welcome)) {
+        hw.addEventListener("resize", () => hw.setTimeout(settle, 0), { once: true });
+        hw.resizeBy(0, extra);
+      } else {
+        settle();
       }
     }
   }

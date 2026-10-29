@@ -7417,6 +7417,8 @@ addon-card .addon-inline-options {
    Schatten-DOM: extension/parts.css */
 :is(addon-options, addon-page-options) > panel-list {
   --panel-separator-color: var(--mt-separator) !important;
+  /* ESR 153 zeichnet den Trenner als Fläche in dieser Farbe */
+  --panel-list-border-color: var(--mt-separator) !important;
   --panel-separator-padding: 5px 9px !important;
   background-color: var(--mt-tooltip-bg) !important;
   border: none !important;

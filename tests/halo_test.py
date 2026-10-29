@@ -7913,7 +7913,7 @@ Neu
             const back = cs(pl).backgroundColor.match(/[\d.]+/g).map(Number);
             out.menus.push({ radius: cs(pl).borderTopLeftRadius, border: cs(pl).borderTopWidth, bg: cs(pl).backgroundColor == bg("var(--mt-tooltip-bg)"),
               blue: Math.abs(back[0] - back[2]) > 6, itemRadius: cs(ib).borderTopLeftRadius, itemH: Math.round(R(ib).height),
-              hover: hover == bg("var(--mt-accent)"), hr: hr ? cs(hr).borderTopColor == fg("var(--mt-separator)") : null });
+              hover: hover == bg("var(--mt-accent)"), hr: hr ? (parseFloat(cs(hr).borderTopWidth) ? cs(hr).borderTopColor : cs(hr).backgroundColor) == fg("var(--mt-separator)") : null });
             pl.hide(); await wait(300);
           }
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID));

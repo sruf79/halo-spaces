@@ -9723,6 +9723,23 @@ Neu
         return ok, f"Seitenleiste rechts bei {right} {res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons als Kategorien, Seitenleiste bleibt gleich breit, Kontoseite linksbündig, Ausblenden zieht mit", pref_embedded_pages, results)
 
+    def pref_category_groups():
+        # Kategorien in drei Gruppen wie die Systemeinstellungen, nur durch Abstand getrennt: General … Calendar,
+        # Privacy … Export, Kontoeinstellungen … halo.spaces (Calendar steht bei Thunderbird sonst hinter Chat)
+        res = m.js(PREFS_OPEN_JS + r"""
+          const rows = [...pd.querySelectorAll("#categories > richlistitem.category")].filter(e => e.getBoundingClientRect().height > 0)
+            .map(e => { const r = e.getBoundingClientRect(); return [e.id, Math.round(r.top), Math.round(r.bottom)]; });
+          tm.closeTab(tm.currentTabInfo); await wait(400);
+          return rows;""")
+        ids = [r[0] for r in res]
+        want = ["category-general", "category-appearance", "category-compose", "category-calendar", "category-privacy",
+                "category-chat", "category-qrexport", "mcCat-paneMcAccounts", "mcCat-paneMcAddons", "mcCat-paneMcHalo"]
+        gaps = {res[i + 1][0]: res[i + 1][1] - res[i][2] for i in range(len(res) - 1)}
+        starts = {"category-privacy", "mcCat-paneMcAccounts"}
+        ok = (ids == want and all(g >= 12 if k in starts else g <= 6 for k, g in gaps.items()))
+        return ok, f"{ids} Abstände {gaps}"
+    check("Einstellungen: Kategorien in drei Gruppen mit Abstand wie die Systemeinstellungen, Calendar bei General", pref_category_groups, results)
+
     def pref_embedded_subnav():
         # keine zweite graue Leiste: Konten (mit Seiten des gewählten Kontos) bzw. Extensions/Themes … als eingerückte
         # Unterpunkte der Kategorie, nur bei gewählter Kategorie; Klick wählt in der Seite, „Konto hinzufügen“ öffnet das Menü

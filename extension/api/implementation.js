@@ -1646,6 +1646,15 @@ function hookPrefCategories(cw, restorers = null) {
   if (!added.length) {
     return;
   }
+  // Gruppen wie in den Systemeinstellungen (Abstände in spaces.css): Kalender
+  // zu den Alltagsthemen vor „Privacy & Security“
+  const calCat = doc.getElementById("category-calendar");
+  const privacyCat = doc.getElementById("category-privacy");
+  const calNext = calCat?.nextSibling;
+  if (calCat && privacyCat && calCat.parentNode == categories &&
+      privacyCat.compareDocumentPosition(calCat) & cw.Node.DOCUMENT_POSITION_FOLLOWING) {
+    categories.insertBefore(calCat, privacyCat);
+  }
   // Suche der Einstellungen: die halo.spaces-Seite liegt in einem eigenen
   // Browser, den Thunderbirds Suche nicht sieht – jede Option deshalb auch als
   // eigene, durchsuchbare Zeile (nur in den Suchergebnissen sichtbar, eigene
@@ -1780,6 +1789,9 @@ function hookPrefCategories(cw, restorers = null) {
     ro.disconnect();
     detach.forEach(f => f());
     const was = categories.selectedItem?.classList.contains("mc-embed-cat");
+    if (calCat?.parentNode == categories && calNext?.parentNode == categories) {
+      categories.insertBefore(calCat, calNext);
+    }
     added.forEach(el => el.remove());
     overlays.forEach(browserEl => browserEl.remove());
     if (footer) {

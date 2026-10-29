@@ -2836,9 +2836,12 @@ splitter.splitter:has(+ .conv-bottom) {
 #addonsButton .sidebar-footer-icon,
 #mcCat-paneMcAddons .category-icon { --tile: #FF2D78; }
 
-/* Kontoeinstellungen, Add-ons und halo.spaces als eigene Gruppe (Kategorien
-   setzt die Erweiterung) – wie die Gruppen in den Systemeinstellungen */
-#mcCat-paneMcAccounts {
+/* Gruppen wie in den Systemeinstellungen, nur durch Abstand getrennt:
+   General … Calendar (Kalender rückt die Erweiterung dorthin), dann Privacy,
+   Chat, Export und Kategorien anderer Add-ons, dann Kontoeinstellungen,
+   Add-ons und halo.spaces (Kategorien setzt die Erweiterung). Selektor so
+   genau wie der Zeilenabstand oben, sonst gilt dessen margin */
+#categories > richlistitem.category:is(#category-privacy, #mcCat-paneMcAccounts) {
   margin-top: 14px !important;
 }
 

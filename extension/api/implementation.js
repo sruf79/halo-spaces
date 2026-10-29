@@ -2508,9 +2508,10 @@ const SendLater = {
     const out = new Set();
     for (const id of MailServices.accounts.allIdentities) {
       try {
-        // ab Thunderbird 14x: getOrCreateDraftsFolderAsync (draftFolder gibt es nicht mehr)
+        // neuere Versionen: getOrCreateDraftsFolderAsync; ESR 153: draftsFolderURI
+        const uri = id.draftsFolderURI || id.draftFolder;
         const f = typeof id.getOrCreateDraftsFolderAsync == "function" ? await id.getOrCreateDraftsFolderAsync()
-          : id.draftFolder && MailServices.folderLookup.getFolderForURL(id.draftFolder);
+          : uri && (MailServices.folderLookup.getFolderForURL(uri) || MailServices.folderLookup.getOrCreateFolderForURL?.(uri));
         if (f) {
           out.add(f);
         }

@@ -4522,7 +4522,10 @@ def server_checks(m, results):
               out.menu = [...popup.querySelectorAll("menuitem")].map(i => i.getAttribute("label"));
               SL.schedule(cw, new Date(Date.now() + 3000));
               out.closed = !!(await until(() => cw.closed, 10000));
-              const drafts = await acc.defaultIdentity.getOrCreateDraftsFolderAsync();
+              // ESR 153 kennt getOrCreateDraftsFolderAsync noch nicht (wie SendLater.draftFolders)
+              const ident = acc.defaultIdentity;
+              const drafts = typeof ident.getOrCreateDraftsFolderAsync == "function" ? await ident.getOrCreateDraftsFolderAsync()
+                : MailServices.folderLookup.getFolderForURL(ident.draftsFolderURI) || acc.incomingServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Drafts);
               out.draftsFolder = drafts?.prettyName;
               await wait(500);
               let found = null;

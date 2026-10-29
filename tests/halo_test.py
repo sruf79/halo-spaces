@@ -1437,6 +1437,43 @@ def reading_checks(m, results):
         return ok and same_color(f["bg"], res["accent"]), f"{res}"
     check("Anhänge: Liste auf der Fläche der Mail, markierte Datei abgerundet ohne Rahmen (unfokussiert grau)", attachments, results)
 
+    def attachment_quicklook():
+        # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter
+        # macOS) mit dem gewählten Anhang – hier mit nachgestelltem Aufruf (das echte Fenster bliebe offen); ohne sie verborgen
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Anhänge"), mw = doc.defaultView;
+          mw.toggleAttachmentList?.(true, true); await wait(900);
+          const list = doc.getElementById("attachmentList"), popup = doc.getElementById("attachmentItemContext");
+          const item = doc.getElementById("mcContextQuickLook");
+          const out = { item: !!item, afterOpen: item?.previousElementSibling?.id, label: item?.getAttribute("label"),
+                        available: !!mw.gQuickLookManager?.isAvailable };
+          list.selectedIndex = 1; await wait(300);
+          let QL = null, orig = null; const calls = [];
+          if (out.available) {
+            ({ QuickLookManager: QL } = ChromeUtils.importESModule("resource:///modules/QuickLookManager.sys.mjs"));
+            orig = QL.toggle; QL.toggle = (atts, index) => { calls.push([atts.length, index, atts[index]?.name]); };
+          }
+          try {
+            const target = list.getItemAtIndex(1);
+            const r = target.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+            for (const [type, buttons] of [["mousedown", 2], ["contextmenu", 2], ["mouseup", 0]])
+              target.dispatchEvent(new mw.MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: mw, button: 2, buttons,
+                clientX: x, clientY: y, screenX: mw.mozInnerScreenX + x, screenY: mw.mozInnerScreenY + y }));
+            await until(() => popup.state == "open", 3000); await wait(300); out.state = popup.state;
+            out.shown = !!item && !item.hidden && item.getBoundingClientRect().height > 0;
+            if (out.shown) { popup.activateItem(item); await wait(500); }
+            if (popup.state == "open") { popup.hidePopup(); await wait(300); }
+          } finally { if (QL) QL.toggle = orig; }
+          out.calls = calls;
+          mw.toggleAttachmentList?.(false); return out;""")
+        ok = res["item"] and res["afterOpen"] == "context-openAttachment" and res["label"] == "Quick Look"
+        if res["available"]:
+            ok = ok and res["shown"] and res["calls"] == [[3, 1, "Ausflug-02.txt"]]
+        else:
+            ok = ok and not res["shown"]
+        return ok, f"{res}"
+    check("Anhänge: Kontextmenü mit „Quick Look“ unter „Öffnen“ (Thunderbirds Vorschau mit dem gewählten Anhang, ohne sie verborgen)", attachment_quicklook, results)
+
     def find_bar():
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Jetzt"); await narrow();

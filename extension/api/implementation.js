@@ -137,6 +137,7 @@ const DE = {
   "Unsubscribe from messages from {name}?": "Keine Nachrichten mehr von {name} erhalten?",
   "The sender will be told directly that you no longer want these messages.": "Der Absender erfährt direkt, dass du diese Nachrichten nicht mehr möchtest.",
   "Close": "Schließen",
+  "Quick Look": "Übersicht",
   "More name fields": "Weitere Namensfelder",
   "Fewer name fields": "Weniger Namensfelder",
   "More fields": "Weitere Felder",
@@ -437,6 +438,7 @@ const FR = {
   "Unsubscribe from messages from {name}?": "Ne plus recevoir de messages de {name} ?",
   "The sender will be told directly that you no longer want these messages.": "L’expéditeur sera informé directement que vous ne souhaitez plus recevoir ces messages.",
   "Close": "Fermer",
+  "Quick Look": "Coup d’œil",
   "More name fields": "Autres champs du nom",
   "Fewer name fields": "Moins de champs du nom",
   "More fields": "Autres champs",
@@ -738,6 +740,7 @@ const ES = {
   "Unsubscribe from messages from {name}?": "¿Dejar de recibir mensajes de {name}?",
   "The sender will be told directly that you no longer want these messages.": "Se informará directamente al remitente de que ya no quieres estos mensajes.",
   "Close": "Cerrar",
+  "Quick Look": "Vista rápida",
   "More name fields": "Más campos de nombre",
   "Fewer name fields": "Menos campos de nombre",
   "More fields": "Más campos",
@@ -1039,6 +1042,7 @@ const IT = {
   "Unsubscribe from messages from {name}?": "Non ricevere più messaggi da {name}?",
   "The sender will be told directly that you no longer want these messages.": "Il mittente verrà informato direttamente che non desideri più questi messaggi.",
   "Close": "Chiudi",
+  "Quick Look": "Visualizzazione rapida",
   "More name fields": "Altri campi del nome",
   "Fewer name fields": "Meno campi del nome",
   "More fields": "Altri campi",
@@ -16848,6 +16852,7 @@ class CardEnhancer {
     run();
     this.hookNotificationLayout(doc);
     this.hookHoverActions(doc);
+    this.hookAttachmentQuickLook(doc);
     this.addWinRestorer(win, () => {
       mo.disconnect();
       delete doc.__mcHdrAvatar;
@@ -16864,6 +16869,53 @@ class CardEnhancer {
         box.classList.remove("mc-hdr-avatar", "mc-has-img", "mc-small");
         delete box.dataset.mcFor;
       }
+    });
+  }
+
+  // Kontextmenü eines Anhangs: „Quick Look“ wie in Apple Mail. Die Vorschau
+  // selbst ist Thunderbirds eigene (ab 158, nur macOS: echtes Quick-Look-
+  // Fenster des Systems, auch per Leertaste in der Anhangsliste); ohne sie
+  // (ESR 153, Windows, Linux) bleibt der Eintrag verborgen
+  hookAttachmentQuickLook(doc) {
+    const win = doc.defaultView;
+    const popup = doc.getElementById("attachmentItemContext");
+    const open = doc.getElementById("context-openAttachment");
+    if (!win || !popup || !open || doc.getElementById("mcContextQuickLook")) {
+      return;
+    }
+    const item = doc.createXULElement("menuitem");
+    item.id = "mcContextQuickLook";
+    item.setAttribute("label", tr("Quick Look"));
+    open.after(item);
+    const available = () => {
+      try {
+        return !!win.gQuickLookManager?.isAvailable;
+      } catch {
+        return false;
+      }
+    };
+    const chosen = () => {
+      const list = doc.getElementById("attachmentList");
+      const first = (popup.attachments || [])[0];
+      const items = list ? [...list.querySelectorAll("richlistitem")] : [];
+      return { list, index: Math.max(0, items.findIndex(i => i.attachment == first)), first };
+    };
+    const onShowing = event => {
+      if (event.target != popup) {
+        return;
+      }
+      const { first } = chosen();
+      item.hidden = !available() || !first || first.isDeleted || !first.hasFile;
+    };
+    const onCommand = () => {
+      const { list, index } = chosen();
+      list?.dispatchEvent(new win.CustomEvent("quicklook", { bubbles: true, detail: { index } }));
+    };
+    popup.addEventListener("popupshowing", onShowing);
+    item.addEventListener("command", onCommand);
+    this.addWinRestorer(win, () => {
+      popup.removeEventListener("popupshowing", onShowing);
+      item.remove();
     });
   }
 

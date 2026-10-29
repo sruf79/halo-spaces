@@ -16,8 +16,8 @@ on:
 jobs:
   linux:
     runs-on: ubuntu-24.04
-    # ein Testlauf dauert gut 14 Minuten (über 180 Prüfungen) – mit Luft für langsame Läufer
-    timeout-minutes: 40
+    # ein Testlauf dauert gut 25 Minuten (über 270 Prüfungen) – mit Luft für langsame Läufer
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +38,7 @@ jobs:
           tb/thunderbird/thunderbird --version
 
       - name: Test
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: mkdir -p shots && xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird --shots shots --tb-log shots/thunderbird.log
 
       - name: Screenshots

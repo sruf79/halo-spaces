@@ -739,7 +739,7 @@ def maillist_checks(m, results):
           const heads = await until(() => { const h = cards().filter(r => props(r).includes("dummy")); return h.length >= 2 && h; }, 8000) || [];
           const out = heads.map(r => {
             const c = r.querySelector(".card-container").getBoundingClientRect();
-            const main = r.querySelector(".card-container > .thread-card-column:not(.read-status-column)");
+            const main = r.querySelector(".card-container > .thread-card-column:not(.read-status-column, :has(> .read-status))");
             const box = r.querySelector(".thread-card-subject-container"), sub = r.querySelector(".subject"), det = r.querySelector(".sort-header-details");
             return { title: sub.textContent, cut: box.scrollWidth > box.clientWidth + 1 || sub.getBoundingClientRect().right > box.getBoundingClientRect().right + 1,
                      main: Math.round(main.getBoundingClientRect().width / c.width * 100), avatar: cs(r.querySelector(".mc-avatar")).display,
@@ -979,7 +979,7 @@ def maillist_checks(m, results):
                                      const r = { checked: item?.hasAttribute("checked") && item.getAttribute("checked") != "false", disabled: !!item?.disabled };
                                      popup.hidePopup(); await wait(300); return r; };
           const look = () => { const r = cards().find(x => !props(x).includes("dummy")); if (!r) return null;
-            const av = r.querySelector(".mc-avatar"), box = r.querySelector(".card-container"), main = r.querySelector(".card-container > .thread-card-column:not(.read-status-column)");
+            const av = r.querySelector(".mc-avatar"), box = r.querySelector(".card-container"), main = r.querySelector(".card-container > .thread-card-column:not(.read-status-column, :has(> .read-status))");
             // senkrechte Mitte des Punkts (10 px) gegenüber der Absenderzeile
             const sr = r.querySelector(".sender")?.getBoundingClientRect(), bt = box.getBoundingClientRect().top;
             const dot = bt + parseFloat(cs(r.querySelector(".read-status")).top) + 5;
@@ -5604,7 +5604,8 @@ def run_checks(m, version, profile, results):
             const r = rs.getBoundingClientRect(), ar = av?.getBoundingClientRect();
             out[id] = { vis: cs.display != "none" && cs.visibility != "hidden" && r.width > 0, mask: /M10 6/.test(cs.maskImage) ? "reply" : /M14 6/.test(cs.maskImage) ? "forward" : cs.maskImage == "none" ? "none" : "?",
                         left: ar ? Math.round(ar.left - r.right) : null, mid: ar ? Math.round((r.top + r.height / 2) - (ar.top + ar.height / 2)) : null, bg: cs.backgroundColor,
-                        dateIcon: [...row.querySelectorAll("img.state")].some(e => e.getBoundingClientRect().width > 0) };
+                        dateIcon: [...row.querySelectorAll("img.state")].some(e => e.getBoundingClientRect().width > 0),
+                        dbg: [row.querySelector(".card-container"), av, rs, row.querySelector(".read-status-column"), row.querySelector(".card-container > .thread-card-column:not(.read-status-column, :has(> .read-status))"), row.querySelector(".sender")].map(e => { if (!e) return null; const q = e.getBoundingClientRect(); return [Math.round(q.left), Math.round(q.top), Math.round(q.width), Math.round(q.height)]; }) };
           }
           out.accent = a3.getComputedStyle(a3.document.documentElement).getPropertyValue("--mt-accent").trim();
           return out;""")

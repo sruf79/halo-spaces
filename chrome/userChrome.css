@@ -899,7 +899,8 @@ hr[is="pane-splitter"]::after {
   padding-inline-end: 8px !important;
 }
 
-#threadTree tr[is="thread-card"] .read-status-column {
+/* (ESR 153: die Spalte heißt noch nicht read-status-column) */
+#threadTree tr[is="thread-card"] :is(.read-status-column, .card-container > .thread-card-column:has(> .read-status)) {
   position: static !important;
   flex: 0 0 0px !important;
   inline-size: 0 !important;

@@ -5366,7 +5366,7 @@ const CSS = `
 }
 /* ohne Thunderbirds Innenabstand (nur bei normaler Dichte): das Mitteln
    übernimmt align-content, und das Bild sitzt bei jeder Dichte gleich zum Absender */
-#threadTree tr[is="thread-card"] .card-container > .thread-card-column:not(.read-status-column) {
+#threadTree tr[is="thread-card"] .card-container > .thread-card-column:not(.read-status-column, :has(> .read-status)) {
   align-self: start !important;
   padding-block: 0 !important;
 }

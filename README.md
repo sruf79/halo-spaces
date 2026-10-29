@@ -49,15 +49,18 @@ Features
 
 All screenshots show made-up test data.
 
-3.8.0 Release Notes
+3.9.0 Release Notes
 --------
-- **Stars like flags**: starred messages show one calm star colour in the list (white in the selected row) and a small star under the time in the message header
-- **Starred mailbox**: "Starred" appears under Favourites as soon as any message in any account has a star, and disappears again when none is left
-- **Sort by, simplified**: nine sort options (Attachments, Date, Star, From, Size, Subject, To, Read, Tags) and plain words for the order, such as "Newest Message on Top", "Starred First" or "A to Z"
-- **Conversations**: older read messages are folded into one line (click to open), each message has its own Delete, Reply, Reply All and Forward on hover, only one quick reply field at the newest message from someone else, and a new setting "Show most recent message at the top"
-- **Attachments**: the line above the files is a quiet heading with "Save All" as a text button; in short messages the files sit right below the text instead of at the bottom of the window
-- **Quick Reply** can be turned off in Settings → halo.spaces → Mail, and never shows for your own messages
-- **Fixes**: a conversation card with one attachment no longer cuts off the file; "More …" in the quick reply opens the reply window again; buttons of other add-ons (e.g. translation) stay in the message header; several Windows fixes (thanks to ahXN00); event descriptions are readable in dark mode
+- **Filter menu**: right-click or hold the filter button above the message list to filter by Unread, Starred, Only from Contacts or Only Mail with Attachments; "Filtered by: …" appears under the mailbox name
+- **Reorder spaces**: drag a space up or down in the spaces bar; the others move out of the way, and the order also applies to the spaces menu (reset in Settings → halo.spaces → Spaces)
+- **New event window**: no colour bar any more; the calendar colour sits as a small swatch next to the title and opens the calendar choice; details are calm rows with fine lines, location and notes appear only when you click them
+- **Encryption**: the lock in the compose window clearly shows when encryption is on, the key expiry notice is a quiet grey bar, and encrypted or signed messages show a calm lock and seal in the message header
+- **Chat**: participants with coloured initials, a calmer right sidebar and a proper text field for writing
+- **Message list**: paperclip and star sit flush with the time at the right edge of a card
+- **Quick Reply** looks like a text field instead of a button
+- **Toolbar**: "Restore Defaults" in Customize brings back the halo.spaces layout
+- **Search messages** (Thunderbird 160): the result list matches the rest of the design
+- **Thunderbird ESR 153**: Send Later finds the drafts folder again, Choose… in the contact photo window opens the file picker, and several small layout differences are fixed
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

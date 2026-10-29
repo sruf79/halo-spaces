@@ -1073,6 +1073,13 @@ SURFACES = [
     S("kal-schnellfenster", "kalender", "popup", "Kalender: Schnellfenster „Neuer Termin“",
       'await toCalendar(); w.switchCalendarView("week"); await wait(800); const li = toolbarItem("new-event"); if (!li) throw new Error("„+“ fehlt");'
       ' return await pop("mcQuickPanel", () => li.querySelector("button").click());', cap="popup"),
+    # Bild für README und Store (screenshots/quick-event.png, store/shot-quick-event.png): erfundenes Beispiel
+    S("kal-schnellfenster-beispiel", "kalender", "popup", "Schnellfenster mit Beispiel (Team Lunch, Café Central, wöchentlich, Erinnerung)",
+      'await toCalendar(); w.switchCalendarView("week"); await wait(800); const li = toolbarItem("new-event"); if (!li) throw new Error("„+“ fehlt");'
+      ' await pop("mcQuickPanel", () => li.querySelector("button").click()); const p = d.getElementById("mcQuickPanel"), f = p.__mc;'
+      ' f.title.value = "Team Lunch"; f.location.value = "Café Central";'
+      ' f.repeat.value = "WEEKLY"; f.repeat.dispatchEvent(new Event("change")); f.alert.value = "PT15M"; f.alert.dispatchEvent(new Event("change"));'
+      ' f.title.blur(); await wait(500); w.__tourPopup = p; return p;', cap="popup"),
     # Schnellfenster: Popups der HTML-Felder (Datum, Auswahlliste) und das eigene Kalendermenü von halo.spaces
     S("kal-schnellfenster-datum", "kalender", "popup", "Schnellfenster: Datumsauswahl (Datumsfeld „Beginn“)",
       'const f = await quickPanel(); return await pop("DateTimePickerPanel", () => { d.notifyUserGestureActivation(); f.startDate.showPicker(); });', cap="popup",

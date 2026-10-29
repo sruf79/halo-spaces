@@ -4667,6 +4667,16 @@ def server_checks(m, results):
               const texts = () => [...(cb?.contentDocument?.querySelectorAll(".message, .msg") || [])].map(e => e.textContent);
               const got = await until(() => texts().some(t => t.includes("Hallo aus dem Testchat")), 10000);
               const out = { shown: !!got, own: texts().some(t => t.includes("Hallo zurück")) };
+              // halo-Stil: Seitenleiste rechts im Seitenleisten-Grau, Teilnehmer mit Kreis und Anfangsbuchstaben,
+              // Eingabefeld als Textfeld (kleiner Radius, sichtbarer Rand) statt Thunderbirds schlichter Fläche
+              const cs = (e, p) => w.getComputedStyle(e, p);
+              const side = d.getElementById("contextPane"), probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
+              probe.style.backgroundColor = "var(--mt-sidebar)"; d.documentElement.append(probe); const sideWant = cs(probe).backgroundColor; probe.remove();
+              const nicks = [...d.querySelectorAll("#nicklist > richlistitem")].filter(i => i.getBoundingClientRect().width);
+              const box = [...d.querySelectorAll(".conv-textbox")].find(e => e.getBoundingClientRect().width);
+              out.look = { side: side && cs(side).backgroundColor == sideWant, nicks: nicks.length,
+                           circles: nicks.filter(i => i.dataset.mcInitial && parseFloat(cs(i, "::before").width) == 22 && cs(i, "::before").borderTopLeftRadius != "0px").length,
+                           box: box && { radius: parseFloat(cs(box).borderTopLeftRadius), border: parseFloat(cs(box).borderTopWidth) } };
               const acc = IMServices.accounts.getAccountById(w.__mcChatAcc); delete w.__mcChatAcc;
               try { acc.disconnect(); await wait(500); IMServices.accounts.deleteAccount(acc.id); } catch {}
               await toMail();
@@ -4675,8 +4685,11 @@ def server_checks(m, results):
             it = res.get("item") or {}
             ok = (res.get("connected") and it and it.get("bg") not in ("", "transparent", "rgba(0, 0, 0, 0)")
                   and res2.get("shown") and res2.get("own") and ("#halo", "Hallo zurück") in servers.irc.said)
+            lk = res2.get("look") or {}
+            ok = (ok and lk.get("side") and lk.get("nicks", 0) >= 1 and lk.get("circles") == lk.get("nicks")
+                  and (lk.get("box") or {}).get("radius", 99) <= 8 and (lk.get("box") or {}).get("border", 0) > 0)
             return ok, f"{res} {res2} IRC: {servers.irc.log[:8]}"
-        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt, Nachrichten hin und zurück", chat_irc, results)
+        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt, Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
 
         def wrong_password():
             # Server lehnt die Anmeldung ab → Thunderbirds Nachfrage erscheint als Kachel im Fenster (wie ein macOS-Sheet)

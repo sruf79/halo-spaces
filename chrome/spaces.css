@@ -2556,6 +2556,147 @@ search-bar {
   font-weight: 600 !important;
 }
 
+/* Seitenleiste rechts (Raum und Thema, Teilnehmer, frühere Unterhaltungen)
+   wie die Seitenleisten in Mail und Adressbuch: Seitenleisten-Grau,
+   Überschriften klein und grau, Haarlinien statt harter Linien */
+#contextPane {
+  background: var(--mt-sidebar) !important;
+  border-inline-start: 1px solid var(--mt-sidebar-border) !important;
+  color: var(--mt-text) !important;
+}
+
+#contextPane #conv-top-info {
+  background: transparent !important;
+  border: none !important;
+  border-block-end: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
+#contextPane :is(.conv-nicklist-header, .conv-logs-header-label) {
+  appearance: none !important;
+  margin: 0 !important;
+  padding: 14px 16px 4px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--mt-text-tertiary) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+#contextPane #participantCount {
+  color: var(--mt-text-tertiary) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+#contextPane #nicklist {
+  appearance: none !important;
+  padding: 0 8px !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Teilnehmer mit Kreis und Anfangsbuchstaben in Thunderbirds Farbe des
+   Namens (Textfarbe der Zeile; data-mc-initial setzt die Erweiterung), Name
+   in Textfarbe, ohne den leeren Platz des Rollen-Symbols */
+#nicklist > richlistitem {
+  min-height: 30px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 6px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+}
+
+#nicklist > richlistitem[data-mc-initial]::before {
+  content: attr(data-mc-initial) !important;
+  flex: none !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 999px !important;
+  background: currentColor !important;
+  -webkit-text-fill-color: #fff !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 22px !important;
+  text-align: center !important;
+}
+
+#nicklist > richlistitem .conv-nicklist-image:not([src]) {
+  display: none !important;
+}
+
+#nicklist > richlistitem .conv-nicklist-label {
+  margin: 0 !important;
+  color: var(--mt-text) !important;
+  font-weight: 400 !important;
+}
+
+#nicklist > richlistitem[inactive]::before {
+  opacity: 0.45 !important;
+}
+
+#nicklist > richlistitem[inactive] .conv-nicklist-label {
+  color: var(--mt-text-tertiary) !important;
+}
+
+#nicklist > richlistitem[selected] {
+  background: var(--mt-selected-unfocused) !important;
+}
+
+#nicklist:focus > richlistitem[selected] {
+  background: var(--mt-accent) !important;
+}
+
+#nicklist:focus > richlistitem[selected] .conv-nicklist-label {
+  color: var(--mt-accent-text) !important;
+}
+
+#contextPane #logsSplitter {
+  appearance: none !important;
+  min-height: 0 !important;
+  height: 1px !important;
+  border: none !important;
+  background: var(--mt-pane-line) !important;
+}
+
+#contextPane #logTree {
+  appearance: none !important;
+  margin: 0 8px !important;
+  border: none !important;
+  background: transparent !important;
+  font-size: 13px !important;
+}
+
+/* Eingabefeld unten wie die Schnellantwort unter der Mail: Textfeld mit
+   kleinem Radius und Haarlinie, darüber eine Haarlinie statt des Teilers */
+splitter.splitter:has(+ .conv-bottom) {
+  appearance: none !important;
+  min-height: 0 !important;
+  height: 1px !important;
+  border: none !important;
+  background: var(--mt-pane-line) !important;
+}
+
+.conv-bottom {
+  padding: 10px 16px 12px !important;
+  background: var(--mt-window) !important;
+}
+
+.conv-textbox {
+  padding: 6px 10px !important;
+  border: var(--mt-hairline) solid color-mix(in srgb, var(--mt-text) 18%, transparent) !important;
+  border-radius: 6px !important;
+  background: var(--mt-window) !important;
+  color: var(--mt-text) !important;
+  font: 13px/18px var(--mt-font) !important;
+}
+
+.conv-textbox:focus {
+  border-color: var(--mt-accent) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+}
+
 /* leerer Zustand: ruhig und mittig */
 .im-placeholder-screen {
   background: var(--mt-window) !important;

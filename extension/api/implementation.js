@@ -10618,6 +10618,40 @@ class CardEnhancer {
     // ungelesene Mails (setUnreadFilter); Thunderbirds Schnellfilter-Leiste
     // gibt es nicht mehr, ihre Menüeinträge (Ansicht → Symbolleisten,
     // App-Menü) entfallen.
+    // Chat: Teilnehmer mit Kreis und Anfangsbuchstaben wie die Kontakte in
+    // Apple Nachrichten; nur ein Merkmal an Thunderbirds Einträgen (den Aufbau
+    // der Liste braucht Thunderbird zum Einsortieren), den Kreis zeichnet CSS
+    // in Thunderbirds Farbe des Namens
+    const hookChatNicklist = () => {
+      const list = w.document.getElementById("nicklist");
+      if (!list || list.__mcNick) {
+        return;
+      }
+      list.__mcNick = true;
+      const mark = item => {
+        const label = item.querySelector?.(".conv-nicklist-label");
+        const name = (label?.getAttribute("value") || "").replace(/^[^\p{L}\p{N}]+/u, "");
+        if (!label || !name) {
+          return;
+        }
+        const initial = [...name][0].toUpperCase();
+        if (item.dataset.mcInitial != initial) {
+          item.dataset.mcInitial = initial;
+        }
+      };
+      const all = () => [...list.children].forEach(mark);
+      const mo = new w.MutationObserver(all);
+      mo.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ["value"] });
+      all();
+      this.restorers.push(() => {
+        mo.disconnect();
+        delete list.__mcNick;
+        for (const item of list.children) {
+          delete item.dataset.mcInitial;
+        }
+      });
+    };
+
     const hookListHeader = () => {
       const d = w.document;
       const row = d.getElementById("unifiedToolbarContainer");
@@ -11854,6 +11888,7 @@ class CardEnhancer {
       hookTodayToggle();
       hookSplitterReset(w.document);
       hookListHeader();
+      hookChatNicklist();
       this.updateListHeader(w);
       hookStarButton();
       this.updateStarButton(w);

@@ -7092,8 +7092,9 @@ Neu
           const after = { w: pd._cropRect.width, cx: pd._cropRect.x + pd._cropRect.width / 2, cy: pd._cropRect.y + pd._cropRect.height / 2 };
           out.zoomed = after.w < before.w * 0.5 && Math.abs(after.cx - before.cx) < 1 && Math.abs(after.cy - before.cy) < 1;
           out.rect = Math.round(Number(pd._dragRect.getAttribute("width"))) == Math.round(after.w);
-          let picked = false; const inp = pd._inputTarget, orig = inp.click; inp.click = () => { picked = true; };
-          choose?.click(); inp.click = orig; out.picked = picked;
+          // Dateiauswahl: ab 159 über die Datei-Eingabe, in ESR 153 über _showFilePicker – nur feststellen, dass sie aufginge
+          let picked = false; const target = pd._inputTarget || pd, key = pd._inputTarget ? "click" : "_showFilePicker", orig = target[key];
+          target[key] = () => { picked = true; }; choose?.click(); target[key] = orig; out.picked = picked;
           ad.getElementById("photoDialog").close(); await wait(300);
           tm.closeTab(tm.currentTabInfo); await wait(400);
           return out;""")
@@ -7689,8 +7690,9 @@ Neu
       ad.getElementById("photoButton").click();
       const dlg = await until(() => ad.getElementById("photoDialog")?.open && ad.getElementById("photoDialog"), 4000);
       const fi = ad.getElementById("dialogFileInput"), dt = ad.getElementById("photoDropTarget");
-      const lab = ad.querySelector('label[for="dialogFileInput"]');
-      out.photo = { open: !!dlg, bg: ab.getComputedStyle(fi).backgroundColor, border: ab.getComputedStyle(fi).borderTopWidth,
+      // (ESR 153: ohne Datei-Eingabe, der Hinweis steht als .label im Ablagefeld)
+      const lab = ad.querySelector('label[for="dialogFileInput"]') || dt?.querySelector(".label");
+      out.photo = { open: !!dlg, bg: fi ? ab.getComputedStyle(fi).backgroundColor : "transparent", border: fi ? ab.getComputedStyle(fi).borderTopWidth : "0px", esr: !fi,
         radius: ab.getComputedStyle(dt).borderTopLeftRadius, label: lab?.getClientRects().length,
         // Hinweis unter dem Symbol (nicht darüber), Knopfleiste ohne eigene Fläche
         below: Math.round(lab.getBoundingClientRect().top + parseFloat(ab.getComputedStyle(lab).paddingTop) - dt.getBoundingClientRect().top),

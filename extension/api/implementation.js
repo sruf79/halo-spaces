@@ -4652,7 +4652,8 @@ function hookPhotoDialog(cw, restorers = null) {
   choose.className = "button";
   choose.type = "button";
   choose.textContent = tr("Choose…");
-  choose.addEventListener("click", () => pd._inputTarget?.click());
+  // (ESR 153 hat noch keine Datei-Eingabe, dort öffnet _showFilePicker die Auswahl)
+  choose.addEventListener("click", () => (pd._inputTarget ? pd._inputTarget.click() : pd._showFilePicker?.()));
   const menu = dialog.querySelector(".dialog-menu-container");
   menu?.prepend(choose);
   const zoom = doc.createElementNS(X, "input");

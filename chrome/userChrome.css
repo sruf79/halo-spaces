@@ -8325,9 +8325,18 @@ addon-card .addon-inline-options {
   stroke: var(--mt-text-tertiary) !important;
 }
 
-#photoDropTarget > label {
+#photoDropTarget > :is(label, .label) {
   padding-top: 76px !important;
   color: var(--mt-text-secondary) !important;
+}
+
+/* ESR 153: Hinweis als .label statt <label>, Fläche dort fest 100 px hoch –
+   so hoch wie ab 159, damit Symbol und Hinweis untereinander passen */
+#photoDropTarget:has(> .label) {
+  block-size: auto !important;
+  min-block-size: 200px !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
 }
 
 /* Knopfleiste ohne eigene (dunkel blaugraue) Fläche */
@@ -12899,6 +12908,13 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   stroke: #fff !important;
   stroke-width: 2px !important;
   fill: transparent !important;
+}
+
+/* ESR 153: Bild als Block in #photoDialogInner, ohne Thunderbirds
+   negativen Rand unten (das Bild ragte sonst über den Regler darunter) */
+#photoDialogInner > svg:not([hidden]) {
+  display: block !important;
+  margin: -10px auto 0 !important;
 }
 
 #mcPhotoZoom {

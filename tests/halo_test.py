@@ -3134,6 +3134,53 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Bereiche-Leiste: „Anpassen…“ (öffnete nicht, sperrte das Ausblenden) entfernt, leere Leiste ohne leeres Menü", spaces_customize, results)
 
+    def spaces_reorder():
+        # Bereiche per Ziehen umsortieren (wie im Dock): Kalender zwei Plätze nach oben ziehen → neue Reihenfolge in der Leiste,
+        # im Bereiche-Menü und in den Streifen des Bereiche-Knopfs, gemerkt in extensions.mailcards.spacesOrder; die übrigen
+        # Knöpfe weichen während des Ziehens aus; ein Klick ohne Bewegung öffnet den Bereich weiter; Zurücksetzen = Pref leeren
+        res = m.js(FOLDER_JS + r"""
+          await toMail();
+          const ids = ["mailButton", "addressBookButton", "calendarButton", "tasksButton"];
+          const top = id => Math.round(d.getElementById(id).getBoundingClientRect().top);
+          const order = () => ids.slice().sort((a, b) => top(a) - top(b));
+          // Bereiche-Menü (bei ausgeblendeter Leiste): Reihenfolge der Einträge
+          const menuOrder = () => { const m = ["spacesPopupButtonMail", "spacesPopupButtonAddressBook", "spacesPopupButtonCalendar", "spacesPopupButtonTasks"];
+            return [...(d.getElementById("spacesButtonMenuPopup")?.children || [])].map(c => c.id).filter(id => m.includes(id)); };
+          const out = { before: order() };
+          const calBtn = d.getElementById("calendarButton"), r = calBtn.getBoundingClientRect();
+          const x = r.left + r.width / 2, y0 = r.top + r.height / 2, slot = top("calendarButton") - top("addressBookButton");
+          const ev = (type, y) => calBtn.dispatchEvent(new w.PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, button: 0, buttons: type == "pointerup" ? 0 : 1, clientX: x, clientY: y }));
+          try {
+            ev("pointerdown", y0);
+            for (let i = 1; i <= 10; i++) { ev("pointermove", y0 - (2 * slot + 4) * i / 10); await wait(20); }
+            await wait(250);
+            out.during = { dragging: calBtn.hasAttribute("mc-dragging"), mailShift: d.getElementById("mailButton").style.transform };
+            ev("pointerup", y0 - 2 * slot - 4); await wait(600);
+            out.after = order(); out.pref = Services.prefs.getStringPref("extensions.mailcards.spacesOrder", "");
+            out.menu = menuOrder(); out.icon = d.documentElement.hasAttribute("mc-spaces-order") && w.getComputedStyle(d.getElementById("mcSpacesToggle"), "::after").backgroundImage.includes("C47212");
+            // Klick ohne Bewegung: öffnet den Adressbuch-Bereich, Reihenfolge bleibt
+            const ab = d.getElementById("addressBookButton"), ar = ab.getBoundingClientRect();
+            ab.dispatchEvent(new w.PointerEvent("pointerdown", { bubbles: true, pointerId: 8, button: 0, buttons: 1, clientX: ar.left + 5, clientY: ar.top + 5 }));
+            ab.dispatchEvent(new w.PointerEvent("pointerup", { bubbles: true, pointerId: 8, button: 0, buttons: 0, clientX: ar.left + 5, clientY: ar.top + 5 }));
+            ab.click(); await wait(800);
+            out.clickOpens = tm.currentTabInfo.mode.name == "addressBookTab"; out.keep = order().join() == out.after.join();
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.spacesOrder"); await wait(400);
+            out.reset = order(); out.menuReset = menuOrder(); out.resetIcon = d.documentElement.hasAttribute("mc-spaces-order");
+            await toMail();
+          }
+          return out;""")
+        ok = (res.get("before") == ["mailButton", "addressBookButton", "calendarButton", "tasksButton"]
+              and (res.get("during") or {}).get("dragging") and "translateY" in (res["during"].get("mailShift") or "")
+              and res.get("after") == ["calendarButton", "mailButton", "addressBookButton", "tasksButton"]
+              and res.get("pref", "").startswith("calendarButton,mailButton,addressBookButton,tasksButton")
+              and res.get("menu") == ["spacesPopupButtonCalendar", "spacesPopupButtonMail", "spacesPopupButtonAddressBook", "spacesPopupButtonTasks"]
+              and res.get("icon") and res.get("clickOpens") and res.get("keep")
+              and res.get("reset") == res.get("before") and res.get("resetIcon") is False
+              and res.get("menuReset") == ["spacesPopupButtonMail", "spacesPopupButtonAddressBook", "spacesPopupButtonCalendar", "spacesPopupButtonTasks"])
+        return ok, f"{res}"
+    check("Bereiche-Leiste: Reihenfolge per Ziehen ändern (andere weichen aus), gilt auch für Menü und Knopf-Symbol, Klick öffnet weiter, zurücksetzbar", spaces_reorder, results)
+
 
 # Kontextmenü der Mailliste per Rechtsklick auf die ausgewählte Testmail (nach MESSAGE_JS) öffnen;
 # dazu Farbhilfen (rgb()/color(srgb …) auf 0–255) und Kontrast nach WCAG
@@ -4005,8 +4052,8 @@ def calendar_checks(m, results):
                                  bars: [...qp.querySelectorAll(".mc-qc *")].filter(e => csOf(e, "::before").content != "none" && parseFloat(csOf(e, "::before").width) <= 5 && parseFloat(csOf(e, "::before").height) > 20).length };
             out.lines = [...qp.querySelectorAll(".mc-qc-list > .mc-qc-line")].filter(vis).slice(1).map(e => parseFloat(csOf(e).borderTopWidth));
             out.calRow = !!qp.querySelector(".mc-qc-calcard");
-            const n0 = f.notes.getBoundingClientRect().height; f.notes.focus(); await pause(400);
-            out.notes = [Math.round(n0), Math.round(f.notes.getBoundingClientRect().height)];
+            const n0 = f.notes.getBoundingClientRect().height; f.notes.focus(); f.notes.value = "Agenda"; await pause(400);
+            out.notes = [Math.round(n0), Math.round(f.notes.getBoundingClientRect().height)]; f.notes.value = "";
             sw.click(); const menu = await till(() => d.getElementById("mcQuickCalMenu")?.state == "open", 2000); out.menu = !!menu;
             d.getElementById("mcQuickCalMenu")?.hidePopup(); await pause(300);
             return out;
@@ -4320,7 +4367,9 @@ def server_checks(m, results):
               const btn = li?.querySelector("button");
               btn?.click();
               const found = await until(() => { for (let i = 0; i < (a3.gDBView?.rowCount || 0); i++) if (a3.gDBView.getMsgHdrAt(i).mime2DecodedSubject == "Nachzuegler") return true; return false; }, 15000);
-              return { button: !!btn, found, folder: a3.gFolder?.URI, rows: a3.gDBView?.rowCount };""")
+              const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+              return { button: !!btn, found, folder: a3.gFolder?.URI, rows: a3.gDBView?.rowCount, toolbar: btn ? null : getState().mail,
+                       items: btn ? null : [...d.querySelectorAll('#unifiedToolbarContent li')].map(l => l.getAttribute("item-id") + ":" + Math.round(l.getBoundingClientRect().width)) };""")
             return res["button"] and res["found"], f"{res} IMAP: {servers.imap.log[-8:]}"
         check("Testkonto: „Abrufen“ holt neue Mail vom Server", get_new, results)
 
@@ -9538,7 +9587,7 @@ Neu
                         "Preview lines in the message list", "Birthdays from the address book", "separate read-only calendar"];
           return { sections, missing: Object.entries(T).flatMap(([l, tab]) => used.filter(u => !(u in tab) && !["Mail", "Updates"].includes(u)).map(u => l + ":" + u)),
                    leftover: Object.entries(T).flatMap(([l, tab]) => gone.filter(k => k in tab).map(k => l + ":" + k)),
-                   unknown: sections.flatMap(([, keys]) => keys).filter(k => !(k in SETTINGS)), inTable: ["listWidth", "hideDuplicateContacts", "previewLines", "birthdays"].filter(k => k in SETTINGS),
+                   unknown: sections.flatMap(([, keys]) => keys).filter(k => !(k in SETTINGS) && k != "spacesOrderCustom"), inTable: ["listWidth", "hideDuplicateContacts", "previewLines", "birthdays"].filter(k => k in SETTINGS),
                    emoji: st.calendarEmoji, emojiStored: Services.prefs.prefHasUserValue("extensions.mailcards.calendarEmoji"),
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]

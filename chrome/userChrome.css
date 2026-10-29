@@ -2330,6 +2330,23 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   }
 }
 
+/* eigene Reihenfolge (per Ziehen, mc-spaces-order setzt die Erweiterung):
+   Streifen im Symbol des Bereiche-Knopfs in derselben Reihenfolge */
+:root[mc-spaces-order] #mcSpacesToggle::after {
+  background-image: var(--mc-spaces-icon) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[mc-spaces-order] #mcSpacesToggle::after {
+    background-image: var(--mc-spaces-icon-dark) !important;
+  }
+}
+
+/* beim Ziehen: grauer Umriss, über den übrigen Knöpfen */
+#spacesToolbar .spaces-toolbar-button[mc-dragging] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mt-text) 28%, transparent) !important;
+}
+
 #spacesToolbar .spaces-toolbar-button:hover {
   background-color: color-mix(in srgb, var(--c) 16%, transparent) !important;
 }

@@ -51,6 +51,8 @@ var SECTIONS = t => [
   // fünfter Platz der Bereichsleiste: Chat oder (bei Aus) Webseite, Erweiterung oder nichts
   [t("Spaces"), [
     { key: "showChat", type: "chat", label: t("Chat"), hint: t("In the spaces bar.") },
+    { key: "spacesOrderCustom", needs: "spacesOrderCustom", label: t("Own order of spaces"),
+      hint: t("Drag a space up or down in the bar. Off: original order.") },
     { key: "fifthSpace", type: "select", options: ["web", "addon", "none"], showIf: ["fifthSpace", "web", "addon", "none"],
       labels: { addon: t("Space of an add-on"), web: t("Website"), none: t("Nothing") },
       label: t("Instead"), hint: t("Only one of them, in the place of Chat.") },

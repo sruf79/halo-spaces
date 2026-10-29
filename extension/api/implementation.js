@@ -331,6 +331,8 @@ const DE = {
   "Unread": "Ungelesen",
   "Only from Contacts": "Nur von Kontakten",
   "Only Mail with Attachments": "Nur E-Mails mit Anhängen",
+  "Own order of spaces": "Eigene Reihenfolge der Bereiche",
+  "Drag a space up or down in the bar. Off: original order.": "Einen Bereich in der Leiste nach oben oder unten ziehen. Aus: ursprüngliche Reihenfolge.",
 };
 const FR = {
   "Install version {v}": "Installer la version {v}",
@@ -633,6 +635,8 @@ const FR = {
   "Unread": "Non lus",
   "Only from Contacts": "Uniquement des contacts",
   "Only Mail with Attachments": "Uniquement les messages avec pièces jointes",
+  "Own order of spaces": "Ordre personnalisé des espaces",
+  "Drag a space up or down in the bar. Off: original order.": "Faites glisser un espace vers le haut ou le bas dans la barre. Désactivé : ordre d’origine.",
 };
 const ES = {
   "Install version {v}": "Instalar la versión {v}",
@@ -935,6 +939,8 @@ const ES = {
   "Unread": "No leídos",
   "Only from Contacts": "Solo de contactos",
   "Only Mail with Attachments": "Solo mensajes con archivos adjuntos",
+  "Own order of spaces": "Orden propio de los espacios",
+  "Drag a space up or down in the bar. Off: original order.": "Arrastra un espacio hacia arriba o abajo en la barra. Desactivado: orden original.",
 };
 const IT = {
   "Install version {v}": "Installa la versione {v}",
@@ -1237,6 +1243,8 @@ const IT = {
   "Unread": "Non letti",
   "Only from Contacts": "Solo dai contatti",
   "Only Mail with Attachments": "Solo messaggi con allegati",
+  "Own order of spaces": "Ordine personale degli spazi",
+  "Drag a space up or down in the bar. Off: original order.": "Trascina uno spazio in alto o in basso nella barra. Disattivato: ordine originale.",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
 // tr("+{n} more", { n: 3 }) – Platzhalter in geschweiften Klammern
@@ -3115,6 +3123,102 @@ const Weather = {
       log("weather error", String(e).slice(0, 120));
     }
     this.show();
+  },
+};
+
+// Reihenfolge der Bereiche in der Leiste (per Ziehen geändert, siehe
+// hookSpacesOrder): Liste der Knopf-IDs; ohne Eintrag Thunderbirds Reihenfolge.
+// Gilt auch für das Bereiche-Menü bei ausgeblendeter Leiste und die Streifen
+// im Symbol des Bereiche-Knopfs
+const SPACES_ORDER_PREF = "extensions.mailcards.spacesOrder";
+const SpacesOrder = {
+  IDS: ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton"],
+  MENU: {
+    mailButton: "spacesPopupButtonMail",
+    addressBookButton: "spacesPopupButtonAddressBook",
+    calendarButton: "spacesPopupButtonCalendar",
+    tasksButton: "spacesPopupButtonTasks",
+    chatButton: "spacesPopupButtonChat",
+  },
+  // Streifen im Symbol des Bereiche-Knopfs (hell, dunkel), Einstellungen grau
+  STRIPES: {
+    mailButton: ["#186EC4", "#45A0FD"],
+    addressBookButton: ["#33924A", "#61C77A"],
+    calendarButton: ["#C47212", "#FCA53E"],
+    tasksButton: ["#C43166", "#FC5F98"],
+    chatButton: ["#8C4BAD", "#C07BE4"],
+  },
+  current() {
+    const saved = Services.prefs.getStringPref(SPACES_ORDER_PREF, "").split(",").filter(id => this.IDS.includes(id));
+    return [...new Set([...saved, ...this.IDS])];
+  },
+  isCustom() {
+    return this.current().join() != this.IDS.join();
+  },
+  save(ids) {
+    const clean = [...new Set([...ids.filter(id => this.IDS.includes(id)), ...this.IDS])];
+    if (clean.join() == this.IDS.join()) {
+      Services.prefs.clearUserPref(SPACES_ORDER_PREF);
+    } else {
+      Services.prefs.setStringPref(SPACES_ORDER_PREF, clean.join(","));
+    }
+  },
+  icon(ids, dark) {
+    const colors = [...ids.map(id => this.STRIPES[id][dark ? 1 : 0]), dark ? "#A8A8AC" : "#757579"];
+    const h = colors.length > 5 ? 2.8 : 3.2;
+    const step = colors.length > 5 ? 3.44 : 4.2;
+    const rects = colors.map((c, i) =>
+      `<rect x="3" y="${+(2 + i * step).toFixed(2)}" width="2.6" height="${h}" rx="0.8" fill="${c}"/>`).join("");
+    return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${rects}</svg>`)}")`;
+  },
+  // Bereiche-Menü: Einträge umstellen (order wirkt im Menü nicht); die
+  // übrigen Einträge (Einstellungen, Leiste zeigen) bleiben dahinter
+  sortMenu(d, ids) {
+    const items = ids.map(id => d.getElementById(this.MENU[id])).filter(Boolean);
+    const parent = items[0]?.parentNode;
+    if (!parent || items.some(item => item.parentNode != parent)) {
+      return;
+    }
+    const all = [...parent.children];
+    const anchor = all[Math.max(...items.map(item => all.indexOf(item))) + 1] || null;
+    for (const item of items) {
+      parent.insertBefore(item, anchor);
+    }
+  },
+  // negative order: vor allem anderen in der Leiste (Bereiche anderer
+  // Add-ons, Einstellungen bleiben danach)
+  apply(w) {
+    const d = w?.document;
+    const root = d?.documentElement;
+    if (!root) {
+      return;
+    }
+    const ids = this.current();
+    ids.forEach((id, i) => d.getElementById(id)?.style.setProperty("order", String(i - ids.length)));
+    this.sortMenu(d, ids);
+    const custom = this.isCustom();
+    root.toggleAttribute("mc-spaces-order", custom);
+    if (custom) {
+      const shown = ids.filter(id => id != "chatButton" || root.getAttribute("mc-fifth") != "none");
+      root.style.setProperty("--mc-spaces-icon", this.icon(shown, false));
+      root.style.setProperty("--mc-spaces-icon-dark", this.icon(shown, true));
+    } else {
+      root.style.removeProperty("--mc-spaces-icon");
+      root.style.removeProperty("--mc-spaces-icon-dark");
+    }
+  },
+  reset(w) {
+    const d = w?.document;
+    if (!d?.documentElement) {
+      return;
+    }
+    for (const id of this.IDS) {
+      d.getElementById(id)?.style.removeProperty("order");
+    }
+    this.sortMenu(d, this.IDS);
+    d.documentElement.removeAttribute("mc-spaces-order");
+    d.documentElement.style.removeProperty("--mc-spaces-icon");
+    d.documentElement.style.removeProperty("--mc-spaces-icon-dark");
   },
 };
 
@@ -10618,6 +10722,178 @@ class CardEnhancer {
     // ungelesene Mails (setUnreadFilter); Thunderbirds Schnellfilter-Leiste
     // gibt es nicht mehr, ihre Menüeinträge (Ansicht → Symbolleisten,
     // App-Menü) entfallen.
+    // Bereiche-Leiste: Reihenfolge per Ziehen ändern wie im Dock bzw. in der
+    // Seitenleiste von Apple Mail. Greifen (erst nach 4 px Bewegung, ein
+    // Klick öffnet den Bereich weiter), die übrigen Knöpfe weichen animiert
+    // aus, Loslassen speichert (SPACES_ORDER_PREF), Esc bricht ab. Die
+    // Reihenfolge setzt CSS order (die Container sind display: contents),
+    // Thunderbirds Aufbau bleibt; Einstellungen bleibt unten fest
+    const hookSpacesOrder = () => {
+      const d = w.document;
+      const bar = d.getElementById("spacesToolbar");
+      if (!bar || bar.__mcOrder) {
+        return;
+      }
+      bar.__mcOrder = true;
+      const visible = () => SpacesOrder.current().map(id => d.getElementById(id))
+        .filter(b => b && !b.hidden && b.getBoundingClientRect().height > 0);
+      let drag = null;
+      const clearMotion = () => {
+        for (const b of visible()) {
+          b.style.removeProperty("transform");
+          b.style.removeProperty("transition");
+          b.style.removeProperty("z-index");
+          b.removeAttribute("mc-dragging");
+        }
+      };
+      const finish = (cancel) => {
+        const g = drag;
+        drag = null;
+        if (!g?.active) {
+          return;
+        }
+        w.removeEventListener("keydown", onKey, true);
+        const ms = motionMs(160);
+        const target = cancel ? g.from : g.to;
+        // gezogenen Knopf in den Ziel-Platz gleiten lassen, dann übernehmen
+        g.button.style.transition = `transform ${ms}ms ease`;
+        g.button.style.transform = `translateY(${g.tops[target] - g.tops[g.from]}px)`;
+        if (cancel) {
+          for (const b of g.list) {
+            if (b != g.button) {
+              b.style.transform = "";
+            }
+          }
+        }
+        w.setTimeout(() => {
+          clearMotion();
+          if (!cancel && g.to != g.from) {
+            const ids = g.list.map(b => b.id);
+            ids.splice(g.to, 0, ids.splice(g.from, 1)[0]);
+            SpacesOrder.save(ids);
+          }
+        }, ms + 20);
+        // der Klick nach dem Ziehen öffnet den Bereich nicht
+        const swallow = event => {
+          event.preventDefault();
+          event.stopPropagation();
+        };
+        bar.addEventListener("click", swallow, { capture: true, once: true });
+        w.setTimeout(() => bar.removeEventListener("click", swallow, { capture: true }), 400);
+      };
+      const onKey = event => {
+        if (event.key == "Escape" && drag?.active) {
+          event.preventDefault();
+          event.stopPropagation();
+          finish(true);
+        }
+      };
+      const onDown = event => {
+        const button = event.target.closest?.(".spaces-toolbar-button");
+        if (event.button != 0 || !button || button.id == "settingsButton" || !SpacesOrder.IDS.includes(button.id) || w.__mcSpacesAnimating) {
+          return;
+        }
+        const list = visible();
+        const from = list.indexOf(button);
+        if (from < 0) {
+          return;
+        }
+        drag = { button, list, from, to: from, y: event.clientY, id: event.pointerId, active: false,
+                 tops: list.map(b => b.getBoundingClientRect().top) };
+      };
+      const onMove = event => {
+        const g = drag;
+        if (!g || event.pointerId != g.id) {
+          return;
+        }
+        const dy = event.clientY - g.y;
+        if (!g.active) {
+          if (Math.abs(dy) < 4) {
+            return;
+          }
+          g.active = true;
+          try {
+            g.button.setPointerCapture(event.pointerId);
+          } catch {} // (nachgestellte Zeiger ohne echtes Gerät)
+          g.button.setAttribute("mc-dragging", "true");
+          g.button.style.zIndex = "2";
+          const ms = motionMs(180);
+          for (const b of g.list) {
+            if (b != g.button) {
+              b.style.transition = `transform ${ms}ms ease`;
+            }
+          }
+          w.addEventListener("keydown", onKey, true);
+        }
+        // nicht über den ersten bzw. letzten Platz hinaus
+        const min = g.tops[0] - g.tops[g.from];
+        const max = g.tops[g.tops.length - 1] - g.tops[g.from];
+        const shift = Math.max(min, Math.min(max, dy));
+        g.button.style.transform = `translateY(${shift}px)`;
+        // Ziel: der Platz, dessen Mitte der gezogene Knopf erreicht hat
+        const h = g.button.getBoundingClientRect().height;
+        const mid = g.tops[g.from] + shift + h / 2;
+        let to = 0;
+        g.tops.forEach((top, i) => {
+          if (mid >= top) {
+            to = i;
+          }
+        });
+        g.to = to;
+        g.list.forEach((b, i) => {
+          if (b == g.button) {
+            return;
+          }
+          let offset = 0;
+          if (g.from < to && i > g.from && i <= to) {
+            offset = g.tops[i - 1] - g.tops[i];
+          } else if (g.from > to && i < g.from && i >= to) {
+            offset = g.tops[i + 1] - g.tops[i];
+          }
+          b.style.transform = offset ? `translateY(${offset}px)` : "";
+        });
+      };
+      const onUp = event => {
+        if (drag && event.pointerId == drag.id) {
+          if (drag.active) {
+            finish(false);
+          } else {
+            drag = null;
+          }
+        }
+      };
+      const onCancel = event => {
+        if (drag && event.pointerId == drag.id) {
+          finish(true);
+        }
+      };
+      bar.addEventListener("pointerdown", onDown);
+      bar.addEventListener("pointermove", onMove);
+      bar.addEventListener("pointerup", onUp);
+      bar.addEventListener("pointercancel", onCancel);
+      SpacesOrder.apply(w);
+      // geänderte Reihenfolge (auch aus einem anderen Fenster oder den
+      // Einstellungen) und fünfter Bereich: neu anwenden
+      const obs = () => w.setTimeout(() => SpacesOrder.apply(w), 0);
+      Services.prefs.addObserver(SPACES_ORDER_PREF, obs);
+      Services.prefs.addObserver(FIFTH_PREF, obs);
+      const unobserve = () => {
+        Services.prefs.removeObserver(SPACES_ORDER_PREF, obs);
+        Services.prefs.removeObserver(FIFTH_PREF, obs);
+      };
+      w.addEventListener("unload", unobserve, { once: true });
+      this.restorers.push(() => {
+        unobserve();
+        bar.removeEventListener("pointerdown", onDown);
+        bar.removeEventListener("pointermove", onMove);
+        bar.removeEventListener("pointerup", onUp);
+        bar.removeEventListener("pointercancel", onCancel);
+        clearMotion();
+        SpacesOrder.reset(w);
+        delete bar.__mcOrder;
+      });
+    };
+
     // Chat: Teilnehmer mit Kreis und Anfangsbuchstaben wie die Kontakte in
     // Apple Nachrichten; nur ein Merkmal an Thunderbirds Einträgen (den Aufbau
     // der Liste braucht Thunderbird zum Einsortieren), den Kreis zeichnet CSS
@@ -11889,6 +12165,7 @@ class CardEnhancer {
       hookSplitterReset(w.document);
       hookListHeader();
       hookChatNicklist();
+      hookSpacesOrder();
       this.updateListHeader(w);
       hookStarButton();
       this.updateStarButton(w);
@@ -17358,6 +17635,7 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           for (const [key, spec] of Object.entries(SETTINGS)) {
             out[key] = readSetting(spec);
           }
+          out.spacesOrderCustom = SpacesOrder.isCustom();
           // fünfter Bereich: Bereiche fremder Erweiterungen zur Auswahl
           out.fifthSpaceAddons = FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane"))
             .map(a => ({ value: a.name, label: a.title }));
@@ -17380,6 +17658,13 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           await Weather.choose(place);
         },
         async setSetting(key, value) {
+          // eigene Reihenfolge der Bereiche: nur zurücksetzen (geändert wird per Ziehen)
+          if (key == "spacesOrderCustom") {
+            if (!value) {
+              Services.prefs.clearUserPref(SPACES_ORDER_PREF);
+            }
+            return SpacesOrder.isCustom();
+          }
           const spec = SETTINGS[key];
           if (!spec) {
             throw new Error(`unknown setting ${key}`);

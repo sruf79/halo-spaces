@@ -218,8 +218,6 @@ const DE = {
   "seconds": "Sekunden",
   "More …": "Mehr …",
   "Send": "Senden",
-  "Reply to {name} …": "Antworten an {name} …",
-  "Reply sent": "Antwort gesendet",
   "Send Later": "Später senden",
   "Send Now": "Jetzt senden",
   "Send {time} Tonight": "Heute um {time} senden",
@@ -322,9 +320,6 @@ const DE = {
   "You": "Ich",
   "From all folders. Older read messages are collapsed.": "Aus allen Ordnern. Ältere gelesene Nachrichten sind eingeklappt.",
   "Show most recent message at the top": "Neueste Nachricht oben anzeigen",
-  "Quick Reply": "Schnellantwort",
-  "Reply field below the message.": "Antwortfeld unter der Nachricht.",
-  "Sends a short reply without a new window. More opens the full reply.": "Sendet eine kurze Antwort ohne neues Fenster. Mehr öffnet die vollständige Antwort.",
   "Enable Message Filter": "Nachrichtenfilter aktivieren",
   "Disable Message Filter": "Nachrichtenfilter deaktivieren",
   "Filtered by: {list}": "Gefiltert nach: {list}",
@@ -524,8 +519,6 @@ const FR = {
   "seconds": "secondes",
   "More …": "Plus …",
   "Send": "Envoyer",
-  "Reply to {name} …": "Répondre à {name} …",
-  "Reply sent": "Réponse envoyée",
   "Send Later": "Envoyer plus tard",
   "Send Now": "Envoyer maintenant",
   "Send {time} Tonight": "Envoyer ce soir à {time}",
@@ -628,9 +621,6 @@ const FR = {
   "You": "Moi",
   "From all folders. Older read messages are collapsed.": "De tous les dossiers. Les anciens messages lus sont réduits.",
   "Show most recent message at the top": "Afficher le message le plus récent en haut",
-  "Quick Reply": "Réponse rapide",
-  "Reply field below the message.": "Champ de réponse sous le message.",
-  "Sends a short reply without a new window. More opens the full reply.": "Envoie une réponse courte sans nouvelle fenêtre. Plus ouvre la réponse complète.",
   "Enable Message Filter": "Activer le filtre de messages",
   "Disable Message Filter": "Désactiver le filtre de messages",
   "Filtered by: {list}": "Filtré par : {list}",
@@ -830,8 +820,6 @@ const ES = {
   "seconds": "segundos",
   "More …": "Más …",
   "Send": "Enviar",
-  "Reply to {name} …": "Responder a {name} …",
-  "Reply sent": "Respuesta enviada",
   "Send Later": "Enviar más tarde",
   "Send Now": "Enviar ahora",
   "Send {time} Tonight": "Enviar esta noche a las {time}",
@@ -934,9 +922,6 @@ const ES = {
   "You": "Yo",
   "From all folders. Older read messages are collapsed.": "De todas las carpetas. Los mensajes leídos antiguos se contraen.",
   "Show most recent message at the top": "Mostrar el mensaje más reciente arriba",
-  "Quick Reply": "Respuesta rápida",
-  "Reply field below the message.": "Campo de respuesta bajo el mensaje.",
-  "Sends a short reply without a new window. More opens the full reply.": "Envía una respuesta breve sin ventana nueva. Más abre la respuesta completa.",
   "Enable Message Filter": "Activar filtro de mensajes",
   "Disable Message Filter": "Desactivar filtro de mensajes",
   "Filtered by: {list}": "Filtrado por: {list}",
@@ -1136,8 +1121,6 @@ const IT = {
   "seconds": "secondi",
   "More …": "Altro …",
   "Send": "Invia",
-  "Reply to {name} …": "Rispondi a {name} …",
-  "Reply sent": "Risposta inviata",
   "Send Later": "Invia più tardi",
   "Send Now": "Invia ora",
   "Send {time} Tonight": "Invia stasera alle {time}",
@@ -1240,9 +1223,6 @@ const IT = {
   "You": "Io",
   "From all folders. Older read messages are collapsed.": "Da tutte le cartelle. I messaggi letti meno recenti sono compressi.",
   "Show most recent message at the top": "Mostra il messaggio più recente in alto",
-  "Quick Reply": "Risposta rapida",
-  "Reply field below the message.": "Campo di risposta sotto il messaggio.",
-  "Sends a short reply without a new window. More opens the full reply.": "Invia una risposta breve senza nuova finestra. Altro apre la risposta completa.",
   "Enable Message Filter": "Attiva filtro messaggi",
   "Disable Message Filter": "Disattiva filtro messaggi",
   "Filtered by: {list}": "Filtrato per: {list}",
@@ -1861,7 +1841,7 @@ const CONVERSATION_PREF = "extensions.mailcards.fullConversation";
 // Reihenfolge wie Apple Mail „Neueste Nachricht oben anzeigen“ (Standard an)
 const CONVERSATION_NEWEST_PREF = "extensions.mailcards.conversationNewestFirst";
 const CONVERSATION_MAX = 30;
-// Schnellantwort unter der Mail (Standard an, Einstellungen → Mail)
+// frühere Schnellantwort unter der Mail (entfernt): alte Einstellung beim Start löschen
 const QUICK_REPLY_PREF = "extensions.mailcards.quickReply";
 class ConversationCards {
   constructor(win, pane) {
@@ -2057,14 +2037,11 @@ class ConversationCards {
       }
     };
     const newest = messages.reduce((a, b) => (b.date > a.date ? b : a));
-    // Schnellantwort nur einmal: an der neuesten Mail, die nicht von einem selbst ist
-    const replyTo = messages.filter(m => !ownMail(m)).reduce((a, b) => (!a || b.date > a.date ? b : a), null);
     const cards = messages.map(m => {
       const card = doc.createElementNS(X, "div");
       card.className = "mc-conv-card";
       card.classList.toggle("mc-own", ownMail(m));
       card.classList.toggle("mc-selected", m == selected || m.messageId == selected.messageId);
-      card.classList.toggle("mc-reply-target", m == replyTo);
       card.dataset.messageId = m.messageId;
       card.__mcHdr = m;
       // wie Apple Mail: ältere gelesene Mails nur als kompakte Zeile; offen
@@ -2182,7 +2159,6 @@ class ConversationCards {
       // Knöpfe anderer Erweiterungen wirken in der Karte nicht – Zeile ausblenden
       const root = browserEl.contentDocument.documentElement;
       root.setAttribute("mc-conv-card", "");
-      root.toggleAttribute("mc-conv-reply", card.classList.contains("mc-reply-target"));
       // Klick auf den Kopf (nicht auf Namen oder Knöpfe) klappt die Karte wieder
       // ein – nicht bei der gewählten und der neuesten Mail
       browserEl.contentDocument.getElementById("messageHeader")?.addEventListener("click", event => {
@@ -2209,25 +2185,17 @@ class ConversationCards {
         mp.__mcFit = true;
         // Bilder laden nach, Zitate klappen auf: Höhe mitführen – ebenso, wenn
         // die Anhangsliste erst nach dem Laden ihre Höhe bekommt (sonst war bei
-        // einem Anhang die Dateizeile abgeschnitten), Kopf und Schnellantwort
+        // einem Anhang die Dateizeile abgeschnitten) und Kopf
         new iw.ResizeObserver(fit).observe(iw.document.documentElement);
         const cdoc = browserEl.contentDocument;
         const ro = new browserEl.contentWindow.ResizeObserver(fit);
-        for (const id of ["attachmentView", "attachmentList", "messageHeader", "mcQuickReply"]) {
+        for (const id of ["attachmentView", "attachmentList", "messageHeader"]) {
           const el = cdoc.getElementById(id);
           if (el) {
             ro.observe(el);
           }
         }
-        // Schnellantwort kommt evtl. erst später dazu
-        new browserEl.contentWindow.MutationObserver(() => {
-          const qr = cdoc.getElementById("mcQuickReply");
-          if (qr && !qr.__mcFitObserved) {
-            qr.__mcFitObserved = true;
-            ro.observe(qr);
-          }
-          fit();
-        }).observe(cdoc.getElementById("messagepanebox") || cdoc.documentElement, { childList: true });
+        new browserEl.contentWindow.MutationObserver(fit).observe(cdoc.getElementById("messagepanebox") || cdoc.documentElement, { childList: true });
         mp.addEventListener("load", () => this.win.setTimeout(fit, 50), true);
       }
       this.win.setTimeout(fit, 300);
@@ -7498,6 +7466,7 @@ class CardEnhancer {
       Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
     }
     this.applyToolbarOnce();
+    Services.prefs.clearUserPref(QUICK_REPLY_PREF); // (Schnellantwort entfernt)
     // Suche über alle Konten und Treffer als einfache Liste (Einstellungen →
     // Allgemein) – einmalig, wer es danach abschaltet, behält das
     if (!Services.prefs.getBoolPref("extensions.mailcards.searchApplied", false)) {
@@ -16824,7 +16793,6 @@ class CardEnhancer {
         this.fillAvatar(box, hdr);
         if (!same) {
           this.decorateHeader(doc, hdr);
-          this.quickReply(doc, hdr);
         }
       } catch (e) {
         log("header avatar error", e);
@@ -16868,24 +16836,7 @@ class CardEnhancer {
     run();
     this.hookNotificationLayout(doc);
     this.hookHoverActions(doc);
-    // Schnellantwort in den Einstellungen umgeschaltet: sofort ein-/ausblenden
-    const qrObs = {
-      observe: () => {
-        try {
-          if (win.gMessage) {
-            this.quickReply(doc, win.gMessage);
-          } else {
-            doc.getElementById("mcQuickReply")?.remove();
-          }
-        } catch (e) {
-          log("quick reply pref error", e);
-        }
-      },
-    };
-    Services.prefs.addObserver(QUICK_REPLY_PREF, qrObs);
-    win.addEventListener("unload", () => Services.prefs.removeObserver(QUICK_REPLY_PREF, qrObs), { once: true });
     this.addWinRestorer(win, () => {
-      Services.prefs.removeObserver(QUICK_REPLY_PREF, qrObs);
       mo.disconnect();
       delete doc.__mcHdrAvatar;
       // Datum zurück an seinen Platz, eigene Elemente entfernen
@@ -17059,163 +17010,6 @@ class CardEnhancer {
         n.shadowRoot?.querySelector("style.mc-layout")?.remove();
       }
     });
-  }
-
-  // Schnellantwort unter der Mail: ein Textfeld „Antworten an Anna …“; ⌘↩
-  // bzw. Strg+↩ oder der Pfeil sendet die Antwort an den Absender (Betreff
-  // „Re:“, mit Bezug auf die Mail, die danach als beantwortet gilt) ohne
-  // Verfassen-Fenster; „Mehr …“ öffnet das normale Antwortfenster mit dem
-  // Geschriebenen. Nicht bei Entwürfen, Vorlagen, Postausgang und eigenen
-  // gesendeten Mails; Einstellung extensions.mailcards.quickReply
-  quickReply(doc, hdr) {
-    const win = doc.defaultView;
-    const box = doc.getElementById("messagepanebox");
-    let bar = doc.getElementById("mcQuickReply");
-    const F = Ci.nsMsgFolderFlags;
-    const root = doc.documentElement;
-    // nie bei eigenen Mails (auch nicht im Posteingang); in der Konversation
-    // nur einmal – an der neuesten Mail, die nicht von einem selbst ist
-    let own = false;
-    try {
-      const from = (MailServices.headerParser.parseDecodedHeader(hdr?.mime2DecodedAuthor || hdr?.author || "")[0]?.email || "").toLowerCase();
-      own = !!from && MailServices.accounts.allIdentities.some(id => id.email?.toLowerCase() == from);
-    } catch {}
-    const skip = !Services.prefs.getBoolPref(QUICK_REPLY_PREF, true) || !hdr?.folder || own ||
-      (root.hasAttribute("mc-conv-card") && !root.hasAttribute("mc-conv-reply")) ||
-      hdr.folder.isSpecialFolder(F.Drafts | F.Templates | F.Queue | F.SentMail, true) || hdr.folder.server?.type == "rss";
-    if (skip || !box) {
-      bar?.remove();
-      return;
-    }
-    const X = "http://www.w3.org/1999/xhtml";
-    if (!bar) {
-      bar = doc.createElementNS(X, "div");
-      bar.id = "mcQuickReply";
-      const field = doc.createElementNS(X, "textarea");
-      field.className = "mc-qr-field";
-      field.rows = 1;
-      const more = doc.createElementNS(X, "button");
-      more.className = "mc-qr-more";
-      more.textContent = tr("More …");
-      const send = doc.createElementNS(X, "button");
-      send.className = "mc-qr-send";
-      send.title = tr("Send");
-      send.setAttribute("aria-label", tr("Send"));
-      bar.append(field, more, send);
-      box.append(bar);
-      // wächst mit dem Text bis 6 Zeilen
-      const grow = () => {
-        field.style.height = "auto";
-        field.style.height = `${Math.min(field.scrollHeight, 6 * 18 + 12)}px`;
-        bar.toggleAttribute("data-text", !!field.value.trim());
-      };
-      field.addEventListener("input", grow);
-      field.addEventListener("keydown", event => {
-        if (event.key == "Enter" && (event.metaKey || event.ctrlKey)) {
-          event.preventDefault();
-          send.click();
-        }
-      });
-      send.addEventListener("click", () => this.sendQuickReply(doc, bar).catch(e => log("quick reply error", e)));
-      more.addEventListener("click", () => {
-        const text = field.value;
-        const current = win.gMessage;
-        if (!current) {
-          return;
-        }
-        const uri = current.folder.getUriForMsg(current);
-        // normales Antworten; der Text kommt an den Anfang, sobald der Editor bereit ist
-        const known = new Set(Services.wm.getEnumerator("msgcompose"));
-        const top = Services.wm.getMostRecentWindow("mail:3pane");
-        if (typeof top?.ComposeMessage == "function") {
-          top.ComposeMessage(Ci.nsIMsgCompType.ReplyToSender, Ci.nsIMsgCompFormat.Default, current.folder, [uri]);
-        } else {
-          MailServices.compose.OpenComposeWindow(null, current, uri, Ci.nsIMsgCompType.ReplyToSender, Ci.nsIMsgCompFormat.Default, null, null, win.msgWindow);
-        }
-        if (text.trim()) {
-          let tries = 0;
-          const attach = () => {
-            const cw = [...Services.wm.getEnumerator("msgcompose")].find(x => !known.has(x));
-            if (!cw) {
-              if (tries++ < 100) {
-                win.setTimeout(attach, 100);
-              }
-              return;
-            }
-            cw.addEventListener("compose-editor-ready", () => {
-              try {
-                const editor = cw.GetCurrentEditor();
-                editor.beginningOfDocument();
-                editor.insertText(text);
-                editor.insertLineBreak?.();
-              } catch (e) {
-                log("quick reply more error", e);
-              }
-            }, { once: true });
-          };
-          attach();
-        }
-        field.value = "";
-        grow();
-      });
-    }
-    const field = bar.querySelector(".mc-qr-field");
-    const name = (hdr.mime2DecodedAuthor || hdr.author || "").replace(/\s*<.*$/, "").replace(/^"|"$/g, "") || hdr.author;
-    field.placeholder = tr("Reply to {name} …", { name });
-    if (bar.dataset.for != hdr.messageId) {
-      field.value = "";
-      field.style.height = "";
-      bar.removeAttribute("data-text");
-      bar.removeAttribute("data-sent");
-    }
-    bar.dataset.for = hdr.messageId;
-  }
-
-  async sendQuickReply(doc, bar) {
-    const win = doc.defaultView;
-    const hdr = win.gMessage;
-    const field = bar.querySelector(".mc-qr-field");
-    const text = field.value.trim();
-    if (!hdr || !text || bar.hasAttribute("data-busy")) {
-      return;
-    }
-    const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
-    const [identity] = MailUtils.getIdentityForHeader(hdr);
-    if (!identity) {
-      return;
-    }
-    const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
-    const replyTo = hdr.getStringProperty("replyTo") || hdr.author;
-    fields.to = replyTo;
-    fields.from = identity.fullName ? `${identity.fullName} <${identity.email}>` : identity.email;
-    const subject = hdr.mime2DecodedSubject || "";
-    fields.subject = /^re:/i.test(subject) ? subject : `Re: ${subject}`;
-    fields.body = text + "\n";
-    fields.forcePlainText = true;
-    fields.useMultipartAlternative = false;
-    const refs = hdr.numReferences ? [...Array(hdr.numReferences).keys()].map(i => `<${hdr.getStringReference(i)}>`) : [];
-    fields.references = [...refs, `<${hdr.messageId}>`].join(" ");
-    fields.setHeader("In-Reply-To", `<${hdr.messageId}>`);
-    const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
-    params.type = Ci.nsIMsgCompType.ReplyToSender;
-    params.format = Ci.nsIMsgCompFormat.PlainText;
-    params.identity = identity;
-    params.originalMsgURI = hdr.folder.getUriForMsg(hdr);
-    params.composeFields = fields;
-    const compose = Cc["@mozilla.org/messengercompose/compose;1"].createInstance(Ci.nsIMsgCompose);
-    compose.initialize(params, null, null);
-    const account = MailServices.accounts.getAccount(hdr.accountKey) || MailServices.accounts.findAccountForServer(hdr.folder.server);
-    bar.setAttribute("data-busy", "");
-    try {
-      await compose.sendMsg(Services.io.offline ? Ci.nsIMsgCompDeliverMode.Later : Ci.nsIMsgCompDeliverMode.Now, identity, account?.key || "", null, null);
-      field.value = "";
-      field.style.height = "";
-      bar.removeAttribute("data-text");
-      bar.setAttribute("data-sent", "");
-      field.placeholder = tr("Reply sent");
-    } finally {
-      bar.removeAttribute("data-busy");
-    }
   }
 
   // Mailkopf wie Apple Mail: oben rechts Ordner und Uhrzeit, darüber bei
@@ -17689,7 +17483,6 @@ const SETTINGS = {
   composeFormatBar: [COMPOSE_FORMAT_PREF, "bool", false],
   fullConversation: [CONVERSATION_PREF, "bool", true],
   conversationNewestFirst: [CONVERSATION_NEWEST_PREF, "bool", true],
-  quickReply: [QUICK_REPLY_PREF, "bool", true],
   calendarEmoji: [EMOJI_PREF, "bool", true],
   emojiCustom: [EMOJI_CUSTOM_PREF, "string", ""],
   macContactPhotos: [MAC_PHOTOS_PREF, "bool", false],

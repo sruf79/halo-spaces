@@ -2667,8 +2667,8 @@ search-bar {
   font-size: 13px !important;
 }
 
-/* Eingabefeld unten wie die Schnellantwort unter der Mail: Textfeld mit
-   kleinem Radius und Haarlinie, darüber eine Haarlinie statt des Teilers */
+/* Eingabefeld unten als Textfeld mit kleinem Radius und Haarlinie (Kapsel
+   nur für Knöpfe), darüber eine Haarlinie statt des Teilers */
 splitter.splitter:has(+ .conv-bottom) {
   appearance: none !important;
   min-height: 0 !important;

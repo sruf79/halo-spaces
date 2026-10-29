@@ -21,8 +21,6 @@ var SECTIONS = t => [
       hint: t("Light accent colour behind unread messages.") },
     { key: "undoSend", type: "select", options: [0, 10, 20, 30], labels: { 0: t("Off") }, unit: t("seconds"),
       label: t("Undo Send"), hint: t("Time to take a sent message back.") },
-    { key: "quickReply", label: t("Quick Reply"), hint: t("Reply field below the message."),
-      info: t("Sends a short reply without a new window. More opens the full reply.") },
     { key: "senderLogos", label: t("Logos from sender websites"),
       hint: t("Only from the sender’s own website."), info: t("Favicon or BIMI logo of the sender’s domain. Off: no outside requests.") },
     { key: "macContactPhotos", mac: true, label: t("Photos from the Contacts app"),

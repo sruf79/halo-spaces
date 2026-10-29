@@ -662,11 +662,6 @@ SURFACES = [
       'const p = await pick("Inbox", "Bilder vom Ausflug"); p.folderTree.focus(); await wait(600);'),
     S("mail-mehrfachauswahl", "mailliste", "zustand", "Mehrere Mails ausgewählt (Zusammenfassung)",
       'const p = await pick("Inbox", "Treffen am Donnerstag"); p.threadTree.selectedIndices = [0, 1, 2, 3]; await wait(2000);'),
-    S("mail-schnellantwort", "mailliste", "zustand", "Schnellantwort unter der Mail mit Text (halo.spaces)",
-      'await pick("Inbox", "Treffen am Donnerstag"); const md = msgDoc(); const bar = await until(() => md.getElementById("mcQuickReply"), 4000);'
-      ' if (!bar) throw new Error("Schnellantwort fehlt"); const f = bar.querySelector(".mc-qr-field"); f.value = "Danke, passt mir gut!";'
-      ' f.dispatchEvent(new md.defaultView.Event("input", { bubbles: true })); f.focus(); await wait(500);',
-      close='const bar = msgDoc()?.getElementById("mcQuickReply"); if (bar) { const f = bar.querySelector(".mc-qr-field"); f.value = ""; f.dispatchEvent(new f.ownerDocument.defaultView.Event("input", { bubbles: true })); }'),
     S("mail-nachfassen", "mailliste", "zustand", "Posteingang: Hinweis „Nachfassen“ zu eigener Mail ohne Antwort (halo.spaces)",
       'const s = fld("Sent"); s.setFlag(Ci.nsMsgFolderFlags.SentMail); const sent = s.QueryInterface(Ci.nsIMsgLocalMailFolder);'
       ' const dt = new Date(Date.now() - 5 * 86400000).toUTCString().replace("GMT", "+0000");'

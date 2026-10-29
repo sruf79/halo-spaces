@@ -1450,9 +1450,7 @@ def reading_checks(m, results):
           const out = { open: true, width: Math.round(right), outside, border: cs(tb).borderTopStyle, radius: parseFloat(cs(tb).borderTopLeftRadius) };
           fb.close(); await wait(900);
           // geschlossen: keine Lücke unter der Mail
-          // (bis zur Schnellantwort unter der Mail, sofern sie da ist)
-          const qr = doc.getElementById("mcQuickReply");
-          const floor = qr?.getClientRects().length ? qr.getBoundingClientRect().top : doc.getElementById("messagepanebox").getBoundingClientRect().bottom;
+          const floor = doc.getElementById("messagepanebox").getBoundingClientRect().bottom;
           out.gap = Math.round(floor - doc.getElementById("messagepane").getBoundingClientRect().bottom);
           await restore(); return out;""")
         ok = res.get("open") and not res["outside"] and res["border"] == "none" and res["radius"] >= 6 and res["gap"] <= 1
@@ -1813,45 +1811,20 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als Textknopf in Akzentfarbe mit ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
 
-    def quick_reply_setting():
-        # Schnellantwort: Standard an, in den Einstellungen abschaltbar (wirkt sofort); nie bei eigenen Mails
+    def no_quick_reply():
+        # Schnellantwort entfernt (Entscheidung Maintainer 29.10.2026): kein Feld unter der Mail, keine Einstellung,
+        # die alte Einstellung früherer Fassungen ist gelöscht
         res = m.js(READING_JS + r"""
-          const doc = await showMail("Halo Kontakt");
-          // eigene Adresse (Antworten braucht eine Identität; unten: eigene Mail ohne Feld)
-          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
-          let added = null;
-          if (!MailServices.accounts.allIdentities.some(i => i.email == "halo@example.invalid")) {
-            added = MailServices.accounts.createIdentity(); added.fullName = "Halo Test"; added.email = "halo@example.invalid"; acc.addIdentity(added); }
-          const has = () => vis(md().getElementById("mcQuickReply"));
-          const out = { on: has() };
-          // „More …“ öffnet das normale Antwortfenster
-          const known = new Set(Services.wm.getEnumerator("msgcompose"));
-          md().querySelector("#mcQuickReply .mc-qr-more")?.click();
-          const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => !known.has(x) && x.document.readyState == "complete" && x.gMsgCompose), 10000);
-          if (cw) { await wait(1000); out.more = cw.document.getElementById("msgSubject")?.value; cw.close(); await wait(800); }
-          Services.prefs.setBoolPref("extensions.mailcards.quickReply", false); await wait(400);
-          out.off = has();
-          Services.prefs.clearUserPref("extensions.mailcards.quickReply"); await wait(400);
-          out.back = has();
-          // eigene Mail im Posteingang (Absender = eigene Identität): kein Feld
-          if (![...f.messages].some(h => h.messageId == "halo-kopf-eigen@example.invalid")) {
-            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(raw({ id: "halo-kopf-eigen", from: "Halo Test <halo@example.invalid>", to: "Anna Beispiel <anna@example.invalid>", subject: "Halo Eigene" }));
-            await wait(800);
-          }
-          await showMail("Halo Eigene"); out.own = has();
-          // (die einzige Identität eines Kontos lässt Thunderbird nicht entfernen)
-          if (added) try { acc.removeIdentity(added); } catch {}
-          return out;""")
+          await showMail("Halo Kontakt");
+          return { field: !!md().getElementById("mcQuickReply"), pref: Services.prefs.prefHasUserValue("extensions.mailcards.quickReply") };""")
         sections = open(os.path.join(ROOT, "extension", "options", "sections.js"), encoding="utf-8").read()
-        ok = (res.get("on") is True and res.get("off") is False and res.get("back") is True and res.get("own") is False
-              and (res.get("more") or "").startswith("Re:")
-              and 'key: "quickReply"' in sections)
+        ok = res.get("field") is False and res.get("pref") is False and "quickReply" not in sections
         return ok, f"{res}"
-    check("Schnellantwort: Standard an, „More …“ öffnet die Antwort, Schalter in den Einstellungen wirkt sofort, nie bei eigenen Mails", quick_reply_setting, results)
+    check("Mailkopf: keine Schnellantwort unter der Mail und keine Einstellung dafür", no_quick_reply, results)
 
     def conversation_cards():
         # Konversation wie Apple Mail: ältere gelesene Mails eingeklappt (ohne geladene Mail, Klick klappt auf), Karte mit einem
-        # Anhang nicht abgeschnitten, eine Schnellantwort (neueste fremde Mail), Kapsel je Karte wirkt auf deren Mail,
+        # Anhang nicht abgeschnitten, keine Schnellantwort, Kapsel je Karte wirkt auf deren Mail,
         # Löschen nur dieser Mail; „Neueste Nachricht oben“ abschaltbar
         res = m.js(r"""
           const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
@@ -1902,7 +1875,7 @@ def reading_checks(m, results):
           out.collapsed = cards().map(c => c.classList.contains("mc-collapsed"));
           const k1 = cardOf(box, "halo-karte-1");
           out.summary = { browser: !!k1?.querySelector(".mc-conv-browser"), from: k1?.querySelector(".mc-conv-from")?.textContent, preview: k1?.querySelector(".mc-conv-preview")?.textContent };
-          // eine Schnellantwort, an der neuesten fremden Mail
+          // keine Schnellantwort (entfernt)
           out.reply = cards().filter(c => cdoc(c)?.getElementById("mcQuickReply")).map(c => c.dataset.messageId.split("@")[0]);
           // Kapsel in jeder offenen Karte
           out.capsules = cards().filter(c => cdoc(c)?.getElementById("mcHoverActions")).length;
@@ -1950,13 +1923,13 @@ def reading_checks(m, results):
         a, cp, dl = res.get("attach") or {}, res.get("compose") or {}, res.get("deleted") or {}
         ok = (res.get("order") == ["halo-karte-3", "halo-karte-2", "halo-karte-1"] and res.get("collapsed") == [False, False, True]
               and (res.get("summary") or {}).get("browser") is False and (res.get("summary") or {}).get("preview") is not None
-              and res.get("reply") == ["halo-karte-3"] and res.get("capsules") == 2
+              and res.get("reply") == [] and res.get("capsules") == 2
               and a and a["itemBottom"] <= a["cardBottom"] and a["scroll"] <= 1
               and (cp.get("subject") or "").startswith("Re:") and "halo-karte-2@" in cp.get("refs", "")
               and res.get("expanded") and dl.get("after") == dl.get("before", 0) - 1 and dl.get("cards") == 2
               and res.get("oldestFirst") == ["halo-karte-1", "halo-karte-2", "halo-karte-3"])
         return ok, f"{res}"
-    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, eine Schnellantwort, Kapsel je Karte für deren Mail, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
+    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
 
 
 # Verfassen-Fenster und seine Dialoge: Test-Identität (example.invalid, kein Server), Fenster öffnen/schließen,
@@ -4466,52 +4439,6 @@ def server_checks(m, results):
                   and res2["closed"] and not res2["bar"] and len(got) == 1)
             return ok, f"{res} nach Rückgängig gesendet: {after_undo} {res2} danach gesendet: {len(got)}"
         check("Testkonto: Senden rückgängig – Fenster weg, Hinweis unten, rückgängig holt es zurück, danach gesendet", undo_send, results)
-
-        def quick_reply():
-            # Schnellantwort unter der Mail: Feld „Reply to Anna Beispiel …“, Text + ⌘↩ sendet ohne Fenster an den Absender,
-            # Betreff „Re: …“ mit In-Reply-To, die Mail gilt danach als beantwortet; Entwürfe ohne Feld
-            before = len(servers.smtp.sent)
-            res = m.js(r"""
-              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-              const acc = MailServices.accounts.getAccount("%s"), root = acc.incomingServer.rootFolder;
-              const inbox = root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox);
-              const a3 = await toMail(); a3.displayFolder(inbox.URI); await until(() => a3.gDBView?.rowCount > 0, 10000);
-              let i = 0; for (; i < a3.gDBView.rowCount; i++) if (a3.gDBView.getMsgHdrAt(i).mime2DecodedSubject == "Willkommen im Testkonto") break;
-              a3.threadTree.selectedIndex = i; await wait(1500);
-              const md = a3.messageBrowser.contentDocument;
-              const bar = await until(() => md.getElementById("mcQuickReply"), 5000);
-              if (!bar) return { bar: false };
-              const field = bar.querySelector(".mc-qr-field");
-              const fs = md.defaultView.getComputedStyle(field);
-              const out = { placeholder: field.placeholder, sendHidden: md.defaultView.getComputedStyle(bar.querySelector(".mc-qr-send")).display,
-                            // Eingabefeld, keine Kapsel: kleiner Radius, sichtbarer Rand
-                            look: { radius: parseFloat(fs.borderTopLeftRadius), border: parseFloat(fs.borderTopWidth), color: fs.borderTopColor } };
-              field.value = "Danke, angekommen!"; field.dispatchEvent(new md.defaultView.Event("input", { bubbles: true }));
-              out.sendShown = md.defaultView.getComputedStyle(bar.querySelector(".mc-qr-send")).display;
-              field.dispatchEvent(new md.defaultView.KeyboardEvent("keydown", { key: "Enter", metaKey: true, ctrlKey: true, bubbles: true }));
-              const hdr = a3.gDBView.getMsgHdrAt(i);
-              out.replied = !!(await until(() => hdr.flags & Ci.nsMsgMessageFlags.Replied, 15000));
-              out.after = { value: field.value, placeholder: field.placeholder };
-              // Entwurf: kein Feld
-              const drafts = root.getFolderWithFlags(Ci.nsMsgFolderFlags.Drafts);
-              a3.displayFolder(drafts.URI); await wait(1200);
-              out.inDrafts = a3.gDBView.rowCount ? "?" : "leer";
-              a3.displayFolder(inbox.URI); await wait(800);
-              return out;""" % key)
-            for _ in range(30):
-                if len(servers.smtp.sent) > before:
-                    break
-                time.sleep(0.5)
-            got = servers.smtp.sent[before:]
-            data = got[0][2] if got else ""
-            look = res.get("look") or {}
-            ok = (res.get("placeholder") == "Reply to Anna Beispiel …" and res.get("sendHidden") == "none" and res.get("sendShown") != "none"
-                  and look.get("radius", 99) <= 8 and look.get("border", 0) > 0 and not (look.get("color") or "").endswith(", 0)")
-                  and res.get("replied") and res.get("after", {}).get("value") == "" and len(got) == 1
-                  and "anna@example.invalid" in got[0][1][0] and "Subject: Re: Willkommen im Testkonto" in data
-                  and "In-Reply-To: <srv-1@example.invalid>" in data and "Danke, angekommen!" in data)
-            return ok, f"{res} gesendet: {[(g[1], g[2][:300]) for g in got]}"
-        check("Testkonto: Schnellantwort unter der Mail als Eingabefeld (keine Kapsel), sendet ohne Fenster an den Absender, Mail gilt als beantwortet", quick_reply, results)
 
         def send_later():
             # Später senden: Pfeil neben „Senden“ mit „Morgen …“ und „Später senden …“; geplante Mail liegt als Entwurf mit

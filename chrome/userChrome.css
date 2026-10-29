@@ -2848,83 +2848,6 @@ unified-toolbar {
   display: none !important;
 }
 
-/* ---------- Schnellantwort unter der Mail ----------
-   (#mcQuickReply, setzt die Erweiterung): ein Textfeld „Antworten an …“
-   (kleiner Radius und Haarlinie wie Eingabefelder, Kapselform nur für Knöpfe)
-   über die Breite der Mail, „Mehr …“ und der Senden-Pfeil erscheinen, sobald
-   etwas dasteht; Haarlinie darüber wie zwischen Kopf und Text */
-#mcQuickReply {
-  display: flex !important;
-  align-items: flex-end !important;
-  gap: 8px !important;
-  padding: 10px 20px 12px !important;
-  border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  background: var(--mt-window) !important;
-}
-
-#mcQuickReply .mc-qr-field {
-  flex: 1 !important;
-  min-height: 32px !important;
-  box-sizing: border-box !important;
-  padding: 6px 10px !important;
-  border: var(--mt-hairline) solid color-mix(in srgb, var(--mt-text) 18%, transparent) !important;
-  border-radius: 6px !important;
-  background: var(--mt-window) !important;
-  color: var(--mt-text) !important;
-  font: 13px/18px var(--mt-font) !important;
-  resize: none !important;
-  outline: none !important;
-}
-
-#mcQuickReply .mc-qr-field:focus {
-  border-color: var(--mt-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
-}
-
-#mcQuickReply .mc-qr-field::placeholder {
-  color: var(--mt-text-tertiary) !important;
-}
-
-#mcQuickReply :is(.mc-qr-more, .mc-qr-send) {
-  display: none !important;
-  appearance: none !important;
-  flex: none !important;
-  height: 32px !important;
-  border: none !important;
-  border-radius: 999px !important;
-  font: 13px var(--mt-font) !important;
-}
-
-#mcQuickReply[data-text] :is(.mc-qr-more, .mc-qr-send) {
-  display: block !important;
-}
-
-#mcQuickReply .mc-qr-more {
-  padding: 0 12px !important;
-  background: var(--mt-control) !important;
-  color: var(--mt-text) !important;
-}
-
-#mcQuickReply .mc-qr-send {
-  width: 32px !important;
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
-  position: relative !important;
-}
-
-#mcQuickReply .mc-qr-send::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  background-color: var(--mt-accent-text) !important;
-  /* eigene Form: das Paket-Symbol zeichnet mit context-stroke, das trägt als Maske nicht */
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19.5V5M5.5 11.5 12 5l6.5 6.5'/%3E%3C/svg%3E") center / 16px no-repeat !important;
-}
-
-#mcQuickReply[data-busy] .mc-qr-send {
-  opacity: 0.5 !important;
-}
-
 /* ---------- Nachfassen (wie „Follow Up“ in Apple Mail) ----------
    Hinweis über der Mailliste im Posteingang (#mcFollowUp, setzt die
    Erweiterung): eigene Mail ohne Antwort, „Nachfassen“ und ✕ */
@@ -6219,8 +6142,8 @@ search-bar {
   font-size: 13px !important;
 }
 
-/* Eingabefeld unten wie die Schnellantwort unter der Mail: Textfeld mit
-   kleinem Radius und Haarlinie, darüber eine Haarlinie statt des Teilers */
+/* Eingabefeld unten als Textfeld mit kleinem Radius und Haarlinie (Kapsel
+   nur für Knöpfe), darüber eine Haarlinie statt des Teilers */
 splitter.splitter:has(+ .conv-bottom) {
   appearance: none !important;
   min-height: 0 !important;

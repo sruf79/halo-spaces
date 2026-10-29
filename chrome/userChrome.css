@@ -11586,11 +11586,29 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   margin-inline-end: 8px !important;
 }
 
+/* Fußzeile: „More Options…“ mittig unter den Notizen, darunter Abbrechen
+   und Hinzufügen gleich breit über die ganze Breite */
 #mcQuickPanel .mc-qc-footer {
-  display: flex !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
   align-items: center !important;
   gap: 8px !important;
   padding-top: 2px !important;
+}
+
+#mcQuickPanel .mc-qc-footer > .mc-qc-link {
+  grid-column: 1 / -1 !important;
+  justify-self: center !important;
+  margin-bottom: 2px !important;
+}
+
+#mcQuickPanel .mc-qc-footer > .mc-qc-spacer {
+  display: none !important;
+}
+
+#mcQuickPanel .mc-qc-footer > .mc-qc-btn {
+  width: 100% !important;
+  margin: 0 !important;
 }
 
 #mcQuickPanel .mc-qc-spacer {

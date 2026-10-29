@@ -4061,6 +4061,30 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Schnellfenster: „Ganztägig“ als macOS-Kästchen, Kalendername dicht am Farbpunkt", quick_allday_calrow, results)
 
+    def quick_footer():
+        # Fußzeile des Schnellfensters: „More Options…“ mittig unter den Notizen, darunter Abbrechen und Hinzufügen gleich breit,
+        # zusammen bündig mit den Feldern darüber
+        res = m.js(CAL_CHECK_JS + r"""
+          await toWeek();
+          const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(vis);
+          li.querySelector("button").click();
+          const qp = await till(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, 4000);
+          if (!qp) return { open: false, visibility: d.visibilityState };
+          await pause(300);
+          try {
+            const f = qp.__mc, R = e => e.getBoundingClientRect(), n = R(f.notes), mo = R(f.more), c = R(f.cancel), a = R(f.add);
+            return { open: true, notes: [n.left, n.right, n.bottom].map(Math.round), more: [mo.left, mo.right, mo.top].map(Math.round),
+                     cancel: [c.left, c.right, c.top].map(Math.round), add: [a.left, a.right, a.top].map(Math.round) };
+          } finally { await shutPop(qp); }""")
+        if not res.get("open"):
+            return res.get("visibility") == "hidden", f"Schnellfenster nicht offen {res}"
+        n, mo, c, a = res["notes"], res["more"], res["cancel"], res["add"]
+        near = lambda x, y: abs(x - y) <= 1
+        ok = (mo[2] >= n[2] and abs((mo[0] + mo[1]) / 2 - (n[0] + n[1]) / 2) <= 2 and c[2] > mo[2] and near(c[2], a[2])
+              and near(c[0], n[0]) and near(a[1], n[1]) and abs((c[1] - c[0]) - (a[1] - a[0])) <= 1)
+        return ok, f"{res}"
+    check("Schnellfenster: „More Options…“ mittig unter den Notizen, Abbrechen und Hinzufügen gleich breit und bündig mit den Feldern", quick_footer, results)
+
     def quick_time_fits():
         # Schnellfenster aufgeklappt: Datum, Uhrzeit (samt Uhrsymbol) und Auswahllisten bleiben auf der grauen Karte
         # (früher feste 96-px-Labelspalte – das Uhrsymbol ragte über die Kartenkante); Labels ungekürzt, Felder bündig

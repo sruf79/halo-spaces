@@ -333,6 +333,8 @@ const DE = {
   "Only Mail with Attachments": "Nur E-Mails mit Anhängen",
   "Own order of spaces": "Eigene Reihenfolge der Bereiche",
   "Drag a space up or down in the bar. Off: original order.": "Einen Bereich in der Leiste nach oben oder unten ziehen. Aus: ursprüngliche Reihenfolge.",
+  "Custom…": "Benutzerdefiniert…",
+  "{n} alerts": "{n} Erinnerungen",
 };
 const FR = {
   "Install version {v}": "Installer la version {v}",
@@ -637,6 +639,8 @@ const FR = {
   "Only Mail with Attachments": "Uniquement les messages avec pièces jointes",
   "Own order of spaces": "Ordre personnalisé des espaces",
   "Drag a space up or down in the bar. Off: original order.": "Faites glisser un espace vers le haut ou le bas dans la barre. Désactivé : ordre d’origine.",
+  "Custom…": "Personnalisé…",
+  "{n} alerts": "{n} rappels",
 };
 const ES = {
   "Install version {v}": "Instalar la versión {v}",
@@ -941,6 +945,8 @@ const ES = {
   "Only Mail with Attachments": "Solo mensajes con archivos adjuntos",
   "Own order of spaces": "Orden propio de los espacios",
   "Drag a space up or down in the bar. Off: original order.": "Arrastra un espacio hacia arriba o abajo en la barra. Desactivado: orden original.",
+  "Custom…": "Personalizado…",
+  "{n} alerts": "{n} avisos",
 };
 const IT = {
   "Install version {v}": "Installa la versione {v}",
@@ -1245,6 +1251,8 @@ const IT = {
   "Only Mail with Attachments": "Solo messaggi con allegati",
   "Own order of spaces": "Ordine personale degli spazi",
   "Drag a space up or down in the bar. Off: original order.": "Trascina uno spazio in alto o in basso nella barra. Disattivato: ordine originale.",
+  "Custom…": "Personalizzato…",
+  "{n} alerts": "{n} promemoria",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
 // tr("+{n} more", { n: 3 }) – Platzhalter in geschweiften Klammern
@@ -12767,12 +12775,12 @@ class CardEnhancer {
       const options = (pairs) => pairs.map(([v, label]) => el("option", { value: v }, label));
       f.repeat = el("select", {}, ...options([
         ["", tr("Never")], ["DAILY", tr("Every Day")], ["WEEKLY", tr("Every Week")],
-        ["MONTHLY", tr("Every Month")], ["YEARLY", tr("Every Year")],
+        ["MONTHLY", tr("Every Month")], ["YEARLY", tr("Every Year")], ["CUSTOM", tr("Custom…")],
       ]));
       f.alert = el("select", {}, ...options([
         ["", tr("None")], ["PT0M", tr("At time of event")], ["PT5M", tr("5 minutes before")],
         ["PT15M", tr("15 minutes before")], ["PT30M", tr("30 minutes before")],
-        ["PT1H", tr("1 hour before")], ["P1D", tr("1 day before")],
+        ["PT1H", tr("1 hour before")], ["P1D", tr("1 day before")], ["CUSTOM", tr("Custom…")],
       ]));
       f.showAs = el("select", {}, ...options([["OPAQUE", tr("Busy")], ["TRANSPARENT", tr("Free")]]));
       const row = (label, cls, ...ctrls) => el("div", { class: `mc-qc-row ${cls || ""}` }, el("label", {}, label), el("div", { class: "mc-qc-ctrl" }, ...ctrls));
@@ -12873,8 +12881,74 @@ class CardEnhancer {
         const label = select.selectedOptions[0]?.textContent || "";
         return select == f.alert ? `${tr("Alert")}: ${label}` : label;
       }
+      // „Custom…“ bei Wiederholung und Erinnerung: Thunderbirds eigene Dialoge
+      // (wie im großen Fenster); Abbrechen lässt die vorige Auswahl stehen
+      const customOption = select => select.querySelector('option[value="CUSTOM"]');
+      const resetCustom = () => {
+        panel.__mcRecurrence = null;
+        panel.__mcAlarms = null;
+        customOption(f.repeat).textContent = tr("Custom…");
+        customOption(f.alert).textContent = tr("Custom…");
+      };
+      panel.__mcResetCustom = resetCustom;
+      const modal = (url, args) => {
+        // das Fenster bleibt offen, während der Dialog den Fokus hat
+        panel.setAttribute("noautohide", "true");
+        try {
+          w.openDialog(url, "_blank", "chrome,titlebar,modal,resizable,centerscreen", args);
+        } finally {
+          panel.removeAttribute("noautohide");
+        }
+      };
+      const lastChoice = new WeakMap([[f.repeat, ""], [f.alert, ""]]);
       for (const input of [f.repeat, f.alert]) {
-        input.addEventListener("change", () => updateSummary());
+        input.addEventListener("change", () => {
+          if (input.value == "CUSTOM") {
+            const draft = buildItem({ plain: true }).item;
+            let ok = false;
+            if (input == f.repeat) {
+              modal("chrome://calendar/content/calendar-event-dialog-recurrence.xhtml", {
+                calendarEvent: draft,
+                recurrenceInfo: panel.__mcRecurrence || null,
+                startTime: draft.startDate,
+                endTime: draft.endDate,
+                onOk: info => {
+                  panel.__mcRecurrence = info;
+                  ok = !!info;
+                },
+              });
+              if (ok) {
+                const { recurrenceRule2String } = ChromeUtils.importESModule("resource:///modules/calendar/calRecurrenceUtils.sys.mjs");
+                // nur die erste Zeile („Occurs every 2 weeks“), ohne Beginn und Uhrzeit
+                const text = recurrenceRule2String(panel.__mcRecurrence, draft.startDate, draft.endDate, draft.startDate.isDate) || "";
+                customOption(f.repeat).textContent = text.split("\n")[0].replace(/[.,;:]\s*$/, "").trim() || tr("Custom…");
+              }
+            } else {
+              modal("chrome://calendar/content/calendar-event-dialog-reminder.xhtml", {
+                reminders: panel.__mcAlarms || [],
+                item: draft,
+                timezone: cal.dtz.defaultTimezone,
+                calendar: selectedCalendar(),
+                onOk: reminders => {
+                  panel.__mcAlarms = reminders;
+                  ok = reminders.length > 0;
+                },
+                onCancel() {},
+              });
+              if (ok) {
+                const alarms = panel.__mcAlarms;
+                customOption(f.alert).textContent = alarms.length == 1
+                  ? alarms[0].toString(draft)
+                  : tr("{n} alerts", { n: alarms.length });
+              }
+            }
+            if (!ok) {
+              input.value = lastChoice.get(input);
+            }
+          }
+          lastChoice.set(input, input.value);
+          updateSummary();
+        });
       }
       const setMode = m => {
         state.mode = m;
@@ -13020,7 +13094,7 @@ class CardEnhancer {
         }
       });
 
-      const buildItem = () => {
+      const buildItem = ({ plain = false } = {}) => {
         const calendar = selectedCalendar();
         let item;
         if (state.mode == "task") {
@@ -13051,7 +13125,11 @@ class CardEnhancer {
             item.setProperty("LOCATION", loc);
           }
           item.setProperty("TRANSP", f.showAs.value);
-          if (f.repeat.value) {
+          if (!plain && f.repeat.value == "CUSTOM" && panel.__mcRecurrence) {
+            const info = panel.__mcRecurrence.clone();
+            info.item = item;
+            item.recurrenceInfo = info;
+          } else if (!plain && f.repeat.value && f.repeat.value != "CUSTOM") {
             const info = new CalRecurrenceInfo(item);
             const rule = cal.createRecurrenceRule();
             rule.type = f.repeat.value;
@@ -13064,7 +13142,11 @@ class CardEnhancer {
         if (notes) {
           item.setProperty("DESCRIPTION", notes);
         }
-        if (f.alert.value && (state.mode == "event" || item.dueDate)) {
+        if (!plain && f.alert.value == "CUSTOM" && panel.__mcAlarms) {
+          for (const alarm of panel.__mcAlarms) {
+            item.addAlarm(alarm.clone());
+          }
+        } else if (!plain && f.alert.value && f.alert.value != "CUSTOM" && (state.mode == "event" || item.dueDate)) {
           const alarm = new CalAlarm();
           alarm.related = state.mode == "task" ? Ci.calIAlarm.ALARM_RELATED_END : Ci.calIAlarm.ALARM_RELATED_START;
           const offset = cal.createDuration(f.alert.value);
@@ -13126,6 +13208,7 @@ class CardEnhancer {
     f.hasDue.checked = false;
     f.repeat.value = "";
     f.alert.value = "";
+    panel.__mcResetCustom?.();
     f.showAs.value = "OPAQUE";
     // Tag: in der Today-Pane der dort gewählte Tag, sonst heute; Beginn zur
     // nächsten vollen Stunde, eine Stunde lang

@@ -5205,6 +5205,61 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Schnellfenster: natürliche Eingabe („morgen 12:30 für 90 min“, „morgen für 2h“ nicht ganztägig)", natural, results)
 
+    def quick_custom():
+        # „Custom…“ bei Wiederholung und Erinnerung öffnet Thunderbirds Dialoge (hier nachgestellt: sie würden das Skript
+        # blockieren); die Regel bzw. die Erinnerungen kommen im Termin an, der Text steht in der Auswahl; Abbrechen lässt die
+        # vorige Auswahl stehen
+        res = m.js('''
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          await toCalendar();
+          const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
+          li.querySelector("button").click(); await wait(900);
+          const p = d.getElementById("mcQuickPanel"), f = p.__mc;
+          p.querySelector(".mc-qc-calsel").value = testCalendar().id; p.querySelector(".mc-qc-calsel").dispatchEvent(new w.Event("change"));
+          f.title.value = "Halo Eigene Regel";
+          const orig = w.openDialog, calls = []; let cancel = true;
+          w.openDialog = (url, name, feat, args) => {
+            calls.push(url.split("/").pop());
+            if (cancel) return null;
+            if (url.includes("recurrence")) {
+              const info = new CalRecurrenceInfo(args.calendarEvent), r = cal.createRecurrenceRule();
+              r.type = "WEEKLY"; r.interval = 2; info.appendRecurrenceItem(r); args.onOk(info);
+            } else {
+              const mk = v => { const a = new CalAlarm(); a.related = Ci.calIAlarm.ALARM_RELATED_START; const o = cal.createDuration(v); o.isNegative = true;
+                                a.offset = o; a.action = "DISPLAY"; return a; };
+              args.onOk([mk("PT10M"), mk("P1D")]);
+            }
+            return null;
+          };
+          const out = {};
+          try {
+            const pick = (sel, v) => { sel.value = v; sel.dispatchEvent(new w.Event("change", { bubbles: true })); };
+            pick(f.repeat, "WEEKLY"); pick(f.repeat, "CUSTOM");
+            out.cancelled = f.repeat.value;
+            cancel = false;
+            pick(f.repeat, "CUSTOM"); pick(f.alert, "CUSTOM");
+            out.labels = [f.repeat.selectedOptions[0]?.textContent, f.alert.selectedOptions[0]?.textContent];
+            out.summary = f.line2.textContent;
+            p.querySelector(".mc-qc-primary").click(); await wait(1200);
+          } finally { w.openDialog = orig; }
+          out.calls = calls;
+          const it = (await items("Halo Eigene Regel"))[0];
+          const rule = it?.recurrenceInfo?.getRecurrenceItems()[0];
+          out.item = it ? { type: rule?.type, interval: rule?.interval, alarms: it.getAlarms().length } : null;
+          // neu geöffnet: wieder „Custom…“ ohne Regel
+          li.querySelector("button").click(); await wait(900);
+          out.reset = [f.repeat.value, f.repeat.querySelector('option[value="CUSTOM"]').textContent];
+          p.hidePopup(); await wait(300);
+          return out;''')
+        it = res.get("item") or {}
+        ok = (res.get("cancelled") == "WEEKLY" and it.get("type") == "WEEKLY" and it.get("interval") == 2 and it.get("alarms") == 2
+              and res["labels"][1] == "2 alerts" and res["labels"][0] not in ("Custom…", "", None) and "\n" not in res["labels"][0] and "2" in res["labels"][0]
+              and res.get("calls", [])[:3] == ["calendar-event-dialog-recurrence.xhtml"] * 2 + ["calendar-event-dialog-reminder.xhtml"]
+              and res.get("reset") == ["", "Custom…"])
+        return ok, f"{res}"
+    check("Schnellfenster: „Custom…“ bei Wiederholung und Erinnerung über Thunderbirds Dialoge, Regel und Erinnerungen kommen im Termin an", quick_custom, results)
+
     def natural_rules():
         # parseNatural direkt über das Experiment-Modul, „jetzt“ = Di 20.10.2026 15:00
         res = m.js('''

@@ -3754,6 +3754,9 @@ def calendar_checks(m, results):
             const labs = fb ? [...fb.querySelectorAll(":scope > label")].filter(l => !l.hidden && vis(l)) : [];
             out.status = labs.length >= 2 ? Math.round((labs[1].getBoundingClientRect().left - labs[0].getBoundingClientRect().right) * 10) / 10 : null;
             out.statusText = labs.map(l => l.value || l.textContent).join("|");
+            // ESR 153 öffnet den Dialog ohne Statusleiste (chromehidden="… status …"): dort gibt es die Zeile nicht
+            out.noStatusBar = (dw.document.documentElement.getAttribute("chromehidden") || "").split(" ").includes("status")
+              || csOf(dw.document.getElementById("status-bar")).display == "none";
             out.shadows = [...new Set([...dw.document.querySelectorAll("#status-bar :is(label, description)")].map(l => csOf(l).textShadow))];
             // Kategorien: Farbpunkte im Menü mit feinem Ring, Farbchip der gewählten Kategorie im Feld mit Haarlinie
             const cats = id.getElementById("item-categories"), cp = id.getElementById("item-categories-popup") || cats?.menupopup;
@@ -3785,7 +3788,7 @@ def calendar_checks(m, results):
             contrast(desc["color"], desc["field"]) >= 4.5 if res["dark"] else luminance(desc["color"]) < 0.2)
         # Termin wie Apple Kalender: Karten statt Trennlinien – sichtbare Trenner dürfen nur Haarlinien sein
         ok = (all(rgba_alpha(c) <= 0.12 and float(wd[:-2]) <= 1 for c, wd in seps)
-              and res.get("status") is not None and res["status"] >= 3 and ok_desc
+              and (res.get("noStatusBar") or (res.get("status") is not None and res["status"] >= 3)) and ok_desc
               and res.get("shadows") == ["none"] and (res.get("catDot") or "").startswith("radial-gradient")
               and res.get("catChip") not in (None, "none"))
         return ok, f"{res}"

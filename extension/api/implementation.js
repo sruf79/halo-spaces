@@ -12371,6 +12371,9 @@ class CardEnhancer {
       }
     }
     let relocked = false;
+    // Breite der Mailliste vor dem Animieren: im vertikalen Layout bleibt sie stehen
+    const threadPane = ab.document.getElementById("threadPane");
+    const listStart = threadPane?.getBoundingClientRect().width || 0;
     ab.__mcAnimating = true;
     // Die Uhr läuft erst ab dem ersten gezeichneten Bild: beim Einblenden baut
     // Thunderbird die Ordnerliste zuerst neu auf, das würde sonst den Anfang
@@ -12432,6 +12435,17 @@ class CardEnhancer {
       }
       if (collapsing) {
         splitter.isCollapsed = true; // setzt die Variable selbst auf 0px
+        // ESR 153 gibt die 1-px-Spur des Teilers erst danach frei – die Liste
+        // wäre ein Bild lang breiter: Leseansicht im selben Schritt angleichen
+        if (vertical && listStart) {
+          const drift = (threadPane.getBoundingClientRect().width || listStart) - listStart;
+          if (Math.abs(drift) >= 0.5) {
+            const now = parseFloat(grid.style.getPropertyValue(msgProp)) || parseFloat(ab.getComputedStyle(grid).getPropertyValue(msgProp));
+            if (Number.isFinite(now)) {
+              grid.style.setProperty(msgProp, `${now + drift}px`);
+            }
+          }
+        }
       } else if (saved) {
         grid.style.setProperty(prop, saved);
       } else {

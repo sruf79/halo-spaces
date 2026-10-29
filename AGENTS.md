@@ -77,8 +77,7 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   überspringen diesen Fall bewusst.
 - CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release,
   Beta und ESR; Linux-spezifische Abweichungen der Toolbar sind dort Warnungen.
-  Der ESR-Job darf vorerst rot sein (`continue-on-error`), bis die bekannten
-  Abweichungen unter ESR 153 behoben sind; danach die Ausnahme entfernen.
+  Der ESR-Job (Mindestversion) muss grün sein wie die übrigen.
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).

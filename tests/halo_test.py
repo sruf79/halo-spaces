@@ -4302,7 +4302,10 @@ def server_checks(m, results):
               const bar = await until(() => md.getElementById("mcQuickReply"), 5000);
               if (!bar) return { bar: false };
               const field = bar.querySelector(".mc-qr-field");
-              const out = { placeholder: field.placeholder, sendHidden: md.defaultView.getComputedStyle(bar.querySelector(".mc-qr-send")).display };
+              const fs = md.defaultView.getComputedStyle(field);
+              const out = { placeholder: field.placeholder, sendHidden: md.defaultView.getComputedStyle(bar.querySelector(".mc-qr-send")).display,
+                            // Eingabefeld, keine Kapsel: kleiner Radius, sichtbarer Rand
+                            look: { radius: parseFloat(fs.borderTopLeftRadius), border: parseFloat(fs.borderTopWidth), color: fs.borderTopColor } };
               field.value = "Danke, angekommen!"; field.dispatchEvent(new md.defaultView.Event("input", { bubbles: true }));
               out.sendShown = md.defaultView.getComputedStyle(bar.querySelector(".mc-qr-send")).display;
               field.dispatchEvent(new md.defaultView.KeyboardEvent("keydown", { key: "Enter", metaKey: true, ctrlKey: true, bubbles: true }));
@@ -4321,12 +4324,14 @@ def server_checks(m, results):
                 time.sleep(0.5)
             got = servers.smtp.sent[before:]
             data = got[0][2] if got else ""
+            look = res.get("look") or {}
             ok = (res.get("placeholder") == "Reply to Anna Beispiel …" and res.get("sendHidden") == "none" and res.get("sendShown") != "none"
+                  and look.get("radius", 99) <= 8 and look.get("border", 0) > 0 and not (look.get("color") or "").endswith(", 0)")
                   and res.get("replied") and res.get("after", {}).get("value") == "" and len(got) == 1
                   and "anna@example.invalid" in got[0][1][0] and "Subject: Re: Willkommen im Testkonto" in data
                   and "In-Reply-To: <srv-1@example.invalid>" in data and "Danke, angekommen!" in data)
             return ok, f"{res} gesendet: {[(g[1], g[2][:300]) for g in got]}"
-        check("Testkonto: Schnellantwort unter der Mail sendet ohne Fenster an den Absender, Mail gilt als beantwortet", quick_reply, results)
+        check("Testkonto: Schnellantwort unter der Mail als Eingabefeld (keine Kapsel), sendet ohne Fenster an den Absender, Mail gilt als beantwortet", quick_reply, results)
 
         def send_later():
             # Später senden: Pfeil neben „Senden“ mit „Morgen …“ und „Später senden …“; geplante Mail liegt als Entwurf mit

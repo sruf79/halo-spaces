@@ -2824,7 +2824,8 @@ unified-toolbar {
 }
 
 /* ---------- Schnellantwort unter der Mail ----------
-   (#mcQuickReply, setzt die Erweiterung): ein rundes Feld „Antworten an …“
+   (#mcQuickReply, setzt die Erweiterung): ein Textfeld „Antworten an …“
+   (kleiner Radius und Haarlinie wie Eingabefelder, Kapselform nur für Knöpfe)
    über die Breite der Mail, „Mehr …“ und der Senden-Pfeil erscheinen, sobald
    etwas dasteht; Haarlinie darüber wie zwischen Kopf und Text */
 #mcQuickReply {
@@ -2840,10 +2841,10 @@ unified-toolbar {
   flex: 1 !important;
   min-height: 32px !important;
   box-sizing: border-box !important;
-  padding: 6px 14px !important;
-  border: var(--mt-hairline) solid var(--mt-separator) !important;
-  border-radius: 16px !important;
-  background: var(--mt-control) !important;
+  padding: 6px 10px !important;
+  border: var(--mt-hairline) solid color-mix(in srgb, var(--mt-text) 18%, transparent) !important;
+  border-radius: 6px !important;
+  background: var(--mt-window) !important;
   color: var(--mt-text) !important;
   font: 13px/18px var(--mt-font) !important;
   resize: none !important;
@@ -2852,7 +2853,7 @@ unified-toolbar {
 
 #mcQuickReply .mc-qr-field:focus {
   border-color: var(--mt-accent) !important;
-  background: var(--mt-window) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
 }
 
 #mcQuickReply .mc-qr-field::placeholder {

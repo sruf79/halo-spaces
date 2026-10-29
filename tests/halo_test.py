@@ -4735,7 +4735,15 @@ def server_checks(m, results):
                   const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose), 10000);
                   await wait(2500);
                   const btn = cw.document.getElementById("button-encryption");
+                  const ccs = el => cw.getComputedStyle(el);
                   const out = { key: !!key, encrypt: !!cw.gSendEncrypted, btn: btn ? { checked: btn.checked || btn.getAttribute("checked") == "true", shown: btn.getBoundingClientRect().width > 0 } : null };
+                  // eingeschaltet erkennbar: getönte Kapsel und Symbol in Akzentfarbe (anders als ein gewöhnlicher Knopf)
+                  const plain = cw.document.getElementById("button-attach") || cw.document.getElementById("button-contacts");
+                  const icon = btn?.querySelector(".toolbarbutton-icon");
+                  out.look = btn && { bg: ccs(btn).backgroundColor, plain: plain && ccs(plain).backgroundColor, fill: icon && ccs(icon).fill };
+                  // Warnleiste unten (Schlüssel läuft ab) grau statt gelb
+                  const warn = await until(() => cw.document.querySelector('#compose-notification-bottom notification-message[type="warning"]'), 4000);
+                  out.warn = warn ? warn.shadowRoot?.querySelector(".container") && cw.getComputedStyle(warn.shadowRoot.querySelector(".container")).backgroundColor : null;
                   const bmp = await cw.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
                   const c = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
                   const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(PathUtils.tempDir, "halo-pgp-compose.png"), new Uint8Array(await blob.arrayBuffer()));
@@ -4762,9 +4770,21 @@ def server_checks(m, results):
                   const body = mb?.getElementById("messagepane")?.contentDocument?.body?.textContent || "";
                   const tech = mb?.getElementById("encryptionTechBtn");
                   const out = { found: true, body: body.includes("Nur für mich lesbar."), tech: tech ? { shown: tech.getBoundingClientRect().width > 0, text: tech.textContent.trim() } : null };
+                  // ruhige Symbole statt „OpenPGP“ mit bunten Zeichen; markiert: Stern außen, Symbole daneben ohne Überlappung
+                  const mcs = el => el.ownerDocument.defaultView.getComputedStyle(el);
+                  const label = tech?.querySelector(".crypto-label"), enc = mb?.getElementById("encryptedHdrIcon");
+                  out.crypto = { label: label ? mcs(label).display : null, lock: enc && !enc.hidden ? mcs(enc).content : null };
+                  const hdr = a3.gDBView.getMsgHdrAt(idx - 1);
+                  hdr.folder.markMessagesFlagged([hdr], true); await wait(800);
+                  const star = mb?.querySelector("#mcHdrMeta .mc-hdr-star");
+                  if (star && tech) { const a = star.getBoundingClientRect(), b = tech.getBoundingClientRect();
+                    out.crypto.overlap = !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top);
+                    out.crypto.starRight = a.left >= b.right - 1; out.crypto.rects = [a, b].map(r => [r.left, r.top, r.right, r.bottom].map(Math.round));
+                    out.crypto.middle = Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) <= 3; }
                   const bmp = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
                   const c = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
                   const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(PathUtils.tempDir, "halo-pgp-read.png"), new Uint8Array(await blob.arrayBuffer()));
+                  hdr.folder.markMessagesFlagged([hdr], false);
                   Services.prefs.clearUserPref("extensions.mailcards.undoSend");
                   return out;""" % key)
             finally:
@@ -4772,8 +4792,12 @@ def server_checks(m, results):
             t_ = res2.get("tech") or {}
             ok = (res.get("key") and res.get("encrypt") and (res.get("btn") or {}).get("checked") and res.get("closed") and encrypted
                   and res2.get("found") and res2.get("body") and t_.get("shown"))
+            lk, cr = res.get("look") or {}, res2.get("crypto") or {}
+            yellow = lambda c: bool(c) and (lambda v: len(v) >= 3 and v[0] > 200 and v[1] > 180 and v[2] < 140)([float(x) for x in re.findall(r"[\d.]+", c)])
+            ok = (ok and lk.get("bg") and lk.get("bg") != lk.get("plain") and lk.get("fill") not in (None, "none") and not yellow(res.get("warn"))
+                  and cr.get("label") == "none" and "mailcards/icons/lock.svg" in (cr.get("lock") or "") and cr.get("overlap") is False and cr.get("starRight") and cr.get("middle"))
             return ok, f"{res} verschlüsselt: {encrypted} {res2}"
-        check("Testkonto: OpenPGP – Verfassen verschlüsselt mit Testschlüssel, Mail kommt verschlüsselt an, Leseansicht entschlüsselt mit Hinweis im Mailkopf", openpgp_roundtrip, results)
+        check("Testkonto: OpenPGP – Verfassen verschlüsselt (Schloss erkennbar eingeschaltet, Schlüssel-Hinweis grau), Mail kommt verschlüsselt an, Leseansicht entschlüsselt mit ruhigen Symbolen im Mailkopf", openpgp_roundtrip, results)
     finally:
         try:
             m.js(r"""

@@ -7639,6 +7639,25 @@ addon-card .addon-inline-options {
   background: var(--mt-control-hover) !important;
 }
 
+/* Verschlüsseln/Signieren eingeschaltet: Schloss bzw. Siegel gefüllt in
+   Akzentfarbe auf getönter Kapsel (wie Apple Mail) – ein- und ausgeschaltet
+   sahen sonst gleich aus */
+#composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]) {
+  background: color-mix(in srgb, var(--mt-accent) 16%, transparent) !important;
+  color: var(--mt-accent) !important;
+}
+
+#composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]) .toolbarbutton-icon {
+  -moz-context-properties: fill, fill-opacity, stroke !important;
+  fill: var(--mt-accent) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--mt-accent) !important;
+}
+
+#composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]):not([disabled]):hover {
+  background: color-mix(in srgb, var(--mt-accent) 24%, transparent) !important;
+}
+
 :root[mc-format-hidden] #FormatToolbar {
   display: none !important;
 }
@@ -7731,6 +7750,19 @@ addon-card .addon-inline-options {
 
 #compose-notification-bottom .notificationbox-stack {
   background-color: var(--mt-window) !important;
+}
+
+/* Warnungen unten (z. B. „Schlüssel läuft in 30 Tagen ab“) ruhig wie die
+   übrigen Hinweise: graue Fläche, Warnsymbol in Orange statt gelber Leiste */
+#compose-notification-bottom notification-message[type="warning"] {
+  --message-bar-background-color: var(--mt-control) !important;
+  --message-bar-text-color: var(--mt-text) !important;
+  --message-bar-icon-color: var(--mt-star) !important;
+}
+
+#compose-notification-bottom notification-message[type="warning"] :is(button, toolbarbutton).notification-button {
+  background: var(--mt-window) !important;
+  color: var(--mt-text) !important;
 }
 
 /* Kontakte-Seitenleiste: Kopf im Seitenleisten-Grau mit Haarlinie */
@@ -11541,6 +11573,65 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #mcHdrMeta .mc-hdr-star[hidden] {
   display: none !important;
+}
+
+/* Verschlüsselt/signiert (OpenPGP, S/MIME): wie Apple Mail nur ruhige
+   graue Symbole (Schloss, Siegel) ohne „OpenPGP“; Klick öffnet weiter
+   Thunderbirds Details. Warnzustände (ungültig, unbekannt, nicht bestätigt)
+   behalten Thunderbirds farbige Symbole. Bei markierter Mail steht der
+   Stern außen, die Symbole links daneben */
+#cryptoBox .crypto-label {
+  display: none !important;
+}
+
+#encryptionTechBtn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 20px !important;
+  padding: 1px 5px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: var(--mt-text-secondary) !important;
+  box-shadow: none !important;
+}
+
+#encryptionTechBtn:hover {
+  background: var(--mt-control) !important;
+}
+
+#encryptionTechBtn > img {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+}
+
+#encryptedHdrIcon[src$="encrypted-ok.svg"] {
+  content: url("resource://mailcards/icons/lock.svg") !important;
+}
+
+#signedHdrIcon:is([src$="signed-ok.svg"], [src$="signed-verified.svg"]) {
+  content: url("resource://mailcards/icons/seal.svg") !important;
+}
+
+#encryptedHdrIcon[src$="encrypted-ok.svg"],
+#signedHdrIcon:is([src$="signed-ok.svg"], [src$="signed-verified.svg"]) {
+  -moz-context-properties: fill, fill-opacity, stroke !important;
+  fill: currentColor !important;
+  fill-opacity: 0 !important;
+  stroke: currentColor !important;
+}
+
+/* auf Höhe des Sterns (rechts unter der Uhrzeit) */
+#encryptionTechBtn {
+  position: relative !important;
+  top: -10px !important;
+}
+
+#messageHeader:has(.mc-hdr-star:not([hidden])) #encryptionTechBtn {
+  margin-inline-end: 20px !important;
 }
 
 /* ohne Empfänger zeigt Thunderbird das Datum zusätzlich in der Betreffzeile */

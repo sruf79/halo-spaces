@@ -12471,19 +12471,25 @@ class CardEnhancer {
         row(tr("Alert"), "", f.alert),
         row(tr("Show As"), "mc-ev", f.showAs),
       );
-      f.time = el("div", { class: "mc-qc-time mc-qc-card" }, f.summary, f.details);
-      f.main = el("div", { class: "mc-qc-main" }, el("div", { class: "mc-qc-card mc-qc-titlecard" }, f.title), f.time);
-      f.location = el("input", { class: "mc-qc-card mc-qc-field mc-ev-only", type: "text", placeholder: tr("Add Location") });
-      f.invitees = el("button", { type: "button", class: "mc-qc-card mc-qc-field mc-qc-placeholder mc-ev-only" }, tr("Add Invitees…"));
-      f.calendar = el("select", { class: "mc-qc-calsel" });
-      f.calCard = el("div", { class: "mc-qc-card mc-qc-field mc-qc-calcard" }, f.calendar);
-      f.notes = el("textarea", { class: "mc-qc-card mc-qc-field", rows: "2", placeholder: tr("Add Notes or URL") });
+      // Wie Apple Kalender: Zeilen mit Haarlinien statt grauer Kästen, leere
+      // Angaben nur als graue Platzhalterzeile, die beim Klick zum Feld wird;
+      // die Kalenderfarbe als Farbfeld oben rechts neben dem Titel ist
+      // zugleich die Kalenderwahl (kein Farbbalken, keine eigene Zeile)
+      f.time = el("div", { class: "mc-qc-time mc-qc-line" }, f.summary, f.details);
+      f.location = el("input", { class: "mc-qc-location mc-ev-only", type: "text", placeholder: tr("Add Location") });
+      f.calendar = el("select", { class: "mc-qc-calsel", tabindex: "-1", "aria-hidden": "true" });
+      f.swatch = el("button", { type: "button", class: "mc-qc-swatch", "aria-haspopup": "menu" });
+      f.head = el("div", { class: "mc-qc-head mc-qc-line" },
+        el("div", { class: "mc-qc-headtext" }, f.title, f.location), f.swatch, f.calendar);
+      f.invitees = el("button", { type: "button", class: "mc-qc-line mc-qc-field mc-qc-placeholder mc-ev-only" }, tr("Add Invitees…"));
+      f.notes = el("textarea", { class: "mc-qc-line mc-qc-field mc-qc-notes", rows: "1", placeholder: tr("Add Notes or URL") });
+      f.main = el("div", { class: "mc-qc-list" }, f.head, f.time, f.invitees, f.notes);
       f.more = el("button", { type: "button", class: "mc-qc-link" }, tr("More Options…"));
       f.cancel = el("button", { type: "button", class: "mc-qc-btn" }, tr("Cancel"));
       f.add = el("button", { type: "button", class: "mc-qc-btn mc-qc-primary" }, tr("Add"));
       const root = el("div", { class: "mc-qc" },
         el("div", { class: "mc-qc-seg" }, f.segEvent, f.segTask),
-        f.main, f.location, f.invitees, f.calCard, f.notes,
+        f.main,
         el("div", { class: "mc-qc-footer" }, f.more, el("span", { class: "mc-qc-spacer" }), f.cancel, f.add),
       );
       panel.append(root);
@@ -12525,7 +12531,12 @@ class CardEnhancer {
         updateColor();
       };
       const selectedCalendar = () => cal.manager.getCalendarById(f.calendar.value);
-      const updateColor = () => root.style.setProperty("--mc-qc-color", color(selectedCalendar()));
+      const updateColor = () => {
+        const c = selectedCalendar();
+        root.style.setProperty("--mc-qc-color", color(c));
+        f.swatch.title = c?.name || "";
+        f.swatch.setAttribute("aria-label", `${tr("Calendar")}: ${c?.name || ""}`);
+      };
       const updateSummary = () => {
         if (state.mode == "task") {
           // Erinnerung braucht eine Fälligkeit (sonst ginge sie beim Anlegen verloren)
@@ -12690,9 +12701,9 @@ class CardEnhancer {
           });
           return item;
         }));
-        calMenu.style.minWidth = `${Math.round(f.calCard.getBoundingClientRect().width)}px`;
-        calMenu.openPopup(f.calCard, "after_start", 0, 2);
+        calMenu.openPopup(f.swatch, "after_end", 0, 2);
       };
+      f.swatch.addEventListener("click", openCalMenu);
       f.calendar.addEventListener("mousedown", event => {
         if (event.button == 0) {
           event.preventDefault();

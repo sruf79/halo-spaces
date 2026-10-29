@@ -1082,7 +1082,7 @@ SURFACES = [
       ' return await pop(p, () => { d.notifyUserGestureActivation(); f.repeat.showPicker(); });', cap="popup",
       note="Popup #ContentSelectDropdown – dasselbe erscheint für „Vorschauzeilen“ in den halo.spaces-Einstellungen"),
     S("kal-schnellfenster-kalender", "kalender", "popup", "Schnellfenster: Kalendermenü mit Farbpunkten",
-      'const f = await quickPanel(); return await pop("mcQuickCalMenu", () => fire(f.calendar, "mousedown"));', cap="popup"),
+      'const f = await quickPanel(); return await pop("mcQuickCalMenu", () => f.swatch.click());', cap="popup"),
     S("kal-neu-popover", "kalender", "popup", "Today-Pane: „+“ → Neuer Termin / Neue Aufgabe",
       'await toMail(); if (!w.TodayPane.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand(); await wait(1000);'
       ' return await pop("mcNewPopup", () => d.getElementById("mcTodayNew").click());', cap="popup"),

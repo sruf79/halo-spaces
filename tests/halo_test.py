@@ -3159,7 +3159,7 @@ def folder_checks(m, results):
             out.during = { dragging: calBtn.hasAttribute("mc-dragging"), mailShift: d.getElementById("mailButton").style.transform };
             ev("pointerup", y0 - 2 * slot - 4); await wait(600);
             out.after = order(); out.pref = Services.prefs.getStringPref("extensions.mailcards.spacesOrder", "");
-            out.menu = menuOrder(); out.icon = d.documentElement.hasAttribute("mc-spaces-order") && w.getComputedStyle(d.getElementById("mcSpacesToggle"), "::after").backgroundImage.includes("C47212");
+            out.menu = menuOrder(); out.icon = d.documentElement.hasAttribute("mc-spaces-order") && /C47212|FCA53E/.test(w.getComputedStyle(d.getElementById("mcSpacesToggle"), "::after").backgroundImage);
             // Klick ohne Bewegung: öffnet den Adressbuch-Bereich, Reihenfolge bleibt
             const ab = d.getElementById("addressBookButton"), ar = ab.getBoundingClientRect();
             ab.dispatchEvent(new w.PointerEvent("pointerdown", { bubbles: true, pointerId: 8, button: 0, buttons: 1, clientX: ar.left + 5, clientY: ar.top + 5 }));

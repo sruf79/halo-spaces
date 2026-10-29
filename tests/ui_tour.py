@@ -736,6 +736,13 @@ SURFACES = [
     S("mail-ansichtsoptionen", "mailliste", "popup", "Listenkopf: Ansichtsoptionen (…)",
       'const p = await pick("Inbox", "Treffen am Donnerstag"); const b = p.document.getElementById("threadPaneDisplayButton");'
       ' return await pop(p.document.getElementById("threadPaneDisplayContext"), () => b.click());', cap="popup"),
+    S("mail-filtermenue", "mailliste", "popup", "Listenkopf: Filter-Bedingungen (Rechtsklick oder Halten auf den Filterknopf)",
+      'await pick("Inbox", "Treffen am Donnerstag"); const b = d.querySelector("#mcListHeader .mc-lh-filter"); const r = b.getBoundingClientRect();'
+      ' return await pop("mcMailFilterPopup", () => b.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 })));',
+      cap="popup"),
+    S("mail-gefiltert", "mailliste", "zustand", "Filter an: „Filtered by: Unread“ unter dem Titel",
+      'await pick("Inbox", "Treffen am Donnerstag"); d.querySelector("#mcListHeader .mc-lh-filter").click(); await wait(1200);',
+      close='d.querySelector("#mcListHeader .mc-lh-filter").click(); await wait(800);'),
     S("mail-ansichtsoptionen-sortieren", "mailliste", "popup", "Listenkopf: Ansichtsoptionen → Sortieren nach",
       'const p = await pick("Inbox", "Treffen am Donnerstag"); const b = p.document.getElementById("threadPaneDisplayButton");'
       ' await pop(p.document.getElementById("threadPaneDisplayContext"), () => b.click());'

@@ -3005,6 +3005,43 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Toolbar anpassen: Listenkopf, Today- und Bereiche-Knopf ausgeblendet, Zeile einfarbig; danach wieder da", customize_toolbar, results)
 
+    def toolbar_reset():
+        # „Zurücksetzen“ in „Symbolleiste anpassen“ stellt die halo.spaces-Anordnung her (nicht Thunderbirds Standard ohne
+        # Antworten-Knöpfe), auch für die übrigen Bereiche; der Mailkopf hat danach ohne Neustart keine eigenen Antworten-Knöpfe
+        res = m.js(FOLDER_JS + r"""
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const saved = getState();
+          const a3 = await toMail();
+          const out = {};
+          try {
+            // eigene Anordnung ohne Antworten-Knöpfe: Mailkopf zeigt eigene Knöpfe
+            storeState({ ...saved, mail: ["write-message", "spacer", "search-bar"], addressbook: ["spacer", "search-bar"] }); await wait(500);
+            const msgDoc = () => a3.messageBrowser?.contentDocument;
+            out.standaloneOwn = msgDoc()?.documentElement.hasAttribute("mc-standalone");
+            d.querySelector("unified-toolbar").showCustomization();
+            await until(() => d.documentElement.classList.contains("customizingUnifiedToolbar"));
+            await wait(800);
+            const cust = d.querySelector("unified-toolbar-customization"), form = cust.querySelector("form");
+            form.reset(); await wait(400);
+            const pane = cust.querySelector('unified-toolbar-customization-pane[space="mail"]');
+            out.shown = [...pane.shadowRoot.querySelector(".toolbar-target").children].map(li => li.getAttribute("item-id"));
+            form.requestSubmit(); await until(() => !d.documentElement.classList.contains("customizingUnifiedToolbar")); await wait(800);
+            const st = getState();
+            out.mail = st.mail; out.addressbook = st.addressbook;
+            out.standaloneAfter = msgDoc()?.documentElement.hasAttribute("mc-standalone");
+          } finally {
+            if (d.documentElement.classList.contains("customizingUnifiedToolbar")) d.querySelector("unified-toolbar-customization").toggle(false);
+            storeState(saved); await wait(500);
+          }
+          return out;""")
+        mail, shown = res.get("mail") or [], res.get("shown") or []
+        ok = ("reply" in mail and "reply-all" in mail and "reply" in shown and mail[:4] == ["spacer", "get-messages", "write-message", "reply"]
+              and (res.get("addressbook") or [])[:2] == ["spacer", "create-contact"] and res.get("standaloneAfter") is False)
+        if res.get("standaloneOwn") is not None:
+            ok = ok and res["standaloneOwn"] is True
+        return ok, f"{res}"
+    check("Toolbar anpassen: Zurücksetzen stellt die halo.spaces-Anordnung her (Antworten-Knöpfe in der Toolbar), Mailkopf ohne eigene Knöpfe", toolbar_reset, results)
+
     def spaces_customize():
         res = m.js(FOLDER_JS + r"""
           await toMail();

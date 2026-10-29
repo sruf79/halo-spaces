@@ -1281,7 +1281,6 @@ const SPACE_TOOLBARS = {
   chat: ["spacer", "spacer", "search-bar"],
   settings: ["spacer", "spacer", "search-bar"],
 };
-const SPACE_TOOLBAR_PREF = "extensions.mailcards.spaceToolbarsApplied";
 // Feedback aus dem Hilfe-Menü geht an diese Adresse
 const FEEDBACK_ADDRESS = "halo.cat@icloud.com";
 // „Danke sagen“ im Info-Fenster; UTM-Parameter zeigen in Google Analytics
@@ -7359,7 +7358,6 @@ class CardEnhancer {
       Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
     }
     this.applyToolbarOnce();
-    this.applySpaceToolbarsOnce();
     // Suche über alle Konten und Treffer als einfache Liste (Einstellungen →
     // Allgemein) – einmalig, wer es danach abschaltet, behält das
     if (!Services.prefs.getBoolPref("extensions.mailcards.searchApplied", false)) {
@@ -7517,13 +7515,8 @@ class CardEnhancer {
               // Nachricht im eigenen Fenster: Knöpfe im Mailkopf zeigen
               // – ebenso, wenn die Mail-Toolbar keine Antworten-Knöpfe hat
               // (eigene Toolbar-Anordnung), sonst fehlten sie ganz
-              let replyInToolbar = false;
-              try {
-                const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
-                replyInToolbar = getState().mail?.includes("reply") ?? false;
-              } catch {}
               if (url.startsWith("about:message") &&
-                  (!replyInToolbar || win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow")) {
+                  (!this.replyInToolbar() || win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow")) {
                 doc.documentElement.setAttribute("mc-standalone", "true");
               }
             }, { once: true });
@@ -12987,47 +12980,119 @@ class CardEnhancer {
     w.requestAnimationFrame(() => w.requestAnimationFrame(step));
   }
 
+  // Einmalig: nur Symbole statt Symbol und Text, wenn die Mail-Toolbar beim
+  // ersten Start noch auf Thunderbirds Standard steht; danach die Bereiche
+  // mit der halo.spaces-Anordnung füllen
   applyToolbarOnce() {
-    if (Services.prefs.getBoolPref(TOOLBAR_PREF, false)) {
-      return; // spätere eigene Änderungen an der Toolbar bleiben erhalten
-    }
-    try {
-      const { getState, storeState } = ChromeUtils.importESModule(
-        "resource:///modules/CustomizationState.mjs"
-      );
-      // nur, wenn die Mail-Toolbar noch auf Thunderbirds Standard steht –
-      // eigene Anordnungen und Knöpfe anderer Add-ons bleiben erhalten
-      const state = getState();
-      if (!state.mail) {
-        storeState({ ...state, mail: APPLE_TOOLBAR });
-        Services.prefs.setIntPref("toolbar.unifiedtoolbar.buttonstyle", 2); // nur Symbole
+    if (!Services.prefs.getBoolPref(TOOLBAR_PREF, false)) {
+      try {
+        const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+        if (!getState().mail) {
+          Services.prefs.setIntPref("toolbar.unifiedtoolbar.buttonstyle", 2); // nur Symbole
+        }
+        Services.prefs.setBoolPref(TOOLBAR_PREF, true);
+      } catch (e) {
+        log("toolbar error", e);
       }
-      Services.prefs.setBoolPref(TOOLBAR_PREF, true);
+    }
+    this.fillToolbarDefaults();
+    // „Zurücksetzen“ in „Symbolleiste anpassen“ speichert den Bereich ohne
+    // Eintrag (= Thunderbirds Standard): gleich wieder füllen und den
+    // Mailkopf neu bewerten (Antworten-Knöpfe dort nur ohne Toolbar-Knöpfe)
+    const obs = () => {
+      this.fillToolbarDefaults();
+      this.updateStandalone();
+    };
+    Services.obs.addObserver(obs, "unified-toolbar-state-change");
+    this.restorers.push(() => Services.obs.removeObserver(obs, "unified-toolbar-state-change"));
+  }
+
+  // Bereiche ohne eigenen Eintrag stehen auf Thunderbirds Standard: mit der
+  // halo.spaces-Anordnung füllen; eigene Anordnungen bleiben erhalten,
+  // Knöpfe anderer Add-ons aus Thunderbirds Standard kommen ans Ende
+  haloToolbar(space) {
+    const items = { mail: APPLE_TOOLBAR, ...SPACE_TOOLBARS }[space];
+    if (!items) {
+      return null;
+    }
+    const { getDefaultItemIdsForSpace, EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+    return [...items, ...getDefaultItemIdsForSpace(space).filter(id => id.startsWith(EXTENSION_PREFIX))];
+  }
+
+  fillToolbarDefaults() {
+    try {
+      const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+      const state = { ...getState() };
+      let changed = false;
+      for (const space of ["mail", ...Object.keys(SPACE_TOOLBARS)]) {
+        if (!state[space]) {
+          state[space] = this.haloToolbar(space);
+          changed = true;
+        }
+      }
+      if (changed) {
+        storeState(state);
+      }
     } catch (e) {
       log("toolbar error", e);
     }
   }
 
-  // Einmalig die übrigen Bereiche belegen – nur Bereiche, die noch auf
-  // Thunderbirds Standard stehen; eigene Anpassungen bleiben erhalten.
-  applySpaceToolbarsOnce() {
-    if (Services.prefs.getBoolPref(SPACE_TOOLBAR_PREF, false)) {
+  // „Zurücksetzen“ in der Anpassung zeigt gleich die halo.spaces-Anordnung
+  // (gespeichert wird sie über fillToolbarDefaults)
+  hookToolbarReset(top) {
+    const ce = top?.customElements;
+    if (!ce || top.__mcResetHook) {
       return;
     }
+    top.__mcResetHook = true;
+    const self = this;
+    ce.whenDefined("unified-toolbar-customization-pane").then(() => {
+      const proto = ce.get("unified-toolbar-customization-pane").prototype;
+      if (proto.__mcReset) {
+        return;
+      }
+      const orig = proto.reset;
+      proto.__mcReset = orig;
+      proto.reset = function () {
+        orig.call(this);
+        try {
+          const ids = self.haloToolbar(this.getAttribute("space"));
+          for (const el of ids ? this.shadowRoot?.querySelectorAll(".toolbar-target, .space-specific-palette, .generic-palette") ?? [] : []) {
+            el.setItems(ids);
+          }
+        } catch (e) {
+          log("toolbar reset error", e);
+        }
+      };
+      self.addWinRestorer(top, () => {
+        proto.reset = orig;
+        delete proto.__mcReset;
+        delete top.__mcResetHook;
+      });
+    });
+  }
+
+  // Mailkopf mit eigenen Antworten-Knöpfen (mc-standalone): im eigenen
+  // Fenster immer, im Mailbereich nur, wenn die Toolbar keine hat
+  replyInToolbar() {
     try {
-      const { getState, storeState } = ChromeUtils.importESModule(
-        "resource:///modules/CustomizationState.mjs"
-      );
-      const state = { ...getState() };
-      for (const [space, items] of Object.entries(SPACE_TOOLBARS)) {
-        if (!state[space]) {
-          state[space] = items;
+      const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+      return getState().mail?.includes("reply") ?? false;
+    } catch {
+      return false;
+    }
+  }
+
+  updateStandalone() {
+    const inToolbar = this.replyInToolbar();
+    for (const top of Services.wm.getEnumerator("mail:3pane")) {
+      for (const bc of ThemeSheet.contexts(top)) {
+        const doc = bc.window?.document;
+        if (doc?.documentURI?.startsWith("about:message")) {
+          doc.documentElement.toggleAttribute("mc-standalone", !inToolbar);
         }
       }
-      storeState(state);
-      Services.prefs.setBoolPref(SPACE_TOOLBAR_PREF, true);
-    } catch (e) {
-      log("space toolbar error", e);
     }
   }
 
@@ -14947,6 +15012,7 @@ class CardEnhancer {
     });
 
     this.trackToolbarOffset(win);
+    this.hookToolbarReset(win.browsingContext?.topChromeWindow);
     this.decorateFolders(win);
     this.hookFolderEvents(win);
 

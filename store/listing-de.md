@@ -15,13 +15,14 @@ Ein ruhiges, aufgeräumtes Design im Stil von macOS für Thunderbird: farbige Be
 <li>Mails in der Systemschrift (Mac: SF Pro, Windows: Segoe UI, Linux: Schrift der Oberfläche)</li>
 <li>Gemeinsame Posteingänge, der Posteingang immer zuerst, das Suchfeld oben rechts – es sucht im gewählten Ordner, aus einem Sammelordner in allen Postfächern</li>
 <li>Kartenansicht oder klassische Tabelle in einem Menü; auf Wunsch ungelesene Mails zart in der Akzentfarbe hinterlegt; beantwortete und weitergeleitete Mails mit kleinem Pfeil</li>
+<li>Quick Look im Kontextmenü eines Anhangs (macOS, Thunderbird 158 oder neuer)</li>
 <li>Ruhiges Schreibfenster: Symbolleiste nur mit Symbolen, runder Sendeknopf, Formatleiste bei Bedarf, Anhänge als Kacheln, Weiterleitung mit ruhigem Kopf</li>
 </ul>
 
 <b>Kalender und Aufgaben</b>
 <ul>
 <li>Umschalter für Tag, Woche, Mehrere Wochen und Monat in der Titelleiste, Monatsansicht ohne Scrollbalken</li>
-<li>Schnellfenster für Termine: einfach schreiben – „morgen 12:30 für 90 min“, „Fr 9–11“. Auch ein Doppelklick im Kalender öffnet es</li>
+<li>Schnellfenster für Termine: einfach schreiben – „morgen 12:30 für 90 min“, „Fr 9–11“. Auch ein Doppelklick im Kalender öffnet es; Wiederholung und Erinnerung auch mit eigenen Regeln</li>
 <li>Übersichtliches Terminfenster: Titel oben, Karten für Zeit, Ort, Teilnehmer und Kalender, Notizen unten, ein Streifen in der Kalenderfarbe; getrennte Popover für Datum und Uhrzeit, Stunden und Minuten mit dem Mausrad, die Dauer bleibt erhalten</li>
 <li>Aufgaben als Liste mit Details rechts oder als Tabelle; Filter in einem Menü neben dem Suchfeld</li>
 <li>Ruhige Erinnerungen mit Kalendersymbol für Monat und Tag</li>

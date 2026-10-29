@@ -1,5 +1,11 @@
 Notes for the reviewer
 
+New in 3.10.0, for the review:
+- Quick event window: "Custom…" in Repeat and Alert opens Thunderbird's own dialogs (calendar-event-dialog-recurrence.xhtml and calendar-event-dialog-reminder.xhtml via window.openDialog with their usual arguments); the returned recurrence info and alarms are set on the new event before it is saved. Nothing else is changed.
+- Attachments: a menuitem "Quick Look" in the attachment context menu (#attachmentItemContext) dispatches Thunderbird's own "quicklook" event on #attachmentList, which opens Thunderbird's QuickLookManager (macOS, Thunderbird 158+). Hidden when that is not available. Removed on disable.
+- The Quick Reply field below messages was removed; its old pref extensions.mailcards.quickReply is cleared at start.
+- Settings: the categories in about:preferences are grouped with CSS margins; the Calendar category element is moved before "Privacy & Security" (moved back on disable).
+
 This version supersedes any pending earlier version (3.3.0, 3.5.1) – please review this one instead.
 
 New in 3.6.0, for the review:

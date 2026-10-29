@@ -53,7 +53,6 @@ All screenshots show made-up test data.
 --------
 - **Filter menu**: right-click or hold the filter button above the message list to filter by Unread, Starred, Only from Contacts or Only Mail with Attachments; "Filtered by: …" appears under the mailbox name
 - **Reorder spaces**: drag a space up or down in the spaces bar; the others move out of the way, and the order also applies to the spaces menu (reset in Settings → halo.spaces → Spaces)
-- **New event window**: no colour bar any more; the calendar colour sits as a small swatch next to the title and opens the calendar choice; details are calm rows with fine lines, location and notes appear only when you click them
 - **Encryption**: the lock in the compose window clearly shows when encryption is on, the key expiry notice is a quiet grey bar, and encrypted or signed messages show a calm lock and seal in the message header
 - **Chat**: participants with coloured initials, a calmer right sidebar and a proper text field for writing
 - **Message list**: paperclip and star sit flush with the time at the right edge of a card

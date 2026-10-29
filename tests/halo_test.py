@@ -3093,6 +3093,7 @@ def folder_checks(m, results):
             form.requestSubmit(); await until(() => !d.documentElement.classList.contains("customizingUnifiedToolbar")); await wait(800);
             const st = getState();
             out.mail = st.mail; out.addressbook = st.addressbook;
+            out.buttonStyle = Services.prefs.getIntPref("toolbar.unifiedtoolbar.buttonstyle", 0);
             out.standaloneAfter = msgDoc()?.documentElement.hasAttribute("mc-standalone");
           } finally {
             if (d.documentElement.classList.contains("customizingUnifiedToolbar")) d.querySelector("unified-toolbar-customization").toggle(false);
@@ -3101,11 +3102,12 @@ def folder_checks(m, results):
           return out;""")
         mail, shown = res.get("mail") or [], res.get("shown") or []
         ok = ("reply" in mail and "reply-all" in mail and "reply" in shown and mail[:4] == ["spacer", "get-messages", "write-message", "reply"]
-              and (res.get("addressbook") or [])[:2] == ["spacer", "create-contact"] and res.get("standaloneAfter") is False)
+              and (res.get("addressbook") or [])[:2] == ["spacer", "create-contact"] and res.get("standaloneAfter") is False
+              and res.get("buttonStyle") == 2)
         if res.get("standaloneOwn") is not None:
             ok = ok and res["standaloneOwn"] is True
         return ok, f"{res}"
-    check("Toolbar anpassen: Zurücksetzen stellt die halo.spaces-Anordnung her (Antworten-Knöpfe in der Toolbar), Mailkopf ohne eigene Knöpfe", toolbar_reset, results)
+    check("Toolbar anpassen: Zurücksetzen stellt die halo.spaces-Anordnung her (Antworten-Knöpfe in der Toolbar, nur Symbole), Mailkopf ohne eigene Knöpfe", toolbar_reset, results)
 
     def spaces_customize():
         res = m.js(FOLDER_JS + r"""

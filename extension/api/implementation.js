@@ -13432,6 +13432,13 @@ class CardEnhancer {
     const obs = () => {
       this.fillToolbarDefaults();
       this.updateStandalone();
+      // Thunderbird baut die Knöpfe danach neu auf: Lage und Einklappen bei
+      // Platzmangel neu messen (sonst blieben z. B. nach dem Zurücksetzen
+      // Knöpfe eingeklappt, obwohl wieder Platz ist)
+      const top = Services.wm.getMostRecentWindow("mail:3pane");
+      for (const ms of [50, 400]) {
+        top?.setTimeout(() => this.offsetUpdaters?.forEach(fn => fn()), ms);
+      }
     };
     Services.obs.addObserver(obs, "unified-toolbar-state-change");
     this.restorers.push(() => Services.obs.removeObserver(obs, "unified-toolbar-state-change"));
@@ -13493,6 +13500,17 @@ class CardEnhancer {
           }
         } catch (e) {
           log("toolbar reset error", e);
+        }
+        // Knopfdarstellung wie halo.spaces „nur Symbole“ statt Thunderbirds
+        // „Symbol und Text“ (das Formular setzt die Auswahl erst nach diesem
+        // Aufruf zurück, daher danach); sonst werden die Knöpfe breiter und
+        // „Abrufen“ & Co. klappen mangels Platz ein
+        const select = this.closest("unified-toolbar-customization")?.querySelector("#buttonStyle");
+        if (select) {
+          top.setTimeout(() => {
+            select.value = "icons-only";
+            select.dispatchEvent(new top.Event("change", { bubbles: true }));
+          }, 0);
         }
       };
       self.addWinRestorer(top, () => {

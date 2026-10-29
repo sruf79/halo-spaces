@@ -59,8 +59,8 @@ jobs:
     # zusätzlich per Wächter (tests/mac-runner-hook.sh), den kein Pull-Request ändern kann.
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, macOS, halo-mac]
-    # hell, dunkel und Beta je gut 14 Minuten
-    timeout-minutes: 90
+    # hell, dunkel und Beta je knapp 30 Minuten (Stand 3.9.0, 269 Prüfungen)
+    timeout-minutes: 150
     concurrency: halo-mac
     steps:
       - uses: actions/checkout@v6
@@ -72,17 +72,17 @@ jobs:
           if python3 tests/halo_test.py --help | grep -- --port >/dev/null; then echo "PORT_OPT=--port 2845" >> "$GITHUB_ENV"; fi
 
       - name: Test hell
-        timeout-minutes: 25
+        timeout-minutes: 45
         run: mkdir -p shots/hell && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --shots shots/hell --tb-log shots/hell/thunderbird.log
 
       - name: Test dunkel
         if: ${{ !cancelled() }}
-        timeout-minutes: 25
+        timeout-minutes: 45
         run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log
 
       - name: Test Beta
         if: ${{ !cancelled() }}
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: mkdir -p shots/beta && zsh tests/beta.sh --xpi "$XPI" $PORT_OPT --shots shots/beta --tb-log shots/beta/thunderbird.log
 
       - name: Screenshots
@@ -101,8 +101,8 @@ jobs:
     needs: mac
     if: ${{ !cancelled() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
-    # ein Lauf gut 15 Minuten, dazu Fortsetzen der VM
-    timeout-minutes: 40
+    # ein Lauf gut 20 Minuten, dazu Fortsetzen der VM
+    timeout-minutes: 60
     concurrency: halo-mac
     steps:
       - uses: actions/checkout@v6
@@ -112,7 +112,7 @@ jobs:
 
       # vorerst nur hell; setzt die VM fort und pausiert sie danach (gibt den Speicher frei)
       - name: Test Windows hell
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log
 
       - name: Screenshots

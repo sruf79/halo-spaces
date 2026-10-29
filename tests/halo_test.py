@@ -1638,6 +1638,31 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailliste und Mailkopf: Stern einfarbig in --mt-star (gewählt mit Fokus weiß), im Kopf rechts unter der Uhrzeit nur bei markierten Mails", star_list_header, results)
 
+    def list_icons_edge():
+        # Kartenansicht wie Apple: Büroklammer und Stern rechts in der Betreffzeile bündig mit der Uhrzeit; nur ein Symbol
+        # steht ganz außen, beide: Stern außen, Büroklammer links daneben (nicht markierter Stern belegt keinen Platz)
+        res = m.js(READING_JS + r"""
+          await showMail("Halo Jetzt");
+          const hdrOf = subj => { const v = a3.gDBView; for (let k = 0; k < v.rowCount; k++) { const h = v.getMsgHdrAt(k); if ((h.mime2DecodedSubject || "").includes(subj)) return h; } };
+          const rowOf = subj => [...a3.document.querySelectorAll('#threadTree tr[is="thread-card"]')].find(r => (r.querySelector(".subject")?.textContent || "").includes(subj));
+          const r = (el) => el && el.getBoundingClientRect().width ? Math.round(el.getBoundingClientRect().right) : null;
+          const l = (el) => el && el.getBoundingClientRect().width ? Math.round(el.getBoundingClientRect().left) : null;
+          const measure = subj => { const row = rowOf(subj); if (!row) return null;
+            return { date: r(row.querySelector(".date")), clip: r(row.querySelector(".attachment-icon")), clipL: l(row.querySelector(".attachment-icon")),
+                     star: r(row.querySelector(".tree-button-flag")), starL: l(row.querySelector(".tree-button-flag")) }; };
+          const att = hdrOf("Halo Anhänge"), now = hdrOf("Halo Jetzt");
+          const out = { clip: measure("Halo Anhänge") };
+          att.folder.markMessagesFlagged([att], true); now.folder.markMessagesFlagged([now], true); await wait(600);
+          out.both = measure("Halo Anhänge"); out.star = measure("Halo Jetzt");
+          att.folder.markMessagesFlagged([att], false); now.folder.markMessagesFlagged([now], false); await wait(400);
+          return out;""")
+        c, b, st = res.get("clip") or {}, res.get("both") or {}, res.get("star") or {}
+        near = lambda a, z: a is not None and z is not None and abs(a - z) <= 1
+        ok = (near(c.get("clip"), c.get("date")) and c.get("star") is None and near(st.get("star"), st.get("date"))
+              and near(b.get("star"), b.get("date")) and b.get("clip") is not None and b["clip"] <= b["starL"] and b["starL"] - b["clip"] <= 8)
+        return ok, f"{res}"
+    check("Mailliste: Büroklammer und Stern bündig mit der Uhrzeit am rechten Rand (Stern außen, Büroklammer daneben)", list_icons_edge, results)
+
     def starred_mailbox():
         # Favoriten: „Starred“ über alle Konten wie Apples „Markiert“ – nur, solange es markierte Mails gibt
         res = m.js(READING_JS + r"""

@@ -994,6 +994,12 @@ hr[is="pane-splitter"]::after {
   margin-inline-start: 4px !important;
 }
 
+/* Schlagwörter vor die Symbole: das Element ist auch ohne Schlagwort da und
+   brächte sonst eine Lücke rechts neben der Büroklammer (Abstand der Gruppe) */
+#threadTree tr[is="thread-card"] .thread-card-icon-info > thread-card-tags {
+  order: -1 !important;
+}
+
 #threadTree:focus-within tr[is="thread-card"]:is(.selected, [aria-selected="true"]) button.twisty {
   background-color: color-mix(in srgb, var(--mt-accent-text) 22%, transparent) !important;
   color: var(--mt-accent-text) !important;
@@ -1038,9 +1044,11 @@ hr[is="pane-splitter"]::after {
   display: none !important;
 }
 
-/* Stern nur bei markierten Mails, sonst ausgeblendet */
+/* Stern nur bei markierten Mails, sonst ausgeblendet – ohne Platz, damit die
+   Büroklammer wie bei Apple bündig mit der Uhrzeit am rechten Rand steht; bei
+   markierter Mail mit Anhang Stern ganz außen, Büroklammer links daneben */
 #threadTree tr[is="thread-card"]:not([data-properties~="flagged"]) .tree-button-flag {
-  visibility: hidden !important;
+  display: none !important;
 }
 
 /* Stern wie Apples Fahne: einfarbig in --mt-star wie der Knopf der

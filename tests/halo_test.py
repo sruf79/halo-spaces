@@ -2538,8 +2538,22 @@ def dialog_checks(m, results):
           const sw = await winUrl("earchDialog.xhtml"); if (!sw) throw new Error("Suchfenster nicht offen: " + [...Services.wm.getEnumerator(null)].map(x => x.location.href.split("/").pop() + " " + x.document.readyState));
           try { await pause(1000); const sd = sw.document;
             out.terms = look(sd.getElementById("searchTermList")); out.field = look([...sd.querySelectorAll("#searchTermList input:not([type=checkbox])")].find(vis));
-            // ab TB 160 ist die Ergebnisliste eine tree-view wie die Mailliste, ohne treecols (noch nicht im halo-Stil geprüft)
             out.resHead = sd.querySelector("#threadTree > treecols") ? headOf(sd, "#threadTree") : null;
+            // ab TB 160 ist die Ergebnisliste eine tree-view wie die Mailliste (ohne treecols): Rahmen als Haarlinie mit Radius,
+            // Fläche, Kopf und Zeilen in Fensterfarbe (dunkel vorher fast schwarz), Kopf mit Haarlinie darunter
+            const tv = sd.querySelector("tree-view#threadTree");
+            if (tv) {
+              // suchen, damit Zeilen da sind (Zeilen in Fensterfarbe bzw. Thunderbirds Streifen, nie fast schwarz)
+              const v = [...sd.querySelectorAll("#searchTermList input:not([type=checkbox])")].find(vis);
+              if (v) { v.value = "a"; v.dispatchEvent(new sw.Event("input", { bubbles: true })); }
+              sd.getElementById("search-button")?.click();
+              const row = await till(() => tv.querySelector('tbody tr[is="thread-row"]'), 6000);
+              const win = colorOf(sd, "var(--mt-window)", "backgroundColor"), sep = colorOf(sd, "var(--mt-separator)", "borderTopColor");
+              const th = [...tv.querySelectorAll("thead th")].find(vis), table = tv.querySelector("table");
+              out.resTree = { ...look(tv), win, bg: csOf(tv).backgroundColor, table: table && csOf(table).backgroundColor,
+                              th: th && csOf(th).backgroundColor, thLine: th && [csOf(th).borderBottomWidth, csOf(th).borderBottomColor], sep,
+                              row: row ? csOf(row).backgroundColor : null };
+            }
           } finally { await shut(sw); }
           later(() => w.openKeyManager());
           const kw = await winUrl("KeyManager"); if (!kw) throw new Error("OpenPGP-Schlüssel nicht offen");
@@ -2558,6 +2572,12 @@ def dialog_checks(m, results):
                     and (p := h["pick"]) is not None and p["sh"] == "none" and p["bsh"] == "none" and p["bb"] == "0px"
                     and same_color(p["blc"], cols[1]["blc"]))
         ok = ok and all(head_ok(res[k]) for k in ("listHead", "resHead", "keyHead") if res[k] is not None)
+        t = res.get("resTree")
+        if t:
+            transparent = lambda c: c in ("rgba(0, 0, 0, 0)", "transparent")
+            ok = (ok and hair(t, "8px") and same_color(t["bg"], t["win"]) and (transparent(t["table"]) or same_color(t["table"], t["win"]))
+                  and (t["row"] is None or transparent(t["row"]) or same_color(t["row"], t["win"]))
+                  and (transparent(t["th"]) or same_color(t["th"], t["win"])) and t["thLine"][0] != "0px")
         return ok, f"{res}"
     check("Filterliste, Filterprotokoll, Suche, OpenPGP: Listen und Felder mit Haarlinie und Radius statt hartem Rahmen, Protokoll dunkel ohne weiße Fläche; Spaltenköpfe samt Spaltenwahl-Knopf mit Haarlinien statt Systemlinie", filter_windows, results)
 

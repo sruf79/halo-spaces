@@ -1336,7 +1336,12 @@ SURFACES = [
       'await show("Inbox"); later(() => cmd3("cmd_newVirtualFolder"));', cap="window", win="virtualFolderListEdit",
       then=("virtualFolderProperties", 'const b = d.getElementById("folderListPicker"); if (!b) throw new Error("Knopf fehlt"); setTimeout(() => b.click(), 0); return 1;')),
     S("dlg-suche", "dialoge", "fenster", "Nachrichten suchen (erweiterte Suche)",
-      'await show("Inbox"); later(() => w.searchAllMessages());', cap="window", win="earchDialog.xhtml"),
+      'const f = await show("Inbox"); later(() => w.openSearchDialog(tm.currentAbout3Pane?.gFolder ?? null));', cap="window", win="earchDialog.xhtml",
+      # alle Nachrichten suchen, damit die Ergebnisliste gefüllt ist (ab TB 160 eine Liste wie die Mailliste)
+      then=("earchDialog.xhtml", 'await new Promise(r => setTimeout(r, 800));'
+            ' const v = [...d.querySelectorAll("#searchTermList input:not([type=checkbox])")].find(e => e.getBoundingClientRect().width);'
+            ' if (v) { v.focus(); v.value = "e"; v.dispatchEvent(new Event("input", { bubbles: true })); }'
+            ' d.getElementById("search-button")?.click(); await new Promise(r => setTimeout(r, 3000)); return 1;')),
     S("dlg-lesen-nach-datum", "dialoge", "dialog", "Nach Datum als gelesen markieren",
       'await show("Inbox"); later(() => cmd3("cmd_markReadByDate"));', cap="window", win="markByDate"),
     S("dlg-schlagwort", "dialoge", "dialog", "Neues Schlagwort (aus der Mailliste)",

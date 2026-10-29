@@ -3218,6 +3218,29 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   border: none !important;
 }
 
+/* Nachrichten suchen ab Thunderbird 160: Treffer als Liste wie die Mailliste
+   (html tree-view statt treecols) – Rahmen als Haarlinie mit Radius wie die
+   übrigen Listen, Fläche, Kopf und Zeilen in Fensterfarbe (dunkel sonst fast
+   schwarz), Haarlinie unter dem Kopf */
+#searchMailWindow tree-view#threadTree {
+  --tree-view-bg: var(--mt-window) !important;
+  --tree-view-header-bg: var(--mt-window) !important;
+  border: var(--mt-hairline) solid var(--mt-pane-line) !important;
+  border-radius: 8px !important;
+  overflow: clip !important;
+  background-color: var(--mt-window) !important;
+}
+
+#searchMailWindow tree-view#threadTree table {
+  background-color: transparent !important;
+}
+
+#searchMailWindow tree-view#threadTree thead th {
+  background-color: var(--mt-window) !important;
+  box-shadow: none !important;
+  border-block-end: var(--mt-hairline) solid var(--mt-separator) !important;
+}
+
 /* Filterliste und Nachrichten suchen sind <window>, nicht <dialog> – die
    Feldregeln der Dialoge greifen dort nicht: Suchfeld und Textfeld der
    Bedingung mit Haarlinie statt dunklem Rand; nur background-color, damit

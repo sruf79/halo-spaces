@@ -1181,6 +1181,51 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Mailliste: Filterknopf zeigt nur ungelesene Mails und wieder alle, bleibt beim Ordnerwechsel; Schnellfilter-Leiste erscheint nie", unread_filter, results)
 
+    def filter_criteria():
+        # wie Apple Mail: Rechtsklick (bzw. Halten) auf den Filterknopf wählt die Bedingungen (Ungelesen, Markiert, nur von Kontakten,
+        # nur mit Anhängen); eine Bedingung schaltet den Filter ein, unter dem Titel steht „Filtered by: …“; ohne Bedingung aus
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.threadTree.selectedIndex = -1;
+          cmd("cmd_expandAllThreads"); await wait(600);
+          const btn = d.querySelector("#mcListHeader .mc-lh-filter"), count = d.querySelector("#mcListHeader .mc-lh-count");
+          const popup = d.getElementById("mcMailFilterPopup");
+          const emil = list.msgDatabase.getMsgHdrForMessageID("halo-ml-5@example.invalid");
+          const shown = () => [...Array(a3.gDBView.rowCount).keys()].map(i => a3.gDBView.getMsgHdrAt(i)).filter(Boolean);
+          const open = async () => { const r = btn.getBoundingClientRect();
+            btn.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 }));
+            await until(() => popup.state == "open", 3000); await wait(200);
+            return [...popup.children].filter(c => c.localName == "menuitem"); };
+          const pick = async key => { const items = await open(); const it = key ? items.find(i => i.dataset.filter == key) : items[0];
+            it.doCommand(); popup.hidePopup(); await wait(1200); };
+          const out = {};
+          try {
+            list.markMessagesFlagged([emil], true); await wait(400);
+            const items = await open();
+            out.items = items.map(i => [i.getAttribute("label"), i.getAttribute("checked") == "true"]);
+            popup.hidePopup(); await wait(300);
+            await pick("starred");
+            out.starred = { pressed: btn.getAttribute("aria-pressed"), rows: shown().length, flagged: shown().every(h => h.isFlagged), text: count.textContent,
+                            pref: Services.prefs.getStringPref("extensions.mailcards.filterBy", "") };
+            await pick("unread");
+            out.both = { text: count.textContent, rows: shown().length, ok: shown().every(h => h.isFlagged && !h.isRead) };
+            await pick("starred"); await pick("unread");
+            out.none = { pressed: btn.getAttribute("aria-pressed"), pref: Services.prefs.prefHasUserValue("extensions.mailcards.filterBy") };
+          } finally {
+            if (popup.state != "closed") popup.hidePopup();
+            if (btn.getAttribute("aria-pressed") == "true") { btn.click(); await wait(1000); }
+            Services.prefs.clearUserPref("extensions.mailcards.filterBy");
+            list.markMessagesFlagged([emil], false);
+          }
+          return out;""")
+        st, both, none = res.get("starred") or {}, res.get("both") or {}, res.get("none") or {}
+        ok = ([l for l, _ in res.get("items", [])] == ["Enable Message Filter", "Unread", "Starred", "Only from Contacts", "Only Mail with Attachments"]
+              and not any(c for _, c in res["items"])
+              and st.get("pressed") == "true" and st.get("rows", 0) >= 1 and st.get("flagged") and st.get("text") == "Filtered by: Starred" and st.get("pref") == "starred"
+              and both.get("text") == "Filtered by: Unread, Starred" and both.get("ok")
+              and none.get("pressed") == "false" and none.get("pref") is False)
+        return ok, f"{res}"
+    check("Mailliste: Filter-Bedingungen per Rechtsklick wie Apple Mail (Ungelesen, Markiert, Kontakte, Anhänge), „Filtered by: …“ unter dem Titel", filter_criteria, results)
+
     def layout_lines():
         res = m.js(MAILLIST_JS + r"""
           await showFolder(); await asCards();

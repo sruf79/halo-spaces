@@ -170,8 +170,6 @@ const DE = {
   "Card View": "Kartenansicht",
   "Table View: Classic": "Tabelle: Klassisch",
   "Show Contact Photo": "Kontaktfoto anzeigen",
-  "Show Only Unread Messages": "Nur ungelesene E-Mails anzeigen",
-  "Show All Messages": "Alle E-Mails anzeigen",
   "Design without flicker at start": "Design ohne Aufblitzen beim Start",
   "Show whole conversation": "Ganze Konversation zeigen",
   "Search Calendar": "Kalender durchsuchen",
@@ -327,6 +325,12 @@ const DE = {
   "Quick Reply": "Schnellantwort",
   "Reply field below the message.": "Antwortfeld unter der Nachricht.",
   "Sends a short reply without a new window. More opens the full reply.": "Sendet eine kurze Antwort ohne neues Fenster. Mehr öffnet die vollständige Antwort.",
+  "Enable Message Filter": "Nachrichtenfilter aktivieren",
+  "Disable Message Filter": "Nachrichtenfilter deaktivieren",
+  "Filtered by: {list}": "Gefiltert nach: {list}",
+  "Unread": "Ungelesen",
+  "Only from Contacts": "Nur von Kontakten",
+  "Only Mail with Attachments": "Nur E-Mails mit Anhängen",
 };
 const FR = {
   "Install version {v}": "Installer la version {v}",
@@ -468,8 +472,6 @@ const FR = {
   "Card View": "Vue en cartes",
   "Table View: Classic": "Tableau : classique",
   "Show Contact Photo": "Afficher la photo du contact",
-  "Show Only Unread Messages": "Afficher uniquement les messages non lus",
-  "Show All Messages": "Afficher tous les messages",
   "Design without flicker at start": "Design sans clignotement au démarrage",
   "Show whole conversation": "Afficher toute la conversation",
   "Search Calendar": "Rechercher dans le calendrier",
@@ -625,6 +627,12 @@ const FR = {
   "Quick Reply": "Réponse rapide",
   "Reply field below the message.": "Champ de réponse sous le message.",
   "Sends a short reply without a new window. More opens the full reply.": "Envoie une réponse courte sans nouvelle fenêtre. Plus ouvre la réponse complète.",
+  "Enable Message Filter": "Activer le filtre de messages",
+  "Disable Message Filter": "Désactiver le filtre de messages",
+  "Filtered by: {list}": "Filtré par : {list}",
+  "Unread": "Non lus",
+  "Only from Contacts": "Uniquement des contacts",
+  "Only Mail with Attachments": "Uniquement les messages avec pièces jointes",
 };
 const ES = {
   "Install version {v}": "Instalar la versión {v}",
@@ -766,8 +774,6 @@ const ES = {
   "Card View": "Vista de tarjetas",
   "Table View: Classic": "Tabla: clásica",
   "Show Contact Photo": "Mostrar foto del contacto",
-  "Show Only Unread Messages": "Mostrar solo los mensajes no leídos",
-  "Show All Messages": "Mostrar todos los mensajes",
   "Design without flicker at start": "Diseño sin parpadeo al iniciar",
   "Show whole conversation": "Mostrar toda la conversación",
   "Search Calendar": "Buscar en el calendario",
@@ -923,6 +929,12 @@ const ES = {
   "Quick Reply": "Respuesta rápida",
   "Reply field below the message.": "Campo de respuesta bajo el mensaje.",
   "Sends a short reply without a new window. More opens the full reply.": "Envía una respuesta breve sin ventana nueva. Más abre la respuesta completa.",
+  "Enable Message Filter": "Activar filtro de mensajes",
+  "Disable Message Filter": "Desactivar filtro de mensajes",
+  "Filtered by: {list}": "Filtrado por: {list}",
+  "Unread": "No leídos",
+  "Only from Contacts": "Solo de contactos",
+  "Only Mail with Attachments": "Solo mensajes con archivos adjuntos",
 };
 const IT = {
   "Install version {v}": "Installa la versione {v}",
@@ -1064,8 +1076,6 @@ const IT = {
   "Card View": "Vista a schede",
   "Table View: Classic": "Tabella: classica",
   "Show Contact Photo": "Mostra foto del contatto",
-  "Show Only Unread Messages": "Mostra solo i messaggi non letti",
-  "Show All Messages": "Mostra tutti i messaggi",
   "Design without flicker at start": "Design senza sfarfallio all’avvio",
   "Show whole conversation": "Mostra l’intera conversazione",
   "Search Calendar": "Cerca nel calendario",
@@ -1221,6 +1231,12 @@ const IT = {
   "Quick Reply": "Risposta rapida",
   "Reply field below the message.": "Campo di risposta sotto il messaggio.",
   "Sends a short reply without a new window. More opens the full reply.": "Invia una risposta breve senza nuova finestra. Altro apre la risposta completa.",
+  "Enable Message Filter": "Attiva filtro messaggi",
+  "Disable Message Filter": "Disattiva filtro messaggi",
+  "Filtered by: {list}": "Filtrato per: {list}",
+  "Unread": "Non letti",
+  "Only from Contacts": "Solo dai contatti",
+  "Only Mail with Attachments": "Solo messaggi con allegati",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
 // tr("+{n} more", { n: 3 }) – Platzhalter in geschweiften Klammern
@@ -1236,6 +1252,16 @@ function tr(english, vars = null) {
 const STYLE_ID = "mail-cards-style";
 const TOOLBAR_PREF = "extensions.mailcards.toolbarApplied";
 const PREVIEW_PREF = "extensions.mailcards.previewLines";
+// Filter über der Mailliste wie Apple Mail: Klick schaltet ihn ein, Halten
+// oder Rechtsklick wählt die Bedingungen (alle müssen zutreffen); Schlüssel
+// sind Thunderbirds Schnellfilter, Standard „Ungelesen“
+const FILTER_PREF = "extensions.mailcards.filterBy";
+const FILTER_CHOICES = [
+  ["unread", "Unread"],
+  ["starred", "Starred"],
+  ["addrBook", "Only from Contacts"],
+  ["attachment", "Only Mail with Attachments"],
+];
 // Sortierungen im Menü „Sort by“ in Apples Reihenfolge mit den Namen der
 // Richtung: [Eintrag threadPaneSortBy…Menuitem, [aufsteigend, absteigend]].
 // Über die ID, weil die Werte der Einträge je Version anders heißen (ESR 153
@@ -10612,7 +10638,7 @@ class CardEnhancer {
       text.append(title, count);
       const tools = el("div", "mc-lh-tools");
       const filter = el("button", "mc-lh-filter");
-      filter.title = tr("Show Only Unread Messages");
+      filter.title = tr("Enable Message Filter");
       filter.setAttribute("aria-pressed", "false");
       const more = el("button", "mc-lh-more");
       more.title = tr("Message List Display Options");
@@ -10630,7 +10656,90 @@ class CardEnhancer {
         return true;
       };
       const inTasks = () => d.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks";
+      // Bedingungen wählen (wie Apple: Filter-Knopf halten oder Rechtsklick)
+      const filterPopup = d.createXULElement("menupopup");
+      filterPopup.id = "mcMailFilterPopup";
+      (d.getElementById("mainPopupSet") || d.querySelector("popupset") || d.documentElement).append(filterPopup);
+      this.restorers.push(() => filterPopup.remove());
+      filterPopup.addEventListener("popupshowing", event => {
+        if (event.target != filterPopup) {
+          return;
+        }
+        const a3 = ab();
+        const on = this.unreadFilterOn(a3);
+        const chosen = this.filterCriteria();
+        const item = (label, checked, onCommand) => {
+          const mi = d.createXULElement("menuitem");
+          mi.setAttribute("type", "checkbox");
+          mi.setAttribute("label", tr(label));
+          if (checked) {
+            mi.setAttribute("checked", "true");
+          }
+          mi.addEventListener("command", onCommand);
+          return mi;
+        };
+        filterPopup.replaceChildren(
+          item("Enable Message Filter", on, () => a3 && this.setUnreadFilter(a3, !on)),
+          d.createXULElement("menuseparator"),
+          ...FILTER_CHOICES.map(([key, label]) => {
+            const mi = item(label, on && chosen.includes(key), () => {
+              // gewählte Bedingung schaltet den Filter ein; ohne Bedingung aus
+              const next = on ? chosen.filter(k => k != key) : [key];
+              if (on && !chosen.includes(key)) {
+                next.push(key);
+              }
+              if (next.length) {
+                Services.prefs.setStringPref(FILTER_PREF, next.join(","));
+              } else {
+                Services.prefs.clearUserPref(FILTER_PREF);
+              }
+              if (a3) {
+                this.setUnreadFilter(a3, next.length > 0);
+              }
+            });
+            mi.dataset.filter = key;
+            return mi;
+          })
+        );
+      });
+      const openFilterPopup = () => {
+        const r = filter.getBoundingClientRect();
+        filterPopup.openPopupAtScreen(w.mozInnerScreenX + r.left, w.mozInnerScreenY + r.bottom + 4, false);
+      };
+      let holdTimer = null, held = false;
+      filter.addEventListener("pointerdown", event => {
+        held = false;
+        if (event.button != 0 || inTasks()) {
+          return;
+        }
+        holdTimer = w.setTimeout(() => {
+          held = true;
+          openFilterPopup();
+        }, 500);
+      });
+      const stopHold = () => w.clearTimeout(holdTimer);
+      filter.addEventListener("pointerup", stopHold);
+      filter.addEventListener("pointerleave", stopHold);
+      // „Gefiltert nach: …“ unter dem Titel öffnet ebenfalls die Auswahl
+      count.addEventListener("click", () => {
+        if (count.classList.contains("mc-lh-filtered") && !inTasks()) {
+          const r = count.getBoundingClientRect();
+          filterPopup.openPopupAtScreen(w.mozInnerScreenX + r.left, w.mozInnerScreenY + r.bottom + 4, false);
+        }
+      });
+      filter.addEventListener("contextmenu", event => {
+        if (inTasks()) {
+          return;
+        }
+        event.preventDefault();
+        stopHold();
+        openFilterPopup();
+      });
       filter.addEventListener("click", () => {
+        if (held) {
+          held = false;
+          return; // Menü schon offen
+        }
         if (inTasks()) {
           taskPopup(filter, "filter");
           return;
@@ -12057,7 +12166,7 @@ class CardEnhancer {
     if (filter) {
       const on = this.unreadFilterOn(ab);
       filter.setAttribute("aria-pressed", String(on));
-      filter.title = tr(on ? "Show All Messages" : "Show Only Unread Messages");
+      filter.title = tr(on ? "Disable Message Filter" : "Enable Message Filter");
     }
     const more = box.querySelector(".mc-lh-more");
     if (more) {
@@ -12077,6 +12186,13 @@ class CardEnhancer {
         return;
       }
       title.textContent = folder ? appleFolderTitle(folder) : ab.document.title || "";
+      count.classList.toggle("mc-lh-filtered", this.unreadFilterOn(ab));
+      if (this.unreadFilterOn(ab)) {
+        // wie Apple Mail: „Gefiltert nach: Ungelesen“ statt der Anzahl
+        const labels = FILTER_CHOICES.filter(([key]) => this.filterCriteria().includes(key)).map(([, label]) => tr(label));
+        count.textContent = tr("Filtered by: {list}", { list: labels.join(", ") });
+        return;
+      }
       const n = folder?.getTotalMessages(false) || ab.gDBView?.numMsgsInView || 0;
       count.textContent = folder || ab.gDBView
         ? tr(n == 1 ? "{n} message" : "{n} messages", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) })
@@ -14594,7 +14710,15 @@ class CardEnhancer {
   // Filter bleibt beim Ordnerwechsel aktiv (wie „Filter beibehalten“), bis
   // man erneut klickt; nach einem Neustart ist er aus
   unreadFilterOn(a3) {
-    return !!a3?.quickFilterBar?._filterer?.filterValues?.unread;
+    const values = a3?.quickFilterBar?._filterer?.filterValues;
+    return !!values && FILTER_CHOICES.some(([key]) => values[key]);
+  }
+
+  // gewählte Bedingungen des Filters (FILTER_PREF), mindestens „Ungelesen“
+  filterCriteria() {
+    const keys = FILTER_CHOICES.map(([key]) => key);
+    const chosen = Services.prefs.getStringPref(FILTER_PREF, "unread").split(",").filter(k => keys.includes(k));
+    return chosen.length ? chosen : ["unread"];
   }
 
   // Thunderbirds Symbolleisten-Knopf „Schnellfilter“ schaltet den
@@ -14698,7 +14822,9 @@ class CardEnhancer {
     state.clear();
     if (on) {
       state.setFilterValue("sticky", true, true);
-      state.setFilterValue("unread", true);
+      for (const key of this.filterCriteria()) {
+        state.setFilterValue(key, true);
+      }
     }
     qfb.updateSearch();
     const top = a3.browsingContext?.topChromeWindow;

@@ -2770,6 +2770,13 @@ unified-toolbar {
   color: var(--mt-text-tertiary) !important;
 }
 
+/* Filter an: „Gefiltert nach: Ungelesen“ in Akzentfarbe, Klick öffnet die
+   Auswahl der Bedingungen (wie Apple Mail) */
+#mcListHeader .mc-lh-count.mc-lh-filtered {
+  color: var(--mt-accent) !important;
+  cursor: default !important;
+}
+
 #mcListHeader .mc-lh-tools {
   flex: none !important;
   display: flex !important;

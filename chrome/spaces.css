@@ -7810,50 +7810,46 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
 }
 
-/* Angaben als Zeilen mit durchgehenden Haarlinien wie im Terminfenster von
-   Apple Kalender (kein Farbbalken, keine grauen Kästen) */
-#mcQuickPanel .mc-qc-list {
+#mcQuickPanel .mc-qc-main {
+  position: relative !important;
   display: flex !important;
   flex-direction: column !important;
+  gap: 8px !important;
+  padding-inline-start: 12px !important;
 }
 
-#mcQuickPanel .mc-qc-line {
+/* Farbbalken des Kalenders links von Titel und Zeit */
+#mcQuickPanel .mc-qc-main::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-block: 2px !important;
+  inset-inline-start: 0 !important;
+  width: 4px !important;
+  border-radius: 2px !important;
+  background: var(--mc-qc-color, var(--mt-accent)) !important;
+}
+
+#mcQuickPanel .mc-qc-card {
   box-sizing: border-box !important;
   width: 100% !important;
-  margin: 0 !important;
-  padding: 9px 4px !important;
   border: none !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--mt-text) 5%, transparent) !important;
   color: var(--mt-text) !important;
   font: inherit !important;
 }
 
-#mcQuickPanel .mc-qc-line + .mc-qc-line:not([hidden]) {
-  border-top: var(--mt-hairline) solid var(--mt-separator) !important;
-}
-
-/* Titel mit „Ort hinzufügen“ darunter, rechts das Farbfeld des Kalenders */
-#mcQuickPanel .mc-qc-head {
-  display: flex !important;
-  align-items: flex-start !important;
-  gap: 8px !important;
-  padding-top: 4px !important;
-}
-
-#mcQuickPanel .mc-qc-headtext {
-  flex: 1 !important;
-  min-width: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
+#mcQuickPanel .mc-qc-titlecard {
+  padding: 0 !important;
 }
 
 #mcQuickPanel .mc-qc-title {
   box-sizing: border-box !important;
   width: 100% !important;
-  height: 30px !important;
-  padding: 0 !important;
+  height: 46px !important;
+  padding: 0 14px !important;
   border: none !important;
+  border-radius: 10px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
@@ -7862,55 +7858,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   outline: none !important;
 }
 
-#mcQuickPanel .mc-qc-location {
-  box-sizing: border-box !important;
-  width: 100% !important;
-  height: 20px !important;
-  padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  color: var(--mt-text) !important;
-  font: inherit !important;
-  outline: none !important;
-}
-
-#mcQuickPanel .mc-qc-swatch {
-  appearance: none !important;
-  flex: none !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 4px !important;
-  margin: 7px 0 0 !important;
-  padding: 2px 4px !important;
-  min-width: 0 !important;
-  border: none !important;
-  border-radius: 5px !important;
-  background: transparent !important;
-}
-
-#mcQuickPanel .mc-qc-swatch:hover {
-  background: var(--mt-control) !important;
-}
-
-#mcQuickPanel .mc-qc-swatch::before {
-  content: "" !important;
-  width: 12px !important;
-  height: 12px !important;
-  border-radius: 3px !important;
-  background: var(--mc-qc-color, var(--mt-accent)) !important;
-}
-
-#mcQuickPanel .mc-qc-swatch::after {
-  content: "" !important;
-  width: 8px !important;
-  height: 8px !important;
-  background: var(--mt-text-secondary) !important;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 3.5 5 7l3.5-3.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat !important;
-}
-
-/* die eigentliche Auswahl bleibt nur als Wert im Hintergrund */
-#mcQuickPanel .mc-qc-calsel {
-  display: none !important;
+#mcQuickPanel .mc-qc-time {
+  padding: 10px 14px !important;
 }
 
 #mcQuickPanel .mc-qc-summary {
@@ -7918,11 +7867,11 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #mcQuickPanel .mc-qc-line1 {
-  font-size: 13px !important;
+  font-size: 14px !important;
 }
 
 #mcQuickPanel .mc-qc-line2 {
-  margin-top: 3px !important;
+  margin-top: 4px !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -8000,30 +7949,38 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   visibility: hidden !important;
 }
 
-/* leere Angaben als einzeilige graue Platzhalter; Notizen klappen beim
-   Schreiben sanft auf (das Fenster wächst mit) */
 #mcQuickPanel .mc-qc-field {
-  min-height: 0 !important;
+  min-height: 40px !important;
+  padding: 0 14px !important;
   text-align: start !important;
   outline: none !important;
 }
 
-#mcQuickPanel .mc-qc-notes {
-  height: 36px !important;
+#mcQuickPanel textarea.mc-qc-field {
+  padding: 11px 14px !important;
   resize: none !important;
-  overflow: hidden !important;
-  transition: height 150ms ease !important;
 }
 
-#mcQuickPanel .mc-qc-notes:is(:focus, :not(:placeholder-shown)) {
-  height: 76px !important;
-  overflow: auto !important;
+#mcQuickPanel button.mc-qc-field {
+  margin: 0 !important;
+  min-width: 0 !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #mcQuickPanel .mc-qc-notes {
-    transition: none !important;
-  }
+/* Pfeil der Kalenderauswahl wie in Apple Kalender */
+#mcQuickPanel .mc-qc-calcard {
+  position: relative !important;
+}
+
+#mcQuickPanel .mc-qc-calcard::after {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-end: 14px !important;
+  top: calc(50% - 5px) !important;
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--mt-text-secondary) !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 3.5 5 7l3.5-3.5' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat !important;
+  pointer-events: none !important;
 }
 
 #mcQuickPanel .mc-qc-placeholder {
@@ -8031,8 +7988,39 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   color: var(--mt-text-tertiary) !important;
 }
 
-#mcQuickPanel :is(.mc-qc-field, .mc-qc-title, .mc-qc-location)::placeholder {
+#mcQuickPanel .mc-qc-field::placeholder,
+#mcQuickPanel .mc-qc-title::placeholder {
   color: var(--mt-text-tertiary) !important;
+}
+
+#mcQuickPanel .mc-qc-calcard {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+/* Punkt in der Kalenderfarbe vor der Auswahl */
+#mcQuickPanel .mc-qc-calcard::before {
+  content: "" !important;
+  flex: none !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  background: var(--mc-qc-color, var(--mt-accent)) !important;
+}
+
+/* Name 8 px hinter dem Farbpunkt (Lücke der Karte): ohne den eigenen
+   Innenabstand der Auswahl, den Pfeil zeichnet ::after */
+#mcQuickPanel .mc-qc-calsel {
+  flex: 1 !important;
+  padding-inline: 0 !important;
+  margin-inline: 0 !important;
+  height: 38px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--mt-text) !important;
+  font: inherit !important;
+  outline: none !important;
 }
 
 /* Kalendermenü: Farbpunkt vor dem Namen, gewählter Kalender fett */

@@ -4047,18 +4047,9 @@ def calendar_checks(m, results):
             const was = cb.checked; cb.click(); await pause(250);
             out.cbOn = { checked: cb.checked, bg: csOf(cb).backgroundColor, img: csOf(cb).backgroundImage.slice(0, 20) };
             if (cb.checked != was) { cb.click(); await pause(150); }
-            // wie Apple Kalender: kein Farbbalken, Kalenderfarbe als Farbfeld rechts neben dem Titel (öffnet die Kalenderwahl),
-            // Zeilen mit Haarlinien, Notizen als Platzhalterzeile, die beim Schreiben aufklappt
-            const sw = f.swatch, t = f.title.getBoundingClientRect(), r = sw?.getBoundingClientRect();
-            const want = colorOf(d, f.swatch.closest(".mc-qc").style.getPropertyValue("--mc-qc-color"), "backgroundColor");
-            out.swatch = sw && { right: r.left >= t.right - 1, row: r.top < t.bottom, color: csOf(sw, "::before").backgroundColor == want,
-                                 bars: [...qp.querySelectorAll(".mc-qc *")].filter(e => csOf(e, "::before").content != "none" && parseFloat(csOf(e, "::before").width) <= 5 && parseFloat(csOf(e, "::before").height) > 20).length };
-            out.lines = [...qp.querySelectorAll(".mc-qc-list > .mc-qc-line")].filter(vis).slice(1).map(e => parseFloat(csOf(e).borderTopWidth));
-            out.calRow = !!qp.querySelector(".mc-qc-calcard");
-            const n0 = f.notes.getBoundingClientRect().height; f.notes.focus(); f.notes.value = "Agenda"; await pause(400);
-            out.notes = [Math.round(n0), Math.round(f.notes.getBoundingClientRect().height)]; f.notes.value = "";
-            sw.click(); const menu = await till(() => d.getElementById("mcQuickCalMenu")?.state == "open", 2000); out.menu = !!menu;
-            d.getElementById("mcQuickCalMenu")?.hidePopup(); await pause(300);
+            const sel = f.calendar, card = sel.closest(".mc-qc-calcard");
+            out.calGap = Math.round((sel.getBoundingClientRect().left + parseFloat(csOf(sel).paddingInlineStart)
+              - (card.getBoundingClientRect().left + parseFloat(csOf(card).paddingInlineStart) + 12)) * 10) / 10;
             return out;
           } finally { await shutPop(qp); }""")
         if not res.get("open"):
@@ -4066,11 +4057,9 @@ def calendar_checks(m, results):
         cb, on = res.get("cb") or {}, res.get("cbOn") or {}
         ok = (cb.get("app") == "none" and float(cb["bw"][:-2]) >= 0.5 and same_color(cb["bg"], res["checkBg"])
               and on.get("checked") and same_color(on["bg"], res["accent"]) and on["img"].startswith("url(")
-              and (res.get("swatch") or {}).get("right") and res["swatch"]["row"] and res["swatch"]["color"] and res["swatch"]["bars"] == 0
-              and len(res.get("lines") or []) >= 2 and all(x > 0 for x in res["lines"]) and res.get("calRow") is False
-              and res["notes"][0] <= 40 and res["notes"][1] >= res["notes"][0] + 20 and res.get("menu"))
+              and res.get("calGap") is not None and res["calGap"] <= 10)
         return ok, f"{res}"
-    check("Schnellfenster: „Ganztägig“ als macOS-Kästchen; wie Apple Kalender ohne Farbbalken, Kalenderfarbe als Farbfeld neben dem Titel, Zeilen mit Haarlinien, Notizen klappen auf", quick_allday_calrow, results)
+    check("Schnellfenster: „Ganztägig“ als macOS-Kästchen, Kalendername dicht am Farbpunkt", quick_allday_calrow, results)
 
     def quick_time_fits():
         # Schnellfenster aufgeklappt: Datum, Uhrzeit (samt Uhrsymbol) und Auswahllisten bleiben auf der grauen Karte

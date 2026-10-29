@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-390">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3100">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -105,6 +105,7 @@ The search field sits top right, like on the Mac:
 - **Follow Up**: a gentle note about your own messages that got no reply
 - **Whole conversations**: received mail and your own replies from Sent, newest first
 - **Filter menu**: hold or right-click the filter button for Unread, Starred, Only from Contacts or Only with Attachments
+- **Quick Look** for attachments: press the space bar in the attachment list or choose Quick Look from its menu (macOS, Thunderbird 158 or newer)
 - **Mailing lists** show a quiet note with Unsubscribe, which disappears once you're out
 - **Unified inboxes**, Inbox always first
 - A calm **writing window**: symbols-only toolbar, round send button, format bar on demand, attachments as tiles
@@ -177,18 +178,15 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.9.0
+## What's new in 3.10.0
 
-- **Filter menu**: right-click or hold the filter button above the message list to filter by Unread, Starred, Only from Contacts or Only Mail with Attachments; "Filtered by: …" appears under the mailbox name
-- **Reorder spaces**: drag a space up or down in the spaces bar; the others move out of the way, and the order also applies to the spaces menu (reset in Settings → halo.spaces → Spaces)
-- **New event window**: "More Options…" sits centred below the notes, with Cancel and Add side by side across the full width
-- **Encryption**: the lock in the compose window clearly shows when encryption is on, the key expiry notice is a quiet grey bar, and encrypted or signed messages show a calm lock and seal in the message header
-- **Chat**: participants with coloured initials, a calmer right sidebar and a proper text field for writing
-- **Message list**: paperclip and star sit flush with the time at the right edge of a card
-- **Quick Reply** looks like a text field instead of a button
-- **Toolbar**: "Restore Defaults" in Customize brings back the halo.spaces layout
-- **Search messages** (Thunderbird 160): the result list matches the rest of the design
-- **Thunderbird ESR 153**: Send Later finds the drafts folder again, Choose… in the contact photo window opens the file picker, and several small layout differences are fixed
+- **Settings**: the categories sit in three groups with some space between them, like the system settings on macOS
+- **New event window**: Repeat and Alert offer "Custom…", which opens Thunderbird's full repeat or reminder window; your rule then shows in the choice and is saved with the event
+- **Attachments**: "Quick Look" in the context menu of an attachment shows it in the macOS preview, like the space bar in the attachment list (Thunderbird 158 or newer)
+- **Weather**: new symbols for a clear night, partly cloudy by day and night, and fog
+- **Quick Reply removed**: the text field below a message is gone; reply with the buttons in the message or in the toolbar
+- **Thunderbird ESR 153**: the message list no longer jumps by a pixel when the folder pane slides away
+- A new project page with more screenshots
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

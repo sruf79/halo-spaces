@@ -4,9 +4,10 @@ englischen Beispieldaten (Mails, Kontakte, Termine) – nie echte Daten.
 
     python3 tests/store_shots.py --port 2852 [--dark] [--out /tmp/bilder]
 
-Ergebnis: mail.png, calendar.png, addressbook.png in 1728 × 1024 (README) und
+Ergebnis: mail.png, search.png, calendar.png, addressbook.png in 1728 × 1024 (README) und
 dieselben als store-*.png in 1280 × 759 (Store). Fenster 1620 × 960, das Bild
 wird auf 1728 × 1024 hochgerechnet (passt auf den 1080-px-Bildschirm des Testrechners).
+Dazu welcome.png (Begrüßung mit Wetter und Ersatz für Chat) in doppelter Auflösung.
 """
 
 import argparse
@@ -37,30 +38,38 @@ inbox.setFlag(Ci.nsMsgFolderFlags.Inbox);
 const now = Date.now();
 const date = min => new Date(now - min * 60000).toUTCString().replace("GMT", "+0000");
 const mails = [
-  ["Mia Johnson <mia@northwind.example>", "Dinner on Friday?", "Hi! Are you free for dinner on Friday? I found a lovely little place near the river. Let me know and I'll book a table for seven.", 12, false],
-  ["Studio North <team@studionorth.example>", "New icons for the app", "Here are the new icons for the app. We kept them simple and calm, with a little more space around each symbol.", 48, false],
+  ["Mia Johnson <mia@northwind.example>", "Dinner on Friday?", "Hi! Are you free for dinner on Friday? I found a lovely little place near the river. Let me know and I'll book a table for seven.", 12, false, { star: true }],
+  ["Studio North <team@studionorth.example>", "New icons for the app", "Here are the new icons for the app. We kept them simple and calm, with a little more space around each symbol.", 48, false, { att: ["App icons.zip"] }],
   ["Ben Carter <ben@carter.example>", "Photos from the trip", "The photos from our trip are online now. The sunset at the lake turned out even better than I hoped.", 95, false],
-  ["SkyWay Air <trips@skyway.example>", "Your flight to Berlin", "Your booking is confirmed: Thursday, 07:10, seat 14A. Online check-in opens 24 hours before departure.", 180, true],
+  ["SkyWay Air <trips@skyway.example>", "Your flight to Berlin", "Your booking is confirmed: Thursday, 07:10, seat 14A. Online check-in opens 24 hours before departure.", 180, true, { star: true, att: ["Boarding pass.pdf"] }],
   ["Olivia Brown <olivia@brown.example>", "Book club: next meeting", "The next book club meets on the 16th. We are reading a short novel this time, so there is still time to join.", 300, true],
   ["Weekly Notes <hello@weeklynotes.example>", "Five ideas for a calm week", "A short read for your Sunday: five small ideas for a calmer, more focused week.", 520, true],
   ["Lucas Meyer <lucas@meyer.example>", "Re: Garden project", "Sounds great. I can bring the tools on Saturday morning, around nine.", 900, true],
   ["City Library <info@citylibrary.example>", "Your books are ready", "The books you reserved are ready for pickup at the front desk until next Tuesday.", 1500, true],
-  ["Emma Davis <emma@davis.example>", "Quick question about the offer", "Could you send me the updated offer by Wednesday? Then I can share it with the team before our call.", 2100, true],
+  ["Emma Davis <emma@davis.example>", "Quick question about the offer", "Could you send me the updated offer by Wednesday? Then I can share it with the team before our call.", 2100, true, { star: true }],
   ["Green Market <news@greenmarket.example>", "Fresh this week: apples and pumpkins", "Autumn is here: fresh apples, pumpkins and warm bread at the market every Saturday.", 2900, true],
   ["Noah Wilson <noah@wilson.example>", "Running on Sunday", "Same time as last week? Meet at the park entrance at eight.", 3600, true],
   ["Summit Outdoor <hello@summit.example>", "Your order is on its way", "Good news: your new hiking boots left our warehouse today and should arrive on Thursday.", 4400, true],
-  ["Sophia Martin <sophia@martin.example>", "Sketches for the poster", "Attached are three sketches for the poster. I like the second one best, what do you think?", 5200, true],
+  ["Sophia Martin <sophia@martin.example>", "Sketches for the poster", "Attached are three sketches for the poster. I like the second one best, what do you think?", 5200, true, { att: ["Poster sketches.pdf"] }],
 ];
-mails.forEach(([from, subject, body, min, read], i) => {
+// Anhänge: kleine erfundene Dateien (nur ein paar Bytes Inhalt)
+mails.forEach(([from, subject, body, min, read, opt = {}], i) => {
+  const text = `${body}\r\n\r\nBest,\r\n${from.split(" ")[0]}\r\n`;
+  const type = n => n.endsWith(".pdf") ? "application/pdf" : "application/zip";
+  const content = opt.att ? `Content-Type: multipart/mixed; boundary="halo-${i}"\r\n\r\n--halo-${i}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${text}\r\n` +
+      opt.att.map(n => `--halo-${i}\r\nContent-Type: ${type(n)}; name="${n}"\r\nContent-Disposition: attachment; filename="${n}"\r\n` +
+        `Content-Transfer-Encoding: base64\r\n\r\n${btoa("halo.spaces example " + n)}\r\n`).join("") + `--halo-${i}--\r\n`
+    : `Content-Type: text/plain; charset=UTF-8\r\n\r\n${text}`;
   inbox.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(
     // (ohne eigene Trennzeile – die schreibt Thunderbird selbst)
     `From: ${from}\r\nTo: You <you@example.invalid>\r\nSubject: ${subject}\r\nDate: ${date(min)}\r\n` +
-    `Message-ID: <store-${i}@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${body}\r\n\r\nBest,\r\n${from.split(" ")[0]}\r\n\r\n`);
+    `Message-ID: <store-${i}@example.invalid>\r\nMIME-Version: 1.0\r\n${content}\r\n`);
 });
 await wait(800);
 for (const h of inbox.messages) {
   const m = mails.find(x => x[1] == h.mime2DecodedSubject);
   if (m && m[4]) h.markRead(true);
+  if (m?.[5]?.star) inbox.markMessagesFlagged([h], true);
 }
 // Kontakte mit Bild: Personen als gezeichnete Gesichter, erfundene Firmen mit
 // einfachem eigenem Logo – alles selbst gezeichnet (keine echten Fotos, keine echten Marken)
@@ -159,11 +168,23 @@ await ev(home, "Gym", at(Math.min(t0.day + 3, 28), 18), at(Math.min(t0.day + 3, 
 await ev(fam, "Halloween party", at(31, 19), at(31, 23));
 await ev(home, "Vacation", day(17), day(20));
 await ev(work, "Design review", at(t0.day, 14), at(t0.day, 15));
+// Wetter in der Today-Pane: Open-Meteo nachgestellt (feste Antwort, kein Netz, kein echter Ort)
+const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+Cu.evalInSandbox(`fetchWithTimeout = async (win, url) => {
+    const body = url.includes("geocoding") ? { results: [{ name: "Vienna", country: "Austria", latitude: 48.21, longitude: 16.37 }] }
+      : { current: { weather_code: 2, is_day: 1, temperature_2m: 18.4 } };
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) }; };`,
+  ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global);
+Services.prefs.setStringPref("extensions.mailcards.weatherPlace", "Vienna");
+Services.prefs.setBoolPref("extensions.mailcards.weather", true);
+await wait(1500);
 return { mails: inbox.getTotalMessages(false), contacts: book.childCards.length };
 """
 
+# sw: anderes Fenster (z. B. Begrüßung) statt des Hauptfensters, dann in doppelter Auflösung
 SNAP_JS = r"""
-const bmp = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1728 / w.innerWidth, "white");
+const tw = typeof sw != "undefined" ? sw : w;
+const bmp = await tw.browsingContext.currentWindowGlobal.drawSnapshot(null, tw == w ? 1728 / w.innerWidth : 2, "white");
 const c = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height;
 c.getContext("2d").drawImage(bmp, 0, 0);
 return c.toDataURL("image/png");
@@ -177,6 +198,14 @@ SHOTS = [
       a3.displayFolder(inbox.URI); await wait(1500);
       for (let i = 0; i < a3.gDBView.rowCount; i++) if (a3.gDBView.getMsgHdrAt(i).mime2DecodedSubject == "Photos from the trip") a3.threadTree.selectedIndex = i;
       await wait(2500); a3.threadTree.focus(); await wait(400);"""),
+    # Suche oben rechts: Treffer gleich in der Mailliste, auch nur im Mailtext
+    ("search", r"""
+      const a3 = await toMail();
+      const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+      const input = bar.shadowRoot?.querySelector("input") || bar.querySelector("input");
+      if (input) { input.value = "week"; }
+      bar.dispatchEvent(new w.CustomEvent("search", { detail: "week", bubbles: true, composed: true })); await wait(3500);
+      a3.threadTree.selectedIndex = 0; await wait(2500);"""),
     ("calendar", r"""
       tm.openTab("calendar", {}); await wait(2000); w.switchCalendarView("month", true); await wait(2500); w.currentView().goToDay(cal.dtz.now()); await wait(1500);"""),
     ("addressbook", r"""
@@ -185,7 +214,20 @@ SHOTS = [
       const list = ab.document.getElementById("cards");
       for (let i = 0; i < (list?.view?.rowCount || 0); i++) { if (list.view.getCardFromRow(i)?.displayName == "Mia Johnson") { list.selectedIndex = i; break; } }
       await wait(2000);"""),
+    # Begrüßung nach der Installation: Wetter und Chat (Ersatz durch Bereich eines Add-ons oder Webseite)
+    ("welcome", r"""
+      const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+      const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global;
+      Cu.evalInSandbox(`enhancer.openHaloWindow(Services.wm.getMostRecentWindow("mail:3pane"), { welcome: true });`, g);
+      const sw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html")
+        && x.document.getElementById("fifth")), 8000);
+      await wait(800);
+      const btn = (sec, text) => [...sw.document.querySelectorAll(`#${sec} button`)].find(b => b.textContent == text);
+      btn("weather", "Yes")?.click(); await wait(900);
+      btn("fifth", "No")?.click(); await wait(900);"""),
 ]
+# nur Bilder des Hauptfensters bekommen eine Store-Fassung
+NO_STORE = {"welcome"}
 
 
 def main():
@@ -215,9 +257,11 @@ def main():
             path = os.path.join(args.out, f"{prefix}{name}.png")
             with open(path, "wb") as f:
                 f.write(base64.b64decode(data.split(",", 1)[1]))
+            print("Bild:", path, flush=True)
+            if name in NO_STORE:
+                continue
             store = os.path.join(args.out, f"{prefix}store-{name}.png")
             subprocess.run(["sips", "-z", "759", "1280", path, "--out", store], capture_output=True, check=True)
-            print("Bild:", path, flush=True)
     finally:
         ht.stop_thunderbird(args.port, proc)
         shutil.rmtree(profile, ignore_errors=True)

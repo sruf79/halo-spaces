@@ -8589,6 +8589,8 @@ Neu
           return out;""".replace("csOf(", "w.getComputedStyle("))
         mail, ab, t = res.get("mail") or {}, res.get("ab") or {}, res.get("tasks") or {}
         font, rowh, headh, stripe = (res.get("vars") or [""] * 4)
+        # --mt-table-font ist „calc(13px * var(--mt-font-scale, 1))“ – bei Standardschrift gilt die Pixelzahl
+        font = (re.search(r"[\d.]+px", font or "") or [""])[0]
         if not (mail and ab and t):
             return False, f"{res}"
         rgb = lambda c: [float(x) for x in re.findall(r"[\d.]+", c)]

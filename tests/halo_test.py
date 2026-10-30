@@ -5070,6 +5070,26 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Ordnerliste: im neuen Profil 206 px breit, „Local Folders“ nicht gekürzt", folder_start_width, results)
 
+    def folder_header_hidden():
+        # Thunderbirds Knopfzeile über der Ordnerliste („…“, Abrufen, Verfassen) ist immer aus, auch wenn
+        # Thunderbird sie als sichtbar führt (frisches Profil); Abrufen und Verfassen stehen in der Toolbar
+        res = m.js("""
+          const a3 = await toMail(); await wait(500); const ad = a3.document;
+          const bar = ad.getElementById("folderPaneHeaderBar");
+          const was = bar.hidden; bar.hidden = false; await wait(200);
+          const out = { display: a3.getComputedStyle(bar).display, h: bar.getBoundingClientRect().height };
+          bar.hidden = was;
+          const pane = ad.getElementById("folderPane").getBoundingClientRect();
+          const head = [...ad.querySelectorAll("#folderTree > li > .container, #folderPane .mode-container")]
+            .map(e => e.getBoundingClientRect()).find(r => r.height);
+          out.gap = head ? Math.round(head.top - pane.top) : null;
+          out.toolbar = ["get-messages", "write-message"].map(id =>
+            !![...d.querySelectorAll(`#unifiedToolbarContent li[item-id="${id}"]`)].find(l => l.getBoundingClientRect().width));
+          return out;""")
+        ok = res["display"] == "none" and res["h"] == 0 and res["toolbar"] == [True, True] and res["gap"] is not None and 0 <= res["gap"] <= 24
+        return ok, f"{res}"
+    check("Ordnerliste: keine Knopfzeile über den Postfächern, Abrufen und Verfassen in der Toolbar", folder_header_hidden, results)
+
     def list_width():
         res = m.js("""
           const out = {};

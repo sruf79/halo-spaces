@@ -926,8 +926,6 @@ SURFACES = [
       close='const cw = Services.wm.getMostRecentWindow("msgcompose"); try { cw?.document.getElementById("customizeToolbarSheetIFrame")?.contentWindow?.onClose?.(); } catch {} await wait(800);'),
 
     # ------------------------------------------------------------ Ordnerliste, Toolbar, Suche, Spaces
-    S("ordner-mehr-menue", "ordner", "popup", "Ordnerliste: „…“-Menü (Ordner-Modi)",
-      'const p = await toMail(); const b = p.document.getElementById("folderPaneMoreButton"); return await pop(p.document.getElementById("folderPaneMoreContext"), () => b.click());', cap="popup"),
     S("ordner-modi", "ordner", "zustand", "Ordnerliste mit Modi „Ungelesen“ und „Markiert“",
       'const p = await toMail(); w.__tourModes = p.folderPane.activeModes; p.folderPane.activeModes = [...new Set([...p.folderPane.activeModes, "unread", "flagged"])]; await wait(1500);',
       close='const p = tm.currentAbout3Pane; if (w.__tourModes) p.folderPane.activeModes = w.__tourModes; await wait(800);'),
@@ -937,9 +935,6 @@ SURFACES = [
     S("ordner-ausgeblendet", "ordner", "zustand", "Ordnerliste ausgeblendet",
       'await pick("Inbox", "Treffen am Donnerstag"); cmd3("cmd_toggleFolderPane"); await wait(1200);',
       close='cmd3("cmd_toggleFolderPane"); await wait(800);'),
-    S("ordner-abrufen-menue", "ordner", "popup", "Ordnerliste: Abrufen-Knopf (Kontextmenü)",
-      'const p = await toMail(); const b = p.document.getElementById("folderPaneGetMessages");'
-      ' if (b.disabled) throw new Error("Knopf deaktiviert: kein Konto mit Server im Testprofil"); return await ctxPop("folderPaneGetMessagesContext", b);', cap="popup"),
     S("toolbar-verschieben", "ordner", "popup", "Toolbar: „Verschieben“ (Ordnerauswahl)",
       'await pick("Inbox", "Treffen am Donnerstag"); await roomyToolbar(); const li = toolbarItem("move-to"); if (!li) throw new Error("Knopf auch im breiten Fenster eingeklappt");'
       ' return await pop("toolbarMoveToPopup", () => li.querySelector("button").click());', cap="popup", close="await restoreToolbar();"),

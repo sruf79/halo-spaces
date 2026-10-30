@@ -493,16 +493,11 @@ body.layout-wide {
   overflow: hidden !important;
 }
 
-#folderPaneHeaderBar,
 #folderTree,
 #folderPane .folder-pane-mode-header,
 #folderTree li > .container {
   background: transparent !important;
   border: none !important;
-}
-
-#folderPaneHeaderBar {
-  padding: 8px 10px 4px !important;
 }
 
 /* unten Platz für den Bereiche-Knopf: bei ausgeblendeter Leiste sitzt
@@ -1384,7 +1379,6 @@ findbar .findbar-textbox:focus {
 /* ---------- Toolbars & Symbole wie Apple Mail ---------- */
 
 /* Alle Symbolknöpfe: grau, rund, ohne Beschriftung */
-#folderPaneHeaderBar button,
 #threadPaneHeaderBar button,
 #header-view-toolbar toolbarbutton,
 #header-view-toolbar toolbaritem toolbarbutton,
@@ -1392,34 +1386,12 @@ findbar .findbar-textbox:focus {
   color: var(--mt-text-secondary) !important;
 }
 
-/* Linke Spalte oben: „Neue Nachricht“ als schlichtes Verfassen-Symbol */
+/* Knopfzeile über der Ordnerliste („…“, Abrufen, Verfassen) immer aus wie in
+   Apple Mail: beide Knöpfe stehen in der Toolbar, die Ordner-Modi im Menü
+   Darstellung → Ordner */
 #folderPaneHeaderBar {
-  justify-content: flex-end !important;
-  gap: 2px !important;
-  padding: 8px 10px 0 !important;
+  display: none !important;
 }
-
-#folderPaneHeaderBar button {
-  min-width: 30px !important;
-  min-height: 30px !important;
-  border-radius: 999px !important;
-  border: none !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-#folderPaneHeaderBar button:hover {
-  background-color: var(--mt-control-hover) !important;
-}
-
-#folderPaneWriteMessage {
-  font-size: 0 !important;
-  padding-inline: 7px !important;
-  order: 2 !important;
-}
-
-#folderPaneGetMessages { order: 1 !important; }
-#folderPaneMoreButton { order: 3 !important; }
 
 /* Kopf der Mailliste: Ordnername klein und fett, Anzahl grau darunter */
 #threadPaneHeaderBar {
@@ -2180,18 +2152,16 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   stroke: none !important;
 }
 
-/* Knöpfe über Ordner- und Mailliste: Thunderbird zeichnet ihr Symbol als
+/* Knöpfe über der Mailliste: Thunderbird zeichnet ihr Symbol als
    Hintergrundbild – das wird ausgeblendet und durch eine Masken-Ebene ersetzt */
-:is(#folderPaneGetMessages, #folderPaneWriteMessage, #folderPaneMoreButton,
-    #threadPaneQuickFilterButton, #threadPaneDisplayButton) {
+:is(#threadPaneQuickFilterButton, #threadPaneDisplayButton) {
   background-image: none !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
-:is(#folderPaneGetMessages, #folderPaneWriteMessage, #folderPaneMoreButton,
-    #threadPaneQuickFilterButton, #threadPaneDisplayButton)::after {
+:is(#threadPaneQuickFilterButton, #threadPaneDisplayButton)::after {
   content: "" !important;
   display: block !important;
   width: 20px !important;
@@ -2473,9 +2443,6 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 :is(#settingsButton, #spacesPopupButtonSettings) > :is(img, .menu-icon) { mask-image: var(--mi-settings) !important; }
 :is(#collapseButton, #spacesPopupButtonReveal) > :is(img, .menu-icon) { mask-image: var(--mi-sidebar) !important; }
 
-#folderPaneGetMessages::after { mask-image: var(--mi-envelope) !important; }
-#folderPaneWriteMessage::after { mask-image: var(--mi-compose) !important; }
-#folderPaneMoreButton::after,
 #threadPaneDisplayButton::after { mask-image: var(--mi-ellipsis) !important; }
 #threadPaneQuickFilterButton::after { mask-image: var(--mi-filter) !important; }
 /* ==== Ende Icons ==== */

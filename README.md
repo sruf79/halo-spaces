@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3100">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3110">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -178,15 +178,12 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.10.0
+## What's new in 3.11.0
 
-- **Settings**: the categories sit in three groups with some space between them, like the system settings on macOS
-- **New event window**: Repeat and Alert offer "Custom…", which opens Thunderbird's full repeat or reminder window; your rule then shows in the choice and is saved with the event
-- **Attachments**: "Quick Look" in the context menu of an attachment shows it in the macOS preview, like the space bar in the attachment list (Thunderbird 158 or newer)
-- **Weather**: new symbols for a clear night, partly cloudy by day and night, and fog
-- **Quick Reply removed**: the text field below a message is gone; reply with the buttons in the message or in the toolbar
-- **Thunderbird ESR 153**: the message list no longer jumps by a pixel when the folder pane slides away
-- A new project page with more screenshots
+- **Font size**: Thunderbird's font size (≡ → Font Size) now also enlarges the message list, the folder list, the message header, the calendar, the address book and the settings; message cards grow with it
+- **Folder list**: the button row above the mailboxes is gone for good, also in new profiles; Get Messages and Write are in the toolbar, the folder options under View → Folders
+- **Account colours**: accounts without a colour of their own now get different colours instead of sometimes the same one
+- **Windows and Linux**: local folders are called "On This Computer" there, and the appearance setting says "follow the system" instead of macOS
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

@@ -5813,6 +5813,48 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Ordnerliste: Konten ohne eigene Farbe bekommen verschiedene Farben, eine gewählte Farbe wird bei den anderen ausgelassen", account_colors_distinct, results)
 
+    def ui_font_size():
+        # Thunderbirds Schriftgröße (≡ → Schriftgröße) wirkt auch auf die festen Größen des Designs: Karten der
+        # Mailliste, Ordnerliste und Titel über der Liste wachsen mit; Standardgröße wieder wie vorher
+        res = m.js('''
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Schriftgroesse")) { root.createSubfolder("Schriftgroesse", null); await wait(800); }
+          const f = root.getChildNamed("Schriftgroesse");
+          if (!f.getTotalMessages(false)) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From - Mon Jan 05 10:00:00 2026\\r\\nFrom: Halo Schrift <schrift@example.invalid>\\r\\nSubject: Halo Schriftgroesse\\r\\nDate: Mon, 05 Jan 2026 10:00:00 +0100\\r\\nMessage-ID: <halo-schrift@example.invalid>\\r\\n\\r\\nText.\\r\\n");
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await wait(1500);
+          const ad = a3.document;
+          const px = sel => { const e = ad.querySelector(sel); return e ? parseFloat(a3.getComputedStyle(e).fontSize) : null; };
+          const measure = () => ({ sender: px('#threadTree tr[is="thread-card"] .sender'), subject: px('#threadTree tr[is="thread-card"] .subject'),
+                                   folder: px('#folderTree li[is="folder-tree-row"] > .container .name'), title: px('#threadPaneFolderName'),
+                                   preview: px('#threadTree tr[is="thread-card"] .mc-preview'), card: card() });
+          // Kartenhöhe und ob die Vorschau ganz in der Karte liegt
+          const card = () => { const tr = ad.querySelector('#threadTree tr[is="thread-card"]'), pv = tr?.querySelector(".mc-preview");
+                               if (!tr) return null; const r = tr.getBoundingClientRect();
+                               return { h: Math.round(r.height), inside: !pv || pv.getBoundingClientRect().bottom <= r.bottom + 0.5 }; };
+          await until(() => ad.querySelector('#threadTree tr[is="thread-card"] .sender'), 8000);
+          const out = { os: UIFontSize.osValue, before: measure() };
+          try {
+            Services.prefs.setIntPref("mail.uifontsize", (UIFontSize.osValue || 13) + 5); await wait(1500);
+            out.big = measure();
+          } finally {
+            Services.prefs.clearUserPref("mail.uifontsize"); await wait(1500);
+          }
+          out.after = measure();
+          return out;''')
+        b, g, a = res["before"], res["big"], res["after"]
+        cb, cg, ca = b.pop("card"), g.pop("card"), a.pop("card")
+        keys = [k for k in b if b[k]]
+        want = ((res["os"] or 13) + 5) / (res["os"] or 13)
+        ok = (len(keys) >= 3 and all(abs(g[k] / b[k] - want) < 0.08 for k in keys) and all(abs(a[k] - b[k]) < 0.01 for k in keys)
+              and cb and cg and ca and cg["inside"] and cb["inside"] and abs(cg["h"] / cb["h"] - want) < 0.12 and ca["h"] == cb["h"])
+        return ok, f"Faktor {want:.2f} {res}"
+    check("Schrift: Thunderbirds Schriftgröße vergrößert Mailliste (Karten samt Höhe), Ordnerliste und Titel mit, Standard wie vorher", ui_font_size, results)
+
     def card_sender_date():
         # Absender nur als Adresse → Name aus der Domain; Datum vor gestern ganz;
         # kompakte Dichte: Abstand oben und unten gleich (früher unten ~10 px mehr)

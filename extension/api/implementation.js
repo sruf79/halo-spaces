@@ -1328,6 +1328,21 @@ const MISS_TTL = 7 * DAY;
 const FETCH_TIMEOUT = 6000;
 // Texte mit „Mac“ bzw. „macOS“ nur dort
 const IS_MAC = Services.appinfo.OS == "Darwin";
+// Faktor aus Thunderbirds Schriftgröße (≡ → Schriftgröße): gewählte durch
+// Standardgröße des Systems, 1 bei Standardgröße. Die Einstellung direkt
+// lesen: Thunderbirds eigener Beobachter kann nach unserem laufen
+function fontScale() {
+  try {
+    const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
+    const pref = Services.prefs.getIntPref("mail.uifontsize", 0);
+    const os = UIFontSize.osValue;
+    if (pref && os) {
+      const size = Math.min(Math.max(pref, UIFontSize.MIN_VALUE), UIFontSize.MAX_VALUE);
+      return Math.round(size / os * 1000) / 1000;
+    }
+  } catch {}
+  return 1;
+}
 
 // Kontofarben – überall gleich (Mail, Adressbuch): die in den
 // Kontoeinstellungen gewählte Farbe, sonst die nächste freie aus der Palette
@@ -5454,9 +5469,9 @@ const CSS = `
   background: rgba(255, 255, 255, 0.3);
 }
 #threadTree tr[is="thread-card"] .mc-preview {
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   font-weight: 400 !important;
-  line-height: 16px;
+  line-height: calc(16px * var(--mt-font-scale, 1));
   margin-top: 1px;
   /* 3 px wie der Innenabstand des Absenders: bündig mit Absender und Betreff */
   padding-inline-start: 3px;
@@ -13994,6 +14009,36 @@ class CardEnhancer {
         sss.unregisterSheet(plain, sss.USER_SHEET);
       }
     });
+    // Thunderbirds Schriftgröße auch für die festen Größen des Designs:
+    // --mt-font-scale (fontScale) global für alle Seiten; bei Standardgröße
+    // kein Blatt
+    let scaleUri = null;
+    const applyFontScale = () => {
+      const scale = fontScale();
+      const uri = scale == 1 ? null : Services.io.newURI(`data:text/css,:root{--mt-font-scale:${scale}}`);
+      if (uri?.spec == scaleUri?.spec) {
+        return;
+      }
+      if (scaleUri && sss.sheetRegistered(scaleUri, sss.USER_SHEET)) {
+        sss.unregisterSheet(scaleUri, sss.USER_SHEET);
+      }
+      if (uri) {
+        sss.loadAndRegisterSheet(uri, sss.USER_SHEET);
+      }
+      scaleUri = uri;
+    };
+    const scaleObs = { observe: applyFontScale };
+    Services.prefs.addObserver("mail.uifontsize", scaleObs);
+    applyFontScale();
+    // Standardgröße des Systems kennt Thunderbird erst mit dem ersten Fenster
+    const scaleTimer = setTimeout(applyFontScale, 3000);
+    this.restorers.push(() => {
+      clearTimeout(scaleTimer);
+      Services.prefs.removeObserver("mail.uifontsize", scaleObs);
+      if (scaleUri && sss.sheetRegistered(scaleUri, sss.USER_SHEET)) {
+        sss.unregisterSheet(scaleUri, sss.USER_SHEET);
+      }
+    });
     // gedruckte Mail im Stil von Apple Mail (print.css) – gehört zum Design
     const print = Services.io.newURI(`resource://mailcards/print.css?v=${extensionVersion}`);
     if (Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true) && !sss.sheetRegistered(print, sss.USER_SHEET)) {
@@ -15547,7 +15592,18 @@ class CardEnhancer {
       await reg.density.apply(this, args);
       // bei jedem Aufruf neu: die Zeilenzahl lässt sich im Betrieb ändern
       const extra = enhancer.previewLines ? enhancer.previewLines * 16 + 10 : 0;
-      Card.ROW_HEIGHT = Math.max(Card.ROW_HEIGHT + extra, 52);
+      // größere Schrift (≡ → Schriftgröße): Thunderbird rechnet mit seiner
+      // eigenen Schriftgröße, das Design mit festen Größen mal fontScale() –
+      // die ganze Karte wächst deshalb mit diesem Faktor
+      const scale = fontScale();
+      let base = Card.ROW_HEIGHT;
+      if (scale != 1) {
+        try {
+          const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
+          base -= Math.round(1.5 * (this.rowCount || 2) * (UIFontSize.size - UIFontSize.osValue));
+        } catch {}
+      }
+      Card.ROW_HEIGHT = Math.max(Math.round((base + extra) * scale), 52);
       this.mcCardHeight = Card.ROW_HEIGHT; // Kontaktkarten im Adressbuch gleich hoch
       // Tabellenansicht: 14-px-Schrift (userChrome.css) braucht luftigere Zeilen
       const Row = win.customElements.get("thread-row");
@@ -15889,7 +15945,7 @@ class CardEnhancer {
   // Stylesheet der Kartenansicht samt Höhe der Vorschau
   cardStyle() {
     return CSS +
-      `#threadTree tr[is="thread-card"] .mc-preview { -webkit-line-clamp: ${this.previewLines}; min-height: ${this.previewLines * 16}px; }` +
+      `#threadTree tr[is="thread-card"] .mc-preview { -webkit-line-clamp: ${this.previewLines}; min-height: calc(${this.previewLines * 16}px * var(--mt-font-scale, 1)); }` +
       // ohne Kontaktfoto wie Apple Mail: Text direkt neben dem Ungelesen-Punkt,
       // Punkt bzw. Pfeil auf Höhe der Absenderzeile statt auf der Bildmitte
       (this.contactPhotos ? "" : `

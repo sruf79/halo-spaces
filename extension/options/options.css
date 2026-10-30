@@ -34,7 +34,7 @@ body {
   margin: 0;
   background: transparent;
   color: var(--text);
-  font: 13px/1.4 -apple-system, "SF Pro Text", system-ui, sans-serif;
+  font: calc(13px * var(--mt-font-scale, 1))/1.4 -apple-system, "SF Pro Text", system-ui, sans-serif;
 }
 
 main {
@@ -46,7 +46,7 @@ main {
 
 h2 {
   margin: 18px 4px 6px;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -83,7 +83,7 @@ section {
 .row .hint {
   display: block;
   margin-top: 1px;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
 }
 
@@ -199,13 +199,13 @@ textarea {
   border-radius: 8px;
   background: var(--window);
   color: var(--text);
-  font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  font: calc(12px * var(--mt-font-scale, 1))/1.5 ui-monospace, Menlo, Consolas, monospace;
   resize: vertical;
 }
 
 .saved {
   margin-inline-start: 6px;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
   opacity: 0;
   transition: opacity 200ms ease;
@@ -238,8 +238,8 @@ textarea {
 
 .in-prefs h2 {
   margin: 18px 0 8px;
-  font-size: 22px;
-  line-height: 28.6px;
+  font-size: calc(22px * var(--mt-font-scale, 1));
+  line-height: calc(28.6px * var(--mt-font-scale, 1));
   font-weight: 700;
   color: var(--text);
   text-transform: none;
@@ -255,7 +255,7 @@ textarea {
 }
 
 .in-prefs .row .hint {
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
 }
 
 /* ausgeblendete Zeilen (abhängige Optionen, eingeklappte Fehlerbehebung) */
@@ -266,7 +266,7 @@ textarea {
 /* Einzelheiten auf Nachfrage: ⓘ neben dem Titel, Text als Tooltip */
 .row .info {
   margin-inline-start: 5px;
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
   cursor: help;
 }

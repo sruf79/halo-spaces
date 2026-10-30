@@ -59,7 +59,7 @@
      Zeilen- und Kopfhöhe, Tönung jeder zweiten Zeile – überall gleich wie die
      Mail-Tabelle. Die Zeilenhöhe rechnet die Erweiterung zusätzlich in
      ROW_HEIGHT (thread-row, ab-table-card-row) ein. */
-  --mt-table-font: 13px;
+  --mt-table-font: calc(13px * var(--mt-font-scale, 1));
   --mt-table-row-h: 28px;
   --mt-table-head-h: 30px;
   --mt-table-stripe: rgba(0, 0, 0, 0.035);
@@ -245,7 +245,7 @@ global-search-bar {
   --search-bar-focus-background: var(--mt-window) !important;
   /* Höhe 38 px wie Apple Mail: 13 px Schrift × 1,2 + 2 × 11 px */
   --search-padding: 11px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Tab-Leiste komplett ausgeblendet (wie gewünscht). Zurück zur Mail:
@@ -290,7 +290,7 @@ global-search-bar {
   background: transparent !important;
   color: var(--mt-text-secondary) !important;
   box-shadow: none !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 #tabmail-tabs .tabmail-tab:hover:not([selected]) {
@@ -396,7 +396,7 @@ global-search-bar {
 #status-bar.statusbar {
   min-height: 22px !important;
   padding: 0 12px !important;
-  font: 11px var(--mt-font) !important;
+  font: calc(11px * var(--mt-font-scale, 1)) var(--mt-font) !important;
   align-items: center !important;
 }
 
@@ -515,7 +515,7 @@ body.layout-wide {
 }
 
 #folderPane .mode-name {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -528,7 +528,7 @@ body.layout-wide {
   padding-inline-end: 8px !important;
   border-radius: 6px !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #folderTree li > .container:hover {
@@ -605,7 +605,7 @@ body.layout-wide {
 }
 
 #folderTree .mode-name {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -621,7 +621,7 @@ body.layout-wide {
 }
 
 #folderTree li[data-server-type] > .container .name {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -828,19 +828,19 @@ hr[is="pane-splitter"]::after {
 
 /* Typografie in der Karte: Absender fett, Betreff normal, Rest grau */
 #threadTree tr[is="thread-card"] .sender {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
 
 #threadTree tr[is="thread-card"] .subject {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text) !important;
 }
 
 #threadTree tr[is="thread-card"] .date {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   /* auch bei ungelesenen Mails normal (Thunderbird setzt die ganze Zeile fett) */
   font-weight: 400 !important;
   color: var(--mt-text-tertiary) !important;
@@ -854,7 +854,7 @@ hr[is="pane-splitter"]::after {
 }
 
 #threadTree tr[is="thread-card"][data-properties~="dummy"] .sort-header-details {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -1146,7 +1146,7 @@ body:has(> #accountCentral),
   box-shadow: none !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font: 12px var(--mt-font) !important;
+  font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font) !important;
   flex-wrap: wrap !important;
   align-items: center !important;
   gap: 6px 8px !important;
@@ -1186,7 +1186,7 @@ body:has(> #accountCentral),
   border-radius: 999px !important;
   box-shadow: none !important;
   color: var(--mt-text) !important;
-  font: 12px var(--mt-font) !important;
+  font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font) !important;
 }
 
 #imip-view-toolbar > toolbarbutton > .toolbarbutton-menubutton-button {
@@ -1250,7 +1250,7 @@ body:has(> #accountCentral),
 
 #attachmentCount,
 #attachmentSize {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-secondary) !important;
 }
@@ -1286,7 +1286,7 @@ body:has(> #accountCentral),
 }
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: AccentColor !important;
   padding: 0 !important;
@@ -1365,7 +1365,7 @@ findbar .findbar-textbox:focus {
 
 #expandedsubjectBox,
 #expandedsubjectBox .header-value {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text) !important;
 }
@@ -1405,14 +1405,14 @@ findbar .findbar-textbox:focus {
 }
 
 #threadPaneFolderName {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   margin: 0 !important;
 }
 
 #threadPaneFolderCountContainer,
 #threadPaneFolderCount {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   margin: 0 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -1485,12 +1485,12 @@ findbar .findbar-textbox:focus {
 
 #expandedfromBox .recipients-list,
 #expandedfromBox {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #expandedtoBox,
 #dateLabel {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -1686,7 +1686,7 @@ findbar .findbar-textbox:focus {
   position: absolute !important;
   top: 14px !important;
   inset-inline-end: 20px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -1807,7 +1807,7 @@ findbar .findbar-textbox:focus {
 #expandedfromBox .recipient-multi-line-name,
 #expandedfromBox .recipient-single-line {
   font-weight: 700 !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #expandedfromBox .recipient-multi-line-address,
@@ -1816,7 +1816,7 @@ findbar .findbar-textbox:focus {
 }
 
 #expandedtoBox {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Empfängerzeilen einheitlich: die Kommas zwischen den Namen erben die Farbe
@@ -1831,7 +1831,7 @@ findbar .findbar-textbox:focus {
    mit winzigen Versalien */
 #messageHeader .show-more-recipients {
   text-transform: none !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   background: var(--mt-control) !important;
   color: var(--mt-text-secondary) !important;
@@ -2463,7 +2463,7 @@ menupopup:not(.autoscroller) {
   --menuitem-padding-block: 3px !important;
   --menuitem-padding-inline: 10px !important;
   font-family: var(--mt-font) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Tooltips mit eigener Fläche: der native macOS-Tooltip folgt dem System,
@@ -2477,7 +2477,7 @@ tooltip {
   border-radius: 6px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
   padding: 3px 7px !important;
-  font: 12px var(--mt-font, -apple-system) !important;
+  font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font, -apple-system) !important;
 }
 
 tooltip :is(description, label, .tooltip-label) {
@@ -2574,7 +2574,7 @@ panel {
   --autocomplete-popup-highlight-background: var(--mt-accent) !important;
   --autocomplete-popup-highlight-color: var(--mt-accent-text) !important;
   --autocomplete-popup-url-color: var(--mt-text-secondary) !important;
-  font: 13px var(--mt-font) !important;
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
 }
 
 #PopupGlodaAutocomplete .autocomplete-richlistitem[type^="gloda-"] {
@@ -2583,7 +2583,7 @@ panel {
   min-height: 22px !important;
   border-radius: 6px !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #PopupGlodaAutocomplete .autocomplete-richlistitem[type^="gloda-"]:hover {
@@ -2597,11 +2597,11 @@ panel {
 
 /* Text der Zeilen in voller Größe (Thunderbird: 1,1em bzw. 0,95em) */
 #PopupGlodaAutocomplete :is(.ac-comment, .explanation) {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #PopupGlodaAutocomplete .ac-url-text {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -2741,7 +2741,7 @@ unified-toolbar {
 }
 
 #mcListHeader .mc-lh-title {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -2751,7 +2751,7 @@ unified-toolbar {
 }
 
 #mcListHeader .mc-lh-count {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -2826,7 +2826,7 @@ unified-toolbar {
   padding: 8px 8px 8px 12px;
   border-radius: var(--mt-radius-row, 10px);
   background: color-mix(in srgb, var(--mt-accent) 10%, var(--mt-window));
-  font: 12px var(--mt-font);
+  font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font);
   color: var(--mt-text);
 }
 
@@ -2865,7 +2865,7 @@ unified-toolbar {
 
 #mcFollowUp .mc-fu-close::before {
   content: "✕";
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
 }
 
 #mcFollowUp .mc-fu-close:hover {
@@ -2889,7 +2889,7 @@ unified-toolbar {
   border-radius: 999px;
   background: var(--mt-popover-bg, var(--mt-window));
   box-shadow: 0 0 0 0.5px var(--mt-tooltip-border, rgba(0, 0, 0, 0.15)), 0 6px 20px rgba(0, 0, 0, 0.18);
-  font: 13px var(--mt-font);
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font);
   color: var(--mt-text);
   animation: mc-undo-in 180ms ease-out;
 }
@@ -2960,7 +2960,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 
 #gloda-facet-view span.empty {
   color: var(--mt-text-secondary) !important;
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -2973,7 +2973,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 }
 
 #gloda-facet-view .explanation-fulltext-label {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -2986,12 +2986,12 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 }
 
 #gloda-facet-view .message-subject {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
 #gloda-facet-view .message-body {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -3009,7 +3009,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 #gloda-facet-view .message-tag {
   border: none !important;
   border-radius: 4px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 .glodaTabToolbar .remote-gloda-search {
@@ -3022,7 +3022,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   /* Lupe (Hintergrundbild) mit etwas Abstand zum runden Rand */
   padding-inline: 30px 10px !important;
   background-position: 10px center !important;
-  font: 13px var(--mt-font) !important;
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
   box-shadow: none !important;
 }
 
@@ -3237,7 +3237,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   color: var(--mt-text) !important;
   min-height: 28px !important;
   padding-inline: 14px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #aboutDownloads #clearDownloads:not([disabled]):hover {
@@ -3287,14 +3287,14 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
 }
 
 #mcConversation .mc-conv-title {
-  font-size: 17px;
+  font-size: calc(17px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
 }
 
 #mcConversation .mc-conv-count {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--mt-text-secondary);
 }
 
@@ -3303,7 +3303,7 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   padding: 8px 12px;
   border-radius: 8px;
   background: var(--mt-control);
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--mt-text-secondary);
 }
 
@@ -3372,7 +3372,7 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   justify-content: center;
   background: linear-gradient(180deg, #B4CAE4, #8A97C5);
   color: #fff;
-  font: 600 13px var(--mt-font, system-ui);
+  font: 600 calc(13px * var(--mt-font-scale, 1)) var(--mt-font, system-ui);
 }
 
 #mcConversation .mc-conv-avatar.mc-has-img {
@@ -3409,14 +3409,14 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
 }
 
 #mcConversation .mc-conv-date {
   flex: none;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   color: var(--mt-text-tertiary);
 }
 
@@ -3425,7 +3425,7 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--mt-text-secondary);
 }
 
@@ -3494,7 +3494,7 @@ menuseparator[mc-tidy-hidden] {
   border-radius: 999px !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
   gap: 6px !important;
@@ -3539,7 +3539,7 @@ menuseparator[mc-tidy-hidden] {
 }
 
 #calendar-list-header-label {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
   text-transform: none !important;
@@ -3580,7 +3580,7 @@ menuseparator[mc-tidy-hidden] {
   border-radius: 8px !important;
   gap: 8px !important;
   align-items: center !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
   background: transparent !important;
 }
@@ -3671,7 +3671,7 @@ menuseparator[mc-tidy-hidden] {
   border: none !important;
   border-radius: 999px !important;
   padding: 1px 8px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   text-transform: none !important;
 }
@@ -3690,7 +3690,7 @@ menuseparator[mc-tidy-hidden] {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) .minimonth-header {
@@ -3746,7 +3746,7 @@ menuseparator[mc-tidy-hidden] {
 }
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) :is(.minimonth-month-name, .minimonth-year-name) {
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text-secondary) !important;
   text-align: center !important;
@@ -3786,7 +3786,7 @@ menuseparator[mc-tidy-hidden] {
   background: transparent !important;
   /* native Feldfläche der Monat/Jahr-Inputs (Druckvorschau) abschalten */
   appearance: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
   opacity: 1 !important;
@@ -3801,7 +3801,7 @@ menuseparator[mc-tidy-hidden] {
 }
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) .minimonth-row-header {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-text-tertiary) !important;
   background: transparent !important;
@@ -3809,7 +3809,7 @@ menuseparator[mc-tidy-hidden] {
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day {
   height: 26px !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-text) !important;
   background: transparent !important;
@@ -3833,7 +3833,7 @@ menuseparator[mc-tidy-hidden] {
 
 /* heute: weiße Zahl im roten Kreis wie Apple */
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[today] {
-  background: radial-gradient(circle closest-side, #FF3B30 11px, transparent 11.5px) !important;
+  background: radial-gradient(circle closest-side, #FF3B30 calc(11px * var(--mt-font-scale, 1)), transparent calc(11.5px * var(--mt-font-scale, 1))) !important;
   color: white !important;
   font-weight: 700 !important;
 }
@@ -3897,12 +3897,12 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
 
 calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) .minimonth-week {
   font-weight: 400 !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) .minimonth-row-header {
   font-weight: 500 !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -3942,7 +3942,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
-  font-size: 28px !important;
+  font-size: calc(28px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   letter-spacing: -0.3px !important;
   color: var(--mt-text) !important;
@@ -3973,7 +3973,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   background: transparent !important;
   box-shadow: none !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -4018,7 +4018,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   background: transparent !important;
   box-shadow: none !important;
   color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -4047,7 +4047,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   min-width: max-content !important;
   aspect-ratio: auto !important;
   padding: 0 14px !important;
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -4110,7 +4110,7 @@ calendar-multiweek-view calendar-day-label {
   background: var(--mt-window) !important;
   border: none !important;
   border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text) !important;
   text-align: end !important;
@@ -4121,7 +4121,7 @@ calendar-multiweek-view calendar-day-label {
 calendar-day-label .calendar-day-label-name {
   text-align: end !important;
   font-weight: 400 !important;
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
 }
 
 calendar-month-day-box {
@@ -4163,9 +4163,9 @@ calendar-month-day-box .calendar-month-day-label {
   height: 24px !important;
   padding: 0 6px !important;
   border-radius: 999px !important;
-  font-size: 16px !important;
+  font-size: calc(16px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
-  line-height: 24px !important;
+  line-height: calc(24px * var(--mt-font-scale, 1)) !important;
   text-align: center !important;
   background: transparent !important;
   color: var(--mt-text) !important;
@@ -4192,7 +4192,7 @@ calendar-month-day-box-item {
   border-radius: 4px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   box-shadow: none !important;
   align-items: center !important;
 }
@@ -4215,7 +4215,7 @@ calendar-month-day-box-item .item-time-label {
   order: 9 !important;
   margin-inline-start: auto !important;
   padding-inline-start: 6px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
   font-variant-numeric: tabular-nums !important;
 }
@@ -4336,7 +4336,7 @@ calendar-week-view, calendar-day-view {
 }
 
 .multiday-timebar-time {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
   justify-content: flex-end !important;
   text-align: end !important;
@@ -4368,7 +4368,7 @@ calendar-week-view, calendar-day-view {
   background: var(--mt-window) !important;
   border: none !important;
   border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text) !important;
   justify-content: center !important;
@@ -4455,7 +4455,7 @@ calendar-event-box.calendar-color-box {
   border: none !important;
   border-radius: 5px !important;
   box-shadow: none !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -4495,7 +4495,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border: none !important;
   border-radius: 4px !important;
   box-shadow: none !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -4528,7 +4528,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border-radius: 999px !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
   gap: 6px !important;
@@ -4557,7 +4557,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #task-tree-filter-header > span {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -4573,7 +4573,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   margin: 0 !important;
   padding: 0 12px !important;
   border-radius: 8px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
   align-items: center !important;
 }
@@ -4628,7 +4628,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
   outline: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
 }
@@ -4644,7 +4644,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   height: 24px !important;
   padding: 0 6px !important;
   border-radius: 6px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   background-color: transparent !important;
 }
 
@@ -4664,7 +4664,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   padding: 0 4px !important;
   background-color: transparent !important;
   color: var(--mt-text-tertiary) !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   cursor: default !important;
 }
 
@@ -4684,7 +4684,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 .calendar-task-tree > treecols > treecol {
   background: transparent !important;
   border: none !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -4715,7 +4715,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 .calendar-task-tree treechildren::-moz-tree-cell-text {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -4775,7 +4775,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
      52 px Einzug plus 12 px Abstand */
   max-width: min(calc(100vw - var(--mc-tab-left, 300px) - 520px), calc(var(--mc-search-left, 100vw) - var(--mc-tab-left, 300px) - 64px)) !important;
   margin: 0 !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   pointer-events: none !important;
   text-overflow: ellipsis !important;
 }
@@ -4826,14 +4826,14 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #mcTasksEmpty .mc-te-title {
-  font-size: 20px !important;
+  font-size: calc(20px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-secondary) !important;
 }
 
 #mcTasksEmpty .mc-te-text {
   max-width: 320px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -4851,7 +4851,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border: none !important;
   background: transparent !important;
   font-family: var(--mt-font) !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-text-tertiary) !important;
   /* tree.css zeichnet je Kopf einen eigenen Strich (inset-Schatten) über der Haarlinie */
@@ -4972,9 +4972,9 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 
 .mc-tc-title {
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
   font-weight: 600;
-  line-height: 18px;
+  line-height: calc(18px * var(--mt-font-scale, 1));
   color: var(--mt-text);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -4995,8 +4995,8 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   gap: 8px;
   overflow: hidden;
   margin-top: 1px;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
+  line-height: calc(16px * var(--mt-font-scale, 1));
   color: var(--mt-text-tertiary);
   white-space: nowrap;
 }
@@ -5164,7 +5164,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 #calendar-task-details-grid > .item-date-row > .headline {
   min-width: 70px !important;
   padding-inline-end: 12px !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-text-tertiary) !important;
   opacity: 1 !important;
@@ -5173,12 +5173,12 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 
 #calendar-task-details-grid > tr > td,
 #calendar-task-details-grid .task-details-value {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
 #calendar-task-details-title {
-  font-size: 17px !important;
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -5188,7 +5188,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
   padding: 10px 20px !important;
   font-family: var(--mt-font) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -5218,7 +5218,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-family: var(--mt-font) !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
   gap: 5px !important;
@@ -5307,7 +5307,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border-radius: 999px !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
   gap: 6px !important;
@@ -5336,8 +5336,8 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
    wie „Favoriten“ in der Mail */
 #mcBooksHeader {
   padding: 14px 16px 6px 37px !important;
-  font-size: 11px !important;
-  line-height: 14px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(14px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
   user-select: none !important;
@@ -5354,7 +5354,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   border-radius: 8px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   align-items: center !important;
 }
 
@@ -5412,7 +5412,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   outline: none !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   align-items: center !important;
 }
 
@@ -5443,7 +5443,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #cardCount {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
   padding: 8px 16px 12px !important;
 }
@@ -5491,7 +5491,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #placeholderCreateContact {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-accent) !important;
 }
@@ -5538,13 +5538,13 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #cards .card-layout .ab-card-first-line .name {
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: var(--mt-text) !important;
 }
 
 #cards .card-layout .ab-card-second-line {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -5678,7 +5678,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 :is(#viewListName, #viewSelectionCount) {
-  font-size: 28px !important;
+  font-size: calc(28px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   color: var(--mt-text) !important;
 }
@@ -5707,17 +5707,17 @@ body.layout-table #viewContact > header {
 }
 
 body.layout-table #viewContactName {
-  font-size: 22px !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
 }
 
 #viewContactName {
-  font-size: 28px !important;
+  font-size: calc(28px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   color: var(--mt-text) !important;
 }
 
 #viewPrimaryEmail {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -5742,7 +5742,7 @@ body.layout-table #viewContactName {
 }
 
 #detailsBody > section > h2 {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
   margin-bottom: 6px !important;
@@ -5750,14 +5750,14 @@ body.layout-table #viewContactName {
 
 /* Überschrift, Bezeichnungen, Werte ohne Bezeichnung und Notizen an einer Kante */
 #detailsBody .entry-list {
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   margin-inline-start: 0 !important;
   column-gap: 0 !important;
 }
 
 /* Notiz in derselben Größe wie die übrigen Werte (erbte sonst 12 px) */
 #detailsBody #notes > div {
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   line-height: 1.35 !important;
   color: var(--mt-text) !important;
 }
@@ -5776,7 +5776,7 @@ body.layout-table #viewContactName {
    normaler Schreibweise wie die Überschriften – nicht in Großbuchstaben */
 #detailsBody .entry-type {
   font-family: var(--mt-font) !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -5812,7 +5812,7 @@ body.layout-table #viewContactName {
   border-radius: 999px !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -5836,7 +5836,7 @@ body.layout-table #viewContactName {
   border-radius: 999px !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
 }
@@ -5864,7 +5864,7 @@ search-bar {
 }
 
 #today-pane-header {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -5878,7 +5878,7 @@ search-bar {
   margin-top: 8px !important;
   padding: 4px 14px !important;
   background: transparent !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -5891,7 +5891,7 @@ search-bar {
   min-height: 28px !important;
   padding: 2px 8px !important;
   border-radius: 8px !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
 
 #agenda .agenda-listitem-calendar {
@@ -5994,7 +5994,7 @@ search-bar {
   min-height: 0 !important;
   background: transparent !important;
   color: var(--mt-text-tertiary) !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -6020,13 +6020,13 @@ search-bar {
   border: none !important;
   background: transparent !important;
   color: var(--mt-text-tertiary) !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
 #contextPane #participantCount {
   color: var(--mt-text-tertiary) !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -6057,9 +6057,9 @@ search-bar {
   border-radius: 999px !important;
   background: currentColor !important;
   -webkit-text-fill-color: #fff !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
-  line-height: 22px !important;
+  line-height: calc(22px * var(--mt-font-scale, 1)) !important;
   text-align: center !important;
 }
 
@@ -6106,7 +6106,7 @@ search-bar {
   margin: 0 8px !important;
   border: none !important;
   background: transparent !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Eingabefeld unten als Textfeld mit kleinem Radius und Haarlinie (Kapsel
@@ -6130,7 +6130,7 @@ splitter.splitter:has(+ .conv-bottom) {
   border-radius: 6px !important;
   background: var(--mt-window) !important;
   color: var(--mt-text) !important;
-  font: 13px/18px var(--mt-font) !important;
+  font: calc(13px * var(--mt-font-scale, 1))/18px var(--mt-font) !important;
 }
 
 .conv-textbox:focus {
@@ -6145,7 +6145,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 .im-placeholder-screen :is(.im-placeholder-title, h1) {
-  font-size: 20px !important;
+  font-size: calc(20px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
   border: none !important;
@@ -6153,7 +6153,7 @@ splitter.splitter:has(+ .conv-bottom) {
 
 .im-placeholder-screen .im-placeholder-desc {
   /* Erklärtext wie im leeren Aufgaben-Zustand: 13 px in Sekundärgrau */
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -6179,7 +6179,7 @@ splitter.splitter:has(+ .conv-bottom) {
   border-radius: 999px !important;
   background: var(--mt-accent) !important;
   color: var(--mt-accent-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
   outline: none !important;
@@ -6226,7 +6226,7 @@ splitter.splitter:has(+ .conv-bottom) {
   gap: 10px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
 }
 
@@ -6243,7 +6243,7 @@ splitter.splitter:has(+ .conv-bottom) {
    Text bündig mit „Kontoeinstellungen“ und „Add-ons“ darunter, der Abstand
    zum Symbol kommt nur aus der Lücke der Zeile */
 #categories .category-name {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   padding-inline-start: 0 !important;
   margin: 0 !important;
 }
@@ -6390,12 +6390,12 @@ splitter.splitter:has(+ .conv-bottom) {
   padding-inline: 42px 8px;
   border-radius: 8px;
   color: var(--mt-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
-  line-height: 30px;
+  line-height: calc(30px * var(--mt-font-scale, 1));
   cursor: default;
   outline: none;
 }
@@ -6454,7 +6454,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 .sidebar-footer-label {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   margin: 0 !important;
 }
 
@@ -6467,11 +6467,11 @@ splitter.splitter:has(+ .conv-bottom) {
 /* Grundschrift 13 px wie Knöpfe und Auswahllisten (Thunderbird: 12,1 px) –
    sonst stehen in einer Zeile zwei Größen nebeneinander */
 #paneDeck {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #paneDeck h1 {
-  font-size: 22px !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   color: var(--mt-text) !important;
 }
@@ -6494,7 +6494,7 @@ splitter.splitter:has(+ .conv-bottom) {
   float: inline-start !important;
   width: 100% !important;
   padding: 0 0 6px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -6514,7 +6514,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 #paneDeck .mc-halo-found-where {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -6525,7 +6525,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 #paneDeck .mc-halo-found-hint {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -6544,7 +6544,7 @@ splitter.splitter:has(+ .conv-bottom) {
    „Enable DNS over HTTPS using:“) behielten Thunderbirds 1.3em und waren
    größer als der Kartentitel – gleiche 13 px halbfett */
 #paneDeck legend:not(fieldset > legend, #dohBox > legend) {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -6585,7 +6585,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 #paneDeck #dohBox > legend {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -6669,7 +6669,7 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 #qrExportContent .qr-small {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -6721,7 +6721,7 @@ splitter.splitter:has(+ .conv-bottom) {
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead), menulist):not([disabled]):hover {
@@ -6795,7 +6795,7 @@ splitter.splitter:has(+ .conv-bottom) {
 
 /* Abschnittsüberschriften wie in den übrigen Bereichen */
 #paneDeck h2 {
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -6806,14 +6806,14 @@ splitter.splitter:has(+ .conv-bottom) {
 
 /* Erklärtexte bewusst etwas kleiner als die 13-px-Grundschrift */
 #paneDeck :is(description, .tip-caption) {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Ende-zu-Ende-Verschlüsselung: die Erklärtexte sind dort html:p statt
    description – gleich wie in den Nachbarkarten (12 px, grau, luftig, ohne
    eigenen Abstand oben); Trennlinie als Haarlinie statt grauer Linie */
 #paneDeck :is(#emailE2eeGroupPreparation, #emailE2eeKeyServers) > p {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   line-height: 1.8 !important;
   color: var(--mt-text-secondary) !important;
   margin-block: 0 4px !important;
@@ -7004,7 +7004,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 
 #paneDeck .appearance-options .radio-label {
   align-self: center !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -7076,7 +7076,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
   float: inline-start !important;
   width: 100% !important;
   padding: 0 0 6px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text) !important;
 }
@@ -7147,7 +7147,7 @@ categories-box > .category,
   border-radius: 8px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
 }
 
@@ -7189,7 +7189,7 @@ search-addons input,
 
 addon-page-header h1,
 .header-name {
-  font-size: 22px !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
 }
 
@@ -7319,7 +7319,7 @@ addon-card .addon-inline-options {
   box-shadow: var(--mt-shadow), 0 8px 24px rgba(0, 0, 0, 0.14) !important;
   padding: 5px !important;
   color: var(--mt-text) !important;
-  font: 13px var(--mt-font) !important;
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
 }
 
 /* ---------- Verfassen-Fenster wie Apple Mail ---------- */
@@ -7414,7 +7414,7 @@ addon-card .addon-inline-options {
 #MsgHeadersToolbar .address-label-container,
 #MsgHeadersToolbar :is(#identityLabel, #subjectLabel) {
   color: var(--mt-text-tertiary) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #MsgHeadersToolbar :is(.address-container, #msgSubject, .input-container),
@@ -7431,7 +7431,7 @@ addon-card .addon-inline-options {
 }
 
 #msgSubject {
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -7707,7 +7707,7 @@ addon-card .addon-inline-options {
 
 #mcFormatToggle > .toolbarbutton-text {
   display: inline !important;
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   margin: 0 !important;
 }
@@ -7798,17 +7798,17 @@ addon-card .addon-inline-options {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 #attachmentBucket > .attachmentItem > .attachmentcell-extension {
   justify-self: start !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 #attachmentBucket > .attachmentItem > .attachmentcell-size {
   margin: 0 !important;
-  font-size: 10px !important;
+  font-size: calc(10px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -7891,7 +7891,7 @@ addon-card .addon-inline-options {
 
 @media (max-width: 1250px) {
   #intervalDescription {
-    font-size: 22px !important;
+    font-size: calc(22px * var(--mt-font-scale, 1)) !important;
   }
 
   #viewToggle .calview-toggle-item {
@@ -7909,7 +7909,7 @@ addon-card .addon-inline-options {
 }
 
 #datevalue-label {
-  font-size: 34px !important;
+  font-size: calc(34px * var(--mt-font-scale, 1)) !important;
   font-weight: 300 !important;
   color: var(--mt-text) !important;
   margin: 0 !important;
@@ -7917,7 +7917,7 @@ addon-card .addon-inline-options {
 }
 
 #weekdayNameLabel {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: #FF3B30 !important;
   padding: 0 !important;
@@ -7925,7 +7925,7 @@ addon-card .addon-inline-options {
 }
 
 #monthNameContainer {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
   margin: 0 !important;
 }
@@ -8037,9 +8037,9 @@ addon-card .addon-inline-options {
 :is(#cards, #mcDetailBooks) .mc-book {
   padding: 1px 7px !important;
   border-radius: 999px !important;
-  font-size: 10px !important;
+  font-size: calc(10px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
-  line-height: 15px !important;
+  line-height: calc(15px * var(--mt-font-scale, 1)) !important;
   background: color-mix(in srgb, var(--c) 15%, transparent) !important;
   color: color-mix(in srgb, var(--c) 75%, var(--mt-text)) !important;
 }
@@ -8071,12 +8071,12 @@ addon-card .addon-inline-options {
   background: linear-gradient(180deg, #B4CAE4, #8A97C5) !important;
   color: #fff !important;
   box-shadow: none !important;
-  font: 600 19px -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  font: 600 calc(19px * var(--mt-font-scale, 1)) -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
   letter-spacing: 0 !important;
 }
 
 #selectedCards contact-avatar:not(.is-mail-list) {
-  font: 600 15px var(--mt-font) !important;
+  font: 600 calc(15px * var(--mt-font-scale, 1)) var(--mt-font) !important;
 }
 
 /* Verteilerlisten: Thunderbirds Umriss-Symbol weiß und kleiner auf demselben
@@ -8262,13 +8262,13 @@ addon-card .addon-inline-options {
 }
 
 #editContactHeadingName {
-  font-size: 24px !important;
+  font-size: calc(24px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
   color: var(--mt-text) !important;
 }
 
 #editContactForm :is(#editContactHeadingNickName, #editContactHeadingEmail) {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -8277,7 +8277,7 @@ addon-card .addon-inline-options {
   flex-direction: column !important;
   gap: 12px !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* jede Gruppe eine Karte wie in der Detailansicht, Überschrift darüber */
@@ -8313,7 +8313,7 @@ addon-card .addon-inline-options {
   margin: 0 0 2px !important;
   padding: 0 !important;
   text-align: start !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
 }
@@ -8378,7 +8378,7 @@ addon-card .addon-inline-options {
   border-radius: 999px !important;
   background: color-mix(in srgb, var(--mt-accent) 10%, transparent) !important;
   color: var(--mt-accent) !important;
-  font: 400 13px var(--mt-font) !important;
+  font: 400 calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
   box-shadow: none !important;
   outline: none !important;
   cursor: pointer !important;
@@ -8398,13 +8398,13 @@ addon-card .addon-inline-options {
 
 #editContactForm label:not(.screen-reader-only) {
   margin-block-end: 4px !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text-secondary) !important;
 }
 
 #editContactForm :is(th, #addr-book-edit-email-default span) {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text-secondary) !important;
 }
@@ -8417,7 +8417,7 @@ addon-card .addon-inline-options {
   background-color: var(--mt-window) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
 }
 
@@ -8440,7 +8440,7 @@ addon-card .addon-inline-options {
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
 }
 
@@ -8452,7 +8452,7 @@ addon-card .addon-inline-options {
   border-radius: 999px !important;
   background-color: transparent !important;
   color: var(--mt-accent) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   box-shadow: none !important;
   outline: none !important;
@@ -8491,7 +8491,7 @@ addon-card .addon-inline-options {
   border-radius: 999px !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   box-shadow: none !important;
 }
@@ -8550,7 +8550,7 @@ addon-card .addon-inline-options {
   justify-content: space-between !important;
   gap: 6px !important;
   padding: 8px 14px 6px !important;
-  font-size: 18px !important;
+  font-size: calc(18px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   color: var(--mt-text) !important;
 }
@@ -8671,7 +8671,7 @@ addon-card .addon-inline-options {
 #agenda .agenda-date-header::before {
   content: attr(data-mc-wd) !important;
   display: block !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.3px !important;
@@ -8682,7 +8682,7 @@ addon-card .addon-inline-options {
   content: attr(data-mc-day) !important;
   display: block !important;
   margin-top: 3px !important;
-  font-size: 22px !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -8719,7 +8719,7 @@ addon-card .addon-inline-options {
 #agenda .agenda-listitem-title {
   flex: 1 1 auto !important;
   min-width: 0 !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: color-mix(in srgb, var(--mc-c, var(--mt-accent)) 62%, var(--mt-text)) !important;
 }
@@ -8727,7 +8727,7 @@ addon-card .addon-inline-options {
 #agenda .agenda-listitem-time {
   order: 2 !important;
   margin-inline-start: auto !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: color-mix(in srgb, var(--mc-c, var(--mt-accent)) 45%, var(--mt-text)) !important;
 }
@@ -8795,7 +8795,7 @@ addon-card .addon-inline-options {
 
 /* Minikalender: Zahlen exakt mittig, damit der rote Heute-Kreis sitzt */
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day {
-  line-height: 26px !important;
+  line-height: calc(26px * var(--mt-font-scale, 1)) !important;
   vertical-align: middle !important;
   text-align: center !important;
   padding: 0 !important;
@@ -8844,7 +8844,7 @@ button.wizard-button {
   box-shadow: none !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   min-height: 28px !important;
   padding-inline: 16px !important;
 }
@@ -9055,7 +9055,7 @@ dialog separator.groove:not([orient="vertical"]) {
    der längste Name passte nicht in die 260 px – 13 px wie im übrigen Design */
 @media not (-moz-platform: macos) {
   #device_tree {
-    font-size: 13px !important;
+    font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   }
 }
 
@@ -9284,7 +9284,7 @@ timepicker-grids {
 }
 
 timepicker-grids .time-picker-grids {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 timepicker-grids :is(.time-picker-hour-box-class, .time-picker-minute-box-class, .time-picker-five-minute-class, .time-picker-one-minute-class),
@@ -9297,7 +9297,7 @@ timepicker-grids .time-picker-more-control-label {
    darunter 15 px) und Abstand zwischen Beschriftung und Feld (Thunderbird:
    kein Innenabstand – „Reminder“ stieß fast ans Feld) */
 :is(#calendar-event-window, #calendar-event-dialog-inner, #calendar-task-dialog-inner) {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 :is(#calendar-event-dialog-inner, #calendar-task-dialog-inner) #event-grid th {
@@ -9324,7 +9324,7 @@ timepicker-grids .time-picker-more-control-label {
   background: var(--mt-window) !important;
   border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
   color: var(--mt-text-tertiary) !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   padding: 3px 12px !important;
 }
 
@@ -9525,7 +9525,7 @@ button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-
   border-radius: 8px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   align-items: center !important;
 }
 
@@ -9560,7 +9560,7 @@ button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-
 /* Inhaltsseiten (am-*.xhtml) wie die Einstellungen: große Überschrift, runde Felder */
 :root:has(> body > #containerBox, > body .am-container) .dialogheader-title,
 .dialogheader-title {
-  font-size: 22px !important;
+  font-size: calc(22px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
 }
 
@@ -9590,7 +9590,7 @@ body.layout-table ~ #sortContext > :is(menucaption[mc-section="sort"], menusepar
 menucaption.mc-caption,
 menupopup menucaption {
   padding: 6px 12px 2px !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
   background: transparent !important;
@@ -9684,7 +9684,7 @@ menupopup menucaption {
 
 /* Thundermail-Zeile: normale Menüzeile mit feiner Trennlinie statt Farbverlauf */
 .tbpro-header-button .tbpro-header-content {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 .tbpro-divider {
@@ -9756,7 +9756,7 @@ menupopup menucaption {
 
 #unifiedToolbarContent > li[item-id="create-contact"] button .button-label {
   display: inline !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -9929,7 +9929,7 @@ menupopup menucaption {
 
 #chat-toolbar > #button-add-buddy .toolbarbutton-text {
   display: flex !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   padding-inline-start: 6px !important;
 }
@@ -9951,7 +9951,7 @@ menupopup menucaption {
   width: max-content !important;
   max-width: max-content !important;
   /* Statustext so groß wie „Add Contact“ und die Suche daneben */
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #chat-status-selector :is(button, toolbarbutton, img, .statusImageStack, #statusTypeIcon) {
@@ -10044,7 +10044,7 @@ menupopup menucaption {
   --panel-separator-color: var(--mt-separator) !important;
   --panel-separator-margin: 5px 14px !important;
   font-family: var(--mt-font) !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #appMenu-popup :is(.subviewbutton, .subview-subheader):not(.toolbaritem-combined-buttons > *) {
@@ -10052,7 +10052,7 @@ menupopup menucaption {
   margin: 0 5px !important;
   padding: 3px 8px !important;
   border-radius: 6px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -10121,7 +10121,7 @@ menupopup menucaption {
 }
 
 #appMenu-popup .panel-header h1 {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
 }
 
@@ -10167,9 +10167,9 @@ calendar-month-day-box > .mc-more {
   border-radius: 999px !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
-  line-height: 16px !important;
+  line-height: calc(16px * var(--mt-font-scale, 1)) !important;
   text-align: start !important;
   color: var(--mt-text-secondary) !important;
   cursor: pointer !important;
@@ -10314,17 +10314,17 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 #alarm-richlist .mc-alarm-month {
   margin-top: 4px;
-  font-size: 9px;
+  font-size: calc(9px * var(--mt-font-scale, 1));
   font-weight: 600;
-  line-height: 10px;
+  line-height: calc(10px * var(--mt-font-scale, 1));
   color: #FF3B30;
   text-transform: uppercase;
 }
 
 #alarm-richlist .mc-alarm-day {
-  font-size: 22px;
+  font-size: calc(22px * var(--mt-font-scale, 1));
   font-weight: 400;
-  line-height: 26px;
+  line-height: calc(26px * var(--mt-font-scale, 1));
   color: #1D1D1F;
 }
 
@@ -10337,19 +10337,19 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 #alarm-richlist .alarm-title-label {
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   margin: 0 0 2px !important;
 }
 
 #alarm-richlist :is(.alarm-date-label, .alarm-location-description, .alarm-relative-date-label) {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
   margin: 0 !important;
 }
 
 #alarm-richlist .alarm-details-label {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-accent) !important;
   text-decoration: none !important;
   margin: 4px 0 0 !important;
@@ -10373,7 +10373,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   background: color-mix(in srgb, var(--mt-text) 8%, transparent) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 #alarm-richlist .alarm-action-buttons button:hover,
@@ -10434,9 +10434,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #calendar-summary-dialog .calendar-summary-table th {
   padding: 0 !important;
   text-align: start !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
-  line-height: 17px !important;
+  line-height: calc(17px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
   white-space: nowrap !important;
 }
@@ -10446,8 +10446,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   max-inline-size: none !important;
   min-width: 0 !important;
   padding: 0 !important;
-  font-size: 13px !important;
-  line-height: 17px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  line-height: calc(17px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -10458,9 +10458,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #calendar-summary-dialog .calendar-summary-table td.item-title {
   grid-column: 1 / -1 !important;
   padding-bottom: 6px !important;
-  font-size: 17px !important;
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
-  line-height: 22px !important;
+  line-height: calc(22px * var(--mt-font-scale, 1)) !important;
 }
 
 #calendar-summary-dialog :is(#calendar-summary-dialog-edit-button, #calendar-summary-dialog-edit-menu-button, #calendar-summary-dialog-custom-button-footer button) {
@@ -10468,7 +10468,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-height: 30px !important;
   padding: 0 18px !important;
   border-radius: 999px !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* Adressbuch: keine Linie über „Total contacts …“ und keine über der
@@ -10595,7 +10595,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
 
@@ -10751,12 +10751,12 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day {
   width: auto !important;
   height: 28px !important;
-  line-height: 28px !important;
-  font-size: 13px !important;
+  line-height: calc(28px * var(--mt-font-scale, 1)) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) .minimonth-row-header {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   height: 22px !important;
 }
 
@@ -10845,7 +10845,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   align-items: center;
   gap: 7px;
   min-width: 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
   white-space: nowrap;
@@ -11003,7 +11003,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font: 700 8.5px/1 var(--mt-font, system-ui) !important;
+  font: 700 calc(8.5px * var(--mt-font-scale, 1))/1 var(--mt-font, system-ui) !important;
   letter-spacing: -0.2px !important;
   font-variant-numeric: tabular-nums !important;
   pointer-events: none !important;
@@ -11023,7 +11023,7 @@ notification-message {
   border: none !important;
   border-radius: 12px !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
 /* gewöhnliche Hinweise (keine Warnung/kein Fehler): zarte graue Kapsel */
@@ -11151,7 +11151,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border-radius: 0 !important;
   background: none !important;
   color: #FF3B30 !important;
-  font-size: 10px !important;
+  font-size: calc(10px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   line-height: 1.3 !important;
 }
@@ -11168,7 +11168,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #agenda .agenda-listitem.agenda-listitem-now .agenda-listitem-relative {
   grid-row: 1 !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   line-height: inherit !important;
 }
@@ -11226,7 +11226,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   width: 380px !important;
   padding: 12px 12px 10px !important;
   box-sizing: border-box !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text) !important;
 }
 
@@ -11298,7 +11298,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
-  font-size: 20px !important;
+  font-size: calc(20px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   outline: none !important;
 }
@@ -11312,7 +11312,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #mcQuickPanel .mc-qc-line1 {
-  font-size: 14px !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
 }
 
 #mcQuickPanel .mc-qc-line2 {
@@ -11370,7 +11370,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
-  font-size: 13px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-variant-numeric: tabular-nums !important;
 }
 
@@ -11606,7 +11606,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   justify-content: center !important;
   background: linear-gradient(180deg, #B4CAE4, #8A97C5) !important;
   color: #fff !important;
-  font: 600 17px var(--mt-font, system-ui) !important;
+  font: 600 calc(17px * var(--mt-font-scale, 1)) var(--mt-font, system-ui) !important;
   letter-spacing: 0 !important;
 }
 
@@ -11653,7 +11653,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   display: flex !important;
   align-items: center !important;
   gap: 14px !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -11745,7 +11745,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #mcHdrMeta #dateLabel {
   position: static !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
 
 #mcHdrMeta .mc-hdr-folder {
@@ -11925,7 +11925,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 /* Absendername etwas größer, wie bei Apple – einzeilig, notfalls mit „…“ */
 #expandedfromBox :is(.recipient-multi-line-name, .recipient-single-line) {
-  font-size: 15px !important;
+  font-size: calc(15px * var(--mt-font-scale, 1)) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -11947,7 +11947,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border-radius: 12px !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  font: 600 12.5px var(--mt-font, system-ui) !important;
+  font: 600 calc(12.5px * var(--mt-font-scale, 1)) var(--mt-font, system-ui) !important;
 }
 
 #mcListBanner .mc-lb-icon {
@@ -11997,7 +11997,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #mcListBanner .mc-lb-close::before {
   content: "✕" !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }
 
 /* ---------- Mindestbreiten in allen Spaces: kein Bereich wird so schmal,
@@ -12098,7 +12098,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #calendar-event-dialog-attendees-v2 .hour-label {
-  font-size: 11px !important;
+  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   color: var(--mt-text-secondary) !important;
 }
 
@@ -12157,7 +12157,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #calendar-event-dialog-attendees-v2 :is(td, label, .legend + *) {
-  font-size: 12px !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
 
 #calendar-event-dialog-attendees-v2 table:has(.legend) td,
@@ -12275,7 +12275,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
   color: var(--mt-text);
 }
 
@@ -12570,7 +12570,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 /* Titel groß und halbfett */
 :root[mc-apple-event] #item-title {
-  font-size: 17px !important;
+  font-size: calc(17px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   min-height: 40px !important;
 }

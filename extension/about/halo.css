@@ -35,7 +35,7 @@ body {
   margin: 0;
   background: var(--window);
   color: var(--text);
-  font: 13px/1.4 -apple-system, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
+  font: calc(13px * var(--mt-font-scale, 1))/1.4 -apple-system, "SF Pro Text", system-ui, "Helvetica Neue", sans-serif;
   -moz-user-select: none;
   user-select: none;
 }
@@ -65,13 +65,13 @@ header {
 
 h1 {
   margin: 0;
-  font-size: 17px;
+  font-size: calc(17px * var(--mt-font-scale, 1));
   font-weight: 600;
 }
 
 .version {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
 }
 
@@ -147,7 +147,7 @@ main {
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--control);
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
 }
 
@@ -179,7 +179,7 @@ main {
 }
 
 .welcome .note {
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
   color: var(--text);
 }
 
@@ -189,7 +189,7 @@ main {
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--control);
-  font-size: 13px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
 }
 
 .weather p {
@@ -198,7 +198,7 @@ main {
 
 .weather .small {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: calc(11px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
 }
 
@@ -215,7 +215,7 @@ main {
   padding: 0 10px;
   white-space: nowrap;
   background: var(--control-hover);
-  font-size: 12px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
 }
 
 .weather .capsule.chosen {

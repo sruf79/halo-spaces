@@ -5730,6 +5730,24 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Favoriten: Unterordner behalten ihren eigenen Namen statt des Kontonamens", smart_folder_names, results)
 
+    def mac_words():
+        # „On My Mac“ und „macOS“ nur unter macOS; unter Windows/Linux „On This Computer“ und „the system“
+        res = m.js('''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const L = Cu.evalInSandbox("appleLabels", ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global)();
+          w.openPreferencesTab("paneAppearance"); await wait(2500);
+          const cd = tm.currentTabInfo.browser.contentWindow.document;
+          const group = cd.getElementById("mcAppearanceGroup");
+          const out = { local: L.native ? null : L.onMyMac, label: group?.querySelector("label")?.getAttribute("value"),
+                        auto: group?.querySelector('menuitem[value="auto"]')?.getAttribute("label") };
+          tm.closeTab(tm.currentTabInfo); await wait(500);
+          return out;''' % ADDON_ID)
+        mac = sys.platform == "darwin"
+        words = [res["label"] or "", res["auto"] or "", res["local"] or ""]
+        ok = all(words[:2]) and (all("mac" in t.lower() for t in words if t) if mac else not any("mac" in t.lower() for t in words))
+        return ok, f"{res}"
+    check("Texte: „On My Mac“ und „macOS“ nur unter macOS, sonst „On This Computer“ und „the system“", mac_words, results)
+
     def account_dot_rename():
         # Farbpunkt vor dem Kontonamen: neue und umbenannte Konten bekommen ihn
         # sofort (früher nur die Konten vom Start). Feed-Konto ohne Abos – kein

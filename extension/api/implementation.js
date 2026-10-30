@@ -58,6 +58,7 @@ const DE = {
   "Appearance": "Erscheinungsbild",
   "At time of event": "Zum Termin",
   "Automatic (like macOS)": "Automatisch (wie macOS)",
+  "Automatic (like the system)": "Automatisch (wie das System)",
   "Birthdays": "Geburtstage",
   "Busy": "Beschäftigt",
   "Cancel": "Abbrechen",
@@ -82,6 +83,7 @@ const DE = {
   "Installing …": "Wird installiert …",
   "Light": "Hell",
   "Light, dark or follow macOS": "Hell, dunkel oder wie macOS",
+  "Light, dark or follow the system": "Hell, dunkel oder wie das System",
   "Contacts": "Kontakte",
   "Show Address Book “{name}”": "Adressbuch „{name}“ anzeigen",
   "Merge Duplicate Contacts": "Doppelte Kontakte zusammenführen",
@@ -359,6 +361,7 @@ const FR = {
   "Appearance": "Apparence",
   "At time of event": "À l’heure de l’événement",
   "Automatic (like macOS)": "Automatique (comme macOS)",
+  "Automatic (like the system)": "Automatique (comme le système)",
   "Birthdays": "Anniversaires",
   "Busy": "Occupé",
   "Cancel": "Annuler",
@@ -382,6 +385,7 @@ const FR = {
   "Installing …": "Installation …",
   "Light": "Clair",
   "Light, dark or follow macOS": "Clair, sombre ou comme macOS",
+  "Light, dark or follow the system": "Clair, sombre ou comme le système",
   "Contacts": "Contacts",
   "Show Address Book “{name}”": "Afficher le carnet d’adresses « {name} »",
   "Merge Duplicate Contacts": "Fusionner les contacts en double",
@@ -661,6 +665,7 @@ const ES = {
   "Appearance": "Apariencia",
   "At time of event": "A la hora del evento",
   "Automatic (like macOS)": "Automático (como macOS)",
+  "Automatic (like the system)": "Automático (como el sistema)",
   "Birthdays": "Cumpleaños",
   "Busy": "Ocupado",
   "Cancel": "Cancelar",
@@ -684,6 +689,7 @@ const ES = {
   "Installing …": "Instalando …",
   "Light": "Claro",
   "Light, dark or follow macOS": "Claro, oscuro o como macOS",
+  "Light, dark or follow the system": "Claro, oscuro o como el sistema",
   "Contacts": "Contactos",
   "Show Address Book “{name}”": "Mostrar la libreta de direcciones “{name}”",
   "Merge Duplicate Contacts": "Combinar contactos duplicados",
@@ -963,6 +969,7 @@ const IT = {
   "Appearance": "Aspetto",
   "At time of event": "All’ora dell’evento",
   "Automatic (like macOS)": "Automatico (come macOS)",
+  "Automatic (like the system)": "Automatico (come il sistema)",
   "Birthdays": "Compleanni",
   "Busy": "Occupato",
   "Cancel": "Annulla",
@@ -986,6 +993,7 @@ const IT = {
   "Installing …": "Installazione …",
   "Light": "Chiaro",
   "Light, dark or follow macOS": "Chiaro, scuro o come macOS",
+  "Light, dark or follow the system": "Chiaro, scuro o come il sistema",
   "Contacts": "Contatti",
   "Show Address Book “{name}”": "Mostra la rubrica “{name}”",
   "Merge Duplicate Contacts": "Unisci contatti duplicati",
@@ -1318,6 +1326,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const HIT_TTL = 30 * DAY;
 const MISS_TTL = 7 * DAY;
 const FETCH_TIMEOUT = 6000;
+// Texte mit „Mac“ bzw. „macOS“ nur dort
+const IS_MAC = Services.appinfo.OS == "Darwin";
 
 // Kontofarben – überall gleich (Mail, Adressbuch): die in den
 // Kontoeinstellungen gewählte Farbe, sonst die nächste freie aus der Palette
@@ -1525,12 +1535,12 @@ function hookAppearanceChoice(cw, restorers = null) {
   const row = doc.createXULElement("hbox");
   row.setAttribute("align", "center");
   const label = doc.createXULElement("label");
-  label.setAttribute("value", tr("Light, dark or follow macOS"));
+  label.setAttribute("value", tr(IS_MAC ? "Light, dark or follow macOS" : "Light, dark or follow the system"));
   label.setAttribute("flex", "1");
   const list = doc.createXULElement("menulist");
   list.id = "mcAppearance";
   const popup = doc.createXULElement("menupopup");
-  for (const [value, text] of [["auto", tr("Automatic (like macOS)")], ["light", tr("Light")], ["dark", tr("Dark")]]) {
+  for (const [value, text] of [["auto", tr(IS_MAC ? "Automatic (like macOS)" : "Automatic (like the system)")], ["light", tr("Light")], ["dark", tr("Dark")]]) {
     const item = doc.createXULElement("menuitem");
     item.setAttribute("value", value);
     item.setAttribute("label", text);
@@ -5975,9 +5985,9 @@ function appleLabels() {
     return { native: true };
   }
   return lang.startsWith("de")
-    ? { favourites: "Favoriten", allInboxes: "Alle Eingänge", allSent: "Alle gesendeten", onMyMac: "Auf meinem Mac",
+    ? { favourites: "Favoriten", allInboxes: "Alle Eingänge", allSent: "Alle gesendeten", onMyMac: IS_MAC ? "Auf meinem Mac" : "Auf diesem Computer",
         Inbox: "Posteingang", Drafts: "Entwürfe", SentMail: "Gesendet", Junk: "Werbung", Trash: "Papierkorb", Archive: "Archiv", Templates: "Vorlagen" }
-    : { favourites: "Favourites", allInboxes: "All Inboxes", allSent: "All Sent", onMyMac: "On My Mac",
+    : { favourites: "Favourites", allInboxes: "All Inboxes", allSent: "All Sent", onMyMac: IS_MAC ? "On My Mac" : "On This Computer",
         Inbox: "Inbox", Drafts: "Drafts", SentMail: "Sent", Junk: "Junk", Trash: "Bin", Archive: "Archive", Templates: "Templates" };
 }
 // Posteingang immer zuerst (order 0), Gmails „Wichtig“ direkt danach (1)

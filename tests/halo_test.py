@@ -5761,6 +5761,40 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Ordnerliste: neue und umbenannte Konten bekommen ihren Farbpunkt sofort", account_dot_rename, results)
 
+    def account_colors_distinct():
+        # Konten ohne eigene Farbe bekommen der Reihe nach verschiedene Farben (früher aus dem Namen, oft doppelt);
+        # eine in Thunderbird gewählte Farbe wird bei den anderen ausgelassen. Feed-Konten ohne Abos, danach entfernt
+        res = m.js('''
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const { FolderTreeProperties } = ChromeUtils.importESModule("resource:///modules/FolderTreeProperties.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const color = Cu.evalInSandbox("accountColor", g), palette = Cu.evalInSandbox("ACCOUNT_PALETTE", g);
+          const accs = [];
+          const out = {};
+          try {
+            for (const n of ["Halo Farbe A", "Halo Farbe B", "Halo Farbe C"]) {
+              const srv = MailServices.accounts.createIncomingServer("nobody", n.replace(/ /g, "-").toLowerCase() + ".invalid", "rss");
+              srv.prettyName = n; srv.doBiff = false;
+              const acc = MailServices.accounts.createAccount(); acc.incomingServer = srv; accs.push(acc);
+            }
+            const names = accs.map(a => a.incomingServer.prettyName);
+            out.auto = names.map(n => color(n));
+            FolderTreeProperties.setColor(accs[0].incomingServer.rootFolder.URI, palette[3]);
+            out.own = names.map(n => color(n));
+          } finally {
+            if (accs[0]) FolderTreeProperties.setColor(accs[0].incomingServer.rootFolder.URI, undefined);
+            for (const acc of accs) MailServices.accounts.removeAccount(acc, true);
+            await wait(800);
+          }
+          out.palette3 = palette[3];
+          return out;''' % ADDON_ID)
+        auto, own = res.get("auto", []), res.get("own", [])
+        ok = (len(set(auto)) == 3 and len(set(own)) == 3 and own[0] == res["palette3"]
+              and res["palette3"] not in own[1:])
+        return ok, f"{res}"
+    check("Ordnerliste: Konten ohne eigene Farbe bekommen verschiedene Farben, eine gewählte Farbe wird bei den anderen ausgelassen", account_colors_distinct, results)
+
     def card_sender_date():
         # Absender nur als Adresse → Name aus der Domain; Datum vor gestern ganz;
         # kompakte Dichte: Abstand oben und unten gleich (früher unten ~10 px mehr)

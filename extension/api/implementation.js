@@ -1320,23 +1320,47 @@ const MISS_TTL = 7 * DAY;
 const FETCH_TIMEOUT = 6000;
 
 // Kontofarben – überall gleich (Mail, Adressbuch): die in den
-// Kontoeinstellungen gewählte Farbe, sonst eine feste Farbe aus dem Namen.
-// Adressbücher heißen wie ihr Konto (Google, iCloud) und bekommen dieselbe.
+// Kontoeinstellungen gewählte Farbe, sonst die nächste freie aus der Palette
+// in Kontenreihenfolge (von anderen Konten gewählte Farben ausgelassen, erst
+// wenn alle vergeben sind, wiederholt sich die Palette). Adressbücher heißen
+// wie ihr Konto (Google, iCloud) und bekommen dieselbe; andere Namen eine
+// feste Farbe aus dem Namen.
 const ACCOUNT_PALETTE = ["#0A84FF", "#30B850", "#FF8A00", "#FF2D78", "#AF52DE", "#8E8E93"];
-function accountColor(name) {
+function accountColors() {
+  const colors = new Map();
   try {
     const { FolderTreeProperties } = ChromeUtils.importESModule("resource:///modules/FolderTreeProperties.sys.mjs");
-    for (const server of MailServices.accounts.allServers) {
-      if (server.prettyName == name) {
-        const color = FolderTreeProperties.getColor(server.rootFolder.URI);
-        if (color) {
-          return color;
-        }
-        break;
+    const servers = [];
+    for (const account of MailServices.accounts.accounts) {
+      const server = account.incomingServer;
+      if (server && server.type != "none" && !servers.includes(server)) {
+        servers.push(server);
       }
     }
+    const own = servers.map(server => FolderTreeProperties.getColor(server.rootFolder.URI));
+    const taken = new Set(own.filter(Boolean).map(c => c.toLowerCase()));
+    let free = ACCOUNT_PALETTE.filter(c => !taken.has(c.toLowerCase()));
+    let next = 0;
+    servers.forEach((server, i) => {
+      if (colors.has(server.prettyName)) {
+        return;
+      }
+      let color = own[i];
+      if (!color) {
+        if (next >= free.length) {
+          free = ACCOUNT_PALETTE;
+          next = 0;
+        }
+        color = free[next++];
+      }
+      colors.set(server.prettyName, color);
+    });
   } catch {}
-  return ACCOUNT_PALETTE[[...String(name)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % ACCOUNT_PALETTE.length];
+  return colors;
+}
+function accountColor(name) {
+  return accountColors().get(name)
+    ?? ACCOUNT_PALETTE[[...String(name)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % ACCOUNT_PALETTE.length];
 }
 // Farbpunkt vor Konto- und Adressbuchnamen (Ordnerliste, Adressbuchliste):
 // --mc-acc an der Zeile, gezeichnet von userChrome.css

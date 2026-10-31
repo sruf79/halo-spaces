@@ -4092,6 +4092,16 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   margin: 0 !important;
 }
 
+/* In die Toolbar-Zeile verlegte Leisten: Windows (und Linux mit eigener
+   Titelleiste) werten die Zeile sonst als Titelleiste – der erste Klick ginge
+   ans Fenster, ein Doppelklick maximiert */
+#viewToggle,
+#viewToggle .calview-toggle-item,
+#task-actions-toolbar,
+#task-actions-toolbar > toolbarbutton {
+  -moz-window-dragging: no-drag !important;
+}
+
 /* Suchliste „Termine in den nächsten 7 Tagen“ gibt es bei Apple nicht */
 #bottom-events-box,
 #calendar-view-splitter {

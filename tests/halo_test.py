@@ -3304,6 +3304,22 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Woche: Tagesköpfe ganz sichtbar (Ganztags-Zeile beginnt darunter, Unterlängen nicht abgeschnitten, passende Lang- oder Kurzform ohne „…“)", week_heads, results)
 
+    def toggle_no_drag():
+        # Tag/Woche/Monat steht in der Toolbar-Zeile, die Windows als Titelleiste wertet: ohne no-drag ging der
+        # erste Klick ans Fenster und ein Doppelklick maximierte es (GitHub #11)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toWeek();
+          const btns = [...d.querySelectorAll("#viewToggle .calview-toggle-item")].filter(vis);
+          const out = { btns: btns.length, drag: [...new Set(btns.map(b => InspectorUtils.getMatchingCSSRules(b)
+            .some(r => /-moz-window-dragging:\s*no-drag/.test(r.cssText)) ? "no-drag" : "drag"))] };
+          const month = btns.find(b => b.getAttribute("aria-controls") == "month-view" || /month/i.test(b.id || b.textContent));
+          if (month) { const r = month.getBoundingClientRect(); out.hit = month.contains(d.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+            month.click(); await pause(900); out.view = w.currentView()?.id; w.switchToView("week"); await pause(600); }
+          return out;""")
+        ok = res["btns"] >= 3 and res["drag"] == ["no-drag"] and res.get("hit") and res.get("view") == "month-view"
+        return ok, f"{res}"
+    check("Kalender: Tag/Woche/Monat in der Toolbar-Zeile nimmt Klicks an (kein Ziehen des Fensters, ein Klick wechselt die Ansicht)", toggle_no_drag, results)
+
     def event_stripe():
         # Termine in Woche und Tag: frei stehender, runder Farbstrich wie in der Monatsansicht (früher ein Innenschatten,
         # der der Ecke folgte und wie eine Klammer „[“ aussah); ausgewählt weiß

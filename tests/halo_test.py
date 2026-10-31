@@ -5788,6 +5788,47 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Texte: „On My Mac“ und „macOS“ nur unter macOS, sonst „On This Computer“ und „the system“", mac_words, results)
 
+    def uninstall_cleanup():
+        # Deinstallieren räumt auf: keine extensions.mailcards.* mehr, von halo.spaces gesetzte Thunderbird-Werte
+        # (Kartenzeilen, Suchtreffer als Liste, Toolbar) zurück auf Standard, selbst gewählte bleiben (GitHub #12).
+        # Aufgerufen wird die Aufräumfunktion direkt; alle Werte werden davor gesichert und danach wiederhergestellt
+        res = m.js('''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const P = Services.prefs, B = "extensions.mailcards.";
+          const TB = ["mail.threadpane.cardsview.rowcount", "gloda.show_as_list_by_default", "toolbar.unifiedtoolbar.buttonstyle"];
+          const read = name => { const t = P.getPrefType(name); return !P.prefHasUserValue(name) ? undefined
+            : t == P.PREF_INT ? P.getIntPref(name) : t == P.PREF_BOOL ? P.getBoolPref(name) : P.getStringPref(name); };
+          const write = (name, v) => v === undefined ? P.clearUserPref(name) : typeof v == "number" ? P.setIntPref(name, v)
+            : typeof v == "boolean" ? P.setBoolPref(name, v) : P.setStringPref(name, v);
+          const ours = P.getChildList(B).filter(n => P.prefHasUserValue(n));
+          const saved = Object.fromEntries([...ours, ...TB].map(n => [n, read(n)]));
+          const state = getState();
+          const out = { before: ours.length };
+          try {
+            P.setBoolPref(B + "rowcountApplied", true); P.setIntPref(TB[0], 2);
+            P.setBoolPref(B + "searchApplied", true); P.setBoolPref(TB[1], true);
+            P.setBoolPref(B + "toolbarApplied", true); P.setIntPref(TB[2], 1);   // selbst gewählt: bleibt
+            const custom = ["spacer", "new-event", "synchronize", "spacer", "search-bar"];
+            storeState({ ...state, calendar: custom });
+            // (die laufende Erweiterung füllt die Mail-Toolbar gleich wieder; deinstalliert tut sie das nicht)
+            out.reverted = Cu.evalInSandbox("cleanupAfterUninstall", g)();
+            const after = getState();
+            out.left = P.getChildList(B).filter(n => P.prefHasUserValue(n));
+            out.tb = TB.map(read);
+            out.calendarKept = JSON.stringify(after.calendar) == JSON.stringify(custom);
+          } finally {
+            for (const n of P.getChildList(B)) P.clearUserPref(n);
+            for (const [n, v] of Object.entries(saved)) write(n, v);
+            storeState(state);
+          }
+          return out;''' % ADDON_ID)
+        ok = (res["before"] > 0 and res["left"] == [] and res["tb"] == [None, None, 1] and "mail" in res["reverted"]
+              and "calendar" not in res["reverted"] and res["calendarKept"])
+        return ok, f"{res}"
+    check("Deinstallieren: Einstellungen von halo.spaces weg, gesetzte Thunderbird-Werte zurück, eigene Anpassungen bleiben", uninstall_cleanup, results)
+
     def account_dot_rename():
         # Farbpunkt vor dem Kontonamen: neue und umbenannte Konten bekommen ihn
         # sofort (früher nur die Konten vom Start). Feed-Konto ohne Abos – kein

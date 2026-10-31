@@ -4384,6 +4384,60 @@ function restorePersonalBookName() {
   }
 }
 
+// Deinstallieren (nicht Deaktivieren oder Update): eigene Einstellungen
+// (extensions.mailcards.*) löschen und die einmalig gesetzten Thunderbird-
+// Einstellungen zurück auf Thunderbirds Standard, solange sie noch auf dem
+// Wert von halo.spaces stehen – eine spätere Neuinstallation verhält sich
+// dann wie die erste (vorher übersprangen alte Merker die Ersteinrichtung).
+// Liefert die Bereiche, deren Toolbar zurückgesetzt wurde (für den Test)
+function cleanupAfterUninstall() {
+  const reverted = [];
+  const applied = name => Services.prefs.getBoolPref(`extensions.mailcards.${name}`, false);
+  const reset = (pref, ours) => {
+    try {
+      const type = Services.prefs.getPrefType(pref);
+      const now = type == Services.prefs.PREF_INT ? Services.prefs.getIntPref(pref)
+        : type == Services.prefs.PREF_BOOL ? Services.prefs.getBoolPref(pref) : undefined;
+      if (Services.prefs.prefHasUserValue(pref) && now === ours) {
+        Services.prefs.clearUserPref(pref);
+      }
+    } catch (e) {
+      log("uninstall reset error", pref, e);
+    }
+  };
+  if (applied("rowcountApplied")) {
+    reset("mail.threadpane.cardsview.rowcount", 2);
+  }
+  if (applied("searchApplied")) {
+    reset("gloda.show_as_list_by_default", true);
+  }
+  if (applied("toolbarApplied")) {
+    reset("toolbar.unifiedtoolbar.buttonstyle", 2);
+    // Bereiche mit der unveränderten halo.spaces-Anordnung wieder auf
+    // Thunderbirds Standard; selbst angepasste bleiben
+    try {
+      const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+      const { EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+      const state = { ...getState() };
+      for (const [space, items] of Object.entries({ mail: APPLE_TOOLBAR, ...SPACE_TOOLBARS })) {
+        if (state[space] && items.every((id, i) => state[space][i] == id)
+            && state[space].slice(items.length).every(id => id.startsWith(EXTENSION_PREFIX))) {
+          delete state[space];
+          reverted.push(space);
+        }
+      }
+      if (reverted.length) {
+        storeState(state);
+      }
+    } catch (e) {
+      log("uninstall toolbar error", e);
+    }
+  }
+  Services.prefs.getBranch("extensions.mailcards.").deleteBranch("");
+  log("deinstalliert: Einstellungen aufgeräumt");
+  return reverted;
+}
+
 // Adressbuch: „Collected Addresses“ (automatisch gesammelte Empfänger) nicht
 // in der Seitenleiste – Apple Kontakte kennt so etwas nicht (Apple Mail führt
 // sie getrennt als „Frühere Empfänger“). Das Adressbuch selbst bleibt, die
@@ -16616,7 +16670,33 @@ class CardEnhancer {
         EarlyTheme.remove().catch(e => log("early theme remove error", e));
       }
     };
-    const addonListener = { onDisabling: goodbye, onUninstalling: goodbye };
+    // Einstellungen erst aufräumen, wenn die Deinstallation wirklich
+    // geschieht – „Entfernen“ in den Add-ons lässt sich noch rückgängig
+    // machen. Der Beobachter bleibt dafür über das Abschalten hinaus
+    // angemeldet und meldet sich danach selbst ab
+    let pendingUninstall = null;
+    const uninstalling = addon => {
+      goodbye(addon);
+      if (addon.id != "mail-cards@sebastian.local" || pendingUninstall) {
+        return;
+      }
+      pendingUninstall = {
+        onUninstalled: a => {
+          if (a.id == addon.id) {
+            AddonManager.removeAddonListener(pendingUninstall);
+            cleanupAfterUninstall();
+          }
+        },
+        onOperationCancelled: a => {
+          if (a.id == addon.id && !(a.pendingOperations & AddonManager.PENDING_UNINSTALL)) {
+            AddonManager.removeAddonListener(pendingUninstall);
+            pendingUninstall = null;
+          }
+        },
+      };
+      AddonManager.addAddonListener(pendingUninstall);
+    };
+    const addonListener = { onDisabling: goodbye, onUninstalling: uninstalling };
     AddonManager.addAddonListener(addonListener);
     this.restorers.push(() => {
       clearTimeout(timer);

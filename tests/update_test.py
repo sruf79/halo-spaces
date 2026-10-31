@@ -226,6 +226,27 @@ def main():
         proc, m = start(args.tb, profile, args.port)
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
+
+        # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
+        #    Toolbar bleibt)
+        gone = m.js(r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const ours = () => Services.prefs.getChildList("extensions.mailcards.").filter(n => Services.prefs.prefHasUserValue(n)).length;
+          const toolbar = () => Services.prefs.getStringPref("mail.unifiedtoolbar.state", "");
+          let addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+          await addon.disable(); await wait(2000);
+          const out = { disabled: ours(), toolbar: toolbar() };
+          await addon.enable(); await wait(4000);
+          addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+          await addon.uninstall(); await wait(3000);
+          out.uninstalled = ours(); out.toolbarKept = toolbar() == out.toolbar;
+          out.gone = !(await AddonManager.getAddonByID("mail-cards@sebastian.local"));
+          return out;
+        """)
+        results.append(("Deaktivieren behält die Einstellungen", gone["disabled"] > 0, f"{gone['disabled']} Einträge"))
+        results.append(("Deinstallieren entfernt alle extensions.mailcards.*, angepasste Toolbar bleibt",
+                        gone["gone"] and gone["uninstalled"] == 0 and gone["toolbarKept"],
+                        f"übrig {gone['uninstalled']}, Toolbar gleich={gone['toolbarKept']}"))
     finally:
         if proc:
             ht.stop_thunderbird(args.port, proc)

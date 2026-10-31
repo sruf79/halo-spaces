@@ -5413,8 +5413,15 @@ const SUBNAV = {
     };
     const name = li => li.querySelector(":scope > .container .name")?.textContent.trim() || li.title || "";
     const entries = [];
-    for (const li of tree.querySelectorAll(":scope > li")) {
-      entries.push({ label: name(li), current: li == sel, level: 1, go: () => pick(li) });
+    // Konten in Thunderbirds aktueller Reihenfolge (auch nach Ziehen in der
+    // Ordnerliste, Thunderbirds Kontenbaum sortiert dann nicht neu), der
+    // Postausgangs-Server bleibt am Ende
+    const order = MailServices.accounts.accounts.map(a => a.key);
+    const lis = [...tree.querySelectorAll(":scope > li")];
+    const rank = li => order.includes(li.id) ? order.indexOf(li.id) : order.length + lis.indexOf(li);
+    lis.sort((a, b) => rank(a) - rank(b));
+    for (const li of lis) {
+      entries.push({ label: name(li), current: li == sel, level: 1, go: () => pick(li), account: order.includes(li.id) ? li.id : null });
       // Seiten eines Kontos nur beim gewählten Konto (wie aufgeklappt)
       if (sel && li.contains(sel)) {
         for (const kid of li.querySelectorAll(":scope > ul > li")) {
@@ -5437,6 +5444,118 @@ const SUBNAV = {
     return { watch: tree, entries };
   },
 };
+// Konten per Ziehen umsortieren (Einstellungen-Seitenleiste und Ordnerliste),
+// wie Apple Mail die Konten in der Seitenleiste: rowOf(Ziel, Start) liefert die
+// Zeile eines Kontos, keyOf(Zeile) dessen Schlüssel (nur ziehbare Konten),
+// targetKeyOf auch für Zeilen, die nur Ziel sein dürfen („Lokale Ordner“).
+// Beim Ablegen gilt Thunderbirds Kontoreihenfolge (mail.accountmanager.accounts)
+const ACCOUNTS_ORDERED_PREF = "extensions.mailcards.accountsOrdered";
+function accountReorder(container, rowOf, keyOf, targetKeyOf = keyOf) {
+  let dragging = null, marked = null;
+  const unmark = () => {
+    marked?.removeAttribute("mc-drop");
+    marked = null;
+  };
+  const onStart = ev => {
+    const row = rowOf(ev.target, true);
+    const key = row && keyOf(row);
+    if (!key) {
+      return;
+    }
+    // Thunderbirds eigene Behandlung (Ordner ziehen, Server ablehnen) überspringen
+    ev.stopPropagation();
+    dragging = key;
+    ev.dataTransfer?.setData("text/x-mc-account", key);
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = "move";
+    }
+  };
+  const target = ev => {
+    const row = rowOf(ev.target);
+    const key = row && targetKeyOf(row);
+    if (!key) {
+      return null;
+    }
+    const r = row.getBoundingClientRect();
+    return { row, key, after: ev.clientY > r.top + r.height / 2 };
+  };
+  const onOver = ev => {
+    if (!dragging) {
+      return;
+    }
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = "move";
+    }
+    const t = target(ev);
+    if (t?.row != marked) {
+      unmark();
+    }
+    if (t && t.key != dragging) {
+      marked = t.row;
+      marked.setAttribute("mc-drop", t.after ? "after" : "before");
+    }
+  };
+  const onDrop = ev => {
+    if (!dragging) {
+      return;
+    }
+    ev.stopPropagation();
+    ev.preventDefault();
+    const t = target(ev);
+    const key = dragging;
+    dragging = null;
+    unmark();
+    if (!t || t.key == key) {
+      return;
+    }
+    try {
+      const keys = MailServices.accounts.accounts.map(a => a.key).filter(k => k != key);
+      // beim ersten Mal stehen „Lokale Ordner“ wie angezeigt vorn
+      let local = null;
+      try {
+        local = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer)?.key;
+      } catch {} // ohne „Lokale Ordner“
+      if (local && local != key && !Services.prefs.getBoolPref(ACCOUNTS_ORDERED_PREF, false)) {
+        keys.splice(keys.indexOf(local), 1);
+        keys.unshift(local);
+      }
+      const i = keys.indexOf(t.key);
+      if (i < 0) {
+        return;
+      }
+      keys.splice(t.after ? i + 1 : i, 0, key);
+      // ab jetzt gilt die eigene Reihenfolge auch für „Lokale Ordner“
+      Services.prefs.setBoolPref(ACCOUNTS_ORDERED_PREF, true);
+      MailServices.accounts.reorderAccounts(keys);
+    } catch (e) {
+      log("account reorder error", e);
+    }
+  };
+  const onEnd = ev => {
+    if (dragging) {
+      ev.stopPropagation();
+    }
+    dragging = null;
+    unmark();
+  };
+  const onLeave = ev => {
+    if (dragging && !container.contains(ev.relatedTarget)) {
+      unmark();
+    }
+  };
+  const handlers = { dragstart: onStart, dragover: onOver, drop: onDrop, dragend: onEnd, dragleave: onLeave };
+  for (const [type, fn] of Object.entries(handlers)) {
+    container.addEventListener(type, fn, true);
+  }
+  return () => {
+    for (const [type, fn] of Object.entries(handlers)) {
+      container.removeEventListener(type, fn, true);
+    }
+    unmark();
+  };
+}
 function attachSubnav(list, browserEl, src) {
   const read = SUBNAV[src];
   const cdoc = list.ownerDocument;
@@ -5461,6 +5580,10 @@ function attachSubnav(list, browserEl, src) {
       row.toggleAttribute("current", !!e.current);
       row.title = e.label;
       row.textContent = e.label;
+      if (e.account) {
+        row.dataset.account = e.account;
+        row.draggable = true;
+      }
       row.addEventListener("click", () => e.go(row));
       row.addEventListener("keydown", ev => {
         if (ev.key == "Enter" || ev.key == " ") {
@@ -5481,8 +5604,22 @@ function attachSubnav(list, browserEl, src) {
   browserEl.addEventListener("load", schedule, true);
   browserEl.addEventListener("view-selected", onView, true);
   browserEl.addEventListener("select", onView, true);
+  // Konten per Ziehen umsortieren; neue Reihenfolge (auch aus der Ordnerliste) neu zeichnen
+  const prefObs = { observe: () => schedule() };
+  Services.prefs.addObserver("mail.accountmanager.accounts", prefObs);
+  // Seiten des gewählten Kontos (Stufe 2) zählen als Ziel zu ihrem Konto
+  const accountRow = el => {
+    let row = el?.closest?.(".mc-subcat");
+    while (row?.getAttribute("level") == "2") {
+      row = row.previousElementSibling;
+    }
+    return row;
+  };
+  const undrag = accountReorder(list, accountRow, row => row.dataset.account || null);
   schedule();
   return () => {
+    undrag();
+    Services.prefs.removeObserver("mail.accountmanager.accounts", prefObs);
     mo.disconnect();
     browserEl.removeEventListener("load", schedule, true);
     browserEl.removeEventListener("view-selected", onView, true);
@@ -5732,14 +5869,30 @@ const CSS = `
 #folderTree > li[data-mode="all"] > .mode-container {
   display: none !important;
 }
-/* „On My Mac“ (lokale Ordner) wie bei Apple vor den Konten */
+/* „On My Mac“ (lokale Ordner) wie bei Apple vor den Konten – bis die
+   Konten einmal per Ziehen umsortiert wurden, dann gilt deren Reihenfolge */
 #folderTree > li[data-mode="all"] > ul {
   display: flex !important;
   flex-direction: column !important;
 }
-#folderTree > li[data-mode="all"] > ul > li[data-server-type="none"] {
+#folderTree:not([mc-accounts-ordered]) > li[data-mode="all"] > ul > li[data-server-type="none"] {
   order: -1 !important;
 }
+/* Konto per Ziehen umsortieren: Einfügemarke als Linie in der Akzentfarbe */
+#folderTree > li[data-mode="all"] > ul > li[mc-drop] {
+  position: relative;
+}
+#folderTree > li[data-mode="all"] > ul > li[mc-drop]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: AccentColor;
+  pointer-events: none;
+}
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="before"]::after { top: -1px; }
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="after"]::after { bottom: -1px; }
 #folderTree > li[data-mode="all"] > ul > li[data-server-type="none"] > .container .twisty {
   visibility: hidden !important;
 }
@@ -16217,6 +16370,25 @@ class CardEnhancer {
       log("decorateFolders error", e);
     }
     observer.observe(tree, { childList: true, subtree: true, characterData: true });
+    // Konten per Ziehen an ihrer Überschrift umsortieren (Thunderbird erlaubt
+    // das in der Ordnerliste nicht); Ziel ist der ganze Abschnitt eines Kontos
+    const sectionOf = (el, start) => {
+      const row = el?.closest?.('li[is="folder-tree-row"]');
+      const li = start ? row : el?.closest?.("li[data-server-type]");
+      return li?.hasAttribute("data-server-type") && li.parentElement?.parentElement?.dataset.mode == "all" ? li : null;
+    };
+    const accountKey = li => {
+      try {
+        return MailServices.accounts.findAccountForServer(MailServices.accounts.getIncomingServer(li.dataset.serverKey))?.key || null;
+      } catch {
+        return null;
+      }
+    };
+    const undrag = accountReorder(tree, sectionOf, li => li.dataset.serverType == "none" ? null : accountKey(li), accountKey);
+    const orderedObs = { observe: () => setAttr(tree, "mc-accounts-ordered", Services.prefs.getBoolPref(ACCOUNTS_ORDERED_PREF, false)) };
+    orderedObs.observe();
+    Services.prefs.addObserver(ACCOUNTS_ORDERED_PREF, orderedObs);
+    win.addEventListener("unload", () => Services.prefs.removeObserver(ACCOUNTS_ORDERED_PREF, orderedObs), { once: true });
     // Stern gesetzt oder entfernt: Zeile „Markiert“ ein-/ausblenden
     const starListener = {
       onFolderPropertyFlagChanged: (hdr, property, oldFlag, newFlag) => {
@@ -16239,6 +16411,9 @@ class CardEnhancer {
     this.countStarred(() => apply());
     this.restorers.push(() => {
       observer.disconnect();
+      undrag();
+      Services.prefs.removeObserver(ACCOUNTS_ORDERED_PREF, orderedObs);
+      tree.removeAttribute("mc-accounts-ordered");
       MailServices.mailSession.RemoveFolderListener(starListener);
       tree.querySelectorAll("li[data-mc-starred]").forEach(li => li.remove());
       for (const li of tree.querySelectorAll("[data-mc-hide], [data-mc-flatten]")) {

@@ -3266,6 +3266,99 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Bereiche-Leiste: Reihenfolge per Ziehen ändern (andere weichen aus), gilt auch für Menü und Knopf-Symbol, Klick öffnet weiter, zurücksetzbar", spaces_reorder, results)
 
+    def accounts_reorder():
+        # Konten per Ziehen umsortieren (GitHub-Issue #14): in der Ordnerliste an der Kontoüberschrift und unter
+        # Einstellungen → Kontoeinstellungen in der Seitenleiste; Einfügemarke in der Akzentfarbe, Reihenfolge gilt
+        # für Thunderbird (mail.accountmanager.accounts) und beide Listen; „Lokale Ordner“ bleiben beim ersten Mal
+        # oben und folgen danach der Reihenfolge. Ordner ziehen weiter wie bei Thunderbird. Drei Feed-Konten ohne
+        # Abos (kein Netzzugriff), danach entfernt
+        m.cmd("WebDriver:SetTimeouts", {"script": 120000})
+        try:
+            res = accounts_reorder_js()
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
+        return accounts_reorder_ok(res)
+
+    def accounts_reorder_js():
+        return m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const prefOrder = Services.prefs.getCharPref("mail.accountmanager.accounts", "");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await wait(500); }
+          const made = [];
+          for (const n of ["Alpha", "Beta", "Gamma"]) {
+            const srv = MailServices.accounts.createIncomingServer("nobody", "halo-" + n.toLowerCase() + ".invalid", "rss");
+            srv.prettyName = "Halo " + n; srv.doBiff = false;
+            const acc = MailServices.accounts.createAccount(); acc.incomingServer = srv; made.push(acc);
+          }
+          const names = () => MailServices.accounts.accounts.map(a => a.incomingServer.prettyName).filter(n => n.startsWith("Halo ") || n == "Local Folders");
+          const out = {};
+          try {
+            const a3 = await toMail(); const ad = a3.document, tree = ad.getElementById("folderTree");
+            const sec = n => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type]')]
+              .find(li => li.querySelector(":scope > .container .name")?.textContent == n);
+            await until(() => sec("Halo Gamma"), 8000);
+            const shown = () => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type]')]
+              .map(li => [li.querySelector(":scope > .container .name")?.textContent, li.getBoundingClientRect().top])
+              .filter(x => x[0].startsWith("Halo ") || x[0] == "On My Mac").sort((a, b) => a[1] - b[1]).map(x => x[0]);
+            const drag = async (win, from, to, after) => {
+              const dt = new win.DataTransfer();
+              const ev = (type, el, y) => { const e = new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y }); el.dispatchEvent(e); return e; };
+              const r = to.getBoundingClientRect(), y = after ? r.bottom - 2 : r.top + 2;
+              const start = ev("dragstart", from, 0);
+              ev("dragover", to, y);
+              const mark = [to.getAttribute("mc-drop"), win.getComputedStyle(to, to.localName == "li" ? "::after" : null)[to.localName == "li" ? "backgroundColor" : "boxShadow"]];
+              ev("drop", to, y); ev("dragend", from, 0); await wait(600);
+              return { started: !start.defaultPrevented, mark };
+            };
+            out.before = shown();
+            out.d1 = await drag(a3, sec("Halo Gamma"), sec("Halo Alpha"), false);
+            out.tb1 = names(); out.shown1 = shown(); out.ordered = tree.hasAttribute("mc-accounts-ordered");
+            // danach folgt „On My Mac“ der Reihenfolge: Alpha davor
+            out.d2 = await drag(a3, sec("Halo Alpha"), sec("On My Mac"), false);
+            out.shown2 = shown();
+            // ein Ordner (kein Konto) startet weiter Thunderbirds eigenes Ziehen
+            const folderRow = sec("On My Mac").querySelector(':scope > ul > li[is="folder-tree-row"]');
+            out.folderDrag = folderRow ? new a3.DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: new a3.DataTransfer() }) : null;
+            if (folderRow) { folderRow.dispatchEvent(out.folderDrag); out.folderDrag = !out.folderDrag.defaultPrevented && !sec("On My Mac").hasAttribute("mc-drop");
+              folderRow.dispatchEvent(new a3.DragEvent("dragend", { bubbles: true, dataTransfer: new a3.DataTransfer() })); }
+            // Einstellungen → Kontoeinstellungen
+            w.openPreferencesTab("paneGeneral");
+            const cat = await until(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("mcCat-paneMcAccounts"), 15000);
+            cat?.click();
+            const pd = await until(() => { const d = tm.currentTabInfo.browser?.contentDocument; return d?.querySelector("#mcSub-paneMcAccounts .mc-subcat[data-account]") && d; }, 30000);
+            if (!pd) { const d = tm.currentTabInfo.browser?.contentDocument; out.prefs = [d?.URL, d?.querySelectorAll(".mc-subcat").length]; return out; }
+            const sub = n => [...pd.querySelectorAll("#mcSub-paneMcAccounts .mc-subcat")].find(r => r.textContent == n);
+            await until(() => sub("Halo Beta"), 8000); await wait(500);
+            const subs = () => [...pd.querySelectorAll("#mcSub-paneMcAccounts .mc-subcat[data-account]")].map(r => r.textContent).filter(n => n.startsWith("Halo ") || n == "Local Folders");
+            out.subsBefore = subs();
+            out.draggable = ["Halo Alpha", "Local Folders"].map(n => sub(n)?.draggable);
+            out.d3 = await drag(pd.defaultView, sub("Halo Beta"), sub("Halo Gamma"), false);
+            out.subsAfter = subs(); out.tb3 = names();
+            await toMail(); await wait(300);
+            out.shown3 = shown();
+            const tabs = [...tm.tabInfo].filter(t => t.mode?.name == "preferencesTab");
+            tabs.forEach(t => tm.closeTab(t));
+          } finally {
+            for (const a of made) MailServices.accounts.removeAccount(a, true);
+            Services.prefs.clearUserPref("extensions.mailcards.accountsOrdered");
+            if (prefOrder) MailServices.accounts.reorderAccounts(prefOrder.split(",").filter(k => MailServices.accounts.getAccount(k)));
+            await wait(800);
+          }
+          return out;""")
+
+    def accounts_reorder_ok(res):
+        mark_ok = lambda d: d and d["started"] and d["mark"][0] in ("before", "after") and d["mark"][1] not in ("none", "rgba(0, 0, 0, 0)", "")
+        ok = (res.get("before") == ["On My Mac", "Halo Alpha", "Halo Beta", "Halo Gamma"] and mark_ok(res.get("d1"))
+              and res.get("tb1") == ["Local Folders", "Halo Gamma", "Halo Alpha", "Halo Beta"]
+              and res.get("shown1") == ["On My Mac", "Halo Gamma", "Halo Alpha", "Halo Beta"] and res.get("ordered")
+              and res.get("shown2") == ["Halo Alpha", "On My Mac", "Halo Gamma", "Halo Beta"] and res.get("folderDrag") is not False
+              and res.get("subsBefore") == ["Halo Alpha", "Local Folders", "Halo Gamma", "Halo Beta"]
+              and res.get("draggable") == [True, True] and mark_ok(res.get("d3"))
+              and res.get("subsAfter") == res.get("tb3") == ["Halo Alpha", "Local Folders", "Halo Beta", "Halo Gamma"]
+              and res.get("shown3") == ["Halo Alpha", "On My Mac", "Halo Beta", "Halo Gamma"])
+        return ok, f"{res}"
+    check("Ordnerliste/Kontoeinstellungen: Konten per Ziehen umsortieren, „Lokale Ordner“ erst oben, dann in der Reihenfolge", accounts_reorder, results)
+
 
 # Kontextmenü der Mailliste per Rechtsklick auf die ausgewählte Testmail (nach MESSAGE_JS) öffnen;
 # dazu Farbhilfen (rgb()/color(srgb …) auf 0–255) und Kontrast nach WCAG

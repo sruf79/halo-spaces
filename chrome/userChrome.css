@@ -6446,6 +6446,15 @@ splitter.splitter:has(+ .conv-bottom) {
   color: AccentColor;
 }
 
+/* Konto per Ziehen umsortieren: Einfügemarke als Linie in der Akzentfarbe */
+.mc-subcat[mc-drop="before"] {
+  box-shadow: inset 0 2px 0 AccentColor;
+}
+
+.mc-subcat[mc-drop="after"] {
+  box-shadow: inset 0 -2px 0 AccentColor;
+}
+
 /* Kategorie mit gewähltem Unterpunkt: nur fett, die Fläche trägt der Unterpunkt */
 #categories > richlistitem.category[selected].mc-has-current {
   background: transparent !important;

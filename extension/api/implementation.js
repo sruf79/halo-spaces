@@ -7689,6 +7689,12 @@ class CardEnhancer {
       Services.prefs.setBoolPref("gloda.show_as_list_by_default", true);
       Services.prefs.setBoolPref("extensions.mailcards.searchApplied", true);
     }
+    // Wie Apple Mail: Doppelklick öffnet die Mail in einem eigenen Fenster
+    // statt in einem Tab (die Tab-Leiste ist ausgeblendet, der Tab wäre
+    // versteckt) – einmalig; wer danach in Thunderbirds Einstellungen wieder
+    // Tab wählt, behält das. Beim Abschalten der alte Wert zurück, solange
+    // noch unser Wert gilt
+    this.openMessageInWindowOnce();
     // Wie Apple Mail: das Verfassen-Fenster schließt beim Senden sofort, die
     // Mail geht im Hintergrund über den Postausgang hinaus, ohne Fenster
     // „Nachricht wird gesendet“. Thunderbird meldet Fehler dabei nur in der
@@ -10397,7 +10403,9 @@ class CardEnhancer {
     };
     // Esc in Einstellungen, Kalender, Adressbuch usw. schließt diesen Tab und
     // führt zurück zur vorherigen Ansicht (die Tab-Leiste ist ausgeblendet).
-    const MAIL_MODES = new Set(["mail3PaneTab", "mailMessageTab"]);
+    // (ein Nachrichten-Tab gehört nicht dazu: ohne Tab-Leiste käme man aus ihm
+    // sonst nur mit ⌘W zurück)
+    const MAIL_MODES = new Set(["mail3PaneTab"]);
     const onEscape = event => {
       if (event.key != "Escape" || event.defaultPrevented ||
           event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -13694,6 +13702,37 @@ class CardEnhancer {
       onDone?.();
     };
     w.requestAnimationFrame(() => w.requestAnimationFrame(step));
+  }
+
+  openMessageInWindowOnce() {
+    const PREF = "mail.openMessageBehavior";
+    const APPLIED = "extensions.mailcards.openMessageApplied";
+    const SAVED = "extensions.mailcards.openMessageSaved"; // -1: Thunderbirds Standard
+    try {
+      const { MailConsts } = ChromeUtils.importESModule("resource:///modules/MailConsts.sys.mjs");
+      const WINDOW = MailConsts.OpenMessageBehavior.NEW_WINDOW;
+      if (!Services.prefs.getBoolPref(APPLIED, false)) {
+        Services.prefs.setIntPref(SAVED, Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : -1);
+        Services.prefs.setIntPref(PREF, WINDOW);
+        Services.prefs.setBoolPref(APPLIED, true);
+      }
+      this.restorers.push(() => {
+        if (!Services.prefs.prefHasUserValue(SAVED) || Services.prefs.getIntPref(PREF, -1) != WINDOW) {
+          return; // inzwischen selbst umgestellt: so lassen
+        }
+        const was = Services.prefs.getIntPref(SAVED, -1);
+        if (was < 0) {
+          Services.prefs.clearUserPref(PREF);
+        } else {
+          Services.prefs.setIntPref(PREF, was);
+        }
+        // beim nächsten Einschalten wieder Fenster
+        Services.prefs.clearUserPref(SAVED);
+        Services.prefs.clearUserPref(APPLIED);
+      });
+    } catch (e) {
+      log("open message behavior error", e);
+    }
   }
 
   // Einmalig: nur Symbole statt Symbol und Text, wenn die Mail-Toolbar beim

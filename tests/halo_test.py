@@ -1539,6 +1539,35 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mail im eigenen Tab: ohne Listenkopf und Seitenleisten-Grau, im Mail-Tab wieder vorhanden", message_tab, results)
 
+    def open_message_window():
+        # Doppelklick auf eine Mail öffnet wie Apple Mail ein eigenes Fenster statt eines versteckten Tabs; ein trotzdem
+        # entstandener Nachrichten-Tab schließt mit Esc (vorher nur mit ⌘W)
+        res = m.js(READING_JS + r"""
+          await showMail("Halo Jetzt"); await wait(500);
+          const tabs = tm.tabInfo.length;
+          const wins = () => [...Services.wm.getEnumerator("mail:messageWindow")];
+          const out = { pref: Services.prefs.getIntPref("mail.openMessageBehavior") };
+          const row = a3.threadTree.getRowAtIndex(a3.threadTree.selectedIndex);
+          row.dispatchEvent(new a3.MouseEvent("dblclick", { bubbles: true, button: 0, detail: 2 }));
+          const mw = await until(() => wins()[0], 8000);
+          out.window = !!mw; out.newTabs = tm.tabInfo.length - tabs;
+          if (mw) { await wait(1500); mw.close(); await wait(800); }
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+          tm.openTab("mailMessageTab", { messageURI: hdr.folder.getUriForMsg(hdr), background: false });
+          await until(() => d.documentElement.getAttribute("mc-tab") == "mailMessageTab", 6000); await wait(1200);
+          out.tabOpen = tm.currentTabInfo.mode.name == "mailMessageTab";
+          return out;""")
+        m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+            {"type": "keyDown", "value": ""}, {"type": "keyUp", "value": ""}]}]})
+        m.cmd("WebDriver:ReleaseActions", {})
+        res.update(m.js(r"""
+          await wait(1000); const mode = tm.currentTabInfo.mode.name;
+          for (const t of [...tm.tabInfo].slice(1)) if (t.mode.name == "mailMessageTab") tm.closeTab(t);
+          await toMail(); return { afterEsc: mode };"""))
+        ok = res["pref"] == 0 and res["window"] and res["newTabs"] == 0 and res["tabOpen"] and res["afterEsc"] == "mail3PaneTab"
+        return ok, f"{res}"
+    check("Mail per Doppelklick im eigenen Fenster (kein versteckter Tab), Nachrichten-Tab mit Esc schließbar", open_message_window, results)
+
     def list_date():
         # Uhrzeit in Liste und Kopf im selben Format (Regionaleinstellungen des Systems)
         res = m.js(READING_JS + r"""

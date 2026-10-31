@@ -8984,7 +8984,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   }
 
   /* Symbole als Maske: Fläche in der Textfarbe des Designs */
-  :is(#unifiedToolbarContent li button .button-icon, #mcListHeader .mc-lh-tools > button::before,
+  :is(#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon, #mcListHeader .mc-lh-tools > button::before,
       #task-actions-toolbar > toolbarbutton::before, .mc-tc-check) {
     forced-color-adjust: none;
     background-color: ButtonText !important;

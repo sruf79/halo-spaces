@@ -3318,6 +3318,30 @@ def calendar_checks(m, results):
           return out;""")
         ok = res["btns"] >= 3 and res["drag"] == ["no-drag"] and res.get("hit") and res.get("view") == "month-view"
         return ok, f"{res}"
+    def foreign_toolbar_icons():
+        # Knöpfe ohne eigenes halo-Symbol (z. B. Synchronisieren, Heute) behalten Thunderbirds Bild – vorher ersetzte
+        # die Masken-Regel jedes Symbol, ohne Maske blieb ein graues Quadrat (GitHub #10)
+        res = m.js(CAL_CHECK_JS + r"""
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const before = getState();
+          const out = {};
+          try {
+            storeState({ ...before, calendar: ["spacer", "new-event", "new-task", "synchronize", "go-to-today", "spacer", "search-bar"] });
+            await toWeek(); await pause(800);
+            const icon = id => [...d.querySelectorAll(`#unifiedToolbarContent li[item-id="${id}"] button .button-icon`)].find(vis);
+            for (const id of ["synchronize", "go-to-today", "new-event"]) {
+              const el = icon(id); if (!el) { out[id] = null; continue; }
+              const cs = w.getComputedStyle(el), r = el.getBoundingClientRect();
+              out[id] = { mask: cs.maskImage != "none", blank: /width=.1.%20height=.1|width='1'/.test(cs.content), w: Math.round(r.width) };
+            }
+          } finally { storeState(before); await pause(800); }
+          return out;""")
+        own = res.get("new-event") or {}
+        foreign = [res.get(i) for i in ("synchronize", "go-to-today")]
+        ok = own.get("mask") and all(f and not f["mask"] and not f["blank"] and f["w"] >= 14 for f in foreign)
+        return ok, f"{res}"
+    check("Toolbar: Knöpfe ohne eigenes Symbol behalten Thunderbirds Bild (kein graues Quadrat), eigene Symbole bleiben", foreign_toolbar_icons, results)
+
     check("Kalender: Tag/Woche/Monat in der Toolbar-Zeile nimmt Klicks an (kein Ziehen des Fensters, ein Klick wechselt die Ansicht)", toggle_no_drag, results)
 
     def event_stripe():

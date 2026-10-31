@@ -1884,8 +1884,10 @@ findbar .findbar-textbox:focus {
   --mi-sidebar-get: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%225.5%22 width=%2218%22 height=%2213%22 rx=%222.6%22/%3E%3Cpath d=%22M3.9 7.4 12 13.2l8.1-5.8%22/%3E%3C/svg%3E");
 }
 
-/* Gemeinsam: Thunderbirds Bild leeren, eigenes Symbol als Maske in currentColor */
-#unifiedToolbarContent li button .button-icon,
+/* Gemeinsam: Thunderbirds Bild leeren, eigenes Symbol als Maske in currentColor –
+   nur bei Knöpfen mit eigenem Symbol (Liste unten); alle übrigen, auch die von
+   Add-ons, behalten Thunderbirds Bild statt eines grauen Quadrats */
+#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon,
 #folderTree li > .container .icon {
   content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E") !important;
   background-color: currentColor !important;
@@ -1896,7 +1898,7 @@ findbar .findbar-textbox:focus {
   stroke: none !important;
 }
 
-#unifiedToolbarContent li button .button-icon {
+#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon {
   width: 22px !important;
   height: 22px !important;
 }
@@ -12426,7 +12428,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   }
 
   /* Symbole als Maske: Fläche in der Textfarbe des Designs */
-  :is(#unifiedToolbarContent li button .button-icon, #mcListHeader .mc-lh-tools > button::before,
+  :is(#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon, #mcListHeader .mc-lh-tools > button::before,
       #task-actions-toolbar > toolbarbutton::before, .mc-tc-check) {
     forced-color-adjust: none;
     background-color: ButtonText !important;

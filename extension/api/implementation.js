@@ -1891,6 +1891,50 @@ function hookPrefKeyboardScroll(cw, restorers = null) {
   });
 }
 
+// Wie Apple Mail ohne Tabs: ein Inhalts-Tab, der zu keinem Bereich gehört
+// (Seite von Thunderbird oder einem Add-on, z. B. „Neuigkeiten“), wird
+// beim Wechsel in einen Bereich geschlossen – mit ausgeblendeter Tab-Leiste
+// bliebe er sonst unsichtbar offen. Anmeldung und Konto einrichten bleiben,
+// damit ein kurzer Blick in die Mail sie nicht abbricht
+function hookLooseTabs(w, restorers = null) {
+  const tm = w.document.getElementById("tabmail");
+  if (!tm?.registerTabMonitor || !w.gSpacesToolbar || w.__mcLooseTabs) {
+    return;
+  }
+  w.__mcLooseTabs = true;
+  const LOGIN = /^about:accountsetup|[/.](login|signin|sign-in|oauth|auth|accounts?)[/.?]/i;
+  // nur Inhalts-Tabs: Termin im Tab, Suchergebnisse usw. könnten
+  // ungespeicherte Eingaben bzw. eine laufende Suche halten
+  const loose = tab => tab?.mode?.name == "contentTab" && !tab.__mcFifth && tm.tabInfo.includes(tab)
+    && !w.gSpacesToolbar.spaces.some(space => space.tabInSpace(tab))
+    && !FifthSpace.isTarget(w, FifthSpace.target(w), tab)
+    && !LOGIN.test(tab.browser?.currentURI?.spec || "");
+  const monitor = {
+    monitorName: "mcLooseTabs",
+    onTabTitleChanged() {},
+    onTabOpened() {},
+    onTabPersist() {},
+    onTabRestored() {},
+    onTabClosing() {},
+    onTabSwitched(newTab, oldTab) {
+      if (!loose(oldTab) || loose(newTab)) {
+        return;
+      }
+      // (nach dem Wechsel schließen, nicht mitten darin)
+      w.setTimeout(() => {
+        if (tm.tabInfo.includes(oldTab) && tm.currentTabInfo != oldTab) {
+          tm.closeTab(oldTab);
+        }
+      }, 0);
+    },
+  };
+  tm.registerTabMonitor(monitor);
+  restorers?.push(() => {
+    tm.unregisterTabMonitor(monitor);
+    delete w.__mcLooseTabs;
+  });
+}
+
 // Ansicht der Mailliste: nur zwei gültige Kombinationen aus Ansicht
 // (mail.threadpane.listview: 0 Karten, 1 Tabelle) und Layout
 // (mail.pane_config.dynamic: 0 klassisch, 1 breit, 2 vertikal). Karten gehen
@@ -7695,6 +7739,9 @@ class CardEnhancer {
     // Tab wählt, behält das. Beim Abschalten der alte Wert zurück, solange
     // noch unser Wert gilt
     this.openMessageInWindowOnce();
+    // Ebenso PDF-Anhänge: mit dem Standardprogramm des Systems (Vorschau)
+    // statt in einem Thunderbird-Tab
+    this.pdfInSystemViewerOnce();
     // Wie Apple Mail: das Verfassen-Fenster schließt beim Senden sofort, die
     // Mail geht im Hintergrund über den Postausgang hinaus, ohne Fenster
     // „Nachricht wird gesendet“. Thunderbird meldet Fehler dabei nur in der
@@ -12368,6 +12415,7 @@ class CardEnhancer {
       hookSidebarButton();
       hookSpacesToggle();
       FifthSpace.attach(w, this.restorers);
+      hookLooseTabs(w, this.restorers);
       hookTodayToggle();
       hookSplitterReset(w.document);
       hookListHeader();
@@ -13732,6 +13780,44 @@ class CardEnhancer {
       });
     } catch (e) {
       log("open message behavior error", e);
+    }
+  }
+
+  pdfInSystemViewerOnce() {
+    const APPLIED = "extensions.mailcards.pdfApplied";
+    const SAVED = "extensions.mailcards.pdfSaved"; // vorherige Aktion
+    try {
+      const mime = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
+      const handlers = Cc["@mozilla.org/uriloader/handler-service;1"].getService(Ci.nsIHandlerService);
+      const pdf = () => mime.getFromTypeAndExtension("application/pdf", "pdf");
+      const info = pdf();
+      if (!Services.prefs.getBoolPref(APPLIED, false)) {
+        // ohne Standardprogramm im System (manche Linux) bleibt Thunderbirds Anzeige
+        if (!info.hasDefaultHandler) {
+          return;
+        }
+        if (info.preferredAction == Ci.nsIHandlerInfo.handleInternally && !info.alwaysAskBeforeHandling) {
+          Services.prefs.setIntPref(SAVED, info.preferredAction);
+          info.preferredAction = Ci.nsIHandlerInfo.useSystemDefault;
+          handlers.store(info);
+        }
+        Services.prefs.setBoolPref(APPLIED, true);
+      }
+      this.restorers.push(() => {
+        if (!Services.prefs.prefHasUserValue(SAVED)) {
+          return;
+        }
+        const now = pdf();
+        if (now.preferredAction == Ci.nsIHandlerInfo.useSystemDefault && !now.alwaysAskBeforeHandling) {
+          now.preferredAction = Services.prefs.getIntPref(SAVED);
+          handlers.store(now);
+          // beim nächsten Einschalten wieder das System
+          Services.prefs.clearUserPref(APPLIED);
+        }
+        Services.prefs.clearUserPref(SAVED);
+      });
+    } catch (e) {
+      log("pdf handler error", e);
     }
   }
 

@@ -1568,6 +1568,43 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mail per Doppelklick im eigenen Fenster (kein versteckter Tab), Nachrichten-Tab mit Esc schließbar", open_message_window, results)
 
+    def pdf_system_viewer():
+        # PDF-Anhänge öffnen wie bei Apple Mail im Standardprogramm des Systems statt in einem versteckten Tab
+        # (Thunderbird öffnet nur bei „intern anzeigen“ einen Tab); ohne Standardprogramm bleibt Thunderbirds Anzeige.
+        # Geöffnet wird nichts – sonst startete Vorschau auf dem Testrechner
+        res = m.js(r"""
+          const info = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService).getFromTypeAndExtension("application/pdf", "pdf");
+          return { system: info.hasDefaultHandler, action: info.preferredAction, ask: info.alwaysAskBeforeHandling,
+                   want: Ci.nsIHandlerInfo.useSystemDefault, internal: Ci.nsIHandlerInfo.handleInternally };""")
+        ok = (res["action"] == res["want"] and not res["ask"]) if res["system"] else res["action"] == res["internal"]
+        return ok, f"{res}"
+    check("PDF-Anhänge im Standardprogramm des Systems statt in einem Tab", pdf_system_viewer, results)
+
+    def loose_tabs():
+        # Inhalts-Tab ohne Bereich (z. B. „Neuigkeiten“) schließt beim Wechsel in einen Bereich, statt unsichtbar
+        # offen zu bleiben; Anmeldeseiten bleiben, Einstellungen-Unterseiten (Add-ons) gehören zu ihrem Bereich
+        res = m.js(r"""
+          await toMail();
+          const open = async url => { const t = tm.openTab("contentTab", { url, background: false }); await wait(1500); return t; };
+          const alive = t => tm.tabInfo.includes(t);
+          const out = {};
+          const page = await open("about:license");
+          await toCalendar(); await wait(600);
+          out.closed = !alive(page);
+          const login = await open("http://127.0.0.1:9/login/start");
+          await toMail(); await wait(600);
+          out.loginKept = alive(login);
+          if (alive(login)) tm.closeTab(login);
+          const addons = await open("about:addons");
+          await toMail(); await wait(600);
+          out.addonsKept = alive(addons);
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail();
+          return out;""")
+        ok = res["closed"] and res["loginKept"] and res["addonsKept"]
+        return ok, f"{res}"
+    check("Tabs: Inhalts-Tab ohne Bereich schließt beim Wechsel in einen Bereich (Anmeldung und Einstellungen bleiben)", loose_tabs, results)
+
     def list_date():
         # Uhrzeit in Liste und Kopf im selben Format (Regionaleinstellungen des Systems)
         res = m.js(READING_JS + r"""

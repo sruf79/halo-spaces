@@ -9640,9 +9640,12 @@ Neu
                 {"type": "keyDown", "value": k}, {"type": "keyUp", "value": k}]}]})
             m.cmd("WebDriver:ReleaseActions", {})
         cat = m.js(r'''
-          w.resizeTo(1500, 700); w.openPreferencesTab("paneGeneral"); await wait(2500);
+          w.resizeTo(1500, 700); w.openPreferencesTab("paneGeneral");
+          // warten, bis die Kategorie da ist (feste 2,5 s reichten auf langsamen CI-Rechnern nicht)
+          const item = await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector('#categories > richlistitem[value="paneMcAccounts"]'), 15000);
+          await wait(500);
           const br = tm.currentTabInfo.browser, cd = br.contentDocument, b = br.getBoundingClientRect();
-          const r = cd.querySelector('#categories > richlistitem[value="paneMcAccounts"]').getBoundingClientRect();
+          const r = item.getBoundingClientRect();
           return { x: Math.round(b.left + r.left + r.width / 2), y: Math.round(b.top + r.top + r.height / 2) };''')
         m.pointer([{"type": "pointerMove", "x": cat["x"], "y": cat["y"]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
         spot = m.js(r'''

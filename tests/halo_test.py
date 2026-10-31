@@ -3295,12 +3295,13 @@ def folder_checks(m, results):
           const out = {};
           try {
             const a3 = await toMail(); const ad = a3.document, tree = ad.getElementById("folderTree");
-            const sec = n => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type]')]
-              .find(li => li.querySelector(":scope > .container .name")?.textContent == n);
+            // „Lokale Ordner“ heißen je System anders („On My Mac“, „On This Computer“) – als LOCAL
+            const label = li => li.dataset.serverType == "none" ? "LOCAL" : li.querySelector(":scope > .container .name")?.textContent;
+            const sec = n => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type]')].find(li => label(li) == n);
             await until(() => sec("Halo Gamma"), 8000);
             const shown = () => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type]')]
-              .map(li => [li.querySelector(":scope > .container .name")?.textContent, li.getBoundingClientRect().top])
-              .filter(x => x[0].startsWith("Halo ") || x[0] == "On My Mac").sort((a, b) => a[1] - b[1]).map(x => x[0]);
+              .map(li => [label(li), li.getBoundingClientRect().top])
+              .filter(x => x[0].startsWith("Halo ") || x[0] == "LOCAL").sort((a, b) => a[1] - b[1]).map(x => x[0]);
             const drag = async (win, from, to, after) => {
               const dt = new win.DataTransfer();
               const ev = (type, el, y) => { const e = new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y }); el.dispatchEvent(e); return e; };
@@ -3315,12 +3316,12 @@ def folder_checks(m, results):
             out.d1 = await drag(a3, sec("Halo Gamma"), sec("Halo Alpha"), false);
             out.tb1 = names(); out.shown1 = shown(); out.ordered = tree.hasAttribute("mc-accounts-ordered");
             // danach folgt „On My Mac“ der Reihenfolge: Alpha davor
-            out.d2 = await drag(a3, sec("Halo Alpha"), sec("On My Mac"), false);
+            out.d2 = await drag(a3, sec("Halo Alpha"), sec("LOCAL"), false);
             out.shown2 = shown();
             // ein Ordner (kein Konto) startet weiter Thunderbirds eigenes Ziehen
-            const folderRow = sec("On My Mac").querySelector(':scope > ul > li[is="folder-tree-row"]');
+            const folderRow = sec("LOCAL").querySelector(':scope > ul > li[is="folder-tree-row"]');
             out.folderDrag = folderRow ? new a3.DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: new a3.DataTransfer() }) : null;
-            if (folderRow) { folderRow.dispatchEvent(out.folderDrag); out.folderDrag = !out.folderDrag.defaultPrevented && !sec("On My Mac").hasAttribute("mc-drop");
+            if (folderRow) { folderRow.dispatchEvent(out.folderDrag); out.folderDrag = !out.folderDrag.defaultPrevented && !sec("LOCAL").hasAttribute("mc-drop");
               folderRow.dispatchEvent(new a3.DragEvent("dragend", { bubbles: true, dataTransfer: new a3.DataTransfer() })); }
             // Einstellungen → Kontoeinstellungen
             w.openPreferencesTab("paneGeneral");
@@ -3349,14 +3350,14 @@ def folder_checks(m, results):
 
     def accounts_reorder_ok(res):
         mark_ok = lambda d: d and d["started"] and d["mark"][0] in ("before", "after") and d["mark"][1] not in ("none", "rgba(0, 0, 0, 0)", "")
-        ok = (res.get("before") == ["On My Mac", "Halo Alpha", "Halo Beta", "Halo Gamma"] and mark_ok(res.get("d1"))
+        ok = (res.get("before") == ["LOCAL", "Halo Alpha", "Halo Beta", "Halo Gamma"] and mark_ok(res.get("d1"))
               and res.get("tb1") == ["Local Folders", "Halo Gamma", "Halo Alpha", "Halo Beta"]
-              and res.get("shown1") == ["On My Mac", "Halo Gamma", "Halo Alpha", "Halo Beta"] and res.get("ordered")
-              and res.get("shown2") == ["Halo Alpha", "On My Mac", "Halo Gamma", "Halo Beta"] and res.get("folderDrag") is not False
+              and res.get("shown1") == ["LOCAL", "Halo Gamma", "Halo Alpha", "Halo Beta"] and res.get("ordered")
+              and res.get("shown2") == ["Halo Alpha", "LOCAL", "Halo Gamma", "Halo Beta"] and res.get("folderDrag") is not False
               and res.get("subsBefore") == ["Halo Alpha", "Local Folders", "Halo Gamma", "Halo Beta"]
               and res.get("draggable") == [True, True] and mark_ok(res.get("d3"))
               and res.get("subsAfter") == res.get("tb3") == ["Halo Alpha", "Local Folders", "Halo Beta", "Halo Gamma"]
-              and res.get("shown3") == ["Halo Alpha", "On My Mac", "Halo Beta", "Halo Gamma"])
+              and res.get("shown3") == ["Halo Alpha", "LOCAL", "Halo Beta", "Halo Gamma"])
         return ok, f"{res}"
     check("Ordnerliste/Kontoeinstellungen: Konten per Ziehen umsortieren, „Lokale Ordner“ erst oben, dann in der Reihenfolge", accounts_reorder, results)
 

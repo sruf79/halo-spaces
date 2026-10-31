@@ -3359,6 +3359,41 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Ordnerliste/Kontoeinstellungen: Konten per Ziehen umsortieren, „Lokale Ordner“ erst oben, dann in der Reihenfolge", accounts_reorder, results)
 
+    def own_toolbar_arrangement():
+        # eigene Anordnung ohne Abstandhalter vorn (GitHub-Issue #16: „Synchronisieren, Neu, Bearbeiten, Löschen,
+        # Abstand, Suche, Abstand“): Knöpfe beginnen trotzdem rechts der Seitenleiste bzw. Liste, nichts liegt unter dem
+        # Seitenleisten-Knopf, das Suchfeld steht rechts und nicht unter Tag/Woche/Monat. Danach Vorgabe zurück
+        res = m.js(r"""
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const before = getState();
+          const R = e => { const r = e?.getBoundingClientRect(); return r && r.width ? { l: Math.round(r.left), r: Math.round(r.right) } : null; };
+          const out = {};
+          try {
+            storeState({ ...before, tasks: ["synchronize", "new-task", "edit-event", "delete-event", "spacer", "search-bar", "spacer"],
+                         calendar: ["synchronize", "new-event", "edit-event", "delete-event", "spacer", "search-bar", "spacer"] });
+            await wait(800);
+            for (const sp of ["tasks", "calendar"]) {
+              w.gSpacesToolbar.openSpace(tm, w.gSpacesToolbar.spaces.find(s => s.name == sp)); await wait(1800);
+              const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(li => li.getBoundingClientRect().width && li.getAttribute("item-id") != "spacer");
+              const toggles = [...d.querySelectorAll("#calSidebar button, #calSidebar toolbarbutton, #spacesPinnedButton")].map(R).filter(Boolean);
+              const view = R(d.getElementById("calTabSwitcher") || d.querySelector("#viewToggle"));
+              out[sp] = { items: items.map(li => [li.getAttribute("item-id"), R(li)]), side: R(d.getElementById("calSidebar")), view,
+                          hits: items.filter(li => { const a = R(li); return toggles.some(t => a.l < t.r && t.l < a.r) || (view && li.getAttribute("item-id") == "search-bar" && a.l < view.r && view.l < a.r); }).map(li => li.getAttribute("item-id")) };
+            }
+          } finally {
+            storeState(before); await wait(800); await toMail();
+          }
+          return out;""")
+        bad = []
+        for sp in ("tasks", "calendar"):
+            v = res.get(sp) or {}
+            items, side = v.get("items") or [], v.get("side") or {}
+            first = items[0][1]["l"] if items else 0
+            if not items or v.get("hits") or first < side.get("r", 0):
+                bad.append(f"{sp}: {v}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Toolbar: eigene Anordnung ohne Abstand vorn beginnt rechts der Seitenleiste, nichts unter deren Knopf, Suche rechts", own_toolbar_arrangement, results)
+
 
 # Kontextmenü der Mailliste per Rechtsklick auf die ausgewählte Testmail (nach MESSAGE_JS) öffnen;
 # dazu Farbhilfen (rgb()/color(srgb …) auf 0–255) und Kontrast nach WCAG

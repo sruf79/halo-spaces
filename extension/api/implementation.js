@@ -7522,6 +7522,20 @@ function rectOf(el) {
   return { left: W - r.right, right: W - r.left, x: W - r.right, top: r.top, bottom: r.bottom, y: r.y, width: r.width, height: r.height };
 }
 
+// Erster Abstandhalter der Toolbar, an dem die Knöpfe ausgerichtet werden –
+// nur wenn er wirklich vorn steht (davor können ausgeblendete Knöpfe anderer
+// Bereiche liegen). Eigene Anordnungen ohne ihn (z. B. „Synchronisieren, Neu,
+// Bearbeiten, Löschen“) bekommen den Abstand als Einzug der ganzen Zeile
+// (mc-no-lead), sonst lagen ihre Knöpfe über der Seitenleiste
+function leadSpacer(content) {
+  if (!content) {
+    return null;
+  }
+  const first = [...content.children].find(li => !li.hidden && li.ownerDocument.defaultView.getComputedStyle(li).display != "none");
+  const lead = first?.getAttribute("item-id") == "spacer" ? first : null;
+  content.toggleAttribute("mc-no-lead", !!first && !lead);
+  return lead;
+}
 function setBarVar(doc, name, value) {
   setVar(barTarget(doc), name, value);
 }
@@ -8552,7 +8566,7 @@ class CardEnhancer {
         // (gemessen nach dem Entfernen von --mc-side-right, also an seinem
         // Platz in diesem Tab)
         const content = row && d.getElementById("unifiedToolbarContent");
-        const first = content?.querySelector(':scope > li[item-id="spacer"]') || content;
+        const first = leadSpacer(content) || content;
         const pinned = rectOf(d.getElementById("spacesPinnedButton"));
         if (first && pinned?.width) {
           const start = rectOf(first).left;
@@ -8579,7 +8593,7 @@ class CardEnhancer {
       // über der geöffneten Nachricht –, sonst neben der Seitenleiste.
       const content = d.getElementById("unifiedToolbarContent");
       // Bezug: erster Abstandhalter (davor liegen ausgeblendete Knöpfe anderer Bereiche)
-      const start = rectOf(content?.querySelector(':scope > li[item-id="spacer"]') || content)?.left ?? rowLeft;
+      const start = rectOf(leadSpacer(content) || content)?.left ?? rowLeft;
       let edge = shift + (r.width ? r.right : 0) + 12;
       // erste Knöpfe in jedem Bereich an derselben Stelle wie in der Mail
       // (Kalender und Aufgaben: „+“ wie in Apple Kalender gleich rechts der
@@ -14314,7 +14328,7 @@ class CardEnhancer {
       }
       // Bezug ist der Anfang des ersten Abstandhalters (die Toolbar hat
       // eigenen Innenabstand); +6 px wie der Einzug in Apple Mail.
-      const start = rectOf((content.querySelector(':scope > li[item-id="spacer"]') || content)).left;
+      const start = rectOf(leadSpacer(content) || content).left;
       let offset = Math.max(0, Math.round(paneRight - start + 6));
       // nie links vom Seitenleisten-Knopf beginnen
       const toggle = top.document.getElementById("spacesPinnedButton");

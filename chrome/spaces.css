@@ -6286,10 +6286,17 @@ menupopup menucaption {
    Knöpfe beginnen wie in der Mail an einer Spaltenkante (Adressbuch: rechts
    der Kontaktliste, sonst rechts der Seitenleiste; --mc-tab-offset misst die
    Erweiterung), Suchfeld oben rechts. */
-:root:not([mc-mail]) #unifiedToolbarContent > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
+:root:not([mc-mail]) #unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
   /* (Mail: --mc-toolbar-offset, siehe Apple-Mail-Toolbar) */
   flex: 0 1 var(--mc-tab-offset, 0px) !important;
   min-width: 0 !important;
+}
+
+/* eigene Anordnung ohne Abstandhalter vorn (z. B. „Synchronisieren, Neu,
+   Bearbeiten, Löschen“): dieselbe Kante als Einzug der Zeile – sonst lagen
+   die Knöpfe über der Seitenleiste unter deren Knopf */
+:root:not([mc-mail]) #unifiedToolbarContent[mc-no-lead] {
+  padding-inline-start: var(--mc-tab-offset, 0px) !important;
 }
 
 #unifiedToolbarContent > li:is(

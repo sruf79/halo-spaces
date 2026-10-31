@@ -1530,7 +1530,7 @@ findbar .findbar-textbox:focus {
    genau über der geöffneten Mail */
 /* erster sichtbarer Abstandhalter – davor können ausgeblendete Knöpfe
    anderer Bereiche liegen, daher nicht :first-child */
-#unifiedToolbarContent > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
+#unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
   /* schrumpft erst, wenn das Suchfeld schon ganz klein ist (Gewicht fast 0
      gegenüber 50 beim Suchfeld) – sonst rücken die Knöpfe über die Kante der
      Mailliste und die Trennlinie in der Toolbar-Zeile bricht */
@@ -1539,9 +1539,22 @@ findbar .findbar-textbox:focus {
   max-width: none !important;
 }
 
-#unifiedToolbarContent > li[item-id="spacer"] ~ li[item-id="spacer"] {
+#unifiedToolbarContent > li[item-id="spacer"] ~ li[item-id="spacer"],
+#unifiedToolbarContent[mc-no-lead] > li[item-id="spacer"] {
   flex: 1 1 auto !important;
   min-width: 0 !important;
+}
+
+/* Suchfeld immer oben rechts: Abstandhalter dahinter (Thunderbirds Vorgabe
+   „Abstand, Suche, Abstand“ in Kalender und Aufgaben) wachsen nicht mit –
+   sonst stand es mittig unter den Ansichtsknöpfen des Kalenders */
+#unifiedToolbarContent > li[item-id="search-bar"] ~ li[item-id="spacer"] {
+  flex: 0 0 0px !important;
+}
+
+/* eigene Anordnung ohne Abstandhalter vorn: dieselbe Kante als Einzug */
+:root[mc-mail] #unifiedToolbarContent[mc-no-lead] {
+  padding-inline-start: var(--mc-toolbar-offset, 0px) !important;
 }
 
 /* bei Platzmangel ausgeblendet (die Erweiterung misst) */
@@ -9746,10 +9759,17 @@ menupopup menucaption {
    Knöpfe beginnen wie in der Mail an einer Spaltenkante (Adressbuch: rechts
    der Kontaktliste, sonst rechts der Seitenleiste; --mc-tab-offset misst die
    Erweiterung), Suchfeld oben rechts. */
-:root:not([mc-mail]) #unifiedToolbarContent > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
+:root:not([mc-mail]) #unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
   /* (Mail: --mc-toolbar-offset, siehe Apple-Mail-Toolbar) */
   flex: 0 1 var(--mc-tab-offset, 0px) !important;
   min-width: 0 !important;
+}
+
+/* eigene Anordnung ohne Abstandhalter vorn (z. B. „Synchronisieren, Neu,
+   Bearbeiten, Löschen“): dieselbe Kante als Einzug der Zeile – sonst lagen
+   die Knöpfe über der Seitenleiste unter deren Knopf */
+:root:not([mc-mail]) #unifiedToolbarContent[mc-no-lead] {
+  padding-inline-start: var(--mc-tab-offset, 0px) !important;
 }
 
 #unifiedToolbarContent > li:is(

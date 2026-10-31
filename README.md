@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3110">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3120">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -178,12 +178,16 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.11.0
+## What's new in 3.12.0
 
-- **Font size**: Thunderbird's font size (≡ → Font Size) now also enlarges the message list, the folder list, the message header, the calendar, the address book and the settings; message cards grow with it
-- **Folder list**: the button row above the mailboxes is gone for good, also in new profiles; Get Messages and Write are in the toolbar, the folder options under View → Folders
-- **Account colours**: accounts without a colour of their own now get different colours instead of sometimes the same one
-- **Windows and Linux**: local folders are called "On This Computer" there, and the appearance setting says "follow the system" instead of macOS
+- **Messages in their own window**: double-clicking a message opens it in a window, no more hidden tabs; a message tab closes with Esc
+- **PDF attachments** open in your system's PDF viewer
+- **Pages outside the spaces** (like Thunderbird's "What's New") close when you switch to a space instead of staying open out of sight
+- **Spaces bar**: the active space is marked with a line in its colour next to the tile
+- **Keyboard scrolling in Settings**: click anywhere on the page, then the arrow keys and Page Down scroll it
+- **Uninstalling** removes all of halo.spaces' settings and restores Thunderbird's own defaults, so a later reinstall starts fresh
+- **Toolbar**: buttons without a halo.spaces icon keep Thunderbird's icon instead of showing a grey square
+- **Windows**: the Day/Week/Month switcher reacts to the first click, and the area above the Today pane lines up with it
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

@@ -5803,9 +5803,11 @@ def run_checks(m, version, profile, results):
         has_time = lambda v: re.search(r"10[:.]15", v or "") is not None
         ok = (res["today"].startswith("Today, ") and "2026" not in res["today"] and res["yesterday"].startswith("Yesterday, ")
               and "2026" in res["tomorrow"] and "21" in res["tomorrow"] and "2027" in res["nextYear"] and "2026" in res["older"]
-              and all(has_time(res[k]) for k in ("today", "yesterday", "tomorrow", "older")))
+              and all(has_time(res[k]) for k in ("today", "yesterday", "tomorrow", "older"))
+              # Datum und Uhrzeit mit Komma, nie „at“ dazwischen (Englisch bei gemeinsamer Formatierung)
+              and all(" at " not in res[k] and re.search(r", 10[:.]15", res[k]) for k in ("tomorrow", "nextYear", "older")))
         return ok, f"{res}"
-    check("Mailliste: Datum immer mit Uhrzeit („Today, …“, „Yesterday, …“, älter mit Datum), in der Zukunft das ganze Datum", list_date_future, results)
+    check("Mailliste: Datum immer mit Uhrzeit („Today, …“, „Yesterday, …“, älter mit Datum und Komma statt „at“), in der Zukunft das ganze Datum", list_date_future, results)
 
     def smart_folder_names():
         # Favoriten: nur das Postfach je Konto unter „Alle Eingänge“ heißt wie das Konto –

@@ -5838,8 +5838,10 @@ function appleListDate(ms, now = new Date()) {
   if (days == 1) {
     return tr("Yesterday, {time}", { time });
   }
-  // „mittel“ ist das ganze Datum im Muster des Systems (17.10.2026)
-  return fmt({ dateStyle: "medium", timeStyle: "short" }).format(d);
+  // „mittel“ ist das ganze Datum im Muster des Systems (17.10.2026); Datum
+  // und Uhrzeit getrennt formatiert und mit Komma verbunden – zusammen
+  // setzt Englisch „at“ dazwischen („17.10.2026 at 14:32“)
+  return `${fmt({ dateStyle: "medium" }).format(d)}, ${time}`;
 }
 
 // Absender ohne eigenen Namen (nur die Adresse, oft auch als Name

@@ -10316,25 +10316,26 @@ Neu
         return ok, f"{res}"
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
-    def spaces_current_line():
-        # aktiver Bereich: senkrechte Linie (3 px, eckig) direkt an der rechten Kachelkante, oben und unten um den
-        # Kachelradius eingerückt, in der Farbe des Symbols; kein Chevron mehr, Kachel unverändert 48 px breit
+    def spaces_current_chevron():
+        # aktiver Bereich: Chevron (22 px, Maske) rechts neben der Kachel in der Farbe des Symbols, zwischen Kachel und
+        # Seitenleiste; keine Linie mehr (3.12), Kachel unverändert 48 px breit
         res = m.js(r"""
           const out = {};
           for (const [name, go] of [["mail", toMail], ["calendar", toCalendar]]) {
             await go(); await wait(600);
             const b = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button.current")].find(e => e.getBoundingClientRect().width);
             const cs = w.getComputedStyle(b, "::after"), r = b.getBoundingClientRect();
-            out[name] = { width: cs.width, mask: cs.maskImage, radius: w.getComputedStyle(b).borderTopLeftRadius,
-                          top: cs.top, bottom: cs.bottom, end: cs.insetInlineEnd, line: cs.backgroundColor, icon: w.getComputedStyle(b).color,
-                          tile: Math.round(r.width) };
+            const bar = d.getElementById("spacesToolbar").getBoundingClientRect();
+            out[name] = { width: cs.width, height: cs.height, mask: cs.maskImage.startsWith("url("), end: cs.insetInlineEnd,
+                          line: cs.backgroundColor, icon: w.getComputedStyle(b).color, tile: Math.round(r.width),
+                          room: Math.round(bar.right - r.right) };
           }
           await toMail();
           return out;""")
-        ok = all(v["width"] == "3px" and v["mask"] == "none" and v["top"] == v["radius"] == v["bottom"] and v["end"] == "-3px"
-                 and v["line"] == v["icon"] and v["tile"] == 48 for v in res.values())
+        ok = all(v["width"] == v["height"] == "22px" and v["mask"] and v["end"] == "-16px" and v["line"] == v["icon"]
+                 and v["tile"] == 48 and v["room"] >= 10 for v in res.values())
         return ok, f"{res}"
-    check("Bereichsleiste: aktiver Bereich mit Linie in seiner Farbe rechts an der Kachel statt Chevron", spaces_current_line, results)
+    check("Bereichsleiste: aktiver Bereich mit kräftigerem Chevron in seiner Farbe rechts neben der Kachel", spaces_current_chevron, results)
 
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),

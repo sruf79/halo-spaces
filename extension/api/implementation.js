@@ -3401,7 +3401,7 @@ const FifthSpace = {
     const m = Services.prefs.getStringPref(FIFTH_ICON_PREF, "mask");
     return FIFTH_ICONS.includes(m) ? m : "mask";
   },
-  // Hauptfarbe eines Logos für die Linie neben dem aktiven Bereich: nur bei
+  // Hauptfarbe eines Logos für den Chevron neben dem aktiven Bereich: nur bei
   // einem kräftigen, mittelhellen Farbton, der fast alle farbigen Bildpunkte
   // stellt; bunt, sehr hell, dunkel oder grau → null (dann Textfarbe)
   async logoColor(w, cssUrl) {

@@ -15076,6 +15076,15 @@ class CardEnhancer {
     };
     const hw = w.openDialog("resource://mailcards/about/halo.html", "halo-spaces",
       `chrome,dialog=yes,centerscreen,resizable=no,width=360,height=${349 + (platformNote ? 64 : 0)}`);
+    // schließt mit dem Hauptfenster – sonst lief Thunderbird unter Windows und
+    // Linux nach dem Schließen des Hauptfensters weiter, solange dieses
+    // kleine Fenster (oft dahinter) offen war
+    const main = w.document?.documentElement.getAttribute("windowtype") == "mail:3pane" ? w : Services.wm.getMostRecentWindow("mail:3pane");
+    main?.addEventListener("unload", () => {
+      if (!hw.closed) {
+        hw.close();
+      }
+    }, { once: true });
     // erst lädt das Fenster about:blank, dann unsere Seite – darauf warten
     let tries = 0;
     const wire = () => {

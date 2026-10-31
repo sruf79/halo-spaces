@@ -5125,6 +5125,31 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Begrüßung: einmal nach der Erstinstallation (kurz, Win/Linux mit Plattform-Hinweis), Theme bleibt System", welcome, results)
 
+    def halo_window_closes_with_main():
+        # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief
+        # Thunderbird unter Windows/Linux nach dem Schließen des Hauptfensters weiter (GitHub-Issue #15).
+        # Nachgestellt mit einem zweiten Hauptfenster, das erste bleibt offen
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const halo = () => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html"));
+          halo()?.close(); await wait(300);
+          const second = w.openDialog("chrome://messenger/content/messenger.xhtml", "_blank", "chrome,all,dialog=no");
+          await until(() => second.document.readyState == "complete" && second.document.getElementById("tabmail")?.currentTabInfo, 15000);
+          await wait(1500);
+          g.__mcSecond = second;
+          Cu.evalInSandbox("enhancer.openHaloWindow(globalThis.__mcSecond)", g);
+          const hw = await until(() => halo(), 8000);
+          const out = { opened: !!hw };
+          second.close();
+          out.closed = !!(await until(() => !halo() || halo().closed, 5000));
+          out.mainOpen = !w.closed;
+          delete g.__mcSecond;
+          halo()?.close();
+          return out;""" % ADDON_ID)
+        return res.get("opened") and res.get("closed") and res.get("mainOpen"), f"{res}"
+    check("halo.spaces-Fenster schließt mit seinem Hauptfenster (Thunderbird lässt sich unter Windows/Linux beenden)", halo_window_closes_with_main, results)
+
     def welcome_steps():
         # Begrüßung schrittweise (KISS): Wetter und Chat erst nur Ja/Nein; Ja beim Wetter bzw. Nein beim Chat lässt die
         # Einzelheiten aufgleiten und das Fenster wächst mit; Stadt mit Vorschlägen beim Tippen; keine Gedankenstriche

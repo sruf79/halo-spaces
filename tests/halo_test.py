@@ -1624,7 +1624,8 @@ def reading_checks(m, results):
           const oldRow = [...a3.document.querySelectorAll('#threadTree tr[is="thread-card"]')].find(r => (r.querySelector(".subject")?.textContent || "").includes("Halo Anhänge"));
           return { list: norm(row?.querySelector(".date")?.textContent), header: norm(doc.querySelector("#mcHdrMeta #dateLabel")?.textContent),
                    want: norm(new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(hdr.date / 1000))),
-                   old: norm(oldRow?.querySelector(".date")?.textContent), oldWant: oldHdr && norm(new Services.intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(oldHdr.date / 1000))) };""")
+                   old: norm(oldRow?.querySelector(".date")?.textContent), oldWant: oldHdr && norm(new Services.intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(oldHdr.date / 1000)) + ", "
+                     + new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(new Date(oldHdr.date / 1000))) };""")
         # Karten zeigen immer die Uhrzeit: heute „Today, 16:31“ (Uhrzeit wie im Kopf), älter Datum und Uhrzeit
         ok = (bool(res["list"]) and res["list"].endswith(res["want"]) and res["want"] in res["header"]
               and bool(res["old"]) and res["old"] == res["oldWant"])

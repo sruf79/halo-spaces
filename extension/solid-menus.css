@@ -1,0 +1,18 @@
+/* Deckende statt durchscheinende Menüs (Einstellung „Solid menus“, Standard
+   aus) – ohne den Unschärfe-Hintergrund von macOS, in der Fläche der Menüs;
+   Radius, Abstände und Schatten bleiben. Lädt die Erweiterung nur bei
+   eingeschalteter Option */
+:root :is(menupopup:not(.autoscroller), #PopupGlodaAutocomplete) {
+  appearance: none !important;
+  --panel-background-color: #F6F6F8 !important;
+  --panel-border-color: rgba(0, 0, 0, 0.12) !important;
+  --panel-shadow: 0 6px 20px rgba(0, 0, 0, 0.18) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root :is(menupopup:not(.autoscroller), #PopupGlodaAutocomplete) {
+    --panel-background-color: #28282A !important;
+    --panel-border-color: rgba(255, 255, 255, 0.12) !important;
+    --panel-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
+  }
+}

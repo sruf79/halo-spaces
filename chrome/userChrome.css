@@ -1519,6 +1519,29 @@ findbar .findbar-textbox:focus {
   }
 }
 
+/* feine Linie unter der Toolbar-Zeile über der Spalte, in der die Maus ist
+   (wie Apple Mail; Lage und Breite setzt die Erweiterung) */
+#mcHoverLine {
+  position: absolute;
+  bottom: 0;
+  height: var(--mt-hairline, 1px);
+  background: var(--mt-pane-line);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#mcHoverLine[data-on] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mcHoverLine {
+    transition: none;
+  }
+}
+
 /* ---------- Apple-Mail-Toolbar (Belegung setzt die Erweiterung) ---------- */
 
 #unifiedToolbarContent {
@@ -2267,7 +2290,8 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
    Chat rücken die übrigen Knöpfe gleichmäßig zusammen; als Ersatz behält der
    Platz Farbe und Knopf des Chats, das Symbol kommt von der Erweiterung bzw.
    der Webseite – einfarbig in der Bereichsfarbe oder unverändert auf neutraler
-   Fläche (mc-fifth-icon=original). Im Ersatz-Tab keine Today-Pane (1:1) */
+   Fläche (mc-fifth-icon=original). Im Tab einer Erweiterung keine Today-Pane
+   (1:1), bei einer Webseite wie in den übrigen Bereichen */
 :root[mc-fifth="none"] :is(#chatButton, #spacesPopupButtonChat),
 :is(.spaces-toolbar-button, .spaces-popup-menuitem)[mc-fifth-hidden],
 #spacesToolbar > #spacesToolbarAddonsOverflowButton[mc-fifth-hidden] {
@@ -2307,7 +2331,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   }
 }
 
-:root[mc-fifth-current] :is(#today-pane-panel, #today-splitter) {
+:root[mc-fifth-current][mc-fifth="addon"] :is(#today-pane-panel, #today-splitter) {
   display: none !important;
 }
 
@@ -2832,6 +2856,40 @@ unified-toolbar {
 
 #mcListHeader .mc-lh-tools > .mc-lh-more::before {
   mask-image: var(--mi-ellipsis) !important;
+}
+
+/* „+“ (nur Adressbuch): eigene runde Kapsel ganz rechts, wie Apple Kontakte */
+#mcListHeader > .mc-lh-plus {
+  display: none !important;
+}
+
+:root[mc-tab="addressBookTab"] #mcListHeader > .mc-lh-plus {
+  appearance: none !important;
+  flex: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 38px !important;
+  height: 38px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+}
+
+:root[mc-tab="addressBookTab"] #mcListHeader > .mc-lh-plus:hover {
+  background-color: var(--mt-control-hover) !important;
+  color: var(--mt-text) !important;
+}
+
+:root[mc-tab="addressBookTab"] #mcListHeader > .mc-lh-plus::before {
+  content: "" !important;
+  width: 20px !important;
+  height: 20px !important;
+  background-color: currentColor !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M12 5v14M5 12h14%22/%3E%3C/svg%3E") center / contain no-repeat !important;
 }
 
 /* Filter „nur ungelesene“ eingeschaltet: getönt in Akzentfarbe wie der
@@ -4821,7 +4879,15 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   text-overflow: ellipsis !important;
 }
 
+/* Aufgaben-Bereich: keine Schnelleingabe „Click here to add a new task“ –
+   neue Aufgaben über das „+“ oben (wie Apple Erinnerungen); der Hinweis ohne
+   beschreibbaren Kalender steht weiter im Listenkopf (liest das Feld) */
+:root[mc-tab="tasks"] #task-addition-box > box:first-of-type {
+  display: none !important;
+}
+
 /* die Zeile darunter entfällt dann – die Liste beginnt direkt unter der Toolbar */
+:root[mc-tab="tasks"] #task-addition-box,
 #task-addition-box:has(#view-task-edit-field:is([readonly], [aria-disabled="true"])) {
   height: 0 !important;
   min-height: 0 !important;
@@ -5000,6 +5066,20 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   background: var(--mc-tc-color) url("chrome://messenger/skin/overrides/check.svg") center / 11px no-repeat;
   -moz-context-properties: fill;
   fill: white;
+}
+
+/* angefangen: Ring in der Kalenderfarbe füllt sich mit dem Fortschritt
+   (--mc-tc-p in %, ab 12 Uhr im Uhrzeigersinn), Rest blass */
+.mc-tc-check[data-progress] {
+  border: none;
+  background: conic-gradient(var(--mc-tc-color) calc(var(--mc-tc-p, 0) * 1%),
+                             color-mix(in srgb, var(--mc-tc-color) 22%, transparent) 0);
+  mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+}
+
+/* gewählt (Akzentfläche): Ring in der Schrift der Auswahl statt blau auf blau */
+#mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check[data-progress] {
+  --mc-tc-color: var(--mt-accent-text);
 }
 
 #mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check {
@@ -10849,22 +10929,33 @@ body:has(> #accountTreeBox.mc-side-hidden) {
    Knopf (12 + 40 + 8 px). Unter Windows/Linux stehen ≡-Menü und
    Fensterknöpfe schon rechts neben der Knopfleiste (--mc-row-tail) und
    liegen bei offener Today-Pane in deren Fläche */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #unifiedToolbarContent {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContent {
   /* --mc-tp-room statt --mc-tp-w: ändert sich nur am Anfang/Ende der
      Ein-/Ausblend-Animation – sonst berechnet Thunderbirds Toolbar mitten in
      der Bewegung ihre Anordnung neu (ein sichtbarer Hänger) */
   padding-inline-end: max(60px, calc(var(--mc-tp-room, var(--mc-tp-w, 0px)) + 12px - var(--mc-row-tail, 0px))) !important;
 }
 
+/* Webseite statt Chat: kein Seitenleisten-Knopf (sie hat keine Seitenleiste)
+   und kein Suchfeld (es durchsucht nur Mails) – die Today-Pane mit ihrem
+   Knopf an derselben Stelle wie in den übrigen Bereichen dagegen schon */
+:root[mc-fifth-current][mc-fifth="web"] #spacesPinnedButton {
+  visibility: hidden !important;
+}
+
+:root[mc-fifth-current][mc-fifth="web"] #unifiedToolbarContent > li[item-id="search-bar"] {
+  display: none !important;
+}
+
 /* Suchfeld immer 333 px wie in Apple Mail, direkt links der Today-Pane –
    es wandert beim Ein-/Ausblenden mit (--mc-tp-w folgt der Animation) und
    wird nur schmaler, wenn das Fenster zu eng ist (bis zur Lupe, 40 px) */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #unifiedToolbarContent > li[item-id="search-bar"] {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContent > li[item-id="search-bar"] {
   flex: 0 50 333px !important;
   min-width: 40px !important;
 }
 
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #today-pane-panel {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #today-pane-panel {
   max-width: 341px !important;
 }
 
@@ -10874,7 +10965,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none;
 }
 
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #mcTodayTop {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #mcTodayTop {
   display: block;
   position: absolute;
   /* hinter den Knöpfen der Toolbar, aber über dem Hintergrund der Zeile */
@@ -10899,6 +10990,19 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   padding-inline-end: min(calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
                           max(0px, calc(var(--mc-tp-w, 0px) - min(62px, var(--mc-tp-w, 0px)) - 1px)));
   overflow: hidden;
+}
+
+/* während die Today-Pane gleitet: Überschrift an ihrem Endplatz (gemessen,
+   --mc-tt-off ab der linken Kante der Fläche), die Fläche deckt sie nur auf –
+   sie gleitet so mit der Pane herein bzw. hinaus */
+#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop {
+  justify-content: flex-start !important;
+  padding-inline: 0 !important;
+}
+
+#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop > #mcTodayTitle {
+  flex: none !important;
+  margin-inline-start: var(--mc-tt-off, 0px) !important;
 }
 
 #mcTodayTitle[data-narrow] {
@@ -10978,7 +11082,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 /* Knopf oben in der Today-Pane nahe ihrer linken Kante (Spiegelbild des
    Seitenleisten-Knopfs) – gleitet bei der Animation mit; ist sie aus,
    steht er rechts am Rand (vor den Fensterknöpfen von Windows/Linux) */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #mcTodayToggle {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #mcTodayToggle {
   position: absolute !important;
   z-index: 3 !important;
   top: 50% !important;
@@ -11001,7 +11105,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 /* „+“ rechts oben in der Today-Pane: wie der Today-Knopf, am rechten Rand
    (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
   position: absolute !important;
   z-index: 3 !important;
   top: 50% !important;
@@ -12752,7 +12856,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    einer Kapsel gleich rechts vom „+“ (--mc-row-top/-h, --mc-ta-left setzt die
    Erweiterung; das „+“ hält dafür Platz frei); der Name steht im Tooltip */
 :root[mc-tab="tasks"]:has(#calendar-task-details-container:not([hidden])) #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]) {
-  margin-inline-end: 196px !important;
+  margin-inline-end: 218px !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar {
@@ -12764,8 +12868,42 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   margin: 0 !important;
   padding: 0 !important;
   gap: 0 !important;
-  border-radius: 999px !important;
+  background: none !important;
+}
+
+/* drei Kapseln wie in den übrigen Bereichen: Erledigt | Kategorie · Priorität
+   (mit Trennstrich) | Löschen – je mit eigener Fläche, 6 px Abstand */
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
   background: var(--mt-control) !important;
+  border-radius: 999px !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted { order: 0 !important; margin-inline-end: 6px !important; }
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-category {
+  order: 1 !important;
+  border-start-end-radius: 0 !important;
+  border-end-end-radius: 0 !important;
+}
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-priority {
+  order: 2 !important;
+  margin-inline-end: 6px !important;
+  border-start-start-radius: 0 !important;
+  border-end-start-radius: 0 !important;
+}
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-priority::after {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-start: 0 !important;
+  top: 11px !important;
+  bottom: 11px !important;
+  width: 1px !important;
+  background: var(--mt-pane-line) !important;
+  pointer-events: none !important;
+}
+:root[mc-tab="tasks"] #task-actions-toolbar > #calendar-delete-task-button { order: 3 !important; }
+
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
+  background: var(--mt-control-hover) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
@@ -12776,7 +12914,6 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   min-height: 38px !important;
   padding: 0 !important;
   gap: 0 !important;
-  background: transparent !important;
   color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
   justify-content: center !important;
 }

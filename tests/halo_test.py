@@ -3186,7 +3186,7 @@ def folder_checks(m, results):
           return out;""")
         mail, shown = res.get("mail") or [], res.get("shown") or []
         ok = ("reply" in mail and "reply-all" in mail and "reply" in shown and mail[:4] == ["spacer", "get-messages", "write-message", "reply"]
-              and (res.get("addressbook") or [])[:2] == ["spacer", "create-contact"] and res.get("standaloneAfter") is False
+              and (res.get("addressbook") or [])[:3] == ["spacer", "spacer", "search-bar"] and res.get("standaloneAfter") is False
               and res.get("buttonStyle") == 2)
         if res.get("standaloneOwn") is not None:
             ok = ok and res["standaloneOwn"] is True
@@ -3395,6 +3395,101 @@ def folder_checks(m, results):
                 bad.append(f"{sp}: {v}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Toolbar: eigene Anordnung ohne Abstand vorn beginnt rechts der Seitenleiste, nichts unter deren Knopf, Suche rechts", own_toolbar_arrangement, results)
+
+    def addressbook_plus():
+        # Adressbuch wie Apple Kontakte: „+“ rechts über der Kontaktliste mit Menü Neuer Kontakt / Neues Adressbuch /
+        # Neue Liste, links daneben „…“ mit eigenem Tooltip; die Toolbar-Vorgabe ohne die drei Anlegen-Knöpfe
+        res = m.js(r"""
+          w.resizeTo(1500, 900);
+          const { getState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          await toMail(); await wait(600);
+          const tab = tm.openTab("addressBookTab", {}); await wait(2500);
+          const box = d.getElementById("mcListHeader"), plus = box?.querySelector(".mc-lh-plus"), more = box?.querySelector(".mc-lh-more");
+          const R = e => { const r = e?.getBoundingClientRect(); return r && r.width ? { l: Math.round(r.left), r: Math.round(r.right) } : null; };
+          const out = { plus: R(plus), more: R(more), moreTip: more?.title, plusTip: plus?.title,
+                        listRight: Math.round(parseFloat(d.getElementById("unifiedToolbarContainer").style.getPropertyValue("--mc-ab-list-right")) + d.getElementById("unifiedToolbarContainer").getBoundingClientRect().left),
+                        state: getState().addressbook,
+                        toolbar: [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(li => li.getBoundingClientRect().width).map(li => li.getAttribute("item-id")) };
+          plus?.click(); const pop = d.getElementById("mcAbNewPopup");
+          await until(() => pop?.state == "open", 3000);
+          out.menu = pop ? [...pop.querySelectorAll("menuitem")].map(i => [i.getAttribute("label"), i.dataset.command]) : null;
+          pop?.hidePopup(); await wait(300);
+          tm.closeTab(tab); await toMail();
+          return out;""")
+        pl, mo = res.get("plus") or {}, res.get("more") or {}
+        ok = (pl and mo and mo["r"] <= pl["l"] and abs(pl["r"] - res.get("listRight", 0)) <= 12
+              and res.get("moreTip") == "Contact List Display Options" and res.get("plusTip") == "New"
+              and res.get("menu") == [["New Contact", "cmd_newCard"], ["New Address Book", "cmd_createAddressBook"], ["New List", "cmd_createList"]]
+              and not any(x in (res.get("toolbar") or []) for x in ("create-contact", "create-address-book", "create-list")))
+        return ok, f"{res}"
+    check("Adressbuch: „+“ rechts über der Kontaktliste mit Menü zum Anlegen, „…“ mit eigenem Tooltip, Toolbar ohne Anlegen-Knöpfe", addressbook_plus, results)
+
+    def hover_line():
+        # wie Apple Mail: feine Linie unter der Toolbar-Zeile nur über der Spalte, in der die Maus ist (Mailliste,
+        # geöffnete Mail), ohne Maus keine
+        res = m.js(MESSAGE_JS + r"""
+          const ad = a3.document, line = d.getElementById("mcHoverLine");
+          const frame = a3.frameElement.getBoundingClientRect(), row = d.getElementById("unifiedToolbarContainer").getBoundingClientRect();
+          const at = id => {
+            const el = ad.getElementById(id), r = el.getBoundingClientRect();
+            el.dispatchEvent(new a3.MouseEvent("mousemove", { bubbles: true, clientX: r.left + 20, clientY: r.top + 40 }));
+            return { left: Math.round(frame.left + r.left - row.left), width: Math.round(r.width) };
+          };
+          const read = () => ({ on: line?.hasAttribute("data-on"), left: parseFloat(line?.style.left), width: parseFloat(line?.style.width) });
+          const out = {};
+          out.listWant = at("threadPane"); await wait(200); out.list = read();
+          out.msgWant = at("messagePane"); await wait(200); out.msg = read();
+          ad.documentElement.dispatchEvent(new a3.MouseEvent("mouseleave", { bubbles: false, relatedTarget: null })); await wait(200);
+          out.off = read();
+          return out;""")
+        near = lambda a, b: a and b and abs(a["left"] - b["left"]) <= 1 and abs(a["width"] - b["width"]) <= 1
+        ok = (res.get("list", {}).get("on") and near(res.get("list"), res.get("listWant")) and res.get("msg", {}).get("on")
+              and near(res.get("msg"), res.get("msgWant")) and not res.get("off", {}).get("on"))
+        return ok, f"{res}"
+    check("Toolbar: feine Linie nur über der Spalte unter der Maus (Mailliste, Mail), ohne Maus keine", hover_line, results)
+
+    def solid_menus():
+        # Einstellung „Solid menus“: Menüs ohne Durchscheinen (deckende Fläche), schaltet sofort um
+        res = m.js(r"""
+          const P = "extensions.mailcards.solidMenus";
+          const popup = d.getElementById("mcMailFilterPopup") || d.querySelector("menupopup");
+          const look = () => ({ app: w.getComputedStyle(popup).appearance, bg: w.getComputedStyle(popup).getPropertyValue("--panel-background-color").trim() });
+          const out = { before: look() };
+          Services.prefs.setBoolPref(P, true); await wait(300); out.on = look();
+          Services.prefs.clearUserPref(P); await wait(300); out.off = look();
+          return out;""")
+        on, off = res.get("on") or {}, res.get("off") or {}
+        ok = on.get("app") == "none" and on.get("bg", "").startswith("#") and off.get("app") != "none" and off == res.get("before")
+        return ok, f"{res}"
+    check("Einstellungen: deckende Menüs schalten das Durchscheinen ab und wieder ein", solid_menus, results)
+
+    def starred_scope_gmail():
+        # „Markiert“: bei Gmail nur „[Gmail]/Alle Nachrichten“ durchsuchen (jede Mail einmal), sonst fand der Suchordner
+        # jede Mail bis zu viermal und zeigte beim Anklicken die Sammelansicht; andere Konten alle Ordner wie bisher
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const e = Cu.waiveXrays(Cu.evalInSandbox("enhancer", g));
+          const F = Ci.nsMsgFolderFlags, gs = { n: "g" }, is = { n: "i" };
+          const gm = "imap://halo%%40gmail.com@imap.gmail.com/";
+          const fake = [
+            { URI: gm + "INBOX", flags: F.Inbox, server: gs, parent: { name: "" }, name: "INBOX" },
+            { URI: gm + "%%5BGmail%%5D/All%%20Mail", flags: F.Archive, server: gs, parent: { name: "[Gmail]" }, name: "All Mail" },
+            { URI: gm + "%%5BGmail%%5D/Starred", flags: 0, server: gs, parent: { name: "[Gmail]" }, name: "Starred" },
+            { URI: gm + "%%5BGmail%%5D/Important", flags: 0, server: gs, parent: { name: "[Gmail]" }, name: "Important" },
+            { URI: "imap://halo%%40icloud.com@imap.mail.me.com/INBOX", flags: F.Inbox, server: is, parent: { name: "" }, name: "INBOX" },
+            { URI: "imap://halo%%40icloud.com@imap.mail.me.com/Archive", flags: F.Archive, server: is, parent: { name: "" }, name: "Archive" },
+          ];
+          const orig = e.searchScope;
+          e.searchScope = () => fake;
+          try {
+            return e.starredScope().map(f => f.name + "@" + f.server.n);
+          } finally {
+            e.searchScope = orig;
+          }""" % ADDON_ID)
+        ok = res == ["All Mail@g", "INBOX@i", "Archive@i"]
+        return ok, f"{res}"
+    check("Markiert: bei Gmail nur „Alle Nachrichten“ durchsucht (keine Kopien als Faden), andere Konten alle Ordner", starred_scope_gmail, results)
 
 
 # Kontextmenü der Mailliste per Rechtsklick auf die ausgewählte Testmail (nach MESSAGE_JS) öffnen;
@@ -7033,7 +7128,12 @@ def run_checks(m, version, profile, results):
         res = m.js('''
           await toMail(); await wait(1500);
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
-          const record = async () => { const ws = [], ts = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { ws.push(Math.round(panel.getBoundingClientRect().width)); ts.push(performance.now()); await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts }; };
+          const title = d.getElementById("mcTodayTitle");
+          const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+          const record = async () => { const ws = [], ts = [], ss = [], tt = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0));
+            const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0 && !title.hasAttribute("data-narrow")]);
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -7045,12 +7145,16 @@ def run_checks(m, version, profile, results):
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           for (const phase of ["aus", "ein"]) {
-            btn.click(); const { ws, ts } = await record(); await wait(300);
+            btn.click(); const { ws, ts, ss, tt } = await record(); await wait(300);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
             const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => moving[i + 1]);
             const jumps = ws.slice(1).map((v, i) => Math.abs(v - ws[i]));
-            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0) };
+            // Suchfeld gleitet mit (kein Sprung um die ganze Breite), Überschrift ist mitten in der Bewegung schon da
+            const sJumps = ss.slice(1).map((v, i) => Math.abs(v - ss[i]));
+            const mid = tt.filter(([pw]) => pw > out.start * 0.3 && pw < out.start * 0.9);
+            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
+                           searchJump: Math.max(...sJumps), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
           }
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
@@ -7064,10 +7168,11 @@ def run_checks(m, version, profile, results):
         # Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
         # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
-        ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and
+        ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] < res["start"] / 2
+                 and res[p]["titleMid"] is not False and
                  res[p]["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2 for p in ("aus", "ein")) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung)", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld gleitet mit, Überschrift während der Bewegung da", today_animation, results)
 
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der
@@ -7328,6 +7433,39 @@ def run_checks(m, version, profile, results):
             bad.append(f"Mailliste ändert Breite {lr}")
         return not bad, f"{bad} {res}"
     check("Seitenleiste: Ein-/Ausblenden in Mail, Chat, Einstellungen und Adressbuch gleich flüssig, Knopf bleibt stehen, Mailliste behält ihre Breite, kein grauer Balken", sidebar_animation, results)
+
+    def sidebar_toolbar_no_jump():
+        # Seitenleiste mehrmals ein-/ausblenden (Mail rechts neben der Liste): die Knöpfe der Toolbar-Zeile gleiten in
+        # eine Richtung und springen nie zurück – beim Einblenden standen sie ein Bild lang am Endplatz (Flackern oben)
+        res = m.js(r"""
+          const before = Services.prefs.getIntPref("mail.pane_config.dynamic", 0);
+          w.resizeTo(1600, 950); await wait(500);
+          Services.prefs.setIntPref("mail.pane_config.dynamic", 2);
+          await toMail(); await wait(900);
+          const btn = d.getElementById("spacesPinnedButton");
+          const press = () => btn.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+          const first = () => { const li = [...d.querySelectorAll("#unifiedToolbarContent > li")].find(x => x.getBoundingClientRect().width && x.getAttribute("item-id") != "spacer"); return li ? li.getBoundingClientRect().left : 0; };
+          const out = [];
+          try {
+            for (let round = 1; round <= 4; round++) {
+              press(); const xs = []; const t0 = performance.now();
+              while (performance.now() - t0 < 450) { xs.push(Math.round(first())); await new Promise(r => w.requestAnimationFrame(r)); }
+              const dir = Math.sign(xs[xs.length - 1] - xs[0]);
+              const jumps = xs.slice(1).map((v, i) => v - xs[i]);
+              out.push({ from: xs[0], to: xs[xs.length - 1], back: jumps.filter(j => Math.sign(j) == -dir && Math.abs(j) > 1).length, steps: jumps.filter(j => j).length });
+              await wait(250);
+            }
+          } finally {
+            if (tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter?.isCollapsed) { press(); await wait(700); }
+            Services.prefs.setIntPref("mail.pane_config.dynamic", before); await wait(500);
+            w.resizeTo(1500, 900); await wait(400);
+          }
+          return out;""")
+        if all(r["steps"] <= 1 for r in res):
+            return True, f"Testfenster verdeckt – übersprungen {res}"
+        ok = len(res) == 4 and all(r["back"] == 0 and r["from"] != r["to"] for r in res)
+        return ok, f"{res}"
+    check("Seitenleiste: Toolbar-Knöpfe gleiten beim mehrmaligen Ein-/Ausblenden ohne Zurückspringen (kein Flackern oben)", sidebar_toolbar_no_jump, results)
 
 
     def motion():
@@ -8472,7 +8610,7 @@ Neu
           return out;''')
         h = res.get("hint", {})
         ok = (res["emptyAtStart"] and res["placeholderRows"] == 0 and res["emptyWithPlaceholder"] and res["rows"] == 1 and not res["emptyWithTask"]
-              and res["button"][0] == "999px" and h.get("readOnly") and h.get("fieldW") == 0 and bool(h.get("value")) and h["value"] in h.get("header", ""))
+              and res["button"][0] == "0px 999px 999px 0px" and h.get("readOnly") and h.get("fieldW") == 0 and bool(h.get("value")) and h["value"] in h.get("header", ""))
         return ok, f"{res}"
     check("Aufgaben: Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapseln", tasks_view, results)
 
@@ -8847,6 +8985,71 @@ Neu
               and res.get("viewMenu") == ["Card View", "Table View"] and res.get("filterMenu", 0) >= 5)
         return ok, f"{res}"
     check("Aufgaben: Filter und „…“ an derselben Stelle wie in der Mail, Aktionen oben in der Toolbar als Symbole ohne Text", task_header, results)
+
+    def task_pills_ring_reopen():
+        # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Aktionen als drei Kapseln (Erledigt | Kategorie ·
+        # Priorität | Löschen) mit Tooltips „Category“/„Priority“; Fortschritt als Ring am Kreis (50 %); erledigte Aufgabe
+        # per Klick auf den Kreis nach Rückfrage wieder offen (0 %)
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await pause(600);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const half = new CalTodo(); half.title = "Halo Halbe Aufgabe"; half.calendar = c; half.percentComplete = 50;
+          const done = new CalTodo(); done.title = "Halo Erledigte Aufgabe"; done.calendar = c; done.isCompleted = true;
+          const savedHalf = await c.addItem(half), savedDone = await c.addItem(done);
+          const R = e => { const r = e?.getBoundingClientRect(); return r && r.width ? { l: Math.round(r.left), r: Math.round(r.right) } : null; };
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await pause(1500);
+            w.taskViewUpdate("all"); await pause(800);
+            const field = d.getElementById("view-task-edit-field");
+            out.field = { visible: !!field && field.getBoundingClientRect().width > 0, box: Math.round(d.getElementById("task-addition-box").getBoundingClientRect().height) };
+            const tree = d.getElementById("calendar-task-tree"), list = d.getElementById("mcTaskCards");
+            const i = await till(() => { const k = tree.mTaskArray.findIndex(t => t.title == "Halo Halbe Aufgabe"); return k >= 0 ? k + 1 : 0; }, 5000) - 1;
+            tree.focus(); tree.view.selection.select(i); await pause(1200);
+            const ids = ["task-actions-markcompleted", "task-actions-category", "task-actions-priority", "calendar-delete-task-button"];
+            out.pills = ids.map(id => R(d.getElementById(id)));
+            out.tips = ["task-actions-category", "task-actions-priority"].map(id => d.getElementById(id)?.getAttribute("tooltiptext"));
+            // Priorität erst hoch, dann niedrig: im Menü nur „niedrig“ angehakt (Thunderbird ließ alte Häkchen stehen)
+            const prioPopup = d.getElementById("task-actions-priority-menupopup");
+            const checkedIn = popup => [...popup.children].filter(i => d.getElementById(i.getAttribute("command"))?.hasAttribute("checked")).map(i => i.getAttribute("command"));
+            for (const cmd of ["calendar_priority-1_command", "calendar_priority-9_command"]) {
+              w.goDoCommand(cmd); await pause(500);
+              prioPopup.dispatchEvent(new w.Event("popupshowing")); await pause(100);
+            }
+            out.prioChecked = checkedIn(prioPopup);
+            const halfCard = [...list.children].find(k => /Halo Halbe Aufgabe/.test(k.textContent));
+            const ring = halfCard?.querySelector(".mc-tc-check");
+            out.ring = ring ? { on: ring.hasAttribute("data-progress"), p: ring.style.getPropertyValue("--mc-tc-p"), bg: csOf(ring).backgroundImage.startsWith("conic-gradient") } : null;
+            // erledigte Aufgabe: Kreis anklicken → Rückfrage (ersetzt: Marionette schlösse den Dialog selbst) → bestätigen
+            const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+            const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+            Cu.evalInSandbox("globalThis.__mcRealConfirm = confirmReopen; globalThis.__mcAsked = []; confirmReopen = async (win, n) => { __mcAsked.push(n); return true; };", g);
+            const doneCard = [...list.children].find(k => /Halo Erledigte Aufgabe/.test(k.textContent));
+            const check = doneCard?.querySelector(".mc-tc-check"), cr = check?.getBoundingClientRect();
+            check?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
+            await pause(300);
+            out.dialog = Cu.evalInSandbox("JSON.stringify(__mcAsked)", g);
+            out.texts = Cu.evalInSandbox("JSON.stringify([tr('Reopen task?'), tr('Reopen')])", g);
+            Cu.evalInSandbox("confirmReopen = globalThis.__mcRealConfirm;", g);
+            await till(async () => !(await c.getItem(savedDone.id))?.isCompleted, 4000); await pause(300);
+            const after = await c.getItem(savedDone.id);
+            out.reopened = { completed: !!after?.isCompleted, pct: after?.percentComplete || 0 };
+          } finally {
+            w.taskViewUpdate("throughcurrent");
+            for (const it of [savedHalf, savedDone]) { try { await c.deleteItem(await c.getItem(it.id) || it); } catch {} }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""" % ADDON_ID)
+        p = res.get("pills") or []
+        pills = (len(p) == 4 and all(p) and p[0]["r"] + 4 <= p[1]["l"] and abs(p[1]["r"] - p[2]["l"]) <= 1 and p[2]["r"] + 4 <= p[3]["l"])
+        ring = res.get("ring") or {}
+        ok = (not (res.get("field") or {}).get("visible", True) and (res.get("field") or {}).get("box", 99) <= 1 and pills
+              and res.get("tips") == ["Category", "Priority"] and ring.get("on") and ring.get("p") == "50" and ring.get("bg")
+              and res.get("dialog") == "[1]" and res.get("texts") == '["Reopen task?","Reopen"]' and res.get("reopened") == {"completed": False, "pct": 0}
+              and len(res.get("prioChecked") or []) == 1)
+        return ok, f"{res}"
+    check("Aufgaben: ohne Schnelleingabe, Aktionen als drei Kapseln mit „Category“/„Priority“, Fortschritt als Ring, erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
 
     def tables_like_mail():
         # Tabellenansichten in Adressbuch und Aufgaben wie die Mail-Tabelle: gleiche Schrift, Zeilen- und Kopfhöhe,
@@ -10575,7 +10778,14 @@ Neu
               const wt = await until(() => tm.currentTabInfo.mode.name == "contentTab" && tm.currentTabInfo.browser?.currentURI?.spec.includes("127.0.0.1") && tm.currentTabInfo, 8000);
               await until(() => wt?.browser?.contentTitle == "Halo Webbereich" || wt?.title == "Halo Webbereich", 6000);
               out.web.tab = !!wt; out.web.group = wt?.browser?.getAttribute("messagemanagergroup"); out.web.current = chat.classList.contains("current");
-              out.web.today = shown(d.getElementById("today-pane-panel"));
+              // Webseite: kein Seitenleisten-Knopf, kein Suchfeld; Today-Knopf wie in der Mail
+              await wait(600);
+              const toggleL = () => Math.round(d.getElementById("mcTodayToggle")?.getBoundingClientRect().left || -1);
+              out.web.pinned = w.getComputedStyle(d.getElementById("spacesPinnedButton")).visibility;
+              out.web.search = shown(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]'));
+              out.web.toggle = toggleL();
+              await toMail(); await wait(500); out.web.mailToggle = toggleL();
+              chat.click(); await wait(800);
               await toMail(); chat.click(); await wait(800);
               out.web.reused = tm.tabInfo.filter(t => t.mode.name == "contentTab").length;
               for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
@@ -10612,11 +10822,12 @@ Neu
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
               and line_green(a.get("line")) and not line_green(a.get("lineMask"))
               and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("tab") and wb.get("group") == "single-site"
-              and wb.get("current") and not wb.get("today") and wb.get("reused") == 1
+              and wb.get("current") and wb.get("reused") == 1
+              and wb.get("pinned") == "hidden" and not wb.get("search") and wb.get("toggle", -1) > 0 and abs(wb.get("toggle", 0) - wb.get("mailToggle", 0)) <= 1
               and bk.get("chat") and bk.get("title") != "Halo Testbereich" and bk.get("heights") == before and not bk.get("extra")
               and res.get("validate") == [True, True, True, "https://kalender.example.com/"] and res.get("listed") == ["Halo Testbereich"])
         return ok, f"{res}"
-    check("Bereichsleiste: fünfter Bereich wahlweise keiner (übrige Knöpfe gleich groß), Bereich einer Erweiterung 1:1 oder feste Webseite auf dem Platz des Chats", fifth_space, results)
+    check("Bereichsleiste: fünfter Bereich wahlweise keiner (übrige Knöpfe gleich groß), Bereich einer Erweiterung 1:1 oder feste Webseite auf dem Platz des Chats (ohne Seitenleisten-Knopf und Suche, mit Today-Knopf)", fifth_space, results)
 
     def system_integration_check():
         # der Dialog sperrt per CSP alle Bilder außer chrome: – Haken muss trotzdem erscheinen

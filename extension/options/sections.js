@@ -63,6 +63,7 @@ var SECTIONS = t => [
       label: t("Symbol"), hint: t("Original: unchanged on a white surface.") },
   ]],
   [t("Appearance"), [
+    { key: "solidMenus", label: t("Solid menus"), hint: t("Without transparency.") },
     { key: "inlinePrompts", label: t("Dialogs inside the window"),
       hint: t("Questions appear as a sheet at the top."), info: t("Dialogs without title bar. For newly opened windows.") },
     { key: "earlyTheme", label: t("Design without flicker at start"),

@@ -9351,6 +9351,93 @@ Neu
         return ok, f"{res}"
     check("Suche: Scrollen während einer laufenden Suche flüssig (Suche wartet), danach alle Treffer, Scrollposition bleibt", search_scroll, results)
 
+    def settings_keyboard_scroll():
+        # Einstellungen wie ein Nutzer ohne Mausrad: Kategorie anklicken, dann eine freie Stelle der Seite – danach
+        # scrollen Bild-ab und Pfeiltasten den Inhalt, die Kategorie bleibt (GitHub #13: Fokus blieb in der
+        # Seitenleiste, Pfeiltasten wechselten die Kategorie)
+        def key(k):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": k}, {"type": "keyUp", "value": k}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def click(p):
+            m.pointer([{"type": "pointerMove", "x": p["x"], "y": p["y"]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+        out = {}
+        for pane in ("paneGeneral", "paneCompose"):
+            cat = m.js(r'''
+              w.resizeTo(1500, 700); w.openPreferencesTab("paneAppearance"); await wait(2500);
+              const br = tm.currentTabInfo.browser, cd = br.contentDocument, b = br.getBoundingClientRect();
+              const r = cd.querySelector('#categories > richlistitem[value="%s"]').getBoundingClientRect();
+              return { x: Math.round(b.left + r.left + r.width / 2), y: Math.round(b.top + r.top + r.height / 2) };''' % pane)
+            click(cat)
+            spot = m.js(r'''
+              await wait(1500);
+              const br = tm.currentTabInfo.browser, cd = br.contentDocument, b = br.getBoundingClientRect();
+              const sc = cd.getElementById("preferencesContainer"), r = sc.getBoundingClientRect();
+              // freie Stelle: rechts im Inhalt, oben im sichtbaren Teil
+              for (let x = r.right - 30; x > r.left + 200; x -= 40) {
+                const el = cd.elementFromPoint(x, r.top + 120);
+                if (el && !el.closest("button, input, checkbox, radio, menulist, label, a, richlistbox, select")) {
+                  return { x: Math.round(b.left + x), y: Math.round(b.top + r.top + 120), cat: cd.getElementById("categories").value,
+                           hit: el.localName, focusBefore: cd.activeElement?.id || cd.activeElement?.localName };
+                }
+              }
+              return null;''')
+            if not spot:
+                out[pane] = "keine freie Stelle"
+                continue
+            click(spot)
+            key("")  # Bild ab
+            key("")  # Pfeil ab
+            res = m.js(r'''
+              await wait(900);
+              const cd = tm.currentTabInfo.browser.contentDocument;
+              return { top: Math.round(cd.getElementById("preferencesContainer").scrollTop), cat: cd.getElementById("categories").value,
+                       focus: cd.activeElement?.id || cd.activeElement?.localName };''')
+            out[pane] = {**res, "catBefore": spot["cat"], "hit": spot["hit"], "focusBefore": spot["focusBefore"]}
+        m.js("tm.closeTab(tm.currentTabInfo); await wait(500); return 1;")
+        ok = all(isinstance(v, dict) and v["top"] > 0 and v["cat"] == v["catBefore"] for v in out.values())
+        return ok, f"{out}"
+    check("Einstellungen: nach Klick auf Kategorie und dann auf eine freie Stelle scrollen Bild-ab und Pfeiltasten die Seite, die Kategorie bleibt", settings_keyboard_scroll, results)
+
+    def account_keyboard_scroll():
+        # Kontoeinstellungen (eingebettet in den Einstellungen): nach Klick auf eine freie Stelle scrollt Bild-ab die Seite
+        def key(k):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": k}, {"type": "keyUp", "value": k}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        cat = m.js(r'''
+          w.resizeTo(1500, 700); w.openPreferencesTab("paneGeneral"); await wait(2500);
+          const br = tm.currentTabInfo.browser, cd = br.contentDocument, b = br.getBoundingClientRect();
+          const r = cd.querySelector('#categories > richlistitem[value="paneMcAccounts"]').getBoundingClientRect();
+          return { x: Math.round(b.left + r.left + r.width / 2), y: Math.round(b.top + r.top + r.height / 2) };''')
+        m.pointer([{"type": "pointerMove", "x": cat["x"], "y": cat["y"]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+        spot = m.js(r'''
+          await wait(3000); w.resizeTo(1500, 380); await wait(1500);
+          const br = tm.currentTabInfo.browser, cd = br.contentDocument, b = br.getBoundingClientRect();
+          const page = [...d.querySelectorAll(".mc-embed-page")].find(p => !p.hidden);
+          if (!page) return { pages: [...d.querySelectorAll(".mc-embed-page")].map(p => [p.hidden, p.currentURI?.spec]) };
+          const pb = page.getBoundingClientRect();
+          const frame = page.contentDocument?.getElementById("contentFrame"); if (!frame) return { noFrame: true };
+          const fr = frame.getBoundingClientRect(), fd = frame.contentDocument;
+          const x = fr.right - 40, y = fr.top + 60;
+          return { x: Math.round(pb.left + x), y: Math.round(pb.top + y), url: fd.documentURI,
+                   max: fd.scrollingElement.scrollHeight - fd.scrollingElement.clientHeight,
+                   hit: fd.elementFromPoint(x - fr.left, y - fr.top)?.localName };''')
+        if not spot or "x" not in spot:
+            return False, f"{spot}"
+        m.pointer([{"type": "pointerMove", "x": spot["x"], "y": spot["y"]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+        key("")
+        res = m.js(r'''
+          await wait(900);
+          const page = [...d.querySelectorAll(".mc-embed-page")].find(p => !p.hidden);
+          const fd = page.contentDocument.getElementById("contentFrame").contentDocument;
+          const top = Math.round(fd.scrollingElement.scrollTop);
+          tm.closeTab(tm.currentTabInfo); await wait(500);
+          return { top, focus: Services.focus.focusedElement?.localName + "#" + (Services.focus.focusedElement?.id || "") };''')
+        out = {**spot, **res}
+        return out["max"] > 0 and out["top"] > 0, f"{out}"
+    check("Kontoeinstellungen: nach Klick auf eine freie Stelle scrollt Bild-ab die Seite", account_keyboard_scroll, results)
+
     def settings_style():
         # Einstellungen: Inhalt linksbündig 28 px neben der Seitenleiste (max. 800 px), Kästchen/Optionsfelder im macOS-Stil,
         # Zahlenfeld ohne Systempfeile, Ansichtskacheln ohne Optionsfeld, Kontoeinstellungen als Karten

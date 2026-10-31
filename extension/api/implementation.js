@@ -1857,6 +1857,40 @@ function hookPrefCategories(cw, restorers = null) {
   });
 }
 
+// Einstellungen ohne Mausrad bedienbar: ein Klick auf eine freie Stelle der
+// Seite gibt dem scrollenden Inhalt den Fokus – danach scrollen Pfeiltasten
+// und Bild-ab die Seite. Sonst bliebe der Fokus in der Seitenleiste und die
+// Pfeiltasten wechselten die Kategorie (Thunderbird macht das ebenso; ohne
+// sichtbare Bildlaufleiste fehlt aber der Ausweg über die Leiste)
+function hookPrefKeyboardScroll(cw, restorers = null) {
+  const doc = cw.document;
+  const box = doc.getElementById("preferencesContainer");
+  if (!box || doc.__mcKeyScroll) {
+    return;
+  }
+  doc.__mcKeyScroll = true;
+  const hadTabIndex = box.hasAttribute("tabindex");
+  if (!hadTabIndex) {
+    box.setAttribute("tabindex", "-1");
+  }
+  const INTERACTIVE = "button, input, textarea, select, menulist, checkbox, radio, richlistbox, label, a, "
+    + "toolbarbutton, [tabindex]:not(#preferencesContainer), [contenteditable]";
+  const onDown = e => {
+    if (e.button != 0 || !box.contains(e.target) || e.target.closest?.(INTERACTIVE)) {
+      return;
+    }
+    box.focus({ preventScroll: true });
+  };
+  doc.addEventListener("mousedown", onDown);
+  restorers?.push(() => {
+    doc.removeEventListener("mousedown", onDown);
+    if (!hadTabIndex) {
+      box.removeAttribute("tabindex");
+    }
+    delete doc.__mcKeyScroll;
+  });
+}
+
 // Ansicht der Mailliste: nur zwei gültige Kombinationen aus Ansicht
 // (mail.threadpane.listview: 0 Karten, 1 Tabelle) und Layout
 // (mail.pane_config.dynamic: 0 klassisch, 1 breit, 2 vertikal). Karten gehen
@@ -9227,6 +9261,11 @@ class CardEnhancer {
             hookPrefCategories(cw, winRestorers);
           } catch (e) {
             log("pref categories error", e);
+          }
+          try {
+            hookPrefKeyboardScroll(cw, winRestorers);
+          } catch (e) {
+            log("pref keyboard scroll error", e);
           }
           try {
             hookShortcutsLink(cw, winRestorers);

@@ -3032,6 +3032,12 @@ splitter.splitter:has(+ .conv-bottom) {
   background: var(--mt-window) !important;
 }
 
+/* den Fokus bekommt der Inhalt per Klick für die Tastatur (Erweiterung) –
+   ohne Rahmen, wie eine Seite in den Systemeinstellungen */
+#preferencesContainer:focus {
+  outline: none !important;
+}
+
 /* Grundschrift 13 px wie Knöpfe und Auswahllisten (Thunderbird: 12,1 px) –
    sonst stehen in einer Zeile zwei Größen nebeneinander */
 #paneDeck {

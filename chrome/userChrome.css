@@ -1673,6 +1673,12 @@ findbar .findbar-textbox:focus {
   display: none !important;
 }
 
+/* … und ohne Betreff in der Titelleiste – er steht im Mailkopf direkt
+   darunter; der Streifen bleibt zum Verschieben und für die Fensterknöpfe */
+:root[windowtype="mail:messageWindow"] #titlebar-title-label {
+  visibility: hidden !important;
+}
+
 /* Mailkopf wie Apple Mail: Absender, Betreff, Empfänger; Datum oben rechts */
 #messageHeader {
   position: relative !important;

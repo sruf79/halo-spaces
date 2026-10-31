@@ -10663,8 +10663,8 @@ Neu
     def message_window_bar():
         # eigenes Nachrichtenfenster wie Apple Mail: Knöpfe einzeilig in eigener Zeile ganz oben, darunter Absender,
         # Ordner und Uhrzeit – auch im schmalen Fenster keine zweite Knopfzeile und keine Überlappung
-        res = m.js(r"""
-          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+        # Testmail notfalls selbst anlegen (mit --only fehlt sonst die Vorarbeit der Leseansicht)
+        res = m.js(MESSAGE_JS + r"""
           const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
           let hdr = null;
           for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
@@ -10676,6 +10676,10 @@ Neu
           const out = {};
           try {
             await wait(2000);
+            // Titelleiste ohne Betreff (steht im Mailkopf), der Streifen bleibt zum Verschieben
+            const tl = mw.document.getElementById("titlebar-title-label");
+            out.title = { value: tl?.value || "", vis: tl ? mw.getComputedStyle(tl).visibility : null,
+                          strip: Math.round(mw.document.getElementById("titlebar")?.getBoundingClientRect().height || 0) };
             for (const W of [900, 560]) {
               mw.resizeTo(W, 700); await wait(1000);
               const md = mw.document.getElementById("messageBrowser").contentDocument;
@@ -10690,6 +10694,10 @@ Neu
         if res.get("mail") is False:
             return False, "Testmail fehlt"
         bad = []
+        t = res.get("title") or {}
+        # ohne eigene Titelleiste (z. B. Linux mit Systemrahmen) gibt es kein Label – dann nichts zu prüfen
+        if t.get("vis") is not None and not (t.get("vis") == "hidden" and "Treffen" in t.get("value", "")):
+            bad.append(f"Titel: {t}")
         for W in ("900", "560"):
             v = res.get(W) or {}
             b, snd, mt = v.get("bar") or {}, v.get("sender") or {}, v.get("meta") or {}
@@ -10697,7 +10705,7 @@ Neu
                     and b.get("b", 999) <= snd.get("t", 0) and b.get("b", 999) <= mt.get("t", 0)):
                 bad.append(f"{W}: {v}")
         return not bad, "; ".join(bad) or f"{res}"
-    check("Nachrichtenfenster: Knöpfe einzeilig in eigener Zeile über Absender, Ordner und Uhrzeit (wie Apple Mail), auch schmal", message_window_bar, results)
+    check("Nachrichtenfenster: ohne Betreff in der Titelleiste; Knöpfe einzeilig in eigener Zeile über Absender, Ordner und Uhrzeit (wie Apple Mail), auch schmal", message_window_bar, results)
 
     def calendar_list_light():
         # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe

@@ -182,7 +182,7 @@ Changes take effect right away unless noted.
 
 - **Messages in their own window**: double-clicking a message opens it in a window, no more hidden tabs; a message tab closes with Esc
 - **PDF attachments** open in your system's PDF viewer
-- **Pages outside the spaces** (like Thunderbird's "What's New") close when you switch to a space instead of staying open out of sight
+- **Web pages in their own window**: sign-in pages and pages like Thunderbird's "What's New" open in a window instead of a hidden tab; other pages outside the spaces close when you switch to a space
 - **Spaces bar**: the active space is marked with a line in its colour next to the tile
 - **Keyboard scrolling in Settings**: click anywhere on the page, then the arrow keys and Page Down scroll it
 - **Uninstalling** removes all of halo.spaces' settings and restores Thunderbird's own defaults, so a later reinstall starts fresh

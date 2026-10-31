@@ -296,17 +296,21 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   selbst – dafür eine Prüfung einplanen (in Cloud-Sessions `send_later`):
   die erste etwa 1 Stunde nach der letzten Aktivität, danach alle
   4–6 Stunden. Jede Prüfung: neue Issues/PRs, Antworten in offenen Fäden,
-  Stand der bekannten Forks; Antworten gleich beantworten. Ohne Neues still
-  neu einplanen; nach 3 leeren Prüfungen in Folge aufhören und das dem
-  Maintainer einmal kurz sagen. Neue Aktivität setzt den Zähler zurück.
+  Stand der bekannten Forks; Antworten gleich beantworten. Zusätzliche
+  Prüfungen ohne Neues still neu einplanen; nach 3 leeren in Folge aufhören
+  und das dem Maintainer einmal kurz sagen (die feste Routine unten läuft
+  weiter). Neue Aktivität setzt den Zähler zurück.
   Der Maintainer erfährt im Gespräch nur, was neu ist oder seine
   Entscheidung braucht (Mergen, Code übernehmen, Design-Fragen).
-- **Dauerhafte Kommunikations-Sitzung:** Die regelmäßige Prüfung läuft in der
-  Cloud-Sitzung „halo.spaces: GitHub-Kommunikation (dauerhaft)“ (Repo als
-  Quelle, daher mit GitHub-Zugriff), geweckt von der Routine
-  „halo.spaces: GitHub-Kommunikation“ täglich 9:00, 14:00 und 19:00 Wiener
-  Zeit; sie hat auch die offenen PRs abonniert. Keine zweite Routine anlegen;
-  Routinen mit neuer Sitzung je Lauf haben keinen GitHub-Zugriff.
+- **Feste Routine:** Die regelmäßige Prüfung läuft auf neon als geplante
+  Aufgabe der Claude-Desktop-App „halo.spaces: GitHub-Kommunikation“
+  (`halo-github-kommunikation`), täglich 9:00, 14:00 und 19:00 Wiener Zeit,
+  ohne Ablauf; jeder Lauf ist eine neue Sitzung mit `gh` (inkl. `gh project`).
+  Den Stand zwischen den Läufen (letzte Prüfung, offene Fäden, Fork-Stände,
+  was auf eine Entscheidung des Maintainers wartet) hält
+  `~/halo-aufgaben/github-komm-stand.md` – lesen vor, aktualisieren nach
+  jeder Prüfung, auch bei Antworten aus anderen Sitzungen. Keine zweite
+  Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
 - **Ton und Inhalt:** Englisch, freundlich, knapp, ohne Fachjargon des
   Codes, wo es nicht nötig ist; Rückfragen konkret stellen. Nie auf die
   private Aufgabenliste verweisen, keine Interna (Testrechner, VM, Tokens)

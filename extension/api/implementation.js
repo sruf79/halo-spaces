@@ -3319,6 +3319,59 @@ const FifthSpace = {
     const m = Services.prefs.getStringPref(FIFTH_ICON_PREF, "mask");
     return FIFTH_ICONS.includes(m) ? m : "mask";
   },
+  // Hauptfarbe eines Logos für die Linie neben dem aktiven Bereich: nur bei
+  // einem kräftigen, mittelhellen Farbton, der fast alle farbigen Bildpunkte
+  // stellt; bunt, sehr hell, dunkel oder grau → null (dann Textfarbe)
+  async logoColor(w, cssUrl) {
+    const src = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(cssUrl || "")?.[1];
+    if (!src) {
+      return null;
+    }
+    try {
+      // feste Größe: SVG ohne width/height hätten sonst keine
+      const img = new w.Image(32, 32);
+      img.src = src;
+      await img.decode();
+      const c = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+      c.width = c.height = 32;
+      const g = c.getContext("2d", { willReadFrequently: true });
+      g.drawImage(img, 0, 0, 32, 32);
+      const px = g.getImageData(0, 0, 32, 32).data;
+      const hues = [];
+      let r = 0, gr = 0, b = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] < 128) {
+          continue;
+        }
+        const [R, G, B] = [px[i] / 255, px[i + 1] / 255, px[i + 2] / 255];
+        const max = Math.max(R, G, B), min = Math.min(R, G, B), l = (max + min) / 2;
+        const sat = max == min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+        if (sat < 0.35 || l < 0.18 || l > 0.82) {
+          continue; // Weiß, Schwarz, Grau, Kanten
+        }
+        const h = max == R ? ((G - B) / (max - min) + 6) % 6 : max == G ? (B - R) / (max - min) + 2 : (R - G) / (max - min) + 4;
+        hues.push(h * 60);
+        r += px[i];
+        gr += px[i + 1];
+        b += px[i + 2];
+      }
+      if (hues.length < 20) {
+        return null; // kaum Farbe
+      }
+      // ein Farbton: fast alle farbigen Punkte innerhalb von ±25° um den Mittelwert
+      const rad = hues.map(h => h * Math.PI / 180);
+      const mean = Math.atan2(rad.reduce((a, x) => a + Math.sin(x), 0), rad.reduce((a, x) => a + Math.cos(x), 0)) * 180 / Math.PI;
+      const near = hues.filter(h => Math.abs(((h - mean + 540) % 360) - 180) <= 25).length;
+      if (near / hues.length < 0.85) {
+        return null; // bunt
+      }
+      const n = hues.length;
+      return `rgb(${Math.round(r / n)}, ${Math.round(gr / n)}, ${Math.round(b / n)})`;
+    } catch (e) {
+      log("fifth logo color error", e);
+      return null;
+    }
+  },
   // nur http(s); ohne Schema wird https:// vorangestellt
   normalizeURL(text) {
     let t = String(text || "").trim();
@@ -3420,6 +3473,7 @@ const FifthSpace = {
       for (const e of [chat, item()].filter(Boolean)) {
         e.style.removeProperty("--mc-fifth-img");
         e.style.removeProperty("--mc-fifth-img-dark");
+        e.style.removeProperty("--mc-fifth-line");
         e.removeAttribute("mc-fifth-icon");
       }
     };
@@ -3459,6 +3513,14 @@ const FifthSpace = {
         chat.title = target.title;
         if (mi) {
           mi.label = target.title;
+        }
+        if (img && this.icon() == "original") {
+          const want = target;
+          this.logoColor(w, img).then(color => {
+            if (color && target == want) {
+              chat.style.setProperty("--mc-fifth-line", color);
+            }
+          });
         }
       } else {
         // Thunderbirds eigene Beschriftung zurück

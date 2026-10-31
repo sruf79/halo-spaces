@@ -10239,6 +10239,26 @@ Neu
         return ok, f"{res}"
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
+    def spaces_current_line():
+        # aktiver Bereich: senkrechte Linie (3 px, eckig) direkt an der rechten Kachelkante, oben und unten um den
+        # Kachelradius eingerückt, in der Farbe des Symbols; kein Chevron mehr, Kachel unverändert 48 px breit
+        res = m.js(r"""
+          const out = {};
+          for (const [name, go] of [["mail", toMail], ["calendar", toCalendar]]) {
+            await go(); await wait(600);
+            const b = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button.current")].find(e => e.getBoundingClientRect().width);
+            const cs = w.getComputedStyle(b, "::after"), r = b.getBoundingClientRect();
+            out[name] = { width: cs.width, mask: cs.maskImage, radius: w.getComputedStyle(b).borderTopLeftRadius,
+                          top: cs.top, bottom: cs.bottom, end: cs.insetInlineEnd, line: cs.backgroundColor, icon: w.getComputedStyle(b).color,
+                          tile: Math.round(r.width) };
+          }
+          await toMail();
+          return out;""")
+        ok = all(v["width"] == "3px" and v["mask"] == "none" and v["top"] == v["radius"] == v["bottom"] and v["end"] == "-3px"
+                 and v["line"] == v["icon"] and v["tile"] == 48 for v in res.values())
+        return ok, f"{res}"
+    check("Bereichsleiste: aktiver Bereich mit Linie in seiner Farbe rechts an der Kachel statt Chevron", spaces_current_line, results)
+
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),
         # Bereich einer Erweiterung (Chat-Platz, Chat-Farbe, Symbol der Erweiterung, eigener Knopf weg, Inhalt 1:1
@@ -10299,6 +10319,12 @@ Neu
                 out.addon.tab = !!tab; out.addon.url = !!tab?.browser?.currentURI?.spec.endsWith("/page.html"); out.addon.pageTitle = tab?.browser?.contentTitle;
                 out.addon.current = chat.classList.contains("current");
                 out.addon.today = shown(d.getElementById("today-pane-panel"));
+                // Linie neben dem aktiven Ersatz-Bereich: mit Originalsymbol in der Hauptfarbe des Logos (grüner Kreis)
+                Services.prefs.setStringPref("extensions.mailcards.fifthSpaceIcon", "original"); await wait(400);
+                await until(() => chat.style.getPropertyValue("--mc-fifth-line"), 4000);
+                out.addon.line = w.getComputedStyle(chat, "::after").backgroundColor;
+                Services.prefs.clearUserPref("extensions.mailcards.fifthSpaceIcon"); await wait(400);
+                out.addon.lineMask = w.getComputedStyle(chat, "::after").backgroundColor;
                 await toMail(); await wait(300);
                 out.addon.afterMail = { current: chat.classList.contains("current"), today: shown(d.getElementById("today-pane-panel")) };
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
@@ -10335,6 +10361,10 @@ Neu
             m.cmd("WebDriver:SetTimeouts", {"script": 30000})
             web.shutdown()
             web.server_close()
+        def line_green(c):
+            # #2a7 = rgb(34, 170, 119), Kanten der Rundung leicht verwaschen
+            v = [int(x) for x in re.findall(r"\d+", c or "")[:3]]
+            return len(v) == 3 and abs(v[0] - 34) <= 12 and abs(v[1] - 170) <= 12 and abs(v[2] - 119) <= 12
         n, a, wb, bk = res.get("none") or {}, res.get("addon") or {}, res.get("web") or {}, res.get("back") or {}
         before = res.get("before") or []
         ok = (len(before) == 5 and not n.get("chat") and len(n.get("heights", [])) == 4 and max(n["heights"]) - min(n["heights"]) <= 1
@@ -10342,6 +10372,7 @@ Neu
               and a.get("space") and a.get("chat") and a.get("title") == "Halo Testbereich" and not a.get("ownShown") and a.get("mask")
               and a.get("heights") == before and a.get("tab") and a.get("url") and a.get("pageTitle") == "Testbereich"
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
+              and line_green(a.get("line")) and not line_green(a.get("lineMask"))
               and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("tab") and wb.get("group") == "single-site"
               and wb.get("current") and not wb.get("today") and wb.get("reused") == 1
               and bk.get("chat") and bk.get("title") != "Halo Testbereich" and bk.get("heights") == before and not bk.get("extra")

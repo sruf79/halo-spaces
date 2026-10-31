@@ -2211,7 +2211,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 
 /* Bereiche in dezenten Farben wie Post-it-Haftmarker: jedes Segment leicht
    getönt, Symbol in der Bereichsfarbe; der aktuelle Bereich kräftiger und mit
-   einem Chevron rechts daneben */
+   einer Linie in seiner Farbe rechts daneben */
 #spacesToolbar .spaces-toolbar-button {
   --c: #8E8E93;
   position: relative !important;
@@ -2329,19 +2329,26 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   color: var(--c) !important;
 }
 
+/* aktiver Bereich: senkrechte Linie in seiner Farbe direkt an der rechten
+   Kachelkante, 3 px, eckig, nur so lang wie der gerade Teil der Kante (oben
+   und unten um den Kachelradius eingerückt) */
 #spacesToolbar .spaces-toolbar-button.current::after {
   content: "" !important;
   position: absolute !important;
-  inset-inline-end: -13px !important;
-  top: calc(50% - 9px) !important;
-  width: 18px !important;
-  height: 18px !important;
+  inset-inline-end: -3px !important;
+  top: 12px !important;
+  bottom: 12px !important;
+  width: 3px !important;
   background-color: var(--c) !important;
-  /* Chevron gleich nach rechts gezeichnet statt --mi-chevron gedreht: Maske
-     plus Drehung ließ bei Bruchteil-Zoom (Windows 125/150 %) oben einen
-     hellen Strich der gefüllten Fläche durchscheinen */
-  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m9.5 6.5 5.5 5.5-5.5 5.5%22/%3E%3C/svg%3E") center / contain no-repeat !important;
   pointer-events: none !important;
+}
+
+/* Ersatz-Bereich mit Originalsymbol auf heller Fläche: Linie in der
+   Hauptfarbe des Logos (misst die Erweiterung), bei buntem, sehr hellem,
+   dunklem oder grauem Logo in der Textfarbe – nicht Grau (gehört den
+   Einstellungen) und nicht Lila neben einem fremden Logo */
+:root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current::after {
+  background-color: var(--mc-fifth-line, var(--mt-text)) !important;
 }
 
 /* „Leiste ausblenden“ sitzt nicht in der Leiste, sondern als eigener Knopf

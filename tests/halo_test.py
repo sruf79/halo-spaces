@@ -6872,9 +6872,9 @@ def run_checks(m, version, profile, results):
 
     def today_top_flush():
         # Fläche oben in der Toolbar-Zeile genau so breit wie die Today-Pane darunter, linke und rechte Kante bündig
-        # (unter Windows war sie 15–20 px zu breit, GitHub #9)
+        # (unter Windows war sie 15–20 px zu breit, GitHub #9, danach noch 1 px links, GitHub #17) – auf ein Zehntel genau
         res = m.js('''
-          const R = e => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right) }; };
+          const R = e => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left * 10) / 10, r: Math.round(r.right * 10) / 10 }; };
           const cmd = d.getElementById("calendar_toggle_todaypane_command");
           const out = {};
           for (const [name, go] of [["mail", toMail], ["tasks", async () => { tm.openTab("tasks", {}); }]]) {
@@ -6887,7 +6887,7 @@ def run_checks(m, version, profile, results):
           }
           await toMail();
           return out;''')
-        ok = all(abs(v["top"]["l"] - v["pane"]["l"]) <= 1 and abs(v["top"]["r"] - v["pane"]["r"]) <= 1 for v in res.values())
+        ok = all(abs(v["top"]["l"] - v["pane"]["l"]) <= 0.5 and abs(v["top"]["r"] - v["pane"]["r"]) <= 0.5 for v in res.values())
         return ok, f"{res}"
     check("Today-Pane: Fläche oben in der Toolbar-Zeile bündig mit der Pane darunter (linke und rechte Kante)", today_top_flush, results)
 

@@ -10842,8 +10842,10 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   justify-content: center;
   padding-inline: min(62px, var(--mc-tp-w, 0px));
   /* rechts Platz für „+“ und davor ≡/Fensterknöpfe von Windows/Linux –
-     der Titel rückt nie darunter */
-  padding-inline-end: calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)));
+     der Titel rückt nie darunter; zusammen nie mehr als die Breite, sonst
+     wüchse die Fläche trotz border-box über die Today-Pane hinaus */
+  padding-inline-end: min(calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
+                          max(0px, calc(var(--mc-tp-w, 0px) - min(62px, var(--mc-tp-w, 0px)))));
   overflow: hidden;
 }
 

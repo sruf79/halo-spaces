@@ -5895,6 +5895,10 @@ def run_checks(m, version, profile, results):
             for (const n of P.getChildList(B)) P.clearUserPref(n);
             for (const [n, v] of Object.entries(saved)) write(n, v);
             storeState(state);
+            // Thunderbird die Kartenhöhe neu berechnen lassen (das Löschen und Zurückschreiben aller Werte im laufenden
+            // Betrieb ließ sie sonst bei der Höhe für drei Zeilen; bei einer echten Deinstallation läuft halo.spaces nicht mehr)
+            const rows = P.getIntPref(TB[0], 3);
+            P.setIntPref(TB[0], rows == 3 ? 2 : 3); await wait(300); write(TB[0], saved[TB[0]]); await wait(300);
           }
           return out;''' % ADDON_ID)
         ok = (res["before"] > 0 and res["left"] == [] and res["tb"] == [None, None, 1] and "mail" in res["reverted"]
@@ -6006,7 +6010,7 @@ def run_checks(m, version, profile, results):
         want = ((res["os"] or 13) + 5) / (res["os"] or 13)
         ok = (len(keys) >= 3 and all(abs(g[k] / b[k] - want) < 0.08 for k in keys) and all(abs(a[k] - b[k]) < 0.01 for k in keys)
               and cb and cg and ca and cg["inside"] and cb["inside"] and abs(cg["h"] / cb["h"] - want) < 0.12 and ca["h"] == cb["h"])
-        return ok, f"Faktor {want:.2f} {res}"
+        return ok, f"Faktor {want:.2f} {res} Karten {cb} {cg} {ca}"
     check("Schrift: Thunderbirds Schriftgröße vergrößert Mailliste (Karten samt Höhe), Ordnerliste und Titel mit, Standard wie vorher", ui_font_size, results)
 
     def card_sender_date():

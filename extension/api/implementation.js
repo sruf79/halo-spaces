@@ -1891,33 +1891,65 @@ function hookPrefKeyboardScroll(cw, restorers = null) {
   });
 }
 
-// Wie Apple Mail ohne Tabs: ein Inhalts-Tab, der zu keinem Bereich gehört
-// (Seite von Thunderbird oder einem Add-on, z. B. „Neuigkeiten“), wird
-// beim Wechsel in einen Bereich geschlossen – mit ausgeblendeter Tab-Leiste
-// bliebe er sonst unsichtbar offen. Anmeldung und Konto einrichten bleiben,
-// damit ein kurzer Blick in die Mail sie nicht abbricht
+// Wie Apple Mail ohne Tabs: Inhalte, die Thunderbird als Tab ohne Bereich
+// öffnet, wären bei ausgeblendeter Tab-Leiste nach dem nächsten Wechsel
+// unsichtbar. Darum
+// - Webseiten (http/https: Anmeldeseiten, „Neuigkeiten“, Hinweise) in einem
+//   eigenen, schlichten Fenster statt im Tab,
+// - übrige Inhalts-Tabs ohne Bereich (z. B. about:-Seiten) beim Wechsel in
+//   einen Bereich schließen; Konto einrichten bleibt, damit ein kurzer Blick
+//   in die Mail es nicht abbricht.
+// Tabs, die Add-ons gezielt öffnen (tabs.create), bleiben unberührt – deren
+// Abläufe warten auf genau diesen Tab
 function hookLooseTabs(w, restorers = null) {
   const tm = w.document.getElementById("tabmail");
   if (!tm?.registerTabMonitor || !w.gSpacesToolbar || w.__mcLooseTabs) {
     return;
   }
   w.__mcLooseTabs = true;
-  const LOGIN = /^about:accountsetup|[/.](login|signin|sign-in|oauth|auth|accounts?)[/.?]/i;
+  const original = tm.openTab;
+  tm.openTab = function(mode, params, ...rest) {
+    const tab = original.call(this, mode, params, ...rest);
+    if (tab && mode == "contentTab" && params?.duplicate) {
+      tab.__mcByAddon = true; // (nur tabs.create setzt duplicate)
+    }
+    return tab;
+  };
+  const KEEP = /^about:accountsetup/;
+  const spec = tab => tab.browser?.currentURI?.spec || "";
   // nur Inhalts-Tabs: Termin im Tab, Suchergebnisse usw. könnten
   // ungespeicherte Eingaben bzw. eine laufende Suche halten
-  const loose = tab => tab?.mode?.name == "contentTab" && !tab.__mcFifth && tm.tabInfo.includes(tab)
+  const loose = tab => tab?.mode?.name == "contentTab" && !tab.__mcFifth && !tab.__mcByAddon && tm.tabInfo.includes(tab)
     && !w.gSpacesToolbar.spaces.some(space => space.tabInSpace(tab))
-    && !FifthSpace.isTarget(w, FifthSpace.target(w), tab)
-    && !LOGIN.test(tab.browser?.currentURI?.spec || "");
+    && !FifthSpace.isTarget(w, FifthSpace.target(w), tab);
+  // Webseite ins eigene Fenster (lädt dort neu) und den Tab schließen; die
+  // Adresse steht bei window.open erst nach einem Moment fest
+  const toWindow = (tab, tries = 0) => {
+    if (!loose(tab)) {
+      return;
+    }
+    const url = spec(tab);
+    if (!/^https?:/i.test(url)) {
+      if (tries < 25 && /^about:blank$|^$/.test(url)) {
+        w.setTimeout(() => toWindow(tab, tries + 1), 200);
+      }
+      return;
+    }
+    w.openDialog("chrome://messenger/content/extensionPopup.xhtml", "_blank",
+      "chrome,dialog=no,resizable,minimizable,centerscreen,width=760,height=780", url);
+    tm.closeTab(tab);
+  };
   const monitor = {
     monitorName: "mcLooseTabs",
     onTabTitleChanged() {},
-    onTabOpened() {},
+    onTabOpened(tab) {
+      w.setTimeout(() => toWindow(tab), 0);
+    },
     onTabPersist() {},
     onTabRestored() {},
     onTabClosing() {},
     onTabSwitched(newTab, oldTab) {
-      if (!loose(oldTab) || loose(newTab)) {
+      if (!loose(oldTab) || loose(newTab) || KEEP.test(spec(oldTab))) {
         return;
       }
       // (nach dem Wechsel schließen, nicht mitten darin)
@@ -1931,6 +1963,12 @@ function hookLooseTabs(w, restorers = null) {
   tm.registerTabMonitor(monitor);
   restorers?.push(() => {
     tm.unregisterTabMonitor(monitor);
+    if (tm.openTab != original) {
+      delete tm.openTab; // (eigene Eigenschaft – die des Elements gilt wieder)
+      if (tm.openTab != original) {
+        tm.openTab = original;
+      }
+    }
     delete w.__mcLooseTabs;
   });
 }

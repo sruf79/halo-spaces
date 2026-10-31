@@ -1581,29 +1581,36 @@ def reading_checks(m, results):
     check("PDF-Anhänge im Standardprogramm des Systems statt in einem Tab", pdf_system_viewer, results)
 
     def loose_tabs():
-        # Inhalts-Tab ohne Bereich (z. B. „Neuigkeiten“) schließt beim Wechsel in einen Bereich, statt unsichtbar
-        # offen zu bleiben; Anmeldeseiten bleiben, Einstellungen-Unterseiten (Add-ons) gehören zu ihrem Bereich
+        # Webseiten, die Thunderbird als Tab ohne Bereich öffnet (Anmeldung, „Neuigkeiten“), kommen in ein eigenes
+        # Fenster; übrige Inhalts-Tabs ohne Bereich schließen beim Wechsel in einen Bereich, statt unsichtbar offen zu
+        # bleiben; Einstellungen-Unterseiten (Add-ons) und Tabs von Add-ons (tabs.create) bleiben Tabs
         res = m.js(r"""
           await toMail();
-          const open = async url => { const t = tm.openTab("contentTab", { url, background: false }); await wait(1500); return t; };
+          const open = async (url, extra = {}) => { const t = tm.openTab("contentTab", { url, background: false, ...extra }); await wait(1500); return t; };
           const alive = t => tm.tabInfo.includes(t);
+          const popups = () => [...Services.wm.getEnumerator("mail:extensionPopup")];
           const out = {};
+          const web = await open("http://127.0.0.1:9/login/start");
+          const pop = await until(() => popups()[0], 6000);
+          out.webTab = alive(web); out.window = !!pop;
+          out.windowUrl = pop?.document.getElementById("requestFrame")?.currentURI?.spec;
+          for (const p of popups()) p.close();
           const page = await open("about:license");
           await toCalendar(); await wait(600);
           out.closed = !alive(page);
-          const login = await open("http://127.0.0.1:9/login/start");
-          await toMail(); await wait(600);
-          out.loginKept = alive(login);
-          if (alive(login)) tm.closeTab(login);
           const addons = await open("about:addons");
           await toMail(); await wait(600);
           out.addonsKept = alive(addons);
+          const byAddon = await open("http://127.0.0.1:9/addon", { duplicate: true });
+          out.addonTabKept = alive(byAddon) && !popups().length;
+          for (const p of popups()) p.close();
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           await toMail();
           return out;""")
-        ok = res["closed"] and res["loginKept"] and res["addonsKept"]
+        ok = (not res["webTab"] and res["window"] and res["windowUrl"] == "http://127.0.0.1:9/login/start"
+              and res["closed"] and res["addonsKept"] and res["addonTabKept"])
         return ok, f"{res}"
-    check("Tabs: Inhalts-Tab ohne Bereich schließt beim Wechsel in einen Bereich (Anmeldung und Einstellungen bleiben)", loose_tabs, results)
+    check("Tabs: Webseiten ohne Bereich (Anmeldung) im eigenen Fenster, andere Seiten schließen beim Bereichswechsel, Tabs von Add-ons bleiben", loose_tabs, results)
 
     def list_date():
         # Uhrzeit in Liste und Kopf im selben Format (Regionaleinstellungen des Systems)

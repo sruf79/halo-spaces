@@ -4144,6 +4144,50 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Trenner höchstens als Haarlinie, „Time as: Busy“ mit Abstand ohne Prägeschatten, Beschreibung lesbar (dunkel ≥ 4,5:1), Kategorie-Farbpunkte mit Ring", event_dialog_lines, results)
 
+    def summary_height_grows():
+        # Terminübersicht: war das Fenster beim ersten Öffnen zu niedrig gemessen (Schrift/Zeilenumbruch noch nicht fertig),
+        # zieht halo.spaces die Höhe nach dem Zeichnen nach – „Edit“ behält Abstand zum unteren Rand; Breite und Lage bleiben
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Wiederholung"; e.calendar = c;
+          const s = cal.dtz.now(); s.hour = 9; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.recurrenceInfo = new CalRecurrenceInfo(e);
+          e.recurrenceInfo.appendRecurrenceItem(cal.createRecurrenceRule("RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20271231T000000Z"));
+                    const out = {};
+          const saved = await c.addItem(e);
+          let dw = null;
+          try {
+            await toCalendar(); w.openEventDialogForViewing(saved);
+            dw = await winUrl("calendar-summary-dialog"); if (!dw) return { dialog: false };
+            await till(() => dw.document.readyState == "complete" && dw.outerHeight > 100, 6000);
+            const edit = () => dw.document.querySelector('button[dlgtype="extra1"], #calendar-summary-dialog-edit-button, button.edit-button') || [...dw.document.querySelectorAll("button")].find(b => /Edit/.test(b.label || b.textContent));
+            const gap = () => { const b = edit(); return b ? Math.round(dw.innerHeight - b.getBoundingClientRect().bottom) : null; };
+            // erst wenn Größe und Lage ruhig sind (verdeckte Testfenster zeichnen später)
+            let last = "", calm = 0;
+            for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight, dw.screenX, dw.screenY, gap()].join(); calm = st == last ? calm + 1 : 0; last = st; }
+            out.normal = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            await till(() => dw.document.readyState == "complete", 6000);
+            // Inhalt wird nach dem Laden höher (wie eine erst später umbrochene Zeile)
+            const cell = dw.document.querySelector(".repeat-details, .reminder-details, .item-title");
+            for (let i = 0; i < 2; i++) { cell.append(dw.document.createElementNS("http://www.w3.org/1999/xhtml", "br"), "Halo Zusatzzeile"); }
+            await pause(30);
+            out.squeezed = { h: dw.outerHeight, gap: gap() };
+            await pause(900);
+            out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        if res.get("dialog") is False or res.get("dialog2") is False:
+            return False, f"Übersicht nicht offen: {res}"
+        n, a = res.get("normal", {}), res.get("after", {})
+        ok = (n.get("gap") is not None and n["gap"] >= 4 and a.get("gap") is not None and abs(a["gap"] - n["gap"]) <= 2
+              and a["h"] >= n["h"] + 20 and a["w"] == n["w"] and a["x"] == n["x"] and a["y"] == n["y"])
+        return ok, f"{res}"
+    check("Terminübersicht: zu niedrig gemessenes Fenster wächst nach dem Zeichnen nach, „Edit“ behält Abstand zum Rand", summary_height_grows, results)
+
     def summary_description():
         # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel
         # lesbar und in der Systemschrift – früher schwarz auf grau (Meldung unter Windows mit dunklem Theme)

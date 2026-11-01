@@ -15390,8 +15390,41 @@ class CardEnhancer {
         dlg.resizeTo(Math.min(maxW, dlg.outerWidth), Math.min(maxH, dlg.outerHeight));
       }
       dlg.moveTo(Math.round(cx - dlg.outerWidth / 2), Math.round(cy - dlg.outerHeight / 2));
-      // danach nicht mehr nachführen: die Beschreibung lädt später, rollt aber in
-      // ihrem eigenen Feld – ein Nachführen ließ das schon sichtbare Fenster springen
+      // die Beschreibung lädt später, rollt aber in ihrem eigenen Feld – nicht
+      // nachführen. Nur wenn das Fenster zu niedrig gemessen wurde (beim ersten
+      // Öffnen sind Schrift oder umbrochene Zeilen manchmal noch nicht fertig,
+      // „Edit“ stand dann fast am Rand), die Höhe nach dem Zeichnen nachziehen –
+      // nie kleiner, Breite und Lage bleiben, sonst springt nichts
+      const grow = () => {
+        try {
+          if (dlg.closed) {
+            return;
+          }
+          const w0 = dlg.outerWidth, h0 = dlg.outerHeight;
+          dlg.sizeToContent();
+          const h = Math.min(maxH, Math.max(h0, dlg.outerHeight));
+          if (dlg.outerWidth != w0 || dlg.outerHeight != h) {
+            dlg.resizeTo(w0, h);
+          }
+        } catch {}
+      };
+      let queued = false;
+      const later = () => {
+        if (!queued) {
+          queued = true;
+          dlg.requestAnimationFrame(() => {
+            queued = false;
+            grow();
+          });
+        }
+      };
+      later();
+      doc.fonts?.ready.then(later);
+      dlg.setTimeout(later, 300);
+      // Text, der in den ersten Sekunden noch nachkommt (Wiederholung, Ort …)
+      const mo = new dlg.MutationObserver(later);
+      mo.observe(doc.documentElement, { subtree: true, childList: true, characterData: true });
+      dlg.setTimeout(() => mo.disconnect(), 3000);
     } catch (e) {
       log("summary size error", String(e).slice(0, 120));
     }

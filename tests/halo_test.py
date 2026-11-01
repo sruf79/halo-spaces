@@ -3518,27 +3518,44 @@ MENU_JS = MESSAGE_JS + r"""
 def menu_checks(m, results):
     """Menüs: gleichmäßige Zeilen im Kontextmenü der Mailliste, lesbare Schlagwörter im Schlagwort-Menü."""
 
-    def nav_rows():
-        # Archivieren/Spam/Löschen baut halo.spaces aus Thunderbirds Symbolzeile zu Textzeilen um – sie waren 2 px niedriger
+    def context_flat():
+        # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit
+        # „Remove Star“, nur Gelesen oder Ungelesen, keine Schlagwörter/Speichern/Drucken; Zeilen gleich hoch; Stern per Menü.
+        # (Ohne Konto sind Antworten und Archivieren hier ausgeblendet – die Reihenfolge prüft die Anordnung im Menü.)
         res = m.js(MENU_JS + r"""
           const item = id => ad.getElementById(id);
-          const NAV = ["navContext-archive", "navContext-markAsJunk", "navContext-delete"], REST = ["mailContext-editAsNew", "mailContext-moveMenu", "mailContext-tags", "mailContext-saveAs"];
-          const out = { list: !!item("mailContext-navigation")?.classList.contains("mc-nav-list") };
-          out.state = await openContext();
+          const shown = el => el.getClientRects().length && el.getBoundingClientRect().height > 0;
+          const rows = () => { const out = []; for (const el of P.children) { if (!shown(el)) continue;
+            out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); } return out; };
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage; if (hdr.isFlagged) { hdr.folder.markMessagesFlagged([hdr], false); await wait(300); }
+          if (!hdr.isRead) { hdr.folder.markMessagesRead([hdr], true); await wait(300); }
+          const out = { state: await openContext() };
           try {
-            // berechnete Abstände gibt es erst bei offenem Menü
-            out.pad = Object.fromEntries([...NAV, ...REST].map(id => [id, item(id) ? cs(item(id)).paddingTop : "fehlt"]));
-            const h = id => { const e = item(id); return e && e.getClientRects().length ? Math.round(e.getBoundingClientRect().height * 10) / 10 : null; };
-            out.nav = NAV.map(h).filter(x => x); out.rest = REST.map(h).filter(x => x);
+            out.rows = rows();
+            out.order = [...P.children].filter(e => e.localName != "menuseparator" && !e.hasAttribute("mc-ctx-off")).map(e => e.id).filter(id => /^(mcContext|mailContext-(editAsNew|reply|forward|redirect|mark|ignore|watch|archive|moveMenu|copyMenu|calendar-convert-menu)|navContext-delete|mcRemindMenu)/.test(id));
+            const hs = [...P.children].filter(e => e.localName != "menuseparator" && shown(e)).map(e => Math.round(e.getBoundingClientRect().height * 10) / 10);
+            out.heights = [Math.min(...hs), Math.max(...hs)];
+            out.sub = [...P.children].filter(e => e.localName == "menu" && shown(e)).map(e => e.getAttribute("label") || e.id);
+            item("mailContext-markFlagged").click();
           } finally { P.hidePopup(); await wait(400); }
+          out.flagged = hdr.isFlagged;
+          await openContext(); out.starLabel = item("mailContext-markFlagged").getAttribute("label"); P.hidePopup(); await wait(400);
+          hdr.folder.markMessagesFlagged([hdr], false); await wait(300);
           return out;""")
-        pads = set((res.get("pad") or {"-": ""}).values())
-        hs = res.get("nav", []) + res.get("rest", [])
-        # Fenster verdeckt (Höhe 0): nur das Padding werten
-        heights_ok = (not any(hs)) or (len(res["nav"]) >= 2 and len(res["rest"]) >= 3 and max(hs) - min(hs) < 0.5)
-        ok = res["list"] and len(pads) == 1 and pads.pop().endswith("px") and heights_ok
+        rows = [r for r in res.get("rows", []) if r != "|"]
+        order = ["mcContextOpen", "mailContext-editAsNew", "mailContext-replySender", "mailContext-replyAll", "mailContext-replyList",
+                 "mailContext-replyNewsgroup", "mailContext-forward", "mailContext-forwardAsAttachment", "mailContext-redirect", "mcRemindMenu",
+                 "mailContext-markRead", "mailContext-markUnread", "mailContext-markFlagged", "mailContext-markAsJunk", "mailContext-markAsNotJunk",
+                 "mailContext-ignoreThread", "mailContext-ignoreSubthread", "mailContext-watchThread", "navContext-delete",
+                 "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", "mailContext-calendar-convert-menu", "mcContextRunFilters"]
+        hs = res.get("heights", [0, 0])
+        rem = res.get("rows", []).index("Remind Me") if "Remind Me" in res.get("rows", []) else -1
+        ok = (res.get("order") == order and rows[:1] == ["Open"] and rem > 0 and res["rows"][rem - 1] == "|" and res["rows"][rem + 1] == "|" and "Mark as Unread" in rows and "Mark as Read" not in rows
+              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-1:] == ["Run Filters"]
+              and "Ignore Subthread" not in rows and res.get("sub") == ["Remind Me", "Move To", "Copy To", "Convert To"]
+              and res.get("flagged") is True and res.get("starLabel") == "Remove Star" and (hs[0] == 0 or hs[1] - hs[0] < 0.5))
         return ok, f"{res}"
-    check("Kontextmenü Mailliste: Archivieren/Spam/Löschen so hoch wie die übrigen Zeilen", nav_rows, results)
+    check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“", context_flat, results)
 
     def tag_menu():
         # Schlagwort-Menü: Thunderbird färbt die Namen in der Grundfarbe (Orange auf Hellgrau 1,6:1) – gemischt mit der Textfarbe lesbar
@@ -3548,6 +3565,8 @@ def menu_checks(m, results):
           const dark = lum(rgba(text)) > 0.5;
           // gemessener Menügrund (durchscheinend) und die Menüfläche über Weiß bzw. Schwarz
           const bgs = dark ? [[36, 36, 38, 1], over(menuBg, [0, 0, 0])] : [[224, 224, 224, 1], over(menuBg, [255, 255, 255])];
+          // Schlagwörter stehen nicht mehr im Kontextmenü – das Untermenü für die Prüfung der Farben kurz einblenden
+          menu.removeAttribute("mc-ctx-off"); menu.hidden = false;
           const out = { dark, state: await openContext(), tags: [] };
           try {
             menu.open = true;
@@ -3561,7 +3580,7 @@ def menu_checks(m, results):
             if (tags[1]) { tags[1].setAttribute("_moz-menuactive", "true"); await wait(100);
               out.active = [cs(tags[1].querySelector(".menu-text")).color, colorOf("var(--mt-accent-text)")];
               tags[1].removeAttribute("_moz-menuactive"); }
-          } finally { sub.hidePopup?.(); P.hidePopup(); await wait(400); }
+          } finally { sub.hidePopup?.(); P.hidePopup(); await wait(400); menu.setAttribute("mc-ctx-off", ""); }
           return out;""")
         tags = res.get("tags", [])
         ok = (len(tags) >= 5 and all(not same_color(t["text"], t["inline"]) and same_color(t["icon"], t["text"]) and t["contrast"] >= 4.5 for t in tags)

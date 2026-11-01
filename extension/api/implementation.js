@@ -214,6 +214,15 @@ const DE = {
   "Searching …": "Suche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Wetterdaten: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Senden rückgängig",
+  "Open": "Öffnen",
+  "Forward as Attachment": "Als Anhang weiterleiten",
+  "Mark as Read": "Als gelesen markieren",
+  "Mark as Unread": "Als ungelesen markieren",
+  "Star": "Mit Stern markieren",
+  "Remove Star": "Stern entfernen",
+  "Mark as Spam": "Als Werbung markieren",
+  "Mark as Not Spam": "Als keine Werbung markieren",
+  "Run Filters": "Filter anwenden",
   "Follow-Up Suggestions": "Vorschläge für Rückfragen",
   "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
   "Sending {n} messages …": "{n} Nachrichten werden gesendet …",
@@ -534,6 +543,15 @@ const FR = {
   "Searching …": "Recherche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Données météo : Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annuler l’envoi",
+  "Open": "Ouvrir",
+  "Forward as Attachment": "Transférer en tant que pièce jointe",
+  "Mark as Read": "Marquer comme lu",
+  "Mark as Unread": "Marquer comme non lu",
+  "Star": "Suivre",
+  "Remove Star": "Ne plus suivre",
+  "Mark as Spam": "Marquer comme indésirable",
+  "Mark as Not Spam": "Marquer comme désirable",
+  "Run Filters": "Appliquer les filtres",
   "Follow-Up Suggestions": "Suggestions de relance",
   "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
   "Sending {n} messages …": "Envoi de {n} messages …",
@@ -854,6 +872,15 @@ const ES = {
   "Searching …": "Buscando …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Datos meteorológicos: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Deshacer envío",
+  "Open": "Abrir",
+  "Forward as Attachment": "Reenviar como adjunto",
+  "Mark as Read": "Marcar como leído",
+  "Mark as Unread": "Marcar como no leído",
+  "Star": "Destacar",
+  "Remove Star": "Quitar destacado",
+  "Mark as Spam": "Marcar como spam",
+  "Mark as Not Spam": "Marcar como no spam",
+  "Run Filters": "Aplicar filtros",
   "Follow-Up Suggestions": "Sugerencias de seguimiento",
   "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
   "Sending {n} messages …": "Enviando {n} mensajes …",
@@ -1174,6 +1201,15 @@ const IT = {
   "Searching …": "Ricerca …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Dati meteo: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annulla invio",
+  "Open": "Apri",
+  "Forward as Attachment": "Inoltra come allegato",
+  "Mark as Read": "Segna come letto",
+  "Mark as Unread": "Segna come non letto",
+  "Star": "Aggiungi stella",
+  "Remove Star": "Rimuovi stella",
+  "Mark as Spam": "Segna come spam",
+  "Mark as Not Spam": "Segna come non spam",
+  "Run Filters": "Applica filtri",
   "Follow-Up Suggestions": "Suggerimenti di follow-up",
   "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
   "Sending {n} messages …": "Invio di {n} messaggi …",
@@ -15079,48 +15115,156 @@ class CardEnhancer {
     });
   }
 
-  // Kontextmenü der Nachrichten wie in Apple Mail: Archivieren, Löschen und
-  // Spam als normale Zeilen (mit Text) nach „Als neue Nachricht bearbeiten“
-  // statt einer Symbolleiste ganz oben. Antworten und Gelesen/Ungelesen gibt
-  // es dort schon als eigene Einträge bzw. im Untermenü „Markieren“.
+  // Kontextmenü der Nachrichten wie in Apple Mail, ohne Untermenüs für das
+  // Häufige: Öffnen, Als neue Nachricht bearbeiten | Antworten, Allen
+  // antworten, (Liste, Newsgroup), Weiterleiten, als Anhang, Umleiten |
+  // Erinnern | Gelesen/Ungelesen, Stern, Spam, Ignorieren, Beobachten,
+  // Löschen | Archivieren, Verschieben, Kopieren | Umwandeln | Filter
+  // anwenden. Thunderbirds Einträge werden nur umgehängt (Befehle, Tasten und
+  // Ein-/Ausblenden bleiben bei Thunderbird); Untermenüs, Schlagwörter,
+  // Speichern und Drucken (Menüleiste) fallen weg.
   hookMailContext(doc) {
     hookNewTabMenus(doc, { push: fn => this.addWinRestorer(doc.defaultView, fn) });
     const popup = doc.getElementById("mailContext");
-    const group = doc.getElementById("mailContext-navigation");
-    if (!popup || !group || popup.__mcList) {
+    const start = doc.getElementById("mailContext-open");
+    if (!popup || !start || popup.__mcList) {
       return;
     }
     popup.__mcList = true;
-    group.classList.add("mc-nav-list");
-    const sep = doc.getElementById("mailContext-sep-navigation");
-    const anchor = doc.getElementById("mailContext-editAsNew")?.nextElementSibling;
-    if (anchor?.localName == "menuseparator") {
-      anchor.after(group);
-      if (sep) {
-        group.after(sep);
+    const win = doc.defaultView;
+    const $ = id => doc.getElementById(id);
+    const enabled = command => {
+      try {
+        return !!win.commandController?.isCommandEnabled(command);
+      } catch {
+        return false;
+      }
+    };
+    const own = (id, label, command) => {
+      const item = doc.createXULElement("menuitem");
+      item.id = id;
+      item.setAttribute("label", tr(label));
+      item.addEventListener("command", event => {
+        event.stopPropagation();
+        win.commandController?.doCommand(command, event);
+      });
+      return item;
+    };
+    // eigener Text statt Thunderbirds Untermenü-Kurzform („Read“, „As Spam“)
+    const relabel = (id, label) => {
+      const el = $(id);
+      if (el) {
+        el.removeAttribute("data-l10n-id");
+        el.removeAttribute("data-l10n-args");
+        el.setAttribute("label", tr(label));
+        el.classList.remove("menuitem-iconic");
+      }
+      return el;
+    };
+    const open = own("mcContextOpen", "Open", "cmd_openMessage");
+    const filters = own("mcContextRunFilters", "Run Filters", "cmd_applyFiltersToSelection");
+    const remindSep = doc.createXULElement("menuseparator");
+    remindSep.id = "mcContextRemindSep";
+    const S = "-";
+    const order = [
+      open, "mailContext-editAsNew", S,
+      relabel("mailContext-replySender", "Reply"), relabel("mailContext-replyAll", "Reply All"), "mailContext-replyList",
+      "mailContext-replyNewsgroup", "mailContext-forward", relabel("mailContext-forwardAsAttachment", "Forward as Attachment"),
+      "mailContext-redirect", remindSep, S,
+      relabel("mailContext-markRead", "Mark as Read"), relabel("mailContext-markUnread", "Mark as Unread"),
+      "mailContext-markFlagged", relabel("mailContext-markAsJunk", "Mark as Spam"),
+      relabel("mailContext-markAsNotJunk", "Mark as Not Spam"), "mailContext-ignoreThread", "mailContext-ignoreSubthread",
+      "mailContext-watchThread", relabel("navContext-delete", "Delete"), "mailContext-cancel", S,
+      "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", S,
+      "mailContext-calendar-convert-menu", S,
+      filters, "mailContext-downloadSelected",
+    ];
+    const moved = [];
+    for (const entry of order) {
+      const el = entry == S ? doc.createXULElement("menuseparator") : typeof entry == "string" ? $(entry) : entry;
+      if (el?.localName == "menuseparator") {
+        el.classList.add("mc-ctx-sep");
+      }
+      if (el) {
+        moved.push([el, el.parentNode, el.nextSibling]);
+        start.before(el);
       }
     }
-    // Den Text (Fluent setzt dort nur aria-label) zeigt userChrome.css an.
-    // Zeilenmaße wie ein gewöhnlicher Eintrag desselben Menüs übernehmen – die
-    // Abstände unterscheiden sich je System (Windows: 3 px statt Thunderbirds
-    // --menu-item-padding, „Löschen“ war dort 2 px höher)
-    const win = doc.defaultView;
-    const match = event => {
+    // Stern als Ein-/Ausschalter mit Text statt Häkchen
+    $("mailContext-markFlagged")?.removeAttribute("type");
+    const off = ["mailContext-open", "mailContext-reply", "mailContext-forwardRedirect", "mailContext-moveToFolderAgain",
+      "mailContext-tags", "mailContext-mark", "mailContext-organize", "mailContext-threads", "mailContext-saveAs",
+      "mailContext-print", "mailContext-navigation", "mailContext-sep-navigation"].map($).filter(Boolean);
+    off.forEach(el => el.setAttribute("mc-ctx-off", ""));
+    const onShowing = event => {
       if (event.target != popup) {
         return;
       }
-      // ein sichtbarer, gewöhnlicher Eintrag (welche es gibt, hängt von der Mail ab)
-      const ref = [...popup.children].find(el => el.localName == "menuitem" && el.parentNode != group &&
-        el.getClientRects().length && el.getBoundingClientRect().height > 0);
-      if (!ref) {
-        return;
+      // nach Thunderbirds eigenem Aufbau: von Gelesen/Ungelesen und Spam/kein
+      // Spam nur den passenden Eintrag zeigen (Thunderbird zeigt beide)
+      const messages = !$("navContext-delete")?.hidden || !$("mailContext-moveMenu")?.hidden;
+      let hdrs = [];
+      try {
+        hdrs = [...(win.gDBView?.getSelectedMsgHdrs() || [])];
+      } catch {}
+      const first = hdrs[0];
+      const unread = hdrs.some(h => !h.isRead);
+      const junk = first?.getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE && hdrs.length == 1;
+      const show = (id, on) => {
+        const el = $(id);
+        if (el) {
+          el.hidden = !messages || !first || !on;
+        }
+      };
+      show("mailContext-markRead", unread);
+      show("mailContext-markUnread", !unread);
+      show("mailContext-markAsJunk", !junk);
+      show("mailContext-markAsNotJunk", junk);
+      $("mailContext-markFlagged")?.setAttribute("label", tr(first?.isFlagged ? "Remove Star" : "Star"));
+      // Thunderbird setzt hier bei jedem Öffnen eigene Texte („As Attachment“,
+      // „Delete Message“) – nach dem Aufbau wieder durch die eigenen ersetzen
+      relabel("mailContext-forwardAsAttachment", "Forward as Attachment");
+      const del = $("navContext-delete");
+      if (del && del.dataset.imapDeleted != "true") {
+        relabel("navContext-delete", "Delete");
       }
-      // als Variablen (das Stylesheet hat Vorrang vor Werten am Element)
-      const cs = win.getComputedStyle(ref);
-      group.style.setProperty("--mc-nav-pad", cs.paddingTop);
-      group.style.setProperty("--mc-nav-h", `${ref.getBoundingClientRect().height}px`);
+      // „Teilfaden ignorieren“ nur bei einer Antwort innerhalb einer Konversation
+      const sub = $("mailContext-ignoreSubthread");
+      if (sub && !sub.hidden) {
+        let reply = false;
+        try {
+          const thread = first.folder.msgDatabase.getThreadContainingMsgHdr(first);
+          reply = thread.numChildren > 1 && thread.getRootHdr().messageKey != first.messageKey;
+        } catch {}
+        sub.hidden = !reply;
+      }
+      open.hidden = !messages || !enabled("cmd_openMessage");
+      filters.hidden = !messages || !enabled("cmd_applyFiltersToSelection");
+      // „Erinnern“ (Remind.hookMenu) hinter die Antworten
+      const remind = $("mcRemindMenu");
+      if (remind && remind.previousElementSibling != remindSep) {
+        remindSep.after(remind);
+      }
+      // Thunderbird blendet beim Aufbau Trennlinien neben leeren Gruppen aus –
+      // die eigenen ordnet das Aufräumen danach selbst
+      popup.querySelectorAll(":scope > .mc-ctx-sep").forEach(el => (el.hidden = false));
+      tidyMenuSeparators(popup);
     };
-    popup.addEventListener("popupshown", match);
+    // am Dokument statt am Menü: läuft so nach Thunderbirds eigenem Aufbau
+    // (dessen Listener hängt am Menü selbst)
+    doc.addEventListener("popupshowing", onShowing);
+    this.addWinRestorer(win, () => {
+      doc.removeEventListener("popupshowing", onShowing);
+      off.forEach(el => el.removeAttribute("mc-ctx-off"));
+      for (const [el, parent, next] of moved.reverse()) {
+        if (el == open || el == filters || el.classList.contains("mc-ctx-sep")) {
+          el.remove();
+        } else if (parent) {
+          parent.insertBefore(el, next?.parentNode == parent ? next : null);
+        }
+      }
+      delete popup.__mcList;
+    });
   }
 
   // Today-Pane in allen Bereichen außer dem Kalender (der zeigt den Tag selbst):

@@ -2686,53 +2686,12 @@ panel[type="autocomplete-richlistbox"] {
   --panel-background-color: var(--mt-window) !important;
 }
 
-/* Symbolzeile oben im Nachrichten-Kontextmenü: die Erweiterung macht daraus
-   Textzeilen (Klasse mc-nav-list); ohne Erweiterung bleibt sie ausgeblendet */
-#mailContext-navigation:not(.mc-nav-list),
-#mailContext-navigation:not(.mc-nav-list) + menuseparator {
-  display: none !important;
-}
-
-#mailContext-navigation.mc-nav-list {
-  flex-direction: column !important;
-}
-
-/* gleiche Zeilenhöhe wie die übrigen Einträge (Thunderbird:
-   --menu-item-padding, folgt auch der Dichte) – mit 3 px waren
-   Archivieren/Spam/Löschen 2 px niedriger */
-#mailContext-navigation.mc-nav-list > .menuitem-iconic {
-  flex: none !important;
-  justify-content: flex-start !important;
-  margin-inline: 5px !important;
-  /* Maße eines gewöhnlichen Eintrags (setzt die Erweiterung beim Öffnen) */
-  min-height: var(--mc-nav-h, 22px) !important;
-  max-height: var(--mc-nav-h, none) !important;
-  padding-block: var(--mc-nav-pad, var(--menu-item-padding, 4px)) !important;
-  padding-inline: 8px !important;
-  border-radius: 6px !important;
-}
-
-/* wie die übrigen Einträge ohne Symbol */
-#mailContext-navigation.mc-nav-list > .menuitem-iconic > .menu-icon {
-  display: none !important;
-}
-
-#mailContext-navigation.mc-nav-list > .menuitem-iconic[label] > .menu-text {
-  display: flex !important;
-}
-
-/* Fluent liefert hier nur aria-label; ein selbst gesetztes label-Attribut
-   würde es beim nächsten Übersetzen wieder entfernen */
-#mailContext-navigation.mc-nav-list > .menuitem-iconic:not([label])::after {
-  content: attr(aria-label);
-}
-
-#mailContext-navigation.mc-nav-list > .menuitem-iconic[_moz-menuactive]:not([disabled]) {
-  background-color: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
-}
-
-#mailContext-navigation.mc-nav-list > :is(#navContext-reply, #navContext-markRead, #navContext-markUnread) {
+/* Symbolzeile oben im Nachrichten-Kontextmenü immer ausgeblendet; die
+   Erweiterung hängt Thunderbirds Einträge zu einem flachen Menü wie in Apple
+   Mail um und blendet Untermenüs, Schlagwörter, Speichern und Drucken aus */
+#mailContext-navigation,
+#mailContext-navigation + menuseparator,
+#mailContext [mc-ctx-off] {
   display: none !important;
 }
 

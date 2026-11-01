@@ -9014,7 +9014,8 @@ Neu
             out.tips = ["task-actions-category", "task-actions-priority"].map(id => d.getElementById(id)?.getAttribute("tooltiptext"));
             // Priorität erst hoch, dann niedrig: im Menü nur „niedrig“ angehakt (Thunderbird ließ alte Häkchen stehen)
             const prioPopup = d.getElementById("task-actions-priority-menupopup");
-            const checkedIn = popup => [...popup.children].filter(i => d.getElementById(i.getAttribute("command"))?.hasAttribute("checked")).map(i => i.getAttribute("command"));
+            // ab Thunderbird 160 hakt Thunderbird den Menüeintrag selbst an, vorher den Befehl
+            const checkedIn = popup => [...popup.children].filter(i => i.hasAttribute("checked") || d.getElementById(i.getAttribute("command"))?.hasAttribute("checked")).map(i => i.getAttribute("command"));
             for (const cmd of ["calendar_priority-1_command", "calendar_priority-9_command"]) {
               w.goDoCommand(cmd); await pause(500);
               prioPopup.dispatchEvent(new w.Event("popupshowing")); await pause(100);

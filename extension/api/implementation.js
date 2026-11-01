@@ -6164,9 +6164,66 @@ function appleEventLayout(win) {
   invBtn.addEventListener("click", () => win.editAttendees?.());
   invTd.append(invBtn);
   invRow.append(invTh, invTd);
+  // Zeitkarte wie Apple Kalender: Beschriftungen „All Day:“, „Starts:“,
+  // „Ends:“, „Repeat:“, „Alert:“, „Show As:“ rechtsbündig (Doppelpunkt per
+  // CSS), alle Werte in einer Spalte – das Kästchen für „All Day“ steht
+  // rechts neben seiner Beschriftung statt mit eigenem Text in der Wertespalte
+  const label = (text, control) => {
+    const l = doc.createXULElement("label");
+    l.setAttribute("value", tr(text));
+    if (control) {
+      l.setAttribute("control", control);
+    }
+    return l;
+  };
+  const allTh = row("event-grid-allday-row")?.querySelector(":scope > th");
+  if (allTh && row("event-all-day")) {
+    allTh.replaceChildren(label("All Day", "event-all-day"));
+    row("event-all-day").setAttribute("aria-label", tr("All Day"));
+  }
+  for (const [id, text] of [["event-grid-startdate-row", "Starts"], ["event-grid-enddate-row", "Ends"],
+    ["event-grid-recurrence-row", "Repeat"], ["event-grid-alarm-row", "Alert"]]) {
+    const l = row(id)?.querySelector(":scope > th label.event-only, :scope > th label:not(.todo-only)");
+    l?.setAttribute("value", tr(text));
+  }
+  // „Show As“ (frei/beschäftigt) als Zeile der Zeitkarte statt unten in der
+  // Statuszeile; ändert über Thunderbirds eigenen Befehl im Fenster
+  const pdoc = win.parent?.document;
+  const busyItem = pdoc?.getElementById("options-freebusy-busy-menuitem") || pdoc?.getElementById("event-freebusy-busy-menuitem");
+  const freeItem = pdoc?.getElementById("options-freebusy-free-menuitem") || pdoc?.getElementById("event-freebusy-free-menuitem");
+  const busyLabel = pdoc?.getElementById("status-freebusy-busy-label");
+  let showRow = null;
+  if (busyItem && freeItem && busyLabel && win.parent.editShowTimeAs) {
+    showRow = doc.createElementNS(X, "tr");
+    showRow.id = "mc-showas-row";
+    const th = doc.createElementNS(X, "th");
+    const td = doc.createElementNS(X, "td");
+    th.append(label("Show As", "mc-showas"));
+    const ml = doc.createXULElement("menulist");
+    ml.id = "mc-showas";
+    ml.setAttribute("disable-on-readonly", "true");
+    const pop = doc.createXULElement("menupopup");
+    for (const [value, item] of [["OPAQUE", busyItem], ["TRANSPARENT", freeItem]]) {
+      const mi = doc.createXULElement("menuitem");
+      mi.setAttribute("label", item.getAttribute("label") || value);
+      mi.setAttribute("value", value);
+      pop.append(mi);
+    }
+    ml.append(pop);
+    td.append(ml);
+    showRow.append(th, td);
+    body.append(showRow);
+    const sync = () => {
+      ml.value = busyLabel.hidden ? "TRANSPARENT" : "OPAQUE";
+    };
+    sync();
+    new win.MutationObserver(sync).observe(busyLabel, { attributes: true, attributeFilter: ["hidden"] });
+    ml.addEventListener("command", () => win.parent.editShowTimeAs({ getAttribute: () => ml.value }));
+    pdoc.documentElement.setAttribute("mc-showas-row", "");
+  }
   const cards = [
     ["title", ["event-grid-title-row"]],
-    ["time", ["event-grid-allday-row", "event-grid-startdate-row", "event-grid-enddate-row", "event-grid-recurrence-row", "event-grid-alarm-row"]],
+    ["time", ["event-grid-allday-row", "event-grid-startdate-row", "event-grid-enddate-row", "event-grid-recurrence-row", "event-grid-alarm-row", showRow]],
     ["location", ["event-grid-location-row"]],
     ["invitees", [invRow]],
     ["calendar", [calendarRow]],
@@ -6210,7 +6267,7 @@ function appleEventLayout(win) {
   stripe.id = "mc-calendar-stripe";
   grid.append(stripe);
   const place = () => {
-    const first = row("event-grid-title-row"), last = row("event-grid-alarm-row");
+    const first = row("event-grid-title-row"), last = showRow || row("event-grid-alarm-row");
     const g = grid.getBoundingClientRect();
     if (!first || !last) {
       return;
@@ -9245,6 +9302,13 @@ class CardEnhancer {
           // Termin-/Aufgaben-Fenster: Titel und Beschriftungen ohne Doppelpunkt
           if (url.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;
+            // Termin (nicht Aufgabe): schmales Fenster wie Apple Kalender (spaces.css)
+            // – schon jetzt, bevor Thunderbird die Größe nach dem Formular misst
+            try {
+              if (dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
+                doc.documentElement.setAttribute("mc-event", "");
+              }
+            } catch {}
             dlg.addEventListener("load", () => this.tidyEventDialog(dlg), { once: true });
           }
           // Beschreibung eines Termins/einer Aufgabe (Fenster und Tab): Schrift

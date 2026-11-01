@@ -40,6 +40,17 @@
   visibility: visible !important;
 }
 
+/* Zeitkarte wie Apple Kalender: Wiederholen, Hinweis und Anzeigen als ohne
+   Pfeil, Text ohne Einzug auf der Linie der übrigen Werte (spaces.css) */
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] menulist:not(datepicker menulist, timepicker menulist)::part(dropmarker) {
+  display: none !important;
+}
+
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] menulist:not(datepicker menulist, timepicker menulist)::part(label) {
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+}
+
 /* Termin-Dialog: Farbchips der gewählten Kategorien im Feld mit feinem Ring
    wie die Punkte im Menü (spaces.css) – helle bzw. dunkle Farben verschwanden */
 #item-categories::part(color) {

@@ -9319,6 +9319,52 @@ dialog separator.groove:not([orient="vertical"]) {
   stroke: var(--mt-accent-text) !important;
 }
 
+/* Termin: Fenster schmal wie das Termin-Popover von Apple Kalender (rund
+   300 px). Thunderbird gibt dem Formular als Mindestbreite die Breite seines
+   breitesten Inhalts (rund 560 px, rechts blieb die Hälfte leer) und das
+   Fenster wuchs mit; mc-event setzt die Erweiterung beim Öffnen eines Termins
+   (Aufgaben behalten ihr breiteres Formular) */
+#calendar-event-window[mc-event] {
+  min-width: 0 !important;
+}
+
+#calendar-event-window[mc-event] #calendar-item-panel-iframe {
+  min-width: 320px !important;
+}
+
+/* kompakte Knöpfe, damit die Leiste neben den Fensterknöpfen in die schmale
+   Zeile passt; Sichern nur als Symbol (Name im Tooltip) */
+#calendar-event-window #event-toolbar {
+  gap: 4px !important;
+}
+
+#calendar-event-window #event-toolbar > toolbarbutton {
+  padding: 0 8px !important;
+  min-width: 32px !important;
+}
+
+#calendar-event-window #event-toolbar > #button-saveandclose .toolbarbutton-text {
+  display: none !important;
+}
+
+/* „Show As“ steht als Zeile in der Zeitkarte – unten nicht noch einmal,
+   die Statuszeile nur, wenn sie noch etwas anderes zeigt */
+#calendar-event-window[mc-showas-row] #status-freebusy {
+  display: none !important;
+}
+
+#calendar-event-window[mc-showas-row] #status-bar:not(:has(> .statusbarpanel:not(#status-freebusy, [collapsed], [hidden]))) {
+  display: none !important;
+}
+
+/* Sichern rechts wie der Hauptknopf in macOS-Fenstern, die übrigen Knöpfe
+   gleich hinter den Fensterknöpfen (vorher stand Sichern vorn und alles
+   hing links in der zu breiten Zeile) */
+#event-toolbar > #button-saveandclose {
+  order: 99 !important;
+  margin-inline-start: auto !important;
+}
+
 #event-toolbar > #button-saveandclose[disabled] {
   background-color: color-mix(in srgb, var(--mt-accent) 40%, var(--mt-window)) !important;
 }
@@ -12808,6 +12854,65 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 :root[mc-apple-event] #event-grid tr[data-mc-card="category"] > th label {
   color: var(--mt-text-tertiary) !important;
+}
+
+/* Zeitkarte exakt wie Apple Kalender: Beschriftung mit Doppelpunkt
+   rechtsbündig, alle Werte (Kästchen, Datum, Wiederholen, Hinweis,
+   Anzeigen als) beginnen auf derselben Linie, ohne Pfeile */
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] > th {
+  flex: 0 0 86px !important;
+  padding-inline-end: 8px !important;
+}
+
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] > th label::after {
+  content: ":";
+}
+
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] {
+  min-height: 0 !important;
+}
+
+/* alle Zeilen gleich hoch wie die mit Datum und Uhrzeit */
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] > td {
+  min-height: 32px !important;
+  align-content: center !important;
+}
+
+
+:root[mc-apple-event] #event-all-day {
+  margin: 0 !important;
+}
+
+:root[mc-apple-event] #event-all-day .checkbox-label {
+  display: none !important;
+}
+
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] menulist:not(datepicker menulist, timepicker menulist) {
+  min-height: 24px !important;
+  height: 24px !important;
+  padding-block: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding-inline: 0 !important;
+}
+
+/* Datum und Uhrzeit nicht höher als die übrigen Zeilen; Thunderbirds
+   (unsichtbare) Kette für die Dauer nimmt keinen Platz ein */
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] :is(datepicker, timepicker) > menulist {
+  min-height: 24px !important;
+  height: 24px !important;
+  padding-block: 0 !important;
+}
+
+:root[mc-apple-event] #event-grid :is(#event-grid-startdate-picker-box, #event-grid-enddate-picker-box) > vbox:has(.keepduration-link-image) {
+  display: none !important;
+}
+
+/* das Datum hat für die Fläche unter dem Mauszeiger 6 px Innenabstand – um
+   diese nach links, damit sein Text auf der Linie der übrigen Werte steht
+   (Pfeil und Abstand der Auswahlfelder: extension/parts.css) */
+:root[mc-apple-event] #event-grid tr[data-mc-card="time"] datepicker > menulist {
+  margin-inline-start: -6px !important;
 }
 
 /* Titel groß und halbfett */

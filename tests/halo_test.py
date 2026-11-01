@@ -3939,11 +3939,17 @@ def calendar_checks(m, results):
             out.overflow = { grid: [grid.scrollWidth, grid.clientWidth], doc: [id.documentElement.scrollWidth, id.documentElement.clientWidth] };
             // Datumsfeld: Minimonat
             const dml = id.querySelector("#event-starttime datepicker menulist");
+            const evs = [], t0 = Date.now();
+            for (const t of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) dml.menupopup?.addEventListener(t, e => evs.push(`${t}@${Date.now() - t0}${e.defaultPrevented ? "!" : ""}`), true);
             dml.open = true;
             const dmr = dml.getBoundingClientRect();
             out.dml = { rect: [Math.round(dmr.left), Math.round(dmr.top), Math.round(dmr.width), Math.round(dmr.height)], disabled: dml.disabled,
                         disp: csOf(dml).display, vis: csOf(dml).visibility, popup: !!dml.menupopup, focusWin: Services.focus.activeWindow?.location?.href?.split("/").pop() };
-            if (await isOpen(dml.menupopup)) {
+            const opened = await isOpen(dml.menupopup);
+            out.dml.events = evs.slice(); out.dml.state = dml.menupopup?.state; out.dml.openAttr = dml.open;
+            out.dml.editable = dml.getAttribute("editable"); out.dml.is = dml.getAttribute("is");
+            if (!opened) { dml.menupopup.openPopup(dml, "after_start"); await pause(800); out.dml.direct = [dml.menupopup.state, evs.slice()]; dml.menupopup.hidePopup(); await pause(300); }
+            if (opened) {
               await pause(500);
               const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);
               out.mini = { bg: csOf(mm).backgroundColor, today: td ? csOf(td).borderTopColor : null, week: wk ? [csOf(wk).fontWeight, csOf(wk).color] : null };

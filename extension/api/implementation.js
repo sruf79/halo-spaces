@@ -6142,6 +6142,50 @@ function hookNewTabMenus(doc, restorers = null) {
 // Teilnehmer; Kalender; Kategorie; ganz unten die Notiz („Add Notes or URL“).
 // Links ein Streifen in der Farbe des gewählten Kalenders. Thunderbirds Zeilen
 // werden nur umgestellt – Felder, IDs und Logik bleiben (nur für Termine, nicht Aufgaben)
+// Dialogfenster: macOS dehnt ein Fenster per Doppelklick auf die linke bzw.
+// rechte Kante bis zum Bildschirmrand aus, findet danach aber nicht zurück.
+// Ein Doppelklick an der Kante eines schon breiteren Dialogs setzt ihn auf
+// seine Standardbreite (wie beim Öffnen gemessen) zurück; die andere Kante
+// bleibt stehen. Hauptfenster (Mail, Verfassen, Nachricht) nicht
+const EDGE_RESET_SKIP = new Set(["mail:3pane", "msgcompose", "mail:messageWindow", "mail:addressbook", "mail:extensionPopup"]);
+function dialogEdgeReset(win, url) {
+  if (!win || win.__mcEdgeReset || win.parent != win || !url.startsWith("chrome://") || !win.opener) {
+    return;
+  }
+  win.__mcEdgeReset = true;
+  let standard = 0;
+  let wideAtDown = false;
+  win.addEventListener("load", () => {
+    if (EDGE_RESET_SKIP.has(win.document.documentElement.getAttribute("windowtype"))) {
+      return;
+    }
+    // nach Thunderbirds eigenem Messen und unseren Anpassungen der Größe
+    win.setTimeout(() => {
+      standard = win.outerWidth;
+    }, 1500);
+    const EDGE = 6;
+    const atEdge = event => event.clientX <= EDGE ? "left" : (event.clientX >= win.innerWidth - EDGE ? "right" : null);
+    win.addEventListener("mousedown", event => {
+      // Breite vor dem Doppelklick: ein Doppelklick auf einen Dialog in
+      // Standardbreite gehört macOS (Ausdehnen), nicht uns
+      if (event.detail == 1) {
+        wideAtDown = standard && win.outerWidth > standard + 2;
+      }
+    }, true);
+    win.addEventListener("dblclick", event => {
+      const side = atEdge(event);
+      if (!side || !wideAtDown || !standard) {
+        return;
+      }
+      const right = win.screenX + win.outerWidth;
+      win.resizeTo(standard, win.outerHeight);
+      if (side == "left") {
+        win.moveTo(right - standard, win.screenY);
+      }
+    }, true);
+  }, { once: true });
+}
+
 function appleEventLayout(win) {
   const doc = win.document;
   const grid = doc.getElementById("event-grid");
@@ -9283,6 +9327,7 @@ class CardEnhancer {
           if (ThemeSheet.active) {
             ThemeSheet.apply(doc.defaultView);
           }
+          dialogEdgeReset(doc.defaultView, url);
           // Termin-Details: Fenster so groß, dass alles sichtbar ist
           if (url.startsWith("chrome://calendar/content/calendar-summary-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;

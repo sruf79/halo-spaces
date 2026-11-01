@@ -6165,16 +6165,25 @@ function dialogEdgeReset(win, url) {
     win.setTimeout(() => {
       standard = win.outerWidth;
     }, 1500);
-    const EDGE = 6;
-    const atEdge = event => event.clientX <= EDGE ? "left" : (event.clientX >= win.innerWidth - EDGE ? "right" : null);
-    win.addEventListener("mousedown", event => {
+    // die äußersten 3–4 px behält macOS selbst (Größe ändern) – Doppelklicks
+    // dort kommen nie an, daher ein etwas breiterer Streifen nach innen
+    const EDGE = 12;
+    // über Bildschirmkoordinaten: an der Kante liegt oft ein eingebetteter
+    // Inhalt (Terminfenster), dessen Ereignisse nur am Fenster-Wurzelobjekt
+    // (windowRoot) ankommen, mit Koordinaten relativ zu diesem Inhalt
+    const atEdge = event => {
+      const x = event.screenX - win.mozInnerScreenX;
+      return x <= EDGE ? "left" : (x >= win.innerWidth - EDGE ? "right" : null);
+    };
+    const root = win.windowRoot || win;
+    root.addEventListener("mousedown", event => {
       // Breite vor dem Doppelklick: ein Doppelklick auf einen Dialog in
       // Standardbreite gehört macOS (Ausdehnen), nicht uns
       if (event.detail == 1) {
         wideAtDown = standard && win.outerWidth > standard + 2;
       }
     }, true);
-    win.addEventListener("dblclick", event => {
+    root.addEventListener("dblclick", event => {
       const side = atEdge(event);
       if (!side || !wideAtDown || !standard) {
         return;

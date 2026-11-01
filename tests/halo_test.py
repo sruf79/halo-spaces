@@ -4266,7 +4266,8 @@ def calendar_checks(m, results):
             const std = dw.outerWidth;
             const dbl = x => { const y = Math.round(dw.innerHeight / 2);
               for (const [type, detail] of [["mousedown", 1], ["mouseup", 1], ["mousedown", 2], ["mouseup", 2], ["dblclick", 2]])
-                dw.document.documentElement.dispatchEvent(new dw.MouseEvent(type, { bubbles: true, cancelable: true, view: dw, detail, clientX: x, clientY: y })); };
+                dw.document.documentElement.dispatchEvent(new dw.MouseEvent(type, { bubbles: true, cancelable: true, view: dw, detail, clientX: x, clientY: y,
+                  screenX: Math.round(dw.mozInnerScreenX + x), screenY: Math.round(dw.mozInnerScreenY + y) })); };
             out.std = std;
             dbl(dw.innerWidth - 2); await pause(300); out.stdAfter = dw.outerWidth;
             const left = dw.screenX;
@@ -4288,6 +4289,70 @@ def calendar_checks(m, results):
               and abs(res["left"]["w"] - std) <= 2 and abs(res["left"]["right"]) <= 2)
         return ok, f"{res}"
     check("Dialoge: Doppelklick an linker/rechter Kante eines ausgedehnten Fensters setzt die Standardbreite zurück, andere Kante bleibt", dialog_edge_reset, results)
+
+    def real_double_clicks():
+        # nur von Hand auf dem Testrechner (HALO_KLICK = Hilfsprogramm für echte Mausklicks über macOS, braucht die
+        # Freigabe „Bedienungshilfen“): echter Doppelklick auf die Titelleiste lässt das Hauptfenster auf dem Bildschirm,
+        # echter Doppelklick auf die rechte Dialogkante dehnt aus, ein zweiter setzt die Standardbreite zurück
+        klick = os.environ["HALO_KLICK"]
+        dbl = lambda x, y: subprocess.run([klick, str(round(x)), str(round(y)), "2"], check=True)
+        prep = m.js(r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const sc = w.screen; w.focus();
+          w.resizeTo(Math.min(1200, sc.availWidth - 200), Math.min(800, sc.availHeight - 100)); w.moveTo(sc.availLeft + 100, sc.availTop + 50);
+          await wait(800);
+          // freie Stelle der Titelzeile (zieht das Fenster, kein Knopf, kein Suchfeld)
+          let pt = null;
+          for (let x = 90; x < w.innerWidth - 20 && !pt; x += 10) {
+            const el = d.elementFromPoint(x, 8); if (!el) continue;
+            // leere Fläche der Toolbar-Zeile (zieht das Fenster), links und rechts daneben ebenso
+            const free = e => e && ["unifiedToolbarContent", "unifiedToolbarContainer"].includes(e.id);
+            if (free(el) && free(d.elementFromPoint(x - 15, 8)) && free(d.elementFromPoint(x + 15, 8)))
+              pt = [x, 8, el.id];
+          }
+          const scan = pt ? null : [...Array(36)].map((_, i) => { const el = d.elementFromPoint(90 + i * 40, 8); return el ? `${90 + i * 40}:${el.localName}#${el.id}.${String(el.className).slice(0, 30)}:${w.getComputedStyle(el).getPropertyValue("-moz-window-dragging")}` : null; });
+          return { pt, scan, x: w.screenX, y: w.screenY, w: w.outerWidth, avail: sc.availWidth, left: sc.availLeft };""")
+        if not prep.get("pt"):
+            return False, f"keine freie Stelle in der Titelzeile: {prep}"
+        dbl(prep["x"] + prep["pt"][0], prep["y"] + prep["pt"][1])
+        time.sleep(2.5)
+        after = m.js(r"""return { x: w.screenX, w: w.outerWidth, avail: w.screen.availWidth, left: w.screen.availLeft,
+          right: w.screenX + w.outerWidth <= w.screen.availLeft + w.screen.availWidth + 2 };""")
+        res = {"prep": prep, "zoom": after}
+        # zurück auf die alte Größe
+        m.js(r"""w.resizeTo(1200, 800); w.moveTo(w.screen.availLeft + 100, w.screen.availTop + 50); await wait(800); return 1;""")
+        dlg = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(); await toCalendar();
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.createEventWithDialog(c);
+          const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+          if (!dw) return { dialog: false };
+          await pause(2200); dw.moveTo(dw.screen.availLeft + 300, dw.screenY); dw.focus(); await pause(500);
+          return { x: dw.screenX, y: dw.screenY, w: dw.outerWidth, h: dw.outerHeight };""")
+        if dlg.get("dialog") is False:
+            return False, f"{res} Dialog fehlt"
+        edge = lambda: m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog"));
+          return dw ? { x: dw.screenX, w: dw.outerWidth } : null;""")
+        ey = dlg["y"] + dlg["h"] / 2
+        dbl(dlg["x"] + dlg["w"] + 1, ey); time.sleep(2)
+        wide = edge()
+        # ausgedehnt reicht die Kante bis an den Bildschirmrand – innen an der Kante klicken (Abstände, die macOS selbst
+        # behält, kommen im Fenster nicht an; mitzählen, welche ankommen)
+        m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog"));
+          dw.__seen = []; dw.windowRoot.addEventListener("dblclick", e => dw.__seen.push(Math.round(e.screenX - dw.mozInnerScreenX)), true); return 1;""")
+        for off in (1, 3, 8):
+            dbl(wide["x"] + wide["w"] - off, ey); time.sleep(1.5)
+            if edge()["w"] < wide["w"] - 50:
+                break
+        res["seen"] = m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog")); return dw?.__seen;""")
+        back = edge()
+        m.js(r"""for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close(); w.focus(); await wait(500); return 1;""")
+        res["dialog"] = {"std": dlg["w"], "wide": wide, "back": back}
+        ok = (after["w"] <= after["avail"] + 2 and after["x"] >= after["left"] - 2 and after["right"]
+              and wide["w"] > dlg["w"] + 50 and abs(back["w"] - dlg["w"]) <= 2 and abs(back["x"] - dlg["x"]) <= 2)
+        return ok, f"{res}"
+    if os.environ.get("HALO_KLICK") and sys.platform == "darwin":
+        check("Echte Doppelklicks (nur von Hand): Titelleiste lässt das Hauptfenster auf dem Bildschirm, Dialogkante dehnt aus und setzt zurück", real_double_clicks, results)
 
     def event_dialog_lines():
         # Termin-Dialog: Trennlinien im Raster als Haarlinie (Thunderbird: 1 px Feldrahmenfarbe); Statuszeile mit Abstand

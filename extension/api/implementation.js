@@ -6379,6 +6379,12 @@ function appleEventLayout(win) {
     ["event-grid-recurrence-row", "Repeat"], ["event-grid-alarm-row", "Alert"]]) {
     const l = row(id)?.querySelector(":scope > th label.event-only, :scope > th label:not(.todo-only)");
     l?.setAttribute("value", tr(text));
+    // Tastenkürzel, dessen Buchstabe im neuen Text fehlt, stünde unter Linux
+    // und Windows in Klammern dahinter („Ends (U):“) – dann weglassen
+    const key = l?.getAttribute("accesskey");
+    if (key && !tr(text).toLowerCase().includes(key.toLowerCase())) {
+      l.removeAttribute("accesskey");
+    }
   }
   // „Show As“ (frei/beschäftigt) als Zeile der Zeitkarte statt unten in der
   // Statuszeile; ändert über Thunderbirds eigenen Befehl im Fenster

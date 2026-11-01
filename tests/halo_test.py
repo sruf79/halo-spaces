@@ -3940,6 +3940,9 @@ def calendar_checks(m, results):
             // Datumsfeld: Minimonat
             const dml = id.querySelector("#event-starttime datepicker menulist");
             dml.open = true;
+            const dmr = dml.getBoundingClientRect();
+            out.dml = { rect: [Math.round(dmr.left), Math.round(dmr.top), Math.round(dmr.width), Math.round(dmr.height)], disabled: dml.disabled,
+                        disp: csOf(dml).display, vis: csOf(dml).visibility, popup: !!dml.menupopup, focusWin: Services.focus.activeWindow?.location?.href?.split("/").pop() };
             if (await isOpen(dml.menupopup)) {
               await pause(500);
               const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);
@@ -4213,7 +4216,9 @@ def calendar_checks(m, results):
                   const lab = [...r.querySelectorAll(":scope > th label")].find(l => l.getBoundingClientRect().width);
                   const val = r.querySelector(":scope > td checkbox, :scope > td datetimepicker menulist, :scope > td menulist");
                   const drop = val?.localName == "menulist" && !val.closest("datepicker, timepicker") ? val.shadowRoot?.querySelector('[part~="dropmarker"]') : null;
+                  const key = lab?.getAttribute("accesskey");
                   return { label: lab ? lab.getAttribute("value") + iw.getComputedStyle(lab, "::after").content.replace(/"/g, "") : null,
+                           keyOk: !key || lab.getAttribute("value").toLowerCase().includes(key.toLowerCase()),
                            labelRight: lab ? Math.round(lab.getBoundingClientRect().right) : null, value: val ? textLeft(val, iw) : null,
                            arrow: drop ? drop.getBoundingClientRect().width > 0 : false, h: Math.round(r.getBoundingClientRect().height) };
                 });
@@ -4238,6 +4243,7 @@ def calendar_checks(m, results):
               and ev["saveRight"] is not None and 4 <= ev["saveRight"] <= 24 and not ev["outside"]
               and labels == ["All Day:", "Starts:", "Ends:", "Repeat:", "Alert:", "Show As:"]
               and len(rights) == 1 and len(lefts) == 6 and max(lefts) - min(lefts) <= 2 and not any(r["arrow"] for r in rows)
+              and all(r.get("keyOk") for r in rows)
               and max(r["h"] for r in rows[1:-1]) - min(r["h"] for r in rows[1:-1]) <= 2
               and ev["statusBar"] == 0 and ev.get("showAs") == ["OPAQUE", "TRANSPARENT", True]
               and bool(task) and task["inside"] and task["saveLast"] and not task["outside"])

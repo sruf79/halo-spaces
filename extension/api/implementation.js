@@ -6794,14 +6794,27 @@ const PREF_TOOLS = [
 function addPrefTools(doc, restorers) {
   const mailWin = Services.wm.getMostRecentWindow("mail:3pane");
   const deck = doc.getElementById("paneDeck");
-  if (!mailWin || !deck || doc.getElementById(PREF_TOOLS[0][0])) {
+  if (!mailWin || !deck) {
     return;
+  }
+  // Thunderbird legt manche Bereiche erst beim ersten Öffnen an – dann nachziehen
+  if (!deck.__mcPrefTools) {
+    deck.__mcPrefTools = true;
+    const mo = new doc.defaultView.MutationObserver(() => addPrefTools(doc, restorers));
+    mo.observe(deck, { childList: true });
+    restorers?.push(() => {
+      mo.disconnect();
+      delete deck.__mcPrefTools;
+    });
   }
   const X = "http://www.w3.org/1999/xhtml";
   const item = id => mailWin.document.getElementById(id);
   const label = id => (item(id)?.getAttribute("label") || "").replace(/…$/, "") + (item(id)?.getAttribute("label")?.endsWith("…") ? "…" : "");
   for (const [id, pane, before, legendText, rows] of PREF_TOOLS) {
-    const cards = [...deck.children].filter(c => c.getAttribute("data-category") == pane);
+    if (doc.getElementById(id)) {
+      continue;
+    }
+    const cards = [...deck.children].filter(c => c.getAttribute("data-category") == pane && !c.id.startsWith("mc"));
     if (!cards.length || rows.every(r => !item(r.button || r.toggle || r.choice))) {
       continue;
     }
@@ -16395,6 +16408,7 @@ class CardEnhancer {
       // Öffnen sind Schrift oder umbrochene Zeilen manchmal noch nicht fertig,
       // „Edit“ stand dann fast am Rand), die Höhe nach dem Zeichnen nachziehen –
       // nie kleiner, Breite und Lage bleiben, sonst springt nichts
+      let passes = 0;
       const grow = () => {
         try {
           if (dlg.closed) {
@@ -16412,9 +16426,18 @@ class CardEnhancer {
             const want = Math.max(16, Math.round(dlg.innerWidth - r.right));
             extra = Math.max(0, Math.round(want - (dlg.innerHeight - r.bottom)));
           }
-          const h = Math.min(maxH, Math.max(h0, dlg.outerHeight + extra));
-          if (dlg.outerWidth != w0 || dlg.outerHeight != h) {
-            dlg.resizeTo(w0, h);
+          // unter Linux setzt sizeToContent die Größe erst später – dann nicht
+          // mit der alten Größe überschreiben und kleine Rundungsreste (1 px)
+          // nicht aufsummieren, sondern gleich noch einmal nachmessen
+          const shrunk = dlg.outerHeight < h0 - 1;
+          if (extra >= 3 || shrunk || dlg.outerWidth != w0) {
+            const h = Math.min(maxH, Math.max(h0, dlg.outerHeight) + (extra >= 3 ? extra : 0));
+            if (h != dlg.outerHeight || dlg.outerWidth != w0) {
+              dlg.resizeTo(w0, h);
+            }
+          }
+          if (extra >= 3 && ++passes < 5) {
+            dlg.setTimeout(later, 200);
           }
         } catch {}
       };

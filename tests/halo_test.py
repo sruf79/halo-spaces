@@ -556,7 +556,8 @@ def take_shots(m, folder, scheme):
             print(f"Screenshot {name}: kein Fenster", flush=True)
             continue
         m.cmd("WebDriver:SwitchToWindow", {"handle": new[0]})
-        m.cmd("WebDriver:ExecuteScript", {"script": "window.resizeTo(900, 700); return new Promise(r => setTimeout(r, 800));", "args": []})
+        # einheitliche Bildgröße – das Terminfenster aber in seiner eigenen (schmalen) Breite, nur höher
+        m.cmd("WebDriver:ExecuteScript", {"script": "if (document.documentElement.hasAttribute('mc-event')) window.resizeTo(window.outerWidth, 700); else window.resizeTo(900, 700); return new Promise(r => setTimeout(r, 800));", "args": []})
         data = m.cmd("WebDriver:TakeScreenshot", {})["value"]
         path = os.path.join(folder, f"{scheme}-{name}.png")
         open(path, "wb").write(base64.b64decode(data))
@@ -4015,7 +4016,7 @@ def calendar_checks(m, results):
             out.cards = [...new Set(rows.map(r => r.dataset.mcCard))];
             const st = id.getElementById("mc-calendar-stripe");
             out.stripe = st ? csOf(st).backgroundColor : null;
-            out.stripeSpan = st ? [Math.round(R(st).top - R(id.getElementById("event-grid-title-row")).top), Math.round(R(id.getElementById("event-grid-alarm-row")).bottom - R(st).bottom)] : null;
+            out.stripeSpan = st ? [Math.round(R(st).top - R(id.getElementById("event-grid-title-row")).top), Math.round(R(id.getElementById("mc-showas-row") || id.getElementById("event-grid-alarm-row")).bottom - R(st).bottom)] : null;
             out.placeholders = [id.getElementById("item-location")?.placeholder, id.querySelector(".mc-invitees")?.textContent,
                                 id.getElementById("item-description")?.contentDocument?.body?.getAttribute("data-mc-placeholder")];
             out.labels = ["item-title-label", "item-location-label", "item-calendar-label"].map(x => vis(id.getElementById(x)));
@@ -4140,6 +4141,88 @@ def calendar_checks(m, results):
               and ed.get("url", "").startswith("calendar-event-dialog") and len(ed.get("states", [])) == 1)
         return ok, f"{res}"
     check("Termin-Fenster (Detailansicht und Bearbeiten) springt nach dem Öffnen nicht", event_window_still, results)
+
+    def event_dialog_narrow():
+        # Termin-Fenster wie das der Kalender-App: schmal (320 statt rund 560 px, rechts war die Hälfte leer), Knöpfe der Leiste
+        # im Fenster, Sichern rechts; Zeitkarte mit „All Day:“, „Starts:“ … „Show As:“ rechtsbündig, alle Werte (Kästchen,
+        # Datum, Wiederholen, Hinweis, Anzeigen als) auf einer Linie, ohne Pfeile; nichts Sichtbares ragt rechts hinaus.
+        # Aufgaben behalten ihr Formular, Knöpfe auch dort im Fenster
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); await toCalendar();
+          const out = {};
+          // Beginn des sichtbaren Textes (auch im Schatten-DOM) bzw. bei Kästchen dessen linke Kante
+          const textLeft = (el, iw) => {
+            if (el.localName == "checkbox") return Math.round((el.querySelector(".checkbox-check") || el).getBoundingClientRect().left);
+            let best = Infinity;
+            const walk = n => {
+              for (const k of [...(n.shadowRoot?.children || []), ...n.children]) {
+                const r = k.getBoundingClientRect(); if (!r.width || k.localName == "menupopup") continue;
+                if (k.localName == "input") { const cs = iw.getComputedStyle(k); best = Math.min(best, r.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)); continue; }
+                if ([...k.childNodes].some(t => t.nodeType == 3 && t.textContent.trim()) || (k.localName == "label" && k.getAttribute("value"))) best = Math.min(best, r.left);
+                walk(k);
+              }
+            };
+            walk(el); return Math.round(best);
+          };
+          for (const [kind, open] of [["event", () => w.createEventWithDialog(c)], ["task", () => w.createTodoWithDialog(c)]]) {
+            const known = new Set([...Services.wm.getEnumerator(null)]);
+            open();
+            const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+            if (!dw) { out[kind] = null; continue; }
+            try {
+              const iw = await till(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+                return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f; }, 8000);
+              await pause(1200);
+              const btns = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width > 0);
+              const rs = btns.map(b => b.getBoundingClientRect());
+              const save = dw.document.getElementById("button-saveandclose")?.getBoundingClientRect();
+              const de = iw.document.documentElement;
+              out[kind] = { w: dw.innerWidth, buttons: btns.length,
+                inside: rs.every(r => r.left >= 0 && r.right <= dw.innerWidth + 0.5),
+                saveRight: save ? Math.round(dw.innerWidth - save.right) : null,
+                saveLast: save ? rs.every(r => r.right <= save.right + 0.5) : false,
+                // geschlossene Auswahlmenüs zählen in scrollWidth mit, sind aber nicht zu sehen – nur sichtbare Elemente
+                outside: [...de.querySelectorAll("*")].filter(e => { const r = e.getBoundingClientRect();
+                  return r.width && r.height && r.right > de.clientWidth + 1 && !e.closest("menupopup, panel"); }).map(e => e.localName + "#" + e.id).slice(0, 6) };
+              if (kind == "event") {
+                const id = iw.document;
+                const rows = [...id.querySelectorAll('#event-grid tr[data-mc-card="time"]')].filter(r => r.getBoundingClientRect().height)
+                  .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                out.event.time = rows.map(r => {
+                  const lab = [...r.querySelectorAll(":scope > th label")].find(l => l.getBoundingClientRect().width);
+                  const val = r.querySelector(":scope > td checkbox, :scope > td datetimepicker menulist, :scope > td menulist");
+                  const drop = val?.localName == "menulist" && !val.closest("datepicker, timepicker") ? val.shadowRoot?.querySelector('[part~="dropmarker"]') : null;
+                  return { label: lab ? lab.getAttribute("value") + iw.getComputedStyle(lab, "::after").content.replace(/"/g, "") : null,
+                           labelRight: lab ? Math.round(lab.getBoundingClientRect().right) : null, value: val ? textLeft(val, iw) : null,
+                           arrow: drop ? drop.getBoundingClientRect().width > 0 : false, h: Math.round(r.getBoundingClientRect().height) };
+                });
+                out.event.statusBar = dw.document.getElementById("status-bar")?.getBoundingClientRect().height || 0;
+                // „Show As“ ändert Thunderbirds Frei/Beschäftigt (im Fenster gemerkt)
+                const sa = id.getElementById("mc-showas");
+                const before = sa?.value;
+                sa?.querySelector('menuitem[value="TRANSPARENT"]')?.doCommand(); await pause(300);
+                out.event.showAs = [before, sa?.value, !dw.document.getElementById("status-freebusy-free-label")?.hidden];
+              }
+            } finally {
+              dw.close(); await till(() => dw.closed, 4000);
+            }
+          }
+          return out;""")
+        ev, task = res.get("event") or {}, res.get("task") or {}
+        rows = ev.get("time") or []
+        labels = [r["label"] for r in rows]
+        rights = {r["labelRight"] for r in rows if r["labelRight"] is not None}
+        lefts = [r["value"] for r in rows if r["value"] is not None]
+        ok = (bool(ev) and abs(ev["w"] - 320) <= 2 and ev["buttons"] >= 4 and ev["inside"] and ev["saveLast"]
+              and ev["saveRight"] is not None and 4 <= ev["saveRight"] <= 24 and not ev["outside"]
+              and labels == ["All Day:", "Starts:", "Ends:", "Repeat:", "Alert:", "Show As:"]
+              and len(rights) == 1 and len(lefts) == 6 and max(lefts) - min(lefts) <= 2 and not any(r["arrow"] for r in rows)
+              and max(r["h"] for r in rows[1:-1]) - min(r["h"] for r in rows[1:-1]) <= 2
+              and ev["statusBar"] == 0 and ev.get("showAs") == ["OPAQUE", "TRANSPARENT", True]
+              and bool(task) and task["inside"] and task["saveLast"] and not task["outside"])
+        return ok, f"{res}"
+    check("Termin-Fenster wie die Kalender-App: schmal (320 px), Sichern rechts, Zeitkarte „All Day:“ … „Show As:“ mit Werten auf einer Linie ohne Pfeile", event_dialog_narrow, results)
 
     def event_dialog_lines():
         # Termin-Dialog: Trennlinien im Raster als Haarlinie (Thunderbird: 1 px Feldrahmenfarbe); Statuszeile mit Abstand
@@ -10786,6 +10869,8 @@ Neu
           const pop = fd.getElementById("accountAddPopup") || fd.getElementById("accountActionsDropdown");
           // zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu
           let shown = false; pop?.addEventListener("popupshowing", () => { shown = true; }, { once: true });
+          // ein Dialog einer früheren Prüfung kann den Fokus behalten haben – Fenster wie beim echten Klick vorn
+          const top = pw.browsingContext.topChromeWindow; top.focus(); await until(() => Services.focus.activeWindow == top, 2000);
           pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await wait(800); out.popup = shown ? "open" : pop?.state; pop?.hidePopup(); await wait(300);
           await pick("paneMcAddons", 3500);
           const ad = page("about:addons"), aw = ad.contentWindow;

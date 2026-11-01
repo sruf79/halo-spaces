@@ -214,6 +214,33 @@ const DE = {
   "Searching …": "Suche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Wetterdaten: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Senden rückgängig",
+  "Copy Message Link": "Link zur E-Mail kopieren",
+  "Folder List": "Ordnerliste",
+  "Files and Display": "Dateien und Darstellung",
+  "History": "Verlauf",
+  "Offline": "Offline",
+  "Calendar View": "Kalenderansicht",
+  "New Message": "Neue E-Mail",
+  "New Event…": "Neuer Termin …",
+  "New Task…": "Neue Aufgabe …",
+  "New Contact…": "Neuer Kontakt …",
+  "Save As…": "Sichern unter …",
+  "Save as Template": "Als Vorlage sichern",
+  "Select All": "Alles auswählen",
+  "Select Thread": "Konversation auswählen",
+  "Search…": "Suchen …",
+  "Find…": "In der E-Mail suchen …",
+  "Show Folder List": "Ordnerliste einblenden",
+  "Filter": "Filter",
+  "Go to Today": "Gehe zu heute",
+  "Actual Size": "Originalgröße",
+  "All Headers": "Alle Kopfzeilen",
+  "Normal Headers": "Normale Kopfzeilen",
+  "Mark Folder as Read": "Ordner als gelesen markieren",
+  "Get New Mail": "Neue E-Mails abrufen",
+  "Mail": "Mail",
+  "Address Book": "Adressbuch",
+  "Message": "E-Mail",
   "Today": "Heute",
   "Scheduled": "Geplant",
   "All": "Alle",
@@ -468,7 +495,6 @@ const FR = {
   "Settings…": "Réglages…",
   "Send Feedback": "Envoyer un avis",
   "Say Thanks": "Dire merci",
-  "Mail": "Mail",
   "This message is from a mailing list.": "Ce message provient d’une liste de diffusion.",
   "Unsubscribe": "Se désabonner",
   "Unsubscribe from messages from {name}?": "Ne plus recevoir de messages de {name} ?",
@@ -550,6 +576,33 @@ const FR = {
   "Searching …": "Recherche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Données météo : Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annuler l’envoi",
+  "Copy Message Link": "Copier le lien du message",
+  "Folder List": "Liste des dossiers",
+  "Files and Display": "Fichiers et affichage",
+  "History": "Historique",
+  "Offline": "Hors connexion",
+  "Calendar View": "Vue du calendrier",
+  "New Message": "Nouveau message",
+  "New Event…": "Nouvel événement…",
+  "New Task…": "Nouvelle tâche…",
+  "New Contact…": "Nouveau contact…",
+  "Save As…": "Enregistrer sous…",
+  "Save as Template": "Enregistrer comme modèle",
+  "Select All": "Tout sélectionner",
+  "Select Thread": "Sélectionner la conversation",
+  "Search…": "Rechercher…",
+  "Find…": "Rechercher dans le message…",
+  "Show Folder List": "Afficher la liste des dossiers",
+  "Filter": "Filtrer",
+  "Go to Today": "Aller à aujourd’hui",
+  "Actual Size": "Taille réelle",
+  "All Headers": "Tous les en-têtes",
+  "Normal Headers": "En-têtes normaux",
+  "Mark Folder as Read": "Marquer le dossier comme lu",
+  "Get New Mail": "Relever le courrier",
+  "Mail": "Mail",
+  "Address Book": "Carnet d’adresses",
+  "Message": "Message",
   "Today": "Aujourd’hui",
   "Scheduled": "Programmés",
   "All": "Tous",
@@ -804,7 +857,6 @@ const ES = {
   "Settings…": "Ajustes…",
   "Send Feedback": "Enviar comentarios",
   "Say Thanks": "Dar las gracias",
-  "Mail": "Correo",
   "This message is from a mailing list.": "Este mensaje procede de una lista de correo.",
   "Unsubscribe": "Darse de baja",
   "Unsubscribe from messages from {name}?": "¿Dejar de recibir mensajes de {name}?",
@@ -886,6 +938,33 @@ const ES = {
   "Searching …": "Buscando …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Datos meteorológicos: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Deshacer envío",
+  "Copy Message Link": "Copiar enlace del mensaje",
+  "Folder List": "Lista de carpetas",
+  "Files and Display": "Archivos y visualización",
+  "History": "Historial",
+  "Offline": "Sin conexión",
+  "Calendar View": "Vista del calendario",
+  "New Message": "Nuevo mensaje",
+  "New Event…": "Nuevo evento…",
+  "New Task…": "Nueva tarea…",
+  "New Contact…": "Nuevo contacto…",
+  "Save As…": "Guardar como…",
+  "Save as Template": "Guardar como plantilla",
+  "Select All": "Seleccionar todo",
+  "Select Thread": "Seleccionar conversación",
+  "Search…": "Buscar…",
+  "Find…": "Buscar en el mensaje…",
+  "Show Folder List": "Mostrar lista de carpetas",
+  "Filter": "Filtrar",
+  "Go to Today": "Ir a hoy",
+  "Actual Size": "Tamaño real",
+  "All Headers": "Todos los encabezados",
+  "Normal Headers": "Encabezados normales",
+  "Mark Folder as Read": "Marcar carpeta como leída",
+  "Get New Mail": "Obtener correo nuevo",
+  "Mail": "Correo",
+  "Address Book": "Libreta de direcciones",
+  "Message": "Mensaje",
   "Today": "Hoy",
   "Scheduled": "Programados",
   "All": "Todos",
@@ -1140,7 +1219,6 @@ const IT = {
   "Settings…": "Impostazioni…",
   "Send Feedback": "Invia feedback",
   "Say Thanks": "Dì grazie",
-  "Mail": "Posta",
   "This message is from a mailing list.": "Questo messaggio proviene da una mailing list.",
   "Unsubscribe": "Annulla iscrizione",
   "Unsubscribe from messages from {name}?": "Non ricevere più messaggi da {name}?",
@@ -1222,6 +1300,33 @@ const IT = {
   "Searching …": "Ricerca …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Dati meteo: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annulla invio",
+  "Copy Message Link": "Copia link del messaggio",
+  "Folder List": "Elenco cartelle",
+  "Files and Display": "File e visualizzazione",
+  "History": "Cronologia",
+  "Offline": "Non in linea",
+  "Calendar View": "Vista calendario",
+  "New Message": "Nuovo messaggio",
+  "New Event…": "Nuovo evento…",
+  "New Task…": "Nuova attività…",
+  "New Contact…": "Nuovo contatto…",
+  "Save As…": "Salva come…",
+  "Save as Template": "Salva come modello",
+  "Select All": "Seleziona tutto",
+  "Select Thread": "Seleziona conversazione",
+  "Search…": "Cerca…",
+  "Find…": "Trova nel messaggio…",
+  "Show Folder List": "Mostra elenco cartelle",
+  "Filter": "Filtra",
+  "Go to Today": "Vai a oggi",
+  "Actual Size": "Dimensioni reali",
+  "All Headers": "Tutte le intestazioni",
+  "Normal Headers": "Intestazioni normali",
+  "Mark Folder as Read": "Segna cartella come letta",
+  "Get New Mail": "Scarica nuova posta",
+  "Mail": "Posta",
+  "Address Book": "Rubrica",
+  "Message": "Messaggio",
   "Today": "Oggi",
   "Scheduled": "Programmati",
   "All": "Tutti",
@@ -4692,6 +4797,318 @@ function hookTaskLists(win, restorers) {
   });
 }
 
+// Menüleiste wie in den Apple-Apps: sieben feste Menüs – Thunderbird (macOS
+// baut es aus Thunderbirds Einträgen selbst), File, Edit, View, Mail, Window,
+// Help. Jeder Befehl genau einmal; Go, Events and Tasks und Tools entfallen,
+// ihr Inhalt steht in den übrigen Menüs, in den Einstellungen oder in den
+// Kontextmenüs der Bereiche. Thunderbirds Einträge werden nur umgehängt
+// (Befehle, Tastenkürzel und Ein-/Ausblenden bleiben bei Thunderbird);
+// Einträge, die nicht passen, sind ausgegraut statt verschwunden. In der
+// nativen macOS-Leiste wirkt nur das hidden-Attribut, kein CSS.
+const MENUBAR_MAC = Services.appinfo.OS == "Darwin";
+function hookMenubar(win, restorers) {
+  const doc = win.document;
+  const bar = doc.getElementById("mail-menubar");
+  if (!bar || bar.__mcMenubar) {
+    return;
+  }
+  bar.__mcMenubar = true;
+  const $ = id => doc.getElementById(id);
+  const S = "-";
+  const created = [];
+  const moved = [];
+  const relabeled = [];
+  const make = (tag, id, label) => {
+    const e = doc.createXULElement(tag);
+    if (id) {
+      e.id = id;
+    }
+    if (label) {
+      e.setAttribute("label", tr(label));
+    }
+    created.push(e);
+    return e;
+  };
+  const relabel = (el, label) => {
+    if (!el || !label) {
+      return;
+    }
+    relabeled.push([el, el.getAttribute("label"), el.getAttribute("data-l10n-id"), el.getAttribute("accesskey")]);
+    el.removeAttribute("data-l10n-id");
+    el.removeAttribute("accesskey");
+    el.setAttribute("label", tr(label));
+  };
+  const own = (id, label, run) => {
+    const item = make("menuitem", id, label);
+    item.addEventListener("command", event => {
+      event.stopPropagation();
+      run();
+    });
+    return item;
+  };
+  const tab = () => doc.getElementById("tabmail")?.currentTabInfo;
+  const a3 = () => doc.getElementById("tabmail")?.currentAbout3Pane;
+  const inMail = () => ["mail3PaneTab", "mailMessageTab"].includes(tab()?.mode?.name);
+  const inCalendar = () => tab()?.mode?.name == "calendar";
+  const selected = () => {
+    try {
+      const view = tab()?.mode?.name == "mailMessageTab" ? tab().chromeBrowser?.contentWindow?.gDBView : a3()?.gDBView;
+      return [...(view?.getSelectedMsgHdrs() || [])];
+    } catch {
+      return [];
+    }
+  };
+
+  // eigene Untermenüs
+  const msgMenu = make("menu", "mcViewMessageMenu", "Message");
+  const msgPopup = make("menupopup", "mcViewMessagePopup");
+  msgMenu.append(msgPopup);
+  const trouble = make("menu", "mcHelpTroubleMenu", "Troubleshooting");
+  const troublePopup = make("menupopup", "mcHelpTroublePopup");
+  trouble.append(troublePopup);
+  const remind = make("menu", "mcMailRemindMenu", "Remind Me");
+  const remindPopup = make("menupopup", "mcMailRemindPopup");
+  remind.append(remindPopup);
+  const fmt = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  remindPopup.addEventListener("popupshowing", event => {
+    if (event.target != remindPopup) {
+      return;
+    }
+    remindPopup.replaceChildren(...Remind.choices().map(([label, when]) => {
+      const it = doc.createXULElement("menuitem");
+      it.setAttribute("label", `${tr(label)} (${fmt.format(when)})`);
+      it.addEventListener("command", () => Remind.remind(selected(), when).catch(e => log("remind error", e)));
+      return it;
+    }));
+  });
+  const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
+  const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
+    const hdr = selected()[0];
+    if (hdr?.messageId) {
+      Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(`mid:${hdr.messageId}`);
+    }
+  });
+  const space = (id, label, button) => {
+    const item = own(id, label, () => $(button)?.click());
+    item.dataset.space = button;
+    return item;
+  };
+  const spaces = [
+    space("mcWinMail", "Mail", "mailButton"),
+    space("mcWinAddressBook", "Address Book", "addressBookButton"),
+    space("mcWinCalendar", "Calendar", "calendarButton"),
+    space("mcWinTasks", "Tasks", "tasksButton"),
+    space("mcWinChat", "Chat", "chatButton"),
+  ];
+
+  // [Menü, Einträge] – Zeichenkette = Thunderbirds Eintrag (optional mit
+  // eigenem Text), S = Trennlinie
+  const L = (id, label) => [$(id), label];
+  const layout = [
+    ["menu_FilePopup", [
+      L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"),
+      L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
+      L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
+    ]],
+    ["menu_EditPopup", [
+      L("menu_undo"), L("menu_redo"), S, L("menu_cut"), L("menu_copy"), [copyLink], L("menu_paste"), L("menu_delete"),
+      L("menu_SelectAll", "Select All"), L("menu_selectThread", "Select Thread"), S, L("glodaSearchCmd", "Search…"),
+      L("menu_findCmd", "Find…"), L("menu_findAgainCmd"),
+      ...(MENUBAR_MAC ? [] : [S, L("menu_preferences")]),
+    ]],
+    ["menu_View_Popup", [
+      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), S,
+      L("viewSortMenu"), L("viewMessageViewMenu", "Filter"), L("viewMessagesMenu"), L("menu_FolderViews", "Folder List"), [msgMenu], S,
+      L("calChangeViewDay"), L("calChangeViewWeek"), L("calChangeViewMonth"), L("calendar-go-to-today-menuitem", "Go to Today"), S,
+      L("menu_fullZoomEnlarge"), L("menu_fullZoomReduce"), L("menu_fullZoomReset", "Actual Size"),
+      ...(MENUBAR_MAC ? [] : [S, ...spaces.map(x => [x])]),
+    ]],
+    ["mcViewMessagePopup", [
+      L("bodyAllowHTML"), L("bodySanitized"), L("bodyAsPlaintext"), S,
+      L("viewallheaders", "All Headers"), L("viewnormalheaders", "Normal Headers"), S, L("pageSourceMenuItem"),
+    ]],
+    ["messageMenuPopup", [
+      [getMail], L("goOfflineMenuItem"), S,
+      L("replyMainMenu"), L("replySenderMainMenu"), L("menu_replyToAll", "Reply All"), L("menu_replyToList"),
+      L("replyNewsgroupMainMenu"), L("menu_forwardMsg"), S,
+      L("markReadMenuItem", "Mark as Read"), L("markUnreadMenuItem", "Mark as Unread"), L("markFlaggedMenuItem", "Star"),
+      L("menu_markAsJunk", "Mark as Spam"), L("menu_markAsNotJunk", "Mark as Not Spam"), L("tagMenu"), [remind], S,
+      L("archiveMainMenu"), L("moveMenu"), S, L("menu_markAllRead", "Mark Folder as Read"), S, L("filtersCmd"),
+    ]],
+    ["mcHelpTroublePopup", [
+      L("aboutsupport_open"), L("helpTroubleshootMode"), S,
+      L("activityManager"), L("javascriptConsole"), L("devtoolsToolbox"), L("addonDebugging"),
+    ]],
+    ["menu_HelpPopup", [
+      L("menu_openHelp"), L("menu_keyboardShortcuts"), S, [trouble], S, L("mcHaloSpaces"), S,
+      L("feedbackPage"), L("donationsPage"), S, L("aboutName"),
+      // macOS holt diese ins Programm-Menü (aus jedem Menü der Leiste)
+      ...(MENUBAR_MAC ? ["menu_preferences", "menu_mac_services", "menu_mac_hide_app", "menu_mac_hide_others", "menu_mac_show_all"].map(id => L(id)) : []),
+    ]],
+  ];
+  const keep = new Set();
+  for (const [popupId, entries] of layout) {
+    const popup = popupId.startsWith("mc") ? created.find(e => e.id == popupId) : $(popupId);
+    if (!popup) {
+      continue;
+    }
+    const items = [];
+    for (const entry of entries) {
+      if (entry == S) {
+        const sep = make("menuseparator");
+        sep.classList.add("mc-menu-sep");
+        items.push(sep);
+        continue;
+      }
+      const [el, label] = entry;
+      if (!el) {
+        continue;
+      }
+      if (!created.includes(el)) {
+        moved.push([el, el.parentNode, el.nextSibling]);
+        relabel(el, label);
+      }
+      keep.add(el);
+      items.push(el);
+    }
+    // vorn einreihen; Thunderbirds übrige Einträge bleiben dahinter ausgeblendet
+    popup.prepend(...items);
+  }
+  // Fenster (nur macOS): Bereiche nach Minimieren/Zoomen
+  const zoom = $("zoomWindow");
+  if (MENUBAR_MAC && zoom) {
+    const sepA = make("menuseparator");
+    sepA.classList.add("mc-menu-sep");
+    zoom.after(sepA, ...spaces);
+    spaces.forEach(x => keep.add(x));
+  }
+  const menuLabel = $("messageMenu");
+  relabel(menuLabel, "Mail");
+  // ganze Menüs ohne Aufgabe
+  const offMenus = ["menu_Go", "menu_Event_Task", "tasksMenu"].map($).filter(Boolean);
+  const managed = ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup"].map($).filter(Boolean);
+  const offState = new Map();
+  const hide = (el, on) => {
+    if (!offState.has(el)) {
+      offState.set(el, el.hidden);
+    }
+    el.hidden = on;
+  };
+  const sweep = () => {
+    for (const m of offMenus) {
+      hide(m, true);
+    }
+    for (const popup of managed) {
+      for (const el of popup.children) {
+        if (!keep.has(el) && !el.classList.contains("mc-menu-sep")) {
+          hide(el, true);
+        }
+      }
+    }
+  };
+  // Trennlinien: keine doppelten, keine am Anfang oder Ende
+  const tidy = popup => {
+    let last = null;
+    for (const el of popup.children) {
+      if (el.classList.contains("mc-menu-sep")) {
+        el.hidden = !last || last.localName == "menuseparator";
+        if (!el.hidden) {
+          last = el;
+        }
+      } else if (!el.hidden && el.localName != "menuseparator") {
+        last = el;
+      }
+    }
+    if (last?.classList?.contains("mc-menu-sep")) {
+      last.hidden = true;
+    }
+  };
+  const onShowing = event => {
+    const popup = event.target;
+    if (!bar.contains(popup) && popup != msgPopup && popup != troublePopup) {
+      return;
+    }
+    sweep();
+    const mail = inMail(), calendar = inCalendar();
+    if (popup.id == "menu_View_Popup") {
+      for (const id of ["viewSortMenu", "viewMessageViewMenu", "viewMessagesMenu", "menu_FolderViews"]) {
+        const el = $(id);
+        if (el) {
+          el.hidden = false; // Thunderbird blendet „Messages“ als alte Ansicht aus
+          el.setAttribute("disabled", String(!mail));
+        }
+      }
+      msgMenu.setAttribute("disabled", String(!mail));
+      for (const id of ["calChangeViewDay", "calChangeViewWeek", "calChangeViewMonth", "calendar-go-to-today-menuitem"]) {
+        $(id)?.setAttribute("disabled", String(!calendar));
+      }
+    }
+    if (popup.id == "menu_EditPopup") {
+      copyLink.disabled = !selected()[0]?.messageId;
+    }
+    if (popup.id == "messageMenuPopup") {
+      const hdrs = selected();
+      const unread = hdrs.some(h => !h.isRead);
+      const junk = hdrs.length == 1 && hdrs[0].getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE;
+      const set = (id, on) => {
+        const el = $(id);
+        if (el) {
+          el.hidden = !on;
+        }
+      };
+      set("markReadMenuItem", unread);
+      set("markUnreadMenuItem", !unread);
+      set("menu_markAsJunk", !junk);
+      set("menu_markAsNotJunk", junk);
+      // „Reply“ für Mails, „Reply to Sender“ zeigt Thunderbird nur bei Newsgroups
+      if (!$("replySenderMainMenu")?.hidden && !$("replyMainMenu")?.hidden) {
+        $("replySenderMainMenu").hidden = true;
+      }
+      const star = $("markFlaggedMenuItem");
+      if (star) {
+        star.removeAttribute("type");
+        star.setAttribute("label", tr(hdrs[0]?.isFlagged ? "Remove Star" : "Star"));
+      }
+      remind.disabled = !hdrs.length;
+      getMail.disabled = false;
+    }
+    for (const x of spaces) {
+      const button = $(x.dataset.space);
+      x.hidden = !button || button.hidden;
+    }
+    tidy(popup);
+  };
+  doc.addEventListener("popupshowing", onShowing);
+  sweep();
+  for (const popup of [...managed, msgPopup, troublePopup]) {
+    tidy(popup);
+  }
+  restorers.push(() => {
+    doc.removeEventListener("popupshowing", onShowing);
+    for (const [el, hidden] of offState) {
+      el.hidden = hidden;
+    }
+    for (const [el, label, l10n, key] of relabeled) {
+      if (label != null) {
+        el.setAttribute("label", label);
+      }
+      if (l10n) {
+        el.setAttribute("data-l10n-id", l10n);
+      }
+      if (key) {
+        el.setAttribute("accesskey", key);
+      }
+    }
+    for (const [el, parent, next] of moved.reverse()) {
+      parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+    }
+    created.forEach(e => e.remove());
+    delete bar.__mcMenubar;
+  });
+}
+
 function hookTaskView(win, restorers) {
   const doc = win.document;
   const details = doc.getElementById("calendar-task-details-container");
@@ -5619,6 +6036,50 @@ function hookPhotoDialog(cw, restorers = null) {
   });
 }
 
+// Kontextmenü der Ordnerliste: „Run Spam Controls“ und „Mark as Read by Date…“
+// – sie standen nur in der Menüleiste (Tools bzw. Message › Mark)
+function hookFolderContextExtras(a3, restorers) {
+  const doc = a3.document;
+  const popup = doc.getElementById("folderPaneContext");
+  const anchor = doc.getElementById("folderPaneContext-markMailFolderAllRead");
+  const mailWin = a3.browsingContext?.topChromeWindow;
+  if (!popup || !anchor || !mailWin || doc.getElementById("mcFolderJunk")) {
+    return;
+  }
+  const make = (id, sourceId, command) => {
+    const src = mailWin.document.getElementById(sourceId);
+    const item = doc.createXULElement("menuitem");
+    item.id = id;
+    item.setAttribute("label", src?.getAttribute("label") || id);
+    item.addEventListener("command", () => {
+      const folder = a3.folderPaneContextMenu?.activeFolder;
+      if (folder && folder != a3.gFolder) {
+        a3.displayFolder(folder);
+      }
+      a3.setTimeout(() => a3.commandController?.doCommand(command), 0);
+    });
+    return item;
+  };
+  const byDate = make("mcFolderReadByDate", "menu_markReadByDate", "cmd_markReadByDate");
+  const junk = make("mcFolderJunk", "runJunkControls", "cmd_runJunkControls");
+  anchor.after(byDate, junk);
+  const onShow = event => {
+    if (event.target != popup) {
+      return;
+    }
+    const folder = a3.folderPaneContextMenu?.activeFolder;
+    const mail = !!folder && !folder.isServer && !folder.getFlag(Ci.nsMsgFolderFlags.Virtual);
+    byDate.hidden = !mail;
+    junk.hidden = !mail || folder.server?.type == "nntp" || folder.server?.type == "rss";
+  };
+  popup.addEventListener("popupshowing", onShow);
+  restorers.push(() => {
+    popup.removeEventListener("popupshowing", onShow);
+    byDate.remove();
+    junk.remove();
+  });
+}
+
 // Kontextmenüs ohne „In neuem Tab/Fenster öffnen“ (alle Bereiche; Punkte per CSS
 // ausgeblendet). Danach stünden Trennlinien doppelt oder am Rand – beim Öffnen
 // aufräumen; ein Menü ohne sichtbare Einträge öffnet sich gar nicht erst
@@ -6304,6 +6765,90 @@ function hookShortcutsLink(cw, restorers = null) {
   card.append(set);
   next.before(card);
   restorers?.push(() => card.remove());
+}
+
+// Befehle, die aus der Menüleiste gefallen sind, bekommen einen Platz in
+// Thunderbirds Einstellungen (Knöpfe bzw. Schalter, die Thunderbirds
+// Menüeintrag auslösen; Texte von Thunderbird, die Suche findet sie)
+const PREF_TOOLS = [
+  // [Karte, Bereich, vor/nach Thunderbird-Abschnitt, Überschrift, Einträge]
+  ["mcPrefFiles", "paneGeneral", "languageAndFontsCategory", "Files and Display", [
+    { button: "menu_openSavedFilesWnd" },
+    { toggle: "menu_fullZoomToggle" },
+    { toggle: "viewAttachmentsInlineMenuitem" },
+  ]],
+  ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
+  ["mcPrefOffline", "paneGeneral", null, "Offline", [
+    { button: "menu_synchronizeOffline" },
+    { button: "menu_downloadFlagged" },
+  ]],
+  ["mcPrefCalendarView", "paneCalendar", null, "Calendar View", [
+    { toggle: "calWorkdaysOnlyMenuitem" },
+    { toggle: "calTasksInViewMenuitem" },
+    { toggle: "calShowCompletedInViewMenuItem" },
+    { toggle: "calViewRotated" },
+  ]],
+];
+
+function addPrefTools(doc, restorers) {
+  const mailWin = Services.wm.getMostRecentWindow("mail:3pane");
+  const deck = doc.getElementById("paneDeck");
+  if (!mailWin || !deck || doc.getElementById(PREF_TOOLS[0][0])) {
+    return;
+  }
+  const X = "http://www.w3.org/1999/xhtml";
+  const item = id => mailWin.document.getElementById(id);
+  const label = id => (item(id)?.getAttribute("label") || "").replace(/…$/, "") + (item(id)?.getAttribute("label")?.endsWith("…") ? "…" : "");
+  for (const [id, pane, before, legendText, rows] of PREF_TOOLS) {
+    const cards = [...deck.children].filter(c => c.getAttribute("data-category") == pane);
+    if (!cards.length || rows.every(r => !item(r.button || r.toggle))) {
+      continue;
+    }
+    const card = doc.createElementNS(X, "div");
+    card.id = id;
+    card.setAttribute("data-category", pane);
+    card.hidden = cards[0].hidden;
+    const set = doc.createElementNS(X, "fieldset");
+    const legend = doc.createElementNS(X, "legend");
+    legend.textContent = tr(legendText);
+    set.append(legend);
+    for (const row of rows) {
+      const src = item(row.button || row.toggle);
+      if (!src) {
+        continue;
+      }
+      const line = doc.createElementNS(X, "div");
+      line.className = "mc-pref-tool";
+      if (row.button) {
+        const b = doc.createElementNS(X, "button");
+        b.textContent = label(row.button);
+        b.addEventListener("click", () => item(row.button)?.doCommand());
+        line.append(b);
+      } else {
+        const lab = doc.createElementNS(X, "label");
+        const box = doc.createElementNS(X, "input");
+        box.type = "checkbox";
+        const sync = () => (box.checked = item(row.toggle)?.getAttribute("checked") == "true");
+        sync();
+        box.addEventListener("change", () => {
+          item(row.toggle)?.doCommand();
+          mailWin.setTimeout(sync, 50);
+        });
+        card.addEventListener("focusin", sync);
+        lab.append(box, " ", label(row.toggle));
+        line.append(lab);
+      }
+      set.append(line);
+    }
+    card.append(set);
+    const anchor = before && doc.getElementById(before);
+    if (anchor && anchor.parentNode == deck) {
+      anchor.before(card);
+    } else {
+      cards.at(-1).after(card);
+    }
+    restorers?.push(() => card.remove());
+  }
 }
 
 // Optionen der halo.spaces-Seite (dieselbe Liste wie options.js), übersetzt
@@ -10223,6 +10768,11 @@ class CardEnhancer {
             log("pref keyboard scroll error", e);
           }
           try {
+            addPrefTools(cw.document, winRestorers);
+          } catch (e) {
+            log("pref tools error", e);
+          }
+          try {
             hookShortcutsLink(cw, winRestorers);
           } catch (e) {
             log("shortcuts link error", e);
@@ -11242,6 +11792,11 @@ class CardEnhancer {
       hookSearchForwarding();
       hookHelpMenu();
       hookPreviewMenu();
+      try {
+        hookMenubar(w, this.restorers);
+      } catch (e) {
+        log("menubar error", e);
+      }
       hookNewTabMenus(w.document, this.restorers);
       try {
         hookTaskFilter();
@@ -16947,6 +17502,7 @@ class CardEnhancer {
       }
     };
     safely("mail context", () => this.hookMailContext(doc));
+    safely("folder context", () => hookFolderContextExtras(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
     safely("dialog box", () => shareDialogBox(win, { push: fn => this.addWinRestorer(win, fn) }));
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));

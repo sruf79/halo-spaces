@@ -3518,6 +3518,44 @@ MENU_JS = MESSAGE_JS + r"""
 def menu_checks(m, results):
     """Menüs: gleichmäßige Zeilen im Kontextmenü der Mailliste, lesbare Schlagwörter im Schlagwort-Menü."""
 
+    def menubar_layout():
+        # Menüleiste wie die Apple-Apps: sieben feste Menüs (Go, Events and Tasks, Tools ausgeblendet, Message heißt Mail),
+        # je Menü die vorgesehenen Einträge in dieser Reihenfolge, Kalender-Ansichten außerhalb des Kalenders ausgegraut,
+        # Hilfe → Troubleshooting mit Activity und Entwicklerwerkzeugen
+        res = m.js(r"""
+          const show = async id => { const p = d.getElementById(id); p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await wait(50);
+            const out = []; for (const el of p.children) { if (el.hidden || el.collapsed) continue; out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); }
+            p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return out; };
+          const out = {};
+          await toMail();
+          out.top = [...d.getElementById("mail-menubar").children].filter(m => !m.hidden).map(m => m.getAttribute("label") || m.id);
+          for (const id of ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup", "mcHelpTroublePopup", "mcViewMessagePopup"])
+            out[id] = await show(id);
+          out.calInMail = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
+          out.sortInMail = d.getElementById("viewSortMenu")?.getAttribute("disabled");
+          await toCalendar(); await show("menu_View_Popup");
+          out.calInCal = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
+          out.sortInCal = d.getElementById("viewSortMenu")?.getAttribute("disabled");
+          await toMail();
+          return out;""")
+        mac = sys.platform == "darwin"
+        top = res.get("top", [])
+        want_top = ["File", "Edit", "View", "Mail"] + (["Window"] if mac else []) + ["Help"]
+        file_ = res.get("menu_FilePopup", [])
+        mail = res.get("messageMenuPopup", [])
+        ok = ([t for t in top if t in want_top + ["Go", "Events and Tasks", "Tools"]] == want_top
+              and file_[:4] == ["New Message", "New Event…", "New Task…", "New Contact…"] and "Print…" in file_
+              and res.get("menu_EditPopup", [])[:2] == ["Undo", "Redo"] and "Search…" in res["menu_EditPopup"] and "Select Thread" in res["menu_EditPopup"]
+              and "Show Folder List" in res.get("menu_View_Popup", []) and "Message" in res["menu_View_Popup"]
+              and mail[:2] == ["Get New Mail", "Work Offline"] and "Star" in mail and "Mark Folder as Read" in mail and "Remind Me" in mail
+              and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces …" in res["menu_HelpPopup"]
+              and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
+              and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
+              and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
+              and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:])))
+        return ok, f"{res}"
+    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
+
     def context_flat():
         # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit
         # „Remove Star“, nur Gelesen oder Ungelesen, keine Schlagwörter/Speichern/Drucken; Zeilen gleich hoch; Stern per Menü.
@@ -10496,6 +10534,32 @@ Neu
               and res.get("after", {}).get("cat") == "paneMcHalo" and res["after"].get("url", "").endswith("#s-senderLogos") and res["after"].get("search") == "")
         return ok, f"{res}"
     check("Einstellungen: Suche findet die Optionen von halo.spaces, „Show“ zeigt die Option", pref_halo_search, results)
+
+    def menubar_new_places():
+        # was aus der Menüleiste fällt, steht anderswo: Einstellungen (Saved Files, Zoom nur Text, Anhänge eingebettet, Verlauf
+        # löschen, Offline-Abgleich, Kalenderansicht) – die Suche der Einstellungen findet sie; Ordner-Kontextmenü mit Spamfilter
+        # und Gelesen nach Datum; Bearbeiten → „Copy Message Link“
+        res = m.js(PREFS_OPEN_JS + r"""
+          const out = {};
+          out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].map(id => {
+            const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim()) : null]; }));
+          const input = pd.getElementById("searchInput");
+          const search = async q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true }));
+            await wait(1500); return ["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].filter(id => { const c = pd.getElementById(id); return c && !c.hidden && !c.classList.contains("visually-hidden") && c.getBoundingClientRect().height > 0; }); };
+          out.findSaved = await search("saved files");
+          out.findHistory = await search("recent history");
+          input.value = ""; input.dispatchEvent(new pw.Event("command", { bubbles: true }));
+          tm.closeTab(tm.currentTabInfo); await wait(400);
+          const a3 = await toMail(); const fp = a3.document.getElementById("folderPaneContext");
+          out.folder = [!!a3.document.getElementById("mcFolderJunk"), !!a3.document.getElementById("mcFolderReadByDate")];
+          out.copyLink = d.getElementById("mcEditCopyMessageLink")?.parentNode?.id;
+          return out;""")
+        cards = res.get("cards", {})
+        ok = (all(cards.get(k) for k in cards) and len(cards["mcPrefFiles"]) == 3 and len(cards["mcPrefCalendarView"]) == 4
+              and "mcPrefFiles" in res.get("findSaved", []) and "mcPrefPrivacy" in res.get("findHistory", [])
+              and res.get("folder") == [True, True] and res.get("copyLink") == "menu_EditPopup")
+        return ok, f"{res}"
+    check("Menüleiste: Entfernte Befehle in Einstellungen (per Suche findbar), Ordner-Kontextmenü und Bearbeiten-Menü", menubar_new_places, results)
 
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),

@@ -4238,6 +4238,45 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Fenster wie die Kalender-App: schmal (320 px), Sichern rechts, Zeitkarte „All Day:“ … „Show As:“ mit Werten auf einer Linie ohne Pfeile", event_dialog_narrow, results)
 
+    def dialog_edge_reset():
+        # Dialog per Doppelklick auf die Kante ausgedehnt (macOS): ein weiterer Doppelklick an der linken bzw. rechten Kante
+        # setzt ihn auf die Standardbreite zurück, die andere Kante bleibt stehen; in Standardbreite tut der Doppelklick nichts
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); await toCalendar();
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.createEventWithDialog(c);
+          const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+          if (!dw) return { dialog: false };
+          const out = {};
+          try {
+            await pause(2200);
+            const std = dw.outerWidth;
+            const dbl = x => { const y = Math.round(dw.innerHeight / 2);
+              for (const [type, detail] of [["mousedown", 1], ["mouseup", 1], ["mousedown", 2], ["mouseup", 2], ["dblclick", 2]])
+                dw.document.documentElement.dispatchEvent(new dw.MouseEvent(type, { bubbles: true, cancelable: true, view: dw, detail, clientX: x, clientY: y })); };
+            out.std = std;
+            dbl(dw.innerWidth - 2); await pause(300); out.stdAfter = dw.outerWidth;
+            const left = dw.screenX;
+            dw.resizeTo(std + 300, dw.outerHeight); await till(() => dw.outerWidth > std + 200, 3000);
+            dbl(dw.innerWidth - 2); await till(() => dw.outerWidth < std + 5, 3000);
+            out.right = { w: dw.outerWidth, left: dw.screenX - left };
+            dw.moveTo(Math.max(0, left - 300), dw.screenY); dw.resizeTo(std + 300, dw.outerHeight); await till(() => dw.outerWidth > std + 200, 3000);
+            const rightEdge = dw.screenX + dw.outerWidth;
+            dbl(2); await till(() => dw.outerWidth < std + 5, 3000); await pause(200);
+            out.left = { w: dw.outerWidth, right: dw.screenX + dw.outerWidth - rightEdge };
+          } finally {
+            dw.close(); await till(() => dw.closed, 4000);
+          }
+          return out;""")
+        if res.get("dialog") is False:
+            return False, f"{res}"
+        std = res.get("std", 0)
+        ok = (std > 200 and res.get("stdAfter") == std and abs(res["right"]["w"] - std) <= 2 and abs(res["right"]["left"]) <= 1
+              and abs(res["left"]["w"] - std) <= 2 and abs(res["left"]["right"]) <= 2)
+        return ok, f"{res}"
+    check("Dialoge: Doppelklick an linker/rechter Kante eines ausgedehnten Fensters setzt die Standardbreite zurück, andere Kante bleibt", dialog_edge_reset, results)
+
     def event_dialog_lines():
         # Termin-Dialog: Trennlinien im Raster als Haarlinie (Thunderbird: 1 px Feldrahmenfarbe); Statuszeile mit Abstand
         # zwischen Beschriftung und Wert („Time as: Busy“ statt „Time as:Busy“); Beschreibung dunkel lesbar (früher schwarz auf #1E1E1E)

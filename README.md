@@ -189,7 +189,11 @@ Changes take effect right away unless noted.
 - **Sorted by star**: a message moves to its place as soon as you star or unstar it
 - **Message windows** no longer repeat the subject in the title bar
 - **Spaces bar**: the active space is marked with a chevron again
-- **Fixes**: the hover buttons above a message are no longer hidden behind the message by some add-ons; the event summary is tall enough for its content; Thunderbird quits again on Windows and Linux when you close the main window; on Windows the toolbar above the Today pane lines up
+- **New event window**: narrow and compact like a calendar app, with Save on the right and All Day, Starts, Ends, Repeat, Alert and Show As in one card
+- **Today pane**: click the "Today" heading to jump back to today
+- **Windows**: double-click the left or right edge of a widened dialog to return it to its standard width; the main window never grows wider than the screen
+- **Compose window**: the From, To and Subject fields sit right next to their labels
+- **Fixes**: the hover buttons above a message are no longer hidden behind the message by some add-ons; the event summary is tall enough for its content, even when the title wraps late; Thunderbird quits again on Windows and Linux when you close the main window; on Windows the toolbar above the Today pane lines up
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

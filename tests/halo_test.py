@@ -3527,6 +3527,8 @@ def menu_checks(m, results):
             const out = []; for (const el of p.children) { if (el.hidden || el.collapsed) continue; out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); }
             p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return out; };
           const out = {};
+          // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie vorher
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
           await toMail();
           out.top = [...d.getElementById("mail-menubar").children].filter(m => !m.hidden).map(m => m.getAttribute("label") || m.id);
           for (const id of ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup", "mcHelpTroublePopup", "mcViewMessagePopup"])
@@ -3537,6 +3539,8 @@ def menu_checks(m, results):
           out.calInCal = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
           out.sortInCal = d.getElementById("viewSortMenu")?.getAttribute("disabled");
           await toMail();
+          out.bar = [inactive, tbm?.getAttribute("inactive")];
+          if (inactive != null) tbm.setAttribute("inactive", inactive);
           return out;""")
         mac = sys.platform == "darwin"
         top = res.get("top", [])
@@ -4234,6 +4238,8 @@ def calendar_checks(m, results):
             out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            // Hauptfenster wieder nach vorn, sonst klappt macOS spätere Menüs sofort zu
+            w.focus(); await pause(300);
             try { await c.deleteItem(saved); } catch {}
           }
           return out;""")
@@ -5599,6 +5605,7 @@ def run_checks(m, version, profile, results):
           const go = { mail: toMail, calendar: toCalendar, tasks: async () => { tm.openTab("tasks", {}); await wait(1500); },
                        addressbook: async () => { tm.openTab("addressBookTab", {}); await wait(2000); } };
           const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const opened = [];
           const state = name => {
             const row = d.getElementById("unifiedToolbarContent").getBoundingClientRect();
             const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")) && !l.hidden && getComputedStyle(l).display != "none");
@@ -5611,12 +5618,15 @@ def run_checks(m, version, profile, results):
           w.resizeTo(1512, 900); await wait(800);
           for (const [name, open] of Object.entries(go)) {
             await open(); await wait(700);
-            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(1500); }
+            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(1500); opened.push(name); }
             await wait(800);
             out[name] = state(name);
           }
           await toMail(); w.resizeTo(1728, 1000); await wait(1800);
           out.mail16 = state("mail");
+          // Today-Pane in jedem Bereich wieder so wie vorher (sie merkt sich den Zustand je Bereich)
+          for (const name of opened) { await go[name](); await wait(500); if (w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(800); } }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           w.resizeTo(1500, 900); await wait(800);
           return out;""")
         ok = (all((v["today"] > 0 or k == "calendar") and not v["clipped"] and (v["search"] is None or v["search"] >= 40)
@@ -10541,6 +10551,8 @@ Neu
         # und Gelesen nach Datum; Bearbeiten → „Copy Message Link“
         res = m.js(PREFS_OPEN_JS + r"""
           const out = {};
+          // manche Bereiche legt Thunderbird erst beim ersten Öffnen an
+          for (const pane of ["panePrivacy", "paneCalendar", "paneGeneral"]) { pw.gotoPref(pane); await wait(700); }
           out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].map(id => {
             const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim().split(/\s{2,}|\n/)[0]) : null]; }));
           out.density = [...(pd.querySelector("#mcPrefFiles select")?.options || [])].map(o => o.value);

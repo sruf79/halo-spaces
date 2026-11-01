@@ -214,6 +214,8 @@ const DE = {
   "Searching …": "Suche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Wetterdaten: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Senden rückgängig",
+  "Follow-Up Suggestions": "Vorschläge für Rückfragen",
+  "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
   "Sending {n} messages …": "{n} Nachrichten werden gesendet …",
   "Sending “{s}” …": "„{s}“ wird gesendet …",
   "Sending …": "Wird gesendet …",
@@ -532,6 +534,8 @@ const FR = {
   "Searching …": "Recherche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Données météo : Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annuler l’envoi",
+  "Follow-Up Suggestions": "Suggestions de relance",
+  "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
   "Sending {n} messages …": "Envoi de {n} messages …",
   "Sending “{s}” …": "Envoi de « {s} » …",
   "Sending …": "Envoi …",
@@ -850,6 +854,8 @@ const ES = {
   "Searching …": "Buscando …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Datos meteorológicos: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Deshacer envío",
+  "Follow-Up Suggestions": "Sugerencias de seguimiento",
+  "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
   "Sending {n} messages …": "Enviando {n} mensajes …",
   "Sending “{s}” …": "Enviando «{s}» …",
   "Sending …": "Enviando …",
@@ -1168,6 +1174,8 @@ const IT = {
   "Searching …": "Ricerca …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Dati meteo: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annulla invio",
+  "Follow-Up Suggestions": "Suggerimenti di follow-up",
+  "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
   "Sending {n} messages …": "Invio di {n} messaggi …",
   "Sending “{s}” …": "Invio di «{s}» …",
   "Sending …": "Invio …",
@@ -3114,6 +3122,7 @@ const Remind = {
 // Anna“ – „Nachfassen“ öffnet die Antwort an dieselben Empfänger, ✕ blendet
 // ihn für diese Mail aus. Geantwortet = irgendeine Mail in einem Posteingang
 // der letzten 30 Tage verweist auf sie (References/In-Reply-To).
+const FOLLOWUP_PREF = "extensions.mailcards.followUp"; // Schalter „Follow-Up Suggestions“
 const FOLLOWUP_DISMISSED_PREF = "extensions.mailcards.followUpDismissed";
 const FollowUp = {
   cache: null,
@@ -3193,7 +3202,7 @@ const FollowUp = {
       (folder.getFlag(Ci.nsMsgFolderFlags.Virtual) && /inbox/i.test(folder.URI)));
     let hdr = null;
     try {
-      hdr = inbox && Services.prefs.getBoolPref("extensions.mailcards.followUp", true) ? this.candidate() : null;
+      hdr = inbox && Services.prefs.getBoolPref(FOLLOWUP_PREF, true) ? this.candidate() : null;
     } catch (e) {
       log("follow up error", e);
     }
@@ -3242,8 +3251,12 @@ const FollowUp = {
     a3.__mcFollowUp = true;
     const update = () => a3.setTimeout(() => this.render(a3), 0);
     a3.addEventListener("folderURIChanged", update);
+    // Schalter in den Einstellungen wirkt sofort, nicht erst beim Ordnerwechsel
+    const prefObs = { observe: update };
+    Services.prefs.addObserver(FOLLOWUP_PREF, prefObs);
     update();
     enhancer?.addWinRestorer(a3, () => {
+      Services.prefs.removeObserver(FOLLOWUP_PREF, prefObs);
       a3.removeEventListener("folderURIChanged", update);
       a3.document.getElementById("mcFollowUp")?.remove();
       delete a3.__mcFollowUp;
@@ -18717,6 +18730,7 @@ const SETTINGS = {
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
   darkMessages: ["mail.dark-reader.enabled", "bool", true],
   undoSend: [UNDO_SEND_PREF, "int", 10],
+  followUp: [FOLLOWUP_PREF, "bool", true],
   weather: [WEATHER_PREF, "bool", false],
   weatherPlace: [WEATHER_PLACE_PREF, "string", ""],
   fifthSpace: [FIFTH_PREF, "string", "chat"],

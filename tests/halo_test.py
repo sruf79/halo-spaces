@@ -4988,13 +4988,19 @@ def server_checks(m, results):
               a3.displayFolder(inbox.URI); await wait(1200);
               const bar = await until(() => a3.document.getElementById("mcFollowUp"), 5000);
               const out = { bar: bar?.textContent || null };
-              bar?.querySelector(".mc-fu-close").click(); await wait(300);
+              // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
+              Services.prefs.setBoolPref("extensions.mailcards.followUp", false); await wait(300);
+              out.off = !!a3.document.getElementById("mcFollowUp");
+              Services.prefs.clearUserPref("extensions.mailcards.followUp");
+              out.on = !!(await until(() => a3.document.getElementById("mcFollowUp"), 3000));
+              bar?.querySelector(".mc-fu-close").click(); a3.document.querySelector("#mcFollowUp .mc-fu-close")?.click(); await wait(300);
               out.afterDismiss = !!a3.document.getElementById("mcFollowUp") && a3.document.getElementById("mcFollowUp").textContent.includes("Angebot Fenster");
               Services.prefs.clearUserPref("extensions.mailcards.followUpDismissed"); FU.cache = null;
               return out;""" % (ADDON_ID, key))
-            ok = "Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
+            ok = ("Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
+                  and res.get("off") is False and res.get("on") is True)
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, ✕ blendet aus", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen
@@ -10407,15 +10413,16 @@ Neu
           out.normal = [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].filter(e => e.getBoundingClientRect().height > 0).length;
           out.update = await search("update");
           out.marked = pw.gSearchResultsPane.getFindSelection(pw).rangeCount > 0;
+          out.follow = await search("follow-up");
           out.logos = await search("logos");
           const hit = [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.classList.contains("visually-hidden") && e.getBoundingClientRect().height > 0);
           hit?.querySelector(".mc-halo-found-show").click();
-          const b = await until(() => { const x = pd.querySelector("#mcPane-paneMcHalo > browser"); return x?.currentURI?.spec.includes("#s-") && x; }, 6000);
+          const b = await until(() => { const x = pd.querySelector("#mcPane-paneMcHalo > browser"); return x?.currentURI?.spec.includes("#s-") && pd.getElementById("categories").selectedItem?.value == "paneMcHalo" && x; }, 6000);
           out.after = { cat: pd.getElementById("categories").selectedItem?.value, url: b?.currentURI?.spec.replace(/^moz-extension:\/\/[^/]+/, ""), search: input.value };
           tm.closeTab(tm.currentTabInfo); await wait(400);
           return out;""")
         ok = (res.get("normal") == 0 and "Install updates at start" in res.get("update", []) and res.get("marked")
-              and res.get("logos") == ["Logos from sender websites"]
+              and res.get("logos") == ["Logos from sender websites"] and "Follow-Up Suggestions" in res.get("follow", [])
               and res.get("after", {}).get("cat") == "paneMcHalo" and res["after"].get("url", "").endswith("#s-senderLogos") and res["after"].get("search") == "")
         return ok, f"{res}"
     check("Einstellungen: Suche findet die Optionen von halo.spaces, „Show“ zeigt die Option", pref_halo_search, results)

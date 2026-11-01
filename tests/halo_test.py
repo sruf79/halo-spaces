@@ -5924,12 +5924,15 @@ def run_checks(m, version, profile, results):
           li.querySelector("button").click(); await wait(900);
           out.reset = [f.repeat.value, f.repeat.querySelector('option[value="CUSTOM"]').textContent];
           p.hidePopup(); await wait(300);
+          // Termin wieder weg, sonst gehen seine Erinnerungen mitten im Lauf auf
+          for (const x of await items("Halo Eigene Regel")) { try { await x.calendar.deleteItem(x); } catch {} }
+          out.left = (await items("Halo Eigene Regel")).length;
           return out;''')
         it = res.get("item") or {}
         ok = (res.get("cancelled") == "WEEKLY" and it.get("type") == "WEEKLY" and it.get("interval") == 2 and it.get("alarms") == 2
               and res["labels"][1] == "2 alerts" and res["labels"][0] not in ("Custom…", "", None) and "\n" not in res["labels"][0] and "2" in res["labels"][0]
               and res.get("calls", [])[:3] == ["calendar-event-dialog-recurrence.xhtml"] * 2 + ["calendar-event-dialog-reminder.xhtml"]
-              and res.get("reset") == ["", "Custom…"])
+              and res.get("reset") == ["", "Custom…"] and res.get("left") == 0)
         return ok, f"{res}"
     check("Schnellfenster: „Custom…“ bei Wiederholung und Erinnerung über Thunderbirds Dialoge, Regel und Erinnerungen kommen im Termin an", quick_custom, results)
 

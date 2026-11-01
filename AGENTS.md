@@ -228,7 +228,7 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 | Feld | Feld-ID | Optionen |
 |---|---|---|
 | Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
-| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Done `98236657` |
+| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Done `98236657` |
 
 ### Cloud-Sessions
 

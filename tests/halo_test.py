@@ -2428,6 +2428,12 @@ def compose_checks(m, results):
                   bccText: textLeft(bcc), subjectText: textLeft(cd.getElementById("msgSubject")),
                   bccLabel: cd.getElementById("bccAddrLabel").getBoundingClientRect().right, subjectLabel: cd.getElementById("subjectLabel").getBoundingClientRect().right };
                 out.pillLum = lum(over(rgba(out.pill), rgba(bar))); out.barLum = lum(rgba(bar));
+                const lb = cd.getElementById("bccAddrLabel").closest(".address-label-container"), row = lb?.parentElement;
+                out.diag = lb ? { w: Math.round(lb.getBoundingClientRect().width), cw: csOf(lb).width, style: lb.getAttribute("style"), pack: lb.getAttribute("pack"),
+                  row: [row.id || row.className, csOf(row).display, csOf(row).gridTemplateColumns], lab: [Math.round(cd.getElementById("bccAddrLabel").getBoundingClientRect().width), csOf(cd.getElementById("bccAddrLabel")).width],
+                  next: [lb.nextElementSibling?.localName, lb.nextElementSibling?.className, Math.round(lb.nextElementSibling?.getBoundingClientRect().left || 0)],
+                  rows: ["identityLabel-box", "subjectLabel-box", "bccAddrLabel"].map(id => { const r = cd.getElementById(id).closest("#identityLabel-box, #subjectLabel-box, .address-label-container").parentElement;
+                    return [r.localName, r.id, r.className, csOf(r).display, [...r.children].map(c => `${c.localName}#${c.id}.${c.className}`).join(" | "), r.parentElement.id, csOf(r.parentElement).display]; }) } : null;
                 // Zustände ohne Übergang messen (verdeckte Testfenster halten Übergänge an)
                 const p = all[1]; p.style.transition = "none";
                 p.setAttribute("selected", "selected"); await pause(150); out.selected = csOf(p).backgroundColor; p.removeAttribute("selected");
@@ -2452,7 +2458,7 @@ def compose_checks(m, results):
         ok = (r["rows"] >= 2 and r["wrapped"] and all(abs(x - r["first"]) <= 0.5 for x in r["wrapped"])
               and 4 <= gb <= 20 and abs(gb - gs) <= 1.5)
         return ok, (f"{r['rows']} Zeilen, erste Pille links {r['first']}, umbrochene {r['wrapped']}; "
-                    f"Abstand Bezeichnung–Text leeres Bcc {gb:.1f}, Betreff {gs:.1f}")
+                    f"Abstand Bezeichnung–Text leeres Bcc {gb:.1f}, Betreff {gs:.1f}" + ("" if ok else f"; {r.get('diag')}"))
     check("Verfassen: umbrochene Empfänger-Pillen beginnen bündig mit der ersten, leeres Feld so dicht hinter der Bezeichnung wie der Betreff", wrap, results)
 
     def pill_color():

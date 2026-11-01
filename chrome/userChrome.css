@@ -7958,6 +7958,19 @@ addon-card .addon-inline-options {
   flex: none !important;
 }
 
+/* neuere Thunderbird-Versionen (Beta, Linux, Windows) legen die Kopfzeilen
+   als Raster mit gemeinsamer Bezeichnungsspalte an – jede Zeile wieder für
+   sich, damit das Feld direkt hinter der eigenen Bezeichnung beginnt */
+#MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row):not(.hidden, [hidden], [collapsed]) {
+  display: flex !important;
+  align-items: flex-start !important;
+}
+
+#MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) > :is(#identity-container, #msgSubjectContainer, .address-container) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
 /* (Thunderbird schiebt die Beschriftung per pack="end" nach rechts – ein
    automatischer Rand rechts holt sie nach links) */
 #MsgHeadersToolbar :is(#identityLabel, #subjectLabel, .address-label-container > label) {

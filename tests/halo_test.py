@@ -10547,7 +10547,9 @@ Neu
           pd.querySelectorAll("#mcSub-paneMcAccounts .mc-subcat[level='2']")[1]?.click(); await wait(1500);
           out.acc2 = list("paneMcAccounts"); out.inner = fd.getElementById("contentFrame").contentDocument?.location.href.split("/").pop();
           const pop = fd.getElementById("accountAddPopup") || fd.getElementById("accountActionsDropdown");
-          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await wait(800); out.popup = pop?.state; pop?.hidePopup(); await wait(300);
+          // zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu
+          let shown = false; pop?.addEventListener("popupshowing", () => { shown = true; }, { once: true });
+          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await wait(800); out.popup = shown ? "open" : pop?.state; pop?.hidePopup(); await wait(300);
           await pick("paneMcAddons", 3500);
           const ad = page("about:addons"), aw = ad.contentWindow;
           out.add = list("paneMcAddons"); out.vis2 = [vis("paneMcAccounts"), vis("paneMcAddons")];

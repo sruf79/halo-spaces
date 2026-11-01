@@ -16645,7 +16645,13 @@ class CardEnhancer {
         const items = [...list.children].filter(i => i.getBoundingClientRect().height);
         // wie Apple Kalender: „Alle …“-Knöpfe nur bei mehreren Erinnerungen,
         // Datumssymbol (Monat/Tag) des Termins statt des Liniensymbols
-        doc.documentElement.toggleAttribute("mc-alarm-multi", list.children.length > 1);
+        const multi = list.children.length > 1;
+        if (doc.documentElement.hasAttribute("mc-alarm-multi") != multi) {
+          doc.documentElement.toggleAttribute("mc-alarm-multi", multi);
+          // die Knopfzeile erscheint bzw. geht – gleich danach nachmessen (per
+          // Zeitgeber: verdeckte Fenster zeichnen kein nächstes Bild)
+          dlg.setTimeout(fit, 50);
+        }
         for (const item of list.children) {
           this.alarmDateIcon(dlg, item);
         }

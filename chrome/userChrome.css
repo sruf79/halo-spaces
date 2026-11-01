@@ -10547,6 +10547,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 :root[mc-alarm-card] > body {
+  /* Abstand oben zählt in die Fensterhöhe – sonst ragte der Inhalt um ihn
+     unten hinaus und „Dismiss All“ saß auf dem Rand */
+  box-sizing: border-box !important;
   padding-top: 22px !important;
   -moz-window-dragging: drag;
 }
@@ -10644,7 +10647,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 #alarm-actionbar {
-  padding: 10px 12px 12px !important;
+  /* unten so viel Luft wie rechts neben „Dismiss All“ */
+  padding: 10px 12px 7px !important;
   gap: 8px !important;
   border: none !important;
   background: transparent !important;

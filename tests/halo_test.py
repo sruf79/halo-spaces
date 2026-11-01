@@ -9166,7 +9166,9 @@ Neu
                         card: doc.documentElement.hasAttribute("mc-alarm-card"), monthColor: box ? cs(box.firstChild).color : null,
                         fits: item ? item.getBoundingClientRect().bottom <= dlg.innerHeight + 1 : false };
             dlg.addWidgetFor(e2, e2.getAlarms()[0]); await wait(700);
-            out.two = { allBar: cs(doc.getElementById("alarm-actionbar")).display, days: [...doc.querySelectorAll(".mc-alarm-day")].map(e => e.textContent).sort() };
+            const bb = [...doc.querySelectorAll("#alarm-actionbar button")].map(b => b.getBoundingClientRect()).filter(r => r.height);
+            out.two = { allBar: cs(doc.getElementById("alarm-actionbar")).display, days: [...doc.querySelectorAll(".mc-alarm-day")].map(e => e.textContent).sort(),
+                        gap: bb.length ? [Math.round(dlg.innerHeight - Math.max(...bb.map(r => r.bottom))), Math.round(dlg.innerWidth - Math.max(...bb.map(r => r.right)))] : null };
           } finally {
             dlg.close(); await wait(300);
             for (const e of [e1, e2]) { try { await c.deleteItem(e); } catch {} }
@@ -9177,7 +9179,8 @@ Neu
         ok = (o.get("day") == "15" and (o.get("month") or "").lower().startswith("dec") and o.get("img") == "none"
               and rgba_alpha(o.get("bg") or "rgb(0,0,0)") <= 0.06 and o.get("allBar") == "none"
               and o.get("card") == res["mac"] and o.get("fits") and same_color(o.get("monthColor"), "rgb(255, 59, 48)")
-              and t.get("allBar") != "none" and t.get("days") == ["15", "16"])
+              and t.get("allBar") != "none" and t.get("days") == ["15", "16"]
+              and bool(t.get("gap")) and t["gap"][0] >= 14 and abs(t["gap"][0] - max(16, t["gap"][1])) <= 3)
         return ok, f"{res}"
     check("Kalender: Erinnerung wie in Apple Kalender (Symbol mit Monat und Tag, ohne graue Kachel, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
 

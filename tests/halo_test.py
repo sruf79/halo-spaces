@@ -4534,10 +4534,10 @@ def calendar_checks(m, results):
         c, l, o = res.get("city") or {}, res.get("located") or {}, res.get("off") or {}
         urls = json.loads(c.get("urls") or "[]")
         ok = (res["start"] == {"attr": None, "setting": False}
-              and c.get("attr") == "rain" and c.get("tip") == "Wien, Österreich: 12 °C" and "Wien" in (c.get("status") or "")
+              and c.get("attr") == "rain" and (c.get("tip") or "").endswith("\nWien, Österreich: 12 °C") and "Wien" in (c.get("status") or "")
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
               and l.get("attr") is None and "System Settings" in (l.get("status") or "")
-              and o == {"attr": None, "tip": None})
+              and o.get("attr") is None and "°C" not in (o.get("tip") or ""))
         return ok, f"{res}"
     check("Today-Pane: Wetter (Option) – Stadt → Symbol und Temperatur, Standort verweigert → Hinweis und Sonne, aus → Sonne", today_weather, results)
 
@@ -4876,6 +4876,29 @@ def calendar_checks(m, results):
               and bool(res.get("soon")) and any(ch.isdigit() for ch in res["soon"][0]) and same_color(res["soon"][1], red))
         return ok, f"{res}"
     check("Today-Pane: laufender Termin „now“ statt Uhrzeit, bald beginnender mit rotem Hinweis", agenda_soon, results)
+
+    def today_title_click():
+        # Klick (und Enter) auf die Überschrift der Today-Pane: zurück zum heutigen Tag, Liste ganz oben
+        res = m.js(CAL_CHECK_JS + r"""
+          await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+          await pause(800);
+          const title = d.getElementById("mcTodayTitle"), agenda = d.getElementById("agenda");
+          const away = () => { const dt = cal.dtz.now(); dt.isDate = true; dt.month += 2; dt.day = 1; w.TodayPane.setDay(dt); };
+          const isToday = () => { const s = w.TodayPane.start, n = new Date(); return s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate(); };
+          const out = { role: title?.getAttribute("role"), tip: title?.title, tab: title?.tabIndex };
+          away(); await pause(500); out.awayOk = !isToday();
+          agenda.scrollTop = 200;
+          title.click(); await pause(600);
+          out.click = [isToday(), agenda.scrollTop];
+          away(); await pause(500);
+          title.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await pause(600);
+          out.enter = [isToday(), agenda.scrollTop];
+          return out;""")
+        ok = (res.get("role") == "button" and bool(res.get("tip")) and res.get("tab") == 0 and res.get("awayOk")
+              and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
+        return ok, f"{res}"
+    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben", today_title_click, results)
+
 
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""

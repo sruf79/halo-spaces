@@ -3508,10 +3508,12 @@ const Weather = {
     for (const t of this.titles) {
       if (on) {
         t.dataset.weather = st.kind;
-        t.title = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
+        // erste Zeile: Klick führt zu heute (Überschrift der Today-Pane)
+        const info = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
+        t.title = info ? `${tr("Go to Today")}\n${info}` : tr("Go to Today");
       } else {
         t.removeAttribute("data-weather");
-        t.removeAttribute("title");
+        t.title = tr("Go to Today");
       }
     }
   },
@@ -12485,6 +12487,19 @@ class CardEnhancer {
       row?.prepend(top);
       // Wetter statt der festen Sonne (Option, Standard aus)
       Weather.attach(w, title);
+      // Klick auf die Überschrift springt zum heutigen Tag, Liste nach oben
+      title.setAttribute("role", "button");
+      title.tabIndex = 0;
+      title.title = tr("Go to Today");
+      const goToday = event => {
+        if (event.type == "keydown" && event.key != "Enter" && event.key != " ") {
+          return;
+        }
+        event.preventDefault();
+        this.agendaToday(w);
+      };
+      title.addEventListener("click", goToday);
+      title.addEventListener("keydown", goToday);
       (row || d.body).append(btn);
       // „+“ oben rechts in der Today-Pane, gleiche Größe und Höhe wie der
       // Today-Knopf – fragt nach Termin oder Aufgabe (statt unten unter der Liste)
@@ -15375,6 +15390,25 @@ class CardEnhancer {
         w.TodayPane.updatePeriod();
       } catch {}
     });
+  }
+
+  // Today-Pane auf heute stellen und die Liste ganz nach oben
+  agendaToday(w) {
+    try {
+      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+      const now = new Date();
+      const dt = cal.dtz.jsDateToDateTime(new Date(now.getFullYear(), now.getMonth(), now.getDate()), cal.dtz.defaultTimezone);
+      dt.isDate = true;
+      w.TodayPane.setDay(dt);
+      const agenda = w.document.getElementById("agenda");
+      if (agenda) {
+        agenda.scrollTop = 0;
+        // nach dem Neuladen der Termine nochmals nach oben
+        w.setTimeout(() => (agenda.scrollTop = 0), 150);
+      }
+    } catch (e) {
+      log("agenda today error", String(e).slice(0, 160));
+    }
   }
 
   // Monat der Today-Pane wechseln: aktueller Monat ab heute, sonst ab dem 1.

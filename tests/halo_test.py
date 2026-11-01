@@ -4372,6 +4372,8 @@ def calendar_checks(m, results):
             out.squeezed = { h: dw.outerHeight, gap: gap() };
             await pause(900);
             out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            out.root = [dw.innerWidth, dw.outerWidth, dw.document.documentElement.style.minWidth, dw.document.querySelector(".item-title")?.getBoundingClientRect().height];
+            out.btns = [...dw.document.querySelectorAll("button")].map(b => { const r = b.getBoundingClientRect(); return [b.id || b.className || b.getAttribute("dlgtype"), Math.round(r.height), Math.round(dw.innerHeight - r.bottom), Math.round(dw.innerWidth - r.right)]; });
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             // Hauptfenster wieder nach vorn, sonst klappt macOS spätere Menüs sofort zu

@@ -16734,7 +16734,9 @@ class CardEnhancer {
             return;
           }
           const w0 = dlg.outerWidth, h0 = dlg.outerHeight;
-          dlg.sizeToContent();
+          // kein erneutes sizeToContent: unter macOS greift es teils erst nach
+          // dem folgenden resizeTo und nähme die Zugabe wieder zurück – die
+          // Höhe ergibt sich allein aus dem Abstand unter dem untersten Knopf
           // sizeToContent lässt unter dem untersten Knopf („Edit“) manchmal nur
           // wenige Pixel – so viel Luft wie rechts daneben
           let extra = 0;
@@ -16777,6 +16779,12 @@ class CardEnhancer {
       const mo = new dlg.MutationObserver(later);
       mo.observe(doc.documentElement, { subtree: true, childList: true, characterData: true });
       dlg.setTimeout(() => mo.disconnect(), 3000);
+      // Titel oder Zeilen, die erst später umbrechen (Schrift geladen, Breite
+      // knapper als gemessen), werden höher, ohne dass sich Text ändert
+      const ro = new dlg.ResizeObserver(later);
+      for (const el of doc.querySelectorAll(".item-title, .repeat-details, .reminder-details, td")) {
+        ro.observe(el);
+      }
     } catch (e) {
       log("summary size error", String(e).slice(0, 120));
     }

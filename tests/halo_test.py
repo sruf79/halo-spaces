@@ -10542,7 +10542,8 @@ Neu
         res = m.js(PREFS_OPEN_JS + r"""
           const out = {};
           out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].map(id => {
-            const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim()) : null]; }));
+            const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim().split(/\s{2,}|\n/)[0]) : null]; }));
+          out.density = [...(pd.querySelector("#mcPrefFiles select")?.options || [])].map(o => o.value);
           const input = pd.getElementById("searchInput");
           const search = async q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true }));
             await wait(1500); return ["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].filter(id => { const c = pd.getElementById(id); return c && !c.hidden && !c.classList.contains("visually-hidden") && c.getBoundingClientRect().height > 0; }); };
@@ -10555,7 +10556,8 @@ Neu
           out.copyLink = d.getElementById("mcEditCopyMessageLink")?.parentNode?.id;
           return out;""")
         cards = res.get("cards", {})
-        ok = (all(cards.get(k) for k in cards) and len(cards["mcPrefFiles"]) == 3 and len(cards["mcPrefCalendarView"]) == 4
+        ok = (all(cards.get(k) for k in cards) and len(cards["mcPrefFiles"]) == 4 and len(cards["mcPrefCalendarView"]) == 4
+              and res.get("density") == ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"]
               and "mcPrefFiles" in res.get("findSaved", []) and "mcPrefPrivacy" in res.get("findHistory", [])
               and res.get("folder") == [True, True] and res.get("copyLink") == "menu_EditPopup")
         return ok, f"{res}"

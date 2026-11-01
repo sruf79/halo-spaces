@@ -6776,6 +6776,7 @@ const PREF_TOOLS = [
     { button: "menu_openSavedFilesWnd" },
     { toggle: "menu_fullZoomToggle" },
     { toggle: "viewAttachmentsInlineMenuitem" },
+    { choice: "menu_uiDensity", items: ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"] },
   ]],
   ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
   ["mcPrefOffline", "paneGeneral", null, "Offline", [
@@ -6801,7 +6802,7 @@ function addPrefTools(doc, restorers) {
   const label = id => (item(id)?.getAttribute("label") || "").replace(/…$/, "") + (item(id)?.getAttribute("label")?.endsWith("…") ? "…" : "");
   for (const [id, pane, before, legendText, rows] of PREF_TOOLS) {
     const cards = [...deck.children].filter(c => c.getAttribute("data-category") == pane);
-    if (!cards.length || rows.every(r => !item(r.button || r.toggle))) {
+    if (!cards.length || rows.every(r => !item(r.button || r.toggle || r.choice))) {
       continue;
     }
     const card = doc.createElementNS(X, "div");
@@ -6813,13 +6814,29 @@ function addPrefTools(doc, restorers) {
     legend.textContent = tr(legendText);
     set.append(legend);
     for (const row of rows) {
-      const src = item(row.button || row.toggle);
+      const src = item(row.button || row.toggle || row.choice);
       if (!src) {
         continue;
       }
       const line = doc.createElementNS(X, "div");
       line.className = "mc-pref-tool";
-      if (row.button) {
+      if (row.choice) {
+        // Auswahl aus Thunderbirds Optionsfeldern (z. B. Dichte)
+        const lab = doc.createElementNS(X, "label");
+        const select = doc.createElementNS(X, "select");
+        for (const id of row.items) {
+          const opt = doc.createElementNS(X, "option");
+          opt.value = id;
+          opt.textContent = label(id);
+          select.append(opt);
+        }
+        const sync = () => (select.value = row.items.find(id => item(id)?.getAttribute("checked") == "true") || row.items[1]);
+        sync();
+        select.addEventListener("change", () => item(select.value)?.doCommand());
+        card.addEventListener("focusin", sync);
+        lab.append(label(row.choice), " ", select);
+        line.append(lab);
+      } else if (row.button) {
         const b = doc.createElementNS(X, "button");
         b.textContent = label(row.button);
         b.addEventListener("click", () => item(row.button)?.doCommand());

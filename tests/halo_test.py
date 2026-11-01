@@ -4240,7 +4240,7 @@ def calendar_checks(m, results):
         if res.get("dialog") is False or res.get("dialog2") is False:
             return False, f"Übersicht nicht offen: {res}"
         n, a = res.get("normal", {}), res.get("after", {})
-        ok = (n.get("gap") is not None and n["gap"] >= 4 and a.get("gap") is not None and abs(a["gap"] - n["gap"]) <= 2
+        ok = (n.get("gap") is not None and n["gap"] >= 16 and a.get("gap") is not None and abs(a["gap"] - n["gap"]) <= 2
               and a["h"] >= n["h"] + 20 and a["w"] == n["w"] and a["x"] == n["x"] and a["y"] == n["y"])
         return ok, f"{res}"
     check("Terminübersicht: zu niedrig gemessenes Fenster wächst nach dem Zeichnen nach, „Edit“ behält Abstand zum Rand", summary_height_grows, results)

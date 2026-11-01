@@ -16402,7 +16402,17 @@ class CardEnhancer {
           }
           const w0 = dlg.outerWidth, h0 = dlg.outerHeight;
           dlg.sizeToContent();
-          const h = Math.min(maxH, Math.max(h0, dlg.outerHeight));
+          // sizeToContent lässt unter dem untersten Knopf („Edit“) manchmal nur
+          // wenige Pixel – so viel Luft wie rechts daneben
+          let extra = 0;
+          const buttons = [...doc.querySelectorAll("button")].filter(b => b.getBoundingClientRect().height > 0);
+          const low = buttons.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
+          if (low) {
+            const r = low.getBoundingClientRect();
+            const want = Math.max(16, Math.round(dlg.innerWidth - r.right));
+            extra = Math.max(0, Math.round(want - (dlg.innerHeight - r.bottom)));
+          }
+          const h = Math.min(maxH, Math.max(h0, dlg.outerHeight + extra));
           if (dlg.outerWidth != w0 || dlg.outerHeight != h) {
             dlg.resizeTo(w0, h);
           }

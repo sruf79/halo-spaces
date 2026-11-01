@@ -3612,18 +3612,123 @@ menuseparator[mc-tidy-hidden] {
   padding: 0 8px !important;
 }
 
-/* Aufgaben-Tab: Filterliste, Kalenderliste und Monatskalender teilen sich die
-   Leiste – Kalenderliste mindestens drei Zeilen hoch statt einer halben Zeile;
-   in niedrigen Fenstern weicht der Monatskalender (die Aufgabenfilter
-   brauchen ihn nicht) */
+/* Aufgaben-Tab wie die Erinnerungen-App: oben die Ansichten (Heute,
+   Geplant, Alle, Wichtig, In Arbeit, Erledigt; #mcTaskLists, setzt die
+   Erweiterung), darunter „Task Lists“ nur mit Kalendern, die Aufgaben
+   können; kein Monatskalender und keine Filterliste von Thunderbird */
 :root[mc-tab="tasks"] #calendar-list {
   min-height: 96px !important;
 }
 
-@media (max-height: 820px) {
-  :root[mc-tab="tasks"] #minimonth-pane {
-    display: none !important;
-  }
+#mcTaskLists {
+  display: none;
+}
+
+:root[mc-tab="tasks"] #mcTaskLists {
+  display: block;
+  padding: 10px 8px 2px;
+}
+
+:root[mc-tab="tasks"] :is(#minimonth-pane, #task-filter-pane),
+:root[mc-tab="tasks"] #calendar-list > li[mc-no-tasks] {
+  display: none !important;
+}
+
+#mcTaskLists .mc-tl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+}
+
+#mcTaskLists .mc-tl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  color: var(--mt-text);
+  cursor: default;
+}
+
+#mcTaskLists .mc-tl-row:hover {
+  background: color-mix(in srgb, var(--mt-text) 5%, transparent);
+}
+
+#mcTaskLists .mc-tl-row.selected {
+  background: var(--mt-selected-unfocused);
+  font-weight: 600;
+}
+
+#mcTaskLists .mc-tl-list:focus-visible .mc-tl-row.selected {
+  outline: 2px solid AccentColor;
+  outline-offset: -2px;
+}
+
+#mcTaskLists .mc-tl-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#mcTaskLists .mc-tl-count {
+  color: var(--mt-text-secondary);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* runde Symbole in den Farben der Erinnerungen-App; „Heute“ zeigt das Datum */
+#mcTaskLists .mc-tl-icon {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--mc-tl-c, #8E8E93);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+}
+
+#mcTaskLists .mc-tl-icon:not(.mc-tl-today)::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background-color: white;
+  mask: var(--mc-tl-glyph) center / contain no-repeat;
+}
+
+#mcTaskLists .mc-tl-today { --mc-tl-c: #007AFF; }
+#mcTaskLists .mc-tl-scheduled {
+  --mc-tl-c: #FF3B30;
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 7h12M5 1.5v3M11 1.5v3'/%3E%3C/svg%3E");
+}
+#mcTaskLists .mc-tl-all {
+  --mc-tl-c: #5B5B60;
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 9.5 4 3h8l2 6.5V13H2z'/%3E%3Cpath d='M2 9.5h3.5l1 1.5h3l1-1.5H14'/%3E%3C/svg%3E");
+}
+#mcTaskLists .mc-tl-important {
+  --mc-tl-c: #FF9500;
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M8 2.5v7M8 13.2v.1'/%3E%3C/svg%3E");
+}
+#mcTaskLists .mc-tl-progress {
+  --mc-tl-c: #AF52DE;
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm0 1.8v4.7h4.7A4.7 4.7 0 0 0 8 3.3z' fill='%23000'/%3E%3C/svg%3E");
+}
+#mcTaskLists .mc-tl-completed {
+  --mc-tl-c: #8E8E93;
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.5 8.5 3 3 6-7'/%3E%3C/svg%3E");
+}
+
+/* Filterknopf über der Liste entfällt (die Ansichten ersetzen ihn) */
+:root[mc-tab="tasks"] #mcListHeader .mc-lh-filter {
+  display: none !important;
 }
 
 #calendar-list > li {

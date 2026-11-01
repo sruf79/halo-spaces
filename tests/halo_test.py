@@ -7207,38 +7207,54 @@ def run_checks(m, version, profile, results):
         return not bad and "folder" in res and "tab" in res, f"{bad} {res}"
     check("Kontextmenüs: ohne „In neuem Tab/Fenster öffnen“, ohne doppelte Trennlinien", no_new_tab_items, results)
 
-    def task_filter_menu():
-        # Aufgaben: Filter als Menü hinter dem Filter-Knopf im Listenkopf (neben „…“) statt Liste in der Seitenleiste
-        res = m.js(r"""
-          tm.openTab("tasks", {}); await wait(1500);
-          const group = d.getElementById("task-tree-filtergroup"), before = group.value;
-          const btn = d.querySelector("#mcListHeader .mc-lh-filter"), popup = d.getElementById("mcTaskFilterPopup");
-          const vis = el => !!el && el.getBoundingClientRect().width > 0;
-          const out = { button: vis(btn), sidebarList: vis(d.getElementById("task-filtertree-pane")) || vis(d.getElementById("task-tree-filter-header")),
-                        leftOfMore: btn && Math.round(d.querySelector("#mcListHeader .mc-lh-more").getBoundingClientRect().left - btn.getBoundingClientRect().right) };
-          btn?.click(); await until(() => popup?.state == "open", 2000); await wait(300);
-          const entries = [...(popup?.children || [])].filter(i => i.getAttribute("name") == "mctaskfilter");
-          out.items = entries.length; out.checked = entries.filter(i => i.getAttribute("checked") == "true").length;
-          const today = entries.find(i => /today/i.test(i.getAttribute("label")));
-          popup?.activateItem?.(today) ?? today?.doCommand(); await wait(500); popup?.hidePopup(); await wait(200);
-          const tree = d.getElementById("calendar-task-tree");
-          out.value = group.value; out.tree = tree.getAttribute("filterValue"); out.active = btn?.getAttribute("aria-pressed") == "true";
-          // zurück über das Menü – die Liste muss dem Filter folgen
-          btn?.click(); await until(() => popup?.state == "open", 2000); await wait(200);
-          const curItem = [...popup.children].find(i => /current/i.test(i.getAttribute("label")));
-          popup?.activateItem?.(curItem) ?? curItem?.doCommand(); await wait(500); popup?.hidePopup(); await wait(200);
-          out.back = [group.value, tree.getAttribute("filterValue")]; out.activeCurrent = btn?.getAttribute("aria-pressed") == "true";
-          out.title = d.querySelector("#mcListHeader .mc-lh-title").textContent;
-          if (before && before != "throughcurrent") w.taskViewUpdate(before);
-          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
-          await toMail(); out.inMail = !!d.getElementById("mcTaskFilterPopup") && d.getElementById("mcTaskFilterPopup").state == "open";
+    def task_lists():
+        # Aufgaben wie die Erinnerungen-App: Ansichten oben in der Seitenleiste (Today, Scheduled, All, Important, In Progress,
+        # Completed) mit Anzahl, Klick filtert die Liste, Titel über der Liste = Ansicht; kein Filterknopf, kein Minimonat,
+        # „Task Lists“ statt „Calendars“; die Wahl bleibt gespeichert
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar(); const made = [];
+          const add = async (title, fn) => { const t = new CalTodo(); t.title = title; t.calendar = c; fn(t); made.push(await c.addItem(t)); };
+          const day = n => { const x = cal.dtz.now(); x.isDate = true; x.day += n; return x; };
+          await add("Halo L heute", t => { t.dueDate = day(0); });
+          await add("Halo L später", t => { t.dueDate = day(3); });
+          await add("Halo L wichtig", t => { t.priority = 1; });
+          await add("Halo L halb", t => { t.percentComplete = 50; });
+          await add("Halo L fertig", t => { t.isCompleted = true; });
+          const out = {};
+          const before = Services.prefs.getCharPref("extensions.mailcards.taskList", "");
+          try {
+            tm.openTab("tasks", {}); await pause(1800);
+            const box = d.getElementById("mcTaskLists"), tree = d.getElementById("calendar-task-tree");
+            const vis = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+            out.sidebar = { lists: vis(box), minimonth: vis(d.getElementById("minimonth-pane")), filters: vis(d.getElementById("task-filter-pane")),
+                            header: d.getElementById("calendar-list-header-label")?.textContent, filterBtn: vis(d.querySelector("#mcListHeader .mc-lh-filter")),
+                            today: box?.querySelector(".mc-tl-today")?.textContent == String(new Date().getDate()) };
+            out.views = {};
+            for (const row of box.querySelectorAll(".mc-tl-row")) {
+              row.click(); await till(() => tree.getAttribute("filterValue") == "mcTasks-" + row.dataset.list, 3000); await pause(900);
+              const mine = tree.mTaskArray.map(t => t.title).filter(x => x.startsWith("Halo L ")).map(x => x.slice(7)).sort();
+              out.views[row.dataset.list] = { mine, n: tree.mTaskArray.length, count: row.querySelector(".mc-tl-count").textContent,
+                selected: row.classList.contains("selected"), title: d.querySelector("#mcListHeader .mc-lh-title").textContent };
+            }
+            out.pref = Services.prefs.getCharPref("extensions.mailcards.taskList", "");
+          } finally {
+            for (const t of made) { try { await c.deleteItem(t); } catch {} }
+            if (before) Services.prefs.setCharPref("extensions.mailcards.taskList", before); else Services.prefs.clearUserPref("extensions.mailcards.taskList");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
           return out;""")
-        ok = (res["button"] and not res["sidebarList"] and res["leftOfMore"] is not None and -1 <= res["leftOfMore"] <= 2
-              and res["items"] == 8 and res["checked"] == 1 and res["value"] == "throughtoday" and res["tree"] == "throughtoday" and res["active"]
-              and res["back"] == ["throughcurrent", "throughcurrent"] and not res["activeCurrent"]
-              and not res["inMail"])
+        sb, v = res.get("sidebar", {}), res.get("views", {})
+        want = {"today": ["heute"], "scheduled": ["heute", "später"], "all": ["halb", "heute", "später", "wichtig"], "important": ["wichtig"],
+                "progress": ["halb"], "completed": ["fertig"]}
+        titles = {"today": "Today", "scheduled": "Scheduled", "all": "All", "important": "Important", "progress": "In Progress", "completed": "Completed"}
+        ok = (sb.get("lists") and not sb.get("minimonth") and not sb.get("filters") and sb.get("header") == "Task Lists" and not sb.get("filterBtn")
+              and sb.get("today") and list(v) == list(want)
+              and all(v[k]["mine"] == want[k] and v[k]["selected"] and v[k]["title"] == titles[k] and v[k]["count"] == (str(v[k]["n"]) if v[k]["n"] else "")
+                      for k in want)
+              and res.get("pref") == "completed")
         return ok, f"{res}"
-    check("Aufgaben: Filter als Menü hinter dem Filter-Knopf im Listenkopf (wie in der Mail) statt Liste in der Seitenleiste", task_filter_menu, results)
+    check("Aufgaben: Ansichten in der Seitenleiste wie Erinnerungen (Today … Completed) mit Anzahl, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
 
     def today_plus_event():
         # „+“ ganz rechts → „New Event“: Schnellfenster ganz auf dem Bildschirm
@@ -8900,9 +8916,9 @@ Neu
           const out = { side: d.documentElement.hasAttribute("mc-task-side"), head: head.length, overlap: head.some(h => bar.some(t => hits(h, t))), search: Math.round(search) };
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")
-        ok = res["head"] >= 2 and not res["overlap"] and res["search"] >= 160
+        ok = res["head"] >= 1 and not res["overlap"] and res["search"] >= 160
         return ok, f"{res}"
-    check("Aufgaben: ohne Auswahl keine Überlappung von Filter/„…“ mit Plus und Suche der Toolbar, Suchfeld bleibt breit", task_header_no_overlap, results)
+    check("Aufgaben: ohne Auswahl keine Überlappung von „…“ mit Plus und Suche der Toolbar, Suchfeld bleibt breit", task_header_no_overlap, results)
 
     def alarm_dialog():
         # Erinnerung wie in Apple Kalender: Kalendersymbol mit Monat und Tag, keine graue Kachel, „Alle“-Knöpfe nur bei mehreren
@@ -9086,7 +9102,7 @@ Neu
     check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Tabelle zeigt Thunderbirds Liste", task_cards, results)
 
     def task_header():
-        # Aufgaben wie die Mail: Filter- und „…“-Knopf an derselben Stelle wie über der Mailliste, Titel = Filter, Anzahl;
+        # Aufgaben wie die Mail: „…“-Knopf an derselben Stelle wie über der Mailliste (Filter über die Ansichten der Seitenleiste), Titel, Anzahl;
         # Aktionen (Kategorie, Erledigt, Priorität, Löschen) oben in der Toolbar-Zeile als Symbole ohne Text, mit Tooltip
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await pause(600);
@@ -9115,21 +9131,19 @@ Neu
             // „…“ öffnet die Ansichten, Filter-Knopf die Filter
             box.querySelector(".mc-lh-more").click(); const pop = d.getElementById("mcTaskFilterPopup"); await till(() => pop.state == "open", 3000);
             out.viewMenu = [...pop.querySelectorAll("menuitem")].map(x => x.getAttribute("label")); pop.hidePopup(); await pause(300);
-            box.querySelector(".mc-lh-filter").click(); await till(() => pop.state == "open", 3000);
-            out.filterMenu = pop.querySelectorAll("menuitem").length; pop.hidePopup(); await pause(300);
           } finally {
             try { await c.deleteItem(saved); } catch {}
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           }
           return out;""")
         mf, tf = (res.get("mail") or {}), (res.get("tasks") or {})
-        same = all(mf.get(k) and tf.get(k) and abs(mf[k]["l"] - tf[k]["l"]) <= 2 and abs(mf[k]["t"] - tf[k]["t"]) <= 1 for k in ("filter", "more"))
+        same = all(mf.get(k) and tf.get(k) and abs(mf[k]["l"] - tf[k]["l"]) <= 2 and abs(mf[k]["t"] - tf[k]["t"]) <= 1 for k in ("more",)) and not tf.get("filter")
         acts = res.get("actions") or []
         ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and len(acts) == 4
               and all(a["inRow"] and not a["text"] and a["icon"] and a["tip"] for a in acts)
-              and res.get("viewMenu") == ["Card View", "Table View"] and res.get("filterMenu", 0) >= 5)
+              and res.get("viewMenu") == ["Card View", "Table View"])
         return ok, f"{res}"
-    check("Aufgaben: Filter und „…“ an derselben Stelle wie in der Mail, Aktionen oben in der Toolbar als Symbole ohne Text", task_header, results)
+    check("Aufgaben: „…“ an derselben Stelle wie in der Mail (kein Filterknopf), Aktionen oben in der Toolbar als Symbole ohne Text", task_header, results)
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Aktionen als drei Kapseln (Erledigt | Kategorie ·
@@ -9297,7 +9311,7 @@ Neu
     def tasks_list_states():
         # erledigte Aufgaben aufrecht (Thunderbird: kursiv) mit Kreis in der Systemakzentfarbe statt fest #007AFF;
         # ohne Auswahl kein Teiler über der Statusleiste (früher zwei Haarlinien); Leeranzeige bei Suche ohne Treffer
-        # „No Results“ statt „No Tasks“; Kalenderliste im niedrigen Fenster ≥ 3 Zeilen, Monatskalender weicht
+        # „No Results“ statt „No Tasks“; Kalenderliste im niedrigen Fenster ≥ 3 Zeilen, kein Monatskalender
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900);
           const c = testCalendar();
@@ -9368,7 +9382,7 @@ Neu
             await till(() => tree.mTreeView.rowCount == 0 && tree.getAttribute("filterValue") == "open", 4000); await pause(500);
             out.open = [tree.mTreeView.rowCount, !box.hidden, box.querySelector(".mc-te-text")?.textContent];
             d.getElementById("opt_all_filter")?.click(); await till(() => tree.mTreeView.rowCount > 0, 4000); await pause(300);
-            // niedriges Fenster: Kalenderliste mindestens drei Zeilen, Monatskalender ausgeblendet oder ganz darunter
+            // niedriges Fenster: Kalenderliste mindestens drei Zeilen, kein Monatskalender
             w.resizeTo(1136, 700); await pause(1000);
             const list = d.getElementById("calendar-list"), mm = d.getElementById("minimonth-pane");
             const lr = list.getBoundingClientRect(), mr = mm.getBoundingClientRect();
@@ -9396,7 +9410,8 @@ Neu
         ok_filter = (len(ov) == 4 and ov[0] == 0 and ov[1] and ov[2] == "No Tasks" and ov[3] == "No tasks in this view."
                      and len(op) == 3 and op[0] == 0 and op[1] and op[2] == "Tasks you add appear here.")
         lo, hi = res.get("low") or {}, res.get("high") or {}
-        ok_low = lo.get("h", 0) >= 90 and (lo.get("mm") == "none" or lo["mmTop"] >= lo["listBottom"]) and hi.get("mm") != "none" and hi.get("vis")
+        # Monatskalender gibt es in den Aufgaben nicht mehr (Ansichten wie Erinnerungen) – auch nicht im hohen Fenster
+        ok_low = lo.get("h", 0) >= 90 and lo.get("mm") == "none" and hi.get("mm") == "none" and not hi.get("vis")
         ok = bool(ok_static and ok_circle and ok_split and ok_search and ok_filter and ok_low)
         return ok, f"statisch={ok_static} kreis={ok_circle} teiler={ok_split} suche={ok_search} filter={ok_filter} niedrig={ok_low} {res}"
     check("Aufgaben: erledigt aufrecht mit Kreis in Akzentfarbe, ohne Auswahl kein Teiler, „No Results“ bei Suche, Leeranzeige je Filter, Kalenderliste im niedrigen Fenster", tasks_list_states, results)

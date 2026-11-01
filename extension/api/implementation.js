@@ -214,6 +214,13 @@ const DE = {
   "Searching …": "Suche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Wetterdaten: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Senden rückgängig",
+  "Today": "Heute",
+  "Scheduled": "Geplant",
+  "All": "Alle",
+  "Important": "Wichtig",
+  "In Progress": "In Arbeit",
+  "Completed": "Erledigt",
+  "Task Lists": "Listen",
   "Open": "Öffnen",
   "Forward as Attachment": "Als Anhang weiterleiten",
   "Mark as Read": "Als gelesen markieren",
@@ -543,6 +550,13 @@ const FR = {
   "Searching …": "Recherche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Données météo : Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annuler l’envoi",
+  "Today": "Aujourd’hui",
+  "Scheduled": "Programmés",
+  "All": "Tous",
+  "Important": "Importants",
+  "In Progress": "En cours",
+  "Completed": "Terminés",
+  "Task Lists": "Listes",
   "Open": "Ouvrir",
   "Forward as Attachment": "Transférer en tant que pièce jointe",
   "Mark as Read": "Marquer comme lu",
@@ -872,6 +886,13 @@ const ES = {
   "Searching …": "Buscando …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Datos meteorológicos: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Deshacer envío",
+  "Today": "Hoy",
+  "Scheduled": "Programados",
+  "All": "Todos",
+  "Important": "Importantes",
+  "In Progress": "En curso",
+  "Completed": "Completados",
+  "Task Lists": "Listas",
   "Open": "Abrir",
   "Forward as Attachment": "Reenviar como adjunto",
   "Mark as Read": "Marcar como leído",
@@ -1201,6 +1222,13 @@ const IT = {
   "Searching …": "Ricerca …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Dati meteo: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annulla invio",
+  "Today": "Oggi",
+  "Scheduled": "Programmati",
+  "All": "Tutti",
+  "Important": "Importanti",
+  "In Progress": "In corso",
+  "Completed": "Completati",
+  "Task Lists": "Elenchi",
   "Open": "Apri",
   "Forward as Attachment": "Inoltra come allegato",
   "Mark as Read": "Segna come letto",
@@ -4427,6 +4455,243 @@ function setTaskView(win, key) {
   applyTaskView(win);
 }
 
+// Aufgaben: Ansichten oben in der Seitenleiste wie in der Erinnerungen-App
+// (Heute, Geplant, Alle, Wichtig, In Arbeit, Erledigt, je mit Anzahl) statt
+// Filterknopf; darunter „Task Lists“ nur mit Kalendern, die Aufgaben können,
+// kein Minimonat. Jede Ansicht ist ein eigener Filter in Thunderbirds
+// calFilter (taskViewUpdate) – Liste, Suche und Auswahl bleiben Thunderbirds.
+const TASK_LIST_PREF = "extensions.mailcards.taskList";
+const TASK_LISTS = [
+  // [Schlüssel, Text, Status, Fälligkeit, Zusatzbedingung]
+  ["today", "Today", "open", "upToToday"],
+  ["scheduled", "Scheduled", "open", "dated"],
+  ["all", "All", "open", "any"],
+  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
+  ["progress", "In Progress", "progress", "any"],
+  ["completed", "Completed", "done", "any"],
+];
+const taskListFilter = key => `mcTasks-${key}`;
+
+function taskListKey() {
+  const key = Services.prefs.getCharPref(TASK_LIST_PREF, "all");
+  return TASK_LISTS.some(([k]) => k == key) ? key : "all";
+}
+
+function defineTaskLists(win) {
+  if (typeof win.calFilter != "function" || typeof win.calFilterProperties != "function") {
+    return false;
+  }
+  const filter = new win.calFilter();
+  for (const [key, , status, due, extra] of TASK_LISTS) {
+    const props = new win.calFilterProperties();
+    props.start = props.FILTER_DATE_ALL;
+    props.end = props.FILTER_DATE_ALL;
+    props.occurrences = props.FILTER_OCCURRENCES_PAST_AND_NEXT;
+    props.status = {
+      open: props.FILTER_STATUS_INCOMPLETE | props.FILTER_STATUS_IN_PROGRESS,
+      progress: props.FILTER_STATUS_IN_PROGRESS,
+      done: props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE,
+    }[status];
+    props.due = {
+      upToToday: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY,
+      dated: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY | props.FILTER_DUE_FUTURE,
+      any: props.FILTER_DUE_ALL,
+    }[due];
+    if (extra) {
+      props.onfilter = (item, result) => result && extra(item);
+    }
+    // die definierten Filter teilen sich alle calFilter (am Prototyp)
+    filter.defineFilter(taskListFilter(key), props);
+  }
+  return true;
+}
+
+function hookTaskLists(win, restorers) {
+  const doc = win.document;
+  const panel = doc.getElementById("calendar-panel");
+  const tree = doc.getElementById("calendar-task-tree");
+  if (!panel || !tree || doc.getElementById("mcTaskLists") || !defineTaskLists(win)) {
+    return;
+  }
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const X = "http://www.w3.org/1999/xhtml";
+  const el = (tag, cls, text) => {
+    const e = doc.createElementNS(X, tag);
+    if (cls) {
+      e.className = cls;
+    }
+    if (text != null) {
+      e.textContent = text;
+    }
+    return e;
+  };
+  const box = el("div");
+  box.id = "mcTaskLists";
+  const list = el("ul", "mc-tl-list");
+  list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", tr("Tasks"));
+  const rows = new Map();
+  for (const [key, label] of TASK_LISTS) {
+    const row = el("li", "mc-tl-row");
+    row.dataset.list = key;
+    row.setAttribute("role", "option");
+    row.tabIndex = -1;
+    const icon = el("span", `mc-tl-icon mc-tl-${key}`);
+    row.append(icon, el("span", "mc-tl-name", tr(label)), el("span", "mc-tl-count", ""));
+    row.addEventListener("click", () => select(key));
+    rows.set(key, row);
+    list.append(row);
+  }
+  list.addEventListener("keydown", event => {
+    const keys = TASK_LISTS.map(([k]) => k);
+    const i = keys.indexOf(taskListKey());
+    const next = event.key == "ArrowDown" ? keys[Math.min(keys.length - 1, i + 1)] : event.key == "ArrowUp" ? keys[Math.max(0, i - 1)] : null;
+    if (next) {
+      event.preventDefault();
+      select(next);
+      rows.get(next).focus();
+    }
+  });
+  list.tabIndex = 0;
+  box.append(list);
+  panel.prepend(box);
+
+  const today = () => {
+    const icon = rows.get("today").querySelector(".mc-tl-icon");
+    icon.textContent = String(new Date().getDate());
+  };
+  const mark = () => {
+    const key = taskListKey();
+    for (const [k, row] of rows) {
+      row.classList.toggle("selected", k == key);
+      row.setAttribute("aria-selected", String(k == key));
+    }
+    today();
+  };
+  const apply = () => {
+    const name = taskListFilter(taskListKey());
+    if (tree.getAttribute("filterValue") != name && typeof win.taskViewUpdate == "function") {
+      win.taskViewUpdate(name);
+    }
+  };
+  const select = key => {
+    Services.prefs.setCharPref(TASK_LIST_PREF, key);
+    mark();
+    apply();
+    win.setTimeout(() => enhancer?.updateListHeader(win), 0);
+  };
+
+  // Anzahlen: je Ansicht dieselben Filter über alle eingeblendeten Kalender
+  let counting = 0, again = false;
+  const count = async () => {
+    if (counting) {
+      again = true;
+      return;
+    }
+    counting = 1;
+    try {
+      const composite = cal.view.getCompositeCalendar(win);
+      for (const [key] of TASK_LISTS) {
+        const f = new win.calFilter();
+        f.itemType = Ci.calICalendar.ITEM_FILTER_TYPE_TODO;
+        f.applyFilter(taskListFilter(key));
+        let n = 0;
+        for await (const chunk of cal.iterate.streamValues(f.getItems(composite))) {
+          n += chunk.length;
+        }
+        rows.get(key).querySelector(".mc-tl-count").textContent = n ? n.toLocaleString(Services.locale.appLocaleAsBCP47) : "";
+      }
+    } catch (e) {
+      log("task lists count", e);
+    } finally {
+      counting = 0;
+    }
+    if (again) {
+      again = false;
+      later();
+    }
+  };
+  let timer = 0;
+  const later = () => {
+    win.clearTimeout(timer);
+    timer = win.setTimeout(count, 250);
+  };
+  const observer = {
+    QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+    onStartBatch() {},
+    onEndBatch: later,
+    onLoad: later,
+    onAddItem: later,
+    onModifyItem: later,
+    onDeleteItem: later,
+    onError() {},
+    onPropertyChanged: later,
+    onPropertyDeleting() {},
+  };
+  const composite = cal.view.getCompositeCalendar(win);
+  composite.addObserver(observer);
+
+  // Kalender ohne Aufgaben in „Task Lists“ ausblenden
+  const calList = doc.getElementById("calendar-list");
+  const tagLists = () => {
+    for (const li of calList?.querySelectorAll(":scope > li[calendar-id]") || []) {
+      const c = cal.manager.getCalendarById(li.getAttribute("calendar-id"));
+      li.toggleAttribute("mc-no-tasks", c?.getProperty("capabilities.tasks.supported") === false);
+    }
+  };
+  const mo = calList ? new win.MutationObserver(tagLists) : null;
+  mo?.observe(calList, { childList: true });
+  tagLists();
+  const header = doc.getElementById("calendar-list-header-label");
+  const tasksMode = () => doc.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks";
+  let oldHeader = null;
+  const onTab = () => {
+    if (!header) {
+      return;
+    }
+    if (tasksMode()) {
+      oldHeader ??= { l10n: header.getAttribute("data-l10n-id"), text: header.textContent };
+      header.removeAttribute("data-l10n-id");
+      header.textContent = tr("Task Lists");
+      mark();
+      apply();
+      later();
+    } else if (oldHeader) {
+      if (oldHeader.l10n) {
+        header.setAttribute("data-l10n-id", oldHeader.l10n);
+        doc.l10n?.translateElements([header]);
+      } else {
+        header.textContent = oldHeader.text;
+      }
+      oldHeader = null;
+    }
+  };
+  const tabs = doc.getElementById("tabmail")?.tabContainer;
+  tabs?.addEventListener("TabSelect", onTab);
+  onTab();
+  mark();
+  later();
+  restorers.push(() => {
+    composite.removeObserver(observer);
+    mo?.disconnect();
+    tabs?.removeEventListener("TabSelect", onTab);
+    win.clearTimeout(timer);
+    if (oldHeader) {
+      header.textContent = oldHeader.text;
+      if (oldHeader.l10n) {
+        header.setAttribute("data-l10n-id", oldHeader.l10n);
+      }
+    }
+    for (const li of calList?.querySelectorAll("[mc-no-tasks]") || []) {
+      li.removeAttribute("mc-no-tasks");
+    }
+    box.remove();
+    if (String(tree.getAttribute("filterValue")).startsWith("mcTasks-") && typeof win.taskViewUpdate == "function") {
+      win.taskViewUpdate("throughcurrent");
+    }
+  });
+}
+
 function hookTaskView(win, restorers) {
   const doc = win.document;
   const details = doc.getElementById("calendar-task-details-container");
@@ -4671,6 +4936,9 @@ function hookTaskCards(win, restorers) {
       const calName = el("span", "mc-tc-cal", task.calendar?.name || "");
       calName.style.setProperty("--mc-tc-color", color(task.calendar));
       line2.append(calName);
+      if (!task.isCompleted && pct > 0 && pct < 100) {
+        line2.append(el("span", "mc-tc-pct", tr("{n} % done", { n: pct })));
+      }
       const cats = task.getCategories?.() || [];
       if (cats.length) {
         line2.append(el("span", "mc-tc-cats", cats.join(", ")));
@@ -10977,6 +11245,7 @@ class CardEnhancer {
       hookNewTabMenus(w.document, this.restorers);
       try {
         hookTaskFilter();
+        hookTaskLists(w, this.restorers);
         relinkTaskTree(w, this.restorers);
         hookTaskView(w, this.restorers);
         hookTaskCards(w, this.restorers);
@@ -13416,7 +13685,8 @@ class CardEnhancer {
     const group = d.getElementById("task-tree-filtergroup");
     const tree = d.getElementById("calendar-task-tree");
     const radio = group && ([...group.querySelectorAll("radio")].find(r => r.selected || r.value == group.value));
-    box.querySelector(".mc-lh-title").textContent = radio?.label || radio?.getAttribute("label") || tr("Tasks");
+    const own = TASK_LISTS.find(([key]) => tree?.getAttribute("filterValue") == taskListFilter(key));
+    box.querySelector(".mc-lh-title").textContent = own ? tr(own[1]) : radio?.label || radio?.getAttribute("label") || tr("Tasks");
     const n = tree?.mTaskArray?.length || 0;
     let count = tr(n == 1 ? "{n} task" : "{n} tasks", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) });
     // Hinweis „bitte einen beschreibbaren Kalender wählen“ unter dem Titel (wie Apple

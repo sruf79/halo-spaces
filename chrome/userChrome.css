@@ -1586,12 +1586,18 @@ findbar .findbar-textbox:focus {
 }
 
 #unifiedToolbarContent > li[item-id="search-bar"] {
-  /* Apple Mail: 333 × 38 px – in jedem Bereich gleich breit. In der Mail
-     weichen bei Platzmangel zuerst unwichtige Knöpfe (die Erweiterung blendet
-     sie aus), bevor das Suchfeld unter 160 px schrumpft */
+  /* Apple Mail: 333 × 38 px – in jedem Bereich gleich breit. Bei
+     Platzmangel schrumpft zuerst das Suchfeld (in den Bereichen bis zur
+     Lupe), erst dann blendet die Erweiterung unwichtige Knöpfe aus */
   flex: 0 50 333px !important;
   max-width: 333px !important;
   min-width: 160px !important;
+}
+
+/* Thunderbird gibt dem Suchfeld innen 5em Mindestbreite – sonst bliebe es
+   bei rund 80 px stehen und Knöpfe müssten weichen, bevor es zur Lupe wird */
+#unifiedToolbarContent > li[item-id="search-bar"] :is(.search-bar, global-search-bar) {
+  min-inline-size: 0 !important;
 }
 
 /* rechts so viel Luft wie links neben dem Seitenleisten-Knopf (das ≡-Menü

@@ -5527,10 +5527,46 @@ def run_checks(m, version, profile, results):
             const search = Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().width);
             out.push({ width, line: Math.round(lineVar + rl) == paneRight || Math.abs(lineVar + rl - paneRight) <= 2, buttonsRightOfList: spacer >= paneRight, search }); }
           w.resizeTo(1500, 900); await wait(800); return out;""")
-        ok = all(r["line"] and r["buttonsRightOfList"] and r["search"] >= 159 for r in res)
+        ok = all(r["line"] and r["buttonsRightOfList"] and r["search"] >= 40 for r in res)
         detail = " · ".join(f"{r['width']}px: Linie {'✓' if r['line'] else '✗'}, Knöpfe {'✓' if r['buttonsRightOfList'] else '✗'}, Suche {r['search']}" for r in res)
         return ok, detail
     check("Toolbar: Trennlinie, Knopfkante, Suchfeld", toolbar_edges, results)
+
+    def toolbar_search_first():
+        # schmales Fenster mit Today-Pane: in jedem Bereich schrumpft zuerst das Suchfeld (bis zur Lupe), Knöpfe ragen nie aus der
+        # Zeile; in der Mail weichen Knöpfe erst, wenn die Suche schon zur Lupe geworden ist (danach hat sie höchstens einen Knopf
+        # mehr Platz). MacBook Pro 16" (1728 px) mit Today-Pane: alle Mail-Knöpfe sichtbar
+        res = m.js("""
+          const out = {};
+          const tp = () => d.getElementById("today-pane-panel");
+          const go = { mail: toMail, calendar: toCalendar, tasks: async () => { tm.openTab("tasks", {}); await wait(1500); },
+                       addressbook: async () => { tm.openTab("addressBookTab", {}); await wait(2000); } };
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const state = name => {
+            const row = d.getElementById("unifiedToolbarContent").getBoundingClientRect();
+            const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")) && !l.hidden && getComputedStyle(l).display != "none");
+            const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+            const sw = search && getComputedStyle(search).display != "none" ? Math.round(search.getBoundingClientRect().width) : null;
+            return { today: Math.round(tp()?.getBoundingClientRect().width || 0), search: sw,
+                     squeezed: name == "mail" ? [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(l => l.getAttribute("item-id")) : [],
+                     clipped: items.filter(l => { const r = l.getBoundingClientRect(); return r.width && r.right > row.right + 1; }).map(l => l.getAttribute("item-id")) };
+          };
+          w.resizeTo(1512, 900); await wait(800);
+          for (const [name, open] of Object.entries(go)) {
+            await open(); await wait(700);
+            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(1500); }
+            await wait(800);
+            out[name] = state(name);
+          }
+          await toMail(); w.resizeTo(1728, 1000); await wait(1800);
+          out.mail16 = state("mail");
+          w.resizeTo(1500, 900); await wait(800);
+          return out;""")
+        ok = (all((v["today"] > 0 or k == "calendar") and not v["clipped"] and (v["search"] is None or v["search"] >= 40)
+                  and (not v["squeezed"] or (v["search"] or 0) <= 100) for k, v in res.items())
+              and res["mail16"]["today"] > 0 and not res["mail16"]["squeezed"])
+        return ok, f"{res}"
+    check("Toolbar: im schmalen Fenster mit Today-Pane schrumpft zuerst das Suchfeld, Knöpfe bleiben in allen Bereichen sichtbar", toolbar_search_first, results)
 
     def capsules():
         res = m.js("""

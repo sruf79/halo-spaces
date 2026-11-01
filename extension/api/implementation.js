@@ -14810,10 +14810,11 @@ class CardEnhancer {
       if (!animating) {
         const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld
-        // noch mindestens 160 px breit ist (sonst lieber Knöpfe ausblenden)
+        // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
+        // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width >= 159));
+          (!search || rectOf(search).width > 41));
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail): fehlt
       // dafür Platz, wird zuerst der Abstand nach „Verfassen“ kleiner (69 → 12 px)

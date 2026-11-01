@@ -6322,6 +6322,44 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def star_sort_resort():
+        # Liste nach Stern sortiert: Stern setzen/entfernen ordnet die Mail sofort ein (nicht erst nach Ordnerwechsel),
+        # die gewählte Mail bleibt gewählt
+        res = m.js(r"""
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Stern-Sortierung")) { root.createSubfolder("Stern-Sortierung", null); await wait(800); }
+          const f = root.getChildNamed("Stern-Sortierung"), lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+          for (const n of [1, 2, 3, 4]) if (![...f.messages].some(h => h.messageId == `halo-ss-${n}@example.invalid`))
+            lf.addMessage(`From - Sat Oct 17 10:00:00 2026\r\nFrom: Test ${n} <s${n}@example.invalid>\r\nSubject: Stern ${n}\r\nDate: Sat, 17 Oct 2026 1${n}:00:00 +0200\r\nMessage-ID: <halo-ss-${n}@example.invalid>\r\n\r\nText\r\n`);
+          await wait(500);
+          const a3 = await toMail(); a3.displayFolder(f.URI);
+          await until(() => a3.gDBView?.rowCount >= 4, 10000);
+          const V = Ci.nsMsgViewSortType, O = Ci.nsMsgViewSortOrder;
+          const prev = [a3.gViewWrapper.primarySortColumnId, a3.gDBView.sortOrder];
+          const { ThreadPaneColumns } = ChromeUtils.importESModule("chrome://messenger/content/ThreadPaneColumns.mjs");
+          const starCol = ThreadPaneColumns.getDefaultColumns().find(c => c.sortKey == "byFlagged").id;
+          a3.gViewWrapper.sort(starCol, O.descending); await wait(400);
+          const sortedBy = a3.gDBView.sortType == V.byFlagged;
+          const rows = () => [...Array(a3.gDBView.rowCount).keys()].map(i => a3.gDBView.getMsgHdrAt(i));
+          const flagsOk = () => { const fl = rows().map(h => h.isFlagged); const k = fl.indexOf(false); return k < 0 || fl.slice(k).every(x => !x) || fl.slice(fl.lastIndexOf(false) + 1).every(x => x) && fl.slice(0, fl.indexOf(true) < 0 ? 0 : fl.indexOf(true)).every(x => !x); };
+          // alle ohne Stern, dann die mittlere Mail wählen und markieren
+          f.markMessagesFlagged(rows().filter(h => h.isFlagged), false); await wait(400);
+          a3.threadTree.selectedIndex = 2; await wait(300);
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+          const before = a3.gDBView.findIndexOfMsgHdr(hdr, false);
+          f.markMessagesFlagged([hdr], true); await wait(800);
+          const out = { sortedBy, before, flaggedAt: a3.gDBView.findIndexOfMsgHdr(hdr, false), grouped: flagsOk(),
+                        selected: a3.gDBView.hdrForFirstSelectedMessage?.messageId == hdr.messageId };
+          f.markMessagesFlagged([hdr], false); await wait(800);
+          out.unflaggedAt = a3.gDBView.findIndexOfMsgHdr(hdr, false); out.groupedAfter = flagsOk();
+          out.selectedAfter = a3.gDBView.hdrForFirstSelectedMessage?.messageId == hdr.messageId;
+          a3.gViewWrapper.sort(prev[0], prev[1]);
+          return out;""")
+        ok = (res["sortedBy"] and res["before"] == 2 and res["flaggedAt"] in (0, 3) and res["grouped"] and res["selected"]
+              and res["unflaggedAt"] != res["flaggedAt"] and res["groupedAfter"] and res["selectedAfter"])
+        return ok, f"{res}"
+    check("Mailliste: nach Stern sortiert ordnet Stern setzen/entfernen die Mail sofort ein, Auswahl bleibt", star_sort_resort, results)
+
     def star_button():
         # Symbolleiste: Verschieben ohne Trennstrich; Markieren als geteilter Stern-Knopf – Stern
         # setzt/entfernt „Starred“ an der Testmail, der Pfeil öffnet das Menü, Hervorhebung je Hälfte

@@ -11454,11 +11454,34 @@ class CardEnhancer {
           li.setAttribute("mc-hot", part);
         }
       };
-      // Stern an anderer Stelle geändert (Mailliste, Taste S, Kontextmenü)
+      // Stern an anderer Stelle geändert (Mailliste, Taste S, Kontextmenü).
+      // Ist die Liste nach Stern sortiert, ordnet Thunderbird die Mail erst
+      // beim nächsten Aufbau ein – hier gleich neu sortieren (die Ansicht
+      // behält dabei Auswahl und gewählte Mail)
+      let resort = 0;
+      const resortStarred = () => {
+        resort = 0;
+        for (const tab of w.gTabmail?.tabInfo || []) {
+          const a3 = tab.mode?.name == "mail3PaneTab" ? tab.chromeBrowser?.contentWindow : null;
+          const view = a3?.gDBView;
+          try {
+            if (view && view.sortType == Ci.nsMsgViewSortType.byFlagged) {
+              // gleiche Sortierung noch einmal ist in Thunderbird wirkungslos –
+              // kurz nach Datum, dann wieder nach Stern
+              const order = view.sortOrder, column = a3.gViewWrapper.primarySortColumnId;
+              view.sort(Ci.nsMsgViewSortType.byDate, order);
+              a3.gViewWrapper.sort(column, order);
+            }
+          } catch (e) {
+            log("resort starred", e);
+          }
+        }
+      };
       const listener = {
         onFolderPropertyFlagChanged: (hdr, property, oldFlag, newFlag) => {
           if (property == "Flagged") {
             this.updateStarButton(w);
+            resort ||= w.setTimeout(resortStarred, 0);
           }
         },
       };

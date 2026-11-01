@@ -3953,6 +3953,8 @@ def calendar_checks(m, results):
               const tryOpen = async () => { dml.open = true; await pause(600); const st = dml.menupopup.state; if (st == "open") { dml.open = false; await pause(300); } return st; };
               const pdoc = dw.document, ifr = pdoc.getElementById("calendar-item-panel-iframe");
               const steps = [
+                ["anchorEnd", () => { dml.menupopup.setAttribute("position", "after_end"); }],
+                ["wide", () => { dml.menupopup.removeAttribute("position"); dw.resizeTo(640, dw.outerHeight); }],
                 ["height", () => { dml.style.setProperty("height", "auto", "important"); dml.style.setProperty("min-height", "0", "important"); }],
                 ["margin", () => dml.style.setProperty("margin-inline-start", "0", "important")],
                 ["iframeMin", () => ifr?.style.setProperty("min-width", "0", "important")],
@@ -3962,7 +3964,8 @@ def calendar_checks(m, results):
                 ["apple", () => id.documentElement.removeAttribute("mc-apple-event")],
               ];
               out.dml.bisect = [];
-              for (const [name, fn] of steps) { fn(); await pause(200); const st = await tryOpen(); out.dml.bisect.push(`${name}:${st}`); if (st == "open") break; }
+              out.dml.popupW = Math.round(dml.menupopup.getBoundingClientRect().width); out.dml.win = [dw.screenX, dw.outerWidth, dw.screen.availWidth];
+              for (const [name, fn] of steps) { fn(); await pause(400); const st = await tryOpen(); out.dml.bisect.push(`${name}:${st}`); if (st == "open") break; }
             }
             if (opened) {
               await pause(500);

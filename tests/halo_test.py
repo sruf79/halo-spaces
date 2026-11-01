@@ -2425,7 +2425,8 @@ def compose_checks(m, results):
                   cc: [mid(cd.getElementById("ccAddrLabel")), mid(cd.querySelector("#ccAddrContainer mail-address-pill"))],
                   bcc: [mid(cd.getElementById("bccAddrLabel")), mid(bcc)],
                   first: left(first), wrapped: all.filter(p => top(p) > top(first) + 4).map(left),
-                  bccText: textLeft(bcc), subjectText: textLeft(cd.getElementById("msgSubject")) };
+                  bccText: textLeft(bcc), subjectText: textLeft(cd.getElementById("msgSubject")),
+                  bccLabel: cd.getElementById("bccAddrLabel").getBoundingClientRect().right, subjectLabel: cd.getElementById("subjectLabel").getBoundingClientRect().right };
                 out.pillLum = lum(over(rgba(out.pill), rgba(bar))); out.barLum = lum(rgba(bar));
                 // Zustände ohne Übergang messen (verdeckte Testfenster halten Übergänge an)
                 const p = all[1]; p.style.transition = "none";
@@ -2445,11 +2446,14 @@ def compose_checks(m, results):
 
     def wrap():
         r = recipients()
+        # Felder stehen wie in Apple Mail direkt hinter ihrer Bezeichnung (keine gemeinsame Spalte mehr):
+        # leeres Bcc und Betreff gleich weit von ihrer Bezeichnung entfernt
+        gb, gs = r["bccText"] - r["bccLabel"], r["subjectText"] - r["subjectLabel"]
         ok = (r["rows"] >= 2 and r["wrapped"] and all(abs(x - r["first"]) <= 0.5 for x in r["wrapped"])
-              and abs(r["bccText"] - r["subjectText"]) <= 1)
+              and 4 <= gb <= 20 and abs(gb - gs) <= 1.5)
         return ok, (f"{r['rows']} Zeilen, erste Pille links {r['first']}, umbrochene {r['wrapped']}; "
-                    f"Text leeres Bcc {r['bccText']} gegen Betreff {r['subjectText']}")
-    check("Verfassen: umbrochene Empfänger-Pillen beginnen bündig mit der ersten, leeres Feld bündig mit dem Betreff", wrap, results)
+                    f"Abstand Bezeichnung–Text leeres Bcc {gb:.1f}, Betreff {gs:.1f}")
+    check("Verfassen: umbrochene Empfänger-Pillen beginnen bündig mit der ersten, leeres Feld so dicht hinter der Bezeichnung wie der Betreff", wrap, results)
 
     def pill_color():
         r = recipients()
@@ -2528,6 +2532,15 @@ def compose_checks(m, results):
             out.label = [Math.round(lab.getBoundingClientRect().left - cd.getElementById("MsgHeadersToolbar").getBoundingClientRect().left), cw.getComputedStyle(lab, "::after").content];
             const desc = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="description"]');
             out.desc = desc ? vis(desc) : false;
+            // Feld direkt hinter der Bezeichnung (Abstand Ende Bezeichnung bis Beginn des Texts)
+            const textStart = el => { const cs = cw.getComputedStyle(el); return el.getBoundingClientRect().left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth); };
+            const idLabel = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="label"]') || cd.getElementById("msgIdentity");
+            const toRow = cd.querySelector("#addressRowTo"), toLab = toRow?.querySelector(".address-label-container > label"), toIn = toRow?.querySelector(".address-row-input");
+            const gap = (lab, start) => lab && start != null ? Math.round(start - lab.getBoundingClientRect().right) : null;
+            const firstOf = el => el ? Math.min(...[el, ...el.querySelectorAll("mail-address-pill")].filter(vis).map(x => x.localName == "mail-address-pill" ? x.getBoundingClientRect().left : textStart(x))) : null;
+            out.gaps = { from: gap(cd.getElementById("identityLabel"), idLabel.getBoundingClientRect().left),
+                         to: gap(toLab, toRow ? Math.min(...[...toRow.querySelectorAll("mail-address-pill, .address-row-input")].filter(vis).map(x => x.localName == "mail-address-pill" ? x.getBoundingClientRect().left : textStart(x))) : null),
+                         subject: gap(lab, textStart(cd.getElementById("msgSubject"))) };
             const ed = cw.GetCurrentEditorElement().contentDocument, box = ed.querySelector(".moz-forward-container"), table = box.querySelector("table");
             out.fwd = { begin: [...box.childNodes].some(n => n.nodeType == 3 && /Begin forwarded message:/.test(n.data)), first: table.querySelector("tr th")?.textContent.trim(),
                         date: [...table.querySelectorAll("td")].map(td => td.textContent).find(t => /2026/.test(t)), border: ed.defaultView.getComputedStyle(table.querySelector("td")).borderTopStyle,
@@ -2541,6 +2554,7 @@ def compose_checks(m, results):
         fw, at = res["fwd"], res["att"]
         ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
+              and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
               and fw["begin"] and fw["first"].startswith("From") and fw["date"] and "+0000" not in fw["date"] and fw["border"] == "none"
               and fw["bar"] == "2px" and not fw["modified"] and at["w"] == 96 and at["icon"] == 32 and at["src"])
         return ok, f"{res}"

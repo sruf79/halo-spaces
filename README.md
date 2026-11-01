@@ -178,16 +178,18 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.12.0
+## What's new in 3.13.0
 
-- **Messages in their own window**: double-clicking a message opens it in a window, no more hidden tabs; a message tab closes with Esc
-- **PDF attachments** open in your system's PDF viewer
-- **Web pages in their own window**: sign-in pages and pages like Thunderbird's "What's New" open in a window instead of a hidden tab; other pages outside the spaces close when you switch to a space
-- **Spaces bar**: the active space is marked with a line in its colour next to the tile
-- **Keyboard scrolling in Settings**: click anywhere on the page, then the arrow keys and Page Down scroll it
-- **Uninstalling** removes all of halo.spaces' settings and restores Thunderbird's own defaults, so a later reinstall starts fresh
-- **Toolbar**: buttons without a halo.spaces icon keep Thunderbird's icon instead of showing a grey square
-- **Windows**: the Day/Week/Month switcher reacts to the first click, and the area above the Today pane lines up with it
+- **A tidier menu bar**: seven menus instead of ten (File, Edit, View, Mail, Window, Help), every command in exactly one place; commands that don't fit the current space are greyed out. Rarely used items moved to Settings, where the settings search finds them, or to the folder list's context menu
+- **Message context menu** without submenus: Reply, Forward, Star, Spam, Delete and Archive directly; Remind Me, Move To, Copy To and Convert To stay as submenus
+- **Tasks** get views in the sidebar: Today, Scheduled, All, Important, In Progress and Completed, each with a count; below, only calendars that can hold tasks. Cards show the progress in percent; actions sit in capsules above the details
+- **Toolbar**: when space runs out, the search field shrinks first, down to just the magnifier, before any buttons disappear, in every space
+- **Accounts** can be reordered by dragging, in the folder list and in Account Settings; Local Folders stay on top until you change the order
+- **Follow-Up Suggestions** can be switched off in Settings
+- **Sorted by star**: a message moves to its place as soon as you star or unstar it
+- **Message windows** no longer repeat the subject in the title bar
+- **Spaces bar**: the active space is marked with a chevron again
+- **Fixes**: the hover buttons above a message are no longer hidden behind the message by some add-ons; the event summary is tall enough for its content; Thunderbird quits again on Windows and Linux when you close the main window; on Windows the toolbar above the Today pane lines up
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

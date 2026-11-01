@@ -18660,6 +18660,7 @@ const SETTINGS = {
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
   darkMessages: ["mail.dark-reader.enabled", "bool", true],
   undoSend: [UNDO_SEND_PREF, "int", 10],
+  followUp: ["extensions.mailcards.followUp", "bool", true],
   weather: [WEATHER_PREF, "bool", false],
   weatherPlace: [WEATHER_PLACE_PREF, "string", ""],
   fifthSpace: [FIFTH_PREF, "string", "chat"],
@@ -18756,6 +18757,14 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
             }
           } else {
             Services.prefs.setStringPref(pref, String(value).slice(0, 10000));
+          }
+          if (key == "followUp") {
+            // Update the banner immediately in every open mail window.
+            const windows = Services.wm.getEnumerator("mail:3pane");
+            while (windows.hasMoreElements()) {
+              const win = windows.getNext();
+              try { FollowUp.render(win); } catch (e) { log("follow up setting refresh", e); }
+            }
           }
           if (key == "weather" || key == "weatherPlace") {
             await Weather.refresh(true); // Zeile unter dem Ortsfeld gleich mit Ergebnis

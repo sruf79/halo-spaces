@@ -3739,6 +3739,15 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 }
 
 /* ---------- Add-ons-Verwaltung ---------- */
+/* Thunderbird 157 / Windows: the extension synchronizes #sidebar width across
+   tabs via an inline !important width. The native about:addons #full grid must
+   use that actual width; otherwise #content begins under the sidebar. This
+   applies only to standalone about:addons, not embedded preferences. */
+:root:not([mc-embedded]) #full:has(> #sidebar > categories-box) {
+  grid-template-columns: max-content minmax(0, 1fr) !important;
+}
+
+
 #sidebar:has(categories-box) {
   background: var(--mt-sidebar) !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;

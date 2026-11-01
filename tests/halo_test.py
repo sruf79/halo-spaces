@@ -3948,7 +3948,22 @@ def calendar_checks(m, results):
             const opened = await isOpen(dml.menupopup);
             out.dml.events = evs.slice(); out.dml.state = dml.menupopup?.state; out.dml.openAttr = dml.open;
             out.dml.editable = dml.getAttribute("editable"); out.dml.is = dml.getAttribute("is");
-            if (!opened) { dml.menupopup.openPopup(dml, "after_start"); await pause(800); out.dml.direct = [dml.menupopup.state, evs.slice()]; dml.menupopup.hidePopup(); await pause(300); }
+            if (!opened) {
+              // nacheinander je eine Anpassung zurücknehmen, bis die Auswahl offen bleibt (nur zur Fehlersuche unter Linux)
+              const tryOpen = async () => { dml.open = true; await pause(600); const st = dml.menupopup.state; if (st == "open") { dml.open = false; await pause(300); } return st; };
+              const pdoc = dw.document, ifr = pdoc.getElementById("calendar-item-panel-iframe");
+              const steps = [
+                ["height", () => { dml.style.setProperty("height", "auto", "important"); dml.style.setProperty("min-height", "0", "important"); }],
+                ["margin", () => dml.style.setProperty("margin-inline-start", "0", "important")],
+                ["iframeMin", () => ifr?.style.setProperty("min-width", "0", "important")],
+                ["mcEvent", () => pdoc.documentElement.removeAttribute("mc-event")],
+                ["showas", () => id.documentElement.removeAttribute("mc-showas-row")],
+                ["card", () => dml.closest("tr")?.removeAttribute("data-mc-card")],
+                ["apple", () => id.documentElement.removeAttribute("mc-apple-event")],
+              ];
+              out.dml.bisect = [];
+              for (const [name, fn] of steps) { fn(); await pause(200); const st = await tryOpen(); out.dml.bisect.push(`${name}:${st}`); if (st == "open") break; }
+            }
             if (opened) {
               await pause(500);
               const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);

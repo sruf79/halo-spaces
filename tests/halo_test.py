@@ -7132,7 +7132,7 @@ def run_checks(m, version, profile, results):
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
           const record = async () => { const ws = [], ts = [], ss = [], tt = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0));
-            const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0 && !title.hasAttribute("data-narrow")]);
+            const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
@@ -7152,7 +7152,9 @@ def run_checks(m, version, profile, results):
             const jumps = ws.slice(1).map((v, i) => Math.abs(v - ws[i]));
             // Suchfeld gleitet mit (kein Sprung um die ganze Breite), Überschrift ist mitten in der Bewegung schon da
             const sJumps = ss.slice(1).map((v, i) => Math.abs(v - ss[i]));
-            const mid = tt.filter(([pw]) => pw > out.start * 0.3 && pw < out.start * 0.9);
+            // (unter Windows/Linux neben den Fensterknöpfen nur die Sonne – wie am Ende bei offener Pane)
+            const open = phase == "ein" ? tt[tt.length - 1] : tt[0];
+            const mid = tt.filter(([pw]) => pw > out.start * 0.3 && pw < out.start * 0.9).map(([pw, shown, narrow]) => [pw, shown == open[1] && narrow == open[2]]);
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
           }

@@ -5969,14 +5969,14 @@ def run_checks(m, version, profile, results):
           const shown = cs(box).pointerEvents, opacity = cs(box).opacity;
           const r = box.getBoundingClientRect(), h = header.getBoundingClientRect();
           const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-          // die Kapsel liegt über dem Mailtext, nicht darunter (untere Hälfte, unter der Linie)
+          // die Kapsel liegt ganz im Kopf (nicht halb über dem Mailtext, den manche Add-ons darüberlegen)
           await wait(100);
-          const hit = md.elementFromPoint(cx, cy + r.height / 4);
+          const hit = md.elementFromPoint(cx, r.bottom - 2);
           const btn = box.querySelector(".mc-hover-reply");
           md.documentElement.dispatchEvent(new am.MouseEvent("mouseenter"));
           const enabledMatch = [...box.querySelectorAll(".mc-hover-action")].every(b => b.disabled == !am.commandController.isCommandEnabled(b.dataset.command));
           const out = { found: true, listActions, order, idle, shown, opacity, w: Math.round(r.width), h: Math.round(r.height),
-                        dx: Math.round(cx - (h.left + h.width / 2)), dy: Math.round(cy - h.bottom), hit: hit?.closest?.("#mcHoverActions") ? "box" : hit?.id || hit?.localName,
+                        dx: Math.round(cx - (h.left + h.width / 2)), below: Math.round(h.bottom - r.bottom), inHead: r.top >= h.top && r.bottom <= h.bottom, hit: hit?.closest?.("#mcHoverActions") ? "box" : hit?.id || hit?.localName,
                         icon: cs(btn, "::before").maskImage.slice(0, 20), tabbable: [...box.querySelectorAll("button")].filter(b => b.tabIndex >= 0).length,
                         labeled: [...box.querySelectorAll("button")].every(b => b.getAttribute("aria-label")), enabledMatch };
           // Löschen per Knopf: Mail in den Papierkorb, Thunderbirds Rückgängig geht
@@ -5990,11 +5990,11 @@ def run_checks(m, version, profile, results):
         if not res.get("found"):
             return False, f"keine Kapsel in der Leseansicht: {res}"
         ok = (res["listActions"] == 0 and res["order"] == ["mc-hover-delete", "mc-hover-sep", "mc-hover-reply", "mc-hover-replyall", "mc-hover-forward"]
-              and res["shown"] == "auto" and res["opacity"] == "1" and abs(res["dx"]) <= 2 and abs(res["dy"]) <= 2 and 20 <= res["h"] <= 32 and res["hit"] == "box"
+              and res["shown"] == "auto" and res["opacity"] == "1" and abs(res["dx"]) <= 2 and res["inHead"] and 1 <= res["below"] <= 6 and 20 <= res["h"] <= 32 and res["hit"] == "box"
               and res["icon"].startswith("url(") and res["tabbable"] == 0 and res["labeled"] and res["enabledMatch"]
               and res.get("inbox") == 1 and res["undoItems"] >= 1 and res.get("undone") == 2)
         return ok, f"{res}"
-    check("Mailansicht: Aktionen beim Überfahren als Kapsel unter dem Mailkopf (Löschen | Antworten, Allen antworten, Weiterleiten), keine in der Mailliste", hover_actions, results)
+    check("Mailansicht: Aktionen beim Überfahren als Kapsel ganz im Mailkopf (Löschen | Antworten, Allen antworten, Weiterleiten), keine in der Mailliste", hover_actions, results)
 
     def reply_forward_marks():
         # wie Apple Mail: links vom Absenderbild grauer Pfeil für beantwortet (nach links) bzw. weitergeleitet (nach rechts);

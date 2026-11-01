@@ -11962,11 +11962,11 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* Aktionen beim Überfahren wie Apple Mail (#mcHoverActions, setzt die
-   Erweiterung): kleine Kapsel mittig auf der Linie unter dem Kopf mit
+   Erweiterung): kleine Kapsel mittig unten im Kopf, knapp über der Linie, mit
    Löschen | Antworten, Allen antworten, Weiterleiten – erscheint, solange die
    Maus über der Mail (Kopf oder Text) ist. Im eigenen Nachrichtenfenster
    stehen dieselben Knöpfe schon im Kopf. */
-#msgHeaderView:has(> #mcHoverActions) {
+:is(#msgHeaderView, #messageHeader):has(> #mcHoverActions) {
   position: relative !important;
 }
 
@@ -11975,8 +11975,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   /* left statt inset-inline-start: die Mitte hängt nicht von der
      Schreibrichtung ab (rechts nach links stünde sie sonst daneben) */
   left: 50% !important;
-  bottom: 0 !important;
-  transform: translate(-50%, 50%) !important;
+  /* ganz im Kopf statt halb über der Linie: ragt sie in den Mailtext,
+     verdeckt ihn der Nachrichten-Browser bei manchen Add-ons zur Hälfte */
+  bottom: 3px !important;
+  transform: translateX(-50%) !important;
   z-index: 5 !important;
   /* als Kind von Thunderbirds Kopf-Raster sonst auf 0 gestaucht */
   width: max-content !important;

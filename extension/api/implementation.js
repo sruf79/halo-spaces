@@ -18024,8 +18024,9 @@ class CardEnhancer {
   // die Knöpfe im Mailkopf, also auch mit Rückgängig und Folgemail.
   hookHoverActions(doc) {
     const win = doc.defaultView;
-    // in den Rahmen um den Kopf – #messageHeader selbst schneidet Überstehendes ab
-    const header = doc.getElementById("msgHeaderView") || doc.getElementById("messageHeader");
+    // in den Kopf selbst: die Kapsel liegt ganz darin (#msgHeaderView reicht
+    // je nach Version weiter nach unten als die Linie unter dem Kopf)
+    const header = doc.getElementById("messageHeader") || doc.getElementById("msgHeaderView");
     if (!win || !header || doc.getElementById("mcHoverActions")) {
       return;
     }

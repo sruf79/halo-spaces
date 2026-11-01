@@ -9897,12 +9897,39 @@ class CardEnhancer {
     const onTab = () => w.setTimeout(update, 300);
     tabmail?.tabContainer?.addEventListener("TabSelect", onTab);
     w.addEventListener("resize", update);
+    // Fenster nie breiter als der Bildschirm (z. B. nach Doppelklick auf die
+    // Titelleiste): auf die verfügbare Breite zurück und ganz ins Bild
+    let fitLater = null;
+    const fitScreen = () => {
+      w.clearTimeout(fitLater);
+      fitLater = w.setTimeout(() => {
+        try {
+          const sc = w.screen;
+          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.fullScreen) {
+            return;
+          }
+          if (w.outerWidth <= sc.availWidth + 2) {
+            return;
+          }
+          update();
+          w.resizeTo(sc.availWidth, w.outerHeight);
+          w.moveTo(sc.availLeft, w.screenY);
+        } catch (e) {
+          log("fit screen error", e);
+        }
+      }, 250);
+    };
+    w.addEventListener("resize", fitScreen);
+    w.addEventListener("sizemodechange", fitScreen);
     const timer = w.setTimeout(update, 2000);
     this.restorers.push(() => {
       ro.disconnect();
       w.clearTimeout(timer);
+      w.clearTimeout(fitLater);
       tabmail?.tabContainer?.removeEventListener("TabSelect", onTab);
       w.removeEventListener("resize", update);
+      w.removeEventListener("resize", fitScreen);
+      w.removeEventListener("sizemodechange", fitScreen);
       root.style.removeProperty("min-width");
     });
   }

@@ -4899,6 +4899,18 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben", today_title_click, results)
 
+    def window_fit_screen():
+        # Hauptfenster nie breiter als der Bildschirm (Doppelklick auf die Titelleiste dehnte es darüber hinaus)
+        res = m.js(r"""
+          const pause = t => new Promise(r => w.setTimeout(r, t));
+          const old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight], sc = w.screen;
+          try {
+            w.resizeTo(sc.availWidth + 500, w.outerHeight); await pause(1500);
+            return { w: w.outerWidth, avail: sc.availWidth, x: w.screenX, left: sc.availLeft };
+          } finally { w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(800); }""")
+        ok = res.get("w", 1e9) <= res.get("avail", 0) + 2 and res.get("x", -1e9) >= res.get("left", 0) - 2
+        return ok, f"{res}"
+    check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm", window_fit_screen, results)
 
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""

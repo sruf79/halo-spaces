@@ -4451,12 +4451,15 @@ addon-card .addon-inline-options {
 
 /* Kopfzeilen wie Apple Mail: Bezeichnung grau links mit Doppelpunkt, das
    Konto (z. B. „Google“) nicht neben dem Absender */
+/* jedes Feld direkt hinter seiner Bezeichnung wie in Apple Mail (vorher
+   eine feste Spalte von 86 px – hinter „To:“ und „From:“ blieb eine Lücke) */
 #MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box, .address-label-container) {
   justify-content: flex-start !important;
-  padding-inline-start: 0 !important;
-  width: 86px !important;
-  min-width: 86px !important;
-  max-width: 86px !important;
+  padding-inline: 0 6px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  flex: none !important;
 }
 
 /* (Thunderbird schiebt die Beschriftung per pack="end" nach rechts – ein

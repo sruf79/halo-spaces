@@ -158,6 +158,11 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 ./publish.sh 3.1.0 notes.md     # commit, push, GitHub-Release, Hash-Prüfung, ggf. ATN-Upload
 ```
 
+`release.sh` überspringt die Tests, wenn die CI denselben Stand schon
+vollständig grün getestet hat (Linux, `mac`, `windows`) und seitdem nur
+`*.md`, `release.sh`, `publish.sh` oder `store/` geändert wurden;
+`FORCE_TESTS=1` testet trotzdem.
+
 `publish.sh` committet **alles** (`git add -A`), pusht und veröffentlicht –
 nie ohne Freigabe ausführen. Zwischen `release.sh` und `publish.sh` darf nicht
 neu gebaut werden, sonst passt der Hash in `updates.json` nicht mehr und

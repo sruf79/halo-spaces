@@ -13,6 +13,28 @@ source ./repo.conf
 [[ -z "$GITHUB_REPO" ]] && { echo "GITHUB_REPO in repo.conf fehlt"; exit 1; }
 BRANCH="${GITHUB_BRANCH:-main}"
 
+# Tests überspringen, wenn die CI (Linux, Mac, Windows) denselben Stand schon
+# vollständig grün getestet hat: Seitdem darf sich nichts geändert haben, was ins
+# Paket oder in die Tests eingeht (erlaubt: *.md, release.sh, publish.sh, store/),
+# und es darf nichts Ungespeichertes herumliegen
+if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" ]] && command -v gh >/dev/null; then
+  if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then
+    for SHA in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -s success -L 20 \
+                   --json headSha --jq '.[].headSha' 2>/dev/null); do
+      git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null || continue
+      if git diff --name-only "$SHA" HEAD | grep -qvE '\.md$|^(release|publish)\.sh$|^store/'; then
+        break                              # Code seit dem grünen Lauf geändert
+      fi
+      RUN=$(gh run list -R "$GITHUB_REPO" -w test.yml -c "$SHA" -s success -L 1 --json databaseId --jq '.[0].databaseId')
+      if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq '[.jobs[].name] | index("mac") != null and index("windows") != null' | grep -q true; then
+        echo "CI-Lauf $RUN für ${SHA:0:7} ist vollständig grün (Linux, Mac, Windows) – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
+        SKIP_TESTS=1
+      fi
+      break
+    done
+  fi
+fi
+
 # Version und Update-Adresse ins Manifest
 python3 - "$VERSION" "$GITHUB_REPO" "$BRANCH" <<'PY'
 import json, sys

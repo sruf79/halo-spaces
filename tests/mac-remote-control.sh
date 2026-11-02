@@ -9,6 +9,8 @@
 #   mac-remote-control.sh <Repo-Ordner>
 # HALO_RC_NAME (Standard neon) benennt die Sitzungen, HALO_RC_MODUS setzt den
 # Rechte-Modus (sonst gilt die Einstellung von Claude Code auf dem Rechner).
+# Neue Sitzungen arbeiten direkt im Checkout (--spawn=same-dir), nicht in
+# eigenen Worktrees – unabhängig davon, was zuletzt von Hand gewählt wurde.
 emulate -L zsh
 
 REPO=${1:?Aufruf: mac-remote-control.sh <Repo-Ordner>}
@@ -21,5 +23,5 @@ cd $REPO 2>/dev/null || { print -u2 "$(zeit) Repo-Ordner $REPO fehlt"; exit 1 }
 claude=${commands[claude]}
 [[ -n $claude ]] || { print -u2 "$(zeit) claude nicht gefunden (Abschnitt 12)"; exit 1 }
 print "$(zeit) Start: $claude remote-control in $REPO als $NAME"
-exec $claude remote-control --name $NAME --remote-control-session-name-prefix $NAME \
+exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${HALO_RC_MODUS:+--permission-mode} ${HALO_RC_MODUS}

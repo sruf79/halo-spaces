@@ -384,6 +384,7 @@ def run_in_vm(args, xpi):
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt
         shutil.copytree(os.path.join(ROOT, "extension"), os.path.join(run, "extension"))
+        shutil.copy(os.path.join(ROOT, "updates.json"), os.path.join(run, "updates.json"))  # für die Prüfung des Update-Wegs
         shutil.copy(xpi, os.path.join(run, os.path.basename(xpi)))
         inner = {"xpi": win + "\\" + os.path.basename(xpi), "tb": VM_TB["beta" if args.beta else "release"] if args.tb == DEFAULT_TB else args.tb,
                  "port": args.port, "dark": args.dark, "keep": args.keep, "only": args.only, "eval": args.eval, "perf": args.perf,
@@ -10906,6 +10907,27 @@ Neu
               and manifest.get("options_ui", {}).get("page") == "options/options.html")
         return ok, f"{res}"
     check("Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (Add-ons → Einstellungen bleibt)", pref_halo_category, results)
+
+    def update_source():
+        # Update-Weg der Nutzer: Thunderbird kennt aus dem Paket die update_url (raw.githubusercontent.com, Zweig main),
+        # updates.json im Repo hat für jede Version einen Download aus den GitHub-Releases und einen sha256-Hash;
+        # Versionen aufsteigend, keine doppelt, die Paketversion nicht älter als die letzte veröffentlichte
+        url = m.js("""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          return ExtensionParent.GlobalManager.getExtension("%s")?.manifest?.browser_specific_settings?.gecko?.update_url || null;""" % ADDON_ID)
+        conf = os.path.join(ROOT, "repo.conf")
+        repo = (re.search(r'GITHUB_REPO="([^"]+)"', open(conf).read()).group(1) if os.path.exists(conf) else "sruf79/halo-spaces")
+        upd = json.load(open(os.path.join(ROOT, "updates.json")))["addons"].get(ADDON_ID, {}).get("updates", [])
+        vt = lambda v: tuple(int(x) for x in v.split("."))
+        bad = [u.get("version") for u in upd
+               if u.get("update_link") != f"https://github.com/{repo}/releases/download/v{u.get('version')}/halo-spaces-{u.get('version')}.xpi"
+               or not re.fullmatch(r"sha256:[0-9a-f]{64}", u.get("update_hash", ""))
+               or not u.get("applications", {}).get("gecko", {}).get("strict_min_version")]
+        versions = [vt(u["version"]) for u in upd]
+        ok = (url == f"https://raw.githubusercontent.com/{repo}/main/updates.json" and len(upd) > 0 and not bad
+              and versions == sorted(set(versions)) and vt(version) >= versions[-1])
+        return ok, f"update_url={url}, {len(upd)} Versionen, letzte {upd[-1]['version'] if upd else None}, fehlerhaft {bad}"
+    check("Updates: Paket fragt updates.json auf GitHub (main) ab, jede Version dort mit Release-Download und sha256-Hash", update_source, results)
 
     def options_minimal():
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),

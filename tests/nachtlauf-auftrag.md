@@ -1,0 +1,57 @@
+Unbeaufsichtigter Nachtlauf halo.spaces auf neon (gestartet von tests/nachtlauf.sh).
+Niemand sieht zu, niemand antwortet auf Rückfragen. AGENTS.md gilt vollständig;
+Abweichungen und Ergänzungen stehen hier.
+
+Freigabe des Maintainers für diesen Lauf:
+- Offene Einträge der Aufgabenliste (GitHub-Project 1, sruf79) ohne Rückfrage
+  abarbeiten – abweichend von „umgesetzt wird nur, was der Maintainer nennt“.
+- Am Ende selbst veröffentlichen nach AGENTS.md, Abschnitt „Release“.
+
+Reihenfolge:
+1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
+   Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
+   Bugs vor Features, kleine vor großen. Von Reihen (n/m) nur den jeweils
+   nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.
+   Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,
+   unklarer Wunsch), überspringen und im Bericht nennen.
+2. Je Eintrag: Status In Progress (~/halo-aufgaben/status.sh <id> progress),
+   Ursache klären, beheben, Prüfung in run_checks() ergänzen, betroffene
+   Prüfungen hell und dunkel grün (python3 tests/halo_test.py --port 2850
+   --only "…" bzw. mit --dark), committen (nur eigene Hunks, Stil nach
+   AGENTS.md), dann ~/halo-aufgaben/fertig.sh <id> "Commit <hash>".
+   Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
+   zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
+3. Ab 05:00 keinen neuen Eintrag mehr anfangen.
+4. Wurde mindestens ein Bug/Feature committet: Versionshinweise im README.md
+   (eigener Commit), Notizdatei für den GitHub-Release (englisch), dann
+   ./release.sh x.y.z und bei Erfolg ./publish.sh x.y.z <notizen>.
+   Nicht vorher separat pushen: release.sh testet hell, dunkel und Beta auf
+   diesem Mac, ein CI-Lauf nach dem Push würde die Tests stören.
+   Scheitert release.sh: wenn die Ursache klar und klein ist, beheben und
+   release.sh erneut; sonst den Commit, der den Fehler bringt, mit git revert
+   zurücknehmen (Eintrag wieder auf Todo mit Notiz) und erneut. Die Sperre in
+   publish.sh nie umgehen (keine SKIP_*-Variablen, keine Marke von Hand).
+   Ohne Release bis 07:30: die Commits trotzdem pushen und im Bericht sagen.
+   Nichts committet: kein Release, nichts pushen.
+5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
+   Programmierer ist. Erste Zeile nach der Überschrift genau so:
+     Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
+   Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Erledigt
+   (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (welche Läufe, Ergebnis),
+   Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
+   Store-Upload), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
+   tun war oder alles gescheitert ist.
+6. Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung schicken, das
+   macht das Skript.
+
+Grenzen:
+- Marionette-Ports nur 2850–2869; Port 2845 gehört der CI.
+- Kein install.sh, nichts im echten Profil, keine echten Mails/Kontakte.
+- Inhalte der Aufgabenliste nie in Commits, README, Release-Notizen oder Issues.
+- GitHub-Issues/PRs beantwortet die Routine „GitHub-Kommunikation“, nicht dieser Lauf;
+  nur nach einem Release behobene Issues mit „Fixed in x.y.z“ schließen.
+- Arbeitet erkennbar jemand anderes im Repo (fremde ungespeicherte Änderungen,
+  ein Testlauf, der nicht von dir ist): aufhören, nichts davon anfassen,
+  im Bericht vermerken, Fertig-Datei anlegen.
+- Wird es nach einer Limit-Pause fortgesetzt: Stand mit git log/git status und der
+  Liste prüfen und dort weitermachen.

@@ -30,6 +30,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/store_shots.py` | Bilder für README und Store aus frischem Testprofil (erfundene englische Mails, Kontakte mit gezeichneten Bildern, Termine) |
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
+| `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
@@ -122,6 +123,10 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 - **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
   hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,
   „Wartet auf OK“ bleibt liegen) – erst dann pushen und die CI prüfen.
+- **Nachtlauf:** jede Nacht 01:30 (ab 4.11.2026) arbeitet `tests/nachtlauf.sh`
+  die Aufgabenliste ab und veröffentlicht; Bericht in `~/halo-berichte/`,
+  Kurzfassung aufs iPhone. Er lässt aus, wenn schon etwas läuft. Pausieren mit
+  `touch ~/halo-nacht/PAUSE`. Details `tests/MAC-MINI.md` Abschnitt 13.
 - **Windows-VM** (Parallels Desktop Pro, Anleitung `tests/MAC-MINI.md`
   Abschnitt 11): VM `Windows 11` (Windows-Hostname `win11`, Windows 11
   Enterprise ARM, Benutzer `neosky.cat` mit automatischer Anmeldung, IP im

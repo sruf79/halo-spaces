@@ -446,3 +446,39 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
 - Neu starten: `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.remote-control`;
   abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.remote-control`
   und die plist in `~/Library/LaunchAgents/` löschen.
+
+## 13. Nachtlauf
+
+Jede Nacht um 01:30 arbeitet Claude Code auf dem Mini offene Einträge der
+Aufgabenliste ab (Bugs vor Features) und veröffentlicht danach selbst nach
+`AGENTS.md`, Abschnitt „Release“. Auftrag: `tests/nachtlauf-auftrag.md`,
+Ablauf: `tests/nachtlauf.sh`.
+
+- Einrichten bzw. nach Änderungen am Skript erneuern:
+  `tests/mac-mini-setup.sh --ohne-probelauf` (LaunchAgent
+  `at.halo-spaces.nachtlauf`, Skript nach `~/.config/halo-spaces/nachtlauf.sh`
+  kopiert, Protokoll `~/Library/Logs/halo-nachtlauf.log`). Claude Code darf den
+  LaunchAgent nicht selbst laden (Sicherheitsprüfung) – der Befehl kommt vom
+  Maintainer, in der Bildschirmsitzung oder per SSH.
+- Erster erlaubter Tag: `HALO_NACHT_AB` im Skript (Standard 4.11.2026);
+  davor endet jeder Start sofort, ohne Bericht.
+- Vor dem Start prüft das Skript, ob schon etwas läuft: CI-Job (darauf wartet
+  es bis 90 Minuten), `halo_test.py` und Verwandte, Thunderbird mit
+  Marionette, belegte Ports 2839/2845/2850–2869, VM-Lauf, `release.sh`/
+  `publish.sh`, ungespeicherte Änderungen im Checkout, eigener Lauf
+  (`~/halo-nacht/lauf.lock`). Dann wird ausgelassen – mit Bericht.
+- `claude -p` im Rechte-Modus `auto`; bei Limit nach 30 Minuten mit
+  derselben Sitzung fortgesetzt, nach 08:00 nicht mehr, um 09:00 beendet.
+  Protokoll und Ausgaben je Runde in `~/halo-nacht/`.
+- Bericht immer in `~/halo-berichte/<datum>-nachtlauf.md` (erste Zeile
+  „Kurz: …“); Release-Berichte von `publish.sh` daneben.
+- Aufs iPhone: Das Skript lässt eine kurze `claude -p`-Sitzung die Zeile
+  „PUSH: …“ per `SendMessage` an die Sitzung `comm.github.routine` schicken;
+  die hat Remote Control und stellt sie als Push-Meldung der Claude-App zu
+  (kein fremder Dienst). Testen: `~/.config/halo-spaces/nachtlauf.sh
+  --push-test "Test"` – nur unter launchd bzw. in der Bildschirmsitzung, per
+  SSH ist `claude -p` nicht angemeldet (Schlüsselbund).
+- Pausieren: `touch ~/halo-nacht/PAUSE` (Bericht „pausiert“), fortsetzen:
+  `rm ~/halo-nacht/PAUSE`. Abschalten:
+  `launchctl bootout gui/$(id -u)/at.halo-spaces.nachtlauf` und die plist in
+  `~/Library/LaunchAgents/` löschen.

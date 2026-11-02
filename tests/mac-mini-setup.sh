@@ -507,6 +507,60 @@ EOF
   fi
 }
 
+# Nachtlauf (tests/MAC-MINI.md Abschnitt 13): LaunchAgent startet jede Nacht um
+# 01:30 tests/nachtlauf.sh (Kopie außerhalb des Checkouts, der Lauf ändert ihn)
+NL_LABEL=at.halo-spaces.nachtlauf
+NL_ZIEL=$HOME/.config/halo-spaces/nachtlauf.sh
+NL_PLIST=$HOME/Library/LaunchAgents/$NL_LABEL.plist
+NL_LOG=$HOME/Library/Logs/halo-nachtlauf.log
+nl_plist() {
+  cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$NL_LABEL</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>$NL_ZIEL</string><string>$ROOT</string></array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>$NL_LOG</string>
+  <key>StandardErrorPath</key><string>$NL_LOG</string>
+</dict>
+</plist>
+EOF
+}
+pruefe_nachtlauf() {
+  local quelle=$ROOT/tests/nachtlauf.sh dom=gui/$(id -u)
+  if cmp -s $quelle $NL_ZIEL && [[ $(nl_plist) == "$(cat $NL_PLIST 2>/dev/null)" ]]; then
+    :
+  elif (( CHECK )); then
+    offen "Nachtlauf" "LaunchAgent fehlt oder ist veraltet – kein nächtlicher Arbeitslauf"
+    tun "tests/mac-mini-setup.sh ohne --check ausführen"
+    return
+  elif mkdir -p ${NL_ZIEL:h} ${NL_PLIST:h} ${NL_LOG:h} && cp $quelle $NL_ZIEL && chmod 755 $NL_ZIEL &&
+       nl_plist > $NL_PLIST; then
+    launchctl bootout $dom/$NL_LABEL 2>/dev/null
+    if ! launchctl bootstrap $dom $NL_PLIST 2>/dev/null; then
+      offen "Nachtlauf" "LaunchAgent eingerichtet, ließ sich aber nicht laden"
+      tun "in der Bildschirmsitzung von $ME: launchctl bootstrap $dom $NL_PLIST"
+      return
+    fi
+  else
+    offen "Nachtlauf" "LaunchAgent ließ sich nicht einrichten"
+    return
+  fi
+  if ! launchctl print $dom/$NL_LABEL >/dev/null 2>&1; then
+    offen "Nachtlauf" "LaunchAgent nicht geladen"
+    tun "launchctl bootstrap $dom $NL_PLIST"
+  elif [[ -e $HOME/halo-nacht/PAUSE ]]; then
+    hinweis "Nachtlauf" "geladen, aber pausiert (rm ~/halo-nacht/PAUSE zum Fortsetzen)"
+  else
+    ok "Nachtlauf" "täglich 01:30, Berichte in ~/halo-berichte ($NL_LOG)"
+  fi
+}
+
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über
 # tests/win-vm-setup.ps1 per prlctl exec. Mit --check wird eine pausierte VM nicht geweckt.
 VM=${HALO_VM:-Windows 11}
@@ -665,6 +719,7 @@ pruefe_tailscale
 pruefe_ssh
 pruefe_runner
 pruefe_remote_control
+pruefe_nachtlauf
 pruefe_vm
 if (( PROBE )); then
   probelauf

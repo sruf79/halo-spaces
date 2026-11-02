@@ -1,0 +1,187 @@
+#!/bin/zsh
+# Nächtlicher Arbeitslauf auf neon (tests/MAC-MINI.md, Abschnitt 13): Claude Code
+# arbeitet offene Einträge der Aufgabenliste ab und veröffentlicht am Ende nach
+# AGENTS.md (release.sh, publish.sh). Gestartet vom LaunchAgent
+# at.halo-spaces.nachtlauf jede Nacht um 01:30; die Datei wird nach
+# ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt (der Lauf
+# ändert den Checkout).
+#   nachtlauf.sh <Repo-Ordner>
+#   nachtlauf.sh --push-test <Text>     nur eine Testnachricht aufs iPhone
+# Schreibt immer einen Bericht nach ~/halo-berichte/<datum>-nachtlauf.md – auch
+# wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
+# eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
+# „comm.github.routine“, die Remote Control hat).
+# Pausieren: touch ~/halo-nacht/PAUSE (rm zum Fortsetzen).
+# HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
+emulate -L zsh
+setopt extendedglob
+
+PUSH_TEST=
+[[ $1 == --push-test ]] && { PUSH_TEST=$2; set -- }
+REPO=${1:-$HOME/halo-spaces}
+# LaunchAgents lesen ~/.zprofile nicht: claude, gh und python3 ergänzen
+path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.framework/Versions/Current/bin $path)
+DIR=$HOME/halo-nacht
+BERICHTE=$HOME/halo-berichte
+AB=${HALO_NACHT_AB:-2026-11-04}
+TAG=$(date +%F)
+mkdir -p $DIR $BERICHTE
+LOG=$DIR/$TAG.log
+BERICHT=$BERICHTE/$TAG-nachtlauf.md
+FERTIG=$DIR/$TAG.fertig
+LOCK=$DIR/lauf.lock
+START=$(date +%s)
+ENDE=$(date -j -v8H -v0M -v0S +%s)       # nach 08:00 nicht mehr fortsetzen
+HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
+zeit() { date '+%F %T' }
+log() { print -r -- "$(zeit) $*" >> $LOG }
+
+# eine Zeile aufs iPhone: eine kurze Claude-Sitzung gibt sie per SendMessage an
+# die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt
+push() {
+  local text=$1 out
+  # Text über stdin: --allowedTools nimmt sonst den Auftrag als weiteres Werkzeug
+  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „comm.github.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
+PUSH: $text
+Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
+    | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)
+  log "Push: $out"
+}
+
+bericht_kurz() {
+  # erste Zeile „Kurz: …“ des Berichts, sonst seine Überschrift
+  local z=$(grep -m1 '^Kurz:' $BERICHT 2>/dev/null | sed 's/^Kurz: *//')
+  [[ -z $z ]] && z=$(grep -m1 '^# ' $BERICHT 2>/dev/null | sed 's/^# *//')
+  print -r -- $z
+}
+
+if [[ -n $PUSH_TEST ]]; then
+  push $PUSH_TEST
+  tail -1 $LOG
+  exit 0
+fi
+
+# vor dem ersten erlaubten Tag: gar nichts tun (auch kein Bericht)
+if [[ $TAG < $AB ]]; then
+  log "vor $AB – kein Lauf"
+  exit 0
+fi
+
+# Bericht ohne Claude (ausgelassen, pausiert, Claude nicht fertig geworden)
+notbericht() {
+  local titel=$1 grund=$2
+  {
+    print "# halo.spaces Nachtlauf $TAG – $titel"
+    print
+    print "Kurz: $titel${grund:+ – $grund}"
+    print
+    print "$(zeit), $(hostname -s)"
+    if [[ -n $3 ]]; then
+      print
+      print "## Commits dieser Nacht"
+      print
+      git -C $REPO log --since="@$START" --format='- %h %s' 2>/dev/null | cut -c1-200
+      print
+      print "## Release"
+      print
+      ls -t $BERICHTE/$TAG-halo.spaces-*.md(N) 2>/dev/null | sed 's/^/- Bericht: /'
+      ls -t $REPO/dist/release-*.ok(N) 2>/dev/null | head -1 | sed 's/^/- letzte Testmarke: /'
+      print
+      print "## Ende des Protokolls ($LOG)"
+      print
+      print '```'
+      tail -40 $LOG
+      print '```'
+    fi
+  } > $BERICHT
+}
+
+# --- Pause ---
+if [[ -e $DIR/PAUSE ]]; then
+  log "pausiert (~/halo-nacht/PAUSE)"
+  notbericht "pausiert" "~/halo-nacht/PAUSE vorhanden, nichts gemacht"
+  push "Nachtlauf $TAG: pausiert (~/halo-nacht/PAUSE)"
+  exit 0
+fi
+
+# --- eigener Lauf schon aktiv? ---
+if [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null; then
+  log "eigener Lauf (PID $(<$LOCK)) läuft noch – ausgelassen"
+  exit 0                                  # der laufende schreibt seinen Bericht selbst
+fi
+print $$ > $LOCK
+trap 'rm -f $LOCK' EXIT
+
+# --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor ---
+belegt() {
+  pgrep -f Runner.Worker >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
+  pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
+  pgrep -f -- "-marionette" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }
+  local p
+  for p in 2839 2845 {2850..2869}; do
+    lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null 2>&1 && { print "Marionette-Port $p belegt"; return 0 }
+  done
+  [[ -e $HOME/halo-vm/lauf.lock ]] && kill -0 $(cut -d' ' -f1 $HOME/halo-vm/lauf.lock) 2>/dev/null \
+    && { print "Lauf in der Windows-VM"; return 0 }
+  pgrep -f "release\.sh|publish\.sh" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
+  [[ -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
+    && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
+  return 1
+}
+# ein CI-Lauf dauert gut eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
+for i in {1..18}; do
+  GRUND=$(belegt) || break
+  [[ $GRUND == CI-* ]] || break
+  log "warte: $GRUND"
+  sleep 300
+done
+if GRUND=$(belegt); then
+  log "ausgelassen: $GRUND"
+  notbericht "ausgelassen" "$GRUND"
+  push "Nachtlauf $TAG ausgelassen: $GRUND"
+  exit 0
+fi
+
+# --- Arbeit: claude -p, bei Limit nach 30 Minuten fortsetzen ---
+cd $REPO
+SID=$(uuidgen | tr A-Z a-z)
+log "Start, Sitzung $SID"
+AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
+
+$(<$REPO/tests/nachtlauf-auftrag.md)"
+# Sicherheitsnetz: um 09:00 hart beenden
+( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $SID|--resume $SID" ) &
+WACHE=$!
+trap 'rm -f $LOCK; kill $WACHE 2>/dev/null' EXIT
+
+RUNDE=0 LEER=0
+PROMPT=$AUFTRAG
+ARGS=(--session-id $SID)
+while true; do
+  RUNDE=$((RUNDE + 1))
+  OUT=$DIR/$TAG-runde$RUNDE.txt
+  claude -p "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
+  RC=$?
+  log "Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUT | tr '\n' ' ')"
+  [[ -e $FERTIG ]] && break
+  (( $(date +%s) >= ENDE )) && { log "08:00 erreicht – nicht mehr fortsetzen"; break }
+  ARGS=(--resume $SID)
+  if grep -qiE "usage limit|hit your limit|limit reached|resets (at )?[0-9]|rate limit|overloaded" $OUT; then
+    log "Limit – Pause 30 Minuten"
+    sleep 1800
+    PROMPT="Weiter nach der Limit-Pause: mach dort weiter, wo du warst (Auftrag oben). Zeitgrenzen beachten, am Ende Bericht und Fertig-Datei."
+  else
+    # ohne Fertig-Datei beendet: höchstens zweimal nachfragen
+    LEER=$((LEER + 1))
+    (( LEER > 2 )) && break
+    PROMPT="Du hast aufgehört, aber $FERTIG fehlt. Wenn noch etwas offen ist, weitermachen; sonst jetzt Bericht nach $BERICHT schreiben (Vorgabe im Auftrag) und $FERTIG anlegen."
+  fi
+done
+
+# --- Bericht sicherstellen und aufs iPhone ---
+if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
+  notbericht "ohne Abschluss" "Claude hat keinen Bericht geschrieben (Runden: $RUNDE, letzter Exitcode $RC)" mit-details
+fi
+log "Ende"
+push "Nachtlauf $TAG: $(bericht_kurz) – Bericht ~/halo-berichte/$TAG-nachtlauf.md"
+exit 0

@@ -4083,6 +4083,8 @@ def calendar_checks(m, results):
                            iw.getComputedStyle(dml.shadowRoot.querySelector("dropmarker")).visibility];
             out.catLeft = Math.round(R(id.getElementById("item-categories-label")).left - R(id.getElementById("event-grid-location-row")).left);
             out.locLeft = Math.round(R(id.getElementById("item-location")).left - R(id.getElementById("event-grid-location-row")).left);
+            // langer Titel: Feld so breit wie der Ort (über die ganze Karte), nicht 20 Zeichen
+            out.titleW = [Math.round(R(id.getElementById("item-title")).width), Math.round(R(id.getElementById("item-location")).width)];
           } finally { if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); } }
           return out;""")
         if res.get("dialog") is False or res.get("apple") is False:
@@ -4093,7 +4095,8 @@ def calendar_checks(m, results):
               and res["labels"] == [False, False, False] and res["timeLabel"] and not res["tabs"] and not res["format"]
               and res["notesBelow"] and res["title"] == "17px"
               and res["pickers"][0] <= 120 and res["pickers"][1] <= 100 and res["pickers"][2] == 0 and res["pickers"][3] == "hidden"
-              and abs(res["catLeft"] - res["locLeft"]) <= 4)
+              and abs(res["catLeft"] - res["locLeft"]) <= 4
+              and abs(res["titleW"][0] - res["titleW"][1]) <= 4 and res["titleW"][0] > 250)
         return ok, f"{res}"
     check("Termin-Dialog wie Apple Kalender: Karten Titel · Zeit · Ort · Teilnehmer · Kalender · Kategorie, Notiz unten, Streifen in der Kalenderfarbe, Platzhalter, Datum/Uhrzeit schmal ohne Kasten, Kategorie bündig", event_apple_layout, results)
 

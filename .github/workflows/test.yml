@@ -15,7 +15,8 @@ on:
 
 jobs:
   # Reiner Release-Commit („halo.spaces x.y.z“ von release.sh): Push ändert nur
-  # updates.json und die Versionszeile in manifest.json. Der Code ist dann
+  # updates.json und die Versionszeile in manifest.json (dazu ggf. Texte und
+  # die Release-Skripte). Der Code ist dann
   # schon getestet – kein Lauf, der Mac mini bleibt frei. Alles andere testet.
   changes:
     runs-on: ubuntu-24.04
@@ -31,8 +32,9 @@ jobs:
         run: |
           test=true
           if [ "${{ github.event_name }}" = push ] && [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" | sort | tr '\n' ' ')
-            if [ "$files" = "extension/manifest.json updates.json " ] || [ "$files" = "updates.json " ]; then
+            # Texte und Release-Skripte zählen nicht (gehen nicht ins Paket und nicht in die Tests)
+            files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -vE '\.md$|^(release|publish)\.sh$|^store/' | sort | tr '\n' ' ')
+            if [ -z "$files" ] || [ "$files" = "extension/manifest.json updates.json " ] || [ "$files" = "updates.json " ]; then
               # in manifest.json nur die Zeile mit der Version geändert
               other=$(git diff -U0 "$BEFORE" "$GITHUB_SHA" -- extension/manifest.json | grep -E '^[+-][^+-]' | grep -vE '^[+-][[:space:]]*"version":' || true)
               [ -z "$other" ] && test=false

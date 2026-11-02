@@ -3956,6 +3956,25 @@ def calendar_checks(m, results):
               const other = async el => { if (!el?.menupopup) return "none"; el.open = true; await pause(600); const st = el.menupopup.state; el.open = false; await pause(300); return st; };
               out.dml.others = { repeat: await other(id.getElementById("item-repeat")), alarm: await other(id.getElementById("item-alarm")),
                                  cal: await other(id.getElementById("item-calendar")), endDate: await other(id.querySelector("#event-endtime datepicker > menulist")) };
+              // Kette der Vorfahren (Anzeige, Überlauf, Lage) für ein Menü in der Zeitkarte und das Kalendermenü (geht auf)
+              const chain = el => { const o = []; for (let e = el; e && e != id.documentElement; e = e.parentElement) { const c = csOf(e);
+                if (c.overflow != "visible" || c.position != "static" || c.transform != "none" || ["flex", "grid", "contents", "table-row", "table-cell", "block"].includes(c.display))
+                  o.push(`${e.localName}#${e.id}:${c.display}/${c.overflow}/${c.position}${c.transform != "none" ? "/T" : ""}${c.alignContent != "normal" ? "/ac=" + c.alignContent : ""}`); } return o.slice(0, 9); };
+              const rep = id.getElementById("item-repeat");
+              out.dml.chainTime = chain(rep); out.dml.chainCal = chain(id.getElementById("item-calendar"));
+              // Lage des Menüfelds beim Schließen gegenüber vorher
+              const before = rep.getBoundingClientRect(); let atHide = null;
+              rep.menupopup.addEventListener("popuphiding", () => { const r = rep.getBoundingClientRect(); atHide = [Math.round(r.left - before.left), Math.round(r.top - before.top), Math.round(r.width - before.width), Math.round(r.height - before.height)]; }, { once: true });
+              out.dml.repeatMove = [await other(rep), atHide];
+              const tryRep = async () => (await other(rep));
+              const exp = {};
+              id.getElementById("mc-showas-row")?.remove(); exp.noShowAs = await tryRep();
+              id.getElementById("mc-calendar-stripe")?.remove(); exp.noStripe = await tryRep();
+              for (const td of id.querySelectorAll('tr[data-mc-card="time"] > td')) td.style.setProperty("align-content", "normal", "important");
+              exp.noAlign = await tryRep();
+              for (const tr of id.querySelectorAll('tr[data-mc-card="time"]')) { tr.style.removeProperty("order"); }
+              exp.noOrder = await tryRep();
+              out.dml.exp = exp;
               const steps = [
                 ["statusbar", () => pdoc.documentElement.removeAttribute("mc-showas-row")],
                 ["anchorEnd", () => { dml.menupopup.setAttribute("position", "after_end"); }],

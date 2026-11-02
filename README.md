@@ -178,22 +178,13 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.13.0
+## What's new in 3.14.0
 
-- **A tidier menu bar**: seven menus instead of ten (File, Edit, View, Mail, Window, Help), every command in exactly one place; commands that don't fit the current space are greyed out. Rarely used items moved to Settings, where the settings search finds them, or to the folder list's context menu
-- **Message context menu** without submenus: Reply, Forward, Star, Spam, Delete and Archive directly; Remind Me, Move To, Copy To and Convert To stay as submenus
-- **Tasks** get views in the sidebar: Today, Scheduled, All, Important, In Progress and Completed, each with a count; below, only calendars that can hold tasks. Cards show the progress in percent; actions sit in capsules above the details
-- **Toolbar**: when space runs out, the search field shrinks first, down to just the magnifier, before any buttons disappear, in every space
-- **Accounts** can be reordered by dragging, in the folder list and in Account Settings; Local Folders stay on top until you change the order
-- **Follow-Up Suggestions** can be switched off in Settings
-- **Sorted by star**: a message moves to its place as soon as you star or unstar it
-- **Message windows** no longer repeat the subject in the title bar
-- **Spaces bar**: the active space is marked with a chevron again
-- **New event window**: narrow and compact like a calendar app (on macOS and Windows), with Save on the right and All Day, Starts, Ends, Repeat, Alert and Show As in one card
-- **Today pane**: click the "Today" heading to jump back to today
-- **Windows**: double-click the left or right edge of a widened dialog to return it to its standard width; the main window never grows wider than the screen
-- **Compose window**: the From, To and Subject fields sit right next to their labels
-- **Fixes**: the hover buttons above a message are no longer hidden behind the message by some add-ons; the event summary is tall enough for its content, even when the title wraps late; the reminder window with several reminders is no longer cut off at the bottom; a wide sidebar no longer covers the Add-ons Manager (thanks to ThiagoPedro); Thunderbird quits again on Windows and Linux when you close the main window; on Windows the toolbar above the Today pane lines up
+- **Sidebars make room on their own**: when the window gets too narrow, for example after opening the Today pane on a laptop, the sidebar of the current space slides away first, then the spaces bar, with the same animation as their buttons. Widen the window and they come back. A sidebar you hid yourself stays hidden; if you show it again, the Today pane makes room
+- **Archive an account locally**: right-click an account and choose **Archive Account Locally…** to copy all its folders to Local Folders, for example before a school or work account expires. Trash, Spam and Drafts are left out; running it again only adds what is missing
+- **Outlook data files (PST)**: **File → Open Outlook Data File (PST)…** reads a PST file and shows its folders with the number of messages. Importing the messages follows in a later version
+- **Toolbar**: when a wide button has to make room, a narrower one comes back if it fits, so the search field stays small and more buttons stay visible
+- **Fixes**: clicking the "Today" heading in the Today pane now really jumps to today, and double-clicking it no longer zooms the window; the tooltips of the heading and the weather show up again; after widening the window there is no empty gap next to the message list; the address book list no longer sticks out over its column while it slides in or out
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

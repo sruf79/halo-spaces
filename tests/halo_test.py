@@ -1742,6 +1742,8 @@ def reading_checks(m, results):
             await wait(400);
             const cards = [...box.querySelectorAll(".mc-conv-card")];
             return { count: box.querySelector(".mc-conv-count")?.textContent, ids: cards.map(c => c.dataset.messageId.split("@")[0]), own: cards.map(c => c.classList.contains("mc-own")),
+                     // eigene Mails ohne blauen Strich links (erkennbar an „You“ und dem Ordner)
+                     stroke: cards.filter(c => c.classList.contains("mc-own")).map(c => w.getComputedStyle(c, "::before").width),
                      heights: cards.map(c => Math.round(c.querySelector(".mc-conv-browser")?.getBoundingClientRect().height || 0)),
                      text: cards.map(c => c.querySelector(".mc-conv-browser")?.contentDocument?.getElementById("messagepane")?.contentDocument?.querySelector(".moz-text-plain, .moz-text-flowed, pre")?.textContent.trim().slice(0, 12)),
                      note: !!box.querySelector(".mc-conv-note"),
@@ -1771,7 +1773,8 @@ def reading_checks(m, results):
           Services.prefs.clearUserPref("extensions.mailcards.fullConversation"); a3.threadTree.selectedIndex = -1; await wait(300);
           return out;""")
         s1, th = res.get("single") or {}, res.get("thread") or {}
-        ok = (s1.get("ids") == ["halo-konv-2", "halo-konv-1"] and s1.get("own") == [True, False] and all(h > 100 for h in s1.get("heights", [0]))
+        ok = (s1.get("ids") == ["halo-konv-2", "halo-konv-1"] and s1.get("own") == [True, False]
+              and s1.get("stroke") and all(x in ("auto", "0px") for x in s1["stroke"]) and all(h > 100 for h in s1.get("heights", [0]))
               and s1.get("count") == "2 messages" and (s1.get("text") or [None])[0] == "Text von Hal" and not s1.get("note")
               and th.get("ids") == ["halo-konv-4", "halo-konv-3"] and res.get("off") is False
               and s1.get("hover") == 2 and th.get("hover") == 2
@@ -2012,6 +2015,14 @@ def reading_checks(m, results):
           out.reply = cards().filter(c => cdoc(c)?.getElementById("mcQuickReply")).map(c => c.dataset.messageId.split("@")[0]);
           // Kapsel in jeder offenen Karte
           out.capsules = cards().filter(c => cdoc(c)?.getElementById("mcHoverActions")).length;
+          // Toolbar ohne Antworten-Knöpfe: der Kopf einzelner Mails reserviert oben Platz für eigene
+          // Knöpfe (mc-standalone) – Konversationskarten nicht, sonst großer Leerraum über „From“
+          { const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+            const enh = Cu.evalInSandbox("enhancer", ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global);
+            enh.replyInToolbar = () => false; enh.updateStandalone(); await wait(300);
+            out.standalone = cards().filter(c => cdoc(c)?.documentElement.hasAttribute("mc-standalone")).length;
+            out.headTop = Math.round(parseFloat(w.getComputedStyle(cdoc(cards()[0]).getElementById("messageHeader")).paddingTop));
+            delete enh.replyInToolbar; enh.updateStandalone(); }
           // Karte mit einem Anhang: Dateizeile ganz in der Karte
           const k2 = cardOf(box, "halo-karte-2"), b2 = k2?.querySelector(".mc-conv-browser"), d2 = cdoc(k2);
           const item = d2?.querySelector("#attachmentList .attachmentItem");
@@ -2057,12 +2068,13 @@ def reading_checks(m, results):
         ok = (res.get("order") == ["halo-karte-3", "halo-karte-2", "halo-karte-1"] and res.get("collapsed") == [False, False, True]
               and (res.get("summary") or {}).get("browser") is False and (res.get("summary") or {}).get("preview") is not None
               and res.get("reply") == [] and res.get("capsules") == 2
+              and res.get("standalone") == 0 and res.get("headTop", 99) < 40
               and a and a["itemBottom"] <= a["cardBottom"] and a["scroll"] <= 1
               and (cp.get("subject") or "").startswith("Re:") and "halo-karte-2@" in cp.get("refs", "")
               and res.get("expanded") and dl.get("after") == dl.get("before", 0) - 1 and dl.get("cards") == 2
               and res.get("oldestFirst") == ["halo-karte-1", "halo-karte-2", "halo-karte-3"])
         return ok, f"{res}"
-    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
+    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, kein Leerraum über dem Kopf, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
 
 
 # Verfassen-Fenster und seine Dialoge: Test-Identität (example.invalid, kein Server), Fenster öffnen/schließen,

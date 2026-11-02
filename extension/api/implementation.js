@@ -2749,6 +2749,9 @@ class ConversationCards {
       // Knöpfe anderer Erweiterungen wirken in der Karte nicht – Zeile ausblenden
       const root = browserEl.contentDocument.documentElement;
       root.setAttribute("mc-conv-card", "");
+      // ohne Knopfzeile auch kein Platz dafür über dem Kopf (mc-standalone
+      // reserviert ihn, wenn die Toolbar keine Antworten-Knöpfe hat)
+      root.removeAttribute("mc-standalone");
       // Klick auf den Kopf (nicht auf Namen oder Knöpfe) klappt die Karte wieder
       // ein – nicht bei der gewählten und der neuesten Mail
       browserEl.contentDocument.getElementById("messageHeader")?.addEventListener("click", event => {
@@ -16413,7 +16416,7 @@ class CardEnhancer {
     for (const top of Services.wm.getEnumerator("mail:3pane")) {
       for (const bc of ThemeSheet.contexts(top)) {
         const doc = bc.window?.document;
-        if (doc?.documentURI?.startsWith("about:message")) {
+        if (doc?.documentURI?.startsWith("about:message") && !doc.documentElement.hasAttribute("mc-conv-card")) {
           doc.documentElement.toggleAttribute("mc-standalone", !inToolbar);
         }
       }

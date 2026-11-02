@@ -3370,16 +3370,6 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   box-shadow: 0 0 0 var(--mt-hairline) var(--mt-separator);
 }
 
-#mcConversation .mc-conv-card.mc-own::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 3px;
-  background: color-mix(in srgb, var(--mt-accent) 55%, transparent);
-  z-index: 1;
-}
-
 #mcConversation .mc-conv-card.mc-selected {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--mt-accent) 45%, transparent);
 }

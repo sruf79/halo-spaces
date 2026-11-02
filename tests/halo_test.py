@@ -7109,14 +7109,20 @@ def run_checks(m, version, profile, results):
                          cut: !!nameEl && nameEl.scrollWidth > nameEl.clientWidth, header: Math.round(d.getElementById("messageHeader").getBoundingClientRect().right),
                          row: Math.round(d.getElementById("headerSenderToolbarContainer").getBoundingClientRect().right) };
           }
+          // Kopf angepasst, volle Absenderadresse aus: Thunderbird zeigt nur die einzeilige
+          // Variante – der Name steht genau einmal da (GitHub-Issue: Name doppelt)
+          { const d = md(), hdr = d.getElementById("messageHeader"), li = d.querySelector("#fromRecipient0");
+            const count = () => [li?.querySelector(".recipient-multi-line"), li?.querySelector(".recipient-single-line")].filter(e => e && e.getBoundingClientRect().height > 0).length;
+            out.names = [count()]; hdr.classList.remove("message-header-show-sender-full-address"); await wait(300);
+            out.names.push(count()); hdr.classList.add("message-header-show-sender-full-address"); }
           // Testidentitäten wieder weg (die zuerst angelegte ist Standard und geht zuletzt)
           for (const id of ids.reverse()) { try { acc.removeIdentity(id); } catch {} }
           return out;""")
         own, long = res["own"], res["long"]
         ok = (own["text"] == "Halo Ich" and long["nameRight"] <= long["metaLeft"] and long["cut"]
-              and long["row"] <= long["header"])
+              and long["row"] <= long["header"] and res.get("names") == [1, 1])
         return ok, f"{res}"
-    check("Mailkopf: eigene Adresse nur mit Namen, lange Namen mit „…“ vor Ordner und Uhrzeit", header_long_name, results)
+    check("Mailkopf: eigene Adresse nur mit Namen, lange Namen mit „…“ vor Ordner und Uhrzeit, Name auch ohne volle Absenderadresse nur einmal", header_long_name, results)
 
     def one_click_unsubscribe():
         # List-Unsubscribe-Post (RFC 8058, z. B. Google): nachfragen, dann POST

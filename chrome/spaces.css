@@ -8744,8 +8744,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* mehrzeilige Variante (Name über der ausgeblendeten Adresse): als Box in
-   voller Breite – sonst schneidet das Listenelement den Namen hart ab, ohne „…“ */
-#messageHeader:has(#mcHdrMeta) #expandedfromBox .recipient-multi-line {
+   voller Breite – sonst schneidet das Listenelement den Namen hart ab, ohne „…“;
+   nur wenn Thunderbird sie zeigt (volle Absenderadresse), sonst stünde der
+   Name zweimal da */
+#messageHeader.message-header-show-sender-full-address:has(#mcHdrMeta) #expandedfromBox .recipient-multi-line {
   display: flex !important;
   max-width: 100% !important;
   min-width: 0 !important;

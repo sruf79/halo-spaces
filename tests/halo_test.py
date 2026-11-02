@@ -8999,12 +8999,16 @@ Neu
               hover: hover == bg("var(--mt-accent)"), hr: hr ? (parseFloat(cs(hr).borderTopWidth) ? cs(hr).borderTopColor : cs(hr).backgroundColor) == fg("var(--mt-separator)") : null });
             pl.hide(); await wait(300);
           }
-          // breite gemeinsame Seitenleiste (wie applyCommonWidth, inline bis 360 px): der Inhalt beginnt rechts der Leiste
+          // breite gemeinsame Seitenleiste (Pref wie nach dem Ziehen, 340 px): beim Tabwechsel übernimmt die Add-ons-Leiste sie,
+          // der Inhalt beginnt trotzdem rechts der Leiste (Thunderbirds Raster hält nur --sidebar-width frei)
+          const WP = "extensions.mailcards.sidebarWidth", oldWP = Services.prefs.getIntPref(WP, 0);
+          const adTab = tm.currentTabInfo;
+          Services.prefs.setIntPref(WP, 340);
+          tm.switchToTab(0); await wait(400); tm.switchToTab(adTab); await wait(800);
           const sb = ad.getElementById("sidebar"), main = ad.getElementById("content") || sb.nextElementSibling;
-          const oldW = [sb.style.getPropertyValue("width"), sb.style.getPropertyPriority("width")];
-          sb.style.setProperty("width", "340px", "important"); await wait(400);
-          out.wide = main ? [Math.round(R(sb).right), Math.round(R(main).left)] : null;
-          sb.style.setProperty("width", ...oldW); await wait(200);
+          out.wide = main ? [Math.round(R(sb).width), Math.round(R(sb).right), Math.round(R(main).left)] : null;
+          if (oldWP) Services.prefs.setIntPref(WP, oldWP); else Services.prefs.clearUserPref(WP);
+          tm.switchToTab(0); await wait(400); tm.switchToTab(adTab); await wait(600);
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID));
           const tg = await until(() => { const t = ad.querySelector("addon-details .tab-group"); return t && R(t).height && t; }, 6000); await wait(800);
           const row = [...ad.querySelectorAll('addon-details section[name="details"] > .addon-detail-row')].find(e => R(e).height > 0);
@@ -9032,7 +9036,7 @@ Neu
         dt = res.get("detail") or {}
         detail_ok = dt.get("tgBottom") == "0px" and dt.get("gap") is not None and abs(dt["gap"]) <= 1 and dt.get("rowLine") and dt.get("tgTop")
         inline_ok = res.get("inline") == "rgba(0, 0, 0, 0)" and res.get("inlinePixel") == [255, 0, 255, 255]
-        wide_ok = bool(res.get("wide")) and res["wide"][1] >= res["wide"][0] - 1
+        wide_ok = bool(res.get("wide")) and res["wide"][0] >= 300 and res["wide"][2] >= res["wide"][1] - 1
         ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok and wide_ok
         return ok, f"{res}"
     check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Schalter weiß, "

@@ -32,6 +32,18 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Archive Account Locally…": "Konto lokal archivieren …",
+  "Archive Account Locally": "Konto lokal archivieren",
+  "Stop Archiving": "Archivieren stoppen",
+  "{name} (Archive)": "{name} (Archiv)",
+  "Archiving {folder}…": "{folder} wird archiviert …",
+  "Archiving {folder}… {n} messages": "{folder} wird archiviert … {n} Nachrichten",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Alle Ordner von {account} nach Lokale Ordner kopieren, in einen Ordner namens {target}? Die Kopie bleibt erhalten, wenn du das Konto entfernst. Papierkorb, Spam und Entwürfe werden nicht kopiert.",
+  "Archiving stopped.": "Archivieren gestoppt.",
+  "Archiving finished.": "Archivieren abgeschlossen.",
+  "{n} messages copied in {f} folders.": "{n} Nachrichten in {f} Ordnern kopiert.",
+  "{n} messages were already archived.": "{n} Nachrichten waren schon archiviert.",
+  "Not copied: {list}": "Nicht kopiert: {list}",
   "Install version {v}": "Version {v} installieren",
   "+{n} more": "+{n} weitere",
   "{n} message": "{n} E-Mail",
@@ -394,6 +406,18 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Archive Account Locally…": "Archiver le compte localement…",
+  "Archive Account Locally": "Archiver le compte localement",
+  "Stop Archiving": "Arrêter l’archivage",
+  "{name} (Archive)": "{name} (Archive)",
+  "Archiving {folder}…": "Archivage de {folder}…",
+  "Archiving {folder}… {n} messages": "Archivage de {folder}… {n} messages",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Copier tous les dossiers de {account} dans Dossiers locaux, dans un dossier nommé {target} ? La copie reste si vous supprimez le compte. La corbeille, les indésirables et les brouillons ne sont pas copiés.",
+  "Archiving stopped.": "Archivage arrêté.",
+  "Archiving finished.": "Archivage terminé.",
+  "{n} messages copied in {f} folders.": "{n} messages copiés dans {f} dossiers.",
+  "{n} messages were already archived.": "{n} messages étaient déjà archivés.",
+  "Not copied: {list}": "Non copiés : {list}",
   "Install version {v}": "Installer la version {v}",
   "+{n} more": "+{n} autres",
   "{n} message": "{n} message",
@@ -756,6 +780,18 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Archive Account Locally…": "Archivar la cuenta localmente…",
+  "Archive Account Locally": "Archivar la cuenta localmente",
+  "Stop Archiving": "Detener el archivado",
+  "{name} (Archive)": "{name} (Archivo)",
+  "Archiving {folder}…": "Archivando {folder}…",
+  "Archiving {folder}… {n} messages": "Archivando {folder}… {n} mensajes",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "¿Copiar todas las carpetas de {account} a Carpetas locales, en una carpeta llamada {target}? La copia se conserva si eliminas la cuenta. La papelera, el spam y los borradores no se copian.",
+  "Archiving stopped.": "Archivado detenido.",
+  "Archiving finished.": "Archivado terminado.",
+  "{n} messages copied in {f} folders.": "{n} mensajes copiados en {f} carpetas.",
+  "{n} messages were already archived.": "{n} mensajes ya estaban archivados.",
+  "Not copied: {list}": "No copiados: {list}",
   "Install version {v}": "Instalar la versión {v}",
   "+{n} more": "+{n} más",
   "{n} message": "{n} mensaje",
@@ -1118,6 +1154,18 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Archive Account Locally…": "Archivia l’account in locale…",
+  "Archive Account Locally": "Archivia l’account in locale",
+  "Stop Archiving": "Interrompi l’archiviazione",
+  "{name} (Archive)": "{name} (Archivio)",
+  "Archiving {folder}…": "Archiviazione di {folder}…",
+  "Archiving {folder}… {n} messages": "Archiviazione di {folder}… {n} messaggi",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Copiare tutte le cartelle di {account} in Cartelle locali, in una cartella chiamata {target}? La copia resta anche se rimuovi l’account. Cestino, Spam e Bozze non vengono copiati.",
+  "Archiving stopped.": "Archiviazione interrotta.",
+  "Archiving finished.": "Archiviazione completata.",
+  "{n} messages copied in {f} folders.": "{n} messaggi copiati in {f} cartelle.",
+  "{n} messages were already archived.": "{n} messaggi erano già archiviati.",
+  "Not copied: {list}": "Non copiati: {list}",
   "Install version {v}": "Installa la versione {v}",
   "+{n} more": "+{n} altri",
   "{n} message": "{n} messaggio",
@@ -6038,6 +6086,214 @@ function hookPhotoDialog(cw, restorers = null) {
   });
 }
 
+// Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle
+// Ordner samt Unterordnern als Kopie nach Lokale Ordner/<Konto> (Archive).
+// Papierkorb, Spam, Entwürfe, Postausgang und virtuelle Ordner bleiben weg.
+// Ein erneuter Lauf überspringt Ordner, die schon gleich viele Mails haben.
+const ArchiveAccount = {
+  running: null,
+  SKIP: Ci.nsMsgFolderFlags.Trash | Ci.nsMsgFolderFlags.Junk | Ci.nsMsgFolderFlags.Drafts |
+    Ci.nsMsgFolderFlags.Queue | Ci.nsMsgFolderFlags.Virtual | Ci.nsMsgFolderFlags.Templates,
+  canArchive(folder) {
+    const server = folder?.isServer ? folder.server : null;
+    return !!server && server.type != "none" && server.type != "nntp" && server.type != "rss";
+  },
+  targetName(server) {
+    return tr("{name} (Archive)", { name: server.prettyName });
+  },
+  // Ordner sicher anlegen (Lokale Ordner legen sofort an; kurz warten, bis er da ist)
+  async child(parent, name, win) {
+    let f = parent.getChildNamed?.(name) || null;
+    if (!f) {
+      try {
+        parent.createSubfolder(name, null);
+      } catch {}
+      for (let i = 0; i < 50 && !f; i++) {
+        f = parent.getChildNamed?.(name) || null;
+        if (!f) {
+          await new Promise(r => win.setTimeout(r, 100));
+        }
+      }
+    }
+    return f;
+  },
+  // IMAP: Kopfzeilen des Ordners auf den Stand des Servers bringen (fertig,
+  // wenn Thunderbird „FolderLoaded“ meldet)
+  update(folder, win) {
+    return new Promise(resolve => {
+      if (folder.server.type != "imap") {
+        resolve();
+        return;
+      }
+      const listener = {
+        onFolderEvent(f, event) {
+          if (f == folder && event == "FolderLoaded") {
+            done();
+          }
+        },
+      };
+      const done = () => {
+        win.clearTimeout(t);
+        MailServices.mailSession.RemoveFolderListener(listener);
+        resolve();
+      };
+      const t = win.setTimeout(done, 60000);
+      MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.event);
+      try {
+        folder.updateFolder(null);
+      } catch {
+        done();
+      }
+    });
+  },
+  messages(folder) {
+    try {
+      return [...folder.msgDatabase.enumerateMessages()];
+    } catch {
+      return [...folder.messages];
+    }
+  },
+  copy(src, hdrs, dest, win) {
+    return new Promise(resolve => {
+      MailServices.copy.copyMessages(src, hdrs, dest, false, {
+        QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
+        onStartCopy() {}, onProgress() {}, setMessageKey() {}, getMessageId() {},
+        onStopCopy: status => resolve(Components.isSuccessCode(status)),
+        // ältere Schreibweise
+        OnStartCopy() {}, OnProgress() {}, SetMessageKey() {}, GetMessageId() {},
+        OnStopCopy: status => resolve(Components.isSuccessCode(status)),
+      }, null, false);
+    });
+  },
+  async run(server, win, status = () => {}) {
+    if (this.running) {
+      return null;
+    }
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failed: [] };
+    this.running = job;
+    try {
+      const local = MailServices.accounts.localFoldersServer.rootFolder;
+      const target = await this.child(local, this.targetName(server), win);
+      if (!target) {
+        job.failed.push(this.targetName(server));
+        return job;
+      }
+      const walk = async (src, destParent) => {
+        for (const sub of src.subFolders) {
+          if (job.stop) {
+            return;
+          }
+          if (sub.getFlag(this.SKIP) || sub.flags & this.SKIP) {
+            continue;
+          }
+          const dest = await this.child(destParent, sub.name, win);
+          if (!dest) {
+            job.failed.push(sub.prettyName);
+            continue;
+          }
+          job.folders++;
+          status(tr("Archiving {folder}…", { folder: sub.prettyName }));
+          await this.update(sub, win);
+          const hdrs = this.messages(sub);
+          if (hdrs.length && dest.getTotalMessages(false) >= hdrs.length) {
+            job.skipped += hdrs.length;
+          } else {
+            for (let i = 0; i < hdrs.length && !job.stop; i += 100) {
+              const part = hdrs.slice(i, i + 100);
+              if (await this.copy(sub, part, dest, win)) {
+                job.copied += part.length;
+              } else {
+                job.failed.push(sub.prettyName);
+                break;
+              }
+              status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
+            }
+          }
+          await walk(sub, dest);
+        }
+      };
+      await walk(server.rootFolder, target);
+      job.target = target;
+      return job;
+    } finally {
+      this.running = null;
+    }
+  },
+};
+
+// Kontextmenü eines Kontos in der Ordnerliste: „Archive Account Locally…“
+function hookArchiveAccount(a3, restorers) {
+  const doc = a3.document;
+  const popup = doc.getElementById("folderPaneContext");
+  const mailWin = a3.browsingContext?.topChromeWindow;
+  if (!popup || !mailWin || doc.getElementById("mcArchiveAccount")) {
+    return;
+  }
+  // für den automatischen Test: Kopieren ohne Rückfrage anstoßen
+  mailWin.__mcArchiveAccount = server => ArchiveAccount.run(server, mailWin);
+  const item = doc.createXULElement("menuitem");
+  item.id = "mcArchiveAccount";
+  const anchor = doc.getElementById("folderPaneContext-properties") || popup.lastElementChild;
+  anchor.before(item);
+  const status = text => {
+    const st = mailWin.document.getElementById("statusText");
+    if (st) {
+      st.textContent = text;
+      st.value = text;
+    }
+  };
+  item.addEventListener("command", async () => {
+    if (ArchiveAccount.running) {
+      ArchiveAccount.running.stop = true;
+      return;
+    }
+    // (beim Öffnen des Menüs gemerkt – nach dem Schließen ist es nicht mehr gesetzt)
+    const folder = item.__mcFolder || a3.folderPaneContextMenu?.activeFolder;
+    if (!ArchiveAccount.canArchive(folder)) {
+      return;
+    }
+    const server = folder.server;
+    // Rückfrage und Abschluss ohne blockierende Dialoge (asynchron)
+    const bc = mailWin.browsingContext;
+    const res = await Services.prompt.asyncConfirmEx(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"),
+      tr("Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.",
+        { account: server.prettyName, target: ArchiveAccount.targetName(server) }),
+      Services.prompt.STD_OK_CANCEL_BUTTONS, null, null, null, null, false);
+    if (res.getProperty("buttonNumClicked") != 0) {
+      return;
+    }
+    const job = await ArchiveAccount.run(server, mailWin, status);
+    status("");
+    if (!job) {
+      return;
+    }
+    const lines = [tr(job.stop ? "Archiving stopped." : "Archiving finished."),
+      tr("{n} messages copied in {f} folders.", { n: job.copied, f: job.folders })];
+    if (job.skipped) {
+      lines.push(tr("{n} messages were already archived.", { n: job.skipped }));
+    }
+    if (job.failed.length) {
+      lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
+    }
+    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"), lines.join("\n"));
+  });
+  const onShow = event => {
+    if (event.target != popup) {
+      return;
+    }
+    const folder = a3.folderPaneContextMenu?.activeFolder;
+    item.__mcFolder = folder;
+    item.hidden = !ArchiveAccount.canArchive(folder);
+    item.setAttribute("label", ArchiveAccount.running ? tr("Stop Archiving") : tr("Archive Account Locally…"));
+  };
+  popup.addEventListener("popupshowing", onShow);
+  restorers.push(() => {
+    popup.removeEventListener("popupshowing", onShow);
+    item.remove();
+    delete mailWin.__mcArchiveAccount;
+  });
+}
+
 // Kontextmenü der Ordnerliste: „Run Spam Controls“ und „Mark as Read by Date…“
 // – sie standen nur in der Menüleiste (Tools bzw. Message › Mark)
 function hookFolderContextExtras(a3, restorers) {
@@ -8530,11 +8786,25 @@ function squeezeToolbar(doc, fits) {
   for (const li of content.querySelectorAll(":scope > li[mc-squeezed]")) {
     li.removeAttribute("mc-squeezed");
   }
+  const hidden = [];
   for (const id of SQUEEZE) {
     if (fits()) {
       break;
     }
-    content.querySelector(`:scope > li[item-id="${id}"]`)?.setAttribute("mc-squeezed", "");
+    const li = content.querySelector(`:scope > li[item-id="${id}"]`);
+    if (li) {
+      li.setAttribute("mc-squeezed", "");
+      hidden.push(li);
+    }
+  }
+  // Knöpfe sind verschieden breit: musste ein breiter weichen, passt ein
+  // vorher ausgeblendeter schmaler oft wieder – dann ihn zeigen, statt den
+  // Platz dem Suchfeld zu geben (es bleibt klein, mehr Knöpfe bleiben sichtbar)
+  for (const li of hidden.slice(0, -1).reverse()) {
+    li.removeAttribute("mc-squeezed");
+    if (!fits()) {
+      li.setAttribute("mc-squeezed", "");
+    }
   }
 }
 
@@ -9710,6 +9980,12 @@ class CardEnhancer {
       return { watch: [] };
     };
     let later = null;
+    // freier Platz des schrumpfenden Bereichs über seiner Mindestbreite (für das
+    // automatische Einklappen); null, wenn es keinen gibt
+    w.__mcLayoutSlack = () => {
+      const { width, min } = measure();
+      return width === undefined ? null : width - min;
+    };
     const update = () => {
       try {
         // während einer Seitenleisten-Animation nicht rechnen: das Setzen am
@@ -9738,8 +10014,11 @@ class CardEnhancer {
           return;
         }
         const slack = Math.max(0, width - min);
+        // was bei Platzmangel einklappt (Seitenleiste, Spaces-Leiste), zählt
+        // nicht zur Mindestbreite – das Fenster darf so schmal werden, dass es nötig wird
+        const collapsible = w.__mcCollapsible?.() || 0;
         // nie unter 800 px (dann wäre schon die Toolbar zu eng)
-        let value = Math.max(800, Math.round(w.innerWidth - slack));
+        let value = Math.max(800, Math.round(w.innerWidth - slack - collapsible));
         // Chat: Kontaktspalte + Chat-Knöpfe + kleinstes Suchfeld (40 px) + was
         // rechts der Suche liegt müssen nebeneinander passen
         if (tabmail?.currentTabInfo?.mode?.name == "chat") {
@@ -11016,6 +11295,26 @@ class CardEnhancer {
     // Seitenleisten der übrigen Bereiche ein-/ausblenden wie die Ordnerliste
     // (Zustand je Bereich gespeichert, gleiche Animation wie in der Mail)
     const SIDE_PREF = "extensions.mailcards.hiddenSidebars";
+    // bei Platzmangel automatisch Eingeklapptes: { spaces: true, side: { <Bereich>: Breite } }
+    // – getrennt vom Zustand, den der Nutzer selbst gewählt hat
+    const AUTO_PREF = "extensions.mailcards.autoCollapsed";
+    const autoState = () => {
+      try {
+        const v = JSON.parse(Services.prefs.getStringPref(AUTO_PREF, "{}"));
+        v.side ||= {};
+        return v;
+      } catch {
+        return { side: {} };
+      }
+    };
+    const setAuto = fn => {
+      const v = autoState();
+      fn(v);
+      Services.prefs.setStringPref(AUTO_PREF, JSON.stringify(v));
+    };
+    // Kalender und Aufgaben teilen sich die Seitenleiste
+    const sideKey = mode => (mode == "tasks" ? "calendar" : mode);
+    const autoSide = mode => !!autoState().side[sideKey(mode)];
     const SIDE_TOGGLE = {
       calendar: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
       tasks: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
@@ -11255,29 +11554,33 @@ class CardEnhancer {
         return;
       }
       unCollapse(el, splitter);
-      const hidden = !!sideState()[mode];
+      const hidden = !!sideState()[mode] || autoSide(mode);
       el.classList.toggle("mc-side-hidden", hidden);
       splitter?.classList.toggle("mc-side-hidden", hidden);
       placeSideGrip();
     };
     const sideHidden = () => {
       const { mode, el } = currentSide();
-      return el ? !!sideState()[mode] : false;
+      return el ? !!sideState()[mode] || autoSide(mode) : false;
     };
-    const toggleSpaceSidebar = () => {
+    const toggleSpaceSidebar = (auto = false) => {
       const { mode, el, splitter } = currentSide();
       if (!el || el.__mcAnimating) {
         return;
       }
       const win = el.ownerDocument.defaultView;
       const show = el.classList.contains("mc-side-hidden");
-      const state = sideState();
-      state[mode] = !show;
-      // Kalender und Aufgaben teilen sich die Seitenleiste
-      if (mode == "calendar" || mode == "tasks") {
-        state.calendar = state.tasks = !show;
+      // automatisches Ein-/Ausklappen bei Platzmangel ändert nicht den
+      // gespeicherten Zustand des Nutzers (merkt es sich in AUTO_PREF)
+      if (!auto) {
+        const state = sideState();
+        state[mode] = !show;
+        // Kalender und Aufgaben teilen sich die Seitenleiste
+        if (mode == "calendar" || mode == "tasks") {
+          state.calendar = state.tasks = !show;
+        }
+        Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
       }
-      Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
       unCollapse(el, splitter);
@@ -11303,10 +11606,16 @@ class CardEnhancer {
       // Kontaktliste stehen und spränge erst am Ende
       const gridBody = el.id == "booksPane" ? el.ownerDocument.body : null;
       const savedColumn = gridBody?.style.getPropertyValue("--booksSplitter-width");
+      // Adressbuch: nur die Rasterspalte setzen, die Liste füllt sie aus –
+      // eine eigene Breite ragte über die Spalte, wenn Thunderbird sie bei
+      // knappem Fenster schmaler lässt (Kontaktliste und Details haben Mindestbreiten)
       const setW = v => {
+        if (gridBody) {
+          gridBody.style.setProperty("--booksSplitter-width", `${v}px`);
+          return;
+        }
         el.style.setProperty("width", `${v}px`, "important");
         el.style.setProperty("max-width", `${v}px`, "important");
-        gridBody?.style.setProperty("--booksSplitter-width", `${v}px`);
       };
       // Adressbuch: beim Ausblenden die Breite der Kontaktliste merken; beim
       // Einblenden behält sie gleich wieder diese Breite (wie die Mailliste) und
@@ -12088,6 +12397,7 @@ class CardEnhancer {
     const toggleSidebar = () => {
       const tabmail = w.document.getElementById("tabmail");
       const tab = tabmail?.currentTabInfo;
+      userSideToggled(tab?.mode?.name);
       if (tab?.mode?.name == "mail3PaneTab") {
         const ab = tab.chromeBrowser?.contentWindow;
         const splitter = ab?.paneLayout?.folderPaneSplitter;
@@ -12181,7 +12491,14 @@ class CardEnhancer {
       };
       updateTip();
       btn.addEventListener("mouseenter", updateTip);
-      btn.addEventListener("click", () => this.animateSpaces(w, updateTip));
+      btn.addEventListener("click", () => {
+        // selbst ein-/ausgeblendet: nicht mehr automatisch zurückholen
+        setAuto(v => delete v.spaces);
+        this.animateSpaces(w, () => {
+          updateTip();
+          autoFitSoon();
+        });
+      });
       bar.after(btn);
       // Pfeil nach dem Zustand (data-mc-hidden): beim Klick wechselt er sofort
       // (animateSpaces), auch wenn Thunderbird die Leiste anders ein-/ausblendet
@@ -12248,6 +12565,157 @@ class CardEnhancer {
 
     // Today-Pane ein-/ausblenden: Knopf unten rechts (Gegenstück zum
     // Bereiche-Knopf unten links) statt des ✕ oben in der Today-Pane
+
+    // Bei Platzmangel wie Apple Mail bei schmalem Fenster: erst die
+    // Seitenleiste des Bereichs einklappen, reicht das nicht, auch die
+    // Spaces-Leiste – mit denselben Animationen wie über die Knöpfe. Wird es
+    // wieder breiter, kommt automatisch Eingeklapptes zurück (zuerst die
+    // Spaces-Leiste); vom Nutzer selbst Ausgeblendetes bleibt aus.
+    // Bereiche mit Seitenleiste (Mail, Kalender, Aufgaben, Adressbuch, Chat, Einstellungen, Add-ons/Konten)
+    const AUTO_MODES = new Set(["mail3PaneTab", "mailMessageTab", "calendar", "tasks", "addressBookTab", "chat", "preferencesTab", "contentTab"]);
+    const SPACES_W = 67;
+    const autoSideEl = () => {
+      const tab = w.document.getElementById("tabmail")?.currentTabInfo;
+      const mode = tab?.mode?.name;
+      if (mode == "mail3PaneTab") {
+        const ab = tab.chromeBrowser?.contentWindow;
+        const splitter = ab?.paneLayout?.folderPaneSplitter;
+        const el = ab?.document?.getElementById("folderPane");
+        return splitter && el ? { mode, el, ab, splitter, shown: !splitter.isCollapsed } : { mode };
+      }
+      const { el } = currentSide();
+      return el ? { mode, el, shown: !el.classList.contains("mc-side-hidden") } : { mode };
+    };
+    const autoBusy = side => w.__mcSpacesAnimating || side.el?.__mcAnimating || side.ab?.__mcAnimating ||
+      w.document.getElementById("today-pane-panel")?.__mcAnimating;
+    let autoTimer = null;
+    const autoFitSoon = (delay = 200) => {
+      w.clearTimeout(autoTimer);
+      autoTimer = w.setTimeout(autoFit, delay);
+    };
+    const autoFit = () => {
+      const root = w.document.documentElement;
+      // fünfter Bereich (Webseite/Add-on): keine Seitenleiste, Automatik aus
+      if (root.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar || w.windowState == w.STATE_MINIMIZED) {
+        return;
+      }
+      const side = autoSideEl();
+      if (!AUTO_MODES.has(side.mode)) {
+        return;
+      }
+      if (autoBusy(side)) {
+        autoFitSoon(300);
+        return;
+      }
+      // Mailliste erst auf ihre Breite bringen (nach Animationen blieb sonst der
+      // Zuwachs als Lücke neben der Liste stehen statt bei der Nachricht)
+      try {
+        side.ab?.__mcRelayout?.();
+      } catch {}
+      // freier Platz des Inhalts über seiner Mindestbreite (gleiches Maß wie die
+      // Mindestbreite des Fensters)
+      const slack = w.__mcLayoutSlack?.();
+      if (slack === null || slack === undefined) {
+        return;
+      }
+      const auto = autoState();
+      const key = sideKey(side.mode);
+      const spacesOn = !w.gSpacesToolbar.isHidden;
+      const toggleSide = () => {
+        if (side.mode == "mail3PaneTab") {
+          this.animateSidebar(side.ab, side.splitter, () => {
+            sidebarTip?.();
+            placeSideGrip();
+            autoFitSoon(50);
+          });
+        } else {
+          toggleSpaceSidebar(true);
+          autoFitSoon(400);
+        }
+      };
+      const toggleSpaces = () => this.animateSpaces(w, () => {
+        w.document.getElementById("mcSpacesToggle")?.dispatchEvent(new w.MouseEvent("mouseenter"));
+        autoFitSoon(50);
+      });
+      // in der Mail zählt auch die Toolbar: mussten dort Knöpfe weichen, fehlt
+      // ebenso Platz; zurück erst, wenn die Suche ihn abgeben kann (bis zur Lupe)
+      const d = w.document;
+      const squeezed = !!d.querySelector("#unifiedToolbarContent > li[mc-squeezed]");
+      const searchEl = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+      const searchSpare = side.mode == "mail3PaneTab" && searchEl ? searchEl.getBoundingClientRect().width - 40 : Infinity;
+      // Inhalt schon auf Mindestbreite: erst die Seitenleiste, dann die Spaces-Leiste
+      if (slack < 1 || squeezed) {
+        if (side.shown && side.el) {
+          setAuto(v => (v.side[key] = Math.round(side.el.getBoundingClientRect().width)));
+          toggleSide();
+        } else if (spacesOn) {
+          setAuto(v => (v.spaces = true));
+          toggleSpaces();
+        }
+        return;
+      }
+      // zurück, wenn wieder Platz ist (mit etwas Luft, damit es nicht hin- und herspringt)
+      const SLACK = 24;
+      if (auto.spaces && !spacesOn && slack >= SPACES_W + SLACK && searchSpare >= SPACES_W + SLACK) {
+        setAuto(v => delete v.spaces);
+        toggleSpaces();
+      } else if (auto.side[key] && side.el && !side.shown && slack >= auto.side[key] + SLACK && searchSpare >= auto.side[key] + SLACK) {
+        setAuto(v => delete v.side[key]);
+        toggleSide();
+      }
+    };
+    // Seitenleiste vom Nutzer ein-/ausgeblendet: nicht mehr als automatisch
+    // führen; blendet er sie trotz Platzmangel ein, macht die Today-Pane Platz
+    const userSideToggled = mode => {
+      if (!mode) {
+        return;
+      }
+      const key = sideKey(mode);
+      const wasAuto = autoState().side[key];
+      setAuto(v => delete v.side[key]);
+      // trotz Platzmangel selbst eingeblendet: die Today-Pane macht Platz
+      const slack = w.__mcLayoutSlack?.();
+      if (wasAuto && !autoSideEl().shown && w.TodayPane?.isVisible && slack !== null && slack < wasAuto) {
+        w.setTimeout(() => w.document.getElementById("calendar_toggle_todaypane_command")?.doCommand(), 300);
+      }
+    };
+    const hookAutoFit = () => {
+      if (w.__mcAutoFit) {
+        return;
+      }
+      w.__mcAutoFit = true;
+      w.__mcCollapsible = () => {
+        if (w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
+          return 0;
+        }
+        const side = autoSideEl();
+        if (!AUTO_MODES.has(side.mode)) {
+          return 0;
+        }
+        return (side.shown && side.el ? side.el.getBoundingClientRect().width : 0) + (w.gSpacesToolbar.isHidden ? 0 : SPACES_W);
+      };
+      const onResize = () => autoFitSoon(250);
+      const tabs = w.document.getElementById("tabmail")?.tabContainer;
+      const onTab = () => autoFitSoon(300);
+      w.addEventListener("resize", onResize);
+      tabs?.addEventListener("TabSelect", onTab);
+      // Today-Pane ein/aus
+      const panel = w.document.getElementById("today-pane-panel");
+      const mo = new w.MutationObserver(() => autoFitSoon(300));
+      if (panel) {
+        mo.observe(panel, { attributes: true, attributeFilter: ["collapsed", "hidden"] });
+      }
+      autoFitSoon(1500);
+      this.restorers.push(() => {
+        w.removeEventListener("resize", onResize);
+        tabs?.removeEventListener("TabSelect", onTab);
+        mo.disconnect();
+        w.clearTimeout(autoTimer);
+        delete w.__mcAutoFit;
+        delete w.__mcCollapsible;
+      });
+    };
+
     const hookTodayToggle = () => {
       const d = w.document;
       const panel = d.getElementById("today-pane-panel");
@@ -14057,6 +14525,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSpacesToggle();
+      hookAutoFit();
       FifthSpace.attach(w, this.restorers);
       hookLooseTabs(w, this.restorers);
       hookHoverLine(w, this.restorers);
@@ -15781,8 +16250,13 @@ class CardEnhancer {
         return;
       }
       const want = Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT);
+      // Platz der Liste bis zum Teiler (nicht nur die Liste selbst: Thunderbird
+      // hält sie beim Ändern der Fenstergröße fest, die Spalte wächst trotzdem –
+      // daneben bliebe eine Lücke)
+      const splitLeft = msgSplitter.getBoundingClientRect().left;
+      const span = splitLeft > list.left ? splitLeft - list.left : list.width;
       // was die Liste zu breit ist, bekommt die Nachricht dazu (und umgekehrt)
-      const msgWant = Math.round(msg.width + list.width - want);
+      const msgWant = Math.round(msg.width + span - want);
       if (msgWant > 0 && Math.abs(msgWant - msg.width) >= 1) {
         msgSplitter.width = Math.max(msgWant, minMessageWidth());
       }
@@ -15956,6 +16430,8 @@ class CardEnhancer {
     };
     this.offsetUpdaters ??= new Set();
     this.offsetUpdaters.add(update);
+    // von außen anstoßen (automatisches Einklappen misst danach den Platz)
+    win.__mcRelayout = update;
     const ro = new win.ResizeObserver(update);
     ro.observe(threadPane);
     const fp = win.document.getElementById("folderPane");
@@ -17755,6 +18231,7 @@ class CardEnhancer {
     };
     safely("mail context", () => this.hookMailContext(doc));
     safely("folder context", () => hookFolderContextExtras(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
+    safely("archive account", () => hookArchiveAccount(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
     safely("dialog box", () => shareDialogBox(win, { push: fn => this.addWinRestorer(win, fn) }));
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));

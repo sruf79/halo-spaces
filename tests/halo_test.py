@@ -4318,6 +4318,16 @@ def calendar_checks(m, results):
         after = m.js(r"""return { x: w.screenX, w: w.outerWidth, avail: w.screen.availWidth, left: w.screen.availLeft,
           right: w.screenX + w.outerWidth <= w.screen.availLeft + w.screen.availWidth + 2 };""")
         res = {"prep": prep, "zoom": after}
+        # echter Doppelklick auf die Überschrift der Today-Pane: springt zu heute, zoomt nicht das Fenster
+        tp = m.js(r"""
+          if (!w.TodayPane?.isVisible) { d.getElementById("calendar_toggle_todaypane_command").doCommand(); await wait(1500); }
+          const dt = cal.dtz.now(); dt.isDate = true; dt.month += 2; dt.day = 1; w.TodayPane.setDay(dt); await wait(400);
+          const r = d.getElementById("mcTodayTitle").getBoundingClientRect();
+          return { x: w.mozInnerScreenX + r.left + r.width / 2, y: w.mozInnerScreenY + r.top + r.height / 2, w: w.outerWidth };""")
+        dbl(tp["x"], tp["y"]); time.sleep(2)
+        res["today"] = m.js(r"""const s = w.TodayPane.start, n = new Date();
+          return { today: s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate(), w: w.outerWidth };""")
+        res["today"]["before"] = tp["w"]
         # zurück auf die alte Größe
         m.js(r"""w.resizeTo(1200, 800); w.moveTo(w.screen.availLeft + 100, w.screen.availTop + 50); await wait(800); return 1;""")
         dlg = m.js(CAL_CHECK_JS + r"""
@@ -4348,6 +4358,7 @@ def calendar_checks(m, results):
         m.js(r"""for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close(); w.focus(); await wait(500); return 1;""")
         res["dialog"] = {"std": dlg["w"], "wide": wide, "back": back}
         ok = (after["w"] <= after["avail"] + 2 and after["x"] >= after["left"] - 2 and after["right"]
+              and res["today"]["today"] and abs(res["today"]["w"] - tp["w"]) <= 2
               and wide["w"] > dlg["w"] + 50 and abs(back["w"] - dlg["w"]) <= 2 and abs(back["x"] - dlg["x"]) <= 2)
         return ok, f"{res}"
     if os.environ.get("HALO_KLICK") and sys.platform == "darwin":
@@ -4966,16 +4977,22 @@ def calendar_checks(m, results):
           const out = { role: title?.getAttribute("role"), tip: title?.title, tab: title?.tabIndex };
           away(); await pause(500); out.awayOk = !isToday();
           agenda.scrollTop = 200;
-          title.click(); await pause(600);
+          // echter Treffer an der Stelle (Mitte und Wettersymbol rechts): kommt beim Titel an, nicht bei der
+          // Toolbar-Zeile darunter (die zieht das Fenster, Doppelklick zoomt) – früher pointer-events: none
+          const r = title.getBoundingClientRect(), y = r.top + r.height / 2;
+          const hit = x => { const el = d.elementFromPoint(x, y); return el == title || title.contains(el); };
+          out.hit = [hit(r.left + r.width / 2), hit(r.right - 4)];
+          d.elementFromPoint(r.left + r.width / 2, y)?.click(); await pause(600);
           out.click = [isToday(), agenda.scrollTop];
           away(); await pause(500);
           title.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await pause(600);
           out.enter = [isToday(), agenda.scrollTop];
           return out;""")
         ok = (res.get("role") == "button" and bool(res.get("tip")) and res.get("tab") == 0 and res.get("awayOk")
+              and res.get("hit") == [True, True]
               and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
         return ok, f"{res}"
-    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben", today_title_click, results)
+    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben; Titel und Wettersymbol nehmen Maus und Tooltip an statt der Fensterzeile", today_title_click, results)
 
     def window_fit_screen():
         # Hauptfenster nie breiter als der Bildschirm (Doppelklick auf die Titelleiste dehnte es darüber hinaus)
@@ -4989,6 +5006,58 @@ def calendar_checks(m, results):
         ok = res.get("w", 1e9) <= res.get("avail", 0) + 2 and res.get("x", -1e9) >= res.get("left", 0) - 2
         return ok, f"{res}"
     check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm", window_fit_screen, results)
+
+    def auto_collapse():
+        # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste (gleiche Animation wie die Knöpfe); wird
+        # das Fenster wieder breit, kommt beides zurück; selbst ausgeblendete Ordnerliste bleibt aus; der gespeicherte
+        # Zustand des Nutzers ändert sich dabei nicht. Breiten aus dem tatsächlichen Platzbedarf (Mindestbreiten)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toMail();
+          const sc = w.screen, old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight];
+          const cmd = d.getElementById("calendar_toggle_todaypane_command");
+          const ab = tm.currentTabInfo.chromeBrowser.contentWindow, sp = ab.paneLayout.folderPaneSplitter;
+          const state = () => ({ folder: !sp.isCollapsed, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible });
+          const size = async x => { w.resizeTo(x, w.outerHeight); await pause(2600); };
+          const pref = () => Services.prefs.getStringPref("extensions.mailcards.hiddenSidebars", "{}");
+          const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
+          const out = {};
+          try {
+            Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
+            w.moveTo(sc.availLeft, sc.availTop); await size(sc.availWidth);
+            if (sp.isCollapsed) { sideBtn(); await pause(900); }
+            if (w.gSpacesToolbar.isHidden) { d.getElementById("mcSpacesToggle").click(); await pause(900); }
+            if (!w.TodayPane?.isVisible) { cmd.doCommand(); await pause(1500); }
+            const userPref = pref();
+            out.start = state();
+            const slack = w.__mcLayoutSlack(), folderW = ab.document.getElementById("folderPane").getBoundingClientRect().width;
+            const full = w.outerWidth - slack;
+            out.need = { full: Math.round(full), folderW: Math.round(folderW), avail: sc.availWidth };
+            if (full + 40 > sc.availWidth || folderW < 120) return { skip: out.need };
+            await size(Math.round(full - folderW / 2)); out.mid = state();
+            out.auto = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
+            await size(Math.round(full - folderW - 67 - 30)); out.narrow = state();
+            await size(sc.availWidth); await pause(1500); out.wide = state();
+            out.prefSame = pref() == userPref;
+            // selbst ausgeblendet bleibt aus
+            sideBtn(); await pause(900);
+            await size(Math.round(full - folderW / 2)); await size(sc.availWidth); await pause(1000); out.user = state();
+            sideBtn(); await pause(900);
+            out.end = state();
+          } finally {
+            if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
+            w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
+          }
+          return out;""")
+        if "skip" in res:
+            return True, f"Bildschirm zu schmal für alle Bereiche – übersprungen {res['skip']}"
+        t = lambda k: res.get(k) or {}
+        ok = (t("start") == {"folder": True, "spaces": True, "today": True}
+              and t("mid") == {"folder": False, "spaces": True, "today": True}
+              and t("narrow") == {"folder": False, "spaces": False, "today": True}
+              and t("wide") == {"folder": True, "spaces": True, "today": True}
+              and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True)
+        return ok, f"{res}"
+    check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
 
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""
@@ -5333,6 +5402,52 @@ def server_checks(m, results):
             ok = res.get("open") and "Projekte" in res.get("rows", []) and float((res.get("bw") or "0px")[:-2]) <= 1
             return ok, f"{res}"
         check("Testkonto: Abonnieren-Dialog zeigt die Ordner des Servers, ohne harten Rahmen", subscribe_dialog, results)
+
+        def archive_account():
+            # Konto lokal archivieren: Kontextmenü des Kontos → Rückfrage → alle Ordner (ohne Papierkorb/Entwürfe) als Kopie in
+            # Lokale Ordner/<Konto> (Archiv) mit gleicher Anzahl; zweiter Lauf kopiert nichts doppelt
+            servers.imap.add("Archive", "From: Dora <dora@example.invalid>\nTo: Halo Test <halo@example.invalid>\nSubject: Alte Rechnung\n"
+                             "Date: Mon, 12 Oct 2026 10:00:00 +0200\nMessage-ID: <srv-arch-1@example.invalid>\n\nRechnung im Anhang.\n")
+            servers.imap.add("Trash", "From: Spam <x@example.invalid>\nTo: Halo Test <halo@example.invalid>\nSubject: Weg damit\n"
+                             "Date: Mon, 12 Oct 2026 11:00:00 +0200\nMessage-ID: <srv-trash-1@example.invalid>\n\nx\n")
+            menu_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer, root = server.rootFolder;
+              const a3 = await toMail();
+              // Konto wie beim Nutzer schon geöffnet: Ordner vom Server, Posteingang geladen
+              const inbox = await until(() => root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox), 10000);
+              a3.displayFolder(inbox.URI);
+              await until(() => a3.gDBView?.rowCount > 0 && root.subFolders.length > 2, 15000);
+              const row = await until(() => [...a3.document.querySelectorAll("#folderTree li")].find(li => li.uri == root.URI)?.querySelector(".container"), 8000);
+              const popup = a3.document.getElementById("folderPaneContext");
+              const shown = new Promise(r => popup.addEventListener("popupshown", r, { once: true }));
+              row.dispatchEvent(new a3.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: 20, clientY: 10 }));
+              await Promise.race([shown, wait(3000)]);
+              const item = a3.document.getElementById("mcArchiveAccount");
+              const out = { visible: !!item && !item.hidden && popup.state == "open", label: item?.getAttribute("label"), subs: root.subFolders.map(f => f.name) };
+              popup.hidePopup();
+              return out;""" % key
+            # (die Rückfrage schließt Marionette selbst – das Kopieren direkt anstoßen)
+            run_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer, root = server.rootFolder;
+              const job = await w.__mcArchiveAccount(server);
+              const local = MailServices.accounts.localFoldersServer.rootFolder;
+              const target = local.subFolders.find(f => f.name.startsWith(server.prettyName) && f.name != server.prettyName);
+              return { copied: job?.copied, skipped: job?.skipped, failed: job?.failed, target: target?.name,
+                folders: target ? Object.fromEntries(target.subFolders.map(f => [f.name, f.getTotalMessages(false)])) : null,
+                source: Object.fromEntries(root.subFolders.map(f => [f.name, f.getTotalMessages(false)])) };""" % key
+            first = m.js(menu_js)
+            first.update(m.js(run_js))
+            second = m.js(run_js)
+            f = first.get("folders") or {}
+            src = first.get("source") or {}
+            inbox = next((k for k in f if k.lower() == "inbox"), None)
+            ok = (first.get("visible") and first.get("target") and inbox and f.get(inbox, 0) >= 1
+                  and f.get(inbox) == src.get(inbox) and f.get("Archive") == 1 and "Trash" not in f and "Drafts" not in f
+                  and second.get("folders") == f)
+            return ok, f"{first} 2. Lauf: {second}"
+        check("Testkonto: Konto lokal archivieren – Kontextmenü, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate", archive_account, results)
 
         def send_error():
             # Server lehnt ab → halo.spaces meldet den Fehler als Dialog mit „Postausgang zeigen“ (statt nur in der
@@ -5883,6 +5998,44 @@ def run_checks(m, version, profile, results):
               and res["mail16"]["today"] > 0 and not res["mail16"]["squeezed"])
         return ok, f"{res}"
     check("Toolbar: im schmalen Fenster mit Today-Pane schrumpft zuerst das Suchfeld, Knöpfe bleiben in allen Bereichen sichtbar", toolbar_search_first, results)
+
+    def toolbar_wider_list():
+        # Mailliste breiter ziehen (Today-Pane offen): weichen Knöpfe, dann nur so viele, wie nötig – ein ausgeblendeter Knopf
+        # hätte neben der Suche keinen Platz mehr (vorher gingen „Spam“ und „Markieren“, die Suche blieb ~100 px breit)
+        res = m.js(r"""
+          const a3 = await toMail();
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const opened = !w.TodayPane.isVisible; if (opened) { tpCmd.doCommand(); await wait(1500); }
+          const PREF = "extensions.mailcards.listWidth", before = Services.prefs.getIntPref(PREF, 0);
+          const sp = a3.paneLayout?.messagePaneSplitter;
+          const tbItems = () => [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")));
+          w.resizeTo(1728, 1000); await wait(1800);
+          const widths = Object.fromEntries(tbItems().filter(l => !l.hasAttribute("mc-squeezed")).map(l => [l.getAttribute("item-id"), l.getBoundingClientRect().width]));
+          const search = () => Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().width);
+          const out = { searchStart: search(), steps: [] };
+          const list = a3.document.getElementById("threadPane");
+          try {
+            for (const add of [60, 120, 180, 240]) {
+              const lw = Math.round(list.getBoundingClientRect().width);
+              Services.prefs.setIntPref(PREF, (before || lw) + add);
+              sp.width = Math.max(200, Math.round(a3.document.getElementById("messagePane").getBoundingClientRect().width - (before || lw) - add + lw));
+              await wait(900);
+              const hidden = tbItems().filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
+              out.steps.push({ add, search: search(), hidden, minHidden: hidden.length ? Math.round(Math.min(...hidden.map(h => widths[h] || 999))) : null });
+            }
+          } finally {
+            if (before) Services.prefs.setIntPref(PREF, before); else Services.prefs.clearUserPref(PREF);
+            sp.width = Math.round(a3.document.getElementById("messagePane").getBoundingClientRect().width - 240);
+            await wait(800);
+            if (opened) { tpCmd.doCommand(); await wait(800); }
+            w.resizeTo(1500, 900); await wait(800);
+          }
+          return out;""")
+        # hätte ein ausgeblendeter Knopf (plus Abstand) noch neben die Suche gepasst, ist zu viel ausgeblendet
+        bad = [st for st in res.get("steps", []) if st["hidden"] and st["minHidden"] and st["search"] - 40 >= st["minHidden"] + 8]
+        ok = bool(res.get("steps")) and not bad and any(st["hidden"] for st in res["steps"])
+        return ok, f"{res}"
+    check("Toolbar: Mailliste breiter ziehen blendet nur so viele Knöpfe aus wie nötig, die Suche bleibt klein", toolbar_wider_list, results)
 
     def capsules():
         res = m.js("""

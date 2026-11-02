@@ -11154,7 +11154,25 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   gap: 0;
 }
 
+/* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere
+   Fläche reicht Klicks durch (darunter zieht die Zeile weiter das Fenster),
+   ihre Knöpfe bleiben bedienbar */
+#unifiedToolbar,
+#unifiedToolbarContent {
+  pointer-events: none;
+}
+
+#unifiedToolbar > :not(#unifiedToolbarContent),
+#unifiedToolbarContent > li {
+  pointer-events: auto;
+}
+
 #mcTodayTitle {
+  /* die Fläche darum lässt Klicks durch (Fenster ziehen); der Titel selbst
+     nimmt Klick und Tooltip an, Doppelklick zoomt hier nicht das Fenster */
+  pointer-events: auto;
+  -moz-window-dragging: no-drag;
+  cursor: default;
   display: flex;
   align-items: center;
   gap: 7px;

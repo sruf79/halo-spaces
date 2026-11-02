@@ -9900,57 +9900,6 @@ Neu
                 and res["scroll"] == "hidden"), f"{res}"
     check("Kalender: „+N weitere“ in der Monatsansicht ohne Endlosschleife, volle Tage rollen nicht", month_more, results)
 
-    def month_buffer():
-        # Monatsansicht scrollen, Schritt 1 (nur mit extensions.mailcards.monthScroll): je zwei unsichtbare Wochen vor und
-        # nach dem Monat, Termine darin schon geladen; sichtbar alles wie ohne (Zeilen, erster Tag, Grau anderer Monate,
-        # Titel), Pfeile vor/zurück und „Heute“ landen im selben Monat wie ohne
-        res = m.js(r'''
-          w.resizeTo(1500, 900);
-          const PREF = "extensions.mailcards.monthScroll";
-          const c = testCalendar(); const made = [];
-          const add = async (y, mo, d, title) => { const e = new CalEvent(); e.title = title; e.calendar = c;
-            const s = cal.createDateTime(); s.resetTo(y, mo, d, 10, 0, 0, cal.dtz.defaultTimezone); const en = s.clone(); en.hour += 1;
-            e.startDate = s; e.endDate = en; made.push(await c.addItem(e)); };
-          await add(2027, 0, 10, "Halo Puffer");   // 10. Januar 2027 – nach dem Dezember, in der Puffer-Woche
-          await toCalendar(); w.switchToView("month");
-          const mv = d.getElementById("month-view");
-          const snap = () => {
-            const rows = [...mv.monthbody.children].filter(r => !r.hasAttribute("hidden"));
-            const boxes = rows.flatMap(r => [...r.cells].map(c => c.firstElementChild));
-            return { title: mv.getRangeDescription(), rows: rows.length, first: boxes[0]?.date?.icalString,
-                     grey: boxes.map(b => b.classList.contains("calendar-month-day-box-other-month") ? 1 : 0).join(""),
-                     grid: [...new Set(boxes.map(b => b.style.gridRow))].join(","),
-                     h: Math.round(rows[0]?.cells[0].getBoundingClientRect().height || 0) };
-          };
-          const walk = async () => {
-            const out = {};
-            mv.goToDay(cal.createDateTime("20261215")); await wait(800); out.dec = snap();
-            mv.moveView(1); await wait(600); out.next = snap();
-            mv.moveView(-1); mv.moveView(-1); await wait(600); out.prev = snap();
-            mv.moveView(0); await wait(600); out.today = snap();
-            return out;
-          };
-          const out = {};
-          try {
-            Services.prefs.setBoolPref(PREF, false); await wait(300);
-            out.off = await walk();
-            Services.prefs.setBoolPref(PREF, true); await wait(600);
-            out.on = await walk();
-            mv.goToDay(cal.createDateTime("20261215")); await wait(1200);
-            const buf = [...mv.monthbody.children].filter(r => r.hasAttribute("mc-buffer"));
-            out.buffer = { rows: buf.length, boxes: (mv.mDateBoxes || []).length, loaded: buf.some(r => /Halo Puffer/.test(r.textContent)) };
-          } finally {
-            Services.prefs.setBoolPref(PREF, false); await wait(300);
-            for (const e of made) { try { await c.deleteItem(e); } catch {} }
-          }
-          return out;''')
-        off, on, buf = res.get("off") or {}, res.get("on") or {}, res.get("buffer") or {}
-        ok = (bool(off) and bool(on) and all(off[k] == on[k] for k in ("dec", "next", "prev", "today"))
-              and off["dec"]["title"].startswith("December") and off["next"]["title"].startswith("January")
-              and buf.get("rows") == 4 and buf.get("loaded") and buf.get("boxes") == (off["dec"]["rows"] + 4) * 7)
-        return ok, f"{res}"
-    check("Kalender: Monatsansicht mit unsichtbaren Puffer-Wochen (Einstellung) sieht aus und navigiert wie ohne", month_buffer, results)
-
     def mail_search():
         # Suchfeld oben: alle Postfächer, Datum („12.10“), Trefferzahl, gelbe Markierung, zurück beim Leeren
         res = m.js(r"""

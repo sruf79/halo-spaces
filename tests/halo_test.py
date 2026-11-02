@@ -5008,11 +5008,19 @@ def calendar_checks(m, results):
           const old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight], sc = w.screen;
           try {
             w.resizeTo(sc.availWidth + 500, w.outerHeight); await pause(1500);
-            return { w: w.outerWidth, avail: sc.availWidth, x: w.screenX, left: sc.availLeft };
+            const out = { w: w.outerWidth, avail: sc.availWidth, x: w.screenX, left: sc.availLeft };
+            w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(800);
+            // Maximieren bleibt (unter Windows ist das maximierte Fenster breiter als availWidth);
+            // ohne Fenstermanager (xvfb) bleibt der Zustand eben normal – Hauptsache gleich
+            w.maximize(); await pause(100); const first = w.windowState; await pause(1500);
+            out.max = [first, w.windowState, w.outerWidth];
+            if (w.windowState == w.STATE_MAXIMIZED) { w.restore(); await pause(800); }
+            return out;
           } finally { w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(800); }""")
-        ok = res.get("w", 1e9) <= res.get("avail", 0) + 2 and res.get("x", -1e9) >= res.get("left", 0) - 2
+        ok = (res.get("w", 1e9) <= res.get("avail", 0) + 2 and res.get("x", -1e9) >= res.get("left", 0) - 2
+              and res.get("max", [0, 1])[0] == res["max"][1])
         return ok, f"{res}"
-    check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm", window_fit_screen, results)
+    check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm, Maximieren bleibt maximiert", window_fit_screen, results)
 
     def auto_collapse():
         # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste (gleiche Animation wie die Knöpfe); wird

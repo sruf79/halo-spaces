@@ -10173,7 +10173,10 @@ class CardEnhancer {
       fitLater = w.setTimeout(() => {
         try {
           const sc = w.screen;
-          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.fullScreen) {
+          // maximiert ist das Fenster unter Windows um die unsichtbaren Ränder
+          // breiter als der Bildschirm (+16 px) – das ist richtig so, sonst
+          // höbe resizeTo() das Maximieren gleich wieder auf
+          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.windowState == w.STATE_MAXIMIZED || w.fullScreen) {
             return;
           }
           if (w.outerWidth <= sc.availWidth + 2) {

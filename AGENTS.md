@@ -110,6 +110,10 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 - Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund 60 Minuten. Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
+- Ausnahme: Ein Push, der nur den Release-Commit enthält (`updates.json` und
+  die Versionszeile in `manifest.json`), startet keine Tests – der Job
+  `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
+  Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
   zusammenhängenden Arbeitsblocks (Phase) pushen – nach dem kompletten Test hell
   und dunkel. Danach die CI des Pushes prüfen (Linux, Beta, `mac`). Früher pushen

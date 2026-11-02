@@ -214,6 +214,51 @@ const DE = {
   "Searching …": "Suche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Wetterdaten: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Senden rückgängig",
+  "Copy Message Link": "Link zur E-Mail kopieren",
+  "Folder List": "Ordnerliste",
+  "Files and Display": "Dateien und Darstellung",
+  "History": "Verlauf",
+  "Offline": "Offline",
+  "Calendar View": "Kalenderansicht",
+  "New Message": "Neue E-Mail",
+  "New Event…": "Neuer Termin …",
+  "New Task…": "Neue Aufgabe …",
+  "New Contact…": "Neuer Kontakt …",
+  "Save As…": "Sichern unter …",
+  "Save as Template": "Als Vorlage sichern",
+  "Select All": "Alles auswählen",
+  "Select Thread": "Konversation auswählen",
+  "Search…": "Suchen …",
+  "Find…": "In der E-Mail suchen …",
+  "Show Folder List": "Ordnerliste einblenden",
+  "Filter": "Filter",
+  "Go to Today": "Gehe zu heute",
+  "Actual Size": "Originalgröße",
+  "All Headers": "Alle Kopfzeilen",
+  "Normal Headers": "Normale Kopfzeilen",
+  "Mark Folder as Read": "Ordner als gelesen markieren",
+  "Get New Mail": "Neue E-Mails abrufen",
+  "Mail": "Mail",
+  "Address Book": "Adressbuch",
+  "Message": "E-Mail",
+  "Today": "Heute",
+  "Scheduled": "Geplant",
+  "All": "Alle",
+  "Important": "Wichtig",
+  "In Progress": "In Arbeit",
+  "Completed": "Erledigt",
+  "Task Lists": "Listen",
+  "Open": "Öffnen",
+  "Forward as Attachment": "Als Anhang weiterleiten",
+  "Mark as Read": "Als gelesen markieren",
+  "Mark as Unread": "Als ungelesen markieren",
+  "Star": "Mit Stern markieren",
+  "Remove Star": "Stern entfernen",
+  "Mark as Spam": "Als Werbung markieren",
+  "Mark as Not Spam": "Als keine Werbung markieren",
+  "Run Filters": "Filter anwenden",
+  "Follow-Up Suggestions": "Vorschläge für Rückfragen",
+  "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
   "Sending {n} messages …": "{n} Nachrichten werden gesendet …",
   "Sending “{s}” …": "„{s}“ wird gesendet …",
   "Sending …": "Wird gesendet …",
@@ -450,7 +495,6 @@ const FR = {
   "Settings…": "Réglages…",
   "Send Feedback": "Envoyer un avis",
   "Say Thanks": "Dire merci",
-  "Mail": "Mail",
   "This message is from a mailing list.": "Ce message provient d’une liste de diffusion.",
   "Unsubscribe": "Se désabonner",
   "Unsubscribe from messages from {name}?": "Ne plus recevoir de messages de {name} ?",
@@ -532,6 +576,51 @@ const FR = {
   "Searching …": "Recherche …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Données météo : Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annuler l’envoi",
+  "Copy Message Link": "Copier le lien du message",
+  "Folder List": "Liste des dossiers",
+  "Files and Display": "Fichiers et affichage",
+  "History": "Historique",
+  "Offline": "Hors connexion",
+  "Calendar View": "Vue du calendrier",
+  "New Message": "Nouveau message",
+  "New Event…": "Nouvel événement…",
+  "New Task…": "Nouvelle tâche…",
+  "New Contact…": "Nouveau contact…",
+  "Save As…": "Enregistrer sous…",
+  "Save as Template": "Enregistrer comme modèle",
+  "Select All": "Tout sélectionner",
+  "Select Thread": "Sélectionner la conversation",
+  "Search…": "Rechercher…",
+  "Find…": "Rechercher dans le message…",
+  "Show Folder List": "Afficher la liste des dossiers",
+  "Filter": "Filtrer",
+  "Go to Today": "Aller à aujourd’hui",
+  "Actual Size": "Taille réelle",
+  "All Headers": "Tous les en-têtes",
+  "Normal Headers": "En-têtes normaux",
+  "Mark Folder as Read": "Marquer le dossier comme lu",
+  "Get New Mail": "Relever le courrier",
+  "Mail": "Mail",
+  "Address Book": "Carnet d’adresses",
+  "Message": "Message",
+  "Today": "Aujourd’hui",
+  "Scheduled": "Programmés",
+  "All": "Tous",
+  "Important": "Importants",
+  "In Progress": "En cours",
+  "Completed": "Terminés",
+  "Task Lists": "Listes",
+  "Open": "Ouvrir",
+  "Forward as Attachment": "Transférer en tant que pièce jointe",
+  "Mark as Read": "Marquer comme lu",
+  "Mark as Unread": "Marquer comme non lu",
+  "Star": "Suivre",
+  "Remove Star": "Ne plus suivre",
+  "Mark as Spam": "Marquer comme indésirable",
+  "Mark as Not Spam": "Marquer comme désirable",
+  "Run Filters": "Appliquer les filtres",
+  "Follow-Up Suggestions": "Suggestions de relance",
+  "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
   "Sending {n} messages …": "Envoi de {n} messages …",
   "Sending “{s}” …": "Envoi de « {s} » …",
   "Sending …": "Envoi …",
@@ -768,7 +857,6 @@ const ES = {
   "Settings…": "Ajustes…",
   "Send Feedback": "Enviar comentarios",
   "Say Thanks": "Dar las gracias",
-  "Mail": "Correo",
   "This message is from a mailing list.": "Este mensaje procede de una lista de correo.",
   "Unsubscribe": "Darse de baja",
   "Unsubscribe from messages from {name}?": "¿Dejar de recibir mensajes de {name}?",
@@ -850,6 +938,51 @@ const ES = {
   "Searching …": "Buscando …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Datos meteorológicos: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Deshacer envío",
+  "Copy Message Link": "Copiar enlace del mensaje",
+  "Folder List": "Lista de carpetas",
+  "Files and Display": "Archivos y visualización",
+  "History": "Historial",
+  "Offline": "Sin conexión",
+  "Calendar View": "Vista del calendario",
+  "New Message": "Nuevo mensaje",
+  "New Event…": "Nuevo evento…",
+  "New Task…": "Nueva tarea…",
+  "New Contact…": "Nuevo contacto…",
+  "Save As…": "Guardar como…",
+  "Save as Template": "Guardar como plantilla",
+  "Select All": "Seleccionar todo",
+  "Select Thread": "Seleccionar conversación",
+  "Search…": "Buscar…",
+  "Find…": "Buscar en el mensaje…",
+  "Show Folder List": "Mostrar lista de carpetas",
+  "Filter": "Filtrar",
+  "Go to Today": "Ir a hoy",
+  "Actual Size": "Tamaño real",
+  "All Headers": "Todos los encabezados",
+  "Normal Headers": "Encabezados normales",
+  "Mark Folder as Read": "Marcar carpeta como leída",
+  "Get New Mail": "Obtener correo nuevo",
+  "Mail": "Correo",
+  "Address Book": "Libreta de direcciones",
+  "Message": "Mensaje",
+  "Today": "Hoy",
+  "Scheduled": "Programados",
+  "All": "Todos",
+  "Important": "Importantes",
+  "In Progress": "En curso",
+  "Completed": "Completados",
+  "Task Lists": "Listas",
+  "Open": "Abrir",
+  "Forward as Attachment": "Reenviar como adjunto",
+  "Mark as Read": "Marcar como leído",
+  "Mark as Unread": "Marcar como no leído",
+  "Star": "Destacar",
+  "Remove Star": "Quitar destacado",
+  "Mark as Spam": "Marcar como spam",
+  "Mark as Not Spam": "Marcar como no spam",
+  "Run Filters": "Aplicar filtros",
+  "Follow-Up Suggestions": "Sugerencias de seguimiento",
+  "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
   "Sending {n} messages …": "Enviando {n} mensajes …",
   "Sending “{s}” …": "Enviando «{s}» …",
   "Sending …": "Enviando …",
@@ -1086,7 +1219,6 @@ const IT = {
   "Settings…": "Impostazioni…",
   "Send Feedback": "Invia feedback",
   "Say Thanks": "Dì grazie",
-  "Mail": "Posta",
   "This message is from a mailing list.": "Questo messaggio proviene da una mailing list.",
   "Unsubscribe": "Annulla iscrizione",
   "Unsubscribe from messages from {name}?": "Non ricevere più messaggi da {name}?",
@@ -1168,6 +1300,51 @@ const IT = {
   "Searching …": "Ricerca …",
   "Weather data: Open-Meteo.com, CC BY 4.0": "Dati meteo: Open-Meteo.com, CC BY 4.0",
   "Undo Send": "Annulla invio",
+  "Copy Message Link": "Copia link del messaggio",
+  "Folder List": "Elenco cartelle",
+  "Files and Display": "File e visualizzazione",
+  "History": "Cronologia",
+  "Offline": "Non in linea",
+  "Calendar View": "Vista calendario",
+  "New Message": "Nuovo messaggio",
+  "New Event…": "Nuovo evento…",
+  "New Task…": "Nuova attività…",
+  "New Contact…": "Nuovo contatto…",
+  "Save As…": "Salva come…",
+  "Save as Template": "Salva come modello",
+  "Select All": "Seleziona tutto",
+  "Select Thread": "Seleziona conversazione",
+  "Search…": "Cerca…",
+  "Find…": "Trova nel messaggio…",
+  "Show Folder List": "Mostra elenco cartelle",
+  "Filter": "Filtra",
+  "Go to Today": "Vai a oggi",
+  "Actual Size": "Dimensioni reali",
+  "All Headers": "Tutte le intestazioni",
+  "Normal Headers": "Intestazioni normali",
+  "Mark Folder as Read": "Segna cartella come letta",
+  "Get New Mail": "Scarica nuova posta",
+  "Mail": "Posta",
+  "Address Book": "Rubrica",
+  "Message": "Messaggio",
+  "Today": "Oggi",
+  "Scheduled": "Programmati",
+  "All": "Tutti",
+  "Important": "Importanti",
+  "In Progress": "In corso",
+  "Completed": "Completati",
+  "Task Lists": "Elenchi",
+  "Open": "Apri",
+  "Forward as Attachment": "Inoltra come allegato",
+  "Mark as Read": "Segna come letto",
+  "Mark as Unread": "Segna come non letto",
+  "Star": "Aggiungi stella",
+  "Remove Star": "Rimuovi stella",
+  "Mark as Spam": "Segna come spam",
+  "Mark as Not Spam": "Segna come non spam",
+  "Run Filters": "Applica filtri",
+  "Follow-Up Suggestions": "Suggerimenti di follow-up",
+  "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
   "Sending {n} messages …": "Invio di {n} messaggi …",
   "Sending “{s}” …": "Invio di «{s}» …",
   "Sending …": "Invio …",
@@ -3114,6 +3291,7 @@ const Remind = {
 // Anna“ – „Nachfassen“ öffnet die Antwort an dieselben Empfänger, ✕ blendet
 // ihn für diese Mail aus. Geantwortet = irgendeine Mail in einem Posteingang
 // der letzten 30 Tage verweist auf sie (References/In-Reply-To).
+const FOLLOWUP_PREF = "extensions.mailcards.followUp"; // Schalter „Follow-Up Suggestions“
 const FOLLOWUP_DISMISSED_PREF = "extensions.mailcards.followUpDismissed";
 const FollowUp = {
   cache: null,
@@ -3193,7 +3371,7 @@ const FollowUp = {
       (folder.getFlag(Ci.nsMsgFolderFlags.Virtual) && /inbox/i.test(folder.URI)));
     let hdr = null;
     try {
-      hdr = inbox && Services.prefs.getBoolPref("extensions.mailcards.followUp", true) ? this.candidate() : null;
+      hdr = inbox && Services.prefs.getBoolPref(FOLLOWUP_PREF, true) ? this.candidate() : null;
     } catch (e) {
       log("follow up error", e);
     }
@@ -3242,8 +3420,12 @@ const FollowUp = {
     a3.__mcFollowUp = true;
     const update = () => a3.setTimeout(() => this.render(a3), 0);
     a3.addEventListener("folderURIChanged", update);
+    // Schalter in den Einstellungen wirkt sofort, nicht erst beim Ordnerwechsel
+    const prefObs = { observe: update };
+    Services.prefs.addObserver(FOLLOWUP_PREF, prefObs);
     update();
     enhancer?.addWinRestorer(a3, () => {
+      Services.prefs.removeObserver(FOLLOWUP_PREF, prefObs);
       a3.removeEventListener("folderURIChanged", update);
       a3.document.getElementById("mcFollowUp")?.remove();
       delete a3.__mcFollowUp;
@@ -3326,10 +3508,12 @@ const Weather = {
     for (const t of this.titles) {
       if (on) {
         t.dataset.weather = st.kind;
-        t.title = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
+        // erste Zeile: Klick führt zu heute (Überschrift der Today-Pane)
+        const info = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
+        t.title = info ? `${tr("Go to Today")}\n${info}` : tr("Go to Today");
       } else {
         t.removeAttribute("data-weather");
-        t.removeAttribute("title");
+        t.title = tr("Go to Today");
       }
     }
   },
@@ -4378,6 +4562,555 @@ function setTaskView(win, key) {
   applyTaskView(win);
 }
 
+// Aufgaben: Ansichten oben in der Seitenleiste wie in der Erinnerungen-App
+// (Heute, Geplant, Alle, Wichtig, In Arbeit, Erledigt, je mit Anzahl) statt
+// Filterknopf; darunter „Task Lists“ nur mit Kalendern, die Aufgaben können,
+// kein Minimonat. Jede Ansicht ist ein eigener Filter in Thunderbirds
+// calFilter (taskViewUpdate) – Liste, Suche und Auswahl bleiben Thunderbirds.
+const TASK_LIST_PREF = "extensions.mailcards.taskList";
+const TASK_LISTS = [
+  // [Schlüssel, Text, Status, Fälligkeit, Zusatzbedingung]
+  ["today", "Today", "open", "upToToday"],
+  ["scheduled", "Scheduled", "open", "dated"],
+  ["all", "All", "open", "any"],
+  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
+  ["progress", "In Progress", "progress", "any"],
+  ["completed", "Completed", "done", "any"],
+];
+const taskListFilter = key => `mcTasks-${key}`;
+
+function taskListKey() {
+  const key = Services.prefs.getCharPref(TASK_LIST_PREF, "all");
+  return TASK_LISTS.some(([k]) => k == key) ? key : "all";
+}
+
+function defineTaskLists(win) {
+  if (typeof win.calFilter != "function" || typeof win.calFilterProperties != "function") {
+    return false;
+  }
+  const filter = new win.calFilter();
+  for (const [key, , status, due, extra] of TASK_LISTS) {
+    const props = new win.calFilterProperties();
+    props.start = props.FILTER_DATE_ALL;
+    props.end = props.FILTER_DATE_ALL;
+    props.occurrences = props.FILTER_OCCURRENCES_PAST_AND_NEXT;
+    props.status = {
+      open: props.FILTER_STATUS_INCOMPLETE | props.FILTER_STATUS_IN_PROGRESS,
+      progress: props.FILTER_STATUS_IN_PROGRESS,
+      done: props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE,
+    }[status];
+    props.due = {
+      upToToday: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY,
+      dated: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY | props.FILTER_DUE_FUTURE,
+      any: props.FILTER_DUE_ALL,
+    }[due];
+    if (extra) {
+      props.onfilter = (item, result) => result && extra(item);
+    }
+    // die definierten Filter teilen sich alle calFilter (am Prototyp)
+    filter.defineFilter(taskListFilter(key), props);
+  }
+  return true;
+}
+
+function hookTaskLists(win, restorers) {
+  const doc = win.document;
+  const panel = doc.getElementById("calendar-panel");
+  const tree = doc.getElementById("calendar-task-tree");
+  if (!panel || !tree || doc.getElementById("mcTaskLists") || !defineTaskLists(win)) {
+    return;
+  }
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const X = "http://www.w3.org/1999/xhtml";
+  const el = (tag, cls, text) => {
+    const e = doc.createElementNS(X, tag);
+    if (cls) {
+      e.className = cls;
+    }
+    if (text != null) {
+      e.textContent = text;
+    }
+    return e;
+  };
+  const box = el("div");
+  box.id = "mcTaskLists";
+  const list = el("ul", "mc-tl-list");
+  list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", tr("Tasks"));
+  const rows = new Map();
+  for (const [key, label] of TASK_LISTS) {
+    const row = el("li", "mc-tl-row");
+    row.dataset.list = key;
+    row.setAttribute("role", "option");
+    row.tabIndex = -1;
+    const icon = el("span", `mc-tl-icon mc-tl-${key}`);
+    row.append(icon, el("span", "mc-tl-name", tr(label)), el("span", "mc-tl-count", ""));
+    row.addEventListener("click", () => select(key));
+    rows.set(key, row);
+    list.append(row);
+  }
+  list.addEventListener("keydown", event => {
+    const keys = TASK_LISTS.map(([k]) => k);
+    const i = keys.indexOf(taskListKey());
+    const next = event.key == "ArrowDown" ? keys[Math.min(keys.length - 1, i + 1)] : event.key == "ArrowUp" ? keys[Math.max(0, i - 1)] : null;
+    if (next) {
+      event.preventDefault();
+      select(next);
+      rows.get(next).focus();
+    }
+  });
+  list.tabIndex = 0;
+  box.append(list);
+  panel.prepend(box);
+
+  const today = () => {
+    const icon = rows.get("today").querySelector(".mc-tl-icon");
+    icon.textContent = String(new Date().getDate());
+  };
+  const mark = () => {
+    const key = taskListKey();
+    for (const [k, row] of rows) {
+      row.classList.toggle("selected", k == key);
+      row.setAttribute("aria-selected", String(k == key));
+    }
+    today();
+  };
+  const apply = () => {
+    const name = taskListFilter(taskListKey());
+    if (tree.getAttribute("filterValue") != name && typeof win.taskViewUpdate == "function") {
+      win.taskViewUpdate(name);
+    }
+  };
+  const select = key => {
+    Services.prefs.setCharPref(TASK_LIST_PREF, key);
+    mark();
+    apply();
+    win.setTimeout(() => enhancer?.updateListHeader(win), 0);
+  };
+
+  // Anzahlen: je Ansicht dieselben Filter über alle eingeblendeten Kalender
+  let counting = 0, again = false;
+  const count = async () => {
+    if (counting) {
+      again = true;
+      return;
+    }
+    counting = 1;
+    try {
+      const composite = cal.view.getCompositeCalendar(win);
+      for (const [key] of TASK_LISTS) {
+        const f = new win.calFilter();
+        f.itemType = Ci.calICalendar.ITEM_FILTER_TYPE_TODO;
+        f.applyFilter(taskListFilter(key));
+        let n = 0;
+        for await (const chunk of cal.iterate.streamValues(f.getItems(composite))) {
+          n += chunk.length;
+        }
+        rows.get(key).querySelector(".mc-tl-count").textContent = n ? n.toLocaleString(Services.locale.appLocaleAsBCP47) : "";
+      }
+    } catch (e) {
+      log("task lists count", e);
+    } finally {
+      counting = 0;
+    }
+    if (again) {
+      again = false;
+      later();
+    }
+  };
+  let timer = 0;
+  const later = () => {
+    win.clearTimeout(timer);
+    timer = win.setTimeout(count, 250);
+  };
+  const observer = {
+    QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+    onStartBatch() {},
+    onEndBatch: later,
+    onLoad: later,
+    onAddItem: later,
+    onModifyItem: later,
+    onDeleteItem: later,
+    onError() {},
+    onPropertyChanged: later,
+    onPropertyDeleting() {},
+  };
+  const composite = cal.view.getCompositeCalendar(win);
+  composite.addObserver(observer);
+
+  // Kalender ohne Aufgaben in „Task Lists“ ausblenden
+  const calList = doc.getElementById("calendar-list");
+  const tagLists = () => {
+    for (const li of calList?.querySelectorAll(":scope > li[calendar-id]") || []) {
+      const c = cal.manager.getCalendarById(li.getAttribute("calendar-id"));
+      li.toggleAttribute("mc-no-tasks", c?.getProperty("capabilities.tasks.supported") === false);
+    }
+  };
+  const mo = calList ? new win.MutationObserver(tagLists) : null;
+  mo?.observe(calList, { childList: true });
+  tagLists();
+  const header = doc.getElementById("calendar-list-header-label");
+  const tasksMode = () => doc.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks";
+  let oldHeader = null;
+  const onTab = () => {
+    if (!header) {
+      return;
+    }
+    if (tasksMode()) {
+      oldHeader ??= { l10n: header.getAttribute("data-l10n-id"), text: header.textContent };
+      header.removeAttribute("data-l10n-id");
+      header.textContent = tr("Task Lists");
+      mark();
+      apply();
+      later();
+    } else if (oldHeader) {
+      if (oldHeader.l10n) {
+        header.setAttribute("data-l10n-id", oldHeader.l10n);
+        doc.l10n?.translateElements([header]);
+      } else {
+        header.textContent = oldHeader.text;
+      }
+      oldHeader = null;
+    }
+  };
+  const tabs = doc.getElementById("tabmail")?.tabContainer;
+  tabs?.addEventListener("TabSelect", onTab);
+  onTab();
+  mark();
+  later();
+  restorers.push(() => {
+    composite.removeObserver(observer);
+    mo?.disconnect();
+    tabs?.removeEventListener("TabSelect", onTab);
+    win.clearTimeout(timer);
+    if (oldHeader) {
+      header.textContent = oldHeader.text;
+      if (oldHeader.l10n) {
+        header.setAttribute("data-l10n-id", oldHeader.l10n);
+      }
+    }
+    for (const li of calList?.querySelectorAll("[mc-no-tasks]") || []) {
+      li.removeAttribute("mc-no-tasks");
+    }
+    box.remove();
+    if (String(tree.getAttribute("filterValue")).startsWith("mcTasks-") && typeof win.taskViewUpdate == "function") {
+      win.taskViewUpdate("throughcurrent");
+    }
+  });
+}
+
+// Menüleiste wie in den Apple-Apps: sieben feste Menüs – Thunderbird (macOS
+// baut es aus Thunderbirds Einträgen selbst), File, Edit, View, Mail, Window,
+// Help. Jeder Befehl genau einmal; Go, Events and Tasks und Tools entfallen,
+// ihr Inhalt steht in den übrigen Menüs, in den Einstellungen oder in den
+// Kontextmenüs der Bereiche. Thunderbirds Einträge werden nur umgehängt
+// (Befehle, Tastenkürzel und Ein-/Ausblenden bleiben bei Thunderbird);
+// Einträge, die nicht passen, sind ausgegraut statt verschwunden. In der
+// nativen macOS-Leiste wirkt nur das hidden-Attribut, kein CSS.
+const MENUBAR_MAC = Services.appinfo.OS == "Darwin";
+function hookMenubar(win, restorers) {
+  const doc = win.document;
+  const bar = doc.getElementById("mail-menubar");
+  if (!bar || bar.__mcMenubar) {
+    return;
+  }
+  bar.__mcMenubar = true;
+  const $ = id => doc.getElementById(id);
+  const S = "-";
+  const created = [];
+  const moved = [];
+  const relabeled = [];
+  const make = (tag, id, label) => {
+    const e = doc.createXULElement(tag);
+    if (id) {
+      e.id = id;
+    }
+    if (label) {
+      e.setAttribute("label", tr(label));
+    }
+    created.push(e);
+    return e;
+  };
+  const relabel = (el, label) => {
+    if (!el || !label) {
+      return;
+    }
+    relabeled.push([el, el.getAttribute("label"), el.getAttribute("data-l10n-id"), el.getAttribute("accesskey")]);
+    el.removeAttribute("data-l10n-id");
+    el.removeAttribute("accesskey");
+    el.setAttribute("label", tr(label));
+  };
+  const own = (id, label, run) => {
+    const item = make("menuitem", id, label);
+    item.addEventListener("command", event => {
+      event.stopPropagation();
+      run();
+    });
+    return item;
+  };
+  const tab = () => doc.getElementById("tabmail")?.currentTabInfo;
+  const a3 = () => doc.getElementById("tabmail")?.currentAbout3Pane;
+  const inMail = () => ["mail3PaneTab", "mailMessageTab"].includes(tab()?.mode?.name);
+  const inCalendar = () => tab()?.mode?.name == "calendar";
+  const selected = () => {
+    try {
+      const view = tab()?.mode?.name == "mailMessageTab" ? tab().chromeBrowser?.contentWindow?.gDBView : a3()?.gDBView;
+      return [...(view?.getSelectedMsgHdrs() || [])];
+    } catch {
+      return [];
+    }
+  };
+
+  // eigene Untermenüs
+  const msgMenu = make("menu", "mcViewMessageMenu", "Message");
+  const msgPopup = make("menupopup", "mcViewMessagePopup");
+  msgMenu.append(msgPopup);
+  const trouble = make("menu", "mcHelpTroubleMenu", "Troubleshooting");
+  const troublePopup = make("menupopup", "mcHelpTroublePopup");
+  trouble.append(troublePopup);
+  const remind = make("menu", "mcMailRemindMenu", "Remind Me");
+  const remindPopup = make("menupopup", "mcMailRemindPopup");
+  remind.append(remindPopup);
+  const fmt = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  remindPopup.addEventListener("popupshowing", event => {
+    if (event.target != remindPopup) {
+      return;
+    }
+    remindPopup.replaceChildren(...Remind.choices().map(([label, when]) => {
+      const it = doc.createXULElement("menuitem");
+      it.setAttribute("label", `${tr(label)} (${fmt.format(when)})`);
+      it.addEventListener("command", () => Remind.remind(selected(), when).catch(e => log("remind error", e)));
+      return it;
+    }));
+  });
+  const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
+  const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
+    const hdr = selected()[0];
+    if (hdr?.messageId) {
+      Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(`mid:${hdr.messageId}`);
+    }
+  });
+  const space = (id, label, button) => {
+    const item = own(id, label, () => $(button)?.click());
+    item.dataset.space = button;
+    return item;
+  };
+  const spaces = [
+    space("mcWinMail", "Mail", "mailButton"),
+    space("mcWinAddressBook", "Address Book", "addressBookButton"),
+    space("mcWinCalendar", "Calendar", "calendarButton"),
+    space("mcWinTasks", "Tasks", "tasksButton"),
+    space("mcWinChat", "Chat", "chatButton"),
+  ];
+
+  // [Menü, Einträge] – Zeichenkette = Thunderbirds Eintrag (optional mit
+  // eigenem Text), S = Trennlinie
+  const L = (id, label) => [$(id), label];
+  const layout = [
+    ["menu_FilePopup", [
+      L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"),
+      L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
+      L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
+    ]],
+    ["menu_EditPopup", [
+      L("menu_undo"), L("menu_redo"), S, L("menu_cut"), L("menu_copy"), [copyLink], L("menu_paste"), L("menu_delete"),
+      L("menu_SelectAll", "Select All"), L("menu_selectThread", "Select Thread"), S, L("glodaSearchCmd", "Search…"),
+      L("menu_findCmd", "Find…"), L("menu_findAgainCmd"),
+      ...(MENUBAR_MAC ? [] : [S, L("menu_preferences")]),
+    ]],
+    ["menu_View_Popup", [
+      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), S,
+      L("viewSortMenu"), L("viewMessageViewMenu", "Filter"), L("viewMessagesMenu"), L("menu_FolderViews", "Folder List"), [msgMenu], S,
+      L("calChangeViewDay"), L("calChangeViewWeek"), L("calChangeViewMonth"), L("calendar-go-to-today-menuitem", "Go to Today"), S,
+      L("menu_fullZoomEnlarge"), L("menu_fullZoomReduce"), L("menu_fullZoomReset", "Actual Size"),
+      ...(MENUBAR_MAC ? [] : [S, ...spaces.map(x => [x])]),
+    ]],
+    ["mcViewMessagePopup", [
+      L("bodyAllowHTML"), L("bodySanitized"), L("bodyAsPlaintext"), S,
+      L("viewallheaders", "All Headers"), L("viewnormalheaders", "Normal Headers"), S, L("pageSourceMenuItem"),
+    ]],
+    ["messageMenuPopup", [
+      [getMail], L("goOfflineMenuItem"), S,
+      L("replyMainMenu"), L("replySenderMainMenu"), L("menu_replyToAll", "Reply All"), L("menu_replyToList"),
+      L("replyNewsgroupMainMenu"), L("menu_forwardMsg"), S,
+      L("markReadMenuItem", "Mark as Read"), L("markUnreadMenuItem", "Mark as Unread"), L("markFlaggedMenuItem", "Star"),
+      L("menu_markAsJunk", "Mark as Spam"), L("menu_markAsNotJunk", "Mark as Not Spam"), L("tagMenu"), [remind], S,
+      L("archiveMainMenu"), L("moveMenu"), S, L("menu_markAllRead", "Mark Folder as Read"), S, L("filtersCmd"),
+    ]],
+    ["mcHelpTroublePopup", [
+      L("aboutsupport_open"), L("helpTroubleshootMode"), S,
+      L("activityManager"), L("javascriptConsole"), L("devtoolsToolbox"), L("addonDebugging"),
+    ]],
+    ["menu_HelpPopup", [
+      L("menu_openHelp"), L("menu_keyboardShortcuts"), S, [trouble], S, L("mcHaloSpaces"), S,
+      L("feedbackPage"), L("donationsPage"), S, L("aboutName"),
+      // macOS holt diese ins Programm-Menü (aus jedem Menü der Leiste)
+      ...(MENUBAR_MAC ? ["menu_preferences", "menu_mac_services", "menu_mac_hide_app", "menu_mac_hide_others", "menu_mac_show_all"].map(id => L(id)) : []),
+    ]],
+  ];
+  const keep = new Set();
+  for (const [popupId, entries] of layout) {
+    const popup = popupId.startsWith("mc") ? created.find(e => e.id == popupId) : $(popupId);
+    if (!popup) {
+      continue;
+    }
+    const items = [];
+    for (const entry of entries) {
+      if (entry == S) {
+        const sep = make("menuseparator");
+        sep.classList.add("mc-menu-sep");
+        items.push(sep);
+        continue;
+      }
+      const [el, label] = entry;
+      if (!el) {
+        continue;
+      }
+      if (!created.includes(el)) {
+        moved.push([el, el.parentNode, el.nextSibling]);
+        relabel(el, label);
+      }
+      keep.add(el);
+      items.push(el);
+    }
+    // vorn einreihen; Thunderbirds übrige Einträge bleiben dahinter ausgeblendet
+    popup.prepend(...items);
+  }
+  // Fenster (nur macOS): Bereiche nach Minimieren/Zoomen
+  const zoom = $("zoomWindow");
+  if (MENUBAR_MAC && zoom) {
+    const sepA = make("menuseparator");
+    sepA.classList.add("mc-menu-sep");
+    zoom.after(sepA, ...spaces);
+    spaces.forEach(x => keep.add(x));
+  }
+  const menuLabel = $("messageMenu");
+  relabel(menuLabel, "Mail");
+  // ganze Menüs ohne Aufgabe
+  const offMenus = ["menu_Go", "menu_Event_Task", "tasksMenu"].map($).filter(Boolean);
+  const managed = ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup"].map($).filter(Boolean);
+  const offState = new Map();
+  const hide = (el, on) => {
+    if (!offState.has(el)) {
+      offState.set(el, el.hidden);
+    }
+    el.hidden = on;
+  };
+  const sweep = () => {
+    for (const m of offMenus) {
+      hide(m, true);
+    }
+    for (const popup of managed) {
+      for (const el of popup.children) {
+        if (!keep.has(el) && !el.classList.contains("mc-menu-sep")) {
+          hide(el, true);
+        }
+      }
+    }
+  };
+  // Trennlinien: keine doppelten, keine am Anfang oder Ende
+  const tidy = popup => {
+    let last = null;
+    for (const el of popup.children) {
+      if (el.classList.contains("mc-menu-sep")) {
+        el.hidden = !last || last.localName == "menuseparator";
+        if (!el.hidden) {
+          last = el;
+        }
+      } else if (!el.hidden && el.localName != "menuseparator") {
+        last = el;
+      }
+    }
+    if (last?.classList?.contains("mc-menu-sep")) {
+      last.hidden = true;
+    }
+  };
+  const onShowing = event => {
+    const popup = event.target;
+    if (!bar.contains(popup) && popup != msgPopup && popup != troublePopup) {
+      return;
+    }
+    sweep();
+    const mail = inMail(), calendar = inCalendar();
+    if (popup.id == "menu_View_Popup") {
+      for (const id of ["viewSortMenu", "viewMessageViewMenu", "viewMessagesMenu", "menu_FolderViews"]) {
+        const el = $(id);
+        if (el) {
+          el.hidden = false; // Thunderbird blendet „Messages“ als alte Ansicht aus
+          el.setAttribute("disabled", String(!mail));
+        }
+      }
+      msgMenu.setAttribute("disabled", String(!mail));
+      for (const id of ["calChangeViewDay", "calChangeViewWeek", "calChangeViewMonth", "calendar-go-to-today-menuitem"]) {
+        $(id)?.setAttribute("disabled", String(!calendar));
+      }
+    }
+    if (popup.id == "menu_EditPopup") {
+      copyLink.disabled = !selected()[0]?.messageId;
+    }
+    if (popup.id == "messageMenuPopup") {
+      const hdrs = selected();
+      const unread = hdrs.some(h => !h.isRead);
+      const junk = hdrs.length == 1 && hdrs[0].getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE;
+      const set = (id, on) => {
+        const el = $(id);
+        if (el) {
+          el.hidden = !on;
+        }
+      };
+      set("markReadMenuItem", unread);
+      set("markUnreadMenuItem", !unread);
+      set("menu_markAsJunk", !junk);
+      set("menu_markAsNotJunk", junk);
+      // „Reply“ für Mails, „Reply to Sender“ zeigt Thunderbird nur bei Newsgroups
+      if (!$("replySenderMainMenu")?.hidden && !$("replyMainMenu")?.hidden) {
+        $("replySenderMainMenu").hidden = true;
+      }
+      const star = $("markFlaggedMenuItem");
+      if (star) {
+        star.removeAttribute("type");
+        star.setAttribute("label", tr(hdrs[0]?.isFlagged ? "Remove Star" : "Star"));
+      }
+      remind.disabled = !hdrs.length;
+      getMail.disabled = false;
+    }
+    for (const x of spaces) {
+      const button = $(x.dataset.space);
+      x.hidden = !button || button.hidden;
+    }
+    tidy(popup);
+  };
+  doc.addEventListener("popupshowing", onShowing);
+  sweep();
+  for (const popup of [...managed, msgPopup, troublePopup]) {
+    tidy(popup);
+  }
+  restorers.push(() => {
+    doc.removeEventListener("popupshowing", onShowing);
+    for (const [el, hidden] of offState) {
+      el.hidden = hidden;
+    }
+    for (const [el, label, l10n, key] of relabeled) {
+      if (label != null) {
+        el.setAttribute("label", label);
+      }
+      if (l10n) {
+        el.setAttribute("data-l10n-id", l10n);
+      }
+      if (key) {
+        el.setAttribute("accesskey", key);
+      }
+    }
+    for (const [el, parent, next] of moved.reverse()) {
+      parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+    }
+    created.forEach(e => e.remove());
+    delete bar.__mcMenubar;
+  });
+}
+
 function hookTaskView(win, restorers) {
   const doc = win.document;
   const details = doc.getElementById("calendar-task-details-container");
@@ -4622,6 +5355,9 @@ function hookTaskCards(win, restorers) {
       const calName = el("span", "mc-tc-cal", task.calendar?.name || "");
       calName.style.setProperty("--mc-tc-color", color(task.calendar));
       line2.append(calName);
+      if (!task.isCompleted && pct > 0 && pct < 100) {
+        line2.append(el("span", "mc-tc-pct", tr("{n} % done", { n: pct })));
+      }
       const cats = task.getCategories?.() || [];
       if (cats.length) {
         line2.append(el("span", "mc-tc-cats", cats.join(", ")));
@@ -5302,6 +6038,50 @@ function hookPhotoDialog(cw, restorers = null) {
   });
 }
 
+// Kontextmenü der Ordnerliste: „Run Spam Controls“ und „Mark as Read by Date…“
+// – sie standen nur in der Menüleiste (Tools bzw. Message › Mark)
+function hookFolderContextExtras(a3, restorers) {
+  const doc = a3.document;
+  const popup = doc.getElementById("folderPaneContext");
+  const anchor = doc.getElementById("folderPaneContext-markMailFolderAllRead");
+  const mailWin = a3.browsingContext?.topChromeWindow;
+  if (!popup || !anchor || !mailWin || doc.getElementById("mcFolderJunk")) {
+    return;
+  }
+  const make = (id, sourceId, command) => {
+    const src = mailWin.document.getElementById(sourceId);
+    const item = doc.createXULElement("menuitem");
+    item.id = id;
+    item.setAttribute("label", src?.getAttribute("label") || id);
+    item.addEventListener("command", () => {
+      const folder = a3.folderPaneContextMenu?.activeFolder;
+      if (folder && folder != a3.gFolder) {
+        a3.displayFolder(folder);
+      }
+      a3.setTimeout(() => a3.commandController?.doCommand(command), 0);
+    });
+    return item;
+  };
+  const byDate = make("mcFolderReadByDate", "menu_markReadByDate", "cmd_markReadByDate");
+  const junk = make("mcFolderJunk", "runJunkControls", "cmd_runJunkControls");
+  anchor.after(byDate, junk);
+  const onShow = event => {
+    if (event.target != popup) {
+      return;
+    }
+    const folder = a3.folderPaneContextMenu?.activeFolder;
+    const mail = !!folder && !folder.isServer && !folder.getFlag(Ci.nsMsgFolderFlags.Virtual);
+    byDate.hidden = !mail;
+    junk.hidden = !mail || folder.server?.type == "nntp" || folder.server?.type == "rss";
+  };
+  popup.addEventListener("popupshowing", onShow);
+  restorers.push(() => {
+    popup.removeEventListener("popupshowing", onShow);
+    byDate.remove();
+    junk.remove();
+  });
+}
+
 // Kontextmenüs ohne „In neuem Tab/Fenster öffnen“ (alle Bereiche; Punkte per CSS
 // ausgeblendet). Danach stünden Trennlinien doppelt oder am Rand – beim Öffnen
 // aufräumen; ein Menü ohne sichtbare Einträge öffnet sich gar nicht erst
@@ -5364,6 +6144,207 @@ function hookNewTabMenus(doc, restorers = null) {
 // Teilnehmer; Kalender; Kategorie; ganz unten die Notiz („Add Notes or URL“).
 // Links ein Streifen in der Farbe des gewählten Kalenders. Thunderbirds Zeilen
 // werden nur umgestellt – Felder, IDs und Logik bleiben (nur für Termine, nicht Aufgaben)
+// Dialogfenster: macOS dehnt ein Fenster per Doppelklick auf die linke bzw.
+// rechte Kante bis zum Bildschirmrand aus, findet danach aber nicht zurück.
+// Ein Doppelklick an der Kante eines schon breiteren Dialogs setzt ihn auf
+// seine Standardbreite (wie beim Öffnen gemessen) zurück; die andere Kante
+// bleibt stehen. Hauptfenster (Mail, Verfassen, Nachricht) nicht
+const EDGE_RESET_SKIP = new Set(["mail:3pane", "msgcompose", "mail:messageWindow", "mail:addressbook", "mail:extensionPopup"]);
+function dialogEdgeReset(win, url) {
+  if (!win || win.__mcEdgeReset || win.parent != win || !url.startsWith("chrome://") || !win.opener) {
+    return;
+  }
+  win.__mcEdgeReset = true;
+  let standard = 0;
+  let wideAtDown = false;
+  win.addEventListener("load", () => {
+    if (EDGE_RESET_SKIP.has(win.document.documentElement.getAttribute("windowtype"))) {
+      return;
+    }
+    // nach Thunderbirds eigenem Messen und unseren Anpassungen der Größe
+    win.setTimeout(() => {
+      standard = win.outerWidth;
+    }, 1500);
+    // die äußersten 3–4 px behält macOS selbst (Größe ändern) – Doppelklicks
+    // dort kommen nie an, daher ein etwas breiterer Streifen nach innen
+    const EDGE = 12;
+    // über Bildschirmkoordinaten: an der Kante liegt oft ein eingebetteter
+    // Inhalt (Terminfenster), dessen Ereignisse nur am Fenster-Wurzelobjekt
+    // (windowRoot) ankommen, mit Koordinaten relativ zu diesem Inhalt
+    const atEdge = event => {
+      const x = event.screenX - win.mozInnerScreenX;
+      return x <= EDGE ? "left" : (x >= win.innerWidth - EDGE ? "right" : null);
+    };
+    const root = win.windowRoot || win;
+    root.addEventListener("mousedown", event => {
+      // Breite vor dem Doppelklick: ein Doppelklick auf einen Dialog in
+      // Standardbreite gehört macOS (Ausdehnen), nicht uns
+      if (event.detail == 1) {
+        wideAtDown = standard && win.outerWidth > standard + 2;
+      }
+    }, true);
+    root.addEventListener("dblclick", event => {
+      const side = atEdge(event);
+      if (!side || !wideAtDown || !standard) {
+        return;
+      }
+      const right = win.screenX + win.outerWidth;
+      win.resizeTo(standard, win.outerHeight);
+      if (side == "left") {
+        win.moveTo(right - standard, win.screenY);
+      }
+    }, true);
+  }, { once: true });
+}
+
+// Monatsansicht stufenlos scrollen wie Apple Kalender – Reihe in fünf
+// Schritten, bis zum letzten nur mit extensions.mailcards.monthScroll
+// (Standard aus). Schritt 1: unsichtbarer Unterbau. Die Monatsansicht lädt
+// je zwei Wochen vor und nach dem Monat mit (Termine darin sind schon
+// geladen), die Zeilen dazu sind ausgeblendet; sichtbar bleibt alles wie
+// bisher. Monatsname, Pfeile und das Ausgrauen anderer Monate richten sich
+// weiter nach dem angezeigten Monat, nicht nach der ersten (Puffer-)Woche
+const MONTH_SCROLL_PREF = "extensions.mailcards.monthScroll";
+const MONTH_BUFFER_WEEKS = 2;
+function hookMonthBuffer(mv, restorers) {
+  // Thunderbirds eigene Sicht auf das Element: Änderungen durch die
+  // Schutzschicht der Erweiterung (Xray) sähe der Kalender sonst nicht
+  const xwin = mv?.ownerDocument?.defaultView;
+  mv = mv?.wrappedJSObject || mv;
+  const View = mv && Object.getPrototypeOf(mv)?.constructor;
+  if (!xwin || !View || View.prototype.__mcBuffer || !mv.monthbody || typeof View.prototype.setDateRange != "function") {
+    return;
+  }
+  const win = xwin;
+  const proto = View.prototype;
+  proto.__mcBuffer = true;
+  const doc = win.document;
+  const on = () => Services.prefs.getBoolPref(MONTH_SCROLL_PREF, false);
+  const B = MONTH_BUFFER_WEEKS;
+  // wie Thunderbird die sechs Wochenzeilen anlegt, nur mehr davon
+  const ensureRows = view => {
+    const body = view.monthbody;
+    while (body.children.length < 6 + 2 * B) {
+      const row = doc.createElement("tr");
+      for (let day = 1; day <= 7; day++) {
+        const cell = doc.createElement("td");
+        cell.append(doc.createXULElement("calendar-month-day-box"));
+        row.append(cell);
+      }
+      body.append(row);
+    }
+  };
+  // Zeilen nach jedem Aufbau: Puffer ausblenden, sichtbare Zeilen fortlaufend
+  // ins Raster (leere Rasterzeilen nähmen sonst Platz ein), Monatsfarbe neu
+  const afterLayout = view => {
+    const rows = [...view.monthbody.children];
+    const month = on() ? view.__mcMonth : null;
+    const used = rows.filter(r => !r.hasAttribute("hidden"));
+    let n = 2;
+    rows.forEach((row, i) => {
+      const k = used.indexOf(row);
+      const buffer = !!month && k >= 0 && (k < B || k >= used.length - B);
+      row.toggleAttribute("mc-buffer", buffer);
+      if (buffer) {
+        row.setAttribute("hidden", "");
+      }
+      for (const cell of row.cells) {
+        cell.firstElementChild.style.gridRow = month ? (row.hasAttribute("hidden") ? "" : n) : i + 2;
+      }
+      if (month && !row.hasAttribute("hidden")) {
+        n++;
+      }
+    });
+    if (!month || !view.showFullMonth) {
+      return;
+    }
+    for (const box of view.mDateBoxes || []) {
+      const cur = box.date?.month == month.month;
+      box.classList.toggle("calendar-month-day-box-current-month", cur);
+      box.classList.toggle("calendar-month-day-box-other-month", !cur);
+    }
+  };
+  const saved = ["relayout", "setDateRange", "moveView"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
+  const orig = Object.fromEntries(saved.map(([name, , fn]) => [name, fn]));
+  proto.relayout = function (...args) {
+    const r = orig.relayout.apply(this, args);
+    try {
+      afterLayout(this);
+    } catch (e) {
+      log("month buffer layout error", String(e).slice(0, 120));
+    }
+    return r;
+  };
+  proto.setDateRange = function (startDate, endDate) {
+    if (!on()) {
+      this.__mcMonth = null;
+      return orig.setDateRange.call(this, startDate, endDate);
+    }
+    ensureRows(this);
+    this.__mcMonth = startDate.clone();
+    const s = startDate.clone();
+    const e = endDate.clone();
+    s.day -= 7 * B;
+    e.day += 7 * B;
+    // Thunderbird erweitert auf ganze Wochen und baut neu, wenn sich der
+    // Bereich ändert; danach wieder der Monat als „angezeigter Bereich“
+    orig.setDateRange.call(this, s, e);
+    this.rangeStartDate = startDate;
+    this.rangeEndDate = endDate;
+    if (this.isVisible()) {
+      (win.wrappedJSObject || win).calendarNavigationBar?.setDateRange(startDate, endDate);
+    }
+    return undefined;
+  };
+  // Pfeile: Thunderbird nimmt den 7. Tag der Ansicht als Monat – mit Puffer
+  // läge der noch im Vormonat
+  proto.moveView = function (number) {
+    if (!on() || !number || !this.rangeStartDate) {
+      return orig.moveView.call(this, number);
+    }
+    this.displayDaysOff = !this.mWorkdaysOnly;
+    const date = this.rangeStartDate.clone();
+    date.month += number;
+    const oldSelectedDay = this.selectedDay;
+    this.goToDay(date);
+    const newSelectedDay = oldSelectedDay.clone();
+    newSelectedDay.month += number;
+    if ((newSelectedDay.month - number + 12) % 12 != oldSelectedDay.month) {
+      newSelectedDay.month -= 1;
+      newSelectedDay.day = newSelectedDay.endOfMonth.day;
+    }
+    this.selectedDay = newSelectedDay;
+    return undefined;
+  };
+  // Einstellung umgeschaltet: denselben Monat neu aufbauen
+  const observer = () => {
+    try {
+      const month = mv.rangeStartDate?.clone();
+      mv.mViewStart = null;
+      if (month) {
+        mv.setDateRange(month, month.endOfMonth);
+      }
+    } catch (e) {
+      log("month buffer pref error", String(e).slice(0, 120));
+    }
+  };
+  Services.prefs.addObserver(MONTH_SCROLL_PREF, observer);
+  restorers?.push(() => {
+    Services.prefs.removeObserver(MONTH_SCROLL_PREF, observer);
+    for (const [name, own, fn] of saved) {
+      if (own) {
+        proto[name] = fn;
+      } else {
+        delete proto[name];
+      }
+    }
+    delete proto.__mcBuffer;
+  });
+  if (on()) {
+    observer();
+  }
+}
+
 function appleEventLayout(win) {
   const doc = win.document;
   const grid = doc.getElementById("event-grid");
@@ -5386,9 +6367,72 @@ function appleEventLayout(win) {
   invBtn.addEventListener("click", () => win.editAttendees?.());
   invTd.append(invBtn);
   invRow.append(invTh, invTd);
+  // Zeitkarte wie Apple Kalender: Beschriftungen „All Day:“, „Starts:“,
+  // „Ends:“, „Repeat:“, „Alert:“, „Show As:“ rechtsbündig (Doppelpunkt per
+  // CSS), alle Werte in einer Spalte – das Kästchen für „All Day“ steht
+  // rechts neben seiner Beschriftung statt mit eigenem Text in der Wertespalte
+  const label = (text, control) => {
+    const l = doc.createXULElement("label");
+    l.setAttribute("value", tr(text));
+    if (control) {
+      l.setAttribute("control", control);
+    }
+    return l;
+  };
+  const allTh = row("event-grid-allday-row")?.querySelector(":scope > th");
+  if (allTh && row("event-all-day")) {
+    allTh.replaceChildren(label("All Day", "event-all-day"));
+    row("event-all-day").setAttribute("aria-label", tr("All Day"));
+  }
+  for (const [id, text] of [["event-grid-startdate-row", "Starts"], ["event-grid-enddate-row", "Ends"],
+    ["event-grid-recurrence-row", "Repeat"], ["event-grid-alarm-row", "Alert"]]) {
+    const l = row(id)?.querySelector(":scope > th label.event-only, :scope > th label:not(.todo-only)");
+    l?.setAttribute("value", tr(text));
+    // Tastenkürzel, dessen Buchstabe im neuen Text fehlt, stünde unter Linux
+    // und Windows in Klammern dahinter („Ends (U):“) – dann weglassen
+    const key = l?.getAttribute("accesskey");
+    if (key && !tr(text).toLowerCase().includes(key.toLowerCase())) {
+      l.removeAttribute("accesskey");
+    }
+  }
+  // „Show As“ (frei/beschäftigt) als Zeile der Zeitkarte statt unten in der
+  // Statuszeile; ändert über Thunderbirds eigenen Befehl im Fenster
+  const pdoc = win.parent?.document;
+  const busyItem = pdoc?.getElementById("options-freebusy-busy-menuitem") || pdoc?.getElementById("event-freebusy-busy-menuitem");
+  const freeItem = pdoc?.getElementById("options-freebusy-free-menuitem") || pdoc?.getElementById("event-freebusy-free-menuitem");
+  const busyLabel = pdoc?.getElementById("status-freebusy-busy-label");
+  let showRow = null;
+  if (busyItem && freeItem && busyLabel && win.parent.editShowTimeAs) {
+    showRow = doc.createElementNS(X, "tr");
+    showRow.id = "mc-showas-row";
+    const th = doc.createElementNS(X, "th");
+    const td = doc.createElementNS(X, "td");
+    th.append(label("Show As", "mc-showas"));
+    const ml = doc.createXULElement("menulist");
+    ml.id = "mc-showas";
+    ml.setAttribute("disable-on-readonly", "true");
+    const pop = doc.createXULElement("menupopup");
+    for (const [value, item] of [["OPAQUE", busyItem], ["TRANSPARENT", freeItem]]) {
+      const mi = doc.createXULElement("menuitem");
+      mi.setAttribute("label", item.getAttribute("label") || value);
+      mi.setAttribute("value", value);
+      pop.append(mi);
+    }
+    ml.append(pop);
+    td.append(ml);
+    showRow.append(th, td);
+    body.append(showRow);
+    const sync = () => {
+      ml.value = busyLabel.hidden ? "TRANSPARENT" : "OPAQUE";
+    };
+    sync();
+    new win.MutationObserver(sync).observe(busyLabel, { attributes: true, attributeFilter: ["hidden"] });
+    ml.addEventListener("command", () => win.parent.editShowTimeAs({ getAttribute: () => ml.value }));
+    pdoc.documentElement.setAttribute("mc-showas-row", "");
+  }
   const cards = [
     ["title", ["event-grid-title-row"]],
-    ["time", ["event-grid-allday-row", "event-grid-startdate-row", "event-grid-enddate-row", "event-grid-recurrence-row", "event-grid-alarm-row"]],
+    ["time", ["event-grid-allday-row", "event-grid-startdate-row", "event-grid-enddate-row", "event-grid-recurrence-row", "event-grid-alarm-row", showRow]],
     ["location", ["event-grid-location-row"]],
     ["invitees", [invRow]],
     ["calendar", [calendarRow]],
@@ -5432,7 +6476,7 @@ function appleEventLayout(win) {
   stripe.id = "mc-calendar-stripe";
   grid.append(stripe);
   const place = () => {
-    const first = row("event-grid-title-row"), last = row("event-grid-alarm-row");
+    const first = row("event-grid-title-row"), last = showRow || row("event-grid-alarm-row");
     const g = grid.getBoundingClientRect();
     if (!first || !last) {
       return;
@@ -5987,6 +7031,120 @@ function hookShortcutsLink(cw, restorers = null) {
   card.append(set);
   next.before(card);
   restorers?.push(() => card.remove());
+}
+
+// Befehle, die aus der Menüleiste gefallen sind, bekommen einen Platz in
+// Thunderbirds Einstellungen (Knöpfe bzw. Schalter, die Thunderbirds
+// Menüeintrag auslösen; Texte von Thunderbird, die Suche findet sie)
+const PREF_TOOLS = [
+  // [Karte, Bereich, vor/nach Thunderbird-Abschnitt, Überschrift, Einträge]
+  ["mcPrefFiles", "paneGeneral", "languageAndFontsCategory", "Files and Display", [
+    { button: "menu_openSavedFilesWnd" },
+    { toggle: "menu_fullZoomToggle" },
+    { toggle: "viewAttachmentsInlineMenuitem" },
+    { choice: "menu_uiDensity", items: ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"] },
+  ]],
+  ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
+  ["mcPrefOffline", "paneGeneral", null, "Offline", [
+    { button: "menu_synchronizeOffline" },
+    { button: "menu_downloadFlagged" },
+  ]],
+  ["mcPrefCalendarView", "paneCalendar", null, "Calendar View", [
+    { toggle: "calWorkdaysOnlyMenuitem" },
+    { toggle: "calTasksInViewMenuitem" },
+    { toggle: "calShowCompletedInViewMenuItem" },
+    { toggle: "calViewRotated" },
+  ]],
+];
+
+function addPrefTools(doc, restorers) {
+  const mailWin = Services.wm.getMostRecentWindow("mail:3pane");
+  const deck = doc.getElementById("paneDeck");
+  if (!mailWin || !deck) {
+    return;
+  }
+  // Thunderbird legt manche Bereiche erst beim ersten Öffnen an – dann nachziehen
+  if (!deck.__mcPrefTools) {
+    deck.__mcPrefTools = true;
+    const mo = new doc.defaultView.MutationObserver(() => addPrefTools(doc, restorers));
+    mo.observe(deck, { childList: true });
+    restorers?.push(() => {
+      mo.disconnect();
+      delete deck.__mcPrefTools;
+    });
+  }
+  const X = "http://www.w3.org/1999/xhtml";
+  const item = id => mailWin.document.getElementById(id);
+  const label = id => (item(id)?.getAttribute("label") || "").replace(/…$/, "") + (item(id)?.getAttribute("label")?.endsWith("…") ? "…" : "");
+  for (const [id, pane, before, legendText, rows] of PREF_TOOLS) {
+    if (doc.getElementById(id)) {
+      continue;
+    }
+    const cards = [...deck.children].filter(c => c.getAttribute("data-category") == pane && !c.id.startsWith("mc"));
+    if (!cards.length || rows.every(r => !item(r.button || r.toggle || r.choice))) {
+      continue;
+    }
+    const card = doc.createElementNS(X, "div");
+    card.id = id;
+    card.setAttribute("data-category", pane);
+    card.hidden = cards[0].hidden;
+    const set = doc.createElementNS(X, "fieldset");
+    const legend = doc.createElementNS(X, "legend");
+    legend.textContent = tr(legendText);
+    set.append(legend);
+    for (const row of rows) {
+      const src = item(row.button || row.toggle || row.choice);
+      if (!src) {
+        continue;
+      }
+      const line = doc.createElementNS(X, "div");
+      line.className = "mc-pref-tool";
+      if (row.choice) {
+        // Auswahl aus Thunderbirds Optionsfeldern (z. B. Dichte)
+        const lab = doc.createElementNS(X, "label");
+        const select = doc.createElementNS(X, "select");
+        for (const id of row.items) {
+          const opt = doc.createElementNS(X, "option");
+          opt.value = id;
+          opt.textContent = label(id);
+          select.append(opt);
+        }
+        const sync = () => (select.value = row.items.find(id => item(id)?.getAttribute("checked") == "true") || row.items[1]);
+        sync();
+        select.addEventListener("change", () => item(select.value)?.doCommand());
+        card.addEventListener("focusin", sync);
+        lab.append(label(row.choice), " ", select);
+        line.append(lab);
+      } else if (row.button) {
+        const b = doc.createElementNS(X, "button");
+        b.textContent = label(row.button);
+        b.addEventListener("click", () => item(row.button)?.doCommand());
+        line.append(b);
+      } else {
+        const lab = doc.createElementNS(X, "label");
+        const box = doc.createElementNS(X, "input");
+        box.type = "checkbox";
+        const sync = () => (box.checked = item(row.toggle)?.getAttribute("checked") == "true");
+        sync();
+        box.addEventListener("change", () => {
+          item(row.toggle)?.doCommand();
+          mailWin.setTimeout(sync, 50);
+        });
+        card.addEventListener("focusin", sync);
+        lab.append(box, " ", label(row.toggle));
+        line.append(lab);
+      }
+      set.append(line);
+    }
+    card.append(set);
+    const anchor = before && doc.getElementById(before);
+    if (anchor && anchor.parentNode == deck) {
+      anchor.before(card);
+    } else {
+      cards.at(-1).after(card);
+    }
+    restorers?.push(() => card.remove());
+  }
 }
 
 // Optionen der halo.spaces-Seite (dieselbe Liste wie options.js), übersetzt
@@ -8334,6 +9492,7 @@ class CardEnhancer {
           if (ThemeSheet.active) {
             ThemeSheet.apply(doc.defaultView);
           }
+          dialogEdgeReset(doc.defaultView, url);
           // Termin-Details: Fenster so groß, dass alles sichtbar ist
           if (url.startsWith("chrome://calendar/content/calendar-summary-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;
@@ -8353,6 +9512,13 @@ class CardEnhancer {
           // Termin-/Aufgaben-Fenster: Titel und Beschriftungen ohne Doppelpunkt
           if (url.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml") && doc.defaultView) {
             const dlg = doc.defaultView;
+            // Termin (nicht Aufgabe): schmales Fenster wie Apple Kalender (spaces.css)
+            // – schon jetzt, bevor Thunderbird die Größe nach dem Formular misst
+            try {
+              if (dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
+                doc.documentElement.setAttribute("mc-event", "");
+              }
+            } catch {}
             dlg.addEventListener("load", () => this.tidyEventDialog(dlg), { once: true });
           }
           // Beschreibung eines Termins/einer Aufgabe (Fenster und Tab): Schrift
@@ -8746,12 +9912,39 @@ class CardEnhancer {
     const onTab = () => w.setTimeout(update, 300);
     tabmail?.tabContainer?.addEventListener("TabSelect", onTab);
     w.addEventListener("resize", update);
+    // Fenster nie breiter als der Bildschirm (z. B. nach Doppelklick auf die
+    // Titelleiste): auf die verfügbare Breite zurück und ganz ins Bild
+    let fitLater = null;
+    const fitScreen = () => {
+      w.clearTimeout(fitLater);
+      fitLater = w.setTimeout(() => {
+        try {
+          const sc = w.screen;
+          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.fullScreen) {
+            return;
+          }
+          if (w.outerWidth <= sc.availWidth + 2) {
+            return;
+          }
+          update();
+          w.resizeTo(sc.availWidth, w.outerHeight);
+          w.moveTo(sc.availLeft, w.screenY);
+        } catch (e) {
+          log("fit screen error", e);
+        }
+      }, 250);
+    };
+    w.addEventListener("resize", fitScreen);
+    w.addEventListener("sizemodechange", fitScreen);
     const timer = w.setTimeout(update, 2000);
     this.restorers.push(() => {
       ro.disconnect();
       w.clearTimeout(timer);
+      w.clearTimeout(fitLater);
       tabmail?.tabContainer?.removeEventListener("TabSelect", onTab);
       w.removeEventListener("resize", update);
+      w.removeEventListener("resize", fitScreen);
+      w.removeEventListener("sizemodechange", fitScreen);
       root.style.removeProperty("min-width");
     });
   }
@@ -9906,6 +11099,11 @@ class CardEnhancer {
             log("pref keyboard scroll error", e);
           }
           try {
+            addPrefTools(cw.document, winRestorers);
+          } catch (e) {
+            log("pref tools error", e);
+          }
+          try {
             hookShortcutsLink(cw, winRestorers);
           } catch (e) {
             log("shortcuts link error", e);
@@ -10925,9 +12123,15 @@ class CardEnhancer {
       hookSearchForwarding();
       hookHelpMenu();
       hookPreviewMenu();
+      try {
+        hookMenubar(w, this.restorers);
+      } catch (e) {
+        log("menubar error", e);
+      }
       hookNewTabMenus(w.document, this.restorers);
       try {
         hookTaskFilter();
+        hookTaskLists(w, this.restorers);
         relinkTaskTree(w, this.restorers);
         hookTaskView(w, this.restorers);
         hookTaskCards(w, this.restorers);
@@ -11325,6 +12529,19 @@ class CardEnhancer {
       row?.prepend(top);
       // Wetter statt der festen Sonne (Option, Standard aus)
       Weather.attach(w, title);
+      // Klick auf die Überschrift springt zum heutigen Tag, Liste nach oben
+      title.setAttribute("role", "button");
+      title.tabIndex = 0;
+      title.title = tr("Go to Today");
+      const goToday = event => {
+        if (event.type == "keydown" && event.key != "Enter" && event.key != " ") {
+          return;
+        }
+        event.preventDefault();
+        this.agendaToday(w);
+      };
+      title.addEventListener("click", goToday);
+      title.addEventListener("keydown", goToday);
       (row || d.body).append(btn);
       // „+“ oben rechts in der Today-Pane, gleiche Größe und Höhe wie der
       // Today-Knopf – fragt nach Termin oder Aufgabe (statt unten unter der Liste)
@@ -11454,11 +12671,34 @@ class CardEnhancer {
           li.setAttribute("mc-hot", part);
         }
       };
-      // Stern an anderer Stelle geändert (Mailliste, Taste S, Kontextmenü)
+      // Stern an anderer Stelle geändert (Mailliste, Taste S, Kontextmenü).
+      // Ist die Liste nach Stern sortiert, ordnet Thunderbird die Mail erst
+      // beim nächsten Aufbau ein – hier gleich neu sortieren (die Ansicht
+      // behält dabei Auswahl und gewählte Mail)
+      let resort = 0;
+      const resortStarred = () => {
+        resort = 0;
+        for (const tab of w.gTabmail?.tabInfo || []) {
+          const a3 = tab.mode?.name == "mail3PaneTab" ? tab.chromeBrowser?.contentWindow : null;
+          const view = a3?.gDBView;
+          try {
+            if (view && view.sortType == Ci.nsMsgViewSortType.byFlagged) {
+              // gleiche Sortierung noch einmal ist in Thunderbird wirkungslos –
+              // kurz nach Datum, dann wieder nach Stern
+              const order = view.sortOrder, column = a3.gViewWrapper.primarySortColumnId;
+              view.sort(Ci.nsMsgViewSortType.byDate, order);
+              a3.gViewWrapper.sort(column, order);
+            }
+          } catch (e) {
+            log("resort starred", e);
+          }
+        }
+      };
       const listener = {
         onFolderPropertyFlagChanged: (hdr, property, oldFlag, newFlag) => {
           if (property == "Flagged") {
             this.updateStarButton(w);
+            resort ||= w.setTimeout(resortStarred, 0);
           }
         },
       };
@@ -12947,6 +14187,7 @@ class CardEnhancer {
       markTab();
       decorateAgenda();
       hookMonthView();
+      hookMonthBuffer(w.document.getElementById("month-view"), this.restorers);
       hookMultidayZoom();
       hookNewButton();
       hookCalendarNotes();
@@ -13344,7 +14585,8 @@ class CardEnhancer {
     const group = d.getElementById("task-tree-filtergroup");
     const tree = d.getElementById("calendar-task-tree");
     const radio = group && ([...group.querySelectorAll("radio")].find(r => r.selected || r.value == group.value));
-    box.querySelector(".mc-lh-title").textContent = radio?.label || radio?.getAttribute("label") || tr("Tasks");
+    const own = TASK_LISTS.find(([key]) => tree?.getAttribute("filterValue") == taskListFilter(key));
+    box.querySelector(".mc-lh-title").textContent = own ? tr(own[1]) : radio?.label || radio?.getAttribute("label") || tr("Tasks");
     const n = tree?.mTaskArray?.length || 0;
     let count = tr(n == 1 ? "{n} task" : "{n} tasks", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) });
     // Hinweis „bitte einen beschreibbaren Kalender wählen“ unter dem Titel (wie Apple
@@ -14192,6 +15434,25 @@ class CardEnhancer {
     });
   }
 
+  // Today-Pane auf heute stellen und die Liste ganz nach oben
+  agendaToday(w) {
+    try {
+      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+      const now = new Date();
+      const dt = cal.dtz.jsDateToDateTime(new Date(now.getFullYear(), now.getMonth(), now.getDate()), cal.dtz.defaultTimezone);
+      dt.isDate = true;
+      w.TodayPane.setDay(dt);
+      const agenda = w.document.getElementById("agenda");
+      if (agenda) {
+        agenda.scrollTop = 0;
+        // nach dem Neuladen der Termine nochmals nach oben
+        w.setTimeout(() => (agenda.scrollTop = 0), 150);
+      }
+    } catch (e) {
+      log("agenda today error", String(e).slice(0, 160));
+    }
+  }
+
   // Monat der Today-Pane wechseln: aktueller Monat ab heute, sonst ab dem 1.
   shiftAgendaMonth(w, dir) {
     try {
@@ -14774,10 +16035,11 @@ class CardEnhancer {
       if (!animating) {
         const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld
-        // noch mindestens 160 px breit ist (sonst lieber Knöpfe ausblenden)
+        // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
+        // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width >= 159));
+          (!search || rectOf(search).width > 41));
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail): fehlt
       // dafür Platz, wird zuerst der Abstand nach „Verfassen“ kleiner (69 → 12 px)
@@ -15042,48 +16304,156 @@ class CardEnhancer {
     });
   }
 
-  // Kontextmenü der Nachrichten wie in Apple Mail: Archivieren, Löschen und
-  // Spam als normale Zeilen (mit Text) nach „Als neue Nachricht bearbeiten“
-  // statt einer Symbolleiste ganz oben. Antworten und Gelesen/Ungelesen gibt
-  // es dort schon als eigene Einträge bzw. im Untermenü „Markieren“.
+  // Kontextmenü der Nachrichten wie in Apple Mail, ohne Untermenüs für das
+  // Häufige: Öffnen, Als neue Nachricht bearbeiten | Antworten, Allen
+  // antworten, (Liste, Newsgroup), Weiterleiten, als Anhang, Umleiten |
+  // Erinnern | Gelesen/Ungelesen, Stern, Spam, Ignorieren, Beobachten,
+  // Löschen | Archivieren, Verschieben, Kopieren | Umwandeln | Filter
+  // anwenden. Thunderbirds Einträge werden nur umgehängt (Befehle, Tasten und
+  // Ein-/Ausblenden bleiben bei Thunderbird); Untermenüs, Schlagwörter,
+  // Speichern und Drucken (Menüleiste) fallen weg.
   hookMailContext(doc) {
     hookNewTabMenus(doc, { push: fn => this.addWinRestorer(doc.defaultView, fn) });
     const popup = doc.getElementById("mailContext");
-    const group = doc.getElementById("mailContext-navigation");
-    if (!popup || !group || popup.__mcList) {
+    const start = doc.getElementById("mailContext-open");
+    if (!popup || !start || popup.__mcList) {
       return;
     }
     popup.__mcList = true;
-    group.classList.add("mc-nav-list");
-    const sep = doc.getElementById("mailContext-sep-navigation");
-    const anchor = doc.getElementById("mailContext-editAsNew")?.nextElementSibling;
-    if (anchor?.localName == "menuseparator") {
-      anchor.after(group);
-      if (sep) {
-        group.after(sep);
+    const win = doc.defaultView;
+    const $ = id => doc.getElementById(id);
+    const enabled = command => {
+      try {
+        return !!win.commandController?.isCommandEnabled(command);
+      } catch {
+        return false;
+      }
+    };
+    const own = (id, label, command) => {
+      const item = doc.createXULElement("menuitem");
+      item.id = id;
+      item.setAttribute("label", tr(label));
+      item.addEventListener("command", event => {
+        event.stopPropagation();
+        win.commandController?.doCommand(command, event);
+      });
+      return item;
+    };
+    // eigener Text statt Thunderbirds Untermenü-Kurzform („Read“, „As Spam“)
+    const relabel = (id, label) => {
+      const el = $(id);
+      if (el) {
+        el.removeAttribute("data-l10n-id");
+        el.removeAttribute("data-l10n-args");
+        el.setAttribute("label", tr(label));
+        el.classList.remove("menuitem-iconic");
+      }
+      return el;
+    };
+    const open = own("mcContextOpen", "Open", "cmd_openMessage");
+    const filters = own("mcContextRunFilters", "Run Filters", "cmd_applyFiltersToSelection");
+    const remindSep = doc.createXULElement("menuseparator");
+    remindSep.id = "mcContextRemindSep";
+    const S = "-";
+    const order = [
+      open, "mailContext-editAsNew", S,
+      relabel("mailContext-replySender", "Reply"), relabel("mailContext-replyAll", "Reply All"), "mailContext-replyList",
+      "mailContext-replyNewsgroup", "mailContext-forward", relabel("mailContext-forwardAsAttachment", "Forward as Attachment"),
+      "mailContext-redirect", remindSep, S,
+      relabel("mailContext-markRead", "Mark as Read"), relabel("mailContext-markUnread", "Mark as Unread"),
+      "mailContext-markFlagged", relabel("mailContext-markAsJunk", "Mark as Spam"),
+      relabel("mailContext-markAsNotJunk", "Mark as Not Spam"), "mailContext-ignoreThread", "mailContext-ignoreSubthread",
+      "mailContext-watchThread", relabel("navContext-delete", "Delete"), "mailContext-cancel", S,
+      "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", S,
+      "mailContext-calendar-convert-menu", S,
+      filters, "mailContext-downloadSelected",
+    ];
+    const moved = [];
+    for (const entry of order) {
+      const el = entry == S ? doc.createXULElement("menuseparator") : typeof entry == "string" ? $(entry) : entry;
+      if (el?.localName == "menuseparator") {
+        el.classList.add("mc-ctx-sep");
+      }
+      if (el) {
+        moved.push([el, el.parentNode, el.nextSibling]);
+        start.before(el);
       }
     }
-    // Den Text (Fluent setzt dort nur aria-label) zeigt userChrome.css an.
-    // Zeilenmaße wie ein gewöhnlicher Eintrag desselben Menüs übernehmen – die
-    // Abstände unterscheiden sich je System (Windows: 3 px statt Thunderbirds
-    // --menu-item-padding, „Löschen“ war dort 2 px höher)
-    const win = doc.defaultView;
-    const match = event => {
+    // Stern als Ein-/Ausschalter mit Text statt Häkchen
+    $("mailContext-markFlagged")?.removeAttribute("type");
+    const off = ["mailContext-open", "mailContext-reply", "mailContext-forwardRedirect", "mailContext-moveToFolderAgain",
+      "mailContext-tags", "mailContext-mark", "mailContext-organize", "mailContext-threads", "mailContext-saveAs",
+      "mailContext-print", "mailContext-navigation", "mailContext-sep-navigation"].map($).filter(Boolean);
+    off.forEach(el => el.setAttribute("mc-ctx-off", ""));
+    const onShowing = event => {
       if (event.target != popup) {
         return;
       }
-      // ein sichtbarer, gewöhnlicher Eintrag (welche es gibt, hängt von der Mail ab)
-      const ref = [...popup.children].find(el => el.localName == "menuitem" && el.parentNode != group &&
-        el.getClientRects().length && el.getBoundingClientRect().height > 0);
-      if (!ref) {
-        return;
+      // nach Thunderbirds eigenem Aufbau: von Gelesen/Ungelesen und Spam/kein
+      // Spam nur den passenden Eintrag zeigen (Thunderbird zeigt beide)
+      const messages = !$("navContext-delete")?.hidden || !$("mailContext-moveMenu")?.hidden;
+      let hdrs = [];
+      try {
+        hdrs = [...(win.gDBView?.getSelectedMsgHdrs() || [])];
+      } catch {}
+      const first = hdrs[0];
+      const unread = hdrs.some(h => !h.isRead);
+      const junk = first?.getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE && hdrs.length == 1;
+      const show = (id, on) => {
+        const el = $(id);
+        if (el) {
+          el.hidden = !messages || !first || !on;
+        }
+      };
+      show("mailContext-markRead", unread);
+      show("mailContext-markUnread", !unread);
+      show("mailContext-markAsJunk", !junk);
+      show("mailContext-markAsNotJunk", junk);
+      $("mailContext-markFlagged")?.setAttribute("label", tr(first?.isFlagged ? "Remove Star" : "Star"));
+      // Thunderbird setzt hier bei jedem Öffnen eigene Texte („As Attachment“,
+      // „Delete Message“) – nach dem Aufbau wieder durch die eigenen ersetzen
+      relabel("mailContext-forwardAsAttachment", "Forward as Attachment");
+      const del = $("navContext-delete");
+      if (del && del.dataset.imapDeleted != "true") {
+        relabel("navContext-delete", "Delete");
       }
-      // als Variablen (das Stylesheet hat Vorrang vor Werten am Element)
-      const cs = win.getComputedStyle(ref);
-      group.style.setProperty("--mc-nav-pad", cs.paddingTop);
-      group.style.setProperty("--mc-nav-h", `${ref.getBoundingClientRect().height}px`);
+      // „Teilfaden ignorieren“ nur bei einer Antwort innerhalb einer Konversation
+      const sub = $("mailContext-ignoreSubthread");
+      if (sub && !sub.hidden) {
+        let reply = false;
+        try {
+          const thread = first.folder.msgDatabase.getThreadContainingMsgHdr(first);
+          reply = thread.numChildren > 1 && thread.getRootHdr().messageKey != first.messageKey;
+        } catch {}
+        sub.hidden = !reply;
+      }
+      open.hidden = !messages || !enabled("cmd_openMessage");
+      filters.hidden = !messages || !enabled("cmd_applyFiltersToSelection");
+      // „Erinnern“ (Remind.hookMenu) hinter die Antworten
+      const remind = $("mcRemindMenu");
+      if (remind && remind.previousElementSibling != remindSep) {
+        remindSep.after(remind);
+      }
+      // Thunderbird blendet beim Aufbau Trennlinien neben leeren Gruppen aus –
+      // die eigenen ordnet das Aufräumen danach selbst
+      popup.querySelectorAll(":scope > .mc-ctx-sep").forEach(el => (el.hidden = false));
+      tidyMenuSeparators(popup);
     };
-    popup.addEventListener("popupshown", match);
+    // am Dokument statt am Menü: läuft so nach Thunderbirds eigenem Aufbau
+    // (dessen Listener hängt am Menü selbst)
+    doc.addEventListener("popupshowing", onShowing);
+    this.addWinRestorer(win, () => {
+      doc.removeEventListener("popupshowing", onShowing);
+      off.forEach(el => el.removeAttribute("mc-ctx-off"));
+      for (const [el, parent, next] of moved.reverse()) {
+        if (el == open || el == filters || el.classList.contains("mc-ctx-sep")) {
+          el.remove();
+        } else if (parent) {
+          parent.insertBefore(el, next?.parentNode == parent ? next : null);
+        }
+      }
+      delete popup.__mcList;
+    });
   }
 
   // Today-Pane in allen Bereichen außer dem Kalender (der zeigt den Tag selbst):
@@ -15290,7 +16660,13 @@ class CardEnhancer {
         const items = [...list.children].filter(i => i.getBoundingClientRect().height);
         // wie Apple Kalender: „Alle …“-Knöpfe nur bei mehreren Erinnerungen,
         // Datumssymbol (Monat/Tag) des Termins statt des Liniensymbols
-        doc.documentElement.toggleAttribute("mc-alarm-multi", list.children.length > 1);
+        const multi = list.children.length > 1;
+        if (doc.documentElement.hasAttribute("mc-alarm-multi") != multi) {
+          doc.documentElement.toggleAttribute("mc-alarm-multi", multi);
+          // die Knopfzeile erscheint bzw. geht – gleich danach nachmessen (per
+          // Zeitgeber: verdeckte Fenster zeichnen kein nächstes Bild)
+          dlg.setTimeout(fit, 50);
+        }
         for (const item of list.children) {
           this.alarmDateIcon(dlg, item);
         }
@@ -15367,8 +16743,69 @@ class CardEnhancer {
         dlg.resizeTo(Math.min(maxW, dlg.outerWidth), Math.min(maxH, dlg.outerHeight));
       }
       dlg.moveTo(Math.round(cx - dlg.outerWidth / 2), Math.round(cy - dlg.outerHeight / 2));
-      // danach nicht mehr nachführen: die Beschreibung lädt später, rollt aber in
-      // ihrem eigenen Feld – ein Nachführen ließ das schon sichtbare Fenster springen
+      // die Beschreibung lädt später, rollt aber in ihrem eigenen Feld – nicht
+      // nachführen. Nur wenn das Fenster zu niedrig gemessen wurde (beim ersten
+      // Öffnen sind Schrift oder umbrochene Zeilen manchmal noch nicht fertig,
+      // „Edit“ stand dann fast am Rand), die Höhe nach dem Zeichnen nachziehen –
+      // nie kleiner, Breite und Lage bleiben, sonst springt nichts
+      let passes = 0;
+      const grow = () => {
+        try {
+          if (dlg.closed) {
+            return;
+          }
+          const w0 = dlg.outerWidth, h0 = dlg.outerHeight;
+          // kein erneutes sizeToContent: unter macOS greift es teils erst nach
+          // dem folgenden resizeTo und nähme die Zugabe wieder zurück – die
+          // Höhe ergibt sich allein aus dem Abstand unter dem untersten Knopf
+          // sizeToContent lässt unter dem untersten Knopf („Edit“) manchmal nur
+          // wenige Pixel – so viel Luft wie rechts daneben
+          let extra = 0;
+          const buttons = [...doc.querySelectorAll("button")].filter(b => b.getBoundingClientRect().height > 0);
+          const low = buttons.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
+          if (low) {
+            const r = low.getBoundingClientRect();
+            const want = Math.max(16, Math.round(dlg.innerWidth - r.right));
+            extra = Math.max(0, Math.round(want - (dlg.innerHeight - r.bottom)));
+          }
+          // unter Linux setzt sizeToContent die Größe erst später – dann nicht
+          // mit der alten Größe überschreiben und kleine Rundungsreste (1 px)
+          // nicht aufsummieren, sondern gleich noch einmal nachmessen
+          const shrunk = dlg.outerHeight < h0 - 1;
+          if (extra >= 3 || shrunk || dlg.outerWidth != w0) {
+            const h = Math.min(maxH, Math.max(h0, dlg.outerHeight) + (extra >= 3 ? extra : 0));
+            if (h != dlg.outerHeight || dlg.outerWidth != w0) {
+              dlg.resizeTo(w0, h);
+            }
+          }
+          if (extra >= 3 && ++passes < 5) {
+            dlg.setTimeout(later, 200);
+          }
+        } catch {}
+      };
+      let queued = false;
+      const later = () => {
+        if (!queued) {
+          queued = true;
+          dlg.requestAnimationFrame(() => {
+            queued = false;
+            grow();
+          });
+        }
+      };
+      later();
+      doc.fonts?.ready.then(later);
+      dlg.setTimeout(later, 300);
+      // Text, der in den ersten Sekunden noch nachkommt (Wiederholung, Ort …)
+      const mo = new dlg.MutationObserver(later);
+      mo.observe(doc.documentElement, { subtree: true, childList: true, characterData: true });
+      dlg.setTimeout(() => mo.disconnect(), 3000);
+      // Titel oder Zeilen, die erst später umbrechen (Schrift geladen, Breite
+      // knapper als gemessen), werden höher, ohne dass sich Text ändert
+      const ro = new dlg.ResizeObserver(later);
+      for (const el of doc.querySelectorAll(".item-title, .repeat-details, .reminder-details, td")) {
+        ro.observe(el);
+      }
     } catch (e) {
       log("summary size error", String(e).slice(0, 120));
     }
@@ -16463,6 +17900,7 @@ class CardEnhancer {
       }
     };
     safely("mail context", () => this.hookMailContext(doc));
+    safely("folder context", () => hookFolderContextExtras(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
     safely("dialog box", () => shareDialogBox(win, { push: fn => this.addWinRestorer(win, fn) }));
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));
@@ -18024,8 +19462,9 @@ class CardEnhancer {
   // die Knöpfe im Mailkopf, also auch mit Rückgängig und Folgemail.
   hookHoverActions(doc) {
     const win = doc.defaultView;
-    // in den Rahmen um den Kopf – #messageHeader selbst schneidet Überstehendes ab
-    const header = doc.getElementById("msgHeaderView") || doc.getElementById("messageHeader");
+    // in den Kopf selbst: die Kapsel liegt ganz darin (#msgHeaderView reicht
+    // je nach Version weiter nach unten als die Linie unter dem Kopf)
+    const header = doc.getElementById("messageHeader") || doc.getElementById("msgHeaderView");
     if (!win || !header || doc.getElementById("mcHoverActions")) {
       return;
     }
@@ -18660,7 +20099,7 @@ const SETTINGS = {
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
   darkMessages: ["mail.dark-reader.enabled", "bool", true],
   undoSend: [UNDO_SEND_PREF, "int", 10],
-  followUp: ["extensions.mailcards.followUp", "bool", true],
+  followUp: [FOLLOWUP_PREF, "bool", true],
   weather: [WEATHER_PREF, "bool", false],
   weatherPlace: [WEATHER_PLACE_PREF, "string", ""],
   fifthSpace: [FIFTH_PREF, "string", "chat"],
@@ -18757,14 +20196,6 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
             }
           } else {
             Services.prefs.setStringPref(pref, String(value).slice(0, 10000));
-          }
-          if (key == "followUp") {
-            // Update the banner immediately in every open mail window.
-            const windows = Services.wm.getEnumerator("mail:3pane");
-            while (windows.hasMoreElements()) {
-              const win = windows.getNext();
-              try { FollowUp.render(win); } catch (e) { log("follow up setting refresh", e); }
-            }
           }
           if (key == "weather" || key == "weatherPlace") {
             await Weather.refresh(true); // Zeile unter dem Ortsfeld gleich mit Ergebnis

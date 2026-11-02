@@ -114,6 +114,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   zusammenhängenden Arbeitsblocks (Phase) pushen – nach dem kompletten Test hell
   und dunkel. Danach die CI des Pushes prüfen (Linux, Beta, `mac`). Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
+- **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
+  hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,
+  „Wartet auf OK“ bleibt liegen) – erst dann pushen und die CI prüfen.
 - **Windows-VM** (Parallels Desktop Pro, Anleitung `tests/MAC-MINI.md`
   Abschnitt 11): VM `Windows 11` (Windows-Hostname `win11`, Windows 11
   Enterprise ARM, Benutzer `neosky.cat` mit automatischer Anmeldung, IP im
@@ -228,7 +231,7 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 | Feld | Feld-ID | Optionen |
 |---|---|---|
 | Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
-| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Done `98236657` |
+| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Done `98236657` |
 
 ### Cloud-Sessions
 

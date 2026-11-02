@@ -556,7 +556,8 @@ def take_shots(m, folder, scheme):
             print(f"Screenshot {name}: kein Fenster", flush=True)
             continue
         m.cmd("WebDriver:SwitchToWindow", {"handle": new[0]})
-        m.cmd("WebDriver:ExecuteScript", {"script": "window.resizeTo(900, 700); return new Promise(r => setTimeout(r, 800));", "args": []})
+        # einheitliche Bildgröße – das Terminfenster aber in seiner eigenen (schmalen) Breite, nur höher
+        m.cmd("WebDriver:ExecuteScript", {"script": "if (document.documentElement.hasAttribute('mc-event')) window.resizeTo(window.outerWidth, 700); else window.resizeTo(900, 700); return new Promise(r => setTimeout(r, 800));", "args": []})
         data = m.cmd("WebDriver:TakeScreenshot", {})["value"]
         path = os.path.join(folder, f"{scheme}-{name}.png")
         open(path, "wb").write(base64.b64decode(data))
@@ -2424,8 +2425,15 @@ def compose_checks(m, results):
                   cc: [mid(cd.getElementById("ccAddrLabel")), mid(cd.querySelector("#ccAddrContainer mail-address-pill"))],
                   bcc: [mid(cd.getElementById("bccAddrLabel")), mid(bcc)],
                   first: left(first), wrapped: all.filter(p => top(p) > top(first) + 4).map(left),
-                  bccText: textLeft(bcc), subjectText: textLeft(cd.getElementById("msgSubject")) };
+                  bccText: textLeft(bcc), subjectText: textLeft(cd.getElementById("msgSubject")),
+                  bccLabel: cd.getElementById("bccAddrLabel").getBoundingClientRect().right, subjectLabel: cd.getElementById("subjectLabel").getBoundingClientRect().right };
                 out.pillLum = lum(over(rgba(out.pill), rgba(bar))); out.barLum = lum(rgba(bar));
+                const lb = cd.getElementById("bccAddrLabel").closest(".address-label-container"), row = lb?.parentElement;
+                out.diag = lb ? { w: Math.round(lb.getBoundingClientRect().width), cw: csOf(lb).width, style: lb.getAttribute("style"), pack: lb.getAttribute("pack"),
+                  row: [row.id || row.className, csOf(row).display, csOf(row).gridTemplateColumns], lab: [Math.round(cd.getElementById("bccAddrLabel").getBoundingClientRect().width), csOf(cd.getElementById("bccAddrLabel")).width],
+                  next: [lb.nextElementSibling?.localName, lb.nextElementSibling?.className, Math.round(lb.nextElementSibling?.getBoundingClientRect().left || 0)],
+                  rows: ["identityLabel-box", "subjectLabel-box", "bccAddrLabel"].map(id => { const r = cd.getElementById(id).closest("#identityLabel-box, #subjectLabel-box, .address-label-container").parentElement;
+                    return [r.localName, r.id, r.className, csOf(r).display, [...r.children].map(c => `${c.localName}#${c.id}.${c.className}`).join(" | "), r.parentElement.id, csOf(r.parentElement).display]; }) } : null;
                 // Zustände ohne Übergang messen (verdeckte Testfenster halten Übergänge an)
                 const p = all[1]; p.style.transition = "none";
                 p.setAttribute("selected", "selected"); await pause(150); out.selected = csOf(p).backgroundColor; p.removeAttribute("selected");
@@ -2444,11 +2452,14 @@ def compose_checks(m, results):
 
     def wrap():
         r = recipients()
+        # Felder stehen wie in Apple Mail direkt hinter ihrer Bezeichnung (keine gemeinsame Spalte mehr):
+        # leeres Bcc und Betreff gleich weit von ihrer Bezeichnung entfernt
+        gb, gs = r["bccText"] - r["bccLabel"], r["subjectText"] - r["subjectLabel"]
         ok = (r["rows"] >= 2 and r["wrapped"] and all(abs(x - r["first"]) <= 0.5 for x in r["wrapped"])
-              and abs(r["bccText"] - r["subjectText"]) <= 1)
+              and 4 <= gb <= 20 and abs(gb - gs) <= 1.5)
         return ok, (f"{r['rows']} Zeilen, erste Pille links {r['first']}, umbrochene {r['wrapped']}; "
-                    f"Text leeres Bcc {r['bccText']} gegen Betreff {r['subjectText']}")
-    check("Verfassen: umbrochene Empfänger-Pillen beginnen bündig mit der ersten, leeres Feld bündig mit dem Betreff", wrap, results)
+                    f"Abstand Bezeichnung–Text leeres Bcc {gb:.1f}, Betreff {gs:.1f}" + ("" if ok else f"; {r.get('diag')}"))
+    check("Verfassen: umbrochene Empfänger-Pillen beginnen bündig mit der ersten, leeres Feld so dicht hinter der Bezeichnung wie der Betreff", wrap, results)
 
     def pill_color():
         r = recipients()
@@ -2527,6 +2538,15 @@ def compose_checks(m, results):
             out.label = [Math.round(lab.getBoundingClientRect().left - cd.getElementById("MsgHeadersToolbar").getBoundingClientRect().left), cw.getComputedStyle(lab, "::after").content];
             const desc = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="description"]');
             out.desc = desc ? vis(desc) : false;
+            // Feld direkt hinter der Bezeichnung (Abstand Ende Bezeichnung bis Beginn des Texts)
+            const textStart = el => { const cs = cw.getComputedStyle(el); return el.getBoundingClientRect().left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth); };
+            const idLabel = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="label"]') || cd.getElementById("msgIdentity");
+            const toRow = cd.querySelector("#addressRowTo"), toLab = toRow?.querySelector(".address-label-container > label"), toIn = toRow?.querySelector(".address-row-input");
+            const gap = (lab, start) => lab && start != null ? Math.round(start - lab.getBoundingClientRect().right) : null;
+            const firstOf = el => el ? Math.min(...[el, ...el.querySelectorAll("mail-address-pill")].filter(vis).map(x => x.localName == "mail-address-pill" ? x.getBoundingClientRect().left : textStart(x))) : null;
+            out.gaps = { from: gap(cd.getElementById("identityLabel"), idLabel.getBoundingClientRect().left),
+                         to: gap(toLab, toRow ? Math.min(...[...toRow.querySelectorAll("mail-address-pill, .address-row-input")].filter(vis).map(x => x.localName == "mail-address-pill" ? x.getBoundingClientRect().left : textStart(x))) : null),
+                         subject: gap(lab, textStart(cd.getElementById("msgSubject"))) };
             const ed = cw.GetCurrentEditorElement().contentDocument, box = ed.querySelector(".moz-forward-container"), table = box.querySelector("table");
             out.fwd = { begin: [...box.childNodes].some(n => n.nodeType == 3 && /Begin forwarded message:/.test(n.data)), first: table.querySelector("tr th")?.textContent.trim(),
                         date: [...table.querySelectorAll("td")].map(td => td.textContent).find(t => /2026/.test(t)), border: ed.defaultView.getComputedStyle(table.querySelector("td")).borderTopStyle,
@@ -2540,6 +2560,7 @@ def compose_checks(m, results):
         fw, at = res["fwd"], res["att"]
         ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
+              and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
               and fw["begin"] and fw["first"].startswith("From") and fw["date"] and "+0000" not in fw["date"] and fw["border"] == "none"
               and fw["bar"] == "2px" and not fw["modified"] and at["w"] == 96 and at["icon"] == 32 and at["src"])
         return ok, f"{res}"
@@ -3518,27 +3539,86 @@ MENU_JS = MESSAGE_JS + r"""
 def menu_checks(m, results):
     """Menüs: gleichmäßige Zeilen im Kontextmenü der Mailliste, lesbare Schlagwörter im Schlagwort-Menü."""
 
-    def nav_rows():
-        # Archivieren/Spam/Löschen baut halo.spaces aus Thunderbirds Symbolzeile zu Textzeilen um – sie waren 2 px niedriger
+    def menubar_layout():
+        # Menüleiste wie die Apple-Apps: sieben feste Menüs (Go, Events and Tasks, Tools ausgeblendet, Message heißt Mail),
+        # je Menü die vorgesehenen Einträge in dieser Reihenfolge, Kalender-Ansichten außerhalb des Kalenders ausgegraut,
+        # Hilfe → Troubleshooting mit Activity und Entwicklerwerkzeugen
+        res = m.js(r"""
+          const show = async id => { const p = d.getElementById(id); p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await wait(50);
+            const out = []; for (const el of p.children) { if (el.hidden || el.collapsed) continue; out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); }
+            p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return out; };
+          const out = {};
+          // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie vorher
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          await toMail();
+          out.top = [...d.getElementById("mail-menubar").children].filter(m => !m.hidden).map(m => m.getAttribute("label") || m.id);
+          for (const id of ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup", "mcHelpTroublePopup", "mcViewMessagePopup"])
+            out[id] = await show(id);
+          out.calInMail = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
+          out.sortInMail = d.getElementById("viewSortMenu")?.getAttribute("disabled");
+          await toCalendar(); await show("menu_View_Popup");
+          out.calInCal = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
+          out.sortInCal = d.getElementById("viewSortMenu")?.getAttribute("disabled");
+          await toMail();
+          out.bar = [inactive, tbm?.getAttribute("inactive")];
+          if (inactive != null) tbm.setAttribute("inactive", inactive);
+          return out;""")
+        mac = sys.platform == "darwin"
+        top = res.get("top", [])
+        want_top = ["File", "Edit", "View", "Mail"] + (["Window"] if mac else []) + ["Help"]
+        file_ = res.get("menu_FilePopup", [])
+        mail = res.get("messageMenuPopup", [])
+        ok = ([t for t in top if t in want_top + ["Go", "Events and Tasks", "Tools"]] == want_top
+              and file_[:4] == ["New Message", "New Event…", "New Task…", "New Contact…"] and "Print…" in file_
+              and res.get("menu_EditPopup", [])[:2] == ["Undo", "Redo"] and "Search…" in res["menu_EditPopup"] and "Select Thread" in res["menu_EditPopup"]
+              and "Show Folder List" in res.get("menu_View_Popup", []) and "Message" in res["menu_View_Popup"]
+              and mail[:2] == ["Get New Mail", "Work Offline"] and "Star" in mail and "Mark Folder as Read" in mail and "Remind Me" in mail
+              and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces …" in res["menu_HelpPopup"]
+              and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
+              and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
+              and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
+              and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:])))
+        return ok, f"{res}"
+    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
+
+    def context_flat():
+        # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit
+        # „Remove Star“, nur Gelesen oder Ungelesen, keine Schlagwörter/Speichern/Drucken; Zeilen gleich hoch; Stern per Menü.
+        # (Ohne Konto sind Antworten und Archivieren hier ausgeblendet – die Reihenfolge prüft die Anordnung im Menü.)
         res = m.js(MENU_JS + r"""
           const item = id => ad.getElementById(id);
-          const NAV = ["navContext-archive", "navContext-markAsJunk", "navContext-delete"], REST = ["mailContext-editAsNew", "mailContext-moveMenu", "mailContext-tags", "mailContext-saveAs"];
-          const out = { list: !!item("mailContext-navigation")?.classList.contains("mc-nav-list") };
-          out.state = await openContext();
+          const shown = el => el.getClientRects().length && el.getBoundingClientRect().height > 0;
+          const rows = () => { const out = []; for (const el of P.children) { if (!shown(el)) continue;
+            out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); } return out; };
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage; if (hdr.isFlagged) { hdr.folder.markMessagesFlagged([hdr], false); await wait(300); }
+          if (!hdr.isRead) { hdr.folder.markMessagesRead([hdr], true); await wait(300); }
+          const out = { state: await openContext() };
           try {
-            // berechnete Abstände gibt es erst bei offenem Menü
-            out.pad = Object.fromEntries([...NAV, ...REST].map(id => [id, item(id) ? cs(item(id)).paddingTop : "fehlt"]));
-            const h = id => { const e = item(id); return e && e.getClientRects().length ? Math.round(e.getBoundingClientRect().height * 10) / 10 : null; };
-            out.nav = NAV.map(h).filter(x => x); out.rest = REST.map(h).filter(x => x);
+            out.rows = rows();
+            out.order = [...P.children].filter(e => e.localName != "menuseparator" && !e.hasAttribute("mc-ctx-off")).map(e => e.id).filter(id => /^(mcContext|mailContext-(editAsNew|reply|forward|redirect|mark|ignore|watch|archive|moveMenu|copyMenu|calendar-convert-menu)|navContext-delete|mcRemindMenu)/.test(id));
+            const hs = [...P.children].filter(e => e.localName != "menuseparator" && shown(e)).map(e => Math.round(e.getBoundingClientRect().height * 10) / 10);
+            out.heights = [Math.min(...hs), Math.max(...hs)];
+            out.sub = [...P.children].filter(e => e.localName == "menu" && shown(e)).map(e => e.getAttribute("label") || e.id);
+            item("mailContext-markFlagged").click();
           } finally { P.hidePopup(); await wait(400); }
+          out.flagged = hdr.isFlagged;
+          await openContext(); out.starLabel = item("mailContext-markFlagged").getAttribute("label"); P.hidePopup(); await wait(400);
+          hdr.folder.markMessagesFlagged([hdr], false); await wait(300);
           return out;""")
-        pads = set((res.get("pad") or {"-": ""}).values())
-        hs = res.get("nav", []) + res.get("rest", [])
-        # Fenster verdeckt (Höhe 0): nur das Padding werten
-        heights_ok = (not any(hs)) or (len(res["nav"]) >= 2 and len(res["rest"]) >= 3 and max(hs) - min(hs) < 0.5)
-        ok = res["list"] and len(pads) == 1 and pads.pop().endswith("px") and heights_ok
+        rows = [r for r in res.get("rows", []) if r != "|"]
+        order = ["mcContextOpen", "mailContext-editAsNew", "mailContext-replySender", "mailContext-replyAll", "mailContext-replyList",
+                 "mailContext-replyNewsgroup", "mailContext-forward", "mailContext-forwardAsAttachment", "mailContext-redirect", "mcRemindMenu",
+                 "mailContext-markRead", "mailContext-markUnread", "mailContext-markFlagged", "mailContext-markAsJunk", "mailContext-markAsNotJunk",
+                 "mailContext-ignoreThread", "mailContext-ignoreSubthread", "mailContext-watchThread", "navContext-delete",
+                 "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", "mailContext-calendar-convert-menu", "mcContextRunFilters"]
+        hs = res.get("heights", [0, 0])
+        rem = res.get("rows", []).index("Remind Me") if "Remind Me" in res.get("rows", []) else -1
+        ok = (res.get("order") == order and rows[:1] == ["Open"] and rem > 0 and res["rows"][rem - 1] == "|" and res["rows"][rem + 1] == "|" and "Mark as Unread" in rows and "Mark as Read" not in rows
+              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-1:] == ["Run Filters"]
+              and "Ignore Subthread" not in rows and res.get("sub") == ["Remind Me", "Move To", "Copy To", "Convert To"]
+              and res.get("flagged") is True and res.get("starLabel") == "Remove Star" and (hs[0] == 0 or hs[1] - hs[0] < 0.5))
         return ok, f"{res}"
-    check("Kontextmenü Mailliste: Archivieren/Spam/Löschen so hoch wie die übrigen Zeilen", nav_rows, results)
+    check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“", context_flat, results)
 
     def tag_menu():
         # Schlagwort-Menü: Thunderbird färbt die Namen in der Grundfarbe (Orange auf Hellgrau 1,6:1) – gemischt mit der Textfarbe lesbar
@@ -3548,6 +3628,8 @@ def menu_checks(m, results):
           const dark = lum(rgba(text)) > 0.5;
           // gemessener Menügrund (durchscheinend) und die Menüfläche über Weiß bzw. Schwarz
           const bgs = dark ? [[36, 36, 38, 1], over(menuBg, [0, 0, 0])] : [[224, 224, 224, 1], over(menuBg, [255, 255, 255])];
+          // Schlagwörter stehen nicht mehr im Kontextmenü – das Untermenü für die Prüfung der Farben kurz einblenden
+          menu.removeAttribute("mc-ctx-off"); menu.hidden = false;
           const out = { dark, state: await openContext(), tags: [] };
           try {
             menu.open = true;
@@ -3561,7 +3643,7 @@ def menu_checks(m, results):
             if (tags[1]) { tags[1].setAttribute("_moz-menuactive", "true"); await wait(100);
               out.active = [cs(tags[1].querySelector(".menu-text")).color, colorOf("var(--mt-accent-text)")];
               tags[1].removeAttribute("_moz-menuactive"); }
-          } finally { sub.hidePopup?.(); P.hidePopup(); await wait(400); }
+          } finally { sub.hidePopup?.(); P.hidePopup(); await wait(400); menu.setAttribute("mc-ctx-off", ""); }
           return out;""")
         tags = res.get("tags", [])
         ok = (len(tags) >= 5 and all(not same_color(t["text"], t["inline"]) and same_color(t["icon"], t["text"]) and t["contrast"] >= 4.5 for t in tags)
@@ -3857,8 +3939,40 @@ def calendar_checks(m, results):
             out.overflow = { grid: [grid.scrollWidth, grid.clientWidth], doc: [id.documentElement.scrollWidth, id.documentElement.clientWidth] };
             // Datumsfeld: Minimonat
             const dml = id.querySelector("#event-starttime datepicker menulist");
+            const evs = [], t0 = Date.now();
+            for (const t of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) dml.menupopup?.addEventListener(t, e => evs.push(`${t}@${Date.now() - t0}${e.defaultPrevented ? "!" : ""}`), true);
             dml.open = true;
-            if (await isOpen(dml.menupopup)) {
+            const dmr = dml.getBoundingClientRect();
+            out.dml = { rect: [Math.round(dmr.left), Math.round(dmr.top), Math.round(dmr.width), Math.round(dmr.height)], disabled: dml.disabled,
+                        disp: csOf(dml).display, vis: csOf(dml).visibility, popup: !!dml.menupopup, focusWin: Services.focus.activeWindow?.location?.href?.split("/").pop() };
+            const opened = await isOpen(dml.menupopup);
+            out.dml.events = evs.slice(); out.dml.state = dml.menupopup?.state; out.dml.openAttr = dml.open;
+            out.dml.editable = dml.getAttribute("editable"); out.dml.is = dml.getAttribute("is");
+            if (!opened) {
+              // nacheinander je eine Anpassung zurücknehmen, bis die Auswahl offen bleibt (nur zur Fehlersuche unter Linux)
+              const tryOpen = async () => { dml.open = true; await pause(600); const st = dml.menupopup.state; if (st == "open") { dml.open = false; await pause(300); } return st; };
+              const pdoc = dw.document, ifr = pdoc.getElementById("calendar-item-panel-iframe");
+              // gehen andere Auswahlmenüs im selben Fenster auf? (allgemeines Problem oder nur die Datumsauswahl)
+              const other = async el => { if (!el?.menupopup) return "none"; el.open = true; await pause(600); const st = el.menupopup.state; el.open = false; await pause(300); return st; };
+              out.dml.others = { repeat: await other(id.getElementById("item-repeat")), alarm: await other(id.getElementById("item-alarm")),
+                                 cal: await other(id.getElementById("item-calendar")), endDate: await other(id.querySelector("#event-endtime datepicker > menulist")) };
+              const steps = [
+                ["statusbar", () => pdoc.documentElement.removeAttribute("mc-showas-row")],
+                ["anchorEnd", () => { dml.menupopup.setAttribute("position", "after_end"); }],
+                ["wide", () => { dml.menupopup.removeAttribute("position"); dw.resizeTo(640, dw.outerHeight); }],
+                ["height", () => { dml.style.setProperty("height", "auto", "important"); dml.style.setProperty("min-height", "0", "important"); }],
+                ["margin", () => dml.style.setProperty("margin-inline-start", "0", "important")],
+                ["iframeMin", () => ifr?.style.setProperty("min-width", "0", "important")],
+                ["mcEvent", () => pdoc.documentElement.removeAttribute("mc-event")],
+                ["showas", () => id.documentElement.removeAttribute("mc-showas-row")],
+                ["card", () => dml.closest("tr")?.removeAttribute("data-mc-card")],
+                ["apple", () => id.documentElement.removeAttribute("mc-apple-event")],
+              ];
+              out.dml.bisect = [];
+              out.dml.popupW = Math.round(dml.menupopup.getBoundingClientRect().width); out.dml.win = [dw.screenX, dw.outerWidth, dw.screen.availWidth];
+              for (const [name, fn] of steps) { fn(); await pause(400); const st = await tryOpen(); out.dml.bisect.push(`${name}:${st}`); if (st == "open") break; }
+            }
+            if (opened) {
               await pause(500);
               const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);
               out.mini = { bg: csOf(mm).backgroundColor, today: td ? csOf(td).borderTopColor : null, week: wk ? [csOf(wk).fontWeight, csOf(wk).color] : null };
@@ -3954,7 +4068,7 @@ def calendar_checks(m, results):
             out.cards = [...new Set(rows.map(r => r.dataset.mcCard))];
             const st = id.getElementById("mc-calendar-stripe");
             out.stripe = st ? csOf(st).backgroundColor : null;
-            out.stripeSpan = st ? [Math.round(R(st).top - R(id.getElementById("event-grid-title-row")).top), Math.round(R(id.getElementById("event-grid-alarm-row")).bottom - R(st).bottom)] : null;
+            out.stripeSpan = st ? [Math.round(R(st).top - R(id.getElementById("event-grid-title-row")).top), Math.round(R(id.getElementById("mc-showas-row") || id.getElementById("event-grid-alarm-row")).bottom - R(st).bottom)] : null;
             out.placeholders = [id.getElementById("item-location")?.placeholder, id.querySelector(".mc-invitees")?.textContent,
                                 id.getElementById("item-description")?.contentDocument?.body?.getAttribute("data-mc-placeholder")];
             out.labels = ["item-title-label", "item-location-label", "item-calendar-label"].map(x => vis(id.getElementById(x)));
@@ -4080,6 +4194,195 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Fenster (Detailansicht und Bearbeiten) springt nach dem Öffnen nicht", event_window_still, results)
 
+    def event_dialog_narrow():
+        # Termin-Fenster wie das der Kalender-App: schmal (320 statt rund 560 px, rechts war die Hälfte leer), Knöpfe der Leiste
+        # im Fenster, Sichern rechts; Zeitkarte mit „All Day:“, „Starts:“ … „Show As:“ rechtsbündig, alle Werte (Kästchen,
+        # Datum, Wiederholen, Hinweis, Anzeigen als) auf einer Linie, ohne Pfeile; nichts Sichtbares ragt rechts hinaus.
+        # Aufgaben behalten ihr Formular, Knöpfe auch dort im Fenster
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); await toCalendar();
+          const out = {};
+          // Beginn des sichtbaren Textes (auch im Schatten-DOM) bzw. bei Kästchen dessen linke Kante
+          const textLeft = (el, iw) => {
+            if (el.localName == "checkbox") return Math.round((el.querySelector(".checkbox-check") || el).getBoundingClientRect().left);
+            let best = Infinity;
+            const walk = n => {
+              for (const k of [...(n.shadowRoot?.children || []), ...n.children]) {
+                const r = k.getBoundingClientRect(); if (!r.width || k.localName == "menupopup") continue;
+                if (k.localName == "input") { const cs = iw.getComputedStyle(k); best = Math.min(best, r.left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)); continue; }
+                if ([...k.childNodes].some(t => t.nodeType == 3 && t.textContent.trim()) || (k.localName == "label" && k.getAttribute("value"))) best = Math.min(best, r.left);
+                walk(k);
+              }
+            };
+            walk(el); return Math.round(best);
+          };
+          for (const [kind, open] of [["event", () => w.createEventWithDialog(c)], ["task", () => w.createTodoWithDialog(c)]]) {
+            const known = new Set([...Services.wm.getEnumerator(null)]);
+            open();
+            const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+            if (!dw) { out[kind] = null; continue; }
+            try {
+              const iw = await till(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+                return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f; }, 8000);
+              await pause(1200);
+              const btns = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width > 0);
+              const rs = btns.map(b => b.getBoundingClientRect());
+              const save = dw.document.getElementById("button-saveandclose")?.getBoundingClientRect();
+              const de = iw.document.documentElement;
+              out[kind] = { w: dw.innerWidth, buttons: btns.length,
+                inside: rs.every(r => r.left >= 0 && r.right <= dw.innerWidth + 0.5),
+                saveRight: save ? Math.round(dw.innerWidth - save.right) : null,
+                saveLast: save ? rs.every(r => r.right <= save.right + 0.5) : false,
+                // geschlossene Auswahlmenüs zählen in scrollWidth mit, sind aber nicht zu sehen – nur sichtbare Elemente
+                outside: [...de.querySelectorAll("*")].filter(e => { const r = e.getBoundingClientRect();
+                  return r.width && r.height && r.right > de.clientWidth + 1 && !e.closest("menupopup, panel"); }).map(e => e.localName + "#" + e.id).slice(0, 6) };
+              if (kind == "event") {
+                const id = iw.document;
+                const rows = [...id.querySelectorAll('#event-grid tr[data-mc-card="time"]')].filter(r => r.getBoundingClientRect().height)
+                  .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                out.event.time = rows.map(r => {
+                  const lab = [...r.querySelectorAll(":scope > th label")].find(l => l.getBoundingClientRect().width);
+                  const val = r.querySelector(":scope > td checkbox, :scope > td datetimepicker menulist, :scope > td menulist");
+                  const drop = val?.localName == "menulist" && !val.closest("datepicker, timepicker") ? val.shadowRoot?.querySelector('[part~="dropmarker"]') : null;
+                  const key = lab?.getAttribute("accesskey");
+                  return { label: lab ? lab.getAttribute("value") + iw.getComputedStyle(lab, "::after").content.replace(/"/g, "") : null,
+                           keyOk: !key || lab.getAttribute("value").toLowerCase().includes(key.toLowerCase()),
+                           labelRight: lab ? Math.round(lab.getBoundingClientRect().right) : null, value: val ? textLeft(val, iw) : null,
+                           arrow: drop ? drop.getBoundingClientRect().width > 0 : false, h: Math.round(r.getBoundingClientRect().height) };
+                });
+                out.event.statusBar = dw.document.getElementById("status-bar")?.getBoundingClientRect().height || 0;
+                // „Show As“ ändert Thunderbirds Frei/Beschäftigt (im Fenster gemerkt)
+                const sa = id.getElementById("mc-showas");
+                const before = sa?.value;
+                sa?.querySelector('menuitem[value="TRANSPARENT"]')?.doCommand(); await pause(300);
+                out.event.showAs = [before, sa?.value, !dw.document.getElementById("status-freebusy-free-label")?.hidden];
+              }
+            } finally {
+              dw.close(); await till(() => dw.closed, 4000);
+            }
+          }
+          return out;""")
+        ev, task = res.get("event") or {}, res.get("task") or {}
+        rows = ev.get("time") or []
+        labels = [r["label"] for r in rows]
+        rights = {r["labelRight"] for r in rows if r["labelRight"] is not None}
+        lefts = [r["value"] for r in rows if r["value"] is not None]
+        ok = (bool(ev) and abs(ev["w"] - 320) <= 2 and ev["buttons"] >= 4 and ev["inside"] and ev["saveLast"]
+              and ev["saveRight"] is not None and 4 <= ev["saveRight"] <= 24 and not ev["outside"]
+              and labels == ["All Day:", "Starts:", "Ends:", "Repeat:", "Alert:", "Show As:"]
+              and len(rights) == 1 and len(lefts) == 6 and max(lefts) - min(lefts) <= 2 and not any(r["arrow"] for r in rows)
+              and all(r.get("keyOk") for r in rows)
+              and max(r["h"] for r in rows[1:-1]) - min(r["h"] for r in rows[1:-1]) <= 2
+              and ev["statusBar"] == 0 and ev.get("showAs") == ["OPAQUE", "TRANSPARENT", True]
+              and bool(task) and task["inside"] and task["saveLast"] and not task["outside"])
+        return ok, f"{res}"
+    check("Termin-Fenster wie die Kalender-App: schmal (320 px), Sichern rechts, Zeitkarte „All Day:“ … „Show As:“ mit Werten auf einer Linie ohne Pfeile", event_dialog_narrow, results)
+
+    def dialog_edge_reset():
+        # Dialog per Doppelklick auf die Kante ausgedehnt (macOS): ein weiterer Doppelklick an der linken bzw. rechten Kante
+        # setzt ihn auf die Standardbreite zurück, die andere Kante bleibt stehen; in Standardbreite tut der Doppelklick nichts
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); await toCalendar();
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.createEventWithDialog(c);
+          const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+          if (!dw) return { dialog: false };
+          const out = {};
+          try {
+            await pause(2200);
+            const std = dw.outerWidth;
+            const dbl = x => { const y = Math.round(dw.innerHeight / 2);
+              for (const [type, detail] of [["mousedown", 1], ["mouseup", 1], ["mousedown", 2], ["mouseup", 2], ["dblclick", 2]])
+                dw.document.documentElement.dispatchEvent(new dw.MouseEvent(type, { bubbles: true, cancelable: true, view: dw, detail, clientX: x, clientY: y,
+                  screenX: Math.round(dw.mozInnerScreenX + x), screenY: Math.round(dw.mozInnerScreenY + y) })); };
+            out.std = std;
+            dbl(dw.innerWidth - 2); await pause(300); out.stdAfter = dw.outerWidth;
+            const left = dw.screenX;
+            dw.resizeTo(std + 300, dw.outerHeight); await till(() => dw.outerWidth > std + 200, 3000);
+            dbl(dw.innerWidth - 2); await till(() => dw.outerWidth < std + 5, 3000);
+            out.right = { w: dw.outerWidth, left: dw.screenX - left };
+            dw.moveTo(Math.max(0, left - 300), dw.screenY); dw.resizeTo(std + 300, dw.outerHeight); await till(() => dw.outerWidth > std + 200, 3000);
+            const rightEdge = dw.screenX + dw.outerWidth;
+            dbl(2); await till(() => dw.outerWidth < std + 5, 3000); await pause(200);
+            out.left = { w: dw.outerWidth, right: dw.screenX + dw.outerWidth - rightEdge };
+          } finally {
+            dw.close(); await till(() => dw.closed, 4000);
+          }
+          return out;""")
+        if res.get("dialog") is False:
+            return False, f"{res}"
+        std = res.get("std", 0)
+        ok = (std > 200 and res.get("stdAfter") == std and abs(res["right"]["w"] - std) <= 2 and abs(res["right"]["left"]) <= 1
+              and abs(res["left"]["w"] - std) <= 2 and abs(res["left"]["right"]) <= 2)
+        return ok, f"{res}"
+    check("Dialoge: Doppelklick an linker/rechter Kante eines ausgedehnten Fensters setzt die Standardbreite zurück, andere Kante bleibt", dialog_edge_reset, results)
+
+    def real_double_clicks():
+        # nur von Hand auf dem Testrechner (HALO_KLICK = Hilfsprogramm für echte Mausklicks über macOS, braucht die
+        # Freigabe „Bedienungshilfen“): echter Doppelklick auf die Titelleiste lässt das Hauptfenster auf dem Bildschirm,
+        # echter Doppelklick auf die rechte Dialogkante dehnt aus, ein zweiter setzt die Standardbreite zurück
+        klick = os.environ["HALO_KLICK"]
+        dbl = lambda x, y: subprocess.run([klick, str(round(x)), str(round(y)), "2"], check=True)
+        prep = m.js(r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const sc = w.screen; w.focus();
+          w.resizeTo(Math.min(1200, sc.availWidth - 200), Math.min(800, sc.availHeight - 100)); w.moveTo(sc.availLeft + 100, sc.availTop + 50);
+          await wait(800);
+          // freie Stelle der Titelzeile (zieht das Fenster, kein Knopf, kein Suchfeld)
+          let pt = null;
+          for (let x = 90; x < w.innerWidth - 20 && !pt; x += 10) {
+            const el = d.elementFromPoint(x, 8); if (!el) continue;
+            // leere Fläche der Toolbar-Zeile (zieht das Fenster), links und rechts daneben ebenso
+            const free = e => e && ["unifiedToolbarContent", "unifiedToolbarContainer"].includes(e.id);
+            if (free(el) && free(d.elementFromPoint(x - 15, 8)) && free(d.elementFromPoint(x + 15, 8)))
+              pt = [x, 8, el.id];
+          }
+          const scan = pt ? null : [...Array(36)].map((_, i) => { const el = d.elementFromPoint(90 + i * 40, 8); return el ? `${90 + i * 40}:${el.localName}#${el.id}.${String(el.className).slice(0, 30)}:${w.getComputedStyle(el).getPropertyValue("-moz-window-dragging")}` : null; });
+          return { pt, scan, x: w.screenX, y: w.screenY, w: w.outerWidth, avail: sc.availWidth, left: sc.availLeft };""")
+        if not prep.get("pt"):
+            return False, f"keine freie Stelle in der Titelzeile: {prep}"
+        dbl(prep["x"] + prep["pt"][0], prep["y"] + prep["pt"][1])
+        time.sleep(2.5)
+        after = m.js(r"""return { x: w.screenX, w: w.outerWidth, avail: w.screen.availWidth, left: w.screen.availLeft,
+          right: w.screenX + w.outerWidth <= w.screen.availLeft + w.screen.availWidth + 2 };""")
+        res = {"prep": prep, "zoom": after}
+        # zurück auf die alte Größe
+        m.js(r"""w.resizeTo(1200, 800); w.moveTo(w.screen.availLeft + 100, w.screen.availTop + 50); await wait(800); return 1;""")
+        dlg = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(); await toCalendar();
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.createEventWithDialog(c);
+          const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
+          if (!dw) return { dialog: false };
+          await pause(2200); dw.moveTo(dw.screen.availLeft + 300, dw.screenY); dw.focus(); await pause(500);
+          return { x: dw.screenX, y: dw.screenY, w: dw.outerWidth, h: dw.outerHeight };""")
+        if dlg.get("dialog") is False:
+            return False, f"{res} Dialog fehlt"
+        edge = lambda: m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog"));
+          return dw ? { x: dw.screenX, w: dw.outerWidth } : null;""")
+        ey = dlg["y"] + dlg["h"] / 2
+        dbl(dlg["x"] + dlg["w"] + 1, ey); time.sleep(2)
+        wide = edge()
+        # ausgedehnt reicht die Kante bis an den Bildschirmrand – innen an der Kante klicken (Abstände, die macOS selbst
+        # behält, kommen im Fenster nicht an; mitzählen, welche ankommen)
+        m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog"));
+          dw.__seen = []; dw.windowRoot.addEventListener("dblclick", e => dw.__seen.push(Math.round(e.screenX - dw.mozInnerScreenX)), true); return 1;""")
+        for off in (1, 3, 8):
+            dbl(wide["x"] + wide["w"] - off, ey); time.sleep(1.5)
+            if edge()["w"] < wide["w"] - 50:
+                break
+        res["seen"] = m.js(r"""const dw = [...Services.wm.getEnumerator(null)].find(x => x.location.href.includes("calendar-event-dialog")); return dw?.__seen;""")
+        back = edge()
+        m.js(r"""for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close(); w.focus(); await wait(500); return 1;""")
+        res["dialog"] = {"std": dlg["w"], "wide": wide, "back": back}
+        ok = (after["w"] <= after["avail"] + 2 and after["x"] >= after["left"] - 2 and after["right"]
+              and wide["w"] > dlg["w"] + 50 and abs(back["w"] - dlg["w"]) <= 2 and abs(back["x"] - dlg["x"]) <= 2)
+        return ok, f"{res}"
+    if os.environ.get("HALO_KLICK") and sys.platform == "darwin":
+        check("Echte Doppelklicks (nur von Hand): Titelleiste lässt das Hauptfenster auf dem Bildschirm, Dialogkante dehnt aus und setzt zurück", real_double_clicks, results)
+
     def event_dialog_lines():
         # Termin-Dialog: Trennlinien im Raster als Haarlinie (Thunderbird: 1 px Feldrahmenfarbe); Statuszeile mit Abstand
         # zwischen Beschriftung und Wert („Time as: Busy“ statt „Time as:Busy“); Beschreibung dunkel lesbar (früher schwarz auf #1E1E1E)
@@ -4143,6 +4446,54 @@ def calendar_checks(m, results):
               and res.get("catChip") not in (None, "none"))
         return ok, f"{res}"
     check("Termin-Dialog: Trenner höchstens als Haarlinie, „Time as: Busy“ mit Abstand ohne Prägeschatten, Beschreibung lesbar (dunkel ≥ 4,5:1), Kategorie-Farbpunkte mit Ring", event_dialog_lines, results)
+
+    def summary_height_grows():
+        # Terminübersicht: war das Fenster beim ersten Öffnen zu niedrig gemessen (Schrift/Zeilenumbruch noch nicht fertig),
+        # zieht halo.spaces die Höhe nach dem Zeichnen nach – „Edit“ behält Abstand zum unteren Rand; Breite und Lage bleiben
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Wiederholung"; e.calendar = c;
+          const s = cal.dtz.now(); s.hour = 9; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.recurrenceInfo = new CalRecurrenceInfo(e);
+          e.recurrenceInfo.appendRecurrenceItem(cal.createRecurrenceRule("RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=20271231T000000Z"));
+                    const out = {};
+          const saved = await c.addItem(e);
+          let dw = null;
+          try {
+            await toCalendar(); w.openEventDialogForViewing(saved);
+            dw = await winUrl("calendar-summary-dialog"); if (!dw) return { dialog: false };
+            await till(() => dw.document.readyState == "complete" && dw.outerHeight > 100, 6000);
+            const edit = () => dw.document.querySelector('button[dlgtype="extra1"], #calendar-summary-dialog-edit-button, button.edit-button') || [...dw.document.querySelectorAll("button")].find(b => /Edit/.test(b.label || b.textContent));
+            const gap = () => { const b = edit(); return b ? Math.round(dw.innerHeight - b.getBoundingClientRect().bottom) : null; };
+            // erst wenn Größe und Lage ruhig sind (verdeckte Testfenster zeichnen später)
+            let last = "", calm = 0;
+            for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight, dw.screenX, dw.screenY, gap()].join(); calm = st == last ? calm + 1 : 0; last = st; }
+            out.normal = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            await till(() => dw.document.readyState == "complete", 6000);
+            // Inhalt wird nach dem Laden höher (wie eine erst später umbrochene Zeile)
+            const cell = dw.document.querySelector(".repeat-details, .reminder-details, .item-title");
+            for (let i = 0; i < 2; i++) { cell.append(dw.document.createElementNS("http://www.w3.org/1999/xhtml", "br"), "Halo Zusatzzeile"); }
+            await pause(30);
+            out.squeezed = { h: dw.outerHeight, gap: gap() };
+            await pause(900);
+            out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            out.root = [dw.innerWidth, dw.outerWidth, dw.document.documentElement.style.minWidth, dw.document.querySelector(".item-title")?.getBoundingClientRect().height];
+            out.btns = [...dw.document.querySelectorAll("button")].map(b => { const r = b.getBoundingClientRect(); return [b.id || b.className || b.getAttribute("dlgtype"), Math.round(r.height), Math.round(dw.innerHeight - r.bottom), Math.round(dw.innerWidth - r.right)]; });
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            // Hauptfenster wieder nach vorn, sonst klappt macOS spätere Menüs sofort zu
+            w.focus(); await pause(300);
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        if res.get("dialog") is False or res.get("dialog2") is False:
+            return False, f"Übersicht nicht offen: {res}"
+        n, a = res.get("normal", {}), res.get("after", {})
+        ok = (n.get("gap") is not None and n["gap"] >= 16 and a.get("gap") is not None and abs(a["gap"] - n["gap"]) <= 2
+              and a["h"] >= n["h"] + 20 and a["w"] == n["w"] and a["x"] == n["x"] and a["y"] == n["y"])
+        return ok, f"{res}"
+    check("Terminübersicht: zu niedrig gemessenes Fenster wächst nach dem Zeichnen nach, „Edit“ behält Abstand zum Rand", summary_height_grows, results)
 
     def summary_description():
         # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel
@@ -4291,10 +4642,10 @@ def calendar_checks(m, results):
         c, l, o = res.get("city") or {}, res.get("located") or {}, res.get("off") or {}
         urls = json.loads(c.get("urls") or "[]")
         ok = (res["start"] == {"attr": None, "setting": False}
-              and c.get("attr") == "rain" and c.get("tip") == "Wien, Österreich: 12 °C" and "Wien" in (c.get("status") or "")
+              and c.get("attr") == "rain" and (c.get("tip") or "").endswith("\nWien, Österreich: 12 °C") and "Wien" in (c.get("status") or "")
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
               and l.get("attr") is None and "System Settings" in (l.get("status") or "")
-              and o == {"attr": None, "tip": None})
+              and o.get("attr") is None and "°C" not in (o.get("tip") or ""))
         return ok, f"{res}"
     check("Today-Pane: Wetter (Option) – Stadt → Symbol und Temperatur, Standort verweigert → Hinweis und Sonne, aus → Sonne", today_weather, results)
 
@@ -4634,6 +4985,41 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: laufender Termin „now“ statt Uhrzeit, bald beginnender mit rotem Hinweis", agenda_soon, results)
 
+    def today_title_click():
+        # Klick (und Enter) auf die Überschrift der Today-Pane: zurück zum heutigen Tag, Liste ganz oben
+        res = m.js(CAL_CHECK_JS + r"""
+          await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+          await pause(800);
+          const title = d.getElementById("mcTodayTitle"), agenda = d.getElementById("agenda");
+          const away = () => { const dt = cal.dtz.now(); dt.isDate = true; dt.month += 2; dt.day = 1; w.TodayPane.setDay(dt); };
+          const isToday = () => { const s = w.TodayPane.start, n = new Date(); return s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate(); };
+          const out = { role: title?.getAttribute("role"), tip: title?.title, tab: title?.tabIndex };
+          away(); await pause(500); out.awayOk = !isToday();
+          agenda.scrollTop = 200;
+          title.click(); await pause(600);
+          out.click = [isToday(), agenda.scrollTop];
+          away(); await pause(500);
+          title.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await pause(600);
+          out.enter = [isToday(), agenda.scrollTop];
+          return out;""")
+        ok = (res.get("role") == "button" and bool(res.get("tip")) and res.get("tab") == 0 and res.get("awayOk")
+              and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
+        return ok, f"{res}"
+    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben", today_title_click, results)
+
+    def window_fit_screen():
+        # Hauptfenster nie breiter als der Bildschirm (Doppelklick auf die Titelleiste dehnte es darüber hinaus)
+        res = m.js(r"""
+          const pause = t => new Promise(r => w.setTimeout(r, t));
+          const old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight], sc = w.screen;
+          try {
+            w.resizeTo(sc.availWidth + 500, w.outerHeight); await pause(1500);
+            return { w: w.outerWidth, avail: sc.availWidth, x: w.screenX, left: sc.availLeft };
+          } finally { w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(800); }""")
+        ok = res.get("w", 1e9) <= res.get("avail", 0) + 2 and res.get("x", -1e9) >= res.get("left", 0) - 2
+        return ok, f"{res}"
+    check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm", window_fit_screen, results)
+
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""
     import re
@@ -4944,13 +5330,19 @@ def server_checks(m, results):
               a3.displayFolder(inbox.URI); await wait(1200);
               const bar = await until(() => a3.document.getElementById("mcFollowUp"), 5000);
               const out = { bar: bar?.textContent || null };
-              bar?.querySelector(".mc-fu-close").click(); await wait(300);
+              // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
+              Services.prefs.setBoolPref("extensions.mailcards.followUp", false); await wait(300);
+              out.off = !!a3.document.getElementById("mcFollowUp");
+              Services.prefs.clearUserPref("extensions.mailcards.followUp");
+              out.on = !!(await until(() => a3.document.getElementById("mcFollowUp"), 3000));
+              bar?.querySelector(".mc-fu-close").click(); a3.document.querySelector("#mcFollowUp .mc-fu-close")?.click(); await wait(300);
               out.afterDismiss = !!a3.document.getElementById("mcFollowUp") && a3.document.getElementById("mcFollowUp").textContent.includes("Angebot Fenster");
               Services.prefs.clearUserPref("extensions.mailcards.followUpDismissed"); FU.cache = null;
               return out;""" % (ADDON_ID, key))
-            ok = "Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
+            ok = ("Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
+                  and res.get("off") is False and res.get("on") is True)
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, ✕ blendet aus", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen
@@ -5477,10 +5869,50 @@ def run_checks(m, version, profile, results):
             const search = Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().width);
             out.push({ width, line: Math.round(lineVar + rl) == paneRight || Math.abs(lineVar + rl - paneRight) <= 2, buttonsRightOfList: spacer >= paneRight, search }); }
           w.resizeTo(1500, 900); await wait(800); return out;""")
-        ok = all(r["line"] and r["buttonsRightOfList"] and r["search"] >= 159 for r in res)
+        ok = all(r["line"] and r["buttonsRightOfList"] and r["search"] >= 40 for r in res)
         detail = " · ".join(f"{r['width']}px: Linie {'✓' if r['line'] else '✗'}, Knöpfe {'✓' if r['buttonsRightOfList'] else '✗'}, Suche {r['search']}" for r in res)
         return ok, detail
     check("Toolbar: Trennlinie, Knopfkante, Suchfeld", toolbar_edges, results)
+
+    def toolbar_search_first():
+        # schmales Fenster mit Today-Pane: in jedem Bereich schrumpft zuerst das Suchfeld (bis zur Lupe), Knöpfe ragen nie aus der
+        # Zeile; in der Mail weichen Knöpfe erst, wenn die Suche schon zur Lupe geworden ist (danach hat sie höchstens einen Knopf
+        # mehr Platz). MacBook Pro 16" (1728 px) mit Today-Pane: alle Mail-Knöpfe sichtbar
+        res = m.js("""
+          const out = {};
+          const tp = () => d.getElementById("today-pane-panel");
+          const go = { mail: toMail, calendar: toCalendar, tasks: async () => { tm.openTab("tasks", {}); await wait(1500); },
+                       addressbook: async () => { tm.openTab("addressBookTab", {}); await wait(2000); } };
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const opened = [];
+          const state = name => {
+            const row = d.getElementById("unifiedToolbarContent").getBoundingClientRect();
+            const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")) && !l.hidden && getComputedStyle(l).display != "none");
+            const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+            const sw = search && getComputedStyle(search).display != "none" ? Math.round(search.getBoundingClientRect().width) : null;
+            return { today: Math.round(tp()?.getBoundingClientRect().width || 0), search: sw,
+                     squeezed: name == "mail" ? [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(l => l.getAttribute("item-id")) : [],
+                     clipped: items.filter(l => { const r = l.getBoundingClientRect(); return r.width && r.right > row.right + 1; }).map(l => l.getAttribute("item-id")) };
+          };
+          w.resizeTo(1512, 900); await wait(800);
+          for (const [name, open] of Object.entries(go)) {
+            await open(); await wait(700);
+            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(1500); opened.push(name); }
+            await wait(800);
+            out[name] = state(name);
+          }
+          await toMail(); w.resizeTo(1728, 1000); await wait(1800);
+          out.mail16 = state("mail");
+          // Today-Pane in jedem Bereich wieder so wie vorher (sie merkt sich den Zustand je Bereich)
+          for (const name of opened) { await go[name](); await wait(500); if (w.TodayPane.isVisible) { tpCmd.doCommand(); await wait(800); } }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          w.resizeTo(1500, 900); await wait(800);
+          return out;""")
+        ok = (all((v["today"] > 0 or k == "calendar") and not v["clipped"] and (v["search"] is None or v["search"] >= 40)
+                  and (not v["squeezed"] or (v["search"] or 0) <= 100) for k, v in res.items())
+              and res["mail16"]["today"] > 0 and not res["mail16"]["squeezed"])
+        return ok, f"{res}"
+    check("Toolbar: im schmalen Fenster mit Today-Pane schrumpft zuerst das Suchfeld, Knöpfe bleiben in allen Bereichen sichtbar", toolbar_search_first, results)
 
     def capsules():
         res = m.js("""
@@ -5598,12 +6030,15 @@ def run_checks(m, version, profile, results):
           li.querySelector("button").click(); await wait(900);
           out.reset = [f.repeat.value, f.repeat.querySelector('option[value="CUSTOM"]').textContent];
           p.hidePopup(); await wait(300);
+          // Termin wieder weg, sonst gehen seine Erinnerungen mitten im Lauf auf
+          for (const x of await items("Halo Eigene Regel")) { try { await x.calendar.deleteItem(x); } catch {} }
+          out.left = (await items("Halo Eigene Regel")).length;
           return out;''')
         it = res.get("item") or {}
         ok = (res.get("cancelled") == "WEEKLY" and it.get("type") == "WEEKLY" and it.get("interval") == 2 and it.get("alarms") == 2
               and res["labels"][1] == "2 alerts" and res["labels"][0] not in ("Custom…", "", None) and "\n" not in res["labels"][0] and "2" in res["labels"][0]
               and res.get("calls", [])[:3] == ["calendar-event-dialog-recurrence.xhtml"] * 2 + ["calendar-event-dialog-reminder.xhtml"]
-              and res.get("reset") == ["", "Custom…"])
+              and res.get("reset") == ["", "Custom…"] and res.get("left") == 0)
         return ok, f"{res}"
     check("Schnellfenster: „Custom…“ bei Wiederholung und Erinnerung über Thunderbirds Dialoge, Regel und Erinnerungen kommen im Termin an", quick_custom, results)
 
@@ -5969,14 +6404,14 @@ def run_checks(m, version, profile, results):
           const shown = cs(box).pointerEvents, opacity = cs(box).opacity;
           const r = box.getBoundingClientRect(), h = header.getBoundingClientRect();
           const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-          // die Kapsel liegt über dem Mailtext, nicht darunter (untere Hälfte, unter der Linie)
+          // die Kapsel liegt ganz im Kopf (nicht halb über dem Mailtext, den manche Add-ons darüberlegen)
           await wait(100);
-          const hit = md.elementFromPoint(cx, cy + r.height / 4);
+          const hit = md.elementFromPoint(cx, r.bottom - 2);
           const btn = box.querySelector(".mc-hover-reply");
           md.documentElement.dispatchEvent(new am.MouseEvent("mouseenter"));
           const enabledMatch = [...box.querySelectorAll(".mc-hover-action")].every(b => b.disabled == !am.commandController.isCommandEnabled(b.dataset.command));
           const out = { found: true, listActions, order, idle, shown, opacity, w: Math.round(r.width), h: Math.round(r.height),
-                        dx: Math.round(cx - (h.left + h.width / 2)), dy: Math.round(cy - h.bottom), hit: hit?.closest?.("#mcHoverActions") ? "box" : hit?.id || hit?.localName,
+                        dx: Math.round(cx - (h.left + h.width / 2)), below: Math.round(h.bottom - r.bottom), inHead: r.top >= h.top && r.bottom <= h.bottom, hit: hit?.closest?.("#mcHoverActions") ? "box" : hit?.id || hit?.localName,
                         icon: cs(btn, "::before").maskImage.slice(0, 20), tabbable: [...box.querySelectorAll("button")].filter(b => b.tabIndex >= 0).length,
                         labeled: [...box.querySelectorAll("button")].every(b => b.getAttribute("aria-label")), enabledMatch };
           // Löschen per Knopf: Mail in den Papierkorb, Thunderbirds Rückgängig geht
@@ -5990,11 +6425,11 @@ def run_checks(m, version, profile, results):
         if not res.get("found"):
             return False, f"keine Kapsel in der Leseansicht: {res}"
         ok = (res["listActions"] == 0 and res["order"] == ["mc-hover-delete", "mc-hover-sep", "mc-hover-reply", "mc-hover-replyall", "mc-hover-forward"]
-              and res["shown"] == "auto" and res["opacity"] == "1" and abs(res["dx"]) <= 2 and abs(res["dy"]) <= 2 and 20 <= res["h"] <= 32 and res["hit"] == "box"
+              and res["shown"] == "auto" and res["opacity"] == "1" and abs(res["dx"]) <= 2 and res["inHead"] and 1 <= res["below"] <= 6 and 20 <= res["h"] <= 32 and res["hit"] == "box"
               and res["icon"].startswith("url(") and res["tabbable"] == 0 and res["labeled"] and res["enabledMatch"]
               and res.get("inbox") == 1 and res["undoItems"] >= 1 and res.get("undone") == 2)
         return ok, f"{res}"
-    check("Mailansicht: Aktionen beim Überfahren als Kapsel unter dem Mailkopf (Löschen | Antworten, Allen antworten, Weiterleiten), keine in der Mailliste", hover_actions, results)
+    check("Mailansicht: Aktionen beim Überfahren als Kapsel ganz im Mailkopf (Löschen | Antworten, Allen antworten, Weiterleiten), keine in der Mailliste", hover_actions, results)
 
     def reply_forward_marks():
         # wie Apple Mail: links vom Absenderbild grauer Pfeil für beantwortet (nach links) bzw. weitergeleitet (nach rechts);
@@ -6321,6 +6756,44 @@ def run_checks(m, version, profile, results):
               and not res["listIdRow"] and res["banner"] and res["unsub"] and "Lesen" in (res["folder"] or "") and res["date"])
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
+
+    def star_sort_resort():
+        # Liste nach Stern sortiert: Stern setzen/entfernen ordnet die Mail sofort ein (nicht erst nach Ordnerwechsel),
+        # die gewählte Mail bleibt gewählt
+        res = m.js(r"""
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Stern-Sortierung")) { root.createSubfolder("Stern-Sortierung", null); await wait(800); }
+          const f = root.getChildNamed("Stern-Sortierung"), lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+          for (const n of [1, 2, 3, 4]) if (![...f.messages].some(h => h.messageId == `halo-ss-${n}@example.invalid`))
+            lf.addMessage(`From - Sat Oct 17 10:00:00 2026\r\nFrom: Test ${n} <s${n}@example.invalid>\r\nSubject: Stern ${n}\r\nDate: Sat, 17 Oct 2026 1${n}:00:00 +0200\r\nMessage-ID: <halo-ss-${n}@example.invalid>\r\n\r\nText\r\n`);
+          await wait(500);
+          const a3 = await toMail(); a3.displayFolder(f.URI);
+          await until(() => a3.gDBView?.rowCount >= 4, 10000);
+          const V = Ci.nsMsgViewSortType, O = Ci.nsMsgViewSortOrder;
+          const prev = [a3.gViewWrapper.primarySortColumnId, a3.gDBView.sortOrder];
+          const { ThreadPaneColumns } = ChromeUtils.importESModule("chrome://messenger/content/ThreadPaneColumns.mjs");
+          const starCol = ThreadPaneColumns.getDefaultColumns().find(c => c.sortKey == "byFlagged").id;
+          a3.gViewWrapper.sort(starCol, O.descending); await wait(400);
+          const sortedBy = a3.gDBView.sortType == V.byFlagged;
+          const rows = () => [...Array(a3.gDBView.rowCount).keys()].map(i => a3.gDBView.getMsgHdrAt(i));
+          const flagsOk = () => { const fl = rows().map(h => h.isFlagged); const k = fl.indexOf(false); return k < 0 || fl.slice(k).every(x => !x) || fl.slice(fl.lastIndexOf(false) + 1).every(x => x) && fl.slice(0, fl.indexOf(true) < 0 ? 0 : fl.indexOf(true)).every(x => !x); };
+          // alle ohne Stern, dann die mittlere Mail wählen und markieren
+          f.markMessagesFlagged(rows().filter(h => h.isFlagged), false); await wait(400);
+          a3.threadTree.selectedIndex = 2; await wait(300);
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+          const before = a3.gDBView.findIndexOfMsgHdr(hdr, false);
+          f.markMessagesFlagged([hdr], true); await wait(800);
+          const out = { sortedBy, before, flaggedAt: a3.gDBView.findIndexOfMsgHdr(hdr, false), grouped: flagsOk(),
+                        selected: a3.gDBView.hdrForFirstSelectedMessage?.messageId == hdr.messageId };
+          f.markMessagesFlagged([hdr], false); await wait(800);
+          out.unflaggedAt = a3.gDBView.findIndexOfMsgHdr(hdr, false); out.groupedAfter = flagsOk();
+          out.selectedAfter = a3.gDBView.hdrForFirstSelectedMessage?.messageId == hdr.messageId;
+          a3.gViewWrapper.sort(prev[0], prev[1]);
+          return out;""")
+        ok = (res["sortedBy"] and res["before"] == 2 and res["flaggedAt"] in (0, 3) and res["grouped"] and res["selected"]
+              and res["unflaggedAt"] != res["flaggedAt"] and res["groupedAfter"] and res["selectedAfter"])
+        return ok, f"{res}"
+    check("Mailliste: nach Stern sortiert ordnet Stern setzen/entfernen die Mail sofort ein, Auswahl bleibt", star_sort_resort, results)
 
     def star_button():
         # Symbolleiste: Verschieben ohne Trennstrich; Markieren als geteilter Stern-Knopf – Stern
@@ -7064,38 +7537,54 @@ def run_checks(m, version, profile, results):
         return not bad and "folder" in res and "tab" in res, f"{bad} {res}"
     check("Kontextmenüs: ohne „In neuem Tab/Fenster öffnen“, ohne doppelte Trennlinien", no_new_tab_items, results)
 
-    def task_filter_menu():
-        # Aufgaben: Filter als Menü hinter dem Filter-Knopf im Listenkopf (neben „…“) statt Liste in der Seitenleiste
-        res = m.js(r"""
-          tm.openTab("tasks", {}); await wait(1500);
-          const group = d.getElementById("task-tree-filtergroup"), before = group.value;
-          const btn = d.querySelector("#mcListHeader .mc-lh-filter"), popup = d.getElementById("mcTaskFilterPopup");
-          const vis = el => !!el && el.getBoundingClientRect().width > 0;
-          const out = { button: vis(btn), sidebarList: vis(d.getElementById("task-filtertree-pane")) || vis(d.getElementById("task-tree-filter-header")),
-                        leftOfMore: btn && Math.round(d.querySelector("#mcListHeader .mc-lh-more").getBoundingClientRect().left - btn.getBoundingClientRect().right) };
-          btn?.click(); await until(() => popup?.state == "open", 2000); await wait(300);
-          const entries = [...(popup?.children || [])].filter(i => i.getAttribute("name") == "mctaskfilter");
-          out.items = entries.length; out.checked = entries.filter(i => i.getAttribute("checked") == "true").length;
-          const today = entries.find(i => /today/i.test(i.getAttribute("label")));
-          popup?.activateItem?.(today) ?? today?.doCommand(); await wait(500); popup?.hidePopup(); await wait(200);
-          const tree = d.getElementById("calendar-task-tree");
-          out.value = group.value; out.tree = tree.getAttribute("filterValue"); out.active = btn?.getAttribute("aria-pressed") == "true";
-          // zurück über das Menü – die Liste muss dem Filter folgen
-          btn?.click(); await until(() => popup?.state == "open", 2000); await wait(200);
-          const curItem = [...popup.children].find(i => /current/i.test(i.getAttribute("label")));
-          popup?.activateItem?.(curItem) ?? curItem?.doCommand(); await wait(500); popup?.hidePopup(); await wait(200);
-          out.back = [group.value, tree.getAttribute("filterValue")]; out.activeCurrent = btn?.getAttribute("aria-pressed") == "true";
-          out.title = d.querySelector("#mcListHeader .mc-lh-title").textContent;
-          if (before && before != "throughcurrent") w.taskViewUpdate(before);
-          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
-          await toMail(); out.inMail = !!d.getElementById("mcTaskFilterPopup") && d.getElementById("mcTaskFilterPopup").state == "open";
+    def task_lists():
+        # Aufgaben wie die Erinnerungen-App: Ansichten oben in der Seitenleiste (Today, Scheduled, All, Important, In Progress,
+        # Completed) mit Anzahl, Klick filtert die Liste, Titel über der Liste = Ansicht; kein Filterknopf, kein Minimonat,
+        # „Task Lists“ statt „Calendars“; die Wahl bleibt gespeichert
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar(); const made = [];
+          const add = async (title, fn) => { const t = new CalTodo(); t.title = title; t.calendar = c; fn(t); made.push(await c.addItem(t)); };
+          const day = n => { const x = cal.dtz.now(); x.isDate = true; x.day += n; return x; };
+          await add("Halo L heute", t => { t.dueDate = day(0); });
+          await add("Halo L später", t => { t.dueDate = day(3); });
+          await add("Halo L wichtig", t => { t.priority = 1; });
+          await add("Halo L halb", t => { t.percentComplete = 50; });
+          await add("Halo L fertig", t => { t.isCompleted = true; });
+          const out = {};
+          const before = Services.prefs.getCharPref("extensions.mailcards.taskList", "");
+          try {
+            tm.openTab("tasks", {}); await pause(1800);
+            const box = d.getElementById("mcTaskLists"), tree = d.getElementById("calendar-task-tree");
+            const vis = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+            out.sidebar = { lists: vis(box), minimonth: vis(d.getElementById("minimonth-pane")), filters: vis(d.getElementById("task-filter-pane")),
+                            header: d.getElementById("calendar-list-header-label")?.textContent, filterBtn: vis(d.querySelector("#mcListHeader .mc-lh-filter")),
+                            today: box?.querySelector(".mc-tl-today")?.textContent == String(new Date().getDate()) };
+            out.views = {};
+            for (const row of box.querySelectorAll(".mc-tl-row")) {
+              row.click(); await till(() => tree.getAttribute("filterValue") == "mcTasks-" + row.dataset.list, 3000); await pause(900);
+              const mine = tree.mTaskArray.map(t => t.title).filter(x => x.startsWith("Halo L ")).map(x => x.slice(7)).sort();
+              out.views[row.dataset.list] = { mine, n: tree.mTaskArray.length, count: row.querySelector(".mc-tl-count").textContent,
+                selected: row.classList.contains("selected"), title: d.querySelector("#mcListHeader .mc-lh-title").textContent };
+            }
+            out.pref = Services.prefs.getCharPref("extensions.mailcards.taskList", "");
+          } finally {
+            for (const t of made) { try { await c.deleteItem(t); } catch {} }
+            if (before) Services.prefs.setCharPref("extensions.mailcards.taskList", before); else Services.prefs.clearUserPref("extensions.mailcards.taskList");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
           return out;""")
-        ok = (res["button"] and not res["sidebarList"] and res["leftOfMore"] is not None and -1 <= res["leftOfMore"] <= 2
-              and res["items"] == 8 and res["checked"] == 1 and res["value"] == "throughtoday" and res["tree"] == "throughtoday" and res["active"]
-              and res["back"] == ["throughcurrent", "throughcurrent"] and not res["activeCurrent"]
-              and not res["inMail"])
+        sb, v = res.get("sidebar", {}), res.get("views", {})
+        want = {"today": ["heute"], "scheduled": ["heute", "später"], "all": ["halb", "heute", "später", "wichtig"], "important": ["wichtig"],
+                "progress": ["halb"], "completed": ["fertig"]}
+        titles = {"today": "Today", "scheduled": "Scheduled", "all": "All", "important": "Important", "progress": "In Progress", "completed": "Completed"}
+        ok = (sb.get("lists") and not sb.get("minimonth") and not sb.get("filters") and sb.get("header") == "Task Lists" and not sb.get("filterBtn")
+              and sb.get("today") and list(v) == list(want)
+              and all(v[k]["mine"] == want[k] and v[k]["selected"] and v[k]["title"] == titles[k] and v[k]["count"] == (str(v[k]["n"]) if v[k]["n"] else "")
+                      for k in want)
+              and res.get("pref") == "completed")
         return ok, f"{res}"
-    check("Aufgaben: Filter als Menü hinter dem Filter-Knopf im Listenkopf (wie in der Mail) statt Liste in der Seitenleiste", task_filter_menu, results)
+    check("Aufgaben: Ansichten in der Seitenleiste wie Erinnerungen (Today … Completed) mit Anzahl, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
 
     def today_plus_event():
         # „+“ ganz rechts → „New Event“: Schnellfenster ganz auf dem Bildschirm
@@ -8757,9 +9246,9 @@ Neu
           const out = { side: d.documentElement.hasAttribute("mc-task-side"), head: head.length, overlap: head.some(h => bar.some(t => hits(h, t))), search: Math.round(search) };
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")
-        ok = res["head"] >= 2 and not res["overlap"] and res["search"] >= 160
+        ok = res["head"] >= 1 and not res["overlap"] and res["search"] >= 160
         return ok, f"{res}"
-    check("Aufgaben: ohne Auswahl keine Überlappung von Filter/„…“ mit Plus und Suche der Toolbar, Suchfeld bleibt breit", task_header_no_overlap, results)
+    check("Aufgaben: ohne Auswahl keine Überlappung von „…“ mit Plus und Suche der Toolbar, Suchfeld bleibt breit", task_header_no_overlap, results)
 
     def alarm_dialog():
         # Erinnerung wie in Apple Kalender: Kalendersymbol mit Monat und Tag, keine graue Kachel, „Alle“-Knöpfe nur bei mehreren
@@ -8786,7 +9275,9 @@ Neu
                         card: doc.documentElement.hasAttribute("mc-alarm-card"), monthColor: box ? cs(box.firstChild).color : null,
                         fits: item ? item.getBoundingClientRect().bottom <= dlg.innerHeight + 1 : false };
             dlg.addWidgetFor(e2, e2.getAlarms()[0]); await wait(700);
-            out.two = { allBar: cs(doc.getElementById("alarm-actionbar")).display, days: [...doc.querySelectorAll(".mc-alarm-day")].map(e => e.textContent).sort() };
+            const bb = [...doc.querySelectorAll("#alarm-actionbar button")].map(b => b.getBoundingClientRect()).filter(r => r.height);
+            out.two = { allBar: cs(doc.getElementById("alarm-actionbar")).display, days: [...doc.querySelectorAll(".mc-alarm-day")].map(e => e.textContent).sort(),
+                        gap: bb.length ? [Math.round(dlg.innerHeight - Math.max(...bb.map(r => r.bottom))), Math.round(dlg.innerWidth - Math.max(...bb.map(r => r.right)))] : null };
           } finally {
             dlg.close(); await wait(300);
             for (const e of [e1, e2]) { try { await c.deleteItem(e); } catch {} }
@@ -8797,7 +9288,8 @@ Neu
         ok = (o.get("day") == "15" and (o.get("month") or "").lower().startswith("dec") and o.get("img") == "none"
               and rgba_alpha(o.get("bg") or "rgb(0,0,0)") <= 0.06 and o.get("allBar") == "none"
               and o.get("card") == res["mac"] and o.get("fits") and same_color(o.get("monthColor"), "rgb(255, 59, 48)")
-              and t.get("allBar") != "none" and t.get("days") == ["15", "16"])
+              and t.get("allBar") != "none" and t.get("days") == ["15", "16"]
+              and bool(t.get("gap")) and t["gap"][0] >= 14 and abs(t["gap"][0] - max(16, t["gap"][1])) <= 3)
         return ok, f"{res}"
     check("Kalender: Erinnerung wie in Apple Kalender (Symbol mit Monat und Tag, ohne graue Kachel, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
 
@@ -8943,7 +9435,7 @@ Neu
     check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Tabelle zeigt Thunderbirds Liste", task_cards, results)
 
     def task_header():
-        # Aufgaben wie die Mail: Filter- und „…“-Knopf an derselben Stelle wie über der Mailliste, Titel = Filter, Anzahl;
+        # Aufgaben wie die Mail: „…“-Knopf an derselben Stelle wie über der Mailliste (Filter über die Ansichten der Seitenleiste), Titel, Anzahl;
         # Aktionen (Kategorie, Erledigt, Priorität, Löschen) oben in der Toolbar-Zeile als Symbole ohne Text, mit Tooltip
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await pause(600);
@@ -8972,21 +9464,19 @@ Neu
             // „…“ öffnet die Ansichten, Filter-Knopf die Filter
             box.querySelector(".mc-lh-more").click(); const pop = d.getElementById("mcTaskFilterPopup"); await till(() => pop.state == "open", 3000);
             out.viewMenu = [...pop.querySelectorAll("menuitem")].map(x => x.getAttribute("label")); pop.hidePopup(); await pause(300);
-            box.querySelector(".mc-lh-filter").click(); await till(() => pop.state == "open", 3000);
-            out.filterMenu = pop.querySelectorAll("menuitem").length; pop.hidePopup(); await pause(300);
           } finally {
             try { await c.deleteItem(saved); } catch {}
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           }
           return out;""")
         mf, tf = (res.get("mail") or {}), (res.get("tasks") or {})
-        same = all(mf.get(k) and tf.get(k) and abs(mf[k]["l"] - tf[k]["l"]) <= 2 and abs(mf[k]["t"] - tf[k]["t"]) <= 1 for k in ("filter", "more"))
+        same = all(mf.get(k) and tf.get(k) and abs(mf[k]["l"] - tf[k]["l"]) <= 2 and abs(mf[k]["t"] - tf[k]["t"]) <= 1 for k in ("more",)) and not tf.get("filter")
         acts = res.get("actions") or []
         ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and len(acts) == 4
               and all(a["inRow"] and not a["text"] and a["icon"] and a["tip"] for a in acts)
-              and res.get("viewMenu") == ["Card View", "Table View"] and res.get("filterMenu", 0) >= 5)
+              and res.get("viewMenu") == ["Card View", "Table View"])
         return ok, f"{res}"
-    check("Aufgaben: Filter und „…“ an derselben Stelle wie in der Mail, Aktionen oben in der Toolbar als Symbole ohne Text", task_header, results)
+    check("Aufgaben: „…“ an derselben Stelle wie in der Mail (kein Filterknopf), Aktionen oben in der Toolbar als Symbole ohne Text", task_header, results)
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Aktionen als drei Kapseln (Erledigt | Kategorie ·
@@ -9154,7 +9644,7 @@ Neu
     def tasks_list_states():
         # erledigte Aufgaben aufrecht (Thunderbird: kursiv) mit Kreis in der Systemakzentfarbe statt fest #007AFF;
         # ohne Auswahl kein Teiler über der Statusleiste (früher zwei Haarlinien); Leeranzeige bei Suche ohne Treffer
-        # „No Results“ statt „No Tasks“; Kalenderliste im niedrigen Fenster ≥ 3 Zeilen, Monatskalender weicht
+        # „No Results“ statt „No Tasks“; Kalenderliste im niedrigen Fenster ≥ 3 Zeilen, kein Monatskalender
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900);
           const c = testCalendar();
@@ -9225,7 +9715,7 @@ Neu
             await till(() => tree.mTreeView.rowCount == 0 && tree.getAttribute("filterValue") == "open", 4000); await pause(500);
             out.open = [tree.mTreeView.rowCount, !box.hidden, box.querySelector(".mc-te-text")?.textContent];
             d.getElementById("opt_all_filter")?.click(); await till(() => tree.mTreeView.rowCount > 0, 4000); await pause(300);
-            // niedriges Fenster: Kalenderliste mindestens drei Zeilen, Monatskalender ausgeblendet oder ganz darunter
+            // niedriges Fenster: Kalenderliste mindestens drei Zeilen, kein Monatskalender
             w.resizeTo(1136, 700); await pause(1000);
             const list = d.getElementById("calendar-list"), mm = d.getElementById("minimonth-pane");
             const lr = list.getBoundingClientRect(), mr = mm.getBoundingClientRect();
@@ -9253,7 +9743,8 @@ Neu
         ok_filter = (len(ov) == 4 and ov[0] == 0 and ov[1] and ov[2] == "No Tasks" and ov[3] == "No tasks in this view."
                      and len(op) == 3 and op[0] == 0 and op[1] and op[2] == "Tasks you add appear here.")
         lo, hi = res.get("low") or {}, res.get("high") or {}
-        ok_low = lo.get("h", 0) >= 90 and (lo.get("mm") == "none" or lo["mmTop"] >= lo["listBottom"]) and hi.get("mm") != "none" and hi.get("vis")
+        # Monatskalender gibt es in den Aufgaben nicht mehr (Ansichten wie Erinnerungen) – auch nicht im hohen Fenster
+        ok_low = lo.get("h", 0) >= 90 and lo.get("mm") == "none" and hi.get("mm") == "none" and not hi.get("vis")
         ok = bool(ok_static and ok_circle and ok_split and ok_search and ok_filter and ok_low)
         return ok, f"statisch={ok_static} kreis={ok_circle} teiler={ok_split} suche={ok_search} filter={ok_filter} niedrig={ok_low} {res}"
     check("Aufgaben: erledigt aufrecht mit Kreis in Akzentfarbe, ohne Auswahl kein Teiler, „No Results“ bei Suche, Leeranzeige je Filter, Kalenderliste im niedrigen Fenster", tasks_list_states, results)
@@ -9426,6 +9917,57 @@ Neu
         return (bool(res["text"]) and res["text"].startswith("+") and res["changes"] == 0
                 and res["scroll"] == "hidden"), f"{res}"
     check("Kalender: „+N weitere“ in der Monatsansicht ohne Endlosschleife, volle Tage rollen nicht", month_more, results)
+
+    def month_buffer():
+        # Monatsansicht scrollen, Schritt 1 (nur mit extensions.mailcards.monthScroll): je zwei unsichtbare Wochen vor und
+        # nach dem Monat, Termine darin schon geladen; sichtbar alles wie ohne (Zeilen, erster Tag, Grau anderer Monate,
+        # Titel), Pfeile vor/zurück und „Heute“ landen im selben Monat wie ohne
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const PREF = "extensions.mailcards.monthScroll";
+          const c = testCalendar(); const made = [];
+          const add = async (y, mo, d, title) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.createDateTime(); s.resetTo(y, mo, d, 10, 0, 0, cal.dtz.defaultTimezone); const en = s.clone(); en.hour += 1;
+            e.startDate = s; e.endDate = en; made.push(await c.addItem(e)); };
+          await add(2027, 0, 10, "Halo Puffer");   // 10. Januar 2027 – nach dem Dezember, in der Puffer-Woche
+          await toCalendar(); w.switchToView("month");
+          const mv = d.getElementById("month-view");
+          const snap = () => {
+            const rows = [...mv.monthbody.children].filter(r => !r.hasAttribute("hidden"));
+            const boxes = rows.flatMap(r => [...r.cells].map(c => c.firstElementChild));
+            return { title: mv.getRangeDescription(), rows: rows.length, first: boxes[0]?.date?.icalString,
+                     grey: boxes.map(b => b.classList.contains("calendar-month-day-box-other-month") ? 1 : 0).join(""),
+                     grid: [...new Set(boxes.map(b => b.style.gridRow))].join(","),
+                     h: Math.round(rows[0]?.cells[0].getBoundingClientRect().height || 0) };
+          };
+          const walk = async () => {
+            const out = {};
+            mv.goToDay(cal.createDateTime("20261215")); await wait(800); out.dec = snap();
+            mv.moveView(1); await wait(600); out.next = snap();
+            mv.moveView(-1); mv.moveView(-1); await wait(600); out.prev = snap();
+            mv.moveView(0); await wait(600); out.today = snap();
+            return out;
+          };
+          const out = {};
+          try {
+            Services.prefs.setBoolPref(PREF, false); await wait(300);
+            out.off = await walk();
+            Services.prefs.setBoolPref(PREF, true); await wait(600);
+            out.on = await walk();
+            mv.goToDay(cal.createDateTime("20261215")); await wait(1200);
+            const buf = [...mv.monthbody.children].filter(r => r.hasAttribute("mc-buffer"));
+            out.buffer = { rows: buf.length, boxes: (mv.mDateBoxes || []).length, loaded: buf.some(r => /Halo Puffer/.test(r.textContent)) };
+          } finally {
+            Services.prefs.setBoolPref(PREF, false); await wait(300);
+            for (const e of made) { try { await c.deleteItem(e); } catch {} }
+          }
+          return out;''')
+        off, on, buf = res.get("off") or {}, res.get("on") or {}, res.get("buffer") or {}
+        ok = (bool(off) and bool(on) and all(off[k] == on[k] for k in ("dec", "next", "prev", "today"))
+              and off["dec"]["title"].startswith("December") and off["next"]["title"].startswith("January")
+              and buf.get("rows") == 4 and buf.get("loaded") and buf.get("boxes") == (off["dec"]["rows"] + 4) * 7)
+        return ok, f"{res}"
+    check("Kalender: Monatsansicht mit unsichtbaren Puffer-Wochen (Einstellung) sieht aus und navigiert wie ohne", month_buffer, results)
 
     def mail_search():
         # Suchfeld oben: alle Postfächer, Datum („12.10“), Trefferzahl, gelbe Markierung, zurück beim Leeren
@@ -10325,18 +10867,49 @@ Neu
           out.normal = [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].filter(e => e.getBoundingClientRect().height > 0).length;
           out.update = await search("update");
           out.marked = pw.gSearchResultsPane.getFindSelection(pw).rangeCount > 0;
+          out.follow = await search("follow-up");
           out.logos = await search("logos");
           const hit = [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.classList.contains("visually-hidden") && e.getBoundingClientRect().height > 0);
           hit?.querySelector(".mc-halo-found-show").click();
-          const b = await until(() => { const x = pd.querySelector("#mcPane-paneMcHalo > browser"); return x?.currentURI?.spec.includes("#s-") && x; }, 6000);
+          const b = await until(() => { const x = pd.querySelector("#mcPane-paneMcHalo > browser"); return x?.currentURI?.spec.includes("#s-") && pd.getElementById("categories").selectedItem?.value == "paneMcHalo" && x; }, 6000);
           out.after = { cat: pd.getElementById("categories").selectedItem?.value, url: b?.currentURI?.spec.replace(/^moz-extension:\/\/[^/]+/, ""), search: input.value };
           tm.closeTab(tm.currentTabInfo); await wait(400);
           return out;""")
         ok = (res.get("normal") == 0 and "Install updates at start" in res.get("update", []) and res.get("marked")
-              and res.get("logos") == ["Logos from sender websites"]
+              and res.get("logos") == ["Logos from sender websites"] and "Follow-Up Suggestions" in res.get("follow", [])
               and res.get("after", {}).get("cat") == "paneMcHalo" and res["after"].get("url", "").endswith("#s-senderLogos") and res["after"].get("search") == "")
         return ok, f"{res}"
     check("Einstellungen: Suche findet die Optionen von halo.spaces, „Show“ zeigt die Option", pref_halo_search, results)
+
+    def menubar_new_places():
+        # was aus der Menüleiste fällt, steht anderswo: Einstellungen (Saved Files, Zoom nur Text, Anhänge eingebettet, Verlauf
+        # löschen, Offline-Abgleich, Kalenderansicht) – die Suche der Einstellungen findet sie; Ordner-Kontextmenü mit Spamfilter
+        # und Gelesen nach Datum; Bearbeiten → „Copy Message Link“
+        res = m.js(PREFS_OPEN_JS + r"""
+          const out = {};
+          // manche Bereiche legt Thunderbird erst beim ersten Öffnen an
+          for (const pane of ["panePrivacy", "paneCalendar", "paneGeneral"]) { pw.gotoPref(pane); await wait(700); }
+          out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].map(id => {
+            const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim().split(/\s{2,}|\n/)[0]) : null]; }));
+          out.density = [...(pd.querySelector("#mcPrefFiles select")?.options || [])].map(o => o.value);
+          const input = pd.getElementById("searchInput");
+          const search = async q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true }));
+            await wait(1500); return ["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].filter(id => { const c = pd.getElementById(id); return c && !c.hidden && !c.classList.contains("visually-hidden") && c.getBoundingClientRect().height > 0; }); };
+          out.findSaved = await search("saved files");
+          out.findHistory = await search("recent history");
+          input.value = ""; input.dispatchEvent(new pw.Event("command", { bubbles: true }));
+          tm.closeTab(tm.currentTabInfo); await wait(400);
+          const a3 = await toMail(); const fp = a3.document.getElementById("folderPaneContext");
+          out.folder = [!!a3.document.getElementById("mcFolderJunk"), !!a3.document.getElementById("mcFolderReadByDate")];
+          out.copyLink = d.getElementById("mcEditCopyMessageLink")?.parentNode?.id;
+          return out;""")
+        cards = res.get("cards", {})
+        ok = (all(cards.get(k) for k in cards) and len(cards["mcPrefFiles"]) == 4 and len(cards["mcPrefCalendarView"]) == 4
+              and res.get("density") == ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"]
+              and "mcPrefFiles" in res.get("findSaved", []) and "mcPrefPrivacy" in res.get("findHistory", [])
+              and res.get("folder") == [True, True] and res.get("copyLink") == "menu_EditPopup")
+        return ok, f"{res}"
+    check("Menüleiste: Entfernte Befehle in Einstellungen (per Suche findbar), Ordner-Kontextmenü und Bearbeiten-Menü", menubar_new_places, results)
 
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),
@@ -10547,7 +11120,11 @@ Neu
           pd.querySelectorAll("#mcSub-paneMcAccounts .mc-subcat[level='2']")[1]?.click(); await wait(1500);
           out.acc2 = list("paneMcAccounts"); out.inner = fd.getElementById("contentFrame").contentDocument?.location.href.split("/").pop();
           const pop = fd.getElementById("accountAddPopup") || fd.getElementById("accountActionsDropdown");
-          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await wait(800); out.popup = pop?.state; pop?.hidePopup(); await wait(300);
+          // zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu
+          let shown = false; pop?.addEventListener("popupshowing", () => { shown = true; }, { once: true });
+          // ein Dialog einer früheren Prüfung kann den Fokus behalten haben – Fenster wie beim echten Klick vorn
+          const top = pw.browsingContext.topChromeWindow; top.focus(); await until(() => Services.focus.activeWindow == top, 2000);
+          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await wait(800); out.popup = shown ? "open" : pop?.state; pop?.hidePopup(); await wait(300);
           await pick("paneMcAddons", 3500);
           const ad = page("about:addons"), aw = ad.contentWindow;
           out.add = list("paneMcAddons"); out.vis2 = [vis("paneMcAccounts"), vis("paneMcAddons")];

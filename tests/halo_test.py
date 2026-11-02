@@ -3952,7 +3952,12 @@ def calendar_checks(m, results):
               // nacheinander je eine Anpassung zurücknehmen, bis die Auswahl offen bleibt (nur zur Fehlersuche unter Linux)
               const tryOpen = async () => { dml.open = true; await pause(600); const st = dml.menupopup.state; if (st == "open") { dml.open = false; await pause(300); } return st; };
               const pdoc = dw.document, ifr = pdoc.getElementById("calendar-item-panel-iframe");
+              // gehen andere Auswahlmenüs im selben Fenster auf? (allgemeines Problem oder nur die Datumsauswahl)
+              const other = async el => { if (!el?.menupopup) return "none"; el.open = true; await pause(600); const st = el.menupopup.state; el.open = false; await pause(300); return st; };
+              out.dml.others = { repeat: await other(id.getElementById("item-repeat")), alarm: await other(id.getElementById("item-alarm")),
+                                 cal: await other(id.getElementById("item-calendar")), endDate: await other(id.querySelector("#event-endtime datepicker > menulist")) };
               const steps = [
+                ["statusbar", () => pdoc.documentElement.removeAttribute("mc-showas-row")],
                 ["anchorEnd", () => { dml.menupopup.setAttribute("position", "after_end"); }],
                 ["wide", () => { dml.menupopup.removeAttribute("position"); dw.resizeTo(640, dw.outerHeight); }],
                 ["height", () => { dml.style.setProperty("height", "auto", "important"); dml.style.setProperty("min-height", "0", "important"); }],

@@ -156,24 +156,51 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
   unter Linux (CI, xvfb) und mit der Beta grün sein.
 
-## Release (nur auf ausdrücklichen Wunsch)
+## Release (selbstständig auf neon)
 
 ```bash
-./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel + Beta, updates.json
-./publish.sh 3.1.0 notes.md     # commit, push, GitHub-Release, Hash-Prüfung, ggf. ATN-Upload
+./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel + Beta, updates.json, Testmarke
+./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, ATN-Upload, Bericht
 ```
 
-`release.sh` überspringt die Tests, wenn die CI denselben Stand schon
-vollständig grün getestet hat (Linux, `mac`, `windows`) und seitdem nur
-`*.md`, `release.sh`, `publish.sh` oder `store/` geändert wurden;
-`FORCE_TESTS=1` testet trotzdem.
+**Wann:** Nach einem Lauf, der Bugs/Features abgearbeitet hat, oder nach
+größeren Änderungen veröffentlicht der Agent selbst, ohne Rückfrage – auch
+unbeaufsichtigt nachts (Entscheidung des Maintainers vom 2.11.2026: schlechte
+Releases werden mit einem neuen Update nach vorn korrigiert, Thunderbird stuft
+nicht zurück). Ablauf: Versionshinweise im `README.md` schreiben (eigener
+Commit „README: Versionshinweise x.y.z“), Notizen für den GitHub-Release als
+Datei (englisch, gleicher Inhalt), `./release.sh x.y.z`, bei grünen Tests
+direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
+für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests) nur
+committen, kein Release. Veröffentlicht wird **nur auf neon**, nie vom Laptop
+oder aus Cloud-Sessions (dort neon beauftragen).
 
-`publish.sh` committet **alles** (`git add -A`), pusht und veröffentlicht –
-nie ohne Freigabe ausführen. Zwischen `release.sh` und `publish.sh` darf nicht
-neu gebaut werden, sonst passt der Hash in `updates.json` nicht mehr und
-Thunderbird lehnt das Update ab. Vor einem Release die Versionshinweise im
-`README.md` aktualisieren (eigener Commit „README: Versionshinweise x.y.z“).
-`store/max-version` mit neuen Thunderbird-Versionen anheben (nach Test).
+**Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
+`dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests), wenn
+hell, dunkel und Beta grün waren – oder die CI denselben Stand vollständig
+grün getestet hat (Linux, `mac` mit Beta, `windows`; dann werden die Tests
+übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh` oder
+`store/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
+Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
+ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
+bzw. `SKIP_BETA=1` sind nur zum Ausprobieren – ohne Marke kein Release.
+Die Sperre nicht umgehen; ist ein Test rot, erst beheben.
+
+`publish.sh` committet nur `extension/manifest.json`, `updates.json` und ggf.
+`README.md`; andere geänderte oder neue Dateien bleiben draußen (Warnung).
+Danach prüft es den Download von GitHub (Hash) und die `updates.json`, die
+Thunderbird über `update_url` abruft (neue Version, Hash, Download-Adresse) –
+schlägt das fehl, meldet es laut „FEHLER“, Exitcode 1: dann sofort klären,
+sonst bekommen Nutzer das Update nicht. Am Ende liegt ein Bericht in
+`~/halo-berichte/<datum>-halo.spaces-<version>.md` (Version, Neues/Behobenes,
+Tests, Veröffentlichung, Store-Upload); den Bericht im Gespräch bzw. als
+Morgenbericht kurz zusammenfassen.
+
+Zwischen `release.sh` und `publish.sh` darf nicht neu gebaut werden, sonst
+passt der Hash nicht mehr (Marke und `updates.json`) und Thunderbird lehnt
+das Update ab. Danach die behobenen GitHub-Issues mit „Fixed in x.y.z“
+schließen (siehe unten). `store/max-version` mit neuen Thunderbird-Versionen
+anheben (nach Test).
 
 ## Konventionen
 

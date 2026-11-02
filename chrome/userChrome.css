@@ -7340,6 +7340,14 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 }
 
 /* ---------- Add-ons-Verwaltung ---------- */
+/* Die Seitenleiste bekommt die gemeinsame Seitenleistenbreite (inline, bis
+   360 px); Thunderbirds Raster hält aber nur --sidebar-width frei, dann ragt
+   die Leiste in den Inhalt. Erste Spalte so breit wie die Leiste (nach
+   ThiagoPedro, GitHub-PR #21); eingebettet gilt die eine Spalte oben. */
+:root:not([mc-embedded]) #full:has(> #sidebar > categories-box) {
+  grid-template-columns: max-content minmax(0, 1fr) !important;
+}
+
 #sidebar:has(categories-box) {
   background: var(--mt-sidebar) !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;

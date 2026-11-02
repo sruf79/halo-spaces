@@ -3939,59 +3939,8 @@ def calendar_checks(m, results):
             out.overflow = { grid: [grid.scrollWidth, grid.clientWidth], doc: [id.documentElement.scrollWidth, id.documentElement.clientWidth] };
             // Datumsfeld: Minimonat
             const dml = id.querySelector("#event-starttime datepicker menulist");
-            const evs = [], t0 = Date.now();
-            for (const t of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) dml.menupopup?.addEventListener(t, e => evs.push(`${t}@${Date.now() - t0}${e.defaultPrevented ? "!" : ""}`), true);
             dml.open = true;
-            const dmr = dml.getBoundingClientRect();
-            out.dml = { rect: [Math.round(dmr.left), Math.round(dmr.top), Math.round(dmr.width), Math.round(dmr.height)], disabled: dml.disabled,
-                        disp: csOf(dml).display, vis: csOf(dml).visibility, popup: !!dml.menupopup, focusWin: Services.focus.activeWindow?.location?.href?.split("/").pop() };
-            const opened = await isOpen(dml.menupopup);
-            out.dml.events = evs.slice(); out.dml.state = dml.menupopup?.state; out.dml.openAttr = dml.open;
-            out.dml.editable = dml.getAttribute("editable"); out.dml.is = dml.getAttribute("is");
-            if (!opened) {
-              // nacheinander je eine Anpassung zurücknehmen, bis die Auswahl offen bleibt (nur zur Fehlersuche unter Linux)
-              const tryOpen = async () => { dml.open = true; await pause(600); const st = dml.menupopup.state; if (st == "open") { dml.open = false; await pause(300); } return st; };
-              const pdoc = dw.document, ifr = pdoc.getElementById("calendar-item-panel-iframe");
-              // gehen andere Auswahlmenüs im selben Fenster auf? (allgemeines Problem oder nur die Datumsauswahl)
-              const other = async el => { if (!el?.menupopup) return "none"; el.open = true; await pause(600); const st = el.menupopup.state; el.open = false; await pause(300); return st; };
-              out.dml.others = { repeat: await other(id.getElementById("item-repeat")), alarm: await other(id.getElementById("item-alarm")),
-                                 cal: await other(id.getElementById("item-calendar")), endDate: await other(id.querySelector("#event-endtime datepicker > menulist")) };
-              // Kette der Vorfahren (Anzeige, Überlauf, Lage) für ein Menü in der Zeitkarte und das Kalendermenü (geht auf)
-              const chain = el => { const o = []; for (let e = el; e && e != id.documentElement; e = e.parentElement) { const c = csOf(e);
-                if (c.overflow != "visible" || c.position != "static" || c.transform != "none" || ["flex", "grid", "contents", "table-row", "table-cell", "block"].includes(c.display))
-                  o.push(`${e.localName}#${e.id}:${c.display}/${c.overflow}/${c.position}${c.transform != "none" ? "/T" : ""}${c.alignContent != "normal" ? "/ac=" + c.alignContent : ""}`); } return o.slice(0, 9); };
-              const rep = id.getElementById("item-repeat");
-              out.dml.chainTime = chain(rep); out.dml.chainCal = chain(id.getElementById("item-calendar"));
-              // Lage des Menüfelds beim Schließen gegenüber vorher
-              const before = rep.getBoundingClientRect(); let atHide = null;
-              rep.menupopup.addEventListener("popuphiding", () => { const r = rep.getBoundingClientRect(); atHide = [Math.round(r.left - before.left), Math.round(r.top - before.top), Math.round(r.width - before.width), Math.round(r.height - before.height)]; }, { once: true });
-              out.dml.repeatMove = [await other(rep), atHide];
-              const tryRep = async () => (await other(rep));
-              const exp = {};
-              id.getElementById("mc-showas-row")?.remove(); exp.noShowAs = await tryRep();
-              id.getElementById("mc-calendar-stripe")?.remove(); exp.noStripe = await tryRep();
-              for (const td of id.querySelectorAll('tr[data-mc-card="time"] > td')) td.style.setProperty("align-content", "normal", "important");
-              exp.noAlign = await tryRep();
-              for (const tr of id.querySelectorAll('tr[data-mc-card="time"]')) { tr.style.removeProperty("order"); }
-              exp.noOrder = await tryRep();
-              out.dml.exp = exp;
-              const steps = [
-                ["statusbar", () => pdoc.documentElement.removeAttribute("mc-showas-row")],
-                ["anchorEnd", () => { dml.menupopup.setAttribute("position", "after_end"); }],
-                ["wide", () => { dml.menupopup.removeAttribute("position"); dw.resizeTo(640, dw.outerHeight); }],
-                ["height", () => { dml.style.setProperty("height", "auto", "important"); dml.style.setProperty("min-height", "0", "important"); }],
-                ["margin", () => dml.style.setProperty("margin-inline-start", "0", "important")],
-                ["iframeMin", () => ifr?.style.setProperty("min-width", "0", "important")],
-                ["mcEvent", () => pdoc.documentElement.removeAttribute("mc-event")],
-                ["showas", () => id.documentElement.removeAttribute("mc-showas-row")],
-                ["card", () => dml.closest("tr")?.removeAttribute("data-mc-card")],
-                ["apple", () => id.documentElement.removeAttribute("mc-apple-event")],
-              ];
-              out.dml.bisect = [];
-              out.dml.popupW = Math.round(dml.menupopup.getBoundingClientRect().width); out.dml.win = [dw.screenX, dw.outerWidth, dw.screen.availWidth];
-              for (const [name, fn] of steps) { fn(); await pause(400); const st = await tryOpen(); out.dml.bisect.push(`${name}:${st}`); if (st == "open") break; }
-            }
-            if (opened) {
+            if (await isOpen(dml.menupopup)) {
               await pause(500);
               const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);
               out.mini = { bg: csOf(mm).backgroundColor, today: td ? csOf(td).borderTopColor : null, week: wk ? [csOf(wk).fontWeight, csOf(wk).color] : null };
@@ -4287,7 +4236,9 @@ def calendar_checks(m, results):
         labels = [r["label"] for r in rows]
         rights = {r["labelRight"] for r in rows if r["labelRight"] is not None}
         lefts = [r["value"] for r in rows if r["value"] is not None]
-        ok = (bool(ev) and abs(ev["w"] - 320) <= 2 and ev["buttons"] >= 4 and ev["inside"] and ev["saveLast"]
+        # unter Linux bleibt das Fenster breit (im schmalen gingen dort die Auswahlmenüs der Zeitkarte sofort zu)
+        narrow = abs(ev.get("w", 0) - 320) <= 2 if not sys.platform.startswith("linux") else ev.get("w", 0) > 400
+        ok = (bool(ev) and narrow and ev["buttons"] >= 4 and ev["inside"] and ev["saveLast"]
               and ev["saveRight"] is not None and 4 <= ev["saveRight"] <= 24 and not ev["outside"]
               and labels == ["All Day:", "Starts:", "Ends:", "Repeat:", "Alert:", "Show As:"]
               and len(rights) == 1 and len(lefts) == 6 and max(lefts) - min(lefts) <= 2 and not any(r["arrow"] for r in rows)
@@ -9048,6 +8999,12 @@ Neu
               hover: hover == bg("var(--mt-accent)"), hr: hr ? (parseFloat(cs(hr).borderTopWidth) ? cs(hr).borderTopColor : cs(hr).backgroundColor) == fg("var(--mt-separator)") : null });
             pl.hide(); await wait(300);
           }
+          // breite gemeinsame Seitenleiste (wie applyCommonWidth, inline bis 360 px): der Inhalt beginnt rechts der Leiste
+          const sb = ad.getElementById("sidebar"), main = ad.getElementById("content") || sb.nextElementSibling;
+          const oldW = [sb.style.getPropertyValue("width"), sb.style.getPropertyPriority("width")];
+          sb.style.setProperty("width", "340px", "important"); await wait(400);
+          out.wide = main ? [Math.round(R(sb).right), Math.round(R(main).left)] : null;
+          sb.style.setProperty("width", ...oldW); await wait(200);
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID));
           const tg = await until(() => { const t = ad.querySelector("addon-details .tab-group"); return t && R(t).height && t; }, 6000); await wait(800);
           const row = [...ad.querySelectorAll('addon-details section[name="details"] > .addon-detail-row')].find(e => R(e).height > 0);
@@ -9075,10 +9032,12 @@ Neu
         dt = res.get("detail") or {}
         detail_ok = dt.get("tgBottom") == "0px" and dt.get("gap") is not None and abs(dt["gap"]) <= 1 and dt.get("rowLine") and dt.get("tgTop")
         inline_ok = res.get("inline") == "rgba(0, 0, 0, 0)" and res.get("inlinePixel") == [255, 0, 255, 255]
-        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok
+        wide_ok = bool(res.get("wide")) and res["wide"][1] >= res["wide"][0] - 1
+        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok and wide_ok
         return ok, f"{res}"
     check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Schalter weiß, "
-          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Einstellungen ohne eigene Fläche", addons_manager, results)
+          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Einstellungen ohne eigene Fläche, "
+          "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
     def tasks_view():
         # Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapsel-Knöpfe

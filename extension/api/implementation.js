@@ -9515,7 +9515,10 @@ class CardEnhancer {
             // Termin (nicht Aufgabe): schmales Fenster wie Apple Kalender (spaces.css)
             // – schon jetzt, bevor Thunderbird die Größe nach dem Formular misst
             try {
-              if (dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
+              // nicht unter Linux: dort gingen im schmalen Fenster die
+              // Auswahlmenüs der Zeitkarte (Datum, Wiederholen, Erinnerung)
+              // sofort wieder zu
+              if (Services.appinfo.OS != "Linux" && dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
                 doc.documentElement.setAttribute("mc-event", "");
               }
             } catch {}

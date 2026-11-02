@@ -750,12 +750,29 @@ def maillist_checks(m, results):
                      main: Math.round(main.getBoundingClientRect().width / c.width * 100), avatar: cs(r.querySelector(".mc-avatar")).display,
                      detailsInside: det.getBoundingClientRect().right <= c.right + 1, weight: cs(sub).fontWeight, detailSize: cs(det).fontSize };
           });
+          // die erste Mail jeder Gruppe ist keine „Kopie“ der Überschrift (Gruppen mit einer Mail waren leer)
+          a3.gDBView.doCommand(Ci.nsMsgViewCommandType.expandAll); await wait(800);
+          const firsts = cards().filter(r => { const p = r.previousElementSibling; return p && props(p).includes("dummy") && !props(r).includes("dummy"); });
+          const hidden = firsts.filter(r => r.hasAttribute("data-mc-dup") || !r.getBoundingClientRect().height).length;
           v.showGroupedBySort = false; v.showThreaded = true; await wait(800);
-          return out;""")
-        ok = len(res) >= 2 and all(not h["cut"] and h["main"] >= 60 and h["avatar"] == "none" and h["detailsInside"]
-                                   and int(h["weight"]) >= 600 and h["detailSize"] == "11px" for h in res)
+          return { heads: out, firsts: firsts.length, hidden };""")
+        heads = res.get("heads", [])
+        ok = (len(heads) >= 2 and all(not h["cut"] and h["main"] >= 60 and h["avatar"] == "none" and h["detailsInside"]
+                                      and int(h["weight"]) >= 600 and h["detailSize"] == "11px" for h in heads)
+              and res.get("firsts", 0) >= 1 and res.get("hidden") == 0)
         return ok, f"{res}"
-    check("Mailliste: Gruppenköpfe (Heute, Gestern …) ganz lesbar, halbfett, ohne Absenderbild", group_headers, results)
+    check("Mailliste: Gruppenköpfe (Heute, Gestern …) ganz lesbar, halbfett, ohne Absenderbild; erste Mail jeder Gruppe sichtbar", group_headers, results)
+
+    def cards_two_rows():
+        # Karten immer zweizeilig: wer in Thunderbird 3 Zeilen gewählt hatte, bekam Büroklammer
+        # und Stern in einer eigenen Zeile unter dem Betreff (GitHub-Issue)
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards();
+          const P = Services.prefs, K = "mail.threadpane.cardsview.rowcount";
+          P.setIntPref(K, 3); await wait(1200);
+          return { pref: P.getIntPref(K), compact: a3.threadTree.classList.contains("cards-row-compact") };""")
+        return res.get("pref") == 2 and res.get("compact") is True, f"{res}"
+    check("Mailliste: Karten bleiben zweizeilig (Büroklammer und Stern neben dem Betreff), auch wenn 3 Zeilen gewählt werden", cards_two_rows, results)
 
     def group_headers_table():
         # Tabelle gruppiert: Gruppenköpfe laufen über die leeren Nachbarzellen,

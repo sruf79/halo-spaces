@@ -7291,6 +7291,12 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
+/* Karten immer zweizeilig (Betreff mit Büroklammer und Stern daneben) –
+   Thunderbirds Wahl 2/3 Zeilen entfällt, dafür gibt es die Vorschauzeilen */
+#cardsViewOptions {
+  display: none !important;
+}
+
 /* Einstellungen → Window Layout: Erklärung zu „Hide title bar“ unter dem
    Schalter wie bei den übrigen Optionen */
 #layoutGroup > hbox:first-of-type {

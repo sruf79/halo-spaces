@@ -9639,13 +9639,21 @@ class CardEnhancer {
       Services.prefs.removeObserver(LISTVIEW_PREF, viewObs);
       Services.prefs.removeObserver(PANE_PREF, viewObs);
     });
-    // Wie Apple Mail: Absender, Betreff, darunter die Vorschau. Thunderbirds
-    // dritte Kartenzeile wäre sonst nur eine Leerzeile über der Vorschau.
-    // (einmalig – wer danach wieder 3 Zeilen wählt, behält sie)
-    if (this.previewLines && !Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
-      Services.prefs.setIntPref("mail.threadpane.cardsview.rowcount", 2);
-      Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
-    }
+    // Wie Apple Mail: Absender, Betreff mit Büroklammer und Stern daneben,
+    // darunter die Vorschau. Thunderbirds dreizeilige Karte setzte die Symbole
+    // in eine eigene Zeile – immer zwei Zeilen; die Auswahl in Thunderbirds
+    // Einstellungen ist ausgeblendet (dafür gibt es die Vorschauzeilen)
+    const ROWS_PREF = "mail.threadpane.cardsview.rowcount";
+    const twoRows = () => {
+      if (Services.prefs.getIntPref(ROWS_PREF, 3) != 2) {
+        Services.prefs.setIntPref(ROWS_PREF, 2);
+        Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
+      }
+    };
+    twoRows();
+    const rowsObs = { observe: () => twoRows() };
+    Services.prefs.addObserver(ROWS_PREF, rowsObs);
+    this.restorers.push(() => Services.prefs.removeObserver(ROWS_PREF, rowsObs));
     this.applyToolbarOnce();
     Services.prefs.clearUserPref(QUICK_REPLY_PREF); // (Schnellantwort entfernt)
     // Suche über alle Konten und Treffer als einfache Liste (Einstellungen →
@@ -18954,11 +18962,6 @@ class CardEnhancer {
       return;
     }
     this.previewLines = lines;
-    // wie beim Start: Karten mit Vorschau zeigen Absender und Betreff in zwei Zeilen
-    if (lines && !Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
-      Services.prefs.setIntPref("mail.threadpane.cardsview.rowcount", 2);
-      Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
-    }
     for (const win of this.windows) {
       try {
         const doc = win.document;
@@ -19841,7 +19844,11 @@ class CardEnhancer {
     } catch {
       return false;
     }
-    if (!hdr?.messageId || index < 1) {
+    // Überschrift einer Gruppe („Grouped by Sort“): liefert die erste Mail der
+    // Gruppe – sie ist keine Kopie und darf auch nicht als Vergleich dienen
+    const DUMMY = 0x20000000;
+    const dummy = i => !!(view.getFlagsAt(i) & DUMMY);
+    if (!hdr?.messageId || index < 1 || dummy(index)) {
       return false;
     }
     // in der Konversation rückwärts bis zu ihrem Anfang (Ebene 0); eine
@@ -19849,6 +19856,9 @@ class CardEnhancer {
     // vergleichen (gleiches Datum, steht direkt davor) – höchstens 500 Zeilen
     for (let i = index - 1; i >= 0 && index - i <= 500; i--) {
       try {
+        if (dummy(i)) {
+          return false;
+        }
         const root = !view.getLevel(i);
         if ((!top || root) && view.getMsgHdrAt(i)?.messageId == hdr.messageId) {
           return true;

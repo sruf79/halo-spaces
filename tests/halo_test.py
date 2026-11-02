@@ -262,6 +262,9 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             "dom.min_background_timeout_value": 4,
             # das macOS-Adressbuch (echte Kontakte) nicht einbinden
             "ldap_2.servers.osx.position": 0,
+            # automatisches Einklappen bei Platzmangel aus – die übrigen Prüfungen erwarten die Ordnerliste;
+            # die Prüfung dafür schaltet es selbst ein
+            "extensions.mailcards.autoCollapse": False,
             **({"ui.systemUsesDarkTheme": 1} if dark else {}),
         }.items():
             f.write(f"user_pref({json.dumps(pref)}, {json.dumps(value)});\n")
@@ -5021,6 +5024,7 @@ def calendar_checks(m, results):
           const pref = () => Services.prefs.getStringPref("extensions.mailcards.hiddenSidebars", "{}");
           const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
           const out = {};
+          Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", true);
           try {
             Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
             w.moveTo(sc.availLeft, sc.availTop); await size(sc.availWidth);
@@ -5044,6 +5048,7 @@ def calendar_checks(m, results):
             sideBtn(); await pause(900);
             out.end = state();
           } finally {
+            Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", false);
             if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
             w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
           }
@@ -5057,6 +5062,24 @@ def calendar_checks(m, results):
               and t("wide") == {"folder": True, "spaces": True, "today": True}
               and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True)
         return ok, f"{res}"
+    def pst_open():
+        # Outlook-Datendatei: Menüpunkt unter Datei, Bibliothek lädt, kaputte Datei → verständlicher Fehler statt Absturz;
+        # mit HALO_PST (Pfad zu einer PST, nur von Hand) zusätzlich Ordnerbaum mit Anzahl
+        bad = os.path.join(tempfile.gettempdir(), "halo-kein-pst.pst")
+        with open(bad, "wb") as f:
+            f.write(b"kein PST" * 100)
+        real = os.environ.get("HALO_PST", "")
+        res = m.js(r"""
+          const item = d.getElementById("mcFileImportPst");
+          const out = { item: !!item, label: item?.getAttribute("label"), inFile: item?.parentNode?.id };
+          try { w.__mcPstRead(%s); out.bad = "gelesen?"; } catch (e) { out.bad = String(e).slice(0, 80); }
+          if (%s) { const info = w.__mcPstRead(%s); out.real = { folders: info.folders.length, total: info.total, first: info.folders.slice(0, 3) }; }
+          return out;""" % (json.dumps(bad), json.dumps(bool(real)), json.dumps(real)))
+        ok = res.get("item") and res.get("inFile") == "menu_FilePopup" and res.get("bad") not in (None, "gelesen?") \
+            and (not real or (res.get("real") or {}).get("folders", 0) > 0)
+        return ok, f"{res}"
+    check("Datei: „Open Outlook Data File (PST)…“ im Datei-Menü, Bibliothek lädt, kaputte Datei gibt einen Fehler statt Absturz", pst_open, results)
+
     check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
 
 def rgba_alpha(c):

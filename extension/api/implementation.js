@@ -32,6 +32,12 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Open Outlook Data File (PST)…": "Outlook-Datendatei (PST) öffnen …",
+  "Open Outlook Data File": "Outlook-Datendatei öffnen",
+  "Outlook Data File (PST)": "Outlook-Datendatei (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "{file} konnte nicht gelesen werden. Vielleicht ist die Datei beschädigt oder keine Outlook-Datendatei.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} Nachrichten in {f} Ordnern.",
+  "Importing the messages comes in a later version.": "Das Importieren der Nachrichten kommt in einer späteren Version.",
   "Archive Account Locally…": "Konto lokal archivieren …",
   "Archive Account Locally": "Konto lokal archivieren",
   "Stop Archiving": "Archivieren stoppen",
@@ -406,6 +412,12 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Open Outlook Data File (PST)…": "Ouvrir un fichier de données Outlook (PST)…",
+  "Open Outlook Data File": "Ouvrir un fichier de données Outlook",
+  "Outlook Data File (PST)": "Fichier de données Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "Impossible de lire {file}. Le fichier est peut-être endommagé ou n’est pas un fichier de données Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file} : {n} messages dans {f} dossiers.",
+  "Importing the messages comes in a later version.": "L’importation des messages arrivera dans une version ultérieure.",
   "Archive Account Locally…": "Archiver le compte localement…",
   "Archive Account Locally": "Archiver le compte localement",
   "Stop Archiving": "Arrêter l’archivage",
@@ -780,6 +792,12 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Open Outlook Data File (PST)…": "Abrir archivo de datos de Outlook (PST)…",
+  "Open Outlook Data File": "Abrir archivo de datos de Outlook",
+  "Outlook Data File (PST)": "Archivo de datos de Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "No se pudo leer {file}. Puede que esté dañado o que no sea un archivo de datos de Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} mensajes en {f} carpetas.",
+  "Importing the messages comes in a later version.": "La importación de los mensajes llegará en una versión posterior.",
   "Archive Account Locally…": "Archivar la cuenta localmente…",
   "Archive Account Locally": "Archivar la cuenta localmente",
   "Stop Archiving": "Detener el archivado",
@@ -1154,6 +1172,12 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Open Outlook Data File (PST)…": "Apri file di dati di Outlook (PST)…",
+  "Open Outlook Data File": "Apri file di dati di Outlook",
+  "Outlook Data File (PST)": "File di dati di Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "Impossibile leggere {file}. Il file potrebbe essere danneggiato o non essere un file di dati di Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} messaggi in {f} cartelle.",
+  "Importing the messages comes in a later version.": "L’importazione dei messaggi arriverà in una versione successiva.",
   "Archive Account Locally…": "Archivia l’account in locale…",
   "Archive Account Locally": "Archivia l’account in locale",
   "Stop Archiving": "Interrompi l’archiviazione",
@@ -4932,6 +4956,9 @@ function hookMenubar(win, restorers) {
     }));
   });
   const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  const importPst = own("mcFileImportPst", "Open Outlook Data File (PST)…", () => PstImport.open(win).catch(e => log("pst error", e)));
+  // für den automatischen Test
+  win.__mcPstRead = path => PstImport.read(path);
   // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
   const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
     const hdr = selected()[0];
@@ -4959,7 +4986,7 @@ function hookMenubar(win, restorers) {
     ["menu_FilePopup", [
       L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"),
       L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
-      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), [importPst], L("menu_export"), S,
       L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
     ]],
     ["menu_EditPopup", [
@@ -6085,6 +6112,106 @@ function hookPhotoDialog(cw, restorers = null) {
     pd._redrawCropRect = origRedraw;
   });
 }
+
+// Outlook-Datendatei (PST) lesen – Schritt 1: Ordnerbaum mit Anzahl der Mails
+// anzeigen, noch ohne Import. Bibliothek pst-extractor (MIT), gebündelt in
+// vendor/pst (Herkunft und Lizenzen dort in SOURCE.md). Die Datei wird
+// stückweise über Thunderbird gelesen, nicht ganz in den Speicher geladen.
+const PstFs = {
+  files: new Map(),
+  next: 3,
+  openSync(path) {
+    const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    file.initWithPath(path);
+    const fis = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+    fis.init(file, 0x01, 0, 0);
+    const bin = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+    bin.setInputStream(fis);
+    const fd = this.next++;
+    this.files.set(fd, { fis, bin, seek: fis.QueryInterface(Ci.nsISeekableStream), size: file.fileSize });
+    return fd;
+  },
+  readSync(fd, buffer, offset, length, position) {
+    const f = this.files.get(fd);
+    const len = Math.max(0, Math.min(length, f.size - position));
+    if (!len) {
+      return 0;
+    }
+    f.seek.seek(Ci.nsISeekableStream.NS_SEEK_SET, position);
+    const ab = new ArrayBuffer(len);
+    const got = f.bin.readArrayBuffer(len, ab);
+    buffer.set(new Uint8Array(ab, 0, got), offset);
+    return got;
+  },
+  closeSync(fd) {
+    this.files.get(fd)?.fis.close();
+    this.files.delete(fd);
+  },
+};
+const PstImport = {
+  lib: null,
+  load() {
+    if (!this.lib) {
+      globalThis.__haloPstFs = PstFs;
+      const scope = {};
+      Services.scriptloader.loadSubScript("resource://mailcards/vendor/pst/pst-extractor.js", scope);
+      this.lib = scope.HaloPST;
+    }
+    return this.lib;
+  },
+  // Ordnerbaum: [{ name, count, depth }], Gesamtzahl der Mails
+  read(path) {
+    const lib = this.load();
+    const pst = new lib.PSTFile(path);
+    try {
+      const folders = [];
+      let total = 0;
+      const walk = (folder, depth) => {
+        for (const sub of folder.hasSubfolders ? folder.getSubFolders() : []) {
+          const count = sub.contentCount || 0;
+          total += count;
+          folders.push({ name: sub.displayName || "?", count, depth });
+          walk(sub, depth + 1);
+        }
+      };
+      walk(pst.getRootFolder(), 0);
+      // „Top of Personal Folders“ u. Ä. als eigene Ebene weglassen, wenn nur sie oben steht
+      return { name: pst.getMessageStore?.()?.displayName || "", folders, total };
+    } finally {
+      try {
+        pst.close();
+      } catch {}
+    }
+  },
+  async open(win) {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(win.browsingContext, tr("Open Outlook Data File"), Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter(tr("Outlook Data File (PST)"), "*.pst");
+    fp.appendFilters(Ci.nsIFilePicker.filterAll);
+    const result = await new Promise(resolve => fp.open(resolve));
+    if (result != Ci.nsIFilePicker.returnOK || !fp.file) {
+      return;
+    }
+    const bc = win.browsingContext;
+    const title = tr("Outlook Data File (PST)");
+    let info;
+    try {
+      info = this.read(fp.file.path);
+    } catch (e) {
+      log("pst read error", e);
+      await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
+        tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
+      return;
+    }
+    const lines = info.folders.slice(0, 40).map(f => `${"    ".repeat(f.depth)}${f.name}: ${f.count}`);
+    if (info.folders.length > 40) {
+      lines.push("…");
+    }
+    const head = tr("{file}: {n} messages in {f} folders.", { file: fp.file.leafName, n: info.total, f: info.folders.length });
+    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
+      `${head}\n\n${lines.join("\n")}\n\n${tr("Importing the messages comes in a later version.")}`);
+  },
+};
 
 // Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle
 // Ordner samt Unterordnern als Kopie nach Lokale Ordner/<Konto> (Archive).
@@ -12593,7 +12720,12 @@ class CardEnhancer {
       w.clearTimeout(autoTimer);
       autoTimer = w.setTimeout(autoFit, delay);
     };
+    // (versteckter Schalter nur für den automatischen Test, keine Einstellung)
+    const autoOn = () => Services.prefs.getBoolPref("extensions.mailcards.autoCollapse", true);
     const autoFit = () => {
+      if (!autoOn()) {
+        return;
+      }
       const root = w.document.documentElement;
       // fünfter Bereich (Webseite/Add-on): keine Seitenleiste, Automatik aus
       if (root.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar || w.windowState == w.STATE_MINIMIZED) {
@@ -12685,7 +12817,7 @@ class CardEnhancer {
       }
       w.__mcAutoFit = true;
       w.__mcCollapsible = () => {
-        if (w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
+        if (!autoOn() || w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
           return 0;
         }
         const side = autoSideEl();
@@ -16253,8 +16385,9 @@ class CardEnhancer {
       // Platz der Liste bis zum Teiler (nicht nur die Liste selbst: Thunderbird
       // hält sie beim Ändern der Fenstergröße fest, die Spalte wächst trotzdem –
       // daneben bliebe eine Lücke)
-      const splitLeft = msgSplitter.getBoundingClientRect().left;
-      const span = splitLeft > list.left ? splitLeft - list.left : list.width;
+      // (sonst liegen zwischen Liste und Teiler nur wenige Pixel Rand)
+      const gap = msgSplitter.getBoundingClientRect().left - list.right;
+      const span = gap > 8 ? list.width + gap - 4 : list.width;
       // was die Liste zu breit ist, bekommt die Nachricht dazu (und umgekehrt)
       const msgWant = Math.round(msg.width + span - want);
       if (msgWant > 0 && Math.abs(msgWant - msg.width) >= 1) {

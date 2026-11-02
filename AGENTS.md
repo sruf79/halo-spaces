@@ -115,8 +115,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
   Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
-  zusammenhängenden Arbeitsblocks (Phase) pushen – nach dem kompletten Test hell
-  und dunkel. Danach die CI des Pushes prüfen (Linux, Beta, `mac`). Früher pushen
+  zusammenhängenden Arbeitsblocks (Phase) pushen – nach den betroffenen
+  Prüfungen (`--only`) hell und dunkel; den Volltest übernimmt die CI (Linux,
+  Beta, `mac`, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
 - **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
   hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,

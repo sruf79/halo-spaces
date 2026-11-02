@@ -30,6 +30,8 @@ var SECTIONS = t => [
       hint: t("In dark mode."), info: t("Thunderbird recolours HTML messages carefully. Images stay as they are.") },
     { key: "plainTextSystemFont", label: t("Messages in system font"),
       hint: t("Calm and easy to read."), info: t("Messages with their own font keep it. Off: Thunderbird’s fonts.") },
+    { key: "showLocalFolders", mac: true, label: t("Show “On My Mac”"), hint: t("In the folder list. Hidden while empty.") },
+    { key: "showLocalFolders", notMac: true, label: t("Show “On This Computer”"), hint: t("In the folder list. Hidden while empty.") },
     { key: "hideCollectedAddresses", label: t("Hide “Collected Addresses”"),
       hint: t("In the address book sidebar."), info: t("Completion while writing keeps working.") },
   ]],

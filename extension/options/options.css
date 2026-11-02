@@ -335,3 +335,13 @@ h2 .disclosure[aria-expanded="true"]::after {
   color: AccentColorText;
   outline: none;
 }
+
+/* bereitliegendes Update: Zeile oben, Knopf in der Akzentfarbe */
+section.update {
+  margin-bottom: 18px;
+}
+
+button.accent {
+  background: var(--accent);
+  color: #fff;
+}

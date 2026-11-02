@@ -2292,6 +2292,29 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 #spacesToolbar #chatButton { --c: #AF52DE; }
 #spacesToolbar #settingsButton { --c: #8E8E93; }
 
+/* Update liegt bereit: kleiner roter Punkt außen an der Ecke oben rechts der
+   Einstellungen-Kachel (Kachel selbst unverändert), abgesetzt mit einem Ring
+   in der Farbe der Leiste */
+#spacesToolbar #settingsButton[mc-update]::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #FF3B30;
+  box-shadow: 0 0 0 2px var(--mt-sidebar);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  #spacesToolbar #settingsButton[mc-update]::after {
+    background: #FF453A;
+  }
+}
+
 /* Fünfter Bereich (Erweiterung: mc-fifth = chat | addon | web | none): ohne
    Chat rücken die übrigen Knöpfe gleichmäßig zusammen; als Ersatz behält der
    Platz Farbe und Knopf des Chats, das Symbol kommt von der Erweiterung bzw.
@@ -5128,18 +5151,76 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   fill: white;
 }
 
-/* angefangen: Ring in der Kalenderfarbe füllt sich mit dem Fortschritt
-   (--mc-tc-p in %, ab 12 Uhr im Uhrzeigersinn), Rest blass */
+/* Fortschritt in Ampelfarben (0 % rot … 75 % grün, erledigt kräftig grün);
+   die Listenfarbe bleibt am Punkt unter dem Titel */
+:root {
+  --mt-prog-0: #FF3B30;
+  --mt-prog-25: #FF9500;
+  --mt-prog-50: #FFB340;
+  --mt-prog-75: #7ACB5A;
+  --mt-prog-100: #28A745;
+  --mt-prog-track: 30%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mt-prog-0: #FF453A;
+    --mt-prog-25: #FF9F0A;
+    --mt-prog-50: #FFD60A;
+    --mt-prog-75: #86D46B;
+    --mt-prog-100: #30D158;
+    --mt-prog-track: 35%;
+  }
+}
+
+.mc-tc-check[data-step="0"] { --mc-ring: var(--mt-prog-0); --mc-ring-track: 65%; }
+.mc-tc-check[data-step="25"] { --mc-ring: var(--mt-prog-25); }
+.mc-tc-check[data-step="50"] { --mc-ring: var(--mt-prog-50); }
+.mc-tc-check[data-step="75"] { --mc-ring: var(--mt-prog-75); }
+
+.mc-tc[data-completed] .mc-tc-check {
+  border-color: var(--mt-prog-100);
+  background-color: var(--mt-prog-100);
+}
+
+/* offen: Ring füllt sich mit dem Fortschritt (--mc-tc-p in %, ab 12 Uhr im
+   Uhrzeigersinn), Rest blass in derselben Farbe */
 .mc-tc-check[data-progress] {
   border: none;
-  background: conic-gradient(var(--mc-tc-color) calc(var(--mc-tc-p, 0) * 1%),
-                             color-mix(in srgb, var(--mc-tc-color) 22%, transparent) 0);
+  background: conic-gradient(var(--mc-ring) calc(var(--mc-tc-p, 0) * 1%),
+                             color-mix(in srgb, var(--mc-ring) var(--mc-ring-track, var(--mt-prog-track)), transparent) 0);
   mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
 }
 
-/* gewählt (Akzentfläche): Ring in der Schrift der Auswahl statt blau auf blau */
+/* gewählt (Akzentfläche): Ring in der Schrift der Auswahl statt Farbe auf Blau */
 #mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check[data-progress] {
-  --mc-tc-color: var(--mt-accent-text);
+  --mc-ring: var(--mt-accent-text);
+}
+
+/* Menü „Fortschritt“ (Erledigt-Knopf, Kontextmenü): derselbe Ring vor dem Text */
+:is(menuitem.percent-0-menuitem, menuitem.percent-25-menuitem, menuitem.percent-50-menuitem,
+    menuitem.percent-75-menuitem, menuitem.percent-100-menuitem) > :is(.menu-text, .menu-iconic-text)::before {
+  content: "";
+  display: inline-block;
+  vertical-align: -2px;
+  width: 14px;
+  height: 14px;
+  margin-inline-end: 8px;
+  border-radius: 50%;
+  background: conic-gradient(var(--mc-ring) calc(var(--mc-p) * 1%),
+                             color-mix(in srgb, var(--mc-ring) var(--mc-ring-track, var(--mt-prog-track)), transparent) 0);
+  mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+}
+
+menuitem.percent-0-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-0); --mc-ring-track: 65%; --mc-p: 0; }
+menuitem.percent-25-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-25); --mc-p: 25; }
+menuitem.percent-50-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-50); --mc-p: 50; }
+menuitem.percent-75-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-75); --mc-p: 75; }
+menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
+  background: var(--mt-prog-100) url("chrome://messenger/skin/overrides/check.svg") center / 9px no-repeat;
+  -moz-context-properties: fill;
+  fill: white;
+  mask: none;
 }
 
 #mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check {
@@ -5324,6 +5405,11 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   flex-wrap: wrap !important;
 }
 
+/* Titel der Details auf Höhe des Titels der ersten Karte (wie Mailliste und Mail) */
+:root[mc-task-side] #calendar-task-details {
+  padding-top: 1px !important;
+}
+
 #calendar-task-details-container,
 #calendar-task-details {
   background: var(--mt-window) !important;
@@ -5350,6 +5436,8 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   color: var(--mt-text-tertiary) !important;
   opacity: 1 !important;
   vertical-align: baseline !important;
+  /* Beschriftungen groß beginnen („Title“, „Priority“, „Status“) */
+  text-transform: capitalize !important;
 }
 
 #calendar-task-details-grid > tr > td,
@@ -10777,6 +10865,12 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
+/* Karten immer zweizeilig (Betreff mit Büroklammer und Stern daneben) –
+   Thunderbirds Wahl 2/3 Zeilen entfällt, dafür gibt es die Vorschauzeilen */
+#cardsViewOptions {
+  display: none !important;
+}
+
 /* Einstellungen → Window Layout: Erklärung zu „Hide title bar“ unter dem
    Schalter wie bei den übrigen Optionen */
 #layoutGroup > hbox:first-of-type {
@@ -12230,8 +12324,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* mehrzeilige Variante (Name über der ausgeblendeten Adresse): als Box in
-   voller Breite – sonst schneidet das Listenelement den Namen hart ab, ohne „…“ */
-#messageHeader:has(#mcHdrMeta) #expandedfromBox .recipient-multi-line {
+   voller Breite – sonst schneidet das Listenelement den Namen hart ab, ohne „…“;
+   nur wenn Thunderbird sie zeigt (volle Absenderadresse), sonst stünde der
+   Name zweimal da */
+#messageHeader.message-header-show-sender-full-address:has(#mcHdrMeta) #expandedfromBox .recipient-multi-line {
   display: flex !important;
   max-width: 100% !important;
   min-width: 0 !important;
@@ -12892,16 +12988,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   color: var(--mt-text-tertiary) !important;
 }
 
-/* Zeitkarte exakt wie Apple Kalender: Beschriftung mit Doppelpunkt
-   rechtsbündig, alle Werte (Kästchen, Datum, Wiederholen, Hinweis,
-   Anzeigen als) beginnen auf derselben Linie, ohne Pfeile */
+/* Zeitkarte wie freigegeben: Beschriftung ohne Doppelpunkt rechtsbündig
+   (Spalte 86 px, 10 px bis zum Wert), alle Werte (Kästchen, Datum,
+   Wiederholen, Hinweis, Anzeigen als) beginnen auf derselben Linie, ohne Pfeile */
 :root[mc-apple-event] #event-grid tr[data-mc-card="time"] > th {
   flex: 0 0 86px !important;
-  padding-inline-end: 8px !important;
-}
-
-:root[mc-apple-event] #event-grid tr[data-mc-card="time"] > th label::after {
-  content: ":";
+  padding-inline-end: 10px !important;
 }
 
 :root[mc-apple-event] #event-grid tr[data-mc-card="time"] {
@@ -12962,11 +13054,13 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   padding-block: 4px !important;
 }
 
-/* Ort über die ganze Karte – sonst bleibt das Feld bei 20 Zeichen
-   (flex wirkt in der Tabellenzelle nicht) und „Add Location or Video Call“
-   wird mit der breiteren Windows-Schrift abgeschnitten */
+/* Titel und Ort über die ganze Karte – sonst bleibt das Feld bei 20 Zeichen
+   (flex wirkt in der Tabellenzelle nicht): lange Titel und „Add Location or
+   Video Call“ würden mit der breiteren Windows-Schrift abgeschnitten */
+:root[mc-apple-event] #item-title,
 :root[mc-apple-event] #item-location {
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Teilnehmer: Text wie ein Platzhalter, mit Namen in Textfarbe */
@@ -13282,5 +13376,109 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Zeile, solange es leer ist bzw. per „…“-Menü abgewählt) */
 #books > li[data-mc-pab-hidden] {
   display: none !important;
+}
+
+/* Einstellungen: roter Punkt am Eintrag „halo.spaces“, solange ein Update bereitliegt */
+#mcCat-paneMcHalo[mc-update] .category-name::after {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-inline-start: 6px;
+  vertical-align: 1px;
+  border-radius: 50%;
+  background: #FF3B30;
+}
+
+@media (prefers-color-scheme: dark) {
+  #mcCat-paneMcHalo[mc-update] .category-name::after {
+    background: #FF453A;
+  }
+}
+
+/* Termin-Fenster (schmal): Knöpfe am unteren Rand unter den Notizen, mit
+   feiner Linie darüber und gleich großen Abständen über die ganze Breite
+   (Teilnehmer, Vertraulichkeit, Anhang, Löschen, Sichern in Akzentfarbe);
+   oben bleibt nur der Streifen für die Fensterknöpfe */
+#calendar-event-window[mc-event] > body {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#calendar-event-window[mc-event] #calendar-item-panel-iframe {
+  order: 1;
+}
+
+#calendar-event-window[mc-event] #event-toolbox {
+  order: 2;
+}
+
+#calendar-event-window[mc-event] #status-bar {
+  order: 3;
+}
+
+#calendar-event-window[mc-card-window][mc-event] > body {
+  padding-top: 28px !important;
+}
+
+#calendar-event-window[mc-event] #event-toolbar,
+:root[mc-card-window][windowtype="Calendar:EventDialog"][mc-event] #event-toolbar {
+  justify-content: space-between !important;
+  gap: 0 !important;
+  min-height: 0 !important;
+  padding: 10px 12px 12px !important;
+  border-bottom: none !important;
+  border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
+  -moz-window-dragging: no-drag;
+}
+
+#calendar-event-window[mc-event] #event-toolbar > toolbarbutton {
+  min-width: 44px !important;
+  min-height: 32px !important;
+  margin: 0 !important;
+}
+
+#calendar-event-window[mc-event] #event-toolbar > #button-saveandclose {
+  order: 99 !important;
+  margin-inline-start: 0 !important;
+  padding: 0 12px !important;
+}
+
+/* Termin/Aufgabe anlegen (großer Dialog): Umschalter „Event | Task“ oben in
+   voller Breite wie im Schnell-Dialog, unter dem Streifen der Fensterknöpfe */
+:root[mc-type-switch] #mcTypeSwitch {
+  order: 0;
+  display: flex !important;
+  margin: 12px 12px 8px !important;
+  padding: 2px !important;
+  border-radius: 999px !important;
+  background: var(--mt-control) !important;
+  -moz-window-dragging: no-drag;
+}
+
+:root[mc-type-switch] #mcTypeSwitch > button {
+  appearance: none !important;
+  flex: 1 !important;
+  height: 26px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--mt-text) !important;
+  font: inherit !important;
+  font-weight: 500 !important;
+}
+
+:root[mc-type-switch] #mcTypeSwitch > button[selected] {
+  background: var(--mt-segment-selected) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* mit Umschalter liegt darüber nur noch der Streifen der Fensterknöpfe */
+:root[mc-card-window][mc-type-switch] > body {
+  padding-top: 28px !important;
+}
+
+:root[mc-type-switch] #mcTypeSwitch + #calendar-item-panel-iframe {
+  order: 1;
 }
 /* ==== Ende Bereiche ==== */

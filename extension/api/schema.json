@@ -37,6 +37,31 @@
         "parameters": []
       },
       {
+        "name": "updateReady",
+        "type": "function",
+        "async": true,
+        "description": "Update liegt bereit (zurückgestellt bis zum nächsten Start)",
+        "parameters": [
+          {
+            "name": "version",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "getPendingUpdate",
+        "type": "function",
+        "async": true,
+        "description": "bereitliegendes Update: { version, auto } oder null",
+        "parameters": []
+      },
+      {
+        "name": "installUpdateNow",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
         "name": "setSetting",
         "type": "function",
         "async": true,

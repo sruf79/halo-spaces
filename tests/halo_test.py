@@ -262,9 +262,6 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             "dom.min_background_timeout_value": 4,
             # das macOS-Adressbuch (echte Kontakte) nicht einbinden
             "ldap_2.servers.osx.position": 0,
-            # automatisches Einklappen bei Platzmangel aus – die übrigen Prüfungen erwarten die Ordnerliste;
-            # die Prüfung dafür schaltet es selbst ein
-            "extensions.mailcards.autoCollapse": False,
             # Marionette schaltet Add-on-Updates beim Start ab, sofern hier nichts steht; die Vorbereitung
             # schaltet sie erst danach wieder ein – unter Last (ESR in der CI) zu spät für die Prüfung
             # beim Start nach 20 s. Die Abfrage der updates.json blockt die Vorbereitung weiterhin.
@@ -5525,99 +5522,57 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm, Maximieren bleibt maximiert", window_fit_screen, results)
 
-    def auto_collapse():
-        # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste, zuletzt die Today-Pane (gleiche Animation wie die Knöpfe); wird
-        # das Fenster wieder breit, kommt beides zurück; selbst ausgeblendete Ordnerliste bleibt aus; der gespeicherte
-        # Zustand des Nutzers ändert sich dabei nicht. Breiten aus dem tatsächlichen Platzbedarf (Mindestbreiten)
+    def bars_stay():
+        # Leisten nur über die Knöpfe (die frühere Automatik klappte sie bei angeblichem Platzmangel selbst ein, und ihr
+        # gemerkter Zustand ließ die Knöpfe ins Leere laufen): breites Fenster – Seitenleiste und Bereichsleiste bleiben
+        # offen, auch nach Größenänderung und Bereichswechsel; Knöpfe schließen und öffnen zuverlässig; ein alter
+        # gemerkter Automatik-Zustand wird beim Start gelöscht und stört nicht
         m.cmd("WebDriver:SetTimeouts", {"script": 90000})
         try:
             res = m.js(CAL_CHECK_JS + r"""
               await toMail();
               const sc = w.screen, old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight];
-              const cmd = d.getElementById("calendar_toggle_todaypane_command");
-              const ab = tm.currentTabInfo.chromeBrowser.contentWindow, sp = ab.paneLayout.folderPaneSplitter;
-              const state = () => ({ folder: !sp.isCollapsed, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible });
-              const size = async x => { w.resizeTo(x, w.outerHeight); await pause(2600); };
-              const pref = () => Services.prefs.getStringPref("extensions.mailcards.hiddenSidebars", "{}");
+              const ab = () => tm.currentTabInfo.chromeBrowser.contentWindow, sp = () => ab().paneLayout.folderPaneSplitter;
+              const state = () => ({ folder: !sp().isCollapsed, spaces: !w.gSpacesToolbar.isHidden });
               const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
-              const out = {};
-              Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", true);
+              const spacesBtn = () => d.getElementById("mcSpacesToggle").click();
+              const out = { autoPref: Services.prefs.prefHasUserValue("extensions.mailcards.autoCollapsed") };
               try {
-                Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
-                w.moveTo(sc.availLeft, sc.availTop); await size(sc.availWidth);
-                if (sp.isCollapsed) { sideBtn(); await pause(900); }
-                if (w.gSpacesToolbar.isHidden) { d.getElementById("mcSpacesToggle").click(); await pause(900); }
-                if (!w.TodayPane?.isVisible) { cmd.doCommand(); await pause(1500); }
-                const userPref = pref();
+                w.moveTo(sc.availLeft, sc.availTop); w.resizeTo(Math.min(sc.availWidth, 1900), 900); await pause(1500);
+                if (sp().isCollapsed) { sideBtn(); await pause(900); }
+                if (w.gSpacesToolbar.isHidden) { spacesBtn(); await pause(900); }
                 out.start = state();
-                const slack = w.__mcLayoutSlack(), folderW = ab.document.getElementById("folderPane").getBoundingClientRect().width;
-                const full = w.outerWidth - slack;
-                out.need = { full: Math.round(full), folderW: Math.round(folderW), avail: sc.availWidth };
-                if (full + 40 > sc.availWidth || folderW < 120) return { skip: out.need };
-                await size(Math.round(full - folderW / 2)); out.mid = state();
-                out.auto = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
-                // (mit 30 px Luft, sobald beide weg sind – sonst wiche schon hier die Today-Pane)
-                await size(Math.round(full - folderW - 67 + 30)); out.narrow = state();
-                // sehr schmal: zuletzt weicht die Today-Pane, nichts ragt über ihren Knopf
-                await size(640); await pause(1500); out.tiny = state();
-                const tgl = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
-                const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].map(li => [li.getAttribute("item-id"), li.getBoundingClientRect()])
-                  .filter(([, r]) => r.width > 0);
-                out.over = tgl?.width ? items.filter(([, r]) => r.right > tgl.left + 1 && r.left < tgl.right - 1).map(([id]) => id) : "kein Knopf";
-                out.autoTiny = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
-                await size(sc.availWidth); await pause(2500); out.wide = state();
-                out.prefSame = pref() == userPref;
-                // bei Platzmangel selbst eingeblendet: bleibt offen, auch nach weiteren Anlässen ohne Verkleinern
-                await size(Math.round(full - folderW / 2)); await pause(600);
-                const wasAuto = !sp.isCollapsed ? null : true;
-                if (sp.isCollapsed) { sideBtn(); await pause(1500); }
-                w.dispatchEvent(new w.Event("resize")); await pause(1500);
-                out.userShown = { wasAuto, open: !sp.isCollapsed };
-                await size(sc.availWidth); await pause(1500);
-                // selbst ausgeblendet bleibt aus
-                sideBtn(); await pause(900);
-                await size(Math.round(full - folderW / 2)); await size(sc.availWidth); await pause(1000); out.user = state();
-                sideBtn(); await pause(900);
-                out.end = state();
+                // Größe ändern (schmaler, aber noch breit genug) und zurück: bleibt
+                w.resizeTo(1500, 900); await pause(1500); out.resized = state();
+                w.resizeTo(Math.min(sc.availWidth, 1900), 900); await pause(1200);
+                // Bereichswechsel hin und zurück: bleibt
+                await toCalendar(); await pause(900); out.calendar = { spaces: !w.gSpacesToolbar.isHidden };
+                await toMail(); await pause(900); out.back = state();
+                // Knöpfe: zu, auf – zweimal hintereinander
+                const runs = [];
+                for (let k = 0; k < 2; k++) {
+                  sideBtn(); await pause(900); const a = state().folder;
+                  sideBtn(); await pause(900); const b = state().folder;
+                  spacesBtn(); await pause(900); const c = state().spaces;
+                  spacesBtn(); await pause(900); const e = state().spaces;
+                  runs.push([a, b, c, e]);
+                }
+                out.runs = runs;
+                // selbst zugeklappt bleibt nach Größenänderung zu
+                sideBtn(); await pause(900); w.resizeTo(1500, 900); await pause(1500); out.userClosed = state().folder;
+                sideBtn(); await pause(900); out.end = state();
               } finally {
-                Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", false);
-                Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
-                if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
-                w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
+                w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1200);
               }
               return out;""")
         finally:
             m.cmd("WebDriver:SetTimeouts", {"script": 30000})
-        if "skip" in res:
-            return True, f"Bildschirm zu schmal für alle Bereiche – übersprungen {res['skip']}"
         t = lambda k: res.get(k) or {}
-        ok = (t("start") == {"folder": True, "spaces": True, "today": True}
-              and t("mid") == {"folder": False, "spaces": True, "today": True}
-              and t("narrow") == {"folder": False, "spaces": False, "today": True}
-              and t("tiny") == {"folder": False, "spaces": False, "today": False} and res.get("over") == []
-              and t("wide") == {"folder": True, "spaces": True, "today": True}
-              and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True
-              and (res.get("userShown") or {}).get("open") is True)
+        both = {"folder": True, "spaces": True}
+        ok = (res.get("autoPref") is False and t("start") == both and t("resized") == both and t("calendar").get("spaces") is True
+              and t("back") == both and res.get("runs") == [[False, True, False, True]] * 2 and res.get("userClosed") is False and t("end") == both)
         return ok, f"{res}"
-    def pst_open():
-        # Outlook-Datendatei: Menüpunkt unter Datei, Bibliothek lädt, kaputte Datei → verständlicher Fehler statt Absturz;
-        # mit HALO_PST (Pfad zu einer PST, nur von Hand) zusätzlich Ordnerbaum mit Anzahl
-        bad = os.path.join(tempfile.gettempdir(), "halo-kein-pst.pst")
-        with open(bad, "wb") as f:
-            f.write(b"kein PST" * 100)
-        real = os.environ.get("HALO_PST", "")
-        res = m.js(r"""
-          const item = d.getElementById("mcFileImportPst");
-          const out = { item: !!item, label: item?.getAttribute("label"), inFile: item?.parentNode?.id };
-          try { w.__mcPstRead(%s); out.bad = "gelesen?"; } catch (e) { out.bad = String(e).slice(0, 80); }
-          if (%s) { const info = w.__mcPstRead(%s); out.real = { folders: info.folders.length, total: info.total, first: info.folders.slice(0, 3) }; }
-          return out;""" % (json.dumps(bad), json.dumps(bool(real)), json.dumps(real)))
-        ok = res.get("item") and res.get("inFile") == "menu_FilePopup" and res.get("bad") not in (None, "gelesen?") \
-            and (not real or (res.get("real") or {}).get("folders", 0) > 0)
-        return ok, f"{res}"
-    check("Datei: „Open Outlook Data File (PST)…“ im Datei-Menü, Bibliothek lädt, kaputte Datei gibt einen Fehler statt Absturz", pst_open, results)
-
-    check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste, im sehr schmalen Fenster die Today-Pane ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
+    check("Leisten: Seitenleiste und Bereichsleiste nur über die Knöpfe, bleiben im breiten Fenster offen (auch nach Größenänderung und Bereichswechsel)", bars_stay, results)
 
     def classic_drag():
         # klassisches Layout (Liste über der Mail): Ziehen der Trennlinie weit über beide Grenzen – die Höhe der

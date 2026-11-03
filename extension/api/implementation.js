@@ -10596,11 +10596,8 @@ class CardEnhancer {
           return;
         }
         const slack = Math.max(0, width - min);
-        // was bei Platzmangel einklappt (Seitenleiste, Spaces-Leiste), zählt
-        // nicht zur Mindestbreite – das Fenster darf so schmal werden, dass es nötig wird
-        const collapsible = w.__mcCollapsible?.() || 0;
         // nie unter 800 px (dann wäre schon die Toolbar zu eng)
-        let value = Math.max(800, Math.round(w.innerWidth - slack - collapsible));
+        let value = Math.max(800, Math.round(w.innerWidth - slack));
         // Chat: Kontaktspalte + Chat-Knöpfe + kleinstes Suchfeld (40 px) + was
         // rechts der Suche liegt müssen nebeneinander passen
         if (tabmail?.currentTabInfo?.mode?.name == "chat") {
@@ -11880,26 +11877,13 @@ class CardEnhancer {
     // Seitenleisten der übrigen Bereiche ein-/ausblenden wie die Ordnerliste
     // (Zustand je Bereich gespeichert, gleiche Animation wie in der Mail)
     const SIDE_PREF = "extensions.mailcards.hiddenSidebars";
-    // bei Platzmangel automatisch Eingeklapptes: { spaces: true, side: { <Bereich>: Breite } }
-    // – getrennt vom Zustand, den der Nutzer selbst gewählt hat
-    const AUTO_PREF = "extensions.mailcards.autoCollapsed";
-    const autoState = () => {
-      try {
-        const v = JSON.parse(Services.prefs.getStringPref(AUTO_PREF, "{}"));
-        v.side ||= {};
-        return v;
-      } catch {
-        return { side: {} };
-      }
-    };
-    const setAuto = fn => {
-      const v = autoState();
-      fn(v);
-      Services.prefs.setStringPref(AUTO_PREF, JSON.stringify(v));
-    };
+    // (die frühere Automatik, die Leisten bei Platzmangel selbst einklappte,
+    // ist entfernt – Leisten nur noch über die Knöpfe; ihr gemerkter Zustand
+    // ließ Leisten sonst zu, auch wenn der Knopf sie öffnen sollte)
+    Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
+    Services.prefs.clearUserPref("extensions.mailcards.autoCollapse");
     // Kalender und Aufgaben teilen sich die Seitenleiste
     const sideKey = mode => (mode == "tasks" ? "calendar" : mode);
-    const autoSide = mode => !!autoState().side[sideKey(mode)];
     const SIDE_TOGGLE = {
       calendar: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
       tasks: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
@@ -12139,17 +12123,17 @@ class CardEnhancer {
         return;
       }
       unCollapse(el, splitter);
-      const hidden = !!sideState()[mode] || autoSide(mode);
+      const hidden = !!sideState()[mode];
       el.classList.toggle("mc-side-hidden", hidden);
       splitter?.classList.toggle("mc-side-hidden", hidden);
       placeSideGrip();
     };
     const sideHidden = () => {
       const { mode, el } = currentSide();
-      return el ? !!sideState()[mode] || autoSide(mode) : false;
+      return el ? !!sideState()[mode] : false;
     };
     // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
-    const toggleSpaceSidebar = (auto = false, reverse = false) => {
+    const toggleSpaceSidebar = (reverse = false) => {
       const { mode, el, splitter } = currentSide();
       if (el?.__mcAnimating && reverse) {
         el.__mcReverse?.();
@@ -12160,12 +12144,7 @@ class CardEnhancer {
       }
       const win = el.ownerDocument.defaultView;
       const show = el.classList.contains("mc-side-hidden");
-      // automatisches Ein-/Ausklappen bei Platzmangel ändert nicht den
-      // gespeicherten Zustand des Nutzers (merkt es sich in AUTO_PREF)
       const saveState = hidden => {
-        if (auto) {
-          return;
-        }
         const state = sideState();
         state[mode] = hidden;
         // Kalender und Aufgaben teilen sich die Seitenleiste
@@ -12997,7 +12976,6 @@ class CardEnhancer {
     const toggleSidebar = () => {
       const tabmail = w.document.getElementById("tabmail");
       const tab = tabmail?.currentTabInfo;
-      userSideToggled(tab?.mode?.name);
       if (tab?.mode?.name == "mail3PaneTab") {
         const ab = tab.chromeBrowser?.contentWindow;
         const splitter = ab?.paneLayout?.folderPaneSplitter;
@@ -13009,7 +12987,7 @@ class CardEnhancer {
         }
       } else {
         // in allen anderen Bereichen deren Seitenleiste ein-/ausblenden
-        toggleSpaceSidebar(false, true);
+        toggleSpaceSidebar(true);
       }
     };
     const hookSidebarButton = () => {
@@ -13092,12 +13070,7 @@ class CardEnhancer {
       updateTip();
       btn.addEventListener("mouseenter", updateTip);
       btn.addEventListener("click", () => {
-        // selbst ein-/ausgeblendet: nicht mehr automatisch zurückholen
-        setAuto(v => delete v.spaces);
-        this.animateSpaces(w, () => {
-          updateTip();
-          autoFitSoon();
-        }, true);
+        this.animateSpaces(w, () => updateTip(), true);
       });
       bar.after(btn);
       // Pfeil nach dem Zustand (data-mc-hidden): beim Klick wechselt er sofort
@@ -13165,236 +13138,6 @@ class CardEnhancer {
 
     // Today-Pane ein-/ausblenden: Knopf unten rechts (Gegenstück zum
     // Bereiche-Knopf unten links) statt des ✕ oben in der Today-Pane
-
-    // Bei Platzmangel wie Apple Mail bei schmalem Fenster: erst die
-    // Seitenleiste des Bereichs einklappen, reicht das nicht, auch die
-    // Spaces-Leiste – mit denselben Animationen wie über die Knöpfe. Wird es
-    // wieder breiter, kommt automatisch Eingeklapptes zurück (zuerst die
-    // Spaces-Leiste); vom Nutzer selbst Ausgeblendetes bleibt aus.
-    // Bereiche mit Seitenleiste (Mail, Kalender, Aufgaben, Adressbuch, Chat, Einstellungen, Add-ons/Konten)
-    const AUTO_MODES = new Set(["mail3PaneTab", "mailMessageTab", "calendar", "tasks", "addressBookTab", "chat", "preferencesTab", "contentTab"]);
-    const SPACES_W = 67;
-    const TODAY_W = 280;
-    const AUTO_SLACK = 24;
-    // Today-Pane als letzter Schritt (nach Seitenleiste und Spaces-Leiste): im
-    // Kalender ist sie gesperrt, dort bleibt sie unangetastet
-    const todayCmd = () => w.document.getElementById("calendar_toggle_todaypane_command");
-    const todayAuto = mode => mode != "calendar" && !!todayCmd();
-    const autoSideEl = () => {
-      const tab = w.document.getElementById("tabmail")?.currentTabInfo;
-      const mode = tab?.mode?.name;
-      if (mode == "mail3PaneTab") {
-        const ab = tab.chromeBrowser?.contentWindow;
-        const splitter = ab?.paneLayout?.folderPaneSplitter;
-        const el = ab?.document?.getElementById("folderPane");
-        return splitter && el ? { mode, el, ab, splitter, shown: !splitter.isCollapsed } : { mode };
-      }
-      const { el } = currentSide();
-      return el ? { mode, el, shown: !el.classList.contains("mc-side-hidden") } : { mode };
-    };
-    const autoBusy = side => w.__mcSpacesAnimating || side.el?.__mcAnimating || side.ab?.__mcAnimating ||
-      w.document.getElementById("today-pane-panel")?.__mcAnimating;
-    let autoTimer = null;
-    // Breite beim letzten Lauf und beim letzten selbst Einblenden: eine nur
-    // volle Toolbar klappt nur beim Verkleinern ein, eine selbst eingeblendete
-    // Seitenleiste erst, wenn das Fenster danach schmaler wird (unter Windows
-    // klappte sie sonst eine halbe Sekunde nach dem Einblenden wieder zu)
-    let lastWidth = null;
-    let userShownAt = null;
-    const autoFitSoon = (delay = 200) => {
-      w.clearTimeout(autoTimer);
-      autoTimer = w.setTimeout(autoFit, delay);
-    };
-    // (versteckter Schalter nur für den automatischen Test, keine Einstellung)
-    const autoOn = () => Services.prefs.getBoolPref("extensions.mailcards.autoCollapse", true);
-    const autoFit = () => {
-      if (!autoOn()) {
-        return;
-      }
-      const root = w.document.documentElement;
-      // fünfter Bereich (Webseite/Add-on): keine Seitenleiste, Automatik aus
-      if (root.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar || w.windowState == w.STATE_MINIMIZED) {
-        return;
-      }
-      const side = autoSideEl();
-      if (!AUTO_MODES.has(side.mode)) {
-        return;
-      }
-      if (autoBusy(side)) {
-        autoFitSoon(300);
-        return;
-      }
-      // Mailliste erst auf ihre Breite bringen (nach Animationen blieb sonst der
-      // Zuwachs als Lücke neben der Liste stehen statt bei der Nachricht)
-      try {
-        side.ab?.__mcRelayout?.();
-      } catch {}
-      // freier Platz des Inhalts über seiner Mindestbreite (gleiches Maß wie die
-      // Mindestbreite des Fensters)
-      const slack = w.__mcLayoutSlack?.();
-      if (slack === null || slack === undefined) {
-        return;
-      }
-      let auto = autoState();
-      const key = sideKey(side.mode);
-      const spacesOn = !w.gSpacesToolbar.isHidden;
-      const todayOn = !!w.TodayPane?.isVisible;
-      // selbst wieder eingeblendet: nicht mehr als automatisch führen
-      if (auto.today && todayOn) {
-        setAuto(v => delete v.today);
-        auto = autoState();
-      }
-      const toggleSide = () => {
-        if (side.mode == "mail3PaneTab") {
-          this.animateSidebar(side.ab, side.splitter, () => {
-            sidebarTip?.();
-            placeSideGrip();
-            autoFitSoon(50);
-          });
-        } else {
-          toggleSpaceSidebar(true);
-          autoFitSoon(400);
-        }
-      };
-      const toggleSpaces = () => this.animateSpaces(w, () => {
-        w.document.getElementById("mcSpacesToggle")?.dispatchEvent(new w.MouseEvent("mouseenter"));
-        autoFitSoon(50);
-      });
-      // in der Mail zählt auch die Toolbar: Reihenfolge bei Platzmangel ist
-      // Suchfeld bis zur Lupe, dann die Knöpfe (SQUEEZE), dann Seitenleiste,
-      // dann Spaces-Leiste – zurück umgekehrt, erst wenn die Suche den Platz
-      // abgeben kann (die Knöpfe halten ihn solange frei, __mcToolbarReserve)
-      const d = w.document;
-      const searchEl = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
-      const searchSpare = side.mode == "mail3PaneTab" && searchEl ? searchEl.getBoundingClientRect().width - 40 : Infinity;
-      const squeezable = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(li =>
-        SQUEEZE.includes(li.getAttribute("item-id")) && !li.hidden && (li.hasAttribute("mc-squeezed") || li.getBoundingClientRect().width));
-      const toolbarFull = side.mode == "mail3PaneTab" && searchSpare <= 2 && squeezable.every(li => li.hasAttribute("mc-squeezed"));
-      // ragt etwas aus der Toolbar über den Today-Knopf?
-      const overToday = () => {
-        const t = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
-        return !!t?.width && [...d.querySelectorAll("#unifiedToolbarContent > li")].some(li => {
-          const r = li.getBoundingClientRect();
-          return r.width > 0 && r.right > t.left + 1 && r.left < t.right - 1;
-        });
-      };
-      const width = w.innerWidth;
-      const narrowed = lastWidth === null || width < lastWidth - 1;
-      lastWidth = width;
-      if (userShownAt !== null && width < userShownAt - 1) {
-        userShownAt = null;
-      }
-      // Inhalt schon auf Mindestbreite: erst die Seitenleiste, dann die Spaces-Leiste
-      if ((slack < 1 || (toolbarFull && narrowed)) && userShownAt === null) {
-        if (side.shown && side.el) {
-          setAuto(v => (v.side[key] = Math.round(side.el.getBoundingClientRect().width)));
-          toggleSide();
-        } else if (spacesOn) {
-          setAuto(v => (v.spaces = true));
-          toggleSpaces();
-        } else if (todayOn && todayAuto(side.mode) && (slack < 1 || overToday())) {
-          // reicht auch das nicht (sehr schmales Fenster), weicht die Today-Pane,
-          // statt dass Suchfeld und Knöpfe über ihren Knopf ragen
-          setAuto(v => (v.today = true));
-          todayCmd().doCommand();
-        }
-        return;
-      }
-      // zurück, wenn wieder Platz ist (mit etwas Luft, damit es nicht hin- und herspringt)
-      const SLACK = AUTO_SLACK;
-      // (die Today-Pane nimmt der Toolbar ihre ganze Breite; das Suchfeld kann
-      // höchstens 293 px abgeben – daher dort ohne Zuschlag)
-      if (auto.today && !todayOn && todayAuto(side.mode) && slack >= TODAY_W + SLACK && searchSpare >= TODAY_W) {
-        setAuto(v => delete v.today);
-        todayCmd().doCommand();
-      } else if (auto.today && !todayOn && todayAuto(side.mode)) {
-        // streng umgekehrt: erst die Today-Pane, dann die Leisten
-      } else if (auto.spaces && !spacesOn && slack >= SPACES_W + SLACK && searchSpare >= SPACES_W + SLACK) {
-        setAuto(v => delete v.spaces);
-        toggleSpaces();
-      } else if (auto.side[key] && side.el && !side.shown && slack >= auto.side[key] + SLACK && searchSpare >= auto.side[key] + SLACK) {
-        setAuto(v => delete v.side[key]);
-        toggleSide();
-      }
-    };
-    // Seitenleiste vom Nutzer ein-/ausgeblendet: nicht mehr als automatisch
-    // führen; blendet er sie trotz Platzmangel ein, macht die Today-Pane Platz
-    const userSideToggled = mode => {
-      if (!mode) {
-        return;
-      }
-      const key = sideKey(mode);
-      const wasAuto = autoState().side[key];
-      setAuto(v => delete v.side[key]);
-      // (vor dem Umschalten aufgerufen: war sie zu, ist sie danach offen)
-      userShownAt = autoSideEl().shown ? null : w.innerWidth;
-      // trotz Platzmangel selbst eingeblendet: die Today-Pane macht Platz
-      const slack = w.__mcLayoutSlack?.();
-      if (wasAuto && !autoSideEl().shown && w.TodayPane?.isVisible && slack !== null && slack < wasAuto) {
-        w.setTimeout(() => w.document.getElementById("calendar_toggle_todaypane_command")?.doCommand(), 300);
-      }
-    };
-    const hookAutoFit = () => {
-      if (w.__mcAutoFit) {
-        return;
-      }
-      w.__mcAutoFit = true;
-      w.__mcCollapsible = () => {
-        if (!autoOn() || w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
-          return 0;
-        }
-        const side = autoSideEl();
-        if (!AUTO_MODES.has(side.mode)) {
-          return 0;
-        }
-        return (side.shown && side.el ? side.el.getBoundingClientRect().width : 0) + (w.gSpacesToolbar.isHidden ? 0 : SPACES_W) +
-          (w.TodayPane?.isVisible && todayAuto(side.mode) ? TODAY_W : 0);
-      };
-      // Platz, den das Suchfeld für eine automatisch ausgeblendete Leiste
-      // freihält: weggefallene Knöpfe kommen erst nach ihr zurück
-      w.__mcToolbarReserve = () => {
-        if (!autoOn() || w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
-          return 0;
-        }
-        const side = autoSideEl();
-        if (side.mode != "mail3PaneTab") {
-          return 0;
-        }
-        // (nur soweit der Inhalt darunter sie schon wieder zuließe – fehlt dort
-        // Platz, hält die Toolbar nichts frei)
-        const auto = autoState();
-        const slack = w.__mcLayoutSlack?.() ?? 0;
-        if (auto.today && !w.TodayPane?.isVisible) {
-          return slack >= TODAY_W + AUTO_SLACK ? TODAY_W : 0;
-        }
-        if (auto.spaces && w.gSpacesToolbar.isHidden) {
-          return slack >= SPACES_W + AUTO_SLACK ? SPACES_W + AUTO_SLACK : 0;
-        }
-        const width = auto.side[sideKey(side.mode)];
-        return width && side.el && !side.shown && slack >= width + AUTO_SLACK ? width + AUTO_SLACK : 0;
-      };
-      const onResize = () => autoFitSoon(250);
-      const tabs = w.document.getElementById("tabmail")?.tabContainer;
-      const onTab = () => autoFitSoon(300);
-      w.addEventListener("resize", onResize);
-      tabs?.addEventListener("TabSelect", onTab);
-      // Today-Pane ein/aus
-      const panel = w.document.getElementById("today-pane-panel");
-      const mo = new w.MutationObserver(() => autoFitSoon(300));
-      if (panel) {
-        mo.observe(panel, { attributes: true, attributeFilter: ["collapsed", "hidden"] });
-      }
-      autoFitSoon(1500);
-      this.restorers.push(() => {
-        w.removeEventListener("resize", onResize);
-        tabs?.removeEventListener("TabSelect", onTab);
-        mo.disconnect();
-        w.clearTimeout(autoTimer);
-        delete w.__mcAutoFit;
-        delete w.__mcCollapsible;
-        delete w.__mcToolbarReserve;
-      });
-    };
 
     const hookTodayToggle = () => {
       const d = w.document;
@@ -15252,7 +14995,6 @@ class CardEnhancer {
       hookSidebarButton();
       hookSpacesToggle();
       UpdateNote.hook(w, this.restorers);
-      hookAutoFit();
       FifthSpace.attach(w, this.restorers);
       hookLooseTabs(w, this.restorers);
       hookHoverLine(w, this.restorers);
@@ -17305,11 +17047,8 @@ class CardEnhancer {
         // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
-        // (ist eine Leiste automatisch ausgeblendet, hält das Suchfeld erst ihren
-        // Platz frei – zurück kommt sie vor den Knöpfen, umgekehrt wie beim Weichen)
-        const reserve = top.__mcToolbarReserve?.() || 0;
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width > 41 + reserve));
+          (!search || rectOf(search).width > 41));
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail): fehlt
       // dafür Platz, wird zuerst der Abstand nach „Verfassen“ kleiner (69 → 12 px)

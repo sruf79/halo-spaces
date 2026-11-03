@@ -87,6 +87,16 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   veröffentlichte `updates.json`. Vor einem Release laufen lassen.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
   an Stellen, an denen es schon Rückschritte gab.
+- **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
+  Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
+  – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine
+  geladen, Mail dargestellt, Fenster offen; bricht bei Zeitüberschreitung mit
+  Meldung ab), `ruhig(ms)` nach einer Bedienung (wartet auf Leerlauf, höchstens
+  `ms`), `stabil(fn)` für „Position steht still“. Feste Pausen (`wait`) nur,
+  wo bewusst Zeit vergehen soll (Doppelklick-Abstand, „bleibt offen“,
+  Animationsbilder) – mit Kommentar. Bei Prüfungen auf Abwesenheit („keine
+  Linie“) zuerst auf die fertig aufgebaute Ansicht warten. Am Ende eines Laufs
+  stehen Gesamtdauer und die langsamsten Prüfungen.
 
 Zum Ausprobieren im echten Profil: `./install.sh` (Thunderbird vorher beenden).
 Das betrifft das echte Profil des Nutzers – nur auf ausdrücklichen Wunsch.

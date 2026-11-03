@@ -1790,9 +1790,10 @@ def reading_checks(m, results):
           return out;""")
         rest = res.get("rest") or {}
         l, r, b = rest.get("left") or [0, 0, 0], rest.get("right") or [0, 0, 0], rest.get("bg") or [0, 0, 0]
-        green = l[1] > 120 and l[0] < 90 and l[2] < 90
+        # (im Volllauf ist das Fenster teils nicht aktiv – Thunderbird zeichnet die Knöpfe dann halb durchsichtig)
+        green = l[1] - max(l[0], l[2]) > 60
         # context-fill: deutlich vom Knopf abgesetzt, nicht unsichtbar
-        ok = res.get("btn") and green and abs(sum(r) / 3 - sum(b) / 3) > 60
+        ok = res.get("btn") and green and abs(sum(r) / 3 - sum(b) / 3) > 40
         return ok, f"{res}"
     check("Mailkopf: Symbol einer Erweiterung im Mailkopf sichtbar (feste Farbe und context-fill)", addon_icon, results)
 

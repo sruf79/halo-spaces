@@ -334,23 +334,24 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Request vorschlagen; Probleme (gleiche Add-on-ID, fehlende Lizenzhinweise)
   freundlich ansprechen. Gesprächsfaden mit dem Windows-Fork
   `ahXN00/halo-spaces_win`: Issue #6.
-- **Automatisch nachsehen:** Nach jeder eigenen Antwort auf GitHub
-  dranbleiben, bis der Faden erledigt ist. Pull Requests abonnieren
-  (in Cloud-Sessions `subscribe_pr_activity`; Kommentare, Pushes und Merge
-  wecken die Sitzung dann selbst). Issues und Forks melden sich nicht von
-  selbst – dafür eine Prüfung einplanen (in Cloud-Sessions `send_later`):
-  die erste etwa 1 Stunde nach der letzten Aktivität, danach alle
-  4–6 Stunden. Jede Prüfung: neue Issues/PRs, Antworten in offenen Fäden,
-  Stand der bekannten Forks; Antworten gleich beantworten. Zusätzliche
-  Prüfungen ohne Neues still neu einplanen; nach 3 leeren in Folge aufhören
-  und das dem Maintainer einmal kurz sagen (die feste Routine unten läuft
-  weiter). Neue Aktivität setzt den Zähler zurück.
-  Der Maintainer erfährt im Gespräch nur, was neu ist oder seine
-  Entscheidung braucht (Mergen, Code übernehmen, Design-Fragen).
+- **Nachsehen nur über die feste Routine:** Lösungen müssen unabhängig von
+  der laufenden Sitzung funktionieren (Entscheidung des Maintainers vom
+  3.11.2026 – keine Sitzungen, die nur zum Warten offen bleiben). Deshalb
+  keine Pull Requests abonnieren (`subscribe_pr_activity`), keine
+  Wiedervorlagen (`send_later`, `ScheduleWakeup`, eigene geplante Aufgaben)
+  und kein Warten auf CI in der Sitzung. Was danach noch passiert, greift
+  die feste Routine unten auf; offene Fäden dafür in
+  `~/halo-aufgaben/github-komm-stand.md` vermerken (aus Cloud-Sessions über
+  neon). Der Maintainer erfährt im Gespräch nur,
+  was neu ist oder seine Entscheidung braucht (Mergen, Code übernehmen,
+  Design-Fragen).
 - **Feste Routine:** Die regelmäßige Prüfung läuft auf neon als geplante
   Aufgabe der Claude-Desktop-App „halo.spaces: GitHub-Kommunikation“
   (`halo-github-kommunikation`), täglich 9:00, 14:00 und 19:00 Wiener Zeit,
   ohne Ablauf; jeder Lauf ist eine neue Sitzung mit `gh` (inkl. `gh project`).
+  Jeder Lauf prüft: neue Issues/PRs, Antworten in offenen Fäden, Stand der
+  bekannten Forks, die letzten CI-Läufe auf `main` und in offenen PRs
+  (rot → Ursache klären, beheben oder dem Maintainer melden).
   Den Stand zwischen den Läufen (letzte Prüfung, offene Fäden, Fork-Stände,
   was auf eine Entscheidung des Maintainers wartet) hält
   `~/halo-aufgaben/github-komm-stand.md` – lesen vor, aktualisieren nach

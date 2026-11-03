@@ -10274,6 +10274,13 @@ Neu
             out.selected = { task: tree.currentTask?.title, card: sel?.textContent.includes("Halo Kartenaufgabe"), bg: sel && csOf(sel).backgroundColor,
                              accent: colorOf(d, "var(--mt-accent)"), focused: list.hasAttribute("data-focused"),
                              details: d.getElementById("calendar-task-details-title")?.textContent };
+            // Rechtsklick auf die Karte: jeder Eintrag des Aufgabenmenüs nur einmal (früher „Open Task…“/„New Task…“ doppelt)
+            const cmenu = d.getElementById("taskitem-context-menu");
+            card.querySelector(".mc-tc-title").dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: rect.left + 60, clientY: rect.top + 10, screenX: w.mozInnerScreenX + rect.left + 60, screenY: w.mozInnerScreenY + rect.top + 10 }));
+            await till(() => cmenu?.state == "open", 3000); await pause(200);
+            const labels = [...(cmenu?.children || [])].filter(i => i.localName == "menuitem" && !i.hidden && i.getBoundingClientRect().height > 0).map(i => i.getAttribute("label"));
+            out.menuDup = labels.filter((l, k) => l && labels.indexOf(l) != k); out.menuN = labels.length;
+            cmenu?.hidePopup(); await pause(300);
             // Kreis: erledigt
             const check = card.querySelector(".mc-tc-check"), cr = check.getBoundingClientRect();
             check.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
@@ -10296,7 +10303,7 @@ Neu
         ok = (res.get("card") and lk.get("radius") == res.get("mailRadius") and lk.get("shadow") and lk.get("lines") == 2 and lk.get("prio") == "!!!"
               and not lk.get("treeShown") and sl.get("task") == "Halo Kartenaufgabe" and sl.get("card") and sl.get("focused")
               and same_color(sl.get("bg", ""), sl.get("accent", "")) and res.get("completed") and (res.get("menu") or [None])[0] == "Card View"
-              and res.get("table") == {"cards": False, "tree": True})
+              and res.get("table") == {"cards": False, "tree": True} and res.get("menuDup") == [] and res.get("menuN", 0) >= 4)
         return ok, f"{res}"
     check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Tabelle zeigt Thunderbirds Liste", task_cards, results)
 

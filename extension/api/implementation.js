@@ -5643,6 +5643,17 @@ function hookTaskCards(win, restorers) {
   list.addEventListener("contextmenu", event => {
     event.preventDefault();
     const menu = doc.getElementById(tree.getAttribute("context") || "taskitem-context-menu");
+    // wie für Thunderbirds Aufgabenliste: die Varianten der Today-Pane aus
+    // (seine Menülogik findet in den Karten keine Aufgabenliste und ließ
+    // „Open Task…“ und „New Task…“ doppelt stehen)
+    for (const [id, hide] of [["task-context-menu-new", false], ["task-context-menu-modify", false],
+      ["task-context-menu-new-todaypane", true], ["task-context-menu-modify-todaypane", true],
+      ["task-context-menu-filter-todaypane", true], ["task-context-menu-separator-filter", true]]) {
+      const item = doc.getElementById(id);
+      if (item) {
+        item.hidden = hide;
+      }
+    }
     menu?.openPopupAtScreen(event.screenX, event.screenY, true, event);
   });
   const prefObs = () => schedule();

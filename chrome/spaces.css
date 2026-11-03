@@ -208,7 +208,24 @@
   mask: var(--mc-tl-glyph) center / contain no-repeat;
 }
 
-#mcTaskLists .mc-tl-today { --mc-tl-c: #007AFF; }
+/* „Heute“ wie in den Erinnerungen: ein kleines Kalenderblatt (Kopfleiste und
+   Tageszahl) im blauen Kreis – die Zahl allein sah aus wie eine Anzahl */
+#mcTaskLists .mc-tl-today {
+  --mc-tl-c: #007AFF;
+  font-size: 7.5px;
+  line-height: 7.5px;
+  padding-top: 9px;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+#mcTaskLists .mc-tl-today::after {
+  content: "";
+  position: absolute;
+  inset: 4.5px;
+  background-color: white;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath fill-rule='evenodd' d='M2.6 0.6h7.8a2 2 0 0 1 2 2v7.8a2 2 0 0 1-2 2H2.6a2 2 0 0 1-2-2V2.6a2 2 0 0 1 2-2zM1.9 4.4v6a0.7 0.7 0 0 0 0.7 0.7h7.8a0.7 0.7 0 0 0 0.7-0.7v-6z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 #mcTaskLists .mc-tl-scheduled {
   --mc-tl-c: #FF3B30;
   --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round'%3E%3Crect x='2' y='3' width='12' height='11' rx='2'/%3E%3Cpath d='M2 7h12M5 1.5v3M11 1.5v3'/%3E%3C/svg%3E");
@@ -1414,9 +1431,15 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   font-style: normal !important;
 }
 
+/* (16 px und eine etwas breitere Spalte: Thunderbird legt sie für ein
+   14-px-Kästchen aus, das 18-px-Symbol war links abgeschnitten) */
+.calendar-task-tree treecol.calendar-task-tree-col-completed {
+  min-width: 28px !important;
+}
+
 .calendar-task-tree > treechildren::-moz-tree-image(calendar-task-tree-col-completed) {
-  inline-size: 18px !important;
-  block-size: 18px !important;
+  inline-size: 16px !important;
+  block-size: 16px !important;
   fill-opacity: 1 !important;
   list-style-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8.6' fill='none' stroke='%23B5B5BA' stroke-width='1.5'/%3E%3C/svg%3E") !important;
 }

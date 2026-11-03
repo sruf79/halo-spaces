@@ -3620,12 +3620,20 @@ def folder_checks(m, results):
           at("threadPane"); await wait(200);
           d.documentElement.dispatchEvent(new w.MouseEvent("mouseleave", { bubbles: false, relatedTarget: null })); await wait(200);
           out.off = read();
+          // Kalender: keine Linie unter der Toolbar (ruhige Fläche bis zum Monatskopf)
+          tm.openTab("calendar", {}); await wait(1200);
+          const box = d.getElementById("calendarDisplayBox")?.getBoundingClientRect();
+          if (box) { rowEl.dispatchEvent(new w.MouseEvent("mousemove", { bubbles: true, clientX: box.left + box.width / 2, clientY: row.top + row.height / 2 })); await wait(200); }
+          out.calendar = read();
+          d.documentElement.dispatchEvent(new w.MouseEvent("mouseleave", { bubbles: false, relatedTarget: null }));
+          tm.selectTabByMode("mail3PaneTab"); await wait(500);
           return out;""")
         near = lambda a, b: a and b and abs(a["left"] - b["left"]) <= 1 and abs(a["width"] - b["width"]) <= 1
         ok = (res.get("list", {}).get("on") and near(res.get("list"), res.get("listWant")) and res.get("msg", {}).get("on")
-              and near(res.get("msg"), res.get("msgWant")) and not res.get("below", {}).get("on") and not res.get("off", {}).get("on"))
+              and near(res.get("msg"), res.get("msgWant")) and not res.get("below", {}).get("on") and not res.get("off", {}).get("on")
+              and not res.get("calendar", {}).get("on"))
         return ok, f"{res}"
-    check("Toolbar: feine Linie nur, solange die Maus in der Toolbar-Zeile über der Spalte ist (Mailliste, Mail), in der Spalte und ohne Maus keine", hover_line, results)
+    check("Toolbar: feine Linie nur, solange die Maus in der Toolbar-Zeile über der Spalte ist (Mailliste, Mail), in der Spalte und ohne Maus keine, im Kalender nie", hover_line, results)
 
     def solid_menus():
         # Einstellung „Solid menus“: Menüs ohne Durchscheinen (deckende Fläche), schaltet sofort um

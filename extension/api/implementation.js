@@ -2261,10 +2261,12 @@ function hookPrefKeyboardScroll(cw, restorers = null) {
 // nur bei Spalten, die direkt unter der Toolbar-Zeile beginnen. Die Spalten
 // liegen teils in eigenen Dokumenten (about:3pane, Adressbuch, Einstellungen):
 // dort je ein Beobachter, angehängt beim ersten Bewegen bzw. Tab-Wechsel
+// (nicht im Kalender: Toolbar und Monatskopf bilden dort eine ruhige Fläche
+// wie im Kalender von Apple)
 const HOVER_COLUMNS = [
   "#threadPane", "#messagePane", "#cardsPane", "#detailsPane",
   "#mcTaskCards", "#calendar-task-tree", "#calendar-task-details-container",
-  "#calendarDisplayBox", ".paneDeckContainer", "#chat-conversations-box", "#conversationsBox",
+  ".paneDeckContainer", "#chat-conversations-box", "#conversationsBox",
 ].join(", ");
 function hookHoverLine(w, restorers = null) {
   const d = w.document;
@@ -2287,8 +2289,15 @@ function hookHoverLine(w, restorers = null) {
   const columnAt = x => {
     const rr = row.getBoundingClientRect();
     for (const doc of docs) {
-      const frame = doc == d ? null : doc.defaultView?.frameElement?.getBoundingClientRect();
+      const frameEl = doc == d ? null : doc.defaultView?.frameElement;
+      const frame = frameEl?.getBoundingClientRect();
       if (doc != d && !frame?.width) {
+        continue;
+      }
+      // eingebettete Ansicht eines anderen Tabs (z. B. die Mail hinter dem
+      // Kalender) behält ihre Größe – nur der gewählte Tab zählt
+      const selected = tm?.panelContainer?.selectedPanel;
+      if (frameEl && selected && frameEl.ownerDocument == d && !selected.contains(frameEl)) {
         continue;
       }
       for (const col of doc.querySelectorAll(HOVER_COLUMNS)) {

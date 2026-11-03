@@ -4980,6 +4980,131 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Schnellfenster: erscheint neben dem Tag gleich an seiner Stelle und springt nicht nachträglich", quick_no_jump, results)
 
+    def multiweek_buffer():
+        # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je zwei unsichtbare Wochen
+        # davor und danach, Termine darin geladen; sichtbar, Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht
+        # wie ohne; Thunderbirds Einstellungen der Wochenzahl unverändert
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll";
+          await toCalendar(); w.switchToView("multiweek"); await pause(1000);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const weeksPref = Services.prefs.getIntPref("calendar.weeks.inview", 4), prevPref = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
+          const iso = dt => dt ? `${dt.year}-${dt.month + 1}-${dt.day}` : null;
+          const rows = () => [...mv.monthbody.children];
+          const look = () => ({ shown: rows().filter(r => !r.hidden).length, buffer: rows().filter(r => r.hasAttribute("mc-buffer")).length,
+            bufferHidden: rows().filter(r => r.hasAttribute("mc-buffer")).every(r => r.hidden), range: iso(mv.rangeStartDate), loaded: iso(mv.startDate),
+            label: d.getElementById("intervalDescription")?.textContent || d.querySelector("#calendarNavigationBar .view-header")?.textContent || "",
+            h: Math.round(mv.monthbody.getBoundingClientRect().height) });
+          const out = { off: look() };
+          const added = [];
+          try {
+            Services.prefs.setBoolPref(P, true); await pause(800);
+            out.on = look();
+            // Termin in der Puffer-Woche davor: schon geladen (Tageszelle mit Eintrag, unsichtbar)
+            const day = mv.rangeStartDate.clone(); day.day -= 4; day.isDate = true;
+            const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+            const ev = new CalEvent(); ev.title = "Halo Puffer"; ev.startDate = day.clone(); const e2 = day.clone(); e2.day += 1; ev.endDate = e2;
+            const item = await testCalendar().addItem(ev); added.push(item); await pause(800);
+            const boxes = mv.findDayBoxesForItem(item);
+            out.bufferItem = boxes.length > 0 && boxes.every(b => b.closest("tr")?.hasAttribute("mc-buffer")) &&
+              [...(boxes[0]?.querySelectorAll("calendar-month-day-box-item") || [])].some(i => i.occurrence?.title == "Halo Puffer");
+            const start = out.on.range;
+            mv.moveView(1); await pause(600); out.next = look();
+            mv.moveView(-1); await pause(600); out.back = look();
+            mv.moveView(0); await pause(600);
+            const today = cal.dtz.now(); const r0 = mv.rangeStartDate, r1 = mv.rangeEndDate;
+            out.today = r0.compare(today) <= 0 && r1.compare(today) >= 0 || iso(r1) == iso(today);
+            Services.prefs.setIntPref("calendar.weeks.inview", 3); await pause(800); out.zoom = look();
+            Services.prefs.setIntPref("calendar.weeks.inview", weeksPref); await pause(800);
+            w.switchToView("month"); await pause(800);
+            const month = d.getElementById("month-view");
+            out.month = { buffer: [...(month.wrappedJSObject || month).monthbody.children].filter(r => r.hasAttribute("mc-buffer")).length };
+            w.switchToView("multiweek"); await pause(800); out.again = look();
+            out.start = start;
+          } finally {
+            for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
+            Services.prefs.clearUserPref(P); await pause(600);
+            out.offAgain = look();
+            out.prefs = [Services.prefs.getIntPref("calendar.weeks.inview", 4) == weeksPref, Services.prefs.getIntPref("calendar.previousweeks.inview", 0) == prevPref];
+            w.switchToView("week"); await pause(500);
+          }
+          return out;""")
+        off, on, nx, bk, zm, ag, oa = (res.get(k) or {} for k in ("off", "on", "next", "back", "zoom", "again", "offAgain"))
+        week = lambda a, b: a and b and abs((__import__("datetime").date(*map(int, a.split("-"))) - __import__("datetime").date(*map(int, b.split("-")))).days)
+        ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 2 and on.get("bufferHidden") and on.get("range") == off.get("range")
+              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 1 and week(on.get("loaded"), on.get("range")) == 14
+              and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
+              and zm.get("shown") == 3 and zm.get("buffer") == 4 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
+              and oa.get("buffer") == 0 and oa.get("shown") == off.get("shown") and res.get("prefs") == [True, True])
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – unsichtbare Puffer-Wochen (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
+
+    def quick_ghost():
+        # Doppelklick in einen Tag wie bei Apple Kalender: sofort ein vorläufiger Termin „New Event“ in der Farbe des
+        # Kalenders im Tag, der Dialog als Sprechblase daneben mit der Spitze auf dessen Mitte; Titel live; Abbrechen
+        # entfernt ihn, „Add“ ersetzt ihn durch den echten Termin; in der Woche an der Uhrzeit
+        res = m.js(CAL_CHECK_JS + r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const open = (cell, start, allDay) => {
+            const r = cell.getBoundingClientRect();
+            g.__mcQuickArgs = { w, cell, start, allDay, rect: { left: w.mozInnerScreenX + r.left, top: w.mozInnerScreenY + r.top, width: r.width, height: r.height } };
+            Cu.evalInSandbox("enhancer.openQuickCreate(__mcQuickArgs.w, 'event', null, { start: __mcQuickArgs.start, allDay: __mcQuickArgs.allDay, at: { x: __mcQuickArgs.rect.left, y: __mcQuickArgs.rect.top, rect: __mcQuickArgs.rect, cell: __mcQuickArgs.cell } })", g);
+          };
+          const out = {};
+          await toCalendar(); w.switchToView?.("month"); await pause(1200);
+          const cells = [...d.querySelectorAll("calendar-month-day-box")].filter(vis);
+          const cell = cells[Math.min(9, cells.length - 1)];
+          if (!cell) return { cell: false };
+          const day = cell.date ? new Date(cell.date.year, cell.date.month, cell.date.day) : new Date();
+          open(cell, day, true);
+          const qp = await till(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, 4000);
+          await pause(600);
+          const ghost = cell.querySelector(".mc-qc-ghost");
+          const gr = ghost?.getBoundingClientRect(), o = qp?.getOuterScreenRect();
+          const tipY = parseFloat(qp?.style.getPropertyValue("--mc-tip-y"));
+          out.month = { ghost: !!ghost, text: ghost?.textContent, bg: ghost && w.getComputedStyle(ghost).backgroundColor, tip: qp?.getAttribute("mc-tip"),
+            color: (() => { const e = d.createElement("div"); e.style.color = testCalendar()?.getProperty("color"); d.documentElement.append(e); const c = w.getComputedStyle(e).color; e.remove(); return c; })(),
+            tipOff: gr && o ? Math.round(o.y + tipY - (w.mozInnerScreenY + gr.top + gr.height / 2)) : null,
+            gapX: gr && o ? Math.round(qp.getAttribute("mc-tip") == "start" ? o.x - (w.mozInnerScreenX + gr.right) : (w.mozInnerScreenX + gr.left) - (o.x + o.width)) : null };
+          const f = qp.__mc;
+          f.title.value = "Halo Mittag"; f.title.dispatchEvent(new w.Event("input", { bubbles: true })); await pause(200);
+          out.month.live = ghost?.querySelector(".mc-ghost-title")?.textContent;
+          await shutPop(qp); await pause(400);
+          out.month.afterCancel = !!cell.querySelector(".mc-qc-ghost");
+          // „Add“: vorläufiger weg, echter Termin da
+          open(cell, day, true);
+          await till(() => qp.state == "open", 4000); await pause(500);
+          f.title.value = "Halo Geist"; f.title.dispatchEvent(new w.Event("input", { bubbles: true })); await pause(200);
+          f.add.click();
+          let found = null;
+          for (let t = 0; t < 40 && !found; t++) { const items = await testCalendar().getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null); found = items.find(i => i.title == "Halo Geist"); if (!found) await pause(100); }
+          await pause(800);
+          out.month.added = !!found; out.month.ghostAfterAdd = !!cell.querySelector(".mc-qc-ghost");
+          if (found) await testCalendar().deleteItem(found);
+          // Woche: an der Uhrzeit
+          await toWeek(); await pause(800);
+          const col = [...d.querySelectorAll("calendar-event-column")].find(vis);
+          if (col) {
+            const st = new Date(); st.setHours(10, 0, 0, 0);
+            open(col, st, false);
+            await till(() => qp.state == "open", 4000); await pause(500);
+            const gh = col.querySelector(".mc-qc-ghost"), list = col.eventsListElement;
+            out.week = { ghost: !!gh, top: gh && Math.round(gh.getBoundingClientRect().top - list.getBoundingClientRect().top), want: Math.round(600 * (col.pixelsPerMinute || 0)),
+              time: gh?.querySelector(".mc-ghost-time")?.textContent, tip: qp.getAttribute("mc-tip") };
+            await shutPop(qp); await pause(300);
+            out.week.afterCancel = !!col.querySelector(".mc-qc-ghost");
+          }
+          return { cell: true, ...out };""" % ADDON_ID)
+        mo, wk = res.get("month") or {}, res.get("week") or {}
+        ok = (res.get("cell") and mo.get("ghost") and mo.get("text") == "New Event" and same_color(mo.get("bg") or "", mo.get("color") or "x")
+              and mo.get("tip") in ("start", "end") and mo.get("tipOff") is not None and abs(mo["tipOff"]) <= 2
+              and mo.get("gapX") is not None and 0 <= mo["gapX"] <= 4 and mo.get("live") == "Halo Mittag" and mo.get("afterCancel") is False
+              and mo.get("added") and mo.get("ghostAfterAdd") is False
+              and wk.get("ghost") and abs((wk.get("top") or -99) - wk.get("want", 0)) <= 2 and wk.get("time") and wk.get("tip") and wk.get("afterCancel") is False)
+        return ok, f"{res}"
+    check("Kalender: Doppelklick zeigt sofort einen vorläufigen Termin im Tag, der Dialog zeigt mit der Spitze darauf; Titel live, Abbrechen entfernt ihn", quick_ghost, results)
+
     def quick_footer():
         # Fußzeile des Schnellfensters: „More Options…“ mittig unter den Notizen, darunter Abbrechen und Hinzufügen gleich breit,
         # zusammen bündig mit den Feldern darüber

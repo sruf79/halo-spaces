@@ -6848,6 +6848,145 @@ function addTypeSwitch(iw) {
   });
 }
 
+// Mehrwochen-Ansicht stufenlos scrollen wie Apple Kalender – Reihe in
+// fünf Schritten (2/6 bis 6/6), bis zum letzten nur mit
+// extensions.mailcards.multiweekScroll (Standard aus). Schritt 2: unsichtbarer
+// Unterbau. Die Ansicht lädt je zwei Wochen vor und nach dem sichtbaren Teil
+// mit (Termine darin sind schon geladen), die Zeilen dazu sind ausgeblendet.
+// Sichtbar bleibt alles wie bisher: Wochenzahl (calendar.weeks.inview),
+// Überschrift, Pfeile, „Heute“ und Zoom richten sich nach dem sichtbaren Teil
+const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
+const MULTIWEEK_BUFFER_WEEKS = 2;
+function hookMultiweekBuffer(mv, restorers) {
+  // Thunderbirds eigene Sicht auf das Element: Änderungen durch die
+  // Schutzschicht der Erweiterung (Xray) sähe der Kalender sonst nicht
+  // (über die Klasse: beim ersten Aufruf ist die Ansicht oft noch nicht
+  // aufgebaut – dann fehlten monthbody und die eigenen Methoden)
+  const win = mv?.ownerDocument?.defaultView;
+  mv = mv?.wrappedJSObject || mv;
+  const View = (win?.wrappedJSObject || win)?.customElements?.get("calendar-multiweek-view");
+  if (!win || !View || View.prototype.__mcBuffer || typeof View.prototype.setDateRange != "function") {
+    return;
+  }
+  const proto = View.prototype;
+  proto.__mcBuffer = true;
+  const doc = win.document;
+  const on = () => Services.prefs.getBoolPref(MULTIWEEK_SCROLL_PREF, false);
+  const B = MULTIWEEK_BUFFER_WEEKS;
+  // wie Thunderbird die Wochenzeilen anlegt (sechs), nur so viele wie nötig
+  const ensureRows = view => {
+    const body = view.monthbody;
+    const want = Math.max(6, (view.weeksInView || 6) + 2 * B);
+    while (body.children.length < want) {
+      const row = doc.createElement("tr");
+      for (let day = 1; day <= 7; day++) {
+        const cell = doc.createElement("td");
+        cell.append(doc.createXULElement("calendar-month-day-box"));
+        row.append(cell);
+      }
+      body.append(row);
+    }
+  };
+  // nach jedem Aufbau: Puffer-Zeilen ausblenden, sichtbare fortlaufend ins
+  // Raster (leere Rasterzeilen nähmen sonst Platz ein)
+  const afterLayout = view => {
+    const rows = [...view.monthbody.children];
+    const buffered = on() && !!view.__mcVisible;
+    const used = rows.filter(r => !r.hasAttribute("hidden"));
+    let n = 2;
+    rows.forEach((row, i) => {
+      const k = used.indexOf(row);
+      const buffer = buffered && k >= 0 && (k < B || k >= used.length - B);
+      row.toggleAttribute("mc-buffer", buffer);
+      if (buffer) {
+        row.setAttribute("hidden", "");
+      }
+      for (const cell of row.cells) {
+        cell.firstElementChild.style.gridRow = buffered ? (row.hasAttribute("hidden") ? "" : n) : i + 2;
+      }
+      if (buffered && !row.hasAttribute("hidden")) {
+        n++;
+      }
+    });
+  };
+  const saved = ["relayout", "setDateRange", "moveView"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
+  const orig = Object.fromEntries(saved.map(([name, , fn]) => [name, fn]));
+  proto.relayout = function (...args) {
+    const r = orig.relayout.apply(this, args);
+    try {
+      afterLayout(this);
+    } catch (e) {
+      log("multiweek buffer layout error", String(e).slice(0, 120));
+    }
+    return r;
+  };
+  proto.setDateRange = function (startDate, endDate) {
+    if (!on()) {
+      this.__mcVisible = null;
+      return orig.setDateRange.call(this, startDate, endDate);
+    }
+    ensureRows(this);
+    this.__mcVisible = [startDate.clone(), endDate.clone()];
+    const s = startDate.clone();
+    const e = endDate.clone();
+    s.day -= 7 * B;
+    e.day += 7 * B;
+    // Thunderbird baut neu, wenn sich der Bereich ändert, und fragt die
+    // Kalender für ihn ab; danach wieder der sichtbare Teil als „angezeigter
+    // Bereich“ (Überschrift, Pfeile)
+    orig.setDateRange.call(this, s, e);
+    this.rangeStartDate = startDate;
+    this.rangeEndDate = endDate;
+    if (this.isVisible()) {
+      (win.wrappedJSObject || win).calendarNavigationBar?.setDateRange(startDate, endDate);
+    }
+    return undefined;
+  };
+  // Pfeile: Thunderbird rechnet vom ersten geladenen Tag – mit Puffer zwei
+  // Wochen zu früh; also vom ersten sichtbaren
+  proto.moveView = function (weeksToMove) {
+    if (!on() || !weeksToMove || !this.rangeStartDate) {
+      return orig.moveView.call(this, weeksToMove);
+    }
+    const date = this.rangeStartDate.clone();
+    const savedSelectedDay = this.selectedDay.clone();
+    const prevWeeks = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
+    date.day += 7 * (weeksToMove + prevWeeks);
+    this.goToDay(date);
+    savedSelectedDay.day += 7 * weeksToMove;
+    this.selectedDay = savedSelectedDay;
+    return undefined;
+  };
+  // Einstellung umgeschaltet: denselben Bereich neu aufbauen
+  const observer = () => {
+    try {
+      const start = mv.rangeStartDate?.clone();
+      const end = mv.rangeEndDate?.clone();
+      mv.mViewStart = null;
+      if (start && end && mv.monthbody) {
+        mv.setDateRange(start, end);
+      }
+    } catch (e) {
+      log("multiweek buffer pref error", String(e).slice(0, 120));
+    }
+  };
+  Services.prefs.addObserver(MULTIWEEK_SCROLL_PREF, observer);
+  restorers?.push(() => {
+    Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, observer);
+    for (const [name, own, fn] of saved) {
+      if (own) {
+        proto[name] = fn;
+      } else {
+        delete proto[name];
+      }
+    }
+    delete proto.__mcBuffer;
+  });
+  if (on()) {
+    observer();
+  }
+}
+
 function appleEventLayout(win) {
   const doc = win.document;
   const grid = doc.getElementById("event-grid");
@@ -15032,6 +15171,7 @@ class CardEnhancer {
       markTab();
       decorateAgenda();
       hookMonthView();
+      hookMultiweekBuffer(w.document.getElementById("multiweek-view"), this.restorers);
       hookMultidayZoom();
       hookNewButton();
       hookCalendarNotes();

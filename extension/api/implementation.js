@@ -20385,9 +20385,15 @@ class CardEnhancer {
       const { first } = chosen();
       item.hidden = !available() || !first || first.isDeleted || !first.hasFile;
     };
+    // direkt statt über Thunderbirds Ereignis „quicklook“: dafür hängt
+    // Thunderbird bei jeder Mail mit Anhängen einen weiteren Empfänger an –
+    // nach einigen Mails ging die Vorschau mehrmals auf und wieder zu
     const onCommand = () => {
-      const { list, index } = chosen();
-      list?.dispatchEvent(new win.CustomEvent("quicklook", { bubbles: true, detail: { index } }));
+      const { index } = chosen();
+      const atts = win.currentAttachments || [];
+      if (atts.length) {
+        win.gQuickLookManager?.toggle(atts, index);
+      }
     };
     popup.addEventListener("popupshowing", onShowing);
     item.addEventListener("command", onCommand);

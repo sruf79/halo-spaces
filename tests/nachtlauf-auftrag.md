@@ -28,23 +28,41 @@ Reihenfolge:
    AGENTS.md), dann ~/halo-aufgaben/fertig.sh <id> "Commit <hash>".
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
-3. Ab 05:00 keinen neuen Eintrag mehr anfangen.
-4. Wurde mindestens ein Bug/Feature committet: Versionshinweise im README.md
-   (eigener Commit), Notizdatei für den GitHub-Release (englisch), dann
-   ./release.sh x.y.z und bei Erfolg ./publish.sh x.y.z <notizen>.
-   Nicht vorher separat pushen: release.sh testet hell und dunkel auf
-   diesem Mac, ein CI-Lauf nach dem Push würde die Tests stören.
-   Scheitert release.sh: wenn die Ursache klar und klein ist, beheben und
-   release.sh erneut; sonst den Commit, der den Fehler bringt, mit git revert
-   zurücknehmen (Eintrag wieder auf Todo mit Notiz) und erneut. Die Sperre in
-   publish.sh nie umgehen (keine SKIP_*-Variablen, keine Marke von Hand).
-   Ohne Release bis 07:30: die Commits trotzdem pushen und im Bericht sagen.
+3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und eine
+   Reparaturrunde vor 08:00).
+4. Wurde mindestens ein Bug/Feature committet: pushen und die schnelle CI
+   abwarten (Entscheidung des Maintainers vom 3.11.2026), dann veröffentlichen.
+   a) git push. Den CI-Lauf für genau diesen Commit abwarten:
+      tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
+      Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
+      Ein Lauf dauert etwa 50 Minuten (Linux ~16, mac ~32, windows ~17).
+      Solange er läuft, keine eigenen Testläufe auf diesem Mac (auch nicht
+      --vm): die Jobs mac und windows laufen hier.
+   b) Grün (Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
+      README.md – zählt nicht als neuer Stand), Notizdatei für den
+      GitHub-Release (englisch), ./release.sh x.y.z (überspringt die Tests
+      dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>.
+   c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
+      Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
+      Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
+      --vm --port 2851), committen, pushen, erneut abwarten. Sonst den Commit,
+      der den Fehler bringt, mit git revert zurücknehmen (Eintrag zurück auf
+      Todo mit Notiz, was im Weg war), pushen, erneut abwarten. Höchstens zwei
+      Reparaturrunden und keine neue ab 07:30 – danach kein Release, die
+      Commits bleiben gepusht, im Bericht sagen, was rot ist.
+      Abgebrochen (Exitcode 3): einmal neu starten mit
+      gh run rerun <id> -R sruf79/halo-spaces und erneut abwarten.
+   Veröffentlicht wird nur, wenn der CI-Lauf des letzten Commits grün ist.
+   Die Sperre in publish.sh nie umgehen (keine SKIP_*-/FORCE_*-Variablen,
+   keine Marke von Hand). Scheitert release.sh trotz grüner CI: Ursache
+   klären, kein Release, im Bericht sagen.
    Nichts committet: kein Release, nichts pushen.
 5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Erledigt
-   (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (welche Läufe, Ergebnis),
+   (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
+   --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.

@@ -1,7 +1,8 @@
 #!/bin/zsh
 # Nächtlicher Arbeitslauf auf neon (tests/MAC-MINI.md, Abschnitt 13): Claude Code
 # arbeitet offene Einträge der Aufgabenliste ab und veröffentlicht am Ende nach
-# AGENTS.md (release.sh, publish.sh). Gestartet vom LaunchAgent
+# AGENTS.md: pushen, CI abwarten (tests/ci-warten.sh), bei Grün release.sh und
+# publish.sh. Gestartet vom LaunchAgent
 # at.halo-spaces.nachtlauf jede Nacht um 01:30; die Datei wird nach
 # ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt (der Lauf
 # ändert den Checkout).
@@ -33,20 +34,8 @@ LOCK=$DIR/lauf.lock
 START=$(date +%s)
 ENDE=$(date -j -v8H -v0M -v0S +%s)       # nach 08:00 nicht mehr fortsetzen
 HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
-zeit() { date '+%F %T' }
-log() { print -r -- "$(zeit) $*" >> $LOG }
-
-# eine Zeile aufs iPhone: eine kurze Claude-Sitzung gibt sie per SendMessage an
-# die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt
-push() {
-  local text=$1 out
-  # Text über stdin: --allowedTools nimmt sonst den Auftrag als weiteres Werkzeug
-  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „comm.github.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
-PUSH: $text
-Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
-    | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)
-  log "Push: $out"
-}
+# zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
+source ${0:A:h}/lauf-hilfen.zsh
 
 bericht_kurz() {
   # erste Zeile „Kurz: …“ des Berichts, sonst seine Überschrift
@@ -82,6 +71,12 @@ notbericht() {
       print
       git -C $REPO log --since="@$START" --format='- %h %s' 2>/dev/null | cut -c1-200
       print
+      print "## CI-Läufe dieser Nacht"
+      print
+      gh run list -R sruf79/halo-spaces -w test.yml -b main -L 10 \
+        --json databaseId,createdAt,status,conclusion,headSha \
+        --jq ".[] | select((.createdAt | fromdate) >= $START) | \"- \(.databaseId) \(.headSha[:7]): \(.status) \(.conclusion)\"" 2>/dev/null
+      print
       print "## Release"
       print
       ls -t $BERICHTE/$TAG-halo.spaces-*.md(N) 2>/dev/null | sed 's/^/- Bericht: /'
@@ -112,23 +107,8 @@ fi
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
 
-# --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor ---
-belegt() {
-  pgrep -f Runner.Worker >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
-  pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
-  pgrep -f -- "-marionette" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }
-  local p
-  for p in 2839 2845 {2850..2869}; do
-    lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null 2>&1 && { print "Marionette-Port $p belegt"; return 0 }
-  done
-  [[ -e $HOME/halo-vm/lauf.lock ]] && kill -0 $(cut -d' ' -f1 $HOME/halo-vm/lauf.lock) 2>/dev/null \
-    && { print "Lauf in der Windows-VM"; return 0 }
-  pgrep -f "release\.sh|publish\.sh" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
-  [[ -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
-    && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
-  return 1
-}
-# ein CI-Lauf dauert gut eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
+# --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor (belegt) ---
+# ein CI-Lauf dauert knapp eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
 for i in {1..18}; do
   GRUND=$(belegt) || break
   [[ $GRUND == CI-* ]] || break

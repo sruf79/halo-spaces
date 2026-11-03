@@ -7033,10 +7033,11 @@ def run_checks(m, version, profile, results):
         # „showing“ = geht gerade auf (in einem verdeckten Fenster bleibt die Animation dort stehen)
         # aufgegangen = jetzt offen oder zumindest einmal gezeigt (xvfb schließt es teils sofort)
         opened = res["state"] in ("open", "showing") or res["shown"] > 0
-        # Fenster neben der Spalte, zur Fenstermitte hin (welche Spalte frei ist, hängt vom Wochentag ab)
+        # Fenster neben der Spalte bzw. dem vorläufigen Termin darin, zur Fenstermitte hin (welche Spalte frei ist, hängt vom Wochentag ab)
         placed = res.get("placed") or {}
         if res.get("leftHalf"):
-            beside = placed.get("side") == "right" and placed.get("x", 0) >= res["colRight"]
+            # (die Spitze zeigt auf den vorläufigen Termin, der 3 px vor dem Spaltenrand endet)
+            beside = placed.get("side") == "right" and placed.get("x", 0) >= res["colRight"] - 8
         else:
             beside = placed.get("side") == "left" and placed.get("x", 0) < res["colLeft"]
         ok = opened and beside and res["dialogs"] == 0 and ("14:" in res["line"] or "02:00 PM" in res["line"] or "2:00 PM" in res["line"])

@@ -14728,6 +14728,7 @@ class CardEnhancer {
         // in Bildschirmkoordinaten – das Schnellfenster erscheint daneben
         const cell = event.target?.closest?.("calendar-month-day-box, calendar-header-container, calendar-event-column");
         const r = cell?.getBoundingClientRect();
+        lastClick.cell = cell || null;
         if (r?.width) {
           const column = cell.localName == "calendar-event-column";
           lastClick.rect = {
@@ -15954,7 +15955,10 @@ class CardEnhancer {
         updateColor();
       };
       const selectedCalendar = () => cal.manager.getCalendarById(f.calendar.value);
-      const updateColor = () => root.style.setProperty("--mc-qc-color", color(selectedCalendar()));
+      const updateColor = () => {
+        root.style.setProperty("--mc-qc-color", color(selectedCalendar()));
+        panel.__mcGhost?.style.setProperty("--mc-ghost-color", color(selectedCalendar()));
+      };
       const updateSummary = () => {
         if (state.mode == "task") {
           // Erinnerung braucht eine Fälligkeit (sonst ginge sie beim Anlegen verloren)
@@ -16068,6 +16072,16 @@ class CardEnhancer {
         panel.__mcApplyNatural?.();
       };
       panel.__mcSetMode = setMode;
+      // Aufgabe statt Termin: kein vorläufiger Termin im Tag
+      for (const seg of [f.segEvent, f.segTask]) {
+        seg.addEventListener("click", () => {
+          if (state.mode == "task" && panel.__mcGhost) {
+            panel.__mcGhost.remove();
+            panel.__mcGhost = null;
+            panel.removeAttribute("mc-tip");
+          }
+        });
+      }
       panel.__mcUpdate = updateSummary;
       panel.__mcFillCalendars = fillCalendars;
       f.segEvent.addEventListener("click", () => setMode("event"));
@@ -16154,6 +16168,26 @@ class CardEnhancer {
       };
       panel.__mcApplyNatural = applyNatural;
       f.title.addEventListener("input", applyNatural);
+      // vorläufiger Termin im Tag zeigt den Titel gleich mit
+      f.title.addEventListener("input", () => {
+        const name = panel.__mcGhost?.querySelector(".mc-ghost-title");
+        if (name) {
+          name.textContent = (panel.__mcParsed?.title || f.title.value).trim() || tr("New Event");
+        }
+      });
+      // zu (Abbrechen, Esc, Klick daneben): vorläufigen Termin entfernen – nach
+      // „Add“ erst, wenn der echte Termin da ist (sonst kurz eine Lücke)
+      panel.addEventListener("popuphidden", event => {
+        if (event.target != panel) {
+          return;
+        }
+        panel.removeAttribute("mc-tip");
+        const ghost = panel.__mcGhost;
+        panel.__mcGhost = null;
+        if (ghost) {
+          (panel.__mcAdding || Promise.resolve()).finally(() => ghost.remove());
+        }
+      });
 
       // Eigenes Menü statt der Auswahlliste von macOS: dort gibt es keine
       // Farben pro Eintrag – hier steht vor jedem Kalender sein Farbpunkt
@@ -16270,11 +16304,17 @@ class CardEnhancer {
         if (!calendar) {
           return;
         }
+        // (vor dem Schließen: der vorläufige Termin bleibt, bis der echte da ist)
+        let added;
+        panel.__mcAdding = new Promise(resolve => (added = resolve));
         panel.hidePopup();
         try {
           await w.doTransaction("add", item, calendar, null, null);
         } catch (e) {
           log("quick create add error", String(e).slice(0, 160));
+        } finally {
+          added();
+          panel.__mcAdding = null;
         }
       };
       const more = () => {
@@ -16367,6 +16407,49 @@ class CardEnhancer {
     const PANEL_W = 380;
     const screenRight = w.screen.availLeft + w.screen.availWidth;
     panel.__mcPlaced = null;
+    // wie Apple Kalender: Doppelklick legt sofort sichtbar einen vorläufigen
+    // Termin „New Event“ im Tag an (in der Farbe des Kalenders, kein echter
+    // Termin bis „Add“); der Dialog zeigt mit einer Spitze darauf
+    panel.__mcGhost?.remove();
+    panel.__mcGhost = null;
+    const ghostCell = mode == "event" && preset?.at?.rect && preset.at.cell?.isConnected ? preset.at.cell : null;
+    if (ghostCell) {
+      try {
+        const gd = ghostCell.ownerDocument;
+        const li = gd.createElementNS(X, "li");
+        li.className = "mc-qc-ghost";
+        const name = gd.createElementNS(X, "span");
+        name.className = "mc-ghost-title";
+        name.textContent = tr("New Event");
+        li.append(name);
+        const start = f.startDate.value ? when(f.startDate, f.startTime) : null;
+        if (start && !f.allDay.checked) {
+          const time = gd.createElementNS(X, "span");
+          time.className = "mc-ghost-time";
+          time.textContent = fmtTime.format(start);
+          li.append(time);
+        }
+        li.style.setProperty("--mc-ghost-color", f.calendar.value ? (cal.manager.getCalendarById(f.calendar.value)?.getProperty("color") || "#8E8E93") : "#8E8E93");
+        if (ghostCell.localName == "calendar-month-day-box") {
+          li.classList.add("calendar-month-day-box-list-item");
+          ghostCell.dayList?.prepend(li);
+        } else if (ghostCell.localName == "calendar-event-column" && start && !f.allDay.checked) {
+          // in der Tagesspalte an der Uhrzeit, eine Stunde hoch
+          const ppm = ghostCell.pixelsPerMinute || 0.8;
+          li.classList.add("mc-qc-ghost-timed");
+          li.style.insetBlockStart = `${(start.getHours() * 60 + start.getMinutes()) * ppm}px`;
+          li.style.height = `${60 * ppm}px`;
+          ghostCell.eventsListElement?.append(li);
+        } else {
+          ghostCell.eventsListElement?.prepend(li);
+        }
+        if (li.isConnected) {
+          panel.__mcGhost = li;
+        }
+      } catch (e) {
+        log("quick ghost error", e);
+      }
+    }
     panel.removeEventListener("popupshown", panel.__mcReplace);
     if (preset?.at?.rect) {
       // neben dem angeklickten Tag wie in Apple Kalender: auf der Seite zur
@@ -16375,7 +16458,16 @@ class CardEnhancer {
       // sehr breite Zelle (Tagesansicht: eine Spalte fast so breit wie das
       // Fenster): neben der Klickstelle statt neben der ganzen Spalte, sonst
       // landete das Fenster weit weg am Fensterrand
-      const cell = preset.at.rect.width > 2 * PANEL_W ? { ...preset.at.rect, left: preset.at.x, width: 0 } : preset.at.rect;
+      let cell = preset.at.rect.width > 2 * PANEL_W ? { ...preset.at.rect, left: preset.at.x, width: 0 } : preset.at.rect;
+      // mit vorläufigem Termin: daneben, senkrecht auf seiner Mitte
+      const ghost = panel.__mcGhost;
+      const TIP = 9;
+      const gr = ghost?.getBoundingClientRect();
+      const gw = ghost?.ownerDocument.defaultView;
+      const toRightOfCell = cell.left + cell.width / 2 < w.mozInnerScreenX + w.innerWidth / 2;
+      if (gr?.width && gw) {
+        cell = { left: gw.mozInnerScreenX + gr.left, top: gw.mozInnerScreenY + gr.top, width: gr.width, height: gr.height };
+      }
       const fit = (v, size, lo, hi) => (hi - lo >= size ? Math.max(lo, Math.min(v, hi - size)) : lo);
       const place = height => {
         const winL = w.mozInnerScreenX;
@@ -16386,20 +16478,33 @@ class CardEnhancer {
         const right = Math.min(winL + w.innerWidth, scrL + w.screen.availWidth) - 8;
         const top = Math.max(winT, scrT) + 8;
         const bottom = Math.min(winT + w.innerHeight, scrT + w.screen.availHeight) - 8;
-        const toRight = cell.left + cell.width / 2 < winL + w.innerWidth / 2;
-        const x = toRight ? cell.left + cell.width + 6 : cell.left - 6 - PANEL_W;
+        const toRight = ghost ? toRightOfCell : cell.left + cell.width / 2 < winL + w.innerWidth / 2;
+        // (mit Spitze: das Panel ist um sie breiter und berührt den Termin fast)
+        const pw = ghost ? PANEL_W + TIP : PANEL_W;
+        const gap = ghost ? 2 : 6;
+        const x = toRight ? cell.left + cell.width + gap : cell.left - gap - pw;
         const y = cell.top + cell.height / 2 - height / 2;
-        return {
-          x: Math.round(right - left >= PANEL_W ? fit(x, PANEL_W, left, right) : fit(x, PANEL_W, scrL + 8, scrL + w.screen.availWidth - 8)),
+        const placed = {
+          x: Math.round(right - left >= pw ? fit(x, pw, left, right) : fit(x, pw, scrL + 8, scrL + w.screen.availWidth - 8)),
           y: Math.round(bottom - top >= height ? fit(y, height, top, bottom) : fit(y, height, scrT + 8, scrT + w.screen.availHeight - 8)),
           side: toRight ? "right" : "left",
         };
+        // Spitze genau auf der senkrechten Mitte des Termins (am Rand begrenzt)
+        placed.tip = Math.round(Math.max(24, Math.min(height - 24, cell.top + cell.height / 2 - placed.y)));
+        return placed;
       };
       // Höhe erst nach dem Öffnen bekannt: mit der Höhe vom letzten Mal öffnen
       // (meist dieselbe), unsichtbar, bis die echte gemessen und das Fenster
       // dorthin gerückt ist – sonst sprang es sichtbar ein Stück nach oben
+      const tipAt = p => {
+        if (ghost) {
+          panel.setAttribute("mc-tip", p.side == "right" ? "start" : "end");
+          panel.style.setProperty("--mc-tip-y", `${p.tip}px`);
+        }
+      };
       let at = place(panel.__mcHeight || 360);
       panel.__mcPlaced = at;
+      tipAt(at);
       panel.style.opacity = "0";
       const reveal = () => panel.style.removeProperty("opacity");
       panel.__mcReplace = () => {
@@ -16414,6 +16519,7 @@ class CardEnhancer {
           panel.__mcPlaced = at;
           panel.moveTo(at.x, at.y);
         }
+        tipAt(again);
         w.requestAnimationFrame(() => w.requestAnimationFrame(reveal));
         w.setTimeout(reveal, 200); // (verdecktes Fenster: ohne Bilder)
       };

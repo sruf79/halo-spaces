@@ -8147,6 +8147,96 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   color: var(--mt-text) !important;
 }
 
+/* Dialog an einem neuen Termin (Doppelklick in einen Tag): Sprechblase mit
+   seitlicher Spitze genau auf die Mitte des Termins (mc-tip = Seite der
+   Spitze, --mc-tip-y setzt die Erweiterung). Das Panel selbst wird
+   durchsichtig, Karte und Spitze zeichnet der Inhalt – der Schatten des
+   Systems folgt der Form */
+#mcQuickPanel[mc-tip] {
+  appearance: none !important;
+  background: transparent !important;
+  --panel-background-color: transparent !important;
+}
+
+#mcQuickPanel[mc-tip] .mc-qc {
+  position: relative !important;
+  border-radius: 16px !important;
+  background: var(--mt-popover-bg) !important;
+}
+
+#mcQuickPanel[mc-tip="start"] .mc-qc {
+  margin-inline-start: 9px !important;
+}
+
+#mcQuickPanel[mc-tip="end"] .mc-qc {
+  margin-inline-end: 9px !important;
+}
+
+#mcQuickPanel[mc-tip] .mc-qc::before {
+  content: "" !important;
+  position: absolute !important;
+  top: calc(var(--mc-tip-y, 50%) - 10px) !important;
+  width: 10px !important;
+  height: 20px !important;
+  background: var(--mt-popover-bg) !important;
+}
+
+#mcQuickPanel[mc-tip="start"] .mc-qc::before {
+  left: -9px !important;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%) !important;
+}
+
+#mcQuickPanel[mc-tip="end"] .mc-qc::before {
+  right: -9px !important;
+  clip-path: polygon(0 0, 100% 50%, 0 100%) !important;
+}
+
+/* vorläufiger Termin „New Event“ im Tag: gefüllt in der Farbe des Kalenders,
+   ausgewählt wie bei Apple; Titel live aus dem Dialog */
+.mc-qc-ghost {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  margin: 0 0 2px !important;
+  padding: 1px 6px !important;
+  border-radius: 5px !important;
+  background: var(--mc-ghost-color, #8E8E93) !important;
+  color: #fff !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  list-style: none !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+
+.mc-qc-ghost > .mc-ghost-title {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.mc-qc-ghost > .mc-ghost-time {
+  flex: none !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* in der Tagesspalte (Woche/Tag): an der Uhrzeit, eine Stunde hoch */
+.mc-qc-ghost.mc-qc-ghost-timed {
+  position: absolute !important;
+  z-index: 2 !important;
+  inset-inline: 1px 3px !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 3px 6px !important;
+  box-sizing: border-box !important;
+}
+
 #mcQuickPanel .mc-qc-seg {
   display: flex !important;
   padding: 2px !important;

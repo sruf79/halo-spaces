@@ -8904,6 +8904,9 @@ function toolbarNeed(doc, minimal = false) {
 // Zu wenig Platz rechts der Mailliste (z. B. 1280 px mit Today-Pane): wie
 // Apple Mail die unwichtigsten Knöpfe ausblenden, statt sie über die Liste
 // und den Seitenleisten-Knopf zu schieben. fits() misst nach jedem Schritt.
+// Streng in dieser Reihenfolge (zurück umgekehrt) – ein schmalerer Knopf
+// kommt nicht vor einem wichtigeren zurück, sonst wechselten sie sich beim
+// Ändern der Fensterbreite ab
 const SQUEEZE = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
 function squeezeToolbar(doc, fits) {
   const content = doc.getElementById("unifiedToolbarContent");
@@ -8913,23 +8916,12 @@ function squeezeToolbar(doc, fits) {
   for (const li of content.querySelectorAll(":scope > li[mc-squeezed]")) {
     li.removeAttribute("mc-squeezed");
   }
-  const hidden = [];
   for (const id of SQUEEZE) {
     if (fits()) {
       break;
     }
     const li = content.querySelector(`:scope > li[item-id="${id}"]`);
     if (li) {
-      li.setAttribute("mc-squeezed", "");
-      hidden.push(li);
-    }
-  }
-  // Knöpfe sind verschieden breit: musste ein breiter weichen, passt ein
-  // vorher ausgeblendeter schmaler oft wieder – dann ihn zeigen, statt den
-  // Platz dem Suchfeld zu geben (es bleibt klein, mehr Knöpfe bleiben sichtbar)
-  for (const li of hidden.slice(0, -1).reverse()) {
-    li.removeAttribute("mc-squeezed");
-    if (!fits()) {
       li.setAttribute("mc-squeezed", "");
     }
   }
@@ -11690,8 +11682,13 @@ class CardEnhancer {
       const { mode, el } = currentSide();
       return el ? !!sideState()[mode] || autoSide(mode) : false;
     };
-    const toggleSpaceSidebar = (auto = false) => {
+    // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+    const toggleSpaceSidebar = (auto = false, reverse = false) => {
       const { mode, el, splitter } = currentSide();
+      if (el?.__mcAnimating && reverse) {
+        el.__mcReverse?.();
+        return;
+      }
       if (!el || el.__mcAnimating) {
         return;
       }
@@ -11699,15 +11696,19 @@ class CardEnhancer {
       const show = el.classList.contains("mc-side-hidden");
       // automatisches Ein-/Ausklappen bei Platzmangel ändert nicht den
       // gespeicherten Zustand des Nutzers (merkt es sich in AUTO_PREF)
-      if (!auto) {
+      const saveState = hidden => {
+        if (auto) {
+          return;
+        }
         const state = sideState();
-        state[mode] = !show;
+        state[mode] = hidden;
         // Kalender und Aufgaben teilen sich die Seitenleiste
         if (mode == "calendar" || mode == "tasks") {
-          state.calendar = state.tasks = !show;
+          state.calendar = state.tasks = hidden;
         }
         Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
-      }
+      };
+      saveState(!show);
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
       unCollapse(el, splitter);
@@ -11757,21 +11758,27 @@ class CardEnhancer {
         shared.width = el.__mcCardsWidth;
         el.__mcShowing = true;
       }
-      if (show) {
-        setW(0);
-      }
-      let start = null;
+      // beim Ausblenden gleich die volle Breite festhalten – ohne sie wird die
+      // Leiste (min-width 0, overflow hidden) im ersten Bild schmaler und
+      // springt dann zurück (Kalender/Aufgaben)
+      setW(show ? 0 : full);
+      // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+      let k = 0, dir = 1, last = null;
+      el.__mcReverse = () => {
+        dir = -dir;
+        saveState(dir > 0 ? !show : show);
+      };
       const step = now => {
-        if (start === null) {
-          start = now;
-        }
-        const k = Math.min(1, (now - start) / DURATION);
+        k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+        last = now;
         setW(full * (show ? curve(k) : 1 - curve(k)));
         updateSideEdge();
-        if (k < 1) {
+        if (dir > 0 ? k < 1 : k > 0) {
           win.requestAnimationFrame(step);
           return;
         }
+        const shown = show == (k >= 1);
+        delete el.__mcReverse;
         for (const [prop, value, prio] of saved) {
           if (value) {
             el.style.setProperty(prop, value, prio);
@@ -11787,7 +11794,7 @@ class CardEnhancer {
             gridBody.style.removeProperty("--booksSplitter-width");
           }
         }
-        if (!show) {
+        if (!shown) {
           el.classList.add("mc-side-hidden");
           splitter?.classList.add("mc-side-hidden");
         }
@@ -12532,11 +12539,11 @@ class CardEnhancer {
           this.animateSidebar(ab, splitter, () => {
             sidebarTip?.();
             placeSideGrip();
-          });
+          }, true);
         }
       } else {
         // in allen anderen Bereichen deren Seitenleiste ein-/ausblenden
-        toggleSpaceSidebar();
+        toggleSpaceSidebar(false, true);
       }
     };
     const hookSidebarButton = () => {
@@ -12624,7 +12631,7 @@ class CardEnhancer {
         this.animateSpaces(w, () => {
           updateTip();
           autoFitSoon();
-        });
+        }, true);
       });
       bar.after(btn);
       // Pfeil nach dem Zustand (data-mc-hidden): beim Klick wechselt er sofort
@@ -12701,6 +12708,7 @@ class CardEnhancer {
     // Bereiche mit Seitenleiste (Mail, Kalender, Aufgaben, Adressbuch, Chat, Einstellungen, Add-ons/Konten)
     const AUTO_MODES = new Set(["mail3PaneTab", "mailMessageTab", "calendar", "tasks", "addressBookTab", "chat", "preferencesTab", "contentTab"]);
     const SPACES_W = 67;
+    const AUTO_SLACK = 24;
     const autoSideEl = () => {
       const tab = w.document.getElementById("tabmail")?.currentTabInfo;
       const mode = tab?.mode?.name;
@@ -12769,14 +12777,18 @@ class CardEnhancer {
         w.document.getElementById("mcSpacesToggle")?.dispatchEvent(new w.MouseEvent("mouseenter"));
         autoFitSoon(50);
       });
-      // in der Mail zählt auch die Toolbar: mussten dort Knöpfe weichen, fehlt
-      // ebenso Platz; zurück erst, wenn die Suche ihn abgeben kann (bis zur Lupe)
+      // in der Mail zählt auch die Toolbar: Reihenfolge bei Platzmangel ist
+      // Suchfeld bis zur Lupe, dann die Knöpfe (SQUEEZE), dann Seitenleiste,
+      // dann Spaces-Leiste – zurück umgekehrt, erst wenn die Suche den Platz
+      // abgeben kann (die Knöpfe halten ihn solange frei, __mcToolbarReserve)
       const d = w.document;
-      const squeezed = !!d.querySelector("#unifiedToolbarContent > li[mc-squeezed]");
       const searchEl = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
       const searchSpare = side.mode == "mail3PaneTab" && searchEl ? searchEl.getBoundingClientRect().width - 40 : Infinity;
+      const squeezable = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(li =>
+        SQUEEZE.includes(li.getAttribute("item-id")) && !li.hidden && (li.hasAttribute("mc-squeezed") || li.getBoundingClientRect().width));
+      const toolbarFull = side.mode == "mail3PaneTab" && searchSpare <= 2 && squeezable.every(li => li.hasAttribute("mc-squeezed"));
       // Inhalt schon auf Mindestbreite: erst die Seitenleiste, dann die Spaces-Leiste
-      if (slack < 1 || squeezed) {
+      if (slack < 1 || toolbarFull) {
         if (side.shown && side.el) {
           setAuto(v => (v.side[key] = Math.round(side.el.getBoundingClientRect().width)));
           toggleSide();
@@ -12787,7 +12799,7 @@ class CardEnhancer {
         return;
       }
       // zurück, wenn wieder Platz ist (mit etwas Luft, damit es nicht hin- und herspringt)
-      const SLACK = 24;
+      const SLACK = AUTO_SLACK;
       if (auto.spaces && !spacesOn && slack >= SPACES_W + SLACK && searchSpare >= SPACES_W + SLACK) {
         setAuto(v => delete v.spaces);
         toggleSpaces();
@@ -12826,6 +12838,26 @@ class CardEnhancer {
         }
         return (side.shown && side.el ? side.el.getBoundingClientRect().width : 0) + (w.gSpacesToolbar.isHidden ? 0 : SPACES_W);
       };
+      // Platz, den das Suchfeld für eine automatisch ausgeblendete Leiste
+      // freihält: weggefallene Knöpfe kommen erst nach ihr zurück
+      w.__mcToolbarReserve = () => {
+        if (!autoOn() || w.document.documentElement.hasAttribute("mc-fifth-current") || !w.gSpacesToolbar) {
+          return 0;
+        }
+        const side = autoSideEl();
+        if (side.mode != "mail3PaneTab") {
+          return 0;
+        }
+        // (nur soweit der Inhalt darunter sie schon wieder zuließe – fehlt dort
+        // Platz, hält die Toolbar nichts frei)
+        const auto = autoState();
+        const slack = w.__mcLayoutSlack?.() ?? 0;
+        if (auto.spaces && w.gSpacesToolbar.isHidden) {
+          return slack >= SPACES_W + AUTO_SLACK ? SPACES_W + AUTO_SLACK : 0;
+        }
+        const width = auto.side[sideKey(side.mode)];
+        return width && side.el && !side.shown && slack >= width + AUTO_SLACK ? width + AUTO_SLACK : 0;
+      };
       const onResize = () => autoFitSoon(250);
       const tabs = w.document.getElementById("tabmail")?.tabContainer;
       const onTab = () => autoFitSoon(300);
@@ -12845,6 +12877,7 @@ class CardEnhancer {
         w.clearTimeout(autoTimer);
         delete w.__mcAutoFit;
         delete w.__mcCollapsible;
+        delete w.__mcToolbarReserve;
       });
     };
 
@@ -12890,7 +12923,7 @@ class CardEnhancer {
       };
       updateTip();
       btn.addEventListener("mouseenter", updateTip);
-      btn.addEventListener("click", () => this.animateTodayPane(w, command, updateTip));
+      btn.addEventListener("click", () => this.animateTodayPane(w, command, updateTip, true));
       const mo = panel ? new w.MutationObserver(() => {
         updateTip();
         w.__mcTodayTopSync?.();
@@ -14759,8 +14792,13 @@ class CardEnhancer {
   // darüber und decken sie zu (beim Einblenden umgekehrt). Dauer und Kurve sind die macOS-Standardwerte für
   // Seitenleisten: 0,25 s, cubic-bezier(0.25, 0.1, 0.25, 1).
   // Thunderbird steuert die Breite über --folderPaneSplitter-width am Raster.
-  animateSidebar(ab, splitter, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  // (sonst, z. B. bei der Automatik, wird er ignoriert)
+  animateSidebar(ab, splitter, onDone, reverse = false) {
     if (ab.__mcAnimating) {
+      if (reverse) {
+        ab.__mcReverse?.();
+      }
       return;
     }
     const pane = ab.document.getElementById("folderPane");
@@ -14867,13 +14905,15 @@ class CardEnhancer {
     ab.__mcAnimating = true;
     // Die Uhr läuft erst ab dem ersten gezeichneten Bild: beim Einblenden baut
     // Thunderbird die Ordnerliste zuerst neu auf, das würde sonst den Anfang
-    // der Bewegung verschlucken und sie ruckartig starten lassen
-    let start = null;
+    // der Bewegung verschlucken und sie ruckartig starten lassen.
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    ab.__mcReverse = () => {
+      dir = -dir;
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       // setzt Thunderbird währenddessen eine neue Sperre, gilt sie dem
       // Zwischenstand – entfernen und am Ende durch die volle Breite ersetzen
       if (pane.style.getPropertyPriority("width") == "important") {
@@ -14897,14 +14937,47 @@ class CardEnhancer {
         grid.style.setProperty(msgProp, `${Math.max(0, msg)}px`);
       }
       this.offsetUpdaters?.forEach(fn => fn());
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         ab.requestAnimationFrame(step);
         return;
       }
+      delete ab.__mcReverse;
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
       pane.style.minWidth = "";
       pane.classList.remove("mc-side-anim");
+      if (k <= 0) {
+        // umgekehrt und wieder am Anfang: Ausgangszustand herstellen
+        if (vertical) {
+          if (msgSaved) {
+            grid.style.setProperty(msgProp, msgSaved);
+          } else {
+            grid.style.removeProperty(msgProp);
+          }
+        }
+        if (collapsing) {
+          // bleibt eingeblendet
+          delete pane.__mcShown;
+          delete pane.__mcLockedWidth;
+          if (saved) {
+            grid.style.setProperty(prop, saved);
+          } else {
+            grid.style.removeProperty(prop);
+          }
+          if (lockedWidth || relocked) {
+            pane.style.setProperty("width", `${full}px`, "important");
+          }
+        } else {
+          // bleibt ausgeblendet (wie vorher, samt Breite fürs nächste Einblenden)
+          pane.__mcShown = { full, grid: grid.getBoundingClientRect().width, saved: splitter.width };
+          pane.__mcLockedWidth = lockedWidth;
+          splitter.isCollapsed = true;
+        }
+        ab.__mcAnimating = false;
+        onDone?.();
+        ab.setTimeout(() => this.offsetUpdaters?.forEach(fn => fn()), 30);
+        return;
+      }
       if ((lockedWidth || relocked) && !collapsing) {
         pane.style.setProperty("width", `${full}px`, "important");
       }
@@ -15115,9 +15188,15 @@ class CardEnhancer {
   // Bereiche-Leiste wie die Ordnerliste animieren: Breite 0 ↔ 67 px über
   // --mc-spaces-w (userChrome.css leitet --spaces-total-width davon ab), die
   // Leiste schiebt sich dabei von links herein bzw. hinaus.
-  animateSpaces(w, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  // (sonst, z. B. bei der Automatik, wird er ignoriert)
+  animateSpaces(w, onDone, reverse = false) {
     const spaces = w.gSpacesToolbar;
     const root = w.document.documentElement;
+    if (w.__mcSpacesAnimating && reverse) {
+      w.__mcSpacesReverse?.();
+      return;
+    }
     if (!spaces || w.__mcSpacesAnimating) {
       return;
     }
@@ -15162,23 +15241,28 @@ class CardEnhancer {
       spaces.toggleToolbar(false);
       root.getBoundingClientRect(); // Aufbau jetzt erzwingen, nicht im ersten Bild
     }
-    let start = null;
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    w.__mcSpacesReverse = () => {
+      dir = -dir;
+      toggle?.toggleAttribute("data-mc-hidden", dir > 0 ? !showing : showing);
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       set(FULL * (showing ? curve(k) : 1 - curve(k)));
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         w.requestAnimationFrame(step);
         return;
       }
-      if (!showing) {
+      const shown = showing == (k >= 1);
+      if (!shown && !spaces.isHidden) {
         spaces.toggleToolbar(true);
       }
       clear();
       root.style.removeProperty("--mc-spaces-w");
       w.__mcSpacesAnimating = false;
+      delete w.__mcSpacesReverse;
       toggle?.toggleAttribute("data-mc-hidden", !!spaces.isHidden);
       onDone?.();
       const realign = () => {
@@ -15932,13 +16016,19 @@ class CardEnhancer {
   // Thunderbird Mailliste und geöffnete Mail jedes Mal neu anordnen (20–35 ms
   // pro Bild, sichtbares Ruckeln). So ändert sich der Mailbereich nur einmal:
   // beim Ausblenden am Anfang, beim Einblenden am Ende, jeweils unter der Pane.
-  animateTodayPane(w, command, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  animateTodayPane(w, command, onDone, reverse = false) {
     const d = w.document;
     const panel = d.getElementById("today-pane-panel");
+    if (panel?.__mcAnimating && reverse) {
+      panel.__mcReverse?.();
+      return;
+    }
     if (!panel || panel.__mcAnimating) {
       return;
     }
     const showing = !w.TodayPane?.isVisible;
+    const startMode = panel.currentMode;
     if (showing) {
       command.doCommand();
     }
@@ -16046,20 +16136,24 @@ class CardEnhancer {
     } else {
       ride(full);
     }
-    let start = null;
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    panel.__mcReverse = () => {
+      dir = -dir;
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       const value = full * (showing ? curve(k) : 1 - curve(k));
       setW(value);
       w.__mcTodayTopSync?.(value);
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         ride(value);
         w.requestAnimationFrame(step);
         return;
       }
+      const shown = showing == (k >= 1);
+      delete panel.__mcReverse;
       for (const [prop, value, prio] of saved) {
         if (value) {
           panel.style.setProperty(prop, value, prio);
@@ -16073,7 +16167,15 @@ class CardEnhancer {
       } else {
         box.style.removeProperty("position");
       }
-      if (!showing) {
+      if (!shown && panel.currentMode != startMode && typeof panel.isVisible == "function") {
+        // inzwischen Bereich gewechselt: im Ausgangsbereich zuklappen
+        // (sonst bliebe die Pane dort offen, das Kommando gilt nur für den aktuellen)
+        if (panel.isVisible(startMode)) {
+          const modes = (panel.getAttribute("collapsedinmodes") || "").split(",").filter(Boolean);
+          panel.setAttribute("collapsedinmodes", [...modes, startMode].join(","));
+          Services.xulStore.persist(panel, "collapsedinmodes");
+        }
+      } else if (!shown && w.TodayPane?.isVisible) {
         command.doCommand();
       }
       panel.__mcAnimating = false;
@@ -16499,8 +16601,11 @@ class CardEnhancer {
         // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
+        // (ist eine Leiste automatisch ausgeblendet, hält das Suchfeld erst ihren
+        // Platz frei – zurück kommt sie vor den Knöpfen, umgekehrt wie beim Weichen)
+        const reserve = top.__mcToolbarReserve?.() || 0;
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width > 41));
+          (!search || rectOf(search).width > 41 + reserve));
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail): fehlt
       // dafür Platz, wird zuerst der Abstand nach „Verfassen“ kleiner (69 → 12 px)

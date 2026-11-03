@@ -5478,7 +5478,12 @@ def calendar_checks(m, results):
         res = m.js(r"""
           await toMail();
           const popup = d.getElementById("menu_View_Popup"), item = d.getElementById("calShowTodayPane-2");
-          const look = async () => { popup.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await wait(100); return item?.getAttribute("checked") == "true"; };
+          // (danach popuphidden: unter Linux blendet sich die automatisch versteckte Menüleiste beim Öffnen eines Menüs ein
+          // und bliebe ohne das Gegenstück offen – folgende Prüfungen sähen sie zwischen Toolbar und Seitenleiste)
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          const look = async () => { popup.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await wait(100);
+            const on = item?.getAttribute("checked") == "true"; popup.dispatchEvent(new w.Event("popuphidden", { bubbles: true })); await wait(50);
+            if (inactive !== null && inactive !== undefined) tbm?.setAttribute("inactive", inactive); return on; };
           const out = { item: !!item };
           for (const want of [true, false]) {
             if (!!w.TodayPane?.isVisible != want) { d.getElementById("mcTodayToggle").click(); await wait(1200); }

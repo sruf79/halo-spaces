@@ -19395,7 +19395,18 @@ class CardEnhancer {
     };
     // „Markiert“ wie Apple Mail: eigene Zeile unter den Favoriten nach „Alle
     // gesendeten“, nur solange es markierte Mails gibt
+    // Tab geht gerade zu (sein Inhalt hängt nicht mehr im Fenster): nichts anlegen
+    const gone = () => {
+      try {
+        return win.closed || !win.browsingContext?.embedderElement?.isConnected;
+      } catch {
+        return true;
+      }
+    };
     const starredRow = () => {
+      if (gone()) {
+        return;
+      }
       const smart = tree.querySelector(':scope > li[data-mode="smart"]');
       const folder = this.starredAny ? this.starredFolder(true) : this.starredFolder(false);
       let row = smart?.querySelector(':scope > ul > li[data-mc-starred]');
@@ -19414,13 +19425,18 @@ class CardEnhancer {
         } catch (e) {
           // (ein Tab, der gerade entsteht oder geht: Thunderbirds Zeile ist noch
           // nicht fertig – einmal kurz später, erst dann melden)
+          if (gone()) {
+            return;
+          }
           if (!starredRow.retried) {
             starredRow.retried = true;
             win.setTimeout(() => {
               try {
                 starredRow();
               } catch (err) {
-                log("starred row error", err);
+                if (!gone()) {
+                  log("starred row error", err);
+                }
               } finally {
                 starredRow.retried = false;
               }

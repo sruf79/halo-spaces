@@ -5516,53 +5516,64 @@ def calendar_checks(m, results):
         # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste, zuletzt die Today-Pane (gleiche Animation wie die Knöpfe); wird
         # das Fenster wieder breit, kommt beides zurück; selbst ausgeblendete Ordnerliste bleibt aus; der gespeicherte
         # Zustand des Nutzers ändert sich dabei nicht. Breiten aus dem tatsächlichen Platzbedarf (Mindestbreiten)
-        res = m.js(CAL_CHECK_JS + r"""
-          await toMail();
-          const sc = w.screen, old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight];
-          const cmd = d.getElementById("calendar_toggle_todaypane_command");
-          const ab = tm.currentTabInfo.chromeBrowser.contentWindow, sp = ab.paneLayout.folderPaneSplitter;
-          const state = () => ({ folder: !sp.isCollapsed, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible });
-          const size = async x => { w.resizeTo(x, w.outerHeight); await pause(2600); };
-          const pref = () => Services.prefs.getStringPref("extensions.mailcards.hiddenSidebars", "{}");
-          const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
-          const out = {};
-          Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", true);
-          try {
-            Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
-            w.moveTo(sc.availLeft, sc.availTop); await size(sc.availWidth);
-            if (sp.isCollapsed) { sideBtn(); await pause(900); }
-            if (w.gSpacesToolbar.isHidden) { d.getElementById("mcSpacesToggle").click(); await pause(900); }
-            if (!w.TodayPane?.isVisible) { cmd.doCommand(); await pause(1500); }
-            const userPref = pref();
-            out.start = state();
-            const slack = w.__mcLayoutSlack(), folderW = ab.document.getElementById("folderPane").getBoundingClientRect().width;
-            const full = w.outerWidth - slack;
-            out.need = { full: Math.round(full), folderW: Math.round(folderW), avail: sc.availWidth };
-            if (full + 40 > sc.availWidth || folderW < 120) return { skip: out.need };
-            await size(Math.round(full - folderW / 2)); out.mid = state();
-            out.auto = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
-            // (mit 30 px Luft, sobald beide weg sind – sonst wiche schon hier die Today-Pane)
-            await size(Math.round(full - folderW - 67 + 30)); out.narrow = state();
-            // sehr schmal: zuletzt weicht die Today-Pane, nichts ragt über ihren Knopf
-            await size(640); await pause(1500); out.tiny = state();
-            const tgl = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
-            const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].map(li => [li.getAttribute("item-id"), li.getBoundingClientRect()])
-              .filter(([, r]) => r.width > 0);
-            out.over = tgl?.width ? items.filter(([, r]) => r.right > tgl.left + 1 && r.left < tgl.right - 1).map(([id]) => id) : "kein Knopf";
-            out.autoTiny = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
-            await size(sc.availWidth); await pause(2500); out.wide = state();
-            out.prefSame = pref() == userPref;
-            // selbst ausgeblendet bleibt aus
-            sideBtn(); await pause(900);
-            await size(Math.round(full - folderW / 2)); await size(sc.availWidth); await pause(1000); out.user = state();
-            sideBtn(); await pause(900);
-            out.end = state();
-          } finally {
-            Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", false);
-            if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
-            w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
-          }
-          return out;""")
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        try:
+            res = m.js(CAL_CHECK_JS + r"""
+              await toMail();
+              const sc = w.screen, old = [w.screenX, w.screenY, w.outerWidth, w.outerHeight];
+              const cmd = d.getElementById("calendar_toggle_todaypane_command");
+              const ab = tm.currentTabInfo.chromeBrowser.contentWindow, sp = ab.paneLayout.folderPaneSplitter;
+              const state = () => ({ folder: !sp.isCollapsed, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible });
+              const size = async x => { w.resizeTo(x, w.outerHeight); await pause(2600); };
+              const pref = () => Services.prefs.getStringPref("extensions.mailcards.hiddenSidebars", "{}");
+              const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
+              const out = {};
+              Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", true);
+              try {
+                Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
+                w.moveTo(sc.availLeft, sc.availTop); await size(sc.availWidth);
+                if (sp.isCollapsed) { sideBtn(); await pause(900); }
+                if (w.gSpacesToolbar.isHidden) { d.getElementById("mcSpacesToggle").click(); await pause(900); }
+                if (!w.TodayPane?.isVisible) { cmd.doCommand(); await pause(1500); }
+                const userPref = pref();
+                out.start = state();
+                const slack = w.__mcLayoutSlack(), folderW = ab.document.getElementById("folderPane").getBoundingClientRect().width;
+                const full = w.outerWidth - slack;
+                out.need = { full: Math.round(full), folderW: Math.round(folderW), avail: sc.availWidth };
+                if (full + 40 > sc.availWidth || folderW < 120) return { skip: out.need };
+                await size(Math.round(full - folderW / 2)); out.mid = state();
+                out.auto = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
+                // (mit 30 px Luft, sobald beide weg sind – sonst wiche schon hier die Today-Pane)
+                await size(Math.round(full - folderW - 67 + 30)); out.narrow = state();
+                // sehr schmal: zuletzt weicht die Today-Pane, nichts ragt über ihren Knopf
+                await size(640); await pause(1500); out.tiny = state();
+                const tgl = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+                const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].map(li => [li.getAttribute("item-id"), li.getBoundingClientRect()])
+                  .filter(([, r]) => r.width > 0);
+                out.over = tgl?.width ? items.filter(([, r]) => r.right > tgl.left + 1 && r.left < tgl.right - 1).map(([id]) => id) : "kein Knopf";
+                out.autoTiny = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
+                await size(sc.availWidth); await pause(2500); out.wide = state();
+                out.prefSame = pref() == userPref;
+                // bei Platzmangel selbst eingeblendet: bleibt offen, auch nach weiteren Anlässen ohne Verkleinern
+                await size(Math.round(full - folderW / 2)); await pause(600);
+                const wasAuto = !sp.isCollapsed ? null : true;
+                if (sp.isCollapsed) { sideBtn(); await pause(1500); }
+                w.dispatchEvent(new w.Event("resize")); await pause(1500);
+                out.userShown = { wasAuto, open: !sp.isCollapsed };
+                await size(sc.availWidth); await pause(1500);
+                // selbst ausgeblendet bleibt aus
+                sideBtn(); await pause(900);
+                await size(Math.round(full - folderW / 2)); await size(sc.availWidth); await pause(1000); out.user = state();
+                sideBtn(); await pause(900);
+                out.end = state();
+              } finally {
+                Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", false);
+                if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
+                w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
+              }
+              return out;""")
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
         if "skip" in res:
             return True, f"Bildschirm zu schmal für alle Bereiche – übersprungen {res['skip']}"
         t = lambda k: res.get(k) or {}
@@ -5571,7 +5582,8 @@ def calendar_checks(m, results):
               and t("narrow") == {"folder": False, "spaces": False, "today": True}
               and t("tiny") == {"folder": False, "spaces": False, "today": False} and res.get("over") == []
               and t("wide") == {"folder": True, "spaces": True, "today": True}
-              and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True)
+              and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True
+              and (res.get("userShown") or {}).get("open") is True)
         return ok, f"{res}"
     def pst_open():
         # Outlook-Datendatei: Menüpunkt unter Datei, Bibliothek lädt, kaputte Datei → verständlicher Fehler statt Absturz;

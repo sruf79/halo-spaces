@@ -13175,6 +13175,12 @@ class CardEnhancer {
     const autoBusy = side => w.__mcSpacesAnimating || side.el?.__mcAnimating || side.ab?.__mcAnimating ||
       w.document.getElementById("today-pane-panel")?.__mcAnimating;
     let autoTimer = null;
+    // Breite beim letzten Lauf und beim letzten selbst Einblenden: eine nur
+    // volle Toolbar klappt nur beim Verkleinern ein, eine selbst eingeblendete
+    // Seitenleiste erst, wenn das Fenster danach schmaler wird (unter Windows
+    // klappte sie sonst eine halbe Sekunde nach dem Einblenden wieder zu)
+    let lastWidth = null;
+    let userShownAt = null;
     const autoFitSoon = (delay = 200) => {
       w.clearTimeout(autoTimer);
       autoTimer = w.setTimeout(autoFit, delay);
@@ -13252,8 +13258,14 @@ class CardEnhancer {
           return r.width > 0 && r.right > t.left + 1 && r.left < t.right - 1;
         });
       };
+      const width = w.innerWidth;
+      const narrowed = lastWidth === null || width < lastWidth - 1;
+      lastWidth = width;
+      if (userShownAt !== null && width < userShownAt - 1) {
+        userShownAt = null;
+      }
       // Inhalt schon auf Mindestbreite: erst die Seitenleiste, dann die Spaces-Leiste
-      if (slack < 1 || toolbarFull) {
+      if ((slack < 1 || (toolbarFull && narrowed)) && userShownAt === null) {
         if (side.shown && side.el) {
           setAuto(v => (v.side[key] = Math.round(side.el.getBoundingClientRect().width)));
           toggleSide();
@@ -13294,6 +13306,8 @@ class CardEnhancer {
       const key = sideKey(mode);
       const wasAuto = autoState().side[key];
       setAuto(v => delete v.side[key]);
+      // (vor dem Umschalten aufgerufen: war sie zu, ist sie danach offen)
+      userShownAt = autoSideEl().shown ? null : w.innerWidth;
       // trotz Platzmangel selbst eingeblendet: die Today-Pane macht Platz
       const slack = w.__mcLayoutSlack?.();
       if (wasAuto && !autoSideEl().shown && w.TodayPane?.isVisible && slack !== null && slack < wasAuto) {

@@ -5231,7 +5231,7 @@ def calendar_checks(m, results):
     check("Fenster: Hauptfenster passt nach dem Vergrößern über den Bildschirm hinaus wieder ganz auf den Bildschirm, Maximieren bleibt maximiert", window_fit_screen, results)
 
     def auto_collapse():
-        # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste (gleiche Animation wie die Knöpfe); wird
+        # Platzmangel: erst klappt die Ordnerliste ein, dann die Spaces-Leiste, zuletzt die Today-Pane (gleiche Animation wie die Knöpfe); wird
         # das Fenster wieder breit, kommt beides zurück; selbst ausgeblendete Ordnerliste bleibt aus; der gespeicherte
         # Zustand des Nutzers ändert sich dabei nicht. Breiten aus dem tatsächlichen Platzbedarf (Mindestbreiten)
         res = m.js(CAL_CHECK_JS + r"""
@@ -5259,8 +5259,16 @@ def calendar_checks(m, results):
             if (full + 40 > sc.availWidth || folderW < 120) return { skip: out.need };
             await size(Math.round(full - folderW / 2)); out.mid = state();
             out.auto = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
-            await size(Math.round(full - folderW - 67 - 30)); out.narrow = state();
-            await size(sc.availWidth); await pause(1500); out.wide = state();
+            // (mit 30 px Luft, sobald beide weg sind – sonst wiche schon hier die Today-Pane)
+            await size(Math.round(full - folderW - 67 + 30)); out.narrow = state();
+            // sehr schmal: zuletzt weicht die Today-Pane, nichts ragt über ihren Knopf
+            await size(640); await pause(1500); out.tiny = state();
+            const tgl = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+            const items = [...d.querySelectorAll("#unifiedToolbarContent > li")].map(li => [li.getAttribute("item-id"), li.getBoundingClientRect()])
+              .filter(([, r]) => r.width > 0);
+            out.over = tgl?.width ? items.filter(([, r]) => r.right > tgl.left + 1 && r.left < tgl.right - 1).map(([id]) => id) : "kein Knopf";
+            out.autoTiny = Services.prefs.getStringPref("extensions.mailcards.autoCollapsed", "{}");
+            await size(sc.availWidth); await pause(2500); out.wide = state();
             out.prefSame = pref() == userPref;
             // selbst ausgeblendet bleibt aus
             sideBtn(); await pause(900);
@@ -5279,6 +5287,7 @@ def calendar_checks(m, results):
         ok = (t("start") == {"folder": True, "spaces": True, "today": True}
               and t("mid") == {"folder": False, "spaces": True, "today": True}
               and t("narrow") == {"folder": False, "spaces": False, "today": True}
+              and t("tiny") == {"folder": False, "spaces": False, "today": False} and res.get("over") == []
               and t("wide") == {"folder": True, "spaces": True, "today": True}
               and res.get("prefSame") and t("user").get("folder") is False and t("end").get("folder") is True)
         return ok, f"{res}"
@@ -5300,7 +5309,7 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Datei: „Open Outlook Data File (PST)…“ im Datei-Menü, Bibliothek lädt, kaputte Datei gibt einen Fehler statt Absturz", pst_open, results)
 
-    check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
+    check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste, im sehr schmalen Fenster die Today-Pane ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
 
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""

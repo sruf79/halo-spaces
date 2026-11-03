@@ -12994,7 +12994,12 @@ class CardEnhancer {
     // Bereiche mit Seitenleiste (Mail, Kalender, Aufgaben, Adressbuch, Chat, Einstellungen, Add-ons/Konten)
     const AUTO_MODES = new Set(["mail3PaneTab", "mailMessageTab", "calendar", "tasks", "addressBookTab", "chat", "preferencesTab", "contentTab"]);
     const SPACES_W = 67;
+    const TODAY_W = 280;
     const AUTO_SLACK = 24;
+    // Today-Pane als letzter Schritt (nach Seitenleiste und Spaces-Leiste): im
+    // Kalender ist sie gesperrt, dort bleibt sie unangetastet
+    const todayCmd = () => w.document.getElementById("calendar_toggle_todaypane_command");
+    const todayAuto = mode => mode != "calendar" && !!todayCmd();
     const autoSideEl = () => {
       const tab = w.document.getElementById("tabmail")?.currentTabInfo;
       const mode = tab?.mode?.name;
@@ -13044,9 +13049,15 @@ class CardEnhancer {
       if (slack === null || slack === undefined) {
         return;
       }
-      const auto = autoState();
+      let auto = autoState();
       const key = sideKey(side.mode);
       const spacesOn = !w.gSpacesToolbar.isHidden;
+      const todayOn = !!w.TodayPane?.isVisible;
+      // selbst wieder eingeblendet: nicht mehr als automatisch führen
+      if (auto.today && todayOn) {
+        setAuto(v => delete v.today);
+        auto = autoState();
+      }
       const toggleSide = () => {
         if (side.mode == "mail3PaneTab") {
           this.animateSidebar(side.ab, side.splitter, () => {
@@ -13073,6 +13084,14 @@ class CardEnhancer {
       const squeezable = [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(li =>
         SQUEEZE.includes(li.getAttribute("item-id")) && !li.hidden && (li.hasAttribute("mc-squeezed") || li.getBoundingClientRect().width));
       const toolbarFull = side.mode == "mail3PaneTab" && searchSpare <= 2 && squeezable.every(li => li.hasAttribute("mc-squeezed"));
+      // ragt etwas aus der Toolbar über den Today-Knopf?
+      const overToday = () => {
+        const t = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+        return !!t?.width && [...d.querySelectorAll("#unifiedToolbarContent > li")].some(li => {
+          const r = li.getBoundingClientRect();
+          return r.width > 0 && r.right > t.left + 1 && r.left < t.right - 1;
+        });
+      };
       // Inhalt schon auf Mindestbreite: erst die Seitenleiste, dann die Spaces-Leiste
       if (slack < 1 || toolbarFull) {
         if (side.shown && side.el) {
@@ -13081,12 +13100,24 @@ class CardEnhancer {
         } else if (spacesOn) {
           setAuto(v => (v.spaces = true));
           toggleSpaces();
+        } else if (todayOn && todayAuto(side.mode) && (slack < 1 || overToday())) {
+          // reicht auch das nicht (sehr schmales Fenster), weicht die Today-Pane,
+          // statt dass Suchfeld und Knöpfe über ihren Knopf ragen
+          setAuto(v => (v.today = true));
+          todayCmd().doCommand();
         }
         return;
       }
       // zurück, wenn wieder Platz ist (mit etwas Luft, damit es nicht hin- und herspringt)
       const SLACK = AUTO_SLACK;
-      if (auto.spaces && !spacesOn && slack >= SPACES_W + SLACK && searchSpare >= SPACES_W + SLACK) {
+      // (die Today-Pane nimmt der Toolbar ihre ganze Breite; das Suchfeld kann
+      // höchstens 293 px abgeben – daher dort ohne Zuschlag)
+      if (auto.today && !todayOn && todayAuto(side.mode) && slack >= TODAY_W + SLACK && searchSpare >= TODAY_W) {
+        setAuto(v => delete v.today);
+        todayCmd().doCommand();
+      } else if (auto.today && !todayOn && todayAuto(side.mode)) {
+        // streng umgekehrt: erst die Today-Pane, dann die Leisten
+      } else if (auto.spaces && !spacesOn && slack >= SPACES_W + SLACK && searchSpare >= SPACES_W + SLACK) {
         setAuto(v => delete v.spaces);
         toggleSpaces();
       } else if (auto.side[key] && side.el && !side.shown && slack >= auto.side[key] + SLACK && searchSpare >= auto.side[key] + SLACK) {
@@ -13122,7 +13153,8 @@ class CardEnhancer {
         if (!AUTO_MODES.has(side.mode)) {
           return 0;
         }
-        return (side.shown && side.el ? side.el.getBoundingClientRect().width : 0) + (w.gSpacesToolbar.isHidden ? 0 : SPACES_W);
+        return (side.shown && side.el ? side.el.getBoundingClientRect().width : 0) + (w.gSpacesToolbar.isHidden ? 0 : SPACES_W) +
+          (w.TodayPane?.isVisible && todayAuto(side.mode) ? TODAY_W : 0);
       };
       // Platz, den das Suchfeld für eine automatisch ausgeblendete Leiste
       // freihält: weggefallene Knöpfe kommen erst nach ihr zurück
@@ -13138,6 +13170,9 @@ class CardEnhancer {
         // Platz, hält die Toolbar nichts frei)
         const auto = autoState();
         const slack = w.__mcLayoutSlack?.() ?? 0;
+        if (auto.today && !w.TodayPane?.isVisible) {
+          return slack >= TODAY_W + AUTO_SLACK ? TODAY_W : 0;
+        }
         if (auto.spaces && w.gSpacesToolbar.isHidden) {
           return slack >= SPACES_W + AUTO_SLACK ? SPACES_W + AUTO_SLACK : 0;
         }

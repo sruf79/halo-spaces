@@ -4981,6 +4981,21 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Schnellfenster: erscheint neben dem Tag gleich an seiner Stelle und springt nicht nachträglich", quick_no_jump, results)
 
+    def unifinder_toggle():
+        # „Find Events“ (Thunderbirds Terminliste unter dem Kalender): beim Start zu, der Befehl öffnet sie, nochmals zu
+        # (GitHub-Issue #28: die Liste blieb immer verborgen)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar(); w.switchToView("week"); await pause(800);
+          const box = d.getElementById("bottom-events-box"), shown = () => box.getBoundingClientRect().height > 20;
+          const cmd = d.getElementById("calendar_show_unifinder_command");
+          const out = { start: shown() };
+          cmd.doCommand(); await pause(700); out.open = shown(); out.checked = cmd.getAttribute("checked");
+          cmd.doCommand(); await pause(700); out.closed = !shown();
+          return out;""")
+        ok = res.get("start") is False and res.get("open") and res.get("closed")
+        return ok, f"{res}"
+    check("Kalender: „Find Events“ öffnet und schließt die Terminliste (beim Start zu)", unifinder_toggle, results)
+
     def multiweek_buffer():
         # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je zwei unsichtbare Wochen
         # davor und danach, Termine darin geladen; sichtbar, Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht

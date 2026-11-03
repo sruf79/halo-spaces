@@ -14713,6 +14713,34 @@ class CardEnhancer {
     // Doppelklick auf freie Zeit (Woche/Tag), die Ganztägig-Zeile oder einen
     // Tag im Monat: unser Schnellfenster an der Mausposition statt Thunderbirds
     // großem Dialog. Ziehen über einen Zeitraum legt weiter direkt an.
+    // Terminliste unter dem Kalender („Find Events“): wie bei Apple beim
+    // Start zu, Thunderbirds Knopf öffnet sie wieder (sein Zustand stimmt mit)
+    const hideUnifinderOnce = () => {
+      const d = w.document;
+      if (d.documentElement.hasAttribute("mc-unifinder-ready")) {
+        return;
+      }
+      const box = d.getElementById("bottom-events-box");
+      if (!box) {
+        return;
+      }
+      try {
+        // (direkt – Thunderbirds toggleUnifinder ist beim Start oft noch nicht da;
+        // sein Umschalten richtet sich nach hidden)
+        if (!box.hidden) {
+          box.hidden = true;
+          const splitter = d.getElementById("calendar-view-splitter");
+          if (splitter) {
+            splitter.hidden = true;
+          }
+          d.getElementById("calendar_show_unifinder_command")?.setAttribute("checked", "false");
+        }
+      } catch (e) {
+        log("unifinder hide error", e);
+      }
+      d.documentElement.setAttribute("mc-unifinder-ready", "");
+      this.restorers.push(() => d.documentElement.removeAttribute("mc-unifinder-ready"));
+    };
     const hookCalendarDoubleClick = () => {
       const ctrl = w.calendarViewController;
       const box = w.document.getElementById("view-box");
@@ -15180,6 +15208,7 @@ class CardEnhancer {
       hookTaskPlaceholders();
       hookTasksEmpty();
       hookCalendarDoubleClick();
+      hideUnifinderOnce();
       hookTaskHint();
       hookTaskDescription();
       hookTitle();

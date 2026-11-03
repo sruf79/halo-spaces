@@ -765,9 +765,10 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   -moz-window-dragging: no-drag !important;
 }
 
-/* Suchliste „Termine in den nächsten 7 Tagen“ gibt es bei Apple nicht */
-#bottom-events-box,
-#calendar-view-splitter {
+/* Suchliste „Termine in den nächsten 7 Tagen“ zeigt Apple nicht von sich
+   aus: beim Start zu (setzt die Erweiterung, bis dahin hier verborgen), über
+   Thunderbirds Knopf „Find Events“ bzw. das Menü wieder zu öffnen */
+:root:not([mc-unifinder-ready]) :is(#bottom-events-box, #calendar-view-splitter) {
   display: none !important;
 }
 

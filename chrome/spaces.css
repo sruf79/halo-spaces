@@ -7729,6 +7729,16 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   gap: 0;
 }
 
+/* Windows/Linux mit wenig Platz neben ≡ und Fensterknöpfen: Überschrift als
+   eigene Zeile oben in der Today-Pane (setzt die Erweiterung dorthin) */
+#mcTodayTitle[data-below] {
+  flex: none;
+  justify-content: center;
+  padding: 8px 12px 6px;
+  font-size: calc(15px * var(--mt-font-scale, 1));
+  gap: 7px;
+}
+
 /* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere
    Fläche reicht Klicks durch (darunter zieht die Zeile weiter das Fenster),
    ihre Knöpfe bleiben bedienbar */

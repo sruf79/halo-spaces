@@ -13421,7 +13421,20 @@ class CardEnhancer {
         setVar(row, "--mc-row-tail", `${tail}px`);
         // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
         // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
-        title.toggleAttribute("data-narrow", width - 60 - (60 + Math.max(caption, tail)) < 110);
+        const room = width - 60 - (60 + Math.max(caption, tail));
+        title.toggleAttribute("data-narrow", room < 110);
+        // nicht einmal für die Sonne Platz (Windows/Linux: ≡ und Fensterknöpfe
+        // liegen über der Today-Pane): Überschrift als eigene Zeile oben in der
+        // Today-Pane statt unsichtbar unter „+“
+        const below = width > 0 && room < 32;
+        if (below != (title.parentNode == panel)) {
+          if (below) {
+            panel.prepend(title);
+          } else {
+            top.append(title);
+          }
+        }
+        title.toggleAttribute("data-below", below);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;
@@ -13432,6 +13445,7 @@ class CardEnhancer {
         ro?.disconnect();
         btn.remove();
         top.remove();
+        title.remove();
         row?.style.removeProperty("--mc-tp-w");
         delete w.__mcTodayTopSync;
       });

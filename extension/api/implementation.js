@@ -19356,8 +19356,33 @@ class CardEnhancer {
       if (!smart || !folder || !win.folderPane?._createFolderRow) {
         return;
       }
+      // neuer Mail-Tab: Thunderbird lädt die Ordnerzeilen-Klasse erst nach –
+      // vorher entstünde eine leere Zeile ohne ihre Methoden
+      if (!row && !win.customElements.get("folder-tree-row")) {
+        win.customElements.whenDefined("folder-tree-row").then(() => apply());
+        return;
+      }
       if (!row) {
-        row = win.folderPane._createFolderRow("smart", folder);
+        try {
+          row = win.folderPane._createFolderRow("smart", folder);
+        } catch (e) {
+          // (ein Tab, der gerade entsteht oder geht: Thunderbirds Zeile ist noch
+          // nicht fertig – einmal kurz später, erst dann melden)
+          if (!starredRow.retried) {
+            starredRow.retried = true;
+            win.setTimeout(() => {
+              try {
+                starredRow();
+              } catch (err) {
+                log("starred row error", err);
+              } finally {
+                starredRow.retried = false;
+              }
+            }, 500);
+            return;
+          }
+          throw e;
+        }
         row.setAttribute("data-mc-starred", "");
         const list = smart.querySelector(":scope > ul");
         const sent = list?.querySelector(':scope > li[data-folder-type="sent"]');

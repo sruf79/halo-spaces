@@ -5580,12 +5580,16 @@ def calendar_checks(m, results):
 
     def classic_drag():
         # klassisches Layout (Liste über der Mail): Ziehen der Trennlinie weit über beide Grenzen – die Höhe der
-        # Leseansicht folgt der Maus bis zum Anschlag bzw. Zuklappen und ändert sich danach ohne Bewegung nicht mehr
+        # Leseansicht folgt der Maus bis zum Anschlag bzw. Zuklappen und ändert sich danach ohne Bewegung nicht mehr;
+        # die gemerkte Breite der Mailliste (vertikales Layout) bleibt dabei unverändert
         res = m.js(r"""
           const a3 = tm.currentTabInfo.chromeBrowser.contentWindow;
           const before = Services.prefs.getIntPref("mail.pane_config.dynamic", 0);
           Services.prefs.setIntPref("mail.pane_config.dynamic", 0); await wait(1500);
           const sp = a3.document.getElementById("messagePaneSplitter"), mp = a3.document.getElementById("messagePane");
+          // (Größen des Teilers merken: sonst behielte die Mailansicht danach die gezogene Größe)
+          const LW = "extensions.mailcards.listWidth";
+          const keep = { h: sp.height, w: sp.width, coll: sp.isCollapsed, list: Services.prefs.prefHasUserValue(LW) ? Services.prefs.getIntPref(LW) : null };
           const H = () => Math.round(mp.getBoundingClientRect().height);
           const frames = async n => { const s = []; for (let i = 0; i < n; i++) { await new Promise(r => a3.requestAnimationFrame(r)); s.push(H()); } return s; };
           const out = {};
@@ -5605,7 +5609,13 @@ def calendar_checks(m, results):
               if (sp.isCollapsed) { sp.expand(); await wait(400); }
               await wait(300);
             }
-          } finally { Services.prefs.setIntPref("mail.pane_config.dynamic", before); await wait(1200); }
+          } finally {
+            if (sp.isCollapsed && !keep.coll) sp.expand();
+            sp.height = keep.h; sp.width = keep.w;
+            Services.prefs.setIntPref("mail.pane_config.dynamic", before); await wait(1200);
+            // im klassischen Layout gezogen: die gemerkte Listenbreite bleibt (dort ist die Liste fensterbreit)
+            out.listKept = (Services.prefs.prefHasUserValue(LW) ? Services.prefs.getIntPref(LW) : null) === keep.list;
+          }
           return out;""")
         ok = True
         for name in ("up", "down"):
@@ -5614,7 +5624,7 @@ def calendar_checks(m, results):
             # erster Schritt (50 px) folgt der Maus genau; danach nie Bewegung ohne Maus
             ok = ok and bool(steps) and abs(steps[0][2] - steps[0][1]) <= 2 and all(s[2] == s[3] for s in steps)
             ok = ok and r.get("hold", [0, 1])[0] == r["hold"][1] == r.get("rel", [0, 1])[0] == r["rel"][1]
-        ok = ok and (res.get("down") or {}).get("coll") is True
+        ok = ok and (res.get("down") or {}).get("coll") is True and res.get("listKept")
         return ok, f"{res}"
     check("Leseansicht klassisch: Höhe folgt beim Ziehen über die Grenzen der Maus und bleibt danach stehen", classic_drag, results)
 

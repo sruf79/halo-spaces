@@ -17137,6 +17137,12 @@ class CardEnhancer {
           return;
         }
         msgSplitter.__mcDragging = false;
+        // nur nebeneinander (vertikales Layout): im klassischen Layout ist die
+        // Liste so breit wie das Fenster – gemerkt kam sie nach dem Wechsel
+        // zurück viel zu breit
+        if (msgSplitter.resizeDirection == "vertical") {
+          return;
+        }
         const width = Math.round(threadPane.getBoundingClientRect().width);
         if (width >= 200) {
           Services.prefs.setIntPref(LIST_WIDTH_PREF, width);

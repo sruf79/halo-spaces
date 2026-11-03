@@ -1690,6 +1690,54 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailkopf: Knöpfe anderer Erweiterungen (z. B. Übersetzen) bleiben sichtbar, eigene Knöpfe nicht; ohne sie und in Konversationskarten keine Knopfzeile", addon_buttons, results)
 
+    def addon_icon():
+        # echte Erweiterung mit Knopf im Mailkopf (message_display_action): ihr Symbol wird gezeichnet – links
+        # feste Farbe (grün), rechts context-fill wie bei vielen Thunderbird-Erweiterungen (in der Textfarbe)
+        m.cmd("WebDriver:SetTimeouts", {"script": 60000})
+        res = m.js(READING_JS + r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const dir = PathUtils.join(PathUtils.profileDir, "halo-action-test");
+          await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+          await IOUtils.writeUTF8(PathUtils.join(dir, "manifest.json"), JSON.stringify({ manifest_version: 2, name: "Halo Knopftest", version: "1.0",
+            browser_specific_settings: { gecko: { id: "halo-action-test@example.invalid" } },
+            message_display_action: { default_title: "Halo Knopftest", default_icon: "icon.svg" } }));
+          await IOUtils.writeUTF8(PathUtils.join(dir, "icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="8" height="16" fill="#00b000"/><rect x="8" width="8" height="16" fill="context-fill" fill-opacity="context-fill-opacity"/></svg>');
+          const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); file.initWithPath(dir);
+          const addon = await AddonManager.installTemporaryAddon(file);
+          const out = {};
+          try {
+            const doc = await showMail("Halo Jetzt");
+            const btn = await until(() => [...doc.querySelectorAll("#header-view-toolbar .webextension-action")].find(b => b.getBoundingClientRect().width > 0), 8000);
+            out.btn = !!btn;
+            if (btn) {
+              await wait(500);
+              const icon = btn.querySelector(".toolbarbutton-icon"), r = icon.getBoundingClientRect();
+              const cw = doc.defaultView;
+              out.size = [Math.round(r.width), Math.round(r.height)];
+              const shot = async () => {
+                const cv = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+                // (4 px links vom Symbol: Fläche des Knopfs als Vergleich)
+                const x0 = r.left - 4;
+                cv.width = Math.round(r.width + 4); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+                try { const bm = await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(x0, r.top, r.width + 4, r.height), 1, "white"); ctx.drawImage(bm, 0, 0); }
+                catch { ctx.drawWindow(cw, x0, r.top, r.width + 4, r.height, "white"); }
+                const data = ctx.getImageData(0, 0, cv.width, cv.height).data, px = (x, y) => { const i = (y * cv.width + x) * 4; return [data[i], data[i + 1], data[i + 2]]; };
+                const y = Math.round(cv.height / 2);
+                return { bg: px(1, y), left: px(4 + Math.round(r.width / 4), y), right: px(4 + Math.round(r.width * 3 / 4), y) };
+              };
+              out.rest = await shot();
+              out.cs = { op: cs(icon).opacity, fill: cs(icon).fill, cp: cs(icon).getPropertyValue("-moz-context-properties"), color: cs(btn).color, img: cs(icon).listStyleImage.slice(0, 16) };
+            }
+          } finally { await addon.uninstall(); }
+          return out;""")
+        rest = res.get("rest") or {}
+        l, r, b = rest.get("left") or [0, 0, 0], rest.get("right") or [0, 0, 0], rest.get("bg") or [0, 0, 0]
+        green = l[1] > 120 and l[0] < 90 and l[2] < 90
+        # context-fill: deutlich vom Knopf abgesetzt, nicht unsichtbar
+        ok = res.get("btn") and green and abs(sum(r) / 3 - sum(b) / 3) > 60
+        return ok, f"{res}"
+    check("Mailkopf: Symbol einer Erweiterung im Mailkopf sichtbar (feste Farbe und context-fill)", addon_icon, results)
+
     def recipients():
         # viele Empfänger: „Mehr“ als graue Kapsel in 11 px; Kommas in Cc wie in An
         res = m.js(READING_JS + r"""

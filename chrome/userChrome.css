@@ -1468,6 +1468,17 @@ findbar .findbar-textbox:focus {
   color: var(--mt-text) !important;
 }
 
+/* Symbole anderer Erweiterungen, die ihre Farbe übernehmen (context-fill):
+   Thunderbird gibt im Mailkopf nur 20 % der Textfarbe als Füllung weiter
+   (gedacht für die eigenen zweifarbigen Symbole) – sie waren kaum sichtbar.
+   Wie in der Toolbar oben in voller Textfarbe */
+#header-view-toolbar .webextension-action {
+  -moz-context-properties: fill, fill-opacity, stroke, stroke-opacity !important;
+  fill: currentColor !important;
+  fill-opacity: 1 !important;
+  stroke: currentColor !important;
+}
+
 #header-view-toolbar *,
 #header-view-toolbar *::before,
 #header-view-toolbar *::after {
@@ -11236,6 +11247,16 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #mcTodayTitle[data-narrow] {
   font-size: 0;
   gap: 0;
+}
+
+/* Windows/Linux mit wenig Platz neben ≡ und Fensterknöpfen: Überschrift als
+   eigene Zeile oben in der Today-Pane (setzt die Erweiterung dorthin) */
+#mcTodayTitle[data-below] {
+  flex: none;
+  justify-content: center;
+  padding: 8px 12px 6px;
+  font-size: calc(15px * var(--mt-font-scale, 1));
+  gap: 7px;
 }
 
 /* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere

@@ -29,6 +29,7 @@ Im Folgenden heißt der Testbenutzer `halotest` und der Mini in Tailscale
 | CI (optional) | GitHub-Runner als LaunchAgent im Testbenutzer | Tests unter macOS bei jedem Push auf `main` |
 | Windows (optional) | Parallels-VM mit Windows 11, Test per `halo_test.py --vm` | Windows-Abweichungen sehen, ohne zweiten Rechner |
 | Cloud (optional) | `claude remote-control` als LaunchAgent | Cloud-Sitzungen und die Claude-App steuern den Mini, ohne dass er von außen erreichbar ist |
+| Läufe | Nachtlauf, CI-Wächter, Wochenprüfung als LaunchAgents (Abschnitte 13–15) | Liste abarbeiten und veröffentlichen, rote CI melden, Läufe auswerten – ohne Desktop-App-Sitzung |
 
 ## 1. Verwalteter Mac?
 
@@ -454,10 +455,22 @@ Aufgabenliste ab (Bugs vor Features) und veröffentlicht danach selbst nach
 `AGENTS.md`, Abschnitt „Release“. Auftrag: `tests/nachtlauf-auftrag.md`,
 Ablauf: `tests/nachtlauf.sh`.
 
+Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge
+abarbeiten, je Eintrag nur die betroffenen Prüfungen (`--only`), ab 04:30
+kein neuer Eintrag mehr; dann pushen und den CI-Lauf für genau diesen Commit
+abwarten (`tests/ci-warten.sh`, etwa 50 Minuten: Linux ~16, `mac` ~32,
+`windows` ~17). Grün: Versionshinweise, `release.sh` (überspringt die Tests
+dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
+mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
+Reparaturrunden, keine neue ab 07:30, sonst kein Release. Der Bericht nennt
+die CI-Läufe mit ID, Ergebnis und Dauer je Job.
+
 - Einrichten bzw. nach Änderungen am Skript erneuern:
   `tests/mac-mini-setup.sh --ohne-probelauf` (LaunchAgent
-  `at.halo-spaces.nachtlauf`, Skript nach `~/.config/halo-spaces/nachtlauf.sh`
-  kopiert, Protokoll `~/Library/Logs/halo-nachtlauf.log`). Claude Code darf den
+  `at.halo-spaces.nachtlauf`, Skript mit `tests/lauf-hilfen.zsh` nach
+  `~/.config/halo-spaces/` kopiert, Protokoll
+  `~/Library/Logs/halo-nachtlauf.log`). Dasselbe richtet CI-Wächter und
+  Wochenprüfung ein (Abschnitte 14 und 15). Claude Code darf den
   LaunchAgent nicht selbst laden (Sicherheitsprüfung) – der Befehl kommt vom
   Maintainer, in der Bildschirmsitzung oder per SSH.
 - Erster erlaubter Tag: `HALO_NACHT_AB` im Skript (Standard 4.11.2026);
@@ -482,3 +495,71 @@ Ablauf: `tests/nachtlauf.sh`.
   `rm ~/halo-nacht/PAUSE`. Abschalten:
   `launchctl bootout gui/$(id -u)/at.halo-spaces.nachtlauf` und die plist in
   `~/Library/LaunchAgents/` löschen.
+
+## 14. CI-Wächter
+
+Alle 15 Minuten sieht `tests/ci-waechter.sh` (LaunchAgent
+`at.halo-spaces.ci-waechter`, ohne Claude, nur `gh`) nach abgeschlossenen
+Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
+`~/halo-aufgaben/ci-waechter.stand`, beim ersten Start der neueste Lauf –
+Älteres wird nicht nachgemeldet).
+
+- **Rot:** je gescheiterter Prüfung (Zeilen `FEHLER` im Log; ohne solche Zeile
+  der abgebrochene Schritt) ein Bug im Board, Status Todo, Titel
+  `Tests: CI rot – <Job>: <Prüfung>`. Dieselbe Prüfung in mehreren Jobs ergibt
+  einen Eintrag; gibt es schon einen offenen Eintrag zur selben Prüfung, wird
+  er ergänzt (Datum, Lauf, Commit). Dazu eine Zeile aufs iPhone über dieselbe
+  `push()`-Funktion wie der Nachtlauf (`tests/lauf-hilfen.zsh`) – die Sitzung
+  `comm.github.routine` ist dabei nur der Zustellweg, die Routine
+  „GitHub-Kommunikation“ selbst bleibt unberührt.
+- **Abgebrochen:** nur protokolliert. **Grün:** nur protokolliert.
+- Läufe, die während eines Nachtlaufs oder einer Wochenprüfung beginnen
+  (Zeiten aus `~/halo-nacht/<datum>.log` bzw. `<datum>-woche.log`), lässt
+  er aus – die warten selbst auf ihre CI und berichten darüber.
+- Ein noch laufender Lauf hält die Auswertung an, bis er fertig ist.
+- Protokoll: `~/halo-aufgaben/ci-waechter.log` (launchd-Ausgabe
+  `~/Library/Logs/halo-ci-waechter.log`).
+- Von Hand: `tests/ci-waechter.sh --trocken` (nur anzeigen, kein Board, kein
+  Push, Stand bleibt), `--lauf <ID>` wertet genau einen Lauf aus, zusammen
+  mit `--trocken` zum Ausprobieren an einem alten roten Lauf.
+- Abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.ci-waechter`.
+
+`tests/ci-warten.sh [<commit>] [<minuten>]` (von Nachtlauf und Wochenprüfung
+benutzt) wartet höchstens die angegebenen Minuten auf den CI-Lauf eines
+Commits und meldet je Job Ergebnis und Dauer, bei Rot die gescheiterten
+Prüfungen; Exitcode 0 grün, 1 rot, 2 läuft noch, 3 abgebrochen, 4 kein Lauf.
+
+## 15. Wochenprüfung
+
+Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
+`at.halo-spaces.wochenpruefung`, `tests/wochenpruefung.sh`, Auftrag
+`tests/wochenpruefung-auftrag.md`; keine geplante Aufgabe der Desktop-App).
+
+- Ausgewertet: CI-Läufe (Dauer je Job, rote und abgebrochene Läufe,
+  gescheiterte Prüfungen, unzuverlässige Prüfungen = rot und grün ohne
+  Codeänderung dazwischen), langsamste Prüfungen aus den Testausgaben,
+  `~/halo-nacht/*.log` und `~/halo-berichte/*` (erledigte Einträge,
+  Limit-Pausen, ausgelassene Nächte, Release lokal oder per CI,
+  Store-Upload-Fehler), Protokoll des CI-Wächters, Durchsatz im Board.
+- Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich
+  zur Vorwoche im Bericht `~/halo-berichte/<datum>-wochenpruefung.md`
+  (erste Zeile „Kurz: …“ geht aufs iPhone).
+- Darf selbst: kleine Korrekturen an Prüfungen (Toleranzen, Wartebedingungen
+  statt Pausen, Plattform-Abweichungen als Warnung), mit `--only` prüfen,
+  committen, pushen, CI abwarten; kein Release. Alles, was den Ablauf ändert
+  (Workflow, `release.sh`/`publish.sh`, Nachtlauf, Zeitpläne), nur als
+  Board-Eintrag mit Status „Wartet auf OK“. Nie: Release-Sperre,
+  `if:`-Bedingungen der Mac-Jobs, `mac-runner-hook.sh`, Freigaberegeln.
+- Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
+  bis höchstens 09:15 und wertet ihn mit aus.
+- Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`, wartet bis 90 Minuten
+  auf einen CI-Lauf und lässt sonst aus, wenn etwas läuft (Bericht
+  „ausgelassen“); `claude -p` im Modus `auto`, nach Limit 30 Minuten Pause
+  und Fortsetzen, nach 6 Stunden kein Fortsetzen mehr, nach 7 beendet.
+  Protokoll `~/halo-nacht/<datum>-woche.log`.
+- Pausieren: `touch ~/halo-nacht/PAUSE-WOCHE`, fortsetzen mit `rm`.
+- Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --trocken` – nur
+  auswerten und Bericht, keine Änderungen, kein Board, keine Kennzahlen-Datei.
+  Wie beim Nachtlauf nur unter launchd bzw. in der Bildschirmsitzung (per SSH
+  ist `claude -p` nicht angemeldet), z. B. im Terminal am Bildschirm oder
+  per Bildschirmfreigabe.

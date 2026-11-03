@@ -30,7 +30,10 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/store_shots.py` | Bilder für README und Store aus frischem Testprofil (erfundene englische Mails, Kontakte mit gezeichneten Bildern, Termine) |
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
-| `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
+| `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
+| `tests/ci-waechter.sh`, `tests/ci-warten.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14 |
+| `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
+| `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
@@ -139,9 +142,26 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Maintainer der laufenden Sitzung direkt (Entscheidung des Maintainers vom
   3.11.2026). Status der eigenen Einträge pflegen geht weiter.
 - **Nachtlauf:** jede Nacht 01:30 (ab 4.11.2026) arbeitet `tests/nachtlauf.sh`
-  die Aufgabenliste ab und veröffentlicht; Bericht in `~/halo-berichte/`,
-  Kurzfassung aufs iPhone. Er lässt aus, wenn schon etwas läuft. Pausieren mit
-  `touch ~/halo-nacht/PAUSE`. Details `tests/MAC-MINI.md` Abschnitt 13.
+  die Aufgabenliste ab (kein neuer Eintrag ab 04:30), pusht, wartet auf die
+  CI für genau diesen Commit (`tests/ci-warten.sh`) und veröffentlicht bei
+  Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
+  sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
+  `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Er lässt aus,
+  wenn schon etwas läuft. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  `tests/MAC-MINI.md` Abschnitt 13.
+- **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
+  kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
+  Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
+  selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
+  oder Wochenprüfung übernehmen diese selbst. `tests/MAC-MINI.md` Abschnitt 14.
+- **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
+  letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
+  `~/halo-aufgaben/wochen-kennzahlen.json`), behebt kleine Dinge an Prüfungen
+  selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
+  `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
+- Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
+  Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da
+  und bekommt keine weiteren Aufgaben (Entscheidung des Maintainers vom 3.11.2026).
 - **Windows-VM** (Parallels Desktop Pro, Anleitung `tests/MAC-MINI.md`
   Abschnitt 11): VM `Windows 11` (Windows-Hostname `win11`, Windows 11
   Enterprise ARM, Benutzer `neosky.cat` mit automatischer Anmeldung, IP im

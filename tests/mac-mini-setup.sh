@@ -507,58 +507,75 @@ EOF
   fi
 }
 
-# Nachtlauf (tests/MAC-MINI.md Abschnitt 13): LaunchAgent startet jede Nacht um
-# 01:30 tests/nachtlauf.sh (Kopie außerhalb des Checkouts, der Lauf ändert ihn)
-NL_LABEL=at.halo-spaces.nachtlauf
-NL_ZIEL=$HOME/.config/halo-spaces/nachtlauf.sh
-NL_PLIST=$HOME/Library/LaunchAgents/$NL_LABEL.plist
-NL_LOG=$HOME/Library/Logs/halo-nachtlauf.log
-nl_plist() {
+# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–15): Nachtlauf jede
+# Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00. Die
+# Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
+# (außerhalb des Checkouts, die Läufe ändern ihn).
+AG_DIR=$HOME/.config/halo-spaces
+agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
   cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>$NL_LABEL</string>
+  <key>Label</key><string>$1</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/zsh</string><string>$NL_ZIEL</string><string>$ROOT</string></array>
-  <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>
+  <array><string>/bin/zsh</string><string>$AG_DIR/$2</string>$( [[ $2 == ci-waechter.sh ]] || print -n "<string>$ROOT</string>" )</array>
+  $4
   <key>ProcessType</key><string>Interactive</string>
-  <key>StandardOutPath</key><string>$NL_LOG</string>
-  <key>StandardErrorPath</key><string>$NL_LOG</string>
+  <key>StandardOutPath</key><string>$3</string>
+  <key>StandardErrorPath</key><string>$3</string>
 </dict>
 </plist>
 EOF
 }
-pruefe_nachtlauf() {
-  local quelle=$ROOT/tests/nachtlauf.sh dom=gui/$(id -u)
-  if cmp -s $quelle $NL_ZIEL && [[ $(nl_plist) == "$(cat $NL_PLIST 2>/dev/null)" ]]; then
+pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei oder -> <Text bei OK>
+  local name=$1 label=$2 skript=$3 log=$4 plan=$5 pause=$6 text=$7
+  local plist=$HOME/Library/LaunchAgents/$label.plist dom=gui/$(id -u) f aktuell=1
+  for f in $skript lauf-hilfen.zsh; do
+    cmp -s $ROOT/tests/$f $AG_DIR/$f || aktuell=0
+  done
+  [[ $(agent_plist $label $skript $log $plan) == "$(cat $plist 2>/dev/null)" ]] || aktuell=0
+  if (( aktuell )); then
     :
   elif (( CHECK )); then
-    offen "Nachtlauf" "LaunchAgent fehlt oder ist veraltet – kein nächtlicher Arbeitslauf"
-    tun "tests/mac-mini-setup.sh ohne --check ausführen"
+    offen $name "LaunchAgent fehlt oder ist veraltet"
+    tun "tests/mac-mini-setup.sh --ohne-probelauf ausführen"
     return
-  elif mkdir -p ${NL_ZIEL:h} ${NL_PLIST:h} ${NL_LOG:h} && cp $quelle $NL_ZIEL && chmod 755 $NL_ZIEL &&
-       nl_plist > $NL_PLIST; then
-    launchctl bootout $dom/$NL_LABEL 2>/dev/null
-    if ! launchctl bootstrap $dom $NL_PLIST 2>/dev/null; then
-      offen "Nachtlauf" "LaunchAgent eingerichtet, ließ sich aber nicht laden"
-      tun "in der Bildschirmsitzung von $ME: launchctl bootstrap $dom $NL_PLIST"
+  elif mkdir -p $AG_DIR ${plist:h} ${log:h} && cp $ROOT/tests/$skript $ROOT/tests/lauf-hilfen.zsh $AG_DIR/ &&
+       chmod 755 $AG_DIR/$skript && agent_plist $label $skript $log $plan > $plist; then
+    launchctl bootout $dom/$label 2>/dev/null
+    if ! launchctl bootstrap $dom $plist 2>/dev/null; then
+      offen $name "LaunchAgent eingerichtet, ließ sich aber nicht laden"
+      tun "in der Bildschirmsitzung von $ME: launchctl bootstrap $dom $plist"
       return
     fi
   else
-    offen "Nachtlauf" "LaunchAgent ließ sich nicht einrichten"
+    offen $name "LaunchAgent ließ sich nicht einrichten"
     return
   fi
-  if ! launchctl print $dom/$NL_LABEL >/dev/null 2>&1; then
-    offen "Nachtlauf" "LaunchAgent nicht geladen"
-    tun "launchctl bootstrap $dom $NL_PLIST"
-  elif [[ -e $HOME/halo-nacht/PAUSE ]]; then
-    hinweis "Nachtlauf" "geladen, aber pausiert (rm ~/halo-nacht/PAUSE zum Fortsetzen)"
+  if ! launchctl print $dom/$label >/dev/null 2>&1; then
+    offen $name "LaunchAgent nicht geladen"
+    tun "launchctl bootstrap $dom $plist"
+  elif [[ $pause != - && -e $pause ]]; then
+    hinweis $name "geladen, aber pausiert (rm $pause zum Fortsetzen)"
   else
-    ok "Nachtlauf" "täglich 01:30, Berichte in ~/halo-berichte ($NL_LOG)"
+    ok $name "$text ($log)"
   fi
+}
+pruefe_laeufe() {
+  pruefe_agent "Nachtlauf" at.halo-spaces.nachtlauf nachtlauf.sh $HOME/Library/Logs/halo-nachtlauf.log \
+    '<key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>' \
+    $HOME/halo-nacht/PAUSE "täglich 01:30, Berichte in ~/halo-berichte"
+  pruefe_agent "CI-Wächter" at.halo-spaces.ci-waechter ci-waechter.sh $HOME/Library/Logs/halo-ci-waechter.log \
+    '<key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>' \
+    - "alle 15 Minuten, rote CI-Läufe ins Board, Protokoll ~/halo-aufgaben/ci-waechter.log"
+  pruefe_agent "Wochenprüfung" at.halo-spaces.wochenpruefung wochenpruefung.sh $HOME/Library/Logs/halo-wochenpruefung.log \
+    '<key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
+    $HOME/halo-nacht/PAUSE-WOCHE "sonntags 08:00, Berichte in ~/halo-berichte"
 }
 
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über
@@ -719,7 +736,7 @@ pruefe_tailscale
 pruefe_ssh
 pruefe_runner
 pruefe_remote_control
-pruefe_nachtlauf
+pruefe_laeufe
 pruefe_vm
 if (( PROBE )); then
   probelauf

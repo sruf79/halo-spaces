@@ -1,7 +1,7 @@
 # Mac mini als Testrechner
 
 Ein Mac mini (Apple Silicon) übernimmt rund um die Uhr die Tests:
-`tests/halo_test.py` hell und dunkel, `tests/beta.sh` und den Rundgang
+`tests/halo_test.py` hell und dunkel (die Beta nur noch unter Linux in der CI) und den Rundgang
 `tests/ui_tour.py`. Er ist nur über Tailscale erreichbar. Claude Code läuft auf
 dem Mini selbst und wird per SSH aus der Desktop-App bedient.
 
@@ -270,7 +270,7 @@ möglichen Schaden.
    ```
 
 4. Probe: GitHub → Actions → **Test** → **Run workflow**. Ergebnis: Artefakt
-   `test-mac` mit den Ordnern `hell/`, `dunkel/` und `beta/` (Screenshots und
+   `test-mac` mit den Ordnern `hell/` und `dunkel/` (Screenshots und
    Thunderbird-Protokoll).
 
 Ist der Mini aus, wartet der Job bis zu 24 Stunden; die Linux-Ergebnisse sind

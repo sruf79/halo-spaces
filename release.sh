@@ -3,7 +3,7 @@
 #   ./release.sh 2.11.0
 # Braucht repo.conf mit:  GITHUB_REPO="besitzer/repo"
 # Danach ./publish.sh <version> <notes.md> – lädt genau dieses Paket hoch.
-# Nur wenn alle Tests (hell, dunkel, Beta) grün sind, schreibt release.sh die
+# Nur wenn alle Tests (hell, dunkel) grün sind, schreibt release.sh die
 # Marke dist/release-<version>.ok (Version, Hash des Pakets, Tests) – ohne sie
 # veröffentlicht publish.sh nicht.
 set -e
@@ -48,7 +48,7 @@ if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" ]] && command -v gh >/dev/null; then
         echo "CI-Lauf $RUN für ${SHA:0:7} ist vollständig grün (Linux, Mac, Windows) – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
         SKIP_TESTS=1
         CI_OK=1
-        TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel, Beta), Windows")
+        TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel), Windows")
       fi
       break
     done
@@ -86,17 +86,7 @@ if [[ -z "$SKIP_TESTS" ]]; then
       || fehlschlag "Tests $([[ -n $MODE ]] && echo dunkel || echo hell) fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
     TESTS+=("$([[ -n $MODE ]] && echo dunkel || echo hell): $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
   done
-  # die nächste Thunderbird-Version: gehört zu den Bedingungen fürs Veröffentlichen
-  if [[ "$OSTYPE" == darwin* && -z "$SKIP_BETA" ]]; then
-    tests/beta.sh --xpi "$XPI" 2>&1 | tee -a "$LOG" \
-      || fehlschlag "Tests mit Thunderbird Beta fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
-    TESTS+=("Beta ($(grep -E '^Thunderbird Beta ' "$LOG" | tail -1)): $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
-    BETA=$(defaults read "$HOME/Library/Caches/halo-spaces/tb-beta/Thunderbird Beta.app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null | cut -d. -f1)
-    MAX=$(cut -d. -f1 store/max-version)
-    if [[ -n "$BETA" && "$BETA" -gt "$MAX" ]]; then
-      echo "HINWEIS: Thunderbird Beta $BETA ist neuer als store/max-version ($MAX.*) – nach erfolgreichem Test anheben, sonst sperrt Thunderbird die Store-Version ab $((MAX + 1))"
-    fi
-  fi
+  # Beta läuft nur noch unter Linux in der CI (Entscheidung vom 3.11.2026)
 fi
 ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
 MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")
@@ -119,9 +109,9 @@ json.dump(data, open(path, "w"), indent=2)
 open(path, "a").write("\n")
 PY
 
-# Marke für publish.sh: nur wenn hell, dunkel und Beta hier grün waren oder die CI
+# Marke für publish.sh: nur wenn hell und dunkel hier grün waren oder die CI
 # denselben Stand vollständig grün getestet hat
-if [[ -n "$CI_OK" || ( -z "$SKIP_TESTS" && -z "$SKIP_BETA" && "$OSTYPE" == darwin* ) ]]; then
+if [[ -n "$CI_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]]; then
   {
     echo "version=$VERSION"
     echo "sha256=$HASH"
@@ -134,5 +124,5 @@ if [[ -n "$CI_OK" || ( -z "$SKIP_TESTS" && -z "$SKIP_BETA" && "$OSTYPE" == darwi
   echo "Zum Veröffentlichen (ohne neu zu bauen, prüft danach den Hash):"
   echo "  ./publish.sh $VERSION notes.md"
 else
-  echo "Fertig: $XPI – aber nicht alle Tests gelaufen (SKIP_TESTS/SKIP_BETA oder kein Mac), daher keine Marke: publish.sh veröffentlicht diese Version nicht"
+  echo "Fertig: $XPI – aber nicht alle Tests gelaufen (SKIP_TESTS oder kein Mac), daher keine Marke: publish.sh veröffentlicht diese Version nicht"
 fi

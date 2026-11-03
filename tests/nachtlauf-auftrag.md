@@ -15,9 +15,9 @@ Reihenfolge:
    Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,
    unklarer Wunsch), überspringen und im Bericht nennen.
 2. Je Eintrag: Status In Progress (~/halo-aufgaben/status.sh <id> progress),
-   Ursache klären, beheben, Prüfung in run_checks() ergänzen, betroffene
-   Prüfungen hell und dunkel grün (python3 tests/halo_test.py --port 2850
-   --only "…" bzw. mit --dark), committen (nur eigene Hunks, Stil nach
+   Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
+   betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
+   --only "…", bei Farben/Design auch mit --dark), committen (nur eigene Hunks, Stil nach
    AGENTS.md), dann ~/halo-aufgaben/fertig.sh <id> "Commit <hash>".
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
@@ -25,7 +25,7 @@ Reihenfolge:
 4. Wurde mindestens ein Bug/Feature committet: Versionshinweise im README.md
    (eigener Commit), Notizdatei für den GitHub-Release (englisch), dann
    ./release.sh x.y.z und bei Erfolg ./publish.sh x.y.z <notizen>.
-   Nicht vorher separat pushen: release.sh testet hell, dunkel und Beta auf
+   Nicht vorher separat pushen: release.sh testet hell und dunkel auf
    diesem Mac, ein CI-Lauf nach dem Push würde die Tests stören.
    Scheitert release.sh: wenn die Ursache klar und klein ist, beheben und
    release.sh erneut; sonst den Commit, der den Fehler bringt, mit git revert

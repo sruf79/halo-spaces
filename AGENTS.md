@@ -116,9 +116,11 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
   Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
-  zusammenhängenden Arbeitsblocks (Phase) pushen – nach den betroffenen
-  Prüfungen (`--only`) hell und dunkel; den Volltest übernimmt die CI (Linux,
-  Beta, `mac`, `windows`), deren Ergebnis danach prüfen. Früher pushen
+  zusammenhängenden Arbeitsblocks (Phase) pushen – vorher nur die Prüfungen,
+  die die geänderte Stelle betreffen (`--only`, hell; dunkel zusätzlich, wenn
+  Farben oder Design betroffen sind), kein Volllauf (Entscheidung des
+  Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
+  `mac` hell und dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
 - **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
   hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,
@@ -159,12 +161,14 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
     Screenshots als Artefakt `test-windows`.
 - Zwischendurch nur betroffene Prüfungen: `python3 tests/halo_test.py --port 2851
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
-  unter Linux (CI, xvfb) und mit der Beta grün sein.
+  unter Linux (CI, xvfb) und mit der Beta grün sein. Die Beta läuft nur noch
+  unter Linux in der CI, nicht mehr auf dem Mac (`tests/beta.sh` bleibt für
+  Läufe von Hand).
 
 ## Release (selbstständig auf neon)
 
 ```bash
-./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel + Beta, updates.json, Testmarke
+./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel, updates.json, Testmarke
 ./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, ATN-Upload, Bericht
 ```
 
@@ -182,13 +186,13 @@ oder aus Cloud-Sessions (dort neon beauftragen).
 
 **Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests), wenn
-hell, dunkel und Beta grün waren – oder die CI denselben Stand vollständig
-grün getestet hat (Linux, `mac` mit Beta, `windows`; dann werden die Tests
+hell und dunkel grün waren – oder die CI denselben Stand vollständig
+grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
 übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh` oder
 `store/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
 Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
 ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
-bzw. `SKIP_BETA=1` sind nur zum Ausprobieren – ohne Marke kein Release.
+ist nur zum Ausprobieren – ohne Marke kein Release.
 Die Sperre nicht umgehen; ist ein Test rot, erst beheben.
 
 `publish.sh` committet nur `extension/manifest.json`, `updates.json` und ggf.

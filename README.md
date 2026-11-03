@@ -186,7 +186,9 @@ Changes take effect right away unless noted.
 - **Spaces bar**: the current space now shows a filled icon on a slightly stronger tile with a soft shadow, instead of the chevron
 - **Updates install on the next start**, with a red dot on the Settings tile and an "Install Now" button if you don't want to wait
 - **Event window**: buttons at the bottom, Event | Task switch at the top, dates in your system's format
-- **Fixes**: icons of other add-ons in the message header are visible again; accounts can be reordered by dragging in the folder list; "Find Events" opens the event list again; the window stays maximized on Windows; the sender name no longer appears twice; attachment and star icons sit next to the subject; less empty space above the header in conversations; groups with one mail show it again in "Grouped by Sort"; the sidebar no longer folds away on its own right after you show it (Windows); in a very narrow window the Today pane makes room instead of buttons overlapping; the Today title is visible on Windows and Linux; "On My Mac" hides while empty
+- **Sidebar and spaces bar stay where you put them**: they no longer fold away on their own, the buttons always open and close them
+- **Tasks**: "Today" shows a small calendar page instead of a number that looked like a count; the right-click menu on task cards no longer lists entries twice; the check circle in the table is no longer cut off
+- **Fixes**: icons of other add-ons in the message header are visible again; accounts can be reordered by dragging in the folder list; "Find Events" opens the event list again; the window stays maximized on Windows; the sender name no longer appears twice; attachment and star icons sit next to the subject; less empty space above the header in conversations; groups with one mail show it again in "Grouped by Sort"; no line under the calendar toolbar anymore; the sidebar can be dragged wide again on smaller screens; the Today title is visible on Windows and Linux; "On My Mac" hides while empty
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

@@ -138,6 +138,7 @@ if [[ -f "$HOME/.config/halo-spaces/atn.env" && -z "$SKIP_ATN" ]]; then
   python3 store/atn_upload.py "$VERSION" || ATN_RC=$?
   if [[ $ATN_RC -eq 0 ]]; then
     STATUS+=("Store (addons.thunderbird.net): hochgeladen")
+    STATUS+=("VON HAND: im Developer Hub https://addons.thunderbird.net/en-US/developers/addon/halo-spaces/versions/$VERSION Hinweise (store/reviewer-notes.md) einfügen und dist/halo-spaces-$VERSION-source.zip hochladen – die Schnittstelle nimmt beides nicht an")
   elif [[ $ATN_RC -eq 3 ]]; then
     # erste Prüfung auf ATN läuft noch – bewusst nichts nachgeschoben
     STATUS+=("Store (addons.thunderbird.net): zurückgehalten, erste Version wartet noch auf Freigabe")

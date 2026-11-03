@@ -27,6 +27,11 @@ package when `~/.config/halo-spaces/atn.env` exists (see `atn_upload.py`).
 While the first version still awaits review on ATN (add-on not yet public), the
 upload is held back so the reviewer does not get a moving target; `ATN_FORCE=1`
 uploads anyway. Once the add-on is approved, every release is uploaded again.
+The upload API takes only the package: notes to the reviewer and source code
+can only be added in the Developer Hub. After each upload `atn_upload.py` creates
+`dist/halo-spaces-<version>-source.zip` and prints the link to the version's page;
+the `publish.sh` report lists this as a manual step. Paste `reviewer-notes.md`
+there and upload the zip.
 
 Notes from the first submission (2026-10-17):
 - ATN stores no 4-byte characters: emoji in description or captions make saving fail silently.

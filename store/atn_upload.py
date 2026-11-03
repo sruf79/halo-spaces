@@ -13,6 +13,10 @@ Solange halo.spaces auf ATN noch nicht freigegeben ist (erste Version wartet auf
 die Prüfung), lädt das Skript nichts hoch und endet mit Exitcode 3 – ATN_FORCE=1
 lädt trotzdem hoch.
 
+Hinweise für den Prüfer und Quellcode nimmt die Schnittstelle nicht an. Nach dem
+Upload legt das Skript dist/halo-spaces-<version>-source.zip an und nennt den
+Link, unter dem beides von Hand eingetragen wird.
+
 Die allererste Einreichung (mit Beschreibung und Screenshots) läuft über das
 Formular im Developer Hub; danach reicht dieses Skript für jede neue Version.
 """
@@ -27,11 +31,14 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import subprocess
 import uuid
 
 API = "https://addons.thunderbird.net/api/v4"
 ADDON_ID = "mail-cards@sebastian.local"
 ENV = os.path.expanduser("~/.config/halo-spaces/atn.env")
+# leitet auf die Bearbeitungsseite der Version weiter (devhub.versions, version_bounce)
+EDIT_URL = "https://addons.thunderbird.net/en-US/developers/addon/halo-spaces/versions/{version}"
 HELD = 3  # Exitcode: Upload bewusst zurückgehalten (erste Prüfung läuft noch)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Python von python.org bringt ohne „Install Certificates“ keine Zertifikate mit –
@@ -118,9 +125,34 @@ def upload(version):
         if res.get("processed"):
             if res.get("valid"):
                 print("Angenommen – die Version wartet jetzt auf die Prüfung durch ATN.")
+                manual_steps(version)
                 return
             sys.exit("Von der automatischen Prüfung abgelehnt:\n" + json.dumps(res.get("validation_results"), indent=1)[:4000])
     sys.exit("ATN hat das Paket noch nicht fertig geprüft – Status später im Developer Hub ansehen.")
+
+
+def source_zip(version):
+    """Quellcode-Archiv für die Prüfer (theme.css und vendor/pst sind erzeugt)."""
+    out = os.path.join(ROOT, "dist", f"halo-spaces-{version}-source.zip")
+    try:
+        subprocess.run(["git", "-C", ROOT, "archive", "--format=zip", "-o", out, "HEAD"],
+                       check=True, capture_output=True)
+        return out
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"WARNUNG: Quellcode-Archiv nicht erstellt: {e}")
+        return None
+
+
+def manual_steps(version):
+    """Die Upload-Schnittstelle von ATN nimmt nur das Paket an – Hinweise für den
+    Prüfer und Quellcode gehen nur über das Formular im Developer Hub (geprüft im
+    Quellcode von thunderbird/addons-server: signing/views.py liest nur „upload“)."""
+    src = source_zip(version)
+    print("VON HAND im Developer Hub nachtragen (sonst prüft ATN ohne Hinweise und Quellcode):")
+    print(f"  {EDIT_URL.format(version=version)}")
+    print(f"  - „Notes for Reviewers“: Inhalt von store/reviewer-notes.md einfügen")
+    if src:
+        print(f"  - „Source code“: {os.path.relpath(src, ROOT)} hochladen")
 
 
 if __name__ == "__main__":

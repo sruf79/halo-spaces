@@ -6,7 +6,7 @@ At a glance:
 - Network: only through one function, fetchWithTimeout (details under "Network access"). Nothing is sent without a user action except sender logos (can be turned off) and the opt-in weather.
 - Everything is removed again on disable/uninstall (restorers in implementation.js, onShutdown); changed prefs get their previous values back.
 - No code is minified, obfuscated or loaded remotely. No eval/new Function, no innerHTML (the one built-in SVG icon is parsed with DOMParser).
-- Source code: the only generated file is extension/theme.css (build steps at the end).
+- Source code: the only generated file of our own is extension/theme.css (build steps at the end). One third-party library is bundled: extension/vendor/pst/pst-extractor.js (section 7).
 
 
 1. Network access
@@ -42,6 +42,9 @@ All requests go through fetchWithTimeout: an nsIHttpChannel with LOAD_ANONYMOUS 
 - Undo Send (pref undoSend, default 10 s, 0 = off): the add-on listens for the cancelable "compose-send-message" event of the compose window, prevents it, hides the compose window (nsIBaseWindow.visibility) and calls Thunderbird's own CompleteGenericSendMessage() after the delay; "Undo Send" shows the window again. Pending messages are sent before Thunderbird quits ("quit-application-requested").
 - Send Later: the message is saved as a draft with the header X-Halo-Send-At ("x-halo-send-at" is appended to mailnews.customDBHeaders so it is indexed); every 30 s due drafts are moved to the Outbox (nsIMsgCopyService) and SendUnsentMessages() is called.
 - Remind Me: moves the selected messages to a "Remind Me" folder of the same account and back (nsIMsgCopyService) at the chosen time; the list is kept in extensions.mailcards.reminders. Follow Up only reads the local message databases of Inbox and Sent folders.
+- Archive Account Locally (folder pane context menu of an account, not for News/RSS/Local Folders): after a confirmation (Services.prompt.asyncConfirmEx) it copies all folders of that account with their subfolders to Local Folders/<account> (Archive) via MailServices.copy.copyMessages (copy, never move; in parts of 100 messages). Trash, Junk, Drafts, Outbox, Templates and virtual folders are left out. IMAP folders are updated first (updateFolder, waits for "FolderLoaded", at most 60 s). A second run skips folders that already hold as many messages. The same menu item stops a running copy. Nothing on the server is changed or deleted.
+- Folder pane context menu: "Mark as Read by Date…" and "Run Spam Controls" call Thunderbird's own cmd_markReadByDate and cmd_runJunkControls (they were only in the menu bar).
+- Open Outlook Data File (PST) (File menu, next to Import): the user picks a .pst file with nsIFilePicker; the add-on reads it with the bundled pst-extractor library (section 7) and shows its folders with message counts in an alert. The file is only read (nsIFileInputStream + nsISeekableStream, in pieces, never loaded completely), nothing is written or imported yet.
 - Compose window: a toolbarbutton "Aa" toggles the format toolbar (extensions.mailcards.composeFormatBar). An nsIMsgComposeStateListener (plus a short poll) rewrites the inline-forward header in the editor once: the "-------- Forwarded Message --------" line becomes "Begin forwarded message:", the From row moves first and the date is shown in local time; bodyModified is reset so nothing asks to save. Attachment icons use moz-icon size 32 instead of 16.
 
 
@@ -57,6 +60,7 @@ All requests go through fetchWithTimeout: an nsIHttpChannel with LOAD_ANONYMOUS 
 - Contact photos from the macOS Contacts app (macOS only, off by default; the user turns it on, then macOS asks once for access): runs /usr/bin/osascript with a JXA script that reads only contact thumbnails, email addresses and names via the Contacts framework and writes them to <profile>/mail-cards-photos/ (index.json + image files); the temporary script file is deleted afterwards. Turning it off stops all reading. Photos stay local and are only shown as avatars.
 - Fifth space (extensions.mailcards.fifthSpace = chat | addon | web | none, default chat): "none" hides the Chat button; "addon" opens the space of another installed add-on (only spaces registered through the spaces API by a different extension, isExtensionSpace) via gSpacesToolbar.openSpace on the Chat button, its own button is hidden; "web" see section 1. Values are validated in setSetting (only these choices, only http/https addresses).
 - Sidebars and Today pane: one pointerdown handler on the splitters (pointer capture on the window root) resizes, hides and re-shows the panes; Thunderbird's own splitter handling is skipped for that drag. A sidebar dragged narrower than 120 px is hidden with the add-on's own class, the previous width is restored. The Today pane splitter only hides the pane (calendar_toggle_todaypane_command). A 5 px grip element at the window edge shows hidden panes again.
+- Narrow windows: when the window gets too narrow (also when toolbar buttons would have to give way), the sidebar of the current space, then the spaces toolbar and the Today pane are collapsed with the add-on's own class and come back when the window is widened again; panes the user hid or showed themselves are left as they are. Which panes were collapsed automatically is kept in extensions.mailcards.autoCollapsed; the Today pane's collapsedinmodes attribute is persisted with Services.xulStore.persist, as Thunderbird does itself.
 
 
 5. Windows, dialogs, settings
@@ -72,12 +76,20 @@ All requests go through fetchWithTimeout: an nsIHttpChannel with LOAD_ANONYMOUS 
 - Once on first start (marked by a pref, never repeated, existing customisations are kept): the mail toolbar is set to a compact layout with icon-only buttons and the other spaces get toolbar defaults – only where the toolbar is still at Thunderbird's default; card view rows set to 2 (mail.threadpane.cardsview.rowcount); global search indexing and list view for results turned on (mailnews.database.global.indexer.enabled, gloda.show_as_list_by_default).
 - The old pref extensions.mailcards.quickReply (removed feature) is cleared at start.
 - Error log: <profile>/mail-cards-debug.log (local only, max 200 KB); detailed entries only with extensions.mailcards.debug = true.
+- The pref extensions.mailcards.monthScroll (removed feature) is no longer used.
 - All other settings are prefs under extensions.mailcards.*.
+
+
+7. Bundled third-party code
+
+extension/vendor/pst/pst-extractor.js is the npm package pst-extractor 1.12.0 (MIT) with its dependencies long 5.3.2 (Apache-2.0), iconv-lite 0.7.3 (MIT), uuid-parse 1.1.0 (MIT) and browser replacements for Node.js modules (buffer 6.0.3, pako 2.1.0, string_decoder 1.3.0, all MIT/Zlib), bundled unchanged and not minified with esbuild 0.25.10 into one IIFE (global HaloPST). Origin and versions: extension/vendor/pst/SOURCE.md; licenses: extension/vendor/pst/LICENSES.txt. It is loaded only when the user opens a PST file (Services.scriptloader.loadSubScript into its own scope). It has no file or network access of its own: Node's fs is replaced by three functions (openSync/readSync/closeSync) that the add-on provides (PstFs in implementation.js), zlib by pako (inflate only).
+
+To rebuild the bundle (needs Node.js; exact versions are pinned): tools/pst-bundle/build.sh in the source archive; the small shim files it uses are in tools/pst-bundle/.
 
 
 Build instructions (source code upload)
 
-1. Requirements: macOS or Linux with zsh, python3 (3.9+) and zip – no other tools, no npm.
+1. Requirements: macOS or Linux with zsh, python3 (3.9+) and zip – no other tools, no npm (only the optional rebuild of the bundled library in section 7 needs Node.js).
 2. Unpack the source archive and run:  ./build.sh
 3. Result: dist/halo-spaces-<version>-atn.xpi is the submitted package (dist/halo-spaces-<version>.xpi is the self-hosted GitHub variant).
 

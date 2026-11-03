@@ -174,7 +174,8 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
   sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
   `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Er lässt aus,
-  wenn schon etwas läuft. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  wenn schon etwas läuft oder eine andere Claude-Sitzung in der letzten Stunde
+  am Repo gearbeitet hat. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen

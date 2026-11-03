@@ -479,7 +479,12 @@ die CI-Läufe mit ID, Ergebnis und Dauer je Job.
   es bis 90 Minuten), `halo_test.py` und Verwandte, Thunderbird mit
   Marionette, belegte Ports 2839/2845/2850–2869, VM-Lauf, `release.sh`/
   `publish.sh`, ungespeicherte Änderungen im Checkout, eigener Lauf
-  (`~/halo-nacht/lauf.lock`). Dann wird ausgelassen – mit Bericht.
+  (`~/halo-nacht/lauf.lock`) und jede andere Claude-Sitzung, die in der
+  letzten Stunde am Repo gearbeitet hat – erkennbar daran, dass sich ihr
+  Gespräch unter `~/.claude/projects/-Users-<name>-halo*/` geändert hat, auch
+  wenn sie gerade nur nachdenkt oder auf eine Antwort wartet (ausgenommen die
+  Sitzungen der eigenen Läufe und der Push-Zustellung). Dann wird
+  ausgelassen – mit Bericht.
 - `claude -p` im Rechte-Modus `auto`; bei Limit nach 30 Minuten mit
   derselben Sitzung fortgesetzt, nach 08:00 nicht mehr, um 09:00 beendet.
   Protokoll und Ausgaben je Runde in `~/halo-nacht/`.

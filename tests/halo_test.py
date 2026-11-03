@@ -5417,6 +5417,46 @@ def calendar_checks(m, results):
 
     check("Fenster: bei Platzmangel klappt erst die Ordnerliste, dann die Spaces-Leiste, im sehr schmalen Fenster die Today-Pane ein und kommt beim Verbreitern zurück; selbst Ausgeblendetes bleibt aus", auto_collapse, results)
 
+    def classic_drag():
+        # klassisches Layout (Liste über der Mail): Ziehen der Trennlinie weit über beide Grenzen – die Höhe der
+        # Leseansicht folgt der Maus bis zum Anschlag bzw. Zuklappen und ändert sich danach ohne Bewegung nicht mehr
+        res = m.js(r"""
+          const a3 = tm.currentTabInfo.chromeBrowser.contentWindow;
+          const before = Services.prefs.getIntPref("mail.pane_config.dynamic", 0);
+          Services.prefs.setIntPref("mail.pane_config.dynamic", 0); await wait(1500);
+          const sp = a3.document.getElementById("messagePaneSplitter"), mp = a3.document.getElementById("messagePane");
+          const H = () => Math.round(mp.getBoundingClientRect().height);
+          const frames = async n => { const s = []; for (let i = 0; i < n; i++) { await new Promise(r => a3.requestAnimationFrame(r)); s.push(H()); } return s; };
+          const out = {};
+          try {
+            for (const [name, dir] of [["up", -1], ["down", 1]]) {
+              const r = sp.getBoundingClientRect(), x = r.left + r.width / 2, y0 = r.top + r.height / 2, h0 = H();
+              sp.dispatchEvent(new a3.MouseEvent("mousedown", { bubbles: true, cancelable: true, view: a3, clientX: x, clientY: y0, button: 0, buttons: 1 }));
+              const steps = [];
+              for (const d of [50, 150, 300, 600, 900]) {
+                a3.dispatchEvent(new a3.MouseEvent("mousemove", { bubbles: true, cancelable: true, view: a3, clientX: x, clientY: y0 + dir * d, buttons: 1 }));
+                const f = await frames(3); steps.push([d, h0 - dir * d, f[0], f.at(-1)]);
+              }
+              const hold = await frames(15);
+              a3.dispatchEvent(new a3.MouseEvent("mouseup", { bubbles: true, view: a3, clientX: x, clientY: y0 + dir * 900, button: 0, buttons: 0 }));
+              const rel = await frames(15);
+              out[name] = { h0, steps, hold: [Math.min(...hold), Math.max(...hold)], rel: [Math.min(...rel), Math.max(...rel)], coll: sp.isCollapsed };
+              if (sp.isCollapsed) { sp.expand(); await wait(400); }
+              await wait(300);
+            }
+          } finally { Services.prefs.setIntPref("mail.pane_config.dynamic", before); await wait(1200); }
+          return out;""")
+        ok = True
+        for name in ("up", "down"):
+            r = res.get(name) or {}
+            steps = r.get("steps") or []
+            # erster Schritt (50 px) folgt der Maus genau; danach nie Bewegung ohne Maus
+            ok = ok and bool(steps) and abs(steps[0][2] - steps[0][1]) <= 2 and all(s[2] == s[3] for s in steps)
+            ok = ok and r.get("hold", [0, 1])[0] == r["hold"][1] == r.get("rel", [0, 1])[0] == r["rel"][1]
+        ok = ok and (res.get("down") or {}).get("coll") is True
+        return ok, f"{res}"
+    check("Leseansicht klassisch: Höhe folgt beim Ziehen über die Grenzen der Maus und bleibt danach stehen", classic_drag, results)
+
 def rgba_alpha(c):
     """Deckkraft aus rgb()/rgba()/color(srgb …) – 1, wenn keine angegeben ist."""
     import re

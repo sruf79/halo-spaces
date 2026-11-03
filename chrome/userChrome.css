@@ -11865,12 +11865,22 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   display: none !important;
 }
 
+/* wie Apple Kalender: jede Zeile gleich hoch (Kästchen-, Datums- und
+   Auswahlzeilen waren 22 bis 32 px hoch – die Abstände wirkten ungleich) */
 #mcQuickPanel .mc-qc-row {
   display: grid !important;
   grid-column: 1 / -1 !important;
   grid-template-columns: subgrid !important;
   align-items: center !important;
   column-gap: 12px !important;
+  height: 26px !important;
+  min-height: 0 !important;
+}
+
+/* Kästchen über dem Anfang des Datums: die Felder haben 6 px Innenabstand
+   (Fläche beim Überfahren), der Text beginnt erst dort */
+#mcQuickPanel .mc-qc-ctrl > input[type="checkbox"] {
+  margin: 0 0 0 6px !important;
 }
 
 #mcQuickPanel .mc-qc-row > label {
@@ -11891,6 +11901,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   min-width: 0 !important;
   flex: 0 1 auto !important;
   height: 26px !important;
+  margin: 0 !important;
   padding: 0 6px !important;
   border: none !important;
   border-radius: 6px !important;

@@ -4914,6 +4914,39 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Schnellfenster: „Ganztägig“ als macOS-Kästchen, Kalendername dicht am Farbpunkt", quick_allday_calrow, results)
 
+    def quick_rows_even():
+        # Schnellfenster wie der Dialog „Neues Ereignis“ von Apple Kalender: alle Zeilen (All Day, Starts, Ends, Repeat,
+        # Alert, Show As) im gleichen Abstand; Kästchen, Datum und übrige Werte an derselben linken Kante
+        res = m.js(CAL_CHECK_JS + r"""
+          await toWeek();
+          const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(vis);
+          li.querySelector("button").click();
+          const qp = await till(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, 4000);
+          if (!qp) return { open: false, visibility: d.visibilityState };
+          await pause(300);
+          try {
+            const f = qp.__mc; if (!vis(f.allDay)) { f.summary.click(); await pause(600); }
+            const rows = [...f.details.querySelectorAll(".mc-qc-row")].filter(vis);
+            const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+            const centers = rows.map(r => Math.round(mid(r.querySelector("label")) * 10) / 10);
+            const gaps = centers.slice(1).map((c, i) => Math.round((c - centers[i]) * 10) / 10);
+            // linke Kante des Werts: Kästchen selbst, bei Feldern und Auswahl der Textanfang (nach dem Innenabstand)
+            const firstVal = r => { const c = r.querySelector(".mc-qc-ctrl"); const k = [...c.children].find(vis); if (!k) return null;
+              const pad = k.type == "checkbox" ? 0 : parseFloat(csOf(k).paddingInlineStart) + parseFloat(csOf(k).borderInlineStartWidth);
+              return Math.round((k.getBoundingClientRect().left + pad) * 10) / 10; };
+            const lefts = rows.map(firstVal);
+            // sichtbare Kante des Datums = Text des Feldes (ohne Innenabstand)
+            const sd = f.startDate, textLeft = Math.round((sd.getBoundingClientRect().left + parseFloat(csOf(sd).paddingInlineStart) + parseFloat(csOf(sd).borderInlineStartWidth)) * 10) / 10;
+            return { open: true, labels: rows.map(r => r.querySelector("label").textContent), gaps, lefts, box: Math.round(f.allDay.getBoundingClientRect().left * 10) / 10, dateText: textLeft };
+          } finally { await shutPop(qp); }""")
+        if not res.get("open"):
+            return res.get("visibility") == "hidden", f"Schnellfenster nicht offen {res}"
+        g = res.get("gaps") or []
+        ok = len(g) >= 5 and max(g) - min(g) <= 1 and abs(res["box"] - res["dateText"]) <= 0.5 \
+            and all(v is not None and abs(v - res["dateText"]) <= 0.5 for v in res["lefts"])
+        return ok, f"{res}"
+    check("Schnellfenster: Zeilen gleich weit auseinander, Kästchen und alle Werte an einer Kante (wie Apple Kalender)", quick_rows_even, results)
+
     def quick_no_jump():
         # Schnellfenster neben dem angeklickten Tag (Monat): erscheint gleich an seiner Stelle, springt nicht nachträglich
         # nach oben (früher mit geschätzter Höhe geöffnet und dann nachgerückt) – zweimal, auch beim ersten Öffnen

@@ -6711,8 +6711,8 @@ def run_checks(m, version, profile, results):
     check("Mailansicht: Trennlinie lässt sich nicht so weit ziehen, dass die Mail wegklappt (mindestens 300 px, Knöpfe bleiben in der Zeile)", message_min_width, results)
 
     def toolbar_wider_list():
-        # Mailliste breiter ziehen (Today-Pane offen): weichen Knöpfe, dann nur so viele, wie nötig – ein ausgeblendeter Knopf
-        # hätte neben der Suche keinen Platz mehr (vorher gingen „Spam“ und „Markieren“, die Suche blieb ~100 px breit)
+        # Mailliste breiter ziehen (Today-Pane offen): weichen Knöpfe, dann nur so viele, wie nötig – der zuletzt ausgeblendete
+        # Knopf hätte neben der Suche keinen Platz mehr (sie weichen streng der Reihe nach, siehe SQUEEZE)
         res = m.js(r"""
           const a3 = await toMail();
           const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
@@ -6733,7 +6733,11 @@ def run_checks(m, version, profile, results):
               await ruhig(900);
               const hidden = tbItems().filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
               const ph = d.querySelector("global-search-bar")?.querySelector('[slot="placeholder"]');
-              out.steps.push({ add, search: search(), hidden, minHidden: hidden.length ? Math.round(Math.min(...hidden.map(h => widths[h] || 999))) : null,
+              // Knöpfe weichen streng der Reihe nach und kommen umgekehrt zurück: zurückkommen könnte nur der zuletzt
+              // ausgeblendete (letzter in der Reihenfolge), nicht ein schmalerer, der früher wich
+              const ORDER = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
+              const lastHidden = [...hidden].sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y)).pop();
+              out.steps.push({ add, search: search(), hidden, minHidden: lastHidden ? Math.round(widths[lastHidden] || 999) : null,
                 ph: ph ? [w.getComputedStyle(ph).visibility != "hidden", ph.scrollWidth <= ph.clientWidth + 1] : null });
             }
           } finally {
@@ -6744,7 +6748,7 @@ def run_checks(m, version, profile, results):
             w.resizeTo(1500, 900); await wait(800);
           }
           return out;""")
-        # hätte ein ausgeblendeter Knopf (plus Abstand) noch neben die Suche gepasst, ist zu viel ausgeblendet
+        # hätte der zuletzt ausgeblendete Knopf (plus Abstand) noch neben die Suche gepasst, ist zu viel ausgeblendet
         bad = [st for st in res.get("steps", []) if st["hidden"] and st["minHidden"] and st["search"] - 40 >= st["minHidden"] + 8]
         # Platzhalter „Search“ nur, wenn er ganz hineinpasst, sonst nur die Lupe
         ph_bad = [st for st in res.get("steps", []) if st.get("ph") and st["ph"][0] and not st["ph"][1]]

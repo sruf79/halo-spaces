@@ -9925,7 +9925,14 @@ class CardEnhancer {
       }
     };
     twoRows();
-    const rowsObs = { observe: () => twoRows() };
+    // gegen eine Wahl in Thunderbirds Einstellungen – nicht beim Deinstallieren:
+    // dort räumt halo.spaces den Wert selbst weg und gleich danach seine eigenen
+    // Einstellungen (dann fehlt rowcountApplied, es bleibt beim Standard)
+    const rowsObs = { observe: () => setTimeout(() => {
+      if (Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
+        twoRows();
+      }
+    }, 0) };
     Services.prefs.addObserver(ROWS_PREF, rowsObs);
     this.restorers.push(() => Services.prefs.removeObserver(ROWS_PREF, rowsObs));
     this.applyToolbarOnce();

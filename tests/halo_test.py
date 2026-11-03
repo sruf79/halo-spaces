@@ -11490,6 +11490,7 @@ Neu
               getTranslations: () => win.Promise.resolve(Cu.cloneInto({ lang: "en", table: {} }, win)),
               setSetting: (k, v) => { saved.push([k, v]); settings[k] = v; return win.Promise.resolve(v); },
               searchPlaces: () => win.Promise.resolve(Cu.cloneInto([], win)),
+              getPendingUpdate: () => win.Promise.resolve(null), installUpdateNow: () => win.Promise.resolve(),
               choosePlace: () => win.Promise.resolve() } }, win, { cloneFunctions: true });
           } };
           Services.obs.addObserver(obs, "document-element-inserted");

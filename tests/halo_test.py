@@ -265,6 +265,10 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             # automatisches Einklappen bei Platzmangel aus – die übrigen Prüfungen erwarten die Ordnerliste;
             # die Prüfung dafür schaltet es selbst ein
             "extensions.mailcards.autoCollapse": False,
+            # Marionette schaltet Add-on-Updates beim Start ab, sofern hier nichts steht; die Vorbereitung
+            # schaltet sie erst danach wieder ein – unter Last (ESR in der CI) zu spät für die Prüfung
+            # beim Start nach 20 s. Die Abfrage der updates.json blockt die Vorbereitung weiterhin.
+            "extensions.update.enabled": True,
             **({"ui.systemUsesDarkTheme": 1} if dark else {}),
         }.items():
             f.write(f"user_pref({json.dumps(pref)}, {json.dumps(value)});\n")
@@ -12263,7 +12267,16 @@ Neu
           const last = await until(() => Services.prefs.getIntPref("extensions.mailcards.autoUpdateLast", 0), 25000);
           // seit dem Start dieses Thunderbird-Prozesses (statt fester 10 Minuten: unter Last dauert der Lauf länger)
           const start = Math.floor(Services.startup.getStartupInfo().process / 1000);
-          return { last, ageSec: last ? Math.round(Date.now() / 1000 - last) : null, sinceStart: last ? last - start : null };''')
+          const out = { last, ageSec: last ? Math.round(Date.now() / 1000 - last) : null, sinceStart: last ? last - start : null };
+          if (!last) {
+            // Gründe mitgeben, falls die Prüfung beim Start nicht gelaufen ist
+            const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+            const addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+            Object.assign(out, { updateEnabled: AddonManager.updateEnabled, mode: addon?.applyBackgroundUpdates,
+              autoDefault: AddonManager.autoUpdateDefault, own: Services.prefs.getBoolPref("extensions.mailcards.autoUpdate", true),
+              upSec: Math.round(Date.now() / 1000 - start) });
+          }
+          return out;''')
         return bool(res["last"]) and res["sinceStart"] is not None and res["sinceStart"] >= -5, f"Update-Prüfung beim Start gelaufen: {res}"
     check("Updates: Prüfung beim Start", auto_update, results)
 

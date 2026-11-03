@@ -178,13 +178,11 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.14.0
+## What's new in 3.14.1
 
-- **Sidebars make room on their own**: when the window gets too narrow, for example after opening the Today pane on a laptop, the sidebar of the current space slides away first, then the spaces bar, with the same animation as their buttons. Widen the window and they come back. A sidebar you hid yourself stays hidden; if you show it again, the Today pane makes room
-- **Archive an account locally**: right-click an account and choose **Archive Account Locally…** to copy all its folders to Local Folders, for example before a school or work account expires. Trash, Spam and Drafts are left out; running it again only adds what is missing
-- **Outlook data files (PST)**: **File → Open Outlook Data File (PST)…** reads a PST file and shows its folders with the number of messages. Importing the messages follows in a later version
-- **Toolbar**: when a wide button has to make room, a narrower one comes back if it fits, so the search field stays small and more buttons stay visible
-- **Fixes**: clicking the "Today" heading in the Today pane now really jumps to today, and double-clicking it no longer zooms the window; the tooltips of the heading and the weather show up again; after widening the window there is no empty gap next to the message list; the address book list no longer sticks out over its column while it slides in or out
+- **Animations follow every click**: clicking the sidebar, spaces bar or Today button again while it is still sliding now turns it around right where it is, like on a Mac. Before, quick clicks were ignored and the bar could end up in the wrong state
+- **Toolbar when space runs short**: buttons now make room strictly one after another (Junk, Mark, Move, …) instead of swapping back and forth, and the sidebar only slides away for the toolbar once all of them are folded. When the window gets wider again, the sidebar comes back before the buttons
+- **Fixes**: the calendar and tasks sidebar no longer twitches at the start of hiding; switching spaces while the Today pane is closing no longer leaves it open
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

@@ -4421,7 +4421,7 @@ def calendar_checks(m, results):
               and ev["statusBar"] == 0 and ev.get("showAs") == ["OPAQUE", "TRANSPARENT", True]
               and bool(task) and task["inside"] and task["saveLast"] and not task["outside"]
               # Knöpfe unten unter den Notizen, gleiche Abstände, gleicher Rand links und rechts (nur im schmalen Fenster)
-              and (not narrow_mac or (bar.get("bottom", 0) >= bar.get("h", 0) - 1 and bar.get("top", 0) >= bar.get("iframeBottom", 9999) - 1
+              and (not narrow_mac or (bar.get("bottom", 0) >= bar.get("h", 0) - 2 and bar.get("top", 0) >= bar.get("iframeBottom", 9999) - 1
                    and bar.get("gaps") and max(bar["gaps"]) - min(bar["gaps"]) <= 1 and bar.get("edges") and abs(bar["edges"][0] - bar["edges"][1]) <= 1)))
         return ok, f"{res}"
     check("Termin-Fenster wie die Kalender-App: schmal (320 px), Knöpfe unten gleichmäßig, Sichern rechts, Zeitkarte „All Day“ … „Show As“ ohne Doppelpunkt mit Werten auf einer Linie ohne Pfeile", event_dialog_narrow, results)

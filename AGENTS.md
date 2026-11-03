@@ -191,8 +191,8 @@ oder aus Cloud-Sessions (dort neon beauftragen).
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests), wenn
 hell und dunkel grün waren – oder die CI denselben Stand vollständig
 grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
-übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh` oder
-`store/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
+übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh`,
+`store/` oder `.github/workflows/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
 Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
 ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
 ist nur zum Ausprobieren – ohne Marke kein Release.

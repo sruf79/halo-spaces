@@ -33,14 +33,15 @@ fehlschlag() {
 
 # Tests überspringen, wenn die CI (Linux, Mac, Windows) denselben Stand schon
 # vollständig grün getestet hat: Seitdem darf sich nichts geändert haben, was ins
-# Paket oder in die Tests eingeht (erlaubt: *.md, release.sh, publish.sh, store/),
+# Paket oder in die Tests eingeht (erlaubt: *.md, release.sh, publish.sh, store/,
+# .github/workflows/),
 # und es darf nichts Ungespeichertes herumliegen
 if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" ]] && command -v gh >/dev/null; then
   if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then
     for SHA in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -s success -L 20 \
                    --json headSha --jq '.[].headSha' 2>/dev/null); do
       git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null || continue
-      if git diff --name-only "$SHA" HEAD | grep -qvE '\.md$|^(release|publish)\.sh$|^store/'; then
+      if git diff --name-only "$SHA" HEAD | grep -qvE '\.md$|^(release|publish)\.sh$|^store/|^\.github/workflows/'; then
         break                              # Code seit dem grünen Lauf geändert
       fi
       RUN=$(gh run list -R "$GITHUB_REPO" -w test.yml -c "$SHA" -s success -L 1 --json databaseId --jq '.[0].databaseId')

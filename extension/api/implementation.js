@@ -19239,6 +19239,10 @@ class CardEnhancer {
             // aber nur, wenn es andere Konten gibt (sonst wäre die Liste leer)
             const others = MailServices.accounts.accounts.some(a => a.incomingServer && a.incomingServer.type != "none");
             setAttr(li, "data-mc-hide", hideLocal && others);
+          } else if (li.getAttribute("draggable") != "true") {
+            // Kontozeilen zum Umsortieren ziehbar (Thunderbird macht nur
+            // Ordnerzeilen ziehbar – mit der Maus begann das Ziehen sonst nie)
+            li.setAttribute("draggable", "true");
           }
           continue;
         }

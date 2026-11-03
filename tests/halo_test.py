@@ -3482,6 +3482,8 @@ def folder_checks(m, results):
               return { started: !start.defaultPrevented, mark };
             };
             out.before = shown();
+            // mit der Maus beginnt das Ziehen nur an ziehbaren Zeilen (Konto ja, „On My Mac“ nein)
+            out.rowDraggable = [sec("Halo Gamma").draggable, sec("LOCAL").draggable];
             out.d1 = await drag(a3, sec("Halo Gamma"), sec("Halo Alpha"), false);
             out.tb1 = names(); out.shown1 = shown(); out.ordered = tree.hasAttribute("mc-accounts-ordered");
             // danach folgt „On My Mac“ der Reihenfolge: Alpha davor

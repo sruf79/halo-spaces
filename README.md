@@ -178,11 +178,15 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.14.1
+## What's new in 3.15.0
 
-- **Animations follow every click**: clicking the sidebar, spaces bar or Today button again while it is still sliding now turns it around right where it is, like on a Mac. Before, quick clicks were ignored and the bar could end up in the wrong state
-- **Toolbar when space runs short**: buttons now make room strictly one after another (Junk, Mark, Move, …) instead of swapping back and forth, and the sidebar only slides away for the toolbar once all of them are folded. When the window gets wider again, the sidebar comes back before the buttons
-- **Fixes**: the calendar and tasks sidebar no longer twitches at the start of hiding; switching spaces while the Today pane is closing no longer leaves it open
+- **Attachments, tidied up**: the list is open right away, a small chevron folds it, and every file has its own download button. A single attachment shows its name and size directly instead of "1 attachment". The line above lines up with the text of the mail
+- **New events right where you click**: double-click a day and a "New Event" appears in it at once, in the calendar's color, with the quick dialog pointing at it. The title updates as you type; Cancel removes it again
+- **Quick event dialog**: all rows (All Day to Show As) evenly spaced, the checkbox lined up with the dates
+- **Spaces bar**: the current space now shows a filled icon on a slightly stronger tile with a soft shadow, instead of the chevron
+- **Updates install on the next start**, with a red dot on the Settings tile and an "Install Now" button if you don't want to wait
+- **Event window**: buttons at the bottom, Event | Task switch at the top, dates in your system's format
+- **Fixes**: icons of other add-ons in the message header are visible again; accounts can be reordered by dragging in the folder list; "Find Events" opens the event list again; the window stays maximized on Windows; the sender name no longer appears twice; attachment and star icons sit next to the subject; less empty space above the header in conversations; groups with one mail show it again in "Grouped by Sort"; the sidebar no longer folds away on its own right after you show it (Windows); in a very narrow window the Today pane makes room instead of buttons overlapping; the Today title is visible on Windows and Linux; "On My Mac" hides while empty
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

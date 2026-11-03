@@ -14,6 +14,8 @@ Reihenfolge:
    nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.
    Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,
    unklarer Wunsch), überspringen und im Bericht nennen.
+   Die Liste nur hier am Anfang lesen, vor Push und Release nicht erneut:
+   Was während des Laufs dazukommt, arbeitet der nächste Nachtlauf ab.
 2. Je Eintrag: Status In Progress (~/halo-aufgaben/status.sh <id> progress),
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
@@ -53,5 +55,6 @@ Grenzen:
 - Arbeitet erkennbar jemand anderes im Repo (fremde ungespeicherte Änderungen,
   ein Testlauf, der nicht von dir ist): aufhören, nichts davon anfassen,
   im Bericht vermerken, Fertig-Datei anlegen.
-- Wird es nach einer Limit-Pause fortgesetzt: Stand mit git log/git status und der
-  Liste prüfen und dort weitermachen.
+- Wird es nach einer Limit-Pause fortgesetzt: Stand mit git log/git status und dem
+  Status der Einträge aus dem Plan dieses Laufs prüfen und dort weitermachen
+  (keine neu dazugekommenen Einträge aufnehmen).

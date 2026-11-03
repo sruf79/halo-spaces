@@ -122,9 +122,12 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
   `mac` hell und dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
-- **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
-  hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,
-  „Wartet auf OK“ bleibt liegen) – erst dann pushen und die CI prüfen.
+- **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
+  machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
+  Push, CI und Release das Board nicht erneut laden: Was während des Laufs
+  dazukommt, arbeitet der nächste Nachtlauf ab; Dringendes nennt der
+  Maintainer der laufenden Sitzung direkt (Entscheidung des Maintainers vom
+  3.11.2026). Status der eigenen Einträge pflegen geht weiter.
 - **Nachtlauf:** jede Nacht 01:30 (ab 4.11.2026) arbeitet `tests/nachtlauf.sh`
   die Aufgabenliste ab und veröffentlicht; Bericht in `~/halo-berichte/`,
   Kurzfassung aufs iPhone. Er lässt aus, wenn schon etwas läuft. Pausieren mit

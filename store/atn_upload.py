@@ -29,6 +29,7 @@ API = "https://addons.thunderbird.net/api/v4"
 ADDON_ID = "mail-cards@sebastian.local"
 ENV = os.path.expanduser("~/.config/halo-spaces/atn.env")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+VERSUCHE, PAUSE = 3, 90  # Hochladen bei Serverfehlern
 # Python von python.org bringt ohne „Install Certificates“ keine Zertifikate mit –
 # dann die von macOS verwenden
 CAFILE = None if os.path.exists(ssl.get_default_verify_paths().openssl_cafile) else "/etc/ssl/cert.pem"
@@ -73,6 +74,9 @@ def call(method, path, data=None, content_type=None):
             return e.code, json.loads(e.read() or b"{}")
         except ValueError:
             return e.code, {}
+    except (urllib.error.URLError, OSError) as e:
+        # keine Antwort (Netz, Zeitüberschreitung): wie ein Serverfehler behandeln
+        return 0, {"fehler": str(e)}
 
 
 def upload(version):
@@ -95,9 +99,21 @@ def upload(version):
         f"--{boundary}--\r\n".encode(),
     ]
     path = f"/addons/{ADDON_ID}/versions/{version}/"
-    status, res = call("PUT", path, b"".join(parts), f"multipart/form-data; boundary={boundary}")
-    if status not in (200, 201, 202):
-        sys.exit(f"Hochladen fehlgeschlagen ({status}): {res}")
+    # ATN antwortet gelegentlich mit 502 o. ä.: bis zu drei Versuche mit Pause
+    for versuch in range(1, VERSUCHE + 1):
+        status, res = call("PUT", path, b"".join(parts), f"multipart/form-data; boundary={boundary}")
+        if status in (200, 201, 202):
+            break
+        if status and status < 500:
+            sys.exit(f"Hochladen fehlgeschlagen ({status}): {res}")
+        # trotz Fehlermeldung angekommen? Dann nicht noch einmal hochladen
+        if call("GET", path)[0] == 200:
+            print(f"Server meldete {status or 'keine Antwort'}, die Version ist aber angekommen.")
+            break
+        if versuch == VERSUCHE:
+            sys.exit(f"Hochladen fehlgeschlagen ({status or 'keine Antwort'}) nach {VERSUCHE} Versuchen: {res}")
+        print(f"Server meldete {status or 'keine Antwort'}, neuer Versuch in {PAUSE} s ({versuch + 1}/{VERSUCHE}) …")
+        time.sleep(PAUSE)
     print("Hochgeladen, ATN prüft das Paket …")
     for _ in range(40):
         time.sleep(15)

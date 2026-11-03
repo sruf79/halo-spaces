@@ -5568,6 +5568,7 @@ def calendar_checks(m, results):
                 out.end = state();
               } finally {
                 Services.prefs.setBoolPref("extensions.mailcards.autoCollapse", false);
+                Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
                 if (w.TodayPane?.isVisible) { cmd.doCommand(); await pause(800); }
                 w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1500);
               }
@@ -8556,6 +8557,9 @@ def run_checks(m, version, profile, results):
           return { hidden: !w.TodayPane?.isVisible, w: Math.round(p.getBoundingClientRect().width), x: Math.round(sp.left + sp.width / 2), y: Math.round(sp.top + 300),
             grip: g.style.display != "none", gx: Math.round(g.getBoundingClientRect().left + 2), right: Math.round(d.getElementById("tabmail-container").getBoundingClientRect().right), anim: !!p.__mcAnimating };"""
         out, bad = {}, []
+        # festes, breites Fenster (frühere Prüfungen hinterlassen teils ein schmales mit Today-Pane – dann fehlt der
+        # Platz und die Seitenleiste hält zu Recht vor der Höchstbreite an)
+        old_size = m.js("const s = w.screen; const o = [w.screenX, w.screenY, w.outerWidth, w.outerHeight]; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1500, 900); await wait(1200); return o;")
         def side(name, state, widen):
             # breiter ziehen, ganz nach rechts (Höchstbreite), nach links (aus), zurück (ein), wieder aus und loslassen,
             # dann an der Greifzone herausziehen
@@ -8667,7 +8671,8 @@ def run_checks(m, version, profile, results):
              {"type": "pause", "duration": 80}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
         m.cmd("WebDriver:ReleaseActions", {})
         time.sleep(1)
-        return not bad, "; ".join(bad) or f"{out}"
+        m.js("w.resizeTo(%d, %d); w.moveTo(%d, %d); await wait(800); return 1;" % (old_size[2], old_size[3], old_size[0], old_size[1]))
+        return not bad, ("; ".join(bad) + f" {out}") if bad else f"{out}"
     check("Trennlinien: Seitenleisten aller Bereiche und Today-Pane bis zur gemeinsamen Höchstbreite ziehbar, im selben Zug wieder ein, ausgeblendet am Rand wieder herausziehbar, ohne Animation", drag_reshow, results)
 
     def sidebar_animation():

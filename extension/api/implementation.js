@@ -17168,7 +17168,7 @@ class CardEnhancer {
       // was die Liste zu breit ist, bekommt die Nachricht dazu (und umgekehrt)
       const msgWant = Math.round(msg.width + span - want);
       if (msgWant > 0 && Math.abs(msgWant - msg.width) >= 1) {
-        msgSplitter.width = Math.max(msgWant, minMessageWidth());
+        msgSplitter.width = Math.max(msgWant, Math.min(300, minMessageWidth()));
       }
     };
     // gezogen: neue Listenbreite merken
@@ -17200,12 +17200,15 @@ class CardEnhancer {
         delete msgSplitter.__mcDragging;
       });
     }
+    // (außerhalb des Ziehens der Mailliste nur Thunderbirds 300 px – mit dem
+    // Platzbedarf der Knöpfe ließ sich sonst auf kleineren Bildschirmen die
+    // Seitenleiste kaum noch verbreitern; die Knöpfe weichen dann wie sonst)
     const enforceMessageWidth = () => {
       if (!msgSplitter || msgSplitter.isCollapsed || win.__mcAnimating || top.__mcSpacesAnimating ||
           msgSplitter.resizeElement?.id != "messagePane") {
         return;
       }
-      const min = minMessageWidth();
+      const min = Math.min(300, minMessageWidth());
       const pane = win.document.getElementById("messagePane");
       if (min && pane.getBoundingClientRect().width < min - 1) {
         msgSplitter.width = Math.ceil(min);

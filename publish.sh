@@ -134,8 +134,13 @@ ERGEBNIS="veröffentlicht"
 
 # zusätzlich auf addons.thunderbird.net, sobald die Schlüssel eingerichtet sind
 if [[ -f "$HOME/.config/halo-spaces/atn.env" && -z "$SKIP_ATN" ]]; then
-  if python3 store/atn_upload.py "$VERSION"; then
+  ATN_RC=0
+  python3 store/atn_upload.py "$VERSION" || ATN_RC=$?
+  if [[ $ATN_RC -eq 0 ]]; then
     STATUS+=("Store (addons.thunderbird.net): hochgeladen")
+  elif [[ $ATN_RC -eq 3 ]]; then
+    # erste Prüfung auf ATN läuft noch – bewusst nichts nachgeschoben
+    STATUS+=("Store (addons.thunderbird.net): zurückgehalten, erste Version wartet noch auf Freigabe")
   else
     echo "WARNUNG: Hochladen auf addons.thunderbird.net fehlgeschlagen (SKIP_ATN=1 überspringt)"
     STATUS+=("WARNUNG: Store-Upload (addons.thunderbird.net) fehlgeschlagen – GitHub-Update ist trotzdem draußen")

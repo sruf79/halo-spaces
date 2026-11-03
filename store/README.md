@@ -24,6 +24,9 @@ ready to paste; the package is `dist/halo-spaces-<version>-atn.xpi`
 
 Later versions: `./publish.sh <version> notes.md` also uploads the store
 package when `~/.config/halo-spaces/atn.env` exists (see `atn_upload.py`).
+While the first version still awaits review on ATN (add-on not yet public), the
+upload is held back so the reviewer does not get a moving target; `ATN_FORCE=1`
+uploads anyway. Once the add-on is approved, every release is uploaded again.
 
 Notes from the first submission (2026-10-17):
 - ATN stores no 4-byte characters: emoji in description or captions make saving fail silently.

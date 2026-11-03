@@ -9,6 +9,10 @@ Die Schlüssel liest das Skript aus ~/.config/halo-spaces/atn.env:
     python3 store/atn_upload.py --check            # nur prüfen, ob die Schlüssel gelten
     python3 store/atn_upload.py 3.0.96             # dist/halo-spaces-3.0.96-atn.xpi hochladen
 
+Solange halo.spaces auf ATN noch nicht freigegeben ist (erste Version wartet auf
+die Prüfung), lädt das Skript nichts hoch und endet mit Exitcode 3 – ATN_FORCE=1
+lädt trotzdem hoch.
+
 Die allererste Einreichung (mit Beschreibung und Screenshots) läuft über das
 Formular im Developer Hub; danach reicht dieses Skript für jede neue Version.
 """
@@ -28,6 +32,7 @@ import uuid
 API = "https://addons.thunderbird.net/api/v4"
 ADDON_ID = "mail-cards@sebastian.local"
 ENV = os.path.expanduser("~/.config/halo-spaces/atn.env")
+HELD = 3  # Exitcode: Upload bewusst zurückgehalten (erste Prüfung läuft noch)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Python von python.org bringt ohne „Install Certificates“ keine Zertifikate mit –
 # dann die von macOS verwenden
@@ -87,6 +92,14 @@ def upload(version):
     status, res = call("GET", f"/addons/addon/{ADDON_ID}/")
     if status != 200 and not (status == 401 and "is_disabled_by_mozilla" in res):
         sys.exit("halo.spaces ist auf ATN noch nicht gelistet – erste Version über den Developer Hub einreichen")
+    # Solange die erste Version noch auf die Prüfung wartet, keine neue nachschieben:
+    # Der Prüfer hätte sonst ständig einen neuen Stand vor sich. Erst nach der
+    # Freigabe (Add-on öffentlich) geht jede Version wieder hoch; ATN_FORCE=1 lädt trotzdem.
+    public = status == 200 and res.get("status") == "public"
+    if not public and not os.environ.get("ATN_FORCE"):
+        print("Zurückgehalten: halo.spaces wartet auf ATN noch auf die erste Freigabe – "
+              "keine neue Version hochgeladen (ATN_FORCE=1 lädt trotzdem hoch).")
+        sys.exit(HELD)
     boundary = uuid.uuid4().hex
     parts = [
         f'--{boundary}\r\nContent-Disposition: form-data; name="channel"\r\n\r\nlisted\r\n'.encode(),

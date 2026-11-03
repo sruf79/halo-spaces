@@ -11933,26 +11933,29 @@ Neu
         return ok, f"{res}"
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
-    def spaces_current_chevron():
-        # aktiver Bereich: Chevron (22 px, Maske) rechts neben der Kachel in der Farbe des Symbols, zwischen Kachel und
-        # Seitenleiste; keine Linie mehr (3.12), Kachel unverändert 48 px breit
+    def spaces_current_fill():
+        # aktiver Bereich: gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron; inaktive Kacheln
+        # 11 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
           const out = {};
+          const pct = c => { const m = /\/ ?([\d.]+)\)$/.exec(c) || /rgba\([^)]*,\s*([\d.]+)\)$/.exec(c); return m ? Math.round(parseFloat(m[1]) * 100) : null; };
           for (const [name, go] of [["mail", toMail], ["calendar", toCalendar]]) {
             await go(); await wait(600);
             const b = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button.current")].find(e => e.getBoundingClientRect().width);
-            const cs = w.getComputedStyle(b, "::after"), r = b.getBoundingClientRect();
-            const bar = d.getElementById("spacesToolbar").getBoundingClientRect();
-            out[name] = { width: cs.width, height: cs.height, mask: cs.maskImage.startsWith("url("), end: cs.insetInlineEnd,
-                          line: cs.backgroundColor, icon: w.getComputedStyle(b).color, tile: Math.round(r.width),
-                          room: Math.round(bar.right - r.right) };
+            const other = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button:not(.current)")].find(e => e.getBoundingClientRect().width);
+            const cs = w.getComputedStyle(b), after = w.getComputedStyle(b, "::after");
+            const ob = w.getComputedStyle(other).backgroundColor;
+            InspectorUtils.addPseudoClassLock(other, ":hover"); const hov = w.getComputedStyle(other).backgroundColor; InspectorUtils.removePseudoClassLock(other, ":hover");
+            out[name] = { bg: pct(cs.backgroundColor), shadow: cs.boxShadow != "none", fill: w.getComputedStyle(b.querySelector("img")).maskImage.includes("-fill.svg"),
+                          chevron: after.content != "none" && after.width != "auto", tile: Math.round(b.getBoundingClientRect().width),
+                          other: { bg: pct(ob), hover: pct(hov), fill: w.getComputedStyle(other.querySelector("img")).maskImage.includes("-fill.svg"), shadow: w.getComputedStyle(other).boxShadow != "none" } };
           }
           await toMail();
           return out;""")
-        ok = all(v["width"] == v["height"] == "22px" and v["mask"] and v["end"] == "-16px" and v["line"] == v["icon"]
-                 and v["tile"] == 48 and v["room"] >= 10 for v in res.values())
+        ok = all(v["bg"] == 16 and v["shadow"] and v["fill"] and not v["chevron"] and v["tile"] == 48
+                 and v["other"]["bg"] == v["other"]["hover"] == 11 and not v["other"]["fill"] and not v["other"]["shadow"] for v in res.values())
         return ok, f"{res}"
-    check("Bereichsleiste: aktiver Bereich mit kräftigerem Chevron in seiner Farbe rechts neben der Kachel", spaces_current_chevron, results)
+    check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol, 16 % Fläche und leisem Schatten statt Chevron; Überfahren ändert nichts", spaces_current_fill, results)
 
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),
@@ -12014,12 +12017,10 @@ Neu
                 out.addon.tab = !!tab; out.addon.url = !!tab?.browser?.currentURI?.spec.endsWith("/page.html"); out.addon.pageTitle = tab?.browser?.contentTitle;
                 out.addon.current = chat.classList.contains("current");
                 out.addon.today = shown(d.getElementById("today-pane-panel"));
-                // Linie neben dem aktiven Ersatz-Bereich: mit Originalsymbol in der Hauptfarbe des Logos (grüner Kreis)
+                // aktiver Ersatz-Bereich mit Originalsymbol: Markierung durch den Schatten
                 Services.prefs.setStringPref("extensions.mailcards.fifthSpaceIcon", "original"); await wait(400);
-                await until(() => chat.style.getPropertyValue("--mc-fifth-line"), 4000);
-                out.addon.line = w.getComputedStyle(chat, "::after").backgroundColor;
+                out.addon.shadow = w.getComputedStyle(chat).boxShadow.includes("3px 8px") || w.getComputedStyle(chat).boxShadow.includes("3px 10px");
                 Services.prefs.clearUserPref("extensions.mailcards.fifthSpaceIcon"); await wait(400);
-                out.addon.lineMask = w.getComputedStyle(chat, "::after").backgroundColor;
                 await toMail(); await wait(300);
                 out.addon.afterMail = { current: chat.classList.contains("current"), today: shown(d.getElementById("today-pane-panel")) };
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
@@ -12063,10 +12064,6 @@ Neu
             m.cmd("WebDriver:SetTimeouts", {"script": 30000})
             web.shutdown()
             web.server_close()
-        def line_green(c):
-            # #2a7 = rgb(34, 170, 119), Kanten der Rundung leicht verwaschen
-            v = [int(x) for x in re.findall(r"\d+", c or "")[:3]]
-            return len(v) == 3 and abs(v[0] - 34) <= 12 and abs(v[1] - 170) <= 12 and abs(v[2] - 119) <= 12
         n, a, wb, bk = res.get("none") or {}, res.get("addon") or {}, res.get("web") or {}, res.get("back") or {}
         before = res.get("before") or []
         ok = (len(before) == 5 and not n.get("chat") and len(n.get("heights", [])) == 4 and max(n["heights"]) - min(n["heights"]) <= 1
@@ -12074,7 +12071,7 @@ Neu
               and a.get("space") and a.get("chat") and a.get("title") == "Halo Testbereich" and not a.get("ownShown") and a.get("mask")
               and a.get("heights") == before and a.get("tab") and a.get("url") and a.get("pageTitle") == "Testbereich"
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
-              and line_green(a.get("line")) and not line_green(a.get("lineMask"))
+              and a.get("shadow")
               and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("tab") and wb.get("group") == "single-site"
               and wb.get("current") and wb.get("reused") == 1
               and wb.get("pinned") == "hidden" and not wb.get("search") and wb.get("toggle", -1) > 0 and abs(wb.get("toggle", 0) - wb.get("mailToggle", 0)) <= 1

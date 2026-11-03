@@ -2359,8 +2359,8 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 }
 
 /* Bereiche in dezenten Farben wie Post-it-Haftmarker: jedes Segment leicht
-   getönt, Symbol in der Bereichsfarbe; der aktuelle Bereich kräftiger und mit
-   einem Chevron rechts daneben */
+   getönt, Symbol in der Bereichsfarbe; der aktuelle Bereich mit gefülltem
+   Symbol, etwas kräftigerer Fläche und leisem Schatten (leicht angehoben) */
 #spacesToolbar .spaces-toolbar-button {
   --c: #8E8E93;
   position: relative !important;
@@ -2493,38 +2493,36 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mt-text) 28%, transparent) !important;
 }
 
-#spacesToolbar .spaces-toolbar-button:hover {
-  background-color: color-mix(in srgb, var(--c) 16%, transparent) !important;
-}
-
 #spacesToolbar .spaces-toolbar-button.current {
-  background-color: color-mix(in srgb, var(--c) 22%, transparent) !important;
-  color: var(--c) !important;
+  background-color: color-mix(in srgb, var(--c) 16%, transparent) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14), 0 3px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* aktiver Bereich: Chevron in seiner Farbe rechts neben der Kachel, etwas
-   größer und kräftiger als bis 3.11 (die Linie aus 3.12 kam nicht an).
-   Gleich nach rechts gezeichnet statt --mi-chevron gedreht: Maske plus
-   Drehung ließ bei Bruchteil-Zoom (Windows 125/150 %) oben einen hellen
-   Strich der gefüllten Fläche durchscheinen */
-#spacesToolbar .spaces-toolbar-button.current::after {
-  content: "" !important;
-  position: absolute !important;
-  inset-inline-end: -16px !important;
-  top: calc(50% - 11px) !important;
-  width: 22px !important;
-  height: 22px !important;
-  background-color: var(--c) !important;
-  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222.6%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m9.5 6.5 5.5 5.5-5.5 5.5%22/%3E%3C/svg%3E") center / contain no-repeat !important;
-  pointer-events: none !important;
+@media (prefers-color-scheme: dark) {
+  #spacesToolbar .spaces-toolbar-button.current {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important;
+  }
 }
 
-/* Ersatz-Bereich mit Originalsymbol auf heller Fläche: Chevron in der
-   Hauptfarbe des Logos (misst die Erweiterung), bei buntem, sehr hellem,
-   dunklem oder grauem Logo in der Textfarbe – nicht Grau (gehört den
-   Einstellungen) und nicht Lila neben einem fremden Logo */
-:root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current::after {
-  background-color: var(--mc-fifth-line, var(--mt-text)) !important;
+/* aktiver Bereich: gefülltes Symbol (Aussparungen echt transparent) */
+:is(#mailButton, #spacesPopupButtonMail).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/envelope-fill.svg") !important; }
+:is(#addressBookButton, #spacesPopupButtonAddressBook).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/addressbook-fill.svg") !important; }
+:is(#calendarButton, #spacesPopupButtonCalendar).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/calendar-fill.svg") !important; }
+:is(#tasksButton, #spacesPopupButtonTasks).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/tasks-fill.svg") !important; }
+:root:not([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/chat-fill.svg") !important; }
+:is(#settingsButton, #spacesPopupButtonSettings).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/settings-fill.svg") !important; }
+
+/* Ersatz-Bereich mit Originalsymbol: hell bleibt die Fläche weiß (Markierung
+   nur durch den Schatten), dunkel das Neutralgrau etwas heller */
+:root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
+  box-shadow: inset 0 0 0 0.5px var(--mt-pane-line), 0 1px 2px rgba(0, 0, 0, 0.14), 0 3px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
+    background-color: color-mix(in srgb, var(--mt-text) 20%, transparent) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important;
+  }
 }
 
 /* „Leiste ausblenden“ sitzt nicht in der Leiste, sondern als eigener Knopf

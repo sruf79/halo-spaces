@@ -134,6 +134,15 @@ ERGEBNIS="veröffentlicht"
 
 # zusätzlich auf addons.thunderbird.net, sobald die Schlüssel eingerichtet sind
 if [[ -f "$HOME/.config/halo-spaces/atn.env" && -z "$SKIP_ATN" ]]; then
+  # Die Prüfer wollen den Quellcode (theme.css wird erzeugt). Die Schnittstelle
+  # von addons.thunderbird.net nimmt nur das Paket an, das Zip wird deshalb im
+  # Developer Hub nachgereicht.
+  SOURCE_ZIP="dist/halo-spaces-$VERSION-source.zip"
+  if git archive --format=zip -o "$SOURCE_ZIP" HEAD; then
+    STATUS+=("Quellcode für den Store: $PWD/$SOURCE_ZIP – im Developer Hub bei Version $VERSION unter „Source code“ hochladen")
+  else
+    STATUS+=("WARNUNG: Quellcode-Zip für den Store nicht erstellt – von Hand: git archive --format=zip -o $SOURCE_ZIP v$VERSION")
+  fi
   if python3 store/atn_upload.py "$VERSION"; then
     STATUS+=("Store (addons.thunderbird.net): hochgeladen")
   else

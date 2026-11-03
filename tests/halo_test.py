@@ -1358,6 +1358,8 @@ READING_JS = r"""
       { id: "halo-kopf-einladung", subject: "Einladung: Halo Workshop", type: `multipart/alternative; boundary="${c}"`,
         body: `--${c}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nErfundene Einladung.\r\n--${c}\r\nContent-Type: text/calendar; charset=UTF-8; method=REQUEST\r\n\r\n${vcal}\r\n--${c}--` },
       { id: "halo-kopf-jetzt", subject: "Halo Jetzt", date: new Date() },
+      { id: "halo-kopf-einanhang", subject: "Halo Ein Anhang", type: `multipart/mixed; boundary="${b}"`,
+        body: `--${b}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nEin Anhang.\r\n${att("Plan.txt")}--${b}--` },
       { id: "halo-kopf-kontakt", from: "Paula Panel <paula@example.invalid>", subject: "Halo Kontakt" },
     ]) lf.addMessage(raw(o));
     await wait(1000);
@@ -1462,6 +1464,62 @@ def reading_checks(m, results):
             return ok, f"Testfenster nicht aktiv (anderes Fenster hat den Fokus) – Fokusfarbe übersprungen {res}"
         return ok and same_color(f["bg"], res["accent"]), f"{res}"
     check("Anhänge: Liste auf der Fläche der Mail, markierte Datei abgerundet ohne Rahmen (unfokussiert grau)", attachments, results)
+
+    def attachments_layout():
+        # Anhänge: Liste von Anfang an offen, Chevron vor der Anzahl klappt zu und auf (Kopfzeile bleibt ruhig),
+        # Chevron, Datei-Symbole und Linie bündig 16 px vom Rand, Schrift 12/13 px, Download-Symbol je Zeile
+        # speichert genau diesen Anhang; ein einzelner Anhang ohne Kopfzeile, Rechtsklick bietet weiter alles
+        res = m.js(READING_JS + r"""
+          const out = {};
+          // (frisch anzeigen: eine vorige Prüfung kann die Liste zugeklappt haben)
+          await showMail("Halo Jetzt");
+          let doc = await showMail("Halo Anhänge"); const mw = doc.defaultView;
+          const view = doc.getElementById("attachmentView"), list = doc.getElementById("attachmentList");
+          const count = doc.getElementById("attachmentCount"), bar = doc.getElementById("attachmentBar");
+          // Chevron vor der Anzahl (::before), Klick auf die Zeile klappt
+          const chev = cs(doc.getElementById("attachmentInfo"), "::before");
+          const toggle = { click: () => bar.click() };
+          await until(() => list.querySelectorAll(".attachmentItem").length == 3, 3000); await wait(300);
+          const vr = view.getBoundingClientRect(), x = el => Math.round((el.getBoundingClientRect().left - vr.left) * 10) / 10;
+          const rows = [...list.querySelectorAll(".attachmentItem")];
+          out.open = !list.collapsed && list.getBoundingClientRect().height > 20;
+          out.chevron = { shown: chev.maskImage.startsWith("url") && chev.width == "12px", x: Math.round((doc.getElementById("attachmentInfo").getBoundingClientRect().left - vr.left) * 10) / 10 };
+          out.icon = x(rows[0].querySelector(".attachmentcell-icon"));
+          out.font = { count: parseFloat(cs(count).fontSize), name: parseFloat(cs(rows[0].querySelector(".attachmentcell-name")).fontSize) };
+          out.line = { border: parseFloat(cs(view).borderTopWidth), image: cs(view).backgroundImage.startsWith("linear-gradient"), pos: cs(view).backgroundPositionX, size: cs(view).backgroundSize };
+          out.saves = rows.map(i => vis(i.querySelector(".mc-att-save")));
+          // Zuklappen per Chevron: Lage der Anzahl Bild für Bild
+          const tops = [], top0 = count.getBoundingClientRect().top;
+          toggle.click();
+          for (let i = 0; i < 12; i++) { await new Promise(r => mw.requestAnimationFrame(r)); tops.push(Math.round((count.getBoundingClientRect().top - top0) * 10) / 10); }
+          await wait(300); out.closed = list.collapsed; out.rot = cs(doc.getElementById("attachmentInfo"), "::before").transform != "none"; out.jump = Math.max(...tops.map(Math.abs));
+          out.afterClose = Math.round((count.getBoundingClientRect().top - top0) * 10) / 10;
+          toggle.click(); await wait(400); out.reopened = !list.collapsed;
+          // Download-Symbol: speichert genau diesen Anhang, ohne zu öffnen
+          const calls = [], second = rows[1], att = second.attachment, origSave = att.save, origOpen = att.open;
+          att.save = async () => { calls.push(["save", att.name]); }; att.open = async () => { calls.push(["open", att.name]); };
+          try { second.querySelector(".mc-att-save").click(); await wait(300); } finally { att.save = origSave; att.open = origOpen; }
+          out.calls = calls;
+          // ein Anhang
+          doc = await showMail("Halo Ein Anhang");
+          const v1 = doc.getElementById("attachmentView"), l1 = doc.getElementById("attachmentList");
+          await until(() => l1.querySelectorAll(".attachmentItem").length == 1, 3000); await wait(300);
+          const it = l1.querySelector(".attachmentItem"), name = it?.querySelector(".attachmentcell-name");
+          const v1r = v1.getBoundingClientRect();
+          out.single = { attr: v1.hasAttribute("mc-single"), bar: vis(doc.getElementById("attachmentBar")), name: vis(name) ? name.textContent : null,
+            save: vis(it?.querySelector(".mc-att-save")), icon: Math.round((it.querySelector(".attachmentcell-icon").getBoundingClientRect().left - v1r.left) * 10) / 10,
+            menu: ["context-openAttachment", "context-saveAttachment", "context-detachAttachment", "context-deleteAttachment"].filter(id => doc.getElementById(id)).length,
+            ctx: it?.getAttribute("context") };
+          return out;""")
+        sg = res.get("single") or {}
+        ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
+              and res["font"] == {"count": 12, "name": 13} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
+              and all(res["saves"]) and res["closed"] is True and res.get("rot") and res["jump"] <= 1 and res["reopened"]
+              and res["calls"] == [["save", "Ausflug-02.txt"]]
+              and sg.get("attr") and not sg.get("bar") and sg.get("name") and sg.get("save") and abs(sg.get("icon", 0) - 16) <= 1.5
+              and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
+        return ok, f"{res}"
+    check("Anhänge: Liste offen, Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter
@@ -1968,7 +2026,7 @@ def reading_checks(m, results):
     check("Mailliste: Sortiermenü mit neun Sortierungen wie Apple Mail, Richtung je Sortierung benannt, Stern zuerst mit Datum als zweiter Sortierung", sort_menu, results)
 
     def attachment_header():
-        # Anhänge: Kopfzeile als leise Überschrift (klein, grau, ohne Pfeil und Büroklammer), „Save All“ als Textknopf in
+        # Anhänge: Kopfzeile als leise Überschrift (12 px, grau, mit Chevron, ohne Büroklammer), „Save All“ als Textknopf in
         # Akzentfarbe mit kleinem ⌄ direkt dahinter; kurze Mail: Liste direkt unter dem Text statt am unteren Rand
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Anhänge");
@@ -1981,7 +2039,7 @@ def reading_checks(m, results):
           const name = doc.querySelector("#attachmentList .attachmentItem .attachmentcell-name, #attachmentList .attachmentItem");
           const mp = g("messagepane"), view = g("attachmentView");
           const body = mp.contentDocument.body;
-          const out = { toggle: vis(g("attachmentToggle")), icon: vis(g("attachmentIcon")),
+          const out = { toggle: vis(g("attachmentToggle")), chevron: cs(g("attachmentInfo"), "::before").width == "12px", icon: vis(g("attachmentIcon")),
             count: { size: cs(g("attachmentCount")).fontSize, color: cs(g("attachmentCount")).color, text: cs(doc.getElementById("messageHeader")).color },
             save: save && { bg: cs(save).backgroundColor, color: text && cs(text).color, accent, size: text && cs(text).fontSize,
                             gap: text && drop && vis(drop) ? Math.round(drop.getBoundingClientRect().left - text.getBoundingClientRect().right) : null,
@@ -1992,8 +2050,8 @@ def reading_checks(m, results):
           if (drop && vis(drop)) { save.open = true; await wait(500); out.menu = save.querySelector("menupopup")?.state; save.querySelector("menupopup")?.hidePopup(); await wait(300); }
           return out;""")
         c, sv = res.get("count") or {}, res.get("save") or {}
-        ok = (res.get("toggle") is False and res.get("icon") is False and c.get("size") == "11px" and not same_color(c.get("color", ""), c.get("text", ""))
-              and sv.get("size") == "11px" and same_color(sv.get("color") or "", sv.get("accent") or "x") and sv.get("bg") in ("rgba(0, 0, 0, 0)", "transparent")
+        ok = (res.get("toggle") is False and res.get("chevron") and res.get("icon") is False and c.get("size") == "12px" and not same_color(c.get("color", ""), c.get("text", ""))
+              and sv.get("size") == "12px" and same_color(sv.get("color") or "", sv.get("accent") or "x") and sv.get("bg") in ("rgba(0, 0, 0, 0)", "transparent")
               and sv.get("gap") is not None and sv["gap"] <= 6 and res.get("menu") in ("open", "showing")
               and res.get("gap", 999) <= 40)
         return ok, f"{res}"

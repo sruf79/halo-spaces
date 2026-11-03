@@ -259,6 +259,7 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "Save Attachment": "Anhang speichern",
   "Actual Size": "Originalgröße",
   "All Headers": "Alle Kopfzeilen",
   "Normal Headers": "Normale Kopfzeilen",
@@ -647,6 +648,7 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "Save Attachment": "Enregistrer la pièce jointe",
   "Actual Size": "Taille réelle",
   "All Headers": "Tous les en-têtes",
   "Normal Headers": "En-têtes normaux",
@@ -1035,6 +1037,7 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "Save Attachment": "Guardar adjunto",
   "Actual Size": "Tamaño real",
   "All Headers": "Todos los encabezados",
   "Normal Headers": "Encabezados normales",
@@ -1423,6 +1426,7 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "Save Attachment": "Salva allegato",
   "Actual Size": "Dimensioni reali",
   "All Headers": "Tutte le intestazioni",
   "Normal Headers": "Intestazioni normali",
@@ -2842,6 +2846,7 @@ class ConversationCards {
       }
     }, true);
     browserEl.addEventListener("MsgLoaded", () => {
+      decorateAttachments(browserEl.contentDocument);
       fit();
       const mp = browserEl.contentDocument?.getElementById("messagepane");
       const iw = mp?.contentWindow;
@@ -4176,6 +4181,71 @@ const FifthSpace = {
 // Lücke am unteren Rand. Lange Mails bleiben wie bisher (Text scrollt, Liste
 // unten). Nicht in den Karten der Konversation (dort hat jede Karte ohnehin
 // Inhaltshöhe)
+// Anhänge unter der Mail (Einzelansicht und Karten der Konversation): je
+// Zeile ein Download-Symbol (speichert genau diesen Anhang mit Dialog); bei
+// einem einzigen Anhang keine Kopfzeile, die Dateizeile steht immer offen
+// (mc-single, Gestaltung in userChrome.css). Die Liste baut Thunderbird erst
+// nach „MsgLoaded“ fertig – daher über einen Beobachter der Liste
+function decorateAttachments(target) {
+  try {
+    const doc = target?.document || target?.contentDocument || target?.ownerDocument || target;
+    const list = doc?.getElementById?.("attachmentList");
+    const view = doc?.getElementById?.("attachmentView");
+    const win = doc?.defaultView;
+    if (!list || !view || !win || list.__mcDecorated) {
+      return;
+    }
+    list.__mcDecorated = true;
+    const update = () => {
+      const items = [...list.querySelectorAll(":scope > .attachmentItem")];
+      for (const item of items) {
+        if (item.querySelector(":scope > .mc-att-save")) {
+          continue;
+        }
+        const btn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button");
+        btn.className = "mc-att-save";
+        btn.type = "button";
+        btn.title = tr("Save Attachment");
+        btn.setAttribute("aria-label", btn.title);
+        btn.tabIndex = -1;
+        // Klick speichert nur, ohne die Zeile zu wählen oder zu öffnen
+        for (const type of ["mousedown", "dblclick"]) {
+          btn.addEventListener(type, event => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+        }
+        btn.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          item.attachment?.save(win.browsingContext).catch(e => log("attachment save error", e));
+        });
+        const after = item.querySelector(":scope > .attach-drop-indicator.after");
+        item.insertBefore(btn, after);
+      }
+      // (Breite der Zeilen neu, mit dem Symbol – sonst fehlte bei einem
+      // Anhang der Dateiname)
+      if (items.length) {
+        try {
+          list.setOptimumWidth?.();
+        } catch {}
+      }
+      const single = items.length == 1;
+      view.toggleAttribute("mc-single", single);
+      // eine Datei: immer offen (die Kopfzeile zum Aufklappen fehlt dann)
+      if (single && list.collapsed) {
+        try {
+          win.toggleAttachmentList?.(true);
+        } catch {}
+      }
+    };
+    new win.MutationObserver(update).observe(list, { childList: true });
+    update();
+  } catch (e) {
+    log("attachments decorate error", e);
+  }
+}
+
 function fitShortMessage(target) {
   try {
     const doc = target?.document || target?.ownerDocument || target;
@@ -10155,6 +10225,12 @@ class CardEnhancer {
     const regionalBefore = defaults.getBoolPref(REGIONAL, false);
     defaults.setBoolPref(REGIONAL, true);
     this.restorers.push(() => defaults.setBoolPref(REGIONAL, regionalBefore));
+    // Anhänge unter der Mail von Anfang an aufgeklappt (wie Apple Mail) – als
+    // Vorgabe, wer Thunderbirds Einstellung selbst geändert hat, behält sie
+    const ATT_EXPANDED = "mailnews.attachments.display.start_expanded";
+    const attExpandedBefore = defaults.getBoolPref(ATT_EXPANDED, false);
+    defaults.setBoolPref(ATT_EXPANDED, true);
+    this.restorers.push(() => defaults.setBoolPref(ATT_EXPANDED, attExpandedBefore));
     // Verfassen-Fenster: Symbolleiste nur mit Symbolen, sobald Beschriftungen
     // gekürzt würden (siehe watchComposeToolbar)
     const composeCleanups = new Set();
@@ -13532,6 +13608,7 @@ class CardEnhancer {
         if (event?.type == "MsgLoaded") {
           fitWideMessage(event.target);
           fitShortMessage(event.target);
+          decorateAttachments(event.target);
         }
       };
       const tabs = w.document.getElementById("tabmail")?.tabContainer;

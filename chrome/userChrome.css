@@ -1207,16 +1207,54 @@ body:has(> #accountCentral),
   color: var(--mt-text) !important;
 }
 
+/* Linie über den Anhängen 16 px vor beiden Rändern (bündig mit Mailtext,
+   Chevron und „Save All“), damit sie wie ein Teil der Mail wirken; die Linie
+   unter dem Mailkopf bleibt durchgehend */
 #attachmentView {
-  border-top: var(--mt-hairline) solid var(--mt-separator) !important;
+  border-top: none !important;
+  background: linear-gradient(var(--mt-separator), var(--mt-separator)) 16px 0 / calc(100% - 32px) var(--mt-hairline) no-repeat,
+              var(--mt-window) !important;
 }
 
 #attachmentList {
   border-top: none !important;
 }
 
+#attachmentList {
+  padding-inline: 8px !important;
+}
+
+/* Datei-Symbol bündig mit Chevron und Mailtext (16 px vom Rand) */
 #attachmentList .attachmentItem {
   border-radius: 6px !important;
+  padding-inline: 6px !important;
+}
+
+#attachmentList .attachmentItem :is(.attachmentcell-name, .attachmentcell-extension, .attachmentcell-size) {
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+/* Download-Symbol rechts neben der Größe: speichert genau diesen Anhang */
+#attachmentList .attachmentItem > .mc-att-save {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  margin: 0 0 0 6px;
+  padding: 0;
+  border: none;
+  background: var(--mt-text-secondary);
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%229%22/%3E%3Cpath d=%22M12 7.5v8.5M8.4 12.6 12 16.2l3.6-3.6%22/%3E%3C/svg%3E") center / 16px 16px no-repeat;
+  cursor: default;
+}
+
+#attachmentList .attachmentItem > .mc-att-save:hover {
+  background: var(--mt-text);
+}
+
+#attachmentList:focus-within .attachmentItem[selected] > .mc-att-save {
+  background: var(--mt-accent-text);
 }
 
 #attachmentList .attachmentItem[selected] {
@@ -1232,10 +1270,11 @@ body:has(> #accountCentral),
 }
 
 /* Kopfzeile der Anhänge als leise Überschrift: „4 attachments 239 KB“ klein
-   und grau, ohne Pfeil und Büroklammer (Einklappen weiter per Klick auf die
-   Zeile), bei einem Anhang ohne doppelten Dateinamen; „Save All“ als
-   Textknopf in Akzentfarbe, das Menü (Öffnen, Abtrennen, Löschen) über ein
-   kleines ⌄ direkt dahinter. Gilt auch in den Karten der Konversation */
+   und grau mit Chevron davor (auf- und zuklappen, Liste ist von Anfang an
+   offen), ohne Büroklammer; „Save All“ als Textknopf in Akzentfarbe, das Menü
+   (Öffnen, Abtrennen, Löschen) über ein kleines ⌄ direkt dahinter. Bei einem
+   einzigen Anhang keine Kopfzeile, nur die Dateizeile (mc-single). Gilt auch
+   in den Karten der Konversation */
 #attachmentToggle,
 #attachmentIcon,
 #attachmentNameSep,
@@ -1244,13 +1283,64 @@ body:has(> #accountCentral),
 }
 
 #attachmentBar {
-  padding: 8px 14px 0 !important;
+  padding: 8px 16px 0 !important;
   min-height: 0 !important;
+}
+
+/* Chevron vor der Anzahl: die ganze Zeile klappt auf und zu (Thunderbirds
+   Zeile ist selbst ein Knopf), offen nach unten, zu nach rechts */
+#attachmentInfo::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-inline-end: 4px;
+  background: var(--mt-text-secondary);
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%222.6%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6 9 6 6 6-6%22/%3E%3C/svg%3E") center / 12px 12px no-repeat;
+  transition: transform 150ms ease;
+}
+
+#attachmentView:not(.list-expanded) #attachmentInfo::before {
+  transform: rotate(-90deg);
+}
+
+#attachmentView:not(.list-expanded) #attachmentInfo:-moz-locale-dir(rtl)::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #attachmentInfo::before {
+    transition: none;
+  }
+}
+
+/* Thunderbirds Griff zum Ziehen der Listenhöhe (nur bei offener Liste) nimmt
+   keinen Platz – sonst rückte die Kopfzeile beim Zuklappen um 5 px */
+#attachment-splitter {
+  position: relative !important;
+  z-index: 1 !important;
+  height: 6px !important;
+  min-height: 0 !important;
+  max-height: 6px !important;
+  margin-block: -6px 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+#attachmentView[mc-single] > #attachmentBar {
+  display: none !important;
+}
+
+/* eine Datei: immer offen, auch wenn Thunderbird sie zugeklappt anlegt */
+#attachmentView[mc-single] > #attachmentList {
+  visibility: visible !important;
+  padding-top: 6px !important;
 }
 
 #attachmentCount,
 #attachmentSize {
-  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-secondary) !important;
 }
@@ -1286,7 +1376,7 @@ body:has(> #accountCentral),
 }
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
-  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   color: AccentColor !important;
   padding: 0 !important;

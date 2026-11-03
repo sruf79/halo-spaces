@@ -10,7 +10,12 @@ Freigabe des Maintainers für diesen Lauf:
 Reihenfolge:
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
    Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
-   Bugs vor Features, kleine vor großen. Von Reihen (n/m) nur den jeweils
+   Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
+   Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
+   hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
+   Dann Bugs vor Features, kleine vor großen – bricht der Lauf ab, ist so
+   wenigstens ein Release mit Korrekturen draußen. Zusammenhänge und
+   Zusammenlegungen im Bericht nennen. Von Reihen (n/m) nur den jeweils
    nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.
    Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,
    unklarer Wunsch), überspringen und im Bericht nennen.

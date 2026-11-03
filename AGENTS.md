@@ -246,6 +246,13 @@ SessionStart-Hook die offenen Einträge in jede Sitzung.
 
 - Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
   berücksichtigen und passende Aufgaben nennen.
+- **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
+  (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
+  zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
+  hängen (Notiz in beiden Einträgen). Dann erst alle Bugs, danach Features,
+  jeweils kleine vor großen. Ausnahme: Ein Feature, das einen Bug mitbehebt,
+  wird zusammen mit ihm erledigt. Zusammenhänge und Zusammenlegungen im
+  Gespräch bzw. Bericht nennen.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,

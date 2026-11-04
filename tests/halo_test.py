@@ -4934,6 +4934,35 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: Tage mit nur einem Eintrag ragen nicht in den nächsten Tag", agenda_days, results)
 
+    def agenda_in_chat():
+        # Today-Pane im Chat-Bereich: dieselben Termine wie in Mail (Liste blieb dort leer)
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(); let item = null, item2 = null;
+          const has = () => [...d.querySelectorAll("#agenda > li.agenda-listitem")].some(li => vis(li) && /Halo Chat Agenda/.test(li.textContent));
+          try {
+            const e = new CalEvent(); e.title = "Halo Chat Agenda"; e.calendar = c; const s = today(); const en = s.clone(); en.day += 1;
+            e.startDate = s; e.endDate = en; item = await c.addItem(e);
+            await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+            const out = { mail: !!(await until(has, 6000)) };
+            w.showChatTab(); await until(() => d.documentElement.getAttribute("mc-tab") == "chat", 4000); await ruhig(1500);
+            out.tab = d.documentElement.getAttribute("mc-tab"); out.tp = w.TodayPane?.isVisible;
+            out.chat = !!(await until(has, 4000));
+            out.lis = [...d.querySelectorAll("#agenda > li.agenda-listitem")].length;
+            // neuer Termin, während der Chat-Bereich offen ist, erscheint dort auch
+            const e2 = new CalEvent(); e2.title = "Halo Chat Agenda Neu"; e2.calendar = c; const s2 = today(); const en2 = s2.clone(); en2.day += 1;
+            e2.startDate = s2; e2.endDate = en2; item2 = await c.addItem(e2);
+            out.chatNew = !!(await until(() => [...d.querySelectorAll("#agenda > li.agenda-listitem")].some(li => vis(li) && /Halo Chat Agenda Neu/.test(li.textContent)), 4000));
+            // anderer Tag in der Today-Pane und zurück (Pfeile / „Today“)
+            const away = today(); away.day += 3; w.TodayPane.setDay(away); await ruhig(600);
+            const back = today(); w.TodayPane.setDay(back); await ruhig(600);
+            out.chatBack = !!(await until(has, 3000));
+            await toMail();
+            return out;
+          } finally { for (const it of [item, item2]) if (it) try { await c.deleteItem(it); } catch {} }""")
+        ok = res.get("mail") and res.get("tab") == "chat" and res.get("chat") and res.get("chatNew") and res.get("chatBack")
+        return ok, f"{res}"
+    check("Today-Pane: im Chat-Bereich dieselben Termine wie in Mail", agenda_in_chat, results)
+
     def occurrence_prompt():
         # Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Kapselknöpfe ohne alte Kalendersymbole
         res = m.js(CAL_CHECK_JS + r"""

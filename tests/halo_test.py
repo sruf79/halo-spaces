@@ -5620,14 +5620,14 @@ def calendar_checks(m, results):
             tree.focus(); tree.view.selection.select(i); await ruhig(1000);
             const boxes = () => {
               const els = [...d.querySelectorAll('#unifiedToolbarContent > li:not([item-id="spacer"]) button, #unifiedToolbarContent > li[item-id="search-bar"], #task-actions-toolbar > toolbarbutton, #mcListHeader .mc-lh-tools > button, #mcTodayTitle, #mcTodayNew, #mcTodayToggle')];
-              return els.map(e => [e.id || e.className || e.getAttribute("item-id") || e.localName, e.getBoundingClientRect()]).filter(([, r]) => r.width > 0 && r.height > 0);
+              return els.map(e => [e.id || (e.closest("li")?.getAttribute("item-id") ? "li:" + e.closest("li").getAttribute("item-id") : "") || e.className || e.localName, e.getBoundingClientRect()]).filter(([, r]) => r.width > 0 && r.height > 0);
             };
             const hits = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
             for (const W of [1500, 1150]) {
               w.resizeTo(W, 900); await ruhig(1500);
               const bx = boxes(), bad = [];
-              bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2) && !(n1.includes?.("search") && n2.includes?.("search"))) bad.push(n1 + "×" + n2); }));
-              out[W] = { n: bx.length, bad: bad.filter(x => !/global-search-bar|search-bar×search-bar/.test(x)), side: d.documentElement.hasAttribute("mc-task-side") };
+              bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2) && !(n1.includes?.("search") && n2.includes?.("search"))) bad.push(`${n1} ${Math.round(r1.left)}–${Math.round(r1.right)} × ${n2} ${Math.round(r2.left)}–${Math.round(r2.right)}`); }));
+              out[W] = { ta: d.getElementById("task-actions-toolbar").style.getPropertyValue("--mc-ta-left"), lis: [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => l.getBoundingClientRect().width).map(l => l.getAttribute("item-id") + ":" + Math.round(l.getBoundingClientRect().left)), n: bx.length, bad: bad.filter(x => !/global-search-bar|search-bar×search-bar/.test(x)), side: d.documentElement.hasAttribute("mc-task-side") };
             }
           } finally {
             try { await c.deleteItem(made); } catch {}
@@ -8539,7 +8539,11 @@ def run_checks(m, version, profile, results):
             const vis = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
             out.sidebar = { lists: vis(box), minimonth: vis(d.getElementById("minimonth-pane")), filters: vis(d.getElementById("task-filter-pane")),
                             header: d.getElementById("calendar-list-header-label")?.textContent, filterBtn: vis(d.querySelector("#mcListHeader .mc-lh-filter")),
-                            today: box?.querySelector(".mc-tl-today")?.textContent == String(new Date().getDate()) };
+                            // Today: Kalenderblatt ohne Tageszahl; Symbole alle 24 px, In Progress als Ring ohne Glyphe
+                            today: box?.querySelector(".mc-tl-today")?.textContent == "",
+                            icons: [...box.querySelectorAll(".mc-tl-icon")].map(e => [e.className.split("mc-tl-").pop(), Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]),
+                            colors: Object.fromEntries(["all", "completed"].map(k => [k, csOf(box.querySelector(".mc-tl-" + k)).backgroundColor])),
+                            progress: csOf(box.querySelector(".mc-tl-progress")).backgroundImage.slice(0, 14) };
             out.views = {};
             for (const row of box.querySelectorAll(".mc-tl-row")) {
               row.click(); await till(() => tree.getAttribute("filterValue") == "mcTasks-" + row.dataset.list, 3000); await until(() => tree.mTaskArray.filter(t => t.title.startsWith("Halo L ")).length == ({ today: 1, scheduled: 2, all: 4, important: 1, progress: 1, completed: 1 })[row.dataset.list], 4000); await ruhig(900);
@@ -8555,16 +8559,20 @@ def run_checks(m, version, profile, results):
           }
           return out;""")
         sb, v = res.get("sidebar", {}), res.get("views", {})
-        want = {"today": ["heute"], "scheduled": ["heute", "später"], "all": ["halb", "heute", "später", "wichtig"], "important": ["wichtig"],
-                "progress": ["halb"], "completed": ["fertig"]}
-        titles = {"today": "Today", "scheduled": "Scheduled", "all": "All", "important": "Important", "progress": "In Progress", "completed": "Completed"}
+        # Reihenfolge offen → angefangen → erledigt, Important zuletzt; „All“ heißt „Open“
+        want = {"today": ["heute"], "scheduled": ["heute", "später"], "all": ["halb", "heute", "später", "wichtig"],
+                "progress": ["halb"], "completed": ["fertig"], "important": ["wichtig"]}
+        titles = {"today": "Today", "scheduled": "Scheduled", "all": "Open", "important": "Important", "progress": "In Progress", "completed": "Completed"}
         ok = (sb.get("lists") and not sb.get("minimonth") and not sb.get("filters") and sb.get("header") == "Task Lists" and not sb.get("filterBtn")
               and sb.get("today") and list(v) == list(want)
+              and [i[0] for i in sb.get("icons", [])] == list(want) and all(i[1] == 24 and i[2] == 24 for i in sb.get("icons", []))
+              and sb.get("colors") in ({"all": "rgb(88, 86, 214)", "completed": "rgb(52, 199, 89)"}, {"all": "rgb(94, 92, 230)", "completed": "rgb(48, 209, 88)"})
+              and sb.get("progress") == "conic-gradient"
               and all(v[k]["mine"] == want[k] and v[k]["selected"] and v[k]["title"] == titles[k] and v[k]["count"] == (str(v[k]["n"]) if v[k]["n"] else "")
                       for k in want)
-              and res.get("pref") == "completed")
+              and res.get("pref") == "important")
         return ok, f"{res}"
-    check("Aufgaben: Ansichten in der Seitenleiste wie Erinnerungen (Today … Completed) mit Anzahl, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
+    check("Aufgaben: Ansichten in der Seitenleiste (Today, Scheduled, Open, In Progress, Completed, Important) mit Anzahl, Symbole 24 px, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
 
     def today_plus_event():
         # „+“ ganz rechts → „New Event“: Schnellfenster ganz auf dem Bildschirm

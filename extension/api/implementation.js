@@ -259,6 +259,7 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "Open|tasks": "Offen",
   "No Task Selected": "Keine Aufgabe ausgewählt",
   "Sunny": "Sonnig",
   "Clear": "Klar",
@@ -657,6 +658,7 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "Open|tasks": "Ouvertes",
   "No Task Selected": "Aucune tâche sélectionnée",
   "Sunny": "Ensoleillé",
   "Clear": "Dégagé",
@@ -1055,6 +1057,7 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "Open|tasks": "Abiertas",
   "No Task Selected": "Ninguna tarea seleccionada",
   "Sunny": "Soleado",
   "Clear": "Despejado",
@@ -1453,6 +1456,7 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "Open|tasks": "Aperte",
   "No Task Selected": "Nessuna attività selezionata",
   "Sunny": "Soleggiato",
   "Clear": "Sereno",
@@ -1635,8 +1639,10 @@ function regionLocale() {
   return Services.locale.regionalPrefsLocales?.[0] || Services.locale.appLocaleAsBCP47;
 }
 
+// („Text|Zusammenhang“: gleiches englisches Wort, andere Übersetzung – z. B.
+// „Open|tasks“ = „Offen“ statt „Öffnen“; angezeigt wird nur der Text)
 function tr(english, vars = null) {
-  const text = TRANSLATIONS[uiLanguage()]?.[english] ?? english;
+  const text = TRANSLATIONS[uiLanguage()]?.[english] ?? english.split("|")[0];
   return vars ? text.replace(/\{(\w+)\}/g, (all, key) => (key in vars ? String(vars[key]) : all)) : text;
 }
 
@@ -4785,12 +4791,14 @@ function setTaskView(win, key) {
 const TASK_LIST_PREF = "extensions.mailcards.taskList";
 const TASK_LISTS = [
   // [Schlüssel, Text, Status, Fälligkeit, Zusatzbedingung]
+  // Reihenfolge: offen → angefangen → erledigt, „Wichtig“ als Merkmal zuletzt;
+  // „Open“ (Schlüssel all aus Kompatibilität) zeigt alle offenen Aufgaben
   ["today", "Today", "open", "upToToday"],
   ["scheduled", "Scheduled", "open", "dated"],
-  ["all", "All", "open", "any"],
-  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
+  ["all", "Open|tasks", "open", "any"],
   ["progress", "In Progress", "progress", "any"],
   ["completed", "Completed", "done", "any"],
+  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
 ];
 const taskListFilter = key => `mcTasks-${key}`;
 
@@ -4878,17 +4886,12 @@ function hookTaskLists(win, restorers) {
   box.append(list);
   panel.prepend(box);
 
-  const today = () => {
-    const icon = rows.get("today").querySelector(".mc-tl-icon");
-    icon.textContent = String(new Date().getDate());
-  };
   const mark = () => {
     const key = taskListKey();
     for (const [k, row] of rows) {
       row.classList.toggle("selected", k == key);
       row.setAttribute("aria-selected", String(k == key));
     }
-    today();
   };
   const apply = () => {
     const name = taskListFilter(taskListKey());
@@ -11040,6 +11043,15 @@ class CardEnhancer {
           }
         }
         setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
+        // Aktionen und Kopf richten sich nach dem gemessenen „+“ – das springt
+        // erst mit dieser Rechnung an seinen Platz (z. B. beim Wechsel zwischen
+        // „Details daneben“ und „darunter“): stand es woanders, im übernächsten
+        // Bild noch einmal ausrichten (hört auf, sobald es still steht)
+        const plusAt = `${side}:${Math.round(pr?.left ?? -1)}`;
+        if (w.__mcPlusAt !== plusAt) {
+          w.__mcPlusAt = plusAt;
+          w.requestAnimationFrame(() => w.requestAnimationFrame(updateSideEdge));
+        }
         // Haarlinie in der Toolbar-Zeile genau über dem Teiler zu den Details
         // (durchgehend vom oberen Rand bis unten)
         const split = rectOf(d.getElementById("calendar-task-view-splitter"));

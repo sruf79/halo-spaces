@@ -10789,6 +10789,23 @@ Neu
             dlg.addWidgetFor(e1, e1.getAlarms()[0]); await wait(700);
             const item = doc.querySelector("#alarm-richlist > richlistitem");
             const box = item?.querySelector(".mc-alarm-date");
+            // Mitteilung wie Apple Kalender: Kalender als Kopf, Pfeil rechts oben, Knöpfe nebeneinander unten rechts,
+            // oben und unten gleich viel Luft, 346 px breit
+            await until(() => item.querySelector(".mc-alarm-open"), 3000); await ruhig(400);
+            const rr = e => e?.getBoundingClientRect();
+            const btns = [...item.querySelectorAll(".alarm-action-buttons > button")].map(rr).filter(r => r?.height);
+            const ir = rr(item), head = item.querySelector(".mc-alarm-cal"), rel = item.querySelector(".alarm-relative-date-label");
+            out.note = { width: dlg.innerWidth, head: head?.textContent, headTop: head ? Math.round(rr(head).top - ir.top) : null,
+                         bottom: btns.length ? Math.round(ir.bottom - Math.max(...btns.map(r => r.bottom))) : null,
+                         row: btns.length == 2 && Math.abs(btns[0].top - btns[1].top) < 1, right: btns.length ? Math.round(ir.right - btns[1].right) : null,
+                         open: !!item.querySelector(".mc-alarm-open")?.getBoundingClientRect().width, rel: rel ? cs(rel).display != "none" && rr(rel).height > 0 : false,
+                         details: cs(item.querySelector(".alarm-details-label")).display == "none" || !item.querySelector(".alarm-details-label")?.getBoundingClientRect().height };
+            // Pfeil: Kalender-Bereich, Monatsansicht, Details des Termins
+            const known = new Set(Services.wm.getEnumerator(null));
+            item.querySelector(".mc-alarm-open")?.click();
+            const det = await until(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && /calendar-summary-dialog|calendar-event-dialog/.test(x.location.href)), 5000);
+            out.open = { tab: tm.currentTabInfo?.mode?.name, view: w.currentView?.()?.id, details: !!det, title: det ? (await until(() => det.document?.readyState == "complete", 3000), det.document.title || det.document.querySelector(".item-title")?.textContent || "") : null };
+            det?.close(); await ruhig(300); dlg.focus();
             out.one = { month: box?.firstChild?.textContent, day: box?.lastChild?.textContent, img: item ? cs(item.querySelector(".alarm-calendar-image")).display : null,
                         bg: item ? cs(item).backgroundColor : null, allBar: cs(doc.getElementById("alarm-actionbar")).display,
                         card: doc.documentElement.hasAttribute("mc-alarm-card"), monthColor: box ? cs(box.firstChild).color : null,
@@ -10808,9 +10825,13 @@ Neu
               and rgba_alpha(o.get("bg") or "rgb(0,0,0)") <= 0.06 and o.get("allBar") == "none"
               and o.get("card") == res["mac"] and o.get("fits") and same_color(o.get("monthColor"), "rgb(255, 59, 48)")
               and t.get("allBar") != "none" and t.get("days") == ["15", "16"]
+              and (res.get("note") or {}).get("width") == 346 and res["note"].get("head") == "Halo Test" and res["note"].get("row")
+              and res["note"].get("right") == 14 and res["note"].get("open") and res["note"].get("rel") and res["note"].get("details")
+              and res["note"].get("headTop") is not None and abs(res["note"]["headTop"] - res["note"].get("bottom", 99)) <= 1
+              and (res.get("open") or {}).get("tab") == "calendar" and res["open"].get("view") == "month-view" and res["open"].get("details")
               and bool(t.get("gap")) and t["gap"][0] >= 14 and abs(t["gap"][0] - max(16, t["gap"][1])) <= 3)
         return ok, f"{res}"
-    check("Kalender: Erinnerung wie in Apple Kalender (Symbol mit Monat und Tag, ohne graue Kachel, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
+    check("Kalender: Erinnerung wie die Mitteilung von Apple Kalender (Symbol mit Monat und Tag, Kalender als Kopf, Pfeil, Knöpfe nebeneinander unten rechts, oben und unten gleich viel Luft, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
 
     def tasks_details():
         # Aufgaben: Beschreibung im Detailbereich in Systemschrift 13 px ohne Body-Rand, dunkel hell lesbar (früher schwarz

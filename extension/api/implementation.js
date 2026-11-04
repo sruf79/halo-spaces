@@ -32,6 +32,7 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Show in Calendar": "Im Kalender zeigen",
   "Account Settings": "Konten-Einstellungen",
   "Add-ons and Themes": "Add-ons und Themes",
   "Hide “{name}”": "„{name}“ ausblenden",
@@ -437,6 +438,7 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Show in Calendar": "Afficher dans le calendrier",
   "Account Settings": "Paramètres des comptes",
   "Add-ons and Themes": "Modules complémentaires et thèmes",
   "Hide “{name}”": "Masquer « {name} »",
@@ -842,6 +844,7 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Show in Calendar": "Mostrar en el calendario",
   "Account Settings": "Configuración de cuentas",
   "Add-ons and Themes": "Complementos y temas",
   "Hide “{name}”": "Ocultar «{name}»",
@@ -1247,6 +1250,7 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Show in Calendar": "Mostra nel calendario",
   "Account Settings": "Impostazioni account",
   "Add-ons and Themes": "Componenti aggiuntivi e temi",
   "Hide “{name}”": "Nascondi «{name}»",
@@ -18261,13 +18265,41 @@ class CardEnhancer {
         return;
       }
       date = date.getInTimezone(dlg.cal?.dtz?.defaultTimezone || date.timezone);
+      const X = "http://www.w3.org/1999/xhtml";
+      // wie die Mitteilung von Apple Kalender: kleine graue Kopfzeile mit dem
+      // Namen des Kalenders über dem Titel, Pfeil rechts oben öffnet den
+      // Termin im Kalender (statt des Links „Details…“)
+      const block = item.querySelector(".alarm-calendar-event");
+      if (!block) {
+        return; // Eintrag noch nicht aufgebaut – beim nächsten Messen
+      }
+      let head = item.querySelector(".mc-alarm-cal");
+      if (!head) {
+        head = doc.createElementNS(X, "div");
+        head.className = "mc-alarm-cal";
+        block.prepend(head);
+      }
+      if (head && head.textContent != (ev.calendar?.name || "")) {
+        head.textContent = ev.calendar?.name || "";
+      }
+      if (!item.querySelector(".mc-alarm-open")) {
+        const open = doc.createElementNS(X, "button");
+        open.type = "button";
+        open.className = "mc-alarm-open";
+        open.title = tr("Show in Calendar");
+        open.setAttribute("aria-label", tr("Show in Calendar"));
+        open.addEventListener("click", event => {
+          event.stopPropagation();
+          this.showAlarmItem(item.item);
+        });
+        block.append(open);
+      }
       const key = `${date.year}-${date.month}-${date.day}`;
       let box = item.querySelector(".mc-alarm-date");
       if (box?.dataset.key == key) {
         return;
       }
       if (!box) {
-        const X = "http://www.w3.org/1999/xhtml";
         box = doc.createElementNS(X, "div");
         box.className = "mc-alarm-date";
         box.append(doc.createElementNS(X, "span"), doc.createElementNS(X, "span"));
@@ -18286,7 +18318,33 @@ class CardEnhancer {
     }
   }
 
+  // Pfeil der Erinnerung: Kalender-Bereich in der Monatsansicht, Termin
+  // gewählt und seine Details offen
+  async showAlarmItem(ev) {
+    try {
+      const w = Services.wm.getMostRecentWindow("mail:3pane");
+      if (!w || !ev) {
+        return;
+      }
+      w.focus();
+      w.document.getElementById("tabmail")?.openTab("calendar");
+      w.switchToView?.("month");
+      const start = ev.startDate || ev.entryDate || ev.dueDate;
+      if (start) {
+        w.goToDate?.(start);
+      }
+      await new Promise(r => w.setTimeout(r, 300));
+      try {
+        w.currentView?.().setSelectedItems([ev]);
+      } catch {}
+      w.modifyEventWithDialog?.(ev, true);
+    } catch (e) {
+      log("alarm open error", String(e).slice(0, 120));
+    }
+  }
+
   fitAlarmDialog(dlg) {
+    const ALARM_WIDTH = 346;
     try {
       const doc = dlg.document;
       const list = doc.getElementById("alarm-richlist");
@@ -18324,8 +18382,10 @@ class CardEnhancer {
         // Fensterinhalt (Körper) statt Fensterhöhe: ohne Titelleiste ragt er sonst unten hinaus
         const rest = Math.max(doc.body.getBoundingClientRect().height, dlg.innerHeight) - list.getBoundingClientRect().height;
         const inner = Math.ceil(rest + content);
-        if (Math.abs(inner - dlg.innerHeight) >= 2) {
-          dlg.resizeTo(dlg.outerWidth, dlg.outerHeight - dlg.innerHeight + inner);
+        // so breit wie die Mitteilung (346 px)
+        const width = dlg.outerWidth - dlg.innerWidth + ALARM_WIDTH;
+        if (Math.abs(inner - dlg.innerHeight) >= 2 || Math.abs(dlg.innerWidth - ALARM_WIDTH) >= 2) {
+          dlg.resizeTo(width, dlg.outerHeight - dlg.innerHeight + inner);
         }
       };
       // ohne sichtbare Titelleiste wie eine Mitteilung (macOS zeichnet die

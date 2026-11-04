@@ -16593,7 +16593,9 @@ class CardEnhancer {
     if (row && topEl && titleEl) {
       const tr0 = rectOf(topEl), ti = rectOf(titleEl);
       if (tr0?.width && ti?.width) {
-        row.style.setProperty("--mc-tt-off", `${Math.round(ti.left - tr0.left)}px`);
+        // ab der Innenkante (ohne den 1-px-Rand links, sonst rückt der Titel am
+        // Ende um 1 px nach links) und ungerundet
+        row.style.setProperty("--mc-tt-off", `${(ti.left - tr0.left - topEl.clientLeft).toFixed(2)}px`);
         row.setAttribute("data-mc-tp-anim", "");
       }
     }

@@ -8501,10 +8501,12 @@ def run_checks(m, version, profile, results):
           const panel = d.getElementById("today-pane-panel"); const btn = d.getElementById("mcTodayToggle");
           const title = d.getElementById("mcTodayTitle");
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
-          const record = async () => { const ws = [], ts = [], ss = [], tt = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          const row = d.getElementById("unifiedToolbarContainer");
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt }; };
+            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -8516,7 +8518,7 @@ def run_checks(m, version, profile, results):
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           for (const phase of ["aus", "ein"]) {
-            btn.click(); const { ws, ts, ss, tt } = await record(); await ruhig(300);
+            btn.click(); const { ws, ts, ss, tt, tl } = await record(); await ruhig(300);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
             const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => moving[i + 1]);
@@ -8528,6 +8530,10 @@ def run_checks(m, version, profile, results):
             const mid = tt.filter(([pw]) => pw > out.start * 0.3 && pw < out.start * 0.9).map(([pw, shown, narrow]) => [pw, shown == open[1] && narrow == open[2]]);
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links)
+            const lastAnim = tl.filter(([, a]) => a).at(-1);
+            if (phase == "ein") out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
+            if (phase == "ein" && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
           }
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
@@ -8542,10 +8548,10 @@ def run_checks(m, version, profile, results):
         # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
         ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] < res["start"] / 2
-                 and res[p]["titleMid"] is not False and
+                 and res[p]["titleMid"] is not False and res[p].get("titleEnd", 0) <= 0.5 and
                  res[p]["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2 for p in ("aus", "ein")) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld gleitet mit, Überschrift während der Bewegung da", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld gleitet mit, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der

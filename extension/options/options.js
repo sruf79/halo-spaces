@@ -307,5 +307,4 @@ function showFound() {
 }
 window.addEventListener("hashchange", showFound);
 
-render().then(showFound);
-setInterval(watchUpdate, 2000);
+render().then(showFound).then(() => setInterval(watchUpdate, 2000));

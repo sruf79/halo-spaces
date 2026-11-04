@@ -227,6 +227,11 @@ Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
 ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
 ist nur zum Ausprobieren – ohne Marke kein Release.
 Die Sperre nicht umgehen; ist ein Test rot, erst beheben.
+**Hotfix** (Entscheidung des Maintainers vom 4.11.2026): nur auf seine
+ausdrückliche Anweisung und nur für dringende Korrekturen ohne Änderung am
+Aussehen `HOTFIX="<Muster der betroffenen Prüfungen>" ./release.sh x.y.z` –
+testet nur diese Prüfungen (hell), die Marke vermerkt „Hotfix“; die CI zum
+Push testet danach vollständig, Rot wird nach vorn korrigiert.
 
 `publish.sh` committet nur `extension/manifest.json`, `updates.json` und ggf.
 `README.md`; andere geänderte oder neue Dateien bleiben draußen (Warnung).

@@ -6,6 +6,10 @@
 # Nur wenn alle Tests (hell, dunkel) grün sind, schreibt release.sh die
 # Marke dist/release-<version>.ok (Version, Hash des Pakets, Tests) – ohne sie
 # veröffentlicht publish.sh nicht.
+# Hotfix (nur auf ausdrückliche Anweisung des Maintainers, dringende Korrektur
+# ohne Änderung am Aussehen): HOTFIX="<Muster>" ./release.sh x.y.z testet nur die
+# Prüfungen, deren Name auf das Muster passt (hell); die Marke vermerkt das, die
+# CI zum nächsten Push testet danach vollständig (Entscheidung vom 4.11.2026)
 set -e
 setopt pipefail
 ROOT="${0:A:h}"
@@ -36,7 +40,7 @@ fehlschlag() {
 # Paket oder in die Tests eingeht (erlaubt: *.md, release.sh, publish.sh, store/,
 # .github/workflows/),
 # und es darf nichts Ungespeichertes herumliegen
-if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" ]] && command -v gh >/dev/null; then
+if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh >/dev/null; then
   if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then
     for SHA in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -s success -L 20 \
                    --json headSha --jq '.[].headSha' 2>/dev/null); do
@@ -74,7 +78,14 @@ HASH=$(shasum -a 256 "$XPI" | cut -d' ' -f1)
 # vorher automatisch testen (frisches Testprofil) – bei Fehlern kein Release
 # Screenshots hell und dunkel landen in tests/shots/<version> und werden mit
 # denen des letzten Release verglichen (rote Markierungen in …-diff.png)
-if [[ -z "$SKIP_TESTS" ]]; then
+if [[ -n "$HOTFIX" && -z "$SKIP_TESTS" ]]; then
+  echo "Hotfix: nur die Prüfungen „$HOTFIX“ (hell), der volle Lauf folgt in der CI"
+  python3 tests/halo_test.py --xpi "$XPI" --only "$HOTFIX" 2>&1 | tee -a "$LOG" \
+    || fehlschlag "Hotfix-Prüfungen fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
+  grep -qE '^[1-9][0-9]* von [0-9]+ Prüfungen' "$LOG" || fehlschlag "Hotfix: keine Prüfung passt auf „$HOTFIX“ – kein Release"
+  TESTS+=("Hotfix, nur „$HOTFIX“ (hell): $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
+  HOTFIX_OK=1
+elif [[ -z "$SKIP_TESTS" ]]; then
   SHOTS="tests/shots/$VERSION"
   OLD=(tests/shots/*(N/n))             # numerisch sortiert, letzter = neueste Version
   OLD=(${OLD:#tests/shots/$VERSION})
@@ -112,7 +123,7 @@ PY
 
 # Marke für publish.sh: nur wenn hell und dunkel hier grün waren oder die CI
 # denselben Stand vollständig grün getestet hat
-if [[ -n "$CI_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]]; then
+if [[ -n "$CI_OK" || -n "$HOTFIX_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]]; then
   {
     echo "version=$VERSION"
     echo "sha256=$HASH"

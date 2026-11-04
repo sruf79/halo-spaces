@@ -12195,7 +12195,10 @@ Neu
           cw.gSubDialog.open("chrome://mozapps/content/update/history.xhtml");
           let fr = await until(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.getElementById("historyItems")), 8000);
           if (fr) { await ruhig(400); const hi = fr.contentDocument.getElementById("historyItems"), lb = hi.querySelector(":scope > label");
-            out.history = lb ? [Math.round(lb.getBoundingClientRect().left - hi.getBoundingClientRect().left), Math.round(lb.getBoundingClientRect().top - hi.getBoundingClientRect().top)] : "kein Hinweis";
+            // (der Verlauf gehört zur Installation, nicht zum Testprofil: hat Thunderbird schon Updates eingespielt,
+            // steht dort eine Liste statt des Hinweises – dann ist nichts zu messen)
+            out.history = lb ? [Math.round(lb.getBoundingClientRect().left - hi.getBoundingClientRect().left), Math.round(lb.getBoundingClientRect().top - hi.getBoundingClientRect().top)]
+              : hi.querySelector("richlistitem") ? "Liste" : "kein Hinweis";
             cw.gSubDialog._topDialog?.close(); await ruhig(400); }
           // Verbindungs-Einstellungen: Port-Felder ohne Pfeile, Wert mittig
           cw.gSubDialog.open("chrome://messenger/content/preferences/connection.xhtml");
@@ -12237,7 +12240,7 @@ Neu
         chat = res["chat"]
         chat_ok = (chat[0] == "Dark" and chat[2] is not None and chat[2] < 0.2) if chat[1] else (chat[0] != "Dark" and chat[2] is not None and chat[2] > 0.5)
         ok = (res["abEdit"] == ["38px", "500"] and res["tags"] and min(res["tags"]) >= 4.5
-              and isinstance(res.get("history"), list) and res["history"][0] >= 6 and res["history"][1] >= 4
+              and (res.get("history") == "Liste" or isinstance(res.get("history"), list) and res["history"][0] >= 6 and res["history"][1] >= 4)
               and res.get("port") == ["none", "center", "7px"] and res["edit"] == [True, "400"]
               and res["preview"][0] >= 6 and res["preview"][1:] == ["8px", True] and chat_ok
               and res["days"][0] == 7 and res["days"][1] <= 1 and res["days"][2] >= 4 and narrow_ok

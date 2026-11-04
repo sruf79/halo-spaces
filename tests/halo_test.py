@@ -12413,9 +12413,12 @@ Neu
         # „Logos from sender websites“), Treffer wie Thunderbirds eigene markiert; „Show“ öffnet halo.spaces bei der Option
         res = m.js(PREFS_OPEN_JS + r"""
           const input = pd.getElementById("searchInput");
-          // (die erste Suche baut unter Linux in der CI den Suchindex auf – dort bis zu 10 s)
-          const search = async q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true }));
-            await until(() => pd.getElementById("header-searchResults") && !pd.getElementById("header-searchResults").hidden, 3000); await bis(() => pd.getElementById("sorry-message-query")?.textContent == q.trim().toLowerCase(), "Suche nach " + q + " fertig", 10000); await ruhig(900);
+          // (die erste Suche baut unter Linux in der CI den Suchindex auf – dort bis zu 10 s; mit der ESR verpuffte der erste
+          // Anstoß einmal ganz – dann über ein leeres Feld neu auslösen, dieselbe Anfrage allein überspringt Thunderbird)
+          const fire = q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true })); };
+          const search = async q => { fire(q); const done = () => pd.getElementById("sorry-message-query")?.textContent == q.trim().toLowerCase();
+            if (!await until(done, 6000)) { fire(""); await ruhig(300); fire(q); }
+            await until(() => pd.getElementById("header-searchResults") && !pd.getElementById("header-searchResults").hidden, 3000); await bis(done, "Suche nach " + q + " fertig", 10000); await ruhig(900);
             return [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].filter(e => !e.hidden && !e.classList.contains("visually-hidden") && e.getBoundingClientRect().height > 0)
               .map(e => e.querySelector(".mc-halo-found-name").textContent); };
           const out = {};

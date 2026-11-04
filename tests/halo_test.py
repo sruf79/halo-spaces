@@ -128,17 +128,21 @@ const ruhig = async (ms = 1000) => {
   // kurze Zeitgeber je Fenster mitzählen (einmal je Fenster eingehängt, für das ganze Testprofil)
   for (const x of wins) if (!x.__haloTimer) { const open = new Map(), st = x.setTimeout, ct = x.clearTimeout;
     x.setTimeout = function (fn, t = 0, ...a) { let id; id = st.call(x, (...y) => { open.delete(id); if (typeof fn == "function") return fn(...y); }, t, ...a);
-      if (t <= 1600) open.set(id, Date.now() + t); return id; };
+      // (fällig um, Name der Funktion – für die Auswertung, wenn bis zur Höchstzeit gewartet wurde)
+      if (t <= 1600) open.set(id, [Date.now() + t, typeof fn == "function" ? fn.name || String(fn).replace(/\s+/g, " ").slice(0, 40) : "?"]); return id; };
     x.clearTimeout = function (id) { open.delete(id); return ct.call(x, id); };
     // ebenso angemeldete Bildwechsel (requestAnimationFrame): Zeilen und Karten werden oft erst dort gefüllt
     const frames = new Set(), raf = x.requestAnimationFrame, caf = x.cancelAnimationFrame;
     x.requestAnimationFrame = function (fn) { let id; id = raf.call(x, t => { frames.delete(id); return fn(t); }); frames.add(id); return id; };
     x.cancelAnimationFrame = function (id) { frames.delete(id); return caf.call(x, id); };
     x.__haloFrames = frames; x.__haloTimer = open; x.__haloSetTimeout = st; }
-  let last = Date.now(); const obs = [];
+  let last = Date.now(), wer = ""; const obs = [];
   // (Attribute, die nur mit demselben Wert neu gesetzt werden, zählen nicht)
-  const changed = rs => { try { return rs.some(r => r.type != "attributes" || r.oldValue !== r.target.getAttribute(r.attributeName)); } catch { return true; } };
-  for (const x of wins) { try { const o = new x.MutationObserver(rs => { if (changed(rs)) last = Date.now(); });
+  const echt = r => { try { return r.type != "attributes" || r.oldValue !== r.target.getAttribute(r.attributeName); } catch { return true; } };
+  // welches Element sich zuletzt änderte (für die Auswertung, wenn bis zur Höchstzeit gewartet wurde)
+  const name = r => { const e = r.target.nodeType == 1 ? r.target : r.target.parentElement;
+    return `${e?.localName || "?"}${e?.id ? "#" + e.id : e?.classList?.length ? "." + e.classList[0] : ""} ${r.type == "attributes" ? "[" + r.attributeName + "]" : r.type == "childList" ? "Kinder" : "Text"}`; };
+  for (const x of wins) { try { const o = new x.MutationObserver(rs => { const r = rs.findLast(echt); if (r) { last = Date.now(); wer = name(r); } });
     o.observe(x.document, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true }); obs.push(o); } catch {} }
   // (ein Fenster, das inzwischen geschlossen wurde, wird nicht mehr beobachtet)
   const busy = () => [...wins].some(x => { try { return busyWin(x); } catch { wins.delete(x); return false; } });
@@ -146,15 +150,18 @@ const ruhig = async (ms = 1000) => {
   const busyWin = x => { const doc = x.document, u = String(x.location?.href).split(/[?#]/)[0].split("/").pop();
     if (doc.readyState != "complete") return (grund = "lädt " + u);
     // (Zeitgeber, die erst nach der Höchstzeit fällig werden, hätte auch die feste Pause nicht abgewartet)
-    if ([...(x.__haloTimer?.values() ?? [])].some(t => t > Date.now() - 50 && t <= end)) return (grund = "Zeitgeber " + u);
+    const tm0 = [...(x.__haloTimer?.values() ?? [])].find(([t]) => t > Date.now() - 50 && t <= end);
+    if (tm0) return (grund = "Zeitgeber " + u + " (" + tm0[1] + ")");
     if (x.__haloFrames?.size) return (grund = "Bildwechsel " + u);
     if ([...doc.querySelectorAll("browser")].some(b => { try { return b.webProgress?.isLoadingDocument; } catch { return false; } })) return (grund = "Browser lädt " + u);
     const a = doc.getAnimations().find(a => a.playState == "running" && Number.isFinite(a.effect?.getComputedTiming().endTime));
     return a ? (grund = "Animation " + (a.animationName || a.transitionProperty) + " " + u) : false; };
   try {
     await takt(30);
-    while (Date.now() < end) { if (!busy()) { if (Date.now() - last >= 80) return true; grund = "DOM ändert sich"; } await takt(25); }
-    const v = (w.__haloRuhigVoll ||= {}); v[grund] = (v[grund] || 0) + 1;  // Höchstzeit erreicht: Auswertung am Ende des Laufs
+    while (Date.now() < end) { if (!busy()) { if (Date.now() - last >= 80) return true; grund = wer ? "DOM ändert sich: " + wer : `ruhig(${ms}) kürzer als 80 ms Ruhe`; } await takt(25); }
+    // Höchstzeit erreicht: Auswertung am Ende des Laufs, je Grund und Prüfung
+    if (!grund) grund = `kein Durchgang (ruhig(${ms}) kürzer als ein Takt)`;
+    const v = (w.__haloRuhigVoll ||= {}), k = grund + " ⟵ " + (w.__haloCheck || "?"); v[k] = (v[k] || 0) + 1;
     return false;
   } finally { obs.forEach(o => { try { o.disconnect(); } catch {} }); }
 };
@@ -175,6 +182,7 @@ const rect = el => { const r = el.getBoundingClientRect(); return { l: Math.roun
 ONLY = None  # --only: nur Prüfungen, deren Name auf diesen regulären Ausdruck passt
 IN_CHECK = False
 LAST_END = None  # Ende der vorigen Prüfung: die Dauer einer Prüfung zählt ihre Vorbereitung mit
+CHECK_M = None  # Marionette des laufenden Tests (setzt main)
 DURATIONS = []
 
 
@@ -183,6 +191,11 @@ def check(name, fn, results):
     if ONLY and not ONLY.search(name):
         return
     start = LAST_END or time.time()
+    if CHECK_M:  # Name der Prüfung für die Auswertung von ruhig() (wer bis zur Höchstzeit wartete)
+        try:
+            CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + f"w.__haloCheck = {json.dumps(name[:70])}; return 1;", "args": []})
+        except Exception:
+            pass
     IN_CHECK = True
     try:
         ok, detail = fn()
@@ -520,7 +533,7 @@ def run_in_vm(args, xpi):
 
 
 def main():
-    global LAST_END
+    global LAST_END, CHECK_M
     ap = argparse.ArgumentParser()
     ap.add_argument("--xpi", help="Paket (Standard: neuestes dist/halo-spaces-*.xpi)")
     ap.add_argument("--tb", default=DEFAULT_TB, help="Thunderbird-Programm")
@@ -581,6 +594,7 @@ def main():
             print(json.dumps(m.js(args.eval), indent=1, ensure_ascii=False))
             return
         LAST_END = started = time.time()
+        CHECK_M = m
         run_checks(m, version, profile, results)
         try:  # wie oft ruhig() bis zur Höchstzeit (der früheren festen Pause) gewartet hat
             full = m.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + "return w.__haloRuhigVoll || {};", "args": []}).get("value")
@@ -590,9 +604,9 @@ def main():
         for sec, name in sorted(DURATIONS, reverse=True)[:10]:
             print(f"  {sec:5.1f} s  {name[:90]}", flush=True)
         if isinstance(full, dict):
-            print(f"ruhig() bis zur Höchstzeit (frühere feste Pause): {sum(full.values())}×, aufgehalten durch:", flush=True)
-            for why, n in sorted(full.items(), key=lambda x: -x[1])[:8]:
-                print(f"  {n:4d}×  {why}", flush=True)
+            print(f"ruhig() bis zur Höchstzeit (frühere feste Pause): {sum(full.values())}×, aufgehalten durch (Grund ⟵ Prüfung):", flush=True)
+            for why, n in sorted(full.items(), key=lambda x: -x[1])[:15]:
+                print(f"  {n:4d}×  {why[:160]}", flush=True)
         if args.shots:
             take_shots(m, args.shots, "dark" if args.dark else "light")
             if args.compare:

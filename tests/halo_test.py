@@ -5090,8 +5090,15 @@ def calendar_checks(m, results):
             e.startDate = s; e.endDate = en; item = await c.addItem(e);
             await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
             const out = { mail: !!(await until(has, 6000)) };
+            // alter Zustand im Profil: Minikalender und Terminliste im Chat zu (Thunderbird merkt sich das je Bereich,
+            // halo.spaces blendet den Umschalter aus) – beim Wechsel wieder wie in Mail
+            for (const id of ["agenda-panel", "today-minimonth-box"]) {
+              const b = d.getElementById(id), set = new Set((b.getAttribute("collapsedinmodes") || "").split(",").filter(Boolean));
+              set.add("chat"); b.setAttribute("collapsedinmodes", [...set].join(","));
+            }
             w.showChatTab(); await until(() => d.documentElement.getAttribute("mc-tab") == "chat", 4000); await ruhig(1500);
             out.tab = d.documentElement.getAttribute("mc-tab"); out.tp = w.TodayPane?.isVisible;
+            out.mini = ["today-minimonth-box", "agenda-panel"].map(id => !d.getElementById(id).collapsed && d.getElementById(id).getBoundingClientRect().height > 40);
             out.chat = !!(await until(has, 4000));
             out.lis = [...d.querySelectorAll("#agenda > li.agenda-listitem")].length;
             // neuer Termin, während der Chat-Bereich offen ist, erscheint dort auch
@@ -5105,9 +5112,9 @@ def calendar_checks(m, results):
             await toMail();
             return out;
           } finally { for (const it of [item, item2]) if (it) try { await c.deleteItem(it); } catch {} }""")
-        ok = res.get("mail") and res.get("tab") == "chat" and res.get("chat") and res.get("chatNew") and res.get("chatBack")
+        ok = res.get("mail") and res.get("tab") == "chat" and res.get("chat") and res.get("mini") == [True, True] and res.get("chatNew") and res.get("chatBack")
         return ok, f"{res}"
-    check("Today-Pane: im Chat-Bereich dieselben Termine wie in Mail", agenda_in_chat, results)
+    check("Today-Pane: im Chat-Bereich dieselben Termine und derselbe Minikalender wie in Mail, auch wenn das Profil sie dort zugeklappt hatte", agenda_in_chat, results)
 
     def occurrence_prompt():
         # Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Kapselknöpfe ohne alte Kalendersymbole

@@ -13353,6 +13353,7 @@ class CardEnhancer {
       }
       this.todayPaneEverywhere(w);
       this.hideTodayPaneInChatOnce(w);
+      this.syncTodayModes(w);
       styleContentPages();
       applySideState();
       w.setTimeout(applySideState, 400);
@@ -14632,6 +14633,7 @@ class CardEnhancer {
           log("today pane layout error", String(e).slice(0, 160));
         }
       }
+      this.syncTodayModes(w);
       const locale = Services.locale.appLocaleAsBCP47;
       const wdFmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
       const monthFmt = new Intl.DateTimeFormat(locale, { month: "long" });
@@ -18064,6 +18066,41 @@ class CardEnhancer {
   // Adressbuch, Einstellungen und übrige Tabs (Modus „special“) kommen dazu,
   // auch für ihre Teile (Minimonat, Termine, Aufgaben). Nach der
   // Erstinstallation einmal überall eingeblendet; danach gilt die eigene Wahl
+  // Today-Pane überall gleich (wie in der Mail): Thunderbird merkt sich je
+  // Bereich, ob Minikalender und Terminliste zu sind – im Chat z. B. aus
+  // einem früheren Umschalten „nur Aufgaben“; den Umschalter dafür blendet
+  // halo.spaces aus, die Pane blieb dort leer. Jeden Bereich wie Mail
+  // (beim Start und bei jedem Wechsel des Bereichs)
+  syncTodayModes(w) {
+    const d = w.document;
+    try {
+      const panel = d.getElementById("today-pane-panel");
+      const modes = (panel?.getAttribute("mode") || "").split(",").filter(m => m && m != "calendar");
+      for (const id of ["agenda-panel", "today-minimonth-box", "mini-day-box", "today-none-box"]) {
+        const box = d.getElementById(id);
+        if (!box?.hasAttribute("collapsedinmodes") || box.getAttribute("collapsedinmodes") == ",") {
+          continue;
+        }
+        const was = box.getAttribute("collapsedinmodes").split(",").filter(Boolean);
+        const set = new Set(was);
+        const mailClosed = set.has("mail");
+        for (const m of modes) {
+          mailClosed ? set.add(m) : set.delete(m);
+        }
+        const now = [...set].join(",");
+        if (now != was.join(",")) {
+          box.setAttribute("collapsedinmodes", now || ",");
+          Services.xulStore.persist(box, "collapsedinmodes");
+          if (typeof box.isVisible == "function") {
+            box.collapsed = !box.isVisible();
+          }
+        }
+      }
+    } catch (e) {
+      log("today pane modes error", String(e).slice(0, 160));
+    }
+  }
+
   todayPaneEverywhere(w) {
     const d = w.document;
     const panel = d.getElementById("today-pane-panel");

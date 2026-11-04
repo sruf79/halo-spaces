@@ -99,6 +99,9 @@ thunderbird_aktualisieren() {
   [[ -z $neu ]] && { print "Thunderbird ${alt:-fehlt}: aktuelle Version nicht abrufbar, nichts geändert"; return 1 }
   [[ -n $alt ]] && is-at-least $neu $alt && { print "Thunderbird $alt ist aktuell"; return 0 }
   pgrep -f "$TB_APP/Contents/MacOS/thunderbird" >/dev/null && { print "Thunderbird $alt läuft gerade – nicht auf $neu aktualisiert"; return 1 }
+  # Ersetzen geht nur, wenn die App diesem Benutzer gehört (sonst „Permission denied“)
+  [[ -e $TB_APP && ! -O $TB_APP ]] && {
+    print "Thunderbird $alt gehört $(stat -f %Su $TB_APP), nicht $USER – nicht auf $neu aktualisiert (einmal: sudo chown -R $USER $TB_APP)"; return 1 }
   tmp=$(mktemp -d) || return 1
   if curl -sSfL -m 900 -o $tmp/tb.dmg "https://download.mozilla.org/?product=thunderbird-latest-SSL&os=osx&lang=en-US" &&
      mkdir $tmp/mnt && hdiutil attach -nobrowse -readonly -quiet -mountpoint $tmp/mnt $tmp/tb.dmg; then

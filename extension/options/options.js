@@ -263,7 +263,10 @@ async function render() {
   });
   const thanksText = el("div", { class: "text" },
     el("span", { class: "label", textContent: t("Do you like halo.spaces?") }),
-    el("span", { class: "hint", textContent: t("halo.spaces is free and made in spare time. A coffee helps keep it going.") }));
+    // je Satz eine Zeile: sonst bricht der Text je nach Fensterbreite irgendwo
+    // um (Deutsch schon bei 640 px, „Weitermachen.“ allein in Zeile zwei)
+    el("span", { class: "hint sentences" }, ...t("halo.spaces is free and made in spare time. A coffee helps keep it going.")
+      .split(/(?<=[.!?])\s+/).map(text => el("span", { textContent: text }))));
   main.append(el("h2", { textContent: t("Support halo.spaces") }),
     el("section", { class: "support" }, el("div", { class: "row", id: "row-thanks" }, thanksText, thanks)));
   updateDependent(false);

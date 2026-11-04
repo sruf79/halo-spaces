@@ -371,6 +371,10 @@ button.thanks img {
   height: 16px;
 }
 
+.row .hint.sentences > span {
+  display: block;
+}
+
 button.thanks.due {
   box-shadow: 0 0 0 1.5px var(--donate);
 }

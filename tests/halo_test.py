@@ -3573,6 +3573,14 @@ def folder_checks(m, results):
               return { started: !start.defaultPrevented, mark };
             };
             out.before = shown();
+            // Einfügestrich unter dem letzten Konto so dick wie zwischen zwei Konten (ganz innerhalb des Abschnitts)
+            { const dt = new a3.DataTransfer(), last = sec("Halo Gamma"), r = last.getBoundingClientRect();
+              const ev = (type, el, y) => el.dispatchEvent(new a3.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y }));
+              ev("dragstart", sec("Halo Alpha"), 0); ev("dragover", last, r.bottom - 2);
+              const st = a3.getComputedStyle(last, "::after");
+              const clip = tree.getBoundingClientRect();
+              out.lastMark = [last.getAttribute("mc-drop"), st.height, st.bottom, Math.round(clip.bottom - r.bottom)];
+              ev("dragend", sec("Halo Alpha"), 0); await ruhig(200); }
             // mit der Maus beginnt das Ziehen nur an ziehbaren Zeilen (Konto ja, „On My Mac“ nein)
             out.rowDraggable = [sec("Halo Gamma").draggable, sec("LOCAL").draggable];
             out.d1 = await drag(a3, sec("Halo Gamma"), sec("Halo Alpha"), false);
@@ -3614,6 +3622,7 @@ def folder_checks(m, results):
     def accounts_reorder_ok(res):
         mark_ok = lambda d: d and d["started"] and d["mark"][0] in ("before", "after") and d["mark"][1] not in ("none", "rgba(0, 0, 0, 0)", "")
         ok = (res.get("before") == ["LOCAL", "Halo Alpha", "Halo Beta", "Halo Gamma"] and mark_ok(res.get("d1"))
+              and (res.get("lastMark") or [None])[:3] == ["after", "2px", "0px"]
               and res.get("tb1") == ["Local Folders", "Halo Gamma", "Halo Alpha", "Halo Beta"]
               and res.get("shown1") == ["LOCAL", "Halo Gamma", "Halo Alpha", "Halo Beta"] and res.get("ordered")
               and res.get("shown2") == ["Halo Alpha", "LOCAL", "Halo Gamma", "Halo Beta"] and res.get("folderDrag") is not False

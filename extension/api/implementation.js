@@ -8026,8 +8026,10 @@ const CSS = `
   background: AccentColor;
   pointer-events: none;
 }
-#folderTree > li[data-mode="all"] > ul > li[mc-drop="before"]::after { top: -1px; }
-#folderTree > li[data-mode="all"] > ul > li[mc-drop="after"]::after { bottom: -1px; }
+/* ganz innerhalb des Abschnitts: unter dem letzten Konto endet die Liste,
+   ein halb herausragender Strich wäre dort nur 1 px dick */
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="before"]::after { top: 0; }
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="after"]::after { bottom: 0; }
 #folderTree > li[data-mode="all"] > ul > li[data-server-type="none"] > .container .twisty {
   visibility: hidden !important;
 }

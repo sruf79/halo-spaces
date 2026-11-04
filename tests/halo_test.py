@@ -10149,6 +10149,109 @@ Neu
     check("Info-Fenster: Logo, Name und Version mittig untereinander; „Say Thanks“ öffnet die Spendenseite, keine Mailadresse unten; "
           "nicht scrollbar, unten 18 px; Emojis in Status und Hinweisen in voller Farbe; ohne Fotos/Emojis, „Settings…“ öffnet Einstellungen → halo.spaces", donate, results)
 
+    def thanks_reminder():
+        # „Danke sagen“ mit leiser Erinnerung: Nutzungstage zählen (frisches Profil: Tag 1, nichts fällig), Plan 14, 35, 67 …;
+        # fällig: Punkt am Symbol von Help → halo.spaces und Ring um „Say Thanks“ im Info-Fenster; Klick öffnet die
+        # Spendenseite und gilt als erledigt (einmal am Tag); unbeachtet erlischt sie nach 7 Nutzungstagen
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const T = Cu.waiveXrays(Cu.evalInSandbox("Thanks", g));
+          const P = "extensions.mailcards.thanks.";
+          const item = d.getElementById("mcHaloSpaces");
+          const halo = () => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html"));
+          halo()?.close(); await ruhig(300);
+          const out = { start: { days: Services.prefs.getIntPref(P + "usageDays", 0), today: Services.prefs.getStringPref(P + "lastDay", "") == T.today(),
+            due: T.due(), image: item?.getAttribute("image") }, plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => T.dueDay(n)) };
+          const orig = w.openLinkExternally; let opened = [];
+          w.openLinkExternally = url => { opened.push(String(url)); };
+          try {
+            // fällig machen: 14. Nutzungstag, noch nichts erledigt (die Prüfung des Info-Fensters hat heute schon geklickt)
+            Services.prefs.clearUserPref(P + "ackDay");
+            Services.prefs.setIntPref(P + "usageDays", 14); Services.prefs.setIntPref(P + "count", 0);
+            await bis(() => item.getAttribute("image").startsWith("data:image/svg+xml"), "Punkt am Symbol");
+            out.dueMenu = { due: T.due(), dot: item.getAttribute("image").includes("FF8A00"), attr: item.hasAttribute("mc-thanks") };
+            item.doCommand();
+            const hw = await bis(() => { const x = halo(); return x?.document.getElementById("version")?.textContent && x; }, "Info-Fenster offen", 8000);
+            await ruhig(300);
+            const btn = hw.document.getElementById("donate");
+            out.ring = { due: btn.classList.contains("due"), shadow: hw.getComputedStyle(btn).boxShadow };
+            btn.click(); await ruhig(300);
+            btn.click(); await ruhig(300);
+            out.after = { count: Services.prefs.getIntPref(P + "count", 0), due: T.due(), ring: btn.classList.contains("due"),
+              image: item.getAttribute("image"), opened: opened.length, url: opened[0] || "" };
+            hw.close();
+            // unbeachtet: nach 7 Nutzungstagen von selbst erledigt (kein dauerhafter Punkt)
+            Services.prefs.setIntPref(P + "count", 0); Services.prefs.setIntPref(P + "usageDays", 20); Services.prefs.setStringPref(P + "lastDay", "2000-01-01");
+            T.countDay();
+            out.expired = { days: Services.prefs.getIntPref(P + "usageDays", 0), count: Services.prefs.getIntPref(P + "count", 0), due: T.due() };
+          } finally {
+            w.openLinkExternally = orig;
+            for (const k of ["usageDays", "lastDay", "count", "ackDay"]) Services.prefs.clearUserPref(P + k);
+            T.countDay(); await ruhig(300);
+            halo()?.close();
+          }
+          out.restored = { days: Services.prefs.getIntPref(P + "usageDays", 0), image: item.getAttribute("image") };
+          return out;""" % ADDON_ID)
+        st, dm, ring, after, exp = (res.get(k) or {} for k in ("start", "dueMenu", "ring", "after", "expired"))
+        ok = (st.get("days") == 1 and st.get("today") and st.get("due") is False and (st.get("image") or "").endswith("/about/icon.svg")
+              and res.get("plan") == [14, 35, 67, 114, 185, 291, 451, 690, 1049, 1414]
+              and dm == {"due": True, "dot": True, "attr": True}
+              and ring.get("due") and ring.get("shadow") not in (None, "", "none")
+              and after.get("count") == 1 and after.get("due") is False and after.get("ring") is False
+              and (after.get("image") or "").endswith("/about/icon.svg") and after.get("opened") == 2
+              and after.get("url", "").startswith("https://buymeacoffee.com/diversion?")
+              and exp == {"days": 21, "count": 1, "due": False}
+              and res.get("restored", {}).get("days") == 1 and (res["restored"].get("image") or "").endswith("/about/icon.svg"))
+        return ok, f"{res}"
+    check("Danke sagen: Nutzungstage zählen, Erinnerung am 14., 35., 67. … Tag als Punkt im Menü Help und Ring im Info-Fenster; "
+          "Klick öffnet die Spendenseite und erledigt sie (einmal am Tag), unbeachtet erlischt sie nach 7 Tagen", thanks_reminder, results)
+
+    def thanks_settings():
+        # Einstellungsseite: ganz unten „Support halo.spaces“ mit „Do you like halo.spaces?“ und „Say Thanks“ (Kaffeetasse),
+        # Ring nur bei fälliger Erinnerung, Klick ruft sayThanks; Texte in allen Sprachtabellen (de, fr, es, it).
+        # Die Seite läuft in einem Testfenster mit nachgebildeter Schnittstelle (wie bei „Einstellungen minimalistisch“)
+        res = m.js(r"""
+          let thanked = 0;
+          const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
+            macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, hideCollectedAddresses: true, calendarEmoji: true,
+            emojiCustom: "", weather: false, weatherPlace: "", calendarOffline: false, fifthSpace: "chat", fifthSpaceAddon: "",
+            fifthSpaceUrl: "", fifthSpaceIcon: "mask", fifthSpaceAddons: [], inlinePrompts: true, earlyTheme: false, autoUpdate: true,
+            bundledTheme: true, appleIcons: true, debug: false, thanksDue: true };
+          const obs = { observe(doc) {
+            if (!doc.location?.href.startsWith("resource://mailcards/options/options.html")) return;
+            const win = doc.defaultView;
+            win.wrappedJSObject.browser = Cu.cloneInto({ mailCards: {
+              getSettings: () => win.Promise.resolve(Cu.cloneInto(settings, win)),
+              getTranslations: () => win.Promise.resolve(Cu.cloneInto({ lang: "en", table: {} }, win)),
+              setSetting: (k, v) => win.Promise.resolve(v), searchPlaces: () => win.Promise.resolve(Cu.cloneInto([], win)),
+              getPendingUpdate: () => win.Promise.resolve(null), installUpdateNow: () => win.Promise.resolve(),
+              choosePlace: () => win.Promise.resolve(), sayThanks: () => { thanked++; return win.Promise.resolve(); } } }, win, { cloneFunctions: true });
+          } };
+          Services.obs.addObserver(obs, "document-element-inserted");
+          const ow = w.openDialog("resource://mailcards/options/options.html", "", "chrome,dialog=no,width=700,height=900");
+          try {
+            const od = await bis(() => ow.document?.getElementById("row-thanks") && ow.document, "Einstellungsseite mit „Say Thanks“", 8000);
+            await ruhig(400);
+            const row = od.getElementById("row-thanks"), btn = od.getElementById("s-thanks");
+            const img = btn.querySelector("img");
+            const out = { last: od.getElementById("settings").lastElementChild.contains(row), head: row.closest("section").previousElementSibling?.textContent,
+              label: row.querySelector(".label")?.textContent, text: btn.textContent, img: !!img && img.complete && img.naturalWidth > 0,
+              due: btn.classList.contains("due"), shadow: ow.getComputedStyle(btn).boxShadow };
+            btn.click(); await ruhig(300);
+            out.after = { thanked, due: btn.classList.contains("due") };
+            return out;
+          } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
+        import re
+        src = open(os.path.join(ROOT, "extension", "api", "implementation.js")).read()
+        keys = ["Support halo.spaces", "Do you like halo.spaces?", "halo.spaces is free and made in spare time. A coffee helps keep it going."]
+        counts = {k: len(re.findall(r'^\s*"' + re.escape(k) + r'":', src, re.M)) for k in keys}
+        ok = (res.get("last") and res.get("head") == "Support halo.spaces" and res.get("label") == "Do you like halo.spaces?"
+              and res.get("text") == "Say Thanks" and res.get("img") and res.get("due") and res.get("shadow") not in (None, "", "none")
+              and res.get("after") == {"thanked": 1, "due": False} and all(c == 4 for c in counts.values()))
+        return ok, f"{res}, Übersetzungen {counts}"
+    check("Einstellungen: ganz unten „Do you like halo.spaces?“ mit „Say Thanks“, Ring nur bei fälliger Erinnerung, übersetzt", thanks_settings, results)
+
     def addons_manager():
         # Add-ons-Verwaltung (Thunderbird 140+, Bausteine im Schatten-DOM): Seitenleiste 34 px/13 px, Seite und Kopf in
         # --mt-window (dunkel kein #18181B), Suchfeld als Kapsel ohne Rahmen, Werkzeug und „…“ gleich (24 × 24, ohne

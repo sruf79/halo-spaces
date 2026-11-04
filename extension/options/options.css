@@ -345,3 +345,32 @@ button.accent {
   background: var(--accent);
   color: #fff;
 }
+
+/* „Danke sagen“ wie im Info-Fenster: zarte Fläche in der Spendenfarbe mit
+   Kaffeetasse; fällige Erinnerung: Ring in derselben Farbe */
+button.thanks {
+  --donate: #FF8A00;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  background: color-mix(in srgb, var(--donate) 14%, transparent);
+  color: color-mix(in srgb, var(--donate) 70%, var(--text));
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 250ms cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 250ms ease;
+}
+
+button.thanks:hover {
+  background: color-mix(in srgb, var(--donate) 22%, transparent);
+}
+
+button.thanks img {
+  width: 16px;
+  height: 16px;
+}
+
+button.thanks.due {
+  box-shadow: 0 0 0 1.5px var(--donate);
+}

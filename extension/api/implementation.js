@@ -17237,10 +17237,24 @@ class CardEnhancer {
         state.addressbook = [...SPACE_TOOLBARS.addressbook, ...ab.slice(OLD_ADDRESSBOOK_TOOLBAR.length)];
         changed = true;
       }
+      // Thunderbird speichert seinen Standard samt Knopf eines Add-ons, sobald
+      // es eins installiert oder aktualisiert (GitHub-Issue #33) – das ist
+      // keine eigene Anordnung: ebenso füllen, Knöpfe der Add-ons bleiben
+      const { getDefaultItemIdsForSpace, EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+      const own = ids => ids.filter(id => !id.startsWith(EXTENSION_PREFIX));
+      const isTbDefault = (space, ids) => {
+        const a = own(ids);
+        const b = own(getDefaultItemIdsForSpace(space));
+        return a.length == b.length && a.every((id, i) => id == b[i]);
+      };
       for (const space of ["mail", ...Object.keys(SPACE_TOOLBARS)]) {
-        if (!state[space]) {
-          state[space] = this.haloToolbar(space);
-          changed = true;
+        const stored = state[space];
+        if (!stored || isTbDefault(space, stored)) {
+          const ids = this.haloToolbar(space);
+          if (ids) {
+            state[space] = [...ids, ...(stored || []).filter(id => id.startsWith(EXTENSION_PREFIX) && !ids.includes(id))];
+            changed = true;
+          }
         }
       }
       if (changed) {

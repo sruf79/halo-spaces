@@ -3514,6 +3514,31 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Toolbar anpassen: Zurücksetzen stellt die halo.spaces-Anordnung her (Antworten-Knöpfe in der Toolbar, nur Symbole), Mailkopf ohne eigene Knöpfe", toolbar_reset, results)
 
+    def toolbar_addon_default():
+        # GitHub-Issue #33: Thunderbird speichert seinen Standard (nur Suche) samt Knopf eines Add-ons, sobald eins
+        # installiert wird – die Toolbar bekommt trotzdem die halo.spaces-Anordnung, der Knopf des Add-ons bleibt am Ende;
+        # eine wirklich eigene Anordnung bleibt unangetastet
+        res = m.js(r"""
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const { getDefaultItemIdsForSpace, EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+          const saved = getState();
+          const ext = EXTENSION_PREFIX + "halo-test-addon";
+          const tb = getDefaultItemIdsForSpace("mail").filter(id => !id.startsWith(EXTENSION_PREFIX));
+          const out = { tb };
+          try {
+            storeState({ ...saved, mail: [...tb, ext] }); await ruhig(600);
+            out.mail = getState().mail;
+            const mine = ["write-message", "spacer", "search-bar"];
+            storeState({ ...saved, mail: mine }); await ruhig(600);
+            out.own = getState().mail;
+          } finally { storeState(saved); await ruhig(500); }
+          return out;""")
+        mail = res.get("mail") or []
+        ok = ("reply" in mail and "get-messages" in mail and mail[-1].endswith("halo-test-addon") and mail.count(mail[-1]) == 1
+              and res.get("own") == ["write-message", "spacer", "search-bar"])
+        return ok, f"{res}"
+    check("Toolbar: gespeicherter Thunderbird-Standard mit Knopf eines Add-ons bekommt die halo.spaces-Anordnung, Add-on-Knopf am Ende, eigene Anordnung bleibt", toolbar_addon_default, results)
+
     def spaces_customize():
         res = m.js(FOLDER_JS + r"""
           await toMail();

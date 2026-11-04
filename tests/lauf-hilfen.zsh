@@ -37,6 +37,10 @@ for z in sys.stdin:
         d = json.loads(z)
     except ValueError:
         continue
+    # Ausgaben von Befehlen wie /compact sind keine neue Eingabe
+    c = (d.get("message") or {}).get("content")
+    if d.get("isMeta") or d.get("isCompactSummary") or (isinstance(c, str) and c.lstrip().startswith(("<local-command", "<command-name>"))):
+        continue
     if d.get("type") in ("user", "assistant"):
         letzte = d
 if letzte is None:

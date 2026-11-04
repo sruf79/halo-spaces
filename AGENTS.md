@@ -363,6 +363,26 @@ dem Maintainer kurz sagen (LaunchAgent prüfen: `tests/mac-mini-setup.sh
 --check`) und ohne neon weiterarbeiten. Verlangt der Zugriff eine
 Bestätigung, fragt die Claude-App den Maintainer selbst.
 
+**Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
+4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen
+fertige Arbeit aber ohne Rückfrage selbst nach `main` – kein Pull Request,
+kein Merge durch den Maintainer. Ablauf am Ende eines Arbeitsblocks:
+`git fetch origin main`, auf `origin/main` rebasen, `git push origin
+HEAD:main`, den Zweig auf denselben Stand bringen. Dabei:
+
+- Gesammelt pushen wie unter „Testrechner“: je Eintrag committen, einmal am
+  Ende pushen – jeder Push mit Codeänderung belegt neon rund 60 Minuten
+  (reine `*.md`-Änderungen nicht).
+- Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
+  nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch
+  sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
+- Nicht zwischen 01:30 und 07:00 Wiener Zeit pushen (Nachtlauf wartet auf die
+  CI genau seines Commits; ein weiterer Push in derselben `halo-mac`-Warteschlange
+  kann dessen Lauf verdrängen) – dann bis danach warten bzw. es dem
+  Maintainer sagen.
+- Kein Release aus der Cloud (siehe „Release“); den Board-Status über neon
+  oder den Maintainer pflegen.
+
 ## GitHub-Issues und Pull Requests von Nutzern
 
 Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.

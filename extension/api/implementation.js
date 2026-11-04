@@ -2138,13 +2138,34 @@ function hookPrefCategories(cw, restorers = null) {
   const overlays = new Map();
   const detach = [];
   const X = "http://www.w3.org/1999/xhtml";
+  const labelOf = pane => {
+    const link = pane.footer ? doc.getElementById(pane.footer) : null;
+    return pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
+      link?.querySelector(".sidebar-footer-label")?.getAttribute("value");
+  };
+  // alle Kategorien auf einmal: ist eine Fußzeile noch nicht übersetzt
+  // (langsamer Start, z. B. Linux), später erneut – sonst stünde halo.spaces
+  // schon da und Konten/Add-ons kämen nie dazu (der Aufruf oben bricht dann ab)
+  if (host && PREF_PANES.some(p => !labelOf(p))) {
+    const tries = (cw.__mcPrefTries || 0) + 1;
+    if (tries <= 40) {
+      cw.__mcPrefTries = tries;
+      cw.setTimeout(() => {
+        try {
+          hookPrefCategories(cw, restorers);
+        } catch (e) {
+          log("pref categories retry error", e);
+        }
+      }, 150);
+      return;
+    }
+  }
   const added = [];
   for (const pane of PREF_PANES) {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
-    const label = pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
-      link?.querySelector(".sidebar-footer-label")?.getAttribute("value");
+    const label = labelOf(pane);
     if (!label || (!pane.options && !host)) {
-      continue; // Fußzeile noch nicht übersetzt – beim nächsten Aufruf
+      continue; // Fußzeile auch nach 6 s nicht übersetzt – ohne diese Kategorie
     }
     const item = doc.createXULElement("richlistitem");
     item.id = "mcCat-" + pane.value;

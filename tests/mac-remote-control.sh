@@ -8,15 +8,16 @@
 # nach ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt.
 #   mac-remote-control.sh <Repo-Ordner>
 # HALO_RC_NAME (Standard neon) benennt die Sitzungen, HALO_RC_MODUS setzt den
-# Rechte-Modus (Standard bypassPermissions wie die SSH-Sitzungen; sonst wartet
-# jede neue Sitzung bei jedem Befehl auf eine Bestätigung in der App).
+# Rechte-Modus (Standard auto wie die Cloud-Sitzungen: bei verschiedenen Modi
+# bleiben Antworten an Cloud-Sitzungen ohne Abfrage hängen; was neon
+# regelmäßig braucht, erlaubt ~/.claude/settings.json ausdrücklich).
 # Neue Sitzungen arbeiten direkt im Checkout (--spawn=same-dir), nicht in
 # eigenen Worktrees – unabhängig davon, was zuletzt von Hand gewählt wurde.
 emulate -L zsh
 
 REPO=${1:?Aufruf: mac-remote-control.sh <Repo-Ordner>}
 NAME=${HALO_RC_NAME:-neon}
-MODUS=${HALO_RC_MODUS-bypassPermissions}
+MODUS=${HALO_RC_MODUS-auto}
 # LaunchAgents lesen ~/.zprofile nicht: übliche Orte von claude selbst ergänzen
 path=(~/.local/bin /opt/homebrew/bin /usr/local/bin $path)
 zeit() { date '+%F %T' }

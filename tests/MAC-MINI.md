@@ -435,8 +435,10 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
   (höchstens einmal pro Minute).
 - Die Sitzungen heißen `neon` (`HALO_RC_NAME` ändert das) und erscheinen in
   der Claude-App unter Claude Code. Rückfragen zu Rechten zeigt die App.
-  Rechte-Modus: der von Claude Code auf dem Mini, mit `HALO_RC_MODUS` (z. B.
-  `acceptEdits`) im Skript fest einstellbar.
+  Rechte-Modus: `auto` wie die Cloud-Sitzungen (sonst bleiben Antworten an
+  sie ohne Abfrage hängen), mit `HALO_RC_MODUS` im Skript änderbar. Was neon
+  regelmäßig braucht (gh, git, Tests, Release, prlctl, `~/halo-aufgaben`,
+  `~/halo-berichte`), steht als Allow-Regel in `~/.claude/settings.json`.
 - Aus einer Cloud-Sitzung: `ListAgents` zeigt die Sitzung auf dem Mini,
   `SendMessage` an `neon` gibt ihr eine Aufgabe. Beim ersten Mal fragt die
   Claude-App einmalig, ob Cloud-Sitzungen die eigenen Rechner erreichen

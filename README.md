@@ -181,6 +181,10 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.16.1
+
+- **Fix**: "Install version …" in Help → halo.spaces no longer stays on "Installing …" – the update is installed right away and the window closes
+
 ## What's new in 3.16.0
 
 - **Tasks, laid out like Mail**: the list is as wide as the message list, "+", Complete, Category, Priority and Delete sit above the open task, which takes the rest of the width (never narrower than its buttons). A continuous divider separates the two, and "No Task Selected" shows when nothing is picked

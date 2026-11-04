@@ -16839,10 +16839,13 @@ class CardEnhancer {
     if (row && topEl && titleEl) {
       const tr0 = rectOf(topEl), ti = rectOf(titleEl);
       if (tr0?.width && ti?.width) {
-        // ab der Innenkante (ohne den 1-px-Rand links, sonst rückt der Titel am
-        // Ende um 1 px nach links) und ungerundet
-        row.style.setProperty("--mc-tt-off", `${(ti.left - tr0.left - topEl.clientLeft).toFixed(2)}px`);
+        // Versatz im Zustand der Animation selbst messen (Rand, Innenabstand,
+        // Bruchteile – sonst rückte der Titel am Ende um 1 px): erst ohne
+        // Versatz an den Anfang, dann so weit, bis er am Endplatz steht
+        row.style.setProperty("--mc-tt-off", "0px");
         row.setAttribute("data-mc-tp-anim", "");
+        const origin = rectOf(titleEl)?.left ?? tr0.left;
+        row.style.setProperty("--mc-tt-off", `${(ti.left - origin).toFixed(2)}px`);
       }
     }
     // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to)

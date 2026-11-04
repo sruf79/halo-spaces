@@ -10342,7 +10342,10 @@ Neu
           const item = d.getElementById("mcHaloSpaces");
           const halo = () => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html"));
           halo()?.close(); await ruhig(300);
-          const out = { start: { days: Services.prefs.getIntPref(P + "usageDays", 0), today: Services.prefs.getStringPref(P + "lastDay", "") == T.today(),
+          // (lief der Test über Mitternacht, steht der Starttag noch auf gestern – der stündliche Zähler holt ihn nach)
+          const last = Services.prefs.getStringPref(P + "lastDay", ""), y = new Date(Date.now() - 864e5);
+          const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`;
+          const out = { start: { days: Services.prefs.getIntPref(P + "usageDays", 0), today: last == T.today() || last == yesterday,
             due: T.due(), image: item?.getAttribute("image") }, plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => T.dueDay(n)) };
           const orig = w.openLinkExternally; let opened = [];
           w.openLinkExternally = url => { opened.push(String(url)); };

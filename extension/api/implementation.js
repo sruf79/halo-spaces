@@ -4790,7 +4790,7 @@ const TASK_VIEW_PREF = "extensions.mailcards.taskView";
 const TASK_COLUMNS_PREF = "extensions.mailcards.taskTableColumns";
 const TASK_DETAILS_WIDTH_PREF = "extensions.mailcards.taskDetailsWidth";
 const TASK_LIST_COLUMNS = ["completed", "title", "dueDate"];
-const TASK_SIDE_MIN = 760; // Liste 360 + Details 360 + Teiler/Luft
+const TASK_SIDE_MIN = 760; // höchstens: Liste 360 + Details 360 + Teiler/Luft
 // Kartenliste der Aufgaben wie die Mailliste: nie schmaler als ihre Karten, nie breiter als nötig
 const TASK_LIST_MIN = 360;
 const TASK_LIST_MAX = 640;
@@ -4847,7 +4847,10 @@ function applyTaskView(win, mode = taskView()) {
   if (!boxWidth) {
     return;
   }
-  const side = list && boxWidth >= TASK_SIDE_MIN;
+  // (Details neben der Liste, solange Liste und ihre Knopfzeile hineinpassen –
+  // sonst hält die Mindestbreite des Fensters das ohnehin fest)
+  const detailsMin = parseFloat(root.style.getPropertyValue("--mc-task-details-min")) || 360;
+  const side = list && boxWidth >= Math.min(TASK_SIDE_MIN, 280 + detailsMin + 10);
   if (side == root.hasAttribute("mc-task-side")) {
     return;
   }
@@ -10699,10 +10702,11 @@ class CardEnhancer {
     const d = w.document;
     const root = d.documentElement;
     const tabmail = d.getElementById("tabmail");
-    const FLEX = ["messagePane", "detailsPane", "preferencesContainer", "calendarDisplayBox", "conversationsBox"];
+    const FLEX = ["messagePane", "detailsPane", "preferencesContainer", "calendar-task-details-container", "calendarDisplayBox", "conversationsBox"];
     // Elemente im Hauptdokument nur im passenden Tab (ausgeblendete Tabs behalten
     // ihre Breite: der Kalender maß sonst 560×0 px und sperrte die Fensterbreite)
-    const MODE = { calendarDisplayBox: ["calendar", "tasks"], conversationsBox: ["chat"] };
+    // (Aufgaben: die Details neben der Liste schrumpfen, mit ihrer Knopfzeile als Mindestbreite)
+    const MODE = { calendarDisplayBox: ["calendar", "tasks"], conversationsBox: ["chat"], "calendar-task-details-container": ["tasks"] };
     const shown = el => {
       const r = el?.getBoundingClientRect();
       return !!r && r.width > 0 && r.height > 0 && (el.checkVisibility?.() ?? true);
@@ -11136,12 +11140,13 @@ class CardEnhancer {
         const details = d.getElementById("calendar-task-details-container");
         const taskList = d.documentElement.hasAttribute("mc-task-list") ? d.getElementById("mcTaskCards") : d.getElementById("calendar-task-tree");
         if (details?.__mcDragged) {
-          // von Hand gezogen: diese Breite der Details gilt weiter (eigene
-          // Aufteilung, nicht mehr die Listenbreite der Mail)
+          // von Hand gezogen: diese Listenbreite gilt jetzt auch für Mail und Adressbuch
           delete details.__mcDragged;
-          const dr0 = rectOf(details);
-          if (dr0?.width) {
-            this.mcTaskDetailsWidth = Math.round(dr0.width);
+          const lr0 = rectOf(taskList);
+          if (lr0?.width) {
+            this.mcListWidth = Math.round(lr0.width);
+            this.mcButtonsLeft = lr0.right + 6;
+            this.mcListPending = true;
           }
         }
         details?.setAttribute("data-mc-empty", tr("No Task Selected"));
@@ -11155,11 +11160,12 @@ class CardEnhancer {
             tp?.width ? tp.left : Infinity, w.innerWidth);
           if (dr.width && lr?.width && right) {
             const splitW = Math.max(0, dr.left - lr.right);
-            // Detailspalte etwa 400 px (von Hand gezogen: diese Breite), die
-            // Liste nimmt den Rest, mindestens 280 px
-            const want = this.mcTaskDetailsWidth || 400;
-            const max = Math.round(right - lr.left - splitW - 280);
-            const width = Math.max(360, Math.min(want, max));
+            // wie die Mail: Liste so breit wie die Mailliste, die Details nehmen
+            // den Rest – nie schmaler als ihre Knopfzeile (--mc-task-details-min)
+            const want = Math.round(right - (this.mcButtonsLeft - 6) - splitW);
+            const max = Math.round(right - lr.left - splitW - 280); // Liste mindestens 280 px
+            const dmin = parseFloat(d.documentElement.style.getPropertyValue("--mc-task-details-min")) || 360;
+            const width = Math.max(dmin, Math.min(want, max));
             if (Math.abs(dr.width - width) >= 1) {
               details.style.width = `${width}px`;
             }
@@ -11171,20 +11177,28 @@ class CardEnhancer {
         const pr = rectOf(plus?.querySelector("button"));
         let headRight;
         const actions = d.getElementById("task-actions-toolbar");
-        const ar = rectOf(actions);
-        if (side && lr?.width && plus) {
-          // Details daneben: „+“ rechts über der Liste (8 px vor ihrer Kante),
-          // Löschen links davon, der Kopf mit „…“ davor
-          const pw = rectOf(plus).width || 44;
-          edge = lr.right - 8 - pw;
-          const plusLeft = edge + (pw - (pr?.width || 40)) / 2;
-          const taLeft = Math.round(plusLeft - 6 - (ar?.width || 40));
-          setVar(actions, "--mc-ta-left", `${taLeft}px`);
-          headRight = (ar?.width ? taLeft : plusLeft) - 2;
-        } else {
+        {
           if (side && lr?.width) {
             edge = Math.max(edge, lr.right + 6);
             headRight = lr.right;
+            // Mindestbreite der Details: ihre Knopfzeile – „+“ samt dem Platz
+            // der Aktionen rechts davon, Suchfeld als Lupe, was rechts der Suche
+            // steht (Today-Knopf) und Innenabstand; darunter hält die
+            // Mindestbreite des Fensters fest (Bezeichnungen nie gekürzt)
+            const dr = rectOf(details);
+            const pl = rectOf(plus);
+            const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+            const sr = rectOf(search);
+            if (dr?.width && pl?.width && sr?.width) {
+              const reserve = parseFloat(w.getComputedStyle(plus).marginInlineEnd) || 0;
+              // (rechts der Suche bis zur Kante der Details, z. B. der Today-Knopf
+              // bei geschlossener Today-Pane – nicht die Today-Pane selbst)
+              const tail = Math.max(0, dr.right - sr.right);
+              const need = Math.ceil(pl.right + reserve - dr.left + 40 + tail + 6);
+              if (Math.abs((parseFloat(d.documentElement.style.getPropertyValue("--mc-task-details-min")) || 0) - need) >= 1) {
+                d.documentElement.style.setProperty("--mc-task-details-min", `${need}px`);
+              }
+            }
           } else {
             headRight = edge - 6;
           }

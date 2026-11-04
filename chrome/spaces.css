@@ -9112,7 +9112,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 #detailsPane { min-width: 480px !important; }
 #calendarDisplayBox { min-width: 560px !important; }
 #calendar-task-tree { min-width: 360px !important; }
-#calendar-task-details-container { min-width: 360px !important; }
+/* Mindestbreite der Details neben der Liste: ihre Knopfzeile (misst die Erweiterung) */
+#calendar-task-details-container { min-width: var(--mc-task-details-min, 360px) !important; }
 #preferencesContainer { min-width: 560px !important; }
 #conversationsBox { min-width: 420px !important; }
 /* Today-Pane fest 280 px breit (nicht von Hand veränderbar – die Trennlinie
@@ -9841,15 +9842,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    wie die Knöpfe über der Mail oben in der Toolbar-Zeile – nur Symbole in
    einer Kapsel gleich rechts vom „+“ (--mc-row-top/-h, --mc-ta-left setzt die
    Erweiterung; das „+“ hält dafür Platz frei); der Name steht im Tooltip */
-:root[mc-tab="tasks"]:not([mc-task-side]):has(#calendar-task-details-container:not([hidden])) #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]) {
+:root[mc-tab="tasks"]:has(#calendar-task-details-container:not([hidden])) #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]),
+:root[mc-tab="tasks"][mc-task-side] #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]) {
+  /* (Details neben der Liste: Platz auch ohne Auswahl, wie die Mail-Knöpfe) */
   margin-inline-end: 218px !important;
-}
-
-/* Details neben der Liste: über der Liste rechts „…“, Löschen, „+“ (wie die
-   Vorlage nach Erinnerungen); Erledigt, Kategorie und Priorität nicht in der
-   Toolbar – sie stehen am Ring, in den Details, im Kontext- und im Menü */
-:root[mc-tab="tasks"][mc-task-side] #task-actions-toolbar > :is(#task-actions-markcompleted, #task-actions-category, #task-actions-priority) {
-  display: none !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar {

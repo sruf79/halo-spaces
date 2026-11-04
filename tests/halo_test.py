@@ -6896,9 +6896,10 @@ def run_checks(m, version, profile, results):
           for (const width of [1500, 2000, 2600]) { w.resizeTo(width, 900); await wait(1300);
             const a3 = await toMail(); out[width] = Math.round(a3.document.getElementById("threadPane").getBoundingClientRect().width); }
           w.resizeTo(1500, 900); await wait(800); return out;""")
-        # Windows: die Fensterknöpfe stehen mit in der Toolbar-Zeile – bei 1500 px braucht die Leseansicht dort
-        # etwas mehr Platz und die Liste gibt bis zu 30 px ab (gewollte Begrenzung im engen Fenster)
-        ok = all(abs(v - 460) <= 1 or (sys.platform == "win32" and k == "1500" and 430 <= v <= 460) for k, v in res.items())
+        # Windows und Linux: die Fensterknöpfe stehen mit in der Toolbar-Zeile – bei 1500 px braucht die Leseansicht
+        # dort etwas mehr Platz und die Liste gibt bis zu 30 px ab (gewollte Begrenzung im engen Fenster; unter Linux
+        # je nach Fenstermanager, daher dort mal 460, mal 431); ab 2000 px muss sie wieder ihre 460 haben
+        ok = all(abs(v - 460) <= 1 or (sys.platform != "darwin" and k == "1500" and 430 <= v <= 460) for k, v in res.items())
         return ok, f"Listenbreite je Fensterbreite {res} (soll 460)"
     check("Mailliste behält ihre Breite", list_width, results)
 

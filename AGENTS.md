@@ -131,12 +131,14 @@ haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
 gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
 erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 
-**Antworten von neon:** `send_message` aus neon scheitert stets mit „MCP
-tool call requires approval“ (ohne sichtbare Abfrage, auch mit Allow-Regel).
-neon antwortet deshalb mit `SendMessage` an den Namen der Sitzung aus
-`ListAgents` (Name per `list_sessions` der Sitzungs-ID zuordnen). Der Weg
-meldet nicht, ob die Nachricht gelesen wurde; Cloud-Sitzungen lesen die
-Antwort in ihrem eigenen Verlauf und bekommen sie als neue Nachricht.
+**Antworten von neon:** neon muss im Modus „Auto“ laufen wie die
+Cloud-Sitzungen (in der Cloud gibt es kein `bypassPermissions`). Bei
+verschiedenen Modi hält die empfangende Sitzung Nachrichten zurück, und auf
+keiner Seite erscheint eine Abfrage (Test vom 4.11.2026). neon antwortet mit
+`SendMessage` an den Namen der Sitzung aus `ListAgents` (Name per
+`list_sessions` der Sitzungs-ID zuordnen); das meldet nicht, ob die Nachricht
+gelesen wurde, sie erscheint dort als neue Nachricht. `send_message` aus neon
+scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
 
 ## Testrechner (Mac mini)
 

@@ -162,6 +162,14 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
   `mac` hell und dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
+- **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb
+  des Nachtlaufs committen Fertiges, das nicht sofort auf GitHub muss
+  (Abläufe, Skripte, Prüfungen, Doku, kleine Korrekturen), auf `main` in
+  `~/halo-spaces` und pushen nicht; der nächste Nachtlauf pusht diese Commits
+  zusammen mit seinen eigenen in einer CI-Runde (Entscheidung des Maintainers
+  vom 4.11.2026). Vorher muss der Checkout sauber sein (keine halbfertigen
+  Änderungen einer anderen Sitzung). Sofort pushen nur, wenn etwas davon
+  abhängt (Release, Fix für Nutzer, Stand wird anderswo gebraucht).
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
   machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
   Push, CI und Release das Board nicht erneut laden: Was während des Laufs

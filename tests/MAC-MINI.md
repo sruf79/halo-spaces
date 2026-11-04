@@ -463,7 +463,10 @@ abwarten (`tests/ci-warten.sh`, etwa 50 Minuten: Linux ~16, `mac` ~32,
 dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
 mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
 Reparaturrunden, keine neue ab 07:30, sonst kein Release. Der Bericht nennt
-die CI-Läufe mit ID, Ergebnis und Dauer je Job.
+die CI-Läufe mit ID, Ergebnis und Dauer je Job. Tagsüber committete, nicht
+gepushte Commits auf `main` (Nicht Eiliges, AGENTS.md) pusht er mit – auch
+in Nächten ohne eigene Einträge, dann ohne Release, außer es sind Bugs oder
+Features darunter.
 
 - Einrichten bzw. nach Änderungen am Skript erneuern:
   `tests/mac-mini-setup.sh --ohne-probelauf` (LaunchAgent

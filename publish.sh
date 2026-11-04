@@ -132,8 +132,10 @@ echo "Update-Liste geprüft: $UPDATE_URL bietet $VERSION mit richtigem Hash und 
 STATUS+=("Update-Liste geprüft: $UPDATE_URL bietet $VERSION mit richtigem Hash und Download an")
 ERGEBNIS="veröffentlicht"
 
-# zusätzlich auf addons.thunderbird.net, sobald die Schlüssel eingerichtet sind
-if [[ -f "$HOME/.config/halo-spaces/atn.env" && -z "$SKIP_ATN" ]]; then
+# addons.thunderbird.net nur auf ausdrücklichen Wunsch (ATN=1): Der Store nimmt
+# derzeit keine neuen Add-ons mit eigener Experiment-API an (Ablehnung von
+# 3.15.0 am 4.11.2026), jeder Upload würde wieder abgelehnt. store/README.md
+if [[ -n "$ATN" && -f "$HOME/.config/halo-spaces/atn.env" ]]; then
   # Die Prüfer wollen den Quellcode (theme.css wird erzeugt). Die Schnittstelle
   # von addons.thunderbird.net nimmt nur das Paket an, das Zip wird deshalb im
   # Developer Hub nachgereicht.
@@ -146,11 +148,11 @@ if [[ -f "$HOME/.config/halo-spaces/atn.env" && -z "$SKIP_ATN" ]]; then
   if python3 store/atn_upload.py "$VERSION"; then
     STATUS+=("Store (addons.thunderbird.net): hochgeladen")
   else
-    echo "WARNUNG: Hochladen auf addons.thunderbird.net fehlgeschlagen (SKIP_ATN=1 überspringt)"
+    echo "WARNUNG: Hochladen auf addons.thunderbird.net fehlgeschlagen"
     STATUS+=("WARNUNG: Store-Upload (addons.thunderbird.net) fehlgeschlagen – GitHub-Update ist trotzdem draußen")
     ERGEBNIS="veröffentlicht, Store-Upload fehlgeschlagen"
   fi
 else
-  STATUS+=("Store (addons.thunderbird.net): übersprungen")
+  STATUS+=("Store (addons.thunderbird.net): ausgesetzt (Experiment-APIs dort derzeit nicht angenommen; ATN=1 lädt hoch)")
 fi
 exit 0

@@ -35,7 +35,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
-| `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net |
+| `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
 ## Offizielle Thunderbird-Doku
@@ -202,7 +202,7 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 
 ```bash
 ./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel, updates.json, Testmarke
-./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, ATN-Upload, Bericht
+./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, Bericht
 ```
 
 **Wann:** Nach einem Lauf, der Bugs/Features abgearbeitet hat, oder nach

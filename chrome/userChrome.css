@@ -2020,6 +2020,9 @@ findbar .findbar-textbox:focus {
   --mi-star-fill: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3.8 9.71 9.24l-5.89.5 4.47 3.87-1.34 5.75L12 16.3l5.05 3.06-1.34-5.75 4.47-3.87-5.89-.5z%22 fill=%22%23000%22/%3E%3C/svg%3E");
   --mi-folder-split: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 46 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 7.8A2.3 2.3 0 0 1 5.3 5.5h3.9l2.1 2.1h7.4A2.3 2.3 0 0 1 21 9.9v7.8a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 17.7z%22/%3E%3Cpath d=%22M3 10.3h18%22/%3E%3Cpath d=%22M30.5 6v12%22 stroke-width=%221%22/%3E%3Cpath d=%22m36 10.5 3.5 3.5 3.5-3.5%22/%3E%3C/svg%3E");
   --mi-chevron: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E");
+  /* Adressbuch in Bereichsleiste und -menü: Person im Kreis wie das Kontaktbild
+     (--mi-addressbook bleibt für die einzelnen Adressbücher der Seitenleiste) */
+  --mi-contacts: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%229%22/%3E%3CclipPath id=%22c%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.1%22/%3E%3C/clipPath%3E%3Cg clip-path=%22url(%23c)%22%3E%3Ccircle cx=%2212%22 cy=%229.6%22 r=%223.1%22/%3E%3Cpath d=%22M5.4 21.5c1.65-5.18 3.30-6.90 6.6 -6.90s4.95 1.73 6.6 6.90%22/%3E%3C/g%3E%3C/svg%3E");
   --mi-addressbook: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%224.5%22 y=%223.5%22 width=%2215%22 height=%2217%22 rx=%222.4%22/%3E%3Ccircle cx=%2212%22 cy=%2210.2%22 r=%222.6%22/%3E%3Cpath d=%22M8.1 16.6c.8-1.9 2.2-2.8 3.9-2.8s3.1.9 3.9 2.8%22/%3E%3Cpath d=%22M4.5 7.5H3M4.5 12H3M4.5 16.5H3%22/%3E%3C/svg%3E");
   --mi-calendar: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223.5%22 y=%225%22 width=%2217%22 height=%2215.5%22 rx=%222.6%22/%3E%3Cpath d=%22M3.5 9.6h17%22/%3E%3Cpath d=%22M8 3.2v3.4M16 3.2v3.4%22/%3E%3Ccircle cx=%228%22 cy=%2213.2%22 r=%22.9%22 fill=%22%23000%22 stroke=%22none%22/%3E%3Ccircle cx=%2212%22 cy=%2213.2%22 r=%22.9%22 fill=%22%23000%22 stroke=%22none%22/%3E%3Ccircle cx=%2216%22 cy=%2213.2%22 r=%22.9%22 fill=%22%23000%22 stroke=%22none%22/%3E%3Ccircle cx=%228%22 cy=%2216.8%22 r=%22.9%22 fill=%22%23000%22 stroke=%22none%22/%3E%3Ccircle cx=%2212%22 cy=%2216.8%22 r=%22.9%22 fill=%22%23000%22 stroke=%22none%22/%3E%3C/svg%3E");
   --mi-tasks: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath d=%22m8.2 12.2 2.6 2.6 5-5.4%22/%3E%3C/svg%3E");
@@ -2505,20 +2508,23 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mt-text) 28%, transparent) !important;
 }
 
+/* Schatten der aktiven Kachel: kräftig genug, aber nicht bis in die Nachbar-
+   kachel (6 px Abstand); dunkel mit heller Kante (schwarzer Schatten allein
+   verschwand auf der fast schwarzen Leiste) */
 #spacesToolbar .spaces-toolbar-button.current {
   background-color: color-mix(in srgb, var(--c) 16%, transparent) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14), 0 3px 8px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.17) !important;
 }
 
 @media (prefers-color-scheme: dark) {
   #spacesToolbar .spaces-toolbar-button.current {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
   }
 }
 
 /* aktiver Bereich: gefülltes Symbol (Aussparungen echt transparent) */
 :is(#mailButton, #spacesPopupButtonMail).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/envelope-fill.svg") !important; }
-:is(#addressBookButton, #spacesPopupButtonAddressBook).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/addressbook-fill.svg") !important; }
+:is(#addressBookButton, #spacesPopupButtonAddressBook).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/contacts-fill.svg") !important; }
 :is(#calendarButton, #spacesPopupButtonCalendar).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/calendar-fill.svg") !important; }
 :is(#tasksButton, #spacesPopupButtonTasks).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/tasks-fill.svg") !important; }
 :root:not([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/chat-fill.svg") !important; }
@@ -2527,13 +2533,13 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 /* Ersatz-Bereich mit Originalsymbol: hell bleibt die Fläche weiß (Markierung
    nur durch den Schatten), dunkel das Neutralgrau etwas heller */
 :root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
-  box-shadow: inset 0 0 0 0.5px var(--mt-pane-line), 0 1px 2px rgba(0, 0, 0, 0.14), 0 3px 8px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: inset 0 0 0 0.5px var(--mt-pane-line), 0 1px 1.5px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.17) !important;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
     background-color: color-mix(in srgb, var(--mt-text) 20%, transparent) !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0.5px 0 rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
   }
 }
 
@@ -2631,7 +2637,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 }
 
 :is(#mailButton, #spacesPopupButtonMail) > :is(img, .menu-icon) { mask-image: var(--mi-envelope) !important; }
-:is(#addressBookButton, #spacesPopupButtonAddressBook) > :is(img, .menu-icon) { mask-image: var(--mi-addressbook) !important; }
+:is(#addressBookButton, #spacesPopupButtonAddressBook) > :is(img, .menu-icon) { mask-image: var(--mi-contacts) !important; }
 :is(#calendarButton, #spacesPopupButtonCalendar) > :is(img, .menu-icon) { mask-image: var(--mi-calendar) !important; }
 :is(#tasksButton, #spacesPopupButtonTasks) > :is(img, .menu-icon) { mask-image: var(--mi-tasks) !important; }
 :is(#chatButton, #spacesPopupButtonChat) > :is(img, .menu-icon) { mask-image: var(--mi-chat) !important; }

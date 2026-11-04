@@ -12426,23 +12426,32 @@ Neu
         res = m.js(r"""
           const out = {};
           const pct = c => { const m = /\/ ?([\d.]+)\)$/.exec(c) || /rgba\([^)]*,\s*([\d.]+)\)$/.exec(c); return m ? Math.round(parseFloat(m[1]) * 100) : null; };
-          for (const [name, go] of [["mail", toMail], ["calendar", toCalendar]]) {
+          const toAb = async () => { tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane, "Adressbuch", 8000); };
+          const toSettings = async () => { w.openPreferencesTab("paneGeneral"); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("pref-category-box"), "Einstellungen", 8000); };
+          for (const [name, go] of [["mail", toMail], ["calendar", toCalendar], ["addressbook", toAb], ["settings", toSettings]]) {
             await go(); await ruhig(600);
             const b = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button.current")].find(e => e.getBoundingClientRect().width);
             const other = [...d.querySelectorAll("#spacesToolbar .spaces-toolbar-button:not(.current)")].find(e => e.getBoundingClientRect().width);
             const cs = w.getComputedStyle(b), after = w.getComputedStyle(b, "::after");
             const ob = w.getComputedStyle(other).backgroundColor;
             InspectorUtils.addPseudoClassLock(other, ":hover"); const hov = w.getComputedStyle(other).backgroundColor; InspectorUtils.removePseudoClassLock(other, ":hover");
-            out[name] = { bg: pct(cs.backgroundColor), shadow: cs.boxShadow != "none", fill: w.getComputedStyle(b.querySelector("img")).maskImage.includes("-fill.svg"),
+            out[name] = { bg: pct(cs.backgroundColor), shadow: cs.boxShadow, icon: (/icons\/([\w-]+-fill)\.svg/.exec(w.getComputedStyle(b.querySelector("img")).maskImage) || [])[1] || null,
+                          fill: w.getComputedStyle(b.querySelector("img")).maskImage.includes("-fill.svg"),
                           chevron: after.content != "none" && after.width != "auto", tile: Math.round(b.getBoundingClientRect().width),
                           other: { bg: pct(ob), hover: pct(hov), fill: w.getComputedStyle(other.querySelector("img")).maskImage.includes("-fill.svg"), shadow: w.getComputedStyle(other).boxShadow != "none" } };
           }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           await toMail();
+          out.dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
           return out;""")
-        ok = all(v["bg"] == 16 and v["shadow"] and v["fill"] and not v["chevron"] and v["tile"] == 48
-                 and v["other"]["bg"] == v["other"]["hover"] == 11 and not v["other"]["fill"] and not v["other"]["shadow"] for v in res.values())
+        dark = res.pop("dark", False)
+        icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
+        # Schatten kräftiger, aber kurz (2 px 4 px statt 3 px 8 px – nicht bis in die Nachbarkachel); dunkel mit heller Kante
+        ok = all(v["bg"] == 16 and "2px 4px" in v["shadow"] and ("inset" in v["shadow"]) == dark and v["icon"] == icons[k]
+                 and v["fill"] and not v["chevron"] and v["tile"] == 48
+                 and v["other"]["bg"] == v["other"]["hover"] == 11 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
-    check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol, 16 % Fläche und leisem Schatten statt Chevron; Überfahren ändert nichts", spaces_current_fill, results)
+    check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol (Adressbuch als Person im Kreis), 16 % Fläche und kurzem Schatten (dunkel mit heller Kante) statt Chevron; Überfahren ändert nichts", spaces_current_fill, results)
 
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),
@@ -12506,7 +12515,7 @@ Neu
                 out.addon.today = shown(d.getElementById("today-pane-panel"));
                 // aktiver Ersatz-Bereich mit Originalsymbol: Markierung durch den Schatten
                 Services.prefs.setStringPref("extensions.mailcards.fifthSpaceIcon", "original"); await ruhig(400);
-                out.addon.shadow = w.getComputedStyle(chat).boxShadow.includes("3px 8px") || w.getComputedStyle(chat).boxShadow.includes("3px 10px");
+                out.addon.shadow = w.getComputedStyle(chat).boxShadow.includes("2px 4px");
                 Services.prefs.clearUserPref("extensions.mailcards.fifthSpaceIcon"); await ruhig(400);
                 await toMail(); await ruhig(300);
                 out.addon.afterMail = { current: chat.classList.contains("current"), today: shown(d.getElementById("today-pane-panel")) };

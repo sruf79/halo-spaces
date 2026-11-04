@@ -32,6 +32,32 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Hide “{name}”": "„{name}“ ausblenden",
+  "Show “On My Mac”": "„Auf meinem Mac“ anzeigen",
+  "Show “On This Computer”": "„Auf diesem Computer“ anzeigen",
+  "In the folder list. Hidden while empty.": "In der Ordnerliste. Leer immer ausgeblendet.",
+  "halo.spaces {version} is available": "halo.spaces {version} ist verfügbar",
+  "Install Now": "Jetzt installieren",
+  "Or it installs on the next start. Thunderbird briefly shows its own look while updating.": "Oder es wird beim nächsten Start installiert. Während des Updates zeigt Thunderbird kurz seine eigene Optik.",
+  "Automatic updates are off.": "Automatische Updates sind aus.",
+  "Open Outlook Data File (PST)…": "Outlook-Datendatei (PST) öffnen …",
+  "Open Outlook Data File": "Outlook-Datendatei öffnen",
+  "Outlook Data File (PST)": "Outlook-Datendatei (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "{file} konnte nicht gelesen werden. Vielleicht ist die Datei beschädigt oder keine Outlook-Datendatei.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} Nachrichten in {f} Ordnern.",
+  "Importing the messages comes in a later version.": "Das Importieren der Nachrichten kommt in einer späteren Version.",
+  "Archive Account Locally…": "Konto lokal archivieren …",
+  "Archive Account Locally": "Konto lokal archivieren",
+  "Stop Archiving": "Archivieren stoppen",
+  "{name} (Archive)": "{name} (Archiv)",
+  "Archiving {folder}…": "{folder} wird archiviert …",
+  "Archiving {folder}… {n} messages": "{folder} wird archiviert … {n} Nachrichten",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Alle Ordner von {account} nach Lokale Ordner kopieren, in einen Ordner namens {target}? Die Kopie bleibt erhalten, wenn du das Konto entfernst. Papierkorb, Spam und Entwürfe werden nicht kopiert.",
+  "Archiving stopped.": "Archivieren gestoppt.",
+  "Archiving finished.": "Archivieren abgeschlossen.",
+  "{n} messages copied in {f} folders.": "{n} Nachrichten in {f} Ordnern kopiert.",
+  "{n} messages were already archived.": "{n} Nachrichten waren schon archiviert.",
+  "Not copied: {list}": "Nicht kopiert: {list}",
   "Install version {v}": "Version {v} installieren",
   "+{n} more": "+{n} weitere",
   "{n} message": "{n} E-Mail",
@@ -233,6 +259,18 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "Show More": "Mehr anzeigen",
+  "Open|tasks": "Offen",
+  "No Task Selected": "Keine Aufgabe ausgewählt",
+  "Sunny": "Sonnig",
+  "Clear": "Klar",
+  "Partly Cloudy": "Teilweise bewölkt",
+  "Cloudy": "Bewölkt",
+  "Fog": "Nebel",
+  "Rain": "Regen",
+  "Snow": "Schnee",
+  "Thunderstorm": "Gewitter",
+  "Save Attachment": "Anhang speichern",
   "Actual Size": "Originalgröße",
   "All Headers": "Alle Kopfzeilen",
   "Normal Headers": "Normale Kopfzeilen",
@@ -394,6 +432,32 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Hide “{name}”": "Masquer « {name} »",
+  "Show “On My Mac”": "Afficher « Sur mon Mac »",
+  "Show “On This Computer”": "Afficher « Sur cet ordinateur »",
+  "In the folder list. Hidden while empty.": "Dans la liste des dossiers. Masqué tant qu’il est vide.",
+  "halo.spaces {version} is available": "halo.spaces {version} est disponible",
+  "Install Now": "Installer maintenant",
+  "Or it installs on the next start. Thunderbird briefly shows its own look while updating.": "Sinon, elle s’installe au prochain démarrage. Pendant la mise à jour, Thunderbird affiche brièvement son propre aspect.",
+  "Automatic updates are off.": "Les mises à jour automatiques sont désactivées.",
+  "Open Outlook Data File (PST)…": "Ouvrir un fichier de données Outlook (PST)…",
+  "Open Outlook Data File": "Ouvrir un fichier de données Outlook",
+  "Outlook Data File (PST)": "Fichier de données Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "Impossible de lire {file}. Le fichier est peut-être endommagé ou n’est pas un fichier de données Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file} : {n} messages dans {f} dossiers.",
+  "Importing the messages comes in a later version.": "L’importation des messages arrivera dans une version ultérieure.",
+  "Archive Account Locally…": "Archiver le compte localement…",
+  "Archive Account Locally": "Archiver le compte localement",
+  "Stop Archiving": "Arrêter l’archivage",
+  "{name} (Archive)": "{name} (Archive)",
+  "Archiving {folder}…": "Archivage de {folder}…",
+  "Archiving {folder}… {n} messages": "Archivage de {folder}… {n} messages",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Copier tous les dossiers de {account} dans Dossiers locaux, dans un dossier nommé {target} ? La copie reste si vous supprimez le compte. La corbeille, les indésirables et les brouillons ne sont pas copiés.",
+  "Archiving stopped.": "Archivage arrêté.",
+  "Archiving finished.": "Archivage terminé.",
+  "{n} messages copied in {f} folders.": "{n} messages copiés dans {f} dossiers.",
+  "{n} messages were already archived.": "{n} messages étaient déjà archivés.",
+  "Not copied: {list}": "Non copiés : {list}",
   "Install version {v}": "Installer la version {v}",
   "+{n} more": "+{n} autres",
   "{n} message": "{n} message",
@@ -595,6 +659,18 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "Show More": "Afficher plus",
+  "Open|tasks": "Ouvertes",
+  "No Task Selected": "Aucune tâche sélectionnée",
+  "Sunny": "Ensoleillé",
+  "Clear": "Dégagé",
+  "Partly Cloudy": "Partiellement nuageux",
+  "Cloudy": "Nuageux",
+  "Fog": "Brouillard",
+  "Rain": "Pluie",
+  "Snow": "Neige",
+  "Thunderstorm": "Orage",
+  "Save Attachment": "Enregistrer la pièce jointe",
   "Actual Size": "Taille réelle",
   "All Headers": "Tous les en-têtes",
   "Normal Headers": "En-têtes normaux",
@@ -756,6 +832,32 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Hide “{name}”": "Ocultar «{name}»",
+  "Show “On My Mac”": "Mostrar «En mi Mac»",
+  "Show “On This Computer”": "Mostrar «En este ordenador»",
+  "In the folder list. Hidden while empty.": "En la lista de carpetas. Oculto mientras está vacío.",
+  "halo.spaces {version} is available": "halo.spaces {version} está disponible",
+  "Install Now": "Instalar ahora",
+  "Or it installs on the next start. Thunderbird briefly shows its own look while updating.": "O se instala en el próximo inicio. Durante la actualización, Thunderbird muestra brevemente su propio aspecto.",
+  "Automatic updates are off.": "Las actualizaciones automáticas están desactivadas.",
+  "Open Outlook Data File (PST)…": "Abrir archivo de datos de Outlook (PST)…",
+  "Open Outlook Data File": "Abrir archivo de datos de Outlook",
+  "Outlook Data File (PST)": "Archivo de datos de Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "No se pudo leer {file}. Puede que esté dañado o que no sea un archivo de datos de Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} mensajes en {f} carpetas.",
+  "Importing the messages comes in a later version.": "La importación de los mensajes llegará en una versión posterior.",
+  "Archive Account Locally…": "Archivar la cuenta localmente…",
+  "Archive Account Locally": "Archivar la cuenta localmente",
+  "Stop Archiving": "Detener el archivado",
+  "{name} (Archive)": "{name} (Archivo)",
+  "Archiving {folder}…": "Archivando {folder}…",
+  "Archiving {folder}… {n} messages": "Archivando {folder}… {n} mensajes",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "¿Copiar todas las carpetas de {account} a Carpetas locales, en una carpeta llamada {target}? La copia se conserva si eliminas la cuenta. La papelera, el spam y los borradores no se copian.",
+  "Archiving stopped.": "Archivado detenido.",
+  "Archiving finished.": "Archivado terminado.",
+  "{n} messages copied in {f} folders.": "{n} mensajes copiados en {f} carpetas.",
+  "{n} messages were already archived.": "{n} mensajes ya estaban archivados.",
+  "Not copied: {list}": "No copiados: {list}",
   "Install version {v}": "Instalar la versión {v}",
   "+{n} more": "+{n} más",
   "{n} message": "{n} mensaje",
@@ -957,6 +1059,18 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "Show More": "Mostrar más",
+  "Open|tasks": "Abiertas",
+  "No Task Selected": "Ninguna tarea seleccionada",
+  "Sunny": "Soleado",
+  "Clear": "Despejado",
+  "Partly Cloudy": "Parcialmente nublado",
+  "Cloudy": "Nublado",
+  "Fog": "Niebla",
+  "Rain": "Lluvia",
+  "Snow": "Nieve",
+  "Thunderstorm": "Tormenta",
+  "Save Attachment": "Guardar adjunto",
   "Actual Size": "Tamaño real",
   "All Headers": "Todos los encabezados",
   "Normal Headers": "Encabezados normales",
@@ -1118,6 +1232,32 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Hide “{name}”": "Nascondi «{name}»",
+  "Show “On My Mac”": "Mostra «Sul mio Mac»",
+  "Show “On This Computer”": "Mostra «Su questo computer»",
+  "In the folder list. Hidden while empty.": "Nell’elenco delle cartelle. Nascosto finché è vuoto.",
+  "halo.spaces {version} is available": "halo.spaces {version} è disponibile",
+  "Install Now": "Installa ora",
+  "Or it installs on the next start. Thunderbird briefly shows its own look while updating.": "Oppure si installa al prossimo avvio. Durante l’aggiornamento Thunderbird mostra brevemente il suo aspetto.",
+  "Automatic updates are off.": "Gli aggiornamenti automatici sono disattivati.",
+  "Open Outlook Data File (PST)…": "Apri file di dati di Outlook (PST)…",
+  "Open Outlook Data File": "Apri file di dati di Outlook",
+  "Outlook Data File (PST)": "File di dati di Outlook (PST)",
+  "{file} could not be read. It may be damaged or not an Outlook data file.": "Impossibile leggere {file}. Il file potrebbe essere danneggiato o non essere un file di dati di Outlook.",
+  "{file}: {n} messages in {f} folders.": "{file}: {n} messaggi in {f} cartelle.",
+  "Importing the messages comes in a later version.": "L’importazione dei messaggi arriverà in una versione successiva.",
+  "Archive Account Locally…": "Archivia l’account in locale…",
+  "Archive Account Locally": "Archivia l’account in locale",
+  "Stop Archiving": "Interrompi l’archiviazione",
+  "{name} (Archive)": "{name} (Archivio)",
+  "Archiving {folder}…": "Archiviazione di {folder}…",
+  "Archiving {folder}… {n} messages": "Archiviazione di {folder}… {n} messaggi",
+  "Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.": "Copiare tutte le cartelle di {account} in Cartelle locali, in una cartella chiamata {target}? La copia resta anche se rimuovi l’account. Cestino, Spam e Bozze non vengono copiati.",
+  "Archiving stopped.": "Archiviazione interrotta.",
+  "Archiving finished.": "Archiviazione completata.",
+  "{n} messages copied in {f} folders.": "{n} messaggi copiati in {f} cartelle.",
+  "{n} messages were already archived.": "{n} messaggi erano già archiviati.",
+  "Not copied: {list}": "Non copiati: {list}",
   "Install version {v}": "Installa la versione {v}",
   "+{n} more": "+{n} altri",
   "{n} message": "{n} messaggio",
@@ -1319,6 +1459,18 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "Show More": "Mostra altro",
+  "Open|tasks": "Aperte",
+  "No Task Selected": "Nessuna attività selezionata",
+  "Sunny": "Soleggiato",
+  "Clear": "Sereno",
+  "Partly Cloudy": "Parzialmente nuvoloso",
+  "Cloudy": "Nuvoloso",
+  "Fog": "Nebbia",
+  "Rain": "Pioggia",
+  "Snow": "Neve",
+  "Thunderstorm": "Temporale",
+  "Save Attachment": "Salva allegato",
   "Actual Size": "Dimensioni reali",
   "All Headers": "Tutte le intestazioni",
   "Normal Headers": "Intestazioni normali",
@@ -1485,8 +1637,16 @@ function uiLanguage() {
   const lang = Services.locale.appLocaleAsBCP47.split("-")[0];
   return TRANSLATIONS[lang] ? lang : "en";
 }
+// Datums- und Zeitformat wie im System eingestellt (Region), nicht nach der
+// Sprache von Thunderbird (sonst 19/11/2026 statt 19.11.2026)
+function regionLocale() {
+  return Services.locale.regionalPrefsLocales?.[0] || Services.locale.appLocaleAsBCP47;
+}
+
+// („Text|Zusammenhang“: gleiches englisches Wort, andere Übersetzung – z. B.
+// „Open|tasks“ = „Offen“ statt „Öffnen“; angezeigt wird nur der Text)
 function tr(english, vars = null) {
-  const text = TRANSLATIONS[uiLanguage()]?.[english] ?? english;
+  const text = TRANSLATIONS[uiLanguage()]?.[english] ?? english.split("|")[0];
   return vars ? text.replace(/\{(\w+)\}/g, (all, key) => (key in vars ? String(vars[key]) : all)) : text;
 }
 
@@ -1826,8 +1986,8 @@ function hookAppearanceChoice(cw, restorers = null) {
 const PREF_PANES = [
   { value: "paneMcAccounts", footer: "accountButton", src: "about:accountsettings" },
   { value: "paneMcAddons", footer: "addonsButton", src: "about:addons" },
-  // Symbol ohne seine weiße Kachel, auf den Ring zugeschnitten – so groß wie die farbigen Kacheln der übrigen
-  { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "8 8 48 48", options: true },
+  // Symbol ohne seine weiße Kachel; der Ausschnitt lässt den weichen Rand des Rings ganz drin (enger wirkte er dick und kantig)
+  { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "3 3 58 58", options: true },
 ];
 const HALO_PANE = "paneMcHalo";
 const dataURIs = new Map();
@@ -1894,6 +2054,9 @@ function hookPrefCategories(cw, restorers = null) {
     name.textContent = label;
     item.append(img, name);
     categories.append(item);
+    if (pane.value == HALO_PANE) {
+      item.toggleAttribute("mc-update", !!UpdateNote.pending);
+    }
     // Unterpunkte der Seite direkt darunter (nur bei gewählter Kategorie sichtbar)
     let subs = null;
     if (pane.src) {
@@ -1974,7 +2137,8 @@ function hookPrefCategories(cw, restorers = null) {
     };
     for (const [section, rows] of haloSections()) {
       for (const row of rows) {
-        if ((row.mac && Services.appinfo.OS != "Darwin") || (row.needs && !settingNeeds()[row.needs])) {
+        if ((row.mac && Services.appinfo.OS != "Darwin") || (row.notMac && Services.appinfo.OS == "Darwin") ||
+            (row.needs && !settingNeeds()[row.needs])) {
           continue;
         }
         const entry = doc.createXULElement("hbox");
@@ -2143,10 +2307,12 @@ function hookPrefKeyboardScroll(cw, restorers = null) {
 // nur bei Spalten, die direkt unter der Toolbar-Zeile beginnen. Die Spalten
 // liegen teils in eigenen Dokumenten (about:3pane, Adressbuch, Einstellungen):
 // dort je ein Beobachter, angehängt beim ersten Bewegen bzw. Tab-Wechsel
+// (nicht im Kalender: Toolbar und Monatskopf bilden dort eine ruhige Fläche
+// wie im Kalender von Apple)
 const HOVER_COLUMNS = [
   "#threadPane", "#messagePane", "#cardsPane", "#detailsPane",
   "#mcTaskCards", "#calendar-task-tree", "#calendar-task-details-container",
-  "#calendarDisplayBox", ".paneDeckContainer", "#chat-conversations-box", "#conversationsBox",
+  ".paneDeckContainer", "#chat-conversations-box", "#conversationsBox",
 ].join(", ");
 function hookHoverLine(w, restorers = null) {
   const d = w.document;
@@ -2154,15 +2320,48 @@ function hookHoverLine(w, restorers = null) {
   if (!row || d.getElementById("mcHoverLine")) {
     return;
   }
+  const tm = d.getElementById("tabmail");
   const line = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
   line.id = "mcHoverLine";
   row.append(line);
-  let shown = null;
+  let shown = null, lastX = 0;
   const hide = () => {
     shown = null;
     line.removeAttribute("data-on");
   };
   const docs = new Set();
+  // Spalte, die direkt unter der Toolbar-Zeile beginnt und an Stelle x liegt
+  // (Spalten teils in eigenen Dokumenten: Lage plus Lage ihres Rahmens)
+  const columnAt = x => {
+    const rr = row.getBoundingClientRect();
+    for (const doc of docs) {
+      const frameEl = doc == d ? null : doc.defaultView?.frameElement;
+      const frame = frameEl?.getBoundingClientRect();
+      if (doc != d && !frame?.width) {
+        continue;
+      }
+      // eingebettete Ansicht eines anderen Tabs (z. B. die Mail hinter dem
+      // Kalender) behält ihre Größe – nur der gewählte Tab zählt
+      const selected = tm?.panelContainer?.selectedPanel;
+      if (frameEl && selected && frameEl.ownerDocument == d && !selected.contains(frameEl)) {
+        continue;
+      }
+      for (const col of doc.querySelectorAll(HOVER_COLUMNS)) {
+        // Spalten anderer Tabs liegen unsichtbar mit voller Größe darunter –
+        // im Hauptfenster nur die des gewählten Tabs
+        const panel = doc == d ? tm?.panelContainer?.selectedPanel : null;
+        if (col.hidden || (panel && !panel.contains(col))) {
+          continue;
+        }
+        const r = col.getBoundingClientRect();
+        const left = r.left + (frame?.left || 0), top = r.top + (frame?.top || 0);
+        if (r.width && r.height && Math.abs(top - rr.bottom) <= 4 && x >= left && x < left + r.width) {
+          return { col, left, width: r.width };
+        }
+      }
+    }
+    return null;
+  };
   const attach = doc => {
     if (!doc || docs.has(doc)) {
       return;
@@ -2172,6 +2371,7 @@ function hookHoverLine(w, restorers = null) {
     let pending = null, scheduled = false;
     const onMove = event => {
       pending = event.target;
+      lastX = event.clientX;
       if (scheduled) {
         return;
       }
@@ -2180,26 +2380,25 @@ function hookHoverLine(w, restorers = null) {
         scheduled = false;
         const target = pending;
         pending = null;
-        const col = target?.closest?.(HOVER_COLUMNS);
-        if (!col || col.hidden) {
+        // nur über der Toolbar-Zeile: die Linie gehört zur Spalte darunter
+        // (unten in der Spalte selbst ist sie aus)
+        if (doc != d || !target || !row.contains(target)) {
           hide();
           return;
         }
-        if (col == shown) {
+        attachCurrent();
+        const hit = columnAt(lastX);
+        if (!hit) {
+          hide();
           return;
         }
-        // Lage im Fenster: im eigenen Dokument plus Lage dessen Rahmens
-        const r = col.getBoundingClientRect();
-        const frame = doc == d ? null : doc.defaultView.frameElement?.getBoundingClientRect();
-        const left = r.left + (frame?.left || 0), top = r.top + (frame?.top || 0);
+        if (hit.col == shown) {
+          return;
+        }
         const rr = row.getBoundingClientRect();
-        if (!r.width || Math.abs(top - rr.bottom) > 4) {
-          hide();
-          return;
-        }
-        shown = col;
-        line.style.left = `${Math.round(left - rr.left)}px`;
-        line.style.width = `${Math.round(r.width)}px`;
+        shown = hit.col;
+        line.style.left = `${Math.round(hit.left - rr.left)}px`;
+        line.style.width = `${Math.round(hit.width)}px`;
         line.setAttribute("data-on", "");
       });
     };
@@ -2218,12 +2417,15 @@ function hookHoverLine(w, restorers = null) {
     doc.defaultView.addEventListener("unload", detach, { once: true });
     restorers?.push(detach);
   };
-  const tm = d.getElementById("tabmail");
-  const attachTab = () => {
-    hide();
+  // Dokumente des gewählten Tabs (die Mailansicht lädt nach dem Start neu)
+  const attachCurrent = () => {
     const tab = tm?.currentTabInfo;
     attach(tab?.chromeBrowser?.contentDocument);
     attach(tab?.browser?.contentDocument);
+  };
+  const attachTab = () => {
+    hide();
+    attachCurrent();
   };
   attach(d);
   attachTab();
@@ -2677,6 +2879,9 @@ class ConversationCards {
       // Knöpfe anderer Erweiterungen wirken in der Karte nicht – Zeile ausblenden
       const root = browserEl.contentDocument.documentElement;
       root.setAttribute("mc-conv-card", "");
+      // ohne Knopfzeile auch kein Platz dafür über dem Kopf (mc-standalone
+      // reserviert ihn, wenn die Toolbar keine Antworten-Knöpfe hat)
+      root.removeAttribute("mc-standalone");
       // Klick auf den Kopf (nicht auf Namen oder Knöpfe) klappt die Karte wieder
       // ein – nicht bei der gewählten und der neuesten Mail
       browserEl.contentDocument.getElementById("messageHeader")?.addEventListener("click", event => {
@@ -2696,6 +2901,11 @@ class ConversationCards {
       }
     }, true);
     browserEl.addEventListener("MsgLoaded", () => {
+      decorateAttachments(browserEl.contentDocument);
+      const mp0 = browserEl.contentDocument?.getElementById("messagepane");
+      const fold = () => foldQuotedHistory(mp0?.contentDocument);
+      fold();
+      mp0?.addEventListener("load", fold, true);
       fit();
       const mp = browserEl.contentDocument?.getElementById("messagepane");
       const iw = mp?.contentWindow;
@@ -2719,6 +2929,87 @@ class ConversationCards {
       this.win.setTimeout(fit, 300);
     }, true);
   }
+}
+
+// Konversationskarten wie Apple Mail: der zitierte Verlauf am Ende einer
+// Antwort (Thunderbird: blockquote type=cite samt „Am … schrieb …“-Zeile,
+// Gmail .gmail_quote, Outlook #divRplyFwdMsg/#appendonsend mit allem danach)
+// ist eingeklappt, darunter „Show More“. Eingeschobene Antworten zwischen
+// Zitaten bleiben offen (nur Zitate, nach denen kein eigener Text mehr
+// kommt). Nur die Anzeige – Antworten und Drucken nehmen die ganze Mail.
+function foldQuotedHistory(doc) {
+  const body = doc?.body;
+  if (!body || doc.__mcFolded || doc.documentURI == "about:blank") {
+    return;
+  }
+  // nach el (bis zum Textende) nur noch Leerraum?
+  const restEmpty = el => {
+    for (let n = el; n && n != body; n = n.parentNode) {
+      for (let s = n.nextSibling; s; s = s.nextSibling) {
+        if ((s.textContent || "").trim() || s.querySelector?.("img")) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  let start = null, hide = [];
+  const outlook = doc.getElementById("divRplyFwdMsg") || doc.getElementById("appendonsend");
+  if (outlook) {
+    // Outlook: Trennlinie davor mitnehmen, dann alles bis zum Ende
+    const prev = outlook.previousElementSibling;
+    start = prev?.localName == "hr" || prev?.querySelector?.(":scope > hr:only-child") ? prev : outlook;
+    for (let s = start; s; s = s.nextSibling) {
+      hide.push(s);
+    }
+  } else {
+    const quotes = [...doc.querySelectorAll('blockquote[type="cite"], .gmail_quote')]
+      .filter(q => !q.parentElement.closest('blockquote[type="cite"], .gmail_quote'));
+    const last = quotes.at(-1);
+    if (last && restEmpty(last)) {
+      // „Am … schrieb …“ direkt davor gehört dazu
+      const prefix = last.previousElementSibling?.classList.contains("moz-cite-prefix") ? last.previousElementSibling : null;
+      start = prefix || last;
+      hide = prefix ? [prefix, last] : [last];
+    }
+  }
+  if (!start || !hide.length) {
+    return;
+  }
+  // nur, wenn davor eigener Text steht (sonst wäre die Mail leer)
+  const range = doc.createRange();
+  range.setStart(body, 0);
+  range.setEndBefore(start);
+  if (!range.toString().trim()) {
+    return;
+  }
+  doc.__mcFolded = true;
+  const elements = hide.filter(n => n.nodeType == 1);
+  for (const el of elements) {
+    el.style.setProperty("display", "none", "important");
+  }
+  const texts = hide.filter(n => n.nodeType == 3);
+  const parked = texts.map(n => [n, n.data]);
+  for (const n of texts) {
+    n.data = "";
+  }
+  const button = doc.createElement("button");
+  button.className = "mc-show-more";
+  button.type = "button";
+  button.textContent = tr("Show More");
+  // eigene Stile direkt am Knopf (das Mail-Dokument hat unsere Stilblätter nicht)
+  button.setAttribute("style", "all: initial; display: block; margin: 10px 0 4px; font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; " +
+    "color: AccentColor; cursor: pointer;");
+  button.addEventListener("click", () => {
+    for (const el of elements) {
+      el.style.removeProperty("display");
+    }
+    for (const [n, data] of parked) {
+      n.data = data;
+    }
+    button.remove();
+  });
+  start.parentNode.insertBefore(button, start);
 }
 
 // „Bewegung reduzieren“ (macOS: Bedienungshilfen → Anzeige; Windows:
@@ -2912,7 +3203,7 @@ const SendLater = {
       it.addEventListener("command", fn);
       return it;
     };
-    const fmt = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { hour: "2-digit", minute: "2-digit" });
+    const fmt = new Intl.DateTimeFormat(regionLocale(), { hour: "2-digit", minute: "2-digit" });
     popup.addEventListener("popupshowing", event => {
       if (event.target != popup) {
         return;
@@ -3252,7 +3543,7 @@ const Remind = {
     const inner = doc.createXULElement("menupopup");
     menu.append(inner);
     mark.after(menu);
-    const fmt = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    const fmt = new Intl.DateTimeFormat(regionLocale(), { weekday: "short", hour: "2-digit", minute: "2-digit" });
     inner.addEventListener("popupshowing", event => {
       if (event.target != inner) {
         return;
@@ -3445,6 +3736,12 @@ const WEATHER_PREF = "extensions.mailcards.weather";
 const WEATHER_PLACE_PREF = "extensions.mailcards.weatherPlace";
 const WEATHER_STATE_PREF = "extensions.mailcards.weatherState"; // JSON: Ort, Koordinaten, letzter Wert, Status
 const WEATHER_EVERY = 30 * 60 * 1000;
+// Wetter in Worten (Tooltip des Wettersymbols)
+const WEATHER_WORDS = {
+  "clear-day": "Sunny", "clear-night": "Clear", "partly-day": "Partly Cloudy", "partly-night": "Partly Cloudy",
+  cloudy: "Cloudy", fog: "Fog", rain: "Rain", snow: "Snow", thunder: "Thunderstorm",
+};
+
 const Weather = {
   titles: new Set(),
   timer: null,
@@ -3497,7 +3794,7 @@ const Weather = {
     }
     for (const t of this.titles) {
       t.removeAttribute("data-weather");
-      t.removeAttribute("title");
+      t.querySelector("#mcTodayWeather")?.removeAttribute("title");
     }
     this.titles.clear();
   },
@@ -3505,15 +3802,18 @@ const Weather = {
   show() {
     const st = this.state();
     const on = this.enabled() && st.kind;
+    // Titeltext: „Go to Today“ (am Titel); Symbol daneben: nur das Wetter –
+    // ohne Wetter gehört die feste Sonne zum Titel (erbt dessen Tooltip)
     for (const t of this.titles) {
+      const icon = t.querySelector("#mcTodayWeather");
       if (on) {
         t.dataset.weather = st.kind;
-        // erste Zeile: Klick führt zu heute (Überschrift der Today-Pane)
-        const info = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
-        t.title = info ? `${tr("Go to Today")}\n${info}` : tr("Go to Today");
+        const temp = st.temp != null ? `${Math.round(st.temp)} °C, ` : "";
+        const info = `${st.place ? st.place + ": " : ""}${temp}${tr(WEATHER_WORDS[st.kind] || "Clear")}`;
+        icon?.setAttribute("title", info);
       } else {
         t.removeAttribute("data-weather");
-        t.title = tr("Go to Today");
+        icon?.removeAttribute("title");
       }
     }
   },
@@ -3745,59 +4045,6 @@ const FifthSpace = {
     const m = Services.prefs.getStringPref(FIFTH_ICON_PREF, "mask");
     return FIFTH_ICONS.includes(m) ? m : "mask";
   },
-  // Hauptfarbe eines Logos für den Chevron neben dem aktiven Bereich: nur bei
-  // einem kräftigen, mittelhellen Farbton, der fast alle farbigen Bildpunkte
-  // stellt; bunt, sehr hell, dunkel oder grau → null (dann Textfarbe)
-  async logoColor(w, cssUrl) {
-    const src = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(cssUrl || "")?.[1];
-    if (!src) {
-      return null;
-    }
-    try {
-      // feste Größe: SVG ohne width/height hätten sonst keine
-      const img = new w.Image(32, 32);
-      img.src = src;
-      await img.decode();
-      const c = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-      c.width = c.height = 32;
-      const g = c.getContext("2d", { willReadFrequently: true });
-      g.drawImage(img, 0, 0, 32, 32);
-      const px = g.getImageData(0, 0, 32, 32).data;
-      const hues = [];
-      let r = 0, gr = 0, b = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        if (px[i + 3] < 128) {
-          continue;
-        }
-        const [R, G, B] = [px[i] / 255, px[i + 1] / 255, px[i + 2] / 255];
-        const max = Math.max(R, G, B), min = Math.min(R, G, B), l = (max + min) / 2;
-        const sat = max == min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
-        if (sat < 0.35 || l < 0.18 || l > 0.82) {
-          continue; // Weiß, Schwarz, Grau, Kanten
-        }
-        const h = max == R ? ((G - B) / (max - min) + 6) % 6 : max == G ? (B - R) / (max - min) + 2 : (R - G) / (max - min) + 4;
-        hues.push(h * 60);
-        r += px[i];
-        gr += px[i + 1];
-        b += px[i + 2];
-      }
-      if (hues.length < 20) {
-        return null; // kaum Farbe
-      }
-      // ein Farbton: fast alle farbigen Punkte innerhalb von ±25° um den Mittelwert
-      const rad = hues.map(h => h * Math.PI / 180);
-      const mean = Math.atan2(rad.reduce((a, x) => a + Math.sin(x), 0), rad.reduce((a, x) => a + Math.cos(x), 0)) * 180 / Math.PI;
-      const near = hues.filter(h => Math.abs(((h - mean + 540) % 360) - 180) <= 25).length;
-      if (near / hues.length < 0.85) {
-        return null; // bunt
-      }
-      const n = hues.length;
-      return `rgb(${Math.round(r / n)}, ${Math.round(gr / n)}, ${Math.round(b / n)})`;
-    } catch (e) {
-      log("fifth logo color error", e);
-      return null;
-    }
-  },
   // nur http(s); ohne Schema wird https:// vorangestellt
   normalizeURL(text) {
     let t = String(text || "").trim();
@@ -3899,7 +4146,6 @@ const FifthSpace = {
       for (const e of [chat, item()].filter(Boolean)) {
         e.style.removeProperty("--mc-fifth-img");
         e.style.removeProperty("--mc-fifth-img-dark");
-        e.style.removeProperty("--mc-fifth-line");
         e.removeAttribute("mc-fifth-icon");
       }
     };
@@ -3939,14 +4185,6 @@ const FifthSpace = {
         chat.title = target.title;
         if (mi) {
           mi.label = target.title;
-        }
-        if (img && this.icon() == "original") {
-          const want = target;
-          this.logoColor(w, img).then(color => {
-            if (color && target == want) {
-              chat.style.setProperty("--mc-fifth-line", color);
-            }
-          });
         }
       } else {
         // Thunderbirds eigene Beschriftung zurück
@@ -4030,6 +4268,71 @@ const FifthSpace = {
 // Lücke am unteren Rand. Lange Mails bleiben wie bisher (Text scrollt, Liste
 // unten). Nicht in den Karten der Konversation (dort hat jede Karte ohnehin
 // Inhaltshöhe)
+// Anhänge unter der Mail (Einzelansicht und Karten der Konversation): je
+// Zeile ein Download-Symbol (speichert genau diesen Anhang mit Dialog); bei
+// einem einzigen Anhang keine Kopfzeile, die Dateizeile steht immer offen
+// (mc-single, Gestaltung in userChrome.css). Die Liste baut Thunderbird erst
+// nach „MsgLoaded“ fertig – daher über einen Beobachter der Liste
+function decorateAttachments(target) {
+  try {
+    const doc = target?.document || target?.contentDocument || target?.ownerDocument || target;
+    const list = doc?.getElementById?.("attachmentList");
+    const view = doc?.getElementById?.("attachmentView");
+    const win = doc?.defaultView;
+    if (!list || !view || !win || list.__mcDecorated) {
+      return;
+    }
+    list.__mcDecorated = true;
+    const update = () => {
+      const items = [...list.querySelectorAll(":scope > .attachmentItem")];
+      for (const item of items) {
+        if (item.querySelector(":scope > .mc-att-save")) {
+          continue;
+        }
+        const btn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button");
+        btn.className = "mc-att-save";
+        btn.type = "button";
+        btn.title = tr("Save Attachment");
+        btn.setAttribute("aria-label", btn.title);
+        btn.tabIndex = -1;
+        // Klick speichert nur, ohne die Zeile zu wählen oder zu öffnen
+        for (const type of ["mousedown", "dblclick"]) {
+          btn.addEventListener(type, event => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+        }
+        btn.addEventListener("click", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          item.attachment?.save(win.browsingContext).catch(e => log("attachment save error", e));
+        });
+        const after = item.querySelector(":scope > .attach-drop-indicator.after");
+        item.insertBefore(btn, after);
+      }
+      // (Breite der Zeilen neu, mit dem Symbol – sonst fehlte bei einem
+      // Anhang der Dateiname)
+      if (items.length) {
+        try {
+          list.setOptimumWidth?.();
+        } catch {}
+      }
+      const single = items.length == 1;
+      view.toggleAttribute("mc-single", single);
+      // eine Datei: immer offen (die Kopfzeile zum Aufklappen fehlt dann)
+      if (single && list.collapsed) {
+        try {
+          win.toggleAttachmentList?.(true);
+        } catch {}
+      }
+    };
+    new win.MutationObserver(update).observe(list, { childList: true });
+    update();
+  } catch (e) {
+    log("attachments decorate error", e);
+  }
+}
+
 function fitShortMessage(target) {
   try {
     const doc = target?.document || target?.ownerDocument || target;
@@ -4299,7 +4602,7 @@ function appleForwardHeader(win) {
         if (td && /\b\d{1,2} \w{3} \d{4} \d{1,2}:\d{2}(:\d{2})? [+-]\d{4}\b/.test(td.textContent)) {
           const date = new Date(td.textContent.trim());
           if (!isNaN(date)) {
-            td.textContent = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { dateStyle: "long", timeStyle: "long" }).format(date);
+            td.textContent = new Intl.DateTimeFormat(regionLocale(), { dateStyle: "long", timeStyle: "long" }).format(date);
           }
         }
       }
@@ -4487,7 +4790,7 @@ const TASK_VIEW_PREF = "extensions.mailcards.taskView";
 const TASK_COLUMNS_PREF = "extensions.mailcards.taskTableColumns";
 const TASK_DETAILS_WIDTH_PREF = "extensions.mailcards.taskDetailsWidth";
 const TASK_LIST_COLUMNS = ["completed", "title", "dueDate"];
-const TASK_SIDE_MIN = 760; // Liste 360 + Details 360 + Teiler/Luft
+const TASK_SIDE_MIN = 760; // höchstens: Liste 360 + Details 360 + Teiler/Luft
 // Kartenliste der Aufgaben wie die Mailliste: nie schmaler als ihre Karten, nie breiter als nötig
 const TASK_LIST_MIN = 360;
 const TASK_LIST_MAX = 640;
@@ -4537,7 +4840,17 @@ function applyTaskView(win, mode = taskView()) {
     tree.dataset.mcCols = list ? "list" : "table";
   }
   root.toggleAttribute("mc-task-list", list);
-  const side = list && box.getBoundingClientRect().width >= TASK_SIDE_MIN;
+  // ausgeblendeter Bereich (z. B. gerade in der Mail) hat keine Breite: dann
+  // nichts umstellen – sonst stand nach dem Wechsel zuerst nur die Liste da und
+  // die Details kamen erst mit dem nächsten Nachmessen
+  const boxWidth = box.getBoundingClientRect().width;
+  if (!boxWidth) {
+    return;
+  }
+  // (Details neben der Liste, solange Liste und ihre Knopfzeile hineinpassen –
+  // sonst hält die Mindestbreite des Fensters das ohnehin fest)
+  const detailsMin = parseFloat(root.style.getPropertyValue("--mc-task-details-min")) || 360;
+  const side = list && boxWidth >= Math.min(TASK_SIDE_MIN, 280 + detailsMin + 10);
   if (side == root.hasAttribute("mc-task-side")) {
     return;
   }
@@ -4570,12 +4883,14 @@ function setTaskView(win, key) {
 const TASK_LIST_PREF = "extensions.mailcards.taskList";
 const TASK_LISTS = [
   // [Schlüssel, Text, Status, Fälligkeit, Zusatzbedingung]
+  // Reihenfolge: offen → angefangen → erledigt, „Wichtig“ als Merkmal zuletzt;
+  // „Open“ (Schlüssel all aus Kompatibilität) zeigt alle offenen Aufgaben
   ["today", "Today", "open", "upToToday"],
   ["scheduled", "Scheduled", "open", "dated"],
-  ["all", "All", "open", "any"],
-  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
+  ["all", "Open|tasks", "open", "any"],
   ["progress", "In Progress", "progress", "any"],
   ["completed", "Completed", "done", "any"],
+  ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
 ];
 const taskListFilter = key => `mcTasks-${key}`;
 
@@ -4663,17 +4978,12 @@ function hookTaskLists(win, restorers) {
   box.append(list);
   panel.prepend(box);
 
-  const today = () => {
-    const icon = rows.get("today").querySelector(".mc-tl-icon");
-    icon.textContent = String(new Date().getDate());
-  };
   const mark = () => {
     const key = taskListKey();
     for (const [k, row] of rows) {
       row.classList.toggle("selected", k == key);
       row.setAttribute("aria-selected", String(k == key));
     }
-    today();
   };
   const apply = () => {
     const name = taskListFilter(taskListKey());
@@ -4871,7 +5181,7 @@ function hookMenubar(win, restorers) {
   const remind = make("menu", "mcMailRemindMenu", "Remind Me");
   const remindPopup = make("menupopup", "mcMailRemindPopup");
   remind.append(remindPopup);
-  const fmt = new Intl.DateTimeFormat(Services.locale.appLocaleAsBCP47, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  const fmt = new Intl.DateTimeFormat(regionLocale(), { weekday: "short", hour: "2-digit", minute: "2-digit" });
   remindPopup.addEventListener("popupshowing", event => {
     if (event.target != remindPopup) {
       return;
@@ -4884,6 +5194,9 @@ function hookMenubar(win, restorers) {
     }));
   });
   const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  const importPst = own("mcFileImportPst", "Open Outlook Data File (PST)…", () => PstImport.open(win).catch(e => log("pst error", e)));
+  // für den automatischen Test
+  win.__mcPstRead = path => PstImport.read(path);
   // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
   const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
     const hdr = selected()[0];
@@ -4911,7 +5224,7 @@ function hookMenubar(win, restorers) {
     ["menu_FilePopup", [
       L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"),
       L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
-      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), [importPst], L("menu_export"), S,
       L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
     ]],
     ["menu_EditPopup", [
@@ -5045,6 +5358,20 @@ function hookMenubar(win, restorers) {
       msgMenu.setAttribute("disabled", String(!mail));
       for (const id of ["calChangeViewDay", "calChangeViewWeek", "calChangeViewMonth", "calendar-go-to-today-menuitem"]) {
         $(id)?.setAttribute("disabled", String(!calendar));
+      }
+      // Häkchen der Today-Pane nach dem echten Zustand: Thunderbird setzt es am
+      // Befehl, unsere Animation blendet sie aber selbst ein/aus – und
+      // „checked = false“ entfernt das Attribut bei <command> nicht
+      const tp = $("calShowTodayPane-2");
+      if (tp) {
+        const shown = !!win.TodayPane?.isVisible;
+        for (const el of [tp, tp.getAttribute("command") && $(tp.getAttribute("command"))].filter(Boolean)) {
+          if (shown) {
+            el.setAttribute("checked", "true");
+          } else {
+            el.removeAttribute("checked");
+          }
+        }
       }
     }
     if (popup.id == "menu_EditPopup") {
@@ -5284,7 +5611,7 @@ function hookTaskCards(win, restorers) {
   list.id = "mcTaskCards";
   list.setAttribute("role", "presentation");
   tree.before(list);
-  const locale = Services.locale.appLocaleAsBCP47;
+  const locale = regionLocale();
   const fmtDay = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
   const fmtDayYear = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const fmtTime = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
@@ -5330,10 +5657,14 @@ function hookTaskCards(win, restorers) {
       }
       const check = el("span", "mc-tc-check");
       check.style.setProperty("--mc-tc-color", color(task.calendar));
-      // angefangen: Ring füllt sich mit dem Fortschritt (25 % = ein Viertel)
+      // offen: Ring füllt sich mit dem Fortschritt (25 % = ein Viertel), Farbe
+      // nach Stufe wie eine Ampel (Zwischenwerte: nächstliegende Stufe, nie die
+      // der erledigten Aufgabe)
       const pct = task.percentComplete || 0;
-      if (!task.isCompleted && pct > 0 && pct < 100) {
+      if (!task.isCompleted && pct < 100) {
         check.setAttribute("data-progress", "");
+        check.dataset.step = String(Math.min(75, Math.round(pct / 25) * 25));
+        check.toggleAttribute("data-empty", pct == 0); // 0 %: gestrichelt
         check.style.setProperty("--mc-tc-p", pct);
         check.title = tr("{n} % done", { n: pct });
       }
@@ -5453,6 +5784,17 @@ function hookTaskCards(win, restorers) {
   list.addEventListener("contextmenu", event => {
     event.preventDefault();
     const menu = doc.getElementById(tree.getAttribute("context") || "taskitem-context-menu");
+    // wie für Thunderbirds Aufgabenliste: die Varianten der Today-Pane aus
+    // (seine Menülogik findet in den Karten keine Aufgabenliste und ließ
+    // „Open Task…“ und „New Task…“ doppelt stehen)
+    for (const [id, hide] of [["task-context-menu-new", false], ["task-context-menu-modify", false],
+      ["task-context-menu-new-todaypane", true], ["task-context-menu-modify-todaypane", true],
+      ["task-context-menu-filter-todaypane", true], ["task-context-menu-separator-filter", true]]) {
+      const item = doc.getElementById(id);
+      if (item) {
+        item.hidden = hide;
+      }
+    }
     menu?.openPopupAtScreen(event.screenX, event.screenY, true, event);
   });
   const prefObs = () => schedule();
@@ -6038,6 +6380,397 @@ function hookPhotoDialog(cw, restorers = null) {
   });
 }
 
+// Hinweis auf ein bereitliegendes Update: roter Punkt an der Einstellungen-
+// Kachel der Spaces-Leiste und am Eintrag „halo.spaces“ der Einstellungen,
+// oben in „halo.spaces“ eine Zeile mit „Install Now“. Mit automatischen
+// Updates liegt das Update schon zurückgestellt bereit (kommt beim nächsten
+// Start), sonst ist es nur gefunden (auto: false)
+const UpdateNote = {
+  pending: null,
+  set(version, auto) {
+    if (!version || version == extensionVersion) {
+      return;
+    }
+    this.pending = { version, auto };
+    for (const w of Services.wm.getEnumerator("mail:3pane")) {
+      this.mark(w);
+    }
+  },
+  mark(w) {
+    const d = w.document;
+    const btn = d.getElementById("settingsButton");
+    if (btn) {
+      btn.toggleAttribute("mc-update", !!this.pending);
+      if (this.pending) {
+        btn.dataset.mcTitle ??= btn.getAttribute("title") || "";
+        btn.setAttribute("title", tr("halo.spaces {version} is available", { version: this.pending.version }));
+      }
+    }
+    // Einstellungen (falls offen): Punkt am Eintrag „halo.spaces“
+    for (const tab of d.getElementById("tabmail")?.tabInfo || []) {
+      const cat = tab.browser?.contentDocument?.getElementById("mcCat-" + HALO_PANE);
+      cat?.toggleAttribute("mc-update", !!this.pending);
+    }
+  },
+  // Kachel „Einstellungen“ führt bei bereitliegendem Update gleich zu halo.spaces
+  hook(w, restorers) {
+    const btn = w.document.getElementById("settingsButton");
+    if (!btn || btn.__mcUpdateHook) {
+      return;
+    }
+    btn.__mcUpdateHook = true;
+    const onClick = event => {
+      if (!this.pending || event.button) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openHaloSettings(w);
+    };
+    btn.addEventListener("click", onClick, true);
+    this.mark(w);
+    restorers.push(() => {
+      btn.removeEventListener("click", onClick, true);
+      btn.removeAttribute("mc-update");
+      delete btn.__mcUpdateHook;
+    });
+  },
+  // „Install Now“: zurückgestelltes Update fortsetzen bzw. gefundenes laden und gleich einspielen
+  async installNow() {
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    const ID = "mail-cards@sebastian.local";
+    const waiting = (await AddonManager.getAllInstalls()).find(i =>
+      (i.existingAddon?.id == ID || i.addon?.id == ID) && i.state == AddonManager.STATE_POSTPONED);
+    if (waiting) {
+      waiting.continuePostponedInstall();
+      return true;
+    }
+    const addon = await AddonManager.getAddonByID(ID);
+    if (!addon) {
+      return false;
+    }
+    return new Promise(resolve => {
+      addon.findUpdates({
+        onUpdateAvailable: (_a, install) => {
+          install.addListener({ onInstallPostponed: () => install.continuePostponedInstall() });
+          install.install();
+          resolve(true);
+        },
+        onNoUpdateAvailable: () => resolve(false),
+        onUpdateFinished: () => {},
+      }, AddonManager.UPDATE_WHEN_USER_REQUESTED);
+    });
+  },
+};
+
+// Outlook-Datendatei (PST) lesen – Schritt 1: Ordnerbaum mit Anzahl der Mails
+// anzeigen, noch ohne Import. Bibliothek pst-extractor (MIT), gebündelt in
+// vendor/pst (Herkunft und Lizenzen dort in SOURCE.md). Die Datei wird
+// stückweise über Thunderbird gelesen, nicht ganz in den Speicher geladen.
+const PstFs = {
+  files: new Map(),
+  next: 3,
+  openSync(path) {
+    const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    file.initWithPath(path);
+    const fis = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsIFileInputStream);
+    fis.init(file, 0x01, 0, 0);
+    const bin = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+    bin.setInputStream(fis);
+    const fd = this.next++;
+    this.files.set(fd, { fis, bin, seek: fis.QueryInterface(Ci.nsISeekableStream), size: file.fileSize });
+    return fd;
+  },
+  readSync(fd, buffer, offset, length, position) {
+    const f = this.files.get(fd);
+    const len = Math.max(0, Math.min(length, f.size - position));
+    if (!len) {
+      return 0;
+    }
+    f.seek.seek(Ci.nsISeekableStream.NS_SEEK_SET, position);
+    const ab = new ArrayBuffer(len);
+    const got = f.bin.readArrayBuffer(len, ab);
+    buffer.set(new Uint8Array(ab, 0, got), offset);
+    return got;
+  },
+  closeSync(fd) {
+    this.files.get(fd)?.fis.close();
+    this.files.delete(fd);
+  },
+};
+const PstImport = {
+  lib: null,
+  load() {
+    if (!this.lib) {
+      globalThis.__haloPstFs = PstFs;
+      const scope = {};
+      Services.scriptloader.loadSubScript("resource://mailcards/vendor/pst/pst-extractor.js", scope);
+      this.lib = scope.HaloPST;
+    }
+    return this.lib;
+  },
+  // Ordnerbaum: [{ name, count, depth }], Gesamtzahl der Mails
+  read(path) {
+    const lib = this.load();
+    const pst = new lib.PSTFile(path);
+    try {
+      const folders = [];
+      let total = 0;
+      const walk = (folder, depth) => {
+        for (const sub of folder.hasSubfolders ? folder.getSubFolders() : []) {
+          const count = sub.contentCount || 0;
+          total += count;
+          folders.push({ name: sub.displayName || "?", count, depth });
+          walk(sub, depth + 1);
+        }
+      };
+      walk(pst.getRootFolder(), 0);
+      // „Top of Personal Folders“ u. Ä. als eigene Ebene weglassen, wenn nur sie oben steht
+      return { name: pst.getMessageStore?.()?.displayName || "", folders, total };
+    } finally {
+      try {
+        pst.close();
+      } catch {}
+    }
+  },
+  async open(win) {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(win.browsingContext, tr("Open Outlook Data File"), Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter(tr("Outlook Data File (PST)"), "*.pst");
+    fp.appendFilters(Ci.nsIFilePicker.filterAll);
+    const result = await new Promise(resolve => fp.open(resolve));
+    if (result != Ci.nsIFilePicker.returnOK || !fp.file) {
+      return;
+    }
+    const bc = win.browsingContext;
+    const title = tr("Outlook Data File (PST)");
+    let info;
+    try {
+      info = this.read(fp.file.path);
+    } catch (e) {
+      log("pst read error", e);
+      await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
+        tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
+      return;
+    }
+    const lines = info.folders.slice(0, 40).map(f => `${"    ".repeat(f.depth)}${f.name}: ${f.count}`);
+    if (info.folders.length > 40) {
+      lines.push("…");
+    }
+    const head = tr("{file}: {n} messages in {f} folders.", { file: fp.file.leafName, n: info.total, f: info.folders.length });
+    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
+      `${head}\n\n${lines.join("\n")}\n\n${tr("Importing the messages comes in a later version.")}`);
+  },
+};
+
+// Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle
+// Ordner samt Unterordnern als Kopie nach Lokale Ordner/<Konto> (Archive).
+// Papierkorb, Spam, Entwürfe, Postausgang und virtuelle Ordner bleiben weg.
+// Ein erneuter Lauf überspringt Ordner, die schon gleich viele Mails haben.
+const ArchiveAccount = {
+  running: null,
+  SKIP: Ci.nsMsgFolderFlags.Trash | Ci.nsMsgFolderFlags.Junk | Ci.nsMsgFolderFlags.Drafts |
+    Ci.nsMsgFolderFlags.Queue | Ci.nsMsgFolderFlags.Virtual | Ci.nsMsgFolderFlags.Templates,
+  canArchive(folder) {
+    const server = folder?.isServer ? folder.server : null;
+    return !!server && server.type != "none" && server.type != "nntp" && server.type != "rss";
+  },
+  targetName(server) {
+    return tr("{name} (Archive)", { name: server.prettyName });
+  },
+  // Ordner sicher anlegen (Lokale Ordner legen sofort an; kurz warten, bis er da ist)
+  async child(parent, name, win) {
+    let f = parent.getChildNamed?.(name) || null;
+    if (!f) {
+      try {
+        parent.createSubfolder(name, null);
+      } catch {}
+      for (let i = 0; i < 50 && !f; i++) {
+        f = parent.getChildNamed?.(name) || null;
+        if (!f) {
+          await new Promise(r => win.setTimeout(r, 100));
+        }
+      }
+    }
+    return f;
+  },
+  // IMAP: Kopfzeilen des Ordners auf den Stand des Servers bringen (fertig,
+  // wenn Thunderbird „FolderLoaded“ meldet)
+  update(folder, win) {
+    return new Promise(resolve => {
+      if (folder.server.type != "imap") {
+        resolve();
+        return;
+      }
+      const listener = {
+        onFolderEvent(f, event) {
+          if (f == folder && event == "FolderLoaded") {
+            done();
+          }
+        },
+      };
+      const done = () => {
+        win.clearTimeout(t);
+        MailServices.mailSession.RemoveFolderListener(listener);
+        resolve();
+      };
+      const t = win.setTimeout(done, 60000);
+      MailServices.mailSession.AddFolderListener(listener, Ci.nsIFolderListener.event);
+      try {
+        folder.updateFolder(null);
+      } catch {
+        done();
+      }
+    });
+  },
+  messages(folder) {
+    try {
+      return [...folder.msgDatabase.enumerateMessages()];
+    } catch {
+      return [...folder.messages];
+    }
+  },
+  copy(src, hdrs, dest, win) {
+    return new Promise(resolve => {
+      MailServices.copy.copyMessages(src, hdrs, dest, false, {
+        QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
+        onStartCopy() {}, onProgress() {}, setMessageKey() {}, getMessageId() {},
+        onStopCopy: status => resolve(Components.isSuccessCode(status)),
+        // ältere Schreibweise
+        OnStartCopy() {}, OnProgress() {}, SetMessageKey() {}, GetMessageId() {},
+        OnStopCopy: status => resolve(Components.isSuccessCode(status)),
+      }, null, false);
+    });
+  },
+  async run(server, win, status = () => {}) {
+    if (this.running) {
+      return null;
+    }
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failed: [] };
+    this.running = job;
+    try {
+      const local = MailServices.accounts.localFoldersServer.rootFolder;
+      const target = await this.child(local, this.targetName(server), win);
+      if (!target) {
+        job.failed.push(this.targetName(server));
+        return job;
+      }
+      const walk = async (src, destParent) => {
+        for (const sub of src.subFolders) {
+          if (job.stop) {
+            return;
+          }
+          if (sub.getFlag(this.SKIP) || sub.flags & this.SKIP) {
+            continue;
+          }
+          const dest = await this.child(destParent, sub.name, win);
+          if (!dest) {
+            job.failed.push(sub.prettyName);
+            continue;
+          }
+          job.folders++;
+          status(tr("Archiving {folder}…", { folder: sub.prettyName }));
+          await this.update(sub, win);
+          const hdrs = this.messages(sub);
+          if (hdrs.length && dest.getTotalMessages(false) >= hdrs.length) {
+            job.skipped += hdrs.length;
+          } else {
+            for (let i = 0; i < hdrs.length && !job.stop; i += 100) {
+              const part = hdrs.slice(i, i + 100);
+              if (await this.copy(sub, part, dest, win)) {
+                job.copied += part.length;
+              } else {
+                job.failed.push(sub.prettyName);
+                break;
+              }
+              status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
+            }
+          }
+          await walk(sub, dest);
+        }
+      };
+      await walk(server.rootFolder, target);
+      job.target = target;
+      return job;
+    } finally {
+      this.running = null;
+    }
+  },
+};
+
+// Kontextmenü eines Kontos in der Ordnerliste: „Archive Account Locally…“
+function hookArchiveAccount(a3, restorers) {
+  const doc = a3.document;
+  const popup = doc.getElementById("folderPaneContext");
+  const mailWin = a3.browsingContext?.topChromeWindow;
+  if (!popup || !mailWin || doc.getElementById("mcArchiveAccount")) {
+    return;
+  }
+  // für den automatischen Test: Kopieren ohne Rückfrage anstoßen
+  mailWin.__mcArchiveAccount = server => ArchiveAccount.run(server, mailWin);
+  const item = doc.createXULElement("menuitem");
+  item.id = "mcArchiveAccount";
+  const anchor = doc.getElementById("folderPaneContext-properties") || popup.lastElementChild;
+  anchor.before(item);
+  const status = text => {
+    const st = mailWin.document.getElementById("statusText");
+    if (st) {
+      st.textContent = text;
+      st.value = text;
+    }
+  };
+  item.addEventListener("command", async () => {
+    if (ArchiveAccount.running) {
+      ArchiveAccount.running.stop = true;
+      return;
+    }
+    // (beim Öffnen des Menüs gemerkt – nach dem Schließen ist es nicht mehr gesetzt)
+    const folder = item.__mcFolder || a3.folderPaneContextMenu?.activeFolder;
+    if (!ArchiveAccount.canArchive(folder)) {
+      return;
+    }
+    const server = folder.server;
+    // Rückfrage und Abschluss ohne blockierende Dialoge (asynchron)
+    const bc = mailWin.browsingContext;
+    const res = await Services.prompt.asyncConfirmEx(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"),
+      tr("Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.",
+        { account: server.prettyName, target: ArchiveAccount.targetName(server) }),
+      Services.prompt.STD_OK_CANCEL_BUTTONS, null, null, null, null, false);
+    if (res.getProperty("buttonNumClicked") != 0) {
+      return;
+    }
+    const job = await ArchiveAccount.run(server, mailWin, status);
+    status("");
+    if (!job) {
+      return;
+    }
+    const lines = [tr(job.stop ? "Archiving stopped." : "Archiving finished."),
+      tr("{n} messages copied in {f} folders.", { n: job.copied, f: job.folders })];
+    if (job.skipped) {
+      lines.push(tr("{n} messages were already archived.", { n: job.skipped }));
+    }
+    if (job.failed.length) {
+      lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
+    }
+    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"), lines.join("\n"));
+  });
+  const onShow = event => {
+    if (event.target != popup) {
+      return;
+    }
+    const folder = a3.folderPaneContextMenu?.activeFolder;
+    item.__mcFolder = folder;
+    item.hidden = !ArchiveAccount.canArchive(folder);
+    item.setAttribute("label", ArchiveAccount.running ? tr("Stop Archiving") : tr("Archive Account Locally…"));
+  };
+  popup.addEventListener("popupshowing", onShow);
+  restorers.push(() => {
+    popup.removeEventListener("popupshowing", onShow);
+    item.remove();
+    delete mailWin.__mcArchiveAccount;
+  });
+}
+
 // Kontextmenü der Ordnerliste: „Run Spam Controls“ und „Mark as Read by Date…“
 // – sie standen nur in der Menüleiste (Tools bzw. Message › Mark)
 function hookFolderContextExtras(a3, restorers) {
@@ -6065,6 +6798,15 @@ function hookFolderContextExtras(a3, restorers) {
   const byDate = make("mcFolderReadByDate", "menu_markReadByDate", "cmd_markReadByDate");
   const junk = make("mcFolderJunk", "runJunkControls", "cmd_runJunkControls");
   anchor.after(byDate, junk);
+  // „On My Mac“ ausblenden – ganz unten im Kontextmenü dieser Zeile; wieder
+  // einblenden über die Einstellungen
+  const hideSep = doc.createXULElement("menuseparator");
+  hideSep.id = "mcFolderHideLocalSep";
+  const hideLocal = doc.createXULElement("menuitem");
+  hideLocal.id = "mcFolderHideLocal";
+  hideLocal.setAttribute("label", tr("Hide “{name}”", { name: localFoldersName() }));
+  hideLocal.addEventListener("command", () => Services.prefs.setBoolPref(SHOW_LOCAL_PREF, false));
+  popup.append(hideSep, hideLocal);
   const onShow = event => {
     if (event.target != popup) {
       return;
@@ -6073,12 +6815,20 @@ function hookFolderContextExtras(a3, restorers) {
     const mail = !!folder && !folder.isServer && !folder.getFlag(Ci.nsMsgFolderFlags.Virtual);
     byDate.hidden = !mail;
     junk.hidden = !mail || folder.server?.type == "nntp" || folder.server?.type == "rss";
+    const isLocal = !!folder?.isServer && folder.server?.type == "none";
+    hideSep.hidden = hideLocal.hidden = !isLocal;
   };
   popup.addEventListener("popupshowing", onShow);
+  // Einstellung geändert: Ordnerliste neu beschriften
+  const onPref = () => enhancer?.decorateFolders?.(a3);
+  Services.prefs.addObserver(SHOW_LOCAL_PREF, onPref);
   restorers.push(() => {
     popup.removeEventListener("popupshowing", onShow);
+    Services.prefs.removeObserver(SHOW_LOCAL_PREF, onPref);
     byDate.remove();
     junk.remove();
+    hideSep.remove();
+    hideLocal.remove();
   });
 }
 
@@ -6197,34 +6947,98 @@ function dialogEdgeReset(win, url) {
   }, { once: true });
 }
 
-// Monatsansicht stufenlos scrollen wie Apple Kalender – Reihe in fünf
-// Schritten, bis zum letzten nur mit extensions.mailcards.monthScroll
-// (Standard aus). Schritt 1: unsichtbarer Unterbau. Die Monatsansicht lädt
-// je zwei Wochen vor und nach dem Monat mit (Termine darin sind schon
-// geladen), die Zeilen dazu sind ausgeblendet; sichtbar bleibt alles wie
-// bisher. Monatsname, Pfeile und das Ausgrauen anderer Monate richten sich
-// weiter nach dem angezeigten Monat, nicht nach der ersten (Puffer-)Woche
-const MONTH_SCROLL_PREF = "extensions.mailcards.monthScroll";
-const MONTH_BUFFER_WEEKS = 2;
-function hookMonthBuffer(mv, restorers) {
-  // Thunderbirds eigene Sicht auf das Element: Änderungen durch die
-  // Schutzschicht der Erweiterung (Xray) sähe der Kalender sonst nicht
-  const xwin = mv?.ownerDocument?.defaultView;
-  mv = mv?.wrappedJSObject || mv;
-  const View = mv && Object.getPrototypeOf(mv)?.constructor;
-  if (!xwin || !View || View.prototype.__mcBuffer || !mv.monthbody || typeof View.prototype.setDateRange != "function") {
+// Großer Termin-/Aufgaben-Dialog beim Anlegen: oben der Umschalter
+// „Event | Task“ wie im Schnell-Dialog. Umschalten legt den neuen Eintrag
+// als die andere Art an (Titel, Datum und Kalender bleiben) – ohne Rückfrage,
+// es ist ja noch nichts gespeichert. Beim Bearbeiten gibt es ihn nicht
+function addTypeSwitch(iw) {
+  const dlg = iw.parent;
+  const doc = dlg?.document;
+  if (!doc || iw.mode != "new" || doc.getElementById("mcTypeSwitch") || !dlg.location.href.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml")) {
     return;
   }
-  const win = xwin;
+  const isEvent = !!iw.calendarItem?.isEvent?.();
+  const X = "http://www.w3.org/1999/xhtml";
+  const seg = doc.createElementNS(X, "div");
+  seg.id = "mcTypeSwitch";
+  seg.className = "mc-qc-seg";
+  const make = (mode, label) => {
+    const b = doc.createElementNS(X, "button");
+    b.type = "button";
+    b.textContent = tr(label);
+    b.toggleAttribute("selected", (mode == "event") == isEvent);
+    b.addEventListener("click", () => {
+      if ((mode == "event") == isEvent) {
+        return;
+      }
+      const main = Services.wm.getMostRecentWindow("mail:3pane");
+      if (!main) {
+        return;
+      }
+      const title = iw.document.getElementById("item-title")?.value || "";
+      let calendar = null;
+      try {
+        calendar = iw.getCurrentCalendar?.() || iw.calendarItem?.calendar || null;
+      } catch {}
+      const start = iw.gStartTime?.clone?.() || null;
+      const end = iw.gEndTime?.clone?.() || null;
+      // ohne „Änderungen speichern?“ schließen
+      iw.gConfirmCancel = false;
+      dlg.close();
+      main.setTimeout(() => {
+        if (mode == "task") {
+          main.createTodoWithDialog(calendar, null, title, null, start);
+        } else {
+          main.createEventWithDialog(calendar, start, end, title);
+        }
+      }, 0);
+    });
+    return b;
+  };
+  seg.append(make("event", "Event"), make("task", "Task"));
+  const iframe = doc.getElementById("calendar-item-panel-iframe");
+  iframe?.before(seg);
+  doc.documentElement.setAttribute("mc-type-switch", "");
+  // das Fenster wächst um den Umschalter – sonst fehlt der Platz unten bei den Notizen
+  dlg.requestAnimationFrame(() => {
+    const cs = dlg.getComputedStyle(seg);
+    const h = Math.ceil(seg.getBoundingClientRect().height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom));
+    if (h > 0 && h < 120) {
+      dlg.resizeBy(0, h);
+    }
+  });
+}
+
+// Mehrwochen-Ansicht stufenlos scrollen wie Apple Kalender – Reihe in
+// fünf Schritten (2/6 bis 6/6), bis zum letzten nur mit
+// extensions.mailcards.multiweekScroll (Standard aus). Schritt 2: unsichtbarer
+// Unterbau. Die Ansicht lädt je zwei Wochen vor und nach dem sichtbaren Teil
+// mit (Termine darin sind schon geladen), die Zeilen dazu sind ausgeblendet.
+// Sichtbar bleibt alles wie bisher: Wochenzahl (calendar.weeks.inview),
+// Überschrift, Pfeile, „Heute“ und Zoom richten sich nach dem sichtbaren Teil
+const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
+const MULTIWEEK_BUFFER_WEEKS = 2;
+function hookMultiweekBuffer(mv, restorers) {
+  // Thunderbirds eigene Sicht auf das Element: Änderungen durch die
+  // Schutzschicht der Erweiterung (Xray) sähe der Kalender sonst nicht
+  // (über die Klasse: beim ersten Aufruf ist die Ansicht oft noch nicht
+  // aufgebaut – dann fehlten monthbody und die eigenen Methoden)
+  const win = mv?.ownerDocument?.defaultView;
+  mv = mv?.wrappedJSObject || mv;
+  const View = (win?.wrappedJSObject || win)?.customElements?.get("calendar-multiweek-view");
+  if (!win || !View || View.prototype.__mcBuffer || typeof View.prototype.setDateRange != "function") {
+    return;
+  }
   const proto = View.prototype;
   proto.__mcBuffer = true;
   const doc = win.document;
-  const on = () => Services.prefs.getBoolPref(MONTH_SCROLL_PREF, false);
-  const B = MONTH_BUFFER_WEEKS;
-  // wie Thunderbird die sechs Wochenzeilen anlegt, nur mehr davon
+  const on = () => Services.prefs.getBoolPref(MULTIWEEK_SCROLL_PREF, false);
+  const B = MULTIWEEK_BUFFER_WEEKS;
+  // wie Thunderbird die Wochenzeilen anlegt (sechs), nur so viele wie nötig
   const ensureRows = view => {
     const body = view.monthbody;
-    while (body.children.length < 6 + 2 * B) {
+    const want = Math.max(6, (view.weeksInView || 6) + 2 * B);
+    while (body.children.length < want) {
       const row = doc.createElement("tr");
       for (let day = 1; day <= 7; day++) {
         const cell = doc.createElement("td");
@@ -6234,35 +7048,27 @@ function hookMonthBuffer(mv, restorers) {
       body.append(row);
     }
   };
-  // Zeilen nach jedem Aufbau: Puffer ausblenden, sichtbare Zeilen fortlaufend
-  // ins Raster (leere Rasterzeilen nähmen sonst Platz ein), Monatsfarbe neu
+  // nach jedem Aufbau: Puffer-Zeilen ausblenden, sichtbare fortlaufend ins
+  // Raster (leere Rasterzeilen nähmen sonst Platz ein)
   const afterLayout = view => {
     const rows = [...view.monthbody.children];
-    const month = on() ? view.__mcMonth : null;
+    const buffered = on() && !!view.__mcVisible;
     const used = rows.filter(r => !r.hasAttribute("hidden"));
     let n = 2;
     rows.forEach((row, i) => {
       const k = used.indexOf(row);
-      const buffer = !!month && k >= 0 && (k < B || k >= used.length - B);
+      const buffer = buffered && k >= 0 && (k < B || k >= used.length - B);
       row.toggleAttribute("mc-buffer", buffer);
       if (buffer) {
         row.setAttribute("hidden", "");
       }
       for (const cell of row.cells) {
-        cell.firstElementChild.style.gridRow = month ? (row.hasAttribute("hidden") ? "" : n) : i + 2;
+        cell.firstElementChild.style.gridRow = buffered ? (row.hasAttribute("hidden") ? "" : n) : i + 2;
       }
-      if (month && !row.hasAttribute("hidden")) {
+      if (buffered && !row.hasAttribute("hidden")) {
         n++;
       }
     });
-    if (!month || !view.showFullMonth) {
-      return;
-    }
-    for (const box of view.mDateBoxes || []) {
-      const cur = box.date?.month == month.month;
-      box.classList.toggle("calendar-month-day-box-current-month", cur);
-      box.classList.toggle("calendar-month-day-box-other-month", !cur);
-    }
   };
   const saved = ["relayout", "setDateRange", "moveView"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
   const orig = Object.fromEntries(saved.map(([name, , fn]) => [name, fn]));
@@ -6271,23 +7077,24 @@ function hookMonthBuffer(mv, restorers) {
     try {
       afterLayout(this);
     } catch (e) {
-      log("month buffer layout error", String(e).slice(0, 120));
+      log("multiweek buffer layout error", String(e).slice(0, 120));
     }
     return r;
   };
   proto.setDateRange = function (startDate, endDate) {
     if (!on()) {
-      this.__mcMonth = null;
+      this.__mcVisible = null;
       return orig.setDateRange.call(this, startDate, endDate);
     }
     ensureRows(this);
-    this.__mcMonth = startDate.clone();
+    this.__mcVisible = [startDate.clone(), endDate.clone()];
     const s = startDate.clone();
     const e = endDate.clone();
     s.day -= 7 * B;
     e.day += 7 * B;
-    // Thunderbird erweitert auf ganze Wochen und baut neu, wenn sich der
-    // Bereich ändert; danach wieder der Monat als „angezeigter Bereich“
+    // Thunderbird baut neu, wenn sich der Bereich ändert, und fragt die
+    // Kalender für ihn ab; danach wieder der sichtbare Teil als „angezeigter
+    // Bereich“ (Überschrift, Pfeile)
     orig.setDateRange.call(this, s, e);
     this.rangeStartDate = startDate;
     this.rangeEndDate = endDate;
@@ -6296,41 +7103,37 @@ function hookMonthBuffer(mv, restorers) {
     }
     return undefined;
   };
-  // Pfeile: Thunderbird nimmt den 7. Tag der Ansicht als Monat – mit Puffer
-  // läge der noch im Vormonat
-  proto.moveView = function (number) {
-    if (!on() || !number || !this.rangeStartDate) {
-      return orig.moveView.call(this, number);
+  // Pfeile: Thunderbird rechnet vom ersten geladenen Tag – mit Puffer zwei
+  // Wochen zu früh; also vom ersten sichtbaren
+  proto.moveView = function (weeksToMove) {
+    if (!on() || !weeksToMove || !this.rangeStartDate) {
+      return orig.moveView.call(this, weeksToMove);
     }
-    this.displayDaysOff = !this.mWorkdaysOnly;
     const date = this.rangeStartDate.clone();
-    date.month += number;
-    const oldSelectedDay = this.selectedDay;
+    const savedSelectedDay = this.selectedDay.clone();
+    const prevWeeks = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
+    date.day += 7 * (weeksToMove + prevWeeks);
     this.goToDay(date);
-    const newSelectedDay = oldSelectedDay.clone();
-    newSelectedDay.month += number;
-    if ((newSelectedDay.month - number + 12) % 12 != oldSelectedDay.month) {
-      newSelectedDay.month -= 1;
-      newSelectedDay.day = newSelectedDay.endOfMonth.day;
-    }
-    this.selectedDay = newSelectedDay;
+    savedSelectedDay.day += 7 * weeksToMove;
+    this.selectedDay = savedSelectedDay;
     return undefined;
   };
-  // Einstellung umgeschaltet: denselben Monat neu aufbauen
+  // Einstellung umgeschaltet: denselben Bereich neu aufbauen
   const observer = () => {
     try {
-      const month = mv.rangeStartDate?.clone();
+      const start = mv.rangeStartDate?.clone();
+      const end = mv.rangeEndDate?.clone();
       mv.mViewStart = null;
-      if (month) {
-        mv.setDateRange(month, month.endOfMonth);
+      if (start && end && mv.monthbody) {
+        mv.setDateRange(start, end);
       }
     } catch (e) {
-      log("month buffer pref error", String(e).slice(0, 120));
+      log("multiweek buffer pref error", String(e).slice(0, 120));
     }
   };
-  Services.prefs.addObserver(MONTH_SCROLL_PREF, observer);
+  Services.prefs.addObserver(MULTIWEEK_SCROLL_PREF, observer);
   restorers?.push(() => {
-    Services.prefs.removeObserver(MONTH_SCROLL_PREF, observer);
+    Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, observer);
     for (const [name, own, fn] of saved) {
       if (own) {
         proto[name] = fn;
@@ -7364,8 +8167,10 @@ const CSS = `
   background: AccentColor;
   pointer-events: none;
 }
-#folderTree > li[data-mode="all"] > ul > li[mc-drop="before"]::after { top: -1px; }
-#folderTree > li[data-mode="all"] > ul > li[mc-drop="after"]::after { bottom: -1px; }
+/* ganz innerhalb des Abschnitts: unter dem letzten Konto endet die Liste,
+   ein halb herausragender Strich wäre dort nur 1 px dick */
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="before"]::after { top: 0; }
+#folderTree > li[data-mode="all"] > ul > li[mc-drop="after"]::after { bottom: 0; }
 #folderTree > li[data-mode="all"] > ul > li[data-server-type="none"] > .container .twisty {
   visibility: hidden !important;
 }
@@ -7864,6 +8669,12 @@ function appleLabels() {
         Inbox: "Posteingang", Drafts: "Entwürfe", SentMail: "Gesendet", Junk: "Werbung", Trash: "Papierkorb", Archive: "Archiv", Templates: "Vorlagen" }
     : { favourites: "Favourites", allInboxes: "All Inboxes", allSent: "All Sent", onMyMac: IS_MAC ? "On My Mac" : "On This Computer",
         Inbox: "Inbox", Drafts: "Drafts", SentMail: "Sent", Junk: "Junk", Trash: "Bin", Archive: "Archive", Templates: "Templates" };
+}
+// Name der lokalen Ordner in der Ordnerliste („On My Mac“, „On This
+// Computer“, in anderen Sprachen Thunderbirds eigener)
+function localFoldersName() {
+  const L = appleLabels();
+  return L.native ? (MailServices.accounts.localFoldersServer?.prettyName || "Local Folders") : L.onMyMac;
 }
 // Posteingang immer zuerst (order 0), Gmails „Wichtig“ direkt danach (1)
 // Breite der Mailliste wie in Apple Mail fest; die Nachricht nimmt den Rest
@@ -8669,6 +9480,9 @@ function toolbarNeed(doc, minimal = false) {
 // Zu wenig Platz rechts der Mailliste (z. B. 1280 px mit Today-Pane): wie
 // Apple Mail die unwichtigsten Knöpfe ausblenden, statt sie über die Liste
 // und den Seitenleisten-Knopf zu schieben. fits() misst nach jedem Schritt.
+// Streng in dieser Reihenfolge (zurück umgekehrt) – ein schmalerer Knopf
+// kommt nicht vor einem wichtigeren zurück, sonst wechselten sie sich beim
+// Ändern der Fensterbreite ab
 const SQUEEZE = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
 function squeezeToolbar(doc, fits) {
   const content = doc.getElementById("unifiedToolbarContent");
@@ -8682,7 +9496,10 @@ function squeezeToolbar(doc, fits) {
     if (fits()) {
       break;
     }
-    content.querySelector(`:scope > li[item-id="${id}"]`)?.setAttribute("mc-squeezed", "");
+    const li = content.querySelector(`:scope > li[item-id="${id}"]`);
+    if (li) {
+      li.setAttribute("mc-squeezed", "");
+    }
   }
 }
 
@@ -8980,6 +9797,54 @@ function barTarget(doc) {
 // (left = Abstand vom rechten Fensterrand), damit die Positionsrechnungen der
 // Toolbar-Zeile für beide Richtungen gelten – die Werte landen in
 // inset-inline-start & Co., die sich selbst spiegeln
+// Leisten-Automatik 1/3: Reicht die Fensterbreite? Feste Rechnung aus
+// bekannten Größen – Bereichsleiste, Seitenleiste (ihre aktuelle Breite),
+// Today-Pane (falls offen) und je Bereich feste Mindestbreiten der
+// Inhaltsspalten. Wie breit Mailliste oder Details gezogen sind, zählt nicht
+// (eine breite Liste ist kein Platzmangel), die Toolbar auch nicht (dort
+// weichen Knöpfe). Noch ohne Einklappen; Ausgabe nur mit debug.
+const CONTENT_MIN = {
+  mail: { vertical: 300 + 300, classic: 300, list: 300 },
+  mailMessageTab: 400,
+  calendar: 500,
+  tasks: { side: 280 + 360, below: 280 },
+  addressBookTab: 280 + 480,
+  chat: 200 + 400,
+  preferencesTab: 600,
+  contentTab: 600,
+};
+function barRoom(w) {
+  const d = w.document;
+  const tab = d.getElementById("tabmail")?.currentTabInfo;
+  const mode = tab?.mode?.name;
+  const parts = {};
+  const width = (el, shown = true) => (shown && el ? Math.round(rectOf(el)?.width || 0) : 0);
+  parts.spaces = w.gSpacesToolbar && !w.gSpacesToolbar.isHidden ? 67 : 0;
+  if (mode == "mail3PaneTab") {
+    const ab = tab.chromeBrowser?.contentWindow;
+    const layout = ab?.paneLayout;
+    parts.sidebar = width(ab?.document.getElementById("folderPane"), !!layout?.folderPaneVisible);
+    const pane = Services.prefs.getIntPref("mail.pane_config.dynamic", 0);
+    parts.content = !layout?.messagePaneVisible ? CONTENT_MIN.mail.list : pane == 2 ? CONTENT_MIN.mail.vertical : CONTENT_MIN.mail.classic;
+  } else {
+    const doc = tab?.browser?.contentDocument;
+    const side = {
+      calendar: () => d.getElementById("calSidebar"),
+      tasks: () => d.getElementById("calSidebar"),
+      chat: () => d.getElementById("listPaneBox"),
+      addressBookTab: () => doc?.getElementById("booksPane"),
+      preferencesTab: () => doc?.getElementById("pref-category-box"),
+    }[mode]?.();
+    parts.sidebar = side && !side.classList.contains("mc-side-hidden") && !side.collapsed ? width(side) : 0;
+    const min = CONTENT_MIN[mode];
+    parts.content = mode == "tasks" ? (d.documentElement.hasAttribute("mc-task-side") ? min.side : min.below) : min || 0;
+  }
+  const today = d.getElementById("today-pane-panel");
+  parts.today = w.TodayPane?.isVisible ? width(today) : 0;
+  const need = Object.values(parts).reduce((a, b) => a + b, 0);
+  return { mode, window: w.innerWidth, need, parts, short: need > w.innerWidth };
+}
+
 function rectOf(el) {
   if (!el) {
     return undefined;
@@ -9398,13 +10263,28 @@ class CardEnhancer {
       Services.prefs.removeObserver(LISTVIEW_PREF, viewObs);
       Services.prefs.removeObserver(PANE_PREF, viewObs);
     });
-    // Wie Apple Mail: Absender, Betreff, darunter die Vorschau. Thunderbirds
-    // dritte Kartenzeile wäre sonst nur eine Leerzeile über der Vorschau.
-    // (einmalig – wer danach wieder 3 Zeilen wählt, behält sie)
-    if (this.previewLines && !Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
-      Services.prefs.setIntPref("mail.threadpane.cardsview.rowcount", 2);
-      Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
-    }
+    // Wie Apple Mail: Absender, Betreff mit Büroklammer und Stern daneben,
+    // darunter die Vorschau. Thunderbirds dreizeilige Karte setzte die Symbole
+    // in eine eigene Zeile – immer zwei Zeilen; die Auswahl in Thunderbirds
+    // Einstellungen ist ausgeblendet (dafür gibt es die Vorschauzeilen)
+    const ROWS_PREF = "mail.threadpane.cardsview.rowcount";
+    const twoRows = () => {
+      if (Services.prefs.getIntPref(ROWS_PREF, 3) != 2) {
+        Services.prefs.setIntPref(ROWS_PREF, 2);
+        Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
+      }
+    };
+    twoRows();
+    // gegen eine Wahl in Thunderbirds Einstellungen – nicht beim Deinstallieren:
+    // dort räumt halo.spaces den Wert selbst weg und gleich danach seine eigenen
+    // Einstellungen (dann fehlt rowcountApplied, es bleibt beim Standard)
+    const rowsObs = { observe: () => setTimeout(() => {
+      if (Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
+        twoRows();
+      }
+    }, 0) };
+    Services.prefs.addObserver(ROWS_PREF, rowsObs);
+    this.restorers.push(() => Services.prefs.removeObserver(ROWS_PREF, rowsObs));
     this.applyToolbarOnce();
     Services.prefs.clearUserPref(QUICK_REPLY_PREF); // (Schnellantwort entfernt)
     // Suche über alle Konten und Treffer als einfache Liste (Einstellungen →
@@ -9515,7 +10395,10 @@ class CardEnhancer {
             // Termin (nicht Aufgabe): schmales Fenster wie Apple Kalender (spaces.css)
             // – schon jetzt, bevor Thunderbird die Größe nach dem Formular misst
             try {
-              if (dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
+              // nicht unter Linux: dort gingen im schmalen Fenster die
+              // Auswahlmenüs der Zeitkarte (Datum, Wiederholen, Erinnerung)
+              // sofort wieder zu
+              if (Services.appinfo.OS != "Linux" && dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
                 doc.documentElement.setAttribute("mc-event", "");
               }
             } catch {}
@@ -9540,6 +10423,7 @@ class CardEnhancer {
                 hookDateTimePickers(iw);
                 keepDurationAlways(iw);
                 appleEventLayout(iw);
+                addTypeSwitch(iw);
                 if (iw.parent?.location?.href.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml")) {
                   this.tidyEventDialog(iw.parent);
                 }
@@ -9628,6 +10512,20 @@ class CardEnhancer {
       onLoadWindow: w => this.watchMainWindow(w),
     });
     this.watchChatVariant();
+    // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
+    // „Regionale Einstellungen des Systems verwenden“ als Vorgabe an – wer es
+    // selbst eingestellt hat, behält seine Wahl
+    const REGIONAL = "intl.regional_prefs.use_os_locales";
+    const defaults = Services.prefs.getDefaultBranch("");
+    const regionalBefore = defaults.getBoolPref(REGIONAL, false);
+    defaults.setBoolPref(REGIONAL, true);
+    this.restorers.push(() => defaults.setBoolPref(REGIONAL, regionalBefore));
+    // Anhänge unter der Mail von Anfang an aufgeklappt (wie Apple Mail) – als
+    // Vorgabe, wer Thunderbirds Einstellung selbst geändert hat, behält sie
+    const ATT_EXPANDED = "mailnews.attachments.display.start_expanded";
+    const attExpandedBefore = defaults.getBoolPref(ATT_EXPANDED, false);
+    defaults.setBoolPref(ATT_EXPANDED, true);
+    this.restorers.push(() => defaults.setBoolPref(ATT_EXPANDED, attExpandedBefore));
     // Verfassen-Fenster: Symbolleiste nur mit Symbolen, sobald Beschriftungen
     // gekürzt würden (siehe watchComposeToolbar)
     const composeCleanups = new Set();
@@ -9804,10 +10702,11 @@ class CardEnhancer {
     const d = w.document;
     const root = d.documentElement;
     const tabmail = d.getElementById("tabmail");
-    const FLEX = ["messagePane", "detailsPane", "preferencesContainer", "calendarDisplayBox", "conversationsBox"];
+    const FLEX = ["messagePane", "detailsPane", "preferencesContainer", "calendar-task-details-container", "calendarDisplayBox", "conversationsBox"];
     // Elemente im Hauptdokument nur im passenden Tab (ausgeblendete Tabs behalten
     // ihre Breite: der Kalender maß sonst 560×0 px und sperrte die Fensterbreite)
-    const MODE = { calendarDisplayBox: ["calendar", "tasks"], conversationsBox: ["chat"] };
+    // (Aufgaben: die Details neben der Liste schrumpfen, mit ihrer Knopfzeile als Mindestbreite)
+    const MODE = { calendarDisplayBox: ["calendar", "tasks"], conversationsBox: ["chat"], "calendar-task-details-container": ["tasks"] };
     const shown = el => {
       const r = el?.getBoundingClientRect();
       return !!r && r.width > 0 && r.height > 0 && (el.checkVisibility?.() ?? true);
@@ -9855,6 +10754,25 @@ class CardEnhancer {
       return { watch: [] };
     };
     let later = null;
+    // freier Platz des schrumpfenden Bereichs über seiner Mindestbreite (für das
+    // automatische Einklappen); null, wenn es keinen gibt
+    w.__mcLayoutSlack = () => {
+      const { width, min } = measure();
+      return width === undefined ? null : width - min;
+    };
+    // Leisten-Automatik 1/3: nur rechnen (Prüfungen, debug), noch nichts einklappen
+    w.__mcBarRoom = () => barRoom(w);
+    let roomLog = null;
+    const logRoom = () => {
+      w.clearTimeout(roomLog);
+      roomLog = w.setTimeout(() => {
+        if (Services.prefs.getBoolPref("extensions.mailcards.debug", false)) {
+          const r = barRoom(w);
+          log("bar room", r.mode, "window", r.window, "need", r.need, JSON.stringify(r.parts), r.short ? "→ zu schmal" : "→ passt");
+        }
+      }, 400);
+    };
+    w.addEventListener("resize", logRoom);
     const update = () => {
       try {
         // während einer Seitenleisten-Animation nicht rechnen: das Setzen am
@@ -9920,7 +10838,10 @@ class CardEnhancer {
       fitLater = w.setTimeout(() => {
         try {
           const sc = w.screen;
-          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.fullScreen) {
+          // maximiert ist das Fenster unter Windows um die unsichtbaren Ränder
+          // breiter als der Bildschirm (+16 px) – das ist richtig so, sonst
+          // höbe resizeTo() das Maximieren gleich wieder auf
+          if (!sc?.availWidth || w.windowState == w.STATE_FULLSCREEN || w.windowState == w.STATE_MAXIMIZED || w.fullScreen) {
             return;
           }
           if (w.outerWidth <= sc.availWidth + 2) {
@@ -9944,6 +10865,9 @@ class CardEnhancer {
       tabmail?.tabContainer?.removeEventListener("TabSelect", onTab);
       w.removeEventListener("resize", update);
       w.removeEventListener("resize", fitScreen);
+      w.removeEventListener("resize", logRoom);
+      w.clearTimeout(roomLog);
+      delete w.__mcBarRoom;
       w.removeEventListener("sizemodechange", fitScreen);
       root.style.removeProperty("min-width");
     });
@@ -10173,8 +11097,10 @@ class CardEnhancer {
             delete shared.__mcHooked;
           });
         }
-        // rechte Kante der Kontaktliste dort, wo in der Mail die Mailliste endet –
-        // auch bei ausgeblendeter Adressbuchliste (die Liste wird dann breiter)
+        // rechte Kante der Kontaktliste dort, wo in der Mail die Mailliste endet;
+        // bei ausgeblendeter Adressbuchliste behält sie ihre Breite (wie die
+        // Mailliste ohne Ordnerliste) – sonst wuchs sie um die frei gewordene
+        // Spalte und das Fenster ließ sich nicht mehr schmaler machen
         const cl = rectOf(cards);
         if (this.mcButtonsLeft && shared && "width" in shared && !shared.__mcDragging && cl && !el.__mcShowing &&
             !el.ownerDocument.body.classList.contains("layout-table")) {
@@ -10184,7 +11110,10 @@ class CardEnhancer {
           const dp = el.ownerDocument.getElementById("detailsPane");
           const detailsMin = (dp && parseFloat(el.ownerDocument.defaultView.getComputedStyle(dp).minWidth)) || 0;
           const room = Math.floor(el.ownerDocument.documentElement.clientWidth - cl.left - detailsMin - 2);
-          const want = Math.min(Math.round(this.mcButtonsLeft - 6 - (shift + cl.left)), room);
+          const books = el.ownerDocument.getElementById("booksPane");
+          const booksHidden = !books || books.classList.contains("mc-side-hidden") || !rectOf(books)?.width;
+          const want = Math.min(booksHidden && this.mcListWidth ? this.mcListWidth
+            : Math.round(this.mcButtonsLeft - 6 - (shift + cl.left)), room);
           if (want >= 160 && Math.abs((shared.width || 0) - want) >= 1) {
             shared.width = want;
           }
@@ -10220,6 +11149,7 @@ class CardEnhancer {
             this.mcListPending = true;
           }
         }
+        details?.setAttribute("data-mc-empty", tr("No Task Selected"));
         if (side && details && this.mcButtonsLeft && !details.__mcDragging) {
           const dr = rectOf(details);
           const lr = rectOf(taskList);
@@ -10230,29 +11160,75 @@ class CardEnhancer {
             tp?.width ? tp.left : Infinity, w.innerWidth);
           if (dr.width && lr?.width && right) {
             const splitW = Math.max(0, dr.left - lr.right);
+            // wie die Mail: Liste so breit wie die Mailliste, die Details nehmen
+            // den Rest – nie schmaler als ihre Knopfzeile (--mc-task-details-min)
             const want = Math.round(right - (this.mcButtonsLeft - 6) - splitW);
             const max = Math.round(right - lr.left - splitW - 280); // Liste mindestens 280 px
-            const width = Math.max(360, Math.min(want, max));
+            const dmin = parseFloat(d.documentElement.style.getPropertyValue("--mc-task-details-min")) || 360;
+            const width = Math.max(dmin, Math.min(want, max));
             if (Math.abs(dr.width - width) >= 1) {
               details.style.width = `${width}px`;
             }
           }
         }
         const lr = rectOf(taskList);
-        if (side && lr?.width) {
-          edge = Math.max(edge, lr.right + 6);
-          setBarVar(d, "--mc-task-list-right", `${Math.round(lr.right - rowLeft)}px`);
-        } else {
-          setBarVar(d, "--mc-task-list-right", `${Math.round(edge - 6 - rowLeft)}px`);
-        }
-        d.documentElement.toggleAttribute("mc-task-table", !side);
-        // Aktionsknöpfe gleich rechts vom „+“
         const plus = [...d.querySelectorAll('#unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"])')]
           .find(li => rectOf(li).width);
         const pr = rectOf(plus?.querySelector("button"));
-        if (pr?.width) {
-          setVar(d.getElementById("task-actions-toolbar"), "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
+        let headRight;
+        const actions = d.getElementById("task-actions-toolbar");
+        {
+          if (side && lr?.width) {
+            edge = Math.max(edge, lr.right + 6);
+            headRight = lr.right;
+            // Mindestbreite der Details: ihre Knopfzeile – „+“ samt dem Platz
+            // der Aktionen rechts davon, Suchfeld als Lupe, was rechts der Suche
+            // steht (Today-Knopf) und Innenabstand; darunter hält die
+            // Mindestbreite des Fensters fest (Bezeichnungen nie gekürzt)
+            const dr = rectOf(details);
+            const pl = rectOf(plus);
+            const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+            const sr = rectOf(search);
+            if (dr?.width && pl?.width && sr?.width) {
+              const reserve = parseFloat(w.getComputedStyle(plus).marginInlineEnd) || 0;
+              // (rechts der Suche bis zur Kante der Details, z. B. der Today-Knopf
+              // bei geschlossener Today-Pane – nicht die Today-Pane selbst)
+              const tail = Math.max(0, dr.right - sr.right);
+              const need = Math.ceil(pl.right + reserve - dr.left + 40 + tail + 6);
+              if (Math.abs((parseFloat(d.documentElement.style.getPropertyValue("--mc-task-details-min")) || 0) - need) >= 1) {
+                d.documentElement.style.setProperty("--mc-task-details-min", `${need}px`);
+              }
+            }
+          } else {
+            headRight = edge - 6;
+          }
+          // Kopf (Titel, Filter, „…“) endet immer vor dem „+“ und den Aktionen
+          // rechts davon – auch wenn die Details bei schmalem Fenster unter die
+          // Liste rutschen (dann galt sonst die alte, breitere Kante weiter)
+          // (die Kapsel endet 8 px vor dieser Kante)
+          if (pr?.width && pr.left - 2 < headRight) {
+            headRight = pr.left - 2;
+          }
+          // Aktionsknöpfe gleich rechts vom „+“
+          if (pr?.width) {
+            setVar(actions, "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
+          }
         }
+        setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
+        // Aktionen und Kopf richten sich nach dem gemessenen „+“ – das springt
+        // erst mit dieser Rechnung an seinen Platz (z. B. beim Wechsel zwischen
+        // „Details daneben“ und „darunter“): stand es woanders, im übernächsten
+        // Bild noch einmal ausrichten (hört auf, sobald es still steht)
+        const plusAt = `${side}:${Math.round(pr?.left ?? -1)}`;
+        if (w.__mcPlusAt !== plusAt) {
+          w.__mcPlusAt = plusAt;
+          w.requestAnimationFrame(() => w.requestAnimationFrame(updateSideEdge));
+        }
+        // Haarlinie in der Toolbar-Zeile genau über dem Teiler zu den Details
+        // (durchgehend vom oberen Rand bis unten)
+        const split = rectOf(d.getElementById("calendar-task-view-splitter"));
+        setBarVar(d, "--mc-task-line", split?.width ? `${Math.round(split.left - rowLeft)}px` : `${Math.round(headRight - rowLeft)}px`);
+        d.documentElement.toggleAttribute("mc-task-table", !side);
       }
       const toggle = rectOf(d.getElementById("spacesPinnedButton"));
       if (toggle?.width) {
@@ -10264,10 +11240,13 @@ class CardEnhancer {
       // steht rechtsbündig, seine rechte Kante bleibt beim Kürzen stehen)
       if (tab.mode.name == "chat") {
         const tb = rectOf(d.getElementById("chat-view-toolbox"));
-        const s = rectOf(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]'));
+        const sLi = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+        const s = rectOf(sLi);
         if (tb?.width && s?.width) {
           const sideEdge = Math.max(shift + (r.width ? r.right : 0) + 12, toggle?.width ? toggle.right + 12 : 0);
-          edge = Math.max(sideEdge, Math.min(edge, s.right - 12 - 160 - tb.width));
+          // (das Suchfeld ist höchstens so breit wie sein Text, oft unter 160 px)
+          const sWant = Math.min(160, parseFloat(sLi.style.getPropertyValue("--mc-search-fit")) || 160);
+          edge = Math.max(sideEdge, Math.min(edge, s.right - 12 - sWant - tb.width));
           setBarVar(d, "--mc-chat-search-max", `${Math.max(40, Math.floor(s.right - (edge + tb.width) - 12))}px`);
         }
       }
@@ -11161,6 +12140,13 @@ class CardEnhancer {
     // Seitenleisten der übrigen Bereiche ein-/ausblenden wie die Ordnerliste
     // (Zustand je Bereich gespeichert, gleiche Animation wie in der Mail)
     const SIDE_PREF = "extensions.mailcards.hiddenSidebars";
+    // (die frühere Automatik, die Leisten bei Platzmangel selbst einklappte,
+    // ist entfernt – Leisten nur noch über die Knöpfe; ihr gemerkter Zustand
+    // ließ Leisten sonst zu, auch wenn der Knopf sie öffnen sollte)
+    Services.prefs.clearUserPref("extensions.mailcards.autoCollapsed");
+    Services.prefs.clearUserPref("extensions.mailcards.autoCollapse");
+    // Kalender und Aufgaben teilen sich die Seitenleiste
+    const sideKey = mode => (mode == "tasks" ? "calendar" : mode);
     const SIDE_TOGGLE = {
       calendar: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
       tasks: () => [w.document.getElementById("calSidebar"), w.document.getElementById("calsidebar_splitter")],
@@ -11409,20 +12395,28 @@ class CardEnhancer {
       const { mode, el } = currentSide();
       return el ? !!sideState()[mode] : false;
     };
-    const toggleSpaceSidebar = () => {
+    // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+    const toggleSpaceSidebar = (reverse = false) => {
       const { mode, el, splitter } = currentSide();
+      if (el?.__mcAnimating && reverse) {
+        el.__mcReverse?.();
+        return;
+      }
       if (!el || el.__mcAnimating) {
         return;
       }
       const win = el.ownerDocument.defaultView;
       const show = el.classList.contains("mc-side-hidden");
-      const state = sideState();
-      state[mode] = !show;
-      // Kalender und Aufgaben teilen sich die Seitenleiste
-      if (mode == "calendar" || mode == "tasks") {
-        state.calendar = state.tasks = !show;
-      }
-      Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
+      const saveState = hidden => {
+        const state = sideState();
+        state[mode] = hidden;
+        // Kalender und Aufgaben teilen sich die Seitenleiste
+        if (mode == "calendar" || mode == "tasks") {
+          state.calendar = state.tasks = hidden;
+        }
+        Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
+      };
+      saveState(!show);
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
       unCollapse(el, splitter);
@@ -11448,10 +12442,16 @@ class CardEnhancer {
       // Kontaktliste stehen und spränge erst am Ende
       const gridBody = el.id == "booksPane" ? el.ownerDocument.body : null;
       const savedColumn = gridBody?.style.getPropertyValue("--booksSplitter-width");
+      // Adressbuch: nur die Rasterspalte setzen, die Liste füllt sie aus –
+      // eine eigene Breite ragte über die Spalte, wenn Thunderbird sie bei
+      // knappem Fenster schmaler lässt (Kontaktliste und Details haben Mindestbreiten)
       const setW = v => {
+        if (gridBody) {
+          gridBody.style.setProperty("--booksSplitter-width", `${v}px`);
+          return;
+        }
         el.style.setProperty("width", `${v}px`, "important");
         el.style.setProperty("max-width", `${v}px`, "important");
-        gridBody?.style.setProperty("--booksSplitter-width", `${v}px`);
       };
       // Adressbuch: beim Ausblenden die Breite der Kontaktliste merken; beim
       // Einblenden behält sie gleich wieder diese Breite (wie die Mailliste) und
@@ -11466,21 +12466,27 @@ class CardEnhancer {
         shared.width = el.__mcCardsWidth;
         el.__mcShowing = true;
       }
-      if (show) {
-        setW(0);
-      }
-      let start = null;
+      // beim Ausblenden gleich die volle Breite festhalten – ohne sie wird die
+      // Leiste (min-width 0, overflow hidden) im ersten Bild schmaler und
+      // springt dann zurück (Kalender/Aufgaben)
+      setW(show ? 0 : full);
+      // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+      let k = 0, dir = 1, last = null;
+      el.__mcReverse = () => {
+        dir = -dir;
+        saveState(dir > 0 ? !show : show);
+      };
       const step = now => {
-        if (start === null) {
-          start = now;
-        }
-        const k = Math.min(1, (now - start) / DURATION);
+        k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+        last = now;
         setW(full * (show ? curve(k) : 1 - curve(k)));
         updateSideEdge();
-        if (k < 1) {
+        if (dir > 0 ? k < 1 : k > 0) {
           win.requestAnimationFrame(step);
           return;
         }
+        const shown = show == (k >= 1);
+        delete el.__mcReverse;
         for (const [prop, value, prio] of saved) {
           if (value) {
             el.style.setProperty(prop, value, prio);
@@ -11496,7 +12502,7 @@ class CardEnhancer {
             gridBody.style.removeProperty("--booksSplitter-width");
           }
         }
-        if (!show) {
+        if (!shown) {
           el.classList.add("mc-side-hidden");
           splitter?.classList.add("mc-side-hidden");
         }
@@ -11857,7 +12863,7 @@ class CardEnhancer {
       });
     };
 
-    // Menüleiste → Help: „Halo Spaces …“ öffnet das Info-Fenster mit
+    // Menüleiste → Help: „halo.spaces“ öffnet das Info-Fenster mit
     // Update-Prüfung, Feedback und „Danke sagen“.
     const hookHelpMenu = () => {
       const d = w.document;
@@ -11869,7 +12875,11 @@ class CardEnhancer {
       sep.id = "mcCheckUpdatesSeparator";
       const item = d.createXULElement("menuitem");
       item.id = "mcHaloSpaces";
-      item.setAttribute("label", "halo.spaces …");
+      // ohne „…“ (öffnet nur ein Info-Fenster, wie „About“), mit unserem Symbol
+      // davor – auch in der Menüleiste von macOS (menuitem-iconic + image)
+      item.setAttribute("label", "halo.spaces");
+      item.classList.add("menuitem-iconic");
+      item.setAttribute("image", "resource://mailcards/about/icon.svg");
       item.addEventListener("command", () => this.openHaloWindow(w));
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);
@@ -12240,11 +13250,11 @@ class CardEnhancer {
           this.animateSidebar(ab, splitter, () => {
             sidebarTip?.();
             placeSideGrip();
-          });
+          }, true);
         }
       } else {
         // in allen anderen Bereichen deren Seitenleiste ein-/ausblenden
-        toggleSpaceSidebar();
+        toggleSpaceSidebar(true);
       }
     };
     const hookSidebarButton = () => {
@@ -12326,7 +13336,9 @@ class CardEnhancer {
       };
       updateTip();
       btn.addEventListener("mouseenter", updateTip);
-      btn.addEventListener("click", () => this.animateSpaces(w, updateTip));
+      btn.addEventListener("click", () => {
+        this.animateSpaces(w, () => updateTip(), true);
+      });
       bar.after(btn);
       // Pfeil nach dem Zustand (data-mc-hidden): beim Klick wechselt er sofort
       // (animateSpaces), auch wenn Thunderbird die Leiste anders ein-/ausblendet
@@ -12393,6 +13405,7 @@ class CardEnhancer {
 
     // Today-Pane ein-/ausblenden: Knopf unten rechts (Gegenstück zum
     // Bereiche-Knopf unten links) statt des ✕ oben in der Today-Pane
+
     const hookTodayToggle = () => {
       const d = w.document;
       const panel = d.getElementById("today-pane-panel");
@@ -12435,7 +13448,7 @@ class CardEnhancer {
       };
       updateTip();
       btn.addEventListener("mouseenter", updateTip);
-      btn.addEventListener("click", () => this.animateTodayPane(w, command, updateTip));
+      btn.addEventListener("click", () => this.animateTodayPane(w, command, updateTip, true));
       const mo = panel ? new w.MutationObserver(() => {
         updateTip();
         w.__mcTodayTopSync?.();
@@ -12524,7 +13537,13 @@ class CardEnhancer {
       // Überschrift „Today Pane“ oben in der Toolbar-Zeile, neben dem Knopf
       const title = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       title.id = "mcTodayTitle";
-      title.textContent = tr("Today Pane");
+      // Text und Sonne/Wetter als eigene Elemente: jedes mit eigenem Tooltip
+      const titleText = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      titleText.className = "mc-tt-text";
+      titleText.textContent = tr("Today Pane");
+      const weatherIcon = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      weatherIcon.id = "mcTodayWeather";
+      title.append(titleText, weatherIcon);
       top.append(title);
       row?.prepend(top);
       // Wetter statt der festen Sonne (Option, Standard aus)
@@ -12612,7 +13631,20 @@ class CardEnhancer {
         setVar(row, "--mc-row-tail", `${tail}px`);
         // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
         // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
-        title.toggleAttribute("data-narrow", width - 60 - (60 + Math.max(caption, tail)) < 110);
+        const room = width - 60 - (60 + Math.max(caption, tail));
+        title.toggleAttribute("data-narrow", room < 110);
+        // nicht einmal für die Sonne Platz (Windows/Linux: ≡ und Fensterknöpfe
+        // liegen über der Today-Pane): Überschrift als eigene Zeile oben in der
+        // Today-Pane statt unsichtbar unter „+“
+        const below = width > 0 && room < 32;
+        if (below != (title.parentNode == panel)) {
+          if (below) {
+            panel.prepend(title);
+          } else {
+            top.append(title);
+          }
+        }
+        title.toggleAttribute("data-below", below);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;
@@ -12623,6 +13655,7 @@ class CardEnhancer {
         ro?.disconnect();
         btn.remove();
         top.remove();
+        title.remove();
         row?.style.removeProperty("--mc-tp-w");
         delete w.__mcTodayTopSync;
       });
@@ -12709,6 +13742,7 @@ class CardEnhancer {
         if (event?.type == "MsgLoaded") {
           fitWideMessage(event.target);
           fitShortMessage(event.target);
+          decorateAttachments(event.target);
         }
       };
       const tabs = w.document.getElementById("tabmail")?.tabContainer;
@@ -13729,6 +14763,34 @@ class CardEnhancer {
     // Doppelklick auf freie Zeit (Woche/Tag), die Ganztägig-Zeile oder einen
     // Tag im Monat: unser Schnellfenster an der Mausposition statt Thunderbirds
     // großem Dialog. Ziehen über einen Zeitraum legt weiter direkt an.
+    // Terminliste unter dem Kalender („Find Events“): wie bei Apple beim
+    // Start zu, Thunderbirds Knopf öffnet sie wieder (sein Zustand stimmt mit)
+    const hideUnifinderOnce = () => {
+      const d = w.document;
+      if (d.documentElement.hasAttribute("mc-unifinder-ready")) {
+        return;
+      }
+      const box = d.getElementById("bottom-events-box");
+      if (!box) {
+        return;
+      }
+      try {
+        // (direkt – Thunderbirds toggleUnifinder ist beim Start oft noch nicht da;
+        // sein Umschalten richtet sich nach hidden)
+        if (!box.hidden) {
+          box.hidden = true;
+          const splitter = d.getElementById("calendar-view-splitter");
+          if (splitter) {
+            splitter.hidden = true;
+          }
+          d.getElementById("calendar_show_unifinder_command")?.setAttribute("checked", "false");
+        }
+      } catch (e) {
+        log("unifinder hide error", e);
+      }
+      d.documentElement.setAttribute("mc-unifinder-ready", "");
+      this.restorers.push(() => d.documentElement.removeAttribute("mc-unifinder-ready"));
+    };
     const hookCalendarDoubleClick = () => {
       const ctrl = w.calendarViewController;
       const box = w.document.getElementById("view-box");
@@ -13744,6 +14806,7 @@ class CardEnhancer {
         // in Bildschirmkoordinaten – das Schnellfenster erscheint daneben
         const cell = event.target?.closest?.("calendar-month-day-box, calendar-header-container, calendar-event-column");
         const r = cell?.getBoundingClientRect();
+        lastClick.cell = cell || null;
         if (r?.width) {
           const column = cell.localName == "calendar-event-column";
           lastClick.rect = {
@@ -14187,7 +15250,7 @@ class CardEnhancer {
       markTab();
       decorateAgenda();
       hookMonthView();
-      hookMonthBuffer(w.document.getElementById("month-view"), this.restorers);
+      hookMultiweekBuffer(w.document.getElementById("multiweek-view"), this.restorers);
       hookMultidayZoom();
       hookNewButton();
       hookCalendarNotes();
@@ -14195,6 +15258,7 @@ class CardEnhancer {
       hookTaskPlaceholders();
       hookTasksEmpty();
       hookCalendarDoubleClick();
+      hideUnifinderOnce();
       hookTaskHint();
       hookTaskDescription();
       hookTitle();
@@ -14203,6 +15267,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSpacesToggle();
+      UpdateNote.hook(w, this.restorers);
       FifthSpace.attach(w, this.restorers);
       hookLooseTabs(w, this.restorers);
       hookHoverLine(w, this.restorers);
@@ -14271,9 +15336,8 @@ class CardEnhancer {
     const own = uiLanguage() != "en" || Services.locale.appLocaleAsBCP47.startsWith("en");
     // langer eigener Platzhalter („Alle Postfächer durchsuchen“) endet bei
     // schmalem Feld mit „…“ statt mitten im Wort
-    const ellipsis = own
-      ? `::slotted([slot="placeholder"]) { display: block !important; overflow: hidden !important; text-overflow: ellipsis !important; }`
-      : "";
+    // (Platzhalter als Block, damit sich messen lässt, ob er noch ganz hineinpasst)
+    const ellipsis = `::slotted([slot="placeholder"]) { display: block !important; overflow: hidden !important; white-space: nowrap !important;${own ? " text-overflow: ellipsis !important;" : ""} }`;
     const style = w.document.createElementNS("http://www.w3.org/1999/xhtml", "style");
     style.id = "mail-cards-search";
     style.textContent = `
@@ -14290,7 +15354,55 @@ class CardEnhancer {
       placeholder.removeAttribute("data-l10n-id");
       placeholder.textContent = tr("Search");
     }
+    // Feld höchstens so breit wie Lupe + Platzhalter + Innenabstand (in allen
+    // Bereichen, auch bei breitem Fenster); wird es schmaler, endet der Zusatz
+    // mit „…“, das erste Wort („Search“, „Kontakte“) aber nie abgeschnitten –
+    // passt nicht einmal das, nur die Lupe. Gemessen wird der Text selbst
+    // (Range), nicht sein Kasten, und gegen die sichtbare Innenbreite des Felds
+    const li = bar.closest("li");
+    const canvas = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    const textWidth = (node, end) => {
+      const range = w.document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, end);
+      return range.getBoundingClientRect().width;
+    };
+    const fitPlaceholder = () => {
+      const node = placeholder?.firstChild;
+      if (!node || node.nodeType != 3 || !node.length) {
+        return;
+      }
+      const text = node.data;
+      const full = textWidth(node, text.length);
+      if (!full) {
+        return; // (noch nicht dargestellt)
+      }
+      const space = text.indexOf(" ");
+      const word = space > 0 ? textWidth(node, space) : full;
+      const ctx = canvas.getContext("2d");
+      ctx.font = w.getComputedStyle(placeholder).font;
+      const dots = ctx.measureText("…").width;
+      // 30 px links (Lupe), 14 px rechts
+      const fit = `${Math.ceil(30 + full + 14)}px`;
+      if (li && li.style.getPropertyValue("--mc-search-fit") != fit) {
+        li.style.setProperty("--mc-search-fit", fit);
+      }
+      const inner = bar.getBoundingClientRect().width - 30 - 10;
+      const shown = inner + 1 >= full || inner >= word + (space > 0 ? dots : 0);
+      placeholder.style.visibility = shown ? "" : "hidden";
+    };
+    const ro = placeholder ? new w.ResizeObserver(fitPlaceholder) : null;
+    ro?.observe(placeholder);
+    ro?.observe(bar);
+    // anderer Bereich bzw. Ordner: neuer Text, neue Breite
+    const mo = placeholder ? new w.MutationObserver(fitPlaceholder) : null;
+    mo?.observe(placeholder, { childList: true, characterData: true, subtree: true });
+    fitPlaceholder();
     this.restorers.push(() => {
+      ro?.disconnect();
+      mo?.disconnect();
+      li?.style.removeProperty("--mc-search-fit");
+      placeholder?.style.removeProperty("visibility");
       style.remove();
       if (placeholder && l10nId) {
         placeholder.setAttribute("data-l10n-id", l10nId);
@@ -14304,8 +15416,13 @@ class CardEnhancer {
   // darüber und decken sie zu (beim Einblenden umgekehrt). Dauer und Kurve sind die macOS-Standardwerte für
   // Seitenleisten: 0,25 s, cubic-bezier(0.25, 0.1, 0.25, 1).
   // Thunderbird steuert die Breite über --folderPaneSplitter-width am Raster.
-  animateSidebar(ab, splitter, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  // (sonst, z. B. bei der Automatik, wird er ignoriert)
+  animateSidebar(ab, splitter, onDone, reverse = false) {
     if (ab.__mcAnimating) {
+      if (reverse) {
+        ab.__mcReverse?.();
+      }
       return;
     }
     const pane = ab.document.getElementById("folderPane");
@@ -14412,13 +15529,15 @@ class CardEnhancer {
     ab.__mcAnimating = true;
     // Die Uhr läuft erst ab dem ersten gezeichneten Bild: beim Einblenden baut
     // Thunderbird die Ordnerliste zuerst neu auf, das würde sonst den Anfang
-    // der Bewegung verschlucken und sie ruckartig starten lassen
-    let start = null;
+    // der Bewegung verschlucken und sie ruckartig starten lassen.
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    ab.__mcReverse = () => {
+      dir = -dir;
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       // setzt Thunderbird währenddessen eine neue Sperre, gilt sie dem
       // Zwischenstand – entfernen und am Ende durch die volle Breite ersetzen
       if (pane.style.getPropertyPriority("width") == "important") {
@@ -14442,14 +15561,47 @@ class CardEnhancer {
         grid.style.setProperty(msgProp, `${Math.max(0, msg)}px`);
       }
       this.offsetUpdaters?.forEach(fn => fn());
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         ab.requestAnimationFrame(step);
         return;
       }
+      delete ab.__mcReverse;
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
       pane.style.minWidth = "";
       pane.classList.remove("mc-side-anim");
+      if (k <= 0) {
+        // umgekehrt und wieder am Anfang: Ausgangszustand herstellen
+        if (vertical) {
+          if (msgSaved) {
+            grid.style.setProperty(msgProp, msgSaved);
+          } else {
+            grid.style.removeProperty(msgProp);
+          }
+        }
+        if (collapsing) {
+          // bleibt eingeblendet
+          delete pane.__mcShown;
+          delete pane.__mcLockedWidth;
+          if (saved) {
+            grid.style.setProperty(prop, saved);
+          } else {
+            grid.style.removeProperty(prop);
+          }
+          if (lockedWidth || relocked) {
+            pane.style.setProperty("width", `${full}px`, "important");
+          }
+        } else {
+          // bleibt ausgeblendet (wie vorher, samt Breite fürs nächste Einblenden)
+          pane.__mcShown = { full, grid: grid.getBoundingClientRect().width, saved: splitter.width };
+          pane.__mcLockedWidth = lockedWidth;
+          splitter.isCollapsed = true;
+        }
+        ab.__mcAnimating = false;
+        onDone?.();
+        ab.setTimeout(() => this.offsetUpdaters?.forEach(fn => fn()), 30);
+        return;
+      }
       if ((lockedWidth || relocked) && !collapsing) {
         pane.style.setProperty("width", `${full}px`, "important");
       }
@@ -14660,9 +15812,15 @@ class CardEnhancer {
   // Bereiche-Leiste wie die Ordnerliste animieren: Breite 0 ↔ 67 px über
   // --mc-spaces-w (userChrome.css leitet --spaces-total-width davon ab), die
   // Leiste schiebt sich dabei von links herein bzw. hinaus.
-  animateSpaces(w, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  // (sonst, z. B. bei der Automatik, wird er ignoriert)
+  animateSpaces(w, onDone, reverse = false) {
     const spaces = w.gSpacesToolbar;
     const root = w.document.documentElement;
+    if (w.__mcSpacesAnimating && reverse) {
+      w.__mcSpacesReverse?.();
+      return;
+    }
     if (!spaces || w.__mcSpacesAnimating) {
       return;
     }
@@ -14707,23 +15865,28 @@ class CardEnhancer {
       spaces.toggleToolbar(false);
       root.getBoundingClientRect(); // Aufbau jetzt erzwingen, nicht im ersten Bild
     }
-    let start = null;
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    w.__mcSpacesReverse = () => {
+      dir = -dir;
+      toggle?.toggleAttribute("data-mc-hidden", dir > 0 ? !showing : showing);
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       set(FULL * (showing ? curve(k) : 1 - curve(k)));
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         w.requestAnimationFrame(step);
         return;
       }
-      if (!showing) {
+      const shown = showing == (k >= 1);
+      if (!shown && !spaces.isHidden) {
         spaces.toggleToolbar(true);
       }
       clear();
       root.style.removeProperty("--mc-spaces-w");
       w.__mcSpacesAnimating = false;
+      delete w.__mcSpacesReverse;
       toggle?.toggleAttribute("data-mc-hidden", !!spaces.isHidden);
       onDone?.();
       const realign = () => {
@@ -14746,7 +15909,7 @@ class CardEnhancer {
   openQuickCreate(w, mode = "event", anchor = null, preset = null) {
     const d = w.document;
     const X = "http://www.w3.org/1999/xhtml";
-    const locale = Services.locale.appLocaleAsBCP47;
+    const locale = regionLocale();
     let cal, CalEvent, CalTodo, CalAlarm, CalRecurrenceInfo;
     try {
       ({ cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs"));
@@ -14907,7 +16070,10 @@ class CardEnhancer {
         updateColor();
       };
       const selectedCalendar = () => cal.manager.getCalendarById(f.calendar.value);
-      const updateColor = () => root.style.setProperty("--mc-qc-color", color(selectedCalendar()));
+      const updateColor = () => {
+        root.style.setProperty("--mc-qc-color", color(selectedCalendar()));
+        panel.__mcGhost?.style.setProperty("--mc-ghost-color", color(selectedCalendar()));
+      };
       const updateSummary = () => {
         if (state.mode == "task") {
           // Erinnerung braucht eine Fälligkeit (sonst ginge sie beim Anlegen verloren)
@@ -15021,6 +16187,16 @@ class CardEnhancer {
         panel.__mcApplyNatural?.();
       };
       panel.__mcSetMode = setMode;
+      // Aufgabe statt Termin: kein vorläufiger Termin im Tag
+      for (const seg of [f.segEvent, f.segTask]) {
+        seg.addEventListener("click", () => {
+          if (state.mode == "task" && panel.__mcGhost) {
+            panel.__mcGhost.remove();
+            panel.__mcGhost = null;
+            panel.removeAttribute("mc-tip");
+          }
+        });
+      }
       panel.__mcUpdate = updateSummary;
       panel.__mcFillCalendars = fillCalendars;
       f.segEvent.addEventListener("click", () => setMode("event"));
@@ -15107,6 +16283,26 @@ class CardEnhancer {
       };
       panel.__mcApplyNatural = applyNatural;
       f.title.addEventListener("input", applyNatural);
+      // vorläufiger Termin im Tag zeigt den Titel gleich mit
+      f.title.addEventListener("input", () => {
+        const name = panel.__mcGhost?.querySelector(".mc-ghost-title");
+        if (name) {
+          name.textContent = (panel.__mcParsed?.title || f.title.value).trim() || tr("New Event");
+        }
+      });
+      // zu (Abbrechen, Esc, Klick daneben): vorläufigen Termin entfernen – nach
+      // „Add“ erst, wenn der echte Termin da ist (sonst kurz eine Lücke)
+      panel.addEventListener("popuphidden", event => {
+        if (event.target != panel) {
+          return;
+        }
+        panel.removeAttribute("mc-tip");
+        const ghost = panel.__mcGhost;
+        panel.__mcGhost = null;
+        if (ghost) {
+          (panel.__mcAdding || Promise.resolve()).finally(() => ghost.remove());
+        }
+      });
 
       // Eigenes Menü statt der Auswahlliste von macOS: dort gibt es keine
       // Farben pro Eintrag – hier steht vor jedem Kalender sein Farbpunkt
@@ -15223,11 +16419,17 @@ class CardEnhancer {
         if (!calendar) {
           return;
         }
+        // (vor dem Schließen: der vorläufige Termin bleibt, bis der echte da ist)
+        let added;
+        panel.__mcAdding = new Promise(resolve => (added = resolve));
         panel.hidePopup();
         try {
           await w.doTransaction("add", item, calendar, null, null);
         } catch (e) {
           log("quick create add error", String(e).slice(0, 160));
+        } finally {
+          added();
+          panel.__mcAdding = null;
         }
       };
       const more = () => {
@@ -15320,6 +16522,49 @@ class CardEnhancer {
     const PANEL_W = 380;
     const screenRight = w.screen.availLeft + w.screen.availWidth;
     panel.__mcPlaced = null;
+    // wie Apple Kalender: Doppelklick legt sofort sichtbar einen vorläufigen
+    // Termin „New Event“ im Tag an (in der Farbe des Kalenders, kein echter
+    // Termin bis „Add“); der Dialog zeigt mit einer Spitze darauf
+    panel.__mcGhost?.remove();
+    panel.__mcGhost = null;
+    const ghostCell = mode == "event" && preset?.at?.rect && preset.at.cell?.isConnected ? preset.at.cell : null;
+    if (ghostCell) {
+      try {
+        const gd = ghostCell.ownerDocument;
+        const li = gd.createElementNS(X, "li");
+        li.className = "mc-qc-ghost";
+        const name = gd.createElementNS(X, "span");
+        name.className = "mc-ghost-title";
+        name.textContent = tr("New Event");
+        li.append(name);
+        const start = f.startDate.value ? when(f.startDate, f.startTime) : null;
+        if (start && !f.allDay.checked) {
+          const time = gd.createElementNS(X, "span");
+          time.className = "mc-ghost-time";
+          time.textContent = fmtTime.format(start);
+          li.append(time);
+        }
+        li.style.setProperty("--mc-ghost-color", f.calendar.value ? (cal.manager.getCalendarById(f.calendar.value)?.getProperty("color") || "#8E8E93") : "#8E8E93");
+        if (ghostCell.localName == "calendar-month-day-box") {
+          li.classList.add("calendar-month-day-box-list-item");
+          ghostCell.dayList?.prepend(li);
+        } else if (ghostCell.localName == "calendar-event-column" && start && !f.allDay.checked) {
+          // in der Tagesspalte an der Uhrzeit, eine Stunde hoch
+          const ppm = ghostCell.pixelsPerMinute || 0.8;
+          li.classList.add("mc-qc-ghost-timed");
+          li.style.insetBlockStart = `${(start.getHours() * 60 + start.getMinutes()) * ppm}px`;
+          li.style.height = `${60 * ppm}px`;
+          ghostCell.eventsListElement?.append(li);
+        } else {
+          ghostCell.eventsListElement?.prepend(li);
+        }
+        if (li.isConnected) {
+          panel.__mcGhost = li;
+        }
+      } catch (e) {
+        log("quick ghost error", e);
+      }
+    }
     panel.removeEventListener("popupshown", panel.__mcReplace);
     if (preset?.at?.rect) {
       // neben dem angeklickten Tag wie in Apple Kalender: auf der Seite zur
@@ -15328,7 +16573,16 @@ class CardEnhancer {
       // sehr breite Zelle (Tagesansicht: eine Spalte fast so breit wie das
       // Fenster): neben der Klickstelle statt neben der ganzen Spalte, sonst
       // landete das Fenster weit weg am Fensterrand
-      const cell = preset.at.rect.width > 2 * PANEL_W ? { ...preset.at.rect, left: preset.at.x, width: 0 } : preset.at.rect;
+      let cell = preset.at.rect.width > 2 * PANEL_W ? { ...preset.at.rect, left: preset.at.x, width: 0 } : preset.at.rect;
+      // mit vorläufigem Termin: daneben, senkrecht auf seiner Mitte
+      const ghost = panel.__mcGhost;
+      const TIP = 9;
+      const gr = ghost?.getBoundingClientRect();
+      const gw = ghost?.ownerDocument.defaultView;
+      const toRightOfCell = cell.left + cell.width / 2 < w.mozInnerScreenX + w.innerWidth / 2;
+      if (gr?.width && gw) {
+        cell = { left: gw.mozInnerScreenX + gr.left, top: gw.mozInnerScreenY + gr.top, width: gr.width, height: gr.height };
+      }
       const fit = (v, size, lo, hi) => (hi - lo >= size ? Math.max(lo, Math.min(v, hi - size)) : lo);
       const place = height => {
         const winL = w.mozInnerScreenX;
@@ -15339,27 +16593,50 @@ class CardEnhancer {
         const right = Math.min(winL + w.innerWidth, scrL + w.screen.availWidth) - 8;
         const top = Math.max(winT, scrT) + 8;
         const bottom = Math.min(winT + w.innerHeight, scrT + w.screen.availHeight) - 8;
-        const toRight = cell.left + cell.width / 2 < winL + w.innerWidth / 2;
-        const x = toRight ? cell.left + cell.width + 6 : cell.left - 6 - PANEL_W;
+        const toRight = ghost ? toRightOfCell : cell.left + cell.width / 2 < winL + w.innerWidth / 2;
+        // (mit Spitze: das Panel ist um sie breiter und berührt den Termin fast)
+        const pw = ghost ? PANEL_W + TIP : PANEL_W;
+        const gap = ghost ? 2 : 6;
+        const x = toRight ? cell.left + cell.width + gap : cell.left - gap - pw;
         const y = cell.top + cell.height / 2 - height / 2;
-        return {
-          x: Math.round(right - left >= PANEL_W ? fit(x, PANEL_W, left, right) : fit(x, PANEL_W, scrL + 8, scrL + w.screen.availWidth - 8)),
+        const placed = {
+          x: Math.round(right - left >= pw ? fit(x, pw, left, right) : fit(x, pw, scrL + 8, scrL + w.screen.availWidth - 8)),
           y: Math.round(bottom - top >= height ? fit(y, height, top, bottom) : fit(y, height, scrT + 8, scrT + w.screen.availHeight - 8)),
           side: toRight ? "right" : "left",
         };
+        // Spitze genau auf der senkrechten Mitte des Termins (am Rand begrenzt)
+        placed.tip = Math.round(Math.max(24, Math.min(height - 24, cell.top + cell.height / 2 - placed.y)));
+        return placed;
       };
-      // Höhe erst nach dem Öffnen bekannt: mit einer Schätzung öffnen und einmal nachrücken
-      let at = place(360);
+      // Höhe erst nach dem Öffnen bekannt: mit der Höhe vom letzten Mal öffnen
+      // (meist dieselbe), unsichtbar, bis die echte gemessen und das Fenster
+      // dorthin gerückt ist – sonst sprang es sichtbar ein Stück nach oben
+      const tipAt = p => {
+        if (ghost) {
+          panel.setAttribute("mc-tip", p.side == "right" ? "start" : "end");
+          panel.style.setProperty("--mc-tip-y", `${p.tip}px`);
+        }
+      };
+      let at = place(panel.__mcHeight || 360);
       panel.__mcPlaced = at;
+      tipAt(at);
+      panel.style.opacity = "0";
+      const reveal = () => panel.style.removeProperty("opacity");
       panel.__mcReplace = () => {
         panel.removeEventListener("popupshown", panel.__mcReplace);
         const height = panel.getOuterScreenRect().height;
+        if (height) {
+          panel.__mcHeight = height;
+        }
         const again = height ? place(height) : at;
         if (again.x != at.x || again.y != at.y) {
           at = again;
           panel.__mcPlaced = at;
           panel.moveTo(at.x, at.y);
         }
+        tipAt(again);
+        w.requestAnimationFrame(() => w.requestAnimationFrame(reveal));
+        w.setTimeout(reveal, 200); // (verdecktes Fenster: ohne Bilder)
       };
       panel.addEventListener("popupshown", panel.__mcReplace);
       panel.openPopupAtScreen(at.x, at.y, false);
@@ -15477,13 +16754,19 @@ class CardEnhancer {
   // Thunderbird Mailliste und geöffnete Mail jedes Mal neu anordnen (20–35 ms
   // pro Bild, sichtbares Ruckeln). So ändert sich der Mailbereich nur einmal:
   // beim Ausblenden am Anfang, beim Einblenden am Ende, jeweils unter der Pane.
-  animateTodayPane(w, command, onDone) {
+  // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
+  animateTodayPane(w, command, onDone, reverse = false) {
     const d = w.document;
     const panel = d.getElementById("today-pane-panel");
+    if (panel?.__mcAnimating && reverse) {
+      panel.__mcReverse?.();
+      return;
+    }
     if (!panel || panel.__mcAnimating) {
       return;
     }
     const showing = !w.TodayPane?.isVisible;
+    const startMode = panel.currentMode;
     if (showing) {
       command.doCommand();
     }
@@ -15570,8 +16853,13 @@ class CardEnhancer {
     if (row && topEl && titleEl) {
       const tr0 = rectOf(topEl), ti = rectOf(titleEl);
       if (tr0?.width && ti?.width) {
-        row.style.setProperty("--mc-tt-off", `${Math.round(ti.left - tr0.left)}px`);
+        // Versatz im Zustand der Animation selbst messen (Rand, Innenabstand,
+        // Bruchteile – sonst rückte der Titel am Ende um 1 px): erst ohne
+        // Versatz an den Anfang, dann so weit, bis er am Endplatz steht
+        row.style.setProperty("--mc-tt-off", "0px");
         row.setAttribute("data-mc-tp-anim", "");
+        const origin = rectOf(titleEl)?.left ?? tr0.left;
+        row.style.setProperty("--mc-tt-off", `${(ti.left - origin).toFixed(2)}px`);
       }
     }
     // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to)
@@ -15591,20 +16879,24 @@ class CardEnhancer {
     } else {
       ride(full);
     }
-    let start = null;
+    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
+    let k = 0, dir = 1, last = null;
+    panel.__mcReverse = () => {
+      dir = -dir;
+    };
     const step = now => {
-      if (start === null) {
-        start = now;
-      }
-      const k = Math.min(1, (now - start) / DURATION);
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
       const value = full * (showing ? curve(k) : 1 - curve(k));
       setW(value);
       w.__mcTodayTopSync?.(value);
-      if (k < 1) {
+      if (dir > 0 ? k < 1 : k > 0) {
         ride(value);
         w.requestAnimationFrame(step);
         return;
       }
+      const shown = showing == (k >= 1);
+      delete panel.__mcReverse;
       for (const [prop, value, prio] of saved) {
         if (value) {
           panel.style.setProperty(prop, value, prio);
@@ -15618,7 +16910,15 @@ class CardEnhancer {
       } else {
         box.style.removeProperty("position");
       }
-      if (!showing) {
+      if (!shown && panel.currentMode != startMode && typeof panel.isVisible == "function") {
+        // inzwischen Bereich gewechselt: im Ausgangsbereich zuklappen
+        // (sonst bliebe die Pane dort offen, das Kommando gilt nur für den aktuellen)
+        if (panel.isVisible(startMode)) {
+          const modes = (panel.getAttribute("collapsedinmodes") || "").split(",").filter(Boolean);
+          panel.setAttribute("collapsedinmodes", [...modes, startMode].join(","));
+          Services.xulStore.persist(panel, "collapsedinmodes");
+        }
+      } else if (!shown && w.TodayPane?.isVisible) {
         command.doCommand();
       }
       panel.__mcAnimating = false;
@@ -15845,7 +17145,7 @@ class CardEnhancer {
     for (const top of Services.wm.getEnumerator("mail:3pane")) {
       for (const bc of ThemeSheet.contexts(top)) {
         const doc = bc.window?.document;
-        if (doc?.documentURI?.startsWith("about:message")) {
+        if (doc?.documentURI?.startsWith("about:message") && !doc.documentElement.hasAttribute("mc-conv-card")) {
           doc.documentElement.toggleAttribute("mc-standalone", !inToolbar);
         }
       }
@@ -15898,7 +17198,8 @@ class CardEnhancer {
       const list = rectOf(threadPane);
       const listMin = parseFloat(win.getComputedStyle(threadPane).minWidth) || 240;
       const room = rectOf(pane).right - list.left - listMin;
-      return Math.max(0, Math.min(want, room));
+      // mindestens 300 px (Thunderbirds Grenze), sonst so viel, wie die Knöpfe darüber brauchen
+      return Math.max(0, Math.min(Math.max(want, 300), room));
     };
     const msgSplitter = win.document.getElementById("messagePaneSplitter");
     if (msgSplitter && typeof msgSplitter._updateSize == "function" && !msgSplitter.__mcClamp) {
@@ -15907,8 +17208,16 @@ class CardEnhancer {
       msgSplitter._updateSize = function (size) {
         return origUpdate.call(this, typeof size == "number" ? Math.max(size, minMessageWidth()) : size);
       };
+      // Ziehen klappt die Mail nicht mehr weg (Thunderbird klappt unter
+      // „collapse-width“ zu, noch bevor die Mindestbreite greift); Ausblenden
+      // über Ansicht → Layout geht weiter
+      const collapseWidth = msgSplitter.getAttribute("collapse-width");
+      msgSplitter.removeAttribute("collapse-width");
       this.restorers.push(() => {
         msgSplitter._updateSize = origUpdate;
+        if (collapseWidth) {
+          msgSplitter.setAttribute("collapse-width", collapseWidth);
+        }
         delete msgSplitter.__mcClamp;
       });
     }
@@ -15927,10 +17236,16 @@ class CardEnhancer {
         return;
       }
       const want = Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT);
+      // Platz der Liste bis zum Teiler (nicht nur die Liste selbst: Thunderbird
+      // hält sie beim Ändern der Fenstergröße fest, die Spalte wächst trotzdem –
+      // daneben bliebe eine Lücke)
+      // (sonst liegen zwischen Liste und Teiler nur wenige Pixel Rand)
+      const gap = msgSplitter.getBoundingClientRect().left - list.right;
+      const span = gap > 8 ? list.width + gap - 4 : list.width;
       // was die Liste zu breit ist, bekommt die Nachricht dazu (und umgekehrt)
-      const msgWant = Math.round(msg.width + list.width - want);
+      const msgWant = Math.round(msg.width + span - want);
       if (msgWant > 0 && Math.abs(msgWant - msg.width) >= 1) {
-        msgSplitter.width = Math.max(msgWant, minMessageWidth());
+        msgSplitter.width = Math.max(msgWant, Math.min(300, minMessageWidth()));
       }
     };
     // gezogen: neue Listenbreite merken
@@ -15942,6 +17257,12 @@ class CardEnhancer {
           return;
         }
         msgSplitter.__mcDragging = false;
+        // nur nebeneinander (vertikales Layout): im klassischen Layout ist die
+        // Liste so breit wie das Fenster – gemerkt kam sie nach dem Wechsel
+        // zurück viel zu breit
+        if (msgSplitter.resizeDirection == "vertical") {
+          return;
+        }
         const width = Math.round(threadPane.getBoundingClientRect().width);
         if (width >= 200) {
           Services.prefs.setIntPref(LIST_WIDTH_PREF, width);
@@ -15956,12 +17277,15 @@ class CardEnhancer {
         delete msgSplitter.__mcDragging;
       });
     }
+    // (außerhalb des Ziehens der Mailliste nur Thunderbirds 300 px – mit dem
+    // Platzbedarf der Knöpfe ließ sich sonst auf kleineren Bildschirmen die
+    // Seitenleiste kaum noch verbreitern; die Knöpfe weichen dann wie sonst)
     const enforceMessageWidth = () => {
       if (!msgSplitter || msgSplitter.isCollapsed || win.__mcAnimating || top.__mcSpacesAnimating ||
           msgSplitter.resizeElement?.id != "messagePane") {
         return;
       }
-      const min = minMessageWidth();
+      const min = Math.min(300, minMessageWidth());
       const pane = win.document.getElementById("messagePane");
       if (min && pane.getBoundingClientRect().width < min - 1) {
         msgSplitter.width = Math.ceil(min);
@@ -16102,6 +17426,8 @@ class CardEnhancer {
     };
     this.offsetUpdaters ??= new Set();
     this.offsetUpdaters.add(update);
+    // von außen anstoßen (automatisches Einklappen misst danach den Platz)
+    win.__mcRelayout = update;
     const ro = new win.ResizeObserver(update);
     ro.observe(threadPane);
     const fp = win.document.getElementById("folderPane");
@@ -16840,9 +18166,7 @@ class CardEnhancer {
   // Schalter, Thunderbirds Einstellung und die des Add-ons im Add-ons-Manager)
   async autoUpdate() {
     try {
-      if (!Services.prefs.getBoolPref(AUTO_UPDATE_PREF, true)) {
-        return;
-      }
+      const own = Services.prefs.getBoolPref(AUTO_UPDATE_PREF, true);
       const now = Math.floor(Date.now() / 1000);
       const last = Services.prefs.getIntPref(AUTO_UPDATE_LAST_PREF, 0);
       if (last && now - last < 6 * 3600 && now >= last) {
@@ -16854,17 +18178,22 @@ class CardEnhancer {
         return;
       }
       const mode = addon.applyBackgroundUpdates;
-      const allowed = mode == AddonManager.AUTOUPDATE_ENABLE ||
-        (mode == AddonManager.AUTOUPDATE_DEFAULT && AddonManager.autoUpdateDefault);
-      if (!allowed) {
-        return;
-      }
+      const allowed = own && (mode == AddonManager.AUTOUPDATE_ENABLE ||
+        (mode == AddonManager.AUTOUPDATE_DEFAULT && AddonManager.autoUpdateDefault));
       Services.prefs.setIntPref(AUTO_UPDATE_LAST_PREF, now);
       const result = await this.findUpdate();
-      if (result.available) {
-        log("auto update", extensionVersion, "→", result.version);
-        await result.install();
+      if (!result.available) {
+        return;
       }
+      if (!allowed) {
+        // automatische Updates aus: nur Hinweis, installiert wird auf Wunsch
+        UpdateNote.set(result.version, false);
+        return;
+      }
+      // lädt und hält es bis zum nächsten Start zurück (background.js) – dann
+      // kommt der Hinweis über updateReady
+      log("auto update", extensionVersion, "→", result.version);
+      await result.install();
     } catch (e) {
       log("auto update error", e);
     }
@@ -17901,6 +19230,7 @@ class CardEnhancer {
     };
     safely("mail context", () => this.hookMailContext(doc));
     safely("folder context", () => hookFolderContextExtras(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
+    safely("archive account", () => hookArchiveAccount(doc.defaultView, { push: fn => this.addWinRestorer(doc.defaultView, fn) }));
     safely("dialog box", () => shareDialogBox(win, { push: fn => this.addWinRestorer(win, fn) }));
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));
@@ -18139,15 +19469,56 @@ class CardEnhancer {
     };
     // „Markiert“ wie Apple Mail: eigene Zeile unter den Favoriten nach „Alle
     // gesendeten“, nur solange es markierte Mails gibt
+    // Tab geht gerade zu (sein Inhalt hängt nicht mehr im Fenster): nichts anlegen
+    const gone = () => {
+      try {
+        return win.closed || !win.browsingContext?.embedderElement?.isConnected;
+      } catch {
+        return true;
+      }
+    };
     const starredRow = () => {
+      if (gone()) {
+        return;
+      }
       const smart = tree.querySelector(':scope > li[data-mode="smart"]');
       const folder = this.starredAny ? this.starredFolder(true) : this.starredFolder(false);
       let row = smart?.querySelector(':scope > ul > li[data-mc-starred]');
       if (!smart || !folder || !win.folderPane?._createFolderRow) {
         return;
       }
+      // neuer Mail-Tab: Thunderbird lädt die Ordnerzeilen-Klasse erst nach –
+      // vorher entstünde eine leere Zeile ohne ihre Methoden
+      if (!row && !win.customElements.get("folder-tree-row")) {
+        win.customElements.whenDefined("folder-tree-row").then(() => apply());
+        return;
+      }
       if (!row) {
-        row = win.folderPane._createFolderRow("smart", folder);
+        try {
+          row = win.folderPane._createFolderRow("smart", folder);
+        } catch (e) {
+          // (ein Tab, der gerade entsteht oder geht: Thunderbirds Zeile ist noch
+          // nicht fertig – einmal kurz später, erst dann melden)
+          if (gone()) {
+            return;
+          }
+          if (!starredRow.retried) {
+            starredRow.retried = true;
+            win.setTimeout(() => {
+              try {
+                starredRow();
+              } catch (err) {
+                if (!gone()) {
+                  log("starred row error", err);
+                }
+              } finally {
+                starredRow.retried = false;
+              }
+            }, 500);
+            return;
+          }
+          throw e;
+        }
         row.setAttribute("data-mc-starred", "");
         const list = smart.querySelector(":scope > ul");
         const sent = list?.querySelector(':scope > li[data-folder-type="sent"]');
@@ -18171,7 +19542,8 @@ class CardEnhancer {
           setText(header, L.favourites);
         }
       }
-      const hideLocal = localIsEmpty();
+      // leer oder vom Nutzer ausgeblendet (Einstellung bzw. Kontextmenü)
+      const hideLocal = localIsEmpty() || !Services.prefs.getBoolPref(SHOW_LOCAL_PREF, true);
       for (const li of tree.querySelectorAll('li[is="folder-tree-row"]')) {
         const modeLi = li.closest("li[data-mode]");
         const mode = modeLi?.dataset.mode;
@@ -18221,6 +19593,14 @@ class CardEnhancer {
           if (li.dataset.serverType == "none") {
             setText(label, L.onMyMac);
             li.querySelectorAll(':scope > ul > li').forEach(c => setAttr(c, "data-mc-hide", hideLocal));
+            // wie Apple Mail: „On My Mac“ ganz weg, solange dort nichts liegt –
+            // aber nur, wenn es andere Konten gibt (sonst wäre die Liste leer)
+            const others = MailServices.accounts.accounts.some(a => a.incomingServer && a.incomingServer.type != "none");
+            setAttr(li, "data-mc-hide", hideLocal && others);
+          } else if (li.getAttribute("draggable") != "true") {
+            // Kontozeilen zum Umsortieren ziehbar (Thunderbird macht nur
+            // Ordnerzeilen ziehbar – mit der Maus begann das Ziehen sonst nie)
+            li.setAttribute("draggable", "true");
           }
           continue;
         }
@@ -18382,11 +19762,6 @@ class CardEnhancer {
       return;
     }
     this.previewLines = lines;
-    // wie beim Start: Karten mit Vorschau zeigen Absender und Betreff in zwei Zeilen
-    if (lines && !Services.prefs.getBoolPref("extensions.mailcards.rowcountApplied", false)) {
-      Services.prefs.setIntPref("mail.threadpane.cardsview.rowcount", 2);
-      Services.prefs.setBoolPref("extensions.mailcards.rowcountApplied", true);
-    }
     for (const win of this.windows) {
       try {
         const doc = win.document;
@@ -19269,7 +20644,11 @@ class CardEnhancer {
     } catch {
       return false;
     }
-    if (!hdr?.messageId || index < 1) {
+    // Überschrift einer Gruppe („Grouped by Sort“): liefert die erste Mail der
+    // Gruppe – sie ist keine Kopie und darf auch nicht als Vergleich dienen
+    const DUMMY = 0x20000000;
+    const dummy = i => !!(view.getFlagsAt(i) & DUMMY);
+    if (!hdr?.messageId || index < 1 || dummy(index)) {
       return false;
     }
     // in der Konversation rückwärts bis zu ihrem Anfang (Ebene 0); eine
@@ -19277,6 +20656,9 @@ class CardEnhancer {
     // vergleichen (gleiches Datum, steht direkt davor) – höchstens 500 Zeilen
     for (let i = index - 1; i >= 0 && index - i <= 500; i--) {
       try {
+        if (dummy(i)) {
+          return false;
+        }
         const root = !view.getLevel(i);
         if ((!top || root) && view.getMsgHdrAt(i)?.messageId == hdr.messageId) {
           return true;
@@ -19442,9 +20824,15 @@ class CardEnhancer {
       const { first } = chosen();
       item.hidden = !available() || !first || first.isDeleted || !first.hasFile;
     };
+    // direkt statt über Thunderbirds Ereignis „quicklook“: dafür hängt
+    // Thunderbird bei jeder Mail mit Anhängen einen weiteren Empfänger an –
+    // nach einigen Mails ging die Vorschau mehrmals auf und wieder zu
     const onCommand = () => {
-      const { list, index } = chosen();
-      list?.dispatchEvent(new win.CustomEvent("quicklook", { bubbles: true, detail: { index } }));
+      const { index } = chosen();
+      const atts = win.currentAttachments || [];
+      if (atts.length) {
+        win.gQuickLookManager?.toggle(atts, index);
+      }
     };
     popup.addEventListener("popupshowing", onShowing);
     item.addEventListener("command", onCommand);
@@ -20076,7 +21464,9 @@ class CardEnhancer {
 
 // Einstellungen der Optionsseite: Schlüssel → Pref (Typ), nur diese sind erlaubt
 // (Vorschauzeilen: Menü Ansicht, Geburtstage: Häkchen in der Kalenderliste)
+const SHOW_LOCAL_PREF = "extensions.mailcards.showLocalFolders";
 const SETTINGS = {
+  showLocalFolders: [SHOW_LOCAL_PREF, "bool", true],
   unreadTint: [UNREAD_TINT_PREF, "bool", false],
   solidMenus: [SOLID_MENUS_PREF, "bool", false],
   earlyTheme: [EARLY_THEME_PREF, "bool", false],
@@ -20130,6 +21520,15 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
         async getTranslations() {
           const lang = uiLanguage();
           return { lang, table: TRANSLATIONS[lang] || {} };
+        },
+        async updateReady(version) {
+          UpdateNote.set(version, true);
+        },
+        async getPendingUpdate() {
+          return UpdateNote.pending;
+        },
+        async installUpdateNow() {
+          return UpdateNote.installNow();
         },
         async getSettings() {
           const out = { mac: Services.appinfo.OS == "Darwin", german: Services.locale.appLocaleAsBCP47.startsWith("de"), ...settingNeeds() };

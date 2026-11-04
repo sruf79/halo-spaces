@@ -13,3 +13,5 @@ vorschau-bereiche-farben.png
 logo-ideen.png
 # Screenshots aus release.sh (nur Testprofil, bleiben lokal)
 tests/shots/
+
+__pycache__/

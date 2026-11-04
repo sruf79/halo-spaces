@@ -311,6 +311,46 @@
               "strict_min_version": "153.0"
             }
           }
+        },
+        {
+          "version": "3.13.0",
+          "update_link": "https://github.com/sruf79/halo-spaces/releases/download/v3.13.0/halo-spaces-3.13.0.xpi",
+          "update_hash": "sha256:dd7412a4a38c763e9bbb9b5b6644c00228f091341bb65e25e64218f287efe41f",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "153.0"
+            }
+          }
+        },
+        {
+          "version": "3.14.0",
+          "update_link": "https://github.com/sruf79/halo-spaces/releases/download/v3.14.0/halo-spaces-3.14.0.xpi",
+          "update_hash": "sha256:4b4fb5934a4406b9b4c443aef9c31b07391507eeab63d31ec03b04e65ce4e59c",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "153.0"
+            }
+          }
+        },
+        {
+          "version": "3.14.1",
+          "update_link": "https://github.com/sruf79/halo-spaces/releases/download/v3.14.1/halo-spaces-3.14.1.xpi",
+          "update_hash": "sha256:01842571a5a7f3df5cc3cf4afd4dcd2f8c9225df379752def8abcd0ead54fb57",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "153.0"
+            }
+          }
+        },
+        {
+          "version": "3.15.0",
+          "update_link": "https://github.com/sruf79/halo-spaces/releases/download/v3.15.0/halo-spaces-3.15.0.xpi",
+          "update_hash": "sha256:924595355c4512539ef87db5fe0dd6e95a72f5be1b0e3f7385ea34764c4510b7",
+          "applications": {
+            "gecko": {
+              "strict_min_version": "153.0"
+            }
+          }
         }
       ]
     }

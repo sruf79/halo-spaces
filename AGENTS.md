@@ -23,15 +23,19 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `extension/background.js` | ruft nur `browser.mailCards.start()` auf |
 | `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`) |
 | `extension/icons/` | Apple-artige Ersatzsymbole |
-| `extension/about/`, `extension/options/` | Fenster „Hilfe → halo.spaces…“ und Einstellungsseite |
+| `extension/about/`, `extension/options/` | Fenster „Hilfe → halo.spaces“ und Einstellungsseite |
 | `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil |
 | `tests/testserver.py` | lokaler IMAP-/SMTP-Testserver (nur 127.0.0.1, erfundene Daten) für die Prüfungen mit Testkonto |
 | `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht) |
 | `tests/store_shots.py` | Bilder für README und Store aus frischem Testprofil (erfundene englische Mails, Kontakte mit gezeichneten Bildern, Termine) |
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
+| `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
+| `tests/ci-waechter.sh`, `tests/ci-warten.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14 |
+| `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
+| `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
-| `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net |
+| `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
 ## Offizielle Thunderbird-Doku
@@ -86,6 +90,16 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   veröffentlichte `updates.json`. Vor einem Release laufen lassen.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
   an Stellen, an denen es schon Rückschritte gab.
+- **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
+  Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
+  – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine
+  geladen, Mail dargestellt, Fenster offen; bricht bei Zeitüberschreitung mit
+  Meldung ab), `ruhig(ms)` nach einer Bedienung (wartet auf Leerlauf, höchstens
+  `ms`), `stabil(fn)` für „Position steht still“. Feste Pausen (`wait`) nur,
+  wo bewusst Zeit vergehen soll (Doppelklick-Abstand, „bleibt offen“,
+  Animationsbilder) – mit Kommentar. Bei Prüfungen auf Abwesenheit („keine
+  Linie“) zuerst auf die fertig aufgebaute Ansicht warten. Am Ende eines Laufs
+  stehen Gesamtdauer und die langsamsten Prüfungen.
 
 Zum Ausprobieren im echten Profil: `./install.sh` (Thunderbird vorher beenden).
 Das betrifft das echte Profil des Nutzers – nur auf ausdrücklichen Wunsch.
@@ -110,13 +124,44 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 - Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund 60 Minuten. Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
+- Ausnahme: Ein Push, der nur den Release-Commit enthält (`updates.json` und
+  die Versionszeile in `manifest.json`), startet keine Tests – der Job
+  `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
+  Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
-  zusammenhängenden Arbeitsblocks (Phase) pushen – nach dem kompletten Test hell
-  und dunkel. Danach die CI des Pushes prüfen (Linux, Beta, `mac`). Früher pushen
+  zusammenhängenden Arbeitsblocks (Phase) pushen – vorher nur die Prüfungen,
+  die die geänderte Stelle betreffen (`--only`, hell; dunkel zusätzlich, wenn
+  Farben oder Design betroffen sind), kein Volllauf (Entscheidung des
+  Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
+  `mac` hell und dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
-- **Vor jedem Push/CI-Lauf** die Aufgabenliste erneut abrufen und neu
-  hinzugekommene Einträge zuerst abarbeiten (Reihen-Schritte weiter nur einzeln,
-  „Wartet auf OK“ bleibt liegen) – erst dann pushen und die CI prüfen.
+- **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
+  machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
+  Push, CI und Release das Board nicht erneut laden: Was während des Laufs
+  dazukommt, arbeitet der nächste Nachtlauf ab; Dringendes nennt der
+  Maintainer der laufenden Sitzung direkt (Entscheidung des Maintainers vom
+  3.11.2026). Status der eigenen Einträge pflegen geht weiter.
+- **Nachtlauf:** jede Nacht 01:30 (ab 4.11.2026) arbeitet `tests/nachtlauf.sh`
+  die Aufgabenliste ab (kein neuer Eintrag ab 04:30), pusht, wartet auf die
+  CI für genau diesen Commit (`tests/ci-warten.sh`) und veröffentlicht bei
+  Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
+  sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
+  `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Er lässt aus,
+  wenn schon etwas läuft. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  `tests/MAC-MINI.md` Abschnitt 13.
+- **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
+  kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
+  Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
+  selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
+  oder Wochenprüfung übernehmen diese selbst. `tests/MAC-MINI.md` Abschnitt 14.
+- **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
+  letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
+  `~/halo-aufgaben/wochen-kennzahlen.json`), behebt kleine Dinge an Prüfungen
+  selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
+  `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
+- Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
+  Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da
+  und bekommt keine weiteren Aufgaben (Entscheidung des Maintainers vom 3.11.2026).
 - **Windows-VM** (Parallels Desktop Pro, Anleitung `tests/MAC-MINI.md`
   Abschnitt 11): VM `Windows 11` (Windows-Hostname `win11`, Windows 11
   Enterprise ARM, Benutzer `neosky.cat` mit automatischer Anmeldung, IP im
@@ -149,21 +194,55 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
     Screenshots als Artefakt `test-windows`.
 - Zwischendurch nur betroffene Prüfungen: `python3 tests/halo_test.py --port 2851
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
-  unter Linux (CI, xvfb) und mit der Beta grün sein.
+  unter Linux (CI, xvfb) und mit der Beta grün sein. Die Beta läuft nur noch
+  unter Linux in der CI, nicht mehr auf dem Mac (`tests/beta.sh` bleibt für
+  Läufe von Hand).
 
-## Release (nur auf ausdrücklichen Wunsch)
+## Release (selbstständig auf neon)
 
 ```bash
-./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel + Beta, updates.json
-./publish.sh 3.1.0 notes.md     # commit, push, GitHub-Release, Hash-Prüfung, ggf. ATN-Upload
+./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel, updates.json, Testmarke
+./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, Bericht
 ```
 
-`publish.sh` committet **alles** (`git add -A`), pusht und veröffentlicht –
-nie ohne Freigabe ausführen. Zwischen `release.sh` und `publish.sh` darf nicht
-neu gebaut werden, sonst passt der Hash in `updates.json` nicht mehr und
-Thunderbird lehnt das Update ab. Vor einem Release die Versionshinweise im
-`README.md` aktualisieren (eigener Commit „README: Versionshinweise x.y.z“).
-`store/max-version` mit neuen Thunderbird-Versionen anheben (nach Test).
+**Wann:** Nach einem Lauf, der Bugs/Features abgearbeitet hat, oder nach
+größeren Änderungen veröffentlicht der Agent selbst, ohne Rückfrage – auch
+unbeaufsichtigt nachts (Entscheidung des Maintainers vom 2.11.2026: schlechte
+Releases werden mit einem neuen Update nach vorn korrigiert, Thunderbird stuft
+nicht zurück). Ablauf: Versionshinweise im `README.md` schreiben (eigener
+Commit „README: Versionshinweise x.y.z“), Notizen für den GitHub-Release als
+Datei (englisch, gleicher Inhalt), `./release.sh x.y.z`, bei grünen Tests
+direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
+für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests) nur
+committen, kein Release. Veröffentlicht wird **nur auf neon**, nie vom Laptop
+oder aus Cloud-Sessions (dort neon beauftragen).
+
+**Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
+`dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests), wenn
+hell und dunkel grün waren – oder die CI denselben Stand vollständig
+grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
+übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh`,
+`store/` oder `.github/workflows/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
+Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
+ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
+ist nur zum Ausprobieren – ohne Marke kein Release.
+Die Sperre nicht umgehen; ist ein Test rot, erst beheben.
+
+`publish.sh` committet nur `extension/manifest.json`, `updates.json` und ggf.
+`README.md`; andere geänderte oder neue Dateien bleiben draußen (Warnung).
+Danach prüft es den Download von GitHub (Hash) und die `updates.json`, die
+Thunderbird über `update_url` abruft (neue Version, Hash, Download-Adresse) –
+schlägt das fehl, meldet es laut „FEHLER“, Exitcode 1: dann sofort klären,
+sonst bekommen Nutzer das Update nicht. Am Ende liegt ein Bericht in
+`~/halo-berichte/<datum>-halo.spaces-<version>.md` (Version, Neues/Behobenes,
+Tests, Veröffentlichung, Store-Upload); den Bericht im Gespräch bzw. als
+Morgenbericht kurz zusammenfassen.
+
+Zwischen `release.sh` und `publish.sh` darf nicht neu gebaut werden, sonst
+passt der Hash nicht mehr (Marke und `updates.json`) und Thunderbird lehnt
+das Update ab. Danach die behobenen GitHub-Issues mit „Fixed in x.y.z“
+schließen (siehe unten). `store/max-version` mit neuen Thunderbird-Versionen
+anheben (nach Test).
 
 ## Konventionen
 
@@ -197,6 +276,16 @@ SessionStart-Hook die offenen Einträge in jede Sitzung.
 
 - Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
   berücksichtigen und passende Aufgaben nennen.
+- **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
+  (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
+  zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
+  hängen (Notiz in beiden Einträgen). Dann **Bereich für Bereich**
+  abarbeiten (Entscheidung des Maintainers vom 4.11.2026): innerhalb eines
+  Bereichs erst die Bugs, dann die Features, jeweils kleine vor großen (von
+  Reihen n/m nur der nächste Schritt); erst danach der nächste Bereich.
+  Bereiche mit Bugs kommen vor Bereichen mit nur Features. Ausnahme: Ein
+  Feature, das einen Bug mitbehebt, wird zusammen mit ihm erledigt.
+  Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,

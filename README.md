@@ -157,13 +157,16 @@ The search field sits top right, like on the Mac:
    **Install Add-on From File…** and choose the file.
 3. That's it. The design is active right away, no restart needed.
 
+You only need the `.xpi`. The shell and Python scripts in this repository are
+developer tools for building and testing, there's nothing to run.
+
 On first install halo.spaces sets **Themes** to **System theme – auto**
 (Thunderbird's default), so light and dark follow macOS. Thunderbird's Light or
 Dark stay if you chose one; themes from the add-on store paint their own colours
 over the design.
 
 Updates arrive automatically (Thunderbird checks every 24 hours). To check
-right away: **Help → halo.spaces… → Check for Updates**.
+right away: **Help → halo.spaces → Check for Updates**.
 
 No `userChrome.css` is needed. An older copy of this theme in your profile's
 `chrome` folder takes precedence and would hide updates, so remove it.
@@ -173,27 +176,22 @@ No `userChrome.css` is needed. An older copy of this theme in your profile's
 Options that belong to a view are set right there: preview lines under
 **View → Preview Lines**, contact photos in the list's **…** menu, and the
 Birthdays calendar with its checkbox in the calendar list. Everything else is
-in **Settings → halo.spaces** (also via **Help → halo.spaces… → Settings…**).
+in **Settings → halo.spaces** (also via **Help → halo.spaces → Settings…**).
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.13.0
+## What's new in 3.16.0
 
-- **A tidier menu bar**: seven menus instead of ten (File, Edit, View, Mail, Window, Help), every command in exactly one place; commands that don't fit the current space are greyed out. Rarely used items moved to Settings, where the settings search finds them, or to the folder list's context menu
-- **Message context menu** without submenus: Reply, Forward, Star, Spam, Delete and Archive directly; Remind Me, Move To, Copy To and Convert To stay as submenus
-- **Tasks** get views in the sidebar: Today, Scheduled, All, Important, In Progress and Completed, each with a count; below, only calendars that can hold tasks. Cards show the progress in percent; actions sit in capsules above the details
-- **Toolbar**: when space runs out, the search field shrinks first, down to just the magnifier, before any buttons disappear, in every space
-- **Accounts** can be reordered by dragging, in the folder list and in Account Settings; Local Folders stay on top until you change the order
-- **Follow-Up Suggestions** can be switched off in Settings
-- **Sorted by star**: a message moves to its place as soon as you star or unstar it
-- **Message windows** no longer repeat the subject in the title bar
-- **Spaces bar**: the active space is marked with a chevron again
-- **New event window**: narrow and compact like a calendar app, with Save on the right and All Day, Starts, Ends, Repeat, Alert and Show As in one card
-- **Today pane**: click the "Today" heading to jump back to today
-- **Windows**: double-click the left or right edge of a widened dialog to return it to its standard width; the main window never grows wider than the screen
-- **Compose window**: the From, To and Subject fields sit right next to their labels
-- **Fixes**: the hover buttons above a message are no longer hidden behind the message by some add-ons; the event summary is tall enough for its content, even when the title wraps late; Thunderbird quits again on Windows and Linux when you close the main window; on Windows the toolbar above the Today pane lines up
+- **Tasks, laid out like Mail**: the list is as wide as the message list, "+", Complete, Category, Priority and Delete sit above the open task, which takes the rest of the width (never narrower than its buttons). A continuous divider separates the two, and "No Task Selected" shows when nothing is picked
+- **Task folders**: "All" is now "Open" (indigo), in the order Today, Scheduled, Open, In Progress, Completed, Important; In Progress is a ring in the progress colors, Completed is green, Important uses the star, Scheduled shows stacked calendar pages. A task at 0 % has a dashed ring, so it no longer looks done
+- **Conversations**: the quoted history at the end of a reply is folded behind "Show More"
+- **Search field**: only as wide as its text, in the same place in every space; when it gets narrow, the word "Search" is never cut off, otherwise only the magnifier shows
+- **Spaces bar**: finer filled icons for Calendar and Settings, Contacts as a person in a circle, a clearer shadow on the current tile (with a light edge in dark mode)
+- **Folder list** follows Thunderbird's density: "Compact" makes the rows lower, "Touch" taller
+- **Today pane**: "Go to Today" on the title, the weather icon shows only the weather in words; the title no longer jumps at the end of the animation
+- **Help → halo.spaces** without the three dots and with the halo.spaces icon
+- **Fixes**: the "…" above the task list stays in place when the window gets narrower; buttons no longer overlap the Today pane header in Tasks; the contact list keeps its width when the address book list is hidden, so the window can get narrower; the Spaces button in Settings no longer lets content shine through; the drop line below the last account is as thick as the others; the halo.spaces icon in Settings has its soft edge back
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.
@@ -215,6 +213,9 @@ never sends your messages, contacts or events anywhere. It only goes online
 for what you see: sender logos (the sender's domain only, can be turned off),
 the weather if you turn it on, a website you chose as a space, and update
 checks. Details in the [privacy policy](store/privacy-en.md).
+
+Found a security problem? Please report it privately, see
+[SECURITY.md](SECURITY.md).
 
 ## Development
 
@@ -244,4 +245,4 @@ Released under the Mozilla Public License 2.0.
 ---------------------------------------------------------------
 
 Questions or feedback?
-In Thunderbird: **Help → halo.spaces… → Send Feedback**, or open an issue here. Enjoy!
+In Thunderbird: **Help → halo.spaces → Send Feedback**, or open an issue here. Enjoy!

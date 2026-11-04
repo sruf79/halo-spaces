@@ -113,10 +113,25 @@ async function render() {
   // (wie „General“, „Language & Fonts“ …), links mit festem Abstand
   const inPrefs = new URLSearchParams(location.search).get("in") == "prefs";
   document.documentElement.classList.toggle("in-prefs", inPrefs);
+  // Update liegt bereit: ganz oben eine Zeile mit „Install Now“
+  const pending = await api.getPendingUpdate();
+  if (pending) {
+    const button = el("button", { type: "button", class: "accent", textContent: t("Install Now") });
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      await api.installUpdateNow();
+    });
+    const text = el("span", { class: "text" },
+      el("span", { class: "label", textContent: t("halo.spaces {version} is available").replace("{version}", pending.version) }),
+      el("span", { class: "hint", textContent: pending.auto
+        ? t("Or it installs on the next start. Thunderbird briefly shows its own look while updating.")
+        : t("Automatic updates are off.") }));
+    main.append(el("section", { class: "update", id: "s-update" }, el("div", { class: "row" }, text, button)));
+  }
   for (const [title, rows, opts = {}] of SECTIONS(t)) {
     const section = el("section");
     for (const row of rows) {
-      if ((row.mac && !settings.mac) || (row.needs && !settings[row.needs])) continue;
+      if ((row.mac && !settings.mac) || (row.notMac && settings.mac) || (row.needs && !settings[row.needs])) continue;
       const id = `s-${row.key}`;
       const badge = savedBadge();
       const label = el("span", { class: "label", textContent: row.label });

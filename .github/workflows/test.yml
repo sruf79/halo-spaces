@@ -14,7 +14,38 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Reiner Release-Commit („halo.spaces x.y.z“ von release.sh): Push ändert nur
+  # updates.json und die Versionszeile in manifest.json (dazu ggf. Texte und
+  # die Release-Skripte). Der Code ist dann
+  # schon getestet – kein Lauf, der Mac mini bleibt frei. Alles andere testet.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      test: ${{ steps.check.outputs.test }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          test=true
+          if [ "${{ github.event_name }}" = push ] && [ -n "$BEFORE" ] && ! [[ "$BEFORE" =~ ^0+$ ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # Texte und Release-Skripte zählen nicht (gehen nicht ins Paket und nicht in die Tests)
+            files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -vE '\.md$|^(release|publish)\.sh$|^store/' | sort | tr '\n' ' ')
+            if [ -z "$files" ] || [ "$files" = "extension/manifest.json updates.json " ] || [ "$files" = "updates.json " ]; then
+              # in manifest.json nur die Zeile mit der Version geändert
+              other=$(git diff -U0 "$BEFORE" "$GITHUB_SHA" -- extension/manifest.json | grep -E '^[+-][^+-]' | grep -vE '^[+-][[:space:]]*"version":' || true)
+              [ -z "$other" ] && test=false
+            fi
+          fi
+          echo "Release-Commit ohne Codeänderung: $([ $test = false ] && echo ja || echo nein)"
+          echo "test=$test" >> "$GITHUB_OUTPUT"
+
   linux:
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
     runs-on: ubuntu-24.04
     # ein Testlauf dauert gut 25 Minuten (über 270 Prüfungen) – mit Luft für langsame Läufer
     timeout-minutes: 50
@@ -54,10 +85,12 @@ jobs:
     # Das Repo ist öffentlich: Code aus fremden Pull-Requests darf dort nie laufen.
     # Deshalb nur bei Push auf main oder Start von Hand – hier per if:, auf dem Mac
     # zusätzlich per Wächter (tests/mac-runner-hook.sh), den kein Pull-Request ändern kann.
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    needs: changes
+    if: needs.changes.outputs.test == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, halo-mac]
-    # hell, dunkel und Beta je knapp 30 Minuten (Stand 3.9.0, 269 Prüfungen)
-    timeout-minutes: 150
+    # hell und dunkel je knapp 30 Minuten (Stand 3.9.0, 269 Prüfungen);
+    # Beta nur unter Linux (Entscheidung des Maintainers vom 3.11.2026)
+    timeout-minutes: 100
     concurrency: halo-mac
     steps:
       - uses: actions/checkout@v6
@@ -77,11 +110,6 @@ jobs:
         timeout-minutes: 45
         run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log
 
-      - name: Test Beta
-        if: ${{ !cancelled() }}
-        timeout-minutes: 45
-        run: mkdir -p shots/beta && zsh tests/beta.sh --xpi "$XPI" $PORT_OPT --shots shots/beta --tb-log shots/beta/thunderbird.log
-
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v6
@@ -95,8 +123,8 @@ jobs:
     # Gleiche Bedingung wie mac – hier nur zusätzlich !cancelled(), damit der Job auch nach
     # einem roten mac-Lauf startet; Pull-Requests bleiben ausgeschlossen, der Wächter
     # (tests/mac-runner-hook.sh) prüft auch diesen Job.
-    needs: mac
-    if: ${{ !cancelled() && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+    needs: [changes, mac]
+    if: ${{ !cancelled() && needs.changes.outputs.test == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
     # ein Lauf gut 20 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60

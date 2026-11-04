@@ -3812,7 +3812,7 @@ menuseparator[mc-tidy-hidden] {
 }
 
 /* runde Symbole wie in den Erinnerungen, alle 24 px (Vorlage „aufgaben-gesamt“):
-   Today Blau (Kalenderblatt ohne Tageszahl – die Zahl sah aus wie eine
+   Today Blau (Kalenderblatt mit großem Punkt statt Tageszahl – die Zahl sah aus wie eine
    Anzahl), Scheduled Rot (gestapelte Blätter: viele Tage), Open Indigo,
    In Progress als Ring aus vier Vierteln in den Fortschrittsfarben,
    Completed Grün, Important Orange mit dem Stern der Mail-Markierung */
@@ -3835,7 +3835,7 @@ menuseparator[mc-tidy-hidden] {
 
 #mcTaskLists .mc-tl-today {
   --mc-tl-c: #007AFF;
-  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.6'/%3E%3Cpath d='M3.5 9.6h17M8 3.2v3.4M16 3.2v3.4'/%3E%3Ccircle cx='12' cy='15' r='2' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+  --mc-tl-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.6'/%3E%3Cpath d='M3.5 9.6h17M8 3.2v3.4M16 3.2v3.4'/%3E%3Ccircle cx='12' cy='15.1' r='3' fill='%23000' stroke='none'/%3E%3C/svg%3E");
 }
 #mcTaskLists .mc-tl-scheduled {
   --mc-tl-c: #FF3B30;

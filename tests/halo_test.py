@@ -381,13 +381,20 @@ def vm_ready(vm):
         prl("start", vm)
     elif before != "running":
         sys.exit(f"VM „{vm}“ nicht gefunden oder im Zustand {before} (prlctl list -a)")
-    end = time.time() + 240
+    # gleich nach dem Fortsetzen klappt ein erster Befehl oft, der nächste scheitert
+    # trotzdem („PrlJob … Invalid argument“) – erst drei Antworten in Folge zählen
+    start = time.time()
+    end = start + 240
+    ok = 0
     while time.time() < end:
         try:
-            if vm_exec(vm, "cmd", "/c", "echo", "bereit", check=False, timeout=30).stdout.strip() == "bereit":
-                return before
+            ok = ok + 1 if vm_exec(vm, "cmd", "/c", "echo", "bereit", check=False, timeout=30).stdout.strip() == "bereit" else 0
         except subprocess.TimeoutExpired:
-            pass
+            ok = 0
+        if ok >= (3 if before != "running" else 1):
+            if before != "running":
+                print(f"VM bereit nach {time.time() - start:.0f} s", flush=True)
+            return before
         time.sleep(3)
     sys.exit(f"VM „{vm}“: keine angemeldete Windows-Sitzung (automatische Anmeldung prüfen)")
 
@@ -474,15 +481,24 @@ def run_in_vm(args, xpi):
         if set(theme.values()) != {want}:
             vm_theme(vm, {k: want for k in theme})
             time.sleep(3)  # Windows färbt Fensterrahmen und Taskleiste um
-        proc = subprocess.Popen(["prlctl", "exec", vm, "--current-user", VM_PY, "-u", win + "\\tests\\halo_test.py",
-                                 "--vm-args", win + "\\args.json"])
-        try:
-            rc = proc.wait(timeout=3600)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            vm_exec(vm, "taskkill", "/f", "/im", "thunderbird.exe", check=False)
-            rc = 1
-            print("FEHLER  Testlauf in der VM nach einer Stunde abgebrochen", flush=True)
+        for attempt in (1, 2):
+            began = time.time()
+            proc = subprocess.Popen(["prlctl", "exec", vm, "--current-user", VM_PY, "-u", win + "\\tests\\halo_test.py",
+                                     "--vm-args", win + "\\args.json"])
+            try:
+                rc = proc.wait(timeout=3600)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                vm_exec(vm, "taskkill", "/f", "/im", "thunderbird.exe", check=False)
+                rc = 1
+                print("FEHLER  Testlauf in der VM nach einer Stunde abgebrochen", flush=True)
+            # 255 nach wenigen Sekunden: prlctl hat den Lauf gar nicht gestartet (Gastwerkzeuge
+            # nach dem Fortsetzen noch nicht bereit) – einmal warten und neu versuchen
+            if rc != 255 or time.time() - began > 60 or attempt == 2:
+                break
+            print("HINWEIS prlctl exec scheiterte sofort (Code 255) – VM noch nicht bereit, neuer Versuch in 20 s", flush=True)
+            time.sleep(20)
+            vm_ready(vm)
         if args.shots and os.path.isdir(os.path.join(run, "shots")):
             shutil.copytree(os.path.join(run, "shots"), args.shots, dirs_exist_ok=True)
         if args.tb_log and os.path.exists(os.path.join(run, "thunderbird.log")):

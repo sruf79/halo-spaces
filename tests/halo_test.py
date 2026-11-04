@@ -5761,13 +5761,16 @@ def calendar_checks(m, results):
           await toMail(); w.resizeTo(1920, 900); await ruhig(800);
           const base = w.__mcBarRoom();
           const PREF = "extensions.mailcards.listWidth", before = Services.prefs.getIntPref(PREF, 0);
+          const msgW = a3.paneLayout.messagePaneSplitter.width;
           Services.prefs.setIntPref(PREF, 900); a3.paneLayout.messagePaneSplitter.width = 300; await ruhig(900);
           out.wideList = w.__mcBarRoom().need - base.need;
-          if (before) Services.prefs.setIntPref(PREF, before); else Services.prefs.clearUserPref(PREF);
           const fp = a3.document.getElementById("folderPane"), fw = fp.getBoundingClientRect().width;
           a3.paneLayout.folderPaneSplitter.width = Math.round(fw + 120); await ruhig(900);
           out.wideSide = [Math.round(fp.getBoundingClientRect().width - fw), w.__mcBarRoom().need - base.need];
+          // zurück wie vorher (sonst blieben Ordner- und Mailliste für die folgenden Prüfungen breit)
           a3.paneLayout.folderPaneSplitter.width = Math.round(fw); await ruhig(600);
+          if (before) Services.prefs.setIntPref(PREF, before); else Services.prefs.clearUserPref(PREF);
+          a3.paneLayout.messagePaneSplitter.width = msgW; await ruhig(900);
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           w.resizeTo(1500, 900); await ruhig(600);
           return out;""")

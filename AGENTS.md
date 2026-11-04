@@ -307,8 +307,8 @@ anheben (nach Test).
 
 Bugs und Wünsche führt der Maintainer in einem privaten GitHub-Project
 „halo.spaces Aufgaben“ (Konto `sruf79`, Felder Typ = Feature/Bug und Status).
-Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions über den
-Workflow `add-task.yml` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
+Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions immer über
+die Sitzung `neon` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
 SessionStart-Hook die offenen Einträge in jede Sitzung.
 
 - Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
@@ -362,8 +362,19 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 ### Cloud-Sessions
 
 In Cloud-Sessions ist die GraphQL-API gesperrt, `gh project …` geht dort
-nicht – auch nicht mit Token. Neue Einträge stattdessen über den Workflow
-anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`):
+nicht – auch nicht mit Token. **Alles am Board – lesen, neu anlegen,
+ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über
+die Sitzung `neon`** (Entscheidung des Maintainers vom 4.11.2026; Weg dorthin:
+Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und neon
+prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden sollte. Im
+Auftrag nennen, was anzulegen oder zu ändern ist (Titel, Text, Typ, Status
+bzw. Eintrag und neuer Status) und was zurückgemeldet werden soll (z. B. die
+id); bis zur Antwort nichts als erledigt melden.
+
+Nur wenn neon auf keinem Weg erreichbar ist: neue Einträge notfalls über den
+Workflow anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`)
+und das dem Maintainer sagen; Lesen, Ergänzen und Status ändern erledigt dann
+der Maintainer im Board.
 
 ```bash
 gh workflow run add-task.yml -R sruf79/halo-spaces \
@@ -371,10 +382,8 @@ gh workflow run add-task.yml -R sruf79/halo-spaces \
 gh run list -R sruf79/halo-spaces -w add-task.yml -L 1   # Lauf erfolgreich?
 ```
 
-Lesen und Status ändern gehen in Cloud-Sessions nicht direkt – dafür die
-Sitzung auf neon beauftragen (unten), dort geht `gh project …`; sonst erledigt
-es der Maintainer im Board. Das Repo ist öffentlich: Der Workflow schreibt Titel
-und Text bewusst nicht ins Log – das beim Ändern beibehalten.
+Das Repo ist öffentlich: Der Workflow schreibt Titel und Text bewusst nicht
+ins Log – das beim Ändern beibehalten.
 
 **neon aus der Cloud steuern:** Cloud-Sessions erreichen neon nicht per SSH
 (kein Tailscale im Container), sondern über die Remote-Control-Sitzung, die

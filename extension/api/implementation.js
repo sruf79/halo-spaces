@@ -15403,9 +15403,42 @@ class CardEnhancer {
         return;
       }
       el.__mcTitle = true;
+      // Woche wie Apple Kalender nur Monat und Jahr („November 2026“, über
+      // einen Monatswechsel „Nov. – Dez. 2026“) statt „Sonntag, 1. November –
+      // Samstag, 7. November 2026“ – passt auch ins schmale Fenster
+      const weekTitle = () => {
+        try {
+          const view = w.currentView?.();
+          if (view?.id != "week-view" || !view.startDate || !view.endDate) {
+            return null;
+          }
+          const js = dt => new Date(dt.year, dt.month, dt.day);
+          const a = js(view.startDate), b = js(view.endDate);
+          const locale = Services.locale.appLocalesAsBCP47[0];
+          if (a.getMonth() == b.getMonth() && a.getFullYear() == b.getFullYear()) {
+            return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(a);
+          }
+          const short = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
+          return a.getFullYear() == b.getFullYear()
+            ? `${new Intl.DateTimeFormat(locale, { month: "short" }).format(a)} – ${short.format(b)}`
+            : `${short.format(a)} – ${short.format(b)}`;
+        } catch {
+          return null;
+        }
+      };
       const split = () => {
         if (el.querySelector(".mc-year")) {
           return;
+        }
+        const week = weekTitle();
+        if (week && el.textContent != week) {
+          // ganzer Zeitraum weiter beim Überfahren
+          el.dataset.mcLong = el.textContent;
+          el.setAttribute("title", el.textContent);
+          el.textContent = week;
+        } else if (!week) {
+          delete el.dataset.mcLong;
+          el.removeAttribute("title");
         }
         const m = el.textContent.match(/^(.*\S)(\s+)(\d{4})\s*$/s);
         if (!m) {
@@ -15421,7 +15454,9 @@ class CardEnhancer {
       split();
       this.restorers.push(() => {
         mo.disconnect();
-        el.textContent = el.textContent;
+        el.textContent = el.dataset.mcLong || el.textContent;
+        delete el.dataset.mcLong;
+        el.removeAttribute("title");
         delete el.__mcTitle;
       });
     };

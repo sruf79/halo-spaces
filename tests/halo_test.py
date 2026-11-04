@@ -5338,6 +5338,33 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – unsichtbare Puffer-Wochen (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
 
+    def week_title():
+        # Woche wie Apple Kalender: Titel nur Monat und Jahr (über einen Monatswechsel „Nov – Dec 2026“), ganzer Zeitraum
+        # beim Überfahren; auch bei 860 px ganz lesbar; Tag und Monat unverändert
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar();
+          const el = d.getElementById("intervalDescription"), loc = Services.locale.appLocalesAsBCP47[0];
+          const out = {};
+          try {
+            w.switchToView("week"); await ruhig(700);
+            const v = w.currentView(), s0 = new Date(v.startDate.year, v.startDate.month, v.startDate.day);
+            out.week = { text: el.textContent, title: el.getAttribute("title"), year: el.querySelector(".mc-year")?.textContent,
+                         want: v.startDate.month == v.endDate.month ? new Intl.DateTimeFormat(loc, { month: "long", year: "numeric" }).format(s0) : null };
+            let n = 0; while (v.startDate.month == v.endDate.month && n++ < 6) { v.moveView(1); await ruhig(400); }
+            out.cross = { text: el.textContent, title: el.getAttribute("title") };
+            w.resizeTo(860, 800); await ruhig(900);
+            out.narrow = { scroll: el.scrollWidth, client: el.clientWidth };
+            w.resizeTo(1500, 900); await ruhig(500);
+            w.switchToView("day"); await ruhig(600); out.day = { title: el.getAttribute("title"), text: el.textContent };
+          } finally { w.goToDate?.(cal.dtz.now()); w.switchToView("week"); await ruhig(400); }
+          return out;""")
+        wk, cr, nr, dy = (res.get(k) or {} for k in ("week", "cross", "narrow", "day"))
+        ok = ((wk.get("want") is None or wk.get("text") == wk.get("want")) and wk.get("title") and wk.get("year") and len(wk.get("text", "")) < len(wk.get("title", ""))
+              and " – " in cr.get("text", "") and cr.get("title") and len(cr.get("text", "")) < len(cr.get("title", ""))
+              and nr.get("scroll", 9) <= nr.get("client", 0) + 1 and dy.get("title") is None and dy.get("text"))
+        return ok, f"{res}"
+    check("Kalender: Woche mit Titel nur aus Monat und Jahr wie Apple Kalender (Monatswechsel „Nov – Dec“), ganzer Zeitraum beim Überfahren, auch schmal ganz lesbar", week_title, results)
+
     def quick_ghost():
         # Doppelklick in einen Tag wie bei Apple Kalender: sofort ein vorläufiger Termin „New Event“ in der Farbe des
         # Kalenders im Tag, der Dialog als Sprechblase daneben mit der Spitze auf dessen Mitte; Titel live; Abbrechen

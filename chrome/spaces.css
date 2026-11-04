@@ -7817,9 +7817,16 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   text-overflow: ellipsis;
 }
 
-/* Sonne rechts neben dem Titel – „Heute“ */
-#mcTodayTitle::after {
-  content: "";
+#mcTodayTitle > .mc-tt-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sonne rechts neben dem Titel – „Heute“ (eigenes Element: das Wetter hat
+   seinen eigenen Tooltip, der Text „Go to Today“) */
+#mcTodayWeather {
+  -moz-window-dragging: no-drag;
   flex: none;
   width: 20px;
   height: 20px;
@@ -7830,7 +7837,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 /* Wetter statt der festen Sonne (Option; data-weather setzt die Erweiterung):
    Symbole im Stil der Sonne, je eine kräftige Systemfarbe, dunkel die
    helleren Varianten (Indigo sonst zu wenig Kontrast) */
-#mcTodayTitle[data-weather]::after {
+#mcTodayTitle[data-weather] > #mcTodayWeather {
   mask-image: var(--mc-weather) !important;
   background-color: var(--mc-weather-color) !important;
 }

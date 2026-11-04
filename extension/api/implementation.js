@@ -259,6 +259,14 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "Sunny": "Sonnig",
+  "Clear": "Klar",
+  "Partly Cloudy": "Teilweise bewölkt",
+  "Cloudy": "Bewölkt",
+  "Fog": "Nebel",
+  "Rain": "Regen",
+  "Snow": "Schnee",
+  "Thunderstorm": "Gewitter",
   "Save Attachment": "Anhang speichern",
   "Actual Size": "Originalgröße",
   "All Headers": "Alle Kopfzeilen",
@@ -648,6 +656,14 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "Sunny": "Ensoleillé",
+  "Clear": "Dégagé",
+  "Partly Cloudy": "Partiellement nuageux",
+  "Cloudy": "Nuageux",
+  "Fog": "Brouillard",
+  "Rain": "Pluie",
+  "Snow": "Neige",
+  "Thunderstorm": "Orage",
   "Save Attachment": "Enregistrer la pièce jointe",
   "Actual Size": "Taille réelle",
   "All Headers": "Tous les en-têtes",
@@ -1037,6 +1053,14 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "Sunny": "Soleado",
+  "Clear": "Despejado",
+  "Partly Cloudy": "Parcialmente nublado",
+  "Cloudy": "Nublado",
+  "Fog": "Niebla",
+  "Rain": "Lluvia",
+  "Snow": "Nieve",
+  "Thunderstorm": "Tormenta",
   "Save Attachment": "Guardar adjunto",
   "Actual Size": "Tamaño real",
   "All Headers": "Todos los encabezados",
@@ -1426,6 +1450,14 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "Sunny": "Soleggiato",
+  "Clear": "Sereno",
+  "Partly Cloudy": "Parzialmente nuvoloso",
+  "Cloudy": "Nuvoloso",
+  "Fog": "Nebbia",
+  "Rain": "Pioggia",
+  "Snow": "Neve",
+  "Thunderstorm": "Temporale",
   "Save Attachment": "Salva allegato",
   "Actual Size": "Dimensioni reali",
   "All Headers": "Tutte le intestazioni",
@@ -3605,6 +3637,12 @@ const WEATHER_PREF = "extensions.mailcards.weather";
 const WEATHER_PLACE_PREF = "extensions.mailcards.weatherPlace";
 const WEATHER_STATE_PREF = "extensions.mailcards.weatherState"; // JSON: Ort, Koordinaten, letzter Wert, Status
 const WEATHER_EVERY = 30 * 60 * 1000;
+// Wetter in Worten (Tooltip des Wettersymbols)
+const WEATHER_WORDS = {
+  "clear-day": "Sunny", "clear-night": "Clear", "partly-day": "Partly Cloudy", "partly-night": "Partly Cloudy",
+  cloudy: "Cloudy", fog: "Fog", rain: "Rain", snow: "Snow", thunder: "Thunderstorm",
+};
+
 const Weather = {
   titles: new Set(),
   timer: null,
@@ -3657,7 +3695,7 @@ const Weather = {
     }
     for (const t of this.titles) {
       t.removeAttribute("data-weather");
-      t.removeAttribute("title");
+      t.querySelector("#mcTodayWeather")?.removeAttribute("title");
     }
     this.titles.clear();
   },
@@ -3665,15 +3703,18 @@ const Weather = {
   show() {
     const st = this.state();
     const on = this.enabled() && st.kind;
+    // Titeltext: „Go to Today“ (am Titel); Symbol daneben: nur das Wetter –
+    // ohne Wetter gehört die feste Sonne zum Titel (erbt dessen Tooltip)
     for (const t of this.titles) {
+      const icon = t.querySelector("#mcTodayWeather");
       if (on) {
         t.dataset.weather = st.kind;
-        // erste Zeile: Klick führt zu heute (Überschrift der Today-Pane)
-        const info = st.temp != null ? `${st.place ? st.place + ": " : ""}${Math.round(st.temp)} °C` : st.place || "";
-        t.title = info ? `${tr("Go to Today")}\n${info}` : tr("Go to Today");
+        const temp = st.temp != null ? `${Math.round(st.temp)} °C, ` : "";
+        const info = `${st.place ? st.place + ": " : ""}${temp}${tr(WEATHER_WORDS[st.kind] || "Clear")}`;
+        icon?.setAttribute("title", info);
       } else {
         t.removeAttribute("data-weather");
-        t.title = tr("Go to Today");
+        icon?.removeAttribute("title");
       }
     }
   },
@@ -13273,7 +13314,13 @@ class CardEnhancer {
       // Überschrift „Today Pane“ oben in der Toolbar-Zeile, neben dem Knopf
       const title = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       title.id = "mcTodayTitle";
-      title.textContent = tr("Today Pane");
+      // Text und Sonne/Wetter als eigene Elemente: jedes mit eigenem Tooltip
+      const titleText = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      titleText.className = "mc-tt-text";
+      titleText.textContent = tr("Today Pane");
+      const weatherIcon = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      weatherIcon.id = "mcTodayWeather";
+      title.append(titleText, weatherIcon);
       top.append(title);
       row?.prepend(top);
       // Wetter statt der festen Sonne (Option, Standard aus)

@@ -4888,12 +4888,13 @@ def calendar_checks(m, results):
           try {
             await api.setSetting("weatherPlace", "Wien"); await api.setSetting("weather", true); await ruhig(400);
             const st = await api.getSettings();
-            out.city = { attr: title.dataset.weather, tip: title.getAttribute("title"), status: st.weatherStatus,
-                         mask: w.getComputedStyle(title, "::after").maskImage.slice(0, 80), urls: Cu.evalInSandbox("JSON.stringify(__mcUrls)", g) };
+            const icon = d.getElementById("mcTodayWeather");
+            out.city = { attr: title.dataset.weather, tip: title.getAttribute("title"), iconTip: icon?.getAttribute("title"), status: st.weatherStatus,
+                         mask: icon ? w.getComputedStyle(icon).maskImage.slice(0, 80) : "", urls: Cu.evalInSandbox("JSON.stringify(__mcUrls)", g) };
             await api.setSetting("weatherPlace", ""); await ruhig(400);
             out.located = { attr: title.dataset.weather || null, status: (await api.getSettings()).weatherStatus };
             await api.setSetting("weather", false); await ruhig(300);
-            out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title") };
+            out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title"), iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") ?? null };
           } finally {
             Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate;", g);
             for (const p of ["weather", "weatherPlace", "weatherState"]) Services.prefs.clearUserPref("extensions.mailcards." + p);
@@ -4902,12 +4903,12 @@ def calendar_checks(m, results):
         c, l, o = res.get("city") or {}, res.get("located") or {}, res.get("off") or {}
         urls = json.loads(c.get("urls") or "[]")
         ok = (res["start"] == {"attr": None, "setting": False}
-              and c.get("attr") == "rain" and (c.get("tip") or "").endswith("\nWien, Österreich: 12 °C") and "Wien" in (c.get("status") or "")
+              and c.get("attr") == "rain" and c.get("tip") == "Go to Today" and c.get("iconTip") == "Wien, Österreich: 12 °C, Rain" and "Wien" in (c.get("status") or "")
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
               and l.get("attr") is None and "System Settings" in (l.get("status") or "")
-              and o.get("attr") is None and "°C" not in (o.get("tip") or ""))
+              and o.get("attr") is None and o.get("tip") == "Go to Today" and o.get("iconTip") is None)
         return ok, f"{res}"
-    check("Today-Pane: Wetter (Option) – Stadt → Symbol und Temperatur, Standort verweigert → Hinweis und Sonne, aus → Sonne", today_weather, results)
+    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis und Sonne, aus → Sonne", today_weather, results)
 
     def agenda_days():
         # Today-Pane: Tagesspalte (ca. 38 px) eines Tags mit nur einem Eintrag ragte bis auf 2–6 px an den nächsten Tag
@@ -5470,13 +5471,18 @@ def calendar_checks(m, results):
           // als eigene Zeile oben in der Today-Pane (below), sichtbar und anklickbar wie oben
           out.below = title.hasAttribute("data-below"); out.width = Math.round(r.width);
           out.hit = [hit(r.left + r.width / 2), hit(r.right - 4)];
+          // Text und Sonne/Wetter sind eigene Elemente mit eigenem Tooltip (Text: „Go to Today“ vom Titel)
+          const tt = title.querySelector(".mc-tt-text"), wi = d.getElementById("mcTodayWeather");
+          const tr0 = tt.getBoundingClientRect(), wr = wi.getBoundingClientRect();
+          out.parts = out.below ? null : [d.elementFromPoint(tr0.left + 6, y) == tt, d.elementFromPoint(wr.left + wr.width / 2, y) == wi];
           d.elementFromPoint(r.left + r.width / 2, y)?.click(); await ruhig(600);
           out.click = [isToday(), agenda.scrollTop];
           away(); await ruhig(500);
           title.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await ruhig(600);
           out.enter = [isToday(), agenda.scrollTop];
           return out;""")
-        ok = (res.get("role") == "button" and bool(res.get("tip")) and res.get("tab") == 0 and res.get("awayOk")
+        ok = (res.get("role") == "button" and res.get("tip") == "Go to Today" and res.get("tab") == 0 and res.get("awayOk")
+              and res.get("parts") in (None, [True, True])
               and res.get("hit") == [True, True] and res.get("width", 0) >= 20 and (sys.platform != "darwin" or not res.get("below"))
               and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
         return ok, f"{res}"

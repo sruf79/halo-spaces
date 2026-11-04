@@ -104,6 +104,33 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
 Zum Ausprobieren im echten Profil: `./install.sh` (Thunderbird vorher beenden).
 Das betrifft das echte Profil des Nutzers – nur auf ausdrücklichen Wunsch.
 
+## neon erreichen – gilt für JEDE Sitzung
+
+Jede Sitzung, egal in welcher Umgebung (Cloud, Desktop-App, CLI auf dem
+Laptop, iPhone, Cowork, Claude Tag/Slack, geplante Aufgaben, Unteragenten
+über ihre Hauptsitzung), kann der dauerhaften Sitzung **`neon`** auf dem
+Mac mini Aufträge geben (Entscheidung des Maintainers vom 4.11.2026). Alles,
+was den Mac braucht – Testläufe, Screenshots, `gh project …`, Board-Status,
+Release –, geht so an neon. Reihenfolge, bis einer klappt:
+
+1. `ListAgents`, dann `SendMessage` an `neon`.
+2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
+   `send_message` mit ihrer ID (Stand 4.11.2026
+   `session_01BK9gbfo3oZh8yxoakmG4CD`; nach einem Neustart kann sie sich
+   ändern – immer über die Liste prüfen).
+3. Lehnt `send_message` mit einem `content_digest` ab
+   (`confirm_repository_trust`), diese Freigabe sofort anfragen – die
+   Claude-App fragt den Maintainer selbst – und danach erneut senden.
+4. Fehlen die Werkzeuge, erst per `ToolSearch` laden (`SendMessage`,
+   `ListAgents`, `mcp__claude-code-remote__list_sessions`,
+   `…__send_message`, `…__confirm_repository_trust`).
+5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`).
+
+Nie „neon nicht erreichbar“ melden, ohne alle passenden Wege versucht zu
+haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
+gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
+erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
+
 ## Testrechner (Mac mini)
 
 Ein Mac mini übernimmt die Tests rund um die Uhr (Anleitung: `tests/MAC-MINI.md`):
@@ -358,13 +385,8 @@ braucht – Testläufe (hell/dunkel, Beta, `--vm`), Screenshots, `gh project …
 Board-Status –, so an neon geben und deren Ergebnis weitergeben, nie
 selbst Ergebnisse erfinden. Auftrag vollständig formulieren (Zweig bzw.
 Commit, Befehl, Port ab 2850, was zurückgemeldet werden soll); die Regeln
-aus „Testrechner“ gelten dort unverändert. **neon ist immer erreichbar:**
-Fehlt neon in `ListAgents`, über die Sitzungs-ID gehen –
-`list_sessions` (Sitzung mit Titel `neon`), dann `send_message` mit dieser
-ID. Nie „neon nicht erreichbar“ melden, ohne beide Wege versucht zu haben.
-Verlangt `send_message` eine Freigabe (`confirm_repository_trust`), diese
-sofort mit dem gelieferten `content_digest` anfragen – die Claude-App fragt
-den Maintainer selbst.
+aus „Testrechner“ gelten dort unverändert. Erreichbarkeit und Ablauf, wenn
+neon nicht in `ListAgents` steht: Abschnitt „neon erreichen“.
 
 **Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
 4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen

@@ -181,6 +181,18 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.17.0
+
+- **Reminders** look like a notification: date tile on the left, the calendar's name in small caps above the title, the time ("Today at 09:30") and the location, "Snooze for" and "Dismiss" side by side at the bottom right. The arrow at the top right opens the event in the calendar's month view
+- **Calendar**: the week view's title shows just the month and year ("November 2026", across months "Nov – Dec 2026"), so it is never cut off in a narrow window; the full range shows on hover
+- **Folder menu**: "Run Filters" for the whole folder and, on the Junk folder, "Erase Junk Mail"
+- **Say Thanks**: at the bottom of Settings, with a gentle reminder now and then that goes away on its own
+- **⌘1 to ⌘5** open the spaces in the order of the spaces bar, also when you have rearranged it
+- **Conversations**: with a collapsed thread selected, Reply, Reply All and Forward in the toolbar work on the newest message instead of being greyed out
+- **Compose**: Tab in the subject goes straight to the message text
+- **Fixes**: Account Settings and Add-ons no longer go missing from Settings when Thunderbird is slow at startup; the mail toolbar gets its buttons even when an add-on with its own toolbar button is installed; "Install Now" shows in Settings as soon as an update is found; the Today pane in Chat shows the mini calendar and events again; the highlight on "Reply All" stays inside the button; on Windows and Linux the Today button and "+" no longer overlap
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.16.1
 
 - **Fix**: "Install version …" in Help → halo.spaces no longer stays on "Installing …" – the update is installed right away and the window closes

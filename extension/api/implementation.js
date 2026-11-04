@@ -10940,8 +10940,10 @@ class CardEnhancer {
             delete shared.__mcHooked;
           });
         }
-        // rechte Kante der Kontaktliste dort, wo in der Mail die Mailliste endet –
-        // auch bei ausgeblendeter Adressbuchliste (die Liste wird dann breiter)
+        // rechte Kante der Kontaktliste dort, wo in der Mail die Mailliste endet;
+        // bei ausgeblendeter Adressbuchliste behält sie ihre Breite (wie die
+        // Mailliste ohne Ordnerliste) – sonst wuchs sie um die frei gewordene
+        // Spalte und das Fenster ließ sich nicht mehr schmaler machen
         const cl = rectOf(cards);
         if (this.mcButtonsLeft && shared && "width" in shared && !shared.__mcDragging && cl && !el.__mcShowing &&
             !el.ownerDocument.body.classList.contains("layout-table")) {
@@ -10951,7 +10953,10 @@ class CardEnhancer {
           const dp = el.ownerDocument.getElementById("detailsPane");
           const detailsMin = (dp && parseFloat(el.ownerDocument.defaultView.getComputedStyle(dp).minWidth)) || 0;
           const room = Math.floor(el.ownerDocument.documentElement.clientWidth - cl.left - detailsMin - 2);
-          const want = Math.min(Math.round(this.mcButtonsLeft - 6 - (shift + cl.left)), room);
+          const books = el.ownerDocument.getElementById("booksPane");
+          const booksHidden = !books || books.classList.contains("mc-side-hidden") || !rectOf(books)?.width;
+          const want = Math.min(booksHidden && this.mcListWidth ? this.mcListWidth
+            : Math.round(this.mcButtonsLeft - 6 - (shift + cl.left)), room);
           if (want >= 160 && Math.abs((shared.width || 0) - want) >= 1) {
             shared.width = want;
           }

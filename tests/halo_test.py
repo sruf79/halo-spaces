@@ -5639,6 +5639,38 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben: mit gewählter Aufgabe und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf (breit und schmal)", tasks_toolbar_no_overlap, results)
 
+    def ab_list_keeps_width():
+        # Adressbuch: Adressbuchliste ausblenden – die Kontaktliste behält ihre Breite (wuchs um die frei gewordene Spalte,
+        # und das Fenster ließ sich nicht mehr schmaler machen als vorher)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          w.resizeTo(1700, 1000); await ruhig(800);
+          await toMail(); await ruhig(600);
+          tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList, "Adressbuch", 8000); await ruhig(1500);
+          const cw = tm.currentTabInfo.browser.contentWindow, bd = cw.document;
+          const book = MailServices.ab.directories.find(b => !b.readOnly);
+          const card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard); card.displayName = "Halo Listenbreite"; card.primaryEmail = "listenbreite@example.invalid";
+          const added = book.addCard(card); await ruhig(1000);
+          const list = () => Math.round(bd.getElementById("cardsPane").getBoundingClientRect().width);
+          const out = {};
+          try {
+            cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1200);
+            out.before = list();
+            const side = d.getElementById("spacesPinnedButton"); side.click();
+            await until(() => bd.getElementById("booksPane").classList.contains("mc-side-hidden"), 3000); await ruhig(1200);
+            out.hidden = list();
+            w.resizeTo(400, 1000); await ruhig(1500); out.narrow = w.outerWidth;
+            side.click(); await until(() => !bd.getElementById("booksPane").classList.contains("mc-side-hidden"), 3000); await ruhig(800);
+          } finally {
+            try { book.deleteCards([added]); } catch {}
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            w.resizeTo(1500, 900); await ruhig(600);
+          }
+          return out;""")
+        ok = res.get("before", 0) > 200 and abs(res.get("hidden", 0) - res["before"]) <= 3 and res.get("narrow", 9999) < 1700 - 150
+        return ok, f"{res}"
+    check("Adressbuch: Adressbuchliste ausblenden – Kontaktliste behält ihre Breite, das Fenster wird schmaler", ab_list_keeps_width, results)
+
     def update_note():
         # bereitliegendes Update: roter Punkt an der Einstellungen-Kachel (Kachel sonst unverändert), Tooltip mit Version,
         # Klick öffnet die Einstellungen bei „halo.spaces“ mit Punkt am Eintrag und Zeile „Install Now“ oben; im

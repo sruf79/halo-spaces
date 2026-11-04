@@ -2999,6 +2999,18 @@ splitter.splitter:has(+ .conv-bottom) {
   min-width: 240px !important;
 }
 
+/* ohne Seiten- und Bereichsleiste liegt deren Knopf (unten links) über dem
+   Inhalt: deckend mit Schatten, damit beim Scrollen nichts durchscheint
+   (ganz unten endet die letzte Gruppe schon über ihm, 40 px Innenabstand) */
+:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden] {
+  background: linear-gradient(var(--mt-control), var(--mt-control)), var(--mt-popover-bg) !important;
+  box-shadow: var(--mt-shadow) !important;
+}
+
+:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden]:hover {
+  background: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)), var(--mt-popover-bg) !important;
+}
+
 #pref-category-box {
   background: var(--mt-sidebar) !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;

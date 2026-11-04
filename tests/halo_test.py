@@ -12012,6 +12012,24 @@ Neu
         return ok, f"Seitenleiste rechts bei {right} {res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons als Kategorien, Seitenleiste bleibt gleich breit, Kontoseite linksbündig, Ausblenden zieht mit", pref_embedded_pages, results)
 
+    def pref_spaces_toggle_opaque():
+        # ohne Seiten- und Bereichsleiste liegt der Knopf unten links über dem Inhalt: deckend mit Schatten
+        res = m.js(PREFS_OPEN_JS + r"""
+          const btn = d.getElementById("mcSpacesToggle"), side = d.getElementById("spacesPinnedButton");
+          btn.click(); await until(() => btn.hasAttribute("data-mc-hidden"), 3000);
+          side.click(); await until(() => pd.getElementById("pref-category-box").classList.contains("mc-side-hidden"), 3000); await ruhig(600);
+          const st = w.getComputedStyle(btn);
+          const out = { hidden: btn.hasAttribute("data-mc-hidden"), bg: st.backgroundImage.split("),").length, shadow: st.boxShadow != "none",
+                        over: Math.round(btn.getBoundingClientRect().right) > Math.round(tm.currentTabInfo.browser.getBoundingClientRect().left) };
+          side.click(); await until(() => !pd.getElementById("pref-category-box").classList.contains("mc-side-hidden"), 3000);
+          btn.click(); await until(() => !btn.hasAttribute("data-mc-hidden"), 3000); await ruhig(600);
+          out.normalShadow = w.getComputedStyle(btn).boxShadow;
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        ok = res["hidden"] and res["bg"] >= 2 and res["shadow"] and res["normalShadow"] == "none"
+        return ok, f"{res}"
+    check("Einstellungen: Knopf der Bereichsleiste über dem Inhalt (beide Leisten aus) deckend mit Schatten", pref_spaces_toggle_opaque, results)
+
     def pref_category_groups():
         # Kategorien in drei Gruppen wie die Systemeinstellungen, nur durch Abstand getrennt: General … Calendar,
         # Privacy … Export, Kontoeinstellungen … halo.spaces (Calendar steht bei Thunderbird sonst hinter Chat)

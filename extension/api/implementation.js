@@ -32,6 +32,8 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Account Settings": "Konten-Einstellungen",
+  "Add-ons and Themes": "Add-ons und Themes",
   "Hide “{name}”": "„{name}“ ausblenden",
   "Show “On My Mac”": "„Auf meinem Mac“ anzeigen",
   "Show “On This Computer”": "„Auf diesem Computer“ anzeigen",
@@ -435,6 +437,8 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Account Settings": "Paramètres des comptes",
+  "Add-ons and Themes": "Modules complémentaires et thèmes",
   "Hide “{name}”": "Masquer « {name} »",
   "Show “On My Mac”": "Afficher « Sur mon Mac »",
   "Show “On This Computer”": "Afficher « Sur cet ordinateur »",
@@ -838,6 +842,8 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Account Settings": "Configuración de cuentas",
+  "Add-ons and Themes": "Complementos y temas",
   "Hide “{name}”": "Ocultar «{name}»",
   "Show “On My Mac”": "Mostrar «En mi Mac»",
   "Show “On This Computer”": "Mostrar «En este ordenador»",
@@ -1241,6 +1247,8 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Account Settings": "Impostazioni account",
+  "Add-ons and Themes": "Componenti aggiuntivi e temi",
   "Hide “{name}”": "Nascondi «{name}»",
   "Show “On My Mac”": "Mostra «Sul mio Mac»",
   "Show “On This Computer”": "Mostra «Su questo computer»",
@@ -2094,8 +2102,8 @@ function hookAppearanceChoice(cw, restorers = null) {
 // ausgeblendet. Die halo.spaces-Seite ist dieselbe wie „Add-ons → halo.spaces
 // → Einstellungen“ (options_ui), eingebettet wie dort.
 const PREF_PANES = [
-  { value: "paneMcAccounts", footer: "accountButton", src: "about:accountsettings" },
-  { value: "paneMcAddons", footer: "addonsButton", src: "about:addons" },
+  { value: "paneMcAccounts", footer: "accountButton", name: "Account Settings", src: "about:accountsettings" },
+  { value: "paneMcAddons", footer: "addonsButton", name: "Add-ons and Themes", src: "about:addons" },
   // Symbol ohne seine weiße Kachel; der Ausschnitt lässt den weichen Rand des Rings ganz drin (enger wirkte er dick und kantig)
   { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "3 3 58 58", options: true },
 ];
@@ -2138,34 +2146,39 @@ function hookPrefCategories(cw, restorers = null) {
   const overlays = new Map();
   const detach = [];
   const X = "http://www.w3.org/1999/xhtml";
+  // Name wie Thunderbird ihn in der Fußzeile zeigt; ist die nach 6 s noch
+  // nicht übersetzt, der eigene (sonst fehlten die Kategorien ganz)
+  const since = cw.__mcPrefSince || (cw.__mcPrefSince = Date.now());
+  const late = Date.now() - since > 6000;
   const labelOf = pane => {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
     return pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
-      link?.querySelector(".sidebar-footer-label")?.getAttribute("value");
+      link?.querySelector(".sidebar-footer-label")?.getAttribute("value") || (late && pane.name ? tr(pane.name) : "");
   };
   // alle Kategorien auf einmal: ist eine Fußzeile noch nicht übersetzt
-  // (langsamer Start, z. B. Linux), später erneut – sonst stünde halo.spaces
-  // schon da und Konten/Add-ons kämen nie dazu (der Aufruf oben bricht dann ab)
+  // (langsamer Start, z. B. Linux), gleich noch einmal – sonst stünde
+  // halo.spaces schon da und Konten/Add-ons kämen nie dazu (der Aufruf oben
+  // bricht dann ab); ein Nachversuch zur Zeit, egal wie oft man gerufen wird
   if (host && PREF_PANES.some(p => !labelOf(p))) {
-    const tries = (cw.__mcPrefTries || 0) + 1;
-    if (tries <= 40) {
-      cw.__mcPrefTries = tries;
-      cw.setTimeout(() => {
+    if (!cw.__mcPrefRetry) {
+      cw.__mcPrefRetry = cw.setTimeout(() => {
+        cw.__mcPrefRetry = 0;
         try {
           hookPrefCategories(cw, restorers);
         } catch (e) {
           log("pref categories retry error", e);
         }
       }, 150);
-      return;
     }
+    return;
   }
+  cw.__mcPrefSince = 0;
   const added = [];
   for (const pane of PREF_PANES) {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
     const label = labelOf(pane);
     if (!label || (!pane.options && !host)) {
-      continue; // Fußzeile auch nach 6 s nicht übersetzt – ohne diese Kategorie
+      continue;
     }
     const item = doc.createXULElement("richlistitem");
     item.id = "mcCat-" + pane.value;
@@ -2299,8 +2312,9 @@ function hookPrefCategories(cw, restorers = null) {
       }
     }
   }
+  // Fußzeile nur weg, wenn ihre Links wirklich als Kategorien da sind
   const footer = doc.querySelector("#pref-category-box .sidebar-footer-list");
-  if (footer) {
+  if (footer && PREF_PANES.every(p => !p.footer || doc.getElementById("mcCat-" + p.value))) {
     footer.hidden = true;
   }
   // Fläche der eingebetteten Seiten: rechts neben der Seitenleiste (folgt

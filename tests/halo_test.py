@@ -12487,6 +12487,41 @@ Neu
         return ok, f"Seitenleiste rechts bei {right} {res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons als Kategorien, Seitenleiste bleibt gleich breit, Kontoseite linksbündig, Ausblenden zieht mit", pref_embedded_pages, results)
 
+    def pref_embedded_late_l10n():
+        # langsamer Start (GitHub-Issue #32, Linux-CI): ist die Fußzeile mit „Account Settings“/„Add-ons and Themes“
+        # beim Aufbau noch nicht übersetzt, kommen die Kategorien nach, sobald sie es ist – nie halo.spaces allein,
+        # die Fußzeile bleibt sichtbar, solange sie fehlen; bleibt sie leer, nach 6 s mit eigenem Namen
+        res = m.js(PREFS_OPEN_JS + r"""
+          const ids = ["mcCat-paneMcAccounts", "mcCat-paneMcAddons", "mcCat-paneMcHalo"];
+          const has = () => ids.map(id => !!pd.getElementById(id));
+          const footer = pd.querySelector("#pref-category-box .sidebar-footer-list");
+          const labels = ["accountButton", "addonsButton"].map(id => pd.querySelector(`#${id} .sidebar-footer-label`));
+          const saved = labels.map(l => [l.textContent, l.getAttribute("value"), l.getAttribute("data-l10n-id")]);
+          const blank = () => { for (const l of labels) { l.removeAttribute("data-l10n-id"); l.textContent = ""; l.removeAttribute("value"); } };
+          const restore = () => labels.forEach((l, i) => { l.textContent = saved[i][0];
+            for (const [k, v] of [["value", saved[i][1]], ["data-l10n-id", saved[i][2]]]) v == null ? l.removeAttribute(k) : l.setAttribute(k, v); });
+          // Aufbau von vorn: eigene Kategorien weg, Fußzeile noch ohne Text, Tab-Wechsel löst den Aufbau aus
+          const rebuild = async () => { for (const e of pd.querySelectorAll(".mc-embed-cat, .mc-embed-pane, .mc-subcats")) e.remove(); footer.hidden = false;
+            blank(); const prefs = tm.currentTabInfo; tm.selectTabByIndex(null, 0); await ruhig(300); tm.switchToTab(prefs); };
+          const out = {};
+          try {
+            await rebuild(); await wait(1000); // bewusst: so lange darf noch nichts dastehen
+            out.early = { has: has(), footer: !footer.hidden };
+            restore(); out.found = await until(() => has().every(Boolean), 4000);
+            out.after = { has: has(), footer: footer.hidden };
+            await rebuild();
+            out.late = await until(() => has().every(Boolean), 10000);
+            out.names = ids.slice(0, 2).map(id => pd.querySelector(`#${id} .category-name`)?.textContent);
+            out.lateFooter = footer.hidden;
+          } finally { restore(); }
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        e, a = res.get("early") or {}, res.get("after") or {}
+        ok = (e.get("has") == [False, False, False] and e.get("footer") and res.get("found") and a.get("has") == [True, True, True]
+              and a.get("footer") and res.get("late") and res.get("names") == ["Account Settings", "Add-ons and Themes"] and res.get("lateFooter"))
+        return ok, f"{res}"
+    check("Einstellungen: Kontoeinstellungen und Add-ons kommen auch bei spät übersetzter Seitenleiste (langsamer Start), nie halo.spaces allein", pref_embedded_late_l10n, results)
+
     def pref_spaces_toggle_opaque():
         # ohne Seiten- und Bereichsleiste liegt der Knopf unten links über dem Inhalt: deckend mit Schatten
         res = m.js(PREFS_OPEN_JS + r"""

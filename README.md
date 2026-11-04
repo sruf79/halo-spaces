@@ -178,17 +178,17 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.15.0
+## What's new in 3.16.0
 
-- **Attachments, tidied up**: the list is open right away, a small chevron folds it, and every file has its own download button. A single attachment shows its name and size directly instead of "1 attachment". The line above lines up with the text of the mail
-- **New events right where you click**: double-click a day and a "New Event" appears in it at once, in the calendar's color, with the quick dialog pointing at it. The title updates as you type; Cancel removes it again
-- **Quick event dialog**: all rows (All Day to Show As) evenly spaced, the checkbox lined up with the dates
-- **Spaces bar**: the current space now shows a filled icon on a slightly stronger tile with a soft shadow, instead of the chevron
-- **Updates install on the next start**, with a red dot on the Settings tile and an "Install Now" button if you don't want to wait
-- **Event window**: buttons at the bottom, Event | Task switch at the top, dates in your system's format
-- **Sidebar and spaces bar stay where you put them**: they no longer fold away on their own, the buttons always open and close them
-- **Tasks**: "Today" shows a small calendar page instead of a number that looked like a count; the right-click menu on task cards no longer lists entries twice; the check circle in the table is no longer cut off
-- **Fixes**: icons of other add-ons in the message header are visible again; accounts can be reordered by dragging in the folder list; "Find Events" opens the event list again; the window stays maximized on Windows; the sender name no longer appears twice; attachment and star icons sit next to the subject; less empty space above the header in conversations; groups with one mail show it again in "Grouped by Sort"; no line under the calendar toolbar anymore; the sidebar can be dragged wide again on smaller screens; the Today title is visible on Windows and Linux; "On My Mac" hides while empty
+- **Tasks, new layout**: "…", Delete and "+" sit above the list, the details get their own column of about 400 px with a continuous divider, and "No Task Selected" shows when nothing is picked. Complete, Category and Priority are on the ring, in the details and in the menus
+- **Task folders**: "All" is now "Open" (indigo), in the order Today, Scheduled, Open, In Progress, Completed, Important; In Progress is a ring in the progress colors, Completed is green, Important uses the star, Scheduled shows stacked calendar pages. A task at 0 % has a dashed ring, so it no longer looks done
+- **Conversations**: the quoted history at the end of a reply is folded behind "Show More"
+- **Search field**: only as wide as its text, in the same place in every space; when it gets narrow, the word "Search" is never cut off, otherwise only the magnifier shows
+- **Spaces bar**: finer filled icons for Calendar and Settings, Contacts as a person in a circle, a clearer shadow on the current tile (with a light edge in dark mode)
+- **Folder list** follows Thunderbird's density: "Compact" makes the rows lower, "Touch" taller
+- **Today pane**: "Go to Today" on the title, the weather icon shows only the weather in words; the title no longer jumps at the end of the animation
+- **Help → halo.spaces** without the three dots and with the halo.spaces icon
+- **Fixes**: the "…" above the task list stays in place when the window gets narrower; buttons no longer overlap the Today pane header in Tasks; the contact list keeps its width when the address book list is hidden, so the window can get narrower; the Spaces button in Settings no longer lets content shine through; the drop line below the last account is as thick as the others; the halo.spaces icon in Settings has its soft edge back
 - Requires Thunderbird 153 or newer
 
 See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.

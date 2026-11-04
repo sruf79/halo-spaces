@@ -180,7 +180,7 @@ Changes take effect right away unless noted.
 
 ## What's new in 3.16.0
 
-- **Tasks, new layout**: "…", Delete and "+" sit above the list, the details get their own column of about 400 px with a continuous divider, and "No Task Selected" shows when nothing is picked. Complete, Category and Priority are on the ring, in the details and in the menus
+- **Tasks, laid out like Mail**: the list is as wide as the message list, "+", Complete, Category, Priority and Delete sit above the open task, which takes the rest of the width (never narrower than its buttons). A continuous divider separates the two, and "No Task Selected" shows when nothing is picked
 - **Task folders**: "All" is now "Open" (indigo), in the order Today, Scheduled, Open, In Progress, Completed, Important; In Progress is a ring in the progress colors, Completed is green, Important uses the star, Scheduled shows stacked calendar pages. A task at 0 % has a dashed ring, so it no longer looks done
 - **Conversations**: the quoted history at the end of a reply is folded behind "Show More"
 - **Search field**: only as wide as its text, in the same place in every space; when it gets narrow, the word "Search" is never cut off, otherwise only the magnifier shows

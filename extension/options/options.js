@@ -253,6 +253,19 @@ async function render() {
       main.append(el("h2", { textContent: title }), section);
     }
   }
+  // ganz unten: „Danke sagen“ (Ring, solange die Erinnerung fällig ist, siehe
+  // Thanks in implementation.js)
+  const thanks = el("button", { type: "button", id: "s-thanks", class: settings.thanksDue ? "thanks due" : "thanks" },
+    el("span", { textContent: t("Say Thanks") }), el("img", { src: "../about/coffee.svg", alt: "" }));
+  thanks.addEventListener("click", () => {
+    thanks.classList.remove("due");
+    api.sayThanks();
+  });
+  const thanksText = el("div", { class: "text" },
+    el("span", { class: "label", textContent: t("Do you like halo.spaces?") }),
+    el("span", { class: "hint", textContent: t("halo.spaces is free and made in spare time. A coffee helps keep it going.") }));
+  main.append(el("h2", { textContent: t("Support halo.spaces") }),
+    el("section", { class: "support" }, el("div", { class: "row", id: "row-thanks" }, thanksText, thanks)));
   updateDependent(false);
 }
 

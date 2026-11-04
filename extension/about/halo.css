@@ -142,6 +142,12 @@ main {
   background: color-mix(in srgb, var(--donate) 22%, transparent);
 }
 
+/* Erinnerung fällig (Thanks in implementation.js): Ring in der Spendenfarbe,
+   kein Blinken */
+.capsule.donate.due {
+  box-shadow: inset 0 0 0 1.5px var(--donate);
+}
+
 .note {
   margin: -6px 0 0;
   padding: 10px 12px;

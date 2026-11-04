@@ -77,6 +77,13 @@
         ]
       },
       {
+        "name": "sayThanks",
+        "type": "function",
+        "async": true,
+        "description": "„Danke sagen“: Spendenseite im Browser öffnen, Erinnerung gilt als erledigt",
+        "parameters": []
+      },
+      {
         "name": "searchPlaces",
         "type": "function",
         "async": true,

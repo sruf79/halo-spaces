@@ -160,6 +160,9 @@ const DE = {
   "Settings…": "Einstellungen …",
   "Send Feedback": "Feedback senden",
   "Say Thanks": "Danke sagen",
+  "Support halo.spaces": "Unterstütze halo.spaces",
+  "Do you like halo.spaces?": "Gefällt dir halo.spaces?",
+  "halo.spaces is free and made in spare time. A coffee helps keep it going.": "halo.spaces ist kostenlos und entsteht in der Freizeit. Ein Kaffee hilft beim Weitermachen.",
   "This message is from a mailing list.": "Diese Nachricht stammt von einem Verteiler.",
   "Unsubscribe": "Abmelden",
   "Unsubscribe from messages from {name}?": "Keine Nachrichten mehr von {name} erhalten?",
@@ -559,6 +562,9 @@ const FR = {
   "Settings…": "Réglages…",
   "Send Feedback": "Envoyer un avis",
   "Say Thanks": "Dire merci",
+  "Support halo.spaces": "Soutenir halo.spaces",
+  "Do you like halo.spaces?": "Vous aimez halo.spaces ?",
+  "halo.spaces is free and made in spare time. A coffee helps keep it going.": "halo.spaces est gratuit et fait sur le temps libre. Un café aide à continuer.",
   "This message is from a mailing list.": "Ce message provient d’une liste de diffusion.",
   "Unsubscribe": "Se désabonner",
   "Unsubscribe from messages from {name}?": "Ne plus recevoir de messages de {name} ?",
@@ -959,6 +965,9 @@ const ES = {
   "Settings…": "Ajustes…",
   "Send Feedback": "Enviar comentarios",
   "Say Thanks": "Dar las gracias",
+  "Support halo.spaces": "Apoya halo.spaces",
+  "Do you like halo.spaces?": "¿Te gusta halo.spaces?",
+  "halo.spaces is free and made in spare time. A coffee helps keep it going.": "halo.spaces es gratuito y se hace en tiempo libre. Un café ayuda a seguir.",
   "This message is from a mailing list.": "Este mensaje procede de una lista de correo.",
   "Unsubscribe": "Darse de baja",
   "Unsubscribe from messages from {name}?": "¿Dejar de recibir mensajes de {name}?",
@@ -1359,6 +1368,9 @@ const IT = {
   "Settings…": "Impostazioni…",
   "Send Feedback": "Invia feedback",
   "Say Thanks": "Dì grazie",
+  "Support halo.spaces": "Sostieni halo.spaces",
+  "Do you like halo.spaces?": "Ti piace halo.spaces?",
+  "halo.spaces is free and made in spare time. A coffee helps keep it going.": "halo.spaces è gratuito e nasce nel tempo libero. Un caffè aiuta ad andare avanti.",
   "This message is from a mailing list.": "Questo messaggio proviene da una mailing list.",
   "Unsubscribe": "Annulla iscrizione",
   "Unsubscribe from messages from {name}?": "Non ricevere più messaggi da {name}?",
@@ -1717,6 +1729,104 @@ const FEEDBACK_ADDRESS = "halo.cat@icloud.com";
 // der Spendenseite, dass der Aufruf aus halo.spaces kam
 const DONATE_URL = "https://buymeacoffee.com/diversion"
   + "?utm_source=halo.spaces&utm_medium=thunderbird-addon&utm_campaign=donate&utm_content=about-window";
+// „Danke sagen“ mit leiser Erinnerung (Vorbild: derStandard Comment Ranker):
+// kein Fenster, keine Mitteilung, kein Server – nur lokale Prefs. Gezählt werden
+// Nutzungstage (Tage, an denen Thunderbird mit halo.spaces lief), nicht
+// Kalendertage: Wer Thunderbird eine Woche nicht öffnet, wird nicht früher
+// erinnert. Ist eine Erinnerung fällig, bekommt das Symbol von Hilfe →
+// halo.spaces einen Punkt in der Spendenfarbe und „Danke sagen“ im
+// Info-Fenster und in den Einstellungen einen Ring. Ein Klick auf „Danke
+// sagen“ gilt als erledigt (höchstens einmal am Tag), ebenso eine Erinnerung,
+// die THANKS_SHOW_DAYS Nutzungstage unbeachtet blieb – sie leuchtet also nie
+// dauerhaft. Ob jemand wirklich spendet, wissen wir nicht (gewollt).
+const THANKS_BRANCH = "extensions.mailcards.thanks.";
+const THANKS_DAYS_PREF = THANKS_BRANCH + "usageDays";
+const THANKS_LAST_DAY_PREF = THANKS_BRANCH + "lastDay";
+const THANKS_COUNT_PREF = THANKS_BRANCH + "count";
+const THANKS_ACK_DAY_PREF = THANKS_BRANCH + "ackDay";
+const THANKS_SHOW_DAYS = 7;
+const Thanks = {
+  listeners: new Set(),
+  // Nutzungstag der Erinnerung nach n erledigten: erste am 14. Tag (zwei
+  // Wochen im Alltag, man kennt halo.spaces dann), danach Abstände von 21
+  // Tagen, die jeweils um die Hälfte wachsen, höchstens ein Jahr:
+  // 14, 35, 67, 114, 185, 291, 451, 690, 1049, 1414, … – nach dem ersten Jahr
+  // also etwa zweimal im Jahr, später einmal
+  dueDay(n) {
+    let day = 14, gap = 21;
+    for (let i = 0; i < n; i++) {
+      day += gap;
+      gap = Math.min(gap * 1.5, 365);
+    }
+    return Math.ceil(day);
+  },
+  today() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  },
+  days() {
+    return Services.prefs.getIntPref(THANKS_DAYS_PREF, 0);
+  },
+  count() {
+    return Services.prefs.getIntPref(THANKS_COUNT_PREF, 0);
+  },
+  due() {
+    const days = this.days(), from = this.dueDay(this.count());
+    return days >= from && days < from + THANKS_SHOW_DAYS;
+  },
+  // beim Start und stündlich: heutigen Tag zählen (Thunderbird läuft oft
+  // tagelang durch), unbeachtete Erinnerungen nach THANKS_SHOW_DAYS beenden
+  countDay() {
+    const today = this.today();
+    if (Services.prefs.getStringPref(THANKS_LAST_DAY_PREF, "") == today) {
+      return;
+    }
+    const days = this.days() + 1;
+    let n = this.count();
+    while (days >= this.dueDay(n) + THANKS_SHOW_DAYS) {
+      n++;
+    }
+    Services.prefs.setStringPref(THANKS_LAST_DAY_PREF, today);
+    if (n != this.count()) {
+      Services.prefs.setIntPref(THANKS_COUNT_PREF, n);
+    }
+    Services.prefs.setIntPref(THANKS_DAYS_PREF, days);
+    log("thanks: Nutzungstag", days, "fällig ab", this.dueDay(n), this.due() ? "→ Erinnerung" : "");
+  },
+  // Klick auf „Danke sagen“: nächste Erinnerung erst am nächsten berechneten Tag
+  ack() {
+    const today = this.today();
+    if (Services.prefs.getStringPref(THANKS_ACK_DAY_PREF, "") == today) {
+      return;
+    }
+    Services.prefs.setStringPref(THANKS_ACK_DAY_PREF, today);
+    Services.prefs.setIntPref(THANKS_COUNT_PREF, this.count() + 1);
+  },
+  // Spendenseite im Standardbrowser öffnen (loadURI braucht seit Thunderbird
+  // 140 einen Principal und tat ohne ihn nichts)
+  open(w) {
+    this.ack();
+    const main = Services.wm.getMostRecentWindow("mail:3pane") || w;
+    if (typeof main?.openLinkExternally == "function") {
+      main.openLinkExternally(DONATE_URL);
+    } else {
+      Cc["@mozilla.org/uriloader/external-protocol-service;1"]
+        .getService(Ci.nsIExternalProtocolService)
+        .loadURI(Services.io.newURI(DONATE_URL), Services.scriptSecurityManager.getSystemPrincipal());
+    }
+  },
+  // Symbol mit Punkt für Hilfe → halo.spaces (macOS-Menüleiste kann nur ein
+  // Bild zeigen, kein CSS): icon.svg mit Kreis oben rechts, als data:-Adresse
+  dotIcon: null,
+  async iconWithDot(w) {
+    if (!this.dotIcon) {
+      const svg = await (await w.fetch("resource://mailcards/about/icon.svg")).text();
+      const dot = '<circle cx="53" cy="11" r="10.5" fill="#FF8A00" stroke="#FFFFFF" stroke-width="3"/>';
+      this.dotIcon = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg.replace(/<\/svg>\s*$/, dot + "</svg>"));
+    }
+    return this.dotIcon;
+  },
+};
 const CACHE_FILE = "mail-cards-logos.json";
 const DAY = 24 * 60 * 60 * 1000;
 const HIT_TTL = 30 * DAY;
@@ -10240,6 +10350,17 @@ class CardEnhancer {
     // Themes malen eigene Farben darüber). Eine bewusste Wahl unter den drei
     // eingebauten (System, Hell, Dunkel) bleibt erhalten
     const themeSwitched = firstInstall ? this.applyThemeOnce() : Promise.resolve(false);
+    // „Danke sagen“: Nutzungstag zählen, stündlich erneut (über Mitternacht
+    // hinaus laufendes Thunderbird); Änderungen an den Prefs zeigen Menü,
+    // Info-Fenster und Einstellungen gleich an
+    Thanks.countDay();
+    const thanksTimer = setInterval(() => Thanks.countDay(), 60 * 60 * 1000);
+    const thanksObs = { observe: () => Thanks.listeners.forEach(fn => fn()) };
+    Services.prefs.addObserver(THANKS_BRANCH, thanksObs);
+    this.restorers.push(() => {
+      clearInterval(thanksTimer);
+      Services.prefs.removeObserver(THANKS_BRANCH, thanksObs);
+    });
     // Start ohne Aufblitzen: Datei im Profil passend zur Einstellung (nach Updates neu)
     EarlyTheme.sync();
     const earlyObs = { observe: () => EarlyTheme.sync() };
@@ -12884,7 +13005,19 @@ class CardEnhancer {
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);
       popup.insertBefore(item, anchor);
+      // „Danke sagen“ fällig: Punkt am Symbol (siehe Thanks)
+      // (nach dem Laden des Bildes erneut fragen: mehrere Pref-Änderungen
+      // kurz hintereinander, ein späterer Aufruf darf nicht überschrieben werden)
+      const markThanks = async () => {
+        const image = Thanks.due() ? await Thanks.iconWithDot(w).catch(() => null) : null;
+        const due = Thanks.due();
+        item.setAttribute("image", (due && image) || "resource://mailcards/about/icon.svg");
+        item.toggleAttribute("mc-thanks", due);
+      };
+      markThanks();
+      Thanks.listeners.add(markThanks);
       this.restorers.push(() => {
+        Thanks.listeners.delete(markThanks);
         sep.remove();
         item.remove();
       });
@@ -18312,18 +18445,8 @@ class CardEnhancer {
         : Services.appinfo.OS == "WINNT" ? "ms-settings:privacy-location" : null,
       openURL: url => Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
         .loadURI(Services.io.newURI(url), Services.scriptSecurityManager.getSystemPrincipal()),
-      // im Standardbrowser öffnen (loadURI braucht seit Thunderbird 140 einen
-      // Principal und tat ohne ihn nichts)
-      donate: () => {
-        const main = Services.wm.getMostRecentWindow("mail:3pane") || w;
-        if (typeof main.openLinkExternally == "function") {
-          main.openLinkExternally(DONATE_URL);
-        } else {
-          Cc["@mozilla.org/uriloader/external-protocol-service;1"]
-            .getService(Ci.nsIExternalProtocolService)
-            .loadURI(Services.io.newURI(DONATE_URL), Services.scriptSecurityManager.getSystemPrincipal());
-        }
-      },
+      // im Standardbrowser öffnen; gilt als erledigte Erinnerung
+      donate: () => Thanks.open(w),
     };
     const hw = w.openDialog("resource://mailcards/about/halo.html", "halo-spaces",
       `chrome,dialog=yes,centerscreen,resizable=no,width=360,height=${349 + (platformNote ? 64 : 0)}`);
@@ -18692,7 +18815,14 @@ class CardEnhancer {
       hw.close();
     });
     $("feedback").addEventListener("click", feedback);
-    $("donate").addEventListener("click", () => api.donate());
+    // Erinnerung fällig: Ring um „Danke sagen“, bis geklickt (auch wenn sie
+    // währenddessen anderswo erledigt wird)
+    const donate = $("donate");
+    const ring = () => !hw.closed && donate.classList.toggle("due", Thanks.due());
+    ring();
+    Thanks.listeners.add(ring);
+    hw.addEventListener("unload", () => Thanks.listeners.delete(ring), { once: true });
+    donate.addEventListener("click", () => api.donate());
     // Logo mit Versionsnummer laden (sonst zeigt Thunderbird nach einem
     // Update noch das zwischengespeicherte alte)
     const icon = doc.querySelector(".icon");
@@ -21560,6 +21690,7 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
             out[key] = readSetting(spec);
           }
           out.spacesOrderCustom = SpacesOrder.isCustom();
+          out.thanksDue = Thanks.due();
           // fünfter Bereich: Bereiche fremder Erweiterungen zur Auswahl
           out.fifthSpaceAddons = FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane"))
             .map(a => ({ value: a.name, label: a.title }));
@@ -21573,6 +21704,10 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
             : ws.status == "unavailable" ? tr("Location unavailable. Enter a city.")
             : ws.status == "notfound" ? tr("City not found") : "";
           return out;
+        },
+        // „Danke sagen“ in den Einstellungen: Spendenseite öffnen, Erinnerung erledigt
+        async sayThanks() {
+          Thanks.open(Services.wm.getMostRecentWindow("mail:3pane"));
         },
         // Wetter: Ortsvorschläge beim Tippen und gewählten Ort übernehmen
         async searchPlaces(text) {

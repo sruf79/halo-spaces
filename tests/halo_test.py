@@ -5345,6 +5345,34 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – unsichtbare Puffer-Wochen (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
 
+    def folder_menu_filters_junk():
+        # GitHub-Issue #34: das ausgeblendete Menü Tools hatte „Run Filters on Folder“ und „Delete Mail Marked as Junk“ –
+        # jetzt im Kontextmenü des Ordners: „Run Filters“ bei Mail-Ordnern, „Erase Junk Mail“ nur beim Spam-Ordner
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const plain = folder("Halo Filterordner"), junk = folder("Halo Spam"); junk.setFlag(Ci.nsMsgFolderFlags.Junk);
+          const a3 = await toMail(); await ruhig(800);
+          const popup = a3.document.getElementById("folderPaneContext");
+          const look = async f => {
+            const row = await until(() => [...a3.document.querySelectorAll("#folderTree li")].find(li => li.uri == f.URI)?.querySelector(".container"), 6000);
+            if (!row) return null;
+            const shown = new Promise(r => popup.addEventListener("popupshown", r, { once: true }));
+            row.dispatchEvent(new a3.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: 20, clientY: 10 }));
+            await Promise.race([shown, wait(3000)]);
+            const vis = id => { const e = a3.document.getElementById(id); return !!e && !e.hidden && e.getBoundingClientRect().height > 0; };
+            const out = { filters: vis("mcFolderRunFilters"), erase: vis("mcFolderEraseJunk"), label: a3.document.getElementById("mcFolderEraseJunk")?.getAttribute("label") };
+            popup.hidePopup(); await ruhig(300);
+            return out;
+          };
+          return { plain: await look(plain), junk: await look(junk) };""")
+        p_, j = res.get("plain") or {}, res.get("junk") or {}
+        ok = p_.get("filters") and not p_.get("erase") and j.get("erase") and j.get("filters") and j.get("label") == "Erase Junk Mail"
+        return ok, f"{res}"
+    check("Ordnerliste: Kontextmenü mit „Run Filters“ für den Ordner, beim Spam-Ordner zusätzlich „Erase Junk Mail“", folder_menu_filters_junk, results)
+
     def week_title():
         # Woche wie Apple Kalender: Titel nur Monat und Jahr (über einen Monatswechsel „Nov – Dec 2026“), ganzer Zeitraum
         # beim Überfahren; auch bei 860 px ganz lesbar; Tag und Monat unverändert

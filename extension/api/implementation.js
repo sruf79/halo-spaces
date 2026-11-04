@@ -32,6 +32,7 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Erase Junk Mail": "Werbung löschen",
   "Show in Calendar": "Im Kalender zeigen",
   "Account Settings": "Konten-Einstellungen",
   "Add-ons and Themes": "Add-ons und Themes",
@@ -438,6 +439,7 @@ const DE = {
   "Contact List Display Options": "Darstellung der Kontaktliste",
 };
 const FR = {
+  "Erase Junk Mail": "Effacer le courrier indésirable",
   "Show in Calendar": "Afficher dans le calendrier",
   "Account Settings": "Paramètres des comptes",
   "Add-ons and Themes": "Modules complémentaires et thèmes",
@@ -844,6 +846,7 @@ const FR = {
   "Contact List Display Options": "Affichage de la liste de contacts",
 };
 const ES = {
+  "Erase Junk Mail": "Borrar correo no deseado",
   "Show in Calendar": "Mostrar en el calendario",
   "Account Settings": "Configuración de cuentas",
   "Add-ons and Themes": "Complementos y temas",
@@ -1250,6 +1253,7 @@ const ES = {
   "Contact List Display Options": "Opciones de la lista de contactos",
 };
 const IT = {
+  "Erase Junk Mail": "Cancella posta indesiderata",
   "Show in Calendar": "Mostra nel calendario",
   "Account Settings": "Impostazioni account",
   "Add-ons and Themes": "Componenti aggiuntivi e temi",
@@ -6960,11 +6964,11 @@ function hookFolderContextExtras(a3, restorers) {
   if (!popup || !anchor || !mailWin || doc.getElementById("mcFolderJunk")) {
     return;
   }
-  const make = (id, sourceId, command) => {
+  const make = (id, sourceId, command, label = null) => {
     const src = mailWin.document.getElementById(sourceId);
     const item = doc.createXULElement("menuitem");
     item.id = id;
-    item.setAttribute("label", src?.getAttribute("label") || id);
+    item.setAttribute("label", label || src?.getAttribute("label") || id);
     item.addEventListener("command", () => {
       const folder = a3.folderPaneContextMenu?.activeFolder;
       if (folder && folder != a3.gFolder) {
@@ -6976,7 +6980,11 @@ function hookFolderContextExtras(a3, restorers) {
   };
   const byDate = make("mcFolderReadByDate", "menu_markReadByDate", "cmd_markReadByDate");
   const junk = make("mcFolderJunk", "runJunkControls", "cmd_runJunkControls");
-  anchor.after(byDate, junk);
+  // Thunderbirds Menü „Tools“ blendet halo.spaces aus: Filter auf den ganzen
+  // Ordner und „Spam löschen“ (nur beim Spam-Ordner, wie Apple Mail) hier
+  const filters = make("mcFolderRunFilters", "applyFilters", "cmd_applyFilters", tr("Run Filters"));
+  const eraseJunk = make("mcFolderEraseJunk", "deleteJunk", "cmd_deleteJunk", tr("Erase Junk Mail"));
+  anchor.after(byDate, junk, filters, eraseJunk);
   // „On My Mac“ ausblenden – ganz unten im Kontextmenü dieser Zeile; wieder
   // einblenden über die Einstellungen
   const hideSep = doc.createXULElement("menuseparator");
@@ -6994,6 +7002,8 @@ function hookFolderContextExtras(a3, restorers) {
     const mail = !!folder && !folder.isServer && !folder.getFlag(Ci.nsMsgFolderFlags.Virtual);
     byDate.hidden = !mail;
     junk.hidden = !mail || folder.server?.type == "nntp" || folder.server?.type == "rss";
+    filters.hidden = !mail || !folder.server?.canHaveFilters;
+    eraseJunk.hidden = junk.hidden || !folder.getFlag(Ci.nsMsgFolderFlags.Junk);
     const isLocal = !!folder?.isServer && folder.server?.type == "none";
     hideSep.hidden = hideLocal.hidden = !isLocal;
   };
@@ -7006,6 +7016,8 @@ function hookFolderContextExtras(a3, restorers) {
     Services.prefs.removeObserver(SHOW_LOCAL_PREF, onPref);
     byDate.remove();
     junk.remove();
+    filters.remove();
+    eraseJunk.remove();
     hideSep.remove();
     hideLocal.remove();
   });

@@ -1981,6 +1981,14 @@ def reading_checks(m, results):
           // zugeklappter Faden: Konversation statt Zusammenfassung
           a3.threadTree.selectedIndex = -1; await ruhig(300); a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(600);
           select("halo-konv-3@example.invalid"); out.thread = await read();
+          // Toolbar: Antworten, Allen antworten, Weiterleiten aktiv und wirken auf die neueste Mail (wie Apple Mail)
+          const tbtn = id => d.querySelector(`#unifiedToolbarContent li[item-id="${id}"] button`);
+          await ruhig(300);
+          out.toolbar = ["reply", "reply-all", "forward-inline"].map(id => tbtn(id) ? !tbtn(id).disabled : null);
+          const compose = w.ComposeMessage; let got = null;
+          w.ComposeMessage = (type, format, f, uris) => { got = [type, uris?.[0]]; };
+          try { tbtn("reply")?.click(); await ruhig(300); } finally { w.ComposeMessage = compose; }
+          out.replyTo = got ? [got[0] == Ci.nsIMsgCompType.ReplyToSender, MailServices.messageServiceFromURI(got[1]).messageURIToMsgHdr(got[1])?.messageId.split("@")[0]] : null;
           // aus: Thunderbirds Einzelansicht
           Services.prefs.setBoolPref("extensions.mailcards.fullConversation", false);
           a3.threadTree.selectedIndex = -1; await ruhig(300); select("halo-konv-1@example.invalid"); await bis(() => a3.messageBrowser?.contentWindow?.gMessage?.messageId == "halo-konv-1@example.invalid", "Einzelmail geladen", 5000); await ruhig(1500);
@@ -1992,10 +2000,11 @@ def reading_checks(m, results):
               and s1.get("stroke") and all(x in ("auto", "0px") for x in s1["stroke"]) and all(h > 100 for h in s1.get("heights", [0]))
               and s1.get("count") == "2 messages" and (s1.get("text") or [None])[0] == "Text von Hal" and not s1.get("note")
               and th.get("ids") == ["halo-konv-4", "halo-konv-3"] and res.get("off") is False
+              and res.get("toolbar") == [True, True, True] and res.get("replyTo") == [True, "halo-konv-4"]
               and s1.get("hover") == 2 and th.get("hover") == 2
               and res.get("flash", {}).get("early") is False and res["flash"].get("single", 9999) <= 600)
         return ok, f"{res}"
-    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, auch für zugeklappte Fäden, Kapsel je Karte; abschaltbar", conversation, results)
+    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, auch für zugeklappte Fäden (Antworten/Weiterleiten der Toolbar aktiv, auf die neueste Mail), Kapsel je Karte; abschaltbar", conversation, results)
 
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der

@@ -2865,8 +2865,20 @@ class ConversationCards {
     this.pane.classList.remove("mc-conv-pending");
   }
 
-  render(messages, selected, { indexed }) {
+  // zugeklappter Faden als Konversation: Karte, auf die Antworten und
+  // Weiterleiten der Toolbar wirken (die gewählte, sonst die neueste)
+  threadTarget() {
+    if (!this.box?.isConnected || !this.thread) {
+      return null;
+    }
+    const cards = [...this.box.querySelectorAll(".mc-conv-card")].filter(c => c.__mcHdr?.folder);
+    return cards.find(c => c.classList.contains("mc-selected")) ||
+      cards.reduce((a, b) => (!a || b.__mcHdr.date > a.__mcHdr.date ? b : a), null);
+  }
+
+  render(messages, selected, { indexed, thread }) {
     const win = this.win, doc = win.document;
+    this.thread = !!thread;
     const X = "http://www.w3.org/1999/xhtml";
     this.observer?.disconnect();
     this.box?.remove();
@@ -2919,6 +2931,11 @@ class ConversationCards {
     });
     this.pane.append(box);
     this.box = box;
+    // Toolbar (Antworten, Weiterleiten) neu bewerten – sie fragt Thunderbird
+    // nur bei Auswahl und Laden einer Mail
+    for (const b of win.top?.document.querySelectorAll("#unifiedToolbarContent button[is='mail-tab-button']") || []) {
+      b.onCommandContextChange?.();
+    }
     // Karten erst laden, wenn sie in die Nähe kommen (lange Konversationen)
     this.observer = new win.IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -18964,6 +18981,7 @@ class CardEnhancer {
   // Leseansicht: ganze Konversation als Karten (ConversationCards) über
   // Thunderbirds Anzeige von Einzelmail bzw. Faden-Zusammenfassung
   hookConversation(win) {
+    const self = this;
     const pane = win.document.getElementById("messagePane");
     if (!pane || pane.__mcConv === HOOK_OWNER || typeof pane.displayMessage != "function") {
       return;
@@ -18976,6 +18994,33 @@ class CardEnhancer {
     pane.__mcConv = HOOK_OWNER;
     const conv = new ConversationCards(win, pane);
     pane.__mcConversation = conv;
+    // zugeklappter Faden: Thunderbird graut Antworten und Weiterleiten aus
+    // (mehrere Mails gewählt) – wie Apple Mail wirken sie auf die neueste
+    // bzw. gewählte Mail der Konversation
+    const cc = win.commandController;
+    const CONV_CMDS = new Set(["cmd_reply", "cmd_replyall", "cmd_replylist", "cmd_forward", "cmd_forwardInline", "cmd_forwardAttachment"]);
+    if (cc && !cc.__mcConv) {
+      const isOn = cc.isCommandEnabled, doIt = cc.doCommand;
+      cc.__mcConv = true;
+      cc.isCommandEnabled = function (command, ...rest) {
+        if (CONV_CMDS.has(command) && conv.threadTarget()) {
+          return true;
+        }
+        return isOn.call(this, command, ...rest);
+      };
+      cc.doCommand = function (command, ...rest) {
+        const card = CONV_CMDS.has(command) && conv.threadTarget();
+        if (card) {
+          return self.cardAction({}, card, command);
+        }
+        return doIt.call(this, command, ...rest);
+      };
+      this.addWinRestorer(win, () => {
+        cc.isCommandEnabled = isOn;
+        cc.doCommand = doIt;
+        delete cc.__mcConv;
+      });
+    }
     const one = pane.displayMessage, many = pane.displayMessages;
     pane.displayMessage = function (uri) {
       conv.hide();
@@ -21182,6 +21227,9 @@ class CardEnhancer {
     }
     const type = command == "cmd_reply" ? T.ReplyToSender
       : command == "cmd_replyall" ? T.ReplyAll
+      : command == "cmd_replylist" ? T.ReplyToList
+      : command == "cmd_forwardInline" ? T.ForwardInline
+      : command == "cmd_forwardAttachment" ? T.ForwardAsAttachment
       : Services.prefs.getIntPref("mail.forward_message_mode", 2) == 0 ? T.ForwardAsAttachment : T.ForwardInline;
     // wie Thunderbirds eigene Knöpfe (Identität, Rückfrage bei „no-reply“ …)
     if (typeof top?.ComposeMessage == "function") {

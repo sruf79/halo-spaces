@@ -13790,3 +13790,17 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   order: 1;
 }
 /* ==== Ende Bereiche ==== */
+
+
+/* halo.spaces: ícone de menu Ajuda (XUL/Windows). Mantém a imagem colorida,
+   sem máscaras nem estilos genéricos de ícones monocromáticos. */
+#mcHaloSpaces > .menu-iconic-left > .menu-iconic-icon,
+#mcHaloSpaces .menu-iconic-icon {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  -moz-context-properties: none !important;
+  mask-image: none !important;
+  opacity: 1 !important;
+}

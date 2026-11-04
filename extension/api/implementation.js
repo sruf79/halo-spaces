@@ -1989,6 +1989,19 @@ const PREF_PANES = [
   // Symbol ohne seine weiße Kachel; der Ausschnitt lässt den weichen Rand des Rings ganz drin (enger wirkte er dick und kantig)
   { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "3 3 58 58", options: true },
 ];
+// Fallback for Thunderbird builds where the native preferences footer links
+// are absent or delayed. The pages must remain reachable even without them.
+function paneFallback(pane) {
+  const pt = Services.locale.appLocaleAsBCP47.toLowerCase().startsWith("pt");
+  const accounts = pane.value == "paneMcAccounts";
+  const label = accounts ? (pt ? "Configurações de contas" : "Account Settings")
+    : (pt ? "Extensões e temas" : "Add-ons and Themes");
+  const path = accounts
+    ? '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M7 9h10M7 13h7"/>'
+    : '<path d="M9 4h3c0 2 3 2 3 0h3v5c-2 0-2 3 0 3v5h-5c0-2-3-2-3 0H5v-5c2 0 2-3 0-3V4h4z"/>';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  return { label, icon: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+}
 const HALO_PANE = "paneMcHalo";
 const dataURIs = new Map();
 // crop: neuer viewBox („x y b h“) – dann ohne das erste <rect> (Kachel des Symbols)
@@ -2031,10 +2044,12 @@ function hookPrefCategories(cw, restorers = null) {
   const added = [];
   for (const pane of PREF_PANES) {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
+    const fallback = pane.options ? null : paneFallback(pane);
     const label = pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
-      link?.querySelector(".sidebar-footer-label")?.getAttribute("value");
+      link?.querySelector(".sidebar-footer-label")?.getAttribute("value") ||
+      link?.getAttribute("aria-label") || link?.getAttribute("label") || fallback?.label;
     if (!label || (!pane.options && !host)) {
-      continue; // Fußzeile noch nicht übersetzt – beim nächsten Aufruf
+      continue;
     }
     const item = doc.createXULElement("richlistitem");
     item.id = "mcCat-" + pane.value;
@@ -2047,7 +2062,7 @@ function hookPrefCategories(cw, restorers = null) {
     img.className = "category-icon";
     img.setAttribute("alt", "");
     // about:preferences lässt Bilder nur aus chrome:, data: … zu (CSP) – eigenes Symbol als data:
-    img.src = pane.icon ? dataURI(pane.icon, pane.crop) : link?.querySelector("img")?.src || "";
+    img.src = pane.icon ? dataURI(pane.icon, pane.crop) : link?.querySelector("img")?.src || fallback?.icon || "";
     const name = doc.createXULElement("label");
     name.className = "category-name";
     name.setAttribute("flex", "1");
@@ -12879,7 +12894,16 @@ class CardEnhancer {
       // davor – auch in der Menüleiste von macOS (menuitem-iconic + image)
       item.setAttribute("label", "halo.spaces");
       item.classList.add("menuitem-iconic");
-      item.setAttribute("image", "resource://mailcards/about/icon.svg");
+      // Windows/XUL-Menüs zeichnen das weiche SVG mit Filter nicht immer
+      // korrekt. Dasselbe Halo-Symbol als vorgerendertes PNG verwenden.
+      // Menu nativo Windows: usar o PNG incorporado diretamente evita que a
+      // imagem dependa da resolução de resource:// ou do cache de ícones XUL.
+      // A regra de CSS abaixo também cobre o elemento .menu-iconic-icon,
+      // responsável pelo desenho real do ícone em menus XUL.
+      const menuIcon = "data:image/png;base64,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";
+      item.setAttribute("image", menuIcon);
+      item.style.setProperty("list-style-image", `url("${menuIcon}")`, "important");
+      item.style.setProperty("-moz-context-properties", "none", "important");
       item.addEventListener("command", () => this.openHaloWindow(w));
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);
@@ -21519,7 +21543,22 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
         // Übersetzungstabelle für die Einstellungsseite (Schlüssel = englischer Text)
         async getTranslations() {
           const lang = uiLanguage();
-          return { lang, table: TRANSLATIONS[lang] || {} };
+          // Use Thunderbird's own already-localized Help > About menu label.
+          // Keep its grammar and replace only the application's name.
+          const win = Services.wm.getMostRecentWindow("mail:3pane");
+          const nativeItem = win?.document.getElementById("aboutName");
+          let nativeLabel = nativeItem?.getAttribute("label")?.trim() || "";
+          let brandName = "Thunderbird";
+          try {
+            brandName = Services.strings.createBundle("chrome://branding/locale/brand.properties")
+              .GetStringFromName("brandShortName");
+          } catch (e) {
+            log("native About brand name", e);
+          }
+          const aboutLabel = nativeLabel && brandName && nativeLabel.includes(brandName)
+            ? nativeLabel.replace(brandName, "halo.spaces")
+            : nativeLabel || "About halo.spaces";
+          return { lang, table: TRANSLATIONS[lang] || {}, aboutLabel };
         },
         async updateReady(version) {
           UpdateNote.set(version, true);
@@ -21529,6 +21568,12 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
         },
         async installUpdateNow() {
           return UpdateNote.installNow();
+        },
+        // Dieselbe Info-/About-Seite wie Hilfe → halo.spaces öffnen.
+        async openAbout() {
+          const win = Services.wm.getMostRecentWindow("mail:3pane");
+          if (!win) throw new Error("No Thunderbird main window");
+          await enhancer?.openHaloWindow(win);
         },
         async getSettings() {
           const out = { mac: Services.appinfo.OS == "Darwin", german: Services.locale.appLocaleAsBCP47.startsWith("de"), ...settingNeeds() };

@@ -101,7 +101,7 @@ function placeSuggestions(input, onPick) {
 
 async function render() {
   settings = await api.getSettings();
-  const { lang, table } = await api.getTranslations();
+  const { lang, table, aboutLabel } = await api.getTranslations();
   TABLE = table;
   document.documentElement.lang = lang;
   document.title = t("halo.spaces Settings");
@@ -253,6 +253,21 @@ async function render() {
       main.append(el("h2", { textContent: title }), section);
     }
   }
+  // Ein eigener Einstieg zur bestehenden Info-Seite (wie Hilfe → halo.spaces).
+  // Der Pfeil entspricht der Troubleshooting-Überschrift, öffnet aber direkt
+  // das unveränderte Info-Fenster statt einen weiteren Abschnitt einzublenden.
+  const about = el("button", { type: "button", class: "disclosure", textContent: aboutLabel || "About halo.spaces" });
+  about.addEventListener("click", async () => {
+    about.disabled = true;
+    try {
+      await api.openAbout();
+    } catch (error) {
+      console.error("halo.spaces About window", error);
+    } finally {
+      about.disabled = false;
+    }
+  });
+  main.append(el("h2", {}, about));
   updateDependent(false);
 }
 

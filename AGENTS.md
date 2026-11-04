@@ -188,7 +188,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   nur, wenn neon wirklich belegt ist: eine andere Claude-Sitzung ist mitten in
   einer Runde (fertige Sitzungen, die auf eine Antwort warten, zählen nicht;
   Entscheidung des Maintainers vom 4.11.2026), oder es laufen Tests, CI,
-  VM-Lauf, Release. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  VM-Lauf, Release. Vor der Arbeit bringt er Thunderbird unter `/Applications`
+  auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
+  CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen

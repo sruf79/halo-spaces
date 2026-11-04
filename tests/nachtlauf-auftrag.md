@@ -92,7 +92,9 @@ Reihenfolge:
    (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
-   Store-Upload), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
+   Store-Upload), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
+   oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
+   der Grund ist, und das im Bericht sagen), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.
 6. Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung schicken, das
    macht das Skript.

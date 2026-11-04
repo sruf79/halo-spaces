@@ -491,6 +491,12 @@ Features darunter.
   Unteragenten), gilt als hängengeblieben und zählt auch nicht. Ausgenommen
   sind die Sitzungen der eigenen Läufe und der Push-Zustellung. Dann wird
   ausgelassen – mit Bericht.
+- Danach bringt er Thunderbird unter `/Applications` auf die aktuelle Version
+  von Mozilla (`thunderbird_aktualisieren` in `tests/lauf-hilfen.zsh`: nur mit
+  Mozillas Signatur, die alte App wird erst ersetzt, wenn die neue vollständig
+  kopiert ist). So testet die CI-Runde der Nacht schon mit der Version, die die
+  Nutzer bekommen; die Zeile steht im Protokoll und im Bericht. Die Windows-VM
+  aktualisiert er nicht (Abschnitt 11).
 - Liegengebliebene Änderungen nimmt er zuerst mit (Entscheidung des
   Maintainers vom 4.11.2026): ungespeicherte Änderungen im Checkout, an
   denen gerade keine Sitzung arbeitet, prüft und committet er (Rotes oder

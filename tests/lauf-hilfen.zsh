@@ -82,3 +82,42 @@ belegt() {
     && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
   return 1
 }
+
+# Thunderbird unter /Applications auf die aktuelle Version von Mozilla bringen
+# (Nachtlauf, vor der Arbeit). Wie thunderbird_installieren() in
+# mac-mini-setup.sh nur von Mozilla signierte Programme; die alte App wird erst
+# ersetzt, wenn die neue vollständig kopiert ist. Gibt eine Zeile für Protokoll
+# und Bericht aus; Rückgabe 0 = aktuell oder aktualisiert.
+TB_APP=/Applications/Thunderbird.app
+MOZILLA_TEAM=43AQ936H96
+thunderbird_aktualisieren() {
+  local alt neu tmp rc=1
+  autoload -Uz is-at-least
+  alt=$(defaults read $TB_APP/Contents/Info.plist CFBundleShortVersionString 2>/dev/null)
+  neu=$(curl -sSf -m 20 https://product-details.mozilla.org/1.0/thunderbird_versions.json 2>/dev/null |
+        sed -n 's/.*"LATEST_THUNDERBIRD_VERSION": *"\([^"]*\)".*/\1/p')
+  [[ -z $neu ]] && { print "Thunderbird ${alt:-fehlt}: aktuelle Version nicht abrufbar, nichts geändert"; return 1 }
+  [[ -n $alt ]] && is-at-least $neu $alt && { print "Thunderbird $alt ist aktuell"; return 0 }
+  pgrep -f "$TB_APP/Contents/MacOS/thunderbird" >/dev/null && { print "Thunderbird $alt läuft gerade – nicht auf $neu aktualisiert"; return 1 }
+  tmp=$(mktemp -d) || return 1
+  if curl -sSfL -m 900 -o $tmp/tb.dmg "https://download.mozilla.org/?product=thunderbird-latest-SSL&os=osx&lang=en-US" &&
+     mkdir $tmp/mnt && hdiutil attach -nobrowse -readonly -quiet -mountpoint $tmp/mnt $tmp/tb.dmg; then
+    if codesign --verify --deep --strict $tmp/mnt/Thunderbird.app &&
+       [[ $(codesign -dv $tmp/mnt/Thunderbird.app 2>&1 | sed -n 's/^TeamIdentifier=//p') == $MOZILLA_TEAM ]] &&
+       ditto $tmp/mnt/Thunderbird.app $tmp/neu.app; then
+      rc=0
+    fi
+    hdiutil detach -quiet $tmp/mnt
+  fi
+  if (( rc == 0 )); then
+    { [[ ! -e $TB_APP ]] || mv $TB_APP $tmp/alt.app } && mv $tmp/neu.app $TB_APP || {
+      rc=1; [[ -e $TB_APP ]] || mv $tmp/alt.app $TB_APP 2>/dev/null }
+  fi
+  rm -rf $tmp
+  if (( rc == 0 )); then
+    print "Thunderbird von ${alt:-fehlt} auf $(defaults read $TB_APP/Contents/Info.plist CFBundleShortVersionString) aktualisiert"
+  else
+    print "Thunderbird ${alt:-fehlt}: Aktualisieren auf $neu gescheitert (Download oder Signatur), nichts geändert"
+  fi
+  return $rc
+}

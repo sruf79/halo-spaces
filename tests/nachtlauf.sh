@@ -124,11 +124,16 @@ if GRUND=$(belegt); then
   exit 0
 fi
 
+# --- Thunderbird aktuell halten: die CI-Runde der Nacht testet dann mit der neuen Version ---
+TB_INFO=$(thunderbird_aktualisieren)
+log "$TB_INFO"
+
 # --- Arbeit: claude -p, bei Limit nach 30 Minuten fortsetzen ---
 cd $REPO
 SID=$(uuidgen | tr A-Z a-z)
 log "Start, Sitzung $SID"
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
+Thunderbird auf neon vor dem Lauf: $TB_INFO
 
 $(<$REPO/tests/nachtlauf-auftrag.md)"
 # Sicherheitsnetz: um 09:00 hart beenden

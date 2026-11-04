@@ -3613,6 +3613,29 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Bereiche-Leiste: Reihenfolge per Ziehen ändern (andere weichen aus), gilt auch für Menü und Knopf-Symbol, Klick öffnet weiter, zurücksetzbar", spaces_reorder, results)
 
+    def spaces_number_keys():
+        # ⌘1 bis ⌘5 wählen den n-ten Bereich in der Reihenfolge der Leiste – auch mit eigener Reihenfolge und unabhängig
+        # davon, in welcher Folge die Bereiche geöffnet wurden (Thunderbird wählt sonst den n-ten Tab)
+        res = m.js(FOLDER_JS + r"""
+          await toMail();
+          const press = async n => { d.getElementById(n == 1 ? "key_mail" : "key_selectTab" + n).dispatchEvent(new w.Event("command", { bubbles: true })); await ruhig(700); return tm.currentTabInfo.mode.name; };
+          const out = {};
+          try {
+            // Tabs in anderer Folge öffnen: Aufgaben vor dem Adressbuch
+            d.getElementById("tasksButton").click(); await ruhig(700); d.getElementById("addressBookButton").click(); await ruhig(700);
+            out.std = [await press(2), await press(3), await press(4), await press(1)];
+            Services.prefs.setStringPref("extensions.mailcards.spacesOrder", "calendarButton,tasksButton,mailButton,addressBookButton,chatButton"); await ruhig(500);
+            out.own = [await press(1), await press(2), await press(3), await press(4)];
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.spacesOrder"); await ruhig(400);
+            await toMail();
+          }
+          return out;""")
+        ok = (res.get("std") == ["addressBookTab", "calendar", "tasks", "mail3PaneTab"]
+              and res.get("own") == ["calendar", "tasks", "mail3PaneTab", "addressBookTab"])
+        return ok, f"{res}"
+    check("Bereichsleiste: ⌘1 bis ⌘5 folgen der Reihenfolge der Leiste (auch der eigenen), egal in welcher Folge die Bereiche geöffnet wurden", spaces_number_keys, results)
+
     def accounts_reorder():
         # Konten per Ziehen umsortieren (GitHub-Issue #14): in der Ordnerliste an der Kontoüberschrift und unter
         # Einstellungen → Kontoeinstellungen in der Seitenleiste; Einfügemarke in der Akzentfarbe, Reihenfolge gilt

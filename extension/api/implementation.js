@@ -14091,6 +14091,30 @@ class CardEnhancer {
       bar.addEventListener("pointerup", onUp);
       bar.addEventListener("pointercancel", onCancel);
       SpacesOrder.apply(w);
+      // ⌘1 bis ⌘5: n-ter Bereich in der Reihenfolge der Leiste. Thunderbird
+      // wählt damit den n-ten Tab – ohne Tab-Leiste passte das nur, solange
+      // die Bereiche in Standard-Reihenfolge geöffnet wurden; ⌘6 bis ⌘9 und
+      // Nummern ohne Bereich bleiben bei Thunderbird
+      const keys = ["key_mail", "key_selectTab2", "key_selectTab3", "key_selectTab4", "key_selectTab5"]
+        .map((id, n) => [d.getElementById(id), n]).filter(([k]) => k);
+      const savedKeys = keys.map(([k]) => [k, k.getAttribute("oncommand")]);
+      const onSpaceKey = [];
+      for (const [k, n] of keys) {
+        const fallback = k.getAttribute("oncommand");
+        const fn = event => {
+          const b = SpacesOrder.current().map(id => d.getElementById(id)).filter(e => e && !e.hidden)[n];
+          if (b) {
+            w.focus();
+            b.click();
+          } else {
+            // wie bisher (Thunderbirds Befehl für diesen Tab)
+            new w.Function("event", fallback).call(k, event);
+          }
+        };
+        k.removeAttribute("oncommand");
+        k.addEventListener("command", fn);
+        onSpaceKey.push([k, fn]);
+      }
       // geänderte Reihenfolge (auch aus einem anderen Fenster oder den
       // Einstellungen) und fünfter Bereich: neu anwenden
       const obs = () => w.setTimeout(() => SpacesOrder.apply(w), 0);
@@ -14109,6 +14133,12 @@ class CardEnhancer {
         bar.removeEventListener("pointercancel", onCancel);
         clearMotion();
         SpacesOrder.reset(w);
+        for (const [k, fn] of onSpaceKey) {
+          k.removeEventListener("command", fn);
+        }
+        for (const [k, cmd] of savedKeys) {
+          k.setAttribute("oncommand", cmd);
+        }
         delete bar.__mcOrder;
       });
     };

@@ -11856,7 +11856,7 @@ Neu
           const item = pd.getElementById("mcCat-paneMcHalo"), img = item?.querySelector("img");
           const out = { label: item?.querySelector(".category-name")?.textContent, icon: img ? [img.src.slice(0, 5), img.naturalWidth > 0] : null,
                         // Symbol ohne eigene weiße Kachel auf den Ring zugeschnitten – so groß wie die übrigen Kacheln
-                        crop: !!img?.src.includes(encodeURIComponent('viewBox="8 8 48 48"')), size: img ? Math.round(img.getBoundingClientRect().width) : null,
+                        crop: !!img?.src.includes(encodeURIComponent('viewBox="3 3 58 58"')), size: img ? Math.round(img.getBoundingClientRect().width) : null,
                         other: Math.round(pd.querySelector("#category-general .category-icon").getBoundingClientRect().width),
                         footerHidden: !!pd.querySelector("#pref-category-box .sidebar-footer-list")?.hidden,
                         tile: w.getComputedStyle ? pw.getComputedStyle(img).backgroundColor : null,

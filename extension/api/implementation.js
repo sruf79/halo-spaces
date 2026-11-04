@@ -1982,8 +1982,8 @@ function hookAppearanceChoice(cw, restorers = null) {
 const PREF_PANES = [
   { value: "paneMcAccounts", footer: "accountButton", src: "about:accountsettings" },
   { value: "paneMcAddons", footer: "addonsButton", src: "about:addons" },
-  // Symbol ohne seine weiße Kachel, auf den Ring zugeschnitten – so groß wie die farbigen Kacheln der übrigen
-  { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "8 8 48 48", options: true },
+  // Symbol ohne seine weiße Kachel; der Ausschnitt lässt den weichen Rand des Rings ganz drin (enger wirkte er dick und kantig)
+  { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "3 3 58 58", options: true },
 ];
 const HALO_PANE = "paneMcHalo";
 const dataURIs = new Map();

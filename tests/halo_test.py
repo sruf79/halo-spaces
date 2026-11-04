@@ -1351,8 +1351,9 @@ def maillist_checks(m, results):
           const vis = e => e.getClientRects().length && e.getBoundingClientRect().height > 0;
           const parts = () => [doc.body, ...[...doc.querySelectorAll(".account-central-header, .account-central-section")].filter(vis)];
           const bgs = () => [...new Set(parts().map(e => doc.defaultView.getComputedStyle(e).backgroundColor))];
+          // erst die sichtbaren Kacheln abwarten – die Seite baut sie nach dem Laden auf (radius sonst None)
+          const btn = await bis(() => [...doc.querySelectorAll(".btn-hub")].find(vis), "Kacheln der Konto-Startseite", 6000);
           await until(() => bgs().length == 1, 4000);
-          const btn = [...doc.querySelectorAll(".btn-hub")].find(vis);
           const out = { backgrounds: bgs(), radius: btn ? doc.defaultView.getComputedStyle(btn).borderTopLeftRadius : null };
           await showFolder(); return out;""")
         ok = len(res.get("backgrounds", [])) == 1 and res.get("radius") == "6px"

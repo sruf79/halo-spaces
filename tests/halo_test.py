@@ -10114,6 +10114,50 @@ Neu
         return ok, f"{res}"
     check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol", help_menu_entry, results)
 
+    def info_install_now():
+        # Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort (Thunderbird hält es sonst bis
+        # zum nächsten Start zurück) – der Knopf meldet „Installed …“ und das Fenster schließt sich, nie dauerhaft
+        # „Installing …“. Update nachgestellt wie AddonInstall: install() → zurückgestellt, continuePostponedInstall() → fertig
+        res = m.js(r"""
+          await toMail();
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const enh = Cu.evalInSandbox("enhancer", g);
+          const realFind = enh.findUpdate;
+          const out = { continued: false };
+          Cu.evalInSandbox(`globalThis.__mcFakeInstall = { version: "99.0.0", listeners: [],
+            addListener(l) { this.listeners.push(l); },
+            install() { this.listeners.forEach(l => l.onInstallPostponed?.(this)); return new Promise(() => {}); },
+            continuePostponedInstall() { globalThis.__mcContinued = true; setTimeout(() => this.listeners.forEach(l => l.onInstallEnded?.(this)), 200); } };`, g);
+          try {
+            // echter Weg über findUpdate; nur Thunderbirds Update-Suche liefert das nachgestellte Install-Objekt
+            const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+            const addon = await AddonManager.getAddonByID("%s");
+            const realFindUpdates = addon.constructor.prototype.findUpdates;
+            addon.constructor.prototype.findUpdates = function (listener) {
+              const fake = Cu.waiveXrays(Cu.evalInSandbox("__mcFakeInstall", g));
+              listener.onUpdateAvailable(this, fake); listener.onUpdateFinished(this, 0); };
+            try {
+              d.getElementById("mcHaloSpaces").doCommand();
+              const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("update")), 8000);
+              await ruhig(500);
+              const btn = hw.document.getElementById("update"), label = () => btn.querySelector(".label").textContent;
+              btn.click(); await until(() => /99\.0\.0/.test(label()), 4000); out.offer = label();
+              btn.click();
+              const gone = () => Cu.isDeadWrapper(hw) || hw.closed;
+              const labels = new Set(); const t0 = Date.now();
+              while (Date.now() - t0 < 4000 && !gone()) { try { labels.add(label()); } catch {} await wait(50); }
+              out.labels = [...labels]; out.closed = gone();
+              if (!gone()) hw.close();
+            } finally { addon.constructor.prototype.findUpdates = realFindUpdates; }
+            out.continued = !!Cu.evalInSandbox("globalThis.__mcContinued", g);
+          } finally { enh.findUpdate = realFind; Cu.evalInSandbox("delete globalThis.__mcFakeInstall; delete globalThis.__mcContinued;", g); }
+          return out;""" % (ADDON_ID, ADDON_ID))
+        ok = res.get("continued") and res.get("closed") and any(l.startswith("Installed") for l in res.get("labels", [])) \
+            and "99.0.0" in (res.get("offer") or "")
+        return ok, f"{res}"
+    check("Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort, meldet „Installed“ und schließt sich", info_install_now, results)
+
     def donate():
         # „Say Thanks“ im Info-Fenster öffnet die Spendenseite (Aufruf abgefangen, kein echter Browser)
         res = m.js('''

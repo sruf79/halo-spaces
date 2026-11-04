@@ -18200,7 +18200,11 @@ class CardEnhancer {
   }
 
   // Update auf Wunsch: dieselbe Prüfung wie Thunderbirds tägliche, nur sofort.
-  // Ergebnis: { available, version, install() } | { error } | {} (aktuell)
+  // Ergebnis: { available, version, install(now) } | { error } | {} (aktuell)
+  // install(): wie die automatischen Updates – background.js hält es bis zum
+  // nächsten Start zurück. install(true) (Knopf im Info-Fenster): die
+  // zurückgestellte Installation gleich fortsetzen; erfüllt sich, sobald sie
+  // eingespielt ist (sonst wartete der Knopf ewig auf „Installing …“)
   async findUpdate() {
     const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
     const addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
@@ -18211,7 +18215,25 @@ class CardEnhancer {
       let found = null;
       addon.findUpdates({
         onUpdateAvailable: (_addon, install) => {
-          found = { available: true, version: install.version, install: () => install.install() };
+          found = {
+            available: true,
+            version: install.version,
+            install: (now = false) => {
+              if (!now) {
+                return install.install();
+              }
+              return new Promise((resolve, reject) => {
+                install.addListener({
+                  onInstallPostponed: () => install.continuePostponedInstall(),
+                  onInstallEnded: () => resolve(),
+                  onInstallFailed: () => reject(new Error("install failed")),
+                  onDownloadFailed: () => reject(new Error("download failed")),
+                  onInstallCancelled: () => reject(new Error("install cancelled")),
+                });
+                install.install().catch(() => {});
+              });
+            },
+          };
         },
         onUpdateFinished: (_addon, error) => resolve(found || (error ? { error: true } : {})),
       }, AddonManager.UPDATE_WHEN_USER_REQUESTED);
@@ -18632,8 +18654,10 @@ class CardEnhancer {
         button.disabled = true;
         label.textContent = tr("Installing …");
         try {
-          await install();
+          await install(true);
           label.textContent = tr("Installed. Active in a moment.");
+          // die alte Version wird gleich entladen – ihr Fenster mit ihr
+          hw.setTimeout(() => hw.close(), 1500);
         } catch {
           label.textContent = tr("Installation failed");
           button.disabled = false;

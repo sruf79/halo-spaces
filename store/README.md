@@ -6,6 +6,9 @@
 > work without `mailCards`. Distribution stays on GitHub (`update_url` →
 > `updates.json`). `publish.sh` no longer uploads to ATN unless called with
 > `ATN=1`; only do that once ATN accepts Experiment add-ons again.
+> The reviewer's follow-up (same day): the pause will most likely become
+> permanent, ATN wants to spend its time on new official APIs instead. Treat
+> GitHub as the only distribution channel.
 
 Everything needed for the listing on addons.thunderbird.net (ATN). Texts are
 ready to paste; the package is `dist/halo-spaces-<version>-atn.xpi`

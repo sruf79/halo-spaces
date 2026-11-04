@@ -5883,52 +5883,6 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Adressbuch: Adressbuchliste ausblenden – Kontaktliste behält ihre Breite, das Fenster wird schmaler", ab_list_keeps_width, results)
 
-    def bar_room():
-        # Leisten-Automatik 1/3: Rechnung „Fenster zu schmal?“ aus festen Größen je Bereich – unabhängig von gezogener
-        # Mailliste, mit Seitenleiste in ihrer Breite und offener Today-Pane; ab 1440 px mit Standardbreiten nie zu schmal
-        res = m.js(r"""
-          const a3 = await toMail();
-          if (!w.TodayPane?.isVisible) { d.getElementById("calendar_toggle_todaypane_command").doCommand(); await ruhig(1200); }
-          const out = { modes: {}, widths: {} };
-          const areas = [["mail", toMail], ["calendar", toCalendar], ["tasks", async () => { tm.openTab("tasks", {}); await ruhig(1200); }],
-                         ["addressBookTab", async () => { tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane, "Adressbuch", 8000); await ruhig(800); }],
-                         ["chat", async () => { w.showChatTab(); await ruhig(1200); }],
-                         ["preferencesTab", async () => { w.openPreferencesTab("paneGeneral"); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("pref-category-box"), "Einstellungen", 8000); await ruhig(800); }]];
-          for (const [name, go] of areas) {
-            await go();
-            out.modes[name] = {};
-            for (const W of [1024, 1280, 1440, 1920, 2560]) {
-              w.resizeTo(W, 900); await ruhig(700);
-              const r = w.__mcBarRoom();
-              out.modes[name][W] = [r.window, r.need, r.short, r.parts.today > 0];
-            }
-          }
-          // Mail: breit gezogene Mailliste ändert den Bedarf nicht, breitere Ordnerliste schon (um ihre Breite)
-          await toMail(); w.resizeTo(1920, 900); await ruhig(800);
-          const base = w.__mcBarRoom();
-          const PREF = "extensions.mailcards.listWidth", before = Services.prefs.getIntPref(PREF, 0);
-          const msgW = a3.paneLayout.messagePaneSplitter.width;
-          Services.prefs.setIntPref(PREF, 900); a3.paneLayout.messagePaneSplitter.width = 300; await ruhig(900);
-          out.wideList = w.__mcBarRoom().need - base.need;
-          const fp = a3.document.getElementById("folderPane"), fw = fp.getBoundingClientRect().width;
-          a3.paneLayout.folderPaneSplitter.width = Math.round(fw + 120); await ruhig(900);
-          out.wideSide = [Math.round(fp.getBoundingClientRect().width - fw), w.__mcBarRoom().need - base.need];
-          // zurück wie vorher (sonst blieben Ordner- und Mailliste für die folgenden Prüfungen breit)
-          a3.paneLayout.folderPaneSplitter.width = Math.round(fw); await ruhig(600);
-          if (before) Services.prefs.setIntPref(PREF, before); else Services.prefs.clearUserPref(PREF);
-          a3.paneLayout.messagePaneSplitter.width = msgW; await ruhig(900);
-          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
-          w.resizeTo(1500, 900); await ruhig(600);
-          return out;""")
-        modes = res.get("modes", {})
-        consistent = all(short == (need > win) for m_ in modes.values() for win, need, short, _ in m_.values())
-        wide_ok = all(not short for m_ in modes.values() for W, (win, need, short, today) in m_.items() if int(W) >= 1440 and win >= 1440)
-        ws = res.get("wideSide") or [0, -1]
-        ok = len(modes) == 6 and consistent and wide_ok and res.get("wideList") == 0 and abs(ws[0] - ws[1]) <= 2 and ws[0] > 50 \
-            and all(m_["1024"][3] or name in ("chat", "calendar") for name, m_ in modes.items())
-        return ok, f"{res}"
-    check("Leisten-Automatik 1/3: Rechnung „Fenster zu schmal?“ je Bereich aus festen Größen, unabhängig von der gezogenen Mailliste, ab 1440 px nie zu schmal", bar_room, results)
-
     def update_note():
         # bereitliegendes Update: roter Punkt an der Einstellungen-Kachel (Kachel sonst unverändert), Tooltip mit Version,
         # Klick öffnet die Einstellungen bei „halo.spaces“ mit Punkt am Eintrag und Zeile „Install Now“ oben; im

@@ -9988,54 +9988,6 @@ function barTarget(doc) {
 // (left = Abstand vom rechten Fensterrand), damit die Positionsrechnungen der
 // Toolbar-Zeile für beide Richtungen gelten – die Werte landen in
 // inset-inline-start & Co., die sich selbst spiegeln
-// Leisten-Automatik 1/3: Reicht die Fensterbreite? Feste Rechnung aus
-// bekannten Größen – Bereichsleiste, Seitenleiste (ihre aktuelle Breite),
-// Today-Pane (falls offen) und je Bereich feste Mindestbreiten der
-// Inhaltsspalten. Wie breit Mailliste oder Details gezogen sind, zählt nicht
-// (eine breite Liste ist kein Platzmangel), die Toolbar auch nicht (dort
-// weichen Knöpfe). Noch ohne Einklappen; Ausgabe nur mit debug.
-const CONTENT_MIN = {
-  mail: { vertical: 300 + 300, classic: 300, list: 300 },
-  mailMessageTab: 400,
-  calendar: 500,
-  tasks: { side: 280 + 360, below: 280 },
-  addressBookTab: 280 + 480,
-  chat: 200 + 400,
-  preferencesTab: 600,
-  contentTab: 600,
-};
-function barRoom(w) {
-  const d = w.document;
-  const tab = d.getElementById("tabmail")?.currentTabInfo;
-  const mode = tab?.mode?.name;
-  const parts = {};
-  const width = (el, shown = true) => (shown && el ? Math.round(rectOf(el)?.width || 0) : 0);
-  parts.spaces = w.gSpacesToolbar && !w.gSpacesToolbar.isHidden ? 67 : 0;
-  if (mode == "mail3PaneTab") {
-    const ab = tab.chromeBrowser?.contentWindow;
-    const layout = ab?.paneLayout;
-    parts.sidebar = width(ab?.document.getElementById("folderPane"), !!layout?.folderPaneVisible);
-    const pane = Services.prefs.getIntPref("mail.pane_config.dynamic", 0);
-    parts.content = !layout?.messagePaneVisible ? CONTENT_MIN.mail.list : pane == 2 ? CONTENT_MIN.mail.vertical : CONTENT_MIN.mail.classic;
-  } else {
-    const doc = tab?.browser?.contentDocument;
-    const side = {
-      calendar: () => d.getElementById("calSidebar"),
-      tasks: () => d.getElementById("calSidebar"),
-      chat: () => d.getElementById("listPaneBox"),
-      addressBookTab: () => doc?.getElementById("booksPane"),
-      preferencesTab: () => doc?.getElementById("pref-category-box"),
-    }[mode]?.();
-    parts.sidebar = side && !side.classList.contains("mc-side-hidden") && !side.collapsed ? width(side) : 0;
-    const min = CONTENT_MIN[mode];
-    parts.content = mode == "tasks" ? (d.documentElement.hasAttribute("mc-task-side") ? min.side : min.below) : min || 0;
-  }
-  const today = d.getElementById("today-pane-panel");
-  parts.today = w.TodayPane?.isVisible ? width(today) : 0;
-  const need = Object.values(parts).reduce((a, b) => a + b, 0);
-  return { mode, window: w.innerWidth, need, parts, short: need > w.innerWidth };
-}
-
 function rectOf(el) {
   if (!el) {
     return undefined;
@@ -10962,19 +10914,6 @@ class CardEnhancer {
       const { width, min } = measure();
       return width === undefined ? null : width - min;
     };
-    // Leisten-Automatik 1/3: nur rechnen (Prüfungen, debug), noch nichts einklappen
-    w.__mcBarRoom = () => barRoom(w);
-    let roomLog = null;
-    const logRoom = () => {
-      w.clearTimeout(roomLog);
-      roomLog = w.setTimeout(() => {
-        if (Services.prefs.getBoolPref("extensions.mailcards.debug", false)) {
-          const r = barRoom(w);
-          log("bar room", r.mode, "window", r.window, "need", r.need, JSON.stringify(r.parts), r.short ? "→ zu schmal" : "→ passt");
-        }
-      }, 400);
-    };
-    w.addEventListener("resize", logRoom);
     const update = () => {
       try {
         // während einer Seitenleisten-Animation nicht rechnen: das Setzen am
@@ -11067,9 +11006,6 @@ class CardEnhancer {
       tabmail?.tabContainer?.removeEventListener("TabSelect", onTab);
       w.removeEventListener("resize", update);
       w.removeEventListener("resize", fitScreen);
-      w.removeEventListener("resize", logRoom);
-      w.clearTimeout(roomLog);
-      delete w.__mcBarRoom;
       w.removeEventListener("sizemodechange", fitScreen);
       root.style.removeProperty("min-width");
     });

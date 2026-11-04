@@ -5524,6 +5524,7 @@ function hookTaskCards(win, restorers) {
       if (!task.isCompleted && pct < 100) {
         check.setAttribute("data-progress", "");
         check.dataset.step = String(Math.min(75, Math.round(pct / 25) * 25));
+        check.toggleAttribute("data-empty", pct == 0); // 0 %: gestrichelt
         check.style.setProperty("--mc-tc-p", pct);
         check.title = tr("{n} % done", { n: pct });
       }

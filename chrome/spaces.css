@@ -1688,7 +1688,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   }
 }
 
-.mc-tc-check[data-step="0"] { --mc-ring: var(--mt-prog-0); --mc-ring-track: 65%; }
+.mc-tc-check[data-step="0"] { --mc-ring: var(--mt-prog-0); }
 .mc-tc-check[data-step="25"] { --mc-ring: var(--mt-prog-25); }
 .mc-tc-check[data-step="50"] { --mc-ring: var(--mt-prog-50); }
 .mc-tc-check[data-step="75"] { --mc-ring: var(--mt-prog-75); }
@@ -1705,6 +1705,13 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   background: conic-gradient(var(--mc-ring) calc(var(--mc-tc-p, 0) * 1%),
                              color-mix(in srgb, var(--mc-ring) var(--mc-ring-track, var(--mt-prog-track)), transparent) 0);
   mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+}
+
+/* 0 %: gestrichelter Ring – kräftige Striche auf der blassen Spur, damit ein
+   ganz gefärbter Ring nicht wie „fertig“ wirkt */
+.mc-tc-check[data-progress][data-empty] {
+  background: repeating-conic-gradient(var(--mc-ring) 0 20deg,
+                                       color-mix(in srgb, var(--mc-ring) var(--mt-prog-track), transparent) 0 36deg);
 }
 
 /* gewählt (Akzentfläche): Ring in der Schrift der Auswahl statt Farbe auf Blau */
@@ -1727,7 +1734,11 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
 }
 
-menuitem.percent-0-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-0); --mc-ring-track: 65%; --mc-p: 0; }
+menuitem.percent-0-menuitem > :is(.menu-text, .menu-iconic-text)::before {
+  --mc-ring: var(--mt-prog-0);
+  background: repeating-conic-gradient(var(--mc-ring) 0 25deg,
+                                       color-mix(in srgb, var(--mc-ring) var(--mt-prog-track), transparent) 0 45deg);
+}
 menuitem.percent-25-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-25); --mc-p: 25; }
 menuitem.percent-50-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-50); --mc-p: 50; }
 menuitem.percent-75-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-75); --mc-p: 75; }

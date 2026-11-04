@@ -10451,6 +10451,11 @@ Neu
             const wasFocused = list.hasAttribute("data-focused"); list.removeAttribute("data-focused");
             out.ring = ring ? { on: ring.hasAttribute("data-progress"), p: ring.style.getPropertyValue("--mc-tc-p"), bg: csOf(ring).backgroundImage.startsWith("conic-gradient"),
               step: ring.dataset.step, color: csOf(ring).getPropertyValue("--mc-ring").trim(), want: csOf(d.documentElement).getPropertyValue("--mt-prog-50").trim() } : null;
+            // ohne Fortschritt: gestrichelter Ring (wirkt sonst wie fertig), übrige Stufen durchgehend
+            // (Testdaten ohne offene Aufgabe bei 0: Ring nachgebaut wie in den Karten, halbe Aufgabe ohne Merkmal)
+            const zero = d.createElement("span"); zero.className = "mc-tc-check"; zero.setAttribute("data-progress", ""); zero.dataset.step = "0"; zero.setAttribute("data-empty", "");
+            ring?.after(zero);
+            out.zero = [csOf(zero).backgroundImage.slice(0, 24), ring?.hasAttribute("data-empty")]; zero.remove();
             if (wasFocused) list.setAttribute("data-focused", "");
             // Menü „Fortschritt“: vor jedem Eintrag derselbe Ring in Ampelfarbe
             // das Menü am Erledigt-Knopf der Details (ein Untermenü ließe sich nicht allein öffnen)
@@ -10494,7 +10499,8 @@ Neu
               and len(res.get("prioChecked") or []) == 1
               # Ampel: 50 % in der Farbe der Stufe 50, Ring auch im Menü vor jedem Eintrag
               and ring.get("step") == "50" and ring.get("color") and ring.get("color") == ring.get("want")
-              and res.get("menuRings") and len(res["menuRings"]) == 5 and all(r and r[0] == '""' for r in res["menuRings"]))
+              and res.get("menuRings") and len(res["menuRings"]) == 5 and all(r and r[0] == '""' for r in res["menuRings"])
+              and res.get("zero") == ["repeating-conic-gradient", False] and res["menuRings"][0][1] == "repeating-coni")
         return ok, f"{res}"
     check("Aufgaben: ohne Schnelleingabe, Aktionen als drei Kapseln mit „Category“/„Priority“, Fortschritt als Ring in Ampelfarben (auch im Menü), erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
 

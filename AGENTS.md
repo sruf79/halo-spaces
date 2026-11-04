@@ -249,6 +249,11 @@ anheben (nach Test).
 - **Im Zweifel wie Apple:** Ist bei Design oder Verhalten etwas unklar, die
   entsprechende Apple-App nachahmen (Mail, Kontakte, Kalender) – Aussehen,
   Platzierung, Vorgaben und Bedienung – statt eigene Lösungen zu erfinden.
+- **Optionen nur in sehr seltenen Fällen:** halo.spaces ist ein Design, kein
+  Baukasten. Eine Einstellung gibt es grundsätzlich nur dort, wo auch die
+  Apple-App eine anbietet; Wünsche nach „Thunderbird wie vorher“ (originale
+  Menüleiste, Tabs) werden abgelehnt – der Weg dorthin ist das Entfernen
+  von halo.spaces (Entscheidung des Maintainers vom 4.11.2026).
 - **Sprache:** Code-Kommentare, Commit-Nachrichten und Skriptausgaben auf
   Deutsch; `README.md` und Store-Texte auf Englisch (Store zusätzlich `listing-de.md`).
 - **Commit-Nachrichten:** ein Satz, Bereich vorneweg (`Mailkopf: …`,

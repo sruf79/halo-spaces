@@ -170,7 +170,7 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   vom 4.11.2026). Sofort pushen nur, wenn etwas davon abhängt (Release, Fix
   für Nutzer, Stand wird anderswo gebraucht). Der Nachtlauf nimmt zu Beginn
   ohne Rückfrage alles Offene mit: diese Commits und auch ungespeicherte
-  Änderungen, an denen seit über einer Stunde keine Sitzung mehr arbeitet
+  Änderungen, an denen gerade keine Sitzung arbeitet
   (prüfen, committen; Rotes oder Halbfertiges auf einen Zweig `rest/<datum>`),
   gleicht mit GitHub ab und arbeitet erst dann die Aufgabenliste ab.
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
@@ -185,8 +185,10 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
   sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
   `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Er lässt aus,
-  wenn schon etwas läuft oder eine andere Claude-Sitzung in der letzten Stunde
-  am Repo gearbeitet hat. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  nur, wenn neon wirklich belegt ist: eine andere Claude-Sitzung ist mitten in
+  einer Runde (fertige Sitzungen, die auf eine Antwort warten, zählen nicht;
+  Entscheidung des Maintainers vom 4.11.2026), oder es laufen Tests, CI,
+  VM-Lauf, Release. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen

@@ -11,8 +11,9 @@ Reihenfolge:
 0. Zuerst alle offenen Änderungen mitnehmen (Entscheidung des Maintainers
    vom 4.11.2026), ohne Rückfrage, bevor ein Eintrag beginnt:
    a) Ungespeicherte Änderungen im Checkout (git status): Sie stammen von
-      Sitzungen, die seit über einer Stunde nicht mehr arbeiten (das Skript
-      startet sonst nicht). git diff lesen, nach Bereich in Commits teilen
+      Sitzungen, die gerade nicht arbeiten (das Skript startet sonst nicht);
+      eine davon kann aber noch offen sein und später weitermachen – darum
+      nichts verwerfen. git diff lesen, nach Bereich in Commits teilen
       (Stil nach AGENTS.md), betroffene Prüfungen mit --only (Port 2850)
       laufen lassen. Grün bzw. ohne passende Prüfung: committen. Rot oder
       erkennbar halbfertig: auf einen Zweig rest/<datum> committen (git

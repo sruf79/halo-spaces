@@ -482,15 +482,18 @@ Features darunter.
   es bis 90 Minuten), `halo_test.py` und Verwandte, Thunderbird mit
   Marionette, belegte Ports 2839/2845/2850–2869, VM-Lauf, `release.sh`/
   `publish.sh`, eigener Lauf
-  (`~/halo-nacht/lauf.lock`) und jede andere Claude-Sitzung, die in der
-  letzten Stunde am Repo gearbeitet hat – erkennbar daran, dass sich ihr
-  Gespräch unter `~/.claude/projects/-Users-<name>-halo*/` geändert hat, auch
-  wenn sie gerade nur nachdenkt oder auf eine Antwort wartet (ausgenommen die
-  Sitzungen der eigenen Läufe und der Push-Zustellung). Dann wird
+  (`~/halo-nacht/lauf.lock`) und jede andere Claude-Sitzung, die gerade
+  mitten in einer Runde am Repo arbeitet – erkennbar am letzten Eintrag ihres
+  Gesprächs unter `~/.claude/projects/-Users-<name>-halo*/`: eine Eingabe,
+  ein Werkzeugaufruf oder dessen Ergebnis, aber nicht die Schlussantwort.
+  Fertige Sitzungen, die nur auf eine Antwort warten, zählen nicht; eine
+  Runde, in der seit 2 Stunden nichts mehr geschrieben wurde (auch nicht von
+  Unteragenten), gilt als hängengeblieben und zählt auch nicht. Ausgenommen
+  sind die Sitzungen der eigenen Läufe und der Push-Zustellung. Dann wird
   ausgelassen – mit Bericht.
 - Liegengebliebene Änderungen nimmt er zuerst mit (Entscheidung des
-  Maintainers vom 4.11.2026): ungespeicherte Änderungen im Checkout – nach
-  über einer Stunde ohne aktive Sitzung – prüft und committet er (Rotes oder
+  Maintainers vom 4.11.2026): ungespeicherte Änderungen im Checkout, an
+  denen gerade keine Sitzung arbeitet, prüft und committet er (Rotes oder
   Halbfertiges auf einen Zweig `rest/<datum>`, nicht gepusht), dann gleicht er
   mit GitHub ab (`git fetch`, `git rebase origin/main`) und nimmt damit auch
   die tagsüber committeten, nicht gepushten Commits mit. Erst danach beginnen

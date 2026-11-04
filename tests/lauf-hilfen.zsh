@@ -18,21 +18,44 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
   log "Push: $out"
 }
 
-# arbeitet gerade eine andere Claude-Sitzung am Repo? Jede aktive Sitzung schreibt
-# laufend in ihr Gespräch (~/.claude/projects/<Ordner>/<id>.jsonl) – auch wenn sie
-# gerade nachdenkt oder auf eine Antwort wartet und kein Test läuft. Gibt die ID
-# der Sitzung aus, deren Gespräch sich in den letzten 60 Minuten geändert hat.
+# arbeitet gerade eine andere Claude-Sitzung am Repo? Jede Sitzung schreibt ihr
+# Gespräch nach ~/.claude/projects/<Ordner>/<id>.jsonl. Sie arbeitet, solange
+# ihre Runde nicht beendet ist: der letzte Eintrag ist eine neue Eingabe, ein
+# Werkzeugaufruf oder dessen Ergebnis – nicht die Schlussantwort („end_turn“).
+# Wer fertig ist und nur auf eine Antwort wartet, zählt nicht. Eine Runde, in
+# der seit 2 Stunden nichts mehr geschrieben wurde (auch nicht von ihren
+# Unteragenten), gilt als hängengeblieben und zählt ebenfalls nicht.
 # Nicht mitgezählt: Sitzungen der eigenen Läufe (ID im Protokoll unter
 # ~/halo-nacht) und Sitzungen, deren letzte Eingabe eine Push-Meldung war (die
 # kurzen Zustell-Sitzungen von push() und die Empfangssitzung mit Remote Control).
+sitzung_arbeitet() {
+  tail -n 300 $1 | python3 -c '
+import sys, json
+letzte = None
+for z in sys.stdin:
+    try:
+        d = json.loads(z)
+    except ValueError:
+        continue
+    if d.get("type") in ("user", "assistant"):
+        letzte = d
+if letzte is None:
+    sys.exit(1)
+m = letzte.get("message") or {}
+sys.exit(1 if letzte["type"] == "assistant" and m.get("stop_reason") != "tool_use" else 0)
+'
+}
 aktive_sitzung() {
-  local f id letzte
-  for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.mm-60); do
+  local f id letzte neu
+  for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.); do
+    neu=($f(N.mh-2) ${f:r}/**/*.jsonl(N.mh-2))
+    (( $#neu )) || continue
     id=${f:t:r}
     grep -qs -- "Sitzung $id" $HOME/halo-nacht/*.log(N) && continue
     letzte=$(grep '"role":"user","content":"' $f | tail -n 1)
     [[ $letzte == *'"content":"Aufgabe ohne Rückfrage: Lade bei Bedarf'* ]] && continue
     [[ $letzte == *'\">\nPUSH: '* ]] && continue
+    sitzung_arbeitet $f || continue
     print $id
     return 0
   done
@@ -42,7 +65,7 @@ aktive_sitzung() {
 # läuft schon etwas, das den Mac braucht? Gibt den Grund aus (Rückgabe 0 = belegt)
 belegt() {
   local s
-  s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} hat in der letzten Stunde am Repo gearbeitet"; return 0 }
+  s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} arbeitet gerade am Repo"; return 0 }
   pgrep -f Runner.Worker >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
   pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
   pgrep -f -- "-marionette" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }

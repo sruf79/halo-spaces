@@ -531,6 +531,17 @@ body.layout-wide {
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
+/* Thunderbirds Dichte (Einstellungen → Files and Display → Density) wirkt
+   auch hier: „Kompakt“ niedriger (wie Apple Mail mit kleinen Seitenleisten-
+   Symbolen), „Touch“ höher */
+:root[uidensity="compact"] #folderTree li > .container {
+  min-height: 24px !important;
+}
+
+:root[uidensity="touch"] #folderTree li > .container {
+  min-height: 38px !important;
+}
+
 #folderTree li > .container:hover {
   background: var(--mt-hover) !important;
 }

@@ -9968,6 +9968,24 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Zusammenführen von Dubletten lässt die Auswahl beim gewählten Kontakt, Details zeigen den verbliebenen Eintrag", ab_dedupe_selection, results)
 
+    def folder_density():
+        # Ordnerliste folgt Thunderbirds Dichte: „Kompakt“ niedrigere Zeilen, „Touch“ höhere (sonst fest 32 px)
+        res = m.js(r"""
+          const a3 = await toMail(); const tree = a3.document.getElementById("folderTree");
+          const h = () => { const c = [...tree.querySelectorAll("li > .container")].find(e => e.getBoundingClientRect().height > 0); return c ? Math.round(c.getBoundingClientRect().height) : 0; };
+          const before = Services.prefs.getIntPref("mail.uidensity", 1), out = {};
+          try {
+            for (const [name, v] of [["compact", 0], ["normal", 1], ["touch", 2]]) {
+              Services.prefs.setIntPref("mail.uidensity", v);
+              await until(() => a3.document.documentElement.getAttribute("uidensity") == (v == 1 ? null : name) || (v == 1 && !a3.document.documentElement.hasAttribute("uidensity")), 3000);
+              await ruhig(500); out[name] = h();
+            }
+          } finally { Services.prefs.setIntPref("mail.uidensity", before); await ruhig(500); }
+          return out;""")
+        ok = 0 < res.get("compact", 0) < res.get("normal", 0) < res.get("touch", 0) and res["normal"] == 32
+        return ok, f"{res}"
+    check("Ordnerliste: Dichte „Kompakt“ macht die Zeilen niedriger, „Touch“ höher", folder_density, results)
+
     def help_menu_entry():
         # Help → „halo.spaces“: ohne „…“ (öffnet nur ein Info-Fenster), mit unserem Symbol davor
         res = m.js(r"""const it = d.getElementById("mcHaloSpaces");

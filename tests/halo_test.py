@@ -5573,6 +5573,37 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben: Titel der Details auf Höhe des Titels der ersten Karte, Beschriftungen groß", tasks_details_top, results)
 
+    def tasks_header_narrow():
+        # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle
+        # stehen, über den Aufgaben-Knöpfen, wenn die Details bei schmalem Fenster unter die Liste rutschen)
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1920, 1000); await wait(600);
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar(); let made = null;
+          if (!(await items("Halo Kopfzeile")).length) {
+            const t = new CalTodo(); t.title = "Halo Kopfzeile"; t.calendar = c; made = await c.addItem(t); await ruhig(800);
+          }
+          tm.openTab("tasks", {}); await bis(() => d.querySelector("#mcTaskCards .mc-tc-title"), "Aufgabenkarte", 6000); await ruhig(1500);
+          const card = [...d.querySelectorAll("#mcTaskCards .mc-tc-title")].find(e => /Halo Kopfzeile/.test(e.textContent)) || d.querySelector("#mcTaskCards .mc-tc-title");
+          const cr = card.getBoundingClientRect();
+          card.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
+          card.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
+          await ruhig(1000);
+          const out = [];
+          for (const W of [1500, 1200, 1000, 1500]) {
+            w.resizeTo(W, 1000); await ruhig(1200);
+            const more = d.querySelector("#mcListHeader .mc-lh-more")?.getBoundingClientRect();
+            const plus = [...d.querySelectorAll('#unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]) button')].map(b => b.getBoundingClientRect()).find(r => r.width);
+            out.push([W, w.innerWidth, more && Math.round(more.right), plus && Math.round(plus.left), d.documentElement.hasAttribute("mc-task-side")]);
+          }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          if (made) await c.deleteItem(made);
+          w.resizeTo(1500, 900); await ruhig(600);
+          return out;""")
+        ok = bool(res) and all(m_ is not None and m_ <= iw and (p_ is None or m_ <= p_) for _, iw, m_, p_, _ in res)
+        return ok, f"[Breite, innen, rechte Kante „…“, linke Kante „+“, Details daneben] {res}"
+    check("Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“", tasks_header_narrow, results)
+
     def update_note():
         # bereitliegendes Update: roter Punkt an der Einstellungen-Kachel (Kachel sonst unverändert), Tooltip mit Version,
         # Klick öffnet die Einstellungen bei „halo.spaces“ mit Punkt am Eintrag und Zeile „Install Now“ oben; im

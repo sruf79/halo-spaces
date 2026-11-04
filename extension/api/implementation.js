@@ -10999,17 +10999,27 @@ class CardEnhancer {
           }
         }
         const lr = rectOf(taskList);
-        if (side && lr?.width) {
-          edge = Math.max(edge, lr.right + 6);
-          setBarVar(d, "--mc-task-list-right", `${Math.round(lr.right - rowLeft)}px`);
-        } else {
-          setBarVar(d, "--mc-task-list-right", `${Math.round(edge - 6 - rowLeft)}px`);
-        }
-        d.documentElement.toggleAttribute("mc-task-table", !side);
-        // Aktionsknöpfe gleich rechts vom „+“
         const plus = [...d.querySelectorAll('#unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"])')]
           .find(li => rectOf(li).width);
         const pr = rectOf(plus?.querySelector("button"));
+        let headRight;
+        if (side && lr?.width) {
+          edge = Math.max(edge, lr.right + 6);
+          headRight = lr.right;
+        } else {
+          headRight = edge - 6;
+        }
+        // Kopf (Titel, Filter, „…“) endet immer vor dem „+“ und den Aktionen
+        // rechts davon – auch wenn die Details bei schmalem Fenster unter die
+        // Liste rutschen (dann galt sonst die alte, breitere Kante weiter)
+        // (die Kapsel endet 8 px vor dieser Kante; neben der Liste steht das
+        // „+“ 6 px rechts von ihr, dort ändert sich nichts)
+        if (pr?.width && pr.left - 2 < headRight) {
+          headRight = pr.left - 2;
+        }
+        setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
+        d.documentElement.toggleAttribute("mc-task-table", !side);
+        // Aktionsknöpfe gleich rechts vom „+“
         if (pr?.width) {
           setVar(d.getElementById("task-actions-toolbar"), "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
         }

@@ -7711,6 +7711,15 @@ function embedPage(host, src) {
         if (aw.gViewController?.currentViewId?.startsWith("addons://discover")) {
           aw.gViewController.loadView("addons://list/extension");
         }
+        // „Plugins“ ohne Plugins führt bei Thunderbird auf die Empfehlungen –
+        // dann wie die übrigen leeren Arten ausblenden (auch in den Unterpunkten)
+        const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+        AddonManager.getAddonsByTypes(["plugin"]).then(list => {
+          const btn = aw.document?.querySelector("categories-box moz-page-nav-button[view='plugin'], categories-box .category[viewid='addons://list/plugin']");
+          if (btn) {
+            btn.hidden = !list.length;
+          }
+        }).catch(e => log("plugins error", e));
       });
     };
     browserEl.addEventListener("load", onLoad, true);

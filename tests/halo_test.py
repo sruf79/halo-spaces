@@ -12744,6 +12744,8 @@ Neu
           pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await ruhig(800); out.popup = shown ? "open" : pop?.state; pop?.hidePopup(); await ruhig(300);
           await pick("paneMcAddons", 3500);
           const ad = page("about:addons"), aw = ad.contentWindow;
+          // „Plugins“ ohne Plugins führte auf die Empfehlungen – im Testprofil gibt es keine, also kein Unterpunkt
+          await until(() => !list("paneMcAddons").some(e => e[1] == "Plugins"), 3000);
           out.add = list("paneMcAddons"); out.vis2 = [vis("paneMcAccounts"), vis("paneMcAddons")];
           out.side = Math.round(ad.contentDocument.getElementById("sidebar").getBoundingClientRect().width);
           const theme = [...pd.querySelectorAll("#mcSub-paneMcAddons .mc-subcat")].find(e => e.textContent == ad.contentDocument.querySelector("#category-theme span, .category[viewid='addons://list/theme'] .category-name")?.textContent.trim());
@@ -12769,11 +12771,11 @@ Neu
               and res["tree"] == 0 and res["frameLeft"] <= 1
               and [e for e in acc2 if e[2]] == [[2, acc2[[i for i, e in enumerate(acc2) if e[0] == 2][1]][1], True]] and (res["inner"] or "").startswith("am-")
               and acc[-1][1].endswith("…") and res["popup"] == "open"
-              and len(add) >= 3 and [e[1] for e in add if e[2]] and res["side"] == 0
+              and len(add) >= 3 and [e[1] for e in add if e[2]] and "Plugins" not in [e[1] for e in add] and res["side"] == 0
               and res["view"] == "addons://list/theme" and len(res["add2"]) == 1 and res["gaps"][0] == 28
               and res["fold"] == [True, False, True, True])
         return ok, f"{res}"
-    check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü", pref_embedded_subnav, results)
+    check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü, „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
 
     def account_wizards():
         # Konto-Assistenten (Feed, Newsgruppen, Chat): Knöpfe flach ohne Rahmen, 13 px, 28 px hoch und lesbar

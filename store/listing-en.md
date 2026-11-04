@@ -52,4 +52,6 @@ A calm, tidy macOS-style design for Thunderbird: colourful spaces, message cards
 Made for macOS. Windows and Linux work, but window buttons and some spacing differ there.
 
 
+halo.spaces is free. If you enjoy it, you can say thanks with a coffee: <a href="https://buymeacoffee.com/diversion">buymeacoffee.com/diversion</a>
+
 Source code, issues and release notes: <a href="https://github.com/sruf79/halo-spaces">github.com/sruf79/halo-spaces</a>

@@ -131,6 +131,13 @@ haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
 gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
 erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 
+**Antworten von neon:** `send_message` aus neon scheitert stets mit „MCP
+tool call requires approval“ (ohne sichtbare Abfrage, auch mit Allow-Regel).
+neon antwortet deshalb mit `SendMessage` an den Namen der Sitzung aus
+`ListAgents` (Name per `list_sessions` der Sitzungs-ID zuordnen). Der Weg
+meldet nicht, ob die Nachricht gelesen wurde; Cloud-Sitzungen lesen die
+Antwort in ihrem eigenen Verlauf und bekommen sie als neue Nachricht.
+
 ## Testrechner (Mac mini)
 
 Ein Mac mini übernimmt die Tests rund um die Uhr (Anleitung: `tests/MAC-MINI.md`):

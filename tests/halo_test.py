@@ -5807,8 +5807,6 @@ def calendar_checks(m, results):
               w.resizeTo(W, 900); await ruhig(1500);
               const bx = boxes(), bad = [];
               bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2) && !(n1.includes?.("search") && n2.includes?.("search"))) bad.push(`${n1} ${Math.round(r1.left)}–${Math.round(r1.right)} × ${n2} ${Math.round(r2.left)}–${Math.round(r2.right)}`); }));
-              // (unter Windows/Linux lassen die Fensterknöpfe im Today-Kopf nur Platz für einen Knopf – eigener Bug-Eintrag)
-              if (Services.appinfo.OS != "Darwin") for (let k = bad.length - 1; k >= 0; k--) if (/mcTodayToggle.*mcTodayNew|mcTodayNew.*mcTodayToggle/.test(bad[k])) bad.splice(k, 1);
               out[W] = { ta: d.getElementById("task-actions-toolbar").style.getPropertyValue("--mc-ta-left"), lis: [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => l.getBoundingClientRect().width).map(l => l.getAttribute("item-id") + ":" + Math.round(l.getBoundingClientRect().left)), n: bx.length, bad: bad.filter(x => !/global-search-bar|search-bar×search-bar/.test(x)), side: d.documentElement.hasAttribute("mc-task-side") };
             }
           } finally {

@@ -7954,6 +7954,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none;
 }
 
+/* „+“ sichtbar: der Today-Knopf hält Abstand dazu – unter Windows lassen die
+   breiten Fensterknöpfe in der Today-Pane sonst nur Platz für einen Knopf,
+   die beiden überlappten (beim Mac ändert das nichts, dort reicht der Platz) */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayToggle {
+  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-w, 0px) - 50px)) !important;
+}
+
 #mcTodayNew:hover {
   background-color: var(--mt-control-hover) !important;
   color: var(--mt-text) !important;

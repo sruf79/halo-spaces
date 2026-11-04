@@ -36,6 +36,8 @@ ENDE=$(date -j -v8H -v0M -v0S +%s)       # nach 08:00 nicht mehr fortsetzen
 HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
+# ungespeicherte Reste im Checkout sind kein Grund auszulassen: der Auftrag nimmt sie mit
+REST_MITNEHMEN=1
 
 bericht_kurz() {
   # erste Zeile „Kurz: …“ des Berichts, sonst seine Überschrift

@@ -8,6 +8,24 @@ Freigabe des Maintainers für diesen Lauf:
 - Am Ende selbst veröffentlichen nach AGENTS.md, Abschnitt „Release“.
 
 Reihenfolge:
+0. Zuerst alle offenen Änderungen mitnehmen (Entscheidung des Maintainers
+   vom 4.11.2026), ohne Rückfrage, bevor ein Eintrag beginnt:
+   a) Ungespeicherte Änderungen im Checkout (git status): Sie stammen von
+      Sitzungen, die seit über einer Stunde nicht mehr arbeiten (das Skript
+      startet sonst nicht). git diff lesen, nach Bereich in Commits teilen
+      (Stil nach AGENTS.md), betroffene Prüfungen mit --only (Port 2850)
+      laufen lassen. Grün bzw. ohne passende Prüfung: committen. Rot oder
+      erkennbar halbfertig: auf einen Zweig rest/<datum> committen (git
+      switch -c, commit, git switch main), nicht pushen, im Bericht nennen.
+      Nicht verfolgte Dateien nur, wenn sie eindeutig zu diesen Änderungen
+      gehören; Bilder, Testausgaben und Gitignoriertes nie.
+   b) Abgleich mit GitHub: git fetch origin, dann git rebase origin/main
+      (nimmt die tagsüber committeten, nicht gepushten Commits mit, AGENTS.md
+      „Nicht Eiliges nimmt der Nachtlauf mit“). Konflikt mit klarer Lösung:
+      lösen; sonst git rebase --abort, die betroffenen lokalen Commits mit
+      git branch rest/<datum>-konflikt sichern, main auf origin/main setzen
+      (git reset --hard origin/main) und im Bericht nennen.
+   c) Alle so übernommenen Commits im Bericht unter „Mitgenommen“ auflisten.
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
    Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
@@ -58,19 +76,19 @@ Reihenfolge:
    Die Sperre in publish.sh nie umgehen (keine SKIP_*-/FORCE_*-Variablen,
    keine Marke von Hand). Scheitert release.sh trotz grüner CI: Ursache
    klären, kein Release, im Bericht sagen.
-   Der Push nimmt auch Commits anderer Sitzungen mit, die tagsüber auf main
-   committet und bewusst nicht gepusht wurden (AGENTS.md „Nicht Eiliges
-   nimmt der Nachtlauf mit“); sie gehören zum geprüften Stand und in den
-   Bericht. Nichts selbst committet, aber git log origin/main..main zeigt
-   solche Commits: trotzdem pushen und abwarten wie a), bei Rot wie c).
+   Vor jedem Push erneut git fetch origin und git rebase origin/main. Der
+   Push nimmt die in Schritt 0 übernommenen Commits mit; sie gehören zum
+   geprüften Stand. Kein eigener Eintrag erledigt, aber git log
+   origin/main..main zeigt Commits: trotzdem pushen und abwarten wie a), bei
+   Rot wie c).
    Release dann wie b) nur, wenn darunter Bug- oder Feature-Commits sind
    (sonst kein Release, AGENTS.md „Release“). Gar keine Commits: kein Release,
    nichts pushen.
 5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
-   Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Erledigt
-   (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
+   Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
+   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload), Probleme. Den Bericht immer schreiben – auch wenn nichts zu

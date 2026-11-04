@@ -53,7 +53,9 @@ belegt() {
   [[ -e $HOME/halo-vm/lauf.lock ]] && kill -0 $(cut -d' ' -f1 $HOME/halo-vm/lauf.lock) 2>/dev/null \
     && { print "Lauf in der Windows-VM"; return 0 }
   pgrep -f "release\.sh|publish\.sh" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
-  [[ -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
+  # der Nachtlauf (REST_MITNEHMEN=1) übernimmt liegengebliebene Änderungen selbst –
+  # ob noch jemand daran arbeitet, sagt schon aktive_sitzung()
+  [[ -z $REST_MITNEHMEN && -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \
     && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
   return 1
 }

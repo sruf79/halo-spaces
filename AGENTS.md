@@ -167,9 +167,12 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   (Abläufe, Skripte, Prüfungen, Doku, kleine Korrekturen), auf `main` in
   `~/halo-spaces` und pushen nicht; der nächste Nachtlauf pusht diese Commits
   zusammen mit seinen eigenen in einer CI-Runde (Entscheidung des Maintainers
-  vom 4.11.2026). Vorher muss der Checkout sauber sein (keine halbfertigen
-  Änderungen einer anderen Sitzung). Sofort pushen nur, wenn etwas davon
-  abhängt (Release, Fix für Nutzer, Stand wird anderswo gebraucht).
+  vom 4.11.2026). Sofort pushen nur, wenn etwas davon abhängt (Release, Fix
+  für Nutzer, Stand wird anderswo gebraucht). Der Nachtlauf nimmt zu Beginn
+  ohne Rückfrage alles Offene mit: diese Commits und auch ungespeicherte
+  Änderungen, an denen seit über einer Stunde keine Sitzung mehr arbeitet
+  (prüfen, committen; Rotes oder Halbfertiges auf einen Zweig `rest/<datum>`),
+  gleicht mit GitHub ab und arbeitet erst dann die Aufgabenliste ab.
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
   machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
   Push, CI und Release das Board nicht erneut laden: Was während des Laufs

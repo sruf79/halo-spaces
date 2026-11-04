@@ -4679,6 +4679,18 @@ function hookComposeApple(win, cleanups) {
   const prefObs = () => apply();
   Services.prefs.addObserver(COMPOSE_FORMAT_PREF, prefObs);
   apply();
+  // Tab im Betreff: gleich in den Mailtext wie Apple Mail (Thunderbird geht
+  // der Reihe nach über den Trenner der Kopfzeilen und die Formatleiste)
+  const subject = doc.getElementById("msgSubject");
+  const onSubjectTab = event => {
+    if (event.key != "Tab" || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey ||
+      typeof win.focusMsgBody != "function") {
+      return;
+    }
+    event.preventDefault();
+    win.focusMsgBody();
+  };
+  subject?.addEventListener("keydown", onSubjectTab);
   // Anhänge als Kacheln: Dateisymbol in 32 px statt 16 (scharf statt vergrößert)
   const bucket = doc.getElementById("attachmentBucket");
   const bigIcons = () => {
@@ -4718,6 +4730,7 @@ function hookComposeApple(win, cleanups) {
   register();
   cleanups?.add(() => {
     iconObserver?.disconnect();
+    subject?.removeEventListener("keydown", onSubjectTab);
     Services.prefs.removeObserver(COMPOSE_FORMAT_PREF, prefObs);
     toggle.remove();
     root.removeAttribute("mc-format-hidden");

@@ -2470,6 +2470,29 @@ def compose_checks(m, results):
         return ok and f["focus"] and same_color(f["bg"], res["accent"]), f"{res}"
     check("Verfassen: Anhänge auf der Fläche des Fensters, markierte Datei abgerundet ohne Rahmen (unfokussiert grau), Größe ohne Plakette", attachments, results)
 
+    def compose_subject_tab():
+        # Tab im Betreff führt gleich in den Mailtext (wie Apple Mail), nicht über Trenner und Formatleiste;
+        # Shift-Tab bleibt bei Thunderbird – mit HTML- und Text-Mail
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const out = {};
+          for (const plain of [false, true]) {
+            out[plain ? "text" : "html"] = await withCompose({ plain }, async (cw, cd) => {
+              const subj = cd.getElementById("msgSubject");
+              subj.focus(); await ruhig(200);
+              const ev = new cw.KeyboardEvent("keydown", { key: "Tab", code: "Tab", keyCode: 9, bubbles: true, cancelable: true });
+              subj.dispatchEvent(ev); await ruhig(300);
+              const focus = cd.activeElement?.id;
+              subj.focus();
+              const back = new cw.KeyboardEvent("keydown", { key: "Tab", code: "Tab", keyCode: 9, shiftKey: true, bubbles: true, cancelable: true });
+              subj.dispatchEvent(back);
+              return { prevented: ev.defaultPrevented, focus, shiftPrevented: back.defaultPrevented };
+            });
+          }
+          return out;""")
+        ok = all((res.get(k) or {}).get("prevented") and res[k].get("focus") == "messageEditor" and not res[k].get("shiftPrevented") for k in ("html", "text"))
+        return ok, f"{res}"
+    check("Verfassen: Tab im Betreff springt gleich in den Mailtext (HTML und Text), Shift-Tab unverändert", compose_subject_tab, results)
+
     def body():
         # Textfläche in der Fläche des Fensters (dunkel sonst bläulich #2a2a2e); eigene Hintergründe der Mail bleiben
         res = m.js(COMPOSE_CHECK_JS + r"""

@@ -259,6 +259,7 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "Show More": "Mehr anzeigen",
   "Open|tasks": "Offen",
   "No Task Selected": "Keine Aufgabe ausgewählt",
   "Sunny": "Sonnig",
@@ -658,6 +659,7 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "Show More": "Afficher plus",
   "Open|tasks": "Ouvertes",
   "No Task Selected": "Aucune tâche sélectionnée",
   "Sunny": "Ensoleillé",
@@ -1057,6 +1059,7 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "Show More": "Mostrar más",
   "Open|tasks": "Abiertas",
   "No Task Selected": "Ninguna tarea seleccionada",
   "Sunny": "Soleado",
@@ -1456,6 +1459,7 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "Show More": "Mostra altro",
   "Open|tasks": "Aperte",
   "No Task Selected": "Nessuna attività selezionata",
   "Sunny": "Soleggiato",
@@ -2898,6 +2902,10 @@ class ConversationCards {
     }, true);
     browserEl.addEventListener("MsgLoaded", () => {
       decorateAttachments(browserEl.contentDocument);
+      const mp0 = browserEl.contentDocument?.getElementById("messagepane");
+      const fold = () => foldQuotedHistory(mp0?.contentDocument);
+      fold();
+      mp0?.addEventListener("load", fold, true);
       fit();
       const mp = browserEl.contentDocument?.getElementById("messagepane");
       const iw = mp?.contentWindow;
@@ -2921,6 +2929,87 @@ class ConversationCards {
       this.win.setTimeout(fit, 300);
     }, true);
   }
+}
+
+// Konversationskarten wie Apple Mail: der zitierte Verlauf am Ende einer
+// Antwort (Thunderbird: blockquote type=cite samt „Am … schrieb …“-Zeile,
+// Gmail .gmail_quote, Outlook #divRplyFwdMsg/#appendonsend mit allem danach)
+// ist eingeklappt, darunter „Show More“. Eingeschobene Antworten zwischen
+// Zitaten bleiben offen (nur Zitate, nach denen kein eigener Text mehr
+// kommt). Nur die Anzeige – Antworten und Drucken nehmen die ganze Mail.
+function foldQuotedHistory(doc) {
+  const body = doc?.body;
+  if (!body || doc.__mcFolded || doc.documentURI == "about:blank") {
+    return;
+  }
+  // nach el (bis zum Textende) nur noch Leerraum?
+  const restEmpty = el => {
+    for (let n = el; n && n != body; n = n.parentNode) {
+      for (let s = n.nextSibling; s; s = s.nextSibling) {
+        if ((s.textContent || "").trim() || s.querySelector?.("img")) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  let start = null, hide = [];
+  const outlook = doc.getElementById("divRplyFwdMsg") || doc.getElementById("appendonsend");
+  if (outlook) {
+    // Outlook: Trennlinie davor mitnehmen, dann alles bis zum Ende
+    const prev = outlook.previousElementSibling;
+    start = prev?.localName == "hr" || prev?.querySelector?.(":scope > hr:only-child") ? prev : outlook;
+    for (let s = start; s; s = s.nextSibling) {
+      hide.push(s);
+    }
+  } else {
+    const quotes = [...doc.querySelectorAll('blockquote[type="cite"], .gmail_quote')]
+      .filter(q => !q.parentElement.closest('blockquote[type="cite"], .gmail_quote'));
+    const last = quotes.at(-1);
+    if (last && restEmpty(last)) {
+      // „Am … schrieb …“ direkt davor gehört dazu
+      const prefix = last.previousElementSibling?.classList.contains("moz-cite-prefix") ? last.previousElementSibling : null;
+      start = prefix || last;
+      hide = prefix ? [prefix, last] : [last];
+    }
+  }
+  if (!start || !hide.length) {
+    return;
+  }
+  // nur, wenn davor eigener Text steht (sonst wäre die Mail leer)
+  const range = doc.createRange();
+  range.setStart(body, 0);
+  range.setEndBefore(start);
+  if (!range.toString().trim()) {
+    return;
+  }
+  doc.__mcFolded = true;
+  const elements = hide.filter(n => n.nodeType == 1);
+  for (const el of elements) {
+    el.style.setProperty("display", "none", "important");
+  }
+  const texts = hide.filter(n => n.nodeType == 3);
+  const parked = texts.map(n => [n, n.data]);
+  for (const n of texts) {
+    n.data = "";
+  }
+  const button = doc.createElement("button");
+  button.className = "mc-show-more";
+  button.type = "button";
+  button.textContent = tr("Show More");
+  // eigene Stile direkt am Knopf (das Mail-Dokument hat unsere Stilblätter nicht)
+  button.setAttribute("style", "all: initial; display: block; margin: 10px 0 4px; font: 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; " +
+    "color: AccentColor; cursor: pointer;");
+  button.addEventListener("click", () => {
+    for (const el of elements) {
+      el.style.removeProperty("display");
+    }
+    for (const [n, data] of parked) {
+      n.data = data;
+    }
+    button.remove();
+  });
+  start.parentNode.insertBefore(button, start);
 }
 
 // „Bewegung reduzieren“ (macOS: Bedienungshilfen → Anzeige; Windows:

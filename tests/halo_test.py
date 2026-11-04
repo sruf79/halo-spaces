@@ -2173,6 +2173,58 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailkopf: keine Schnellantwort unter der Mail und keine Einstellung dafür", no_quick_reply, results)
 
+    def conversation_quotes():
+        # Konversation wie Apple Mail: zitierter Verlauf am Ende einer Antwort hinter „Show More“ (Text-Mail mit „>“
+        # und Outlook-Verlauf), Klick klappt auf; eingeschobene Antwort zwischen Zitaten bleibt offen
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvZitat")) { root.createSubfolder("KonvZitat", null); await bis(() => root.containsChildNamed("KonvZitat"), "Ordner KonvZitat", 4000); }
+          const f = root.getChildNamed("KonvZitat");
+          const mail = (from, subject, id, refs, minutesAgo, type, body) => unescape(encodeURIComponent([`From: ${from}`, `To: Halo Test <halo@example.invalid>`, `Subject: ${subject}`,
+            `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []), "MIME-Version: 1.0",
+            `Content-Type: ${type}; charset=UTF-8`, "", body, ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Halo Zitat", "halo-zitat-1", null, 40, "text/plain", "Treffen wir uns am Freitag?"));
+            lf.addMessage(mail("Anna Beispiel <anna@example.invalid>", "Re: Halo Zitat", "halo-zitat-2", "halo-zitat-1", 30, "text/plain",
+              "Ja, gern um zehn.\r\n\r\nAm Mittwoch schrieb Ben Muster:\r\n> Treffen wir uns am Freitag?"));
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Re: Halo Zitat", "halo-zitat-3", "halo-zitat-2", 20, "text/html",
+              '<html><body><p>Passt, bis dann.</p><div id="appendonsend"></div><hr><div id="divRplyFwdMsg"><b>From:</b> Anna Beispiel<br><b>Sent:</b> Mittwoch</div><div>Ja, gern um zehn.</div></body></html>'));
+            lf.addMessage(mail("Anna Beispiel <anna@example.invalid>", "Re: Halo Zitat", "halo-zitat-4", "halo-zitat-3", 10, "text/plain",
+              "> Passt, bis dann.\r\nIch bringe die Unterlagen mit.\r\n> bis dann\r\nGut."));
+            await bis(() => f.getTotalMessages(false) >= 4, "Testmails gespeichert", 5000);
+          }
+          f.markMessagesRead([...f.messages], false);
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner KonvZitat", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500);
+          const i = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == "halo-zitat-4@example.invalid");
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = i ?? 0;
+          const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
+          if (!box) return { box: false };
+          const mdoc = id => box.querySelector(`.mc-conv-card[data-message-id="${id}@example.invalid"] .mc-conv-browser`)?.contentDocument?.getElementById("messagepane")?.contentDocument;
+          await bis(() => ["halo-zitat-2", "halo-zitat-3", "halo-zitat-4"].every(id => mdoc(id)?.body?.textContent.includes(id == "halo-zitat-3" ? "Passt" : id == "halo-zitat-2" ? "zehn" : "Gut")), "Karten geladen", 10000);
+          await ruhig(800);
+          const vis = (doc, text) => { const r = doc.createRange(); const walker = doc.createTreeWalker(doc.body, 4); let n;
+            while ((n = walker.nextNode())) if (n.data.includes(text)) { const e = n.parentElement; return !!e && e.getClientRects().length > 0 && doc.defaultView.getComputedStyle(e).display != "none"; } return false; };
+          const out = {};
+          for (const [id, own, quoted] of [["halo-zitat-2", "zehn", "Freitag"], ["halo-zitat-3", "Passt", "Sent:"]]) {
+            const doc = mdoc(id), btn = doc?.querySelector(".mc-show-more");
+            out[id] = { own: vis(doc, own), quoted: vis(doc, quoted), btn: btn?.textContent || null };
+            btn?.click(); await ruhig(300);
+            out[id].after = vis(doc, quoted); out[id].btnGone = !doc.querySelector(".mc-show-more");
+          }
+          const d4 = mdoc("halo-zitat-4");
+          out.inline = { btn: !!d4?.querySelector(".mc-show-more"), quoted: vis(d4, "Passt") };
+          return out;""")
+        z2, z3, il = res.get("halo-zitat-2") or {}, res.get("halo-zitat-3") or {}, res.get("inline") or {}
+        ok = all(z.get("own") and not z.get("quoted") and z.get("btn") == "Show More" and z.get("after") and z.get("btnGone") for z in (z2, z3)) \
+            and not il.get("btn") and il.get("quoted")
+        return ok, f"{res}"
+    check("Konversation: zitierter Verlauf am Ende einer Antwort hinter „Show More“ (Text und Outlook), Klick klappt auf, eingeschobene Antworten offen", conversation_quotes, results)
+
     def conversation_cards():
         # Konversation wie Apple Mail: ältere gelesene Mails eingeklappt (ohne geladene Mail, Klick klappt auf), Karte mit einem
         # Anhang nicht abgeschnitten, keine Schnellantwort, Kapsel je Karte wirkt auf deren Mail,

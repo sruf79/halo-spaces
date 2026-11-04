@@ -358,10 +358,13 @@ braucht – Testläufe (hell/dunkel, Beta, `--vm`), Screenshots, `gh project …
 Board-Status –, so an neon geben und deren Ergebnis weitergeben, nie
 selbst Ergebnisse erfinden. Auftrag vollständig formulieren (Zweig bzw.
 Commit, Befehl, Port ab 2850, was zurückgemeldet werden soll); die Regeln
-aus „Testrechner“ gelten dort unverändert. Fehlt neon in `ListAgents`, das
-dem Maintainer kurz sagen (LaunchAgent prüfen: `tests/mac-mini-setup.sh
---check`) und ohne neon weiterarbeiten. Verlangt der Zugriff eine
-Bestätigung, fragt die Claude-App den Maintainer selbst.
+aus „Testrechner“ gelten dort unverändert. **neon ist immer erreichbar:**
+Fehlt neon in `ListAgents`, über die Sitzungs-ID gehen –
+`list_sessions` (Sitzung mit Titel `neon`), dann `send_message` mit dieser
+ID. Nie „neon nicht erreichbar“ melden, ohne beide Wege versucht zu haben.
+Verlangt `send_message` eine Freigabe (`confirm_repository_trust`), diese
+sofort mit dem gelieferten `content_digest` anfragen – die Claude-App fragt
+den Maintainer selbst.
 
 **Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
 4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen

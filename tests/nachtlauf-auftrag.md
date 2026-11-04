@@ -32,10 +32,11 @@ Reihenfolge:
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
    Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
    hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
-   Dann Bereich für Bereich (Entscheidung des Maintainers vom 4.11.2026):
-   im Bereich erst Bugs, dann Features, kleine vor großen; Bereiche mit Bugs
-   vor Bereichen mit nur Features – bricht der Lauf ab, ist so wenigstens ein
-   Release mit Korrekturen draußen. Zusammenhänge und
+   Dann **erst alle Bugs, danach Features** (Entscheidung des Maintainers
+   vom 4.11.2026, abends): Bugs Bereich für Bereich, kleine vor großen;
+   Features erst, wenn keine machbaren Bugs mehr übrig sind – außer ein
+   Feature behebt einen Bug vermutlich mit, dann zusammen mit ihm. Bricht der
+   Lauf ab, ist so wenigstens ein Release mit Korrekturen draußen. Zusammenhänge und
    Zusammenlegungen im Bericht nennen. Von Reihen (n/m) nur den jeweils
    nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.
    Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,

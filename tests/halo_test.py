@@ -12723,6 +12723,9 @@ Neu
           const vis = v => !pd.getElementById("mcSub-" + v).hidden;
           const out = { general: [vis("paneMcAccounts"), vis("paneMcAddons")] };
           await pick("paneMcAccounts", 3500);
+          // (in der Windows-CI waren die Unterpunkte einmal verborgen – nicht nachstellbar: warten und mitschreiben, was gewählt ist)
+          await until(() => vis("paneMcAccounts"), 5000);
+          out.sel = [pd.getElementById("categories").selectedItem?.value, pd.getElementById("mcCat-paneMcAccounts")?.hasAttribute("mc-folded")];
           const acc = page("about:accountsettings"), fd = acc.contentDocument, tree = fd.getElementById("accounttree");
           const local = MailServices.accounts.localFoldersServer.key;
           // Konto „Lokale Ordner“ wählen, dann seine zweite Seite (Speicherplatz)

@@ -52,4 +52,6 @@ Ein ruhiges, aufgeräumtes Design im Stil von macOS für Thunderbird: farbige Be
 Gemacht für macOS. Windows und Linux funktionieren, dort sehen Fensterknöpfe und einige Abstände anders aus.
 
 
+halo.spaces ist kostenlos. Wer Danke sagen will, kann mir einen Kaffee spendieren: <a href="https://buymeacoffee.com/diversion">buymeacoffee.com/diversion</a>
+
 Quellcode, Fehlermeldungen und Versionshinweise: <a href="https://github.com/sruf79/halo-spaces">github.com/sruf79/halo-spaces</a>

@@ -16,6 +16,7 @@ ready to paste; the package is `dist/halo-spaces-<version>-atn.xpi`
 | Support e-mail | (as in the add-on's feedback window) |
 | Support site | https://github.com/sruf79/halo-spaces/issues |
 | Homepage | https://github.com/sruf79/halo-spaces |
+| Contributions URL | https://buymeacoffee.com/diversion (Developer Hub → Edit Product Page → Support; shows a “Support this developer” button) |
 | License | Mozilla Public License 2.0 |
 | Privacy policy | `privacy-en.md` (required: the add-on loads sender logos) |
 | Notes to reviewer | `reviewer-notes.md` |

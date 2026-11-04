@@ -227,6 +227,12 @@ python3 tests/halo_test.py       # automated checks in a fresh, temporary profil
 ./publish.sh 3.1.0 notes.md      # uploads exactly that package and verifies the hash
 ```
 
+## Support
+
+halo.spaces is free and made in spare time. If you enjoy it, you can say thanks with a coffee:
+[buymeacoffee.com/diversion](https://buymeacoffee.com/diversion) – or in Thunderbird via
+**Help → halo.spaces → Say Thanks**.
+
 ## Credits
 
 halo.spaces uses the coffee cup from [Noto Emoji](https://github.com/googlefonts/noto-emoji)

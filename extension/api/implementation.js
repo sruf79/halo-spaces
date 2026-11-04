@@ -259,6 +259,7 @@ const DE = {
   "Show Folder List": "Ordnerliste einblenden",
   "Filter": "Filter",
   "Go to Today": "Gehe zu heute",
+  "No Task Selected": "Keine Aufgabe ausgewählt",
   "Sunny": "Sonnig",
   "Clear": "Klar",
   "Partly Cloudy": "Teilweise bewölkt",
@@ -656,6 +657,7 @@ const FR = {
   "Show Folder List": "Afficher la liste des dossiers",
   "Filter": "Filtrer",
   "Go to Today": "Aller à aujourd’hui",
+  "No Task Selected": "Aucune tâche sélectionnée",
   "Sunny": "Ensoleillé",
   "Clear": "Dégagé",
   "Partly Cloudy": "Partiellement nuageux",
@@ -1053,6 +1055,7 @@ const ES = {
   "Show Folder List": "Mostrar lista de carpetas",
   "Filter": "Filtrar",
   "Go to Today": "Ir a hoy",
+  "No Task Selected": "Ninguna tarea seleccionada",
   "Sunny": "Soleado",
   "Clear": "Despejado",
   "Partly Cloudy": "Parcialmente nublado",
@@ -1450,6 +1453,7 @@ const IT = {
   "Show Folder List": "Mostra elenco cartelle",
   "Filter": "Filtra",
   "Go to Today": "Vai a oggi",
+  "No Task Selected": "Nessuna attività selezionata",
   "Sunny": "Soleggiato",
   "Clear": "Sereno",
   "Partly Cloudy": "Parzialmente nuvoloso",
@@ -10971,15 +10975,15 @@ class CardEnhancer {
         const details = d.getElementById("calendar-task-details-container");
         const taskList = d.documentElement.hasAttribute("mc-task-list") ? d.getElementById("mcTaskCards") : d.getElementById("calendar-task-tree");
         if (details?.__mcDragged) {
-          // von Hand gezogen: diese Listenbreite gilt jetzt auch für Mail und Adressbuch
+          // von Hand gezogen: diese Breite der Details gilt weiter (eigene
+          // Aufteilung, nicht mehr die Listenbreite der Mail)
           delete details.__mcDragged;
-          const lr0 = rectOf(taskList);
-          if (lr0?.width) {
-            this.mcListWidth = Math.round(lr0.width);
-            this.mcButtonsLeft = lr0.right + 6;
-            this.mcListPending = true;
+          const dr0 = rectOf(details);
+          if (dr0?.width) {
+            this.mcTaskDetailsWidth = Math.round(dr0.width);
           }
         }
+        details?.setAttribute("data-mc-empty", tr("No Task Selected"));
         if (side && details && this.mcButtonsLeft && !details.__mcDragging) {
           const dr = rectOf(details);
           const lr = rectOf(taskList);
@@ -10990,8 +10994,10 @@ class CardEnhancer {
             tp?.width ? tp.left : Infinity, w.innerWidth);
           if (dr.width && lr?.width && right) {
             const splitW = Math.max(0, dr.left - lr.right);
-            const want = Math.round(right - (this.mcButtonsLeft - 6) - splitW);
-            const max = Math.round(right - lr.left - splitW - 280); // Liste mindestens 280 px
+            // Detailspalte etwa 400 px (von Hand gezogen: diese Breite), die
+            // Liste nimmt den Rest, mindestens 280 px
+            const want = this.mcTaskDetailsWidth || 400;
+            const max = Math.round(right - lr.left - splitW - 280);
             const width = Math.max(360, Math.min(want, max));
             if (Math.abs(dr.width - width) >= 1) {
               details.style.width = `${width}px`;
@@ -11003,26 +11009,42 @@ class CardEnhancer {
           .find(li => rectOf(li).width);
         const pr = rectOf(plus?.querySelector("button"));
         let headRight;
-        if (side && lr?.width) {
-          edge = Math.max(edge, lr.right + 6);
-          headRight = lr.right;
+        const actions = d.getElementById("task-actions-toolbar");
+        const ar = rectOf(actions);
+        if (side && lr?.width && plus) {
+          // Details daneben: „+“ rechts über der Liste (8 px vor ihrer Kante),
+          // Löschen links davon, der Kopf mit „…“ davor
+          const pw = rectOf(plus).width || 44;
+          edge = lr.right - 8 - pw;
+          const plusLeft = edge + (pw - (pr?.width || 40)) / 2;
+          const taLeft = Math.round(plusLeft - 6 - (ar?.width || 40));
+          setVar(actions, "--mc-ta-left", `${taLeft}px`);
+          headRight = (ar?.width ? taLeft : plusLeft) - 2;
         } else {
-          headRight = edge - 6;
-        }
-        // Kopf (Titel, Filter, „…“) endet immer vor dem „+“ und den Aktionen
-        // rechts davon – auch wenn die Details bei schmalem Fenster unter die
-        // Liste rutschen (dann galt sonst die alte, breitere Kante weiter)
-        // (die Kapsel endet 8 px vor dieser Kante; neben der Liste steht das
-        // „+“ 6 px rechts von ihr, dort ändert sich nichts)
-        if (pr?.width && pr.left - 2 < headRight) {
-          headRight = pr.left - 2;
+          if (side && lr?.width) {
+            edge = Math.max(edge, lr.right + 6);
+            headRight = lr.right;
+          } else {
+            headRight = edge - 6;
+          }
+          // Kopf (Titel, Filter, „…“) endet immer vor dem „+“ und den Aktionen
+          // rechts davon – auch wenn die Details bei schmalem Fenster unter die
+          // Liste rutschen (dann galt sonst die alte, breitere Kante weiter)
+          // (die Kapsel endet 8 px vor dieser Kante)
+          if (pr?.width && pr.left - 2 < headRight) {
+            headRight = pr.left - 2;
+          }
+          // Aktionsknöpfe gleich rechts vom „+“
+          if (pr?.width) {
+            setVar(actions, "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
+          }
         }
         setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
+        // Haarlinie in der Toolbar-Zeile genau über dem Teiler zu den Details
+        // (durchgehend vom oberen Rand bis unten)
+        const split = rectOf(d.getElementById("calendar-task-view-splitter"));
+        setBarVar(d, "--mc-task-line", split?.width ? `${Math.round(split.left - rowLeft)}px` : `${Math.round(headRight - rowLeft)}px`);
         d.documentElement.toggleAttribute("mc-task-table", !side);
-        // Aktionsknöpfe gleich rechts vom „+“
-        if (pr?.width) {
-          setVar(d.getElementById("task-actions-toolbar"), "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
-        }
       }
       const toggle = rectOf(d.getElementById("spacesPinnedButton"));
       if (toggle?.width) {

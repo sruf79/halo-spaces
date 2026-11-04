@@ -163,7 +163,7 @@ Dark stay if you chose one; themes from the add-on store paint their own colours
 over the design.
 
 Updates arrive automatically (Thunderbird checks every 24 hours). To check
-right away: **Help → halo.spaces… → Check for Updates**.
+right away: **Help → halo.spaces → Check for Updates**.
 
 No `userChrome.css` is needed. An older copy of this theme in your profile's
 `chrome` folder takes precedence and would hide updates, so remove it.
@@ -173,7 +173,7 @@ No `userChrome.css` is needed. An older copy of this theme in your profile's
 Options that belong to a view are set right there: preview lines under
 **View → Preview Lines**, contact photos in the list's **…** menu, and the
 Birthdays calendar with its checkbox in the calendar list. Everything else is
-in **Settings → halo.spaces** (also via **Help → halo.spaces… → Settings…**).
+in **Settings → halo.spaces** (also via **Help → halo.spaces → Settings…**).
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
@@ -239,4 +239,4 @@ Released under the Mozilla Public License 2.0.
 ---------------------------------------------------------------
 
 Questions or feedback?
-In Thunderbird: **Help → halo.spaces… → Send Feedback**, or open an issue here. Enjoy!
+In Thunderbird: **Help → halo.spaces → Send Feedback**, or open an issue here. Enjoy!

@@ -12696,7 +12696,7 @@ class CardEnhancer {
       });
     };
 
-    // Menüleiste → Help: „Halo Spaces …“ öffnet das Info-Fenster mit
+    // Menüleiste → Help: „halo.spaces“ öffnet das Info-Fenster mit
     // Update-Prüfung, Feedback und „Danke sagen“.
     const hookHelpMenu = () => {
       const d = w.document;
@@ -12708,7 +12708,11 @@ class CardEnhancer {
       sep.id = "mcCheckUpdatesSeparator";
       const item = d.createXULElement("menuitem");
       item.id = "mcHaloSpaces";
-      item.setAttribute("label", "halo.spaces …");
+      // ohne „…“ (öffnet nur ein Info-Fenster, wie „About“), mit unserem Symbol
+      // davor – auch in der Menüleiste von macOS (menuitem-iconic + image)
+      item.setAttribute("label", "halo.spaces");
+      item.classList.add("menuitem-iconic");
+      item.setAttribute("image", "resource://mailcards/about/icon.svg");
       item.addEventListener("command", () => this.openHaloWindow(w));
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);

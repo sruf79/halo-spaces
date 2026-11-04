@@ -3838,7 +3838,7 @@ def menu_checks(m, results):
               and res.get("menu_EditPopup", [])[:2] == ["Undo", "Redo"] and "Search…" in res["menu_EditPopup"] and "Select Thread" in res["menu_EditPopup"]
               and "Show Folder List" in res.get("menu_View_Popup", []) and "Message" in res["menu_View_Popup"]
               and mail[:2] == ["Get New Mail", "Work Offline"] and "Star" in mail and "Mark Folder as Read" in mail and "Remind Me" in mail
-              and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces …" in res["menu_HelpPopup"]
+              and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces" in res["menu_HelpPopup"]
               and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
               and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
               and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
@@ -9967,6 +9967,14 @@ Neu
               and dr.get("merged") and dr.get("sel") == [dr.get("want")] and dr.get("shown") == dr.get("want"))
         return ok, f"{res}"
     check("Adressbuch: Zusammenführen von Dubletten lässt die Auswahl beim gewählten Kontakt, Details zeigen den verbliebenen Eintrag", ab_dedupe_selection, results)
+
+    def help_menu_entry():
+        # Help → „halo.spaces“: ohne „…“ (öffnet nur ein Info-Fenster), mit unserem Symbol davor
+        res = m.js(r"""const it = d.getElementById("mcHaloSpaces");
+          return it ? { label: it.getAttribute("label"), image: it.getAttribute("image"), iconic: it.classList.contains("menuitem-iconic") } : null;""")
+        ok = bool(res) and res["label"] == "halo.spaces" and res["iconic"] and (res["image"] or "").endswith("/about/icon.svg")
+        return ok, f"{res}"
+    check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol", help_menu_entry, results)
 
     def donate():
         # „Say Thanks“ im Info-Fenster öffnet die Spendenseite (Aufruf abgefangen, kein echter Browser)

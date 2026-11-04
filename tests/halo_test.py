@@ -5856,6 +5856,37 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Updates: bereitliegendes Update mit rotem Punkt an der Einstellungen-Kachel, Klick führt zu „halo.spaces“ mit „Install Now“", update_note, results)
 
+    def update_note_late():
+        # Update erst gefunden, während die Seite „halo.spaces“ schon offen ist: Punkt und Zeile „Install Now“ kommen
+        # zusammen (bisher Punkt ohne Zeile, bis man die Einstellungen neu öffnete)
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          Cu.evalInSandbox("openHaloSettings(Services.wm.getMostRecentWindow('mail:3pane'))", g);
+          await bis(() => tm.currentTabInfo?.browser?.contentWindow?.document?.querySelector("#mcCat-paneMcHalo[selected]"), "Einstellungen bei halo.spaces", 8000);
+          const pw = tm.currentTabInfo.browser.contentWindow;
+          const frame = pw.document.querySelector("#mcPane-paneMcHalo browser");
+          await until(() => frame?.messageManager, 6000); await ruhig(2500);
+          const read = () => new Promise(res => {
+            const mm = frame.messageManager, key = "mc:test-late-" + Math.random();
+            mm.addMessageListener(key, m => res(m.data));
+            mm.loadFrameScript("data:," + encodeURIComponent(`(() => { let n = 0; const f = () => { const e = content.document.getElementById("s-update"), ready = content.document.querySelector("#settings section");
+              if (ready && (e || ++n > 25)) sendAsyncMessage("${key}", e ? e.textContent.trim() : "none"); else content.setTimeout(f, 200); }; f(); })()`), false);
+            w.setTimeout(() => res("timeout"), 8000);
+          });
+          const out = { before: await read() };
+          try {
+            Cu.evalInSandbox("UpdateNote.set('99.0.1', true)", g);
+            out.after = await read();
+          } finally {
+            Cu.evalInSandbox("UpdateNote.pending = null; for (const x of Services.wm.getEnumerator('mail:3pane')) UpdateNote.mark(x);", g);
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""" % ADDON_ID)
+        ok = res.get("before") == "none" and "99.0.1" in (res.get("after") or "")
+        return ok, f"{res}"
+    check("Updates: Update erst gefunden, während „halo.spaces“ in den Einstellungen offen ist – Zeile „Install Now“ erscheint mit dem Punkt", update_note_late, results)
+
     def today_menu_check():
         # Menü „View → Today Pane“: Häkchen genau dann, wenn die Today-Pane zu sehen ist (war verkehrt herum)
         res = m.js(r"""

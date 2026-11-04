@@ -99,6 +99,33 @@ function placeSuggestions(input, onPick) {
   return list;
 }
 
+function updateRow(pending) {
+  const button = el("button", { type: "button", class: "accent", textContent: t("Install Now") });
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    await api.installUpdateNow();
+  });
+  const text = el("span", { class: "text" },
+    el("span", { class: "label", textContent: t("halo.spaces {version} is available").replace("{version}", pending.version) }),
+    el("span", { class: "hint", textContent: pending.auto
+      ? t("Or it installs on the next start. Thunderbird briefly shows its own look while updating.")
+      : t("Automatic updates are off.") }));
+  return el("section", { class: "update", id: "s-update" }, el("div", { class: "row" }, text, button));
+}
+
+// Update erst gefunden, nachdem die Seite schon offen war (der rote Punkt
+// erscheint sofort): die Zeile nachträglich ganz oben einsetzen
+async function watchUpdate() {
+  if (document.getElementById("s-update")) {
+    return;
+  }
+  const pending = await api.getPendingUpdate().catch(() => null);
+  const main = document.getElementById("settings");
+  if (pending && main?.firstChild && !document.getElementById("s-update")) {
+    main.prepend(updateRow(pending));
+  }
+}
+
 async function render() {
   settings = await api.getSettings();
   const { lang, table } = await api.getTranslations();
@@ -116,17 +143,7 @@ async function render() {
   // Update liegt bereit: ganz oben eine Zeile mit „Install Now“
   const pending = await api.getPendingUpdate();
   if (pending) {
-    const button = el("button", { type: "button", class: "accent", textContent: t("Install Now") });
-    button.addEventListener("click", async () => {
-      button.disabled = true;
-      await api.installUpdateNow();
-    });
-    const text = el("span", { class: "text" },
-      el("span", { class: "label", textContent: t("halo.spaces {version} is available").replace("{version}", pending.version) }),
-      el("span", { class: "hint", textContent: pending.auto
-        ? t("Or it installs on the next start. Thunderbird briefly shows its own look while updating.")
-        : t("Automatic updates are off.") }));
-    main.append(el("section", { class: "update", id: "s-update" }, el("div", { class: "row" }, text, button)));
+    main.append(updateRow(pending));
   }
   for (const [title, rows, opts = {}] of SECTIONS(t)) {
     const section = el("section");
@@ -291,3 +308,4 @@ function showFound() {
 window.addEventListener("hashchange", showFound);
 
 render().then(showFound);
+setInterval(watchUpdate, 2000);

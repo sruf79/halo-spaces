@@ -743,13 +743,13 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
 
 /* Suchfeld im Kalender endet links an der Umschaltung (misst die Erweiterung) */
 :root[mc-tab="calendar"] #unifiedToolbarContent > li[item-id="search-bar"] {
-  max-width: min(333px, var(--mc-cal-search-max, 333px)) !important;
+  max-width: min(333px, var(--mc-cal-search-max, 333px), var(--mc-search-fit, 333px)) !important;
   min-width: 40px !important;
 }
 
 /* Suchfeld im Chat endet links an den Chat-Knöpfen (misst die Erweiterung) */
 :root[mc-tab="chat"] #unifiedToolbarContent > li[item-id="search-bar"] {
-  max-width: min(333px, var(--mc-chat-search-max, 333px)) !important;
+  max-width: min(333px, var(--mc-chat-search-max, 333px), var(--mc-search-fit, 333px)) !important;
   min-width: 40px !important;
 }
 

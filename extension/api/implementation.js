@@ -11034,10 +11034,13 @@ class CardEnhancer {
       // steht rechtsbündig, seine rechte Kante bleibt beim Kürzen stehen)
       if (tab.mode.name == "chat") {
         const tb = rectOf(d.getElementById("chat-view-toolbox"));
-        const s = rectOf(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]'));
+        const sLi = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
+        const s = rectOf(sLi);
         if (tb?.width && s?.width) {
           const sideEdge = Math.max(shift + (r.width ? r.right : 0) + 12, toggle?.width ? toggle.right + 12 : 0);
-          edge = Math.max(sideEdge, Math.min(edge, s.right - 12 - 160 - tb.width));
+          // (das Suchfeld ist höchstens so breit wie sein Text, oft unter 160 px)
+          const sWant = Math.min(160, parseFloat(sLi.style.getPropertyValue("--mc-search-fit")) || 160);
+          edge = Math.max(sideEdge, Math.min(edge, s.right - 12 - sWant - tb.width));
           setBarVar(d, "--mc-chat-search-max", `${Math.max(40, Math.floor(s.right - (edge + tb.width) - 12))}px`);
         }
       }
@@ -15141,17 +15144,54 @@ class CardEnhancer {
       placeholder.removeAttribute("data-l10n-id");
       placeholder.textContent = tr("Search");
     }
-    // passt „Search“ nicht mehr ganz hinein, nur die Lupe statt „Searc…“
+    // Feld höchstens so breit wie Lupe + Platzhalter + Innenabstand (in allen
+    // Bereichen, auch bei breitem Fenster); wird es schmaler, endet der Zusatz
+    // mit „…“, das erste Wort („Search“, „Kontakte“) aber nie abgeschnitten –
+    // passt nicht einmal das, nur die Lupe. Gemessen wird der Text selbst
+    // (Range), nicht sein Kasten, und gegen die sichtbare Innenbreite des Felds
+    const li = bar.closest("li");
+    const canvas = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    const textWidth = (node, end) => {
+      const range = w.document.createRange();
+      range.setStart(node, 0);
+      range.setEnd(node, end);
+      return range.getBoundingClientRect().width;
+    };
     const fitPlaceholder = () => {
-      if (placeholder) {
-        placeholder.style.visibility = placeholder.scrollWidth > placeholder.clientWidth + 1 ? "hidden" : "";
+      const node = placeholder?.firstChild;
+      if (!node || node.nodeType != 3 || !node.length) {
+        return;
       }
+      const text = node.data;
+      const full = textWidth(node, text.length);
+      if (!full) {
+        return; // (noch nicht dargestellt)
+      }
+      const space = text.indexOf(" ");
+      const word = space > 0 ? textWidth(node, space) : full;
+      const ctx = canvas.getContext("2d");
+      ctx.font = w.getComputedStyle(placeholder).font;
+      const dots = ctx.measureText("…").width;
+      // 30 px links (Lupe), 14 px rechts
+      const fit = `${Math.ceil(30 + full + 14)}px`;
+      if (li && li.style.getPropertyValue("--mc-search-fit") != fit) {
+        li.style.setProperty("--mc-search-fit", fit);
+      }
+      const inner = bar.getBoundingClientRect().width - 30 - 10;
+      const shown = inner + 1 >= full || inner >= word + (space > 0 ? dots : 0);
+      placeholder.style.visibility = shown ? "" : "hidden";
     };
     const ro = placeholder ? new w.ResizeObserver(fitPlaceholder) : null;
     ro?.observe(placeholder);
+    ro?.observe(bar);
+    // anderer Bereich bzw. Ordner: neuer Text, neue Breite
+    const mo = placeholder ? new w.MutationObserver(fitPlaceholder) : null;
+    mo?.observe(placeholder, { childList: true, characterData: true, subtree: true });
     fitPlaceholder();
     this.restorers.push(() => {
       ro?.disconnect();
+      mo?.disconnect();
+      li?.style.removeProperty("--mc-search-fit");
       placeholder?.style.removeProperty("visibility");
       style.remove();
       if (placeholder && l10nId) {

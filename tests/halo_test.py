@@ -6816,6 +6816,9 @@ def run_checks(m, version, profile, results):
           const widths = Object.fromEntries(tbItems().filter(l => !l.hasAttribute("mc-squeezed")).map(l => [l.getAttribute("item-id"), l.getBoundingClientRect().width]));
           const search = () => Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().width);
           const out = { searchStart: search(), steps: [] };
+          // sichtbarer Platzhalter: erstes Wort („Search“) ganz, der Zusatz darf mit „…“ enden
+          const firstWordFits = ph => { const n = ph.firstChild; if (!n?.length) return true; const sp = n.data.indexOf(" ");
+            const rg = d.createRange(); rg.setStart(n, 0); rg.setEnd(n, sp > 0 ? sp : n.length); return rg.getBoundingClientRect().width <= ph.clientWidth + 1; };
           const list = a3.document.getElementById("threadPane");
           try {
             for (const add of [60, 120, 180, 240]) {
@@ -6830,7 +6833,7 @@ def run_checks(m, version, profile, results):
               const ORDER = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
               const lastHidden = [...hidden].sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y)).pop();
               out.steps.push({ add, search: search(), hidden, minHidden: lastHidden ? Math.round(widths[lastHidden] || 999) : null,
-                ph: ph ? [w.getComputedStyle(ph).visibility != "hidden", ph.scrollWidth <= ph.clientWidth + 1] : null });
+                ph: ph ? [w.getComputedStyle(ph).visibility != "hidden", firstWordFits(ph)] : null });
             }
           } finally {
             if (before) Services.prefs.setIntPref(PREF, before); else Services.prefs.clearUserPref(PREF);
@@ -6842,7 +6845,7 @@ def run_checks(m, version, profile, results):
           return out;""")
         # hätte der zuletzt ausgeblendete Knopf (plus Abstand) noch neben die Suche gepasst, ist zu viel ausgeblendet
         bad = [st for st in res.get("steps", []) if st["hidden"] and st["minHidden"] and st["search"] - 40 >= st["minHidden"] + 8]
-        # Platzhalter „Search“ nur, wenn er ganz hineinpasst, sonst nur die Lupe
+        # Platzhalter nur, wenn wenigstens das erste Wort ganz hineinpasst, sonst nur die Lupe
         ph_bad = [st for st in res.get("steps", []) if st.get("ph") and st["ph"][0] and not st["ph"][1]]
         ok = bool(res.get("steps")) and not bad and not ph_bad and any(st["hidden"] for st in res["steps"]) \
             and any(st.get("ph") and not st["ph"][0] for st in res["steps"])
@@ -10242,12 +10245,14 @@ Neu
           const head = [...d.querySelectorAll("#mcListHeader button")].map(r).filter(Boolean);
           const bar = [...d.querySelectorAll("#unifiedToolbarContent > li:not([item-id='spacer'])")].map(r).filter(Boolean);
           const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]')?.getBoundingClientRect().width || 0;
-          const out = { side: d.documentElement.hasAttribute("mc-task-side"), head: head.length, overlap: head.some(h => bar.some(t => hits(h, t))), search: Math.round(search) };
+          const out = { side: d.documentElement.hasAttribute("mc-task-side"), head: head.length, overlap: head.some(h => bar.some(t => hits(h, t))), search: Math.round(search),
+            fit: parseFloat(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]')?.style.getPropertyValue("--mc-search-fit")) || 0 };
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")
-        ok = res["head"] >= 1 and not res["overlap"] and res["search"] >= 160
+        # Suchfeld so breit wie Lupe + „Search Tasks“ (nicht schmaler, nie breiter)
+        ok = res["head"] >= 1 and not res["overlap"] and abs(res["search"] - res.get("fit", 0)) <= 1
         return ok, f"{res}"
-    check("Aufgaben: ohne Auswahl keine Überlappung von „…“ mit Plus und Suche der Toolbar, Suchfeld bleibt breit", task_header_no_overlap, results)
+    check("Aufgaben: ohne Auswahl keine Überlappung von „…“ mit Plus und Suche der Toolbar, Suchfeld so breit wie sein Text", task_header_no_overlap, results)
 
     def alarm_dialog():
         # Erinnerung wie in Apple Kalender: Kalendersymbol mit Monat und Tag, keine graue Kachel, „Alle“-Knöpfe nur bei mehreren

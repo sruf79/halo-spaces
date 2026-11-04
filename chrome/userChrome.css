@@ -1691,8 +1691,9 @@ findbar .findbar-textbox:focus {
      Platzmangel schrumpft zuerst das Suchfeld (in den Bereichen bis zur
      Lupe), erst dann blendet die Erweiterung unwichtige Knöpfe aus */
   flex: 0 50 333px !important;
-  max-width: 333px !important;
-  min-width: 160px !important;
+  /* höchstens so breit wie Lupe + Platzhalter (--mc-search-fit misst die Erweiterung) */
+  max-width: min(333px, var(--mc-search-fit, 333px)) !important;
+  min-width: min(160px, var(--mc-search-fit, 160px)) !important;
 }
 
 /* Thunderbird gibt dem Suchfeld innen 5em Mindestbreite – sonst bliebe es
@@ -4351,13 +4352,13 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
 
 /* Suchfeld im Kalender endet links an der Umschaltung (misst die Erweiterung) */
 :root[mc-tab="calendar"] #unifiedToolbarContent > li[item-id="search-bar"] {
-  max-width: min(333px, var(--mc-cal-search-max, 333px)) !important;
+  max-width: min(333px, var(--mc-cal-search-max, 333px), var(--mc-search-fit, 333px)) !important;
   min-width: 40px !important;
 }
 
 /* Suchfeld im Chat endet links an den Chat-Knöpfen (misst die Erweiterung) */
 :root[mc-tab="chat"] #unifiedToolbarContent > li[item-id="search-bar"] {
-  max-width: min(333px, var(--mc-chat-search-max, 333px)) !important;
+  max-width: min(333px, var(--mc-chat-search-max, 333px), var(--mc-search-fit, 333px)) !important;
   min-width: 40px !important;
 }
 

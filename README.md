@@ -157,6 +157,9 @@ The search field sits top right, like on the Mac:
    **Install Add-on From File…** and choose the file.
 3. That's it. The design is active right away, no restart needed.
 
+You only need the `.xpi`. The shell and Python scripts in this repository are
+developer tools for building and testing, there's nothing to run.
+
 On first install halo.spaces sets **Themes** to **System theme – auto**
 (Thunderbird's default), so light and dark follow macOS. Thunderbird's Light or
 Dark stay if you chose one; themes from the add-on store paint their own colours
@@ -210,6 +213,9 @@ never sends your messages, contacts or events anywhere. It only goes online
 for what you see: sender logos (the sender's domain only, can be turned off),
 the weather if you turn it on, a website you chose as a space, and update
 checks. Details in the [privacy policy](store/privacy-en.md).
+
+Found a security problem? Please report it privately, see
+[SECURITY.md](SECURITY.md).
 
 ## Development
 

@@ -26,16 +26,22 @@ Reihenfolge:
       lösen; sonst git rebase --abort, die betroffenen lokalen Commits mit
       git branch rest/<datum>-konflikt sichern, main auf origin/main setzen
       (git reset --hard origin/main) und im Bericht nennen.
-   c) Alle so übernommenen Commits im Bericht unter „Mitgenommen“ auflisten.
+   c) Alle so übernommenen und alle seit dem letzten Lauf neuen Commits auf
+      main durchsehen (Regeln aus AGENTS.md, offensichtliche Fehler, Doppeltes;
+      Gefundenes zuerst beheben) und im Bericht unter „Mitgenommen“ auflisten.
+      Erst danach die Aufgabenliste laden (Reihenfolge des Maintainers vom
+      4.11.2026: Commits, Liste, Bugs, Features, Reihen).
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
    Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
    Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
    hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
-   Dann **erst alle Bugs, danach Features** (Entscheidung des Maintainers
-   vom 4.11.2026, abends): Bugs Bereich für Bereich, kleine vor großen;
-   Features erst, wenn keine machbaren Bugs mehr übrig sind – außer ein
-   Feature behebt einen Bug vermutlich mit, dann zusammen mit ihm. Bricht der
+   Dann in dieser Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
+   abends): **1. alle Bugs**, Bereich für Bereich, kleine vor großen;
+   **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
+   Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
+   wenn in der vorigen nichts Machbares übrig ist – außer ein Feature behebt
+   einen Bug vermutlich mit, dann zusammen mit ihm. Bricht der
    Lauf ab, ist so wenigstens ein Release mit Korrekturen draußen. Zusammenhänge und
    Zusammenlegungen im Bericht nennen. Von Reihen (n/m) nur den jeweils
    nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.

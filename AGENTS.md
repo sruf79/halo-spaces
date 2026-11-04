@@ -329,16 +329,19 @@ SessionStart-Hook die offenen Einträge in jede Sitzung.
 
 - Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
   berücksichtigen und passende Aufgaben nennen.
+- **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
+  abends): 1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
+  Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden,
+  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m).
 - **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
   (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
   hängen (Notiz in beiden Einträgen). Dann **erst alle Bugs,
-  danach die Features** (Entscheidung des Maintainers vom 4.11.2026, abends:
-  Bugs fixen ist in jedem Lauf wichtiger als neue Features): die Bugs
-  Bereich für Bereich, kleine vor großen; Features erst, wenn keine machbaren
-  Bugs übrig sind, ebenfalls Bereich für Bereich (von Reihen n/m nur der
-  nächste Schritt). Ausnahme: Ein Feature, das einen Bug vermutlich
-  mitbehebt, wird zusammen mit ihm erledigt.
+  danach einfache Features, zuletzt Reihen** (Bugs fixen ist in jedem Lauf
+  wichtiger als neue Features): jeweils Bereich für Bereich, kleine vor
+  großen; die nächste Stufe erst, wenn in der vorigen nichts Machbares übrig
+  ist; von Reihen n/m nur der nächste Schritt. Ausnahme: Ein Feature, das
+  einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in

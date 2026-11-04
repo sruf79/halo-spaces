@@ -10291,7 +10291,9 @@ Neu
             const row = od.getElementById("row-thanks"), btn = od.getElementById("s-thanks");
             const img = btn.querySelector("img");
             const out = { last: od.getElementById("settings").lastElementChild.contains(row), head: row.closest("section").previousElementSibling?.textContent,
-              label: row.querySelector(".label")?.textContent, text: btn.textContent, img: !!img && img.complete && img.naturalWidth > 0,
+              label: row.querySelector(".label")?.textContent, text: btn.textContent,
+              // je Satz eine Zeile (sonst bricht der Text je nach Breite irgendwo um)
+              lines: [...row.querySelectorAll(".hint > span")].map(e => [e.textContent, ow.getComputedStyle(e).display]), img: !!img && img.complete && img.naturalWidth > 0,
               due: btn.classList.contains("due"), shadow: ow.getComputedStyle(btn).boxShadow };
             btn.click(); await ruhig(300);
             out.after = { thanked, due: btn.classList.contains("due") };
@@ -10302,10 +10304,11 @@ Neu
         keys = ["Support halo.spaces", "Do you like halo.spaces?", "halo.spaces is free and made in spare time. A coffee helps keep it going."]
         counts = {k: len(re.findall(r'^\s*"' + re.escape(k) + r'":', src, re.M)) for k in keys}
         ok = (res.get("last") and res.get("head") == "Support halo.spaces" and res.get("label") == "Do you like halo.spaces?"
-              and res.get("text") == "Say Thanks" and res.get("img") and res.get("due") and res.get("shadow") not in (None, "", "none")
+              and res.get("text") == "Say Thanks" and res.get("img")
+              and res.get("lines") == [["halo.spaces is free and made in spare time.", "block"], ["A coffee helps keep it going.", "block"]] and res.get("due") and res.get("shadow") not in (None, "", "none")
               and res.get("after") == {"thanked": 1, "due": False} and all(c == 4 for c in counts.values()))
         return ok, f"{res}, Übersetzungen {counts}"
-    check("Einstellungen: ganz unten „Do you like halo.spaces?“ mit „Say Thanks“, Ring nur bei fälliger Erinnerung, übersetzt", thanks_settings, results)
+    check("Einstellungen: ganz unten „Do you like halo.spaces?“ mit „Say Thanks“ (je Satz eine Zeile), Ring nur bei fälliger Erinnerung, übersetzt", thanks_settings, results)
 
     def addons_manager():
         # Add-ons-Verwaltung (Thunderbird 140+, Bausteine im Schatten-DOM): Seitenleiste 34 px/13 px, Seite und Kopf in

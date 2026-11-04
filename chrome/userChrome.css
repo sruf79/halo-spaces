@@ -1952,6 +1952,21 @@ findbar .findbar-textbox:focus {
   height: 22px !important;
 }
 
+/* geteilter Knopf („Allen antworten“ mit Pfeil): eine Fläche in der Form
+   seines Stücks der Kapsel – Knopf und Pfeil darin ohne eigene runde Fläche
+   und ohne Schatten (ragte sonst über die Kapsel hinaus) */
+:root[mc-standalone] #header-view-toolbar toolbaritem > toolbarbutton[is="toolbarbutton-menu-button"] {
+  border-radius: inherit !important;
+  box-shadow: none !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker),
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):is(:hover, :active, [open]) {
+  background: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 :root[mc-standalone] #starMessageButton {
   justify-content: center !important;
 }

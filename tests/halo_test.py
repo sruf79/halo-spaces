@@ -13139,6 +13139,44 @@ Neu
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: ohne Betreff in der Titelleiste; Knöpfe einzeilig in eigener Zeile über Absender, Ordner und Uhrzeit (wie Apple Mail), auch schmal", message_window_bar, results)
 
+    def header_split_hover():
+        # GitHub-Issue #33: „Allen antworten“ mit Pfeil im Mailkopf – beim Überfahren eine Fläche in der Form des
+        # Kapselstücks, keine eigene runde Fläche von Knopf oder Pfeil, kein Schatten
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          let hdr = null;
+          for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
+            for (const h of f.messages) if (h.mime2DecodedSubject.includes("Treffen am Donnerstag")) { hdr = h; break; }
+            if (hdr) break; }
+          if (!hdr) return { mail: false };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = {};
+          try {
+            await until(() => mw.document.title.includes("Treffen"), 6000); await ruhig(1500);
+            const md = mw.document.getElementById("messageBrowser").contentDocument, mwin = md.defaultView;
+            const btn = md.getElementById("hdrReplyAllButton"), item = md.getElementById("hdrSmartReplyButton");
+            const parts = [btn?.querySelector(".toolbarbutton-menubutton-button"), btn?.querySelector(".toolbarbutton-menubutton-dropmarker")];
+            if (!btn || parts.some(p => !p)) return { button: false };
+            btn.removeAttribute("disabled"); parts.forEach(p => p.removeAttribute("disabled"));
+            const lock = [btn, ...parts];
+            for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
+            await ruhig(200);
+            const cs = e => mwin.getComputedStyle(e);
+            out.outer = { radius: cs(btn).borderTopLeftRadius, item: cs(item).borderTopLeftRadius, shadow: cs(btn).boxShadow };
+            out.parts = parts.map(e => ({ bg: cs(e).backgroundColor, img: cs(e).backgroundImage, radius: cs(e).borderTopLeftRadius, shadow: cs(e).boxShadow }));
+            for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover");
+          } finally { mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False or res.get("button") is False:
+            return False, f"Testmail oder Knopf fehlt {res}"
+        o = res.get("outer") or {}
+        ok = (o.get("radius") == o.get("item") and o.get("shadow") == "none"
+              and all(rgba_alpha(p["bg"]) == 0 and p["img"] == "none" and p["radius"] == "0px" and p["shadow"] == "none" for p in res.get("parts") or [{}]))
+        return ok, f"{res}"
+    check("Mailkopf: „Allen antworten“ mit Pfeil beim Überfahren eine Fläche in der Form der Kapsel, ohne runde Teilflächen und Schatten", header_split_hover, results)
+
     def calendar_list_light():
         # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe
         # (helle Farbe → dunkler Haken); nicht angehakt leeres Kästchen mit Rand in der Kalenderfarbe

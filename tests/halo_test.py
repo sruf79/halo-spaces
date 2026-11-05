@@ -2832,6 +2832,7 @@ def compose_checks(m, results):
           const f = await testFolder(); w.MsgFilters(null, f);
           const lw = await winUrl("FilterListDialog"); if (!lw) throw new Error("Filterliste nicht offen");
           await ruhig(1000);
+          out.rulesTitle = lw.document.title; // Filter heißen wie in Apple Mail Regeln
           try {
             out.filter = await dialog(() => lw.onNewFilter(), "FilterEditor", async (dw, dd) => {
               // „Apply filter when:“ bündig und gleich groß wie „Filter name:“, Kästchen eingerückt
@@ -2846,9 +2847,9 @@ def compose_checks(m, results):
         ok = (s["appearance"] == "none" and s["radius"] >= 6 and s["focus"] and same_color(s["focused"], s["accent"])
               and not same_color(s["unfocused"], s["accent"]) and f["terms"] == "none" and f["actions"] == "none"
               and abs(f["legend"][0] - f["label"][0]) <= 1 and abs(f["legend"][1] - f["label"][1]) < 0.5
-              and 500 <= f["legend"][2] <= 650 and f["box"] >= f["legend"][0] + 8)
+              and 500 <= f["legend"][2] <= 650 and f["box"] >= f["legend"][0] + 8 and res.get("rulesTitle") == "Rules")
         return ok, f"{res}"
-    check("Dialoge: Listen ohne harten Rahmen, Auswahl abgerundet in Akzentfarbe (Rechtschreibung), Filter-Editor ohne macOS-Rahmen, „Apply filter when:“ bündig und gleich groß", lists, results)
+    check("Dialoge: Listen ohne harten Rahmen, Auswahl abgerundet in Akzentfarbe (Rechtschreibung), Filter-Editor ohne macOS-Rahmen, „Apply filter when:“ bündig und gleich groß, Filterliste heißt „Rules“", lists, results)
 
     def tabs():
         res = m.js(COMPOSE_CHECK_JS + r"""
@@ -4191,10 +4192,11 @@ def menu_checks(m, results):
         file_ = res.get("menu_FilePopup", [])
         mail = res.get("messageMenuPopup", [])
         ok = ([t for t in top if t in want_top + ["Go", "Events and Tasks", "Tools"]] == want_top
-              and file_[:4] == ["New Message", "New Event…", "New Task…", "New Contact…"] and "Print…" in file_
+              and file_[:5] == ["New Message", "New Event…", "New Task…", "New List…", "New Contact…"] and "Print…" in file_
               and res.get("menu_EditPopup", [])[:2] == ["Undo", "Redo"] and "Search…" in res["menu_EditPopup"] and "Select Thread" in res["menu_EditPopup"]
               and "Show Folder List" in res.get("menu_View_Popup", []) and "Message" in res["menu_View_Popup"]
               and mail[:2] == ["Get New Mail", "Work Offline"] and "Star" in mail and "Mark Folder as Read" in mail and "Remind Me" in mail
+              and "Rules…" in mail and not any("Filter" in x for x in mail)
               and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces" in res["menu_HelpPopup"]
               and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
               and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
@@ -4237,7 +4239,7 @@ def menu_checks(m, results):
         hs = res.get("heights", [0, 0])
         rem = res.get("rows", []).index("Remind Me") if "Remind Me" in res.get("rows", []) else -1
         ok = (res.get("order") == order and rows[:1] == ["Open"] and rem > 0 and res["rows"][rem - 1] == "|" and res["rows"][rem + 1] == "|" and "Mark as Unread" in rows and "Mark as Read" not in rows
-              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-2:] == ["Run Filters", "Create Filter From Message…"]
+              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-2:] == ["Apply Rules", "Create Rule from Message…"]
               and "Ignore Subthread" not in rows and res.get("sub") == ["Remind Me", "Move To", "Copy To", "Convert To"]
               and res.get("flagged") is True and res.get("starLabel") == "Remove Star" and (hs[0] == 0 or hs[1] - hs[0] < 0.5))
         return ok, f"{res}"
@@ -5768,7 +5770,7 @@ def calendar_checks(m, results):
 
     def folder_menu_filters_junk():
         # GitHub-Issue #34: das ausgeblendete Menü Tools hatte „Run Filters on Folder“ und „Delete Mail Marked as Junk“ –
-        # jetzt im Kontextmenü des Ordners: „Run Filters“ bei Mail-Ordnern, „Erase Junk Mail“ nur beim Spam-Ordner
+        # jetzt im Kontextmenü des Ordners: „Apply Rules“ (Filter heißen wie in Apple Mail Regeln) bei Mail-Ordnern, „Erase Junk Mail“ nur beim Spam-Ordner
         res = m.js(r"""
           const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
           try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
@@ -5784,15 +5786,16 @@ def calendar_checks(m, results):
             row.dispatchEvent(new a3.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: 20, clientY: 10 }));
             await Promise.race([shown, wait(3000)]);
             const vis = id => { const e = a3.document.getElementById(id); return !!e && !e.hidden && e.getBoundingClientRect().height > 0; };
-            const out = { filters: vis("mcFolderRunFilters"), erase: vis("mcFolderEraseJunk"), label: a3.document.getElementById("mcFolderEraseJunk")?.getAttribute("label") };
+            const out = { filters: vis("mcFolderRunFilters"), erase: vis("mcFolderEraseJunk"), label: a3.document.getElementById("mcFolderEraseJunk")?.getAttribute("label"),
+                          rules: a3.document.getElementById("mcFolderRunFilters")?.getAttribute("label") };
             popup.hidePopup(); await ruhig(300);
             return out;
           };
           return { plain: await look(plain), junk: await look(junk) };""")
         p_, j = res.get("plain") or {}, res.get("junk") or {}
-        ok = p_.get("filters") and not p_.get("erase") and j.get("erase") and j.get("filters") and j.get("label") == "Erase Junk Mail"
+        ok = p_.get("filters") and not p_.get("erase") and j.get("erase") and j.get("filters") and j.get("label") == "Erase Junk Mail" and p_.get("rules") == "Apply Rules"
         return ok, f"{res}"
-    check("Ordnerliste: Kontextmenü mit „Run Filters“ für den Ordner, beim Spam-Ordner zusätzlich „Erase Junk Mail“", folder_menu_filters_junk, results)
+    check("Ordnerliste: Kontextmenü mit „Apply Rules“ für den Ordner, beim Spam-Ordner zusätzlich „Erase Junk Mail“", folder_menu_filters_junk, results)
 
     def week_title():
         # Woche wie Apple Kalender: Titel nur Monat und Jahr (über einen Monatswechsel „Nov – Dec 2026“), ganzer Zeitraum
@@ -13291,14 +13294,15 @@ Neu
           const out = {};
           // manche Bereiche legt Thunderbird erst beim ersten Öffnen an
           for (const pane of ["panePrivacy", "paneCalendar", "paneGeneral"]) { pw.gotoPref(pane); await ruhig(700); }
-          out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].map(id => {
+          out.cards = Object.fromEntries(["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView", "mcPrefRules"].map(id => {
             const c = pd.getElementById(id); return [id, c ? [...c.querySelectorAll("button, label")].map(e => e.textContent.trim().split(/\s{2,}|\n/)[0]) : null]; }));
           out.density = [...(pd.querySelector("#mcPrefFiles select")?.options || [])].map(o => o.value);
           const input = pd.getElementById("searchInput");
           const search = async q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true }));
-            await bis(() => pd.getElementById("sorry-message-query")?.textContent == q.trim().toLowerCase(), "Suche nach " + q + " fertig", 5000); await ruhig(1500); return ["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView"].filter(id => { const c = pd.getElementById(id); return c && !c.hidden && !c.classList.contains("visually-hidden") && c.getBoundingClientRect().height > 0; }); };
+            await bis(() => pd.getElementById("sorry-message-query")?.textContent == q.trim().toLowerCase(), "Suche nach " + q + " fertig", 5000); await ruhig(1500); return ["mcPrefFiles", "mcPrefPrivacy", "mcPrefOffline", "mcPrefCalendarView", "mcPrefRules"].filter(id => { const c = pd.getElementById(id); return c && !c.hidden && !c.classList.contains("visually-hidden") && c.getBoundingClientRect().height > 0; }); };
           out.findSaved = await search("saved files");
           out.findHistory = await search("recent history");
+          out.findRules = await search("rules");
           input.value = ""; input.dispatchEvent(new pw.Event("command", { bubbles: true }));
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
           const a3 = await toMail(); const fp = a3.document.getElementById("folderPaneContext");
@@ -13309,9 +13313,10 @@ Neu
         ok = (all(cards.get(k) for k in cards) and len(cards["mcPrefFiles"]) == 4 and len(cards["mcPrefCalendarView"]) == 4
               and res.get("density") == ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"]
               and "mcPrefFiles" in res.get("findSaved", []) and "mcPrefPrivacy" in res.get("findHistory", [])
+              and cards.get("mcPrefRules") == ["Rules…"] and "mcPrefRules" in res.get("findRules", [])
               and res.get("folder") == [True, True] and res.get("copyLink") == "menu_EditPopup")
         return ok, f"{res}"
-    check("Menüleiste: Entfernte Befehle in Einstellungen (per Suche findbar), Ordner-Kontextmenü und Bearbeiten-Menü", menubar_new_places, results)
+    check("Menüleiste: Entfernte Befehle in Einstellungen (per Suche findbar, auch „Rules…“), Ordner-Kontextmenü und Bearbeiten-Menü", menubar_new_places, results)
 
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),

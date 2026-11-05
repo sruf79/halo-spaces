@@ -32,6 +32,19 @@ var { setTimeout, clearTimeout, setInterval, clearInterval } = ChromeUtils.impor
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} ist eine Outlook-Datendatei, die halo.spaces noch nicht lesen kann (manche neueren Dateien aus Outlook lassen sich nicht öffnen).",
+  "Rules": "Regeln",
+  "Apply Rules": "Regeln anwenden",
+  "Create Rule from Message…": "Regel aus E-Mail erstellen …",
+  "Rules…": "Regeln …",
+  "New List…": "Neue Liste …",
+  "Show All Lists": "Alle Listen anzeigen",
+  "Add Online List…": "Online-Liste hinzufügen …",
+  "Sort By": "Sortieren nach",
+  "Due Date": "Fälligkeit",
+  "Creation Date": "Erstellungsdatum",
+  "Ascending": "Aufsteigend",
+  "Descending": "Absteigend",
   "Erase Junk Mail": "Werbung löschen",
   "Show in Calendar": "Im Kalender zeigen",
   "Account Settings": "Konten-Einstellungen",
@@ -487,6 +500,19 @@ const DE = {
   "{n} days before": "{n} Tage vorher",
 };
 const FR = {
+  "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} est un fichier de données Outlook que halo.spaces ne peut pas encore lire (certains fichiers récents d’Outlook ne peuvent pas être ouverts).",
+  "Rules": "Règles",
+  "Apply Rules": "Appliquer les règles",
+  "Create Rule from Message…": "Créer une règle à partir du message…",
+  "Rules…": "Règles…",
+  "New List…": "Nouvelle liste…",
+  "Show All Lists": "Afficher toutes les listes",
+  "Add Online List…": "Ajouter une liste en ligne…",
+  "Sort By": "Trier par",
+  "Due Date": "Échéance",
+  "Creation Date": "Date de création",
+  "Ascending": "Croissant",
+  "Descending": "Décroissant",
   "Erase Junk Mail": "Effacer le courrier indésirable",
   "Show in Calendar": "Afficher dans le calendrier",
   "Account Settings": "Paramètres des comptes",
@@ -942,6 +968,19 @@ const FR = {
   "{n} days before": "{n} jours avant",
 };
 const ES = {
+  "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} es un archivo de datos de Outlook que halo.spaces aún no puede leer (algunos archivos recientes de Outlook no se pueden abrir).",
+  "Rules": "Reglas",
+  "Apply Rules": "Aplicar reglas",
+  "Create Rule from Message…": "Crear regla a partir del mensaje…",
+  "Rules…": "Reglas…",
+  "New List…": "Nueva lista…",
+  "Show All Lists": "Mostrar todas las listas",
+  "Add Online List…": "Añadir lista en línea…",
+  "Sort By": "Ordenar por",
+  "Due Date": "Vencimiento",
+  "Creation Date": "Fecha de creación",
+  "Ascending": "Ascendente",
+  "Descending": "Descendente",
   "Erase Junk Mail": "Borrar correo no deseado",
   "Show in Calendar": "Mostrar en el calendario",
   "Account Settings": "Configuración de cuentas",
@@ -1397,6 +1436,19 @@ const ES = {
   "{n} days before": "{n} días antes",
 };
 const IT = {
+  "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} è un file di dati di Outlook che halo.spaces non può ancora leggere (alcuni file recenti di Outlook non si possono aprire).",
+  "Rules": "Regole",
+  "Apply Rules": "Applica regole",
+  "Create Rule from Message…": "Crea regola dal messaggio…",
+  "Rules…": "Regole…",
+  "New List…": "Nuova lista…",
+  "Show All Lists": "Mostra tutti gli elenchi",
+  "Add Online List…": "Aggiungi elenco online…",
+  "Sort By": "Ordina per",
+  "Due Date": "Scadenza",
+  "Creation Date": "Data di creazione",
+  "Ascending": "Crescente",
+  "Descending": "Decrescente",
   "Erase Junk Mail": "Cancella posta indesiderata",
   "Show in Calendar": "Mostra nel calendario",
   "Account Settings": "Impostazioni account",
@@ -5740,7 +5792,7 @@ function hookMenubar(win, restorers) {
       L("replyNewsgroupMainMenu"), L("menu_forwardMsg"), S,
       L("markReadMenuItem", "Mark as Read"), L("markUnreadMenuItem", "Mark as Unread"), L("markFlaggedMenuItem", "Star"),
       L("menu_markAsJunk", "Mark as Spam"), L("menu_markAsNotJunk", "Mark as Not Spam"), L("tagMenu"), [remind], S,
-      L("archiveMainMenu"), L("moveMenu"), S, L("menu_markAllRead", "Mark Folder as Read"), S, L("filtersCmd"),
+      L("archiveMainMenu"), L("moveMenu"), S, L("menu_markAllRead", "Mark Folder as Read"), S, L("filtersCmd", "Rules…"),
     ]],
     ["mcHelpTroublePopup", [
       L("aboutsupport_open"), L("helpTroubleshootMode"), S,
@@ -7991,7 +8043,8 @@ function hookFolderContextExtras(a3, restorers) {
   const junk = make("mcFolderJunk", "runJunkControls", "cmd_runJunkControls");
   // Thunderbirds Menü „Tools“ blendet halo.spaces aus: Filter auf den ganzen
   // Ordner und „Spam löschen“ (nur beim Spam-Ordner, wie Apple Mail) hier
-  const filters = make("mcFolderRunFilters", "applyFilters", "cmd_applyFilters", tr("Run Filters"));
+  // Thunderbirds Nachrichtenfilter heißen wie in Apple Mail Regeln
+  const filters = make("mcFolderRunFilters", "applyFilters", "cmd_applyFilters", tr("Apply Rules"));
   const eraseJunk = make("mcFolderEraseJunk", "deleteJunk", "cmd_deleteJunk", tr("Erase Junk Mail"));
   anchor.after(byDate, junk, filters, eraseJunk);
   // „On My Mac“ ausblenden – ganz unten im Kontextmenü dieser Zeile; wieder
@@ -9333,6 +9386,8 @@ const PREF_TOOLS = [
     { choice: "menu_uiDensity", items: ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"] },
   ]],
   ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
+  // Filter heißen wie in Apple Mail Regeln: alle Regeln ansehen und anlegen
+  ["mcPrefRules", "paneGeneral", null, "Rules", [{ button: "filtersCmd" }]],
   ["mcPrefOffline", "paneGeneral", null, "Offline", [
     { button: "menu_synchronizeOffline" },
     { button: "menu_downloadFlagged" },
@@ -11888,6 +11943,15 @@ class CardEnhancer {
           if (url.startsWith("chrome://calendar/content/calendar-event-dialog-attendees.xhtml") && doc.defaultView) {
             const aw = doc.defaultView;
             aw.addEventListener("load", () => aw.setTimeout(() => hookDateTimePickers(aw), 0), { once: true });
+          }
+          // Filterliste heißt wie in Apple Mail „Rules“ (Titel unter Windows/Linux sichtbar)
+          if (url.startsWith("chrome://messenger/content/FilterListDialog.xhtml") && doc.defaultView) {
+            const fw = doc.defaultView;
+            fw.addEventListener("DOMContentLoaded", () => {
+              const title = fw.document.querySelector("title");
+              title?.removeAttribute("data-l10n-id");
+              fw.document.title = tr("Rules");
+            }, { once: true });
           }
           // Dialogfenster als ruhige Karte ohne sichtbare Titelleiste (macOS)
           if (CARD_WINDOWS.some(u => url.startsWith(u)) && doc.defaultView) {
@@ -19394,9 +19458,9 @@ class CardEnhancer {
       return el;
     };
     const open = own("mcContextOpen", "Open", "cmd_openMessage");
-    const filters = own("mcContextRunFilters", "Run Filters", "cmd_applyFiltersToSelection");
+    const filters = own("mcContextRunFilters", "Apply Rules", "cmd_applyFiltersToSelection");
     // Filter aus dieser Mail anlegen – stand nur im ausgeblendeten Menü Message
-    const makeFilter = own("mcContextCreateFilter", "Create Filter From Message…", "cmd_createFilterFromMenu");
+    const makeFilter = own("mcContextCreateFilter", "Create Rule from Message…", "cmd_createFilterFromMenu");
     const remindSep = doc.createXULElement("menuseparator");
     remindSep.id = "mcContextRemindSep";
     const S = "-";

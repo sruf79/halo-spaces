@@ -11041,6 +11041,16 @@ Neu
             await till(() => cmenu?.state == "open", 3000); await ruhig(200);
             const labels = [...(cmenu?.children || [])].filter(i => i.localName == "menuitem" && !i.hidden && i.getBoundingClientRect().height > 0).map(i => i.getAttribute("label"));
             out.menuDup = labels.filter((l, k) => l && labels.indexOf(l) != k); out.menuN = labels.length;
+            // ganz oben „Edit Task…“ (statt „Open Task…“), öffnet die gewählte Aufgabe
+            out.menuFirst = labels[0]; out.openTask = labels.some(l => /^Open Task/.test(l || ""));
+            const origModify = w.modifyEventWithDialog; let edited = null;
+            w.modifyEventWithDialog = item => { edited = item?.title; };
+            try {
+              const first = [...cmenu.children].find(i => i.localName == "menuitem" && !i.hidden);
+              cmenu.activateItem ? cmenu.activateItem(first) : first.doCommand();
+              await bis(() => edited, "Edit Task… öffnet die Aufgabe", 3000).catch(() => {});
+            } finally { w.modifyEventWithDialog = origModify; }
+            out.edited = edited;
             cmenu?.hidePopup(); await ruhig(300);
             // Kreis: erledigt
             const check = card.querySelector(".mc-tc-check"), cr = check.getBoundingClientRect();
@@ -11064,9 +11074,10 @@ Neu
         ok = (res.get("card") and lk.get("radius") == res.get("mailRadius") and lk.get("shadow") and lk.get("lines") == 2 and lk.get("prio") == "!!!"
               and not lk.get("treeShown") and sl.get("task") == "Halo Kartenaufgabe" and sl.get("card") and sl.get("focused")
               and same_color(sl.get("bg", ""), sl.get("accent", "")) and res.get("completed") and (res.get("menu") or [None])[0] == "Card View"
-              and res.get("table") == {"cards": False, "tree": True} and res.get("menuDup") == [] and res.get("menuN", 0) >= 4)
+              and res.get("table") == {"cards": False, "tree": True} and res.get("menuDup") == [] and res.get("menuN", 0) >= 4
+              and res.get("menuFirst") == "Edit Task…" and not res.get("openTask") and res.get("edited") == "Halo Kartenaufgabe")
         return ok, f"{res}"
-    check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Tabelle zeigt Thunderbirds Liste", task_cards, results)
+    check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Kontextmenü mit „Edit Task…“ ganz oben, Tabelle zeigt Thunderbirds Liste", task_cards, results)
 
     def task_header():
         # Aufgaben wie die Mail (neue Detailansicht 1/4): „…“ an derselben Stelle wie über der Mailliste (kein Filterknopf), Titel,

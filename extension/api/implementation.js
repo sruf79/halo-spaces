@@ -122,6 +122,7 @@ const DE = {
   "Never": "Nie",
   "New Event": "Neuer Termin",
   "New Task": "Neue Aufgabe",
+  "Edit Task…": "Aufgabe bearbeiten …",
   "Next Month": "Nächster Monat",
   "No calendar for tasks": "Kein Kalender für Aufgaben",
   "No Due Date": "Kein Fälligkeitsdatum",
@@ -557,6 +558,7 @@ const FR = {
   "Never": "Jamais",
   "New Event": "Nouvel événement",
   "New Task": "Nouvelle tâche",
+  "Edit Task…": "Modifier la tâche…",
   "Next Month": "Mois suivant",
   "No calendar for tasks": "Aucun calendrier pour les tâches",
   "No Due Date": "Sans échéance",
@@ -993,6 +995,7 @@ const ES = {
   "Never": "Nunca",
   "New Event": "Nuevo evento",
   "New Task": "Nueva tarea",
+  "Edit Task…": "Editar tarea…",
   "Next Month": "Mes siguiente",
   "No calendar for tasks": "Ningún calendario para tareas",
   "No Due Date": "Sin vencimiento",
@@ -1429,6 +1432,7 @@ const IT = {
   "Never": "Mai",
   "New Event": "Nuovo evento",
   "New Task": "Nuova attività",
+  "Edit Task…": "Modifica attività…",
   "Next Month": "Mese successivo",
   "No calendar for tasks": "Nessun calendario per le attività",
   "No Due Date": "Nessuna scadenza",
@@ -6353,10 +6357,27 @@ function hookTaskCards(win, restorers) {
       b.setAttribute("aria-label", tr(text));
     }
   }
+  // Kontextmenü: „Edit Task…“ ganz oben statt Thunderbirds „Open Task…“
+  // (Entscheidung des Maintainers: so heißt der Eintrag, solange es den Dialog gibt)
+  const editItem = doc.getElementById("task-context-menu-modify");
+  const editPlace = editItem && [editItem.parentNode, editItem.nextSibling, editItem.getAttribute("data-l10n-id")];
+  if (editItem) {
+    editItem.removeAttribute("data-l10n-id");
+    editItem.setAttribute("label", tr("Edit Task…"));
+    editItem.parentNode.prepend(editItem);
+  }
   schedule();
   restorers?.push(() => {
     toggleCmd?.removeEventListener("command", onToggle, true);
     win.removeEventListener("popupshowing", onMenuShowing, true);
+    if (editPlace) {
+      const [parent, next, l10n] = editPlace;
+      parent.insertBefore(editItem, next?.parentNode == parent ? next : null);
+      if (l10n) {
+        editItem.setAttribute("data-l10n-id", l10n);
+        doc.l10n?.translateElements([editItem]);
+      }
+    }
     for (const [b, l10n] of renamed) {
       b.removeAttribute("aria-label");
       if (l10n) {

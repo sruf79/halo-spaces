@@ -11636,6 +11636,24 @@ Neu
                            details: Math.round(det.getBoundingClientRect().width), detLeft: Math.round(det.getBoundingClientRect().left),
                            detMin: parseFloat(csOf(det).minWidth), searchLeft: Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().left),
                            actRight: Math.round(Math.max(...[...d.getElementById("task-actions-toolbar").children].filter(b => b.getBoundingClientRect().width).map(b => b.getBoundingClientRect().right))) };
+            // Teiler zu den Details ziehen: „+“ und Aktionen wandern mit (blieben vorher über der Liste stehen)
+            if (d.documentElement.hasAttribute("mc-task-side")) {
+              const TW = "extensions.mailcards.taskDetailsWidth", had = Services.prefs.prefHasUserValue(TW) ? Services.prefs.getIntPref(TW) : null;
+              const sr = split.getBoundingClientRect(), y = sr.top + sr.height / 2, x = sr.left + sr.width / 2;
+              const ev = (el, type, dx) => el.dispatchEvent(new w.MouseEvent(type, { bubbles: true, cancelable: true, button: 0,
+                clientX: x + dx, clientY: y, screenX: w.mozInnerScreenX + x + dx, screenY: w.mozInnerScreenY + y }));
+              const acts = () => Math.round(d.getElementById("task-actions-toolbar").getBoundingClientRect().left);
+              const before = { plus: R(plusB).l, acts: acts(), split: Math.round(sr.left) };
+              ev(split, "mousedown", 0); ev(w, "mousemove", -40); ev(w, "mousemove", -80); await ruhig(300);
+              const moved = { plus: R(plusB).l, acts: acts(), split: Math.round(split.getBoundingClientRect().left) };
+              ev(w, "mouseup", -80); await ruhig(300);
+              // zurück um genau die gezogene Strecke (die Liste hat eine Mindestbreite)
+              const dx = moved.split - before.split;
+              ev(split, "mousedown", dx); ev(w, "mousemove", 0); ev(w, "mouseup", 0); await ruhig(500);
+              if (had == null) Services.prefs.clearUserPref(TW); else Services.prefs.setIntPref(TW, had);
+              out.drag = { split: moved.split - before.split, plus: moved.plus - before.plus, acts: moved.acts - before.acts,
+                           back: R(plusB).l - before.plus };
+            }
             const row = d.getElementById("unifiedToolbarContainer").getBoundingClientRect();
             const bar = d.getElementById("task-actions-toolbar");
             out.actions = [...bar.children].filter(b => b.getBoundingClientRect().width).map(b => {
@@ -11666,9 +11684,11 @@ Neu
               and abs(ly.get("line", 0) - ly.get("split", -9)) <= 1 and ly.get("details", 0) >= ly.get("detMin", 9999) - 1
               and ly["detMin"] >= ly["actRight"] - ly["detLeft"] + 40
               and em.get("hidden") and em.get("text") == "No Task Selected" and em.get("content") and em.get("vis") == "visible"
-              and res.get("viewMenu") == ["Card View", "Table View"])
+              and res.get("viewMenu") == ["Card View", "Table View"]
+              and (not res.get("drag") or (res["drag"]["split"] <= -60 and abs(res["drag"]["plus"] - res["drag"]["split"]) <= 2
+                                           and abs(res["drag"]["acts"] - res["drag"]["split"]) <= 2 and abs(res["drag"]["back"]) <= 2)))
         return ok, f"{res}"
-    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ und Aktionen über den Details, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
+    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ und Aktionen über den Details und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Aktionen als drei Kapseln (Erledigt | Kategorie ·

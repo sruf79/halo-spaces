@@ -5940,7 +5940,12 @@ function hookTaskView(win, restorers) {
     const rtl = win.getComputedStyle(details).direction == "rtl" ? -1 : 1;
     const x0 = event.screenX, w0 = list.width;
     details.__mcDragging = true;
-    const move = e => setListWidth(w0 + (e.screenX - x0) * rtl);
+    // „+“ und die Aktionsknöpfe rechts davon stehen über den Details – sie
+    // folgen dem Teiler (die Ausrichtung beobachtet die Liste nicht)
+    const move = e => {
+      setListWidth(w0 + (e.screenX - x0) * rtl);
+      enhancer?.sideEdgeUpdaters?.forEach(fn => fn());
+    };
     const up = () => {
       win.removeEventListener("mousemove", move, true);
       win.removeEventListener("mouseup", up, true);
@@ -12386,7 +12391,9 @@ class CardEnhancer {
         const actions = d.getElementById("task-actions-toolbar");
         {
           if (side && lr?.width) {
-            edge = Math.max(edge, lr.right + 6);
+            // (immer an der Liste, nicht am Platz der Mail-Knöpfe – beim Ziehen
+            // des Teilers wird die Liste schmaler, „+“ und Aktionen folgen ihr)
+            edge = lr.right + 6;
             headRight = lr.right;
             // Mindestbreite der Details: ihre Knopfzeile – „+“ samt dem Platz
             // der Aktionen rechts davon, Suchfeld als Lupe, was rechts der Suche

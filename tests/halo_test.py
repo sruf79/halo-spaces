@@ -12817,6 +12817,8 @@ Neu
           // (in der Windows-CI waren die Unterpunkte einmal verborgen – nicht nachstellbar: warten und mitschreiben, was gewählt ist)
           await until(() => vis("paneMcAccounts"), 5000);
           out.sel = [pd.getElementById("categories").selectedItem?.value, pd.getElementById("mcCat-paneMcAccounts")?.hasAttribute("mc-folded")];
+          // unter Linux springt die Auswahl einige Sekunden nach dem Öffnen auf General zurück (eigener Eintrag) – dann erneut wählen
+          if (!vis("paneMcAccounts")) { await pick("paneMcAccounts", 1500); await until(() => vis("paneMcAccounts"), 5000); }
           const acc = page("about:accountsettings"), fd = acc.contentDocument, tree = fd.getElementById("accounttree");
           const local = MailServices.accounts.localFoldersServer.key;
           // Konto „Lokale Ordner“ wählen, dann seine zweite Seite (Speicherplatz)

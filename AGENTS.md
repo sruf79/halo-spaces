@@ -421,7 +421,9 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   die Sitzung automatisch und ohne Rückfrage an neon (Entscheidung des
   Maintainers vom 5.11.2026). Sitzungen auf neon speichern es selbst unter
   `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
-  data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben),
+  data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben;
+  Originaldatei unverändert, nicht verkleinern oder umkodieren – die Seite
+  fasst bis 16 MB, größere Bilder als Assets mit `asset: true`, bis 15 MB je Datei),
   neon liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
   sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
   Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.

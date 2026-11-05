@@ -6401,7 +6401,11 @@ function hookTaskCards(win, restorers) {
         item.hidden = hide;
       }
     }
-    menu?.openPopupAtScreen(event.screenX, event.screenY, true, event);
+    // Auslöser des Menüs ist Thunderbirds Aufgabenliste (sein Menücode sucht
+    // dort nach .calendar-task-tree – von der Karte aus brach er mit Fehler ab)
+    const trigger = new win.MouseEvent("mc-task-context", { screenX: event.screenX, screenY: event.screenY, clientX: event.clientX, clientY: event.clientY });
+    tree.dispatchEvent(trigger);
+    menu?.openPopupAtScreen(event.screenX, event.screenY, true, trigger);
   });
   const prefObs = () => schedule();
   Services.prefs.addObserver(TASK_VIEW_PREF, prefObs);

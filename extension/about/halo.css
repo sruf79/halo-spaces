@@ -142,21 +142,8 @@ main {
   opacity: 0.85;
 }
 
-/* Spenden: zarte Fläche in der Farbe des Kalender-Bereichs */
-.capsule.donate {
-  background: color-mix(in srgb, var(--donate) 14%, transparent);
-  color: color-mix(in srgb, var(--donate) 70%, var(--text));
-}
-
-.capsule.donate:hover {
-  background: color-mix(in srgb, var(--donate) 22%, transparent);
-}
-
-/* Erinnerung fällig (Thanks in implementation.js): Ring in der Spendenfarbe,
-   kein Blinken */
-.capsule.donate.due {
-  box-shadow: inset 0 0 0 1.5px var(--donate);
-}
+/* Spenden: Knopf wie im Comment Ranker (coffee-button.css); fällige
+   Erinnerung (.due, Thanks in implementation.js): Dampf läuft von selbst */
 
 .note {
   margin: -6px 0 0;
@@ -165,11 +152,6 @@ main {
   background: var(--control);
   font-size: calc(12px * var(--mt-font-scale, 1));
   color: var(--text-secondary);
-}
-
-.capsule .coffee {
-  width: 20px;
-  height: 20px;
 }
 
 /* mehrere Absätze im Hinweis (Begrüßung, Plattform) */

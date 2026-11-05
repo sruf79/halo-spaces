@@ -11143,7 +11143,9 @@ Neu
             const hw = await bis(() => { const x = halo(); return x?.document.getElementById("version")?.textContent && x; }, "Info-Fenster offen", 8000);
             await ruhig(300);
             const btn = hw.document.getElementById("donate");
-            out.ring = { due: btn.classList.contains("due"), shadow: hw.getComputedStyle(btn).boxShadow };
+            // fällig: Dampf steigt von selbst aus der Tasse (Knopf wie im Comment Ranker)
+            out.ring = { due: btn.classList.contains("due"), shadow: hw.getComputedStyle(btn).boxShadow, coffee: btn.classList.contains("coffee-btn"),
+                         wisps: btn.querySelectorAll(".cb-steam .cb-wisp").length, steam: hw.getComputedStyle(btn.querySelector(".cb-steam") || btn).opacity };
             btn.click(); await ruhig(300);
             btn.click(); await ruhig(300);
             out.after = { count: Services.prefs.getIntPref(P + "count", 0), due: T.due(), ring: btn.classList.contains("due"),
@@ -11208,9 +11210,14 @@ Neu
               label: row.querySelector(".label")?.textContent, text: btn.textContent,
               // je Satz eine Zeile (sonst bricht der Text je nach Breite irgendwo um)
               lines: [...row.querySelectorAll(".hint > span")].map(e => [e.textContent, ow.getComputedStyle(e).display]), img: !!img && img.complete && img.naturalWidth > 0,
-              due: btn.classList.contains("due"), shadow: ow.getComputedStyle(btn).boxShadow };
+              due: btn.classList.contains("due"), shadow: ow.getComputedStyle(btn).boxShadow,
+              // Knopf wie im Comment Ranker: Kapsel mit goldenem Ring, Tasse mit Dampf (fällig: Dampf sichtbar)
+              coffee: { cls: btn.classList.contains("coffee-btn"), radius: parseFloat(ow.getComputedStyle(btn).borderTopLeftRadius), h: Math.round(btn.getBoundingClientRect().height),
+                        gold: /230, 170, 0/.test(ow.getComputedStyle(btn).boxShadow), wisps: btn.querySelectorAll(".cb-wisp").length,
+                        steam: ow.getComputedStyle(btn.querySelector(".cb-steam") || btn).opacity } };
             btn.click(); await ruhig(300);
             out.after = { thanked, due: btn.classList.contains("due") };
+            await ruhig(1700); out.afterSteam = ow.getComputedStyle(btn.querySelector(".cb-steam") || btn).opacity;
             return out;
           } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
         import re

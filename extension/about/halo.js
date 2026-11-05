@@ -7,3 +7,6 @@ window.addEventListener("keydown", event => {
     window.close();
   }
 });
+
+// „Say Thanks“ mit Tasse und Dampf wie im Comment Ranker (coffee-button.js)
+coffeeButton(document.getElementById("donate"), null, "coffee.svg");

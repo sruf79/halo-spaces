@@ -346,8 +346,9 @@ async function render() {
   }
   // ganz unten: „Danke sagen“ (Ring, solange die Erinnerung fällig ist, siehe
   // Thanks in implementation.js)
-  const thanks = el("button", { type: "button", id: "s-thanks", class: settings.thanksDue ? "thanks due" : "thanks" },
-    el("span", { textContent: t("Say Thanks") }), el("img", { src: "../about/coffee.svg", alt: "" }));
+  // Knopf wie im Comment Ranker: goldener Ring, Tasse mit Dampf (coffee-button.js)
+  const thanks = coffeeButton(el("button", { type: "button", id: "s-thanks", class: settings.thanksDue ? "thanks due" : "thanks" }),
+    t("Say Thanks"), "../about/coffee.svg");
   thanks.addEventListener("click", () => {
     thanks.classList.remove("due");
     api.sayThanks();

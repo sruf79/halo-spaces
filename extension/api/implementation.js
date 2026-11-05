@@ -4116,33 +4116,6 @@ const WEATHER_WORDS = {
   cloudy: "Cloudy", fog: "Fog", rain: "Rain", snow: "Snow", thunder: "Thunderstorm",
 };
 
-// CoreLocation aus einem JXA-Skript (osascript, wie MAC_PHOTOS_SCRIPT):
-// Erlaubnis anfragen, bis zu 60 s auf einen Standort warten (solange macOS
-// fragt, läuft die Zeit weiter), Koordinaten auf 2 Nachkommastellen gerundet
-// als JSON ausgeben; abgelehnt oder Ortungsdienste aus: {"error": …}
-const MAC_LOCATION_SCRIPT = `ObjC.import("CoreLocation");
-function run() {
-  if (!$.CLLocationManager.locationServicesEnabled) return JSON.stringify({ error: "off" });
-  const m = $.CLLocationManager.alloc.init;
-  m.desiredAccuracy = 3000;
-  if (m.requestWhenInUseAuthorization) m.requestWhenInUseAuthorization;
-  m.startUpdatingLocation;
-  const until = Date.now() + 60000;
-  while (Date.now() < until) {
-    $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(0.25));
-    const st = m.authorizationStatus;
-    if (st == 1 || st == 2) return JSON.stringify({ error: "denied" });
-    const loc = m.location;
-    if (loc && !loc.isNil()) {
-      const c = loc.coordinate;
-      m.stopUpdatingLocation;
-      return JSON.stringify({ lat: Math.round(c.latitude * 100) / 100, lon: Math.round(c.longitude * 100) / 100 });
-    }
-  }
-  m.stopUpdatingLocation;
-  return JSON.stringify({ error: "timeout" });
-}`;
-
 const Weather = {
   titles: new Set(),
   timer: null,
@@ -4253,43 +4226,14 @@ const Weather = {
     const list = this.state().recent;
     return Array.isArray(list) ? list.filter(p => p?.label && Number.isFinite(p.lat) && Number.isFinite(p.lon)).slice(0, 5) : [];
   },
-  // macOS: Thunderbird selbst fragt die Ortungsdienste nie um Erlaubnis
-  // (sein Standortdienst meldet sofort „nicht verfügbar“). Ein kleines Skript
-  // wie für die Kontaktfotos fragt CoreLocation direkt – macOS zeigt dabei
-  // einmal seine Abfrage für Thunderbird. Gibt Koordinaten oder den Grund zurück
-  async locateMac() {
-    const script = PathUtils.join(PathUtils.tempDir, "mail-cards-location.js");
-    try {
-      await IOUtils.writeUTF8(script, MAC_LOCATION_SCRIPT);
-      const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
-      const proc = await Subprocess.call({ command: "/usr/bin/osascript", arguments: ["-l", "JavaScript", script], stderr: "pipe" });
-      const killer = setTimeout(() => proc.kill(), 70000);
-      const [out] = await Promise.all([proc.stdout.readString(), proc.stderr.readString()]);
-      await proc.wait();
-      clearTimeout(killer);
-      const res = JSON.parse(out.trim() || "{}");
-      if (Number.isFinite(res.lat) && Number.isFinite(res.lon)) {
-        return { lat: res.lat, lon: res.lon };
-      }
-      return { error: res.error == "denied" ? "denied" : "unavailable" };
-    } catch (e) {
-      log("mac location error", String(e).slice(0, 160));
-      return { error: "unavailable" };
-    } finally {
-      await IOUtils.remove(script).catch(() => {});
-    }
-  },
-  // Standort des Systems: macOS über locateMac, sonst (und als Rückfall)
-  // Thunderbirds Standortdienst (Windows-Standort, GeoClue) –
-  // navigator.geolocation im Fenster wartete auf eine Freigabe-Abfrage, die
-  // Thunderbird nie zeigt, und kam nie zurück. Eigene Zeitgrenze zusätzlich
-  async locate(win) {
-    if (Services.appinfo.OS == "Darwin") {
-      const mac = await this.locateMac();
-      if (!mac.error || mac.error == "denied") {
-        return mac;
-      }
-    }
+  // Standort des Systems über Thunderbirds Standortdienst (CoreLocation,
+  // Windows-Standort, GeoClue) – navigator.geolocation im Fenster wartete auf
+  // eine Freigabe-Abfrage, die Thunderbird nie zeigt, und kam nie zurück.
+  // Unter macOS holt sich Thunderbird selbst keine Freigabe für die Ortung
+  // (auch ein Skript über osascript bekommt keine – macOS fragt dafür nicht):
+  // dann „nicht verfügbar“, und „Choose City…“ führt zur Stadtwahl.
+  // Eigene Zeitgrenze zusätzlich
+  locate(win) {
     return this.locateGecko(win);
   },
   locateGecko(win) {
@@ -4392,8 +4336,8 @@ const Weather = {
           return;
         }
       } else {
-        // Standort höchstens alle 3 Stunden neu bestimmen (auf dem Mac startet
-        // das jedes Mal ein kleines Skript); das Wetter dazu weiter alle 30 Minuten
+        // Standort höchstens alle 3 Stunden neu bestimmen, das Wetter dazu
+        // weiter alle 30 Minuten
         const fresh = !force && !st.for && st.lat != null && st.locTime && Date.now() - st.locTime < 3 * 3600 * 1000;
         where = fresh ? { lat: st.lat, lon: st.lon, locTime: st.locTime } : await this.locate(win);
         where.locTime ||= Date.now();

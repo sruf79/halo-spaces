@@ -121,15 +121,19 @@ def start(tb, profile, port):
     return proc, m
 
 
-def konsole(m, wann):
+def konsole(m, wann, board=True):
     """Fehlerkonsole dieser Thunderbird-Sitzung – nur Warnung wie in halo_test.py (Zeilen „KONSOLE  …“), hält kein
     Release auf; release.sh übernimmt die Zusammenfassung in Marke und Bericht. Liest die Mitschrift aus start()."""
     try:
         res = ht.konsole_lesen(m)
         errors, notes = ht.konsole_bewerten(res)
-        ht.konsole_melden(errors, notes)
         perrors, _ = ht.konsole_bewerten(ht.protokoll_lesen(m))  # Fehlerprotokoll der Erweiterung ebenso
-        ht.konsole_melden(perrors, [], "PROTOKOLL")
+        if board:
+            ht.konsole_melden(errors, notes)
+            ht.konsole_melden(perrors, [], "PROTOKOLL")
+        else:  # Sitzung mit der alten, schon veröffentlichten Version: nur zur Kenntnis, nicht ins Board (nicht behebbar)
+            for e in errors + perrors:
+                print(f"Hinweis (alte Version/Update): {e}", flush=True)
         print(f"Fehlerkonsole ({wann}): {len(errors)} Fehler aus halo.spaces, {len(perrors)} im Fehlerprotokoll (nur Warnung), "
               f"Thunderbird selbst: {res.get('fremd')} Fehler", flush=True)
     except Exception as e:
@@ -255,7 +259,7 @@ def main():
             after = m.js(STATE_JS)
             compare(results, "nach dem Update", before, after, target)
         # alte Version und Update im laufenden Thunderbird (Abbau der alten, Start der neuen Version)
-        konsole(m, "Update im laufenden Thunderbird")
+        konsole(m, "alte Version und Update im laufenden Thunderbird", board=False)
     finally:
         if proc:
             ht.stop_thunderbird(args.port, proc)

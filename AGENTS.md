@@ -450,7 +450,11 @@ anheben (nach Test).
   sichtbaren Scrollbalken. Maße und Abstände orientieren sich an Apple Mail.
   Formen (Entscheidung des Maintainers vom 5.11.2026): Knöpfe und
   Suchfelder als Kapsel wie bei Apple; übrige Eingabefelder mit kleinem
-  Radius und Haarlinie.
+  Radius und Haarlinie. Suchfelder haben keinen Hover-Zustand: Weder
+  das Feld noch die Lupe ändert beim Überfahren Farbe oder Form, die
+  Lupe bekommt keine eigene Fläche bzw. Umrandung innerhalb der Kapsel
+  (anders als Symbol-Knöpfe in Kapseln); erst der Fokus (Klick ins
+  Feld) zeigt den blauen Fokusring.
 - **Oberflächentexte:** in `implementation.js` mit englischem Schlüssel; die
   deutsche Übersetzung steht in der Tabelle `DE` am Dateianfang – neue Texte
   dort ergänzen.

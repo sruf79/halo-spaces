@@ -4587,7 +4587,7 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 19px no-repeat !important;
 }
 
 #composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {

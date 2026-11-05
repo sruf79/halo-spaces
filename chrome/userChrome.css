@@ -65,12 +65,12 @@
   --mt-table-row-h: 28px;
   --mt-table-head-h: 30px;
   --mt-table-stripe: rgba(0, 0, 0, 0.035);
-  /* Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch
-     (gut die halbe Kapselhöhe), mittig; beim Überfahren der Kapsel verschwinden
+  /* Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 21 px hoch
+     (gut die halbe Kapselhöhe, gemessen 19 pt bei 34 pt hoher Kapsel), mittig; beim Überfahren der Kapsel verschwinden
      alle Trennstriche, der Knopf unter der Maus bekommt eine runde Fläche mit
      3 px Abstand zum Kapselrand (--mt-cap-dot: Kreis bzw. Oval mittig im Knopf) */
   --mt-cap-line: rgba(0, 0, 0, 0.2);
-  --mt-cap-line-h: 20px;
+  --mt-cap-line-h: 21px;
   --mt-cap-hover: rgba(0, 0, 0, 0.07);
   --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
   --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
@@ -1227,7 +1227,7 @@ body:has(> #accountCentral),
    2 px Abstand zum Kapselrand */
 #imip-view-toolbar > toolbarbutton > .toolbarbutton-menubutton-dropmarker {
   border-inline-start: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 14px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 15px no-repeat !important;
 }
 
 #imip-view-toolbar > toolbarbutton:hover > .toolbarbutton-menubutton-dropmarker {
@@ -8276,7 +8276,7 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 19px no-repeat !important;
 }
 
 #composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {

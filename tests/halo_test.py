@@ -4610,6 +4610,63 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit-Popover nur für die Uhrzeit, Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
+    def event_multiday():
+        # mehrtägige Termine wie Apple Kalender: Ende ändern lässt den Beginn stehen (vorher schob die dauerhaft
+        # eingeschaltete Kopplung „Dauer beibehalten“ ihn mit – Beginn = Ende beim Speichern); Beginn verschieben
+        # nimmt das Ende mit; gespeichert bleiben beide Werte – ganztägig und mit Uhrzeit
+        # (je Termin ein eigener Aufruf: nach dem zweiten Dialog kam das Ergebnis eines gemeinsamen Aufrufs leer zurück)
+        def one(all_day):
+          return json.loads(m.js(CAL_CHECK_JS + f"const ALLDAY = {'true' if all_day else 'false'};" + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(), out = {};
+          const day = (d, h = 0, min = 0) => { const t = cal.dtz.now(); t.year = 2026; t.month = 10; t.day = d; t.hour = h; t.minute = min; t.second = 0; return t; };
+          const fmt = t => t && `${t.day}.${t.month + 1}.${t.isDate ? "" : " " + t.hour + ":" + String(t.minute).padStart(2, "0")}`;
+          const run = async (key, allDay) => {
+            const e = new CalEvent(); e.title = "Halo Mehrtägig " + key; e.calendar = c;
+            let s = day(16, 15), en = day(16, 16);
+            if (allDay) { s = day(16); s.isDate = true; en = day(17); en.isDate = true; }
+            e.startDate = s; e.endDate = en;
+            const saved = await c.addItem(e);
+            let dw = null;
+            try {
+              await toCalendar(); w.modifyEventWithDialog(saved, true);
+              dw = await winUrl("calendar-event-dialog"); if (!dw) return { dialog: false };
+              const iw = await till(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+                return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f.gEndTime && f; }, 8000);
+              await ruhig(600);
+              const id = iw.document, sp = id.getElementById("event-starttime"), ep = id.getElementById("event-endtime");
+              const set = (p, v) => { p.value = v; p.dispatchEvent(new iw.Event("change", { bubbles: true })); };
+              const r = { keep: id.getElementById("keepduration-button")?.getAttribute("keep") };
+              // Ende auf einen späteren Tag (ganztägig: 18. einschließlich, mit Uhrzeit 17. 10:00)
+              // (mit Uhrzeit wie von Hand: erst den Tag, dann die Uhrzeit – sonst läge kurz 16. 10:00 vor dem Beginn)
+              if (!allDay) { set(ep, new Date(2026, 10, 17, 16, 0)); await ruhig(200); }
+              set(ep, allDay ? new Date(2026, 10, 18) : new Date(2026, 10, 17, 10, 0)); await ruhig(300);
+              r.afterEnd = [fmt(iw.gStartTime), fmt(iw.gEndTime)];
+              // Beginn einen Tag früher → Ende wandert mit
+              set(sp, allDay ? new Date(2026, 10, 15) : new Date(2026, 10, 15, 15, 0)); await ruhig(300);
+              r.afterStart = [fmt(iw.gStartTime), fmt(iw.gEndTime)];
+              // zurück und speichern (wie Klick auf Speichern)
+              set(sp, allDay ? new Date(2026, 10, 16) : new Date(2026, 10, 16, 15, 0)); await ruhig(300);
+              iw.onCommandSave(false);
+              let item = null;
+              for (let t = 0; t < 60 && !item; t++) { const it = await c.getItem(saved.id); item = it && it.endDate.compare(saved.endDate) != 0 ? it : null; if (!item) await wait(100); }
+              r.saved = item ? [fmt(item.startDate), fmt(item.endDate)] : null;
+              return r;
+            } finally {
+              if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+              try { await c.deleteItem(await c.getItem(saved.id) || saved); } catch {}
+            }
+          };
+          return JSON.stringify(await run(ALLDAY ? "ganztägig" : "mit Uhrzeit", ALLDAY));""") or "{}")
+        res = {"allDay": one(True), "timed": one(False)}
+        a, t = res["allDay"], res["timed"]
+        # ganztägig: im Dialog das Ende einschließlich (18.), gespeichert ausschließlich (19.)
+        ok = (a.get("afterEnd") == ["16.11.", "18.11."] and a.get("afterStart") == ["15.11.", "17.11."] and a.get("saved") == ["16.11.", "19.11."]
+              and t.get("afterEnd") == ["16.11. 15:00", "17.11. 10:00"] and t.get("afterStart") == ["15.11. 15:00", "16.11. 10:00"]
+              and t.get("saved") == ["16.11. 15:00", "17.11. 10:00"])
+        return ok, f"{res}"
+    check("Termin-Dialog: mehrtägig – Ende ändern lässt den Beginn stehen, Beginn verschieben nimmt das Ende mit, gespeichert bleiben beide (ganztägig und mit Uhrzeit)", event_multiday, results)
+
     def event_menu_buttons():
         # Termin-Dialog: Menüknöpfe (Change Privacy, Add Attachments) zeigen den Pfeil ganz – rechts vom Symbol, nicht
         # angeschnitten oder darübergelegt (vorher 9 px Innenabstand für Thunderbirds Pfeil-Hintergrundbild)
@@ -12003,7 +12060,7 @@ Neu
         if res.get("dialog") is False:
             return False, "Aufgaben-Dialog nicht offen"
         t, p, bg = res.get("title") or {}, res.get("percent") or {}, res.get("bg") or ["", "x"]
-        lk = lambda x: bool(x) and x["bottom"] == "none" and x["keep"] == "true" and x["vis"] == "hidden"
+        lk = lambda x: bool(x) and x["bottom"] == "none" and x["keep"] == "false" and x["vis"] == "hidden"
         fit = lambda x: bool(x) and x[0] <= x[1] - 4 and x[2] >= 40
         seps = res.get("seps") or []
         ok = (res.get("id") == "calendar-task-dialog-inner" and t.get("border") == "none" and t.get("h") == "32px" and same_color(t.get("bg", ""), t.get("cat") or "x")
@@ -12014,7 +12071,7 @@ Neu
               and res.get("spin") == "textfield"
               and len(seps) >= 2 and all(rgba_alpha(c) <= 0.12 and float(wd[:-2]) <= 1 for c, wd in seps))
         return ok, f"{res}"
-    check("Aufgaben-Dialog: Felder und Fläche wie im Termin-Dialog, Haken sichtbar, Dauer immer gekoppelt ohne sichtbaren Knopf (auch Termin-Dialog), Trennlinien als Haarlinie", task_dialog, results)
+    check("Aufgaben-Dialog: Felder und Fläche wie im Termin-Dialog, Haken sichtbar, Beginn und Ende nur in eine Richtung gekoppelt ohne sichtbaren Knopf (auch Termin-Dialog), Trennlinien als Haarlinie", task_dialog, results)
 
     def month_spans():
         # mehrtägige ganztägige Termine als durchgehender Balken; Titel läuft über alle Stücke weiter (früher nach

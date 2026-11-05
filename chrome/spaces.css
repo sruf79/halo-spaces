@@ -6368,7 +6368,7 @@ dialog separator.groove:not([orient="vertical"]) {
   box-shadow: none !important;
 }
 
-/* Dauer bleibt immer gekoppelt (setzt die Erweiterung, mc-keep-duration) – den
+/* Beginn und Ende nur in eine Richtung gekoppelt (setzt die Erweiterung, mc-keep-duration) – den
    Kopplungs-Knopf samt Kettensymbol wie in Apple Kalender ausblenden */
 :root[mc-keep-duration] vbox:has(> #keepduration-button) {
   visibility: hidden !important;

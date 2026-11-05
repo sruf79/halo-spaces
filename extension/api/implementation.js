@@ -8555,20 +8555,23 @@ function appleEventLayout(win) {
   doc.documentElement.setAttribute("mc-apple-event", "");
 }
 
-// Termin/Aufgabe: Dauer beim Ändern immer beibehalten (wie Apple Kalender, wo
-// das Ende mit dem Beginn wandert) – Thunderbirds Kopplungs-Knopf (Kettensymbol
-// zwischen Beginn und Ende) dauerhaft an; ausgeblendet per CSS
-function keepDurationAlways(win) {
+// Termin/Aufgabe: Beginn und Ende wie Apple Kalender nur in eine Richtung
+// gekoppelt – Beginn verschieben nimmt das Ende mit (gleiche Dauer), Ende
+// ändern ändert nur die Dauer. So macht es Thunderbird, solange sein
+// Kopplungs-Knopf (Kettensymbol) aus ist; an schob er beim Ändern des Endes
+// auch den Beginn mit, mehrtägige Termine ließen sich nicht anlegen. Knopf
+// dauerhaft aus (auch ein früher gemerktes „an“) und per CSS ausgeblendet
+function keepDurationOneWay(win) {
   const doc = win.document;
   const kdb = doc.getElementById("keepduration-button");
   if (!kdb) {
     return;
   }
-  if (kdb.getAttribute("keep") != "true") {
-    kdb.setAttribute("keep", "true");
-    kdb.setAttribute("aria-pressed", "true");
+  if (kdb.getAttribute("keep") != "false") {
+    kdb.setAttribute("keep", "false");
+    kdb.setAttribute("aria-pressed", "false");
   }
-  doc.getElementById("link-image-top")?.setAttribute("keep", "true");
+  doc.getElementById("link-image-top")?.setAttribute("keep", "false");
   doc.documentElement.setAttribute("mc-keep-duration", "");
 }
 
@@ -11635,7 +11638,7 @@ class CardEnhancer {
               try {
                 this.styleItemDescription(iw);
                 hookDateTimePickers(iw);
-                keepDurationAlways(iw);
+                keepDurationOneWay(iw);
                 appleEventLayout(iw);
                 addTypeSwitch(iw);
                 if (iw.parent?.location?.href.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml")) {

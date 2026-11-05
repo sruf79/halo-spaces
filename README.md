@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3180">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3190">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -180,6 +180,18 @@ in **Settings → halo.spaces** (also via **Help → halo.spaces → Settings…
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
+
+## What's new in 3.19.0
+
+- **Tasks**: edit the open task right in its details column: title, note, location and URL as fields, Start and Due with a date picker and "Remove", menus for Repeat, Reminder, List, Category, Privacy, Priority and Progress (with "Cancelled"); changes are saved at once and can be undone. The whole column scrolls together. "Edit Task…" is now the first entry of the task context menu
+- **Archive Account Locally**: its own small window with the account, an overview (folders, messages, estimated size, free space), progress per folder, Stop, and a summary comparing source and archive
+- **Conversations**: every message is shown in full, also older read ones, on a light grey background so the cards stand out; the blue frame follows the message you click, and Reply, Reply All and Forward in the toolbar act on that message
+- **View → Show with Light Background**: in dark mode, shows the current message with its original light colours; the next message is dark again
+- **Today pane**: going back to an earlier month with ‹ shows its latest events first; in Tasks the Today pane has its mini calendar like everywhere else; the search field and buttons glide along when the pane opens or closes
+- **Weather**: "Place" is a menu with "Current Location", your recent places and "Choose City…", with the current state below it. If no location is available, "Choose City…" takes you straight to the city search; the weather icon shows the same text instead of "Go to Today"
+- **On My Mac** shows Bin and Outbox only while they contain messages
+- **Fixes**: calendars no longer stay disabled after starting Thunderbird (halo.spaces asked for them too early, which could leave calendars of other add-ons disabled); folder icons no longer stay black instead of blue; a chosen settings category no longer jumps back to General on slow starts; "Install version …" in Help → halo.spaces keeps its blue on hover; uninstalling also removes the remembered sidebar width
+- Requires Thunderbird 153 or newer
 
 ## What's new in 3.18.0
 

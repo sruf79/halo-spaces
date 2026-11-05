@@ -2263,7 +2263,7 @@ def reading_checks(m, results):
     check("Konversation: zitierter Verlauf am Ende einer Antwort hinter „Show More“ (Text und Outlook), Klick klappt auf, eingeschobene Antworten offen", conversation_quotes, results)
 
     def conversation_cards():
-        # Konversation wie Apple Mail: ältere gelesene Mails eingeklappt (ohne geladene Mail, Klick klappt auf), Karte mit einem
+        # Konversation wie Apple Mail: jede Mail ganz (auch ältere gelesene), Karte mit einem
         # Anhang nicht abgeschnitten, keine Schnellantwort, Kapsel je Karte wirkt auf deren Mail,
         # Löschen nur dieser Mail; „Neueste Nachricht oben“ abschaltbar
         res = m.js(r"""
@@ -2302,7 +2302,7 @@ def reading_checks(m, results):
             select("halo-karte-3");
             const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
             if (!box) return null;
-            await until(() => [...box.querySelectorAll(".mc-conv-card:not(.mc-collapsed) .mc-conv-browser")].every(x => parseFloat(x.style.height) > 60), 8000);
+            await until(() => [...box.querySelectorAll(".mc-conv-card .mc-conv-browser")].every(x => parseFloat(x.style.height) > 60), 8000);
             await ruhig(1200);
             return box;
           };
@@ -2312,9 +2312,9 @@ def reading_checks(m, results):
           const cards = () => [...box.querySelectorAll(".mc-conv-card")];
           const cdoc = c => c.querySelector(".mc-conv-browser")?.contentDocument;
           out.order = cards().map(c => c.dataset.messageId.split("@")[0]);
-          out.collapsed = cards().map(c => c.classList.contains("mc-collapsed"));
+          // auch die ältere gelesene Mail ganz geladen (keine Kompaktzeile)
           const k1 = cardOf(box, "halo-karte-1");
-          out.summary = { browser: !!k1?.querySelector(".mc-conv-browser"), from: k1?.querySelector(".mc-conv-from")?.textContent, preview: k1?.querySelector(".mc-conv-preview")?.textContent };
+          out.full = cards().map(c => !!c.querySelector(".mc-conv-browser") && !c.querySelector(".mc-conv-summary"));
           // keine Schnellantwort (entfernt)
           out.reply = cards().filter(c => cdoc(c)?.getElementById("mcQuickReply")).map(c => c.dataset.messageId.split("@")[0]);
           // Kapsel in jeder offenen Karte
@@ -2342,8 +2342,6 @@ def reading_checks(m, results):
             cw.gMsgCompose?.compFields && (cw.gContentChanged = false);
             cw.close(); await ruhig(600);
           }
-          // aufklappen per Klick
-          k1?.querySelector(".mc-conv-summary")?.click();
           out.expanded = !!(await until(() => k1?.querySelector(".mc-conv-browser") && parseFloat(k1.querySelector(".mc-conv-browser").style.height) > 60, 6000));
           // Löschen in der Karte der ältesten Mail: nur diese Mail
           // (unter Linux in der CI dauert das Laden der aufgeklappten Karte länger)
@@ -2369,16 +2367,15 @@ def reading_checks(m, results):
           a3.threadTree.selectedIndex = -1; await ruhig(300);
           return out;""")
         a, cp, dl = res.get("attach") or {}, res.get("compose") or {}, res.get("deleted") or {}
-        ok = (res.get("order") == ["halo-karte-3", "halo-karte-2", "halo-karte-1"] and res.get("collapsed") == [False, False, True]
-              and (res.get("summary") or {}).get("browser") is False and (res.get("summary") or {}).get("preview") is not None
-              and res.get("reply") == [] and res.get("capsules") == 2
+        ok = (res.get("order") == ["halo-karte-3", "halo-karte-2", "halo-karte-1"] and res.get("full") == [True, True, True]
+              and res.get("reply") == [] and res.get("capsules") == 3
               and res.get("standalone") == 0 and res.get("headTop", 99) < 40
               and a and a["itemBottom"] <= a["cardBottom"] and a["scroll"] <= 1
               and (cp.get("subject") or "").startswith("Re:") and "halo-karte-2@" in cp.get("refs", "")
               and res.get("expanded") and dl.get("after") == dl.get("before", 0) - 1 and dl.get("cards") == 2
               and res.get("oldestFirst") == ["halo-karte-1", "halo-karte-2", "halo-karte-3"])
         return ok, f"{res}"
-    check("Konversation: ältere gelesene Mails eingeklappt, Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, kein Leerraum über dem Kopf, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
+    check("Konversation: jede Mail ganz wie Apple Mail (auch ältere gelesene), Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, kein Leerraum über dem Kopf, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
 
 
 # Verfassen-Fenster und seine Dialoge: Test-Identität (example.invalid, kein Server), Fenster öffnen/schließen,

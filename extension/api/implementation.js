@@ -3110,7 +3110,6 @@ class ConversationCards {
         return false;
       }
     };
-    const newest = messages.reduce((a, b) => (b.date > a.date ? b : a));
     const cards = messages.map(m => {
       const card = doc.createElementNS(X, "div");
       card.className = "mc-conv-card";
@@ -3118,11 +3117,8 @@ class ConversationCards {
       card.classList.toggle("mc-selected", m == selected || m.messageId == selected.messageId);
       card.dataset.messageId = m.messageId;
       card.__mcHdr = m;
-      // wie Apple Mail: ältere gelesene Mails nur als kompakte Zeile; offen
-      // bleiben die gewählte, die neueste und ungelesene Mails
-      if (!card.classList.contains("mc-selected") && m != newest && m.isRead) {
-        this.collapse(card);
-      }
+      // wie Apple Mail: jede Mail der Konversation ganz (geladen wird beim
+      // Hineinscrollen, siehe unten)
       box.append(card);
       return card;
     });
@@ -3132,7 +3128,7 @@ class ConversationCards {
     // die Klicks im Mailinhalt meldet loadCard
     box.addEventListener("click", event => {
       const card = event.target.closest?.(".mc-conv-card");
-      if (card && !card.classList.contains("mc-collapsed")) {
+      if (card) {
         this.select(card);
       }
     });
@@ -3146,7 +3142,7 @@ class ConversationCards {
         }
       }
     }, { root: box, rootMargin: "800px 0px" });
-    cards.filter(card => !card.classList.contains("mc-collapsed")).forEach(card => this.observer.observe(card));
+    cards.forEach(card => this.observer.observe(card));
     const sel = cards.find(c => c.classList.contains("mc-selected"));
     if (sel && sel != cards[0]) {
       win.requestAnimationFrame(() => sel.scrollIntoView({ block: "start" }));
@@ -3171,64 +3167,6 @@ class ConversationCards {
     }
     card.classList.add("mc-selected");
     this.refreshToolbar();
-  }
-
-  // eingeklappte Karte: Bild, Absender, Datum und eine Zeile Vorschau – ohne
-  // geladene Mail; Klick klappt auf
-  collapse(card) {
-    const doc = this.win.document;
-    const X = "http://www.w3.org/1999/xhtml";
-    const hdr = card.__mcHdr;
-    card.querySelector(".mc-conv-browser")?.remove();
-    card.__mcLoaded = false;
-    card.classList.add("mc-collapsed");
-    const row = doc.createElementNS(X, "div");
-    row.className = "mc-conv-summary";
-    row.setAttribute("role", "button");
-    row.tabIndex = 0;
-    const avatar = doc.createElementNS(X, "div");
-    avatar.className = "mc-conv-avatar";
-    try {
-      enhancer?.fillAvatar(avatar, hdr);
-    } catch {}
-    const main = doc.createElementNS(X, "div");
-    main.className = "mc-conv-summary-main";
-    const top = doc.createElementNS(X, "div");
-    top.className = "mc-conv-summary-top";
-    const from = doc.createElementNS(X, "span");
-    from.className = "mc-conv-from";
-    let name = "";
-    try {
-      const p = MailServices.headerParser.parseDecodedHeader(hdr.mime2DecodedAuthor || hdr.author)[0];
-      name = senderLabel(p?.name || "", (p?.email || "").toLowerCase()) || p?.email || "";
-    } catch {}
-    from.textContent = card.classList.contains("mc-own") ? tr("You") : name;
-    const date = doc.createElementNS(X, "span");
-    date.className = "mc-conv-date";
-    date.textContent = appleListDate(hdr.date / 1000);
-    top.append(from, date);
-    const preview = doc.createElementNS(X, "div");
-    preview.className = "mc-conv-preview";
-    preview.textContent = cleanPreview(hdr.getStringProperty("preview"));
-    main.append(top, preview);
-    row.append(avatar, main);
-    const open = event => {
-      if (event.type == "keydown" && event.key != "Enter" && event.key != " ") {
-        return;
-      }
-      event.preventDefault();
-      this.expand(card);
-      this.select(card);
-    };
-    row.addEventListener("click", open);
-    row.addEventListener("keydown", open);
-    card.replaceChildren(row);
-  }
-
-  expand(card) {
-    card.classList.remove("mc-collapsed");
-    card.querySelector(".mc-conv-summary")?.remove();
-    this.loadCard(card);
   }
 
   loadCard(card) {
@@ -3266,25 +3204,8 @@ class ConversationCards {
       // ohne Knopfzeile auch kein Platz dafür über dem Kopf (mc-standalone
       // reserviert ihn, wenn die Toolbar keine Antworten-Knöpfe hat)
       root.removeAttribute("mc-standalone");
-      // Klick auf den Kopf (nicht auf Namen oder Knöpfe) klappt die Karte wieder
-      // ein – nicht bei der gewählten und der neuesten Mail
-      browserEl.contentDocument.getElementById("messageHeader")?.addEventListener("click", event => {
-        if (card.classList.contains("mc-selected") || event.target.closest?.("button, a, input, textarea, select, li.header-recipient, [role='button'], #mcHoverActions, toolbarbutton, menu, menupopup")) {
-          return;
-        }
-        const cards = [...card.parentNode.querySelectorAll(".mc-conv-card")];
-        const newest = cards.reduce((a, b) => (b.__mcHdr.date > a.__mcHdr.date ? b : a));
-        if (card != newest) {
-          this.collapse(card);
-        }
-      });
-      // Klick in Kopf oder Anhänge wählt die Karte (nach dem Einklappen oben:
-      // eine eben eingeklappte Karte bleibt ungewählt)
-      browserEl.contentDocument.addEventListener("click", () => {
-        if (!card.classList.contains("mc-collapsed")) {
-          this.select(card);
-        }
-      });
+      // Klick in Kopf oder Anhänge wählt die Karte
+      browserEl.contentDocument.addEventListener("click", () => this.select(card));
       try {
         cw.displayMessage(hdr.folder.getUriForMsg(hdr), this.win.gViewWrapper);
       } catch (e) {

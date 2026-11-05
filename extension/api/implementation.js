@@ -3059,11 +3059,15 @@ class ConversationCards {
     });
     this.pane.append(box);
     this.box = box;
-    // Toolbar (Antworten, Weiterleiten) neu bewerten – sie fragt Thunderbird
-    // nur bei Auswahl und Laden einer Mail
-    for (const b of win.top?.document.querySelectorAll("#unifiedToolbarContent button[is='mail-tab-button']") || []) {
-      b.onCommandContextChange?.();
-    }
+    // Klick auf eine Karte (Rand, Kopf, Text) wählt sie wie in Apple Mail –
+    // die Klicks im Mailinhalt meldet loadCard
+    box.addEventListener("click", event => {
+      const card = event.target.closest?.(".mc-conv-card");
+      if (card && !card.classList.contains("mc-collapsed")) {
+        this.select(card);
+      }
+    });
+    this.refreshToolbar();
     // Karten erst laden, wenn sie in die Nähe kommen (lange Konversationen)
     this.observer = new win.IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -3078,6 +3082,26 @@ class ConversationCards {
     if (sel && sel != cards[0]) {
       win.requestAnimationFrame(() => sel.scrollIntoView({ block: "start" }));
     }
+  }
+
+  // Toolbar (Antworten, Weiterleiten) neu bewerten – sie fragt Thunderbird
+  // nur bei Auswahl und Laden einer Mail
+  refreshToolbar() {
+    for (const b of this.win.top?.document.querySelectorAll("#unifiedToolbarContent button[is='mail-tab-button']") || []) {
+      b.onCommandContextChange?.();
+    }
+  }
+
+  // angeklickte Karte wird die gewählte: Rahmen und Ziel der Toolbar-Befehle
+  select(card) {
+    if (!card?.isConnected || card.classList.contains("mc-selected")) {
+      return;
+    }
+    for (const c of card.parentNode.querySelectorAll(".mc-conv-card.mc-selected")) {
+      c.classList.remove("mc-selected");
+    }
+    card.classList.add("mc-selected");
+    this.refreshToolbar();
   }
 
   // eingeklappte Karte: Bild, Absender, Datum und eine Zeile Vorschau – ohne
@@ -3125,6 +3149,7 @@ class ConversationCards {
       }
       event.preventDefault();
       this.expand(card);
+      this.select(card);
     };
     row.addEventListener("click", open);
     row.addEventListener("keydown", open);
@@ -3184,6 +3209,13 @@ class ConversationCards {
           this.collapse(card);
         }
       });
+      // Klick in Kopf oder Anhänge wählt die Karte (nach dem Einklappen oben:
+      // eine eben eingeklappte Karte bleibt ungewählt)
+      browserEl.contentDocument.addEventListener("click", () => {
+        if (!card.classList.contains("mc-collapsed")) {
+          this.select(card);
+        }
+      });
       try {
         cw.displayMessage(hdr.folder.getUriForMsg(hdr), this.win.gViewWrapper);
       } catch (e) {
@@ -3193,6 +3225,12 @@ class ConversationCards {
     browserEl.addEventListener("MsgLoaded", () => {
       decorateAttachments(browserEl.contentDocument);
       const mp0 = browserEl.contentDocument?.getElementById("messagepane");
+      // Klick in den Mailtext wählt die Karte ebenfalls
+      const body = mp0?.contentDocument;
+      if (body && !body.__mcSelect) {
+        body.__mcSelect = true;
+        body.addEventListener("click", () => this.select(card));
+      }
       const fold = () => foldQuotedHistory(mp0?.contentDocument);
       fold();
       mp0?.addEventListener("load", fold, true);

@@ -18245,12 +18245,15 @@ class CardEnhancer {
     // Lage und Breite von Suchfeld und Knöpfen rechts davon VOR dem Umschalten
     // messen – danach steht die Toolbar schon am Ende (das Suchfeld sprang
     // sonst gleich zu Beginn auf seine neue Breite und Lage)
+    // Alle Knöpfe der Zeile, nicht nur ab dem Suchfeld: klappen Knöpfe weiter
+    // links ein (Junk, Mark), rückten die übrigen sonst gleich zu Beginn nach
     const content = d.getElementById("unifiedToolbarContent");
-    const kidsAll = content ? [...content.children].filter(li => !li.hidden && li.getBoundingClientRect().width) : [];
-    const searchAt = kidsAll.findIndex(li => li.getAttribute("item-id") == "search-bar");
-    const riders = searchAt >= 0 ? kidsAll.slice(searchAt) : [];
-    const lefts = () => riders.map(li => li.getBoundingClientRect().left);
-    const from = lefts();
+    const kidsAll = content ? [...content.children] : [];
+    const place = li => {
+      const r = !li.hidden && li.getBoundingClientRect();
+      return r?.width ? r.left : null;
+    };
+    const fromAll = kidsAll.map(place);
     if (showing) {
       command.doCommand();
     }
@@ -18323,7 +18326,13 @@ class CardEnhancer {
       } catch {}
     }
     panel.__mcAnimating = true;
-    const to = lefts();
+    const toAll = kidsAll.map(place);
+    // gleiten: vorher und nachher sichtbar; erscheinen: werden eingeblendet
+    // (die eingeklappten verschwinden wie bisher gleich zu Beginn)
+    const riders = kidsAll.filter((_, i) => fromAll[i] != null && toAll[i] != null);
+    const from = kidsAll.map((_, i) => fromAll[i]).filter((_, i) => fromAll[i] != null && toAll[i] != null);
+    const to = kidsAll.map((_, i) => toAll[i]).filter((_, i) => fromAll[i] != null && toAll[i] != null);
+    const appear = kidsAll.filter((_, i) => fromAll[i] == null && toAll[i] != null);
     const topEl = d.getElementById("mcTodayTop");
     const titleEl = d.getElementById("mcTodayTitle");
     if (row && topEl && titleEl) {
@@ -18348,6 +18357,7 @@ class CardEnhancer {
         const shift = (from[i] - to[i]) * (1 - p);
         li.style.transform = Math.abs(shift) >= 0.5 ? `translateX(${shift}px)` : "";
       });
+      appear.forEach(li => li.style.setProperty("opacity", p.toFixed(3)));
       if (editBlock) {
         editBlock.style.transform = value ? `translateX(${-value * rtl}px)` : "";
       }
@@ -18405,6 +18415,7 @@ class CardEnhancer {
       w.__mcTodayTopSync?.();
       // Layout ist jetzt am Endplatz – Verschiebungen weg (im selben Bild)
       riders.forEach(li => (li.style.transform = ""));
+      appear.forEach(li => li.style.removeProperty("opacity"));
       if (editBlock) {
         editBlock.style.transform = "";
       }

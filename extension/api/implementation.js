@@ -2584,23 +2584,22 @@ function hookPrefCategories(cw, restorers = null) {
   const origGoto = cw.gotoPref;
   const startPane = categories.selectedItem?.value || "paneGeneral";
   const opened = Date.now();
-  let userPane = null, lastInput = 0, skipped = false;
-  const onInput = () => {
-    lastInput = Date.now();
+  // Auswahl in der Seitenleiste (Klick, Tasten): Thunderbird ruft gotoPref
+  // mitten in ihrem „select“ auf – das ist immer gewollt. Der verspätete
+  // Startaufruf kommt dagegen von außerhalb (unter Linux 20–50 ms nach dem Klick);
+  // gotoPref() ohne Kategorie folgt nur der Adresse (#…) und bleibt unberührt
+  let userPane = null, inSelect = 0, skipped = false;
+  const selectStart = () => {
+    inSelect++;
+    userPane = categories.selectedItem?.value || null;
   };
-  const onSelect = () => {
-    if (Date.now() - lastInput < 1000) {
-      userPane = categories.selectedItem?.value || null;
-    }
-  };
-  for (const type of ["mousedown", "click", "keydown"]) {
-    doc.addEventListener(type, onInput, true);
-  }
-  categories.addEventListener("select", onSelect);
+  const selectEnd = () => (inSelect = Math.max(0, inSelect - 1));
+  categories.addEventListener("select", selectStart, true);
+  categories.addEventListener("select", selectEnd);
   if (typeof origGoto == "function") {
     cw.gotoPref = function (category, ...rest) {
-      const late = !skipped && userPane && userPane != startPane && Date.now() - opened < 15000 &&
-        Date.now() - lastInput > 1000 && (!category || category == startPane || category == "paneGeneral");
+      const late = !inSelect && !skipped && userPane && userPane != startPane && Date.now() - opened < 30000 &&
+        (category == startPane || category == "paneGeneral");
       if (late) {
         skipped = true;
         log("pref categories: late start call skipped", category);
@@ -2611,10 +2610,8 @@ function hookPrefCategories(cw, restorers = null) {
     cw.gotoPref.__mcOrig = origGoto;
   }
   restorers?.push(() => {
-    for (const type of ["mousedown", "click", "keydown"]) {
-      doc.removeEventListener(type, onInput, true);
-    }
-    categories.removeEventListener("select", onSelect);
+    categories.removeEventListener("select", selectStart, true);
+    categories.removeEventListener("select", selectEnd);
     if (cw.gotoPref?.__mcOrig == origGoto) {
       cw.gotoPref = origGoto;
     }

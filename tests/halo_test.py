@@ -313,10 +313,13 @@ def protokoll_lesen(m):
       const k = {KONSOLE_FIND}, plan = k?.zeitplan || [];
       const p = PathUtils.join(PathUtils.profileDir, "mail-cards-debug.log");
       let lines = []; try {{ lines = (await IOUtils.readUTF8(p)).split("\\n"); }} catch {{}}
+      // nur Zeilen dieser Thunderbird-Sitzung (der Update-Test startet dasselbe Profil mehrmals, zuerst mit der alten Version)
+      let t0 = 0; try {{ t0 = Services.startup.getStartupInfo().process.getTime() - 1000; }} catch {{}}
       const out = [];
       for (const l of lines) {{
         if (!/error|fehler/i.test(l) || /preview stats/.test(l)) continue;
         const ts = Date.parse(l.split(" ")[0]);
+        if (t0 && ts < t0) continue;
         let check = "Start"; for (const [t, n] of plan) {{ if (t <= ts) check = n; else break; }}
         out.push({{ text: norm(l.replace(/^\\S+Z /, "")).slice(0, 300), wo: "", check }});
       }}

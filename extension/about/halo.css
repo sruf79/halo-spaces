@@ -127,6 +127,16 @@ main {
   color: AccentColorText;
 }
 
+/* Darüberfahren behält das Akzentblau (sonst gewänne das graue Hover oben),
+   Drücken dunkelt leicht ab */
+.capsule.available:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--accent) 92%, black);
+}
+
+.capsule.available:active:not([disabled]) {
+  background: color-mix(in srgb, var(--accent) 82%, black);
+}
+
 .capsule.available .status {
   color: inherit;
   opacity: 0.85;

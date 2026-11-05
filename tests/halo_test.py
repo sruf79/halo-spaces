@@ -10360,6 +10360,17 @@ Neu
               await ruhig(500);
               const btn = hw.document.getElementById("update"), label = () => btn.querySelector(".label").textContent;
               btn.click(); await until(() => /99\.0\.0/.test(label()), 4000); out.offer = label();
+              // Darüberfahren: Knopf bleibt blau (nicht das graue Hover der übrigen Knöpfe)
+              const bg = () => hw.getComputedStyle(btn).backgroundColor;
+              // rgb(…) bzw. color(srgb 0–1 …) aus color-mix
+              const rgb = c => { const v = (c.replace(/^color\(srgb/, "").match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+                                 return c.startsWith("color(") ? v.map(x => x * 255) : v; };
+              await bis(() => btn.classList.contains("available"), "Knopf in Akzentfarbe", 2000);
+              btn.style.transition = "none"; const base = bg();
+              InspectorUtils.addPseudoClassLock(btn, ":hover"); const hov = bg();
+              InspectorUtils.removePseudoClassLock(btn, ":hover"); btn.style.transition = "";
+              const [a, b] = [rgb(base), rgb(hov)];
+              out.hover = { base, hov, blue: b[2] > b[0] + 80 && Math.max(...a.map((x, i) => Math.abs(x - b[i]))) < 40 };
               btn.click();
               const gone = () => Cu.isDeadWrapper(hw) || hw.closed;
               const labels = new Set(); const t0 = Date.now();
@@ -10371,9 +10382,9 @@ Neu
           } finally { enh.findUpdate = realFind; Cu.evalInSandbox("delete globalThis.__mcFakeInstall; delete globalThis.__mcContinued;", g); }
           return out;""" % (ADDON_ID, ADDON_ID))
         ok = res.get("continued") and res.get("closed") and any(l.startswith("Installed") for l in res.get("labels", [])) \
-            and "99.0.0" in (res.get("offer") or "")
+            and "99.0.0" in (res.get("offer") or "") and (res.get("hover") or {}).get("blue")
         return ok, f"{res}"
-    check("Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort, meldet „Installed“ und schließt sich", info_install_now, results)
+    check("Info-Fenster: „Install version …“ bleibt beim Darüberfahren blau, setzt das zurückgestellte Update gleich fort, meldet „Installed“ und schließt sich", info_install_now, results)
 
     def donate():
         # „Say Thanks“ im Info-Fenster öffnet die Spendenseite (Aufruf abgefangen, kein echter Browser)

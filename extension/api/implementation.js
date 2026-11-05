@@ -309,6 +309,7 @@ const DE = {
   "Mark as Spam": "Als Werbung markieren",
   "Mark as Not Spam": "Als keine Werbung markieren",
   "Run Filters": "Filter anwenden",
+  "Show with Light Background": "Mit hellem Hintergrund anzeigen",
   "Follow-Up Suggestions": "Vorschläge für Rückfragen",
   "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
   "Sending {n} messages …": "{n} Nachrichten werden gesendet …",
@@ -753,6 +754,7 @@ const FR = {
   "Mark as Spam": "Marquer comme indésirable",
   "Mark as Not Spam": "Marquer comme désirable",
   "Run Filters": "Appliquer les filtres",
+  "Show with Light Background": "Afficher avec un fond clair",
   "Follow-Up Suggestions": "Suggestions de relance",
   "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
   "Sending {n} messages …": "Envoi de {n} messages …",
@@ -1197,6 +1199,7 @@ const ES = {
   "Mark as Spam": "Marcar como spam",
   "Mark as Not Spam": "Marcar como no spam",
   "Run Filters": "Aplicar filtros",
+  "Show with Light Background": "Mostrar con fondo claro",
   "Follow-Up Suggestions": "Sugerencias de seguimiento",
   "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
   "Sending {n} messages …": "Enviando {n} mensajes …",
@@ -1641,6 +1644,7 @@ const IT = {
   "Mark as Spam": "Segna come spam",
   "Mark as Not Spam": "Segna come non spam",
   "Run Filters": "Applica filtri",
+  "Show with Light Background": "Mostra con sfondo chiaro",
   "Follow-Up Suggestions": "Suggerimenti di follow-up",
   "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
   "Sending {n} messages …": "Invio di {n} messaggi …",
@@ -13488,6 +13492,87 @@ class CardEnhancer {
     // Ansicht → Vorschauzeilen (Menüleiste und App-Menü → Ansicht): Keine,
     // 1–4 Zeilen, Häkchen am aktuellen Wert; gilt sofort (applyPreviewLines).
     // Nur in der Kartenansicht wirksam, in der Tabelle daher ausgegraut
+    // Darstellung → „Show with Light Background“ wie Apple Mail: die gerade
+    // angezeigte Nachricht im Dunkelmodus ohne Umfärbung hell zeigen; gilt nur
+    // für sie (die nächste Nachricht ist wieder dunkel)
+    const hookLightMessage = () => {
+      const d = w.document;
+      const anchorItem = d.getElementById("viewBodyMenu");
+      if (!anchorItem || d.getElementById("mcLightMessage")) {
+        return;
+      }
+      const tabmail = d.getElementById("tabmail");
+      const patched = new Set();
+      const patch = mw => {
+        if (!mw || mw.__mcLightPatched || typeof mw.displayMessage != "function") {
+          return;
+        }
+        mw.__mcLightPatched = true;
+        const origDisplay = mw.displayMessage, origAdapt = mw.adaptMessageForDarkMode;
+        const pane = () => mw.getMessagePaneBrowser?.();
+        // andere Nachricht: wieder wie eingestellt (dunkel)
+        mw.displayMessage = function (uri, ...rest) {
+          if (mw.__mcLight && uri != mw.__mcLight) {
+            mw.__mcLight = null;
+            try {
+              pane().browsingContext.prefersColorSchemeOverride = "none";
+            } catch {}
+          }
+          return origDisplay.call(this, uri, ...rest);
+        };
+        Object.defineProperty(mw, "adaptMessageForDarkMode", { configurable: true, writable: true,
+          value: browser => (mw.__mcLight && mw.__mcLight == mw.gMessageURI ? undefined : origAdapt(browser)) });
+        patched.add([mw, origDisplay, origAdapt]);
+      };
+      const current = () => tabmail?.currentAboutMessage || d.getElementById("messageBrowser")?.contentWindow || null;
+      const item = d.createXULElement("menuitem");
+      item.id = "mcLightMessage";
+      item.setAttribute("type", "checkbox");
+      item.setAttribute("label", tr("Show with Light Background"));
+      item.addEventListener("command", () => {
+        const mw = current();
+        if (!mw?.gMessageURI) {
+          return;
+        }
+        patch(mw);
+        const light = mw.__mcLight != mw.gMessageURI;
+        mw.__mcLight = light ? mw.gMessageURI : null;
+        try {
+          mw.getMessagePaneBrowser().browsingContext.prefersColorSchemeOverride = light ? "light" : "none";
+        } catch (e) {
+          log("light message error", e);
+        }
+        mw.ReloadMessage?.();
+      });
+      anchorItem.after(item);
+      const viewPopup = d.getElementById("menu_View_Popup");
+      const onView = event => {
+        if (event.target != viewPopup) {
+          return;
+        }
+        const mw = current();
+        const dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+        item.hidden = !dark;
+        item.disabled = !mw?.gMessageURI;
+        item.toggleAttribute("checked", !!mw?.gMessageURI && mw.__mcLight == mw.gMessageURI);
+      };
+      viewPopup?.addEventListener("popupshowing", onView);
+      this.restorers.push(() => {
+        viewPopup?.removeEventListener("popupshowing", onView);
+        item.remove();
+        for (const [mw, origDisplay, origAdapt] of patched) {
+          try {
+            if (mw.__mcLight) {
+              mw.getMessagePaneBrowser().browsingContext.prefersColorSchemeOverride = "none";
+            }
+            mw.displayMessage = origDisplay;
+            Object.defineProperty(mw, "adaptMessageForDarkMode", { configurable: true, writable: true, value: origAdapt });
+            delete mw.__mcLight;
+            delete mw.__mcLightPatched;
+          } catch {}
+        }
+      });
+    };
     const hookPreviewMenu = () => {
       const d = w.document;
       if (d.getElementById("mcPreviewLines")) {
@@ -13728,6 +13813,7 @@ class CardEnhancer {
       hookSearchForwarding();
       hookHelpMenu();
       hookPreviewMenu();
+      hookLightMessage();
       try {
         hookMenubar(w, this.restorers);
       } catch (e) {

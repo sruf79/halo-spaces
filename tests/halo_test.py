@@ -8510,14 +8510,29 @@ def run_checks(m, version, profile, results):
           const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, available: st.darkReader, option: st.darkMessages };
           if (!st.darkReader) return out;
           out.on = await show();
+          // Darstellung → „Show with Light Background“: nur diese Nachricht hell, die nächste wieder dunkel (wie Apple Mail)
+          if (out.dark) {
+            const vp = d.getElementById("menu_View_Popup"), li = d.getElementById("mcLightMessage");
+            vp?.dispatchEvent(new w.Event("popupshowing"));
+            out.lightItem = li ? [li.hidden, li.disabled, li.hasAttribute("checked")] : null;
+            const md = a3.messageBrowser.contentDocument, before = md.getElementById("messagepane")?.contentDocument;
+            li?.doCommand();
+            const t2 = await until(() => { const doc = md.getElementById("messagepane")?.contentDocument; return doc != before && doc?.getElementById("t"); }, 5000); await ruhig(800);
+            const lum = c => { const v = (c.match(/[\d.]+/g) || []).map(Number); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+            out.light = t2 ? Math.round(lum(t2.ownerDocument.defaultView.getComputedStyle(t2.ownerDocument.body).backgroundColor)) : null;
+            vp?.dispatchEvent(new w.Event("popupshowing")); out.lightChecked = li?.hasAttribute("checked");
+            out.again = await show(); // andere Auswahl und zurück: wieder dunkel
+          }
           await api.setSetting("darkMessages", false); out.off = await show();
           await api.setSetting("darkMessages", true); out.stored = Services.prefs.prefHasUserValue("mail.dark-reader.enabled");
           return out;""" % ADDON_ID)
         if not res.get("available"):
             return True, f"Thunderbird ohne eigene Umfärbung – Option entfällt {res}"
-        ok = res["option"] is True and res["off"] > 200 and not res["stored"] and (res["on"] < 80 if res["dark"] else res["on"] > 200)
+        ok = (res["option"] is True and res["off"] > 200 and not res["stored"] and (res["on"] < 80 if res["dark"] else res["on"] > 200)
+              and (not res["dark"] or (res.get("lightItem") == [False, False, False] and (res.get("light") or 0) > 200
+                                       and res.get("lightChecked") and res.get("again", 999) < 80)))
         return ok, f"{res}"
-    check("Dunkelmodus: HTML-Mail mit hellem Hintergrund dunkel (Option „Dunkle Hintergründe für Nachrichten“), ausgeschaltet und hell bleibt sie hell", html_dark, results)
+    check("Dunkelmodus: HTML-Mail mit hellem Hintergrund dunkel (Option „Dunkle Hintergründe für Nachrichten“), „Show with Light Background“ zeigt nur diese Nachricht hell, ausgeschaltet und hell bleibt sie hell", html_dark, results)
 
     def wide_newsletter():
         # breiter Newsletter (feste 700 px) wird wie in Apple Mail auf die Lesebreite verkleinert statt rechts

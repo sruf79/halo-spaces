@@ -105,9 +105,11 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).
 - `tests/update_test.py` stellt das Update von einer älteren Version nach
-  (Standard 3.6.0, andere mit `--from`)
+  (Standard: das letzte veröffentlichte Release, andere mit `--from`)
   (Einstellungen, Toolbar, Begrüßung, userChrome.css); mit `--github` über das
-  veröffentlichte `updates.json`. Vor einem Release laufen lassen.
+  veröffentlichte `updates.json`. `release.sh` lässt ihn vor der Marke selbst
+  laufen (auch wenn die CI die übrigen Prüfungen übernommen hat; aus nur mit
+  `NO_UPDATE_TEST=1`), rot heißt kein Release.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
   an Stellen, an denen es schon Rückschritte gab.
 - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des

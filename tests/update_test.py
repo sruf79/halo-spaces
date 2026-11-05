@@ -10,6 +10,7 @@ keine erneute Begrüßung, userChrome.css im Profil erneuert – auch nach einem
 Neustart.
 
 Aufruf:  python3 tests/update_test.py [--from 3.6.0] [--xpi dist/…xpi] [--tb …] [--port 2852]
+         (ohne --from: vom letzten veröffentlichten Release aus; release.sh ruft es so auf)
          python3 tests/update_test.py --github     # Update wie bei Nutzern von GitHub
                                                     # (nur lesend; prüft das veröffentlichte updates.json)
 Ohne --github liefert ein lokaler Server auf 127.0.0.1 ein updates.json für
@@ -117,15 +118,27 @@ def start(tb, profile, port):
     return proc, m
 
 
+def latest_release():
+    """Version des letzten GitHub-Release (so prüft release.sh das Update, das Nutzer gerade bekommen)."""
+    try:
+        tag = json.loads(fetch(f"https://api.github.com/repos/{REPO}/releases/latest"))["tag_name"]
+        return tag.lstrip("v")
+    except (OSError, KeyError, ValueError):
+        return "3.6.0"
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--from", dest="old", default="3.6.0", help="Ausgangsversion aus den GitHub-Releases (Standard 3.6.0)")
+    ap.add_argument("--from", dest="old", default=None,
+                    help="Ausgangsversion aus den GitHub-Releases (Standard: das letzte veröffentlichte Release, ohne Netz 3.6.0)")
     ap.add_argument("--xpi", help="neues Paket (Standard: dist/halo-spaces-<Version aus manifest.json>.xpi)")
     ap.add_argument("--github", action="store_true", help="Update über das veröffentlichte updates.json auf GitHub statt lokal")
     ap.add_argument("--tb", default=ht.DEFAULT_TB, help="Thunderbird-Programm")
     ap.add_argument("--port", type=int, default=2852, help="Marionette-Port (Standard 2852)")
     ap.add_argument("--keep", action="store_true", help="Testprofil nicht löschen")
     args = ap.parse_args()
+    if not args.old:
+        args.old = latest_release()
 
     work = tempfile.mkdtemp(prefix="halo-update-")
     old = os.path.join(work, f"halo-spaces-{args.old}.xpi")

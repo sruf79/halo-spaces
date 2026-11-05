@@ -117,6 +117,14 @@ elif [[ -z "$SKIP_TESTS" ]]; then
   done
   # Beta läuft nur noch unter Linux in der CI (Entscheidung vom 3.11.2026)
 fi
+# Update eines Bestandsnutzers nachstellen: vom letzten Release auf dieses
+# Paket (Einstellungen, Toolbar, Begrüßung, userChrome.css) – auch wenn die
+# Prüfungen selbst die CI übernommen hat. Bei Fehlern kein Release
+if [[ -n "$CI_OK" || -n "$HOTFIX_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]] && [[ -z "$NO_UPDATE_TEST" ]]; then
+  python3 tests/update_test.py --xpi "$XPI" 2>&1 | tee -a "$LOG" \
+    || fehlschlag "Update-Test fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
+  TESTS+=("Update-Test vom letzten Release: $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
+fi
 ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
 MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")
 

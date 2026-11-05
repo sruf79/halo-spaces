@@ -28,9 +28,13 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
 # Nicht mitgezählt: Sitzungen der eigenen Läufe (ID im Protokoll unter
 # ~/halo-nacht) und Sitzungen, deren letzte Eingabe eine Push-Meldung war (die
 # kurzen Zustell-Sitzungen von push() und die Empfangssitzung mit Remote Control).
+# Die 2 Stunden zählen ab dem Zeitstempel des letzten echten Eintrags, nicht ab
+# der Dateizeit: /compact schreibt die Datei neu, ohne dass die Runde weitergeht.
+# sitzung_arbeitet <datei> [frisch] – „frisch“: ein Unteragent schrieb zuletzt
 sitzung_arbeitet() {
-  tail -n 300 $1 | python3 -c '
-import sys, json
+  tail -n 300 $1 | FRISCH=${2:-} python3 -c '
+import sys, json, os
+from datetime import datetime, timezone
 letzte = None
 for z in sys.stdin:
     try:
@@ -46,20 +50,27 @@ for z in sys.stdin:
 if letzte is None:
     sys.exit(1)
 m = letzte.get("message") or {}
-sys.exit(1 if letzte["type"] == "assistant" and m.get("stop_reason") != "tool_use" else 0)
+if letzte["type"] == "assistant" and m.get("stop_reason") != "tool_use":
+    sys.exit(1)
+try:
+    alt = datetime.now(timezone.utc) - datetime.fromisoformat(letzte["timestamp"].replace("Z", "+00:00"))
+except (KeyError, ValueError):
+    sys.exit(0)
+sys.exit(1 if alt.total_seconds() > 7200 and not os.environ.get("FRISCH") else 0)
 '
 }
 aktive_sitzung() {
-  local f id letzte neu
+  local f id letzte neu unter
   for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.); do
-    neu=($f(N.mh-2) ${f:r}/**/*.jsonl(N.mh-2))
+    unter=(${f:r}/**/*.jsonl(N.mh-2))
+    neu=($f(N.mh-2) $unter)
     (( $#neu )) || continue
     id=${f:t:r}
     grep -qs -- "Sitzung $id" $HOME/halo-nacht/*.log(N) && continue
     letzte=$(grep '"role":"user","content":"' $f | tail -n 1)
     [[ $letzte == *'"content":"Aufgabe ohne Rückfrage: Lade bei Bedarf'* ]] && continue
     [[ $letzte == *'\">\nPUSH: '* ]] && continue
-    sitzung_arbeitet $f || continue
+    sitzung_arbeitet $f ${unter:+frisch} || continue
     print $id
     return 0
   done

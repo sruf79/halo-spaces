@@ -2172,7 +2172,12 @@ def reading_checks(m, results):
             gap: Math.round(view.getBoundingClientRect().top - (mp.getBoundingClientRect().top + body.getBoundingClientRect().bottom)),
             paneH: Math.round(g("messagepanebox").getBoundingClientRect().height) };
           // Menü über ⌄ erreichbar
-          if (drop && vis(drop)) { save.open = true; await ruhig(500); out.menu = save.querySelector("menupopup")?.state; save.querySelector("menupopup")?.hidePopup(); await ruhig(300); }
+          // (zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu; CI mac 5.11.)
+          if (drop && vis(drop)) {
+            const pop = save.querySelector("menupopup"); let shown = false; pop?.addEventListener("popupshowing", () => { shown = true; }, { once: true });
+            w.focus(); await until(() => Services.focus.activeWindow == w, 2000);
+            save.open = true; await until(() => shown || pop?.state == "open", 1500); await ruhig(300);
+            out.menu = shown ? "open" : pop?.state; pop?.hidePopup(); await ruhig(300); }
           return out;""")
         c, sv = res.get("count") or {}, res.get("save") or {}
         ok = (res.get("toggle") is False and res.get("chevron") and res.get("icon") is False and c.get("size") == "12px" and not same_color(c.get("color", ""), c.get("text", ""))
@@ -9486,8 +9491,9 @@ Neu
         if res.get("visibility") == "hidden":
             return True, f"Testfenster verdeckt – übersprungen {res}"
         # (Windows-VM: emuliert, dort fallen Einzelbilder aus – der letzte Schritt darf etwas größer sein;
-        # Linux in der CI: Zeitschwankungen, Bruchteile eines Pixels)
-        last_max = 3 if sys.platform == "win32" else 1 if sys.platform != "darwin" else 0
+        # Linux in der CI: Zeitschwankungen unter xvfb, ebenso)
+        # (Linux ESR in der CI am 5.11. einmal 2,4 px)
+        last_max = 3 if sys.platform != "darwin" else 0
         bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < 6 or any(v["back"]) or v["lastStep"] > last_max
                or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"])))]
         return not bad, "; ".join(bad) or f"{res}"

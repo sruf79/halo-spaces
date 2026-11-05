@@ -168,7 +168,8 @@ main {
 .welcome #update,
 .welcome #feedback,
 .welcome #donate {
-  display: none;
+  /* (!important: der Danke-Knopf setzt seine Anzeige in coffee-button.css fest) */
+  display: none !important;
 }
 
 .welcome #settings {

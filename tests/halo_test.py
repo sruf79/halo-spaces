@@ -11102,8 +11102,9 @@ Neu
             const pop = d.getElementById("menu_HelpPopup");
             pop.openPopup(d.getElementById("menubar-items") || d.documentElement, "after_start", 0, 0, false);
             await until(() => pop.state == "open", 3000); await ruhig(400);
-            const ic = it.querySelector(".menu-iconic-icon"), r = ic?.getBoundingClientRect(), cs = ic && getComputedStyle(ic);
+            const ic = it.querySelector(".menu-iconic-icon, .menu-icon, image"), r = ic?.getBoundingClientRect(), cs = ic && getComputedStyle(ic);
             out.icon = ic ? { w: Math.round(r.width), h: Math.round(r.height), mask: cs.maskImage, opacity: cs.opacity, src: (ic.src || cs.listStyleImage || "").slice(0, 60) } : null;
+            out.popup = pop.state; out.kids = [...it.querySelectorAll("*")].map(e => e.localName + "." + e.className).slice(0, 8);
             pop.hidePopup(); await ruhig(300);
           }
           return out;""")

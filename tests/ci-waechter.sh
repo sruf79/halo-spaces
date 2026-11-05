@@ -215,7 +215,7 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
 # selben Meldung wird höchstens einmal am Tag ergänzt). Für jeden abgeschlossenen Lauf, auch während Nachtlauf und
 # Wochenprüfung (die werten diese Zeilen nicht selbst aus)
 konsole_zeilen() {   # <Zeilen> <Quelle (Lauf-Adresse bzw. Datei)> <Commit> <Commit-Titel> [<Job für Zeilen ohne Job>]
-  local zeilen=$1 quelle=$2 sha=$3 titel=$4 standardjob=$5 heute zeile job fehler key n=0 neu=0 erg=0 ergebnis art wo meldung
+  local zeilen=$1 quelle=$2 sha=$3 titel=$4 standardjob=$5 heute zeile job fehler key n=0 neu=0 erg=0 fehl=0 ergebnis art wo meldung
   local -a keys
   local -A jobs_von zeile_von
   heute=$(date '+%d.%m.%Y')
@@ -261,8 +261,8 @@ Meldung: ${zeile_von[$key][1,1200]}
 Quelle: $quelle
 Commit: $sha „$titel“
 
-Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden. Behoben erst, wenn ein Lauf mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht mehr nennt." \
-      "**$heute:** erneut ${wo#in }, ${jobs_von[$key]} – $quelle, Commit $sha" "$art" "$meldung") || continue
+**$heute:** erkannt vom CI-Wächter (tests/ci-waechter.sh) – am selben Tag keine Ergänzung mehr. Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden. Behoben erst, wenn ein Lauf mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht mehr nennt." \
+      "**$heute:** erneut ${wo#in }, ${jobs_von[$key]} – $quelle, Commit $sha" "$art" "$meldung") || { fehl=1; continue }
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
   done
   melde "Fehlerkonsole/-protokoll ($quelle): $n Meldung(en), $neu neu, $erg ergänzt"
@@ -270,6 +270,9 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
   if [[ -z $TROCKEN ]] && (( neu )); then
     push "Fehlerkonsole/-protokoll: $neu neue(r) Fehler im Board ($sha; kein Rot, Release nicht betroffen)"
   fi
+  # Board (zeitweise) nicht erreichbar: Exitcode 2 – der Lauf wird im nächsten Durchgang erneut ausgewertet
+  # (schon Eingetragenes findet er dann wieder)
+  (( ! fehl )) || return 2
 }
 
 konsole() {   # <Lauf-ID>; Exitcode 2, wenn der Lauf nicht lesbar ist (dann später erneut)

@@ -13724,15 +13724,30 @@ class CardEnhancer {
         log("menubar error", e);
       }
       hookNewTabMenus(w.document, this.restorers);
-      try {
-        hookTaskFilter();
-        hookTaskLists(w, this.restorers);
-        relinkTaskTree(w, this.restorers);
-        hookTaskView(w, this.restorers);
-        hookTaskCards(w, this.restorers);
-        hookTaskInfo(w, this.restorers);
-      } catch (e) {
-        log("task filter error", e);
+      // Aufgaben-Hooks fragen den Kalender-Manager – erst, wenn Thunderbird
+      // den Kalender dieses Fensters lädt (loadCalendarComponent). Vorher lud
+      // der Manager die Kalender zu früh: Kalender von Add-on-Anbietern, die
+      // noch nicht bereit waren, blieben deaktiviert (GitHub #38)
+      if (w.loadCalendarComponent && !w.loadCalendarComponent.hasBeenCalled) {
+        if (!w.__mcTaskHookWait) {
+          w.__mcTaskHookWait = w.setTimeout(() => {
+            w.__mcTaskHookWait = 0;
+            if (!w.closed) {
+              markTab();
+            }
+          }, 200);
+        }
+      } else {
+        try {
+          hookTaskFilter();
+          hookTaskLists(w, this.restorers);
+          relinkTaskTree(w, this.restorers);
+          hookTaskView(w, this.restorers);
+          hookTaskCards(w, this.restorers);
+          hookTaskInfo(w, this.restorers);
+        } catch (e) {
+          log("task filter error", e);
+        }
       }
       try {
         hookLayoutMenus();
@@ -15365,6 +15380,11 @@ class CardEnhancer {
       // schon angezeigte Listen neu füllen (refreshFromCalendar statt
       // refresh() – das meldet die Beobachter jedes Mal neu an)
       const refresh = () => {
+        // vor dem Kalender des Fensters gibt es noch keine Listen – und den
+        // Manager hier zu fragen, lüde die Kalender zu früh (GitHub #38)
+        if (w.loadCalendarComponent && !w.loadCalendarComponent.hasBeenCalled) {
+          return;
+        }
         let cals = [];
         try {
           const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");

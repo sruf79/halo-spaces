@@ -5024,7 +5024,9 @@ def calendar_checks(m, results):
           const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
           const api = Cu.evalInSandbox("mailCards.prototype.getAPI({})", g).mailCards;
           const title = d.getElementById("mcTodayTitle");
-          const out = { start: { attr: title.dataset.weather || null, setting: (await api.getSettings()).weather } };
+          // Symbol neben dem Titel nur mit eingeschaltetem Wetter (aus: keins, an ohne Daten: Sonne)
+          const shown = () => (d.getElementById("mcTodayWeather")?.getBoundingClientRect().width || 0) > 0;
+          const out = { start: { attr: title.dataset.weather || null, setting: (await api.getSettings()).weather, icon: shown() } };
           Cu.evalInSandbox(`globalThis.__mcRealFetch = fetchWithTimeout; globalThis.__mcUrls = [];
             fetchWithTimeout = async (win, url) => { __mcUrls.push(url);
               const body = url.includes("geocoding") ? { results: [{ name: "Wien", country: "Österreich", latitude: 48.20849, longitude: 16.37208 }] }
@@ -5038,9 +5040,10 @@ def calendar_checks(m, results):
             out.city = { attr: title.dataset.weather, tip: title.getAttribute("title"), iconTip: icon?.getAttribute("title"), status: st.weatherStatus,
                          mask: icon ? w.getComputedStyle(icon).maskImage.slice(0, 80) : "", urls: Cu.evalInSandbox("JSON.stringify(__mcUrls)", g) };
             await api.setSetting("weatherPlace", ""); await ruhig(400);
-            out.located = { attr: title.dataset.weather || null, status: (await api.getSettings()).weatherStatus };
+            out.city.icon = shown();
+            out.located = { attr: title.dataset.weather || null, status: (await api.getSettings()).weatherStatus, icon: shown() };
             await api.setSetting("weather", false); await ruhig(300);
-            out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title"), iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") ?? null };
+            out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title"), iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") ?? null, icon: shown() };
           } finally {
             Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate;", g);
             for (const p of ["weather", "weatherPlace", "weatherState"]) Services.prefs.clearUserPref("extensions.mailcards." + p);
@@ -5048,13 +5051,13 @@ def calendar_checks(m, results):
           return out;""" % ADDON_ID)
         c, l, o = res.get("city") or {}, res.get("located") or {}, res.get("off") or {}
         urls = json.loads(c.get("urls") or "[]")
-        ok = (res["start"] == {"attr": None, "setting": False}
+        ok = (res["start"] == {"attr": None, "setting": False, "icon": False} and c.get("icon") is True and l.get("icon") is True and o.get("icon") is False
               and c.get("attr") == "rain" and c.get("tip") == "Go to Today" and c.get("iconTip") == "Wien, Österreich: 12 °C, Rain" and "Wien" in (c.get("status") or "")
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
               and l.get("attr") is None and "System Settings" in (l.get("status") or "")
               and o.get("attr") is None and o.get("tip") == "Go to Today" and o.get("iconTip") is None)
         return ok, f"{res}"
-    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis und Sonne, aus → Sonne", today_weather, results)
+    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis und Sonne, aus → kein Symbol neben dem Titel", today_weather, results)
 
     def agenda_days():
         # Today-Pane: Tagesspalte (ca. 38 px) eines Tags mit nur einem Eintrag ragte bis auf 2–6 px an den nächsten Tag
@@ -5711,7 +5714,8 @@ def calendar_checks(m, results):
           // Text und Sonne/Wetter sind eigene Elemente mit eigenem Tooltip (Text: „Go to Today“ vom Titel)
           const tt = title.querySelector(".mc-tt-text"), wi = d.getElementById("mcTodayWeather");
           const tr0 = tt.getBoundingClientRect(), wr = wi.getBoundingClientRect();
-          out.parts = out.below ? null : [d.elementFromPoint(tr0.left + 6, y) == tt, d.elementFromPoint(wr.left + wr.width / 2, y) == wi];
+          // (Wetter ist aus: kein Symbol neben dem Titel)
+          out.parts = out.below ? null : [d.elementFromPoint(tr0.left + 6, y) == tt, wr.width > 0 ? d.elementFromPoint(wr.left + wr.width / 2, y) == wi : null];
           d.elementFromPoint(r.left + r.width / 2, y)?.click(); await ruhig(600);
           out.click = [isToday(), agenda.scrollTop];
           away(); await ruhig(500);
@@ -5719,7 +5723,7 @@ def calendar_checks(m, results):
           out.enter = [isToday(), agenda.scrollTop];
           return out;""")
         ok = (res.get("role") == "button" and res.get("tip") == "Go to Today" and res.get("tab") == 0 and res.get("awayOk")
-              and res.get("parts") in (None, [True, True])
+              and res.get("parts") in (None, [True, None])
               and res.get("hit") == [True, True] and res.get("width", 0) >= 20 and (sys.platform != "darwin" or not res.get("below"))
               and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
         return ok, f"{res}"

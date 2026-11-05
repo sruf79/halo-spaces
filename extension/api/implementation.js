@@ -356,7 +356,7 @@ const DE = {
   "Completion while writing keeps working.": "Die Vervollständigung beim Schreiben funktioniert weiter.",
   "One per line: keyword = emoji. They take precedence.": "Eines pro Zeile: Stichwort = Emoji. Sie haben Vorrang.",
   "The symbol next to the title shows the weather.": "Das Symbol neben dem Titel zeigt das Wetter.",
-  "Asks open-meteo.com about every 30 minutes. Off: the sun stays, no outside requests.": "Fragt etwa alle 30 Minuten bei open-meteo.com nach. Aus: die Sonne bleibt, keine Anfragen nach außen.",
+  "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Fragt etwa alle 30 Minuten bei open-meteo.com nach. Aus: kein Symbol neben dem Titel, keine Anfragen nach außen.",
   "Place": "Ort",
   "Empty: your current location.": "Leer: dein aktueller Standort.",
   "The system asks for permission once.": "Das System fragt einmal um Erlaubnis.",
@@ -763,7 +763,7 @@ const FR = {
   "Completion while writing keeps working.": "La saisie semi-automatique continue de fonctionner.",
   "One per line: keyword = emoji. They take precedence.": "Un par ligne : mot clé = emoji. Ils sont prioritaires.",
   "The symbol next to the title shows the weather.": "Le symbole à côté du titre indique la météo.",
-  "Asks open-meteo.com about every 30 minutes. Off: the sun stays, no outside requests.": "Interroge open-meteo.com environ toutes les 30 minutes. Désactivé : le soleil reste, aucune requête externe.",
+  "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Interroge open-meteo.com environ toutes les 30 minutes. Désactivé : aucun symbole à côté du titre, aucune requête externe.",
   "Place": "Lieu",
   "Empty: your current location.": "Vide : votre position actuelle.",
   "The system asks for permission once.": "Le système demande l’autorisation une fois.",
@@ -1170,7 +1170,7 @@ const ES = {
   "Completion while writing keeps working.": "El autocompletado al escribir sigue funcionando.",
   "One per line: keyword = emoji. They take precedence.": "Uno por línea: palabra clave = emoji. Tienen prioridad.",
   "The symbol next to the title shows the weather.": "El símbolo junto al título muestra el tiempo.",
-  "Asks open-meteo.com about every 30 minutes. Off: the sun stays, no outside requests.": "Consulta open-meteo.com cada 30 minutos aprox. Desactivado: el sol se queda, ninguna solicitud externa.",
+  "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Consulta open-meteo.com cada 30 minutos aprox. Desactivado: ningún símbolo junto al título, ninguna solicitud externa.",
   "Place": "Lugar",
   "Empty: your current location.": "Vacío: tu ubicación actual.",
   "The system asks for permission once.": "El sistema pide permiso una vez.",
@@ -1577,7 +1577,7 @@ const IT = {
   "Completion while writing keeps working.": "Il completamento durante la scrittura continua a funzionare.",
   "One per line: keyword = emoji. They take precedence.": "Uno per riga: parola chiave = emoji. Hanno la precedenza.",
   "The symbol next to the title shows the weather.": "Il simbolo accanto al titolo mostra il meteo.",
-  "Asks open-meteo.com about every 30 minutes. Off: the sun stays, no outside requests.": "Interroga open-meteo.com circa ogni 30 minuti. Disattivato: il sole resta, nessuna richiesta esterna.",
+  "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Interroga open-meteo.com circa ogni 30 minuti. Disattivato: nessun simbolo accanto al titolo, nessuna richiesta esterna.",
   "Place": "Luogo",
   "Empty: your current location.": "Vuoto: la tua posizione attuale.",
   "The system asks for permission once.": "Il sistema chiede il permesso una volta.",
@@ -3964,6 +3964,7 @@ const Weather = {
     }
     for (const t of this.titles) {
       t.removeAttribute("data-weather");
+      t.removeAttribute("data-weather-off");
       t.querySelector("#mcTodayWeather")?.removeAttribute("title");
     }
     this.titles.clear();
@@ -3973,8 +3974,10 @@ const Weather = {
     const st = this.state();
     const on = this.enabled() && st.kind;
     // Titeltext: „Go to Today“ (am Titel); Symbol daneben: nur das Wetter –
-    // ohne Wetter gehört die feste Sonne zum Titel (erbt dessen Tooltip)
+    // eingeschaltet, aber noch ohne Daten die feste Sonne (erbt den Tooltip
+    // des Titels), ausgeschaltet gar kein Symbol (data-weather-off)
     for (const t of this.titles) {
+      t.toggleAttribute("data-weather-off", !this.enabled());
       const icon = t.querySelector("#mcTodayWeather");
       if (on) {
         t.dataset.weather = st.kind;

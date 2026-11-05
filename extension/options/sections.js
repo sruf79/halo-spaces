@@ -43,7 +43,7 @@ var SECTIONS = t => [
       placeholder: t("Book club = 📖\nChoir = 🎶") },
     { key: "weather", label: t("Weather in the Today Pane"),
       hint: t("The symbol next to the title shows the weather."),
-      info: t("Asks open-meteo.com about every 30 minutes. Off: the sun stays, no outside requests.") + " " + t("Weather data: Open-Meteo.com, CC BY 4.0") },
+      info: t("Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.") + " " + t("Weather data: Open-Meteo.com, CC BY 4.0") },
     { key: "weatherPlace", type: "place", showIf: ["weather", true], label: t("Place"),
       hint: t("Empty: your current location."), info: t("The system asks for permission once."), placeholder: t("Current location") },
     { key: "calendarOffline", label: t("Offline copy for online calendars"),

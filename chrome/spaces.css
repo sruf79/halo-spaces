@@ -7935,7 +7935,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   margin-inline-start: var(--mc-tt-off, 0px) !important;
 }
 
-#mcTodayTitle[data-narrow] {
+/* (ohne Wetter gibt es kein Symbol: dann der Text, notfalls mit „…“) */
+#mcTodayTitle[data-narrow]:not([data-weather-off]) {
   font-size: 0;
   gap: 0;
 }
@@ -7996,6 +7997,11 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   height: 20px;
   background-color: #FF9500;
   mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%224%22/%3E%3Cpath d=%22M12 2.8v2.2M12 19v2.2M2.8 12h2.2M19 12h2.2M5.5 5.5l1.6 1.6M16.9 16.9l1.6 1.6M5.5 18.5l1.6-1.6M16.9 7.1l1.6-1.6%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Symbol nur mit eingeschaltetem Wetter (ohne Daten bleibt die Sonne mit Hinweis) */
+#mcTodayTitle[data-weather-off] > #mcTodayWeather {
+  display: none;
 }
 
 /* Wetter statt der festen Sonne (Option; data-weather setzt die Erweiterung):

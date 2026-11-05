@@ -2070,6 +2070,12 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   padding: 0 !important;
   font-size: calc(20px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
+  /* mittig wie die Kopfkarte in Apple Erinnerungen, beim Bearbeiten linksbündig */
+  text-align: center !important;
+}
+
+:root[mc-task-info] #calendar-task-details-title:has(> .mc-ti-input) {
+  text-align: start !important;
 }
 
 /* Notiz direkt unter dem Titel in derselben Karte, nur so hoch wie ihr Text;

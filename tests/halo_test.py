@@ -6315,8 +6315,12 @@ def calendar_checks(m, results):
             await saw(x => !x.dueDate);
             out.dueGone = !saved.dueDate; await pick();
             // Titel in der Kopfkarte
-            d.getElementById("calendar-task-details-title").click(); await ruhig(200);
+            // mittig, beim Bearbeiten linksbündig (wie Apple Erinnerungen)
+            const tCell = d.getElementById("calendar-task-details-title");
+            out.titleAlign = [getComputedStyle(tCell).textAlign];
+            tCell.click(); await ruhig(200);
             const tIn = d.querySelector("#calendar-task-details-title input.mc-ti-input");
+            out.titleAlign.push(getComputedStyle(tCell).textAlign);
             out.titleInput = !!tIn; if (tIn) { tIn.value = "Halo Bearbeiten neu"; tIn.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
             await saw(x => x.title == "Halo Bearbeiten neu");
             out.title = saved.title; await pick();
@@ -6333,13 +6337,13 @@ def calendar_checks(m, results):
           }
           return out;""")
         sc = res.get("scroll") or {}
-        ok = (res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
+        ok = (res.get("titleAlign") == ["center", "start"] and res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
               and res.get("back") == [False, 25] and res.get("rep") and res.get("repSaved") and res.get("repOff")
               and res.get("locInput") and res.get("loc") == "Graz" and res.get("dueInput") == "datetime-local" and res.get("dueGone")
               and res.get("titleInput") and res.get("title") == "Halo Bearbeiten neu"
               and sc.get("can") and sc.get("head", 0) > 0 and sc.get("head") == sc.get("group"))
         return ok, f"{res}"
-    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum mit „Remove“), sofort gespeichert; Kopfkarte scrollt mit", tasks_info_edit, results)
+    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum mit „Remove“), sofort gespeichert; Titel mittig, beim Bearbeiten linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
 
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle

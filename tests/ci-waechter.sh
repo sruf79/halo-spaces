@@ -133,6 +133,15 @@ $zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen";
     print ergänzt
     return
   fi
+  if [[ -n $schluessel ]]; then
+    # schon einmal als behoben (Done) eingetragen? Dann flackert der Fehler vermutlich – im neuen Eintrag sagen
+    local frueher
+    frueher=$(print -r -- $b | jq -r --arg s "Schlüssel: $schluessel" --arg a "$anfang" \
+      '[.items[] | select(.status == "Done" and (.title | startswith($a)) and ((.content.body // "") | contains($s))) | .title][0] // ""')
+    [[ -n $frueher ]] && text+="
+
+Wieder aufgetreten: „$frueher“ war schon Done – der Fehler tritt vermutlich nur manchmal auf; behoben erst nach mehreren Läufen ohne ihn."
+  fi
   if [[ -n $TROCKEN ]]; then
     print "  (trocken) würde anlegen: $titel" >&2
   else

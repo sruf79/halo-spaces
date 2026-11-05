@@ -96,6 +96,8 @@ Reihenfolge:
    Datei:Zeile, die sich mit dem Fix verschiebt) und dabei alle im Eintrag genannten Jobs (bei „dunkel“: „mac
    dunkel: success“) gelaufen sind – grüne CI allein beweist es nicht.
    Zeigt es „nicht lesbar“ oder fehlte ein Job: In Progress mit Notiz.
+   Steht im Eintrag „Wieder aufgetreten“: erst nach drei CI-Läufen ohne
+   die Meldung auf Done.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich

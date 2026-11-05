@@ -1,5 +1,6 @@
-# Gemeinsame Hilfen der Läufe auf neon (tests/MAC-MINI.md Abschnitte 13–15):
-# nachtlauf.sh, ci-waechter.sh und wochenpruefung.sh laden diese Datei mit
+# Gemeinsame Hilfen der Läufe auf neon (tests/MAC-MINI.md Abschnitte 13–16):
+# nachtlauf.sh, ci-waechter.sh und wochenpruefung.sh (auch als Doku-Prüfung
+# mit --doku) laden diese Datei mit
 # `source`. Wie die Skripte wird sie nach ~/.config/halo-spaces/ kopiert.
 # Erwartet $LOG (Protokolldatei) und für belegt() $REPO.
 

@@ -6293,6 +6293,20 @@ def server_checks(m, results):
               const f = await until(() => local.getChildNamed?.("Halo Sichtbar"), 3000);
               f?.createSubfolder("Unter", null);
               await ruhig(1500); out.withFolder = vis();
+              // wie Apple Mail: Papierkorb und Postausgang darunter nur, solange darin etwas liegt
+              const rowOf = fo => fo && [...tree.querySelectorAll(':scope > li[data-mode="all"] li[is="folder-tree-row"]')].find(l => l.uri == fo.URI);
+              const shownRow = fo => { const r = rowOf(fo); return !!r && r.getBoundingClientRect().height > 0; };
+              const trash = local.getFolderWithFlags(Ci.nsMsgFolderFlags.Trash), outbox = local.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+              const expect = fo => !!fo && (fo.hasSubFolders || fo.getTotalMessages(false) > 0);
+              out.special = { trash: [shownRow(trash), expect(trash)], outbox: [shownRow(outbox), expect(outbox)] };
+              if (trash && !trash.getTotalMessages(false)) {
+                trash.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From - Thu Nov 05 10:00:00 2026\r\nFrom: Anna Beispiel <anna@example.invalid>\r\nSubject: Halo Papierkorb\r\nDate: Thu, 05 Nov 2026 10:00:00 +0100\r\nMessage-ID: <halo-trash@example.invalid>\r\n\r\nweg\r\n");
+                await bis(() => shownRow(trash), "Papierkorb mit Mail sichtbar", 4000).catch(() => {});
+                out.trashFull = shownRow(trash);
+                trash.emptyTrash(null);
+                await bis(() => !shownRow(trash), "leerer Papierkorb ausgeblendet", 4000).catch(() => {});
+                out.trashEmptied = shownRow(trash);
+              }
               // Einstellung „Show On My Mac“ aus: auch mit Inhalt weg; Kontextmenü der Zeile bietet das Ausblenden an
               local.createSubfolder("Halo Sichtbar2", null); const f2 = await until(() => local.getChildNamed?.("Halo Sichtbar2"), 3000); f2?.createSubfolder("Unter", null);
               await ruhig(1000);
@@ -6313,11 +6327,13 @@ def server_checks(m, results):
               await ruhig(1500); out.after = vis();
               out.emptyAfter = empty();
               return out;""")
+            sp = res.get("special") or {}
             ok = (res.get("before") is not res.get("empty") and res.get("withFolder") is True and res.get("after") is not res.get("emptyAfter")
+                  and all(v and v[0] == v[1] for v in sp.values()) and res.get("trashFull", True) is True and res.get("trashEmptied", False) is False
                   and res.get("menu") and res.get("menuLast") == "mcFolderHideLocal" and res.get("pref") is False
                   and res.get("hiddenByPref") is False and res.get("backByPref") is True)
             return ok, f"{res}"
-        check("Ordnerliste: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind; Einstellung und Kontextmenü blenden es auch mit Inhalt aus", local_hidden, results)
+        check("Ordnerliste: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind, Papierkorb und Postausgang darin nur mit Inhalt; Einstellung und Kontextmenü blenden es auch mit Inhalt aus", local_hidden, results)
 
         def get_new():
             # neue Mail auf dem Server → „Abrufen“ in der Toolbar holt sie; das Menü am Knopf ist im halo-Stil

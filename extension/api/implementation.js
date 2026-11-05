@@ -20371,7 +20371,17 @@ class CardEnhancer {
         if (li.hasAttribute("data-server-type")) {
           if (li.dataset.serverType == "none") {
             setText(label, L.onMyMac);
-            li.querySelectorAll(':scope > ul > li').forEach(c => setAttr(c, "data-mc-hide", hideLocal));
+            // wie Apple Mail: Papierkorb und Postausgang nur, solange darin etwas liegt
+            const emptySpecial = c => {
+              try {
+                const f = MailServices.folderLookup.getFolderForURL(c.uri);
+                return !!f && f.getFlag(Ci.nsMsgFolderFlags.Trash | Ci.nsMsgFolderFlags.Queue) &&
+                  !f.hasSubFolders && f.getTotalMessages(false) == 0;
+              } catch {
+                return false;
+              }
+            };
+            li.querySelectorAll(':scope > ul > li').forEach(c => setAttr(c, "data-mc-hide", hideLocal || emptySpecial(c)));
             // wie Apple Mail: „On My Mac“ ganz weg, solange dort nichts liegt –
             // aber nur, wenn es andere Konten gibt (sonst wäre die Liste leer)
             const others = MailServices.accounts.accounts.some(a => a.incomingServer && a.incomingServer.type != "none");

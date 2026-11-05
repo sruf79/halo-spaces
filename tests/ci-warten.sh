@@ -52,7 +52,7 @@ if (( RC != 4 )); then
   KONSOLE=$(gh run view $RUN -R $R --log 2>/dev/null | grep -aE 'KONSOLE  |PROTOKOLL  ' | sed -E 's/^([^	]*)	[^	]*	[^ ]* (KONSOLE|PROTOKOLL)  (.*)$/  \1 (\2): \3/' | sort -u)
   if [[ -n $KONSOLE ]]; then
     print "Fehlerkonsole/-protokoll (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein):"
-    print -r -- $KONSOLE | cut -c1-220 | head -10
+    print -r -- $KONSOLE | cut -c1-300 | head -80   # vollständig genug, um „Meldung nicht mehr da“ zu prüfen
   fi
 fi
 if (( RC == 1 )); then

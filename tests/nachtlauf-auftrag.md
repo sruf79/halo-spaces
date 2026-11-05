@@ -85,9 +85,13 @@ Reihenfolge:
    der Erweiterung) machen nichts rot und
    halten kein Release auf; der CI-Wächter trägt sie als Bug ein – keine
    Reparaturrunde dafür (AGENTS.md „Bauen und testen“, Fehlerkonsole).
-   Einen Bug „Tests: Fehlerkonsole – …“ gilt als behoben, wenn --only mit
-   der im Eintrag genannten Prüfung („während …“) keine KONSOLE-Zeile mehr
-   zur Meldung ausgibt; erwartet() nur für absichtlich ausgelöste Fehler.
+   Einen Bug „Tests: Fehlerkonsole – …“ bzw. „Tests: Fehlerprotokoll – …“
+   gilt als behoben, wenn --only mit der im Eintrag genannten Prüfung
+   („während …“) keine KONSOLE- bzw. PROTOKOLL-Zeile mehr zur Meldung
+   ausgibt; erwartet() nur für absichtlich ausgelöste Fehler. Done erst, wenn
+   auch ci-warten.sh für den Push die Meldung nicht mehr nennt (grüne CI
+   allein beweist es nicht – diese Zeilen machen nichts rot); nennt sie sie
+   noch, bleibt der Eintrag In Progress mit Notiz.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich

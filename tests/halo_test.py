@@ -14181,7 +14181,8 @@ Neu
         for line in res or []:
             print(f"PROTOKOLL  {line}", flush=True)
         return True, (f"WARNUNG: {len(res)} Fehler im Protokoll, siehe Zeilen darüber – kein Fehlschlag" if res else "keine Fehler im Protokoll")
-    check("Fehlerprotokoll der Erweiterung leer (nur Warnung)", errors, results)
+    # auch mit --only (zum Nachprüfen eines Protokoll-Bugs); dort können auch Folgen übersprungener Vorbereitungen stehen
+    check("Fehlerprotokoll der Erweiterung leer (nur Warnung)", errors, results, immer=True)
 
     def console_errors():
         # Fehlerkonsole des Testprofils (Mitschrift seit dem Start, siehe konsole_start). Nie ein Fehlschlag

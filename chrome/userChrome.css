@@ -1342,6 +1342,14 @@ body:has(> #accountCentral),
   border: none !important;
 }
 
+/* aufgeklappte Liste: Thunderbird begrenzt sie auf ein Viertel des
+   Lesebereichs – bei kurzen Mails in niedrigen Fenstern schnitt das schon die
+   zweite Datei ab; mindestens Platz für etwa vier Dateien, darüber scrollt sie
+   (die Höhe des Inhalts misst die Erweiterung neu, --preferred-height) */
+#attachmentView.list-expanded {
+  max-block-size: min(var(--preferred-height), max(25%, 240px)) !important;
+}
+
 #attachmentView[mc-single] > #attachmentBar {
   display: none !important;
 }

@@ -1787,6 +1787,12 @@ def reading_checks(m, results):
           await ruhig(300); out.closed = list.collapsed; out.rot = cs(doc.getElementById("attachmentInfo"), "::before").transform != "none"; out.jump = Math.max(...tops.map(Math.abs));
           out.afterClose = Math.round((count.getBoundingClientRect().top - top0) * 10) / 10;
           toggle.click(); await ruhig(400); out.reopened = !list.collapsed;
+          // alle Dateien ganz sichtbar (Thunderbird maß die Höhe vor unseren höheren Zeilen; im niedrigen Fenster
+          // begrenzte es die Liste auf ein Viertel – die letzte Datei war halb abgeschnitten)
+          const cut = () => { const lr = list.getBoundingClientRect(), last = [...list.querySelectorAll(".attachmentItem")].pop()?.getBoundingClientRect();
+            return last ? Math.round((last.bottom - Math.min(lr.bottom, view.getBoundingClientRect().bottom)) * 10) / 10 : 99; };
+          out.cut = [cut()];
+          const oh = w.outerHeight; try { w.resizeTo(w.outerWidth, 620); await ruhig(800); out.cut.push(cut()); } finally { w.resizeTo(w.outerWidth, oh); await ruhig(500); }
           // Download-Symbol: speichert genau diesen Anhang, ohne zu öffnen
           const calls = [], second = rows[1], att = second.attachment, origSave = att.save, origOpen = att.open;
           att.save = async () => { calls.push(["save", att.name]); }; att.open = async () => { calls.push(["open", att.name]); };
@@ -1807,11 +1813,12 @@ def reading_checks(m, results):
         ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
               and res["font"] == {"count": 12, "name": 13} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
               and all(res["saves"]) and res["closed"] is True and res.get("rot") and res["jump"] <= 1 and res["reopened"]
+              and all(c <= 0.5 for c in res.get("cut", [99]))
               and res["calls"] == [["save", "Ausflug-02.txt"]]
               and sg.get("attr") and not sg.get("bar") and sg.get("name") and sg.get("save") and abs(sg.get("icon", 0) - 16) <= 1.5
               and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
-    check("Anhänge: Liste offen, Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
+    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter

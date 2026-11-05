@@ -4766,8 +4766,25 @@ function decorateAttachments(target) {
           win.toggleAttachmentList?.(true);
         } catch {}
       }
+      fitHeight();
+    };
+    // Höhe der aufgeklappten Liste: Thunderbird misst sie einmal beim
+    // Aufklappen (--preferred-height) – unsere Zeilen sind höher und bekommen
+    // den Speichern-Knopf erst danach, die letzte Datei war dann halb
+    // abgeschnitten. Neu messen, sobald sich Liste oder Zeilen ändern
+    const fitHeight = () => {
+      if (!view.classList.contains("list-expanded") || list.collapsed) {
+        return;
+      }
+      const bar = doc.getElementById("attachmentBar");
+      const h = Math.ceil(list.scrollHeight + (bar?.scrollHeight || 0) + 2);
+      if (Math.abs((parseFloat(view.style.getPropertyValue("--preferred-height")) || 0) - h) >= 1) {
+        view.style.setProperty("--preferred-height", `${h}px`);
+      }
     };
     new win.MutationObserver(update).observe(list, { childList: true });
+    new win.MutationObserver(fitHeight).observe(view, { attributeFilter: ["class"] });
+    new win.ResizeObserver(fitHeight).observe(list);
     update();
   } catch (e) {
     log("attachments decorate error", e);

@@ -40,4 +40,9 @@ Notes from the first submission (2026-10-17):
 - ATN stores no 4-byte characters: emoji in description or captions make saving fail silently.
 - Experiment add-ons need `strict_max_version` (store/max-version) – raise it with every new Thunderbird release after testing.
 - The upload sometimes fails with "status: 502" – just upload again.
+- Before submitting again: `privacy-en.md` names only GitHub as update source
+  (since 2026-11-05, while distribution is GitHub-only). The store package has
+  no `update_url` – add that ATN installs get updates from
+  addons.thunderbird.net (item 3, and the last sentence about who sees the IP
+  address), and the README privacy paragraph likewise.
 - Source code upload is needed (theme.css is generated): `git archive` of the release plus the current build.sh/store files; reviewer notes contain the build steps. `publish.sh` builds it as `dist/halo-spaces-<version>-source.zip`; the ATN upload API only takes the package, so upload the zip in the Developer Hub (version page, "Source code").

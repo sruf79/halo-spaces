@@ -238,8 +238,7 @@ never sends your messages, contacts or events anywhere. It only goes online
 for what you see: sender logos (the sender's domain only, can be turned off),
 contact photos stored as a web link in your address book, the weather if you
 turn it on, a website you chose as a space, one-click unsubscribe when you
-confirm it, and update checks (GitHub or addons.thunderbird.net, depending on
-where you installed it). Details in the [privacy policy](store/privacy-en.md).
+confirm it, and update checks on GitHub. Details in the [privacy policy](store/privacy-en.md).
 
 Found a security problem? Please report it privately, see
 [SECURITY.md](SECURITY.md).

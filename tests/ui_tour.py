@@ -1491,6 +1491,7 @@ class Tour:
         self.m, self.port, self.pid, self.out, self.scheme, self.probe = m, port, pid, out, scheme, probe
         self.main = self.handle()
         self.results = []
+        self.messung = {}
         self.echo = True
 
     def reconnect(self):
@@ -1546,6 +1547,8 @@ class Tour:
             else:
                 res = self.js("const popup = w.__tourPopup; const cur = tabDoc();" + self.probe)
             print(f"PROBE {sid} {json.dumps(res, ensure_ascii=False)}", flush=True)
+            if isinstance(res, dict):
+                self.messung[sid] = res
         except Exception as e:
             print(f"PROBE {sid} FEHLER {e}", flush=True)
 
@@ -1605,8 +1608,9 @@ class Tour:
             if s.get("after"):
                 self.js(s["after"] + "\n;return null;")
             if s["cap"] == "popup":
-                files = self.capture_popups(sid)
+                # messen, solange das Popup sicher offen ist – die Aufnahme kann es schließen
                 self.do_probe(sid)
+                files = self.capture_popups(sid)
                 return self.report(s, True, files)
             if s.get("prompt"):
                 return self.capture_prompt(s, before_wins)
@@ -1954,6 +1958,8 @@ def main():
     ap.add_argument("--list", action="store_true", help="Oberflächen auflisten und beenden")
     ap.add_argument("--probe", help="JavaScript nach dem Öffnen jeder Oberfläche ausführen und als JSON ausgeben "
                                     "(Hauptfenster: Hilfen aus PRELUDE/TOUR_JS, popup, cur; Fenster: w, d)")
+    ap.add_argument("--messung", action="store_true", help="jede Oberfläche mit tests/tour-messung.js messen und die Werte "
+                                                           "nach <out>/<hell|dunkel>-messung.json schreiben (Design-Rundgang)")
     ap.add_argument("--keep", action="store_true", help="Testprofil nicht löschen")
     ap.add_argument("--tb", default=ht.DEFAULT_TB, help="Thunderbird-Programm")
     ap.add_argument("--tb-log", help="Ausgabe von Thunderbird in diese Datei")
@@ -1961,6 +1967,8 @@ def main():
     ap.add_argument("--fortschritt", metavar="DATEI", help="Fortschrittsliste (Markdown) schreiben")
     args = ap.parse_args()
     out = os.path.abspath(args.out)
+    if args.messung and not args.probe:
+        args.probe = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tour-messung.js"), encoding="utf-8").read()
     # bei einem Hänger: kill -USR1 <pid> gibt den Python-Stack aus
     import faulthandler
     import signal
@@ -2034,6 +2042,12 @@ def main():
             old[e["id"]] = e
         order = {s["id"]: i for i, s in enumerate(SURFACES)}
         json.dump(sorted(old.values(), key=lambda e: order.get(e["id"], 9999)), open(rp, "w"), indent=1, ensure_ascii=False)
+        if args.messung:
+            # Messwerte je Oberfläche, wie das Ergebnis mit früheren --only-Läufen zusammengeführt
+            mp = os.path.join(out, f"{scheme}-messung.json")
+            alt = json.load(open(mp)) if os.path.exists(mp) else {}
+            alt.update(tour.messung)
+            json.dump(alt, open(mp, "w"), indent=1, ensure_ascii=False)
         ok = sum(1 for e in tour.results if e["ok"])
         print(f"\n{ok} von {len(tour.results)} Oberflächen aufgenommen, {len(tour.results) - ok} nicht erreichbar → {rp}")
 

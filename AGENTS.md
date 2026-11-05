@@ -573,6 +573,22 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Liste, Design-Durchsicht mit `ui_tour.py`), schaut zuerst im Index
   nach einer passenden Vorlage und vergleicht damit; fehlt eine, im
   Bericht bzw. Gespräch nennen, welche Vorlage helfen würde.
+- **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026,
+  Wortlaut: „Erinnere mich jeden tag untertags (bei keinem nachtlauf) bei
+  einem manuellen run an benötigte bilder die noch gebraucht werden“ –
+  ersetzt durch die Korrektur desselben Abends: „Nein jede manuell
+  gestartete sitzung zwischen 08:00 und 22:00 täglich“): Jede von Hand
+  gestartete Sitzung, die zwischen 08:00 und 22:00 (Wiener Zeit) beginnt,
+  nennt dem Maintainer in ihrer ersten Antwort die offenen Bilder aus
+  `~/halo-aufgaben/bilder-offen.md` – Pflicht zuerst, optional knapp, mit
+  fertigen `halobild`-/`haloapple`-Befehlen; leere Liste → nichts. Nie in
+  automatischen Läufen (Nachtlauf, Wochen-/Doku-Prüfung, Rundgang,
+  CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon gibt der
+  SessionStart-Hook die Liste aus; Cloud- und Laptop-Sitzungen fragen sie zu
+  Beginn bei neon ab („offene Bilderliste?“). Die Liste pflegt neon: neu
+  eintragen, wenn ein Eintrag „braucht Bild“, „Bild unzureichend“ oder
+  „Vorlage fehlt“ bekommt; austragen, sobald das Bild gespeichert und
+  geprüft ist.
 - Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
   Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
   (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf

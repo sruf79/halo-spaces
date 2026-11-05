@@ -13872,6 +13872,32 @@ Neu
         return not res, "; ".join(res) or "keine Fehler im Protokoll"
     check("Fehlerprotokoll der Erweiterung leer", errors, results)
 
+    def console_errors():
+        # Fehlerkonsole des Testprofils am Ende des Laufs: Fehler aus halo.spaces (Quelle im Paket bzw. unser Code im
+        # Stapel) und Thunderbird-Meldungen, die auf einen Eingriff von uns deuten, lassen die Prüfung scheitern;
+        # Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt. Nur das Testprofil, nie das echte
+        res = m.js(r"""
+          const OURS = /resource:\/\/mailcards\/|mail-cards@sebastian\.local|moz-extension:\/\//;
+          // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
+          const HINTS = [/initialised calendars before loadCalendarComponent/];
+          const seen = new Map(); let warnings = 0, foreign = 0;
+          for (const msg of Services.console.getMessageArray() || []) {
+            if (!(msg instanceof Ci.nsIScriptError)) continue;
+            if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { warnings++; continue; }
+            const text = String(msg.errorMessage || "").slice(0, 200);
+            const stack = String(msg.stack?.toString?.() || "");
+            const ours = OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(text));
+            if (!ours) { foreign++; continue; }
+            const where = `${(msg.sourceName || "").replace(/^.*\//, "")}:${msg.lineNumber}`;
+            const key = `${text} (${where})`;
+            seen.set(key, (seen.get(key) || 0) + 1);
+          }
+          return { ours: [...seen].map(([k, n]) => (n > 1 ? `${n}× ` : "") + k), warnings, foreign };""")
+        ours = res.get("ours") or []
+        return not ours, ("; ".join(ours[:8]) + (f" … und {len(ours) - 8} weitere" if len(ours) > 8 else "")) if ours \
+            else f"keine Fehler aus halo.spaces (Thunderbird selbst: {res.get('foreign')} Fehler, {res.get('warnings')} Warnungen)"
+    check("Fehlerkonsole: keine Fehler aus halo.spaces und keine Startmeldung, die auf einen Eingriff deutet", console_errors, results)
+
 
 if __name__ == "__main__":
     main()

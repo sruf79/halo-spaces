@@ -83,6 +83,13 @@ und wirkten die Verbesserungen der Vorwochen?
   Vermutungen; seine Befunde selbst nachprüfen. Fertig erst nach drei Runden
   in Folge ohne Fehler oder Verbesserung, höchstens fünf Runden – sonst im
   Bericht „nicht abgeschlossen“ mit Stand. Befunde behandeln wie Abschnitt 3.
+- **Design-Rundgang** (samstags, tests/MAC-MINI.md Abschnitt 17): aus
+  ~/halo-aufgaben/rundgang-kennzahlen.json der Lauf der Woche – Status
+  (fertig, ausgelassen mit Grund, pausiert, gescheitert), Dauer je Schema,
+  OK/nicht erreicht, Ausreißer neu/behoben/gesamt; dazu der Bericht
+  ~/halo-berichte/<datum>-rundgang.md. Im Bericht mit der Vorwoche
+  vergleichen; zweimal in Folge ausgelassen oder deutlich mehr nicht
+  erreichte Oberflächen nennen.
 - **Board:** gh project item-list 1 --owner sruf79 --limit 300 --format json
   (offen: Anzahl je Status und Typ). Erledigte Einträge werden archiviert und
   fehlen dort – sie stattdessen aus den Nachtlauf-Berichten und den
@@ -102,7 +109,9 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   konsole (Objekt: meldungen, board_neu, board_erledigt, board_offen,
   dubletten, verloren, wieder_aufgetreten, durchsicht_runden,
   durchsicht_abgeschlossen),
-  ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege).
+  ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
+  rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
+  ausreisser_behoben, ausreisser_gesamt).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.
 

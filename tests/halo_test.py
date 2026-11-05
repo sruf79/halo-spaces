@@ -12866,8 +12866,12 @@ Neu
           // (in der Windows-CI waren die Unterpunkte einmal verborgen – nicht nachstellbar: warten und mitschreiben, was gewählt ist)
           await until(() => vis("paneMcAccounts"), 5000);
           out.sel = [pd.getElementById("categories").selectedItem?.value, pd.getElementById("mcCat-paneMcAccounts")?.hasAttribute("mc-folded")];
-          // unter Linux springt die Auswahl einige Sekunden nach dem Öffnen auf General zurück (eigener Eintrag) – dann erneut wählen
-          if (!vis("paneMcAccounts")) { await pick("paneMcAccounts", 1500); await until(() => vis("paneMcAccounts"), 5000); }
+          // Thunderbirds verspäteter Startaufruf (unter Linux kam er nach der Wahl an und sprang auf General zurück):
+          // nachgestellt ohne Eingabe davor – die gewählte Kategorie bleibt
+          await wait(1100); // (keine Eingabe in der letzten Sekunde – wie beim echten verspäteten Aufruf)
+          pw.gotoPref("paneGeneral"); await ruhig(600);
+          await until(() => pd.getElementById("categories").selectedItem?.value == "paneMcAccounts", 2000);
+          out.lateStart = [!!pw.gotoPref.__mcOrig, pd.getElementById("categories").selectedItem?.value];
           const acc = page("about:accountsettings"), fd = acc.contentDocument, tree = fd.getElementById("accounttree");
           const local = MailServices.accounts.localFoldersServer.key;
           // Konto „Lokale Ordner“ wählen, dann seine zweite Seite (Speicherplatz)
@@ -12915,7 +12919,7 @@ Neu
               and acc[-1][1].endswith("…") and res["popup"] == "open"
               and len(add) >= 3 and [e[1] for e in add if e[2]] and "Plugins" not in [e[1] for e in add] and res["side"] == 0
               and res["view"] == "addons://list/theme" and len(res["add2"]) == 1 and res["gaps"][0] == 28
-              and res["fold"] == [True, False, True, True])
+              and res["fold"] == [True, False, True, True] and res.get("lateStart") == [True, "paneMcAccounts"])
         return ok, f"{res}"
     check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü, „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
 

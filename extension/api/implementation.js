@@ -2508,7 +2508,48 @@ function hookPrefCategories(cw, restorers = null) {
   if (target && doc.getElementById("mcCat-" + target.value)) {
     cw.gotoPref?.(target.value);
   }
+  // Beim Öffnen ruft Thunderbird die Startseite (General bzw. die zuletzt
+  // gezeigte, auch über die Adresse #general) teils erst Sekunden später auf –
+  // bei langsamem Start (Linux) nach einer schon gewählten Kategorie, die
+  // Auswahl sprang auf General zurück. Hat der Nutzer seit dem Öffnen selbst
+  // gewählt, wird dieser eine verspätete Aufruf übergangen
+  const origGoto = cw.gotoPref;
+  const startPane = categories.selectedItem?.value || "paneGeneral";
+  const opened = Date.now();
+  let userPane = null, lastInput = 0, skipped = false;
+  const onInput = () => {
+    lastInput = Date.now();
+  };
+  const onSelect = () => {
+    if (Date.now() - lastInput < 1000) {
+      userPane = categories.selectedItem?.value || null;
+    }
+  };
+  for (const type of ["mousedown", "click", "keydown"]) {
+    doc.addEventListener(type, onInput, true);
+  }
+  categories.addEventListener("select", onSelect);
+  if (typeof origGoto == "function") {
+    cw.gotoPref = function (category, ...rest) {
+      const late = !skipped && userPane && userPane != startPane && Date.now() - opened < 15000 &&
+        Date.now() - lastInput > 1000 && (!category || category == startPane || category == "paneGeneral");
+      if (late) {
+        skipped = true;
+        log("pref categories: late start call skipped", category);
+        return Promise.resolve();
+      }
+      return origGoto.call(this, category, ...rest);
+    };
+    cw.gotoPref.__mcOrig = origGoto;
+  }
   restorers?.push(() => {
+    for (const type of ["mousedown", "click", "keydown"]) {
+      doc.removeEventListener(type, onInput, true);
+    }
+    categories.removeEventListener("select", onSelect);
+    if (cw.gotoPref?.__mcOrig == origGoto) {
+      cw.gotoPref = origGoto;
+    }
     doc.removeEventListener("paneSelected", mark);
     categories.removeEventListener("mousedown", onDown, true);
     categories.removeEventListener("click", onClick);

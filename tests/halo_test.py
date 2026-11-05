@@ -13513,19 +13513,28 @@ Neu
           out.header1 = !!cw?.document.getElementById("mcBooksHeader");
           // Überschrift einer älteren Fassung (ohne Kennung) bleibt stehen: wird ersetzt
           if (cw) { const old = cw.document.createElement("div"); old.id = "mcBooksHeader"; cw.document.getElementById("books")?.before(old); }
+          // ebenso die Today-Pane-Überschrift samt Sonne und Knopf (zwei Sonnen nebeneinander, wenn sie stehen blieb)
+          const H = "http://www.w3.org/1999/xhtml", row = d.getElementById("unifiedToolbarContainer");
+          out.today1 = d.querySelectorAll("#mcTodayTop, #mcTodayToggle").length;
+          const oldTop = d.createElementNS(H, "div"), oldTitle = d.createElementNS(H, "span"), oldSun = d.createElementNS(H, "span"), oldBtn = d.createElementNS(H, "button");
+          oldTop.id = "mcTodayTop"; oldTitle.id = "mcTodayTitle"; oldSun.id = "mcTodayWeather"; oldBtn.id = "mcTodayToggle";
+          oldTitle.append(oldSun); oldTop.append(oldTitle); row?.prepend(oldTop); row?.append(oldBtn);
           out.local1 = nameOf(local()); out.server = local()?._serverName;
           Cu.evalInSandbox("enhancer = new CardEnhancer({}); enhancer.start();", g);
           const owner = Cu.evalInSandbox("HOOK_OWNER", g);
           out.header2 = !!(await until(() => cw?.document.getElementById("mcBooksHeader")?.__mcOwner === owner, 8000));
           out.headers2 = cw ? cw.document.querySelectorAll("#mcBooksHeader").length : 0;
           out.watch2 = await until(() => typeof fp.__mcWidthWatch == "object", 8000);
+          await until(() => d.getElementById("mcTodayToggle")?.__mcOwner === owner, 8000);
+          out.today2 = ["#mcTodayTop", "#mcTodayTitle", "#mcTodayWeather", "#mcTodayToggle", "#mcTodayNew"].map(s => d.querySelectorAll(s).length);
           out.local2 = await until(() => nameOf(local()) == out.local0 && out.local0, 6000);
           tm.closeTab(tm.currentTabInfo); await toMail();
           return out;''')
         ok = (res["tab"] and res["watch0"] and not res["watch1"] and res["watch2"] and not res["header1"] and res["header2"] and res["headers2"] == 1
-              and res["local0"] != res["server"] and res["local1"] == res["server"] and res["local2"])
+              and res["local0"] != res["server"] and res["local1"] == res["server"] and res["local2"]
+              and res.get("today1") == 0 and res.get("today2") == [1, 1, 1, 1, 1])
         return ok, f"{res}"
-    check("Erweiterung: Aus- und Einschalten setzt Ordnernamen und Einfügungen zurück und hängt sie wieder an; Einfügungen einer älteren Fassung werden ersetzt", restart_cycle, results)
+    check("Erweiterung: Aus- und Einschalten setzt Ordnernamen und Einfügungen zurück und hängt sie wieder an; Einfügungen einer älteren Fassung werden ersetzt (auch Today-Pane-Überschrift: eine Sonne)", restart_cycle, results)
 
     def send_progress():
         # kein Fortschrittsfenster beim Senden; Ausschalten stellt den vorherigen

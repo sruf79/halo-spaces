@@ -13570,11 +13570,20 @@ class CardEnhancer {
       const d = w.document;
       const panel = d.getElementById("today-pane-panel");
       const command = d.getElementById("calendar_toggle_todaypane_command");
-      if (!command || d.getElementById("mcTodayToggle")) {
+      if (!command || d.getElementById("mcTodayToggle")?.__mcOwner === HOOK_OWNER) {
         return;
+      }
+      // Einfügungen einer älteren Fassung (Update oder Neustart der Erweiterung,
+      // deren Aufräumen nicht lief) ersetzen statt eine zweite Überschrift
+      // mit zweiter Sonne daneben zu setzen
+      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayGrip"]) {
+        for (const el of d.querySelectorAll("#" + id)) {
+          el.remove();
+        }
       }
       const btn = d.createElementNS("http://www.w3.org/1999/xhtml", "button");
       btn.id = "mcTodayToggle";
+      btn.__mcOwner = HOOK_OWNER;
       btn.type = "button";
       // Tageszahl im Kalender-Symbol: übernommen von Thunderbirds Knopf in der
       // Statusleiste (dessen Kalender-Code aktualisiert sie um Mitternacht);

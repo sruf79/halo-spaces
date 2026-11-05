@@ -507,9 +507,10 @@ EOF
   fi
 }
 
-# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–16): Nachtlauf jede
+# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–17): Nachtlauf jede
 # Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00,
-# Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku). Die
+# Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
+# samstags 10:00 (rundgang-woche.sh). Die
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
 # (außerhalb des Checkouts, die Läufe ändern ihn).
 AG_DIR=$HOME/.config/halo-spaces
@@ -581,6 +582,22 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
     $HOME/halo-nacht/PAUSE-DOKU "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
+  pruefe_agent "Design-Rundgang" at.halo-spaces.rundgang rundgang-woche.sh $HOME/Library/Logs/halo-rundgang.log \
+    '<key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>' \
+    $HOME/halo-tour/PAUSE "samstags 10:00, Ablage ~/halo-tour, Berichte in ~/halo-berichte"
+  # Bildschirmaufnahme im LaunchAgent: der Rundgang hält beim Start fest, ob er
+  # aufnehmen darf (Popups per screencapture -l)
+  local ba=$HOME/halo-tour/bildschirmaufnahme.txt
+  if [[ ! -s $ba ]]; then
+    hinweis "Rundgang-Aufnahme" "noch kein Lauf des Rundgangs – unbekannt, ob der LaunchAgent den Bildschirm aufnehmen darf"
+    tun "Probelauf: launchctl kickstart gui/$(id -u)/at.halo-spaces.rundgang (läuft voll, ca. 1 Stunde)"
+  elif grep -q ' ja ' $ba; then
+    ok "Rundgang-Aufnahme" "Bildschirmaufnahme im LaunchAgent erlaubt ($(cut -c1-16 $ba))"
+  else
+    offen "Rundgang-Aufnahme" "Bildschirmaufnahme im LaunchAgent nicht erlaubt: $(<$ba)"
+    tun "Systemeinstellungen → Datenschutz & Sicherheit → Bildschirm- & Systemaudioaufnahme → „+“ → ⇧⌘G → /bin/zsh → einschalten"
+  fi
 }
 
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über

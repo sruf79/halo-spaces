@@ -4578,10 +4578,38 @@ addon-card .addon-inline-options {
   background: var(--mt-control-hover) !important;
 }
 
+/* geteilte Knöpfe wie Apple: Trennstrich 1 px, gut die halbe Kapselhöhe, der
+   beim Überfahren verschwindet; statt der ganzen Kapsel bekommt nur die Hälfte
+   unter der Maus eine Fläche mit 3 px Abstand zum Kapselrand */
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]):hover {
+  background: var(--mt-control) !important;
+}
+
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  border-inline-start: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  background-color: transparent !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
+}
+
+#composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {
+  background-image: none !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+  position: relative !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker)::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 3px !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-cap-hover) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
+  opacity: 1 !important;
 }
 
 /* Senden in Akzentfarbe wie Apples Papierflieger */
@@ -7189,10 +7217,15 @@ menupopup menucaption {
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 0 !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background-color: var(--mt-pane-line) !important;
+  background-color: var(--mt-cap-line) !important;
+}
+
+/* wie Apple: steht die Maus auf der Kapsel, verschwindet der Trennstrich */
+#chat-toolbar:has(> :is(#button-join-chat, #button-chat-accounts):hover) > #button-chat-accounts::before {
+  opacity: 0 !important;
 }
 
 #chat-toolbar > :is(#button-join-chat, #button-chat-accounts) .toolbarbutton-text {
@@ -7221,6 +7254,11 @@ menupopup menucaption {
 
 #chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+/* „Chat beitreten · Konten“: runde Fläche mit Abstand zum Kapselrand wie Apple */
+#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover {
+  background: var(--mt-cap-dot), var(--mt-control) !important;
 }
 
 #chat-toolbar > #chat-status-selector {
@@ -10397,11 +10435,16 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 0 !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background: var(--mt-pane-line) !important;
+  background: var(--mt-cap-line) !important;
   pointer-events: none !important;
+}
+
+/* wie Apple: steht die Maus auf der Kapsel, verschwindet der Trennstrich */
+:root[mc-tab="tasks"] #task-actions-toolbar:has(> :is(#task-actions-category, #task-actions-priority):hover) > #task-actions-priority::after {
+  opacity: 0 !important;
 }
 :root[mc-tab="tasks"] #task-actions-toolbar > #calendar-delete-task-button { order: 3 !important; }
 
@@ -10424,6 +10467,25 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
   background: var(--mt-control-hover) !important;
   color: var(--mt-text) !important;
+}
+
+/* in den Kapseln mit mehreren Knöpfen (Kategorie · Priorität, Erledigt) runde
+   Fläche mit Abstand zum Kapselrand wie Apple; beim geteilten Knopf nur die
+   Hälfte unter der Maus */
+:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):hover:not([disabled]) {
+  background: var(--mt-cap-dot), var(--mt-control) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
+  background: var(--mt-control) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover {
+  background: var(--mt-cap-dot) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:hover {
+  background: var(--mt-cap-dot-narrow) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton :is(.toolbarbutton-text, .toolbarbutton-icon, .toolbarbutton-menu-dropmarker),
@@ -10469,11 +10531,28 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   width: 28px !important;
   height: 38px !important;
   margin: 0 !important;
-  border-inline-start: 1px solid var(--mt-pane-line) !important;
+  border: none !important;
   opacity: 1 !important;
   mask: none !important;
   background: none !important;
   position: relative !important;
+}
+
+/* Trennstrich wie in den übrigen Kapseln (1 px, mittig, gut die halbe Höhe);
+   verschwindet beim Überfahren */
+:root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-start: 0 !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
+  width: 1px !important;
+  background: var(--mt-cap-line) !important;
+  pointer-events: none !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-markcompleted:hover .toolbarbutton-menubutton-dropmarker::before {
+  opacity: 0 !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker::after {

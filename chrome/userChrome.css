@@ -65,6 +65,15 @@
   --mt-table-row-h: 28px;
   --mt-table-head-h: 30px;
   --mt-table-stripe: rgba(0, 0, 0, 0.035);
+  /* Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch
+     (gut die halbe Kapselhöhe), mittig; beim Überfahren der Kapsel verschwinden
+     alle Trennstriche, der Knopf unter der Maus bekommt eine runde Fläche mit
+     3 px Abstand zum Kapselrand (--mt-cap-dot: Kreis bzw. Oval mittig im Knopf) */
+  --mt-cap-line: rgba(0, 0, 0, 0.2);
+  --mt-cap-line-h: 20px;
+  --mt-cap-hover: rgba(0, 0, 0, 0.07);
+  --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
+  --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -99,6 +108,10 @@
     --mt-star: #FF9F0A;
     --mt-sheet: #2A2A2C;
     --mt-table-stripe: rgba(255, 255, 255, 0.045);
+    --mt-cap-line: rgba(255, 255, 255, 0.2);
+    --mt-cap-hover: rgba(255, 255, 255, 0.09);
+    --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
+    --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
   }
 }
 
@@ -1189,8 +1202,10 @@ body:has(> #accountCentral),
 #imip-view-toolbar {
   gap: 6px !important;
   --imip-button-background: linear-gradient(var(--mt-control), var(--mt-control)) !important;
-  --imip-button-background-hover: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)) !important;
-  --imip-button-background-active: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)) !important;
+  /* beim Überfahren keine Fläche über die ganze Kapsel – nur um die Hälfte
+     unter der Maus (unten), wie Apple */
+  --imip-button-background-hover: linear-gradient(var(--mt-control), var(--mt-control)) !important;
+  --imip-button-background-active: linear-gradient(var(--mt-control), var(--mt-control)) !important;
   --toolbarbutton-header-bordercolor: transparent !important;
 }
 
@@ -1207,8 +1222,34 @@ body:has(> #accountCentral),
   padding-inline-start: 8px !important;
 }
 
+/* Trennstrich wie Apple: 1 px, gut die halbe Kapselhöhe, verschwindet beim
+   Überfahren der Kapsel; die Hälfte unter der Maus bekommt eine Fläche mit
+   2 px Abstand zum Kapselrand */
 #imip-view-toolbar > toolbarbutton > .toolbarbutton-menubutton-dropmarker {
-  border-inline-start: var(--mt-hairline) solid var(--mt-separator) !important;
+  border-inline-start: none !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 14px no-repeat !important;
+}
+
+#imip-view-toolbar > toolbarbutton:hover > .toolbarbutton-menubutton-dropmarker {
+  background-image: none !important;
+}
+
+#imip-view-toolbar > toolbarbutton > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+  position: relative !important;
+}
+
+#imip-view-toolbar > toolbarbutton > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker)::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 2px !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-cap-hover) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#imip-view-toolbar > toolbarbutton:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):hover::after {
+  opacity: 1 !important;
 }
 
 /* Anhänge: auf der Fläche der Mail statt grauer Platten, eine Haarlinie
@@ -1813,6 +1854,13 @@ findbar .findbar-textbox:focus {
   color: var(--mt-text) !important;
 }
 
+/* in Kapseln mit mehreren Knöpfen wie Apple: runde Fläche mit Abstand zum
+   Kapselrand statt Fläche bis an den Rand */
+#unifiedToolbarContent > li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"]) button:hover:not([disabled]) {
+  background-color: transparent !important;
+  background-image: var(--mt-cap-dot) !important;
+}
+
 #unifiedToolbarContent > li button[disabled] {
   opacity: 0.4 !important;
 }
@@ -1906,7 +1954,7 @@ findbar .findbar-textbox:focus {
   height: 38px !important;
   min-height: 38px !important;
   margin: 0 !important;
-  background: linear-gradient(var(--mt-pane-line), var(--mt-pane-line)) left center / 1px 16px no-repeat, var(--mt-control) !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-control) !important;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -1925,7 +1973,7 @@ findbar .findbar-textbox:focus {
 
 /* „Antworten“ (Absender) und die Antworten-Gruppe teilen sich eine Kapsel */
 :root[mc-standalone] #header-view-toolbar > #hdrReplyToSenderButton:not([hidden]) ~ #hdrSmartReplyButton {
-  background: linear-gradient(var(--mt-pane-line), var(--mt-pane-line)) left center / 1px 16px no-repeat, var(--mt-control) !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-control) !important;
   border-start-start-radius: 0 !important;
   border-end-start-radius: 0 !important;
 }
@@ -1980,6 +2028,28 @@ findbar .findbar-textbox:focus {
 
 :root[mc-standalone] #starMessageButton {
   justify-content: center !important;
+}
+
+/* wie Apple (Mail-Toolbar oben): steht die Maus auf einer Kapsel, verschwinden
+   ihre Trennstriche; der Knopf bzw. die Hälfte des geteilten Knopfs unter der
+   Maus bekommt eine runde Fläche mit Abstand zum Kapselrand */
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton):hover) > :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton),
+:root[mc-standalone] #header-view-toolbar:has(> :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton):hover) > :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton),
+:root[mc-standalone] #header-view-toolbar:has(> :is(#otherActionsButton, #starMessageButton):hover) > :is(#otherActionsButton, #starMessageButton) {
+  background-image: none !important;
+  background-color: var(--mt-control) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:not([disabled]) {
+  background-image: var(--mt-cap-dot) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button:hover:not([disabled]) {
+  background: var(--mt-cap-dot) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker:hover:not([disabled]) {
+  background: var(--mt-cap-dot-narrow) !important;
 }
 
 :root[mc-standalone] #messageHeader .recipient-avatar.mc-hdr-avatar {
@@ -2131,11 +2201,15 @@ findbar .findbar-textbox:focus {
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 40px !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background-color: var(--mt-pane-line) !important;
+  background-color: var(--mt-cap-line) !important;
   pointer-events: none !important;
+}
+
+#unifiedToolbarContent li[item-id="mark-as"] button:hover::before {
+  opacity: 0 !important;
 }
 
 #unifiedToolbarContent li:is([item-id="move-to"], [item-id="mark-as"]) button::after {
@@ -2162,25 +2236,31 @@ findbar .findbar-textbox:focus {
 }
 
 /* Hervorhebung beim Überfahren nur für die Hälfte unter der Maus (mc-hot
-   setzt die Erweiterung) */
-#unifiedToolbarContent > li[item-id="mark-as"][mc-hot] button:hover:not([disabled]) {
+   setzt die Erweiterung): runde Fläche um den Stern (Mitte bei 20 px) bzw.
+   um den Pfeil (Mitte bei 55 px) mit Abstand zum Kapselrand wie Apple */
+#unifiedToolbarContent > li[item-id="mark-as"] button:hover:not([disabled]) {
   background-color: transparent !important;
+  background-image: var(--mt-cap-dot) !important;
 }
 
-#unifiedToolbarContent > li[item-id="mark-as"][mc-hot="star"] button:hover:not([disabled]) {
-  background-image: linear-gradient(to right, var(--mt-control-hover) 40px, transparent 40px) !important;
+#unifiedToolbarContent > li[item-id="mark-as"][mc-hot] button:hover:not([disabled]) {
+  background-repeat: no-repeat !important;
+  background-size: 40px 100% !important;
+  background-position: 0 0 !important;
 }
 
 #unifiedToolbarContent > li[item-id="mark-as"][mc-hot="menu"] button:hover:not([disabled]) {
-  background-image: linear-gradient(to right, transparent 41px, var(--mt-control-hover) 41px) !important;
+  background-image: var(--mt-cap-dot-narrow) !important;
+  background-size: 28px 100% !important;
+  background-position: 41px 0 !important;
 }
 
 #unifiedToolbarContent > li[item-id="mark-as"][mc-hot="star"] button:hover:not([disabled]):dir(rtl) {
-  background-image: linear-gradient(to left, var(--mt-control-hover) 40px, transparent 40px) !important;
+  background-position: 100% 0 !important;
 }
 
 #unifiedToolbarContent > li[item-id="mark-as"][mc-hot="menu"] button:hover:not([disabled]):dir(rtl) {
-  background-image: linear-gradient(to left, transparent 41px, var(--mt-control-hover) 41px) !important;
+  background-position: right 41px top 0 !important;
 }
 
 /* Feine Trennlinien zwischen den Knöpfen einer Kapsel */
@@ -2192,11 +2272,18 @@ findbar .findbar-textbox:focus {
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 0 !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background-color: var(--mt-pane-line) !important;
+  background-color: var(--mt-cap-line) !important;
   pointer-events: none !important;
+}
+
+/* wie Apple: steht die Maus auf der Kapsel, verschwinden ihre Trennstriche */
+#unifiedToolbarContent:has(> li:is([item-id="get-messages"], [item-id="write-message"]):hover) > li[item-id="write-message"]::before,
+#unifiedToolbarContent:has(> li:is([item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"]):hover) > li:is([item-id="reply-all"], [item-id="forward-inline"])::before,
+#unifiedToolbarContent:has(> li:is([item-id="archive"], [item-id="delete"], [item-id="junk"]):hover) > li:is([item-id="delete"], [item-id="junk"])::before {
+  opacity: 0 !important;
 }
 
 /* Bereiche-Menü an die Stelle von Apples Seitenleisten-Knopf: oben rechts in
@@ -3010,7 +3097,8 @@ unified-toolbar {
 }
 
 #mcListHeader .mc-lh-tools > button:hover {
-  background-color: var(--mt-control-hover) !important;
+  background-color: transparent !important;
+  background-image: var(--mt-cap-dot) !important;
   color: var(--mt-text) !important;
 }
 
@@ -3063,7 +3151,9 @@ unified-toolbar {
 /* Filter „nur ungelesene“ eingeschaltet: getönt in Akzentfarbe wie der
    Filter der Aufgaben */
 #mcListHeader .mc-lh-tools > .mc-lh-filter[aria-pressed="true"] {
-  background-color: color-mix(in srgb, var(--mt-accent) 18%, transparent) !important;
+  /* runde Fläche mit Abstand zum Kapselrand wie die Hover-Fläche */
+  background-color: transparent !important;
+  background-image: radial-gradient(circle 16px at 50% 50%, color-mix(in srgb, var(--mt-accent) 18%, transparent) 15.5px, transparent 16px) !important;
   color: var(--mt-accent) !important;
 }
 
@@ -8177,10 +8267,38 @@ addon-card .addon-inline-options {
   background: var(--mt-control-hover) !important;
 }
 
+/* geteilte Knöpfe wie Apple: Trennstrich 1 px, gut die halbe Kapselhöhe, der
+   beim Überfahren verschwindet; statt der ganzen Kapsel bekommt nur die Hälfte
+   unter der Maus eine Fläche mit 3 px Abstand zum Kapselrand */
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]):hover {
+  background: var(--mt-control) !important;
+}
+
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  border-inline-start: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  background-color: transparent !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
+}
+
+#composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {
+  background-image: none !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+  position: relative !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker)::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 3px !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-cap-hover) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
+  opacity: 1 !important;
 }
 
 /* Senden in Akzentfarbe wie Apples Papierflieger */
@@ -10788,10 +10906,15 @@ menupopup menucaption {
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 0 !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background-color: var(--mt-pane-line) !important;
+  background-color: var(--mt-cap-line) !important;
+}
+
+/* wie Apple: steht die Maus auf der Kapsel, verschwindet der Trennstrich */
+#chat-toolbar:has(> :is(#button-join-chat, #button-chat-accounts):hover) > #button-chat-accounts::before {
+  opacity: 0 !important;
 }
 
 #chat-toolbar > :is(#button-join-chat, #button-chat-accounts) .toolbarbutton-text {
@@ -10820,6 +10943,11 @@ menupopup menucaption {
 
 #chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+/* „Chat beitreten · Konten“: runde Fläche mit Abstand zum Kapselrand wie Apple */
+#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover {
+  background: var(--mt-cap-dot), var(--mt-control) !important;
 }
 
 #chat-toolbar > #chat-status-selector {
@@ -13996,11 +14124,16 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   content: "" !important;
   position: absolute !important;
   inset-inline-start: 0 !important;
-  top: 11px !important;
-  bottom: 11px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
   width: 1px !important;
-  background: var(--mt-pane-line) !important;
+  background: var(--mt-cap-line) !important;
   pointer-events: none !important;
+}
+
+/* wie Apple: steht die Maus auf der Kapsel, verschwindet der Trennstrich */
+:root[mc-tab="tasks"] #task-actions-toolbar:has(> :is(#task-actions-category, #task-actions-priority):hover) > #task-actions-priority::after {
+  opacity: 0 !important;
 }
 :root[mc-tab="tasks"] #task-actions-toolbar > #calendar-delete-task-button { order: 3 !important; }
 
@@ -14023,6 +14156,25 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
   background: var(--mt-control-hover) !important;
   color: var(--mt-text) !important;
+}
+
+/* in den Kapseln mit mehreren Knöpfen (Kategorie · Priorität, Erledigt) runde
+   Fläche mit Abstand zum Kapselrand wie Apple; beim geteilten Knopf nur die
+   Hälfte unter der Maus */
+:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):hover:not([disabled]) {
+  background: var(--mt-cap-dot), var(--mt-control) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
+  background: var(--mt-control) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover {
+  background: var(--mt-cap-dot) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:hover {
+  background: var(--mt-cap-dot-narrow) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton :is(.toolbarbutton-text, .toolbarbutton-icon, .toolbarbutton-menu-dropmarker),
@@ -14068,11 +14220,28 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   width: 28px !important;
   height: 38px !important;
   margin: 0 !important;
-  border-inline-start: 1px solid var(--mt-pane-line) !important;
+  border: none !important;
   opacity: 1 !important;
   mask: none !important;
   background: none !important;
   position: relative !important;
+}
+
+/* Trennstrich wie in den übrigen Kapseln (1 px, mittig, gut die halbe Höhe);
+   verschwindet beim Überfahren */
+:root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-start: 0 !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  height: var(--mt-cap-line-h) !important;
+  width: 1px !important;
+  background: var(--mt-cap-line) !important;
+  pointer-events: none !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-markcompleted:hover .toolbarbutton-menubutton-dropmarker::before {
+  opacity: 0 !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker::after {

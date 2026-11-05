@@ -8922,6 +8922,49 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Symbolleiste: Verschieben ohne Trennstrich, Stern-Knopf setzt Starred, Pfeil öffnet Menü, Stern folgt dem Tab", star_button, results)
 
+    def capsule_hover():
+        # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in
+        # --mt-cap-line; steht die Maus auf der Kapsel, verschwinden ihre Trennstriche (die der
+        # Nachbarkapsel bleiben), der Knopf unter der Maus bekommt eine runde Fläche (radial-gradient)
+        # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste
+        res = m.js(MESSAGE_JS + '''
+          const cs = (e, p) => w.getComputedStyle(e, p);
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          const [arch, del, junk, fwd] = ["archive", "delete", "junk", "forward-inline"].map(li);
+          if (![arch, del, junk, fwd].every(Boolean)) return { missing: true };
+          const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-cap-line)";
+          d.documentElement.append(probe); const capLine = cs(probe).backgroundColor; probe.remove();
+          const out = { capLine };
+          const lr = del.getBoundingClientRect(), pr = w.getComputedStyle(del, "::before");
+          out.rest = { w: pr.width, h: pr.height, color: pr.backgroundColor, del: pr.opacity, junk: cs(junk, "::before").opacity,
+                       dy: Math.round((parseFloat(pr.top) + parseFloat(pr.height) / 2 - lr.height / 2) * 10) / 10 };
+          const btn = arch.querySelector("button");
+          const lock = [arch, btn];
+          for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
+          try {
+            await ruhig(200);
+            out.hover = { del: cs(del, "::before").opacity, junk: cs(junk, "::before").opacity, fwd: cs(fwd, "::before").opacity,
+                          img: cs(btn).backgroundImage.slice(0, 16), bg: cs(btn).backgroundColor, disabled: btn.disabled };
+          } finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
+          const tools = d.querySelector("#mcListHeader .mc-lh-tools > .mc-lh-more");
+          if (tools) {
+            InspectorUtils.addPseudoClassLock(tools, ":hover");
+            try { await ruhig(200); out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor }; }
+            finally { InspectorUtils.removePseudoClassLock(tools, ":hover"); }
+          }
+          return out;''')
+        if res.get("missing"):
+            return False, f"Toolbar-Knöpfe fehlen {res}"
+        r, h, l = res["rest"], res["hover"], res.get("list") or {}
+        ok_rest = (r["w"] == "1px" and r["h"] == "20px" and abs(r["dy"]) <= 0.5 and same_color(r["color"], res["capLine"])
+                   and r["del"] == "1" and r["junk"] == "1")
+        # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
+        ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
+                    and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
+        ok_list = bool(l) and l["img"].startswith("radial-gradient") and rgba_alpha(l["bg"]) == 0
+        return ok_rest and ok_hover and ok_list, f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} {res}"
+    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner
         # ohne Punkt. Feed-Konto ohne Abos (kein Netzzugriff), danach entfernt
@@ -11769,7 +11812,7 @@ Neu
             out.dmInfo = dm ? { rects: dm.getClientRects().length, w: Math.round(dm.getBoundingClientRect().width), cap: Math.round(cap.getBoundingClientRect().width) } : "fehlt";
             if (dm && vis(dm)) { const a = cap.getBoundingClientRect(), r = dm.getBoundingClientRect();
               out.marker = { w: Math.round(r.width * 10) / 10, mask: csOf(dm, "::after").maskImage.slice(0, 12), gap: Math.round((a.right - r.right) * 10) / 10,
-                            dy: Math.round(((r.top + r.bottom) - (a.top + a.bottom)) / 2 * 10) / 10, line: csOf(dm).borderInlineStartWidth }; }
+                            dy: Math.round(((r.top + r.bottom) - (a.top + a.bottom)) / 2 * 10) / 10, line: csOf(dm, "::before").width, lineH: csOf(dm, "::before").height }; }
             // ausgewählt mit Fokus: Zeilenrand links wie die Zeilenfläche daneben (kein Fokusrechteck)
             const tc = tree.querySelector("treechildren"), tr = tc.getBoundingClientRect(), rh = tree.rowHeight || 40;
             const top = tr.top + (row - tree.getFirstVisibleRow()) * rh;
@@ -11797,7 +11840,7 @@ Neu
         ok_head = (len(res["heads"]) >= 3 and all(s == "none" for s in res["heads"]) and res.get("picker") in (None, "none")
                    and same_color(res["headLine"][0], res["headLine"][1]))
         # „Erledigt“ als geteilter Knopf wie „Markieren“ in der Mail: Haken | Trennstrich | 28 px Pfeil am rechten Rand
-        ok_marker = bool(mk) and mk["w"] == 28 and mk["mask"].startswith("url(") and abs(mk["gap"]) <= 1 and abs(mk["dy"]) <= 1.5 and mk["line"] == "1px"
+        ok_marker = bool(mk) and mk["w"] == 28 and mk["mask"].startswith("url(") and abs(mk["gap"]) <= 1 and abs(mk["dy"]) <= 1.5 and mk["line"] == "1px" and mk.get("lineH") == "20px"
         e = res.get("edge") or []
         diff = lambda a, b: max(abs(x - y) for x, y in zip(a, b))
         # Rand nur mit fokussiertem Fenster sichtbar (parallele Läufe nehmen den Fokus) – sonst nur die Regel prüfen
@@ -14191,10 +14234,12 @@ Neu
         if res.get("mail") is False or res.get("button") is False:
             return False, f"Testmail oder Knopf fehlt {res}"
         o = res.get("outer") or {}
+        # wie Apple: jede Hälfte unter der Maus eine runde Fläche mit Abstand zum Kapselrand
+        # (radial-gradient), keine eigene Hintergrundfarbe, Rundung oder Schatten der Teile
         ok = (o.get("radius") == o.get("item") and o.get("shadow") == "none"
-              and all(rgba_alpha(p["bg"]) == 0 and p["img"] == "none" and p["radius"] == "0px" and p["shadow"] == "none" for p in res.get("parts") or [{}]))
+              and all(rgba_alpha(p["bg"]) == 0 and "radial-gradient" in p["img"] and p["radius"] == "0px" and p["shadow"] == "none" for p in res.get("parts") or [{}]))
         return ok, f"{res}"
-    check("Mailkopf: „Allen antworten“ mit Pfeil beim Überfahren eine Fläche in der Form der Kapsel, ohne runde Teilflächen und Schatten", header_split_hover, results)
+    check("Mailkopf: „Allen antworten“ mit Pfeil beim Überfahren je Hälfte eine runde Fläche mit Abstand zum Kapselrand, ohne Schatten", header_split_hover, results)
 
     def calendar_list_light():
         # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe

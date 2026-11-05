@@ -5,7 +5,8 @@
 # Prüfung einen Bug ins Board ein (oder ergänzt den offenen Eintrag zur selben
 # Prüfung) und schickt eine Zeile aufs iPhone; Abgebrochenes wird nur
 # protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
-# lässt er aus.
+# lässt er dabei aus. Fehler aus der Fehlerkonsole (Zeilen „KONSOLE  …“) trägt
+# er für jeden Lauf als Bug ein – sie machen keinen Lauf rot.
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
@@ -20,7 +21,7 @@ while (( $# )); do
   case $1 in
     --trocken) TROCKEN=1 ;;
     --lauf) shift; NUR=$1 ;;
-    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) print -u2 "Unbekannte Option: $1"; exit 2 ;;
   esac
   shift
@@ -82,14 +83,14 @@ board() {
 }
 
 # Bug eintragen oder offenen Eintrag zur selben Prüfung ergänzen; gibt „neu“/„ergänzt“ aus
-eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung>
-  local job=$1 pruefung=$2 text=$3 zusatz=$4 kurz titel id di body
+eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard „Tests: CI rot“]
+  local job=$1 pruefung=$2 text=$3 zusatz=$4 anfang=${5:-"Tests: CI rot"} kurz titel id di body
   kurz=${pruefung[1,90]}
   (( ${#pruefung} > 90 )) && kurz="${kurz% *} …"
-  titel="Tests: CI rot – $job: $kurz"
+  if [[ -n $job ]]; then titel="$anfang – $job: $kurz"; else titel="$anfang – $kurz"; fi
   # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
-  read -r id di <<< $(board | jq -r --arg p "${pruefung[1,60]}" \
-    '[.items[] | select(.status != "Done" and (.title | startswith("Tests: CI rot")) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+  read -r id di <<< $(board | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
+    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
   if [[ -n $id ]]; then
     if [[ -n $TROCKEN ]]; then
       print -u2 "  (trocken) würde ergänzen: $id"
@@ -178,8 +179,64 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
   fi
 }
 
+# Fehler aus der Fehlerkonsole (Zeilen „KONSOLE  …“ von tests/halo_test.py und update_test.py): nie Rot – sie
+# halten kein Release auf (Entscheidung des Maintainers vom 5.11.2026) –, aber je Fehler ein Bug im Board
+# („Tests: Fehlerkonsole – …“, offener Eintrag zum selben Fehler wird ergänzt). Für jeden abgeschlossenen Lauf,
+# auch während Nachtlauf und Wochenprüfung (die werten diese Zeilen nicht selbst aus)
+konsole() {   # <Lauf-ID>
+  local run=$1 info sha titel url heute flog zeile job fehler key n=0 neu=0 erg=0 ergebnis
+  local -a keys
+  local -A jobs_von zeile_von
+  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
+  jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null && return 0
+  flog=$(gh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll für die Fehlerkonsole nicht lesbar"; return 0 }
+  sha=$(jq -r '.headSha[:7]' <<< $info)
+  titel=$(jq -r '.displayTitle[:100]' <<< $info)
+  url=$(jq -r .url <<< $info)
+  heute=$(date '+%d.%m.%Y')
+  for zeile in ${(f)"$(print -r -- $flog | grep -a 'KONSOLE  ')"}; do
+    job=${zeile%%$'\t'*}
+    fehler=${zeile#*KONSOLE  }
+    key=${fehler%% – während *}
+    key=${key#<->× }
+    key=${key% \(*\)}                      # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
+    [[ -z $key ]] && continue
+    if (( ! ${+jobs_von[$key]} )); then
+      keys+=($key)
+      jobs_von[$key]=$job
+      zeile_von[$key]=$fehler
+    elif [[ ", ${jobs_von[$key]}, " != *", $job, "* ]]; then
+      jobs_von[$key]+=", $job"
+    fi
+  done
+  (( ${#keys} )) || return 0
+  for key in $keys; do
+    n=$((n + 1))
+    (( n > 8 )) && continue
+    melde "  Fehlerkonsole: ${jobs_von[$key]}: ${key[1,150]}"
+    ergebnis=$(eintragen "" "$key" "Wo: CI (Workflow test.yml auf main), Job(s) ${jobs_von[$key]}
+
+Ist: halo.spaces schreibt einen Fehler in die Fehlerkonsole (die Prüfungen selbst können grün sein; Konsolenfehler halten kein Release auf).
+
+Meldung: ${zeile_von[$key][1,1200]}
+
+Lauf: $url
+Commit: $sha „$titel“
+
+Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden." \
+      "**$heute:** erneut in der Fehlerkonsole, Job(s) ${jobs_von[$key]} – Lauf $url, Commit $sha" "Tests: Fehlerkonsole") || continue
+    [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
+  done
+  melde "Lauf $run ($sha): Fehlerkonsole $n Fehler, $neu neu, $erg ergänzt"
+  # aufs iPhone nur, wenn ein neuer Eintrag entstand (Wiederholungen nur im Board)
+  if [[ -z $TROCKEN ]] && (( neu )); then
+    push "Fehlerkonsole: Lauf $run ($sha) – $neu neue(r) Fehler im Board (kein Rot, Release nicht betroffen)"
+  fi
+}
+
 auswerten() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
   local run=$1 st=$2 erg=$3 beginn=$4 sha=$5
+  konsole $run
   if [[ -z $NUR ]] && vom_nachtlauf $beginn; then
     melde "Lauf $run ($sha): $erg – während Nachtlauf/Wochenprüfung, übernimmt deren Bericht"
     return

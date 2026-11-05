@@ -246,6 +246,17 @@ def main():
         proc, m = start(args.tb, profile, args.port)
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
+        # Fehlerkonsole nach dem Start der neuen Version (dort entstehen Fehler wie GitHub #38) – nur Warnung, wie in
+        # halo_test.py; frisch gestartet, der Puffer der Konsole reicht
+        try:
+            res = ht.konsole_lesen(m)
+            res.pop("quelle", None)
+            errors, notes = ht.konsole_bewerten(res)
+            ht.konsole_melden(errors, notes)
+            print(f"Fehlerkonsole nach dem Update: {len(errors)} Fehler aus halo.spaces (nur Warnung), "
+                  f"Thunderbird selbst: {res.get('fremd')} Fehler", flush=True)
+        except Exception as e:
+            print(f"Hinweis: Fehlerkonsole nach dem Update nicht lesbar – {e}", flush=True)
 
         # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
         #    Toolbar bleibt)

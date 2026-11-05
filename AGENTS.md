@@ -112,6 +112,20 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   `NO_UPDATE_TEST=1`), rot heißt kein Release.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
   an Stellen, an denen es schon Rückschritte gab.
+- **Fehlerkonsole** (Entscheidung des Maintainers vom 5.11.2026): Konsolenfehler
+  halten kein Release auf, wenn die Prüfungen grün sind. `halo_test.py`
+  schreibt die Fehlerkonsole ab dem Start des Laufs mit (ihr Puffer hält nur
+  250 Meldungen) und merkt sich zu jeder Meldung die laufende Prüfung. Am
+  Ende steht je Fehler aus halo.spaces (bzw. Thunderbird-Meldung, die auf
+  einen Eingriff von uns deutet, z. B. GitHub #38) eine Zeile `KONSOLE  …`;
+  die Prüfung „Fehlerkonsole …“ bleibt dabei OK (nur Warnung), auch mit
+  `--only` (dann nur für die gelaufenen Prüfungen). `update_test.py` meldet
+  ebenso nach dem Start der neuen Version. Der CI-Wächter trägt jede Zeile
+  als Bug „Tests: Fehlerkonsole – …“ ins Board, und dieser wird wie jeder Bug
+  abgearbeitet. Löst eine Prüfung absichtlich einen Fehler in halo.spaces
+  aus (kein Netz, kaputte Daten, ersetzte Funktion), meldet sie ihn mit
+  `erwartet(/Muster/)` an (gilt nur für diese Prüfung). Die Prüfung nicht zu
+  einem Fehlschlag machen und keine Liste „bekannter“ Fehler anlegen.
 - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
   Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
   – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine

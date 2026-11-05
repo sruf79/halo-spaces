@@ -81,6 +81,9 @@ Reihenfolge:
       status.sh kennt diesen Status nicht):
         gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
       und Commit-Hash als Notiz in den Eintrag.
+   Zeilen „KONSOLE  …“ (Fehler in der Fehlerkonsole) machen nichts rot und
+   halten kein Release auf; der CI-Wächter trägt sie als Bug ein – keine
+   Reparaturrunde dafür (AGENTS.md „Bauen und testen“, Fehlerkonsole).
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich

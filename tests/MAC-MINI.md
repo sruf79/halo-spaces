@@ -552,6 +552,13 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   `comm.github.routine` ist dabei nur der Zustellweg, die Routine
   „GitHub-Kommunikation“ selbst bleibt unberührt.
 - **Abgebrochen:** nur protokolliert. **Grün:** nur protokolliert.
+- **Fehlerkonsole:** für jeden abgeschlossenen Lauf (grün, rot, abgebrochen;
+  auch während Nachtlauf und Wochenprüfung) je Zeile `KONSOLE  …` im Log
+  (Fehler aus halo.spaces in der Fehlerkonsole, siehe AGENTS.md „Bauen und
+  testen“) ein Bug `Tests: Fehlerkonsole – <Meldung>`; derselbe Fehler aus
+  mehreren Jobs ergibt einen Eintrag, ein offener zur selben Meldung wird
+  ergänzt. Aufs iPhone nur, wenn ein neuer Eintrag entstand. Diese Fehler
+  machen keinen Lauf rot und halten kein Release auf.
 - Läufe, die während eines Nachtlaufs oder einer Wochenprüfung beginnen
   (Zeiten aus `~/halo-nacht/<datum>.log` bzw. `<datum>-woche.log`), lässt
   er aus – die warten selbst auf ihre CI und berichten darüber.

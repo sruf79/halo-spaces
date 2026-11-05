@@ -176,6 +176,9 @@ const toCalendar = async () => { tm.openTab("calendar", {});
 const testCalendar = () => cal.manager.getCalendars().find(c => c.name == "Halo Test");
 const items = async title => { const c = testCalendar(); return (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => i.title == title); };
 const rect = el => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
+// Prüfungen, die absichtlich einen Fehler in halo.spaces auslösen (kein Netz, kaputte Daten, ersetzte Funktionen), melden
+// ihn hier an: Meldungen, die auf das Muster passen, zählen in der Prüfung der Fehlerkonsole nur für diese Prüfung nicht
+const erwartet = re => { const k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole; if (k) k.erwartet.push({ check: k.check, re: re.source, fl: re.flags }); };
 """
 
 
@@ -190,16 +193,22 @@ FRAMES_WARN = os.environ.get("HALO_FRAMES_WARN") == "1"
 FRAME_CHECK = re.compile(r"flüssig|verlorene Bilder|Bildzeit|ohne Ruck|ruckelfrei", re.I)
 
 
-def check(name, fn, results):
-    global IN_CHECK, LAST_END
-    if ONLY and not ONLY.search(name):
-        return
-    start = LAST_END or time.time()
-    if CHECK_M:  # Name der Prüfung für die Auswertung von ruhig() (wer bis zur Höchstzeit wartete)
+def mark_check(name):
+    """Name der laufenden Prüfung für ruhig() und die Mitschrift der Fehlerkonsole (wer eine Meldung auslöste)."""
+    if CHECK_M:
         try:
-            CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + f"w.__haloCheck = {json.dumps(name[:70])}; return 1;", "args": []})
+            CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + f"""w.__haloCheck = {json.dumps(name[:70])};
+              const k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole; if (k) k.check = {json.dumps(name)}; return 1;""", "args": []})
         except Exception:
             pass
+
+
+def check(name, fn, results, immer=False):
+    global IN_CHECK, LAST_END
+    if ONLY and not ONLY.search(name) and not immer:
+        return
+    start = LAST_END or time.time()
+    mark_check(name)
     IN_CHECK = True
     try:
         ok, detail = fn()
@@ -207,6 +216,8 @@ def check(name, fn, results):
         ok, detail = False, f"Ausnahme: {e}"
     finally:
         IN_CHECK = False
+    # Meldungen bis zur nächsten Prüfung stammen aus deren Vorbereitung (bei --only teils übersprungen)
+    mark_check("nach " + name)
     LAST_END = time.time()
     DURATIONS.append((LAST_END - start, name))
     # Rechner ohne Grafikkarte (HALO_FRAMES_WARN=1, Windows-Job auf GitHub): Prüfungen, die am Bildtakt hängen
@@ -216,6 +227,93 @@ def check(name, fn, results):
         ok, detail = True, f"WARNUNG (Bildtakt): {detail}"
     results.append((name, ok, detail))
     print(f"{'OK     ' if ok else 'FEHLER '} {name}" + (f" – {detail}" if detail else ""), flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Fehlerkonsole (AGENTS.md, „Fehlerkonsole“): Mitschrift ab dem Start des Laufs, Auswertung am Ende
+# ---------------------------------------------------------------------------
+
+KONSOLE_PUFFER = 250  # so viele Meldungen hält die Fehlerkonsole (nsConsoleService), ältere fallen heraus
+
+# Meldung einordnen: nur Fehler aus halo.spaces (Quelle oder Aufrufstapel im Paket) und Thunderbird-Meldungen, die auf
+# einen Eingriff von uns deuten, werden mitgeschrieben; Thunderbirds übrige Fehler und alle Warnungen nur gezählt
+KONSOLE_JS = r"""
+  const host = (() => { try { return WebExtensionPolicy.getByID("mail-cards@sebastian.local")?.mozExtensionHostname || ""; } catch { return ""; } })();
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local" + (host ? "|moz-extension://" + esc(host) : ""));
+  // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
+  const HINTS = [/initialised calendars before loadCalendarComponent/];
+  const neu = () => ({ eintraege: [], fremd: 0, warnungen: 0, start: 0, voll: false, erwartet: [], check: "Start", host });
+  const add = (k, msg) => {
+    if (!(msg instanceof Ci.nsIScriptError)) return;
+    if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { k.warnungen++; return; }
+    const text = String(msg.errorMessage || "").slice(0, 200);
+    let stack = ""; try { stack = String(msg.stack?.toString?.() || ""); } catch {}
+    if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(text)))) { k.fremd++; return; }
+    if (k.eintraege.length < 2000) k.eintraege.push({ text, wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}`, check: k.check });
+  };
+"""
+
+
+def konsole_start(m):
+    """Mitschrift starten: was seit dem Start in der Konsole steht, dann jede neue Meldung (der Puffer der Konsole
+    läuft in einem langen Lauf über – ohne Mitschrift fielen gerade die Startfehler heraus)."""
+    try:
+        m.js(KONSOLE_JS + f"""
+          if ([...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole) return 1;
+          const k = w.__haloKonsole = neu();
+          const snap = Services.console.getMessageArray() || [];
+          k.voll = snap.length >= {KONSOLE_PUFFER}; k.start = snap.length;
+          for (const msg of snap) add(k, msg);
+          k.check = "Start (nach dem Verbinden)";
+          k.listener = {{ observe: msg => {{ try {{ add(k, msg); }} catch {{}} }} }};
+          Services.console.registerListener(k.listener);
+          return 1;""")
+    except Exception as e:  # ohne Mitschrift wertet die Prüfung am Ende den Puffer aus (und sagt das)
+        print(f"Hinweis: Mitschrift der Fehlerkonsole nicht gestartet – {e}", flush=True)
+
+
+def konsole_lesen(m):
+    """Mitschrift lesen; fehlt sie (nicht gestartet, Fenster ersetzt), den Puffer der Konsole."""
+    return m.js(KONSOLE_JS + f"""
+      let k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole, quelle = "Mitschrift";
+      if (!k) {{ k = neu(); quelle = "Puffer"; const snap = Services.console.getMessageArray() || [];
+        k.voll = snap.length >= {KONSOLE_PUFFER}; for (const msg of snap) add(k, msg); }}
+      return {{ eintraege: k.eintraege, fremd: k.fremd, warnungen: k.warnungen, voll: k.voll, erwartet: k.erwartet, quelle }};""") or {}
+
+
+def konsole_bewerten(res, only=None):
+    """Mitschrift auswerten: (Fehler, Hinweise) – je Fehler eine Zeile „Text (Datei:Zeile) – während Prüfung(en)“."""
+    expected = [(e["check"], re.compile(e["re"], re.I if "i" in e.get("fl", "") else 0)) for e in res.get("erwartet") or []]
+    groups = {}
+    for e in res.get("eintraege") or []:
+        chk = e.get("check") or "?"
+        if any(c == chk and r.search(e["text"]) for c, r in expected):
+            continue
+        # --only: nur Meldungen der gelaufenen Prüfungen und des Starts (Vorbereitungen übersprungener Prüfungen
+        # dürfen dort scheitern, siehe Marionette.js)
+        if only and not chk.startswith("Start") and (chk.startswith("nach ") or not only.search(chk)):
+            continue
+        groups.setdefault(f"{e['text']} ({e['wo']})", []).append(chk)
+    errors = []
+    for key, checks in groups.items():
+        where = sorted(set(checks), key=checks.index)
+        errors.append((f"{len(checks)}× " if len(checks) > 1 else "") + key + " – während " + "; ".join(c[:80] for c in where[:3])
+                      + (f" und {len(where) - 3} weiteren" if len(where) > 3 else ""))
+    notes = []
+    if res.get("voll"):
+        notes.append(f"Konsole schon beim Start voll ({KONSOLE_PUFFER} Meldungen) – frühe Meldungen können fehlen")
+    if res.get("quelle") == "Puffer":
+        notes.append("ohne Mitschrift, nur der Puffer der Konsole ausgewertet – frühe Meldungen können fehlen")
+    return errors, notes
+
+
+def konsole_melden(errors, notes):
+    """Je Fehler eine Zeile „KONSOLE  …“ – der CI-Wächter trägt sie als Bug ins Board (tests/ci-waechter.sh)."""
+    for e in errors:
+        print(f"KONSOLE  {e}", flush=True)
+    for n in notes:
+        print(f"Hinweis Fehlerkonsole: {n}", flush=True)
 
 
 def wait_port(port, timeout=60):
@@ -602,6 +700,7 @@ def main():
             m.cmd("WebDriver:SetTimeouts", {"script": 600000})
             print(json.dumps(m.js(args.eval), indent=1, ensure_ascii=False))
             return
+        konsole_start(m)
         LAST_END = started = time.time()
         CHECK_M = m
         run_checks(m, version, profile, results)
@@ -14065,30 +14164,21 @@ Neu
     check("Fehlerprotokoll der Erweiterung leer", errors, results)
 
     def console_errors():
-        # Fehlerkonsole des Testprofils am Ende des Laufs: Fehler aus halo.spaces (Quelle im Paket bzw. unser Code im
-        # Stapel) und Thunderbird-Meldungen, die auf einen Eingriff von uns deuten, lassen die Prüfung scheitern;
-        # Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt. Nur das Testprofil, nie das echte
-        res = m.js(r"""
-          const OURS = /resource:\/\/mailcards\/|mail-cards@sebastian\.local|moz-extension:\/\//;
-          // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
-          const HINTS = [/initialised calendars before loadCalendarComponent/];
-          const seen = new Map(); let warnings = 0, foreign = 0;
-          for (const msg of Services.console.getMessageArray() || []) {
-            if (!(msg instanceof Ci.nsIScriptError)) continue;
-            if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { warnings++; continue; }
-            const text = String(msg.errorMessage || "").slice(0, 200);
-            const stack = String(msg.stack?.toString?.() || "");
-            const ours = OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(text));
-            if (!ours) { foreign++; continue; }
-            const where = `${(msg.sourceName || "").replace(/^.*\//, "")}:${msg.lineNumber}`;
-            const key = `${text} (${where})`;
-            seen.set(key, (seen.get(key) || 0) + 1);
-          }
-          return { ours: [...seen].map(([k, n]) => (n > 1 ? `${n}× ` : "") + k), warnings, foreign };""")
-        ours = res.get("ours") or []
-        return not ours, ("; ".join(ours[:8]) + (f" … und {len(ours) - 8} weitere" if len(ours) > 8 else "")) if ours \
-            else f"keine Fehler aus halo.spaces (Thunderbird selbst: {res.get('foreign')} Fehler, {res.get('warnings')} Warnungen)"
-    check("Fehlerkonsole: keine Fehler aus halo.spaces und keine Startmeldung, die auf einen Eingriff deutet", console_errors, results)
+        # Fehlerkonsole des Testprofils (Mitschrift seit dem Start, siehe konsole_start). Nie ein Fehlschlag
+        # (Entscheidung des Maintainers vom 5.11.2026: Konsolenfehler halten kein Release auf, wenn die Prüfungen grün
+        # sind): Fehler aus halo.spaces und Thunderbird-Meldungen, die auf einen Eingriff von uns deuten, erscheinen
+        # als Warnung mit eigener Zeile „KONSOLE  …“, die der CI-Wächter als Bug ins Board trägt; mit erwartet()
+        # angemeldete zählen nicht, Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt.
+        # Läuft auch mit --only (dann nur für die gelaufenen Prüfungen)
+        res = konsole_lesen(m)
+        errors, notes = konsole_bewerten(res, ONLY)
+        konsole_melden(errors, notes)
+        summary = f"Thunderbird selbst: {res.get('fremd')} Fehler, {res.get('warnungen')} Warnungen"
+        if errors:
+            return True, f"WARNUNG: {len(errors)} Fehler aus halo.spaces, siehe Zeilen darüber – kein Fehlschlag ({summary})"
+        return True, f"keine Fehler aus halo.spaces ({summary})"
+
+    check("Fehlerkonsole: keine Fehler aus halo.spaces und keine Startmeldung, die auf einen Eingriff deutet (nur Warnung)", console_errors, results, immer=True)
 
 
 if __name__ == "__main__":

@@ -20,11 +20,16 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `extension/manifest.json` | Version, Add-on-ID `mail-cards@sebastian.local`, `update_url` |
 | `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~22.000 Zeilen) |
 | `extension/api/schema.json` | Schema der Experiment-API |
-| `extension/background.js` | ruft nur `browser.mailCards.start()` auf |
+| `extension/background.js` | startet die Experiment-API (`browser.mailCards.start()`) und meldet bereitliegende Updates (`updateReady`); geladen über `extension/background.html` |
 | `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |
 | `extension/icons/` | Apple-artige Ersatzsymbole |
 | `extension/about/`, `extension/options/` | Fenster „Hilfe → halo.spaces“ und Einstellungsseite |
-| `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil |
+| `build.sh`, `release.sh`, `publish.sh`, `install.sh` | Paket bauen; Release vorbereiten (Tests, Testmarke) und veröffentlichen; ins echte Profil installieren (nur auf Wunsch) |
+| `extension/vendor/pst/`, `tools/pst-bundle/` | mitgelieferte PST-Bibliothek (Import von Outlook-Datendateien) und wie sie gebündelt wird |
+| `icons/` | Skripte, die die Symbole und `icon-vars.css` erzeugen |
+| `screenshots/` | Bilder für das README (aus dem Testprofil) |
+| `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil (`--perf` mit `tests/perf.js`: Geschwindigkeitsmessung) |
+| `tests/update_test.py` | stellt das Update von einer älteren Version nach (siehe „Bauen und testen“) |
 | `tests/testserver.py` | lokaler IMAP-/SMTP-Testserver (nur 127.0.0.1, erfundene Daten) für die Prüfungen mit Testkonto |
 | `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht) |
 | `tests/store_shots.py` | Bilder für README und Store aus frischem Testprofil (erfundene englische Mails, Kontakte mit gezeichneten Bildern, Termine) |
@@ -36,7 +41,8 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
-| `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
+| `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
+| `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzung offen (LaunchAgent, `tests/MAC-MINI.md` Abschnitt 12) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
@@ -90,7 +96,8 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).
-- `tests/update_test.py` stellt das Update von der letzten Version nach
+- `tests/update_test.py` stellt das Update von einer älteren Version nach
+  (Standard 3.6.0, andere mit `--from`)
   (Einstellungen, Toolbar, Begrüßung, userChrome.css); mit `--github` über das
   veröffentlichte `updates.json`. Vor einem Release laufen lassen.
 - Nach UI-Änderungen: passende Prüfung in `run_checks()` ergänzen, besonders
@@ -129,7 +136,8 @@ Release –, geht so an neon. Reihenfolge, bis einer klappt:
 4. Fehlen die Werkzeuge, erst per `ToolSearch` laden (`SendMessage`,
    `ListAgents`, `mcp__claude-code-remote__list_sessions`,
    `…__send_message`, `…__confirm_repository_trust`).
-5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`).
+5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`
+   Abschnitte 4 und 7).
 
 Nie „neon nicht erreichbar“ melden, ohne alle passenden Wege versucht zu
 haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
@@ -150,7 +158,8 @@ scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
 Ein Mac mini übernimmt die Tests rund um die Uhr (Anleitung: `tests/MAC-MINI.md`):
 eigener Benutzer `neosky.cat` (Administrator) ohne echte Mails mit automatischer Anmeldung, erreichbar
 nur über Tailscale (keine Portfreigabe), Claude Code per SSH aus der Desktop-App
-und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
+und per Remote Control aus Cloud-Sitzungen (Einrichtung `tests/MAC-MINI.md`
+Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
 
 - `tests/mac-mini-setup.sh --check` prüft den Rechner (Ruhezustand, Thunderbird,
   Python, gh, Bildschirm, Rechte, Anmeldung, Tailscale, SSH, Runner, Remote Control, Windows-VM) und ändert
@@ -162,8 +171,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
   öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
   `tests/mac-runner-hook.sh` alles andere ab.
-- Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund 50 Minuten
-  (`mac` ~32, `windows` ~17; dunkel länger). Solange er
+- Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund
+  35 Minuten, mit Dunkelmodus rund 55 (laut den letzten grünen Läufen: `mac`
+  hell ~17, hell und dunkel ~35, `windows` ~19; Linux parallel ~17). Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
 - Ausnahmen ohne Tests: Ein Push, der nur `*.md`, `store/` oder `LICENSE`
@@ -495,7 +505,8 @@ HEAD:main`, danach den eigenen Zweig `claude/…` auf GitHub löschen
 liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
 
 - Gesammelt pushen wie unter „Testrechner“: je Eintrag committen, einmal am
-  Ende pushen – jeder Push mit Codeänderung belegt neon rund 50 Minuten
+  Ende pushen – jeder Push mit Codeänderung belegt neon rund 35 Minuten
+  (mit Dunkelmodus rund 55)
   (Pushes nur mit `*.md`, `store/`, `LICENSE` nicht, siehe „Testrechner“).
 - Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
   nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch

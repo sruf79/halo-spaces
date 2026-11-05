@@ -12,7 +12,11 @@ offenen Punkt den Befehl oder die Stelle in den Systemeinstellungen:
 tests/mac-mini-setup.sh --check                # nur prüfen, ändert nichts
 tests/mac-mini-setup.sh --check --probelauf    # dazu ein Testlauf (einige Minuten)
 tests/mac-mini-setup.sh                        # prüfen, einrichten was ohne Passwort geht, Testlauf
+tests/mac-mini-setup.sh --ohne-probelauf       # einrichten ohne Testlauf (z. B. nach Änderungen an den Läufen)
 ```
+
+`--port N` wählt den Marionette-Port des Probelaufs (Standard 2850). Das
+Skript richtet auch die LaunchAgents der Läufe ein (Abschnitte 12–16).
 
 Ausgabe: je Punkt eine Zeile `OK`, `OFFEN` oder `HINWEIS`, darunter mit `→` was
 zu tun ist. Rückgabewert 0 nur, wenn nichts offen ist. Das Skript läuft im
@@ -92,9 +96,10 @@ Bildschirmschoner schaltet `tests/mac-mini-setup.sh` im Testbenutzer aus.
 
 - **Thunderbird** nach `/Applications`. Einfachster Weg: `tests/mac-mini-setup.sh`
   einmal als Administrator ausführen – es lädt die aktuelle Version von Mozilla
-  und übernimmt sie nur mit Mozillas Signatur. Der Testbenutzer kann Thunderbird
-  nicht selbst aktualisieren. Meldet das Skript eine veraltete Version, es
-  wieder als Administrator ausführen.
+  und übernimmt sie nur mit Mozillas Signatur. Danach aktualisiert der Nachtlauf
+  Thunderbird jede Nacht selbst (Abschnitt 13) – das geht nur, wenn die App
+  dem Testbenutzer gehört; sonst einmal `sudo chown -R <Testbenutzer>
+  /Applications/Thunderbird.app` (der Nachtlauf-Bericht nennt den Befehl).
 - **Python 3 und git:** `xcode-select --install` (im Fenster auf „Installieren“ klicken).
 - **Homebrew, gh, tmux, jq** (optional, für die Aufgabenliste und das Arbeiten per
   SSH, z. B. vom iPhone):
@@ -276,9 +281,10 @@ möglichen Schaden.
    betroffen sind (`tests/farben-betroffen.sh`).
 
 Ist der Mini aus, wartet der Job bis zu 24 Stunden; die Linux-Ergebnisse sind
-trotzdem sofort da. Der Runner aktualisiert sich selbst. Die Thunderbird Beta
-liegt im Cache unter `~/Library/Caches/halo-spaces/tb-beta` (höchstens einmal
-pro Woche neu geladen).
+trotzdem sofort da. Der Runner aktualisiert sich selbst. Der Job `mac` testet
+die Beta nicht mehr; für Läufe von Hand mit `tests/beta.sh` liegt sie im Cache
+unter `~/Library/Caches/halo-spaces/tb-beta` (höchstens einmal pro Woche neu
+geladen).
 
 ## 9. Laufende Zweige auf den Mini bringen
 
@@ -461,8 +467,8 @@ Ablauf: `tests/nachtlauf.sh`.
 Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge
 abarbeiten, je Eintrag nur die betroffenen Prüfungen (`--only`), ab 04:30
 kein neuer Eintrag mehr; dann pushen und den CI-Lauf für genau diesen Commit
-abwarten (`tests/ci-warten.sh`, etwa 50 Minuten: Linux ~16, `mac` ~32,
-`windows` ~17). Grün: Versionshinweise, `release.sh` (überspringt die Tests
+abwarten (`tests/ci-warten.sh`, etwa 35 Minuten, mit Dunkelmodus etwa 55:
+Linux ~17 parallel, `mac` hell ~17 bzw. hell und dunkel ~35, `windows` ~19). Grün: Versionshinweise, `release.sh` (überspringt die Tests
 dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
 mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
 Reparaturrunden, keine neue ab 07:30, sonst kein Release. Nach grüner CI
@@ -591,7 +597,8 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
 - Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
   bis höchstens 09:15 und wertet ihn mit aus.
 - Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`, wartet bis 90 Minuten
-  auf einen CI-Lauf und lässt sonst aus, wenn etwas läuft (Bericht
+  auf einen CI-Lauf und lässt sonst aus, wenn etwas läuft oder verfolgte
+  Dateien im Repo ungespeicherte Änderungen haben (Bericht
   „ausgelassen“); `claude -p` im Modus `auto`, nach Limit 30 Minuten Pause
   und Fortsetzen, nach 6 Stunden kein Fortsetzen mehr, nach 7 beendet.
   Protokoll `~/halo-nacht/<datum>-woche.log`.
@@ -625,7 +632,8 @@ keine geplante Aufgabe der Desktop-App).
   Freigaberegeln, Release-Sperre, Versionshinweise, Skripte, Workflows.
 - Wartet wie die Wochenprüfung bis höchstens 09:15 auf den Nachtlauf; CI,
   Testläufe und VM stören sie nicht (sie testet nichts), andere Sitzungen
-  am Repo und `release.sh`/`publish.sh` schon (dann „ausgelassen“). Sperre
+  am Repo, ungespeicherte Änderungen an verfolgten Dateien und
+  `release.sh`/`publish.sh` schon (dann „ausgelassen“). Sperre
   `~/halo-nacht/doku.lock`, Protokoll `~/halo-nacht/<datum>-doku.log`,
   Zeitgrenzen wie Abschnitt 15.
 - Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.

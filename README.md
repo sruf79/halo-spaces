@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3120">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3180">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -236,8 +236,10 @@ See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.
 halo.spaces has no server, no account, no analytics and no telemetry, and it
 never sends your messages, contacts or events anywhere. It only goes online
 for what you see: sender logos (the sender's domain only, can be turned off),
-the weather if you turn it on, a website you chose as a space, and update
-checks. Details in the [privacy policy](store/privacy-en.md).
+contact photos stored as a web link in your address book, the weather if you
+turn it on, a website you chose as a space, one-click unsubscribe when you
+confirm it, and update checks (GitHub or addons.thunderbird.net, depending on
+where you installed it). Details in the [privacy policy](store/privacy-en.md).
 
 Found a security problem? Please report it privately, see
 [SECURITY.md](SECURITY.md).

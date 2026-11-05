@@ -573,6 +573,13 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   `push()`-Funktion wie der Nachtlauf (`tests/lauf-hilfen.zsh`) – die Sitzung
   `comm.github.routine` ist dabei nur der Zustellweg, die Routine
   „GitHub-Kommunikation“ selbst bleibt unberührt.
+- **Versuchsjobs:** Jobs mit `continue-on-error: true` in `test.yml` (derzeit
+  `windows-github`) zählen nicht – kein Eintrag, keine Zeile aufs iPhone, auch
+  nicht für ihre `KONSOLE`-/`PROTOKOLL`-Zeilen (Entscheidung des Maintainers
+  vom 5.11.2026). Ihre roten Prüfungen sammelt ein Eintrag von Hand („Tests:
+  windows-github stabilisieren“). Der Wächter liest dafür `test.yml` des
+  jeweiligen Commits; fällt `continue-on-error` weg (Job ersetzt `windows`),
+  zählt der Job wieder.
 - **Abgebrochen:** nur protokolliert. **Grün:** nur protokolliert.
 - **Fehlerkonsole:** für jeden abgeschlossenen Lauf (grün, rot, abgebrochen;
   auch während Nachtlauf und Wochenprüfung) je Zeile `KONSOLE  …` im Log

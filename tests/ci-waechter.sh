@@ -7,6 +7,10 @@
 # protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
 # lässt er dabei aus. Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen
 # „KONSOLE  …“/„PROTOKOLL  …“) trägt er für jeden Lauf als Bug ein – kein Rot.
+# Jobs mit continue-on-error (Versuchsjobs wie windows-github) zählen nicht: kein
+# Eintrag, keine Meldung aufs iPhone, auch nicht für ihre KONSOLE-/PROTOKOLL-
+# Zeilen (Entscheidung des Maintainers vom 5.11.2026; ihre Fehler sammelt ein
+# Eintrag von Hand). Fällt continue-on-error weg, zählen sie wieder.
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
@@ -154,12 +158,25 @@ Wieder aufgetreten: „$frueher“ war schon Done – der Fehler tritt vermutlic
   print neu
 }
 
+# Versuchsjobs eines Commits: Jobs, die in .github/workflows/test.yml dieses Stands
+# continue-on-error haben (Job-Schlüssel bzw. sein name:). Ausgabe eine Zeile je Job.
+versuchsjobs() {   # <Commit>
+  gh api "repos/$R/contents/.github/workflows/test.yml?ref=$1" --jq .content 2>/dev/null | base64 -D 2>/dev/null | awk '
+    /^jobs:/ { in_jobs = 1; next }
+    in_jobs && /^[^ #]/ { in_jobs = 0 }
+    in_jobs && /^  [A-Za-z0-9_-]+:[ ]*$/ { job = $1; sub(/:$/, "", job); name[job] = job; next }
+    in_jobs && job != "" && /^    name:/ { n = $0; sub(/^    name:[ ]*/, "", n); gsub(/["\047]/, "", n); name[job] = n }
+    in_jobs && job != "" && /^    continue-on-error:[ ]*true/ { versuch[job] = 1 }
+    END { for (j in versuch) print name[j] }'
+}
+
 # einen roten Lauf auswerten: je Prüfung ein Eintrag, eine Zeile aufs iPhone
 rot() {   # <Lauf-ID>
   local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 erste= ergebnis
-  local -a namen zeilen
+  local -a namen zeilen versuch
   local -A jobs_von detail_von
   info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
+  versuch=(${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"})
   # gezielter Lauf von Hand (nur einzelne Prüfungen/Systeme, test.yml): Fehlersuche, kein Board-Eintrag
   if jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null; then
     log "Lauf $run: gezielter Lauf von Hand – kein Eintrag"
@@ -172,6 +189,10 @@ rot() {   # <Lauf-ID>
   flog=$(gh run view $run -R $R --log-failed 2>/dev/null)
   # gescheiterte Prüfungen sammeln; dieselbe Prüfung in mehreren Jobs ergibt einen Eintrag
   for job in ${(f)"$(jq -r '.jobs[] | select(.conclusion == "failure") | .name' <<< $info)"}; do
+    if (( ${versuch[(Ie)$job]} )); then
+      melde "  Versuchsjob $job rot – kein Eintrag (continue-on-error)"
+      continue
+    fi
     zeilen=(${(f)"$(print -r -- $flog | grep -a "^$job	" | grep -a 'FEHLER  ' | grep -av 'Prüfungen OK')"})
     if (( ! ${#zeilen} )); then
       # ohne FEHLER-Zeile (Abbruch vor oder außerhalb der Prüfungen): der gescheiterte Schritt
@@ -213,7 +234,7 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
     [[ -z $erste ]] && erste="$jobs: ${name[1,70]}"
   done
   melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu neu, $erg ergänzt"
-  if [[ -z $TROCKEN ]]; then
+  if [[ -z $TROCKEN ]] && (( n )); then
     push "CI rot: Lauf $run ($sha) – ${erste:-?}$( (( n > 1 )) && print " (+$((n - 1)) weitere)") – Board: $neu neu, $erg ergänzt"
   fi
 }
@@ -289,6 +310,11 @@ konsole() {   # <Lauf-ID>; Exitcode 2, wenn der Lauf nicht lesbar ist (dann spä
   info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "Lauf $run nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
   jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null && return 0
   flog=$(gh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
+  # Zeilen aus Versuchsjobs (continue-on-error) weglassen; die Zeilen beginnen mit „<Job><Tab>“
+  local j
+  for j in ${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"}; do
+    [[ -n $j ]] && flog=$(print -r -- $flog | grep -av "^$j	")
+  done
   konsole_zeilen "$(print -r -- $flog | grep -aE 'KONSOLE  |PROTOKOLL  ')" "$(jq -r .url <<< $info)" \
     "$(jq -r '.headSha[:7]' <<< $info)" "$(jq -r '.displayTitle[:100]' <<< $info)"
 }

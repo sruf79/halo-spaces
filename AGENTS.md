@@ -302,7 +302,11 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
   oder Wochenprüfung übernehmen diese selbst. Zeilen `KONSOLE  …` trägt er für
   jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein, Zeilen `PROTOKOLL  …` als
-  `Tests: Fehlerprotokoll – …` (kein Rot). `tests/MAC-MINI.md` Abschnitt 14.
+  `Tests: Fehlerprotokoll – …` (kein Rot). Versuchsjobs mit
+  `continue-on-error` in `test.yml` (derzeit `windows-github`) übergeht er
+  ganz – kein Eintrag, kein Push, auch nicht für ihre KONSOLE-/PROTOKOLL-Zeilen
+  (Entscheidung des Maintainers vom 5.11.2026); ihre Fehler sammelt ein
+  Eintrag von Hand. `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
   `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als

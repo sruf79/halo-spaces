@@ -129,8 +129,11 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   Ebenso das Fehlerprotokoll der Erweiterung (`mail-cards-debug.log`, Fehler,
   die unser Code selbst abfängt): Prüfung „Fehlerprotokoll …“ nur Warnung, je
   Meldung eine Zeile `PROTOKOLL  …`, Bug „Tests: Fehlerprotokoll – …“.
-  Solche Bugs erst auf Done, wenn der CI-Lauf zum Fix die Meldung nicht mehr
-  nennt (`ci-warten.sh`) – grüne CI allein beweist es nicht.
+  Meldungen werden ohne wechselnde Teile (Profil, Temp-Pfade, Kennung der
+  Erweiterung) verglichen; Zeilen aus dem Update-Test trägt `release.sh` über
+  `ci-waechter.sh --datei` ein. Solche Bugs erst auf Done, wenn der CI-Lauf
+  zum Fix mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht
+  mehr nennt (`ci-warten.sh`) – grüne CI allein beweist es nicht.
 - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
   Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
   – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine

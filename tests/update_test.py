@@ -128,7 +128,9 @@ def konsole(m, wann):
         res = ht.konsole_lesen(m)
         errors, notes = ht.konsole_bewerten(res)
         ht.konsole_melden(errors, notes)
-        print(f"Fehlerkonsole ({wann}): {len(errors)} Fehler aus halo.spaces (nur Warnung), "
+        perrors, _ = ht.konsole_bewerten(ht.protokoll_lesen(m))  # Fehlerprotokoll der Erweiterung ebenso
+        ht.konsole_melden(perrors, [], "PROTOKOLL")
+        print(f"Fehlerkonsole ({wann}): {len(errors)} Fehler aus halo.spaces, {len(perrors)} im Fehlerprotokoll (nur Warnung), "
               f"Thunderbird selbst: {res.get('fremd')} Fehler", flush=True)
     except Exception as e:
         print(f"Hinweis: Fehlerkonsole ({wann}) nicht lesbar – {e}", flush=True)

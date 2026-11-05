@@ -47,12 +47,24 @@ case $ERGEBNIS in
 esac
 print "CI-Lauf $RUN für ${SHA:0:7}: $T nach $DAUER Min. (https://github.com/$R/actions/runs/$RUN)"
 jobs_zeilen $RUN
-# Fehlerkonsole: nie Rot, nur zur Kenntnis (den Bug trägt der CI-Wächter ein; AGENTS.md „Bauen und testen“)
+# Fehlerkonsole/-protokoll: nie Rot, nur zur Kenntnis (den Bug trägt der CI-Wächter ein; AGENTS.md „Bauen und testen“).
+# Vollständig und eindeutig, weil der Nachtlauf daran „behoben“ prüft: je Meldung einmal mit allen Jobs, ausdrücklich
+# „keine Meldungen“ bzw. „nicht lesbar“, und ob mac dunkel lief
 if (( RC != 4 )); then
-  KONSOLE=$(gh run view $RUN -R $R --log 2>/dev/null | grep -aE 'KONSOLE  |PROTOKOLL  ' | sed -E 's/^([^	]*)	[^	]*	[^ ]* (KONSOLE|PROTOKOLL)  (.*)$/  \1 (\2): \3/' | sort -u)
-  if [[ -n $KONSOLE ]]; then
-    print "Fehlerkonsole/-protokoll (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein):"
-    print -r -- $KONSOLE | cut -c1-300 | head -80   # vollständig genug, um „Meldung nicht mehr da“ zu prüfen
+  DUNKEL=$(gh run view $RUN -R $R --json jobs --jq '[.jobs[] | select(.name == "mac") | .steps[]? | select(.name == "Test dunkel") | .conclusion][0] // "kein Job mac"' 2>/dev/null)
+  if KLOG=$(gh run view $RUN -R $R --log 2>/dev/null); then
+    KONSOLE=$(print -r -- $KLOG | grep -aE 'KONSOLE  |PROTOKOLL  ' \
+      | sed -E 's/^([^	]*)	[^	]*	[^ ]* (KONSOLE|PROTOKOLL)  (.*)$/\2  \3	\1/' \
+      | awk -F'\t' '{ if (!($1 in j)) { o[++n] = $1; j[$1] = $2 } else if (index(", " j[$1] ", ", ", " $2 ", ") == 0) j[$1] = j[$1] ", " $2 }
+                     END { for (i = 1; i <= n; i++) print "  " o[i] "  [" j[o[i]] "]" }')
+    if [[ -n $KONSOLE ]]; then
+      print "Fehlerkonsole/-protokoll (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein; mac dunkel: $DUNKEL):"
+      print -r -- $KONSOLE
+    else
+      print "Fehlerkonsole/-protokoll: keine Meldungen (mac dunkel: $DUNKEL)"
+    fi
+  else
+    print "Fehlerkonsole/-protokoll: Protokoll des Laufs nicht lesbar – „behoben“ lässt sich damit nicht prüfen"
   fi
 fi
 if (( RC == 1 )); then

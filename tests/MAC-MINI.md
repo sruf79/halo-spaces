@@ -560,7 +560,13 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   ergänzt. Aufs iPhone nur, wenn ein neuer Eintrag entstand. Diese Fehler
   machen keinen Lauf rot und halten kein Release auf. Ebenso Zeilen
   `PROTOKOLL  …` (Fehlerprotokoll der Erweiterung) als
-  `Tests: Fehlerprotokoll – <Meldung>`.
+  `Tests: Fehlerprotokoll – <Meldung>`. Offene Einträge findet er über die
+  Zeile `Schlüssel: <Meldung>` im Text wieder; ist das Board nicht lesbar,
+  legt er nichts an. Ist ein Lauf (noch) nicht lesbar, bleibt der Stand
+  stehen und er versucht es im nächsten Durchgang erneut (nach 4 Versuchen
+  übersprungen, `~/halo-aufgaben/ci-waechter.versuche`). `--datei <Datei>`
+  wertet nur die Zeilen einer Datei aus (so trägt `release.sh` die Zeilen
+  des Update-Tests ein).
 - Läufe, die während eines Nachtlaufs oder einer Wochenprüfung beginnen
   (Zeiten aus `~/halo-nacht/<datum>.log` bzw. `<datum>-woche.log`), lässt
   er aus – die warten selbst auf ihre CI und berichten darüber.

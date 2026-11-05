@@ -84,8 +84,7 @@ class Marionette:
     def js(self, body):
         # --only: Vorbereitungen außerhalb einer Prüfung kennzeichnen – ihre Meldungen in der Fehlerkonsole gehören zu
         # übersprungenen Prüfungen und zählen nicht (konsole_bewerten); späte Meldungen der gelaufenen bleiben „nach …“
-        mark = 'const __k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole; if (__k) __k.check = "Vorbereitung (--only)";' \
-            if ONLY and not IN_CHECK else ""
+        mark = konsole_setze_js("Vorbereitung (--only)") if ONLY and not IN_CHECK else ""
         script = "return (async () => {" + PRELUDE + mark + body + "})();"
         try:
             return self.cmd("WebDriver:ExecuteScript", {"script": script, "args": []}).get("value")
@@ -201,8 +200,8 @@ def mark_check(name):
     """Name der laufenden Prüfung für ruhig() und die Mitschrift der Fehlerkonsole (wer eine Meldung auslöste)."""
     if CHECK_M:
         try:
-            CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + f"""w.__haloCheck = {json.dumps(name[:70])};
-              const k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole; if (k) k.check = {json.dumps(name)}; return 1;""", "args": []})
+            CHECK_M.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + f"w.__haloCheck = {json.dumps(name[:70])}; "
+                        + konsole_setze_js(name) + " return 1;", "args": []})
         except Exception:
             pass
 
@@ -234,13 +233,21 @@ def check(name, fn, results, immer=False):
 
 
 # ---------------------------------------------------------------------------
-# Fehlerkonsole (AGENTS.md, „Fehlerkonsole“): Mitschrift ab dem Start des Laufs, Auswertung am Ende
+# Fehlerkonsole und Fehlerprotokoll (AGENTS.md, „Fehlerkonsole“): Mitschrift ab dem Start des Laufs, Auswertung am
+# Ende – nie ein Fehlschlag, je Fehler eine Zeile „KONSOLE  …“ bzw. „PROTOKOLL  …“ für den CI-Wächter
 # ---------------------------------------------------------------------------
 
 KONSOLE_PUFFER = 250  # so viele Meldungen hält die Fehlerkonsole (nsConsoleService), ältere fallen heraus
+KONSOLE_DUNKEL = False  # Lauf im Dunkelmodus (steht in den Zeilen, damit „behoben“ im richtigen Modus geprüft wird)
+KONSOLE_STAND = None  # so viele Einträge der Mitschrift hat die Prüfung schon gemeldet (None: noch nicht gelaufen)
+
+# Mitschrift im Hauptfenster suchen (auch wenn ein zweites Mail-Fenster das zuletzt benutzte ist)
+KONSOLE_FIND = '[...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole'
 
 # Meldung einordnen: nur Fehler aus halo.spaces (Quelle oder Aufrufstapel im Paket) und Thunderbird-Meldungen, die auf
-# einen Eingriff von uns deuten, werden mitgeschrieben; Thunderbirds übrige Fehler und alle Warnungen nur gezählt
+# einen Eingriff von uns deuten, werden mitgeschrieben; Thunderbirds übrige Fehler und alle Warnungen nur gezählt.
+# norm() nimmt Teile heraus, die sich je Lauf ändern (Profil, Temp-Pfade, Kennung der Erweiterung) – sonst ergäbe
+# dieselbe Meldung in jedem Lauf einen neuen Board-Eintrag
 KONSOLE_JS = r"""
   const host = (() => { try { return WebExtensionPolicy.getByID("mail-cards@sebastian.local")?.mozExtensionHostname || ""; } catch { return ""; } })();
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -248,15 +255,22 @@ KONSOLE_JS = r"""
   const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local|moz-extension://[^/]+/api/implementation\\.js" + (host ? "|moz-extension://" + esc(host) : ""));
   // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
   const HINTS = [/initialised calendars before loadCalendarComponent/];
-  const neu = () => ({ eintraege: [], fremd: 0, warnungen: 0, start: 0, voll: false, erwartet: [], check: "Start", host });
+  const prof = PathUtils.profileDir, profUrl = (() => { try { return PathUtils.toFileURI(prof); } catch { return prof; } })();
+  const norm = t => String(t || "").split(profUrl).join("<Profil>").split(prof).join("<Profil>")
+    .replace(/moz-extension:\/\/[0-9a-f-]{8,}/gi, "moz-extension://…")
+    .replace(/(?:\/private)?\/var\/folders\/[^\s'"),]+|\/tmp\/[^\s'"),]+|[A-Za-z]:\\[^\s'"),]*\\Temp\\[^\s'"),]+/g, "<tmp>")
+    .replace(/\s+/g, " ").trim();
+  const neu = () => ({ eintraege: [], fremd: 0, warnungen: 0, start: 0, voll: false, erwartet: [], check: "Start",
+    zeitplan: [[Date.now(), "Start"]], host });
   const add = (k, msg) => {
     if (!(msg instanceof Ci.nsIScriptError)) return;
     if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { k.warnungen++; return; }
-    const text = String(msg.errorMessage || "").replace(/\s+/g, " ").trim().slice(0, 200);  // eine Zeile je Meldung
+    const raw = String(msg.errorMessage || "");
     let stack = ""; try { stack = String(msg.stack?.toString?.() || ""); } catch {}
-    if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(text)))) { k.fremd++; return; }
-    if (k.eintraege.length < 2000) k.eintraege.push({ text, wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}`, check: k.check });
+    if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(raw)))) { k.fremd++; return; }
+    if (k.eintraege.length < 2000) k.eintraege.push({ text: norm(raw).slice(0, 200), wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}`, check: k.check });
   };
+  const setze = (k, name) => { k.check = name; k.zeitplan.push([Date.now(), name]); };
 """
 
 
@@ -265,12 +279,12 @@ def konsole_start(m):
     läuft in einem langen Lauf über – ohne Mitschrift fielen gerade die Startfehler heraus)."""
     try:
         m.js(KONSOLE_JS + f"""
-          if ([...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole) return 1;
+          if ({KONSOLE_FIND}) return 1;
           const k = w.__haloKonsole = neu();
           const snap = Services.console.getMessageArray() || [];
           k.voll = snap.length >= {KONSOLE_PUFFER}; k.start = snap.length;
           for (const msg of snap) add(k, msg);
-          k.check = "Start (nach dem Verbinden)";
+          setze(k, "Start (nach dem Verbinden)");
           k.listener = {{ observe: msg => {{ try {{ add(k, msg); }} catch {{}} }} }};
           Services.console.registerListener(k.listener);
           return 1;""")
@@ -278,18 +292,46 @@ def konsole_start(m):
         print(f"Hinweis: Mitschrift der Fehlerkonsole nicht gestartet – {e}", flush=True)
 
 
+def konsole_setze_js(name):
+    """JS, das den Namen der laufenden Prüfung (bzw. „nach …“, „Vorbereitung …“) in der Mitschrift setzt."""
+    return f"{{ const __k = {KONSOLE_FIND}; if (__k) {{ __k.check = {json.dumps(name)}; __k.zeitplan.push([Date.now(), __k.check]); }} }}"
+
+
 def konsole_lesen(m):
     """Mitschrift lesen; fehlt sie (nicht gestartet, Fenster ersetzt), den Puffer der Konsole."""
     return m.js(KONSOLE_JS + f"""
-      let k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole, quelle = "Mitschrift";
+      let k = {KONSOLE_FIND}, quelle = "Mitschrift";
       if (!k) {{ k = neu(); quelle = "Puffer"; const snap = Services.console.getMessageArray() || [];
         k.voll = snap.length >= {KONSOLE_PUFFER}; for (const msg of snap) add(k, msg); }}
       return {{ eintraege: k.eintraege, fremd: k.fremd, warnungen: k.warnungen, voll: k.voll, erwartet: k.erwartet, quelle }};""") or {}
 
 
+def protokoll_lesen(m):
+    """Fehler aus mail-cards-debug.log (die unser Code selbst abfängt), je Zeile der Prüfung zugeordnet, die zu ihrem
+    Zeitstempel lief (Zeitplan der Mitschrift); dieselbe Form wie die Einträge der Konsole."""
+    return m.js(KONSOLE_JS + f"""
+      const k = {KONSOLE_FIND}, plan = k?.zeitplan || [];
+      const p = PathUtils.join(PathUtils.profileDir, "mail-cards-debug.log");
+      let lines = []; try {{ lines = (await IOUtils.readUTF8(p)).split("\\n"); }} catch {{}}
+      const out = [];
+      for (const l of lines) {{
+        if (!/error|fehler/i.test(l) || /preview stats/.test(l)) continue;
+        const ts = Date.parse(l.split(" ")[0]);
+        let check = "Start"; for (const [t, n] of plan) {{ if (t <= ts) check = n; else break; }}
+        out.push({{ text: norm(l.replace(/^\\S+Z /, "")).slice(0, 300), wo: "", check }});
+      }}
+      return {{ eintraege: out.slice(0, 2000), erwartet: k?.erwartet || [] }};""") or {}
+
+
 def konsole_bewerten(res, only=None):
-    """Mitschrift auswerten: (Fehler, Hinweise) – je Fehler eine Zeile „Text (Datei:Zeile) – während Prüfung(en)“."""
-    expected = [(e["check"], re.compile(e["re"], re.I if "i" in e.get("fl", "") else 0)) for e in res.get("erwartet") or []]
+    """Einträge auswerten: (Fehler, Hinweise) – je Fehler eine Zeile „Text (Datei:Zeile) – während Prüfung(en)“."""
+    expected = []
+    for e in res.get("erwartet") or []:
+        try:
+            r = re.compile(e["re"], re.I if "i" in e.get("fl", "") else 0)
+        except re.error:  # JS-Muster, das Python nicht versteht: als wörtlicher Text (nie eine Ausnahme)
+            r = re.compile(re.escape(e["re"]))
+        expected.append((e.get("check") or "?", r))
     groups = {}
     for e in res.get("eintraege") or []:
         chk = e.get("check") or "?"
@@ -300,26 +342,46 @@ def konsole_bewerten(res, only=None):
         # erst nach dem Ende der Prüfung feuert); Vorbereitungen übersprungener Prüfungen dürfen scheitern (Marionette.js)
         if only and not chk.startswith("Start") and (chk.startswith("Vorbereitung") or not only.search(chk.removeprefix("nach "))):
             continue
-        groups.setdefault(f"{e['text']} ({e['wo']})", []).append(chk)
+        groups.setdefault(e["text"] + (f" ({e['wo']})" if e.get("wo") else ""), []).append(chk)
     errors = []
     for key, checks in groups.items():
         where = sorted(set(checks), key=checks.index)
         errors.append((f"{len(checks)}× " if len(checks) > 1 else "") + key + " – während " + "; ".join(c[:80] for c in where[:3])
-                      + (f" und {len(where) - 3} weiteren" if len(where) > 3 else ""))
+                      + (f" und {len(where) - 3} weiteren" if len(where) > 3 else "") + (" · dunkel" if KONSOLE_DUNKEL else ""))
     notes = []
-    if res.get("voll"):
-        notes.append(f"Konsole schon beim Start voll ({KONSOLE_PUFFER} Meldungen) – frühe Meldungen können fehlen")
+    if res.get("voll"):  # als Fehlerzeile: frühe Fehler (wie GitHub #38) könnten fehlen – das gehört ins Board
+        errors.append(f"Fehlerkonsole schon beim Start voll ({KONSOLE_PUFFER} Meldungen), frühe Fehler können fehlen – während Start"
+                      + (" · dunkel" if KONSOLE_DUNKEL else ""))
     if res.get("quelle") == "Puffer":
         notes.append("ohne Mitschrift, nur der Puffer der Konsole ausgewertet – frühe Meldungen können fehlen")
     return errors, notes
 
 
-def konsole_melden(errors, notes):
-    """Je Fehler eine Zeile „KONSOLE  …“ – der CI-Wächter trägt sie als Bug ins Board (tests/ci-waechter.sh)."""
+def konsole_melden(errors, notes, art="KONSOLE"):
+    """Je Fehler eine Zeile „KONSOLE  …“ bzw. „PROTOKOLL  …“ – der CI-Wächter trägt sie als Bug ins Board."""
     for e in errors:
-        print(f"KONSOLE  {e}", flush=True)
+        print(f"{art}  {e}", flush=True)
     for n in notes:
         print(f"Hinweis Fehlerkonsole: {n}", flush=True)
+
+
+def konsole_nachtrag(m, wann):
+    """Meldungen, die nach der Prüfung „Fehlerkonsole“ kamen (Screenshots) bzw. alle, wenn sie nie lief (Abbruch der
+    Prüfungen) – nur Ausgabe, nie eine Ausnahme."""
+    try:
+        res = konsole_lesen(m)
+        if KONSOLE_STAND is not None:
+            res["eintraege"] = (res.get("eintraege") or [])[KONSOLE_STAND:]
+            res["voll"] = False
+        errors, notes = konsole_bewerten(res)
+        konsole_melden(errors, notes)
+        if KONSOLE_STAND is None:
+            perrors, _ = konsole_bewerten(protokoll_lesen(m))
+            konsole_melden(perrors, [], "PROTOKOLL")
+        if errors:
+            print(f"Hinweis Fehlerkonsole: {len(errors)} Meldung(en) {wann}", flush=True)
+    except Exception as e:
+        print(f"Hinweis: Fehlerkonsole {wann} nicht lesbar – {e}", flush=True)
 
 
 def wait_port(port, timeout=60):
@@ -646,7 +708,7 @@ def run_in_vm(args, xpi):
 
 
 def main():
-    global LAST_END, CHECK_M
+    global LAST_END, CHECK_M, KONSOLE_DUNKEL
     ap = argparse.ArgumentParser()
     ap.add_argument("--xpi", help="Paket (Standard: neuestes dist/halo-spaces-*.xpi)")
     ap.add_argument("--tb", default=DEFAULT_TB, help="Thunderbird-Programm")
@@ -706,10 +768,15 @@ def main():
             m.cmd("WebDriver:SetTimeouts", {"script": 600000})
             print(json.dumps(m.js(args.eval), indent=1, ensure_ascii=False))
             return
+        KONSOLE_DUNKEL = bool(args.dark)
         konsole_start(m)
         LAST_END = started = time.time()
         CHECK_M = m
-        run_checks(m, version, profile, results)
+        try:
+            run_checks(m, version, profile, results)
+        finally:
+            if KONSOLE_STAND is None:  # Prüfungen abgebrochen: Konsole und Protokoll trotzdem ausgeben (oft die Erklärung)
+                konsole_nachtrag(m, "bis zum Abbruch der Prüfungen")
         try:  # wie oft ruhig() bis zur Höchstzeit (der früheren festen Pause) gewartet hat
             full = m.cmd("WebDriver:ExecuteScript", {"script": PRELUDE.split("const wait")[0] + "return w.__haloRuhigVoll || {};", "args": []}).get("value")
         except Exception:
@@ -722,7 +789,9 @@ def main():
             for why, n in sorted(full.items(), key=lambda x: -x[1])[:15]:
                 print(f"  {n:4d}×  {why[:160]}", flush=True)
         if args.shots:
+            mark_check("Screenshots")
             take_shots(m, args.shots, "dark" if args.dark else "light")
+            konsole_nachtrag(m, "bei den Screenshots")
             if args.compare:
                 compare_shots(m, args.compare, args.shots)
     finally:
@@ -14162,26 +14231,16 @@ Neu
     server_checks(m, results)
 
     def errors():
+        # Fehlerprotokoll der Erweiterung (mail-cards-debug.log, Fehler, die unser Code selbst abfängt). Nie ein
+        # Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile
+        # „PROTOKOLL  …“ mit der Prüfung, die zu ihrem Zeitstempel lief; der CI-Wächter trägt sie als Bug
+        # „Tests: Fehlerprotokoll – …“ ins Board. Auch mit --only (zum Nachprüfen); erwartet() gilt auch hier
         try:
-            return errors_lesen()
+            errors, _ = konsole_bewerten(protokoll_lesen(m), ONLY)
         except Exception as e:  # Auslesen gescheitert: nur Hinweis, nie ein Fehlschlag (hält kein Release auf)
             return True, f"WARNUNG: Fehlerprotokoll nicht lesbar – {e}"
-
-    def errors_lesen():
-        res = m.js("""
-          const p = PathUtils.join(PathUtils.profileDir, "mail-cards-debug.log");
-          let lines = []; try { lines = (await IOUtils.readUTF8(p)).split("\\n"); } catch {}
-          // ohne Zeitstempel, gleiche Meldungen einmal (mit Anzahl)
-          const seen = new Map();
-          for (const l of lines) if (/error|fehler/i.test(l) && !/preview stats/.test(l)) {
-            const t = l.replace(/^\\S+Z /, "").replace(/\\s+/g, " ").trim().slice(0, 300); seen.set(t, (seen.get(t) || 0) + 1); }
-          return [...seen].slice(0, 20).map(([t, n]) => (n > 1 ? `${n}× ` : "") + t);""")
-        # Nie ein Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile
-        # „PROTOKOLL  …“, die der CI-Wächter als Bug „Tests: Fehlerprotokoll – …“ ins Board trägt
-        for line in res or []:
-            print(f"PROTOKOLL  {line}", flush=True)
-        return True, (f"WARNUNG: {len(res)} Fehler im Protokoll, siehe Zeilen darüber – kein Fehlschlag" if res else "keine Fehler im Protokoll")
-    # auch mit --only (zum Nachprüfen eines Protokoll-Bugs); dort können auch Folgen übersprungener Vorbereitungen stehen
+        konsole_melden(errors, [], "PROTOKOLL")
+        return True, (f"WARNUNG: {len(errors)} Fehler im Protokoll, siehe Zeilen darüber – kein Fehlschlag" if errors else "keine Fehler im Protokoll")
     check("Fehlerprotokoll der Erweiterung leer (nur Warnung)", errors, results, immer=True)
 
     def console_errors():
@@ -14191,17 +14250,18 @@ Neu
         # als Warnung mit eigener Zeile „KONSOLE  …“, die der CI-Wächter als Bug ins Board trägt; mit erwartet()
         # angemeldete zählen nicht, Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt.
         # Läuft auch mit --only (dann nur für die gelaufenen Prüfungen)
+        global KONSOLE_STAND
         try:
             res = konsole_lesen(m)
+            errors, notes = konsole_bewerten(res, ONLY)
         except Exception as e:  # Auslesen gescheitert (z. B. Thunderbird abgestürzt): nur Hinweis, nie ein Fehlschlag
             return True, f"WARNUNG: Fehlerkonsole nicht lesbar – {e}"
-        errors, notes = konsole_bewerten(res, ONLY)
+        KONSOLE_STAND = len(res.get("eintraege") or [])
         konsole_melden(errors, notes)
         summary = f"Thunderbird selbst: {res.get('fremd')} Fehler, {res.get('warnungen')} Warnungen"
         if errors:
             return True, f"WARNUNG: {len(errors)} Fehler aus halo.spaces, siehe Zeilen darüber – kein Fehlschlag ({summary})"
         return True, f"keine Fehler aus halo.spaces ({summary})"
-
     check("Fehlerkonsole: keine Fehler aus halo.spaces und keine Startmeldung, die auf einen Eingriff deutet (nur Warnung)", console_errors, results, immer=True)
 
 

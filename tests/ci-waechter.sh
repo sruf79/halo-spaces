@@ -11,17 +11,19 @@
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
 #   ci-waechter.sh --lauf ID             genau diesen Lauf auswerten (Stand bleibt)
+#   ci-waechter.sh --datei PROTOKOLL     nur KONSOLE-/PROTOKOLL-Zeilen aus einer Datei (release.sh: Update-Test)
 # Stand: ~/halo-aufgaben/ci-waechter.stand (ID des zuletzt ausgewerteten Laufs),
 # Protokoll: ~/halo-aufgaben/ci-waechter.log.
 emulate -L zsh
 setopt extendedglob pipefail
 
-TROCKEN= NUR=
+TROCKEN= NUR= DATEI=
 while (( $# )); do
   case $1 in
     --trocken) TROCKEN=1 ;;
     --lauf) shift; NUR=$1 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --datei) shift; DATEI=$1 ;;
+    -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) print -u2 "Unbekannte Option: $1"; exit 2 ;;
   esac
   shift
@@ -34,10 +36,14 @@ FELD_TYP=PVTSSF_lAHODEPpks4BoBQwzhmjN8Y TYP_BUG=ff678ae2
 FELD_STATUS=PVTSSF_lAHODEPpks4BoBQwzhmjN5E STATUS_TODO=f75ad846
 DIR=$HOME/halo-aufgaben
 STAND=$DIR/ci-waechter.stand
+VERSUCHE=$DIR/ci-waechter.versuche     # „<Lauf> <Anzahl>“: Leseversuche eines unlesbaren Laufs
 LOG=$DIR/ci-waechter.log
 NACHT=$HOME/halo-nacht
 mkdir -p $DIR
 source ${0:A:h}/lauf-hilfen.zsh             # zeit, log, push
+# launchd setzt keine Locale: ohne UTF-8 zählt zsh Bytes statt Zeichen (${x[1,60]} schneidet mitten in „ü“ oder „–“,
+# dann findet der Abgleich offene Einträge nicht mehr und legt Dubletten an)
+export LC_CTYPE=${LC_CTYPE:-en_US.UTF-8} LANG=${LANG:-en_US.UTF-8}
 
 # Protokoll; im Trockenlauf nur auf den Bildschirm
 melde() {
@@ -77,14 +83,15 @@ vom_nachtlauf() {   # <Epoch des Laufbeginns>
 }
 
 BOARD=
-board() {
-  [[ -n $BOARD ]] || BOARD=$(gh project item-list 1 --owner sruf79 --limit 300 --format json)
+board() {   # scheitert (Exitcode 1), wenn das Board nicht lesbar ist – dann nichts anlegen (sonst Dubletten)
+  [[ -n $BOARD ]] || BOARD=$(gh project item-list 1 --owner sruf79 --limit 1000 --format json) || { BOARD=; return 1 }
+  [[ -n $BOARD ]] || return 1
   print -r -- $BOARD
 }
 
 # Bug eintragen oder offenen Eintrag zur selben Prüfung ergänzen; gibt „neu“/„ergänzt“ aus
-eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard „Tests: CI rot“]
-  local job=$1 pruefung=$2 text=$3 zusatz=$4 anfang=${5:-"Tests: CI rot"} kurz titel id di body
+eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard „Tests: CI rot“] [<Schlüssel>]
+  local job=$1 pruefung=$2 text=$3 zusatz=$4 anfang=${5:-"Tests: CI rot"} schluessel=$6 kurz titel id di body b
   kurz=${pruefung[1,90]}
   if (( ${#pruefung} > 90 )); then
     kurz=${kurz% *}
@@ -94,20 +101,31 @@ eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard 
     kurz+=" …"
   fi
   if [[ -n $job ]]; then titel="$anfang – $job: $kurz"; else titel="$anfang – $kurz"; fi
-  # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
-  read -r id di <<< $(board | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
-    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+  b=$(board) || { melde "FEHLER: Board nicht lesbar – nichts eingetragen"; return 1 }
+  if [[ -n $schluessel ]]; then
+    # Fehlerkonsole/-protokoll: über die ganze (normalisierte) Meldung im Text – zwei Meldungen mit gleichem Anfang
+    # bleiben getrennt
+    text+="
+
+Schlüssel: $schluessel"
+    read -r id di <<< $(print -r -- $b | jq -r --arg s "Schlüssel: $schluessel" --arg a "$anfang" \
+      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.content.body // "") | contains($s)))][0] | "\(.id // "") \(.content.id // "")"')
+  else
+    # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
+    read -r id di <<< $(print -r -- $b | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
+      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+  fi
   if [[ -n $id ]]; then
-    # Fehlerkonsole: höchstens eine Ergänzung pro Tag (sonst wächst der Eintrag mit jedem Lauf)
-    if [[ $anfang == "Tests: Fehler"(konsole|protokoll) ]] && board | jq -e --arg i $id --arg t "${zusatz[1,15]}" \
-         '.items[] | select(.id == $i) | .content.body | contains($t)' >/dev/null; then
+    # Fehlerkonsole/-protokoll: höchstens eine Ergänzung pro Tag (sonst wächst der Eintrag mit jedem Lauf)
+    if [[ -n $schluessel ]] && print -r -- $b | jq -e --arg i $id --arg t "${zusatz[1,15]}" \
+         '.items[] | select(.id == $i) | (.content.body // "") | contains($t)' >/dev/null; then
       print ergänzt
       return
     fi
     if [[ -n $TROCKEN ]]; then
       print -u2 "  (trocken) würde ergänzen: $id"
     else
-      body=$(board | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
+      body=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
       gh project item-edit --id $di --body "$body
 
 $zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen"; return 1 }
@@ -191,33 +209,28 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
   fi
 }
 
-# Fehler aus der Fehlerkonsole (Zeilen „KONSOLE  …“ von tests/halo_test.py und update_test.py): nie Rot – sie
-# halten kein Release auf (Entscheidung des Maintainers vom 5.11.2026) –, aber je Fehler ein Bug im Board
-# („Tests: Fehlerkonsole – …“, offener Eintrag zum selben Fehler wird ergänzt). Für jeden abgeschlossenen Lauf,
-# auch während Nachtlauf und Wochenprüfung (die werten diese Zeilen nicht selbst aus)
-konsole() {   # <Lauf-ID>
-  local run=$1 info sha titel url heute flog zeile job fehler key n=0 neu=0 erg=0 ergebnis
+# Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen „KONSOLE  …“/„PROTOKOLL  …“ von tests/halo_test.py und
+# update_test.py): nie Rot – sie halten kein Release auf (Entscheidung des Maintainers vom 5.11.2026) –, aber je
+# Meldung ein Bug im Board („Tests: Fehlerkonsole – …“ bzw. „Tests: Fehlerprotokoll – …“; ein offener Eintrag zur
+# selben Meldung wird höchstens einmal am Tag ergänzt). Für jeden abgeschlossenen Lauf, auch während Nachtlauf und
+# Wochenprüfung (die werten diese Zeilen nicht selbst aus)
+konsole_zeilen() {   # <Zeilen> <Quelle (Lauf-Adresse bzw. Datei)> <Commit> <Commit-Titel> [<Job für Zeilen ohne Job>]
+  local zeilen=$1 quelle=$2 sha=$3 titel=$4 standardjob=$5 heute zeile job fehler key n=0 neu=0 erg=0 ergebnis art wo meldung
   local -a keys
   local -A jobs_von zeile_von
-  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
-  jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null && return 0
-  flog=$(gh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll für die Fehlerkonsole nicht lesbar"; return 0 }
-  sha=$(jq -r '.headSha[:7]' <<< $info)
-  titel=$(jq -r '.displayTitle[:100]' <<< $info)
-  url=$(jq -r .url <<< $info)
   heute=$(date '+%d.%m.%Y')
-  for zeile in ${(f)"$(print -r -- $flog | grep -aE 'KONSOLE  |PROTOKOLL  ')"}; do
-    job=${zeile%%$'\t'*}
+  for zeile in ${(f)zeilen}; do
+    if [[ -n $standardjob ]]; then job=$standardjob; else job=${zeile%%$'\t'*}; fi
     if [[ $zeile == *"PROTOKOLL  "* ]]; then  # Fehlerprotokoll der Erweiterung (mail-cards-debug.log)
-      fehler=${zeile#*PROTOKOLL  }
-      key="P|${fehler#<->× }"
+      fehler=${zeile#*PROTOKOLL  }; art=P
     else
-      fehler=${zeile#*KONSOLE  }
-      key=${fehler%% – während *}
-      key=${key#<->× }
-      key="K|${key% \(*\)}"                # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
+      fehler=${zeile#*KONSOLE  }; art=K
     fi
-    [[ ${#key} -le 2 ]] && continue
+    key=${fehler%% – während *}
+    key=${key#<->× }
+    [[ $art == K ]] && key=${key% \(*\)}  # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
+    [[ -z $key ]] && continue
+    key="$art|$key"
     if (( ! ${+jobs_von[$key]} )); then
       keys+=($key)
       jobs_von[$key]=$job
@@ -227,7 +240,6 @@ konsole() {   # <Lauf-ID>
     fi
   done
   (( ${#keys} )) || return 0
-  local art wo meldung
   for key in $keys; do
     n=$((n + 1))
     # keine Obergrenze von 8 wie bei Rot: sonst kämen bei vielen Meldungen die hinteren nie ins Board (jeder Lauf
@@ -240,29 +252,38 @@ konsole() {   # <Lauf-ID>
       art="Tests: Fehlerkonsole" wo="in die Fehlerkonsole"
     fi
     melde "  ${art#Tests: }: ${jobs_von[$key]}: ${meldung[1,150]}"
-    ergebnis=$(eintragen "" "$meldung" "Wo: CI (Workflow test.yml auf main), Job(s) ${jobs_von[$key]}
+    ergebnis=$(eintragen "" "$meldung" "Wo: ${jobs_von[$key]}
 
 Ist: halo.spaces schreibt einen Fehler $wo (die Prüfungen selbst können grün sein; solche Fehler halten kein Release auf).
 
 Meldung: ${zeile_von[$key][1,1200]}
 
-Lauf: $url
+Quelle: $quelle
 Commit: $sha „$titel“
 
-Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden." \
-      "**$heute:** erneut ${wo#in }, Job(s) ${jobs_von[$key]} – Lauf $url, Commit $sha" "$art") || continue
+Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden. Behoben erst, wenn ein Lauf mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht mehr nennt." \
+      "**$heute:** erneut ${wo#in }, ${jobs_von[$key]} – $quelle, Commit $sha" "$art" "$meldung") || continue
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
   done
-  melde "Lauf $run ($sha): Fehlerkonsole/-protokoll $n Fehler, $neu neu, $erg ergänzt"
+  melde "Fehlerkonsole/-protokoll ($quelle): $n Meldung(en), $neu neu, $erg ergänzt"
   # aufs iPhone nur, wenn ein neuer Eintrag entstand (Wiederholungen nur im Board)
   if [[ -z $TROCKEN ]] && (( neu )); then
-    push "Fehlerkonsole/-protokoll: Lauf $run ($sha) – $neu neue(r) Fehler im Board (kein Rot, Release nicht betroffen)"
+    push "Fehlerkonsole/-protokoll: $neu neue(r) Fehler im Board ($sha; kein Rot, Release nicht betroffen)"
   fi
+}
+
+konsole() {   # <Lauf-ID>; Exitcode 2, wenn der Lauf nicht lesbar ist (dann später erneut)
+  local run=$1 info flog
+  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "Lauf $run nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
+  jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null && return 0
+  flog=$(gh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
+  konsole_zeilen "$(print -r -- $flog | grep -aE 'KONSOLE  |PROTOKOLL  ')" "$(jq -r .url <<< $info)" \
+    "$(jq -r '.headSha[:7]' <<< $info)" "$(jq -r '.displayTitle[:100]' <<< $info)"
 }
 
 auswerten() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
   local run=$1 st=$2 erg=$3 beginn=$4 sha=$5
-  konsole $run
+  konsole $run || return 2
   if [[ -z $NUR ]] && vom_nachtlauf $beginn; then
     melde "Lauf $run ($sha): $erg – während Nachtlauf/Wochenprüfung, übernimmt deren Bericht"
     return
@@ -273,6 +294,14 @@ auswerten() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
     *)         melde "Lauf $run ($sha): $erg" ;;
   esac
 }
+
+# release.sh: Zeilen aus dem Protokoll des Update-Tests (läuft nicht in der CI) – nie ein Fehler für den Aufrufer
+if [[ -n $DATEI ]]; then
+  [[ -r $DATEI ]] || { melde "Datei $DATEI nicht lesbar"; exit 0 }
+  konsole_zeilen "$(grep -aE 'KONSOLE  |PROTOKOLL  ' $DATEI)" "Update-Test (${DATEI:t})" \
+    "$(git -C ${0:A:h:h} rev-parse --short HEAD 2>/dev/null)" "Update-Test vor dem Release" "Update-Test"
+  exit 0
+fi
 
 FENSTER=$(nacht_fenster)
 LISTE=$(gh run list -R $R -w test.yml -b main -L 30 --json databaseId,status,conclusion,createdAt,headSha \
@@ -304,7 +333,18 @@ stand=$(<$STAND)
 for run st erg beginn sha in ${=LISTE}; do
   (( run <= stand )) && continue
   [[ $st != completed ]] && break       # nicht überspringen: auf ihn warten
-  auswerten $run $st $erg $beginn $sha
+  if ! auswerten $run $st $erg $beginn $sha; then
+    # Lauf (noch) nicht lesbar: Stand nicht weiterschieben, sonst gingen seine Meldungen verloren; nach 4 Versuchen
+    # (rund eine Stunde) überspringen, damit ein dauerhaft unlesbarer Lauf den Wächter nicht anhält
+    local vrun= vn=0
+    [[ -r $VERSUCHE ]] && read -r vrun vn < $VERSUCHE
+    [[ $vrun == $run ]] && vn=$((vn + 1)) || vn=1
+    if (( vn < 4 )); then
+      [[ -z $TROCKEN ]] && print "$run $vn" > $VERSUCHE
+      break
+    fi
+    melde "Lauf $run: nach 4 Versuchen nicht lesbar – übersprungen"
+  fi
   stand=$run
   [[ -z $TROCKEN ]] && print $stand > $STAND
 done

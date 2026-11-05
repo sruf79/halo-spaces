@@ -121,13 +121,19 @@ fi
 # Paket (Einstellungen, Toolbar, Begrüßung, userChrome.css) – auch wenn die
 # Prüfungen selbst die CI übernommen hat. Bei Fehlern kein Release
 if [[ -n "$CI_OK" || -n "$HOTFIX_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]] && [[ -z "$NO_UPDATE_TEST" ]]; then
-  python3 tests/update_test.py --xpi "$XPI" 2>&1 | tee -a "$LOG" \
+  UPD_LOG=$(mktemp -t halo-update-test)   # nur dieser Versuch (LOG wird angehängt, ältere Versuche stehen auch darin)
+  python3 tests/update_test.py --xpi "$XPI" 2>&1 | tee "$UPD_LOG" | tee -a "$LOG" \
     || fehlschlag "Update-Test fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
-  TESTS+=("Update-Test vom letzten Release: $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
-  # Fehlerkonsole nach dem Update: nur zur Kenntnis im Bericht, hält kein Release auf (AGENTS.md „Bauen und testen“)
-  for KONSOLE_UPDATE in "${(@f)$(grep -E '^Fehlerkonsole \(' "$LOG" | tail -2)}"; do
+  TESTS+=("Update-Test vom letzten Release: $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$UPD_LOG" | tail -1)")
+  # Fehlerkonsole/-protokoll beim Update: nur zur Kenntnis in Marke und Bericht, hält kein Release auf; die
+  # Meldungen trägt der CI-Wächter ins Board (der Update-Test läuft nicht in der CI) – Fehler dabei sind egal
+  for KONSOLE_UPDATE in "${(@f)$(grep -E '^Fehlerkonsole \(' "$UPD_LOG")}"; do
     if [[ -n "$KONSOLE_UPDATE" ]]; then TESTS+=("Update-Test, $KONSOLE_UPDATE"); fi
   done
+  if grep -qaE 'KONSOLE  |PROTOKOLL  ' "$UPD_LOG"; then
+    zsh tests/ci-waechter.sh --datei "$UPD_LOG" 2>&1 | tee -a "$LOG" || true
+  fi
+  rm -f "$UPD_LOG"
 fi
 ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
 MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")

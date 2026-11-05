@@ -4555,7 +4555,8 @@ def calendar_checks(m, results):
                 const st = JSON.stringify([dw.screenX, dw.screenY, dw.outerWidth, dw.outerHeight, field]);
                 if (seen.at(-1)?.[1] != st) seen.push([Date.now() - t0, st]);
               }
-              await ruhig(16);
+              // (Abtasten je Bild: hier soll Zeit vergehen, Ruhe gibt es während des Öffnens nicht)
+              await takt(16);
             }
             const url = dw.location.href;
             dw.close(); await till(() => dw.closed, 4000);
@@ -8480,9 +8481,14 @@ def run_checks(m, version, profile, results):
     def min_widths():
         res = m.js('''
           const out = {};
+          // Fenstergröße setzen und warten, bis sie angekommen ist und still steht (statt fester 1,5 s je Schritt):
+          // erst die Änderung abwarten (bleibt aus, wenn die Mindestbreite schon so groß ist), dann Ruhe
+          const size = async W => { const before = w.outerWidth; w.resizeTo(W, 900);
+            if (before != W) await until(() => w.outerWidth != before, 1500);
+            await stabil(() => [w.outerWidth, w.innerWidth, d.documentElement.style.minWidth], 3000); await ruhig(400); };
           const probe = async (name, open, getEl) => {
-            await open(); w.resizeTo(1500, 900); await wait(1500);
-            w.resizeTo(600, 900); await wait(1500);
+            await open(); await size(1500);
+            await size(600);
             const el = getEl(); const r = el?.getBoundingClientRect();
             out[name] = { window: w.outerWidth, pane: r ? Math.round(r.width) : null, min: el ? parseFloat(el.ownerDocument.defaultView.getComputedStyle(el).minWidth) : null };
           };

@@ -142,6 +142,24 @@ jobs:
           path: shots/
           if-no-files-found: ignore
 
+  # Prüfungen ohne Thunderbird (rund 1 Minute): Mozillas Add-on-Prüfung
+  # (addons-linter, wie beim Store) und die Datenschutz-Prüfung – nur
+  # Adressen aus der Erlaubt-Liste in tests/adressen.py. Rot heißt wie bei
+  # den übrigen Jobs kein Release; bei gezielten Läufen von Hand nicht
+  statisch:
+    needs: changes
+    if: needs.changes.outputs.test == 'true' && (github.event_name != 'workflow_dispatch' || (inputs.only == '' && inputs.ziel == 'alle'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Adressen (Datenschutz)
+        run: python3 tests/adressen.py
+
+      - name: Add-on-Prüfung (addons-linter)
+        run: python3 tests/addon_lint.py
+
   # Windows auf einem Rechner von GitHub (Entscheidung des Maintainers vom 4.11.2026):
   # läuft gleichzeitig mit mac und belegt neon nicht. Vorerst neben dem Job
   # windows in der VM zum Vergleich; ist er zwei bis drei Läufe gleich

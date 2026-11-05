@@ -20,6 +20,12 @@ setopt extendedglob
 PUSH_TEST=
 [[ $1 == --push-test ]] && { PUSH_TEST=$2; set -- }
 REPO=${1:-$HOME/halo-spaces}
+# Falscher oder fehlender Repo-Ordner (z. B. eine Option, die diese Version
+# nicht kennt): sofort abbrechen statt ohne Auftrag weiterzulaufen
+if [[ ! -d $REPO/.git || ! -f $REPO/tests/nachtlauf-auftrag.md ]]; then
+  print -u2 "FEHLER: kein halo.spaces-Checkout unter „$REPO“ (Aufruf: ${0:t} [--push-test <Text>] [<Repo-Ordner>]) – abgebrochen"
+  exit 2
+fi
 # LaunchAgents lesen ~/.zprofile nicht: claude, gh und python3 ergänzen
 path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.framework/Versions/Current/bin $path)
 DIR=$HOME/halo-nacht
@@ -129,7 +135,7 @@ TB_INFO=$(thunderbird_aktualisieren)
 log "$TB_INFO"
 
 # --- Arbeit: claude -p, bei Limit nach 30 Minuten fortsetzen ---
-cd $REPO
+cd $REPO || exit 2
 SID=$(uuidgen | tr A-Z a-z)
 log "Start, Sitzung $SID"
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.

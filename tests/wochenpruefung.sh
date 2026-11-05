@@ -34,6 +34,12 @@ else
   ART=woche NAME=Wochenprüfung BERICHT_NAME=wochenpruefung PAUSE=PAUSE-WOCHE AUFTRAG_DATEI=wochenpruefung-auftrag.md
 fi
 REPO=${1:-$HOME/halo-spaces}
+# Falscher oder fehlender Repo-Ordner (z. B. eine Option, die diese Version
+# nicht kennt): sofort abbrechen statt ohne Auftrag weiterzulaufen
+if [[ ! -d $REPO/.git || ! -f $REPO/tests/$AUFTRAG_DATEI ]]; then
+  print -u2 "FEHLER: kein halo.spaces-Checkout unter „$REPO“ (Aufruf: ${0:t} [--doku] [--trocken] [<Repo-Ordner>]) – abgebrochen"
+  exit 2
+fi
 # LaunchAgents lesen ~/.zprofile nicht: claude, gh und python3 ergänzen
 path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.framework/Versions/Current/bin $path)
 DIR=$HOME/halo-nacht
@@ -121,7 +127,7 @@ if [[ -z $TROCKEN ]]; then
   fi
 fi
 
-cd $REPO
+cd $REPO || exit 2
 SID=$(uuidgen | tr A-Z a-z)
 log "Start, Sitzung $SID${TROCKEN:+ (trocken)}"
 if [[ -n $TROCKEN ]]; then

@@ -7743,7 +7743,7 @@ var HaloPST = (() => {
           let numRead = 0;
           while (offset < target.length) {
             numRead = this.readFromOffset(target, offset, target.length - offset);
-            if (numRead === -1) {
+            if (numRead === -1 || numRead === 0) {
               throw new Error("PSTNodeInputStream::readCompletely unexpected EOF encountered attempting to read from PSTInputStream");
             }
             offset += numRead;

@@ -15,5 +15,7 @@ npm install --ignore-scripts --no-audit --no-fund \
 npx esbuild entry.js --bundle --format=iife --global-name=HaloPST --platform=browser --target=firefox140 \
   --inject:./buffer-shim.js --alias:fs=./fs-shim.js --alias:zlib=./zlib-shim.js --alias:string_decoder=string_decoder \
   --legal-comments=eof --outfile="$ROOT/extension/vendor/pst/pst-extractor.js"
+# Korrekturen an der Bibliothek (siehe fix.py)
+python3 "$HERE/fix.py" "$ROOT/extension/vendor/pst/pst-extractor.js"
 cd / && rm -rf "$TMP"
 echo "fertig: extension/vendor/pst/pst-extractor.js"

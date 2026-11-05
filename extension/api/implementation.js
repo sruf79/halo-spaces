@@ -5676,9 +5676,17 @@ function hookMenubar(win, restorers) {
     }));
   });
   const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  // wie Apple Erinnerungen: File → New List… (wechselt in den Bereich Aufgaben)
+  const newList = own("mcFileNewList", "New List…", () => {
+    if (win.document.getElementById("tabmail")?.currentTabInfo?.mode?.name != "tasks") {
+      win.document.getElementById("tabmail")?.openTab("tasks", {});
+    }
+    win.setTimeout(() => win.__mcStartNewList?.(), 300);
+  });
   const importPst = own("mcFileImportPst", "Open Outlook Data File (PST)…", () => PstImport.open(win).catch(e => log("pst error", e)));
   // für den automatischen Test
   win.__mcPstRead = path => PstImport.read(path);
+  win.__mcPstIsPst = path => PstImport.isPst(path);
   // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
   const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
     const hdr = selected()[0];
@@ -7500,22 +7508,57 @@ const PstImport = {
     }
     return this.lib;
   },
-  // Ordnerbaum: [{ name, count, depth }], Gesamtzahl der Mails
+  // Kopf einer Outlook-Datendatei („!BDN“): unterscheidet „keine PST“ von
+  // „PST, die die Bibliothek nicht lesen kann“
+  isPst(path) {
+    try {
+      const fd = PstFs.openSync(path);
+      try {
+        const head = new Uint8Array(4);
+        PstFs.readSync(fd, head, 0, 4, 0);
+        return String.fromCharCode(...head) == "!BDN";
+      } finally {
+        PstFs.closeSync(fd);
+      }
+    } catch {
+      return false;
+    }
+  },
+  // Ordnerbaum: [{ name, count, depth }], Gesamtzahl der Mails. Grenzen für
+  // Tiefe und Ordnerzahl; ein Ordner, dessen Unterordner nicht lesbar sind,
+  // fehlt nur selbst (die Bibliothek scheitert an manchen neueren PSTs aus
+  // Office 365 – vorher hing sie dabei endlos, siehe tools/pst-bundle/fix.py)
   read(path) {
     const lib = this.load();
     const pst = new lib.PSTFile(path);
     try {
       const folders = [];
-      let total = 0;
+      let total = 0, broken = 0;
+      const MAX_DEPTH = 30, MAX_FOLDERS = 10000;
       const walk = (folder, depth) => {
-        for (const sub of folder.hasSubfolders ? folder.getSubFolders() : []) {
+        let subs = [];
+        try {
+          subs = folder.hasSubfolders ? folder.getSubFolders() : [];
+        } catch (e) {
+          broken++;
+          log("pst folder error", String(e).slice(0, 160));
+        }
+        for (const sub of subs) {
+          if (folders.length >= MAX_FOLDERS) {
+            return;
+          }
           const count = sub.contentCount || 0;
           total += count;
           folders.push({ name: sub.displayName || "?", count, depth });
-          walk(sub, depth + 1);
+          if (depth < MAX_DEPTH) {
+            walk(sub, depth + 1);
+          }
         }
       };
       walk(pst.getRootFolder(), 0);
+      if (!folders.length && broken) {
+        throw new Error("pst: folder tree unreadable");
+      }
       // „Top of Personal Folders“ u. Ä. als eigene Ebene weglassen, wenn nur sie oben steht
       return { name: pst.getMessageStore?.()?.displayName || "", folders, total };
     } finally {

@@ -7488,6 +7488,63 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Begrüßung: einmal nach der Erstinstallation (kurz, Win/Linux mit Plattform-Hinweis), Theme bleibt System", welcome, results)
 
+    def selector_guard():
+        # Selektor-Wächter (Anlass GitHub-Issue #15, Thunderbird 159): die Elemente von Thunderbird, an denen
+        # halo.spaces am häufigsten hängt, gibt es in dieser Version noch – je Dokument (Hauptfenster, Mailbereich,
+        # Mailansicht, Adressbuch). Fehlt eines, nennt die Prüfung es; die CI testet damit Release, Beta und ESR
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          const want = {
+            main: ["tabmail", "tabmail-container", "unifiedToolbarContainer", "unifiedToolbarContent", "spacesToolbar", "spacesPinnedButton",
+                   "status-bar", "mainPopupSet", "today-pane-panel", "agenda", "calSidebar", "calendar-task-tree", "calendar-task-details-container",
+                   "calendar-task-view-splitter", "task-tree-filtergroup", "task-actions-toolbar", "calendar-list", "calendarListHeader",
+                   "calendar-list-inner-pane", "list-calendars-context-menu", "menu_FilePopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup",
+                   "settingsButton", "multiweek-view", "month-view"],
+            about3pane: ["folderPane", "folderTree", "folderPaneSplitter", "threadPane", "threadTree", "messageBrowser", "folderPaneContext",
+                         "mailContext", "sortContext"],
+            aboutMessage: ["messageHeader", "messagepanebox", "messagepane", "attachmentView", "attachmentList", "attachmentBar", "attachment-splitter"],
+            toolbarItems: ["search-bar", "write-message", "get-messages", "reply", "reply-all", "forward-inline", "archive", "delete", "junk", "move-to", "mark-as"],
+            addressBook: ["booksPane", "booksSplitter", "cardsPane", "detailsPane", "sharedSplitter"],
+          };
+          const missing = {};
+          const check = (key, doc, ids) => { const m = ids.filter(id => !doc?.getElementById(id)); if (m.length) missing[key] = m; };
+          check("main", d, want.main);
+          const a3 = tm.currentAbout3Pane; check("about3pane", a3?.document, want.about3pane);
+          check("aboutMessage", a3?.document.getElementById("messageBrowser")?.contentDocument, want.aboutMessage);
+          const items = [...d.querySelectorAll("#unifiedToolbarContent > li[item-id]")].map(li => li.getAttribute("item-id"));
+          const mi = want.toolbarItems.filter(i => !items.includes(i)); if (mi.length) missing.toolbarItems = mi;
+          tm.openTab("addressBookTab", {}); await ruhig(1500);
+          check("addressBook", tm.currentTabInfo.browser?.contentDocument, want.addressBook);
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail();
+          return { missing, n: Object.values(want).flat().length };""")
+        return not res.get("missing"), f"{res}"
+    check("Selektor-Wächter: die wichtigsten Elemente von Thunderbird (Hauptfenster, Mailbereich, Mailansicht, Toolbar, Adressbuch) gibt es in dieser Version", selector_guard, results)
+
+    def pst_read_guard():
+        # Outlook-Datendatei (PST) öffnen: eine Datei, an der die Bibliothek scheitert, hält Thunderbird nicht mehr an
+        # (vorher endlos im Hauptprozess, Absturz mit einer PST aus Office 365) – Fehler sofort, „keine PST“ von
+        # „PST, aber nicht lesbar“ unterschieden; mit der privaten Beispieldatei des Maintainers, wenn sie da ist
+        priv = os.path.expanduser("~/halo-aufgaben/testdaten/text_pst_export.pst")
+        res = m.js(r"""
+          const dir = PathUtils.tempDir, junk = PathUtils.join(dir, "halo-kein.pst"), head = PathUtils.join(dir, "halo-kaputt.pst");
+          await IOUtils.write(junk, new TextEncoder().encode("keine Outlook-Datei"));
+          const bytes = new Uint8Array(4096); bytes.set([0x21, 0x42, 0x44, 0x4e]); await IOUtils.write(head, bytes);
+          const out = {};
+          const tryRead = path => { const t0 = Date.now(); try { const r = w.__mcPstRead(path); return { ok: true, folders: r.folders.length, ms: Date.now() - t0 }; }
+            catch (e) { return { ok: false, ms: Date.now() - t0 }; } };
+          out.junk = { ...tryRead(junk), pst: w.__mcPstIsPst(junk) };
+          out.head = { ...tryRead(head), pst: w.__mcPstIsPst(head) };
+          const priv = %s;
+          if (priv && await IOUtils.exists(priv)) out.priv = { ...tryRead(priv), pst: w.__mcPstIsPst(priv) };
+          await IOUtils.remove(junk); await IOUtils.remove(head);
+          return out;""" % json.dumps(priv))
+        j, h, p_ = res.get("junk") or {}, res.get("head") or {}, res.get("priv")
+        ok = (j.get("ok") is False and j.get("pst") is False and h.get("ok") is False and h.get("pst") is True
+              and all(x.get("ms", 1e9) < 10000 for x in (j, h)) and (p_ is None or (p_.get("ms", 1e9) < 10000 and p_.get("pst"))))
+        return ok, f"{res}"
+    check("Import: Outlook-PST – nicht lesbare Datei hält Thunderbird nicht an (Fehler sofort), „keine PST“ und „PST, aber nicht lesbar“ unterschieden", pst_read_guard, results)
+
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief
         # Thunderbird unter Windows/Linux nach dem Schließen des Hauptfensters weiter (GitHub-Issue #15).

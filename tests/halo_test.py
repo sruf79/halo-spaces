@@ -4046,15 +4046,16 @@ def menu_checks(m, results):
                  "mailContext-replyNewsgroup", "mailContext-forward", "mailContext-forwardAsAttachment", "mailContext-redirect", "mcRemindMenu",
                  "mailContext-markRead", "mailContext-markUnread", "mailContext-markFlagged", "mailContext-markAsJunk", "mailContext-markAsNotJunk",
                  "mailContext-ignoreThread", "mailContext-ignoreSubthread", "mailContext-watchThread", "navContext-delete",
-                 "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", "mailContext-calendar-convert-menu", "mcContextRunFilters"]
+                 "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", "mailContext-calendar-convert-menu", "mcContextRunFilters",
+                 "mcContextCreateFilter"]
         hs = res.get("heights", [0, 0])
         rem = res.get("rows", []).index("Remind Me") if "Remind Me" in res.get("rows", []) else -1
         ok = (res.get("order") == order and rows[:1] == ["Open"] and rem > 0 and res["rows"][rem - 1] == "|" and res["rows"][rem + 1] == "|" and "Mark as Unread" in rows and "Mark as Read" not in rows
-              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-1:] == ["Run Filters"]
+              and "Star" in rows and "Mark as Spam" in rows and "Mark as Not Spam" not in rows and "Delete" in rows and rows[-2:] == ["Run Filters", "Create Filter From Message…"]
               and "Ignore Subthread" not in rows and res.get("sub") == ["Remind Me", "Move To", "Copy To", "Convert To"]
               and res.get("flagged") is True and res.get("starLabel") == "Remove Star" and (hs[0] == 0 or hs[1] - hs[0] < 0.5))
         return ok, f"{res}"
-    check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“", context_flat, results)
+    check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“, Filter aus der Mail anlegen", context_flat, results)
 
     def tag_menu():
         # Schlagwort-Menü: Thunderbird färbt die Namen in der Grundfarbe (Orange auf Hellgrau 1,6:1) – gemischt mit der Textfarbe lesbar

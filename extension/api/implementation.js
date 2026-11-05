@@ -316,6 +316,7 @@ const DE = {
   "Mark as Spam": "Als Werbung markieren",
   "Mark as Not Spam": "Als keine Werbung markieren",
   "Run Filters": "Filter anwenden",
+  "Create Filter From Message…": "Filter aus Nachricht erstellen …",
   "Show with Light Background": "Mit hellem Hintergrund anzeigen",
   "Follow-Up Suggestions": "Vorschläge für Rückfragen",
   "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
@@ -770,6 +771,7 @@ const FR = {
   "Mark as Spam": "Marquer comme indésirable",
   "Mark as Not Spam": "Marquer comme désirable",
   "Run Filters": "Appliquer les filtres",
+  "Create Filter From Message…": "Créer un filtre à partir du message…",
   "Show with Light Background": "Afficher avec un fond clair",
   "Follow-Up Suggestions": "Suggestions de relance",
   "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
@@ -1224,6 +1226,7 @@ const ES = {
   "Mark as Spam": "Marcar como spam",
   "Mark as Not Spam": "Marcar como no spam",
   "Run Filters": "Aplicar filtros",
+  "Create Filter From Message…": "Crear filtro a partir del mensaje…",
   "Show with Light Background": "Mostrar con fondo claro",
   "Follow-Up Suggestions": "Sugerencias de seguimiento",
   "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
@@ -1678,6 +1681,7 @@ const IT = {
   "Mark as Spam": "Segna come spam",
   "Mark as Not Spam": "Segna come non spam",
   "Run Filters": "Applica filtri",
+  "Create Filter From Message…": "Crea filtro dal messaggio…",
   "Show with Light Background": "Mostra con sfondo chiaro",
   "Follow-Up Suggestions": "Suggerimenti di follow-up",
   "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
@@ -19134,6 +19138,8 @@ class CardEnhancer {
     };
     const open = own("mcContextOpen", "Open", "cmd_openMessage");
     const filters = own("mcContextRunFilters", "Run Filters", "cmd_applyFiltersToSelection");
+    // Filter aus dieser Mail anlegen – stand nur im ausgeblendeten Menü Message
+    const makeFilter = own("mcContextCreateFilter", "Create Filter From Message…", "cmd_createFilterFromMenu");
     const remindSep = doc.createXULElement("menuseparator");
     remindSep.id = "mcContextRemindSep";
     const S = "-";
@@ -19148,7 +19154,7 @@ class CardEnhancer {
       "mailContext-watchThread", relabel("navContext-delete", "Delete"), "mailContext-cancel", S,
       "mailContext-archive", "mailContext-moveMenu", "mailContext-copyMenu", S,
       "mailContext-calendar-convert-menu", S,
-      filters, "mailContext-downloadSelected",
+      filters, makeFilter, "mailContext-downloadSelected",
     ];
     const moved = [];
     for (const entry of order) {

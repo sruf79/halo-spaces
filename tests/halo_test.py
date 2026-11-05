@@ -1971,6 +1971,8 @@ def reading_checks(m, results):
                      heights: cards.map(c => Math.round(c.querySelector(".mc-conv-browser")?.getBoundingClientRect().height || 0)),
                      text: cards.map(c => c.querySelector(".mc-conv-browser")?.contentDocument?.getElementById("messagepane")?.contentDocument?.querySelector(".moz-text-plain, .moz-text-flowed, pre")?.textContent.trim().slice(0, 12)),
                      note: !!box.querySelector(".mc-conv-note"),
+                     // wie Apple Mail: Karten in Fensterfarbe auf eigenem, hellgrauem bzw. dunklerem Grund
+                     bg: [w.getComputedStyle(box).backgroundColor, w.getComputedStyle(cards[0]).backgroundColor],
                      // Kapsel „Aktionen beim Überfahren“ in jeder Karte (wirkt auf die Mail der Karte)
                      hover: cards.filter(c => c.querySelector(".mc-conv-browser")?.contentDocument?.getElementById("mcHoverActions")).length };
           };
@@ -2018,13 +2020,14 @@ def reading_checks(m, results):
         ok = (s1.get("ids") == ["halo-konv-2", "halo-konv-1"] and s1.get("own") == [True, False]
               and s1.get("stroke") and all(x in ("auto", "0px") for x in s1["stroke"]) and all(h > 100 for h in s1.get("heights", [0]))
               and s1.get("count") == "2 messages" and (s1.get("text") or [None])[0] == "Text von Hal" and not s1.get("note")
+              and len(s1.get("bg") or []) == 2 and not same_color(*s1["bg"]) and rgba_alpha(s1["bg"][0]) == 1
               and th.get("ids") == ["halo-konv-4", "halo-konv-3"] and res.get("off") is False
               and res.get("toolbar") == [True, True, True] and res.get("replyTo") == [True, "halo-konv-4"]
               and res.get("picked") == ["halo-konv-3"] and res.get("replyPicked") == "halo-konv-3"
               and s1.get("hover") == 2 and th.get("hover") == 2
               and res.get("flash", {}).get("early") is False and res["flash"].get("single", 9999) <= 600)
         return ok, f"{res}"
-    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, auch für zugeklappte Fäden (Antworten/Weiterleiten der Toolbar aktiv, auf die neueste bzw. angeklickte Mail, Rahmen folgt dem Klick), Kapsel je Karte; abschaltbar", conversation, results)
+    check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, Karten auf grauem Grund, auch für zugeklappte Fäden (Antworten/Weiterleiten der Toolbar aktiv, auf die neueste bzw. angeklickte Mail, Rahmen folgt dem Klick), Kapsel je Karte; abschaltbar", conversation, results)
 
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der

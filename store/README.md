@@ -13,7 +13,8 @@
 Everything needed for the listing on addons.thunderbird.net (ATN). Texts are
 ready to paste; the package is `dist/halo-spaces-<version>-atn.xpi`
 (built by `./build.sh`, identical to the GitHub package except that it has no
-`update_url` – ATN delivers updates itself).
+`update_url` – ATN delivers updates itself – and has `strict_max_version` from
+`max-version`).
 
 | Field | Value |
 |---|---|

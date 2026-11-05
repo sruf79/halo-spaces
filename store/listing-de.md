@@ -16,6 +16,8 @@ Ein ruhiges, aufgeräumtes Design im Stil von macOS für Thunderbird: farbige Be
 <li>Gemeinsame Posteingänge, der Posteingang immer zuerst, das Suchfeld oben rechts – es sucht im gewählten Ordner, aus einem Sammelordner in allen Postfächern</li>
 <li>Kartenansicht oder klassische Tabelle in einem Menü; auf Wunsch ungelesene Mails zart in der Akzentfarbe hinterlegt; beantwortete und weitergeleitete Mails mit kleinem Pfeil</li>
 <li>Quick Look im Kontextmenü eines Anhangs (macOS, Thunderbird 158 oder neuer)</li>
+<li>Ordnermenü mit „Filter anwenden“ für den ganzen Ordner und „Werbung löschen“ beim Spam-Ordner</li>
+<li>Konto lokal archivieren: kopiert alle Ordner eines Kontos nach „Lokale Ordner“, etwa bevor ein Konto der Arbeit oder Uni abläuft</li>
 <li>Ruhiges Schreibfenster: Symbolleiste nur mit Symbolen, runder Sendeknopf, Formatleiste bei Bedarf, Anhänge als Kacheln, Weiterleitung mit ruhigem Kopf</li>
 </ul>
 
@@ -24,20 +26,21 @@ Ein ruhiges, aufgeräumtes Design im Stil von macOS für Thunderbird: farbige Be
 <li>Umschalter für Tag, Woche, Mehrere Wochen und Monat in der Titelleiste, Monatsansicht ohne Scrollbalken</li>
 <li>Schnellfenster für Termine: einfach schreiben – „morgen 12:30 für 90 min“, „Fr 9–11“. Auch ein Doppelklick im Kalender öffnet es; Wiederholung und Erinnerung auch mit eigenen Regeln</li>
 <li>Übersichtliches Terminfenster: Titel oben, Karten für Zeit, Ort, Teilnehmer und Kalender, Notizen unten, ein Streifen in der Kalenderfarbe; getrennte Popover für Datum und Uhrzeit, Stunden und Minuten mit dem Mausrad, die Dauer bleibt erhalten</li>
-<li>Aufgaben als Liste mit Details rechts oder als Tabelle; Filter in einem Menü neben dem Suchfeld</li>
-<li>Ruhige Erinnerungen mit Kalendersymbol für Monat und Tag</li>
+<li>Aufgaben als Liste mit Details rechts, dargestellt wie ein Info-Fenster (Datum und Uhrzeit, Liste, Priorität, Fortschritt, Ort), oder als Tabelle; Filter in einem Menü neben dem Suchfeld; „Aufgabe bearbeiten …“ ganz oben im Kontextmenü</li>
+<li>Erinnerungen wie eine Mitteilung: Datumskachel, Kalendername, Uhrzeit und Ort, „Später erinnern“ und „Ausblenden“; der Pfeil öffnet den Termin im Kalender</li>
 <li>Passende Emojis vor Termintiteln (Geburtstag, Zahnarzt, Training …), mit eigenen Stichwörtern</li>
 <li>Geburtstage aus den Adressbüchern als eigener, schreibgeschützter Kalender</li>
 </ul>
 
 <b>Today-Pane</b>
 <ul>
-<li>Minikalender und eine Agenda-Karte bis zum Monatsende, „jetzt“ und „in 2 Std.“ bei anstehenden Terminen</li>
+<li>Minikalender und eine Agenda-Karte für den ganzen Monat (frühere Termine des Monats über heute), „jetzt“ und „in 2 Std.“ bei anstehenden Terminen</li>
+<li>Optional das Wetter neben dem Titel, für den aktuellen Standort oder eine gewählte Stadt</li>
 </ul>
 
 <b>Überall</b>
 <ul>
-<li>Farbige Bereiche für Mail, Kontakte, Kalender, Aufgaben und Chat, alle mit denselben Kanten bei Toolbar und Seitenleiste</li>
+<li>Farbige Bereiche für Mail, Kontakte, Kalender, Aufgaben und Chat, alle mit denselben Kanten bei Toolbar und Seitenleiste; per Ziehen in eigener Reihenfolge, ⌘1 bis ⌘5 folgen ihr</li>
 <li>Hell und dunkel folgen dem System, die Akzentfarbe folgt macOS</li>
 <li>Keine Scrollbalken – Scrollen geht weiterhin mit Mausrad, Trackpad und Tastatur</li>
 <li>Gemeinsames Adressbuch: Doppelte zusammengeführt, Kontobezeichnungen in den Kontofarben, Karten nur mit Name oder Firma; Kontaktfotos mit rundem Ausschnitt und Zoom-Regler</li>

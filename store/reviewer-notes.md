@@ -1,12 +1,26 @@
 Notes for the reviewer
 
+Current state (3.18 and later). Distribution is GitHub only at the moment (see store/README.md); these notes are kept up to date for a new submission.
+
+Third-party code: one bundled file, extension/vendor/pst/pst-extractor.js, reads Outlook data files (PST) for the import. It is an esbuild bundle (not minified) of unchanged npm packages: pst-extractor 1.12.0 (MIT) with long 5.3.2, iconv-lite 0.7.3, uuid-parse 1.1.0, and browser replacements for Node modules (buffer 6.0.3 with base64-js and ieee754, pako 2.1.0, string_decoder 1.3.0). Versions, licenses and how to rebuild it (tools/pst-bundle/build.sh, needs Node.js, exact versions pinned) are in extension/vendor/pst/SOURCE.md and LICENSES.txt. File access is provided by halo.spaces itself (PstFs in api/implementation.js reads the user-chosen file in pieces through Thunderbird); the bundle has no network access.
+
+New since 3.10.0, for the review:
+- Archive Account Locally (context menu of an account): after a confirmation dialog, the account's folder tree is recreated under Local Folders/<account> (Archive) and messages are copied with Thunderbird's nsIMsgCopyService (Trash, Junk and Drafts skipped); progress in the status bar, the same menu item stops it. Nothing is deleted on the server.
+- Folder context menu: "Run Filters" (Thunderbird's cmd_applyFilters, only where the server can have filters) and, on the Junk folder, "Erase Junk Mail" (cmd_deleteJunk).
+- Reminder window: shows the calendar name and a button that opens the event in the calendar tab (switchToView("month"), goToDate, setSelectedItems, then Thunderbird's own modifyEventWithDialog).
+- Cmd+1 to Cmd+5 select the spaces in the order of the spaces bar: the oncommand attribute of Thunderbird's key_mail/key_selectTab2..5 is replaced by a command listener; restored on disable.
+- Conversation view: Reply/Reply All/Forward of the toolbar act on the clicked (or newest) message of the conversation by wrapping the about:3pane commandController's isCommandEnabled/doCommand for those commands only; restored on disable.
+- "Say Thanks": a button in the settings and the help window opens https://buymeacoffee.com/diversion in the default browser (openLinkExternally). A small reminder dot appears on a few fixed usage days and disappears by itself after 7 days; usage days are counted locally in a pref, nothing is sent.
+- Tasks: a details column next to the task list built from the selected task's properties (read only), "Edit Task…" at the top of the task context menu (Thunderbird's own modify command).
+- Startup: hooks that touch the calendar manager wait until Thunderbird has run loadCalendarComponent for the window.
+
+Details from earlier reviews (still valid):
+
 New in 3.10.0, for the review:
 - Quick event window: "Custom…" in Repeat and Alert opens Thunderbird's own dialogs (calendar-event-dialog-recurrence.xhtml and calendar-event-dialog-reminder.xhtml via window.openDialog with their usual arguments); the returned recurrence info and alarms are set on the new event before it is saved. Nothing else is changed.
 - Attachments: a menuitem "Quick Look" in the attachment context menu (#attachmentItemContext) dispatches Thunderbird's own "quicklook" event on #attachmentList, which opens Thunderbird's QuickLookManager (macOS, Thunderbird 158+). Hidden when that is not available. Removed on disable.
 - The Quick Reply field below messages was removed; its old pref extensions.mailcards.quickReply is cleared at start.
 - Settings: the categories in about:preferences are grouped with CSS margins; the Calendar category element is moved before "Privacy & Security" (moved back on disable).
-
-This version supersedes any pending earlier version (3.3.0, 3.5.1) – please review this one instead.
 
 New in 3.6.0, for the review:
 - Mail search: before the folder search starts, the add-on asks Thunderbird's own global index (Gloda: Gloda.newQuery(NOUN_MESSAGE).fulltextMatches, terms of three or more characters, waits at most 400 ms) and seeds the hits into the halo search folder; the folder search then runs in two passes (subject/sender/recipients first, then the body) and only adds hits not already listed. Without Gloda (disabled, empty or slow) it falls back to the two-pass folder search. Nothing is sent or changed.
@@ -63,7 +77,7 @@ halo.spaces is a design add-on (theme + icons + behaviour). It uses one Experime
 
 Everything is removed again on disable/uninstall (restorers in implementation.js, onShutdown).
 
-No code is minified, obfuscated or loaded remotely. No eval/new Function, no innerHTML (the one built-in SVG icon is parsed with DOMParser).
+No code is minified, obfuscated or loaded remotely (the bundled PST library, see above, is an unminified esbuild bundle of unchanged npm packages). No eval/new Function, no innerHTML (the one built-in SVG icon is parsed with DOMParser).
 
 Build instructions (source code upload):
 1. Requirements: macOS or Linux with zsh, python3 (3.9+) and zip – no other tools, no npm.
@@ -72,5 +86,5 @@ Build instructions (source code upload):
 The only generated file is extension/theme.css: chrome/merge_spaces.py inserts chrome/spaces.css into chrome/userChrome.css, which build.sh copies to extension/theme.css. For the store package build.sh removes update_url from the manifest and adds strict_max_version from store/max-version.
 
 Test: install (no restart needed; Thunderbird's default theme "System theme – auto"). An automated test runs in a fresh temporary profile: python3 tests/halo_test.py
-- optional weather in the Today pane (off by default: extensions.mailcards.weather): HTTPS requests through the same fetchWithTimeout to api.open-meteo.com (current weather code, day/night, temperature for coordinates rounded to 2 decimals) and, only when the user enters a city, to geocoding-api.open-meteo.com; without a city, navigator.geolocation of the main window (the operating system asks for permission). At most every 30 minutes; the last reading is kept in a pref
+- optional weather in the Today pane (off by default: extensions.mailcards.weather): HTTPS requests through the same fetchWithTimeout to api.open-meteo.com (current weather code, day/night, temperature for coordinates rounded to 2 decimals) and, only while the user types or chooses a city, to geocoding-api.open-meteo.com (the typed text only). With "Current Location" the position comes from Thunderbird's own geolocation service (@mozilla.org/geolocation;1, CoreLocation on macOS – the operating system asks for permission once) and is rounded to 2 decimals before it leaves the device. At most every 30 minutes; the last reading and up to five recently chosen places are kept in a pref. A link under the setting opens the system's location settings (x-apple.systempreferences / ms-settings) via nsIExternalProtocolService
 - fifth space (extensions.mailcards.fifthSpace = chat | addon | web | none, default chat): "none" hides the Chat button; "addon" opens the space of another installed add-on (only spaces registered through the spaces API by a different extension, isExtensionSpace) via gSpacesToolbar.openSpace on the Chat button, its own button is hidden; "web" opens the user-entered http(s) address in a normal contentTab with linkHandler "single-site" (other sites open in the default browser). With fifthSpaceIcon = original the website's /favicon.ico is used as the icon. Values are validated in setSetting (only these choices, only http/https addresses).

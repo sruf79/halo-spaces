@@ -20650,6 +20650,24 @@ class CardEnhancer {
     orderedObs.observe();
     Services.prefs.addObserver(ACCOUNTS_ORDERED_PREF, orderedObs);
     win.addEventListener("unload", () => Services.prefs.removeObserver(ACCOUNTS_ORDERED_PREF, orderedObs), { once: true });
+    // Fenster im Hintergrund (Symbole grau wie bei Apple): eigenes Merkmal statt
+    // :-moz-window-inactive – das blieb im inneren Dokument des Mail-Tabs
+    // gelegentlich hängen (Symbole schwarz, bis man den Bereich wechselte)
+    const top = win.browsingContext?.topChromeWindow;
+    const syncActive = () => {
+      try {
+        setAttr(doc.documentElement, "mc-inactive", Services.focus.activeWindow != top);
+      } catch {}
+    };
+    if (top) {
+      top.addEventListener("activate", syncActive);
+      top.addEventListener("deactivate", syncActive);
+      win.addEventListener("unload", () => {
+        top.removeEventListener("activate", syncActive);
+        top.removeEventListener("deactivate", syncActive);
+      }, { once: true });
+      syncActive();
+    }
     // Stern gesetzt oder entfernt: Zeile „Markiert“ ein-/ausblenden
     const starListener = {
       onFolderPropertyFlagChanged: (hdr, property, oldFlag, newFlag) => {
@@ -20671,6 +20689,9 @@ class CardEnhancer {
     win.addEventListener("unload", () => MailServices.mailSession.RemoveFolderListener(starListener), { once: true });
     this.countStarred(() => apply());
     this.restorers.push(() => {
+      top?.removeEventListener("activate", syncActive);
+      top?.removeEventListener("deactivate", syncActive);
+      doc.documentElement.removeAttribute("mc-inactive");
       observer.disconnect();
       undrag();
       Services.prefs.removeObserver(ACCOUNTS_ORDERED_PREF, orderedObs);

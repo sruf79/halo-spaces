@@ -13681,6 +13681,32 @@ Neu
         return ok, f"{res}"
     check("Erweiterung: Restorer geschlossener Adressbuch-Tabs werden verworfen", books_leak, results)
 
+    def folder_icon_inactive():
+        # Ordnersymbole blau, solange Thunderbird vorn ist, grau bei einem anderen Fenster vorn – über das Merkmal
+        # mc-inactive am Mail-Tab (:-moz-window-inactive blieb dort teils hängen, Symbole schwarz bis zum Bereichswechsel)
+        res = m.js(r"""
+          const a3 = await toMail(), ad = a3.document;
+          const icon = () => ad.querySelector('#folderTree li[is="folder-tree-row"] > .container .icon');
+          const color = () => a3.getComputedStyle(icon()).color;
+          w.focus(); await until(() => Services.focus.activeWindow == w, 3000); await ruhig(200);
+          const probe = ad.createElement("div"); probe.style.color = "var(--mt-accent)"; ad.documentElement.append(probe);
+          const accent = a3.getComputedStyle(probe).color; probe.remove();
+          const out = { front: [ad.documentElement.hasAttribute("mc-inactive"), color()], accent };
+          const other = w.openDialog("about:blank", "_blank", "chrome,dialog=no,width=240,height=200");
+          await until(() => other.document?.readyState == "complete", 3000); other.focus();
+          await until(() => Services.focus.activeWindow == other, 4000); await ruhig(300);
+          out.back = [ad.documentElement.hasAttribute("mc-inactive"), color()];
+          other.close(); w.focus(); await until(() => Services.focus.activeWindow == w, 4000); await ruhig(300);
+          out.again = [ad.documentElement.hasAttribute("mc-inactive"), color()];
+          return out;""")
+        f, b, a = res.get("front") or [], res.get("back") or [], res.get("again") or []
+        if b and b[0] is False and f and f[0] is False:
+            return True, f"anderes Fenster kam nicht nach vorn – übersprungen {res}"
+        ok = (f[0] is False and same_color(f[1], res.get("accent", "")) and b[0] is True and not same_color(b[1], res.get("accent", ""))
+              and a[0] is False and same_color(a[1], res.get("accent", "")))
+        return ok, f"{res}"
+    check("Ordnerliste: Symbole blau, solange Thunderbird vorn ist, grau mit einem anderen Fenster vorn, danach wieder blau", folder_icon_inactive, results)
+
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),
         # ein neuer Start hängt alles wieder an

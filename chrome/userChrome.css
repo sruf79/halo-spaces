@@ -2278,7 +2278,8 @@ findbar .findbar-textbox:focus {
   mask-image: var(--mi-folder) !important;
 }
 /* wie Apple: blau solange Thunderbird im Vordergrund ist, grau sobald eine andere App aktiv ist */
-#folderTree li > .container .icon:-moz-window-inactive {
+/* (Merkmal mc-inactive pflegt die Erweiterung am Mail-Tab; :-moz-window-inactive blieb dort teils hängen) */
+:root[mc-inactive] #folderTree li > .container .icon {
   color: color-mix(in srgb, var(--mt-text) 80%, transparent) !important;
 }
 #folderTree li[data-server-type] > .container .icon { mask-image: var(--mi-server) !important; }

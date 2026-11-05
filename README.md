@@ -181,6 +181,15 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.18.0
+
+- **Tasks**: the open task is shown like an info panel: title and note on a light card, then "Date & Time" (Start, Due, Repeat in short words such as "Every week", Reminder), "Organisation" (List with its color, Category, Privacy), Priority and Progress with the colored ring, and "Place" with a new location icon. Empty values show a grey "None"
+- **Today pane**: the list shows the whole month; today stays at the top and earlier events of the month sit above it, slightly faded, when you scroll up. The month list now also works when the Today pane was not ready yet at startup
+- **Today pane**: the icon next to the title appears only when the weather is turned on
+- **Settings**: "Plugins" under Add-ons shows only when plugins are installed (it led to the recommendations before)
+- **Fix**: after an update without restarting Thunderbird, the Today pane no longer shows two suns next to its title
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.17.0
 
 - **Reminders** look like a notification: date tile on the left, the calendar's name in small caps above the title, the time ("Today at 09:30") and the location, "Snooze for" and "Dismiss" side by side at the bottom right. The arrow at the top right opens the event in the calendar's month view

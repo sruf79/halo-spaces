@@ -385,7 +385,10 @@ eigenes Release sind (z. B. ein Bug, den Nutzer spüren, oder eine neue
 Funktion). Wenn nicht, bleibt es beim Commit: Der nächste Nachtlauf
 veröffentlicht alle noch nicht veröffentlichten Bugs und Features
 automatisch, sobald die CI dazu grün ist (Entscheidung des Maintainers vom
-5.11.2026). Ablauf: Versionshinweise im `README.md` schreiben (eigener
+5.11.2026). Tagsüber (außerhalb des Nachtlaufs) veröffentlicht eine
+Sitzung nur, was Nutzer gerade spüren (Fix für einen gemeldeten oder
+spürbaren Bug); alles andere geht ins Release des Nachtlaufs (Entscheidung
+des Maintainers vom 5.11.2026). Ablauf: Versionshinweise im `README.md` schreiben (eigener
 Commit „README: Versionshinweise x.y.z“), Notizen für den GitHub-Release als
 Datei (englisch, gleicher Inhalt), `./release.sh x.y.z`, bei grünen Tests
 direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
@@ -476,7 +479,17 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):
   Der Nachtlauf immer von sich aus. Jede andere Sitzung nur, wenn der
   Maintainer sie dazu auffordert (ganze Liste oder einzelne Einträge) – dann
-  in der Reihenfolge oben, ohne weitere Rückfrage je Eintrag.
+  in der Reihenfolge oben, ohne weitere Rückfrage je Eintrag. Tagsüber dürfen
+  so Bugs und Features umgesetzt werden: je Eintrag committen, gepusht wird
+  gesammelt am Ende eines Arbeitsblocks (siehe „Testrechner“), veröffentlicht
+  nur Dringendes (siehe „Release“) – Entscheidung des Maintainers vom 5.11.2026.
+- **Regeländerungen wöchentlich bündeln** (Entscheidung des Maintainers vom
+  5.11.2026): Ideen für Abläufe und Regeln dieser Datei sammelt jede Sitzung
+  als Eintrag „Ablauf: …“ mit Status „Wartet auf OK“, statt sie gleich
+  umzusetzen. Der Maintainer entscheidet sonntags mit der Wochenprüfung; die
+  freigegebenen werden dann in einem Commit übernommen. Ausnahme: Sicherheit
+  und Datenschutz (sofort). Eine Entscheidung, die der Maintainer im Gespräch
+  ausdrücklich trifft, gilt wie bisher gleich.
 - **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
   (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
@@ -547,6 +560,12 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Wird ein Commit bei roter CI zurückgenommen (`git revert`), bleibt der
   Eintrag offen mit Notiz zum Grund. Teilweise Erledigtes bleibt
   In Progress mit Notiz, was fehlt.
+- **Höchstens drei Einträge in Arbeit je Sitzung** (Entscheidung des
+  Maintainers vom 5.11.2026): gleichzeitig In Progress, an denen gerade
+  gearbeitet wird; Einträge mit Notiz „committet, wartet auf Push/CI“ zählen
+  nicht mit. Am Ende eines Laufs bzw. einer Sitzung geht, woran nicht mehr
+  gearbeitet wird und was nicht committet ist, mit Notiz zum Stand zurück
+  auf Todo.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
 

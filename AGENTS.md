@@ -437,7 +437,10 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   danach einfache Features, zuletzt Reihen** (Bugs fixen ist in jedem Lauf
   wichtiger als neue Features): jeweils Bereich für Bereich, kleine vor
   großen; die nächste Stufe erst, wenn in der vorigen nichts Machbares übrig
-  ist; von Reihen n/m nur der nächste Schritt. Ausnahme: Ein Feature, das
+  ist; von Reihen n/m nur der nächste Schritt – steht er auf Todo und der
+  vorige ist Done, ohne weitere Nennung durch den Maintainer (nur „Wartet auf
+  OK“ hält an; Klarstellung vom 5.11.2026, ältere Eintragstexte mit „erst
+  nach Nennung“ gelten nicht mehr). Ausnahme: Ein Feature, das
   einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als

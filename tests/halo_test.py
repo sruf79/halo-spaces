@@ -5789,6 +5789,33 @@ def calendar_checks(m, results):
               and res.get("click") == [True, True] and res.get("enter") == [True, True]
               and (res.get("past") is None or res["past"] == {"dim": True, "opacity": "0.55", "above": True, "today": True, "upShown": True}))
         return ok, f"{res}"
+    def agenda_past_month():
+        # ‹ in einen vergangenen Monat: die Liste steht am Ende, die letzten Termine des Monats sind ohne Scrollen
+        # sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          const mk = async (title, day) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = today(); s.day = 1; s.month -= 1; s.day = day; const en = s.clone(); en.day += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); };
+          try {
+            await mk("Halo Vormonat Anfang", 3); await mk("Halo Vormonat Ende", 28);
+            await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+            await ruhig(800);
+            const agenda = d.getElementById("agenda"), rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
+            const visible = text => { const li = rows().find(l => l.textContent.includes(text)); if (!li) return null;
+              const r = li.getBoundingClientRect(), a = agenda.getBoundingClientRect(); return r.top >= a.top - 1 && r.bottom <= a.bottom + 1; };
+            d.querySelector("#mcAgendaTitle .mc-prev").click();
+            await bis(() => rows().some(l => l.textContent.includes("Halo Vormonat Ende")), "Termine des Vormonats", 6000); await ruhig(600);
+            const out = { month: w.TodayPane.start.month == (new Date().getMonth() + 11) % 12, end: visible("Halo Vormonat Ende"),
+                          bottom: agenda.scrollTop >= agenda.scrollHeight - agenda.clientHeight - 1 };
+            d.querySelector("#mcAgendaTitle .mc-next").click(); await ruhig(800);
+            const s = w.TodayPane.start, n = new Date();
+            out.back = s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate();
+            return out;
+          } finally { for (const a of added) await c.deleteItem(a); }""")
+        ok = res.get("month") is True and res.get("end") is True and res.get("bottom") is True and res.get("back") is True
+        return ok, f"{res}"
+    check("Today-Pane: ‹ in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
+
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird
         res = m.js(r"""

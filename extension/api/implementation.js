@@ -17468,8 +17468,10 @@ class CardEnhancer {
       const key = agenda.__mcAnchor ? dayKey(agenda.__mcAnchor) : "";
       return [...agenda.querySelectorAll(":scope > li.agenda-listitem")].find(li => (li.dateString || "").slice(0, 8) >= key);
     };
+    // vergangener Monat (‹): ans Ende, die letzten Termine zuerst sichtbar,
+    // Älteres darüber (Entscheidung des Maintainers vom 5.11.2026)
     const scrollToAnchor = () => {
-      const row = anchorRow();
+      const row = agenda.__mcAtEnd ? null : anchorRow();
       agenda.scrollTop = row ? agenda.scrollTop + row.getBoundingClientRect().top - agenda.getBoundingClientRect().top : agenda.scrollHeight;
     };
     agenda.__mcScrollToAnchor = () => {
@@ -17505,8 +17507,8 @@ class CardEnhancer {
       } else {
         await this.ensureInitialized();
       }
-      const row = anchorRow();
-      this.selectedIndex = row ? Math.max(0, this.rows.indexOf(row)) : 0;
+      const row = this.__mcAtEnd ? null : anchorRow();
+      this.selectedIndex = row ? Math.max(0, this.rows.indexOf(row)) : this.__mcAtEnd ? Math.max(0, this.rows.length - 1) : 0;
       scrollToAnchor();
     };
     try {
@@ -17516,6 +17518,7 @@ class CardEnhancer {
       delete agenda.update;
       delete agenda.__mcAnchor;
       delete agenda.__mcScrollToAnchor;
+      delete agenda.__mcAtEnd;
       pinEvents.forEach(type => agenda.removeEventListener(type, unpin));
       pinMo.disconnect();
       Object.defineProperty(agenda, "numberOfDays", {
@@ -17540,6 +17543,9 @@ class CardEnhancer {
       // heute ganz oben (darüber die vergangenen Termine des Monats), auch
       // nach dem Neuladen der Termine
       const agenda = w.document.getElementById("agenda");
+      if (agenda) {
+        delete agenda.__mcAtEnd;
+      }
       const top = () => (agenda.__mcScrollToAnchor ? agenda.__mcScrollToAnchor() : (agenda.scrollTop = 0));
       if (agenda) {
         top();
@@ -17561,6 +17567,11 @@ class CardEnhancer {
         ? now : target;
       const dt = cal.dtz.jsDateToDateTime(new Date(day.getFullYear(), day.getMonth(), day.getDate()), cal.dtz.defaultTimezone);
       dt.isDate = true;
+      // vergangener Monat: die Liste beginnt am Ende (jüngste Termine zuerst sichtbar)
+      const agenda = w.TodayPane?.agenda || w.document.getElementById("agenda");
+      if (agenda) {
+        agenda.__mcAtEnd = target < new Date(now.getFullYear(), now.getMonth(), 1);
+      }
       w.TodayPane.setDay(dt);
     } catch (e) {
       log("agenda month error", String(e).slice(0, 160));

@@ -558,7 +558,9 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   testen“) ein Bug `Tests: Fehlerkonsole – <Meldung>`; derselbe Fehler aus
   mehreren Jobs ergibt einen Eintrag, ein offener zur selben Meldung wird
   ergänzt. Aufs iPhone nur, wenn ein neuer Eintrag entstand. Diese Fehler
-  machen keinen Lauf rot und halten kein Release auf.
+  machen keinen Lauf rot und halten kein Release auf. Ebenso Zeilen
+  `PROTOKOLL  …` (Fehlerprotokoll der Erweiterung) als
+  `Tests: Fehlerprotokoll – <Meldung>`.
 - Läufe, die während eines Nachtlaufs oder einer Wochenprüfung beginnen
   (Zeiten aus `~/halo-nacht/<datum>.log` bzw. `<datum>-woche.log`), lässt
   er aus – die warten selbst auf ihre CI und berichten darüber.

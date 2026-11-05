@@ -14165,9 +14165,17 @@ Neu
         res = m.js("""
           const p = PathUtils.join(PathUtils.profileDir, "mail-cards-debug.log");
           let lines = []; try { lines = (await IOUtils.readUTF8(p)).split("\\n"); } catch {}
-          return lines.filter(l => /error|fehler/i.test(l) && !/preview stats/.test(l)).slice(0, 5);""")
-        return not res, "; ".join(res) or "keine Fehler im Protokoll"
-    check("Fehlerprotokoll der Erweiterung leer", errors, results)
+          // ohne Zeitstempel, gleiche Meldungen einmal (mit Anzahl)
+          const seen = new Map();
+          for (const l of lines) if (/error|fehler/i.test(l) && !/preview stats/.test(l)) {
+            const t = l.replace(/^\\S+Z /, "").slice(0, 300); seen.set(t, (seen.get(t) || 0) + 1); }
+          return [...seen].slice(0, 20).map(([t, n]) => (n > 1 ? `${n}× ` : "") + t);""")
+        # Nie ein Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile
+        # „PROTOKOLL  …“, die der CI-Wächter als Bug „Tests: Fehlerprotokoll – …“ ins Board trägt
+        for line in res or []:
+            print(f"PROTOKOLL  {line}", flush=True)
+        return True, (f"WARNUNG: {len(res)} Fehler im Protokoll, siehe Zeilen darüber – kein Fehlschlag" if res else "keine Fehler im Protokoll")
+    check("Fehlerprotokoll der Erweiterung leer (nur Warnung)", errors, results)
 
     def console_errors():
         # Fehlerkonsole des Testprofils (Mitschrift seit dem Start, siehe konsole_start). Nie ein Fehlschlag

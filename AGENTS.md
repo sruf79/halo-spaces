@@ -126,6 +126,9 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   aus (kein Netz, kaputte Daten, ersetzte Funktion), meldet sie ihn mit
   `erwartet(/Muster/)` an (gilt nur für diese Prüfung). Die Prüfung nicht zu
   einem Fehlschlag machen und keine Liste „bekannter“ Fehler anlegen.
+  Ebenso das Fehlerprotokoll der Erweiterung (`mail-cards-debug.log`, Fehler,
+  die unser Code selbst abfängt): Prüfung „Fehlerprotokoll …“ nur Warnung, je
+  Meldung eine Zeile `PROTOKOLL  …`, Bug „Tests: Fehlerprotokoll – …“.
 - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
   Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
   – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine
@@ -278,7 +281,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
   selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
   oder Wochenprüfung übernehmen diese selbst. Zeilen `KONSOLE  …` trägt er für
-  jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein (kein Rot). `tests/MAC-MINI.md` Abschnitt 14.
+  jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein, Zeilen `PROTOKOLL  …` als
+  `Tests: Fehlerprotokoll – …` (kein Rot). `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
   `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als

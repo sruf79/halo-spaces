@@ -5,8 +5,8 @@
 # Prüfung einen Bug ins Board ein (oder ergänzt den offenen Eintrag zur selben
 # Prüfung) und schickt eine Zeile aufs iPhone; Abgebrochenes wird nur
 # protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
-# lässt er dabei aus. Fehler aus der Fehlerkonsole (Zeilen „KONSOLE  …“) trägt
-# er für jeden Lauf als Bug ein – sie machen keinen Lauf rot.
+# lässt er dabei aus. Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen
+# „KONSOLE  …“/„PROTOKOLL  …“) trägt er für jeden Lauf als Bug ein – kein Rot.
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
@@ -93,7 +93,7 @@ eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard 
     '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
   if [[ -n $id ]]; then
     # Fehlerkonsole: höchstens eine Ergänzung pro Tag (sonst wächst der Eintrag mit jedem Lauf)
-    if [[ $anfang == "Tests: Fehlerkonsole" ]] && board | jq -e --arg i $id --arg t "${zusatz[1,15]}" \
+    if [[ $anfang == "Tests: Fehler"(konsole|protokoll) ]] && board | jq -e --arg i $id --arg t "${zusatz[1,15]}" \
          '.items[] | select(.id == $i) | .content.body | contains($t)' >/dev/null; then
       print ergänzt
       return
@@ -200,13 +200,18 @@ konsole() {   # <Lauf-ID>
   titel=$(jq -r '.displayTitle[:100]' <<< $info)
   url=$(jq -r .url <<< $info)
   heute=$(date '+%d.%m.%Y')
-  for zeile in ${(f)"$(print -r -- $flog | grep -a 'KONSOLE  ')"}; do
+  for zeile in ${(f)"$(print -r -- $flog | grep -aE 'KONSOLE  |PROTOKOLL  ')"}; do
     job=${zeile%%$'\t'*}
-    fehler=${zeile#*KONSOLE  }
-    key=${fehler%% – während *}
-    key=${key#<->× }
-    key=${key% \(*\)}                      # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
-    [[ -z $key ]] && continue
+    if [[ $zeile == *"PROTOKOLL  "* ]]; then  # Fehlerprotokoll der Erweiterung (mail-cards-debug.log)
+      fehler=${zeile#*PROTOKOLL  }
+      key="P|${fehler#<->× }"
+    else
+      fehler=${zeile#*KONSOLE  }
+      key=${fehler%% – während *}
+      key=${key#<->× }
+      key="K|${key% \(*\)}"                # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
+    fi
+    [[ ${#key} -le 2 ]] && continue
     if (( ! ${+jobs_von[$key]} )); then
       keys+=($key)
       jobs_von[$key]=$job
@@ -216,13 +221,20 @@ konsole() {   # <Lauf-ID>
     fi
   done
   (( ${#keys} )) || return 0
+  local art wo meldung
   for key in $keys; do
     n=$((n + 1))
     (( n > 8 )) && continue
-    melde "  Fehlerkonsole: ${jobs_von[$key]}: ${key[1,150]}"
-    ergebnis=$(eintragen "" "$key" "Wo: CI (Workflow test.yml auf main), Job(s) ${jobs_von[$key]}
+    meldung=${key[3,-1]}
+    if [[ ${key[1]} == P ]]; then
+      art="Tests: Fehlerprotokoll" wo="in sein Fehlerprotokoll (mail-cards-debug.log)"
+    else
+      art="Tests: Fehlerkonsole" wo="in die Fehlerkonsole"
+    fi
+    melde "  ${art#Tests: }: ${jobs_von[$key]}: ${meldung[1,150]}"
+    ergebnis=$(eintragen "" "$meldung" "Wo: CI (Workflow test.yml auf main), Job(s) ${jobs_von[$key]}
 
-Ist: halo.spaces schreibt einen Fehler in die Fehlerkonsole (die Prüfungen selbst können grün sein; Konsolenfehler halten kein Release auf).
+Ist: halo.spaces schreibt einen Fehler $wo (die Prüfungen selbst können grün sein; solche Fehler halten kein Release auf).
 
 Meldung: ${zeile_von[$key][1,1200]}
 
@@ -230,13 +242,13 @@ Lauf: $url
 Commit: $sha „$titel“
 
 Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen. Absichtlich ausgelöst? Dann in der Prüfung mit erwartet(/Muster/) anmelden." \
-      "**$heute:** erneut in der Fehlerkonsole, Job(s) ${jobs_von[$key]} – Lauf $url, Commit $sha" "Tests: Fehlerkonsole") || continue
+      "**$heute:** erneut ${wo#in }, Job(s) ${jobs_von[$key]} – Lauf $url, Commit $sha" "$art") || continue
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
   done
-  melde "Lauf $run ($sha): Fehlerkonsole $n Fehler, $neu neu, $erg ergänzt"
+  melde "Lauf $run ($sha): Fehlerkonsole/-protokoll $n Fehler, $neu neu, $erg ergänzt"
   # aufs iPhone nur, wenn ein neuer Eintrag entstand (Wiederholungen nur im Board)
   if [[ -z $TROCKEN ]] && (( neu )); then
-    push "Fehlerkonsole: Lauf $run ($sha) – $neu neue(r) Fehler im Board (kein Rot, Release nicht betroffen)"
+    push "Fehlerkonsole/-protokoll: Lauf $run ($sha) – $neu neue(r) Fehler im Board (kein Rot, Release nicht betroffen)"
   fi
 }
 

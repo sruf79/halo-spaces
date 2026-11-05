@@ -81,7 +81,8 @@ Reihenfolge:
       status.sh kennt diesen Status nicht):
         gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
       und Commit-Hash als Notiz in den Eintrag.
-   Zeilen „KONSOLE  …“ (Fehler in der Fehlerkonsole) machen nichts rot und
+   Zeilen „KONSOLE  …“ und „PROTOKOLL  …“ (Fehlerkonsole, Fehlerprotokoll
+   der Erweiterung) machen nichts rot und
    halten kein Release auf; der CI-Wächter trägt sie als Bug ein – keine
    Reparaturrunde dafür (AGENTS.md „Bauen und testen“, Fehlerkonsole).
    Einen Bug „Tests: Fehlerkonsole – …“ gilt als behoben, wenn --only mit

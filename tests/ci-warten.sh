@@ -49,9 +49,9 @@ print "CI-Lauf $RUN für ${SHA:0:7}: $T nach $DAUER Min. (https://github.com/$R/
 jobs_zeilen $RUN
 # Fehlerkonsole: nie Rot, nur zur Kenntnis (den Bug trägt der CI-Wächter ein; AGENTS.md „Bauen und testen“)
 if (( RC != 4 )); then
-  KONSOLE=$(gh run view $RUN -R $R --log 2>/dev/null | grep -a 'KONSOLE  ' | sed -E 's/^([^	]*)	[^	]*	[^ ]* KONSOLE  (.*)$/  \1: \2/' | sort -u)
+  KONSOLE=$(gh run view $RUN -R $R --log 2>/dev/null | grep -aE 'KONSOLE  |PROTOKOLL  ' | sed -E 's/^([^	]*)	[^	]*	[^ ]* (KONSOLE|PROTOKOLL)  (.*)$/  \1 (\2): \3/' | sort -u)
   if [[ -n $KONSOLE ]]; then
-    print "Fehlerkonsole (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein):"
+    print "Fehlerkonsole/-protokoll (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein):"
     print -r -- $KONSOLE | cut -c1-220 | head -10
   fi
 fi

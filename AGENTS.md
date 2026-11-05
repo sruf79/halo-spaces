@@ -440,7 +440,9 @@ neon nicht in `ListAgents` steht: Abschnitt „neon erreichen“.
 fertige Arbeit aber ohne Rückfrage selbst nach `main` – kein Pull Request,
 kein Merge durch den Maintainer. Ablauf am Ende eines Arbeitsblocks:
 `git fetch origin main`, auf `origin/main` rebasen, `git push origin
-HEAD:main`, den Zweig auf denselben Stand bringen. Dabei:
+HEAD:main`, danach den eigenen Zweig `claude/…` auf GitHub löschen
+(`git push origin --delete <zweig>`), damit neben `main` keine Reste
+liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
 
 - Gesammelt pushen wie unter „Testrechner“: je Eintrag committen, einmal am
   Ende pushen – jeder Push mit Codeänderung belegt neon rund 60 Minuten

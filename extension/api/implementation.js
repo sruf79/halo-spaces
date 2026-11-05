@@ -2764,7 +2764,13 @@ function hookHoverLine(w, restorers = null) {
         pending = null;
         // nur über der Toolbar-Zeile: die Linie gehört zur Spalte darunter
         // (unten in der Spalte selbst ist sie aus)
-        if (doc != d || !target || !row.contains(target)) {
+        // (das Ziel kann inzwischen in einem anderen, schon verworfenen
+        // Dokument liegen – dann ist es kein Knoten mehr)
+        let inside = false;
+        try {
+          inside = doc == d && !!target && row.contains(target);
+        } catch {}
+        if (!inside) {
           hide();
           return;
         }
@@ -2790,7 +2796,7 @@ function hookHoverLine(w, restorers = null) {
       }
     };
     doc.addEventListener("mousemove", onMove, { passive: true });
-    doc.documentElement.addEventListener("mouseleave", onLeave);
+    doc.documentElement?.addEventListener("mouseleave", onLeave);
     const detach = () => {
       doc.removeEventListener("mousemove", onMove);
       doc.documentElement?.removeEventListener("mouseleave", onLeave);
@@ -4067,7 +4073,8 @@ const FollowUp = {
       return;
     }
     a3.__mcFollowUp = true;
-    const update = () => a3.setTimeout(() => this.render(a3), 0);
+    // (Fenster schon zu: kein Zeitgeber mehr – sonst NS_ERROR_NOT_INITIALIZED)
+    const update = () => !a3.closed && a3.setTimeout(() => this.render(a3), 0);
     a3.addEventListener("folderURIChanged", update);
     // Schalter in den Einstellungen wirkt sofort, nicht erst beim Ordnerwechsel
     const prefObs = { observe: update };
@@ -4649,7 +4656,7 @@ const FifthSpace = {
     const addons = d.getElementById("spacesToolbarAddonsContainer");
     let pending = false;
     const later = () => {
-      if (!pending) {
+      if (!pending && !w.closed) {
         pending = true;
         w.setTimeout(() => {
           pending = false;
@@ -5465,6 +5472,9 @@ function hookTaskLists(win, restorers) {
   };
   let timer = 0;
   const later = () => {
+    if (win.closed) {
+      return;
+    }
     win.clearTimeout(timer);
     timer = win.setTimeout(count, 250);
   };
@@ -8866,7 +8876,7 @@ function attachSubnav(list, browserEl, src) {
     list.previousElementSibling?.classList.toggle("mc-has-current", rows.some(r => r.hasAttribute("current")));
   };
   const schedule = () => {
-    timer ||= cdoc.defaultView.setTimeout(render, 30);
+    timer ||= cdoc.defaultView?.setTimeout(render, 30) || 0;
   };
   // Thunderbird 140+ setzt die Auswahl der Add-ons nur als Eigenschaft
   const onView = () => schedule();
@@ -10929,7 +10939,11 @@ function leadSpacer(content) {
   if (!content) {
     return null;
   }
-  const first = [...content.children].find(li => !li.hidden && li.ownerDocument.defaultView.getComputedStyle(li).display != "none");
+  const view = content.ownerDocument.defaultView;
+  if (!view) {
+    return null;
+  }
+  const first = [...content.children].find(li => !li.hidden && view.getComputedStyle(li).display != "none");
   const lead = first?.getAttribute("item-id") == "spacer" ? first : null;
   content.toggleAttribute("mc-no-lead", !!first && !lead);
   return lead;
@@ -17027,7 +17041,7 @@ class CardEnhancer {
       // nur solange das Adressbuch vorne ist: die Kopfzeile steht auch über der
       // Mailliste, und die Kontaktliste ändert sich im Hintergrund (gesammelte
       // Adressen, CardDAV). Beim Zurückwechseln füllt updateListHeader sie neu.
-      const update = () => cw.setTimeout(() => {
+      const update = () => !cw.closed && cw.setTimeout(() => {
         const tab = box.ownerDocument.getElementById("tabmail")?.currentTabInfo;
         if (tab?.browser?.contentWindow == cw) {
           this.updateAbHeader(box, cw);
@@ -21164,6 +21178,9 @@ class CardEnhancer {
           return;
         }
         // nicht mitten in Thunderbirds Benachrichtigung Ordner anlegen oder suchen
+        if (win.closed) {
+          return;
+        }
         win.setTimeout(() => {
           if (newFlag & Ci.nsMsgMessageFlags.Marked) {
             this.starredAny = true;

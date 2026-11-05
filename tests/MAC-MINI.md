@@ -489,8 +489,8 @@ Ablauf: `tests/nachtlauf.sh`.
 Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge
 abarbeiten, je Eintrag nur die betroffenen Prüfungen (`--only`), ab 04:30
 kein neuer Eintrag mehr; dann pushen und den CI-Lauf für genau diesen Commit
-abwarten (`tests/ci-warten.sh`, etwa 35 Minuten, mit Dunkelmodus etwa 55:
-Linux ~17 parallel, `mac` hell ~17 bzw. hell und dunkel ~35, `windows` ~19). Grün: Versionshinweise, `release.sh` (überspringt die Tests
+abwarten (`tests/ci-warten.sh`, etwa 50 Minuten, mit Dunkelmodus etwa 70:
+erst Linux ~17, danach `mac` hell ~17 bzw. hell und dunkel ~35, `windows` ~19). Grün: Versionshinweise, `release.sh` (überspringt die Tests
 dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
 mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
 Reparaturrunden, keine neue ab 07:30, sonst kein Release. Nach grüner CI

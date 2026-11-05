@@ -71,8 +71,9 @@ Reihenfolge:
    a) git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
-      Ein Lauf dauert etwa 35 Minuten, mit Dunkelmodus etwa 55 (Linux ~17
-      parallel, mac hell ~17 bzw. hell und dunkel ~35, windows ~19).
+      Ein Lauf dauert etwa 50 Minuten, mit Dunkelmodus etwa 70 (erst Linux
+      ~17, danach mac hell ~17 bzw. hell und dunkel ~35, windows ~19; bei
+      Rot unter Linux laufen mac und windows nicht).
       Solange er läuft, keine eigenen Testläufe auf diesem Mac (auch nicht
       --vm): die Jobs mac und windows laufen hier.
    b) Grün (Exitcode 0): Versionshinweise im README.md (eigener Commit, nur

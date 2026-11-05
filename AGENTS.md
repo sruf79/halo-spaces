@@ -208,7 +208,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   `tests/mac-runner-hook.sh` alles andere ab.
 - Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund
   35 Minuten, mit Dunkelmodus rund 55 (laut den letzten grünen Läufen: `mac`
-  hell ~17, hell und dunkel ~35, `windows` ~19; Linux parallel ~17). Solange er
+  hell ~17, hell und dunkel ~35, `windows` ~19). Beide starten erst nach
+  grünem Linux (~17 Minuten vorher; Entscheidung des Maintainers vom
+  5.11.2026), bei Rot unter Linux laufen sie nicht – ein ganzer Lauf dauert
+  damit rund 50 Minuten, mit Dunkelmodus rund 70. Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
 - Ausnahmen ohne Tests: Ein Push, der nur `*.md`, `store/` oder `LICENSE`

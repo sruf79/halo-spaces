@@ -208,8 +208,11 @@ jobs:
     # Das Repo ist öffentlich: Code aus fremden Pull-Requests darf dort nie laufen.
     # Deshalb nur bei Push auf main oder Start von Hand – hier per if:, auf dem Mac
     # zusätzlich per Wächter (tests/mac-runner-hook.sh), den kein Pull-Request ändern kann.
-    needs: changes
-    if: needs.changes.outputs.test == 'true' && needs.changes.outputs.mac == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    # Startet erst nach grünem linux (bzw. wenn linux gar nicht lief, z. B. gezielt nur
+    # mac): bei Rot unter Linux spart das 35–55 Minuten neon, das Ergebnis kommt dafür
+    # rund 17 Minuten später (Entscheidung des Maintainers vom 5.11.2026)
+    needs: [changes, linux]
+    if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.mac == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
     # hell rund 17 Minuten, mit dunkel rund 35 (Stand 3.18.0, gut 340 Prüfungen), dunkel nur,
     # wenn Farben betroffen sind (Job changes); Beta nur unter Linux (Entscheidung
@@ -254,8 +257,9 @@ jobs:
     # Gleiche Bedingung wie mac – hier nur zusätzlich !cancelled(), damit der Job auch nach
     # einem roten mac-Lauf startet; Pull-Requests bleiben ausgeschlossen, der Wächter
     # (tests/mac-runner-hook.sh) prüft auch diesen Job.
-    needs: [changes, mac]
-    if: ${{ !cancelled() && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+    # (wie mac erst nach grünem bzw. nicht gelaufenem linux)
+    needs: [changes, linux, mac]
+    if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
     # ein Lauf rund 19 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60

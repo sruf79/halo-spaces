@@ -134,6 +134,8 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   `ci-waechter.sh --datei` ein. Solche Bugs erst auf Done, wenn der CI-Lauf
   zum Fix mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht
   mehr nennt (`ci-warten.sh`) – grüne CI allein beweist es nicht.
+  Die Wochenprüfung (sonntags) prüft diesen Ablauf an den Zahlen der Woche
+  und sieht sich den Code nur an, wenn er sich geändert hat.
 - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
   Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
   – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine

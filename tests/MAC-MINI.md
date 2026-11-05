@@ -595,6 +595,12 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   `~/halo-nacht/*.log` und `~/halo-berichte/*` (erledigte Einträge,
   Limit-Pausen, ausgelassene Nächte, Release lokal oder per CI,
   Store-Upload-Fehler), Protokoll des CI-Wächters, Durchsatz im Board.
+- Fehlerkonsole und Fehlerprotokoll: ob die Meldungen der Woche
+  zuverlässig ins Board kamen (Dubletten, verlorene Meldungen, „Wieder
+  aufgetreten“, unlesbare Läufe des CI-Wächters, Dauer); eine Durchsicht
+  des Codes in Runden (fertig nach drei Runden ohne Fund, höchstens fünf)
+  nur, wenn sich der Code dazu in der Woche geändert hat oder die Zahlen
+  ein Leck zeigen.
 - Nachtlauf zu früh beendet: je Nacht, ob er früher aufgehört hat als
   möglich (vor 04:30, bzw. nach grüner CI vor 06:30), obwohl noch machbare
   Einträge im Board lagen (ungenutzte Minuten, Zahl der

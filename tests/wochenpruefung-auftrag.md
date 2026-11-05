@@ -43,6 +43,35 @@ letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
   Vorschlag „Ablauf: Nachtlauf …“ (Wartet auf OK) mit Ursache und Abhilfe
   anlegen (z. B. Auftrag in tests/nachtlauf-auftrag.md schärfen).
 - **CI-Wächter:** ~/halo-aufgaben/ci-waechter.log – gemeldete rote Läufe.
+- **Fehlerkonsole und Fehlerprotokoll** (Wunsch des Maintainers vom
+  5.11.2026; AGENTS.md „Bauen und testen“, Bullet „Fehlerkonsole“): Kommen
+  die Meldungen zuverlässig ins Board, ohne Verlust, Dubletten und
+  Fehlalarme, und halten sie nichts auf? Aus echten Daten der Woche:
+  - Zeilen „KONSOLE  “/„PROTOKOLL  “ in den CI-Logs (gh run view <id> --log
+    | grep -aE 'KONSOLE  |PROTOKOLL  '): Anzahl verschiedener Meldungen,
+    je Job; Hinweise „Fehlerkonsole schon beim Start voll“ und „ohne
+    Mitschrift“;
+  - Board-Einträge „Tests: Fehlerkonsole – …“/„Tests: Fehlerprotokoll – …“:
+    neu, erledigt, offen; Dubletten (gleiche oder fast gleiche Meldung in
+    zwei offenen Einträgen), Einträge ohne Zeile „Schlüssel:“, „Wieder
+    aufgetreten“, auf Done gesetzt, obwohl die Meldung im Lauf danach noch
+    kam;
+  - ~/halo-aufgaben/ci-waechter.log: „nicht lesbar“, „übersprungen“, „Board
+    nicht lesbar“, „mehr als 60 Meldungen“; ~/halo-aufgaben/ci-waechter.versuche;
+  - Meldungen in CI-Logs, die kein Board-Eintrag abdeckt (verloren);
+  - Dauer der Läufe gegenüber der Vorwoche (Mitschrift kostet sie spürbar?).
+  **Durchsicht des Codes nur, wenn sich in der Woche daran etwas geändert
+  hat** (git log --since=7.days -- tests/halo_test.py tests/update_test.py
+  tests/ci-waechter.sh tests/ci-warten.sh release.sh tests/lauf-hilfen.zsh,
+  dort die Teile zur Fehlerkonsole bzw. zum Fehlerprotokoll) oder die Daten
+  oben ein Leck zeigen: dann in Runden prüfen, wo es Fehler gibt und was
+  sich verbessern lässt (verlorene, falsch zugeordnete oder doppelte
+  Meldungen, Prüfung doch rot, Bug fälschlich als behoben, spürbar längere
+  Läufe, Quoting/Escapes). Die erste Runde macht ein Unteragent
+  (Agent-Werkzeug), der nur Ziel und Stellen bekommt, nicht die eigenen
+  Vermutungen; seine Befunde selbst nachprüfen. Fertig erst nach drei Runden
+  in Folge ohne Fehler oder Verbesserung, höchstens fünf Runden – sonst im
+  Bericht „nicht abgeschlossen“ mit Stand. Befunde behandeln wie Abschnitt 3.
 - **Board:** gh project item-list 1 --owner sruf79 --limit 300 --format json
   (offen: Anzahl je Status und Typ). Erledigte Einträge werden archiviert und
   fehlen dort – sie stattdessen aus den Nachtlauf-Berichten und den
@@ -58,7 +87,10 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   rote_pruefungen (Objekt Prüfung → Anzahl), unzuverlaessig (Liste),
   naechte, naechte_ausgelassen, naechte_zu_frueh, ungenutzt_min (Summe der
   ungenutzten Minuten bis zur Grenze 04:30 bzw. 06:30), nach_release_erledigt, limit_pausen, releases, releases_per_ci,
-  store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende.
+  store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende,
+  konsole (Objekt: meldungen, board_neu, board_erledigt, board_offen,
+  dubletten, verloren, wieder_aufgetreten, durchsicht_runden,
+  durchsicht_abgeschlossen).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.
 
@@ -72,6 +104,13 @@ die eine unzuverlässige oder plattformbedingte Prüfung verlässlich machen:
 - feste Pausen durch Wartebedingungen ersetzen (bis(), ruhig(), stabil();
   AGENTS.md „Warten auf Bedingungen“);
 - reine Plattform-Abweichungen (Linux/Windows) als Warnung statt Fehler.
+- eindeutige Fehler im Umgang mit Fehlerkonsole und -protokoll (Abschnitt
+  1) in tests/halo_test.py und tests/update_test.py; Fehler in
+  tests/ci-waechter.sh bzw. tests/ci-warten.sh nur als Vorschlag (Ablauf).
+  Nie so, dass eine Konsolen- oder Protokollmeldung doch zum Fehlschlag
+  wird; die zwei strengen Prüfungen („Senden rückgängig“,
+  Today-Pane-Animation) bleiben streng. Die Bugs aus den Meldungen selbst
+  (der Fehler in halo.spaces) arbeitet der Nachtlauf ab, nicht diese Prüfung.
 Ablauf: vorher prüfen, dass nichts läuft (kein Runner.Worker, kein
 Testfenster, kein Nachtlauf), dann python3 tests/halo_test.py --port 2852
 --only "<Prüfung>" (bei Windows-Abweichungen zusätzlich --vm --port 2853),
@@ -121,7 +160,8 @@ Zeile nach der Überschrift genau so:
   Kurz: <ein Satz: CI grün/rot-Quote, auffälligste Zahl, Anzahl Korrekturen und Vorschläge>
 Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte:
 Kennzahlen (Tabelle mit Vorwoche), Auffällig (unzuverlässige Prüfungen,
-langsamste Prüfungen, Ausfälle), Nachtläufe (je Nacht Beginn, Ende, Grund
+langsamste Prüfungen, Ausfälle), Fehlerkonsole (Zahlen aus Abschnitt 1,
+Lecks, Durchsicht ja/nein mit Runden), Nachtläufe (je Nacht Beginn, Ende, Grund
 des Endes, erledigt, ungenutzte Zeit und liegengebliebene machbare
 Einträge, falls zu früh beendet), Geändert (Commit, was und warum; im
 Trockenlauf „Würde ändern“), Top-3-Vorschläge (je ein Satz Nutzen, Board-ID

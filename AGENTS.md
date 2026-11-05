@@ -33,7 +33,8 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/logik/` | schnelle Logik-Tests ohne Thunderbird (Node, `node --test tests/logik/*.test.mjs`, Sekunden): `lader.mjs` lädt `implementation.js` mit Attrappen für Thunderbirds Grundobjekte und reicht die Namen aus `OFFEN` heraus |
 | `tests/adressen.py`, `tests/addon_lint.py` | Prüfungen ohne Thunderbird (CI-Job `statisch`): nur erlaubte Adressen im Netz (Datenschutz, Erlaubt-Liste im Skript); Mozillas Add-on-Prüfung (addons-linter) |
 | `tests/testserver.py` | lokaler IMAP-/SMTP-Testserver (nur 127.0.0.1, erfundene Daten) für die Prüfungen mit Testkonto |
-| `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht) |
+| `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht), mit `--messung` (`tests/tour-messung.js`) auch Messwerte je Oberfläche |
+| `tests/rundgang-woche.sh`, `tests/rundgang-auftrag.md`, `tests/rundgang_vergleich.py` | wöchentlicher Design-Rundgang: Aufnahme, Vergleich mit der Vorwoche, Ausreißer ins Board, `tests/MAC-MINI.md` Abschnitt 17 |
 | `tests/store_shots.py` | Bilder für README und Store aus frischem Testprofil (erfundene englische Mails, Kontakte mit gezeichneten Bildern, Termine) |
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
@@ -324,6 +325,15 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   eindeutige Fakten selbst und legt echte Widersprüche und Regeländerungen
   nur als „Doku: …“ mit „Wartet auf OK“ an. Bericht
   `~/halo-berichte/<datum>-dokupruefung.md`. `tests/MAC-MINI.md` Abschnitt 16.
+- **Design-Rundgang** (Entscheidung des Maintainers vom 5.11.2026):
+  samstags 10:00 (wartet auf Nachtlauf, Doku-Prüfung und CI, spätester
+  Start 14:00) nimmt `tests/rundgang-woche.sh` mit `ui_tour.py --messung`
+  alle Oberflächen auf (immer hell, dunkel nur bei Farbänderungen seit dem
+  vorigen Rundgang), vergleicht mit dem häufigsten Wert je Kategorie und der
+  Vorwoche und lässt Claude neue Ausreißer als Bug eintragen (außer
+  Entscheidungen des Maintainers und „Wartet auf OK“). Bericht
+  `~/halo-berichte/<datum>-rundgang.md`, Pause `~/halo-tour/PAUSE`.
+  `tests/MAC-MINI.md` Abschnitt 17.
 - Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
   Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da
   und bekommt keine weiteren Aufgaben (Entscheidung des Maintainers vom 3.11.2026).

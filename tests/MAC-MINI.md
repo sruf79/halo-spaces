@@ -690,3 +690,50 @@ keine geplante Aufgabe der Desktop-App).
 - Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.
 - Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --doku --trocken` –
   nur auswerten und Bericht; Einschränkungen wie Abschnitt 15.
+
+## 17. Design-Rundgang
+
+Samstags um 10:00 nimmt der Mac alle Oberflächen auf, misst sie und vergleicht
+mit dem Rundgang der Vorwoche (Entscheidung des Maintainers vom 5.11.2026;
+LaunchAgent `at.halo-spaces.rundgang`, `tests/rundgang-woche.sh`, Auftrag
+`tests/rundgang-auftrag.md`). Ziel: Rückschritte und neue Ausreißer bei
+Popups, Panels, Dialogen, Knöpfen, Suchfeldern, Symbolen und im Dunkelmodus,
+die `halo_test.py` nicht sieht.
+
+- Wartet, bis neon frei ist: Nachtlauf, Wochen- und Doku-Prüfung, CI,
+  Testläufe, VM, andere Sitzungen in einer Runde (`belegt()` aus
+  `lauf-hilfen.zsh`). Spätester Start 14:00, sonst ausgelassen (Meldung aufs
+  iPhone).
+- Baut `origin/main` in einem eigenen Checkout `~/halo-tour/stand` (nicht in
+  `~/halo-spaces`) und ruft `tests/ui_tour.py --messung` auf: immer hell,
+  dunkel nur, wenn `tests/farben-betroffen.sh <Commit des vorigen
+  Rundgangs> HEAD` Farben meldet (beim ersten Lauf beide). Ports 2853/2854.
+- Ablage `~/halo-tour/<datum>/`: Bilder, `<hell|dunkel>-ergebnis.json`,
+  `<hell|dunkel>-messung.json`, `commit.txt`, `vergleich.md/json`
+  (`tests/rundgang_vergleich.py`: Ausreißer gegen den häufigsten Wert je
+  Kategorie, Suchfelder mit Hover oder ohne Kapsel, neue/behobene/geänderte
+  Ausreißer gegen die Vorwoche, neu nicht erreichte Oberflächen, neue
+  Original-Symbole; Bilder nur zur Information). Nach 8 Wochen werden Bilder
+  und Logs gelöscht, die JSON-Dateien bleiben.
+- Danach wertet Claude (`claude -p`) den Vergleich aus: neue Ausreißer als
+  Bug ins Board (außer Entscheidungen des Maintainers und „Wartet auf OK“),
+  Done-Einträge bestätigen bzw. Rückschritte melden, Bericht
+  `~/halo-berichte/<datum>-rundgang.md`, Ergebnisseite (private
+  Artifact-Seite) aktualisieren, Kurzfassung aufs iPhone.
+- Kennzahlen je Lauf in `~/halo-aufgaben/rundgang-kennzahlen.json` (Status,
+  Dauer, OK/nicht erreicht, Ausreißer neu/behoben/gesamt); die
+  Wochenprüfung wertet sie mit aus. Protokoll `~/halo-nacht/<datum>-rundgang.log`,
+  Sperre `~/halo-nacht/rundgang.lock`.
+- **Bildschirmaufnahme:** Popups nimmt `ui_tour.py` mit `screencapture -l`
+  auf. Der LaunchAgent startet `/bin/zsh`; dieses braucht unter Datenschutz &
+  Sicherheit → Bildschirm- & Systemaudioaufnahme einen Eintrag (eingerichtet
+  am 5.11.2026). Jeder Lauf schreibt das Ergebnis nach
+  `~/halo-tour/bildschirmaufnahme.txt`, `mac-mini-setup.sh --check` zeigt es.
+- Pausieren: `touch ~/halo-tour/PAUSE`, fortsetzen mit `rm`.
+- Probelauf von Hand (lokaler Stand, ohne Claude, wartet nur auf CI und
+  Testläufe, Ablage `~/halo-tour/<datum>-probe`):
+  `~/.config/halo-spaces/rundgang-woche.sh --only <id>,<id> ~/halo-spaces`.
+  Unter launchd: `launchctl submit -l at.halo-spaces.rundgang-probe -- /bin/zsh
+  ~/.config/halo-spaces/rundgang-woche.sh --only … ~/halo-spaces` und nach dem
+  Lauf `launchctl remove at.halo-spaces.rundgang-probe` – `submit` startet den
+  Auftrag nach dem Ende neu, bis er entfernt ist.

@@ -277,7 +277,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
   selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
-  oder Wochenprüfung übernehmen diese selbst. `tests/MAC-MINI.md` Abschnitt 14.
+  oder Wochenprüfung übernehmen diese selbst. Zeilen `KONSOLE  …` trägt er für
+  jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein (kein Rot). `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
   `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als

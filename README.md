@@ -283,6 +283,8 @@ halo.spaces uses the coffee cup from [Noto Emoji](https://github.com/googlefonts
 (© Google LLC, Apache License 2.0), see `extension/about/NOTICE.txt`. The optional weather
 in the Today pane uses data from [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0).
 The layout of this page started from [FluentBird](https://github.com/Deathbyteacup/fluentbird) by Danny King.
+Thanks to [Thiago Pedro](https://github.com/ThiagoPedro) for the idea and first version of
+accounts and add-ons as items in the settings sidebar (since 3.17.0).
 
 Released under the Mozilla Public License 2.0.
 

@@ -197,7 +197,7 @@ und per Remote Control aus Cloud-Sitzungen (Einrichtung `tests/MAC-MINI.md`
 Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
 
 - `tests/mac-mini-setup.sh --check` prüft den Rechner (Ruhezustand, Thunderbird,
-  Python, gh, Bildschirm, Rechte, Anmeldung, Tailscale, SSH, Runner, Remote Control, Windows-VM) und ändert
+  Python, gh, Bildschirm, Rechte, Anmeldung, Tailscale, SSH, Runner, Remote Control, Windows-VM, Auslagerung) und ändert
   nichts; ohne `--check` richtet es ein, was ohne Passwort geht, und macht einen
   Probelauf.
 - Marionette-Ports: 2839 Standard, 2845 CI-Jobs `mac` und `windows`, ab 2850 für Läufe von Hand

@@ -725,6 +725,23 @@ probelauf() {
   fi
 }
 
+# Speicher: Auslagerung (Swap) neben der VM (6 GB) – wächst sie über drei
+# Viertel, werden Tests und VM langsamer; nur Hinweis, eingerichtet wird nichts
+pruefe_speicher() {
+  local su total used frei
+  su=$(sysctl -n vm.swapusage 2>/dev/null)
+  total=$(sed -n 's/.*total = \([0-9.]*\)M.*/\1/p' <<<$su)
+  used=$(sed -n 's/.*used = \([0-9.]*\)M.*/\1/p' <<<$su)
+  frei=$(memory_pressure 2>/dev/null | sed -n 's/.*free percentage: \([0-9]*\)%.*/\1/p')
+  if [[ -z $total || $total == 0.00 ]]; then
+    ok "Speicher" "keine Auslagerung${frei:+, $frei % frei}"
+  elif (( ${used%.*} * 4 > ${total%.*} * 3 )); then
+    hinweis "Speicher" "Auslagerung ${used%.*} von ${total%.*} MB belegt${frei:+, $frei % frei} – VM pausieren bzw. Rechner neu starten"
+  else
+    ok "Speicher" "Auslagerung ${used%.*} von ${total%.*} MB belegt${frei:+, $frei % frei}"
+  fi
+}
+
 print "halo.spaces – Testrechner $( (( CHECK )) && print prüfen || print einrichten )"
 print "  $ME · macOS $(sw_vers -productVersion) · $(sysctl -n hw.model) ($(uname -m))${SSH_CONNECTION:+ · per SSH}"
 print
@@ -743,6 +760,7 @@ pruefe_runner
 pruefe_remote_control
 pruefe_laeufe
 pruefe_vm
+pruefe_speicher
 if (( PROBE )); then
   probelauf
 else

@@ -32,6 +32,10 @@ und wirkten die Verbesserungen der Vorwochen?
   rotiert ab 10 MB): Startzeilen („Start: …“, je Neustart der Sitzung neon)
   und Fehlerzeilen der letzten 7 Tage zählen; häufige Neustarts oder neue
   Fehlerarten im Bericht nennen.
+- **Speicher von neon:** `sysctl vm.swapusage` (belegte und gesamte
+  Auslagerung) und `memory_pressure` (freier Anteil) zum Zeitpunkt der
+  Prüfung; über drei Viertel belegte Auslagerung im Bericht nennen (Vergleich
+  zur Vorwoche).
 - **Nachtlauf zu früh beendet?** (Wunsch des Maintainers vom 5.11.2026) Je
   Nacht aus ~/halo-nacht/<datum>.log Beginn („Start, Sitzung“) und Ende
   („Ende“) der Arbeit und Grund des Endes (Fertig-Datei, „08:00 erreicht“,

@@ -507,12 +507,13 @@ EOF
   fi
 }
 
-# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–15): Nachtlauf jede
-# Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00. Die
+# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–16): Nachtlauf jede
+# Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00,
+# Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku). Die
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
 # (außerhalb des Checkouts, die Läufe ändern ihn).
 AG_DIR=$HOME/.config/halo-spaces
-agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
+agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel> [<Option für das Skript>]
   cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -520,7 +521,7 @@ agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
 <dict>
   <key>Label</key><string>$1</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/zsh</string><string>$AG_DIR/$2</string>$( [[ $2 == ci-waechter.sh ]] || print -n "<string>$ROOT</string>" )</array>
+  <array><string>/bin/zsh</string><string>$AG_DIR/$2</string>${5:+<string>$5</string>}$( [[ $2 == ci-waechter.sh ]] || print -n "<string>$ROOT</string>" )</array>
   $4
   <key>ProcessType</key><string>Interactive</string>
   <key>StandardOutPath</key><string>$3</string>
@@ -529,13 +530,13 @@ agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
 </plist>
 EOF
 }
-pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei oder -> <Text bei OK>
-  local name=$1 label=$2 skript=$3 log=$4 plan=$5 pause=$6 text=$7
+pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei oder -> <Text bei OK> [<Option>]
+  local name=$1 label=$2 skript=$3 log=$4 plan=$5 pause=$6 text=$7 opt=$8
   local plist=$HOME/Library/LaunchAgents/$label.plist dom=gui/$(id -u) f aktuell=1
   for f in $skript lauf-hilfen.zsh; do
     cmp -s $ROOT/tests/$f $AG_DIR/$f || aktuell=0
   done
-  [[ $(agent_plist $label $skript $log $plan) == "$(cat $plist 2>/dev/null)" ]] || aktuell=0
+  [[ $(agent_plist $label $skript $log $plan $opt) == "$(cat $plist 2>/dev/null)" ]] || aktuell=0
   if (( aktuell )); then
     :
   elif (( CHECK )); then
@@ -543,7 +544,7 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei
     tun "tests/mac-mini-setup.sh --ohne-probelauf ausführen"
     return
   elif mkdir -p $AG_DIR ${plist:h} ${log:h} && cp $ROOT/tests/$skript $ROOT/tests/lauf-hilfen.zsh $AG_DIR/ &&
-       chmod 755 $AG_DIR/$skript && agent_plist $label $skript $log $plan > $plist; then
+       chmod 755 $AG_DIR/$skript && agent_plist $label $skript $log $plan $opt > $plist; then
     launchctl bootout $dom/$label 2>/dev/null
     if ! launchctl bootstrap $dom $plist 2>/dev/null; then
       offen $name "LaunchAgent eingerichtet, ließ sich aber nicht laden"
@@ -576,6 +577,10 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
     $HOME/halo-nacht/PAUSE-WOCHE "sonntags 08:00, Berichte in ~/halo-berichte"
+  pruefe_agent "Doku-Prüfung" at.halo-spaces.dokupruefung wochenpruefung.sh $HOME/Library/Logs/halo-dokupruefung.log \
+    '<key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
+    $HOME/halo-nacht/PAUSE-DOKU "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
 }
 
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über

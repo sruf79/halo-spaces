@@ -33,6 +33,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
 | `tests/ci-waechter.sh`, `tests/ci-warten.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14 |
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
+| `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
@@ -197,6 +198,15 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   Änderungen, an denen gerade keine Sitzung arbeitet
   (prüfen, committen; Rotes oder Halbfertiges auf einen Zweig `rest/<datum>`),
   gleicht mit GitHub ab und arbeitet erst dann die Aufgabenliste ab.
+- **Den Nachtlauf nicht behindern** (Entscheidung des Maintainers vom
+  5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
+  Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was
+  den Nachtlauf auslassen lässt (siehe „Nachtlauf“ unten): ab 00:30 keinen
+  Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein), keine
+  Testläufe auf neon, die über 01:30 hinausgehen, und keine Runde, die um
+  01:30 noch arbeitet – rechtzeitig abschließen bzw. die Antwort geben und
+  warten. Zwischen 01:30 und 09:00 gilt die Push-Sperre unter
+  „Cloud-Sessions“ für alle Sitzungen.
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
   machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
   Push, CI und Release das Board nicht erneut laden: Was während des Laufs
@@ -227,6 +237,13 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   `~/halo-aufgaben/wochen-kennzahlen.json`), behebt kleine Dinge an Prüfungen
   selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
   `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
+- **Doku-Prüfung:** samstags 08:00 (wartet ebenso bis 09:15 auf den
+  Nachtlauf) prüft `tests/wochenpruefung.sh --doku` alle `.md`-Dateien auf
+  Widersprüche, Veraltetes, Doppeltes, Unklares und Abweichungen vom Code
+  (Kennzahlen in `~/halo-aufgaben/doku-kennzahlen.json`), korrigiert
+  eindeutige Fakten selbst und legt echte Widersprüche und Regeländerungen
+  nur als „Doku: …“ mit „Wartet auf OK“ an. Bericht
+  `~/halo-berichte/<datum>-dokupruefung.md`. `tests/MAC-MINI.md` Abschnitt 16.
 - Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
   Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da
   und bekommt keine weiteren Aufgaben (Entscheidung des Maintainers vom 3.11.2026).
@@ -273,17 +290,22 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 ./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, Bericht
 ```
 
-**Wann:** Nach einem Lauf, der Bugs/Features abgearbeitet hat, oder nach
-größeren Änderungen veröffentlicht der Agent selbst, ohne Rückfrage – auch
+**Wann:** Jede Sitzung darf ohne Rückfrage veröffentlichen – auch
 unbeaufsichtigt nachts (Entscheidung des Maintainers vom 2.11.2026: schlechte
 Releases werden mit einem neuen Update nach vorn korrigiert, Thunderbird stuft
-nicht zurück). Ablauf: Versionshinweise im `README.md` schreiben (eigener
+nicht zurück). Sie entscheidet selbst, ob ihre Änderungen groß genug für ein
+eigenes Release sind (z. B. ein Bug, den Nutzer spüren, oder eine neue
+Funktion). Wenn nicht, bleibt es beim Commit: Der nächste Nachtlauf
+veröffentlicht alle noch nicht veröffentlichten Bugs und Features
+automatisch, sobald die CI dazu grün ist (Entscheidung des Maintainers vom
+5.11.2026). Ablauf: Versionshinweise im `README.md` schreiben (eigener
 Commit „README: Versionshinweise x.y.z“), Notizen für den GitHub-Release als
 Datei (englisch, gleicher Inhalt), `./release.sh x.y.z`, bei grünen Tests
 direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
-für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests) nur
-committen, kein Release. Veröffentlicht wird **nur auf neon**, nie vom Laptop
-oder aus Cloud-Sessions (dort neon beauftragen).
+für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests)
+lohnen meist kein eigenes Release. `release.sh` und `publish.sh` laufen
+**nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions – die
+beauftragen dafür neon (nach dem Push).
 
 **Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests, ob
@@ -356,9 +378,11 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - Die Liste ist die Vorlage für die Arbeit: offene Einträge berücksichtigen
   und passende Aufgaben nennen – in der Reihenfolge unten.
 - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
-  abends): 1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
+  abends; gilt für jede Sitzung, nicht nur den Nachtlauf, 5.11.2026):
+  1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden,
-  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m).
+  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m). Diese Reihenfolge
+  ist immer erlaubt.
 - **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
   (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
@@ -473,8 +497,9 @@ liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
   verdrängen). Früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist
   (Bericht `~/halo-berichte/<datum>-nachtlauf.md` liegt vor); sonst bis
   danach warten bzw. es dem Maintainer sagen.
-- Kein Release aus der Cloud (siehe „Release“); den Board-Status über neon
-  oder den Maintainer pflegen.
+- Release nur über neon, wenn die Sitzung es für nötig hält (siehe
+  „Release“), sonst übernimmt es der nächste Nachtlauf; den Board-Status
+  über neon oder den Maintainer pflegen.
 
 ## GitHub-Issues und Pull Requests von Nutzern
 

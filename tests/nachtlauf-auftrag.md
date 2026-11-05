@@ -95,8 +95,15 @@ Reihenfolge:
    origin/main..main zeigt Commits: trotzdem pushen und abwarten wie a), bei
    Rot wie c).
    Release dann wie b) nur, wenn darunter Bug- oder Feature-Commits sind
-   (sonst kein Release, AGENTS.md „Release“). Gar keine Commits: kein Release,
-   nichts pushen.
+   (sonst kein Release, AGENTS.md „Release“). Gar keine Commits: nichts
+   pushen.
+   Unabhängig davon: Liegen seit dem letzten Release (git log
+   v<letzte Version>..origin/main, Version aus updates.json) schon gepushte,
+   noch nicht veröffentlichte Bug- oder Feature-Commits anderer Sitzungen,
+   dann veröffentlichen wie b), sobald der CI-Lauf für origin/main grün ist
+   (tests/ci-warten.sh <commit> 9; rot: kein Release, im Bericht sagen).
+   So kommt jede Korrektur spätestens mit dem nächsten Nachtlauf zu den
+   Nutzern (Entscheidung des Maintainers vom 5.11.2026).
 5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>

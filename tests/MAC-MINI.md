@@ -29,7 +29,7 @@ Im Folgenden heißt der Testbenutzer `halotest` und der Mini in Tailscale
 | CI (optional) | GitHub-Runner als LaunchAgent im Testbenutzer | Tests unter macOS bei jedem Push auf `main` |
 | Windows (optional) | Parallels-VM mit Windows 11, Test per `halo_test.py --vm` | Windows-Abweichungen sehen, ohne zweiten Rechner |
 | Cloud (optional) | `claude remote-control` als LaunchAgent | Cloud-Sitzungen und die Claude-App steuern den Mini, ohne dass er von außen erreichbar ist |
-| Läufe | Nachtlauf, CI-Wächter, Wochenprüfung als LaunchAgents (Abschnitte 13–15) | Liste abarbeiten und veröffentlichen, rote CI melden, Läufe auswerten – ohne Desktop-App-Sitzung |
+| Läufe | Nachtlauf, CI-Wächter, Wochenprüfung, Doku-Prüfung als LaunchAgents (Abschnitte 13–16) | Liste abarbeiten und veröffentlichen, rote CI melden, Läufe und Doku auswerten – ohne Desktop-App-Sitzung |
 
 ## 1. Verwalteter Mac?
 
@@ -469,14 +469,16 @@ Reparaturrunden, keine neue ab 07:30, sonst kein Release. Der Bericht nennt
 die CI-Läufe mit ID, Ergebnis und Dauer je Job. Tagsüber committete, nicht
 gepushte Commits auf `main` (Nicht Eiliges, AGENTS.md) pusht er mit – auch
 in Nächten ohne eigene Einträge, dann ohne Release, außer es sind Bugs oder
-Features darunter.
+Features darunter. Ebenso veröffentlicht er schon gepushte, aber noch nicht
+veröffentlichte Bugs und Features anderer Sitzungen, wenn die CI dazu grün
+ist (Entscheidung des Maintainers vom 5.11.2026).
 
 - Einrichten bzw. nach Änderungen am Skript erneuern:
   `tests/mac-mini-setup.sh --ohne-probelauf` (LaunchAgent
   `at.halo-spaces.nachtlauf`, Skript mit `tests/lauf-hilfen.zsh` nach
   `~/.config/halo-spaces/` kopiert, Protokoll
-  `~/Library/Logs/halo-nachtlauf.log`). Dasselbe richtet CI-Wächter und
-  Wochenprüfung ein (Abschnitte 14 und 15). Claude Code darf den
+  `~/Library/Logs/halo-nachtlauf.log`). Dasselbe richtet CI-Wächter,
+  Wochenprüfung und Doku-Prüfung ein (Abschnitte 14–16). Claude Code darf den
   LaunchAgent nicht selbst laden (Sicherheitsprüfung) – der Befehl kommt vom
   Maintainer, in der Bildschirmsitzung oder per SSH.
 - Erster erlaubter Tag: `HALO_NACHT_AB` im Skript (Standard 4.11.2026);
@@ -590,3 +592,33 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   Wie beim Nachtlauf nur unter launchd bzw. in der Bildschirmsitzung (per SSH
   ist `claude -p` nicht angemeldet), z. B. im Terminal am Bildschirm oder
   per Bildschirmfreigabe.
+
+## 16. Doku-Prüfung
+
+Samstags um 08:00 prüft Claude Code alle `.md`-Dateien des Repos – wie die
+Wochenprüfung die Läufe (LaunchAgent `at.halo-spaces.dokupruefung`,
+`tests/wochenpruefung.sh --doku`, Auftrag `tests/dokupruefung-auftrag.md`;
+keine geplante Aufgabe der Desktop-App).
+
+- Geprüft: Widersprüche (in einer Datei und zwischen den Dateien), Abgleich
+  mit dem Stand des Repos (Pfade, Dateilisten, Abschnittsverweise, Zeiten,
+  Ports, Befehle, Zahlen), Veraltetes, Doppeltes, Unklares, Lücken.
+- Kennzahlen je Woche in `~/halo-aufgaben/doku-kennzahlen.json`, Bericht
+  `~/halo-berichte/<datum>-dokupruefung.md` (erste Zeile „Kurz: …“ geht aufs
+  iPhone).
+- Darf selbst: Fakten an den Code angleichen, eindeutig Veraltetes
+  anpassen, Doppeltes in einer Datei zusammenführen, Unklares eindeutig
+  formulieren (höchstens zehn Korrekturen), nur in `.md`-Dateien, und
+  pushen, wenn sonst nichts Ungepushtes auf `main` liegt (reine
+  `.md`-Pushes starten keine CI). Echte Widersprüche, inhaltliche
+  Regeländerungen und `store/*.md` nur als Board-Eintrag „Doku: …“ mit
+  Status „Wartet auf OK“. Nie: Entscheidungen des Maintainers,
+  Freigaberegeln, Release-Sperre, Versionshinweise, Skripte, Workflows.
+- Wartet wie die Wochenprüfung bis höchstens 09:15 auf den Nachtlauf; CI,
+  Testläufe und VM stören sie nicht (sie testet nichts), andere Sitzungen
+  am Repo und `release.sh`/`publish.sh` schon (dann „ausgelassen“). Sperre
+  `~/halo-nacht/doku.lock`, Protokoll `~/halo-nacht/<datum>-doku.log`,
+  Zeitgrenzen wie Abschnitt 15.
+- Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.
+- Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --doku --trocken` –
+  nur auswerten und Bericht; Einschränkungen wie Abschnitt 15.

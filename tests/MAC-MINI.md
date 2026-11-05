@@ -465,7 +465,11 @@ abwarten (`tests/ci-warten.sh`, etwa 50 Minuten: Linux ~16, `mac` ~32,
 `windows` ~17). Grün: Versionshinweise, `release.sh` (überspringt die Tests
 dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
 mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
-Reparaturrunden, keine neue ab 07:30, sonst kein Release. Der Bericht nennt
+Reparaturrunden, keine neue ab 07:30, sonst kein Release. Nach grüner CI
+und Release arbeitet er weiter Einträge ab (Entscheidung des Maintainers vom
+5.11.2026): kein neuer Eintrag ab 06:30; ist er bis 07:30 fertig, pusht er
+und wartet die CI ab (grün: Done, kein zweites Release; rot: `git revert`),
+sonst bleiben die Commits für den nächsten Nachtlauf liegen. Der Bericht nennt
 die CI-Läufe mit ID, Ergebnis und Dauer je Job. Tagsüber committete, nicht
 gepushte Commits auf `main` (Nicht Eiliges, AGENTS.md) pusht er mit – auch
 in Nächten ohne eigene Einträge, dann ohne Release, außer es sind Bugs oder
@@ -570,8 +574,9 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   `~/halo-nacht/*.log` und `~/halo-berichte/*` (erledigte Einträge,
   Limit-Pausen, ausgelassene Nächte, Release lokal oder per CI,
   Store-Upload-Fehler), Protokoll des CI-Wächters, Durchsatz im Board.
-- Nachtlauf zu früh beendet: je Nacht, ob er vor 04:30 aufgehört hat,
-  obwohl noch machbare Einträge im Board lagen (ungenutzte Minuten, Zahl der
+- Nachtlauf zu früh beendet: je Nacht, ob er früher aufgehört hat als
+  möglich (vor 04:30, bzw. nach grüner CI vor 06:30), obwohl noch machbare
+  Einträge im Board lagen (ungenutzte Minuten, Zahl der
   Einträge, Grund); in mindestens zwei Nächten der Woche ein Vorschlag
   „Ablauf: Nachtlauf …“ mit „Wartet auf OK“.
 - Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich

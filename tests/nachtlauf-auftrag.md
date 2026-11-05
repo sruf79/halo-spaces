@@ -58,8 +58,9 @@ Reihenfolge:
    nach grüner CI (Schritt 4b, AGENTS.md „Aufgabenliste“).
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
-3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und eine
-   Reparaturrunde vor 08:00).
+3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und zwei
+   Reparaturrunden bis 09:00); weiter geht es erst nach grüner CI in
+   Schritt 4b.
 4. Wurde mindestens ein Bug/Feature committet: pushen und die schnelle CI
    abwarten (Entscheidung des Maintainers vom 3.11.2026), dann veröffentlichen.
    a) git push. Den CI-Lauf für genau diesen Commit abwarten:
@@ -105,11 +106,35 @@ Reihenfolge:
    (tests/ci-warten.sh <commit> 9; rot: kein Release, im Bericht sagen).
    So kommt jede Korrektur spätestens mit dem nächsten Nachtlauf zu den
    Nutzern (Entscheidung des Maintainers vom 5.11.2026).
+4b. Weiterarbeiten nach grüner CI (Entscheidung des Maintainers vom
+   5.11.2026): Ist Schritt 4 abgeschlossen – CI grün und Release
+   veröffentlicht bzw. nicht nötig – und ist es vor 06:30, die nächsten
+   Einträge aus dem Plan dieses Laufs weiter abarbeiten wie Schritt 2 (gleiche
+   Reihenfolge, keine neu dazugekommenen Einträge). Ab 06:30 keinen neuen
+   Eintrag mehr anfangen. Bei roter CI in Schritt 4 (auch nach den
+   Reparaturrunden) entfällt dieser Schritt.
+   a) Fertig vor 07:30: git fetch origin, git rebase origin/main, pushen und
+      die CI wie in 4a abwarten (tests/ci-warten.sh HEAD 9, wiederholen
+      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge mit
+      fertig.sh auf Done setzen; kein zweites Release in dieser Nacht – das
+      macht der nächste Nachtlauf (Schritt 4 „Unabhängig davon“) oder eine
+      Sitzung am Tag. Rot: keine Reparaturrunde; die Commits dieses Schritts
+      mit git revert zurücknehmen, pushen (nicht mehr abwarten), Einträge
+      zurück auf Todo mit Notiz, was rot war. Um 08:50 noch nicht fertig:
+      im Bericht mit Lauf-ID nennen (der CI-Wächter wertet Läufe, die
+      während des Nachtlaufs beginnen, nicht aus), Einträge bleiben In
+      Progress mit Notiz.
+   b) Erst ab 07:30 fertig: nicht pushen. Die Commits bleiben auf main in
+      ~/halo-spaces (der nächste Nachtlauf nimmt sie in Schritt 0 mit), die
+      Einträge bleiben In Progress mit Notiz „committet, wartet auf
+      nächsten Nachtlauf“.
 5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
-   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
+   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit; Einträge aus Schritt 4b mit
+   „nach dem Release“ und ihrem CI-Ergebnis bzw. „wartet auf nächsten
+   Nachtlauf“), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“

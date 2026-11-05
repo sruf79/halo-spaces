@@ -31,11 +31,12 @@ letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
   Nacht aus ~/halo-nacht/<datum>.log Beginn („Start, Sitzung“) und Ende
   („Ende“) der Arbeit und Grund des Endes (Fertig-Datei, „08:00 erreicht“,
   dreimal ohne Fertig-Datei aufgehört, Limit) sowie aus dem Bericht, was
-  unter „Übersprungen/offen“ steht. Zu früh heißt: Der Lauf hat vor 04:30
-  den letzten Eintrag begonnen bzw. vor 04:30 aufgehört, obwohl im Board
+  unter „Übersprungen/offen“ steht. Zu früh heißt: Der Lauf hat früher als
+  möglich aufgehört, neue Einträge anzufangen – vor 04:30, bzw. nach grüner
+  CI und Release (Schritt 4b des Nachtlauf-Auftrags) vor 06:30 –, obwohl im Board
   noch machbare Einträge (Todo, kein „Wartet auf OK“, keine offene
   Entscheidung des Maintainers) lagen. Je solche Nacht: ungenutzte Zeit bis
-  04:30 in Minuten, Zahl der liegengebliebenen machbaren Einträge und der
+  zur jeweiligen Grenze (04:30 bzw. 06:30) in Minuten, Zahl der liegengebliebenen machbaren Einträge und der
   erkennbare Grund (z. B. Plan zu klein gewählt, Einträge fälschlich als
   „braucht Entscheidung“ übersprungen, Abbruch nach Limit, Runde ohne
   Fortsetzung). War das in mindestens zwei Nächten der Woche so, einen
@@ -56,7 +57,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   job_dauer_min (Objekt Job → Mittelwert in Minuten),
   rote_pruefungen (Objekt Prüfung → Anzahl), unzuverlaessig (Liste),
   naechte, naechte_ausgelassen, naechte_zu_frueh, ungenutzt_min (Summe der
-  ungenutzten Minuten bis 04:30), limit_pausen, releases, releases_per_ci,
+  ungenutzten Minuten bis zur Grenze 04:30 bzw. 06:30), nach_release_erledigt, limit_pausen, releases, releases_per_ci,
   store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende.
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.

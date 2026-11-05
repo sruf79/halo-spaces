@@ -217,7 +217,11 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   die Aufgabenliste ab (kein neuer Eintrag ab 04:30), pusht, wartet auf die
   CI für genau diesen Commit (`tests/ci-warten.sh`) und veröffentlicht bei
   Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
-  sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
+  sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Nach
+  grüner CI und Release arbeitet er weiter Einträge ab, kein neuer ab 06:30;
+  bis 07:30 Fertiges pusht er und wartet die CI ab (grün: Done, kein zweites
+  Release; rot: `git revert`), Späteres nimmt der nächste Nachtlauf mit
+  (Entscheidung des Maintainers vom 5.11.2026). Bericht in
   `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Auf einen
   laufenden CI-Job wartet er (bis 90 Minuten). Er lässt aus, nur, wenn neon
   wirklich belegt ist: eine andere Claude-Sitzung ist mitten in einer Runde
@@ -234,8 +238,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   oder Wochenprüfung übernehmen diese selbst. `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
-  `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf vor 04:30
-  aufhört, obwohl noch machbare Einträge lagen), behebt kleine Dinge an Prüfungen
+  `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als
+  möglich – vor 04:30 bzw. nach grüner CI vor 06:30 – aufhört, obwohl noch
+  machbare Einträge lagen), behebt kleine Dinge an Prüfungen
   selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
   `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
 - **Doku-Prüfung:** samstags 08:00 (wartet ebenso bis 09:15 auf den

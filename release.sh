@@ -60,7 +60,7 @@ if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh 
           DUNKEL=ja
           TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel), Windows")
         else
-          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell; dunkel entfiel, keine Farben geändert), Windows")
+          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell; dunkel entfiel, seit dem zuletzt dunkel getesteten Stand keine Farben geändert), Windows")
         fi
       fi
       break

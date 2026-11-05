@@ -55,27 +55,32 @@ Reihenfolge:
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
    --only "…", bei Farben auch mit --dark), committen (nur eigene Hunks, Stil nach
    AGENTS.md); Eintrag bleibt In Progress, Commit-Hash merken – Done erst
-   nach grüner CI (Schritt 4b, AGENTS.md „Aufgabenliste“).
+   nach grüner CI (Schritt 4 b), AGENTS.md „Aufgabenliste“).
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
 3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und zwei
-   Reparaturrunden bis 09:00); weiter geht es erst nach grüner CI in
-   Schritt 4b.
+   Reparaturrunden – die letzte beginnt spätestens 07:30, ihre CI endet vor
+   09:00); weiter geht es erst nach grüner CI in Schritt 5.
 4. Wurde mindestens ein Bug/Feature committet: pushen und die schnelle CI
    abwarten (Entscheidung des Maintainers vom 3.11.2026), dann veröffentlichen.
    a) git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
-      Ein Lauf dauert etwa 50 Minuten (Linux ~16, mac ~32, windows ~17).
+      Ein Lauf dauert etwa 35 Minuten, mit Dunkelmodus etwa 55 (Linux ~17
+      parallel, mac hell ~17 bzw. hell und dunkel ~35, windows ~19).
       Solange er läuft, keine eigenen Testläufe auf diesem Mac (auch nicht
       --vm): die Jobs mac und windows laufen hier.
    b) Grün (Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
       README.md – zählt nicht als neuer Stand), Notizdatei für den
       GitHub-Release (englisch), ./release.sh x.y.z (überspringt die Tests
       dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>. Die
-      Einträge dieses Laufs jetzt mit ~/halo-aufgaben/fertig.sh <id>
-      "Commit <hash>" auf Done setzen (auch wenn das Release scheitert –
-      die CI war grün).
+      Einträge dieses Laufs jetzt abschließen (auch wenn das Release
+      scheitert – die CI war grün): normale Einträge mit
+      ~/halo-aufgaben/fertig.sh <id> "Commit <hash>" auf Done; Reihen-Schritte
+      (n/m) nicht mit fertig.sh, sondern auf „Wartet auf OK“ (Schritt 1;
+      status.sh kennt diesen Status nicht):
+        gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
+      und Commit-Hash als Notiz in den Eintrag.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
@@ -106,7 +111,7 @@ Reihenfolge:
    (tests/ci-warten.sh <commit> 9; rot: kein Release, im Bericht sagen).
    So kommt jede Korrektur spätestens mit dem nächsten Nachtlauf zu den
    Nutzern (Entscheidung des Maintainers vom 5.11.2026).
-4b. Weiterarbeiten nach grüner CI (Entscheidung des Maintainers vom
+5. Weiterarbeiten nach grüner CI (Entscheidung des Maintainers vom
    5.11.2026): Ist Schritt 4 abgeschlossen – CI grün und Release
    veröffentlicht bzw. nicht nötig – und ist es vor 06:30, die nächsten
    Einträge aus dem Plan dieses Laufs weiter abarbeiten wie Schritt 2 (gleiche
@@ -114,9 +119,10 @@ Reihenfolge:
    Eintrag mehr anfangen. Bei roter CI in Schritt 4 (auch nach den
    Reparaturrunden) entfällt dieser Schritt.
    a) Fertig vor 07:30: git fetch origin, git rebase origin/main, pushen und
-      die CI wie in 4a abwarten (tests/ci-warten.sh HEAD 9, wiederholen
-      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge mit
-      fertig.sh auf Done setzen; kein zweites Release in dieser Nacht – das
+      die CI wie in 4 a) abwarten (tests/ci-warten.sh HEAD 9, wiederholen
+      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge abschließen wie in
+      4 b) (normale mit fertig.sh auf Done, Reihen-Schritte auf „Wartet auf
+      OK“); kein zweites Release in dieser Nacht – das
       macht der nächste Nachtlauf (Schritt 4 „Unabhängig davon“) oder eine
       Sitzung am Tag. Rot: keine Reparaturrunde; die Commits dieses Schritts
       mit git revert zurücknehmen, pushen (nicht mehr abwarten), Einträge
@@ -128,11 +134,11 @@ Reihenfolge:
       ~/halo-spaces (der nächste Nachtlauf nimmt sie in Schritt 0 mit), die
       Einträge bleiben In Progress mit Notiz „committet, wartet auf
       nächsten Nachtlauf“.
-5. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
+6. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
-   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit; Einträge aus Schritt 4b mit
+   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
    „nach dem Release“ und ihrem CI-Ergebnis bzw. „wartet auf nächsten
    Nachtlauf“), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
@@ -141,7 +147,7 @@ Reihenfolge:
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
    der Grund ist, und das im Bericht sagen), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.
-6. Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung schicken, das
+7. Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung schicken, das
    macht das Skript.
 
 Grenzen:

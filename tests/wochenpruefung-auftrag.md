@@ -33,7 +33,7 @@ letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
   dreimal ohne Fertig-Datei aufgehört, Limit) sowie aus dem Bericht, was
   unter „Übersprungen/offen“ steht. Zu früh heißt: Der Lauf hat früher als
   möglich aufgehört, neue Einträge anzufangen – vor 04:30, bzw. nach grüner
-  CI und Release (Schritt 4b des Nachtlauf-Auftrags) vor 06:30 –, obwohl im Board
+  CI und Release (Schritt 5 des Nachtlauf-Auftrags) vor 06:30 –, obwohl im Board
   noch machbare Einträge (Todo, kein „Wartet auf OK“, keine offene
   Entscheidung des Maintainers) lagen. Je solche Nacht: ungenutzte Zeit bis
   zur jeweiligen Grenze (04:30 bzw. 06:30) in Minuten, Zahl der liegengebliebenen machbaren Einträge und der

@@ -6412,6 +6412,98 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum mit „Remove“), sofort gespeichert; Titel mittig, beim Bearbeiten linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
 
+    def tasks_new_list_sort():
+        # Aufgaben 4/5 wie Apple Erinnerungen: unter den Listen „⊕ New List“ (ohne Darüberfahren, nur im Bereich Aufgaben,
+        # mit dem Abschnitt eingeklappt) – Klick, Name tippen, Enter legt eine lokale Liste an und wählt sie, Esc verwirft;
+        # Kontextmenü der Listen im Bereich Aufgaben „Show All Lists“, „New List“, „Add Online List…“ (im Kalender
+        # unverändert); File → New List…; unter der letzten Karte „New Task“ – tippen, Enter legt sie in der gewählten
+        # Liste an; „…“ mit Sort By ▸ Due Date, Priority, Title, Creation Date und Aufsteigend/Absteigend
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {}; const madeCals = []; const madeTasks = [];
+          const shown = e => !!e && e.getBoundingClientRect().height > 0 && getComputedStyle(e).display != "none";
+          try {
+            await toCalendar(); await ruhig(600);
+            const row = () => d.getElementById("mcNewList");
+            out.inCalendar = shown(row());
+            tm.openTab("tasks", {}); await ruhig(1200);
+            out.inTasks = shown(row()); out.text = row()?.textContent.trim();
+            // anlegen
+            const before = cal.manager.getCalendars().length;
+            row().click(); await ruhig(200);
+            const input = row().querySelector("input");
+            out.edit = { input: !!input, value: input?.value, focus: d.activeElement == input, selected: input ? input.selectionEnd - input.selectionStart : 0 };
+            if (input) { input.value = "Halo Neue Liste"; input.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+            await bis(() => cal.manager.getCalendars().some(c => c.name == "Halo Neue Liste"), "neue Liste", 4000); await ruhig(400);
+            const made = cal.manager.getCalendars().find(c => c.name == "Halo Neue Liste"); if (made) madeCals.push(made);
+            out.created = { n: cal.manager.getCalendars().length - before, type: made?.type, selected: w.getSelectedCalendar?.()?.id == made?.id, idle: !row().querySelector("input") };
+            // Esc verwirft
+            row().click(); await ruhig(200);
+            const in2 = row().querySelector("input"); if (in2) { in2.value = "Halo Verworfen"; in2.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }
+            await ruhig(300); out.escaped = !cal.manager.getCalendars().some(c => c.name == "Halo Verworfen") && !row().querySelector("input");
+            // eingeklappt: Zeile mit weg
+            const head = d.getElementById("calendarListHeader"); head.click(); await ruhig(500); out.collapsed = !shown(row()); head.click(); await ruhig(500);
+            // Kontextmenü im Bereich Aufgaben
+            const ctx = d.getElementById("list-calendars-context-menu");
+            const openCtx = async () => { const li = d.querySelector("#calendar-list > li"); li.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: 20, clientY: 20 }));
+              await bis(() => ctx.state == "open", "Kontextmenü", 3000); await ruhig(200);
+              const r = [...ctx.children].filter(x => !x.hidden && x.localName == "menuitem").map(x => x.getAttribute("label")); ctx.hidePopup(); await ruhig(300); return r; };
+            out.ctxTasks = await openCtx();
+            await toCalendar(); await ruhig(800); out.ctxCalendar = await openCtx();
+            await bis(() => tm.tabInfo.some(t => t.mode.name == "tasks"), "Aufgaben-Tab", 2000);
+            tm.selectTabByMode?.("tasks") || tm.switchToTab([...tm.tabInfo].find(t => t.mode.name == "tasks")); await ruhig(800);
+            // File → New List…
+            out.fileMenu = !!d.getElementById("mcFileNewList") && d.getElementById("menu_FilePopup")?.contains(d.getElementById("mcFileNewList"));
+            // New Task unter der letzten Karte
+            Services.prefs.setCharPref("extensions.mailcards.taskList", "all");
+            const cards = d.getElementById("mcTaskCards");
+            await bis(() => cards?.querySelector(".mc-tc-new"), "Zeile New Task", 4000);
+            const nr = cards.querySelector(".mc-tc-new");
+            out.newTask = { last: cards.lastElementChild == nr, text: nr.textContent.trim() };
+            const selCal = w.getSelectedCalendar?.();
+            nr.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 })); await ruhig(200);
+            const ti = cards.querySelector(".mc-tc-new input");
+            out.newTask.input = !!ti && d.activeElement == ti;
+            if (ti) { ti.value = "Halo Getippt"; ti.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+            await bis(() => (d.getElementById("calendar-task-tree").mTaskArray || []).some(t => t.title == "Halo Getippt"), "neue Aufgabe", 5000); await ruhig(300);
+            const t = d.getElementById("calendar-task-tree").mTaskArray.find(x => x.title == "Halo Getippt"); if (t) madeTasks.push(t);
+            out.newTask.created = !!t; out.newTask.calendar = !!t && t.calendar?.id == selCal?.id; out.newTask.still = !!cards.querySelector(".mc-tc-new input");
+            const ti2 = cards.querySelector(".mc-tc-new input"); if (ti2) ti2.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+            await ruhig(300);
+            // Sortieren über „…“
+            for (const name of ["Halo B Sort", "Halo A Sort", "Halo C Sort"]) { const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs"); const x = new CalTodo(); x.title = name; x.calendar = made; madeTasks.push(await made.addItem(x)); }
+            await bis(() => d.getElementById("calendar-task-tree").mTaskArray.filter(x => /Sort$/.test(x.title)).length == 3, "Sortier-Aufgaben", 5000); await ruhig(300);
+            const pop = d.getElementById("mcTaskFilterPopup"); const more = d.querySelector("#mcListHeader .mc-lh-more");
+            const pickSort = async (attr, val) => { more.click(); await bis(() => pop.state == "open", "Menü …", 3000);
+              const sm = d.getElementById("mcTaskSortMenu"); sm.open = true; await bis(() => sm.menupopup.state == "open", "Sort By", 3000);
+              const it = sm.menupopup.querySelector(`menuitem[data-${attr}="${val}"]`); it?.doCommand(); sm.menupopup.hidePopup(); pop.hidePopup(); await ruhig(500); return !!it; };
+            more.click(); await bis(() => pop.state == "open", "Menü …", 3000);
+            const sm = d.getElementById("mcTaskSortMenu");
+            out.sortLabel = sm?.getAttribute("label"); sm.open = true; await bis(() => sm.menupopup.state == "open", "Sort By", 3000);
+            out.sortItems = [...sm.menupopup.querySelectorAll("menuitem")].map(x => x.getAttribute("label")); sm.menupopup.hidePopup(); pop.hidePopup(); await ruhig(300);
+            const order = () => d.getElementById("calendar-task-tree").mTaskArray.filter(x => /Sort$/.test(x.title)).map(x => x.title[5]).join("");
+            await pickSort("sort", "title"); await pickSort("dir", "ascending"); out.asc = order();
+            const cardOrder = [...cards.querySelectorAll(".mc-tc-title")].map(x => x.textContent).filter(x => /Sort$/.test(x)).map(x => x.slice(-6, -5)).join("");
+            out.cardsAsc = cardOrder;
+            await pickSort("dir", "descending"); out.desc = order();
+          } finally {
+            const tree = d.getElementById("calendar-task-tree"), view = tree?.mTreeView;
+            for (const x of madeTasks) try { await x.calendar.deleteItem(x); } catch {}
+            for (const c of madeCals) try { cal.manager.unregisterCalendar(c); cal.manager.removeCalendar?.(c); } catch {}
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        c, nt = res.get("created") or {}, res.get("newTask") or {}
+        ok = (res.get("inCalendar") is False and res.get("inTasks") and res.get("text") == "New List"
+              and res.get("edit") == {"input": True, "value": "New List", "focus": True, "selected": 8}
+              and c == {"n": 1, "type": "storage", "selected": True, "idle": True} and res.get("escaped") and res.get("collapsed")
+              and res.get("ctxTasks", [])[:0] == [] and "Show All Lists" in res.get("ctxTasks", []) and "New List" in res.get("ctxTasks", [])
+              and "Add Online List…" in res.get("ctxTasks", []) and not set(["Show All Lists", "New List", "Add Online List…"]) & set(res.get("ctxCalendar", []))
+              and res.get("fileMenu") and nt.get("last") and nt.get("text") == "New Task" and nt.get("input") and nt.get("created") and nt.get("calendar") and nt.get("still")
+              and res.get("sortLabel") == "Sort By" and res.get("sortItems") == ["Due Date", "Priority", "Title", "Creation Date", "Ascending", "Descending"]
+              and res.get("asc") == "ABC" and res.get("cardsAsc") == "ABC" and res.get("desc") == "CBA")
+        return ok, f"{res}"
+    check("Aufgaben 4/5: „New List“ unter den Listen (anlegen, Esc, eingeklappt), Kontextmenü und File → New List…, „New Task“ unter der letzten Karte, Sortieren über „…“", tasks_new_list_sort, results)
+
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle
         # stehen, über den Aufgaben-Knöpfen, wenn die Details bei schmalem Fenster unter die Liste rutschen)
@@ -7504,20 +7596,20 @@ def run_checks(m, version, profile, results):
                    "calendar-list-inner-pane", "list-calendars-context-menu", "menu_FilePopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup",
                    "settingsButton", "multiweek-view", "month-view"],
             about3pane: ["folderPane", "folderTree", "folderPaneSplitter", "threadPane", "threadTree", "messageBrowser", "folderPaneContext",
-                         "mailContext", "sortContext"],
+                         "mailContext"],
             aboutMessage: ["messageHeader", "messagepanebox", "messagepane", "attachmentView", "attachmentList", "attachmentBar", "attachment-splitter"],
             toolbarItems: ["search-bar", "write-message", "get-messages", "reply", "reply-all", "forward-inline", "archive", "delete", "junk", "move-to", "mark-as"],
             addressBook: ["booksPane", "booksSplitter", "cardsPane", "detailsPane", "sharedSplitter"],
           };
           const missing = {};
-          const check = (key, doc, ids) => { const m = ids.filter(id => !doc?.getElementById(id)); if (m.length) missing[key] = m; };
-          check("main", d, want.main);
-          const a3 = tm.currentAbout3Pane; check("about3pane", a3?.document, want.about3pane);
-          check("aboutMessage", a3?.document.getElementById("messageBrowser")?.contentDocument, want.aboutMessage);
-          const items = [...d.querySelectorAll("#unifiedToolbarContent > li[item-id]")].map(li => li.getAttribute("item-id"));
-          const mi = want.toolbarItems.filter(i => !items.includes(i)); if (mi.length) missing.toolbarItems = mi;
+          const look = (key, doc, list) => { const m = list.filter(id => !doc?.getElementById(id)); if (m.length) missing[key] = m; };
+          look("main", d, want.main);
+          const a3 = tm.currentAbout3Pane; look("about3pane", a3?.document, want.about3pane);
+          look("aboutMessage", a3?.document.getElementById("messageBrowser")?.contentDocument, want.aboutMessage);
+          const ids = [...d.querySelectorAll("#unifiedToolbarContent > li[item-id]")].map(li => li.getAttribute("item-id"));
+          const mi = want.toolbarItems.filter(i => !ids.includes(i)); if (mi.length) missing.toolbarItems = mi;
           tm.openTab("addressBookTab", {}); await ruhig(1500);
-          check("addressBook", tm.currentTabInfo.browser?.contentDocument, want.addressBook);
+          look("addressBook", tm.currentTabInfo.browser?.contentDocument, want.addressBook);
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           await toMail();
           return { missing, n: Object.values(want).flat().length };""")
@@ -11001,11 +11093,25 @@ Neu
 
     def help_menu_entry():
         # Help → „halo.spaces“: ohne „…“ (öffnet nur ein Info-Fenster), mit unserem Symbol davor
+        # Windows/Linux (Menü von Thunderbird statt der Leiste von macOS): Symbol farbig sichtbar, 16 px, ohne Maske
+        # (Hinweis aus Pull-Request #36: unter Windows fehlte es bzw. war grau)
         res = m.js(r"""const it = d.getElementById("mcHaloSpaces");
-          return it ? { label: it.getAttribute("label"), image: it.getAttribute("image"), iconic: it.classList.contains("menuitem-iconic") } : null;""")
-        ok = bool(res) and res["label"] == "halo.spaces" and res["iconic"] and (res["image"] or "").endswith("/about/icon.svg")
+          if (!it) return null;
+          const out = { label: it.getAttribute("label"), image: it.getAttribute("image"), iconic: it.classList.contains("menuitem-iconic") };
+          if (Services.appinfo.OS != "Darwin") {
+            const pop = d.getElementById("menu_HelpPopup");
+            pop.openPopup(d.getElementById("menubar-items") || d.documentElement, "after_start", 0, 0, false);
+            await until(() => pop.state == "open", 3000); await ruhig(400);
+            const ic = it.querySelector(".menu-iconic-icon"), r = ic?.getBoundingClientRect(), cs = ic && getComputedStyle(ic);
+            out.icon = ic ? { w: Math.round(r.width), h: Math.round(r.height), mask: cs.maskImage, opacity: cs.opacity, src: (ic.src || cs.listStyleImage || "").slice(0, 60) } : null;
+            pop.hidePopup(); await ruhig(300);
+          }
+          return out;""")
+        ic = (res or {}).get("icon")
+        ok = (bool(res) and res["label"] == "halo.spaces" and res["iconic"] and (res["image"] or "").endswith("/about/icon.svg")
+              and (sys.platform == "darwin" or (ic and ic["w"] == 16 and ic["h"] == 16 and ic["mask"] == "none" and ic["opacity"] == "1")))
         return ok, f"{res}"
-    check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol", help_menu_entry, results)
+    check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol (unter Windows/Linux farbig, 16 px)", help_menu_entry, results)
 
     def info_install_now():
         # Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort (Thunderbird hält es sonst bis
@@ -11171,7 +11277,7 @@ Neu
               and res.get("plan") == [14, 35, 67, 114, 185, 291, 451, 690, 1049, 1414]
               and dm == {"due": True, "dot": True, "attr": True}
               and res.get("withUpdate") == {"due": False, "attr": False} and res.get("sameDay") is False
-              and ring.get("due") and ring.get("shadow") not in (None, "", "none")
+              and ring.get("due") and ring.get("shadow") not in (None, "", "none") and ring.get("coffee") and ring.get("wisps") == 5 and ring.get("steam") == "1"
               and after.get("count") == 1 and after.get("due") is False and after.get("ring") is False
               and (after.get("image") or "").endswith("/about/icon.svg") and after.get("opened") == 2
               and after.get("url", "").startswith("https://buymeacoffee.com/diversion?")
@@ -11230,9 +11336,10 @@ Neu
         ok = (res.get("last") and res.get("head") == "Support halo.spaces" and res.get("label") == "Do you like halo.spaces?"
               and res.get("text") == "Say Thanks" and res.get("img")
               and res.get("lines") == [["halo.spaces is free and made in spare time.", "block"], ["A coffee helps keep it going.", "block"]] and res.get("due") and res.get("shadow") not in (None, "", "none")
-              and res.get("after") == {"thanked": 1, "due": False} and all(c == 4 for c in counts.values()))
+              and res.get("after") == {"thanked": 1, "due": False} and all(c == 4 for c in counts.values())
+              and res.get("coffee") == {"cls": True, "radius": 999, "h": 32, "gold": True, "wisps": 5, "steam": "1"} and res.get("afterSteam") == "0")
         return ok, f"{res}, Übersetzungen {counts}"
-    check("Einstellungen: ganz unten „Do you like halo.spaces?“ mit „Say Thanks“ (je Satz eine Zeile), Ring nur bei fälliger Erinnerung, übersetzt", thanks_settings, results)
+    check("Einstellungen: ganz unten „Do you like halo.spaces?“ mit „Say Thanks“ wie im Comment Ranker (goldener Ring, Tasse mit Dampf – von selbst nur bei fälliger Erinnerung), je Satz eine Zeile, übersetzt", thanks_settings, results)
 
     def addons_manager():
         # Add-ons-Verwaltung (Thunderbird 140+, Bausteine im Schatten-DOM): Seitenleiste 34 px/13 px, Seite und Kopf in
@@ -11830,7 +11937,7 @@ Neu
                        tip: !!(b.getAttribute("tooltiptext") || b.getAttribute("label")) }; });
             // „…“ öffnet die Ansichten, Filter-Knopf die Filter
             box.querySelector(".mc-lh-more").click(); const pop = d.getElementById("mcTaskFilterPopup"); await till(() => pop.state == "open", 3000);
-            out.viewMenu = [...pop.querySelectorAll("menuitem")].map(x => x.getAttribute("label")); pop.hidePopup(); await ruhig(300);
+            out.viewMenu = [...pop.querySelectorAll(":scope > menuitem")].map(x => x.getAttribute("label")); pop.hidePopup(); await ruhig(300);
             // ohne Auswahl: Detailspalte bleibt, mittig „No Task Selected“
             tree.view.selection.clearSelection(); await ruhig(1000);
             const st = csOf(det, "::before");

@@ -328,8 +328,6 @@ const DE = {
   "Remove Star": "Stern entfernen",
   "Mark as Spam": "Als Werbung markieren",
   "Mark as Not Spam": "Als keine Werbung markieren",
-  "Run Filters": "Filter anwenden",
-  "Create Filter From Message…": "Filter aus Nachricht erstellen …",
   "Show with Light Background": "Mit hellem Hintergrund anzeigen",
   "Follow-Up Suggestions": "Vorschläge für Rückfragen",
   "Above the inbox: your messages that got no reply.": "Über dem Posteingang: eigene Mails ohne Antwort.",
@@ -796,8 +794,6 @@ const FR = {
   "Remove Star": "Ne plus suivre",
   "Mark as Spam": "Marquer comme indésirable",
   "Mark as Not Spam": "Marquer comme désirable",
-  "Run Filters": "Appliquer les filtres",
-  "Create Filter From Message…": "Créer un filtre à partir du message…",
   "Show with Light Background": "Afficher avec un fond clair",
   "Follow-Up Suggestions": "Suggestions de relance",
   "Above the inbox: your messages that got no reply.": "Au-dessus de la boîte de réception : vos messages restés sans réponse.",
@@ -1264,8 +1260,6 @@ const ES = {
   "Remove Star": "Quitar destacado",
   "Mark as Spam": "Marcar como spam",
   "Mark as Not Spam": "Marcar como no spam",
-  "Run Filters": "Aplicar filtros",
-  "Create Filter From Message…": "Crear filtro a partir del mensaje…",
   "Show with Light Background": "Mostrar con fondo claro",
   "Follow-Up Suggestions": "Sugerencias de seguimiento",
   "Above the inbox: your messages that got no reply.": "Encima de la bandeja de entrada: tus mensajes sin respuesta.",
@@ -1732,8 +1726,6 @@ const IT = {
   "Remove Star": "Rimuovi stella",
   "Mark as Spam": "Segna come spam",
   "Mark as Not Spam": "Segna come non spam",
-  "Run Filters": "Applica filtri",
-  "Create Filter From Message…": "Crea filtro dal messaggio…",
   "Show with Light Background": "Mostra con sfondo chiaro",
   "Follow-Up Suggestions": "Suggerimenti di follow-up",
   "Above the inbox: your messages that got no reply.": "Sopra la posta in arrivo: i tuoi messaggi senza risposta.",
@@ -5595,6 +5587,127 @@ function hookTaskLists(win, restorers) {
   tagLists();
   const header = doc.getElementById("calendar-list-header-label");
   const tasksMode = () => doc.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks";
+
+  // Neue Liste wie in Apple Erinnerungen (Aufgaben 4/5): unter den Listen
+  // immer eine graue Zeile „⊕ New List“ (nur im Bereich Aufgaben, CSS; mit dem
+  // Abschnitt eingeklappt). Klick → Farbpunkt und markierter Name, gleich
+  // tippen; Enter (oder Klick daneben) legt eine lokale Liste an, Esc verwirft
+  const inner = doc.getElementById("calendar-list-inner-pane");
+  const newRow = el("div", "mc-nl-row");
+  newRow.id = "mcNewList";
+  newRow.setAttribute("role", "button");
+  newRow.tabIndex = 0;
+  const newIdle = [el("span", "mc-nl-plus"), el("span", "mc-nl-name", tr("New List"))];
+  newRow.append(...newIdle);
+  const LIST_COLORS = ["#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#007AFF", "#5856D6", "#AF52DE", "#A2845E"];
+  const startNewList = () => {
+    if (newRow.hasAttribute("data-editing")) {
+      return;
+    }
+    // Abschnitt eingeklappt: erst aufklappen
+    if (inner && !inner.getBoundingClientRect().height) {
+      doc.getElementById("calendarListHeader")?.click();
+    }
+    const all = cal.manager.getCalendars();
+    const used = new Set(all.map(c => String(c.getProperty("color") || "").toUpperCase()));
+    const color = LIST_COLORS.find(c => !used.has(c)) || LIST_COLORS[all.length % LIST_COLORS.length];
+    const dot = el("span", "mc-nl-dot");
+    dot.style.background = color;
+    const input = el("input", "mc-nl-input");
+    input.value = tr("New List");
+    input.setAttribute("aria-label", tr("New List"));
+    newRow.replaceChildren(dot, input);
+    newRow.setAttribute("data-editing", "");
+    let done = false;
+    const finish = keep => {
+      if (done) {
+        return;
+      }
+      done = true;
+      const name = input.value.trim();
+      newRow.replaceChildren(...newIdle);
+      newRow.removeAttribute("data-editing");
+      if (!keep || !name) {
+        return;
+      }
+      try {
+        const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+        c.name = name;
+        c.setProperty("color", color);
+        cal.manager.registerCalendar(c);
+        // die neue Liste gleich wählen (neue Aufgaben landen dort)
+        win.setTimeout(() => {
+          const rows = calList?.rows || [...(calList?.children || [])];
+          const i = rows.findIndex(li => li.getAttribute("calendar-id") == c.id);
+          if (i >= 0) {
+            calList.selectedIndex = i;
+          }
+        }, 0);
+      } catch (e) {
+        log("new list error", e);
+      }
+    };
+    input.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key == "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+      event.stopPropagation();
+    });
+    input.addEventListener("blur", () => win.setTimeout(() => finish(true), 0));
+    input.focus();
+    input.select();
+  };
+  newRow.addEventListener("click", startNewList);
+  newRow.addEventListener("keydown", event => {
+    if (event.target == newRow && (event.key == "Enter" || event.key == " ")) {
+      event.preventDefault();
+      startNewList();
+    }
+  });
+  calList?.after(newRow);
+  // für die Menüleiste (File → New List…) und den automatischen Test
+  win.__mcStartNewList = startNewList;
+
+  // Kontextmenü der Listenspalte im Bereich Aufgaben: „Show All Lists“,
+  // „New List“, „Add Online List…“ (Thunderbirds Assistent „New Calendar…“);
+  // im Bereich Kalender unverändert
+  const ctx = doc.getElementById("list-calendars-context-menu");
+  const ctxNew = doc.createXULElement("menuitem");
+  ctxNew.id = "mcListContextNew";
+  ctxNew.setAttribute("label", tr("New List"));
+  ctxNew.addEventListener("command", () => win.setTimeout(startNewList, 0));
+  doc.getElementById("list-calendars-context-new")?.before(ctxNew);
+  const relabel = [["list-calendars-context-showall", "Show All Lists"], ["list-calendars-context-new", "Add Online List…"]];
+  const ctxSaved = new Map();
+  const onCtx = event => {
+    if (event.target != ctx) {
+      return;
+    }
+    const tasks = tasksMode();
+    ctxNew.hidden = !tasks;
+    for (const [id, label] of relabel) {
+      const item = doc.getElementById(id);
+      if (!item) {
+        continue;
+      }
+      if (tasks) {
+        if (!ctxSaved.has(id)) {
+          ctxSaved.set(id, item.getAttribute("data-l10n-id"));
+        }
+        item.removeAttribute("data-l10n-id");
+        item.setAttribute("label", tr(label));
+      } else if (ctxSaved.has(id)) {
+        item.setAttribute("data-l10n-id", ctxSaved.get(id));
+        doc.l10n?.translateElements([item]);
+        ctxSaved.delete(id);
+      }
+    }
+  };
+  ctx?.addEventListener("popupshowing", onCtx);
   let oldHeader = null;
   const onTab = () => {
     if (!header) {
@@ -5625,6 +5738,16 @@ function hookTaskLists(win, restorers) {
   restorers.push(() => {
     composite.removeObserver(observer);
     mo?.disconnect();
+    newRow.remove();
+    ctxNew.remove();
+    ctx?.removeEventListener("popupshowing", onCtx);
+    for (const [id, l10n] of ctxSaved) {
+      const item = doc.getElementById(id);
+      if (item && l10n) {
+        item.setAttribute("data-l10n-id", l10n);
+      }
+    }
+    delete win.__mcStartNewList;
     tabs?.removeEventListener("TabSelect", onTab);
     win.clearTimeout(timer);
     if (oldHeader) {
@@ -5764,7 +5887,7 @@ function hookMenubar(win, restorers) {
   const L = (id, label) => [$(id), label];
   const layout = [
     ["menu_FilePopup", [
-      L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"),
+      L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"), [newList],
       L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
       L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), [importPst], L("menu_export"), S,
       L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
@@ -6708,9 +6831,94 @@ function hookTaskCards(win, restorers) {
       card.append(check, body);
       return card;
     });
-    list.replaceChildren(...cards);
+    // (eine Zeile in Bearbeitung nicht umhängen – sie verlöre den Fokus)
+    if (editing?.parentNode == list) {
+      for (const child of [...list.children]) {
+        if (child != editing) {
+          child.remove();
+        }
+      }
+      editing.before(...cards);
+    } else {
+      list.replaceChildren(...cards, newTaskRow());
+    }
     list.toggleAttribute("data-focused", doc.activeElement == tree);
     enhancer?.updateListHeader?.(win); // Anzahl im Listenkopf
+  };
+  // Neue Aufgabe wie in Apple Erinnerungen (Aufgaben 4/5): unter der letzten
+  // Karte eine leere Zeile mit grauem Kreis und „New Task“ – Klick und gleich
+  // tippen, Enter legt die Aufgabe in der gewählten Liste an (und öffnet die
+  // nächste Zeile), Esc bzw. leer verwirft; „+“ oben bleibt. Beim Neuaufbau der
+  // Karten bleibt eine Zeile in Bearbeitung stehen
+  let editing = null;
+  const newTaskRow = () => {
+    if (editing) {
+      return editing;
+    }
+    const row = el("div", "mc-tc mc-tc-new");
+    row.append(el("span", "mc-tc-check"), el("div", "mc-tc-body mc-tc-new-text", tr("New Task")));
+    return row;
+  };
+  const startNewTask = row => {
+    const calendar = win.getSelectedCalendar?.();
+    if (!calendar || calendar.readOnly || editing) {
+      return;
+    }
+    const input = el("input", "mc-tc-new-input");
+    input.setAttribute("aria-label", tr("New Task"));
+    row.querySelector(".mc-tc-body").replaceChildren(input);
+    row.setAttribute("data-editing", "");
+    editing = row;
+    const stop = () => {
+      editing = null;
+      schedule();
+    };
+    input.addEventListener("keydown", event => {
+      event.stopPropagation();
+      if (event.key == "Escape") {
+        event.preventDefault();
+        stop();
+        return;
+      }
+      if (event.key != "Enter") {
+        return;
+      }
+      event.preventDefault();
+      const title = input.value.trim();
+      if (!title) {
+        stop();
+        return;
+      }
+      try {
+        const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+        const task = new CalTodo();
+        task.title = title;
+        task.calendar = calendar;
+        // in „Today“ bzw. „Scheduled“ fällig heute – sonst verschwände sie gleich aus der Ansicht
+        const key = Services.prefs.getCharPref("extensions.mailcards.taskList", "all");
+        if (key == "today" || key == "scheduled") {
+          const due = cal.dtz.now();
+          due.isDate = true;
+          task.dueDate = due;
+        } else if (key == "important") {
+          task.priority = 1;
+        }
+        win.doTransaction("add", task, calendar, null, null);
+      } catch (e) {
+        log("new task error", e);
+      }
+      input.value = "";
+    });
+    input.addEventListener("blur", () => win.setTimeout(() => {
+      if (editing == row && doc.activeElement != input) {
+        const title = input.value.trim();
+        if (title) {
+          input.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Enter" }));
+        }
+        stop();
+      }
+    }, 0));
+    input.focus();
   };
   const schedule = () => {
     if (!pending) {
@@ -6747,6 +6955,14 @@ function hookTaskCards(win, restorers) {
     return card ? +card.dataset.index : -1;
   };
   list.addEventListener("mousedown", event => {
+    const newRow = event.target.closest?.(".mc-tc-new");
+    if (newRow) {
+      if (!newRow.hasAttribute("data-editing")) {
+        event.preventDefault();
+        startNewTask(newRow);
+      }
+      return;
+    }
     const i = indexOf(event);
     const sel = tree.view?.selection;
     if (!sel) {
@@ -6782,7 +6998,7 @@ function hookTaskCards(win, restorers) {
   });
   list.addEventListener("dblclick", event => {
     const i = indexOf(event);
-    if (event.button != 0 || event.target.closest(".mc-tc-check")) {
+    if (event.button != 0 || event.target.closest(".mc-tc-check") || event.target.closest(".mc-tc-new")) {
       return;
     }
     const initialDate = cal.dtz.getDefaultStartDate(tree.getInitialDate?.());
@@ -7635,8 +7851,10 @@ const PstImport = {
       info = this.read(fp.file.path);
     } catch (e) {
       log("pst read error", e);
-      await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
-        tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
+      // gültige Outlook-Datei, nur nicht lesbar: ehrlich sagen statt „beschädigt“
+      await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title, this.isPst(fp.file.path)
+        ? tr("{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).", { file: fp.file.leafName })
+        : tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
       return;
     }
     const lines = info.folders.slice(0, 40).map(f => `${"    ".repeat(f.depth)}${f.name}: ${f.count}`);
@@ -14619,6 +14837,63 @@ class CardEnhancer {
       const sync = () => {
         this.updateListHeader(w);
       };
+      // Sortieren (Aufgaben 4/5) wie Apple Erinnerungen: Sort By ▸ Fälligkeit,
+      // Priorität, Titel, Erstellungsdatum, Trenner, Aufsteigend/Absteigend –
+      // über Thunderbirds Sortierung der Aufgabenliste (gilt für Karten und
+      // Tabelle, bleibt gespeichert wie ein Klick auf den Spaltenkopf)
+      const sortMenu = () => {
+        const tree = d.getElementById("calendar-task-tree");
+        const view = tree?.mTreeView;
+        const cur = view?.selectedColumn?.getAttribute("itemproperty");
+        const dir = view?.sortDirection == "descending" ? "descending" : "ascending";
+        const menu = d.createXULElement("menu");
+        menu.id = "mcTaskSortMenu";
+        menu.setAttribute("label", tr("Sort By"));
+        const pop = d.createXULElement("menupopup");
+        const radio = (name, label, checked, fn) => {
+          const item = d.createXULElement("menuitem");
+          item.setAttribute("type", "radio");
+          item.setAttribute("name", name);
+          item.setAttribute("label", tr(label));
+          if (checked) {
+            item.setAttribute("checked", "true");
+          }
+          item.addEventListener("command", fn);
+          return item;
+        };
+        const sortBy = (prop, direction) => {
+          const col = tree?.querySelector(`treecol[itemproperty="${prop}"]`);
+          if (!col || !view) {
+            return;
+          }
+          for (const c of tree.querySelectorAll("treecol[sortDirection]")) {
+            c.removeAttribute("sortDirection");
+          }
+          view.selectedColumn = col;
+          view.sortDirection = direction;
+          col.setAttribute("sortDirection", direction);
+          try {
+            tree.sortItems();
+            tree.invalidate();
+            tree.persistColumnState?.();
+          } catch (e) {
+            log("task sort error", e);
+          }
+        };
+        for (const [prop, label] of [["dueDate", "Due Date"], ["priority", "Priority"], ["title", "Title"], ["creationDate", "Creation Date"]]) {
+          const item = radio("mctasksort", label, cur == prop, () => sortBy(prop, dir));
+          item.dataset.sort = prop;
+          pop.append(item);
+        }
+        pop.append(d.createXULElement("menuseparator"));
+        for (const [key, label] of [["ascending", "Ascending"], ["descending", "Descending"]]) {
+          const item = radio("mctasksortdir", label, dir == key, () => sortBy(cur || "dueDate", key));
+          item.dataset.dir = key;
+          pop.append(item);
+        }
+        menu.append(pop);
+        return menu;
+      };
       popup.addEventListener("popupshowing", event => {
         if (event.target != popup) {
           return;
@@ -14636,7 +14911,7 @@ class CardEnhancer {
             }
             item.addEventListener("command", () => setTaskView(w, key));
             return item;
-          }));
+          }), d.createXULElement("menuseparator"), sortMenu());
           return;
         }
         popup.replaceChildren(...[...group.querySelectorAll("radio")].map(radio => {

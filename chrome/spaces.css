@@ -138,6 +138,55 @@
   display: none !important;
 }
 
+/* Neue Liste (Aufgaben 4/5, setzt die Erweiterung): graue Zeile „⊕ New List“
+   unter den Listen, nur im Bereich Aufgaben; beim Bearbeiten Farbpunkt und
+   Namensfeld wie eine Liste */
+#mcNewList {
+  display: none;
+}
+
+:root[mc-tab="tasks"] #mcNewList {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0 8px 8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  color: var(--mt-text-secondary);
+  cursor: default;
+}
+
+:root[mc-tab="tasks"] #mcNewList:not([data-editing]):hover {
+  background: color-mix(in srgb, var(--mt-text) 5%, transparent);
+}
+
+#mcNewList .mc-nl-plus {
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='6.3'/%3E%3Cpath d='M8 5v6M5 8h6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+#mcNewList .mc-nl-dot {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+#mcNewList .mc-nl-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: var(--mt-hairline) solid var(--mt-pane-line);
+  border-radius: 6px;
+  background: var(--mt-window);
+  color: var(--mt-text);
+  font: inherit;
+}
+
 #mcTaskLists .mc-tl-list {
   list-style: none;
   margin: 0;
@@ -1678,6 +1727,35 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 .mc-tc[aria-selected] {
   background: var(--mt-selected-unfocused);
   box-shadow: none;
+}
+
+/* Zeile „New Task“ unter der letzten Karte (Aufgaben 4/5): grauer Kreis und
+   grauer Text, ohne Linie darunter; beim Bearbeiten ein Feld an Stelle des Texts */
+.mc-tc.mc-tc-new {
+  box-shadow: none;
+  align-items: center;
+}
+
+.mc-tc.mc-tc-new .mc-tc-check {
+  margin-top: 0;
+  border-color: var(--mt-text-tertiary);
+}
+
+.mc-tc-new-text {
+  color: var(--mt-text-tertiary);
+  font-size: calc(13px * var(--mt-font-scale, 1));
+}
+
+.mc-tc-new-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--mt-text);
+  font: inherit;
+  font-size: calc(13px * var(--mt-font-scale, 1));
 }
 
 #mcTaskCards[data-focused] .mc-tc[aria-selected] {

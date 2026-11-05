@@ -790,6 +790,34 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   display: none !important;
 }
 
+/* Mehrwochen-Ansicht stufenlos scrollen (Schritt 3/6, extensions.mailcards.
+   multiweekScroll): alle Wochen samt Puffer gleich hoch (eine Woche = sichtbare
+   Höhe / Wochenzahl), das Raster wird unter der stehenden Kopfzeile verschoben
+   (--mc-mw-y setzt die Erweiterung), außerhalb abgeschnitten */
+/* (das Raster liegt frei über der Ansicht: mit den Puffer-Wochen ist es höher
+   als sichtbar und darf die Ansicht nicht mitwachsen lassen) */
+calendar-multiweek-view[mc-mw-scroll] {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+calendar-multiweek-view[mc-mw-scroll] .monthtable {
+  position: absolute !important;
+  top: 0 !important;
+  inset-inline: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  grid-auto-rows: var(--mc-mw-row) !important;
+  transform: translateY(var(--mc-mw-y, 0px));
+}
+
+calendar-multiweek-view[mc-mw-scroll] .monthtable calendar-day-label {
+  position: relative;
+  z-index: 3;
+  transform: translateY(calc(-1 * var(--mc-mw-y, 0px)));
+}
+
 /* Monatsansicht */
 calendar-month-view .monthtable,
 calendar-multiweek-view .monthtable {

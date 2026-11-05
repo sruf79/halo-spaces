@@ -8193,6 +8193,122 @@ function addTypeSwitch(iw) {
 // Überschrift, Pfeile, „Heute“ und Zoom richten sich nach dem sichtbaren Teil
 const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
 const MULTIWEEK_BUFFER_WEEKS = 2;
+// Schritt 3/6: pixelgenau scrollen wie Apple Kalender (Mausrad und Trackpad
+// gleich). Jede Bewegung sofort; beim Überschreiten einer ganzen Woche rückt
+// der geladene Bereich unbemerkt um eine Woche weiter (die Pufferwoche ist
+// schon gezeichnet); nach dem Scrollen rastet die Ansicht weich auf die
+// nächstgelegene ganze Woche ein. Schwung erst in 5/6
+function hookMultiweekScroll(mv, win, on, B, orig) {
+  const LINE = 18; // eine Mausrad-Raste: etwa eine Textzeile
+  let pos = 0, idle = 0, anim = 0;
+  // Höhe einer Woche aus dem Platz, den die Ansicht hat (nicht aus ihrem
+  // Inhalt – das Raster ist mit den Puffer-Wochen höher als sichtbar)
+  const rowH = () => {
+    const headH = mv.querySelector("calendar-day-label")?.getBoundingClientRect().height || 0;
+    const weeks = mv.weeksInView || 4;
+    const space = mv.clientHeight;
+    return Math.max(20, (space - headH) / weeks);
+  };
+  const active = () => on() && !!mv.__mcVisible && mv.isVisible?.();
+  const apply = () => {
+    const h = rowH();
+    mv.toggleAttribute("mc-mw-scroll", active());
+    mv.style.setProperty("--mc-mw-row", `${h.toFixed(2)}px`);
+    mv.style.setProperty("--mc-mw-y", `${(-B * h - pos).toFixed(2)}px`);
+  };
+  // eine Woche weiter bzw. zurück (Thunderbird baut den Bereich neu, die
+  // Pufferwoche ist schon da – sichtbar ändert sich nichts)
+  const shift = weeks => {
+    try {
+      mv.moveView(weeks);
+    } catch (e) {
+      log("multiweek scroll error", String(e).slice(0, 120));
+    }
+  };
+  const settle = () => {
+    let h = rowH();
+    while (pos >= h) {
+      pos -= h;
+      shift(1);
+      h = rowH();
+    }
+    while (pos <= -h) {
+      pos += h;
+      shift(-1);
+      h = rowH();
+    }
+    apply();
+  };
+  // einrasten: weich zur nächstgelegenen Woche (mehr als halb im Bild → dorthin)
+  const snap = () => {
+    const h = rowH();
+    const target = pos > h / 2 ? h : pos < -h / 2 ? -h : 0;
+    const start = pos, t0 = win.performance.now(), ms = motionMs(180);
+    const curve = cubicBezier(0.25, 0.1, 0.25, 1);
+    const step = now => {
+      const k = ms ? Math.min(1, (now - t0) / ms) : 1;
+      pos = start + (target - start) * curve(k);
+      if (k < 1) {
+        apply();
+        anim = win.requestAnimationFrame(step);
+        return;
+      }
+      anim = 0;
+      pos = target;
+      settle();
+      pos = Math.abs(pos) < 0.5 ? 0 : pos;
+      apply();
+    };
+    anim = win.requestAnimationFrame(step);
+  };
+  const onWheel = event => {
+    if (!active() || event.ctrlKey || event.altKey || event.metaKey || !event.deltaY) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (anim) {
+      win.cancelAnimationFrame(anim);
+      anim = 0;
+    }
+    pos += event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
+      : event.deltaMode == event.DOM_DELTA_PAGE ? event.deltaY * rowH() : event.deltaY;
+    settle();
+    win.clearTimeout(idle);
+    idle = win.setTimeout(snap, 160);
+  };
+  mv.addEventListener("wheel", onWheel, { capture: true, passive: false });
+  const ro = new win.ResizeObserver(() => active() && apply());
+  ro.observe(mv);
+  const prefObs = () => {
+    pos = 0;
+    apply();
+  };
+  Services.prefs.addObserver(MULTIWEEK_SCROLL_PREF, prefObs);
+  // nach jedem Neuaufbau (Pfeile, „Heute“) wieder an der Wochengrenze
+  mv.__mcScrollApply = () => {
+    if (!anim) {
+      apply();
+    }
+  };
+  mv.__mcScrollPos = () => pos;
+  apply();
+  return () => {
+    mv.removeEventListener("wheel", onWheel, { capture: true });
+    ro.disconnect();
+    Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, prefObs);
+    win.clearTimeout(idle);
+    if (anim) {
+      win.cancelAnimationFrame(anim);
+    }
+    mv.removeAttribute("mc-mw-scroll");
+    mv.style.removeProperty("--mc-mw-row");
+    mv.style.removeProperty("--mc-mw-y");
+    delete mv.__mcScrollApply;
+    delete mv.__mcScrollPos;
+  };
+}
+
 function hookMultiweekBuffer(mv, restorers) {
   // Thunderbirds eigene Sicht auf das Element: Änderungen durch die
   // Schutzschicht der Erweiterung (Xray) sähe der Kalender sonst nicht
@@ -8223,8 +8339,10 @@ function hookMultiweekBuffer(mv, restorers) {
       body.append(row);
     }
   };
-  // nach jedem Aufbau: Puffer-Zeilen ausblenden, sichtbare fortlaufend ins
-  // Raster (leere Rasterzeilen nähmen sonst Platz ein)
+  // nach jedem Aufbau: Puffer-Zeilen markieren und fortlaufend ins Raster
+  // (leere Rasterzeilen nähmen sonst Platz ein). Schritt 3: die Puffer bleiben
+  // sichtbar – das ganze Raster wird pixelweise unter der Kopfzeile verschoben
+  // (scroll unten), nur der sichtbare Teil liegt im Fenster
   const afterLayout = view => {
     const rows = [...view.monthbody.children];
     const buffered = on() && !!view.__mcVisible;
@@ -8234,9 +8352,6 @@ function hookMultiweekBuffer(mv, restorers) {
       const k = used.indexOf(row);
       const buffer = buffered && k >= 0 && (k < B || k >= used.length - B);
       row.toggleAttribute("mc-buffer", buffer);
-      if (buffer) {
-        row.setAttribute("hidden", "");
-      }
       for (const cell of row.cells) {
         cell.firstElementChild.style.gridRow = buffered ? (row.hasAttribute("hidden") ? "" : n) : i + 2;
       }
@@ -8251,6 +8366,7 @@ function hookMultiweekBuffer(mv, restorers) {
     const r = orig.relayout.apply(this, args);
     try {
       afterLayout(this);
+      this.__mcScrollApply?.();
     } catch (e) {
       log("multiweek buffer layout error", String(e).slice(0, 120));
     }
@@ -8307,7 +8423,9 @@ function hookMultiweekBuffer(mv, restorers) {
     }
   };
   Services.prefs.addObserver(MULTIWEEK_SCROLL_PREF, observer);
+  const stopScroll = hookMultiweekScroll(mv, win, on, B, orig);
   restorers?.push(() => {
+    stopScroll();
     Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, observer);
     for (const [name, own, fn] of saved) {
       if (own) {

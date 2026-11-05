@@ -5346,10 +5346,15 @@ def calendar_checks(m, results):
           const weeksPref = Services.prefs.getIntPref("calendar.weeks.inview", 4), prevPref = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
           const iso = dt => dt ? `${dt.year}-${dt.month + 1}-${dt.day}` : null;
           const rows = () => [...mv.monthbody.children];
-          const look = () => ({ shown: rows().filter(r => !r.hidden).length, buffer: rows().filter(r => r.hasAttribute("mc-buffer")).length,
-            bufferHidden: rows().filter(r => r.hasAttribute("mc-buffer")).every(r => r.hidden), range: iso(mv.rangeStartDate), loaded: iso(mv.startDate),
+          // sichtbar: Wochenzeile mit mehr als der Hälfte im Fenster der Ansicht unterhalb der Kopfzeile (seit 3/6 liegen die
+          // Puffer-Wochen gezeichnet außerhalb)
+          const inView = r => { const c = r.cells[0]?.firstElementChild; if (r.hidden || !c) return false; const b = c.getBoundingClientRect(), v = mv.getBoundingClientRect();
+            const head = mv.querySelector("calendar-day-label")?.getBoundingClientRect().bottom ?? v.top;
+            return Math.min(b.bottom, v.bottom) - Math.max(b.top, head) > b.height / 2; };
+          const look = () => ({ shown: rows().filter(inView).length, buffer: rows().filter(r => r.hasAttribute("mc-buffer")).length,
+            bufferHidden: rows().filter(r => r.hasAttribute("mc-buffer")).every(r => !inView(r)), range: iso(mv.rangeStartDate), loaded: iso(mv.startDate),
             label: d.getElementById("intervalDescription")?.textContent || d.querySelector("#calendarNavigationBar .view-header")?.textContent || "",
-            h: Math.round(mv.monthbody.getBoundingClientRect().height) });
+            h: Math.round(rows().filter(inView).reduce((a, r) => a + r.cells[0].firstElementChild.getBoundingClientRect().height, 0)) });
           const out = { off: look() };
           const added = [];
           try {
@@ -5387,12 +5392,72 @@ def calendar_checks(m, results):
         off, on, nx, bk, zm, ag, oa = (res.get(k) or {} for k in ("off", "on", "next", "back", "zoom", "again", "offAgain"))
         week = lambda a, b: a and b and abs((__import__("datetime").date(*map(int, a.split("-"))) - __import__("datetime").date(*map(int, b.split("-")))).days)
         ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 2 and on.get("bufferHidden") and on.get("range") == off.get("range")
-              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 1 and week(on.get("loaded"), on.get("range")) == 14
+              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 14
               and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
               and zm.get("shown") == 3 and zm.get("buffer") == 4 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
               and oa.get("buffer") == 0 and oa.get("shown") == off.get("shown") and res.get("prefs") == [True, True])
         return ok, f"{res}"
-    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – unsichtbare Puffer-Wochen (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
+    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
+
+    def multiweek_scroll():
+        # Mehrwochen-Ansicht scrollen 3/6 (Einstellung): eine Raste verschiebt um ein Stück, nicht um eine Woche; jede
+        # Bewegung sofort; schnelle Rastenfolge ohne Verlust (Bereich rückt unbemerkt um ganze Wochen weiter); nach dem
+        # Scrollen Einrasten auf die nächstgelegene ganze Woche; Termine am richtigen Tag
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll";
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {}; const added = [];
+          try {
+            Services.prefs.setBoolPref(P, true); await ruhig(800);
+            const iso = dt => `${dt.year}-${dt.month + 1}-${dt.day}`;
+            const top = dt => { const b = mv.findDayBoxForDate(dt); return b ? b.getBoundingClientRect().top : null; };
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
+            const wheel = (deltaY, mode) => mv.monthbody.querySelector("calendar-month-day-box").dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY, deltaMode: mode }));
+            const first = mv.rangeStartDate.clone(); first.isDate = true;
+            // Termin mitten in der ersten sichtbaren Woche
+            const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+            const ev = new CalEvent(); ev.title = "Halo Scroll"; const sd = first.clone(); sd.day += 2; ev.startDate = sd; const ed = sd.clone(); ed.day += 1; ev.endDate = ed;
+            const item = await testCalendar().addItem(ev); added.push(item); await bis(() => mv.findDayBoxesForItem(item).length, "Termin angezeigt", 4000); await ruhig(500);
+            const t0 = top(first), h0 = head(), range0 = iso(mv.rangeStartDate);
+            out.aligned0 = Math.round(t0 - h0);
+            // eine Raste: ein Stück (sofort, ohne auf ein Bild zu warten), Bereich unverändert
+            wheel(1, 1); out.oneNotch = { moved: Math.round(t0 - top(first)), range: iso(mv.rangeStartDate) == range0 };
+            // zehn schnelle Rasten: alles ankommen (Verschiebung der Tageszelle = 11 Rasten), Bereich ggf. um eine Woche weiter
+            for (let i = 0; i < 10; i++) wheel(1, 1);
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            out.fast = { moved: Math.round(t0 - top(first)), rowH: Math.round(rowH) };
+            // Einrasten: liegt danach genau auf einer Wochengrenze
+            await ruhig(900);
+            const firstNow = mv.rangeStartDate.clone(); firstNow.isDate = true;
+            out.snap = { aligned: Math.round(top(firstNow) - head()), weeks: Math.round((firstNow.nativeTime - first.nativeTime) / 6048e8) };
+            // mehr als eine halbe Woche (Trackpad, Pixel) → zur nächsten Woche
+            wheel(rowH * 0.6, 0); await ruhig(900);
+            const f2 = mv.rangeStartDate.clone(); f2.isDate = true;
+            out.half = { aligned: Math.round(top(f2) - head()), weeks: Math.round((f2.nativeTime - firstNow.nativeTime) / 6048e8) };
+            // weniger als halb → zurück auf dieselbe Woche
+            wheel(rowH * 0.3, 0); await ruhig(900);
+            const f3 = mv.rangeStartDate.clone(); f3.isDate = true;
+            out.back = { aligned: Math.round(top(f3) - head()), weeks: Math.round((f3.nativeTime - f2.nativeTime) / 6048e8) };
+            // Termin weiter an seinem Tag
+            const boxes = mv.findDayBoxesForItem(item);
+            out.day = boxes.length == 1 && iso(boxes[0].date) == iso(sd);
+            out.label = !!(d.getElementById("intervalDescription")?.textContent || "").trim();
+          } finally {
+            for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
+            Services.prefs.clearUserPref(P); await ruhig(600);
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        one, fast, sn, hf, bk = (res.get(k) or {} for k in ("oneNotch", "fast", "snap", "half", "back"))
+        rh = fast.get("rowH") or 0
+        ok = (abs(res.get("aligned0", 9)) <= 1 and 10 <= one.get("moved", 0) <= 30 and one.get("range")
+              and abs(fast.get("moved", 0) - 11 * one.get("moved", 0)) <= 2 and rh > 40
+              and abs(sn.get("aligned", 9)) <= 1 and rh and sn.get("weeks") == round(11 * one.get("moved", 0) / rh)
+              and abs(hf.get("aligned", 9)) <= 1 and hf.get("weeks") == 1 and abs(bk.get("aligned", 9)) <= 1 and bk.get("weeks") == 0
+              and res.get("day") and res.get("label"))
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – pixelgenau und sofort, schnelle Rasten ohne Verlust, Einrasten auf ganze Wochen, Termine am richtigen Tag", multiweek_scroll, results)
 
     def folder_menu_filters_junk():
         # GitHub-Issue #34: das ausgeblendete Menü Tools hatte „Run Filters on Folder“ und „Delete Mail Marked as Junk“ –

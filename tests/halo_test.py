@@ -5794,9 +5794,12 @@ def calendar_checks(m, results):
           card?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           card?.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           await ruhig(1000);
-          const title = d.getElementById("calendar-task-details-title");
+          // (mit der Kopfkarte wie Erinnerungen zählt deren Oberkante, der Titel steht darin)
+          const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("calendar-task-details-box") : d.getElementById("calendar-task-details-title");
           const th = d.querySelector("#calendar-task-details-grid > tr > th");
-          const out = { side: d.documentElement.hasAttribute("mc-task-side"), card: card ? Math.round(card.getBoundingClientRect().top) : null,
+          // (Kopfkarte: Oberkante wie die Oberkante der ersten Karte der Liste)
+          const cardTop = d.documentElement.hasAttribute("mc-task-info") ? card?.closest(".mc-tc") : card;
+          const out = { side: d.documentElement.hasAttribute("mc-task-side"), card: cardTop ? Math.round(cardTop.getBoundingClientRect().top) : null,
             title: title ? Math.round(title.getBoundingClientRect().top) : null, label: th?.textContent?.trim(), transform: th ? w.getComputedStyle(th).textTransform : null };
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           if (made) await c.deleteItem(made);
@@ -5805,6 +5808,64 @@ def calendar_checks(m, results):
             and res.get("transform") == "capitalize"
         return ok, f"{res}"
     check("Aufgaben: Titel der Details auf Höhe des Titels der ersten Karte, Beschriftungen groß", tasks_details_top, results)
+
+    def tasks_info_column():
+        # Aufgaben: Detailspalte wie das Info-Fenster von Apple Erinnerungen – Titel und Notiz als Kopfkarte, Abschnitte
+        # „Date & Time“, „Organisation“, „Place“ mit Symbol, Bezeichnung und Wert; leere Werte grau „None“; Thunderbirds Zeilen weg
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(600);
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          const c = testCalendar(), made = [];
+          const t = new CalTodo(); t.title = "Halo Info voll"; t.calendar = c;
+          const due = cal.dtz.now(); due.day += 2; due.hour = 16; due.minute = 0; due.second = 0; t.dueDate = due; t.entryDate = due.clone();
+          t.descriptionText = "Notiz zur Aufgabe"; t.priority = 1; t.percentComplete = 50; t.setProperty("LOCATION", "Wien"); t.setCategories(["Kunden"]);
+          const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.hours = -1; al.offset = off; al.action = "DISPLAY"; t.addAlarm(al);
+          made.push(await c.addItem(t));
+          const e = new CalTodo(); e.title = "Halo Info leer"; e.calendar = c; made.push(await c.addItem(e));
+          // Serie (eigene Aufgabe: Vorkommen einer Serie haben ihren eigenen Fortschritt)
+          const r = new CalTodo(); r.title = "Halo Info Serie"; r.calendar = c; const rs = cal.dtz.now(); rs.hour = 9; rs.minute = 0; rs.second = 0; r.entryDate = rs;
+          const ri = new CalRecurrenceInfo(r), rule = cal.createRecurrenceRule(); rule.type = "WEEKLY"; rule.interval = 1; ri.appendRecurrenceItem(rule); r.recurrenceInfo = ri;
+          made.push(await c.addItem(r));
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await bis(() => d.querySelector("#mcTaskCards .mc-tc-title"), "Aufgabenkarte", 6000); await ruhig(1000);
+            const tree = d.getElementById("calendar-task-tree");
+            const pick = async title => { await bis(() => (tree.mTaskArray || []).some(x => x.title == title), title + " in der Liste", 6000);
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == title));
+              await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes(title) && d.querySelector("#mcTaskInfo .mc-ti-row"), title + " in den Details", 6000); await ruhig(400);
+              const info = d.getElementById("mcTaskInfo");
+              return { heads: [...info.querySelectorAll(".mc-ti-head")].map(h => h.textContent),
+                rows: [...info.querySelectorAll(".mc-ti-row")].map(r => [r.dataset.icon, r.querySelector(".mc-ti-label").textContent, r.querySelector(".mc-ti-value").textContent, r.querySelector(".mc-ti-value").hasAttribute("data-none")]),
+                ring: !!info.querySelector('.mc-ti-row[data-icon="progress"] > .mc-tc-check[data-progress]'),
+                icon: (() => { const i = info.querySelector('.mc-ti-row[data-icon="location"] > .mc-ti-icon'); return i ? [Math.round(i.getBoundingClientRect().width), w.getComputedStyle(i).backgroundImage.includes("location.svg")] : null; })(),
+                note: [d.documentElement.hasAttribute("mc-task-note"), Math.round(d.getElementById("calendar-task-details-description").getBoundingClientRect().height)],
+                tbRows: ["calendar-task-details-priority-row", "calendar-task-details-status-row", "task-due-row"].map(id => { const r = d.getElementById(id); return r && r.getBoundingClientRect().height > 0; }),
+                card: w.getComputedStyle(d.getElementById("calendar-task-details-box")).borderTopLeftRadius };
+            };
+            out.full = await pick("Halo Info voll");
+            out.empty = await pick("Halo Info leer");
+            out.series = (await pick("Halo Info Serie")).rows.find(x => x[0] == "repeat")?.[2];
+          } finally {
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            for (const x of made) await c.deleteItem(x);
+          }
+          return out;""")
+        f, e = res.get("full") or {}, res.get("empty") or {}
+        vals = {r[0]: r[2] for r in f.get("rows", [])}
+        order = [r[0] for r in f.get("rows", [])]
+        ok = (f.get("heads") == ["Date & Time", "Organisation", "Place"]
+              and order == ["calendar", "clock", "repeat", "bell", "list", "tag", "lock", "star", "progress", "location"]
+              and res.get("series") == "Every week" and vals.get("repeat") == "None" and vals.get("bell") == "1 hour before" and vals.get("tag") == "Kunden"
+              and vals.get("lock") == "Public" and vals.get("star") == "High" and vals.get("progress") == "50 %" and vals.get("location") == "Wien"
+              and "Halo Test" in vals.get("list", "") and vals.get("calendar") == vals.get("clock") and ("16:00" in vals.get("clock", "") or "4:00" in vals.get("clock", ""))
+              and f.get("ring") and f.get("icon") == [18, True] and f.get("note", [False])[0] and 24 <= f["note"][1] <= 80
+              and f.get("tbRows") == [False, False, False] and f.get("card") == "12px"
+              and not e.get("note", [True])[0] and all(r[3] for r in e.get("rows", []) if r[0] in ("calendar", "clock", "repeat", "bell", "star", "location"))
+              and {r[0]: r[2] for r in e.get("rows", [])}.get("progress") == "0 %")
+        return ok, f"{res}"
+    check("Aufgaben: Detailspalte wie Erinnerungen – Kopfkarte mit Titel und Notiz, Abschnitte Date & Time, Organisation, Place, leere Werte grau „None“", tasks_info_column, results)
 
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle

@@ -437,6 +437,35 @@ const DE = {
   "New Address Book": "Neues Adressbuch",
   "New List": "Neue Liste",
   "Contact List Display Options": "Darstellung der Kontaktliste",
+  // Aufgaben: Detailspalte
+  "Date & Time": "Datum & Uhrzeit",
+  "Organisation": "Organisation",
+  "Start": "Beginn",
+  "List": "Liste",
+  "Privacy": "Sichtbarkeit",
+  "Public": "Öffentlich",
+  "Private": "Privat",
+  "Confidential": "Vertraulich",
+  "Progress": "Fortschritt",
+  "Location": "Ort",
+  "URL": "URL",
+  "High": "Hoch",
+  "Medium": "Mittel",
+  "Low": "Niedrig",
+  "Custom": "Eigene",
+  "At time": "Zum Zeitpunkt",
+  "Every day": "Täglich",
+  "Every week": "Wöchentlich",
+  "Every month": "Monatlich",
+  "Every year": "Jährlich",
+  "Every {n} days": "Alle {n} Tage",
+  "Every {n} weeks": "Alle {n} Wochen",
+  "Every {n} months": "Alle {n} Monate",
+  "Every {n} years": "Alle {n} Jahre",
+  "1 minute before": "1 Minute vorher",
+  "{n} minutes before": "{n} Minuten vorher",
+  "{n} hours before": "{n} Stunden vorher",
+  "{n} days before": "{n} Tage vorher",
 };
 const FR = {
   "Erase Junk Mail": "Effacer le courrier indésirable",
@@ -844,6 +873,35 @@ const FR = {
   "New Address Book": "Nouveau carnet d’adresses",
   "New List": "Nouvelle liste",
   "Contact List Display Options": "Affichage de la liste de contacts",
+  // Aufgaben: Detailspalte
+  "Date & Time": "Date et heure",
+  "Organisation": "Organisation",
+  "Start": "Début",
+  "List": "Liste",
+  "Privacy": "Confidentialité",
+  "Public": "Public",
+  "Private": "Privé",
+  "Confidential": "Confidentiel",
+  "Progress": "Progression",
+  "Location": "Lieu",
+  "URL": "URL",
+  "High": "Haute",
+  "Medium": "Moyenne",
+  "Low": "Basse",
+  "Custom": "Personnalisé",
+  "At time": "À l’heure",
+  "Every day": "Chaque jour",
+  "Every week": "Chaque semaine",
+  "Every month": "Chaque mois",
+  "Every year": "Chaque année",
+  "Every {n} days": "Tous les {n} jours",
+  "Every {n} weeks": "Toutes les {n} semaines",
+  "Every {n} months": "Tous les {n} mois",
+  "Every {n} years": "Tous les {n} ans",
+  "1 minute before": "1 minute avant",
+  "{n} minutes before": "{n} minutes avant",
+  "{n} hours before": "{n} heures avant",
+  "{n} days before": "{n} jours avant",
 };
 const ES = {
   "Erase Junk Mail": "Borrar correo no deseado",
@@ -1251,6 +1309,35 @@ const ES = {
   "New Address Book": "Nueva libreta de direcciones",
   "New List": "Nueva lista",
   "Contact List Display Options": "Opciones de la lista de contactos",
+  // Aufgaben: Detailspalte
+  "Date & Time": "Fecha y hora",
+  "Organisation": "Organización",
+  "Start": "Inicio",
+  "List": "Lista",
+  "Privacy": "Privacidad",
+  "Public": "Público",
+  "Private": "Privado",
+  "Confidential": "Confidencial",
+  "Progress": "Progreso",
+  "Location": "Ubicación",
+  "URL": "URL",
+  "High": "Alta",
+  "Medium": "Media",
+  "Low": "Baja",
+  "Custom": "Personalizado",
+  "At time": "A la hora",
+  "Every day": "Cada día",
+  "Every week": "Cada semana",
+  "Every month": "Cada mes",
+  "Every year": "Cada año",
+  "Every {n} days": "Cada {n} días",
+  "Every {n} weeks": "Cada {n} semanas",
+  "Every {n} months": "Cada {n} meses",
+  "Every {n} years": "Cada {n} años",
+  "1 minute before": "1 minuto antes",
+  "{n} minutes before": "{n} minutos antes",
+  "{n} hours before": "{n} horas antes",
+  "{n} days before": "{n} días antes",
 };
 const IT = {
   "Erase Junk Mail": "Cancella posta indesiderata",
@@ -1658,6 +1745,35 @@ const IT = {
   "New Address Book": "Nuova rubrica",
   "New List": "Nuova lista",
   "Contact List Display Options": "Opzioni dell’elenco contatti",
+  // Aufgaben: Detailspalte
+  "Date & Time": "Data e ora",
+  "Organisation": "Organizzazione",
+  "Start": "Inizio",
+  "List": "Elenco",
+  "Privacy": "Privacy",
+  "Public": "Pubblico",
+  "Private": "Privato",
+  "Confidential": "Riservato",
+  "Progress": "Avanzamento",
+  "Location": "Luogo",
+  "URL": "URL",
+  "High": "Alta",
+  "Medium": "Media",
+  "Low": "Bassa",
+  "Custom": "Personalizzato",
+  "At time": "All’ora",
+  "Every day": "Ogni giorno",
+  "Every week": "Ogni settimana",
+  "Every month": "Ogni mese",
+  "Every year": "Ogni anno",
+  "Every {n} days": "Ogni {n} giorni",
+  "Every {n} weeks": "Ogni {n} settimane",
+  "Every {n} months": "Ogni {n} mesi",
+  "Every {n} years": "Ogni {n} anni",
+  "1 minute before": "1 minuto prima",
+  "{n} minutes before": "{n} minuti prima",
+  "{n} hours before": "{n} ore prima",
+  "{n} days before": "{n} giorni prima",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
 // tr("+{n} more", { n: 3 }) – Platzhalter in geschweiften Klammern
@@ -5774,6 +5890,213 @@ async function reopenTasks(win, tasks) {
 // Auswahl, Tastatur, Kontextmenü und Befehle bleiben bei Thunderbirds Liste
 // (sie behält den Fokus und liegt unsichtbar darunter); die Karten zeigen nur
 // deren Inhalt und Auswahl und geben Klicks an sie weiter.
+// Aufgaben: Detailspalte wie das Info-Fenster von Apple Erinnerungen – Titel
+// und Notiz (Thunderbirds Elemente) als hellgraue Kopfkarte, darunter
+// Abschnitte „Date & Time“, „Organisation“, Priorität/Fortschritt und „Place“
+// als graue Gruppen: feines Symbol, Bezeichnung links, Wert rechts, leer grau
+// „None“. Nur Anzeige (Bearbeiten weiter per Doppelklick bzw. Menüs);
+// Thunderbirds Zeilen bleiben im Dokument, das CSS blendet sie aus
+function hookTaskInfo(win, restorers) {
+  const doc = win.document;
+  const tree = doc.getElementById("calendar-task-tree");
+  const wrapper = doc.getElementById("calendar-task-details-description-wrapper");
+  const frame = doc.getElementById("calendar-task-details-description");
+  const view = win.taskDetailsView;
+  if (!tree || !wrapper || !frame || typeof view?.onSelect != "function" || doc.getElementById("mcTaskInfo")) {
+    return;
+  }
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const X = "http://www.w3.org/1999/xhtml";
+  const el = (tag, cls, text) => {
+    const e = doc.createElementNS(X, tag);
+    if (cls) {
+      e.className = cls;
+    }
+    if (text != null) {
+      e.textContent = text;
+    }
+    return e;
+  };
+  const box = el("div");
+  box.id = "mcTaskInfo";
+  wrapper.after(box);
+  doc.documentElement.setAttribute("mc-task-info", "");
+  // Notiz nicht mehr über den ganzen Rest (flex="1" lässt sich per CSS nicht überstimmen)
+  const wrapperFlex = wrapper.getAttribute("flex");
+  wrapper.removeAttribute("flex");
+  const locale = regionLocale();
+  const fmtDay = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  const fmtDayYear = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const fmtTime = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
+  const rel = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // „Today, 16:00“, „Tomorrow“, „3 Nov“ – wie die Karten der Liste
+  const when = dt => {
+    if (!dt?.isValid) {
+      return null;
+    }
+    const js = cal.dtz.dateTimeToJsDate(dt.isDate ? dt : dt.getInTimezone(cal.dtz.defaultTimezone));
+    const now = new Date();
+    const days = Math.round((dayStart(js) - dayStart(now)) / 86400000);
+    let text = Math.abs(days) <= 1 ? rel.format(days, "day") : (js.getFullYear() == now.getFullYear() ? fmtDay : fmtDayYear).format(js);
+    text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+    if (!dt.isDate) {
+      text += ", " + fmtTime.format(js);
+    }
+    return { text, past: dt.isDate ? days < 0 : js < now };
+  };
+  // Wiederholung kurz wie Apple („Every week“) statt Thunderbirds ganzem Satz
+  const repeatText = item => {
+    const info = (item.parentItem || item).recurrenceInfo;
+    if (!info) {
+      return null;
+    }
+    const rules = info.getRecurrenceItems().filter(r => !r.isNegative);
+    const rule = rules.length == 1 && rules[0] instanceof Ci.calIRecurrenceRule ? rules[0] : null;
+    const unit = { DAILY: "day", WEEKLY: "week", MONTHLY: "month", YEARLY: "year" }[rule?.type];
+    if (!unit) {
+      return tr("Custom");
+    }
+    return rule.interval > 1 ? tr(`Every {n} ${unit}s`, { n: rule.interval }) : tr(`Every ${unit}`);
+  };
+  // erste Erinnerung als „1 hour before“, „At time“
+  const reminderText = item => {
+    const alarm = item.getAlarms()[0];
+    if (!alarm) {
+      return null;
+    }
+    const offset = alarm.offset;
+    if (!offset) {
+      const date = when(alarm.alarmDate);
+      return date ? date.text : tr("Custom");
+    }
+    const mins = Math.round(Math.abs(offset.inSeconds) / 60);
+    if (mins == 0) {
+      return tr("At time");
+    }
+    const [n, unit] = mins % 1440 == 0 ? [mins / 1440, "day"] : mins % 60 == 0 ? [mins / 60, "hour"] : [mins, "minute"];
+    return n == 1 ? tr(`1 ${unit} before`) : tr(`{n} ${unit}s before`, { n });
+  };
+  const group = (title, rows) => {
+    const shown = rows.filter(Boolean);
+    if (!shown.length) {
+      return [];
+    }
+    const g = el("div", "mc-ti-group");
+    g.append(...shown);
+    return title ? [el("div", "mc-ti-head", tr(title)), g] : [g];
+  };
+  // Zeile: Symbol, Bezeichnung, Wert (leer: graues „None“)
+  const row = (icon, label, value, extra = null) => {
+    const r = el("div", "mc-ti-row");
+    r.dataset.icon = icon;
+    const v = el("span", "mc-ti-value");
+    if (value == null || value === "") {
+      v.textContent = tr("None");
+      v.setAttribute("data-none", "");
+    } else {
+      v.append(...(Array.isArray(value) ? value : [value]));
+    }
+    extra?.(r, v);
+    r.append(el("span", "mc-ti-icon"), el("span", "mc-ti-label", tr(label)), v);
+    return r;
+  };
+  const render = () => {
+    const item = tree.currentTask;
+    if (!item) {
+      box.replaceChildren();
+      return;
+    }
+    const start = when(item.entryDate), due = when(item.dueDate);
+    const calColor = (() => {
+      try {
+        return item.calendar.getProperty("color") || "#007AFF";
+      } catch {
+        return "#007AFF";
+      }
+    })();
+    const listDot = el("span", "mc-ti-dot");
+    listDot.style.backgroundColor = calColor;
+    const prio = item.priority;
+    const pct = item.isCompleted ? 100 : (item.percentComplete || 0);
+    const ring = el("span", "mc-tc-check");
+    if (pct < 100) {
+      ring.setAttribute("data-progress", "");
+      ring.dataset.step = String(Math.min(75, Math.round(pct / 25) * 25));
+      ring.toggleAttribute("data-empty", pct == 0);
+      ring.style.setProperty("--mc-tc-p", pct);
+    } else {
+      ring.setAttribute("data-done", "");
+    }
+    const privacy = { PRIVATE: "Private", CONFIDENTIAL: "Confidential" }[item.privacy] || "Public";
+    const url = item.getProperty("URL");
+    box.replaceChildren(
+      ...group(null, [url ? row("link", "URL", url) : null]),
+      ...group("Date & Time", [
+        row("calendar", "Start", start?.text),
+        row("clock", "Due", due?.text, (r, v) => v.toggleAttribute("data-overdue", !!due?.past && !item.isCompleted)),
+      ]),
+      ...group(null, [
+        row("repeat", "Repeat", repeatText(item)),
+        row("bell", "Reminder", reminderText(item)),
+      ]),
+      ...group("Organisation", [
+        row("list", "List", [listDot, item.calendar?.name || ""]),
+        row("tag", "Category", item.getCategories().join(", ")),
+        row("lock", "Privacy", tr(privacy)),
+      ]),
+      ...group(null, [
+        row("star", "Priority", prio >= 1 && prio <= 4 ? tr("High") : prio == 5 ? tr("Medium") : prio >= 6 && prio <= 9 ? tr("Low") : null),
+        row("progress", "Progress", `${pct} %`),
+      ]),
+      ...group("Place", [row("location", "Location", item.getProperty("LOCATION"))]),
+    );
+    // der Fortschritt zeigt statt des Symbols den Ring der Liste
+    box.querySelector('.mc-ti-row[data-icon="progress"] > .mc-ti-icon')?.replaceWith(ring);
+    sizeNote();
+  };
+  // Notiz nur so hoch wie ihr Text (Thunderbird lässt sie den Rest füllen),
+  // leer ganz weg – die Kopfkarte endet dann mit dem Titel
+  const sizeNote = () => {
+    const body = frame.contentDocument?.body;
+    const text = body?.textContent.trim();
+    doc.documentElement.toggleAttribute("mc-task-note", !!text);
+    if (text) {
+      // (Höhe samt Innenabstand der Karte unten)
+      const st = win.getComputedStyle(frame);
+      const pad = st.boxSizing == "border-box" ? parseFloat(st.paddingTop) + parseFloat(st.paddingBottom) : 0;
+      // Höhe des Textes selbst (scrollHeight zählt Mindesthöhen der Notiz-Stile mit)
+      const range = frame.contentDocument.createRange();
+      range.selectNodeContents(body);
+      frame.style.height = `${Math.ceil(range.getBoundingClientRect().height + pad) + 2}px`;
+    }
+  };
+  const orig = view.onSelect;
+  view.onSelect = function (...args) {
+    const result = orig.apply(this, args);
+    try {
+      render();
+      win.requestAnimationFrame(sizeNote);
+    } catch (e) {
+      log("task info error", e);
+    }
+    return result;
+  };
+  frame.addEventListener("load", sizeNote, true);
+  render();
+  restorers.push(() => {
+    view.onSelect = orig;
+    frame.removeEventListener("load", sizeNote, true);
+    frame.style.removeProperty("height");
+    if (wrapperFlex != null) {
+      wrapper.setAttribute("flex", wrapperFlex);
+    }
+    box.remove();
+    doc.documentElement.removeAttribute("mc-task-info");
+    doc.documentElement.removeAttribute("mc-task-note");
+  });
+}
+
 function hookTaskCards(win, restorers) {
   const doc = win.document;
   const tree = doc.getElementById("calendar-task-tree");
@@ -13307,6 +13630,7 @@ class CardEnhancer {
         relinkTaskTree(w, this.restorers);
         hookTaskView(w, this.restorers);
         hookTaskCards(w, this.restorers);
+        hookTaskInfo(w, this.restorers);
       } catch (e) {
         log("task filter error", e);
       }

@@ -6925,6 +6925,12 @@ function cleanupAfterUninstall() {
     }
   }
   Services.prefs.getBranch("extensions.mailcards.").deleteBranch("");
+  // (ein noch ausstehender Zeitgeber eines Fensters schrieb danach die
+  // gemerkte Breite der Seitenleiste neu – kurz darauf noch einmal aufräumen)
+  try {
+    const { setTimeout: later } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
+    later(() => Services.prefs.getBranch("extensions.mailcards.").deleteBranch(""), 2000);
+  } catch {}
   log("deinstalliert: Einstellungen aufgeräumt");
   return reverted;
 }

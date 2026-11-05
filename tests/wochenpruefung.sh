@@ -2,8 +2,9 @@
 # Wöchentliche Prüfung der Läufe auf neon (tests/MAC-MINI.md, Abschnitt 15):
 # Claude Code wertet sonntags die letzten 7 Tage aus (CI-Läufe, Nachtläufe,
 # Berichte, Board), schreibt Kennzahlen und einen Bericht, korrigiert kleine
-# Dinge an Prüfungen selbst und legt Vorschläge zum Ablauf als „Wartet auf OK“
-# ins Board. Auftrag: tests/wochenpruefung-auftrag.md. Gestartet vom LaunchAgent
+# Dinge an Prüfungen und – mit Beleg und Wirkungskontrolle – Abläufe selbst
+# und legt nur, was Entscheidungen des Maintainers berührt, als „Wartet auf
+# OK“ ins Board. Auftrag: tests/wochenpruefung-auftrag.md. Gestartet vom LaunchAgent
 # at.halo-spaces.wochenpruefung sonntags um 08:00; die Datei wird wie
 # nachtlauf.sh nach ~/.config/halo-spaces/ kopiert.
 # Mit --doku dieselbe Prüfung für alle .md-Dateien (Doku-Prüfung, samstags

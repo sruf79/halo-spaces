@@ -2,7 +2,8 @@ Unbeaufsichtigte Wochenprüfung halo.spaces auf neon (gestartet von
 tests/wochenpruefung.sh, sonntags 08:00). Niemand sieht zu, niemand antwortet
 auf Rückfragen. AGENTS.md gilt vollständig; Abweichungen und Ergänzungen
 stehen hier. Ziel: Wie gut liefen Tests, CI, Nachtläufe und Releases in den
-letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
+letzten 7 Tagen, was lässt sich an Prüfungen und Abläufen verbessern –
+und wirkten die Verbesserungen der Vorwochen?
 
 ## 1. Auswerten (letzte 7 Tage)
 
@@ -39,9 +40,11 @@ letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
   zur jeweiligen Grenze (04:30 bzw. 06:30) in Minuten, Zahl der liegengebliebenen machbaren Einträge und der
   erkennbare Grund (z. B. Plan zu klein gewählt, Einträge fälschlich als
   „braucht Entscheidung“ übersprungen, Abbruch nach Limit, Runde ohne
-  Fortsetzung). War das in mindestens zwei Nächten der Woche so, einen
-  Vorschlag „Ablauf: Nachtlauf …“ (Wartet auf OK) mit Ursache und Abhilfe
-  anlegen (z. B. Auftrag in tests/nachtlauf-auftrag.md schärfen).
+  Fortsetzung). War das in mindestens zwei Nächten der Woche so, die
+  Ursache beheben wie in Abschnitt 3b (z. B. Auftrag in
+  tests/nachtlauf-auftrag.md schärfen; Kennzahl naechte_zu_frueh bzw.
+  ungenutzt_min) – bzw. als Vorschlag, wenn es eine Entscheidung des
+  Maintainers berührt.
 - **CI-Wächter:** ~/halo-aufgaben/ci-waechter.log – gemeldete rote Läufe.
 - **Fehlerkonsole und Fehlerprotokoll** (Wunsch des Maintainers vom
   5.11.2026; AGENTS.md „Bauen und testen“, Bullet „Fehlerkonsole“): Kommen
@@ -90,7 +93,8 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende,
   konsole (Objekt: meldungen, board_neu, board_erledigt, board_offen,
   dubletten, verloren, wieder_aufgetreten, durchsicht_runden,
-  durchsicht_abgeschlossen).
+  durchsicht_abgeschlossen),
+  ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.
 
@@ -106,7 +110,7 @@ die eine unzuverlässige oder plattformbedingte Prüfung verlässlich machen:
 - reine Plattform-Abweichungen (Linux/Windows) als Warnung statt Fehler.
 - eindeutige Fehler im Umgang mit Fehlerkonsole und -protokoll (Abschnitt
   1) in tests/halo_test.py und tests/update_test.py; Fehler in
-  tests/ci-waechter.sh bzw. tests/ci-warten.sh nur als Vorschlag (Ablauf).
+  tests/ci-waechter.sh bzw. tests/ci-warten.sh als Ablaufänderung (3b).
   Nie so, dass eine Konsolen- oder Protokollmeldung doch zum Fehlschlag
   wird; die zwei strengen Prüfungen („Senden rückgängig“,
   Today-Pane-Animation) bleiben streng. Die Bugs aus den Meldungen selbst
@@ -120,19 +124,67 @@ solange Exitcode 2). Rot durch die eigene Änderung: mit git revert zurück,
 pushen, im Bericht sagen. Höchstens fünf solche Korrekturen je Lauf.
 Kein Release aus der Wochenprüfung (der nächste Nachtlauf veröffentlicht).
 
-Nur als Vorschlag (Board-Eintrag, Typ Feature oder Bug, Status „Wartet auf
-OK“, Titel „Tests: …“ bzw. „Ablauf: …“, mit Begründung aus den Zahlen):
-alles, was den Ablauf ändert – .github/workflows/, release.sh, publish.sh,
-tests/nachtlauf*, tests/ci-waechter.sh, tests/wochenpruefung*, Zeitpläne,
-LaunchAgents, mac-mini-setup.sh, AGENTS.md. Anlegen:
+### 3b. Abläufe selbst verbessern, mit Wirkungskontrolle
+
+Entscheidung des Maintainers vom 5.11.2026: Die Wochenprüfung verbessert die
+Arbeitsabläufe selbst, statt nur vorzuschlagen – wenn die Zahlen es klar
+begründen – und nimmt eine Änderung zurück, die nicht wirkt.
+
+Erlaubt ohne Rückfrage: Änderungen an tests/nachtlauf.sh,
+tests/nachtlauf-auftrag.md, tests/ci-waechter.sh, tests/ci-warten.sh,
+tests/lauf-hilfen.zsh, tests/wochenpruefung*, tests/dokupruefung-auftrag.md,
+tests/farben-betroffen.sh, release.sh/publish.sh (außer der Sperre),
+.github/workflows/test.yml (außer den if:-Bedingungen der Jobs mac und
+windows) und den beschreibenden Sätzen dazu in AGENTS.md und
+tests/MAC-MINI.md. Bedingungen:
+- **Begründet:** dasselbe Problem zeigt sich in den Zahlen mindestens
+  zweimal (zwei Nächte, zwei Läufe, zwei Wochen) oder einmal mit klarem
+  Schaden (verlorene Meldung, verpasstes Release, ausgelassene Nacht). Im
+  Commit und im Bericht steht die Zahl, die es belegt.
+- **Messbar:** vorher festlegen, an welcher Kennzahl (Abschnitt 2) die
+  Wirkung nächste Woche abzulesen ist, und welcher Wert als besser gilt.
+- **Klein und einzeln:** je Änderung ein Commit (Bereich „Ablauf:“ bzw. der
+  Dateiname), höchstens drei Ablaufänderungen je Lauf.
+- **Geprüft:** Shell-Skripte mit zsh -n und, wo vorhanden, einem
+  Trockenlauf (--trocken); Workflow-Änderungen gezielt mit gh workflow run
+  test.yml … -f ziel=linux, bevor sie auf main gehen; danach pushen und
+  die CI wie in Abschnitt 3 abwarten. Geänderte Läufe auf neon danach mit
+  tests/mac-mini-setup.sh --ohne-probelauf übernehmen.
+- **Eingetragen:** in ~/halo-aufgaben/ablauf-aenderungen.json je Änderung
+  ein Eintrag {datum, commit, problem, beleg, kennzahl, vorher, ziel,
+  pruefen_ab (nächste Wochenprüfung), ergebnis: null}.
+
+Nicht selbst, nur als Vorschlag (Board-Eintrag, Typ Feature oder Bug,
+Status „Wartet auf OK“, Titel „Ablauf: …“, mit Begründung aus den Zahlen):
+alles, was einer **Entscheidung des Maintainers** widerspricht oder sie
+ändert (in AGENTS.md und den Aufträgen mit „Entscheidung des Maintainers
+vom …“ gekennzeichnet – z. B. Zeiten, Push-Sperre, Reihenfolge der
+Aufgabenliste, Dunkelmodus nur bei Farben, Freigaben), Zeitpläne und
+LaunchAgents, mac-mini-setup.sh, neue Routinen, alles, was Kosten
+spürbar erhöht (längere CI-Runden, mehr Claude-Läufe), und Änderungen ohne
+messbare Kennzahl. Anlegen:
   gh project item-create 1 --owner sruf79 --title "…" --body "…" --format json
   gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN8Y --single-select-option-id <ff678ae2 Bug | 39bb4253 Feature>
   gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
 Vorher im Board nachsehen, ob es den Vorschlag schon gibt (dann ergänzen).
 
+**Wirkungskontrolle** (jede Woche, vor neuen Änderungen): Für jeden Eintrag
+in ~/halo-aufgaben/ablauf-aenderungen.json mit ergebnis null und
+pruefen_ab erreicht die Kennzahl der Woche mit „vorher“ und „ziel“
+vergleichen. Besser: ergebnis „wirkt“. Gleich oder schlechter: die
+Änderung mit git revert <commit> zurücknehmen (Commit „Ablauf: … zurück –
+wirkte nicht (<Kennzahl> vorher x, jetzt y)“), ergebnis „zurück“, und
+dasselbe Problem nicht noch einmal auf dieselbe Weise angehen. Zu wenig
+Daten (z. B. keine Nacht mit dem Fall): ergebnis bleibt null, pruefen_ab
+eine Woche weiter, höchstens dreimal, dann „unklar“ und so lassen. Schaden
+schon vorher sichtbar (CI rot, ausgelassene Nacht durch die Änderung): der
+Nachtlauf bzw. die nächste Sitzung nimmt sie sofort zurück – dafür steht im
+Commit „Ablauf: …“ die Zeile „Zurück bei: <Anzeichen>“.
+
 Nie anfassen: die Release-Sperre (Testmarke in release.sh/publish.sh),
 die if:-Bedingungen der Jobs mac und windows, tests/mac-runner-hook.sh,
-die Freigaberegeln in AGENTS.md. Kein install.sh, nichts im echten Profil.
+die Freigaberegeln in AGENTS.md, den Inhalt von Entscheidungen des
+Maintainers. Kein install.sh, nichts im echten Profil.
 Marionette-Ports nur 2852–2869 (2850/2851 nutzt der Nachtlauf, 2845 die CI).
 Inhalte der Aufgabenliste nie in Commits.
 
@@ -161,7 +213,9 @@ Zeile nach der Überschrift genau so:
 Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte:
 Kennzahlen (Tabelle mit Vorwoche), Auffällig (unzuverlässige Prüfungen,
 langsamste Prüfungen, Ausfälle), Fehlerkonsole (Zahlen aus Abschnitt 1,
-Lecks, Durchsicht ja/nein mit Runden), Nachtläufe (je Nacht Beginn, Ende, Grund
+Lecks, Durchsicht ja/nein mit Runden), Abläufe (je Änderung dieser Woche:
+Problem, Beleg, Kennzahl, Ziel; Wirkungskontrolle früherer Änderungen:
+wirkt/zurück/offen mit Zahlen), Nachtläufe (je Nacht Beginn, Ende, Grund
 des Endes, erledigt, ungenutzte Zeit und liegengebliebene machbare
 Einträge, falls zu früh beendet), Geändert (Commit, was und warum; im
 Trockenlauf „Würde ändern“), Top-3-Vorschläge (je ein Satz Nutzen, Board-ID

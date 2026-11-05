@@ -604,17 +604,25 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
 - Nachtlauf zu früh beendet: je Nacht, ob er früher aufgehört hat als
   möglich (vor 04:30, bzw. nach grüner CI vor 06:30), obwohl noch machbare
   Einträge im Board lagen (ungenutzte Minuten, Zahl der
-  Einträge, Grund); in mindestens zwei Nächten der Woche ein Vorschlag
-  „Ablauf: Nachtlauf …“ mit „Wartet auf OK“.
+  Einträge, Grund); in mindestens zwei Nächten der Woche eine
+  Ablaufänderung am Nachtlauf-Auftrag (bzw. ein Vorschlag „Ablauf: Nachtlauf …“
+  mit „Wartet auf OK“, wenn sie eine Entscheidung des Maintainers berührt).
 - Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich
   zur Vorwoche im Bericht `~/halo-berichte/<datum>-wochenpruefung.md`
   (erste Zeile „Kurz: …“ geht aufs iPhone).
 - Darf selbst: kleine Korrekturen an Prüfungen (Toleranzen, Wartebedingungen
   statt Pausen, Plattform-Abweichungen als Warnung), mit `--only` prüfen,
-  committen, pushen, CI abwarten; kein Release. Alles, was den Ablauf ändert
-  (Workflow, `release.sh`/`publish.sh`, Nachtlauf, Zeitpläne), nur als
-  Board-Eintrag mit Status „Wartet auf OK“. Nie: Release-Sperre,
-  `if:`-Bedingungen der Mac-Jobs, `mac-runner-hook.sh`, Freigaberegeln.
+  committen, pushen, CI abwarten; kein Release. Abläufe verbessert sie
+  ebenfalls selbst (Entscheidung des Maintainers vom 5.11.2026; Auftrag
+  Abschnitt 3b): Nachtlauf, CI-Wächter, Aufträge, Workflow,
+  `release.sh`/`publish.sh` außer der Sperre – nur mit Beleg aus den Zahlen,
+  höchstens drei je Woche, je mit Kennzahl und Ziel in
+  `~/halo-aufgaben/ablauf-aenderungen.json`. Jede Woche prüft sie, ob die
+  Änderungen der Vorwochen gewirkt haben, und nimmt Unwirksames mit
+  `git revert` zurück. Nur als „Wartet auf OK“: was Entscheidungen des
+  Maintainers ändert, Zeitpläne, LaunchAgents, `mac-mini-setup.sh`, neue
+  Routinen, Kostensteigerungen. Nie: Release-Sperre, `if:`-Bedingungen der
+  Mac-Jobs, `mac-runner-hook.sh`, Freigaberegeln.
 - Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
   bis höchstens 09:15 und wertet ihn mit aus.
 - Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`, wartet bis 90 Minuten

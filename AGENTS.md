@@ -295,7 +295,15 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als
   möglich – vor 04:30 bzw. nach grüner CI vor 06:30 – aufhört, obwohl noch
   machbare Einträge lagen), behebt kleine Dinge an Prüfungen
-  selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
+  selbst und **verbessert die Abläufe selbst** (Entscheidung des Maintainers
+  vom 5.11.2026): Änderungen an Nachtlauf, CI-Wächter, Aufträgen, Workflow
+  und Release-Skripten, wenn die Zahlen sie klar begründen, höchstens drei je
+  Woche, jede mit Kennzahl und Ziel in `~/halo-aufgaben/ablauf-aenderungen.json`;
+  wirkt eine Änderung in der Woche darauf nicht, nimmt sie sie mit `git revert`
+  zurück. Was einer Entscheidung des Maintainers widerspricht, Zeitpläne,
+  LaunchAgents, neue Routinen und Kostensteigerungen bleiben Vorschläge
+  („Wartet auf OK“); Release-Sperre, `if:`-Bedingungen der Mac-Jobs und
+  Freigaberegeln nie. Bericht
   `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
 - **Doku-Prüfung:** samstags 08:00 (wartet ebenso bis 09:15 auf den
   Nachtlauf) prüft `tests/wochenpruefung.sh --doku` alle `.md`-Dateien auf

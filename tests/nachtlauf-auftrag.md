@@ -30,6 +30,11 @@ Reihenfolge:
    c) Alle so übernommenen und alle seit dem letzten Lauf neuen Commits auf
       main durchsehen (Regeln aus AGENTS.md, offensichtliche Fehler, Doppeltes;
       Gefundenes zuerst beheben) und im Bericht unter „Mitgenommen“ auflisten.
+      Ablaufänderungen der Wochenprüfung (Commits „Ablauf: …“ mit Zeile
+      „Zurück bei: …“): zeigt sich dieses Anzeichen (z. B. CI rot, Lauf
+      ausgelassen), die Änderung mit git revert zurücknehmen und im Bericht
+      sowie in ~/halo-aufgaben/ablauf-aenderungen.json (ergebnis „zurück“)
+      vermerken.
       Erst danach die Aufgabenliste laden (Reihenfolge des Maintainers vom
       4.11.2026: Commits, Liste, Bugs, Features, Reihen).
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json

@@ -100,7 +100,7 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   Job `changes`) zählt nicht als vollständig grün für `release.sh`, der
   CI-Wächter trägt ihn nicht ein, `ci-warten.sh` wartet nur auf Läufe aus
   einem Push. `mac`/`windows` gezielt nicht während des Nachtlaufs starten –
-  sie reihen sich in dieselbe Warteschlange `halo-mac` ein.
+  sie warten auf demselben Runner und verlängern seine CI-Runde.
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).
@@ -299,7 +299,9 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     zusätzliche Auslagerung. Kein Passwort, kein Microsoft-Konto, keine
     echten Mails in der VM.
   - CI: Job `windows` in `test.yml` läuft nach `mac` (gleiche Bedingung, gleicher
-    Runner und Wächter, `concurrency: halo-mac`), vorerst nur hell, Port 2845,
+    Runner und Wächter; ohne `concurrency`-Gruppe, damit GitHub keinen
+    wartenden Lauf abbricht – der eine Runner arbeitet die Jobs der Reihe
+    nach ab), vorerst nur hell, Port 2845,
     Screenshots als Artefakt `test-windows`.
 - Zwischendurch nur betroffene Prüfungen: `python3 tests/halo_test.py --port 2851
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
@@ -541,8 +543,8 @@ liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
   sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
 - Nicht zwischen 01:30 und 09:00 Wiener Zeit pushen (Nachtlauf wartet auf die
   CI genau seines Commits, Reparaturrunden bis 07:30, Ende spätestens 09:00;
-  ein weiterer Push in derselben `halo-mac`-Warteschlange kann dessen Lauf
-  verdrängen). Früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist
+  ein weiterer Push verdrängt dessen Lauf zwar nicht mehr, verlängert aber
+  die Wartezeit auf dem einen Runner um eine ganze Runde). Früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist
   (Bericht `~/halo-berichte/<datum>-nachtlauf.md` liegt vor); sonst bis
   danach warten bzw. es dem Maintainer sagen.
 - Release nur über neon, wenn die Sitzung es für nötig hält (siehe

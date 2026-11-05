@@ -154,7 +154,10 @@ jobs:
     # wenn Farben betroffen sind (Job changes); Beta nur unter Linux (Entscheidung
     # des Maintainers vom 3.11.2026)
     timeout-minutes: 100
-    concurrency: halo-mac
+    # keine concurrency-Gruppe: GitHub behielte darin nur einen wartenden Job und
+    # bräche ältere ab (so ging der CI-Lauf eines Nachtlaufs verloren, wenn jemand
+    # dazwischen pushte). Es gibt nur einen Runner mit diesem Label – die Jobs
+    # warten dort ohnehin der Reihe nach, keiner wird verdrängt
     steps:
       - uses: actions/checkout@v6
 
@@ -195,7 +198,7 @@ jobs:
     runs-on: [self-hosted, macOS, halo-mac]
     # ein Lauf gut 20 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60
-    concurrency: halo-mac
+    # (ohne concurrency-Gruppe, siehe Job mac)
     steps:
       - uses: actions/checkout@v6
 

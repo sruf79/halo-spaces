@@ -14614,7 +14614,7 @@ class CardEnhancer {
       const title = d.createElementNS(X, "div");
       title.id = "mcAgendaTitle";
       // ‹  Monat Jahr  › – blättert monatsweise; die Liste zeigt die Termine
-      // des gezeigten Monats (im aktuellen Monat ab heute)
+      // des gezeigten Monats (im aktuellen ab dem 1., heute ganz oben)
       const mkChevron = (cls, label, dir) => {
         const b = d.createElementNS(X, "button");
         b.className = `mc-agenda-nav ${cls}`;
@@ -14642,6 +14642,8 @@ class CardEnhancer {
           if (key.length >= 8) {
             const date = new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8));
             firstDate ??= date;
+            // Tage vor heute blasser (wie vergangene Tage im Kalender)
+            li.toggleAttribute("data-mc-past", key.slice(0, 8) < todayKey);
             const header = li.querySelector(".agenda-date-header");
             if (header) {
               header.dataset.mcWd = wdFmt.format(date).replace(/\.$/, "");
@@ -16897,7 +16899,9 @@ class CardEnhancer {
   // Terminliste der Today-Pane: vom Starttag bis zum Monatsende (statt einer
   // festen Anzahl Tage) – passt zum Monat im Titel
   hookAgendaMonthRange(w) {
-    const agenda = w.TodayPane?.agenda;
+    // (beim Start ist TodayPane.agenda manchmal noch nicht gesetzt – dann
+    // blieb die Liste bei Thunderbirds 14 Tagen ab heute)
+    const agenda = w.TodayPane?.agenda || w.document.getElementById("agenda");
     if (!agenda || agenda.__mcMonthRange) {
       return;
     }
@@ -16914,30 +16918,66 @@ class CardEnhancer {
         }
       },
     });
+    // gewählter Tag (meist heute) als Zeile ganz oben; die Termine des Monats
+    // davor liegen darüber und erscheinen beim Hochscrollen. Solange niemand
+    // scrollt, bleibt der Tag oben, auch wenn Netzkalender später Termine
+    // darüber einfügen (sonst rutschte die Liste weg)
+    const dayKey = dt => `${dt.year}${String(dt.month + 1).padStart(2, "0")}${String(dt.day).padStart(2, "0")}`;
+    let pinned = true;
+    const anchorRow = () => {
+      const key = agenda.__mcAnchor ? dayKey(agenda.__mcAnchor) : "";
+      return [...agenda.querySelectorAll(":scope > li.agenda-listitem")].find(li => (li.dateString || "").slice(0, 8) >= key);
+    };
+    const scrollToAnchor = () => {
+      const row = anchorRow();
+      agenda.scrollTop = row ? agenda.scrollTop + row.getBoundingClientRect().top - agenda.getBoundingClientRect().top : agenda.scrollHeight;
+    };
+    agenda.__mcScrollToAnchor = () => {
+      pinned = true;
+      scrollToAnchor();
+    };
+    const unpin = () => (pinned = false);
+    const pinEvents = ["wheel", "pointerdown", "keydown", "touchstart"];
+    pinEvents.forEach(type => agenda.addEventListener(type, unpin, { passive: true }));
+    const pinMo = new w.MutationObserver(() => pinned && scrollToAnchor());
+    pinMo.observe(agenda, { childList: true });
     // Thunderbird zeigt für andere Tage als heute nur diesen einen Tag –
-    // hier immer vom Starttag bis zum Monatsende
+    // hier immer den Monat des Tags bis zum Monatsende
     agenda.update = async function (date) {
-      date ||= this.startDate || w.TodayPane.start;
+      // (Thunderbird lädt neu mit startDate – das ist hier der Monatserste)
+      if (date && this.__mcAnchor && this.startDate && dayKey(date) == dayKey(this.startDate)) {
+        date = this.__mcAnchor;
+      }
+      date ||= this.__mcAnchor || w.TodayPane.start;
       if (!date) {
         return;
       }
-      this.startDate = date.clone();
-      this.startDate.isDate = true;
+      this.__mcAnchor = date.clone();
+      this.__mcAnchor.isDate = true;
+      this.startDate = this.__mcAnchor.clone();
+      this.startDate.day = 1;
       this.endDate = this.startDate.clone();
       this.endDate.day += this.numberOfDays;
       this.itemType = Ci.calICalendar.ITEM_FILTER_TYPE_EVENT;
+      pinned = true;
       if (this.isActive) {
         await this.refreshItems();
       } else {
         await this.ensureInitialized();
       }
-      this.selectedIndex = 0;
+      const row = anchorRow();
+      this.selectedIndex = row ? Math.max(0, this.rows.indexOf(row)) : 0;
+      scrollToAnchor();
     };
     try {
       w.TodayPane.updatePeriod();
     } catch {}
     this.restorers.push(() => {
       delete agenda.update;
+      delete agenda.__mcAnchor;
+      delete agenda.__mcScrollToAnchor;
+      pinEvents.forEach(type => agenda.removeEventListener(type, unpin));
+      pinMo.disconnect();
       Object.defineProperty(agenda, "numberOfDays", {
         configurable: true,
         get: () => Services.prefs.getIntPref("calendar.agenda.days", 14),
@@ -16957,11 +16997,13 @@ class CardEnhancer {
       const dt = cal.dtz.jsDateToDateTime(new Date(now.getFullYear(), now.getMonth(), now.getDate()), cal.dtz.defaultTimezone);
       dt.isDate = true;
       w.TodayPane.setDay(dt);
+      // heute ganz oben (darüber die vergangenen Termine des Monats), auch
+      // nach dem Neuladen der Termine
       const agenda = w.document.getElementById("agenda");
+      const top = () => (agenda.__mcScrollToAnchor ? agenda.__mcScrollToAnchor() : (agenda.scrollTop = 0));
       if (agenda) {
-        agenda.scrollTop = 0;
-        // nach dem Neuladen der Termine nochmals nach oben
-        w.setTimeout(() => (agenda.scrollTop = 0), 150);
+        top();
+        w.setTimeout(top, 150);
       }
     } catch (e) {
       log("agenda today error", String(e).slice(0, 160));

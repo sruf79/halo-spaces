@@ -5026,7 +5026,8 @@ def calendar_checks(m, results):
           const api = Cu.evalInSandbox("mailCards.prototype.getAPI({})", g).mailCards;
           const title = d.getElementById("mcTodayTitle");
           // Symbol neben dem Titel nur mit eingeschaltetem Wetter (aus: keins, an ohne Daten: Sonne)
-          const shown = () => (d.getElementById("mcTodayWeather")?.getBoundingClientRect().width || 0) > 0;
+          // (am Stil, nicht an der Breite: die Today-Pane kann hier ausgeblendet sein)
+          const shown = () => { const i = d.getElementById("mcTodayWeather"); return !!i && w.getComputedStyle(i).display != "none"; };
           const out = { start: { attr: title.dataset.weather || null, setting: (await api.getSettings()).weather, icon: shown() } };
           Cu.evalInSandbox(`globalThis.__mcRealFetch = fetchWithTimeout; globalThis.__mcUrls = [];
             fetchWithTimeout = async (win, url) => { __mcUrls.push(url);
@@ -5694,11 +5695,23 @@ def calendar_checks(m, results):
     check("Today-Pane: laufender Termin „now“ statt Uhrzeit, bald beginnender mit rotem Hinweis", agenda_soon, results)
 
     def today_title_click():
-        # Klick (und Enter) auf die Überschrift der Today-Pane: zurück zum heutigen Tag, Liste ganz oben
+        # Klick (und Enter) auf die Überschrift der Today-Pane: zurück zum heutigen Tag, heute ganz oben; vergangene
+        # Termine des Monats liegen darüber (blasser) und erscheinen beim Hochscrollen
         res = m.js(CAL_CHECK_JS + r"""
+          // Termin gestern (am Monatsersten gibt es im Monat kein Gestern – dann nur „heute oben“)
+          const c = testCalendar(), past = today().day > 1; let added = null;
+          if (past) { const e = new CalEvent(); e.title = "Halo Agenda Gestern"; e.calendar = c; const s = today(); s.day -= 1; const en = s.clone(); en.day += 1;
+            e.startDate = s; e.endDate = en; added = await c.addItem(e); }
+          try {
           await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
           await ruhig(800);
           const title = d.getElementById("mcTodayTitle"), agenda = d.getElementById("agenda");
+          const n = new Date(), todayKey = `${n.getFullYear()}${String(n.getMonth() + 1).padStart(2, "0")}${String(n.getDate()).padStart(2, "0")}`;
+          const rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
+          // heute oben: erste Zeile ab heute an der Oberkante – oder ganz hinuntergescrollt, wenn die Liste dafür zu kurz ist
+          const atToday = () => { const row = rows().find(li => (li.dateString || "").slice(0, 8) >= todayKey);
+            const end = agenda.scrollTop >= agenda.scrollHeight - agenda.clientHeight - 1;
+            return row ? Math.abs(row.getBoundingClientRect().top - agenda.getBoundingClientRect().top) <= 1 || end : end; };
           const away = () => { const dt = cal.dtz.now(); dt.isDate = true; dt.month += 2; dt.day = 1; w.TodayPane.setDay(dt); };
           const isToday = () => { const s = w.TodayPane.start, n = new Date(); return s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate(); };
           const out = { role: title?.getAttribute("role"), tip: title?.title, tab: title?.tabIndex };
@@ -5718,15 +5731,22 @@ def calendar_checks(m, results):
           // (Wetter ist aus: kein Symbol neben dem Titel)
           out.parts = out.below ? null : [d.elementFromPoint(tr0.left + 6, y) == tt, wr.width > 0 ? d.elementFromPoint(wr.left + wr.width / 2, y) == wi : null];
           d.elementFromPoint(r.left + r.width / 2, y)?.click(); await ruhig(600);
-          out.click = [isToday(), agenda.scrollTop];
+          out.click = [isToday(), atToday()];
+          if (past) { await bis(() => rows().some(li => li.textContent.includes("Halo Agenda Gestern")), "Termin gestern in der Liste", 6000); await ruhig(300);
+            const pl = rows().find(li => li.textContent.includes("Halo Agenda Gestern")), first = rows().find(li => (li.dateString || "").slice(0, 8) >= todayKey);
+            out.past = { dim: pl.hasAttribute("data-mc-past"), opacity: w.getComputedStyle(pl).opacity, above: !first || !!(pl.compareDocumentPosition(first) & 4), today: atToday() };
+            agenda.dispatchEvent(new w.WheelEvent("wheel", { deltaY: -100, bubbles: true })); agenda.scrollTop = 0; await ruhig(300);
+            const pr = pl.getBoundingClientRect(), ar = agenda.getBoundingClientRect(); out.past.upShown = pr.top >= ar.top - 1 && pr.bottom <= ar.bottom + 1; }
           away(); await ruhig(500);
           title.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await ruhig(600);
-          out.enter = [isToday(), agenda.scrollTop];
-          return out;""")
+          out.enter = [isToday(), atToday()];
+          return out;
+          } finally { if (added) await c.deleteItem(added); }""")
         ok = (res.get("role") == "button" and res.get("tip") == "Go to Today" and res.get("tab") == 0 and res.get("awayOk")
               and res.get("parts") in (None, [True, None])
               and res.get("hit") == [True, True] and res.get("width", 0) >= 20 and (sys.platform != "darwin" or not res.get("below"))
-              and res.get("click") == [True, 0] and res.get("enter") == [True, 0])
+              and res.get("click") == [True, True] and res.get("enter") == [True, True]
+              and (res.get("past") is None or res["past"] == {"dim": True, "opacity": "0.55", "above": True, "today": True, "upShown": True}))
         return ok, f"{res}"
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird
@@ -5982,7 +6002,7 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: „View → Today Pane“ mit Häkchen genau dann, wenn die Today-Pane zu sehen ist", today_menu_check, results)
 
-    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, Liste ganz oben; Titel und Wettersymbol nehmen Maus und Tooltip an statt der Fensterzeile", today_title_click, results)
+    check("Today-Pane: Klick oder Enter auf die Überschrift springt zum heutigen Tag, heute ganz oben, vergangene Termine des Monats blasser darüber; Titel und Wettersymbol nehmen Maus und Tooltip an statt der Fensterzeile", today_title_click, results)
 
     def window_fit_screen():
         # Hauptfenster nie breiter als der Bildschirm (Doppelklick auf die Titelleiste dehnte es darüber hinaus)

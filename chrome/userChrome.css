@@ -11945,6 +11945,11 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   line-height: 1.3 !important;
 }
 
+/* Tage vor heute (beim Hochscrollen über heute) blasser, wie vergangene Tage im Kalender */
+#agenda > li.agenda-listitem[data-mc-past] {
+  opacity: 0.55;
+}
+
 /* nur laufende und bald beginnende Termine bekommen den Zusatz */
 #agenda .agenda-listitem:not(.agenda-listitem-now, [data-mc-soon]) .agenda-listitem-relative {
   display: none !important;

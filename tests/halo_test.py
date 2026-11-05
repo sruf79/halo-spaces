@@ -252,7 +252,7 @@ KONSOLE_JS = r"""
   const add = (k, msg) => {
     if (!(msg instanceof Ci.nsIScriptError)) return;
     if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { k.warnungen++; return; }
-    const text = String(msg.errorMessage || "").slice(0, 200);
+    const text = String(msg.errorMessage || "").replace(/\s+/g, " ").trim().slice(0, 200);  // eine Zeile je Meldung
     let stack = ""; try { stack = String(msg.stack?.toString?.() || ""); } catch {}
     if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(text)))) { k.fremd++; return; }
     if (k.eintraege.length < 2000) k.eintraege.push({ text, wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}`, check: k.check });
@@ -14162,13 +14162,19 @@ Neu
     server_checks(m, results)
 
     def errors():
+        try:
+            return errors_lesen()
+        except Exception as e:  # Auslesen gescheitert: nur Hinweis, nie ein Fehlschlag (hält kein Release auf)
+            return True, f"WARNUNG: Fehlerprotokoll nicht lesbar – {e}"
+
+    def errors_lesen():
         res = m.js("""
           const p = PathUtils.join(PathUtils.profileDir, "mail-cards-debug.log");
           let lines = []; try { lines = (await IOUtils.readUTF8(p)).split("\\n"); } catch {}
           // ohne Zeitstempel, gleiche Meldungen einmal (mit Anzahl)
           const seen = new Map();
           for (const l of lines) if (/error|fehler/i.test(l) && !/preview stats/.test(l)) {
-            const t = l.replace(/^\\S+Z /, "").slice(0, 300); seen.set(t, (seen.get(t) || 0) + 1); }
+            const t = l.replace(/^\\S+Z /, "").replace(/\\s+/g, " ").trim().slice(0, 300); seen.set(t, (seen.get(t) || 0) + 1); }
           return [...seen].slice(0, 20).map(([t, n]) => (n > 1 ? `${n}× ` : "") + t);""")
         # Nie ein Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile
         # „PROTOKOLL  …“, die der CI-Wächter als Bug „Tests: Fehlerprotokoll – …“ ins Board trägt
@@ -14184,7 +14190,10 @@ Neu
         # als Warnung mit eigener Zeile „KONSOLE  …“, die der CI-Wächter als Bug ins Board trägt; mit erwartet()
         # angemeldete zählen nicht, Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt.
         # Läuft auch mit --only (dann nur für die gelaufenen Prüfungen)
-        res = konsole_lesen(m)
+        try:
+            res = konsole_lesen(m)
+        except Exception as e:  # Auslesen gescheitert (z. B. Thunderbird abgestürzt): nur Hinweis, nie ein Fehlschlag
+            return True, f"WARNUNG: Fehlerkonsole nicht lesbar – {e}"
         errors, notes = konsole_bewerten(res, ONLY)
         konsole_melden(errors, notes)
         summary = f"Thunderbird selbst: {res.get('fremd')} Fehler, {res.get('warnungen')} Warnungen"

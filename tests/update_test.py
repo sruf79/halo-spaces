@@ -115,15 +115,17 @@ def start(tb, profile, port):
     time.sleep(8)
     m = ht.Marionette(port)
     m.cmd("WebDriver:SetTimeouts", {"script": 180000})
+    # Mitschrift der Fehlerkonsole ab hier: merkt sich die Kennung unserer Erweiterung, solange sie installiert ist
+    # (nach dem Deinstallieren wären Meldungen aus background.js & Co. sonst nicht mehr als unsere erkennbar)
+    ht.konsole_start(m)
     return proc, m
 
 
 def konsole(m, wann):
     """Fehlerkonsole dieser Thunderbird-Sitzung – nur Warnung wie in halo_test.py (Zeilen „KONSOLE  …“), hält kein
-    Release auf; release.sh übernimmt die Zusammenfassung in Marke und Bericht. Kurze Sitzung: der Puffer reicht."""
+    Release auf; release.sh übernimmt die Zusammenfassung in Marke und Bericht. Liest die Mitschrift aus start()."""
     try:
         res = ht.konsole_lesen(m)
-        res.pop("quelle", None)
         errors, notes = ht.konsole_bewerten(res)
         ht.konsole_melden(errors, notes)
         print(f"Fehlerkonsole ({wann}): {len(errors)} Fehler aus halo.spaces (nur Warnung), "

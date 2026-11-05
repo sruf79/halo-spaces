@@ -86,7 +86,13 @@ board() {
 eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard „Tests: CI rot“]
   local job=$1 pruefung=$2 text=$3 zusatz=$4 anfang=${5:-"Tests: CI rot"} kurz titel id di body
   kurz=${pruefung[1,90]}
-  (( ${#pruefung} > 90 )) && kurz="${kurz% *} …"
+  if (( ${#pruefung} > 90 )); then
+    kurz=${kurz% *}
+    # mindestens die 60 Zeichen, über die ein offener Eintrag wiedergefunden wird (sonst bei langen Wörtern wie
+    # Pfaden jedes Mal ein neuer Eintrag)
+    (( ${#kurz} < 60 )) && kurz=${pruefung[1,89]}
+    kurz+=" …"
+  fi
   if [[ -n $job ]]; then titel="$anfang – $job: $kurz"; else titel="$anfang – $kurz"; fi
   # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
   read -r id di <<< $(board | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
@@ -224,7 +230,9 @@ konsole() {   # <Lauf-ID>
   local art wo meldung
   for key in $keys; do
     n=$((n + 1))
-    (( n > 8 )) && continue
+    # keine Obergrenze von 8 wie bei Rot: sonst kämen bei vielen Meldungen die hinteren nie ins Board (jeder Lauf
+    # nennt sie in derselben Reihenfolge); Wiederholungen kosten nur einen Vergleich
+    (( n > 60 )) && { (( n == 61 )) && melde "  … mehr als 60 Meldungen, Rest im nächsten Lauf"; continue }
     meldung=${key[3,-1]}
     if [[ ${key[1]} == P ]]; then
       art="Tests: Fehlerprotokoll" wo="in sein Fehlerprotokoll (mail-cards-debug.log)"

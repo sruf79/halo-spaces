@@ -27,6 +27,20 @@ letzten 7 Tagen, was lässt sich an den Prüfungen verbessern?
   erledigte Einträge, Limit-Pausen („Limit – Pause“), ausgelassene Nächte und
   Grund, Einträge zurück auf Todo, Release mit lokalen Tests oder über grüne
   CI („CI-Lauf … grün“ im Release-Bericht), Store-Upload-Fehler, Push-Fehler.
+- **Nachtlauf zu früh beendet?** (Wunsch des Maintainers vom 5.11.2026) Je
+  Nacht aus ~/halo-nacht/<datum>.log Beginn („Start, Sitzung“) und Ende
+  („Ende“) der Arbeit und Grund des Endes (Fertig-Datei, „08:00 erreicht“,
+  dreimal ohne Fertig-Datei aufgehört, Limit) sowie aus dem Bericht, was
+  unter „Übersprungen/offen“ steht. Zu früh heißt: Der Lauf hat vor 04:30
+  den letzten Eintrag begonnen bzw. vor 04:30 aufgehört, obwohl im Board
+  noch machbare Einträge (Todo, kein „Wartet auf OK“, keine offene
+  Entscheidung des Maintainers) lagen. Je solche Nacht: ungenutzte Zeit bis
+  04:30 in Minuten, Zahl der liegengebliebenen machbaren Einträge und der
+  erkennbare Grund (z. B. Plan zu klein gewählt, Einträge fälschlich als
+  „braucht Entscheidung“ übersprungen, Abbruch nach Limit, Runde ohne
+  Fortsetzung). War das in mindestens zwei Nächten der Woche so, einen
+  Vorschlag „Ablauf: Nachtlauf …“ (Wartet auf OK) mit Ursache und Abhilfe
+  anlegen (z. B. Auftrag in tests/nachtlauf-auftrag.md schärfen).
 - **CI-Wächter:** ~/halo-aufgaben/ci-waechter.log – gemeldete rote Läufe.
 - **Board:** gh project item-list 1 --owner sruf79 --limit 300 --format json
   (offen: Anzahl je Status und Typ). Erledigte Einträge werden archiviert und
@@ -41,7 +55,8 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   ci_laeufe, ci_gruen, ci_rot, ci_abgebrochen,
   job_dauer_min (Objekt Job → Mittelwert in Minuten),
   rote_pruefungen (Objekt Prüfung → Anzahl), unzuverlaessig (Liste),
-  naechte, naechte_ausgelassen, limit_pausen, releases, releases_per_ci,
+  naechte, naechte_ausgelassen, naechte_zu_frueh, ungenutzt_min (Summe der
+  ungenutzten Minuten bis 04:30), limit_pausen, releases, releases_per_ci,
   store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende.
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.
@@ -105,7 +120,9 @@ Zeile nach der Überschrift genau so:
   Kurz: <ein Satz: CI grün/rot-Quote, auffälligste Zahl, Anzahl Korrekturen und Vorschläge>
 Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte:
 Kennzahlen (Tabelle mit Vorwoche), Auffällig (unzuverlässige Prüfungen,
-langsamste Prüfungen, Ausfälle), Geändert (Commit, was und warum; im
+langsamste Prüfungen, Ausfälle), Nachtläufe (je Nacht Beginn, Ende, Grund
+des Endes, erledigt, ungenutzte Zeit und liegengebliebene machbare
+Einträge, falls zu früh beendet), Geändert (Commit, was und warum; im
 Trockenlauf „Würde ändern“), Top-3-Vorschläge (je ein Satz Nutzen, Board-ID
 falls angelegt), Probleme dieses Laufs. Den Bericht immer schreiben.
 

@@ -234,7 +234,8 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   oder Wochenprüfung übernehmen diese selbst. `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
-  `~/halo-aufgaben/wochen-kennzahlen.json`), behebt kleine Dinge an Prüfungen
+  `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf vor 04:30
+  aufhört, obwohl noch machbare Einträge lagen), behebt kleine Dinge an Prüfungen
   selbst und legt Ablaufänderungen nur als „Wartet auf OK“ an. Bericht
   `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
 - **Doku-Prüfung:** samstags 08:00 (wartet ebenso bis 09:15 auf den
@@ -378,11 +379,14 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - Die Liste ist die Vorlage für die Arbeit: offene Einträge berücksichtigen
   und passende Aufgaben nennen – in der Reihenfolge unten.
 - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
-  abends; gilt für jede Sitzung, nicht nur den Nachtlauf, 5.11.2026):
+  abends; gilt für jede Sitzung, die die Liste abarbeitet, 5.11.2026):
   1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden,
-  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m). Diese Reihenfolge
-  ist immer erlaubt.
+  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m).
+- **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):
+  Der Nachtlauf immer von sich aus. Jede andere Sitzung nur, wenn der
+  Maintainer sie dazu auffordert (ganze Liste oder einzelne Einträge) – dann
+  in der Reihenfolge oben, ohne weitere Rückfrage je Eintrag.
 - **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
   (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
@@ -398,9 +402,9 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
   Ursache klären und Lösungsidee in den Eintrag
-  schreiben ist erwünscht – aber nicht gleich umsetzen und auch nicht
-  anbieten; umgesetzt wird nur, wenn der Maintainer einen Eintrag zum
-  Abarbeiten nennt. Gehört der Punkt zu einem offenen Eintrag, diesen
+  schreiben ist erwünscht – aber nicht mitten in der laufenden Aufgabe
+  nebenbei umsetzen und auch nicht anbieten; umgesetzt wird er wie jeder
+  Eintrag über die Liste (siehe „Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag, diesen
   ergänzen statt einen neuen anzulegen.
 - Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
   Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress

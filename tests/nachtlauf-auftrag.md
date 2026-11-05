@@ -4,7 +4,8 @@ Abweichungen und Ergänzungen stehen hier.
 
 Freigabe des Maintainers für diesen Lauf:
 - Offene Einträge der Aufgabenliste (GitHub-Project 1, sruf79) ohne Rückfrage
-  abarbeiten – abweichend von „umgesetzt wird nur, was der Maintainer nennt“.
+  abarbeiten (AGENTS.md „Wer die Liste abarbeitet“: der Nachtlauf immer,
+  andere Sitzungen nur auf Aufforderung).
 - Am Ende selbst veröffentlichen nach AGENTS.md, Abschnitt „Release“.
 
 Reihenfolge:

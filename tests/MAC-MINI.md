@@ -570,6 +570,10 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   `~/halo-nacht/*.log` und `~/halo-berichte/*` (erledigte Einträge,
   Limit-Pausen, ausgelassene Nächte, Release lokal oder per CI,
   Store-Upload-Fehler), Protokoll des CI-Wächters, Durchsatz im Board.
+- Nachtlauf zu früh beendet: je Nacht, ob er vor 04:30 aufgehört hat,
+  obwohl noch machbare Einträge im Board lagen (ungenutzte Minuten, Zahl der
+  Einträge, Grund); in mindestens zwei Nächten der Woche ein Vorschlag
+  „Ablauf: Nachtlauf …“ mit „Wartet auf OK“.
 - Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich
   zur Vorwoche im Bericht `~/halo-berichte/<datum>-wochenpruefung.md`
   (erste Zeile „Kurz: …“ geht aufs iPhone).

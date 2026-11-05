@@ -25,6 +25,20 @@ zeit() { date '+%F %T' }
 cd $REPO 2>/dev/null || { print -u2 "$(zeit) Repo-Ordner $REPO fehlt"; exit 1 }
 claude=${commands[claude]}
 [[ -n $claude ]] || { print -u2 "$(zeit) claude nicht gefunden (Abschnitt 12)"; exit 1 }
+# Protokoll (StandardOutPath des LaunchAgents) nicht endlos wachsen lassen:
+# ab 10 MB nach .1 … .5 weiterreichen und leeren (kopieren statt umbenennen –
+# launchd schreibt weiter in die offene Datei, angehängt am Ende). Beim Start
+# und stündlich; die Schleife endet mit dem LaunchAgent
+LOGDATEI=${HALO_RC_LOG:-$HOME/Library/Logs/halo-remote-control.log}
+rotieren() {
+  local i
+  [[ -f $LOGDATEI ]] && (( $(stat -f %z $LOGDATEI) > 10 * 1024 * 1024 )) || return 0
+  for i in {4..1}; do [[ -f $LOGDATEI.$i ]] && mv -f $LOGDATEI.$i $LOGDATEI.$((i + 1)); done
+  cp $LOGDATEI $LOGDATEI.1 && : > $LOGDATEI
+  print "$(zeit) Protokoll rotiert (vorher > 10 MB, alt in ${LOGDATEI:t}.1 … .5)"
+}
+rotieren
+{ while sleep 3600; do rotieren; done } &!
 print "$(zeit) Start: $claude remote-control in $REPO als $NAME"
 exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${MODUS:+--permission-mode} ${MODUS}

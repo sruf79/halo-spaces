@@ -28,6 +28,10 @@ und wirkten die Verbesserungen der Vorwochen?
   erledigte Einträge, Limit-Pausen („Limit – Pause“), ausgelassene Nächte und
   Grund, Einträge zurück auf Todo, Release mit lokalen Tests oder über grüne
   CI („CI-Lauf … grün“ im Release-Bericht), Store-Upload-Fehler, Push-Fehler.
+- **Remote Control:** ~/Library/Logs/halo-remote-control.log (und .1 … .5,
+  rotiert ab 10 MB): Startzeilen („Start: …“, je Neustart der Sitzung neon)
+  und Fehlerzeilen der letzten 7 Tage zählen; häufige Neustarts oder neue
+  Fehlerarten im Bericht nennen.
 - **Nachtlauf zu früh beendet?** (Wunsch des Maintainers vom 5.11.2026) Je
   Nacht aus ~/halo-nacht/<datum>.log Beginn („Start, Sitzung“) und Ende
   („Ende“) der Arbeit und Grund des Endes (Fertig-Datei, „08:00 erreicht“,

@@ -455,6 +455,8 @@ const DE = {
   "Public": "Öffentlich",
   "Private": "Privat",
   "Confidential": "Vertraulich",
+  "Cancelled": "Abgesagt",
+  "Remove": "Entfernen",
   "Progress": "Fortschritt",
   "Location": "Ort",
   "URL": "URL",
@@ -900,6 +902,8 @@ const FR = {
   "Public": "Public",
   "Private": "Privé",
   "Confidential": "Confidentiel",
+  "Cancelled": "Annulée",
+  "Remove": "Supprimer",
   "Progress": "Progression",
   "Location": "Lieu",
   "URL": "URL",
@@ -1345,6 +1349,8 @@ const ES = {
   "Public": "Público",
   "Private": "Privado",
   "Confidential": "Confidencial",
+  "Cancelled": "Cancelada",
+  "Remove": "Quitar",
   "Progress": "Progreso",
   "Location": "Ubicación",
   "URL": "URL",
@@ -1790,6 +1796,8 @@ const IT = {
   "Public": "Pubblico",
   "Private": "Privato",
   "Confidential": "Riservato",
+  "Cancelled": "Annullata",
+  "Remove": "Rimuovi",
   "Progress": "Avanzamento",
   "Location": "Luogo",
   "URL": "URL",
@@ -6150,8 +6158,259 @@ function hookTaskInfo(win, restorers) {
     );
     // der Fortschritt zeigt statt des Symbols den Ring der Liste
     box.querySelector('.mc-ti-row[data-icon="progress"] > .mc-ti-icon')?.replaceWith(ring);
+    wire(item);
     sizeNote();
   };
+  // Bearbeiten direkt in der Spalte wie im Info-Fenster von Apple Erinnerungen:
+  // Klick auf einen Wert öffnet ein Menü bzw. ein Feld, gespeichert wird
+  // sofort über Thunderbirds Transaktion (mit Rückgängig)
+  const writable = item => {
+    try {
+      return cal.acl.isCalendarWritable(item.calendar) && cal.acl.userCanModifyItem(item);
+    } catch {
+      return false;
+    }
+  };
+  const save = async (mutate, calendar = null) => {
+    const old = tree.currentTask;
+    if (!old || !writable(old)) {
+      return;
+    }
+    const item = old.clone();
+    mutate(item);
+    try {
+      await win.doTransaction("modify", item, calendar || item.calendar, old, null);
+    } catch (e) {
+      log("task info save error", e);
+      throw e;
+    }
+  };
+  let menu = null;
+  const openMenu = (anchor, entries) => {
+    menu?.remove();
+    menu = doc.createXULElement("menupopup");
+    menu.id = "mcTaskInfoMenu";
+    for (const e of entries) {
+      if (!e) {
+        menu.append(doc.createXULElement("menuseparator"));
+        continue;
+      }
+      const mi = doc.createXULElement("menuitem");
+      mi.setAttribute("label", e.label);
+      if (e.type) {
+        mi.setAttribute("type", e.type);
+      }
+      if (e.checked) {
+        mi.setAttribute("checked", "true");
+      }
+      if (e.disabled) {
+        mi.setAttribute("disabled", "true");
+      }
+      mi.addEventListener("command", () => e.run());
+      menu.append(mi);
+    }
+    doc.getElementById("mainPopupSet")?.append(menu) ?? doc.documentElement.append(menu);
+    menu.addEventListener("popuphidden", event => event.target == menu && menu.remove(), { once: true });
+    menu.openPopup(anchor, "after_end", 0, 2, false, false);
+  };
+  // Textfeld an Stelle eines Werts (Enter oder Verlassen speichert, Esc bricht ab)
+  const editText = (host, value, apply, { type = "text", remove = null } = {}) => {
+    const input = el("input", "mc-ti-input");
+    input.type = type;
+    input.value = value || "";
+    const old = [...host.childNodes];
+    let done = false;
+    const finish = keep => {
+      if (done) {
+        return;
+      }
+      done = true;
+      if (keep && input.value != (value || "")) {
+        apply(input.value);
+      } else {
+        host.replaceChildren(...old);
+      }
+    };
+    input.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key == "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+      event.stopPropagation();
+    });
+    input.addEventListener("blur", () => win.setTimeout(() => finish(true), 0));
+    const parts = [input];
+    if (remove) {
+      const b = el("button", "mc-ti-remove", tr("Remove"));
+      b.type = "button";
+      b.addEventListener("mousedown", event => event.preventDefault());
+      b.addEventListener("click", () => {
+        done = true;
+        remove();
+      });
+      parts.push(b);
+    }
+    host.replaceChildren(...parts);
+    input.focus();
+    input.select?.();
+  };
+  // Datum und Uhrzeit als Wert für <input type="datetime-local"> bzw. "date"
+  const pad = n => String(n).padStart(2, "0");
+  const toInput = dt => {
+    if (!dt?.isValid) {
+      return "";
+    }
+    const js = cal.dtz.dateTimeToJsDate(dt.isDate ? dt : dt.getInTimezone(cal.dtz.defaultTimezone));
+    const day = `${js.getFullYear()}-${pad(js.getMonth() + 1)}-${pad(js.getDate())}`;
+    return dt.isDate ? day : `${day}T${pad(js.getHours())}:${pad(js.getMinutes())}`;
+  };
+  const fromInput = (text, isDate) => {
+    const m = /^(\d{4})-(\d\d)-(\d\d)(?:T(\d\d):(\d\d))?/.exec(text || "");
+    if (!m) {
+      return null;
+    }
+    const dt = cal.dtz.jsDateToDateTime(new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)), cal.dtz.defaultTimezone);
+    dt.isDate = isDate;
+    return dt;
+  };
+  const RULES = { DAILY: "Every day", WEEKLY: "Every week", MONTHLY: "Every month", YEARLY: "Every year" };
+  const ALARMS = [[0, "At time"], [5, "5 minutes before"], [15, "15 minutes before"], [30, "30 minutes before"],
+    [60, "1 hour before"], [1440, "1 day before"]];
+  const wire = item => {
+    if (!writable(item)) {
+      box.removeAttribute("data-editable");
+      return;
+    }
+    box.setAttribute("data-editable", "");
+    const rowOf = icon => box.querySelector(`.mc-ti-row[data-icon="${icon}"]`);
+    const valueOf = r => r?.querySelector(".mc-ti-value");
+    const on = (icon, fn) => {
+      const r = rowOf(icon);
+      if (r) {
+        r.setAttribute("data-edit", "");
+        r.addEventListener("click", event => {
+          if (!event.target.closest?.("input, button")) {
+            fn(r, valueOf(r));
+          }
+        });
+      }
+    };
+    const dateRow = (icon, prop) => on(icon, (r, v) => {
+      const cur = item[prop];
+      const isDate = cur?.isValid ? cur.isDate : false;
+      editText(v, toInput(cur), text => save(it => (it[prop] = fromInput(text, isDate))),
+        { type: isDate ? "date" : "datetime-local", remove: cur?.isValid ? () => save(it => (it[prop] = null)) : null });
+    });
+    dateRow("calendar", "entryDate");
+    dateRow("clock", "dueDate");
+    const base = item.entryDate?.isValid || item.dueDate?.isValid;
+    on("repeat", r => {
+      const info = (item.parentItem || item).recurrenceInfo;
+      const rules = info ? info.getRecurrenceItems().filter(x => !x.isNegative) : [];
+      const curType = rules.length == 1 && rules[0] instanceof Ci.calIRecurrenceRule && rules[0].interval == 1 ? rules[0].type : info ? "custom" : "";
+      openMenu(r, [
+        { label: tr("Never"), type: "radio", checked: !curType, run: () => save(it => (it.recurrenceInfo = null)) },
+        ...Object.entries(RULES).map(([type, label]) => ({ label: tr(label), type: "radio", checked: curType == type, disabled: !base,
+          run: () => save(it => {
+            const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+            const ri = new CalRecurrenceInfo(it);
+            ri.appendRecurrenceItem(cal.createRecurrenceRule(`RRULE:FREQ=${type}`));
+            it.recurrenceInfo = ri;
+          }) })),
+      ]);
+    });
+    on("bell", r => {
+      const alarm = item.getAlarms()[0];
+      const mins = alarm?.offset ? Math.round(Math.abs(alarm.offset.inSeconds) / 60) : alarm ? -1 : null;
+      openMenu(r, [
+        { label: tr("None"), type: "radio", checked: mins == null, run: () => save(it => it.clearAlarms()) },
+        ...ALARMS.map(([n, label]) => ({ label: tr(label), type: "radio", checked: mins == n, disabled: !base,
+          run: () => save(it => {
+            const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+            const a = new CalAlarm();
+            a.action = "DISPLAY";
+            a.related = it.dueDate?.isValid ? Ci.calIAlarm.ALARM_RELATED_END : Ci.calIAlarm.ALARM_RELATED_START;
+            const d = cal.createDuration();
+            d.inSeconds = -n * 60;
+            a.offset = d;
+            it.clearAlarms();
+            it.addAlarm(a);
+          }) })),
+      ]);
+    });
+    on("list", r => {
+      const cals = cal.manager.getCalendars().filter(c => !c.getProperty("disabled") && cal.acl.isCalendarWritable(c) &&
+        c.getProperty("capabilities.tasks.supported") !== false);
+      openMenu(r, cals.map(c => ({ label: c.name, type: "radio", checked: c.id == item.calendar?.id,
+        run: () => c.id != item.calendar?.id && save(it => (it.calendar = c), c) })));
+    });
+    on("tag", r => {
+      const cats = [...new Set([...cal.category.fromPrefs(), ...item.getCategories()])].sort((a, b) => a.localeCompare(b));
+      const has = new Set(item.getCategories());
+      openMenu(r, cats.map(c => ({ label: c, type: "checkbox", checked: has.has(c),
+        run: () => save(it => {
+          const next = new Set(it.getCategories());
+          next.has(c) ? next.delete(c) : next.add(c);
+          it.setCategories([...next]);
+        }) })));
+    });
+    on("lock", r => openMenu(r, [["PUBLIC", "Public"], ["PRIVATE", "Private"], ["CONFIDENTIAL", "Confidential"]].map(([v, label]) =>
+      ({ label: tr(label), type: "radio", checked: (item.privacy || "PUBLIC") == v, run: () => save(it => (it.privacy = v)) }))));
+    on("star", r => openMenu(r, [[0, "None"], [1, "High"], [5, "Medium"], [9, "Low"]].map(([v, label]) => {
+      const cur = item.priority >= 1 && item.priority <= 4 ? 1 : item.priority == 5 ? 5 : item.priority >= 6 ? 9 : 0;
+      return { label: tr(label), type: "radio", checked: cur == v, run: () => save(it => (it.priority = v)) };
+    })));
+    on("progress", r => {
+      const pct = item.isCompleted ? 100 : item.percentComplete || 0;
+      openMenu(r, [
+        ...[0, 25, 50, 75, 100].map(v => ({ label: `${v} %`, type: "radio", checked: pct == v && item.status != "CANCELLED",
+          run: () => save(it => {
+            if (v == 100) {
+              it.isCompleted = true;
+            } else {
+              it.isCompleted = false;
+              it.status = v ? "IN-PROCESS" : "NONE";
+              it.percentComplete = v;
+            }
+          }) })),
+        null,
+        { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => (it.status = "CANCELLED")) },
+      ]);
+    });
+    on("location", (r, v) => editText(v, item.getProperty("LOCATION") || "", text => save(it => (text ? it.setProperty("LOCATION", text) : it.deleteProperty("LOCATION")))));
+    on("link", (r, v) => editText(v, item.getProperty("URL") || "", text => save(it => (text ? it.setProperty("URL", text) : it.deleteProperty("URL")))));
+  };
+  // Titel in der Kopfkarte: Klick bearbeitet ihn
+  const titleCell = doc.getElementById("calendar-task-details-title");
+  const onTitle = () => {
+    const item = tree.currentTask;
+    if (!item || !writable(item) || titleCell.querySelector("input")) {
+      return;
+    }
+    editText(titleCell, item.title || "", text => text.trim() && save(it => (it.title = text.trim())));
+  };
+  titleCell?.addEventListener("click", onTitle);
+  // Notiz: Klick macht den Text bearbeitbar, Verlassen speichert ihn
+  const onNoteClick = () => {
+    const item = tree.currentTask, ndoc = frame.contentDocument;
+    if (!item || !writable(item) || !ndoc?.body || ndoc.designMode == "on") {
+      return;
+    }
+    const before = ndoc.body.innerText;
+    ndoc.designMode = "on";
+    frame.contentWindow.addEventListener("blur", () => {
+      ndoc.designMode = "off";
+      const text = ndoc.body.innerText.replace(/\n+$/, "");
+      if (text != before.replace(/\n+$/, "")) {
+        save(it => (it.descriptionText = text));
+      }
+    }, { once: true });
+  };
+  const noteDoc = () => frame.contentDocument;
+  const hookNote = () => noteDoc()?.addEventListener("click", onNoteClick);
   // Notiz nur so hoch wie ihr Text (Thunderbird lässt sie den Rest füllen),
   // leer ganz weg – die Kopfkarte endet dann mit dem Titel
   const sizeNote = () => {
@@ -6180,9 +6439,15 @@ function hookTaskInfo(win, restorers) {
     return result;
   };
   frame.addEventListener("load", sizeNote, true);
+  frame.addEventListener("load", hookNote, true);
+  hookNote();
   render();
   restorers.push(() => {
     view.onSelect = orig;
+    titleCell?.removeEventListener("click", onTitle);
+    frame.removeEventListener("load", hookNote, true);
+    noteDoc()?.removeEventListener("click", onNoteClick);
+    menu?.remove();
     frame.removeEventListener("load", sizeNote, true);
     frame.style.removeProperty("height");
     if (wrapperFlex != null) {

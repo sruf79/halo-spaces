@@ -5935,6 +5935,81 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben: Detailspalte wie Erinnerungen – Kopfkarte mit Titel und Notiz, Abschnitte Date & Time, Organisation, Place, leere Werte grau „None“", tasks_info_column, results)
 
+    def tasks_info_edit():
+        # Aufgaben: Werte direkt in der Detailspalte ändern wie in Apple Erinnerungen – Menü (Priorität, Fortschritt,
+        # Wiederholung), Feld (Ort, Titel), Datum mit „Remove“; gespeichert sofort; die ganze Spalte scrollt gemeinsam
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(600);
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar();
+          const t = new CalTodo(); t.title = "Halo Bearbeiten"; t.calendar = c;
+          const due = cal.dtz.now(); due.day += 2; due.hour = 16; due.minute = 0; due.second = 0; t.dueDate = due; t.entryDate = due.clone();
+          t.descriptionText = "Notiz"; let saved = await c.addItem(t);
+          Services.prefs.clearUserPref("extensions.mailcards.taskView");
+          const fresh = async () => (saved = await c.getItem(saved.id));
+          // (bis() wartet nicht auf Promises – hier die gespeicherte Aufgabe abfragen, bis es passt)
+          const saw = async (fn, ms = 4000) => { for (let t = 0; t < ms; t += 100) { if (fn(await fresh())) return true; await wait(100); } return false; };
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await ruhig(800);
+            // alle Aufgaben (auch erledigte – Fortschritt 100 % blendet sie sonst aus)
+            w.taskViewUpdate?.("all"); await bis(() => d.querySelector("#mcTaskCards .mc-tc-title"), "Aufgabenkarte", 6000); await ruhig(800);
+            const tree = d.getElementById("calendar-task-tree"), info = () => d.getElementById("mcTaskInfo");
+            const pick = async () => { await bis(() => (tree.mTaskArray || []).some(x => x.title.startsWith("Halo Bearbeiten")), "Aufgabe in der Liste", 6000);
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title.startsWith("Halo Bearbeiten")));
+              await bis(() => info()?.querySelector(".mc-ti-row") && d.getElementById("calendar-task-details-title")?.textContent.includes("Halo Bearbeiten"), "Details", 6000); await ruhig(300); };
+            const row = icon => info().querySelector(`.mc-ti-row[data-icon="${icon}"]`);
+            const menuPick = async (icon, label) => { row(icon).querySelector(".mc-ti-value").click();
+              const mp = await until(() => d.getElementById("mcTaskInfoMenu"), 3000);
+              const mi = mp && [...mp.querySelectorAll("menuitem")].find(x => x.getAttribute("label") == label);
+              mi?.doCommand(); mp?.hidePopup(); await ruhig(600); await pick(); return !!mi; };
+            await pick();
+            out.editable = info().hasAttribute("data-editable");
+            out.prio = await menuPick("star", "Low"); out.prioSaved = (await fresh()).priority;
+            out.prog = await menuPick("progress", "100 %"); out.done = (await fresh()).isCompleted;
+            await menuPick("progress", "25 %"); out.back = [(await fresh()).isCompleted, saved.percentComplete];
+            out.rep = await menuPick("repeat", "Every week"); out.repSaved = !!(await fresh()).recurrenceInfo;
+            await menuPick("repeat", "Never"); out.repOff = !(await fresh()).recurrenceInfo;
+            // Ort: Feld an Stelle des Werts, Enter speichert
+            row("location").querySelector(".mc-ti-value").click(); await ruhig(200);
+            const inp = row("location").querySelector("input.mc-ti-input");
+            out.locInput = !!inp; if (inp) { inp.value = "Graz"; inp.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+            await saw(x => x.getProperty("LOCATION") == "Graz");
+            out.loc = (await fresh()).getProperty("LOCATION"); await pick();
+            // Fälligkeit: Datumsfeld, „Remove“ entfernt sie
+            row("clock").querySelector(".mc-ti-value").click(); await ruhig(200);
+            const dIn = row("clock").querySelector("input.mc-ti-input");
+            out.dueInput = dIn?.type;
+            row("clock").querySelector(".mc-ti-remove")?.click();
+            await saw(x => !x.dueDate);
+            out.dueGone = !saved.dueDate; await pick();
+            // Titel in der Kopfkarte
+            d.getElementById("calendar-task-details-title").click(); await ruhig(200);
+            const tIn = d.querySelector("#calendar-task-details-title input.mc-ti-input");
+            out.titleInput = !!tIn; if (tIn) { tIn.value = "Halo Bearbeiten neu"; tIn.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+            await saw(x => x.title == "Halo Bearbeiten neu");
+            out.title = saved.title; await pick();
+            // ganze Spalte scrollt gemeinsam: Kopfkarte und erste Gruppe um denselben Betrag
+            const box = d.getElementById("calendar-task-details-container"), head = d.getElementById("calendar-task-details-box"), g1 = info().querySelector(".mc-ti-group");
+            const y = () => [head.getBoundingClientRect().top, g1.getBoundingClientRect().top];
+            box.style.maxHeight = "300px"; await ruhig(400);
+            const a = y(); box.scrollTop = 60; await ruhig(200); const b = y();
+            out.scroll = { can: box.scrollHeight > box.clientHeight, head: Math.round(a[0] - b[0]), group: Math.round(a[1] - b[1]) };
+            box.scrollTop = 0; box.style.removeProperty("max-height");
+          } finally {
+            for (const x of [...tm.tabInfo].slice(1)) tm.closeTab(x);
+            try { await c.deleteItem(await c.getItem(saved.id)); } catch {}
+          }
+          return out;""")
+        sc = res.get("scroll") or {}
+        ok = (res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
+              and res.get("back") == [False, 25] and res.get("rep") and res.get("repSaved") and res.get("repOff")
+              and res.get("locInput") and res.get("loc") == "Graz" and res.get("dueInput") == "datetime-local" and res.get("dueGone")
+              and res.get("titleInput") and res.get("title") == "Halo Bearbeiten neu"
+              and sc.get("can") and sc.get("head", 0) > 0 and sc.get("head") == sc.get("group"))
+        return ok, f"{res}"
+    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum mit „Remove“), sofort gespeichert; Kopfkarte scrollt mit", tasks_info_edit, results)
+
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle
         # stehen, über den Aufgaben-Knöpfen, wenn die Details bei schmalem Fenster unter die Liste rutschen)

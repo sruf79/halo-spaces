@@ -221,14 +221,21 @@ def main():
             onDownloadFailed: () => done("download failed " + install.error), onInstallCancelled: () => done("cancelled"),
           }));
           install.install();
-          const how = await Promise.race([ended, wait(60000).then(() => "timeout")]);
+          let postponedFlag = false;
+          install.addListener({ onInstallPostponed: () => { postponedFlag = true; } });
+          const how = await Promise.race([ended, wait(60000).then(() => "timeout"), new Promise(r => install.addListener({ onInstallPostponed: () => r("timeout") }))]);
           await wait(8000);  // neue Version startet, Fenster werden neu gestylt
-          return { found: true, how };
+          return { found: true, how, postponed: postponedFlag || install.state == AddonManager.STATE_POSTPONED };
         """)
-        results.append(("Update gefunden und installiert", upd.get("found") and upd.get("how") == "ended", str(upd)))
+        # ab 3.16 stellt halo.spaces ein gefundenes Update bis zum nächsten Start zurück („Install Now“ bzw.
+        # beim Neustart) – dann gilt es erst nach dem Neustart unten
+        postponed = upd.get("how") == "timeout" and upd.get("postponed")
+        results.append(("Update gefunden und installiert (bzw. bis zum Neustart zurückgestellt)",
+                        upd.get("found") and (upd.get("how") == "ended" or postponed), str(upd)))
 
-        after = m.js(STATE_JS)
-        compare(results, "nach dem Update", before, after, target)
+        if not postponed:
+            after = m.js(STATE_JS)
+            compare(results, "nach dem Update", before, after, target)
     finally:
         if proc:
             ht.stop_thunderbird(args.port, proc)
@@ -251,15 +258,16 @@ def main():
           const out = { disabled: ours(), toolbar: toolbar() };
           await addon.enable(); await wait(4000);
           addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
-          await addon.uninstall(); await wait(3000);
+          await addon.uninstall(); await wait(4000);
           out.uninstalled = ours(); out.toolbarKept = toolbar() == out.toolbar;
+          out.left = Services.prefs.getChildList("extensions.mailcards.").filter(n => Services.prefs.prefHasUserValue(n));
           out.gone = !(await AddonManager.getAddonByID("mail-cards@sebastian.local"));
           return out;
         """)
         results.append(("Deaktivieren behält die Einstellungen", gone["disabled"] > 0, f"{gone['disabled']} Einträge"))
         results.append(("Deinstallieren entfernt alle extensions.mailcards.*, angepasste Toolbar bleibt",
                         gone["gone"] and gone["uninstalled"] == 0 and gone["toolbarKept"],
-                        f"übrig {gone['uninstalled']}, Toolbar gleich={gone['toolbarKept']}"))
+                        f"übrig {gone['uninstalled']} {gone.get('left') or ''}, Toolbar gleich={gone['toolbarKept']}"))
     finally:
         if proc:
             ht.stop_thunderbird(args.port, proc)

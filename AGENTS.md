@@ -135,7 +135,8 @@ Mac mini Aufträge geben (Entscheidung des Maintainers vom 4.11.2026). Alles,
 was den Mac braucht – Testläufe, Screenshots, `gh project …`, Board-Status,
 Release –, geht so an neon. Reihenfolge, bis einer klappt:
 
-1. `ListAgents`, dann `SendMessage` an `neon`.
+1. `ListAgents`, dann `SendMessage` an `neon` (die Remote-Control-Sitzung,
+   die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
 2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
    `send_message` mit ihrer ID (Stand 4.11.2026
    `session_01BK9gbfo3oZh8yxoakmG4CD`; nach einem Neustart kann sie sich
@@ -225,8 +226,15 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein), keine
   Testläufe auf neon, die über 01:30 hinausgehen, und keine Runde, die um
   01:30 noch arbeitet – rechtzeitig abschließen bzw. die Antwort geben und
-  warten. Zwischen 01:30 und 09:00 gilt die Push-Sperre unter
-  „Cloud-Sessions“ für alle Sitzungen.
+  warten.
+- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle Sitzungen außer dem
+  Nachtlauf selbst (und der Wochen- bzw. Doku-Prüfung, die erst nach dem
+  Nachtlauf pushen): Der Nachtlauf wartet auf die CI genau seines Commits,
+  Reparaturrunden bis 07:30, Ende spätestens 09:00; ein weiterer Push
+  verdrängt dessen Lauf zwar nicht mehr, verlängert aber die Wartezeit auf
+  dem einen Runner um eine ganze Runde. Früher nur, wenn neon bestätigt, dass
+  der Nachtlauf fertig ist (Bericht `~/halo-berichte/<datum>-nachtlauf.md`
+  liegt vor); sonst bis danach warten bzw. es dem Maintainer sagen.
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
   machen (Reihen-Schritte nur einzeln, „Wartet auf OK“ bleibt liegen). Vor
   Push, CI und Release das Board nicht erneut laden: Was während des Laufs
@@ -408,8 +416,11 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
   abends; gilt für jede Sitzung, die die Liste abarbeitet, 5.11.2026):
   1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
-  Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden,
-  3. Bugs, 4. einfache Features, 5. zuletzt Reihen (n/m).
+  Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden und
+  offene GitHub-Issues/Pull Requests prüfen (siehe „GitHub-Issues“), 3. Bugs,
+  4. einfache Features, 5. zuletzt Reihen (n/m) – Einzelheiten unter
+  „Reihenfolge beim Abarbeiten“ (der Nachtlauf-Auftrag wiederholt sie für
+  den Lauf; bei Änderungen beide Stellen anpassen).
 - **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):
   Der Nachtlauf immer von sich aus. Jede andere Sitzung nur, wenn der
   Maintainer sie dazu auffordert (ganze Liste oder einzelne Einträge) – dann
@@ -515,17 +526,11 @@ gh run list -R sruf79/halo-spaces -w add-task.yml -L 1   # Lauf erfolgreich?
 Das Repo ist öffentlich: Der Workflow schreibt Titel und Text bewusst nicht
 ins Log – das beim Ändern beibehalten.
 
-**neon aus der Cloud steuern:** Cloud-Sessions erreichen neon nicht per SSH
-(kein Tailscale im Container), sondern über die Remote-Control-Sitzung, die
-dort als LaunchAgent dauerhaft läuft (`tests/MAC-MINI.md` Abschnitt 12).
-`ListAgents` zeigt sie (Name `neon`), `SendMessage` an `neon` übergibt eine
-Aufgabe; die Antwort kommt als eigene Nachricht zurück. Alles, was den Mac
-braucht – Testläufe (hell/dunkel, Beta, `--vm`), Screenshots, `gh project …`,
-Board-Status –, so an neon geben und deren Ergebnis weitergeben, nie
-selbst Ergebnisse erfinden. Auftrag vollständig formulieren (Zweig bzw.
-Commit, Befehl, Port ab 2850, was zurückgemeldet werden soll); die Regeln
-aus „Testrechner“ gelten dort unverändert. Erreichbarkeit und Ablauf, wenn
-neon nicht in `ListAgents` steht: Abschnitt „neon erreichen“.
+**neon aus der Cloud steuern:** über die Remote-Control-Sitzung `neon`
+(kein SSH, kein Tailscale im Container) – Wege und Ablauf unter „neon
+erreichen“. Auftrag vollständig formulieren (Zweig bzw. Commit, Befehl, Port
+ab 2850, was zurückgemeldet werden soll); die Regeln aus „Testrechner“
+gelten dort unverändert.
 
 **Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
 4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen
@@ -536,29 +541,24 @@ HEAD:main`, danach den eigenen Zweig `claude/…` auf GitHub löschen
 (`git push origin --delete <zweig>`), damit neben `main` keine Reste
 liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
 
-- Gesammelt pushen wie unter „Testrechner“: je Eintrag committen, einmal am
-  Ende pushen – jeder Push mit Codeänderung belegt neon rund 35 Minuten
-  (mit Dunkelmodus rund 55)
-  (Pushes nur mit `*.md`, `store/`, `LICENSE` nicht, siehe „Testrechner“).
+- Gesammelt pushen wie unter „Testrechner“ (je Eintrag committen, einmal am
+  Ende pushen).
 - Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
   nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch
   sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
-- Nicht zwischen 01:30 und 09:00 Wiener Zeit pushen (Nachtlauf wartet auf die
-  CI genau seines Commits, Reparaturrunden bis 07:30, Ende spätestens 09:00;
-  ein weiterer Push verdrängt dessen Lauf zwar nicht mehr, verlängert aber
-  die Wartezeit auf dem einen Runner um eine ganze Runde). Früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist
-  (Bericht `~/halo-berichte/<datum>-nachtlauf.md` liegt vor); sonst bis
-  danach warten bzw. es dem Maintainer sagen.
-- Release nur über neon, wenn die Sitzung es für nötig hält (siehe
-  „Release“), sonst übernimmt es der nächste Nachtlauf; den Board-Status
-  über neon oder den Maintainer pflegen.
+- Push-Sperre 01:30–09:00 und ab 00:30 kein Push mit Codeänderung: wie
+  unter „Testrechner“.
+- Release: siehe „Release“ (nur auf neon); den Board-Status über neon oder
+  den Maintainer pflegen.
 
 ## GitHub-Issues und Pull Requests von Nutzern
 
 Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
 
-- **Bei jedem Arbeitsblock mit Bugs/Features zuerst** offene Issues und Pull
-  Requests im Repo prüfen (lokal `gh issue list -R sruf79/halo-spaces`,
+- **Bei jedem Arbeitsblock mit Bugs/Features** offene Issues und Pull
+  Requests im Repo prüfen – zusammen mit dem Laden der Aufgabenliste, also
+  nach der Durchsicht der Commits (Schritt 2 der „Reihenfolge eines Laufs“;
+  lokal `gh issue list -R sruf79/halo-spaces`,
   `gh pr list …`; in Cloud-Sessions über die GitHub-MCP-Tools). Neue oder
   geänderte Einträge im Gespräch kurz nennen.
 - **Neues Issue:** Screenshots ansehen (in Cloud-Sessions nicht abrufbar –

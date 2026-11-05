@@ -14,14 +14,14 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 
 | Pfad | Inhalt |
 |---|---|
-| `chrome/userChrome.css` | Design für Mail, Menüs, Dialoge (~6700 Zeilen) |
+| `chrome/userChrome.css` | Design für Mail, Menüs, Dialoge (~14.000 Zeilen) |
 | `chrome/spaces.css` | Kalender, Aufgaben, Adressbuch, Chat, Einstellungen |
 | `chrome/merge_spaces.py` | fügt `spaces.css` als markierten Block in `userChrome.css` ein |
 | `extension/manifest.json` | Version, Add-on-ID `mail-cards@sebastian.local`, `update_url` |
-| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~7500 Zeilen) |
+| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~22.000 Zeilen) |
 | `extension/api/schema.json` | Schema der Experiment-API |
 | `extension/background.js` | ruft nur `browser.mailCards.start()` auf |
-| `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`) |
+| `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |
 | `extension/icons/` | Apple-artige Ersatzsymbole |
 | `extension/about/`, `extension/options/` | Fenster „Hilfe → halo.spaces“ und Einstellungsseite |
 | `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil |
@@ -82,7 +82,10 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   überspringen diesen Fall bewusst.
 - CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release,
   Beta und ESR; Linux-spezifische Abweichungen der Toolbar sind dort Warnungen.
-  Der ESR-Job (Mindestversion) muss grün sein wie die übrigen.
+  Der ESR-Job muss grün sein wie die übrigen. Er testet die neueste ESR
+  (`esr-latest`), nicht zwingend die Mindestversion: Nach Erscheinen einer
+  neuen ESR prüft er bis zum Anheben von `strict_min_version` die
+  Mindestversion nicht mehr.
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).
@@ -158,13 +161,16 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
   öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
   `tests/mac-runner-hook.sh` alles andere ab.
-- Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund 60 Minuten. Solange er
+- Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund 50 Minuten
+  (`mac` ~32, `windows` ~17; dunkel länger). Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
-- Ausnahme: Ein Push, der nur den Release-Commit enthält (`updates.json` und
-  die Versionszeile in `manifest.json`), startet keine Tests – der Job
-  `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
-  Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
+- Ausnahmen ohne Tests: Ein Push, der nur `*.md`, `store/` oder `LICENSE`
+  ändert, startet `test.yml` gar nicht (`paths-ignore`). Ein Push, der nur den
+  Release-Commit enthält (`updates.json` und die Versionszeile in
+  `manifest.json`, dazu ggf. Texte, `store/`, `release.sh`, `publish.sh`),
+  erkennt der Job `changes`, alle Testjobs werden übersprungen.
+  Diese Prüfungen nicht lockern; jede andere Änderung testet wie gewohnt.
 - **Dunkelmodus nur bei Farben** (Entscheidung des Maintainers vom
   4.11.2026): Der Job `mac` testet dunkel nur, wenn seit dem zuletzt dunkel
   getesteten Stand Farben betroffen sind – Stilblätter (`*.css`), Symbole
@@ -178,7 +184,7 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   die die geänderte Stelle betreffen (`--only`, hell; dunkel zusätzlich nur,
   wenn Farben betroffen sind), kein Volllauf (Entscheidung des
   Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
-  `mac` hell, `windows`), deren Ergebnis danach prüfen. Früher pushen
+  `mac` hell und bei Farben dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
 - **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb
   des Nachtlaufs committen Fertiges, das nicht sofort auf GitHub muss
@@ -202,11 +208,12 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   CI für genau diesen Commit (`tests/ci-warten.sh`) und veröffentlicht bei
   Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
   sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Bericht in
-  `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Er lässt aus,
-  nur, wenn neon wirklich belegt ist: eine andere Claude-Sitzung ist mitten in
-  einer Runde (fertige Sitzungen, die auf eine Antwort warten, zählen nicht;
-  Entscheidung des Maintainers vom 4.11.2026), oder es laufen Tests, CI,
-  VM-Lauf, Release. Vor der Arbeit bringt er Thunderbird unter `/Applications`
+  `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Auf einen
+  laufenden CI-Job wartet er (bis 90 Minuten). Er lässt aus, nur, wenn neon
+  wirklich belegt ist: eine andere Claude-Sitzung ist mitten in einer Runde
+  (fertige Sitzungen, die auf eine Antwort warten, zählen nicht; Entscheidung
+  des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
+  die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
   CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
@@ -255,9 +262,9 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
     Screenshots als Artefakt `test-windows`.
 - Zwischendurch nur betroffene Prüfungen: `python3 tests/halo_test.py --port 2851
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
-  unter Linux (CI, xvfb) und mit der Beta grün sein. Die Beta läuft nur noch
-  unter Linux in der CI, nicht mehr auf dem Mac (`tests/beta.sh` bleibt für
-  Läufe von Hand).
+  unter Linux (CI, xvfb) und mit der Beta grün sein. Regelmäßig testet die
+  Beta nur noch die CI unter Linux; auf dem Mac (`tests/beta.sh`) und in der
+  VM (`--vm --beta`) läuft sie nur noch von Hand.
 
 ## Release (selbstständig auf neon)
 
@@ -343,10 +350,11 @@ Bugs und Wünsche führt der Maintainer in einem privaten GitHub-Project
 „halo.spaces Aufgaben“ (Konto `sruf79`, Felder Typ = Feature/Bug und Status).
 Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions immer über
 die Sitzung `neon` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
-SessionStart-Hook die offenen Einträge in jede Sitzung.
+SessionStart-Hook die offenen Einträge in jede Sitzung; sie liegen dann schon
+vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 
-- Die Liste ist die Vorlage für die Arbeit: zu Beginn offene Einträge
-  berücksichtigen und passende Aufgaben nennen.
+- Die Liste ist die Vorlage für die Arbeit: offene Einträge berücksichtigen
+  und passende Aufgaben nennen – in der Reihenfolge unten.
 - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
   abends): 1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden,
@@ -370,9 +378,13 @@ SessionStart-Hook die offenen Einträge in jede Sitzung.
   anbieten; umgesetzt wird nur, wenn der Maintainer einen Eintrag zum
   Abarbeiten nennt. Gehört der Punkt zu einem offenen Eintrag, diesen
   ergänzen statt einen neuen anzulegen.
-- Bei Arbeitsbeginn Status In Progress; nach dem Commit Status Done mit
-  Commit-Hash als Notiz, dann archivieren (gepusht wird gesammelt, siehe
-  „Testrechner“). Teilweise Erledigtes bleibt
+- Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
+  Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
+  (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf
+  `main` ist und die CI dazu grün war: Status Done, dann archivieren. Das
+  übernimmt, wer pusht und die CI prüft (Nachtlauf, Cloud-Session über neon).
+  Wird ein Commit bei roter CI zurückgenommen (`git revert`), bleibt der
+  Eintrag offen mit Notiz zum Grund. Teilweise Erledigtes bleibt
   In Progress mit Notiz, was fehlt.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
@@ -414,6 +426,11 @@ Workflow anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`)
 und das dem Maintainer sagen; Lesen, Ergänzen und Status ändern erledigt dann
 der Maintainer im Board.
 
+In Cloud-Sessions geht `gh` nur für die Suche – den Workflow dort mit dem
+GitHub-Werkzeug `actions_run_trigger` starten (Workflow `add-task.yml`,
+Eingaben `title`, `body`, `type` = `bug`/`feature`, `status` = `Todo`) und
+mit `actions_list` prüfen, ob der Lauf erfolgreich war. Lokal geht es auch so:
+
 ```bash
 gh workflow run add-task.yml -R sruf79/halo-spaces \
   -f title="Bereich: …" -f body="…" -f type=<bug|feature> -f status=Todo
@@ -445,15 +462,17 @@ HEAD:main`, danach den eigenen Zweig `claude/…` auf GitHub löschen
 liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
 
 - Gesammelt pushen wie unter „Testrechner“: je Eintrag committen, einmal am
-  Ende pushen – jeder Push mit Codeänderung belegt neon rund 60 Minuten
-  (reine `*.md`-Änderungen nicht).
+  Ende pushen – jeder Push mit Codeänderung belegt neon rund 50 Minuten
+  (Pushes nur mit `*.md`, `store/`, `LICENSE` nicht, siehe „Testrechner“).
 - Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
   nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch
   sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
-- Nicht zwischen 01:30 und 07:00 Wiener Zeit pushen (Nachtlauf wartet auf die
-  CI genau seines Commits; ein weiterer Push in derselben `halo-mac`-Warteschlange
-  kann dessen Lauf verdrängen) – dann bis danach warten bzw. es dem
-  Maintainer sagen.
+- Nicht zwischen 01:30 und 09:00 Wiener Zeit pushen (Nachtlauf wartet auf die
+  CI genau seines Commits, Reparaturrunden bis 07:30, Ende spätestens 09:00;
+  ein weiterer Push in derselben `halo-mac`-Warteschlange kann dessen Lauf
+  verdrängen). Früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist
+  (Bericht `~/halo-berichte/<datum>-nachtlauf.md` liegt vor); sonst bis
+  danach warten bzw. es dem Maintainer sagen.
 - Kein Release aus der Cloud (siehe „Release“); den Board-Status über neon
   oder den Maintainer pflegen.
 
@@ -472,8 +491,9 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   setzen: `bug` bzw. `enhancement`; `question`, solange eine Rückfrage offen
   ist; `duplicate`/`wontfix` mit Begründung schließen.
 - **Status:** Issues bleiben offen, bis der Fix veröffentlicht ist (Nutzer
-  bekommen ihn erst mit dem Release). Nach dem Commit kurz antworten, dass es
-  behoben ist und mit der nächsten Version kommt; beim Release alle darin
+  bekommen ihn erst mit dem Release). Wenn der Fix auf `main` ist und die CI
+  dazu grün war, kurz antworten, dass es behoben ist und mit der nächsten
+  Version kommt; beim Release alle darin
   behobenen Issues mit „Fixed in x.y.z“ schließen (`completed`).
 - **Pull Requests:** durchsehen (Konflikte, Überschneidung mit `main`,
   Regeln dieser Datei) und dem Autor antworten. Mergen, schließen oder
@@ -505,7 +525,8 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Den Stand zwischen den Läufen (letzte Prüfung, offene Fäden, Fork-Stände,
   was auf eine Entscheidung des Maintainers wartet) hält
   `~/halo-aufgaben/github-komm-stand.md` – lesen vor, aktualisieren nach
-  jeder Prüfung, auch bei Antworten aus anderen Sitzungen. Keine zweite
+  jeder Prüfung, auch bei Antworten aus anderen Sitzungen (Cloud-Sessions
+  erreichen die Datei nicht und lassen sie über neon ergänzen). Keine zweite
   Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
 - **Ton und Inhalt:** Englisch, freundlich, knapp, ohne Fachjargon des
   Codes, wo es nicht nötig ist; Rückfragen konkret stellen. Nie auf die

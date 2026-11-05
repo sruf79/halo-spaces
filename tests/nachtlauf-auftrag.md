@@ -53,7 +53,8 @@ Reihenfolge:
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
    --only "…", bei Farben auch mit --dark), committen (nur eigene Hunks, Stil nach
-   AGENTS.md), dann ~/halo-aufgaben/fertig.sh <id> "Commit <hash>".
+   AGENTS.md); Eintrag bleibt In Progress, Commit-Hash merken – Done erst
+   nach grüner CI (Schritt 4b, AGENTS.md „Aufgabenliste“).
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
 3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und eine
@@ -69,7 +70,10 @@ Reihenfolge:
    b) Grün (Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
       README.md – zählt nicht als neuer Stand), Notizdatei für den
       GitHub-Release (englisch), ./release.sh x.y.z (überspringt die Tests
-      dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>.
+      dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>. Die
+      Einträge dieses Laufs jetzt mit ~/halo-aufgaben/fertig.sh <id>
+      "Commit <hash>" auf Done setzen (auch wenn das Release scheitert –
+      die CI war grün).
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
@@ -77,7 +81,8 @@ Reihenfolge:
       der den Fehler bringt, mit git revert zurücknehmen (Eintrag zurück auf
       Todo mit Notiz, was im Weg war), pushen, erneut abwarten. Höchstens zwei
       Reparaturrunden und keine neue ab 07:30 – danach kein Release, die
-      Commits bleiben gepusht, im Bericht sagen, was rot ist.
+      Commits bleiben gepusht, im Bericht sagen, was rot ist; die Einträge
+      bleiben In Progress mit Notiz „CI rot“.
       Abgebrochen (Exitcode 3): einmal neu starten mit
       gh run rerun <id> -R sruf79/halo-spaces und erneut abwarten.
    Veröffentlicht wird nur, wenn der CI-Lauf des letzten Commits grün ist.

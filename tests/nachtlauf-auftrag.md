@@ -92,7 +92,8 @@ Reihenfolge:
    ausgelöste Fehler. Steht im Eintrag „dunkel“, gehört „[dunkel]“ in die
    Commit-Nachricht (sonst testet der Job mac nur hell). Done erst, wenn
    ci-warten.sh für den Push „keine Meldungen“ zeigt oder die Meldung nicht
-   mehr nennt und dabei alle im Eintrag genannten Jobs (bei „dunkel“: „mac
+   mehr nennt (Vergleich mit der Zeile „Schlüssel:“ im Eintrag – ohne
+   Datei:Zeile, die sich mit dem Fix verschiebt) und dabei alle im Eintrag genannten Jobs (bei „dunkel“: „mac
    dunkel: success“) gelaufen sind – grüne CI allein beweist es nicht.
    Zeigt es „nicht lesbar“ oder fehlte ein Job: In Progress mit Notiz.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,

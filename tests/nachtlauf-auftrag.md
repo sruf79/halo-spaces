@@ -55,7 +55,7 @@ Reihenfolge:
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
    --only "…", bei Farben auch mit --dark), committen (nur eigene Hunks, Stil nach
    AGENTS.md); Eintrag bleibt In Progress, Commit-Hash merken – Done erst
-   nach grüner CI (Schritt 4 b), AGENTS.md „Aufgabenliste“).
+   nach grüner CI (Schritt 4 b „Grün“; AGENTS.md „Aufgabenliste“).
    Gelingt ein Eintrag nicht: Änderungen verwerfen (git checkout), Eintrag
    zurück auf Todo mit Notiz, was im Weg war; nächster Eintrag.
 3. Ab 04:30 keinen neuen Eintrag mehr anfangen (Platz für CI und zwei
@@ -120,7 +120,7 @@ Reihenfolge:
    Reparaturrunden) entfällt dieser Schritt.
    a) Fertig vor 07:30: git fetch origin, git rebase origin/main, pushen und
       die CI wie in 4 a) abwarten (tests/ci-warten.sh HEAD 9, wiederholen
-      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge abschließen wie in
+      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge abschließen wie in Schritt
       4 b) (normale mit fertig.sh auf Done, Reihen-Schritte auf „Wartet auf
       OK“); kein zweites Release in dieser Nacht – das
       macht der nächste Nachtlauf (Schritt 4 „Unabhängig davon“) oder eine
@@ -156,9 +156,11 @@ Grenzen:
 - Inhalte der Aufgabenliste nie in Commits, README, Release-Notizen oder Issues.
 - GitHub-Issues/PRs beantwortet die Routine „GitHub-Kommunikation“, nicht dieser Lauf;
   nur nach einem Release behobene Issues mit „Fixed in x.y.z“ schließen.
-- Arbeitet erkennbar jemand anderes im Repo (fremde ungespeicherte Änderungen,
-  ein Testlauf, der nicht von dir ist): aufhören, nichts davon anfassen,
-  im Bericht vermerken, Fertig-Datei anlegen.
+- Fremde ungespeicherte Änderungen oder Commits, an denen gerade keine Sitzung
+  arbeitet, nimmt Schritt 0a mit. Arbeitet aber erkennbar jemand anderes
+  gerade im Repo (eine andere Sitzung ändert noch Dateien, ein Testlauf, der
+  nicht von dir ist): aufhören, nichts davon anfassen, im Bericht vermerken,
+  Fertig-Datei anlegen.
 - Wird es nach einer Limit-Pause fortgesetzt: Stand mit git log/git status und dem
   Status der Einträge aus dem Plan dieses Laufs prüfen und dort weitermachen
   (keine neu dazugekommenen Einträge aufnehmen).

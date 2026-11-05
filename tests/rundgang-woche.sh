@@ -9,7 +9,8 @@
 # wird wie die anderen Läufe nach ~/.config/halo-spaces/ kopiert.
 #   rundgang-woche.sh [--trocken] [--only <ids>] [<Repo-Ordner>]
 #   --trocken    Rundgang und Vergleich, aber kein Claude (kein Board, kein Bericht)
-#   --only       nur diese ids (Probelauf)
+#   --only       nur diese ids (Probelauf von Hand: wartet nur auf CI und
+#                Testläufe, nicht auf Sitzungen; Ablage ~/halo-tour/<datum>-probe)
 # Der Stand kommt aus origin/main in einem eigenen Checkout (~/halo-tour/stand),
 # ~/halo-spaces selbst bleibt unberührt. Ablage ~/halo-tour/<datum>/.
 # Pausieren: touch ~/halo-tour/PAUSE (rm zum Fortsetzen).
@@ -101,6 +102,15 @@ belegt_rundgang() {
   done
   belegt
 }
+# Probelauf (--only) wird von Hand gestartet: nicht auf Sitzungen warten, nur
+# nicht neben CI oder anderen Testläufen
+if [[ -n $ONLY ]]; then
+  belegt_rundgang() {
+    pgrep -f Runner.Worker >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
+    pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf"; return 0 }
+    return 1
+  }
+fi
 while GRUND=$(belegt_rundgang); do
   if (( $(date +%s) >= SPAETESTENS )); then
     log "Rundgang ausgelassen (14:00 erreicht): $GRUND"
@@ -113,12 +123,21 @@ while GRUND=$(belegt_rundgang); do
   sleep 300
 done
 
+# Darf dieser Prozess den Bildschirm aufnehmen? (ui_tour.py nimmt Popups mit
+# screencapture -l auf.) Ergebnis für mac-mini-setup.sh --check festhalten.
+BA=$(osascript -l JavaScript -e 'ObjC.import("Cocoa"); ObjC.bindFunction("CGPreflightScreenCaptureAccess", ["bool", []]); function run() { return $.CGPreflightScreenCaptureAccess() ? "ja" : "nein"; }' 2>&1)
+print -r -- "$(zeit) $BA (Prozess $(ps -o comm= -p $$), Eltern $(ps -o comm= -p $PPID))" > $TOUR/bildschirmaufnahme.txt
+log "Rundgang: Bildschirmaufnahme erlaubt: $BA"
+[[ $BA == ja ]] || push "Design-Rundgang $TAG: Bildschirmaufnahme für den LaunchAgent nicht erlaubt ($BA) – Popups fehlen im Rundgang"
+
 # Stand von origin/main in einem eigenen Checkout bauen
 log "Rundgang: Start ${TROCKEN:+(trocken) }${ONLY:+nur $ONLY}"
 if [[ ! -d $STAND/.git ]]; then
   git clone -q $(git -C $REPO remote get-url origin) $STAND || { log "Klonen gescheitert"; notbericht "gescheitert" "Klonen gescheitert"; kennzahl gescheitert; exit 1 }
 fi
-git -C $STAND fetch -q origin main && git -C $STAND checkout -q --detach -f origin/main && git -C $STAND clean -qfdx -e dist ||
+# Probelauf: der lokale Stand von $REPO (noch nicht gepushte Commits), sonst origin/main
+if [[ -n $ONLY ]]; then QUELLE=($REPO HEAD); else QUELLE=(origin main); fi
+git -C $STAND fetch -q $QUELLE && git -C $STAND checkout -q --detach -f FETCH_HEAD && git -C $STAND clean -qfdx -e dist ||
   { log "Stand nicht abrufbar"; notbericht "gescheitert" "git fetch origin main gescheitert"; kennzahl gescheitert; push "Design-Rundgang $TAG gescheitert: Stand nicht abrufbar"; exit 1 }
 COMMIT=$(git -C $STAND rev-parse HEAD)
 ( cd $STAND && ./build.sh ) >> $LOG 2>&1 || { log "build.sh gescheitert"; notbericht "gescheitert" "build.sh gescheitert"; kennzahl gescheitert; push "Design-Rundgang $TAG gescheitert: build.sh"; exit 1 }
@@ -144,7 +163,7 @@ fi
 
 declare -A DAUER
 for sc in $SCHEMATA; do
-  if (( $(date +%s) >= SPAETESTENS + 4 * 3600 )); then
+  if [[ -z $ONLY ]] && (( $(date +%s) >= SPAETESTENS + 4 * 3600 )); then
     log "Rundgang $sc nicht mehr gestartet (zu spät)"
     continue
   fi
@@ -152,13 +171,13 @@ for sc in $SCHEMATA; do
   [[ $sc == dunkel ]] && { P=$PORT_DUNKEL; A=(--dark) }
   t0=$(date +%s)
   log "Rundgang $sc: Start (Port $P, $COMMIT)"
-  python3 $STAND/tests/ui_tour.py --xpi $XPI --port $P $A --messung --out $OUT ${ONLY:+--only $ONLY} > $OUT/tour-$sc.log 2>&1
+  python3 $STAND/tests/ui_tour.py --xpi $XPI --port $P $A --messung --out $OUT ${ONLY:+--only} ${ONLY:+$ONLY} > $OUT/tour-$sc.log 2>&1
   RC=$?
   DAUER[$sc]=$(( ($(date +%s) - t0) / 60 ))
   log "Rundgang $sc: Ende (Exitcode $RC, ${DAUER[$sc]} min): $(tail -1 $OUT/tour-$sc.log)"
 done
 
-python3 $STAND/tests/rundgang_vergleich.py $OUT ${VORHER:+--vorher $VORHER} >> $LOG 2>&1 || log "Vergleich gescheitert"
+python3 $STAND/tests/rundgang_vergleich.py $OUT ${VORHER:+--vorher} ${VORHER:+$VORHER} >> $LOG 2>&1 || log "Vergleich gescheitert"
 ZAHLEN=$(python3 -c '
 import json, sys
 v = json.load(open(sys.argv[1]))

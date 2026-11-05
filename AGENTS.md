@@ -427,6 +427,15 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   neon liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
   sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
   Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.
+  Bildqualität: keine feste Mindestgröße (auch kleine Ausschnitte sind in
+  Ordnung); maßgeblich ist, ob die für den Eintrag entscheidenden Details
+  (Schrift, Linien, Farben, Abstände) klar erkennbar sind. Das prüft die
+  empfangende Sitzung sofort und sagt dem Maintainer gleich im Gespräch,
+  was nicht erkennbar ist (mit Pixelgröße), und bittet um eine bessere
+  Aufnahme, am besten per `halobild` (die Claude-App verkleinert Bilder
+  beim Hochladen teils). neon prüft nach dem Speichern ebenso, meldet ein
+  zu schwaches Bild an die Sitzung zurück (die es weitergibt) und vermerkt
+  im Eintrag „Bild unzureichend: …“.
   Ursache klären und Lösungsidee in den Eintrag
   schreiben ist erwünscht – aber nicht mitten in der laufenden Aufgabe
   nebenbei umsetzen und auch nicht anbieten; umgesetzt wird er wie jeder

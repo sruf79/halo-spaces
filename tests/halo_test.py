@@ -7633,7 +7633,7 @@ def run_checks(m, version, profile, results):
           const priv = %s;
           if (priv && await IOUtils.exists(priv)) out.priv = { ...tryRead(priv), pst: w.__mcPstIsPst(priv) };
           await IOUtils.remove(junk); await IOUtils.remove(head);
-          return out;""" % json.dumps(priv))
+          return out;""" % json.dumps(priv if os.path.exists(priv) else None))
         j, h, p_ = res.get("junk") or {}, res.get("head") or {}, res.get("priv")
         ok = (j.get("ok") is False and j.get("pst") is False and h.get("ok") is False and h.get("pst") is True
               and all(x.get("ms", 1e9) < 10000 for x in (j, h)) and (p_ is None or (p_.get("ms", 1e9) < 10000 and p_.get("pst"))))

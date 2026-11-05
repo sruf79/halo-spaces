@@ -7798,7 +7798,24 @@ const PstImport = {
   // Office 365 – vorher hing sie dabei endlos, siehe tools/pst-bundle/fix.py)
   read(path) {
     const lib = this.load();
-    const pst = new lib.PSTFile(path);
+    // scheitert die Bibliothek schon beim Öffnen, schließt sie die Datei nicht
+    // (unter Windows blieb sie dann gesperrt) – alles, was ab hier geöffnet
+    // wird, am Ende sicher schließen
+    const firstFd = PstFs.next;
+    const closeAll = () => {
+      for (const fd of [...PstFs.files.keys()].filter(fd => fd >= firstFd)) {
+        try {
+          PstFs.closeSync(fd);
+        } catch {}
+      }
+    };
+    let pst;
+    try {
+      pst = new lib.PSTFile(path);
+    } catch (e) {
+      closeAll();
+      throw e;
+    }
     try {
       const folders = [];
       let total = 0, broken = 0;
@@ -7833,6 +7850,7 @@ const PstImport = {
       try {
         pst.close();
       } catch {}
+      closeAll();
     }
   },
   async open(win) {

@@ -448,6 +448,9 @@ anheben (nach Test).
 - **CSS:** eigene Variablen mit Präfix `--mt-` (Farben, Radien, `--mt-hairline`),
   Werte für Hell und Dunkel; Akzent über `AccentColor` vom System. Keine
   sichtbaren Scrollbalken. Maße und Abstände orientieren sich an Apple Mail.
+  Formen (Entscheidung des Maintainers vom 5.11.2026): Knöpfe und
+  Suchfelder als Kapsel wie bei Apple; übrige Eingabefelder mit kleinem
+  Radius und Haarlinie.
 - **Oberflächentexte:** in `implementation.js` mit englischem Schlüssel; die
   deutsche Übersetzung steht in der Tabelle `DE` am Dateianfang – neue Texte
   dort ergänzen.

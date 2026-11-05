@@ -9472,12 +9472,6 @@ addon-card .addon-inline-options {
   color: color-mix(in srgb, var(--mc-c, var(--mt-accent)) 55%, var(--mt-text)) !important;
 }
 
-/* Aufgaben: der Monatskalender steht schon links in der Seitenleiste –
-   in der Today-Pane rechts nicht noch einmal */
-:root[mc-tab="tasks"] #today-minimonth-box {
-  display: none !important;
-}
-
 /* Minikalender: Zahlen exakt mittig, damit der rote Heute-Kreis sitzt */
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day {
   line-height: calc(26px * var(--mt-font-scale, 1)) !important;

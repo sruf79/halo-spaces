@@ -5857,6 +5857,26 @@ def calendar_checks(m, results):
               and res.get("click") == [True, True] and res.get("enter") == [True, True]
               and (res.get("past") is None or res["past"] == {"dim": True, "opacity": "0.55", "above": True, "today": True, "upShown": True}))
         return ok, f"{res}"
+    def today_same_in_tasks():
+        # Today-Pane in Aufgaben wie in Mail: Minikalender da (links gibt es dort keinen), Monatstitel gleich groß und an
+        # derselben Stelle (vorher fehlte der Minikalender, der Monatstitel stand allein oben und wirkte viel größer)
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
+          const look = () => { const pane = d.getElementById("today-pane-panel").getBoundingClientRect(), mm = d.getElementById("today-minimonth"), t = d.getElementById("mcAgendaTitle");
+            return { mini: !!mm && mm.getBoundingClientRect().height > 40, font: t && w.getComputedStyle(t.querySelector("b") || t).fontSize,
+                     top: t ? Math.round(t.getBoundingClientRect().top - pane.top) : null }; };
+          const out = { mail: look() };
+          tm.openTab("tasks", {}); await ruhig(1200);
+          if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
+          out.tasks = look();
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          return out;""")
+        ml, tk = res.get("mail") or {}, res.get("tasks") or {}
+        ok = ml.get("mini") and tk.get("mini") and ml.get("font") == tk.get("font") and abs((ml.get("top") or 0) - (tk.get("top") or 99)) <= 2
+        return ok, f"{res}"
+    check("Today-Pane: in Aufgaben mit Minikalender und gleichem Monatstitel wie in Mail", today_same_in_tasks, results)
+
     def agenda_past_month():
         # ‹ in einen vergangenen Monat: die Liste steht am Ende, die letzten Termine des Monats sind ohne Scrollen
         # sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben

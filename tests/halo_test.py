@@ -8923,7 +8923,7 @@ def run_checks(m, version, profile, results):
     check("Symbolleiste: Verschieben ohne Trennstrich, Stern-Knopf setzt Starred, Pfeil öffnet Menü, Stern folgt dem Tab", star_button, results)
 
     def capsule_hover():
-        # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 21 px hoch, mittig in
+        # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in
         # --mt-cap-line; steht die Maus auf der Kapsel, verschwinden ihre Trennstriche (die der
         # Nachbarkapsel bleiben), der Knopf unter der Maus bekommt eine runde Fläche (radial-gradient)
         # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste
@@ -8956,14 +8956,14 @@ def run_checks(m, version, profile, results):
         if res.get("missing"):
             return False, f"Toolbar-Knöpfe fehlen {res}"
         r, h, l = res["rest"], res["hover"], res.get("list") or {}
-        ok_rest = (r["w"] == "1px" and r["h"] == "21px" and abs(r["dy"]) <= 0.5 and same_color(r["color"], res["capLine"])
+        ok_rest = (r["w"] == "1px" and r["h"] == "20px" and abs(r["dy"]) <= 0.5 and same_color(r["color"], res["capLine"])
                    and r["del"] == "1" and r["junk"] == "1")
         # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
         ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
         ok_list = bool(l) and l["img"].startswith("radial-gradient") and rgba_alpha(l["bg"]) == 0
         return ok_rest and ok_hover and ok_list, f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} {res}"
-    check("Kapseln: Trennstriche wie Apple (1 × 21 px, mittig), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
 
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner
@@ -11840,7 +11840,7 @@ Neu
         ok_head = (len(res["heads"]) >= 3 and all(s == "none" for s in res["heads"]) and res.get("picker") in (None, "none")
                    and same_color(res["headLine"][0], res["headLine"][1]))
         # „Erledigt“ als geteilter Knopf wie „Markieren“ in der Mail: Haken | Trennstrich | 28 px Pfeil am rechten Rand
-        ok_marker = bool(mk) and mk["w"] == 28 and mk["mask"].startswith("url(") and abs(mk["gap"]) <= 1 and abs(mk["dy"]) <= 1.5 and mk["line"] == "1px" and mk.get("lineH") == "21px"
+        ok_marker = bool(mk) and mk["w"] == 28 and mk["mask"].startswith("url(") and abs(mk["gap"]) <= 1 and abs(mk["dy"]) <= 1.5 and mk["line"] == "1px" and mk.get("lineH") == "20px"
         e = res.get("edge") or []
         diff = lambda a, b: max(abs(x - y) for x, y in zip(a, b))
         # Rand nur mit fokussiertem Fenster sichtbar (parallele Läufe nehmen den Fokus) – sonst nur die Regel prüfen

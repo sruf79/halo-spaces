@@ -65,15 +65,20 @@
   --mt-table-row-h: 28px;
   --mt-table-head-h: 30px;
   --mt-table-stripe: rgba(0, 0, 0, 0.035);
-  /* Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 21 px hoch
-     (gut die halbe Kapselhöhe, gemessen 19 pt bei 34 pt hoher Kapsel), mittig; beim Überfahren der Kapsel verschwinden
-     alle Trennstriche, der Knopf unter der Maus bekommt eine runde Fläche mit
-     3 px Abstand zum Kapselrand (--mt-cap-dot: Kreis bzw. Oval mittig im Knopf) */
+  /* Kapseln mit mehreren Knöpfen wie Apple Mail (an Bildschirmfotos von Mail
+     gemessen): Trennstrich 1 px, 53 % der Kapselhöhe (38 → 20 px), mittig;
+     beim Überfahren der Kapsel verschwinden alle Trennstriche, der Knopf unter
+     der Maus bekommt eine runde Fläche (Durchmesser 85 % der Kapselhöhe, also
+     3 px Abstand zum Rand), gedrückt etwas dunkler (--mt-cap-dot: Kreis bzw.
+     Oval mittig im Knopf) */
   --mt-cap-line: rgba(0, 0, 0, 0.2);
-  --mt-cap-line-h: 21px;
-  --mt-cap-hover: rgba(0, 0, 0, 0.07);
+  --mt-cap-line-h: 20px;
+  --mt-cap-hover: rgba(0, 0, 0, 0.045);
+  --mt-cap-press: rgba(0, 0, 0, 0.08);
   --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
   --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
+  --mt-cap-dot-press: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-press) 15.5px, transparent 16px);
+  --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -108,10 +113,13 @@
     --mt-star: #FF9F0A;
     --mt-sheet: #2A2A2C;
     --mt-table-stripe: rgba(255, 255, 255, 0.045);
-    --mt-cap-line: rgba(255, 255, 255, 0.2);
-    --mt-cap-hover: rgba(255, 255, 255, 0.09);
+    --mt-cap-line: rgba(255, 255, 255, 0.23);
+    --mt-cap-hover: rgba(255, 255, 255, 0.07);
+    --mt-cap-press: rgba(255, 255, 255, 0.12);
     --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
     --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
+    --mt-cap-dot-press: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-press) 15.5px, transparent 16px);
+    --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
   }
 }
 
@@ -1227,7 +1235,7 @@ body:has(> #accountCentral),
    2 px Abstand zum Kapselrand */
 #imip-view-toolbar > toolbarbutton > .toolbarbutton-menubutton-dropmarker {
   border-inline-start: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 15px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 14px no-repeat !important;
 }
 
 #imip-view-toolbar > toolbarbutton:hover > .toolbarbutton-menubutton-dropmarker {
@@ -1250,6 +1258,10 @@ body:has(> #accountCentral),
 
 #imip-view-toolbar > toolbarbutton:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):hover::after {
   opacity: 1 !important;
+}
+
+#imip-view-toolbar > toolbarbutton:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):hover:active::after {
+  background-color: var(--mt-cap-press) !important;
 }
 
 /* Anhänge: auf der Fläche der Mail statt grauer Platten, eine Haarlinie
@@ -1861,6 +1873,10 @@ findbar .findbar-textbox:focus {
   background-image: var(--mt-cap-dot) !important;
 }
 
+#unifiedToolbarContent > li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"]) button:active:not([disabled]) {
+  background-image: var(--mt-cap-dot-press) !important;
+}
+
 #unifiedToolbarContent > li button[disabled] {
   opacity: 0.4 !important;
 }
@@ -2044,12 +2060,24 @@ findbar .findbar-textbox:focus {
   background-image: var(--mt-cap-dot) !important;
 }
 
+:root[mc-standalone] #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:active:not([disabled]) {
+  background-image: var(--mt-cap-dot-press) !important;
+}
+
 :root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button:hover:not([disabled]) {
   background: var(--mt-cap-dot) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker:hover:not([disabled]) {
   background: var(--mt-cap-dot-narrow) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button:hover:active:not([disabled]) {
+  background: var(--mt-cap-dot-press) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker:is(:hover:active, [open]):not([disabled]) {
+  background: var(--mt-cap-dot-narrow-press) !important;
 }
 
 :root[mc-standalone] #messageHeader .recipient-avatar.mc-hdr-avatar {
@@ -2253,6 +2281,14 @@ findbar .findbar-textbox:focus {
   background-image: var(--mt-cap-dot-narrow) !important;
   background-size: 28px 100% !important;
   background-position: 41px 0 !important;
+}
+
+#unifiedToolbarContent > li[item-id="mark-as"] button:active:not([disabled]) {
+  background-image: var(--mt-cap-dot-press) !important;
+}
+
+#unifiedToolbarContent > li[item-id="mark-as"][mc-hot="menu"] button:active:not([disabled]) {
+  background-image: var(--mt-cap-dot-narrow-press) !important;
 }
 
 #unifiedToolbarContent > li[item-id="mark-as"][mc-hot="star"] button:hover:not([disabled]):dir(rtl) {
@@ -3100,6 +3136,10 @@ unified-toolbar {
   background-color: transparent !important;
   background-image: var(--mt-cap-dot) !important;
   color: var(--mt-text) !important;
+}
+
+#mcListHeader .mc-lh-tools > button:active {
+  background-image: var(--mt-cap-dot-press) !important;
 }
 
 #mcListHeader .mc-lh-tools > button::before {
@@ -8276,7 +8316,7 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 19px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
 }
 
 #composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {
@@ -8299,6 +8339,10 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
   opacity: 1 !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
+  background-color: var(--mt-cap-press) !important;
 }
 
 /* Senden in Akzentfarbe wie Apples Papierflieger */
@@ -10948,6 +10992,10 @@ menupopup menucaption {
 /* „Chat beitreten · Konten“: runde Fläche mit Abstand zum Kapselrand wie Apple */
 #chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover {
   background: var(--mt-cap-dot), var(--mt-control) !important;
+}
+
+#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover:active {
+  background: var(--mt-cap-dot-press), var(--mt-control) !important;
 }
 
 #chat-toolbar > #chat-status-selector {
@@ -14165,6 +14213,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   background: var(--mt-cap-dot), var(--mt-control) !important;
 }
 
+:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):is(:hover:active, [open]):not([disabled]) {
+  background: var(--mt-cap-dot-press), var(--mt-control) !important;
+}
+
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
   background: var(--mt-control) !important;
 }
@@ -14175,6 +14227,14 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:hover {
   background: var(--mt-cap-dot-narrow) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover:active {
+  background: var(--mt-cap-dot-press) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:is(:hover:active, [open]) {
+  background: var(--mt-cap-dot-narrow-press) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton :is(.toolbarbutton-text, .toolbarbutton-icon, .toolbarbutton-menu-dropmarker),

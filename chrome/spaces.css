@@ -4587,7 +4587,7 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
   border: none !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 19px no-repeat !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
 }
 
 #composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {
@@ -4610,6 +4610,10 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
   opacity: 1 !important;
+}
+
+#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
+  background-color: var(--mt-cap-press) !important;
 }
 
 /* Senden in Akzentfarbe wie Apples Papierflieger */
@@ -7259,6 +7263,10 @@ menupopup menucaption {
 /* „Chat beitreten · Konten“: runde Fläche mit Abstand zum Kapselrand wie Apple */
 #chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover {
   background: var(--mt-cap-dot), var(--mt-control) !important;
+}
+
+#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover:active {
+  background: var(--mt-cap-dot-press), var(--mt-control) !important;
 }
 
 #chat-toolbar > #chat-status-selector {
@@ -10476,6 +10484,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   background: var(--mt-cap-dot), var(--mt-control) !important;
 }
 
+:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):is(:hover:active, [open]):not([disabled]) {
+  background: var(--mt-cap-dot-press), var(--mt-control) !important;
+}
+
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
   background: var(--mt-control) !important;
 }
@@ -10486,6 +10498,14 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:hover {
   background: var(--mt-cap-dot-narrow) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover:active {
+  background: var(--mt-cap-dot-press) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:is(:hover:active, [open]) {
+  background: var(--mt-cap-dot-narrow-press) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton :is(.toolbarbutton-text, .toolbarbutton-icon, .toolbarbutton-menu-dropmarker),

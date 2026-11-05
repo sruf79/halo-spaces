@@ -244,7 +244,8 @@ KONSOLE_PUFFER = 250  # so viele Meldungen hält die Fehlerkonsole (nsConsoleSer
 KONSOLE_JS = r"""
   const host = (() => { try { return WebExtensionPolicy.getByID("mail-cards@sebastian.local")?.mozExtensionHostname || ""; } catch { return ""; } })();
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local" + (host ? "|moz-extension://" + esc(host) : ""));
+  // (…/api/implementation.js auch ohne bekannte Kennung: nach dem Deinstallieren liefert getByID nichts mehr)
+  const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local|moz-extension://[^/]+/api/implementation\\.js" + (host ? "|moz-extension://" + esc(host) : ""));
   // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
   const HINTS = [/initialised calendars before loadCalendarComponent/];
   const neu = () => ({ eintraege: [], fremd: 0, warnungen: 0, start: 0, voll: false, erwartet: [], check: "Start", host });
@@ -292,7 +293,8 @@ def konsole_bewerten(res, only=None):
     groups = {}
     for e in res.get("eintraege") or []:
         chk = e.get("check") or "?"
-        if any(c == chk and r.search(e["text"]) for c, r in expected):
+        # angemeldet gilt auch für späte Meldungen derselben Prüfung („nach …“)
+        if any(chk in (c, "nach " + c) and r.search(e["text"]) for c, r in expected):
             continue
         # --only: nur Meldungen des Starts und der gelaufenen Prüfungen – auch späte („nach …“, z. B. ein Zeitgeber, der
         # erst nach dem Ende der Prüfung feuert); Vorbereitungen übersprungener Prüfungen dürfen scheitern (Marionette.js)

@@ -118,6 +118,20 @@ def start(tb, profile, port):
     return proc, m
 
 
+def konsole(m, wann):
+    """Fehlerkonsole dieser Thunderbird-Sitzung – nur Warnung wie in halo_test.py (Zeilen „KONSOLE  …“), hält kein
+    Release auf; release.sh übernimmt die Zusammenfassung in Marke und Bericht. Kurze Sitzung: der Puffer reicht."""
+    try:
+        res = ht.konsole_lesen(m)
+        res.pop("quelle", None)
+        errors, notes = ht.konsole_bewerten(res)
+        ht.konsole_melden(errors, notes)
+        print(f"Fehlerkonsole ({wann}): {len(errors)} Fehler aus halo.spaces (nur Warnung), "
+              f"Thunderbird selbst: {res.get('fremd')} Fehler", flush=True)
+    except Exception as e:
+        print(f"Hinweis: Fehlerkonsole ({wann}) nicht lesbar – {e}", flush=True)
+
+
 def latest_release():
     """Version des letzten GitHub-Release (so prüft release.sh das Update, das Nutzer gerade bekommen)."""
     try:
@@ -236,6 +250,8 @@ def main():
         if not postponed:
             after = m.js(STATE_JS)
             compare(results, "nach dem Update", before, after, target)
+        # alte Version und Update im laufenden Thunderbird (Abbau der alten, Start der neuen Version)
+        konsole(m, "Update im laufenden Thunderbird")
     finally:
         if proc:
             ht.stop_thunderbird(args.port, proc)
@@ -246,17 +262,6 @@ def main():
         proc, m = start(args.tb, profile, args.port)
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
-        # Fehlerkonsole nach dem Start der neuen Version (dort entstehen Fehler wie GitHub #38) – nur Warnung, wie in
-        # halo_test.py; frisch gestartet, der Puffer der Konsole reicht
-        try:
-            res = ht.konsole_lesen(m)
-            res.pop("quelle", None)
-            errors, notes = ht.konsole_bewerten(res)
-            ht.konsole_melden(errors, notes)
-            print(f"Fehlerkonsole nach dem Update: {len(errors)} Fehler aus halo.spaces (nur Warnung), "
-                  f"Thunderbird selbst: {res.get('fremd')} Fehler", flush=True)
-        except Exception as e:
-            print(f"Hinweis: Fehlerkonsole nach dem Update nicht lesbar – {e}", flush=True)
 
         # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
         #    Toolbar bleibt)
@@ -275,6 +280,8 @@ def main():
           out.gone = !(await AddonManager.getAddonByID("mail-cards@sebastian.local"));
           return out;
         """)
+        # Start der neuen Version (dort entstehen Fehler wie GitHub #38), Deaktivieren, Deinstallieren (Aufräumen)
+        konsole(m, "Neustart, Deaktivieren, Deinstallieren")
         results.append(("Deaktivieren behält die Einstellungen", gone["disabled"] > 0, f"{gone['disabled']} Einträge"))
         results.append(("Deinstallieren entfernt alle extensions.mailcards.*, angepasste Toolbar bleibt",
                         gone["gone"] and gone["uninstalled"] == 0 and gone["toolbarKept"],

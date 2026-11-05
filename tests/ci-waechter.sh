@@ -92,6 +92,12 @@ eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard 
   read -r id di <<< $(board | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
     '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
   if [[ -n $id ]]; then
+    # Fehlerkonsole: höchstens eine Ergänzung pro Tag (sonst wächst der Eintrag mit jedem Lauf)
+    if [[ $anfang == "Tests: Fehlerkonsole" ]] && board | jq -e --arg i $id --arg t "${zusatz[1,15]}" \
+         '.items[] | select(.id == $i) | .content.body | contains($t)' >/dev/null; then
+      print ergänzt
+      return
+    fi
     if [[ -n $TROCKEN ]]; then
       print -u2 "  (trocken) würde ergänzen: $id"
     else

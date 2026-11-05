@@ -84,6 +84,9 @@ Reihenfolge:
    Zeilen „KONSOLE  …“ (Fehler in der Fehlerkonsole) machen nichts rot und
    halten kein Release auf; der CI-Wächter trägt sie als Bug ein – keine
    Reparaturrunde dafür (AGENTS.md „Bauen und testen“, Fehlerkonsole).
+   Einen Bug „Tests: Fehlerkonsole – …“ gilt als behoben, wenn --only mit
+   der im Eintrag genannten Prüfung („während …“) keine KONSOLE-Zeile mehr
+   zur Meldung ausgibt; erwartet() nur für absichtlich ausgelöste Fehler.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich

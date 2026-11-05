@@ -124,6 +124,9 @@ if [[ -n "$CI_OK" || -n "$HOTFIX_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwi
   python3 tests/update_test.py --xpi "$XPI" 2>&1 | tee -a "$LOG" \
     || fehlschlag "Update-Test fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
   TESTS+=("Update-Test vom letzten Release: $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
+  # Fehlerkonsole nach dem Update: nur zur Kenntnis im Bericht, hält kein Release auf (AGENTS.md „Bauen und testen“)
+  KONSOLE_UPDATE=$(grep -E '^Fehlerkonsole nach dem Update:' "$LOG" | tail -1)
+  if [[ -n "$KONSOLE_UPDATE" ]]; then TESTS+=("$KONSOLE_UPDATE"); fi
 fi
 ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
 MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")

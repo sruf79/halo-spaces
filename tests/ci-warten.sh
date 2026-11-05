@@ -47,6 +47,14 @@ case $ERGEBNIS in
 esac
 print "CI-Lauf $RUN für ${SHA:0:7}: $T nach $DAUER Min. (https://github.com/$R/actions/runs/$RUN)"
 jobs_zeilen $RUN
+# Fehlerkonsole: nie Rot, nur zur Kenntnis (den Bug trägt der CI-Wächter ein; AGENTS.md „Bauen und testen“)
+if (( RC != 4 )); then
+  KONSOLE=$(gh run view $RUN -R $R --log 2>/dev/null | grep -a 'KONSOLE  ' | sed -E 's/^([^	]*)	[^	]*	[^ ]* KONSOLE  (.*)$/  \1: \2/' | sort -u)
+  if [[ -n $KONSOLE ]]; then
+    print "Fehlerkonsole (nur Warnung, kein Rot – der CI-Wächter trägt sie als Bug ein):"
+    print -r -- $KONSOLE | cut -c1-220 | head -10
+  fi
+fi
 if (( RC == 1 )); then
   print "Gescheiterte Prüfungen (Details: gh run view $RUN -R $R --log-failed):"
   gh run view $RUN -R $R --log-failed 2>/dev/null | grep -a 'FEHLER  ' \

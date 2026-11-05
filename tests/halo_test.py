@@ -82,7 +82,11 @@ class Marionette:
         return reply[3]
 
     def js(self, body):
-        script = "return (async () => {" + PRELUDE + body + "})();"
+        # --only: Vorbereitungen außerhalb einer Prüfung kennzeichnen – ihre Meldungen in der Fehlerkonsole gehören zu
+        # übersprungenen Prüfungen und zählen nicht (konsole_bewerten); späte Meldungen der gelaufenen bleiben „nach …“
+        mark = 'const __k = [...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloKonsole)?.__haloKonsole; if (__k) __k.check = "Vorbereitung (--only)";' \
+            if ONLY and not IN_CHECK else ""
+        script = "return (async () => {" + PRELUDE + mark + body + "})();"
         try:
             return self.cmd("WebDriver:ExecuteScript", {"script": script, "args": []}).get("value")
         except RuntimeError as e:
@@ -290,9 +294,9 @@ def konsole_bewerten(res, only=None):
         chk = e.get("check") or "?"
         if any(c == chk and r.search(e["text"]) for c, r in expected):
             continue
-        # --only: nur Meldungen der gelaufenen Prüfungen und des Starts (Vorbereitungen übersprungener Prüfungen
-        # dürfen dort scheitern, siehe Marionette.js)
-        if only and not chk.startswith("Start") and (chk.startswith("nach ") or not only.search(chk)):
+        # --only: nur Meldungen des Starts und der gelaufenen Prüfungen – auch späte („nach …“, z. B. ein Zeitgeber, der
+        # erst nach dem Ende der Prüfung feuert); Vorbereitungen übersprungener Prüfungen dürfen scheitern (Marionette.js)
+        if only and not chk.startswith("Start") and (chk.startswith("Vorbereitung") or not only.search(chk.removeprefix("nach "))):
             continue
         groups.setdefault(f"{e['text']} ({e['wo']})", []).append(chk)
     errors = []

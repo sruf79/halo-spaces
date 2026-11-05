@@ -11,7 +11,21 @@ on:
     paths-ignore: ['**.md', 'store/**', 'LICENSE']
   pull_request:
     paths-ignore: ['**.md', 'store/**', 'LICENSE']
+  # Von Hand auch gezielt: nur bestimmte Prüfungen und/oder nur ein System –
+  # für Fehlersuche ohne volle Runde. Ein gezielter Lauf zählt nicht als
+  # vollständig grün (release.sh, Nachtlauf), erkennbar am Schritt
+  # „Gezielter Lauf“ im Job changes.
   workflow_dispatch:
+    inputs:
+      only:
+        description: Nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (leer = alle)
+        type: string
+        default: ''
+      ziel:
+        description: Nur dieses System bzw. diese Thunderbird-Version
+        type: choice
+        options: [alle, linux, linux-release, linux-beta, linux-esr, mac, windows]
+        default: alle
 
 jobs:
   # Reiner Release-Commit („halo.spaces x.y.z“ von release.sh): Push ändert nur
@@ -29,6 +43,9 @@ jobs:
     outputs:
       test: ${{ steps.check.outputs.test }}
       dark: ${{ steps.dark.outputs.dark }}
+      linux: ${{ steps.ziel.outputs.linux }}
+      mac: ${{ steps.ziel.outputs.mac }}
+      windows: ${{ steps.ziel.outputs.windows }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -65,17 +82,37 @@ jobs:
             tests/farben-betroffen.sh "$base" "$GITHUB_SHA" || dark=false
           fi
           echo "dark=$dark" >> "$GITHUB_OUTPUT"
+      - id: ziel
+        env:
+          ZIEL: ${{ inputs.ziel }}
+        run: |
+          linux='["release","beta","esr"]'; mac=true; windows=true
+          case "$ZIEL" in
+            linux) mac=false; windows=false ;;
+            linux-*) linux="[\"${ZIEL#linux-}\"]"; mac=false; windows=false ;;
+            mac) linux='[]'; windows=false ;;
+            windows) linux='[]'; mac=false ;;
+          esac
+          echo "Linux: $linux, Mac: $mac, Windows: $windows"
+          { echo "linux=$linux"; echo "mac=$mac"; echo "windows=$windows"; } >> "$GITHUB_OUTPUT"
+      # Kennzeichen für release.sh, ci-warten.sh und den CI-Wächter: nicht vollständig
+      - name: Gezielter Lauf
+        if: github.event_name == 'workflow_dispatch' && (inputs.only != '' || inputs.ziel != 'alle')
+        env:
+          ONLY: ${{ inputs.only }}
+          ZIEL: ${{ inputs.ziel }}
+        run: echo "Gezielter Lauf (System $ZIEL, Prüfungen ${ONLY:-alle}) zählt nicht als vollständig grün"
 
   linux:
     needs: changes
-    if: needs.changes.outputs.test == 'true'
+    if: needs.changes.outputs.test == 'true' && needs.changes.outputs.linux != '[]'
     runs-on: ubuntu-24.04
     # ein Testlauf dauert gut 25 Minuten (über 270 Prüfungen) – mit Luft für langsame Läufer
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        channel: [release, beta, esr]
+        channel: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -93,7 +130,9 @@ jobs:
 
       - name: Test
         timeout-minutes: 35
-        run: mkdir -p shots && xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird --shots shots --tb-log shots/thunderbird.log
+        env:
+          ONLY: ${{ inputs.only }}
+        run: mkdir -p shots && xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird --shots shots --tb-log shots/thunderbird.log ${ONLY:+--only "$ONLY"}
 
       - name: Screenshots
         if: always()
@@ -109,7 +148,7 @@ jobs:
     # Deshalb nur bei Push auf main oder Start von Hand – hier per if:, auf dem Mac
     # zusätzlich per Wächter (tests/mac-runner-hook.sh), den kein Pull-Request ändern kann.
     needs: changes
-    if: needs.changes.outputs.test == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.test == 'true' && needs.changes.outputs.mac == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, halo-mac]
     # hell und dunkel je knapp 20 Minuten (Stand 3.17.0, 343 Prüfungen), dunkel nur,
     # wenn Farben betroffen sind (Job changes); Beta nur unter Linux (Entscheidung
@@ -127,12 +166,16 @@ jobs:
 
       - name: Test hell
         timeout-minutes: 45
-        run: mkdir -p shots/hell && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --shots shots/hell --tb-log shots/hell/thunderbird.log
+        env:
+          ONLY: ${{ inputs.only }}
+        run: mkdir -p shots/hell && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --shots shots/hell --tb-log shots/hell/thunderbird.log ${ONLY:+--only "$ONLY"}
 
       - name: Test dunkel
         if: ${{ !cancelled() && needs.changes.outputs.dark == 'true' }}
         timeout-minutes: 45
-        run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log
+        env:
+          ONLY: ${{ inputs.only }}
+        run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log ${ONLY:+--only "$ONLY"}
 
       - name: Screenshots
         if: always()
@@ -148,7 +191,7 @@ jobs:
     # einem roten mac-Lauf startet; Pull-Requests bleiben ausgeschlossen, der Wächter
     # (tests/mac-runner-hook.sh) prüft auch diesen Job.
     needs: [changes, mac]
-    if: ${{ !cancelled() && needs.changes.outputs.test == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !cancelled() && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
     # ein Lauf gut 20 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60
@@ -162,7 +205,9 @@ jobs:
       # vorerst nur hell; setzt die VM fort und pausiert sie danach (gibt den Speicher frei)
       - name: Test Windows hell
         timeout-minutes: 45
-        run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log
+        env:
+          ONLY: ${{ inputs.only }}
+        run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log ${ONLY:+--only "$ONLY"}
 
       - name: Screenshots
         if: always()

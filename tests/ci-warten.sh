@@ -20,7 +20,7 @@ jobs_zeilen() {
 
 RUN=
 while true; do
-  [[ -z $RUN ]] && RUN=$(gh run list -R $R -w test.yml -c $SHA -L 1 --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null)
+  [[ -z $RUN ]] && RUN=$(gh run list -R $R -w test.yml -c $SHA -e push -L 1 --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null)
   if [[ -n $RUN ]]; then
     INFO=$(gh run view $RUN -R $R --json status,conclusion,createdAt,updatedAt \
       --jq '"\(.status) \(.conclusion) \((((.updatedAt | fromdate) - (.createdAt | fromdate)) / 60 | floor))"' 2>/dev/null)

@@ -93,6 +93,14 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   (`esr-latest`), nicht zwingend die Mindestversion: Nach Erscheinen einer
   neuen ESR prüft er bis zum Anheben von `strict_min_version` die
   Mindestversion nicht mehr.
+- **CI gezielt von Hand** (Fehlersuche ohne volle Runde): `gh workflow run
+  test.yml -R sruf79/halo-spaces -f only="<Teil des Prüfungsnamens>" -f
+  ziel=<alle|linux|linux-release|linux-beta|linux-esr|mac|windows>`. Nur
+  Linux belegt neon nicht. Ein gezielter Lauf (Schritt „Gezielter Lauf“ im
+  Job `changes`) zählt nicht als vollständig grün für `release.sh`, der
+  CI-Wächter trägt ihn nicht ein, `ci-warten.sh` wartet nur auf Läufe aus
+  einem Push. `mac`/`windows` gezielt nicht während des Nachtlaufs starten –
+  sie reihen sich in dieselbe Warteschlange `halo-mac` ein.
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR
   einen Volltest mit ihr (`--tb`, Thunderbird ESR aus download.mozilla.org).

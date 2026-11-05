@@ -51,7 +51,10 @@ if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh 
         break                              # Code seit dem grünen Lauf geändert
       fi
       RUN=$(gh run list -R "$GITHUB_REPO" -w test.yml -c "$SHA" -s success -L 1 --json databaseId --jq '.[0].databaseId')
-      if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq '[.jobs[].name] | index("mac") != null and index("windows") != null' | grep -q true; then
+      # vollständig: mac und windows gelaufen (nicht übersprungen), kein gezielter Lauf von Hand
+      if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq '(any(.jobs[]; .name == "mac" and .conclusion == "success") and any(.jobs[]; .name == "windows" and .conclusion == "success")
+          and ([.jobs[] | select(.name | startswith("linux")) | select(.conclusion == "success")] | length) == 3
+          and (any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success")) | not))' | grep -q true; then
         echo "CI-Lauf $RUN für ${SHA:0:7} ist vollständig grün (Linux, Mac, Windows) – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
         SKIP_TESTS=1
         CI_OK=1

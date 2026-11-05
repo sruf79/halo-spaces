@@ -120,6 +120,11 @@ rot() {   # <Lauf-ID>
   local -a namen zeilen
   local -A jobs_von detail_von
   info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
+  # gezielter Lauf von Hand (nur einzelne Prüfungen/Systeme, test.yml): Fehlersuche, kein Board-Eintrag
+  if jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null; then
+    log "Lauf $run: gezielter Lauf von Hand – kein Eintrag"
+    return 0
+  fi
   sha=$(jq -r '.headSha[:7]' <<< $info)
   titel=$(jq -r '.displayTitle[:100]' <<< $info)
   url=$(jq -r .url <<< $info)

@@ -4310,7 +4310,9 @@ def calendar_checks(m, results):
           const measure = async () => { await pause(800);
             if (!w.TodayPane.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(900); }
             const np = d.getElementById("mcNewPopup"), btn = d.getElementById("mcTodayNew");
-            btn.click(); if (!await isOpen(np)) return { open: false };
+            btn.click();
+            // (nach dem Verschieben des Fensters war es auf dem Mac einmal nicht vorn – macOS klappt das Popover dann gleich zu)
+            if (!await isOpen(np)) { w.focus(); await until(() => Services.focus.activeWindow == w, 2000); btn.click(); if (!await isOpen(np)) return { open: false }; }
             await ruhig(400);
             // in Bildschirmkoordinaten (unter Windows hat der Popover-Inhalt eigene Koordinaten)
             const box = np.querySelector(".mc-pop"), p = np.getBoundingClientRect(), o = np.getOuterScreenRect(), c = box.getBoundingClientRect(), a0 = btn.getBoundingClientRect();
@@ -13051,10 +13053,14 @@ Neu
           const list = v => [...pd.querySelectorAll(`#mcSub-${v} .mc-subcat`)].map(e => [+e.getAttribute("level"), e.textContent, e.hasAttribute("current")]);
           const vis = v => !pd.getElementById("mcSub-" + v).hidden;
           const out = { general: [vis("paneMcAccounts"), vis("paneMcAddons")] };
+          // Diagnose (Linux ESR sprang nach dem Wählen auf General zurück): jede Auswahl mit Zeit und Aufrufer
+          const sels = [], t0 = Date.now(), cats = pd.getElementById("categories");
+          cats.addEventListener("select", () => sels.push([Date.now() - t0, cats.selectedItem?.value, new Error().stack.split("\n").slice(1, 6).map(l => l.replace(/@.*\//, "@")).join(" < ")]));
           await pick("paneMcAccounts", 3500);
           // (in der Windows-CI waren die Unterpunkte einmal verborgen – nicht nachstellbar: warten und mitschreiben, was gewählt ist)
           await until(() => vis("paneMcAccounts"), 5000);
           out.sel = [pd.getElementById("categories").selectedItem?.value, pd.getElementById("mcCat-paneMcAccounts")?.hasAttribute("mc-folded")];
+          if (out.sel[0] != "paneMcAccounts") out.sels = sels;
           // Thunderbirds verspäteter Startaufruf (unter Linux kam er nach der Wahl an und sprang auf General zurück):
           // nachgestellt ohne Eingabe davor – die gewählte Kategorie bleibt
           await wait(1100); // (keine Eingabe in der letzten Sekunde – wie beim echten verspäteten Aufruf)

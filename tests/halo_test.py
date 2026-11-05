@@ -14308,6 +14308,39 @@ Neu
         return ok, f"{res}"
     check("Ordnerliste: Symbole blau, solange Thunderbird vorn ist, grau mit einem anderen Fenster vorn, danach wieder blau", folder_icon_inactive, results)
 
+    def sidebar_column_top():
+        # Seitenleiste wie Dia 1/4: auf dem Mac sitzt die Ampel oben in der Bereiche-Leiste, die Kacheln darunter (keine
+        # überdeckt), die Linie der Leiste beginnt unter der Kopfzeile; Kacheln und linke Leiste in jedem Bereich ganz
+        # sichtbar; Bereiche-Leiste aus → Ampel wie bisher über der Ordnerliste; Windows/Linux ohne Lücke für die Ampel
+        res = m.js(r"""
+          w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
+          const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), h: Math.round(r.height) }; };
+          const bar = d.getElementById("spacesToolbar"), box = d.querySelector("#unifiedToolbarContainer .titlebar-buttonbox");
+          const tiles = () => [...bar.querySelectorAll(".spaces-toolbar-button")].filter(b => !b.hidden && b.getBoundingClientRect().height > 0).map(R);
+          const out = { mac: Services.appinfo.OS == "Darwin", box: R(box), bar: R(bar), pad: parseFloat(getComputedStyle(bar).paddingTop), tiles: {} };
+          const side = { mail: () => tm.currentAbout3Pane?.document.getElementById("folderPane"), calendar: () => d.getElementById("calSidebar"),
+                         tasks: () => d.getElementById("calSidebar"), addressBook: () => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane") };
+          for (const tab of ["mail", "calendar", "tasks", "addressBook"]) {
+            if (tab != "mail") { tm.openTab(tab == "addressBook" ? "addressBookTab" : tab, {}); await ruhig(1200); }
+            const t = tiles(), s = side[tab]?.();
+            out.tiles[tab] = { first: t[0]?.t, last: t.at(-1)?.b, n: t.length, side: !!s && s.getBoundingClientRect().width > 100 };
+          }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail(); w.gSpacesToolbar.toggleToolbar(true); await ruhig(600);
+          out.hidden = { box: R(box) };
+          w.gSpacesToolbar.toggleToolbar(false); await ruhig(600);
+          return out;""")
+        b, bar, hd = res.get("box") or {}, res.get("bar") or {}, (res.get("hidden") or {}).get("box") or {}
+        tiles = res.get("tiles") or {}
+        all_tiles = all(v.get("n", 0) >= 4 and v.get("side") and v.get("last", 9999) <= bar.get("b", 0) for v in tiles.values())
+        if res.get("mac"):
+            ok = (b and b["l"] >= 8 and b["r"] <= 84 and b["b"] <= 52 and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())
+                  and res.get("pad") == 52 and all_tiles and hd and hd["l"] < 20 and hd["b"] <= 52)
+        else:
+            ok = res.get("pad", 0) < 20 and all_tiles
+        return ok, f"{res}"
+    check("Seitenleiste wie Dia 1/4: Ampel oben in der Bereiche-Leiste, Kacheln darunter und in jedem Bereich ganz sichtbar; Leiste aus → Ampel über der Ordnerliste", sidebar_column_top, results)
+
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),
         # ein neuer Start hängt alles wieder an

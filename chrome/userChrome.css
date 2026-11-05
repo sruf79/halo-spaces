@@ -2219,6 +2219,42 @@ findbar .findbar-textbox:focus {
   }
 }
 
+/* Seitenleiste wie Dia 1/4 (Mac): Bereiche-Leiste und Ordnerliste bilden eine
+   Spalte bis ganz oben – die Ampel sitzt oben in der Bereiche-Leiste, die
+   Kacheln rücken darunter, die Toolbar-Zeile braucht keinen Platz mehr dafür.
+   Bereiche-Leiste ausgeblendet: Ampel wie bisher oben über der Ordnerliste */
+@media (-moz-platform: macos) {
+  :root:has(#spacesToolbar:not([hidden])) {
+    --mc-tl-reserve: 12px;
+  }
+
+  /* Ampel 14 px vom Rand wie bei Dia; die Kopfzeile über Bereiche-Leiste und
+     Ordnerliste ist eine Fläche (die Trennlinie der Leiste beginnt erst darunter) */
+  :root:has(#spacesToolbar:not([hidden])) #unifiedToolbarContainer .titlebar-buttonbox-container {
+    position: fixed !important;
+    z-index: 5 !important;
+    top: 0 !important;
+    inset-inline-start: 0 !important;
+    width: 84px !important;
+    height: 52px !important;
+    margin: 0 !important;
+    /* (die Knöpfe selbst haben 12 px Rand: zusammen 14 px vom Fensterrand) */
+    padding-inline-start: 2px !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    /* (die Ampel zeichnet macOS selbst – die Fläche daneben fängt keine Klicks ab) */
+    pointer-events: none !important;
+  }
+
+  :root:has(#spacesToolbar:not([hidden])) #spacesToolbar {
+    padding-top: 52px !important;
+    border-inline-end: none !important;
+    background:
+      linear-gradient(var(--mt-sidebar-border), var(--mt-sidebar-border)) right 52px / 1px calc(100% - 52px) no-repeat,
+      var(--mt-sidebar) !important;
+  }
+}
+
 #unifiedToolbar {
   position: static !important;
 }

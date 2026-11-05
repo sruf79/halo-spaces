@@ -346,3 +346,97 @@ main {
   color: AccentColorText;
   outline: none;
 }
+
+/* Assistent „Konto lokal archivieren“ (archive.html, aufgebaut von
+   ArchiveAccount.openWizard): Übersicht, Fortschritt je Ordner, Abschluss */
+body.archive {
+  gap: 12px;
+  padding: 18px 20px 16px;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+body.archive h1 {
+  text-align: start;
+}
+
+body.archive .summary {
+  margin: -6px 0 0;
+  color: var(--text-secondary);
+}
+
+body.archive select {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text);
+  font: inherit;
+}
+
+body.archive .folders {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border-radius: 10px;
+  background: var(--control);
+}
+
+body.archive table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+body.archive td {
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+body.archive tr + tr td {
+  border-top: 1px solid var(--control-hover);
+}
+
+body.archive td.name {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.archive td.num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+body.archive tr[data-state="done"] td.num {
+  color: #34c759;
+}
+
+body.archive tr[data-state="failed"] td.num {
+  color: #ff3b30;
+}
+
+body.archive tr[data-state="busy"] td.name {
+  font-weight: 600;
+}
+
+body.archive .note {
+  margin: 0;
+}
+
+body.archive .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+body.archive .buttons .capsule {
+  min-height: 28px;
+  padding: 0 16px;
+}
+
+body.archive .buttons .capsule.primary {
+  background: var(--accent);
+  color: AccentColorText;
+}

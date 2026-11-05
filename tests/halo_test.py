@@ -6767,17 +6767,40 @@ def server_checks(m, results):
               return { copied: job?.copied, skipped: job?.skipped, failed: job?.failed, target: target?.name,
                 folders: target ? Object.fromEntries(target.subFolders.map(f => [f.name, f.getTotalMessages(false)])) : null,
                 source: Object.fromEntries(root.subFolders.map(f => [f.name, f.getTotalMessages(false)])) };""" % key
+            # Assistent: Übersicht mit Ordnern und Anzahl, Start, Fortschritt je Ordner, Abschluss (hier: alles schon archiviert)
+            wizard_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer;
+              const hw = w.__mcArchiveWizard(server);
+              const doc = await until(() => hw.document?.querySelector("body.archive table tr") && hw.document, 8000);
+              if (!doc) return { open: false };
+              const rows = () => [...doc.querySelectorAll("table tr")];
+              const out = { open: true, title: doc.querySelector("h1")?.textContent, account: doc.querySelector("select")?.selectedOptions[0]?.textContent,
+                            folders: rows().map(r => r.cells[0].textContent), summary: doc.querySelector(".summary")?.textContent,
+                            trash: rows().some(r => /Trash|Papierkorb/.test(r.cells[0].textContent)) };
+              doc.querySelector(".buttons .primary").click();
+              await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
+              out.end = { button: doc.querySelector(".buttons .primary .label")?.textContent, states: rows().map(r => r.dataset.state),
+                          nums: rows().map(r => r.cells[1].textContent), summary: doc.querySelector(".summary")?.textContent };
+              hw.close();
+              return out;""" % key
             first = m.js(menu_js)
             first.update(m.js(run_js))
             second = m.js(run_js)
+            wiz = m.js(wizard_js)
             f = first.get("folders") or {}
             src = first.get("source") or {}
             inbox = next((k for k in f if k.lower() == "inbox"), None)
             ok = (first.get("visible") and first.get("target") and inbox and f.get(inbox, 0) >= 1
                   and f.get(inbox) == src.get(inbox) and f.get("Archive") == 1 and "Trash" not in f and "Drafts" not in f
                   and second.get("folders") == f)
-            return ok, f"{first} 2. Lauf: {second}"
-        check("Testkonto: Konto lokal archivieren – Kontextmenü, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate", archive_account, results)
+            we = wiz.get("end") or {}
+            ok = ok and (wiz.get("open") and wiz.get("title") == "Archive Account Locally" and wiz.get("account") == first.get("target", "").split(" (")[0]
+                         and any("Archiv" in x for x in (wiz.get("folders") or [])) and not wiz.get("trash") and "messages in" in (wiz.get("summary") or "")
+                         and we.get("button") == "Done" and we.get("states") and all(x == "done" for x in we["states"])
+                         and all(n.endswith("✓") for n in we.get("nums", [])) and "already archived" in (we.get("summary") or ""))
+            return ok, f"{first} 2. Lauf: {second} Assistent: {wiz}"
+        check("Testkonto: Konto lokal archivieren – Kontextmenü, Assistent mit Übersicht, Fortschritt und Abschluss, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate", archive_account, results)
 
         def send_error():
             # Server lehnt ab → halo.spaces meldet den Fehler als Dialog mit „Postausgang zeigen“ (statt nur in der

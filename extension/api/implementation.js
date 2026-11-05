@@ -51,6 +51,13 @@ const DE = {
   "{file}: {n} messages in {f} folders.": "{file}: {n} Nachrichten in {f} Ordnern.",
   "Importing the messages comes in a later version.": "Das Importieren der Nachrichten kommt in einer späteren Version.",
   "Archive Account Locally…": "Konto lokal archivieren …",
+  "Stop": "Anhalten",
+  "Done": "Fertig",
+  "{n} messages in {f} folders": "{n} Mails in {f} Ordnern",
+  "about {size}": "etwa {size}",
+  "{size} free": "{size} frei",
+  "The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out.": "Die Kopie kommt nach „Lokale Ordner“ und bleibt, wenn du das Konto entfernst. Papierkorb, Spam und Entwürfe werden ausgelassen.",
+  "The archive is in Local Folders under {target}. It stays when you remove the account.": "Das Archiv liegt in „Lokale Ordner“ unter {target}. Es bleibt, wenn du das Konto entfernst.",
   "Archive Account Locally": "Konto lokal archivieren",
   "Stop Archiving": "Archivieren stoppen",
   "{name} (Archive)": "{name} (Archiv)",
@@ -498,6 +505,13 @@ const FR = {
   "{file}: {n} messages in {f} folders.": "{file} : {n} messages dans {f} dossiers.",
   "Importing the messages comes in a later version.": "L’importation des messages arrivera dans une version ultérieure.",
   "Archive Account Locally…": "Archiver le compte localement…",
+  "Stop": "Arrêter",
+  "Done": "Terminé",
+  "{n} messages in {f} folders": "{n} messages dans {f} dossiers",
+  "about {size}": "environ {size}",
+  "{size} free": "{size} libres",
+  "The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out.": "La copie va dans Dossiers locaux et reste si vous supprimez le compte. La corbeille, les indésirables et les brouillons sont exclus.",
+  "The archive is in Local Folders under {target}. It stays when you remove the account.": "L’archive se trouve dans Dossiers locaux sous {target}. Elle reste si vous supprimez le compte.",
   "Archive Account Locally": "Archiver le compte localement",
   "Stop Archiving": "Arrêter l’archivage",
   "{name} (Archive)": "{name} (Archive)",
@@ -945,6 +959,13 @@ const ES = {
   "{file}: {n} messages in {f} folders.": "{file}: {n} mensajes en {f} carpetas.",
   "Importing the messages comes in a later version.": "La importación de los mensajes llegará en una versión posterior.",
   "Archive Account Locally…": "Archivar la cuenta localmente…",
+  "Stop": "Detener",
+  "Done": "Listo",
+  "{n} messages in {f} folders": "{n} mensajes en {f} carpetas",
+  "about {size}": "unos {size}",
+  "{size} free": "{size} libres",
+  "The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out.": "La copia va a Carpetas locales y se mantiene si eliminas la cuenta. Papelera, spam y borradores no se incluyen.",
+  "The archive is in Local Folders under {target}. It stays when you remove the account.": "El archivo está en Carpetas locales, en {target}. Se mantiene si eliminas la cuenta.",
   "Archive Account Locally": "Archivar la cuenta localmente",
   "Stop Archiving": "Detener el archivado",
   "{name} (Archive)": "{name} (Archivo)",
@@ -1392,6 +1413,13 @@ const IT = {
   "{file}: {n} messages in {f} folders.": "{file}: {n} messaggi in {f} cartelle.",
   "Importing the messages comes in a later version.": "L’importazione dei messaggi arriverà in una versione successiva.",
   "Archive Account Locally…": "Archivia l’account in locale…",
+  "Stop": "Interrompi",
+  "Done": "Fine",
+  "{n} messages in {f} folders": "{n} messaggi in {f} cartelle",
+  "about {size}": "circa {size}",
+  "{size} free": "{size} liberi",
+  "The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out.": "La copia va in Cartelle locali e rimane se rimuovi l’account. Cestino, spam e bozze sono esclusi.",
+  "The archive is in Local Folders under {target}. It stays when you remove the account.": "L’archivio si trova in Cartelle locali in {target}. Rimane se rimuovi l’account.",
   "Archive Account Locally": "Archivia l’account in locale",
   "Stop Archiving": "Interrompi l’archiviazione",
   "{name} (Archive)": "{name} (Archivio)",
@@ -7534,11 +7562,36 @@ const ArchiveAccount = {
       }, null, false);
     });
   },
-  async run(server, win, status = () => {}) {
+  // zu archivierende Ordner (ohne Papierkorb, Spam, Entwürfe …) mit Pfad und Tiefe
+  plan(server) {
+    const out = [];
+    const walk = (folder, depth, path) => {
+      for (const sub of folder.subFolders) {
+        if (sub.getFlag(this.SKIP) || sub.flags & this.SKIP) {
+          continue;
+        }
+        const p = [...path, sub.name];
+        out.push({ folder: sub, depth, path: p.join("/"), name: sub.prettyName || sub.localizedName || sub.name,
+          count: sub.getTotalMessages(false), size: Number(sub.sizeOnDisk) || 0 });
+        walk(sub, depth + 1, p);
+      }
+    };
+    walk(server.rootFolder, 0, []);
+    return out;
+  },
+  // freier Platz dort, wo Lokale Ordner liegen (null: unbekannt)
+  freeSpace() {
+    try {
+      return MailServices.accounts.localFoldersServer.localPath.diskSpaceAvailable;
+    } catch {
+      return null;
+    }
+  },
+  async run(server, win, status = () => {}, progress = () => {}) {
     if (this.running) {
       return null;
     }
-    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failed: [] };
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failed: [], done: [] };
     this.running = job;
     try {
       const local = MailServices.accounts.localFoldersServer.rootFolder;
@@ -7562,8 +7615,10 @@ const ArchiveAccount = {
           }
           job.folders++;
           status(tr("Archiving {folder}…", { folder: sub.prettyName }));
+          progress(sub, { state: "busy", copied: 0 });
           await this.update(sub, win);
           const hdrs = this.messages(sub);
+          let mine = 0, failed = false;
           if (hdrs.length && dest.getTotalMessages(false) >= hdrs.length) {
             job.skipped += hdrs.length;
           } else {
@@ -7571,13 +7626,18 @@ const ArchiveAccount = {
               const part = hdrs.slice(i, i + 100);
               if (await this.copy(sub, part, dest, win)) {
                 job.copied += part.length;
+                mine += part.length;
               } else {
                 job.failed.push(sub.prettyName);
+                failed = true;
                 break;
               }
               status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
+              progress(sub, { state: "busy", copied: mine, total: hdrs.length });
             }
           }
+          job.done.push({ folder: sub, dest, source: hdrs.length });
+          progress(sub, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: hdrs.length, archived: dest.getTotalMessages(false) });
           await walk(sub, dest);
         }
       };
@@ -7590,6 +7650,160 @@ const ArchiveAccount = {
   },
 };
 
+// Assistent „Konto lokal archivieren“ (eigenes kleines Fenster wie „Postfach
+// exportieren“ bei Apple Mail): Konto wählen, Übersicht (Ordner, Anzahl,
+// geschätzte Größe, freier Platz), Start, Fortschritt je Ordner, Abbruch,
+// Abschluss mit Vergleich Quelle/Archiv
+ArchiveAccount.openWizard = function (mailWin, server) {
+  const existing = Services.wm.getEnumerator(null);
+  for (const x of existing) {
+    if (x.location?.href.startsWith("resource://mailcards/about/archive.html")) {
+      x.focus();
+      return x;
+    }
+  }
+  const hw = mailWin.openDialog("resource://mailcards/about/archive.html", "halo-archive",
+    "chrome,dialog=yes,centerscreen,resizable=yes,width=460,height=480");
+  // (wie beim Hilfe-Fenster: auf das geladene Dokument warten – ein „load“
+  // am zurückgegebenen Fenster kommt nicht immer an)
+  let tries = 0;
+  const wait = () => {
+    if (hw.closed || tries++ > 100) {
+      return;
+    }
+    const doc = hw.document;
+    if (doc?.documentURI?.startsWith("resource://mailcards/about/archive.html") && doc.readyState == "complete" && doc.body) {
+      build(doc);
+    } else {
+      mailWin.setTimeout(wait, 30);
+    }
+  };
+  mailWin.setTimeout(wait, 30);
+  const build = doc => {
+    doc.title = tr("Archive Account Locally");
+    const el = (tag, cls, text) => {
+      const e = doc.createElement(tag);
+      if (cls) {
+        e.className = cls;
+      }
+      if (text != null) {
+        e.textContent = text;
+      }
+      return e;
+    };
+    const servers = MailServices.accounts.accounts.map(a => a.incomingServer).filter(sv => sv && ArchiveAccount.canArchive(sv.rootFolder));
+    let current = servers.includes(server) ? server : servers[0];
+    const h1 = el("h1", null, tr("Archive Account Locally"));
+    const pickAccount = el("select");
+    for (const sv of servers) {
+      const o = el("option", null, sv.prettyName);
+      o.value = sv.key;
+      pickAccount.append(o);
+    }
+    const summary = el("p", "summary");
+    const list = el("div", "folders");
+    const table = el("table");
+    list.append(table);
+    const note = el("p", "note", tr("The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out."));
+    const cancel = el("button", "capsule");
+    const start = el("button", "capsule primary");
+    cancel.append(el("span", "label", tr("Cancel")));
+    start.append(el("span", "label", tr("Start")));
+    const buttons = el("div", "buttons");
+    buttons.append(cancel, start);
+    doc.body.replaceChildren(h1, pickAccount, summary, list, note, buttons);
+    const mb = n => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);
+    const rows = new Map();
+    let phase = "overview";
+    const show = () => {
+      pickAccount.value = current?.key || "";
+      rows.clear();
+      const plan = current ? ArchiveAccount.plan(current) : [];
+      table.replaceChildren(...plan.map(p => {
+        const tr0 = el("tr");
+        const name = el("td", "name", p.name);
+        name.style.paddingInlineStart = `${12 + p.depth * 14}px`;
+        const num = el("td", "num", String(p.count));
+        tr0.append(name, num);
+        rows.set(p.folder.URI, { tr: tr0, num, count: p.count });
+        return tr0;
+      }));
+      const total = plan.reduce((a, p) => a + p.count, 0), size = plan.reduce((a, p) => a + p.size, 0);
+      const free = ArchiveAccount.freeSpace();
+      summary.textContent = [tr("{n} messages in {f} folders", { n: total, f: plan.length }),
+        size ? tr("about {size}", { size: mb(size) }) : null,
+        free != null ? tr("{size} free", { size: mb(free) }) : null].filter(Boolean).join(" · ");
+      start.disabled = !plan.length;
+    };
+    pickAccount.addEventListener("change", () => {
+      current = servers.find(sv => sv.key == pickAccount.value) || current;
+      show();
+    });
+    const progress = (folder, st) => {
+      const r = rows.get(folder.URI);
+      if (!r) {
+        return;
+      }
+      r.tr.dataset.state = st.state;
+      if (st.state == "busy") {
+        r.num.textContent = st.total ? `${st.copied} / ${st.total}` : "…";
+        r.tr.scrollIntoView({ block: "nearest" });
+      } else if (st.archived != null) {
+        // Abschluss: Quelle und Archiv nebeneinander
+        r.num.textContent = st.archived >= st.total ? `${st.total} ✓` : `${st.archived} / ${st.total}`;
+        if (st.archived < st.total && st.state == "done") {
+          r.tr.dataset.state = "failed";
+        }
+      }
+    };
+    cancel.addEventListener("click", () => {
+      if (phase == "running") {
+        ArchiveAccount.running && (ArchiveAccount.running.stop = true);
+      } else {
+        hw.close();
+      }
+    });
+    start.addEventListener("click", async () => {
+      if (phase == "finished") {
+        hw.close();
+        return;
+      }
+      if (phase != "overview" || !current) {
+        return;
+      }
+      phase = "running";
+      pickAccount.disabled = true;
+      start.disabled = true;
+      cancel.querySelector(".label").textContent = tr("Stop");
+      const job = await ArchiveAccount.run(current, mailWin, text => (summary.textContent = text), progress);
+      phase = "finished";
+      if (hw.closed || !job) {
+        return;
+      }
+      const lines = [tr(job.stop ? "Archiving stopped." : "Archiving finished."),
+        tr("{n} messages copied in {f} folders.", { n: job.copied, f: job.folders })];
+      if (job.skipped) {
+        lines.push(tr("{n} messages were already archived.", { n: job.skipped }));
+      }
+      if (job.failed.length) {
+        lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
+      }
+      summary.textContent = lines.join(" ");
+      note.textContent = tr("The archive is in Local Folders under {target}. It stays when you remove the account.", { target: ArchiveAccount.targetName(current) });
+      cancel.hidden = true;
+      start.disabled = false;
+      start.querySelector(".label").textContent = tr("Done");
+    });
+    hw.addEventListener("unload", () => {
+      if (phase == "running" && ArchiveAccount.running) {
+        ArchiveAccount.running.stop = true;
+      }
+    });
+    show();
+  };
+  return hw;
+};
+
 // Kontextmenü eines Kontos in der Ordnerliste: „Archive Account Locally…“
 function hookArchiveAccount(a3, restorers) {
   const doc = a3.document;
@@ -7598,20 +7812,14 @@ function hookArchiveAccount(a3, restorers) {
   if (!popup || !mailWin || doc.getElementById("mcArchiveAccount")) {
     return;
   }
-  // für den automatischen Test: Kopieren ohne Rückfrage anstoßen
+  // für den automatischen Test: Kopieren ohne Assistent anstoßen bzw. ihn öffnen
   mailWin.__mcArchiveAccount = server => ArchiveAccount.run(server, mailWin);
+  mailWin.__mcArchiveWizard = server => ArchiveAccount.openWizard(mailWin, server);
   const item = doc.createXULElement("menuitem");
   item.id = "mcArchiveAccount";
   const anchor = doc.getElementById("folderPaneContext-properties") || popup.lastElementChild;
   anchor.before(item);
-  const status = text => {
-    const st = mailWin.document.getElementById("statusText");
-    if (st) {
-      st.textContent = text;
-      st.value = text;
-    }
-  };
-  item.addEventListener("command", async () => {
+  item.addEventListener("command", () => {
     if (ArchiveAccount.running) {
       ArchiveAccount.running.stop = true;
       return;
@@ -7621,30 +7829,7 @@ function hookArchiveAccount(a3, restorers) {
     if (!ArchiveAccount.canArchive(folder)) {
       return;
     }
-    const server = folder.server;
-    // Rückfrage und Abschluss ohne blockierende Dialoge (asynchron)
-    const bc = mailWin.browsingContext;
-    const res = await Services.prompt.asyncConfirmEx(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"),
-      tr("Copy all folders of {account} to Local Folders, in a folder named {target}? The copy stays when you remove the account. Trash, Spam and Drafts are left out.",
-        { account: server.prettyName, target: ArchiveAccount.targetName(server) }),
-      Services.prompt.STD_OK_CANCEL_BUTTONS, null, null, null, null, false);
-    if (res.getProperty("buttonNumClicked") != 0) {
-      return;
-    }
-    const job = await ArchiveAccount.run(server, mailWin, status);
-    status("");
-    if (!job) {
-      return;
-    }
-    const lines = [tr(job.stop ? "Archiving stopped." : "Archiving finished."),
-      tr("{n} messages copied in {f} folders.", { n: job.copied, f: job.folders })];
-    if (job.skipped) {
-      lines.push(tr("{n} messages were already archived.", { n: job.skipped }));
-    }
-    if (job.failed.length) {
-      lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
-    }
-    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, tr("Archive Account Locally"), lines.join("\n"));
+    ArchiveAccount.openWizard(mailWin, folder.server);
   });
   const onShow = event => {
     if (event.target != popup) {
@@ -7660,6 +7845,7 @@ function hookArchiveAccount(a3, restorers) {
     popup.removeEventListener("popupshowing", onShow);
     item.remove();
     delete mailWin.__mcArchiveAccount;
+    delete mailWin.__mcArchiveWizard;
   });
 }
 

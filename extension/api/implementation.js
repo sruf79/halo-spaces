@@ -12032,9 +12032,15 @@ class CardEnhancer {
     tabmail?.tabContainer?.addEventListener("TabSelect", onTab);
     w.addEventListener("resize", update);
     // Fenster nie breiter als der Bildschirm (z. B. nach Doppelklick auf die
-    // Titelleiste): auf die verfügbare Breite zurück und ganz ins Bild
+    // Titelleiste): auf die verfügbare Breite zurück und ganz ins Bild.
+    // Nicht unter Linux: unter Wayland zählt outerWidth den Schatten der
+    // Fensterdekoration mit (+48 px), w.screen ist nicht sicher der Bildschirm
+    // des Fensters, und Tiling-Fenstermanager setzen die Größe selbst
     let fitLater = null;
     const fitScreen = () => {
+      if (Services.appinfo.OS == "Linux") {
+        return;
+      }
       w.clearTimeout(fitLater);
       fitLater = w.setTimeout(() => {
         try {

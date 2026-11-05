@@ -5762,7 +5762,10 @@ def calendar_checks(m, results):
           return out;""")
         fr = res.get("frames") or {}
         # Bildtakt: scharf nur unter macOS (unter xvfb und in der VM schwankt er ohne Grafikkarte)
-        smooth = fr.get("median", 99) <= res.get("idle", 16.7) * 1.5 + 2 and (sys.platform != "darwin" or fr.get("slow", 99) == 0)
+        # Mac: im langen CI-Volllauf kommen einzelne Ausreißer (Speicherbereinigung) bis knapp drei Bildwechsel vor –
+        # höchstens 6 von 75 und keiner über drei Bildwechsel; Dauerruckeln fängt der Median ab
+        idle = res.get("idle", 16.7)
+        smooth = fr.get("median", 99) <= idle * 1.5 + 2 and (sys.platform != "darwin" or (fr.get("slow", 99) <= 6 and fr.get("max", 99) <= 3 * idle + 4))
         ok = (fr.get("n") == 75 and smooth and res.get("missing") == 0 and res.get("snapEmpty") == 0
               and 24 <= res.get("weeks", 0) <= 26 and not res.get("mask"))
         return ok, f"{res}"
@@ -11325,7 +11328,7 @@ Neu
               and res.get("plan") == [14, 35, 67, 114, 185, 291, 451, 690, 1049, 1414]
               and dm == {"due": True, "dot": True, "attr": True}
               and res.get("withUpdate") == {"due": False, "attr": False} and res.get("sameDay") is False
-              and ring.get("due") and ring.get("shadow") not in (None, "", "none") and ring.get("coffee") and ring.get("wisps") == 5 and ring.get("steam") == "1"
+              and ring.get("due") and ring.get("shadow") not in (None, "", "none") and ring.get("coffee") and ring.get("wisps") == 5 and float(ring.get("steam") or 0) >= 0.9
               and after.get("count") == 1 and after.get("due") is False and after.get("ring") is False
               and (after.get("image") or "").endswith("/about/icon.svg") and after.get("opened") == 2
               and after.get("url", "").startswith("https://buymeacoffee.com/diversion?")

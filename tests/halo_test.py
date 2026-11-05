@@ -790,8 +790,10 @@ def main():
                 print(f"  {n:4d}×  {why[:160]}", flush=True)
         if args.shots:
             mark_check("Screenshots")
-            take_shots(m, args.shots, "dark" if args.dark else "light")
-            konsole_nachtrag(m, "bei den Screenshots")
+            try:
+                take_shots(m, args.shots, "dark" if args.dark else "light")
+            finally:
+                konsole_nachtrag(m, "bei den Screenshots")
             if args.compare:
                 compare_shots(m, args.compare, args.shots)
     finally:

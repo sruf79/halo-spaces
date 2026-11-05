@@ -107,7 +107,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true' && needs.changes.outputs.linux != '[]'
     runs-on: ubuntu-24.04
-    # ein Testlauf dauert gut 25 Minuten (über 270 Prüfungen) – mit Luft für langsame Läufer
+    # ein Testlauf dauert rund 18 Minuten (Stand 3.18.0, gut 340 Prüfungen) – mit Luft für langsame Läufer
     timeout-minutes: 50
     strategy:
       fail-fast: false
@@ -150,7 +150,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true' && needs.changes.outputs.mac == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, halo-mac]
-    # hell und dunkel je knapp 20 Minuten (Stand 3.17.0, 343 Prüfungen), dunkel nur,
+    # hell rund 17 Minuten, mit dunkel rund 35 (Stand 3.18.0, gut 340 Prüfungen), dunkel nur,
     # wenn Farben betroffen sind (Job changes); Beta nur unter Linux (Entscheidung
     # des Maintainers vom 3.11.2026)
     timeout-minutes: 100
@@ -196,7 +196,7 @@ jobs:
     needs: [changes, mac]
     if: ${{ !cancelled() && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
     runs-on: [self-hosted, macOS, halo-mac]
-    # ein Lauf gut 20 Minuten, dazu Fortsetzen der VM
+    # ein Lauf rund 19 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60
     # (ohne concurrency-Gruppe, siehe Job mac)
     steps:

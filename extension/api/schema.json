@@ -107,6 +107,13 @@
             "additionalProperties": true
           }
         ]
+      },
+      {
+        "name": "openLocationSettings",
+        "type": "function",
+        "async": true,
+        "description": "Systemeinstellung der Ortung öffnen (Wetter)",
+        "parameters": []
       }
     ]
   }

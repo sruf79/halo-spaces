@@ -197,29 +197,95 @@ async function render() {
         const numeric = typeof (row.options || [])[0] == "number";
         control.addEventListener("change", () => save(numeric ? Number(control.value) : control.value));
       } else if (row.type == "place") {
-        // Ort fürs Wetter: Vorschläge beim Tippen, darunter das Ergebnis (Ort und Temperatur bzw. Hinweis)
-        const input = el("input", { id, type: "text", value: settings[row.key] || "", placeholder: row.placeholder || "", spellcheck: false, class: "place" });
-        const status = el("span", { class: "hint status", textContent: settings.weatherStatus || "" });
-        const refresh = async () => (status.textContent = (await api.getSettings()).weatherStatus || "");
-        let timer = null;
+        // Ort fürs Wetter wie in den Systemeinstellungen: Auswahlmenü mit
+        // „➤ Current Location“, den zuletzt gewählten Orten und „Choose City…“
+        // (öffnet die Suche mit Vorschlägen; Esc kehrt zum vorigen Ort zurück);
+        // darunter immer der Zustand mit Punkt (grün: Wetter, orange: Hinweis)
+        const menu = el("select", { id, class: "place-menu" });
+        const input = el("input", { type: "text", placeholder: row.placeholder || "", spellcheck: false, class: "place", hidden: true });
+        const dot = el("span", { class: "dot" });
+        const statusText = el("span");
+        const link = el("button", { type: "button", class: "link", textContent: t("Open System Settings…"), hidden: true });
+        link.addEventListener("click", () => api.openLocationSettings());
+        const status = el("span", { class: "hint status" }, dot, statusText, link);
+        const paint = s => {
+          statusText.textContent = s.weatherStatus || "";
+          status.dataset.tone = s.weatherTone || "";
+          status.hidden = !s.weatherStatus;
+          link.hidden = !s.weatherLink;
+        };
+        const fill = s => {
+          const place = s.weatherPlace || "";
+          const recent = (s.weatherRecent || []).slice();
+          if (place && !recent.some(p => p.label == place)) recent.unshift({ label: place });
+          menu.replaceChildren(el("option", { value: "current", textContent: `➤ ${t("Current Location")}` }),
+            ...recent.map((p, i) => el("option", { value: `r${i}`, textContent: p.label })),
+            el("option", { value: "", textContent: "──────────", disabled: true }),
+            el("option", { value: "choose", textContent: t("Choose City…") }));
+          menu.__recent = recent;
+          menu.value = place ? `r${recent.findIndex(p => p.label == place)}` : "current";
+          menu.__last = menu.value;
+        };
+        const refresh = async () => {
+          const s = await api.getSettings();
+          Object.assign(settings, { weatherPlace: s.weatherPlace, weatherRecent: s.weatherRecent });
+          fill(s);
+          paint(s);
+          return s;
+        };
+        fill(settings);
+        paint(settings);
+        const closeSearch = () => {
+          input.hidden = true;
+          input.value = "";
+          menu.hidden = false;
+        };
         const list = placeSuggestions(input, async p => {
-          clearTimeout(timer);
+          closeSearch();
           await api.choosePlace(p);
-          settings.weatherPlace = p.label;
           flash(badge);
           refresh();
         });
-        input.addEventListener("input", () => {
-          clearTimeout(timer);
-          // leer: aktueller Standort; sonst erst nach einer Pause (Vorschläge haben Vorrang)
-          timer = setTimeout(async () => {
-            if (input.value.trim()) return;
+        menu.addEventListener("change", async () => {
+          const value = menu.value;
+          if (value == "choose") {
+            menu.hidden = true;
+            input.hidden = false;
+            input.focus();
+            return;
+          }
+          menu.__last = value;
+          if (value == "current") {
             await save("");
-            refresh();
-          }, 800);
+          } else {
+            const p = menu.__recent[Number(value.slice(1))];
+            if (p?.lat != null) {
+              await api.choosePlace(p);
+              flash(badge);
+            }
+          }
+          refresh();
         });
+        input.addEventListener("keydown", e => {
+          if (e.key == "Escape") {
+            closeSearch();
+            menu.value = menu.__last;
+          } else if (e.key == "Enter") {
+            list.querySelector("button")?.click();
+          }
+        });
+        input.addEventListener("blur", () => setTimeout(() => {
+          if (!input.hidden && document.activeElement != input) {
+            closeSearch();
+            menu.value = menu.__last;
+          }
+        }, 200));
+        // „Locating…“: Ergebnis nachholen, sobald es da ist
+        setInterval(() => {
+          if (!status.hidden && !status.dataset.tone && settings.weather) refresh();
+        }, 2000);
         text.append(status);
-        control = el("span", { class: "place-box" }, input, list);
+        control = el("span", { class: "place-box" }, menu, input, list);
       } else if (row.type == "url") {
         const input = el("input", { id, type: "url", value: settings[row.key] || "", placeholder: row.placeholder || "", spellcheck: false, class: "place" });
         const status = el("span", { class: "hint status" });

@@ -103,6 +103,47 @@ section {
   color: AccentColor;
 }
 
+/* Zustand des Wetters unter „Place“: Punkt grün (Wetter da) bzw. orange (Hinweis) */
+.row .hint.status[data-tone] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  color: var(--text-secondary);
+}
+
+.row .hint.status[data-tone] .dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+}
+
+.row .hint.status[data-tone="ok"] .dot {
+  background: #34C759;
+}
+
+.row .hint.status[data-tone="warn"] .dot {
+  background: #FF9500;
+}
+
+.row .hint.status .link {
+  height: auto;
+  padding: 0;
+  background: none;
+  color: AccentColor;
+  font-size: inherit;
+}
+
+.row .hint.status [hidden] {
+  display: none;
+}
+
+.place-box select.place-menu {
+  max-width: 200px;
+}
+
 /* Treffer aus der Suche der Einstellungen: kurz in Akzentfarbe getönt */
 .row.found {
   animation: found 2s ease-out;

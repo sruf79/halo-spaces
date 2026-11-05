@@ -5059,9 +5059,22 @@ def calendar_checks(m, results):
                          mask: icon ? w.getComputedStyle(icon).maskImage.slice(0, 80) : "", urls: Cu.evalInSandbox("JSON.stringify(__mcUrls)", g) };
             await api.setSetting("weatherPlace", ""); await ruhig(400);
             out.city.icon = shown();
-            out.located = { attr: title.dataset.weather || null, status: (await api.getSettings()).weatherStatus, icon: shown() };
+            const ls = await api.getSettings();
+            out.located = { attr: title.dataset.weather || null, status: ls.weatherStatus, tone: ls.weatherTone, link: ls.weatherLink, icon: shown(),
+                            // ohne Daten zeigt das Symbol den Hinweis, nie „Go to Today“ des Titels
+                            iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") };
+            // gewählter Ort kommt in die Liste des Auswahlmenüs (neueste zuerst)
+            await api.choosePlace({ label: "Graz, Österreich", lat: 47.0707, lon: 15.4395 }); await ruhig(300);
+            const cs2 = await api.getSettings();
+            out.recent = (cs2.weatherRecent || []).map(p => p.label); out.okTone = cs2.weatherTone; out.okStatus = cs2.weatherStatus;
+            await api.setSetting("weatherPlace", ""); await ruhig(300);
             await api.setSetting("weather", false); await ruhig(300);
             out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title"), iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") ?? null, icon: shown() };
+            // echter Standortdienst: antwortet (Standort oder Fehler) statt ewig zu warten wie navigator.geolocation im Fenster
+            Cu.evalInSandbox("Weather.locate = __mcRealLocate;", g);
+            const t0 = Date.now();
+            const real = await Promise.race([Cu.waiveXrays(Cu.evalInSandbox("Weather.locate(null)", g)).then(r => JSON.parse(JSON.stringify(r))), wait(25000).then(() => "hängt")]);
+            out.realLocate = { answered: real != "hängt" && (real.error || Number.isFinite(real.lat)) ? true : real, ms: Date.now() - t0 };
           } finally {
             Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate;", g);
             for (const p of ["weather", "weatherPlace", "weatherState"]) Services.prefs.clearUserPref("extensions.mailcards." + p);
@@ -5070,12 +5083,15 @@ def calendar_checks(m, results):
         c, l, o = res.get("city") or {}, res.get("located") or {}, res.get("off") or {}
         urls = json.loads(c.get("urls") or "[]")
         ok = (res["start"] == {"attr": None, "setting": False, "icon": False} and c.get("icon") is True and l.get("icon") is True and o.get("icon") is False
-              and c.get("attr") == "rain" and c.get("tip") == "Go to Today" and c.get("iconTip") == "Wien, Österreich: 12 °C, Rain" and "Wien" in (c.get("status") or "")
+              and c.get("attr") == "rain" and c.get("tip") == "Go to Today" and c.get("iconTip") == "Wien, Österreich · 12 °C, Rain" and c.get("status") == c.get("iconTip")
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
-              and l.get("attr") is None and "System Settings" in (l.get("status") or "")
+              and l.get("attr") is None and l.get("status") == "Location access is off." and l.get("tone") == "warn"
+              and l.get("link") is (sys.platform in ("darwin", "win32")) and l.get("iconTip") == l.get("status")
+              and (res.get("recent") or [None])[0] == "Graz, Österreich" and res.get("okTone") == "ok" and "Graz" in (res.get("okStatus") or "")
+              and (res.get("realLocate") or {}).get("answered") is True
               and o.get("attr") is None and o.get("tip") == "Go to Today" and o.get("iconTip") is None)
         return ok, f"{res}"
-    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis und Sonne, aus → kein Symbol neben dem Titel", today_weather, results)
+    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis mit Link (auch im Tooltip), gewählte Orte im Menü, Standortdienst antwortet, aus → kein Symbol neben dem Titel", today_weather, results)
 
     def agenda_days():
         # Today-Pane: Tagesspalte (ca. 38 px) eines Tags mit nur einem Eintrag ragte bis auf 2–6 px an den nächsten Tag
@@ -12509,7 +12525,8 @@ Neu
             macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, hideCollectedAddresses: true, calendarEmoji: true,
             emojiCustom: "", weather: false, weatherPlace: "", calendarOffline: false, fifthSpace: "chat", fifthSpaceAddon: "",
             fifthSpaceUrl: "", fifthSpaceIcon: "mask", fifthSpaceAddons: [], inlinePrompts: true, earlyTheme: false, autoUpdate: true,
-            bundledTheme: true, appleIcons: true, debug: false };
+            bundledTheme: true, appleIcons: true, debug: false,
+            weatherStatus: "Location access is off.", weatherTone: "warn", weatherLink: true, weatherRecent: [{ label: "Graz, Österreich", lat: 47.07, lon: 15.44 }] };
           const obs = { observe(doc) {
             if (!doc.location?.href.startsWith("resource://mailcards/options/options.html")) return;
             const win = doc.defaultView;
@@ -12519,6 +12536,7 @@ Neu
               setSetting: (k, v) => { saved.push([k, v]); settings[k] = v; return win.Promise.resolve(v); },
               searchPlaces: () => win.Promise.resolve(Cu.cloneInto([], win)),
               getPendingUpdate: () => win.Promise.resolve(null), installUpdateNow: () => win.Promise.resolve(),
+              openLocationSettings: () => { saved.push(["openLocationSettings"]); return win.Promise.resolve(); },
               choosePlace: () => win.Promise.resolve() } }, win, { cloneFunctions: true });
           } };
           Services.obs.addObserver(obs, "document-element-inserted");
@@ -12533,6 +12551,18 @@ Neu
               infos: od.querySelectorAll(".row .info[title]").length, disclosure: !!od.querySelector("h2 .disclosure[aria-expanded='false']") } };
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
+            // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
+            const pm = od.getElementById("s-weatherPlace"), pin = od.querySelector("#row-weatherPlace input.place");
+            const st = od.querySelector("#row-weatherPlace .hint.status");
+            out.place = { tag: pm?.localName, options: pm ? [...pm.options].map(o => o.textContent) : [], value: pm?.value,
+                          tone: st?.dataset.tone, dot: st ? ow.getComputedStyle(st.querySelector(".dot")).backgroundColor : null,
+                          link: !!st?.querySelector(".link:not([hidden])"), searchHidden: pin?.hidden };
+            if (pm) { pm.value = "choose"; pm.dispatchEvent(new ow.Event("change")); await ruhig(200);
+              out.place.search = !pin.hidden && pm.hidden;
+              pin.dispatchEvent(new ow.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await ruhig(200);
+              out.place.back = [pin.hidden, pm.hidden, pm.value]; }
+            st?.querySelector(".link")?.click(); await ruhig(100);
+            out.place.opened = saved.some(e => e[0] == "openLocationSettings");
             od.getElementById("s-calendarEmoji").click(); await ruhig(500);
             out.emojiOff = shown("emojiCustom");
             od.getElementById("s-showChat").click(); await ruhig(500);
@@ -12551,11 +12581,15 @@ Neu
         ok = (not st["place"] and st["emoji"] and st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
               and res["weatherOn"] and not res["emojiOff"]
+              and res.get("place", {}).get("tag") == "select" and res["place"]["options"][:2] == ["➤ Current Location", "Graz, Österreich"]
+              and res["place"]["options"][-1] == "Choose City…" and res["place"]["value"] == "current" and res["place"]["tone"] == "warn"
+              and res["place"]["dot"] == "rgb(255, 149, 0)" and res["place"]["link"] and res["place"]["searchHidden"] is True
+              and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["chatOff"] == {"instead": True, "value": "none", "mode": "none"}
               and res["web"] == {"url": True, "icon": True, "mode": "web"}
               and res["chatOn"] == {"instead": False, "url": False, "mode": "chat"} and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, Chat als Schalter mit „Stattdessen“, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, Chat als Schalter mit „Stattdessen“, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_halo_search():
         # Suche der Einstellungen findet die Optionen von halo.spaces („update“ → „Install updates at start“, „logos“ →

@@ -45,7 +45,7 @@ var SECTIONS = t => [
       hint: t("The symbol next to the title shows the weather."),
       info: t("Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.") + " " + t("Weather data: Open-Meteo.com, CC BY 4.0") },
     { key: "weatherPlace", type: "place", showIf: ["weather", true], label: t("Place"),
-      hint: t("Empty: your current location."), info: t("The system asks for permission once."), placeholder: t("Current location") },
+      info: t("The system asks for permission once."), placeholder: t("City") },
     { key: "calendarOffline", label: t("Offline copy for online calendars"),
       hint: t("Faster loading."), info: t("Re-creates the calendars once.") },
   ]],

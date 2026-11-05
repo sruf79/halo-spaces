@@ -237,6 +237,12 @@ const DE = {
   "Task List Display Options": "Darstellung der Aufgabenliste",
   "Weather in the Today Pane": "Wetter in der Today-Pane",
   "Current location": "Aktueller Standort",
+  "Current Location": "Aktueller Standort",
+  "Choose City…": "Stadt wählen …",
+  "Locating…": "Standort wird ermittelt …",
+  "Location access is off.": "Ortungsdienste sind für Thunderbird aus.",
+  "Location unavailable. Choose a city.": "Standort nicht verfügbar. Wähle eine Stadt.",
+  "Open System Settings…": "Systemeinstellungen öffnen …",
   "City not found": "Stadt nicht gefunden",
   "Weather in the Today Pane?": "Wetter in der Today-Pane?",
   "City …": "Stadt …",
@@ -359,6 +365,7 @@ const DE = {
   "The symbol next to the title shows the weather.": "Das Symbol neben dem Titel zeigt das Wetter.",
   "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Fragt etwa alle 30 Minuten bei open-meteo.com nach. Aus: kein Symbol neben dem Titel, keine Anfragen nach außen.",
   "Place": "Ort",
+  "City": "Stadt",
   "Empty: your current location.": "Leer: dein aktueller Standort.",
   "The system asks for permission once.": "Das System fragt einmal um Erlaubnis.",
   "Faster loading.": "Schnelleres Laden.",
@@ -674,6 +681,12 @@ const FR = {
   "Task List Display Options": "Options d’affichage de la liste des tâches",
   "Weather in the Today Pane": "Météo dans le panneau Aujourd’hui",
   "Current location": "Position actuelle",
+  "Current Location": "Position actuelle",
+  "Choose City…": "Choisir une ville…",
+  "Locating…": "Localisation…",
+  "Location access is off.": "La localisation est désactivée pour Thunderbird.",
+  "Location unavailable. Choose a city.": "Position indisponible. Choisissez une ville.",
+  "Open System Settings…": "Ouvrir les Réglages système…",
   "City not found": "Ville introuvable",
   "Weather in the Today Pane?": "Météo dans le panneau Aujourd’hui ?",
   "City …": "Ville …",
@@ -796,6 +809,7 @@ const FR = {
   "The symbol next to the title shows the weather.": "Le symbole à côté du titre indique la météo.",
   "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Interroge open-meteo.com environ toutes les 30 minutes. Désactivé : aucun symbole à côté du titre, aucune requête externe.",
   "Place": "Lieu",
+  "City": "Ville",
   "Empty: your current location.": "Vide : votre position actuelle.",
   "The system asks for permission once.": "Le système demande l’autorisation une fois.",
   "Faster loading.": "Chargement plus rapide.",
@@ -1111,6 +1125,12 @@ const ES = {
   "Task List Display Options": "Opciones de visualización de la lista de tareas",
   "Weather in the Today Pane": "Tiempo en el panel Hoy",
   "Current location": "Ubicación actual",
+  "Current Location": "Ubicación actual",
+  "Choose City…": "Elegir ciudad…",
+  "Locating…": "Buscando ubicación…",
+  "Location access is off.": "La ubicación está desactivada para Thunderbird.",
+  "Location unavailable. Choose a city.": "Ubicación no disponible. Elige una ciudad.",
+  "Open System Settings…": "Abrir Ajustes del sistema…",
   "City not found": "Ciudad no encontrada",
   "Weather in the Today Pane?": "¿Tiempo en el panel Hoy?",
   "City …": "Ciudad …",
@@ -1233,6 +1253,7 @@ const ES = {
   "The symbol next to the title shows the weather.": "El símbolo junto al título muestra el tiempo.",
   "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Consulta open-meteo.com cada 30 minutos aprox. Desactivado: ningún símbolo junto al título, ninguna solicitud externa.",
   "Place": "Lugar",
+  "City": "Ciudad",
   "Empty: your current location.": "Vacío: tu ubicación actual.",
   "The system asks for permission once.": "El sistema pide permiso una vez.",
   "Faster loading.": "Carga más rápida.",
@@ -1548,6 +1569,12 @@ const IT = {
   "Task List Display Options": "Opzioni di visualizzazione dell’elenco attività",
   "Weather in the Today Pane": "Meteo nel pannello Oggi",
   "Current location": "Posizione attuale",
+  "Current Location": "Posizione attuale",
+  "Choose City…": "Scegli città…",
+  "Locating…": "Ricerca posizione…",
+  "Location access is off.": "La localizzazione è disattivata per Thunderbird.",
+  "Location unavailable. Choose a city.": "Posizione non disponibile. Scegli una città.",
+  "Open System Settings…": "Apri Impostazioni di sistema…",
   "City not found": "Città non trovata",
   "Weather in the Today Pane?": "Meteo nel pannello Oggi?",
   "City …": "Città …",
@@ -1670,6 +1697,7 @@ const IT = {
   "The symbol next to the title shows the weather.": "Il simbolo accanto al titolo mostra il meteo.",
   "Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.": "Interroga open-meteo.com circa ogni 30 minuti. Disattivato: nessun simbolo accanto al titolo, nessuna richiesta esterna.",
   "Place": "Luogo",
+  "City": "Città",
   "Empty: your current location.": "Vuoto: la tua posizione attuale.",
   "The system asks for permission once.": "Il sistema chiede il permesso una volta.",
   "Faster loading.": "Caricamento più rapido.",
@@ -4105,6 +4133,15 @@ const WEATHER_PREF = "extensions.mailcards.weather";
 const WEATHER_PLACE_PREF = "extensions.mailcards.weatherPlace";
 const WEATHER_STATE_PREF = "extensions.mailcards.weatherState"; // JSON: Ort, Koordinaten, letzter Wert, Status
 const WEATHER_EVERY = 30 * 60 * 1000;
+// Systemeinstellung der Ortung (macOS, Windows; Linux: kein einheitlicher Ort)
+const LOCATION_SETTINGS_URL = Services.appinfo.OS == "Darwin" ? "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
+  : Services.appinfo.OS == "WINNT" ? "ms-settings:privacy-location" : null;
+function openLocationSettings() {
+  if (LOCATION_SETTINGS_URL) {
+    Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+      .loadURI(Services.io.newURI(LOCATION_SETTINGS_URL), Services.scriptSecurityManager.getSystemPrincipal());
+  }
+}
 // Wetter in Worten (Tooltip des Wettersymbols)
 const WEATHER_WORDS = {
   "clear-day": "Sunny", "clear-night": "Clear", "partly-day": "Partly Cloudy", "partly-night": "Partly Cloudy",
@@ -4180,27 +4217,78 @@ const Weather = {
       const icon = t.querySelector("#mcTodayWeather");
       if (on) {
         t.dataset.weather = st.kind;
-        const temp = st.temp != null ? `${Math.round(st.temp)} °C, ` : "";
-        const info = `${st.place ? st.place + ": " : ""}${temp}${tr(WEATHER_WORDS[st.kind] || "Clear")}`;
-        icon?.setAttribute("title", info);
+        // derselbe Text wie unter „Place“ in den Einstellungen
+        icon?.setAttribute("title", this.status().text);
       } else {
         t.removeAttribute("data-weather");
-        icon?.removeAttribute("title");
+        // eingeschaltet, aber ohne Daten: eigener Hinweis (erbte sonst „Go to Today“)
+        if (this.enabled()) {
+          icon?.setAttribute("title", this.status().text || tr("Locating…"));
+        } else {
+          icon?.removeAttribute("title");
+        }
       }
     }
   },
-  // Standort des Systems (CoreLocation, Windows-Standort, GeoClue)
+  // Zustand in Worten – Zeile unter „Place“, Begrüßung und Tooltip des Symbols:
+  // tone „ok“ (grüner Punkt), „warn“ (oranger Punkt) oder leer (noch nichts);
+  // link: Systemeinstellung der Ortung öffnen
+  status() {
+    const st = this.state();
+    if (!this.enabled()) {
+      return { tone: "", text: "" };
+    }
+    if (st.status == "ok" && st.kind) {
+      const temp = st.temp != null ? `${Math.round(st.temp)} °C, ` : "";
+      return { tone: "ok", text: `${st.place || tr("Current Location")} · ${temp}${tr(WEATHER_WORDS[st.kind] || "Clear")}` };
+    }
+    if (st.status == "denied") {
+      return { tone: "warn", text: tr("Location access is off."), link: !!LOCATION_SETTINGS_URL };
+    }
+    if (st.status == "unavailable") {
+      return { tone: "warn", text: tr("Location unavailable. Choose a city."), link: !!LOCATION_SETTINGS_URL };
+    }
+    if (st.status == "notfound") {
+      return { tone: "warn", text: tr("City not found") };
+    }
+    return { tone: "", text: tr("Locating…") };
+  },
+  // zuletzt gewählte Orte (Auswahlmenü unter „Place“), neueste zuerst
+  recent() {
+    const list = this.state().recent;
+    return Array.isArray(list) ? list.filter(p => p?.label && Number.isFinite(p.lat) && Number.isFinite(p.lon)).slice(0, 5) : [];
+  },
+  // Standort des Systems (CoreLocation, Windows-Standort, GeoClue) über
+  // Thunderbirds Standortdienst: navigator.geolocation im Fenster wartete auf
+  // eine Freigabe-Abfrage, die Thunderbird nie zeigt – macOS wurde so nie
+  // gefragt, und die Abfrage kam nie zurück. Eigene Zeitgrenze zusätzlich
   locate(win) {
     return new Promise(resolve => {
-      const geo = win?.navigator?.geolocation;
+      let geo = null;
+      try {
+        geo = Cc["@mozilla.org/geolocation;1"].getService(Ci.nsISupports);
+      } catch {}
+      geo = geo?.getCurrentPosition ? geo : win?.navigator?.geolocation;
       if (!geo) {
         resolve({ error: "unavailable" });
         return;
       }
-      geo.getCurrentPosition(
-        pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-        err => resolve({ error: err?.code == 1 ? "denied" : "unavailable" }),
-        { timeout: 15000, maximumAge: 60 * 60 * 1000 });
+      const timer = setTimeout(() => resolve({ error: "unavailable" }), 20000);
+      try {
+        geo.getCurrentPosition(
+          pos => {
+            clearTimeout(timer);
+            resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+          },
+          err => {
+            clearTimeout(timer);
+            resolve({ error: err?.code == 1 ? "denied" : "unavailable" });
+          },
+          { timeout: 15000, maximumAge: 60 * 60 * 1000 });
+      } catch {
+        clearTimeout(timer);
+        resolve({ error: "unavailable" });
+      }
     });
   },
   // Vorschläge beim Tippen: bis zu fünf Orte („Wien, Österreich“; bei gleichen
@@ -4235,7 +4323,8 @@ const Weather = {
     if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) {
       throw new Error("not a place");
     }
-    this.save({ ...this.state(), for: label, lat, lon, place: label, time: 0 });
+    const recent = [{ label, lat, lon }, ...this.recent().filter(p => p.label != label)].slice(0, 5);
+    this.save({ ...this.state(), for: label, lat, lon, place: label, time: 0, recent });
     Services.prefs.setStringPref(WEATHER_PLACE_PREF, label);
     await this.refresh(true);
   },
@@ -4291,7 +4380,7 @@ const Weather = {
       if (!latest()) {
         return;
       }
-      this.save({ for: wanted, lat, lon, place: where.place, status: "ok", time: Date.now(),
+      this.save({ for: wanted, lat, lon, place: where.place, status: "ok", time: Date.now(), recent: this.recent(),
                   kind: this.kind(cur.weather_code, cur.is_day), temp: cur.temperature_2m, code: cur.weather_code });
     } catch (e) {
       log("weather error", String(e).slice(0, 120));
@@ -19100,11 +19189,8 @@ class CardEnhancer {
           return { ok: true, text: "" };
         }
         await Weather.refresh(true);
-        const st = Weather.state();
-        return st.status == "ok"
-          ? { ok: true, text: (st.place || tr("Current location")) + (st.temp != null ? ` · ${Math.round(st.temp)} °C` : "") }
-          : { ok: false, status: st.status, text: st.status == "denied" ? tr("Location access is off. Allow it in System Settings or enter a city.")
-            : st.status == "notfound" ? tr("City not found") : tr("Location unavailable. Enter a city.") };
+        const st = Weather.state(), ws = Weather.status();
+        return { ok: ws.tone == "ok", status: st.status, text: ws.text };
       },
       // Begrüßung: Ortsvorschläge beim Tippen und gewählter Ort (mit Koordinaten)
       searchPlaces: text => Weather.search(w, text),
@@ -19112,10 +19198,8 @@ class CardEnhancer {
         await Weather.choose(place);
         Services.prefs.setBoolPref(WEATHER_PREF, true);
         await Weather.refresh(true);
-        const st = Weather.state();
-        return st.status == "ok"
-          ? { ok: true, text: (st.place || "") + (st.temp != null ? ` · ${Math.round(st.temp)} °C` : "") }
-          : { ok: false, text: tr("Location unavailable. Enter a city.") };
+        const st = Weather.state(), ws = Weather.status();
+        return { ok: ws.tone == "ok", status: st.status, text: ws.text };
       },
       // Begrüßung: fünfter Bereich (dieselben Prefs wie die Einstellungsseite)
       fifthAddons: () => FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane")),
@@ -19137,8 +19221,7 @@ class CardEnhancer {
         return true;
       },
       // Systemeinstellung der Ortung (macOS, Windows; Linux: kein einheitlicher Ort)
-      locationSettingsURL: Services.appinfo.OS == "Darwin" ? "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices"
-        : Services.appinfo.OS == "WINNT" ? "ms-settings:privacy-location" : null,
+      locationSettingsURL: LOCATION_SETTINGS_URL,
       openURL: url => Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
         .loadURI(Services.io.newURI(url), Services.scriptSecurityManager.getSystemPrincipal()),
       // im Standardbrowser öffnen; gilt als erledigte Erinnerung
@@ -22434,12 +22517,11 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           // wie im Hilfe-Fenster: eingerichtete Fotos gelten auch ohne Pref als an
           out.macContactPhotos = await MacPhotos.enabled();
           // Wetter: Ort und Zustand für die Zeile unter dem Ortsfeld
-          const ws = Weather.state();
-          out.weatherStatus = !out.weather ? "" : ws.status == "ok"
-            ? (ws.place || tr("Current location")) + (ws.temp != null ? ` · ${Math.round(ws.temp)} °C` : "")
-            : ws.status == "denied" ? tr("Location access is off. Allow it in System Settings or enter a city.")
-            : ws.status == "unavailable" ? tr("Location unavailable. Enter a city.")
-            : ws.status == "notfound" ? tr("City not found") : "";
+          const wst = Weather.status();
+          out.weatherStatus = wst.text;
+          out.weatherTone = wst.tone;
+          out.weatherLink = !!wst.link;
+          out.weatherRecent = Weather.recent();
           return out;
         },
         // „Danke sagen“ in den Einstellungen: Spendenseite öffnen, Erinnerung erledigt
@@ -22452,6 +22534,9 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
         },
         async choosePlace(place) {
           await Weather.choose(place);
+        },
+        async openLocationSettings() {
+          openLocationSettings();
         },
         async setSetting(key, value) {
           // eigene Reihenfolge der Bereiche: nur zurücksetzen (geändert wird per Ziehen)

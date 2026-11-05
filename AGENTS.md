@@ -419,6 +419,7 @@ anheben (nach Test).
 - **Im Zweifel wie Apple:** Ist bei Design oder Verhalten etwas unklar, die
   entsprechende Apple-App nachahmen (Mail, Kontakte, Kalender) – Aussehen,
   Platzierung, Vorgaben und Bedienung – statt eigene Lösungen zu erfinden.
+  Vorlagen dafür: siehe „Apple-Vorlagen“ unter „Aufgabenliste“.
 - **Optionen nur in sehr seltenen Fällen:** halo.spaces ist ein Design, kein
   Baukasten. Eine Einstellung gibt es grundsätzlich nur dort, wo auch die
   Apple-App eine anbietet; Wünsche nach „Thunderbird wie vorher“ (originale
@@ -506,6 +507,26 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   nebenbei umsetzen und auch nicht anbieten; umgesetzt wird er wie jeder
   Eintrag über die Liste (siehe „Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag, diesen
   ergänzen statt einen neuen anzulegen.
+- **Apple-Vorlagen** (Entscheidung des Maintainers vom 5.11.2026): Jeder
+  Screenshot einer Apple-App (Mail, Kalender, Kontakte, Erinnerungen,
+  Systemeinstellungen, …), den der Maintainer schickt, kommt automatisch
+  und ohne Rückfrage zusätzlich als Vorlage für spätere Vergleiche nach
+  `~/halo-aufgaben/apple/` auf neon – auch wenn er nur nebenbei im
+  Gespräch auftaucht. Weg wie bei den Bildern oben (Sitzungen auf neon
+  speichern selbst, alle anderen über eine private Artifact-Seite;
+  Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
+  melden), vom Laptop mit `haloapple <name>` (`tests/MAC-MINI.md`
+  Abschnitt 10). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
+  Bindestrichen (z. B. `mail-kontextmenue-mailliste`,
+  `kalender-termin-popover-dunkel`); gleicher Name ersetzt die ältere
+  Fassung (Index-Zeile mit neuem Datum und Hash). Je Bild eine
+  Zeile in `~/halo-aufgaben/apple/index.md`: Name, App, macOS-Version
+  (falls bekannt), was zu sehen ist, passende `ui_tour.py`-ids, Datum,
+  SHA-256. Nie ins Repo, nie in README oder Store (oft echte Mails).
+  Wer Aussehen oder Verhalten gestaltet oder prüft (Einträge aus der
+  Liste, Design-Durchsicht mit `ui_tour.py`), schaut zuerst im Index
+  nach einer passenden Vorlage und vergleicht damit; fehlt eine, im
+  Bericht bzw. Gespräch nennen, welche Vorlage helfen würde.
 - Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
   Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
   (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf

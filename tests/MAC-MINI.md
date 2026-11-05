@@ -361,6 +361,28 @@ Benutzen:
    Leerzeichen und ohne `.png`, Bereich vorneweg; gleicher Name überschreibt.
 3. Im Gespräch mit dem Agenten nur den Namen nennen („Bild: kalender-woche-raster“).
 
+**Apple-Vorlagen** (Screenshots von Apple Mail, Kalender, Kontakte … für
+Vergleiche, `AGENTS.md` „Apple-Vorlagen“) liegen getrennt in
+`~/halo-aufgaben/apple/`. Dafür zusätzlich in `~/.zshrc`:
+
+```bash
+haloapple() {
+  [ -n "$1" ] || { echo "Aufruf: haloapple <app>-<oberfläche>[-dunkel]"; return 1; }
+  local tmp=$(mktemp -t haloapple).png
+  osascript -e "set f to open for access POSIX file \"$tmp\" with write permission" \
+            -e 'write (the clipboard as «class PNGf») to f' \
+            -e 'close access f' 2>/dev/null \
+    || { echo "Kein Bild in der Zwischenablage"; rm -f "$tmp"; return 1; }
+  ssh halotest@halo-mini 'mkdir -p halo-aufgaben/apple' \
+    && scp "$tmp" "halotest@halo-mini:halo-aufgaben/apple/$1.png" && echo "→ Mini: apple/$1.png"
+  rm -f "$tmp"
+}
+```
+
+Benutzen wie `halobild`, z. B. `haloapple mail-kontextmenue-mailliste`; dann im
+Gespräch „Apple-Vorlage: mail-kontextmenue-mailliste“ nennen. Die Sitzung lässt
+neon die Zeile in `~/halo-aufgaben/apple/index.md` ergänzen.
+
 ## 11. Windows-VM (Parallels)
 
 Auf dem Mini läuft Parallels Desktop **Pro** (für `prlctl`/`prlsrvctl`; die

@@ -11236,6 +11236,9 @@ Neu
           try {
             // fällig machen: 14. Nutzungstag, noch nichts erledigt (die Prüfung des Info-Fensters hat heute schon geklickt)
             Services.prefs.clearUserPref(P + "ackDay");
+            // (eine frühere Prüfung legt ein Update bereit – dann bleibt die Erinnerung zu Recht aus: eine Bitte zur Zeit)
+            var U0 = Cu.waiveXrays(Cu.evalInSandbox("UpdateNote", g)), pending0 = U0.pending;
+            U0.pending = null; Services.prefs.clearUserPref(P + "updateDay");
             Services.prefs.setIntPref(P + "usageDays", 14); Services.prefs.setIntPref(P + "count", 0);
             await bis(() => item.getAttribute("image").startsWith("data:image/svg+xml"), "Punkt am Symbol");
             out.dueMenu = { due: T.due(), dot: item.getAttribute("image").includes("FF8A00"), attr: item.hasAttribute("mc-thanks") };
@@ -11266,6 +11269,7 @@ Neu
             out.expired = { days: Services.prefs.getIntPref(P + "usageDays", 0), count: Services.prefs.getIntPref(P + "count", 0), due: T.due() };
           } finally {
             w.openLinkExternally = orig;
+            if (U0) U0.pending = pending0;
             for (const k of ["usageDays", "lastDay", "count", "ackDay", "updateDay"]) Services.prefs.clearUserPref(P + k);
             T.countDay(); await ruhig(300);
             halo()?.close();
@@ -11627,7 +11631,7 @@ Neu
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")
         t, l, n = res["table"], res["list"], res["narrow"]
-        ok = (res["menu"] == ["list", "table"]
+        ok = (res["menu"] == ["list", "table", "-", "Sort By"]
               and not t["side"] and t["below"] and "priority" in t["cols"]
               and l["side"] and l["right"] and l["cols"] == ["completed", "title", "dueDate"] and l["detW"] >= 300
               and (n["side"] == (n["boxW"] >= 760)) and (n["side"] or n["below"]) and res["wideAgain"]

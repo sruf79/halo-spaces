@@ -416,10 +416,13 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
-  Bilder, die der Maintainer direkt ins Gespräch einer Cloud-Sitzung legt,
-  schickt die Sitzung immer an neon (Entscheidung des Maintainers vom
-  5.11.2026): als data:-URIs in eine private Artifact-Seite (`Artifact`,
-  ohne Freigabe), neon liest sie mit `Artifact` (`action: "read"`), speichert
+  Jedes Bild, das der Maintainer einer Sitzung direkt ins Gespräch legt und
+  das für einen Bug oder ein Feature im Board gebraucht wird, übermittelt
+  die Sitzung automatisch und ohne Rückfrage an neon (Entscheidung des
+  Maintainers vom 5.11.2026). Sitzungen auf neon speichern es selbst unter
+  `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
+  data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben),
+  neon liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
   sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
   Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.
   Ursache klären und Lösungsidee in den Eintrag

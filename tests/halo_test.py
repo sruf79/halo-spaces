@@ -13510,7 +13510,9 @@ Neu
           // Thunderbirds verspäteter Startaufruf (unter Linux kam er nach der Wahl an und sprang auf General zurück):
           // nachgestellt ohne Eingabe davor – die gewählte Kategorie bleibt
           await wait(1100); // (keine Eingabe in der letzten Sekunde – wie beim echten verspäteten Aufruf)
-          pw.gotoPref("paneGeneral"); await ruhig(600);
+          // (kam der echte schon und wurde übergangen – unter Linux oft –, gilt das; übergangen wird nur einer)
+          out.realLate = !!pw.gotoPref.__mcSkipped;
+          if (!out.realLate) { pw.gotoPref("paneGeneral"); await ruhig(600); }
           await until(() => pd.getElementById("categories").selectedItem?.value == "paneMcAccounts", 2000);
           out.lateStart = [!!pw.gotoPref.__mcOrig, pd.getElementById("categories").selectedItem?.value];
           const acc = page("about:accountsettings"), fd = acc.contentDocument, tree = fd.getElementById("accounttree");

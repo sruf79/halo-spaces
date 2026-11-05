@@ -2612,6 +2612,8 @@ function hookPrefCategories(cw, restorers = null) {
         (category == startPane || category == "paneGeneral");
       if (late) {
         skipped = true;
+        // (für den automatischen Test: der echte verspätete Aufruf kam schon)
+        cw.gotoPref.__mcSkipped = true;
         log("pref categories: late start call skipped", category);
         return Promise.resolve();
       }

@@ -142,9 +142,9 @@ jobs:
           path: shots/
           if-no-files-found: ignore
 
-  # Prüfungen ohne Thunderbird (rund 1 Minute): Mozillas Add-on-Prüfung
-  # (addons-linter, wie beim Store) und die Datenschutz-Prüfung – nur
-  # Adressen aus der Erlaubt-Liste in tests/adressen.py. Rot heißt wie bei
+  # Prüfungen ohne Thunderbird (rund 1 Minute): Logik-Tests (tests/logik/,
+  # Node), Mozillas Add-on-Prüfung (addons-linter, wie beim Store) und die
+  # Datenschutz-Prüfung – nur Adressen aus der Erlaubt-Liste in tests/adressen.py. Rot heißt wie bei
   # den übrigen Jobs kein Release; bei gezielten Läufen von Hand nicht
   statisch:
     needs: changes
@@ -153,6 +153,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+
+      - name: Logik-Tests (ohne Thunderbird)
+        run: node --test tests/logik/*.test.mjs
 
       - name: Adressen (Datenschutz)
         run: python3 tests/adressen.py

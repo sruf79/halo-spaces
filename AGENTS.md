@@ -30,6 +30,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `screenshots/` | Bilder für das README (aus dem Testprofil) |
 | `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil (`--perf` mit `tests/perf.js`: Geschwindigkeitsmessung) |
 | `tests/update_test.py` | stellt das Update von einer älteren Version nach (siehe „Bauen und testen“) |
+| `tests/logik/` | schnelle Logik-Tests ohne Thunderbird (Node, `node --test tests/logik/*.test.mjs`, Sekunden): `lader.mjs` lädt `implementation.js` mit Attrappen für Thunderbirds Grundobjekte und reicht die Namen aus `OFFEN` heraus |
 | `tests/adressen.py`, `tests/addon_lint.py` | Prüfungen ohne Thunderbird (CI-Job `statisch`): nur erlaubte Adressen im Netz (Datenschutz, Erlaubt-Liste im Skript); Mozillas Add-on-Prüfung (addons-linter) |
 | `tests/testserver.py` | lokaler IMAP-/SMTP-Testserver (nur 127.0.0.1, erfundene Daten) für die Prüfungen mit Testkonto |
 | `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht) |
@@ -90,7 +91,9 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   überspringen diesen Fall bewusst.
 - CI (`.github/workflows/test.yml`) läuft unter Linux mit xvfb gegen Release,
   Beta und ESR; Linux-spezifische Abweichungen der Toolbar sind dort Warnungen.
-  Daneben prüft der Job `statisch` ohne Thunderbird die Adressen im Netz
+  Daneben prüft der Job `statisch` ohne Thunderbird die Logik-Tests
+  (`tests/logik/`; neue reine Funktionen dort mit abdecken, auch ohne neon
+  lauffähig), die Adressen im Netz
   (`tests/adressen.py` – eine neue Adresse braucht dort einen Eintrag mit
   Zweck, Datenschutzhinweise in `store/privacy-en.md` mitprüfen) und das
   Paket mit Mozillas Add-on-Prüfung (`tests/addon_lint.py`, nur Fehler machen

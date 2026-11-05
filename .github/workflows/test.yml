@@ -142,6 +142,67 @@ jobs:
           path: shots/
           if-no-files-found: ignore
 
+  # Windows auf einem Rechner von GitHub (Entscheidung des Maintainers vom 4.11.2026):
+  # läuft gleichzeitig mit mac und belegt neon nicht. Vorerst neben dem Job
+  # windows in der VM zum Vergleich; ist er zwei bis drei Läufe gleich
+  # zuverlässig, ersetzt er ihn. Ohne Grafikkarte zählen Prüfungen am Bildtakt
+  # nur als Warnung (HALO_FRAMES_WARN), Bewegungsabläufe bleiben Fehler.
+  # Gleiche Bedingung wie mac (nur Push auf main und von Hand)
+  windows-github:
+    needs: changes
+    if: needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    # zum Vergleich: ein Fehler hier macht den Lauf noch nicht rot
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Thunderbird
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://download.mozilla.org/?product=thunderbird-latest-SSL&os=win64&lang=en-US" -OutFile tb-setup.exe
+          Start-Process -FilePath .\tb-setup.exe -ArgumentList "/S" -Wait
+          & "C:\Program Files\Mozilla Thunderbird\thunderbird.exe" --version | Out-String
+
+      - name: Bildschirm 1920 × 1080
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tests\win-display.ps1 display.txt; Get-Content display.txt -ErrorAction SilentlyContinue
+
+      # Paket wie build.sh (ohne zsh): Bereiche-CSS einfügen, theme.css, zip
+      - name: Paket
+        shell: pwsh
+        run: |
+          python chrome/merge_spaces.py | Out-Null
+          Copy-Item chrome/userChrome.css extension/theme.css
+          New-Item -ItemType Directory -Force dist | Out-Null
+          python -c "import shutil; shutil.make_archive('dist/halo-spaces', 'zip', 'extension')"
+          Move-Item dist/halo-spaces.zip dist/halo-spaces-ci.xpi -Force
+
+      - name: Test Windows hell
+        timeout-minutes: 45
+        shell: pwsh
+        env:
+          ONLY: ${{ inputs.only }}
+          HALO_FRAMES_WARN: '1'
+          PYTHONIOENCODING: utf-8
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $only = @(); if ($env:ONLY) { $only = @("--only", $env:ONLY) }
+          python -u tests/halo_test.py --xpi dist/halo-spaces-ci.xpi --shots shots --tb-log shots/thunderbird.log @only
+
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-windows-github
+          path: shots/
+          if-no-files-found: ignore
+
   mac:
     # Mac mini mit self-hosted runner (Label halo-mac, Einrichtung: tests/MAC-MINI.md).
     # Das Repo ist öffentlich: Code aus fremden Pull-Requests darf dort nie laufen.

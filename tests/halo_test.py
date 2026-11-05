@@ -186,6 +186,10 @@ CHECK_M = None  # Marionette des laufenden Tests (setzt main)
 DURATIONS = []
 
 
+FRAMES_WARN = os.environ.get("HALO_FRAMES_WARN") == "1"
+FRAME_CHECK = re.compile(r"flüssig|verlorene Bilder|Bildzeit|ohne Ruck|ruckelfrei", re.I)
+
+
 def check(name, fn, results):
     global IN_CHECK, LAST_END
     if ONLY and not ONLY.search(name):
@@ -205,6 +209,11 @@ def check(name, fn, results):
         IN_CHECK = False
     LAST_END = time.time()
     DURATIONS.append((LAST_END - start, name))
+    # Rechner ohne Grafikkarte (HALO_FRAMES_WARN=1, Windows-Job auf GitHub): Prüfungen, die am Bildtakt hängen
+    # (flüssig, verlorene Bilder, Bildzeiten), nur als Warnung – Bewegungsabläufe (Sprung, Endplatz) bleiben Fehler
+    if not ok and FRAMES_WARN and FRAME_CHECK.search(name):
+        print(f"WARNUNG {name} – am Bildtakt, auf diesem Rechner nur Warnung – {detail}", flush=True)
+        ok, detail = True, f"WARNUNG (Bildtakt): {detail}"
     results.append((name, ok, detail))
     print(f"{'OK     ' if ok else 'FEHLER '} {name}" + (f" – {detail}" if detail else ""), flush=True)
 

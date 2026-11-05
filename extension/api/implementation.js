@@ -1952,6 +1952,9 @@ const THANKS_DAYS_PREF = THANKS_BRANCH + "usageDays";
 const THANKS_LAST_DAY_PREF = THANKS_BRANCH + "lastDay";
 const THANKS_COUNT_PREF = THANKS_BRANCH + "count";
 const THANKS_ACK_DAY_PREF = THANKS_BRANCH + "ackDay";
+// Tag des letzten Update-Hinweises: eine Bitte zur Zeit – an diesem Tag (und
+// solange das Update bereitliegt) keine Danke-Erinnerung
+const THANKS_UPDATE_DAY_PREF = THANKS_BRANCH + "updateDay";
 const THANKS_SHOW_DAYS = 7;
 const Thanks = {
   listeners: new Set(),
@@ -1979,6 +1982,9 @@ const Thanks = {
     return Services.prefs.getIntPref(THANKS_COUNT_PREF, 0);
   },
   due() {
+    if (UpdateNote.pending || Services.prefs.getStringPref(THANKS_UPDATE_DAY_PREF, "") == this.today()) {
+      return false;
+    }
     const days = this.days(), from = this.dueDay(this.count());
     return days >= from && days < from + THANKS_SHOW_DAYS;
   },
@@ -7370,6 +7376,13 @@ const UpdateNote = {
     this.pending = { version, auto };
     for (const w of Services.wm.getEnumerator("mail:3pane")) {
       this.mark(w);
+    }
+    // keine Danke-Erinnerung am selben Tag (Punkt am Symbol, Ring) – siehe Thanks.due()
+    Services.prefs.setStringPref(THANKS_UPDATE_DAY_PREF, Thanks.today());
+    for (const fn of Thanks.listeners) {
+      try {
+        fn();
+      } catch {}
     }
   },
   mark(w) {

@@ -11005,6 +11005,15 @@ Neu
             Services.prefs.setIntPref(P + "usageDays", 14); Services.prefs.setIntPref(P + "count", 0);
             await bis(() => item.getAttribute("image").startsWith("data:image/svg+xml"), "Punkt am Symbol");
             out.dueMenu = { due: T.due(), dot: item.getAttribute("image").includes("FF8A00"), attr: item.hasAttribute("mc-thanks") };
+            // eine Bitte zur Zeit: liegt ein Update bereit bzw. kam heute der Hinweis, keine Danke-Erinnerung
+            const U = Cu.waiveXrays(Cu.evalInSandbox("UpdateNote", g)), had = U.pending;
+            U.set("99.0.0", false);
+            await bis(() => !item.hasAttribute("mc-thanks"), "Punkt weg beim Update-Hinweis");
+            out.withUpdate = { due: T.due(), attr: item.hasAttribute("mc-thanks") };
+            U.pending = had; for (const x of Services.wm.getEnumerator("mail:3pane")) U.mark(x);
+            out.sameDay = T.due();
+            Services.prefs.clearUserPref(P + "updateDay"); Services.prefs.setIntPref(P + "usageDays", 14);
+            await bis(() => item.hasAttribute("mc-thanks"), "Punkt wieder da");
             item.doCommand();
             const hw = await bis(() => { const x = halo(); return x?.document.getElementById("version")?.textContent && x; }, "Info-Fenster offen", 8000);
             await ruhig(300);
@@ -11021,7 +11030,7 @@ Neu
             out.expired = { days: Services.prefs.getIntPref(P + "usageDays", 0), count: Services.prefs.getIntPref(P + "count", 0), due: T.due() };
           } finally {
             w.openLinkExternally = orig;
-            for (const k of ["usageDays", "lastDay", "count", "ackDay"]) Services.prefs.clearUserPref(P + k);
+            for (const k of ["usageDays", "lastDay", "count", "ackDay", "updateDay"]) Services.prefs.clearUserPref(P + k);
             T.countDay(); await ruhig(300);
             halo()?.close();
           }
@@ -11031,6 +11040,7 @@ Neu
         ok = (st.get("days") == 1 and st.get("today") and st.get("due") is False and (st.get("image") or "").endswith("/about/icon.svg")
               and res.get("plan") == [14, 35, 67, 114, 185, 291, 451, 690, 1049, 1414]
               and dm == {"due": True, "dot": True, "attr": True}
+              and res.get("withUpdate") == {"due": False, "attr": False} and res.get("sameDay") is False
               and ring.get("due") and ring.get("shadow") not in (None, "", "none")
               and after.get("count") == 1 and after.get("due") is False and after.get("ring") is False
               and (after.get("image") or "").endswith("/about/icon.svg") and after.get("opened") == 2
@@ -11039,7 +11049,7 @@ Neu
               and res.get("restored", {}).get("days") == 1 and (res["restored"].get("image") or "").endswith("/about/icon.svg"))
         return ok, f"{res}"
     check("Danke sagen: Nutzungstage zählen, Erinnerung am 14., 35., 67. … Tag als Punkt im Menü Help und Ring im Info-Fenster; "
-          "Klick öffnet die Spendenseite und erledigt sie (einmal am Tag), unbeachtet erlischt sie nach 7 Tagen", thanks_reminder, results)
+          "Klick öffnet die Spendenseite und erledigt sie (einmal am Tag), unbeachtet erlischt sie nach 7 Tagen; nicht am Tag eines Update-Hinweises", thanks_reminder, results)
 
     def thanks_settings():
         # Einstellungsseite: ganz unten „Support halo.spaces“ mit „Do you like halo.spaces?“ und „Say Thanks“ (Kaffeetasse),

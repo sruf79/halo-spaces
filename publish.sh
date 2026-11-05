@@ -22,7 +22,7 @@ MARK="dist/release-$VERSION.ok"
 
 # Sperre: nur mit Marke von release.sh, die zu Version und Paket passt
 LOCAL=$(shasum -a 256 "$XPI" | cut -d' ' -f1)
-[[ -f "$MARK" ]] || { echo "ABBRUCH: keine Testmarke $MARK – release.sh $VERSION hat nicht alle Tests (hell, dunkel, Beta) bestanden"; exit 1; }
+[[ -f "$MARK" ]] || { echo "ABBRUCH: keine Testmarke $MARK – release.sh $VERSION hat nicht alle Tests bestanden"; exit 1; }
 [[ "$(sed -n 's/^version=//p' "$MARK")" == "$VERSION" ]] || { echo "ABBRUCH: Testmarke $MARK gehört zu einer anderen Version"; exit 1; }
 [[ "$(sed -n 's/^sha256=//p' "$MARK")" == "$LOCAL" ]] || { echo "ABBRUCH: Paket seit den Tests neu gebaut (Hash passt nicht zur Testmarke) – ./release.sh $VERSION erneut"; exit 1; }
 

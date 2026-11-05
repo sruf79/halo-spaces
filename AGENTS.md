@@ -33,6 +33,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
 | `tests/ci-waechter.sh`, `tests/ci-warten.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14 |
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
+| `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh` |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
@@ -164,12 +165,20 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
   die Versionszeile in `manifest.json`), startet keine Tests – der Job
   `changes` in `test.yml` erkennt das, alle Testjobs werden übersprungen.
   Diese Prüfung nicht lockern; jede andere Änderung testet wie gewohnt.
+- **Dunkelmodus nur bei Farben** (Entscheidung des Maintainers vom
+  4.11.2026): Der Job `mac` testet dunkel nur, wenn seit dem zuletzt dunkel
+  getesteten Stand Farben betroffen sind – Stilblätter (`*.css`), Symbole
+  (`*.svg`, `extension/icons/`), Farbwerte im Code oder Prüfungen zu Farben
+  bzw. Dunkelmodus, oder `[dunkel]` in einer Commit-Nachricht; im Zweifel
+  dunkel. Die Regel steht in `tests/farben-betroffen.sh` (CI-Job `changes`
+  und `release.sh`, dort gegen das letzte Release); von Hand gestartete Läufe
+  testen immer dunkel.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
   zusammenhängenden Arbeitsblocks (Phase) pushen – vorher nur die Prüfungen,
-  die die geänderte Stelle betreffen (`--only`, hell; dunkel zusätzlich, wenn
-  Farben oder Design betroffen sind), kein Volllauf (Entscheidung des
+  die die geänderte Stelle betreffen (`--only`, hell; dunkel zusätzlich nur,
+  wenn Farben betroffen sind), kein Volllauf (Entscheidung des
   Maintainers vom 3.11.2026). Den Volllauf übernimmt die CI (Linux mit Beta,
-  `mac` hell und dunkel, `windows`), deren Ergebnis danach prüfen. Früher pushen
+  `mac` hell, `windows`), deren Ergebnis danach prüfen. Früher pushen
   nur, wenn etwas davon abhängt (z. B. Test im echten Profil).
 - **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb
   des Nachtlaufs committen Fertiges, das nicht sofort auf GitHub muss
@@ -253,7 +262,7 @@ und per Remote Control aus Cloud-Sitzungen (Abschnitt „Cloud-Sessions“).
 ## Release (selbstständig auf neon)
 
 ```bash
-./release.sh 3.1.0              # Version, update_url, Tests hell/dunkel, updates.json, Testmarke
+./release.sh 3.1.0              # Version, update_url, Tests hell (dunkel bei Farben), updates.json, Testmarke
 ./publish.sh 3.1.0 notes.md     # Sperre prüfen, commit, push, GitHub-Release, Hash- und Update-Prüfung, Bericht
 ```
 
@@ -270,8 +279,8 @@ committen, kein Release. Veröffentlicht wird **nur auf neon**, nie vom Laptop
 oder aus Cloud-Sessions (dort neon beauftragen).
 
 **Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
-`dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests), wenn
-hell und dunkel grün waren – oder die CI denselben Stand vollständig
+`dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests, ob
+dunkel lief), wenn hell (und ggf. dunkel) grün waren – oder die CI denselben Stand vollständig
 grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
 übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh`,
 `store/` oder `.github/workflows/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem

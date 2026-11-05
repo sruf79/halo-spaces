@@ -18,10 +18,17 @@ jobs:
   # updates.json und die Versionszeile in manifest.json (dazu ggf. Texte und
   # die Release-Skripte). Der Code ist dann
   # schon getestet – kein Lauf, der Mac mini bleibt frei. Alles andere testet.
+  # Außerdem: Farben betroffen? Nur dann testet der Job mac zusätzlich dunkel
+  # (Entscheidung des Maintainers vom 4.11.2026; Regel in tests/farben-betroffen.sh,
+  # verglichen mit dem zuletzt dunkel getesteten Stand auf main).
   changes:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     outputs:
       test: ${{ steps.check.outputs.test }}
+      dark: ${{ steps.dark.outputs.dark }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -42,6 +49,22 @@ jobs:
           fi
           echo "Release-Commit ohne Codeänderung: $([ $test = false ] && echo ja || echo nein)"
           echo "test=$test" >> "$GITHUB_OUTPUT"
+      - id: dark
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dark=true
+          if [ "${{ github.event_name }}" = push ]; then
+            # zuletzt dunkel grün getesteter Stand: Lauf auf main, dessen Schritt „Test dunkel“ gelang
+            base=""
+            for id in $(gh run list -R "$GITHUB_REPOSITORY" -w test.yml -b main -L 30 --json databaseId --jq '.[].databaseId' 2>/dev/null); do
+              base=$(gh run view "$id" -R "$GITHUB_REPOSITORY" --json headSha,jobs --jq 'select(any(.jobs[]; .name == "mac" and any(.steps[]?; .name == "Test dunkel" and .conclusion == "success"))) | .headSha' 2>/dev/null)
+              [ -n "$base" ] && break
+            done
+            echo "zuletzt dunkel getestet: ${base:-unbekannt}"
+            tests/farben-betroffen.sh "$base" "$GITHUB_SHA" || dark=false
+          fi
+          echo "dark=$dark" >> "$GITHUB_OUTPUT"
 
   linux:
     needs: changes
@@ -88,8 +111,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.test == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, macOS, halo-mac]
-    # hell und dunkel je knapp 30 Minuten (Stand 3.9.0, 269 Prüfungen);
-    # Beta nur unter Linux (Entscheidung des Maintainers vom 3.11.2026)
+    # hell und dunkel je knapp 20 Minuten (Stand 3.17.0, 343 Prüfungen), dunkel nur,
+    # wenn Farben betroffen sind (Job changes); Beta nur unter Linux (Entscheidung
+    # des Maintainers vom 3.11.2026)
     timeout-minutes: 100
     concurrency: halo-mac
     steps:
@@ -106,7 +130,7 @@ jobs:
         run: mkdir -p shots/hell && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --shots shots/hell --tb-log shots/hell/thunderbird.log
 
       - name: Test dunkel
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && needs.changes.outputs.dark == 'true' }}
         timeout-minutes: 45
         run: mkdir -p shots/dunkel && python3 -u tests/halo_test.py --xpi "$XPI" $PORT_OPT --dark --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log
 

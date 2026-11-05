@@ -272,7 +272,8 @@ möglichen Schaden.
 
 4. Probe: GitHub → Actions → **Test** → **Run workflow**. Ergebnis: Artefakt
    `test-mac` mit den Ordnern `hell/` und `dunkel/` (Screenshots und
-   Thunderbird-Protokoll).
+   Thunderbird-Protokoll). Bei einem Push läuft `dunkel/` nur, wenn Farben
+   betroffen sind (`tests/farben-betroffen.sh`).
 
 Ist der Mini aus, wartet der Job bis zu 24 Stunden; die Linux-Ergebnisse sind
 trotzdem sofort da. Der Runner aktualisiert sich selbst. Die Thunderbird Beta

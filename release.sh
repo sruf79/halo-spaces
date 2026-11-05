@@ -3,9 +3,10 @@
 #   ./release.sh 2.11.0
 # Braucht repo.conf mit:  GITHUB_REPO="besitzer/repo"
 # Danach ./publish.sh <version> <notes.md> – lädt genau dieses Paket hoch.
-# Nur wenn alle Tests (hell, dunkel) grün sind, schreibt release.sh die
-# Marke dist/release-<version>.ok (Version, Hash des Pakets, Tests) – ohne sie
-# veröffentlicht publish.sh nicht.
+# Nur wenn alle Tests grün sind (hell; dunkel, wenn seit dem letzten Release
+# Farben betroffen sind, tests/farben-betroffen.sh), schreibt release.sh die
+# Marke dist/release-<version>.ok (Version, Hash des Pakets, Tests, dunkel
+# ja/nein) – ohne sie veröffentlicht publish.sh nicht.
 # Hotfix (nur auf ausdrückliche Anweisung des Maintainers, dringende Korrektur
 # ohne Änderung am Aussehen): HOTFIX="<Muster>" ./release.sh x.y.z testet nur die
 # Prüfungen, deren Name auf das Muster passt (hell); die Marke vermerkt das, die
@@ -26,6 +27,7 @@ mkdir -p dist
 rm -f "$MARK"
 : > "$LOG"
 TESTS=()                               # was gelaufen ist, für Marke und Bericht
+DUNKEL=nein                            # lief der Dunkelmodus mit (lokal oder in der CI)?
 
 # bei einem Fehler: Manifest und updates.json zurück auf den letzten Commit, keine Marke
 fehlschlag() {
@@ -53,7 +55,13 @@ if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh 
         echo "CI-Lauf $RUN für ${SHA:0:7} ist vollständig grün (Linux, Mac, Windows) – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
         SKIP_TESTS=1
         CI_OK=1
-        TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel), Windows")
+        # dunkel nur, wenn Farben betroffen waren (Job changes, tests/farben-betroffen.sh)
+        if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq 'any(.jobs[]; .name == "mac" and any(.steps[]?; .name == "Test dunkel" and .conclusion == "success"))' | grep -q true; then
+          DUNKEL=ja
+          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel), Windows")
+        else
+          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell; dunkel entfiel, keine Farben geändert), Windows")
+        fi
       fi
       break
     done
@@ -93,7 +101,13 @@ elif [[ -z "$SKIP_TESTS" ]]; then
   rm -rf "$SHOTS"
   CMP=()
   [[ -n "$PREV" ]] && CMP=(--compare "$PREV")
-  for MODE in "" --dark; do
+  # dunkel nur, wenn seit dem letzten Release Farben betroffen sind (wie die CI)
+  MODES=("")
+  if tests/farben-betroffen.sh "$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null)" HEAD; then
+    MODES+=(--dark)
+    DUNKEL=ja
+  fi
+  for MODE in "${MODES[@]}"; do
     python3 tests/halo_test.py --xpi "$XPI" $MODE --shots "$SHOTS" "${CMP[@]}" 2>&1 | tee -a "$LOG" \
       || fehlschlag "Tests $([[ -n $MODE ]] && echo dunkel || echo hell) fehlgeschlagen – kein Release, keine Marke (Manifest zurückgesetzt)"
     TESTS+=("$([[ -n $MODE ]] && echo dunkel || echo hell): $(grep -E '^[0-9]+ von [0-9]+ Prüfungen' "$LOG" | tail -1)")
@@ -121,13 +135,14 @@ json.dump(data, open(path, "w"), indent=2)
 open(path, "a").write("\n")
 PY
 
-# Marke für publish.sh: nur wenn hell und dunkel hier grün waren oder die CI
+# Marke für publish.sh: nur wenn hell (und ggf. dunkel) hier grün waren oder die CI
 # denselben Stand vollständig grün getestet hat
 if [[ -n "$CI_OK" || -n "$HOTFIX_OK" || ( -z "$SKIP_TESTS" && "$OSTYPE" == darwin* ) ]]; then
   {
     echo "version=$VERSION"
     echo "sha256=$HASH"
     echo "commit=$(git rev-parse HEAD)"
+    echo "dunkel=$DUNKEL"
     echo "zeit=$(date '+%Y-%m-%d %H:%M')"
     for T in "${TESTS[@]}"; do echo "test=$T"; done
   } > "$MARK"

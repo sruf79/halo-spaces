@@ -587,6 +587,16 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   nicht mit. Am Ende eines Laufs bzw. einer Sitzung geht, woran nicht mehr
   gearbeitet wird und was nicht committet ist, mit Notiz zum Stand zurück
   auf Todo.
+- **Entscheidungen des Maintainers wörtlich** (Entscheidung des
+  Maintainers vom 5.11.2026, gilt sofort): Jede Sitzung schickt eine
+  Entscheidung des Maintainers sofort an neon bzw. trägt sie selbst ein –
+  mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
+  keine Umschreibung. Board-Notizen zu Entscheidungen enthalten dieses Zitat
+  unverändert. Ein späterer Vermerk darf eine Entscheidung nur ändern oder
+  aufheben, wenn er ein neues Zitat des Maintainers mitbringt; sonst
+  Rückfrage beim Maintainer. Wer Stände aus dem Board weitergibt (an
+  Sitzungen oder den Maintainer), zitiert die Notiz statt sie
+  zusammenzufassen; eigene Deutungen als solche kennzeichnen.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
 
@@ -620,7 +630,10 @@ Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und neo
 prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden sollte. Im
 Auftrag nennen, was anzulegen oder zu ändern ist (Titel, Text, Typ, Status
 bzw. Eintrag und neuer Status) und was zurückgemeldet werden soll (z. B. die
-id); bis zur Antwort nichts als erledigt melden.
+id); bis zur Antwort nichts als erledigt melden. Entscheidungen des
+Maintainers mit Wortlaut und Herkunft schicken, neon trägt das Zitat
+unverändert ein (Abschnitt „Aufgabenliste“, „Entscheidungen des Maintainers
+wörtlich“).
 
 Nur wenn neon auf keinem Weg erreichbar ist: neue Einträge notfalls über den
 Workflow anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`)

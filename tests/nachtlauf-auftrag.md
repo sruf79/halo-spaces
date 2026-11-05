@@ -87,6 +87,11 @@ Reihenfolge:
       status.sh kennt diesen Status nicht):
         gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
       und Commit-Hash als Notiz in den Eintrag.
+   Notizen zu Entscheidungen des Maintainers nur mit seinem Wortlaut als
+   Zitat und Herkunft; eine Entscheidung im Eintrag nur mit neuem Zitat
+   ändern oder aufheben, sonst im Bericht als Rückfrage nennen. Im Bericht
+   Board-Stände zitieren statt zusammenfassen, eigene Deutung kennzeichnen
+   (AGENTS.md, „Entscheidungen des Maintainers wörtlich“, 5.11.2026).
    Zeilen „KONSOLE  …“ und „PROTOKOLL  …“ (Fehlerkonsole, Fehlerprotokoll
    der Erweiterung) machen nichts rot und
    halten kein Release auf; der CI-Wächter trägt sie als Bug ein – keine

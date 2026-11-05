@@ -5081,10 +5081,11 @@ def calendar_checks(m, results):
             await api.setSetting("weatherPlace", ""); await ruhig(300);
             await api.setSetting("weather", false); await ruhig(300);
             out.off = { attr: title.dataset.weather || null, tip: title.getAttribute("title"), iconTip: d.getElementById("mcTodayWeather")?.getAttribute("title") ?? null, icon: shown() };
-            // echter Standortdienst: antwortet (Standort oder Fehler) statt ewig zu warten wie navigator.geolocation im Fenster
+            // Thunderbirds Standortdienst (Windows/Linux, Rückfall): antwortet statt ewig zu warten wie navigator.geolocation im Fenster
+            // (der macOS-Weg über die Ortungsdienste braucht die Abfrage von macOS – nicht automatisch prüfbar)
             Cu.evalInSandbox("Weather.locate = __mcRealLocate;", g);
             const t0 = Date.now();
-            const real = await Promise.race([Cu.waiveXrays(Cu.evalInSandbox("Weather.locate(null)", g)).then(r => JSON.parse(JSON.stringify(r))), wait(25000).then(() => "hängt")]);
+            const real = await Promise.race([Cu.waiveXrays(Cu.evalInSandbox("Weather.locateGecko(null)", g)).then(r => JSON.parse(JSON.stringify(r))), wait(25000).then(() => "hängt")]);
             out.realLocate = { answered: real != "hängt" && (real.error || Number.isFinite(real.lat)) ? true : real, ms: Date.now() - t0 };
           } finally {
             Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate;", g);

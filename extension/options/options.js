@@ -207,12 +207,20 @@ async function render() {
         const statusText = el("span");
         const link = el("button", { type: "button", class: "link", textContent: t("Open System Settings…"), hidden: true });
         link.addEventListener("click", () => api.openLocationSettings());
-        const status = el("span", { class: "hint status" }, dot, statusText, link);
+        // Standort nicht zu bekommen (nicht abgelehnt): gleich zur Stadtwahl
+        const chooseLink = el("button", { type: "button", class: "link", textContent: t("Choose City…"), hidden: true });
+        chooseLink.addEventListener("click", () => {
+          menu.value = "choose";
+          menu.dispatchEvent(new Event("change"));
+        });
+        const status = el("span", { class: "hint status" }, dot, statusText, link, chooseLink);
         const paint = s => {
           statusText.textContent = s.weatherStatus || "";
           status.dataset.tone = s.weatherTone || "";
           status.hidden = !s.weatherStatus;
-          link.hidden = !s.weatherLink;
+          const current = !s.weatherPlace;
+          chooseLink.hidden = !(current && s.weatherCode == "unavailable");
+          link.hidden = !s.weatherLink || !chooseLink.hidden;
         };
         const fill = s => {
           const place = s.weatherPlace || "";

@@ -158,6 +158,12 @@
   cursor: default;
 }
 
+/* eingeklappte Listen: Zeile mit weg (Thunderbird blendet den Bereich nur
+   über collapsed aus, der Inhalt behält sonst seine Höhe) */
+#calendar-list-inner-pane[collapsed] > #mcNewList {
+  display: none;
+}
+
 :root[mc-tab="tasks"] #mcNewList:not([data-editing]):hover {
   background: color-mix(in srgb, var(--mt-text) 5%, transparent);
 }

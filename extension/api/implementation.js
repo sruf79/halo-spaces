@@ -18053,6 +18053,15 @@ class CardEnhancer {
     }
     const showing = !w.TodayPane?.isVisible;
     const startMode = panel.currentMode;
+    // Lage und Breite von Suchfeld und Knöpfen rechts davon VOR dem Umschalten
+    // messen – danach steht die Toolbar schon am Ende (das Suchfeld sprang
+    // sonst gleich zu Beginn auf seine neue Breite und Lage)
+    const content = d.getElementById("unifiedToolbarContent");
+    const kidsAll = content ? [...content.children].filter(li => !li.hidden && li.getBoundingClientRect().width) : [];
+    const searchAt = kidsAll.findIndex(li => li.getAttribute("item-id") == "search-bar");
+    const riders = searchAt >= 0 ? kidsAll.slice(searchAt) : [];
+    const lefts = () => riders.map(li => li.getBoundingClientRect().left);
+    const from = lefts();
     if (showing) {
       command.doCommand();
     }
@@ -18101,15 +18110,7 @@ class CardEnhancer {
     // von der Fläche aufgedeckt
     const row = d.getElementById("unifiedToolbarContainer");
     const rtl = w.getComputedStyle(d.documentElement).direction == "rtl" ? -1 : 1;
-    const content = d.getElementById("unifiedToolbarContent");
-    const kidsAll = content ? [...content.children].filter(li => !li.hidden && li.getBoundingClientRect().width) : [];
-    const searchAt = kidsAll.findIndex(li => li.getAttribute("item-id") == "search-bar");
-    const riders = searchAt >= 0 ? kidsAll.slice(searchAt) : [];
     const editBlock = d.getElementById("tabmail")?.currentTabInfo?.browser?.contentDocument?.querySelector("#detailsActions .edit-block");
-    // Lage der mitgleitenden Knöpfe vorher und nachher (das Suchfeld wird
-    // dabei auch schmaler, verschiebt sich also nicht um die volle Breite)
-    const lefts = () => riders.map(li => li.getBoundingClientRect().left);
-    const from = lefts();
     // Überschrift: Endzustand (Breite, nur Sonne oder ganzer Titel) jetzt
     // messen, solange die Pane ihre volle Breite hat, und dort festhalten
     // (beim Ausblenden gilt er schon; das „+“ erscheint wie bisher erst am Ende)
@@ -18148,7 +18149,10 @@ class CardEnhancer {
         row.style.setProperty("--mc-tt-off", `${(ti.left - origin).toFixed(2)}px`);
       }
     }
-    // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to)
+    // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to),
+    // Suchfeld und Knöpfe gleiten von ihrer alten an die neue Stelle (die
+    // Stufe des Suchfelds – nur Lupe, „Search“, ganzer Text – gilt gleich ab
+    // Beginn und wird am Ende nicht neu bestimmt)
     const ride = value => {
       const p = showing ? value / full : 1 - value / full;
       riders.forEach((li, i) => {

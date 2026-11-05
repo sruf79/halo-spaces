@@ -9221,7 +9221,9 @@ def run_checks(m, version, profile, results):
         # Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
         # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
-        ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] < res["start"] / 2
+        # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
+        # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
+        ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] <= res[p]["maxJump"] + 2
                  and res[p]["titleMid"] is not False and res[p].get("titleEnd", 0) <= 1 and
                  res[p]["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2 for p in ("aus", "ein")) and res["end"] == res["start"]
         return ok, f"{res}"

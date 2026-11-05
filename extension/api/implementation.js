@@ -6926,10 +6926,16 @@ function cleanupAfterUninstall() {
   }
   Services.prefs.getBranch("extensions.mailcards.").deleteBranch("");
   // (ein noch ausstehender Zeitgeber eines Fensters schrieb danach die
-  // gemerkte Breite der Seitenleiste neu – kurz darauf noch einmal aufräumen)
+  // gemerkte Breite der Seitenleiste neu – kurz darauf noch einmal aufräumen,
+  // aber nur, wenn halo.spaces dann nicht schon wieder installiert ist)
   try {
     const { setTimeout: later } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
-    later(() => Services.prefs.getBranch("extensions.mailcards.").deleteBranch(""), 2000);
+    const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+    later(async () => {
+      if (!(await AddonManager.getAddonByID("mail-cards@sebastian.local"))) {
+        Services.prefs.clearUserPref("extensions.mailcards.sidebarWidth");
+      }
+    }, 2000);
   } catch {}
   log("deinstalliert: Einstellungen aufgeräumt");
   return reverted;

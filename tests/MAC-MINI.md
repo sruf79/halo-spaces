@@ -504,6 +504,11 @@ Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.compar
 Unteragenten ebenfalls Sonnet). Gilt ab dem nächsten Start von neon-board:
 `mac-mini-setup.sh` kopiert das Skript, startet aber nichts neu; danach, wenn
 neon-board nichts tut, `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.neon-board`.
+Gibt der Server der Sitzung beim Start ein eigenes Modell mit (`--model` am
+Kindprozess von `claude remote-control`, `ps -o args= -p <pid>`), schlägt das
+die Einstellungen; dann das Modell im Modellwähler der Sitzung in claude.ai/code
+umstellen. Für die Sitzung `neon` selbst gilt das immer (AGENTS.md
+„Arbeitsweise von neon“, Modelle).
 
 - Gleiches Skript wie neon (`~/.config/halo-spaces/remote-control.sh`), aber
   `HALO_RC_NAME=neon-board`, Arbeitsordner `~/halo-board` (kein Checkout),

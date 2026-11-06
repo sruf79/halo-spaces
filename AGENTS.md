@@ -242,6 +242,10 @@ anderes.
   sich von selbst.
 - Board gezielt fragen („offene Einträge mit Titel `Kalender:`“), nicht die
   ganze Liste.
+- Kennzeichen für das Modell, mit dem neon den Auftrag erledigt (siehe
+  „Arbeitsweise von neon“): `[opus]` erzwingt Opus (Code, Fehlersuche,
+  Design, Analysen), `[sonnet]` erzwingt Sonnet (Routine); ohne Kennzeichen
+  stuft neon selbst ein, im Zweifel Opus.
 - Längere Aufträge bestätigt neon mit einer Nummer („#12 angenommen“), das
   Ergebnis kommt später als eigene Nachricht. Wer nachfragt, nennt die
   Nummer.
@@ -267,10 +271,40 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   `archiv`), nie `gh project item-list` ungefiltert.
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
-- Unteragenten (`Agent`) immer mit `model: "sonnet"` starten (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“).
-  `neon-board` läuft selbst mit Sonnet und niedriger Reasoning-Stufe
-  (`mac-remote-control.sh` schreibt beides in die Einstellungen von
-  `~/halo-board`).
+- **Modelle: Routine mit Sonnet, Komplexes mit Opus, im Zweifel Opus**
+  (Entscheidung des Maintainers, Cloud-Sitzung global.design.comparison,
+  6.11.2026, Wortlaut: „neon beauftragen, allerdings zusätzlich "im zweifel
+  opus" eintragen.“; Bezug ist dieser freigegebene Vorschlag der
+  Cloud-Sitzung; ersetzt die frühere Regel „Unteragenten immer Sonnet“):
+  - `neon` selbst läuft mit Sonnet: Aufträge annehmen und in
+    `neon-stand.md` führen, Testläufe starten und OK/FEHLER melden, Bilder
+    und Vorlagen speichern, Zweige mergen, Skripte nach klarer Anleitung,
+    Aufträge einstufen.
+  - Komplexes an einen Unteragenten (`Agent`) mit `model: "opus"`,
+    vollständiger Auftrag, Ergebnis höchstens 10 Zeilen: Code in
+    `extension/` oder `chrome/` (Bugs, Features), rote Tests und
+    Fehlersuche, Design-Fragen und Apple-Vergleiche, Analysen über viele
+    Dateien, neue Abläufe und Skripte entwerfen. Routine-Unteragenten mit
+    `model: "sonnet"`.
+  - Kennzeichen im Auftrag: `[opus]` erzwingt Opus, `[sonnet]` erzwingt
+    Sonnet.
+  - **Im Zweifel Opus.** Gilt für jede Einstufung.
+  - Scheitert ein Auftrag mit Sonnet einmal, sofort mit Opus wiederholen.
+  - Kein `/model`-Wechsel in neon selbst (der Zwischenspeicher ginge
+    verloren).
+  - Nachtlauf, Wochenprüfung und die übrigen Läufe behalten ihr Modell;
+    `neon-board` bleibt bei Sonnet und niedriger Reasoning-Stufe
+    (`mac-remote-control.sh` schreibt beides in die Einstellungen von
+    `~/halo-board`).
+  - Wo das Modell von neon herkommt: `claude remote-control` hat kein
+    `--model`; der Server gibt jeder Sitzung beim (Neu-)Start ihr
+    gespeichertes Modell als `--model` mit (Stand 6.11.2026: neon mit
+    `claude-opus-5-5`, zu sehen mit `ps -o args= -p <pid>` am Kindprozess
+    von `claude remote-control`). Das schlägt Einstellungen und
+    `ANTHROPIC_MODEL`. Umstellen deshalb einmal durch den Maintainer im
+    Modellwähler der Sitzung `neon` (claude.ai/code bzw. Claude-App); das
+    gilt dann auch nach Neustarts. Gleiches gilt für `neon-board`, falls
+    der Server dort ein Modell mitgibt.
 - **Täglicher Neustart von `neon`** (Entscheidung des Maintainers, Cloud-Sitzung
   global.design.comparison, 6.11.2026, Wortlaut: „punkt 1 beauftragen.“; Bezug,
   Vorschlag der Cloud-Sitzung: „neon täglich neu starten, zum Beispiel nach dem

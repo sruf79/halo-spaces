@@ -39,7 +39,15 @@ Unteragent gehört zur Art seiner Hauptsitzung):
                  auf neon“
   7. sonstige    alles andere (von Hand gestartete Sitzungen, Sitzungen anderer
                  Ordner, Unteragenten ohne Hauptdatei)
-Sitzungsname = letzter Eintrag „custom-title“ der Datei.
+Sitzungsname = letzter Eintrag „custom-title“ der Datei, sonst der Name der
+noch laufenden Sitzung aus ~/.claude/sessions/<pid>.json (neon heißt dort
+„neon“, auch wenn das Protokoll keinen Hook-Eintrag hat, z. B. nach /clear).
+
+Unteragenten (<sitzung>/subagents/*.jsonl) stehen zusätzlich getrennt nach
+Modell da (Tabelle „Unteragenten je Modell“, JSON unteragenten_modell und
+unteragenten_art_modell), um die Einstufung Sonnet/Opus von neon zu verfolgen
+(AGENTS.md „Arbeitsweise von neon“); in den Zeilen je Art sind sie schon
+enthalten.
 
 Hook-Kennzeichen (Entscheidung des Maintainers vom 6.11.2026, Sitzung
 global.design.comparison, Wortlaut: „punkt 1 beauftragen.“ – täglicher Neustart
@@ -144,9 +152,32 @@ def hook_art(zeile):
     return "neon" if aus.startswith("neon") else None
 
 
+def laufende_namen():
+    """Sitzungs-ID → Name der gerade laufenden Sitzungen (~/.claude/sessions/<pid>.json).
+    Erkennt neon auch ohne Hook-Eintrag im Protokoll (z. B. nach /clear, bevor
+    neon-hook.sh im Checkout stand); gilt nur, solange die Sitzung läuft."""
+    res = {}
+    for pfad in glob.glob(os.path.join(HOME, ".claude", "sessions", "*.json")):
+        try:
+            with open(pfad, encoding="utf-8") as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(d, dict) and d.get("sessionId") and d.get("name"):
+            res[d["sessionId"]] = str(d["name"])
+    return res
+
+
+NAMEN = None
+
+
 def sitzung_art(meta, log_arten):
+    global NAMEN
+    if NAMEN is None:
+        NAMEN = laufende_namen()
     sid, cwd, titel, erste = meta["id"], meta["cwd"] or "", meta["titel"] or "", meta["erste"] or ""
     hook = meta.get("hook")
+    titel = titel or NAMEN.get(sid, "")
     if cwd.rstrip("/").endswith("halo-board") or titel.startswith("neon-board") \
             or hook == "board":
         return "neon-board"
@@ -167,7 +198,8 @@ def sitzung_art(meta, log_arten):
 
 def lese_alles(von):
     """Liest alle Protokolle. Gibt (Sitzungsmeta, Antworten) zurück.
-    Antworten: (message.id, requestId) → (ausgabe, zeit, modell, usage, sitzung)."""
+    Antworten: (message.id, requestId) → (ausgabe, zeit, modell, usage, sitzung,
+    unteragent)."""
     metas = {}      # Sitzungs-ID → Meta aus der Hauptdatei
     antworten = {}
     dateien = glob.glob(os.path.join(PROJEKTE, "*", "*.jsonl")) + \
@@ -224,7 +256,7 @@ def lese_alles(von):
                     if alt is None or ausgabe > alt[0]:
                         antworten[schluessel] = (ausgabe, zeit, m["model"],
                                                  {k: int(u.get(k) or 0) for k in FELDER},
-                                                 sid_datei)
+                                                 sid_datei, unter)
     return metas, antworten
 
 
@@ -251,9 +283,10 @@ def bilanz(tage):
 
     je_art = {}      # Art → Modell → Zahlen
     je_tag = {}      # Tag → Art → Zahlen
+    unter_art = {}   # Art → Modell → Zahlen, nur Unteragenten (subagents/*.jsonl)
     sitzungen = {}   # Art → Menge der Sitzungs-IDs
     n_antworten = 0
-    for ausgabe, zeit, modell, u, sid in antworten.values():
+    for ausgabe, zeit, modell, u, sid, unter in antworten.values():
         try:
             lokal = datetime.fromisoformat(zeit.replace("Z", "+00:00")).astimezone()
         except ValueError:
@@ -264,6 +297,8 @@ def bilanz(tage):
         tag = lokal.strftime("%Y-%m-%d")
         addiere(je_art.setdefault(art, {}).setdefault(modell, leer()), u)
         addiere(je_tag.setdefault(tag, {}).setdefault(art, leer()), u)
+        if unter:
+            addiere(unter_art.setdefault(art, {}).setdefault(modell, leer()), u)
         sitzungen.setdefault(art, set()).add(sid)
         n_antworten += 1
 
@@ -276,6 +311,10 @@ def bilanz(tage):
     gesamt = leer()
     for z in gesamt_art.values():
         addiere(gesamt, z)
+    unter_modell = {}   # Modell → Zahlen über alle Arten (nur Unteragenten)
+    for modelle in unter_art.values():
+        for m, z in modelle.items():
+            addiere(unter_modell.setdefault(m, leer()), z)
     return {
         "zeitraum": {"von": von.strftime("%Y-%m-%d"), "bis": bis_tag, "tage": tage},
         "erstellt": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -284,6 +323,11 @@ def bilanz(tage):
         "gesamt": gesamt,
         "je_art": {a: gesamt_art[a] for a in ARTEN if a in gesamt_art},
         "je_art_modell": {a: je_art[a] for a in ARTEN if a in je_art},
+        # Unteragenten getrennt nach Modell (Einstufung Sonnet/Opus, AGENTS.md
+        # „Arbeitsweise von neon“); in je_art/je_art_modell schon enthalten
+        "unteragenten_modell": dict(sorted(unter_modell.items())),
+        "unteragenten_art_modell": {a: dict(sorted(unter_art[a].items()))
+                                    for a in ARTEN if a in unter_art},
         "je_tag": {t: {a: je_tag[t][a] for a in ARTEN if a in je_tag[t]} for t in sorted(je_tag)},
     }
 
@@ -318,6 +362,25 @@ def tabelle(b):
         for m, zz in ms.items():
             modelle[m] = modelle.get(m, 0) + summe(zz)
     print("Je Modell (Summe): " + ", ".join(f"{m} {zahl(n)}" for m, n in sorted(modelle.items())))
+    unter = b.get("unteragenten_art_modell") or {}
+    if not unter:
+        print("Unteragenten: keine")
+        return
+    print("Unteragenten je Modell (in den Zeilen oben schon enthalten):")
+    kopf = ["Art", "Modell"] + [KURZ[k] for k in FELDER] + ["Summe", "Anteil Art"]
+    zeilen = []
+    for art in ARTEN:
+        for m, zz in (unter.get(art) or {}).items():
+            s = summe(zz)
+            ganz = summe(b["je_art"].get(art) or leer()) or 1
+            zeilen.append([art, m] + [zahl(zz[k]) for k in FELDER] +
+                          [zahl(s), f"{100 * s / ganz:.1f} %"])
+    for m, zz in b["unteragenten_modell"].items():
+        zeilen.append(["gesamt", m] + [zahl(zz[k]) for k in FELDER] +
+                      [zahl(summe(zz)), f"{100 * summe(zz) / gesamt:.1f} %"])
+    breiten = [max(len(r[i]) for r in [kopf] + zeilen) for i in range(len(kopf))]
+    for r in [kopf] + zeilen:
+        print("  ".join(c.ljust(breiten[i]) if i < 2 else c.rjust(breiten[i]) for i, c in enumerate(r)))
 
 
 def schreibe_json(pfad, b, basis):

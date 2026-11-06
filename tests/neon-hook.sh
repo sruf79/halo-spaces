@@ -55,6 +55,7 @@ neon – Arbeitsweise (AGENTS.md „Arbeitsweise von neon“):
 - Befehle mit langer Ausgabe nur über tests/kurz.sh (Tests im Hintergrund), Board nur über tests/board.sh – nie ganze Listen oder Logs in den Kontext.
 - Antworten an andere Sitzungen knapp: Ergebnis, Fehlerzeilen, Pfad zum Log.
 - Board und Bilder gehören in erster Linie zu neon-board; kommen sie trotzdem hier an (Fallback), erledigen.
+- Modelle: neon selbst Sonnet (Routine: Aufträge, Testläufe, Bilder, Mergen, Skripte nach Anleitung, Einstufen). Komplexes (Code in extension/ oder chrome/, rote Tests, Fehlersuche, Design/Apple-Vergleiche, Analysen über viele Dateien, neue Abläufe) an Agent mit model "opus", Ergebnis höchstens 10 Zeilen; Routine-Unteragenten model "sonnet". [opus]/[sonnet] im Auftrag erzwingt. Im Zweifel Opus. Mit Sonnet einmal gescheitert: sofort mit Opus wiederholen. Kein /model-Wechsel in neon.
 EOF
 fi
 echo "Offene Aufträge:"

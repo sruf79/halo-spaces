@@ -187,7 +187,7 @@ Changes take effect right away unless noted.
 - **Search fields**: the magnifier in the search bars no longer gets a grey highlight on hover; search fields in Calendar and Tasks keep their shadow
 - **Quick event window**: "New Event / New Task" has the same 20 px rounding as other popovers
 - **Dialogs and pages**: about:config, Troubleshooting Information, About Thunderbird, the Add-ons header and the OpenPGP key search follow the design (capsule buttons and search fields, accent links, hairlines); buttons in Spelling, Find and Replace, Junk Log, Address search, Recurrence prompt, the account wizards and event reminders are capsules
-- **Menus**: "Add Account" and the sender menu when composing use 24 px rows like the other menus; dropdowns in Settings show only one blue highlight
+- **Menus**: "Add Account" and the sender menu when composing use 24 px rows like the other menus
 - **Fixes**: archived, deleted and junk messages disappear at once instead of sliding left first; account rows in the folder list are as tall as the other rows (#44); "OK" in Invite Attendees uses the accent colour and "Busy" is readable in dark mode
 - Requires Thunderbird 153 or newer
 

@@ -507,6 +507,50 @@ EOF
   fi
 }
 
+# Zweite Remote-Control-Sitzung neon-board (nur Board und Bilder,
+# tests/MAC-MINI.md Abschnitt 12): wird nur geprüft, nie eingerichtet – den
+# LaunchAgent legt der Maintainer selbst an. Ohne plist nur ein Hinweis.
+NB_LABEL=at.halo-spaces.neon-board
+NB_PLIST=$HOME/Library/LaunchAgents/$NB_LABEL.plist
+NB_DIR=$HOME/halo-board
+NB_LOG=$HOME/Library/Logs/halo-neon-board.log
+pruefe_neon_board() {
+  local dom=gui/$(id -u) f veraltet=()
+  if [[ ! -f $NB_PLIST ]]; then
+    hinweis "neon-board" "nicht eingerichtet (zweite Sitzung nur für Board und Bilder, Abschnitt 12)"
+    return
+  fi
+  grep -q '<string>neon-board</string>' $NB_PLIST ||
+    { offen "neon-board" "$NB_PLIST setzt HALO_RC_NAME=neon-board nicht"; tun "plist wie in Abschnitt 12"; return }
+  # Skripte, die neon-board aus ~/.config/halo-spaces/ benutzt, auf dem Stand des Checkouts?
+  cmp -s $ROOT/tests/mac-remote-control.sh $RC_ZIEL || veraltet+=(remote-control.sh)
+  for f in neon-hook.sh board.sh neon-stand.sh; do
+    cmp -s $ROOT/tests/$f $AG_DIR/$f || veraltet+=($f)
+  done
+  if (( $#veraltet )); then
+    offen "neon-board" "veraltet oder fehlt in $AG_DIR: ${(j:, :)veraltet}"
+    tun "Abschnitt 12, „Skripte kopieren“, danach launchctl kickstart -k $dom/$NB_LABEL"
+  fi
+  if ! python3 - "$NB_DIR" <<'EOF' >/dev/null 2>&1
+import json, os, sys
+d = json.load(open(os.path.expanduser("~/.claude.json")))
+sys.exit(0 if d.get("projects", {}).get(sys.argv[1], {}).get("hasTrustDialogAccepted") else 1)
+EOF
+  then
+    hinweis "neon-board" "$NB_DIR ist in Claude Code vermutlich noch nicht freigegeben"
+    tun "cd $NB_DIR && claude   („Trust this folder“ bestätigen, /exit)"
+  fi
+  if ! launchctl print $dom/$NB_LABEL 2>/dev/null | grep -q 'state = running'; then
+    offen "neon-board" "LaunchAgent nicht geladen oder läuft nicht"
+    tun "launchctl bootstrap $dom $NB_PLIST bzw. launchctl kickstart -k $dom/$NB_LABEL; Protokoll $NB_LOG"
+  elif ! pgrep -f 'remote-control.*--name neon-board' >/dev/null; then
+    offen "neon-board" "LaunchAgent läuft, aber kein claude remote-control --name neon-board"
+    tun "Protokoll $NB_LOG"
+  elif (( ! $#veraltet )); then
+    ok "neon-board" "läuft als LaunchAgent in $NB_DIR ($NB_LOG)"
+  fi
+}
+
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–17): Nachtlauf jede
 # Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
@@ -775,6 +819,7 @@ pruefe_tailscale
 pruefe_ssh
 pruefe_runner
 pruefe_remote_control
+pruefe_neon_board
 pruefe_laeufe
 pruefe_vm
 pruefe_speicher

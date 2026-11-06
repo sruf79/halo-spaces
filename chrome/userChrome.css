@@ -8494,6 +8494,46 @@ addon-details .tab-group {
   border-bottom: none !important;
 }
 
+/* Reiter Details/Preferences/Permissions/Release Notes als Segment-Kapseln
+   wie die Reiter der Dialoge (Termin, Ordner-Eigenschaften …) statt eckiger
+   Knöpfe mit Strich oben und Akzentschrift */
+addon-details .tab-group {
+  padding: 6px 6px !important;
+}
+
+addon-details .tab-group > button.tab-button {
+  min-height: 28px !important;
+  margin: 0 4px 0 0 !important;
+  padding: 4px 14px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--mt-text) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+addon-details .tab-group > button.tab-button:hover {
+  background: var(--mt-control-hover) !important;
+}
+
+addon-details .tab-group > button.tab-button[selected] {
+  background: var(--mt-control) !important;
+  color: var(--mt-text) !important;
+}
+
+/* Werkzeug in der Karte mit dem eigenen Symbol statt Thunderbirds
+   developer.svg (Größe und Fläche wie oben) */
+addon-card .extension-options-button {
+  background-image: url("resource://mailcards/icons/tools.svg") !important;
+  background-size: 16px !important;
+  -moz-context-properties: fill, fill-opacity, stroke !important;
+  fill: currentColor !important;
+  fill-opacity: 0 !important;
+  stroke: currentColor !important;
+}
+
 addon-details .addon-detail-row:not(.addon-detail-help-row),
 addon-details .addon-detail-sitepermissions,
 addon-permissions-list .addon-permissions-list-wrapper:not(:first-child) {

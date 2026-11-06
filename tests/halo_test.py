@@ -11862,6 +11862,12 @@ Neu
           const row = [...ad.querySelectorAll('addon-details section[name="details"] > .addon-detail-row')].find(e => R(e).height > 0);
           out.detail = tg && row ? { tgBottom: cs(tg).borderBottomWidth, gap: Math.round(R(row).top - R(tg).bottom), rowLine: cs(row).borderTopColor == fg("var(--mt-separator)"),
             tgTop: cs(tg).borderTopColor == fg("var(--mt-separator)") } : null;
+          // Reiter als Segment-Kapseln (rund, 28 px, gewählter mit Knopffläche, Text in Textfarbe statt Akzent)
+          out.tabs = [...tg.querySelectorAll("button.tab-button")].filter(b => R(b).width).map(b => [Math.round(R(b).height), cs(b).borderTopLeftRadius,
+            cs(b).borderTopWidth, b.hasAttribute("selected"), cs(b).backgroundColor == bg(b.hasAttribute("selected") ? "var(--mt-control)" : "transparent"),
+            cs(b).color == fg("var(--mt-text)"), cs(b).fontSize]);
+          // Werkzeug in der Karte mit eigenem Symbol statt developer.svg
+          out.icons = [cs(ad.querySelector("addon-card .extension-options-button")).backgroundImage];
           out.knobs.push(knobs(ad.querySelector("addon-card")));
           out.head.push(headBtn("addon-page-header .back-button"));
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID) + "/preferences");
@@ -11885,12 +11891,15 @@ Neu
                                                    and mn["itemRadius"] == "6px" and mn["itemH"] >= 22 and mn["hover"] and mn["hr"] is not False for mn in res["menus"])
         dt = res.get("detail") or {}
         detail_ok = dt.get("tgBottom") == "0px" and dt.get("gap") is not None and abs(dt["gap"]) <= 1 and dt.get("rowLine") and dt.get("tgTop")
+        tabs = res.get("tabs") or []
+        tabs_ok = len(tabs) >= 3 and sum(t[3] for t in tabs) == 1 and all(26 <= t[0] <= 30 and t[1] == "999px" and t[2] == "0px" and t[4] and t[5] and t[6] == "13px" for t in tabs)
+        icons_ok = "mailcards/icons/tools.svg" in (res.get("icons") or [""])[0]
         inline_ok = res.get("inline") == "rgba(0, 0, 0, 0)" and res.get("inlinePixel") == [255, 0, 255, 255]
         wide_ok = bool(res.get("wide")) and res["wide"][0] >= 300 and res["wide"][2] >= res["wide"][1] - 1
-        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and head_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok and wide_ok
+        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and head_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and tabs_ok and icons_ok and inline_ok and wide_ok
         return ok, f"{res}"
     check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Kopfknöpfe rund mit Fläche, Schalter weiß, "
-          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Einstellungen ohne eigene Fläche, "
+          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeugsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
     def tasks_view():

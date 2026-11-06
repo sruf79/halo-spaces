@@ -3105,6 +3105,8 @@ def compose_checks(m, results):
             out.label = [Math.round(lab.getBoundingClientRect().left - cd.getElementById("MsgHeadersToolbar").getBoundingClientRect().left), cw.getComputedStyle(lab, "::after").content];
             const desc = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="description"]');
             out.desc = desc ? vis(desc) : false;
+            // Absender-Menü: Zeilen 24 px wie die übrigen Menüs (waren 27) – Stil der Einträge, ohne das Menü zu öffnen
+            out.idRows = [...cd.querySelectorAll("#msgIdentityPopup > menuitem")].map(e => [csOf(e).minHeight, csOf(e).paddingTop]);
             // Feld direkt hinter der Bezeichnung (Abstand Ende Bezeichnung bis Beginn des Texts)
             const textStart = el => { const cs = cw.getComputedStyle(el); return el.getBoundingClientRect().left + parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth); };
             const idLabel = cd.getElementById("msgIdentity").shadowRoot?.querySelector('[part~="label"]') || cd.getElementById("msgIdentity");
@@ -3127,11 +3129,12 @@ def compose_checks(m, results):
         fw, at = res["fwd"], res["att"]
         ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
+              and bool(res.get("idRows")) and all(r == ["24px", "0px"] for r in res["idRows"])
               and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
               and fw["begin"] and fw["first"].startswith("From") and fw["date"] and "+0000" not in fw["date"] and fw["border"] == "none"
               and fw["bar"] == "2px" and not fw["modified"] and at["w"] == 96 and at["icon"] == 32 and at["src"])
         return ok, f"{res}"
-    check("Verfassen wie Apple Mail: Symbole mittig, Senden rund rechts, „Aa“ für die Formatleiste, Bezeichnungen links; Weiterleitung mit Apple-Kopf; Anhänge als Kacheln", apple_compose, results)
+    check("Verfassen wie Apple Mail: Symbole mittig, Senden rund rechts, „Aa“ für die Formatleiste, Bezeichnungen links, Absender-Menü mit 24-px-Zeilen; Weiterleitung mit Apple-Kopf; Anhänge als Kacheln", apple_compose, results)
 
 
 DIALOG_READING_JS = READING_JS + r"""
@@ -13788,7 +13791,10 @@ Neu
           let shown = false; pop?.addEventListener("popupshowing", () => { shown = true; }, { once: true });
           // ein Dialog einer früheren Prüfung kann den Fokus behalten haben – Fenster wie beim echten Klick vorn
           const top = pw.browsingContext.topChromeWindow; top.focus(); await until(() => Services.focus.activeWindow == top, 2000);
-          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await ruhig(800); out.popup = shown ? "open" : pop?.state; pop?.hidePopup(); await ruhig(300);
+          pd.querySelector("#mcSub-paneMcAccounts .mc-subcat-action")?.click(); await ruhig(800); out.popup = shown ? "open" : pop?.state;
+          // Zeilen 24 px mit 8 px Einzug wie die übrigen Menüs
+          out.rows = [...(pop?.children || [])].filter(e => e.localName == "menuitem").map(e => [Math.round(e.getBoundingClientRect().height), pw.getComputedStyle(e).paddingInlineStart]);
+          pop?.hidePopup(); await ruhig(300);
           await pick("paneMcAddons", 3500);
           const ad = page("about:addons"), aw = ad.contentWindow;
           // „Plugins“ ohne Plugins führte auf die Empfehlungen – im Testprofil gibt es keine, also kein Unterpunkt
@@ -13818,11 +13824,12 @@ Neu
               and res["tree"] == 0 and res["frameLeft"] <= 1
               and [e for e in acc2 if e[2]] == [[2, acc2[[i for i, e in enumerate(acc2) if e[0] == 2][1]][1], True]] and (res["inner"] or "").startswith("am-")
               and acc[-1][1].endswith("…") and res["popup"] == "open"
+              and all(h in (0, 24) and p == "8px" for h, p in res.get("rows") or [[0, "?"]])
               and len(add) >= 3 and [e[1] for e in add if e[2]] and "Plugins" not in [e[1] for e in add] and res["side"] == 0
               and res["view"] == "addons://list/theme" and len(res["add2"]) == 1 and res["gaps"][0] == 28
               and res["fold"] == [True, False, True, True] and res.get("lateStart") == [True, "paneMcAccounts"])
         return ok, f"{res}"
-    check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü, „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
+    check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü (24-px-Zeilen), „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
 
     def account_wizards():
         # Konto-Assistenten (Feed, Newsgruppen, Chat): Knöpfe flach ohne Rahmen, 13 px, 28 px hoch und lesbar

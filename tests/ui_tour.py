@@ -175,6 +175,11 @@ const toolbarItem = id => [...d.querySelectorAll(`#unifiedToolbarContent li[item
 const roomyToolbar = async () => { w.__tourTodayWas = w.TodayPane.isVisible; if (w.TodayPane.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
   w.resizeTo(Math.min(w.screen.availWidth, 1728), 900); await wait(1500); };
 const restoreToolbar = async () => { if (w.__tourTodayWas && !w.TodayPane.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand(); w.__tourTodayWas = null; await wait(600); };
+// ausgewählte Zeile der Mailliste (Tabelle oder Karten): erst nach dem Aufbau der Zeile da – nach anderen Oberflächen
+// baut die Liste sie teils verzögert, die Suche nach tr.selected allein fand sie dann nicht
+const selRow = async p => { const t = p.threadTree; t.scrollToIndex?.(t.selectedIndex, true);
+  const row = await until(() => t.getRowAtIndex?.(t.selectedIndex) || p.document.querySelector('#threadTree tr.selected, #threadTree tr[aria-selected="true"]'), 4000);
+  if (!row) throw new Error("ausgewählte Zeile der Mailliste fehlt"); return row; };
 const rowOf = (doc, sel, text) => [...doc.querySelectorAll(sel)].find(r => r.textContent.includes(text));
 // Fenster eines Typs, sobald es geladen ist
 const winOf = (type, ms = 10000) => until(() => { const x = Services.wm.getMostRecentWindow(type); return x?.document.readyState == "complete" && x; }, ms);
@@ -193,6 +198,12 @@ const compose = async (o = {}) => {
   const cw = await until(() => { const x = Services.wm.getMostRecentWindow("msgcompose"); return x?.document.readyState == "complete" && x.gMsgCompose && x; }, 12000);
   if (!cw) throw new Error("Verfassen-Fenster nicht offen");
   await wait(1800); return cw; };
+// Verfassen mit sichtbarer Formatleiste: halo.spaces zeigt sie erst nach „Aa“ (gemerkt in der Einstellung) –
+// ohne sie haben Absatz-, Schrift-, Einfügen- usw. Menü keinen Anker und gehen nicht auf
+const FORMAT_PREF = "extensions.mailcards.composeFormatBar";
+const composeFmt = async (o = {}) => { Services.prefs.setBoolPref(FORMAT_PREF, true); const cw = await compose(o);
+  if (!await until(() => vis(cw.document.getElementById("FormatToolbar")), 4000)) throw new Error("Formatleiste nicht sichtbar");
+  await wait(300); return cw; };
 // Termin/Aufgabe eines beliebigen Kalenders nach Titel
 const anyItem = async title => { for (const c of cal.manager.getCalendars()) { try {
   const it = (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).find(i => i.title == title); if (it) return it; } catch {} }
@@ -862,11 +873,14 @@ SURFACES = [
       ' if (!await until(() => inp.controller.matchCount > 0, 5000)) throw new Error("keine Vorschläge");'
       ' return await pop(inp.popup, () => { if (inp.popup.state != "open") inp.openPopup(); });', cap="popup"),
     S("verfassen-absatz-menue", "verfassen", "popup", "Formatleiste: Absatzformat",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("ParagraphPopup"), cw.document.getElementById("ParagraphSelect"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("ParagraphPopup"), cw.document.getElementById("ParagraphSelect"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-schrift-menue", "verfassen", "popup", "Formatleiste: Schriftart",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("FontFacePopup"), cw.document.getElementById("FontFaceSelect"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("FontFacePopup"), cw.document.getElementById("FontFaceSelect"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-einfuegen-menue", "verfassen", "popup", "Formatleiste: Einfügen",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("InsertPopup"), cw.document.getElementById("InsertPopupButton"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("InsertPopup"), cw.document.getElementById("InsertPopupButton"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-anhang-menue", "verfassen", "popup", "Symbolleiste: Anhängen-Menü",
       'const cw = await compose(); return await openBtnPop(cw.document.getElementById("button-attachPopup"), cw.document.getElementById("button-attach"));', cap="popup"),
     S("verfassen-speichern-menue", "verfassen", "popup", "Symbolleiste: Speichern-Menü",
@@ -904,11 +918,14 @@ SURFACES = [
       'const cw = await compose({ body: "<p>Ein Tset mit Fehlrn und noch mehr Fehlren.</p>" }); later(() => cw.goDoCommand("cmd_spelling"));', cap="window", win="EdSpellCheck"),
     # Formatleiste: weitere Menüs
     S("verfassen-schriftgroesse-menue", "verfassen", "popup", "Formatleiste: Textgröße",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("AbsoluteFontSizeButtonPopup"), cw.document.getElementById("AbsoluteFontSizeButton"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("AbsoluteFontSizeButtonPopup"), cw.document.getElementById("AbsoluteFontSizeButton"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-ausrichtung-menue", "verfassen", "popup", "Formatleiste: Ausrichtung (mit Symbolen)",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("AlignPopup"), cw.document.getElementById("AlignPopupButton"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("AlignPopup"), cw.document.getElementById("AlignPopupButton"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-smiley-menue", "verfassen", "popup", "Formatleiste: Smileys",
-      'const cw = await compose(); return await openBtnPop(cw.document.getElementById("smileyPopup"), cw.document.getElementById("smileButtonMenu"));', cap="popup"),
+      'const cw = await composeFmt(); return await openBtnPop(cw.document.getElementById("smileyPopup"), cw.document.getElementById("smileButtonMenu"));', cap="popup",
+      close='Services.prefs.clearUserPref(FORMAT_PREF);'),
     S("verfassen-suchleiste", "verfassen", "zustand", "Verfassen: Suchleiste im Nachrichtentext (Bearbeiten → Suchen)",
       'const cw = await compose(); cw.goDoCommand("cmd_find"); const fb = await until(() => { const f = cw.document.getElementById("FindToolbar"); return f && !f.hidden && f; }, 4000);'
       ' if (!fb) throw new Error("Suchleiste ging nicht auf"); fb._findField.value = "Liste"; fb._find?.(); await wait(800);', cap="window", win="messengercompose"),
@@ -996,14 +1013,15 @@ SURFACES = [
     # ------------------------------------------------------------ Menüs und Kontextmenüs
     *_menubar(),
     S("kontext-mailliste", "menues", "popup", "Kontextmenü: Mailliste",
-      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = p.document.querySelector(\'#threadTree tr.selected, #threadTree tr[aria-selected="true"]\');'
+      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = await selRow(p);'
       ' return await ctxPop("mailContext", row);', cap="popup"),
     S("kontext-mailliste-erinnern", "menues", "popup", "Kontextmenü: Mailliste → Erinnern (halo.spaces)",
-      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = p.document.querySelector(\'#threadTree tr.selected, #threadTree tr[aria-selected="true"]\');'
+      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = await selRow(p);'
       ' await ctxPop("mailContext", row); const sub = p.document.getElementById("mcRemindMenu").menupopup; return await pop(sub, () => { sub.parentNode.open = true; });', cap="popup"),
-    S("kontext-mailliste-untermenue", "menues", "popup", "Kontextmenü: Mailliste → Schlagwort",
-      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = p.document.querySelector(\'#threadTree tr.selected, #threadTree tr[aria-selected="true"]\');'
-      ' await ctxPop("mailContext", row); const sub = p.document.getElementById("mailContext-tagpopup"); return await pop(sub, () => { sub.parentNode.open = true; });', cap="popup"),
+    S("kontext-mailliste-untermenue", "menues", "popup", "Kontextmenü: Mailliste → Move To (Ordner-Untermenü)",
+      'const p = await pick("Inbox", "Treffen am Donnerstag"); const row = await selRow(p);'
+      ' await ctxPop("mailContext", row); const sub = p.document.getElementById("mailContext-moveMenu").menupopup; return await pop(sub, () => { sub.parentNode.open = true; });', cap="popup",
+      note="„Tag“ blendet halo.spaces im flachen Kontextmenü aus – das Untermenü zeigt darum „Move To“"),
     S("kontext-ordnerliste", "menues", "popup", "Kontextmenü: Ordnerliste",
       'const p = await toMail(); const row = [...p.document.querySelectorAll("#folderTree li")].find(li => li.querySelector(".name")?.textContent.trim() == "Newsletter");'
       ' return await ctxPop("folderPaneContext", row.querySelector(".container") || row);', cap="popup"),

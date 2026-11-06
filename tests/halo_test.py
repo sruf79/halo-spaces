@@ -1075,11 +1075,12 @@ def maillist_checks(m, results):
         # Archivieren: der Befehl darf nicht verzögert umgeleitet sein und keine Karte animieren
         res = m.js(MAILLIST_JS + r"""
           await showFolder(); await asCards();
-          a3.threadTree.selectedIndices = [0, 1]; await ruhig(600);
+          // ohne Auswahl: eine gewählte Mail würde dabei gelesen und stört die Ungelesen-Prüfungen danach
+          await ruhig(600);
           const cc = a3.commandController;
-          return { wrapped: !!cc.__mcExit || /animate\(/.test(String(cc.doCommand)), selected: a3.threadTree.selectedIndices.length,
+          return { wrapped: !!cc.__mcExit || /animate\(/.test(String(cc.doCommand)),
                    anims: [...a3.document.querySelectorAll("#threadTree .card-container")].flatMap(c => c.getAnimations()).length };""")
-        return res.get("selected") == 2 and res.get("wrapped") is False and res.get("anims") == 0, f"{res}"
+        return res.get("wrapped") is False and res.get("anims") == 0, f"{res}"
     check("Mailliste: Archivieren und Löschen ohne Seitwärtsbewegung der Karten (kein Flackern nach links)", cards_no_exit_slide, results)
 
     def group_headers_table():
@@ -10318,7 +10319,8 @@ def run_checks(m, version, profile, results):
 
 
     def motion():
-        # Bewegung wie Apple Mail: gelöschte Karte gleitet weg, bevor Thunderbird sie entfernt; Kalenderansicht blendet
+        # Bewegung: gelöschte Karte verschwindet direkt ohne Wegrutschen (das Gleiten wirkte wie Flackern nach links,
+        # siehe cards_no_exit_slide); Kalenderansicht blendet
         # beim Wechsel ein; Listen mit kurzem Übergang. „Bewegung reduzieren“ (ui.prefersReducedMotion): sofort, ohne
         # Gleiten, Übergänge 1 ms
         res = m.js(r"""
@@ -10373,11 +10375,11 @@ Neu
         n, r = res.get("normal") or {}, res.get("reduced") or {}
         hidden = res.get("visibility") == "hidden"
         dur = lambda t: float(t.rstrip("ms")) / (1000 if t.endswith("ms") else 1) if t else 0
-        ok = (n.get("during") and (n.get("anims") == 1 or hidden) and n.get("after") and n.get("leftover") == 0 and 0.05 <= dur(n.get("transition")) <= 0.25
+        ok = (n.get("anims") in (0, -1) and n.get("after") and n.get("leftover") == 0 and 0.05 <= dur(n.get("transition")) <= 0.25
               and res.get("view") == "mc-view-in" and (hidden or (res.get("arrival", {}).get("arrived") and res["arrival"].get("popped")))
               and r.get("anims") in (0, -1) and r.get("after") and r.get("transition") == "0.001s")
         return ok, f"{res}"
-    check("Bewegung: Karte gleitet beim Löschen weg, neue Mail gleitet ein, Ungelesen-Zahl hüpft, Kalenderansicht blendet ein; „Bewegung reduzieren“ sofort", motion, results)
+    check("Bewegung: gelöschte Karte verschwindet ohne Wegrutschen, neue Mail gleitet ein, Ungelesen-Zahl hüpft, Kalenderansicht blendet ein; „Bewegung reduzieren“ sofort", motion, results)
 
     def rtl_and_contrast():
         # Rechts-nach-links (Pseudosprache „bidi“, neues Fenster): Listenkopf über der Mailliste, Seitenleisten-Knopf

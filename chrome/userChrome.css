@@ -3672,6 +3672,9 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
     background-color: var(--mt-control) !important;
     color: var(--mt-text) !important;
     min-height: 28px !important;
+    /* fest 28 px, einzeilig – unter Linux brach der Text der oberen Knöpfe um (36 px) */
+    height: 28px !important;
+    white-space: nowrap !important;
     padding-block: 0 !important;
     padding-inline: 14px !important;
   }

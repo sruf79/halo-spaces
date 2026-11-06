@@ -10755,7 +10755,10 @@ Neu
           if (!has("nur.firma@example.invalid")) add({ Company: "Nurfirma KG", PrimaryEmail: "nur.firma@example.invalid" });
           if (!has("ohne.alles@example.invalid")) add({ PrimaryEmail: "ohne.alles@example.invalid" });
           if (!has("ben.ohne@example.invalid")) add({ FirstName: "Ben", LastName: "Ohnefirma", DisplayName: "Ben Ohnefirma", PrimaryEmail: "ben.ohne@example.invalid" });
-          w.resizeTo(1500, 900); await wait(500);
+          // 1600 px: mit Today-Pane bleibt dann im Adressbuch neben der Liste in Mailbreite Platz für die Mindestbreite
+          // der Kontaktdetails (480 px) – bei 1500 px und 88 px Bereiche-Leiste kürzt die Erweiterung die Liste
+          // dafür bewusst
+          w.resizeTo(1600, 900); await wait(500);
           const a3 = await toMail(); await ruhig(800);
           const mailList = Math.round(a3.document.getElementById("threadPane").getBoundingClientRect().width);
           const mailAvatar = a3.document.querySelector('#threadTree tr[is="thread-card"] .mc-avatar');
@@ -10772,6 +10775,7 @@ Neu
                         avatar: Math.round(ad.querySelector("#cards contact-avatar").getBoundingClientRect().width), mailAv };
           out.anyMail = [...ad.querySelectorAll('#cards tr[is="ab-card-row"]')].filter(r => getComputedStyle(r).display != "none" && /@/.test(r.querySelector(".name")?.textContent + " " + (r.querySelector(".ab-card-second-line")?.checkVisibility() ? r.querySelector(".address")?.textContent : ""))).map(r => r.querySelector(".name")?.textContent);
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          w.resizeTo(1500, 900); await ruhig(400);
           return out;""")
         a, f, e, b = res["anna"], res["firma"], res["leer"], res["ben"]
         ok = (a and a["name"] == "Anna Beispiel" and a["second"] == "Beispiel GmbH" and a["secondShown"]

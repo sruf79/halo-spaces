@@ -1,8 +1,8 @@
 #!/bin/sh
 # SessionStart-Hook (.claude/settings.json) für neon: bei Start, Fortsetzen und
 # nach jedem Verdichten des Kontexts kommen die Arbeitsweise und die offenen
-# Aufträge (tests/neon-stand.sh) wieder in die Sitzung (AGENTS.md
-# „Arbeitsweise von neon“). Läuft in jeder Sitzung, gibt aber nur in neon
+# Aufträge (tests/neon-stand.sh) wieder in die Sitzung (docs/neon-sitzung.md,
+# vorher AGENTS.md „Arbeitsweise von neon“). Läuft in jeder Sitzung, gibt aber nur in neon
 # etwas aus: HALO_NEON gesetzt (tests/mac-remote-control.sh) oder – falls die
 # Variable nicht ankommt – auf macOS unter einem „claude remote-control“.
 # Die zweite Sitzung neon-board (nur Board und Bilder) bekommt eigene, kurze
@@ -37,7 +37,7 @@ if [ "$neon" = board ]; then
     echo "neon-board: Der Kontext wurde eben verdichtet. Maßgeblich für offene Aufträge ist die Liste unten, nicht die Zusammenfassung."
   fi
   cat <<'EOF'
-neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“):
+neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“, docs/neon-sitzung.md):
 - Board nur über ~/.config/halo-spaces/board.sh (liste [Muster], zeige, neu, status, notiz, archiv); vor „neu“ Doppelte prüfen und lieber ergänzen.
 - Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen.
 - Nie Tests, Builds, Thunderbird, git commit/push, Release – solche Aufträge an die Sitzung neon verweisen.
@@ -49,7 +49,7 @@ else
     echo "neon: Der Kontext wurde eben verdichtet. Maßgeblich für offene Aufträge ist die Liste unten, nicht die Zusammenfassung."
   fi
   cat <<'EOF'
-neon – Arbeitsweise (AGENTS.md „Arbeitsweise von neon“):
+neon – Arbeitsweise (ausführlich: docs/neon-sitzung.md, bei Bedarf lesen):
 - Aufträge, die länger als eine Antwort dauern: tests/neon-stand.sh neu <von> "<Auftrag>", Stand mit notiz, nach der Antwort an <von> fertig.
 - Mehrschrittiges (Recherche, mehrere Board-Einträge, Bilder, Fehlersuche) an einen Unteragenten (Agent) mit „höchstens 10 Zeilen Ergebnis“.
 - Befehle mit langer Ausgabe nur über tests/kurz.sh (Tests im Hintergrund), Board nur über tests/board.sh – nie ganze Listen oder Logs in den Kontext.

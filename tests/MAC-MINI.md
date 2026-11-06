@@ -476,7 +476,7 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
   `tests/neon-hook.sh` (eingetragen in `.claude/settings.json`) die Sitzungen
   von neon und lädt bei Start und nach jedem Verdichten die Arbeitsweise und
   die offenen Aufträge aus `~/halo-aufgaben/neon-stand.md` (AGENTS.md
-  „neon erreichen“, „Arbeitsweise von neon“). Ohne die Variable erkennt er
+  „neon erreichen“, `docs/neon-sitzung.md`). Ohne die Variable erkennt er
   neon auf macOS am übergeordneten `claude remote-control`. Nach einer
   Änderung am Skript `tests/mac-mini-setup.sh` ausführen – es kopiert das
   Skript neu, startet laufende Sitzungen aber nicht neu (neu eingerichtet
@@ -507,8 +507,7 @@ neon-board nichts tut, `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.neon-
 Gibt der Server der Sitzung beim Start ein eigenes Modell mit (`--model` am
 Kindprozess von `claude remote-control`, `ps -o args= -p <pid>`), schlägt das
 die Einstellungen; dann das Modell im Modellwähler der Sitzung in claude.ai/code
-umstellen. Für die Sitzung `neon` selbst gilt das immer (AGENTS.md
-„Arbeitsweise von neon“, Modelle).
+umstellen. Für die Sitzung `neon` selbst gilt das immer (`docs/neon-sitzung.md`, Modelle).
 
 - Gleiches Skript wie neon (`~/.config/halo-spaces/remote-control.sh`), aber
   `HALO_RC_NAME=neon-board`, Arbeitsordner `~/halo-board` (kein Checkout),
@@ -607,8 +606,7 @@ also nicht. Deshalb:
 - Der Maintainer leert den Kontext täglich selbst mit `/clear` in `neon`. Vorher
   fragt er mit `/bereit` (`.claude/commands/bereit.md`): neon prüft
   `neon-stand.md`, Hintergrundläufe, Unteragenten, Zusagen und offene
-  Änderungen und antwortet „Frei für /clear“ oder „Nicht frei: …“ (AGENTS.md
-  „Arbeitsweise von neon“). Offene Aufträge kommen nach `/clear` über den
+  Änderungen und antwortet „Frei für /clear“ oder „Nicht frei: …“ (`docs/neon-sitzung.md`). Offene Aufträge kommen nach `/clear` über den
   SessionStart-Hook zurück.
 - Idee für später (Board „Ablauf: neon täglich frisch per Archivieren testen“,
   Wartet auf OK): Sitzung vor dem Neustart archivieren, damit Remote Control

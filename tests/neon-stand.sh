@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Offene Aufträge an neon als Datei statt nur im Gesprächsverlauf, damit neon
 # nach dem Verdichten seines Kontexts weiß, wem es noch was schuldet
-# (AGENTS.md „Arbeitsweise von neon“). tests/neon-hook.sh lädt die Datei bei
+# (docs/neon-sitzung.md). tests/neon-hook.sh lädt die Datei bei
 # jedem Start und nach jedem Verdichten wieder in die Sitzung.
 #   tests/neon-stand.sh neu <von> <Auftrag>     legt an, gibt die Nummer aus
 #   tests/neon-stand.sh notiz <Nr> <Stand>      ersetzt den Stand (z. B. „Test läuft, Log …“)

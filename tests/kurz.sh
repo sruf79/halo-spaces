@@ -2,7 +2,7 @@
 # Führt einen Befehl aus und gibt nur die Kurzfassung aus: Exitcode, Dauer,
 # Fehlerzeilen und das Ende. Die volle Ausgabe landet in einer Logdatei.
 # Für neon, damit Testläufe und lange Ausgaben nicht den Kontext füllen
-# (AGENTS.md „Arbeitsweise von neon“). Logs älter als 14 Tage werden gelöscht.
+# (docs/neon-sitzung.md). Logs älter als 14 Tage werden gelöscht.
 #   tests/kurz.sh [--name <Name>] <Befehl> [<Argumente> …]
 #   z. B. tests/kurz.sh --name kalender python3 tests/halo_test.py --port 2851 --only Kalender
 emulate -L zsh

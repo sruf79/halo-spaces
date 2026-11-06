@@ -122,8 +122,7 @@ rotieren() {
 rotieren
 { while sleep 3600; do rotieren; done } &!
 # kennzeichnet die Sitzungen als neon: tests/neon-hook.sh lädt dann bei Start
-# und nach jedem Verdichten Arbeitsweise und offene Aufträge (AGENTS.md
-# „Arbeitsweise von neon“)
+# und nach jedem Verdichten Arbeitsweise und offene Aufträge (docs/neon-sitzung.md)
 # neon-board: HALO_NEON=board (eigene Hinweise im Hook) und eigene
 # Auftragsliste ~/halo-aufgaben/board-stand.md (tests/neon-stand.sh)
 if [[ $NAME == neon-board ]]; then

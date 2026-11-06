@@ -2,7 +2,7 @@
 # Knapper Zugriff auf die Aufgabenliste (GitHub-Project „halo.spaces Aufgaben“)
 # für neon: gibt nur aus, was gebraucht wird (id, Typ, Status, Titel), damit
 # Aufträge anderer Sitzungen neons Kontext nicht mit ganzen Board-Listen füllen
-# (Entscheidung des Maintainers vom 6.11.2026, AGENTS.md „Arbeitsweise von neon“).
+# (Entscheidung des Maintainers vom 6.11.2026, docs/neon-sitzung.md).
 # Braucht gh mit Scope project (geht nur lokal, nicht in Cloud-Sitzungen).
 #   tests/board.sh liste [<Muster>]              offene Einträge (Status ≠ Done), Muster: Regex auf den Titel
 #   tests/board.sh zeige <id|Muster>             ein Eintrag mit Text

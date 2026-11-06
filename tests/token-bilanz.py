@@ -46,7 +46,7 @@ noch laufenden Sitzung aus ~/.claude/sessions/<pid>.json (neon heißt dort
 Unteragenten (<sitzung>/subagents/*.jsonl) stehen zusätzlich getrennt nach
 Modell da (Tabelle „Unteragenten je Modell“, JSON unteragenten_modell und
 unteragenten_art_modell), um die Einstufung Sonnet/Opus von neon zu verfolgen
-(AGENTS.md „Arbeitsweise von neon“); in den Zeilen je Art sind sie schon
+(docs/neon-sitzung.md); in den Zeilen je Art sind sie schon
 enthalten.
 
 Hook-Kennzeichen (Entscheidung des Maintainers vom 6.11.2026, Sitzung

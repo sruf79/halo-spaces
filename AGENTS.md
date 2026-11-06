@@ -48,7 +48,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
-| `tests/neon-neustart.sh` | Vorlage für einen täglichen Neustart von `neon`, **nicht aktiv** (siehe „Arbeitsweise von neon“) |
+| `tests/neon-neustart.sh` | Vorlage für einen täglichen Neustart von `neon`, **nicht aktiv** (siehe `docs/neon-sitzung.md`) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
@@ -176,7 +176,7 @@ Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
    die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
 2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
    `send_message` mit ihrer ID. Keine feste ID verwenden: neon wird täglich
-   neu gestartet (unten), die ID kann sich danach ändern (Stand 6.11.2026
+   neu gestartet (`docs/neon-sitzung.md`), die ID kann sich danach ändern (Stand 6.11.2026
    `session_01BK9gbfo3oZh8yxoakmG4CD`, bei den bisherigen Neustarts gleich
    geblieben) – immer über `ListAgents` bzw. die Liste suchen.
 3. Lehnt `send_message` mit einem `content_digest` ab
@@ -212,20 +212,12 @@ haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
 gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
 erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 
-**Antworten von neon:** neon muss im Modus „Auto“ laufen wie die
-Cloud-Sitzungen (in der Cloud gibt es kein `bypassPermissions`). Bei
-verschiedenen Modi hält die empfangende Sitzung Nachrichten zurück, und auf
-keiner Seite erscheint eine Abfrage (Test vom 4.11.2026). neon antwortet mit
-`SendMessage` an den Namen der Sitzung aus `ListAgents` (Name per
-`list_sessions` der Sitzungs-ID zuordnen); das meldet nicht, ob die Nachricht
-gelesen wurde, sie erscheint dort als neue Nachricht. `send_message` aus neon
-scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
+**Antworten von neon:** neon antwortet per `SendMessage` an den Namen der Sitzung; es erscheint
+als neue Nachricht, `send_message` aus neon scheitert (Einzelheiten, Modus „Auto“:
+`docs/neon-sitzung.md`).
 
-**neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`:
-neon verteilt Arbeit statt sie selbst im Kontext zu erledigen, offene Aufträge
-stehen in einer Datei, die nach dem Verdichten wieder geladen wird).
-Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
-anderes.
+**neon schlank halten:** Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
+anderes (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`).
 
 *Aufträge an neon (alle anderen Sitzungen):* Der Weg bleibt derselbe (oben).
 - Nur, was den Mac braucht: Tests, Screenshots, Release, Dateien unter
@@ -240,87 +232,17 @@ anderes.
 - Board gezielt fragen („offene Einträge mit Titel `Kalender:`“), nicht die
   ganze Liste.
 - Kennzeichen für das Modell, mit dem neon den Auftrag erledigt (siehe
-  „Arbeitsweise von neon“): `[opus]` erzwingt Opus (Code, Fehlersuche,
+  `docs/neon-sitzung.md`): `[opus]` erzwingt Opus (Code, Fehlersuche,
   Design, Analysen), `[sonnet]` erzwingt Sonnet (Routine); ohne Kennzeichen
   stuft neon selbst ein, im Zweifel Opus.
 - Längere Aufträge bestätigt neon mit einer Nummer („#12 angenommen“), das
   Ergebnis kommt später als eigene Nachricht. Wer nachfragt, nennt die
   Nummer.
 
-*Arbeitsweise von neon* (gilt für die Remote-Control-Sitzungen `neon`, nicht
-für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
-`HALO_STAND_NAME=board ~/.config/halo-spaces/neon-stand.sh` und
-`~/.config/halo-spaces/board.sh`, Hinweise vom selben Hook):
-- Jeder Auftrag, der länger als eine Antwort dauert, kommt in
-  `~/halo-aufgaben/neon-stand.md`: `tests/neon-stand.sh neu <von> "<Auftrag>"`
-  (`<von>` = Name der Sitzung für die Antwort), Zwischenstand mit `notiz`,
-  nach der Antwort `fertig` (Erledigtes landet in `neon-stand-archiv.md`).
-  Der SessionStart-Hook `tests/neon-hook.sh` lädt die offenen Aufträge bei
-  jedem Start und **nach jedem Verdichten** wieder; maßgeblich ist die
-  Datei, nicht die Zusammenfassung.
-- Mehrschrittiges (Fehlersuche, Recherche im Code, mehrere Board-Einträge,
-  Bilder prüfen und speichern) an einen Unteragenten (`Agent`) mit der
-  Vorgabe „Ergebnis höchstens 10 Zeilen“; nur das Ergebnis geht weiter.
-- Befehle mit langer Ausgabe über `tests/kurz.sh [--name …] <Befehl>`
-  (volles Log unter `~/halo-neon/logs/`, ausgegeben werden Exitcode,
-  Fehlerzeilen und das Ende), Testläufe dabei im Hintergrund. Board nur über
-  `tests/board.sh` (`liste [Muster]`, `zeige`, `neu`, `status`, `notiz`,
-  `archiv`), nie `gh project item-list` ungefiltert.
-- Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
-  Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
-- **Modelle: Routine mit Sonnet, Komplexes mit Opus, im Zweifel Opus**
-  (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`;
-  ersetzt die frühere Regel „Unteragenten immer Sonnet“):
-  - `neon` selbst läuft mit Sonnet: Aufträge annehmen und in
-    `neon-stand.md` führen, Testläufe starten und OK/FEHLER melden, Bilder
-    und Vorlagen speichern, Zweige mergen, Skripte nach klarer Anleitung,
-    Aufträge einstufen.
-  - Komplexes an einen Unteragenten (`Agent`) mit `model: "opus"`,
-    vollständiger Auftrag, Ergebnis höchstens 10 Zeilen: Code in
-    `extension/` oder `chrome/` (Bugs, Features), rote Tests und
-    Fehlersuche, Design-Fragen und Apple-Vergleiche, Analysen über viele
-    Dateien, neue Abläufe und Skripte entwerfen. Routine-Unteragenten mit
-    `model: "sonnet"`.
-  - Kennzeichen im Auftrag: `[opus]` erzwingt Opus, `[sonnet]` erzwingt
-    Sonnet.
-  - **Im Zweifel Opus.** Gilt für jede Einstufung.
-  - Scheitert ein Auftrag mit Sonnet einmal, sofort mit Opus wiederholen.
-  - Kein `/model`-Wechsel in neon selbst (der Zwischenspeicher ginge
-    verloren).
-  - Nachtlauf, Wochenprüfung und die übrigen Läufe behalten ihr Modell;
-    `neon-board` bleibt bei Sonnet und niedriger Reasoning-Stufe
-    (`mac-remote-control.sh` schreibt beides in die Einstellungen von
-    `~/halo-board`).
-  - Wo das Modell von neon herkommt: `claude remote-control` hat kein
-    `--model`; der Server gibt jeder Sitzung beim (Neu-)Start ihr
-    gespeichertes Modell als `--model` mit (Stand 6.11.2026: neon mit
-    `claude-opus-5-5`, zu sehen mit `ps -o args= -p <pid>` am Kindprozess
-    von `claude remote-control`). Das schlägt Einstellungen und
-    `ANTHROPIC_MODEL`. Umstellen deshalb einmal durch den Maintainer im
-    Modellwähler der Sitzung `neon` (claude.ai/code bzw. Claude-App); das
-    gilt dann auch nach Neustarts. Gleiches gilt für `neon-board`, falls
-    der Server dort ein Modell mitgibt.
-- **Kein täglicher Neustart von `neon`, `/clear` von Hand** (Entscheidung des
-  Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; Befund: `kickstart -k`
-  setzt dieselbe Sitzung mit vollem Verlauf fort, `claude remote-control` hat
-  keine Option für eine frische Sitzung): `tests/neon-neustart.sh` bleibt als
-  Vorlage liegen, der LaunchAgent `at.halo-spaces.neon-neustart` wird nicht
-  eingerichtet (`mac-mini-setup.sh` meldet nur, falls er doch geladen ist). Den
-  Kontext leert der Maintainer täglich selbst mit `/clear` in neon, vorher
-  fragt er mit `/bereit`.
-- **`/bereit`: ist neon frei für `/clear`?** (Frage des Maintainers vom 6.11.2026,
-  Wortlaut in `ENTSCHEIDUNGEN.md`; die Umsetzung ist die Deutung der Cloud-Sitzung): Projekt-Befehl
-  `.claude/commands/bereit.md` und Regel im Hinweis von `tests/neon-hook.sh`. Bei
-  `/bereit` oder Fragen wie „ist etwas offen?“ / „kann ich clearen?“ prüft neon
-  selbst: (1) `~/halo-aufgaben/neon-stand.md` lesen, (2) mit dem eigenen Verlauf
-  abgleichen – Laufendes, Hintergrund-Tests/-Befehle, laufende Unteragenten,
-  wartende Antworten an Sitzungen, Zusagen, nicht committete Änderungen in
-  `~/halo-spaces` und Worktrees (`git worktree list`), (3) Fehlendes in
-  `neon-stand.md` nachtragen (`neu`/`notiz`), (4) in einer Zeile antworten:
-  „Frei für /clear“ oder „Nicht frei: <was läuft>, frühestens <wann>“.
-  Laufende Hintergrundprozesse, Tests oder Unteragenten heißen nie „frei“.
-- Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
-  in allen Sitzungen; seltener verdichten heißt weniger vergessen.
+*Arbeitsweise von neon selbst* (Aufträge in `neon-stand.md`, Unteragenten, `tests/kurz.sh`,
+Modelle Sonnet/Opus – im Zweifel Opus –, `/bereit`, `/clear` von Hand statt täglichem Neustart):
+`docs/neon-sitzung.md`; die Sitzungen `neon` und `neon-board` lesen sie, der SessionStart-Hook
+`tests/neon-hook.sh` weist darauf hin.
 
 ## Testrechner (Mac mini)
 

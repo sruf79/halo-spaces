@@ -1,7 +1,7 @@
 ---
 description: neon prüft, ob etwas offen ist und ob der Maintainer /clear ausführen kann
 ---
-Prüfe selbst, ob diese Sitzung frei für `/clear` ist (AGENTS.md „Arbeitsweise von neon“, Punkt `/bereit`):
+Prüfe selbst, ob diese Sitzung frei für `/clear` ist (docs/neon-sitzung.md, Punkt `/bereit`):
 
 1. Lies `~/halo-aufgaben/neon-stand.md` (`tests/neon-stand.sh`).
 2. Gleiche mit deinem eigenen Verlauf ab: Laufendes, Hintergrund-Tests und -Befehle, laufende Unteragenten, wartende Antworten an andere Sitzungen, Zusagen, nicht committete Änderungen in `~/halo-spaces` und in Worktrees (`git worktree list`, `git status --short` je Worktree).

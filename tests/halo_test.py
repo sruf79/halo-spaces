@@ -3256,6 +3256,10 @@ def dialog_checks(m, results):
           try {
             await ruhig(1000); const ld = lw.document;
             out.list = look(ld.getElementById("filterList")); out.search = look(ld.getElementById("searchBox"));
+            // Suchfeld als Kapsel ohne Rand mit Knopffläche, ohne Hover-Zustand (Lupe bleibt)
+            const sb = ld.getElementById("searchBox"), sbs = () => { const s = csOf(sb); return [Math.round(sb.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor, s.boxShadow]; };
+            out.searchCaps = sbs(); InspectorUtils.addPseudoClassLock(sb, ":hover"); out.searchCapsHover = sbs(); InspectorUtils.removePseudoClassLock(sb, ":hover");
+            out.listControl = colorOf(ld, "var(--mt-control)", "backgroundColor");
             out.listHead = headOf(ld, "#filterList");
             later(() => ld.getElementById("filterLogButton").click());
             const vw = await winUrl("viewLog"); if (!vw) throw new Error("Filterprotokoll nicht offen");
@@ -3300,7 +3304,9 @@ def dialog_checks(m, results):
         hair = lambda r, rad: r["radius"] == rad and same_color(r["line"], r["paneLine"])
         px = res.get("pixel") or [255, 255, 255, 255]
         log_ok = (sum(px[:3]) < 200) if res["dark"] else (min(px[:3]) >= 250)
-        ok = (res["list"]["app"] == "none" and hair(res["list"], "8px") and hair(res["search"], "7px") and res["search"]["img"] != "none"
+        ok = (res["list"]["app"] == "none" and hair(res["list"], "8px") and res["search"]["img"] != "none"
+              and res["searchCaps"][:3] == [28, "999px", "0px"] and same_color(res["searchCaps"][3], res["listControl"]) and res["searchCaps"][4] == "none"
+              and res["searchCaps"] == res["searchCapsHover"]
               and hair(res["log"], "8px") and log_ok and hair(res["terms"], "8px") and hair(res["field"], "7px") and res["field"]["h"] <= 30
               and hair(res["keys"], "8px") and res["keySearch"][:3] == [28, "999px", "0px"] and same_color(res["keySearch"][3], res["control"])
               and res["keySearch"] == res["keySearchHover"])
@@ -3318,7 +3324,7 @@ def dialog_checks(m, results):
                   and (t["row"] is None or transparent(t["row"]) or same_color(t["row"], t["win"]))
                   and (transparent(t["th"]) or same_color(t["th"], t["win"])) and t["thLine"][0] != "0px")
         return ok, f"{res}"
-    check("Filterliste, Filterprotokoll, Suche, OpenPGP: Listen und Felder mit Haarlinie und Radius statt hartem Rahmen, Protokoll dunkel ohne weiße Fläche; Spaltenköpfe samt Spaltenwahl-Knopf mit Haarlinien statt Systemlinie; Schlüsselsuche als Kapsel ohne Hover", filter_windows, results)
+    check("Filterliste, Filterprotokoll, Suche, OpenPGP: Listen und Felder mit Haarlinie und Radius statt hartem Rahmen, Protokoll dunkel ohne weiße Fläche; Spaltenköpfe samt Spaltenwahl-Knopf mit Haarlinien statt Systemlinie; Suchfeld der Filterliste und Schlüsselsuche als Kapsel ohne Hover", filter_windows, results)
 
     def compact_icon():
         # „Ordner komprimieren?“: Fragezeichen in der Akzentfarbe statt schwarz (dunkel unsichtbar); nie „Compact now“
@@ -3345,14 +3351,19 @@ def dialog_checks(m, results):
           const t = tm.tabInfo.find(x => x.browser?.currentURI?.spec == "about:downloads"); if (!t) throw new Error("Tab fehlt");
           try { const dd = t.browser.contentDocument; await till(() => dd.getElementById("clearDownloads") && dd.defaultView.__mcTheme, 5000); await ruhig(400);
             const b = csOf(dd.getElementById("clearDownloads")), l = csOf(dd.getElementById("msgDownloadsRichListBox"));
-            return { theme: !!dd.defaultView.__mcTheme, radius: b.borderTopLeftRadius, bg: b.backgroundColor, control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
+            // Suchfeld als Kapsel ohne Rand mit Knopffläche, ohne Hover-Zustand
+            const sb = dd.getElementById("searchBox"), sbs = () => { const s = csOf(sb); return [Math.round(sb.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor, s.boxShadow]; };
+            const search = sbs(); InspectorUtils.addPseudoClassLock(sb, ":hover"); const searchHover = sbs(); InspectorUtils.removePseudoClassLock(sb, ":hover");
+            return { theme: !!dd.defaultView.__mcTheme, search, searchHover, radius: b.borderTopLeftRadius, bg: b.backgroundColor, control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
                      body: csOf(dd.body).backgroundColor, window: colorOf(dd, "var(--mt-window)", "backgroundColor"), list: [l.borderTopLeftRadius, l.borderTopColor],
                      paneLine: colorOf(dd, "var(--mt-pane-line)") };
           } finally { tm.closeTab(t); await ruhig(300); }""")
         ok = (res["theme"] and res["radius"] == "999px" and same_color(res["bg"], res["control"]) and same_color(res["body"], res["window"])
-              and not same_color(res["body"], "rgb(26, 32, 44)") and res["list"][0] == "8px" and same_color(res["list"][1], res["paneLine"]))
+              and not same_color(res["body"], "rgb(26, 32, 44)") and res["list"][0] == "8px" and same_color(res["list"][1], res["paneLine"])
+              and res["search"][:3] == [28, "999px", "0px"] and same_color(res["search"][3], res["control"]) and res["search"][4] == "none"
+              and res["search"] == res["searchHover"])
         return ok, f"{res}"
-    check("Gespeicherte Dateien: Design auch in about:downloads – Kapsel-Knopf, Fensterfarbe, Liste mit Haarlinie", downloads, results)
+    check("Gespeicherte Dateien: Design auch in about:downloads – Kapsel-Knopf, Fensterfarbe, Liste mit Haarlinie, Suchfeld als Kapsel ohne Hover-Zustand", downloads, results)
 
     def support_page():
         # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau

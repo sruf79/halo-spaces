@@ -3877,11 +3877,23 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   background-color: var(--mt-control-hover) !important;
 }
 
-#aboutDownloads #searchBox {
-  border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 7px !important;
-  background-color: var(--mt-window) !important;
+/* Suchfelder in Gespeicherte Dateien und Filterliste als Kapsel ohne Rand mit
+   Knopffläche wie die übrigen Suchfelder, ohne Hover-Zustand (Thunderbirds
+   stärkerer Schatten bei .themeableSearchBox:hover entfällt) – erst der
+   Fokus zeigt den Ring. Die Lupe (Hintergrundbild) bleibt */
+#aboutDownloads #searchBox,
+#aboutDownloads #searchBox:hover,
+#filterListDialog #searchBox,
+#filterListDialog #searchBox:hover {
+  appearance: none !important;
+  box-sizing: border-box !important;
+  min-height: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
+  box-shadow: none !important;
 }
 
 #aboutDownloads #msgDownloadsRichListBox {

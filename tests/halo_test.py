@@ -14080,6 +14080,28 @@ Neu
         return ok, f"{res}"
     check("Tooltips: eigene Fläche mit lesbarer Schrift", tooltip_style, results)
 
+    def search_no_hover():
+        # Suchfelder ohne Hover-Zustand (Entscheidung des Maintainers, AGENTS.md → CSS): Feld und Lupe
+        # ändern beim Überfahren weder Fläche noch Rand, Schatten oder Farbe – früher bekam die Lupe der
+        # Suchleisten (Mailliste, Adressbuch) eine graue Fläche, Thunderbirds Suchfelder mehr Schatten
+        res = m.js(MESSAGE_JS + '''
+          const IU = InspectorUtils;
+          const look = el => { const c = el.ownerDocument.defaultView.getComputedStyle(el);
+            return [c.backgroundColor, c.borderTopColor, c.boxShadow, c.color, c.fill].join("|"); };
+          const fields = [d.querySelector("global-search-bar"), a3.document.getElementById("qfb-qs-textbox"),
+                          d.getElementById("unifinder-search-field"), d.getElementById("task-text-filter-field")].filter(Boolean);
+          const out = { n: fields.length, diff: [] };
+          for (const f of fields) {
+            for (const p of [f, ...(f.shadowRoot ? f.shadowRoot.querySelectorAll("input, #search-button") : [])]) {
+              const a = look(p); IU.addPseudoClassLock(f, ":hover"); IU.addPseudoClassLock(p, ":hover"); const b = look(p);
+              IU.removePseudoClassLock(p, ":hover"); IU.removePseudoClassLock(f, ":hover");
+              if (a != b) out.diff.push({ field: f.id || f.localName, el: p.id || p.localName, a, b });
+            }
+          }
+          return out;''')
+        return res.get("n", 0) >= 3 and not res.get("diff"), f"{res}"
+    check("Suchfelder: Feld und Lupe ohne Hover-Zustand (Toolbar, Mailliste, Kalender, Aufgaben)", search_no_hover, results)
+
     def space_tips():
         res = m.js('''
           return [...d.querySelectorAll("#spacesToolbar :is(#mailButton, #addressBookButton, #calendarButton, #tasksButton, #chatButton)")].map(b => b.title);''')

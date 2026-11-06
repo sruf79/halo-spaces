@@ -2874,6 +2874,20 @@ tooltip :is(description, label, .tooltip-label) {
   margin: 0 !important;
 }
 
+/* Suchfelder ohne Hover-Zustand: die Lupe der Suchleisten (Mailliste,
+   Adressbuch, Toolbar; im Schatten-DOM von search-bar) bekommt beim
+   Überfahren keine eigene Fläche, Thunderbirds Suchfelder keinen stärkeren
+   Schatten – erst der Fokus zeigt den Ring */
+#search-button.button-flat.icon-button:hover {
+  background-color: transparent !important;
+  color: inherit !important;
+  transition: none !important;
+}
+
+.themeableSearchBox:not([disabled]):hover {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
 menupopup > :is(menu, menuitem) {
   margin-inline: 5px !important;
   min-height: 22px !important;

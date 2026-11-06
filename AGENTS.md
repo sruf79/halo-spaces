@@ -39,7 +39,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
 | `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
-| `tests/ci-waechter.sh`, `tests/ci-warten.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14 |
+| `tests/ci-waechter.sh`, `tests/ci-warten.sh`, `tests/ci-noetig.sh` | rote CI-Läufe ins Board und aufs iPhone (alle 15 Min.); auf den CI-Lauf eines Commits warten, Abschnitt 14; braucht eine Änderung überhaupt CI (nur Thunderbird-Dateien) |
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
@@ -224,12 +224,23 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   damit rund 50 Minuten, mit Dunkelmodus rund 70. Solange er
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
-- Ausnahmen ohne Tests: Ein Push, der nur `*.md`, `store/` oder `LICENSE`
-  ändert, startet `test.yml` gar nicht (`paths-ignore`). Ein Push, der nur den
-  Release-Commit enthält (`updates.json` und die Versionszeile in
-  `manifest.json`, dazu ggf. Texte, `store/`, `release.sh`, `publish.sh`),
-  erkennt der Job `changes`, alle Testjobs werden übersprungen.
-  Diese Prüfungen nicht lockern; jede andere Änderung testet wie gewohnt.
+- **CI nur für Thunderbird** (Entscheidung des Maintainers vom 6.11.2026,
+  Sitzung neon, Wortlaut: „neue regelung: ab sofort benötigen änderungen an
+  den .md files oder an den settings der sessions keinerlei CI lauf mehr.
+  alle änderungen, die nichts mit thunderbird direkt zu tun haben, benötigen
+  keinen ci lauf mehr“): `test.yml` startet nur, wenn ein Push etwas ändert,
+  das Thunderbird direkt betrifft – `extension/`, `chrome/`, `icons/`,
+  `build.sh` und die Prüfungen, die die CI ausführt (`halo_test.py`,
+  `perf.js`, `update_test.py`, `testserver.py`, `adressen.py`,
+  `addon_lint.py`, `tests/logik/`); `.md` darin zählt nicht. Doku, Store,
+  `.claude/`, Abläufe auf neon (Nachtlauf, Wächter, Rundgang, Setup),
+  Release-Skripte und Workflows lösen keinen Lauf aus. Die Liste steht in
+  `paths:` in `test.yml` und gleich in `tests/ci-noetig.sh` (beide zusammen
+  ändern); `release.sh` und `ci-warten.sh` nutzen dieses Skript
+  (`ci-warten.sh` meldet dann „kein CI-Lauf nötig“, Exitcode 0). Ein Push, der
+  nur den Release-Commit enthält (`updates.json` und die Versionszeile in
+  `manifest.json`), erkennt der Job `changes`, alle Testjobs werden
+  übersprungen. Jede Thunderbird-Änderung testet wie gewohnt.
 - **Dunkelmodus nur bei Farben** (Entscheidung des Maintainers vom
   4.11.2026): Der Job `mac` testet dunkel nur, wenn seit dem zuletzt dunkel
   getesteten Stand Farben betroffen sind – Stilblätter (`*.css`), Symbole
@@ -417,8 +428,8 @@ beauftragen dafür neon (nach dem Push).
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests, ob
 dunkel lief), wenn hell (und ggf. dunkel) grün waren – oder die CI denselben Stand vollständig
 grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
-übersprungen, solange seitdem nur `*.md`, `release.sh`, `publish.sh`,
-`store/` oder `.github/workflows/` geändert wurden; `FORCE_TESTS=1` testet trotzdem). Bei einem
+übersprungen, solange seitdem nichts geändert wurde, was Thunderbird direkt
+betrifft (`tests/ci-noetig.sh`, siehe „CI nur für Thunderbird“); `FORCE_TESTS=1` testet trotzdem). Bei einem
 Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht
 ab. `publish.sh` veröffentlicht ohne passende Marke nicht. `SKIP_TESTS=1`
 ist nur zum Ausprobieren – ohne Marke kein Release.

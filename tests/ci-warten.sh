@@ -4,7 +4,7 @@
 # Für Nachtlauf und Wochenprüfung (tests/MAC-MINI.md Abschnitte 13 und 15): ein
 # Aufruf wartet höchstens <minuten>, dann wieder aufrufen, bis der Lauf fertig ist.
 #   tests/ci-warten.sh [<commit>] [<minuten>]     Standard: HEAD, 9 Minuten
-# Exitcode: 0 grün, 1 rot, 2 läuft noch, 3 abgebrochen, 4 kein Lauf zum Commit
+# Exitcode: 0 grün (oder kein Lauf nötig, tests/ci-noetig.sh), 1 rot, 2 läuft noch, 3 abgebrochen, 4 kein Lauf zum Commit
 emulate -L zsh
 path=(/opt/homebrew/bin /usr/local/bin $path)
 R=sruf79/halo-spaces
@@ -25,6 +25,18 @@ while true; do
     INFO=$(gh run view $RUN -R $R --json status,conclusion,createdAt,updatedAt \
       --jq '"\(.status) \(.conclusion) \((((.updatedAt | fromdate) - (.createdAt | fromdate)) / 60 | floor))"' 2>/dev/null)
     [[ ${INFO%% *} == completed ]] && break
+  fi
+  if [[ -z $RUN ]]; then
+    # Kein Lauf, weil seit dem letzten grün getesteten Stand nichts Thunderbird direkt
+    # betrifft (paths in test.yml, tests/ci-noetig.sh)? Dann gibt es nichts abzuwarten.
+    BASIS=""
+    for B in $(gh run list -R $R -w test.yml -b main -e push -s success -L 30 --json headSha --jq '.[].headSha' 2>/dev/null); do
+      [[ $B != $SHA ]] && git -C ${0:A:h:h} merge-base --is-ancestor $B $SHA 2>/dev/null && { BASIS=$B; break }
+    done
+    if [[ -n $BASIS ]] && ! $(dirname $0)/ci-noetig.sh $BASIS $SHA; then
+      print "Kein CI-Lauf nötig für ${SHA:0:7}: seit ${BASIS:0:7} nichts geändert, was Thunderbird direkt betrifft"
+      exit 0
+    fi
   fi
   if (( $(date +%s) >= BIS )); then
     if [[ -z $RUN ]]; then

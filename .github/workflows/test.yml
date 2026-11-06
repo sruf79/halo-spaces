@@ -4,13 +4,42 @@
 # und danach Windows 11 in der Parallels-VM auf demselben Mac (Job windows, ebenso).
 name: Test
 
-# Reine Doku- und Store-Änderungen lösen keinen Lauf aus (spart vor allem den Mac mini)
+# Nur Änderungen, die Thunderbird direkt betreffen, lösen einen Lauf aus: Paket,
+# Design, Symbole, Bauskript und die Prüfungen, die die CI selbst ausführt.
+# Doku, Store, Sitzungs-Einstellungen (.claude/), Abläufe auf neon und dieser
+# Workflow nicht (Entscheidung des Maintainers vom 6.11.2026, Wortlaut: „alle
+# änderungen, die nichts mit thunderbird direkt zu tun haben, benötigen keinen
+# ci lauf mehr“). Gleiche Liste in tests/ci-noetig.sh – bei Änderungen beide anpassen.
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'store/**', 'LICENSE']
+    paths:
+      - 'extension/**'
+      - 'chrome/**'
+      - 'icons/**'
+      - 'build.sh'
+      - 'tests/halo_test.py'
+      - 'tests/perf.js'
+      - 'tests/update_test.py'
+      - 'tests/testserver.py'
+      - 'tests/adressen.py'
+      - 'tests/addon_lint.py'
+      - 'tests/logik/**'
+      - '!**.md'
   pull_request:
-    paths-ignore: ['**.md', 'store/**', 'LICENSE']
+    paths:
+      - 'extension/**'
+      - 'chrome/**'
+      - 'icons/**'
+      - 'build.sh'
+      - 'tests/halo_test.py'
+      - 'tests/perf.js'
+      - 'tests/update_test.py'
+      - 'tests/testserver.py'
+      - 'tests/adressen.py'
+      - 'tests/addon_lint.py'
+      - 'tests/logik/**'
+      - '!**.md'
   # Von Hand auch gezielt: nur bestimmte Prüfungen und/oder nur ein System –
   # für Fehlersuche ohne volle Runde. Ein gezielter Lauf zählt nicht als
   # vollständig grün (release.sh, Nachtlauf), erkennbar am Schritt

@@ -3719,6 +3719,44 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   }
 }
 
+/* „About Thunderbird“: eine ruhige Fläche in Fensterfarbe statt grauem Kopf
+   über weißer Linkleiste, ohne Codename-Plakette; Links in der Akzentfarbe
+   ohne Unterstreichung, Update-Knöpfe 30 px als Kapsel */
+#aboutDialog {
+  --dialog-background: var(--mt-window) !important;
+  --client-box-background: var(--mt-window) !important;
+  --dialog-box-color: var(--mt-text) !important;
+  --link-color: var(--mt-accent) !important;
+  --link-decoration: none !important;
+}
+
+#aboutDialog #codenameLogo {
+  display: none !important;
+}
+
+#aboutDialog #bottomBox {
+  border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
+#aboutDialog #trademark {
+  color: var(--mt-text-secondary) !important;
+}
+
+#aboutDialog #updateDeck button {
+  appearance: none !important;
+  min-height: 30px !important;
+  padding-block: 0 !important;
+  padding-inline: 14px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+  color: var(--mt-text) !important;
+}
+
+#aboutDialog #updateDeck button:not([disabled]):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
 /* Gespeicherte Dateien (about:downloads): Fläche, Knopf, Suchfeld und Liste
    wie im übrigen Design statt eckigem Toolkit-Grau (dunkel Navy-Grund) */
 #aboutDownloads,

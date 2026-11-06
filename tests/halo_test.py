@@ -3329,6 +3329,27 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Konfiguration: Knöpfe und Suchfeld in about:config als 28-px-Kapsel, Suchfeld ohne Hover", config_page, results)
 
+    def about_dialog():
+        # „About Thunderbird“: Kopf und Linkleiste in Fensterfarbe (kein grauer Kopf über weißer Leiste), keine
+        # Codename-Plakette, Links in Akzentfarbe ohne Unterstreichung, Update-Knöpfe 30 px als Kapsel
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          later(() => w.openAboutDialog());
+          const dw = await winUrl("aboutDialog.xhtml"); if (!dw) throw new Error("About-Fenster nicht offen");
+          try { const dd = dw.document; await bis(() => dd.getElementById("version")?.textContent && dw.__mcTheme, "About-Fenster mit Design", 8000); await ruhig(300);
+            const cs = id => csOf(dd.getElementById(id));
+            const link = dd.querySelector("#bottomBox .text-link"), ls = csOf(link), btn = cs("checkForUpdatesButton");
+            return { head: cs("aboutDialogContainer").backgroundColor, client: cs("clientBox").backgroundColor,
+                     codename: cs("codenameLogo").display, link: ls.color, deco: ls.textDecorationLine,
+                     btn: [btn.minHeight, btn.borderTopLeftRadius, btn.backgroundColor],
+                     window: colorOf(dd, "var(--mt-window)", "backgroundColor"), accent: colorOf(dd, "var(--mt-accent)"),
+                     control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
+          } finally { dw.close(); await ruhig(300); }""")
+        ok = (same_color(res["head"], res["window"]) and same_color(res["client"], res["window"]) and res["codename"] == "none"
+              and same_color(res["link"], res["accent"]) and res["deco"] == "none"
+              and res["btn"][:2] == ["30px", "999px"] and same_color(res["btn"][2], res["control"]))
+        return ok, f"{res}"
+    check("Über Thunderbird: eine Fläche in Fensterfarbe ohne Codename-Plakette, Links ohne Unterstreichung, Knöpfe als Kapsel", about_dialog, results)
+
     def import_export():
         # Import und Export (about:import): Fläche in Fensterfarbe wie die übrigen Tabs, dunkel nicht Firefox-Blauschwarz #18181B
         # (der leichte Schleier des body bleibt, damit sich hell die weiße Karte abhebt)

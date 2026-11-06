@@ -458,7 +458,9 @@ rc_plist() {
 </plist>
 EOF
 }
-# Skripte der Remote-Control-Sitzungen neon und neon-board nach
+# Skripte der Remote-Control-Sitzungen neon und neon-board (und die Vorprüfungen
+# vorpruefung.zsh für Nachtlauf, Rundgang und Doku-Prüfung sowie
+# github-vorpruefung.sh für die GitHub-Kommunikation) nach
 # ~/.config/halo-spaces/ (Entscheidung des Maintainers vom 6.11.2026, Sitzung
 # global.design.comparison, Wortlaut: „ja selbst übernehmen“): nur geänderte
 # Dateien, ersetzt über eine neue Datei (mv) statt überschrieben; laufende
@@ -466,7 +468,8 @@ EOF
 # nächsten Start. --check meldet veraltete Kopien nur.
 SK_DIR=$HOME/.config/halo-spaces
 SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
-          board.sh board.sh neon-stand.sh neon-stand.sh)
+          board.sh board.sh neon-stand.sh neon-stand.sh
+          vorpruefung.zsh vorpruefung.zsh github-vorpruefung.sh github-vorpruefung.sh)
 skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
   local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
   for q z in $SK_PAARE; do

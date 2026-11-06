@@ -14315,11 +14315,15 @@ Neu
     check("Vorschau: HTML-Zeichen (&zwnj; …) aufgelöst", preview_entities, results)
 
     def tooltip_style():
-        # eigene Tooltip-Fläche (sonst dunkle Schrift auf dunklem macOS-Tooltip)
+        # Tooltips nativ wie im System (keine eigene Fläche, kein Radius) – auch an der Toolbar;
+        # Schrift und Fläche aus denselben Systemfarben, also lesbar hell wie dunkel
+        # (früher dunkle Schrift auf dunklem Tooltip). Der Termin-Tooltip im Kalender ist eine eigene Prüfung.
         res = m.js(MESSAGE_JS + '''
           const md = a3.messageBrowser.contentDocument;
           const out = {};
-          for (const [name, tip] of [["mail", d.getElementById("aHTMLTooltip")], ["message", md.getElementById("aHTMLTooltip")]]) {
+          const tips = [["mail", d.getElementById("aHTMLTooltip")], ["message", md.getElementById("aHTMLTooltip")],
+                        ...[d, a3.document].flatMap(x => [...x.querySelectorAll("tooltip[default]")]).map((t, i) => ["default" + i, t])];
+          for (const [name, tip] of tips) {
             if (!tip) continue;
             const cs = tip.ownerDocument.defaultView.getComputedStyle(tip);
             out[name] = { app: cs.appearance, bg: cs.backgroundColor, color: cs.color, radius: cs.borderTopLeftRadius };
@@ -14327,11 +14331,12 @@ Neu
           const li = md.querySelector("#messageHeader li.header-recipient");
           out.title = li?.title;
           return out;''')
-        tips = [res.get("mail"), res.get("message")]
-        ok = all(t and t["app"] == "none" and t["bg"] not in ("", "transparent", "rgba(0, 0, 0, 0)") and t["radius"] == "6px" for t in tips) \
-            and "@" in (res.get("title") or "")
-        return ok, f"{res}"
-    check("Tooltips: eigene Fläche mit lesbarer Schrift", tooltip_style, results)
+        tips = {k: v for k, v in res.items() if isinstance(v, dict)}
+        bad = [k for k, t in tips.items()
+               if t["app"] == "none" or t["radius"] not in ("0px", "") or contrast(t["color"], t["bg"]) < 4.5]
+        ok = "mail" in tips and "message" in tips and not bad and "@" in (res.get("title") or "")
+        return ok, f"abweichend={bad} " + ", ".join(f"{k}: Kontrast {contrast(t['color'], t['bg']):.1f}" for k, t in tips.items()) + f" {res}"
+    check("Tooltips: nativ wie im System mit lesbarer Schrift", tooltip_style, results)
 
     def search_no_hover():
         # Suchfelder ohne Hover-Zustand (Entscheidung des Maintainers, AGENTS.md → CSS): Feld und Lupe

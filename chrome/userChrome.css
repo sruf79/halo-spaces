@@ -2906,25 +2906,11 @@ menupopup:not(.autoscroller) {
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
-/* Tooltips mit eigener Fläche: der native macOS-Tooltip folgt dem System,
-   die Schrift aber der in halo.spaces gewählten Darstellung – bei „Hell“
-   in dunklem macOS stand dunkle Schrift auf dunklem Grund */
-tooltip {
-  appearance: none !important;
-  background: var(--mt-tooltip-bg, #FFFFFF) !important;
-  color: var(--mt-text, #1D1D1F) !important;
-  border: 0.5px solid var(--mt-tooltip-border, rgba(0, 0, 0, 0.15)) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-  padding: 3px 7px !important;
-  font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font, -apple-system) !important;
-}
-
-tooltip :is(description, label, .tooltip-label) {
-  color: inherit !important;
-  background: transparent !important;
-  margin: 0 !important;
-}
+/* Tooltips bleiben der native Tooltip des Systems – überall
+   gleich, auch an der Toolbar. Keine eigene Schriftfarbe: Fläche und Schrift
+   kommen beide aus den Systemfarben (InfoBackground/InfoText) derselben
+   Darstellung, so steht nie dunkle Schrift auf dunklem Grund. Ausnahme: der
+   Termin-Tooltip im Kalender (spaces.css) */
 
 /* Suchfelder ohne Hover-Zustand: die Lupe der Suchleisten (Mailliste,
    Adressbuch, Toolbar; im Schatten-DOM von search-bar) bekommt beim
@@ -14919,12 +14905,21 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Kalendername entfällt (zeigt die Farbe des Termins). Status und
    Organisator behalten ihren Feldnamen, aber grau statt fett */
 tooltip#itemTooltip {
+  appearance: none !important;
   background: var(--mt-menu-solid) !important;
-  border-color: transparent !important;
+  color: var(--mt-text) !important;
+  border: 0.5px solid transparent !important;
+  font-family: var(--mt-font, -apple-system) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
   padding: 5px 0 !important;
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+}
+
+#itemTooltip :is(description, label, .tooltip-label) {
+  color: inherit !important;
+  background: transparent !important;
+  margin: 0 !important;
 }
 
 #itemTooltip .tooltipBox {

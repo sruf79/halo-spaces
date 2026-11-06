@@ -10930,12 +10930,21 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Kalendername entfällt (zeigt die Farbe des Termins). Status und
    Organisator behalten ihren Feldnamen, aber grau statt fett */
 tooltip#itemTooltip {
+  appearance: none !important;
   background: var(--mt-menu-solid) !important;
-  border-color: transparent !important;
+  color: var(--mt-text) !important;
+  border: 0.5px solid transparent !important;
+  font-family: var(--mt-font, -apple-system) !important;
   border-radius: 12px !important;
   box-shadow: none !important;
   padding: 5px 0 !important;
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+}
+
+#itemTooltip :is(description, label, .tooltip-label) {
+  color: inherit !important;
+  background: transparent !important;
+  margin: 0 !important;
 }
 
 #itemTooltip .tooltipBox {

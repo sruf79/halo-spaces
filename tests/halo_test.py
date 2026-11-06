@@ -2930,13 +2930,18 @@ def compose_checks(m, results):
     check("Verfassen: Anpassen-Sheet als Panel in Sheet-Farbe (dunkel mit hellem Rand), ruhige Palette ohne Rahmen, Platzhalter gestrichelt und gerundet", customize, results)
 
     def compose_panels():
-        # Rand (und beim Anordnen-Panel die Fläche) neutral wie die Tooltips statt Thunderbirds bläulichem Panelgrau
+        # Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie in Popover-Randfarbe, Radius 20 – nie Thunderbirds bläuliches
+        # Panelgrau); Adressvorschläge als Menü (Systemmaterial mit Menüfläche, ohne eigenen Rand, Radius 12)
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, async (cw, cd) => {
             const val = (el, v) => { const x = csOf(el).getPropertyValue(v).trim(); return x ? colorOf(cd, x, "backgroundColor") : ""; };
-            const out = { border: colorOf(cd, "var(--mt-tooltip-border)", "backgroundColor"), bg: colorOf(cd, "var(--mt-tooltip-bg)", "backgroundColor") };
-            const look = p => p ? { border: val(p, "--panel-border-color"), bg: val(p, "--panel-background-color") } : null;
-            for (const id of ["reorderAttachmentsPanel"]) out[id] = look(cd.getElementById(id));
+            const out = { dark: cw.matchMedia("(prefers-color-scheme: dark)").matches,
+                          rim: colorOf(cd, "var(--mt-popover-border)", "backgroundColor"), pop: colorOf(cd, "var(--mt-popover-bg)", "backgroundColor"),
+                          menu: colorOf(cd, "var(--mt-menu-bg)", "backgroundColor") };
+            const look = p => { if (!p) return null; const r = { border: val(p, "--panel-border-color"), bg: val(p, "--panel-background-color"),
+                                  radius: parseFloat(csOf(p).getPropertyValue("--panel-border-radius")), appearance: csOf(p).appearance };
+              const c = p.shadowRoot?.querySelector('[part~="content"]'); if (c) r.bw = parseFloat(csOf(c).borderTopWidth); return r; };
+            out.reorder = look(cd.getElementById("reorderAttachmentsPanel"));
             // Adressvorschläge: die Empfängerfelder legen ein eigenes, namenloses Panel an (nicht #PopupAutoComplete) –
             // in das An-Feld tippen und das tatsächlich offene Panel messen, samt berechnetem Rand der Inhaltsfläche
             const inp = cd.querySelector(".address-row:not(.hidden) input.address-row-input, #toAddrInput");
@@ -2945,21 +2950,27 @@ def compose_checks(m, results):
             if (inp.popup.state != "open") inp.openPopup();
             const ac = await till(() => [...cd.querySelectorAll('panel[type="autocomplete-richlistbox"]')].find(p => p.state == "open"), 4000);
             out.autocomplete = look(ac);
-            if (ac) { out.autocomplete.id = ac.id; const c = ac.shadowRoot?.querySelector('[part~="content"]');
-              out.autocomplete.content = c ? csOf(c).borderTopColor : null; ac.hidePopup(); }
+            if (ac) { const c = ac.shadowRoot?.querySelector('[part~="content"]');
+              out.autocomplete.content = c ? csOf(c).borderTopColor : null;
+              out.autocomplete.list = csOf(ac.richlistbox).backgroundColor; ac.hidePopup(); }
             inp.value = ""; await ruhig(300);
             return out; });""")
-        ids = ["reorderAttachmentsPanel", "autocomplete"]  # Anpassen-Sheet: eigene Prüfung „Anpassen-Sheet als Panel …“
         # Thunderbirds Panelrand #5e7799 / #91939f und Panelfläche #262d3b (Deckkraft egal)
         rgb = lambda c: "rgb(" + ", ".join(__import__("re").findall(r"-?[\d.]+", c or "")[:3]) + ")"
         bluish = lambda c: any(same_color(rgb(c), t, 4) for t in ["rgb(94, 119, 153)", "rgb(145, 147, 159)", "rgb(38, 45, 59)"])
-        ac = res.get("autocomplete") or {}
-        # Adressvorschläge: auch die Fläche unter der halbtransparenten Haarlinie neutral (sonst färbt sie den Rand bläulich)
-        ok = (ac.get("bg") and not bluish(ac["bg"]) and all(res.get(i) and same_color(res[i]["border"], res["border"]) and not bluish(res[i]["border"]) for i in ids)
-              and (ac.get("content") is None or (same_color(ac["content"], res["border"]) and not bluish(ac["content"])))
-              and same_color(res["reorderAttachmentsPanel"]["bg"], res["bg"]) and not bluish(res["reorderAttachmentsPanel"]["bg"]))
-        return ok, f"{res}"
-    check("Verfassen: Anhänge-anordnen-Panel neutral wie Tooltips, Adressvorschläge mit Haarlinie statt bläulichem Rand", compose_panels, results)
+        r, ac = res.get("reorder") or {}, res.get("autocomplete") or {}
+        dark = res.get("dark")
+        tokens = (same_color(res["pop"], "rgb(26, 26, 26)" if dark else "rgb(249, 249, 249)")
+                  and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if dark else "rgb(219, 219, 219)")
+                  and same_color(res["menu"], "rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)"))
+        reorder_ok = (bool(r) and same_color(r["bg"], res["pop"]) and same_color(r["border"], res["rim"]) and r.get("radius") == 20
+                      and 0 < (r.get("bw") or 0) <= 1 and not bluish(r["bg"]))
+        ac_ok = (bool(ac) and same_color(ac["bg"], res["menu"]) and rgba_alpha(ac["border"]) == 0 and ac.get("radius") == 12
+                 and (sys.platform != "darwin" or ac.get("appearance") == "auto")
+                 and (ac.get("content") is None or rgba_alpha(ac["content"]) == 0 or not bluish(ac["content"]))
+                 and rgba_alpha(ac.get("list")) == 0)
+        return tokens and reorder_ok and ac_ok, f"{res}"
+    check("Verfassen: Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie, Radius 20), Adressvorschläge als Menü ohne bläulichen Rand", compose_panels, results)
 
     def format_toolbox():
         # Reintext: Thunderbird blendet nur die Formatleiste aus – die leere Box darf keine zweite Linie unter den Betreff legen;
@@ -4532,7 +4543,7 @@ def calendar_checks(m, results):
     check("Woche/Tag: Termine mit frei stehendem, rundem Farbstrich wie in der Monatsansicht (keine Klammer), ausgewählt weiß", event_stripe, results)
 
     def event_tooltip():
-        # Tooltip eines Termins wie die übrigen Popups (12 px, Menüfläche, ohne Rand und Schatten);
+        # Tooltip eines Termins wie die übrigen Popups (12 px, deckende Menüfläche, ohne Rand und Schatten);
         # Titel fett oben, Zeit und Ort ohne Feldnamen, kein Kalendername
         res = m.js(CAL_CHECK_JS + r"""
           const e = new CalEvent(); e.title = "Halo Tooltiptermin"; e.calendar = testCalendar(); e.setProperty("LOCATION", "Wien");
@@ -4546,7 +4557,8 @@ def calendar_checks(m, results):
           const cs = csOf(tip);
           const rows = [...tip.querySelectorAll(".tooltipHeaderTable tr")].map(tr => ({ id: tr.querySelector("th").dataset.l10nId,
             shown: vis(tr), label: vis(tr.querySelector("th")), weight: csOf(tr).fontWeight, top: Math.round(tr.getBoundingClientRect().top) }));
-          return { radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, menu: colorOf(d, "var(--mt-menu-bg)", "backgroundColor"),
+          // deckende Menüfläche: ein Tooltip hat keine Unschärfe dahinter, die halbtransparente Menüfläche wäre dunkel durchsichtig
+          return { radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, menu: colorOf(d, "var(--mt-menu-solid)", "backgroundColor"),
                    shadow: cs.boxShadow, border: cs.borderTopColor, rows, open: tip.state };
           } finally { tip.hidePopup(); }""")
         rows = {r["id"]: r for r in res.get("rows", [])}
@@ -4605,8 +4617,9 @@ def calendar_checks(m, results):
     check("Woche: Rasterlinien als Haarlinie (Zeitleiste, Ganztags-Zeile, ausgewählte Spalte ohne doppelte Linie)", grid_lines, results)
 
     def quick_panel_surfaces():
-        # Schnellfenster in der deckenden Popover-Fläche ohne Rand (dunkel sonst navyblau); Datumsauswahl als ein
-        # Popover ohne harte Ränder, Auswahl in Akzentfarbe; Auswahlliste ohne Kachel-Flächen je Zeile
+        # Schnellfenster in der deckenden Popover-Fläche (hell #F9F9F9, dunkel #1A1A1A) mit Haarlinie in der
+        # Popover-Randfarbe (hell #DBDBDB, dunkel #A6A6A6 80 %); Datumsauswahl als ein Popover ohne harte Ränder,
+        # Auswahl in Akzentfarbe; Auswahlliste ohne Kachel-Flächen je Zeile
         res = m.js(CAL_CHECK_JS + r"""
           await toWeek();
           const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(vis);
@@ -4614,7 +4627,7 @@ def calendar_checks(m, results):
           const qp = await till(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, 4000);
           if (!qp) return { open: false, visibility: d.visibilityState };
           await ruhig(300);
-          const out = { open: true, dark, token: colorOf(d, "var(--mt-popover-bg)", "backgroundColor") };
+          const out = { open: true, dark, token: colorOf(d, "var(--mt-popover-bg)", "backgroundColor"), rim: colorOf(d, "var(--mt-popover-border)") };
           try {
             const pc = csOf(partOf(qp)); out.panel = { bg: pc.backgroundColor, border: pc.borderTopColor, bw: pc.borderTopWidth };
             const f = qp.__mc; if (!vis(f.startDate)) { f.summary.click(); await ruhig(600); }
@@ -4659,13 +4672,15 @@ def calendar_checks(m, results):
             return res.get("visibility") == "hidden", f"Schnellfenster nicht offen {res}"
         p, k = res["panel"], res.get("picker") or {}
         no_border = lambda c, wd: wd == "0px" or rgba_alpha(c) == 0
-        ok = (no_border(p["border"], p["bw"]) and same_color(p["bg"], res["token"])
-              and same_color(res["token"], "rgb(44, 44, 46)" if res["dark"] else "rgb(251, 251, 252)")
+        hair = lambda wd: 0 < float(wd.rstrip("px") or 0) <= 1
+        ok = (hair(p["bw"]) and same_color(p["border"], res["rim"]) and same_color(p["bg"], res["token"])
+              and same_color(res["token"], "rgb(26, 26, 26)" if res["dark"] else "rgb(249, 249, 249)")
+              and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if res["dark"] else "rgb(219, 219, 219)")
               and bool(k) and no_border(k["border"], k["bw"]) and same_color(k["bg"], k["body"])
               and rgba_alpha(k["month"]) == 0 and rgba_alpha(k["clear"]) == 0 and (k["sel"] is None or same_color(k["sel"], k["accent"]))
               and bool(res.get("select")) and all(rgba_alpha(c) == 0 for c in res["select"]))
         return ok, f"{res}"
-    check("Schnellfenster: deckende Fläche ohne Rand; Datumsauswahl ein Popover ohne harte Ränder; Auswahlliste ohne Kacheln", quick_panel_surfaces, results)
+    check("Schnellfenster: deckende Popover-Fläche mit Haarlinie; Datumsauswahl ein Popover ohne harte Ränder; Auswahlliste ohne Kacheln", quick_panel_surfaces, results)
 
     def new_popup_arrow():
         # „+“ der Today-Pane: Pfeil des Popovers über der Mitte des Knopfs (früher 240 px daneben) – auch am Bildschirmrand
@@ -4685,6 +4700,7 @@ def calendar_checks(m, results):
             const a = { left: w.mozInnerScreenX + a0.left, right: w.mozInnerScreenX + a0.right, width: a0.width };
             const arrow = b.left + parseFloat(csOf(box, "::before").left) + 7, mid = a.left + a.width / 2;
             const r = { open: true, diff: Math.round(arrow - mid), inL: Math.round(arrow - b.left), inR: Math.round(b.right - arrow), bg: csOf(box).backgroundColor,
+                        rim: [csOf(box).borderTopColor, parseFloat(csOf(box).borderTopWidth), parseFloat(csOf(box).borderTopLeftRadius)],
                         overButton: arrow >= a.left + 4 && arrow <= a.right - 4,
                         // Diagnose in Bildschirmkoordinaten: Bildschirm, Fenster, Popover und Knopf
                         screen: [w.screen.availLeft, w.screen.availWidth], win: [w.screenX, w.outerWidth],
@@ -4702,16 +4718,18 @@ def calendar_checks(m, results):
           if (Math.abs(shift) > 2) { w.moveTo(w.screenX + Math.round(shift), w.screen.availTop); await pause(800); }
           out.edge = await measure();
           w.moveTo(sx, sy); w.resizeTo(sw, sh); await pause(800);
-          out.token = colorOf(d, "var(--mt-popover-bg)", "backgroundColor");
+          out.token = colorOf(d, "var(--mt-popover-bg)", "backgroundColor"); out.rimToken = colorOf(d, "var(--mt-popover-border)", "backgroundColor");
           return out;""")
         shots = [res["left"], res["edge"]]
         if any(not s["open"] for s in shots) and res["visibility"] == "hidden":
             return True, f"Testfenster verdeckt – übersprungen {res}"
         # am Bildschirmrand bleibt der Pfeil vor der runden Ecke – dann zumindest über dem Knopf
-        ok = all(s["open"] and s["inL"] >= 20 and s["inR"] >= 20 and same_color(s["bg"], res["token"]) for s in shots) \
+        # Popover-Fläche mit Haarlinie in Popover-Randfarbe und Radius 20
+        ok = all(s["open"] and s["inL"] >= 20 and s["inR"] >= 20 and same_color(s["bg"], res["token"])
+                 and same_color(s["rim"][0], res["rimToken"]) and 0 < s["rim"][1] <= 1 and s["rim"][2] == 20 for s in shots) \
             and abs(res["left"]["diff"]) <= 3 and (abs(res["edge"]["diff"]) <= 3 or res["edge"]["overButton"])
         return ok, f"{res}"
-    check("Today-Pane: Pfeil des „+“-Popovers über der Mitte des Knopfs (auch am Bildschirmrand)", new_popup_arrow, results)
+    check("Today-Pane: Pfeil des „+“-Popovers über der Mitte des Knopfs (auch am Bildschirmrand), Popover-Fläche mit Haarlinie und Radius 20", new_popup_arrow, results)
 
     def event_dialog():
         # Termin-Dialog: Schrift 13 px (Beschriftungen, Felder, Beschreibung in der Systemschrift), Abstand Beschriftung–Feld;
@@ -4757,6 +4775,10 @@ def calendar_checks(m, results):
             const openTime = async () => { tml.open = true; await till(() => panels().some(p => p.state == "open" || p.state == "showing"), 3000); await ruhig(400);
               return panels().find(p => p.state != "closed") || panels()[0]; };
             const panel = await openTime(), inp = panel?.querySelector(".mc-dtp-time input");
+            // Popover-Fläche: deckend, Haarlinie in Popover-Randfarbe, Radius 20
+            const pc = panel?.shadowRoot?.querySelector('[part~="content"]'), want = v => colorOf(id, v, "backgroundColor");
+            out.surface = pc && { bg: csOf(pc).backgroundColor, border: csOf(pc).borderTopColor, bw: parseFloat(csOf(pc).borderTopWidth),
+                                  radius: parseFloat(csOf(pc).borderTopLeftRadius), pop: want("var(--mt-popover-bg)"), rim: want("var(--mt-popover-border)") };
             out.time = { grid: tml.menupopup.state, date: dml.menupopup.state, dateRow: !!dml.menupopup.querySelector(".mc-dtp-time"), panel: panel?.state,
                          focus: id.activeElement == inp || !!inp?.matches(":focus"), label: panel?.querySelector(".mc-dtp-time")?.textContent.trim(), value: inp?.value };
             if (inp) { inp.value = "14:35"; inp.dispatchEvent(new iw.Event("input", { bubbles: true })); await ruhig(400);
@@ -4792,8 +4814,10 @@ def calendar_checks(m, results):
               and bool(tp) and tp["grid"] == "closed" and tp["date"] == "closed" and not tp["dateRow"] and tp["label"] == "Time"
               and tp.get("after") == [14, 35] and tp.get("dur") == tp.get("durBefore") and tp.get("arrow") == [15, 35]
               and tp.get("wheelHour") == [16, 35] and tp.get("wheelMinute") == [16, 34] and tp.get("popoverWheel") == [[16, 36], "16:36"])
+        sf = res.get("surface") or {}
+        ok = ok and bool(sf) and same_color(sf["bg"], sf["pop"]) and same_color(sf["border"], sf["rim"]) and 0 < sf["bw"] <= 1 and sf["radius"] == 20
         return ok, f"{res}"
-    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit-Popover nur für die Uhrzeit, Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
+    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit-Popover (Popover-Fläche, Haarlinie, Radius 20) nur für die Uhrzeit, Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
     def event_multiday():
         # mehrtägige Termine wie Apple Kalender: Ende ändern lässt den Beginn stehen (vorher schob die dauerhaft

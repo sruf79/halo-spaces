@@ -11,7 +11,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root :is(menupopup:not(.autoscroller), #PopupGlodaAutocomplete) {
-    --panel-background-color: #28282A !important;
+    /* Menüfläche dunkel (#5A5A5A 50 %) deckend über der Fensterfarbe */
+    --panel-background-color: #3C3C3C !important;
     --panel-border-color: rgba(255, 255, 255, 0.12) !important;
     --panel-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
   }

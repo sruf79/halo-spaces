@@ -31,8 +31,16 @@
   --mt-radius-row: 10px;
   --mt-menu-bg: rgba(246, 246, 248, 0.80);
   --mt-tooltip-bg: #FFFFFF;
-  /* deckende Popover-Fläche (Schnellfenster, „+“-Popover, Datumsauswahl) */
-  --mt-popover-bg: #FBFBFC;
+  /* Popover wie macOS 27 („Liquid Glass Regular – Medium“, Radius 20) als
+     deckende Näherung, weil Panels hier keine Unschärfe dahinter haben:
+     Füllungen weiß 70 % und #BFBFBF 10 % über Weiß, Rand #DBDBDB; den Schatten
+     zeichnet unter macOS das System (Fensterschatten). Gilt für Schnellfenster,
+     „+“-Popover, Uhrzeit-Popover, „Anhänge anordnen“ und die Datumsauswahl */
+  --mt-popover-bg: #F9F9F9;
+  --mt-popover-border: #DBDBDB;
+  --mt-popover-radius: 20px;
+  /* deckende Menüfläche ohne Unschärfe (Termin-Tooltip, Option „Solid menus“) */
+  --mt-menu-solid: #F6F6F8;
   --mt-tooltip-border: rgba(0, 0, 0, 0.15);
   /* Rand der Farbfelder (Text-/Hintergrundfarbe in der Formatleiste) */
   --mt-swatch-border: rgba(0, 0, 0, 0.25);
@@ -96,9 +104,17 @@
     --mt-control: rgba(255, 255, 255, 0.07);
     --mt-control-hover: rgba(255, 255, 255, 0.12);
     --mt-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.35);
-    --mt-menu-bg: rgba(40, 40, 42, 0.80);
+    /* Menüfläche wie macOS 27 („Liquid Glass / Menus“ dunkel: #5A5A5A
+       50 %) über der Unschärfe des Systems; hell bleibt sie heller als die
+       Vorgabe (#E6E6E6 55 % wirkt über der Unschärfe grauer als die Menüs
+       des Systems) */
+    --mt-menu-bg: rgba(90, 90, 90, 0.5);
+    /* dieselbe Fläche deckend über der Fensterfarbe #1E1E1E */
+    --mt-menu-solid: #3C3C3C;
     --mt-tooltip-bg: #2C2C2E;
-    --mt-popover-bg: #2C2C2E;
+    /* Popover dunkel: Füllung #1A1A1A, Rand #A6A6A6 80 % */
+    --mt-popover-bg: #1A1A1A;
+    --mt-popover-border: rgba(166, 166, 166, 0.8);
     --mt-tooltip-border: rgba(255, 255, 255, 0.14);
     --mt-swatch-border: rgba(255, 255, 255, 0.30);
     --mt-check-bg: rgba(255, 255, 255, 0.08);
@@ -2993,13 +3009,23 @@ panel {
   --panel-border-radius: 12px !important;
 }
 
-/* Panel „Kontakt bearbeiten“ aus dem Mailkopf und Panel „Anhänge anordnen“
-   im Verfassen-Fenster: neutrale Fläche wie die Tooltips statt Thunderbirds
-   bläulichem Grau mit hartem Rand */
-#editContactPanel,
-#reorderAttachmentsPanel {
+/* Panel „Kontakt bearbeiten“ aus dem Mailkopf: neutrale Fläche wie die
+   Tooltips statt Thunderbirds bläulichem Grau mit hartem Rand */
+#editContactPanel {
   --panel-background-color: var(--mt-tooltip-bg) !important;
   --panel-border-color: var(--mt-tooltip-border) !important;
+}
+
+/* Panel „Anhänge anordnen“ im Verfassen-Fenster: ein Popover wie macOS 27 –
+   Popover-Fläche, Rand als Haarlinie, Radius 20 (Schatten vom System) */
+#reorderAttachmentsPanel {
+  --panel-background-color: var(--mt-popover-bg) !important;
+  --panel-border-color: var(--mt-popover-border) !important;
+  --panel-border-radius: var(--mt-popover-radius) !important;
+}
+
+#reorderAttachmentsPanel::part(content) {
+  border-width: var(--mt-hairline) !important;
 }
 
 /* Vorschlagsliste der Suche oben (Kalender, Chat, Inhalts-Tabs) wie die
@@ -3050,20 +3076,25 @@ panel {
   color: inherit !important;
 }
 
-/* Adressvorschläge im Verfassen-Fenster: Haarlinie statt bläulichem Panelrand
-   (die Fläche zeigt die Liste selbst, sie ist schon neutral). Die
-   Empfängerfelder haben kein autocompletepopup-Attribut und legen ein eigenes,
-   namenloses Panel an – deshalb auch über den Typ; Gloda hat einen eigenen Typ */
+/* Adressvorschläge im Verfassen-Fenster wie die übrigen Menüs: durchscheinende
+   Menüfläche über der Unschärfe von macOS, Rand und Schatten vom System statt
+   weißer bzw. bläulicher Fläche mit Haarlinie. Die Empfängerfelder haben kein
+   autocompletepopup-Attribut und legen ein eigenes, namenloses Panel an –
+   deshalb auch über den Typ; Gloda hat einen eigenen Typ */
 #PopupAutoComplete,
 panel[type="autocomplete-richlistbox"] {
-  --panel-border-color: var(--mt-tooltip-border) !important;
+  appearance: auto !important;
+  -moz-default-appearance: menupopup !important;
+  --panel-background-color: var(--mt-menu-bg) !important;
+  --panel-border-color: transparent !important;
+  --panel-border-radius: 12px !important;
+  --panel-padding: 5px 0 !important;
 }
 
-/* die halbtransparente Haarlinie liegt auf der Panelfläche – dunkel ist die
-   bläulich (#262d3b) und färbt den Rand mit; die Liste darüber hat ohnehin
-   die Fensterfarbe */
-panel[type="autocomplete-richlistbox"] {
-  --panel-background-color: var(--mt-window) !important;
+/* die Liste selbst ohne eigene Fläche (sonst deckte sie die Menüfläche zu) */
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]) > richlistbox {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Symbolzeile oben im Nachrichten-Kontextmenü immer ausgeblendet; die
@@ -3350,7 +3381,7 @@ unified-toolbar {
   max-width: 340px;
   padding: 6px 6px 6px 14px;
   border-radius: 999px;
-  background: var(--mt-popover-bg, var(--mt-window));
+  background: var(--mt-tooltip-bg, var(--mt-window));
   box-shadow: 0 0 0 0.5px var(--mt-tooltip-border, rgba(0, 0, 0, 0.15)), 0 6px 20px rgba(0, 0, 0, 0.18);
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font);
   color: var(--mt-text);
@@ -7350,12 +7381,12 @@ splitter.splitter:has(+ .conv-bottom) {
    Inhalt: deckend mit Schatten, damit beim Scrollen nichts durchscheint
    (ganz unten endet die letzte Gruppe schon über ihm, 40 px Innenabstand) */
 :root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden] {
-  background: linear-gradient(var(--mt-control), var(--mt-control)), var(--mt-popover-bg) !important;
+  background: linear-gradient(var(--mt-control), var(--mt-control)), var(--mt-tooltip-bg) !important;
   box-shadow: var(--mt-shadow) !important;
 }
 
 :root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden]:hover {
-  background: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)), var(--mt-popover-bg) !important;
+  background: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)), var(--mt-tooltip-bg) !important;
 }
 
 #pref-category-box {
@@ -12063,9 +12094,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   gap: 8px !important;
   margin: 18px 18px 22px !important;
   padding: 16px 14px 14px !important;
-  border-radius: 18px !important;
+  border-radius: var(--mt-popover-radius) !important;
   background: var(--mc-pop-bg) !important;
-  border: 0.5px solid rgba(0, 0, 0, 0.12) !important;
+  border: var(--mt-hairline) solid var(--mt-popover-border) !important;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16), 0 1px 4px rgba(0, 0, 0, 0.08) !important;
 }
 
@@ -12079,8 +12110,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   width: 14px !important;
   height: 14px !important;
   background: var(--mc-pop-bg) !important;
-  border-top: 0.5px solid rgba(0, 0, 0, 0.12) !important;
-  border-left: 0.5px solid rgba(0, 0, 0, 0.12) !important;
+  border-top: var(--mt-hairline) solid var(--mt-popover-border) !important;
+  border-left: var(--mt-hairline) solid var(--mt-popover-border) !important;
   border-top-left-radius: 3px !important;
   transform: rotate(45deg) !important;
 }
@@ -12129,11 +12160,6 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 @media (prefers-color-scheme: dark) {
   #mcNewPopup .mc-pop {
     --mc-pop-icon-bg: #3a3a3c;
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-
-  #mcNewPopup .mc-pop::before {
-    border-color: rgba(255, 255, 255, 0.12);
   }
 }
 
@@ -12763,15 +12789,20 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 /* ---------- Schnellfenster „Neuer Termin / Neue Aufgabe“ (#mcQuickPanel) ----------
    wie das Popover in Apple Kalender: Umschalter oben, Titel und Zeit mit
    Farbbalken des Kalenders, darunter helle Felder als Karten */
-/* Fläche wie das „+“-Popover (dunkel sonst Thunderbirds Navyblau mit
-   bläulichem Rand, hell grauer Rand), Radius 20 wie ein Popover von macOS:
-   die Variablen brauchen !important, sonst gelten Thunderbirds Panel-Regeln */
+/* Popover wie macOS 27: Popover-Fläche, Rand als Haarlinie, Radius 20
+   (dunkel sonst Thunderbirds Navyblau mit bläulichem Rand); den Schatten
+   zeichnet das System. Die Variablen brauchen !important, sonst gelten
+   Thunderbirds Panel-Regeln */
 #mcQuickPanel {
   --panel-background-color: var(--mt-popover-bg) !important;
-  --panel-border-radius: 20px !important;
+  --panel-border-radius: var(--mt-popover-radius) !important;
   --panel-padding: 0 !important;
-  --panel-border-color: transparent !important;
+  --panel-border-color: var(--mt-popover-border) !important;
   font-family: var(--mt-font) !important;
+}
+
+#mcQuickPanel::part(content) {
+  border-width: var(--mt-hairline) !important;
 }
 
 /* Datumsauswahl der Datumsfelder (Schnellfenster): ein Popover in derselben
@@ -12826,12 +12857,17 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   appearance: none !important;
   background: transparent !important;
   --panel-background-color: transparent !important;
+  --panel-border-color: transparent !important;
 }
 
+/* Rand um Karte und Spitze zusammen: vier um eine Haarlinie versetzte
+   Schatten ohne Unschärfe zeichnen die Umrisslinie der ganzen Form */
 #mcQuickPanel[mc-tip] .mc-qc {
   position: relative !important;
-  border-radius: 20px !important;
+  border-radius: var(--mt-popover-radius) !important;
   background: var(--mt-popover-bg) !important;
+  filter: drop-shadow(var(--mt-hairline) 0 0 var(--mt-popover-border)) drop-shadow(calc(-1 * var(--mt-hairline)) 0 0 var(--mt-popover-border))
+          drop-shadow(0 var(--mt-hairline) 0 var(--mt-popover-border)) drop-shadow(0 calc(-1 * var(--mt-hairline)) 0 var(--mt-popover-border)) !important;
 }
 
 #mcQuickPanel[mc-tip="start"] .mc-qc {
@@ -13931,15 +13967,17 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 /* ---------- Termin/Aufgabe: Uhrzeit-Popover wie Apple Kalender ----------
    Klick auf die Uhrzeit öffnet nur dieses kleine Popover mit dem Uhrzeitfeld
-   (setzt die Erweiterung) statt Thunderbirds Stundenraster */
+   (setzt die Erweiterung) statt Thunderbirds Stundenraster; Fläche, Rand und
+   Radius 20 wie die übrigen Popovers (macOS 27) */
 .mc-time-panel {
   --arrowpanel-padding: 0 !important;
   --arrowpanel-background: var(--mt-popover-bg) !important;
-  --arrowpanel-border-color: var(--mt-tooltip-border) !important;
-  --arrowpanel-border-radius: 12px !important;
+  --arrowpanel-border-color: var(--mt-popover-border) !important;
+  --arrowpanel-border-radius: var(--mt-popover-radius) !important;
   --panel-background: var(--mt-popover-bg) !important;
-  --panel-border-color: var(--mt-tooltip-border) !important;
-  --panel-border-radius: 12px !important;
+  --panel-background-color: var(--mt-popover-bg) !important;
+  --panel-border-color: var(--mt-popover-border) !important;
+  --panel-border-radius: var(--mt-popover-radius) !important;
   font-family: var(--mt-font) !important;
 }
 
@@ -14820,12 +14858,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* Kalender: Tooltip eines Termins wie die übrigen halo-Popups – 12 px Radius,
-   Menüfläche, ohne Rand und eigenen Schatten; ruhig wie im Kalender-Popover:
+   deckende Menüfläche (ohne Unschärfe dahinter), ohne Rand und eigenen Schatten; ruhig wie im Kalender-Popover:
    Titel fett, darunter Zeit und Ort ohne Feldnamen („Title:“ usw.), der
    Kalendername entfällt (zeigt die Farbe des Termins). Status und
    Organisator behalten ihren Feldnamen, aber grau statt fett */
 tooltip#itemTooltip {
-  background: var(--mt-menu-bg) !important;
+  background: var(--mt-menu-solid) !important;
   border-color: transparent !important;
   border-radius: 12px !important;
   box-shadow: none !important;

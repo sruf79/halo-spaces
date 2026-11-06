@@ -10311,6 +10311,22 @@ function msgStillInFolder(hdr) {
   }
 }
 
+// Zeile der Mailliste, die es in der Ansicht nicht mehr gibt: Thunderbird
+// füllt Zeilen erst im nächsten Bild (requestAnimationFrame). Wird die
+// Ansicht dazwischen kleiner (Suche beim Tippen grenzt ein), zeigt die Zeile
+// noch auf eine alte Position – die Ansicht wirft dann
+// NS_MSG_INVALID_DBVIEW_INDEX. Solche Zeilen auslassen, die Liste setzt
+// ihre Positionen gleich neu und füllt sie dann.
+function rowGone(row) {
+  try {
+    const index = row?._index;
+    const count = row?.view?.rowCount;
+    return !Number.isInteger(index) || !Number.isInteger(count) || index < 0 || index >= count;
+  } catch {
+    return true;
+  }
+}
+
 function cleanPreview(text) {
   return stripHtml(text || "")
     .replace(/[\u034f\u00ad\u200b-\u200f\u2060\ufeff]/g, "")
@@ -21640,6 +21656,9 @@ class CardEnhancer {
     const enhancer = this;
     let decorateErrors = 0;
     const fill = function () {
+      if (rowGone(this)) {
+        return;
+      }
       reg.fill.call(this);
       try {
         enhancer.decorate(win, this);
@@ -21680,6 +21699,9 @@ class CardEnhancer {
     // echten Listenposition – die Zeilen werden beim Scrollen wiederverwendet)
     if (TableRow && reg.rowFill) {
       TableRow.prototype.fillRow = function (...args) {
+        if (rowGone(this)) {
+          return undefined;
+        }
         const result = reg.rowFill.apply(this, args);
         // als Attribut – Thunderbird setzt die Klassen der Zeile neu
         this.toggleAttribute("data-mc-odd", this._index % 2 == 1);

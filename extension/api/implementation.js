@@ -21247,48 +21247,6 @@ class CardEnhancer {
     }
   }
 
-  // Archivieren, Löschen, Spam wie in Apple Mail: die gewählten Karten gleiten
-  // kurz nach links weg (150 ms), dann führt Thunderbird den Befehl aus. Nur in
-  // der Kartenansicht, nicht bei „Bewegung reduzieren“; die Animation endet,
-  // sobald Thunderbird die nächste Mail wählt (Zeilen werden wiederverwendet)
-  hookCardExit(win) {
-    const cc = win.commandController;
-    if (!cc || cc.__mcExit) {
-      return;
-    }
-    cc.__mcExit = true;
-    const orig = cc.doCommand;
-    const EXIT = new Set(["cmd_archive", "cmd_delete", "cmd_shiftDelete", "cmd_deleteMessage", "cmd_markAsJunk"]);
-    let busy = false;
-    cc.doCommand = function (command, ...args) {
-      if (EXIT.has(command) && !busy && motionMs(150) > 1 && this.isCommandEnabled?.(command)) {
-        const cards = [...win.document.querySelectorAll('#threadTree tr[is="thread-card"]:is(.selected, [aria-selected="true"]) .card-container')];
-        if (cards.length && cards.length <= 20) {
-          busy = true;
-          const anims = cards.map(c => c.animate(
-            [{ transform: "none", opacity: 1 }, { transform: "translateX(-28px)", opacity: 0 }],
-            { duration: 150, easing: "ease-in", fill: "forwards" }));
-          const stop = () => anims.forEach(a => a.cancel());
-          win.setTimeout(() => {
-            try {
-              orig.call(this, command, ...args);
-            } finally {
-              busy = false;
-              win.addEventListener("select", () => win.setTimeout(stop, 0), { once: true, capture: true });
-              win.setTimeout(stop, 800);
-            }
-          }, 150);
-          return undefined;
-        }
-      }
-      return orig.call(this, command, ...args);
-    };
-    this.addWinRestorer(win, () => {
-      cc.doCommand = orig;
-      delete cc.__mcExit;
-    });
-  }
-
   // Neue Mails gleiten oben in die Kartenliste ein, eine geänderte
   // Ungelesen-Zahl in der Ordnerliste „hüpft“ kurz (wie Apple Mail). Beides nur
   // für sichtbare Elemente und nicht bei „Bewegung reduzieren“
@@ -21445,7 +21403,6 @@ class CardEnhancer {
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));
     safely("unread filter", () => this.hookUnreadFilter(win));
-    safely("card exit", () => this.hookCardExit(win));
     safely("remind menu", () => Remind.hookMenu(win.document));
     safely("follow up", () => FollowUp.hook(win));
     safely("arrivals", () => this.hookArrivals(win));

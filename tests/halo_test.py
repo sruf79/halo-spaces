@@ -1069,6 +1069,19 @@ def maillist_checks(m, results):
         return res.get("pref") == 2 and res.get("compact") is True, f"{res}"
     check("Mailliste: Karten bleiben zweizeilig (Büroklammer und Stern neben dem Betreff), auch wenn 3 Zeilen gewählt werden", cards_two_rows, results)
 
+    def cards_no_exit_slide():
+        # Archivieren/Löschen: gewählte Karten verschwinden einfach – früher glitten sie vorher 150 ms
+        # um 28 px nach links (eigene Animation vor dem Befehl, wirkte wie Flackern). Ohne echtes
+        # Archivieren: der Befehl darf nicht verzögert umgeleitet sein und keine Karte animieren
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards();
+          a3.threadTree.selectedIndices = [0, 1]; await ruhig(600);
+          const cc = a3.commandController;
+          return { wrapped: !!cc.__mcExit || /animate\(/.test(String(cc.doCommand)), selected: a3.threadTree.selectedIndices.length,
+                   anims: [...a3.document.querySelectorAll("#threadTree .card-container")].flatMap(c => c.getAnimations()).length };""")
+        return res.get("selected") == 2 and res.get("wrapped") is False and res.get("anims") == 0, f"{res}"
+    check("Mailliste: Archivieren und Löschen ohne Seitwärtsbewegung der Karten (kein Flackern nach links)", cards_no_exit_slide, results)
+
     def group_headers_table():
         # Tabelle gruppiert: Gruppenköpfe laufen über die leeren Nachbarzellen,
         # die Zählung „(ungelesen/gesamt)“ bleibt sichtbar (früher „Gestern (1…“)

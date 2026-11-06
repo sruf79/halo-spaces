@@ -7625,6 +7625,8 @@ def run_checks(m, version, profile, results):
         # „PST, aber nicht lesbar“ unterschieden; mit der privaten Beispieldatei des Maintainers, wenn sie da ist
         priv = os.path.expanduser("~/halo-aufgaben/testdaten/text_pst_export.pst")
         res = m.js(r"""
+          // absichtlich: die Bibliothek scheitert an kaputten bzw. nicht lesbaren Dateien, unser Code protokolliert das
+          erwartet(/pst folder error|PSTNodeInputStream|PSTInputStream/);
           const dir = PathUtils.tempDir, junk = PathUtils.join(dir, "halo-kein.pst"), head = PathUtils.join(dir, "halo-kaputt.pst");
           await IOUtils.write(junk, new TextEncoder().encode("keine Outlook-Datei"));
           const bytes = new Uint8Array(4096); bytes.set([0x21, 0x42, 0x44, 0x4e]); await IOUtils.write(head, bytes);

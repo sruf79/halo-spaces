@@ -8172,6 +8172,19 @@ def run_checks(m, version, profile, results):
         return ok, f"nach IME-Enter {res['afterIme']}, nach Enter {res['created']} Termin, Fenster {res['closed']} ({res['visibility']})"
     check("Schnellfenster: legt an, IME-Enter nicht", quick_window, results)
 
+    def quick_radius():
+        # Schnellfenster als Popover mit 20 px Radius (früher 16, die übrigen Panels 12)
+        res = m.js("""
+          await toCalendar();
+          const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
+          li.querySelector("button").click();
+          const p = await until(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, 4000);
+          if (!p) return { err: "nicht offen" };
+          const r = { panel: w.getComputedStyle(p).getPropertyValue("--panel-border-radius").trim() };
+          p.hidePopup(); await until(() => p.state == "closed", 3000); return r;""")
+        return res.get("panel") == "20px", f"{res}"
+    check("Schnellfenster: Popover mit 20 px Radius", quick_radius, results)
+
     def natural():
         res = m.js('''
           await toCalendar();

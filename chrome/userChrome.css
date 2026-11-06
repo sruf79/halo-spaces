@@ -12669,11 +12669,11 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    wie das Popover in Apple Kalender: Umschalter oben, Titel und Zeit mit
    Farbbalken des Kalenders, darunter helle Felder als Karten */
 /* Fläche wie das „+“-Popover (dunkel sonst Thunderbirds Navyblau mit
-   bläulichem Rand, hell grauer Rand): die Variablen brauchen !important,
-   sonst gelten Thunderbirds Panel-Regeln */
+   bläulichem Rand, hell grauer Rand), Radius 20 wie ein Popover von macOS:
+   die Variablen brauchen !important, sonst gelten Thunderbirds Panel-Regeln */
 #mcQuickPanel {
   --panel-background-color: var(--mt-popover-bg) !important;
-  --panel-border-radius: 16px !important;
+  --panel-border-radius: 20px !important;
   --panel-padding: 0 !important;
   --panel-border-color: transparent !important;
   font-family: var(--mt-font) !important;
@@ -12735,7 +12735,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #mcQuickPanel[mc-tip] .mc-qc {
   position: relative !important;
-  border-radius: 16px !important;
+  border-radius: 20px !important;
   background: var(--mt-popover-bg) !important;
 }
 

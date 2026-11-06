@@ -48,6 +48,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
+| `tests/neon-neustart.sh` | startet die Sitzung `neon` täglich neu, nach den Läufen des Morgens und nur bei freier Sitzung (LaunchAgent `at.halo-spaces.neon-neustart`, `tests/MAC-MINI.md` Abschnitt 12) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
@@ -174,9 +175,10 @@ Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
 1. `ListAgents`, dann `SendMessage` an `neon` (die Remote-Control-Sitzung,
    die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
 2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
-   `send_message` mit ihrer ID (Stand 4.11.2026
-   `session_01BK9gbfo3oZh8yxoakmG4CD`; nach einem Neustart kann sie sich
-   ändern – immer über die Liste prüfen).
+   `send_message` mit ihrer ID. Keine feste ID verwenden: neon wird täglich
+   neu gestartet (unten), die ID kann sich danach ändern (Stand 6.11.2026
+   `session_01BK9gbfo3oZh8yxoakmG4CD`, bei den bisherigen Neustarts gleich
+   geblieben) – immer über `ListAgents` bzw. die Liste suchen.
 3. Lehnt `send_message` mit einem `content_digest` ab
    (`confirm_repository_trust`), diese Freigabe sofort anfragen – die
    Claude-App fragt den Maintainer selbst – und danach erneut senden.
@@ -269,6 +271,22 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   `neon-board` läuft selbst mit Sonnet und niedriger Reasoning-Stufe
   (`mac-remote-control.sh` schreibt beides in die Einstellungen von
   `~/halo-board`).
+- **Täglicher Neustart von `neon`** (Entscheidung des Maintainers, Cloud-Sitzung
+  global.design.comparison, 6.11.2026, Wortlaut: „punkt 1 beauftragen.“; Bezug,
+  Vorschlag der Cloud-Sitzung: „neon täglich neu starten, zum Beispiel nach dem
+  Nachtlauf. Die offenen Aufträge stehen in neon-stand.md und werden beim Start
+  wieder geladen“; die folgende Umsetzung ist die Deutung dieser Sitzung):
+  `tests/neon-neustart.sh` (LaunchAgent `at.halo-spaces.neon-neustart`, alle 30
+  Minuten) startet `at.halo-spaces.remote-control` neu, sobald der Nachtlauf des
+  Tages beendet ist (samstags zusätzlich Doku-Prüfung und Rundgang, sonntags die
+  Wochenprüfung), spätestens bis 12:00 (samstags 16:00), und nur, wenn keine
+  Claude-Sitzung am Repo mitten in einer Runde ist und kein Auftrag in
+  `neon-stand.md` ohne Stand-Notiz („Stand: angenommen“) offen ist. Sonst
+  Zeile „ÜBERSPRUNGEN neon-neustart …“ (Protokoll `~/halo-nacht/neon-neustart.log`
+  und `uebersprungen.log`), kein Push. Aufträge mit Notiz bleiben in der Datei
+  und kommen über `tests/neon-hook.sh` zurück; deshalb jeden längeren Auftrag mit
+  `neon-stand.sh` führen (siehe oben). Der Neustart beendet auch
+  Sitzungen, die dieser Remote-Control-Prozess gestartet hat.
 - Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
   in allen Sitzungen; seltener verdichten heißt weniger vergessen.
 

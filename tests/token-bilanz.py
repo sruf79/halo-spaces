@@ -34,11 +34,25 @@ Unteragent gehört zur Art seiner Hauptsitzung):
   5. github-komm erste Eingabe beginnt mit <scheduled-task name="halo-github-
                  kommunikation" oder Sitzungsname enthält „GitHub-Kommunikation“
                  bzw. „github.comm“
-  6. neon        Sitzungsname beginnt mit „neon“ (Remote-Control-Sitzungen) oder
-                 erste Eingabe enthält „Entwicklungssitzung für halo.spaces auf neon“
+  6. neon        Hook-Kennzeichen (siehe unten), Sitzungsname beginnt mit „neon“
+                 oder erste Eingabe enthält „Entwicklungssitzung für halo.spaces
+                 auf neon“
   7. sonstige    alles andere (von Hand gestartete Sitzungen, Sitzungen anderer
                  Ordner, Unteragenten ohne Hauptdatei)
 Sitzungsname = letzter Eintrag „custom-title“ der Datei.
+
+Hook-Kennzeichen (Entscheidung des Maintainers vom 6.11.2026, Sitzung
+global.design.comparison, Wortlaut: „punkt 1 beauftragen.“ – täglicher Neustart
+von neon; Deutung dieser Sitzung: Titel und Sitzungs-ID wechseln dabei, die
+Erkennung darf sich nicht darauf stützen): Der SessionStart-Hook
+tests/neon-hook.sh gibt nur in den Sitzungen neon und neon-board etwas aus. Das
+Protokoll hält ihn als Eintrag attachment/hook_success mit dem Befehl
+„…neon-hook.sh“ fest; beginnt dessen Ausgabe mit „neon-board“, ist es
+neon-board, sonst bei „neon“ die Sitzung neon (andere Sitzungen im Checkout
+führen den Hook auch aus, er gibt dort nichts aus). Gelesen werden nur das Feld
+command und die ersten Zeichen der Hook-Ausgabe, nie Nachrichtentexte. Das gilt
+erst, seit der Hook im Checkout eingetragen ist; ältere Sitzungen erkennen
+weiter Name und Auftrag.
 
 Aufruf:
   tests/token-bilanz.py [--tage N] [--json [DATEI]] [--basis]
@@ -114,9 +128,27 @@ def erste_eingabe_text(d):
     return "\n".join(teile)
 
 
+def hook_art(zeile):
+    """„neon“ oder „board“, wenn die Zeile die Ausgabe von neon-hook.sh festhält."""
+    try:
+        d = json.loads(zeile)
+    except ValueError:
+        return None
+    a = d.get("attachment")
+    if not isinstance(a, dict) or a.get("type") != "hook_success" \
+            or "neon-hook.sh" not in str(a.get("command")):
+        return None
+    aus = str(a.get("stdout") or a.get("content") or "").lstrip()
+    if aus.startswith("neon-board"):
+        return "board"
+    return "neon" if aus.startswith("neon") else None
+
+
 def sitzung_art(meta, log_arten):
     sid, cwd, titel, erste = meta["id"], meta["cwd"] or "", meta["titel"] or "", meta["erste"] or ""
-    if cwd.rstrip("/").endswith("halo-board") or titel.startswith("neon-board"):
+    hook = meta.get("hook")
+    if cwd.rstrip("/").endswith("halo-board") or titel.startswith("neon-board") \
+            or hook == "board":
         return "neon-board"
     if sid in log_arten:
         return log_arten[sid]
@@ -128,7 +160,7 @@ def sitzung_art(meta, log_arten):
     if (erste.startswith('<scheduled-task name="halo-github-kommunikation"')
             or "GitHub-Kommunikation" in titel or "github.comm" in titel):
         return "github-komm"
-    if titel.startswith("neon") or "Entwicklungssitzung für halo.spaces auf neon" in erste:
+    if hook == "neon" or titel.startswith("neon") or "Entwicklungssitzung für halo.spaces auf neon" in erste:
         return "neon"
     return "sonstige"
 
@@ -150,13 +182,19 @@ def lese_alles(von):
         except OSError:
             continue
         meta = metas.setdefault(sid_datei, {"id": sid_datei, "cwd": None,
-                                            "titel": None, "erste": None})
+                                            "titel": None, "erste": None,
+                                            "hook": None})
         try:
             f = open(pfad, encoding="utf-8", errors="replace")
         except OSError:
             continue
         with f:
             for zeile in f:
+                if not unter and "neon-hook.sh" in zeile and '"hook_success"' in zeile:
+                    h = hook_art(zeile)
+                    if h:
+                        meta["hook"] = h
+                    continue
                 if '"assistant"' not in zeile and '"custom-title"' not in zeile \
                         and ('"user"' not in zeile or unter or meta["erste"] is not None):
                     continue

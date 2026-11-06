@@ -581,7 +581,8 @@ EOF
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–17): Nachtlauf jede
 # Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
-# samstags 10:00 (rundgang-woche.sh). Die
+# samstags 10:00 (rundgang-woche.sh), neon-Neustart alle 30 Minuten
+# (neon-neustart.sh). Die
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
 # (außerhalb des Checkouts, die Läufe ändern ihn).
 AG_DIR=$HOME/.config/halo-spaces
@@ -653,6 +654,13 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
     $HOME/halo-nacht/PAUSE-DOKU "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
+  # täglicher Neustart der Sitzung neon (Entscheidung des Maintainers vom 6.11.2026,
+  # Sitzung global.design.comparison, Wortlaut: „punkt 1 beauftragen.“): alle 30
+  # Minuten ein Lauf, der nach Ende der Läufe des Tages und nur bei freier Sitzung
+  # neu startet (tests/neon-neustart.sh); braucht vorpruefung.zsh (skripte_kopieren)
+  pruefe_agent "neon-Neustart" at.halo-spaces.neon-neustart neon-neustart.sh $HOME/Library/Logs/halo-neon-neustart.log \
+    '<key>StartInterval</key><integer>1800</integer>' \
+    $HOME/halo-nacht/PAUSE-NEUSTART "alle 30 Minuten, täglich ein Neustart von neon nach den Läufen (bis 12:00), Protokoll ~/halo-nacht/neon-neustart.log"
   pruefe_agent "Design-Rundgang" at.halo-spaces.rundgang rundgang-woche.sh $HOME/Library/Logs/halo-rundgang.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>' \

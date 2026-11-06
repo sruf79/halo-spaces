@@ -40,6 +40,18 @@ const DE = {
   "New List…": "Neue Liste …",
   "Show All Lists": "Alle Listen anzeigen",
   "Add Online List…": "Online-Liste hinzufügen …",
+  "Show List Info": "Listeninfo zeigen",
+  "List Info": "Listeninfo",
+  "Name:": "Name:",
+  "Enable This List": "Diese Liste aktivieren",
+  "Delete List": "Liste löschen",
+  "Do you want to permanently delete the list “{name}” and all its tasks?": "Möchtest du die Liste „{name}“ mit allen Aufgaben endgültig löschen?",
+  "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Möchtest du die Liste „{name}“ entfernen? Abmelden entfernt sie nur aus Thunderbird, Löschen löscht auch ihre Aufgaben endgültig.",
+  "Do you want to unsubscribe from the list “{name}”?": "Möchtest du die Liste „{name}“ abmelden?",
+  "The calendar also has one event. Deleting the list deletes it too.": "Der Kalender enthält außerdem einen Termin. Er wird mit der Liste gelöscht.",
+  "The calendar also has {count} events. Deleting the list deletes them too.": "Der Kalender enthält außerdem {count} Termine. Sie werden mit der Liste gelöscht.",
+  "The calendar also has one event. It will disappear from the calendar too.": "Der Kalender enthält außerdem einen Termin. Er verschwindet auch aus dem Kalender.",
+  "The calendar also has {count} events. They will disappear from the calendar too.": "Der Kalender enthält außerdem {count} Termine. Sie verschwinden auch aus dem Kalender.",
   "Sort By": "Sortieren nach",
   "Due Date": "Fälligkeit",
   "Creation Date": "Erstellungsdatum",
@@ -506,6 +518,18 @@ const FR = {
   "New List…": "Nouvelle liste…",
   "Show All Lists": "Afficher toutes les listes",
   "Add Online List…": "Ajouter une liste en ligne…",
+  "Show List Info": "Afficher les infos de la liste",
+  "List Info": "Infos sur la liste",
+  "Name:": "Nom :",
+  "Enable This List": "Activer cette liste",
+  "Delete List": "Supprimer la liste",
+  "Do you want to permanently delete the list “{name}” and all its tasks?": "Voulez-vous supprimer définitivement la liste « {name} » et toutes ses tâches ?",
+  "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Voulez-vous retirer la liste « {name} » ? Se désabonner la retire seulement de Thunderbird, supprimer efface aussi définitivement ses tâches.",
+  "Do you want to unsubscribe from the list “{name}”?": "Voulez-vous vous désabonner de la liste « {name} » ?",
+  "The calendar also has one event. Deleting the list deletes it too.": "Le calendrier contient aussi un événement. Il sera supprimé avec la liste.",
+  "The calendar also has {count} events. Deleting the list deletes them too.": "Le calendrier contient aussi {count} événements. Ils seront supprimés avec la liste.",
+  "The calendar also has one event. It will disappear from the calendar too.": "Le calendrier contient aussi un événement. Il disparaîtra aussi du calendrier.",
+  "The calendar also has {count} events. They will disappear from the calendar too.": "Le calendrier contient aussi {count} événements. Ils disparaîtront aussi du calendrier.",
   "Sort By": "Trier par",
   "Due Date": "Échéance",
   "Creation Date": "Date de création",
@@ -972,6 +996,18 @@ const ES = {
   "New List…": "Nueva lista…",
   "Show All Lists": "Mostrar todas las listas",
   "Add Online List…": "Añadir lista en línea…",
+  "Show List Info": "Mostrar información de la lista",
+  "List Info": "Información de la lista",
+  "Name:": "Nombre:",
+  "Enable This List": "Activar esta lista",
+  "Delete List": "Eliminar lista",
+  "Do you want to permanently delete the list “{name}” and all its tasks?": "¿Quieres eliminar definitivamente la lista «{name}» y todas sus tareas?",
+  "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "¿Quieres quitar la lista «{name}»? Darse de baja solo la quita de Thunderbird, eliminarla también borra sus tareas definitivamente.",
+  "Do you want to unsubscribe from the list “{name}”?": "¿Quieres darte de baja de la lista «{name}»?",
+  "The calendar also has one event. Deleting the list deletes it too.": "El calendario también tiene un evento. Se eliminará con la lista.",
+  "The calendar also has {count} events. Deleting the list deletes them too.": "El calendario también tiene {count} eventos. Se eliminarán con la lista.",
+  "The calendar also has one event. It will disappear from the calendar too.": "El calendario también tiene un evento. También desaparecerá del calendario.",
+  "The calendar also has {count} events. They will disappear from the calendar too.": "El calendario también tiene {count} eventos. También desaparecerán del calendario.",
   "Sort By": "Ordenar por",
   "Due Date": "Vencimiento",
   "Creation Date": "Fecha de creación",
@@ -1438,6 +1474,18 @@ const IT = {
   "New List…": "Nuova lista…",
   "Show All Lists": "Mostra tutti gli elenchi",
   "Add Online List…": "Aggiungi elenco online…",
+  "Show List Info": "Mostra info elenco",
+  "List Info": "Info elenco",
+  "Name:": "Nome:",
+  "Enable This List": "Attiva questo elenco",
+  "Delete List": "Elimina elenco",
+  "Do you want to permanently delete the list “{name}” and all its tasks?": "Vuoi eliminare definitivamente l’elenco «{name}» e tutte le sue attività?",
+  "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Vuoi rimuovere l’elenco «{name}»? Annullare l’iscrizione lo rimuove solo da Thunderbird, eliminarlo cancella anche definitivamente le sue attività.",
+  "Do you want to unsubscribe from the list “{name}”?": "Vuoi annullare l’iscrizione all’elenco «{name}»?",
+  "The calendar also has one event. Deleting the list deletes it too.": "Il calendario contiene anche un evento. Verrà eliminato con l’elenco.",
+  "The calendar also has {count} events. Deleting the list deletes them too.": "Il calendario contiene anche {count} eventi. Verranno eliminati con l’elenco.",
+  "The calendar also has one event. It will disappear from the calendar too.": "Il calendario contiene anche un evento. Scomparirà anche dal calendario.",
+  "The calendar also has {count} events. They will disappear from the calendar too.": "Il calendario contiene anche {count} eventi. Scompariranno anche dal calendario.",
   "Sort By": "Ordina per",
   "Due Date": "Scadenza",
   "Creation Date": "Data di creazione",
@@ -5417,6 +5465,32 @@ const TASK_LISTS = [
 ];
 const taskListFilter = key => `mcTasks-${key}`;
 
+// Rückfrage „Delete“ einer Liste im Bereich Aufgaben: eine Liste ist ein
+// Kalender, darum nennt sie dessen Termine mit. modes = Thunderbirds
+// capabilities.removeModes; kind wie dort: "delete" (nur Löschen), "both"
+// (Abmelden oder Löschen), "unsubscribe" (nur Abmelden), null = nicht möglich
+function listDeleteText(modes, name, events = 0) {
+  const has = new Set(modes?.length ? modes : ["unsubscribe"]);
+  const kind = has.has("delete") ? (has.has("unsubscribe") ? "both" : "delete") : (has.has("unsubscribe") ? "unsubscribe" : null);
+  if (!kind) {
+    return { kind, text: "" };
+  }
+  const main = {
+    delete: "Do you want to permanently delete the list “{name}” and all its tasks?",
+    both: "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.",
+    unsubscribe: "Do you want to unsubscribe from the list “{name}”?",
+  }[kind];
+  const lines = [tr(main, { name })];
+  if (events > 0) {
+    const gone = kind == "unsubscribe";
+    lines.push(events == 1
+      ? tr(gone ? "The calendar also has one event. It will disappear from the calendar too." : "The calendar also has one event. Deleting the list deletes it too.")
+      : tr(gone ? "The calendar also has {count} events. They will disappear from the calendar too." : "The calendar also has {count} events. Deleting the list deletes them too.",
+        { count: events.toLocaleString(Services.locale.appLocaleAsBCP47) }));
+  }
+  return { kind, text: lines.join("\n\n") };
+}
+
 function taskListKey() {
   const key = Services.prefs.getCharPref(TASK_LIST_PREF, "all");
   return TASK_LISTS.some(([k]) => k == key) ? key : "all";
@@ -5674,14 +5748,52 @@ function hookTaskLists(win, restorers) {
 
   // Kontextmenü der Listenspalte im Bereich Aufgaben: „Show All Lists“,
   // „New List“, „Add Online List…“ (Thunderbirds Assistent „New Calendar…“);
-  // im Bereich Kalender unverändert
+  // im Bereich Kalender unverändert. Wie die Erinnerungen-App ohne Export und
+  // Veröffentlichen; „Properties“ heißt „Show List Info“ (Dialog „List Info“,
+  // siehe listInfoDialog), „Delete Calendar…“ wird „Delete“ mit eigener
+  // Rückfrage, die mitgelöschte Termine des Kalenders nennt
   const ctx = doc.getElementById("list-calendars-context-menu");
   const ctxNew = doc.createXULElement("menuitem");
   ctxNew.id = "mcListContextNew";
   ctxNew.setAttribute("label", tr("New List"));
   ctxNew.addEventListener("command", () => win.setTimeout(startNewList, 0));
   doc.getElementById("list-calendars-context-new")?.before(ctxNew);
-  const relabel = [["list-calendars-context-showall", "Show All Lists"], ["list-calendars-context-new", "Add Online List…"]];
+  const deleteList = async calendar => {
+    if (!calendar || cal.manager.getCalendars().length <= 1) {
+      return; // wie Thunderbird: den letzten Kalender nicht löschen
+    }
+    let events = 0;
+    try {
+      for await (const chunk of cal.iterate.streamValues(calendar.getItems(Ci.calICalendar.ITEM_FILTER_TYPE_EVENT, 0, null, null))) {
+        events += chunk.length;
+      }
+    } catch (e) {
+      log("delete list count", e);
+    }
+    const { kind, text } = listDeleteText(calendar.getProperty("capabilities.removeModes"), calendar.name, events);
+    if (!kind) {
+      return;
+    }
+    const res = await confirmDeleteList(win, kind, text);
+    if (res == 1) {
+      return;
+    }
+    const keepData = kind == "unsubscribe" || (kind == "both" && res == 0);
+    cal.manager.removeCalendar(calendar, keepData ? Ci.calICalendarManager.REMOVE_NO_DELETE : 0);
+  };
+  const ctxDelete = doc.createXULElement("menuitem");
+  ctxDelete.id = "mcListContextDelete";
+  ctxDelete.setAttribute("label", tr("Delete"));
+  ctxDelete.addEventListener("command", () => {
+    const calendar = ctx.contextCalendar;
+    win.setTimeout(() => deleteList(calendar).catch(e => log("delete list", e)), 0);
+  });
+  doc.getElementById("list-calendars-context-delete")?.after(ctxDelete);
+  const relabel = [["list-calendars-context-showall", "Show All Lists"], ["list-calendars-context-new", "Add Online List…"],
+    ["list-calendars-context-edit", "Show List Info"]];
+  // im Bereich Aufgaben ausgeblendet (alle nur mit gewähltem Kalender sichtbar)
+  const ctxHide = ["list-calendars-context-delete", "list-calendars-context-itemops-menuseparator",
+    "list-calendars-context-export", "list-calendars-context-publish"];
   const ctxSaved = new Map();
   const onCtx = event => {
     if (event.target != ctx) {
@@ -5689,6 +5801,13 @@ function hookTaskLists(win, restorers) {
     }
     const tasks = tasksMode();
     ctxNew.hidden = !tasks;
+    ctxDelete.hidden = !tasks || !ctx.contextCalendar;
+    for (const id of ctxHide) {
+      const item = doc.getElementById(id);
+      if (item) {
+        item.hidden = tasks || !ctx.contextCalendar;
+      }
+    }
     for (const [id, label] of relabel) {
       const item = doc.getElementById(id);
       if (!item) {
@@ -5740,6 +5859,7 @@ function hookTaskLists(win, restorers) {
     mo?.disconnect();
     newRow.remove();
     ctxNew.remove();
+    ctxDelete.remove();
     ctx?.removeEventListener("popupshowing", onCtx);
     for (const [id, l10n] of ctxSaved) {
       const item = doc.getElementById(id);
@@ -6225,6 +6345,22 @@ var confirmReopen = async (win, n) => {
     n == 1 ? tr("Reopen task?") : tr("Reopen {n} tasks?", { n }),
     tr("The task will be open again, as if it were new."), flags, tr("Reopen"), null, null, null, false);
   return result.getProperty("buttonNumClicked") == 0;
+};
+// Rückfrage „Delete“ einer Liste (Karte wie die übrigen Rückfragen); Ergebnis
+// wie Thunderbirds confirmEx: 0 = erster Knopf, 1 = Abbrechen, 2 = „Delete“
+// bei „both“ (eigene Funktion: der Test ersetzt sie, Marionette schlösse den
+// Dialog selbst)
+var confirmDeleteList = async (win, kind, text) => {
+  const P = Services.prompt;
+  let flags = P.BUTTON_POS_0 * P.BUTTON_TITLE_IS_STRING + P.BUTTON_POS_1 * P.BUTTON_TITLE_CANCEL;
+  if (kind == "delete") {
+    flags += P.BUTTON_DELAY_ENABLE;
+  } else if (kind == "both") {
+    flags += P.BUTTON_POS_2 * P.BUTTON_TITLE_IS_STRING;
+  }
+  const result = await P.asyncConfirmEx(win.browsingContext.top, P.MODAL_TYPE_WINDOW, tr("Delete List"), text, flags,
+    tr(kind == "delete" ? "Delete" : "Unsubscribe"), null, kind == "both" ? tr("Delete") : null, null, false);
+  return result.getProperty("buttonNumClicked");
 };
 async function reopenTasks(win, tasks) {
   const done = tasks.filter(t => t?.isCompleted);
@@ -8383,6 +8519,35 @@ function hookNewTabMenus(doc, restorers = null) {
 // Teilnehmer; Kalender; Kategorie; ganz unten die Notiz („Add Notes or URL“).
 // Links ein Streifen in der Farbe des gewählten Kalenders. Thunderbirds Zeilen
 // werden nur umgestellt – Felder, IDs und Logik bleiben (nur für Termine, nicht Aufgaben)
+// „Show List Info“ im Bereich Aufgaben öffnet Thunderbirds Eigenschaften des
+// Kalenders mit Listen-Bezeichnungen: Titel „List Info“, „Name:“, „Enable This
+// List“; die Benachrichtigungen über anstehende Termine entfallen
+function listInfoDialog(dw) {
+  try {
+    const d = dw.document;
+    const set = (el, attr, text) => {
+      if (el) {
+        el.removeAttribute("data-l10n-id");
+        el.setAttribute(attr, text);
+      }
+    };
+    d.querySelector("title")?.removeAttribute("data-l10n-id");
+    d.title = tr("List Info");
+    d.documentElement.setAttribute("mc-list-info", "");
+    set(d.getElementById("calendar-name-label"), "value", tr("Name:"));
+    set(d.getElementById("calendar-enabled-checkbox"), "label", tr("Enable This List"));
+    const notes = d.getElementById("calendar-notifications");
+    if (notes) {
+      notes.hidden = true;
+      if (notes.previousElementSibling?.localName == "separator") {
+        notes.previousElementSibling.hidden = true;
+      }
+    }
+  } catch (e) {
+    log("list info dialog", e);
+  }
+}
+
 // Dialogfenster: macOS dehnt ein Fenster per Doppelklick auf die linke bzw.
 // rechte Kante bis zum Bildschirmrand aus, findet danach aber nicht zurück.
 // Ein Doppelklick an der Kante eines schon breiteren Dialogs setzt ihn auf
@@ -12188,6 +12353,13 @@ class CardEnhancer {
               title?.removeAttribute("data-l10n-id");
               fw.document.title = tr("Rules");
             }, { once: true });
+          }
+          // Eigenschaften eines Kalenders aus dem Bereich Aufgaben: „List Info“
+          if (url.startsWith("chrome://calendar/content/calendar-properties-dialog.xhtml") && doc.defaultView) {
+            const lw = doc.defaultView;
+            if (lw.opener?.document?.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks") {
+              lw.addEventListener("DOMContentLoaded", () => listInfoDialog(lw), { once: true });
+            }
           }
           // Dialogfenster als ruhige Karte ohne sichtbare Titelleiste (macOS)
           if (CARD_WINDOWS.some(u => url.startsWith(u)) && doc.defaultView) {

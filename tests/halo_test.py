@@ -6648,6 +6648,81 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben 4/5: „New List“ unter den Listen (anlegen, Esc, eingeklappt), Kontextmenü und File → New List…, „New Task“ unter der letzten Karte, Sortieren über „…“", tasks_new_list_sort, results)
 
+    def tasks_list_context():
+        # Kontextmenü einer Liste im Bereich Aufgaben ohne Kalender-Befehle: kein Export, kein Veröffentlichen,
+        # „Delete“ statt „Delete Calendar…“ (Rückfrage nennt die Termine des Kalenders), „Show List Info“ statt
+        # „Properties“ mit Dialog „List Info“ („Name:“, „Enable This List“, ohne Benachrichtigungen für Termine);
+        # im Bereich Kalender alles wie bei Thunderbird
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {}; let made = null;
+          const ctx = d.getElementById("list-calendars-context-menu");
+          const shown = e => !!e && !e.hidden && e.getBoundingClientRect().height > 0;
+          const openCtx = async () => {
+            w.focus(); await bis(() => ctx.state == "closed" && Services.focus.activeWindow == w, "Kontextmenü zu, Hauptfenster aktiv", 3000);
+            const li = await bis(() => d.querySelector(`#calendar-list > li[calendar-id="${made.id}"]`), "Zeile der Liste");
+            const r = li.getBoundingClientRect();
+            li.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: r.left + 30, clientY: r.top + r.height / 2 }));
+            await bis(() => ctx.state == "open", "Kontextmenü", 3000); await ruhig(200);
+            const vis = [...ctx.children].filter(x => !x.hidden);
+            return { labels: vis.filter(x => x.localName == "menuitem").map(x => x.getAttribute("label")),
+              seps: vis.map(x => x.localName == "menuseparator" ? "|" : "x").join("") };
+          };
+          const props = async () => {
+            const known = new Set(Services.wm.getEnumerator("Calendar:PropertiesDialog"));
+            const edit = d.getElementById("list-calendars-context-edit"); ctx.hidePopup(); await ruhig(200); edit.doCommand();
+            const dw = await bis(() => [...Services.wm.getEnumerator("Calendar:PropertiesDialog")].find(x => !known.has(x) && x.document.readyState == "complete"), "Eigenschaften", 6000);
+            await bis(() => dw.document.title && dw.document.getElementById("calendar-name-label").getAttribute("value"), "Beschriftungen", 4000); await ruhig(300);
+            const dd = dw.document;
+            const r = { title: dd.title, name: dd.getElementById("calendar-name-label").getAttribute("value"),
+              enable: dd.getElementById("calendar-enabled-checkbox").getAttribute("label"),
+              value: dd.getElementById("calendar-name").value, notes: shown(dd.getElementById("calendar-notifications")) };
+            dd.querySelector("dialog").cancelDialog(); await bis(() => dw.closed, "Dialog zu", 3000);
+            return r;
+          };
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          try {
+            made = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+            made.name = "Halo Infoliste"; made.setProperty("color", "#34C759"); cal.manager.registerCalendar(made);
+            const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+            for (const t of ["Halo Infotermin 1", "Halo Infotermin 2"]) { const e = new CalEvent(); e.title = t;
+              e.startDate = cal.dtz.now(); e.endDate = cal.dtz.now(); e.endDate.hour += 1; e.calendar = made; await made.addItem(e); }
+            tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben-Tab"); await ruhig(1000);
+            out.stage = "tasks"; out.tasks = await openCtx();
+            // Löschen: Rückfrage nennt die zwei Termine, Abbrechen lässt die Liste stehen
+            // Löschen: Rückfrage (ersetzt – Marionette schlösse den Dialog selbst) nennt die zwei Termine;
+            // Abbrechen lässt die Liste stehen
+            out.stage = "delete"; const del = d.getElementById("mcListContextDelete"); ctx.hidePopup(); await ruhig(200);
+            Cu.evalInSandbox("globalThis.__mcRealDelete = confirmDeleteList; globalThis.__mcAsked = []; confirmDeleteList = async (win, kind, text) => { __mcAsked.push({ kind, text, title: tr('Delete List'), button: tr('Delete') }); return 1; };", g);
+            try {
+              del.doCommand();
+              await bis(() => Cu.evalInSandbox("__mcAsked.length", g), "Rückfrage", 6000);
+              out.ask = JSON.parse(Cu.evalInSandbox("JSON.stringify(__mcAsked[0])", g));
+            } finally { Cu.evalInSandbox("confirmDeleteList = globalThis.__mcRealDelete;", g); }
+            await ruhig(300);
+            out.kept = cal.manager.getCalendars().some(c => c.id == made.id);
+            out.stage = "tasksInfo"; await openCtx(); out.tasksInfo = await props();
+            out.stage = "calendar"; await toCalendar();
+            out.calendar = await openCtx();
+            out.stage = "calendarInfo"; out.calendarInfo = await props();
+          } catch (e) { out.error = String(e); } finally {
+            try { if (ctx.state == "open") ctx.hidePopup(); } catch {}
+            if (made) try { cal.manager.removeCalendar(made); } catch {}
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""" % ADDON_ID)
+        t, c = res.get("tasks") or {}, res.get("calendar") or {}
+        ti, ci, a = res.get("tasksInfo") or {}, res.get("calendarInfo") or {}, res.get("ask") or {}
+        tl, cl = t.get("labels", []), c.get("labels", [])
+        ok = (not any("Calendar" in x for x in tl) and "Delete" in tl and "Show List Info" in tl and "Properties" not in tl
+              and not any(x.startswith(("Export", "Publish")) for x in tl) and "||" not in t.get("seps", "||")
+              and {"Delete Calendar…", "Export Calendar…", "Publish Calendar…", "Properties"} <= set(cl) and not {"Delete", "Show List Info", "New List"} & set(cl)
+              and ti == {"title": "List Info", "name": "Name:", "enable": "Enable This List", "value": "Halo Infoliste", "notes": False}
+              and ci.get("title") == "Edit Calendar" and ci.get("name") == "Calendar Name:" and ci.get("enable") == "Enable This Calendar" and ci.get("notes") is True
+              and a.get("kind") == "delete" and "“Halo Infoliste”" in a.get("text", "") and "2 events" in a.get("text", "") and a.get("button") == "Delete" and res.get("kept"))
+        return ok, f"{res}"
+    check("Aufgaben: Kontextmenü der Listen ohne Kalender-Befehle („Delete“ nennt Termine, „Show List Info“ mit Dialog „List Info“), im Kalender unverändert", tasks_list_context, results)
+
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle
         # stehen, über den Aufgaben-Knöpfen, wenn die Details bei schmalem Fenster unter die Liste rutschen)

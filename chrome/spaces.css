@@ -3117,6 +3117,14 @@ search-bar {
 }
 
 /* ---------- Chat wie Apple Nachrichten ---------- */
+/* Gesprächsverlauf (conv.html): dunkel in Fensterfarbe statt des
+   blaustichigen #18181A der Gesprächsvorlage */
+@media (prefers-color-scheme: dark) {
+  body#ibcontent {
+    background-color: var(--mt-window) !important;
+  }
+}
+
 #chat-view-toolbox {
   background: var(--mt-window) !important;
   border: none !important;
@@ -6177,6 +6185,13 @@ button.wizard-button[disabled] {
 :root[subdialog] dialog,
 #photoDialog {
   background-color: var(--mt-sheet) !important;
+}
+
+/* dunkel: Sheet in Fensterfarbe mit 1 px Rand #FFFFFF@0.2 wie macOS-Panels */
+@media (prefers-color-scheme: dark) {
+  .dialogBox {
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
 }
 
 :is(dialog:not(.account-hub-dialog), wizard) :is(input, textarea):focus {

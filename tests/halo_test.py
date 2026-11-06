@@ -3389,6 +3389,40 @@ def dialog_checks(m, results):
         return ok1(res["imp"]) and ok1(res["exp"]), f"{res}"
     check("Import und Export: Fläche in Fensterfarbe wie die übrigen Tabs, dunkel kein Blauschwarz", import_export, results)
 
+    def dark_window_surfaces():
+        # Dunkel: Fensterflächen einheitlich #1E1E1E wie macOS – Mail-Hauptfenster (Liste, Leseansicht), Kalender,
+        # Dialog, halo.spaces-Fenster und Mailtext; nicht #18181B (Thunderbird) bzw. #282828 (-moz-Dialog) oder #1E1E20
+        res = m.js(MESSAGE_JS + r"""
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          if (!out.dark) return out;
+          const bg = el => el.ownerDocument.defaultView.getComputedStyle(el).backgroundColor;
+          const md = a3.messageBrowser.contentDocument, body = md.getElementById("messagepane").contentDocument;
+          out.mail = { list: bg(a3.document.documentElement), reader: bg(md.documentElement), text: bg(body.documentElement),
+                       window: (e => { e.style.backgroundColor = "var(--mt-window)"; a3.document.documentElement.append(e); const c = bg(e); e.remove(); return c; })(a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div")) };
+          await toCalendar();
+          out.calendar = bg(d.getElementById("calendarContent"));
+          await toMail();
+          w.setTimeout(() => w.openAboutDialog(), 0);
+          const find = part => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.includes(part) && x.document.readyState == "complete");
+          const dw = await bis(() => find("aboutDialog.xhtml"), "About-Fenster", 8000);
+          try { await ruhig(300); out.dialog = bg(dw.document.documentElement); } finally { dw.close(); await ruhig(300); }
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const had = find("resource://mailcards/about/halo.html");
+          if (!had) Cu.evalInSandbox("enhancer.openHaloWindow(Services.wm.getMostRecentWindow('mail:3pane'))", g);
+          const hw = await bis(() => find("resource://mailcards/about/halo.html"), "halo.spaces-Fenster", 8000);
+          try { await ruhig(300); const hd = hw.document;
+            out.halo = [hd.documentElement, hd.body].map(bg).find(c => !/rgba\(0, 0, 0, 0\)|transparent/.test(c));
+          } finally { if (!had) { hw.close(); await ruhig(300); } }
+          return out;""" % ADDON_ID)
+        if not res.get("dark"):
+            return True, f"hell, nur dunkel geprüft: {res}"
+        want = "rgb(30, 30, 30)"
+        got = [res["mail"]["list"], res["mail"]["reader"], res["mail"]["text"], res["mail"]["window"],
+               res.get("calendar"), res.get("dialog"), res.get("halo")]
+        return all(same_color(c, want) for c in got), f"{res}"
+    check("Dunkelmodus: Fensterflächen #1E1E1E – Mail-Hauptfenster, Mailtext, Kalender, Dialog und halo.spaces-Fenster", dark_window_surfaces, results)
+
     def print_preview():
         # Druckvorschau einer Mail: Knopf „Print/Save“ in der Systemakzentfarbe statt Proton-Blau bzw. -Türkis, Panel neutral; nie drucken
         res = m.js(DIALOG_READING_JS + r"""

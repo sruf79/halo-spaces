@@ -16,7 +16,7 @@
   :root {
     --text: #f5f5f7;
     --text-secondary: #a1a1a6;
-    --window: #1e1e20;
+    --window: #1e1e1e;
     --control: rgba(255, 255, 255, 0.07);
     --control-hover: rgba(255, 255, 255, 0.12);
   }

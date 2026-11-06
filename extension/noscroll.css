@@ -30,3 +30,16 @@
     }
   }
 }
+
+/* Mailtext dunkel (Thunderbirds dunkle Darstellung von Mails): Fläche in
+   Fensterfarbe #1E1E1E wie Mailliste und Lesekopf statt des blaustichigen
+   #18181B. Thunderbird malt sie über --color-gray-90 an der Wurzel der Mail;
+   nur diese Variable wird ersetzt, Mails mit eigenem Hintergrund behalten ihn */
+@-moz-document url-prefix("imap:"), url-prefix("mailbox:"), url-prefix("news:"),
+               url-prefix("nntp:"), url-prefix("ews:"), url-prefix("owl:") {
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-gray-90: #1E1E1E !important;
+    }
+  }
+}

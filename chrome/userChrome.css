@@ -85,7 +85,7 @@
   :root {
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
-    --mt-sidebar: #2A2A2C;
+    --mt-sidebar: #282828;
     --mt-sidebar-border: rgba(255, 255, 255, 0.07);
     --mt-text: #F5F5F7;
     --mt-text-secondary: #A1A1A6;
@@ -111,7 +111,7 @@
     --mt-status-online: #30D158;
     --mt-status-away: #FF9F0A;
     --mt-star: #FF9F0A;
-    --mt-sheet: #2A2A2C;
+    --mt-sheet: #1E1E1E;
     --mt-table-stripe: rgba(255, 255, 255, 0.045);
     --mt-cap-line: rgba(255, 255, 255, 0.23);
     --mt-cap-hover: rgba(255, 255, 255, 0.07);
@@ -120,6 +120,24 @@
     --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
     --mt-cap-dot-press: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-press) 15.5px, transparent 16px);
     --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
+  }
+}
+
+/* Fensterflächen dunkel überall #1E1E1E (macOS-Fensterhintergrund) statt
+   Thunderbirds blaustichigem #18181B (--layout-background-0, Seiten im Tab)
+   und der grauen Dialogfarbe #282828 (-moz-Dialog an der Wurzel jedes
+   Fensters, Dialoge, Verfassen, about:3pane/about:message). :where hält die
+   Wurzel-Regel ohne Gewicht: eigene Wurzel-Regeln des Designs (Unterdialog,
+   Erinnerung, Kontakte-Seitenleiste) gehen vor; durchsichtige
+   Benachrichtigungen bleiben durchsichtig */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --layout-background-0: var(--mt-window) !important;
+    --in-content-page-background: var(--mt-window) !important;
+  }
+
+  :where(:root:not([subdialog], #alertNotification)) {
+    background-color: var(--mt-window) !important;
   }
 }
 
@@ -197,7 +215,8 @@ unified-toolbar,
 
 @media (prefers-color-scheme: dark) {
   #mcDialogBox .dialogBox {
-    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.16), 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+    /* Sheet dunkel in Fensterfarbe mit 1 px Rand #FFFFFF@0.2 wie macOS */
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 12px 40px rgba(0, 0, 0, 0.5) !important;
   }
 }
 
@@ -7021,6 +7040,14 @@ search-bar {
 }
 
 /* ---------- Chat wie Apple Nachrichten ---------- */
+/* Gesprächsverlauf (conv.html): dunkel in Fensterfarbe statt des
+   blaustichigen #18181A der Gesprächsvorlage */
+@media (prefers-color-scheme: dark) {
+  body#ibcontent {
+    background-color: var(--mt-window) !important;
+  }
+}
+
 #chat-view-toolbox {
   background: var(--mt-window) !important;
   border: none !important;
@@ -10081,6 +10108,13 @@ button.wizard-button[disabled] {
 :root[subdialog] dialog,
 #photoDialog {
   background-color: var(--mt-sheet) !important;
+}
+
+/* dunkel: Sheet in Fensterfarbe mit 1 px Rand #FFFFFF@0.2 wie macOS-Panels */
+@media (prefers-color-scheme: dark) {
+  .dialogBox {
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
 }
 
 :is(dialog:not(.account-hub-dialog), wizard) :is(input, textarea):focus {

@@ -994,12 +994,8 @@ SURFACES = [
       close='w.gSpacesToolbar.toggleToolbar(false); await wait(1000);'),
     S("spaces-menue-knopf", "ordner", "popup", "Bereiche-Leiste eingeklappt: Bereiche-Menü", cap="native",
       skip="von halo.spaces ersetzt: der Knopf blendet die Seitenleiste ein/aus, das Menü wird blockiert (implementation.js, hookSidebarButton)"),
-    S("spaces-anpassen", "ordner", "popup", "Bereiche-Leiste anpassen (Panel)",
-      'await toMail(); const gs = w.gSpacesToolbar; const anchor = d.getElementById("collapseButton");'
-      ' return await pop("spacesToolbarCustomizationPanel", p => { if (vis(anchor)) return gs.showCustomize();'
-      ' gs.isCustomizing = true; gs._resetColorInputs?.(); p.openPopup(d.getElementById("settingsButton"), "end_after", 6, 0, false); });', cap="popup",
-      close='w.gSpacesToolbar.customizePanel?.hidePopup(); await wait(400);',
-      note="showCustomize() verankert das Panel am ausgeblendeten collapseButton – dort geht es nicht auf; der Rundgang öffnet es am Einstellungen-Knopf"),
+    S("spaces-anpassen", "ordner", "popup", "Bereiche-Leiste anpassen (Panel)", cap="native",
+      skip="von halo.spaces entfernt: „Anpassen…“ ist in beiden Kontextmenüs ausgeblendet, Nutzer erreichen das Panel nicht (implementation.js)"),
     S("appmenu", "ordner", "popup", "App-Menü (≡)",
       'await toMail(); const anchor = toolbarItem("search-bar") || d.getElementById("unifiedToolbarContent"); await w.PanelUI.ensureReady?.();'
       ' await pop("appMenu-popup", async () => { await w.PanelMultiView.openPopup(w.PanelUI.panel, anchor, { position: "bottomright topright" }); }); return { popup: "appMenu-popup" };', cap="popup",

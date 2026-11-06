@@ -479,7 +479,9 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
   „neon erreichen“, „Arbeitsweise von neon“). Ohne die Variable erkennt er
   neon auf macOS am übergeordneten `claude remote-control`. Nach einer
   Änderung am Skript `tests/mac-mini-setup.sh` ausführen – es kopiert das
-  Skript neu und startet den LaunchAgent neu (laufende neon-Sitzungen enden).
+  Skript neu, startet laufende Sitzungen aber nicht neu (neu eingerichtet
+  und gestartet wird der LaunchAgent nur, wenn seine plist fehlt oder
+  abweicht); wirksam ab dem nächsten Start bzw. nach `launchctl kickstart -k`.
 - Die Sitzung auf dem Mini arbeitet im Checkout `~/halo-spaces` mit allem,
   was der Mini hat (Thunderbird, Tests, Windows-VM, `gh project …`). Die
   Regeln für Testläufe (Abschnitt 7) gelten auch für sie.
@@ -512,9 +514,15 @@ erreichen“). So bleibt das Board erreichbar, während neon testet.
 - `aktive_sitzung()` in `tests/lauf-hilfen.zsh` übergeht den Projektordner
   `~/.claude/projects/…-halo-board`: neon-board hält Nachtlauf, Rundgang und
   Wochen-/Doku-Prüfung nie als „belegt“ auf.
-- `tests/mac-mini-setup.sh --check` prüft neon-board (plist, LaunchAgent
-  läuft, Prozess `remote-control --name neon-board`, Skriptkopien aktuell,
-  Ordner freigegeben), richtet aber nichts ein.
+- `tests/mac-mini-setup.sh` legt die Skripte beider Sitzungen
+  (`mac-remote-control.sh` als `remote-control.sh`, `neon-hook.sh`,
+  `board.sh`, `neon-stand.sh`) nach `~/.config/halo-spaces/` – nur
+  geänderte, ohne laufende Sitzungen neu zu starten; die neue Fassung gilt
+  ab deren nächstem Start (Entscheidung des Maintainers vom 6.11.2026,
+  Sitzung global.design.comparison, Wortlaut: „ja selbst übernehmen“). Mit
+  `--check` meldet es veraltete Kopien nur. Den LaunchAgent von neon-board
+  richtet es nicht ein, es prüft ihn (plist, läuft, Prozess
+  `remote-control --name neon-board`, Ordner freigegeben).
 - Speicher: eine zweite Sitzung braucht etwa 0,3–0,5 GB, bei 16 GB
   unkritisch. Beim nächsten vollen Lauf mit VM (CI-Runde `mac` + `windows`)
   `memory_pressure` und `sysctl vm.swapusage` mitmessen und mit den Werten
@@ -523,12 +531,9 @@ erreichen“). So bleibt das Board erreichbar, während neon testet.
 Einrichten (einmalig, im Testbenutzer, nachdem die Änderung auf `main` ist):
 
 ```bash
-# 1. Skripte nach ~/.config/halo-spaces/ (neon läuft weiter; sein Skript gilt
-#    ab seinem nächsten Neustart, das Verhalten von neon ist unverändert)
-cd ~/halo-spaces && git pull --ff-only
-for f in neon-hook.sh board.sh neon-stand.sh; do cp tests/$f ~/.config/halo-spaces/$f; done
-cp tests/mac-remote-control.sh ~/.config/halo-spaces/remote-control.sh
-chmod 755 ~/.config/halo-spaces/*.sh
+# 1. Skripte nach ~/.config/halo-spaces/ – legt mac-mini-setup.sh ab (nur
+#    geänderte, ohne neon neu zu starten; gilt ab dessen nächstem Start)
+cd ~/halo-spaces && git pull --ff-only && tests/mac-mini-setup.sh
 
 # 2. Arbeitsordner anlegen und in Claude Code freigeben
 mkdir -p ~/halo-board && cd ~/halo-board && claude   # „Trust this folder“, dann /exit
@@ -571,8 +576,9 @@ cd ~/halo-spaces && tests/mac-mini-setup.sh --check | grep -A1 neon-board
 Neu starten: `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.neon-board`;
 abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.neon-board` und
 die plist löschen. Nach Änderungen an `mac-remote-control.sh`,
-`neon-hook.sh`, `board.sh` oder `neon-stand.sh` Schritt 1 wiederholen und
-neon-board neu starten (`--check` meldet veraltete Kopien).
+`neon-hook.sh`, `board.sh` oder `neon-stand.sh` `tests/mac-mini-setup.sh`
+ausführen (`--check` meldet veraltete Kopien); wirksam beim nächsten Start
+der Sitzung bzw. nach `launchctl kickstart -k …`.
 
 ## 13. Nachtlauf
 

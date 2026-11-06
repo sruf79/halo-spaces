@@ -458,6 +458,36 @@ rc_plist() {
 </plist>
 EOF
 }
+# Skripte der Remote-Control-Sitzungen neon und neon-board nach
+# ~/.config/halo-spaces/ (Entscheidung des Maintainers vom 6.11.2026, Sitzung
+# global.design.comparison, Wortlaut: „ja selbst übernehmen“): nur geänderte
+# Dateien, ersetzt über eine neue Datei (mv) statt überschrieben; laufende
+# Sitzungen werden nicht neu gestartet, die neue Fassung gilt ab ihrem
+# nächsten Start. --check meldet veraltete Kopien nur.
+SK_DIR=$HOME/.config/halo-spaces
+SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
+          board.sh board.sh neon-stand.sh neon-stand.sh)
+skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
+  local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
+  for q z in $SK_PAARE; do
+    cmp -s $von/$q $nach/$z && continue
+    veraltet+=($z)
+    (( CHECK )) && continue
+    mkdir -p $nach && cp $von/$q $nach/.$z.neu && chmod 755 $nach/.$z.neu &&
+      mv -f $nach/.$z.neu $nach/$z && kopiert+=($z)
+  done
+  if (( ! $#veraltet )); then
+    ok "Sitzungs-Skripte" "aktuell in $nach"
+  elif (( CHECK )); then
+    offen "Sitzungs-Skripte" "veraltet oder fehlt in $nach: ${(j:, :)veraltet}"
+    tun "tests/mac-mini-setup.sh ohne --check ausführen (startet keine Sitzung neu)"
+  elif (( $#kopiert == $#veraltet )); then
+    hinweis "Sitzungs-Skripte" "kopiert: ${(j:, :)kopiert} – gilt ab dem nächsten Start von neon bzw. neon-board (nicht neu gestartet)"
+  else
+    offen "Sitzungs-Skripte" "nicht kopiert: ${(j:, :)${veraltet:|kopiert}} nach $nach"
+  fi
+}
+
 pruefe_remote_control() {
   local quelle=$ROOT/tests/mac-remote-control.sh claude c dom=gui/$(id -u)
   claude=${commands[claude]}
@@ -479,7 +509,9 @@ EOF
     hinweis "Remote Control" "$ROOT ist in Claude Code vermutlich noch nicht freigegeben"
     tun "cd $ROOT && claude   (anmelden, „Trust this folder“ bestätigen, /exit)"
   fi
-  if cmp -s $quelle $RC_ZIEL && [[ $(rc_plist) == "$(cat $RC_PLIST 2>/dev/null)" ]]; then
+  # das Skript selbst legt skripte_kopieren() ab (ohne Neustart); neu
+  # eingerichtet und gestartet wird nur, wenn die plist fehlt oder abweicht
+  if [[ $(rc_plist) == "$(cat $RC_PLIST 2>/dev/null)" ]]; then
     :
   elif (( CHECK )); then
     offen "Remote Control" "LaunchAgent fehlt oder ist veraltet – Cloud-Sitzungen erreichen den Rechner nicht"
@@ -508,29 +540,21 @@ EOF
 }
 
 # Zweite Remote-Control-Sitzung neon-board (nur Board und Bilder,
-# tests/MAC-MINI.md Abschnitt 12): wird nur geprüft, nie eingerichtet – den
-# LaunchAgent legt der Maintainer selbst an. Ohne plist nur ein Hinweis.
+# tests/MAC-MINI.md Abschnitt 12): LaunchAgent wird nur geprüft, nie
+# eingerichtet – den legt der Maintainer selbst an (Skripte: skripte_kopieren). Ohne plist nur ein Hinweis.
 NB_LABEL=at.halo-spaces.neon-board
 NB_PLIST=$HOME/Library/LaunchAgents/$NB_LABEL.plist
 NB_DIR=$HOME/halo-board
 NB_LOG=$HOME/Library/Logs/halo-neon-board.log
 pruefe_neon_board() {
-  local dom=gui/$(id -u) f veraltet=()
+  local dom=gui/$(id -u)
   if [[ ! -f $NB_PLIST ]]; then
     hinweis "neon-board" "nicht eingerichtet (zweite Sitzung nur für Board und Bilder, Abschnitt 12)"
     return
   fi
   grep -q '<string>neon-board</string>' $NB_PLIST ||
     { offen "neon-board" "$NB_PLIST setzt HALO_RC_NAME=neon-board nicht"; tun "plist wie in Abschnitt 12"; return }
-  # Skripte, die neon-board aus ~/.config/halo-spaces/ benutzt, auf dem Stand des Checkouts?
-  cmp -s $ROOT/tests/mac-remote-control.sh $RC_ZIEL || veraltet+=(remote-control.sh)
-  for f in neon-hook.sh board.sh neon-stand.sh; do
-    cmp -s $ROOT/tests/$f $AG_DIR/$f || veraltet+=($f)
-  done
-  if (( $#veraltet )); then
-    offen "neon-board" "veraltet oder fehlt in $AG_DIR: ${(j:, :)veraltet}"
-    tun "Abschnitt 12, „Skripte kopieren“, danach launchctl kickstart -k $dom/$NB_LABEL"
-  fi
+  # Skriptkopien prüft bzw. legt skripte_kopieren() ab
   if ! python3 - "$NB_DIR" <<'EOF' >/dev/null 2>&1
 import json, os, sys
 d = json.load(open(os.path.expanduser("~/.claude.json")))
@@ -546,7 +570,7 @@ EOF
   elif ! pgrep -f 'remote-control.*--name neon-board' >/dev/null; then
     offen "neon-board" "LaunchAgent läuft, aber kein claude remote-control --name neon-board"
     tun "Protokoll $NB_LOG"
-  elif (( ! $#veraltet )); then
+  else
     ok "neon-board" "läuft als LaunchAgent in $NB_DIR ($NB_LOG)"
   fi
 }
@@ -818,6 +842,7 @@ pruefe_anmeldung
 pruefe_tailscale
 pruefe_ssh
 pruefe_runner
+skripte_kopieren
 pruefe_remote_control
 pruefe_neon_board
 pruefe_laeufe

@@ -30,7 +30,8 @@ und wirkten die Verbesserungen der Vorwochen?
   CI („CI-Lauf … grün“ im Release-Bericht), Store-Upload-Fehler, Push-Fehler.
 - **Remote Control:** ~/Library/Logs/halo-remote-control.log (und .1 … .5,
   rotiert ab 10 MB): Startzeilen („Start: …“, je Neustart der Sitzung neon)
-  und Fehlerzeilen der letzten 7 Tage zählen; häufige Neustarts oder neue
+  und Fehlerzeilen der letzten 7 Tage zählen, ebenso für die Board-Sitzung
+  neon-board in ~/Library/Logs/halo-neon-board.log (falls vorhanden); häufige Neustarts oder neue
   Fehlerarten im Bericht nennen.
 - **Speicher von neon:** `sysctl vm.swapusage` (belegte und gesamte
   Auslagerung) und `memory_pressure` (freier Anteil) zum Zeitpunkt der

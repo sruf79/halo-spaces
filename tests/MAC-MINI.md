@@ -487,6 +487,93 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
   abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.remote-control`
   und die plist in `~/Library/LaunchAgents/` löschen.
 
+### Zweite Sitzung `neon-board` (nur Board und Bilder)
+
+Neben `neon` hält ein zweiter LaunchAgent `at.halo-spaces.neon-board` eine
+Remote-Control-Sitzung `neon-board` offen, die nur das Board bedient
+(`board.sh`: lesen, anlegen, ergänzen, Status, archivieren, Doppelte prüfen)
+und Bilder bzw. Apple-Vorlagen unter `~/halo-aufgaben/` speichert – nie
+Tests, Builds, Thunderbird, Pushes oder Releases (AGENTS.md „neon
+erreichen“). So bleibt das Board erreichbar, während neon testet.
+
+- Gleiches Skript wie neon (`~/.config/halo-spaces/remote-control.sh`), aber
+  `HALO_RC_NAME=neon-board`, Arbeitsordner `~/halo-board` (kein Checkout),
+  Protokoll `~/Library/Logs/halo-neon-board.log` (`HALO_RC_LOG`, rotiert wie
+  bei neon), Modus `auto` wie neon. Bei jedem Start schreibt das Skript
+  `~/halo-board/CLAUDE.md` (Rolle) und `~/halo-board/.claude/settings.json`
+  (Rechte: `board.sh`, `neon-stand.sh`, `~/halo-aufgaben` erlaubt; Tests,
+  Builds, Release, `git push`/`commit`, `prlctl`, `launchctl` gesperrt;
+  SessionStart-Hook `~/.config/halo-spaces/neon-hook.sh`) – Änderungen daran
+  im Skript, nicht im Ordner.
+- Der Hook erkennt neon-board an `HALO_NEON=board`, an `--name neon-board`
+  am übergeordneten `claude remote-control` oder am Ordner `~/halo-board`
+  und lädt eigene kurze Hinweise und die offenen Aufträge aus
+  `~/halo-aufgaben/board-stand.md` (`HALO_STAND_NAME=board neon-stand.sh …`).
+- `aktive_sitzung()` in `tests/lauf-hilfen.zsh` übergeht den Projektordner
+  `~/.claude/projects/…-halo-board`: neon-board hält Nachtlauf, Rundgang und
+  Wochen-/Doku-Prüfung nie als „belegt“ auf.
+- `tests/mac-mini-setup.sh --check` prüft neon-board (plist, LaunchAgent
+  läuft, Prozess `remote-control --name neon-board`, Skriptkopien aktuell,
+  Ordner freigegeben), richtet aber nichts ein.
+- Speicher: eine zweite Sitzung braucht etwa 0,3–0,5 GB, bei 16 GB
+  unkritisch. Beim nächsten vollen Lauf mit VM (CI-Runde `mac` + `windows`)
+  `memory_pressure` und `sysctl vm.swapusage` mitmessen und mit den Werten
+  der Wochenprüfung vergleichen.
+
+Einrichten (einmalig, im Testbenutzer, nachdem die Änderung auf `main` ist):
+
+```bash
+# 1. Skripte nach ~/.config/halo-spaces/ (neon läuft weiter; sein Skript gilt
+#    ab seinem nächsten Neustart, das Verhalten von neon ist unverändert)
+cd ~/halo-spaces && git pull --ff-only
+for f in neon-hook.sh board.sh neon-stand.sh; do cp tests/$f ~/.config/halo-spaces/$f; done
+cp tests/mac-remote-control.sh ~/.config/halo-spaces/remote-control.sh
+chmod 755 ~/.config/halo-spaces/*.sh
+
+# 2. Arbeitsordner anlegen und in Claude Code freigeben
+mkdir -p ~/halo-board && cd ~/halo-board && claude   # „Trust this folder“, dann /exit
+
+# 3. LaunchAgent anlegen
+cat > ~/Library/LaunchAgents/at.halo-spaces.neon-board.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>at.halo-spaces.neon-board</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>$HOME/.config/halo-spaces/remote-control.sh</string><string>$HOME/halo-board</string></array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HALO_RC_NAME</key><string>neon-board</string>
+    <key>HALO_RC_LOG</key><string>$HOME/Library/Logs/halo-neon-board.log</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/halo-neon-board.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/halo-neon-board.log</string>
+</dict>
+</plist>
+EOF
+
+# 4. starten und prüfen
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/at.halo-spaces.neon-board.plist
+tail -3 ~/Library/Logs/halo-neon-board.log           # „Start: … als neon-board“
+cd ~/halo-spaces && tests/mac-mini-setup.sh --check | grep -A1 neon-board
+```
+
+5. Aus einer Cloud-Sitzung `ListAgents` aufrufen: `neon-board` muss neben
+   `neon` erscheinen; eine Probe-Nachricht („liste '^Kalender:'“) schicken.
+   Fragt die Claude-App nach der Freigabe für eigene Rechner, nur auf einem
+   vertrauenswürdigen Gerät bestätigen.
+
+Neu starten: `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.neon-board`;
+abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.neon-board` und
+die plist löschen. Nach Änderungen an `mac-remote-control.sh`,
+`neon-hook.sh`, `board.sh` oder `neon-stand.sh` Schritt 1 wiederholen und
+neon-board neu starten (`--check` meldet veraltete Kopien).
+
 ## 13. Nachtlauf
 
 Jede Nacht um 01:30 arbeitet Claude Code auf dem Mini offene Einträge der

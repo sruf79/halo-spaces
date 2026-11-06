@@ -46,7 +46,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
-| `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzung offen (LaunchAgent, `tests/MAC-MINI.md` Abschnitt 12) |
+| `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
@@ -167,8 +167,8 @@ Jede Sitzung, egal in welcher Umgebung (Cloud, Desktop-App, CLI auf dem
 Laptop, iPhone, Cowork, Claude Tag/Slack, geplante Aufgaben, Unteragenten
 über ihre Hauptsitzung), kann der dauerhaften Sitzung **`neon`** auf dem
 Mac mini Aufträge geben (Entscheidung des Maintainers vom 4.11.2026). Alles,
-was den Mac braucht – Testläufe, Screenshots, `gh project …`, Board-Status,
-Release –, geht so an neon. Reihenfolge, bis einer klappt:
+was den Mac braucht – Testläufe, Screenshots, Release –, geht so an neon;
+Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
 
 1. `ListAgents`, dann `SendMessage` an `neon` (die Remote-Control-Sitzung,
    die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
@@ -184,6 +184,27 @@ Release –, geht so an neon. Reihenfolge, bis einer klappt:
    `…__send_message`, `…__confirm_repository_trust`).
 5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`
    Abschnitte 4 und 7).
+
+**Board und Bilder an `neon-board`** (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, zweite Board-Sitzung vorbereiten lassen. das bedeutet aber auch, dass wir aktuell alle vorhandenen workflows die nur auf neon zielen umbauen müssen“): Eine zweite
+dauerhafte Remote-Control-Sitzung **`neon-board`** auf demselben Mac bedient
+nur die Aufgabenliste (lesen, anlegen, ergänzen, Status, archivieren,
+Doppelte prüfen) und speichert Bilder und Apple-Vorlagen
+(`~/halo-aufgaben/bilder/`, `~/halo-aufgaben/apple/` mit `index.md`,
+`bilder-offen.md`) – nie Tests, Builds, Thunderbird, Pushes oder Releases.
+So erreichen Cloud-, Laptop- und iPhone-Sitzungen das Board auch, während
+neon testet. Board-, Bild- und Vorlagen-Aufträge gehen zuerst an
+`neon-board` (gleiche Wege 1–4 wie oben, Name bzw. Titel `neon-board`),
+nur wenn sie auf keinem Weg antwortet an `neon`. Alles, was den Mac sonst
+braucht (Tests, Screenshots, Release, Dateien außerhalb von
+`~/halo-aufgaben`), geht weiter an `neon`. Deutung der beauftragenden
+Sitzung (kein Wortlaut des Maintainers): „umbauen“ betrifft nur, was
+Sitzungen an neon schicken; Läufe, die lokal auf neon mit `gh` arbeiten
+(Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang,
+GitHub-Kommunikation), bleiben, wie sie sind. `neon-board` arbeitet in
+`~/halo-board` (Rolle in der dort erzeugten `CLAUDE.md`), hat eine eigene
+Auftragsliste `~/halo-aufgaben/board-stand.md` und zählt für Nachtlauf,
+Rundgang und Wochenprüfung nie als „belegt“. Einrichtung
+`tests/MAC-MINI.md` Abschnitt 12.
 
 Nie „neon nicht erreichbar“ melden, ohne alle passenden Wege versucht zu
 haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
@@ -207,8 +228,9 @@ Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
 anderes.
 
 *Aufträge an neon (alle anderen Sitzungen):* Der Weg bleibt derselbe (oben).
-- Nur, was den Mac braucht: Tests, Screenshots, Board, Bilder speichern,
-  Release, Dateien unter `~/halo-…`. Code, Git-Verlauf, Issues, Pull
+- Nur, was den Mac braucht: Tests, Screenshots, Release, Dateien unter
+  `~/halo-…`. Board und Bilder speichern gehen an `neon-board` (oben),
+  `neon` nur als Ausweichweg. Code, Git-Verlauf, Issues, Pull
   Requests und CI-Läufe (`actions_list`, `get_job_logs`) liest jede Sitzung
   selbst.
 - Eine Nachricht je Auftrag, vollständig: was, Zweig bzw. Commit, Port ab
@@ -222,7 +244,9 @@ anderes.
   Nummer.
 
 *Arbeitsweise von neon* (gilt für die Remote-Control-Sitzungen `neon`, nicht
-für Nachtlauf und andere Läufe):
+für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
+`HALO_STAND_NAME=board ~/.config/halo-spaces/neon-stand.sh` und
+`~/.config/halo-spaces/board.sh`, Hinweise vom selben Hook):
 - Jeder Auftrag, der länger als eine Antwort dauert, kommt in
   `~/halo-aufgaben/neon-stand.md`: `tests/neon-stand.sh neu <von> "<Auftrag>"`
   (`<von>` = Name der Sitzung für die Antwort), Zwischenstand mit `notiz`,
@@ -541,7 +565,7 @@ anheben (nach Test).
 Bugs und Wünsche führt der Maintainer in einem privaten GitHub-Project
 „halo.spaces Aufgaben“ (Konto `sruf79`, Felder Typ = Feature/Bug und Status).
 Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions immer über
-die Sitzung `neon` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
+die Sitzung `neon-board`, ersatzweise `neon` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
 SessionStart-Hook die offenen Einträge in jede Sitzung; sie liegen dann schon
 vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 
@@ -589,13 +613,14 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
   Jedes Bild, das der Maintainer einer Sitzung direkt ins Gespräch legt und
   das für einen Bug oder ein Feature im Board gebraucht wird, übermittelt
-  die Sitzung automatisch und ohne Rückfrage an neon (Entscheidung des
-  Maintainers vom 5.11.2026). Sitzungen auf neon speichern es selbst unter
+  die Sitzung automatisch und ohne Rückfrage an `neon-board`, ersatzweise
+  an `neon` (Entscheidung des Maintainers vom 5.11.2026; Empfänger seit
+  6.11.2026, siehe „neon erreichen“). Sitzungen auf neon speichern es selbst unter
   `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
   data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben;
   Originaldatei unverändert, nicht verkleinern oder umkodieren – die Seite
   fasst bis 16 MB, größere Bilder als Assets mit `asset: true`, bis 15 MB je Datei),
-  neon liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
+  neon-board (bzw. neon) liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
   sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
   Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.
   Bildqualität: keine feste Mindestgröße (auch kleine Ausschnitte sind in
@@ -604,7 +629,7 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   empfangende Sitzung sofort und sagt dem Maintainer gleich im Gespräch,
   was nicht erkennbar ist (mit Pixelgröße), und bittet um eine bessere
   Aufnahme, am besten per `halobild` (die Claude-App verkleinert Bilder
-  beim Hochladen teils). neon prüft nach dem Speichern ebenso, meldet ein
+  beim Hochladen teils). neon-board (bzw. neon) prüft nach dem Speichern ebenso, meldet ein
   zu schwaches Bild an die Sitzung zurück (die es weitergibt) und vermerkt
   im Eintrag „Bild unzureichend: …“.
   Ursache klären und Lösungsidee in den Eintrag
@@ -618,7 +643,8 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   und ohne Rückfrage zusätzlich als Vorlage für spätere Vergleiche nach
   `~/halo-aufgaben/apple/` auf neon – auch wenn er nur nebenbei im
   Gespräch auftaucht. Weg wie bei den Bildern oben (Sitzungen auf neon
-  speichern selbst, alle anderen über eine private Artifact-Seite;
+  speichern selbst, alle anderen über eine private Artifact-Seite an
+  `neon-board`, ersatzweise `neon`;
   Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
   melden), vom Laptop mit `haloapple <name>` (`tests/MAC-MINI.md`
   Abschnitt 10). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
@@ -644,7 +670,9 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   automatischen Läufen (Nachtlauf, Wochen-/Doku-Prüfung, Rundgang,
   CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon gibt der
   SessionStart-Hook die Liste aus; Cloud- und Laptop-Sitzungen fragen sie zu
-  Beginn bei neon ab („offene Bilderliste?“). Die Liste pflegt neon: neu
+  Beginn bei `neon-board` ab, ersatzweise bei `neon` („offene
+  Bilderliste?“). Die Liste pflegt neon-board (bzw. neon, wer das Bild
+  speichert): neu
   eintragen, wenn ein Eintrag „braucht Bild“, „Bild unzureichend“ oder
   „Vorlage fehlt“ bekommt; austragen, sobald das Bild gespeichert und
   geprüft ist.
@@ -652,7 +680,8 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
   (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf
   `main` ist und die CI dazu grün war: Status Done, dann archivieren. Das
-  übernimmt, wer pusht und die CI prüft (Nachtlauf, Cloud-Session über neon).
+  übernimmt, wer pusht und die CI prüft (Nachtlauf, Cloud-Session über
+  `neon-board`, ersatzweise `neon`).
   Wird ein Commit bei roter CI zurückgenommen (`git revert`), bleibt der
   Eintrag offen mit Notiz zum Grund. Teilweise Erledigtes bleibt
   In Progress mit Notiz, was fehlt.
@@ -665,7 +694,7 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - **Entscheidungen des Maintainers wörtlich** (Entscheidung des
   Maintainers vom 5.11.2026, gilt sofort): Jede Sitzung schickt eine
   Entscheidung des Maintainers – nach seiner Zustimmung (siehe nächster
-  Punkt) – an neon bzw. trägt sie selbst ein –
+  Punkt) – an `neon-board` (ersatzweise `neon`) bzw. trägt sie selbst ein –
   mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
   keine Umschreibung. Board-Notizen zu Entscheidungen enthalten dieses Zitat
   unverändert. Ein späterer Vermerk darf eine Entscheidung nur ändern oder
@@ -680,10 +709,10 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   informationen darf jede session selbstständig neon befragen aber zitate
   von mir sollen erst nach meiner zustimmung an neon übermittelt werden“):
   Während einer Konzeptrunde (Vorschaubilder, Varianten, Zwischenmeinungen)
-  geht nichts an neon. Ein Zitat des Maintainers – auch für neue Einträge
+  geht nichts an neon oder neon-board. Ein Zitat des Maintainers – auch für neue Einträge
   und Entscheidungen – übermittelt eine Sitzung erst, wenn er zugestimmt
   hat (z. B. „ja, so an neon“); dann einmal, wörtlich, mit dem Ergebnis.
-  Abfragen von Informationen bei neon (Board lesen, Code-Stand, Messungen)
+  Abfragen von Informationen bei neon bzw. neon-board (Board lesen, Code-Stand, Messungen)
   gehen weiter ohne Rückfrage. Die Bildübergabe (oben) bleibt automatisch.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
@@ -713,17 +742,19 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 In Cloud-Sessions ist die GraphQL-API gesperrt, `gh project …` geht dort
 nicht – auch nicht mit Token. **Alles am Board – lesen, neu anlegen,
 ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über
-die Sitzung `neon`** (Entscheidung des Maintainers vom 4.11.2026; Weg dorthin:
-Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und neon
-prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden sollte. Im
+die Sitzung `neon-board`, ersatzweise `neon`** (Entscheidung des Maintainers
+vom 4.11.2026, Empfänger `neon-board` seit 6.11.2026, Wortlaut und Weg dorthin:
+Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und
+neon-board prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden
+sollte. Im
 Auftrag nennen, was anzulegen oder zu ändern ist (Titel, Text, Typ, Status
 bzw. Eintrag und neuer Status) und was zurückgemeldet werden soll (z. B. die
 id); bis zur Antwort nichts als erledigt melden. Entscheidungen des
-Maintainers mit Wortlaut und Herkunft schicken, neon trägt das Zitat
+Maintainers mit Wortlaut und Herkunft schicken, neon-board trägt das Zitat
 unverändert ein (Abschnitt „Aufgabenliste“, „Entscheidungen des Maintainers
 wörtlich“).
 
-Nur wenn neon auf keinem Weg erreichbar ist: neue Einträge notfalls über den
+Nur wenn weder neon-board noch neon auf einem Weg erreichbar ist: neue Einträge notfalls über den
 Workflow anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`)
 und das dem Maintainer sagen; Lesen, Ergänzen und Status ändern erledigt dann
 der Maintainer im Board.
@@ -764,8 +795,8 @@ liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
   sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
 - Push-Sperre 01:30–09:00 und ab 00:00 kein Push mit Codeänderung: wie
   unter „Testrechner“.
-- Release: siehe „Release“ (nur auf neon); den Board-Status über neon oder
-  den Maintainer pflegen.
+- Release: siehe „Release“ (nur auf neon); den Board-Status über
+  `neon-board` (ersatzweise `neon`) oder den Maintainer pflegen.
 
 ## GitHub-Issues und Pull Requests von Nutzern
 

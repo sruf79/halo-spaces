@@ -5540,6 +5540,47 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Trenner höchstens als Haarlinie, „Time as: Busy“ mit Abstand ohne Prägeschatten, Beschreibung lesbar (dunkel ≥ 4,5:1), Kategorie-Farbpunkte mit Ring", event_dialog_lines, results)
 
+    def event_dialog_category_check():
+        # Termin-Dialog: das Häkchen der gewählten Kategorie kommt über --icon-check von halo (resource:). Die CSP des
+        # Termin-Rahmens erlaubt Bilder nur von chrome: und moz-icon: – trotzdem muss das Häkchen laden (gleiche Adresse als
+        # Bild im Rahmen lädt, keine CSP-Meldung) und am Eintrag stehen
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Häkchentermin"; e.calendar = c;
+          const s = cal.dtz.now(); s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.setCategories(["Business"]); const saved = await c.addItem(e);
+          const out = {}; let dw = null; const t0 = Date.now();
+          try {
+            await toCalendar(); w.modifyEventWithDialog(saved, true);
+            dw = await winUrl("calendar-event-dialog"); if (!dw) throw new Error("Termin-Dialog nicht offen");
+            const iw = await bis(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+              return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f; }, "Termin-Rahmen", 8000);
+            await ruhig(800);
+            const id = iw.document, cp = id.getElementById("item-categories-popup");
+            cp.openPopup(id.getElementById("item-categories"), "after_start"); await bis(() => cp.state == "open", "Kategorien-Menü offen", 3000); await ruhig(400);
+            const it = [...cp.querySelectorAll("menuitem")].find(x => x.hasAttribute("checked"));
+            const icon = it?.querySelector(".menu-icon");
+            out.item = it ? [it.label, csOf(it).getPropertyValue("--menuitem-icon").trim(), icon ? csOf(icon).content : null,
+                             icon ? Math.round(icon.getBoundingClientRect().width) : 0, icon ? csOf(icon).display : null] : null;
+            const tryImg = url => new Promise(r => { const im = id.createElementNS("http://www.w3.org/1999/xhtml", "img"); im.onload = () => { im.remove(); r(im.naturalWidth); };
+              im.onerror = () => { im.remove(); r(-1); }; im.src = url; id.documentElement.append(im); setTimeout(() => r(0), 3000); });
+            out.load = await tryImg("resource://mailcards/icons/check.svg");
+            cp.hidePopup(); await ruhig(200);
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          out.csp = Services.console.getMessageArray().filter(mm => (mm.timeStamp || 0) >= t0 - 1000 && /Content.Security|CSP/i.test(mm.message || mm.errorMessage || "")
+            && /mailcards/.test(mm.message || mm.errorMessage || "")).map(mm => (mm.message || mm.errorMessage).slice(0, 200));
+          return out;""")
+        it = res.get("item") or []
+        url = 'url("resource://mailcards/icons/check.svg")'
+        ok = (len(it) == 5 and it[0] == "Business" and it[1] == url and it[2] == url and it[3] >= 12 and it[4] != "none"
+              and res.get("load", 0) > 0 and res.get("csp") == [])
+        return ok, f"{res}"
+    check("Termin-Dialog: Häkchen der gewählten Kategorie aus halo (--icon-check, resource:) lädt trotz der CSP des Termin-Rahmens und steht am Eintrag",
+          event_dialog_category_check, results)
+
     def summary_height_grows():
         # Terminübersicht: war das Fenster beim ersten Öffnen zu niedrig gemessen (Schrift/Zeilenumbruch noch nicht fertig),
         # zieht halo.spaces die Höhe nach dem Zeichnen nach – „Edit“ behält Abstand zum unteren Rand; Breite und Lage bleiben

@@ -19798,9 +19798,16 @@ class CardEnhancer {
       }
     });
     ro.observe(win.document.documentElement);
+    // auch die Toolbar-Zeile selbst: ändert sich nur sie (Fenster wird auf
+    // seine Mindestbreite nachgezogen, Today-Pane), blieben sonst Knöpfe aus
+    // einem engeren Zwischenstand ausgeblendet, obwohl wieder Platz ist
+    const toolbarRow = top.document.getElementById("unifiedToolbarContainer");
+    const rowRo = toolbarRow ? new top.ResizeObserver(() => update()) : null;
+    rowRo?.observe(toolbarRow);
     update();
     this.restorers.push(() => {
       ro.disconnect();
+      rowRo?.disconnect();
       this.offsetUpdaters?.delete(update);
       const tabsBar = top.document.getElementById("tabs-toolbar");
       tabsBar?.style.removeProperty("--mc-sidebar-right");

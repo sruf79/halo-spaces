@@ -3232,14 +3232,18 @@ def dialog_checks(m, results):
           } finally { await shut(sw); }
           later(() => w.openKeyManager());
           const kw = await winUrl("KeyManager"); if (!kw) throw new Error("OpenPGP-Schlüssel nicht offen");
-          try { await ruhig(1000); out.keys = look(kw.document.getElementById("pgpKeyList")); out.keyHead = headOf(kw.document, "#pgpKeyList"); } finally { await shut(kw); }
+          try { await ruhig(1000); out.keys = look(kw.document.getElementById("pgpKeyList")); out.keyHead = headOf(kw.document, "#pgpKeyList");
+            const fk = kw.document.getElementById("filterKey"), fks = () => { const s = csOf(fk); return [Math.round(fk.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor]; };
+            out.keySearch = fks(); InspectorUtils.addPseudoClassLock(fk, ":hover"); out.keySearchHover = fks(); InspectorUtils.removePseudoClassLock(fk, ":hover");
+            out.control = colorOf(kw.document, "var(--mt-control)", "backgroundColor"); } finally { await shut(kw); }
           out.dark = dark; return out;""")
         hair = lambda r, rad: r["radius"] == rad and same_color(r["line"], r["paneLine"])
         px = res.get("pixel") or [255, 255, 255, 255]
         log_ok = (sum(px[:3]) < 200) if res["dark"] else (min(px[:3]) >= 250)
         ok = (res["list"]["app"] == "none" and hair(res["list"], "8px") and hair(res["search"], "7px") and res["search"]["img"] != "none"
               and hair(res["log"], "8px") and log_ok and hair(res["terms"], "8px") and hair(res["field"], "7px") and res["field"]["h"] <= 30
-              and hair(res["keys"], "8px"))
+              and hair(res["keys"], "8px") and res["keySearch"][:3] == [28, "999px", "0px"] and same_color(res["keySearch"][3], res["control"])
+              and res["keySearch"] == res["keySearchHover"])
         def head_ok(h):
             cols = h["cols"]
             return (len(cols) >= 2 and same_color(h["bb"], h["sep"]) and all(c["sh"] == "none" for c in cols)
@@ -3254,7 +3258,7 @@ def dialog_checks(m, results):
                   and (t["row"] is None or transparent(t["row"]) or same_color(t["row"], t["win"]))
                   and (transparent(t["th"]) or same_color(t["th"], t["win"])) and t["thLine"][0] != "0px")
         return ok, f"{res}"
-    check("Filterliste, Filterprotokoll, Suche, OpenPGP: Listen und Felder mit Haarlinie und Radius statt hartem Rahmen, Protokoll dunkel ohne weiße Fläche; Spaltenköpfe samt Spaltenwahl-Knopf mit Haarlinien statt Systemlinie", filter_windows, results)
+    check("Filterliste, Filterprotokoll, Suche, OpenPGP: Listen und Felder mit Haarlinie und Radius statt hartem Rahmen, Protokoll dunkel ohne weiße Fläche; Spaltenköpfe samt Spaltenwahl-Knopf mit Haarlinien statt Systemlinie; Schlüsselsuche als Kapsel ohne Hover", filter_windows, results)
 
     def compact_icon():
         # „Ordner komprimieren?“: Fragezeichen in der Akzentfarbe statt schwarz (dunkel unsichtbar); nie „Compact now“

@@ -62,7 +62,7 @@ case $befehl in
     { eintrag $1 || exit 1 } | jq -r '"\(.id)  \(.typ // "-")  \(.status // "-")\n\(.title)\n\n\(.content.body // "")"'
     ;;
   neu)
-    typ=$1 titel=$2 text=$3 st=${4:-todo} id
+    typeset typ=$1 titel=$2 text=$3 st=${4:-todo} id
     typ_option $typ >/dev/null && [[ -n $titel ]] || fehler "Aufruf: board.sh neu <bug|feature> <Titel> <Text> [<Status>]"
     status_option $st >/dev/null || fehler "Status unbekannt: $st"
     board | jq -e --arg t $titel '.items[] | select(.status != "Done" and .title == $t)' >/dev/null \
@@ -74,14 +74,14 @@ case $befehl in
     print "$id  neu: $titel"
     ;;
   status)
-    opt e
+    typeset opt e
     opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done>"
     e=$(eintrag $1) || exit 1
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt || fehler "Status ließ sich nicht setzen"
     print -r -- "$(print -r -- $e | jq -r .id)  Status $2: $(print -r -- $e | jq -r .title)"
     ;;
   notiz)
-    e di body
+    typeset e di body
     [[ -n $2 ]] || fehler "Aufruf: board.sh notiz <id> <Text>"
     e=$(eintrag $1) || exit 1
     di=$(print -r -- $e | jq -r '.content.id // ""')
@@ -93,7 +93,7 @@ $2" >/dev/null || fehler "Notiz ließ sich nicht anhängen"
     print -r -- "$(print -r -- $e | jq -r .id)  Notiz ergänzt: $(print -r -- $e | jq -r .title)"
     ;;
   archiv)
-    e
+    typeset e
     e=$(eintrag $1) || exit 1
     gh project item-archive 1 --owner sruf79 --id $(print -r -- $e | jq -r .id) >/dev/null || fehler "Archivieren fehlgeschlagen"
     print -r -- "$(print -r -- $e | jq -r .id)  archiviert: $(print -r -- $e | jq -r .title)"

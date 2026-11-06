@@ -42,6 +42,8 @@ ENDE=$(date -j -v8H -v0M -v0S +%s)       # nach 08:00 nicht mehr fortsetzen
 HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
+# Vorprüfung ohne Claude: nachtlauf_arbeit(), uebersprungen()
+source ${0:A:h}/vorpruefung.zsh
 # ungespeicherte Reste im Checkout sind kein Grund auszulassen: der Auftrag nimmt sie mit
 REST_MITNEHMEN=1
 
@@ -133,6 +135,18 @@ fi
 # --- Thunderbird aktuell halten: die CI-Runde der Nacht testet dann mit der neuen Version ---
 TB_INFO=$(thunderbird_aktualisieren)
 log "$TB_INFO"
+
+# --- Claude nur starten, wenn es etwas zu tun gibt (Entscheidung des Maintainers
+# vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3
+# umsetzen.“): Vorprüfung ohne Claude, bei „nichts zu tun“ Bericht und Protokollzeile,
+# kein Push aufs iPhone. ~/halo-nacht/IMMER erzwingt den Lauf. ---
+if GRUND=$(nachtlauf_arbeit); then
+  log "Vorprüfung: Arbeit da – $GRUND"
+else
+  uebersprungen nachtlauf "$GRUND"
+  notbericht "übersprungen" "nichts zu tun: $GRUND"
+  exit 0
+fi
 
 # --- Arbeit: claude -p, bei Limit nach 30 Minuten fortsetzen ---
 cd $REPO || exit 2

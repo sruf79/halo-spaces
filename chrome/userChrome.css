@@ -645,9 +645,10 @@ body.layout-wide {
   color: var(--mt-text-tertiary) !important;
 }
 
+/* Kontozeilen so hoch wie die übrigen Zeilen (Höhe je Dichte von oben):
+   früher 22 px plus 10 px Abstand – gleiche Teilung, aber die Auswahl war
+   nur 22 px hoch (GitHub #44) */
 #folderTree li[data-server-type] > .container {
-  min-height: 22px !important;
-  margin-top: 10px !important;
   background: transparent !important;
 }
 

@@ -3430,11 +3430,14 @@ def folder_checks(m, results):
           const srv = tree.querySelector("li[data-server-type] > .container > .name");
           if (srv) { const sl = srv.closest("li"); const had = sl.classList.contains("new-messages"); sl.classList.add("new-messages"); await ruhig(100);
             out.server = csOf(srv).color; out.tertiary = colorOf(ad, "var(--mt-text-tertiary)"); if (!had) sl.classList.remove("new-messages"); }
+          // Kontozeile so hoch wie eine Ordnerzeile (Auswahl gleich hoch, GitHub #44)
+          const srvRow = [...tree.querySelectorAll("li[data-server-type] > .container")].find(c => c.getBoundingClientRect().height);
+          if (srvRow) out.heights = [Math.round(srvRow.getBoundingClientRect().height), Math.round(li.querySelector(":scope > .container").getBoundingClientRect().height)];
           return out;""")
         ok = (res.get("folder") is not None and same_color(res["color"], res["text"]) and res["weight"] == "400" and res["star"] == "hidden"
-              and ("server" not in res or same_color(res["server"], res["tertiary"])))
+              and ("server" not in res or same_color(res["server"], res["tertiary"]) and (res.get("heights") or [0])[0] == res["heights"][-1] >= 24))
         return ok, f"{res}"
-    check("Ordnerliste: Ordner mit neuen Mails ohne Funkelstern, Name in Textfarbe wie die übrigen", new_messages, results)
+    check("Ordnerliste: Ordner mit neuen Mails ohne Funkelstern, Name in Textfarbe wie die übrigen; Kontozeilen so hoch wie Ordnerzeilen", new_messages, results)
 
     def drop_target():
         # Ziehen auf einen Ordner: Thunderbird setzt .drop-target – das Ziel muss sichtbar und von der Auswahl unterscheidbar sein

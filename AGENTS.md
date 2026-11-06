@@ -188,7 +188,7 @@ Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
 5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`
    Abschnitte 4 und 7).
 
-**Board und Bilder an `neon-board`** (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, zweite Board-Sitzung vorbereiten lassen. das bedeutet aber auch, dass wir aktuell alle vorhandenen workflows die nur auf neon zielen umbauen müssen“): Eine zweite
+**Board und Bilder an `neon-board`** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`): Eine zweite
 dauerhafte Remote-Control-Sitzung **`neon-board`** auf demselben Mac bedient
 nur die Aufgabenliste (lesen, anlegen, ergänzen, Status, archivieren,
 Doppelte prüfen) und speichert Bilder und Apple-Vorlagen
@@ -199,11 +199,9 @@ neon testet. Board-, Bild- und Vorlagen-Aufträge gehen zuerst an
 `neon-board` (gleiche Wege 1–4 wie oben, Name bzw. Titel `neon-board`),
 nur wenn sie auf keinem Weg antwortet an `neon`. Alles, was den Mac sonst
 braucht (Tests, Screenshots, Release, Dateien außerhalb von
-`~/halo-aufgaben`), geht weiter an `neon`. Deutung der beauftragenden
-Sitzung (kein Wortlaut des Maintainers): „umbauen“ betrifft nur, was
-Sitzungen an neon schicken; Läufe, die lokal auf neon mit `gh` arbeiten
-(Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang,
-GitHub-Kommunikation), bleiben, wie sie sind. `neon-board` arbeitet in
+`~/halo-aufgaben`), geht weiter an `neon`. Läufe, die lokal auf neon
+mit `gh` arbeiten (Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang,
+GitHub-Kommunikation), bleiben, wie sie sind (Deutung in `ENTSCHEIDUNGEN.md`). `neon-board` arbeitet in
 `~/halo-board` (Rolle in der dort erzeugten `CLAUDE.md`), hat eine eigene
 Auftragsliste `~/halo-aufgaben/board-stand.md` und zählt für Nachtlauf,
 Rundgang und Wochenprüfung nie als „belegt“. Einrichtung
@@ -223,10 +221,9 @@ keiner Seite erscheint eine Abfrage (Test vom 4.11.2026). neon antwortet mit
 gelesen wurde, sie erscheint dort als neue Nachricht. `send_message` aus neon
 scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
 
-**neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026,
-Wortlaut: „ja, setz schritt 1 und 2 um“ – Vorschlag dieser Sitzung: neon
-verteilt Arbeit statt sie selbst im Kontext zu erledigen, und offene
-Aufträge stehen in einer Datei, die nach dem Verdichten wieder geladen wird).
+**neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`:
+neon verteilt Arbeit statt sie selbst im Kontext zu erledigen, offene Aufträge
+stehen in einer Datei, die nach dem Verdichten wieder geladen wird).
 Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
 anderes.
 
@@ -272,10 +269,8 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
 - **Modelle: Routine mit Sonnet, Komplexes mit Opus, im Zweifel Opus**
-  (Entscheidung des Maintainers, Cloud-Sitzung global.design.comparison,
-  6.11.2026, Wortlaut: „neon beauftragen, allerdings zusätzlich "im zweifel
-  opus" eintragen.“; Bezug ist dieser freigegebene Vorschlag der
-  Cloud-Sitzung; ersetzt die frühere Regel „Unteragenten immer Sonnet“):
+  (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`;
+  ersetzt die frühere Regel „Unteragenten immer Sonnet“):
   - `neon` selbst läuft mit Sonnet: Aufträge annehmen und in
     `neon-stand.md` führen, Testläufe starten und OK/FEHLER melden, Bilder
     und Vorlagen speichern, Zweige mergen, Skripte nach klarer Anleitung,
@@ -306,19 +301,15 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     gilt dann auch nach Neustarts. Gleiches gilt für `neon-board`, falls
     der Server dort ein Modell mitgibt.
 - **Kein täglicher Neustart von `neon`, `/clear` von Hand** (Entscheidung des
-  Maintainers, Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut:
-  „ja täglichen neustart nicht aktivieren. clear von hand.“; Bezug: Befund, dass `kickstart -k` dieselbe Sitzung mit vollem Verlauf
-  fortsetzt – `--resume`, gleiche Sitzungs-ID –, `claude remote-control` hat
+  Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; Befund: `kickstart -k`
+  setzt dieselbe Sitzung mit vollem Verlauf fort, `claude remote-control` hat
   keine Option für eine frische Sitzung): `tests/neon-neustart.sh` bleibt als
   Vorlage liegen, der LaunchAgent `at.halo-spaces.neon-neustart` wird nicht
   eingerichtet (`mac-mini-setup.sh` meldet nur, falls er doch geladen ist). Den
   Kontext leert der Maintainer täglich selbst mit `/clear` in neon, vorher
   fragt er mit `/bereit`.
-- **`/bereit`: ist neon frei für `/clear`?** (Frage des Maintainers, Cloud-Sitzung
-  global.design.comparison, 6.11.2026, Wortlaut: „kann ich irgendwie der neon
-  session beibringen dass sie von alleine in neon-stand.md nachsieht wenn ich sie
-  frage ob in der session etwas offen ist oder ich ein /clear laufen lassen
-  kann?“; die Umsetzung ist die Deutung der Cloud-Sitzung): Projekt-Befehl
+- **`/bereit`: ist neon frei für `/clear`?** (Frage des Maintainers vom 6.11.2026,
+  Wortlaut in `ENTSCHEIDUNGEN.md`; die Umsetzung ist die Deutung der Cloud-Sitzung): Projekt-Befehl
   `.claude/commands/bereit.md` und Regel im Hinweis von `tests/neon-hook.sh`. Bei
   `/bereit` oder Fragen wie „ist etwas offen?“ / „kann ich clearen?“ prüft neon
   selbst: (1) `~/halo-aufgaben/neon-stand.md` lesen, (2) mit dem eigenen Verlauf
@@ -358,10 +349,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   läuft (Prozess `Runner.Worker`), keine eigenen Testläufe starten – zwei
   Testfenster nehmen sich gegenseitig den Fokus.
 - **CI nur für Thunderbird** (Entscheidung des Maintainers vom 6.11.2026,
-  Sitzung neon, Wortlaut: „neue regelung: ab sofort benötigen änderungen an
-  den .md files oder an den settings der sessions keinerlei CI lauf mehr.
-  alle änderungen, die nichts mit thunderbird direkt zu tun haben, benötigen
-  keinen ci lauf mehr“): `test.yml` startet nur, wenn ein Push etwas ändert,
+  Wortlaut in `ENTSCHEIDUNGEN.md`: Änderungen an `.md` und Sitzungs-Einstellungen
+  und alles ohne direkten Thunderbird-Bezug brauchen keinen CI-Lauf): `test.yml` startet nur, wenn ein Push etwas ändert,
   das Thunderbird direkt betrifft – `extension/`, `chrome/`, `icons/`,
   `build.sh` und die Prüfungen, die die CI ausführt (`halo_test.py`,
   `perf.js`, `update_test.py`, `testserver.py`, `adressen.py`,
@@ -442,7 +431,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
   CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
-- **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“):
+- **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
   Nachtlauf, Design-Rundgang, Doku-Prüfung und GitHub-Kommunikation prüfen vorher
   per Skript ohne Claude (`tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh`),
   ob es etwas zu tun gibt: Nachtlauf bei machbaren Board-Einträgen (Todo/In
@@ -453,7 +442,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   (Stand `~/halo-aufgaben/doku-pruefung.stand`) nur bei geänderten `.md` oder geänderten
   Skripten, die eine `.md` nennt, mit Abgleich gegen alle `.md` auf Widersprüche,
   und als Vollprüfung am ersten Samstag im Monat bzw. mit `~/halo-nacht/DOKU-VOLL`
-  (Ergänzung vom selben Tag, Wortlaut: „nein die doku prüfung soll auch widersprüche sehen“; Regeln = Deutung der Sitzung
+  (Ergänzung vom selben Tag, Wortlaut in `ENTSCHEIDUNGEN.md`; Regeln = Deutung der Sitzung
   global.design.comparison, `tests/MAC-MINI.md` Abschnitt 16);
   GitHub-Kommunikation nur bei Neuem von anderen seit „Letzte Prüfung“. Ein
   übersprungener Lauf schreibt `ÜBERSPRUNGEN <Routine> <Grund>` ins Protokoll und in
@@ -744,10 +733,7 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   nach einer passenden Vorlage und vergleicht damit; fehlt eine, im
   Bericht bzw. Gespräch nennen, welche Vorlage helfen würde.
 - **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026,
-  Wortlaut: „Erinnere mich jeden tag untertags (bei keinem nachtlauf) bei
-  einem manuellen run an benötigte bilder die noch gebraucht werden“ –
-  ersetzt durch die Korrektur desselben Abends: „Nein jede manuell
-  gestartete sitzung zwischen 08:00 und 22:00 täglich“): Jede von Hand
+  Wortlaut in `ENTSCHEIDUNGEN.md`; gilt für jede von Hand gestartete Sitzung zwischen 08:00 und 22:00 täglich): Jede von Hand
   gestartete Sitzung, die zwischen 08:00 und 22:00 (Wiener Zeit) beginnt,
   nennt dem Maintainer in ihrer ersten Antwort die offenen Bilder aus
   `~/halo-aufgaben/bilder-offen.md` – Pflicht zuerst, optional knapp, mit
@@ -777,7 +763,8 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   gearbeitet wird und was nicht committet ist, mit Notiz zum Stand zurück
   auf Todo.
 - **Entscheidungen des Maintainers wörtlich** (Entscheidung des
-  Maintainers vom 5.11.2026, gilt sofort): Jede Sitzung schickt eine
+  Maintainers vom 5.11.2026, gilt sofort; der Wortlaut jeder Entscheidung
+  steht in `ENTSCHEIDUNGEN.md`, neue Entscheidungen dort eintragen): Jede Sitzung schickt eine
   Entscheidung des Maintainers – nach seiner Zustimmung (siehe nächster
   Punkt) – an `neon-board` (ersatzweise `neon`) bzw. trägt sie selbst ein –
   mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
@@ -788,11 +775,7 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Sitzungen oder den Maintainer), zitiert die Notiz statt sie
   zusammenzufassen; eigene Deutungen als solche kennzeichnen.
 - **Zitate erst nach Zustimmung, Konzeptrunden ohne neon** (Entscheidung
-  des Maintainers vom 6.11.2026, Sitzung halo-spaces-72, Wortlaut: „ja das
-  soll für alle session gelten da wir ansonsten permanent neon
-  benachrichtigen und sich ständig sein context füllt. bei abfragen nach
-  informationen darf jede session selbstständig neon befragen aber zitate
-  von mir sollen erst nach meiner zustimmung an neon übermittelt werden“):
+  des Maintainers vom 6.11.2026, Sitzung halo-spaces-72, Wortlaut in `ENTSCHEIDUNGEN.md`):
   Während einer Konzeptrunde (Vorschaubilder, Varianten, Zwischenmeinungen)
   geht nichts an neon oder neon-board. Ein Zitat des Maintainers – auch für neue Einträge
   und Entscheidungen – übermittelt eine Sitzung erst, wenn er zugestimmt
@@ -828,8 +811,8 @@ In Cloud-Sessions ist die GraphQL-API gesperrt, `gh project …` geht dort
 nicht – auch nicht mit Token. **Alles am Board – lesen, neu anlegen,
 ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über
 die Sitzung `neon-board`, ersatzweise `neon`** (Entscheidung des Maintainers
-vom 4.11.2026, Empfänger `neon-board` seit 6.11.2026, Wortlaut und Weg dorthin:
-Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und
+vom 4.11.2026, Empfänger `neon-board` seit 6.11.2026, Wortlaut in
+`ENTSCHEIDUNGEN.md`, Weg dorthin: Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und
 neon-board prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden
 sollte. Im
 Auftrag nennen, was anzulegen oder zu ändern ist (Titel, Text, Typ, Status

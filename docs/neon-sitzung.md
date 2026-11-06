@@ -10,10 +10,19 @@ jedem Verdichten) darauf hin; die Regeln für **Aufträge an neon**, die Wege zu
 Cloud-Sitzungen (in der Cloud gibt es kein `bypassPermissions`). Bei
 verschiedenen Modi hält die empfangende Sitzung Nachrichten zurück, und auf
 keiner Seite erscheint eine Abfrage (Test vom 4.11.2026). neon antwortet mit
-`SendMessage` an den Namen der Sitzung aus `ListAgents` (Name per
-`list_sessions` der Sitzungs-ID zuordnen); das meldet nicht, ob die Nachricht
-gelesen wurde, sie erscheint dort als neue Nachricht. `send_message` aus neon
-scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
+`SendMessage` an den Namen der Sitzung aus `ListAgents`; das meldet nicht, ob
+die Nachricht gelesen wurde, sie erscheint dort als neue Nachricht.
+`send_message` aus neon scheitert auch im Modus „Auto“
+(`elevated_session_untrusted_device`, zuletzt geprüft 6.11.2026).
+Cloud-Sitzungen ändern ihren Titel oft mitten im Gespräch (6.11.2026: zweimal
+in einer Stunde), die Sitzungs-ID bleibt. Darum merkt sich neon die
+**Sitzungs-ID** (`from-session` der Nachricht) und ermittelt den Namen erst
+beim Antworten: `get_session` mit der ID → aktueller Titel → in `ListAgents`
+suchen → `SendMessage` an diesen Namen (bei gleichen Namen mit dem `[ref]`
+aus derselben Liste). Kommt der Auftrag ohne `from-session` (Sitzung auf
+diesem Mac), gilt der Name aus `from-name`. Auftraggeber sollen ihrer Sitzung
+einen festen Titel geben (z. B. `global.run`, `global.bugs`) und ihn im
+Auftrag nicht wechseln.
 
 **neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`:
 neon verteilt Arbeit statt sie selbst im Kontext zu erledigen, offene Aufträge
@@ -27,7 +36,7 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
 `~/.config/halo-spaces/board.sh`, Hinweise vom selben Hook):
 - Jeder Auftrag, der länger als eine Antwort dauert, kommt in
   `~/halo-aufgaben/neon-stand.md`: `tests/neon-stand.sh neu <von> "<Auftrag>"`
-  (`<von>` = Name der Sitzung für die Antwort), Zwischenstand mit `notiz`,
+  (`<von>` = Sitzungs-ID `session_…` des Auftraggebers, bei Sitzungen auf diesem Mac ihr Name; Name erst beim Antworten ermitteln, siehe oben), Zwischenstand mit `notiz`,
   nach der Antwort `fertig` (Erledigtes landet in `neon-stand-archiv.md`).
   Der SessionStart-Hook `tests/neon-hook.sh` lädt die offenen Aufträge bei
   jedem Start und **nach jedem Verdichten** wieder; maßgeblich ist die

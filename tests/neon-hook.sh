@@ -50,7 +50,7 @@ else
   fi
   cat <<'EOF'
 neon – Arbeitsweise (ausführlich: docs/neon-sitzung.md, bei Bedarf lesen):
-- Aufträge, die länger als eine Antwort dauern: tests/neon-stand.sh neu <von> "<Auftrag>", Stand mit notiz, nach der Antwort an <von> fertig.
+- Aufträge, die länger als eine Antwort dauern: tests/neon-stand.sh neu <von> "<Auftrag>" (<von> = Sitzungs-ID aus from-session, sonst from-name), Stand mit notiz, nach der Antwort fertig. Antwort: get_session(ID) → Titel → ListAgents → SendMessage an den Namen.
 - Mehrschrittiges (Recherche, mehrere Board-Einträge, Bilder, Fehlersuche) an einen Unteragenten (Agent) mit „höchstens 10 Zeilen Ergebnis“.
 - Befehle mit langer Ausgabe nur über tests/kurz.sh (Tests im Hintergrund), Board nur über tests/board.sh – nie ganze Listen oder Logs in den Kontext.
 - Antworten an andere Sitzungen knapp: Ergebnis, Fehlerzeilen, Pfad zum Log.

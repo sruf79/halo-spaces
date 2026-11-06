@@ -219,8 +219,9 @@ gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
 erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 
 **Antworten von neon:** neon antwortet per `SendMessage` an den Namen der Sitzung; es erscheint
-als neue Nachricht, `send_message` aus neon scheitert (Einzelheiten, Modus „Auto“:
-`docs/neon-sitzung.md`).
+als neue Nachricht, `send_message` aus neon scheitert. neon merkt sich die Sitzungs-ID und sucht
+den aktuellen Titel erst beim Antworten; Auftraggeber geben ihrer Sitzung einen festen Titel
+(Einzelheiten, Modus „Auto“: `docs/neon-sitzung.md`).
 
 **neon schlank halten:** Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
 anderes (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`).

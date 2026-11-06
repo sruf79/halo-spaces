@@ -7,7 +7,8 @@
 #   tests/neon-stand.sh notiz <Nr> <Stand>      ersetzt den Stand (z. B. „Test läuft, Log …“)
 #   tests/neon-stand.sh fertig <Nr> <Ergebnis>  erledigt (nach der Antwort an <von>): ins Archiv
 #   tests/neon-stand.sh zeige
-# <von>: Name der Sitzung, an die die Antwort geht (wie in ListAgents).
+# <von>: Sitzungs-ID (from-session) des Auftraggebers, bei Sitzungen auf diesem Mac ihr Name;
+#        den Namen für SendMessage erst beim Antworten ermitteln (Titel ändern sich).
 # HALO_STAND_NAME=board: eigene Liste der Sitzung neon-board
 # (~/halo-aufgaben/board-stand.md), sonst neon-stand.md.
 emulate -L zsh

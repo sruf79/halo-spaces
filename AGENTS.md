@@ -320,7 +320,14 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   und `uebersprungen.log`), kein Push. Aufträge mit Notiz bleiben in der Datei
   und kommen über `tests/neon-hook.sh` zurück; deshalb jeden längeren Auftrag mit
   `neon-stand.sh` führen (siehe oben). Der Neustart beendet auch
-  Sitzungen, die dieser Remote-Control-Prozess gestartet hat.
+  Sitzungen, die dieser Remote-Control-Prozess gestartet hat; deshalb wartet
+  er, solange eine davon mitten in einer Runde ist (`busy` in
+  `~/.claude/sessions/<pid>.json`). Befund 6.11.2026: Der Server setzt nach
+  dem Neustart dieselbe Sitzung mit vollem Verlauf fort (`--resume`, gleiche
+  Sitzungs-ID); `claude remote-control` hat keine Option für eine frische
+  Sitzung. Den Kontext leert nur `/clear` in neon (bzw. eine neue Sitzung,
+  nachdem die alte archiviert ist). Nach jedem Neustart protokolliert das
+  Skript einmal die Kontextgröße („Kontext nach Neustart: …“).
 - Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
   in allen Sitzungen; seltener verdichten heißt weniger vergessen.
 

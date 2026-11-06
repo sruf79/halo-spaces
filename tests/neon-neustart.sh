@@ -31,6 +31,17 @@
 # ~/halo-nacht/neon-neustart.log. Je Tag höchstens ein Versuch erfolgreich oder
 # ausgelassen (Marke ~/halo-nacht/neon-neustart.heute).
 # Pausieren: touch ~/halo-nacht/PAUSE-NEUSTART (rm zum Fortsetzen).
+# Kind-Sitzungen: kickstart -k beendet alle Sitzungen, die der
+# Remote-Control-Prozess gestartet hat (neon selbst und z. B. von Cloud-Sitzungen
+# angelegte). Ist eine davon laut ~/.claude/sessions/<pid>.json „busy“ (mitten
+# in einer Runde), wird gewartet – auch, wenn sie nicht am Repo arbeitet.
+# Kontext danach: Nach einem echten Neustart misst jeder folgende Lauf, sobald
+# neon geantwortet hat, einmal die Kontextgröße der neon-Sitzung (Tokens der
+# letzten Antwort, Zeilen des Protokolls) und schreibt sie ins Protokoll.
+# Befund 6.11.2026: der Server setzt dieselbe Sitzung fort (--resume am
+# Kindprozess, gleiche Sitzungs-ID, Protokoll läuft mit vollem Kontext weiter);
+# der Neustart allein leert den Kontext also nicht. Die Messung zeigt, ob sich
+# das ändert.
 # Der Mac mini hat keinen eigenen Zeitgeber für „nach Ende“: der Lauf prüft nur
 # Dateien, startet nichts außer dem einen launchctl kickstart.
 emulate -L zsh
@@ -76,10 +87,64 @@ neustart_grund() {   # <Tag> <Wochentag 1–7>
   # ohne SessionStart-Hook im Checkout kämen die offenen Aufträge nach dem Start nicht zurück
   grep -qs neon-hook.sh $REPO/.claude/settings.json || { print "SessionStart-Hook fehlt in $REPO/.claude/settings.json (main noch nicht aktuell)"; return }
   s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} arbeitet gerade am Repo"; return }
+  s=$(kinder_aktiv) && { print "von neon gestartete Sitzung mitten in einer Runde: $s"; return }
   if [[ -f $STAND ]] && grep -E '^- #[0-9]+ ' $STAND | grep -q 'Stand: angenommen$'; then
     print "offener Auftrag in neon-stand.md ohne Stand-Notiz: $(grep -E '^- #[0-9]+ ' $STAND | grep 'Stand: angenommen$' | sed -E 's/^- (#[0-9]+).*/\1/' | tr '\n' ' ')"
     return
   fi
+}
+
+# PID des Remote-Control-Prozesses von neon (nicht neon-board)
+rc_pid() {
+  ps -axo pid=,args= | grep -E 'claude remote-control .*--name neon( |$)' | grep -v grep | awk 'NR==1 {print $1}'
+}
+
+# Kind-Sitzungen des Remote-Control-Prozesses mitten in einer Runde: Ausgabe
+# „<name> (pid)“ je Sitzung, Rückgabe 0 = mindestens eine arbeitet
+kinder_aktiv() {
+  local rc=${1:-$(rc_pid)} pid info treffer=()
+  [[ -n $rc ]] || return 1
+  for pid in $(ps -axo pid=,ppid= | awk -v r=$rc '$2 == r {print $1}'); do
+    info=$(python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+print(d.get("status",""), d.get("name") or d.get("sessionId","?")[:8])' \
+      $HOME/.claude/sessions/$pid.json 2>/dev/null) || continue
+    [[ ${info%% *} == busy ]] && treffer+=("${info#* } ($pid)")
+  done
+  (( $#treffer )) || return 1
+  print -r -- ${(j:, :)treffer}
+}
+
+# Kontextgröße der neon-Sitzung nach einem Neustart (einmal, sobald messbar):
+# Rückgabe 0 = gemessen und protokolliert
+kontext_messen() {
+  local rc pid sid datei werte
+  rc=$(rc_pid); [[ -n $rc ]] || return 1
+  for pid in $(ps -axo pid=,ppid= | awk -v r=$rc '$2 == r {print $1}'); do
+    sid=$(python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+print(d["sessionId"] if d.get("name") == "neon" else "")' $HOME/.claude/sessions/$pid.json 2>/dev/null)
+    [[ -n $sid ]] && break
+  done
+  [[ -n $sid ]] || return 1
+  datei=$HOME/.claude/projects/${REPO//[\/.]/-}/$sid.jsonl
+  [[ -f $datei ]] || return 1
+  # nur Zählwerte (usage), keine Inhalte
+  werte=$(python3 -c 'import json,sys
+n=0; letzte=None
+for z in open(sys.argv[1], errors="replace"):
+    n += 1
+    if "\"assistant\"" not in z: continue
+    try: d = json.loads(z)
+    except ValueError: continue
+    if d.get("type") != "assistant" or d.get("isSidechain"): continue
+    u = (d.get("message") or {}).get("usage") or {}
+    if u: letzte = sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+if letzte is not None: print(letzte, n)' $datei 2>/dev/null)
+  [[ -n $werte ]] || return 1
+  werte=(${=werte})
+  log "Kontext nach Neustart: $werte[1] Tokens in der letzten Antwort von neon, $werte[2] Zeilen im Protokoll (Sitzung ${sid[1,8]}, $(( $(stat -f %z $datei) / 1024 )) KB)"
+  return 0
 }
 
 neustarten() {
@@ -97,6 +162,11 @@ hauptlauf() {
   local z tag hhmm wt h ende grund
   z=(${=$(jetzt)}); tag=$z[1]; hhmm=$z[2]; wt=$z[3]; h=${hhmm%%:*}
   [[ -e $DIR/PAUSE-NEUSTART ]] && exit 0
+  # nach dem Neustart heute: einmal die Kontextgröße messen, sobald neon geantwortet hat
+  if [[ -z $TROCKEN && -r $MARKE && $(<$MARKE) == "$tag neu gestartet" ]]; then
+    kontext_messen && print -r -- "$tag neu gestartet, Kontext gemessen" > $MARKE
+    exit 0
+  fi
   [[ -z $TROCKEN && -r $MARKE && $(<$MARKE) == $tag* ]] && exit 0
   ende=12; (( wt == 6 )) && ende=16
   grund=$(neustart_grund $tag $wt)

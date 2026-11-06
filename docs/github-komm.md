@@ -60,7 +60,7 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   jeder Prüfung, auch bei Antworten aus anderen Sitzungen (Cloud-Sessions
   erreichen die Datei nicht und lassen sie über neon ergänzen). Erster Schritt
   der Aufgabe ist `~/.config/halo-spaces/github-vorpruefung.sh` (bei „NICHTS NEU“
-  endet sie sofort, siehe „Claude nur bei Arbeit“ unter „Testrechner“, Umstellung
+  endet sie sofort, siehe „Claude nur bei Arbeit“ in `docs/testrechner.md`, Umstellung
   durch den Maintainer `tests/MAC-MINI.md` Abschnitt 17a). Keine zweite
   Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
 - **Ton und Inhalt:** Englisch, freundlich, knapp, ohne Fachjargon des

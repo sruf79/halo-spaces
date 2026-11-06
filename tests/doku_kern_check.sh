@@ -34,6 +34,7 @@ begriffe=(
   'docs/neon-sitzung.md|Verweis docs/neon-sitzung.md'
   'docs/github-komm.md|Verweis docs/github-komm.md'
   'docs/board.md|Verweis docs/board.md'
+  'docs/testrechner.md|Verweis docs/testrechner.md'
   'nie auf die private Aufgabenliste verweisen|GitHub: nie aufs Board verweisen'
 )
 fehler=0
@@ -55,7 +56,7 @@ if sed 's/`[^`]*`//g' $datei | grep -nE '(^|[[:space:](])@(docs|tests|ENTSCHEIDU
 fi
 
 # ausgelagerte Dateien müssen existieren
-for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md; do
+for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md docs/testrechner.md; do
   [[ -f ${datei:h}/$d ]] || { print "FEHLER fehlt: $d"; fehler=1 }
 done
 

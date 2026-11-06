@@ -472,6 +472,14 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
   `SendMessage` an `neon` gibt ihr eine Aufgabe. Beim ersten Mal fragt die
   Claude-App einmalig, ob Cloud-Sitzungen die eigenen Rechner erreichen
   dürfen – nur auf einem vertrauenswürdigen Gerät bestätigen.
+- Das Skript setzt `HALO_NEON=1`. Daran erkennt der SessionStart-Hook
+  `tests/neon-hook.sh` (eingetragen in `.claude/settings.json`) die Sitzungen
+  von neon und lädt bei Start und nach jedem Verdichten die Arbeitsweise und
+  die offenen Aufträge aus `~/halo-aufgaben/neon-stand.md` (AGENTS.md
+  „neon erreichen“, „Arbeitsweise von neon“). Ohne die Variable erkennt er
+  neon auf macOS am übergeordneten `claude remote-control`. Nach einer
+  Änderung am Skript `tests/mac-mini-setup.sh` ausführen – es kopiert das
+  Skript neu und startet den LaunchAgent neu (laufende neon-Sitzungen enden).
 - Die Sitzung auf dem Mini arbeitet im Checkout `~/halo-spaces` mit allem,
   was der Mini hat (Thunderbird, Tests, Windows-VM, `gh project …`). Die
   Regeln für Testläufe (Abschnitt 7) gelten auch für sie.

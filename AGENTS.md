@@ -43,6 +43,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
+| `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzung offen (LaunchAgent, `tests/MAC-MINI.md` Abschnitt 12) |
@@ -197,6 +198,50 @@ keiner Seite erscheint eine Abfrage (Test vom 4.11.2026). neon antwortet mit
 `list_sessions` der Sitzungs-ID zuordnen); das meldet nicht, ob die Nachricht
 gelesen wurde, sie erscheint dort als neue Nachricht. `send_message` aus neon
 scheitert auch im Modus „Auto“ (`elevated_session_untrusted_device`).
+
+**neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026,
+Wortlaut: „ja, setz schritt 1 und 2 um“ – Vorschlag dieser Sitzung: neon
+verteilt Arbeit statt sie selbst im Kontext zu erledigen, und offene
+Aufträge stehen in einer Datei, die nach dem Verdichten wieder geladen wird).
+Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
+anderes.
+
+*Aufträge an neon (alle anderen Sitzungen):* Der Weg bleibt derselbe (oben).
+- Nur, was den Mac braucht: Tests, Screenshots, Board, Bilder speichern,
+  Release, Dateien unter `~/halo-…`. Code, Git-Verlauf, Issues, Pull
+  Requests und CI-Läufe (`actions_list`, `get_job_logs`) liest jede Sitzung
+  selbst.
+- Eine Nachricht je Auftrag, vollständig: was, Zweig bzw. Commit, Port ab
+  2850, was zurückkommen soll und in welcher Form („nur OK/FEHLER-Zeilen“,
+  „nur die id“). Keine Rückfragen nach dem Stand, kein „danke“ – neon meldet
+  sich von selbst.
+- Board gezielt fragen („offene Einträge mit Titel `Kalender:`“), nicht die
+  ganze Liste.
+- Längere Aufträge bestätigt neon mit einer Nummer („#12 angenommen“), das
+  Ergebnis kommt später als eigene Nachricht. Wer nachfragt, nennt die
+  Nummer.
+
+*Arbeitsweise von neon* (gilt für die Remote-Control-Sitzungen `neon`, nicht
+für Nachtlauf und andere Läufe):
+- Jeder Auftrag, der länger als eine Antwort dauert, kommt in
+  `~/halo-aufgaben/neon-stand.md`: `tests/neon-stand.sh neu <von> "<Auftrag>"`
+  (`<von>` = Name der Sitzung für die Antwort), Zwischenstand mit `notiz`,
+  nach der Antwort `fertig` (Erledigtes landet in `neon-stand-archiv.md`).
+  Der SessionStart-Hook `tests/neon-hook.sh` lädt die offenen Aufträge bei
+  jedem Start und **nach jedem Verdichten** wieder; maßgeblich ist die
+  Datei, nicht die Zusammenfassung.
+- Mehrschrittiges (Fehlersuche, Recherche im Code, mehrere Board-Einträge,
+  Bilder prüfen und speichern) an einen Unteragenten (`Agent`) mit der
+  Vorgabe „Ergebnis höchstens 10 Zeilen“; nur das Ergebnis geht weiter.
+- Befehle mit langer Ausgabe über `tests/kurz.sh [--name …] <Befehl>`
+  (volles Log unter `~/halo-neon/logs/`, ausgegeben werden Exitcode,
+  Fehlerzeilen und das Ende), Testläufe dabei im Hintergrund. Board nur über
+  `tests/board.sh` (`liste [Muster]`, `zeige`, `neu`, `status`, `notiz`,
+  `archiv`), nie `gh project item-list` ungefiltert.
+- Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
+  Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
+- Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
+  in allen Sitzungen; seltener verdichten heißt weniger vergessen.
 
 ## Testrechner (Mac mini)
 

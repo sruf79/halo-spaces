@@ -39,6 +39,10 @@ rotieren() {
 }
 rotieren
 { while sleep 3600; do rotieren; done } &!
+# kennzeichnet die Sitzungen als neon: tests/neon-hook.sh lädt dann bei Start
+# und nach jedem Verdichten Arbeitsweise und offene Aufträge (AGENTS.md
+# „Arbeitsweise von neon“)
+export HALO_NEON=1
 print "$(zeit) Start: $claude remote-control in $REPO als $NAME"
 exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${MODUS:+--permission-mode} ${MODUS}

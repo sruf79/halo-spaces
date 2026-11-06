@@ -180,8 +180,8 @@ Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
 1. `ListAgents`, dann `SendMessage` an `neon` (die Remote-Control-Sitzung,
    die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
 2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
-   `send_message` mit ihrer ID. Keine feste ID verwenden: neon wird täglich
-   neu gestartet (`docs/neon-sitzung.md`), die ID kann sich danach ändern (Stand 6.11.2026
+   `send_message` mit ihrer ID. Keine feste ID verwenden: nach einem Neustart
+   von neon (`docs/neon-sitzung.md`) kann sich die ID ändern (Stand 6.11.2026
    `session_01BK9gbfo3oZh8yxoakmG4CD`, bei den bisherigen Neustarts gleich
    geblieben) – immer über `ListAgents` bzw. die Liste suchen.
 3. Lehnt `send_message` mit einem `content_digest` ab

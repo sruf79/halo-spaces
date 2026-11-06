@@ -124,6 +124,19 @@
   min-height: 96px !important;
 }
 
+/* Liste nur so hoch wie ihre Einträge (Thunderbird streckt sie über den
+   ganzen Bereich), damit „New List“ direkt unter der letzten Liste steht;
+   im niedrigen Fenster schrumpft sie bis auf drei Zeilen und scrollt.
+   Bei weniger als drei Listen keine Mindesthöhe, sonst bliebe eine Lücke */
+:root[mc-tab="tasks"] #calendar-list-inner-pane > #calendar-list {
+  flex: 0 1 auto !important;
+}
+
+:root[mc-tab="tasks"] #calendar-list:not(:has(> li:not([mc-no-tasks]) ~ li:not([mc-no-tasks]) ~ li:not([mc-no-tasks]))) {
+  min-height: 0 !important;
+  flex-shrink: 0 !important;
+}
+
 #mcTaskLists {
   display: none;
 }

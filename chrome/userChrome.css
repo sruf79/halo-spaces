@@ -3000,6 +3000,19 @@ menupopup > :is(menu, menuitem)[disabled] {
   color: color-mix(in srgb, currentColor 45%, var(--mt-text)) !important;
 }
 
+/* Schlagwörter in Menüs (.mc-tag-item setzt die Erweiterung, siehe TagMenus):
+   Ordnersymbol als Bild in der Spalte des Häkchens, auch wenn Thunderbird
+   die Spalte sonst nur für Haken nutzt */
+menupopup > menuitem.mc-tag-item > .menu-icon {
+  content: normal !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+}
+
 menupopup > menuseparator {
   margin: 5px 14px !important;
   padding: 0 !important;

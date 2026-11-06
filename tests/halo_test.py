@@ -15048,8 +15048,10 @@ Neu
         ln, ns = res.get("line") or {}, res.get("noSide") or {}
         nsb, nsl = ns.get("box") or {}, ns.get("line") or {}
         # Linie 1 px am rechten Rand, von ganz oben; Kachelrand links == rechts == 20 px; Inhalt beginnt hinter der Linie
-        bar_ok = (ln.get("w") == 1 and ln.get("top") == 0 and ln.get("left") == 88 and res.get("rand") == [20, 20, 48]
-                  and res.get("body") == 89 and nsl.get("w") == 1 and nsl.get("top") == 0 and nsl.get("left") == 88)
+        # „ganz oben“ = Oberkante der Leiste (unter Windows liegt darüber 1 px Fensterrand)
+        top0 = bar.get("t", 0)
+        bar_ok = (ln.get("w") == 1 and ln.get("top") == top0 and ln.get("left") == 88 and res.get("rand") == [20, 20, 48]
+                  and res.get("body") == 89 and nsl.get("w") == 1 and nsl.get("top") == top0 and nsl.get("left") == 88)
         if res.get("mac"):
             ok = (b and b["l"] >= 8 and b["r"] <= ln.get("left", 0) - 8 and b["b"] <= 52
                   and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())

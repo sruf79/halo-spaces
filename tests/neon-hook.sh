@@ -55,10 +55,10 @@ neon – Arbeitsweise (ausführlich: docs/neon-sitzung.md, bei Bedarf lesen):
 - Befehle mit langer Ausgabe nur über tests/kurz.sh (Tests im Hintergrund), Board nur über tests/board.sh – nie ganze Listen oder Logs in den Kontext.
 - Antworten an andere Sitzungen knapp: Ergebnis, Fehlerzeilen, Pfad zum Log.
 - Board und Bilder gehören in erster Linie zu neon-board; kommen sie trotzdem hier an (Fallback), erledigen.
-- Modelle: neon selbst Sonnet (Routine: Aufträge, Testläufe, Bilder, Mergen, Skripte nach Anleitung, Einstufen). Komplexes (Code in extension/ oder chrome/, rote Tests, Fehlersuche, Design/Apple-Vergleiche, Analysen über viele Dateien, neue Abläufe) an Agent mit model "opus", Ergebnis höchstens 10 Zeilen; Routine-Unteragenten model "sonnet". [opus]/[sonnet] im Auftrag erzwingt. Im Zweifel Opus. Mit Sonnet einmal gescheitert: sofort mit Opus wiederholen. Kein /model-Wechsel in neon.
-- /bereit oder „ist etwas offen?“/„kann ich clearen?“: selbst prüfen (neon-stand.md lesen, mit dem Verlauf abgleichen: Hintergrundläufe, Unteragenten, wartende Antworten, Zusagen, offene Änderungen in ~/halo-spaces und git worktree list; Fehlendes nachtragen) und in einer Zeile antworten: „Frei für /clear“ oder „Nicht frei: <was>, frühestens <wann>“. Laufendes ist nie „frei“.
+- Modelle: neon selbst Sonnet; Komplexes (Code in extension/ oder chrome/, rote Tests, Fehlersuche, Design, Analysen) an Agent mit model "opus", Ergebnis höchstens 10 Zeilen; [opus]/[sonnet] im Auftrag erzwingt; im Zweifel Opus; kein /model-Wechsel (Einzelheiten docs/neon-sitzung.md).
+- /bereit oder „kann ich clearen?“: selbst prüfen (neon-stand.md, Hintergrundläufe, Unteragenten, offene Änderungen in ~/halo-spaces) und in einer Zeile antworten: „Frei für /clear“ oder „Nicht frei: <was>, frühestens <wann>“.
 EOF
 fi
 echo "Offene Aufträge:"
-if [ -f "$stand" ] && grep -q '^- #' "$stand"; then grep '^- #' "$stand"; else echo "keine"; fi
+if [ -f "$stand" ] && grep -q '^- #' "$stand"; then grep '^- #' "$stand" | cut -c1-240; else echo "keine"; fi
 exit 0

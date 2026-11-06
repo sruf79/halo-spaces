@@ -398,9 +398,10 @@ anheben (nach Test).
 Bugs und Wünsche führt der Maintainer in einem privaten GitHub-Project
 „halo.spaces Aufgaben“ (Konto `sruf79`, Felder Typ = Feature/Bug und Status).
 Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions immer über
-die Sitzung `neon-board`, ersatzweise `neon` (Abschnitt „Cloud-Sessions“). Auf dem Testrechner lädt ein lokaler
-SessionStart-Hook die offenen Einträge in jede Sitzung; sie liegen dann schon
-vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
+die Sitzung `neon-board`, ersatzweise `neon` (Abschnitt „Cloud-Sessions“). Das Board wird nicht
+automatisch geladen: erst zu Beginn eines Laufs (nach Schritt 1 der Reihenfolge unten) gezielt abrufen
+(`tests/board.sh liste [Muster]` bzw. über `neon-board`). Der SessionStart-Hook auf neon lädt nur die
+offenen Aufträge aus `neon-stand.md`.
 
 - Die Liste ist die Vorlage für die Arbeit: offene Einträge berücksichtigen
   und passende Aufgaben nennen – in der Reihenfolge unten.

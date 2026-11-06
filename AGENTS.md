@@ -538,7 +538,8 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
-  Entwurf anlegen (Typ setzen, Status Todo); Screenshots liegen in
+  Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
+  Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
   Jedes Bild, das der Maintainer einer Sitzung direkt ins Gespräch legt und
@@ -618,7 +619,8 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   auf Todo.
 - **Entscheidungen des Maintainers wörtlich** (Entscheidung des
   Maintainers vom 5.11.2026, gilt sofort): Jede Sitzung schickt eine
-  Entscheidung des Maintainers sofort an neon bzw. trägt sie selbst ein –
+  Entscheidung des Maintainers – nach seiner Zustimmung (siehe nächster
+  Punkt) – an neon bzw. trägt sie selbst ein –
   mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
   keine Umschreibung. Board-Notizen zu Entscheidungen enthalten dieses Zitat
   unverändert. Ein späterer Vermerk darf eine Entscheidung nur ändern oder
@@ -626,6 +628,18 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   Rückfrage beim Maintainer. Wer Stände aus dem Board weitergibt (an
   Sitzungen oder den Maintainer), zitiert die Notiz statt sie
   zusammenzufassen; eigene Deutungen als solche kennzeichnen.
+- **Zitate erst nach Zustimmung, Konzeptrunden ohne neon** (Entscheidung
+  des Maintainers vom 6.11.2026, Sitzung halo-spaces-72, Wortlaut: „ja das
+  soll für alle session gelten da wir ansonsten permanent neon
+  benachrichtigen und sich ständig sein context füllt. bei abfragen nach
+  informationen darf jede session selbstständig neon befragen aber zitate
+  von mir sollen erst nach meiner zustimmung an neon übermittelt werden“):
+  Während einer Konzeptrunde (Vorschaubilder, Varianten, Zwischenmeinungen)
+  geht nichts an neon. Ein Zitat des Maintainers – auch für neue Einträge
+  und Entscheidungen – übermittelt eine Sitzung erst, wenn er zugestimmt
+  hat (z. B. „ja, so an neon“); dann einmal, wörtlich, mit dem Ergebnis.
+  Abfragen von Informationen bei neon (Board lesen, Code-Stand, Messungen)
+  gehen weiter ohne Rückfrage. Die Bildübergabe (oben) bleibt automatisch.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
 

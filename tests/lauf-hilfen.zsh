@@ -28,7 +28,11 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
 # Unteragenten), gilt als hängengeblieben und zählt ebenfalls nicht.
 # Nicht mitgezählt: Sitzungen der eigenen Läufe (ID im Protokoll unter
 # ~/halo-nacht) und Sitzungen, deren letzte Eingabe eine Push-Meldung war (die
-# kurzen Zustell-Sitzungen von push() und die Empfangssitzung mit Remote Control).
+# kurzen Zustell-Sitzungen von push() und die Empfangssitzung mit Remote Control)
+# sowie die Sitzung neon-board (nur Board und Bilder, Arbeitsordner ~/halo-board
+# bzw. HALO_BOARD_DIR): Sie fasst weder Repo noch Thunderbird an und darf
+# Nachtlauf, Rundgang und Wochenprüfung nie als „belegt“ aufhalten. Ihr
+# Projektordner ~/.claude/projects/…-halo-board passt sonst auf das Muster -halo*.
 # Die 2 Stunden zählen ab dem Zeitstempel des letzten echten Eintrags, nicht ab
 # der Dateizeit: /compact schreibt die Datei neu, ohne dass die Runde weitergeht.
 # sitzung_arbeitet <datei> [frisch] – „frisch“: ein Unteragent schrieb zuletzt
@@ -61,8 +65,9 @@ sys.exit(1 if alt.total_seconds() > 7200 and not os.environ.get("FRISCH") else 0
 '
 }
 aktive_sitzung() {
-  local f id letzte neu unter
+  local f id letzte neu unter board=${${HALO_BOARD_DIR:-$HOME/halo-board}//[\/.]/-}
   for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.); do
+    [[ ${f:h:t} == $board ]] && continue
     unter=(${f:r}/**/*.jsonl(N.mh-2))
     neu=($f(N.mh-2) $unter)
     (( $#neu )) || continue

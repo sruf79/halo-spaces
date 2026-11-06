@@ -8,14 +8,18 @@
 #   tests/neon-stand.sh fertig <Nr> <Ergebnis>  erledigt (nach der Antwort an <von>): ins Archiv
 #   tests/neon-stand.sh zeige
 # <von>: Name der Sitzung, an die die Antwort geht (wie in ListAgents).
+# HALO_STAND_NAME=board: eigene Liste der Sitzung neon-board
+# (~/halo-aufgaben/board-stand.md), sonst neon-stand.md.
 emulate -L zsh
 
 DIR=${HALO_NEON_STAND:-$HOME/halo-aufgaben}
-STAND=$DIR/neon-stand.md
-ARCHIV=$DIR/neon-stand-archiv.md
-NR=$DIR/neon-stand.nr
+N=${HALO_STAND_NAME:-neon}
+[[ $N == (neon|board) ]] || { print -u2 "HALO_STAND_NAME: neon oder board"; exit 2 }
+STAND=$DIR/$N-stand.md
+ARCHIV=$DIR/$N-stand-archiv.md
+NR=$DIR/$N-stand.nr
 mkdir -p $DIR
-[[ -f $STAND ]] || print "# Offene Aufträge an neon" > $STAND
+[[ -f $STAND ]] || print "# Offene Aufträge an ${${N/board/neon-board}}" > $STAND
 einzeilig() { print -r -- ${${1//$'\n'/ }//[|]/;} }   # eine Zeile, | trennt die Spalten
 
 case $1 in

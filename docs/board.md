@@ -72,8 +72,8 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   `~/halo-aufgaben/bilder-offen.md` – Pflicht zuerst, optional knapp, mit
   fertigen `halobild`-/`haloapple`-Befehlen; leere Liste → nichts. Nie in
   automatischen Läufen (Nachtlauf, Wochen-/Doku-Prüfung, Rundgang,
-  CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon gibt der
-  SessionStart-Hook die Liste aus; Cloud- und Laptop-Sitzungen fragen sie zu
+  CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon erscheint die Liste
+  beim Start (nicht aus `tests/neon-hook.sh`, Quelle des Hooks nicht geklärt); Cloud- und Laptop-Sitzungen fragen sie zu
   Beginn bei `neon-board` ab, ersatzweise bei `neon` („offene
   Bilderliste?“). Die Liste pflegt neon-board (bzw. neon, wer das Bild
   speichert): neu

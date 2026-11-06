@@ -4364,6 +4364,9 @@ def menu_checks(m, results):
           out.top = [...d.getElementById("mail-menubar").children].filter(m => !m.hidden).map(m => m.getAttribute("label") || m.id);
           for (const id of ["menu_FilePopup", "menu_EditPopup", "menu_View_Popup", "messageMenuPopup", "menu_HelpPopup", "mcHelpTroublePopup", "mcViewMessagePopup"])
             out[id] = await show(id);
+          // macOS: Bereiche im Fenster-Menü (der echte Eintrag „zoomWindow“, nicht der gleichnamige Befehl) – nur sichtbare
+          // Einträge stehen im nativen Menü und damit in der Hilfe-Suche von macOS
+          if (d.getElementById("windowPopup")) out.windowPopup = await show("windowPopup");
           out.calInMail = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
           out.sortInMail = d.getElementById("viewSortMenu")?.getAttribute("disabled");
           await toCalendar(); await show("menu_View_Popup");
@@ -4387,10 +4390,11 @@ def menu_checks(m, results):
               and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces" in res["menu_HelpPopup"]
               and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
               and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
+              and (not mac or all(x in res.get("windowPopup", []) for x in ["Mail", "Address Book", "Calendar", "Tasks", "Chat"]))
               and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
               and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:])))
         return ok, f"{res}"
-    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
+    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü, Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 
     def context_flat():
         # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit

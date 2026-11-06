@@ -6120,8 +6120,11 @@ function hookMenubar(win, restorers) {
     // vorn einreihen; Thunderbirds übrige Einträge bleiben dahinter ausgeblendet
     popup.prepend(...items);
   }
-  // Fenster (nur macOS): Bereiche nach Minimieren/Zoomen
-  const zoom = $("zoomWindow");
+  // Fenster (nur macOS): Bereiche nach Minimieren/Zoomen – „zoomWindow“ gibt
+  // es zweimal (Befehl im commandset und Eintrag im Menü); getElementById
+  // liefert den Befehl, dort wären die Einträge unsichtbar (auch für die
+  // Hilfe-Suche von macOS)
+  const zoom = $("windowPopup")?.querySelector(":scope > menuitem#zoomWindow");
   if (MENUBAR_MAC && zoom) {
     const sepA = make("menuseparator");
     sepA.classList.add("mc-menu-sep");

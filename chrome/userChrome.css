@@ -14012,11 +14012,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Erweiterung Stunden und Minuten als Text ein (.mc-time-edit); das gewählte
    Feld ist in der Kalenderfarbe hinterlegt (--mc-item-cal, sonst Akzent),
    Schrift weiß, ohne den Text zu verschieben */
-timepicker[mc-inline] > menulist {
+timepicker[mc-inline] > menulist,
+datepicker[mc-inline] > menulist {
   display: none !important;
 }
 
-.mc-time-edit {
+:is(.mc-time-edit, .mc-date-edit) {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -14029,15 +14030,23 @@ timepicker[mc-inline] > menulist {
   user-select: none;
 }
 
-/* „Teilnehmer einladen“: Feld wie das Datum daneben (graue Fläche, 28 px) */
-#calendar-event-dialog-attendees-v2 .mc-time-edit {
+/* Datum ebenso als Text (Tag, Monat, Jahr); bis zur Uhrzeit ~14 px wie
+   Apple Kalender (vorher ~39 durch den unsichtbaren Pfeil des Auswahlfelds) */
+.mc-date-edit {
+  padding-inline: 2px 0;
+  margin-inline-end: 12px;
+}
+
+/* „Teilnehmer einladen“: Felder mit grauer Fläche, 28 px */
+#calendar-event-dialog-attendees-v2 :is(.mc-time-edit, .mc-date-edit) {
   min-height: 28px;
   padding-inline: 10px;
+  margin-inline-end: 4px;
   border-radius: 7px;
   background: var(--mt-control);
 }
 
-.mc-time-edit[disabled] {
+:is(.mc-time-edit, .mc-date-edit)[disabled] {
   color: var(--mt-text-tertiary);
 }
 
@@ -14056,7 +14065,7 @@ timepicker[mc-inline] > menulist {
   margin-inline: -1px -2px;
 }
 
-.mc-time-seg[data-seg="ap"] {
+.mc-time-seg:is([data-seg="ap"], .mc-date-seg) {
   padding-inline: 2px;
   margin-inline: -2px;
 }
@@ -14064,6 +14073,137 @@ timepicker[mc-inline] > menulist {
 .mc-time-seg[selected] {
   background: color-mix(in srgb, var(--mc-item-cal, var(--mt-accent)) 90%, black);
   color: #FFFFFF;
+}
+
+/* kleiner Monatskalender unter dem Datum (.mc-date-panel, setzt die
+   Erweiterung): Fläche und Haarlinie wie die übrigen Popovers, aber eng und
+   mit kleinem Radius wie die Vorlage; Monat fett, ◀ ● ▶ grau, Wochentage
+   grau halbfett über einer Haarlinie, Tage rechtsbündig, andere Monate grau,
+   heute rot, der gewählte Tag grau hinterlegt */
+.mc-date-panel {
+  --panel-background-color: var(--mt-popover-bg) !important;
+  --panel-background: var(--mt-popover-bg) !important;
+  --panel-border-color: var(--mt-popover-border) !important;
+  --panel-border-radius: 6px !important;
+  --panel-padding: 0 !important;
+  font-family: var(--mt-font) !important;
+}
+
+.mc-date-panel::part(content) {
+  border-width: var(--mt-hairline) !important;
+}
+
+.mc-mini {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 5px 4px;
+  color: var(--mt-text);
+  cursor: default;
+  user-select: none;
+}
+
+.mc-mini-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 2px 4px;
+}
+
+.mc-mini-title {
+  flex: 1;
+  font-size: calc(12px * var(--mt-font-scale, 1));
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mc-mini-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--mt-text-tertiary);
+}
+
+/* Dreiecke und Punkt aus CSS (das Termin-Fenster lässt per CSP keine
+   data:-Bilder zu), Farbe aus der Schrift */
+.mc-mini-nav::before {
+  content: "";
+  box-sizing: border-box;
+}
+
+.mc-mini-prev::before {
+  border-block: 3.5px solid transparent;
+  border-inline-end: 5.5px solid currentColor;
+}
+
+.mc-mini-next::before {
+  border-block: 3.5px solid transparent;
+  border-inline-start: 5.5px solid currentColor;
+}
+
+.mc-mini-today::before {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.mc-mini-nav:hover {
+  color: var(--mt-text-secondary);
+}
+
+.mc-mini-weekdays,
+.mc-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 19px);
+}
+
+.mc-mini-weekdays {
+  padding-bottom: 2px;
+  margin-bottom: 3px;
+  border-bottom: var(--mt-hairline) solid var(--mt-separator);
+  font-size: calc(10px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  color: var(--mt-text-tertiary);
+}
+
+.mc-mini-weekdays > span {
+  text-align: center;
+}
+
+.mc-mini-day {
+  height: 18px;
+  line-height: 16px;
+  padding-inline-end: 3px;
+  border-radius: 3px;
+  text-align: end;
+  font-size: calc(10px * var(--mt-font-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-mini-day[othermonth] {
+  color: var(--mt-text-tertiary);
+  opacity: 0.6;
+}
+
+.mc-mini-day[today] {
+  color: var(--mt-red);
+}
+
+.mc-mini-day[selected] {
+  background: var(--mt-selected-unfocused);
+}
+
+.mc-mini-day:hover:not([selected]) {
+  background: var(--mt-hover);
+}
+
+/* Datum bei offenem Kalender: hell hinterlegt wie eine Lasche des Popovers */
+.mc-date-edit[open] {
+  border-radius: 4px;
+  background: var(--mt-popover-bg);
+  box-shadow: 0 0 0 3px var(--mt-popover-bg), 0 0 0 calc(3px + var(--mt-hairline)) var(--mt-popover-border);
 }
 
 /* Endzeit: Auswahlliste mit Dauer unter der Uhrzeit des Endes – Uhrzeit,

@@ -4789,14 +4789,60 @@ def calendar_checks(m, results):
             out.desc = body ? { font: csOf(body).fontSize, family: csOf(body).fontFamily } : null;
             const grid = id.getElementById("event-grid");
             out.overflow = { grid: [grid.scrollWidth, grid.clientWidth], doc: [id.documentElement.scrollWidth, id.documentElement.clientWidth] };
-            // Datumsfeld: Minimonat
-            const dml = id.querySelector("#event-starttime datepicker menulist");
-            dml.open = true;
-            if (await isOpen(dml.menupopup)) {
-              await ruhig(500);
-              const mm = dml.menupopup.querySelector("calendar-minimonth"), td = mm.querySelector("td.minimonth-day[today]"), wk = [...mm.querySelectorAll(".minimonth-week")].find(vis);
-              out.mini = { bg: csOf(mm).backgroundColor, today: td ? csOf(td).borderTopColor : null, week: wk ? [csOf(wk).fontWeight, csOf(wk).color] : null };
-              await shutPop(dml.menupopup);
+            // Datum wie Apple Kalender als Text: Klick ins Jahr markiert es in der Kalenderfarbe und zeigt darunter den
+            // kleinen Monatskalender (Monat fett, ◀ ● ▶, Wochentage, andere Monate grau, heute rot, gewählter Tag grau);
+            // Ziffern ändern das Datum und der Kalender folgt, Klick auf einen Tag übernimmt ihn und schließt
+            const dp = id.querySelector("#event-starttime datepicker"), dml = dp.querySelector("menulist"), de = dp.querySelector(".mc-date-edit");
+            const dseg = k => de?.querySelector(`.mc-date-seg[data-seg="${k}"]`), mini = id.querySelector(".mc-date-panel");
+            const ymd = () => { const v = dp.value; return [v.getFullYear(), v.getMonth() + 1, v.getDate()]; };
+            const keyD = k => id.activeElement?.dispatchEvent(new iw.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+            out.date = { edit: !!de, menulist: csOf(dml).display, text: de?.textContent };
+            if (de && mini) {
+              const ys = dseg("y"), hs0 = tp0 => tp0.querySelector('.mc-time-seg[data-seg="h"]');
+              // Abstand letzte Ziffer des Datums – erste der Uhrzeit (Text, ohne die Fläche der Felder)
+              const textRect = el => { const r = id.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
+              out.date.gap = Math.round((textRect(hs0(id.querySelector("#event-starttime timepicker"))).left - textRect(ys).right) * 10) / 10;
+              ys.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+              await bis(() => mini.state == "open", "Monatskalender offen", 3000); await ruhig(300);
+              const cells = [...mini.querySelectorAll(".mc-mini-day")], sel = mini.querySelector(".mc-mini-day[selected]");
+              const today = mini.querySelector(".mc-mini-day[today]"), other = mini.querySelector(".mc-mini-day[othermonth]");
+              const pc = mini.shadowRoot?.querySelector('[part~="content"]');
+              Object.assign(out.date, { picked: id.activeElement == ys && ys.hasAttribute("selected"), tbPopup: dml.menupopup.state,
+                ysBg: csOf(ys).backgroundColor, cal: colorOf(id, "color-mix(in srgb, " + (testCalendar().getProperty("color") || "#FF9500") + " 90%, black)", "backgroundColor"),
+                title: mini.querySelector(".mc-mini-title").textContent, titleWeight: csOf(mini.querySelector(".mc-mini-title")).fontWeight,
+                weekdays: [...mini.querySelectorAll(".mc-mini-weekdays > span")].map(x => x.textContent), cells: cells.length,
+                sel: sel?.dataset.date, selBg: sel && rgba(csOf(sel).backgroundColor)[3] > 0,
+                today: today && [csOf(today).color, colorOf(id, "var(--mt-red)")], other: other && csOf(other).color != csOf(sel).color,
+                nav: mini.querySelectorAll(".mc-mini-nav").length,
+                below: Math.round(mini.getBoundingClientRect().top - ys.getBoundingClientRect().bottom),
+                surface: pc && [csOf(pc).backgroundColor, colorOf(id, "var(--mt-popover-bg)", "backgroundColor")] });
+              // Monat vor: Kalender blättert, Datum bleibt
+              const before = ymd();
+              mini.querySelector(".mc-mini-next").dispatchEvent(new iw.MouseEvent("click", { bubbles: true, cancelable: true, button: 0 })); await ruhig(200);
+              out.date.next = [mini.querySelector(".mc-mini-title").textContent != out.date.title, JSON.stringify(ymd()) == JSON.stringify(before)];
+              // Tippen im Jahr geht weiter (Fokus bleibt im Datum), der Kalender zeigt das neue Jahr
+              keyD("2"); keyD("0"); keyD("2"); keyD("7"); await ruhig(300);
+              out.date.typed = [ymd()[0], mini.state, mini.querySelector(".mc-mini-day[selected]")?.dataset.date?.split("-")[0], id.activeElement == ys];
+              // Tag tippen: Tag ändert sich, weiter zum Monat
+              dseg("d").dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })); await ruhig(200);
+              keyD("0"); keyD("9"); await ruhig(300);
+              // (Reihenfolge der Felder nach dem Datumsformat des Systems)
+              const order = [...de.querySelectorAll(".mc-date-seg")].map(x => x.dataset.seg);
+              out.date.day = [ymd()[2], id.activeElement?.dataset?.seg == order[order.indexOf("d") + 1]];
+              // Pfeil hoch im Monat: nur der Monat ändert sich
+              dseg("m").dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })); await ruhig(200);
+              const [, mo] = ymd(); keyD("ArrowUp"); await ruhig(200);
+              out.date.arrow = [ymd()[1] == mo % 12 + 1, ymd()[2]];
+              // Klick auf einen Tag übernimmt ihn und schließt; das Ende rückt mit (gleiche Dauer)
+              const durD = iw.gEndTime.subtractDate(iw.gStartTime).inSeconds;
+              const pickCell = [...mini.querySelectorAll(".mc-mini-day:not([othermonth])")].find(x => x.textContent == "20");
+              pickCell?.dispatchEvent(new iw.MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+              await bis(() => mini.state == "closed", "Monatskalender zu", 3000); await ruhig(300);
+              out.date.clicked = [ymd()[2], de.textContent.includes("20"), iw.gEndTime.subtractDate(iw.gStartTime).inSeconds == durD];
+              // Thunderbirds eigene Datumsauswahl bleibt zu
+              dml.open = true; await ruhig(400);
+              out.date.tbAfter = dml.menupopup.state;
+              await shutPop(mini);
             }
             // Uhrzeit wie Apple Kalender zum Eintippen: kein Popover, kein Stundenraster; Klick wählt die Stunden
             // (Fläche in der Kalenderfarbe, Schrift weiß), Ziffern ändern sie, danach geht es zu den Minuten
@@ -4838,14 +4884,12 @@ def calendar_checks(m, results):
           return out;""")
         if res.get("dialog") is False:
             return False, "Termin-Dialog nicht offen"
-        rows, mini, tp = res.get("rows") or [], res.get("mini") or {}, res.get("time") or {}
+        rows, dt, tp = res.get("rows") or [], res.get("date") or {}, res.get("time") or {}
         desc = res.get("desc") or {}
         # Titel wie in Apple Kalender groß (17 px), Beschriftungen 13 px
         ok = (len(rows) >= 4 and all(r["font"] == "13px" and r["gap"] >= 8 for r in rows) and res["title"] == "17px"
               and desc.get("font") == "13px" and ("system-ui" in desc.get("family", "") or "-apple-system" in desc.get("family", ""))
               and res["overflow"]["doc"][0] <= res["overflow"]["doc"][1] + 1
-              and bool(mini) and rgba_alpha(mini["bg"]) == 0 and (mini["today"] is None or rgba_alpha(mini["today"]) == 0)
-              and mini["week"] and mini["week"][0] == "400" and not same_color(mini["week"][1], "rgb(155, 158, 194)")
               and bool(tp) and tp["edit"] and tp["menulist"] == "none" and tp.get("picked") and tp.get("grid") == "closed" and tp.get("panels") == 0
               and tp.get("hour") == [[14, 0], "m"] and tp.get("after") == [14, 35] and "14" in (tp.get("shown") or "") and "35" in (tp.get("shown") or "")
               and tp.get("dur") == tp.get("durBefore") and tp.get("arrow") == [15, 35] and tp.get("gridAfter") == "closed"
@@ -4853,8 +4897,17 @@ def calendar_checks(m, results):
         mk = tp.get("mark") or {}
         # gewählte Stunden: Fläche in der Kalenderfarbe (etwas dunkler), Schrift weiß, Radius 3, 16 px hoch
         ok = ok and bool(mk) and same_color(mk["bg"], mk["cal"]) and same_color(mk["color"], "rgb(255, 255, 255)") and mk["radius"] == "3px" and mk["h"] == 16
+        # Datum als Text mit Monatskalender (Abstand zur Uhrzeit wie die Vorlage ~14,5 px statt ~39)
+        td, sf = dt.get("today") or ["", "-"], dt.get("surface") or ["", "-"]
+        ok = (ok and dt.get("edit") and dt.get("menulist") == "none" and 11 <= (dt.get("gap") or 0) <= 18 and dt.get("picked")
+              and dt.get("tbPopup") == "closed" and same_color(dt.get("ysBg", ""), dt.get("cal", "-")) and int(dt.get("titleWeight") or 0) >= 600
+              and len(dt.get("weekdays") or []) == 7 and all(len(x) == 2 for x in dt["weekdays"]) and dt.get("cells") == 42
+              and dt.get("selBg") and same_color(td[0], td[1]) and dt.get("other") and dt.get("nav") == 3 and 0 <= (dt.get("below") or -1) <= 10
+              and same_color(sf[0], sf[1]) and dt.get("next") == [True, True] and dt.get("typed") == [2027, "open", "2027", True]
+              and dt.get("day") == [9, True] and (dt.get("arrow") or [False])[0] and dt.get("clicked") == [20, True, True]
+              and dt.get("tbAfter") == "closed")
         return ok, f"{res}"
-    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
+    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Datum zum Eintippen mit Monatskalender (Jahr in Kalenderfarbe, ◀ ● ▶, heute rot, Tippen geht weiter, Klick auf Tag übernimmt), Abstand Datum–Uhrzeit; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
     def event_end_list():
         # Endzeit wie Apple Kalender: Beginn eintippen nimmt das Ende mit (gleiche Dauer), Ende eintippen lässt den Beginn
@@ -5044,9 +5097,9 @@ def calendar_checks(m, results):
             out.notesBelow = R(id.getElementById("event-grid-tab-vbox")).top >= R(rows.at(-1)).bottom;
             out.title = csOf(id.getElementById("item-title")).fontSize;
             // Datum/Uhrzeit schmal wie ihr Text, ohne Fläche und Pfeil; Kategorie bündig mit dem Text der übrigen Karten
-            const dml = id.querySelector("#event-starttime datepicker > menulist"), tml = id.querySelector("#event-starttime timepicker > .mc-time-edit");
+            const dml = id.querySelector("#event-starttime datepicker > .mc-date-edit"), tml = id.querySelector("#event-starttime timepicker > .mc-time-edit");
             out.pickers = [Math.round(R(dml).width), Math.round(R(tml).width), rgba(csOf(dml).backgroundColor)[3],
-                           iw.getComputedStyle(dml.shadowRoot.querySelector("dropmarker")).visibility];
+                           csOf(id.querySelector("#event-starttime datepicker > menulist")).display];
             out.catLeft = Math.round(R(id.getElementById("item-categories-label")).left - R(id.getElementById("event-grid-location-row")).left);
             out.locLeft = Math.round(R(id.getElementById("item-location")).left - R(id.getElementById("event-grid-location-row")).left);
             // langer Titel: Feld so breit wie der Ort (über die ganze Karte), nicht 20 Zeichen
@@ -5060,7 +5113,7 @@ def calendar_checks(m, results):
               and res["placeholders"] == ["Add Location or Video Call", "Add Invitees", "Add Notes or URL"]
               and res["labels"] == [False, False, False] and res["timeLabel"] and not res["tabs"] and not res["format"]
               and res["notesBelow"] and res["title"] == "17px"
-              and res["pickers"][0] <= 120 and res["pickers"][1] <= 100 and res["pickers"][2] == 0 and res["pickers"][3] == "hidden"
+              and res["pickers"][0] <= 120 and res["pickers"][1] <= 100 and res["pickers"][2] == 0 and res["pickers"][3] == "none"
               and abs(res["catLeft"] - res["locLeft"]) <= 4
               and abs(res["titleW"][0] - res["titleW"][1]) <= 4 and res["titleW"][0] > 250)
         return ok, f"{res}"
@@ -5186,6 +5239,8 @@ def calendar_checks(m, results):
           // Beginn des sichtbaren Textes (auch im Schatten-DOM) bzw. bei Kästchen dessen linke Kante
           const textLeft = (el, iw) => {
             if (el.localName == "checkbox") return Math.round((el.querySelector(".checkbox-check") || el).getBoundingClientRect().left);
+            // Datum als Text: Anfang der Ziffern (ohne die Fläche des gewählten Felds)
+            if (el.classList?.contains("mc-date-edit")) { const rg = el.ownerDocument.createRange(); rg.selectNodeContents(el); return Math.round(rg.getBoundingClientRect().left); }
             let best = Infinity;
             const walk = n => {
               for (const k of [...(n.shadowRoot?.children || []), ...n.children]) {
@@ -5229,7 +5284,7 @@ def calendar_checks(m, results):
                   .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
                 out.event.time = rows.map(r => {
                   const lab = [...r.querySelectorAll(":scope > th label")].find(l => l.getBoundingClientRect().width);
-                  const val = r.querySelector(":scope > td checkbox, :scope > td datetimepicker menulist, :scope > td menulist");
+                  const val = r.querySelector(":scope > td checkbox, :scope > td datetimepicker .mc-date-edit, :scope > td menulist:not(datepicker > menulist, timepicker > menulist)");
                   const drop = val?.localName == "menulist" && !val.closest("datepicker, timepicker") ? val.shadowRoot?.querySelector('[part~="dropmarker"]') : null;
                   const key = lab?.getAttribute("accesskey");
                   return { label: lab ? lab.getAttribute("value") + iw.getComputedStyle(lab, "::after").content.replace(/"/g, "").replace(/^(none|normal)$/, "") : null,

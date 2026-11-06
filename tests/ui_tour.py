@@ -1113,14 +1113,15 @@ SURFACES = [
       'await toCalendar(); w.createEventWithDialog(testCalendar(), null, null, "Neuer Testtermin"); const dw = await winUrl("calendar-event-dialog"); await wait(2500);'
       ' const iw = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow || dw; later(() => iw.editAttendees());', cap="window", win="calendar-event-dialog-attendees"),
     # Termin-Dialog: aufgeklappte Felder (Datum, Uhrzeit, Kategorien) und Menüs der Symbolleiste
-    S("kal-termin-datum", "kalender", "popup", "Termin-Dialog: Datumsauswahl (Minimonat im Datumsfeld)",
-      'const { iw } = await eventDialog(); const ml = iw.document.querySelector("#event-starttime datepicker menulist"); if (!ml) throw new Error("Datumsfeld fehlt");'
-      ' return await openBtnPop(ml.menupopup, ml);', cap="popup"),
+    S("kal-termin-datum", "kalender", "popup", "Termin-Dialog: Datum zum Eintippen mit Monatskalender (Klick ins Jahr, wie Apple Kalender)",
+      'const { iw } = await eventDialog(); const s = iw.document.querySelector(\'#event-starttime .mc-date-seg[data-seg="y"]\'); const p = iw.document.querySelector(".mc-date-panel");'
+      ' if (!s || !p) throw new Error("Datum zum Eintippen fehlt");'
+      ' return await pop(p, () => s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
     S("kal-termin-uhrzeit", "kalender", "dialog", "Termin-Dialog: Uhrzeit zum Eintippen (Stunden gewählt, wie Apple Kalender)",
-      'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-starttime .mc-time-seg"); if (!s) throw new Error("Uhrzeitfeld fehlt");'
+      'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-starttime timepicker .mc-time-seg"); if (!s) throw new Error("Uhrzeitfeld fehlt");'
       ' s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));', cap="window", win="calendar-event-dialog"),
     S("kal-termin-endzeit", "kalender", "popup", "Termin-Dialog: Endzeit – Auswahlliste mit Dauer (Klick in die Uhrzeit des Endes)",
-      'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-endtime .mc-time-seg"); const p = iw.document.querySelector(".mc-end-list");'
+      'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-endtime timepicker .mc-time-seg"); const p = iw.document.querySelector(".mc-end-list");'
       ' if (!s || !p) throw new Error("Endzeit-Liste fehlt");'
       ' return await pop(p, () => s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
     S("kal-termin-kategorien", "kalender", "popup", "Termin-Dialog: Kategorien (Auswahl mit Häkchen)",

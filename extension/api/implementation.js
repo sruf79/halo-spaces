@@ -9412,24 +9412,9 @@ function inlineTimeEdit(win, tp) {
       el.tabIndex = off() ? -1 : 0;
     }
   };
-  // Thunderbird schreibt jeden neuen Wert über _inputBoxValue ins Auswahlfeld –
-  // danach (Stunden/Minuten stehen erst nach dem Setzer fest) neu zeichnen
-  let proto = Object.getPrototypeOf(tp), desc = null;
-  while (proto && !(desc = Object.getOwnPropertyDescriptor(proto, "_inputBoxValue"))) {
-    proto = Object.getPrototypeOf(proto);
-  }
-  if (desc?.set) {
-    Object.defineProperty(tp, "_inputBoxValue", {
-      configurable: true,
-      get() {
-        return desc.get.call(this);
-      },
-      set(v) {
-        desc.set.call(this, v);
-        Promise.resolve().then(() => render());
-      },
-    });
-  }
+  // neuer Wert von Thunderbird: danach (Stunden/Minuten stehen erst nach dem
+  // Setzer fest) neu zeichnen
+  afterInputBoxValue(tp, () => render());
   new win.MutationObserver(sync).observe(tp, { attributes: true, attributeFilter: ["disabled", "hidden"] });
   const write = value => {
     tp.value = value; // meldet „change“ nur bei einer Änderung
@@ -9640,6 +9625,445 @@ function endTimeList(win, dtp, edit) {
   return list;
 }
 
+// Datum im Termin wie Apple Kalender zum Eintippen: Tag, Monat und Jahr als
+// Text im Format des Systems, das gewählte Feld in der Kalenderfarbe; darunter
+// ein kleiner Monatskalender. Werte als [Jahr, Monat (0–11), Tag]
+// Datum aus einem anderen Fenster (instanceof gilt nur im eigenen)
+function isDate(t) {
+  return typeof t?.getTime == "function" && !isNaN(t.getTime());
+}
+
+function daysInMonth(y, m) {
+  const d = new Date(2000, 0, 1);
+  d.setFullYear(y, m + 1, 0);
+  return d.getDate();
+}
+
+// Tag passend zum Monat (31. → 30. bzw. 28./29.)
+function clampDate([y, m, d]) {
+  return [y, m, Math.min(d, daysInMonth(y, m))];
+}
+
+// Tippen einer Ziffer in Tag („d“), Monat („m“) oder Jahr („y“): neuer Wert,
+// Zwischenstand (Ziffern, auf deren Rest gewartet wird) und ob es zum
+// nächsten Feld weitergeht – wie bei macOS-Datumsfeldern. Ein angefangenes
+// Jahr (1–3 Ziffern) steht roh im Wert; dateFinish macht daraus ein Jahr
+function dateTypeDigit(seg, buf, digit, [y, m, d]) {
+  const digits = buf + digit, n = Number(digits), k = Number(digit);
+  if (seg == "y") {
+    if (digits.length >= 4) {
+      return { value: clampDate([Number(digits.slice(-4)), m, d]), buf: "", next: true };
+    }
+    return { value: [n, m, d], buf: digits, next: false };
+  }
+  const max = seg == "d" ? daysInMonth(y, m) : 12;
+  const put = v => clampDate(seg == "d" ? [y, m, v] : [y, v - 1, d]);
+  if (digits.length == 1) {
+    if (k * 10 > max) {
+      return { value: put(k), buf: "", next: true };
+    }
+    // „0“ allein ist kein Tag/Monat: erst mit der zweiten Ziffer
+    return { value: k ? put(k) : [y, m, d], buf: digits, next: false };
+  }
+  if (n >= 1 && n <= max) {
+    return { value: put(n), buf: "", next: true };
+  }
+  // zweite Ziffer passt nicht (z. B. „35“): sie beginnt neu
+  return dateTypeDigit(seg, "", digit, [y, m, d]);
+}
+
+// angefangenes Jahr übernehmen: zweistellig wie Thunderbird als 20xx
+function dateFinish([y, m, d]) {
+  return clampDate([y < 100 ? 2000 + y : y, m, d]);
+}
+
+// Pfeil hoch/runter: nur das gewählte Feld ändert sich (Tag 31 → 1 ohne den
+// Monat, Dezember → Januar ohne das Jahr)
+function dateStep(seg, [y, m, d], dir) {
+  if (seg == "d") {
+    const n = daysInMonth(y, m);
+    return [y, m, ((d - 1 + dir) % n + n) % n + 1];
+  }
+  if (seg == "m") {
+    return clampDate([y, (m + dir + 12) % 12, d]);
+  }
+  return clampDate([y + dir, m, d]);
+}
+
+// Wochen des kleinen Monatskalenders: immer sechs Zeilen (die Fläche springt
+// beim Blättern nicht), beginnend am ersten Wochentag (0 = Sonntag)
+function monthWeeks(y, m, weekStart = 1) {
+  const first = new Date(2000, 0, 1);
+  first.setFullYear(y, m, 1);
+  const lead = (first.getDay() - weekStart + 7) % 7;
+  const weeks = [];
+  for (let w = 0; w < 6; w++) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const t = new Date(2000, 0, 1);
+      t.setFullYear(y, m, 1 + w * 7 + i - lead);
+      week.push([t.getFullYear(), t.getMonth(), t.getDate()]);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+// Thunderbird schreibt jeden neuen Wert eines date-/timepickers über
+// _inputBoxValue ins (verborgene) Auswahlfeld – danach fn aufrufen
+function afterInputBoxValue(picker, fn) {
+  let proto = Object.getPrototypeOf(picker), desc = null;
+  while (proto && !(desc = Object.getOwnPropertyDescriptor(proto, "_inputBoxValue"))) {
+    proto = Object.getPrototypeOf(proto);
+  }
+  if (desc?.set) {
+    Object.defineProperty(picker, "_inputBoxValue", {
+      configurable: true,
+      get() {
+        return desc.get.call(this);
+      },
+      set(v) {
+        desc.set.call(this, v);
+        Promise.resolve().then(fn);
+      },
+    });
+  }
+}
+
+// Datumsfeld als Text zum Eintippen. io: { get() → Date|null, set(Date),
+// off() → bool } – so auch für andere Felder als Thunderbirds datepicker
+function inlineDateEdit(win, io) {
+  const doc = win.document, X = "http://www.w3.org/1999/xhtml";
+  const fmt = new Services.intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const dateOf = ([y, m, d]) => {
+    const t = new Date(2000, 0, 1);
+    t.setFullYear(y, m, d);
+    return t;
+  };
+  const box = doc.createElementNS(X, "span");
+  box.className = "mc-date-edit";
+  const segs = [];
+  for (const part of fmt.formatToParts(new Date(2026, 10, 16))) {
+    const el = doc.createElementNS(X, "span");
+    const seg = { day: "d", month: "m", year: "y" }[part.type];
+    if (seg) {
+      el.className = "mc-time-seg mc-date-seg";
+      el.dataset.seg = seg;
+      el.tabIndex = 0;
+      el.setAttribute("role", "spinbutton");
+      segs.push(el);
+    } else {
+      el.className = "mc-time-sep";
+    }
+    el.dataset.type = part.type;
+    box.append(el);
+  }
+  const triple = () => {
+    const t = io.get();
+    return isDate(t) ? [t.getFullYear(), t.getMonth(), t.getDate()] : null;
+  };
+  let buf = "", pending = null, typing = null;
+  const render = (value = triple()) => {
+    if (!value) {
+      return;
+    }
+    const list = fmt.formatToParts(dateOf(clampDate([Math.max(value[0], 1), value[1], value[2]])));
+    [...box.children].forEach((el, i) => {
+      const part = list[i]?.type == el.dataset.type ? list[i] : list.find(p => p.type == el.dataset.type);
+      // angefangenes Jahr so, wie es getippt wurde
+      const text = el.dataset.seg && el.dataset.seg == typing?.seg && typing.buf ? typing.buf : part?.value;
+      if (text != null && el.textContent != text) {
+        el.textContent = text;
+      }
+      if (el.dataset.seg) {
+        el.setAttribute("aria-valuetext", el.textContent);
+      }
+    });
+  };
+  const write = value => {
+    io.set(dateOf(value)); // meldet „change“ nur bei einer Änderung
+    render();
+  };
+  // angefangene Eingabe übernehmen (mit der letzten Ziffer, beim Weitergehen)
+  const commit = () => {
+    typing = null;
+    if (pending) {
+      const value = dateFinish(pending);
+      pending = null;
+      write(value);
+    }
+  };
+  const mark = target => {
+    for (const el of segs) {
+      el.toggleAttribute("selected", el == target);
+    }
+  };
+  const pick = el => {
+    if (el) {
+      commit();
+      buf = "";
+      el.focus();
+      mark(el);
+    }
+  };
+  const sync = () => {
+    box.toggleAttribute("disabled", io.off());
+    for (const el of segs) {
+      el.tabIndex = io.off() ? -1 : 0;
+    }
+  };
+  box.addEventListener("focusin", event => {
+    commit();
+    buf = "";
+    mark(event.target);
+  });
+  box.addEventListener("focusout", event => {
+    if (!box.contains(event.relatedTarget)) {
+      commit();
+      for (const el of segs) {
+        el.removeAttribute("selected");
+      }
+    }
+  });
+  box.addEventListener("mousedown", event => {
+    if (event.button != 0 || io.off()) {
+      return;
+    }
+    event.preventDefault();
+    const seg = event.target.closest?.(".mc-time-seg");
+    if (seg) {
+      pick(seg);
+      return;
+    }
+    // zwischen den Feldern: das nächstgelegene
+    const near = segs.map(el => {
+      const r = el.getBoundingClientRect();
+      return [Math.abs(event.clientX - (r.left + r.right) / 2), el];
+    }).sort((a, b) => a[0] - b[0])[0];
+    pick(near?.[1] || segs[0]);
+  });
+  box.addEventListener("keydown", event => {
+    const el = event.target.closest?.(".mc-time-seg");
+    const value = triple();
+    if (!el || !value || io.off() || event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    const seg = el.dataset.seg, i = segs.indexOf(el);
+    let handled = true;
+    if (/^[0-9]$/.test(event.key)) {
+      const r = dateTypeDigit(seg, buf, event.key, pending || value);
+      buf = r.buf;
+      if (r.buf) {
+        pending = r.value;
+        typing = { seg, buf };
+        render(seg == "y" ? value : pending);
+      } else {
+        pending = null;
+        typing = null;
+        write(r.value);
+      }
+      if (r.next && segs[i + 1]) {
+        pick(segs[i + 1]);
+      }
+    } else if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+      commit();
+      buf = "";
+      write(dateStep(seg, triple(), event.key == "ArrowUp" ? 1 : -1));
+    } else if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
+      pick(segs[i + (event.key == "ArrowRight" ? 1 : -1)]);
+    } else if (event.key == "Backspace" || event.key == "Delete") {
+      pending = null;
+      typing = null;
+      buf = "";
+      render();
+    } else {
+      // Eingabe, Tab o. ä.: Angefangenes übernehmen
+      commit();
+      handled = false;
+    }
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+  render();
+  sync();
+  return { box, segs, pick, render, sync, commit };
+}
+
+// kleiner Monatskalender unter dem Datum wie Apple Kalender: Monat und Jahr
+// fett, rechts ◀ ● ▶ (Monat zurück, heute, vor), Wochentage, Tage anderer
+// Monate grau, heute rot, der gewählte Tag grau hinterlegt. Er nimmt nie den
+// Fokus – Tippen im Datum geht weiter und blättert mit; Klick auf einen Tag
+// übernimmt ihn und schließt
+function miniMonthPopover(win, edit, io) {
+  const doc = win.document, X = "http://www.w3.org/1999/xhtml";
+  const h = (tag, cls, ...kids) => {
+    const n = doc.createElementNS(X, tag);
+    if (cls) {
+      n.className = cls;
+    }
+    n.append(...kids);
+    return n;
+  };
+  const panel = doc.createXULElement("panel");
+  panel.className = "mc-date-panel";
+  panel.setAttribute("noautofocus", "true");
+  // Klick in ein anderes Feld des Datums wirkt sofort (nicht erst den Kalender schließen)
+  panel.setAttribute("consumeoutsideclicks", "never");
+  let weekStart = 1;
+  try {
+    weekStart = Services.prefs.getIntPref("calendar.week.start", 1);
+  } catch {}
+  const title = h("span", "mc-mini-title");
+  const nav = (cls, label, dir) => {
+    const b = h("span", `mc-mini-nav ${cls}`);
+    b.setAttribute("role", "button");
+    b.setAttribute("aria-label", label);
+    b.title = label;
+    b.dataset.dir = dir;
+    return b;
+  };
+  const head = h("div", "mc-mini-head", title,
+    nav("mc-mini-prev", tr("Previous Month"), "-1"), nav("mc-mini-today", tr("Today"), "0"), nav("mc-mini-next", tr("Next Month"), "1"));
+  const dayNames = new Services.intl.DateTimeFormat(undefined, { weekday: "short" });
+  const wd = h("div", "mc-mini-weekdays");
+  for (let i = 0; i < 7; i++) {
+    // 5.1.2025 war ein Sonntag; zwei Zeichen wie „Mo“, „Tu“ bzw. „Mo“, „Di“
+    const name = dayNames.format(new Date(2025, 0, 5 + ((weekStart + i) % 7))).replace(/\.$/, "").slice(0, 2);
+    wd.append(h("span", "", name));
+  }
+  const grid = h("div", "mc-mini-grid");
+  panel.append(h("div", "mc-mini", head, wd, grid));
+  (doc.querySelector("popupset") || doc.documentElement).append(panel);
+  const monthFmt = new Services.intl.DateTimeFormat(undefined, { month: "short", year: "numeric" });
+  let shown = null;
+  const fill = () => {
+    const t = io.get();
+    if (!isDate(t) || !shown) {
+      return;
+    }
+    const [y, m] = shown;
+    const first = new Date(2000, 0, 1);
+    first.setFullYear(y, m, 1);
+    title.textContent = monthFmt.format(first);
+    const now = new Date();
+    const same = (a, b) => a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
+    const sel = [t.getFullYear(), t.getMonth(), t.getDate()], today = [now.getFullYear(), now.getMonth(), now.getDate()];
+    grid.replaceChildren();
+    for (const week of monthWeeks(y, m, weekStart)) {
+      for (const day of week) {
+        const c = h("span", "mc-mini-day", String(day[2]));
+        c.dataset.date = day.join("-");
+        c.toggleAttribute("othermonth", day[1] != m);
+        c.toggleAttribute("today", same(day, today));
+        c.toggleAttribute("selected", same(day, sel));
+        grid.append(c);
+      }
+    }
+  };
+  const showMonth = t => {
+    shown = [t.getFullYear(), t.getMonth()];
+    fill();
+  };
+  // nie den Fokus nehmen (sonst endet das Tippen im Datum)
+  panel.addEventListener("mousedown", event => event.preventDefault());
+  panel.addEventListener("click", event => {
+    if (event.button != 0) {
+      return;
+    }
+    const day = event.target.closest?.(".mc-mini-day");
+    const b = event.target.closest?.(".mc-mini-nav");
+    if (day) {
+      edit.commit();
+      const [y, m, d] = day.dataset.date.split("-").map(Number);
+      const t = new Date(2000, 0, 1);
+      t.setFullYear(y, m, d);
+      io.set(t);
+      edit.render();
+      panel.hidePopup();
+    } else if (b && shown) {
+      const dir = Number(b.dataset.dir);
+      if (!dir) {
+        showMonth(new Date());
+      } else {
+        const t = new Date(2000, 0, 1);
+        t.setFullYear(shown[0], shown[1] + dir, 1);
+        showMonth(t);
+      }
+    }
+  });
+  // Mausrad blättert die Monate (aufsummiert wie bei der Uhrzeit)
+  let sum = 0;
+  panel.addEventListener("wheel", event => {
+    if (!shown || !event.deltaY) {
+      return;
+    }
+    event.preventDefault();
+    sum += event.deltaMode == 0 ? event.deltaY / 40 : Math.sign(event.deltaY);
+    const units = Math.trunc(sum);
+    if (units) {
+      sum -= units;
+      const t = new Date(2000, 0, 1);
+      t.setFullYear(shown[0], shown[1] + units, 1);
+      showMonth(t);
+    }
+  }, { passive: false });
+  panel.addEventListener("popupshowing", () => edit.box.setAttribute("open", ""));
+  panel.addEventListener("popuphidden", () => edit.box.removeAttribute("open"));
+  const open = () => panel.state == "open" || panel.state == "showing";
+  edit.box.addEventListener("mousedown", event => {
+    if (event.button != 0 || io.off() || open() || !isDate(io.get())) {
+      return;
+    }
+    showMonth(io.get());
+    // direkt unter dem Datum, links bündig mit seinem Text
+    panel.openPopup(edit.box, "after_start", -4, 0, false, false);
+  });
+  edit.box.addEventListener("focusout", event => {
+    if (!edit.box.contains(event.relatedTarget)) {
+      panel.hidePopup();
+    }
+  });
+  edit.box.addEventListener("keydown", event => {
+    if ((event.key == "Escape" || event.key == "Enter") && open()) {
+      edit.commit();
+      panel.hidePopup();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+  return { panel, sync: () => open() && isDate(io.get()) && showMonth(io.get()) };
+}
+
+// Thunderbirds datepicker als Text zum Eintippen mit kleinem Monatskalender:
+// dessen Auswahlfeld bleibt verborgen und hält den Wert
+function inlineDatePicker(win, dp) {
+  const io = {
+    get: () => (isDate(dp.value) ? dp.value : null),
+    set: t => (dp.value = t),
+    off: () => dp.hasAttribute("disabled") || dp.hidden,
+  };
+  const edit = inlineDateEdit(win, io);
+  const mini = miniMonthPopover(win, edit, io);
+  afterInputBoxValue(dp, () => {
+    edit.render();
+    mini.sync();
+  });
+  new win.MutationObserver(edit.sync).observe(dp, { attributes: true, attributeFilter: ["disabled", "hidden"] });
+  dp.append(edit.box);
+  dp.setAttribute("mc-inline", "");
+  dp.focus = () => edit.pick(edit.segs[0]);
+  // Thunderbirds eigene Datumsauswahl nie öffnen: stattdessen das Datum wählen
+  dp._popup?.addEventListener("popupshowing", event => {
+    if (event.target == dp._popup) {
+      event.preventDefault();
+      win.setTimeout(() => edit.pick(edit.segs[0]), 0);
+    }
+  });
+  return { edit, mini };
+}
+
 function hookDateTimePickers(win) {
   for (const dtp of win.document.querySelectorAll("datetimepicker")) {
     const dp = dtp.querySelector("datepicker"), tp = dtp.querySelector("timepicker");
@@ -9659,35 +10083,9 @@ function hookDateTimePickers(win) {
         win.setTimeout(() => edit.pick(edit.segs[0]), 0);
       }
     });
-    // Breite des Datums wie der Inhalt (Apple Kalender: „24.10.2026  09:00“
-    // als schmaler Text): breitester Wert im Format des Systems, Ziffern als „0“
-    // und zweistellig – so springt das Feld beim Ändern nicht
-    fitPickerWidth(win, dp);
+    // Datum ebenso als Text zum Eintippen, mit kleinem Monatskalender
+    inlineDatePicker(win, dp);
   }
-}
-
-function fitPickerWidth(win, picker) {
-  const menulist = picker?._menulist || picker?.querySelector("menulist");
-  const input = picker?._inputField || menulist?.shadowRoot?.querySelector("input");
-  if (!menulist || !input) {
-    return;
-  }
-  const fit = () => {
-    const sample = (input.value || "").replace(/\d+/g, d => "0".repeat(Math.max(2, d.length)));
-    if (!sample) {
-      return;
-    }
-    const cs = win.getComputedStyle(input);
-    const ctx = (fitPickerWidth.canvas ||= win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas")).getContext("2d");
-    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    const width = Math.ceil(ctx.measureText(sample).width) + 2;
-    if (width > 8) {
-      menulist.style.setProperty("--mc-fit", `${width}px`);
-    }
-  };
-  fit();
-  win.setTimeout(fit, 300); // Wert steht beim Öffnen des Fensters evtl. erst danach
-  input.addEventListener("change", fit);
 }
 
 // Einstellungen → halo.spaces öffnen (Info-Fenster, Begrüßung): Thunderbird

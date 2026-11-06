@@ -3169,6 +3169,28 @@ unified-toolbar {
   mask-image: var(--mi-ellipsis) !important;
 }
 
+/* Trennstrich Filter | … wie in den übrigen Kapseln (1 px, --mt-cap-line-h,
+   mittig an der Grenze der beiden Knöpfe); hängt am Filterknopf, damit er mit
+   ihm entfällt (Aufgaben, Adressbuch); beim Überfahren der Kapsel weg */
+#mcListHeader .mc-lh-tools > .mc-lh-filter {
+  position: relative !important;
+}
+
+#mcListHeader .mc-lh-tools > .mc-lh-filter::after {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-end: -1px !important;
+  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
+  width: 1px !important;
+  height: var(--mt-cap-line-h) !important;
+  background-color: var(--mt-cap-line) !important;
+  pointer-events: none !important;
+}
+
+#mcListHeader .mc-lh-tools:hover > .mc-lh-filter::after {
+  opacity: 0 !important;
+}
+
 /* „+“ (nur Adressbuch): eigene runde Kapsel ganz rechts, wie Apple Kontakte */
 #mcListHeader > .mc-lh-plus {
   display: none !important;

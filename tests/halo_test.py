@@ -9085,7 +9085,7 @@ def run_checks(m, version, profile, results):
         # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in
         # --mt-cap-line; steht die Maus auf der Kapsel, verschwinden ihre Trennstriche (die der
         # Nachbarkapsel bleiben), der Knopf unter der Maus bekommt eine runde Fläche (radial-gradient)
-        # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste
+        # statt einer Fläche bis an den Kapselrand; ebenso Filter | … über der Mailliste (Trennstrich dort: GitHub #47)
         res = m.js(MESSAGE_JS + '''
           const cs = (e, p) => w.getComputedStyle(e, p);
           const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
@@ -9105,11 +9105,23 @@ def run_checks(m, version, profile, results):
             out.hover = { del: cs(del, "::before").opacity, junk: cs(junk, "::before").opacity, fwd: cs(fwd, "::before").opacity,
                           img: cs(btn).backgroundImage.slice(0, 16), bg: cs(btn).backgroundColor, disabled: btn.disabled };
           } finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
-          const tools = d.querySelector("#mcListHeader .mc-lh-tools > .mc-lh-more");
+          const cap = d.querySelector("#mcListHeader .mc-lh-tools");
+          const tools = cap?.querySelector(":scope > .mc-lh-more");
+          const filt = cap?.querySelector(":scope > .mc-lh-filter");
+          if (filt) {
+            // Trennstrich Filter | … (GitHub #47): 1 × 20 px, mittig, an der Grenze der Knöpfe
+            const fr = filt.getBoundingClientRect(), mr = tools.getBoundingClientRect(), fa = cs(filt, "::after");
+            const x = fr.left + parseFloat(fa.left);
+            out.sep = { content: fa.content, w: fa.width, h: fa.height, color: fa.backgroundColor, op: fa.opacity,
+                        dy: Math.round((parseFloat(fa.top) + parseFloat(fa.height) / 2 - fr.height / 2) * 10) / 10,
+                        dx: Math.round((x - mr.left) * 10) / 10 };
+          }
           if (tools) {
-            InspectorUtils.addPseudoClassLock(tools, ":hover");
-            try { await ruhig(200); out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor }; }
-            finally { InspectorUtils.removePseudoClassLock(tools, ":hover"); }
+            const lock = [cap, tools];
+            for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
+            try { await ruhig(200); out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor,
+                                                 sep: filt ? cs(filt, "::after").opacity : null }; }
+            finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
           }
           return out;''')
         if res.get("missing"):
@@ -9121,8 +9133,13 @@ def run_checks(m, version, profile, results):
         ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
         ok_list = bool(l) and l["img"].startswith("radial-gradient") and rgba_alpha(l["bg"]) == 0
-        return ok_rest and ok_hover and ok_list, f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} {res}"
-    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+        sp = res.get("sep") or {}
+        ok_sep = (bool(sp) and sp["content"] not in ("none", "normal") and sp["w"] == "1px" and sp["h"] == "20px"
+                  and abs(sp["dy"]) <= 0.5 and abs(sp["dx"]) <= 0.5 and sp["op"] == "1"
+                  and same_color(sp["color"], res["capLine"]) and l.get("sep") == "0")
+        return (ok_rest and ok_hover and ok_list and ok_sep,
+                f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
+    check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
 
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner

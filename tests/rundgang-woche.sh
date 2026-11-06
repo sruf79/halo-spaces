@@ -51,6 +51,12 @@ HART=$(( START + 9 * 3600 ))                  # claude spätestens nach 9 Stunde
 PORT_HELL=2853 PORT_DUNKEL=2854
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
+# Vorprüfung ohne Claude: rundgang_auswertung_noetig(), uebersprungen()
+source ${0:A:h}/vorpruefung.zsh
+# Auswertung mit Sonnet und niedriger Reasoning-Stufe (Entscheidung des Maintainers
+# vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3
+# umsetzen.“)
+MODELL=(--model sonnet --effort low)
 
 notbericht() {
   {
@@ -197,6 +203,19 @@ if [[ -n $TROCKEN || -n $ONLY ]]; then
   exit 0
 fi
 
+# Claude nur, wenn der Vergleich mit dem vorigen Rundgang etwas Neues zeigt
+# (neue oder geänderte Ausreißer, neu nicht erreichte Oberflächen); sonst Bericht
+# und Protokollzeile ohne Claude und ohne Push
+if GRUND=$(rundgang_auswertung_noetig $OUT/vergleich.json); then
+  log "Rundgang: Auswertung nötig – $GRUND"
+else
+  log "Rundgang: ohne Claude beendet (übersprungen)"
+  uebersprungen rundgang "$GRUND"
+  notbericht "übersprungen" "nichts Neues: $GRUND"
+  kennzahl uebersprungen "$ZAHLEN"
+  exit 0
+fi
+
 # Auswertung durch Claude (Auftrag im geprüften Stand, Arbeitsordner ~/halo-spaces
 # nur zum Lesen von AGENTS.md; das Board ändert Claude über gh)
 SID=$(uuidgen | tr A-Z a-z)
@@ -212,7 +231,7 @@ RUNDE=0 PROMPT=$AUFTRAG ARGS=(--session-id $SID)
 while (( RUNDE < 4 )); do
   RUNDE=$((RUNDE + 1))
   OUTF=$DIR/$TAG-rundgang-runde$RUNDE.txt
-  ( cd $REPO && claude -p "${ARGS[@]}" --permission-mode auto "$PROMPT" ) > $OUTF 2>&1
+  ( cd $REPO && claude -p $MODELL "${ARGS[@]}" --permission-mode auto "$PROMPT" ) > $OUTF 2>&1
   RC=$?
   log "Rundgang: Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUTF | tr '\n' ' ')"
   [[ -e $FERTIG ]] && break

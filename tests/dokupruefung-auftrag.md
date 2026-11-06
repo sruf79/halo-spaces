@@ -18,6 +18,12 @@ Gegenstück zur Wochenprüfung (sonntags, Läufe und Prüfungen).
 
 ## 1. Prüfen
 
+Steht im Auftrag davor eine Zeile „Seit der letzten Prüfung … geänderte
+.md-Dateien: …“ (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“), prüfe nur diese Dateien und was sie berühren
+(Verweise, Dateilisten und Pfade gegen den Code, Widersprüche zu anderen .md); die
+übrigen sind seit der letzten Prüfung unverändert und werden nicht erneut gelesen.
+Ohne diese Zeile gilt:
+
 Alle verfolgten .md-Dateien (git ls-files '*.md'), außer extension/vendor/.
 Zusätzlich die Kopf-Kommentare der Skripte in tests/ und der Workflows, soweit
 .md-Dateien auf sie verweisen. Je Datei und über Dateien hinweg:

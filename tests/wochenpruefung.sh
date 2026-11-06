@@ -56,6 +56,13 @@ ENDE=$(( START + 6 * 3600 ))            # nach 6 Stunden nicht mehr fortsetzen
 HART=$(( START + 7 * 3600 ))            # nach 7 Stunden wird claude beendet
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
+# Vorprüfung der Doku-Prüfung ohne Claude: doku_geaendert(), uebersprungen()
+source ${0:A:h}/vorpruefung.zsh
+# Modelle (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison,
+# Wortlaut: „ja, punkt 2 und 3 umsetzen.“): die Doku-Prüfung mit Sonnet und niedriger
+# Reasoning-Stufe, die Wochenprüfung bleibt bei Opus (Standard der Installation)
+MODELL=()
+[[ -n $DOKU ]] && MODELL=(--model sonnet --effort low)
 
 bericht_kurz() {
   local z=$(grep -m1 '^Kurz:' $BERICHT 2>/dev/null | sed 's/^Kurz: *//')
@@ -95,6 +102,21 @@ if [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null; then
 fi
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
+
+# Doku-Prüfung nur über .md-Dateien, die seit der letzten fertigen Prüfung geändert
+# wurden (Stand ~/halo-aufgaben/doku-pruefung.stand); keine geändert: ohne Claude
+# und ohne Push überspringen
+DOKU_HINWEIS=
+if [[ -n $DOKU && -z $TROCKEN ]]; then
+  if GRUND=$(doku_geaendert); then
+    log "Vorprüfung: $GRUND"
+    (( $#DOKU_GEAENDERT )) && DOKU_HINWEIS="Seit der letzten Prüfung (Stand ${DOKU_STAND[1,7]}) geänderte .md-Dateien: ${(j:, :)DOKU_GEAENDERT}. Prüfe nur diese Dateien und was sie berührt (Verweise, Dateilisten und Pfade gegen den Code, Widersprüche zu anderen .md); die übrigen nicht erneut."
+  else
+    uebersprungen dokupruefung "$GRUND"
+    notbericht "übersprungen" "nichts zu prüfen: $GRUND"
+    exit 0
+  fi
+fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis
 # 09:15 warten, auf einen CI-Lauf bis zu 90 Minuten, auf alles andere nicht.
@@ -137,7 +159,8 @@ else
   MODUS="Normaler Lauf: Freigaben wie im Auftrag."
 fi
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
-$MODUS
+$MODUS${DOKU_HINWEIS:+
+$DOKU_HINWEIS}
 
 $(<$REPO/tests/$AUFTRAG_DATEI)"
 ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $SID|--resume $SID" ) &
@@ -151,7 +174,7 @@ ARGS=(--session-id $SID)
 while true; do
   RUNDE=$((RUNDE + 1))
   OUT=$DIR/$TAG-$ART-runde$RUNDE.txt
-  claude -p "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
+  claude -p $MODELL "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
   RC=$?
   log "Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUT | tr '\n' ' ')"
   [[ -e $FERTIG ]] && break
@@ -168,6 +191,8 @@ while true; do
   fi
 done
 
+# fertige Doku-Prüfung (mit ihren eigenen Commits) merken: nächstes Mal nur, was danach geändert wurde
+[[ -n $DOKU && -z $TROCKEN && -e $FERTIG ]] && doku_stand_merken
 if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
   notbericht "ohne Abschluss" "Claude hat keinen Bericht geschrieben (Runden: $RUNDE, letzter Exitcode $RC)" mit-details
 fi

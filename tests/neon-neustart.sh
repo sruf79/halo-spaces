@@ -1,4 +1,8 @@
 #!/bin/zsh
+# NICHT AKTIV: Der LaunchAgent wird nicht eingerichtet (Entscheidung des
+# Maintainers, Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut:
+# „ja täglichen neustart nicht aktivieren. clear von hand.“ – Grund: kickstart -k setzt dieselbe Sitzung mit vollem Verlauf
+# fort). Das Skript bleibt als Vorlage liegen.
 # Täglicher Neustart der Sitzung neon (LaunchAgent at.halo-spaces.neon-neustart,
 # tests/MAC-MINI.md Abschnitt 12). Entscheidung des Maintainers (Cloud-Sitzung
 # global.design.comparison, 6.11.2026), Wortlaut: „punkt 1 beauftragen.“ – Bezug,

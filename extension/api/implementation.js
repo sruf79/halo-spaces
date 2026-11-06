@@ -15561,6 +15561,59 @@ class CardEnhancer {
       });
     };
 
+    // Bereiche-Leiste ausgeblendet: die Bereiche als kleine Symbole oben in der
+    // Seitenleiste, links neben dem Seitenleisten-Knopf (wie die Knöpfe über der
+    // Seitenleiste in Apple Mail) – so bleibt der Wechsel mit einem Klick, ohne
+    // die Leiste wieder einzublenden. Nur Mail, Kontakte, Kalender und Aufgaben
+    // (der fünfte Bereich und die Einstellungen haben eigene Wege)
+    const MINI_SPACES = ["mail", "addressbook", "calendar", "tasks"];
+    const hookSpacesMini = () => {
+      const d = w.document;
+      const pinned = d.getElementById("spacesPinnedButton");
+      // (spaces ist beim ersten Durchlauf nach dem Start noch null)
+      if (!pinned || !w.gSpacesToolbar?.spaces || d.getElementById("mcSpacesMini")) {
+        return;
+      }
+      const H = "http://www.w3.org/1999/xhtml";
+      const strip = d.createElementNS(H, "div");
+      strip.id = "mcSpacesMini";
+      strip.setAttribute("role", "toolbar");
+      const mirrors = [];
+      for (const name of MINI_SPACES) {
+        const space = w.gSpacesToolbar.spaces.find(s => s.name == name);
+        if (!space?.button) {
+          continue;
+        }
+        const btn = d.createElementNS(H, "button");
+        btn.type = "button";
+        btn.className = "mc-mini-space";
+        btn.dataset.space = name;
+        btn.append(d.createElementNS(H, "span"));
+        // Titel und „aktuell“ vom echten Knopf übernehmen (Fluent setzt den
+        // Titel verzögert, die Klasse wechselt mit jedem Tab)
+        const sync = () => {
+          const title = space.button.title || space.button.getAttribute("aria-label") || name;
+          btn.title = title;
+          btn.setAttribute("aria-label", title);
+          btn.classList.toggle("current", space.button.classList.contains("current"));
+          btn.setAttribute("aria-pressed", btn.classList.contains("current"));
+        };
+        sync();
+        const mo = new w.MutationObserver(sync);
+        mo.observe(space.button, { attributes: true, attributeFilter: ["class", "title", "aria-label"] });
+        mirrors.push(mo);
+        btn.addEventListener("click", () => {
+          w.gSpacesToolbar.openSpace(d.getElementById("tabmail"), space);
+        });
+        strip.append(btn);
+      }
+      pinned.after(strip);
+      this.restorers.push(() => {
+        mirrors.forEach(mo => mo.disconnect());
+        strip.remove();
+      });
+    };
+
     // Today-Pane ein-/ausblenden: Knopf unten rechts (Gegenstück zum
     // Bereiche-Knopf unten links) statt des ✕ oben in der Today-Pane
 
@@ -17507,6 +17560,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSpacesToggle();
+      hookSpacesMini();
       UpdateNote.hook(w, this.restorers);
       FifthSpace.attach(w, this.restorers);
       hookLooseTabs(w, this.restorers);

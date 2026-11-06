@@ -8674,6 +8674,29 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Texte: „On My Mac“ und „macOS“ nur unter macOS, sonst „On This Computer“ und „the system“", mac_words, results)
 
+    def prefs_menulist():
+        # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen
+        # (Thunderbirds In-Content-Stil hinterlegte ihn dauerhaft blau – zwei Balken); Zeilen 24 px, 8 px Innenabstand, Rundung 7 px
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          w.openPreferencesTab("paneAppearance"); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("mcAppearance"), "Einstellungen Darstellung", 6000); await ruhig(1000);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("mcAppearance"), pop = ml.menupopup;
+          try {
+            ml.scrollIntoView({ block: "center" }); await ruhig(300);
+            ml.open = true; await bis(() => pop.state == "open", "Auswahlliste offen", 4000); await ruhig(300);
+            const items = [...pop.children].filter(c => c.localName == "menuitem");
+            const sel = items.find(c => c.hasAttribute("selected")), other = items.find(c => c != sel);
+            for (const c of items) c.removeAttribute("_moz-menuactive");
+            other.setAttribute("_moz-menuactive", "true"); await ruhig(200);
+            const s = csOf(sel), o = csOf(other);
+            return { sel: [sel.getAttribute("value"), s.backgroundColor, s.color], other: [o.backgroundColor, o.color],
+                     rows: items.map(c => Math.round(c.getBoundingClientRect().height)), pad: o.paddingInlineStart, radius: o.borderTopLeftRadius,
+                     accent: colorOf(cd, "var(--mt-accent)", "backgroundColor"), text: colorOf(cd, "var(--mt-text)") };
+          } finally { ml.open = false; await ruhig(300); tm.closeTab(t); await ruhig(500); }""")
+        ok = (same_color(res["sel"][1], "rgba(0, 0, 0, 0)") and same_color(res["sel"][2], res["text"]) and same_color(res["other"][0], res["accent"])
+              and all(h == 24 for h in res["rows"]) and res["pad"] == "8px" and res["radius"] == "7px")
+        return ok, f"{res}"
+    check("Einstellungen: Auswahlliste mit nur einem blauen Balken (gewählter Eintrag nur mit Häkchen), 24-px-Zeilen mit 7 px Rundung", prefs_menulist, results)
+
     def uninstall_cleanup():
         # Deinstallieren räumt auf: keine extensions.mailcards.* mehr, von halo.spaces gesetzte Thunderbird-Werte
         # (Kartenzeilen, Suchtreffer als Liste, Toolbar) zurück auf Standard, selbst gewählte bleiben (GitHub #12).

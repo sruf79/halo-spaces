@@ -10032,74 +10032,63 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   box-shadow: none !important;
 }
 
-/* ---------- Termin/Aufgabe: Uhrzeit-Popover wie Apple Kalender ----------
-   Klick auf die Uhrzeit öffnet nur dieses kleine Popover mit dem Uhrzeitfeld
-   (setzt die Erweiterung) statt Thunderbirds Stundenraster; Fläche, Rand und
-   Radius 20 wie die übrigen Popovers (macOS 27) */
-.mc-time-panel {
-  --arrowpanel-padding: 0 !important;
-  --arrowpanel-background: var(--mt-popover-bg) !important;
-  --arrowpanel-border-color: var(--mt-popover-border) !important;
-  --arrowpanel-border-radius: var(--mt-popover-radius) !important;
-  --panel-background: var(--mt-popover-bg) !important;
-  --panel-background-color: var(--mt-popover-bg) !important;
-  --panel-border-color: var(--mt-popover-border) !important;
-  --panel-border-radius: var(--mt-popover-radius) !important;
-  font-family: var(--mt-font) !important;
-}
-
-.mc-time-pill {
-  display: inline-flex;
-  overflow: hidden;
-  border-radius: 6px;
-  background: var(--mt-control);
-}
-
-.mc-time-pill > input[type="time"] {
-  flex: none !important;
-  /* so breit wie Stunden, Minuten (und AM/PM) samt Uhr-Knopf, der dann abgeschnitten wird */
-  field-sizing: content !important;
-  width: auto !important;
-  min-width: max-content !important;
-  background: transparent !important;
-  /* Uhr-Knopf des Felds (Thunderbird 158+) rechts abgeschnitten */
-  margin-inline-end: -28px !important;
-}
-
-.mc-dtp-time {
-  display: flex;
-  padding: 10px 12px;
-  min-width: 180px;
-}
-
-.mc-dtp-time[hidden] {
+/* ---------- Termin/Aufgabe: Uhrzeit zum Eintippen wie Apple Kalender ----------
+   Statt Thunderbirds Auswahlfeld (verborgen, hält den Wert) setzt die
+   Erweiterung Stunden und Minuten als Text ein (.mc-time-edit); das gewählte
+   Feld ist in der Kalenderfarbe hinterlegt (--mc-item-cal, sonst Akzent),
+   Schrift weiß, ohne den Text zu verschieben */
+timepicker[mc-inline] > menulist {
   display: none !important;
 }
 
-.mc-dtp-time > label {
-  display: flex;
-  flex: 1;
+.mc-time-edit {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: calc(13px * var(--mt-font-scale, 1));
+  min-height: 24px;
+  padding-inline: 2px 4px;
   color: var(--mt-text);
-}
-
-.mc-dtp-time input[type="time"] {
-  appearance: none;
-  min-height: 26px;
-  padding: 0 8px;
-  border: none !important;
-  border-radius: 6px;
-  color: var(--mt-text);
-  font: inherit;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  align-self: center;
+  cursor: default;
+  user-select: none;
 }
 
-.mc-dtp-time input[type="time"]:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--mt-accent) 60%, transparent);
-  outline-offset: 1px;
+/* „Teilnehmer einladen“: Feld wie das Datum daneben (graue Fläche, 28 px) */
+#calendar-event-dialog-attendees-v2 .mc-time-edit {
+  min-height: 28px;
+  padding-inline: 10px;
+  border-radius: 7px;
+  background: var(--mt-control);
+}
+
+.mc-time-edit[disabled] {
+  color: var(--mt-text-tertiary);
+}
+
+/* Fläche 16 px hoch, seitlich knapp um die Ziffern (nicht über den Doppelpunkt) */
+.mc-time-seg {
+  display: inline-block;
+  line-height: 16px;
+  padding-inline: 2px 1px;
+  margin-inline: -2px -1px;
+  border-radius: 3px;
+  outline: none;
+}
+
+.mc-time-seg[data-seg="m"] {
+  padding-inline: 1px 2px;
+  margin-inline: -1px -2px;
+}
+
+.mc-time-seg[data-seg="ap"] {
+  padding-inline: 2px;
+  margin-inline: -2px;
+}
+
+.mc-time-seg[selected] {
+  background: color-mix(in srgb, var(--mc-item-cal, var(--mt-accent)) 90%, black);
+  color: #FFFFFF;
 }
 
 /* ---------- Bedienungshilfen: „Kontrast erhöhen“ (macOS) ----------

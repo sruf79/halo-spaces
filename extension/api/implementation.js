@@ -233,7 +233,6 @@ const DE = {
   "Welcome to halo.spaces": "Willkommen bei halo.spaces",
   "Open Settings": "Einstellungen öffnen",
   "Continue": "Weiter",
-  "Time": "Uhrzeit",
   "Tint unread messages": "Ungelesene Mails hinterlegen",
   "You unsubscribed from this mailing list.": "Du hast diesen Verteiler abbestellt.",
   "Card View": "Kartenansicht",
@@ -711,7 +710,6 @@ const FR = {
   "Welcome to halo.spaces": "Bienvenue dans halo.spaces",
   "Open Settings": "Ouvrir les paramètres",
   "Continue": "Continuer",
-  "Time": "Heure",
   "Tint unread messages": "Teinter les messages non lus",
   "You unsubscribed from this mailing list.": "Vous vous êtes désabonné de cette liste de diffusion.",
   "Card View": "Vue en cartes",
@@ -1189,7 +1187,6 @@ const ES = {
   "Welcome to halo.spaces": "Bienvenido a halo.spaces",
   "Open Settings": "Abrir ajustes",
   "Continue": "Continuar",
-  "Time": "Hora",
   "Tint unread messages": "Resaltar mensajes no leídos",
   "You unsubscribed from this mailing list.": "Te has dado de baja de esta lista de correo.",
   "Card View": "Vista de tarjetas",
@@ -1667,7 +1664,6 @@ const IT = {
   "Welcome to halo.spaces": "Benvenuto in halo.spaces",
   "Open Settings": "Apri impostazioni",
   "Continue": "Continua",
-  "Time": "Ora",
   "Tint unread messages": "Evidenzia i messaggi non letti",
   "You unsubscribed from this mailing list.": "Hai annullato l’iscrizione a questa lista.",
   "Card View": "Vista a schede",
@@ -9265,6 +9261,8 @@ function appleEventLayout(win) {
       color = win.getCurrentCalendar?.()?.getProperty("color") || "";
     } catch {}
     stripe.style.backgroundColor = color || "var(--mt-accent)";
+    // dieselbe Farbe für das gewählte Feld der Uhrzeit (.mc-time-seg)
+    doc.documentElement.style.setProperty("--mc-item-cal", color || "var(--mt-accent)");
   };
   new win.ResizeObserver(place).observe(grid);
   row("item-calendar")?.addEventListener("command", () => win.setTimeout(place, 0));
@@ -9311,124 +9309,238 @@ function keepDurationOneWay(win) {
   doc.documentElement.setAttribute("mc-keep-duration", "");
 }
 
+// Uhrzeit im Termin wie Apple Kalender zum Eintippen: Stunden und Minuten
+// (ggf. AM/PM) als Text, das gewählte Feld in der Kalenderfarbe hinterlegt.
+// Tippen einer Ziffer in ein Feld: liefert neuen Wert [Stunde, Minute], den
+// Zwischenstand (erste Ziffer, auf die zweite wird gewartet) und ob es zum
+// nächsten Feld weitergeht – wie bei macOS-Uhrzeitfeldern
+function timeTypeDigit(seg, buf, digit, [h, m], h12 = false) {
+  const digits = buf + digit, n = Number(digits), d = Number(digit);
+  if (seg == "m") {
+    if (digits.length == 1) {
+      return { value: [h, d], buf: d > 5 ? "" : digits, next: d > 5 };
+    }
+    return { value: [h, n], buf: "", next: true };
+  }
+  const max = h12 ? 12 : 23, pm = h >= 12;
+  const hour = x => (h12 ? (x % 12) + (pm ? 12 : 0) : x);
+  if (digits.length == 1) {
+    if (d * 10 > max) {
+      return { value: [hour(d), m], buf: "", next: true };
+    }
+    // (12 Stunden: „0“ allein ist keine Stunde, erst mit der zweiten Ziffer)
+    return { value: h12 && d == 0 ? [h, m] : [hour(d), m], buf: digits, next: false };
+  }
+  if (n <= max && !(h12 && n == 0)) {
+    return { value: [hour(n), m], buf: "", next: true };
+  }
+  // zweite Ziffer passt nicht (z. B. „2“, „7“): sie beginnt neu
+  return timeTypeDigit(seg, "", digit, [h, m], h12);
+}
+
+// Pfeil hoch/runter: nur das gewählte Feld ändert sich (Minuten 59 → 00 ohne
+// die Stunde), AM/PM wechselt die Tageshälfte
+function timeStep(seg, [h, m], dir) {
+  if (seg == "m") {
+    return [h, (m + dir + 60) % 60];
+  }
+  if (seg == "ap") {
+    return [(h + 12) % 24, m];
+  }
+  return [(h + dir + 24) % 24, m];
+}
+
+// Uhrzeitfeld eines Thunderbird-timepickers als Text zum Eintippen: ersetzt
+// dessen Auswahlfeld (bleibt verborgen und hält den Wert); Klick wählt Stunden
+// bzw. Minuten, Tab/→ springt weiter, ↑/↓ und Mausrad ändern den Wert
+function inlineTimeEdit(win, tp) {
+  const doc = win.document, X = "http://www.w3.org/1999/xhtml";
+  const fmt = new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" });
+  const parts = d => fmt.formatToParts(d);
+  const box = doc.createElementNS(X, "span");
+  box.className = "mc-time-edit";
+  const segs = [];
+  for (const part of parts(new Date(2000, 0, 1, 9, 0))) {
+    const el = doc.createElementNS(X, "span");
+    const seg = { hour: "h", minute: "m", dayPeriod: "ap" }[part.type];
+    if (seg) {
+      el.className = "mc-time-seg";
+      el.dataset.seg = seg;
+      el.tabIndex = 0;
+      el.setAttribute("role", "spinbutton");
+      segs.push(el);
+    } else {
+      el.className = "mc-time-sep";
+    }
+    el.dataset.type = part.type;
+    box.append(el);
+  }
+  const h12 = segs.some(el => el.dataset.seg == "ap");
+  const off = () => tp.hasAttribute("disabled") || tp.hidden;
+  const render = () => {
+    const [h, m] = tp.value || [];
+    if (!Number.isInteger(h)) {
+      return;
+    }
+    const list = parts(new Date(2000, 0, 1, h, m));
+    [...box.children].forEach((el, i) => {
+      const part = list[i]?.type == el.dataset.type ? list[i] : list.find(p => p.type == el.dataset.type);
+      if (part && el.textContent != part.value) {
+        el.textContent = part.value;
+      }
+      if (el.dataset.seg) {
+        el.setAttribute("aria-valuenow", el.dataset.seg == "h" ? h : el.dataset.seg == "m" ? m : h >= 12 ? 1 : 0);
+        el.setAttribute("aria-valuetext", el.textContent);
+      }
+    });
+  };
+  const sync = () => {
+    box.toggleAttribute("disabled", off());
+    for (const el of segs) {
+      el.tabIndex = off() ? -1 : 0;
+    }
+  };
+  // Thunderbird schreibt jeden neuen Wert über _inputBoxValue ins Auswahlfeld –
+  // danach (Stunden/Minuten stehen erst nach dem Setzer fest) neu zeichnen
+  let proto = Object.getPrototypeOf(tp), desc = null;
+  while (proto && !(desc = Object.getOwnPropertyDescriptor(proto, "_inputBoxValue"))) {
+    proto = Object.getPrototypeOf(proto);
+  }
+  if (desc?.set) {
+    Object.defineProperty(tp, "_inputBoxValue", {
+      configurable: true,
+      get() {
+        return desc.get.call(this);
+      },
+      set(v) {
+        desc.set.call(this, v);
+        Promise.resolve().then(render);
+      },
+    });
+  }
+  new win.MutationObserver(sync).observe(tp, { attributes: true, attributeFilter: ["disabled", "hidden"] });
+  const write = value => {
+    tp.value = value; // meldet „change“ nur bei einer Änderung
+    render();
+  };
+  let buf = "";
+  // gewähltes Feld als Merkmal (nicht :focus – das gilt nur im aktiven Fenster)
+  const mark = target => {
+    for (const el of segs) {
+      el.toggleAttribute("selected", el == target);
+    }
+  };
+  const pick = el => {
+    if (el) {
+      buf = "";
+      el.focus();
+      mark(el);
+    }
+  };
+  box.addEventListener("focusin", event => {
+    buf = "";
+    mark(event.target);
+  });
+  box.addEventListener("focusout", event => {
+    if (!box.contains(event.relatedTarget)) {
+      for (const el of segs) {
+        el.removeAttribute("selected");
+      }
+    }
+  });
+  box.addEventListener("mousedown", event => {
+    if (event.button != 0 || off()) {
+      return;
+    }
+    event.preventDefault();
+    const seg = event.target.closest?.(".mc-time-seg");
+    const r = box.getBoundingClientRect();
+    pick(seg || (event.clientX < r.left + r.width / 2 ? segs[0] : segs[1]) || segs[0]);
+  });
+  box.addEventListener("keydown", event => {
+    const el = event.target.closest?.(".mc-time-seg");
+    if (!el || off() || event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+    const seg = el.dataset.seg, value = tp.value, i = segs.indexOf(el);
+    let handled = true;
+    if (/^[0-9]$/.test(event.key) && seg != "ap") {
+      const r = timeTypeDigit(seg, buf, event.key, value, h12);
+      buf = r.buf;
+      write(r.value);
+      if (r.next && segs[i + 1]) {
+        pick(segs[i + 1]);
+      }
+    } else if (seg == "ap" && /^[ap]$/i.test(event.key)) {
+      const pm = event.key.toLowerCase() == "p";
+      if (pm != value[0] >= 12) {
+        write(timeStep("ap", value, 1));
+      }
+    } else if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+      buf = "";
+      write(timeStep(seg, value, event.key == "ArrowUp" ? 1 : -1));
+    } else if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
+      pick(segs[i + (event.key == "ArrowRight" ? 1 : -1)]);
+    } else if (event.key == "Backspace" || event.key == "Delete") {
+      buf = "";
+    } else {
+      handled = false;
+    }
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+  // Mausrad über Stunden bzw. Minuten (linke/rechte Hälfte): je Rastung eine
+  // Einheit; Trackpad-Schritte werden aufsummiert (~40 px je Einheit)
+  let sum = 0;
+  box.addEventListener("wheel", event => {
+    if (off() || !event.deltaY) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    sum += event.deltaMode == 0 ? event.deltaY / 40 : Math.sign(event.deltaY);
+    const units = Math.trunc(sum);
+    if (!units) {
+      return;
+    }
+    sum -= units;
+    const r = box.getBoundingClientRect();
+    const onHour = event.clientX < r.left + r.width / 2;
+    const [h, m] = tp.value || [0, 0];
+    // Rad nach oben (deltaY < 0) zählt hoch, wie bei macOS-Uhrzeitfeldern
+    const total = ((onHour ? h * 60 + m - units * 60 : h * 60 + m - units) % 1440 + 1440) % 1440;
+    write([Math.floor(total / 60), total % 60]);
+  }, { passive: false });
+  tp.append(box);
+  tp.setAttribute("mc-inline", "");
+  tp.focus = () => pick(segs[0]);
+  render();
+  sync();
+  return { box, segs, pick };
+}
+
 function hookDateTimePickers(win) {
-  const doc = win.document;
-  for (const dtp of doc.querySelectorAll("datetimepicker")) {
+  for (const dtp of win.document.querySelectorAll("datetimepicker")) {
     const dp = dtp.querySelector("datepicker"), tp = dtp.querySelector("timepicker");
-    const popup = dp?._popup, timePopup = tp?._popup;
-    if (!popup || !timePopup || dtp.__mcCombined) {
+    const timePopup = tp?._popup;
+    if (!dp?._popup || !timePopup || dtp.__mcCombined) {
       continue;
     }
     dtp.__mcCombined = true;
-    const X = "http://www.w3.org/1999/xhtml";
-    // eigenes Popover nur für die Uhrzeit
-    const panel = doc.createXULElement("panel");
-    panel.className = "mc-time-panel";
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("noautofocus", "true");
-    const row = doc.createElementNS(X, "div");
-    row.className = "mc-dtp-time";
-    const label = doc.createElementNS(X, "label");
-    label.textContent = tr("Time");
-    const input = doc.createElementNS(X, "input");
-    input.type = "time";
-    input.step = "60";
-    // Kapsel um das Feld: schneidet Thunderbirds Uhr-Knopf rechts ab (Apple zeigt keinen)
-    const pill = doc.createElementNS(X, "span");
-    pill.className = "mc-time-pill";
-    pill.append(input);
-    label.append(pill);
-    row.append(label);
-    panel.append(row);
-    (doc.querySelector("popupset") || doc.documentElement).append(panel);
-    const pad = n => String(n).padStart(2, "0");
-    const timeOff = () => tp.hasAttribute("disabled") || tp._menulist?.hasAttribute("disabled") || tp.hidden ||
-      win.getComputedStyle(tp).visibility == "hidden" || win.getComputedStyle(tp).display == "none";
-    const apply = () => {
-      const [h, m] = (input.value || "").split(":").map(Number);
-      if (Number.isInteger(h) && Number.isInteger(m)) {
-        tp.value = [h, m]; // meldet „change“ nur bei einer Änderung
-      }
-    };
-    input.addEventListener("input", apply);
-    input.addEventListener("keydown", event => {
-      if (event.key == "Enter" || event.key == "Escape") {
-        apply();
-        panel.hidePopup();
-      }
-    });
-    // Uhrzeit: nur das Uhrzeit-Popover statt Thunderbirds Stundenraster
+    const edit = inlineTimeEdit(win, tp);
+    // Thunderbirds Stundenraster nie öffnen (Alt+↓ o. ä.): stattdessen die Stunden wählen
     timePopup.addEventListener("popupshowing", event => {
-      if (event.target != timePopup) {
-        return;
-      }
-      event.preventDefault();
-      if (timeOff()) {
-        return;
-      }
-      const [h, m] = tp.value || [];
-      input.value = Number.isInteger(h) ? `${pad(h)}:${pad(m)}` : "";
-      win.setTimeout(() => {
-        panel.openPopup(tp._menulist || tp, "after_start");
-        panel.addEventListener("popupshown", () => input.focus(), { once: true });
-      }, 0);
-    });
-    // Mausrad über Stunden bzw. Minuten (linke/rechte Hälfte des Felds): je
-    // Rastung eine Einheit; Trackpad-Schritte werden aufsummiert (~40 px je Einheit)
-    const wheelOn = (target, write) => {
-      let sum = 0;
-      target.addEventListener("wheel", event => {
-        if (timeOff() || !event.deltaY) {
-          return;
-        }
+      if (event.target == timePopup) {
         event.preventDefault();
-        event.stopPropagation();
-        sum += event.deltaMode == 0 ? event.deltaY / 40 : Math.sign(event.deltaY);
-        const units = Math.trunc(sum);
-        if (!units) {
-          return;
-        }
-        sum -= units;
-        const rect = target.getBoundingClientRect();
-        const onHour = event.clientX < rect.left + rect.width / 2;
-        const [h, m] = tp.value || [0, 0];
-        // Rad nach oben (deltaY < 0) zählt hoch, wie bei macOS-Uhrzeitfeldern
-        const step = -units;
-        const total = ((onHour ? h * 60 + m + step * 60 : h * 60 + m + step) % 1440 + 1440) % 1440;
-        tp.value = [Math.floor(total / 60), total % 60];
-        write?.();
-      }, { passive: false });
-    };
-    wheelOn(input, () => {
-      const [h, m] = tp.value;
-      input.value = `${pad(h)}:${pad(m)}`;
-    });
-    // Pfeiltasten im Uhrzeitfeld: Stunde bzw. Minute (je nach Schreibmarke) weiter
-    const field = tp._inputField;
-    if (field) {
-      wheelOn(field);
-    }
-    field?.addEventListener("keydown", event => {
-      if ((event.key != "ArrowUp" && event.key != "ArrowDown") || event.altKey || event.metaKey) {
-        return;
+        win.setTimeout(() => edit.pick(edit.segs[0]), 0);
       }
-      event.preventDefault();
-      event.stopPropagation();
-      const [h, m] = tp.value || [0, 0];
-      const step = event.key == "ArrowUp" ? 1 : -1;
-      const colon = field.value.search(/[^0-9]/);
-      const onHour = colon < 0 || field.selectionStart <= colon;
-      const total = ((onHour ? h * 60 + m + step * 60 : h * 60 + Math.round(m / 5) * 5 + step * 5) + 1440) % 1440;
-      const caret = field.selectionStart;
-      tp.value = [Math.floor(total / 60), total % 60];
-      field.setSelectionRange(caret, caret);
-    }, true);
-    // Breite wie der Inhalt (Apple Kalender: „24.10.2026  09:00“ als schmaler
-    // Text): breitester Wert im Format des Systems, Ziffern als „0“ und
-    // zweistellig – so springt das Feld beim Ändern nicht
-    for (const picker of [dp, tp]) {
-      fitPickerWidth(win, picker);
-    }
+    });
+    // Breite des Datums wie der Inhalt (Apple Kalender: „24.10.2026  09:00“
+    // als schmaler Text): breitester Wert im Format des Systems, Ziffern als „0“
+    // und zweistellig – so springt das Feld beim Ändern nicht
+    fitPickerWidth(win, dp);
   }
 }
 

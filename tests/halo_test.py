@@ -4798,35 +4798,39 @@ def calendar_checks(m, results):
               out.mini = { bg: csOf(mm).backgroundColor, today: td ? csOf(td).borderTopColor : null, week: wk ? [csOf(wk).fontWeight, csOf(wk).color] : null };
               await shutPop(dml.menupopup);
             }
-            // Uhrzeit wie Apple Kalender: Klick öffnet nur ein Uhrzeit-Popover – kein Stundenraster, keine Datumsauswahl;
-            // die Datumsauswahl hat keine Uhrzeitzeile (unter Linux/xvfb schließt sich ein Popup evtl. gleich wieder)
+            // Uhrzeit wie Apple Kalender zum Eintippen: kein Popover, kein Stundenraster; Klick wählt die Stunden
+            // (Fläche in der Kalenderfarbe, Schrift weiß), Ziffern ändern sie, danach geht es zu den Minuten
             const tp = id.querySelector("#event-starttime timepicker"), tml = tp.querySelector("menulist"), endTp = id.querySelector("#event-endtime timepicker");
+            const edit = tp.querySelector(".mc-time-edit"), seg = k => edit?.querySelector(`.mc-time-seg[data-seg="${k}"]`);
             const durBefore = (endTp.value[0] * 60 + endTp.value[1]) - (tp.value[0] * 60 + tp.value[1]);
-            const panels = () => [...id.querySelectorAll(".mc-time-panel")];
-            const openTime = async () => { tml.open = true; await till(() => panels().some(p => p.state == "open" || p.state == "showing"), 3000); await ruhig(400);
-              return panels().find(p => p.state != "closed") || panels()[0]; };
-            const panel = await openTime(), inp = panel?.querySelector(".mc-dtp-time input");
-            // Popover-Fläche: deckend, Haarlinie in Popover-Randfarbe, Radius 20
-            const pc = panel?.shadowRoot?.querySelector('[part~="content"]'), want = v => colorOf(id, v, "backgroundColor");
-            out.surface = pc && { bg: csOf(pc).backgroundColor, border: csOf(pc).borderTopColor, bw: parseFloat(csOf(pc).borderTopWidth),
-                                  radius: parseFloat(csOf(pc).borderTopLeftRadius), pop: want("var(--mt-popover-bg)"), rim: want("var(--mt-popover-border)") };
-            out.time = { grid: tml.menupopup.state, date: dml.menupopup.state, dateRow: !!dml.menupopup.querySelector(".mc-dtp-time"), panel: panel?.state,
-                         focus: id.activeElement == inp || !!inp?.matches(":focus"), label: panel?.querySelector(".mc-dtp-time")?.textContent.trim(), value: inp?.value };
-            if (inp) { inp.value = "14:35"; inp.dispatchEvent(new iw.Event("input", { bubbles: true })); await ruhig(400);
-              out.time.after = tp.value; out.time.dur = (endTp.value[0] * 60 + endTp.value[1]) - (tp.value[0] * 60 + tp.value[1]); out.time.durBefore = durBefore; }
-            await shutPop(panel);
-            // Pfeiltasten im Uhrzeitfeld: Stunde weiter (Schreibmarke vorn)
-            const fld = tp._inputField; fld.focus(); fld.setSelectionRange(0, 0);
-            fld.dispatchEvent(new iw.KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true })); await ruhig(300);
-            out.time.arrow = tp.value;
+            const key = k => id.activeElement?.dispatchEvent(new iw.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+            const at = (el, fx) => { const r = el.getBoundingClientRect(); return { clientX: r.left + r.width * fx, clientY: r.top + r.height / 2 }; };
+            out.time = { edit: !!edit, text: edit?.textContent, menulist: csOf(tml).display };
+            if (edit) {
+              const hs = seg("h");
+              hs.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, ...at(hs, 0.5) })); await ruhig(300);
+              Object.assign(out.time, { picked: id.activeElement == hs && hs.hasAttribute("selected"), grid: tml.menupopup.state,
+                panels: id.querySelectorAll(".mc-time-panel, panel[type=arrow]:not([state=closed])").length,
+                mark: { bg: csOf(hs).backgroundColor, color: csOf(hs).color, radius: csOf(hs).borderTopLeftRadius, h: Math.round(hs.getBoundingClientRect().height),
+                        cal: colorOf(id, "color-mix(in srgb, " + (testCalendar().getProperty("color") || "#FF9500") + " 90%, black)", "backgroundColor") } });
+              key("1"); key("4"); await ruhig(200);
+              out.time.hour = [tp.value, id.activeElement?.dataset?.seg];
+              key("3"); key("5"); await ruhig(400);
+              out.time.after = tp.value; out.time.shown = edit.textContent;
+              out.time.dur = (endTp.value[0] * 60 + endTp.value[1]) - (tp.value[0] * 60 + tp.value[1]); out.time.durBefore = durBefore;
+              out.time.endShown = endTp.querySelector(".mc-time-edit")?.textContent;
+              // Pfeiltasten: nur das gewählte Feld (Stunde) ändert sich
+              hs.focus(); key("ArrowUp"); await ruhig(300);
+              out.time.arrow = tp.value;
+              // Thunderbirds Stundenraster bleibt zu, auch wenn es jemand öffnen will
+              tml.open = true; await ruhig(400);
+              out.time.gridAfter = tml.menupopup.state;
+            }
             // Mausrad: über den Stunden (links) bzw. Minuten (rechts) je Rastung eine Einheit, Rad nach oben zählt hoch
             const wheel = (el, side, dy) => { const r = el.getBoundingClientRect();
               el.dispatchEvent(new iw.WheelEvent("wheel", { deltaY: dy, deltaMode: 1, clientX: side == "h" ? r.left + 4 : r.right - 4, clientY: r.top + r.height / 2, bubbles: true, cancelable: true })); };
-            wheel(fld, "h", -1); await ruhig(200); out.time.wheelHour = tp.value;
-            wheel(fld, "m", 1); await ruhig(200); out.time.wheelMinute = tp.value;
-            const panel2 = await openTime(), pin = panel2?.querySelector(".mc-dtp-time input");
-            if (pin) { wheel(pin, "m", -1); wheel(pin, "m", -1); await ruhig(200); out.time.popoverWheel = [tp.value, pin.value]; }
-            await shutPop(panel2);
+            if (edit) { wheel(edit, "h", -1); await ruhig(200); out.time.wheelHour = tp.value;
+              wheel(edit, "m", 1); await ruhig(200); out.time.wheelMinute = [tp.value, edit.textContent]; }
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             try { await c.deleteItem(saved); } catch {}
@@ -4842,13 +4846,15 @@ def calendar_checks(m, results):
               and res["overflow"]["doc"][0] <= res["overflow"]["doc"][1] + 1
               and bool(mini) and rgba_alpha(mini["bg"]) == 0 and (mini["today"] is None or rgba_alpha(mini["today"]) == 0)
               and mini["week"] and mini["week"][0] == "400" and not same_color(mini["week"][1], "rgb(155, 158, 194)")
-              and bool(tp) and tp["grid"] == "closed" and tp["date"] == "closed" and not tp["dateRow"] and tp["label"] == "Time"
-              and tp.get("after") == [14, 35] and tp.get("dur") == tp.get("durBefore") and tp.get("arrow") == [15, 35]
-              and tp.get("wheelHour") == [16, 35] and tp.get("wheelMinute") == [16, 34] and tp.get("popoverWheel") == [[16, 36], "16:36"])
-        sf = res.get("surface") or {}
-        ok = ok and bool(sf) and same_color(sf["bg"], sf["pop"]) and same_color(sf["border"], sf["rim"]) and 0 < sf["bw"] <= 1 and sf["radius"] == 20
+              and bool(tp) and tp["edit"] and tp["menulist"] == "none" and tp.get("picked") and tp.get("grid") == "closed" and tp.get("panels") == 0
+              and tp.get("hour") == [[14, 0], "m"] and tp.get("after") == [14, 35] and "14" in (tp.get("shown") or "") and "35" in (tp.get("shown") or "")
+              and tp.get("dur") == tp.get("durBefore") and tp.get("arrow") == [15, 35] and tp.get("gridAfter") == "closed"
+              and tp.get("wheelHour") == [16, 35] and (tp.get("wheelMinute") or [None])[0] == [16, 34])
+        mk = tp.get("mark") or {}
+        # gewählte Stunden: Fläche in der Kalenderfarbe (etwas dunkler), Schrift weiß, Radius 3, 16 px hoch
+        ok = ok and bool(mk) and same_color(mk["bg"], mk["cal"]) and same_color(mk["color"], "rgb(255, 255, 255)") and mk["radius"] == "3px" and mk["h"] == 16
         return ok, f"{res}"
-    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit-Popover (Popover-Fläche, Haarlinie, Radius 20) nur für die Uhrzeit, Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
+    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
     def event_multiday():
         # mehrtägige Termine wie Apple Kalender: Ende ändern lässt den Beginn stehen (vorher schob die dauerhaft
@@ -4960,7 +4966,7 @@ def calendar_checks(m, results):
             out.notesBelow = R(id.getElementById("event-grid-tab-vbox")).top >= R(rows.at(-1)).bottom;
             out.title = csOf(id.getElementById("item-title")).fontSize;
             // Datum/Uhrzeit schmal wie ihr Text, ohne Fläche und Pfeil; Kategorie bündig mit dem Text der übrigen Karten
-            const dml = id.querySelector("#event-starttime datepicker > menulist"), tml = id.querySelector("#event-starttime timepicker > menulist");
+            const dml = id.querySelector("#event-starttime datepicker > menulist"), tml = id.querySelector("#event-starttime timepicker > .mc-time-edit");
             out.pickers = [Math.round(R(dml).width), Math.round(R(tml).width), rgba(csOf(dml).backgroundColor)[3],
                            iw.getComputedStyle(dml.shadowRoot.querySelector("dropmarker")).visibility];
             out.catLeft = Math.round(R(id.getElementById("item-categories-label")).left - R(id.getElementById("event-grid-location-row")).left);
@@ -5011,7 +5017,9 @@ def calendar_checks(m, results):
               .filter(td => td.textContent.trim() && vis(td)).map(td => csOf(td).color))];
             out.grid.rows = csOf(inner).backgroundImage.includes("to bottom");
             out.icon = role ? (csOf(role).content || "").slice(0, 60) : null;
-            out.combined = !!ad.querySelector(".mc-time-panel .mc-dtp-time") && !ad.querySelector("#event-starttime datepicker menupopup .mc-dtp-time");
+            // Uhrzeit zum Eintippen wie im Termin-Dialog (kein Popover), als Feld wie das Datum daneben
+            const te = ad.querySelector("#event-starttime .mc-time-edit");
+            out.combined = !!te && !ad.querySelector(".mc-time-panel") && Math.round(te.getBoundingClientRect().height) == 28;
             // „OK“ in Akzentfarbe, Datum/Uhrzeit 28 px mit Haarlinie, Legende „Busy“ hell und dunkel sichtbar
             const acc = ad.querySelector("dialog").getButton("accept");
             out.ok = { dflt: acc.hasAttribute("default"), bg: csOf(acc).backgroundColor, accent: colorOf(ad, "var(--mt-accent)", "backgroundColor") };
@@ -5034,7 +5042,7 @@ def calendar_checks(m, results):
               and res["icon"] and "mailcards/icons/user.svg" in res["icon"] and res["combined"]
               and same_color(res["ok"]["bg"], res["ok"]["accent"]) and contrast(res["busy"]["bg"], res["busy"]["win"]) >= 3)
         return ok, f"{res}"
-    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, einfarbige Symbole, Akzent statt Pink, Datum/Uhrzeit-Popover, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
+    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, einfarbige Symbole, Akzent statt Pink, Uhrzeit zum Eintippen, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
 
     def event_window_still():
         # Termin-Fenster springt nach dem Öffnen nicht: Detailansicht (Doppelklick auf einen Termin) und Bearbeiten –

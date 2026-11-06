@@ -1,0 +1,58 @@
+// Uhrzeit im Termin zum Eintippen: Ziffern je Feld (Stunden, Minuten), Pfeiltasten
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { lade } from "./lader.mjs";
+
+const { timeTypeDigit, timeStep: step } = lade();
+// (Felder aus dem Lader stammen aus einem anderen Kontext – als JSON vergleichen)
+const n = x => JSON.parse(JSON.stringify(x));
+const timeStep = (...a) => n(step(...a));
+
+// tippt eine Folge von Ziffern ab dem Feld seg und liefert Wert und Feld am Ende
+function tippe(start, seg, folge, h12 = false) {
+  let value = start, buf = "";
+  const segs = h12 ? ["h", "m", "ap"] : ["h", "m"];
+  for (const d of folge) {
+    const r = timeTypeDigit(seg, buf, d, value, h12);
+    value = r.value;
+    buf = r.buf;
+    if (r.next && segs[segs.indexOf(seg) + 1]) {
+      seg = segs[segs.indexOf(seg) + 1];
+      buf = "";
+    }
+  }
+  return n([value, seg]);
+}
+
+test("Uhrzeit: 24 Stunden – zwei Ziffern je Feld, danach weiter zu den Minuten", () => {
+  assert.deepEqual(tippe([9, 0], "h", "1435"), [[14, 35], "m"]);
+  assert.deepEqual(tippe([9, 0], "h", "0830"), [[8, 30], "m"]);
+  // Ziffer, die keine zweite zulässt, springt sofort weiter (3 → 03)
+  assert.deepEqual(tippe([9, 15], "h", "3"), [[3, 15], "m"]);
+  // erste Ziffer allein gilt schon (1 → 01), wartet aber auf die zweite
+  assert.deepEqual(tippe([9, 15], "h", "1"), [[1, 15], "h"]);
+  // 27 gibt es nicht: die 7 beginnt neu
+  assert.deepEqual(tippe([9, 15], "h", "27"), [[7, 15], "m"]);
+  // Minuten: 7 → 07 (keine zweite Ziffer möglich), 4 wartet auf die zweite
+  assert.deepEqual(tippe([9, 15], "m", "7"), [[9, 7], "m"]);
+  assert.deepEqual(tippe([9, 15], "m", "45"), [[9, 45], "m"]);
+});
+
+test("Uhrzeit: 12 Stunden – Tageshälfte bleibt, 12 AM ist 0 Uhr, danach AM/PM", () => {
+  assert.deepEqual(tippe([15, 0], "h", "1030", true), [[22, 30], "ap"]);
+  assert.deepEqual(tippe([9, 0], "h", "12", true), [[0, 0], "m"]);
+  assert.deepEqual(tippe([13, 0], "h", "12", true), [[12, 0], "m"]);
+  assert.deepEqual(tippe([9, 0], "h", "5", true), [[5, 0], "m"]);
+  // 0 allein ist keine Stunde: Wert bleibt, wartet auf die zweite Ziffer
+  assert.deepEqual(tippe([9, 0], "h", "0", true), [[9, 0], "h"]);
+  assert.deepEqual(tippe([9, 0], "h", "07", true), [[7, 0], "m"]);
+});
+
+test("Uhrzeit: Pfeiltasten ändern nur das gewählte Feld", () => {
+  assert.deepEqual(timeStep("h", [23, 10], 1), [0, 10]);
+  assert.deepEqual(timeStep("h", [0, 10], -1), [23, 10]);
+  assert.deepEqual(timeStep("m", [9, 59], 1), [9, 0]);
+  assert.deepEqual(timeStep("m", [9, 0], -1), [9, 59]);
+  assert.deepEqual(timeStep("ap", [9, 30], 1), [21, 30]);
+  assert.deepEqual(timeStep("ap", [21, 30], -1), [9, 30]);
+});

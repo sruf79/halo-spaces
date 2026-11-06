@@ -13,7 +13,8 @@ const SRC = fileURLToPath(new URL("../../extension/api/implementation.js", impor
 
 // ausgewählte innere Namen von implementation.js
 export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "parseNatural", "TASK_LISTS", "taskListFilter",
-  "DONATE_URL", "THANKS_UPDATE_DAY_PREF", "UpdateNote", "MULTIWEEK_BUFFER_WEEKS", "listDeleteText", "msgStillInFolder", "rowGone"];
+  "DONATE_URL", "THANKS_UPDATE_DAY_PREF", "UpdateNote", "MULTIWEEK_BUFFER_WEEKS", "listDeleteText", "msgStillInFolder", "rowGone",
+  "timeTypeDigit", "timeStep"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy
 function attrappe(name = "attrappe") {

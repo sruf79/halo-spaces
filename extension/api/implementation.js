@@ -10300,6 +10300,17 @@ function stripHtml(text) {
     .replace(/<[^>]*$/, " ")); // angeschnittenes Tag am Ende
 }
 
+// Liegt die Mail noch im Ordner? Nach Löschen/Verschieben kennt der Ordner
+// ihren Schlüssel nicht mehr – Vorschau-Abruf dann auslassen statt Fehler
+function msgStillInFolder(hdr) {
+  try {
+    const db = hdr?.folder?.msgDatabase;
+    return !!db && db.containsKey(hdr.messageKey);
+  } catch {
+    return false;
+  }
+}
+
 function cleanPreview(text) {
   return stripHtml(text || "")
     .replace(/[\u034f\u00ad\u200b-\u200f\u2060\ufeff]/g, "")
@@ -23690,7 +23701,13 @@ class CardEnhancer {
     }
     const batches = [...this.pendingPreview];
     this.pendingPreview.clear();
-    for (const [folder, hdrs] of batches) {
+    for (const [folder, all] of batches) {
+      // inzwischen gelöschte/verschobene Mails auslassen (Löschen gleich nach
+      // dem Öffnen des Ordners) – deren Schlüssel kennt der Ordner nicht mehr
+      const hdrs = all.filter(h => msgStillInFolder(h));
+      if (!hdrs.length) {
+        continue;
+      }
       // Schritt 2: was danach noch leer ist (z. B. HTML-Mails, deren erste
       // 2 KB nur aus <head>/<style> bestehen), aus der ganzen Nachricht holen.
       const afterQuick = () => {
@@ -23721,6 +23738,9 @@ class CardEnhancer {
         // dann fehlt nur der Vorschautext
         if (e?.result == 0x80550023) {
           debugLog("quick preview skipped (unexpected size)");
+        } else if (!hdrs.every(h => msgStillInFolder(h))) {
+          // während des Abrufs gelöscht/verschoben – erwartbar, kein Fehler
+          debugLog("quick preview skipped (message gone)");
         } else {
           log("quick preview error", e);
         }
@@ -23737,7 +23757,7 @@ class CardEnhancer {
     }
     while (this.fullActive < 2 && this.fullQueue.length) {
       const hdr = this.fullQueue.shift();
-      if (cleanPreview(hdr.getStringProperty("preview"))) {
+      if (cleanPreview(hdr.getStringProperty("preview")) || !msgStillInFolder(hdr)) {
         continue;
       }
       this.fullActive++;
@@ -23785,9 +23805,14 @@ class CardEnhancer {
           { saneBodySize: true, examineEncryptedParts: false }
         );
       } catch (e) {
-        this.stats.full.error++;
-        if (this.stats.full.error < 5) {
-          log("full fetch error", e);
+        if (!msgStillInFolder(hdr)) {
+          // während des Abrufs gelöscht/verschoben – erwartbar, kein Fehler
+          debugLog("full fetch skipped (message gone)");
+        } else {
+          this.stats.full.error++;
+          if (this.stats.full.error < 5) {
+            log("full fetch error", e);
+          }
         }
         finish();
       }

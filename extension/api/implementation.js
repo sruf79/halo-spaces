@@ -9362,10 +9362,11 @@ function timeStep(seg, [h, m], dir) {
   return [(h + dir + 24) % 24, m];
 }
 
-// Uhrzeitfeld eines Thunderbird-timepickers als Text zum Eintippen: ersetzt
-// dessen Auswahlfeld (bleibt verborgen und hält den Wert); Klick wählt Stunden
-// bzw. Minuten, Tab/→ springt weiter, ↑/↓ und Mausrad ändern den Wert
-function inlineTimeEdit(win, tp) {
+// Uhrzeit als Text zum Eintippen: Klick wählt Stunden bzw. Minuten, Tab/→
+// springt weiter, ↑/↓ und Mausrad ändern den Wert. io: { get() → [Stunde,
+// Minute] | null, set([Stunde, Minute]), off() → bool } – für Thunderbirds
+// timepicker (inlineTimeEdit) und das Schnellfenster
+function timeSegEdit(win, io) {
   const doc = win.document, X = "http://www.w3.org/1999/xhtml";
   const fmt = new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" });
   const parts = d => fmt.formatToParts(d);
@@ -9388,8 +9389,8 @@ function inlineTimeEdit(win, tp) {
     box.append(el);
   }
   const h12 = segs.some(el => el.dataset.seg == "ap");
-  const off = () => tp.hasAttribute("disabled") || tp.hidden;
-  const render = (value = tp.value) => {
+  const off = () => io.off();
+  const render = (value = io.get()) => {
     const [h, m] = value || [];
     if (!Number.isInteger(h)) {
       return;
@@ -9412,12 +9413,8 @@ function inlineTimeEdit(win, tp) {
       el.tabIndex = off() ? -1 : 0;
     }
   };
-  // neuer Wert von Thunderbird: danach (Stunden/Minuten stehen erst nach dem
-  // Setzer fest) neu zeichnen
-  afterInputBoxValue(tp, () => render());
-  new win.MutationObserver(sync).observe(tp, { attributes: true, attributeFilter: ["disabled", "hidden"] });
   const write = value => {
-    tp.value = value; // meldet „change“ nur bei einer Änderung
+    io.set(value); // meldet „change“ nur bei einer Änderung
     render();
   };
   // erste Ziffer, auf deren zweite gewartet wird: nur anzeigen, noch nicht
@@ -9472,7 +9469,10 @@ function inlineTimeEdit(win, tp) {
     if (!el || off() || event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
-    const seg = el.dataset.seg, value = tp.value, i = segs.indexOf(el);
+    const seg = el.dataset.seg, value = io.get(), i = segs.indexOf(el);
+    if (!value) {
+      return;
+    }
     let handled = true;
     if (/^[0-9]$/.test(event.key) && seg != "ap") {
       const r = timeTypeDigit(seg, buf, event.key, pending || value, h12);
@@ -9495,7 +9495,7 @@ function inlineTimeEdit(win, tp) {
     } else if (event.key == "ArrowUp" || event.key == "ArrowDown") {
       commit();
       buf = "";
-      write(timeStep(seg, tp.value, event.key == "ArrowUp" ? 1 : -1));
+      write(timeStep(seg, io.get(), event.key == "ArrowUp" ? 1 : -1));
     } else if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
       pick(segs[i + (event.key == "ArrowRight" ? 1 : -1)]);
     } else if (event.key == "Backspace" || event.key == "Delete") {
@@ -9529,17 +9529,32 @@ function inlineTimeEdit(win, tp) {
     sum -= units;
     const r = box.getBoundingClientRect();
     const onHour = event.clientX < r.left + r.width / 2;
-    const [h, m] = tp.value || [0, 0];
+    const [h, m] = io.get() || [0, 0];
     // Rad nach oben (deltaY < 0) zählt hoch, wie bei macOS-Uhrzeitfeldern
     const total = ((onHour ? h * 60 + m - units * 60 : h * 60 + m - units) % 1440 + 1440) % 1440;
     write([Math.floor(total / 60), total % 60]);
   }, { passive: false });
-  tp.append(box);
-  tp.setAttribute("mc-inline", "");
-  tp.focus = () => pick(segs[0]);
   render();
   sync();
-  return { box, segs, pick };
+  return { box, segs, pick, render, sync };
+}
+
+// Uhrzeitfeld eines Thunderbird-timepickers als Text zum Eintippen: ersetzt
+// dessen Auswahlfeld (bleibt verborgen und hält den Wert)
+function inlineTimeEdit(win, tp) {
+  const edit = timeSegEdit(win, {
+    get: () => tp.value,
+    set: v => (tp.value = v),
+    off: () => tp.hasAttribute("disabled") || tp.hidden,
+  });
+  // neuer Wert von Thunderbird: danach (Stunden/Minuten stehen erst nach dem
+  // Setzer fest) neu zeichnen
+  afterInputBoxValue(tp, () => edit.render());
+  new win.MutationObserver(edit.sync).observe(tp, { attributes: true, attributeFilter: ["disabled", "hidden"] });
+  tp.append(edit.box);
+  tp.setAttribute("mc-inline", "");
+  tp.focus = () => edit.pick(edit.segs[0]);
+  return edit;
 }
 
 // Dauer für die Auswahlliste der Endzeit: „30 minutes“, „1 hour“, „1,5 hours“
@@ -9896,7 +9911,7 @@ function inlineDateEdit(win, io) {
 // Monate grau, heute rot, der gewählte Tag grau hinterlegt. Er nimmt nie den
 // Fokus – Tippen im Datum geht weiter und blättert mit; Klick auf einen Tag
 // übernimmt ihn und schließt
-function miniMonthPopover(win, edit, io) {
+function miniMonthPopover(win, edit, io, host = null) {
   const doc = win.document, X = "http://www.w3.org/1999/xhtml";
   const h = (tag, cls, ...kids) => {
     const n = doc.createElementNS(X, tag);
@@ -9908,9 +9923,11 @@ function miniMonthPopover(win, edit, io) {
   };
   const panel = doc.createXULElement("panel");
   panel.className = "mc-date-panel";
+  panel.__mcFor = edit.box;
   panel.setAttribute("noautofocus", "true");
   // Klick in ein anderes Feld des Datums wirkt sofort (nicht erst den Kalender schließen)
   panel.setAttribute("consumeoutsideclicks", "never");
+  panel.setAttribute("level", "top");
   let weekStart = 1;
   try {
     weekStart = Services.prefs.getIntPref("calendar.week.start", 1);
@@ -9935,7 +9952,8 @@ function miniMonthPopover(win, edit, io) {
   }
   const grid = h("div", "mc-mini-grid");
   panel.append(h("div", "mc-mini", head, wd, grid));
-  (doc.querySelector("popupset") || doc.documentElement).append(panel);
+  // (in einem Popover als dessen Kind, sonst läge der Kalender darunter)
+  (host || doc.querySelector("popupset") || doc.documentElement).append(panel);
   const monthFmt = new Services.intl.DateTimeFormat(undefined, { month: "short", year: "numeric" });
   let shown = null;
   const fill = () => {
@@ -9966,9 +9984,18 @@ function miniMonthPopover(win, edit, io) {
     shown = [t.getFullYear(), t.getMonth()];
     fill();
   };
-  // nie den Fokus nehmen (sonst endet das Tippen im Datum)
-  panel.addEventListener("mousedown", event => event.preventDefault());
+  // nie den Fokus nehmen (sonst endet das Tippen im Datum); Ereignisse nicht
+  // an ein umgebendes Popover weitergeben (Schnellfenster: dessen
+  // popuphidden räumt sonst auf)
+  panel.addEventListener("mousedown", event => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  for (const type of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) {
+    panel.addEventListener(type, event => event.target == panel && event.stopPropagation());
+  }
   panel.addEventListener("click", event => {
+    event.stopPropagation();
     if (event.button != 0) {
       return;
     }
@@ -19117,6 +19144,75 @@ class CardEnhancer {
             panel.__mcManualTime = true;
           }
         });
+      }
+      // Datum und Uhrzeit wie im Termin-Dialog als Text zum Eintippen, das
+      // Datum mit kleinem Monatskalender; die Eingabefelder bleiben verborgen
+      // und halten den Wert („JJJJ-MM-TT“ bzw. „hh:mm“)
+      const valueDesc = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, "value");
+      const textField = (input, kind) => {
+        let after = () => {};
+        // neuer Wert (auch aus dem Code, z. B. natürliche Eingabe): neu zeichnen
+        Object.defineProperty(input, "value", {
+          configurable: true,
+          get() {
+            return valueDesc.get.call(this);
+          },
+          set(v) {
+            valueDesc.set.call(this, v);
+            after();
+          },
+        });
+        const put = v => {
+          if (input.value == v) {
+            return;
+          }
+          input.value = v;
+          // von Hand geändert (das Ereignis unten gilt nicht als echte Eingabe)
+          panel.__mcManualTime = true;
+          input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        };
+        const off = () => false;
+        if (kind == "date") {
+          const io = {
+            get: () => {
+              const [y, m, day] = (input.value || "").split("-").map(Number);
+              if (!y) {
+                return null;
+              }
+              const t = new Date(2000, 0, 1);
+              t.setFullYear(y, m - 1, day);
+              return t;
+            },
+            set: t => put(dateValue(t)),
+            off,
+          };
+          const edit = inlineDateEdit(w, io), mini = miniMonthPopover(w, edit, io, panel);
+          this.restorers.push(() => mini.panel.remove());
+          after = () => {
+            edit.render();
+            mini.sync();
+          };
+          input.after(edit.box);
+        } else {
+          const edit = timeSegEdit(w, {
+            get: () => {
+              const [h, m] = (input.value || "").split(":").map(Number);
+              return Number.isInteger(h) && Number.isInteger(m) ? [h, m] : null;
+            },
+            set: ([h, m]) => put(`${pad(h)}:${pad(m)}`),
+            off,
+          });
+          after = () => edit.render();
+          input.after(edit.box);
+        }
+        input.setAttribute("mc-inline", "");
+        after();
+      };
+      for (const input of [f.startDate, f.endDate, f.dueDate]) {
+        textField(input, "date");
+      }
+      for (const input of [f.startTime, f.endTime, f.dueTime]) {
+        textField(input, "time");
       }
       const applyNatural = () => {
         if (panel.__mcManualTime) {

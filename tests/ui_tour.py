@@ -289,7 +289,7 @@ const eventDialog = async () => { await toCalendar(); w.switchCalendarView("week
 // Schnellfenster „Neuer Termin“ von halo.spaces mit aufgeklappten Details (Beginn, Ende, Wiederholen …)
 const quickPanel = async () => { await toCalendar(); w.switchCalendarView("week"); await wait(800); const li = toolbarItem("new-event"); if (!li) throw new Error("„+“ fehlt");
   await pop("mcQuickPanel", () => li.querySelector("button").click()); const f = d.getElementById("mcQuickPanel").__mc;
-  if (!f) throw new Error("Schnellfenster ohne Felder"); if (!vis(f.startDate)) { f.summary.click(); await wait(600); } return f; };
+  if (!f) throw new Error("Schnellfenster ohne Felder"); if (!vis(f.allDay)) { f.summary.click(); await wait(600); } return f; };
 // Mauszeiger auf die Mitte eines Elements (Rückgabe für den Rundgang: Marionette bewegt den Zeiger im Hauptfenster,
 // Rahmen wie about:3pane werden eingerechnet) – für Hover-Zustände und Tooltips. Merkt sich jeden Tooltip, der danach
 // aufgeht: Knöpfe mit title nutzen den Standard-Tooltip des Dokuments (anonymer Inhalt, per querySelector unsichtbar)
@@ -1085,9 +1085,10 @@ SURFACES = [
       ' f.repeat.value = "WEEKLY"; f.repeat.dispatchEvent(new Event("change")); f.alert.value = "PT15M"; f.alert.dispatchEvent(new Event("change"));'
       ' f.title.blur(); await wait(500); w.__tourPopup = p; return p;', cap="popup"),
     # Schnellfenster: Popups der HTML-Felder (Datum, Auswahlliste) und das eigene Kalendermenü von halo.spaces
-    S("kal-schnellfenster-datum", "kalender", "popup", "Schnellfenster: Datumsauswahl (Datumsfeld „Beginn“)",
-      'const f = await quickPanel(); return await pop("DateTimePickerPanel", () => { d.notifyUserGestureActivation(); f.startDate.showPicker(); });', cap="popup",
-      note="DateTimePickerPanel (datetimepicker.xhtml) – in userChrome.css/spaces.css bisher ohne eigene Regeln"),
+    S("kal-schnellfenster-datum", "kalender", "popup", "Schnellfenster: Datum zum Eintippen mit Monatskalender (Klick ins Jahr bei „Beginn“)",
+      'const f = await quickPanel(); const s = f.startDate.parentNode.querySelector(\'.mc-date-seg[data-seg="y"]\'); if (!s) throw new Error("Datum zum Eintippen fehlt");'
+      ' const p = await until(() => [...d.querySelectorAll(".mc-date-panel")].find(x => x.__mcFor == s.parentNode) || d.querySelector(".mc-date-panel"), 3000);'
+      ' return await pop(p, () => s.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
     S("kal-schnellfenster-auswahlliste", "kalender", "popup", "Schnellfenster: aufgeklappte Auswahlliste „Wiederholen“",
       'const f = await quickPanel(); const p = d.getElementById("ContentSelectDropdown")?.menupopup; if (!p) throw new Error("Auswahlliste fehlt");'
       ' return await pop(p, () => { d.notifyUserGestureActivation(); f.repeat.showPicker(); });', cap="popup",

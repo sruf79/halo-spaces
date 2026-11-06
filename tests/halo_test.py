@@ -4661,16 +4661,16 @@ def calendar_checks(m, results):
           const out = { open: true, dark, token: colorOf(d, "var(--mt-popover-bg)", "backgroundColor"), rim: colorOf(d, "var(--mt-popover-border)") };
           try {
             const pc = csOf(partOf(qp)); out.panel = { bg: pc.backgroundColor, border: pc.borderTopColor, bw: pc.borderTopWidth };
-            const f = qp.__mc; if (!vis(f.startDate)) { f.summary.click(); await ruhig(600); }
-            const dp = d.getElementById("DateTimePickerPanel");
-            d.notifyUserGestureActivation(); f.startDate.showPicker();
-            if (await isOpen(dp)) {
-              const fd = await till(() => dp.querySelector("iframe")?.contentDocument?.querySelector("button.month-year") && dp.querySelector("iframe").contentDocument, 4000);
-              await ruhig(400);
-              const pp = csOf(partOf(dp)), sel = fd?.querySelector(".days-view td.selection");
-              out.picker = { bg: pp.backgroundColor, border: pp.borderTopColor, bw: pp.borderTopWidth, body: fd && csOf(fd.body).backgroundColor,
-                month: fd && csOf(fd.querySelector("button.month-year")).borderTopColor, clear: fd && csOf(fd.getElementById("clear-button")).borderTopColor,
-                sel: sel && csOf(sel).backgroundColor, accent: fd && colorOf(fd, "AccentColor", "backgroundColor") };
+            const f = qp.__mc; if (!vis(f.allDay)) { f.summary.click(); await ruhig(600); }
+            // Datum zum Eintippen: Klick ins Jahr öffnet den kleinen Monatskalender in derselben Popover-Fläche mit Haarlinie,
+            // das Schnellfenster bleibt offen
+            const ys = f.startDate.parentNode.querySelector('.mc-date-seg[data-seg="y"]');
+            const dp = [...d.querySelectorAll(".mc-date-panel")].find(x => x.__mcFor == ys?.parentNode);
+            ys?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            if (dp && await isOpen(dp)) {
+              await ruhig(300);
+              const pp = csOf(partOf(dp));
+              out.picker = { bg: pp.backgroundColor, border: pp.borderTopColor, bw: pp.borderTopWidth, quick: qp.state, cells: dp.querySelectorAll(".mc-mini-day").length };
               await shutPop(dp);
             }
             d.notifyUserGestureActivation(); try { f.repeat.showPicker(); } catch {}
@@ -4707,11 +4707,11 @@ def calendar_checks(m, results):
         ok = (hair(p["bw"]) and same_color(p["border"], res["rim"]) and same_color(p["bg"], res["token"])
               and same_color(res["token"], "rgb(26, 26, 26)" if res["dark"] else "rgb(249, 249, 249)")
               and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if res["dark"] else "rgb(219, 219, 219)")
-              and bool(k) and no_border(k["border"], k["bw"]) and same_color(k["bg"], k["body"])
-              and rgba_alpha(k["month"]) == 0 and rgba_alpha(k["clear"]) == 0 and (k["sel"] is None or same_color(k["sel"], k["accent"]))
+              and bool(k) and hair(k["bw"]) and same_color(k["border"], res["rim"]) and same_color(k["bg"], res["token"])
+              and k["quick"] == "open" and k["cells"] == 42
               and bool(res.get("select")) and all(rgba_alpha(c) == 0 for c in res["select"]))
         return ok, f"{res}"
-    check("Schnellfenster: deckende Popover-Fläche mit Haarlinie; Datumsauswahl ein Popover ohne harte Ränder; Auswahlliste ohne Kacheln", quick_panel_surfaces, results)
+    check("Schnellfenster: deckende Popover-Fläche mit Haarlinie; Monatskalender am Datum in derselben Fläche mit Haarlinie; Auswahlliste ohne Kacheln", quick_panel_surfaces, results)
 
     def new_popup_arrow():
         # „+“ der Today-Pane: Pfeil des Popovers über der Mitte des Knopfs (früher 240 px daneben) – auch am Bildschirmrand
@@ -5900,7 +5900,7 @@ def calendar_checks(m, results):
               return Math.round((k.getBoundingClientRect().left + pad) * 10) / 10; };
             const lefts = rows.map(firstVal);
             // sichtbare Kante des Datums = Text des Feldes (ohne Innenabstand)
-            const sd = f.startDate, textLeft = Math.round((sd.getBoundingClientRect().left + parseFloat(csOf(sd).paddingInlineStart) + parseFloat(csOf(sd).borderInlineStartWidth)) * 10) / 10;
+            const sd = f.startDate.parentNode.querySelector(".mc-date-edit"), textLeft = Math.round((sd.getBoundingClientRect().left + parseFloat(csOf(sd).paddingInlineStart) + parseFloat(csOf(sd).borderInlineStartWidth)) * 10) / 10;
             return { open: true, labels: rows.map(r => r.querySelector("label").textContent), gaps, lefts, box: Math.round(f.allDay.getBoundingClientRect().left * 10) / 10, dateText: textLeft };
           } finally { await shutPop(qp); }""")
         if not res.get("open"):
@@ -6309,10 +6309,10 @@ def calendar_checks(m, results):
           try {
             const f = qp.__mc; if (!qp.querySelector(".mc-qc[data-expanded]")) { f.summary.click(); await ruhig(600); }
             const card = qp.querySelector(".mc-qc-time"), cr = card.getBoundingClientRect();
-            const fields = [...card.querySelectorAll('input[type="date"], input[type="time"], select')].filter(vis).map(e => {
+            const fields = [...card.querySelectorAll('input[type="date"], input[type="time"], .mc-date-edit, .mc-time-edit, select')].filter(vis).map(e => {
               const r = e.getBoundingClientRect();
-              return { t: e.type || e.localName, over: Math.round((r.right - (cr.right - 4)) * 10) / 10,
-                       clip: e.type == "time" ? e.scrollWidth - e.clientWidth : 0, left: Math.round(r.left) };
+              return { t: e.classList.contains("mc-time-edit") ? "time" : e.classList.contains("mc-date-edit") ? "date" : e.type || e.localName, over: Math.round((r.right - (cr.right - 4)) * 10) / 10,
+                       clip: e.type == "time" || e.classList.contains("mc-time-edit") ? e.scrollWidth - e.clientWidth : 0, left: Math.round(r.left) };
             });
             const labels = [...card.querySelectorAll(".mc-qc-row > label")].filter(vis).map(l => ({ t: l.textContent, clip: l.scrollWidth - l.clientWidth }));
             const ctrlLefts = [...new Set([...card.querySelectorAll(".mc-qc-row")].filter(vis).map(r => Math.round(r.querySelector(".mc-qc-ctrl").getBoundingClientRect().left)))];
@@ -8735,6 +8735,51 @@ def run_checks(m, version, profile, results):
         ok = (res["ev"] == ["20261112", "20261113"] and res["task"] == {"before": False, "due": True, "cleared": "", "hasDue": True, "alarms": 1})
         return ok, f"{res}"
     check("Schnellfenster: ganztägiges Ende vor Beginn, Erinnerung bei Aufgabe", quick_checks, results)
+
+    def quick_text_fields():
+        # Schnellfenster: Datum und Uhrzeit wie im Termin-Dialog als Text zum Eintippen (keine Eingabefelder des Systems):
+        # Klick ins Datum zeigt den Monatskalender, Klick auf einen Tag übernimmt ihn, das Ende rückt mit (gleiche Dauer);
+        # Uhrzeit eintippen; danach überschreibt die natürliche Eingabe im Titel die Zeiten nicht mehr; ganztägig ohne Uhrzeit
+        res = m.js(CAL_CHECK_JS + r'''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const enh = Cu.evalInSandbox("enhancer", ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global);
+          await toCalendar();
+          enh.openQuickCreate(w, "event");
+          const qp = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
+          const f = qp.__mc, out = {};
+          try {
+            f.summary.click(); await bis(() => vis(f.allDay), "Schnellfenster aufgeklappt", 3000);
+            // feste Zeiten (ohne „change“ – sonst schöbe schon das Setzen das Ende mit)
+            f.startDate.value = "2026-11-16"; f.startTime.value = "09:00"; f.endDate.value = "2026-11-16"; f.endTime.value = "10:00";
+            qp.__mcSetLastStart(new Date(2026, 10, 16, 9, 0));
+            const row = x => x.parentNode, sd = row(f.startDate).querySelector(".mc-date-edit"), st = row(f.startTime).querySelector(".mc-time-edit");
+            const seg = (box, k) => box.querySelector(`[data-seg="${k}"]`);
+            const down = el => el.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            const press = (...keys) => { for (const k of keys) d.activeElement?.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })); };
+            out.shown = { inputs: [f.startDate, f.startTime].map(vis), date: sd?.textContent, time: st?.textContent };
+            const mini = [...d.querySelectorAll(".mc-date-panel")].find(x => x.__mcFor == sd);
+            down(seg(sd, "d")); await bis(() => mini?.state == "open", "Monatskalender offen", 3000); await ruhig(200);
+            out.mini = { title: mini.querySelector(".mc-mini-title").textContent, sel: mini.querySelector(".mc-mini-day[selected]")?.dataset.date };
+            [...mini.querySelectorAll(".mc-mini-day:not([othermonth])")].find(x => x.textContent == "18")
+              ?.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+            await bis(() => mini.state == "closed", "Monatskalender zu", 3000); await ruhig(200);
+            out.day = [f.startDate.value, f.endDate.value, sd.textContent.includes("18"), qp.state];
+            down(seg(st, "h")); press("1", "4", "3", "0"); await ruhig(300);
+            out.time = [f.startTime.value, f.endTime.value, st.textContent.includes("30"), f.line1.textContent.includes("30")];
+            // natürliche Eingabe im Titel ändert die von Hand gesetzten Zeiten nicht mehr
+            f.title.value = "Mittagessen morgen 12 Uhr"; f.title.dispatchEvent(new w.Event("input", { bubbles: true })); await ruhig(200);
+            out.natural = [f.startDate.value, f.startTime.value];
+            f.allDay.click(); await ruhig(300);
+            out.allDay = [vis(st), vis(sd)];
+          } finally { await shutPop(qp); }
+          return out;''' % ADDON_ID)
+        ok = (res.get("shown", {}).get("inputs") == [False, False] and "16" in (res["shown"].get("date") or "") and "9" in (res["shown"].get("time") or "")
+              and (res.get("mini") or {}).get("sel") == "2026-10-16"
+              and res.get("day") == ["2026-11-18", "2026-11-18", True, "open"]
+              and res.get("time") == ["14:30", "15:30", True, True] and res.get("natural") == ["2026-11-18", "14:30"]
+              and res.get("allDay") == [False, True])
+        return ok, f"{res}"
+    check("Schnellfenster: Datum und Uhrzeit zum Eintippen wie im Termin-Dialog, Monatskalender (Klick auf Tag übernimmt, Ende rückt mit), Tippen bleibt bei natürlicher Eingabe", quick_text_fields, results)
 
     def emoji():
         res = m.js("""

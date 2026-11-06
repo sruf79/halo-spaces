@@ -9171,8 +9171,31 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   outline: none !important;
 }
 
+/* Datum und Uhrzeit als Text zum Eintippen wie im Termin-Dialog (die
+   Eingabefelder bleiben verborgen und halten den Wert); Text auf der Kante
+   der übrigen Werte (6 px wie deren Innenabstand), bis zur Uhrzeit ~14 px */
+#mcQuickPanel .mc-qc-ctrl input[mc-inline] {
+  display: none !important;
+}
+
+/* gewähltes Feld in der Farbe des gewählten Kalenders */
+#mcQuickPanel .mc-qc {
+  --mc-item-cal: var(--mc-qc-color);
+}
+
+#mcQuickPanel .mc-qc-ctrl :is(.mc-date-edit, .mc-time-edit) {
+  min-height: 26px;
+  margin: 0;
+  padding-inline: 6px 2px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+}
+
+#mcQuickPanel .mc-qc-ctrl .mc-date-edit {
+  padding-inline-end: 0;
+}
+
 /* Ganztägig: keine Uhrzeiten; Aufgaben: eigene Zeilen */
-#mcQuickPanel .mc-qc[data-allday] .mc-qc-row input[type="time"] {
+#mcQuickPanel .mc-qc[data-allday] .mc-qc-row :is(input[type="time"], .mc-time-edit) {
   display: none !important;
 }
 
@@ -9181,7 +9204,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   display: none !important;
 }
 
-#mcQuickPanel .mc-qc:not([data-due]) .mc-td :is(input[type="date"], input[type="time"]) {
+#mcQuickPanel .mc-qc:not([data-due]) .mc-td :is(input[type="date"], input[type="time"], .mc-date-edit, .mc-time-edit) {
   visibility: hidden !important;
 }
 

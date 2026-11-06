@@ -5427,6 +5427,20 @@ addon-card .addon-inline-options {
   border-radius: 8px !important;
 }
 
+/* Knöpfe 30 px als Kapsel wie in den übrigen Dialogen (waren 24 bzw. 26),
+   Auswahllisten und Felder 28 px mit Haarlinie statt 24 px ohne Rand */
+#searchAddressBookWindow :is(#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]) {
+  min-height: 30px !important;
+  padding-inline: 14px !important;
+  border-radius: 999px !important;
+}
+
+#searchAddressBookWindow :is(menulist, #searchTermList input:not([type="checkbox"], [type="radio"])) {
+  min-height: 28px !important;
+  box-sizing: border-box !important;
+  border: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
 #searchAddressBookWindow #gray_horizontal_splitter {
   border: none !important;
   border-top: var(--mt-hairline) solid var(--mt-pane-line) !important;
@@ -6101,8 +6115,9 @@ button.wizard-button {
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
-  min-height: 28px !important;
+  min-height: 30px !important;
   padding-inline: 16px !important;
+  border-radius: 999px !important;
 }
 
 button.wizard-button:not([disabled]):hover {
@@ -6742,6 +6757,7 @@ dialog tabpanels:not(#event-grid-tabpanels) {
 }
 
 #accept-buttons-box > .occurrence-accept-buttons {
+  min-height: 30px !important;
   list-style-image: none !important;
   text-align: center !important;
 }
@@ -7808,10 +7824,10 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 #alarm-richlist .alarm-action-buttons button {
-  min-height: 22px !important;
-  height: 22px !important;
+  min-height: 24px !important;
+  height: 24px !important;
   padding: 0 10px !important;
-  border-radius: 11px !important;
+  border-radius: 999px !important;
   background: color-mix(in srgb, var(--mt-text) 7%, transparent) !important;
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }

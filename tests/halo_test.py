@@ -2851,6 +2851,29 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Dialoge: Listen ohne harten Rahmen, Auswahl abgerundet in Akzentfarbe (Rechtschreibung), Filter-Editor ohne macOS-Rahmen, „Apply filter when:“ bündig und gleich groß, Filterliste heißt „Rules“", lists, results)
 
+    def content_buttons():
+        # Knöpfe im Inhalt der Dialoge 30 px als Kapsel wie die Dialog-Knöpfe (waren 24 px);
+        # Junk-Protokoll: „Close“ als einziger Knopf in der Akzentfarbe
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const look = dd => [...dd.querySelectorAll("dialog button")].filter(vis).map(b => [Math.round(b.getBoundingClientRect().height), csOf(b).borderTopLeftRadius]);
+          const out = {};
+          out.spell = await withCompose({ body: "<p>Ein Tset mit Fehlrn.</p>" }, cw => dialog(() => cw.goDoCommand("cmd_spelling"), "EdSpellCheck", async (dw, dd) => look(dd)));
+          out.replace = await withCompose({}, cw => dialog(() => cw.goDoCommand("cmd_findReplace"), "EdReplace", async (dw, dd) => look(dd)));
+          const jw = w.openDialog("chrome://messenger/content/junkLog.xhtml", "_blank", "chrome,titlebar,centerscreen,dialog=no");
+          try {
+            await bis(() => jw.document?.readyState == "complete" && jw.document.querySelector("dialog")?.getButton("accept"), "Junk-Protokoll offen", 8000); await ruhig(500);
+            const jd = jw.document, acc = jd.querySelector("dialog").getButton("accept");
+            out.junk = { buttons: look(jd), close: [Math.round(acc.getBoundingClientRect().height), csOf(acc).backgroundColor], accent: colorOf(jd, "AccentColor") };
+          } finally { await shut(jw); }
+          return out;""")
+        def capsule(bs):
+            return bool(bs) and all(h >= 30 and r == "999px" for h, r in bs)
+        j = res.get("junk") or {}
+        ok = (capsule(res.get("spell")) and len(res["spell"]) >= 6 and capsule(res.get("replace")) and len(res["replace"]) >= 4
+              and capsule(j.get("buttons")) and j["close"][0] >= 30 and same_color(j["close"][1], j["accent"]))
+        return ok, f"{res}"
+    check("Dialoge: Knöpfe im Inhalt 30 px als Kapsel (Rechtschreibung, Suchen und Ersetzen, Junk-Protokoll), „Close“ im Junk-Protokoll in Akzentfarbe", content_buttons, results)
+
     def tabs():
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, cw => dialog(() => cw.goDoCommand("cmd_image"), "EdImageProps", async (dw, dd) => {
@@ -5432,7 +5455,7 @@ def calendar_checks(m, results):
             out.buttons = [...pd.querySelectorAll(".occurrence-accept-buttons")].filter(vis).map(b => { const ic = b.querySelector(".button-icon");
               // Textbereich: das Label (.button-text) ist so breit wie sein Text
               const lab = b.querySelector(".button-text"), t = lab ? lab.getBoundingClientRect() : { width: 0, left: 0, right: 0 }, br = b.getBoundingClientRect();
-              return { img: csOf(b).listStyleImage, icon: !!ic && vis(ic), tw: Math.round(t.width), bw: Math.round(br.width),
+              return { img: csOf(b).listStyleImage, icon: !!ic && vis(ic), tw: Math.round(t.width), bw: Math.round(br.width), h: Math.round(br.height),
                        padL: Math.round((t.left - br.left) * 10) / 10, padR: Math.round((br.right - t.right) * 10) / 10 }; });
           } finally {
             if (pw && !pw.closed) { pw.close(); await till(() => pw.closed, 4000); await ruhig(500); }
@@ -5443,9 +5466,9 @@ def calendar_checks(m, results):
             return False, "Rückfrage nicht offen"
         b = res.get("buttons") or []
         ok = res["header"]["bw"] == "0px" and len(b) >= 2 and all(x["img"] == "none" and not x["icon"] for x in b)
-        ok = ok and all(0 < x["tw"] < x["bw"] - 20 and abs(x["padL"] - x["padR"]) <= 2 for x in b)
+        ok = ok and all(0 < x["tw"] < x["bw"] - 20 and abs(x["padL"] - x["padR"]) <= 2 and x["h"] >= 30 for x in b)
         return ok, f"{res}"
-    check("Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Knöpfe ohne alte Kalendersymbole, Text mittig", occurrence_prompt, results)
+    check("Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Knöpfe ohne alte Kalendersymbole, 30 px, Text mittig", occurrence_prompt, results)
 
     def quick_segment():
         # Schnellfenster: gewähltes Segment („Termin“/„Aufgabe“) heller als die Spur – dunkel früher dunkler (#1E1E1E)
@@ -10946,12 +10969,16 @@ Neu
             return { tree: [csOf(t).backgroundColor, csOf(t).borderTopLeftRadius, csOf(t).borderTopColor],
                      terms: [csOf(l).backgroundColor, csOf(l).borderTopLeftRadius, csOf(l).borderTopColor],
                      split: [csOf(sp).borderTopWidth, csOf(sp).borderBottomWidth],
-                     win: colorOf(sd, "var(--mt-window)", "backgroundColor"), line: colorOf(sd, "var(--mt-pane-line)", "borderTopColor") };
+                     win: colorOf(sd, "var(--mt-window)", "backgroundColor"), line: colorOf(sd, "var(--mt-pane-line)", "borderTopColor"),
+                     buttons: [...sd.querySelectorAll('#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]')].map(b => [Math.round(b.getBoundingClientRect().height), csOf(b).borderTopLeftRadius]),
+                     fields: [...sd.querySelectorAll("menulist")].filter(vis).map(e => [Math.round(e.getBoundingClientRect().height), csOf(e).borderTopColor]) };
           } finally { await shut(sw); }""")
         ok = (all(same_color(x[0], res["win"]) and x[1] == "8px" and same_color(x[2], res["line"]) for x in (res["tree"], res["terms"]))
-              and res["tree"][0] != "rgb(0, 0, 0)" and res["split"][1] == "0px" and res["split"][0] in ("1px", "0.5px"))
+              and res["tree"][0] != "rgb(0, 0, 0)" and res["split"][1] == "0px" and res["split"][0] in ("1px", "0.5px")
+              and len(res["buttons"]) == 5 and all(h >= 30 and r == "999px" for h, r in res["buttons"])
+              and len(res["fields"]) >= 3 and all(h >= 28 and same_color(c, res["line"]) for h, c in res["fields"]))
         return ok, f"{res}"
-    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie", ab_search_dialog, results)
+    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie, Knöpfe 30 px als Kapsel, Auswahllisten 28 px mit Haarlinie", ab_search_dialog, results)
 
     def ab_edit_dialogs():
         # Bearbeiten gleich nach dem Öffnen: das Layout (Weitere Felder) greift
@@ -11734,6 +11761,7 @@ Neu
             await until(() => item.querySelector(".mc-alarm-open"), 3000); await ruhig(400);
             const rr = e => e?.getBoundingClientRect();
             const btns = [...item.querySelectorAll(".alarm-action-buttons > button")].map(rr).filter(r => r?.height);
+            out.radius = [...item.querySelectorAll(".alarm-action-buttons > button")].map(b => cs(b).borderTopLeftRadius);
             const ir = rr(item), head = item.querySelector(".mc-alarm-cal"), rel = item.querySelector(".alarm-relative-date-label");
             out.note = { width: dlg.innerWidth, head: head?.textContent, headTop: head ? Math.round(rr(head).top - ir.top) : null,
                          bottom: btns.length ? Math.round(ir.bottom - Math.max(...btns.map(r => r.bottom))) : null,
@@ -11762,6 +11790,7 @@ Neu
           return out;""")
         o, t = res.get("one", {}), res.get("two", {})
         ok = (o.get("day") == "15" and (o.get("month") or "").lower().startswith("dec") and o.get("img") == "none"
+              and bool(res.get("radius")) and all(r == "999px" for r in res["radius"])
               and rgba_alpha(o.get("bg") or "rgb(0,0,0)") <= 0.06 and o.get("allBar") == "none"
               and o.get("card") == res["mac"] and o.get("fits") and same_color(o.get("monthColor"), "rgb(255, 59, 48)")
               and t.get("allBar") != "none" and t.get("days") == ["15", "16"]
@@ -11771,7 +11800,7 @@ Neu
               and (res.get("open") or {}).get("tab") == "calendar" and res["open"].get("view") == "month-view" and res["open"].get("details")
               and bool(t.get("gap")) and t["gap"][0] >= 14 and abs(t["gap"][0] - max(16, t["gap"][1])) <= 3)
         return ok, f"{res}"
-    check("Kalender: Erinnerung wie die Mitteilung von Apple Kalender (Symbol mit Monat und Tag, Kalender als Kopf, Pfeil, Knöpfe nebeneinander unten rechts, oben und unten gleich viel Luft, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
+    check("Kalender: Erinnerung wie die Mitteilung von Apple Kalender (Symbol mit Monat und Tag, Kalender als Kopf, Pfeil, Knöpfe als Kapsel nebeneinander unten rechts, oben und unten gleich viel Luft, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)
 
     def tasks_details():
         # Aufgaben: Beschreibung im Detailbereich in Systemschrift 13 px ohne Body-Rand, dunkel hell lesbar (früher schwarz
@@ -13831,11 +13860,11 @@ Neu
         for name in ("feed", "news", "chat"):
             r = res.get(name)
             ok = ok and isinstance(r, dict) and r["contrast"] >= 4.5 and r["border"] == "0px" and r["font"] == "13px" \
-                and r["h"] >= 27 and r["var"] == "transparent" and r["input"] == "7px"
+                and r["h"] >= 30 and r["var"] == "transparent" and r["input"] == "7px"
         c = res.get("chat")
         ok = ok and isinstance(c, dict) and c.get("list") and c["list"][0] == "8px" and c["list"][1] <= 0.15 and c["list"][2] == "6px"
         return ok, f"{res}"
-    check("Konto-Assistenten: Knöpfe flach und lesbar, Felder 7 px, Chat-Netzliste mit Haarlinie und 8 px", account_wizards, results)
+    check("Konto-Assistenten: Knöpfe flach, lesbar und 30 px, Felder 7 px, Chat-Netzliste mit Haarlinie und 8 px", account_wizards, results)
 
     def no_placeholder_in_ui():
         # Platzhalter für blockierte Bilder nur in Mails – nicht in der Oberfläche (Lupe im Suchfeld)

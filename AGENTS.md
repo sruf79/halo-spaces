@@ -48,7 +48,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
-| `tests/neon-neustart.sh` | startet die Sitzung `neon` täglich neu, nach den Läufen des Morgens und nur bei freier Sitzung (LaunchAgent `at.halo-spaces.neon-neustart`, `tests/MAC-MINI.md` Abschnitt 12) |
+| `tests/neon-neustart.sh` | Vorlage für einen täglichen Neustart von `neon`, **nicht aktiv** (siehe „Arbeitsweise von neon“) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
 
@@ -305,29 +305,29 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     Modellwähler der Sitzung `neon` (claude.ai/code bzw. Claude-App); das
     gilt dann auch nach Neustarts. Gleiches gilt für `neon-board`, falls
     der Server dort ein Modell mitgibt.
-- **Täglicher Neustart von `neon`** (Entscheidung des Maintainers, Cloud-Sitzung
-  global.design.comparison, 6.11.2026, Wortlaut: „punkt 1 beauftragen.“; Bezug,
-  Vorschlag der Cloud-Sitzung: „neon täglich neu starten, zum Beispiel nach dem
-  Nachtlauf. Die offenen Aufträge stehen in neon-stand.md und werden beim Start
-  wieder geladen“; die folgende Umsetzung ist die Deutung dieser Sitzung):
-  `tests/neon-neustart.sh` (LaunchAgent `at.halo-spaces.neon-neustart`, alle 30
-  Minuten) startet `at.halo-spaces.remote-control` neu, sobald der Nachtlauf des
-  Tages beendet ist (samstags zusätzlich Doku-Prüfung und Rundgang, sonntags die
-  Wochenprüfung), spätestens bis 12:00 (samstags 16:00), und nur, wenn keine
-  Claude-Sitzung am Repo mitten in einer Runde ist und kein Auftrag in
-  `neon-stand.md` ohne Stand-Notiz („Stand: angenommen“) offen ist. Sonst
-  Zeile „ÜBERSPRUNGEN neon-neustart …“ (Protokoll `~/halo-nacht/neon-neustart.log`
-  und `uebersprungen.log`), kein Push. Aufträge mit Notiz bleiben in der Datei
-  und kommen über `tests/neon-hook.sh` zurück; deshalb jeden längeren Auftrag mit
-  `neon-stand.sh` führen (siehe oben). Der Neustart beendet auch
-  Sitzungen, die dieser Remote-Control-Prozess gestartet hat; deshalb wartet
-  er, solange eine davon mitten in einer Runde ist (`busy` in
-  `~/.claude/sessions/<pid>.json`). Befund 6.11.2026: Der Server setzt nach
-  dem Neustart dieselbe Sitzung mit vollem Verlauf fort (`--resume`, gleiche
-  Sitzungs-ID); `claude remote-control` hat keine Option für eine frische
-  Sitzung. Den Kontext leert nur `/clear` in neon (bzw. eine neue Sitzung,
-  nachdem die alte archiviert ist). Nach jedem Neustart protokolliert das
-  Skript einmal die Kontextgröße („Kontext nach Neustart: …“).
+- **Kein täglicher Neustart von `neon`, `/clear` von Hand** (Entscheidung des
+  Maintainers, Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut:
+  „ja täglichen neustart nicht aktivieren. clear von hand.“; Bezug: Befund, dass `kickstart -k` dieselbe Sitzung mit vollem Verlauf
+  fortsetzt – `--resume`, gleiche Sitzungs-ID –, `claude remote-control` hat
+  keine Option für eine frische Sitzung): `tests/neon-neustart.sh` bleibt als
+  Vorlage liegen, der LaunchAgent `at.halo-spaces.neon-neustart` wird nicht
+  eingerichtet (`mac-mini-setup.sh` meldet nur, falls er doch geladen ist). Den
+  Kontext leert der Maintainer täglich selbst mit `/clear` in neon, vorher
+  fragt er mit `/bereit`.
+- **`/bereit`: ist neon frei für `/clear`?** (Frage des Maintainers, Cloud-Sitzung
+  global.design.comparison, 6.11.2026, Wortlaut: „kann ich irgendwie der neon
+  session beibringen dass sie von alleine in neon-stand.md nachsieht wenn ich sie
+  frage ob in der session etwas offen ist oder ich ein /clear laufen lassen
+  kann?“; die Umsetzung ist die Deutung der Cloud-Sitzung): Projekt-Befehl
+  `.claude/commands/bereit.md` und Regel im Hinweis von `tests/neon-hook.sh`. Bei
+  `/bereit` oder Fragen wie „ist etwas offen?“ / „kann ich clearen?“ prüft neon
+  selbst: (1) `~/halo-aufgaben/neon-stand.md` lesen, (2) mit dem eigenen Verlauf
+  abgleichen – Laufendes, Hintergrund-Tests/-Befehle, laufende Unteragenten,
+  wartende Antworten an Sitzungen, Zusagen, nicht committete Änderungen in
+  `~/halo-spaces` und Worktrees (`git worktree list`), (3) Fehlendes in
+  `neon-stand.md` nachtragen (`neu`/`notiz`), (4) in einer Zeile antworten:
+  „Frei für /clear“ oder „Nicht frei: <was läuft>, frühestens <wann>“.
+  Laufende Hintergrundprozesse, Tests oder Unteragenten heißen nie „frei“.
 - Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
   in allen Sitzungen; seltener verdichten heißt weniger vergessen.
 

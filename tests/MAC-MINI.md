@@ -592,43 +592,27 @@ die plist löschen. Nach Änderungen an `mac-remote-control.sh`,
 ausführen (`--check` meldet veraltete Kopien); wirksam beim nächsten Start
 der Sitzung bzw. nach `launchctl kickstart -k …`.
 
-### Täglicher Neustart von `neon`
+### Kein täglicher Neustart von `neon`, `/clear` von Hand
 
 Entscheidung des Maintainers (Cloud-Sitzung global.design.comparison,
-6.11.2026), Wortlaut: „punkt 1 beauftragen.“ – Bezug, Vorschlag der
-Cloud-Sitzung: „neon täglich neu starten, zum Beispiel nach dem Nachtlauf. Die
-offenen Aufträge stehen in neon-stand.md und werden beim Start wieder
-geladen“ (Hintergrund: neon lief als eine Sitzung über Tage und machte 62 %
-des Tokenverbrauchs, 29 % ohne Cache-Lesen; `tests/token-bilanz.py`). Die
-Umsetzung ist die Deutung dieser Sitzung:
+6.11.2026), Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“ – Befund: `launchctl kickstart -k
+gui/$(id -u)/at.halo-spaces.remote-control` setzt dieselbe Sitzung mit vollem
+Verlauf fort (`--resume`, gleiche Sitzungs-ID), ein Neustart leert den Kontext
+also nicht. Deshalb:
 
-- LaunchAgent `at.halo-spaces.neon-neustart` (alle 30 Minuten, eingerichtet von
-  `tests/mac-mini-setup.sh`, Skript `tests/neon-neustart.sh`, Protokoll
-  `~/halo-nacht/neon-neustart.log`) führt `launchctl kickstart -k
-  gui/$(id -u)/at.halo-spaces.remote-control` aus.
-- Uhrzeit-Regel: erst nach Ende des Nachtlaufs des Tages (Bericht
-  `~/halo-berichte/<datum>-nachtlauf.md` da, `~/halo-nacht/lauf.lock` tot),
-  samstags auch nach Doku-Prüfung und Rundgang, sonntags nach der
-  Wochenprüfung; Wiederholung alle 30 Minuten bis 12:00 (samstags 16:00), dann
-  Zeile „ÜBERSPRUNGEN neon-neustart <Grund>“. Je Tag ein Ergebnis (Marke
-  `~/halo-nacht/neon-neustart.heute`). Die Push-Sperre 01:30–09:00 gilt nur für
-  Pushes und bleibt unberührt.
-- Bedingungen: keine Claude-Sitzung am Repo mitten in einer Runde
-  (`aktive_sitzung()` aus `lauf-hilfen.zsh`; der Neustart beendet auch Sitzungen,
-  die dieser Prozess gestartet hat), kein Auftrag in `~/halo-aufgaben/neon-stand.md`
-  mit „Stand: angenommen“ und der SessionStart-Hook `neon-hook.sh` im Checkout
-  (`.claude/settings.json`). Aufträge mit Stand-Notiz bleiben in der Datei,
-  der Hook lädt sie beim Start wieder.
-- Probe ohne Neustart: `tests/neon-neustart.sh --trocken` (sagt „wartet: …“ oder
-  „frei“, ändert nichts); pausieren mit `touch ~/halo-nacht/PAUSE-NEUSTART`.
-- Sitzungs-ID: bei den Neustarts vom 4. und 6.11. blieb die ID im Protokoll
-  gleich (`session_01BK9gbfo3…`), der Titel kommt von `--name neon`. Weil sie
-  sich ändern kann, immer über `ListAgents`/`list_sessions` suchen
-  (AGENTS.md „neon erreichen“). `tests/token-bilanz.py` erkennt neon am
-  Hook-Eintrag im Sitzungsprotokoll, nicht an Titel oder ID.
-- Nach dem ersten echten Neustart prüfen: erscheint neon wieder in
-  `ListAgents`, kam die Auftragsliste zurück (`neon-stand.md` im Gespräch),
-  beginnt der Verlauf neu (sonst spart der Neustart keine Token).
+- `tests/neon-neustart.sh` bleibt als Vorlage liegen; der LaunchAgent
+  `at.halo-spaces.neon-neustart` wird von `tests/mac-mini-setup.sh` nicht
+  eingerichtet und bei `--check` nicht verlangt (nur ein Hinweis, falls er doch
+  geladen ist).
+- Der Maintainer leert den Kontext täglich selbst mit `/clear` in `neon`. Vorher
+  fragt er mit `/bereit` (`.claude/commands/bereit.md`): neon prüft
+  `neon-stand.md`, Hintergrundläufe, Unteragenten, Zusagen und offene
+  Änderungen und antwortet „Frei für /clear“ oder „Nicht frei: …“ (AGENTS.md
+  „Arbeitsweise von neon“). Offene Aufträge kommen nach `/clear` über den
+  SessionStart-Hook zurück.
+- Idee für später (Board „Ablauf: neon täglich frisch per Archivieren testen“,
+  Wartet auf OK): Sitzung vor dem Neustart archivieren, damit Remote Control
+  eine neue anlegt.
 
 ## 13. Nachtlauf
 

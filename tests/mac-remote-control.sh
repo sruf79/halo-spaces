@@ -12,7 +12,9 @@
 # ~/halo-board statt des Repo-Ordners (tests/MAC-MINI.md Abschnitt 12). Das
 # Skript legt den Ordner an und schreibt bei jedem Start CLAUDE.md (Rolle) und
 # .claude/settings.json (SessionStart-Hook ~/.config/halo-spaces/neon-hook.sh,
-# Rechte) neu. Eigenes Protokoll über HALO_RC_LOG.
+# Rechte, Modell Sonnet mit niedriger Reasoning-Stufe: Routinearbeit, Entscheidung
+# des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja,
+# punkt 2 und 3 umsetzen.“) neu. Eigenes Protokoll über HALO_RC_LOG.
 # HALO_RC_NAME (Standard neon) benennt die Sitzungen, HALO_RC_MODUS setzt den
 # Rechte-Modus (Standard auto wie die Cloud-Sitzungen: bei verschiedenen Modi
 # bleiben Antworten an Cloud-Sitzungen ohne Abfrage hängen; was neon
@@ -60,13 +62,15 @@ gehören an die Sitzung neon – dem Absender das so antworten.
 Arbeitsweise:
 - Längere Aufträge: HALO_STAND_NAME=board $cfg/neon-stand.sh neu <von> "<Auftrag>",
   Stand mit notiz, nach der Antwort fertig (~/halo-aufgaben/board-stand.md).
-- Mehrere Einträge oder Bilder an einen Unteragenten (Agent), Ergebnis
-  höchstens 10 Zeilen.
+- Mehrere Einträge oder Bilder an einen Unteragenten (Agent, immer mit
+  model "sonnet"), Ergebnis höchstens 10 Zeilen.
 - Antworten mit SendMessage an den Namen der Sitzung aus ListAgents, knapp:
   Ergebnis, id, Fehlerzeile.
 TEXT
   cat > $d/.claude/settings.json <<TEXT || return 1
 {
+  "model": "sonnet",
+  "effortLevel": "low",
   "permissions": {
     "allow": [
       "ListAgents",

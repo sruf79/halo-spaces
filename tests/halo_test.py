@@ -4929,6 +4929,14 @@ def calendar_checks(m, results):
               return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f.gEndTime && f; }, "Termin-Dialog geladen", 8000);
             const id = iw.document;
             await bis(() => id.documentElement.hasAttribute("mc-apple-event") && id.querySelector("#event-endtime .mc-time-edit"), "Uhrzeit zum Eintippen", 4000);
+            // Linux (xvfb ohne Fenstermanager): Der Tastaturfokus des X-Servers folgt dem Mauszeiger, der unbewegt in der
+            // Bildschirmmitte steht – genau dort ginge die Liste der Endzeit auf. Ein Menü unter dem Zeiger nimmt dem Dialog
+            // den Fokus, Thunderbird klappt es sofort wieder zu (mit Fenstermanager nicht). Dialog daher so, dass der Zeiger
+            // im unteren Teil des Dialogs steht, unter den Listen
+            if (iw.navigator.platform.startsWith("Linux")) {
+              dw.moveTo(dw.screenX, Math.round(iw.screen.height / 2 - dw.outerHeight + 80));
+              await bis(() => Math.abs(dw.screenY - Math.round(iw.screen.height / 2 - dw.outerHeight + 80)) <= 2, "Dialog verschoben", 3000);
+            }
             await ruhig(600);
             const st = id.querySelector("#event-starttime timepicker"), et = id.querySelector("#event-endtime timepicker");
             const seg = (tp, k) => tp.querySelector(`.mc-time-seg[data-seg="${k}"]`);

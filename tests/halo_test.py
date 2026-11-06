@@ -4859,7 +4859,10 @@ def calendar_checks(m, results):
                 panels: id.querySelectorAll(".mc-time-panel, panel[type=arrow]:not([state=closed])").length,
                 mark: { bg: csOf(hs).backgroundColor, color: csOf(hs).color, radius: csOf(hs).borderTopLeftRadius, h: Math.round(hs.getBoundingClientRect().height),
                         cal: colorOf(id, "color-mix(in srgb, " + (testCalendar().getProperty("color") || "#FF9500") + " 90%, black)", "backgroundColor") } });
-              key("1"); key("4"); await ruhig(200);
+              // 12-Stunden-Format (Linux, en-US): erst Nachmittag, dann „02“ – 14 Uhr wie „14“ bei 24 Stunden
+              out.time.h12 = !!seg("ap");
+              if (out.time.h12) { tp.value = [13, 0]; await ruhig(200); key("0"); key("2"); } else { key("1"); key("4"); }
+              await ruhig(200);
               out.time.hour = [tp.value, id.activeElement?.dataset?.seg];
               key("3"); key("5"); await ruhig(400);
               out.time.after = tp.value; out.time.shown = edit.textContent;
@@ -4891,7 +4894,8 @@ def calendar_checks(m, results):
               and desc.get("font") == "13px" and ("system-ui" in desc.get("family", "") or "-apple-system" in desc.get("family", ""))
               and res["overflow"]["doc"][0] <= res["overflow"]["doc"][1] + 1
               and bool(tp) and tp["edit"] and tp["menulist"] == "none" and tp.get("picked") and tp.get("grid") == "closed" and tp.get("panels") == 0
-              and tp.get("hour") == [[14, 0], "m"] and tp.get("after") == [14, 35] and "14" in (tp.get("shown") or "") and "35" in (tp.get("shown") or "")
+              and tp.get("hour") == [[14, 0], "m"] and tp.get("after") == [14, 35]
+              and ("2:35" if tp.get("h12") else "14") in (tp.get("shown") or "") and "35" in (tp.get("shown") or "")
               and tp.get("dur") == tp.get("durBefore") and tp.get("arrow") == [15, 35] and tp.get("gridAfter") == "closed"
               and tp.get("wheelHour") == [16, 35] and (tp.get("wheelMinute") or [None])[0] == [16, 34])
         mk = tp.get("mark") or {}
@@ -4933,6 +4937,8 @@ def calendar_checks(m, results):
             const fmt = t => `${t.day}.${t.month + 1}. ${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
             const now = () => [fmt(iw.gStartTime), fmt(iw.gEndTime)];
             const list = id.querySelector(".mc-end-list");
+            // Tasten je Format (Linux, en-US: 12 Stunden – Stunde, Minuten, dann a/p)
+            const h12 = !!seg(st, "ap"), keys = (k24, k12) => (h12 ? k12 : k24);
             // 1. Beginn eintippen → Ende rückt mit (gleiche Dauer)
             down(seg(st, "h")); press(null, "0", "8"); await ruhig(300);
             out.start = now();
@@ -4956,7 +4962,7 @@ def calendar_checks(m, results):
             press(null, "Escape"); await ruhig(300);
             out.escape = list.state;
             // über Mitternacht: Beginn 23:00 → Liste bis 02:00 am Folgetag, Wahl setzt auch das Datum
-            down(seg(st, "h")); press(null, "2", "3"); await ruhig(300);
+            down(seg(st, "h")); press(null, ...keys(["2", "3"], ["1", "1", "ArrowRight", "ArrowRight", "p"])); await ruhig(300);
             down(seg(et, "h")); await bis(() => list.state == "open", "Liste über Mitternacht", 3000);
             out.night = { items: items().map(x => x[0]) };
             list.children[3].doCommand(); await ruhig(300); out.night.next = now();
@@ -4978,7 +4984,7 @@ def calendar_checks(m, results):
         ok = (res.get("start") == ["16.11. 08:00", "16.11. 09:00"] and res.get("end") == ["16.11. 08:00", "16.11. 11:00"]
               # (Dezimalzeichen nach der Region des Systems)
               and [i[1].replace(",", ".") for i in items] == ["30 minutes", "1 hour", "1.5 hours", "2 hours", "2.5 hours", "3 hours"]
-              and [i[2] for i in items] == [False] * 5 + [True] and "08:30" in (items[0][0] if items else "")
+              and [i[2] for i in items] == [False] * 5 + [True] and "8:30" in (items[0][0] if items else "")
               and same_color(look.get("accel", ""), look.get("secondary", "-")) and 4 <= look.get("gap", 0) <= 12 and look.get("check")
               and 0 <= look.get("below", -1) <= 8
               and res.get("pick") == ["16.11. 08:00", "16.11. 09:00"] and res.get("escape") == "closed"
@@ -8764,7 +8770,9 @@ def run_checks(m, version, profile, results):
               ?.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
             await bis(() => mini.state == "closed", "Monatskalender zu", 3000); await ruhig(200);
             out.day = [f.startDate.value, f.endDate.value, sd.textContent.includes("18"), qp.state];
-            down(seg(st, "h")); press("1", "4", "3", "0"); await ruhig(300);
+            // Tasten je Format (Linux, en-US: 12 Stunden – Stunde, Minuten, dann a/p)
+            const h12 = !!seg(st, "ap"), keys = (k24, k12) => (h12 ? k12 : k24);
+            down(seg(st, "h")); press(...keys(["1", "4", "3", "0"], ["0", "2", "3", "0", "p"])); await ruhig(300);
             out.time = [f.startTime.value, f.endTime.value, st.textContent.includes("30"), f.line1.textContent.includes("30")];
             // natürliche Eingabe im Titel ändert die von Hand gesetzten Zeiten nicht mehr
             f.title.value = "Mittagessen morgen 12 Uhr"; f.title.dispatchEvent(new w.Event("input", { bubbles: true })); await ruhig(200);

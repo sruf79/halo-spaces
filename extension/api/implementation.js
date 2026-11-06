@@ -506,6 +506,9 @@ const DE = {
   "1 minute before": "1 Minute vorher",
   "{n} minutes before": "{n} Minuten vorher",
   "{n} hours before": "{n} Stunden vorher",
+  "{n} minutes": "{n} Minuten",
+  "1 hour": "1 Stunde",
+  "{n} hours": "{n} Stunden",
   "{n} days before": "{n} Tage vorher",
 };
 const FR = {
@@ -983,6 +986,9 @@ const FR = {
   "1 minute before": "1 minute avant",
   "{n} minutes before": "{n} minutes avant",
   "{n} hours before": "{n} heures avant",
+  "{n} minutes": "{n} minutes",
+  "1 hour": "1 heure",
+  "{n} hours": "{n} heures",
   "{n} days before": "{n} jours avant",
 };
 const ES = {
@@ -1460,6 +1466,9 @@ const ES = {
   "1 minute before": "1 minuto antes",
   "{n} minutes before": "{n} minutos antes",
   "{n} hours before": "{n} horas antes",
+  "{n} minutes": "{n} minutos",
+  "1 hour": "1 hora",
+  "{n} hours": "{n} horas",
   "{n} days before": "{n} días antes",
 };
 const IT = {
@@ -1937,6 +1946,9 @@ const IT = {
   "1 minute before": "1 minuto prima",
   "{n} minutes before": "{n} minuti prima",
   "{n} hours before": "{n} ore prima",
+  "{n} minutes": "{n} minuti",
+  "1 hour": "1 ora",
+  "{n} hours": "{n} ore",
   "{n} days before": "{n} giorni prima",
 };
 const TRANSLATIONS = { de: DE, fr: FR, es: ES, it: IT };
@@ -9377,8 +9389,8 @@ function inlineTimeEdit(win, tp) {
   }
   const h12 = segs.some(el => el.dataset.seg == "ap");
   const off = () => tp.hasAttribute("disabled") || tp.hidden;
-  const render = () => {
-    const [h, m] = tp.value || [];
+  const render = (value = tp.value) => {
+    const [h, m] = value || [];
     if (!Number.isInteger(h)) {
       return;
     }
@@ -9414,7 +9426,7 @@ function inlineTimeEdit(win, tp) {
       },
       set(v) {
         desc.set.call(this, v);
-        Promise.resolve().then(render);
+        Promise.resolve().then(() => render());
       },
     });
   }
@@ -9423,7 +9435,17 @@ function inlineTimeEdit(win, tp) {
     tp.value = value; // meldet „change“ nur bei einer Änderung
     render();
   };
-  let buf = "";
+  // erste Ziffer, auf deren zweite gewartet wird: nur anzeigen, noch nicht
+  // übernehmen (sonst sprang z. B. das Ende beim Tippen von „11“ kurz auf 01:00
+  // vor den Beginn) – übernommen mit der zweiten Ziffer oder beim Weitergehen
+  let buf = "", pending = null;
+  const commit = () => {
+    if (pending) {
+      const value = pending;
+      pending = null;
+      write(value);
+    }
+  };
   // gewähltes Feld als Merkmal (nicht :focus – das gilt nur im aktiven Fenster)
   const mark = target => {
     for (const el of segs) {
@@ -9432,17 +9454,20 @@ function inlineTimeEdit(win, tp) {
   };
   const pick = el => {
     if (el) {
+      commit();
       buf = "";
       el.focus();
       mark(el);
     }
   };
   box.addEventListener("focusin", event => {
+    commit();
     buf = "";
     mark(event.target);
   });
   box.addEventListener("focusout", event => {
     if (!box.contains(event.relatedTarget)) {
+      commit();
       for (const el of segs) {
         el.removeAttribute("selected");
       }
@@ -9465,9 +9490,15 @@ function inlineTimeEdit(win, tp) {
     const seg = el.dataset.seg, value = tp.value, i = segs.indexOf(el);
     let handled = true;
     if (/^[0-9]$/.test(event.key) && seg != "ap") {
-      const r = timeTypeDigit(seg, buf, event.key, value, h12);
+      const r = timeTypeDigit(seg, buf, event.key, pending || value, h12);
       buf = r.buf;
-      write(r.value);
+      if (r.buf) {
+        pending = r.value;
+        render(pending);
+      } else {
+        pending = null;
+        write(r.value);
+      }
       if (r.next && segs[i + 1]) {
         pick(segs[i + 1]);
       }
@@ -9477,13 +9508,18 @@ function inlineTimeEdit(win, tp) {
         write(timeStep("ap", value, 1));
       }
     } else if (event.key == "ArrowUp" || event.key == "ArrowDown") {
+      commit();
       buf = "";
-      write(timeStep(seg, value, event.key == "ArrowUp" ? 1 : -1));
+      write(timeStep(seg, tp.value, event.key == "ArrowUp" ? 1 : -1));
     } else if (event.key == "ArrowLeft" || event.key == "ArrowRight") {
       pick(segs[i + (event.key == "ArrowRight" ? 1 : -1)]);
     } else if (event.key == "Backspace" || event.key == "Delete") {
+      pending = null;
       buf = "";
+      render();
     } else {
+      // Eingabe, Tab o. ä.: Angefangenes übernehmen
+      commit();
       handled = false;
     }
     if (handled) {
@@ -9521,6 +9557,89 @@ function inlineTimeEdit(win, tp) {
   return { box, segs, pick };
 }
 
+// Dauer für die Auswahlliste der Endzeit: „30 minutes“, „1 hour“, „1,5 hours“
+// (Dezimalzeichen nach der Region des Systems)
+function durationText(minutes, locale = regionLocale()) {
+  if (minutes < 60) {
+    return tr("{n} minutes", { n: minutes });
+  }
+  if (minutes == 60) {
+    return tr("1 hour");
+  }
+  return tr("{n} hours", { n: new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(minutes / 60) });
+}
+
+// Endzeit im Termin wie Apple Kalender: Klick in die Uhrzeit des Endes zeigt
+// darunter die nächsten sechs Zeiten im 30-Minuten-Raster ab dem Beginn mit
+// der Dauer, die aktuelle mit Häkchen; Tippen geht weiter (die Liste nimmt
+// keine Tasten), Klick auf eine Zeile setzt das Ende – auch über Mitternacht
+function endTimeList(win, dtp, edit) {
+  const doc = win.document;
+  const dp = dtp.querySelector("datepicker"), tp = dtp.querySelector("timepicker");
+  const fmt = new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" });
+  const list = doc.createXULElement("menupopup");
+  list.className = "mc-end-list";
+  list.setAttribute("ignorekeys", "true");
+  (doc.querySelector("popupset") || doc.documentElement).append(list);
+  const setEnd = t => {
+    // Reihenfolge so, dass das Ende zwischendurch nie vor dem Beginn liegt
+    const date = () => (dp.value = t), time = () => (tp.value = [t.getHours(), t.getMinutes()]);
+    if (t > dtp.value) {
+      date();
+      time();
+    } else {
+      time();
+      date();
+    }
+  };
+  const fill = () => {
+    const start = doc.getElementById("event-starttime")?.value, end = dtp.value;
+    list.replaceChildren();
+    for (let k = 1; k <= 6; k++) {
+      const t = new Date(start.getTime() + k * 30 * 60000);
+      const item = doc.createXULElement("menuitem");
+      item.setAttribute("type", "checkbox");
+      item.setAttribute("label", fmt.format(t));
+      item.setAttribute("acceltext", durationText(k * 30));
+      if (t.getTime() == end.getTime()) {
+        item.setAttribute("checked", "true");
+      }
+      item.addEventListener("command", () => setEnd(t));
+      list.append(item);
+    }
+  };
+  // nur im Termin-Fenster (nicht „Teilnehmer einladen“), nicht ganztägig
+  const usable = () => doc.documentElement.hasAttribute("mc-apple-event") && !tp.hasAttribute("disabled") &&
+    !!doc.getElementById("event-starttime")?.value?.getTime;
+  edit.box.addEventListener("mousedown", event => {
+    if (event.button != 0 || !usable() || list.state == "open" || list.state == "showing") {
+      return;
+    }
+    fill();
+    // knapp unter dem Feld, die Zeiten der Liste etwas links der Uhrzeit des
+    // Feldes (Häkchen-Spalte davor)
+    list.openPopup(edit.box, "after_start", -40, 0, false, false);
+  });
+  dtp.addEventListener("change", () => {
+    if (list.state == "open") {
+      fill();
+    }
+  });
+  edit.box.addEventListener("focusout", event => {
+    if (!edit.box.contains(event.relatedTarget)) {
+      list.hidePopup();
+    }
+  });
+  edit.box.addEventListener("keydown", event => {
+    if (event.key == "Escape" && list.state == "open") {
+      list.hidePopup();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+  return list;
+}
+
 function hookDateTimePickers(win) {
   for (const dtp of win.document.querySelectorAll("datetimepicker")) {
     const dp = dtp.querySelector("datepicker"), tp = dtp.querySelector("timepicker");
@@ -9530,6 +9649,9 @@ function hookDateTimePickers(win) {
     }
     dtp.__mcCombined = true;
     const edit = inlineTimeEdit(win, tp);
+    if (dtp.id == "event-endtime") {
+      endTimeList(win, dtp, edit);
+    }
     // Thunderbirds Stundenraster nie öffnen (Alt+↓ o. ä.): stattdessen die Stunden wählen
     timePopup.addEventListener("popupshowing", event => {
       if (event.target == timePopup) {

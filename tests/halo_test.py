@@ -4856,6 +4856,84 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Minimonat ruhig; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
+    def event_end_list():
+        # Endzeit wie Apple Kalender: Beginn eintippen nimmt das Ende mit (gleiche Dauer), Ende eintippen lässt den Beginn
+        # stehen; Klick in die Uhrzeit des Endes zeigt die nächsten sechs Zeiten im 30-Minuten-Raster ab dem Beginn mit Dauer,
+        # Häkchen bei der aktuellen, Klick auf eine Zeile setzt das Ende – auch über Mitternacht; ganztägig keine Liste
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const out = {}; let dw = null;
+          try {
+            await toCalendar(); w.switchToView("week");
+            const s = cal.dtz.now(); s.year = 2026; s.month = 10; s.day = 16; s.hour = 10; s.minute = 0; s.second = 0; const en = s.clone(); en.hour = 11;
+            w.createEventWithDialog(testCalendar(), s, en, "Halo Endzeit");
+            dw = await winUrl("calendar-event-dialog.xhtml"); if (!dw) return { dialog: false };
+            const iw = await bis(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+              return f?.document.readyState == "complete" && f.document.getElementById("event-grid") && f.gEndTime && f; }, "Termin-Dialog geladen", 8000);
+            const id = iw.document;
+            await bis(() => id.documentElement.hasAttribute("mc-apple-event") && id.querySelector("#event-endtime .mc-time-edit"), "Uhrzeit zum Eintippen", 4000);
+            await ruhig(600);
+            const st = id.querySelector("#event-starttime timepicker"), et = id.querySelector("#event-endtime timepicker");
+            const seg = (tp, k) => tp.querySelector(`.mc-time-seg[data-seg="${k}"]`);
+            const press = (el, ...keys) => { for (const k of keys) (id.activeElement || el).dispatchEvent(new iw.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true })); };
+            const down = el => el.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            const fmt = t => `${t.day}.${t.month + 1}. ${String(t.hour).padStart(2, "0")}:${String(t.minute).padStart(2, "0")}`;
+            const now = () => [fmt(iw.gStartTime), fmt(iw.gEndTime)];
+            const list = id.querySelector(".mc-end-list");
+            // 1. Beginn eintippen → Ende rückt mit (gleiche Dauer)
+            down(seg(st, "h")); press(null, "0", "8"); await ruhig(300);
+            out.start = now();
+            // 2. Ende eintippen → Beginn bleibt; Liste geht beim Klick auf; Tippen geht weiter (Häkchen folgt)
+            down(seg(et, "h")); await bis(() => list?.state == "open", "Liste der Endzeit offen", 3000);
+            press(null, "1", "1"); await ruhig(300);
+            out.end = now();
+            const items = () => [...list.children].map(i => [i.getAttribute("label"), i.getAttribute("acceltext"), i.getAttribute("checked") == "true"]);
+            out.items = items();
+            const it = list.children[1];
+            out.look = { accel: csOf(it.querySelector(".menu-accel")).color, secondary: colorOf(id, "var(--mt-text-secondary)"),
+                         gap: Math.round(it.querySelector(".menu-accel").getBoundingClientRect().left - it.querySelector(".menu-text").getBoundingClientRect().right),
+                         check: csOf(list.children[5].querySelector(".menu-icon")).content.includes("check.svg"),
+                         below: Math.round(list.getBoundingClientRect().top - seg(et, "h").getBoundingClientRect().bottom) };
+            // 3. Klick auf eine Zeile setzt das Ende (Beginn bleibt)
+            list.children[1].doCommand(); await ruhig(300);
+            out.pick = now();
+            await shutPop(list);
+            // Escape schließt die Liste
+            down(seg(et, "m")); await bis(() => list.state == "open", "Liste erneut offen", 3000);
+            press(null, "Escape"); await ruhig(300);
+            out.escape = list.state;
+            // über Mitternacht: Beginn 23:00 → Liste bis 02:00 am Folgetag, Wahl setzt auch das Datum
+            down(seg(st, "h")); press(null, "2", "3"); await ruhig(300);
+            down(seg(et, "h")); await bis(() => list.state == "open", "Liste über Mitternacht", 3000);
+            out.night = { items: items().map(x => x[0]) };
+            list.children[3].doCommand(); await ruhig(300); out.night.next = now();
+            list.children[0].doCommand(); await ruhig(300); out.night.back = now();
+            await shutPop(list);
+            // ganztägig: keine Liste
+            id.getElementById("event-all-day").click(); await ruhig(400);
+            down(seg(et, "h")); await ruhig(400);
+            out.allDay = list.state;
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+          }
+          return out;""")
+        if res.get("dialog") is False:
+            return False, "Termin-Dialog nicht offen"
+        items = res.get("items") or []
+        night = res.get("night") or {}
+        look = res.get("look") or {}
+        ok = (res.get("start") == ["16.11. 08:00", "16.11. 09:00"] and res.get("end") == ["16.11. 08:00", "16.11. 11:00"]
+              # (Dezimalzeichen nach der Region des Systems)
+              and [i[1].replace(",", ".") for i in items] == ["30 minutes", "1 hour", "1.5 hours", "2 hours", "2.5 hours", "3 hours"]
+              and [i[2] for i in items] == [False] * 5 + [True] and "08:30" in (items[0][0] if items else "")
+              and same_color(look.get("accel", ""), look.get("secondary", "-")) and 4 <= look.get("gap", 0) <= 12 and look.get("check")
+              and 0 <= look.get("below", -1) <= 8
+              and res.get("pick") == ["16.11. 08:00", "16.11. 09:00"] and res.get("escape") == "closed"
+              and len(night.get("items") or []) == 6 and night.get("next") == ["16.11. 23:00", "17.11. 01:00"]
+              and night.get("back") == ["16.11. 23:00", "16.11. 23:30"] and res.get("allDay") != "open")
+        return ok, f"{res}"
+    check("Termin-Dialog: Endzeit – Beginn eintippen nimmt das Ende mit, Ende eintippen lässt den Beginn stehen, Klick zeigt sechs Zeiten mit Dauer (Häkchen, Wahl setzt das Ende, auch über Mitternacht), ganztägig keine Liste", event_end_list, results)
+
     def event_multiday():
         # mehrtägige Termine wie Apple Kalender: Ende ändern lässt den Beginn stehen (vorher schob die dauerhaft
         # eingeschaltete Kopplung „Dauer beibehalten“ ihn mit – Beginn = Ende beim Speichern); Beginn verschieben

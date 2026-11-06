@@ -10091,6 +10091,40 @@ timepicker[mc-inline] > menulist {
   color: #FFFFFF;
 }
 
+/* Endzeit: Auswahlliste mit Dauer unter der Uhrzeit des Endes – Uhrzeit,
+   daneben grau die Dauer (linksbündig wie eine zweite Spalte), Häkchen bei
+   der aktuellen (dünn und grau). Das Termin-Fenster lässt per CSP nur
+   chrome:-Bilder zu, daher Thunderbirds Haken statt des eigenen */
+.mc-end-list > menuitem > .menu-text {
+  flex: none !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-end-list > menuitem > .menu-accel {
+  flex: 1 !important;
+  margin-inline: 8px 0 !important;
+  text-align: start !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+.mc-end-list > menuitem[_moz-menuactive] > .menu-accel {
+  color: inherit !important;
+}
+
+.mc-end-list > menuitem[checked="true"] > .menu-icon {
+  content: url("chrome://global/skin/icons/check.svg") !important;
+  box-sizing: border-box !important;
+  width: 16px !important;
+  height: 16px !important;
+  padding: 3px !important;
+  -moz-context-properties: fill !important;
+  fill: var(--mt-text-secondary) !important;
+}
+
+.mc-end-list > menuitem[checked="true"][_moz-menuactive] > .menu-icon {
+  fill: currentColor !important;
+}
+
 /* ---------- Bedienungshilfen: „Kontrast erhöhen“ (macOS) ----------
    prefers-contrast: more – kräftigere Linien und Sekundärtexte, Rahmen um
    Eingabefelder und die Auswahl wieder sichtbar; Layout und Symbole bleiben.

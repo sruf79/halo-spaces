@@ -56,3 +56,10 @@ test("Uhrzeit: Pfeiltasten ändern nur das gewählte Feld", () => {
   assert.deepEqual(timeStep("ap", [9, 30], 1), [21, 30]);
   assert.deepEqual(timeStep("ap", [21, 30], -1), [9, 30]);
 });
+
+test("Uhrzeit: Dauer in der Auswahlliste der Endzeit, Dezimalzeichen nach der Region", () => {
+  const de = lade({ locale: "de-DE" }), en = lade({ locale: "en-US" });
+  assert.deepEqual([30, 60, 90, 120, 150, 180].map(m => de.durationText(m)),
+    ["30 Minuten", "1 Stunde", "1,5 Stunden", "2 Stunden", "2,5 Stunden", "3 Stunden"]);
+  assert.deepEqual([30, 60, 90].map(m => en.durationText(m)), ["30 minutes", "1 hour", "1.5 hours"]);
+});

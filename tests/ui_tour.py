@@ -1119,6 +1119,10 @@ SURFACES = [
     S("kal-termin-uhrzeit", "kalender", "dialog", "Termin-Dialog: Uhrzeit zum Eintippen (Stunden gewählt, wie Apple Kalender)",
       'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-starttime .mc-time-seg"); if (!s) throw new Error("Uhrzeitfeld fehlt");'
       ' s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));', cap="window", win="calendar-event-dialog"),
+    S("kal-termin-endzeit", "kalender", "popup", "Termin-Dialog: Endzeit – Auswahlliste mit Dauer (Klick in die Uhrzeit des Endes)",
+      'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-endtime .mc-time-seg"); const p = iw.document.querySelector(".mc-end-list");'
+      ' if (!s || !p) throw new Error("Endzeit-Liste fehlt");'
+      ' return await pop(p, () => s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
     S("kal-termin-kategorien", "kalender", "popup", "Termin-Dialog: Kategorien (Auswahl mit Häkchen)",
       'const { iw } = await eventDialog(); const ml = iw.document.getElementById("item-categories"); if (!ml) throw new Error("Kategorien fehlen");'
       ' return await openBtnPop(iw.document.getElementById("item-categories-popup"), ml);', cap="popup"),

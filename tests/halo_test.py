@@ -4824,6 +4824,12 @@ def calendar_checks(m, results):
             out.grid.rows = csOf(inner).backgroundImage.includes("to bottom");
             out.icon = role ? (csOf(role).content || "").slice(0, 60) : null;
             out.combined = !!ad.querySelector(".mc-time-panel .mc-dtp-time") && !ad.querySelector("#event-starttime datepicker menupopup .mc-dtp-time");
+            // „OK“ in Akzentfarbe, Datum/Uhrzeit 28 px mit Haarlinie, Legende „Busy“ hell und dunkel sichtbar
+            const acc = ad.querySelector("dialog").getButton("accept");
+            out.ok = { dflt: acc.hasAttribute("default"), bg: csOf(acc).backgroundColor, accent: colorOf(ad, "var(--mt-accent)", "backgroundColor") };
+            out.fields = [...ad.querySelectorAll("#event-starttime, #event-endtime")].flatMap(d => [...d.querySelectorAll("input, menulist, .datepicker-menulist, .timepicker-menulist, datetextpicker, timepicker")].filter(vis))
+              .slice(0, 4).map(f => [f.localName + (f.className ? "." + String(f.className).split(" ")[0] : ""), Math.round(f.getBoundingClientRect().height), csOf(f).borderTopWidth, csOf(f).borderTopColor]);
+            out.busy = { bg: csOf(legend).backgroundColor, win: colorOf(ad, "var(--mt-window)", "backgroundColor") };
           } finally {
             if (aw && !aw.closed) { aw.close(); await till(() => aw.closed, 4000); }
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
@@ -4837,9 +4843,10 @@ def calendar_checks(m, results):
               and same_color(res["bar"]["border"], res["bar"]["accent"]) and not res["bar"]["topVisible"] and res["bar"]["below"] and res["bar"]["topWidth"] == "1px"
               and res["legend"]["border"] == "0px" and res["legend"]["radius"] == "50%" and res["legend"]["w"] == res["legend"]["h"]
               and len(res["labelColors"]) == 1
-              and res["icon"] and "mailcards/icons/user.svg" in res["icon"] and res["combined"])
+              and res["icon"] and "mailcards/icons/user.svg" in res["icon"] and res["combined"]
+              and same_color(res["ok"]["bg"], res["ok"]["accent"]) and contrast(res["busy"]["bg"], res["busy"]["win"]) >= 3)
         return ok, f"{res}"
-    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, einfarbige Symbole, Akzent statt Pink, Datum/Uhrzeit-Popover", attendees_dialog, results)
+    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, einfarbige Symbole, Akzent statt Pink, Datum/Uhrzeit-Popover, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
 
     def event_window_still():
         # Termin-Fenster springt nach dem Öffnen nicht: Detailansicht (Doppelklick auf einen Termin) und Bearbeiten –

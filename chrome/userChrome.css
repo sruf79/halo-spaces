@@ -3461,10 +3461,11 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   border-radius: 999px !important;
 }
 
-/* Junk-Protokoll: „Close“ ist der einzige Knopf, Thunderbird markiert ihn aber
-   nicht als Standardknopf – grau statt in der Akzentfarbe. Nur über das
-   Dokument erreichbar (Schatten-DOM des Dialogs, siehe „Öffnen von …“) */
-@-moz-document url("chrome://messenger/content/junkLog.xhtml") {
+/* Junk-Protokoll und „Teilnehmer einladen“: Thunderbird markiert „Close“
+   bzw. „OK“ nicht als Standardknopf – grau statt in der Akzentfarbe. Nur über
+   das Dokument erreichbar (Schatten-DOM des Dialogs, siehe „Öffnen von …“) */
+@-moz-document url("chrome://messenger/content/junkLog.xhtml"),
+               url("chrome://calendar/content/calendar-event-dialog-attendees.xhtml") {
   button[part~="dialog-button"][dlgtype="accept"]:not([disabled]) {
     appearance: none !important;
     background-color: var(--mt-accent) !important;
@@ -13626,6 +13627,15 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   block-size: 9px !important;
   border: none !important;
   border-radius: 50% !important;
+}
+
+/* „Belegt“ dunkel: Thunderbirds Marineblau (#153e7e) verschwand auf dem
+   dunklen Grund – Balken und Legendenpunkt hell genug zum Erkennen */
+@media (prefers-color-scheme: dark) {
+  #calendar-event-dialog-attendees-v2 :is(.freebusy-row > .busy, .legend[status="BUSY"]) {
+    background-color: color-mix(in srgb, #1589ff 55%, white) !important;
+    color: color-mix(in srgb, #1589ff 55%, white) !important;
+  }
 }
 
 #calendar-event-dialog-attendees-v2 :is(td, label, .legend + *) {

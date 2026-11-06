@@ -9856,6 +9856,15 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border-radius: 50% !important;
 }
 
+/* „Belegt“ dunkel: Thunderbirds Marineblau (#153e7e) verschwand auf dem
+   dunklen Grund – Balken und Legendenpunkt hell genug zum Erkennen */
+@media (prefers-color-scheme: dark) {
+  #calendar-event-dialog-attendees-v2 :is(.freebusy-row > .busy, .legend[status="BUSY"]) {
+    background-color: color-mix(in srgb, #1589ff 55%, white) !important;
+    color: color-mix(in srgb, #1589ff 55%, white) !important;
+  }
+}
+
 #calendar-event-dialog-attendees-v2 :is(td, label, .legend + *) {
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }

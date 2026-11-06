@@ -23,9 +23,9 @@ dauer=$(( SECONDS - start ))
 print "Exitcode $code nach $((dauer / 60)) min $((dauer % 60)) s – volles Log: $log"
 treffer=$(grep -E 'FEHLER|KONSOLE  |PROTOKOLL  |Traceback|Error:|error:' $log)
 if [[ -n $treffer ]]; then
-  print "--- Fehlerzeilen ($(print -r -- $treffer | wc -l | tr -d ' '), höchstens 40):"
+  print -r -- "--- Fehlerzeilen ($(print -r -- $treffer | wc -l | tr -d ' '), höchstens 40):"
   print -r -- $treffer | head -40
 fi
-print "--- Ende:"
+print -r -- "--- Ende:"
 tail -12 $log
 exit $code

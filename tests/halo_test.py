@@ -12139,6 +12139,36 @@ Neu
           "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeugsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
+    def addons_buttons():
+        # Add-ons-Verwaltung (Liste, Themes, Detail, halo-Einstellungen): sichtbare Fläche jedes moz-button ist seit
+        # Thunderbird 159 das Teil [part=button] im Knopf, der Knopf selbst bleibt eckig ohne Fläche. Textknöpfe
+        # („Enable“ bei den Themes) und die Symbolknöpfe im Kopf als 28-px-Kapsel mit Knopffläche, „…“ in der Karte
+        # 24 px rund ohne Fläche
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const ID = "mail-cards@sebastian.local";
+          const out = {};
+          for (const [k, v] of [["list", "addons://list/extension"], ["theme", "addons://list/theme"], ["detail", "addons://detail/" + encodeURIComponent(ID)],
+                                ["pref", "addons://detail/" + encodeURIComponent(ID) + "/preferences"]]) {
+            w.openAddonsMgr(v);
+            const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector(k == "theme" ? "addon-card moz-button.theme-enable-button" : "addon-card .more-options-button") && x; }, "about:addons " + k, 8000);
+            await ruhig(800);
+            const aw = ad.defaultView; const cs = e => aw.getComputedStyle(e); const R = e => e.getBoundingClientRect();
+            const probe = v => { const p = ad.createElement("div"); p.style.backgroundColor = v; ad.body.append(p); const c = cs(p).backgroundColor; p.remove(); return c; };
+            const ctl = probe("var(--mt-control)");
+            out[k] = [...ad.querySelectorAll("moz-button")].map(h => [h, h.shadowRoot?.querySelector('[part~="button"]')]).filter(([h, b]) => b && R(b).width)
+              .map(([h, b]) => [h.closest("addon-card") ? (h.matches(".more-options-button") ? "karte-symbol" : "karte-text") : "kopf",
+                                Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == ctl ? "fläche" : cs(b).backgroundColor]);
+          }
+          tm.closeTab(tm.currentTabInfo); await ruhig(300);
+          return out;''')
+        want = {"kopf": [28, "999px", "fläche"], "karte-text": [28, "999px", "fläche"], "karte-symbol": [24, "50%", "rgba(0, 0, 0, 0)"]}
+        ok = all(res.get(k) for k in ("list", "theme", "detail", "pref")) and any(b[0] == "karte-text" for b in res["theme"]) \
+            and all(b[1:] == want[b[0]] for v in res.values() for b in v)
+        return ok, f"{res}"
+    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche",
+          addons_buttons, results)
+
     def tasks_view():
         # Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapsel-Knöpfe
         res = m.js(r'''

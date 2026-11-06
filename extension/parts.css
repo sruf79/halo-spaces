@@ -144,6 +144,22 @@ addon-card .more-options-button::part(button):hover {
   background-color: var(--mt-control-hover) !important;
 }
 
+/* Add-ons-Verwaltung: Textknöpfe in den Karten („Enable“ bei den Themes)
+   als 28-px-Kapsel mit der üblichen Knopffläche wie die übrigen Knöpfe in
+   halo.spaces statt 24 px hoch; die Symbolknöpfe „…“ bleiben wie oben */
+addon-card moz-button:not(.more-options-button)::part(button) {
+  min-height: 28px !important;
+  padding-inline: 12px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+addon-card moz-button:not(.more-options-button)::part(button):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
 /* Add-ons-Verwaltung: Zeilen der Menüs („…“ an der Karte, Zahnrad im Kopf)
    wie die übrigen halo-Menüs – 22 px hoch, 6 px Radius, beim Überfahren und
    mit Tastaturfokus Akzentfläche statt Grau bzw. blauem Rechteckring. Hover

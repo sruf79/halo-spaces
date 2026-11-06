@@ -3666,6 +3666,59 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   }
 }
 
+/* Konfiguration (about:config): Knöpfe als 28-px-Kapsel mit Knopffläche,
+   Suchfeld als Kapsel ohne Rand und ohne Hover-Zustand (erst der Fokus zeigt
+   den Ring), Tabelle mit Haarlinie; dunkel ohne die hell gefüllte Grafik */
+@-moz-document url-prefix("about:config") {
+  :root {
+    --border-color: var(--mt-pane-line) !important;
+    --background-color-canvas: var(--mt-window) !important;
+  }
+  :root, body, #toolbar {
+    background-color: var(--mt-window) !important;
+  }
+  button:not(.primary) {
+    appearance: none !important;
+    border: none !important;
+    border-radius: 999px !important;
+    background-color: var(--mt-control) !important;
+    color: var(--mt-text) !important;
+    min-height: 28px !important;
+    padding-block: 0 !important;
+  }
+  button:not(.primary, [class^="button-"]) {
+    padding-inline: 14px !important;
+  }
+  button:not(.primary, [disabled]):hover {
+    background-color: var(--mt-control-hover) !important;
+  }
+  #prefs > tr > td > button[class^="button-"] {
+    margin-block: 2px !important;
+  }
+  #about-config-search,
+  #about-config-search:hover {
+    appearance: none !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    border: none !important;
+    border-radius: 999px !important;
+    background-color: var(--mt-control) !important;
+    box-shadow: none !important;
+  }
+  #prefs {
+    border: var(--mt-hairline) solid var(--mt-pane-line) !important;
+    border-radius: 7px !important;
+  }
+  #prefs:not(:has(tr)) {
+    border: none !important;
+  }
+  @media (prefers-color-scheme: dark) {
+    .config-background {
+      display: none !important;
+    }
+  }
+}
+
 /* Gespeicherte Dateien (about:downloads): Fläche, Knopf, Suchfeld und Liste
    wie im übrigen Design statt eckigem Toolkit-Grau (dunkel Navy-Grund) */
 #aboutDownloads,

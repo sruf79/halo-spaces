@@ -3304,6 +3304,31 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Fehlerbehebung: Knöpfe in about:support als 28-px-Kapsel mit Knopffläche", support_page, results)
 
+    def config_page():
+        # Konfiguration (about:config): „Show All“ und die Knöpfe der Tabelle als 28-px-Kapsel mit Knopffläche,
+        # Suchfeld als 28-px-Kapsel ohne Rand, das sich beim Überfahren nicht ändert
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300);
+          Services.prefs.setBoolPref("browser.aboutConfig.showWarning", false);
+          const t = tm.openTab("contentTab", { url: "about:config", background: false });
+          try { await bis(() => t.browser?.contentDocument?.getElementById("about-config-search") && t.browser.contentWindow.__mcTheme, "about:config mit Design", 8000); await ruhig(400);
+            const dd = t.browser.contentDocument;
+            const btn = b => { const s = csOf(b); return [b.id || b.className, Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor]; };
+            const show = btn(dd.getElementById("show-all"));
+            const sf = dd.getElementById("about-config-search"), fs = () => { const s = csOf(sf); return [Math.round(sf.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor]; };
+            const field = fs();
+            InspectorUtils.addPseudoClassLock(sf, ":hover"); const hover = fs(); InspectorUtils.removePseudoClassLock(sf, ":hover");
+            dd.getElementById("show-all").click(); await bis(() => dd.querySelector("#prefs .button-edit, #prefs .button-toggle"), "Tabelle", 8000); await ruhig(300);
+            const row = [...dd.querySelectorAll("#prefs button")].filter(b => b.getClientRects().length).slice(0, 4).map(btn);
+            return { show, field, hover, row, control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
+          } finally { tm.closeTab(t); Services.prefs.clearUserPref("browser.aboutConfig.showWarning"); await ruhig(300); }""")
+        caps = [res["show"]] + res["row"]
+        ok = (len(res["row"]) >= 2 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) for _, h, r, bg in caps)
+              and res["field"][0] == 28 and res["field"][1] == "999px" and res["field"][2] == "0px"
+              and same_color(res["field"][3], res["control"]) and res["field"] == res["hover"])
+        return ok, f"{res}"
+    check("Konfiguration: Knöpfe und Suchfeld in about:config als 28-px-Kapsel, Suchfeld ohne Hover", config_page, results)
+
     def import_export():
         # Import und Export (about:import): Fläche in Fensterfarbe wie die übrigen Tabs, dunkel nicht Firefox-Blauschwarz #18181B
         # (der leichte Schleier des body bleibt, damit sich hell die weiße Karte abhebt)

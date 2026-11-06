@@ -1,7 +1,8 @@
 Unbeaufsichtigte Doku-Prüfung halo.spaces auf neon (gestartet von
 tests/wochenpruefung.sh --doku, samstags 08:00). Niemand sieht zu, niemand
-antwortet auf Rückfragen. AGENTS.md gilt vollständig; Abweichungen und
-Ergänzungen stehen hier. Ziel: Sind die .md-Dateien des Repos richtig,
+antwortet auf Rückfragen. AGENTS.md gilt vollständig (dazu ENTSCHEIDUNGEN.md
+und docs/*.md, aus AGENTS.md ausgelagert; sie zählen als eine Datei beim Prüfen
+auf Widersprüche und Doppeltes); Abweichungen und Ergänzungen stehen hier. Ziel: Sind die .md-Dateien des Repos richtig,
 widerspruchsfrei, aktuell und knapp – und was lässt sich daran verbessern?
 Gegenstück zur Wochenprüfung (sonntags, Läufe und Prüfungen).
 
@@ -17,6 +18,12 @@ Gegenstück zur Wochenprüfung (sonntags, Läufe und Prüfungen).
   mit“) – das entscheidet in Abschnitt 4 über den Push.
 
 ## 1. Prüfen
+
+Der Wächter `tests/doku_kern_check.sh` ist schon gelaufen (Protokoll, bei Rot steht
+„WÄCHTER ROT“ im Hinweis oben): Die harten Sperren und Pflichtbegriffe müssen in
+AGENTS.md stehen (Push-Sperre, Release nur auf neon mit Testmarke, Datenschutz, Board
+nie öffentlich, `if:`-Bedingung der Mac-Jobs, Runner.Worker), keine @-Importe. Rot beheben
+(Text zurück in AGENTS.md), Wächter nie lockern; neue Pflichtbegriffe darf der Wächter dazubekommen.
 
 Steht im Auftrag davor „Vollprüfung“, gilt der Rest dieses Abschnitts für alle
 .md-Dateien. Steht dort „Teilprüfung“ (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „nein die doku prüfung soll auch widersprüche sehen“; Umsetzung ist die Deutung der Sitzung global.design.comparison): die genannten

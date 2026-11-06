@@ -121,6 +121,14 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     notbericht "übersprungen" "nichts zu prüfen: $GRUND"
     exit 0
   fi
+  # Wächter für den Kern: harte Sperren und Pflichtbegriffe müssen in AGENTS.md stehen, keine
+  # @-Importe (tests/doku_kern_check.sh); Rot geht als Hinweis in den Auftrag an Claude
+  if KERN=$(zsh $REPO/tests/doku_kern_check.sh $REPO/AGENTS.md 2>&1); then
+    log "Wächter AGENTS.md: ${KERN%%$'\n'*}"
+  else
+    log "Wächter AGENTS.md ROT: ${KERN//$'\n'/ | }"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/doku_kern_check.sh): ${KERN//$'\n'/ | } – fehlende Sperren oder Begriffe wiederherstellen (nicht den Wächter lockern); gehört die Regel nicht mehr in den Kern, nur mit Entscheidung des Maintainers (Eintrag „Doku: …“ mit „Wartet auf OK“)."
+  fi
 fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis

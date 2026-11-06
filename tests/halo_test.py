@@ -8763,6 +8763,8 @@ def run_checks(m, version, profile, results):
           const qp = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
           const f = qp.__mc, out = {};
           try {
+            // erst wenn der Titel den Fokus hat (kommt verzögert) – sonst schließt das den Monatskalender gleich wieder
+            await bis(() => d.activeElement == f.title, "Titel im Fokus", 3000);
             f.summary.click(); await bis(() => vis(f.allDay), "Schnellfenster aufgeklappt", 3000);
             // feste Zeiten (ohne „change“ – sonst schöbe schon das Setzen das Ende mit)
             f.startDate.value = "2026-11-16"; f.startTime.value = "09:00"; f.endDate.value = "2026-11-16"; f.endTime.value = "10:00";

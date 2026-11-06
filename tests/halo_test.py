@@ -4968,6 +4968,13 @@ def calendar_checks(m, results):
             list.children[3].doCommand(); await ruhig(300); out.night.next = now();
             list.children[0].doCommand(); await ruhig(300); out.night.back = now();
             await shutPop(list);
+            // eingetipptes Ende (23:30 → „01“, Minuten bleiben) vor dem Beginn am selben Tag → Folgetag, ohne Hinweis „Ende vor Beginn“ (gWarning
+            // steht sofort nach der Änderung); Stunden „23“, dann Minuten „45“ holen es wieder auf den Tag des Beginns
+            down(seg(et, "h")); press(null, ...keys(["0", "1"], ["0", "1", "ArrowRight", "a"])); out.night.warn = iw.gWarning; await ruhig(300);
+            out.night.typed = now();
+            down(seg(et, "h")); press(null, ...keys(["2", "3", "4", "5"], ["1", "1", "4", "5", "p"])); out.night.warn2 = iw.gWarning; await ruhig(300);
+            out.night.typedBack = now();
+            await shutPop(list);
             // ganztägig: keine Liste
             id.getElementById("event-all-day").click(); await ruhig(400);
             down(seg(et, "h")); await ruhig(400);
@@ -4989,9 +4996,11 @@ def calendar_checks(m, results):
               and 0 <= look.get("below", -1) <= 8
               and res.get("pick") == ["16.11. 08:00", "16.11. 09:00"] and res.get("escape") == "closed"
               and len(night.get("items") or []) == 6 and night.get("next") == ["16.11. 23:00", "17.11. 01:00"]
-              and night.get("back") == ["16.11. 23:00", "16.11. 23:30"] and res.get("allDay") != "open")
+              and night.get("back") == ["16.11. 23:00", "16.11. 23:30"] and res.get("allDay") != "open"
+              and night.get("typed") == ["16.11. 23:00", "17.11. 01:30"] and night.get("typedBack") == ["16.11. 23:00", "16.11. 23:45"]
+              and night.get("warn") is False and night.get("warn2") is False)
         return ok, f"{res}"
-    check("Termin-Dialog: Endzeit – Beginn eintippen nimmt das Ende mit, Ende eintippen lässt den Beginn stehen, Klick zeigt sechs Zeiten mit Dauer (Häkchen, Wahl setzt das Ende, auch über Mitternacht), ganztägig keine Liste", event_end_list, results)
+    check("Termin-Dialog: Endzeit – Beginn eintippen nimmt das Ende mit, Ende eintippen lässt den Beginn stehen, getipptes Ende vor dem Beginn auf den Folgetag, Klick zeigt sechs Zeiten mit Dauer (Häkchen, Wahl setzt das Ende, auch über Mitternacht), ganztägig keine Liste", event_end_list, results)
 
     def event_multiday():
         # mehrtägige Termine wie Apple Kalender: Ende ändern lässt den Beginn stehen (vorher schob die dauerhaft
@@ -8774,6 +8783,10 @@ def run_checks(m, version, profile, results):
             const h12 = !!seg(st, "ap"), keys = (k24, k12) => (h12 ? k12 : k24);
             down(seg(st, "h")); press(...keys(["1", "4", "3", "0"], ["0", "2", "3", "0", "p"])); await ruhig(300);
             out.time = [f.startTime.value, f.endTime.value, st.textContent.includes("30"), f.line1.textContent.includes("30")];
+            // Ende vor dem Beginn eingetippt (14:30 → „10“) → Folgetag; Beginn bleibt
+            const et = row(f.endTime).querySelector(".mc-time-edit");
+            down(seg(et, "h")); press(...keys(["1", "0"], ["1", "0", "ArrowRight", "a"])); await ruhig(300);
+            out.endNext = [f.startDate.value, f.startTime.value, f.endDate.value, f.endTime.value];
             // natürliche Eingabe im Titel ändert die von Hand gesetzten Zeiten nicht mehr
             f.title.value = "Mittagessen morgen 12 Uhr"; f.title.dispatchEvent(new w.Event("input", { bubbles: true })); await ruhig(200);
             out.natural = [f.startDate.value, f.startTime.value];
@@ -8785,9 +8798,10 @@ def run_checks(m, version, profile, results):
               and (res.get("mini") or {}).get("sel") == "2026-10-16"
               and res.get("day") == ["2026-11-18", "2026-11-18", True, "open"]
               and res.get("time") == ["14:30", "15:30", True, True] and res.get("natural") == ["2026-11-18", "14:30"]
+              and res.get("endNext") == ["2026-11-18", "14:30", "2026-11-19", "10:30"]
               and res.get("allDay") == [False, True])
         return ok, f"{res}"
-    check("Schnellfenster: Datum und Uhrzeit zum Eintippen wie im Termin-Dialog, Monatskalender (Klick auf Tag übernimmt, Ende rückt mit), Tippen bleibt bei natürlicher Eingabe", quick_text_fields, results)
+    check("Schnellfenster: Datum und Uhrzeit zum Eintippen wie im Termin-Dialog, Monatskalender (Klick auf Tag übernimmt, Ende rückt mit), Ende vor dem Beginn auf den Folgetag, Tippen bleibt bei natürlicher Eingabe", quick_text_fields, results)
 
     def emoji():
         res = m.js("""

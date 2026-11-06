@@ -63,3 +63,26 @@ test("Uhrzeit: Dauer in der Auswahlliste der Endzeit, Dezimalzeichen nach der Re
     ["30 Minuten", "1 Stunde", "1,5 Stunden", "2 Stunden", "2,5 Stunden", "3 Stunden"]);
   assert.deepEqual([30, 60, 90].map(m => en.durationText(m)), ["30 minutes", "1 hour", "1.5 hours"]);
 });
+
+test("Uhrzeit: eingetipptes Ende vor dem Beginn am selben Tag springt auf den Folgetag", () => {
+  const { endFromTime } = lade();
+  const d = (tag, h, m = 0) => new Date(2026, 10, tag, h, m);
+  const s = t => `${t.getDate()}. ${t.getHours()}:${String(t.getMinutes()).padStart(2, "0")}`;
+  const ende = (start, end, hm) => s(endFromTime(start, end, hm));
+  // 22:00–23:00, Ende „01:00“ → Folgetag (3 Stunden)
+  assert.equal(ende(d(6, 22), d(6, 23), [1, 0]), "7. 1:00");
+  // nach dem Beginn bleibt der Tag; gleich dem Beginn ist kein „vor“
+  assert.equal(ende(d(6, 10), d(6, 11), [12, 30]), "6. 12:30");
+  assert.equal(ende(d(6, 10), d(6, 11), [10, 0]), "6. 10:00");
+  // Stunden, dann Minuten: „10“ springt kurz auf den Folgetag, „45“ zurück
+  const zwischen = endFromTime(d(6, 10, 30), d(6, 12), [10, 0]);
+  assert.equal(s(zwischen), "7. 10:00");
+  assert.equal(ende(d(6, 10, 30), zwischen, [10, 45]), "6. 10:45");
+  // schon über Mitternacht (unter 24 Stunden): rechnet vom Tag des Beginns
+  assert.equal(ende(d(6, 22), d(7, 1), [23, 0]), "6. 23:00");
+  assert.equal(ende(d(6, 22), d(7, 1), [2, 0]), "7. 2:00");
+  // mehrtägig (von Hand gewählter Endtag): Tag bleibt
+  assert.equal(ende(d(6, 10), d(8, 11), [9, 0]), "8. 9:00");
+  // Monatsende
+  assert.equal(ende(d(30, 23), d(30, 23, 30), [0, 30]), "1. 0:30");
+});

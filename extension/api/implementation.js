@@ -9541,10 +9541,10 @@ function timeSegEdit(win, io) {
 
 // Uhrzeitfeld eines Thunderbird-timepickers als Text zum Eintippen: ersetzt
 // dessen Auswahlfeld (bleibt verborgen und hält den Wert)
-function inlineTimeEdit(win, tp) {
+function inlineTimeEdit(win, tp, set = v => (tp.value = v)) {
   const edit = timeSegEdit(win, {
     get: () => tp.value,
-    set: v => (tp.value = v),
+    set,
     off: () => tp.hasAttribute("disabled") || tp.hidden,
   });
   // neuer Wert von Thunderbird: danach (Stunden/Minuten stehen erst nach dem
@@ -9555,6 +9555,23 @@ function inlineTimeEdit(win, tp) {
   tp.setAttribute("mc-inline", "");
   tp.focus = () => edit.pick(edit.segs[0]);
   return edit;
+}
+
+// Ende nach einer eingetippten Uhrzeit [Stunde, Minute]: Liegt sie am Tag
+// des Beginns vor dem Beginn, gilt der Folgetag (22:00 bis „01:00“ → 3
+// Stunden) statt des Hinweises „Ende vor Beginn“. Ein Termin unter 24 Stunden
+// rechnet vom Tag des Beginns aus (ein schon auf den Folgetag gesprungenes
+// Ende kommt so zurück, wenn die Uhrzeit wieder nach dem Beginn liegt – auch
+// beim Tippen von Stunden und dann Minuten); ein längerer behält seinen Endtag
+function endFromTime(start, end, [h, m]) {
+  const span = end.getTime() - start.getTime();
+  const t = new Date((span >= 0 && span < 86400000 ? start : end).getTime());
+  t.setHours(h, m, 0, 0);
+  if (t < start && t.getFullYear() == start.getFullYear() && t.getMonth() == start.getMonth() &&
+      t.getDate() == start.getDate()) {
+    t.setDate(t.getDate() + 1);
+  }
+  return t;
 }
 
 // Dauer für die Auswahlliste der Endzeit: „30 minutes“, „1 hour“, „1,5 hours“
@@ -10099,7 +10116,22 @@ function hookDateTimePickers(win) {
       continue;
     }
     dtp.__mcCombined = true;
-    const edit = inlineTimeEdit(win, tp);
+    // Ende: Uhrzeit vor dem Beginn am selben Tag → Folgetag; Reihenfolge so,
+    // dass das Ende zwischendurch nie vor dem Beginn liegt (sonst Hinweis)
+    const start = () => win.document.getElementById("event-starttime")?.value;
+    const edit = inlineTimeEdit(win, tp, dtp.id != "event-endtime" ? undefined : v => {
+      const s = start(), e = dtp.value;
+      const t = isDate(s) && isDate(e) && !tp.hasAttribute("disabled") ? endFromTime(s, e, v) : null;
+      if (!t || t.toDateString() == e.toDateString()) {
+        tp.value = v;
+      } else if (t > e) {
+        dp.value = t;
+        tp.value = v;
+      } else {
+        tp.value = v;
+        dp.value = t;
+      }
+    });
     if (dtp.id == "event-endtime") {
       endTimeList(win, dtp, edit);
     }
@@ -19199,7 +19231,18 @@ class CardEnhancer {
               const [h, m] = (input.value || "").split(":").map(Number);
               return Number.isInteger(h) && Number.isInteger(m) ? [h, m] : null;
             },
-            set: ([h, m]) => put(`${pad(h)}:${pad(m)}`),
+            set: ([h, m]) => {
+              // Ende vor dem Beginn am selben Tag → Folgetag (wie im Termin-Dialog)
+              const s = when(f.startDate, f.startTime), e = when(f.endDate, f.endTime);
+              if (input == f.endTime && !f.allDay.checked && s && e) {
+                const day = dateValue(endFromTime(s, e, [h, m]));
+                if (day != f.endDate.value) {
+                  f.endDate.value = day;
+                  f.endDate.dispatchEvent(new w.Event("change", { bubbles: true }));
+                }
+              }
+              put(`${pad(h)}:${pad(m)}`);
+            },
             off,
           });
           after = () => edit.render();

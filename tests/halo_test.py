@@ -2915,11 +2915,19 @@ def compose_checks(m, results):
             const box = d2.getElementById("palette-box"), spring = box.querySelector("toolbarspring"), s = csOf(box);
             const out = { open: true, border: parseFloat(s.borderTopWidth), radius: parseFloat(s.borderTopLeftRadius), bg: s.backgroundColor,
                           spring: [csOf(spring).borderTopStyle, parseFloat(csOf(spring).borderTopLeftRadius)] };
+            // Fläche des Sheets (nur macOS als Panel): nicht-gläsernes Panel in Sheet-Farbe, dunkel mit 1 px Rand weiß 20 %
+            const p = cd.getElementById("customizeToolbarSheetPopup"), c = p?.state == "open" && p.shadowRoot?.querySelector('[part~="content"]');
+            if (c) out.sheet = { bg: csOf(c).backgroundColor, border: [parseFloat(csOf(c).borderTopWidth), csOf(c).borderTopColor],
+                                 want: colorOf(cd, "var(--mt-sheet)", "backgroundColor"), line: colorOf(cd, "var(--mt-tooltip-border)", "backgroundColor"),
+                                 dark: cw.matchMedia("(prefers-color-scheme: dark)").matches };
             try { d2.defaultView.onClose(); } catch {} await ruhig(800);
             return out; });""")
-        ok = res.get("open") and res["border"] == 0 and res["radius"] >= 8 and rgba_alpha(res["bg"]) <= 0.15 and res["spring"][0] == "dashed" and res["spring"][1] >= 4
+        sh = res.get("sheet")
+        sheet_ok = sh is None or (same_color(sh["bg"], sh["want"]) and same_color(sh["want"], "rgb(30, 30, 30)" if sh["dark"] else "rgb(255, 255, 255)")
+                                  and sh["border"][0] == 1 and same_color(sh["border"][1], "rgba(255, 255, 255, 0.2)" if sh["dark"] else sh["line"]))
+        ok = res.get("open") and res["border"] == 0 and res["radius"] >= 8 and rgba_alpha(res["bg"]) <= 0.15 and res["spring"][0] == "dashed" and res["spring"][1] >= 4 and sheet_ok
         return ok, f"{res}"
-    check("Verfassen: Anpassen-Sheet mit ruhiger Palette ohne Rahmen, Platzhalter gestrichelt und gerundet", customize, results)
+    check("Verfassen: Anpassen-Sheet als Panel in Sheet-Farbe (dunkel mit hellem Rand), ruhige Palette ohne Rahmen, Platzhalter gestrichelt und gerundet", customize, results)
 
     def compose_panels():
         # Rand (und beim Anordnen-Panel die Fläche) neutral wie die Tooltips statt Thunderbirds bläulichem Panelgrau
@@ -2928,7 +2936,7 @@ def compose_checks(m, results):
             const val = (el, v) => { const x = csOf(el).getPropertyValue(v).trim(); return x ? colorOf(cd, x, "backgroundColor") : ""; };
             const out = { border: colorOf(cd, "var(--mt-tooltip-border)", "backgroundColor"), bg: colorOf(cd, "var(--mt-tooltip-bg)", "backgroundColor") };
             const look = p => p ? { border: val(p, "--panel-border-color"), bg: val(p, "--panel-background-color") } : null;
-            for (const id of ["reorderAttachmentsPanel", "customizeToolbarSheetPopup"]) out[id] = look(cd.getElementById(id));
+            for (const id of ["reorderAttachmentsPanel"]) out[id] = look(cd.getElementById(id));
             // Adressvorschläge: die Empfängerfelder legen ein eigenes, namenloses Panel an (nicht #PopupAutoComplete) –
             // in das An-Feld tippen und das tatsächlich offene Panel messen, samt berechnetem Rand der Inhaltsfläche
             const inp = cd.querySelector(".address-row:not(.hidden) input.address-row-input, #toAddrInput");
@@ -2941,7 +2949,7 @@ def compose_checks(m, results):
               out.autocomplete.content = c ? csOf(c).borderTopColor : null; ac.hidePopup(); }
             inp.value = ""; await ruhig(300);
             return out; });""")
-        ids = ["reorderAttachmentsPanel", "autocomplete", "customizeToolbarSheetPopup"]
+        ids = ["reorderAttachmentsPanel", "autocomplete"]  # Anpassen-Sheet: eigene Prüfung „Anpassen-Sheet als Panel …“
         # Thunderbirds Panelrand #5e7799 / #91939f und Panelfläche #262d3b (Deckkraft egal)
         rgb = lambda c: "rgb(" + ", ".join(__import__("re").findall(r"-?[\d.]+", c or "")[:3]) + ")"
         bluish = lambda c: any(same_color(rgb(c), t, 4) for t in ["rgb(94, 119, 153)", "rgb(145, 147, 159)", "rgb(38, 45, 59)"])
@@ -2951,7 +2959,7 @@ def compose_checks(m, results):
               and (ac.get("content") is None or (same_color(ac["content"], res["border"]) and not bluish(ac["content"])))
               and same_color(res["reorderAttachmentsPanel"]["bg"], res["bg"]) and not bluish(res["reorderAttachmentsPanel"]["bg"]))
         return ok, f"{res}"
-    check("Verfassen: Anhänge-anordnen-Panel neutral wie Tooltips, Adressvorschläge und Anpassen-Sheet mit Haarlinie statt bläulichem Rand", compose_panels, results)
+    check("Verfassen: Anhänge-anordnen-Panel neutral wie Tooltips, Adressvorschläge mit Haarlinie statt bläulichem Rand", compose_panels, results)
 
     def format_toolbox():
         # Reintext: Thunderbird blendet nur die Formatleiste aus – die leere Box darf keine zweite Linie unter den Betreff legen;

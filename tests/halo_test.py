@@ -9559,9 +9559,14 @@ def run_checks(m, version, profile, results):
         # Adressbuch (Bearbeiten): schmales Fenster und weit gezogener Teiler –
         # die Details bleiben mindestens so breit wie vorgegeben und im Fenster
         res["addressbook"] = m.js(ADDRESS_EDIT_JS + '''
-          w.resizeTo(600, 900); await wait(1500);
-          ad.body.style.setProperty("--sharedSplitter-width", "2000px"); await ruhig(800);
-          const el = ad.getElementById("detailsPane"), r = el.getBoundingClientRect();
+          // warten, bis das Fenster die neue Größe hat und still steht (feste 1,5 s reichten unter Linux nicht immer)
+          const before = w.outerWidth; w.resizeTo(600, 900);
+          if (before != 600) await until(() => w.outerWidth != before, 1500);
+          await stabil(() => [w.outerWidth, w.innerWidth, ab.innerWidth], 3000); await ruhig(400);
+          ad.body.style.setProperty("--sharedSplitter-width", "2000px");
+          const el = ad.getElementById("detailsPane");
+          await stabil(() => { const q = el.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.right), ab.innerWidth]; }, 3000); await ruhig(400);
+          const r = el.getBoundingClientRect();
           const out = { window: w.outerWidth, pane: Math.round(r.width), min: parseFloat(ab.getComputedStyle(el).minWidth),
             inside: r.right <= ab.innerWidth + 1 };
           ad.body.style.removeProperty("--sharedSplitter-width");

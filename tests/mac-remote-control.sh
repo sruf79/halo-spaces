@@ -41,7 +41,7 @@ board_ordner() {
 Diese Sitzung (Remote Control „neon-board“ auf dem Mac mini neon) bedient
 ausschließlich die Aufgabenliste und speichert Bilder. Regeln: AGENTS.md im
 Checkout ~/halo-spaces (nur lesen), Abschnitte „Aufgabenliste“, „neon
-erreichen“ und „Cloud-Sessions“.
+erreichen“ und „Cloud-Sessions“ sowie docs/board.md (Feld-IDs, Bilder, Apple-Vorlagen).
 
 Erlaubt:
 - Board nur über $cfg/board.sh (liste [Muster], zeige, neu, status, notiz,

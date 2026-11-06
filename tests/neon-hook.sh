@@ -37,7 +37,7 @@ if [ "$neon" = board ]; then
     echo "neon-board: Der Kontext wurde eben verdichtet. Maßgeblich für offene Aufträge ist die Liste unten, nicht die Zusammenfassung."
   fi
   cat <<'EOF'
-neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“, docs/neon-sitzung.md):
+neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“, docs/neon-sitzung.md, docs/board.md):
 - Board nur über ~/.config/halo-spaces/board.sh (liste [Muster], zeige, neu, status, notiz, archiv); vor „neu“ Doppelte prüfen und lieber ergänzen.
 - Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen.
 - Nie Tests, Builds, Thunderbird, git commit/push, Release – solche Aufträge an die Sitzung neon verweisen.

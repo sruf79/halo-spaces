@@ -602,73 +602,18 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
   nach Nennung“ gelten nicht mehr). Ausnahme: Ein Feature, das
   einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
-- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
-  Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
-  Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in
-  `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
-  siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
-  Jedes Bild, das der Maintainer einer Sitzung direkt ins Gespräch legt und
-  das für einen Bug oder ein Feature im Board gebraucht wird, übermittelt
-  die Sitzung automatisch und ohne Rückfrage an `neon-board`, ersatzweise
-  an `neon` (Entscheidung des Maintainers vom 5.11.2026; Empfänger seit
-  6.11.2026, siehe „neon erreichen“). Sitzungen auf neon speichern es selbst unter
-  `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
-  data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben;
-  Originaldatei unverändert, nicht verkleinern oder umkodieren – die Seite
-  fasst bis 16 MB, größere Bilder als Assets mit `asset: true`, bis 15 MB je Datei),
-  neon-board (bzw. neon) liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
-  sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
-  Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.
-  Bildqualität: keine feste Mindestgröße (auch kleine Ausschnitte sind in
-  Ordnung); maßgeblich ist, ob die für den Eintrag entscheidenden Details
-  (Schrift, Linien, Farben, Abstände) klar erkennbar sind. Das prüft die
-  empfangende Sitzung sofort und sagt dem Maintainer gleich im Gespräch,
-  was nicht erkennbar ist (mit Pixelgröße), und bittet um eine bessere
-  Aufnahme, am besten per `halobild` (die Claude-App verkleinert Bilder
-  beim Hochladen teils). neon-board (bzw. neon) prüft nach dem Speichern ebenso, meldet ein
-  zu schwaches Bild an die Sitzung zurück (die es weitergibt) und vermerkt
-  im Eintrag „Bild unzureichend: …“.
-  Ursache klären und Lösungsidee in den Eintrag
-  schreiben ist erwünscht – aber nicht mitten in der laufenden Aufgabe
-  nebenbei umsetzen und auch nicht anbieten; umgesetzt wird er wie jeder
-  Eintrag über die Liste (siehe „Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag, diesen
-  ergänzen statt einen neuen anzulegen.
-- **Apple-Vorlagen** (Entscheidung des Maintainers vom 5.11.2026): Jeder
-  Screenshot einer Apple-App (Mail, Kalender, Kontakte, Erinnerungen,
-  Systemeinstellungen, …), den der Maintainer schickt, kommt automatisch
-  und ohne Rückfrage zusätzlich als Vorlage für spätere Vergleiche nach
-  `~/halo-aufgaben/apple/` auf neon – auch wenn er nur nebenbei im
-  Gespräch auftaucht. Weg wie bei den Bildern oben (Sitzungen auf neon
-  speichern selbst, alle anderen über eine private Artifact-Seite an
-  `neon-board`, ersatzweise `neon`;
-  Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
-  melden), vom Laptop mit `haloapple <name>` (`tests/MAC-MINI.md`
-  Abschnitt 10). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
-  Bindestrichen (z. B. `mail-kontextmenue-mailliste`,
-  `kalender-termin-popover-dunkel`); gleicher Name ersetzt die ältere
-  Fassung (Index-Zeile mit neuem Datum und Hash). Je Bild eine
-  Zeile in `~/halo-aufgaben/apple/index.md`: Name, App, macOS-Version
-  (falls bekannt), was zu sehen ist, passende `ui_tour.py`-ids, Datum,
-  SHA-256. Nie ins Repo, nie in README oder Store (oft echte Mails).
-  Wer Aussehen oder Verhalten gestaltet oder prüft (Einträge aus der
-  Liste, Design-Durchsicht mit `ui_tour.py`), schaut zuerst im Index
-  nach einer passenden Vorlage und vergleicht damit; fehlt eine, im
-  Bericht bzw. Gespräch nennen, welche Vorlage helfen würde.
-- **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026,
-  Wortlaut in `ENTSCHEIDUNGEN.md`; gilt für jede von Hand gestartete Sitzung zwischen 08:00 und 22:00 täglich): Jede von Hand
-  gestartete Sitzung, die zwischen 08:00 und 22:00 (Wiener Zeit) beginnt,
-  nennt dem Maintainer in ihrer ersten Antwort die offenen Bilder aus
-  `~/halo-aufgaben/bilder-offen.md` – Pflicht zuerst, optional knapp, mit
-  fertigen `halobild`-/`haloapple`-Befehlen; leere Liste → nichts. Nie in
-  automatischen Läufen (Nachtlauf, Wochen-/Doku-Prüfung, Rundgang,
-  CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon gibt der
-  SessionStart-Hook die Liste aus; Cloud- und Laptop-Sitzungen fragen sie zu
-  Beginn bei `neon-board` ab, ersatzweise bei `neon` („offene
-  Bilderliste?“). Die Liste pflegt neon-board (bzw. neon, wer das Bild
-  speichert): neu
-  eintragen, wenn ein Eintrag „braucht Bild“, „Bild unzureichend“ oder
-  „Vorlage fehlt“ bekommt; austragen, sobald das Bild gespeichert und
-  geprüft ist.
+- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage als Entwurf anlegen (Typ setzen,
+  Status Todo; ein Zitat des Maintainers darin erst nach seiner Zustimmung, siehe „Zitate erst
+  nach Zustimmung“). Ursache klären und Lösungsidee in den Eintrag schreiben ist erwünscht, aber nicht
+  mitten in der laufenden Aufgabe nebenbei umsetzen und nicht anbieten; umgesetzt wird er wie jeder
+  Eintrag über die Liste („Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag,
+  diesen ergänzen. Bilder, die der Maintainer ins Gespräch legt, gehen automatisch an `neon-board`
+  (ersatzweise `neon`); Screenshots von Apple-Apps zusätzlich als Vorlage; Bilder nie über das Repo
+  (echte Mails). Weg, Qualitätsprüfung, Namen: `docs/board.md`.
+- **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung
+  zwischen 08:00 und 22:00 (Wiener Zeit) nennt in ihrer ersten Antwort die offenen Bilder aus
+  `~/halo-aufgaben/bilder-offen.md` (Cloud/Laptop: bei `neon-board` erfragen); nie in automatischen
+  Läufen. Einzelheiten: `docs/board.md`.
 - Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
   Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
   (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf
@@ -707,61 +652,19 @@ vor, werden aber erst nach Schritt 1 der Reihenfolge unten ausgewertet.
 - Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
   README, Store-Texten oder öffentlichen Issues.
 
-- Board: <https://github.com/users/sruf79/projects/1> (Nummer `1`, Besitzer
-  `sruf79`). Die Einträge sind Entwürfe im Board (Draft Issues), keine
-  Issues im Repo.
-- Titel auf Deutsch im Commit-Stil: `Bereich: kurze Beschreibung`
-  (z. B. `Kalender: …`, `Mailliste: …`), Details in den Text.
-- Lokal: Zugriff über `gh` mit Scope `project` (auf neon per Homebrew, siehe
-  `tests/MAC-MINI.md` Abschnitt 3; `mac-mini-setup.sh --check` prüft die Anmeldung).
-
-```bash
-gh project item-list 1 --owner sruf79 --limit 200 --format json      # lesen
-gh project item-create 1 --owner sruf79 --title "Bereich: …" --body "…" --format json   # neu, liefert die id
-gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
-  --field-id <Feld> --single-select-option-id <Option>                 # Typ/Status setzen
-```
-
-| Feld | Feld-ID | Optionen |
-|---|---|---|
-| Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
-| Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Done `98236657` |
+- Board: <https://github.com/users/sruf79/projects/1> (Nummer `1`, Besitzer `sruf79`), Einträge sind
+  Entwürfe; Feld-IDs, `gh project …`-Befehle, Titelform und Zugang aus Cloud-Sitzungen (nur über
+  `neon-board`, ersatzweise `neon`; Notweg Workflow `add-task.yml`): `docs/board.md`. Das Repo ist
+  öffentlich: den Workflow nie so ändern, dass er Titel oder Text ins Log schreibt.
 
 ### Cloud-Sessions
 
-In Cloud-Sessions ist die GraphQL-API gesperrt, `gh project …` geht dort
-nicht – auch nicht mit Token. **Alles am Board – lesen, neu anlegen,
-ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über
-die Sitzung `neon-board`, ersatzweise `neon`** (Entscheidung des Maintainers
-vom 4.11.2026, Empfänger `neon-board` seit 6.11.2026, Wortlaut in
-`ENTSCHEIDUNGEN.md`, Weg dorthin: Abschnitt „neon erreichen“). Dort läuft `gh project …` wie lokal, und
-neon-board prüft vor dem Anlegen, ob ein offener Eintrag ergänzt werden
-sollte. Im
-Auftrag nennen, was anzulegen oder zu ändern ist (Titel, Text, Typ, Status
-bzw. Eintrag und neuer Status) und was zurückgemeldet werden soll (z. B. die
-id); bis zur Antwort nichts als erledigt melden. Entscheidungen des
-Maintainers mit Wortlaut und Herkunft schicken, neon-board trägt das Zitat
-unverändert ein (Abschnitt „Aufgabenliste“, „Entscheidungen des Maintainers
-wörtlich“).
-
-Nur wenn weder neon-board noch neon auf einem Weg erreichbar ist: neue Einträge notfalls über den
-Workflow anlegen (läuft auf GitHub, Token im Secret `HALO_SPACES_TASKS_TOKEN`)
-und das dem Maintainer sagen; Lesen, Ergänzen und Status ändern erledigt dann
-der Maintainer im Board.
-
-In Cloud-Sessions geht `gh` nur für die Suche – den Workflow dort mit dem
-GitHub-Werkzeug `actions_run_trigger` starten (Workflow `add-task.yml`,
-Eingaben `title`, `body`, `type` = `bug`/`feature`, `status` = `Todo`) und
-mit `actions_list` prüfen, ob der Lauf erfolgreich war. Lokal geht es auch so:
-
-```bash
-gh workflow run add-task.yml -R sruf79/halo-spaces \
-  -f title="Bereich: …" -f body="…" -f type=<bug|feature> -f status=Todo
-gh run list -R sruf79/halo-spaces -w add-task.yml -L 1   # Lauf erfolgreich?
-```
-
-Das Repo ist öffentlich: Der Workflow schreibt Titel und Text bewusst nicht
-ins Log – das beim Ändern beibehalten.
+In Cloud-Sessions geht `gh project …` nicht (GraphQL gesperrt): **Alles am Board – lesen, neu anlegen,
+ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über die Sitzung `neon-board`,
+ersatzweise `neon`** (Entscheidung des Maintainers vom 4.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`,
+Weg: „neon erreichen“). Im Auftrag nennen, was anzulegen oder zu ändern ist und was zurückgemeldet
+werden soll; bis zur Antwort nichts als erledigt melden. Entscheidungen des Maintainers mit Wortlaut
+und Herkunft schicken. Notweg ohne neon-board und neon und Einzelheiten: `docs/board.md`.
 
 **neon aus der Cloud steuern:** über die Remote-Control-Sitzung `neon`
 (kein SSH, kein Tailscale im Container) – Wege und Ablauf unter „neon

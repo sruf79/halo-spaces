@@ -3171,9 +3171,53 @@ class ConversationCards {
     this.reveal();
     if (this.box) {
       this.observer?.disconnect();
-      this.box.remove();
+      this.retire(this.box);
       this.box = null;
     }
+  }
+
+  // Karten entfernen. Eine Mailansicht (about:message), die noch lädt, darf
+  // nicht mitten im Laden entfernt werden: Thunderbirds Aufräumen beim
+  // Entladen meldet sonst Fehler (es meldet Beobachter ab, die erst am Ende
+  // des Ladens angemeldet werden) – beim schnellen Durchklicken von
+  // Konversationen. Solche Karten unsichtbar fertig laden lassen, dann weg.
+  retire(box) {
+    if (!box) {
+      return;
+    }
+    const loading = [...box.querySelectorAll("browser.mc-conv-browser")].filter(b => {
+      const d = b.contentDocument;
+      return !(d?.documentURI?.startsWith("about:message") && d.readyState == "complete");
+    });
+    if (!loading.length) {
+      box.remove();
+      return;
+    }
+    // aus Ansicht, Stil und Abfragen nehmen; geladene Karten zeigen keine Mail mehr an
+    box.removeAttribute("id");
+    box.style.cssText = "position: fixed; left: -10000px; top: 0; width: 1px; height: 1px; overflow: hidden; visibility: hidden; pointer-events: none;";
+    for (const card of box.querySelectorAll(".mc-conv-card")) {
+      card.__mcLoaded = true;
+      card.classList.remove("mc-conv-card", "mc-selected");
+    }
+    const win = this.win;
+    let timer = null;
+    const done = () => {
+      win.clearTimeout(timer);
+      box.remove();
+    };
+    const check = () => {
+      if (loading.every(b => b.contentDocument?.readyState == "complete" &&
+          b.contentDocument.documentURI?.startsWith("about:message"))) {
+        // erst nach Thunderbirds eigenem Load-Handler entfernen
+        win.setTimeout(done, 0);
+      }
+    };
+    for (const b of loading) {
+      b.addEventListener("load", check, true);
+    }
+    // Sicherheitsnetz: nie länger als ein paar Sekunden
+    timer = win.setTimeout(done, 5000);
   }
 
   // nach Thunderbirds Anzeige: Konversation zeigen, wenn sie mehr als eine Mail hat.
@@ -3225,7 +3269,7 @@ class ConversationCards {
     this.thread = !!thread;
     const X = "http://www.w3.org/1999/xhtml";
     this.observer?.disconnect();
-    this.box?.remove();
+    this.retire(this.box);
     const box = doc.createElementNS(X, "div");
     box.id = "mcConversation";
     box.__mcOwner = HOOK_OWNER;

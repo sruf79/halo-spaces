@@ -1384,6 +1384,33 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Mailliste: Thread-Knopf ohne Stern und Akzentrahmen, Ungelesen-Punkt an zugeklappter Konversation", thread_button, results)
 
+    def conversation_fast_switch():
+        # schnelles Durchklicken: Konversation verlassen, solange ihre Mailansicht noch lädt – die Karten
+        # verschwinden sofort aus der Ansicht, laden unsichtbar fertig und sind danach ganz weg (sonst meldet
+        # Thunderbird beim Entladen Fehler in der Fehlerkonsole, die die Prüfung „Fehlerkonsole“ zeigt)
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.gViewWrapper.showThreaded = true; await ruhig(600); cmd("cmd_collapseAllThreads"); await ruhig(800);
+          const doc = a3.document, out = { caught: 0, visible: [] };
+          const idx = pred => [...Array(a3.gDBView.rowCount).keys()].find(k => pred(a3.gDBView.getMsgHdrAt(k)));
+          for (let i = 0; i < 3; i++) {
+            a3.threadTree.selectedIndex = idx(h => /Halo Faden/.test(h.mime2DecodedSubject));
+            // Mailansicht der Karte: Skripte da, Laden noch nicht fertig
+            const b = await bis(() => { const x = doc.querySelector("#mcConversation browser.mc-conv-browser"), d = x?.contentDocument;
+              return d && d.documentURI.startsWith("about:message") && d.readyState != "complete" && typeof x.contentWindow.displayMessage == "function" ? x : null; },
+              "Karte lädt", 3000).catch(() => null);
+            if (b) out.caught++;
+            a3.threadTree.selectedIndex = idx(h => !/Halo Faden/.test(h.mime2DecodedSubject));
+            out.visible.push(doc.querySelectorAll("#mcConversation").length);
+            await ruhig(600);
+          }
+          await bis(() => !doc.querySelector("#messagePane > div:not([id]) browser.mc-conv-browser"), "alte Karten entfernt", 6000).catch(() => {});
+          out.left = doc.querySelectorAll("#messagePane browser.mc-conv-browser").length;
+          return out;""")
+        # (caught: wie oft der Moment mitten im Laden getroffen wurde – Takt der Abfrage, nur zur Info)
+        ok = all(v == 0 for v in res.get("visible") or [1]) and res.get("left") == 0
+        return ok, f"{res}"
+    check("Konversation: schnelles Durchklicken lässt keine Karten zurück, auch wenn ihre Mailansicht noch lädt", conversation_fast_switch, results)
+
     def date_weight():
         res = m.js(MAILLIST_JS + r"""
           await showFolder(); await asCards();

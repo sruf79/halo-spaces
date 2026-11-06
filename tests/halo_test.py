@@ -8904,6 +8904,47 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Texte: „On My Mac“ und „macOS“ nur unter macOS, sonst „On This Computer“ und „the system“", mac_words, results)
 
+    def prefs_menulist():
+        # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen
+        # (Thunderbirds In-Content-Stil hinterlegte ihn dauerhaft blau – zwei Balken); Zeilen 24 px, 8 px Innenabstand, Rundung 7 px
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          // erst weiter, wenn die Seite fertig geladen und die Liste sichtbar ist (eine verborgene Liste öffnet nicht)
+          w.openPreferencesTab("paneAppearance");
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+            return x?.readyState == "complete" && e?.menupopup && e.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
+          await ruhig(1000);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("mcAppearance"), pop = ml.menupopup;
+          try {
+            // Im Volllauf ist oft ein anderes Fenster vorn (Verfassen, Dialoge) – dann öffnet macOS die native Liste
+            // nicht: erst Hauptfenster und Liste fokussieren, öffnen und auf popupshown warten, notfalls erneut
+            // (dritter Versuch direkt über das Popup)
+            for (const x of [...Services.wm.getEnumerator(null)]) for (const p of x.document.querySelectorAll("menupopup, panel"))
+              if (p.state == "open" && p != pop) try { p.hidePopup(); } catch {}
+            w.focus(); await until(() => Services.focus.activeWindow == w, 3000);
+            ml.scrollIntoView({ block: "center" }); t.browser.focus(); ml.focus(); await ruhig(300);
+            const tries = [];
+            for (let i = 0; i < 3 && pop.state != "open"; i++) {
+              let shown = false; const on = () => { shown = true; }; pop.addEventListener("popupshown", on, { once: true });
+              if (i < 2) ml.openMenu(true); else pop.openPopup(ml, "overlap");
+              await until(() => shown || pop.state == "open", 4000); pop.removeEventListener("popupshown", on);
+              tries.push([pop.state, Services.focus.activeWindow == w]);
+              if (pop.state != "open") { try { ml.openMenu(false); } catch {} await ruhig(300); }
+            }
+            await bis(() => pop.state == "open", `Auswahlliste offen (Versuche ${JSON.stringify(tries)})`, 4000); await ruhig(300);
+            const items = [...pop.children].filter(c => c.localName == "menuitem");
+            const sel = items.find(c => c.hasAttribute("selected")), other = items.find(c => c != sel);
+            for (const c of items) c.removeAttribute("_moz-menuactive");
+            other.setAttribute("_moz-menuactive", "true"); await ruhig(200);
+            const s = csOf(sel), o = csOf(other);
+            return { sel: [sel.getAttribute("value"), s.backgroundColor, s.color], other: [o.backgroundColor, o.color],
+                     rows: items.map(c => Math.round(c.getBoundingClientRect().height)), pad: o.paddingInlineStart, radius: o.borderTopLeftRadius,
+                     accent: colorOf(cd, "var(--mt-accent)", "backgroundColor"), text: colorOf(cd, "var(--mt-text)") };
+          } finally { try { ml.openMenu(false); } catch {} await until(() => pop.state == "closed", 2000); tm.closeTab(t); await ruhig(500); }""")
+        ok = (same_color(res["sel"][1], "rgba(0, 0, 0, 0)") and same_color(res["sel"][2], res["text"]) and same_color(res["other"][0], res["accent"])
+              and all(h == 24 for h in res["rows"]) and res["pad"] == "8px" and res["radius"] == "7px")
+        return ok, f"{res}"
+    check("Einstellungen: Auswahlliste mit nur einem blauen Balken (gewählter Eintrag nur mit Häkchen), 24-px-Zeilen mit 7 px Rundung", prefs_menulist, results)
+
     def uninstall_cleanup():
         # Deinstallieren räumt auf: keine extensions.mailcards.* mehr, von halo.spaces gesetzte Thunderbird-Werte
         # (Kartenzeilen, Suchtreffer als Liste, Toolbar) zurück auf Standard, selbst gewählte bleiben (GitHub #12).

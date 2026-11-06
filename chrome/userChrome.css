@@ -2921,6 +2921,25 @@ menupopup > :is(menu, menuitem)[_moz-menuactive]:not([disabled]) {
   --menuitem-icon-fill: var(--mt-accent-text) !important;
 }
 
+/* Auswahllisten in Inhaltsseiten (Einstellungen, Kontoeinstellungen …):
+   Thunderbirds In-Content-Stil hinterlegt den gewählten Eintrag dauerhaft
+   blau – mit dem Eintrag unter der Maus waren es zwei Balken. Wie in macOS
+   nur das Häkchen; Zeilen 24 px mit 8 px Innenabstand wie die übrigen Menüs,
+   Rundung 7 px (Menürundung 12 minus 5 px Einzug) */
+@-moz-document url-prefix("about:") {
+  menulist > menupopup > :is(menu, menuitem) {
+    min-height: 24px !important;
+    padding-block: 0 !important;
+    padding-inline: 8px 22px !important;
+    border-radius: 7px !important;
+  }
+
+  menulist > menupopup > :is(menu, menuitem)[selected]:not([_moz-menuactive]) {
+    background-color: transparent !important;
+    color: var(--mt-text) !important;
+  }
+}
+
 /* Tastenkürzel neutral grau wie bei macOS statt Thunderbirds blaugrauem Ton;
    im markierten Eintrag in der Schriftfarbe der Auswahl (deaktiviert grau
    wie der Eintrag) */

@@ -125,6 +125,25 @@ addon-card .more-options-button::part(button):hover {
   background-color: var(--mt-hover) !important;
 }
 
+/* Add-ons-Verwaltung: Symbolknöpfe im Seitenkopf (Zurück, Zahnrad, Lupe
+   neben der Suche) als runde 28-px-Knöpfe mit der üblichen Knopffläche
+   statt eckig ohne Fläche; die Knöpfe in der Karte bleiben wie oben */
+:is(addon-page-header .back-button, addon-page-header .page-options-menu .more-options-button, search-addons moz-button)::part(button) {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+:is(addon-page-header .back-button, addon-page-header .page-options-menu .more-options-button, search-addons moz-button)::part(button):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
 /* Add-ons-Verwaltung: Zeilen der Menüs („…“ an der Karte, Zahnrad im Kopf)
    wie die übrigen halo-Menüs – 22 px hoch, 6 px Radius, beim Überfahren und
    mit Tastaturfokus Akzentfläche statt Grau bzw. blauem Rechteckring. Hover

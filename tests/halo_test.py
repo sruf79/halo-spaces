@@ -11520,8 +11520,9 @@ Neu
     def addons_manager():
         # Add-ons-Verwaltung (Thunderbird 140+, Bausteine im Schatten-DOM): Seitenleiste 34 px/13 px, Seite und Kopf in
         # --mt-window (dunkel kein #18181B), Suchfeld als Kapsel ohne Rahmen, Werkzeug und „…“ gleich (24 × 24, ohne
-        # Fläche), Schalter mit weißem Knopf, Menüs wie halo (12 px, 22-px-Zeilen, Akzent), Detailansicht mit
-        # Haarlinien ohne Doppellinie, eingebettete Einstellungen ohne eigene Fläche
+        # Fläche), Zurück, Zahnrad und Lupe im Kopf rund 28 px mit Knopffläche, Schalter mit weißem Knopf, Menüs wie
+        # halo (12 px, 22-px-Zeilen, Akzent), Detailansicht mit Haarlinien ohne Doppellinie, eingebettete Einstellungen
+        # ohne eigene Fläche
         res = m.js(r'''
           w.resizeTo(1500, 900);
           const ID = "mail-cards@sebastian.local";
@@ -11544,6 +11545,8 @@ Neu
             .map(b => b ? [Math.round(R(b).width * 2) / 2, Math.round(R(b).height * 2) / 2, cs(b).backgroundColor, cs(b).borderTopLeftRadius] : null);
           const card = ad.querySelector(`addon-card[addon-id="${ID}"]`);
           out.knobs = [knobs(card)];
+          const headBtn = sel => { const b = ad.querySelector(sel)?.shadowRoot?.querySelector('[part="button"]'); return b && R(b).height ? [Math.round(R(b).width), Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == bg("var(--mt-control)")] : null; };
+          out.head = [headBtn("addon-page-header .page-options-menu .more-options-button"), headBtn("search-addons moz-button")];
           const tb = card.querySelector("moz-toggle")?.shadowRoot?.querySelector('button[aria-pressed="true"]');
           out.toggleDot = tb ? cs(tb, "::before").backgroundColor : null;
           out.menus = [];
@@ -11578,6 +11581,7 @@ Neu
           out.detail = tg && row ? { tgBottom: cs(tg).borderBottomWidth, gap: Math.round(R(row).top - R(tg).bottom), rowLine: cs(row).borderTopColor == fg("var(--mt-separator)"),
             tgTop: cs(tg).borderTopColor == fg("var(--mt-separator)") } : null;
           out.knobs.push(knobs(ad.querySelector("addon-card")));
+          out.head.push(headBtn("addon-page-header .back-button"));
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID) + "/preferences");
           const br = await until(() => { const b = ad.querySelector("addon-card .addon-inline-options"); return b && R(b).height > 100 && b; }, 8000);
           await ruhig(1500);
@@ -11594,15 +11598,16 @@ Neu
         s = res.get("search") or [None, 0, False, 0]
         search_ok = rgba_alpha(s[0]) == 0 and s[1] >= 14 and s[2] and 26 <= s[3] <= 30
         knobs_ok = all(k and all(b and b[0] == 24 and b[1] == 24 and b[2] == "rgba(0, 0, 0, 0)" and b[3] == "50%" for b in k) for k in res["knobs"])
+        head_ok = len(res["head"]) == 3 and all(h and h[:3] == [28, 28, "999px"] and h[3] for h in res["head"])
         menus_ok = len(res["menus"]) == 2 and all(mn and mn["radius"] == "12px" and mn["border"] == "0px" and mn["bg"] and not mn["blue"]
                                                    and mn["itemRadius"] == "6px" and mn["itemH"] >= 22 and mn["hover"] and mn["hr"] is not False for mn in res["menus"])
         dt = res.get("detail") or {}
         detail_ok = dt.get("tgBottom") == "0px" and dt.get("gap") is not None and abs(dt["gap"]) <= 1 and dt.get("rowLine") and dt.get("tgTop")
         inline_ok = res.get("inline") == "rgba(0, 0, 0, 0)" and res.get("inlinePixel") == [255, 0, 255, 255]
         wide_ok = bool(res.get("wide")) and res["wide"][0] >= 300 and res["wide"][2] >= res["wide"][1] - 1
-        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok and wide_ok
+        ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and head_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and inline_ok and wide_ok
         return ok, f"{res}"
-    check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Schalter weiß, "
+    check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Kopfknöpfe rund mit Fläche, Schalter weiß, "
           "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 

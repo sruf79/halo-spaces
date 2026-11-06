@@ -4055,8 +4055,8 @@ menuseparator[mc-tidy-hidden] {
   display: none !important;
 }
 
-/* Neue Liste (Aufgaben 4/5, setzt die Erweiterung): graue Zeile „⊕ New List“
-   unter den Listen, nur im Bereich Aufgaben; beim Bearbeiten Farbpunkt und
+/* Neue Liste (Aufgaben 4/5, setzt die Erweiterung): hellgraue Zeile
+   „⊕ New List“ (Tertiärtext wie die Seitenleiste der Vorlage) unter den Listen, nur im Bereich Aufgaben; beim Bearbeiten Farbpunkt und
    Namensfeld wie eine Liste */
 #mcNewList {
   display: none;
@@ -4071,7 +4071,7 @@ menuseparator[mc-tidy-hidden] {
   padding: 0 8px;
   border-radius: 8px;
   font-size: calc(13px * var(--mt-font-scale, 1));
-  color: var(--mt-text-secondary);
+  color: var(--mt-text-tertiary);
   cursor: default;
 }
 

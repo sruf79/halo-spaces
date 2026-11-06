@@ -6575,6 +6575,9 @@ def calendar_checks(m, results):
             const gap = () => { const lis = [...d.querySelectorAll("#calendar-list > li")].filter(shown);
               return lis.length ? Math.round(row().getBoundingClientRect().top - lis.at(-1).getBoundingClientRect().bottom) : null; };
             out.gapIdle = gap();
+            // Farbe hell wie Tertiärtext (nicht Sekundärtext)
+            { const probe = d.createElement("span"); probe.style.color = "var(--mt-text-tertiary)"; row().parentNode.append(probe);
+              out.color = getComputedStyle(row()).color == getComputedStyle(probe).color; probe.remove(); }
             // anlegen
             const before = cal.manager.getCalendars().length;
             row().click(); await ruhig(200);
@@ -6643,7 +6646,7 @@ def calendar_checks(m, results):
           return out;""")
         c, nt = res.get("created") or {}, res.get("newTask") or {}
         near = lambda g: isinstance(g, (int, float)) and 0 <= g <= 8
-        ok = (res.get("inCalendar") is False and res.get("inTasks") and res.get("text") == "New List" and near(res.get("gapIdle")) and near(res.get("gapEdit"))
+        ok = (res.get("inCalendar") is False and res.get("inTasks") and res.get("text") == "New List" and near(res.get("gapIdle")) and near(res.get("gapEdit")) and res.get("color")
               and res.get("edit") == {"input": True, "value": "New List", "focus": True, "selected": 8}
               and c == {"n": 1, "type": "storage", "selected": True, "idle": True} and res.get("escaped") and res.get("collapsed")
               and res.get("ctxTasks", [])[:0] == [] and "Show All Lists" in res.get("ctxTasks", []) and "New List" in res.get("ctxTasks", [])
@@ -6652,7 +6655,7 @@ def calendar_checks(m, results):
               and res.get("sortLabel") == "Sort By" and res.get("sortItems") == ["Due Date", "Priority", "Title", "Creation Date", "Ascending", "Descending"]
               and res.get("asc") == "ABC" and res.get("cardsAsc") == "ABC" and res.get("desc") == "CBA")
         return ok, f"{res}"
-    check("Aufgaben 4/5: „New List“ direkt unter der letzten Liste (anlegen, Esc, eingeklappt), Kontextmenü und File → New List…, „New Task“ unter der letzten Karte, Sortieren über „…“", tasks_new_list_sort, results)
+    check("Aufgaben 4/5: „New List“ hellgrau direkt unter der letzten Liste (anlegen, Esc, eingeklappt), Kontextmenü und File → New List…, „New Task“ unter der letzten Karte, Sortieren über „…“", tasks_new_list_sort, results)
 
     def tasks_list_context():
         # Kontextmenü einer Liste im Bereich Aufgaben ohne Kalender-Befehle: kein Export, kein Veröffentlichen,

@@ -7234,6 +7234,8 @@ def server_checks(m, results):
               const inbox = await until(() => root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox), 10000);
               a3.displayFolder(inbox.URI);
               await until(() => a3.gDBView?.rowCount > 0, 15000);
+              // die übrigen Ordner (LIST) kommen teils erst nach der ersten Mail an – darauf warten statt sofort zu zählen
+              await until(() => root.subFolders.some(f => f.name == "Sent"), 15000);
               return { folders: root.subFolders.map(f => f.name).sort(), rows: a3.gDBView?.rowCount || 0,
                        subject: a3.gDBView?.rowCount ? a3.gDBView.getMsgHdrAt(0).mime2DecodedSubject : null,
                        inTree: !!a3.document.querySelector(`#folderTree li[data-server-key="${acc.incomingServer.key}"], #folderTree li[data-folder-uri^="${root.URI}"]`) };""" % key)

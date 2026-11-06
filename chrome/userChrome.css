@@ -1797,6 +1797,22 @@ findbar .findbar-textbox:focus {
   display: none !important;
 }
 
+/* Today-Pane ein-/ausblenden: Knöpfe, die dabei einklappen, bleiben während
+   der Animation an ihrer alten Stelle stehen (außerhalb des Flusses) und
+   blenden aus, statt gleich zu Beginn zu verschwinden */
+#unifiedToolbarContent > li[mc-squeezed][data-mc-vanish] {
+  display: var(--mc-vanish-display, flex) !important;
+  position: absolute !important;
+  pointer-events: none !important;
+}
+
+/* … und das Suchfeld ändert seine Breite (und damit die Stufe: nur Lupe,
+   „Search“, ganzer Text) stufenlos: der Rahmen hat schon das Endmaß, das
+   Feld darin reicht um --mc-search-extra weiter (bzw. weniger weit) */
+#unifiedToolbarContent > li[item-id="search-bar"] > .live-content {
+  margin-inline-end: calc(-1 * var(--mc-search-extra, 0px)) !important;
+}
+
 #unifiedToolbarContent > li[item-id="search-bar"] {
   /* Apple Mail: 333 × 38 px – in jedem Bereich gleich breit. Bei
      Platzmangel schrumpft zuerst das Suchfeld (in den Bereichen bis zur

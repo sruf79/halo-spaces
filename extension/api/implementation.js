@@ -19070,6 +19070,11 @@ class CardEnhancer {
       return r?.width ? r.left : null;
     };
     const fromAll = kidsAll.map(place);
+    // dazu die Breite des Suchfelds und Lage/Darstellung der übrigen Knöpfe
+    // (für die, die gleich einklappen)
+    const searchLi = kidsAll.find(li => li.getAttribute("item-id") == "search-bar");
+    const fromSearchW = searchLi && fromAll[kidsAll.indexOf(searchLi)] != null ? searchLi.getBoundingClientRect().width : null;
+    const fromBox = kidsAll.map((li, i) => (fromAll[i] != null ? { top: li.getBoundingClientRect().top, display: w.getComputedStyle(li).display } : null));
     if (showing) {
       command.doCommand();
     }
@@ -19144,11 +19149,25 @@ class CardEnhancer {
     panel.__mcAnimating = true;
     const toAll = kidsAll.map(place);
     // gleiten: vorher und nachher sichtbar; erscheinen: werden eingeblendet
-    // (die eingeklappten verschwinden wie bisher gleich zu Beginn)
     const riders = kidsAll.filter((_, i) => fromAll[i] != null && toAll[i] != null);
     const from = kidsAll.map((_, i) => fromAll[i]).filter((_, i) => fromAll[i] != null && toAll[i] != null);
     const to = kidsAll.map((_, i) => toAll[i]).filter((_, i) => fromAll[i] != null && toAll[i] != null);
     const appear = kidsAll.filter((_, i) => fromAll[i] == null && toAll[i] != null);
+    // einklappende Knöpfe: an ihrer alten Stelle stehen lassen (außerhalb des
+    // Flusses, das Endmaß der Zeile bleibt) und ausblenden
+    const vanish = kidsAll.filter((li, i) => fromAll[i] != null && toAll[i] == null && li.hasAttribute("mc-squeezed"));
+    const vanishShift = vanish.map(li => {
+      const i = kidsAll.indexOf(li);
+      li.style.setProperty("--mc-vanish-display", fromBox[i].display);
+      li.setAttribute("data-mc-vanish", "");
+      const r = li.getBoundingClientRect();
+      return `translate(${(fromAll[i] - r.left).toFixed(2)}px, ${(fromBox[i].top - r.top).toFixed(2)}px)`;
+    });
+    vanish.forEach((li, i) => (li.style.transform = vanishShift[i]));
+    // Suchfeld: Breite stufenlos vom alten zum neuen Maß (der Rahmen steht
+    // schon am Endmaß, das Feld darin reicht weiter bzw. weniger weit)
+    const toSearchW = searchLi && fromSearchW != null && toAll[kidsAll.indexOf(searchLi)] != null ? searchLi.getBoundingClientRect().width : null;
+    const searchExtra = toSearchW != null ? fromSearchW - toSearchW : 0;
     const topEl = d.getElementById("mcTodayTop");
     const titleEl = d.getElementById("mcTodayTitle");
     if (row && topEl && titleEl) {
@@ -19164,9 +19183,9 @@ class CardEnhancer {
       }
     }
     // Anteil der Bewegung p (0 → 1); das Layout steht schon am Ende (to),
-    // Suchfeld und Knöpfe gleiten von ihrer alten an die neue Stelle (die
-    // Stufe des Suchfelds – nur Lupe, „Search“, ganzer Text – gilt gleich ab
-    // Beginn und wird am Ende nicht neu bestimmt)
+    // Suchfeld und Knöpfe gleiten von ihrer alten an die neue Stelle, das
+    // Suchfeld ändert dabei stufenlos seine Breite (die Stufe – nur Lupe,
+    // „Search“, ganzer Text – folgt ihr; am Ende wird nichts neu bestimmt)
     const ride = value => {
       const p = showing ? value / full : 1 - value / full;
       riders.forEach((li, i) => {
@@ -19174,6 +19193,11 @@ class CardEnhancer {
         li.style.transform = Math.abs(shift) >= 0.5 ? `translateX(${shift}px)` : "";
       });
       appear.forEach(li => li.style.setProperty("opacity", p.toFixed(3)));
+      // in der ersten Hälfte weg – die Nachbarn gleiten an ihren Platz
+      vanish.forEach(li => li.style.setProperty("opacity", Math.max(0, 1 - 2 * p).toFixed(3)));
+      if (Math.abs(searchExtra) >= 0.5) {
+        searchLi.style.setProperty("--mc-search-extra", `${(searchExtra * (1 - p)).toFixed(2)}px`);
+      }
       if (editBlock) {
         editBlock.style.transform = value ? `translateX(${-value * rtl}px)` : "";
       }
@@ -19232,6 +19256,13 @@ class CardEnhancer {
       // Layout ist jetzt am Endplatz – Verschiebungen weg (im selben Bild)
       riders.forEach(li => (li.style.transform = ""));
       appear.forEach(li => li.style.removeProperty("opacity"));
+      vanish.forEach(li => {
+        li.removeAttribute("data-mc-vanish");
+        li.style.removeProperty("--mc-vanish-display");
+        li.style.removeProperty("opacity");
+        li.style.transform = "";
+      });
+      searchLi?.style.removeProperty("--mc-search-extra");
       if (editBlock) {
         editBlock.style.transform = "";
       }

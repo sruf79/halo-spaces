@@ -10172,13 +10172,17 @@ def run_checks(m, version, profile, results):
           const title = d.getElementById("mcTodayTitle");
           const search = () => d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
           const row = d.getElementById("unifiedToolbarContainer");
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
-            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0));
+          // sichtbare Breite des Suchfelds (das Feld selbst, nicht sein Rahmen) und Deckkraft der Knöpfe
+          const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
+          const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
+            .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk }; };
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -10195,9 +10199,10 @@ def run_checks(m, version, profile, results):
             if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
-            const pre = snap();
-            btn.click(); const { ws, ts, ss, tt, tl, kk } = await record(); await ruhig(300);
+            const pre = snap(), preW = sWidth();
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
+            sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
             const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => moving[i + 1]);
@@ -10210,8 +10215,14 @@ def run_checks(m, version, profile, results):
             // alle Knöpfe, die vorher und nachher da sind, gleiten (früher rückten die links vom Suchfeld sofort nach)
             const both = Object.keys(kk[0] || {}).filter(k => k in (kk.at(-1) || {}));
             const kJump = Math.max(0, ...both.map(k => Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))));
+            // Breite des Suchfelds (und damit seine Stufe) ändert sich stufenlos, kein Wechsel 169 ↔ 68 px zu Beginn
+            const swJump = Math.max(0, ...sw.slice(1).map((v, i) => Math.abs(v - sw[i])));
+            // einklappende Knöpfe (vorher da, am Ende weg): im ersten Bild noch an ihrer Stelle und sichtbar, dann ausblenden
+            const gone = Object.keys(kk[0] || {}).filter(k => !(k in (kk.at(-1) || {})));
+            const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
+              fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
-                           searchJump: Math.max(...sJumps), buttonJump: kJump, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+                           searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -10236,10 +10247,12 @@ def run_checks(m, version, profile, results):
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
         ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] <= res[p]["maxJump"] + 2
                  and res[p].get("buttonJump", 0) <= res[p]["searchJump"] + 2
+                 and res[p]["searchWidthJump"] <= res[p]["maxJump"] + 2
+                 and all(v["first"] and v["first"][0] <= 2 and v["first"][1] >= 0.5 and v["fading"] for v in res[p]["vanish"].values())
                  and res[p]["titleMid"] is not False and res[p].get("titleEnd", 0) <= 1 and
                  res[p]["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2 for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der

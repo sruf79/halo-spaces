@@ -124,6 +124,17 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht jede Zahl mit der Vorwoche vergleichen, wenn vorhanden.
 
+**Token-Bilanz** (Entscheidung des Maintainers, Cloud-Sitzung
+global.design.comparison, 6.11.2026, Wortlaut: „ist das viel aufwand? wenn
+nein - ja token zusammenzählen“): `python3 tests/token-bilanz.py --tage 7
+--json` zählt die Tokens aus den Sitzungsprotokollen je Art (Nachtlauf,
+Wochenprüfung, Doku-Prüfung, Rundgang, GitHub-Kommunikation, neon, neon-board,
+push, sonstige) und legt sie als Wochenwert in
+~/halo-aufgaben/token-kennzahlen.json ab (Abschnitt „basis“ = Stand vor den
+Sparmaßnahmen vom 6.11.2026, nie überschreiben). Im Bericht knapp: Summe und
+Ausgabe-Tokens je Art gegen „basis“ und Vorwoche (in %), Anteil „sonstige“;
+nur Zählwerte, keine Inhalte. Zuordnungsregeln im Kopf des Skripts.
+
 ## 3. Selbst beheben (nur im normalen Lauf)
 
 Erlaubt ohne Rückfrage: kleine Korrekturen an Prüfungen in tests/halo_test.py,

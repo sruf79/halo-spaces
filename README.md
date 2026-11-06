@@ -181,6 +181,17 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.20.0
+
+- **Rules**: mail filters are now called Rules: "Apply Rules" and "Create Rule from Message…" in the context menus, Mail → "Rules…", a "Rules" window, and a "Rules" card under General in Settings (also found by the settings search)
+- **Tasks**: "New List" below the lists (type the name, Enter creates a local list); the list context menu offers "Show All Lists", "New List" and "Add Online List…", also File → New List…; "New Task" below the last card to type a task directly; the "…" menu has Sort By (due date, priority, title, creation date, direction). The title in the details card is centred, the buttons above the details follow the divider when you drag it
+- **Toolbar buttons**: grouped buttons show fine separators that disappear on hover; the button under the pointer gets its own rounded highlight inside the group
+- **Sidebar** (Mac): the window buttons sit at the top of the spaces bar, and the header above spaces bar and folder list is one surface
+- **Say Thanks** in Settings and Help → halo.spaces is a capsule with a golden ring and a steaming cup; the reminder never shows while an update is waiting
+- **Today pane**: all toolbar buttons glide to their new place when the pane opens or closes
+- **Fixes**: multi-day events can be created again (changing the end no longer moves the start); all attachments of an expanded list are fully visible; an Outlook data file that cannot be read no longer freezes Thunderbird and is released right away; on Linux the main window no longer shrinks under Wayland; "Say Thanks" stays hidden in the welcome window
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.19.0
 
 - **Tasks**: edit the open task right in its details column: title, note, location and URL as fields, Start and Due with a date picker and "Remove", menus for Repeat, Reminder, List, Category, Privacy, Priority and Progress (with "Cancelled"); changes are saved at once and can be undone. The whole column scrolls together. "Edit Task…" is now the first entry of the task context menu

@@ -14501,7 +14501,8 @@ Neu
     check("Vorschau: HTML-Zeichen (&zwnj; …) aufgelöst", preview_entities, results)
 
     def tooltip_style():
-        # Tooltips nativ wie im System (keine eigene Fläche, kein Radius) – auch an der Toolbar;
+        # Tooltips nativ wie im System (keine eigene Fläche, kein Radius) – auch an der Toolbar; unter Windows
+        # zeichnet Thunderbird den Standard-Tooltip selbst (appearance none), dort zählen nur Radius und Kontrast;
         # Schrift und Fläche aus denselben Systemfarben, also lesbar hell wie dunkel
         # (früher dunkle Schrift auf dunklem Tooltip). Der Termin-Tooltip im Kalender ist eine eigene Prüfung.
         res = m.js(MESSAGE_JS + '''
@@ -14519,7 +14520,7 @@ Neu
           return out;''')
         tips = {k: v for k, v in res.items() if isinstance(v, dict)}
         bad = [k for k, t in tips.items()
-               if t["app"] == "none" or t["radius"] not in ("0px", "") or contrast(t["color"], t["bg"]) < 4.5]
+               if (sys.platform == "darwin" and t["app"] == "none") or t["radius"] not in ("0px", "") or contrast(t["color"], t["bg"]) < 4.5]
         ok = "mail" in tips and "message" in tips and not bad and "@" in (res.get("title") or "")
         return ok, f"abweichend={bad} " + ", ".join(f"{k}: Kontrast {contrast(t['color'], t['bg']):.1f}" for k, t in tips.items()) + f" {res}"
     check("Tooltips: nativ wie im System mit lesbarer Schrift", tooltip_style, results)

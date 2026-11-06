@@ -3628,6 +3628,24 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   }
 }
 
+/* Fehlerbehebungsseite (about:support): Knöpfe als Kapsel mit der
+   üblichen Knopffläche statt eckigem Toolkit-Grau */
+@-moz-document url("about:support") {
+  button {
+    appearance: none !important;
+    border: none !important;
+    border-radius: 999px !important;
+    background-color: var(--mt-control) !important;
+    color: var(--mt-text) !important;
+    min-height: 28px !important;
+    padding-block: 0 !important;
+    padding-inline: 14px !important;
+  }
+  button:not([disabled]):hover {
+    background-color: var(--mt-control-hover) !important;
+  }
+}
+
 /* Gespeicherte Dateien (about:downloads): Fläche, Knopf, Suchfeld und Liste
    wie im übrigen Design statt eckigem Toolkit-Grau (dunkel Navy-Grund) */
 #aboutDownloads,

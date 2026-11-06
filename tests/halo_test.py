@@ -3290,6 +3290,20 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Gespeicherte Dateien: Design auch in about:downloads – Kapsel-Knopf, Fensterfarbe, Liste mit Haarlinie", downloads, results)
 
+    def support_page():
+        # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300);
+          const t = tm.openTab("contentTab", { url: "about:support", background: false });
+          try { await bis(() => t.browser?.contentDocument?.getElementById("copy-to-clipboard") && t.browser.contentWindow.__mcTheme, "about:support mit Design", 8000); await ruhig(400);
+            const dd = t.browser.contentDocument;
+            const bs = [...dd.querySelectorAll("button")].filter(b => b.getClientRects().length).slice(0, 6).map(b => { const s = csOf(b); return [b.id || b.textContent.trim().slice(0, 20), Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor]; });
+            return { bs, control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
+          } finally { tm.closeTab(t); await ruhig(300); }""")
+        ok = len(res["bs"]) >= 3 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) for _, h, r, bg in res["bs"])
+        return ok, f"{res}"
+    check("Fehlerbehebung: Knöpfe in about:support als 28-px-Kapsel mit Knopffläche", support_page, results)
+
     def import_export():
         # Import und Export (about:import): Fläche in Fensterfarbe wie die übrigen Tabs, dunkel nicht Firefox-Blauschwarz #18181B
         # (der leichte Schleier des body bleibt, damit sich hell die weiße Karte abhebt)

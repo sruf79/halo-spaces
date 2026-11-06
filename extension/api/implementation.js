@@ -17803,7 +17803,7 @@ class CardEnhancer {
     }
   }
 
-  // Bereiche-Leiste wie die Ordnerliste animieren: Breite 0 ↔ 67 px über
+  // Bereiche-Leiste wie die Ordnerliste animieren: Breite 0 ↔ 89 px über
   // --mc-spaces-w (userChrome.css leitet --spaces-total-width davon ab), die
   // Leiste schiebt sich dabei von links herein bzw. hinaus.
   // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
@@ -17818,7 +17818,7 @@ class CardEnhancer {
     if (!spaces || w.__mcSpacesAnimating) {
       return;
     }
-    const FULL = 67;
+    const FULL = 89;
     const DURATION = motionMs(250);
     const curve = cubicBezier(0.25, 0.1, 0.25, 1);
     const showing = spaces.isHidden;

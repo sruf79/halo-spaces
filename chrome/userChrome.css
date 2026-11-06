@@ -2352,14 +2352,15 @@ findbar .findbar-textbox:focus {
     --mc-tl-reserve: 12px;
   }
 
-  /* Ampel 14 px vom Rand wie bei Dia; die Kopfzeile über Bereiche-Leiste und
-     Ordnerliste ist eine Fläche (die Trennlinie der Leiste beginnt erst darunter) */
+  /* Ampel 14 px vom Rand wie bei Dia; die Fläche über den Kacheln reicht bis an
+     die Trennlinie der Leiste (88 px), die Ampel liegt ganz links davon – auch
+     bei ausgeblendeter Ordnerliste */
   :root:has(#spacesToolbar:not([hidden])) #unifiedToolbarContainer .titlebar-buttonbox-container {
     position: fixed !important;
     z-index: 5 !important;
     top: 0 !important;
     inset-inline-start: 0 !important;
-    width: 84px !important;
+    width: 88px !important;
     height: 52px !important;
     margin: 0 !important;
     /* (die Knöpfe selbst haben 12 px Rand: zusammen 14 px vom Fensterrand) */
@@ -2370,12 +2371,10 @@ findbar .findbar-textbox:focus {
     pointer-events: none !important;
   }
 
+  /* Trennlinie der Leiste von ganz oben bis unten (border-inline-end unten),
+     auch neben der Ampel */
   :root:has(#spacesToolbar:not([hidden])) #spacesToolbar {
     padding-top: 52px !important;
-    border-inline-end: none !important;
-    background:
-      linear-gradient(var(--mt-sidebar-border), var(--mt-sidebar-border)) right 52px / 1px calc(100% - 52px) no-repeat,
-      var(--mt-sidebar) !important;
   }
 }
 
@@ -2528,21 +2527,23 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 /* Bereiche: Leiste am linken Rand und Bereiche-Menü */
 /* Bereiche-Leiste wie die Toolbar-Kapseln: senkrechte graue Kapseln mit gleich
    großen 40-px-Knöpfen und demselben Trennstrich (hier waagerecht) */
-/* Leistenbreite 67 px (9 + 48 + 9 + 1 px Linie); Thunderbird rückt den übrigen
-   Inhalt um genau diesen Wert ein. Beim Ein-/Ausblenden animiert die
-   Erweiterung --mc-spaces-w zwischen 0 und 67 px. */
+/* Leistenbreite 89 px: 88 px Fläche (20 + 48 + 20, Kacheln mit gleichem Rand
+   links und rechts) + 1 px Linie; breit genug, dass die Ampel (bis 74 px) ganz
+   links der Linie liegt. Thunderbird rückt den übrigen Inhalt um genau diesen
+   Wert ein. Beim Ein-/Ausblenden animiert die Erweiterung --mc-spaces-w
+   zwischen 0 und 89 px. */
 :root,
 :root[uidensity] {
-  --spaces-total-width: var(--mc-spaces-w, 67px) !important;
+  --spaces-total-width: var(--mc-spaces-w, 89px) !important;
 }
 
 #spacesToolbar {
   background: var(--mt-sidebar) !important;
   /* unten Platz für den Bereiche-Knopf (#mcSpacesToggle) */
-  padding: 8px 9px 48px !important;
-  inline-size: 67px !important;
+  padding: 8px 20px 48px !important;
+  inline-size: 89px !important;
   /* während der Animation schiebt sich die Leiste von links herein */
-  transform: translateX(calc(var(--spaces-total-width) - 67px)) !important;
+  transform: translateX(calc(var(--spaces-total-width) - 89px)) !important;
   box-sizing: border-box !important;
   gap: 0 !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;
@@ -2741,9 +2742,9 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   position: fixed !important;
   z-index: 3 !important;
   bottom: 8px !important;
-  /* fest mittig unter der Leiste ((67 − 40) / 2), auch bei ausgeblendeter
+  /* fest mittig unter den Kacheln ((88 − 40) / 2), auch bei ausgeblendeter
      Leiste und währenddessen – kein Gleiten, nur der Pfeil wechselt */
-  inset-inline-start: 13.5px !important;
+  inset-inline-start: 24px !important;
   transition: none !important;
   /* Kreis wie der Seitenleisten-Knopf oben: 40 × 38 px, grauer Hintergrund */
   width: 40px !important;
@@ -3303,7 +3304,7 @@ unified-toolbar {
 #mcUndoSend {
   position: fixed;
   z-index: 20;
-  inset-inline-start: calc(var(--mc-spaces-w, 66px) + 12px);
+  inset-inline-start: calc(var(--mc-spaces-w, 88px) + 12px);
   bottom: 36px;
   display: flex;
   align-items: center;

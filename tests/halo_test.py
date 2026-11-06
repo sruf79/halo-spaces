@@ -10152,10 +10152,12 @@ def run_checks(m, version, profile, results):
                 bad.append(f"{name}: Greifzone {r['released']}")
             if r["grip"] != [False, s["grip"], False]:
                 bad.append(f"{name}: herausgezogen {r['grip']}")
-            # (Windows: Fensterknöpfe in der Toolbar – in 1400 px stößt die Ordnerliste etwas früher an die Grenze)
+            # (Windows: Fensterknöpfe in der Toolbar – in 1522 px stößt die Ordnerliste etwas früher an die Grenze)
             if widen and (r["wider"] < r["start"] + 40 or not (r["max"] == 360 or (sys.platform == "win32" and 340 <= r["max"] <= 360))):
                 bad.append(f"{name}: Breite {r['start']} → {r['wider']} → {r['max']} (Höchstbreite 360)")
-        m.js('w.resizeTo(1400, 900); await wait(500); await toCalendar(); await ruhig(800); return 1;')
+        # (1522 px: 1500 plus die 22 px, um die die Bereiche-Leiste auf 89 px wuchs – mit Today-Pane stößt die
+        # Ordnerliste sonst vor der Höchstbreite an die Mindestbreiten von Mailliste und Leseansicht)
+        m.js('w.resizeTo(1522, 900); await wait(500); await toCalendar(); await ruhig(800); return 1;')
         out["max"] = m.js(cal_js)["max"]
         if out["max"] != 360:
             bad.append(f"--mt-sidebar-max-width {out['max']}")
@@ -14757,14 +14759,27 @@ Neu
 
     def sidebar_column_top():
         # Seitenleiste wie Dia 1/4: auf dem Mac sitzt die Ampel oben in der Bereiche-Leiste, die Kacheln darunter (keine
-        # überdeckt), die Linie der Leiste beginnt unter der Kopfzeile; Kacheln und linke Leiste in jedem Bereich ganz
-        # sichtbar; Bereiche-Leiste aus → Ampel wie bisher über der Ordnerliste; Windows/Linux ohne Lücke für die Ampel
+        # überdeckt); Kacheln und linke Leiste in jedem Bereich ganz sichtbar; Bereiche-Leiste aus → Ampel wie bisher
+        # über der Ordnerliste; Windows/Linux ohne Lücke für die Ampel.
+        # Leiste 88 px + 1 px Linie: Kacheln 48 px mit je 20 px Rand links und rechts (bis zur Linie), die Linie läuft
+        # von ganz oben bis unten und liegt rechts der Ampel – auch bei ausgeblendeter Seitenleiste (früher saß der
+        # grüne Knopf auf der Grenze, die Linie begann erst unter der Ampel)
         res = m.js(r"""
           w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
           const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), h: Math.round(r.height) }; };
           const bar = d.getElementById("spacesToolbar"), box = d.querySelector("#unifiedToolbarContainer .titlebar-buttonbox");
           const tiles = () => [...bar.querySelectorAll(".spaces-toolbar-button")].filter(b => !b.hidden && b.getBoundingClientRect().height > 0).map(R);
-          const out = { mac: Services.appinfo.OS == "Darwin", box: R(box), bar: R(bar), pad: parseFloat(getComputedStyle(bar).paddingTop), tiles: {} };
+          const cs = getComputedStyle(bar);
+          const line = () => ({ w: parseFloat(cs.borderInlineEndWidth), top: Math.round(bar.getBoundingClientRect().top), left: Math.round(bar.getBoundingClientRect().right) - 1 });
+          const t0 = tiles()[0];
+          const out = { mac: Services.appinfo.OS == "Darwin", box: R(box), bar: R(bar), pad: parseFloat(cs.paddingTop), tiles: {}, line: line(),
+                        rand: t0 ? [t0.l - Math.round(bar.getBoundingClientRect().left), line().left - t0.r, t0.r - t0.l] : null,
+                        body: Math.round(d.getElementById("messengerBody").getBoundingClientRect().left) };
+          // Seitenleiste aus (View → Hide Sidebar), Bereiche-Leiste an: Ampel weiter ganz links der Linie
+          const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");
+          d.getElementById("spacesPinnedButton").click(); await bis(() => !(fp()?.getBoundingClientRect().width >= 1), "Seitenleiste aus", 3000); await ruhig(600);
+          out.noSide = { box: R(box), line: line(), side: Math.round(fp()?.getBoundingClientRect().width ?? -1) };
+          d.getElementById("spacesPinnedButton").click(); await bis(() => fp()?.getBoundingClientRect().width > 100, "Seitenleiste wieder da", 3000); await ruhig(600);
           const side = { mail: () => tm.currentAbout3Pane?.document.getElementById("folderPane"), calendar: () => d.getElementById("calSidebar"),
                          tasks: () => d.getElementById("calSidebar"), addressBook: () => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane") };
           for (const tab of ["mail", "calendar", "tasks", "addressBook"]) {
@@ -14780,13 +14795,21 @@ Neu
         b, bar, hd = res.get("box") or {}, res.get("bar") or {}, (res.get("hidden") or {}).get("box") or {}
         tiles = res.get("tiles") or {}
         all_tiles = all(v.get("n", 0) >= 4 and v.get("side") and v.get("last", 9999) <= bar.get("b", 0) for v in tiles.values())
+        ln, ns = res.get("line") or {}, res.get("noSide") or {}
+        nsb, nsl = ns.get("box") or {}, ns.get("line") or {}
+        # Linie 1 px am rechten Rand, von ganz oben; Kachelrand links == rechts == 20 px; Inhalt beginnt hinter der Linie
+        bar_ok = (ln.get("w") == 1 and ln.get("top") == 0 and ln.get("left") == 88 and res.get("rand") == [20, 20, 48]
+                  and res.get("body") == 89 and nsl.get("w") == 1 and nsl.get("top") == 0 and nsl.get("left") == 88)
         if res.get("mac"):
-            ok = (b and b["l"] >= 8 and b["r"] <= 84 and b["b"] <= 52 and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())
-                  and res.get("pad") == 52 and all_tiles and hd and hd["l"] < 20 and hd["b"] <= 52)
+            ok = (b and b["l"] >= 8 and b["r"] <= ln.get("left", 0) - 8 and b["b"] <= 52
+                  and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())
+                  and res.get("pad") == 52 and all_tiles and hd and hd["l"] < 20 and hd["b"] <= 52 and bar_ok
+                  and ns.get("side", 1) <= 0 and nsb and nsb["r"] <= nsl.get("left", 0) - 8 and nsb["b"] <= 52)
         else:
-            ok = res.get("pad", 0) < 20 and all_tiles
+            ok = res.get("pad", 0) < 20 and all_tiles and bar_ok
         return ok, f"{res}"
-    check("Seitenleiste wie Dia 1/4: Ampel oben in der Bereiche-Leiste, Kacheln darunter und in jedem Bereich ganz sichtbar; Leiste aus → Ampel über der Ordnerliste", sidebar_column_top, results)
+    check("Seitenleiste wie Dia 1/4: Ampel oben in der Bereiche-Leiste, Kacheln darunter und in jedem Bereich ganz sichtbar; Leiste aus → Ampel über der Ordnerliste; "
+          "Bereiche-Leiste 88 px mit Kachelrand 20 px links und rechts, Linie von ganz oben rechts der Ampel (auch ohne Seitenleiste)", sidebar_column_top, results)
 
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),

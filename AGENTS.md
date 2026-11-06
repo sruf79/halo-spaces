@@ -259,8 +259,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
 - **Den Nachtlauf nicht behindern** (Entscheidung des Maintainers vom
   5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
   Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was
-  den Nachtlauf auslassen lässt (siehe „Nachtlauf“ unten): ab 00:30 keinen
-  Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein), keine
+  den Nachtlauf auslassen lässt (siehe „Nachtlauf“ unten): ab 00:00 keinen
+  Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein; eine
+  Runde mit Dunkelmodus dauert gut 70 Minuten – Entscheidung des Maintainers
+  vom 6.11.2026, vorher 00:30), keine
   Testläufe auf neon, die über 01:30 hinausgehen, und keine Runde, die um
   01:30 noch arbeitet – rechtzeitig abschließen bzw. die Antwort geben und
   warten.
@@ -690,7 +692,7 @@ liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
 - Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
   nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch
   sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
-- Push-Sperre 01:30–09:00 und ab 00:30 kein Push mit Codeänderung: wie
+- Push-Sperre 01:30–09:00 und ab 00:00 kein Push mit Codeänderung: wie
   unter „Testrechner“.
 - Release: siehe „Release“ (nur auf neon); den Board-Status über neon oder
   den Maintainer pflegen.

@@ -45,6 +45,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
+| `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
@@ -264,6 +265,10 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   `archiv`), nie `gh project item-list` ungefiltert.
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
+- Unteragenten (`Agent`) immer mit `model: "sonnet"` starten (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“).
+  `neon-board` läuft selbst mit Sonnet und niedriger Reasoning-Stufe
+  (`mac-remote-control.sh` schreibt beides in die Einstellungen von
+  `~/halo-board`).
 - Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
   in allen Sitzungen; seltener verdichten heißt weniger vergessen.
 
@@ -378,6 +383,23 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
   CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
   `tests/MAC-MINI.md` Abschnitt 13.
+- **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“):
+  Nachtlauf, Design-Rundgang, Doku-Prüfung und GitHub-Kommunikation prüfen vorher
+  per Skript ohne Claude (`tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh`),
+  ob es etwas zu tun gibt: Nachtlauf bei machbaren Board-Einträgen (Todo/In
+  Progress, nicht „Wartet auf OK“), nicht gepushten Commits, offenen Änderungen
+  oder unveröffentlichten Änderungen seit dem letzten Release-Tag
+  (`~/halo-nacht/IMMER` erzwingt den Lauf); Rundgang nur bei neuen oder geänderten
+  Ausreißern bzw. neu nicht erreichten Oberflächen; Doku-Prüfung nur über die seit
+  der letzten Prüfung geänderten `.md` (Stand `~/halo-aufgaben/doku-pruefung.stand`);
+  GitHub-Kommunikation nur bei Neuem von anderen seit „Letzte Prüfung“. Ein
+  übersprungener Lauf schreibt `ÜBERSPRUNGEN <Routine> <Grund>` ins Protokoll und in
+  `~/halo-nacht/uebersprungen.log`, ohne Push aufs iPhone; die Wochenprüfung zählt
+  diese Zeilen. Modelle: Sonnet mit niedriger Reasoning-Stufe (`--model sonnet
+  --effort low`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
+  und die Unteragenten von neon sowie für die GitHub-Kommunikation (Einstellung in
+  der Desktop-App, Schritte `tests/MAC-MINI.md` Abschnitt 17a); Opus bleibt für
+  Nachtlauf und Wochenprüfung, Haiku für `push()`.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
@@ -850,7 +872,10 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   was auf eine Entscheidung des Maintainers wartet) hält
   `~/halo-aufgaben/github-komm-stand.md` – lesen vor, aktualisieren nach
   jeder Prüfung, auch bei Antworten aus anderen Sitzungen (Cloud-Sessions
-  erreichen die Datei nicht und lassen sie über neon ergänzen). Keine zweite
+  erreichen die Datei nicht und lassen sie über neon ergänzen). Erster Schritt
+  der Aufgabe ist `~/.config/halo-spaces/github-vorpruefung.sh` (bei „NICHTS NEU“
+  endet sie sofort, siehe „Claude nur bei Arbeit“ unter „Testrechner“, Umstellung
+  durch den Maintainer `tests/MAC-MINI.md` Abschnitt 17a). Keine zweite
   Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
 - **Ton und Inhalt:** Englisch, freundlich, knapp, ohne Fachjargon des
   Codes, wo es nicht nötig ist; Rückfragen konkret stellen. Nie auf die

@@ -498,6 +498,13 @@ und Bilder bzw. Apple-Vorlagen unter `~/halo-aufgaben/` speichert – nie
 Tests, Builds, Thunderbird, Pushes oder Releases (AGENTS.md „neon
 erreichen“). So bleibt das Board erreichbar, während neon testet.
 
+Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Die Sitzung läuft mit Sonnet und niedriger Reasoning-Stufe
+(`"model": "sonnet"`, `"effortLevel": "low"` in der `.claude/settings.json`, die
+`mac-remote-control.sh` bei jedem Start in `~/halo-board` neu schreibt;
+Unteragenten ebenfalls Sonnet). Gilt ab dem nächsten Start von neon-board:
+`mac-mini-setup.sh` kopiert das Skript, startet aber nichts neu; danach, wenn
+neon-board nichts tut, `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.neon-board`.
+
 - Gleiches Skript wie neon (`~/.config/halo-spaces/remote-control.sh`), aber
   `HALO_RC_NAME=neon-board`, Arbeitsordner `~/halo-board` (kein Checkout),
   Protokoll `~/Library/Logs/halo-neon-board.log` (`HALO_RC_LOG`, rotiert wie
@@ -586,6 +593,16 @@ Jede Nacht um 01:30 arbeitet Claude Code auf dem Mini offene Einträge der
 Aufgabenliste ab (Bugs vor Features) und veröffentlicht danach selbst nach
 `AGENTS.md`, Abschnitt „Release“. Auftrag: `tests/nachtlauf-auftrag.md`,
 Ablauf: `tests/nachtlauf.sh`.
+
+Vorprüfung (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Nach dem Aktualisieren von Thunderbird (läuft immer) prüft
+`nachtlauf_arbeit()` aus `tests/vorpruefung.zsh` ohne Claude, ob etwas zu tun ist:
+machbare Board-Einträge (Status Todo oder In Progress, nicht „Wartet auf OK“),
+nicht gepushte Commits, offene Änderungen im Checkout oder Änderungen an
+`extension/`, `chrome/`, `icons/` seit dem letzten Release-Tag (`v*`). Ist nichts davon da,
+schreibt der Lauf nur einen Bericht „übersprungen“ und die Zeile
+`ÜBERSPRUNGEN nachtlauf <Grund>` (Protokoll und `~/halo-nacht/uebersprungen.log`),
+ohne Push aufs iPhone. Im Zweifel (git oder gh nicht lesbar) läuft er.
+`touch ~/halo-nacht/IMMER` erzwingt den Lauf. Der Nachtlauf bleibt bei Opus.
 
 Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge
 abarbeiten, je Eintrag nur die betroffenen Prüfungen (`--only`), ab 04:30
@@ -725,6 +742,12 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   `~/halo-nacht/*.log` und `~/halo-berichte/*` (erledigte Einträge,
   Limit-Pausen, ausgelassene Nächte, Release lokal oder per CI,
   Store-Upload-Fehler), Protokoll des CI-Wächters, Durchsatz im Board.
+- Übersprungene Läufe (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Zeilen `ÜBERSPRUNGEN <Routine> <Grund>` aus
+  `~/halo-nacht/uebersprungen.log` (Nachtlauf, Rundgang, Doku-Prüfung,
+  GitHub-Kommunikation) je Routine zählen; kein Fehler und keine „zu früh
+  beendete“ Nacht, aber prüfen, ob zu oft (z. B. Vorprüfung zu streng, weil ein
+  Eintrag liegenblieb). Kennzahl `uebersprungen` je Woche. Die Wochenprüfung
+  selbst bleibt bei Opus.
 - Fehlerkonsole und Fehlerprotokoll: ob die Meldungen der Woche
   zuverlässig ins Board kamen (Dubletten, verlorene Meldungen, „Wieder
   aufgetreten“, unlesbare Läufe des CI-Wächters, Dauer); eine Durchsicht
@@ -795,6 +818,13 @@ keine geplante Aufgabe der Desktop-App).
   `release.sh`/`publish.sh` schon (dann „ausgelassen“). Sperre
   `~/halo-nacht/doku.lock`, Protokoll `~/halo-nacht/<datum>-doku.log`,
   Zeitgrenzen wie Abschnitt 15.
+- Vorprüfung und Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Läuft nur, wenn sich seit der letzten fertigen
+  Prüfung `.md`-Dateien geändert haben (`git diff` gegen den Commit in
+  `~/halo-aufgaben/doku-pruefung.stand`, ohne `extension/vendor/`); sonst
+  `ÜBERSPRUNGEN dokupruefung …` ohne Claude und ohne Push. Claude bekommt die
+  Liste der geänderten Dateien und prüft nur diese und was sie berührt. Ohne Stand
+  alle Dateien; nach jeder fertigen Prüfung wird der Stand neu gemerkt. Sonnet,
+  niedrige Reasoning-Stufe (`--model sonnet --effort low`).
 - Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.
 - Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --doku --trocken` –
   nur auswerten und Bericht; Einschränkungen wie Abschnitt 15.
@@ -837,6 +867,12 @@ die `halo_test.py` nicht sieht.
   Sicherheit → Bildschirm- & Systemaudioaufnahme einen Eintrag (eingerichtet
   am 5.11.2026). Jeder Lauf schreibt das Ergebnis nach
   `~/halo-tour/bildschirmaufnahme.txt`, `mac-mini-setup.sh --check` zeigt es.
+- Vorprüfung und Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Claude wertet nur, wenn `vergleich.json` neue oder
+  geänderte Ausreißer, neu nicht erreichte Oberflächen oder neue Original-Symbole
+  zeigt (oder kein Vergleich möglich war, z. B. erster Lauf, neues Farbschema).
+  Sonst Bericht „übersprungen“, `ÜBERSPRUNGEN rundgang …`, Kennzahl
+  `uebersprungen`, kein Push. Die Auswertung läuft mit Sonnet, niedrige
+  Reasoning-Stufe.
 - Pausieren: `touch ~/halo-tour/PAUSE`, fortsetzen mit `rm`.
 - Probelauf von Hand (lokaler Stand, ohne Claude, wartet nur auf CI und
   Testläufe, Ablage `~/halo-tour/<datum>-probe`):
@@ -845,3 +881,32 @@ die `halo_test.py` nicht sieht.
   ~/.config/halo-spaces/rundgang-woche.sh --only … ~/halo-spaces` und nach dem
   Lauf `launchctl remove at.halo-spaces.rundgang-probe` – `submit` startet den
   Auftrag nach dem Ende neu, bis er entfernt ist.
+
+## 17a. GitHub-Kommunikation: Vorprüfung (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“)
+
+Die geplante Aufgabe `halo-github-kommunikation` gehört der Claude-Desktop-App
+(Datei `~/.claude/scheduled-tasks/halo-github-kommunikation/SKILL.md`), nicht dem
+Repo. Das Repo liefert nur `tests/github-vorpruefung.sh` (liegt nach
+`mac-mini-setup.sh` in `~/.config/halo-spaces/`): ohne Claude nur `gh`, Neues von
+anderen als sruf79 seit „Letzte Prüfung“ in `~/halo-aufgaben/github-komm-stand.md`
+(neue Issues/PRs, neue Kommentare und Reviews, neue oder gepushte Forks). Ausgabe
+`NICHTS NEU …` (Exitcode 0, schreibt `ÜBERSPRUNGEN github-kommunikation …` nach
+`~/halo-nacht/uebersprungen.log`) oder `NEU …` mit den Funden (Exitcode 1), bei
+Lesefehlern `NEU (Prüfung nicht möglich …)` (Exitcode 2). `--trocken` schreibt
+nichts ins Protokoll. Wirkt erst, wenn der Maintainer die Aufgabe umstellt:
+
+1. In der Desktop-App die Aufgabe „halo.spaces: GitHub-Kommunikation“ öffnen und
+   in den Einstellungen das Modell auf Sonnet stellen (falls der Dialog eine
+   Modellwahl bietet; sonst bleibt es beim bisherigen Modell).
+2. Den Prompt ändern: unter „0. Vorbereitung“ als erster Punkt einfügen:
+   „Führe zuerst `zsh ~/.config/halo-spaces/github-vorpruefung.sh` aus. Beginnt die
+   Ausgabe mit `NICHTS NEU` (Exitcode 0), antworte nur mit einer Zeile ‚GitHub
+   <Uhrzeit>: nichts neu‘ und beende die Prüfung ohne Push, ohne Stand zu ändern.
+   Sonst (`NEU`) normal weiter; die Funde sind die Ausgangsliste.“
+3. Das Schreiben des Stands bleibt wie bisher: Nur eine echte Prüfung setzt „Letzte
+   Prüfung“, eine übersprungene lässt sie stehen, so geht nichts verloren.
+
+Die Sitzung startet weiterhin dreimal täglich, ist bei „nichts neu“ aber nach einem
+Befehl fertig (ein kurzer Lauf statt der vollen Prüfung); ganz ohne Sitzung ginge nur
+ein eigener LaunchAgent, der die Aufgabe bei `NEU` startet (neue Routine, nur auf
+Wunsch).

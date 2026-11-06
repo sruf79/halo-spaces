@@ -28,6 +28,13 @@ und wirkten die Verbesserungen der Vorwochen?
   erledigte Einträge, Limit-Pausen („Limit – Pause“), ausgelassene Nächte und
   Grund, Einträge zurück auf Todo, Release mit lokalen Tests oder über grüne
   CI („CI-Lauf … grün“ im Release-Bericht), Store-Upload-Fehler, Push-Fehler.
+- **Übersprungene Läufe** (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Zeilen „ÜBERSPRUNGEN <Routine> <Grund>“ der
+  letzten 7 Tage aus ~/halo-nacht/uebersprungen.log (Routinen nachtlauf, rundgang,
+  dokupruefung, github-kommunikation) je Routine zählen. Das sind Läufe, bei denen
+  die Vorprüfung nichts zu tun fand – keine ausgelassenen Nächte (naechte_ausgelassen
+  zählt nur „belegt“), keine zu früh beendeten und keine Fehler. Prüfen, ob die
+  Vorprüfung zu streng war (z. B. am selben Tag ein offener machbarer Eintrag im
+  Board, den der Nachtlauf hätte nehmen sollen) und im Bericht nennen.
 - **Remote Control:** ~/Library/Logs/halo-remote-control.log (und .1 … .5,
   rotiert ab 10 MB): Startzeilen („Start: …“, je Neustart der Sitzung neon)
   und Fehlerzeilen der letzten 7 Tage zählen, ebenso für die Board-Sitzung
@@ -111,6 +118,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   dubletten, verloren, wieder_aufgetreten, durchsicht_runden,
   durchsicht_abgeschlossen),
   ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
+  uebersprungen (Objekt: Routine → Anzahl der Zeilen „ÜBERSPRUNGEN“),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).

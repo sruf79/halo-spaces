@@ -14723,4 +14723,65 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 :root[mc-type-switch] #mcTypeSwitch + #calendar-item-panel-iframe {
   order: 1;
 }
+
+/* Kalender: Tooltip eines Termins wie die übrigen halo-Popups – 12 px Radius,
+   Menüfläche, ohne Rand und eigenen Schatten; ruhig wie im Kalender-Popover:
+   Titel fett, darunter Zeit und Ort ohne Feldnamen („Title:“ usw.), der
+   Kalendername entfällt (zeigt die Farbe des Termins). Status und
+   Organisator behalten ihren Feldnamen, aber grau statt fett */
+tooltip#itemTooltip {
+  background: var(--mt-menu-bg) !important;
+  border-color: transparent !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  padding: 5px 0 !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+}
+
+#itemTooltip .tooltipBox {
+  padding: 3px 12px !important;
+}
+
+#itemTooltip .tooltipHeaderTable {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+#itemTooltip .tooltipHeaderTable tr {
+  display: flex !important;
+  order: 3;
+  color: var(--mt-text-secondary) !important;
+}
+
+#itemTooltip .tooltipHeaderTable tr:has(> th[data-l10n-id="tooltip-title"]) {
+  order: 0;
+  color: var(--mt-text) !important;
+  font-weight: 600 !important;
+}
+
+#itemTooltip .tooltipHeaderTable tr:has(> th[data-l10n-id="tooltip-date"]) {
+  order: 1;
+}
+
+#itemTooltip .tooltipHeaderTable tr:has(> th[data-l10n-id="tooltip-location"]) {
+  order: 2;
+}
+
+#itemTooltip .tooltipHeaderTable tr:has(> th[data-l10n-id="tooltip-cal-name"]) {
+  display: none !important;
+}
+
+#itemTooltip .tooltipHeaderTable tr:has(> th:is([data-l10n-id="tooltip-title"], [data-l10n-id="tooltip-date"], [data-l10n-id="tooltip-location"])) > th {
+  display: none !important;
+}
+
+#itemTooltip .tooltipHeaderLabel {
+  font-weight: normal !important;
+  text-align: start !important;
+}
+
+#itemTooltip .tooltipBody {
+  color: var(--mt-text-secondary) !important;
+}
 /* ==== Ende Bereiche ==== */

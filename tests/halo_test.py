@@ -4475,6 +4475,33 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Woche/Tag: Termine mit frei stehendem, rundem Farbstrich wie in der Monatsansicht (keine Klammer), ausgewählt weiß", event_stripe, results)
 
+    def event_tooltip():
+        # Tooltip eines Termins wie die übrigen Popups (12 px, Menüfläche, ohne Rand und Schatten);
+        # Titel fett oben, Zeit und Ort ohne Feldnamen, kein Kalendername
+        res = m.js(CAL_CHECK_JS + r"""
+          const e = new CalEvent(); e.title = "Halo Tooltiptermin"; e.calendar = testCalendar(); e.setProperty("LOCATION", "Wien");
+          const s = cal.dtz.now(); s.hour = 10; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const tip = d.getElementById("itemTooltip");
+          if (!w.showToolTip(tip, e)) return { err: "kein Tooltip" };
+          await till(() => [...tip.querySelectorAll("th")].every(th => th.textContent), 3000);
+          // ohne Zeigerbewegung von Hand öffnen, damit die Zeilen ein Layout haben
+          tip.openPopupAtScreen(w.screenX + 300, w.screenY + 300, false); await isOpen(tip);
+          try {
+          const cs = csOf(tip);
+          const rows = [...tip.querySelectorAll(".tooltipHeaderTable tr")].map(tr => ({ id: tr.querySelector("th").dataset.l10nId,
+            shown: vis(tr), label: vis(tr.querySelector("th")), weight: csOf(tr).fontWeight, top: Math.round(tr.getBoundingClientRect().top) }));
+          return { radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, menu: colorOf(d, "var(--mt-menu-bg)", "backgroundColor"),
+                   shadow: cs.boxShadow, border: cs.borderTopColor, rows, open: tip.state };
+          } finally { tip.hidePopup(); }""")
+        rows = {r["id"]: r for r in res.get("rows", [])}
+        t, dt, loc, c = (rows.get(k, {}) for k in ("tooltip-title", "tooltip-date", "tooltip-location", "tooltip-cal-name"))
+        ok = (res.get("radius") == "12px" and same_color(res.get("bg", ""), res.get("menu", "?")) and res.get("shadow") == "none"
+              and res.get("border") in ("transparent", "rgba(0, 0, 0, 0)")
+              and all(r.get("shown") and not r.get("label") for r in (t, dt, loc)) and not c.get("shown", True)
+              and int(t.get("weight", 0)) >= 600 and t.get("top", 9e9) < dt.get("top", -1) < loc.get("top", -1))
+        return ok, f"{res}"
+    check("Kalender: Termin-Tooltip als Popup-Fläche ohne Rand und Schatten, Titel fett, Zeit und Ort ohne Feldnamen", event_tooltip, results)
+
     def narrow_heads():
         # schmales Fenster: Kopf nicht breiter als seine Spalte (Thunderbirds Inline-Mindestbreite), Text endet mit „…“
         res = m.js(CAL_CHECK_JS + r"""

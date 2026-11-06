@@ -18,11 +18,12 @@ Gegenstück zur Wochenprüfung (sonntags, Läufe und Prüfungen).
 
 ## 1. Prüfen
 
-Steht im Auftrag davor eine Zeile „Seit der letzten Prüfung … geänderte
-.md-Dateien: …“ (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“), prüfe nur diese Dateien und was sie berühren
-(Verweise, Dateilisten und Pfade gegen den Code, Widersprüche zu anderen .md); die
-übrigen sind seit der letzten Prüfung unverändert und werden nicht erneut gelesen.
-Ohne diese Zeile gilt:
+Steht im Auftrag davor „Vollprüfung“, gilt der Rest dieses Abschnitts für alle
+.md-Dateien. Steht dort „Teilprüfung“ (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „nein die doku prüfung soll auch widersprüche sehen“; Umsetzung ist die Deutung der Sitzung global.design.comparison): die genannten
+Dateien (geänderte .md und .md, die geänderte Skripte nennen) gründlich prüfen, alle
+übrigen .md nur auf Widersprüche und Doppeltes zu ihnen (nicht Absatz für Absatz);
+Pfade, Optionen und Zeiten der genannten Skripte gegen die Skripte selbst abgleichen.
+Ohne eine dieser Zeilen gilt:
 
 Alle verfolgten .md-Dateien (git ls-files '*.md'), außer extension/vendor/.
 Zusätzlich die Kopf-Kommentare der Skripte in tests/ und der Workflows, soweit

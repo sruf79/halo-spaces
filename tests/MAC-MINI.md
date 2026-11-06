@@ -818,13 +818,13 @@ keine geplante Aufgabe der Desktop-App).
   `release.sh`/`publish.sh` schon (dann „ausgelassen“). Sperre
   `~/halo-nacht/doku.lock`, Protokoll `~/halo-nacht/<datum>-doku.log`,
   Zeitgrenzen wie Abschnitt 15.
-- Vorprüfung und Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“): Läuft nur, wenn sich seit der letzten fertigen
-  Prüfung `.md`-Dateien geändert haben (`git diff` gegen den Commit in
-  `~/halo-aufgaben/doku-pruefung.stand`, ohne `extension/vendor/`); sonst
-  `ÜBERSPRUNGEN dokupruefung …` ohne Claude und ohne Push. Claude bekommt die
-  Liste der geänderten Dateien und prüft nur diese und was sie berührt. Ohne Stand
-  alle Dateien; nach jeder fertigen Prüfung wird der Stand neu gemerkt. Sonnet,
-  niedrige Reasoning-Stufe (`--model sonnet --effort low`).
+- Vorprüfung und Modell (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja, punkt 2 und 3 umsetzen.“; Ergänzung vom selben Tag, Wortlaut: „nein die doku prüfung soll auch widersprüche sehen“, Umsetzung = Deutung der Sitzung global.design.comparison): Die Prüfung sieht nicht nur Geändertes, sondern auch Widersprüche. Stand: Commit in `~/halo-aufgaben/doku-pruefung.stand` (nach jeder fertigen Prüfung neu, ohne Stand Vollprüfung).
+  1. Geänderte `.md` seit dem Stand gründlich, dazu Abgleich gegen alle anderen `.md` auf Widersprüche und Doppeltes (die übrigen nicht Absatz für Absatz).
+  2. `.md`, die ein geändertes Skript beschreiben, ebenfalls gründlich, auch unverändert. Regel: geändert sind `*.sh`, `*.zsh`, `*.py` und `.github/workflows/*`; die `.md` „beschreibt“ sie, wenn der Dateiname im Text vorkommt. `extension/` und `chrome/` zählen nicht (sie ändern sich täglich).
+  3. Vollprüfung aller `.md` am ersten Samstag im Monat oder wenn `~/halo-nacht/DOKU-VOLL` existiert (der Lauf löscht sie danach).
+  4. Nur wenn nichts davon zutrifft: `ÜBERSPRUNGEN dokupruefung …` ohne Claude und ohne Push.
+
+  Sonnet, `--effort low` (Vollprüfung `--effort medium`).
 - Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.
 - Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --doku --trocken` –
   nur auswerten und Bericht; Einschränkungen wie Abschnitt 15.

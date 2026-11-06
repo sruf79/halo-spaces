@@ -79,27 +79,52 @@ sys.exit(1)
 EOF
 }
 
-# Doku-Prüfung: nur wenn sich seit der letzten Prüfung .md-Dateien geändert
-# haben. Stand: Commit von main nach der letzten fertigen Prüfung in
-# ~/halo-aufgaben/doku-pruefung.stand. Setzt DOKU_GEAENDERT (Liste der Dateien)
-# und DOKU_STAND (der Commit), damit der Auftrag nur diese Dateien nennt.
+# Doku-Prüfung (Entscheidung des Maintainers vom 6.11.2026, Sitzung
+# global.design.comparison, Wortlaut: „nein die doku prüfung soll auch
+# widersprüche sehen“; die Regeln unten sind die Deutung dieser Sitzung):
+#  1. geänderte .md seit der letzten Prüfung gründlich, dazu Abgleich gegen alle
+#     anderen .md (Widersprüche, Doppeltes), die übrigen nur dafür;
+#  2. .md, die ein geändertes Skript beschreiben, ebenfalls gründlich, auch
+#     unverändert. Regel: geändert seit dem Stand sind *.sh, *.zsh, *.py (tests/ und
+#     Hauptordner) und .github/workflows/*; eine .md „beschreibt“ sie, wenn der
+#     Dateiname (Basisname) im Text vorkommt. extension/ und chrome/ zählen nicht
+#     (sie ändern sich täglich, AGENTS.md nennt sie ohnehin);
+#  3. Vollprüfung aller .md am ersten Samstag im Monat oder wenn
+#     ~/halo-nacht/DOKU-VOLL existiert (der Lauf löscht sie nach der Prüfung);
+#  4. überspringen nur, wenn nichts davon zutrifft.
+# Stand: Commit von main nach der letzten fertigen Prüfung in
+# ~/halo-aufgaben/doku-pruefung.stand. Setzt DOKU_STAND, DOKU_GEAENDERT (.md
+# geändert), DOKU_SKRIPTE (Skripte geändert, die eine .md nennt), DOKU_BETROFFEN
+# (.md, die sie nennen, ohne die schon geänderten) und DOKU_VOLL (1 = Vollprüfung).
 DOKU_STAND_DATEI=${HALO_DOKU_STAND:-$HOME/halo-aufgaben/doku-pruefung.stand}
-DOKU_GEAENDERT=() DOKU_STAND=
+DOKU_VOLL_DATEI=${HALO_DOKU_VOLL:-$HOME/halo-nacht/DOKU-VOLL}
+DOKU_GEAENDERT=() DOKU_SKRIPTE=() DOKU_BETROFFEN=() DOKU_STAND= DOKU_VOLL=
 doku_geaendert() {
-  local d a b
-  DOKU_GEAENDERT=() DOKU_STAND=
+  local a b c f mds grund=() tag=$(date +%u) tm=$(date +%d)
+  DOKU_GEAENDERT=() DOKU_SKRIPTE=() DOKU_BETROFFEN=() DOKU_STAND= DOKU_VOLL=
   git -C $REPO fetch -q origin 2>/dev/null
+  if [[ -e $DOKU_VOLL_DATEI ]]; then DOKU_VOLL=1; grund+=("Vollprüfung ($DOKU_VOLL_DATEI)")
+  elif (( tag == 6 && 10#$tm <= 7 )); then DOKU_VOLL=1; grund+=("Vollprüfung (erster Samstag im Monat)"); fi
   [[ -r $DOKU_STAND_DATEI ]] && DOKU_STAND=$(<$DOKU_STAND_DATEI)
   [[ -n $DOKU_STAND ]] && git -C $REPO cat-file -e $DOKU_STAND^{commit} 2>/dev/null ||
-    { DOKU_STAND=; print "kein bekannter Stand der letzten Prüfung, alle .md-Dateien"; return 0 }
-  a=$(git -C $REPO diff --name-only $DOKU_STAND main -- '*.md' ':(exclude)extension/vendor' 2>/dev/null) || { DOKU_STAND=; print "Vergleich gescheitert, im Zweifel alle .md-Dateien"; return 0 }
-  b=$(git -C $REPO diff --name-only $DOKU_STAND origin/main -- '*.md' ':(exclude)extension/vendor' 2>/dev/null)
-  DOKU_GEAENDERT=(${(f)"$(print -r -- $a$'\n'$b | sort -u | sed '/^$/d')"})
-  if (( $#DOKU_GEAENDERT )); then
-    print "$#DOKU_GEAENDERT geänderte .md seit ${DOKU_STAND[1,7]}: ${(j:, :)DOKU_GEAENDERT[1,6]}${${DOKU_GEAENDERT[7]}:+, …}"
-    return 0
-  fi
-  print "keine .md geändert seit ${DOKU_STAND[1,7]}"
+    { DOKU_STAND=; DOKU_VOLL=1; print "kein bekannter Stand der letzten Prüfung, alle .md-Dateien"; return 0 }
+  a=$(git -C $REPO diff --name-only $DOKU_STAND main 2>/dev/null) || { DOKU_STAND=; DOKU_VOLL=1; print "Vergleich gescheitert, im Zweifel alle .md-Dateien"; return 0 }
+  b=$(git -C $REPO diff --name-only $DOKU_STAND origin/main 2>/dev/null)
+  c=(${(f)"$(print -r -- $a$'\n'$b | sort -u | sed '/^$/d')"})
+  DOKU_GEAENDERT=(${(M)c:#*.md})
+  DOKU_GEAENDERT=(${DOKU_GEAENDERT:#extension/vendor/*})
+  for f in ${(M)c:#(*.sh|*.zsh|*.py|.github/workflows/*)}; do
+    [[ $f == extension/* ]] && continue
+    mds=(${(f)"$(git -C $REPO grep -l -F -- ${f:t} main -- '*.md' ':(exclude)extension/vendor' 2>/dev/null | sed 's/^main://')"})
+    (( $#mds )) || continue
+    DOKU_SKRIPTE+=($f)
+    DOKU_BETROFFEN+=($mds)
+  done
+  DOKU_BETROFFEN=(${${(u)DOKU_BETROFFEN}:|DOKU_GEAENDERT})
+  (( $#DOKU_GEAENDERT )) && grund+=("$#DOKU_GEAENDERT geänderte .md seit ${DOKU_STAND[1,7]}: ${(j:, :)DOKU_GEAENDERT[1,6]}${${DOKU_GEAENDERT[7]}:+, …}")
+  (( $#DOKU_SKRIPTE )) && grund+=("$#DOKU_SKRIPTE geänderte Skripte, die eine .md nennt (${(j:, :)DOKU_SKRIPTE[1,4]}${${DOKU_SKRIPTE[5]}:+, …}), betrifft ${(j:, :)DOKU_BETROFFEN[1,4]}${${DOKU_BETROFFEN[5]}:+, …}")
+  if (( $#grund )); then print -r -- ${(j:; :)grund}; return 0; fi
+  print "keine .md und keine beschriebenen Skripte geändert seit ${DOKU_STAND[1,7]}, keine Vollprüfung fällig"
   return 1
 }
 doku_stand_merken() {   # nach einer fertigen Prüfung (auch mit eigenen Commits)

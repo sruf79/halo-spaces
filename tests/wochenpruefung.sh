@@ -103,14 +103,19 @@ fi
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
 
-# Doku-Prüfung nur über .md-Dateien, die seit der letzten fertigen Prüfung geändert
-# wurden (Stand ~/halo-aufgaben/doku-pruefung.stand); keine geändert: ohne Claude
-# und ohne Push überspringen
+# Doku-Prüfung: Teilprüfung bei geänderten .md oder geänderten, in einer .md genannten
+# Skripten, Vollprüfung am ersten Samstag im Monat bzw. mit ~/halo-nacht/DOKU-VOLL
+# (Regeln in vorpruefung.zsh); sonst ohne Claude und ohne Push überspringen
 DOKU_HINWEIS=
 if [[ -n $DOKU && -z $TROCKEN ]]; then
   if GRUND=$(doku_geaendert); then
     log "Vorprüfung: $GRUND"
-    (( $#DOKU_GEAENDERT )) && DOKU_HINWEIS="Seit der letzten Prüfung (Stand ${DOKU_STAND[1,7]}) geänderte .md-Dateien: ${(j:, :)DOKU_GEAENDERT}. Prüfe nur diese Dateien und was sie berührt (Verweise, Dateilisten und Pfade gegen den Code, Widersprüche zu anderen .md); die übrigen nicht erneut."
+    if (( DOKU_VOLL )); then
+      DOKU_HINWEIS="Vollprüfung: alle .md-Dateien gründlich prüfen."
+      MODELL=(--model sonnet --effort medium)
+    else
+      DOKU_HINWEIS="Teilprüfung seit der letzten Prüfung (Stand ${DOKU_STAND[1,7]}). Gründlich prüfen: geänderte .md-Dateien (${(j:, :)DOKU_GEAENDERT:-keine})${DOKU_SKRIPTE:+ und die .md, die geänderte Skripte nennen (Skripte: ${(j:, :)DOKU_SKRIPTE}; .md: ${(j:, :)DOKU_BETROFFEN})}. Alle übrigen .md nur auf Widersprüche und Doppeltes zu diesen prüfen, nicht Absatz für Absatz."
+    fi
   else
     uebersprungen dokupruefung "$GRUND"
     notbericht "übersprungen" "nichts zu prüfen: $GRUND"
@@ -192,7 +197,7 @@ while true; do
 done
 
 # fertige Doku-Prüfung (mit ihren eigenen Commits) merken: nächstes Mal nur, was danach geändert wurde
-[[ -n $DOKU && -z $TROCKEN && -e $FERTIG ]] && doku_stand_merken
+[[ -n $DOKU && -z $TROCKEN && -e $FERTIG ]] && { doku_stand_merken; rm -f $DOKU_VOLL_DATEI }
 if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
   notbericht "ohne Abschluss" "Claude hat keinen Bericht geschrieben (Runden: $RUNDE, letzter Exitcode $RC)" mit-details
 fi

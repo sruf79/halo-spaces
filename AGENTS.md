@@ -390,13 +390,17 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Progress, nicht „Wartet auf OK“), nicht gepushten Commits, offenen Änderungen
   oder unveröffentlichten Änderungen seit dem letzten Release-Tag
   (`~/halo-nacht/IMMER` erzwingt den Lauf); Rundgang nur bei neuen oder geänderten
-  Ausreißern bzw. neu nicht erreichten Oberflächen; Doku-Prüfung nur über die seit
-  der letzten Prüfung geänderten `.md` (Stand `~/halo-aufgaben/doku-pruefung.stand`);
+  Ausreißern bzw. neu nicht erreichten Oberflächen; Doku-Prüfung
+  (Stand `~/halo-aufgaben/doku-pruefung.stand`) nur bei geänderten `.md` oder geänderten
+  Skripten, die eine `.md` nennt, mit Abgleich gegen alle `.md` auf Widersprüche,
+  und als Vollprüfung am ersten Samstag im Monat bzw. mit `~/halo-nacht/DOKU-VOLL`
+  (Ergänzung vom selben Tag, Wortlaut: „nein die doku prüfung soll auch widersprüche sehen“; Regeln = Deutung der Sitzung
+  global.design.comparison, `tests/MAC-MINI.md` Abschnitt 16);
   GitHub-Kommunikation nur bei Neuem von anderen seit „Letzte Prüfung“. Ein
   übersprungener Lauf schreibt `ÜBERSPRUNGEN <Routine> <Grund>` ins Protokoll und in
   `~/halo-nacht/uebersprungen.log`, ohne Push aufs iPhone; die Wochenprüfung zählt
   diese Zeilen. Modelle: Sonnet mit niedriger Reasoning-Stufe (`--model sonnet
-  --effort low`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
+  --effort low`, Vollprüfung der Doku `medium`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
   und die Unteragenten von neon sowie für die GitHub-Kommunikation (Einstellung in
   der Desktop-App, Schritte `tests/MAC-MINI.md` Abschnitt 17a); Opus bleibt für
   Nachtlauf und Wochenprüfung, Haiku für `push()`.

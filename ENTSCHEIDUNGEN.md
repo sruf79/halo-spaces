@@ -14,6 +14,10 @@ Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 Herkunft: Sitzung global.features. Wortlaut: „bitte ab sofort alle an dich übermittelten screenshots direkt auf neon in den dafür vorgesehenen folder mit dem richtigen namen abspeichern damit dieser screenshot auch in zukunft gefunden werden kann“ – Zustimmung zum Eintragen als Entscheidung: „ja, bitte als Entscheidung eintragen.“
 Bezug: gilt für jeden Screenshot, den der Maintainer einer Sitzung schickt, auch ohne Board-Eintrag (bisher nur Bilder für einen Bug oder ein Feature). Deutung der Sitzung (kein Wortlaut): „der dafür vorgesehene Folder“ ist `~/halo-aufgaben/bilder/`, bei Apple-Apps zusätzlich `~/halo-aufgaben/apple/`; „richtiger Name“ ist Bereich, Oberfläche, Besonderheit (z. B. `kalender-termin-zusammenfassung-ort`).
 
+### Kalender-Test „Mehrwochen-Ansicht scrollen“: Grenze vier Bildwechsel
+Herkunft: Sitzung „agents.md von Neon“ (halo-spaces, Cloud), 7.11.2026. Wortlaut: „ein Bild bis 4 Bildwechsel nehmen“.
+Bezug: `tests/halo_test.py`, Prüfung „Kalender: Mehrwochen-Ansicht scrollen 3/6 – 25 Wochen am Stück flüssig“: größte Bildzeit höchstens 4 Bildwechsel statt `3*idle+4`. Messwerte vom 7.11. (13 Läufe, neon, macOS 27.2 seit 6.11.): größte Bildzeit v3.20.0 55,0–57,9 ms, main 54,5–59,1 ms, Median 16,7 ms, Ausreißer über zwei Bildwechsel 4–5 (erlaubt 6); kein Fehler in halo.spaces, auch ohne RustDesk-Verbindung gleich.
+
 ## 6.11.2026
 
 ### Zweite Board-Sitzung `neon-board`

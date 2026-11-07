@@ -6227,10 +6227,13 @@ def calendar_checks(m, results):
           return out;""")
         fr = res.get("frames") or {}
         # Bildtakt: scharf nur unter macOS (unter xvfb und in der VM schwankt er ohne Grafikkarte)
-        # Mac: im langen CI-Volllauf kommen einzelne Ausreißer (Speicherbereinigung) bis knapp drei Bildwechsel vor –
-        # höchstens 6 von 75 und keiner über drei Bildwechsel; Dauerruckeln fängt der Median ab
+        # Mac: im langen CI-Volllauf kommen einzelne Ausreißer (Speicherbereinigung) vor –
+        # höchstens 6 von 75 und keiner über vier Bildwechsel; Dauerruckeln fängt der Median ab.
+        # Grenze von drei auf vier Bildwechsel (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in
+        # ENTSCHEIDUNGEN.md): seit macOS 27.2 (6.11.) kostet ein einzelnes Bild 1 bis 4 ms mehr, größte Bildzeit
+        # 55 bis 59 ms; Release v3.20.0 und main liegen gleichauf, also kein Fehler in halo.spaces
         idle = res.get("idle", 16.7)
-        smooth = fr.get("median", 99) <= idle * 1.5 + 2 and (sys.platform != "darwin" or (fr.get("slow", 99) <= 6 and fr.get("max", 99) <= 3 * idle + 4))
+        smooth = fr.get("median", 99) <= idle * 1.5 + 2 and (sys.platform != "darwin" or (fr.get("slow", 99) <= 6 and fr.get("max", 99) <= 4 * idle))
         ok = (fr.get("n") == 75 and smooth and res.get("missing") == 0 and res.get("snapEmpty") == 0
               and 24 <= res.get("weeks", 0) <= 26 and not res.get("mask"))
         return ok, f"{res}"

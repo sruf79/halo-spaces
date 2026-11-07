@@ -6097,7 +6097,7 @@ def calendar_checks(m, results):
     def multiweek_buffer():
         # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je zwölf unsichtbare Wochen
         # davor und danach, Termine darin geladen; sichtbar, Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht
-        # wie ohne; Thunderbirds Einstellungen der Wochenzahl unverändert
+        # wie ohne (Überschrift seit 4/6: Monat der obersten Woche); Thunderbirds Einstellungen der Wochenzahl unverändert
         res = m.js(CAL_CHECK_JS + r"""
           const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(1000);
@@ -6113,6 +6113,8 @@ def calendar_checks(m, results):
           const look = () => ({ shown: rows().filter(inView).length, buffer: rows().filter(r => r.hasAttribute("mc-buffer")).length,
             bufferHidden: rows().filter(r => r.hasAttribute("mc-buffer")).every(r => !inView(r)), range: iso(mv.rangeStartDate), loaded: iso(mv.startDate),
             label: d.getElementById("intervalDescription")?.textContent || d.querySelector("#calendarNavigationBar .view-header")?.textContent || "",
+            // seit 4/6 steht mit Einstellung der Monat der obersten Woche (Monat ihres letzten Tags) in der Überschrift
+            top: (() => { const s = mv.rangeStartDate; return s ? new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47[0], { month: "long", year: "numeric" }).format(new Date(s.year, s.month, s.day + 6)) : ""; })(),
             h: Math.round(rows().filter(inView).reduce((a, r) => a + r.cells[0].firstElementChild.getBoundingClientRect().height, 0)) });
           const out = { off: look() };
           const added = [];
@@ -6152,7 +6154,7 @@ def calendar_checks(m, results):
         week = lambda a, b: a and b and abs((__import__("datetime").date(*map(int, a.split("-"))) - __import__("datetime").date(*map(int, b.split("-")))).days)
         # (seit der zweiten Nacharbeit an 3/6 zwölf Puffer-Wochen je Seite)
         ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 12 and on.get("bufferHidden") and on.get("range") == off.get("range")
-              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 84
+              and on.get("label") == on.get("top") and nx.get("label") == nx.get("top") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 84
               and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
               and zm.get("shown") == 3 and zm.get("buffer") == 24 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
               and oa.get("buffer") == 0 and oa.get("shown") == off.get("shown") and res.get("prefs") == [True, True])
@@ -6334,6 +6336,69 @@ def calendar_checks(m, results):
               and ar.get("before") == 2 and ar.get("weeks") == 1 and bündig(ar) and ar.get("pos") == 0)
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach an der Wochengrenze", multiweek_refill, results)
+
+    def multiweek_months():
+        # Mehrwochen-Ansicht scrollen 4/6 (Einstellung): Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
+        # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),
+        # sobald die Woche mit dem 1. oben ankommt; Tage anderer Monate grau, danach nach dem neuen Monat
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll";
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {};
+          const frame = () => new Promise(r => w.requestAnimationFrame(() => w.requestAnimationFrame(r)));
+          try {
+            Services.prefs.setBoolPref(P, true); await ruhig(800);
+            const fmt = new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47[0], { month: "long", year: "numeric" });
+            const title = () => (d.getElementById("intervalDescription")?.textContent || "").replace(/\s+/g, " ").trim();
+            const s = mv.rangeStartDate, base = new Date(s.year, s.month, s.day);
+            const day = n => new Date(base.getFullYear(), base.getMonth(), base.getDate() + n);
+            // erste Woche nach der obersten, die einen 1. enthält
+            let k = 1; while (day(7 * k + 6).getMonth() == day(7 * k - 1).getMonth()) k++;
+            const oldM = fmt.format(day(6)), newM = fmt.format(day(7 * k + 6));
+            const first = day(7 * k + 6); first.setDate(1);
+            const cal1 = mv.rangeStartDate.clone(); cal1.isDate = true; cal1.year = first.getFullYear(); cal1.month = first.getMonth(); cal1.day = 1;
+            const box1 = () => mv.findDayBoxForDate(cal1);
+            const labelEl = () => [...mv.querySelectorAll(".mc-mw-monthlabel")].find(l => l.textContent.trim() == newM);
+            // Name sitzt über der Woche mit dem 1., beginnt in seiner Spalte
+            const place = () => { const l = labelEl(), b = box1(); if (!l || !b) return null; const lr = l.getBoundingClientRect(), br = b.getBoundingClientRect();
+              return { dy: Math.round(lr.bottom - br.top), dx: Math.round(lr.left - br.left), top: Math.round(br.top) }; };
+            const gray = (dt, on) => { const b = mv.findDayBoxForDate(dt); return b && b.hasAttribute("mc-other") == on; };
+            const dt = js => { const c = mv.rangeStartDate.clone(); c.isDate = true; c.year = js.getFullYear(); c.month = js.getMonth(); c.day = js.getDate(); return c; };
+            const colorOf = js => { const b = mv.findDayBoxForDate(dt(js)); const l = b?.querySelector(".calendar-month-day-label"); return l ? w.getComputedStyle(l).color : null; };
+            // Tag des alten Monats in der obersten Woche und Tag des neuen Monats (der 1.)
+            const oldDay = day(6), newDay = new Date(first);
+            out.start = { title: title() == oldM, n: mv.querySelectorAll(".mc-mw-monthlabel").length, place: place(),
+                          gray: gray(dt(oldDay), false) && gray(dt(newDay), true), colors: colorOf(oldDay) != colorOf(newDay) };
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            const target = mv.monthbody.querySelector("calendar-month-day-box");
+            const wheel = px => target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: px, deltaMode: 0 }));
+            // bis kurz vor die Woche mit dem 1.: alter Monat; Name wandert mit dem Raster
+            const p0 = place();
+            for (let i = 0; i < 3 * k - 1; i++) { wheel(rowH / 3); await new Promise(r => w.requestAnimationFrame(r)); }
+            wheel(rowH / 3 - 4); await frame();
+            const p1 = place();
+            out.before = { title: title() == oldM, moved: p0 && p1 ? p0.top - p1.top : null, place: p1 };
+            // ein paar Pixel weiter: Woche mit dem 1. oben → neuer Monat, sofort (vor dem Einrasten)
+            wheel(8); await frame();
+            out.after = { title: title() == newM, gray: gray(dt(newDay), false) && gray(dt(oldDay), true) };
+            await ruhig(900);
+            out.snap = { title: title() == newM, place: place() };
+          } finally {
+            Services.prefs.clearUserPref(P); await ruhig(600);
+            out.off = { labels: mv.querySelectorAll(".mc-mw-monthlabel").length, gray: mv.querySelectorAll("calendar-month-day-box[mc-other]").length };
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        st, bf, af, sn, off = (res.get(k) or {} for k in ("start", "before", "after", "snap", "off"))
+        sitzt = lambda p: bool(p) and abs(p.get("dy", 9)) <= 1 and abs(p.get("dx", 9)) <= 1
+        rh_ok = bf.get("moved") is not None and bf["moved"] > 0
+        ok = (st.get("title") and st.get("n", 0) >= 6 and sitzt(st.get("place")) and st.get("gray") and st.get("colors")
+              and bf.get("title") and rh_ok and sitzt(bf.get("place"))
+              and af.get("title") and af.get("gray") and sn.get("title") and sitzt(sn.get("place"))
+              and off.get("labels") == 0 and off.get("gray") == 0)
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen 4/6 – Monatsname im Band über der Woche mit dem 1., wandert mit, Überschrift wechselt beim Scrollen, andere Monate grau", multiweek_months, results)
 
     def folder_menu_filters_junk():
         # GitHub-Issue #34: das ausgeblendete Menü Tools hatte „Run Filters on Folder“ und „Delete Mail Marked as Junk“ –

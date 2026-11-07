@@ -888,6 +888,28 @@ calendar-multiweek-view[mc-mw-scroll] .monthtable calendar-day-label {
   will-change: transform;
 }
 
+/* Schritt 4/6: Monatsname im Band vor der ersten Woche des Monats, ab der
+   Spalte des 1. (liegt frei im Raster auf dem unteren Rand der Woche davor,
+   wandert mit dem Raster); Tage anderer Monate als des oben stehenden grau */
+calendar-multiweek-view[mc-mw-scroll] .mc-mw-monthlabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-100%);
+  z-index: 2;
+  padding: 0 8px 2px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  line-height: calc(18px * var(--mt-font-scale, 1));
+  white-space: nowrap;
+  color: var(--mt-text);
+  pointer-events: none;
+}
+
+calendar-multiweek-view[mc-mw-scroll] calendar-month-day-box[mc-other] .calendar-month-day-label {
+  color: var(--mt-text-tertiary) !important;
+}
+
 /* Standbild während des Neuaufbaus (die Tage leeren sich kurz) */
 calendar-multiweek-view > .mc-mw-mask {
   position: absolute;

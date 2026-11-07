@@ -7397,6 +7397,18 @@ const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
 // jeden Neuaufbau teurer (rund 30 ms bei zwölf Wochen, daher Standbild und
 // Neuaufbau in zwei Bildern)
 const MULTIWEEK_BUFFER_WEEKS = 12;
+// Schritt 4/6: Monat als Zahl (Jahr * 12 + Monat) und sein Name wie in der
+// Überschrift von Apple Kalender („December 2026“)
+const monthKey = (year, month) => year * 12 + month;
+function monthTitle(key) {
+  try {
+    const locale = Services.locale.appLocalesAsBCP47[0];
+    return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" })
+      .format(new Date(Math.floor(key / 12), key % 12, 1));
+  } catch {
+    return "";
+  }
+}
 // Schritt 3/6: pixelgenau scrollen wie Apple Kalender (Mausrad und Trackpad
 // gleich), nach dem Scrollen weich auf die nächstgelegene ganze Woche
 // einrasten. Schwung erst in 5/6. Nacharbeit nach Rückmeldung (5.11.2026,
@@ -7422,6 +7434,9 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
   // vis: um so viele Wochen ist der sichtbare Bereich gegen den geladenen
   // (Mitte) schon weitergerückt, ohne Neuaufbau; later: Neuaufbau im Leerlauf
   let vis = 0, later = 0, shifting = false, pending = 0;
+  // Schritt 4/6: oberste sichtbare Woche (gegen den geladenen Bereich), ihr
+  // Monat, erster geladener Tag und die Tage des Rasters
+  let topRow = NaN, topKey = -1, rowBase = null, boxes = [];
   // Zahl der Neuaufbauten durch das Scrollen (für die Prüfung)
   mv.__mcScrollShifts = 0;
   // Höhe einer Woche aus dem Platz, den die Ansicht hat (nicht aus ihrem
@@ -7437,6 +7452,76 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
   const rowH = () => rowCache || measure();
   const active = () => on() && !!mv.__mcVisible && mv.isVisible?.();
   const table = () => mv.querySelector(".monthtable");
+  // Monat oben (Schritt 4/6): der Monat des letzten Tags der obersten
+  // sichtbaren Woche – die Woche mit dem 1. trägt den Monatsnamen über sich
+  // und löst den vorigen Monat ab, sobald sie oben ankommt. Überschrift und
+  // Ausgrauen der Tage anderer Monate folgen (nur bei einem Wechsel)
+  const track = () => {
+    if (!rowBase) {
+      return;
+    }
+    const r = B + Math.floor(pos / rowH() + 1e-3);
+    if (r == topRow) {
+      return;
+    }
+    topRow = r;
+    const d = new Date(rowBase.getFullYear(), rowBase.getMonth(), rowBase.getDate() + 7 * r + 6);
+    const key = monthKey(d.getFullYear(), d.getMonth());
+    if (key == topKey) {
+      return;
+    }
+    topKey = key;
+    mv.__mcTopMonth = key;
+    for (const box of boxes) {
+      box.toggleAttribute("mc-other", box.__mcKey >= 0 && box.__mcKey != key);
+    }
+    if (mv.isVisible?.()) {
+      const el = mv.ownerDocument.getElementById("intervalDescription");
+      if (el) {
+        el.textContent = monthTitle(key);
+      }
+    }
+  };
+  // Monatsnamen im Band (Schritt 4/6): vor jeder Woche mit einem
+  // Monatsersten, ab der Spalte des 1.; sie liegen im Raster und wandern mit
+  // ihm, ohne Arbeit je Bild. Nach jedem Aufbau neu, Einstellung aus: weg
+  const months = () => {
+    const t = table();
+    topRow = NaN;
+    topKey = -1;
+    rowBase = null;
+    delete mv.__mcTopMonth;
+    if (!t) {
+      return;
+    }
+    for (const el of t.querySelectorAll(".mc-mw-monthlabel")) {
+      el.remove();
+    }
+    const use = active() && !!mv.mStartDate;
+    boxes = [...t.querySelectorAll("calendar-month-day-box")];
+    for (const box of boxes) {
+      const row = box.closest("tr");
+      const d = use && row && !row.hasAttribute("hidden") ? box.date : null;
+      box.__mcKey = d ? monthKey(d.year, d.month) : NaN;
+      if (!use) {
+        box.removeAttribute("mc-other");
+      } else if (d?.day == 1) {
+        const cells = [...row.cells].filter(c => !c.hidden && !c.firstElementChild?.hidden);
+        const label = mv.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "div");
+        label.className = "mc-mw-monthlabel";
+        label.textContent = monthTitle(box.__mcKey);
+        label.style.gridRow = box.style.gridRow;
+        label.style.gridColumnStart = Math.max(1, cells.indexOf(box.parentNode) + 1);
+        t.append(label);
+      }
+    }
+    if (use) {
+      const s = mv.mStartDate;
+      rowBase = new Date(s.year, s.month, s.day);
+    } else {
+      boxes = [];
+    }
+  };
   const paint = () => {
     frame = 0;
     const t = table();
@@ -7460,6 +7545,7 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     for (const label of t.querySelectorAll("calendar-day-label")) {
       label.style.transform = `translate3d(0, ${(-y).toFixed(2)}px, 0)`;
     }
+    track();
   };
   const apply = () => {
     const was = mv.hasAttribute("mc-mw-scroll");
@@ -7711,6 +7797,7 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
   // nach jedem Neuaufbau (Pfeile, „Heute“, Zoom) wieder an der Wochengrenze
   mv.__mcScrollApply = () => {
     rowCache = 0;
+    months();
     if (!anim) {
       apply();
     }
@@ -7734,6 +7821,12 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     mask?.remove();
     const t = table();
     if (t) {
+      for (const el of t.querySelectorAll(".mc-mw-monthlabel")) {
+        el.remove();
+      }
+      for (const box of t.querySelectorAll("calendar-month-day-box[mc-other]")) {
+        box.removeAttribute("mc-other");
+      }
       t.style.removeProperty("transform");
       for (const label of t.querySelectorAll("calendar-day-label")) {
         label.style.removeProperty("transform");
@@ -7745,6 +7838,7 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     delete mv.__mcScrollPos;
     delete mv.__mcScrollReset;
     delete mv.__mcScrollShifts;
+    delete mv.__mcTopMonth;
   };
 }
 
@@ -16882,6 +16976,11 @@ class CardEnhancer {
       const weekTitle = () => {
         try {
           const view = w.currentView?.();
+          // Mehrwochen-Ansicht beim Scrollen (Schritt 4/6): der Monat, der oben steht
+          const top = (view?.wrappedJSObject || view)?.__mcTopMonth;
+          if (view?.id == "multiweek-view" && view.hasAttribute("mc-mw-scroll") && top >= 0) {
+            return monthTitle(top);
+          }
           if (view?.id != "week-view" || !view.startDate || !view.endDate) {
             return null;
           }

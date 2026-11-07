@@ -4917,7 +4917,7 @@ def calendar_checks(m, results):
         ok = (ok and dt.get("edit") and dt.get("menulist") == "none" and 11 <= (dt.get("gap") or 0) <= 18 and dt.get("picked")
               and dt.get("tbPopup") == "closed" and same_color(dt.get("ysBg", ""), dt.get("cal", "-")) and int(dt.get("titleWeight") or 0) >= 600
               and len(dt.get("weekdays") or []) == 7 and all(len(x) == 2 for x in dt["weekdays"]) and dt.get("cells") == 42
-              and dt.get("selBg") and same_color(td[0], td[1]) and dt.get("other") and dt.get("nav") == 3 and 0 <= (dt.get("below") or -1) <= 10
+              and dt.get("selBg") and same_color(td[0], td[1]) and dt.get("other") and dt.get("nav") == 3 and 0 <= (dt.get("below") if dt.get("below") is not None else -1) <= 10
               and same_color(sf[0], sf[1]) and dt.get("next") == [True, True] and dt.get("typed") == [2027, "open", "2027", True]
               and dt.get("day") == [9, True] and (dt.get("arrow") or [False])[0] and dt.get("clicked") == [20, True, True]
               and dt.get("tbAfter") == "closed")

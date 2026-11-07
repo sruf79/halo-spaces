@@ -5584,7 +5584,9 @@ def calendar_checks(m, results):
             # unter xvfb öffnet sich das Menü ohne Mausbedienung nicht verlässlich: Bild lädt, keine CSP-Meldung
             print(f"WARNUNG Termin-Dialog: Kategorien-Menü unter Linux nicht aufgegangen – nur Laden des Häkchens geprüft {res}", flush=True)
             return True, f"WARNUNG: Menü nicht offen – {res}"
-        ok = (len(it) == 5 and it[0] == "Business" and it[1] == url and it[2] == url and it[3] >= 12 and it[4] != "none"
+        # unter Windows zeichnet Thunderbird das Häkchen des Menüpunkts selbst (menu-check.svg): dort zählt die Variable am Eintrag
+        icon_ok = len(it) == 5 and (it[2] == url or sys.platform == "win32") and it[3] >= 12 and it[4] != "none"
+        ok = (len(it) == 5 and it[0] == "Business" and it[1] == url and icon_ok
               and res.get("load", 0) > 0 and res.get("csp") == [])
         return ok, f"{res}"
     check("Termin-Dialog: Häkchen der gewählten Kategorie aus halo (--icon-check, resource:) lädt trotz der CSP des Termin-Rahmens und steht am Eintrag",

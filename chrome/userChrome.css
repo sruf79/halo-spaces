@@ -12388,6 +12388,45 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   padding-inline-end: max(60px, calc(var(--mc-tp-room, var(--mc-tp-w, 0px)) + 12px - var(--mc-row-tail, 0px))) !important;
 }
 
+/* Add-on-Hinweis (Puzzle, nach „Add-on aus Datei installieren“): nicht am
+   rechten Fensterrand unter dem Today-Knopf, sondern als runder Knopf direkt
+   links neben dem Platz des Today-Knopfs; die Knopfleiste macht ihm Platz
+   (GitHub #43) */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbar:has(> #notification-popup-box:not([hidden]) > [showing]) > #unifiedToolbarContent {
+  padding-inline-end: calc(max(60px, calc(var(--mc-tp-room, var(--mc-tp-w, 0px)) + 12px - var(--mc-row-tail, 0px))) + 44px) !important;
+}
+
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #notification-popup-box {
+  position: absolute !important;
+  z-index: 3 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  /* rechts der Knopfleiste (ihr Innenabstand ohne den Zusatz oben), mit 2 px Luft */
+  inset-inline-end: calc(max(calc(60px + var(--mc-row-tail, 0px)), calc(var(--mc-tp-room, var(--mc-tp-w, 0px)) + 12px)) + 2px) !important;
+  margin: 0 !important;
+  width: 40px !important;
+  height: 38px !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+}
+
+/* übrige Bereiche (Kalender, fünfter Bereich als Tab): ohne Today-Knopf
+   gleicher Knopf am Ende der Leiste, mit Abstand zum Fensterrand */
+#notification-popup-box {
+  width: 40px;
+  height: 38px;
+  margin-block: auto;
+  margin-inline-end: 12px;
+  justify-content: center;
+  border-radius: 999px;
+  background-color: var(--mt-control);
+}
+
+#notification-popup-box:hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
 /* Webseite statt Chat: kein Seitenleisten-Knopf (sie hat keine Seitenleiste)
    und kein Suchfeld (es durchsucht nur Mails) – die Today-Pane mit ihrem
    Knopf an derselben Stelle wie in den übrigen Bereichen dagegen schon */

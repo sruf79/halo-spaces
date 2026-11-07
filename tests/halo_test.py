@@ -8473,6 +8473,42 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Toolbar: im schmalen Fenster mit Today-Pane schrumpft zuerst das Suchfeld, Knöpfe bleiben in allen Bereichen sichtbar", toolbar_search_first, results)
 
+    def toolbar_addon_hint():
+        # Add-on-Hinweis (Puzzle nach „Add-on aus Datei installieren“, GitHub #43): runder Knopf links neben dem Today-Knopf,
+        # nicht am Fensterrand und nicht darunter; die Knopfleiste macht ihm Platz – mit offener und geschlossener Today-Pane
+        res = m.js(r"""
+          await toMail(); w.resizeTo(1400, 850); await ruhig(600);
+          const box = d.getElementById("notification-popup-box"), img = d.getElementById("addons-notification-icon");
+          if (!box || !img) return { box: false };
+          const R = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; };
+          const measure = () => { const lis = [...d.querySelectorAll("#unifiedToolbarContent > li:not([hidden])")].filter(li => li.getBoundingClientRect().width > 0);
+            return { box: R(box), toggle: R(d.getElementById("mcTodayToggle")), last: R(lis.at(-1)), tp: !!w.TodayPane?.isVisible }; };
+          const out = { win: w.innerWidth };
+          try {
+            box.hidden = false; img.setAttribute("showing", "true"); await ruhig(400);
+            out.one = measure();
+            d.getElementById("mcTodayToggle").click(); await bis(() => !!w.TodayPane?.isVisible != out.one.tp, "Today-Pane umgeschaltet", 3000); await ruhig(1200);
+            out.two = measure();
+            d.getElementById("mcTodayToggle").click(); await bis(() => !!w.TodayPane?.isVisible == out.one.tp, "Today-Pane zurück", 3000); await ruhig(1200);
+            // Kalender (ohne Today-Knopf): am Ende der Leiste mit Abstand zum Rand
+            await toCalendar(); await ruhig(600);
+            const lis = [...d.querySelectorAll("#unifiedToolbarContent > li:not([hidden])")].filter(li => li.getBoundingClientRect().width > 0);
+            out.cal = { box: R(box), last: R(lis.at(-1)) };
+            await toMail();
+          } finally { box.hidden = true; img.removeAttribute("showing"); }
+          return out;""")
+        if res.get("box") is False:
+            return False, "kein Add-on-Hinweis im Dokument"
+        win = res.get("win", 0)
+        def fits(x):
+            return (isinstance(x, dict) and x["box"][1] - x["box"][0] == 40 and x["box"][1] <= x["toggle"][0] - 4
+                    and x["last"][1] <= x["box"][0] + 1 and x["box"][1] <= win - 50)
+        c = res.get("cal") or {}
+        ok = (fits(res.get("one")) and fits(res.get("two")) and res["one"]["tp"] != res["two"]["tp"]
+              and bool(c) and c["box"][1] - c["box"][0] == 40 and c["box"][1] <= win - 8 and c["last"][1] <= c["box"][0] + 1)
+        return ok, f"{res}"
+    check("Toolbar: Add-on-Hinweis (Puzzle) als runder Knopf links neben dem Today-Knopf, nicht am Fensterrand (GitHub #43)", toolbar_addon_hint, results)
+
     def message_min_width():
         # Trennlinie zwischen Mailliste und Mail weit nach rechts ziehen: die Mail klappt nicht weg, bleibt mindestens
         # 300 px breit, Knöpfe der Toolbar ragen nicht aus der Zeile

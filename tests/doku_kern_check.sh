@@ -36,6 +36,8 @@ begriffe=(
   'docs/board.md|Verweis docs/board.md'
   'docs/testrechner.md|Verweis docs/testrechner.md'
   'nie auf die private Aufgabenliste verweisen|GitHub: nie aufs Board verweisen'
+  'Bild als eigene Datei|Bildübergabe: Bild als eigene Datei neben der Artifact-Seite'
+  'nie als data:-URI|Bildübergabe: nie data:-URI und nie base64 in der Nachricht'
 )
 fehler=0
 for e in $begriffe; do

@@ -19,12 +19,15 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   `kalender-termin-zusammenfassung-ort`), damit er später wiederzufinden ist
   (Entscheidungen des Maintainers vom 5.11.2026 und 7.11.2026, Wortlaut in
   `ENTSCHEIDUNGEN.md`; Empfänger seit 6.11.2026, siehe „neon erreichen“). Sitzungen auf neon speichern es selbst unter
-  `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
-  data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben;
-  Originaldatei unverändert, nicht verkleinern oder umkodieren – die Seite
-  fasst bis 16 MB, größere Bilder als Assets mit `asset: true`, bis 15 MB je Datei),
-  neon-board (bzw. neon) liest sie mit `Artifact` (`action: "read"`, nicht WebFetch), speichert
-  sie mit SHA-256-Prüfung unter `~/halo-aufgaben/bilder/` und vermerkt die
+  `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): **das Bild als eigene Datei
+  neben einer minimalen privaten Artifact-Seite** (`Artifact`, nicht freigeben; `files`: `{"name.png": "<Pfad>"}`,
+  die Seite zeigt es nur per `<img src="name.png">`; Originaldatei unverändert, nicht verkleinern oder
+  umkodieren; bis 15 MB je Datei, größere als Assets mit `asset: true`). **Nie als data:-URI in die Seite und nie als
+  base64 in die Nachricht:** `neon-board` müsste dann die ganze Seite lesen, was rund 60.000–70.000 Tokens
+  seines Kontexts belegt (Messung vom 7.11.2026, 250 KB-Seite). Die Nachricht an `neon-board` (bzw. `neon`) nennt
+  Link, Dateinamen im Artifact, SHA-256, Pixelgröße und den Zielnamen. Es holt die Datei mit `Artifact`
+  (`action: "read"`, `path: "name.png"`, nie ohne `path`, nicht WebFetch; speichert lokal, rund 150 Tokens),
+  prüft die SHA-256 und legt sie unter `~/halo-aufgaben/bilder/` ab und vermerkt die
   Dateinamen im Eintrag. Nie über das Repo – die Bilder zeigen echte Mails.
   Bildqualität: keine feste Mindestgröße (auch kleine Ausschnitte sind in
   Ordnung); maßgeblich ist, ob die für den Eintrag entscheidenden Details
@@ -49,7 +52,7 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   und ohne Rückfrage zusätzlich als Vorlage für spätere Vergleiche nach
   `~/halo-aufgaben/apple/` auf neon – auch wenn er nur nebenbei im
   Gespräch auftaucht. Weg wie bei den Bildern oben (Sitzungen auf neon
-  speichern selbst, alle anderen über eine private Artifact-Seite an
+  speichern selbst, alle anderen über eine private Artifact-Seite mit dem Bild als eigene Datei an
   `neon-board`, ersatzweise `neon`;
   Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
   melden), vom Laptop mit `haloapple <name>` (`tests/MAC-MINI.md`

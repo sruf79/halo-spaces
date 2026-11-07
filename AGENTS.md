@@ -459,7 +459,10 @@ offenen Aufträge aus `neon-stand.md`.
   Eintrag über die Liste („Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag,
   diesen ergänzen. Jeder Screenshot, den der Maintainer ins Gespräch legt, geht automatisch an `neon-board`
   (ersatzweise `neon`) und wird dort mit sprechendem Namen gespeichert (7.11.2026); Screenshots von Apple-Apps zusätzlich als Vorlage; Bilder nie über das Repo
-  (echte Mails). Weg, Qualitätsprüfung, Namen: `docs/board.md`.
+  (echte Mails). **Bildübergabe aus Cloud-/Laptop-/iPhone-Sitzungen (Entscheidung des Maintainers vom 7.11.2026):** Bild als eigene Datei
+  neben einer minimalen privaten `Artifact`-Seite (`files`), Nachricht an `neon-board` mit Link, Dateiname, SHA-256 und
+  Zielname; `neon-board` liest mit `action: "read"` und `path` (rund 150 statt 60.000 Tokens); nie als data:-URI in der
+  Seite, nie als base64 in der Nachricht. Qualitätsprüfung, Namen, Einzelheiten: `docs/board.md`.
 - **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung
   zwischen 08:00 und 22:00 (Wiener Zeit) nennt in ihrer ersten Antwort die offenen Bilder aus
   `~/halo-aufgaben/bilder-offen.md` (Cloud/Laptop: bei `neon-board` erfragen); nie in automatischen

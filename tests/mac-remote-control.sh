@@ -48,8 +48,9 @@ Erlaubt:
   archiv): lesen, anlegen, ergänzen, Status, archivieren. Vor „neu“ mit
   „liste '^Bereich:'“ Doppelte prüfen und lieber ergänzen. Nie ganze Listen
   ausgeben, nie gh project item-list ungefiltert.
-- Bilder aus privaten Artifact-Seiten (Artifact, action "read", nicht
-  WebFetch) unverändert nach ~/halo-aufgaben/bilder/, Apple-Vorlagen nach
+- Bilder aus privaten Artifact-Seiten holen: Artifact, action "read" mit path
+  (Bild liegt als eigene Datei neben der Seite; nie die Seite ohne path lesen,
+  das lädt Zehntausende Tokens; nicht WebFetch) unverändert nach ~/halo-aufgaben/bilder/, Apple-Vorlagen nach
   ~/halo-aufgaben/apple/ (Zeile in index.md: Name, App, macOS-Version, was zu
   sehen ist, ui_tour-ids, Datum, SHA-256); SHA-256 und Qualität prüfen und
   melden; ~/halo-aufgaben/bilder-offen.md pflegen.

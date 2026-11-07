@@ -10,6 +10,10 @@ Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 
 ## 7.11.2026
 
+### Fenster-Menü (Mac): doppelter Eintrag bleibt
+Herkunft: Sitzung neon (halo-spaces, Desktop), 7.11.2026, im Gespräch mit dem Maintainer. Wortlaut: „doppelten Eintrag lassen“.
+Bezug: Board-Bug „Fenster-Menü (Mac): aktiver Bereich doppelt, stattdessen Häkchen“. Der Eintrag unten im Menü Fenster ist die Fensterliste von macOS (Titel des Hauptfensters = Name des Bereichs); der Fenstertitel wird nicht geändert, das Häkchen am aktiven Bereich (bfcbe89) genügt. (Deutung der Sitzung: Erklärung der Gründe für Bereiche im Fenster-Menü vorher im Gespräch.)
+
 ### Bilder-Eingang und Ordner für Bilder und Vorlagen
 Herkunft: Sitzung „Apple Mail/Kalender Screenshots für halo.spaces“, 7.11.2026 (an neon übermittelt). Wortlaut der Freigabe: „ich gebe die änderungen frei“; zum dortigen Vorgehen (#26) ebenfalls: „ja so vorgehen bitte“.
 Bezug: `halobild` legt in `~/halo-aufgaben/eingang/` ab, `tests/bilder-eingang.zsh` sortiert alle 15 Minuten ohne Claude nach `bilder/` bzw. `apple/` ein und indiziert (Claude nur zum Beschreiben); Absatz „Bilder und Vorlagen“ in `AGENTS.md`, Einzelheiten `docs/board.md` und `tests/MAC-MINI.md` Abschnitte 10 und 18; Kurzübersicht der Indizes im SessionStart-Hook `tests/neon-hook.sh`. Umsetzung (Deutung der Sitzung neon): Schwelle „Bild unzureichend“, Sitzungssperre und Wartezeiten.

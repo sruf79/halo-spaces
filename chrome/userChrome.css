@@ -2994,6 +2994,22 @@ menupopup > :is(menu, menuitem)[disabled] {
   color: color-mix(in srgb, currentColor 45%, var(--mt-text)) !important;
 }
 
+/* Schlagwörter wie die Schlagwort-Ordner (.mc-tag-item und .mc-tag-icon
+   setzt die Erweiterung, TagMenus): das Ordnersymbol beginnt bündig mit dem
+   Text der Einträge darüber; die Spalte der Häkchen bleibt leer (wie bei
+   „As Read“), der Name folgt 6 px rechts vom Symbol */
+menupopup > menuitem.mc-tag-item > .menu-icon {
+  visibility: hidden !important;
+}
+
+menupopup > menuitem.mc-tag-item > .mc-tag-icon {
+  flex: none;
+  align-self: center;
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 6px;
+}
+
 menupopup > menuseparator {
   margin: 5px 14px !important;
   padding: 0 !important;

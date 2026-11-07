@@ -4456,24 +4456,25 @@ def menu_checks(m, results):
     check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“, Filter aus der Mail anlegen", context_flat, results)
 
     def tag_menu():
-        # Schlagwort-Menü: Thunderbird färbt die Namen in der Grundfarbe (Orange auf Hellgrau 1,6:1) – gemischt mit der Textfarbe lesbar
+        # Schlagwort-Menü wie die Schlagwort-Ordner (GitHub #50): Name in der normalen Textfarbe ohne „1 “ davor, davor ein
+        # Ordnersymbol in der Schlagwortfarbe (Bild, gefüllt = gesetzt), kein Häkchen; markiert in der Schrift der Auswahl
         res = m.js(MENU_JS + r"""
           const sub = ad.getElementById("mailContext-tagpopup"), menu = ad.getElementById("mailContext-tags");
-          const text = colorOf("var(--mt-text)"), menuBg = rgba(colorOf("var(--mt-menu-bg)"));
-          const dark = lum(rgba(text)) > 0.5;
-          // gemessener Menügrund (durchscheinend) und die Menüfläche über Weiß bzw. Schwarz
-          const bgs = dark ? [[36, 36, 38, 1], over(menuBg, [0, 0, 0])] : [[224, 224, 224, 1], over(menuBg, [255, 255, 255])];
-          // Schlagwörter stehen nicht mehr im Kontextmenü – das Untermenü für die Prüfung der Farben kurz einblenden
+          const text = colorOf("var(--mt-text)");
+          // Schlagwörter stehen nicht mehr im Kontextmenü – das Untermenü für die Prüfung kurz einblenden
           menu.removeAttribute("mc-ctx-off"); menu.hidden = false;
-          const out = { dark, state: await openContext(), tags: [] };
+          const out = { text, state: await openContext(), tags: [] };
           try {
             menu.open = true;
             out.sub = await until(() => sub.state == "open" && "open", 4000) || sub.state;
-            const tags = [...sub.querySelectorAll(':scope > menuitem[type="checkbox"]')].filter(x => x.style.color);
+            const tags = [...sub.querySelectorAll(":scope > menuitem.mc-tag-item")];
+            const plain = [...sub.children].find(c => c.localName == "menuitem" && !c.classList.contains("mc-tag-item"));
+            out.text = plain ? cs(plain.querySelector(".menu-text") || plain).color : out.text;
             for (const t of tags) {
-              const tx = cs(t.querySelector(".menu-text")).color, icon = t.querySelector(".menu-icon");
-              out.tags.push({ name: t.getAttribute("label"), inline: t.style.color, text: tx, icon: icon ? cs(icon).color : null,
-                              contrast: Math.min(...bgs.map(b => contrast(rgba(tx), b))) });
+              const img = t.querySelector(".mc-tag-icon");
+              out.tags.push({ name: t.getAttribute("label"), type: t.getAttribute("type"), text: cs(t.querySelector(".menu-text")).color,
+                              icon: !!img && img.getBoundingClientRect().width == 16 && (img.getAttribute("src") || "").startsWith("data:image/svg+xml"),
+                              check: cs(t.querySelector(".menu-icon")).visibility });
             }
             if (tags[1]) { tags[1].setAttribute("_moz-menuactive", "true"); await ruhig(100);
               out.active = [cs(tags[1].querySelector(".menu-text")).color, colorOf("var(--mt-accent-text)")];
@@ -4481,10 +4482,11 @@ def menu_checks(m, results):
           } finally { sub.hidePopup?.(); P.hidePopup(); await ruhig(400); menu.setAttribute("mc-ctx-off", ""); }
           return out;""")
         tags = res.get("tags", [])
-        ok = (len(tags) >= 5 and all(not same_color(t["text"], t["inline"]) and same_color(t["icon"], t["text"]) and t["contrast"] >= 4.5 for t in tags)
+        ok = (len(tags) >= 5 and all(same_color(t["text"], res.get("text")) and t["icon"] and t["type"] is None and t["check"] == "hidden"
+                                     and not t["name"][:1].isdigit() for t in tags)
               and same_color(*res.get("active", ["", "?"])))
         return ok, f"{res}"
-    check("Schlagwort-Menü: Namen in Schlagwortfarbe lesbar (Kontrast ≥ 4,5:1), markiert in der Schrift der Auswahl", tag_menu, results)
+    check("Schlagwort-Menü: wie die Schlagwort-Ordner – Ordnersymbol in der Schlagwortfarbe, Name in Textfarbe ohne Ziffer, kein Häkchen; markiert in der Schrift der Auswahl", tag_menu, results)
 
 
 # Kalender: Woche mit heute (auf 8 Uhr gescrollt), Spalten, Popups öffnen/schließen, Inhaltsteil eines Panels
@@ -9780,6 +9782,61 @@ def run_checks(m, version, profile, results):
               and res["popup"] in ("open", "showing") and not res["flaggedByMenu"])
         return ok, f"{res}"
     check("Symbolleiste: Verschieben ohne Trennstrich, Stern-Knopf setzt Starred, Pfeil öffnet Menü, Stern folgt dem Tab", star_button, results)
+
+    def mark_menu_tags():
+        # Menü „Markieren“ (Pfeil am Stern): unter einem Trennstrich die Schlagwörter wie die Schlagwort-Ordner – Ordnersymbol
+        # in der Farbe (gefüllt = gesetzt, umrandet = nicht), Name ohne „1 “, Taste rechts; das Symbol beginnt bündig mit dem
+        # Text der Einträge darüber; Klick setzt bzw. entfernt das Schlagwort (GitHub #50, nach PR #51)
+        res = m.js(MESSAGE_JS + '''
+          w.resizeTo(1500, 900); await wait(600);
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+          const keys = () => ` ${hdr.getStringProperty("keywords")} `;
+          if (keys().includes(" $label1 ")) { hdr.folder.removeKeywordsFromMessages([hdr], "$label1"); await ruhig(300); }
+          hdr.folder.addKeywordsToMessages([hdr], "$label2"); await ruhig(300);
+          const li = d.querySelector('#unifiedToolbarContent > li[item-id="mark-as"]'); const btn = li.querySelector("button");
+          const popup = d.getElementById("toolbarMarkPopup");
+          const open = async () => { popup.openPopup(btn, "after_start", 0, 0, false, false);
+            await until(() => popup.state == "open", 3000); await ruhig(300); out.opened = popup.state; };
+          const out = {};
+          try {
+            await open();
+            const vis = [...popup.children].filter(x => !x.hidden && x.getBoundingClientRect().height > 0);
+            const tags = vis.filter(x => x.classList.contains("mc-tag-item"));
+            const sep = d.getElementById("mcMarkTagsSeparator");
+            const above = vis.filter(x => x.localName == "menuitem" && !x.classList.contains("mc-tag-item"));
+            const textLeft = el => { const t = el.querySelector(".menu-text, label.menu-iconic-text, label"); return t ? Math.round(t.getBoundingClientRect().left) : null; };
+            // (Symbol der Schlagwörter: eigenes Bild .mc-tag-icon bündig mit dem Text darüber, die Spalte der Häkchen leer)
+            const icon = el => el.querySelector(".mc-tag-icon") || el.querySelector(".menu-icon");
+            out.sep = !!sep && !sep.hidden && vis.indexOf(sep) < vis.indexOf(tags[0]);
+            out.n = tags.length;
+            if (!tags.length) { out.kids = [...popup.children].map(x => [x.localName, x.id, x.getAttribute("label")]); return out; }
+            out.labels = tags.slice(0, 2).map(t => t.getAttribute("label"));
+            out.accel = tags[0]?.getAttribute("acceltext");
+            out.textAbove = above.map(textLeft);
+            out.iconLeft = tags.slice(0, 2).map(t => Math.round(icon(t)?.getBoundingClientRect().left ?? -1));
+            out.iconW = Math.round(icon(tags[0])?.getBoundingClientRect().width || 0);
+            out.tagText = tags.slice(0, 2).map(t => textLeft(t) - Math.round(icon(t)?.getBoundingClientRect().right ?? 0));
+            out.filled = tags.slice(0, 2).map(t => decodeURIComponent(t.getAttribute("image") || "").includes('fill="none"') ? "leer" : "voll");
+            const t1 = tags[0];
+            if (t1) { t1.doCommand(); popup.hidePopup(); await ruhig(500); }
+            out.set = keys().includes(" $label1 ");
+            await open();
+            const again = [...popup.children].find(x => x.classList.contains("mc-tag-item") && x.getAttribute("value") == "$label1");
+            out.filledAfter = decodeURIComponent(again?.getAttribute("image") || "").includes('fill="none"') ? "leer" : "voll";
+            again?.doCommand(); popup.hidePopup(); await ruhig(500);
+            out.unset = !keys().includes(" $label1 ");
+          } finally {
+            if (popup.state != "closed") popup.hidePopup();
+            hdr.folder.removeKeywordsFromMessages([hdr], "$label1 $label2"); await ruhig(300);
+          }
+          return out;''')
+        ta = [x for x in res.get("textAbove") or [] if x is not None]
+        ok = (res.get("sep") and res.get("n", 0) >= 5 and res.get("labels") == ["Important", "Work"] and res.get("accel") == "1"
+              and ta and max(ta) - min(ta) <= 1 and all(abs(x - ta[0]) <= 1 for x in res.get("iconLeft") or [-99])
+              and res.get("iconW") == 16 and all(4 <= g <= 10 for g in res.get("tagText") or [0])
+              and res.get("filled") == ["leer", "voll"] and res.get("set") and res.get("filledAfter") == "voll" and res.get("unset"))
+        return ok, f"{res}"
+    check("Markieren-Menü: Schlagwörter unter Trennstrich als farbige Ordner (gesetzt gefüllt), Symbol bündig mit dem Text darüber, Klick setzt und entfernt", mark_menu_tags, results)
 
     def capsule_hover():
         # Kapseln mit mehreren Knöpfen wie Apple Mail: Trennstrich 1 px, 20 px hoch, mittig in

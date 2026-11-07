@@ -3928,6 +3928,121 @@ const SendLater = {
   },
 };
 
+// ---------- Schlagwörter in Menüs (wie die Schlagwort-Ordner) ----------
+// Thunderbird füllt jedes Schlagwort-Menü mit InitMessageTags: „Markieren“
+// in der Toolbar, Mail → Schlagwort in der Menüleiste, Weitere Aktionen →
+// Schlagwort im Mailkopf (auch im eigenen Nachrichtenfenster). Danach sehen
+// die Einträge aus wie die Schlagwort-Ordner der Ordnerliste: Name ohne
+// vorangestellte Ziffer (der Kurzbefehl steht rechts), Ordnersymbol in der
+// Schlagwortfarbe – gefüllt, wenn das Schlagwort gesetzt ist – statt Haken
+// und farbiger Schrift. Das Symbol beginnt bündig mit dem Text der Einträge
+// darüber (nicht in der Spalte der Häkchen, userChrome.css). Es ist ein Bild
+// (image), damit es auch in der nativen Menüleiste von macOS gilt; ohne
+// type="checkbox" gibt es dort keinen zusätzlichen Haken, den Zustand für
+// cmd_toggleTag hält der Popup-Listener. Nach PR #51 von btirmarche
+const TAG_FOLDER_PATH = "M3 7.8A2.3 2.3 0 0 1 5.3 5.5h3.9l2.1 2.1h7.4A2.3 2.3 0 0 1 21 9.9v7.8a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 17.7z";
+const TagMenus = {
+  // (gleicher Ordner wie --mi-folder in userChrome.css)
+  icon(color, filled) {
+    const c = color || "#8E8E93";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="${filled ? c : "none"}" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${TAG_FOLDER_PATH}"/>${filled ? "" : '<path d="M3 10.3h18"/>'}</svg>`;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  },
+  placeIcons(popup) {
+    for (const item of popup.querySelectorAll(":scope > menuitem.mc-tag-item")) {
+      const box = item.querySelector(".menu-icon");
+      let img = item.querySelector(".mc-tag-icon");
+      if (!img && box) {
+        img = item.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "img");
+        img.className = "mc-tag-icon";
+        img.setAttribute("alt", "");
+        box.after(img);
+      }
+      img?.setAttribute("src", item.getAttribute("image"));
+    }
+  },
+  decorate(popup) {
+    const tags = new Map(MailServices.tags.getAllTags().map(t => [t.key, t]));
+    for (const item of popup.children) {
+      const tag = item.localName == "menuitem" && tags.get(item.getAttribute("value"));
+      if (!tag) {
+        continue;
+      }
+      item.removeAttribute("data-l10n-id");
+      item.removeAttribute("data-l10n-args");
+      item.removeAttribute("style");
+      item.removeAttribute("type");
+      item.setAttribute("label", tag.tag);
+      item.classList.add("menuitem-iconic", "mc-tag-item");
+      const image = this.icon(tag.color, item.hasAttribute("checked"));
+      // image für die native Menüleiste von macOS; in unseren Menüs steht
+      // dasselbe Bild als eigenes Element bündig mit dem Text (userChrome.css)
+      item.setAttribute("image", image);
+    }
+    this.placeIcons(popup);
+    // Einträge, die Thunderbird erst beim Öffnen des Untermenüs aufbaut
+    // (Kontextmenü), bekommen ihr Bild dann
+    if (!popup.__mcTagIcons) {
+      popup.__mcTagIcons = event => event.target == popup && this.placeIcons(popup);
+      popup.addEventListener("popupshowing", popup.__mcTagIcons);
+    }
+    // ohne type="checkbox" schaltet niemand „checked“ um – das tut dieser
+    // Listener vor Thunderbirds eigenem (Erfassungsphase am Popup), denn
+    // cmd_toggleTag liest daraus, ob das Schlagwort gesetzt werden soll
+    if (!popup.__mcTagToggle) {
+      popup.__mcTagToggle = event => {
+        if (event.target.classList?.contains("mc-tag-item")) {
+          event.target.toggleAttribute("checked");
+        }
+      };
+      popup.addEventListener("command", popup.__mcTagToggle, true);
+    }
+  },
+  attach(w) {
+    // InitMessageTags (Fenster, Mailkopf); im Kontextmenü der Mailansicht
+    // baut mailContextMenu._initMessageTags das Untermenü „Schlagwort“
+    if (typeof w.InitMessageTags == "function" && !w.__mcInitMessageTags) {
+      const original = w.InitMessageTags;
+      w.__mcInitMessageTags = original;
+      w.InitMessageTags = function (parent, ...rest) {
+        original.call(this, parent, ...rest);
+        try {
+          TagMenus.decorate(parent);
+        } catch (e) {
+          log("tag menus", e);
+        }
+      };
+    }
+    const ctx = w.mailContextMenu;
+    if (typeof ctx?._initMessageTags == "function" && !ctx.__mcInitMessageTags) {
+      const original = ctx._initMessageTags;
+      ctx.__mcInitMessageTags = original;
+      ctx._initMessageTags = function (...args) {
+        original.apply(this, args);
+        try {
+          TagMenus.decorate(w.document.getElementById("mailContext-tagpopup"));
+        } catch (e) {
+          log("tag menus", e);
+        }
+      };
+    }
+  },
+  attached(w) {
+    return !!(w.__mcInitMessageTags || w.mailContextMenu?.__mcInitMessageTags);
+  },
+  detach(w) {
+    if (w.__mcInitMessageTags) {
+      w.InitMessageTags = w.__mcInitMessageTags;
+      delete w.__mcInitMessageTags;
+    }
+    const ctx = w.mailContextMenu;
+    if (ctx?.__mcInitMessageTags) {
+      ctx._initMessageTags = ctx.__mcInitMessageTags;
+      delete ctx.__mcInitMessageTags;
+    }
+  },
+};
+
 // ---------- Erinnern (wie „Remind Me“ in Apple Mail) ----------
 // Kontextmenü der Mailliste → Erinnern: in 1 Stunde, heute Abend, morgen,
 // nächste Woche. Die Mail wandert in den Ordner „Erinnern“ ihres Kontos (auf
@@ -13437,6 +13552,17 @@ class CardEnhancer {
       chromeURLs: ["chrome://messenger/content/messenger.xhtml"],
       onLoadWindow: w => this.watchMainWindow(w),
     });
+    ExtensionSupport.registerWindowListener("mail-cards-tags", {
+      chromeURLs: ["chrome://messenger/content/messenger.xhtml", "chrome://messenger/content/messageWindow.xhtml"],
+      onLoadWindow: w => TagMenus.attach(w),
+      onUnloadWindow: w => TagMenus.detach(w),
+    });
+    this.restorers.push(() => {
+      ExtensionSupport.unregisterWindowListener("mail-cards-tags");
+      for (const w of Services.wm.getEnumerator(null)) {
+        TagMenus.detach(w);
+      }
+    });
     this.watchChatVariant();
     // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
     // „Regionale Einstellungen des Systems verwenden“ als Vorgabe an – wer es
@@ -18422,6 +18548,47 @@ class CardEnhancer {
       }
     };
 
+    // Menü „Markieren“ der Toolbar (Pfeil neben dem Stern): darunter die
+    // Schlagwörter, wie im Menü „Schlagwort“ – so lassen sie sich auch beim
+    // Lesen einer Nachricht setzen, seit das Kontextmenü sie nicht mehr zeigt.
+    // Thunderbirds InitMessageTags baut die Einträge (ersetzt alle Menüpunkte
+    // nach dem letzten Trenner), TagMenus gibt ihnen das Aussehen
+    const hookMarkTags = () => {
+      const d = w.document;
+      const popup = d.getElementById("toolbarMarkPopup");
+      if (!popup || popup.__mcTags || typeof w.InitMessageTags != "function") {
+        return;
+      }
+      popup.__mcTags = true;
+      const sep = d.createXULElement("menuseparator");
+      sep.id = "mcMarkTagsSeparator";
+      popup.append(sep);
+      const fill = event => {
+        if (event.target != popup) {
+          return; // Untermenüs
+        }
+        try {
+          w.InitMessageTags(popup);
+        } catch (e) {
+          // keine Nachricht gewählt: alte Einträge weg, Trenner aus
+          while (popup.lastElementChild != sep) {
+            popup.lastElementChild.remove();
+          }
+          log("mark tags", e);
+        }
+        sep.hidden = popup.lastElementChild == sep;
+      };
+      popup.addEventListener("popupshowing", fill);
+      this.restorers.push(() => {
+        popup.removeEventListener("popupshowing", fill);
+        while (popup.lastElementChild && popup.lastElementChild != sep) {
+          popup.lastElementChild.remove();
+        }
+        sep.remove();
+        delete popup.__mcTags;
+      });
+    };
+
     const scan = () => {
       this.styleSearch(w); // vor markTab, damit der Platzhalter des Bereichs gleich gilt
       markTab();
@@ -18444,6 +18611,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSpacesToggle();
+      hookMarkTags();
       UpdateNote.hook(w, this.restorers);
       FifthSpace.attach(w, this.restorers);
       hookLooseTabs(w, this.restorers);
@@ -21072,6 +21240,11 @@ class CardEnhancer {
   // Speichern und Drucken (Menüleiste) fallen weg.
   hookMailContext(doc) {
     hookNewTabMenus(doc, { push: fn => this.addWinRestorer(doc.defaultView, fn) });
+    // Schlagwort-Menüs der Mailansicht (Kontextmenü, Mailkopf) – eigenes InitMessageTags je Dokument
+    if (doc.defaultView && !TagMenus.attached(doc.defaultView)) {
+      TagMenus.attach(doc.defaultView);
+      this.addWinRestorer(doc.defaultView, () => TagMenus.detach(doc.defaultView));
+    }
     const popup = doc.getElementById("mailContext");
     const start = doc.getElementById("mailContext-open");
     if (!popup || !start || popup.__mcList) {

@@ -69,7 +69,7 @@ jq -n --arg spaet $(iso 1) --arg frueh $(iso 50) '
    "6": {state: "closed", pr: false, comments: []}, "7": offen([]),
    "8": offen([{login: "jemand", created_at: $spaet, body: "is it fixed?"}, {login: "sruf79", created_at: $spaet, body: "This is fixed now and comes with the next version."}]),
    "9": {state: "open", pr: true, comments: []},
-   "10": offen([]), "11": offen([]), "12": offen([{login: "sruf79", created_at: $frueh, body: "Fixed on main."}])}' > $T/i.json
+   "10": offen([]), "14": offen([]), "11": offen([]), "12": offen([{login: "sruf79", created_at: $frueh, body: "Fixed on main."}])}' > $T/i.json
 
 # --- Auswertung ---
 ia_commits_holen "$BASIS..main" > $T/c.tsv
@@ -96,11 +96,13 @@ jq -n --arg c "committet ${C1[1,7]}, wartet auf Push/CI" '{items: [
   {id: "B", status: "Todo", content: {body: "GitHub-Issue #11"}},
   {id: "C", status: "In Progress", content: {body: "GitHub-Issue #12\n\n\($c)"}},
   {id: "D", status: "Done", content: {body: "GitHub-Issue #1"}},
-  {id: "E", status: "Done", content: {body: "GitHub-Issue #6"}}]}' > $T/b.json
-pruefe "Board-Nummern gelesen" '[[ "$(ia_board_nummern $T/b.json | tr "\n" " ")" == "1 10 11 12 6 " ]]'
+  {id: "E", status: "Done", content: {body: "GitHub-Issue #6"}},
+  {id: "F", status: "Done", title: "Leiste: x (GitHub-Issue #14)", content: {body: "committet"}}]}' > $T/b.json
+pruefe "Board-Nummern aus Text und Titel gelesen" '[[ "$(ia_board_nummern $T/b.json | tr "\n" " ")" == "1 10 11 12 14 6 " ]]'
 ia_board_hinweise $T/b.json $T/i.json "1 3 4 6 7 8 9 13" > $T/h.txt
 pruefe "Board Done, Issue offen ohne Antwort: Hinweis #10" 'grep -qx "board-hinweis #10 A Done" $T/h.txt'
-pruefe "Board ohne Done/Commit, beantwortet, bekannt oder geschlossen: kein Hinweis" '[[ $(wc -l < $T/h.txt) -eq 1 ]]'
+pruefe "Board-Nummer im Titel: Hinweis #14" 'grep -qx "board-hinweis #14 F Done" $T/h.txt'
+pruefe "Board ohne Done/Commit, beantwortet, bekannt oder geschlossen: kein Hinweis" '[[ $(wc -l < $T/h.txt) -eq 2 ]]'
 
 # --- Schließen (publish.sh) mit gh-Attrappe ---
 gh() {

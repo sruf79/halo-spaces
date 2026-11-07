@@ -105,14 +105,14 @@ ia_auswerten() {   # <fixes.json> <issues.json>
       else "antworten #\($n) \($g.sha[:7]) \($g.t | strflocaltime("%d.%m.%Y-%H:%M")) \($g.t)\nschliessen #\($n)" end' $1
 }
 
-# Board-Einträge mit „GitHub-Issue #n“: Nummern (für den Abruf der Issues)
-ia_board_nummern() { jq -r '[.items[] | (.content.body // "") | scan("GitHub-Issue #([0-9]+)")[0]] | unique[]' $1 }
+# Board-Einträge mit „GitHub-Issue #n“ (Titel oder Text): Nummern (für den Abruf der Issues)
+ia_board_nummern() { jq -r '[.items[] | ((.title // "") + "\n" + (.content.body // "")) | scan("GitHub-Issue #([0-9]+)")[0]] | unique[]' $1 }
 # Hinweise: Eintrag Done bzw. mit Commit, Issue offen ohne „behoben“-Antwort, Nummer nicht schon in den Fixen
 ia_board_hinweise() {   # <board.json> <issues.json> <bekannte Nummern, durch Leerzeichen getrennt>
   jq -r --slurpfile i $2 --arg ich $IA_EIGENER --arg re $IA_ANTWORT --arg bek " $3 " '
     ($i[0]) as $iss
     | .items[] | select(.status == "Done" or ((.content.body // "") | test("committet|[Cc]ommit [0-9a-f]{7}")))
-    | . as $it | (.content.body // "") | [scan("GitHub-Issue #([0-9]+)")[0]] | unique[]
+    | . as $it | ((.title // "") + "\n" + (.content.body // "")) | [scan("GitHub-Issue #([0-9]+)")[0]] | unique[]
     | . as $n | ($iss[$n]) as $is
     | select($bek | contains(" \($n) ") | not)
     | select($is != null and ($is.pr | not) and $is.state == "open")

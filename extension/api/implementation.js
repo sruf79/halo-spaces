@@ -2552,14 +2552,36 @@ function hookPrefCategories(cw, restorers = null) {
   if (!added.length) {
     return;
   }
-  // Gruppen wie in den Systemeinstellungen (Abstände in spaces.css): Kalender
-  // zu den Alltagsthemen vor „Privacy & Security“
+  // Gruppen nach Nutzung, nur durch Abstand getrennt (spaces.css): General,
+  // Account Settings, Appearance, Composition · Privacy & Security, Calendar,
+  // Chat · Add-ons and Themes, halo.spaces, Kategorien anderer Add-ons, Export
+  // for Mobile ganz unten
   const calCat = doc.getElementById("category-calendar");
-  const privacyCat = doc.getElementById("category-privacy");
   const calNext = calCat?.nextSibling;
-  if (calCat && privacyCat && calCat.parentNode == categories &&
-      privacyCat.compareDocumentPosition(calCat) & cw.Node.DOCUMENT_POSITION_FOLLOWING) {
-    categories.insertBefore(calCat, privacyCat);
+  const qrCat = doc.getElementById("category-qrexport");
+  const qrNext = qrCat?.nextSibling;
+  const own = value => [doc.getElementById("mcCat-" + value), doc.getElementById("mcSub-" + value)].filter(Boolean);
+  const mine = el => el?.parentNode == categories;
+  const generalCat = doc.getElementById("category-general");
+  if (mine(generalCat)) {
+    generalCat.after(...own("paneMcAccounts"));
+  }
+  const privacyCat = doc.getElementById("category-privacy");
+  const chatCat = doc.getElementById("category-chat");
+  if (mine(calCat)) {
+    if (mine(chatCat)) {
+      chatCat.before(calCat);
+    } else if (mine(privacyCat)) {
+      privacyCat.after(calCat);
+    }
+  }
+  const group3 = [...own("paneMcAddons"), ...own(HALO_PANE)];
+  const lastOf2 = [chatCat, calCat, privacyCat].find(mine);
+  if (lastOf2 && group3.length) {
+    lastOf2.after(...group3);
+  }
+  if (mine(qrCat)) {
+    categories.append(qrCat);
   }
   // Suche der Einstellungen: die halo.spaces-Seite liegt in einem eigenen
   // Browser, den Thunderbirds Suche nicht sieht – jede Option deshalb auch als
@@ -2739,6 +2761,9 @@ function hookPrefCategories(cw, restorers = null) {
     const was = categories.selectedItem?.classList.contains("mc-embed-cat");
     if (calCat?.parentNode == categories && calNext?.parentNode == categories) {
       categories.insertBefore(calCat, calNext);
+    }
+    if (qrCat?.parentNode == categories && qrNext?.parentNode == categories) {
+      categories.insertBefore(qrCat, qrNext);
     }
     added.forEach(el => el.remove());
     overlays.forEach(browserEl => browserEl.remove());

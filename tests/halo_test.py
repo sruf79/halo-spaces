@@ -14716,21 +14716,21 @@ Neu
     check("Einstellungen: Knopf der Bereichsleiste über dem Inhalt (beide Leisten aus) deckend mit Schatten", pref_spaces_toggle_opaque, results)
 
     def pref_category_groups():
-        # Kategorien in drei Gruppen wie die Systemeinstellungen, nur durch Abstand getrennt: General … Calendar,
-        # Privacy … Export, Kontoeinstellungen … halo.spaces (Calendar steht bei Thunderbird sonst hinter Chat)
+        # Kategorien in drei Gruppen nach Nutzung, nur durch Abstand getrennt: General, Account Settings, Appearance,
+        # Composition · Privacy & Security, Calendar, Chat · Add-ons and Themes, halo.spaces, Export for Mobile (ganz unten)
         res = m.js(PREFS_OPEN_JS + r"""
           const rows = [...pd.querySelectorAll("#categories > richlistitem.category")].filter(e => e.getBoundingClientRect().height > 0)
             .map(e => { const r = e.getBoundingClientRect(); return [e.id, Math.round(r.top), Math.round(r.bottom)]; });
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
           return rows;""")
         ids = [r[0] for r in res]
-        want = ["category-general", "category-appearance", "category-compose", "category-calendar", "category-privacy",
-                "category-chat", "category-qrexport", "mcCat-paneMcAccounts", "mcCat-paneMcAddons", "mcCat-paneMcHalo"]
+        want = ["category-general", "mcCat-paneMcAccounts", "category-appearance", "category-compose", "category-privacy",
+                "category-calendar", "category-chat", "mcCat-paneMcAddons", "mcCat-paneMcHalo", "category-qrexport"]
         gaps = {res[i + 1][0]: res[i + 1][1] - res[i][2] for i in range(len(res) - 1)}
-        starts = {"category-privacy", "mcCat-paneMcAccounts"}
+        starts = {"category-privacy", "mcCat-paneMcAddons"}
         ok = (ids == want and all(g >= 12 if k in starts else g <= 6 for k, g in gaps.items()))
         return ok, f"{ids} Abstände {gaps}"
-    check("Einstellungen: Kategorien in drei Gruppen mit Abstand wie die Systemeinstellungen, Calendar bei General", pref_category_groups, results)
+    check("Einstellungen: Kategorien in drei Gruppen nach Nutzung (Account Settings nach General, Export for Mobile ganz unten) mit Abstand", pref_category_groups, results)
 
     def pref_embedded_subnav():
         # keine zweite graue Leiste: Konten (mit Seiten des gewählten Kontos) bzw. Extensions/Themes … als eingerückte

@@ -14,11 +14,11 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 
 | Pfad | Inhalt |
 |---|---|
-| `chrome/userChrome.css` | Design für Mail, Menüs, Dialoge (~14.000 Zeilen) |
+| `chrome/userChrome.css` | Design für Mail, Menüs, Dialoge (~15.000 Zeilen) |
 | `chrome/spaces.css` | Kalender, Aufgaben, Adressbuch, Chat, Einstellungen |
 | `chrome/merge_spaces.py` | fügt `spaces.css` als markierten Block in `userChrome.css` ein |
 | `extension/manifest.json` | Version, Add-on-ID `mail-cards@sebastian.local`, `update_url` |
-| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~22.000 Zeilen) |
+| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~25.000 Zeilen) |
 | `extension/api/schema.json` | Schema der Experiment-API |
 | `extension/background.js` | startet die Experiment-API (`browser.mailCards.start()`) und meldet bereitliegende Updates (`updateReady`); geladen über `extension/background.html` |
 | `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |
@@ -55,6 +55,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `docs/github-komm.md` | GitHub-Kommunikation mit Nutzern (Issues, Pull Requests, Forks, Routine); Kern in `AGENTS.md` |
 | `docs/board.md` | Board-Einzelheiten: Feld-IDs, `gh`-Befehle, Cloud-Weg, Bilder, Apple-Vorlagen, Bilder-Erinnerung; Pflichtregeln in `AGENTS.md` |
 | `docs/testrechner.md` | Testrechner-Einzelheiten: Mac-mini-Prüfung, CI-Laufzeiten, Dunkelmodus, Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang, Windows-VM, Modelle der Routinen; Sperren in `AGENTS.md` |
+| `tests/sitzung-finden.zsh` | `sitzung_finden`/`sitzung_merken`: lokale Sitzung auch bei abweichendem Namen finden (Teil von `lauf-hilfen.zsh`, Sitzungs-IDs in `~/halo-aufgaben/sitzungen.json`) |
 | `tests/pausen_test.zsh`, `tests/pausen_check.sh` | Pausen-Logik (`~/halo-nacht/pausen.txt`, `pause_start`): Einzelfälle ohne Claude; Wächter gegen Reste alter Pausen-Dateien, läuft in der Doku-Prüfung |
 | `tests/doku_kern_check.sh` | Wächter: harte Sperren und Pflichtbegriffe stehen in `AGENTS.md`, keine `@`-Importe; läuft in der Doku-Prüfung (`wochenpruefung.sh --doku`) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |

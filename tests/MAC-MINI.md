@@ -690,7 +690,7 @@ ist (Entscheidung des Maintainers vom 5.11.2026).
 - Bericht immer in `~/halo-berichte/<datum>-nachtlauf.md` (erste Zeile
   „Kurz: …“); Release-Berichte von `publish.sh` daneben.
 - Aufs iPhone: Das Skript lässt eine kurze `claude -p`-Sitzung die Zeile
-  „PUSH: …“ per `SendMessage` an die Sitzung `comm.github.routine` schicken;
+  „PUSH: …“ per `SendMessage` an die Sitzung `github.comm.routine` schicken;
   die hat Remote Control und stellt sie als Push-Meldung der Claude-App zu
   (kein fremder Dienst). Testen: `~/.config/halo-spaces/nachtlauf.sh
   --push-test "Test"` – nur unter launchd bzw. in der Bildschirmsitzung, per
@@ -714,7 +714,7 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   einen Eintrag; gibt es schon einen offenen Eintrag zur selben Prüfung, wird
   er ergänzt (Datum, Lauf, Commit). Dazu eine Zeile aufs iPhone über dieselbe
   `push()`-Funktion wie der Nachtlauf (`tests/lauf-hilfen.zsh`) – die Sitzung
-  `comm.github.routine` ist dabei nur der Zustellweg, die Routine
+  `github.comm.routine` ist dabei nur der Zustellweg, die Routine
   „GitHub-Kommunikation“ selbst bleibt unberührt.
 - **Versuchsjobs:** Jobs mit `continue-on-error: true` in `test.yml` (derzeit
   `windows-github`) zählen nicht – kein Eintrag, keine Zeile aufs iPhone, auch

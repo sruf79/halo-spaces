@@ -11,7 +11,7 @@
 # Schreibt immer einen Bericht nach ~/halo-berichte/<datum>-nachtlauf.md – auch
 # wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
 # eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
-# „comm.github.routine“, die Remote Control hat).
+# „github.comm.routine“, die Remote Control hat).
 # Pausieren: touch ~/halo-nacht/PAUSE (rm zum Fortsetzen).
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 emulate -L zsh

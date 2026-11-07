@@ -12,7 +12,7 @@ log() { print -r -- "$(zeit) $*" >> $LOG }
 push() {
   local text=$1 out
   # Text über stdin: --allowedTools nimmt sonst den Auftrag als weiteres Werkzeug
-  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „comm.github.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
+  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „github.comm.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
 PUSH: $text
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
     | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)

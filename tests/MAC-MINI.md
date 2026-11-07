@@ -647,8 +647,11 @@ Zeile je Pause `<Routine> <bis ISO-Zeit mit Zone> <Grund>`, z. B.
 ~/.config/halo-spaces/lauf-hilfen.zsh; pause_setzen rundgang 2026-11-14T14:05+01:00 "Grund"'`. Jeder Lauf
 prüft die Datei zu Beginn (`pause_aktiv`, abgelaufene Zeilen zählen nicht) und schreibt bei einer Pause
 `ÜBERSPRUNGEN <Routine> pausiert bis … – <Grund>` (Protokoll und `uebersprungen.log`, kein Push). Am Ende
-des Nachtlaufs (auch bei Abbruch, Pause oder Überspringen) entfernt `pausen_aufraeumen` abgelaufene und
-unlesbare Zeilen mit je einer Zeile `PAUSE ABGELAUFEN …` im Protokoll und in `uebersprungen.log`. Probe:
+des Nachtlaufs (auch bei Abbruch, Pause oder Überspringen) entfernt `pausen_aufraeumen` abgelaufene
+Zeilen mit je einer Zeile `PAUSE ABGELAUFEN …` im Protokoll und in `uebersprungen.log`. Unlesbare Zeilen
+(Tippfehler in Zeit, Zone oder Routine) werden nie gelöscht: sie gelten als nicht pausierend und werden
+einmal je Lauf als `PAUSE UNLESBAR <Zeile> – Routine läuft trotzdem` gemeldet (Protokoll und
+`uebersprungen.log`, kein Push); Leerzeilen und `#`-Zeilen zählen nicht. Probe:
 `HALO_JETZT=<ISO-Zeit>` ersetzt die Uhr, `HALO_PAUSEN_DATEI` die Datei. Die alten Dateien `PAUSE`,
 `PAUSE-WOCHE`, `PAUSE-DOKU` (und `~/halo-tour/PAUSE`) gelten weiter, ohne Ablauf; die Wochenprüfung meldet
 sie als „dauerhaft“ (Abschnitte 15 bis 17). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf

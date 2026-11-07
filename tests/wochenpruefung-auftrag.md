@@ -36,7 +36,8 @@ und wirkten die Verbesserungen der Vorwochen?
   Vorprüfung zu streng war (z. B. am selben Tag ein offener machbarer Eintrag im
   Board, den der Nachtlauf hätte nehmen sollen) und im Bericht nennen.
 - **Pausen:** `~/halo-nacht/pausen.txt` lesen: aktive Pausen (bis, Grund), Zeilen „PAUSE ABGELAUFEN“ der
-  letzten 7 Tage aus ~/halo-nacht/uebersprungen.log zählen, Pausen mit mehr als 7 Tagen Laufzeit melden.
+  letzten 7 Tage aus ~/halo-nacht/uebersprungen.log zählen, ebenso „PAUSE UNLESBAR“ (Tippfehler: die Pause galt
+  nicht, die Routine lief – Zeile in pausen.txt nennen), Pausen mit mehr als 7 Tagen Laufzeit melden.
   Dauerhafte Pausen ohne Ablauf melden (Dateien ~/halo-nacht/PAUSE, PAUSE-WOCHE, PAUSE-DOKU,
   PAUSE-NEUSTART, ~/halo-tour/PAUSE, wenn vorhanden): „dauerhaft, ohne Ablauf“ mit Alter der Datei.
 - **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
@@ -129,7 +130,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
   uebersprungen (Objekt: Routine → Anzahl der Zeilen „ÜBERSPRUNGEN“),
   push_fehler (Objekt: Routine → Anzahl der Zeilen „PUSH-FEHLER“),
-  pausen (Objekt: aktiv, abgelaufen, lang_ueber_7_tage, dauerhaft),
+  pausen (Objekt: aktiv, abgelaufen, unlesbar, lang_ueber_7_tage, dauerhaft),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).

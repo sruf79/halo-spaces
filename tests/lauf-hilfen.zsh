@@ -15,7 +15,7 @@ log() { print -r -- "$(zeit) $*" >> $LOG }
 # Routinen: nachtlauf, rundgang, dokupruefung, wochenpruefung, github-komm oder alle. Kein Claude.
 #   pause_aktiv <Routine>      0 = pausiert, gibt „bis <Zeit> – <Grund>“ aus; abgelaufene Zeilen zählen
 #                              nicht (reiner Zeitvergleich, es wird nichts entfernt)
-#   pausen_aufraeumen          entfernt abgelaufene und unlesbare Zeilen, je Zeile „PAUSE ABGELAUFEN …“
+#   pausen_aufraeumen          entfernt abgelaufene Zeilen, je Zeile „PAUSE ABGELAUFEN …“
 #                              ins Protokoll und in uebersprungen.log (läuft am Ende des Nachtlaufs)
 #   pause_setzen <Routine> <bis> <Grund>
 # Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_PAUSEN_DATEI die Datei.
@@ -47,6 +47,15 @@ if modus == "aktiv":
         if r in (rolle, "alle") and bis > n:
             print("bis %s – %s" % (roh, grund)); sys.exit(0)
     sys.exit(1)
+if modus == "unlesbar":
+    for z in zeilen:
+        if not z.strip() or z.lstrip().startswith("#"):
+            continue
+        try:
+            lesen(z)
+        except ValueError:
+            print(z.strip())
+    sys.exit(0)
 if modus == "aufraeumen":
     n, bleibt, weg = jetzt(), [], []
     for z in zeilen:
@@ -55,17 +64,35 @@ if modus == "aufraeumen":
         try:
             ok = lesen(z)[1] > n
         except ValueError:
-            ok = False
+            ok = True      # unlesbar: bleibt stehen (wird gemeldet, nicht gelöscht)
         (bleibt if ok else weg).append(z)
     if weg:
         open(datei, "w", encoding="utf-8").write("".join(l + "\n" for l in bleibt))
         for z in weg:
             print(z)
 '
-pause_aktiv() { [[ -r ${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt} ]] && python3 -I -c $PAUSEN_PY ${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt} aktiv $1 2>/dev/null }
+# unlesbare Zeilen (Tippfehler in Zeit, Zone oder Routine) bleiben stehen, gelten als NICHT pausierend
+# und werden einmal je Lauf (Prozess) als „PAUSE UNLESBAR …“ gemeldet; Leerzeilen und „#“ zählen nicht
+pausen_unlesbar_melden() {
+  local z datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
+  local marke=${TMPDIR:-/tmp}/halo-pausen-unlesbar.$$.$(print -r -- $datei | cksum | cut -d' ' -f1)
+  [[ -r $datei && ! -e $marke ]] || return 0
+  python3 -I -c $PAUSEN_PY $datei unlesbar 2>/dev/null | while IFS= read -r z; do
+    [[ -n $LOG ]] && log "PAUSE UNLESBAR $z – Routine läuft trotzdem"
+    print -r -- "$(zeit) PAUSE UNLESBAR $z – Routine läuft trotzdem" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  done
+  : > $marke
+}
+pause_aktiv() {
+  local datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
+  [[ -r $datei ]] || return 1
+  pausen_unlesbar_melden
+  python3 -I -c $PAUSEN_PY $datei aktiv $1 2>/dev/null
+}
 pausen_aufraeumen() {
   local z datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
   [[ -r $datei ]] || return 0
+  pausen_unlesbar_melden
   python3 -I -c $PAUSEN_PY $datei aufraeumen 2>/dev/null | while IFS= read -r z; do
     [[ -n $LOG ]] && log "PAUSE ABGELAUFEN $z"
     print -r -- "$(zeit) PAUSE ABGELAUFEN $z" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}

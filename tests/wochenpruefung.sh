@@ -107,7 +107,12 @@ trap 'rm -f $LOCK' EXIT
 # (Regeln in vorpruefung.zsh); sonst ohne Claude und ohne Push überspringen
 DOKU_HINWEIS=
 if [[ -n $DOKU && -z $TROCKEN ]]; then
-  if GRUND=$(doku_geaendert); then
+  # nicht in $(…): doku_geaendert setzt DOKU_VOLL, DOKU_STAND und die Dateilisten, die in einer
+  # Unter-Shell verloren gingen (Auftrag lautete immer „Teilprüfung, keine geänderten .md“)
+  GRUND_DATEI=$(mktemp)
+  doku_geaendert > $GRUND_DATEI; GRUND_RC=$?
+  GRUND=$(<$GRUND_DATEI); rm -f $GRUND_DATEI
+  if (( GRUND_RC == 0 )); then
     log "Vorprüfung: $GRUND"
     if (( DOKU_VOLL )); then
       DOKU_HINWEIS="Vollprüfung: alle .md-Dateien gründlich prüfen."

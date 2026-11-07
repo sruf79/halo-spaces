@@ -110,7 +110,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   CI-Runde der Nacht damit testet. Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) wartet
   `ci_nacht_abschluss` (`tests/ci-runde.zsh`) noch laufende CI-Läufe der Nacht ab (bis 90 Minuten,
   längstens 09:00), trägt rote Prüfungen daraus über `ci-waechter.sh --lauf` ins Board ein (gleiche
-  Dublettenprüfung wie der Wächter, `windows-github` und gezielte Läufe nicht) und startet, wenn seit
+  Dublettenprüfung wie der Wächter, `windows-github` und gezielte Läufe nicht; in derselben Nacht
+  reparierte Prüfungen nicht, siehe unten) und startet, wenn seit
   24 Stunden keine Vollrunde lief und er nichts CI-Auslösendes gepusht hat, selbst
   `gh workflow run test.yml -f ziel=alle` (bis 04:30 Wiener Zeit; Lauf über `--created` und Kopf-SHA
   gefunden, abgewartet, Rotes eingetragen). Das ist die einzige von Hand gestartete Runde während des
@@ -147,7 +148,15 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
   selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
   oder Wochenprüfung übernehmen diese selbst – rote Läufe der Nacht, die der Nachtlauf nicht eingetragen
-  hat (`~/halo-nacht/<datum>.ci-eingetragen`), holt er nach dessen Ende nach. Zeilen `KONSOLE  …` trägt er für
+  hat (`~/halo-nacht/<datum>.ci-eingetragen`), holt er nach dessen Ende nach. **In derselben Nacht
+  repariert** (Entscheidung des Maintainers vom 7.11.2026, `ci_reparatur` in `tests/ci-runde.zsh`, eine
+  Funktion für Nachtlauf und Nachholen): zeigt ein späterer Vollrunden-Lauf derselben Nacht (Nachtfenster
+  wie oben) auf einem anderen Kopf-SHA dieselbe Prüfung im selben Job und Schritt (hell/dunkel) grün,
+  legt der Wächter keinen Eintrag an, sondern schreibt „CI rot, in derselben Nacht repariert: <Job>:
+  <Prüfung> (rot: Lauf X, grün: Lauf Y, Commit Z)“ in den Nachtlauf-Bericht; einen offenen Eintrag
+  setzt er mit Notiz auf Done und archiviert ihn. Grün nur auf demselben SHA: Eintrag mit Notiz
+  „flackert“, Zeile `flackert:` im Wächter-Protokoll (Kennzahl `ci_flackert` der Wochenprüfung).
+  Bleibt die Prüfung bis zum Ende der Nacht rot, wird sie wie bisher eingetragen. Zeilen `KONSOLE  …` trägt er für
   jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein, Zeilen `PROTOKOLL  …` als
   `Tests: Fehlerprotokoll – …` (kein Rot). Versuchsjobs mit
   `continue-on-error` in `test.yml` (derzeit `windows-github`) übergeht er

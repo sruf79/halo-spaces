@@ -319,7 +319,11 @@ was jede Sitzung beachten muss:
   Rotes aus seinen CI-Läufen trägt er selbst ins Board ein; lief in 24 Stunden keine vollständige
   Runde und pusht er nichts CI-Auslösendes, startet er nach seiner Arbeit (bis 04:30) selbst eine
   mit `ziel=alle` – die einzige erlaubte von Hand gestartete Runde während des Nachtlaufs, sie zählt
-  als vollständig (Entscheidung vom 7.11.2026, `tests/ci-runde.zsh`, `docs/testrechner.md`). Die übrigen
+  als vollständig (Entscheidung vom 7.11.2026, `tests/ci-runde.zsh`, `docs/testrechner.md`). Zeigt ein
+  späterer vollständiger Lauf derselben Nacht auf einem anderen Commit die rote Prüfung im selben Job
+  grün, gilt sie als repariert: kein Eintrag (nur Zeile im Bericht), ein offener geht mit Notiz auf
+  Done; grün auf demselben Commit heißt „flackert“ und zählt nicht (Entscheidung vom 7.11.2026,
+  gilt auch für das Nachholen durch den CI-Wächter). Die übrigen
   Routinen (CI-Wächter, Wochenprüfung, Doku-Prüfung, Rundgang) und die Windows-VM stehen in
   `docs/testrechner.md`; Windows-Abweichungen wie Linux behandeln.
 

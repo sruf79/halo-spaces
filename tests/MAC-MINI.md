@@ -679,7 +679,14 @@ CI-Abschluss“, bis „Ende“ zählt das als Nachtfenster für den CI-Wächter
 noch laufende CI-Läufe der Nacht abwarten (bis 90 Minuten, längstens 09:00), rote Prüfungen
 daraus mit `ci-waechter.sh --lauf <ID>` ins Board (`Tests: CI rot – <Job>: <Prüfung>`, offener
 Eintrag zur selben Prüfung wird ergänzt; gezielte Läufe und `windows-github` nicht; eingetragene
-Läufe in `~/halo-nacht/<datum>.ci-eingetragen`). Lief in den letzten 24 Stunden keine Vollrunde
+Läufe in `~/halo-nacht/<datum>.ci-eingetragen`). Zeigt ein späterer Vollrunden-Lauf derselben Nacht
+auf einem anderen Kopf-SHA (Reparaturcommit) dieselbe Prüfung im selben Job und Schritt (hell/dunkel)
+grün, gilt sie als in derselben Nacht repariert (Entscheidung des Maintainers vom 7.11.2026,
+`ci_reparatur` in `tests/ci-runde.zsh`): kein Eintrag, nur die Zeile „CI rot, in derselben Nacht
+repariert: <Job>: <Prüfung> (rot: Lauf X, grün: Lauf Y, Commit Z)“ im Bericht; ein schon offener
+Eintrag bekommt eine Notiz mit Commit und Lauf-IDs, Status Done und wird archiviert. Grün nur auf
+demselben SHA (Wiederholung) heißt „flackert“: Eintrag wie bisher mit Notiz „flackert“. Bleibt die
+Prüfung bis zum Ende der Nacht rot, wird sie wie bisher eingetragen. Lief in den letzten 24 Stunden keine Vollrunde
 (abgeschlossen, nicht gezielt, alle Testjobs Linux Release/Beta/ESR, `mac`, `windows` gelaufen –
 ein Release-Commit mit übersprungenen Jobs zählt nicht, auch wenn er „success“ meldet) und
 hat der Nachtlauf nichts CI-Auslösendes gepusht, startet er vor 04:30 (Wiener Zeit)
@@ -774,7 +781,10 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   13). Rote merkt er sich in `~/halo-aufgaben/ci-waechter.nachholen` und holt nach dem Ende des
   Nachtlaufs (Sperre `~/halo-nacht/lauf.lock` frei) die nach, die nicht in
   `~/halo-nacht/<datum>.ci-eingetragen` stehen – mit derselben Dublettenprüfung. `--lauf <ID>`
-  endet mit Exitcode 3, wenn ein Eintrag scheiterte.
+  endet mit Exitcode 3, wenn ein Eintrag scheiterte. In derselben Nacht Repariertes (Abschnitt 13,
+  dieselbe Funktion `ci_reparatur`) trägt er auch beim Nachholen nicht ein; die Zeile „CI rot, in
+  derselben Nacht repariert …“ hängt er an `~/halo-berichte/<datum>-nachtlauf.md` an, Flackerer
+  protokolliert er als `flackert: …` in `~/halo-aufgaben/ci-waechter.log` (Wochenprüfung zählt sie).
 - **Abgebrochen:** nur protokolliert. **Grün:** nur protokolliert.
 - **Fehlerkonsole:** für jeden abgeschlossenen Lauf (grün, rot, abgebrochen;
   auch während Nachtlauf und Wochenprüfung) je Zeile `KONSOLE  …` im Log

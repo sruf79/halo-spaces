@@ -30,6 +30,10 @@ Bezug: gilt für jeden Screenshot, den der Maintainer einer Sitzung schickt, auc
 Herkunft: Sitzung „agents.md von Neon“ (halo-spaces, Cloud), 7.11.2026. Wortlaut: „ein Bild bis 4 Bildwechsel nehmen“.
 Bezug: `tests/halo_test.py`, Prüfung „Kalender: Mehrwochen-Ansicht scrollen 3/6 – 25 Wochen am Stück flüssig“: größte Bildzeit höchstens 4 Bildwechsel statt `3*idle+4`. Messwerte vom 7.11. (13 Läufe, neon, macOS 27.2 seit 6.11.): größte Bildzeit v3.20.0 55,0–57,9 ms, main 54,5–59,1 ms, Median 16,7 ms, Ausreißer über zwei Bildwechsel 4–5 (erlaubt 6); kein Fehler in halo.spaces, auch ohne RustDesk-Verbindung gleich.
 
+### Nachtlauf: Rotes selbst ins Board, eine Vollrunde je Nacht, Kennzahl „Tage seit grün“
+Herkunft: Sitzung „agents.md von Neon“ (halo-spaces, Cloud) über global.run, 7.11.2026. Wortlaut: „neon soll beide Änderungen und die Kennzahl umsetzen. es gibt immer offene bugs oder features, es ist unrealistisch dass der nachtlauf daher nicht läuft.“
+Bezug: `tests/ci-runde.zsh` (von `tests/nachtlauf.sh` nach Claudes Arbeit aufgerufen), `tests/ci-waechter.sh` (`--lauf`, Nachholen nach dem Nachtlauf), `tests/wochenpruefung.sh` (Kennzahl `tage_seit_gruener_vollrunde`), Test `tests/ci_runde_test.zsh`; AGENTS.md „Testrechner“ (Nachtlauf), `tests/MAC-MINI.md` Abschnitte 13–15. Deutung der Sitzung (kein Wortlaut, nach Vorgaben des Auftraggebers): „beide Änderungen“ = (1) der Nachtlauf trägt rote Prüfungen seiner CI-Läufe selbst ein (`Tests: CI rot – <Job>: <Prüfung>`, offener Eintrag wird ergänzt), (2) mindestens eine vollständige CI-Runde auf `main` je 24 Stunden – ohne CI-auslösenden Push startet der Nachtlauf selbst `ziel=alle` (nicht nach 04:30, nicht während seiner Testarbeit), mit Push kommt bei Bedarf `[dunkel]` in die Commit-Nachricht. Diese von Hand gestartete Runde ist die Ausnahme zur Regel „mac/windows gezielt nicht während des Nachtlaufs“ und zählt als vollständig. „Vollständig grün“: alle Testjobs (Linux Release/Beta/ESR, mac, windows; ohne windows-github) liefen und waren grün, dunkel nur, wenn die Runde dunkel testete.
+
 ## 6.11.2026
 
 ### Zweite Board-Sitzung `neon-board`

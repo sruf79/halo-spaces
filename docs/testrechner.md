@@ -107,7 +107,19 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
   die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
-  CI-Runde der Nacht damit testet. Pausieren nur über `~/halo-nacht/pausen.txt` (eine Datei für alle Routinen, `pause_setzen`, mit Ablaufzeit; `tests/MAC-MINI.md` Abschnitt 13). Das gilt für Routinen, die `pause_start` aufrufen (LaunchAgents und die lokale Aufgabe der Desktop-App); in der Cloud geplante Aufgaben gibt es nicht (`list_triggers` leer) und würden die Datei nicht lesen. Details
+  CI-Runde der Nacht damit testet. Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) wartet
+  `ci_nacht_abschluss` (`tests/ci-runde.zsh`) noch laufende CI-Läufe der Nacht ab (bis 90 Minuten,
+  längstens 09:00), trägt rote Prüfungen daraus über `ci-waechter.sh --lauf` ins Board ein (gleiche
+  Dublettenprüfung wie der Wächter, `windows-github` und gezielte Läufe nicht) und startet, wenn seit
+  24 Stunden keine Vollrunde lief und er nichts CI-Auslösendes gepusht hat, selbst
+  `gh workflow run test.yml -f ziel=alle` (bis 04:30 Wiener Zeit; Lauf über `--created` und Kopf-SHA
+  gefunden, abgewartet, Rotes eingetragen). Das ist die einzige von Hand gestartete Runde während des
+  Nachtlaufs und zählt als vollständig (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in
+  `ENTSCHEIDUNGEN.md`). Fehler dort brechen nichts ab: `VOLLRUNDE-FEHLER …` bzw. `EINTRAG-FEHLER …` in
+  Protokoll und `~/halo-nacht/uebersprungen.log`. Der Bericht bekommt den Abschnitt „CI-Runde der Nacht“
+  mit der Zeile „Letzte vollständig grüne Runde: <Datum, Wiener Zeit> (vor N Tagen)“. Probe ohne Push,
+  Dispatch und Board: `nachtlauf.sh --trocken`; Test `zsh tests/ci_runde_test.zsh` (`--echt`: nur lesend
+  gegen GitHub). Pausieren nur über `~/halo-nacht/pausen.txt` (eine Datei für alle Routinen, `pause_setzen`, mit Ablaufzeit; `tests/MAC-MINI.md` Abschnitt 13). Das gilt für Routinen, die `pause_start` aufrufen (LaunchAgents und die lokale Aufgabe der Desktop-App); in der Cloud geplante Aufgaben gibt es nicht (`list_triggers` leer) und würden die Datei nicht lesen. Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
   Nachtlauf, Design-Rundgang, Doku-Prüfung und GitHub-Kommunikation prüfen vorher
@@ -134,7 +146,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
   selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
-  oder Wochenprüfung übernehmen diese selbst. Zeilen `KONSOLE  …` trägt er für
+  oder Wochenprüfung übernehmen diese selbst – rote Läufe der Nacht, die der Nachtlauf nicht eingetragen
+  hat (`~/halo-nacht/<datum>.ci-eingetragen`), holt er nach dessen Ende nach. Zeilen `KONSOLE  …` trägt er für
   jeden Lauf als Bug `Tests: Fehlerkonsole – …` ein, Zeilen `PROTOKOLL  …` als
   `Tests: Fehlerprotokoll – …` (kein Rot). Versuchsjobs mit
   `continue-on-error` in `test.yml` (derzeit `windows-github`) übergeht er

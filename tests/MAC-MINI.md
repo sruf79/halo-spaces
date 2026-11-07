@@ -672,6 +672,29 @@ Features darunter. Ebenso veröffentlicht er schon gepushte, aber noch nicht
 veröffentlichte Bugs und Features anderer Sitzungen, wenn die CI dazu grün
 ist (Entscheidung des Maintainers vom 5.11.2026).
 
+**CI-Abschluss** (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+Nach Claudes Arbeit – auch wenn die Vorprüfung nichts fand – ruft `nachtlauf.sh`
+`ci_nacht_abschluss` aus `tests/ci-runde.zsh` (nur `gh`, kein Claude; Protokollzeile „Start
+CI-Abschluss“, bis „Ende“ zählt das als Nachtfenster für den CI-Wächter):
+noch laufende CI-Läufe der Nacht abwarten (bis 90 Minuten, längstens 09:00), rote Prüfungen
+daraus mit `ci-waechter.sh --lauf <ID>` ins Board (`Tests: CI rot – <Job>: <Prüfung>`, offener
+Eintrag zur selben Prüfung wird ergänzt; gezielte Läufe und `windows-github` nicht; eingetragene
+Läufe in `~/halo-nacht/<datum>.ci-eingetragen`). Lief in den letzten 24 Stunden keine Vollrunde
+(abgeschlossen, nicht gezielt, alle Testjobs Linux Release/Beta/ESR, `mac`, `windows` gelaufen –
+ein Release-Commit mit übersprungenen Jobs zählt nicht, auch wenn er „success“ meldet) und
+hat der Nachtlauf nichts CI-Auslösendes gepusht, startet er vor 04:30 (Wiener Zeit)
+`gh workflow run test.yml -f ziel=alle` (testet immer dunkel), findet den Lauf über
+`--event workflow_dispatch --created '>=<Start>'` und den Kopf-SHA von `main` (kein oder mehrere
+Treffer: Fehler), wartet bis 90 Minuten (längstens 09:00) und trägt Rotes ein. Pusht er
+Code, kommt bei fälliger Vollrunde `[dunkel]` in die Commit-Nachricht (Hinweis „CI-Vollrunde:
+fällig“ im Auftrag); seine Push-Runde ist dann die Vollrunde. Fehler in diesem Teil brechen nichts ab:
+`VOLLRUNDE-FEHLER nachtlauf <Grund>` bzw. `EINTRAG-FEHLER nachtlauf <Grund>` in Protokoll und
+`~/halo-nacht/uebersprungen.log`. Der Bericht bekommt den Abschnitt „CI-Runde der Nacht“ mit
+„Letzte vollständig grüne Runde: <Datum, Wiener Zeit> (vor N Tagen)“ (grün: alle Testjobs
+grün, dunkel nur, wenn die Runde dunkel testete). Probe: `nachtlauf.sh --trocken` (zeigt nur, was er
+eintragen bzw. starten würde); Test ohne Netz `zsh tests/ci_runde_test.zsh` (`--echt`: zusätzlich
+nur lesend gegen GitHub; läuft in der Doku-Prüfung).
+
 - Einrichten bzw. nach Änderungen am Skript erneuern:
   `tests/mac-mini-setup.sh --ohne-probelauf` (LaunchAgent
   `at.halo-spaces.nachtlauf`, Skript mit `tests/lauf-hilfen.zsh` nach
@@ -747,6 +770,11 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
   windows-github stabilisieren“). Der Wächter liest dafür `test.yml` des
   jeweiligen Commits; fällt `continue-on-error` weg (Job ersetzt `windows`),
   zählt der Job wieder.
+- **Läufe aus dem Nachtlauf:** überspringt er wie bisher (der Nachtlauf trägt sie selbst ein, Abschnitt
+  13). Rote merkt er sich in `~/halo-aufgaben/ci-waechter.nachholen` und holt nach dem Ende des
+  Nachtlaufs (Sperre `~/halo-nacht/lauf.lock` frei) die nach, die nicht in
+  `~/halo-nacht/<datum>.ci-eingetragen` stehen – mit derselben Dublettenprüfung. `--lauf <ID>`
+  endet mit Exitcode 3, wenn ein Eintrag scheiterte.
 - **Abgebrochen:** nur protokolliert. **Grün:** nur protokolliert.
 - **Fehlerkonsole:** für jeden abgeschlossenen Lauf (grün, rot, abgebrochen;
   auch während Nachtlauf und Wochenprüfung) je Zeile `KONSOLE  …` im Log
@@ -809,6 +837,11 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   Einträge, Grund); in mindestens zwei Nächten der Woche eine
   Ablaufänderung am Nachtlauf-Auftrag (bzw. ein Vorschlag „Ablauf: Nachtlauf …“
   mit „Wartet auf OK“, wenn sie eine Entscheidung des Maintainers berührt).
+- Kennzahl „Tage seit der letzten vollständig grünen Runde“ (Entscheidung des Maintainers vom
+  7.11.2026): rechnet `wochenpruefung.sh` ohne Claude aus den letzten 100 Läufen
+  (`tests/ci-runde.zsh`; alle Testjobs grün, ohne gezielte Läufe und `windows-github`) und gibt
+  sie in den Auftrag; Felder `tage_seit_gruener_vollrunde` und `letzte_gruene_vollrunde`. Dazu
+  `VOLLRUNDE-FEHLER`/`EINTRAG-FEHLER` aus `uebersprungen.log` (Kennzahl `ci_runde_fehler`).
 - Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich
   zur Vorwoche im Bericht `~/halo-berichte/<datum>-wochenpruefung.md`
   (erste Zeile „Kurz: …“ geht aufs iPhone).

@@ -195,7 +195,8 @@
   border-radius: 4px;
 }
 
-#mcNewList .mc-nl-input {
+#mcNewList .mc-nl-input,
+#calendar-list > li .mc-rename-input {
   flex: 1;
   min-width: 0;
   padding: 2px 6px;

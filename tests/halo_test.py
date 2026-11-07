@@ -7120,6 +7120,20 @@ def calendar_checks(m, results):
             } finally { Cu.evalInSandbox("confirmDeleteList = globalThis.__mcRealDelete;", g); }
             await ruhig(300);
             out.kept = cal.manager.getCalendars().some(c => c.id == made.id);
+            // Umbenennen direkt in der Zeile: Feld mit dem Namen, Enter übernimmt, Esc verwirft
+            out.stage = "rename"; await openCtx(); ctx.hidePopup(); await ruhig(200);
+            d.getElementById("mcListContextRename").doCommand();
+            const rin = await bis(() => d.querySelector(`#calendar-list > li[calendar-id="${made.id}"] .mc-rename-input`), "Namensfeld", 3000);
+            const rli = rin.closest("li");
+            out.rename = { value: rin.value, focus: d.activeElement == rin, label: rli.querySelector(".calendar-name").hidden,
+                           inRow: Math.abs(rin.getBoundingClientRect().top + rin.getBoundingClientRect().height / 2 - (rli.getBoundingClientRect().top + rli.getBoundingClientRect().height / 2)) <= 2 };
+            rin.value = "Halo Umbenannt"; rin.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await ruhig(300);
+            out.rename.saved = made.name; out.rename.shown = rli.querySelector(".calendar-name").textContent; out.rename.gone = !rli.querySelector(".mc-rename-input");
+            await openCtx(); ctx.hidePopup(); await ruhig(200); d.getElementById("mcListContextRename").doCommand();
+            const rin2 = await bis(() => rli.querySelector(".mc-rename-input"), "Namensfeld 2", 3000);
+            rin2.value = "Verworfen"; rin2.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await ruhig(300);
+            out.rename.escaped = made.name == "Halo Umbenannt" && !rli.querySelector(".calendar-name").hidden;
+            made.name = "Halo Infoliste"; await ruhig(200);
             out.stage = "tasksInfo"; await openCtx(); out.tasksInfo = await props();
             out.stage = "calendar"; await toCalendar();
             out.calendar = await openCtx();
@@ -7133,14 +7147,18 @@ def calendar_checks(m, results):
         t, c = res.get("tasks") or {}, res.get("calendar") or {}
         ti, ci, a = res.get("tasksInfo") or {}, res.get("calendarInfo") or {}, res.get("ask") or {}
         tl, cl = t.get("labels", []), c.get("labels", [])
+        rn = res.get("rename") or {}
         ok = (not any("Calendar" in x for x in tl) and "Delete" in tl and "Show List Info" in tl and "Properties" not in tl
+              and "Rename" in tl and tl.index("Rename") == tl.index("Show List Info") + 1 and "Rename" not in cl
+              and rn == {"value": "Halo Infoliste", "focus": True, "label": True, "inRow": True, "saved": "Halo Umbenannt",
+                         "shown": "Halo Umbenannt", "gone": True, "escaped": True}
               and not any(x.startswith(("Export", "Publish")) for x in tl) and "||" not in t.get("seps", "||")
               and {"Delete Calendar…", "Export Calendar…", "Publish Calendar…", "Properties"} <= set(cl) and not {"Delete", "Show List Info", "New List"} & set(cl)
               and ti == {"title": "List Info", "name": "Name:", "enable": "Enable This List", "value": "Halo Infoliste", "notes": False}
               and ci.get("title") == "Edit Calendar" and ci.get("name") == "Calendar Name:" and ci.get("enable") == "Enable This Calendar" and ci.get("notes") is True
               and a.get("kind") == "delete" and "“Halo Infoliste”" in a.get("text", "") and "2 events" in a.get("text", "") and a.get("button") == "Delete" and res.get("kept"))
         return ok, f"{res}"
-    check("Aufgaben: Kontextmenü der Listen ohne Kalender-Befehle („Delete“ nennt Termine, „Show List Info“ mit Dialog „List Info“), im Kalender unverändert", tasks_list_context, results)
+    check("Aufgaben: Kontextmenü der Listen ohne Kalender-Befehle („Delete“ nennt Termine, „Show List Info“ mit Dialog „List Info“, „Rename“ direkt in der Zeile), im Kalender unverändert", tasks_list_context, results)
 
     def tasks_header_narrow():
         # Aufgaben: „…“ im Listenkopf bleibt beim Verkleinern im Fenster und links vom „+“ (früher an alter Stelle

@@ -45,6 +45,7 @@ const DE = {
   "Name:": "Name:",
   "Enable This List": "Diese Liste aktivieren",
   "Delete List": "Liste löschen",
+  "Rename": "Umbenennen",
   "Do you want to permanently delete the list “{name}” and all its tasks?": "Möchtest du die Liste „{name}“ mit allen Aufgaben endgültig löschen?",
   "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Möchtest du die Liste „{name}“ entfernen? Abmelden entfernt sie nur aus Thunderbird, Löschen löscht auch ihre Aufgaben endgültig.",
   "Do you want to unsubscribe from the list “{name}”?": "Möchtest du die Liste „{name}“ abmelden?",
@@ -525,6 +526,7 @@ const FR = {
   "Name:": "Nom :",
   "Enable This List": "Activer cette liste",
   "Delete List": "Supprimer la liste",
+  "Rename": "Renommer",
   "Do you want to permanently delete the list “{name}” and all its tasks?": "Voulez-vous supprimer définitivement la liste « {name} » et toutes ses tâches ?",
   "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Voulez-vous retirer la liste « {name} » ? Se désabonner la retire seulement de Thunderbird, supprimer efface aussi définitivement ses tâches.",
   "Do you want to unsubscribe from the list “{name}”?": "Voulez-vous vous désabonner de la liste « {name} » ?",
@@ -1005,6 +1007,7 @@ const ES = {
   "Name:": "Nombre:",
   "Enable This List": "Activar esta lista",
   "Delete List": "Eliminar lista",
+  "Rename": "Cambiar nombre",
   "Do you want to permanently delete the list “{name}” and all its tasks?": "¿Quieres eliminar definitivamente la lista «{name}» y todas sus tareas?",
   "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "¿Quieres quitar la lista «{name}»? Darse de baja solo la quita de Thunderbird, eliminarla también borra sus tareas definitivamente.",
   "Do you want to unsubscribe from the list “{name}”?": "¿Quieres darte de baja de la lista «{name}»?",
@@ -1485,6 +1488,7 @@ const IT = {
   "Name:": "Nome:",
   "Enable This List": "Attiva questo elenco",
   "Delete List": "Elimina elenco",
+  "Rename": "Rinomina",
   "Do you want to permanently delete the list “{name}” and all its tasks?": "Vuoi eliminare definitivamente l’elenco «{name}» e tutte le sue attività?",
   "Do you want to remove the list “{name}”? Unsubscribing removes it from Thunderbird only, deleting also permanently deletes its tasks.": "Vuoi rimuovere l’elenco «{name}»? Annullare l’iscrizione lo rimuove solo da Thunderbird, eliminarlo cancella anche definitivamente le sue attività.",
   "Do you want to unsubscribe from the list “{name}”?": "Vuoi annullare l’iscrizione all’elenco «{name}»?",
@@ -5896,6 +5900,62 @@ function hookTaskLists(win, restorers) {
     win.setTimeout(() => deleteList(calendar).catch(e => log("delete list", e)), 0);
   });
   doc.getElementById("list-calendars-context-delete")?.after(ctxDelete);
+  // „Rename“ wie in Apple Erinnerungen: der Name wird direkt in der Zeile zum
+  // Feld (wie bei „New List“); Enter oder Klick daneben übernimmt, Esc verwirft
+  const renameList = calendar => {
+    const li = [...(calList?.children || [])].find(x => x.getAttribute("calendar-id") == calendar?.id);
+    const label = li?.querySelector(".calendar-name");
+    if (!label || li.querySelector(".mc-rename-input")) {
+      return;
+    }
+    const input = el("input", "mc-nl-input mc-rename-input");
+    input.value = calendar.name;
+    input.setAttribute("aria-label", tr("Rename"));
+    label.hidden = true;
+    label.after(input);
+    let done = false;
+    const finish = keep => {
+      if (done) {
+        return;
+      }
+      done = true;
+      const name = input.value.trim();
+      input.remove();
+      label.hidden = false;
+      if (keep && name && name != calendar.name) {
+        try {
+          calendar.name = name;
+        } catch (e) {
+          log("rename list error", e);
+        }
+      }
+    };
+    input.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        finish(true);
+      } else if (event.key == "Escape") {
+        event.preventDefault();
+        finish(false);
+      }
+      event.stopPropagation();
+    });
+    // Klicks ins Feld nicht an die Liste (die nähme sonst den Fokus)
+    for (const type of ["mousedown", "click", "dblclick"]) {
+      input.addEventListener(type, event => event.stopPropagation());
+    }
+    input.addEventListener("blur", () => win.setTimeout(() => finish(true), 0));
+    input.focus();
+    input.select();
+  };
+  const ctxRename = doc.createXULElement("menuitem");
+  ctxRename.id = "mcListContextRename";
+  ctxRename.setAttribute("label", tr("Rename"));
+  ctxRename.addEventListener("command", () => {
+    const calendar = ctx.contextCalendar;
+    win.setTimeout(() => renameList(calendar), 0);
+  });
+  doc.getElementById("list-calendars-context-edit")?.after(ctxRename);
   const relabel = [["list-calendars-context-showall", "Show All Lists"], ["list-calendars-context-new", "Add Online List…"],
     ["list-calendars-context-edit", "Show List Info"]];
   // im Bereich Aufgaben ausgeblendet (alle nur mit gewähltem Kalender sichtbar)
@@ -5909,6 +5969,7 @@ function hookTaskLists(win, restorers) {
     const tasks = tasksMode();
     ctxNew.hidden = !tasks;
     ctxDelete.hidden = !tasks || !ctx.contextCalendar;
+    ctxRename.hidden = !tasks || !ctx.contextCalendar;
     for (const id of ctxHide) {
       const item = doc.getElementById(id);
       if (item) {

@@ -44,6 +44,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
+| `tests/token-bilanz.py` | Token-Bilanz der Claude-Sitzungen auf neon aus den Protokollen (nur Lesen, kein Claude-Aufruf, kein Netz) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |

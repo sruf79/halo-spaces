@@ -107,7 +107,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
   die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
-  CI-Runde der Nacht damit testet. Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) wartet
+  CI-Runde der Nacht damit testet. Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) löscht
+  `zweige_aufraeumen` (`tests/nachtlauf.sh`) verwaiste Zweige `claude/…` auf GitHub – nur ohne eigene
+  Commits über `origin/main` hinaus und ohne offenen Pull Request, nie `rest/…` o. a.; je Zweig eine
+  Zeile im Bericht, Abschnitt „Verwaiste Zweige“ (Entscheidung des Maintainers vom 7.11.2026). Danach wartet
   `ci_nacht_abschluss` (`tests/ci-runde.zsh`) noch laufende CI-Läufe der Nacht ab (bis 90 Minuten,
   längstens 09:00), trägt rote Prüfungen daraus über `ci-waechter.sh --lauf` ins Board ein (gleiche
   Dublettenprüfung wie der Wächter, `windows-github` und gezielte Läufe nicht; in derselben Nacht

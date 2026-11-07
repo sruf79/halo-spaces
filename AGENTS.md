@@ -550,9 +550,10 @@ gelten dort unverändert.
 fertige Arbeit aber ohne Rückfrage selbst nach `main` – kein Pull Request,
 kein Merge durch den Maintainer. Ablauf am Ende eines Arbeitsblocks:
 `git fetch origin main`, auf `origin/main` rebasen, `git push origin
-HEAD:main`, danach den eigenen Zweig `claude/…` auf GitHub löschen
-(`git push origin --delete <zweig>`), damit neben `main` keine Reste
-liegen bleiben (Entscheidung des Maintainers vom 5.11.2026). Dabei:
+HEAD:main`; den eigenen Zweig `claude/…` stehen lassen – der Nachtlauf
+löscht Zweige `claude/…` ohne eigene Commits über `main` hinaus und ohne
+offenen Pull Request (Entscheidung des Maintainers vom 7.11.2026, ersetzt
+das Löschen durch die Sitzung vom 5.11.2026). Dabei:
 
 - Gesammelt pushen wie unter „Testrechner“ (je Eintrag committen, einmal am
   Ende pushen).

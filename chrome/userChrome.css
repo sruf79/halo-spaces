@@ -6186,7 +6186,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   margin-top: 0;
   background: var(--mc-ti-card);
   border-radius: 12px;
-  padding: 12px 16px !important;
+  padding: 16px 16px 16px 14px !important;
 }
 
 :root[mc-task-info][mc-task-note] #calendar-task-details-box {
@@ -6200,15 +6200,90 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 :root[mc-task-info] #calendar-task-details-title {
-  padding: 0 !important;
+  /* linksbündig wie eine vergrößerte Karte (K2): rechts von Streifen, links
+     von Zahl und Fortschrittsstrich */
+  padding: 0 77px 0 19px !important;
   font-size: calc(20px * var(--mt-font-scale, 1)) !important;
   font-weight: 700 !important;
-  /* mittig wie die Kopfkarte in Apple Erinnerungen, beim Bearbeiten linksbündig */
-  text-align: center !important;
+  line-height: 26px !important;
+  text-align: start !important;
 }
 
-:root[mc-task-info] #calendar-task-details-title:has(> .mc-ti-input) {
-  text-align: start !important;
+/* Kopfkarte (K2): Streifen in Listenfarbe links, Fortschrittsstrich rechts,
+   Zahl unten links daneben – setzt die Erweiterung an die Karte (place) */
+:root[mc-task-info] #calendar-task-details {
+  position: relative !important;
+}
+
+:root[mc-task-info]:not([mc-task-note]) #calendar-task-details-box {
+  box-sizing: border-box;
+  min-height: 96px;
+}
+
+#mcTaskStripe,
+#mcTaskProg,
+#mcTaskProgNum {
+  position: absolute;
+  z-index: 1;
+}
+
+#mcTaskStripe {
+  width: 5px;
+  border-radius: 2.5px;
+  pointer-events: none;
+}
+
+/* (17 px breit zum Greifen, sichtbar die 5 px in der Mitte) */
+#mcTaskProg {
+  width: 17px;
+  cursor: ns-resize;
+  background: repeating-linear-gradient(color-mix(in srgb, var(--mt-red) 55%, transparent) 0 1.5px, transparent 1.5px 4px) center / 5px 100% no-repeat;
+  border-radius: 2.5px;
+  --mc-tp: var(--mt-prog-0);
+}
+
+#mcTaskProg[data-step="25"] { --mc-tp: var(--mt-prog-25); }
+#mcTaskProg[data-step="50"] { --mc-tp: var(--mt-prog-50); }
+#mcTaskProg[data-step="75"] { --mc-tp: var(--mt-prog-75); }
+#mcTaskProg[data-step="100"] { --mc-tp: var(--mt-prog-100); }
+
+#mcTaskProg > i {
+  position: absolute;
+  inset-inline: 6px;
+  bottom: 0;
+  border-radius: 2.5px;
+  background: var(--mc-tp);
+}
+
+#mcTaskProg:focus-visible {
+  outline: 2px solid AccentColor;
+  outline-offset: 0;
+}
+
+#mcTaskProg[data-readonly],
+#mcTaskProgNum[data-readonly] {
+  cursor: default;
+}
+
+#mcTaskProgNum {
+  font-size: calc(20px * var(--mt-font-scale, 1));
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--mt-text);
+  cursor: text;
+}
+
+#mcTaskProgNum > small {
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  color: var(--mt-text-secondary);
+}
+
+#mcTaskProgNum > .mc-ti-input {
+  width: 56px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-weight: 400;
 }
 
 /* Notiz direkt unter dem Titel in derselben Karte, nur so hoch wie ihr Text;
@@ -6232,7 +6307,8 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   border: none !important;
   border-radius: 0 0 12px 12px;
   background: var(--mc-ti-card) !important;
-  padding: 0 16px 12px !important;
+  /* bündig mit dem Titel (Streifen links, Zahl und Strich rechts) */
+  padding: 4px 93px 16px 33px !important;
 }
 
 /* die ganze Spalte scrollt gemeinsam (Kopfkarte und Gruppen) wie in Apple
@@ -6329,7 +6405,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
+  min-height: 36px;
   padding-inline-end: 14px;
 }
 

@@ -6845,7 +6845,9 @@ def calendar_checks(m, results):
 
     def tasks_info_column():
         # Aufgaben: Detailspalte wie das Info-Fenster von Apple Erinnerungen – Titel und Notiz als Kopfkarte, Abschnitte
-        # „Date & Time“, „Organisation“, „Place“ mit Symbol, Bezeichnung und Wert; leere Werte grau „None“; Thunderbirds Zeilen weg
+        # „Date & Time“, „Organisation“, „Place“ mit Symbol, Bezeichnung und Wert; leere Werte grau „None“; Thunderbirds Zeilen weg;
+        # Kopfkarte nach K2 (5b/5d): Streifen in Listenfarbe links, Titel linksbündig, Fortschrittsstrich rechts mit Zahl daneben
+        # (keine Zeile „Progress“ mehr)
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await wait(600);
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
@@ -6872,7 +6874,13 @@ def calendar_checks(m, results):
               const info = d.getElementById("mcTaskInfo");
               return { heads: [...info.querySelectorAll(".mc-ti-head")].map(h => h.textContent),
                 rows: [...info.querySelectorAll(".mc-ti-row")].map(r => [r.dataset.icon, r.querySelector(".mc-ti-label").textContent, r.querySelector(".mc-ti-value").textContent, r.querySelector(".mc-ti-value").hasAttribute("data-none")]),
-                ring: !!info.querySelector('.mc-ti-row[data-icon="progress"] > .mc-tc-check[data-progress]'),
+                head: (() => { const R = id => d.getElementById(id)?.getBoundingClientRect(); const st = R("mcTaskStripe"), pb = R("mcTaskProg"), nm = R("mcTaskProgNum"),
+                  ti = R("calendar-task-details-title"), bx = R("calendar-task-details-box"), fl = d.querySelector("#mcTaskProg > i")?.getBoundingClientRect();
+                  if (!st?.width || !pb?.width || !nm?.width) return null;
+                  return { num: d.getElementById("mcTaskProgNum").textContent.replace(/\s/g, ""), step: d.getElementById("mcTaskProg").dataset.step,
+                    fill: Math.round(fl.height / pb.height * 100), stripeW: Math.round(st.width), color: w.getComputedStyle(d.getElementById("mcTaskStripe")).backgroundColor,
+                    order: st.left >= bx.left && st.right <= ti.left + 20 && nm.right <= pb.left + 6 && pb.right <= bx.right, top: Math.round(st.top - bx.top),
+                    align: w.getComputedStyle(d.getElementById("calendar-task-details-title")).textAlign }; })(),
                 icon: (() => { const i = info.querySelector('.mc-ti-row[data-icon="location"] > .mc-ti-icon'); return i ? [Math.round(i.getBoundingClientRect().width), w.getComputedStyle(i).backgroundImage.includes("location.svg")] : null; })(),
                 note: [d.documentElement.hasAttribute("mc-task-note"), Math.round(d.getElementById("calendar-task-details-description").getBoundingClientRect().height)],
                 tbRows: ["calendar-task-details-priority-row", "calendar-task-details-status-row", "task-due-row"].map(id => { const r = d.getElementById(id); return r && r.getBoundingClientRect().height > 0; }),
@@ -6890,16 +6898,18 @@ def calendar_checks(m, results):
         vals = {r[0]: r[2] for r in f.get("rows", [])}
         order = [r[0] for r in f.get("rows", [])]
         ok = (f.get("heads") == ["Date & Time", "Organisation", "Place"]
-              and order == ["calendar", "clock", "repeat", "bell", "list", "tag", "lock", "star", "progress", "location"]
+              and order == ["calendar", "clock", "repeat", "bell", "list", "tag", "lock", "star", "location"]
               and res.get("series") == "Every week" and vals.get("repeat") == "None" and vals.get("bell") == "1 hour before" and vals.get("tag") == "Kunden"
-              and vals.get("lock") == "Public" and vals.get("star") == "High" and vals.get("progress") == "50 %" and vals.get("location") == "Wien"
+              and vals.get("lock") == "Public" and vals.get("star") == "High" and vals.get("location") == "Wien"
               and "Halo Test" in vals.get("list", "") and vals.get("calendar") == vals.get("clock") and ("16:00" in vals.get("clock", "") or "4:00" in vals.get("clock", ""))
-              and f.get("ring") and f.get("icon") == [18, True] and f.get("note", [False])[0] and 24 <= f["note"][1] <= 80
+              and (f.get("head") or {}).get("num") == "50%" and f["head"].get("step") == "50" and 45 <= f["head"].get("fill", 0) <= 55
+              and f["head"].get("stripeW") == 5 and f["head"].get("order") and f["head"].get("top") == 16 and f["head"].get("align") == "start"
+              and f.get("icon") == [18, True] and f.get("note", [False])[0] and 24 <= f["note"][1] <= 80
               and f.get("tbRows") == [False, False, False] and f.get("card") == "12px"
               and not e.get("note", [True])[0] and all(r[3] for r in e.get("rows", []) if r[0] in ("calendar", "clock", "repeat", "bell", "star", "location"))
-              and {r[0]: r[2] for r in e.get("rows", [])}.get("progress") == "0 %")
+              and (e.get("head") or {}).get("num") == "0%" and e["head"].get("fill") == 0)
         return ok, f"{res}"
-    check("Aufgaben: Detailspalte wie Erinnerungen – Kopfkarte mit Titel und Notiz, Abschnitte Date & Time, Organisation, Place, leere Werte grau „None“", tasks_info_column, results)
+    check("Aufgaben: Detailspalte wie Erinnerungen – Kopfkarte (K2) mit Streifen, Titel, Notiz und Fortschrittsstrich, Abschnitte Date & Time, Organisation, Place, leere Werte grau „None“", tasks_info_column, results)
 
     def tasks_info_edit():
         # Aufgaben: Werte direkt in der Detailspalte ändern wie in Apple Erinnerungen – Menü (Priorität, Fortschritt,
@@ -6932,8 +6942,16 @@ def calendar_checks(m, results):
             await pick();
             out.editable = info().hasAttribute("data-editable");
             out.prio = await menuPick("star", "Low"); out.prioSaved = (await fresh()).priority;
-            out.prog = await menuPick("progress", "100 %"); out.done = (await fresh()).isCompleted;
-            await menuPick("progress", "25 %"); out.back = [(await fresh()).isCompleted, saved.percentComplete];
+            // Fortschritt im Kopf (K2, 5b/5d): Strich oben anklicken = 100 %, Zahl anklicken und 25 eintippen, Pfeil hoch = 30 %
+            { const bar = d.getElementById("mcTaskProg"), br = bar.getBoundingClientRect();
+              const at = type => new w.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: br.left + br.width / 2, clientY: br.top + 1 });
+              bar.dispatchEvent(at("mousedown")); w.dispatchEvent(at("mouseup"));
+              out.prog = await saw(x => x.isCompleted); out.done = saved.isCompleted; await pick();
+              const num = d.getElementById("mcTaskProgNum"); num.click(); await ruhig(200);
+              const ni = num.querySelector("input"); if (ni) { ni.value = "25"; ni.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
+              await saw(x => !x.isCompleted && x.percentComplete == 25); out.back = [saved.isCompleted, saved.percentComplete]; await pick();
+              bar.focus(); bar.dispatchEvent(new w.KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }));
+              await saw(x => x.percentComplete == 30); out.arrow = saved.percentComplete; await pick(); }
             out.rep = await menuPick("repeat", "Every week"); out.repSaved = !!(await fresh()).recurrenceInfo;
             await menuPick("repeat", "Never"); out.repOff = !(await fresh()).recurrenceInfo;
             // Ort: Feld an Stelle des Werts, Enter speichert
@@ -7005,8 +7023,8 @@ def calendar_checks(m, results):
           }
           return out;""")
         sc = res.get("scroll") or {}
-        ok = (res.get("titleAlign") == ["center", "start"] and res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
-              and res.get("back") == [False, 25] and res.get("rep") and res.get("repSaved") and res.get("repOff")
+        ok = (res.get("titleAlign") == ["start", "start"] and res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
+              and res.get("back") == [False, 25] and res.get("arrow") == 30 and res.get("rep") and res.get("repSaved") and res.get("repOff")
               and res.get("locInput") and res.get("loc") == "Graz" and res.get("dueGone")
               and res.get("dueEdit") == {"date": True, "time": True, "input": False, "panel": True} and res.get("panelClosed")
               and res.get("timeAfterSmall") and res.get("timeAfterNotch") and res.get("timeAfterSmall") != res.get("timeAfterNotch")
@@ -7014,7 +7032,7 @@ def calendar_checks(m, results):
               and res.get("titleInput") and res.get("title") == "Halo Bearbeiten neu"
               and sc.get("can") and sc.get("head", 0) > 0 and sc.get("head") == sc.get("group"))
         return ok, f"{res}"
-    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum zum Eintippen mit sofort offenem Monatskalender und „Remove“), sofort gespeichert; Titel mittig, beim Bearbeiten linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
+    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum zum Eintippen mit sofort offenem Monatskalender und „Remove“), sofort gespeichert; Fortschritt im Kopf (Strich, Zahl, Pfeiltasten), Titel linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
 
     def tasks_new_list_sort():
         # Aufgaben 4/5 wie Apple Erinnerungen: unter den Listen „⊕ New List“ (ohne Darüberfahren, nur im Bereich Aufgaben,

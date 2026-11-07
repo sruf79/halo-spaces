@@ -4906,10 +4906,169 @@ function hookTaskInfo(win, restorers) {
     r.append(el("span", "mc-ti-icon"), el("span", "mc-ti-label", tr(label)), v);
     return r;
   };
+  // Kopfkarte wie eine vergrößerte Karte (K2, Entscheidung des Maintainers
+  // vom 6.11.2026): links der Streifen in Listenfarbe, rechts der
+  // Fortschrittsstrich (farbig von unten, offener Teil fein rot gestrichelt)
+  // mit der Zahl unten links daneben. Der Fortschritt steht nur hier und ist
+  // direkt bedienbar: Strich ziehen bzw. anklicken (5-%-Schritte), Zahl
+  // anklicken zum Eintippen, Pfeiltasten; Rechtsklick auf den Strich: Stufen
+  // und „Cancelled“. Titel und Notiz bleiben Thunderbirds Elemente – Streifen
+  // und Strich liegen darüber und folgen der Höhe der Karte (place)
+  const detailsEl = doc.getElementById("calendar-task-details");
+  const cardBox = doc.getElementById("calendar-task-details-box");
+  const stripe = el("div");
+  stripe.id = "mcTaskStripe";
+  const bar = el("div");
+  bar.id = "mcTaskProg";
+  bar.tabIndex = 0;
+  bar.setAttribute("role", "slider");
+  bar.setAttribute("aria-label", tr("Progress"));
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", "100");
+  const fill = el("i");
+  bar.append(fill);
+  const num = el("div");
+  num.id = "mcTaskProgNum";
+  detailsEl?.append(stripe, bar, num);
+  const stepOf = p => (p >= 100 ? "100" : String(Math.min(75, Math.round(p / 25) * 25)));
+  const showPct = p => {
+    fill.style.height = `${p}%`;
+    bar.dataset.step = stepOf(p);
+    bar.setAttribute("aria-valuenow", String(p));
+    num.replaceChildren(String(p), el("small", null, "\u2009%"));
+  };
+  const curPct = item => (item.isCompleted ? 100 : item.percentComplete || 0);
+  const setPct = v => {
+    const p = Math.max(0, Math.min(100, Math.round(v)));
+    const item = tree.currentTask;
+    if (!item || p == curPct(item)) {
+      if (item) {
+        showPct(curPct(item));
+      }
+      return;
+    }
+    showPct(p);
+    save(it => {
+      if (p == 100) {
+        it.isCompleted = true;
+      } else {
+        it.isCompleted = false;
+        it.status = p ? "IN-PROCESS" : "NONE";
+        it.percentComplete = p;
+      }
+    }).catch(() => {});
+  };
+  const head = (item, color) => {
+    stripe.style.backgroundColor = color;
+    showPct(curPct(item));
+    const canEdit = writable(item);
+    bar.toggleAttribute("data-readonly", !canEdit);
+    num.toggleAttribute("data-readonly", !canEdit);
+  };
+  // Streifen, Strich und Zahl an die Karte (Titel samt Notiz) legen
+  const place = () => {
+    if (!detailsEl || !cardBox) {
+      return;
+    }
+    const base = detailsEl.getBoundingClientRect();
+    const top = cardBox.getBoundingClientRect();
+    const note = doc.documentElement.hasAttribute("mc-task-note") ? frame.getBoundingClientRect() : null;
+    const shown = !!tree.currentTask && top.height > 0;
+    for (const e of [stripe, bar, num]) {
+      e.hidden = !shown;
+    }
+    if (!shown) {
+      return;
+    }
+    const y0 = top.top - base.top + detailsEl.scrollTop + 16;
+    const y1 = Math.max(top.bottom, note?.height ? note.bottom : 0) - base.top + detailsEl.scrollTop - 16;
+    const h = Math.max(20, y1 - y0);
+    const left = top.left - base.left + 14, right = base.right - top.right + 16;
+    Object.assign(stripe.style, { top: `${y0}px`, height: `${h}px`, insetInlineStart: `${left}px` });
+    // (der Strich ist zum Greifen 17 px breit, sichtbar die 5 px in der Mitte)
+    Object.assign(bar.style, { top: `${y0}px`, height: `${h}px`, insetInlineEnd: `${right - 6}px` });
+    Object.assign(num.style, { top: `${y0 + h - 17}px`, insetInlineEnd: `${right + 5 + 14}px` });
+  };
+  const fromY = y => {
+    const r = bar.getBoundingClientRect();
+    return Math.round(Math.max(0, Math.min(1, (r.bottom - y) / r.height)) * 20) * 5;
+  };
+  const onBarDown = event => {
+    if (event.button != 0 || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    bar.focus();
+    let p = fromY(event.clientY);
+    showPct(p);
+    const move = e => {
+      p = fromY(e.clientY);
+      showPct(p);
+    };
+    const up = () => {
+      win.removeEventListener("mousemove", move, true);
+      win.removeEventListener("mouseup", up, true);
+      setPct(p);
+    };
+    win.addEventListener("mousemove", move, true);
+    win.addEventListener("mouseup", up, true);
+  };
+  const onBarKey = event => {
+    const item = tree.currentTask;
+    const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5 }[event.key];
+    if (!item || !d || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setPct(Math.round((curPct(item) + d) / 5) * 5);
+  };
+  // (Rechtsklick: Stufen wie bisher und „Cancelled“ – den Status gibt es sonst noch nirgends)
+  const onBarMenu = event => {
+    const item = tree.currentTask;
+    if (!item || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    const pct = curPct(item);
+    openMenu(bar, [
+      ...[0, 25, 50, 75, 100].map(v => ({ label: `${v} %`, type: "radio", checked: pct == v && item.status != "CANCELLED", run: () => setPct(v) })),
+      null,
+      { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => (it.status = "CANCELLED")) },
+    ]);
+  };
+  const onNum = () => {
+    const item = tree.currentTask;
+    if (!item || num.hasAttribute("data-readonly") || num.querySelector("input")) {
+      return;
+    }
+    editText(num, String(curPct(item)), text => setPct(parseFloat(text) || 0), { type: "number" });
+    const input = num.querySelector("input");
+    if (input) {
+      input.min = "0";
+      input.max = "100";
+      input.step = "5";
+    }
+  };
+  bar.addEventListener("mousedown", onBarDown);
+  bar.addEventListener("keydown", onBarKey);
+  bar.addEventListener("contextmenu", onBarMenu);
+  num.addEventListener("click", onNum);
+  const headRO = new win.ResizeObserver(() => place());
+  for (const e of [detailsEl, cardBox, frame]) {
+    e && headRO.observe(e);
+  }
+  restorers.push(() => {
+    headRO.disconnect();
+    stripe.remove();
+    bar.remove();
+    num.remove();
+  });
   const render = () => {
     const item = tree.currentTask;
     if (!item) {
       box.replaceChildren();
+      place();
       return;
     }
     const start = when(item.entryDate), due = when(item.dueDate);
@@ -4923,16 +5082,7 @@ function hookTaskInfo(win, restorers) {
     const listDot = el("span", "mc-ti-dot");
     listDot.style.backgroundColor = calColor;
     const prio = item.priority;
-    const pct = item.isCompleted ? 100 : (item.percentComplete || 0);
-    const ring = el("span", "mc-tc-check");
-    if (pct < 100) {
-      ring.setAttribute("data-progress", "");
-      ring.dataset.step = String(Math.min(75, Math.round(pct / 25) * 25));
-      ring.toggleAttribute("data-empty", pct == 0);
-      ring.style.setProperty("--mc-tc-p", pct);
-    } else {
-      ring.setAttribute("data-done", "");
-    }
+    head(item, calColor);
     const privacy = { PRIVATE: "Private", CONFIDENTIAL: "Confidential" }[item.privacy] || "Public";
     const url = item.getProperty("URL");
     box.replaceChildren(
@@ -4952,14 +5102,12 @@ function hookTaskInfo(win, restorers) {
       ]),
       ...group(null, [
         row("star", "Priority", prio >= 1 && prio <= 4 ? tr("High") : prio == 5 ? tr("Medium") : prio >= 6 && prio <= 9 ? tr("Low") : null),
-        row("progress", "Progress", `${pct} %`),
       ]),
       ...group("Place", [row("location", "Location", item.getProperty("LOCATION"))]),
     );
-    // der Fortschritt zeigt statt des Symbols den Ring der Liste
-    box.querySelector('.mc-ti-row[data-icon="progress"] > .mc-ti-icon')?.replaceWith(ring);
     wire(item);
     sizeNote();
+    place();
   };
   // Bearbeiten direkt in der Spalte wie im Info-Fenster von Apple Erinnerungen:
   // Klick auf einen Wert öffnet ein Menü bzw. ein Feld, gespeichert wird
@@ -5226,23 +5374,6 @@ function hookTaskInfo(win, restorers) {
       const cur = item.priority >= 1 && item.priority <= 4 ? 1 : item.priority == 5 ? 5 : item.priority >= 6 ? 9 : 0;
       return { label: tr(label), type: "radio", checked: cur == v, run: () => save(it => (it.priority = v)) };
     })));
-    on("progress", r => {
-      const pct = item.isCompleted ? 100 : item.percentComplete || 0;
-      openMenu(r, [
-        ...[0, 25, 50, 75, 100].map(v => ({ label: `${v} %`, type: "radio", checked: pct == v && item.status != "CANCELLED",
-          run: () => save(it => {
-            if (v == 100) {
-              it.isCompleted = true;
-            } else {
-              it.isCompleted = false;
-              it.status = v ? "IN-PROCESS" : "NONE";
-              it.percentComplete = v;
-            }
-          }) })),
-        null,
-        { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => (it.status = "CANCELLED")) },
-      ]);
-    });
     on("location", (r, v) => editText(v, item.getProperty("LOCATION") || "", text => save(it => (text ? it.setProperty("LOCATION", text) : it.deleteProperty("LOCATION")))));
     on("link", (r, v) => editText(v, item.getProperty("URL") || "", text => save(it => (text ? it.setProperty("URL", text) : it.deleteProperty("URL")))));
   };
@@ -5416,7 +5547,10 @@ function hookTaskInfo(win, restorers) {
     const result = orig.apply(this, args);
     try {
       render();
-      win.requestAnimationFrame(sizeNote);
+      win.requestAnimationFrame(() => {
+        sizeNote();
+        place();
+      });
     } catch (e) {
       log("task info error", e);
     }

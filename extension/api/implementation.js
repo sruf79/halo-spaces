@@ -9054,10 +9054,13 @@ function addTypeSwitch(iw) {
 // Sichtbar bleibt alles wie bisher: Wochenzahl (calendar.weeks.inview),
 // Überschrift, Pfeile, „Heute“ und Zoom richten sich nach dem sichtbaren Teil
 const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
-// je Seite sechs Wochen Vorrat: beim Scrollen wird erst neu aufgebaut, wenn
-// er fast aufgebraucht ist bzw. nach dem Einrasten (vorher zwei – jede
-// überschrittene Woche baute neu auf und lud Termine nach)
-const MULTIWEEK_BUFFER_WEEKS = 6;
+// je Seite zwölf Wochen Vorrat (erst zwei, dann sechs): beim Scrollen wird
+// erst neu aufgebaut, wenn er fast aufgebraucht ist, nach dem Einrasten nur,
+// wenn über die Hälfte verbraucht ist – und dann im Leerlauf (Rückmeldung
+// 6.11.2026: zu oft nachgeladen, das störte das Scrollen). Mehr Vorrat macht
+// jeden Neuaufbau teurer (rund 30 ms bei zwölf Wochen, daher Standbild und
+// Neuaufbau in zwei Bildern)
+const MULTIWEEK_BUFFER_WEEKS = 12;
 // Schritt 3/6: pixelgenau scrollen wie Apple Kalender (Mausrad und Trackpad
 // gleich), nach dem Scrollen weich auf die nächstgelegene ganze Woche
 // einrasten. Schwung erst in 5/6. Nacharbeit nach Rückmeldung (5.11.2026,
@@ -9070,11 +9073,21 @@ const MULTIWEEK_BUFFER_WEEKS = 6;
 //   Vorrats – und dann hinter einem Standbild der Ansicht, bis die Termine
 //   wieder stehen
 // - Termine um die Ansicht beim Öffnen vorab abgefragt (wärmt die Kalender)
+// Zweite Nacharbeit (6.11.2026, „zu oft nachgeladen“): Einrasten baut nicht
+// mehr neu auf, es setzt nur den sichtbaren Bereich (Überschrift, Pfeile,
+// gewählter Tag) auf die eingerastete Woche; neu aufgebaut wird erst, wenn
+// über die Hälfte des Vorrats verbraucht ist, im Leerlauf. Termine werden
+// schon kurz nach dem Start von Thunderbird für ein halbes Jahr vorab abgefragt
 function hookMultiweekScroll(mv, win, on, B, orig) {
   const LINE = 18; // eine Mausrad-Raste: etwa eine Textzeile
   // pos: Verschiebung gegen den geladenen Bereich; moved: alles, was seit
   // dem Öffnen um ganze Wochen weitergerückt wurde (für das Standbild)
   let pos = 0, moved = 0, idle = 0, anim = 0, frame = 0, rowCache = 0, shownAt = 0, mask = null;
+  // vis: um so viele Wochen ist der sichtbare Bereich gegen den geladenen
+  // (Mitte) schon weitergerückt, ohne Neuaufbau; later: Neuaufbau im Leerlauf
+  let vis = 0, later = 0, shifting = false, pending = 0;
+  // Zahl der Neuaufbauten durch das Scrollen (für die Prüfung)
+  mv.__mcScrollShifts = 0;
   // Höhe einer Woche aus dem Platz, den die Ansicht hat (nicht aus ihrem
   // Inhalt – das Raster ist mit den Puffer-Wochen höher als sichtbar);
   // gemessen bei Größenänderung, nicht bei jeder Bewegung
@@ -9170,14 +9183,59 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     };
     win.requestAnimationFrame(check);
   };
-  // um ganze Wochen weiterrücken (Thunderbird baut den Bereich neu)
+  // sichtbaren Bereich ohne Neuaufbau auf die Woche k (gegen die Mitte des
+  // geladenen) setzen: Überschrift, Pfeile und gewählter Tag folgen
+  const show = k => {
+    const base = mv.__mcVisible;
+    if (k == vis || !base) {
+      return;
+    }
+    try {
+      const s = base[0].clone(), e = base[1].clone();
+      s.day += 7 * k;
+      e.day += 7 * k;
+      mv.rangeStartDate = s;
+      mv.rangeEndDate = e;
+      if (mv.isVisible()) {
+        (win.wrappedJSObject || win).calendarNavigationBar?.setDateRange(s, e);
+      }
+      const sel = mv.selectedDay;
+      if (sel) {
+        sel.day += 7 * (k - vis);
+        mv.selectedDay = sel;
+      }
+    } catch (e) {
+      log("multiweek show error", String(e).slice(0, 120));
+    }
+    vis = k;
+  };
+  // um ganze Wochen gegen die Mitte des geladenen Bereichs weiterrücken
+  // (Thunderbird baut den Bereich neu); wie moveView, aber vom geladenen
+  // statt vom schon weitergerückten sichtbaren Bereich aus
   const shift = weeks => {
+    const base = mv.__mcVisible;
+    if (later) {
+      (win.cancelIdleCallback || win.clearTimeout).call(win, later);
+      later = 0;
+    }
+    shifting = true;
     try {
       cover();
-      mv.moveView(weeks);
+      const date = base[0].clone();
+      date.day += 7 * (weeks + Services.prefs.getIntPref("calendar.previousweeks.inview", 0));
+      // gewählter Tag rückt mit wie bei moveView (soweit noch nicht über show)
+      const sel = mv.selectedDay;
+      sel && (sel.day += 7 * (weeks - vis));
+      vis = 0;
+      mv.__mcScrollShifts++;
+      mv.goToDay(date);
+      if (sel) {
+        mv.selectedDay = sel;
+      }
     } catch (e) {
       log("multiweek scroll error", String(e).slice(0, 120));
     }
+    shifting = false;
     uncover();
   };
   // ganze Wochen der Verschiebung in den Bereich übernehmen
@@ -9191,8 +9249,21 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     }
     paint();
   };
+  // Neuaufbau im Leerlauf, sobald über die Hälfte des Vorrats verbraucht ist
+  const refill = () => {
+    if (later || Math.abs(pos) <= (B / 2) * rowH()) {
+      return;
+    }
+    const run = () => {
+      later = 0;
+      if (!anim && active()) {
+        settle();
+      }
+    };
+    later = win.requestIdleCallback ? win.requestIdleCallback(run, { timeout: 1500 }) : win.setTimeout(run, 300);
+  };
   // einrasten: weich zur nächstgelegenen Woche (mehr als halb im Bild → dorthin),
-  // danach in Ruhe einmal neu aufbauen
+  // dann nur den sichtbaren Bereich nachziehen – ohne Neuaufbau
   const snap = () => {
     const h = rowH();
     const target = Math.round(pos / h) * h;
@@ -9208,9 +9279,9 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       }
       anim = 0;
       pos = target;
-      settle();
-      pos = Math.abs(pos) < 0.5 ? 0 : pos;
+      show(Math.round(pos / h));
       paint();
+      refill();
     };
     anim = win.requestAnimationFrame(step);
   };
@@ -9224,33 +9295,40 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       win.cancelAnimationFrame(anim);
       anim = 0;
     }
+    if (later) {
+      (win.cancelIdleCallback || win.clearTimeout).call(win, later);
+      later = 0;
+    }
     const h = rowH();
     pos += event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
       : event.deltaMode == event.DOM_DELTA_PAGE ? event.deltaY * h : event.deltaY;
-    // Vorrat fast aufgebraucht (eine Woche Rest): jetzt schon weiterrücken
-    if (Math.abs(pos) > (B - 1) * h) {
-      settle();
-    } else {
-      schedule();
+    // Vorrat fast aufgebraucht (eine Woche Rest): jetzt schon weiterrücken –
+    // Standbild in diesem Bild, Neuaufbau im nächsten (beides in einem Bild
+    // ließ es länger als zwei Bildwechsel stehen)
+    if (Math.abs(pos) > (B - 1) * h && !pending) {
+      cover();
+      pending = win.requestAnimationFrame(() => {
+        pending = 0;
+        settle();
+      });
     }
+    schedule();
     win.clearTimeout(idle);
     idle = win.setTimeout(snap, 160);
   };
-  // Termine um die Ansicht vorab abfragen (beim Einblenden, höchstens alle
-  // 10 Minuten): ±13 Wochen um den geladenen Bereich
-  const warm = () => {
-    if (!active() || win.performance.now() - shownAt < 600000) {
+  // Termine um die Ansicht vorab abfragen (beim Start von Thunderbird und
+  // beim Einblenden, höchstens alle 10 Minuten): ±26 Wochen um den geladenen
+  // Bereich bzw. um heute
+  const warm = (force = false) => {
+    if (!force && !active() || win.performance.now() - shownAt < 600000 && shownAt) {
       return;
     }
     shownAt = win.performance.now();
     try {
       const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-      const s = mv.startDate?.clone(), e = mv.endDate?.clone();
-      if (!s || !e) {
-        return;
-      }
-      s.day -= 7 * 13;
-      e.day += 7 * 13;
+      const s = mv.startDate?.clone() || cal.dtz.now(), e = mv.endDate?.clone() || cal.dtz.now();
+      s.day -= 7 * 26;
+      e.day += 7 * 26;
       cal.view.getCompositeCalendar(win)
         .getItemsAsArray(Ci.calICalendar.ITEM_FILTER_TYPE_EVENT | Ci.calICalendar.ITEM_FILTER_CLASS_OCCURRENCES, 0, s, e)
         .catch(err => log("multiweek warm error", String(err).slice(0, 120)));
@@ -9269,8 +9347,29 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
   ro.observe(mv);
   const prefObs = () => {
     pos = 0;
+    vis = 0;
     shownAt = 0;
     apply();
+  };
+  // schon kurz nach dem Start (im Leerlauf, nach dem Laden der Kalender)
+  let startWarm = 0;
+  if (on()) {
+    startWarm = win.setTimeout(() => {
+      startWarm = 0;
+      win.requestIdleCallback ? win.requestIdleCallback(() => warm(true), { timeout: 5000 }) : warm(true);
+    }, 8000);
+  }
+  // neuer Bereich von außen (Pfeile, „Heute“, Zoom, Ansichtswechsel): wieder
+  // genau an seiner Wochengrenze
+  mv.__mcScrollReset = () => {
+    if (!shifting) {
+      pos = 0;
+      vis = 0;
+      if (later) {
+        (win.cancelIdleCallback || win.clearTimeout).call(win, later);
+        later = 0;
+      }
+    }
   };
   Services.prefs.addObserver(MULTIWEEK_SCROLL_PREF, prefObs);
   // nach jedem Neuaufbau (Pfeile, „Heute“, Zoom) wieder an der Wochengrenze
@@ -9287,7 +9386,11 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     ro.disconnect();
     Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, prefObs);
     win.clearTimeout(idle);
-    for (const id of [anim, frame]) {
+    win.clearTimeout(startWarm);
+    if (later) {
+      (win.cancelIdleCallback || win.clearTimeout).call(win, later);
+    }
+    for (const id of [anim, frame, pending]) {
       if (id) {
         win.cancelAnimationFrame(id);
       }
@@ -9304,6 +9407,8 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     mv.style.removeProperty("--mc-mw-row");
     delete mv.__mcScrollApply;
     delete mv.__mcScrollPos;
+    delete mv.__mcScrollReset;
+    delete mv.__mcScrollShifts;
   };
 }
 
@@ -9395,6 +9500,7 @@ function hookMultiweekBuffer(mv, restorers) {
       return orig.setDateRange.call(this, startDate, endDate);
     }
     ensureRows(this);
+    this.__mcScrollReset?.();
     this.__mcVisible = [startDate.clone(), endDate.clone()];
     const s = startDate.clone();
     const e = endDate.clone();

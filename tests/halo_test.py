@@ -6095,7 +6095,7 @@ def calendar_checks(m, results):
     check("Kalender: „Find Events“ öffnet und schließt die Terminliste (beim Start zu)", unifinder_toggle, results)
 
     def multiweek_buffer():
-        # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je sechs unsichtbare Wochen
+        # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je zwölf unsichtbare Wochen
         # davor und danach, Termine darin geladen; sichtbar, Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht
         # wie ohne; Thunderbirds Einstellungen der Wochenzahl unverändert
         res = m.js(CAL_CHECK_JS + r"""
@@ -6150,11 +6150,11 @@ def calendar_checks(m, results):
           return out;""")
         off, on, nx, bk, zm, ag, oa = (res.get(k) or {} for k in ("off", "on", "next", "back", "zoom", "again", "offAgain"))
         week = lambda a, b: a and b and abs((__import__("datetime").date(*map(int, a.split("-"))) - __import__("datetime").date(*map(int, b.split("-")))).days)
-        # (seit der Nacharbeit an 3/6 sechs Puffer-Wochen je Seite)
-        ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 6 and on.get("bufferHidden") and on.get("range") == off.get("range")
-              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 42
+        # (seit der zweiten Nacharbeit an 3/6 zwölf Puffer-Wochen je Seite)
+        ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 12 and on.get("bufferHidden") and on.get("range") == off.get("range")
+              and on.get("label") == off.get("label") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 84
               and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
-              and zm.get("shown") == 3 and zm.get("buffer") == 12 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
+              and zm.get("shown") == 3 and zm.get("buffer") == 24 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
               and oa.get("buffer") == 0 and oa.get("shown") == off.get("shown") and res.get("prefs") == [True, True])
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
@@ -6287,6 +6287,53 @@ def calendar_checks(m, results):
               and 24 <= res.get("weeks", 0) <= 26 and not res.get("mask"))
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – 25 Wochen am Stück flüssig (kein Bild über zwei Bildwechsel), Termine sofort da, Einrasten ohne Flackern", multiweek_smooth, results)
+
+    def multiweek_refill():
+        # zweite Nacharbeit 3/6 (Rückmeldung 6.11.2026: zu oft nachgeladen): scrollen mit Pausen (jede Woche einrasten)
+        # baut innerhalb des halben Vorrats nicht neu auf – nur Überschrift und sichtbarer Bereich folgen; erst danach
+        # einmal im Leerlauf; Pfeile danach eine Woche weiter, wieder genau an der Wochengrenze
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll";
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {};
+          try {
+            Services.prefs.setBoolPref(P, true); await ruhig(800);
+            const iso = dt => `${dt.year}-${dt.month + 1}-${dt.day}`;
+            const wk = (a, b) => Math.round((a.nativeTime - b.nativeTime) / 6048e8);
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
+            const aligned = () => { const f = mv.rangeStartDate.clone(); f.isDate = true; const b = mv.findDayBoxForDate(f); return b ? Math.round(b.getBoundingClientRect().top - head()) : null; };
+            const label = () => (d.getElementById("intervalDescription")?.textContent || "").trim();
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            const target = mv.monthbody.querySelector("calendar-month-day-box");
+            const first = mv.rangeStartDate.clone(); const l0 = label(); const s0 = mv.__mcScrollShifts;
+            // eine Woche in drei Bildern scrollen, dann warten, bis sie eingerastet ist (Überschrift folgt)
+            let n = 0;
+            const week1 = async () => { n++; for (let i = 0; i < 3; i++) { target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); await new Promise(r => w.requestAnimationFrame(r)); }
+              await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); await ruhig(300); };
+            for (let i = 0; i < 5; i++) await week1();
+            out.five = { weeks: wk(mv.rangeStartDate, first), shifts: mv.__mcScrollShifts - s0, aligned: aligned(), label: label() != l0 };
+            for (let i = 0; i < 2; i++) await week1();
+            await bis(() => mv.__mcScrollShifts - s0 >= 1, "Neuaufbau im Leerlauf", 4000); await ruhig(800);
+            out.seven = { weeks: wk(mv.rangeStartDate, first), shifts: mv.__mcScrollShifts - s0, aligned: aligned(), pos: Math.round(mv.__mcScrollPos()) };
+            const r7 = mv.rangeStartDate.clone();
+            for (let i = 0; i < 2; i++) await week1();
+            const r9 = mv.rangeStartDate.clone();
+            await ruhig(600);
+            mv.moveView(1); await ruhig(800);
+            out.arrow = { weeks: wk(mv.rangeStartDate, r9), before: wk(r9, r7), aligned: aligned(), pos: Math.round(mv.__mcScrollPos()) };
+          } finally {
+            Services.prefs.clearUserPref(P); await ruhig(600);
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        fv, sv, ar = (res.get(k) or {} for k in ("five", "seven", "arrow"))
+        bündig = lambda x: x.get("aligned") is not None and abs(x["aligned"]) <= 1
+        ok = (fv.get("weeks") == 5 and fv.get("shifts") == 0 and bündig(fv) and fv.get("label")
+              and sv.get("weeks") == 7 and sv.get("shifts") == 1 and bündig(sv)
+              and ar.get("before") == 2 and ar.get("weeks") == 1 and bündig(ar) and ar.get("pos") == 0)
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach an der Wochengrenze", multiweek_refill, results)
 
     def folder_menu_filters_junk():
         # GitHub-Issue #34: das ausgeblendete Menü Tools hatte „Run Filters on Folder“ und „Delete Mail Marked as Junk“ –

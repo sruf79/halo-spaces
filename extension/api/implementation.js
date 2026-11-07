@@ -13717,6 +13717,14 @@ class CardEnhancer {
       }
       const d = w.document;
       const tab = d.getElementById("tabmail")?.currentTabInfo;
+      // Aufgaben, während die Today-Pane gleitet: Kanten stehen schon am
+      // Endplatz (zu Beginn der Animation einmal gerechnet) – nachmessen
+      // hinter der gleitenden Pane ließe „+“ und Suchfeld mitwandern und am
+      // Ende zurückspringen
+      const tpPanel = d.getElementById("today-pane-panel");
+      if (tab?.mode?.name == "tasks" && tpPanel?.__mcSliding && !tpPanel.__mcEdgeNow) {
+        return;
+      }
       const el = SIDEBARS[tab?.mode?.name]?.(tab);
       const row = d.getElementById("unifiedToolbarContainer");
       if (!el || !row) {
@@ -13885,7 +13893,8 @@ class CardEnhancer {
           const lr = rectOf(taskList);
           // rechte Kante des Inhaltsbereichs (nicht der Details oder ihres Rahmens –
           // die wachsen mit der neuen Breite, das schaukelte sich auf)
-          const tp = rectOf(d.getElementById("today-pane-panel"));
+          // (beim Ausblenden gilt schon das Endmaß: ohne Today-Pane)
+          const tp = tpPanel?.__mcSliding == "out" ? null : rectOf(tpPanel);
           const right = Math.min(rectOf(d.getElementById("tabmail-container"))?.right || Infinity,
             tp?.width ? tp.left : Infinity, w.innerWidth);
           if (dr.width && lr?.width && right) {
@@ -19931,6 +19940,36 @@ class CardEnhancer {
       onDone?.();
       return;
     }
+    // Aufgaben: Liste, Details, „+“ und Aktionen gleich für das Endmaß
+    // rechnen (die Rechnung richtet sich nach dem gemessenen „+“ – bis sie
+    // still steht, wie sonst über zwei Bilder verteilt); danach ruht sie bis
+    // zum Ende der Animation. Beim Einblenden jetzt, solange die Pane noch
+    // mit voller Breite im Fluss liegt
+    const sideEdgesNow = () => {
+      const bar = d.getElementById("unifiedToolbarContainer");
+      panel.__mcEdgeNow = true;
+      try {
+        for (let i = 0, before = null; i < 4; i++) {
+          for (const f of this.sideEdgeUpdaters || []) {
+            try {
+              f();
+            } catch {}
+          }
+          const now = barTarget(d).style.getPropertyValue("--mc-tab-offset") + "|" + (bar?.style.getPropertyValue("--mc-task-line") || "");
+          if (now == before) {
+            break;
+          }
+          before = now;
+        }
+      } finally {
+        delete panel.__mcEdgeNow;
+      }
+    };
+    if (showing) {
+      d.getElementById("unifiedToolbarContainer")?.style.setProperty("--mc-tp-room", `${Math.round(full)}px`);
+      panel.__mcSliding = "in";
+      sideEdgesNow();
+    }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
     // „+“ beim Ausblenden gleich zu Beginn weg – sonst gleitet der Today-Knopf darüber
@@ -19982,6 +20021,9 @@ class CardEnhancer {
       row?.removeAttribute("data-mc-tp-open");
     } else {
       row?.style.setProperty("--mc-tp-room", "0px");
+      // Ausblenden: die Pane liegt schon über dem Inhalt – Endmaß ohne sie
+      panel.__mcSliding = "out";
+      sideEdgesNow();
     }
     // Platzaufteilung der Toolbar (Suchfeldbreite, eingeklappte Knöpfe) gleich
     // für das Endmaß berechnen, nicht erst nach der Animation
@@ -20096,6 +20138,7 @@ class CardEnhancer {
         command.doCommand();
       }
       panel.__mcAnimating = false;
+      delete panel.__mcSliding;
       panel.removeAttribute("data-mc-anim");
       w.__mcTodayTopSync?.();
       // Layout ist jetzt am Endplatz – Verschiebungen weg (im selben Bild)
@@ -20114,7 +20157,7 @@ class CardEnhancer {
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)
-      for (const f of this.offsetUpdaters || []) {
+      for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {
         try {
           f();
         } catch {}

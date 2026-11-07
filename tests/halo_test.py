@@ -10624,6 +10624,42 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 
+    def today_tasks_end():
+        # Aufgaben: am Ende des Ein-/Ausblendens springen Suchfeld (Lage, Breite), „+“ und Überschrift nicht noch einmal –
+        # die Endplätze stehen von Anfang an fest (früher rechnete die Aufgabenansicht hinter der hereingleitenden Pane mit
+        # und sprang danach um bis zu 70 px zurück)
+        res = m.js(r"""
+          tm.openTab("tasks", {}); await ruhig(1500);
+          const panel = d.getElementById("today-pane-panel"), btn = d.getElementById("mcTodayToggle"), title = d.getElementById("mcTodayTitle");
+          if (!panel || !btn) return { skipped: true };
+          const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? [Math.round(r.left * 2) / 2, Math.round(r.width * 2) / 2] : null; };
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          const sample = () => ({ pw: Math.round(panel.getBoundingClientRect().width), s: R(li("search-bar")), p: R(li("new-task")) || R(li("new-event")), t: R(title) });
+          const out = { visibility: d.visibilityState };
+          for (const phase of ["eins", "zwei"]) {
+            const frames = []; btn.click();
+            const t0 = performance.now();
+            while (performance.now() - t0 < 700) { frames.push(sample()); await new Promise(r => w.requestAnimationFrame(r)); }
+            await ruhig(400); const fin = sample();
+            // letztes Bild, in dem sich die Pane noch bewegte
+            let k = frames.length - 1; while (k > 0 && frames[k].pw == frames[k - 1].pw) k--;
+            const last = frames[k];
+            const diff = (a, b, i) => (a && b ? Math.abs(a[i] - b[i]) : (a || b ? 99 : 0));
+            const open = fin.pw > 2;  // (zu: 1 px Rand)
+            out[phase] = { steps: k, open, s: [diff(last.s, fin.s, 0), diff(last.s, fin.s, 1)], p: diff(last.p, fin.p, 0),
+              t: open ? diff(last.t, fin.t, 0) : 0, last, fin };
+          }
+          return out;""")
+        if res.get("skipped"):
+            return True, "keine Today-Pane – übersprungen"
+        ph = [res.get("eins") or {}, res.get("zwei") or {}]
+        if res.get("visibility") == "hidden" and all(p.get("steps", 0) <= 1 for p in ph):
+            return True, "Testfenster verdeckt – übersprungen"
+        ok = (ph[0].get("open") != ph[1].get("open")
+              and all(p.get("steps", 0) >= 4 and max(p["s"]) <= 2 and p["p"] <= 2 and p["t"] <= 1 for p in ph))
+        return ok, f"{res}"
+    check("Today-Pane: in Aufgaben springen Suchfeld, „+“ und Überschrift am Ende des Ein-/Ausblendens nicht nach", today_tasks_end, results)
+
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der
         # alten Breite wieder; Mail ohne Thunderbirds blauen Balken an der zugeklappten Trennlinie; Today-Pane fest

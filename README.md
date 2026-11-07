@@ -181,14 +181,22 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
-## What's new in 3.20.1
+## What's new in 3.21.0
 
-- **Calendar**: an event's tooltip is a clean rounded surface with the title in bold and time and location below it, without field names
+- **Event dialog**: type the date and time of start and end right in the fields. A click picks day, month, year, hour or minute (highlighted in the calendar's colour) with a small month calendar below the date; digits move on by themselves, Tab and the arrow keys switch fields. The end list below the end time offers the next six half-hour steps with the duration, and an end typed before the start on the same day moves to the next day
+- **Quick event window**: date and time of start, end and due date are typed the same way. The window has the same 20 px rounding as other popovers.
+- **Tooltips**: every tooltip is the system's own, as on the toolbar, readable in light and dark
+- **Dark mode**: all window surfaces share one tone (mail, Calendar, Tasks, Contacts, Chat, Settings, dialogs)
+- **Spaces bar**: 88 px wide with evenly spaced tiles; the divider runs from the very top to the bottom
+- **Tasks**: "New List" sits right below the last list; the list context menu has no calendar-only commands, "Delete" asks first and names the tasks it removes
+- **Add-ons**: Details, Preferences and Permissions are segmented capsules; text buttons, Back, the gear and the magnifier are capsules like the rest; the search fields of the filter list and the saved files are capsules without a border
+- **Today pane**: the search field changes its width smoothly while the pane opens and closes; toolbar buttons hidden in a narrow intermediate state come back when there is room again
+- **Window menu** (Mac): lists Mail, Address Book, Calendar, Tasks and Chat, which Help search finds as well
+- **Settings**: drop-down lists and popovers (Quick event window, "+" in the Today pane, time popovers, "Arrange Attachments") share one surface with the same hairline
+- **Fixes**: quick typing in the mail search and fast clicking through a conversation no longer fill the error console; the preview fetch skips messages that were deleted or moved meanwhile; archived, deleted and junk messages disappear at once instead of sliding left first; account rows in the folder list are as tall as the other rows (#44); "OK" in Invite Attendees uses the accent colour and "Busy" is readable in dark mode
 - **Search fields**: the magnifier in the search bars no longer gets a grey highlight on hover; search fields in Calendar and Tasks keep their shadow
-- **Quick event window**: "New Event / New Task" has the same 20 px rounding as other popovers
 - **Dialogs and pages**: about:config, Troubleshooting Information, About Thunderbird, the Add-ons header and the OpenPGP key search follow the design (capsule buttons and search fields, accent links, hairlines); buttons in Spelling, Find and Replace, Junk Log, Address search, Recurrence prompt, the account wizards and event reminders are capsules
 - **Menus**: "Add Account" and the sender menu when composing use 24 px rows like the other menus
-- **Fixes**: archived, deleted and junk messages disappear at once instead of sliding left first; account rows in the folder list are as tall as the other rows (#44); "OK" in Invite Attendees uses the accent colour and "Busy" is readable in dark mode
 - Requires Thunderbird 153 or newer
 
 ## What's new in 3.20.0

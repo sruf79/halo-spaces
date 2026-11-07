@@ -637,7 +637,10 @@ schreibt der Lauf nur einen Bericht „übersprungen“ und die Zeile
 ohne Push aufs iPhone. Im Zweifel (git oder gh nicht lesbar) läuft er. Scheitert ein Push
 aufs iPhone (Sitzung `github.comm.routine` nicht gefunden o. ä.), schreibt `push()` in
 `tests/lauf-hilfen.zsh` `PUSH-FEHLER <Routine> <Grund>` ins Protokoll und in
-`~/halo-nacht/uebersprungen.log`; die Wochenprüfung zählt sie (Kennzahl `push_fehler`).
+`~/halo-nacht/uebersprungen.log`; die Wochenprüfung zählt sie (Kennzahl `push_fehler`). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf
+(`tests/sitzung-finden.zsh`: gleicher Name, sonst alle Wörter des Namens, z. B. `comm.github.routine`
+für `github.comm.routine`); ohne Treffer kein Claude-Aufruf, nur `PUSH-FEHLER`. Treffer stehen in
+`~/halo-aufgaben/sitzungen.json`.
 `touch ~/halo-nacht/IMMER` erzwingt den Lauf. Der Nachtlauf bleibt bei Opus.
 
 Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge

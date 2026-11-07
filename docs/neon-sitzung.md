@@ -24,6 +24,20 @@ diesem Mac), gilt der Name aus `from-name`. Auftraggeber sollen ihrer Sitzung
 einen festen Titel geben (z. B. `global.run`, `global.bugs`) und ihn im
 Auftrag nicht wechseln.
 
+**Sitzung nicht unter ihrem Namen gefunden** (Anweisung des Maintainers vom 7.11.2026; Anlass:
+`neon-board` hieß in `ListAgents` `halo-board-de`, `comm.github.routine` statt `github.comm.routine`).
+Namen in `ListAgents` sind der lokale Sitzungsname, nicht der Titel in claude.ai. Reihenfolge:
+1. Name in `ListAgents`; 2. ähnlicher Name: Teilstring bzw. alle Wörter des Namens (`board`, `neon`,
+`routine`), oder die Sitzung mit gleichem Arbeitsordner (`~/.claude/sessions/<pid>.json`, Feld `cwd`;
+die Board-Sitzung arbeitet in `~/halo-board`); 3. `list_sessions` (`mine: true`) nach Titel, ID merken;
+4. zuletzt bekannte Sitzung aus `~/halo-aufgaben/sitzungen.json` (Rolle → Name, ID, Zeit; `push()`
+trägt jede erfolgreiche Zustellung ein). Die Skripte auf neon lösen den Namen ohne Claude mit
+`sitzung_finden <Name>` (`tests/sitzung-finden.zsh`, geladen von `lauf-hilfen.zsh`) auf: gleicher Name,
+sonst alle Wörter enthalten, für `neon-board` der Arbeitsordner; `push()` ruft Claude nur bei einem
+Treffer auf und schreibt sonst `PUSH-FEHLER` (Empfangssitzung: `HALO_PUSH_SITZUNG`,
+Standard `github.comm.routine`). Zusätzlich setzt `mac-remote-control.sh` den lokalen Namen fest
+(`CLAUDE_CODE_SESSION_NAME`, `tests/MAC-MINI.md` Abschnitt 12); die Suche bleibt als Netz.
+
 **neon schlank halten** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`:
 neon verteilt Arbeit statt sie selbst im Kontext zu erledigen, offene Aufträge
 stehen in einer Datei, die nach dem Verdichten wieder geladen wird).

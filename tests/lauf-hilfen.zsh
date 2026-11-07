@@ -4,6 +4,8 @@
 # `source`. Wie die Skripte wird sie nach ~/.config/halo-spaces/ kopiert.
 # Erwartet $LOG (Protokolldatei) und für belegt() $REPO.
 
+source ${0:A:h}/sitzung-finden.zsh   # sitzung_finden, sitzung_merken
+
 zeit() { date '+%F %T' }
 log() { print -r -- "$(zeit) $*" >> $LOG }
 
@@ -15,15 +17,25 @@ log() { print -r -- "$(zeit) $*" >> $LOG }
 # kein zweiter Versuch, kein weiterer Claude-Aufruf. push <Text> [<Routine>]:
 # Routine standardmäßig der Name des aufrufenden Skripts.
 push() {
-  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} out grund
+  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} out grund ziel
   local fehlerlog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  local sollname=${HALO_PUSH_SITZUNG:-github.comm.routine}
+  # Name der Empfangssitzung ohne Claude auflösen (auch bei abweichendem Namen);
+  # ohne Treffer kein Claude-Aufruf, nur die Fehlerzeile
+  ziel=$(sitzung_finden $sollname) || {
+    print -r -- "$(zeit) PUSH-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden (ListAgents/~/.claude/sessions)" >> $fehlerlog
+    log "PUSH-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden"
+    return 1 }
+  [[ $ziel == $sollname ]] || log "Push: Sitzung „$sollname“ als „$ziel“ gefunden"
   # Text über stdin: --allowedTools nimmt sonst den Auftrag als weiteres Werkzeug
-  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „github.comm.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
+  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „$ziel“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
 PUSH: $text
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
     | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)
   log "Push: $out"
-  if [[ ${out:l} != gesendet* ]]; then
+  if [[ ${out:l} == gesendet* ]]; then
+    sitzung_merken $sollname $ziel
+  else
     grund=${${out#nicht gesendet:}//$'\n'/ }
     grund=${grund# }
     print -r -- "$(zeit) PUSH-FEHLER $routine ${grund[1,200]:-keine Antwort}" >> $fehlerlog

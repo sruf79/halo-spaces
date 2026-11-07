@@ -214,6 +214,11 @@ Auftragsliste `~/halo-aufgaben/board-stand.md` und zählt für Nachtlauf,
 Rundgang und Wochenprüfung nie als „belegt“. Einrichtung
 `tests/MAC-MINI.md` Abschnitt 12.
 
+**Sitzung nicht unter ihrem Namen gefunden?** Reihenfolge: Name in `ListAgents` → ähnlicher Name
+(Teilstring, gleicher Arbeitsordner) → `list_sessions` nach Titel → zuletzt bekannte Sitzungs-ID
+(`~/halo-aufgaben/sitzungen.json`); Einzelheiten und Skripthilfe `sitzung_finden`:
+`docs/neon-sitzung.md`. Erst danach „nicht erreichbar“ melden.
+
 Nie „neon nicht erreichbar“ melden, ohne alle passenden Wege versucht zu
 haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
 gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst

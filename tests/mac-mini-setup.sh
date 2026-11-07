@@ -605,7 +605,7 @@ EOF
 pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei oder -> <Text bei OK> [<Option>]
   local name=$1 label=$2 skript=$3 log=$4 plan=$5 pause=$6 text=$7 opt=$8
   local plist=$HOME/Library/LaunchAgents/$label.plist dom=gui/$(id -u) f aktuell=1
-  for f in $skript lauf-hilfen.zsh; do
+  for f in $skript lauf-hilfen.zsh sitzung-finden.zsh; do
     cmp -s $ROOT/tests/$f $AG_DIR/$f || aktuell=0
   done
   [[ $(agent_plist $label $skript $log $plan $opt) == "$(cat $plist 2>/dev/null)" ]] || aktuell=0
@@ -615,7 +615,7 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei
     offen $name "LaunchAgent fehlt oder ist veraltet"
     tun "tests/mac-mini-setup.sh --ohne-probelauf ausführen"
     return
-  elif mkdir -p $AG_DIR ${plist:h} ${log:h} && cp $ROOT/tests/$skript $ROOT/tests/lauf-hilfen.zsh $AG_DIR/ &&
+  elif mkdir -p $AG_DIR ${plist:h} ${log:h} && cp $ROOT/tests/$skript $ROOT/tests/lauf-hilfen.zsh $ROOT/tests/sitzung-finden.zsh $AG_DIR/ &&
        chmod 755 $AG_DIR/$skript && agent_plist $label $skript $log $plan $opt > $plist; then
     launchctl bootout $dom/$label 2>/dev/null
     if ! launchctl bootstrap $dom $plist 2>/dev/null; then

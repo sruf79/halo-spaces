@@ -6,6 +6,8 @@
 # nachtlauf.sh und wochenpruefung.sh laden diese Datei mit `source` (nach lauf-hilfen.zsh); wie
 # vorpruefung.zsh wird sie nach ~/.config/halo-spaces/ kopiert (tests/mac-mini-setup.sh, SK_PAARE).
 # Kein Claude, nur gh, jq, python3. Test ohne Netz: zsh tests/ci_runde_test.zsh.
+# ci_reparatur: rote Prüfung in derselben Nacht repariert bzw. flackert (Entscheidung vom 7.11.2026);
+# tests/ci-waechter.sh lädt diese Datei dafür ebenfalls.
 #
 # Begriffe (über die Job-Ergebnisse, nie über die Gesamt-Conclusion – ein Lauf mit lauter
 # übersprungenen Jobs, z. B. reiner Release-Commit, endet auch mit „success“):
@@ -181,6 +183,76 @@ ci_lauf_abwarten() {   # <ID> <bis-Epoch>
     (( $(ci_jetzt) + ${HALO_CI_POLL:-300} > $2 )) && return 2
     sleep ${HALO_CI_POLL:-300}
   done
+}
+
+# --- In derselben Nacht repariert? (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in ENTSCHEIDUNGEN.md:
+# „reparierte läufe sollen dann als erledigt gelten wenn sie in der selben nacht repariert werden“)
+# Eine rote Prüfung gilt als repariert, wenn ein späterer Vollrunden-Lauf derselben Nacht auf einem anderen Commit
+# dieselbe Prüfung im selben Job und Schritt (hell/dunkel) grün zeigt. Grün auf demselben Commit (Wiederholung) ist
+# „flackert“ und zählt nicht. Genutzt von tests/ci-waechter.sh rot() – für den Nachtlauf (--lauf) und das Nachholen.
+
+# Prüfungszeilen aus „gh run view --log“ (stdin) als „Job<Tab>Schritt<Tab>OK|FEHLER<Tab>Prüfung“
+ci_pruefzeilen() {
+  awk -F'\t' '{ r = $3; sub(/^[^ ]* /, "", r)
+    if (r ~ /^OK      /) s = "OK"; else if (r ~ /^FEHLER  /) s = "FEHLER"; else next
+    n = substr(r, 9); i = index(n, " – "); if (i) n = substr(n, 1, i - 1)
+    if (s == "FEHLER" && n ~ /Prüfungen OK/) next
+    print $1 "\t" $2 "\t" s "\t" n }'
+}
+# Prüfungszeilen eines abgeschlossenen Laufs (zwischengespeichert in $CI_CACHE/<ID>.pruef); gibt den Pfad aus
+ci_pruef_log() {   # <Lauf-ID>
+  setopt localoptions pipefail
+  local f=$CI_CACHE/$1.pruef
+  if [[ ! -e $f ]]; then
+    mkdir -p $CI_CACHE
+    gh run view $1 -R $CI_R --log 2>/dev/null | ci_pruefzeilen > $f.tmp && mv $f.tmp $f || { rm -f $f.tmp; return 1 }
+  fi
+  print -r -- $f
+}
+# Ergebnis einer Prüfung in einem Lauf: OK, FEHLER oder leer (nicht gelaufen); Rückgabe 1, wenn nicht lesbar.
+# „Schritt „…“ abgebrochen“ (rot ohne FEHLER-Zeile): Job grün = OK, derselbe Schritt rot = FEHLER
+ci_pruef_ergebnis() {   # <Läufe-Datei> <Lauf-ID> <Job> <Schritt> <Prüfung>
+  local f
+  if [[ $5 == "Schritt „"*"“ abgebrochen" ]]; then
+    jq -r --argjson y $2 --arg j $3 --arg s $4 '[.[] | select(.databaseId == $y) | .jobs[] | select(.name == $j)
+      | if .conclusion == "success" then "OK" elif any(.steps[]?; .name == $s and .conclusion == "failure") then "FEHLER" else "" end][0] // ""' $1
+    return
+  fi
+  f=$(ci_pruef_log $2) || return 1
+  J=$3 S=$4 N=$5 awk -F'\t' '$1 == ENVIRON["J"] && $2 == ENVIRON["S"] && $4 == ENVIRON["N"] {
+    if ($3 == "FEHLER") e = "FEHLER"; else if (e == "") e = "OK" } END { print e }' $f
+}
+# Zustand einer roten Prüfung am Ende der Nacht: „repariert <Lauf> <Commit>“, „flackert <Lauf> <Commit>“ oder „rot“.
+# Je Paar Job|Schritt, in dem sie rot war, die späteren Vollrunden (nicht gezielt) bis <bis> der Reihe nach:
+# FEHLER → rot (Bezug: dieser Commit); OK nach rot auf anderem Commit → repariert, auf demselben → flackert (bleibt
+# vermerkt, auch wenn später ein anderer Commit grün ist). Repariert nur, wenn alle Paare repariert sind.
+ci_reparatur() {   # <Läufe-Datei> <Commit des roten Laufs> <Beginn-Epoch des roten Laufs> <bis-Epoch> <Prüfung> <Job|Schritt …>
+  local datei=$1 rsha=$2 von=$3 bis=$4 name=$5 z y ysha p r gid= gsha= fid= fsha=
+  shift 5
+  local -a paare=($@) laeufe
+  local -A zst bezug flat
+  (( ${#paare} )) || { print rot; return }
+  for p in $paare; do zst[$p]=rot bezug[$p]=$rsha; done
+  laeufe=(${(f)"$(jq -r --argjson v $von --argjson b $bis "$CI_JQ"' [.[] | select(vollrunde and zeit > $v and zeit <= $b)]
+    | sort_by(zeit) | .[] | "\(.databaseId) \(.headSha)"' $datei)"})
+  for z in $laeufe; do
+    y=${z%% *} ysha=${z#* }
+    for p in $paare; do
+      r=$(ci_pruef_ergebnis $datei $y "${p%%|*}" "${p#*|}" "$name") || continue
+      case $r in
+        FEHLER) zst[$p]=rot bezug[$p]=$ysha ;;
+        OK) [[ ${zst[$p]} == rot ]] || continue
+            if [[ $ysha != ${bezug[$p]} ]]; then
+              zst[$p]=repariert gid=$y gsha=$ysha
+            else
+              zst[$p]=flackert flat[$p]=1 fid=$y fsha=$ysha
+            fi ;;
+      esac
+    done
+  done
+  for p in $paare; do [[ ${zst[$p]} == rot ]] && { print rot; return }; done
+  (( ${#flat} )) && { print "flackert $fid ${fsha[1,7]}"; return }
+  print "repariert $gid ${gsha[1,7]}"
 }
 
 # rote Läufe über den CI-Wächter eintragen (gleiche Dublettenprüfung); eingetragene IDs nach

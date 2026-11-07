@@ -48,7 +48,12 @@ und wirkten die Verbesserungen der Vorwochen?
   der Nachtlauf-Berichte: Nächte mit gestarteter Vollrunde und ihr Ergebnis. Die Zeile
   „CI-Kennzahl“ oben (Tage seit der letzten vollständig grünen Runde) unverändert in Bericht und
   Kennzahlen übernehmen, mit der Vorwoche vergleichen; ab 3 Tagen ohne grüne Runde im Bericht
-  nennen, welche Jobs zuletzt rot waren.
+  nennen, welche Jobs zuletzt rot waren. In derselben Nacht reparierte Prüfungen (Zeilen „CI rot, in
+  derselben Nacht repariert“ in den Nachtlauf-Berichten) zählen nicht als offen. Die Zeile
+  „Flackernde Prüfungen“ oben (rot, in derselben Nacht ohne Reparaturcommit grün; Entscheidung vom
+  7.11.2026) übernehmen und die Prüfungen aus den Zeilen „flackert:“ in
+  ~/halo-aufgaben/ci-waechter.log nennen; dieselbe Prüfung mehrmals: Eintrag „Tests: …“ im Board
+  prüfen.
 - **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
   ~/halo-nacht/uebersprungen.log je Routine zählen (die iPhone-Meldung kam nicht an, z. B.
   falscher Sitzungsname). Jede ist ein Fehler im Ablauf: Grund im Bericht nennen, bei
@@ -141,7 +146,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   push_fehler (Objekt: Routine → Anzahl der Zeilen „PUSH-FEHLER“),
   ci_runde_fehler (Objekt: vollrunde, eintrag → Anzahl der Zeilen „VOLLRUNDE-FEHLER“ bzw.
   „EINTRAG-FEHLER“), vollrunden_gestartet, tage_seit_gruener_vollrunde (Zahl oder null),
-  letzte_gruene_vollrunde (ISO-Zeit, Wiener Zeit, oder null),
+  letzte_gruene_vollrunde (ISO-Zeit, Wiener Zeit, oder null), ci_flackert (Zahl),
   pausen (Objekt: aktiv, abgelaufen, unlesbar, lang_ueber_7_tage, dauerhaft),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).

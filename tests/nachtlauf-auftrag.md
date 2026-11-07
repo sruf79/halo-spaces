@@ -118,6 +118,8 @@ Reihenfolge:
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
       Ins Board trägt die roten Prüfungen nach deinem Ende nachtlauf.sh ein
       (tests/ci-runde.zsh über ci-waechter.sh --lauf) – nicht selbst eintragen.
+      Zeigt ein späterer Lauf derselben Nacht nach deinem Fix die Prüfung grün,
+      entsteht kein Eintrag (in derselben Nacht repariert, Entscheidung vom 7.11.2026).
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
       --vm --port 2851), committen, pushen, erneut abwarten. Sonst den Commit,
       der den Fehler bringt, mit git revert zurücknehmen (Eintrag zurück auf

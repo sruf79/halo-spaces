@@ -164,6 +164,12 @@ if [[ -z $DOKU ]]; then
     CI_KENNZAHL="CI-Kennzahl: gh nicht lesbar – tage_seit_gruener_vollrunde und letzte_gruene_vollrunde null, im Bericht sagen"
   fi
   rm -f $CI_D*
+  # flackernde Prüfungen (rot, in derselben Nacht ohne Reparaturcommit grün; tests/ci-waechter.sh rot()): Zeilen
+  # „  flackert: …“ der letzten 7 Tage im Wächter-Protokoll
+  CI_SEIT=$(date -v-7d '+%F %T')
+  CI_FLACKER=$(awk -v s="$CI_SEIT" 'substr($0, 1, 19) >= s && /^[0-9-]+ [0-9:]+   flackert: /' $HOME/halo-aufgaben/ci-waechter.log 2>/dev/null | wc -l | tr -d ' ')
+  CI_KENNZAHL="$CI_KENNZAHL
+Flackernde Prüfungen (ci-waechter.log, letzte 7 Tage, Zeilen „flackert:“): ${CI_FLACKER:-0} – in wochen-kennzahlen.json: \"ci_flackert\": ${CI_FLACKER:-0}"
 fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis

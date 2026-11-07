@@ -14,6 +14,10 @@
 # Rote Läufe aus dem Nachtlauf trägt der Nachtlauf selbst ein (tests/ci-runde.zsh, ruft --lauf); was er
 # nicht eingetragen hat (~/halo-nacht/<datum>.ci-eingetragen), holt der Wächter nach dem Ende des
 # Nachtlaufs nach (~/halo-aufgaben/ci-waechter.nachholen; Entscheidung des Maintainers vom 7.11.2026).
+# Rote Prüfungen eines Laufs der Nacht, die ein späterer Lauf derselben Nacht auf einem anderen Commit grün zeigt,
+# gelten als repariert (ci_reparatur in tests/ci-runde.zsh): kein neuer Eintrag, nur eine Zeile im Nachtlauf-Bericht;
+# ein offener Eintrag wird mit Notiz auf Done gesetzt und archiviert. Grün nur auf demselben Commit: Eintrag mit
+# Notiz „flackert“ (Entscheidung des Maintainers vom 7.11.2026).
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
@@ -31,7 +35,7 @@ while (( $# )); do
     --trocken) TROCKEN=1 ;;
     --lauf) shift; NUR=$1 ;;
     --datei) shift; DATEI=$1 ;;
-    -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) print -u2 "Unbekannte Option: $1"; exit 2 ;;
   esac
   shift
@@ -41,7 +45,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 R=sruf79/halo-spaces
 PROJEKT=PVT_kwHODEPpks4BoBQw
 FELD_TYP=PVTSSF_lAHODEPpks4BoBQwzhmjN8Y TYP_BUG=ff678ae2
-FELD_STATUS=PVTSSF_lAHODEPpks4BoBQwzhmjN5E STATUS_TODO=f75ad846
+FELD_STATUS=PVTSSF_lAHODEPpks4BoBQwzhmjN5E STATUS_TODO=f75ad846 STATUS_DONE=98236657
 DIR=$HOME/halo-aufgaben
 STAND=$DIR/ci-waechter.stand
 NACHHOLEN=$DIR/ci-waechter.nachholen   # rote Läufe des Nachtlaufs, nachzuholen nach seinem Ende
@@ -50,6 +54,7 @@ LOG=$DIR/ci-waechter.log
 NACHT=$HOME/halo-nacht
 mkdir -p $DIR
 source ${0:A:h}/lauf-hilfen.zsh             # zeit, log, push
+source ${0:A:h}/ci-runde.zsh                # ci_laeufe_holen, ci_reparatur (in derselben Nacht repariert?)
 # launchd setzt keine Locale: ohne UTF-8 zählt zsh Bytes statt Zeichen (${x[1,60]} schneidet mitten in „ü“ oder „–“,
 # dann findet der Abgleich offene Einträge nicht mehr und legt Dubletten an)
 export LC_CTYPE=${LC_CTYPE:-en_US.UTF-8} LANG=${LANG:-en_US.UTF-8}
@@ -86,11 +91,12 @@ nacht_fenster() {
     print "$von $bis $art"
   done
 }
-VOM_ART=
-vom_nachtlauf() {   # <Epoch des Laufbeginns>; setzt VOM_ART (nacht/woche)
+VOM_ART= VOM_BIS=
+vom_nachtlauf() {   # <Epoch des Laufbeginns>; setzt VOM_ART (nacht/woche) und VOM_BIS (Ende des Fensters)
   local von bis art
+  [[ $1 == <-> ]] || return 1
   for von bis art in ${=FENSTER}; do
-    (( $1 >= von && $1 <= bis )) && { VOM_ART=$art; return 0 }
+    (( $1 >= von && $1 <= bis )) && { VOM_ART=$art VOM_BIS=$bis; return 0 }
   done
   return 1
 }
@@ -201,13 +207,51 @@ versuchsjobs() {   # <Commit>
     END { for (j in versuch) print name[j] }'
 }
 
+# Zeile für den Nachtlauf-Bericht: auf stdout (ruft der Nachtlauf --lauf, landet sie über ci_nacht_abschluss im
+# Bericht); beim Nachholen nach dem Nachtlauf direkt an ~/halo-berichte/<Tag des Laufs>-nachtlauf.md anhängen
+bericht_zeile() {   # <Zeile> <Beginn-Epoch des roten Laufs>
+  print -r -- "- $1"
+  [[ -n $TROCKEN ]] && return 0
+  nachtlauf_laeuft && return 0
+  local b=$HOME/halo-berichte/$(date -r $2 +%F)-nachtlauf.md
+  [[ -e $b ]] || return 0
+  grep -qxF -- "- $1" $b && return 0
+  grep -qx '## CI rot, in derselben Nacht repariert (ci-waechter.sh, nachgeholt)' $b \
+    || print "\n## CI rot, in derselben Nacht repariert (ci-waechter.sh, nachgeholt)\n" >> $b
+  print -r -- "- $1" >> $b
+}
+
+# in derselben Nacht repariert: offenen Eintrag zur Prüfung (wie eintragen()) mit Notiz auf Done setzen und
+# archivieren; ohne offenen Eintrag nichts. Rückgabe 1, wenn das Board nicht lesbar ist oder ein Schritt scheitert
+repariert_schliessen() {   # <Prüfung> <Notiz>
+  local b id di body
+  b=$(board) || { melde "FEHLER: Board nicht lesbar – repariert nicht geschlossen"; return 1 }
+  read -r id di <<< $(print -r -- $b | jq -r --arg p "${1[1,60]}" --arg a "Tests: CI rot" \
+    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+  [[ -n $id ]] || return 0
+  if [[ -n $TROCKEN ]]; then
+    print -u2 "  (trocken) würde mit Notiz auf Done setzen und archivieren: $id"
+    return 0
+  fi
+  body=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
+  gh project item-edit --id $di --body "$body
+
+$2" >/dev/null \
+    && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_DONE >/dev/null \
+    && gh project item-archive 1 --owner sruf79 --id $id >/dev/null \
+    || { melde "FEHLER: Eintrag $id (repariert) ließ sich nicht schließen"; return 1 }
+  BOARD=
+  melde "  Eintrag $id: in derselben Nacht repariert – Done, archiviert"
+}
+
 # einen roten Lauf auswerten: je Prüfung ein Eintrag, eine Zeile aufs iPhone
 rot() {   # <Lauf-ID>
-  local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 erste= ergebnis
+  local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 rep=0 erste= ergebnis
+  local beginn vollsha nacht_bis= laeufe= zustand gid gsha notiz
   RUN_FEHL=0                               # 1: ein Eintrag scheiterte (--lauf: Exitcode 3)
   local -a namen zeilen versuch
-  local -A jobs_von detail_von
-  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
+  local -A jobs_von detail_von paare_von
+  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs,createdAt) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
   versuch=(${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"})
   # gezielter Lauf von Hand (nur einzelne Prüfungen/Systeme, test.yml): Fehlersuche, kein Board-Eintrag
   if jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null; then
@@ -229,12 +273,14 @@ rot() {   # <Lauf-ID>
     if (( ! ${#zeilen} )); then
       # ohne FEHLER-Zeile (Abbruch vor oder außerhalb der Prüfungen): der gescheiterte Schritt
       schritt=$(jq -r --arg j $job '.jobs[] | select(.name == $j) | [.steps[] | select(.conclusion == "failure") | .name][0] // "?"' <<< $info)
-      zeilen=("FEHLER  Schritt „$schritt“ abgebrochen – $(print -r -- $flog | grep -a "^$job	" | tail -15 | cut -f3- | cut -c30- | tr '\n' ' ' | cut -c1-900)")
+      zeilen=("$job	$schritt	FEHLER  Schritt „$schritt“ abgebrochen – $(print -r -- $flog | grep -a "^$job	" | tail -15 | cut -f3- | cut -c30- | tr '\n' ' ' | cut -c1-900)")
     fi
     for zeile in $zeilen; do
+      schritt=${${zeile#*	}%%	*}               # Feld 2: Schritt (Test hell/dunkel)
       zeile=${zeile#*FEHLER  }
       name=${zeile%% – *}
       detail=${zeile#"$name"}; detail=${detail# – }
+      [[ $'\n'${paare_von[$name]}$'\n' == *$'\n'"$job|$schritt"$'\n'* ]] || paare_von[$name]+="$job|$schritt"$'\n'
       if (( ! ${+jobs_von[$name]} )); then
         namen+=($name)
         jobs_von[$name]=$job
@@ -244,12 +290,35 @@ rot() {   # <Lauf-ID>
       fi
     done
   done
+  # Lauf der Nacht (Fenster aus nacht_fenster)? Dann die späteren Läufe derselben Nacht lesen: repariert/flackert
+  beginn=$(jq -r '.createdAt // empty | fromdate' <<< $info 2>/dev/null)
+  vollsha=$(jq -r .headSha <<< $info)
+  if vom_nachtlauf $beginn && [[ $VOM_ART == nacht ]]; then
+    nacht_bis=$VOM_BIS laeufe=$(mktemp)
+    ci_laeufe_holen $laeufe 40 || { melde "  Läufe der Nacht nicht lesbar – ohne Prüfung auf Reparatur"; nacht_bis= }
+  fi
   for name in $namen; do
-    n=$((n + 1))
-    (( n > 8 )) && continue                  # mehr als 8 Prüfungen: nur zählen
     # „linux (release), linux (esr), linux (beta)“ → „linux“
     jobs=${jobs_von[$name]}
     [[ $jobs == "linux ("*"), linux ("*"), linux ("*")"* ]] && jobs=${jobs/linux \(*\), linux \(*\), linux \(*\)/linux}
+    zustand=rot notiz=
+    [[ -n $nacht_bis ]] && read -r zustand gid gsha <<< $(ci_reparatur $laeufe $vollsha $beginn $nacht_bis "$name" ${(f)paare_von[$name]})
+    if [[ $zustand == repariert ]]; then
+      rep=$((rep + 1))
+      zeile="CI rot, in derselben Nacht repariert: $jobs: ${name[1,150]} (rot: Lauf $run, grün: Lauf $gid, Commit $gsha)"
+      melde "  $zeile"
+      bericht_zeile "$zeile" $beginn
+      repariert_schliessen "$name" "**$(date '+%d.%m.%Y %H:%M'):** in derselben Nacht repariert – rot: Lauf $run (Commit $sha), grün: Lauf $gid (Commit $gsha), Job $jobs. Done (Entscheidung des Maintainers vom 7.11.2026)." || RUN_FEHL=1
+      continue
+    fi
+    if [[ $zustand == flackert ]]; then
+      melde "  flackert: $jobs: ${name[1,150]} (rot: Lauf $run, grün: Lauf $gid, gleicher Commit $gsha)"
+      notiz="
+
+flackert: in derselben Nacht ohne Reparaturcommit grün (Lauf $gid, gleicher Commit $gsha) – zählt nicht als repariert."
+    fi
+    n=$((n + 1))
+    (( n > 8 )) && continue                  # mehr als 8 Prüfungen: nur zählen
     melde "  rot: $jobs: ${name[1,150]}"
     ergebnis=$(eintragen "$jobs" "$name" "Wo: CI (Workflow test.yml auf main), Job $jobs
 
@@ -260,12 +329,13 @@ Meldung: ${detail_von[$name][1,1200]}
 Lauf: $url
 Commit: $sha „$titel“
 
-Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen." \
-      "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha") || { RUN_FEHL=1; continue }
+Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen.$notiz" \
+      "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha$notiz") || { RUN_FEHL=1; continue }
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
     [[ -z $erste ]] && erste="$jobs: ${name[1,70]}"
   done
-  melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu neu, $erg ergänzt"
+  [[ -n $laeufe ]] && rm -f $laeufe $laeufe.*(N)
+  melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu neu, $erg ergänzt$( (( rep )) && print -n ", $rep in derselben Nacht repariert")"
   if [[ -z $TROCKEN ]] && (( n )); then
     push "CI rot: Lauf $run ($sha) – ${erste:-?}$( (( n > 1 )) && print " (+$((n - 1)) weitere)") – Board: $neu neu, $erg ergänzt"
   fi

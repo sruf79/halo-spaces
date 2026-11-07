@@ -23,7 +23,7 @@ mkdir -p $T/nacht
 source $HIER/lauf-hilfen.zsh
 source $HIER/ci-runde.zsh
 
-# --- Läufe als Testdaten: lauf <ID> <Stunden vor jetzt> <Art> [<Ereignis>] ---
+# --- Läufe als Testdaten: lauf <ID> <Stunden vor jetzt, mit „m“ Minuten> <Art> [<Ereignis>] [<Commit>] ---
 # Arten: gruen, macrot, linuxrot (mac/windows übersprungen), release (alle Testjobs übersprungen, success),
 # gezielt, wgrot (alles grün, nur windows-github rot), laeuft
 JETZT_ISO=2026-11-07T03:00+01:00          # 02:00 UTC
@@ -31,9 +31,10 @@ export HALO_JETZT=$JETZT_ISO
 JETZT=$(ci_jetzt)
 START=$(( JETZT - 5400 ))                 # Nachtlauf seit 01:30
 lauf() {
-  local id=$1 h=$2 art=$3 ev=${4:-push} t
-  t=$(TZ=UTC date -r $(( JETZT - h * 3600 )) +%Y-%m-%dT%H:%M:%SZ)
-  jq -n --argjson id $id --arg t $t --arg art $art --arg ev $ev '
+  local id=$1 h=$2 art=$3 ev=${4:-push} sha=${5:-sha$1} t s
+  [[ $h == *m ]] && s=$(( ${h%m} * 60 )) || s=$(( h * 3600 ))
+  t=$(TZ=UTC date -r $(( JETZT - s )) +%Y-%m-%dT%H:%M:%SZ)
+  jq -n --argjson id $id --arg t $t --arg art $art --arg ev $ev --arg sha $sha '
     def j($n; $c): {name: $n, conclusion: $c, status: (if $c == "" then "in_progress" else "completed" end), steps: []};
     def testjobs($l; $m; $w): [j("linux (release)"; $l), j("linux (beta)"; $l), j("linux (esr)"; $l), j("mac"; $m), j("windows"; $w)];
     ({gruen: testjobs("success"; "success"; "success"), macrot: testjobs("success"; "failure"; "success"),
@@ -42,7 +43,7 @@ lauf() {
       wgrot: testjobs("success"; "success"; "success"), laeuft: testjobs("success"; ""; "")}[$art]) as $tj
     | {databaseId: $id, createdAt: $t, updatedAt: $t, status: (if $art == "laeuft" then "in_progress" else "completed" end),
        conclusion: ({gruen: "success", macrot: "failure", linuxrot: "failure", release: "success", gezielt: "success", wgrot: "success", laeuft: ""}[$art]),
-       event: $ev, headSha: "sha\($id)", displayTitle: "Lauf \($id) \($art)",
+       event: $ev, headSha: $sha, displayTitle: "Lauf \($id) \($art)",
        jobs: ([{name: "changes", conclusion: "success", status: "completed",
                 steps: (if $art == "gezielt" then [{name: "Gezielter Lauf", conclusion: "success"}] else [{name: "Gezielter Lauf", conclusion: "skipped"}] end)}]
               + $tj + [j("windows-github"; (if $art == "wgrot" then "failure" else "success" end))])}'
@@ -112,6 +113,57 @@ pruefe "Lauf-ID: genau ein Treffer" '[[ $(ci_lauf_aus_treffern $TR aaa) == 1 ]]'
 pruefe "Lauf-ID: kein Treffer → 1" 'ci_lauf_aus_treffern $TR ccc; (( $? == 1 ))'
 pruefe "Lauf-ID: mehrere Treffer → 2" 'ci_lauf_aus_treffern $TR bbb; (( $? == 2 ))'
 
+# 13. In derselben Nacht repariert? (ci_reparatur; Prüfungszeilen je Lauf im Zwischenspeicher <ID>.pruef)
+mkdir -p $HALO_CI_CACHE
+pz() { print -rl -- "${@[2,-1]}" > $HALO_CI_CACHE/$1.pruef }   # pz <ID> "<Job>\t<Schritt>\t<OK|FEHLER>\t<Prüfung>" …
+TAB=$'\t' P=Kalender:\ Scrollen\ ruckelt
+# rep [<frei> <bis-Epoch> <Commit des roten Laufs> <Prüfung> <Job|Schritt …>]; roter Lauf 60 vor 80 Minuten
+rep() { ci_reparatur $T/d.json ${3:-sha60} $(( JETZT - 80 * 60 )) ${2:-$JETZT} "${4:-$P}" ${@[5,-1]:-"mac|Test hell"} }
+ROT="mac${TAB}Test hell${TAB}FEHLER${TAB}$P" GRUEN="mac${TAB}Test hell${TAB}OK${TAB}$P"
+pz 60 $ROT
+pruefe "Prüfungszeilen aus gh run view --log" '[[ $(print -r -- "mac${TAB}Test dunkel${TAB}2026-11-07T01:00:00.1Z OK      $P – 3 Bilder
+mac${TAB}Test dunkel${TAB}2026-11-07T01:00:01.1Z FEHLER  Mailkopf: Abstand – 4 px
+mac${TAB}Test dunkel${TAB}2026-11-07T01:00:02.1Z FEHLER  3 von 400 Prüfungen OK
+mac${TAB}Test dunkel${TAB}2026-11-07T01:00:03.1Z KONSOLE  irgendwas" | ci_pruefzeilen) == "mac${TAB}Test dunkel${TAB}OK${TAB}$P"$'"'"'\n'"'"'"mac${TAB}Test dunkel${TAB}FEHLER${TAB}Mailkopf: Abstand" ]]'
+# rot → Reparaturcommit → grün: repariert (Lauf 61, Commit sha61)
+{ lauf 60 80m macrot; lauf 61 40m gruen } | daten; pz 61 $GRUEN
+pruefe "rot → Fix → grün: repariert" '[[ $(rep) == "repariert 61 sha61" ]]'
+# rot → derselbe Commit grün (Wiederholung): flackert
+{ lauf 60 80m macrot; lauf 62 40m gruen workflow_dispatch sha60 } | daten; pz 62 $GRUEN
+pruefe "rot → gleicher Commit grün: flackert" '[[ $(rep) == "flackert 62 sha60" ]]'
+# flackert bleibt vermerkt, auch wenn danach ein anderer Commit grün ist
+{ lauf 60 80m macrot; lauf 62 40m gruen workflow_dispatch sha60; lauf 61 20m gruen } | daten
+pruefe "flackert, danach Fix grün: bleibt flackert" '[[ $(rep) == flackert* ]]'
+# rot → Fix → wieder rot
+{ lauf 60 80m macrot; lauf 63 40m macrot } | daten; pz 63 $ROT
+pruefe "rot → Fix → wieder rot: rot (Eintrag)" '[[ $(rep) == rot ]]'
+{ lauf 60 80m macrot; lauf 61 40m gruen; lauf 63 20m macrot } | daten
+pruefe "rot → Fix grün → später wieder rot: rot" '[[ $(rep) == rot ]]'
+# grüner Lauf von gestern (vor dem roten) bzw. nach dem Ende der Nacht zählt nicht
+{ lauf 64 26 gruen; lauf 60 80m macrot } | daten; pz 64 $GRUEN
+pruefe "Lauf von gestern grün: zählt nicht" '[[ $(rep) == rot ]]'
+{ lauf 60 80m macrot; lauf 61 10m gruen } | daten
+pruefe "grün nach dem Ende der Nacht: zählt nicht" '[[ $(rep rot $(( JETZT - 1800 ))) == rot ]]'
+# grün nur in einem anderen Job bzw. nur hell, rot war dunkel
+{ lauf 60 80m macrot; lauf 65 40m gruen } | daten; pz 65 "linux (release)${TAB}Test${TAB}OK${TAB}$P"
+pruefe "anderer Job grün: zählt nicht" '[[ $(rep) == rot ]]'
+pruefe "rot dunkel, später nur hell grün: zählt nicht" '[[ $(rep x $JETZT sha60 "$P" "mac|Test dunkel") == rot ]]' 
+pz 65 $GRUEN "mac${TAB}Test dunkel${TAB}OK${TAB}$P"
+pruefe "rot hell und dunkel, beide grün: repariert" '[[ $(rep x $JETZT sha60 "$P" "mac|Test hell" "mac|Test dunkel") == "repariert 65 sha65" ]]'
+pz 65 $GRUEN
+pruefe "rot hell und dunkel, nur hell grün: rot" '[[ $(rep x $JETZT sha60 "$P" "mac|Test hell" "mac|Test dunkel") == rot ]]'
+# nur ein Teil der Prüfungen repariert
+pz 60 $ROT "mac${TAB}Test hell${TAB}FEHLER${TAB}Mailkopf: Abstand"
+pz 61 $GRUEN "mac${TAB}Test hell${TAB}FEHLER${TAB}Mailkopf: Abstand"
+{ lauf 60 80m macrot; lauf 61 40m macrot } | daten
+pruefe "Teil repariert: Kalender repariert" '[[ $(rep) == "repariert 61 sha61" ]]'
+pruefe "Teil repariert: Mailkopf bleibt rot" '[[ $(rep x $JETZT sha60 "Mailkopf: Abstand") == rot ]]'
+# gezielter Lauf grün zählt nicht; abgebrochener Schritt: Job später grün = repariert
+{ lauf 60 80m macrot; lauf 66 40m gezielt workflow_dispatch } | daten; pz 66 $GRUEN
+pruefe "gezielter Lauf grün: zählt nicht" '[[ $(rep) == rot ]]'
+{ lauf 60 80m macrot; lauf 61 40m gruen } | daten
+pruefe "abgebrochener Schritt, Job später grün: repariert" '[[ $(rep x $JETZT sha60 "Schritt „Test hell“ abgebrochen") == "repariert 61 sha61" ]]'
+
 # --- Daten holen und Abschluss mit gh-Attrappe (Funktion überdeckt das Programm) ---
 FIX=$T/fix; mkdir -p $FIX
 { lauf 50 1 macrot; lauf 51 30 gruen } | jq -s . > $FIX/alle.json
@@ -173,6 +225,20 @@ W=$T/home; mkdir -p $W/.local/bin $W/halo-aufgaben $W/halo-nacht
 cat > $W/.local/bin/gh <<'EOF'
 #!/bin/zsh
 f=; (( ${@[(I)--jq]} )) && f=${@[${@[(i)--jq]}+1]}
+if [[ -n $LAEUFE ]]; then   # Läufe aus einer Datei (Fall 14), Protokolle aus $LOGS/<ID>.log
+  case "$1 $2" in
+    "run list") out=$(jq 'map(del(.jobs))' $LAEUFE) ;;
+    "run view")
+      if (( ${@[(I)--log-failed]} || ${@[(I)--log]} )); then cat $LOGS/$3.log 2>/dev/null; exit 0; fi
+      out=$(jq --argjson i $3 '.[] | select(.databaseId == $i) | . + {url: "https://example.invalid/\(.databaseId)"}' $LAEUFE) ;;
+    "api "*) out='{"content":""}' ;;
+    "project item-list") out=$(<$BOARD_DATEI) ;;
+    "project item-edit"|"project item-create"|"project item-archive") print -r -- "$*" >> $AUFRUFE; [[ $2 == item-create ]] && out='{"id":"NEU"}' || exit 0 ;;
+    *) exit 1 ;;
+  esac
+  if [[ -n $f ]]; then print -r -- $out | jq -r $f; else print -r -- $out; fi
+  exit 0
+fi
 case "$1 $2" in
   "run list") out='[{"databaseId":7,"status":"completed","conclusion":"failure","createdAt":"2026-11-07T01:00:00Z","headSha":"abcdef1234"}]' ;;
   "run view")
@@ -201,6 +267,36 @@ pruefe "Wächter --lauf: windows-github rot ohne Eintrag" '! grep -q windows-git
 : > $T/aufrufe
 BOARD_KAPUTT=1 BOARD_DATEI=$T/board1.json waechter; RC=$?
 pruefe "Wächter --lauf: Board nicht lesbar → Exitcode 3, nichts angelegt" '(( RC == 3 )) && [[ ! -s $T/aufrufe ]]'
+
+# 14. CI-Wächter --lauf mit Läufen der Nacht (Fenster aus ~/halo-nacht/<datum>.log): repariert → kein Eintrag bzw.
+# offener Eintrag Done + archiviert, Zeile im Nachtlauf-Bericht; flackert → Eintrag mit Notiz, Zeile im Wächter-Protokoll
+mkdir -p $T/logs $W/halo-berichte
+print "2026-11-07 01:30:00 Start, Sitzung test" > $W/halo-nacht/2026-11-07.log
+print "2026-11-07 08:00:00 Ende" >> $W/halo-nacht/2026-11-07.log
+print "# Nachtlauf" > $W/halo-berichte/2026-11-07-nachtlauf.md
+print "mac${TAB}Test hell${TAB}2026-11-07T00:40:00Z FEHLER  $P – 5 Bilder" > $T/logs/70.log
+print "mac${TAB}Test hell${TAB}2026-11-07T01:20:00Z OK      $P" > $T/logs/71.log
+nacht() {   # <Board-Datei> → stdout des Wächters in $T/w-aus
+  rm -f $HALO_CI_CACHE/7[01].*(N); : > $T/aufrufe
+  TZ=Europe/Vienna HOME=$W AUFRUFE=$T/aufrufe LAEUFE=$T/d.json LOGS=$T/logs BOARD_DATEI=$1 HALO_UEBERSPRUNGEN_LOG=$T/w-ue.log \
+    zsh $HIER/ci-waechter.sh --lauf 70 > $T/w-aus 2>/dev/null
+}
+{ lauf 70 80m macrot; lauf 71 40m gruen } | daten
+nacht $T/board1.json; RC=$?
+pruefe "Nacht repariert, offener Eintrag: Notiz, Done, archiviert, nichts neu" '(( RC == 0 )) && grep -q "item-edit --id DI_1 --body alt" $T/aufrufe && grep -q "in derselben Nacht repariert – rot: Lauf 70 (Commit sha70), grün: Lauf 71" $T/aufrufe && grep -q "item-edit .*--id PI_1 .*98236657" $T/aufrufe && grep -q "item-archive 1 --owner sruf79 --id PI_1" $T/aufrufe && ! grep -q item-create $T/aufrufe'
+pruefe "Nacht repariert: Zeile für den Bericht auf stdout" 'grep -qx -- "- CI rot, in derselben Nacht repariert: mac: $P (rot: Lauf 70, grün: Lauf 71, Commit sha71)" $T/w-aus'
+pruefe "Nacht repariert, nachgeholt: Zeile im Nachtlauf-Bericht" 'grep -qx -- "- CI rot, in derselben Nacht repariert: mac: $P (rot: Lauf 70, grün: Lauf 71, Commit sha71)" $W/halo-berichte/2026-11-07-nachtlauf.md'
+nacht $T/board2.json; RC=$?
+pruefe "Nacht repariert, kein offener Eintrag: kein Eintrag" '(( RC == 0 )) && [[ ! -s $T/aufrufe ]]'
+pruefe "Bericht-Zeile nicht doppelt" '[[ $(grep -c "Lauf 70, grün: Lauf 71" $W/halo-berichte/2026-11-07-nachtlauf.md) == 1 ]]'
+{ lauf 70 80m macrot; lauf 71 40m gruen workflow_dispatch sha70 } | daten
+nacht $T/board2.json; RC=$?
+pruefe "Nacht flackert: Eintrag mit Notiz „flackert“" '(( RC == 0 )) && grep -q "item-create" $T/aufrufe && grep -q "^flackert: in derselben Nacht ohne Reparaturcommit grün (Lauf 71, gleicher Commit sha70)" $T/aufrufe'
+pruefe "Nacht flackert: Zeile im Wächter-Protokoll (Wochenprüfung zählt sie)" 'grep -q "  flackert: mac: $P (rot: Lauf 70" $W/halo-aufgaben/ci-waechter.log'
+{ lauf 70 80m macrot; lauf 71 40m macrot } | daten
+print "mac${TAB}Test hell${TAB}2026-11-07T01:20:00Z FEHLER  $P – 6 Bilder" > $T/logs/71.log
+nacht $T/board2.json; RC=$?
+pruefe "Nacht bleibt rot: Eintrag wie bisher" '(( RC == 0 )) && grep -q "item-create.*Tests: CI rot – mac: $P" $T/aufrufe && ! grep -q flackert $T/aufrufe'
 
 # --- nur lesend gegen GitHub (--echt) ---
 if [[ -n $ECHT ]]; then

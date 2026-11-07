@@ -447,8 +447,8 @@ offenen Aufträge aus `neon-stand.md`.
   nach Zustimmung“). Ursache klären und Lösungsidee in den Eintrag schreiben ist erwünscht, aber nicht
   mitten in der laufenden Aufgabe nebenbei umsetzen und nicht anbieten; umgesetzt wird er wie jeder
   Eintrag über die Liste („Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag,
-  diesen ergänzen. Bilder, die der Maintainer ins Gespräch legt, gehen automatisch an `neon-board`
-  (ersatzweise `neon`); Screenshots von Apple-Apps zusätzlich als Vorlage; Bilder nie über das Repo
+  diesen ergänzen. Jeder Screenshot, den der Maintainer ins Gespräch legt, geht automatisch an `neon-board`
+  (ersatzweise `neon`) und wird dort mit sprechendem Namen gespeichert (7.11.2026); Screenshots von Apple-Apps zusätzlich als Vorlage; Bilder nie über das Repo
   (echte Mails). Weg, Qualitätsprüfung, Namen: `docs/board.md`.
 - **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung
   zwischen 08:00 und 22:00 (Wiener Zeit) nennt in ihrer ersten Antwort die offenen Bilder aus

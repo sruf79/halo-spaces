@@ -12,11 +12,13 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
   siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
-  Jedes Bild, das der Maintainer einer Sitzung direkt ins Gespräch legt und
-  das für einen Bug oder ein Feature im Board gebraucht wird, übermittelt
-  die Sitzung automatisch und ohne Rückfrage an `neon-board`, ersatzweise
-  an `neon` (Entscheidung des Maintainers vom 5.11.2026; Empfänger seit
-  6.11.2026, siehe „neon erreichen“). Sitzungen auf neon speichern es selbst unter
+  Jeder Screenshot, den der Maintainer einer Sitzung direkt ins Gespräch legt
+  – auch ohne Board-Eintrag –, wird von der Sitzung automatisch und ohne
+  Rückfrage an `neon-board`, ersatzweise an `neon`, übermittelt und dort unter
+  einem sprechenden Namen gespeichert (Bereich, Oberfläche, Besonderheit, z. B.
+  `kalender-termin-zusammenfassung-ort`), damit er später wiederzufinden ist
+  (Entscheidungen des Maintainers vom 5.11.2026 und 7.11.2026, Wortlaut in
+  `ENTSCHEIDUNGEN.md`; Empfänger seit 6.11.2026, siehe „neon erreichen“). Sitzungen auf neon speichern es selbst unter
   `~/halo-aufgaben/bilder/`. Alle anderen (Cloud, Laptop, iPhone, …): als
   data:-URIs in eine private Artifact-Seite (`Artifact`, nicht freigeben;
   Originaldatei unverändert, nicht verkleinern oder umkodieren – die Seite

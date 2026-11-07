@@ -14,7 +14,8 @@
 # „nichts neu“ lässt sie unberührt, so bleibt kein Fund liegen).
 # Gezählt wird Neues von anderen als sruf79: neue Issues/PRs, neue Kommentare
 # (Issues, PRs, Code-Review), Forks, die neu sind oder seit der Referenzzeit
-# gepusht wurden. Eigene Antworten und Label-Änderungen zählen nicht.
+# gepusht wurden. Eigene Antworten und Label-Änderungen zählen nicht. Außerdem jeder offene Faden,
+# dessen letzter Beitrag nicht von sruf79 stammt und bis 24 Stunden vor der Referenzzeit liegt.
 # „Nichts neu“ schreibt „ÜBERSPRUNGEN github-kommunikation …“ nach
 # ~/halo-nacht/uebersprungen.log (für die Wochenprüfung), kein Push aufs iPhone.
 # Dazu der Issue-Abgleich (tests/issue-abgleich.sh, Entscheidung des Maintainers vom 7.11.2026):
@@ -76,6 +77,22 @@ done
 for nr in $(gh api "repos/$R/pulls?state=open&per_page=50" --jq '.[].number' 2>/dev/null); do
   rv=$(gh api "repos/$R/pulls/$nr/reviews" --jq ".[] | select(.submitted_at > \"$T\" and .user.login != \"$EIGENER\") | \"Review von \\(.user.login) an PR #$nr\"" 2>/dev/null)
   FUNDE+=(${(f)rv})
+done
+# offene Issues/PRs, deren letzter Beitrag von anderen stammt und höchstens 24 Stunden vor T liegt: eine
+# Antwort, die während einer Prüfung kam (T danach gesetzt) und dort nicht bearbeitet wurde, bleibt so
+# noch drei Läufe lang Arbeit, bis wir antworten (#45 am 6.11.2026); ältere unbeantwortete Fäden (z. B.
+# Pull Requests, die auf den Maintainer warten) wecken die Routine nicht jedes Mal
+FRUEHER=$(date -u -j -v-24H -f %Y-%m-%dT%H:%M:%SZ $T +%Y-%m-%dT%H:%M:%SZ 2>/dev/null) || zweifel "Zeitmarke „$T“ nicht umrechenbar"
+offen=$(gh api "repos/$R/issues?state=open&per_page=100" --paginate --jq '.[] | "\(.number) \(.comments) \(.user.login) \(.created_at)"') \
+  || zweifel "offene Issues nicht lesbar"
+for nr anz wer wann in ${=offen}; do
+  if (( anz > 0 )); then
+    letzter=$(gh api "repos/$R/issues/$nr/comments?per_page=100" --paginate --jq '.[-1] | "\(.user.login) \(.created_at)"' | tail -1) \
+      || zweifel "Kommentare zu #$nr nicht lesbar"
+    wer=${letzter%% *} wann=${letzter#* }
+  fi
+  [[ -z $wer || $wer == $EIGENER || $wer == *\[bot\] || $wann < $FRUEHER ]] && continue
+  FUNDE+=("#$nr: letzter Beitrag von $wer ($wann), noch keine Antwort von $EIGENER")
 done
 # Forks: neu oder seit T gepusht
 f=$(gh api "repos/$R/forks?per_page=100" --paginate \

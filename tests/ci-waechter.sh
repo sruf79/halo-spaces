@@ -3,7 +3,7 @@
 # (LaunchAgent at.halo-spaces.ci-waechter) nach abgeschlossenen Läufen von
 # test.yml auf main – ohne Claude, nur gh. Bei Rot trägt er je gescheiterter
 # Prüfung einen Bug ins Board ein (oder ergänzt den offenen Eintrag zur selben
-# Prüfung) und schickt eine Zeile aufs iPhone; Abgebrochenes wird nur
+# Prüfung) – ohne Meldung aufs iPhone (seit 7.11.2026); Abgebrochenes wird nur
 # protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
 # lässt er dabei aus. Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen
 # „KONSOLE  …“/„PROTOKOLL  …“) trägt er für jeden Lauf als Bug ein – kein Rot.
@@ -244,9 +244,9 @@ $2" >/dev/null \
   melde "  Eintrag $id: in derselben Nacht repariert – Done, archiviert"
 }
 
-# einen roten Lauf auswerten: je Prüfung ein Eintrag, eine Zeile aufs iPhone
+# einen roten Lauf auswerten: je Prüfung ein Eintrag (keine Meldung aufs iPhone)
 rot() {   # <Lauf-ID>
-  local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 rep=0 erste= ergebnis
+  local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 rep=0 ergebnis
   local beginn vollsha nacht_bis= laeufe= zustand gid gsha notiz
   RUN_FEHL=0                               # 1: ein Eintrag scheiterte (--lauf: Exitcode 3)
   local -a namen zeilen versuch
@@ -332,14 +332,11 @@ Commit: $sha „$titel“
 Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen.$notiz" \
       "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha$notiz") || { RUN_FEHL=1; continue }
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
-    [[ -z $erste ]] && erste="$jobs: ${name[1,70]}"
   done
   [[ -n $laeufe ]] && rm -f $laeufe $laeufe.*(N)
   melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu neu, $erg ergänzt$( (( rep )) && print -n ", $rep in derselben Nacht repariert")"
-  if [[ -z $TROCKEN ]] && (( n )); then
-    push "CI rot: Lauf $run ($sha) – ${erste:-?}$( (( n > 1 )) && print " (+$((n - 1)) weitere)") – Board: $neu neu, $erg ergänzt"
-  fi
-  return 0                                 # ein gescheiterter Push aufs iPhone ist kein Fehler des Laufs (RUN_FEHL zählt)
+  # keine Meldung aufs iPhone (Entscheidung des Maintainers vom 7.11.2026, ENTSCHEIDUNGEN.md): Board und Protokoll genügen
+  return 0
 }
 
 # Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen „KONSOLE  …“/„PROTOKOLL  …“ von tests/halo_test.py und

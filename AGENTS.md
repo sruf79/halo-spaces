@@ -39,7 +39,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/beta.sh` | gleicher Test mit Thunderbird Beta |
 | `tests/mac-mini-setup.sh`, `tests/mac-runner-hook.sh`, `tests/MAC-MINI.md` | Mac mini als Testrechner: Prüfen/Einrichten, Wächter für den GitHub-Runner, Anleitung |
 | `tests/nachtlauf.sh`, `tests/nachtlauf-auftrag.md` | nächtlicher Arbeitslauf auf neon (Liste abarbeiten, CI abwarten, veröffentlichen, Bericht aufs iPhone), `tests/MAC-MINI.md` Abschnitt 13 |
-| `tests/ci-waechter.sh`, `tests/ci-warten.sh`, `tests/ci-noetig.sh` | rote CI-Läufe ins Board (alle 15 Min.; Meldungen roter CI-Läufe nicht aufs iPhone, Entscheidung vom 7.11.2026); auf den CI-Lauf eines Commits warten, Abschnitt 14; braucht eine Änderung überhaupt CI (nur Thunderbird-Dateien) |
+| `tests/ci-waechter.sh`, `tests/ci-warten.sh`, `tests/ci-noetig.sh` | rote CI-Läufe ins Board, ohne Meldung aufs iPhone (alle 15 Min., Entscheidung vom 7.11.2026); auf den CI-Lauf eines Commits warten, Abschnitt 14; braucht eine Änderung überhaupt CI (nur Thunderbird-Dateien) |
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe mit Kennzahlen und Vorschlägen, Abschnitt 15 |
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |

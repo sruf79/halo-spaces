@@ -2254,6 +2254,23 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   overflow: visible;
 }
 
+/* Start/Fällig: Datum und Uhrzeit zum Eintippen wie im Termin-Dialog,
+   rechtsbündig in der Zeile, der Monatskalender klappt darunter auf */
+#mcTaskInfo .mc-ti-value:has(> .mc-ti-dates) {
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+#mcTaskInfo .mc-ti-dates {
+  display: inline-flex;
+  align-items: center;
+}
+
+#mcTaskInfo .mc-ti-dates .mc-date-edit:last-child {
+  margin-inline-end: 0;
+}
+
 #mcTaskInfo .mc-ti-remove {
   flex: none;
   min-height: 0;

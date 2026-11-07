@@ -6775,25 +6775,6 @@ function hookTaskInfo(win, restorers) {
     input.focus();
     input.select?.();
   };
-  // Datum und Uhrzeit als Wert für <input type="datetime-local"> bzw. "date"
-  const pad = n => String(n).padStart(2, "0");
-  const toInput = dt => {
-    if (!dt?.isValid) {
-      return "";
-    }
-    const js = cal.dtz.dateTimeToJsDate(dt.isDate ? dt : dt.getInTimezone(cal.dtz.defaultTimezone));
-    const day = `${js.getFullYear()}-${pad(js.getMonth() + 1)}-${pad(js.getDate())}`;
-    return dt.isDate ? day : `${day}T${pad(js.getHours())}:${pad(js.getMinutes())}`;
-  };
-  const fromInput = (text, isDate) => {
-    const m = /^(\d{4})-(\d\d)-(\d\d)(?:T(\d\d):(\d\d))?/.exec(text || "");
-    if (!m) {
-      return null;
-    }
-    const dt = cal.dtz.jsDateToDateTime(new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)), cal.dtz.defaultTimezone);
-    dt.isDate = isDate;
-    return dt;
-  };
   const RULES = { DAILY: "Every day", WEEKLY: "Every week", MONTHLY: "Every month", YEARLY: "Every year" };
   const ALARMS = [[0, "At time"], [5, "5 minutes before"], [15, "15 minutes before"], [30, "30 minutes before"],
     [60, "1 hour before"], [1440, "1 day before"]];
@@ -6816,11 +6797,93 @@ function hookTaskInfo(win, restorers) {
         });
       }
     };
+    // Start/Fällig: Datum (und Uhrzeit) zum Eintippen wie im Termin-Dialog, der
+    // Monatskalender ist sofort offen; Enter oder Klick daneben speichert, Esc
+    // bricht ab. Ohne Wert beginnt es bei der nächsten vollen Stunde heute
     const dateRow = (icon, prop) => on(icon, (r, v) => {
+      if (v.querySelector(".mc-ti-dates")) {
+        return;
+      }
       const cur = item[prop];
       const isDate = cur?.isValid ? cur.isDate : false;
-      editText(v, toInput(cur), text => save(it => (it[prop] = fromInput(text, isDate))),
-        { type: isDate ? "date" : "datetime-local", remove: cur?.isValid ? () => save(it => (it[prop] = null)) : null });
+      let value;
+      if (cur?.isValid) {
+        value = cal.dtz.dateTimeToJsDate(cur.isDate ? cur : cur.getInTimezone(cal.dtz.defaultTimezone));
+      } else {
+        value = new Date();
+        value.setHours(value.getHours() + 1, 0, 0, 0);
+      }
+      const before = cur?.isValid ? value.getTime() : null;
+      const dateIo = {
+        get: () => value,
+        set: t => {
+          const n = new Date(value);
+          n.setFullYear(t.getFullYear(), t.getMonth(), t.getDate());
+          value = n;
+        },
+        off: () => false,
+      };
+      const edit = inlineDateEdit(win, dateIo);
+      const mini = miniMonthPopover(win, edit, dateIo);
+      const wrap = el("span", "mc-ti-dates");
+      wrap.append(edit.box);
+      if (!isDate) {
+        wrap.append(timeSegEdit(win, {
+          get: () => [value.getHours(), value.getMinutes()],
+          set: ([h, m]) => {
+            const n = new Date(value);
+            n.setHours(h, m, 0, 0);
+            value = n;
+          },
+          off: () => false,
+        }).box);
+      }
+      const old = [...v.childNodes];
+      let done = false;
+      const finish = keep => {
+        if (done) {
+          return;
+        }
+        done = true;
+        edit.commit();
+        mini.panel.hidePopup();
+        mini.panel.remove();
+        if (keep && value.getTime() !== before) {
+          const dt = cal.dtz.jsDateToDateTime(value, cal.dtz.defaultTimezone);
+          dt.isDate = isDate;
+          save(it => (it[prop] = dt));
+        } else {
+          v.replaceChildren(...old);
+        }
+      };
+      wrap.addEventListener("keydown", event => {
+        if (event.key == "Enter") {
+          event.preventDefault();
+          finish(true);
+        } else if (event.key == "Escape") {
+          event.preventDefault();
+          finish(false);
+        }
+        event.stopPropagation();
+      });
+      // (der Monatskalender nimmt nie den Fokus – Klick auf einen Tag bleibt drin)
+      wrap.addEventListener("focusout", () => win.setTimeout(() => !wrap.contains(doc.activeElement) && finish(true), 0));
+      const parts = [wrap];
+      if (cur?.isValid) {
+        const b = el("button", "mc-ti-remove", tr("Remove"));
+        b.type = "button";
+        b.addEventListener("mousedown", event => event.preventDefault());
+        b.addEventListener("click", () => {
+          done = true;
+          mini.panel.hidePopup();
+          mini.panel.remove();
+          save(it => (it[prop] = null));
+        });
+        parts.push(b);
+      }
+      v.replaceChildren(...parts);
+      edit.pick(edit.segs[0]);
+      mini.show();
     });
     dateRow("calendar", "entryDate");
     dateRow("clock", "dueDate");
@@ -10157,7 +10220,14 @@ function miniMonthPopover(win, edit, io, host = null) {
       event.stopPropagation();
     }
   }, true);
-  return { panel, sync: () => open() && isDate(io.get()) && showMonth(io.get()) };
+  // gleich öffnen (Aufgaben-Details: der Klick auf den Wert ist schon vorbei)
+  const show = () => {
+    if (!open() && isDate(io.get())) {
+      showMonth(io.get());
+      panel.openPopup(edit.box, "after_start", -4, 0, false, false);
+    }
+  };
+  return { panel, show, sync: () => open() && isDate(io.get()) && showMonth(io.get()) };
 }
 
 // Thunderbirds datepicker als Text zum Eintippen mit kleinem Monatskalender:

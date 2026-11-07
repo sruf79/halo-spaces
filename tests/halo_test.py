@@ -6892,13 +6892,46 @@ def calendar_checks(m, results):
             out.locInput = !!inp; if (inp) { inp.value = "Graz"; inp.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true })); }
             await saw(x => x.getProperty("LOCATION") == "Graz");
             out.loc = (await fresh()).getProperty("LOCATION"); await pick();
-            // Fälligkeit: Datumsfeld, „Remove“ entfernt sie
+            // Fälligkeit: Datum und Uhrzeit zum Eintippen, der Monatskalender ist sofort offen (kein leeres Feld);
+            // Klick auf einen Tag übernimmt ihn, kleine Trackpad-Schritte über der Uhrzeit ändern noch nichts,
+            // eine Rastung eine Stunde; Enter speichert; „Remove“ entfernt sie
+            row("clock").querySelector(".mc-ti-value").click(); await ruhig(300);
+            const dv = row("clock").querySelector(".mc-ti-value");
+            const panel = [...d.querySelectorAll("panel.mc-date-panel")].find(p => p.state == "open");
+            out.dueEdit = { date: !!dv.querySelector(".mc-ti-dates .mc-date-edit"), time: !!dv.querySelector(".mc-ti-dates .mc-time-edit"),
+                            input: !!dv.querySelector("input"), panel: !!panel };
+            const nd = new Date(cal.dtz.dateTimeToJsDate(saved.dueDate.getInTimezone(cal.dtz.defaultTimezone))); nd.setDate(nd.getDate() + 1);
+            const key = [nd.getFullYear(), nd.getMonth(), nd.getDate()].join("-");
+            if (panel) {
+              let cell = panel.querySelector(`.mc-mini-day[data-date="${key}"]`);
+              if (!cell) { panel.querySelector(".mc-mini-next")?.click(); await ruhig(100); cell = panel.querySelector(`.mc-mini-day[data-date="${key}"]`); }
+              cell?.click(); await ruhig(200);
+              out.panelClosed = panel.state == "closed";
+            }
+            const te = dv.querySelector(".mc-time-edit");
+            if (te) {
+              const r = te.getBoundingClientRect(), wheel = dy => te.dispatchEvent(new w.WheelEvent("wheel", { deltaY: dy, deltaMode: 0, bubbles: true, cancelable: true, clientX: r.left + 4, clientY: r.top + r.height / 2 }));
+              for (let i = 0; i < 5; i++) wheel(-4);
+              out.timeAfterSmall = te.textContent;
+              wheel(-40); out.timeAfterNotch = te.textContent;
+            }
+            (dv.querySelector(".mc-time-seg") || dv)?.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            await saw(x => x.dueDate && cal.dtz.dateTimeToJsDate(x.dueDate.getInTimezone(cal.dtz.defaultTimezone)).getDate() == nd.getDate());
+            { const j = cal.dtz.dateTimeToJsDate((await fresh()).dueDate.getInTimezone(cal.dtz.defaultTimezone)); out.dueSaved = [j.getDate() == nd.getDate(), j.getHours(), j.getMinutes()]; }
+            await pick();
             row("clock").querySelector(".mc-ti-value").click(); await ruhig(200);
-            const dIn = row("clock").querySelector("input.mc-ti-input");
-            out.dueInput = dIn?.type;
             row("clock").querySelector(".mc-ti-remove")?.click();
             await saw(x => !x.dueDate);
             out.dueGone = !saved.dueDate; await pick();
+            out.panelsLeft = [...d.querySelectorAll("panel.mc-date-panel")].filter(p => p.state == "open").length;
+            // ohne Fälligkeit: Klick auf „None“ zeigt ebenso Datum und Kalender, Esc lässt sie leer
+            row("clock").querySelector(".mc-ti-value").click(); await ruhig(300);
+            out.noneEdit = !!row("clock").querySelector(".mc-ti-dates") && [...d.querySelectorAll("panel.mc-date-panel")].some(p => p.state == "open");
+            const seg = row("clock").querySelector(".mc-time-seg");
+            seg?.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await ruhig(100);
+            seg?.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await ruhig(300);
+            out.noneKept = !(await fresh()).dueDate && !!row("clock").querySelector(".mc-ti-value[data-none]");
+            await pick();
             // Titel in der Kopfkarte
             // mittig, beim Bearbeiten linksbündig (wie Apple Erinnerungen)
             const tCell = d.getElementById("calendar-task-details-title");
@@ -6924,11 +6957,14 @@ def calendar_checks(m, results):
         sc = res.get("scroll") or {}
         ok = (res.get("titleAlign") == ["center", "start"] and res.get("editable") and res.get("prio") and res.get("prioSaved") == 9 and res.get("prog") and res.get("done") is True
               and res.get("back") == [False, 25] and res.get("rep") and res.get("repSaved") and res.get("repOff")
-              and res.get("locInput") and res.get("loc") == "Graz" and res.get("dueInput") == "datetime-local" and res.get("dueGone")
+              and res.get("locInput") and res.get("loc") == "Graz" and res.get("dueGone")
+              and res.get("dueEdit") == {"date": True, "time": True, "input": False, "panel": True} and res.get("panelClosed")
+              and res.get("timeAfterSmall") and res.get("timeAfterNotch") and res.get("timeAfterSmall") != res.get("timeAfterNotch")
+              and res.get("dueSaved") == [True, 17, 0] and res.get("panelsLeft") == 0 and res.get("noneEdit") and res.get("noneKept")
               and res.get("titleInput") and res.get("title") == "Halo Bearbeiten neu"
               and sc.get("can") and sc.get("head", 0) > 0 and sc.get("head") == sc.get("group"))
         return ok, f"{res}"
-    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum mit „Remove“), sofort gespeichert; Titel mittig, beim Bearbeiten linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
+    check("Aufgaben: Werte direkt in der Detailspalte ändern (Menüs, Felder, Datum zum Eintippen mit sofort offenem Monatskalender und „Remove“), sofort gespeichert; Titel mittig, beim Bearbeiten linksbündig; Kopfkarte scrollt mit", tasks_info_edit, results)
 
     def tasks_new_list_sort():
         # Aufgaben 4/5 wie Apple Erinnerungen: unter den Listen „⊕ New List“ (ohne Darüberfahren, nur im Bereich Aufgaben,

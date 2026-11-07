@@ -106,7 +106,7 @@ doku_geaendert() {
   if [[ -e $DOKU_VOLL_DATEI ]]; then DOKU_VOLL=1; grund+=("Vollprüfung ($DOKU_VOLL_DATEI)")
   elif (( tag == 6 && 10#$tm <= 7 )); then DOKU_VOLL=1; grund+=("Vollprüfung (erster Samstag im Monat)"); fi
   [[ -r $DOKU_STAND_DATEI ]] && DOKU_STAND=$(<$DOKU_STAND_DATEI)
-  [[ -n $DOKU_STAND ]] && git -C $REPO cat-file -e $DOKU_STAND^{commit} 2>/dev/null ||
+  [[ -n $DOKU_STAND ]] && git -C $REPO cat-file -e "${DOKU_STAND}^{commit}" 2>/dev/null ||
     { DOKU_STAND=; DOKU_VOLL=1; print "kein bekannter Stand der letzten Prüfung, alle .md-Dateien"; return 0 }
   a=$(git -C $REPO diff --name-only $DOKU_STAND main 2>/dev/null) || { DOKU_STAND=; DOKU_VOLL=1; print "Vergleich gescheitert, im Zweifel alle .md-Dateien"; return 0 }
   b=$(git -C $REPO diff --name-only $DOKU_STAND origin/main 2>/dev/null)

@@ -4,3 +4,11 @@
 body {
   background: transparent !important;
 }
+
+/* im schmalen Fenster (kleines Verfassen-Fenster) ist die Kachel höchstens
+   fensterbreit (installDialogBox setzt mc-narrow): Rückfragen dann nicht
+   mindestens 29em breit, der Text bricht um, die Knöpfe rücken zusammen
+   (GitHub #45) */
+:root[mc-narrow] {
+  min-width: 0 !important;
+}

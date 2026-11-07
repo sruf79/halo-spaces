@@ -12360,6 +12360,38 @@ Neu
         return ok, f"{res}"
     check("Nachfragen: als Kachel oben im Fenster wie ein macOS-Sheet statt eigenes Fenster", inline_prompt, results)
 
+    def inline_prompt_narrow():
+        # Rückfrage „Save Message“ im kleinen Verfassen-Fenster (GitHub #45): die Kachel bleibt im Fenster, der Text bricht
+        # um, die Kachel wächst nach unten mit – alle drei Knöpfe ganz sichtbar; im breiten Fenster unverändert 29em breit
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const res = {};
+          for (const width of [700, 360]) {
+            const cw = await compose({ width });
+            try {
+              cw.resizeTo(width, 300); await bis(() => cw.innerWidth == width || cw.outerWidth == width, "Fensterbreite", 3000); await ruhig(400);
+              const host = cw.document.getElementById("mcDialogBox");
+              if (!host) { res[width] = "keine Kachel"; continue; }
+              const P = Ci.nsIPromptService;
+              const p = Services.prompt.asyncConfirmEx(cw.browsingContext, P.MODAL_TYPE_INTERNAL_WINDOW, "Save Message",
+                "Message has not been sent. Do you want to save the message in the Drafts folder?",
+                P.BUTTON_TITLE_SAVE * P.BUTTON_POS_0 + P.BUTTON_TITLE_CANCEL * P.BUTTON_POS_1 + P.BUTTON_TITLE_DONT_SAVE * P.BUTTON_POS_2,
+                null, null, null, null, false);
+              const dl = await bis(() => host.open && host.querySelector(".dialogFrame")?.contentDocument?.querySelector("dialog#commonDialog"), "Rückfrage offen", 5000);
+              await bis(() => w.getComputedStyle(host.querySelector(".dialogOverlay")).visibility != "hidden", "Kachel sichtbar", 3000); await ruhig(600);
+              const card = host.querySelector(".dialogBox").getBoundingClientRect(), fr = host.querySelector(".dialogFrame").getBoundingClientRect();
+              const btns = ["accept", "cancel", "extra1"].map(k => dl.getButton(k)).filter(b => b && !b.hidden).map(b => b.getBoundingClientRect());
+              res[width] = { win: cw.innerWidth, card: [Math.round(card.left), Math.round(card.right), Math.round(card.width)],
+                btns: btns.length, inside: btns.every(r => r.left >= 0 && fr.left + r.right <= card.right + 0.5 && fr.top + r.bottom <= card.bottom - 4) };
+              dl.cancelDialog(); await p.catch(() => {}); await ruhig(300);
+            } finally { await closeCompose(cw); }
+          }
+          return res;""")
+        wide, narrow = res.get("700") or {}, res.get("360") or {}
+        ok = (isinstance(wide, dict) and isinstance(narrow, dict) and wide.get("btns") == 3 and wide.get("inside") and wide["card"][2] >= 360
+              and narrow.get("btns") == 3 and narrow.get("inside") and narrow["card"][0] >= 0 and narrow["card"][1] <= narrow["win"])
+        return ok, f"{res}"
+    check("Nachfragen: im kleinen Verfassen-Fenster bleibt die Kachel im Fenster, alle Knöpfe ganz sichtbar (GitHub #45)", inline_prompt_narrow, results)
+
     def type_switch():
         # großer Dialog beim Anlegen: Umschalter „Event | Task“ oben in voller Breite wie im Schnell-Dialog; „Task“ macht aus
         # dem neuen Termin eine neue Aufgabe mit demselben Titel (ohne Rückfrage); beim Bearbeiten kein Umschalter

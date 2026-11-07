@@ -5376,6 +5376,32 @@ function installDialogBox(win, restorers) {
       }
     },
   };
+  // Höhe nachziehen, wenn der Inhalt nach dem Messen höher wird (Text bricht
+  // im schmalen Fenster um, Kachel höchstens fensterbreit): sonst lägen die
+  // Knöpfe unter dem Rand der Kachel (GitHub #45)
+  host.addEventListener("dialogopen", event => {
+    const dialog = event.detail?.dialog, frame = dialog?._frame, overlay = dialog?._overlay;
+    const cwin = frame?.contentWindow, root = frame?.contentDocument?.documentElement;
+    if (!cwin || !root || !overlay || typeof cwin.ResizeObserver != "function") {
+      return;
+    }
+    // gemessene Breite (SubDialog setzt sie beim Laden fest)
+    const wide = parseFloat(frame.style.width) || 0;
+    const fit = () => {
+      if (!frame.isConnected) {
+        win.removeEventListener("resize", fit);
+        return;
+      }
+      root.toggleAttribute("mc-narrow", frame.getBoundingClientRect().width + 1 < wide);
+      const need = Math.ceil(root.scrollHeight);
+      if (need > frame.clientHeight + 1) {
+        overlay.style.setProperty("--subdialog-inner-height", `${need}px`);
+      }
+    };
+    new cwin.ResizeObserver(fit).observe(frame.contentDocument.body || root);
+    win.addEventListener("resize", fit);
+    fit();
+  });
   win.gDialogBox = dialogBox;
   restorers?.push(() => {
     if (win.gDialogBox === dialogBox) {

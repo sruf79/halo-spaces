@@ -242,7 +242,15 @@ unified-toolbar,
 
 #mcDialogBox .dialogFrame {
   margin: 0 !important;
-  min-inline-size: 32ch !important;
+  /* nie breiter als das Fenster (kleines Verfassen-Fenster): der Text bricht
+     um, die Höhe zieht installDialogBox nach (GitHub #45) */
+  min-inline-size: min(32ch, 100%) !important;
+  max-inline-size: 100% !important;
+}
+
+#mcDialogBox .dialogBox {
+  min-inline-size: 0 !important;
+  max-inline-size: calc(100vw - 16px) !important;
 }
 
 /* übrige Bereiche wie die Mail: Inhalt der Statusleiste beginnt rechts der

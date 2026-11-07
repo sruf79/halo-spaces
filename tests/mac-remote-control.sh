@@ -67,6 +67,7 @@ Arbeitsweise:
   model "sonnet"), Ergebnis höchstens 10 Zeilen.
 - Antworten mit SendMessage an den Namen der Sitzung aus ListAgents, knapp:
   Ergebnis, id, Fehlerzeile.
+- Zeitangaben gegenüber dem Maintainer immer in Wiener Zeit (nicht UTC); Zeitstempel in Logs, Dateien und auf GitHub dürfen UTC bleiben, werden aber beim Berichten umgerechnet (Entscheidung vom 7.11.2026).
 TEXT
   cat > $d/.claude/settings.json <<TEXT || return 1
 {

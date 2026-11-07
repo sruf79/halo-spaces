@@ -372,6 +372,7 @@ anheben (nach Test).
 
 ## Konventionen
 
+- **Zeit:** Zeitangaben gegenüber dem Maintainer immer in Wiener Zeit (nicht UTC); Zeitstempel in Logs, Dateien und auf GitHub dürfen UTC bleiben, werden aber beim Berichten umgerechnet (Entscheidung vom 7.11.2026).
 - **Im Zweifel wie Apple:** Ist bei Design oder Verhalten etwas unklar, die
   entsprechende Apple-App nachahmen (Mail, Kontakte, Kalender) – Aussehen,
   Platzierung, Vorgaben und Bedienung – statt eigene Lösungen zu erfinden.

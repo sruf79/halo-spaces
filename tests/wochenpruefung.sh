@@ -149,6 +149,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter CI-Runden ROT: ${${(M)${(f)CIR}:#FEHLER*}}"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/ci_runde_test.zsh): ${(j: | :)${(M)${(f)CIR}:#FEHLER*}} – tests/ci-runde.zsh bzw. tests/ci-waechter.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
   fi
+  # Issue-Abgleich (tests/issue_abgleich_test.zsh: Fix-Nummern, Teil-Fix, Revert, CI, Antwort, Schließen, ohne Netz)
+  if IAT=$(zsh $REPO/tests/issue_abgleich_test.zsh 2>&1); then
+    log "Wächter Issue-Abgleich: ${IAT##*$'\n'}"
+  else
+    log "Wächter Issue-Abgleich ROT: ${${(M)${(f)IAT}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/issue_abgleich_test.zsh): ${(j: | :)${(M)${(f)IAT}:#FEHLER*}} – tests/issue-abgleich.sh bzw. publish.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
 fi
 
 # Wochenprüfung: Kennzahl „Tage seit der letzten vollständig grünen Runde“ (Entscheidung des Maintainers vom
@@ -170,6 +177,15 @@ if [[ -z $DOKU ]]; then
   CI_FLACKER=$(awk -v s="$CI_SEIT" 'substr($0, 1, 19) >= s && /^[0-9-]+ [0-9:]+   flackert: /' $HOME/halo-aufgaben/ci-waechter.log 2>/dev/null | wc -l | tr -d ' ')
   CI_KENNZAHL="$CI_KENNZAHL
 Flackernde Prüfungen (ci-waechter.log, letzte 7 Tage, Zeilen „flackert:“): ${CI_FLACKER:-0} – in wochen-kennzahlen.json: \"ci_flackert\": ${CI_FLACKER:-0}"
+  # offene Issues mit Fix auf main (grüne CI), älter als 1 Tag, ohne „behoben“-Antwort (tests/issue-abgleich.sh,
+  # Entscheidung des Maintainers vom 7.11.2026); trocken: Liste und Stand bleiben unberührt
+  if IA_N=$(zsh ${0:A:h}/issue-abgleich.sh --kennzahl 2>/dev/null) && [[ $IA_N == <-> ]]; then
+    CI_KENNZAHL="$CI_KENNZAHL
+Behobene Issues ohne Antwort (tests/issue-abgleich.sh, Fix auf main mit grüner CI älter als 1 Tag, ohne „behoben“-Antwort): $IA_N – in wochen-kennzahlen.json: \"issue_ohne_antwort\": $IA_N"
+  else
+    CI_KENNZAHL="$CI_KENNZAHL
+Behobene Issues ohne Antwort: Issue-Abgleich nicht möglich – in wochen-kennzahlen.json \"issue_ohne_antwort\": null, im Bericht sagen"
+  fi
 fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis

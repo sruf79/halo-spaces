@@ -7,9 +7,33 @@
 # von GitHub genau diesen Hash hat und die updates.json, die Thunderbird über
 # update_url abruft, auf ihn zeigt (sonst lehnt Thunderbird das Update ab oder
 # findet es nicht). Am Ende liegt ein Bericht in ~/halo-berichte/.
+# Letzter Schritt: die im Release behobenen GitHub-Issues (Commits „(GitHub #n)“ seit dem vorigen
+# Release-Tag, keine Teil-Fixe) mit „Fixed in <version>“ schließen (tests/issue-abgleich.sh schliessen;
+# Entscheidung des Maintainers vom 7.11.2026). Fehler dabei nur melden, nie zurückrollen.
+#   ./publish.sh --trocken 3.21.0   nur diesen Schritt proben (vorheriges Tag..v3.21.0), nichts schließen
 set -e
 ROOT="${0:A:h}"
 cd "$ROOT"
+
+# Vorgänger-Tag einer Version (nach Versionsnummer sortiert)
+vorgaenger_tag() { git tag -l 'v[0-9]*' --sort=-v:refname | grep -A1 -x "v$1" | sed -n 2p }
+issues_schliessen() {   # <version> [--trocken] → Ausgabe von tests/issue-abgleich.sh schliessen
+  local alt bis="v$1"
+  git fetch -q --tags origin 2>/dev/null || true
+  if git rev-parse -q --verify "v$1^{commit}" >/dev/null; then
+    alt=$(vorgaenger_tag "$1")
+  else   # Tag (noch) nicht lokal: Release-Commit HEAD, vorheriges Tag = neuestes
+    bis=HEAD alt=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
+  fi
+  [[ -n "$alt" ]] || { echo "FEHLER: kein Release-Tag vor v$1"; return 1 }
+  echo "Issues aus $alt..$bis:"
+  HALO_REPO="$ROOT" zsh "$ROOT/tests/issue-abgleich.sh" schliessen "$alt" "$bis" "$1" $2
+}
+if [[ "$1" == --trocken ]]; then
+  [[ -n "$2" ]] || { echo "Aufruf: ./publish.sh --trocken <version>"; exit 1; }
+  issues_schliessen "$2" --trocken
+  exit $?
+fi
 VERSION="$1"
 NOTES="$2"
 [[ -z "$VERSION" || ! -f "$NOTES" ]] && { echo "Aufruf: ./publish.sh <version> <notes.md>"; exit 1; }
@@ -154,5 +178,16 @@ if [[ -n "$ATN" && -f "$HOME/.config/halo-spaces/atn.env" ]]; then
   fi
 else
   STATUS+=("Store (addons.thunderbird.net): ausgesetzt (Experiment-APIs dort derzeit nicht angenommen; ATN=1 lädt hoch)")
+fi
+
+# behobene GitHub-Issues schließen (docs/github-komm.md „Status“): Fehler nur laut melden, im Bericht vermerken
+if ISSUES=$(issues_schliessen "$VERSION" 2>&1); then
+  echo "$ISSUES"
+  ISSUES=$(echo "$ISSUES" | sed 1d | tr '\n' ';' | sed 's/;$//; s/;/; /g')
+  STATUS+=("GitHub-Issues (Fixed in $VERSION): ${ISSUES:-keine}")
+else
+  echo "$ISSUES"
+  echo "FEHLER: GitHub-Issues ließen sich nicht (alle) schließen – von Hand mit „Fixed in $VERSION“ schließen"
+  STATUS+=("FEHLER beim Schließen der GitHub-Issues (von Hand nachholen): $(echo "$ISSUES" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
 fi
 exit 0

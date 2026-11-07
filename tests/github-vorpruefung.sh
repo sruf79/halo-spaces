@@ -17,6 +17,10 @@
 # gepusht wurden. Eigene Antworten und Label-Änderungen zählen nicht.
 # „Nichts neu“ schreibt „ÜBERSPRUNGEN github-kommunikation …“ nach
 # ~/halo-nacht/uebersprungen.log (für die Wochenprüfung), kein Push aufs iPhone.
+# Dazu der Issue-Abgleich (tests/issue-abgleich.sh, Entscheidung des Maintainers vom 7.11.2026):
+# offene Issues mit Fix auf main und grüner CI ohne „behoben“-Antwort zählen als Fund; die Liste
+# steht danach in ~/halo-aufgaben/issue-abgleich.txt (Zeilen „antworten #n …“). Ist der Abgleich
+# nicht möglich, steht nur ein Hinweis in der Ausgabe (kein Fund).
 # Die Datei wird nach ~/.config/halo-spaces/ kopiert (tests/mac-mini-setup.sh).
 emulate -L zsh
 setopt pipe_fail
@@ -78,14 +82,22 @@ f=$(gh api "repos/$R/forks?per_page=100" --paginate \
   --jq ".[] | select(.created_at > \"$T\" or .pushed_at > \"$T\") | \"Fork \\(.full_name): gepusht \\(.pushed_at)\"") \
   || zweifel "Forks nicht lesbar"
 FUNDE+=(${(f)f})
+# behobene Issues ohne Antwort (Issue-Abgleich; --trocken lässt Liste und Stand unberührt)
+HINWEIS=
+if ABGL=$(zsh ${0:A:h}/issue-abgleich.sh ${TROCKEN:+--trocken} 2>&1); then
+  FUNDE+=(${(f)"$(print -r -- $ABGL | sed -n 's/^antworten \(#[0-9]*\) \([0-9a-f]*\) .*/Issue \1: Fix \2 auf main mit grüner CI, Antwort „behoben“ fehlt (Liste ~\/halo-aufgaben\/issue-abgleich.txt)/p')"})
+else
+  HINWEIS="Hinweis: Issue-Abgleich nicht möglich (${${(f)ABGL}[-1]})"
+fi
 FUNDE=(${(u)FUNDE:#})
 
 if (( $#FUNDE )); then
   print "NEU seit $T: $#FUNDE Fund(e)"
-  print -rl -- $FUNDE
+  print -rl -- $FUNDE $HINWEIS
   exit 1
 fi
 print "NICHTS NEU seit $T"
+[[ -n $HINWEIS ]] && print -r -- $HINWEIS
 if [[ -z $TROCKEN ]]; then
   mkdir -p ${PROTOKOLL:h}
   print -r -- "$(date '+%F %T') ÜBERSPRUNGEN github-kommunikation nichts neu seit $T" >> $PROTOKOLL

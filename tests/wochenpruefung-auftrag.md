@@ -54,6 +54,13 @@ und wirkten die Verbesserungen der Vorwochen?
   7.11.2026) übernehmen und die Prüfungen aus den Zeilen „flackert:“ in
   ~/halo-aufgaben/ci-waechter.log nennen; dieselbe Prüfung mehrmals: Eintrag „Tests: …“ im Board
   prüfen.
+- **Behobene GitHub-Issues ohne Antwort** (Entscheidung des Maintainers vom 7.11.2026): Die Zeile
+  „Behobene Issues ohne Antwort“ oben (offenes Issue mit Fix-Commit „(GitHub #n)“ auf main und grüner
+  CI, älter als 1 Tag, ohne „behoben“-Antwort; tests/issue-abgleich.sh) unverändert in Bericht und
+  Kennzahlen übernehmen, mit der Vorwoche vergleichen. Über 0: die Nummern aus
+  ~/halo-aufgaben/issue-abgleich.txt (Zeilen „antworten“) nennen und prüfen, warum die
+  GitHub-Routine nicht geantwortet hat (Vorprüfung, Läufe der Woche); Zeilen „board-hinweis“ dort
+  ebenfalls nennen (Fix ohne „(GitHub #n)“ im Commit).
 - **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
   ~/halo-nacht/uebersprungen.log je Routine zählen (die iPhone-Meldung kam nicht an, z. B.
   falscher Sitzungsname). Jede ist ein Fehler im Ablauf: Grund im Bericht nennen, bei
@@ -147,6 +154,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   ci_runde_fehler (Objekt: vollrunde, eintrag → Anzahl der Zeilen „VOLLRUNDE-FEHLER“ bzw.
   „EINTRAG-FEHLER“), vollrunden_gestartet, tage_seit_gruener_vollrunde (Zahl oder null),
   letzte_gruene_vollrunde (ISO-Zeit, Wiener Zeit, oder null), ci_flackert (Zahl),
+  issue_ohne_antwort (Zahl oder null),
   pausen (Objekt: aktiv, abgelaufen, unlesbar, lang_ueber_7_tage, dauerhaft),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).

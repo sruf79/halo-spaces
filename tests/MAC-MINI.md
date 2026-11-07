@@ -488,6 +488,14 @@ tests/mac-mini-setup.sh                          # richtet den LaunchAgent ein u
 - Neu starten: `launchctl kickstart -k gui/$(id -u)/at.halo-spaces.remote-control`;
   abschalten: `launchctl bootout gui/$(id -u)/at.halo-spaces.remote-control`
   und die plist in `~/Library/LaunchAgents/` löschen.
+- **Fester Sitzungsname:** `--name` setzt nur den Namen der Verbindung (claude.ai/Desktop-App).
+  Den lokalen Namen, den `ListAgents` zeigt und an den `SendMessage` geht, leitet Claude für die
+  Kindprozesse sonst selbst ab (6.11.2026: `neon-board` hieß in `ListAgents` `halo-board-de`,
+  Senden an `neon-board` scheiterte). Darum setzt `mac-remote-control.sh` vor dem Start
+  `CLAUDE_CODE_SESSION_NAME=<Name>`; die Kindprozesse erben es (geprüft mit einem Probeprozess:
+  `~/.claude/sessions/<pid>.json` zeigt den Namen). Wirkt ab dem nächsten Start des LaunchAgents
+  (`kickstart -k`, nur wenn die Sitzung nichts tut; bei `neon` beendet das die laufende
+  Sitzung, also nur zu einem passenden Zeitpunkt).
 
 ### Zweite Sitzung `neon-board` (nur Board und Bilder)
 

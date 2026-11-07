@@ -130,6 +130,11 @@ if [[ $NAME == neon-board ]]; then
 else
   export HALO_NEON=1
 fi
+# fester lokaler Sitzungsname: ohne diese Variable leitet Claude den Namen der
+# Kindprozesse selbst ab (neon-board erschien in ListAgents als „halo-board-de“,
+# SendMessage an den Namen „neon-board“ scheiterte). Die Kindprozesse erben sie;
+# --name setzt nur den Namen der Remote-Control-Verbindung (claude.ai).
+export CLAUDE_CODE_SESSION_NAME=$NAME
 print "$(zeit) Start: $claude remote-control in $REPO als $NAME"
 exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${MODUS:+--permission-mode} ${MODUS}

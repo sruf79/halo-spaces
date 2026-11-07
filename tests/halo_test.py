@@ -8879,6 +8879,46 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Schnellfenster: Datum und Uhrzeit zum Eintippen wie im Termin-Dialog, Monatskalender (Klick auf Tag übernimmt, Ende rückt mit), Ende vor dem Beginn auf den Folgetag, Tippen bleibt bei natürlicher Eingabe", quick_text_fields, results)
 
+    def quick_end_list():
+        # Schnellfenster (Kalender: „New Event“, Doppelklick): Klick in die Uhrzeit des Endes zeigt wie im Termin-Dialog die
+        # nächsten sechs Zeiten im 30-Minuten-Raster ab dem Beginn mit Dauer und Häkchen; Wahl setzt das Ende (auch über
+        # Mitternacht), das Fenster bleibt offen; Klick in den Beginn und ganztägig keine Liste
+        res = m.js(CAL_CHECK_JS + r'''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const enh = Cu.evalInSandbox("enhancer", ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global);
+          await toCalendar();
+          enh.openQuickCreate(w, "event");
+          const qp = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
+          const f = qp.__mc, out = {};
+          try {
+            await bis(() => d.activeElement == f.title, "Titel im Fokus", 3000);
+            f.summary.click(); await bis(() => vis(f.allDay), "Schnellfenster aufgeklappt", 3000);
+            f.startDate.value = "2026-11-16"; f.startTime.value = "22:00"; f.endDate.value = "2026-11-16"; f.endTime.value = "23:00";
+            qp.__mcSetLastStart(new Date(2026, 10, 16, 22, 0));
+            const row = x => x.parentNode, st = row(f.startTime).querySelector(".mc-time-edit"), et = row(f.endTime).querySelector(".mc-time-edit");
+            const seg = (box, k) => box.querySelector(`[data-seg="${k}"]`);
+            const down = el => el.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+            const list = [...qp.querySelectorAll(".mc-end-list")].pop();
+            down(seg(st, "h")); await ruhig(300);
+            out.startList = list?.state;
+            down(seg(et, "h")); await bis(() => list?.state == "open", "Liste der Endzeit offen", 3000);
+            out.items = [...list.children].map(i => [i.getAttribute("acceltext"), i.getAttribute("checked") == "true"]);
+            out.below = Math.round(list.getBoundingClientRect().top - et.getBoundingClientRect().bottom);
+            list.children[3].doCommand(); await ruhig(300);
+            out.pick = [f.startDate.value, f.startTime.value, f.endDate.value, f.endTime.value, qp.state];
+            await shutPop(list);
+            f.allDay.click(); await ruhig(300);
+            down(seg(et, "h")); await ruhig(300);
+            out.allDay = list.state;
+          } finally { await shutPop(qp); }
+          return out;''' % ADDON_ID)
+        items = res.get("items") or []
+        ok = (res.get("startList") == "closed" and len(items) == 6 and [x[1] for x in items] == [False, True, False, False, False, False]
+              and all(x[0] for x in items) and items[0][0] != items[1][0] and -2 <= (res.get("below") if res.get("below") is not None else -9) <= 12
+              and res.get("pick") == ["2026-11-16", "22:00", "2026-11-17", "00:00", "open"] and res.get("allDay") == "closed")
+        return ok, f"{res}"
+    check("Schnellfenster: Klick in die Uhrzeit des Endes zeigt sechs Halbstunden mit Dauer und Häkchen, Wahl setzt das Ende auch über Mitternacht", quick_end_list, results)
+
     def emoji():
         res = m.js("""
           const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");

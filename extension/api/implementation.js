@@ -9593,24 +9593,42 @@ function durationText(minutes, locale = regionLocale()) {
 function endTimeList(win, dtp, edit) {
   const doc = win.document;
   const dp = dtp.querySelector("datepicker"), tp = dtp.querySelector("timepicker");
+  const list = endTimeMenu(win, edit, {
+    start: () => doc.getElementById("event-starttime")?.value,
+    end: () => dtp.value,
+    // Reihenfolge so, dass das Ende zwischendurch nie vor dem Beginn liegt
+    set: t => {
+      const date = () => (dp.value = t), time = () => (tp.value = [t.getHours(), t.getMinutes()]);
+      if (t > dtp.value) {
+        date();
+        time();
+      } else {
+        time();
+        date();
+      }
+    },
+    // nur im Termin-Fenster (nicht „Teilnehmer einladen“), nicht ganztägig
+    usable: () => doc.documentElement.hasAttribute("mc-apple-event") && !tp.hasAttribute("disabled") &&
+      !!doc.getElementById("event-starttime")?.value?.getTime,
+  });
+  dtp.addEventListener("change", list.__mcRefill);
+  return list;
+}
+
+// Liste der Endzeit für ein Uhrzeitfeld (Termin-Dialog und Schnellfenster):
+// io.start()/io.end() liefern die Zeitpunkte, io.set(t) setzt das Ende,
+// io.usable() sagt, ob die Liste gerade passt (nicht ganztägig); host: das
+// Popover, in dem das Feld steht (die Liste als dessen Kind, sonst läge sie
+// darunter)
+function endTimeMenu(win, edit, io, host = null) {
+  const doc = win.document;
   const fmt = new Services.intl.DateTimeFormat(undefined, { timeStyle: "short" });
   const list = doc.createXULElement("menupopup");
   list.className = "mc-end-list";
   list.setAttribute("ignorekeys", "true");
-  (doc.querySelector("popupset") || doc.documentElement).append(list);
-  const setEnd = t => {
-    // Reihenfolge so, dass das Ende zwischendurch nie vor dem Beginn liegt
-    const date = () => (dp.value = t), time = () => (tp.value = [t.getHours(), t.getMinutes()]);
-    if (t > dtp.value) {
-      date();
-      time();
-    } else {
-      time();
-      date();
-    }
-  };
+  (host || doc.querySelector("popupset") || doc.documentElement).append(list);
   const fill = () => {
-    const start = doc.getElementById("event-starttime")?.value, end = dtp.value;
+    const start = io.start(), end = io.end();
     list.replaceChildren();
     for (let k = 1; k <= 6; k++) {
       const t = new Date(start.getTime() + k * 30 * 60000);
@@ -9618,18 +9636,15 @@ function endTimeList(win, dtp, edit) {
       item.setAttribute("type", "checkbox");
       item.setAttribute("label", fmt.format(t));
       item.setAttribute("acceltext", durationText(k * 30));
-      if (t.getTime() == end.getTime()) {
+      if (t.getTime() == end?.getTime()) {
         item.setAttribute("checked", "true");
       }
-      item.addEventListener("command", () => setEnd(t));
+      item.addEventListener("command", () => io.set(t));
       list.append(item);
     }
   };
-  // nur im Termin-Fenster (nicht „Teilnehmer einladen“), nicht ganztägig
-  const usable = () => doc.documentElement.hasAttribute("mc-apple-event") && !tp.hasAttribute("disabled") &&
-    !!doc.getElementById("event-starttime")?.value?.getTime;
   edit.box.addEventListener("mousedown", event => {
-    if (event.button != 0 || !usable() || list.state == "open" || list.state == "showing") {
+    if (event.button != 0 || !io.usable() || list.state == "open" || list.state == "showing") {
       return;
     }
     fill();
@@ -9637,11 +9652,12 @@ function endTimeList(win, dtp, edit) {
     // Feldes (Häkchen-Spalte davor)
     list.openPopup(edit.box, "after_start", -40, 0, false, false);
   });
-  dtp.addEventListener("change", () => {
-    if (list.state == "open") {
+  // geänderte Zeiten bei offener Liste: Häkchen und Zeiten nachziehen
+  list.__mcRefill = () => {
+    if (list.state == "open" && io.usable()) {
       fill();
     }
-  });
+  };
   edit.box.addEventListener("focusout", event => {
     if (!edit.box.contains(event.relatedTarget)) {
       list.hidePopup();
@@ -19247,6 +19263,29 @@ class CardEnhancer {
           });
           after = () => edit.render();
           input.after(edit.box);
+          // Ende: Klick zeigt die Liste mit Halbstunden und Dauer wie im Termin-Dialog
+          if (input == f.endTime) {
+            const list = endTimeMenu(w, edit, {
+              start: () => when(f.startDate, f.startTime),
+              end: () => when(f.endDate, f.endTime),
+              set: t => {
+                const day = dateValue(t);
+                if (day != f.endDate.value) {
+                  f.endDate.value = day;
+                  panel.__mcManualTime = true;
+                  f.endDate.dispatchEvent(new w.Event("change", { bubbles: true }));
+                }
+                put(timeValue(t));
+                f.endDate.__mcExact = t;
+              },
+              usable: () => !f.allDay.checked && !!when(f.startDate, f.startTime) && !!when(f.endDate, f.endTime),
+            }, panel);
+            this.restorers.push(() => list.remove());
+            after = () => {
+              edit.render();
+              list.__mcRefill();
+            };
+          }
         }
         input.setAttribute("mc-inline", "");
         after();

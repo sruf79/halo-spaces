@@ -14,6 +14,10 @@ Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 Herkunft: Cloud-Sitzung global.releases, 7.11.2026. Wortlaut (Auftrag): „ich möchte die automatische variante der bildübergabe an andere sessions wie neon-board, welche am wenigsten token verbraucht. wenn wir uns festgelegt haben welche variante das ist, soll diese regelung für alle sessions gelten“; Freigabe auf den Vorschlag der Sitzung: „ja, so umsetzen.“
 Bezug: Messung von neon-board am selben Bild (576 x 826 px, 187 KB): Seite mit data:-URI lesen rund 60.000–70.000 Tokens (Schätzung), Bild als eigene Datei mit `Artifact` `action: "read"` und `path` rund 150 Tokens, Hash gleich. Umsetzung (Deutung der Sitzung): Kernzeilen in `AGENTS.md`, Einzelheiten `docs/board.md`, Pflichtbegriff im Wächter `tests/doku_kern_check.sh`.
 
+### Behobene GitHub-Issues den Nutzern mitteilen
+Herkunft: Sitzung „agents.md von Neon“ (Auftrag an neon über global.run), 7.11.2026. Anlass, Wortlaut: „wir müssen sicherstellen, dass wir auf github gefixte issues an die user kommunizieren“. Entscheidung, Wortlaut: „neon soll es direkt umsetzen“ (ohne „Wartet auf OK“).
+Umsetzung (Deutung der Sitzung): Fix-Commits enden auf „(GitHub #n)“, Teil-Fixe auf „(GitHub #n, teilweise)“; `tests/issue-abgleich.sh` meldet offene Issues mit Fix und grüner CI an die GitHub-Routine (Antwort „behoben“), `publish.sh` schließt beim Release mit „Fixed in x.y.z“, die Wochenprüfung zählt Issues ohne Antwort (`docs/github-komm.md` „Status“).
+
 ### Rote CI-Läufe nicht mehr aufs iPhone
 Herkunft: Sitzung in der Desktop-App (halo-spaces, Laptop), 7.11.2026. Wortlaut: „ich möchte die meldungen von roten CI läufen nicht mehr aufs iphone gepushed bekommen, bitte dementsprechend agents.md ändern und für diese session hier speichern.“
 Bezug: AGENTS.md Tabelle „Aufbau“ (Zeile `tests/ci-waechter.sh`); Weiterleitungs-Sitzung leitet „PUSH: CI rot …“-Zeilen des CI-Wächters nicht mehr per PushNotification weiter. Der Eintrag ins Board bleibt. `tests/ci-waechter.sh` verschickt die Zeile seitdem gar nicht mehr (Nachtrag nach „Ja, abstellen“ in derselben Sitzung).

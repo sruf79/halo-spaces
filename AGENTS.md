@@ -46,7 +46,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/token-bilanz.py` | Token-Bilanz der Claude-Sitzungen auf neon aus den Protokollen (nur Lesen, kein Claude-Aufruf, kein Netz) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
-| `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a) |
+| `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh`, `tests/issue-abgleich.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a); behobene Issues ohne Antwort weckt sie auch (`docs/github-komm.md` „Status“) |
 | `tests/win-vm-setup.ps1`, `tests/win-display.ps1` | Windows-Seite der Test-VM (Energie, Sperre, Thunderbird, Python), aufgerufen von `mac-mini-setup.sh`; Bildschirmgröße der VM vor jedem Testlauf |
 | `tests/mac-remote-control.sh` | hält auf neon die Remote-Control-Sitzungen `neon` und `neon-board` offen (zwei LaunchAgents, `tests/MAC-MINI.md` Abschnitt 12) |
 | `tests/neon-neustart.sh` | Vorlage für einen täglichen Neustart von `neon`, **nicht aktiv** (siehe `docs/neon-sitzung.md`) |
@@ -402,7 +402,10 @@ anheben (nach Test).
   Deutsch; `README.md` und Store-Texte auf Englisch (Store zusätzlich `listing-de.md`).
 - **Commit-Nachrichten:** ein Satz, Bereich vorneweg (`Mailkopf: …`,
   `Today-Pane: …`, `Tests: …`), beschreibt sichtbares Verhalten, mehrere
-  Änderungen mit `;` getrennt.
+  Änderungen mit `;` getrennt. Behebt er ein GitHub-Issue, endet er auf
+  „(GitHub #n)“, ein Teil-Fix auf „(GitHub #n, teilweise)“ (wird nie
+  geschlossen); `publish.sh` schließt damit beim Release (`docs/github-komm.md`
+  „Status“, Entscheidung des Maintainers vom 7.11.2026).
 - **CSS:** eigene Variablen mit Präfix `--mt-` (Farben, Radien, `--mt-hairline`),
   Werte für Hell und Dunkel; Akzent über `AccentColor` vom System. Keine
   sichtbaren Scrollbalken. Maße und Abstände orientieren sich an Apple Mail.
@@ -568,7 +571,8 @@ Forks, Nachsehen und die feste Routine: `docs/github-komm.md` (vor jeder Bearbei
 
 - Bei jedem Arbeitsblock mit Bugs/Features offene Issues und Pull Requests prüfen (Schritt 2 der
   „Reihenfolge eines Laufs“), neue oder geänderte kurz nennen. Fix auf `main` mit grüner CI: dem
-  Nutzer antworten, das Issue erst beim Release mit „Fixed in x.y.z“ schließen.
+  Nutzer antworten (GitHub-Routine, Liste aus `tests/issue-abgleich.sh`), das Issue erst beim
+  Release mit „Fixed in x.y.z“ schließen (`publish.sh`).
 - Pull Requests mergen, schließen oder Teile übernehmen nur mit Freigabe des Maintainers.
 - Ton und Inhalt: Englisch, freundlich, knapp; nie auf die private Aufgabenliste verweisen, keine
   Interna (Testrechner, VM, Tokens), keine Zusagen zu Terminen.

@@ -22,11 +22,24 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   eintragen (im Text „GitHub-Issue #n“ vermerken). Dann antworten und Label
   setzen: `bug` bzw. `enhancement`; `question`, solange eine Rückfrage offen
   ist; `duplicate`/`wontfix` mit Begründung schließen.
-- **Status:** Issues bleiben offen, bis der Fix veröffentlicht ist (Nutzer
-  bekommen ihn erst mit dem Release). Wenn der Fix auf `main` ist und die CI
-  dazu grün war, kurz antworten, dass es behoben ist und mit der nächsten
-  Version kommt; beim Release alle darin
-  behobenen Issues mit „Fixed in x.y.z“ schließen (`completed`).
+- **Status** (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+  Issues bleiben offen, bis der Fix veröffentlicht ist (Nutzer bekommen ihn erst mit dem
+  Release). Jeder Fix-Commit zu einem Issue endet auf „(GitHub #n)“ (Nummer aus der
+  Board-Notiz „GitHub-Issue #n“, mehrere: „(GitHub #n, #m)“); ein Teil-Fix endet auf
+  „(GitHub #n, teilweise)“ und schließt nie. Wer was tut:
+  - `tests/issue-abgleich.sh` (ohne Claude, aus `tests/github-vorpruefung.sh`) sucht offene
+    Issues, deren Fix auf `main` liegt und deren CI grün war (Job-Ergebnisse, Reverts
+    beachtet), und schreibt sie nach `~/halo-aufgaben/issue-abgleich.txt` (Zeilen
+    „antworten #n …“); dann weckt die Vorprüfung die GitHub-Routine.
+  - Die **GitHub-Routine** antwortet diesen Issues kurz, dass es behoben ist und mit der
+    nächsten Version kommt (die Antwort enthält „fixed“, daran erkennt der Abgleich sie),
+    und schließt sie nicht.
+  - **`publish.sh`** schließt beim Release (Nachtlauf wie tagsüber) alle Issues aus den
+    Commits seit dem vorigen Release-Tag mit „Fixed in x.y.z“ (`completed`); Fehler meldet
+    es laut und im Bericht, die Veröffentlichung bleibt. Probe: `./publish.sh --trocken x.y.z`.
+  - Zeilen „board-hinweis“ der Liste: Board-Eintrag erledigt bzw. committet, Issue offen ohne
+    Antwort, aber kein Commit mit „(GitHub #n)“ – von Hand nachholen. Die Wochenprüfung
+    zählt Issues, die länger als einen Tag ohne Antwort bleiben.
 - **Pull Requests:** durchsehen (Konflikte, Überschneidung mit `main`,
   Regeln dieser Datei) und dem Autor antworten. Mergen, schließen oder
   Teile übernehmen nur mit Freigabe des Maintainers; übernommene Teile im

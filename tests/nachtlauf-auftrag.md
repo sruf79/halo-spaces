@@ -191,8 +191,9 @@ Grenzen:
 - Marionette-Ports nur 2850–2869; Port 2845 gehört der CI.
 - Kein install.sh, nichts im echten Profil, keine echten Mails/Kontakte.
 - Inhalte der Aufgabenliste nie in Commits, README, Release-Notizen oder Issues.
-- GitHub-Issues/PRs beantwortet die Routine „GitHub-Kommunikation“, nicht dieser Lauf;
-  nur nach einem Release behobene Issues mit „Fixed in x.y.z“ schließen.
+- GitHub-Issues/PRs beantwortet die Routine „GitHub-Kommunikation“, nicht dieser Lauf; die im
+  Release behobenen Issues schließt publish.sh selbst (docs/github-komm.md „Status“). Fix-Commits
+  zu einem Issue enden auf „(GitHub #n)“ (AGENTS.md „Commit-Nachrichten“).
 - Fremde ungespeicherte Änderungen oder Commits, an denen gerade keine Sitzung
   arbeitet, nimmt Schritt 0a mit. Arbeitet aber erkennbar jemand anderes
   gerade im Repo (eine andere Sitzung ändert noch Dateien, ein Testlauf, der

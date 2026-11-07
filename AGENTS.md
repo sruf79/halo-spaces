@@ -226,6 +226,12 @@ haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
 gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
 erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 
+**Abgelehnte Antwort an eine Sitzung** (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+wird eine Nachricht abgelehnt (z. B. `send_message` mit Sitzungs-ID: `elevated_session_untrusted_device`), sucht die
+Sitzung selbstständig einen anderen Weg (`SendMessage` an den Namen aus `ListAgents`, Titel über `list_sessions`,
+zuletzt bekannte ID, Reihenfolge wie unter „Sitzung nicht unter ihrem Namen gefunden?“), bis einer klappt; findet sie
+keinen, meldet sie das mit den Fehlermeldungen zurück.
+
 **Antworten von neon:** neon antwortet per `SendMessage` an den Namen der Sitzung; es erscheint
 als neue Nachricht, `send_message` aus neon scheitert. neon merkt sich die Sitzungs-ID und sucht
 den aktuellen Titel erst beim Antworten; Auftraggeber geben ihrer Sitzung einen festen Titel

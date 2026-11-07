@@ -14,6 +14,10 @@ Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 Herkunft: Cloud-Sitzung global.releases, 7.11.2026. Wortlaut (Auftrag): „ich möchte die automatische variante der bildübergabe an andere sessions wie neon-board, welche am wenigsten token verbraucht. wenn wir uns festgelegt haben welche variante das ist, soll diese regelung für alle sessions gelten“; Freigabe auf den Vorschlag der Sitzung: „ja, so umsetzen.“
 Bezug: Messung von neon-board am selben Bild (576 x 826 px, 187 KB): Seite mit data:-URI lesen rund 60.000–70.000 Tokens (Schätzung), Bild als eigene Datei mit `Artifact` `action: "read"` und `path` rund 150 Tokens, Hash gleich. Umsetzung (Deutung der Sitzung): Kernzeilen in `AGENTS.md`, Einzelheiten `docs/board.md`, Pflichtbegriff im Wächter `tests/doku_kern_check.sh`.
 
+### Abgelehnte Antworten an Sitzungen: alternativen Weg suchen
+Herkunft: über die Sitzung neon-board weitergegeben, vom Maintainer in der Sitzung neon am 7.11.2026 bestätigt („ja, so eintragen“). Wortlaut: „wenn antworten an session abgelehnt werden muss ab sofort automatisch eine alternative gesucht werden, solange, bis man eine lösung gefunden hat. sollte keine lösung gefunden werden sollte es eine rückmeldung geben“ und „das ist eine gültige regel für alle sessions“.
+Bezug: AGENTS.md „neon erreichen“ (Absatz „Abgelehnte Antwort an eine Sitzung“); Anlass: `send_message` mit Sitzungs-ID wurde mit `elevated_session_untrusted_device` abgelehnt, `SendMessage` per Name aus `ListAgents` ging durch.
+
 ### Zeitangaben in Wiener Zeit
 Herkunft: Sitzung „agents.md von Neon“ (halo-spaces, Cloud), 7.11.2026. Wortlaut: „können wir bitte ab sofort bei zeitangaben immer die wiener Zeit und nicht UTC nehmen? das soll für alle session gelten.“
 Bezug: AGENTS.md „Konventionen“ (Zeile „Zeit“), ~/halo-board/CLAUDE.md (erzeugt von tests/mac-remote-control.sh), Prompt der geplanten Aufgabe halo-github-kommunikation. Wiener Zeit: im Winter MEZ (UTC+1), ab 28.3.2027 MESZ (UTC+2); Zeitstempel in Logs, Dateien und auf GitHub dürfen UTC bleiben, beim Berichten wird umgerechnet.

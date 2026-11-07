@@ -6070,6 +6070,9 @@ function hookMenubar(win, restorers) {
   const space = (id, label, button) => {
     const item = own(id, label, () => $(button)?.click());
     item.dataset.space = button;
+    // Häkchen setzt onShowing nach dem aktiven Bereich (ein Klick schaltet es nicht selbst um)
+    item.setAttribute("type", "checkbox");
+    item.setAttribute("autocheck", "false");
     return item;
   };
   const spaces = [
@@ -6269,9 +6272,15 @@ function hookMenubar(win, restorers) {
       remind.disabled = !hdrs.length;
       getMail.disabled = false;
     }
+    // aktiver Bereich mit Häkchen (wie das aktive Fenster im Fenster-Menü)
     for (const x of spaces) {
       const button = $(x.dataset.space);
       x.hidden = !button || button.hidden;
+      if (button?.classList.contains("current")) {
+        x.setAttribute("checked", "true");
+      } else {
+        x.removeAttribute("checked");
+      }
     }
     tidy(popup);
   };

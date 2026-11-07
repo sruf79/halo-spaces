@@ -4380,6 +4380,13 @@ def menu_checks(m, results):
           if (d.getElementById("windowPopup")) out.windowPopup = await show("windowPopup");
           out.calInMail = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
           out.sortInMail = d.getElementById("viewSortMenu")?.getAttribute("disabled");
+          // Häkchen am aktiven Bereich (Fenster-Menü bzw. Ansicht), nur dort
+          const checks = async id => { const p = d.getElementById(id); if (!p) return null; p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(50);
+            const r = [...p.querySelectorAll("menuitem[data-space]")].filter(x => x.getAttribute("checked") == "true").map(x => x.getAttribute("label"));
+            p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return r; };
+          const spaceMenu = d.getElementById("windowPopup") ? "windowPopup" : "menu_View_Popup";
+          out.checkedMail = await checks(spaceMenu);
+          await toCalendar(); out.checkedCal = await checks(spaceMenu); await toMail();
           await toCalendar(); await show("menu_View_Popup");
           out.calInCal = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
           out.sortInCal = d.getElementById("viewSortMenu")?.getAttribute("disabled");
@@ -4402,10 +4409,11 @@ def menu_checks(m, results):
               and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
               and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]
               and (not mac or all(x in res.get("windowPopup", []) for x in ["Mail", "Address Book", "Calendar", "Tasks", "Chat"]))
+              and res.get("checkedMail") == ["Mail"] and res.get("checkedCal") == ["Calendar"]
               and res.get("calInMail") == "true" and res.get("sortInMail") == "false" and res.get("calInCal") == "false" and res.get("sortInCal") == "true"
               and all(not a == b == "|" for x in res.values() if isinstance(x, list) for a, b in zip(x, x[1:])))
         return ok, f"{res}"
-    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü, Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
+    check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü (aktiver mit Häkchen), Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 
     def context_flat():
         # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit

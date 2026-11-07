@@ -6181,8 +6181,9 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 :root[mc-task-info] #calendar-task-details-box {
-  /* Oberkante der Kopfkarte auf Höhe der ersten Karte der Liste */
-  margin-top: -5px;
+  /* (die Knöpfe über der Aufgabe stehen auf Höhe der ersten Karte der Liste,
+     die Kopfkarte darunter) */
+  margin-top: 0;
   background: var(--mc-ti-card);
   border-radius: 12px;
   padding: 12px 16px !important;
@@ -14823,63 +14824,62 @@ datepicker[mc-inline] > menulist {
   background: var(--mt-pane-line) !important;
 }
 
-/* ---------- Aufgaben: Aktionen (Kategorie, Erledigt, Priorität, Löschen) ----------
-   wie die Knöpfe über der Mail oben in der Toolbar-Zeile – nur Symbole in
-   einer Kapsel gleich rechts vom „+“ (--mc-row-top/-h, --mc-ta-left setzt die
-   Erweiterung; das „+“ hält dafür Platz frei); der Name steht im Tooltip */
-:root[mc-tab="tasks"]:has(#calendar-task-details-container:not([hidden])) #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]),
-:root[mc-tab="tasks"][mc-task-side] #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]) {
-  /* (Details neben der Liste: Platz auch ohne Auswahl, wie die Mail-Knöpfe) */
-  margin-inline-end: 218px !important;
+/* ---------- Aufgaben: Knöpfe über der Aufgabe ----------
+   wie Apple Erinnerungen und Kanban-Karten in der Detailspalte über der
+   Kopfkarte: links „Complete“ (Haken | Fortschritt), rechts „In eigenem
+   Fenster öffnen“ und „…“; Kategorie, Priorität und Löschen entfallen als
+   Knöpfe (Zeilen darunter, „…“, Kontextmenü, Entf-Taste) */
+:root[mc-tab="tasks"] #other-actions-box {
+  flex: none !important;
+  align-self: stretch !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbox {
+  flex: 1 !important;
+  height: auto !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar {
-  position: fixed !important;
-  z-index: 3 !important;
-  top: calc(var(--mc-row-top, 0px) + (var(--mc-row-h, 50px) - 38px) / 2) !important;
-  inset-inline-start: var(--mc-ta-left, 50vw) !important;
+  position: static !important;
   height: 38px !important;
   margin: 0 !important;
   padding: 0 !important;
-  gap: 0 !important;
+  gap: 6px !important;
   background: none !important;
 }
 
-/* drei Kapseln wie in den übrigen Bereichen: Erledigt | Kategorie · Priorität
-   (mit Trennstrich) | Löschen – je mit eigener Fläche, 6 px Abstand */
+:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority, #calendar-delete-task-button) {
+  display: none !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #mcTaskOpenWindow {
+  order: 1 !important;
+  margin-inline-start: auto !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #mcTaskMore {
+  order: 2 !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #mcTaskMore[open] {
+  background: var(--mt-control-hover) !important;
+}
+
+#mcTaskOpenWindow { --mc-ta-icon: url("resource://mailcards/icons/maximize.svg"); }
+#mcTaskMore { --mc-ta-icon: url("resource://mailcards/icons/more.svg"); }
+
+/* „Delete Task“ im „…“-Menü rot wie bei Apple */
+#mcTaskMoreMenu > menuitem.mc-ta-danger:not([disabled], [_moz-menuactive]) {
+  color: var(--mt-red) !important;
+}
+
+/* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche */
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
   background: var(--mt-control) !important;
   border-radius: 999px !important;
 }
-
-:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted { order: 0 !important; margin-inline-end: 6px !important; }
-:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-category {
-  order: 1 !important;
-  border-start-end-radius: 0 !important;
-  border-end-end-radius: 0 !important;
-}
-:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-priority {
-  order: 2 !important;
-  margin-inline-end: 6px !important;
-  border-start-start-radius: 0 !important;
-  border-end-start-radius: 0 !important;
-}
-:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-priority::after {
-  content: "" !important;
-  position: absolute !important;
-  inset-inline-start: 0 !important;
-  top: calc(50% - var(--mt-cap-line-h) / 2) !important;
-  height: var(--mt-cap-line-h) !important;
-  width: 1px !important;
-  background: var(--mt-cap-line) !important;
-  pointer-events: none !important;
-}
-
-/* wie Apple: steht die Maus auf der Kapsel, verschwindet der Trennstrich */
-:root[mc-tab="tasks"] #task-actions-toolbar:has(> :is(#task-actions-category, #task-actions-priority):hover) > #task-actions-priority::after {
-  opacity: 0 !important;
-}
-:root[mc-tab="tasks"] #task-actions-toolbar > #calendar-delete-task-button { order: 3 !important; }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
   background: var(--mt-control-hover) !important;
@@ -14902,17 +14902,8 @@ datepicker[mc-inline] > menulist {
   color: var(--mt-text) !important;
 }
 
-/* in den Kapseln mit mehreren Knöpfen (Kategorie · Priorität, Erledigt) runde
-   Fläche mit Abstand zum Kapselrand wie Apple; beim geteilten Knopf nur die
-   Hälfte unter der Maus */
-:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):hover:not([disabled]) {
-  background: var(--mt-cap-dot), var(--mt-control) !important;
-}
-
-:root[mc-tab="tasks"] #task-actions-toolbar > :is(#task-actions-category, #task-actions-priority):is(:hover:active, [open]):not([disabled]) {
-  background: var(--mt-cap-dot-press), var(--mt-control) !important;
-}
-
+/* im geteilten Knopf „Complete“ runde Fläche nur unter der Hälfte unter der
+   Maus, mit Abstand zum Kapselrand wie Apple */
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
   background: var(--mt-control) !important;
 }
@@ -14947,10 +14938,7 @@ datepicker[mc-inline] > menulist {
   mask: var(--mc-ta-icon) center / contain no-repeat !important;
 }
 
-#task-actions-category { --mc-ta-icon: url("resource://mailcards/icons/tag.svg"); }
 #task-actions-markcompleted { --mc-ta-icon: url("resource://mailcards/icons/task-done.svg"); }
-#task-actions-priority { --mc-ta-icon: url("resource://mailcards/icons/priority.svg"); }
-#calendar-delete-task-button { --mc-ta-icon: url("resource://mailcards/icons/trash.svg"); }
 
 /* Erledigt: geteilter Knopf wie „Markieren“ in der Mail – Haken | Pfeil */
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted {
@@ -15010,14 +14998,6 @@ datepicker[mc-inline] > menulist {
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton[disabled] {
   opacity: 0.4 !important;
-}
-
-/* die Zeile, in der die Knöpfe vorher standen, entfällt */
-:root[mc-tab="tasks"] #task-actions-toolbox,
-:root[mc-tab="tasks"] #other-actions-box {
-  min-height: 0 !important;
-  height: 0 !important;
-  overflow: visible !important;
 }
 
 :root[mc-tab="tasks"] :is(#task-tree-filter-header, #task-filtertree-pane) {

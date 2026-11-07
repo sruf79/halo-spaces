@@ -6813,7 +6813,8 @@ def calendar_checks(m, results):
     check("Aufgaben: nach dem Wechsel aus der Mail stehen die Details sofort rechts neben der Liste", tasks_side_after_switch, results)
 
     def tasks_details_top():
-        # Aufgaben: Titel der Details auf Höhe des Titels der ersten Karte (wie im Mail-Bereich), Beschriftungen groß
+        # Aufgaben: Details beginnen auf Höhe der ersten Karte (wie im Mail-Bereich; seit 5a/5d die Knöpfe über der Aufgabe,
+        # die Kopfkarte darunter), Beschriftungen groß
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await wait(600);
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
@@ -6827,8 +6828,8 @@ def calendar_checks(m, results):
           card?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           card?.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           await ruhig(1000);
-          // (mit der Kopfkarte wie Erinnerungen zählt deren Oberkante, der Titel steht darin)
-          const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("calendar-task-details-box") : d.getElementById("calendar-task-details-title");
+          // (mit der Kopfkarte wie Erinnerungen zählt die Zeile der Knöpfe darüber, der Titel steht in der Karte darunter)
+          const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("task-actions-toolbar") : d.getElementById("calendar-task-details-title");
           const th = d.querySelector("#calendar-task-details-grid > tr > th");
           // (Kopfkarte: Oberkante wie die Oberkante der ersten Karte der Liste)
           const cardTop = d.documentElement.hasAttribute("mc-task-info") ? card?.closest(".mc-tc") : card;
@@ -6840,7 +6841,7 @@ def calendar_checks(m, results):
         ok = res.get("side") and res.get("card") is not None and res.get("title") is not None and abs(res["card"] - res["title"]) <= 3 \
             and res.get("transform") == "capitalize"
         return ok, f"{res}"
-    check("Aufgaben: Titel der Details auf Höhe des Titels der ersten Karte, Beschriftungen groß", tasks_details_top, results)
+    check("Aufgaben: Details (Knöpfe über der Aufgabe) auf Höhe der ersten Karte, Beschriftungen groß", tasks_details_top, results)
 
     def tasks_info_column():
         # Aufgaben: Detailspalte wie das Info-Fenster von Apple Erinnerungen – Titel und Notiz als Kopfkarte, Abschnitte
@@ -12591,7 +12592,7 @@ Neu
           await until(() => tree.mTreeView.rowCount > 0); await ruhig(300);
           out.rows = tree.mTreeView.rowCount; out.emptyWithTask = shown();
           tree.mTreeView.selection?.select(0); await ruhig(600);
-          const btn = d.getElementById("task-actions-priority"); const cs = w.getComputedStyle(btn);
+          const btn = d.getElementById("task-actions-markcompleted"); const cs = w.getComputedStyle(btn);
           out.button = [cs.borderRadius, cs.height];
           // schreibgeschützter Kalender als Standard: Hinweis in der Toolbar-Zeile neben dem Plus
           let ro = cal.manager.getCalendars().find(x => x.name == "Halo Nur Lesen");
@@ -12607,7 +12608,7 @@ Neu
           return out;''')
         h = res.get("hint", {})
         ok = (res["emptyAtStart"] and res["placeholderRows"] == 0 and res["emptyWithPlaceholder"] and res["rows"] == 1 and not res["emptyWithTask"]
-              and res["button"][0] == "0px 999px 999px 0px" and h.get("readOnly") and h.get("fieldW") == 0 and bool(h.get("value")) and h["value"] in h.get("header", ""))
+              and res["button"][0] == "999px" and h.get("readOnly") and h.get("fieldW") == 0 and bool(h.get("value")) and h["value"] in h.get("header", ""))
         return ok, f"{res}"
     check("Aufgaben: Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapseln", tasks_view, results)
 
@@ -13052,7 +13053,8 @@ Neu
 
     def task_header():
         # Aufgaben wie die Mail (neue Detailansicht 1/4): „…“ an derselben Stelle wie über der Mailliste (kein Filterknopf), Titel,
-        # Anzahl; „+“ und die Aktionen (Erledigt, Kategorie, Priorität, Löschen) über den Details als Symbole ohne Text, mit Tooltip;
+        # Anzahl; „+“ über den Details; die Knöpfe über der Aufgabe (5a/5d: Complete, In eigenem Fenster, „…“) in der Detailspalte
+        # über der Kopfkarte als Symbole ohne Text, mit Tooltip;
         # Haarlinie zur Detailspalte durchgehend (Toolbar-Zeile über dem Teiler), Details mindestens so breit wie ihre Knopfzeile,
         # ohne Auswahl „No Task Selected“
         res = m.js(CAL_CHECK_JS + r"""
@@ -13079,6 +13081,7 @@ Neu
             out.layout = { plus: R(plusB), trash: R(d.getElementById("calendar-delete-task-button")), listRight: Math.round(listEl.getBoundingClientRect().right),
                            line: Math.round(cont.getBoundingClientRect().left + parseFloat(csOf(cont, "::before").left)), split: Math.round(split.getBoundingClientRect().left),
                            details: Math.round(det.getBoundingClientRect().width), detLeft: Math.round(det.getBoundingClientRect().left),
+                           detRight: Math.round(det.getBoundingClientRect().right), cardTop: Math.round(d.getElementById("calendar-task-details-box").getBoundingClientRect().top),
                            detMin: parseFloat(csOf(det).minWidth), searchLeft: Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().left),
                            actRight: Math.round(Math.max(...[...d.getElementById("task-actions-toolbar").children].filter(b => b.getBoundingClientRect().width).map(b => b.getBoundingClientRect().right))) };
             // Teiler zu den Details ziehen: „+“ und Aktionen wandern mit (blieben vorher über der Liste stehen)
@@ -13103,7 +13106,7 @@ Neu
             const bar = d.getElementById("task-actions-toolbar");
             out.actions = [...bar.children].filter(b => b.getBoundingClientRect().width).map(b => {
               const r = b.getBoundingClientRect(), txt = b.querySelector(".toolbarbutton-text");
-              return { id: b.id, inRow: r.top >= row.top - 1 && r.bottom <= row.bottom + 1, text: !!txt && txt.getBoundingClientRect().width > 0,
+              return { id: b.id, inRow: r.top >= row.top - 1 && r.bottom <= row.bottom + 1, top: Math.round(r.top), bottom: Math.round(r.bottom), text: !!txt && txt.getBoundingClientRect().width > 0,
                        icon: csOf(b.id == "task-actions-markcompleted" ? b.querySelector(".toolbarbutton-menubutton-button") : b, "::before").maskImage.includes("mailcards/icons"),
                        tip: !!(b.getAttribute("tooltiptext") || b.getAttribute("label")) }; });
             // „…“ öffnet die Ansichten, Filter-Knopf die Filter
@@ -13123,21 +13126,20 @@ Neu
         # wie die Mail: „…“ an derselben Stelle, „+“ und Aktionen rechts der Liste über den Details, vor der Suche
         same = bool(more and mf.get("more")) and abs(more["l"] - mf["more"]["l"]) <= 2 and abs(more["t"] - mf["more"]["t"]) <= 1 and not tf.get("filter")
         acts = res.get("actions") or []
-        ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and len(acts) == 4
-              and all(a["inRow"] and not a["text"] and a["icon"] and a["tip"] for a in acts)
-              and bool(plus) and plus["l"] >= ly["listRight"] and ly["actRight"] <= ly["searchLeft"]
+        ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and [a["id"] for a in acts] == ["task-actions-markcompleted", "mcTaskOpenWindow", "mcTaskMore"]
+              and all(not a["inRow"] and a["bottom"] <= ly.get("cardTop", 0) and not a["text"] and a["icon"] and a["tip"] for a in acts)
+              and not ly.get("trash") and bool(plus) and plus["l"] >= ly["listRight"] and ly["actRight"] <= ly["detRight"]
               and abs(ly.get("line", 0) - ly.get("split", -9)) <= 1 and ly.get("details", 0) >= ly.get("detMin", 9999) - 1
-              and ly["detMin"] >= ly["actRight"] - ly["detLeft"] + 40
               and em.get("hidden") and em.get("text") == "No Task Selected" and em.get("content") and em.get("vis") == "visible"
               and res.get("viewMenu") == ["Card View", "Table View"]
               and (not res.get("drag") or (res["drag"]["split"] <= -60 and abs(res["drag"]["plus"] - res["drag"]["split"]) <= 2
                                            and abs(res["drag"]["acts"] - res["drag"]["split"]) <= 2 and abs(res["drag"]["back"]) <= 2)))
         return ok, f"{res}"
-    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ und Aktionen über den Details und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
+    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ über den Details, Knöpfe über der Aufgabe in der Detailspalte und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
 
     def task_pills_ring_reopen():
-        # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Aktionen als drei Kapseln (Erledigt | Kategorie ·
-        # Priorität | Löschen) mit Tooltips „Category“/„Priority“; Fortschritt als Ring am Kreis (50 %); erledigte Aufgabe
+        # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Knöpfe über der Aufgabe (5a/5d): links „Complete“,
+        # rechts „In eigenem Fenster öffnen“ und „…“ mit Tooltips, Kategorie/Priorität/Löschen ohne Knopf; Fortschritt als Ring am Kreis (50 %); erledigte Aufgabe
         # per Klick auf den Kreis nach Rückfrage wieder offen (0 %)
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await pause(600);
@@ -13156,12 +13158,13 @@ Neu
             const tree = d.getElementById("calendar-task-tree"), list = d.getElementById("mcTaskCards");
             const i = await till(() => { const k = tree.mTaskArray.findIndex(t => t.title == "Halo Halbe Aufgabe"); return k >= 0 ? k + 1 : 0; }, 5000) - 1;
             tree.focus(); tree.view.selection.select(i); await ruhig(1200);
-            const ids = ["task-actions-markcompleted", "task-actions-category", "task-actions-priority", "calendar-delete-task-button"];
-            // Details daneben: alle vier Aktionen über den Details; ebenso bei schmalem Fenster
+            const ids = ["task-actions-markcompleted", "mcTaskOpenWindow", "mcTaskMore", "task-actions-category", "task-actions-priority", "calendar-delete-task-button"];
+            // Details daneben: Complete, Fenster, „…“ über der Aufgabe, die übrigen ohne Knopf; ebenso bei schmalem Fenster
             out.sidePills = ids.map(id => !!R(d.getElementById(id)));
             w.resizeTo(1150, 900); await ruhig(1200);
-            out.pills = ids.map(id => R(d.getElementById(id)));
-            out.tips = ["task-actions-category", "task-actions-priority"].map(id => d.getElementById(id)?.getAttribute("tooltiptext"));
+            out.pills = ids.slice(0, 3).map(id => R(d.getElementById(id)));
+            out.detRight = Math.round(d.getElementById("calendar-task-details-container").getBoundingClientRect().right);
+            out.tips = ["mcTaskOpenWindow", "mcTaskMore"].map(id => d.getElementById(id)?.getAttribute("tooltiptext"));
             // Priorität erst hoch, dann niedrig: im Menü nur „niedrig“ angehakt (Thunderbird ließ alte Häkchen stehen)
             const prioPopup = d.getElementById("task-actions-priority-menupopup");
             // ab Thunderbird 160 hakt Thunderbird den Menüeintrag selbst an, vorher den Befehl
@@ -13217,11 +13220,11 @@ Neu
           }
           return out;""" % ADDON_ID)
         p = res.get("pills") or []
-        pills = (len(p) == 4 and all(p) and p[0]["r"] + 4 <= p[1]["l"] and abs(p[1]["r"] - p[2]["l"]) <= 1 and p[2]["r"] + 4 <= p[3]["l"])
+        pills = (len(p) == 3 and all(p) and p[0]["r"] + 4 <= p[1]["l"] and p[1]["r"] + 4 <= p[2]["l"] and p[2]["r"] <= res.get("detRight", 0))
         ring = res.get("ring") or {}
         ok = (not (res.get("field") or {}).get("visible", True) and (res.get("field") or {}).get("box", 99) <= 1 and pills
-              and res.get("sidePills") == [True, True, True, True]
-              and res.get("tips") == ["Category", "Priority"] and ring.get("on") and ring.get("p") == "50" and ring.get("bg")
+              and res.get("sidePills") == [True, True, True, False, False, False]
+              and res.get("tips") == ["Open in New Window", "More"] and ring.get("on") and ring.get("p") == "50" and ring.get("bg")
               and res.get("dialog") == "[1]" and res.get("texts") == '["Reopen task?","Reopen"]' and res.get("reopened") == {"completed": False, "pct": 0}
               and len(res.get("prioChecked") or []) == 1
               # Ampel: 50 % in der Farbe der Stufe 50, Ring auch im Menü vor jedem Eintrag
@@ -13229,7 +13232,73 @@ Neu
               and res.get("menuRings") and len(res["menuRings"]) == 5 and all(r and r[0] == '""' for r in res["menuRings"])
               and res.get("zero") == ["repeating-conic-gradient", False] and res["menuRings"][0][1] == "repeating-coni")
         return ok, f"{res}"
-    check("Aufgaben: ohne Schnelleingabe, Aktionen als drei Kapseln mit „Category“/„Priority“, Fortschritt als Ring in Ampelfarben (auch im Menü), erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
+    check("Aufgaben: ohne Schnelleingabe, Knöpfe über der Aufgabe (Complete, In eigenem Fenster, „…“) mit Tooltips, Fortschritt als Ring in Ampelfarben (auch im Menü), erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
+
+    def task_more_menu():
+        # Aufgaben, neue Detailansicht 5a/5d: „…“ über der Aufgabe öffnet Duplicate ⌘D, Move to List >, Open in New Window ⌘O,
+        # Delete Task (rot); Duplicate legt eine Kopie an, ⌘D in der Liste ebenso, „In eigenem Fenster“ und ⌘O öffnen die
+        # Aufgabe (bis 5c Thunderbirds Bearbeiten-Fenster, hier ersetzt), Delete Task löscht
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await pause(600);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const todo = new CalTodo(); todo.title = "Halo Mehr-Aufgabe"; todo.calendar = c; const saved = await c.addItem(todo);
+          const mine = async () => (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(t => t.title == "Halo Mehr-Aufgabe");
+          const out = {};
+          const realOpen = w.modifyEventWithDialog;
+          const opened = [];
+          try {
+            tm.openTab("tasks", {}); await ruhig(1500);
+            const tree = d.getElementById("calendar-task-tree");
+            const sel = async () => { const i = await till(() => { const k = tree.mTaskArray.findIndex(t => t.title == "Halo Mehr-Aufgabe"); return k >= 0 ? k + 1 : 0; }, 5000) - 1;
+              tree.focus(); tree.view.selection.select(i); await ruhig(800); };
+            await sel();
+            w.modifyEventWithDialog = item => opened.push(item?.title);
+            const more = d.getElementById("mcTaskMore");
+            more.click();
+            const pop = await till(() => { const p = d.getElementById("mcTaskMoreMenu"); return p?.state == "open" ? p : null; }, 3000);
+            out.items = pop ? [...pop.children].map(x => x.localName == "menuseparator" ? "-" : [x.getAttribute("label"), x.getAttribute("acceltext") || ""]) : null;
+            const del = pop ? [...pop.children].find(x => x.getAttribute("label") == "Delete Task") : null;
+            const ref = d.createElement("span"); ref.style.color = "var(--mt-red)"; d.documentElement.append(ref);
+            out.red = del ? [csOf(del).color, csOf(ref).color] : null; ref.remove();
+            const dup = pop ? [...pop.children].find(x => x.getAttribute("label") == "Duplicate") : null;
+            dup?.doCommand(); pop?.hidePopup();
+            for (let k = 0; k < 40 && (await mine()).length < 2; k++) await pause(100);
+            out.afterDup = (await mine()).length;
+            // ⌘D/Strg+D in der Liste: noch eine Kopie
+            await sel();
+            const mod = Services.appinfo.OS == "Darwin" ? { metaKey: true } : { ctrlKey: true };
+            tree.dispatchEvent(new w.KeyboardEvent("keydown", { key: "d", bubbles: true, cancelable: true, ...mod }));
+            for (let k = 0; k < 40 && (await mine()).length < 3; k++) await pause(100);
+            out.afterKey = (await mine()).length;
+            // ⌘O und der Knopf „In eigenem Fenster öffnen“
+            await sel();
+            tree.dispatchEvent(new w.KeyboardEvent("keydown", { key: "o", bubbles: true, cancelable: true, ...mod }));
+            d.getElementById("mcTaskOpenWindow").click(); await ruhig(300);
+            out.opened = opened.slice();
+            // Delete Task über „…“ löscht die gewählte Aufgabe (ohne Thunderbirds Rückfrage, Marionette schlösse sie selbst)
+            Services.prefs.setBoolPref("calendar.item.promptDelete", false);
+            await sel();
+            more.click();
+            const pop2 = await till(() => { const p = d.getElementById("mcTaskMoreMenu"); return p?.state == "open" ? p : null; }, 3000);
+            [...(pop2?.children || [])].find(x => x.getAttribute("label") == "Delete Task")?.doCommand(); pop2?.hidePopup();
+            for (let k = 0; k < 40 && (await mine()).length > 2; k++) await pause(100);
+            out.afterDelete = (await mine()).length;
+          } finally {
+            w.modifyEventWithDialog = realOpen;
+            Services.prefs.clearUserPref("calendar.item.promptDelete");
+            for (const it of await mine()) { try { await c.deleteItem(it); } catch {} }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        it = res.get("items") or []
+        acc = "⌘" if sys.platform == "darwin" else "Ctrl+"
+        red = res.get("red") or ["", ""]
+        ok = (it == [["Duplicate", acc + "D"], ["Move to List", ""], "-", ["Open in New Window", acc + "O"], "-", ["Delete Task", "⌫" if sys.platform == "darwin" else "Del"]]
+              and same_color(red[0], red[1]) and res.get("afterDup") == 2 and res.get("afterKey") == 3
+              and res.get("opened") == ["Halo Mehr-Aufgabe", "Halo Mehr-Aufgabe"] and res.get("afterDelete") == 2)
+        return ok, f"{res}"
+    check("Aufgaben: „…“ über der Aufgabe mit Duplicate, Move to List, Open in New Window, Delete Task (rot); ⌘D dupliziert, ⌘O und Fenster-Knopf öffnen die Aufgabe", task_more_menu, results)
 
     def tables_like_mail():
         # Tabellenansichten in Adressbuch und Aufgaben wie die Mail-Tabelle: gleiche Schrift, Zeilen- und Kopfhöhe,

@@ -5290,6 +5290,127 @@ function hookTaskInfo(win, restorers) {
       frame.style.height = `${Math.ceil(range.getBoundingClientRect().height + pad) + 2}px`;
     }
   };
+  // Knöpfe über der Aufgabe wie Apple Erinnerungen und Kanban-Karten: links
+  // „Complete“, rechts „In eigenem Fenster öffnen“ und „…“ (Duplicate, Move to
+  // List, Open in New Window, Delete Task). Kategorie, Priorität und Löschen
+  // als eigene Knöpfe entfallen (Werte in den Zeilen darunter, Löschen über
+  // „…“, Kontextmenü und Entf-Taste) – das CSS blendet sie aus.
+  // Bis zur eigenen Ansicht im Fenster öffnet „In eigenem Fenster“ Thunderbirds
+  // Bearbeiten-Fenster
+  const actions = doc.getElementById("task-actions-toolbar");
+  const btn = (id, title) => {
+    const b = doc.createXULElement("toolbarbutton");
+    b.id = id;
+    b.className = "mc-ta-extra";
+    b.setAttribute("tooltiptext", tr(title));
+    b.setAttribute("aria-label", tr(title));
+    b.setAttribute("tabindex", "0");
+    actions?.append(b);
+    return b;
+  };
+  const openBtn = btn("mcTaskOpenWindow", "Open in New Window");
+  const moreBtn = btn("mcTaskMore", "More");
+  moreBtn.setAttribute("aria-haspopup", "menu");
+  const openTask = () => {
+    const item = tree.currentTask;
+    if (item) {
+      win.modifyEventWithDialog?.(item, true);
+    }
+  };
+  const duplicateTask = async () => {
+    const old = tree.currentTask?.parentItem || tree.currentTask;
+    if (!old || !cal.acl.isCalendarWritable(old.calendar)) {
+      return;
+    }
+    const copy = old.clone();
+    copy.id = cal.getUUID();
+    try {
+      await win.doTransaction("add", copy, copy.calendar, null, null);
+    } catch (e) {
+      log("task duplicate error", e);
+    }
+  };
+  const deleteTask = () => win.goDoCommand?.("calendar_delete_todo_command");
+  const accel = key => `${IS_MAC ? "⌘" : "Ctrl+"}${key}`;
+  let moreMenu = null;
+  const openMore = () => {
+    const item = tree.currentTask;
+    if (!item) {
+      return;
+    }
+    moreMenu?.remove();
+    moreMenu = doc.createXULElement("menupopup");
+    moreMenu.id = "mcTaskMoreMenu";
+    const mi = (label, run, { key = null, disabled = false, cls = null } = {}) => {
+      const m = doc.createXULElement("menuitem");
+      m.setAttribute("label", tr(label));
+      if (key) {
+        m.setAttribute("acceltext", key);
+      }
+      if (disabled) {
+        m.setAttribute("disabled", "true");
+      }
+      if (cls) {
+        m.className = cls;
+      }
+      m.addEventListener("command", run);
+      return m;
+    };
+    const canEdit = writable(item);
+    const move = doc.createXULElement("menu");
+    move.setAttribute("label", tr("Move to List"));
+    const movePop = doc.createXULElement("menupopup");
+    const cals = cal.manager.getCalendars().filter(c => !c.getProperty("disabled") && cal.acl.isCalendarWritable(c) &&
+      c.getProperty("capabilities.tasks.supported") !== false);
+    for (const c of cals) {
+      const m = mi(c.name, () => c.id != item.calendar?.id && save(it => (it.calendar = c), c));
+      m.setAttribute("type", "radio");
+      if (c.id == item.calendar?.id) {
+        m.setAttribute("checked", "true");
+      }
+      movePop.append(m);
+    }
+    move.append(movePop);
+    if (!canEdit || cals.length < 2) {
+      move.setAttribute("disabled", "true");
+    }
+    moreMenu.append(
+      mi("Duplicate", duplicateTask, { key: accel("D"), disabled: !cal.acl.isCalendarWritable(item.calendar) }),
+      move,
+      doc.createXULElement("menuseparator"),
+      mi("Open in New Window", openTask, { key: accel("O") }),
+      doc.createXULElement("menuseparator"),
+      mi("Delete Task", deleteTask, { key: IS_MAC ? "⌫" : "Del", disabled: !canEdit, cls: "mc-ta-danger" }),
+    );
+    doc.getElementById("mainPopupSet")?.append(moreMenu) ?? doc.documentElement.append(moreMenu);
+    moreMenu.addEventListener("popuphidden", event => event.target == moreMenu && moreMenu.remove());
+    moreBtn.setAttribute("open", "true");
+    moreMenu.addEventListener("popuphiding", event => event.target == moreMenu && moreBtn.removeAttribute("open"));
+    moreMenu.openPopup(moreBtn, "after_end", 0, 2, false, false);
+  };
+  openBtn.addEventListener("command", openTask);
+  moreBtn.addEventListener("command", openMore);
+  // ⌘D und ⌘O in der Aufgabenliste (wie im „…“-Menü angezeigt)
+  const onKey = event => {
+    if (doc.documentElement.getAttribute("mc-tab") != "tasks" || event.altKey || event.shiftKey ||
+      !(IS_MAC ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) ||
+      !(event.target == tree || event.target.closest?.("#calendar-task-tree, #mcTaskCards")) || !tree.currentTask) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (key == "d" || key == "o") {
+      event.preventDefault();
+      event.stopPropagation();
+      (key == "d" ? duplicateTask : openTask)();
+    }
+  };
+  win.addEventListener("keydown", onKey, true);
+  restorers.push(() => {
+    win.removeEventListener("keydown", onKey, true);
+    moreMenu?.remove();
+    openBtn.remove();
+    moreBtn.remove();
+  });
   const orig = view.onSelect;
   view.onSelect = function (...args) {
     const result = orig.apply(this, args);
@@ -12414,7 +12535,6 @@ class CardEnhancer {
           .find(li => rectOf(li).width);
         const pr = rectOf(plus?.querySelector("button"));
         let headRight;
-        const actions = d.getElementById("task-actions-toolbar");
         {
           if (side && lr?.width) {
             // (immer an der Liste, nicht am Platz der Mail-Knöpfe – beim Ziehen
@@ -12434,7 +12554,8 @@ class CardEnhancer {
               // (rechts der Suche bis zur Kante der Details, z. B. der Today-Knopf
               // bei geschlossener Today-Pane – nicht die Today-Pane selbst)
               const tail = Math.max(0, dr.right - sr.right);
-              const need = Math.ceil(pl.right + reserve - dr.left + 40 + tail + 6);
+              // (mindestens 300 px wie beim Ziehen: Platz für die Knöpfe über der Aufgabe)
+              const need = Math.max(300, Math.ceil(pl.right + reserve - dr.left + 40 + tail + 6));
               if (Math.abs((parseFloat(d.documentElement.style.getPropertyValue("--mc-task-details-min")) || 0) - need) >= 1) {
                 d.documentElement.style.setProperty("--mc-task-details-min", `${need}px`);
               }
@@ -12448,10 +12569,6 @@ class CardEnhancer {
           // (die Kapsel endet 8 px vor dieser Kante)
           if (pr?.width && pr.left - 2 < headRight) {
             headRight = pr.left - 2;
-          }
-          // Aktionsknöpfe gleich rechts vom „+“
-          if (pr?.width) {
-            setVar(actions, "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
           }
         }
         setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
@@ -12512,11 +12629,6 @@ class CardEnhancer {
       const sb = rectOf(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]:not([hidden])'));
       if (sb?.width) {
         rowVar("--mc-search-left", `${Math.round(sb.left)}px`);
-        // Aufgaben: der Hinweis endet vor den Aktionsknöpfen (stehen vor dem Suchfeld)
-        const ta = tab.mode.name == "tasks" ? rectOf(d.getElementById("task-actions-toolbar")) : null;
-        if (ta?.width) {
-          setVar(d.getElementById("task-addition-box"), "--mc-search-left", `${Math.round(ta.left)}px`);
-        }
       }
       rowVar("--mc-row-top", `${Math.round(rr.top)}px`);
       rowVar("--mc-row-h", `${Math.round(rr.height)}px`);

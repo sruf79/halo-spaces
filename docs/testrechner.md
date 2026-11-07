@@ -107,7 +107,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
   die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
-  CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE` (dauerhaft) oder mit Ablaufzeit in `~/halo-nacht/pausen.txt` (`pause_setzen`, alle Routinen, `tests/MAC-MINI.md` Abschnitt 13). Details
+  CI-Runde der Nacht damit testet. Pausieren nur über `~/halo-nacht/pausen.txt` (eine Datei für alle Routinen, `pause_setzen`, mit Ablaufzeit; `tests/MAC-MINI.md` Abschnitt 13). Das gilt für Routinen, die `pause_start` aufrufen (LaunchAgents und die lokale Aufgabe der Desktop-App); in der Cloud geplante Aufgaben gibt es nicht (`list_triggers` leer) und würden die Datei nicht lesen. Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
   Nachtlauf, Design-Rundgang, Doku-Prüfung und GitHub-Kommunikation prüfen vorher
@@ -170,7 +170,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   vorigen Rundgang), vergleicht mit dem häufigsten Wert je Kategorie und der
   Vorwoche und lässt Claude neue Ausreißer als Bug eintragen (außer
   Entscheidungen des Maintainers und „Wartet auf OK“). Bericht
-  `~/halo-berichte/<datum>-rundgang.md`, Pause `~/halo-tour/PAUSE`.
+  `~/halo-berichte/<datum>-rundgang.md`, Pause über `~/halo-nacht/pausen.txt` (Routine `rundgang`).
   `tests/MAC-MINI.md` Abschnitt 17.
 - Neue Routinen auf neon laufen als LaunchAgent ohne eigene Sitzung der
   Desktop-App; die Routine „GitHub-Kommunikation“ ist nur für GitHub-Nutzer da

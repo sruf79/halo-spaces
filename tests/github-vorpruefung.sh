@@ -34,12 +34,16 @@ gh api user >/dev/null 2>&1 || {
   [[ -n $t ]] && export GH_TOKEN=$t
 }
 
-# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, Routine github-komm): wie „nichts neu“
-if [[ -r ${0:A:h}/lauf-hilfen.zsh ]] && source ${0:A:h}/lauf-hilfen.zsh 2>/dev/null && PG=$(pause_aktiv github-komm); then
-  print "NICHTS NEU (pausiert $PG)"
-  [[ -z $TROCKEN ]] && { mkdir -p ${PROTOKOLL:h}
-    print -r -- "$(date '+%F %T') ÜBERSPRUNGEN github-kommunikation pausiert $PG" >> $PROTOKOLL; }
-  exit 0
+# Pause (eine Datei: ~/halo-nacht/pausen.txt, Routine github-komm): wie „nichts neu“; im Trockenlauf
+# schreibt pause_start nichts (LOG/uebersprungen.log auf /dev/null)
+if [[ -r ${0:A:h}/lauf-hilfen.zsh ]] && source ${0:A:h}/lauf-hilfen.zsh 2>/dev/null; then
+  LOG=${PROTOKOLL}
+  if [[ -n $TROCKEN ]]; then
+    HALO_UEBERSPRUNGEN_LOG=/dev/null LOG=/dev/null HALO_PAUSE_TROCKEN=1 pause_start github-komm && { print "NICHTS NEU (pausiert $PAUSE_GRUND)"; exit 0 }
+  else
+    mkdir -p ${PROTOKOLL:h}
+    pause_start github-komm && { print "NICHTS NEU (pausiert $PAUSE_GRUND)"; exit 0 }
+  fi
 fi
 
 zweifel() { print "NEU (Prüfung nicht möglich: $1)"; exit 2 }

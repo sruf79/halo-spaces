@@ -643,18 +643,25 @@ aufs iPhone (Sitzung `github.comm.routine` nicht gefunden o. ä.), schreibt `pus
 gilt dauerhaft und hätte den Rundgang auch nächste Woche verhindert): `~/halo-nacht/pausen.txt`, eine
 Zeile je Pause `<Routine> <bis ISO-Zeit mit Zone> <Grund>`, z. B.
 `rundgang 2026-11-07T14:05+01:00 vom Maintainer ausgesetzt`; Routinen `nachtlauf`, `rundgang`,
-`dokupruefung`, `wochenpruefung`, `github-komm` oder `alle`. Eintragen: `zsh -c 'source
+`dokupruefung`, `wochenpruefung`, `github-komm`, `ci-waechter` oder `alle` (die Liste steht einmal in
+`PAUSEN_ROUTINEN` in `tests/lauf-hilfen.zsh`). Das ist die **einzige** Pausen-Datei. Eintragen: `zsh -c 'source
 ~/.config/halo-spaces/lauf-hilfen.zsh; pause_setzen rundgang 2026-11-14T14:05+01:00 "Grund"'`. Jeder Lauf
-prüft die Datei zu Beginn (`pause_aktiv`, abgelaufene Zeilen zählen nicht) und schreibt bei einer Pause
+fragt die Datei zu Beginn über `pause_start <Routine>` (abgelaufene Zeilen zählen nicht, bei mehreren
+aktiven Zeilen gilt der späteste Ablauf) und schreibt bei einer Pause
 `ÜBERSPRUNGEN <Routine> pausiert bis … – <Grund>` (Protokoll und `uebersprungen.log`, kein Push). Am Ende
 des Nachtlaufs (auch bei Abbruch, Pause oder Überspringen) entfernt `pausen_aufraeumen` abgelaufene
 Zeilen mit je einer Zeile `PAUSE ABGELAUFEN …` im Protokoll und in `uebersprungen.log`. Unlesbare Zeilen
 (Tippfehler in Zeit, Zone oder Routine) werden nie gelöscht: sie gelten als nicht pausierend und werden
 einmal je Lauf als `PAUSE UNLESBAR <Zeile> – Routine läuft trotzdem` gemeldet (Protokoll und
 `uebersprungen.log`, kein Push); Leerzeilen und `#`-Zeilen zählen nicht. Probe:
-`HALO_JETZT=<ISO-Zeit>` ersetzt die Uhr, `HALO_PAUSEN_DATEI` die Datei. Die alten Dateien `PAUSE`,
-`PAUSE-WOCHE`, `PAUSE-DOKU` (und `~/halo-tour/PAUSE`) gelten weiter, ohne Ablauf; die Wochenprüfung meldet
-sie als „dauerhaft“ (Abschnitte 15 bis 17). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf
+`HALO_JETZT=<ISO-Zeit>` ersetzt die Uhr, `HALO_PAUSEN_DATEI` die Datei. Alte Dateien (`~/halo-nacht/PAUSE`,
+`PAUSE-WOCHE`, `PAUSE-DOKU`, `~/halo-tour/PAUSE`) übernimmt `pause_start` beim nächsten Start jeder
+Routine als Zeile mit Ablauf 2999-12-31 („migriert aus …“, Meldung `PAUSE MIGRIERT …`) und löscht sie; die
+Wochenprüfung meldet solche Zeilen als „dauerhaft“ (Abschnitte 15 bis 17). Der CI-Wächter pausiert mit
+(Routine `ci-waechter`, eine gleiche Meldung nur einmal, nicht bei `--nur`, `--trocken`, `--datei`).
+Cloud-geplante Aufgaben (Triggers) gibt es nicht (`list_triggers` leer); eine neue müsste `pausen.txt`
+selbst lesen. Prüfung: `zsh tests/pausen_test.zsh` (Einzelfälle, Uhr per `HALO_JETZT`) und
+`zsh tests/pausen_check.sh` (zusätzlich Reste alter Dateien; läuft in der Doku-Prüfung). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf
 (`tests/sitzung-finden.zsh`: gleicher Name, sonst alle Wörter des Namens, z. B. `comm.github.routine`
 für `github.comm.routine`); ohne Treffer kein Claude-Aufruf, nur `PUSH-FEHLER`. Treffer stehen in
 `~/halo-aufgaben/sitzungen.json`.
@@ -726,8 +733,8 @@ ist (Entscheidung des Maintainers vom 5.11.2026).
   (kein fremder Dienst). Testen: `~/.config/halo-spaces/nachtlauf.sh
   --push-test "Test"` – nur unter launchd bzw. in der Bildschirmsitzung, per
   SSH ist `claude -p` nicht angemeldet (Schlüsselbund).
-- Pausieren: `touch ~/halo-nacht/PAUSE` (Bericht „pausiert“), fortsetzen:
-  `rm ~/halo-nacht/PAUSE`. Abschalten:
+- Pausieren: Zeile in `~/halo-nacht/pausen.txt` (Routine `nachtlauf`, siehe oben; Bericht „pausiert“),
+  fortsetzen: Zeile löschen. Abschalten:
   `launchctl bootout gui/$(id -u)/at.halo-spaces.nachtlauf` und die plist in
   `~/Library/LaunchAgents/` löschen.
 
@@ -840,7 +847,7 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   „ausgelassen“); `claude -p` im Modus `auto`, nach Limit 30 Minuten Pause
   und Fortsetzen, nach 6 Stunden kein Fortsetzen mehr, nach 7 beendet.
   Protokoll `~/halo-nacht/<datum>-woche.log`.
-- Pausieren: `touch ~/halo-nacht/PAUSE-WOCHE`, fortsetzen mit `rm`.
+- Pausieren: Zeile für `wochenpruefung` in `~/halo-nacht/pausen.txt` (Abschnitt 13), fortsetzen: Zeile löschen.
 - Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --trocken` – nur
   auswerten und Bericht, keine Änderungen, kein Board, keine Kennzahlen-Datei.
   Wie beim Nachtlauf nur unter launchd bzw. in der Bildschirmsitzung (per SSH
@@ -881,7 +888,7 @@ keine geplante Aufgabe der Desktop-App).
   4. Nur wenn nichts davon zutrifft: `ÜBERSPRUNGEN dokupruefung …` ohne Claude und ohne Push.
 
   Sonnet, `--effort low` (Vollprüfung `--effort medium`).
-- Pausieren: `touch ~/halo-nacht/PAUSE-DOKU`, fortsetzen mit `rm`.
+- Pausieren: Zeile für `dokupruefung` in `~/halo-nacht/pausen.txt` (Abschnitt 13), fortsetzen: Zeile löschen.
 - Probelauf: `~/.config/halo-spaces/wochenpruefung.sh --doku --trocken` –
   nur auswerten und Bericht; Einschränkungen wie Abschnitt 15.
 
@@ -929,7 +936,7 @@ die `halo_test.py` nicht sieht.
   Sonst Bericht „übersprungen“, `ÜBERSPRUNGEN rundgang …`, Kennzahl
   `uebersprungen`, kein Push. Die Auswertung läuft mit Sonnet, niedrige
   Reasoning-Stufe.
-- Pausieren: `touch ~/halo-tour/PAUSE`, fortsetzen mit `rm`.
+- Pausieren: Zeile für `rundgang` in `~/halo-nacht/pausen.txt` (Abschnitt 13), fortsetzen: Zeile löschen.
 - Probelauf von Hand (lokaler Stand, ohne Claude, wartet nur auf CI und
   Testläufe, Ablage `~/halo-tour/<datum>-probe`):
   `~/.config/halo-spaces/rundgang-woche.sh --only <id>,<id> ~/halo-spaces`.

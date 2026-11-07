@@ -12,17 +12,24 @@ log() { print -r -- "$(zeit) $*" >> $LOG }
 # Pausen mit Ablaufzeit (Anweisung des Maintainers vom 7.11.2026: keine Sperre darf vergessen
 # werden; Anlass: ~/halo-tour/PAUSE ist dauerhaft). ~/halo-nacht/pausen.txt, eine Zeile je Pause:
 #   <Routine> <bis ISO-Zeit mit Zone, z. B. 2026-11-07T14:05+01:00> <Grund>
-# Routinen: nachtlauf, rundgang, dokupruefung, wochenpruefung, github-komm oder alle. Kein Claude.
+# Routinen: siehe PAUSEN_ROUTINEN (eine Stelle) oder „alle“. Es gibt nur diese eine Pausen-Datei;
+# alte Dateien (PAUSE, PAUSE-WOCHE, PAUSE-DOKU, ~/halo-tour/PAUSE) werden beim nächsten Start jeder
+# Routine übernommen (Zeile mit Ablauf 2999-12-31, „PAUSE MIGRIERT …“) und gelöscht. Kein Claude.
+#   pause_start <Routine>      der Einstieg jeder Routine: übernimmt alte Dateien, meldet unlesbare Zeilen,
+#                              0 = pausiert (schreibt „ÜBERSPRUNGEN <Routine> pausiert bis …“ ins Protokoll
+#                              und in uebersprungen.log, bei HALO_PAUSE_EINMAL=1 (ci-waechter, alle 15 Min.) eine gleiche Zeile nur einmal), sonst 1
 #   pause_aktiv <Routine>      0 = pausiert, gibt „bis <Zeit> – <Grund>“ aus; abgelaufene Zeilen zählen
 #                              nicht (reiner Zeitvergleich, es wird nichts entfernt)
 #   pausen_aufraeumen          entfernt abgelaufene Zeilen, je Zeile „PAUSE ABGELAUFEN …“
 #                              ins Protokoll und in uebersprungen.log (läuft am Ende des Nachtlaufs)
 #   pause_setzen <Routine> <bis> <Grund>
 # Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_PAUSEN_DATEI die Datei.
+PAUSEN_ROUTINEN=(nachtlauf rundgang dokupruefung wochenpruefung github-komm ci-waechter)
+export HALO_ROUTINEN="$PAUSEN_ROUTINEN"
 PAUSEN_PY='
 import sys, os, datetime
 datei, modus = sys.argv[1], sys.argv[2]
-ROUT = {"nachtlauf", "rundgang", "dokupruefung", "wochenpruefung", "github-komm", "alle"}
+ROUT = set(os.environ.get("HALO_ROUTINEN", "").split()) | {"alle"}
 def jetzt():
     j = os.environ.get("HALO_JETZT")
     return datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.now().astimezone()
@@ -36,7 +43,7 @@ try:
 except OSError:
     zeilen = []
 if modus == "aktiv":
-    rolle, n = sys.argv[3], jetzt()
+    rolle, n, beste = sys.argv[3], jetzt(), None
     for z in zeilen:
         if not z.strip() or z.lstrip().startswith("#"):
             continue
@@ -44,8 +51,10 @@ if modus == "aktiv":
             r, bis, roh, grund = lesen(z)
         except ValueError:
             continue
-        if r in (rolle, "alle") and bis > n:
-            print("bis %s – %s" % (roh, grund)); sys.exit(0)
+        if r in (rolle, "alle") and bis > n and (beste is None or bis > beste[0]):
+            beste = (bis, roh, grund)       # mehrere aktive Zeilen: die mit dem spätesten Ablauf gilt
+    if beste:
+        print("bis %s – %s" % (beste[1], beste[2])); sys.exit(0)
     sys.exit(1)
 if modus == "unlesbar":
     for z in zeilen:
@@ -97,6 +106,34 @@ pausen_aufraeumen() {
     [[ -n $LOG ]] && log "PAUSE ABGELAUFEN $z"
     print -r -- "$(zeit) PAUSE ABGELAUFEN $z" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
   done
+}
+# alte Pausen-Dateien übernehmen: <Datei>:<Routine>; HALO_NACHT_DIR/HALO_TOUR_DIR zum Proben
+pausen_migrieren() {
+  local nacht=${HALO_NACHT_DIR:-$HOME/halo-nacht} tour=${HALO_TOUR_DIR:-$HOME/halo-tour} e f r
+  local datei=${HALO_PAUSEN_DATEI:-$nacht/pausen.txt}
+  [[ -n $HALO_PAUSE_TROCKEN ]] && return 0      # Trockenlauf ändert nichts
+  for e in $nacht/PAUSE:nachtlauf $nacht/PAUSE-WOCHE:wochenpruefung $nacht/PAUSE-DOKU:dokupruefung $tour/PAUSE:rundgang; do
+    f=${e%%:*} r=${e##*:}
+    [[ -e $f ]] || continue
+    mkdir -p ${datei:h}
+    print -r -- "$r 2999-12-31T00:00+01:00 migriert aus ${f/#$HOME/~} (Datei gelöscht, bei Bedarf Zeile kürzen)" >> $datei || continue
+    rm -f $f
+    [[ -n $LOG ]] && log "PAUSE MIGRIERT $r aus ${f/#$HOME/~}"
+    print -r -- "$(zeit) PAUSE MIGRIERT $r aus ${f/#$HOME/~}" >> ${HALO_UEBERSPRUNGEN_LOG:-$nacht/uebersprungen.log}
+  done
+}
+pause_start() {   # <Routine>
+  local r=$1 g text letzte uelog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  pausen_migrieren
+  g=$(pause_aktiv $r) || return 1
+  text="ÜBERSPRUNGEN $r pausiert $g"
+  [[ -n $HALO_PAUSE_EINMAL ]] && letzte=$(grep -aF "ÜBERSPRUNGEN $r pausiert " $uelog 2>/dev/null | tail -1)
+  if [[ -z $HALO_PAUSE_EINMAL || ${letzte#* * } != $text ]]; then   # Zeitstempel „Datum Zeit “ abschneiden
+    [[ -n $LOG ]] && log "$text"
+    print -r -- "$(zeit) $text" >> $uelog
+  fi
+  PAUSE_GRUND=$g
+  return 0
 }
 pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
   local datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}

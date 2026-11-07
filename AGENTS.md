@@ -55,6 +55,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `docs/github-komm.md` | GitHub-Kommunikation mit Nutzern (Issues, Pull Requests, Forks, Routine); Kern in `AGENTS.md` |
 | `docs/board.md` | Board-Einzelheiten: Feld-IDs, `gh`-Befehle, Cloud-Weg, Bilder, Apple-Vorlagen, Bilder-Erinnerung; Pflichtregeln in `AGENTS.md` |
 | `docs/testrechner.md` | Testrechner-Einzelheiten: Mac-mini-Prüfung, CI-Laufzeiten, Dunkelmodus, Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang, Windows-VM, Modelle der Routinen; Sperren in `AGENTS.md` |
+| `tests/pausen_test.zsh`, `tests/pausen_check.sh` | Pausen-Logik (`~/halo-nacht/pausen.txt`, `pause_start`): Einzelfälle ohne Claude; Wächter gegen Reste alter Pausen-Dateien, läuft in der Doku-Prüfung |
 | `tests/doku_kern_check.sh` | Wächter: harte Sperren und Pflichtbegriffe stehen in `AGENTS.md`, keine `@`-Importe; läuft in der Doku-Prüfung (`wochenpruefung.sh --doku`) |
 | `store/` | Texte, Screenshots und Upload-Skript für addons.thunderbird.net (Upload ausgesetzt, siehe `store/README.md`) |
 | `updates.json` | Update-Manifest, das Thunderbird von GitHub abfragt |
@@ -305,7 +306,7 @@ was jede Sitzung beachten muss:
   machen; vor Push, CI und Release das Board nicht erneut laden (Entscheidung
   des Maintainers vom 3.11.2026).
 - **Nachtlauf** (`tests/nachtlauf.sh`, jede Nacht 01:30) arbeitet die Aufgabenliste ab, pusht, wartet
-  auf die CI und veröffentlicht bei Grün; Pausieren mit `touch ~/halo-nacht/PAUSE`. Die übrigen
+  auf die CI und veröffentlicht bei Grün; Pausieren nur über `~/halo-nacht/pausen.txt` (`pause_setzen`, mit Ablaufzeit). Die übrigen
   Routinen (CI-Wächter, Wochenprüfung, Doku-Prüfung, Rundgang) und die Windows-VM stehen in
   `docs/testrechner.md`; Windows-Abweichungen wie Linux behandeln.
 

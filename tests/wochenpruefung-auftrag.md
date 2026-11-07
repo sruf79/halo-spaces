@@ -38,8 +38,9 @@ und wirkten die Verbesserungen der Vorwochen?
 - **Pausen:** `~/halo-nacht/pausen.txt` lesen: aktive Pausen (bis, Grund), Zeilen „PAUSE ABGELAUFEN“ der
   letzten 7 Tage aus ~/halo-nacht/uebersprungen.log zählen, ebenso „PAUSE UNLESBAR“ (Tippfehler: die Pause galt
   nicht, die Routine lief – Zeile in pausen.txt nennen), Pausen mit mehr als 7 Tagen Laufzeit melden.
-  Dauerhafte Pausen ohne Ablauf melden (Dateien ~/halo-nacht/PAUSE, PAUSE-WOCHE, PAUSE-DOKU,
-  PAUSE-NEUSTART, ~/halo-tour/PAUSE, wenn vorhanden): „dauerhaft, ohne Ablauf“ mit Alter der Datei.
+  Zeilen mit Ablauf 2999-12-31 („migriert aus …“, übernommene alte Dateien) als „dauerhaft, ohne Ablauf“
+  melden; Zeilen „PAUSE MIGRIERT“ der letzten 7 Tage zählen. Alte Pausen-Dateien gibt es nicht mehr
+  (Ausnahme: die inaktive Vorlage tests/neon-neustart.sh mit PAUSE-NEUSTART).
 - **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
   ~/halo-nacht/uebersprungen.log je Routine zählen (die iPhone-Meldung kam nicht an, z. B.
   falscher Sitzungsname). Jede ist ein Fehler im Ablauf: Grund im Bericht nennen, bei

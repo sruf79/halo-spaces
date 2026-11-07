@@ -602,8 +602,8 @@ agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
 </plist>
 EOF
 }
-pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei oder -> <Text bei OK> [<Option>]
-  local name=$1 label=$2 skript=$3 log=$4 plan=$5 pause=$6 text=$7 opt=$8
+pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Routine für pausen.txt oder -> <Text bei OK> [<Option>]
+  local name=$1 label=$2 skript=$3 log=$4 plan=$5 pauserolle=$6 text=$7 opt=$8
   local plist=$HOME/Library/LaunchAgents/$label.plist dom=gui/$(id -u) f aktuell=1
   for f in $skript lauf-hilfen.zsh sitzung-finden.zsh; do
     cmp -s $ROOT/tests/$f $AG_DIR/$f || aktuell=0
@@ -630,8 +630,8 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Pause-Datei
   if ! launchctl print $dom/$label >/dev/null 2>&1; then
     offen $name "LaunchAgent nicht geladen"
     tun "launchctl bootstrap $dom $plist"
-  elif [[ $pause != - && -e $pause ]]; then
-    hinweis $name "geladen, aber pausiert (rm $pause zum Fortsetzen)"
+  elif [[ -n $pauserolle ]] && ( source $ROOT/tests/lauf-hilfen.zsh; LOG= pause_aktiv $pauserolle >/dev/null ); then
+    hinweis $name "geladen, aber pausiert (~/halo-nacht/pausen.txt, Routine $pauserolle)"
   else
     ok $name "$text ($log)"
   fi
@@ -640,19 +640,19 @@ pruefe_laeufe() {
   pruefe_agent "Nachtlauf" at.halo-spaces.nachtlauf nachtlauf.sh $HOME/Library/Logs/halo-nachtlauf.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>' \
-    $HOME/halo-nacht/PAUSE "täglich 01:30, Berichte in ~/halo-berichte"
+    nachtlauf "täglich 01:30, Berichte in ~/halo-berichte"
   pruefe_agent "CI-Wächter" at.halo-spaces.ci-waechter ci-waechter.sh $HOME/Library/Logs/halo-ci-waechter.log \
     '<key>StartInterval</key><integer>900</integer>
   <key>RunAtLoad</key><true/>' \
-    - "alle 15 Minuten, rote CI-Läufe ins Board, Protokoll ~/halo-aufgaben/ci-waechter.log"
+    ci-waechter "alle 15 Minuten, rote CI-Läufe ins Board, Protokoll ~/halo-aufgaben/ci-waechter.log"
   pruefe_agent "Wochenprüfung" at.halo-spaces.wochenpruefung wochenpruefung.sh $HOME/Library/Logs/halo-wochenpruefung.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
-    $HOME/halo-nacht/PAUSE-WOCHE "sonntags 08:00, Berichte in ~/halo-berichte"
+    wochenpruefung "sonntags 08:00, Berichte in ~/halo-berichte"
   pruefe_agent "Doku-Prüfung" at.halo-spaces.dokupruefung wochenpruefung.sh $HOME/Library/Logs/halo-dokupruefung.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
-    $HOME/halo-nacht/PAUSE-DOKU "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
+    dokupruefung "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.
@@ -662,7 +662,7 @@ pruefe_laeufe() {
   pruefe_agent "Design-Rundgang" at.halo-spaces.rundgang rundgang-woche.sh $HOME/Library/Logs/halo-rundgang.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>' \
-    $HOME/halo-tour/PAUSE "samstags 10:00, Ablage ~/halo-tour, Berichte in ~/halo-berichte"
+    rundgang "samstags 10:00, Ablage ~/halo-tour, Berichte in ~/halo-berichte"
   # Bildschirmaufnahme im LaunchAgent: der Rundgang hält beim Start fest, ob er
   # aufnehmen darf (Popups per screencapture -l)
   local ba=$HOME/halo-tour/bildschirmaufnahme.txt

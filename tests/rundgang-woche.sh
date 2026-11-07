@@ -13,8 +13,7 @@
 #                Testläufe, nicht auf Sitzungen; Ablage ~/halo-tour/<datum>-probe)
 # Der Stand kommt aus origin/main in einem eigenen Checkout (~/halo-tour/stand),
 # ~/halo-spaces selbst bleibt unberührt. Ablage ~/halo-tour/<datum>/.
-# Pausieren: touch ~/halo-tour/PAUSE (rm zum Fortsetzen) oder mit Ablaufzeit in
-# ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh).
+# Pausieren: nur über ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh, mit Ablaufzeit).
 emulate -L zsh
 setopt extendedglob
 
@@ -85,17 +84,8 @@ json.dump(d[-60:], open(p, "w"), indent=1, ensure_ascii=False)
 EOF
 }
 
-if [[ -e $TOUR/PAUSE ]]; then
-  log "Rundgang pausiert (~/halo-tour/PAUSE)"
-  notbericht "pausiert" "~/halo-tour/PAUSE vorhanden"
-  kennzahl pausiert
-  push "Design-Rundgang $TAG: pausiert (~/halo-tour/PAUSE)"
-  exit 0
-fi
-# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh)
-if PAUSE_GRUND=$(pause_aktiv rundgang); then
-  log "Rundgang pausiert $PAUSE_GRUND"
-  uebersprungen rundgang "pausiert $PAUSE_GRUND"
+# Pause: eine Datei, ~/halo-nacht/pausen.txt (tests/lauf-hilfen.zsh)
+if pause_start rundgang; then
   notbericht "pausiert" "Pause $PAUSE_GRUND"
   kennzahl pausiert
   exit 0

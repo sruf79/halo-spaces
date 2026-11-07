@@ -15,7 +15,7 @@
 #                Board, keine Kennzahlen-Datei
 # Schreibt immer einen Bericht nach ~/halo-berichte/<datum>-wochenpruefung.md
 # (bzw. -dokupruefung.md) und schickt dessen Zeile „Kurz: …“ aufs iPhone.
-# Pausieren: touch ~/halo-nacht/PAUSE-WOCHE bzw. PAUSE-DOKU (rm zum Fortsetzen).
+# Pausieren: pause_setzen (~/halo-nacht/pausen.txt, Routine wochenpruefung bzw. dokupruefung).
 emulate -L zsh
 setopt extendedglob
 
@@ -30,9 +30,9 @@ while [[ $1 == --* ]]; do
 done
 # Namen je Art: Wochenprüfung (Läufe) oder Doku-Prüfung (.md-Dateien)
 if [[ -n $DOKU ]]; then
-  ART=doku NAME=Doku-Prüfung BERICHT_NAME=dokupruefung PAUSE=PAUSE-DOKU AUFTRAG_DATEI=dokupruefung-auftrag.md
+  ART=doku NAME=Doku-Prüfung BERICHT_NAME=dokupruefung PAUSE_ROUTINE=dokupruefung AUFTRAG_DATEI=dokupruefung-auftrag.md
 else
-  ART=woche NAME=Wochenprüfung BERICHT_NAME=wochenpruefung PAUSE=PAUSE-WOCHE AUFTRAG_DATEI=wochenpruefung-auftrag.md
+  ART=woche NAME=Wochenprüfung BERICHT_NAME=wochenpruefung PAUSE_ROUTINE=wochenpruefung AUFTRAG_DATEI=wochenpruefung-auftrag.md
 fi
 REPO=${1:-$HOME/halo-spaces}
 # Falscher oder fehlender Repo-Ordner (z. B. eine Option, die diese Version
@@ -89,16 +89,8 @@ notbericht() {
   } > $BERICHT
 }
 
-if [[ -e $DIR/$PAUSE ]]; then
-  log "pausiert (~/halo-nacht/$PAUSE)"
-  notbericht "pausiert" "~/halo-nacht/$PAUSE vorhanden, nichts gemacht"
-  push "$NAME $TAG: pausiert (~/halo-nacht/$PAUSE)"
-  exit 0
-fi
-# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh)
-if PAUSE_GRUND=$(pause_aktiv ${${ART:#woche}:+dokupruefung}${${ART:#doku}:+wochenpruefung}); then
-  log "pausiert $PAUSE_GRUND"
-  uebersprungen ${${ART:#woche}:+dokupruefung}${${ART:#doku}:+wochenpruefung} "pausiert $PAUSE_GRUND"
+# Pause: eine Datei, ~/halo-nacht/pausen.txt (tests/lauf-hilfen.zsh)
+if pause_start $PAUSE_ROUTINE; then
   notbericht "pausiert" "Pause $PAUSE_GRUND, nichts gemacht"
   exit 0
 fi
@@ -135,6 +127,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
   else
     log "Wächter AGENTS.md ROT: ${KERN//$'\n'/ | }"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/doku_kern_check.sh): ${KERN//$'\n'/ | } – fehlende Sperren oder Begriffe wiederherstellen (nicht den Wächter lockern); gehört die Regel nicht mehr in den Kern, nur mit Entscheidung des Maintainers (Eintrag „Doku: …“ mit „Wartet auf OK“)."
+  fi
+  # Pausen: eine Datei (tests/pausen_check.sh: Einzelfälle der Logik, keine Reste alter Pausen-Dateien)
+  if PAUSEN=$(zsh $REPO/tests/pausen_check.sh $REPO 2>&1); then
+    log "Wächter Pausen: ${PAUSEN%%$'\n'*}"
+  else
+    log "Wächter Pausen ROT: ${PAUSEN//$'\n'/ | }"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/pausen_check.sh): ${PAUSEN//$'\n'/ | } – Pausen-Logik bzw. Doku an die eine Datei ~/halo-nacht/pausen.txt anpassen."
   fi
 fi
 

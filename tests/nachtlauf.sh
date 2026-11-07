@@ -12,8 +12,7 @@
 # wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
 # eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
 # „github.comm.routine“, die Remote Control hat).
-# Pausieren: touch ~/halo-nacht/PAUSE (rm zum Fortsetzen) oder mit Ablaufzeit in
-# ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh).
+# Pausieren: nur über ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh, mit Ablaufzeit).
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 emulate -L zsh
 setopt extendedglob
@@ -102,19 +101,9 @@ notbericht() {
   } > $BERICHT
 }
 
-# --- Pause ---
-if [[ -e $DIR/PAUSE ]]; then
-  log "pausiert (~/halo-nacht/PAUSE)"
-  notbericht "pausiert" "~/halo-nacht/PAUSE vorhanden, nichts gemacht"
-  push "Nachtlauf $TAG: pausiert (~/halo-nacht/PAUSE)"
-  pausen_aufraeumen
-  exit 0
-fi
-# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh); abgelaufene Zeilen
-# räumt der Nachtlauf an seinem Ende auf, auch hier bei einer Pause
-if PAUSE_GRUND=$(pause_aktiv nachtlauf); then
-  log "pausiert $PAUSE_GRUND"
-  uebersprungen nachtlauf "pausiert $PAUSE_GRUND"
+# --- Pause (eine Datei: ~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh); abgelaufene Zeilen
+# räumt der Nachtlauf an seinem Ende auf, auch hier bei einer Pause ---
+if pause_start nachtlauf; then
   notbericht "pausiert" "Pause $PAUSE_GRUND, nichts gemacht"
   pausen_aufraeumen
   exit 0

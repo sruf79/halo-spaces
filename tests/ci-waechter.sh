@@ -341,6 +341,12 @@ if [[ -n $DATEI ]]; then
   exit 0
 fi
 
+# Pause (eine Datei: ~/halo-nacht/pausen.txt, Routine ci-waechter): nichts melden, nichts ins Board;
+# von Hand gerufene Läufe (--nur, --trocken, --datei oben) pausieren nie
+if [[ -z $NUR && -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start ci-waechter; then
+  exit 0
+fi
+
 FENSTER=$(nacht_fenster)
 LISTE=$(gh run list -R $R -w test.yml -b main -L 30 --json databaseId,status,conclusion,createdAt,headSha \
   --jq 'sort_by(.databaseId) | .[] | "\(.databaseId) \(.status) \(.conclusion // "-") \(.createdAt | fromdate) \(.headSha[:7])"') \

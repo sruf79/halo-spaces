@@ -107,7 +107,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
   die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
-  CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE`. Details
+  CI-Runde der Nacht damit testet. Pausieren mit `touch ~/halo-nacht/PAUSE` (dauerhaft) oder mit Ablaufzeit in `~/halo-nacht/pausen.txt` (`pause_setzen`, alle Routinen, `tests/MAC-MINI.md` Abschnitt 13). Details
   `tests/MAC-MINI.md` Abschnitt 13.
 - **Claude nur bei Arbeit, kleineres Modell für Routinen** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
   Nachtlauf, Design-Rundgang, Doku-Prüfung und GitHub-Kommunikation prüfen vorher

@@ -9,6 +9,80 @@ source ${0:A:h}/sitzung-finden.zsh   # sitzung_finden, sitzung_merken
 zeit() { date '+%F %T' }
 log() { print -r -- "$(zeit) $*" >> $LOG }
 
+# Pausen mit Ablaufzeit (Anweisung des Maintainers vom 7.11.2026: keine Sperre darf vergessen
+# werden; Anlass: ~/halo-tour/PAUSE ist dauerhaft). ~/halo-nacht/pausen.txt, eine Zeile je Pause:
+#   <Routine> <bis ISO-Zeit mit Zone, z. B. 2026-11-07T14:05+01:00> <Grund>
+# Routinen: nachtlauf, rundgang, dokupruefung, wochenpruefung, github-komm oder alle. Kein Claude.
+#   pause_aktiv <Routine>      0 = pausiert, gibt „bis <Zeit> – <Grund>“ aus; abgelaufene Zeilen zählen
+#                              nicht (reiner Zeitvergleich, es wird nichts entfernt)
+#   pausen_aufraeumen          entfernt abgelaufene und unlesbare Zeilen, je Zeile „PAUSE ABGELAUFEN …“
+#                              ins Protokoll und in uebersprungen.log (läuft am Ende des Nachtlaufs)
+#   pause_setzen <Routine> <bis> <Grund>
+# Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_PAUSEN_DATEI die Datei.
+PAUSEN_PY='
+import sys, os, datetime
+datei, modus = sys.argv[1], sys.argv[2]
+ROUT = {"nachtlauf", "rundgang", "dokupruefung", "wochenpruefung", "github-komm", "alle"}
+def jetzt():
+    j = os.environ.get("HALO_JETZT")
+    return datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.now().astimezone()
+def lesen(z):
+    t = z.strip().split(None, 2)
+    if len(t) < 3 or t[0] not in ROUT:
+        raise ValueError(z)
+    return t[0], datetime.datetime.fromisoformat(t[1]).astimezone(), t[1], t[2]
+try:
+    zeilen = open(datei, encoding="utf-8").read().splitlines()
+except OSError:
+    zeilen = []
+if modus == "aktiv":
+    rolle, n = sys.argv[3], jetzt()
+    for z in zeilen:
+        if not z.strip() or z.lstrip().startswith("#"):
+            continue
+        try:
+            r, bis, roh, grund = lesen(z)
+        except ValueError:
+            continue
+        if r in (rolle, "alle") and bis > n:
+            print("bis %s – %s" % (roh, grund)); sys.exit(0)
+    sys.exit(1)
+if modus == "aufraeumen":
+    n, bleibt, weg = jetzt(), [], []
+    for z in zeilen:
+        if not z.strip() or z.lstrip().startswith("#"):
+            bleibt.append(z); continue
+        try:
+            ok = lesen(z)[1] > n
+        except ValueError:
+            ok = False
+        (bleibt if ok else weg).append(z)
+    if weg:
+        open(datei, "w", encoding="utf-8").write("".join(l + "\n" for l in bleibt))
+        for z in weg:
+            print(z)
+'
+pause_aktiv() { [[ -r ${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt} ]] && python3 -I -c $PAUSEN_PY ${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt} aktiv $1 2>/dev/null }
+pausen_aufraeumen() {
+  local z datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
+  [[ -r $datei ]] || return 0
+  python3 -I -c $PAUSEN_PY $datei aufraeumen 2>/dev/null | while IFS= read -r z; do
+    [[ -n $LOG ]] && log "PAUSE ABGELAUFEN $z"
+    print -r -- "$(zeit) PAUSE ABGELAUFEN $z" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  done
+}
+pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
+  local datei=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
+  [[ -n $1 && -n $2 && -n $3 ]] || { print -u2 "Aufruf: pause_setzen <Routine> <bis> <Grund>"; return 2 }
+  print -r -- "$1 $2 ${*[3,-1]}" > $datei.neu
+  # prüfen, dass die Zeile lesbar ist: sie muss bei einer Uhr vor der Ablaufzeit aktiv sein
+  local ok=1
+  HALO_JETZT=2000-01-01T00:00+00:00 HALO_PAUSEN_DATEI=$datei.neu pause_aktiv $1 >/dev/null || ok=0
+  rm -f $datei.neu
+  (( ok )) || { print -u2 "pause_setzen: Routine oder Zeit nicht lesbar"; return 1 }
+  mkdir -p ${datei:h}; print -r -- "$1 $2 ${*[3,-1]}" >> $datei
+}
+
 # eine Zeile aufs iPhone: eine kurze Claude-Sitzung gibt sie per SendMessage an
 # die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt.
 # Scheitert die Zustellung (Sitzung nicht gefunden, Claude nicht erreichbar,

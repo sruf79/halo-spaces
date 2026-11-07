@@ -637,7 +637,21 @@ schreibt der Lauf nur einen Bericht „übersprungen“ und die Zeile
 ohne Push aufs iPhone. Im Zweifel (git oder gh nicht lesbar) läuft er. Scheitert ein Push
 aufs iPhone (Sitzung `github.comm.routine` nicht gefunden o. ä.), schreibt `push()` in
 `tests/lauf-hilfen.zsh` `PUSH-FEHLER <Routine> <Grund>` ins Protokoll und in
-`~/halo-nacht/uebersprungen.log`; die Wochenprüfung zählt sie (Kennzahl `push_fehler`). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf
+`~/halo-nacht/uebersprungen.log`; die Wochenprüfung zählt sie (Kennzahl `push_fehler`).
+
+**Pausen mit Ablaufzeit** (Anweisung des Maintainers vom 7.11.2026, Anlass: `~/halo-tour/PAUSE`
+gilt dauerhaft und hätte den Rundgang auch nächste Woche verhindert): `~/halo-nacht/pausen.txt`, eine
+Zeile je Pause `<Routine> <bis ISO-Zeit mit Zone> <Grund>`, z. B.
+`rundgang 2026-11-07T14:05+01:00 vom Maintainer ausgesetzt`; Routinen `nachtlauf`, `rundgang`,
+`dokupruefung`, `wochenpruefung`, `github-komm` oder `alle`. Eintragen: `zsh -c 'source
+~/.config/halo-spaces/lauf-hilfen.zsh; pause_setzen rundgang 2026-11-14T14:05+01:00 "Grund"'`. Jeder Lauf
+prüft die Datei zu Beginn (`pause_aktiv`, abgelaufene Zeilen zählen nicht) und schreibt bei einer Pause
+`ÜBERSPRUNGEN <Routine> pausiert bis … – <Grund>` (Protokoll und `uebersprungen.log`, kein Push). Am Ende
+des Nachtlaufs (auch bei Abbruch, Pause oder Überspringen) entfernt `pausen_aufraeumen` abgelaufene und
+unlesbare Zeilen mit je einer Zeile `PAUSE ABGELAUFEN …` im Protokoll und in `uebersprungen.log`. Probe:
+`HALO_JETZT=<ISO-Zeit>` ersetzt die Uhr, `HALO_PAUSEN_DATEI` die Datei. Die alten Dateien `PAUSE`,
+`PAUSE-WOCHE`, `PAUSE-DOKU` (und `~/halo-tour/PAUSE`) gelten weiter, ohne Ablauf; die Wochenprüfung meldet
+sie als „dauerhaft“ (Abschnitte 15 bis 17). `push()` löst den Namen der Empfangssitzung vorher ohne Claude auf
 (`tests/sitzung-finden.zsh`: gleicher Name, sonst alle Wörter des Namens, z. B. `comm.github.routine`
 für `github.comm.routine`); ohne Treffer kein Claude-Aufruf, nur `PUSH-FEHLER`. Treffer stehen in
 `~/halo-aufgaben/sitzungen.json`.

@@ -95,6 +95,13 @@ if [[ -e $DIR/$PAUSE ]]; then
   push "$NAME $TAG: pausiert (~/halo-nacht/$PAUSE)"
   exit 0
 fi
+# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh)
+if PAUSE_GRUND=$(pause_aktiv ${${ART:#woche}:+dokupruefung}${${ART:#doku}:+wochenpruefung}); then
+  log "pausiert $PAUSE_GRUND"
+  uebersprungen ${${ART:#woche}:+dokupruefung}${${ART:#doku}:+wochenpruefung} "pausiert $PAUSE_GRUND"
+  notbericht "pausiert" "Pause $PAUSE_GRUND, nichts gemacht"
+  exit 0
+fi
 
 if [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null; then
   log "eigener Lauf (PID $(<$LOCK)) läuft noch – ausgelassen"

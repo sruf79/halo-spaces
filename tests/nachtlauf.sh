@@ -12,7 +12,8 @@
 # wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
 # eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
 # „github.comm.routine“, die Remote Control hat).
-# Pausieren: touch ~/halo-nacht/PAUSE (rm zum Fortsetzen).
+# Pausieren: touch ~/halo-nacht/PAUSE (rm zum Fortsetzen) oder mit Ablaufzeit in
+# ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh).
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 emulate -L zsh
 setopt extendedglob
@@ -106,6 +107,16 @@ if [[ -e $DIR/PAUSE ]]; then
   log "pausiert (~/halo-nacht/PAUSE)"
   notbericht "pausiert" "~/halo-nacht/PAUSE vorhanden, nichts gemacht"
   push "Nachtlauf $TAG: pausiert (~/halo-nacht/PAUSE)"
+  pausen_aufraeumen
+  exit 0
+fi
+# Pause mit Ablaufzeit (~/halo-nacht/pausen.txt, tests/lauf-hilfen.zsh); abgelaufene Zeilen
+# räumt der Nachtlauf an seinem Ende auf, auch hier bei einer Pause
+if PAUSE_GRUND=$(pause_aktiv nachtlauf); then
+  log "pausiert $PAUSE_GRUND"
+  uebersprungen nachtlauf "pausiert $PAUSE_GRUND"
+  notbericht "pausiert" "Pause $PAUSE_GRUND, nichts gemacht"
+  pausen_aufraeumen
   exit 0
 fi
 
@@ -115,7 +126,7 @@ if [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null; then
   exit 0                                  # der laufende schreibt seinen Bericht selbst
 fi
 print $$ > $LOCK
-trap 'rm -f $LOCK' EXIT
+trap 'rm -f $LOCK; pausen_aufraeumen' EXIT
 
 # --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor (belegt) ---
 # ein CI-Lauf dauert knapp eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
@@ -159,7 +170,7 @@ $(<$REPO/tests/nachtlauf-auftrag.md)"
 # Sicherheitsnetz: um 09:00 hart beenden
 ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $SID|--resume $SID" ) &
 WACHE=$!
-trap 'rm -f $LOCK; kill $WACHE 2>/dev/null' EXIT
+trap 'rm -f $LOCK; kill $WACHE 2>/dev/null; pausen_aufraeumen' EXIT
 
 RUNDE=0 LEER=0
 PROMPT=$AUFTRAG

@@ -298,6 +298,9 @@ was jede Sitzung beachten muss:
   ganze Runde. Früher nur, wenn neon bestätigt, dass
   der Nachtlauf fertig ist (Bericht `~/halo-berichte/<datum>-nachtlauf.md`
   liegt vor); sonst bis danach warten bzw. es dem Maintainer sagen.
+- **Pausen mit Ablaufzeit:** `~/halo-nacht/pausen.txt` (`pause_setzen <Routine> <bis> <Grund>` aus
+  `tests/lauf-hilfen.zsh`), damit keine Sperre vergessen wird; Einzelheiten `docs/testrechner.md`,
+  `tests/MAC-MINI.md` Abschnitt 13.
 - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
   machen; vor Push, CI und Release das Board nicht erneut laden (Entscheidung
   des Maintainers vom 3.11.2026).

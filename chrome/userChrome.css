@@ -3342,28 +3342,41 @@ unified-toolbar {
   text-overflow: ellipsis;
 }
 
+/* (!important: Thunderbirds bzw. unsere allgemeinen Knopfregeln machten
+   beide Knöpfe sonst zu breiten grauen Kapseln) */
 #mcFollowUp .mc-fu-go {
-  appearance: none;
-  flex: none;
-  height: 24px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 999px;
-  background: var(--mt-accent);
-  color: var(--mt-accent-text);
-  font: inherit;
-  font-weight: 600;
+  appearance: none !important;
+  flex: none !important;
+  min-width: 0 !important;
+  height: 24px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: var(--mt-accent) !important;
+  color: var(--mt-accent-text) !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+}
+
+#mcFollowUp .mc-fu-go:hover {
+  background: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
 }
 
 #mcFollowUp .mc-fu-close {
-  appearance: none;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--mt-text-secondary);
+  appearance: none !important;
+  flex: none !important;
+  width: 22px !important;
+  min-width: 0 !important;
+  height: 22px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: var(--mt-text-secondary) !important;
   position: relative;
 }
 
@@ -3373,7 +3386,7 @@ unified-toolbar {
 }
 
 #mcFollowUp .mc-fu-close:hover {
-  background: var(--mt-control-hover);
+  background: var(--mt-control-hover) !important;
 }
 
 /* ---------- Senden rückgängig (wie Apple Mail) ----------

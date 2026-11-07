@@ -7799,6 +7799,17 @@ def server_checks(m, results):
               a3.displayFolder(inbox.URI); await ruhig(1200);
               const bar = await until(() => a3.document.getElementById("mcFollowUp"), 5000);
               const out = { bar: bar?.textContent || null };
+              // Aussehen wie unsere übrigen Hinweise: Knopf als Kapsel in Akzentfarbe, ✕ klein und rund ohne Fläche,
+              // Text 12 px (vorher setzten sich Thunderbirds Knöpfe durch: graue breite Kapseln, größere Schrift)
+              if (bar) {
+                const cs = el => a3.getComputedStyle(el), r = el => el.getBoundingClientRect();
+                const go = bar.querySelector(".mc-fu-go"), x = bar.querySelector(".mc-fu-close");
+                const probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.background = "AccentColor"; bar.append(probe);
+                out.look = { accent: cs(probe).backgroundColor, goBg: cs(go).backgroundColor, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
+                             xBg: cs(x).backgroundColor, xW: Math.round(r(x).width), xH: Math.round(r(x).height),
+                             text: cs(bar.querySelector(".mc-fu-text")).fontSize, barH: Math.round(r(bar).height) };
+                probe.remove();
+              }
               // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
               Services.prefs.setBoolPref("extensions.mailcards.followUp", false); await ruhig(300);
               out.off = !!a3.document.getElementById("mcFollowUp");
@@ -7810,8 +7821,12 @@ def server_checks(m, results):
               return out;""" % (ADDON_ID, key))
             ok = ("Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
                   and res.get("off") is False and res.get("on") is True)
+            lk = res.get("look") or {}
+            ok = ok and (lk.get("goBg") == lk.get("accent") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
+                         and lk.get("xBg") in ("transparent", "rgba(0, 0, 0, 0)") and lk.get("xW", 99) <= 24 and lk.get("xH", 99) <= 24
+                         and lk.get("text") == "12px")
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, Knopf in Akzentfarbe und kleines ✕, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen

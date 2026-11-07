@@ -2471,6 +2471,90 @@ findbar .findbar-textbox:focus {
   fill: none !important;
 }
 
+/* Bereiche-Leiste ausgeblendet: Bereiche als kleine Symbole links neben dem
+   Seitenleisten-Knopf (#mcSpacesMini setzt die Erweiterung). Gleicher
+   Bezugspunkt wie der Knopf (--mc-mini-x), rechtsbündig 6 px davor; Farben wie
+   die Kacheln. Schmale Seitenleiste: höchstens bis an die Ampel – was nicht
+   passt, bricht in eine zweite, abgeschnittene Zeile um (ganze Symbole statt
+   halber, Mail bleibt vorn) */
+#mcSpacesMini {
+  --mc-mini-x: max(calc(var(--mc-sidebar-right, 220px) - 50px), var(--mc-tl-reserve));
+  position: absolute !important;
+  inset-inline-start: var(--mc-mini-x) !important;
+  top: 50% !important;
+  transform: translate(calc(-100% - 6px), -50%) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0 2px !important;
+  align-items: center !important;
+  height: 30px !important;
+  max-width: max(0px, calc(var(--mc-mini-x) - 6px - var(--mc-tl-reserve))) !important;
+  overflow: hidden !important;
+}
+
+:root:not([mc-mail]) #mcSpacesMini {
+  --mc-mini-x: max(calc(var(--mc-side-right, 0px) - 50px), var(--mc-tl-reserve, 84px));
+}
+
+:root:has(#spacesToolbar:not([hidden])) #mcSpacesMini {
+  display: none !important;
+}
+
+#mcSpacesMini > .mc-mini-space {
+  --c: #8E8E93;
+  flex: none !important;
+  appearance: none !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  width: 30px !important;
+  min-width: 0 !important;
+  height: 30px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: color-mix(in srgb, var(--c) 70%, #3a3a3c) !important;
+}
+
+#mcSpacesMini > .mc-mini-space:hover {
+  background-color: color-mix(in srgb, var(--c) 11%, transparent) !important;
+}
+
+#mcSpacesMini > .mc-mini-space.current {
+  background-color: color-mix(in srgb, var(--c) 16%, transparent) !important;
+}
+
+#mcSpacesMini > .mc-mini-space:focus-visible {
+  outline: 2px solid AccentColor !important;
+  outline-offset: 1px !important;
+}
+
+#mcSpacesMini > .mc-mini-space > span {
+  width: 18px !important;
+  height: 18px !important;
+  background-color: currentColor !important;
+  mask: var(--mc-mini-icon) center / contain no-repeat !important;
+}
+
+#mcSpacesMini > [data-space="mail"] { --c: #0A84FF; --mc-mini-icon: var(--mi-envelope); }
+#mcSpacesMini > [data-space="addressbook"] { --c: #30B850; --mc-mini-icon: var(--mi-contacts); }
+#mcSpacesMini > [data-space="calendar"] { --c: #FF8A00; --mc-mini-icon: var(--mi-calendar); }
+#mcSpacesMini > [data-space="tasks"] { --c: #FF2D78; --mc-mini-icon: var(--mi-tasks); }
+#mcSpacesMini > [data-space="mail"].current { --mc-mini-icon: url("resource://mailcards/icons/envelope-fill.svg"); }
+#mcSpacesMini > [data-space="addressbook"].current { --mc-mini-icon: url("resource://mailcards/icons/contacts-fill.svg"); }
+#mcSpacesMini > [data-space="calendar"].current { --mc-mini-icon: url("resource://mailcards/icons/calendar-fill.svg"); }
+#mcSpacesMini > [data-space="tasks"].current { --mc-mini-icon: url("resource://mailcards/icons/tasks-fill.svg"); }
+
+@media (prefers-color-scheme: dark) {
+  #mcSpacesMini > .mc-mini-space {
+    color: color-mix(in srgb, var(--c) 75%, #f5f5f7) !important;
+  }
+}
+
 #unifiedToolbarContent li[item-id="get-messages"] button .button-icon { mask-image: var(--mi-envelope) !important; }
 #unifiedToolbarContent li[item-id="write-message"] button .button-icon { mask-image: var(--mi-compose) !important; }
 #unifiedToolbarContent li[item-id="reply"] button .button-icon { mask-image: var(--mi-reply) !important; }

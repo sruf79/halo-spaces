@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
 const SRC = fileURLToPath(new URL("../../extension/api/implementation.js", import.meta.url));
+// Teile, die implementation.js mit loadPart() nachlädt (api/texte.js …)
+const teil = name => fileURLToPath(new URL(`../../extension/api/${name}`, import.meta.url));
 
 // ausgewählte innere Namen von implementation.js
 export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "parseNatural", "TASK_LISTS", "taskListFilter",
@@ -59,6 +61,11 @@ export function lade({ prefs = {}, os = "Darwin", locale = "en-US" } = {}) {
   const ChromeUtils = attrappe("ChromeUtils");
   ChromeUtils.importESModule = name => attrappe(name);
   ChromeUtils.defineESModuleGetters = () => {};
+  // loadPart(): Teil aus extension/api in denselben Kontext (gemeinsamer globaler Bereich wie in Thunderbird)
+  Services.scriptloader.loadSubScriptWithOptions = url => {
+    const datei = teil(String(url).split("/").pop());
+    vm.runInContext(readFileSync(datei, "utf8"), context, { filename: datei });
+  };
   const context = vm.createContext({
     ChromeUtils, Services, Cc: attrappe("Cc"), Ci: attrappe("Ci"), Cu: attrappe("Cu"), Cr: attrappe("Cr"),
     ObjC: attrappe("ObjC"), IOUtils: attrappe("IOUtils"), PathUtils: attrappe("PathUtils"),

@@ -18,7 +18,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `chrome/spaces.css` | Kalender, Aufgaben, Adressbuch, Chat, Einstellungen |
 | `chrome/merge_spaces.py` | fügt `spaces.css` als markierten Block in `userChrome.css` ein |
 | `extension/manifest.json` | Version, Add-on-ID `mail-cards@sebastian.local`, `update_url` |
-| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~25.000 Zeilen) |
+| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~23.600 Zeilen); lädt ihre Teile aus `extension/api/` mit `loadPart()` (bisher `texte.js`: Oberflächentexte `DE`, `FR`, `ES`, `IT`) |
 | `extension/api/schema.json` | Schema der Experiment-API |
 | `extension/background.js` | startet die Experiment-API (`browser.mailCards.start()`) und meldet bereitliegende Updates (`updateReady`); geladen über `extension/background.html` |
 | `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |
@@ -418,8 +418,8 @@ anheben (nach Test).
   (anders als Symbol-Knöpfe in Kapseln); erst der Fokus (Klick ins
   Feld) zeigt den blauen Fokusring.
 - **Oberflächentexte:** in `implementation.js` mit englischem Schlüssel; die
-  deutsche Übersetzung steht in der Tabelle `DE` am Dateianfang – neue Texte
-  dort ergänzen.
+  deutsche Übersetzung steht in der Tabelle `DE` in `extension/api/texte.js` –
+  neue Texte dort ergänzen.
 - **Einstellungen:** Prefs unter `extensions.mailcards.*` (der alte Name
   „mail-cards“ bleibt aus Kompatibilitätsgründen, auch in der Add-on-ID).
 - **Store-Regeln:** kein `innerHTML` mit Markup (stattdessen DOM-API bzw.

@@ -251,8 +251,8 @@ KONSOLE_FIND = '[...Services.wm.getEnumerator("mail:3pane")].find(x => x.__haloK
 KONSOLE_JS = r"""
   const host = (() => { try { return WebExtensionPolicy.getByID("mail-cards@sebastian.local")?.mozExtensionHostname || ""; } catch { return ""; } })();
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  // (…/api/implementation.js auch ohne bekannte Kennung: nach dem Deinstallieren liefert getByID nichts mehr)
-  const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local|moz-extension://[^/]+/api/implementation\\.js" + (host ? "|moz-extension://" + esc(host) : ""));
+  // (…/api/*.js – implementation.js und ihre Teile – auch ohne bekannte Kennung: nach dem Deinstallieren liefert getByID nichts mehr)
+  const OURS = new RegExp("resource://mailcards/|mail-cards@sebastian\\.local|moz-extension://[^/]+/api/[\\w-]+\\.js" + (host ? "|moz-extension://" + esc(host) : ""));
   // Thunderbird meldet das, wenn ein Add-on die Kalender vor dem ersten Fenster lädt (GitHub #38)
   const HINTS = [/initialised calendars before loadCalendarComponent/];
   const prof = PathUtils.profileDir, profUrl = (() => { try { return PathUtils.toFileURI(prof); } catch { return prof; } })();
@@ -12423,7 +12423,7 @@ Neu
             return out;
           } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
         import re
-        src = open(os.path.join(ROOT, "extension", "api", "implementation.js")).read()
+        src = open(os.path.join(ROOT, "extension", "api", "texte.js")).read()
         keys = ["Support halo.spaces", "Do you like halo.spaces?", "halo.spaces is free and made in spare time. A coffee helps keep it going."]
         counts = {k: len(re.findall(r'^\s*"' + re.escape(k) + r'":', src, re.M)) for k in keys}
         ok = (res.get("last") and res.get("head") == "Support halo.spaces" and res.get("label") == "Do you like halo.spaces?"

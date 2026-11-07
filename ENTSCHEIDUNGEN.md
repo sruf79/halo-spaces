@@ -17,6 +17,7 @@ Bezug: Messung von neon-board am selben Bild (576 x 826 px, 187 KB): Seite mit d
 ### Abgelehnte Antworten an Sitzungen: alternativen Weg suchen
 Herkunft: über die Sitzung neon-board weitergegeben, vom Maintainer in der Sitzung neon am 7.11.2026 bestätigt („ja, so eintragen“). Wortlaut: „wenn antworten an session abgelehnt werden muss ab sofort automatisch eine alternative gesucht werden, solange, bis man eine lösung gefunden hat. sollte keine lösung gefunden werden sollte es eine rückmeldung geben“ und „das ist eine gültige regel für alle sessions“.
 Bezug: AGENTS.md „neon erreichen“ (Absatz „Abgelehnte Antwort an eine Sitzung“); Anlass: `send_message` mit Sitzungs-ID wurde mit `elevated_session_untrusted_device` abgelehnt, `SendMessage` per Name aus `ListAgents` ging durch.
+Ergänzung, Sitzung neon, 7.11.2026, Wortlaut: „wenn du anfragen anderer sessions ablehnst bitte sofort an die entsprechende session jegliche antwort als rückmeldung senden“ (nach „ja, bitte auch in AGENTS.md eintragen“).
 
 ### Zeitangaben in Wiener Zeit
 Herkunft: Sitzung „agents.md von Neon“ (halo-spaces, Cloud), 7.11.2026. Wortlaut: „können wir bitte ab sofort bei zeitangaben immer die wiener Zeit und nicht UTC nehmen? das soll für alle session gelten.“

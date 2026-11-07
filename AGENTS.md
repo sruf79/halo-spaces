@@ -230,7 +230,9 @@ erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
 wird eine Nachricht abgelehnt (z. B. `send_message` mit Sitzungs-ID: `elevated_session_untrusted_device`), sucht die
 Sitzung selbstständig einen anderen Weg (`SendMessage` an den Namen aus `ListAgents`, Titel über `list_sessions`,
 zuletzt bekannte ID, Reihenfolge wie unter „Sitzung nicht unter ihrem Namen gefunden?“), bis einer klappt; findet sie
-keinen, meldet sie das mit den Fehlermeldungen zurück.
+keinen, meldet sie das mit den Fehlermeldungen zurück. Lehnt eine Sitzung die Anfrage einer anderen Sitzung
+ab (auch teilweise, z. B. von der Berechtigungsprüfung gestoppt), schickt sie dieser Sitzung sofort jede Antwort
+mit Grund als Rückmeldung (Entscheidung des Maintainers vom 7.11.2026).
 
 **Antworten von neon:** neon antwortet per `SendMessage` an den Namen der Sitzung; es erscheint
 als neue Nachricht, `send_message` aus neon scheitert. neon merkt sich die Sitzungs-ID und sucht

@@ -41,6 +41,14 @@ und wirkten die Verbesserungen der Vorwochen?
   Zeilen mit Ablauf 2999-12-31 („migriert aus …“, übernommene alte Dateien) als „dauerhaft, ohne Ablauf“
   melden; Zeilen „PAUSE MIGRIERT“ der letzten 7 Tage zählen. Alte Pausen-Dateien gibt es nicht mehr
   (Ausnahme: die inaktive Vorlage tests/neon-neustart.sh mit PAUSE-NEUSTART).
+- **CI-Runden des Nachtlaufs** (Entscheidung des Maintainers vom 7.11.2026): Zeilen
+  „VOLLRUNDE-FEHLER <Routine> <Grund>“ und „EINTRAG-FEHLER <Routine> <Grund>“ der letzten 7 Tage
+  aus ~/halo-nacht/uebersprungen.log zählen (Vollrunde nicht gestartet/gefunden bzw. rote Prüfung
+  nicht ins Board gekommen) und je Grund im Bericht nennen; die Abschnitte „CI-Runde der Nacht“
+  der Nachtlauf-Berichte: Nächte mit gestarteter Vollrunde und ihr Ergebnis. Die Zeile
+  „CI-Kennzahl“ oben (Tage seit der letzten vollständig grünen Runde) unverändert in Bericht und
+  Kennzahlen übernehmen, mit der Vorwoche vergleichen; ab 3 Tagen ohne grüne Runde im Bericht
+  nennen, welche Jobs zuletzt rot waren.
 - **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
   ~/halo-nacht/uebersprungen.log je Routine zählen (die iPhone-Meldung kam nicht an, z. B.
   falscher Sitzungsname). Jede ist ein Fehler im Ablauf: Grund im Bericht nennen, bei
@@ -131,6 +139,9 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
   uebersprungen (Objekt: Routine → Anzahl der Zeilen „ÜBERSPRUNGEN“),
   push_fehler (Objekt: Routine → Anzahl der Zeilen „PUSH-FEHLER“),
+  ci_runde_fehler (Objekt: vollrunde, eintrag → Anzahl der Zeilen „VOLLRUNDE-FEHLER“ bzw.
+  „EINTRAG-FEHLER“), vollrunden_gestartet, tage_seit_gruener_vollrunde (Zahl oder null),
+  letzte_gruene_vollrunde (ISO-Zeit, Wiener Zeit, oder null),
   pausen (Objekt: aktiv, abgelaufen, unlesbar, lang_ueber_7_tage, dauerhaft),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).

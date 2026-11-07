@@ -68,7 +68,12 @@ Reihenfolge:
    09:00); weiter geht es erst nach grüner CI in Schritt 5.
 4. Wurde mindestens ein Bug/Feature committet: pushen und die schnelle CI
    abwarten (Entscheidung des Maintainers vom 3.11.2026), dann veröffentlichen.
-   a) git push. Den CI-Lauf für genau diesen Commit abwarten:
+   a) Steht oben „CI-Vollrunde: fällig“ und testet der Push nicht ohnehin
+      dunkel (keine Farben betroffen, tests/farben-betroffen.sh), „[dunkel]“
+      in die Nachricht des letzten Commits: Die Runde deines Pushs ist dann
+      die Vollrunde der Nacht. Ohne CI-auslösenden Push startet nachtlauf.sh
+      nach deinem Ende selbst eine (ziel=alle) – du startest keine.
+      git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
       Ein Lauf dauert etwa 50 Minuten, mit Dunkelmodus etwa 70 (erst Linux
@@ -111,6 +116,8 @@ Reihenfolge:
    die Meldung auf Done.
    c) Rot (Exitcode 1): Die Ausgabe nennt die gescheiterten Prüfungen,
       Einzelheiten mit gh run view <id> -R sruf79/halo-spaces --log-failed.
+      Ins Board trägt die roten Prüfungen nach deinem Ende nachtlauf.sh ein
+      (tests/ci-runde.zsh über ci-waechter.sh --lauf) – nicht selbst eintragen.
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
       --vm --port 2851), committen, pushen, erneut abwarten. Sonst den Commit,
       der den Fehler bringt, mit git revert zurücknehmen (Eintrag zurück auf
@@ -155,9 +162,9 @@ Reihenfolge:
       Sitzung am Tag. Rot: keine Reparaturrunde; die Commits dieses Schritts
       mit git revert zurücknehmen, pushen (nicht mehr abwarten), Einträge
       zurück auf Todo mit Notiz, was rot war. Um 08:50 noch nicht fertig:
-      im Bericht mit Lauf-ID nennen (der CI-Wächter wertet Läufe, die
-      während des Nachtlaufs beginnen, nicht aus), Einträge bleiben In
-      Progress mit Notiz.
+      im Bericht mit Lauf-ID nennen (nachtlauf.sh wartet danach bis 09:00
+      und trägt Rotes ein, sonst holt es der CI-Wächter nach), Einträge
+      bleiben In Progress mit Notiz.
    b) Erst ab 07:30 fertig: nicht pushen. Die Commits bleiben auf main in
       ~/halo-spaces (der nächste Nachtlauf nimmt sie in Schritt 0 mit), die
       Einträge bleiben In Progress mit Notiz „committet, wartet auf

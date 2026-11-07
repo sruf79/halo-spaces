@@ -8,6 +8,13 @@
 # ändert den Checkout).
 #   nachtlauf.sh <Repo-Ordner>
 #   nachtlauf.sh --push-test <Text>     nur eine Testnachricht aufs iPhone
+#   nachtlauf.sh --trocken [<Repo>]     nur den CI-Abschluss proben (tests/ci-runde.zsh): zeigt, was er
+#                                       eintragen bzw. starten würde – kein Push, kein workflow run, kein Board
+# Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) der CI-Abschluss aus tests/ci-runde.zsh
+# (Entscheidung des Maintainers vom 7.11.2026): rote Prüfungen der CI-Läufe dieser Nacht ins Board,
+# Vollrunde (ziel=alle), wenn seit 24 Stunden keine lief und der Lauf nichts CI-Auslösendes gepusht hat,
+# Zeile „Letzte vollständig grüne Runde“ im Bericht. Fehler dort brechen nichts ab (VOLLRUNDE-FEHLER,
+# EINTRAG-FEHLER in Protokoll und uebersprungen.log).
 # Schreibt immer einen Bericht nach ~/halo-berichte/<datum>-nachtlauf.md – auch
 # wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
 # eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
@@ -17,8 +24,9 @@
 emulate -L zsh
 setopt extendedglob
 
-PUSH_TEST=
+PUSH_TEST= TROCKEN=
 [[ $1 == --push-test ]] && { PUSH_TEST=$2; set -- }
+[[ $1 == --trocken ]] && { TROCKEN=1; shift }
 REPO=${1:-$HOME/halo-spaces}
 # Falscher oder fehlender Repo-Ordner (z. B. eine Option, die diese Version
 # nicht kennt): sofort abbrechen statt ohne Auftrag weiterzulaufen
@@ -44,6 +52,8 @@ HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
 source ${0:A:h}/lauf-hilfen.zsh
 # Vorprüfung ohne Claude: nachtlauf_arbeit(), uebersprungen()
 source ${0:A:h}/vorpruefung.zsh
+# CI-Abschluss: ci_nacht_abschluss, ci_laeufe_holen, ci_vollrunde_24h
+source ${0:A:h}/ci-runde.zsh
 # ungespeicherte Reste im Checkout sind kein Grund auszulassen: der Auftrag nimmt sie mit
 REST_MITNEHMEN=1
 
@@ -53,6 +63,26 @@ bericht_kurz() {
   [[ -z $z ]] && z=$(grep -m1 '^# ' $BERICHT 2>/dev/null | sed 's/^# *//')
   print -r -- $z
 }
+
+# CI-Abschluss nach der lokalen Arbeit; hängt seine Zeilen an den Bericht. Nie ein Abbruch.
+ci_abschluss() {
+  local zeilen
+  log "Start CI-Abschluss"
+  zeilen=$(ci_nacht_abschluss $START $HART 2>/dev/null)
+  log "CI-Abschluss: ${zeilen//$'\n'/ | }"
+  { print; print "## CI-Runde der Nacht (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
+}
+
+if [[ -n $TROCKEN ]]; then
+  # Probelauf: Protokoll in eine Wegwerf-Datei (die echte würde der CI-Wächter als Nachtfenster lesen),
+  # Beginn der Nacht = heute 01:30
+  LOG=$(mktemp) CI_TROCKEN=1
+  print "CI-Abschluss (Probelauf, $(zeit)):"
+  ci_nacht_abschluss $(date -j -v1H -v30M -v0S +%s) $HART
+  print "Protokoll: $(<$LOG)"
+  rm -f $LOG
+  exit 0
+fi
 
 if [[ -n $PUSH_TEST ]]; then
   push $PUSH_TEST
@@ -145,6 +175,8 @@ if GRUND=$(nachtlauf_arbeit); then
 else
   uebersprungen nachtlauf "$GRUND"
   notbericht "übersprungen" "nichts zu tun: $GRUND"
+  ci_abschluss
+  log "Ende"
   exit 0
 fi
 
@@ -152,8 +184,20 @@ fi
 cd $REPO || exit 2
 SID=$(uuidgen | tr A-Z a-z)
 log "Start, Sitzung $SID"
+# Vollrunde fällig? Dann soll ein CI-auslösender Push dunkel testen ([dunkel]) – seine Runde ist dann die Vollrunde
+CI_HINWEIS="CI-Vollrunde: unbekannt (gh nicht lesbar) – wie fällig behandeln"
+CI_D=$(mktemp)
+if ci_laeufe_holen $CI_D; then
+  if V=$(ci_vollrunde_24h $CI_D); then
+    CI_HINWEIS="CI-Vollrunde: in den letzten 24 Stunden gelaufen (Lauf $V) – nichts zu tun"
+  else
+    CI_HINWEIS="CI-Vollrunde: fällig (seit 24 Stunden keine vollständige Runde auf main)"
+  fi
+fi
+rm -f $CI_D*
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
 Thunderbird auf neon vor dem Lauf: $TB_INFO
+$CI_HINWEIS
 
 $(<$REPO/tests/nachtlauf-auftrag.md)"
 # Sicherheitsnetz: um 09:00 hart beenden
@@ -185,10 +229,12 @@ while true; do
   fi
 done
 
-# --- Bericht sicherstellen und aufs iPhone ---
+# --- Bericht sicherstellen, CI-Abschluss anhängen und aufs iPhone ---
 if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
   notbericht "ohne Abschluss" "Claude hat keinen Bericht geschrieben (Runden: $RUNDE, letzter Exitcode $RC)" mit-details
 fi
+kill $WACHE 2>/dev/null                   # Claude ist fertig; der CI-Abschluss hält selbst die 09:00 ein
+ci_abschluss
 log "Ende"
 push "Nachtlauf $TAG: $(bericht_kurz) – Bericht ~/halo-berichte/$TAG-nachtlauf.md"
 exit 0

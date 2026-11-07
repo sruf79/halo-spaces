@@ -58,6 +58,8 @@ HART=$(( START + 7 * 3600 ))            # nach 7 Stunden wird claude beendet
 source ${0:A:h}/lauf-hilfen.zsh
 # Vorprüfung der Doku-Prüfung ohne Claude: doku_geaendert(), uebersprungen()
 source ${0:A:h}/vorpruefung.zsh
+# Kennzahl „Tage seit der letzten vollständig grünen Runde“: ci_laeufe_holen, ci_gruen_zeile, ci_tage_seit_gruen
+source ${0:A:h}/ci-runde.zsh
 # Modelle (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison,
 # Wortlaut: „ja, punkt 2 und 3 umsetzen.“): die Doku-Prüfung mit Sonnet und niedriger
 # Reasoning-Stufe, die Wochenprüfung bleibt bei Opus (Standard der Installation)
@@ -140,6 +142,28 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter Pausen ROT: ${PAUSEN//$'\n'/ | }"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/pausen_check.sh): ${PAUSEN//$'\n'/ | } – Pausen-Logik bzw. Doku an die eine Datei ~/halo-nacht/pausen.txt anpassen."
   fi
+  # CI-Runden des Nachtlaufs (tests/ci_runde_test.zsh: Vollrunde, Kennzahl, Eintragen, ohne Netz)
+  if CIR=$(zsh $REPO/tests/ci_runde_test.zsh 2>&1); then
+    log "Wächter CI-Runden: ${CIR##*$'\n'}"
+  else
+    log "Wächter CI-Runden ROT: ${${(M)${(f)CIR}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/ci_runde_test.zsh): ${(j: | :)${(M)${(f)CIR}:#FEHLER*}} – tests/ci-runde.zsh bzw. tests/ci-waechter.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
+fi
+
+# Wochenprüfung: Kennzahl „Tage seit der letzten vollständig grünen Runde“ (Entscheidung des Maintainers vom
+# 7.11.2026) ohne Claude ausrechnen und in den Auftrag geben
+CI_KENNZAHL=
+if [[ -z $DOKU ]]; then
+  CI_D=$(mktemp)
+  if ci_laeufe_holen $CI_D 100; then
+    read -r CI_E CI_T <<< $(ci_tage_seit_gruen $CI_D)
+    [[ $CI_E == - ]] && CI_T=null CI_E=null || CI_E="\"$(TZ=Europe/Vienna date -r $CI_E +%FT%T%z)\""
+    CI_KENNZAHL="CI-Kennzahl (tests/ci-runde.zsh, letzte 100 Läufe): $(ci_gruen_zeile $CI_D) – in wochen-kennzahlen.json: \"tage_seit_gruener_vollrunde\": $CI_T, \"letzte_gruene_vollrunde\": $CI_E"
+  else
+    CI_KENNZAHL="CI-Kennzahl: gh nicht lesbar – tage_seit_gruener_vollrunde und letzte_gruene_vollrunde null, im Bericht sagen"
+  fi
+  rm -f $CI_D*
 fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis
@@ -184,7 +208,8 @@ else
 fi
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
 $MODUS${DOKU_HINWEIS:+
-$DOKU_HINWEIS}
+$DOKU_HINWEIS}${CI_KENNZAHL:+
+$CI_KENNZAHL}
 
 $(<$REPO/tests/$AUFTRAG_DATEI)"
 ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $SID|--resume $SID" ) &

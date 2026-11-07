@@ -11,10 +11,14 @@
 # Eintrag, keine Meldung aufs iPhone, auch nicht für ihre KONSOLE-/PROTOKOLL-
 # Zeilen (Entscheidung des Maintainers vom 5.11.2026; ihre Fehler sammelt ein
 # Eintrag von Hand). Fällt continue-on-error weg, zählen sie wieder.
+# Rote Läufe aus dem Nachtlauf trägt der Nachtlauf selbst ein (tests/ci-runde.zsh, ruft --lauf); was er
+# nicht eingetragen hat (~/halo-nacht/<datum>.ci-eingetragen), holt der Wächter nach dem Ende des
+# Nachtlaufs nach (~/halo-aufgaben/ci-waechter.nachholen; Entscheidung des Maintainers vom 7.11.2026).
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
 #   ci-waechter.sh                       neue Läufe seit dem letzten Stand
 #   ci-waechter.sh --trocken [--lauf ID] nur anzeigen: kein Board, kein Push, Stand bleibt
-#   ci-waechter.sh --lauf ID             genau diesen Lauf auswerten (Stand bleibt)
+#   ci-waechter.sh --lauf ID             genau diesen Lauf auswerten (Stand bleibt); Exitcode 3, wenn ein
+#                                        Eintrag scheiterte (Board oder Lauf nicht lesbar)
 #   ci-waechter.sh --datei PROTOKOLL     nur KONSOLE-/PROTOKOLL-Zeilen aus einer Datei (release.sh: Update-Test)
 # Stand: ~/halo-aufgaben/ci-waechter.stand (ID des zuletzt ausgewerteten Laufs),
 # Protokoll: ~/halo-aufgaben/ci-waechter.log.
@@ -40,6 +44,7 @@ FELD_TYP=PVTSSF_lAHODEPpks4BoBQwzhmjN8Y TYP_BUG=ff678ae2
 FELD_STATUS=PVTSSF_lAHODEPpks4BoBQwzhmjN5E STATUS_TODO=f75ad846
 DIR=$HOME/halo-aufgaben
 STAND=$DIR/ci-waechter.stand
+NACHHOLEN=$DIR/ci-waechter.nachholen   # rote Läufe des Nachtlaufs, nachzuholen nach seinem Ende
 VERSUCHE=$DIR/ci-waechter.versuche     # „<Lauf> <Anzahl>“: Leseversuche eines unlesbaren Laufs
 LOG=$DIR/ci-waechter.log
 NACHT=$HOME/halo-nacht
@@ -55,19 +60,22 @@ melde() {
   [[ -z $TROCKEN ]] && log "$*"
 }
 
-# Zeitfenster der Nachtläufe und Wochenprüfungen (Epoch „von bis“ je Zeile) aus
-# ~/halo-nacht/<datum>.log bzw. <datum>-woche.log: „Start, Sitzung“ bis „Ende“;
+# Zeitfenster der Nachtläufe und Wochenprüfungen (Epoch „von bis Art“ je Zeile, Art nacht oder woche) aus
+# ~/halo-nacht/<datum>.log bzw. <datum>-woche.log: „Start, Sitzung“ (bzw. „Start CI-Abschluss“ eines
+# Nachtlaufs ohne Claude) bis „Ende“;
 # ohne Ende bis jetzt, solange der Lauf noch läuft. Diese Läufe warten selbst
 # auf ihre CI und berichten darüber.
 nacht_fenster() {
-  local f z von bis lock laeuft
+  local f z von bis lock laeuft art
   for f in $NACHT/<->-<->-<->(|-woche).log(Nom[1,6]); do
-    [[ $f == *-woche.log ]] && lock=$NACHT/woche.lock || lock=$NACHT/lauf.lock
+    [[ $f == *-woche.log ]] && lock=$NACHT/woche.lock art=woche || lock=$NACHT/lauf.lock art=nacht
     laeuft=
     [[ -e $lock ]] && kill -0 $(<$lock) 2>/dev/null && laeuft=1
     von= bis=
     while IFS= read -r z; do
       if [[ $z == *" Start, Sitzung "* ]]; then
+        von=$(date -j -f '%F %T' "${z[1,19]}" +%s 2>/dev/null) bis=
+      elif [[ -z $von && $z == *" Start CI-Abschluss"* ]]; then
         von=$(date -j -f '%F %T' "${z[1,19]}" +%s 2>/dev/null) bis=
       elif [[ -n $von && $z == *" Ende" ]]; then
         bis=$(date -j -f '%F %T' "${z[1,19]}" +%s 2>/dev/null)
@@ -75,15 +83,38 @@ nacht_fenster() {
     done < $f
     [[ -z $von ]] && continue
     [[ -z $bis ]] && bis=$( [[ -n $laeuft ]] && date -v+1d +%s || stat -f %m $f )
-    print "$von $bis"
+    print "$von $bis $art"
   done
 }
-vom_nachtlauf() {   # <Epoch des Laufbeginns>
-  local von bis
-  for von bis in ${=FENSTER}; do
-    (( $1 >= von && $1 <= bis )) && return 0
+VOM_ART=
+vom_nachtlauf() {   # <Epoch des Laufbeginns>; setzt VOM_ART (nacht/woche)
+  local von bis art
+  for von bis art in ${=FENSTER}; do
+    (( $1 >= von && $1 <= bis )) && { VOM_ART=$art; return 0 }
   done
   return 1
+}
+nachtlauf_laeuft() { [[ -e $NACHT/lauf.lock ]] && kill -0 $(<$NACHT/lauf.lock) 2>/dev/null }
+
+# rote Läufe des Nachtlaufs nachholen, die er nicht selbst eingetragen hat (abgebrochen, Board nicht
+# erreichbar, Lauf erst nach seinem Ende fertig) – erst nach seinem Ende; gleiche Dublettenprüfung (eintragen)
+nachholen() {
+  [[ -s $NACHHOLEN ]] || return 0
+  nachtlauf_laeuft && return 0
+  local run rest=()
+  for run in $(<$NACHHOLEN); do
+    if grep -qxF -- $run $NACHT/*.ci-eingetragen(N) /dev/null 2>/dev/null; then
+      melde "Lauf $run: vom Nachtlauf eingetragen"
+    elif [[ -n $TROCKEN ]]; then
+      print -u2 "  (trocken) würde nachholen: Lauf $run"
+    elif ! rot $run || (( RUN_FEHL )); then
+      rest+=($run)
+    else
+      melde "Lauf $run: nach dem Nachtlauf nachgeholt"
+    fi
+  done
+  [[ -n $TROCKEN ]] && return 0
+  if (( ${#rest} )); then print -l $rest > $NACHHOLEN; else rm -f $NACHHOLEN; fi
 }
 
 BOARD=
@@ -173,6 +204,7 @@ versuchsjobs() {   # <Commit>
 # einen roten Lauf auswerten: je Prüfung ein Eintrag, eine Zeile aufs iPhone
 rot() {   # <Lauf-ID>
   local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 erste= ergebnis
+  RUN_FEHL=0                               # 1: ein Eintrag scheiterte (--lauf: Exitcode 3)
   local -a namen zeilen versuch
   local -A jobs_von detail_von
   info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
@@ -229,7 +261,7 @@ Lauf: $url
 Commit: $sha „$titel“
 
 Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen." \
-      "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha") || continue
+      "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha") || { RUN_FEHL=1; continue }
     [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
     [[ -z $erste ]] && erste="$jobs: ${name[1,70]}"
   done
@@ -237,6 +269,7 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsid
   if [[ -z $TROCKEN ]] && (( n )); then
     push "CI rot: Lauf $run ($sha) – ${erste:-?}$( (( n > 1 )) && print " (+$((n - 1)) weitere)") – Board: $neu neu, $erg ergänzt"
   fi
+  return 0                                 # ein gescheiterter Push aufs iPhone ist kein Fehler des Laufs (RUN_FEHL zählt)
 }
 
 # Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen „KONSOLE  …“/„PROTOKOLL  …“ von tests/halo_test.py und
@@ -324,10 +357,12 @@ auswerten() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
   konsole $run || return 2
   if [[ -z $NUR ]] && vom_nachtlauf $beginn; then
     melde "Lauf $run ($sha): $erg – während Nachtlauf/Wochenprüfung, übernimmt deren Bericht"
-    return
+    # Rot aus dem Nachtlauf: nach seinem Ende nachholen, falls er es nicht selbst eingetragen hat
+    [[ $erg == failure && $VOM_ART == nacht && -z $TROCKEN ]] && print $run >> $NACHHOLEN
+    return 0
   fi
   case $erg in
-    failure)   rot $run ;;
+    failure)   rot $run || return 1; [[ -n $NUR ]] && (( RUN_FEHL )) && return 1; return 0 ;;
     cancelled) melde "Lauf $run ($sha): abgebrochen" ;;
     *)         melde "Lauf $run ($sha): $erg" ;;
   esac
@@ -358,7 +393,7 @@ if [[ -n $NUR ]]; then
     zeile=$(gh run view $NUR -R $R --json databaseId,status,conclusion,createdAt,headSha \
       --jq '"\(.databaseId) \(.status) \(.conclusion // "-") \(.createdAt | fromdate) \(.headSha[:7])"') || exit 1
   fi
-  auswerten ${=zeile}
+  auswerten ${=zeile} || exit 3
   exit 0
 fi
 
@@ -373,6 +408,7 @@ if [[ ! -s $STAND ]]; then
   fi
   exit 0
 fi
+nachholen
 stand=$(<$STAND)
 for run st erg beginn sha in ${=LISTE}; do
   (( run <= stand )) && continue

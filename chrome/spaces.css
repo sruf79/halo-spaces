@@ -8050,6 +8050,17 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   color: var(--mt-text) !important;
 }
 
+/* Ort öffnet die Karten-App (wie Apple Kalender): in Akzentfarbe, beim Überfahren unterstrichen */
+#calendar-summary-dialog .item-location .mc-map-link {
+  color: var(--mt-accent) !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+}
+
+#calendar-summary-dialog .item-location .mc-map-link:hover {
+  text-decoration: underline !important;
+}
+
 #calendar-summary-dialog .calendar-summary-table tr:has(> .item-title) > th {
   display: none !important;
 }

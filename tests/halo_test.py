@@ -5689,6 +5689,45 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Lesefenster: Beschreibung in Systemschrift und lesbar (≥ 4,5:1, auch dunkel)", summary_description, results)
 
+    def summary_location_maps():
+        # Lesefenster: Klick auf den Ort öffnet die Karten-App des Systems (macOS maps:, Windows bingmaps:, sonst geo:);
+        # ohne App für das Schema bleibt der Ort Text. Öffnen wird abgefangen (dlg.mcOpenMaps), nichts geht wirklich auf
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Ortstermin"; e.calendar = c;
+          const s = cal.dtz.now(); s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.setProperty("LOCATION", "Musterweg 7, 1010 Wien"); const saved = await c.addItem(e);
+          const os = Services.appinfo.OS;
+          const scheme = os == "Darwin" ? "maps" : os == "WINNT" ? "bingmaps" : "geo";
+          const out = { os, app: Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService).externalProtocolHandlerExists(scheme) };
+          let dw = null;
+          try {
+            await toCalendar(); w.openEventDialogForViewing(saved);
+            dw = await winUrl("calendar-summary-dialog"); if (!dw) return { dialog: false };
+            const cell = await till(() => { const x = dw.document.querySelector(".item-location"); return x && /Musterweg/.test(x.textContent) && x; }, 6000);
+            await ruhig(600);
+            const link = cell?.querySelector(".mc-map-link");
+            out.text = cell?.textContent; out.link = !!link;
+            if (link) {
+              dw.mcOpenMaps = url => { out.opened = String(url); };
+              link.click(); await ruhig(200);
+              const cs = dw.getComputedStyle(link);
+              out.cursor = cs.cursor; out.color = cs.color; out.plain = dw.getComputedStyle(cell.closest("tr").querySelector("th")).color;
+            }
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        if res.get("dialog") is False:
+            return False, "Lesefenster nicht offen"
+        want = {"Darwin": "maps://?q=", "WINNT": "bingmaps:?q="}.get(res.get("os"), "geo:0,0?q=") + "Musterweg%207%2C%201010%20Wien"
+        if not res.get("app"):
+            return (not res.get("link") and "Musterweg 7" in (res.get("text") or "")), f"keine Karten-App: {res}"
+        ok = res.get("opened") == want and res.get("cursor") == "pointer" and res.get("color") != res.get("plain")
+        return ok, f"{res}"
+    check("Termin-Lesefenster: Klick auf den Ort öffnet die Karten-App des Systems", summary_location_maps, results)
+
     def reminder_dialog():
         # Erinnerungen anpassen: Liste ohne native Rahmenzeichnung, mit Haarlinie; Trenner neben den Überschriften fein
         res = m.js(CAL_CHECK_JS + r"""

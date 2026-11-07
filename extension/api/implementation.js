@@ -4263,6 +4263,35 @@ function openLocationSettings() {
       .loadURI(Services.io.newURI(LOCATION_SETTINGS_URL), Services.scriptSecurityManager.getSystemPrincipal());
   }
 }
+// Ort eines Termins in der Karten-App des Systems (wie Apple Kalender → Karten):
+// macOS Karten (maps:), Windows Karten (bingmaps:), sonst geo: (Linux: der
+// eingestellte Handler, z. B. GNOME Maps). Kein Webdienst, keine Verbindung
+// der Erweiterung; ohne passende App bleibt der Ort Text.
+function mapsUrl(address, os) {
+  const q = encodeURIComponent(String(address ?? "").replace(/\s+/g, " ").trim());
+  if (!q) {
+    return null;
+  }
+  if (os == "Darwin") {
+    return `maps://?q=${q}`;
+  }
+  if (os == "WINNT") {
+    return `bingmaps:?q=${q}`;
+  }
+  return `geo:0,0?q=${q}`;
+}
+function mapsAppExists(url) {
+  try {
+    return Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+      .externalProtocolHandlerExists(url.slice(0, url.indexOf(":")));
+  } catch {
+    return false;
+  }
+}
+function openMaps(url) {
+  Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+    .loadURI(Services.io.newURI(url), Services.scriptSecurityManager.getSystemPrincipal());
+}
 // Wetter in Worten (Tooltip des Wettersymbols)
 const WEATHER_WORDS = {
   "clear-day": "Sunny", "clear-night": "Clear", "partly-day": "Partly Cloudy", "partly-night": "Partly Cloudy",
@@ -13106,6 +13135,7 @@ class CardEnhancer {
             doc.documentElement.style.minWidth = "480px";
             dlg.addEventListener("DOMContentLoaded", () => {
               dlg.addEventListener("load", () => {
+                this.linkSummaryLocation(dlg);
                 this.fitSummaryDialog(dlg);
                 // Beschreibung steht hier in einem eigenen Inhaltsdokument
                 // (iframe.item-description) – dunkel sonst schwarz auf grau
@@ -21369,6 +21399,45 @@ class CardEnhancer {
       [...list.children].forEach(i => ro.observe(i));
     } catch (e) {
       log("alarm size error", String(e).slice(0, 120));
+    }
+  }
+
+  // Termin-Details: Ort (keine Webadresse) als Link, der die Karten-App öffnet
+  linkSummaryLocation(dlg) {
+    try {
+      const cell = dlg.document.querySelector(".item-location");
+      if (cell && !cell.mcMapWatch) {
+        // Thunderbird schreibt den Ort bei Änderungen des Termins neu
+        cell.mcMapWatch = new dlg.MutationObserver(() => this.linkSummaryLocation(dlg));
+        cell.mcMapWatch.observe(cell, { childList: true });
+      }
+      const text = cell?.textContent.trim();
+      // Webadressen macht Thunderbird selbst zum Link
+      if (!text || cell.querySelector("label, a, .mc-map-link") || /https?:\/\//.test(text)) {
+        return;
+      }
+      const url = mapsUrl(text, Services.appinfo.OS);
+      if (!url || !mapsAppExists(url)) {
+        return;
+      }
+      // Tests ersetzen dlg.mcOpenMaps, um nichts wirklich zu öffnen
+      dlg.mcOpenMaps ??= openMaps;
+      const link = dlg.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      link.className = "text-link mc-map-link";
+      link.setAttribute("role", "link");
+      link.tabIndex = 0;
+      link.textContent = cell.textContent;
+      const go = () => dlg.mcOpenMaps(url);
+      link.addEventListener("click", e => e.button == 0 && go());
+      link.addEventListener("keydown", e => {
+        if (e.key == "Enter" || e.key == " ") {
+          e.preventDefault();
+          go();
+        }
+      });
+      cell.replaceChildren(link);
+    } catch (e) {
+      log("summary location error", String(e).slice(0, 120));
     }
   }
 

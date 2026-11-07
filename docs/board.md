@@ -55,8 +55,8 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   speichern selbst, alle anderen über eine private Artifact-Seite mit dem Bild als eigene Datei an
   `neon-board`, ersatzweise `neon`;
   Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
-  melden), vom Laptop mit `haloapple <name>` (`tests/MAC-MINI.md`
-  Abschnitt 10). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
+  melden), vom Laptop mit `halobild apple-<name>` (`tests/MAC-MINI.md`
+  Abschnitt 10; `neon-board` verschiebt nach `apple/`). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
   Bindestrichen (z. B. `mail-kontextmenue-mailliste`,
   `kalender-termin-popover-dunkel`); gleicher Name ersetzt die ältere
   Fassung (Index-Zeile mit neuem Datum und Hash). Je Bild eine
@@ -75,7 +75,7 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   gestartete Sitzung, die zwischen 08:00 und 22:00 (Wiener Zeit) beginnt,
   nennt dem Maintainer in ihrer ersten Antwort die offenen Bilder aus
   `~/halo-aufgaben/bilder-offen.md` – Pflicht zuerst, optional knapp, mit
-  fertigen `halobild`-/`haloapple`-Befehlen; leere Liste → nichts. Nie in
+  fertigen `halobild`-Befehlen (Apple-Vorlagen mit Vorsatz `apple-`); leere Liste → nichts. Nie in
   automatischen Läufen (Nachtlauf, Wochen-/Doku-Prüfung, Rundgang,
   CI-Wächter, GitHub-Kommunikation, geplante Aufgaben). Auf neon erscheint die Liste
   beim Start (nicht aus `tests/neon-hook.sh`, Quelle des Hooks nicht geklärt); Cloud- und Laptop-Sitzungen fragen sie zu

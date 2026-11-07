@@ -39,7 +39,7 @@ if [ "$neon" = board ]; then
   cat <<'EOF'
 neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“, docs/neon-sitzung.md, docs/board.md):
 - Board nur über ~/.config/halo-spaces/board.sh (liste [Muster], zeige, neu, status, notiz, archiv); vor „neu“ Doppelte prüfen und lieber ergänzen.
-- Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen.
+- Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen. halobild-Bilder aus ~/halo-aufgaben/eingang sortiert tests/bilder-eingang.zsh selbst ein (beim Arbeiten von Hand ~/halo-aufgaben/bilder-eingang.sperre anlegen, danach löschen).
 - Nie Tests, Builds, Thunderbird, git commit/push, Release – solche Aufträge an die Sitzung neon verweisen.
 - Längere Aufträge: HALO_STAND_NAME=board ~/.config/halo-spaces/neon-stand.sh neu|notiz|fertig. Antworten knapp per SendMessage.
 EOF
@@ -59,6 +59,13 @@ neon – Arbeitsweise (ausführlich: docs/neon-sitzung.md, bei Bedarf lesen):
 - /bereit oder „kann ich clearen?“: selbst prüfen (neon-stand.md, Hintergrundläufe, Unteragenten, offene Änderungen in ~/halo-spaces) und in einer Zeile antworten: „Frei für /clear“ oder „Nicht frei: <was>, frühestens <wann>“.
 EOF
 fi
+# Bilder und Vorlagen knapp: Zeilen je Index (Apple nach App-Vorsatz), Dateien im Eingang
+idx_zeilen() { [ -f "$1" ] && grep -c '^| [^ -]' "$1" | awk '{print $1 - 1}' || echo 0; }
+apple_n=$(idx_zeilen "$dir/apple/index.md") bilder_n=$(idx_zeilen "$dir/bilder/index.md")
+apps=$( [ -f "$dir/apple/index.md" ] && sed -n 's/^| \([a-z0-9]*\)-[^|]* | .*/\1/p' "$dir/apple/index.md" | sort | uniq -c | sort -rn | awk '{printf "%s%s %s", (NR>1?", ":""), $2, $1}')
+offen_n=$( [ -f "$dir/apple/index.md" ] || [ -f "$dir/bilder/index.md" ] && cat "$dir/apple/index.md" "$dir/bilder/index.md" 2>/dev/null | grep -c '^| .*unbeschrieben' )
+ein_n=$(ls "$dir/eingang" 2>/dev/null | grep -c .)
+echo "Vorlagen: apple/index.md $apple_n (${apps:-leer}), bilder/index.md $bilder_n, unbeschrieben ${offen_n:-0}, im Eingang $ein_n (Details: docs/board.md)"
 echo "Offene Aufträge:"
 if [ -f "$stand" ] && grep -q '^- #' "$stand"; then grep '^- #' "$stand" | cut -c1-240; else echo "keine"; fi
 exit 0

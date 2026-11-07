@@ -581,8 +581,8 @@ EOF
   fi
 }
 
-# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–17): Nachtlauf jede
-# Nacht 01:30, CI-Wächter alle 15 Minuten, Wochenprüfung sonntags 08:00,
+# Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
+# Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
 # samstags 10:00 (rundgang-woche.sh). Die
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
@@ -648,6 +648,10 @@ pruefe_laeufe() {
     '<key>StartInterval</key><integer>900</integer>
   <key>RunAtLoad</key><true/>' \
     ci-waechter "alle 15 Minuten, rote CI-Läufe ins Board, Protokoll ~/halo-aufgaben/ci-waechter.log"
+  pruefe_agent "Bilder-Eingang" at.halo-spaces.bilder-eingang bilder-eingang.zsh $HOME/Library/Logs/halo-bilder-eingang.log \
+    '<key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>' \
+    bilder-eingang "alle 15 Minuten, ~/halo-aufgaben/eingang einsortieren, Protokoll ~/halo-aufgaben/bilder-eingang.log"
   pruefe_agent "Wochenprüfung" at.halo-spaces.wochenpruefung wochenpruefung.sh $HOME/Library/Logs/halo-wochenpruefung.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \

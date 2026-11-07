@@ -44,6 +44,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
+| `tests/bilder-eingang.zsh`, `tests/bilder_eingang_test.zsh` | Bilder-Eingang: sortiert `~/halo-aufgaben/eingang/` alle 15 Min. ohne Claude nach `bilder/` bzw. `apple/` und indiziert (Claude nur zum Beschreiben), `tests/MAC-MINI.md` Abschnitt 18; Prüfung ohne Claude, läuft in der Doku-Prüfung |
 | `tests/token-bilanz.py` | Token-Bilanz der Claude-Sitzungen auf neon aus den Protokollen (nur Lesen, kein Claude-Aufruf, kein Netz) |
 | `tests/lauf-hilfen.zsh` | gemeinsame Hilfen dieser Läufe (Protokoll, Push aufs iPhone, „belegt?“) |
 | `tests/vorpruefung.zsh`, `tests/github-vorpruefung.sh`, `tests/issue-abgleich.sh` | Vorprüfungen ohne Claude: Nachtlauf, Rundgang und Doku-Prüfung starten Claude nur bei Arbeit, ebenso die GitHub-Kommunikation (`tests/MAC-MINI.md` Abschnitte 13, 16, 17, 17a); behobene Issues ohne Antwort weckt sie auch (`docs/github-komm.md` „Status“) |
@@ -483,6 +484,14 @@ offenen Aufträge aus `neon-stand.md`.
   neben einer minimalen privaten `Artifact`-Seite (`files`), Nachricht an `neon-board` mit Link, Dateiname, SHA-256 und
   Zielname; `neon-board` liest mit `action: "read"` und `path` (rund 150 statt 60.000 Tokens); nie als data:-URI in der
   Seite, nie als base64 in der Nachricht. Qualitätsprüfung, Namen, Einzelheiten: `docs/board.md`.
+- **Bilder und Vorlagen** (Freigabe des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+  auf neon unter `~/halo-aufgaben/`: `eingang/` (unbearbeitet, `halobild` legt hier ab, wird alle
+  15 Min. einsortiert), `bilder/` (Bilder zu Board-Einträgen, Index `bilder/index.md`), `apple/`
+  (Apple-Vorlagen, Index `apple/index.md`, Name `<app>-<oberfläche>[-dunkel]`). Wer Aussehen oder
+  Verhalten gestaltet oder prüft, schaut zuerst in den Index und vergleicht; fehlt eine Vorlage,
+  im Bericht bzw. Gespräch nennen, welche helfen würde. Cloud- und Laptop-Sitzungen sehen die
+  Ordner nicht und fragen bei `neon-board` (ersatzweise `neon`) nach, nie eigene Pfade. Nie ins
+  Repo (echte Mails). Einzelheiten: `docs/board.md`.
 - **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung
   zwischen 08:00 und 22:00 (Wiener Zeit) nennt in ihrer ersten Antwort die offenen Bilder aus
   `~/halo-aufgaben/bilder-offen.md` (Cloud/Laptop: bei `neon-board` erfragen); nie in automatischen

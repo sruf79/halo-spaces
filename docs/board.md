@@ -10,8 +10,13 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
 - Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
   Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in
-  `~/halo-aufgaben/bilder/` (der Maintainer schickt sie mit `halobild <name>`,
-  siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen).
+  `~/halo-aufgaben/bilder/` mit Index `bilder/index.md` (der Maintainer schickt sie mit `halobild <name>`,
+  siehe `tests/MAC-MINI.md` Abschnitt 10, und nennt im Gespräch nur den Namen). `halobild` legt sie
+  im Eingang `~/halo-aufgaben/eingang/` ab; `tests/bilder-eingang.zsh` sortiert sie alle 15 Minuten
+  ohne Sitzung ein (Hash geprüft, Indexzeile, Zeile in `bilder-offen.md` ausgetragen), die
+  Beschreibung ergänzt eine kurze Claude-Sitzung (`tests/MAC-MINI.md` Abschnitt 18). Den Eingang
+  nicht von Hand leeren; wer von Hand in `bilder/` oder `apple/` arbeitet, legt solange
+  `~/halo-aufgaben/bilder-eingang.sperre` an.
   Jeder Screenshot, den der Maintainer einer Sitzung direkt ins Gespräch legt
   – auch ohne Board-Eintrag –, wird von der Sitzung automatisch und ohne
   Rückfrage an `neon-board`, ersatzweise an `neon`, übermittelt und dort unter
@@ -56,7 +61,8 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   `neon-board`, ersatzweise `neon`;
   Originaldatei unverändert, SHA-256 prüfen, Qualität prüfen und
   melden), vom Laptop mit `halobild apple-<name>` (`tests/MAC-MINI.md`
-  Abschnitt 10; `neon-board` verschiebt nach `apple/`). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
+  Abschnitt 10; `tests/bilder-eingang.zsh` sortiert aus dem Eingang nach `apple/` ein und legt
+  die Indexzeile an, Abschnitt 18). Name `<app>-<oberfläche>[-dunkel]`, klein, mit
   Bindestrichen (z. B. `mail-kontextmenue-mailliste`,
   `kalender-termin-popover-dunkel`); gleicher Name ersetzt die ältere
   Fassung (Index-Zeile mit neuem Datum und Hash). Je Bild eine

@@ -146,6 +146,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   und die Unteragenten von neon sowie für die GitHub-Kommunikation (Einstellung in
   der Desktop-App, Schritte `tests/MAC-MINI.md` Abschnitt 17a); Opus bleibt für
   Nachtlauf und Wochenprüfung, Haiku für `push()`.
+- **Bilder-Eingang:** alle 15 Minuten sortiert `tests/bilder-eingang.zsh` (ohne Claude, nur
+  `cp`/`mv`, `shasum`, `sips`) Bilder aus `~/halo-aufgaben/eingang/` nach `bilder/` bzw.
+  `apple/` ein und legt Indexzeilen an; Claude (Sonnet, `--effort low`) startet nur für
+  „unbeschrieben“-Zeilen. Belegt neon nicht; Einzelheiten `tests/MAC-MINI.md` Abschnitt 18.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
   kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
   Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur

@@ -331,10 +331,14 @@ git fetch ~/zweige.bundle bugfix/2026-10-20:bugfix/2026-10-20 design/durchlauf:d
 
 ## 10. Screenshots für die Aufgabenliste
 
-Bilder zu Bugs und Wünschen liegen auf dem Mini in `~/halo-aufgaben/bilder/`
-(nicht im Repo, oft mit echten Mails). Damit sie ohne Umweg über den Chat dort
-landen, auf dem Laptop am Ende von `~/.zshrc` anhängen (Host wie in
-`~/.ssh/config`, bei Bedarf anpassen) und ein neues Terminalfenster öffnen:
+Bilder zu Bugs und Wünschen liegen auf dem Mini in `~/halo-aufgaben/bilder/`,
+Apple-Vorlagen in `~/halo-aufgaben/apple/` (nicht im Repo, oft mit echten
+Mails). `halobild` legt sie im Eingang `~/halo-aufgaben/eingang/` ab;
+`tests/bilder-eingang.zsh` sortiert sie alle 15 Minuten ein (Abschnitt 18).
+Damit sie ohne Umweg über den Chat dort landen, auf dem Laptop am Ende von
+`~/.zshrc` anhängen (Ziel `neosky.cat@neon` über Tailscale, wie in
+`~/.ssh/config`; der frühere Testbenutzer `halotest@halo-mini` ist veraltet)
+und ein neues Terminalfenster öffnen:
 
 ```bash
 halobild() {
@@ -344,7 +348,7 @@ halobild() {
             -e 'write (the clipboard as «class PNGf») to f' \
             -e 'close access f' 2>/dev/null \
     || { echo "Kein Bild in der Zwischenablage"; rm -f "$tmp"; return 1; }
-  scp "$tmp" "halotest@halo-mini:halo-aufgaben/bilder/$1.png" && echo "→ Mini: $1.png"
+  scp "$tmp" "neosky.cat@neon:halo-aufgaben/eingang/$1.png" && echo "→ neon: eingang/$1.png"
   rm -f "$tmp"
 }
 ```
@@ -358,15 +362,16 @@ Benutzen:
 1. ⌃⇧⌘4 (oder ⇧⌘5 mit „Sichern unter: Zwischenablage“) – Bild landet in der
    Zwischenablage, keine Datei auf dem Laptop.
 2. `halobild kalender-woche-raster` – Name klein, mit Bindestrichen, ohne
-   Leerzeichen und ohne `.png`, Bereich vorneweg; gleicher Name überschreibt.
+   Leerzeichen und ohne `.png`, Bereich vorneweg; gleicher Name ersetzt die
+   ältere Fassung. Ungültige Namen bleiben im Eingang (Meldung aufs iPhone).
 3. Im Gespräch mit dem Agenten nur den Namen nennen („Bild: kalender-woche-raster“).
 
 **Apple-Vorlagen** (Screenshots von Apple Mail, Kalender, Kontakte … für
 Vergleiche, `AGENTS.md` „Apple-Vorlagen“) schickt man mit demselben Befehl,
 nur mit Vorsatz `apple-`: `halobild apple-mail-kontextmenue-mailliste`. Die
-Datei landet zunächst in `~/halo-aufgaben/bilder/`; `neon-board` verschiebt
+Datei landet zunächst im Eingang; `tests/bilder-eingang.zsh` verschiebt
 Bilder mit dem Vorsatz nach `~/halo-aufgaben/apple/` (ohne Vorsatz) und
-ergänzt `apple/index.md`. Im Gespräch „Apple-Vorlage: mail-kontextmenue-mailliste“
+ergänzt `apple/index.md` (Abschnitt 18). Im Gespräch „Apple-Vorlage: mail-kontextmenue-mailliste“
 nennen. Eine eigene Funktion `haloapple` gibt es nicht.
 
 ## 11. Windows-VM (Parallels)
@@ -629,7 +634,7 @@ aufs iPhone (Sitzung `github.comm.routine` nicht gefunden o. ä.), schreibt `pus
 gilt dauerhaft und hätte den Rundgang auch nächste Woche verhindert): `~/halo-nacht/pausen.txt`, eine
 Zeile je Pause `<Routine> <bis ISO-Zeit mit Zone> <Grund>`, z. B.
 `rundgang 2026-11-07T14:05+01:00 vom Maintainer ausgesetzt`; Routinen `nachtlauf`, `rundgang`,
-`dokupruefung`, `wochenpruefung`, `github-komm`, `ci-waechter` oder `alle` (die Liste steht einmal in
+`dokupruefung`, `wochenpruefung`, `github-komm`, `ci-waechter`, `bilder-eingang` oder `alle` (die Liste steht einmal in
 `PAUSEN_ROUTINEN` in `tests/lauf-hilfen.zsh`). Das ist die **einzige** Pausen-Datei. Eintragen: `zsh -c 'source
 ~/.config/halo-spaces/lauf-hilfen.zsh; pause_setzen rundgang 2026-11-14T14:05+01:00 "Grund"'`. Jeder Lauf
 fragt die Datei zu Beginn über `pause_start <Routine>` (abgelaufene Zeilen zählen nicht, bei mehreren
@@ -1002,3 +1007,65 @@ Die Sitzung startet weiterhin dreimal täglich, ist bei „nichts neu“ aber na
 Befehl fertig (ein kurzer Lauf statt der vollen Prüfung); ganz ohne Sitzung ginge nur
 ein eigener LaunchAgent, der die Aufgabe bei `NEU` startet (neue Routine, nur auf
 Wunsch).
+
+## 18. Bilder-Eingang
+
+Alle 15 Minuten sortiert `tests/bilder-eingang.zsh` (LaunchAgent
+`at.halo-spaces.bilder-eingang`, ohne eigene Sitzung wie der CI-Wächter; nur
+`cp`/`mv`, `shasum`, `sips`, belegt neon nicht) die Bilder aus
+`~/halo-aufgaben/eingang/` ein (Auftrag des Maintainers vom 7.11.2026):
+
+- **Namen:** klein, Ziffern und Bindestriche, Endung `.png`. `apple-<rest>.png`
+  → `~/halo-aufgaben/apple/<rest>.png`, alles andere →
+  `~/halo-aufgaben/bilder/<name>.png`. Ungültige Namen und nicht lesbare Bilder
+  bleiben im Eingang (Protokoll, einmal Push aufs iPhone). Dateien, die jünger
+  als 1 Minute sind, warten auf den nächsten Lauf (Übertragung läuft noch).
+- **Unverändert:** SHA-256 im Eingang, nach dem Kopieren und im Ziel müssen
+  gleich sein, erst dann wird der Eingang geleert. Gleicher Name ersetzt die
+  ältere Fassung (Indexzeile mit neuem Datum und Hash, Beschreibung wieder
+  „unbeschrieben“); gleicher Hash leert nur den Eingang.
+- **Index:** `apple/index.md` (Name, App, macOS, Inhalt, ui_tour-ids, Datum,
+  SHA-256; bestehende Zeilen bleiben, außer beim Ersetzen derselben Datei) und
+  `bilder/index.md` (Name, Datum, SHA-256, Pixel, Beschreibung; neu seit
+  7.11.2026, ältere Bilder stehen nicht darin). Das Skript füllt Name, Datum,
+  Hash und Größe, alles andere steht als „unbeschrieben“.
+- **Zu klein:** Fläche unter 4096 Pixel (weniger als 64×64) oder eine Kante
+  unter 32 Pixel → „Bild unzureichend: nur B×H px“ in der Zeile, Push. Die
+  Schwelle trifft nur offensichtlich Unbrauchbares; kleine Ausschnitte sind
+  erlaubt (`docs/board.md`), ob Details erkennbar sind, beurteilt Claude.
+- **bilder-offen.md:** passt der Name (ohne Vorsatz `apple-`) genau zur ersten
+  Spalte einer offenen Zeile, wird sie ausgetragen („Erledigt (ausgetragen): …
+  automatisch einsortiert“); zu kleine Bilder nicht. Passt er nur teilweise
+  (z. B. `…-dunkel` zu einer Zeile „hell + dunkel“), steht `TEILWEISE …` im
+  Protokoll und die Zeile bleibt.
+- **Claude nur bei Arbeit** (wie `tests/vorpruefung.zsh`): stehen Zeilen mit
+  „unbeschrieben“ in einem Index, beschreibt `claude -p --model sonnet --effort
+  low` (Werkzeuge Read, Edit, Grep, Glob; Arbeitsordner
+  `~/.cache/halo-bilder-eingang`, zählt so nie als Sitzung am Repo) nur diese
+  Felder, bei `apple/` mit passenden ids aus `tests/ui_tour.py`, und meldet
+  zu schwache Bilder („SCHWACH: …“ → Push). Höchstens 2 Versuche je Bild
+  (`~/halo-aufgaben/bilder-eingang.versuche`), danach einmal Push. Sonst
+  `ÜBERSPRUNGEN bilder-eingang <Grund>` (Protokoll und
+  `~/halo-nacht/uebersprungen.log`, eine gleiche Zeile nur einmal
+  hintereinander), kein Push. Schon gemeldete Probleme stehen in
+  `~/halo-aufgaben/bilder-eingang.gemeldet` und werden nicht wiederholt.
+- **Läuft nicht**, solange jemand anderes dieselben Dateien bearbeitet: Pause
+  (Routine `bilder-eingang` in `~/halo-nacht/pausen.txt`, Abschnitt 13), ein
+  noch laufender eigener Lauf, eine Sitzungssperre
+  `~/halo-aufgaben/bilder-eingang.sperre` (Sitzungen, die von Hand in
+  `bilder/` oder `apple/` arbeiten, legen sie mit `touch` an und löschen sie
+  danach; älter als 2 Stunden zählt sie nicht) oder eine Änderung an
+  `bilder/`, `apple/` oder `bilder-offen.md` in den letzten 3 Minuten, die
+  nicht vom Skript selbst stammt.
+- Protokoll `~/halo-aufgaben/bilder-eingang.log` (launchd-Ausgabe
+  `~/Library/Logs/halo-bilder-eingang.log`). Skript, `lauf-hilfen.zsh` und
+  `sitzung-finden.zsh` liegen wie beim CI-Wächter in `~/.config/halo-spaces/`
+  (`tests/mac-mini-setup.sh` kopiert sie und richtet den LaunchAgent ein).
+- **Einschalten** (nur der Maintainer): `launchctl bootstrap gui/$(id -u)
+  ~/Library/LaunchAgents/at.halo-spaces.bilder-eingang.plist`, dazu auf dem
+  Laptop `halobild` auf das neue Ziel umstellen (Abschnitt 10). Abschalten:
+  `launchctl bootout gui/$(id -u)/at.halo-spaces.bilder-eingang`.
+- Prüfung ohne Claude und ohne Push im Wegwerf-Ordner:
+  `zsh tests/bilder_eingang_test.zsh` (läuft in der Doku-Prüfung). Zum Proben
+  am echten Ordner: `HALO_BILDER_CLAUDE=trocken HALO_BILDER_PUSH=aus
+  ~/.config/halo-spaces/bilder-eingang.zsh`.

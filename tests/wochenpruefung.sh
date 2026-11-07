@@ -142,6 +142,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter Pausen ROT: ${PAUSEN//$'\n'/ | }"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/pausen_check.sh): ${PAUSEN//$'\n'/ | } – Pausen-Logik bzw. Doku an die eine Datei ~/halo-nacht/pausen.txt anpassen."
   fi
+  # Bilder-Eingang (tests/bilder_eingang_test.zsh: Einsortieren, Hash, Index, Sperren, ohne Claude)
+  if BEIN=$(zsh $REPO/tests/bilder_eingang_test.zsh 2>&1); then
+    log "Wächter Bilder-Eingang: $(print -r -- $BEIN | grep -c '^OK') Fälle grün"
+  else
+    log "Wächter Bilder-Eingang ROT: ${${(M)${(f)BEIN}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/bilder_eingang_test.zsh): ${(j: | :)${(M)${(f)BEIN}:#FEHLER*}} – tests/bilder-eingang.zsh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
   # CI-Runden des Nachtlaufs (tests/ci_runde_test.zsh: Vollrunde, Kennzahl, Eintragen, ohne Netz)
   if CIR=$(zsh $REPO/tests/ci_runde_test.zsh 2>&1); then
     log "Wächter CI-Runden: ${CIR##*$'\n'}"

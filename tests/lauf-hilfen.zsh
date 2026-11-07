@@ -8,15 +8,27 @@ zeit() { date '+%F %T' }
 log() { print -r -- "$(zeit) $*" >> $LOG }
 
 # eine Zeile aufs iPhone: eine kurze Claude-Sitzung gibt sie per SendMessage an
-# die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt
+# die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt.
+# Scheitert die Zustellung (Sitzung nicht gefunden, Claude nicht erreichbar,
+# Antwort nicht „gesendet“), steht „PUSH-FEHLER <Routine> <Grund>“ im Protokoll
+# des Laufs und in ~/halo-nacht/uebersprungen.log (Wochenprüfung zählt sie);
+# kein zweiter Versuch, kein weiterer Claude-Aufruf. push <Text> [<Routine>]:
+# Routine standardmäßig der Name des aufrufenden Skripts.
 push() {
-  local text=$1 out
+  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} out grund
+  local fehlerlog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
   # Text über stdin: --allowedTools nimmt sonst den Auftrag als weiteres Werkzeug
   out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „github.comm.routine“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
 PUSH: $text
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
     | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)
   log "Push: $out"
+  if [[ ${out:l} != gesendet* ]]; then
+    grund=${${out#nicht gesendet:}//$'\n'/ }
+    grund=${grund# }
+    print -r -- "$(zeit) PUSH-FEHLER $routine ${grund[1,200]:-keine Antwort}" >> $fehlerlog
+    log "PUSH-FEHLER $routine ${grund[1,200]:-keine Antwort}"
+  fi
 }
 
 # arbeitet gerade eine andere Claude-Sitzung am Repo? Jede Sitzung schreibt ihr

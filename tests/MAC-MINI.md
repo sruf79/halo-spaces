@@ -626,7 +626,10 @@ nicht gepushte Commits, offene Änderungen im Checkout oder Änderungen an
 `extension/`, `chrome/`, `icons/` seit dem letzten Release-Tag (`v*`). Ist nichts davon da,
 schreibt der Lauf nur einen Bericht „übersprungen“ und die Zeile
 `ÜBERSPRUNGEN nachtlauf <Grund>` (Protokoll und `~/halo-nacht/uebersprungen.log`),
-ohne Push aufs iPhone. Im Zweifel (git oder gh nicht lesbar) läuft er.
+ohne Push aufs iPhone. Im Zweifel (git oder gh nicht lesbar) läuft er. Scheitert ein Push
+aufs iPhone (Sitzung `github.comm.routine` nicht gefunden o. ä.), schreibt `push()` in
+`tests/lauf-hilfen.zsh` `PUSH-FEHLER <Routine> <Grund>` ins Protokoll und in
+`~/halo-nacht/uebersprungen.log`; die Wochenprüfung zählt sie (Kennzahl `push_fehler`).
 `touch ~/halo-nacht/IMMER` erzwingt den Lauf. Der Nachtlauf bleibt bei Opus.
 
 Ablauf in der Nacht (seit 3.11.2026 mit der schnellen CI): Einträge

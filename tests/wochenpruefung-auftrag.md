@@ -35,6 +35,11 @@ und wirkten die Verbesserungen der Vorwochen?
   zählt nur „belegt“), keine zu früh beendeten und keine Fehler. Prüfen, ob die
   Vorprüfung zu streng war (z. B. am selben Tag ein offener machbarer Eintrag im
   Board, den der Nachtlauf hätte nehmen sollen) und im Bericht nennen.
+- **Push-Fehler:** Zeilen „PUSH-FEHLER <Routine> <Grund>“ der letzten 7 Tage aus
+  ~/halo-nacht/uebersprungen.log je Routine zählen (die iPhone-Meldung kam nicht an, z. B.
+  falscher Sitzungsname). Jede ist ein Fehler im Ablauf: Grund im Bericht nennen, bei
+  wiederholtem Grund die Ursache beheben (Name der Sitzung, `push()` in
+  tests/lauf-hilfen.zsh).
 - **Remote Control:** ~/Library/Logs/halo-remote-control.log (und .1 … .5,
   rotiert ab 10 MB): Startzeilen („Start: …“, je Neustart der Sitzung neon)
   und Fehlerzeilen der letzten 7 Tage zählen, ebenso für die Board-Sitzung
@@ -119,6 +124,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   durchsicht_abgeschlossen),
   ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
   uebersprungen (Objekt: Routine → Anzahl der Zeilen „ÜBERSPRUNGEN“),
+  push_fehler (Objekt: Routine → Anzahl der Zeilen „PUSH-FEHLER“),
   rundgang (Objekt: status, minuten, nicht_erreicht, ausreisser_neu,
   ausreisser_behoben, ausreisser_gesamt).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).

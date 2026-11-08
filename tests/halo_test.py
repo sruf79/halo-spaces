@@ -12738,7 +12738,7 @@ Neu
 
     def inline_prompt_narrow():
         # Rückfrage „Save Message“ im kleinen Verfassen-Fenster (GitHub #45): die Kachel bleibt im Fenster, der Text bricht
-        # um, die Kachel wächst nach unten mit – alle drei Knöpfe ganz sichtbar; im breiten Fenster unverändert 29em breit
+        # um, die Kachel wächst nach unten mit – alle drei Knöpfe ganz sichtbar; im breiten Fenster unverändert 29em breit (unter Windows mit kleinerer Schrift rund 348 px, darum ab 340 und breiter als im schmalen)
         res = m.js(COMPOSE_CHECK_JS + r"""
           const res = {};
           for (const width of [700, 360]) {
@@ -12763,7 +12763,7 @@ Neu
           }
           return res;""")
         wide, narrow = res.get("700") or {}, res.get("360") or {}
-        ok = (isinstance(wide, dict) and isinstance(narrow, dict) and wide.get("btns") == 3 and wide.get("inside") and wide["card"][2] >= 360
+        ok = (isinstance(wide, dict) and isinstance(narrow, dict) and wide.get("btns") == 3 and wide.get("inside") and wide["card"][2] >= 340 and wide["card"][2] > narrow.get("card", [0, 0, 999])[2]
               and narrow.get("btns") == 3 and narrow.get("inside") and narrow["card"][0] >= 0 and narrow["card"][1] <= narrow["win"])
         return ok, f"{res}"
     check("Nachfragen: im kleinen Verfassen-Fenster bleibt die Kachel im Fenster, alle Knöpfe ganz sichtbar (GitHub #45)", inline_prompt_narrow, results)

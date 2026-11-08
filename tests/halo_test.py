@@ -13057,6 +13057,54 @@ Neu
         return ok, f"desc={ok_desc} kopf={ok_head} pfeil={ok_marker} fokus={ok_focus} rot={ok_red} {res}"
     check("Aufgaben: Beschreibung 13 px ohne Rand und dunkel lesbar, Spaltenköpfe ohne zweiten Strich, „Erledigt“ als geteilter Knopf, überfällig rot, kein Fokusrechteck", tasks_details, results)
 
+    def tasks_cap_hover():
+        # „Complete“ ist ein geteilter Knopf (Haken | Pfeil): beim Überfahren des Pfeils bekommt nur der Pfeilteil eine
+        # Fläche (schmale runde), der Haken-Teil nicht – und umgekehrt; mit echter Mausbewegung gemessen
+        res = m.js(CAL_CHECK_JS + r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar();
+          const viewBefore = Services.prefs.getCharPref("extensions.mailcards.taskView", "");
+          Services.prefs.setCharPref("extensions.mailcards.taskView", "table");
+          tm.openTab("tasks", {}); await ruhig(1500);
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const tree = d.getElementById("calendar-task-tree");
+          const todo = new CalTodo(); todo.title = "Halo Hoveraufgabe"; todo.calendar = c;
+          const saved = await c.addItem(todo);
+          w.__hov = { c, saved, viewBefore };
+          const row = await bis(() => { for (let i = 0; i < tree.mTreeView.rowCount; i++) if (tree.mTreeView.getItemAtIndex?.(i)?.title == "Halo Hoveraufgabe" || tree.getTaskAtRow?.(i)?.title == "Halo Hoveraufgabe") return i + 1; return 0; }, "Aufgabe in der Liste", 5000) - 1;
+          tree.focus(); tree.mTreeView.selection.select(row); await ruhig(900);
+          const mitte = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]; };
+          const cap = d.getElementById("task-actions-markcompleted");
+          return { dm: mitte(cap.querySelector(".toolbarbutton-menubutton-dropmarker")), main: mitte(cap.querySelector(".toolbarbutton-menubutton-button")) };''')
+        read = r"""
+          const cap = d.getElementById("task-actions-markcompleted"), cs = e => w.getComputedStyle(e);
+          const main = cap.querySelector(".toolbarbutton-menubutton-button"), dm = cap.querySelector(".toolbarbutton-menubutton-dropmarker");
+          await ruhig(300);
+          return { main: cs(main).backgroundImage.slice(0, 16), dm: cs(dm).backgroundImage.slice(0, 16), hov: [main.matches(":hover"), dm.matches(":hover")],
+            cap: [cap.matches(":hover"), cs(dm).pointerEvents, cs(main).pointerEvents, dm.localName, dm.hasAttribute("disabled"), cs(dm).display, cs(dm, "::after").pointerEvents, cs(dm, "::before").pointerEvents],
+            top: (r => { const e = d.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return e ? `${e.localName}#${e.id}.${e.className}` : null; })(dm.getBoundingClientRect()) };"""
+        out = {}
+        try:
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": res["dm"][0] - 20, "y": res["dm"][1] + 40}, {"type": "pointerMove", "duration": 200, "x": res["dm"][0], "y": res["dm"][1]}, {"type": "pointerMove", "duration": 0, "x": res["dm"][0] + 1, "y": res["dm"][1]}])
+            out["overDm"] = m.js(read)
+            m.pointer([{"type": "pointerMove", "duration": 100, "x": res["main"][0], "y": res["main"][1]}])
+            out["overMain"] = m.js(read)
+            # Klick auf den Pfeil öffnet weiterhin das Menü
+            m.pointer([{"type": "pointerMove", "duration": 100, "x": res["dm"][0], "y": res["dm"][1]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            out["menu"] = m.js(r"""await ruhig(400); const pu = d.querySelector("#task-actions-markcompleted menupopup"); const st = pu?.state; pu?.hidePopup(); return st;""")
+        finally:
+            m.js(r'''
+              const h = w.__hov; delete w.__hov;
+              try { await h.c.deleteItem(h.saved); } catch {}
+              if (h.viewBefore) Services.prefs.setCharPref("extensions.mailcards.taskView", h.viewBefore); else Services.prefs.clearUserPref("extensions.mailcards.taskView");
+              return 1;''')
+        o, r = out.get("overDm") or {}, out.get("overMain") or {}
+        ok = (bool(o) and o["dm"].startswith("radial-gradient") and not o["main"].startswith("radial-gradient")
+              and bool(r) and r["main"].startswith("radial-gradient") and not r["dm"].startswith("radial-gradient")
+              and out.get("menu") in ("open", "showing"))
+        return ok, f"{res} {out}"
+    check("Aufgaben: „Complete“ mit Pfeil – beim Überfahren bekommt nur der Teil unter der Maus eine Fläche", tasks_cap_hover, results)
+
     def task_cards():
         # Kartenansicht der Aufgaben wie die Mail-Karten: Menü heißt „Card View“, Karten mit Radius und Trennlinie wie die
         # Mailkarten, zweizeilig (Titel, darunter Fälligkeit und Kalender), Auswahl in Akzentfarbe; Klick wählt in

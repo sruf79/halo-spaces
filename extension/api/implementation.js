@@ -5439,6 +5439,23 @@ function hookTaskInfo(win, restorers) {
     actions?.append(b);
     return b;
   };
+  // Der Pfeilteil von „Complete“ bekommt Mausereignisse selbst (CSS: pointer-events), damit nur er beim Überfahren
+  // hervorgehoben wird; Thunderbird öffnet das Menü dann nicht mehr von allein, also hier
+  const completeBtn = doc.getElementById("task-actions-markcompleted");
+  const completeArrow = completeBtn?.querySelector(".toolbarbutton-menubutton-dropmarker");
+  completeArrow?.addEventListener("mousedown", event => {
+    const popup = completeBtn.querySelector("menupopup");
+    if (event.button != 0 || completeBtn.disabled || !popup) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (popup.state == "open" || popup.state == "showing") {
+      popup.hidePopup();
+    } else {
+      popup.openPopup(completeBtn, "after_start");
+    }
+  });
   const openBtn = btn("mcTaskOpenWindow", "Open in New Window");
   const moreBtn = btn("mcTaskMore", "More");
   moreBtn.setAttribute("aria-haspopup", "menu");

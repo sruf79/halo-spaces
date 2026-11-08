@@ -11035,6 +11035,7 @@ datepicker[mc-inline] > menulist {
 }
 
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker {
+  pointer-events: auto !important; /* sonst bekommt der Knopf den Hover statt des Pfeilteils */
   width: 28px !important;
   height: 38px !important;
   margin: 0 !important;

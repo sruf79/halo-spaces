@@ -7375,6 +7375,9 @@ def calendar_checks(m, results):
           const out = {};
           const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
           const savedState = getState(); out.state = savedState.mail;
+          // screen ist eigene Eigenschaft des Fensters ([Replaceable]): Zuweisen ersetzt sie, „delete“ allein ließe
+          // w.screen danach undefined (alle folgenden Prüfungen mit w.screen scheiterten) – Original merken und zurücksetzen
+          const screenDesc = Object.getOwnPropertyDescriptor(w, "screen"), tpWas = !!w.TodayPane?.isVisible;
           try {
             if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
             const boxes = () => {
@@ -7408,9 +7411,10 @@ def calendar_checks(m, results):
             }
           } finally {
             storeState(savedState); await ruhig(500);
-            delete w.screen;
+            if (screenDesc) Object.defineProperty(w, "screen", screenDesc); else delete w.screen;
             if (w.windowState == w.STATE_MAXIMIZED) { w.restore(); await ruhig(800); }
             w.resizeTo(1500, 900); await ruhig(600);
+            if (!!w.TodayPane?.isVisible != tpWas) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
           }
           return out;""")
         ok = all(res.get(k) and res[k]["n"] >= 4 and not res[k]["bad"] and not res[k]["hdrBad"] for k in ("max", "1366", "1280", "extra1366", "extra1280"))

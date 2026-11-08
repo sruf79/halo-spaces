@@ -12587,6 +12587,9 @@ Neu
             cs(b).color == fg("var(--mt-text)"), cs(b).fontSize]);
           // Werkzeug in der Karte mit eigenem Symbol statt developer.svg
           out.icons = [cs(ad.querySelector("addon-card .extension-options-button")).backgroundImage];
+          // Zahnrad im Seitenkopf mit eigenem settings.svg (Bild im Schatten-DOM, Inhalt über --button-icon-content)
+          const gear = ad.querySelector("addon-page-header .page-options-menu .more-options-button")?.shadowRoot?.querySelector("img");
+          out.icons.push(gear ? cs(gear).content : "");
           out.knobs.push(knobs(ad.querySelector("addon-card")));
           out.head.push(headBtn("addon-page-header .back-button"));
           w.openAddonsMgr("addons://detail/" + encodeURIComponent(ID) + "/preferences");
@@ -12612,13 +12615,14 @@ Neu
         detail_ok = dt.get("tgBottom") == "0px" and dt.get("gap") is not None and abs(dt["gap"]) <= 1 and dt.get("rowLine") and dt.get("tgTop")
         tabs = res.get("tabs") or []
         tabs_ok = len(tabs) >= 3 and sum(t[3] for t in tabs) == 1 and all(26 <= t[0] <= 30 and t[1] == "999px" and t[2] == "0px" and t[4] and t[5] and t[6] == "13px" for t in tabs)
-        icons_ok = "mailcards/icons/tools.svg" in (res.get("icons") or [""])[0]
+        ic = res.get("icons") or ["", ""]
+        icons_ok = len(ic) == 2 and "mailcards/icons/tools.svg" in ic[0] and "mailcards/icons/settings.svg" in ic[1]
         inline_ok = res.get("inline") == "rgba(0, 0, 0, 0)" and res.get("inlinePixel") == [255, 0, 255, 255]
         wide_ok = bool(res.get("wide")) and res["wide"][0] >= 300 and res["wide"][2] >= res["wide"][1] - 1
         ok = nav_ok and all(res["page"]) and search_ok and knobs_ok and head_ok and res.get("toggleDot") == "rgb(255, 255, 255)" and menus_ok and detail_ok and tabs_ok and icons_ok and inline_ok and wide_ok
         return ok, f"{res}"
     check("Add-ons: Seitenleiste 34 px/13 px, Seite und Kopf in Fensterfarbe, Suchfeld als Kapsel, Symbolknöpfe gleich, Kopfknöpfe rund mit Fläche, Schalter weiß, "
-          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeugsymbol, Einstellungen ohne eigene Fläche, "
+          "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeug- und Zahnradsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
     def addons_buttons():

@@ -8702,6 +8702,13 @@ addon-card .extension-options-button {
   stroke: currentColor !important;
 }
 
+/* Zahnrad im Seitenkopf mit dem eigenen Symbol statt Thunderbirds
+   settings.svg: das Bild liegt im Schatten-DOM des moz-button ohne part,
+   übernimmt aber seinen Inhalt aus --button-icon-content */
+addon-page-header .page-options-menu .more-options-button {
+  --button-icon-content: url("resource://mailcards/icons/settings.svg") !important;
+}
+
 addon-details .addon-detail-row:not(.addon-detail-help-row),
 addon-details .addon-detail-sitepermissions,
 addon-permissions-list .addon-permissions-list-wrapper:not(:first-child) {

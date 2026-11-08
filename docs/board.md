@@ -98,7 +98,9 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   `sruf79`). Die Einträge sind Entwürfe im Board (Draft Issues), keine
   Issues im Repo.
 - Titel auf Deutsch im Commit-Stil: `Bereich: kurze Beschreibung`
-  (z. B. `Kalender: …`, `Mailliste: …`), Details in den Text.
+  (z. B. `Kalender: …`, `Mailliste: …`), Details in den Text. Einträge aus einem
+  GitHub-Issue oder Pull Request enden auf „[GitHub #n]“ (z. B.
+  `Kalender: Termin verschwindet beim Verschieben [GitHub #42]`, siehe `docs/github-komm.md`).
 - Lokal: Zugriff über `gh` mit Scope `project` (auf neon per Homebrew, siehe
   `tests/MAC-MINI.md` Abschnitt 3; `mac-mini-setup.sh --check` prüft die Anmeldung).
 

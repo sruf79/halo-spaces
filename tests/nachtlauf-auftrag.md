@@ -15,10 +15,15 @@ Reihenfolge:
       Sitzungen, die gerade nicht arbeiten (das Skript startet sonst nicht);
       eine davon kann aber noch offen sein und später weitermachen – darum
       nichts verwerfen. git diff lesen, nach Bereich in Commits teilen
-      (Stil nach AGENTS.md), betroffene Prüfungen mit --only (Port 2850)
-      laufen lassen. Grün bzw. ohne passende Prüfung: committen. Rot oder
-      erkennbar halbfertig: auf einen Zweig rest/<datum> committen (git
-      switch -c, commit, git switch main), nicht pushen, im Bericht nennen.
+      (Stil nach AGENTS.md) und immer auf einen Zweig rest/<datum>
+      committen (git switch -c rest/<datum>, commit, git switch main) –
+      auch wenn die Prüfungen grün wären: nie auf main, nie in ein Release,
+      nicht pushen (geändert 8.11.2026, Ablauf-Analyse, Stufe 1; vorher
+      kamen grüne Änderungen auf main). Im Bericht unter „Mitgenommen“ den
+      Zweig mit seinen Dateien nennen; übernommen wird er nur von der
+      Sitzung, die ihn erstellt hat, bzw. auf Anweisung des Maintainers.
+      Bereits committete, nicht gepushte Commits auf main (b, auch die aus
+      Schritt 5 der Vornacht) betrifft das nicht.
       Nicht verfolgte Dateien nur, wenn sie eindeutig zu diesen Änderungen
       gehören; Bilder, Testausgaben und Gitignoriertes nie.
    b) Abgleich mit GitHub: git fetch origin, dann git rebase origin/main
@@ -215,8 +220,9 @@ Grenzen:
 - GitHub-Issues/PRs beantwortet die Routine „GitHub-Kommunikation“, nicht dieser Lauf; die im
   Release behobenen Issues schließt publish.sh selbst (docs/github-komm.md „Status“). Fix-Commits
   zu einem Issue enden auf „(GitHub #n)“ (AGENTS.md „Commit-Nachrichten“).
-- Fremde ungespeicherte Änderungen oder Commits, an denen gerade keine Sitzung
-  arbeitet, nimmt Schritt 0a mit. Arbeitet aber erkennbar jemand anderes
+- Fremde ungespeicherte Änderungen, an denen gerade keine Sitzung arbeitet,
+  sichert Schritt 0a auf einen Zweig rest/<datum>; fremde Commits auf main
+  nimmt Schritt 0b mit. Arbeitet aber erkennbar jemand anderes
   gerade im Repo (eine andere Sitzung ändert noch Dateien, ein Testlauf, der
   nicht von dir ist): aufhören, nichts davon anfassen, im Bericht vermerken,
   Fertig-Datei anlegen.

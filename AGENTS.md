@@ -296,7 +296,9 @@ was jede Sitzung beachten muss:
   dunkel nur bei Farben), kein Volllauf – den macht die CI, ihr Ergebnis danach prüfen.
 - **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb des Nachtlaufs committen
   Fertiges, das nicht sofort auf GitHub muss, auf `main` in `~/halo-spaces` und pushen nicht; sofort
-  pushen nur, wenn etwas davon abhängt (Release, Fix für Nutzer).
+  pushen nur, wenn etwas davon abhängt (Release, Fix für Nutzer). Ungespeicherte Änderungen anderer
+  Sitzungen legt der Nachtlauf immer auf einen Zweig `rest/<datum>`, nie auf `main` und nie in ein
+  Release (geändert 8.11.2026, Ablauf-Analyse, Stufe 1) – wer fertig ist, committet also selbst.
 - **Den Nachtlauf nicht behindern** (Entscheidung des
   Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
   Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was

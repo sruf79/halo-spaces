@@ -63,10 +63,13 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   zusammen mit seinen eigenen in einer CI-Runde (Entscheidung des Maintainers
   vom 4.11.2026). Sofort pushen nur, wenn etwas davon abhängt (Release, Fix
   für Nutzer, Stand wird anderswo gebraucht). Der Nachtlauf nimmt zu Beginn
-  ohne Rückfrage alles Offene mit: diese Commits und auch ungespeicherte
-  Änderungen, an denen gerade keine Sitzung arbeitet
-  (prüfen, committen; Rotes oder Halbfertiges auf einen Zweig `rest/<datum>`),
-  gleicht mit GitHub ab und arbeitet erst dann die Aufgabenliste ab.
+  ohne Rückfrage alles Offene mit: diese Commits (auf `main`, gehen mit
+  seiner CI-Runde hinaus) und ungespeicherte Änderungen, an denen gerade
+  keine Sitzung arbeitet – diese immer auf einen Zweig `rest/<datum>`, auch
+  wenn ihre Prüfungen grün wären, nie auf `main`, nie in ein Release, nicht
+  gepusht, im Bericht unter „Mitgenommen“ mit Dateien genannt (geändert
+  8.11.2026, Ablauf-Analyse, Stufe 1; vorher kamen grüne Änderungen auf
+  `main`) –, gleicht mit GitHub ab und arbeitet erst dann die Aufgabenliste ab.
 - **Den Nachtlauf nicht behindern** (Entscheidung des Maintainers vom
   5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
   Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was

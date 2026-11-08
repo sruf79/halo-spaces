@@ -4622,6 +4622,45 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Termin-Tooltip als Popup-Fläche ohne Rand und Schatten, Titel fett, Zeit und Ort ohne Feldnamen", event_tooltip, results)
 
+    def event_no_hover_tooltip():
+        # Termine in Woche und Monat zeigen beim Überfahren keinen Tooltip (wie Apple Kalender): mit echter Mausbewegung;
+        # ein eigener Zuhörer belegt, dass Thunderbird den Tooltip öffnen wollte und halo.spaces es absagte
+        prep = r"""
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Hovertermin"; e.calendar = c;
+          const s = cal.dtz.now(); s.hour = 10; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 2; e.startDate = s; e.endDate = en;
+          if (!w.__noTip) { const saved = await c.addItem(e); w.__noTip = { c, saved, log: [] };
+            const tip = d.getElementById("itemTooltip");
+            w.__noTip.fn = ev => { if (ev.target == tip) w.__noTip.log.push([!!tip.triggerNode?.closest?.("#view-box"), ev.defaultPrevented]); };
+            tip.addEventListener("popupshowing", w.__noTip.fn); }
+          w.__noTip.log.length = 0;
+          if (VIEW == "week") await toWeek(); else { w.switchToView("month"); await ruhig(1200); }
+          const box = await till(() => [...d.querySelectorAll(VIEW == "week" ? "#week-view calendar-event-box" : "calendar-month-day-box-item")]
+            .find(b => vis(b) && /Halo Hovertermin/.test(b.textContent)), 5000);
+          if (!box) return null;
+          const r = box.getBoundingClientRect();
+          return [Math.round(r.left + r.width / 2), Math.round(r.top + Math.min(r.height / 2, 10))];"""
+        out = {}
+        try:
+            for view in ("week", "month"):
+                pt = m.js(CAL_CHECK_JS + f'const VIEW = "{view}";' + prep)
+                if not pt:
+                    out[view] = None
+                    continue
+                m.pointer([{"type": "pointerMove", "duration": 0, "x": pt[0] - 30, "y": pt[1] + 30},
+                           {"type": "pointerMove", "duration": 200, "x": pt[0], "y": pt[1]},
+                           {"type": "pointerMove", "duration": 0, "x": pt[0] + 1, "y": pt[1]}])
+                # bewusst feste Zeit: Thunderbird öffnet Tooltips erst nach einer Verzögerung, gemessen wird, ob er dann offen ist
+                out[view] = m.js(CAL_CHECK_JS + r"""await pause(1500); const tip = d.getElementById("itemTooltip");
+                  return { state: tip.state, log: [...w.__noTip.log] };""")
+                m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+        finally:
+            m.js(CAL_CHECK_JS + r"""const h = w.__noTip; delete w.__noTip;
+              if (h) { d.getElementById("itemTooltip").removeEventListener("popupshowing", h.fn); try { await h.c.deleteItem(h.saved); } catch {} }
+              d.getElementById("itemTooltip").hidePopup(); w.switchToView("week"); await ruhig(400); return 1;""")
+        ok = all(out.get(v) and out[v]["state"] == "closed" and out[v]["log"] and all(a and p for a, p in out[v]["log"]) for v in ("week", "month"))
+        return ok, f"{out}"
+    check("Kalender: Termine in Woche und Monat ohne Tooltip beim Überfahren", event_no_hover_tooltip, results)
+
     def narrow_heads():
         # schmales Fenster: Kopf nicht breiter als seine Spalte (Thunderbirds Inline-Mindestbreite), Text endet mit „…“
         res = m.js(CAL_CHECK_JS + r"""

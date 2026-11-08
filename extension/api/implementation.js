@@ -16376,6 +16376,28 @@ class CardEnhancer {
         }
       }
     };
+    // Termine in Tag, Woche, Mehrwochen und Monat ohne Tooltip beim
+    // Überfahren (wie Apple Kalender); Details zeigt das Popover per Klick.
+    // Thunderbird füllt #itemTooltip schon beim mouseover, das Öffnen wird
+    // hier abgesagt; in der Today-Pane bleibt der Tooltip
+    const hookItemTooltip = () => {
+      const tip = w.document.getElementById("itemTooltip");
+      if (!tip || tip.__mcNoTip) {
+        return;
+      }
+      tip.__mcNoTip = true;
+      const onShowing = event => {
+        if (event.target == tip && tip.triggerNode?.closest?.("#view-box")) {
+          event.preventDefault();
+        }
+      };
+      tip.addEventListener("popupshowing", onShowing, true);
+      this.restorers.push(() => {
+        tip.removeEventListener("popupshowing", onShowing, true);
+        delete tip.__mcNoTip;
+      });
+    };
+
     const hookCalendarEmoji = () => {
       for (const id of ["view-box", "agenda"]) {
         const root = w.document.getElementById(id);
@@ -17148,6 +17170,7 @@ class CardEnhancer {
       hookNewButton();
       hookCalendarNotes();
       hookCalendarEmoji();
+      hookItemTooltip();
       hookTaskPlaceholders();
       hookTasksEmpty();
       hookCalendarDoubleClick();

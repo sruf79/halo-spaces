@@ -181,6 +181,18 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.22.0
+
+- **Tasks**: the buttons sit above the task in the details column ("Complete" on the left, "Open in New Window" and a "..." menu with Duplicate, Move to List, Open in New Window and Delete Task on the right); the header is an enlarged card with a coloured stripe and a progress bar you can drag, click, type into or change with the arrow keys; the arrow of "Complete" highlights only itself on hover; a list can be renamed in place from its context menu; start and due dates open a month calendar for typing
+- **Calendar**: the multi-week view loads further ahead and shows the month name in a band above the week with the 1st while you scroll; clicking the location of an event opens the system's maps app
+- **Mail**: the "Follow Up" notice above the inbox is an accent capsule with a small round close button; the Mark menu shows tags under a divider as coloured folders (#50)
+- **Settings**: categories ordered by use
+- **Toolbar**: the add-on notice sits as a round button next to the Today button (#43)
+- **Dialogs**: questions in a small compose window stay inside the window and show all buttons (#45)
+- **Today pane**: search field, "+" and title in Tasks glide to their place without jumping at the end
+- **Menus**: the active space is ticked in the Window menu (Mac) or under View
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.21.0
 
 - **Event dialog**: type the date and time of start and end right in the fields. A click picks day, month, year, hour or minute (highlighted in the calendar's colour) with a small month calendar below the date; digits move on by themselves, Tab and the arrow keys switch fields. The end list below the end time offers the next six half-hour steps with the duration, and an end typed before the start on the same day moves to the next day

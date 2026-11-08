@@ -716,14 +716,15 @@ Nach Claudes Arbeit – auch wenn die Vorprüfung nichts fand – ruft `nachtlau
 `ci_nacht_abschluss` aus `tests/ci-runde.zsh` (nur `gh`, kein Claude; Protokollzeile „Start
 CI-Abschluss“, bis „Ende“ zählt das als Nachtfenster für den CI-Wächter):
 noch laufende CI-Läufe der Nacht abwarten (bis 90 Minuten, längstens 09:00), rote Prüfungen
-daraus mit `ci-waechter.sh --lauf <ID>` ins Board (`Tests: CI rot – <Job>: <Prüfung>`, offener
-Eintrag zur selben Prüfung wird ergänzt; gezielte Läufe und `windows-github` nicht; eingetragene
+daraus mit `ci-waechter.sh --lauf <ID>` ins Board (ein Eintrag je Lauf, Prüfungen als Liste; offener
+Eintrag zur selben Prüfung wird ergänzt, Abschnitt 14; gezielte Läufe und `windows-github` nicht; eingetragene
 Läufe in `~/halo-nacht/<datum>.ci-eingetragen`). Zeigt ein späterer Vollrunden-Lauf derselben Nacht
 auf einem anderen Kopf-SHA (Reparaturcommit) dieselbe Prüfung im selben Job und Schritt (hell/dunkel)
 grün, gilt sie als in derselben Nacht repariert (Entscheidung des Maintainers vom 7.11.2026,
 `ci_reparatur` in `tests/ci-runde.zsh`): kein Eintrag, nur die Zeile „CI rot, in derselben Nacht
 repariert: <Job>: <Prüfung> (rot: Lauf X, grün: Lauf Y, Commit Z)“ im Bericht; ein schon offener
-Eintrag bekommt eine Notiz mit Commit und Lauf-IDs, Status Done und wird archiviert. Grün nur auf
+Eintrag bekommt eine Notiz mit Commit und Lauf-IDs, Status Done und wird archiviert (listet er
+noch andere, nicht reparierte Prüfungen: nur die Notiz). Grün nur auf
 demselben SHA (Wiederholung) heißt „flackert“: Eintrag wie bisher mit Notiz „flackert“. Bleibt die
 Prüfung bis zum Ende der Nacht rot, wird sie wie bisher eingetragen. Lief in den letzten 24 Stunden keine Vollrunde
 (abgeschlossen, nicht gezielt, alle Testjobs Linux Release/Beta/ESR, `mac`, `windows` gelaufen –
@@ -801,14 +802,26 @@ Läufen von `test.yml` auf `main` seit dem zuletzt ausgewerteten (Stand:
 `~/halo-aufgaben/ci-waechter.stand`, beim ersten Start der neueste Lauf –
 Älteres wird nicht nachgemeldet).
 
-- **Rot:** je gescheiterter Prüfung (Zeilen `FEHLER` im Log; ohne solche Zeile
-  der abgebrochene Schritt) ein Bug im Board, Status Todo, Titel
-  `Tests: CI rot – <Job>: <Prüfung>`. Dieselbe Prüfung in mehreren Jobs ergibt
-  einen Eintrag; gibt es schon einen offenen Eintrag zur selben Prüfung, wird
-  er ergänzt (Datum, Lauf, Commit). Dazu eine Zeile aufs iPhone über dieselbe
-  `push()`-Funktion wie der Nachtlauf (`tests/lauf-hilfen.zsh`) – die Sitzung
-  `github.comm.routine` ist dabei nur der Zustellweg, die Routine
-  „GitHub-Kommunikation“ selbst bleibt unberührt.
+- **Rot:** ein Bug je rotem Lauf, Status Todo, die gescheiterten
+  Prüfungen (Zeilen `FEHLER` im Log; ohne solche Zeile der abgebrochene
+  Schritt) als Liste `- <Prüfung> (Job <Job>)` unter „Ist: … rot:“, darunter
+  die Meldungen. Titel bei einer Prüfung wie bisher
+  `Tests: CI rot – <Job>: <Prüfung>`, bei mehreren
+  `Tests: CI rot – Lauf <ID> (<Commit>): <n> Prüfungen, u. a. <erste>`.
+  Dieselbe Prüfung in mehreren Jobs ist eine Zeile. Hat eine Prüfung schon
+  einen offenen Eintrag (Prüfung im Titel oder in dessen Liste), kommt sie
+  nicht in den neuen, sondern ergänzt diesen – eine Notiz je Eintrag und Lauf
+  (Datum, Lauf, Commit, Liste der erneut roten Prüfungen). Keine Zeile aufs
+  iPhone (Entscheidung des Maintainers vom 7.11.2026).
+- **Wackelig:** war eine Prüfung mit diesem Lauf mindestens dreimal rot, ohne
+  dass sich zwischen den Commits etwas geändert hat, was Thunderbird betrifft
+  (`tests/ci-noetig.sh` im Arbeitsordner `~/halo-spaces`; gleicher Commit
+  zählt immer als unverändert, ein dort unbekannter Commit als geändert),
+  bekommt ihr Eintrag einmal die Zeile `wackelig: „<Prüfung>“ war 3× rot ohne
+  Codeänderung … (Läufe …)` – gesammelt, eine Notiz je Prüfung und Eintrag;
+  im Protokoll `wackelig: …`. Verlauf der roten Prüfungen:
+  `~/halo-aufgaben/ci-waechter.rot` (Lauf, Commit, Prüfung; höchstens 1000
+  Zeilen).
 - **Versuchsjobs:** Jobs mit `continue-on-error: true` in `test.yml` (derzeit
   `windows-github`) zählen nicht – kein Eintrag, keine Zeile aufs iPhone, auch
   nicht für ihre `KONSOLE`-/`PROTOKOLL`-Zeilen (Entscheidung des Maintainers

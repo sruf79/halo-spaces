@@ -1,10 +1,13 @@
 #!/bin/zsh
 # CI-Wächter auf neon (tests/MAC-MINI.md Abschnitt 14): sieht alle 15 Minuten
 # (LaunchAgent at.halo-spaces.ci-waechter) nach abgeschlossenen Läufen von
-# test.yml auf main – ohne Claude, nur gh. Bei Rot trägt er je gescheiterter
-# Prüfung einen Bug ins Board ein (oder ergänzt den offenen Eintrag zur selben
-# Prüfung) – ohne Meldung aufs iPhone (seit 7.11.2026); Abgebrochenes wird nur
-# protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
+# test.yml auf main – ohne Claude, nur gh. Bei Rot trägt er je rotem Lauf einen
+# Bug ins Board ein, die gescheiterten Prüfungen als Liste im Text; Prüfungen
+# mit offenem Eintrag ergänzen diesen (eine Notiz je Eintrag und Lauf) – ohne
+# Meldung aufs iPhone (seit 7.11.2026). War eine Prüfung 3× rot, ohne dass sich
+# dazwischen etwas geändert hat, was Thunderbird betrifft (tests/ci-noetig.sh),
+# vermerkt er einmal je Prüfung und Eintrag „wackelig: …“ (Verlauf
+# ~/halo-aufgaben/ci-waechter.rot). Abgebrochenes wird nur protokolliert. Läufe, die Nachtlauf oder Wochenprüfung selbst beobachten,
 # lässt er dabei aus. Fehler aus Fehlerkonsole und Fehlerprotokoll (Zeilen
 # „KONSOLE  …“/„PROTOKOLL  …“) trägt er für jeden Lauf als Bug ein – kein Rot.
 # Jobs mit continue-on-error (Versuchsjobs wie windows-github) zählen nicht: kein
@@ -35,7 +38,7 @@ while (( $# )); do
     --trocken) TROCKEN=1 ;;
     --lauf) shift; NUR=$1 ;;
     --datei) shift; DATEI=$1 ;;
-    -h|--help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) print -u2 "Unbekannte Option: $1"; exit 2 ;;
   esac
   shift
@@ -50,6 +53,7 @@ DIR=$HOME/halo-aufgaben
 STAND=$DIR/ci-waechter.stand
 NACHHOLEN=$DIR/ci-waechter.nachholen   # rote Läufe des Nachtlaufs, nachzuholen nach seinem Ende
 VERSUCHE=$DIR/ci-waechter.versuche     # „<Lauf> <Anzahl>“: Leseversuche eines unlesbaren Laufs
+ROT=$DIR/ci-waechter.rot               # „<Lauf><Tab><Commit><Tab><Prüfung>“ je roter Prüfung (für „wackelig“)
 LOG=$DIR/ci-waechter.log
 NACHT=$HOME/halo-nacht
 mkdir -p $DIR
@@ -221,19 +225,49 @@ bericht_zeile() {   # <Zeile> <Beginn-Epoch des roten Laufs>
   print -r -- "- $1" >> $b
 }
 
-# in derselben Nacht repariert: offenen Eintrag zur Prüfung (wie eintragen()) mit Notiz auf Done setzen und
-# archivieren; ohne offenen Eintrag nichts. Rückgabe 1, wenn das Board nicht lesbar ist oder ein Schritt scheitert
+# offener „Tests: CI rot“-Eintrag zu einer Prüfung: alte Form (Prüfung im Titel) oder Lauf-Eintrag (Prüfung als
+# Zeile „- <Prüfung> (Job …)“ in der Liste des Textes); Vergleich über die ersten 60 Zeichen. Ausgabe „<id> <Inhalt-id>“
+offen_finden() {   # <Prüfung> <Board-JSON>
+  print -r -- $2 | jq -r --arg p "${1[1,60]}" --arg a "Tests: CI rot" \
+    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.title | contains($p)) or ((.content.body // "") | contains("\n- " + $p))))][0] | "\(.id // "") \(.content.id // "")"'
+}
+
+# Prüfungen der Liste eines Lauf-Eintrags (Zeilen „- …“ nach „Ist: … rot:“ bis zur Leerzeile), je Zeile ein Name
+liste_von() {   # <Text>
+  print -r -- $1 | awk '/^Ist: .* rot:$/ { l = 1; next } l && /^$/ { exit } l && /^- / { print }' \
+    | sed -e 's/^- //' -e 's/ (Job [^)]*)$//'
+}
+
+# in derselben Nacht repariert: offenen Eintrag zur Prüfung (offen_finden) mit Notiz auf Done setzen und
+# archivieren; listet ein Lauf-Eintrag noch andere Prüfungen, die nicht repariert sind, nur die Notiz.
+# Ohne offenen Eintrag nichts. Rückgabe 1, wenn das Board nicht lesbar ist oder ein Schritt scheitert
 repariert_schliessen() {   # <Prüfung> <Notiz>
-  local b id di body
+  local b id di body p rest=
   b=$(board) || { melde "FEHLER: Board nicht lesbar – repariert nicht geschlossen"; return 1 }
-  read -r id di <<< $(print -r -- $b | jq -r --arg p "${1[1,60]}" --arg a "Tests: CI rot" \
-    '[.items[] | select(.status != "Done" and (.title | startswith($a)) and (.title | contains($p)))][0] | "\(.id // "") \(.content.id // "")"')
+  read -r id di <<< $(offen_finden "$1" "$b")
   [[ -n $id ]] || return 0
+  body=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
+  for p in ${(f)"$(liste_von "$body")"}; do
+    [[ -z $p || ${p[1,60]} == ${1[1,60]} ]] && continue
+    [[ $body == *"Prüfung „${p[1,60]}"*"in derselben Nacht repariert"* ]] || rest+=" „${p[1,60]}“"
+  done
+  if [[ -n $rest ]]; then
+    if [[ -n $TROCKEN ]]; then
+      print -u2 "  (trocken) würde Notiz anlegen (übrige Prüfungen noch rot): $id"
+      return 0
+    fi
+    gh project item-edit --id $di --body "$body
+
+${2/in derselben Nacht repariert/Prüfung „$1“ in derselben Nacht repariert} Übrige Prüfungen des Eintrags noch offen:$rest" >/dev/null \
+      || { melde "FEHLER: Eintrag $id (repariert) ließ sich nicht ergänzen"; return 1 }
+    BOARD=
+    melde "  Eintrag $id: Prüfung in derselben Nacht repariert – Notiz, übrige noch offen"
+    return 0
+  fi
   if [[ -n $TROCKEN ]]; then
     print -u2 "  (trocken) würde mit Notiz auf Done setzen und archivieren: $id"
     return 0
   fi
-  body=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
   gh project item-edit --id $di --body "$body
 
 $2" >/dev/null \
@@ -244,13 +278,45 @@ $2" >/dev/null \
   melde "  Eintrag $id: in derselben Nacht repariert – Done, archiviert"
 }
 
-# einen roten Lauf auswerten: je Prüfung ein Eintrag (keine Meldung aufs iPhone)
+# „wackelig“: dieselbe Prüfung mindestens dreimal rot, ohne dass sich dazwischen etwas geändert hat, was
+# Thunderbird betrifft (tests/ci-noetig.sh im Arbeitsordner ~/halo-spaces; gleicher Commit zählt immer als
+# unverändert, unbekannte Commits als geändert). Verlauf: ~/halo-aufgaben/ci-waechter.rot
+code_gleich() {   # <Commit> <Commit>: 0 = keine Thunderbird-Änderung dazwischen
+  local repo=${HALO_REPO:-$HOME/halo-spaces}
+  [[ $1 == $2 ]] && return 0
+  [[ -x $repo/tests/ci-noetig.sh ]] || return 1
+  git -C $repo cat-file -e "$1^{commit}" 2>/dev/null && git -C $repo cat-file -e "$2^{commit}" 2>/dev/null || return 1
+  $repo/tests/ci-noetig.sh $1 $2 >/dev/null 2>&1
+  (( $? == 1 ))
+}
+wackelig() {   # <Prüfung> <Commit> <Lauf>; gibt „Läufe a, b, c“ aus, wenn die Prüfung (mit diesem Lauf) 3× so rot war
+  local name=$1 sha=$2 run=$3 r s p
+  local -a gleich=($run)
+  [[ -r $ROT ]] || return 0
+  while IFS=$'\t' read -r r s p; do
+    [[ $p == $name && $r != $run ]] || continue
+    (( ${gleich[(Ie)$r]} )) && continue
+    code_gleich $s $sha && gleich+=($r)
+  done < $ROT
+  (( ${#gleich} >= 3 )) && print -r -- "Läufe ${(j:, :)${(@on)gleich}}"
+  return 0
+}
+rot_merken() {   # <Lauf> <Commit> <Prüfung>: in den Verlauf (einmal je Lauf und Prüfung, höchstens 1000 Zeilen)
+  [[ -n $TROCKEN ]] && return 0
+  grep -qxF -- "$1	$2	$3" $ROT 2>/dev/null && return 0
+  print -r -- "$1	$2	$3" >> $ROT
+  (( $(wc -l < $ROT) > 1000 )) && { tail -800 $ROT > $ROT.neu && mv $ROT.neu $ROT }
+  return 0
+}
+
+# einen roten Lauf auswerten: ein Eintrag je Lauf mit den gescheiterten Prüfungen als Liste; Prüfungen mit
+# offenem Eintrag ergänzen diesen (eine Notiz je Eintrag und Lauf) statt neu (keine Meldung aufs iPhone)
 rot() {   # <Lauf-ID>
   local run=$1 info sha titel url heute flog job schritt zeile name detail jobs n=0 neu=0 erg=0 rep=0 ergebnis
   local beginn vollsha nacht_bis= laeufe= zustand gid gsha notiz
   RUN_FEHL=0                               # 1: ein Eintrag scheiterte (--lauf: Exitcode 3)
-  local -a namen zeilen versuch
-  local -A jobs_von detail_von paare_von
+  local -a namen zeilen versuch rote
+  local -A jobs_von detail_von paare_von jobs_rot notiz_von
   info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs,createdAt) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
   versuch=(${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"})
   # gezielter Lauf von Hand (nur einzelne Prüfungen/Systeme, test.yml): Fehlersuche, kein Board-Eintrag
@@ -311,30 +377,107 @@ rot() {   # <Lauf-ID>
       repariert_schliessen "$name" "**$(date '+%d.%m.%Y %H:%M'):** in derselben Nacht repariert – rot: Lauf $run (Commit $sha), grün: Lauf $gid (Commit $gsha), Job $jobs. Done (Entscheidung des Maintainers vom 7.11.2026)." || RUN_FEHL=1
       continue
     fi
+    notiz=
     if [[ $zustand == flackert ]]; then
       melde "  flackert: $jobs: ${name[1,150]} (rot: Lauf $run, grün: Lauf $gid, gleicher Commit $gsha)"
-      notiz="
-
-flackert: in derselben Nacht ohne Reparaturcommit grün (Lauf $gid, gleicher Commit $gsha) – zählt nicht als repariert."
+      notiz="flackert: in derselben Nacht ohne Reparaturcommit grün (Lauf $gid, gleicher Commit $gsha) – zählt nicht als repariert: „${name[1,150]}“"
     fi
     n=$((n + 1))
-    (( n > 8 )) && continue                  # mehr als 8 Prüfungen: nur zählen
     melde "  rot: $jobs: ${name[1,150]}"
-    ergebnis=$(eintragen "$jobs" "$name" "Wo: CI (Workflow test.yml auf main), Job $jobs
+    rote+=($name) jobs_rot[$name]=$jobs notiz_von[$name]=$notiz
+  done
+  [[ -n $laeufe ]] && rm -f $laeufe $laeufe.*(N)
+  if (( ${#rote} )); then
+    # ein Eintrag je Lauf: Prüfungen mit offenem Eintrag ergänzen diesen, die übrigen kommen
+    # zusammen in einen neuen Eintrag; Board nicht lesbar → nichts anlegen (sonst Dubletten)
+    local b id di wack zusatz text ttl kurz z
+    local -a ohne ids
+    local -A zeilen_von
+    if ! b=$(board); then
+      melde "FEHLER: Board nicht lesbar – nichts eingetragen"
+      RUN_FEHL=1
+    else
+      for name in $rote; do
+        wack=$(wackelig "$name" $vollsha $run)
+        rot_merken $run $vollsha "$name"
+        z="- $name (Job ${jobs_rot[$name]})"
+        [[ -n ${notiz_von[$name]} ]] && z+=$'\n'"${notiz_von[$name]}"
+        read -r id di <<< $(offen_finden "$name" "$b")
+        if [[ -n $id ]]; then
+          # „wackelig“ nur einmal je Prüfung und Eintrag
+          if [[ -n $wack ]] && ! print -r -- $b | jq -e --arg i $id --arg w "wackelig: „${name[1,60]}" \
+               '.items[] | select(.id == $i) | (.content.body // "") | contains($w)' >/dev/null; then
+            z+=$'\n'"wackelig: „${name[1,150]}“ war 3× rot ohne Codeänderung, die Thunderbird betrifft ($wack)"
+            melde "  wackelig: ${jobs_rot[$name]}: ${name[1,150]} ($wack)"
+          fi
+          (( ${+zeilen_von[$id]} )) || ids+=($id)
+          zeilen_von[$id]+=$z$'\n'
+          [[ -n $di ]] && zeilen_von[$id.di]=$di
+          erg=$((erg + 1))
+        else
+          if [[ -n $wack ]]; then
+            z+=$'\n'"wackelig: „${name[1,150]}“ war 3× rot ohne Codeänderung, die Thunderbird betrifft ($wack)"
+            melde "  wackelig: ${jobs_rot[$name]}: ${name[1,150]} ($wack)"
+          fi
+          ohne+=($name) zeilen_von[neu]+=$z$'\n'
+        fi
+      done
+      for id in $ids; do
+        zusatz="**$heute:** erneut rot – Lauf $url, Commit $sha:
+${zeilen_von[$id]%$'\n'}"
+        if [[ -n $TROCKEN ]]; then
+          print -u2 "  (trocken) würde ergänzen: $id"
+          continue
+        fi
+        text=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
+        gh project item-edit --id ${zeilen_von[$id.di]} --body "$text
 
-Ist: Die Prüfung „$name“ ist rot.
+$zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen"; RUN_FEHL=1 }
+      done
+      if (( ${#ohne} )); then
+        neu=${#ohne}
+        if (( neu == 1 )); then
+          # eine Prüfung: Titel wie bisher „<Job>: <Prüfung>“
+          kurz=${ohne[1][1,90]}
+          if (( ${#ohne[1]} > 90 )); then
+            kurz=${kurz% *}; (( ${#kurz} < 60 )) && kurz=${ohne[1][1,89]}; kurz+=" …"
+          fi
+          ttl="Tests: CI rot – ${jobs_rot[${ohne[1]}]}: $kurz"
+        else
+          ttl="Tests: CI rot – Lauf $run ($sha): $neu Prüfungen, u. a. ${ohne[1][1,60]}"
+        fi
+        text="Wo: CI (Workflow test.yml auf main), Lauf $run
 
-Meldung: ${detail_von[$name][1,1200]}
+Ist: $neu Prüfung(en) rot:
+${zeilen_von[neu]%$'\n'}
+
+Meldungen:"
+        for name in ${ohne[1,30]}; do
+          text+="
+„${name[1,150]}“: ${detail_von[$name][1,$(( neu > 5 ? 400 : 1200 ))]}"
+        done
+        (( neu > 30 )) && text+="
+… und $(( neu - 30 )) weitere (siehe Lauf)"
+        text+="
 
 Lauf: $url
 Commit: $sha „$titel“
 
-Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh). Ursache und Lösungsidee noch offen.$notiz" \
-      "**$heute:** erneut rot im Job $jobs – Lauf $url, Commit $sha$notiz") || { RUN_FEHL=1; continue }
-    [[ $ergebnis == neu ]] && neu=$((neu + 1)) || erg=$((erg + 1))
-  done
-  [[ -n $laeufe ]] && rm -f $laeufe $laeufe.*(N)
-  melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu neu, $erg ergänzt$( (( rep )) && print -n ", $rep in derselben Nacht repariert")"
+Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh, ein Eintrag je rotem Lauf). Ursache und Lösungsidee noch offen."
+        if [[ -n $TROCKEN ]]; then
+          print -u2 "  (trocken) würde anlegen: $ttl"
+          print -r -- $text | sed -n '/^Ist: /,/^$/p' | sed 's/^/    /' >&2
+        else
+          id=$(gh project item-create 1 --owner sruf79 --title "$ttl" --body "$text" --format json --jq .id) \
+            && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_TYP --single-select-option-id $TYP_BUG >/dev/null \
+            && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_TODO >/dev/null \
+            || { melde "FEHLER: Eintrag „$ttl“ ließ sich nicht anlegen"; RUN_FEHL=1 }
+          BOARD=
+        fi
+      fi
+    fi
+  fi
+  melde "Lauf $run ($sha) rot: $n Prüfung(en), $neu in neuem Eintrag, $erg in offenen Einträgen ergänzt$( (( rep )) && print -n ", $rep in derselben Nacht repariert")"
   # keine Meldung aufs iPhone (Entscheidung des Maintainers vom 7.11.2026, ENTSCHEIDUNGEN.md): Board und Protokoll genügen
   return 0
 }

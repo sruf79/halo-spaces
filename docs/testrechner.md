@@ -163,9 +163,11 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   `apple/` ein und legt Indexzeilen an; Claude (Sonnet, `--effort low`) startet nur für
   „unbeschrieben“-Zeilen. Belegt neon nicht; Einzelheiten `tests/MAC-MINI.md` Abschnitt 18.
 - **CI-Wächter:** alle 15 Minuten trägt `tests/ci-waechter.sh` (nur `gh`,
-  kein Claude) für rote CI-Läufe auf `main` je gescheiterter Prüfung einen
-  Bug ins Board ein (`Tests: CI rot – <Job>: <Prüfung>`, offenen Eintrag zur
-  selben Prüfung ergänzt er) und meldet es aufs iPhone; Läufe während Nachtlauf
+  kein Claude) für rote CI-Läufe auf `main` je Lauf einen Bug ins Board ein,
+  die gescheiterten Prüfungen als Liste im Text (Prüfungen mit offenem
+  Eintrag ergänzen diesen, eine Notiz je Eintrag und Lauf); „wackelig“ vermerkt er
+  einmal je Prüfung, die 3× rot war ohne Änderung, die Thunderbird betrifft
+  (`tests/MAC-MINI.md` Abschnitt 14), keine Meldung aufs iPhone; Läufe während Nachtlauf
   oder Wochenprüfung übernehmen diese selbst – rote Läufe der Nacht, die der Nachtlauf nicht eingetragen
   hat (`~/halo-nacht/<datum>.ci-eingetragen`), holt er nach dessen Ende nach. **In derselben Nacht
   repariert** (Entscheidung des Maintainers vom 7.11.2026, `ci_reparatur` in `tests/ci-runde.zsh`, eine

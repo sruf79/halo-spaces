@@ -297,6 +297,54 @@ pruefe "Nacht flackert: Zeile im Wächter-Protokoll (Wochenprüfung zählt sie)"
 print "mac${TAB}Test hell${TAB}2026-11-07T01:20:00Z FEHLER  $P – 6 Bilder" > $T/logs/71.log
 nacht $T/board2.json; RC=$?
 pruefe "Nacht bleibt rot: Eintrag wie bisher" '(( RC == 0 )) && grep -q "item-create.*Tests: CI rot – mac: $P" $T/aufrufe && ! grep -q flackert $T/aufrufe'
+# Lauf-Eintrag mit mehreren Prüfungen: nur eine repariert → Notiz, nicht Done
+Q="Mailkopf: Absender fehlt"
+jq -n --arg b "Wo: CI
+
+Ist: 2 Prüfung(en) rot:
+- $P (Job mac)
+- $Q (Job mac)
+
+Meldungen:" '{items: [{id: "PI_3", status: "Todo", title: "Tests: CI rot – Lauf 60 (sha60): 2 Prüfungen, u. a. x", content: {id: "DI_3", body: $b}}]}' > $T/board3.json
+{ lauf 70 80m macrot; lauf 71 40m gruen } | daten
+print "mac${TAB}Test hell${TAB}2026-11-07T01:20:00Z OK      $P" > $T/logs/71.log
+nacht $T/board3.json; RC=$?
+pruefe "Nacht repariert im Lauf-Eintrag mit 2 Prüfungen: nur Notiz, nicht Done" '(( RC == 0 )) && grep -q "Prüfung „$P“ in derselben Nacht repariert" $T/aufrufe && grep -q "noch offen: „$Q“" $T/aufrufe && ! grep -q item-archive $T/aufrufe && ! grep -q 98236657 $T/aufrufe'
+
+# 15. ein Eintrag je rotem Lauf: mehrere Prüfungen → ein Eintrag mit Liste; offener Lauf-Eintrag wird einmal
+# ergänzt; „wackelig“ nach 3× rot ohne Codeänderung (gleicher Commit), einmal je Prüfung und Eintrag
+rm -f $W/halo-aufgaben/ci-waechter.rot
+lauf_w() {   # <Lauf> <Board-Datei>
+  : > $T/aufrufe
+  TZ=Europe/Vienna HOME=$W AUFRUFE=$T/aufrufe LAEUFE=$T/d.json LOGS=$T/logs BOARD_DATEI=$2 HALO_UEBERSPRUNGEN_LOG=$T/w-ue.log \
+    zsh $HIER/ci-waechter.sh --lauf $1 > /dev/null 2>&1
+}
+{ for i in 80 81 82 83; do lauf $i 30 macrot push gleich; done; lauf 84 30 macrot push anders } | daten
+for i in 80 81 82 83 84; do
+  print "mac${TAB}Test hell${TAB}2026-11-06T20:00:00Z FEHLER  $P – 5 Bilder\nmac${TAB}Test hell${TAB}2026-11-06T20:01:00Z FEHLER  $Q – leer" > $T/logs/$i.log
+done
+lauf_w 80 $T/board2.json; RC=$?
+pruefe "Lauf mit 2 roten Prüfungen: genau ein neuer Eintrag mit Liste" '(( RC == 0 )) && [[ $(grep -c item-create $T/aufrufe) == 1 ]] && grep -q "item-create.*Tests: CI rot – Lauf 80 (gleich): 2 Prüfungen" $T/aufrufe && grep -q "^- $P (Job mac)" $T/aufrufe && grep -q "^- $Q (Job mac)" $T/aufrufe'
+jq -n --arg b "Wo: CI
+
+Ist: 2 Prüfung(en) rot:
+- $P (Job mac)
+- $Q (Job mac)
+" '{items: [{id: "PI_4", status: "Todo", title: "Tests: CI rot – Lauf 80 (gleich): 2 Prüfungen, u. a. x", content: {id: "DI_4", body: $b}}]}' > $T/board4.json
+lauf_w 81 $T/board4.json; RC=$?
+pruefe "dieselben Prüfungen erneut rot: offener Lauf-Eintrag einmal ergänzt, nichts neu" '(( RC == 0 )) && [[ $(grep -c "item-edit --id DI_4" $T/aufrufe) == 1 ]] && ! grep -q item-create $T/aufrufe && ! grep -q wackelig $T/aufrufe'
+lauf_w 82 $T/board4.json; RC=$?
+pruefe "3× rot auf demselben Commit: wackelig je Prüfung" '(( RC == 0 )) && grep -q "^wackelig: „$P“ war 3× rot.*(Läufe 80, 81, 82)" $T/aufrufe && grep -q "^wackelig: „$Q“" $T/aufrufe'
+jq --arg w "wackelig: „$P“ war 3× rot" '.items[0].content.body += "\n\n" + $w' $T/board4.json > $T/board5.json
+lauf_w 83 $T/board5.json; RC=$?
+pruefe "wackelig nur einmal je Prüfung und Eintrag" '(( RC == 0 )) && ! grep -q "^wackelig: „$P“ war 3× rot ohne" $T/aufrufe && grep -q "^wackelig: „$Q“" $T/aufrufe'
+lauf_w 84 $T/board4.json; RC=$?
+pruefe "anderer Commit (Code unbekannt): nicht wackelig" '(( RC == 0 )) && ! grep -q wackelig $T/aufrufe'
+pruefe "Verlauf: je Lauf und Prüfung eine Zeile" '[[ $(grep -c "^8[0-4]${TAB}" $W/halo-aufgaben/ci-waechter.rot) == 10 ]]'
+: > $T/aufrufe
+TZ=Europe/Vienna HOME=$W AUFRUFE=$T/aufrufe LAEUFE=$T/d.json LOGS=$T/logs BOARD_DATEI=$T/board2.json HALO_UEBERSPRUNGEN_LOG=$T/w-ue.log \
+  zsh $HIER/ci-waechter.sh --trocken --lauf 80 > /dev/null 2> $T/w-err
+pruefe "Trockenlauf: nichts ans Board, zeigt Liste" '[[ ! -s $T/aufrufe ]] && grep -q "(trocken) würde anlegen: Tests: CI rot – Lauf 80" $T/w-err && grep -q "    - $Q (Job mac)" $T/w-err'
 
 # --- nur lesend gegen GitHub (--echt) ---
 if [[ -n $ECHT ]]; then

@@ -10063,6 +10063,58 @@ class CardEnhancer {
   syncGmailLabels() {
     const READ = Ci.nsMsgMessageFlags.Read;
     let busy = false;
+    let stopped = false;
+    // Der Abgleich sucht die Mail in jedem Gmail-Ordner (Datenbank öffnen,
+    // Suche nach der Message-ID) – nie direkt im Melden der Änderung: das
+    // geschieht beim Anzeigen einer Mail (gelesen) und beim Abruf vom Server
+    // je Mail, und hielt so das Anzeigen auf (GitHub #38). Darum gesammelt im
+    // Leerlauf, je Runde höchstens 20 Mails
+    const queue = new Map(); // "Server Message-ID" → { folder, server, messageId, read }
+    let scheduled = false;
+    const schedule = () => {
+      if (!scheduled && !stopped && queue.size) {
+        scheduled = true;
+        Services.tm.idleDispatchToMainThread(run, 2000);
+      }
+    };
+    const syncOne = ({ folder, server, messageId, read }) => {
+      for (const other of server.rootFolder.descendants) {
+        if (other == folder || other.getFlag(Ci.nsMsgFolderFlags.Virtual)) {
+          continue;
+        }
+        // nur Ordner, deren Zahl sich ändern kann – andere Datenbanken nicht öffnen
+        const unread = other.getNumUnread(false);
+        if (read ? unread <= 0 : other.getTotalMessages(false) - unread <= 0) {
+          continue;
+        }
+        const copy = other.msgDatabase?.getMsgHdrForMessageID(messageId);
+        if (copy && copy.isRead != read) {
+          other.markMessagesRead([copy], read);
+        }
+      }
+    };
+    const run = () => {
+      scheduled = false;
+      if (stopped) {
+        return;
+      }
+      let n = 0;
+      for (const [key, item] of queue) {
+        if (n++ >= 20) {
+          break;
+        }
+        queue.delete(key);
+        busy = true; // die eigenen Änderungen lösen den Listener erneut aus
+        try {
+          syncOne(item);
+        } catch (e) {
+          log("gmail label sync error", String(e).slice(0, 160));
+        } finally {
+          busy = false;
+        }
+      }
+      schedule();
+    };
     const listener = {
       onFolderPropertyFlagChanged(hdr, property, oldFlag, newFlag) {
         if (busy || property != "Status" || !((oldFlag ^ newFlag) & READ)) {
@@ -10071,29 +10123,17 @@ class CardEnhancer {
         try {
           const folder = hdr.folder;
           const server = folder?.server;
-          if (server?.type != "imap" || !server.QueryInterface(Ci.nsIImapIncomingServer).isGMailServer || !hdr.messageId) {
+          const messageId = hdr.messageId;
+          if (server?.type != "imap" || !server.QueryInterface(Ci.nsIImapIncomingServer).isGMailServer || !messageId) {
             return;
           }
-          const read = !!(newFlag & READ);
-          busy = true; // die eigenen Änderungen lösen den Listener erneut aus
-          for (const other of server.rootFolder.descendants) {
-            if (other == folder || other.getFlag(Ci.nsMsgFolderFlags.Virtual)) {
-              continue;
-            }
-            // nur Ordner, deren Zahl sich ändern kann – andere Datenbanken nicht öffnen
-            const unread = other.getNumUnread(false);
-            if (read ? unread <= 0 : other.getTotalMessages(false) - unread <= 0) {
-              continue;
-            }
-            const copy = other.msgDatabase?.getMsgHdrForMessageID(hdr.messageId);
-            if (copy && copy.isRead != read) {
-              other.markMessagesRead([copy], read);
-            }
-          }
+          // (spätere Änderung derselben Mail ersetzt die frühere)
+          const key = `${server.key} ${messageId}`;
+          queue.delete(key);
+          queue.set(key, { folder, server, messageId, read: !!(newFlag & READ) });
+          schedule();
         } catch (e) {
           log("gmail label sync error", String(e).slice(0, 160));
-        } finally {
-          busy = false;
         }
       },
     };
@@ -10127,6 +10167,8 @@ class CardEnhancer {
     const every = setInterval(refresh, 5 * 60 * 1000);
     this.restorers.push(() => {
       MailServices.mailSession.RemoveFolderListener(listener);
+      stopped = true;
+      queue.clear();
       clearTimeout(first);
       clearInterval(every);
     });

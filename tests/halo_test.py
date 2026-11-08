@@ -4275,6 +4275,31 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Markiert: bei Gmail nur „Alle Nachrichten“ durchsucht (keine Kopien als Faden), andere Konten alle Ordner", starred_scope_gmail, results)
 
+    def gmail_label_sync_idle():
+        # Gmail: Gelesen-Status der Kopien in anderen Labels nachziehen, aber nicht im Melden der Änderung (das geschieht beim
+        # Anzeigen einer Mail und beim Abruf je Mail und hielt so das Anzeigen auf, GitHub #38), sondern danach im Leerlauf.
+        # Nachgebildetes Gmail-Konto (Inbox, Important mit Kopie, Ordner ohne Ungelesenes) statt eines echten Servers
+        res = m.js(r"""
+          const QI = ChromeUtils.generateQI(["nsIMsgFolder", "nsIMsgIncomingServer", "nsIImapIncomingServer", "nsIMsgDBHdr", "nsIMsgDatabase"]);
+          const marked = [], opened = [];
+          const mk = (name, unread, total, copy) => ({ QueryInterface: QI, name, getFlag: () => false,
+            getNumUnread: () => unread, getTotalMessages: () => total,
+            get msgDatabase() { opened.push(name); return { QueryInterface: QI, getMsgHdrForMessageID: id => (copy && id == "<halo-1@test>" ? copy : null) }; },
+            markMessagesRead: (hdrs, read) => marked.push(name + ":" + read) });
+          const copy = { QueryInterface: QI, isRead: false, messageId: "<halo-1@test>" };
+          const server = { QueryInterface: QI, type: "imap", key: "haloFakeGmail", isGMailServer: true };
+          const inbox = mk("Inbox", 1, 1, null), important = mk("Important", 1, 1, copy), empty = mk("Leer", 0, 5, null);
+          server.rootFolder = { QueryInterface: QI, descendants: [inbox, important, empty] };
+          for (const f of [inbox, important, empty]) f.server = server;
+          const hdr = { QueryInterface: QI, folder: inbox, messageId: "<halo-1@test>" };
+          MailServices.mailSession.QueryInterface(Ci.nsIFolderListener).onFolderPropertyFlagChanged(hdr, "Status", 0, Ci.nsMsgMessageFlags.Read);
+          const direct = marked.length;
+          await bis(() => marked.length, "Abgleich im Leerlauf", 5000);
+          return { direct, marked, opened };""")
+        ok = res["direct"] == 0 and res["marked"] == ["Important:true"] and res["opened"] == ["Important"]
+        return ok, f"{res}"
+    check("Gmail: Gelesen-Status der Kopien erst im Leerlauf nachgezogen, nicht beim Anzeigen (GitHub #38)", gmail_label_sync_idle, results)
+
 
 # Kontextmenü der Mailliste per Rechtsklick auf die ausgewählte Testmail (nach MESSAGE_JS) öffnen;
 # dazu Farbhilfen (rgb()/color(srgb …) auf 0–255) und Kontrast nach WCAG

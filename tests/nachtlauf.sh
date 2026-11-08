@@ -83,11 +83,11 @@ ci_abschluss() {
 zweige_aufraeumen() {
   local repo=$1 trocken=$2 b offen n=0
   if ! git -C $repo fetch -q --prune origin 2>/dev/null; then
-    print "- git fetch fehlgeschlagen, nichts gelöscht"
+    print -r -- "- git fetch fehlgeschlagen, nichts gelöscht"
     return 0
   fi
   if ! offen=$(gh pr list -R sruf79/halo-spaces --state open -L 200 --json headRefName --jq '.[].headRefName' 2>/dev/null); then
-    print "- offene Pull Requests nicht lesbar, nichts gelöscht"
+    print -r -- "- offene Pull Requests nicht lesbar, nichts gelöscht"
     return 0
   fi
   for b in $(git -C $repo for-each-ref --format='%(refname:strip=3)' 'refs/remotes/origin/claude/'); do
@@ -104,7 +104,7 @@ zweige_aufraeumen() {
       print -r -- "- Löschen fehlgeschlagen: $b"
     fi
   done
-  (( n )) || print "- keine Zweige claude/… auf GitHub"
+  (( n )) || print -r -- "- keine Zweige claude/… auf GitHub"
 }
 
 # hängt die Zeilen an den Bericht. Nie ein Abbruch.
@@ -250,7 +250,7 @@ $(<$REPO/tests/nachtlauf-auftrag.md)"
 WACHE=$!
 trap 'rm -f $LOCK; kill $WACHE 2>/dev/null; pausen_aufraeumen' EXIT
 
-RUNDE=0 LEER=0
+RUNDE=0 LEER=0 FORTSETZ=0 KOPF_VORHER=
 PROMPT=$AUFTRAG
 ARGS=(--session-id $SID)
 while true; do
@@ -259,8 +259,32 @@ while true; do
   claude -p "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
   RC=$?
   log "Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUT | tr '\n' ' ')"
-  [[ -e $FERTIG ]] && break
-  (( $(date +%s) >= ENDE )) && { log "08:00 erreicht – nicht mehr fortsetzen"; break }
+  if [[ -e $FERTIG ]]; then
+    # Schritt 5 (Entscheidung des Maintainers vom 8.11.2026, Wortlaut in ENTSCHEIDUNGEN.md): vor 06:30
+    # mit machbaren Einträgen und unter der Sechs-Commits-Grenze ist die Fertig-Datei kein Ende –
+    # neue Runde „Schritt 5 fortsetzen“. Höchstens vier Fortsetzungen; eine Fortsetzung ohne neuen
+    # Commit beendet (nichts Machbares mehr, z. B. nur Einträge, die eine Entscheidung brauchen).
+    KOPF=$(git -C $REPO rev-parse -q main 2>/dev/null)
+    if (( FORTSETZ > 0 )) && [[ $KOPF == $KOPF_VORHER ]]; then
+      log "Arbeit beendet: nichts Machbares mehr (Fortsetzung $FORTSETZ ohne neuen Commit)"
+      break
+    fi
+    if (( FORTSETZ >= 4 )); then
+      log "Arbeit beendet: höchstens vier Fortsetzungen erreicht"
+      break
+    fi
+    if ! FGRUND=$(nachtlauf_fortsetzen $FERTIG); then
+      log "Arbeit beendet: $FGRUND"
+      break
+    fi
+    FORTSETZ=$((FORTSETZ + 1)) KOPF_VORHER=$KOPF LEER=0
+    mv -f $FERTIG $DIR/$TAG-fertig-runde$RUNDE.txt
+    log "Fertig-Datei vor $NACHT_GRENZE – Fortsetzung $FORTSETZ: $FGRUND"
+    ARGS=(--resume $SID)
+    PROMPT="Schritt 5 fortsetzen (nachtlauf.sh, $(date +%H:%M)): $FGRUND. Die Fertig-Datei ist entfernt. Arbeite nach Schritt 5 des Auftrags die nächsten machbaren Einträge aus dem Plan dieses Laufs ab (gleiche Reihenfolge, je Eintrag committen, nur --only lokal, nicht pushen, kein Release), bis ein gültiger Endegrund eintritt (nichts Machbares mehr, $NACHT_GRENZE erreicht, $NACHT_MAX_COMMITS nicht gepushte Commits). Dann Bericht ergänzen und $FERTIG mit Zeile „Grund: …“ neu anlegen."
+    continue
+  fi
+  (( $(date +%s) >= ENDE )) && { log "Arbeit beendet: 08:00 erreicht – nicht mehr fortsetzen"; break }
   ARGS=(--resume $SID)
   if grep -qiE "usage limit|hit your limit|limit reached|resets (at )?[0-9]|rate limit|overloaded" $OUT; then
     log "Limit – Pause 30 Minuten"
@@ -269,7 +293,7 @@ while true; do
   else
     # ohne Fertig-Datei beendet: höchstens zweimal nachfragen
     LEER=$((LEER + 1))
-    (( LEER > 2 )) && break
+    (( LEER > 2 )) && { log "Arbeit beendet: dreimal ohne Fertig-Datei aufgehört"; break }
     PROMPT="Du hast aufgehört, aber $FERTIG fehlt. Wenn noch etwas offen ist, weitermachen; sonst jetzt Bericht nach $BERICHT schreiben (Vorgabe im Auftrag) und $FERTIG anlegen."
   fi
 done
@@ -278,6 +302,13 @@ done
 if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
   notbericht "ohne Abschluss" "Claude hat keinen Bericht geschrieben (Runden: $RUNDE, letzter Exitcode $RC)" mit-details
 fi
+# Endegrund (Schritt 5, 8.11.2026) und Zahl der Fortsetzungen für Bericht und Wochenprüfung
+{
+  print; print "## Ende der Arbeit (nachtlauf.sh)"; print
+  EG=$(grep 'Arbeit beendet:' $LOG | tail -1 | cut -d' ' -f3-)
+  print -r -- "- ${EG:-Arbeit beendet: Fertig-Datei ohne Prüfung (unbekannt)}"
+  print "- Fortsetzungen nach der Fertig-Datei (Schritt 5): $FORTSETZ"
+} >> $BERICHT
 kill $WACHE 2>/dev/null                   # Claude ist fertig; der CI-Abschluss hält selbst die 09:00 ein
 zweige_abschluss
 ci_abschluss

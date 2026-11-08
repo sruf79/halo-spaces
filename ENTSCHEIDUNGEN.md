@@ -8,6 +8,13 @@ oder aufheben, wenn er ein neues Zitat des Maintainers mitbringt (Regel
 `AGENTS.md`). Wird hier etwas ergänzt: Wortlaut, Datum, Herkunft, Bezug.
 Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 
+## 8.11.2026
+
+### Nachtlauf: Zeit nach dem Release bis 06:30 nutzen
+Herkunft: Sitzung „Wochenbericht Ergebnis“ (Laptop), 8.11.2026, an neon übermittelt. Wortlaut: „für mich ist einfach wichtig dass wir die zeit nicht frei verstreichen lassen ohne nutzen.“ / „ich brauche kein zweites release in der selben nacht. ich möchte jene änderung des nachtlaufs mit dem geringsten risiko und dem grössten nutzen“; Freigabe: „ja so an neon“.
+Anlass: Der Nachtlauf vom 8.11.2026 endete um 03:08 nach dem Release, obwohl bis 06:30 machbare Einträge lagen.
+Bezug (Umsetzung = Deutung der Sitzung neon): `tests/nachtlauf-auftrag.md` Schritt 5 – nach grüner CI und Release (bzw. „nicht nötig“) vor 06:30 alle machbaren Einträge des Plans weiter abarbeiten (Bugs, einfache Features, Reihen), je Eintrag committen mit lokalen `--only`-Prüfungen, nicht pushen, kein zweites Release; höchstens sechs nicht gepushte Commits (die der Vornacht zählen mit); der nächste Nachtlauf pusht sie mit seiner CI-Runde. `tests/nachtlauf.sh` setzt nach der Fertig-Datei vor 06:30 mit einer Runde „Schritt 5 fortsetzen“ fort, solange `nachtlauf_fortsetzen` (`tests/vorpruefung.zsh`) machbare Einträge findet und die Grenze nicht erreicht ist; Endegründe nur: nichts Machbares mehr, 06:30, Sechs-Commits-Grenze, Limit, rote CI in Schritt 4. Wochenprüfung: zusätzlich `ungenutzt_bis_0630_min`.
+
 ## 7.11.2026
 
 ### Fenster-Menü (Mac): doppelter Eintrag bleibt

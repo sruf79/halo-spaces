@@ -317,7 +317,10 @@ was jede Sitzung beachten muss:
   des Maintainers vom 3.11.2026).
 - **Nachtlauf** (`tests/nachtlauf.sh`, jede Nacht 01:30) arbeitet die Aufgabenliste ab, pusht, wartet
   auf die CI und veröffentlicht bei Grün; Pausieren nur über `~/halo-nacht/pausen.txt` (`pause_setzen`, mit Ablaufzeit).
-  Rotes aus seinen CI-Läufen trägt er selbst ins Board ein; lief in 24 Stunden keine vollständige
+  Nach grüner CI und Release arbeitet er vor 06:30 alle machbaren Einträge weiter ab, je Eintrag
+  committet mit lokalen `--only`-Prüfungen, ohne Push und ohne zweites Release, höchstens sechs nicht
+  gepushte Commits; die pusht der nächste Nachtlauf mit seiner CI-Runde (Entscheidung vom 8.11.2026,
+  `ENTSCHEIDUNGEN.md`, Auftrag Schritt 5). Rotes aus seinen CI-Läufen trägt er selbst ins Board ein; lief in 24 Stunden keine vollständige
   Runde und pusht er nichts CI-Auslösendes, startet er nach seiner Arbeit (bis 04:30) selbst eine
   mit `ziel=alle` – die einzige erlaubte von Hand gestartete Runde während des Nachtlaufs, sie zählt
   als vollständig (Entscheidung vom 7.11.2026, `tests/ci-runde.zsh`, `docs/testrechner.md`). Zeigt ein

@@ -22,8 +22,10 @@ Reihenfolge:
       Nicht verfolgte Dateien nur, wenn sie eindeutig zu diesen Änderungen
       gehören; Bilder, Testausgaben und Gitignoriertes nie.
    b) Abgleich mit GitHub: git fetch origin, dann git rebase origin/main
-      (nimmt die tagsüber committeten, nicht gepushten Commits mit, AGENTS.md
-      „Nicht Eiliges nimmt der Nachtlauf mit“). Konflikt mit klarer Lösung:
+      (nimmt die tagsüber und in Schritt 5 der Vornacht committeten, nicht
+      gepushten Commits mit, AGENTS.md „Nicht Eiliges nimmt der Nachtlauf
+      mit“; ihre Einträge mit Notiz „committet, wartet auf Push/CI“ schließt
+      Schritt 4 b nach grüner CI mit ab). Konflikt mit klarer Lösung:
       lösen; sonst git rebase --abort, die betroffenen lokalen Commits mit
       git branch rest/<datum>-konflikt sichern, main auf origin/main setzen
       (git reset --hard origin/main) und im Bericht nennen.
@@ -149,43 +151,55 @@ Reihenfolge:
    So kommt jede Korrektur spätestens mit dem nächsten Nachtlauf zu den
    Nutzern (Entscheidung des Maintainers vom 5.11.2026).
 5. Weiterarbeiten nach grüner CI (Entscheidung des Maintainers vom
-   5.11.2026): Ist Schritt 4 abgeschlossen – CI grün und Release
-   veröffentlicht bzw. nicht nötig – und ist es vor 06:30, die nächsten
-   Einträge aus dem Plan dieses Laufs weiter abarbeiten wie Schritt 2 (gleiche
-   Reihenfolge, keine neu dazugekommenen Einträge). Ab 06:30 keinen neuen
-   Eintrag mehr anfangen. Bei roter CI in Schritt 4 (auch nach den
-   Reparaturrunden) entfällt dieser Schritt.
-   a) Fertig vor 07:30: git fetch origin, git rebase origin/main, pushen und
-      die CI wie in 4 a) abwarten (tests/ci-warten.sh HEAD 9, wiederholen
-      solange Exitcode 2, längstens bis 08:50). Grün: die Einträge abschließen wie in Schritt
-      4 b) (normale mit fertig.sh auf Done, Reihen-Schritte auf „Wartet auf
-      OK“); kein zweites Release in dieser Nacht – das
-      macht der nächste Nachtlauf (Schritt 4 „Unabhängig davon“) oder eine
-      Sitzung am Tag. Rot: keine Reparaturrunde; die Commits dieses Schritts
-      mit git revert zurücknehmen, pushen (nicht mehr abwarten), Einträge
-      zurück auf Todo mit Notiz, was rot war. Um 08:50 noch nicht fertig:
-      im Bericht mit Lauf-ID nennen (nachtlauf.sh wartet danach bis 09:00
-      und trägt Rotes ein, sonst holt es der CI-Wächter nach), Einträge
-      bleiben In Progress mit Notiz.
-   b) Erst ab 07:30 fertig: nicht pushen. Die Commits bleiben auf main in
-      ~/halo-spaces (der nächste Nachtlauf nimmt sie in Schritt 0 mit), die
-      Einträge bleiben In Progress mit Notiz „committet, wartet auf
-      nächsten Nachtlauf“.
+   5.11.2026, erweitert am 8.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „für mich
+   ist einfach wichtig dass wir die zeit nicht frei verstreichen lassen ohne
+   nutzen.“): Ist Schritt 4 abgeschlossen – CI grün und Release veröffentlicht
+   bzw. nicht nötig – und ist es vor 06:30, alle machbaren Einträge aus dem
+   Plan dieses Laufs weiter abarbeiten wie Schritt 2 (gleiche Reihenfolge:
+   Bugs, einfache Features, Reihen; alle Arten; keine neu dazugekommenen
+   Einträge). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
+   entfällt dieser Schritt.
+   a) Je Eintrag: nur die betroffenen Prüfungen lokal (--only, Port 2850,
+      hell; --dark nur bei Farben). Grün: committen (nur eigene Hunks), nicht
+      pushen – die Commits bleiben auf main in ~/halo-spaces, der Eintrag
+      bleibt In Progress mit Notiz „committet, wartet auf Push/CI“ und
+      Commit-Hash. Der nächste Nachtlauf nimmt sie in Schritt 0 mit und pusht
+      sie mit seiner CI-Runde (Schritt 4); Done erst nach deren Grün. Rot:
+      nichts committen, Änderungen verwerfen (git checkout), Eintrag zurück
+      auf Todo mit Notiz, was rot war; nächster Eintrag.
+   b) Kein Push, keine CI und kein zweites Release in dieser Nacht (Wortlaut:
+      „ich brauche kein zweites release in der selben nacht.“).
+   c) Obergrenze: höchstens sechs nicht gepushte Commits auf main in Summe
+      (git rev-list --count origin/main..main; Commits der Vornacht zählen
+      mit). Ist sie erreicht, keinen neuen Eintrag mehr anfangen.
+   d) Endegründe nur: nichts Machbares mehr im Plan, 06:30 erreicht,
+      Sechs-Commits-Grenze, Limit, rote CI in Schritt 4. „Wegen der Uhrzeit“
+      (es ist noch vor 06:30) zählt nicht. Den Grund in den Bericht und als
+      Zeile „Grund: …“ in die Fertig-Datei (Schritt 7). Legst du die
+      Fertig-Datei vor 06:30 an, prüft nachtlauf.sh ohne Claude
+      (nachtlauf_fortsetzen in tests/vorpruefung.zsh) Board und Commits:
+      gibt es noch machbare Einträge (Todo/In Progress, nicht „Wartet auf
+      OK“) und ist die Grenze nicht erreicht, entfernt es die Fertig-Datei und
+      startet eine neue Runde „Schritt 5 fortsetzen“ – dann mit dem nächsten
+      machbaren Eintrag weitermachen. Einträge, die eine Entscheidung des
+      Maintainers brauchen, bleiben übersprungen (Schritt 1).
 6. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
    (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
-   „nach dem Release“ und ihrem CI-Ergebnis bzw. „wartet auf nächsten
-   Nachtlauf“), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
+   „nach dem Release, wartet auf nächsten Nachtlauf“ und Ergebnis der
+   --only-Prüfungen), Ende der Arbeit (Endegrund nach Schritt 5 d, Uhrzeit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
    der Grund ist, und das im Bericht sagen), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.
-7. Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung schicken, das
-   macht das Skript.
+7. Fertig-Datei (Pfad oben) anlegen, erste Zeile „Grund: <Endegrund>“
+   (Schritt 5 d; z. B. „Grund: rote CI in Schritt 4“, „Grund: nichts
+   Machbares mehr“, „Grund: Sechs-Commits-Grenze“). Keine eigene Push-Meldung
+   schicken, das macht das Skript.
 
 Grenzen:
 - Marionette-Ports nur 2850–2869; Port 2845 gehört der CI.

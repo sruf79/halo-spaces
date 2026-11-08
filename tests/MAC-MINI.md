@@ -666,10 +666,23 @@ erst Linux ~17, danach `mac` hell ~17 bzw. hell und dunkel ~35, `windows` ~19). 
 dank grüner CI), `publish.sh`. Rot: kleine Ursache beheben oder den Commit
 mit `git revert` zurücknehmen, erneut pushen und warten – höchstens zwei
 Reparaturrunden, keine neue ab 07:30, sonst kein Release. Nach grüner CI
-und Release arbeitet er weiter Einträge ab (Entscheidung des Maintainers vom
-5.11.2026): kein neuer Eintrag ab 06:30; ist er bis 07:30 fertig, pusht er
-und wartet die CI ab (grün: Done, kein zweites Release; rot: `git revert`),
-sonst bleiben die Commits für den nächsten Nachtlauf liegen. Der Bericht nennt
+und Release arbeitet er vor 06:30 alle machbaren Einträge des Plans weiter ab
+(Entscheidungen des Maintainers vom 5. und 8.11.2026, Wortlaut in
+`ENTSCHEIDUNGEN.md`): je Eintrag nur `--only` lokal, grün committen, rot
+zurück auf Todo; nicht pushen, kein zweites Release, höchstens sechs nicht
+gepushte Commits (die der Vornacht zählen mit). Die Commits bleiben auf
+`main` in `~/halo-spaces`, die Einträge In Progress mit Notiz „committet,
+wartet auf Push/CI“; der nächste Nachtlauf pusht sie mit seiner CI-Runde.
+Legt Claude die Fertig-Datei vor 06:30 an, prüft `nachtlauf.sh` mit
+`nachtlauf_fortsetzen` (`tests/vorpruefung.zsh`, ohne Claude) das Board
+(Todo/In Progress) und die Zahl der nicht gepushten Commits; gibt es Arbeit
+unter der Grenze, verschiebt es die Fertig-Datei nach
+`~/halo-nacht/<datum>-fertig-runde<n>.txt` und startet eine Runde „Schritt 5
+fortsetzen“ (höchstens vier; eine Fortsetzung ohne neuen Commit beendet).
+Endegründe nur: nichts Machbares mehr, 06:30 erreicht, Sechs-Commits-Grenze,
+Limit, rote CI in Schritt 4 – Zeile „Grund: …“ der Fertig-Datei,
+Protokollzeile „Arbeit beendet: …“, Abschnitt „Ende der Arbeit“ im Bericht.
+Probe: `HALO_JETZT_HM`, `NACHT_GRENZE`, `NACHT_MAX_COMMITS`. Der Bericht nennt
 die CI-Läufe mit ID, Ergebnis und Dauer je Job. Tagsüber committete, nicht
 gepushte Commits auf `main` (Nicht Eiliges, AGENTS.md) pusht er mit – auch
 in Nächten ohne eigene Einträge, dann ohne Release, außer es sind Bugs oder
@@ -849,7 +862,8 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
 - Nachtlauf zu früh beendet: je Nacht, ob er früher aufgehört hat als
   möglich (vor 04:30, bzw. nach grüner CI vor 06:30), obwohl noch machbare
   Einträge im Board lagen (ungenutzte Minuten, Zahl der
-  Einträge, Grund); in mindestens zwei Nächten der Woche eine
+  Einträge, Grund); dazu je Nacht die Minuten vom Ende der Arbeit bis 06:30
+  (`ungenutzt_bis_0630_min`, Entscheidung des Maintainers vom 8.11.2026); in mindestens zwei Nächten der Woche eine
   Ablaufänderung am Nachtlauf-Auftrag (bzw. ein Vorschlag „Ablauf: Nachtlauf …“
   mit „Wartet auf OK“, wenn sie eine Entscheidung des Maintainers berührt).
 - Kennzahl „Tage seit der letzten vollständig grünen Runde“ (Entscheidung des Maintainers vom

@@ -77,8 +77,9 @@ und wirkten die Verbesserungen der Vorwochen?
   zur Vorwoche).
 - **Nachtlauf zu früh beendet?** (Wunsch des Maintainers vom 5.11.2026) Je
   Nacht aus ~/halo-nacht/<datum>.log Beginn („Start, Sitzung“) und Ende
-  („Ende“) der Arbeit und Grund des Endes (Fertig-Datei, „08:00 erreicht“,
-  dreimal ohne Fertig-Datei aufgehört, Limit) sowie aus dem Bericht, was
+  („Ende“) der Arbeit und Grund des Endes (Zeile „Arbeit beendet: …“ von
+  nachtlauf.sh, Zeile „Grund: …“ der Fertig-Datei, Abschnitt „Ende der
+  Arbeit“ im Bericht; „Fortsetzung n“-Zeilen zählen) sowie aus dem Bericht, was
   unter „Übersprungen/offen“ steht. Zu früh heißt: Der Lauf hat früher als
   möglich aufgehört, neue Einträge anzufangen – vor 04:30, bzw. nach grüner
   CI und Release (Schritt 5 des Nachtlauf-Auftrags) vor 06:30 –, obwohl im Board
@@ -92,6 +93,14 @@ und wirkten die Verbesserungen der Vorwochen?
   tests/nachtlauf-auftrag.md schärfen; Kennzahl naechte_zu_frueh bzw.
   ungenutzt_min) – bzw. als Vorschlag, wenn es eine Entscheidung des
   Maintainers berührt.
+  Zusätzlich (Entscheidung des Maintainers vom 8.11.2026, Wortlaut in
+  ENTSCHEIDUNGEN.md): je Nacht die Minuten zwischen dem Ende der Arbeit
+  (letzte Zeile „Arbeit beendet: …“) und 06:30, wenn das Ende davor lag –
+  unabhängig vom Grund, mit dem Grund daneben; Summe als
+  ungenutzt_bis_0630_min. Gültige Endegründe sind nur: nichts Machbares mehr,
+  06:30 erreicht, Sechs-Commits-Grenze, Limit, rote CI in Schritt 4
+  (Schritt 5 d des Nachtlauf-Auftrags); andere Gründe vor 06:30 zählen als
+  „zu früh“.
 - **CI-Wächter:** ~/halo-aufgaben/ci-waechter.log – gemeldete rote Läufe.
 - **Fehlerkonsole und Fehlerprotokoll** (Wunsch des Maintainers vom
   5.11.2026; AGENTS.md „Bauen und testen“, Bullet „Fehlerkonsole“): Kommen
@@ -143,7 +152,9 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   job_dauer_min (Objekt Job → Mittelwert in Minuten),
   rote_pruefungen (Objekt Prüfung → Anzahl), unzuverlaessig (Liste),
   naechte, naechte_ausgelassen, naechte_zu_frueh, ungenutzt_min (Summe der
-  ungenutzten Minuten bis zur Grenze 04:30 bzw. 06:30), nach_release_erledigt, limit_pausen, releases, releases_per_ci,
+  ungenutzten Minuten bis zur Grenze 04:30 bzw. 06:30), ungenutzt_bis_0630_min
+  (Summe der Minuten vom Ende der Arbeit bis 06:30, jeder Grund),
+  nach_release_erledigt, limit_pausen, releases, releases_per_ci,
   store_fehler, erledigt_bugs, erledigt_features, neu, offen_ende,
   konsole (Objekt: meldungen, board_neu, board_erledigt, board_offen,
   dubletten, verloren, wieder_aufgetreten, durchsicht_runden,

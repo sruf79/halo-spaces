@@ -49,6 +49,32 @@ nachtlauf_arbeit() {
   return 1
 }
 
+# Nachtlauf, Schritt 5 (Entscheidung des Maintainers vom 8.11.2026, Wortlaut in ENTSCHEIDUNGEN.md):
+# Claude hat die Fertig-Datei angelegt – ist das ein gültiges Ende oder soll eine neue Runde
+# „Schritt 5 fortsetzen“ starten? Gültige Endegründe (Zeile „Grund: …“ der Fertig-Datei bzw.
+# hier festgestellt): nichts Machbares mehr, 06:30 erreicht, Sechs-Commits-Grenze, Limit, rote CI
+# in Schritt 4. „Wegen der Uhrzeit“ vor 06:30 zählt nicht. Gibt den Grund aus; 0 = fortsetzen,
+# 1 = Ende. NACHT_GRENZE (HH:MM, Standard 06:30) und NACHT_MAX_COMMITS (Standard 6) zum Proben;
+# HALO_JETZT_HM (HH:MM) ersetzt die Uhr.
+NACHT_GRENZE=${NACHT_GRENZE:-06:30}
+NACHT_MAX_COMMITS=${NACHT_MAX_COMMITS:-6}
+nachtlauf_fortsetzen() {   # <Fertig-Datei>
+  local fertig=$1 jetzt=${HALO_JETZT_HM:-$(date +%H:%M)} grund n
+  [[ $jetzt < $NACHT_GRENZE ]] || { print "$NACHT_GRENZE erreicht"; return 1 }
+  grund=$(grep -m1 -i '^Grund:' $fertig 2>/dev/null | sed 's/^[Gg]rund: *//')
+  if print -r -- $grund | grep -qiE 'rote CI|CI rot|Sechs-Commits|Limit'; then
+    print -r -- "Ende laut Fertig-Datei: $grund"; return 1
+  fi
+  git -C $REPO fetch -q origin 2>/dev/null
+  n=$(git -C $REPO rev-list --count origin/main..main 2>/dev/null) || n=0
+  (( n >= NACHT_MAX_COMMITS )) && { print "Sechs-Commits-Grenze erreicht ($n nicht gepushte Commits)"; return 1 }
+  n=$(gh project item-list 1 --owner sruf79 --limit 1000 --format json 2>/dev/null | board_machbar 2>/dev/null)
+  [[ $n == <-> ]] || { print "Board nicht lesbar, im Zweifel fortsetzen (Grund in der Fertig-Datei: ${grund:-keiner})"; return 0 }
+  (( n > 0 )) || { print "nichts Machbares mehr (keine Einträge Todo/In Progress)"; return 1 }
+  print -r -- "$n machbare Einträge im Board vor $NACHT_GRENZE (Grund in der Fertig-Datei: ${grund:-keiner})"
+  return 0
+}
+
 # Design-Rundgang: ist eine Auswertung durch Claude nötig? Nur bei neuen oder
 # geänderten Ausreißern, neu nicht erreichten Oberflächen, neuen
 # Original-Symbolen, oder wenn es keinen Vergleich mit der Vorwoche gibt

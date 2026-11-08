@@ -96,10 +96,19 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   CI für genau diesen Commit (`tests/ci-warten.sh`) und veröffentlicht bei
   Grün; bei Rot höchstens zwei Reparaturrunden (beheben oder `git revert`),
   sonst kein Release (Entscheidung des Maintainers vom 3.11.2026). Nach
-  grüner CI und Release arbeitet er weiter Einträge ab, kein neuer ab 06:30;
-  bis 07:30 Fertiges pusht er und wartet die CI ab (grün: Done, kein zweites
-  Release; rot: `git revert`), Späteres nimmt der nächste Nachtlauf mit
-  (Entscheidung des Maintainers vom 5.11.2026). Bericht in
+  grüner CI und Release arbeitet er vor 06:30 alle machbaren Einträge weiter
+  ab (Entscheidungen des Maintainers vom 5. und 8.11.2026, Wortlaut in
+  `ENTSCHEIDUNGEN.md`): je Eintrag committen, nur `--only` lokal (rot: zurück
+  auf Todo, nichts committen), nicht pushen, kein zweites Release, höchstens
+  sechs nicht gepushte Commits (die der Vornacht zählen mit); der nächste
+  Nachtlauf pusht sie mit seiner CI-Runde. Legt Claude die Fertig-Datei vor
+  06:30 an, prüft `nachtlauf_fortsetzen` (`tests/vorpruefung.zsh`, ohne
+  Claude) Board und Commits und startet bei machbaren Einträgen unter der
+  Grenze eine Runde „Schritt 5 fortsetzen“ (höchstens vier; eine ohne neuen
+  Commit beendet). Endegründe nur: nichts Machbares mehr, 06:30,
+  Sechs-Commits-Grenze, Limit, rote CI in Schritt 4 (Zeile „Grund: …“ der
+  Fertig-Datei, „Arbeit beendet: …“ im Protokoll, Abschnitt „Ende der
+  Arbeit“ im Bericht). Bericht in
   `~/halo-berichte/` mit den CI-Läufen, Kurzfassung aufs iPhone. Auf einen
   laufenden CI-Job wartet er (bis 90 Minuten). Er lässt aus, nur, wenn neon
   wirklich belegt ist: eine andere Claude-Sitzung ist mitten in einer Runde
@@ -174,7 +183,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
   `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als
   möglich – vor 04:30 bzw. nach grüner CI vor 06:30 – aufhört, obwohl noch
-  machbare Einträge lagen), behebt kleine Dinge an Prüfungen
+  machbare Einträge lagen, dazu die Minuten vom Ende der Arbeit bis 06:30,
+  `ungenutzt_bis_0630_min`), behebt kleine Dinge an Prüfungen
   selbst und **verbessert die Abläufe selbst** (Entscheidung des Maintainers
   vom 5.11.2026): Änderungen an Nachtlauf, CI-Wächter, Aufträgen, Workflow
   und Release-Skripten, wenn die Zahlen sie klar begründen, höchstens drei je

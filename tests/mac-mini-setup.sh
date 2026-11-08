@@ -581,6 +581,31 @@ EOF
   fi
 }
 
+# Dritte Remote-Control-Sitzung github.comm.routine (GitHub-Kommunikation,
+# Arbeitsordner ~/halo-github): wie neon-board nur geprüft, nie eingerichtet.
+GC_LABEL=at.halo-spaces.github-comm
+GC_PLIST=$HOME/Library/LaunchAgents/$GC_LABEL.plist
+GC_DIR=$HOME/halo-github
+GC_LOG=$HOME/Library/Logs/halo-github-comm.log
+pruefe_github_comm() {
+  local dom=gui/$(id -u)
+  if [[ ! -f $GC_PLIST ]]; then
+    hinweis "github.comm.routine" "nicht eingerichtet (Sitzung für die GitHub-Kommunikation, Abschnitt 12)"
+    return
+  fi
+  grep -q '<string>github.comm.routine</string>' $GC_PLIST ||
+    { offen "github.comm.routine" "$GC_PLIST setzt HALO_RC_NAME=github.comm.routine nicht"; tun "plist wie in Abschnitt 12"; return }
+  if ! launchctl print $dom/$GC_LABEL 2>/dev/null | grep -q 'state = running'; then
+    offen "github.comm.routine" "LaunchAgent nicht geladen oder läuft nicht"
+    tun "launchctl bootstrap $dom $GC_PLIST bzw. launchctl kickstart -k $dom/$GC_LABEL; Protokoll $GC_LOG"
+  elif ! pgrep -f 'remote-control.*--name github\.comm\.routine' >/dev/null; then
+    offen "github.comm.routine" "LaunchAgent läuft, aber kein claude remote-control --name github.comm.routine"
+    tun "Protokoll $GC_LOG"
+  else
+    ok "github.comm.routine" "läuft als LaunchAgent in $GC_DIR ($GC_LOG)"
+  fi
+}
+
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
 # Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
@@ -861,6 +886,7 @@ pruefe_runner
 skripte_kopieren
 pruefe_remote_control
 pruefe_neon_board
+pruefe_github_comm
 pruefe_laeufe
 pruefe_vm
 pruefe_speicher

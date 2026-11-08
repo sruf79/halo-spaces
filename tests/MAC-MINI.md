@@ -590,6 +590,20 @@ die plist löschen. Nach Änderungen an `mac-remote-control.sh`,
 ausführen (`--check` meldet veraltete Kopien); wirksam beim nächsten Start
 der Sitzung bzw. nach `launchctl kickstart -k …`.
 
+### Dritte Sitzung `github.comm.routine` (GitHub-Kommunikation)
+
+Ein dritter LaunchAgent `at.halo-spaces.github-comm` hält die Remote-Control-Sitzung
+`github.comm.routine` für die GitHub-Kommunikation offen (`docs/github-komm.md`). Er ist
+eine Kopie der plist von neon-board mit `HALO_RC_NAME=github.comm.routine`, Arbeitsordner
+`~/halo-github` (kein Checkout; `CLAUDE.md` und `.claude/settings.json` dort von Hand
+gepflegt: Sonnet, niedrige Reasoning-Stufe, Push, Release und Builds gesperrt) und
+Protokoll `~/Library/Logs/halo-github-comm.log` (`HALO_RC_LOG`, StandardOut/Err), ohne
+`HALO_RC_MODUS`. `mac-remote-control.sh` setzt für sie kein `HALO_NEON`;
+`aktive_sitzung()` in `lauf-hilfen.zsh` zählt sie wie neon-board nie als „belegt“
+(`HALO_GITHUB_DIR`). `mac-mini-setup.sh --check` prüft sie nur, richtet sie nicht ein.
+`tests/notfall.sh` hält sie im Notfall an (nicht in `BLEIBEN`).
+Neu starten, abschalten: wie neon-board mit dem Label `at.halo-spaces.github-comm`.
+
 ### Kein täglicher Neustart von `neon`, `/clear` von Hand
 
 Entscheidung des Maintainers (Cloud-Sitzung global.design.comparison,

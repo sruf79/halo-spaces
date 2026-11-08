@@ -15,6 +15,11 @@
 # Rechte, Modell Sonnet mit niedriger Reasoning-Stufe: Routinearbeit, Entscheidung
 # des Maintainers vom 6.11.2026, Sitzung global.design.comparison, Wortlaut: „ja,
 # punkt 2 und 3 umsetzen.“) neu. Eigenes Protokoll über HALO_RC_LOG.
+# Dritte Instanz github.comm.routine (GitHub-Kommunikation, docs/github-komm.md):
+# LaunchAgent at.halo-spaces.github-comm mit HALO_RC_NAME=github.comm.routine und
+# ~/halo-github (CLAUDE.md und .claude/settings.json dort von Hand gepflegt,
+# Modell Sonnet, Push und Release gesperrt); Protokoll
+# ~/Library/Logs/halo-github-comm.log. Sie ist keine neon-Sitzung (kein HALO_NEON).
 # HALO_RC_NAME (Standard neon) benennt die Sitzungen, HALO_RC_MODUS setzt den
 # Rechte-Modus (Standard auto wie die Cloud-Sitzungen: bei verschiedenen Modi
 # bleiben Antworten an Cloud-Sitzungen ohne Abfrage hängen; was neon
@@ -129,6 +134,8 @@ rotieren
 # Auftragsliste ~/halo-aufgaben/board-stand.md (tests/neon-stand.sh)
 if [[ $NAME == neon-board ]]; then
   export HALO_NEON=board HALO_STAND_NAME=board
+elif [[ $NAME == github.comm.routine ]]; then
+  unset HALO_NEON   # GitHub-Kommunikation: keine Aufträge aus neon-stand.md
 else
   export HALO_NEON=1
 fi

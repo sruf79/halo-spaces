@@ -18,7 +18,7 @@ kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 | `chrome/spaces.css` | Kalender, Aufgaben, Adressbuch, Chat, Einstellungen |
 | `chrome/merge_spaces.py` | fügt `spaces.css` als markierten Block in `userChrome.css` ein |
 | `extension/manifest.json` | Version, Add-on-ID `mail-cards@sebastian.local`, `update_url` |
-| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~23.600 Zeilen); lädt ihre Teile aus `extension/api/` mit `loadPart()` (bisher `texte.js`: Oberflächentexte `DE`, `FR`, `ES`, `IT`) |
+| `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~23.200 Zeilen); lädt ihre Teile aus `extension/api/` mit `loadPart()` (bisher `texte.js`: Oberflächentexte `DE`, `FR`, `ES`, `IT`; `mail.js`: Mail-Zusätze wie Senden rückgängig, Später senden, Erinnern) |
 | `extension/api/schema.json` | Schema der Experiment-API |
 | `extension/background.js` | startet die Experiment-API (`browser.mailCards.start()`) und meldet bereitliegende Updates (`updateReady`); geladen über `extension/background.html` |
 | `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |

@@ -63,7 +63,7 @@ erst, seit der Hook im Checkout eingetragen ist; ältere Sitzungen erkennen
 weiter Name und Auftrag.
 
 Aufruf:
-  tests/token-bilanz.py [--tage N] [--json [DATEI]] [--basis]
+  tests/token-bilanz.py [--tage N] [--json [DATEI]] [--basis] [--sonstige [ZEILEN]]
     --tage N       letzte N Tage inklusive heute (Standard 7)
     --json [DATEI] Zahlen in die JSON-Datei schreiben (Standard
                    ~/halo-aufgaben/token-kennzahlen.json); die Datei hat die
@@ -71,6 +71,9 @@ Aufruf:
                    vorhandene Abschnitte bleiben unverändert, nur der eigene
                    Schlüssel wird gesetzt
     --basis        mit --json: Abschnitt „basis“ schreiben statt Wochenwert
+    --sonstige [N] zusätzlich die Art „sonstige“ nach Arbeitsordner und
+                   Sitzungstitel aufschlüsseln (Ausgabe-Tokens, absteigend, die
+                   größten N Zeilen, Standard 15); nur Anzeige, nicht in der JSON-Datei
 """
 import argparse
 import glob
@@ -273,7 +276,7 @@ def summe(z):
     return sum(z[k] for k in FELDER)
 
 
-def bilanz(tage):
+def bilanz(tage, detail=False):
     heute = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
     von = heute - timedelta(days=tage - 1)
     bis_tag = heute.strftime("%Y-%m-%d")
@@ -286,6 +289,7 @@ def bilanz(tage):
     unter_art = {}   # Art → Modell → Zahlen, nur Unteragenten (subagents/*.jsonl)
     sitzungen = {}   # Art → Menge der Sitzungs-IDs
     n_antworten = 0
+    sonst = {}       # (Ordner, Titel) → [Sitzungs-IDs, Ausgabe-Tokens, Summe]
     for ausgabe, zeit, modell, u, sid, unter in antworten.values():
         try:
             lokal = datetime.fromisoformat(zeit.replace("Z", "+00:00")).astimezone()
@@ -301,6 +305,15 @@ def bilanz(tage):
             addiere(unter_art.setdefault(art, {}).setdefault(modell, leer()), u)
         sitzungen.setdefault(art, set()).add(sid)
         n_antworten += 1
+        if detail and art == "sonstige":
+            m = metas.get(sid) or {}
+            cwd = (m.get("cwd") or "").rstrip("/")
+            ordner = cwd.replace(HOME, "~", 1) if cwd else "(unbekannt)"
+            titel = m.get("titel") or (NAMEN or {}).get(sid) or "(ohne Titel)"
+            e = sonst.setdefault((ordner, titel), [set(), 0, 0])
+            e[0].add(sid)
+            e[1] += u["output_tokens"]
+            e[2] += sum(u.values())
 
     gesamt_art = {}
     for art, modelle in je_art.items():
@@ -315,7 +328,7 @@ def bilanz(tage):
     for modelle in unter_art.values():
         for m, z in modelle.items():
             addiere(unter_modell.setdefault(m, leer()), z)
-    return {
+    b = {
         "zeitraum": {"von": von.strftime("%Y-%m-%d"), "bis": bis_tag, "tage": tage},
         "erstellt": datetime.now().astimezone().isoformat(timespec="seconds"),
         "antworten": n_antworten,
@@ -330,6 +343,24 @@ def bilanz(tage):
                                     for a in ARTEN if a in unter_art},
         "je_tag": {t: {a: je_tag[t][a] for a in ARTEN if a in je_tag[t]} for t in sorted(je_tag)},
     }
+    if detail:
+        b["_sonstige"] = sorted(((o, t, len(e[0]), e[1], e[2]) for (o, t), e in sonst.items()),
+                                key=lambda r: -r[3])
+    return b
+
+
+def tabelle_sonstige(b, n):
+    """Art „sonstige“ nach Arbeitsordner und Sitzungstitel (Ausgabe-Tokens)."""
+    zeilen = b.get("_sonstige") or []
+    gesamt_aus = sum(r[3] for r in zeilen)
+    print(f"Sonstige nach Ordner/Titel (Ausgabe-Tokens {zahl(gesamt_aus)}, "
+          f"{len(zeilen)} Gruppen, größte {min(n, len(zeilen))}):")
+    kopf = ["Ordner", "Titel", "Sitz.", "Ausgabe", "Anteil", "Summe"]
+    tab = [[o if len(o) <= 40 else "…" + o[-39:], t[:40], str(s), zahl(a), f"{100 * a / (gesamt_aus or 1):.1f} %", zahl(sm)]
+           for o, t, s, a, sm in zeilen[:n]]
+    breiten = [max(len(r[i]) for r in [kopf] + tab) for i in range(len(kopf))]
+    for r in [kopf] + tab:
+        print("  ".join(c.ljust(breiten[i]) if i < 2 else c.rjust(breiten[i]) for i, c in enumerate(r)))
 
 
 def zahl(n):
@@ -413,13 +444,20 @@ def main():
     p.add_argument("--json", nargs="?", const=STANDARD_JSON, metavar="DATEI",
                    help=f"Zahlen speichern (Standard {STANDARD_JSON})")
     p.add_argument("--basis", action="store_true", help="mit --json: Abschnitt „basis“ schreiben")
+    p.add_argument("--sonstige", nargs="?", const=15, type=int, metavar="ZEILEN",
+                   help="Art „sonstige“ nach Ordner und Titel aufschlüsseln (Standard 15 Zeilen)")
     a = p.parse_args()
     if a.tage < 1:
         p.error("--tage muss mindestens 1 sein")
     if a.basis and not a.json:
         p.error("--basis braucht --json")
-    b = bilanz(a.tage)
+    b = bilanz(a.tage, detail=a.sonstige is not None)
+    sonst_b = b.pop("_sonstige", None)
     tabelle(b)
+    if sonst_b is not None:
+        b["_sonstige"] = sonst_b
+        tabelle_sonstige(b, a.sonstige)
+        del b["_sonstige"]
     if a.json:
         schreibe_json(os.path.expanduser(a.json), b, a.basis)
 

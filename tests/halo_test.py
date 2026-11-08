@@ -7365,6 +7365,58 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Aufgaben: mit gewählter Aufgabe und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf (breit und schmal)", tasks_toolbar_no_overlap, results)
 
+    def mail_no_overlap():
+        # Mail mit gewählter Mail und Today-Pane: kein Knopf der Toolbar-Zeile überlappt einen anderen oder den Kopf der
+        # Today-Pane, im Mailkopf überlappen Ordner und Uhrzeit nicht (GitHub #52: unter Windows lagen Antworten,
+        # „+“ und Löschen übereinander, der Ordnername lief unter die Uhrzeit; in der VM nicht nachgestellt) – maximiert
+        # und auf kleinem Bildschirm (1366, 1280 px), auch mit zusätzlichen Knöpfen in der Toolbar
+        res = m.js(MESSAGE_JS + r"""
+          const md = () => a3.messageBrowser.contentWindow.document;
+          const out = {};
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const savedState = getState(); out.state = savedState.mail;
+          try {
+            if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
+            const boxes = () => {
+              const els = [...d.querySelectorAll('#unifiedToolbarContent > li:not([item-id="spacer"]) button, #unifiedToolbarContent > li[item-id="search-bar"], #mcTodayTitle, #mcTodayNew, #mcTodayToggle')];
+              return els.map(e => [e.id || (e.closest("li")?.getAttribute("item-id") ? "li:" + e.closest("li").getAttribute("item-id") : "") || e.className || e.localName, e.getBoundingClientRect()]).filter(([, r]) => r.width > 0 && r.height > 0);
+            };
+            const hits = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+            const r = e => { const b = e?.getBoundingClientRect(); return b && [Math.round(b.left), Math.round(b.right)]; };
+            // kleiner Bildschirm (Laptop, 1366 bzw. 1280 px): das Fenster ist dann schmaler, als Toolbar und Today-Pane
+            // eigentlich brauchen (die Mindestbreite des Fensters endet am Bildschirm) – Bildschirm vorgetäuscht
+            for (const W of ["max", 1366, 1280, "extra1366", "extra1280"]) {
+              if (W == "extra1366") { storeState({ ...savedState, mail: [...(savedState.mail || []), "tag-message", "print", "quick-filter-bar", "address-book"] }); await ruhig(800); }
+              if (w.windowState == w.STATE_MAXIMIZED) { w.restore(); await bis(() => w.windowState != w.STATE_MAXIMIZED, "Fenster nicht mehr maximiert", 3000); await ruhig(800); }
+              if (W == "max") { w.maximize(); await ruhig(1800); }
+              else { const W0 = W; { const W = parseInt(String(W0).replace("extra", "")); w.screen = { availWidth: W, availHeight: 860, availLeft: 0, availTop: 0, width: W, height: 900, left: 0, top: 0 };
+                     w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
+                     w.resizeTo(W, 860); await until(() => w.outerWidth == W, 3000); await ruhig(1500); } }
+              const bx = boxes(), bad = [];
+              bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2) && !(n1.includes?.("search") && n2.includes?.("search"))) bad.push(`${n1} ${Math.round(r1.left)}–${Math.round(r1.right)} × ${n2} ${Math.round(r2.left)}–${Math.round(r2.right)}`); }));
+              // kein Knopf der Knopfleiste reicht in den Today-Knopf oder rechts darüber hinaus
+              const tog = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+              for (const [n, b] of bx) if (n.startsWith("li:") && tog?.width && b.right > tog.left + 1) bad.push(`${n} ${Math.round(b.left)}–${Math.round(b.right)} rechts vom Today-Knopf ${Math.round(tog.left)}`);
+              const meta = md().getElementById("mcHdrMeta"), ft = meta?.querySelector(".mc-hdr-folder-text"), fo = meta?.querySelector(".mc-hdr-folder"), dt = md().getElementById("dateLabel");
+              const fb = ft?.getBoundingClientRect(), db = dt?.getBoundingClientRect(), fob = fo?.getBoundingClientRect();
+              out[W] = { iw: w.innerWidth, n: bx.length, bad: bad.filter(x => !/global-search-bar|search-bar×search-bar/.test(x)),
+                         lis: [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => l.getBoundingClientRect().width).map(l => l.getAttribute("item-id") + ":" + r(l).join("-")),
+                         row: ["--mc-tp-w", "--mc-caption-w", "--mc-row-tail"].map(v => d.getElementById("unifiedToolbarContainer").style.getPropertyValue(v)).join(" "),
+                         folder: fb && [Math.round(fob.left), Math.round(fb.left), Math.round(fb.right), Math.round(fob.right), ft.scrollWidth, ft.clientWidth], date: db && [Math.round(db.left), Math.round(db.right), dt.textContent, dt.parentNode == meta, md().querySelectorAll("#dateLabel, .message-header-datetime").length],
+                         hdr: Math.round(md().getElementById("messageHeader").getBoundingClientRect().right), pane: Math.round(a3.messageBrowser.getBoundingClientRect().right), mw: md().documentElement.clientWidth,
+                         hdrBad: !!(fb && db && fb.width && fb.right > db.left + 0.5 && fb.left < db.right) || !!(fob && db && fob.right > db.left + 0.5) };
+            }
+          } finally {
+            storeState(savedState); await ruhig(500);
+            delete w.screen;
+            if (w.windowState == w.STATE_MAXIMIZED) { w.restore(); await ruhig(800); }
+            w.resizeTo(1500, 900); await ruhig(600);
+          }
+          return out;""")
+        ok = all(res.get(k) and res[k]["n"] >= 4 and not res[k]["bad"] and not res[k]["hdrBad"] for k in ("max", "1366", "1280", "extra1366", "extra1280"))
+        return ok, f"{res}"
+    check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
+
     def ab_list_keeps_width():
         # Adressbuch: Adressbuchliste ausblenden – die Kontaktliste behält ihre Breite (wuchs um die frei gewordene Spalte,
         # und das Fenster ließ sich nicht mehr schmaler machen als vorher)

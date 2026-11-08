@@ -598,7 +598,14 @@ eine Kopie der plist von neon-board mit `HALO_RC_NAME=github.comm.routine`, Arbe
 `~/halo-github` (kein Checkout; `CLAUDE.md` und `.claude/settings.json` dort von Hand
 gepflegt: Sonnet, niedrige Reasoning-Stufe, Push, Release und Builds gesperrt) und
 Protokoll `~/Library/Logs/halo-github-comm.log` (`HALO_RC_LOG`, StandardOut/Err), ohne
-`HALO_RC_MODUS`. `mac-remote-control.sh` setzt für sie kein `HALO_NEON`;
+`HALO_RC_MODUS`. Modell und Reasoning-Stufe sind zusätzlich in der plist festgesetzt:
+`HALO_RC_MODELL=sonnet` und `HALO_RC_EFFORT=low` (Entscheidung des Maintainers vom
+8.11.2026, Wortlaut: „ja 1c umsetzen“). `claude remote-control` kennt `--model` und
+`--effort` nicht („Unknown argument“, Version 2.1.319); `mac-remote-control.sh` gibt die
+Werte deshalb als `ANTHROPIC_MODEL` und `CLAUDE_CODE_EFFORT_LEVEL` an die Sitzungen weiter,
+die die `settings.json` übersteuern. Ohne diese Variablen (neon, neon-board) bleibt alles
+wie bisher; die plists von neon und neon-board setzen sie nicht. Die Startzeile im
+Protokoll nennt Modell und Effort. `mac-remote-control.sh` setzt für sie kein `HALO_NEON`;
 `aktive_sitzung()` in `lauf-hilfen.zsh` zählt sie wie neon-board nie als „belegt“
 (`HALO_GITHUB_DIR`). `mac-mini-setup.sh --check` prüft sie nur, richtet sie nicht ein.
 `tests/notfall.sh` hält sie im Notfall an (nicht in `BLEIBEN`).

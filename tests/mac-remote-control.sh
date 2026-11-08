@@ -24,6 +24,13 @@
 # Rechte-Modus (Standard auto wie die Cloud-Sitzungen: bei verschiedenen Modi
 # bleiben Antworten an Cloud-Sitzungen ohne Abfrage hängen; was neon
 # regelmäßig braucht, erlaubt ~/.claude/settings.json ausdrücklich).
+# HALO_RC_MODELL / HALO_RC_EFFORT legen Modell und Reasoning-Stufe aller
+# Sitzungen dieser Instanz fest (ohne Wert: wie bisher, Einstellungen bzw.
+# Auswahl in der Sitzung). claude remote-control kennt weder --model noch
+# --effort („Unknown argument“, 2.1.319); deshalb als ANTHROPIC_MODEL und
+# CLAUDE_CODE_EFFORT_LEVEL, die die Kindprozesse erben und die settings.json
+# übersteuern. Gesetzt nur in at.halo-spaces.github-comm (sonnet/low,
+# Entscheidung des Maintainers vom 8.11.2026, Wortlaut: „ja 1c umsetzen“).
 # Neue Sitzungen arbeiten direkt im Checkout (--spawn=same-dir), nicht in
 # eigenen Worktrees – unabhängig davon, was zuletzt von Hand gewählt wurde.
 emulate -L zsh
@@ -144,6 +151,8 @@ fi
 # SendMessage an den Namen „neon-board“ scheiterte). Die Kindprozesse erben sie;
 # --name setzt nur den Namen der Remote-Control-Verbindung (claude.ai).
 export CLAUDE_CODE_SESSION_NAME=$NAME
-print "$(zeit) Start: $claude remote-control in $REPO als $NAME"
+[[ -n $HALO_RC_MODELL ]] && export ANTHROPIC_MODEL=$HALO_RC_MODELL
+[[ -n $HALO_RC_EFFORT ]] && export CLAUDE_CODE_EFFORT_LEVEL=$HALO_RC_EFFORT
+print "$(zeit) Start: $claude remote-control in $REPO als $NAME${HALO_RC_MODELL:+, Modell $HALO_RC_MODELL}${HALO_RC_EFFORT:+, Effort $HALO_RC_EFFORT}"
 exec $claude remote-control --spawn=same-dir --name $NAME --remote-control-session-name-prefix $NAME \
   ${MODUS:+--permission-mode} ${MODUS}

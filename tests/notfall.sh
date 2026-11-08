@@ -118,6 +118,7 @@ sichern() {
   local agenten=($HOME/Library/LaunchAgents/at.halo-spaces.*.plist(N))
   local teile=(.config/halo-spaces .claude/settings.json halo-board/.claude halo-aufgaben
                .claude/scheduled-tasks/halo-github-kommunikation halo-spaces/.claude/settings.local.json
+               halo-github
                ${agenten#$HOME/})
   local da=()
   for t in $teile; do
@@ -126,7 +127,8 @@ sichern() {
   umask 077
   tu mkdir -p -m 700 $SICHERUNG
   tu launchctl_liste $SICHERUNG/$name-$stempel.launchctl.txt
-  tu tar -czf $ziel -C $HOME $da || { melden "FEHLER Archiv $ziel"; return 1 }
+  # halo-github/.claude/settings.local.json enthält einen Token: nie ins Archiv
+  tu tar -czf $ziel --exclude 'halo-github/.claude/settings.local.json' -C $HOME $da || { melden "FEHLER Archiv $ziel"; return 1 }
   tu chmod 600 $ziel
   tu pruefsumme_schreiben $ziel
   if git -C $REPO rev-parse -q --verify refs/tags/$name >/dev/null; then

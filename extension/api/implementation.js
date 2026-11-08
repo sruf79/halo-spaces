@@ -10001,14 +10001,13 @@ const GLODA_MIN_CHARS = 3;
 
 // Datum im Suchbegriff („12.10“, „12.10.“, „12.10.26“, „12.10.2026“) – ohne
 // Jahr das letzte vergangene Vorkommen
-function searchDate(text) {
+function searchDate(text, now = new Date()) {
   const m = /^\s*(\d{1,2})\.(\d{1,2})\.?(\d{2}|\d{4})?\s*$/.exec(text || "");
   if (!m) {
     return null;
   }
   const day = Number(m[1]);
   const month = Number(m[2]);
-  const now = new Date();
   if (m[3]) {
     const year = m[3].length == 2 ? 2000 + Number(m[3]) : Number(m[3]);
     const date = new Date(year, month - 1, day);

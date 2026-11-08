@@ -16,7 +16,8 @@ const teil = name => fileURLToPath(new URL(`../../extension/api/${name}`, import
 // ausgewählte innere Namen von implementation.js
 export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "parseNatural", "TASK_LISTS", "taskListFilter",
   "DONATE_URL", "THANKS_UPDATE_DAY_PREF", "UpdateNote", "MULTIWEEK_BUFFER_WEEKS", "listDeleteText", "msgStillInFolder", "rowGone",
-  "timeTypeDigit", "timeStep", "durationText", "endFromTime", "dateTypeDigit", "dateFinish", "dateStep", "monthWeeks", "daysInMonth", "mapsUrl"];
+  "timeTypeDigit", "timeStep", "durationText", "endFromTime", "dateTypeDigit", "dateFinish", "dateStep", "monthWeeks", "daysInMonth", "mapsUrl",
+  "initialsFor", "decodeEntities", "stripHtml", "cleanPreview", "searchDate", "emojiFor", "resetEmojiRules", "senderLabel", "orgDomain"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy
 function attrappe(name = "attrappe") {
@@ -58,6 +59,10 @@ export function lade({ prefs = {}, os = "Darwin", locale = "en-US" } = {}) {
   Services.locale.appLocaleAsBCP47 = locale;
   Services.locale.regionalPrefsLocales = [locale];
   Services.wm.getEnumerator = () => [];
+  // ohne Thunderbirds Liste der Domain-Endungen: orgDomain() nimmt seine eigene
+  Services.eTLD.getBaseDomainFromHost = () => {
+    throw new Error("NS_ERROR_NOT_AVAILABLE");
+  };
   const ChromeUtils = attrappe("ChromeUtils");
   ChromeUtils.importESModule = name => attrappe(name);
   ChromeUtils.defineESModuleGetters = () => {};

@@ -7417,6 +7417,61 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
 
+    def ab_sidebar_frames():
+        # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
+        # einblenden – keine verlorenen Bilder (Abstand über dem 1,6-Fachen des üblichen) und kein Sprung der Bücherliste
+        # (unter Windows gingen 14 von 20 Läufen je 2 Bilder verloren, Sprung 66 px). Nicht unter Linux: xvfb hat
+        # keinen festen Bildtakt
+        if sys.platform.startswith("linux"):
+            return True, "unter Linux (xvfb) übersprungen"
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          if (d.visibilityState == "hidden") return { visibility: "hidden" };
+          w.resizeTo(1280, 900); await until(() => w.outerWidth == 1280, 3000); await ruhig(800);
+          await toMail(); await ruhig(500);
+          tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList, "Adressbuch", 8000); await ruhig(1500);
+          const cw = tm.currentTabInfo.browser.contentWindow, bd = cw.document;
+          const book = MailServices.ab.directories.find(b => !b.readOnly);
+          const card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard); card.displayName = "Halo Bildtakt"; card.primaryEmail = "bildtakt@example.invalid";
+          const added = book.addCard(card); await ruhig(800);
+          const out = { reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches, iw: w.innerWidth, runs: [] };
+          const btn = d.getElementById("spacesPinnedButton"), bp = bd.getElementById("booksPane");
+          const still = () => !w.__mcSpacesAnimating && !bp.__mcAnimating;
+          try {
+            cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1000);
+            for (let i = 0; i < 10; i++) {
+              btn.click();
+              const ts = [], ws = []; const t0 = performance.now();
+              while (performance.now() - t0 < 500) { const t = await new Promise(r => w.requestAnimationFrame(r)); ts.push(t); ws.push(Math.round(bp.getBoundingClientRect().width)); }
+              await bis(still, "Animation fertig", 3000); await ruhig(300);
+              const dts = ts.slice(1).map((t, k) => t - ts[k]), med = [...dts].sort((a, b) => a - b)[dts.length >> 1] || 16;
+              // nur während der Bewegung (Breite ändert sich noch); das erste Bild der Bewegung trägt den Aufbau der
+              // Animation und zählt nicht (steht als „start“ dabei)
+              const moving = ws.map((v, k) => k > 0 && v != ws[k - 1]);
+              const lastMove = moving.lastIndexOf(true), firstMove = moving.indexOf(true);
+              const lost = dts.filter((dt, k) => k + 1 > firstMove && k + 1 <= lastMove + 1 && dt > med * 1.6).length;
+              const steps = ws.slice(1).map((v, k) => Math.abs(v - ws[k])).slice(Math.max(0, firstMove), lastMove + 1);
+              out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length });
+            }
+          } finally {
+            if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }
+            try { cw.cardsPane.cardsList.selectedIndex = -1; } catch {}
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            await ruhig(500);
+            try { book.deleteCards([added]); } catch {}
+            w.resizeTo(1500, 900); await ruhig(600);
+          }
+          return out;""")
+        if res.get("visibility") == "hidden":
+            return True, f"Testfenster verdeckt – übersprungen {res}"
+        runs = res.get("runs") or []
+        bad = [r for r in runs if r["lost"] > 0 or r["jump"] > 55]
+        # in der Windows-VM (x64 unter Emulation) geht selten einmal ein einzelnes Bild verloren (1 von 20 Läufen,
+        # Sprung 63 px) – geduldet: höchstens ein Lauf mit einem Bild, nie zwei in einem Lauf (vorher 14 von 20 mit zwei)
+        ok = res.get("reduced") or (len(runs) == 10 and len(bad) <= 1 and all(r["lost"] <= 1 and r["jump"] <= 70 for r in bad))
+        return ok, f"{len(bad)}/{len(runs)} mit verlorenen Bildern oder Sprung {res}"
+    check("Seitenleiste Adressbuch: Ein-/Ausblenden ohne verlorene Bilder und ohne Sprung (zehnmal, höchstens ein einzelnes Bild)", ab_sidebar_frames, results)
+
     def ab_list_keeps_width():
         # Adressbuch: Adressbuchliste ausblenden – die Kontaktliste behält ihre Breite (wuchs um die frei gewordene Spalte,
         # und das Fenster ließ sich nicht mehr schmaler machen als vorher)

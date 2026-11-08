@@ -49,7 +49,7 @@
   height: 38px !important;
   padding: 0 14px 0 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -419,7 +419,7 @@
   background: var(--mt-control) !important;
   color: var(--mt-text-secondary) !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   padding: 1px 8px !important;
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
@@ -485,7 +485,7 @@
   justify-content: center !important;
   width: 26px !important;
   height: 26px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   border: none !important;
   color: var(--mt-text-secondary) !important;
@@ -564,7 +564,7 @@
   color: var(--mt-text) !important;
   background: transparent !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   box-shadow: none !important;
   outline: none !important;
 }
@@ -709,7 +709,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   padding: 4px !important;
   gap: 2px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -719,7 +719,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   min-width: 56px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
   color: var(--mt-text) !important;
@@ -749,7 +749,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   height: 38px !important;
   padding: 3px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
 }
 
@@ -764,7 +764,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
   color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
@@ -983,7 +983,7 @@ calendar-month-day-box .calendar-month-day-label {
   min-width: 24px !important;
   height: 24px !important;
   padding: 0 6px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   font-size: calc(16px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
   line-height: calc(24px * var(--mt-font-scale, 1)) !important;
@@ -1346,7 +1346,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   height: 38px !important;
   padding: 0 14px 0 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -1431,7 +1431,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   height: 34px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
@@ -1445,7 +1445,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   height: 34px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
   outline: none !important;
@@ -2377,7 +2377,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   margin: 0;
   padding: 2px 8px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--mt-radius-capsule, 999px);
   background: var(--mt-control);
   color: var(--mt-text);
   font: inherit;
@@ -2523,7 +2523,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   margin: 0 !important;
   padding: 0 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-family: var(--mt-font) !important;
@@ -2613,7 +2613,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   height: 38px !important;
   padding: 0 14px 0 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -2632,7 +2632,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 :is(#booksPaneCreateBook, #booksPaneCreateList) {
   width: 38px !important;
   height: 38px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: transparent !important;
   color: var(--mt-text-secondary) !important;
 }
@@ -3118,7 +3118,7 @@ body.layout-table #viewContactName {
   padding-inline: 36px 16px !important;
   background-position-x: 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -3142,7 +3142,7 @@ body.layout-table #viewContactName {
   height: 38px !important;
   padding: 0 18px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -3156,7 +3156,7 @@ body.layout-table #viewContactName {
 
 /* Suchfelder (Adressbuch, Chat usw.) rund wie Apples Suchfeld */
 search-bar {
-  --button-border-radius: 999px !important;
+  --button-border-radius: var(--mt-radius-capsule, 999px) !important;
   --search-bar-background: var(--mt-control) !important;
   --search-bar-focus-background: var(--mt-control) !important;
   --search-bar-border-color: transparent !important;
@@ -3228,7 +3228,7 @@ search-bar {
 }
 
 #agenda .agenda-listitem-relative {
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   padding: 0 6px !important;
   background: #FF3B30 !important;
 }
@@ -3260,7 +3260,7 @@ search-bar {
   min-height: 38px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
@@ -3371,7 +3371,7 @@ search-bar {
   flex: none !important;
   width: 22px !important;
   height: 22px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: currentColor !important;
   -webkit-text-fill-color: #fff !important;
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
@@ -3493,7 +3493,7 @@ splitter.splitter:has(+ .conv-bottom) {
   height: 38px !important;
   padding: 0 18px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-accent) !important;
   color: var(--mt-accent-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -4061,7 +4061,7 @@ splitter.splitter:has(+ .conv-bottom) {
   min-height: 28px !important;
   padding-inline: 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -4096,7 +4096,7 @@ splitter.splitter:has(+ .conv-bottom) {
 
 #paneDeck :is(input[type="text"], input[type="number"], input[type="url"], input:not([type]), textarea, search-textbox) {
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 7px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   box-shadow: none !important;
 }
@@ -4107,7 +4107,7 @@ splitter.splitter:has(+ .conv-bottom) {
   padding-inline: 32px 14px !important;
   background-position: 11px center !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -4280,7 +4280,7 @@ input[type="number"].size5 {
   padding-inline: 8px !important;
   text-align: center !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 7px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   color: var(--mt-text) !important;
 }
@@ -4363,7 +4363,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
   min-height: 26px !important;
   padding-inline: 8px !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 7px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -4373,7 +4373,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
   min-height: 26px !important;
   padding-inline: 12px 8px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
 }
@@ -4524,7 +4524,7 @@ addon-card .card,
 .main-search button {
   min-height: 28px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -4533,7 +4533,7 @@ search-addons input,
 .main-search input[type="search"] {
   height: 32px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   padding-inline: 14px !important;
   box-shadow: none !important;
@@ -4650,7 +4650,7 @@ addon-details .tab-group > button.tab-button {
   margin: 0 4px 0 0 !important;
   padding: 4px 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -4714,7 +4714,7 @@ addon-card .addon-inline-options {
   --panel-separator-padding: 5px 9px !important;
   background-color: var(--mt-tooltip-bg) !important;
   border: none !important;
-  border-radius: 12px !important;
+  border-radius: var(--mt-radius-popup, 12px) !important;
   box-shadow: var(--mt-shadow), 0 8px 24px rgba(0, 0, 0, 0.14) !important;
   padding: 5px !important;
   color: var(--mt-text) !important;
@@ -4750,7 +4750,7 @@ addon-card .addon-inline-options {
   padding: 0 12px !important;
   margin: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
@@ -4793,7 +4793,7 @@ addon-card .addon-inline-options {
   content: "" !important;
   position: absolute !important;
   inset: 3px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-cap-hover) !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -4907,7 +4907,7 @@ addon-card .addon-inline-options {
 #FormatToolbar menulist {
   min-height: 28px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -5400,7 +5400,7 @@ addon-card .addon-inline-options {
   min-height: 26px !important;
   padding: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: transparent !important;
   color: var(--mt-text-secondary) !important;
   appearance: none !important;
@@ -5424,7 +5424,7 @@ addon-card .addon-inline-options {
   min-height: 32px !important;
   padding: 0 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
@@ -5497,7 +5497,7 @@ addon-card .addon-inline-options {
 
 :is(#cards, #mcDetailBooks) .mc-book {
   padding: 1px 7px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   font-size: calc(10px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   line-height: calc(15px * var(--mt-font-scale, 1)) !important;
@@ -5576,7 +5576,7 @@ addon-card .addon-inline-options {
   height: 38px !important;
   min-height: 38px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -5609,7 +5609,7 @@ addon-card .addon-inline-options {
 #abContactsPanel #addressbookList {
   border: none !important;
   background-color: var(--mt-control) !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   box-shadow: none !important;
 }
 
@@ -5631,7 +5631,7 @@ addon-card .addon-inline-options {
 #searchAddressBookWindow :is(#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]) {
   min-height: 30px !important;
   padding-inline: 14px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 #searchAddressBookWindow :is(menulist, #searchTermList input:not([type="checkbox"], [type="radio"])) {
@@ -5850,7 +5850,7 @@ addon-card .addon-inline-options {
   margin: 2px auto 0 !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: color-mix(in srgb, var(--mt-accent) 10%, transparent) !important;
   color: var(--mt-accent) !important;
   font: 400 calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
@@ -5924,7 +5924,7 @@ addon-card .addon-inline-options {
   min-height: 34px !important;
   padding: 0 10px 0 6px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: transparent !important;
   color: var(--mt-accent) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -5963,7 +5963,7 @@ addon-card .addon-inline-options {
   min-width: 84px !important;
   padding: 0 18px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -6051,7 +6051,7 @@ addon-card .addon-inline-options {
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text-secondary) !important;
 }
@@ -6279,7 +6279,7 @@ addon-card .addon-inline-options {
 dialog,
 wizard {
   /* Felder nutzen dieselbe Variable: 7 px; Knöpfe werden unten eigens zur Kapsel */
-  --button-border-radius: 7px !important;
+  --button-border-radius: var(--mt-radius-field, 7px) !important;
   --button-border-color: transparent !important;
   --button-background-color: var(--mt-control) !important;
   --button-hover-background-color: var(--mt-control-hover) !important;
@@ -6316,7 +6316,7 @@ button.wizard-button {
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   min-height: 30px !important;
   padding-inline: 16px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 button.wizard-button:not([disabled]):hover {
@@ -6344,7 +6344,7 @@ button.wizard-button[disabled] {
   padding-block: 4px !important;
   padding-inline: 8px !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 7px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   box-shadow: none !important;
 }
@@ -6387,7 +6387,7 @@ button.wizard-button[disabled] {
 dialog menulist {
   min-height: 28px !important;
   border: none !important;
-  border-radius: 7px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -6423,7 +6423,7 @@ dialog menulist {
   height: 28px !important;
   padding-inline: 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   box-shadow: none !important;
 }
@@ -6586,7 +6586,7 @@ dialog separator.groove:not([orient="vertical"]) {
   padding: 0 12px !important;
   margin: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   appearance: none !important;
@@ -6750,7 +6750,7 @@ dialog separator.groove:not([orient="vertical"]) {
   padding: 0 !important;
   margin-inline: 4px 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text-tertiary) !important;
   justify-content: center !important;
@@ -6896,7 +6896,7 @@ timepicker-grids .time-picker-more-control-label {
   margin: 0 !important;
   padding: 4px 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font-weight: 500 !important;
@@ -6935,7 +6935,7 @@ dialog tabs:not(#event-grid-tabs) > tab {
   margin: 0 !important;
   padding: 4px 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font-weight: 500 !important;
@@ -7043,7 +7043,7 @@ dialog tabpanels:not(#event-grid-tabpanels) {
 /* Knöpfe überall als Kapseln – direkt am Knopf, weil einzelne Thunderbird-
    Seiten (Einstellungen, Konten) die Rundung dort selbst setzen */
 button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-table-column-picker"]) {
-  --button-border-radius: 999px !important;
+  --button-border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 /* ---------- Konteneinstellungen ---------- */
@@ -7097,7 +7097,7 @@ button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-
   padding-inline: 32px 14px !important;
   background-position-x: 12px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -7117,12 +7117,12 @@ button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-
 
 /* Dialogknöpfe liegen im Schatten-DOM des Dialogs: Kapsel über die Variable */
 dialog {
-  --button-border-radius: 999px !important;
+  --button-border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 /* Account Hub behält seine eigenen Feldradien */
 dialog:not(.account-hub-dialog) :is(input, textarea, menulist, select, richlistbox) {
-  --button-border-radius: 7px !important;
+  --button-border-radius: var(--mt-radius-field, 7px) !important;
 }
 
 /* Dialoge im Fenster (Konto einrichten beim ersten Start, Hinweise) runden
@@ -7224,7 +7224,7 @@ menupopup menucaption {
   min-width: 52px !important;
   padding: 3px 10px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   font-variant-numeric: tabular-nums !important;
 }
@@ -7452,7 +7452,7 @@ menupopup menucaption {
 }
 
 #chat-toolbar > #button-add-buddy {
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   margin-inline-end: 6px !important;
   padding-inline: 12px 16px !important;
   color: var(--mt-text) !important;
@@ -7505,7 +7505,7 @@ menupopup menucaption {
 
 #chat-toolbar > #chat-status-selector {
   order: 4 !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   /* Polsterung für den flachen 10-px-Punkt: links und rechts ca. 14 px wie bei „Add Contact“ */
   padding-inline: 9px 6px !important;
   color: var(--mt-text) !important;
@@ -7706,7 +7706,7 @@ menupopup menucaption {
 #appMenu-popup .subviewbutton-back {
   margin: 0 !important;
   padding: 4px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 
@@ -7742,7 +7742,7 @@ calendar-month-day-box > .mc-more {
   margin: 0 !important;
   padding: 0 6px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
@@ -7946,7 +7946,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   margin: 0 !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: color-mix(in srgb, var(--mt-text) 8%, transparent) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -8060,7 +8060,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-height: 24px !important;
   height: 24px !important;
   padding: 0 10px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: color-mix(in srgb, var(--mt-text) 7%, transparent) !important;
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
 }
@@ -8201,7 +8201,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   margin: 0 16px 14px 0 !important;
   min-height: 30px !important;
   padding: 0 18px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
@@ -8259,7 +8259,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 :root:is([mc-tab="calendar"], [mc-tab="tasks"]) #unifiedToolbarContent > li[item-id="new-event"] {
   --mc-plus: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M12 5v14M5 12h14%22/%3E%3C/svg%3E");
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   margin-inline-end: 6px !important;
 }
 
@@ -8345,7 +8345,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   justify-content: center !important;
   width: 44px !important;
   height: 44px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mc-pop-icon-bg) !important;
   color: color-mix(in srgb, var(--mt-text) 85%, transparent) !important;
   transition: background-color 150ms ease !important;
@@ -8547,7 +8547,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   width: 40px !important;
   height: 38px !important;
   justify-content: center !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
 }
 
@@ -8559,7 +8559,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   margin-block: auto;
   margin-inline-end: 12px;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--mt-radius-capsule, 999px);
   background-color: var(--mt-control);
 }
 
@@ -8766,7 +8766,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   padding: 0 !important;
   border: none !important;
   min-width: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
   display: flex !important;
@@ -8789,7 +8789,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   padding: 0 !important;
   border: none !important;
   min-width: 0 !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
   display: flex !important;
@@ -8887,7 +8887,7 @@ notification-message :is(button, toolbarbutton).notification-button {
   margin-block: 4px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: rgba(255, 255, 255, 0.72) !important;
   color: #000 !important;
   font: inherit !important;
@@ -8918,7 +8918,7 @@ notification-message toolbarbutton.notification-button > :is(.toolbarbutton-menu
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   color: inherit !important;
 }
 
@@ -9187,7 +9187,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 #mcQuickPanel .mc-qc-seg {
   display: flex !important;
   padding: 2px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
 }
 
@@ -9196,7 +9196,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   flex: 1 !important;
   height: 26px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
@@ -9438,7 +9438,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   flex: none !important;
   width: 12px !important;
   height: 12px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mc-qc-color, var(--mt-accent)) !important;
 }
 
@@ -9510,7 +9510,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   height: 28px !important;
   padding: 0 14px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font: inherit !important;
@@ -9804,7 +9804,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   align-items: center !important;
   gap: 2px !important;
   padding: 2px 6px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-window) !important;
   box-shadow: 0 0 0 0.5px var(--mt-separator), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
   opacity: 0 !important;
@@ -9831,7 +9831,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text-tertiary) !important;
   display: flex !important;
@@ -9966,7 +9966,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 #mcListBanner .mc-lb-unsub {
   min-height: 26px !important;
   padding: 0 12px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: color-mix(in srgb, var(--mt-accent) 14%, transparent) !important;
   color: var(--mt-accent) !important;
 }
@@ -10264,7 +10264,7 @@ datepicker[mc-inline] > menulist {
   min-height: 28px;
   padding-inline: 10px;
   margin-inline-end: 4px;
-  border-radius: 7px;
+  border-radius: var(--mt-radius-field, 7px);
   background: var(--mt-control);
 }
 
@@ -10959,7 +10959,7 @@ datepicker[mc-inline] > menulist {
 /* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche */
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
   background: var(--mt-control) !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
@@ -11233,7 +11233,7 @@ datepicker[mc-inline] > menulist {
   display: flex !important;
   margin: 12px 12px 8px !important;
   padding: 2px !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: var(--mt-control) !important;
   -moz-window-dragging: no-drag;
 }
@@ -11243,7 +11243,7 @@ datepicker[mc-inline] > menulist {
   flex: 1 !important;
   height: 26px !important;
   border: none !important;
-  border-radius: 999px !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   color: var(--mt-text) !important;
   font: inherit !important;
@@ -11275,7 +11275,7 @@ tooltip#itemTooltip {
   color: var(--mt-text) !important;
   border: 0.5px solid transparent !important;
   font-family: var(--mt-font, -apple-system) !important;
-  border-radius: 12px !important;
+  border-radius: var(--mt-radius-popup, 12px) !important;
   box-shadow: none !important;
   padding: 5px 0 !important;
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;

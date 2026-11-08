@@ -12664,6 +12664,26 @@ Neu
           "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeug- und Zahnradsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
+    def radius_tiers():
+        # Radius-Stufen als --mt-Variablen (Kapsel 999 px, Popup 12 px, Feld 7 px) im Hauptfenster und in der
+        # Add-ons-Verwaltung, die Verwendungen ergeben dieselben Werte wie vorher (Kopfknopf Kapsel, Menü 12 px)
+        res = m.js(r'''
+          const vars = x => { const cs = x.defaultView.getComputedStyle(x.documentElement);
+            return ["capsule", "popup", "field"].map(k => cs.getPropertyValue("--mt-radius-" + k).trim()); };
+          const out = { main: vars(d) };
+          w.openAddonsMgr("addons://list/extension");
+          const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector("addon-page-header .page-options-menu .more-options-button") && x; }, "about:addons", 8000);
+          await ruhig(500);
+          out.addons = vars(ad);
+          const b = ad.querySelector("search-addons moz-button")?.shadowRoot?.querySelector('[part="button"]');
+          out.capsule = b ? ad.defaultView.getComputedStyle(b).borderTopLeftRadius : null;
+          tm.closeTab(tm.currentTabInfo); await ruhig(300);
+          return out;''')
+        want = ["999px", "12px", "7px"]
+        ok = res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
+        return ok, f"{res}"
+    check("CSS: Radius-Stufen als --mt-Variablen (Kapsel, Popup, Feld) mit den bisherigen Werten", radius_tiers, results)
+
     def addons_buttons():
         # Add-ons-Verwaltung (Liste, Themes, Detail, halo-Einstellungen): sichtbare Fläche jedes moz-button ist seit
         # Thunderbird 159 das Teil [part=button] im Knopf, der Knopf selbst bleibt eckig ohne Fläche. Textknöpfe

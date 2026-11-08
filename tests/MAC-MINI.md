@@ -604,7 +604,10 @@ Protokoll `~/Library/Logs/halo-github-comm.log` (`HALO_RC_LOG`, StandardOut/Err)
 `--effort` nicht („Unknown argument“, Version 2.1.319); `mac-remote-control.sh` gibt die
 Werte deshalb als `ANTHROPIC_MODEL` und `CLAUDE_CODE_EFFORT_LEVEL` an die Sitzungen weiter,
 die die `settings.json` übersteuern. Ohne diese Variablen (neon, neon-board) bleibt alles
-wie bisher; die plists von neon und neon-board setzen sie nicht. Die Startzeile im
+wie bisher; die plist von neon-board setzt sie nicht, die von neon seit 8.11.2026 mit
+`HALO_RC_MODELL=sonnet` und `HALO_RC_EFFORT=medium` (Wortlaut des Maintainers: „Ja, setze
+HALO_RC_MODELL=sonnet und HALO_RC_EFFORT=medium in at.halo-spaces.remote-control.plist"; wirksam
+nach dem nächsten Start von neon, `rc_plist()` in `mac-mini-setup.sh` trägt sie ein). Die Startzeile im
 Protokoll nennt Modell und Effort. `mac-remote-control.sh` setzt für sie kein `HALO_NEON`;
 `aktive_sitzung()` in `lauf-hilfen.zsh` zählt sie wie neon-board nie als „belegt“
 (`HALO_GITHUB_DIR`). `mac-mini-setup.sh --check` prüft sie nur, richtet sie nicht ein.

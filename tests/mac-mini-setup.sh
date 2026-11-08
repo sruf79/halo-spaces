@@ -448,6 +448,11 @@ rc_plist() {
   <key>Label</key><string>$RC_LABEL</string>
   <key>ProgramArguments</key>
   <array><string>/bin/zsh</string><string>$RC_ZIEL</string><string>$ROOT</string></array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HALO_RC_MODELL</key><string>sonnet</string>
+    <key>HALO_RC_EFFORT</key><string>medium</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>60</integer>

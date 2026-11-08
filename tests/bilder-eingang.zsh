@@ -225,10 +225,12 @@ Antworte am Ende nur mit je einer Zeile „SCHWACH: <Name> – <Grund>“ für z
   else
     sid=$(uuidgen | tr A-Z a-z)
     # Arbeitsordner außerhalb von ~/halo*: zählt so nie als Sitzung am Repo (aktive_sitzung in lauf-hilfen.zsh)
+    # dontAsk: nur die erlaubten Werkzeuge, Edit nur an den beiden Indizes (//… = absoluter Pfad)
     mkdir -p $HOME/.cache/halo-bilder-eingang
     log "Start Beschreibung, Sitzung $sid ($#auftrag Bild(er))"
     out=$(cd $HOME/.cache/halo-bilder-eingang && print -r -- $prompt | claude -p --model sonnet --effort low \
-      --session-id $sid --permission-mode auto --add-dir $A --add-dir $REPO --allowedTools Read Edit Grep Glob 2>&1)
+      --session-id $sid --permission-mode dontAsk --add-dir $A --add-dir $REPO \
+      --allowedTools Read Grep Glob "Edit(/$APPLE/index.md)" "Edit(/$BILDER/index.md)" 2>&1)
     log "Claude: ${out//$'\n'/ | }"
     for z in ${(f)out}; do [[ $z == SCHWACH:* ]] && probleme+=("Bild unzureichend (Claude): ${z#SCHWACH: }"); done
     # Versuche zählen für die, die noch unbeschrieben sind

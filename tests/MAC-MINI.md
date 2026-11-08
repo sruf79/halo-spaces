@@ -1054,7 +1054,8 @@ Alle 15 Minuten sortiert `tests/bilder-eingang.zsh` (LaunchAgent
   Protokoll und die Zeile bleibt.
 - **Claude nur bei Arbeit** (wie `tests/vorpruefung.zsh`): stehen Zeilen mit
   „unbeschrieben“ in einem Index, beschreibt `claude -p --model sonnet --effort
-  low` (Werkzeuge Read, Edit, Grep, Glob; Arbeitsordner
+  low --permission-mode dontAsk` (Werkzeuge Read, Grep, Glob, Edit nur an
+  `apple/index.md` und `bilder/index.md`; Arbeitsordner
   `~/.cache/halo-bilder-eingang`, zählt so nie als Sitzung am Repo) nur diese
   Felder, bei `apple/` mit passenden ids aus `tests/ui_tour.py`, und meldet
   zu schwache Bilder („SCHWACH: …“ → Push). Höchstens 2 Versuche je Bild

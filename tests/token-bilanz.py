@@ -36,7 +36,11 @@ Unteragent gehört zur Art seiner Hauptsitzung):
                  bzw. „github.comm“
   6. neon        Hook-Kennzeichen (siehe unten), Sitzungsname beginnt mit „neon“
                  oder erste Eingabe enthält „Entwicklungssitzung für halo.spaces
-                 auf neon“
+                 auf neon“; auch titellose Sitzung in ~/halo-spaces, deren erste
+                 Eingabe /clear-Hinweis, „This session is being continued“,
+                 <cross-session-message> oder leer ist (Remote Control nach
+                 /clear bzw. Verdichtung); Hand-Sitzungen mit eigenem Text bleiben
+                 sonstige
   7. sonstige    alles andere (von Hand gestartete Sitzungen, Sitzungen anderer
                  Ordner, Unteragenten ohne Hauptdatei)
 Sitzungsname = letzter Eintrag „custom-title“ der Datei, sonst der Name der
@@ -99,6 +103,8 @@ AUFTRAG_MARKEN = [("Unbeaufsichtigter Nachtlauf", "nachtlauf"),
                   ("Unbeaufsichtigte Wochenprüfung", "wochenpruefung"),
                   ("Unbeaufsichtigte Doku-Prüfung", "dokupruefung"),
                   ("Unbeaufsichtigter Design-Rundgang", "rundgang")]
+NEON_ANFAENGE = ("<local-command-caveat>", "<command-name>/clear",
+                 "This session is being continued", "<cross-session-message")
 SID_RE = re.compile(r"Sitzung ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
 
 
@@ -195,6 +201,12 @@ def sitzung_art(meta, log_arten):
             or "GitHub-Kommunikation" in titel or "github.comm" in titel):
         return "github-komm"
     if hook == "neon" or titel.startswith("neon") or "Entwicklungssitzung für halo.spaces auf neon" in erste:
+        return "neon"
+    # Titellose Remote-Control-Sitzung in ~/halo-spaces nach /clear oder Verdichtung:
+    # beginnt mit /clear-Hinweis, Fortsetzungstext, Nachricht einer anderen Sitzung
+    # oder ohne Text (nur Werkzeugergebnis); Hand-Sitzungen beginnen mit eigenem Text
+    if not titel and cwd.rstrip("/").endswith("halo-spaces") and (
+            not erste.strip() or erste.startswith(NEON_ANFAENGE)):
         return "neon"
     return "sonstige"
 

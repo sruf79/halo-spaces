@@ -245,7 +245,7 @@ function fontScale() {
       const size = Math.min(Math.max(pref, UIFontSize.MIN_VALUE), UIFontSize.MAX_VALUE);
       return Math.round(size / os * 1000) / 1000;
     }
-  } catch {}
+  } catch {} // gewollt: ohne UIFontSize bzw. Wert Faktor 1
   return 1;
 }
 
@@ -285,7 +285,7 @@ function accountColors() {
       }
       colors.set(server.prettyName, color);
     });
-  } catch {}
+  } catch {} // gewollt: Konten nicht lesbar, Farben aus der Palette
   return colors;
 }
 function accountColor(name) {
@@ -305,7 +305,7 @@ function colorAccountRows(doc, restorers = null) {
           names.add(server.prettyName); // „Lokale Ordner“ bleibt ohne Farbe
         }
       }
-    } catch {}
+    } catch {} // gewollt: ohne Konten keine Farbpunkte
     for (const li of doc.querySelectorAll("#folderTree li, #books li.bookRow")) {
       const name = (li.querySelector(":scope > .container .name, .bookRow-name")?.textContent || "").trim();
       if (names.has(name)) {
@@ -342,7 +342,7 @@ function colorAccountRows(doc, restorers = null) {
         removed = true;
         try {
           Services.obs.removeObserver(obs, "server-color-changed");
-        } catch {}
+        } catch {} // gewollt: Beobachter schon entfernt
       }
     };
     doc.defaultView.addEventListener("unload", cleanup, { once: true });
@@ -684,7 +684,7 @@ function hookPrefCategories(cw, restorers = null) {
         }
         doc.getElementById("header-searchResults")?.setAttribute("hidden", "true");
         doc.getElementById("no-results-message")?.setAttribute("hidden", "true");
-      } catch {}
+      } catch {} // gewollt: Suchanzeige der Einstellungen schon weg
       cw.gotoPref(HALO_PANE);
       const frame = haloBox.querySelector("browser");
       if (frame?.currentURI?.spec.startsWith(extensionBaseURL)) {
@@ -988,7 +988,7 @@ function hookHoverLine(w, restorers = null) {
         let inside = false;
         try {
           inside = doc == d && !!target && row.contains(target);
-        } catch {}
+        } catch {} // gewollt: Ziel liegt nicht mehr im Dokument
         if (!inside) {
           hide();
           return;
@@ -1499,7 +1499,7 @@ class ConversationCards {
         if (Math.abs(parseFloat(browserEl.style.height || 0) - height) > 1) {
           browserEl.style.height = `${height}px`;
         }
-      } catch {}
+      } catch {} // gewollt: Seite schon geschlossen, nächste Messung folgt
     };
     browserEl.addEventListener("load", () => {
       const cw = browserEl.contentWindow;
@@ -1648,7 +1648,7 @@ function motionMs(ms) {
     if (win?.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return 1;
     }
-  } catch {}
+  } catch {} // gewollt: ohne Fenster normale Bewegung
   return ms;
 }
 
@@ -1927,14 +1927,14 @@ const SendLater = {
         if (f) {
           out.add(f);
         }
-      } catch {}
+      } catch {} // gewollt: Ordner unbekannt, wird übersprungen
     }
     try {
       const local = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Drafts);
       if (local) {
         out.add(local);
       }
-    } catch {}
+    } catch {} // gewollt: ohne „Lokale Ordner“
     return [...out];
   },
   // fällige Entwürfe in den Postausgang, dann senden; update: Ordner vom Server auffrischen
@@ -1951,7 +1951,7 @@ const SendLater = {
           try {
             folder.updateFolder(null);
             await new Promise(r => setTimeout(r, 1500));
-          } catch {}
+          } catch {} // gewollt: offline bzw. Server antwortet nicht, lokaler Stand reicht
         }
         let db;
         try {
@@ -2003,7 +2003,7 @@ const SendLater = {
       try {
         box = root.createLocalSubfolder("Unsent Messages");
         box.setFlag(Ci.nsMsgFolderFlags.Queue);
-      } catch {}
+      } catch {} // Kandidat fürs Protokoll: Postausgang lässt sich nicht anlegen
     }
     return box;
   },
@@ -2238,7 +2238,7 @@ const Remind = {
         try {
           folder = MailServices.folderLookup.getFolderForURL(e.folder);
           back = MailServices.folderLookup.getFolderForURL(e.back);
-        } catch {}
+        } catch {} // gewollt: Ordner gibt es nicht mehr, Eintrag fällt weg
         const hdr = folder?.msgDatabase?.getMsgHdrForMessageID(e.id);
         if (!hdr || !back) {
           // noch nicht da (Server) – höchstens einen Tag lang weiter versuchen
@@ -2432,7 +2432,7 @@ const FollowUp = {
     try {
       const p = MailServices.headerParser.parseDecodedHeader(hdr.mime2DecodedRecipients || hdr.recipients)[0];
       to = p?.name || p?.email || "";
-    } catch {}
+    } catch {} // gewollt: Empfänger nicht lesbar, leer
     const days = Math.floor((Date.now() * 1000 - hdr.date) / (24 * 60 * 60 * 1e6));
     bar.querySelector(".mc-fu-text").textContent = tr("No reply for {d} days: “{s}” to {to}", { d: days, s: hdr.mime2DecodedSubject || "", to });
     bar.querySelector(".mc-fu-go").onclick = () => {
@@ -9807,7 +9807,7 @@ function log(...parts) {
         if (info.size > 200 * 1024) {
           await IOUtils.remove(LOG_PATH);
         }
-      } catch {}
+      } catch {} // gewollt: Protokoll fehlt noch, wird neu angelegt
       await IOUtils.writeUTF8(LOG_PATH, line, { mode: "appendOrCreate" });
     })
     .catch(() => {});
@@ -9821,7 +9821,7 @@ function orgDomain(domain) {
   // Thunderbirds Liste der Domain-Endungen (co.uk, com.pl, co.kr …)
   try {
     return Services.eTLD.getBaseDomainFromHost(domain.toLowerCase().replace(/\.$/, ""));
-  } catch {}
+  } catch {} // gewollt: eigene Liste der Domain-Endungen darunter
   const parts = domain.toLowerCase().replace(/\.$/, "").split(".");
   if (parts.length <= 2) {
     return parts.join(".");
@@ -10192,7 +10192,7 @@ function fetchWithTimeout(win, url, { method = "GET", headers = {}, body = null,
       }
       try {
         current.cancel(Cr.NS_BINDING_ABORTED);
-      } catch {}
+      } catch {} // gewollt: Anfrage schon beendet
     };
     const timer = setTimeout(() => {
       fetchTimeouts++;
@@ -10375,7 +10375,7 @@ function dragPane(event, pane) {
   // Trennlinie mit der Leiste verschwindet oder der Zeiger die Seite verlässt
   try {
     root.setPointerCapture(event.pointerId);
-  } catch {}
+  } catch {} // gewollt: Zeiger schon losgelassen
   const cursor = root.style.cursor;
   root.style.cursor = "col-resize";
   const onMove = e => {
@@ -10399,7 +10399,7 @@ function dragPane(event, pane) {
     root.style.cursor = cursor;
     try {
       root.releasePointerCapture(event.pointerId);
-    } catch {}
+    } catch {} // gewollt: Zeiger schon losgelassen
     pane.done?.(hidden);
   };
   win.addEventListener("pointermove", onMove, true);
@@ -10498,7 +10498,7 @@ const MacPhotos = {
       }
       this.version++;
       log("mac photos loaded", { photos: list.length, emails: this.byEmail.size });
-    } catch {}
+    } catch {} // Kandidat fürs Protokoll: Bilder aus Fotos nicht ladbar
   },
 
   // Dateipfad zum Foto eines Kontakts (über E-Mail-Adressen, sonst Name)
@@ -10820,7 +10820,7 @@ class AvatarResolver {
             const buf = await IOUtils.read(path);
             return `data:image/jpeg;base64,${bytesToBase64(win, buf)}`;
           }
-        } catch {}
+        } catch {} // gewollt: kein Bild in diesem Ordner, nächster Weg
       }
     }
     // Foto aus der macOS-Kontakte-App (iCloud-Fotos sind nur als Link hinterlegt)
@@ -10830,7 +10830,7 @@ class AvatarResolver {
       try {
         const buf = await IOUtils.read(local);
         return `data:image/jpeg;base64,${bytesToBase64(win, buf)}`;
-      } catch {}
+      } catch {} // gewollt: kein lokales Bild, nächster Weg
     }
     if (!url) {
       return null;
@@ -10976,7 +10976,7 @@ class AvatarResolver {
           }
           try {
             scored.push({ url: Services.io.newURI(base).resolve(href), score });
-          } catch {}
+          } catch {} // gewollt: ungültige Adresse im Logo-Verweis
         }
         scored.sort((a, b) => b.score - a.score);
         candidates.unshift(...scored.slice(0, 3).map(s => s.url));
@@ -11386,7 +11386,7 @@ function calendarNote(calendar) {
   let host = "";
   try {
     host = calendar?.uri?.host || "";
-  } catch {}
+  } catch {} // gewollt: Kalender ohne Adresse
   if (!/\u26A0\uFE0F?\s*$/.test(name) || !/(^|\.)icloud\.com$/i.test(host)) {
     return null;
   }
@@ -11626,11 +11626,11 @@ const ThemeSheet = {
       if (win.__mcTheme) {
         try {
           win.windowUtils.removeSheetUsingURIString(win.__mcTheme, win.windowUtils.USER_SHEET);
-        } catch {}
+        } catch {} // gewollt: alte Fassung schon entfernt
       }
       win.windowUtils.loadSheetUsingURIString(this.uri, win.windowUtils.USER_SHEET);
       win.__mcTheme = this.uri;
-    } catch {}
+    } catch {} // Kandidat fürs Protokoll: Design lässt sich im Fenster nicht laden
   },
   // alle Dokumente eines Fensters – auch die der Inhalts-Tabs (Einstellungen,
   // Adressbuch …): deren Browser sind eigene Bäume, nicht Teil des Fensters
@@ -11659,7 +11659,7 @@ const ThemeSheet = {
         if (win?.__mcTheme) {
           try {
             win.windowUtils.removeSheetUsingURIString(win.__mcTheme, win.windowUtils.USER_SHEET);
-          } catch {}
+          } catch {} // gewollt: Fassung schon entfernt
           delete win.__mcTheme;
         }
       }

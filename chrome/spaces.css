@@ -3521,18 +3521,6 @@ splitter.splitter:has(+ .conv-bottom) {
   min-width: 240px !important;
 }
 
-/* ohne Seiten- und Bereichsleiste liegt deren Knopf (unten links) über dem
-   Inhalt: deckend mit Schatten, damit beim Scrollen nichts durchscheint
-   (ganz unten endet die letzte Gruppe schon über ihm, 40 px Innenabstand) */
-:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden] {
-  background: linear-gradient(var(--mt-control), var(--mt-control)), var(--mt-tooltip-bg) !important;
-  box-shadow: var(--mt-shadow) !important;
-}
-
-:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden]:hover {
-  background: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)), var(--mt-tooltip-bg) !important;
-}
-
 #pref-category-box {
   background: var(--mt-sidebar) !important;
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;
@@ -9562,7 +9550,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Tastaturfokus: sichtbarer Ring in Akzentfarbe – auch dort, wo das Theme
    den Standardring oben entfernt (nur bei Tastaturbedienung, :focus-visible)
    --------------------------------------------------------------------------- */
-:is(#mcSpacesToggle, #mcTodayToggle, #mcAgendaTitle .mc-agenda-nav,
+:is(#mcTodayToggle, #mcAgendaTitle .mc-agenda-nav,
     calendar-month-day-box > .mc-more, #mcNewPopup .mc-pop-item,
     #editContactForm .add-property-button, .im-placeholder-screen button,
     #appMenu-uiDensity-controls > .subviewbutton):focus-visible,
@@ -10577,7 +10565,7 @@ datepicker[mc-inline] > menulist {
     color: HighlightText !important;
   }
 
-  :is(#unifiedToolbarContent li button, #mcListHeader .mc-lh-tools, #task-actions-toolbar, #mcSpacesToggle, #mcTodayToggle,
+  :is(#unifiedToolbarContent li button, #mcListHeader .mc-lh-tools, #task-actions-toolbar, #mcTodayToggle,
       input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, search-bar, global-search-bar, menulist) {
     border: 1px solid ButtonText !important;
   }

@@ -573,14 +573,6 @@ body.layout-wide {
   border: none !important;
 }
 
-/* unten Platz für den Bereiche-Knopf: bei ausgeblendeter Leiste sitzt
-   #mcSpacesToggle fest unten links über der Ordnerliste (8 px Rand + 38 px
-   Knopf + 8 px Luft) – ganz nach unten gescrollt endet die letzte Zeile
-   darüber, auch ohne Statusleiste */
-#folderTree {
-  padding-block-end: 54px !important;
-}
-
 /* Ordnerkategorien („Postfächer“, Kontoname) wie die Abschnittstitel in Apple Mail */
 #folderTree > li > .container .name,
 #folderPane .mode-name {
@@ -2604,8 +2596,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 
 #spacesToolbar {
   background: var(--mt-sidebar) !important;
-  /* unten Platz für den Bereiche-Knopf (#mcSpacesToggle) */
-  padding: 8px 20px 48px !important;
+  padding: 8px 20px !important;
   inline-size: 89px !important;
   /* während der Animation schiebt sich die Leiste von links herein */
   transform: translateX(calc(var(--spaces-total-width) - 89px)) !important;
@@ -2733,29 +2724,6 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   display: none !important;
 }
 
-/* Symbol des Bereiche-Knopfs ohne Chat: fünf statt sechs Felder */
-:root[mc-fifth="none"] #mcSpacesToggle::after {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%223%22 y=%222.0%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23186EC4%22/%3E%3Crect x=%223%22 y=%226.2%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%2333924A%22/%3E%3Crect x=%223%22 y=%2210.4%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23C47212%22/%3E%3Crect x=%223%22 y=%2214.6%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23C43166%22/%3E%3Crect x=%223%22 y=%2218.8%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23757579%22/%3E%3C/svg%3E") !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[mc-fifth="none"] #mcSpacesToggle::after {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%223%22 y=%222.0%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%2345A0FD%22/%3E%3Crect x=%223%22 y=%226.2%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%2361C77A%22/%3E%3Crect x=%223%22 y=%2210.4%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23FCA53E%22/%3E%3Crect x=%223%22 y=%2214.6%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23FC5F98%22/%3E%3Crect x=%223%22 y=%2218.8%22 width=%222.6%22 height=%223.2%22 rx=%220.8%22 fill=%22%23A8A8AC%22/%3E%3C/svg%3E") !important;
-  }
-}
-
-/* eigene Reihenfolge (per Ziehen, mc-spaces-order setzt die Erweiterung):
-   Streifen im Symbol des Bereiche-Knopfs in derselben Reihenfolge */
-:root[mc-spaces-order] #mcSpacesToggle::after {
-  background-image: var(--mc-spaces-icon) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root[mc-spaces-order] #mcSpacesToggle::after {
-    background-image: var(--mc-spaces-icon-dark) !important;
-  }
-}
-
 /* beim Ziehen: grauer Umriss, über den übrigen Knöpfen */
 #spacesToolbar .spaces-toolbar-button[mc-dragging] {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mt-text) 28%, transparent) !important;
@@ -2796,77 +2764,11 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   }
 }
 
-/* „Leiste ausblenden“ sitzt nicht in der Leiste, sondern als eigener Knopf
-   unten links (#mcSpacesToggle, von der Erweiterung angelegt) */
+/* „Leiste ausblenden“ sitzt nicht in der Leiste: der Seitenleisten-Knopf
+   schaltet Bereiche-Leiste und linke Leiste gemeinsam */
 #spacesToolbar #collapseButton,
 #spacesToolbarReveal {
   display: none !important;
-}
-
-#mcSpacesToggle {
-  position: fixed !important;
-  z-index: 3 !important;
-  bottom: 8px !important;
-  /* fest mittig unter den Kacheln ((88 − 40) / 2), auch bei ausgeblendeter
-     Leiste und währenddessen – kein Gleiten, nur der Pfeil wechselt */
-  inset-inline-start: 24px !important;
-  transition: none !important;
-  /* Kreis wie der Seitenleisten-Knopf oben: 40 × 38 px, grauer Hintergrund */
-  width: 40px !important;
-  height: 38px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  min-width: 0 !important;
-  border-radius: var(--mt-radius-capsule, 999px) !important;
-  background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  appearance: none !important;
-}
-
-#mcSpacesToggle:hover {
-  background-color: var(--mt-control-hover) !important;
-  color: var(--mt-text) !important;
-}
-
-/* Symbol: links eine Spalte aus sechs Rechtecken in den Bereichsfarben
-   (Reihenfolge wie in der Leiste), rechts ein Pfeil wie bei Antworten/
-   Weiterleiten – nach links = Leiste ausblenden, nach rechts = einblenden.
-   Masken können nur eine Farbe: der Pfeil ist Maske in currentColor
-   (::before), die Rechtecke ein farbiges Bild darüber (::after) */
-#mcSpacesToggle::before {
-  content: "" !important;
-  width: 22px !important;
-  height: 22px !important;
-  background-color: currentColor !important;
-  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 12H10M14.5 7 9.5 12l5 5%22/%3E%3C/svg%3E") center / contain no-repeat !important;
-}
-
-/* (data-mc-hidden setzt die Erweiterung gleich beim Klick) */
-#mcSpacesToggle[data-mc-hidden]::before {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9.5 12H20.5M16 7 21 12l-5 5%22/%3E%3C/svg%3E") !important;
-}
-
-/* Farben wie die Symbole in der Leiste: Grundfarbe 70 % mit #3a3a3c
-   (dunkel 75 % mit #f5f5f7), hier fest ausgerechnet */
-#mcSpacesToggle::after {
-  content: "" !important;
-  position: absolute !important;
-  top: 8px !important;
-  inset-inline-start: 9px !important;
-  width: 22px !important;
-  height: 22px !important;
-  pointer-events: none !important;
-  background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%223%22 y=%222%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23186EC4%22/%3E%3Crect x=%223%22 y=%225.44%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%2333924A%22/%3E%3Crect x=%223%22 y=%228.88%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23C47212%22/%3E%3Crect x=%223%22 y=%2212.32%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23C43166%22/%3E%3Crect x=%223%22 y=%2215.76%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%238C4BAD%22/%3E%3Crect x=%223%22 y=%2219.2%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23757579%22/%3E%3C/svg%3E") center / contain no-repeat !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  #mcSpacesToggle::after {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect x=%223%22 y=%222%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%2345A0FD%22/%3E%3Crect x=%223%22 y=%225.44%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%2361C77A%22/%3E%3Crect x=%223%22 y=%228.88%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23FCA53E%22/%3E%3Crect x=%223%22 y=%2212.32%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23FC5F98%22/%3E%3Crect x=%223%22 y=%2215.76%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23C07BE4%22/%3E%3Crect x=%223%22 y=%2219.2%22 width=%222.6%22 height=%222.8%22 rx=%220.8%22 fill=%22%23A8A8AC%22/%3E%3C/svg%3E") !important;
-  }
 }
 
 .spaces-toolbar-button > img,
@@ -3462,11 +3364,10 @@ unified-toolbar {
 /* ---------- Toolbar anpassen ----------
    Thunderbird blendet dabei nur die eigene Toolbar, Bereiche-Leiste und
    Fensterinhalt aus und lässt die Zeile auf 22 px schrumpfen – unsere
-   Elemente der Toolbar-Zeile (Listenkopf, Today-Knöpfe) und der
-   Bereiche-Knopf unten links ragten halb abgeschnitten bzw. anklickbar über
-   das Anpassen-Fenster. visibility statt display: einige haben in ihren
+   Elemente der Toolbar-Zeile (Listenkopf, Today-Knöpfe) ragten halb
+   abgeschnitten bzw. anklickbar über das Anpassen-Fenster. visibility statt display: einige haben in ihren
    Bereichen höher gewichtete display-Regeln. */
-html:root.customizingUnifiedToolbar :is(#mcListHeader, #mcTodayToggle, #mcTodayTop, #mcTodayNew, #mcSpacesToggle) {
+html:root.customizingUnifiedToolbar :is(#mcListHeader, #mcTodayToggle, #mcTodayTop, #mcTodayNew) {
   visibility: hidden !important;
 }
 
@@ -7549,18 +7450,6 @@ splitter.splitter:has(+ .conv-bottom) {
 #pref-category-box:not(.mc-side-anim) {
   width: 240px !important;
   min-width: 240px !important;
-}
-
-/* ohne Seiten- und Bereichsleiste liegt deren Knopf (unten links) über dem
-   Inhalt: deckend mit Schatten, damit beim Scrollen nichts durchscheint
-   (ganz unten endet die letzte Gruppe schon über ihm, 40 px Innenabstand) */
-:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden] {
-  background: linear-gradient(var(--mt-control), var(--mt-control)), var(--mt-tooltip-bg) !important;
-  box-shadow: var(--mt-shadow) !important;
-}
-
-:root[mc-tab="preferencesTab"] #mcSpacesToggle[data-mc-hidden]:hover {
-  background: linear-gradient(var(--mt-control-hover), var(--mt-control-hover)), var(--mt-tooltip-bg) !important;
 }
 
 #pref-category-box {
@@ -13592,7 +13481,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Tastaturfokus: sichtbarer Ring in Akzentfarbe – auch dort, wo das Theme
    den Standardring oben entfernt (nur bei Tastaturbedienung, :focus-visible)
    --------------------------------------------------------------------------- */
-:is(#mcSpacesToggle, #mcTodayToggle, #mcAgendaTitle .mc-agenda-nav,
+:is(#mcTodayToggle, #mcAgendaTitle .mc-agenda-nav,
     calendar-month-day-box > .mc-more, #mcNewPopup .mc-pop-item,
     #editContactForm .add-property-button, .im-placeholder-screen button,
     #appMenu-uiDensity-controls > .subviewbutton):focus-visible,
@@ -14607,7 +14496,7 @@ datepicker[mc-inline] > menulist {
     color: HighlightText !important;
   }
 
-  :is(#unifiedToolbarContent li button, #mcListHeader .mc-lh-tools, #task-actions-toolbar, #mcSpacesToggle, #mcTodayToggle,
+  :is(#unifiedToolbarContent li button, #mcListHeader .mc-lh-tools, #task-actions-toolbar, #mcTodayToggle,
       input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, search-bar, global-search-bar, menulist) {
     border: 1px solid ButtonText !important;
   }

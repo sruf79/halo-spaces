@@ -3627,64 +3627,6 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Ordnerliste: Ziel beim Ziehen auf einen Ordner getönt mit Akzentrand, anders als die Auswahl", drop_target, results)
 
-    def toggle_room():
-        # Bereiche-Leiste aus: der Knopf unten links schwebt über der Ordnerliste – ganz nach unten gescrollt endet die
-        # letzte Zeile darüber (auch ohne Statusleiste); Liste künstlich kurz, damit sie im leeren Testprofil scrollt
-        res = m.js(FOLDER_JS + r"""
-          const a3 = await toMail(); const ad = a3.document; const tree = ad.getElementById("folderTree");
-          const wasHidden = w.gSpacesToolbar.isHidden;
-          w.gSpacesToolbar.toggleToolbar(true); await ruhig(900);
-          try {
-            const btn = d.getElementById("mcSpacesToggle").getBoundingClientRect();
-            const off = a3.browsingContext.embedderElement.getBoundingClientRect();
-            const pane = ad.getElementById("folderPane").getBoundingClientRect();
-            const pad = parseFloat(csOf(tree).paddingBottom);
-            tree.style.maxHeight = "120px"; await ruhig(200);
-            tree.scrollTop = tree.scrollHeight; await ruhig(200);
-            const t = tree.getBoundingClientRect();
-            const rows = [...tree.querySelectorAll("li > .container")].filter(c => c.getBoundingClientRect().height > 0);
-            const last = rows.at(-1)?.getBoundingClientRect();
-            return { pad, btnTop: Math.round(btn.top), btnW: Math.round(btn.width), btnLeft: Math.round(btn.left), paneBottom: Math.round(off.top + pane.bottom),
-                     paneLeft: Math.round(off.left + pane.left), win: w.innerHeight, scrolls: tree.scrollHeight > tree.clientHeight,
-                     lastGap: last ? Math.round(t.bottom - last.bottom) : null };
-          } finally {
-            tree.style.maxHeight = ""; tree.scrollTop = 0;
-            if (!wasHidden) w.gSpacesToolbar.toggleToolbar(false);
-            await ruhig(600);
-          }""")
-        # paneLeft: Fensterinhalt beginnt ganz links (früher rückte eine verirrte Statusleisten-Regel Fenster und
-        # Seitenkörper je 12 px ein – weißer Streifen links, rechts abgeschnitten)
-        ok = (res["btnW"] > 0 and res["btnLeft"] >= res["paneLeft"] and res["paneLeft"] <= 1 and res["pad"] >= 46
-              and res["paneBottom"] - res["pad"] <= res["btnTop"] - 4 and res["win"] - res["pad"] <= res["btnTop"]
-              and res["scrolls"] and res["lastGap"] is not None and res["lastGap"] >= res["pad"] - 1)
-        return ok, f"{res}"
-    check("Ordnerliste: letzte Zeile lässt sich über den Bereiche-Knopf hinaus scrollen (Leiste ausgeblendet)", toggle_room, results)
-
-    def toggle_icon():
-        # Symbol des Bereiche-Knopfs: Pfeil als Maske in Textfarbe (::before), darüber deckungsgleich sechs Rechtecke
-        # in den Bereichsfarben (::after, eigene Fassung für dunkel); Pfeil nach links bzw. nach rechts bei ausgeblendet
-        res = m.js(r"""const b = d.getElementById("mcSpacesToggle");
-          const pe = (x) => w.getComputedStyle(b, x), r = b.getBoundingClientRect();
-          const had = b.hasAttribute("data-mc-hidden");
-          b.toggleAttribute("data-mc-hidden", false); const left = pe("::before").maskImage;
-          b.toggleAttribute("data-mc-hidden", true); const right = pe("::before").maskImage;
-          b.toggleAttribute("data-mc-hidden", had);
-          const be = pe("::before"), af = pe("::after");
-          return { w: Math.round(r.width), h: Math.round(r.height), bw: be.width, bh: be.height, bg: be.backgroundColor, color: w.getComputedStyle(b).color,
-                   left, right, aw: af.width, ah: af.height, top: af.top, start: af.left, pos: af.position, img: af.backgroundImage,
-                   dark: w.matchMedia("(prefers-color-scheme: dark)").matches };""")
-        cols = (["45A0FD", "61C77A", "FCA53E", "FC5F98", "C07BE4", "A8A8AC"] if res["dark"]
-                else ["186EC4", "33924A", "C47212", "C43166", "8C4BAD", "757579"])
-        img = res["img"]
-        pos = [img.find("%23" + c) for c in cols]
-        ok = (res["w"] == 40 and res["h"] == 38 and res["bw"] == "22px" and res["bh"] == "22px" and res["bg"] == res["color"]
-              and "M21 12H10M14.5 7 9.5 12l5 5" in res["left"] and "M9.5 12H20.5M16 7 21 12l-5 5" in res["right"]
-              and "stroke-width=%221.7%22" in res["left"] and "M2.5 2.5v11" not in res["left"] + res["right"]
-              and res["aw"] == "22px" and res["ah"] == "22px" and res["top"] == "8px" and res["start"] == "9px" and res["pos"] == "absolute"
-              and all(x > 0 for x in pos) and pos == sorted(pos) and img.count("%3Crect") == 6)
-        return ok, f"{ {k: v for k, v in res.items() if k not in ('left', 'right', 'img')} } Farben {pos}"
-    check("Bereiche-Leiste: Knopf zum Ein-/Ausblenden mit Pfeil und sechs Rechtecken in den Bereichsfarben (hell/dunkel)", toggle_icon, results)
-
     def mode_lines():
         res = m.js(FOLDER_JS + r"""
           const a3 = await toMail(); const ad = a3.document; const fp = a3.folderPane; const old = fp.activeModes;
@@ -3898,7 +3840,7 @@ def folder_checks(m, results):
           const out = { on: !!await until(() => d.documentElement.classList.contains("customizingUnifiedToolbar")) };
           try {
             await ruhig(800);
-            const IDS = ["mcListHeader", "mcTodayToggle", "mcTodayTop", "mcTodayNew", "mcSpacesToggle"];
+            const IDS = ["mcListHeader", "mcTodayToggle", "mcTodayTop", "mcTodayNew"];
             const row = d.getElementById("unifiedToolbarContainer");
             out.shown = IDS.filter(id => !gone(d.getElementById(id)));
             out.hits = [[w.innerWidth - 50, 10], [30, w.innerHeight - 20], [400, 10]]
@@ -3909,13 +3851,13 @@ def folder_checks(m, results):
             out.off = !!await until(() => !d.documentElement.classList.contains("customizingUnifiedToolbar"));
             await ruhig(600);
           }
-          out.back = ["mcListHeader", "mcSpacesToggle"].filter(id => gone(d.getElementById(id)));
+          out.back = ["mcListHeader"].filter(id => gone(d.getElementById(id)));
           return out;""")
         r = res.get("row") or ["?", "", "", ""]
         ok = (res["on"] and res["off"] and not res["shown"] and not res["hits"] and r[0] == "none" and same_color(r[1], r[2])
               and r[3] == "none" and not res["back"])
         return ok, f"{res}"
-    check("Toolbar anpassen: Listenkopf, Today- und Bereiche-Knopf ausgeblendet, Zeile einfarbig; danach wieder da", customize_toolbar, results)
+    check("Toolbar anpassen: Listenkopf und Today-Knöpfe ausgeblendet, Zeile einfarbig; danach wieder da", customize_toolbar, results)
 
     def toolbar_reset():
         # „Zurücksetzen“ in „Symbolleiste anpassen“ stellt die halo.spaces-Anordnung her (nicht Thunderbirds Standard ohne
@@ -4031,7 +3973,7 @@ def folder_checks(m, results):
             out.during = { dragging: calBtn.hasAttribute("mc-dragging"), mailShift: d.getElementById("mailButton").style.transform };
             ev("pointerup", y0 - 2 * slot - 4); await ruhig(600);
             out.after = order(); out.pref = Services.prefs.getStringPref("extensions.mailcards.spacesOrder", "");
-            out.menu = menuOrder(); out.icon = d.documentElement.hasAttribute("mc-spaces-order") && /C47212|FCA53E/.test(w.getComputedStyle(d.getElementById("mcSpacesToggle"), "::after").backgroundImage);
+            out.menu = menuOrder(); out.icon = d.documentElement.hasAttribute("mc-spaces-order");
             // Klick ohne Bewegung: öffnet den Adressbuch-Bereich, Reihenfolge bleibt
             const ab = d.getElementById("addressBookButton"), ar = ab.getBoundingClientRect();
             ab.dispatchEvent(new w.PointerEvent("pointerdown", { bubbles: true, pointerId: 8, button: 0, buttons: 1, clientX: ar.left + 5, clientY: ar.top + 5 }));
@@ -4053,7 +3995,7 @@ def folder_checks(m, results):
               and res.get("reset") == res.get("before") and res.get("resetIcon") is False
               and res.get("menuReset") == ["spacesPopupButtonMail", "spacesPopupButtonAddressBook", "spacesPopupButtonCalendar", "spacesPopupButtonTasks"])
         return ok, f"{res}"
-    check("Bereiche-Leiste: Reihenfolge per Ziehen ändern (andere weichen aus), gilt auch für Menü und Knopf-Symbol, Klick öffnet weiter, zurücksetzbar", spaces_reorder, results)
+    check("Bereiche-Leiste: Reihenfolge per Ziehen ändern (andere weichen aus), gilt auch für das Menü, Klick öffnet weiter, zurücksetzbar", spaces_reorder, results)
 
     def spaces_number_keys():
         # ⌘1 bis ⌘5 wählen den n-ten Bereich in der Reihenfolge der Leiste – auch mit eigener Reihenfolge und unabhängig
@@ -7566,12 +7508,10 @@ def calendar_checks(m, results):
               const ab = () => tm.currentTabInfo.chromeBrowser.contentWindow, sp = () => ab().paneLayout.folderPaneSplitter;
               const state = () => ({ folder: !sp().isCollapsed, spaces: !w.gSpacesToolbar.isHidden });
               const sideBtn = () => d.getElementById("spacesPinnedButton").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0 }));
-              const spacesBtn = () => d.getElementById("mcSpacesToggle").click();
               const out = { autoPref: Services.prefs.prefHasUserValue("extensions.mailcards.autoCollapsed") };
               try {
                 w.moveTo(sc.availLeft, sc.availTop); w.resizeTo(Math.min(sc.availWidth, 1900), 900); await pause(1500);
-                if (sp().isCollapsed) { sideBtn(); await ruhig(900); }
-                if (w.gSpacesToolbar.isHidden) { spacesBtn(); await ruhig(900); }
+                if (sp().isCollapsed || w.gSpacesToolbar.isHidden) { sideBtn(); await ruhig(900); }
                 out.start = state();
                 // Größe ändern (schmaler, aber noch breit genug) und zurück: bleibt
                 w.resizeTo(1500, 900); await pause(1500); out.resized = state();
@@ -7579,18 +7519,16 @@ def calendar_checks(m, results):
                 // Bereichswechsel hin und zurück: bleibt
                 await toCalendar(); await pause(900); out.calendar = { spaces: !w.gSpacesToolbar.isHidden };
                 await toMail(); await pause(900); out.back = state();
-                // Knöpfe: zu, auf – zweimal hintereinander
+                // Knopf: zu, auf – zweimal hintereinander (Seitenleiste und Bereichsleiste gemeinsam)
                 const runs = [];
                 for (let k = 0; k < 2; k++) {
-                  sideBtn(); await ruhig(900); const a = state().folder;
-                  sideBtn(); await ruhig(900); const b = state().folder;
-                  spacesBtn(); await ruhig(900); const c = state().spaces;
-                  spacesBtn(); await ruhig(900); const e = state().spaces;
-                  runs.push([a, b, c, e]);
+                  sideBtn(); await ruhig(900); const a = state();
+                  sideBtn(); await ruhig(900); const b = state();
+                  runs.push([a.folder, a.spaces, b.folder, b.spaces]);
                 }
                 out.runs = runs;
                 // selbst zugeklappt bleibt nach Größenänderung zu
-                sideBtn(); await ruhig(900); w.resizeTo(1500, 900); await pause(1500); out.userClosed = state().folder;
+                sideBtn(); await ruhig(900); w.resizeTo(1500, 900); await pause(1500); out.userClosed = state().folder || state().spaces;
                 sideBtn(); await ruhig(900); out.end = state();
               } finally {
                 w.resizeTo(old[2], old[3]); w.moveTo(old[0], old[1]); await pause(1200);
@@ -7601,9 +7539,9 @@ def calendar_checks(m, results):
         t = lambda k: res.get(k) or {}
         both = {"folder": True, "spaces": True}
         ok = (res.get("autoPref") is False and t("start") == both and t("resized") == both and t("calendar").get("spaces") is True
-              and t("back") == both and res.get("runs") == [[False, True, False, True]] * 2 and res.get("userClosed") is False and t("end") == both)
+              and t("back") == both and res.get("runs") == [[False, False, True, True]] * 2 and res.get("userClosed") is False and t("end") == both)
         return ok, f"{res}"
-    check("Leisten: Seitenleiste und Bereichsleiste nur über die Knöpfe, bleiben im breiten Fenster offen (auch nach Größenänderung und Bereichswechsel)", bars_stay, results)
+    check("Leisten: Seitenleiste und Bereichsleiste nur über den Knopf, bleiben im breiten Fenster offen (auch nach Größenänderung und Bereichswechsel)", bars_stay, results)
 
     def classic_drag():
         # klassisches Layout (Liste über der Mail): Ziehen der Trennlinie weit über beide Grenzen – die Höhe der
@@ -10732,8 +10670,8 @@ def run_checks(m, version, profile, results):
     check("Statusleiste: ohne Today-Pane-Knopf, flach, Seitenleiste läuft durch", statusbar, results)
 
     def statusbar_edges():
-        # Online-Symbol der Statusleiste in jedem Bereich rechts der Seitenleiste wie in der Mail; mit ausgeblendeter
-        # Bereiche-Leiste (und Seitenleiste) nie unter dem Knopf zum Einblenden
+        # Online-Symbol der Statusleiste in jedem Bereich rechts der Seitenleiste wie in der Mail; ausgeblendet
+        # (Bereiche-Leiste und Seitenleiste gemeinsam) bleibt es sichtbar
         res = m.js(r"""
           const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom) } : null; };
           const wlan = () => R(d.getElementById("offline-status"));
@@ -10743,22 +10681,20 @@ def run_checks(m, version, profile, results):
           const spaces = w.gSpacesToolbar;
           try {
             spaces.toggleToolbar(true); await ruhig(1500);
-            out.hidden = { wlan: wlan(), side: R(d.getElementById("calSidebar")) };
-            d.getElementById("spacesPinnedButton").click(); await ruhig(1200);
-            out.hiddenNoSide = { wlan: wlan(), toggle: R(d.getElementById("mcSpacesToggle")) };
-            d.getElementById("spacesPinnedButton").click(); await ruhig(1200);
+            out.hiddenNoSide = { wlan: wlan(), side: R(d.getElementById("calSidebar")) };
           } finally { spaces.toggleToolbar(false); await ruhig(1200); await toMail(); }
           return out;""")
         bad = []
-        for area in ("mail", "calendar", "hidden"):
+        for area in ("mail", "calendar"):
             v = res.get(area) or {}
             if not v.get("wlan") or not v.get("side") or v["wlan"]["l"] < v["side"]["r"] + 6:
                 bad.append(area)
+        # Seitenleiste ganz aus (Bereiche-Leiste samt Kalenderliste): Symbol bleibt sichtbar
         h = res.get("hiddenNoSide") or {}
-        if not h.get("wlan") or (h.get("toggle") and h["toggle"]["b"] > h["wlan"]["t"] and h["wlan"]["l"] < h["toggle"]["r"] + 4):
-            bad.append("ohne Bereiche und Seitenleiste")
+        if not h.get("wlan") or h.get("side"):
+            bad.append("ohne Seitenleiste")
         return not bad, f"{bad} {res}"
-    check("Statusleiste: Online-Symbol in jedem Bereich rechts der Seitenleiste, nie unter dem Knopf zum Einblenden der Bereiche", statusbar_edges, results)
+    check("Statusleiste: Online-Symbol in jedem Bereich rechts der Seitenleiste, auch ohne Seitenleiste sichtbar", statusbar_edges, results)
 
     def no_new_tab_items():
         # Kontextmenüs ohne „In neuem Tab/Fenster öffnen“ in allen Bereichen; keine doppelten oder Rand-Trennlinien
@@ -11037,21 +10973,13 @@ def run_checks(m, version, profile, results):
           btn.click(); await ruhig(900); const open = [!!w.TodayPane?.isVisible, row.hasAttribute("data-mc-tp-open"), Math.round(d.getElementById("today-pane-panel").getBoundingClientRect().width)];
           btn.click(); const right = row.hasAttribute("data-mc-tp-open"); await ruhig(900);
           btn.click(); await ruhig(900); return { open, plusAtStart: right };""")
-        # Spaces-Knopf
-        out["spaces"] = m.js(r"""const b = d.getElementById("mcSpacesToggle"); const L = () => Math.round(b.getBoundingClientRect().left * 2) / 2;
-          const r = { before: [L(), b.hasAttribute("data-mc-hidden")] }; b.click(); await wait(20);
-          r.click = [L(), b.hasAttribute("data-mc-hidden")]; await wait(80); r.mid = L(); await ruhig(700);
-          r.after = [L(), b.hasAttribute("data-mc-hidden"), !!w.gSpacesToolbar.isHidden]; b.click(); await wait(20);
-          r.back = b.hasAttribute("data-mc-hidden"); await ruhig(800); r.end = [L(), !!w.gSpacesToolbar.isHidden]; return r;""")
-        c, s_ = out["todayClick"], out["spaces"]
+        c = out["todayClick"]
         ok = (out["calDuring"] is True and out["calShown"][0] is False and abs(out["calShown"][1] - out["calWidth"]) <= 2
               and out["mailBar"] == "none"
               and out["todayWidth"] == 280 and out["plusBefore"] and out["todayDuring"] == [False, False]
-              and c["open"] == [True, True, 280] and c["plusAtStart"] is False
-              and s_["before"][1] is False and s_["click"] == [s_["before"][0], True] and s_["mid"] == s_["before"][0]
-              and s_["after"] == [s_["before"][0], True, True] and s_["back"] is False and s_["end"] == [s_["before"][0], False])
+              and c["open"] == [True, True, 280] and c["plusAtStart"] is False)
         return ok, f"{out}"
-    check("Trennlinien: Seitenleiste beim Zuziehen sofort weg, kein blauer Balken, Today-Pane fest 280 px und nach rechts gezogen sofort aus, „+“ gleich weg, Spaces-Knopf bleibt stehen", drag_hide, results)
+    check("Trennlinien: Seitenleiste beim Zuziehen sofort weg, kein blauer Balken, Today-Pane fest 280 px und nach rechts gezogen sofort aus, „+“ gleich weg", drag_hide, results)
 
     def drag_reshow():
         # Eine Zieh-Logik für alle Bereiche: Seitenleiste (Kalender, Mail, Adressbuch, Einstellungen) bis zur gemeinsamen
@@ -15064,24 +14992,6 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons kommen auch bei spät übersetzter Seitenleiste (langsamer Start), nie halo.spaces allein", pref_embedded_late_l10n, results)
 
-    def pref_spaces_toggle_opaque():
-        # ohne Seiten- und Bereichsleiste liegt der Knopf unten links über dem Inhalt: deckend mit Schatten
-        res = m.js(PREFS_OPEN_JS + r"""
-          const btn = d.getElementById("mcSpacesToggle"), side = d.getElementById("spacesPinnedButton");
-          btn.click(); await until(() => btn.hasAttribute("data-mc-hidden"), 3000);
-          side.click(); await until(() => pd.getElementById("pref-category-box").classList.contains("mc-side-hidden"), 3000); await ruhig(600);
-          const st = w.getComputedStyle(btn);
-          const out = { hidden: btn.hasAttribute("data-mc-hidden"), bg: st.backgroundImage.split("),").length, shadow: st.boxShadow != "none",
-                        over: Math.round(btn.getBoundingClientRect().right) > Math.round(tm.currentTabInfo.browser.getBoundingClientRect().left) };
-          side.click(); await until(() => !pd.getElementById("pref-category-box").classList.contains("mc-side-hidden"), 3000);
-          btn.click(); await until(() => !btn.hasAttribute("data-mc-hidden"), 3000); await ruhig(600);
-          out.normalShadow = w.getComputedStyle(btn).boxShadow;
-          tm.closeTab(tm.currentTabInfo); await ruhig(400);
-          return out;""")
-        ok = res["hidden"] and res["bg"] >= 2 and res["shadow"] and res["normalShadow"] == "none"
-        return ok, f"{res}"
-    check("Einstellungen: Knopf der Bereichsleiste über dem Inhalt (beide Leisten aus) deckend mit Schatten", pref_spaces_toggle_opaque, results)
-
     def pref_category_groups():
         # Kategorien in drei Gruppen nach Nutzung, nur durch Abstand getrennt: General, Account Settings, Appearance,
         # Composition · Privacy & Security, Calendar, Chat · Add-ons and Themes, halo.spaces, Export for Mobile (ganz unten)
@@ -15374,8 +15284,7 @@ Neu
               const out = { before: heights() };
               // keiner
               Services.prefs.setStringPref(P, "none"); await ruhig(500);
-              const toggle = w.getComputedStyle(d.getElementById("mcSpacesToggle"), "::after").backgroundImage;
-              out.none = { chat: shown(chat), heights: heights(), rects: (decodeURIComponent(toggle).match(/<rect/g) || []).length, item: d.getElementById("spacesPopupButtonChat")?.getAttribute("mc-fifth") };
+              out.none = { chat: shown(chat), heights: heights(), item: d.getElementById("spacesPopupButtonChat")?.getAttribute("mc-fifth") };
               out.none.itemShown = !d.getElementById("spacesPopupButtonChat").hidden;
               // Erweiterung mit eigenem Bereich (vorübergehend installiert)
               const dir = PathUtils.join(PathUtils.profileDir, "halo-space-test");
@@ -15453,7 +15362,7 @@ Neu
         n, a, wb, bk = res.get("none") or {}, res.get("addon") or {}, res.get("web") or {}, res.get("back") or {}
         before = res.get("before") or []
         ok = (len(before) == 5 and not n.get("chat") and len(n.get("heights", [])) == 4 and max(n["heights"]) - min(n["heights"]) <= 1
-              and n["heights"][0] > before[0] and n.get("rects") == 5 and not n.get("itemShown")
+              and n["heights"][0] > before[0] and not n.get("itemShown")
               and a.get("space") and a.get("chat") and a.get("title") == "Halo Testbereich" and not a.get("ownShown") and a.get("mask")
               and a.get("heights") == before and a.get("tab") and a.get("url") and a.get("pageTitle") == "Testbereich"
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
@@ -15864,14 +15773,14 @@ Neu
         res = m.js('''
           await toMail(); w.focus(); await until(() => Services.focus.activeWindow == w, 3000); await ruhig(300);
           const ring = el => { el.focus({ focusVisible: true }); const cs = getComputedStyle(el); const r = cs.outlineStyle != "none" && parseFloat(cs.outlineWidth) >= 2; el.blur(); return r; };
-          const own = ["mcSpacesToggle", "mcTodayToggle"].map(id => d.getElementById(id)).filter(Boolean);
+          const own = ["mcTodayToggle"].map(id => d.getElementById(id)).filter(Boolean);
           const unlabeled = own.filter(b => !b.getAttribute("aria-label")).map(b => b.id);
           const rings = own.filter(b => !ring(b)).map(b => b.id);
           const a3 = d.getElementById("tabmail").currentAbout3Pane;
           const acts = [...(a3?.messageBrowser?.contentDocument?.querySelectorAll(".mc-hover-action") || [])];
           return { own: own.length, unlabeled, noRing: rings, actions: acts.length, tabbable: acts.filter(b => b.tabIndex >= 0).length,
                    actionsLabeled: acts.every(b => b.getAttribute("aria-label")) };''')
-        ok = res["own"] == 2 and not res["unlabeled"] and not res["noRing"] and res["tabbable"] == 0 and res["actionsLabeled"]
+        ok = res["own"] == 1 and not res["unlabeled"] and not res["noRing"] and res["tabbable"] == 0 and res["actionsLabeled"]
         return ok, f"{res}"
     check("Tastatur: Fokusring und Beschriftung eigener Knöpfe", keyboard, results)
 
@@ -15961,7 +15870,8 @@ Neu
         # über der Ordnerliste; Windows/Linux ohne Lücke für die Ampel.
         # Leiste 88 px + 1 px Linie: Kacheln 48 px mit je 20 px Rand links und rechts (bis zur Linie), die Linie läuft
         # von ganz oben bis unten und liegt rechts der Ampel – auch bei ausgeblendeter Seitenleiste (früher saß der
-        # grüne Knopf auf der Grenze, die Linie begann erst unter der Ampel)
+        # grüne Knopf auf der Grenze, die Linie begann erst unter der Ampel); ab Dia 2/4 blendet der Knopf
+        # Bereiche-Leiste und Ordnerliste gemeinsam aus
         res = m.js(r"""
           w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
           const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), h: Math.round(r.height) }; };
@@ -15973,10 +15883,10 @@ Neu
           const out = { mac: Services.appinfo.OS == "Darwin", box: R(box), bar: R(bar), pad: parseFloat(cs.paddingTop), tiles: {}, line: line(),
                         rand: t0 ? [t0.l - Math.round(bar.getBoundingClientRect().left), line().left - t0.r, t0.r - t0.l] : null,
                         body: Math.round(d.getElementById("messengerBody").getBoundingClientRect().left) };
-          // Seitenleiste aus (View → Hide Sidebar), Bereiche-Leiste an: Ampel weiter ganz links der Linie
+          // Seitenleiste aus (Knopf, ab Dia 2/4 samt Bereiche-Leiste): Ampel ganz links oben
           const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");
-          d.getElementById("spacesPinnedButton").click(); await bis(() => !(fp()?.getBoundingClientRect().width >= 1), "Seitenleiste aus", 3000); await ruhig(600);
-          out.noSide = { box: R(box), line: line(), side: Math.round(fp()?.getBoundingClientRect().width ?? -1) };
+          d.getElementById("spacesPinnedButton").click(); await bis(() => !(fp()?.getBoundingClientRect().width >= 1) && w.gSpacesToolbar.isHidden, "Seitenleiste aus", 3000); await ruhig(600);
+          out.noSide = { box: R(box), side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };
           d.getElementById("spacesPinnedButton").click(); await bis(() => fp()?.getBoundingClientRect().width > 100, "Seitenleiste wieder da", 3000); await ruhig(600);
           const side = { mail: () => tm.currentAbout3Pane?.document.getElementById("folderPane"), calendar: () => d.getElementById("calSidebar"),
                          tasks: () => d.getElementById("calSidebar"), addressBook: () => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane") };
@@ -15994,22 +15904,90 @@ Neu
         tiles = res.get("tiles") or {}
         all_tiles = all(v.get("n", 0) >= 4 and v.get("side") and v.get("last", 9999) <= bar.get("b", 0) for v in tiles.values())
         ln, ns = res.get("line") or {}, res.get("noSide") or {}
-        nsb, nsl = ns.get("box") or {}, ns.get("line") or {}
+        nsb = ns.get("box") or {}
         # Linie 1 px am rechten Rand, von ganz oben; Kachelrand links == rechts == 20 px; Inhalt beginnt hinter der Linie
         # „ganz oben“ = Oberkante der Leiste (unter Windows liegt darüber 1 px Fensterrand)
         top0 = bar.get("t", 0)
         bar_ok = (ln.get("w") == 1 and ln.get("top") == top0 and ln.get("left") == 88 and res.get("rand") == [20, 20, 48]
-                  and res.get("body") == 89 and nsl.get("w") == 1 and nsl.get("top") == top0 and nsl.get("left") == 88)
+                  and res.get("body") == 89 and ns.get("spaces") is False)
         if res.get("mac"):
             ok = (b and b["l"] >= 8 and b["r"] <= ln.get("left", 0) - 8 and b["b"] <= 52
                   and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())
                   and res.get("pad") == 52 and all_tiles and hd and hd["l"] < 20 and hd["b"] <= 52 and bar_ok
-                  and ns.get("side", 1) <= 0 and nsb and nsb["r"] <= nsl.get("left", 0) - 8 and nsb["b"] <= 52)
+                  and ns.get("side", 1) <= 0 and nsb and nsb["l"] < 20 and nsb["b"] <= 52)
         else:
             ok = res.get("pad", 0) < 20 and all_tiles and bar_ok
         return ok, f"{res}"
     check("Seitenleiste wie Dia 1/4: Ampel oben in der Bereiche-Leiste, Kacheln darunter und in jedem Bereich ganz sichtbar; Leiste aus → Ampel über der Ordnerliste; "
-          "Bereiche-Leiste 88 px mit Kachelrand 20 px links und rechts, Linie von ganz oben rechts der Ampel (auch ohne Seitenleiste)", sidebar_column_top, results)
+          "Bereiche-Leiste 88 px mit Kachelrand 20 px links und rechts, Linie von ganz oben rechts der Ampel", sidebar_column_top, results)
+
+    def sidebar_column_toggle():
+        # Seitenleiste wie Dia 2/4: ein Knopf, eine Animation für die ganze Spalte (Bereiche-Leiste und linke Leiste des
+        # Bereichs gemeinsam, gleichzeitig); ein Klick währenddessen kehrt beide um; Thunderbirds eigene Wege
+        # (Bereiche-Leiste ein-/ausblenden, Ordnerliste zuklappen) ziehen die andere Hälfte mit; Zustand gespeichert;
+        # Übernahme der alten getrennten Zustände aus allen vier Kombinationen (eine sichtbar → beide sichtbar)
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          const btn = d.getElementById("spacesPinnedButton");
+          const ab = () => tm.currentAbout3Pane, sp = () => ab()?.paneLayout?.folderPaneSplitter;
+          const mail = () => ({ spaces: !w.gSpacesToolbar.isHidden, side: !sp().isCollapsed });
+          const calState = () => ({ spaces: !w.gSpacesToolbar.isHidden, side: !d.getElementById("calSidebar").classList.contains("mc-side-hidden") });
+          const still = () => !w.__mcSpacesAnimating && !ab()?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating;
+          const press = async () => { btn.click(); await wait(1); };  // (ein Bild, damit beide Animationen laufen)
+          const out = { mc: !d.getElementById("mcSpacesToggle") };
+          const xul = () => Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml", "spacesToolbar", "hidden");
+          try {
+            if (w.gSpacesToolbar.isHidden || sp().isCollapsed) { await w.__mcColumnMigrate(false, false); await ruhig(600); }
+            out.start = mail();
+            // ein Klick: beide Animationen laufen zugleich, danach beide aus
+            await press(); await wait(60);
+            out.together = [!!w.__mcSpacesAnimating, !!ab().__mcAnimating];
+            await bis(still, "Animation fertig", 3000); await ruhig(300);
+            out.hidden = mail(); out.tip = btn.getAttribute("tooltiptext");
+            w.gSpacesToolbar.onUnload?.(); out.saved = xul();  // (Thunderbird speichert beim Schließen des Fensters)
+            await press(); await bis(still, "Animation fertig", 3000); await ruhig(300);
+            out.shown = mail(); w.gSpacesToolbar.onUnload?.(); out.savedShown = xul();
+            // Umkehr: Klick, gleich nochmal – beide wieder sichtbar
+            await press(); await wait(80); await press(); await bis(still, "Umkehr fertig", 3000); await ruhig(300);
+            out.reversed = mail();
+            // Kalender: Kalenderliste mit der Bereiche-Leiste
+            await toCalendar(); await ruhig(800);
+            out.calStart = calState();
+            await press(); await wait(60); out.calTogether = [!!w.__mcSpacesAnimating, !!d.getElementById("calSidebar").__mcAnimating];
+            await bis(still, "Animation fertig", 3000); await ruhig(300); out.calHidden = calState();
+            // Bereichswechsel ändert den Zustand nicht: Mail ebenfalls ausgeblendet
+            await toMail(); await ruhig(800); out.mailAfterCal = mail();
+            await press(); await bis(still, "Animation fertig", 3000); await ruhig(300); out.mailShown = mail();
+            await toCalendar(); await ruhig(800); out.calShown = calState();
+            await toMail(); await ruhig(600);
+            // Thunderbirds Wege: Bereiche-Leiste aus → Ordnerliste folgt; Ordnerliste zu → Bereiche-Leiste folgt
+            w.gSpacesToolbar.toggleToolbar(true); await bis(() => sp().isCollapsed, "Ordnerliste folgt", 3000); await ruhig(300); out.tbSpaces = mail();
+            w.gSpacesToolbar.toggleToolbar(false); await bis(() => !sp().isCollapsed, "Ordnerliste folgt", 3000); await ruhig(300); out.tbSpacesBack = mail();
+            sp().isCollapsed = true; await bis(() => w.gSpacesToolbar.isHidden, "Bereiche-Leiste folgt", 3000); await ruhig(300); out.tbFolder = mail();
+            sp().isCollapsed = false; await bis(() => !w.gSpacesToolbar.isHidden, "Bereiche-Leiste folgt", 3000); await ruhig(300); out.tbFolderBack = mail();
+            // Übernahme alter Zustände: [Bereiche-Leiste aus, Ordnerliste zu]
+            out.migrate = [];
+            for (const [a, b] of [[false, false], [true, false], [false, true], [true, true]]) {
+              out.migrate.push(w.__mcColumnMigrate(a, b)); await ruhig(300);
+            }
+            out.pref = Services.prefs.prefHasUserValue("extensions.mailcards.hiddenSidebars");
+          } finally {
+            if (w.gSpacesToolbar.isHidden || sp()?.isCollapsed) { w.__mcColumnMigrate(false, false); }
+            await toMail(); await ruhig(600);
+          }
+          return out;""")
+        both, none = {"spaces": True, "side": True}, {"spaces": False, "side": False}
+        mig = [x == {"spaces": v, "folder": v} for x, v in zip(res.get("migrate") or [], [True, True, True, False])]
+        ok = (res.get("mc") and res.get("start") == both and res.get("together") == [True, True] and res.get("hidden") == none
+              and res.get("tip") == "Show Sidebar" and res.get("saved") == "true" and res.get("shown") == both and res.get("savedShown") != "true"
+              and res.get("reversed") == both and res.get("calStart") == both and res.get("calTogether") == [True, True]
+              and res.get("calHidden") == none and res.get("mailAfterCal") == none and res.get("mailShown") == both
+              and res.get("calShown") == both and res.get("tbSpaces") == none and res.get("tbSpacesBack") == both
+              and res.get("tbFolder") == none and res.get("tbFolderBack") == both and len(mig) == 4 and all(mig)
+              and res.get("pref") is False)
+        return ok, f"{res}"
+    check("Seitenleiste wie Dia 2/4: ein Knopf und eine Animation für Bereiche-Leiste und linke Leiste, Umkehr, Bereichswechsel, "
+          "Thunderbirds Wege ziehen mit, Zustand gespeichert, Übernahme der alten Zustände", sidebar_column_toggle, results)
 
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),

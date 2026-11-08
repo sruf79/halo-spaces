@@ -1968,8 +1968,7 @@ const Weather = {
 
 // Reihenfolge der Bereiche in der Leiste (per Ziehen geändert, siehe
 // hookSpacesOrder): Liste der Knopf-IDs; ohne Eintrag Thunderbirds Reihenfolge.
-// Gilt auch für das Bereiche-Menü bei ausgeblendeter Leiste und die Streifen
-// im Symbol des Bereiche-Knopfs
+// Gilt auch für das Bereiche-Menü bei ausgeblendeter Leiste
 const SPACES_ORDER_PREF = "extensions.mailcards.spacesOrder";
 const SpacesOrder = {
   IDS: ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton"],
@@ -1979,14 +1978,6 @@ const SpacesOrder = {
     calendarButton: "spacesPopupButtonCalendar",
     tasksButton: "spacesPopupButtonTasks",
     chatButton: "spacesPopupButtonChat",
-  },
-  // Streifen im Symbol des Bereiche-Knopfs (hell, dunkel), Einstellungen grau
-  STRIPES: {
-    mailButton: ["#186EC4", "#45A0FD"],
-    addressBookButton: ["#33924A", "#61C77A"],
-    calendarButton: ["#C47212", "#FCA53E"],
-    tasksButton: ["#C43166", "#FC5F98"],
-    chatButton: ["#8C4BAD", "#C07BE4"],
   },
   current() {
     const saved = Services.prefs.getStringPref(SPACES_ORDER_PREF, "").split(",").filter(id => this.IDS.includes(id));
@@ -2002,14 +1993,6 @@ const SpacesOrder = {
     } else {
       Services.prefs.setStringPref(SPACES_ORDER_PREF, clean.join(","));
     }
-  },
-  icon(ids, dark) {
-    const colors = [...ids.map(id => this.STRIPES[id][dark ? 1 : 0]), dark ? "#A8A8AC" : "#757579"];
-    const h = colors.length > 5 ? 2.8 : 3.2;
-    const step = colors.length > 5 ? 3.44 : 4.2;
-    const rects = colors.map((c, i) =>
-      `<rect x="3" y="${+(2 + i * step).toFixed(2)}" width="2.6" height="${h}" rx="0.8" fill="${c}"/>`).join("");
-    return `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${rects}</svg>`)}")`;
   },
   // Bereiche-Menü: Einträge umstellen (order wirkt im Menü nicht); die
   // übrigen Einträge (Einstellungen, Leiste zeigen) bleiben dahinter
@@ -2036,16 +2019,7 @@ const SpacesOrder = {
     const ids = this.current();
     ids.forEach((id, i) => d.getElementById(id)?.style.setProperty("order", String(i - ids.length)));
     this.sortMenu(d, ids);
-    const custom = this.isCustom();
-    root.toggleAttribute("mc-spaces-order", custom);
-    if (custom) {
-      const shown = ids.filter(id => id != "chatButton" || root.getAttribute("mc-fifth") != "none");
-      root.style.setProperty("--mc-spaces-icon", this.icon(shown, false));
-      root.style.setProperty("--mc-spaces-icon-dark", this.icon(shown, true));
-    } else {
-      root.style.removeProperty("--mc-spaces-icon");
-      root.style.removeProperty("--mc-spaces-icon-dark");
-    }
+    root.toggleAttribute("mc-spaces-order", this.isCustom());
   },
   reset(w) {
     const d = w?.document;
@@ -2057,8 +2031,6 @@ const SpacesOrder = {
     }
     this.sortMenu(d, this.IDS);
     d.documentElement.removeAttribute("mc-spaces-order");
-    d.documentElement.style.removeProperty("--mc-spaces-icon");
-    d.documentElement.style.removeProperty("--mc-spaces-icon-dark");
   },
 };
 
@@ -11748,8 +11720,8 @@ class CardEnhancer {
         return;
       }
       const sr = status.getBoundingClientRect();
-      // Thunderbirds Knopf bzw. unser eigener (#mcSpacesToggle), wenn er über der Statusleiste liegt
-      const min = [reveal, d.getElementById("mcSpacesToggle")].reduce((m, b) => {
+      // Thunderbirds Knopf, wenn er über der Statusleiste liegt
+      const min = [reveal].reduce((m, b) => {
         const rr = b && !b.hidden ? b.getBoundingClientRect() : null;
         return rr?.width && rr.bottom > sr.top && rr.top < sr.bottom ? Math.max(m, Math.round(rr.right - sr.left + 8)) : m;
       }, 0);
@@ -12925,7 +12897,11 @@ class CardEnhancer {
     };
 
     // Seitenleisten der übrigen Bereiche ein-/ausblenden wie die Ordnerliste
-    // (Zustand je Bereich gespeichert, gleiche Animation wie in der Mail)
+    // (gleiche Animation wie in der Mail). Bereiche-Leiste und linke Leiste
+    // sind eine Spalte („Seitenleiste“, Reihe „Seitenleiste wie Dia“ 2/4): ein
+    // Zustand je Fenster, gespeichert von Thunderbird als Zustand der
+    // Bereiche-Leiste (xulstore); die linke Leiste jedes Bereichs folgt ihm.
+    // Früher je Bereich gespeichert (Pref, beim ersten Start entfernt)
     const SIDE_PREF = "extensions.mailcards.hiddenSidebars";
     // (die frühere Automatik, die Leisten bei Platzmangel selbst einklappte,
     // ist entfernt – Leisten nur noch über die Knöpfe; ihr gemerkter Zustand
@@ -13138,13 +13114,86 @@ class CardEnhancer {
       applyCommonWidth(tab);
     };
 
-    const sideState = () => {
-      try {
-        return JSON.parse(Services.prefs.getStringPref(SIDE_PREF, "{}"));
-      } catch {
-        return {};
-      }
+    // Spalte ausgeblendet? (einzige Quelle: die Bereiche-Leiste)
+    const columnHidden = () => !!w.gSpacesToolbar?.isHidden;
+    const columnBusy = () => {
+      const tab = w.document.getElementById("tabmail")?.currentTabInfo;
+      const [el, , win] = sidebarFor(tab);
+      return !!(w.__mcSpacesAnimating || el?.__mcAnimating || win?.__mcAnimating);
     };
+    // Bereiche-Leiste an die linke Leiste angleichen (ohne Animation), wenn
+    // Thunderbird bzw. das Ziehen nur die linke Leiste ein-/ausgeblendet hat –
+    // nie „nur eins von beiden“
+    const spacesFollow = hidden => {
+      if (!w.gSpacesToolbar || w.__mcColumnQuiet || w.__mcSideDrag || columnBusy() || columnHidden() == hidden) {
+        return;
+      }
+      w.gSpacesToolbar.toggleToolbar(hidden);
+    };
+    // Ordnerliste: Thunderbirds eigene Wege (Ansicht → Layout → Ordnerliste,
+    // F9, Teiler) melden sich am Teiler – die Bereiche-Leiste zieht mit
+    const hookFolderSplitter = (ab, splitter) => {
+      if (splitter.__mcColumn) {
+        return;
+      }
+      splitter.__mcColumn = true;
+      const follow = () => ab.setTimeout(() => {
+        if (!ab.closed && w.document.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentWindow == ab) {
+          spacesFollow(!!splitter.isCollapsed);
+        }
+      }, 0);
+      splitter.addEventListener("splitter-collapsed", follow);
+      splitter.addEventListener("splitter-expanded", follow);
+      this.addWinRestorer(ab, () => {
+        splitter.removeEventListener("splitter-collapsed", follow);
+        splitter.removeEventListener("splitter-expanded", follow);
+        delete splitter.__mcColumn;
+      });
+    };
+    // Übernahme der alten, getrennten Zustände (einmal je Fenster, sobald die
+    // Ordnerliste bereit ist): ist Bereiche-Leiste oder Ordnerliste sichtbar,
+    // gilt die Seitenleiste als sichtbar; danach den alten Pref entfernen
+    const migrateColumn = () => {
+      if (w.__mcColumnMigrated || !w.gSpacesToolbar) {
+        return;
+      }
+      const tabmail = w.document.getElementById("tabmail");
+      const mail = tabmail?.tabInfo?.find(t => t.mode?.name == "mail3PaneTab");
+      const splitter = mail?.chromeBrowser?.contentWindow?.paneLayout?.folderPaneSplitter;
+      if (mail && !splitter) {
+        return; // Ordnerliste noch nicht aufgebaut – beim nächsten Durchlauf
+      }
+      w.__mcColumnMigrated = true;
+      const shown = !columnHidden() || (splitter ? !splitter.isCollapsed : false);
+      if (columnHidden() == shown) {
+        w.gSpacesToolbar.toggleToolbar(!shown);
+      }
+      if (splitter && splitter.isCollapsed == shown) {
+        splitter.isCollapsed = !shown;
+      }
+      Services.prefs.clearUserPref(SIDE_PREF);
+    };
+    // für die Prüfungen: Übernahme mit vorgegebenem alten Zustand nachstellen
+    w.__mcColumnMigrate = (spacesHidden, folderCollapsed) => {
+      const splitter = w.document.getElementById("tabmail")?.tabInfo?.find(t => t.mode?.name == "mail3PaneTab")
+        ?.chromeBrowser?.contentWindow?.paneLayout?.folderPaneSplitter;
+      w.__mcColumnQuiet = true;
+      try {
+        w.gSpacesToolbar.toggleToolbar(spacesHidden);
+        if (splitter) {
+          splitter.isCollapsed = folderCollapsed;
+        }
+      } finally {
+        w.__mcColumnQuiet = false;
+      }
+      w.__mcColumnMigrated = false;
+      migrateColumn();
+      return { spaces: !columnHidden(), folder: splitter ? !splitter.isCollapsed : null };
+    };
+    this.restorers.push(() => {
+      delete w.__mcColumnMigrate;
+      delete w.__mcColumnMigrated;
+    });
     const currentSide = () => {
       const tab = w.document.getElementById("tabmail")?.currentTabInfo;
       const mode = tab?.mode?.name;
@@ -13167,20 +13216,36 @@ class CardEnhancer {
         el.removeAttribute("collapsed");
       }
     };
+    // linke Leiste des aktuellen Bereichs an die Spalte angleichen (ohne
+    // Animation: Bereichswechsel, Start, Thunderbird blendet die
+    // Bereiche-Leiste selbst ein/aus)
     const applySideState = () => {
-      const { mode, el, splitter } = currentSide();
+      migrateColumn();
+      if (w.__mcSpacesAnimating || w.__mcColumnQuiet) {
+        return;
+      }
+      const tab = w.document.getElementById("tabmail")?.currentTabInfo;
+      if (tab?.mode?.name == "mail3PaneTab") {
+        const ab = tab.chromeBrowser?.contentWindow;
+        const splitter = ab?.paneLayout?.folderPaneSplitter;
+        if (!splitter || ab.__mcAnimating) {
+          return;
+        }
+        hookFolderSplitter(ab, splitter);
+        if (!!splitter.isCollapsed != columnHidden()) {
+          sidePane(tab)?.setHidden(columnHidden());
+        }
+        return;
+      }
+      const { el, splitter } = currentSide();
       if (!el || el.__mcAnimating) {
         return;
       }
       unCollapse(el, splitter);
-      const hidden = !!sideState()[mode];
+      const hidden = columnHidden();
       el.classList.toggle("mc-side-hidden", hidden);
       splitter?.classList.toggle("mc-side-hidden", hidden);
       placeSideGrip();
-    };
-    const sideHidden = () => {
-      const { mode, el } = currentSide();
-      return el ? !!sideState()[mode] : false;
     };
     // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
     const toggleSpaceSidebar = (reverse = false) => {
@@ -13194,16 +13259,6 @@ class CardEnhancer {
       }
       const win = el.ownerDocument.defaultView;
       const show = el.classList.contains("mc-side-hidden");
-      const saveState = hidden => {
-        const state = sideState();
-        state[mode] = hidden;
-        // Kalender und Aufgaben teilen sich die Seitenleiste
-        if (mode == "calendar" || mode == "tasks") {
-          state.calendar = state.tasks = hidden;
-        }
-        Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
-      };
-      saveState(!show);
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
       unCollapse(el, splitter);
@@ -13314,13 +13369,6 @@ class CardEnhancer {
     const SIDE_ROOM = 400; // mindestens so viel Platz bleibt der Ansicht daneben
     const SIDE_GRIP = 5; // so breit wie die Trennlinien
     const setSideHidden = (mode, el, splitter, hidden) => {
-      const state = sideState();
-      state[mode] = hidden;
-      // Kalender und Aufgaben teilen sich die Seitenleiste
-      if (mode == "calendar" || mode == "tasks") {
-        state.calendar = state.tasks = hidden;
-      }
-      Services.prefs.setStringPref(SIDE_PREF, JSON.stringify(state));
       if (!hidden) {
         unCollapse(el, splitter);
       }
@@ -13329,6 +13377,8 @@ class CardEnhancer {
       updateSideEdge();
       sidebarTip?.();
       placeSideGrip();
+      // gezogen ein-/ausgeblendet: die Bereiche-Leiste zieht mit
+      spacesFollow(hidden);
     };
     const hideSideNow = (mode, el, splitter) => setSideHidden(mode, el, splitter, true);
     // Seitenleiste des Tabs als Objekt für dragPane
@@ -13427,6 +13477,9 @@ class CardEnhancer {
       } catch {}
       const max = Math.max(SIDE_MIN, Math.min(sideMax(pane.el), room));
       let resized = false;
+      // während des Ziehens bleibt die Bereiche-Leiste stehen (sonst spränge
+      // der Inhalt unter dem Zeiger), beim Loslassen zieht sie mit
+      w.__mcSideDrag = true;
       dragPane(event, {
         side: "left",
         hidden: pane.hidden,
@@ -13451,6 +13504,8 @@ class CardEnhancer {
           placeSideGrip();
           updateSideEdge();
           this.offsetUpdaters?.forEach(fn => fn());
+          w.__mcSideDrag = false;
+          spacesFollow(hidden);
         },
       });
     };
@@ -14192,24 +14247,47 @@ class CardEnhancer {
       }
     };
 
-    // Seitenleisten-Knopf wie Apple Mail: blendet nur die Ordnerliste aus/ein
-    // (statt das Bereiche-Menü zu öffnen). Außerhalb der Mailansicht führt er
-    // zurück zur Mail. Bereiche bleiben über ⌃1–⌃5 erreichbar.
+    // Seitenleisten-Knopf wie Apple Mail (statt das Bereiche-Menü zu öffnen):
+    // blendet die ganze Spalte aus/ein – Bereiche-Leiste und die linke Leiste
+    // des Bereichs (Ordnerliste, Kalenderliste, Adressbücher …) gleichzeitig,
+    // mit gleicher Dauer und Kurve. Ein Klick währenddessen kehrt beide um.
+    // Bereiche bleiben über ⌃1–⌃5 bzw. das Menü erreichbar.
     const toggleSidebar = () => {
-      const tabmail = w.document.getElementById("tabmail");
-      const tab = tabmail?.currentTabInfo;
-      if (tab?.mode?.name == "mail3PaneTab") {
-        const ab = tab.chromeBrowser?.contentWindow;
-        const splitter = ab?.paneLayout?.folderPaneSplitter;
-        if (splitter) {
-          this.animateSidebar(ab, splitter, () => {
-            sidebarTip?.();
-            placeSideGrip();
-          }, true);
+      const spaces = w.gSpacesToolbar;
+      const tab = w.document.getElementById("tabmail")?.currentTabInfo;
+      const mail = tab?.mode?.name == "mail3PaneTab";
+      const ab = mail ? tab.chromeBrowser?.contentWindow : null;
+      const folder = ab?.paneLayout?.folderPaneSplitter;
+      const side = mail ? null : currentSide().el;
+      const sideBusy = mail ? !!ab?.__mcAnimating : !!side?.__mcAnimating;
+      const after = () => {
+        sidebarTip?.();
+        placeSideGrip();
+      };
+      if (w.__mcSpacesAnimating || sideBusy) {
+        if (w.__mcSpacesAnimating) {
+          this.animateSpaces(w, after, true);
         }
-      } else {
-        // in allen anderen Bereichen deren Seitenleiste ein-/ausblenden
-        toggleSpaceSidebar(true);
+        if (sideBusy) {
+          if (mail) {
+            this.animateSidebar(ab, folder, after, true);
+          } else {
+            toggleSpaceSidebar(true);
+          }
+        }
+        return;
+      }
+      // sichtbar, wenn eins von beiden sichtbar ist (sollte nie getrennt sein)
+      const sideShown = mail ? !!folder && !folder.isCollapsed : !!side && !side.classList.contains("mc-side-hidden");
+      const show = !(spaces && !spaces.isHidden) && !sideShown;
+      const withSpaces = spaces && !!spaces.isHidden == show;
+      if (withSpaces) {
+        this.animateSpaces(w, after);
+      }
+      if (mail && folder && !!folder.isCollapsed == show) {
+        this.animateSidebar(ab, folder, after, false, withSpaces);
+      } else if (!mail && side && side.classList.contains("mc-side-hidden") == show) {
+        toggleSpaceSidebar();
       }
     };
     const hookSidebarButton = () => {
@@ -14237,19 +14315,7 @@ class CardEnhancer {
       // Tooltip je nach Zustand: „Hide Sidebar“ bzw. „Show Sidebar“
       const oldTooltip = button.getAttribute("tooltiptext");
       const updateTip = () => {
-        const tab = w.document.getElementById("tabmail")?.currentTabInfo;
-        let text;
-        if (tab?.mode?.name == "mail3PaneTab") {
-          const collapsed = tab.chromeBrowser?.contentWindow?.paneLayout?.folderPaneSplitter?.isCollapsed;
-          text = collapsed
-            ? (tr("Show Sidebar"))
-            : (tr("Hide Sidebar"));
-        } else {
-          text = sideHidden()
-            ? (tr("Show Sidebar"))
-            : (tr("Hide Sidebar"));
-        }
-        button.setAttribute("tooltiptext", text);
+        button.setAttribute("tooltiptext", columnHidden() ? tr("Show Sidebar") : tr("Hide Sidebar"));
       };
       updateTip();
       sidebarTip = updateTip; // nach der Animation erneut aufrufen
@@ -14269,45 +14335,28 @@ class CardEnhancer {
       });
     };
 
-    // Bereiche-Leiste ein-/ausblenden: eigener kleiner Knopf unten links
-    // (statt Thunderbirds Knopf in der Leiste), mit derselben Animation wie
-    // die Ordnerliste. Funktioniert unabhängig davon, ob die Ordner sichtbar sind.
+    // Bereiche-Leiste: ein eigener Knopf dafür entfällt (die Leiste gehört zur
+    // Seitenleiste, der Seitenleisten-Knopf schaltet beides). Blendet
+    // Thunderbird sie selbst ein/aus (Ansicht → Symbolleisten, Kontextmenü,
+    // gespeicherter Zustand), folgt die linke Leiste des Bereichs.
     const hookSpacesToggle = () => {
       const d = w.document;
       const bar = d.getElementById("spacesToolbar");
-      if (!bar || !w.gSpacesToolbar || d.getElementById("mcSpacesToggle")) {
+      if (!bar || !w.gSpacesToolbar || bar.__mcColumnMo) {
         return;
       }
-      const btn = d.createElementNS("http://www.w3.org/1999/xhtml", "button");
-      btn.id = "mcSpacesToggle";
-      btn.type = "button";
-      // Tooltip je nach Zustand: „Hide Spaces“ bzw. „Show Spaces“
-      const updateTip = () => {
-        const label = w.gSpacesToolbar.isHidden
-          ? (tr("Show Spaces"))
-          : (tr("Hide Spaces"));
-        btn.title = label;
-        btn.setAttribute("aria-label", label);
-      };
-      updateTip();
-      btn.addEventListener("mouseenter", updateTip);
-      btn.addEventListener("click", () => {
-        this.animateSpaces(w, () => updateTip(), true);
-      });
-      bar.after(btn);
-      // Pfeil nach dem Zustand (data-mc-hidden): beim Klick wechselt er sofort
-      // (animateSpaces), auch wenn Thunderbird die Leiste anders ein-/ausblendet
-      const syncArrow = () => {
+      const follow = () => {
         if (!w.__mcSpacesAnimating) {
-          btn.toggleAttribute("data-mc-hidden", !!w.gSpacesToolbar.isHidden);
+          applySideState();
+          sidebarTip?.();
         }
       };
-      syncArrow();
-      const arrowMo = new w.MutationObserver(syncArrow);
-      arrowMo.observe(bar, { attributes: true, attributeFilter: ["hidden"] });
+      const columnMo = new w.MutationObserver(follow);
+      columnMo.observe(bar, { attributes: true, attributeFilter: ["hidden"] });
+      bar.__mcColumnMo = columnMo;
       this.restorers.push(() => {
-        arrowMo.disconnect();
-        btn.remove();
+        columnMo.disconnect();
+        delete bar.__mcColumnMo;
       });
       // „Anpassen…“ der Bereiche-Leiste ausblenden: Thunderbirds Panel hängt am
       // ausgeblendeten Knopf #collapseButton – es öffnet nicht und sperrt danach
@@ -16525,7 +16574,11 @@ class CardEnhancer {
   // Thunderbird steuert die Breite über --folderPaneSplitter-width am Raster.
   // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
   // (sonst, z. B. bei der Automatik, wird er ignoriert)
-  animateSidebar(ab, splitter, onDone, reverse = false) {
+  // column: die Bereiche-Leiste läuft gleichzeitig mit (Seitenleisten-Knopf) –
+  // die Ansicht wird dabei Bild für Bild breiter bzw. schmaler; im vertikalen
+  // Layout nimmt die Leseansicht das gleich mit auf, statt im letzten Bild zu
+  // springen
+  animateSidebar(ab, splitter, onDone, reverse = false, column = false) {
     if (ab.__mcAnimating) {
       if (reverse) {
         ab.__mcReverse?.();
@@ -16629,6 +16682,9 @@ class CardEnhancer {
         grid.style.removeProperty(msgProp);
       }
     }
+    // Breite der Ansicht am Anfang (mit der Bereiche-Leiste ändert sie sich)
+    const gridStart = column ? grid.getBoundingClientRect().width : 0;
+    const grow = () => (column ? grid.getBoundingClientRect().width - gridStart : 0);
     let relocked = false;
     // Breite der Mailliste vor dem Animieren: im vertikalen Layout bleibt sie stehen
     const threadPane = ab.document.getElementById("threadPane");
@@ -16664,7 +16720,7 @@ class CardEnhancer {
         // Windows ändert sich unterwegs der Zuschlag für die Bildlaufleiste)
         const from = msgStart - msgExtra;
         const to = parseFloat(endMsgProp);
-        const msg = Number.isFinite(to) ? from + (to - from) * curve(k) : msgStart + (endMsg - msgStart) * curve(k) - msgExtra;
+        const msg = (Number.isFinite(to) ? from + (to - from) * curve(k) : msgStart + (endMsg - msgStart) * curve(k) - msgExtra) + grow();
         grid.style.setProperty(msgProp, `${Math.max(0, msg)}px`);
       }
       this.offsetUpdaters?.forEach(fn => fn());
@@ -16717,7 +16773,9 @@ class CardEnhancer {
         // Endbreite direkt als Rastervariable (wie Thunderbirds Teiler es tut) – über
         // msgSplitter.width rechnet Thunderbird selbst um, die Liste sprang dann ein Bild lang
         const msg = Math.round(endMsg - msgExtra);
-        if (endMsgProp) {
+        if (endMsgProp && column && Number.isFinite(parseFloat(endMsgProp))) {
+          grid.style.setProperty(msgProp, `${parseFloat(endMsgProp) + grow()}px`);
+        } else if (endMsgProp) {
           grid.style.setProperty(msgProp, endMsgProp);
         } else if (msg > 0) {
           grid.style.setProperty(msgProp, `${msg}px`);
@@ -16944,9 +17002,6 @@ class CardEnhancer {
     const body = d.getElementById("messengerBody");
     const title = d.getElementById("titlebar");
     const row = d.getElementById("unifiedToolbarContainer");
-    const toggle = d.getElementById("mcSpacesToggle");
-    // der Knopf bleibt stehen und zeigt gleich die neue Richtung
-    toggle?.toggleAttribute("data-mc-hidden", !showing);
     const set = v => {
       const px = `${v}px`;
       bar?.style.setProperty("--spaces-total-width", px);
@@ -16976,7 +17031,6 @@ class CardEnhancer {
     let k = 0, dir = 1, last = null;
     w.__mcSpacesReverse = () => {
       dir = -dir;
-      toggle?.toggleAttribute("data-mc-hidden", dir > 0 ? !showing : showing);
     };
     const step = now => {
       k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
@@ -16994,7 +17048,6 @@ class CardEnhancer {
       root.style.removeProperty("--mc-spaces-w");
       w.__mcSpacesAnimating = false;
       delete w.__mcSpacesReverse;
-      toggle?.toggleAttribute("data-mc-hidden", !!spaces.isHidden);
       onDone?.();
       const realign = () => {
         this.offsetUpdaters?.forEach(fn => fn());

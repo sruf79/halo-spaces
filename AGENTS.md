@@ -10,6 +10,10 @@ Apple Mail, Kalender und Kontakte. Es ist **ein** Paket (`.xpi`): Design (CSS),
 eigene Symbole und eine Experiment-Erweiterung für alles, was CSS allein nicht
 kann. Ziel ist macOS; Windows/Linux laufen mit, sind aber nicht der Schwerpunkt.
 
+## Notfall
+
+Bei Totalausfall gilt `docs/notfall.md` (Kopie `~/NOTFALL.md` auf neon und Laptop): einmal „NOTFALL: <Grund>“ melden, sonst nichts ändern; nur wenn ein Ablauf weiter Schaden anrichtet, `~/.config/halo-spaces/notfall.sh stopp`.
+
 ## Aufbau
 
 | Pfad | Inhalt |

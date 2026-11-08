@@ -35,6 +35,7 @@ begriffe=(
   'docs/github-komm.md|Verweis docs/github-komm.md'
   'docs/board.md|Verweis docs/board.md'
   'docs/testrechner.md|Verweis docs/testrechner.md'
+  'docs/notfall.md|Verweis Notfallplan docs/notfall.md'
   'nie auf die private Aufgabenliste verweisen|GitHub: nie aufs Board verweisen'
   'Bild als eigene Datei|Bildübergabe: Bild als eigene Datei neben der Artifact-Seite'
   'nie als data:-URI|Bildübergabe: nie data:-URI und nie base64 in der Nachricht'
@@ -58,7 +59,7 @@ if sed 's/`[^`]*`//g' $datei | grep -nE '(^|[[:space:](])@(docs|tests|ENTSCHEIDU
 fi
 
 # ausgelagerte Dateien müssen existieren
-for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md docs/testrechner.md; do
+for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md docs/testrechner.md docs/notfall.md; do
   [[ -f ${datei:h}/$d ]] || { print "FEHLER fehlt: $d"; fehler=1 }
 done
 

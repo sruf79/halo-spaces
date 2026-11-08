@@ -4,7 +4,6 @@ Kommunikation mit Nutzern auf GitHub (Issues, Pull Requests, Forks), aus `AGENTS
 ausgelagert (Stufe 3 des Stufenplans, 6.11.2026). Wer ein Issue bzw. einen Pull Request bearbeitet,
 liest diese Datei vorher; die Routine „halo.spaces: GitHub-Kommunikation“ (geplante Aufgabe der
 Desktop-App auf neon) liest sie ebenfalls. Die Kernregeln stehen in `AGENTS.md`
-Desktop-App auf neon) liest sie ebenfalls. Die Kernregeln stehen in `AGENTS.md`
 „GitHub-Issues und Pull Requests von Nutzern“.
 
 
@@ -56,7 +55,8 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Regeln dieser Datei) und dem Autor antworten. Mergen, schließen oder
   Teile übernehmen nur mit Freigabe des Maintainers; übernommene Teile im
   Commit dem Autor zuschreiben (`Co-Authored-By:`).
-- **Forks:** gehören zur Prüfung dazu (Suche `halo-spaces in:name fork:only`;
+- **Forks:** gehören zur Prüfung dazu (Liste mit `gh api repos/sruf79/halo-spaces/forks`, die
+  Textsuche `in:name fork:only` findet keinen Fork;
   Stand eines Forks mit `git fetch <url> main:refs/remotes/<name>/main`
   gegen `main` vergleichen). Brauchbare Verbesserungen dem Autor als Pull
   Request vorschlagen; Probleme (gleiche Add-on-ID, fehlende Lizenzhinweise)

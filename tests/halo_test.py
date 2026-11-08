@@ -8624,14 +8624,22 @@ def run_checks(m, version, profile, results):
     def list_width():
         res = m.js("""
           const out = {};
+          const msgAtMin = {};
           for (const width of [1500, 2000, 2600]) { w.resizeTo(width, 900); await wait(1300);
-            const a3 = await toMail(); out[width] = Math.round(a3.document.getElementById("threadPane").getBoundingClientRect().width); }
-          w.resizeTo(1500, 900); await wait(800); return out;""")
+            const a3 = await toMail(); out[width] = Math.round(a3.document.getElementById("threadPane").getBoundingClientRect().width);
+            const mp = a3.document.getElementById("messagePane");
+            msgAtMin[width] = mp.getBoundingClientRect().width <= (parseFloat(a3.getComputedStyle(mp).minWidth) || 0) + 1; }
+          w.resizeTo(1500, 900); await wait(800); return { out, msgAtMin };""")
+        lists, at_min = res["out"], res["msgAtMin"]
         # Windows und Linux: die Fensterknöpfe stehen mit in der Toolbar-Zeile – bei 1500 px braucht die Leseansicht
         # dort etwas mehr Platz und die Liste gibt bis zu 30 px ab (gewollte Begrenzung im engen Fenster; unter Linux
-        # je nach Fenstermanager, daher dort mal 460, mal 431); ab 2000 px muss sie wieder ihre 460 haben
-        ok = all(abs(v - 460) <= 1 or (sys.platform != "darwin" and k == "1500" and 430 <= v <= 460) for k, v in res.items())
-        return ok, f"Listenbreite je Fensterbreite {res} (soll 460)"
+        # je nach Fenstermanager, daher dort mal 460, mal 431); ab 2000 px muss sie wieder ihre 460 haben.
+        # Ebenso schmaler, wenn die Leseansicht schon auf ihrer Mindestbreite (480 px) steht – dann fehlt der Platz
+        # wirklich (ESR: schmalere Ansicht; Linux: Ordnerliste mit breiterer Schrift 240 statt 206 px, siehe
+        # „Ordnerliste: im neuen Profil“), die Liste bekommt dann alles, was übrig ist
+        ok = all(abs(v - 460) <= 1 or (v < 460 and at_min.get(k))
+                 or (sys.platform != "darwin" and k == "1500" and 430 <= v <= 460) for k, v in lists.items())
+        return ok, f"Listenbreite je Fensterbreite {lists} (soll 460), Leseansicht auf Mindestbreite {at_min}"
     check("Mailliste behält ihre Breite", list_width, results)
 
     def toolbar_edges():
@@ -9304,9 +9312,11 @@ def run_checks(m, version, profile, results):
             const rect = { left: r.left + w.mozInnerScreenX, top: r.top + w.mozInnerScreenY, width: r.width, height: r.height };
             enh.openQuickCreate(w, "event", null, { start: new Date(2026, 9, 21), allDay: true, at: { x: rect.left + 5, y: rect.top + 5, rect } });
             const p = d.getElementById("mcQuickPanel");
-            const open = await until(() => p.state == "open", 3000);
+            // offen und schon gezeichnet (unter xvfb meldet es teils „open“ mit Fläche 0 × 0, ohne Fenstermanager
+            // klappt es dann gleich zu – bleibt es so, gilt wie dort die berechnete Lage)
+            const open = await until(() => p.state == "open" && p.getOuterScreenRect().width > 0, 3000);
             await ruhig(300);
-            const placed = p.__mcPlaced, shown = open ? p.getOuterScreenRect() : null;
+            const placed = p.__mcPlaced, rr = p.getOuterScreenRect(), shown = open && rr.width > 0 ? rr : null;
             out[name] = { side: placed?.side, x: placed?.x, y: placed?.y, cellL: Math.round(rect.left), cellR: Math.round(rect.left + rect.width),
                           shown: shown && { x: Math.round(shown.x), y: Math.round(shown.y), w: Math.round(shown.width), h: Math.round(shown.height) } };
             p.hidePopup(); await until(() => p.state == "closed", 2000); await ruhig(200);
@@ -11147,7 +11157,8 @@ def run_checks(m, version, profile, results):
             for (const phase of ["aus", "ein"]) {
               btn.click(); const { ws, xs } = await record(el(), extra); await ruhig(400);
               const distinct = new Set(ws).size;
-              r[phase] = { steps: distinct, first: ws[0], last: ws[ws.length - 1], listRange: xs.length ? Math.max(...xs) - Math.min(...xs) : null };
+              r[phase] = { steps: distinct, first: ws[0], last: ws[ws.length - 1], listRange: xs.length ? Math.max(...xs) - Math.min(...xs) : null,
+                           list: xs.length ? [xs[0], xs[xs.length - 1], Math.min(...xs), Math.max(...xs)] : null };
             }
             r.button = [before, Math.round(btn.getBoundingClientRect().left)];
             out[name] = r;
@@ -11183,7 +11194,19 @@ def run_checks(m, version, profile, results):
                     bad.append(f"{area}/{phase}: {p.get('steps')} Schritte")
             if r.get("button") and abs(r["button"][0] - r["button"][1]) > 1:
                 bad.append(f"{area}: Knopf {r['button']}")
-        lr = [res["mail"][p]["listRange"] for p in ("aus", "ein")]
+        # Mailliste steht still. Einzige Ausnahme: im engen Fenster (ESR, 1500 px) ist sie bei sichtbarer Seitenleiste
+        # schmaler als ihre 460 px, weil die Leseansicht ihre Mindestbreite (480) hält – wird die Spalte frei, bekommt
+        # sie ihre Breite zurück (bzw. gibt sie beim Einblenden ab). Dann darf sie sich genau um diese Differenz
+        # ändern, aber nie darüber hinaus (kein Hin und Her, nie breiter als 460)
+        lr = []
+        for p in ("aus", "ein"):
+            m_ = res["mail"][p]
+            first, last, lo, hi = m_.get("list") or [None] * 4
+            if first is None:
+                lr.append(None)
+                continue
+            net = abs(last - first)
+            lr.append(m_["listRange"] - (net if min(first, last) < 459 and hi <= 461 else 0))
         if any(v is None or v > 2 for v in lr):
             bad.append(f"Mailliste ändert Breite {lr}")
         return not bad, f"{bad} {res}"
@@ -15934,7 +15957,8 @@ Neu
           const calState = () => ({ spaces: !w.gSpacesToolbar.isHidden, side: !d.getElementById("calSidebar").classList.contains("mc-side-hidden") });
           const still = () => !w.__mcSpacesAnimating && !ab()?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating;
           const press = async () => { btn.click(); await wait(1); };  // (ein Bild, damit beide Animationen laufen)
-          const out = { mc: !d.getElementById("mcSpacesToggle") };
+          // („Bewegung reduzieren“, z. B. Windows ohne Animationseffekte: beide springen sofort ans Ende)
+          const out = { mc: !d.getElementById("mcSpacesToggle"), reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
           const xul = () => Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml", "spacesToolbar", "hidden");
           try {
             if (w.gSpacesToolbar.isHidden || sp().isCollapsed) { await w.__mcColumnMigrate(false, false); await ruhig(600); }
@@ -15978,9 +16002,11 @@ Neu
           return out;""")
         both, none = {"spaces": True, "side": True}, {"spaces": False, "side": False}
         mig = [x == {"spaces": v, "folder": v} for x, v in zip(res.get("migrate") or [], [True, True, True, False])]
-        ok = (res.get("mc") and res.get("start") == both and res.get("together") == [True, True] and res.get("hidden") == none
+        # ohne Bewegung laufen keine Animationen, die gleichzeitig sein könnten (die Umkehr ist dann ein zweiter Klick)
+        anim = [False, False] if res.get("reduced") else [True, True]
+        ok = (res.get("mc") and res.get("start") == both and res.get("together") == anim and res.get("hidden") == none
               and res.get("tip") == "Show Sidebar" and res.get("saved") == "true" and res.get("shown") == both and res.get("savedShown") != "true"
-              and res.get("reversed") == both and res.get("calStart") == both and res.get("calTogether") == [True, True]
+              and res.get("reversed") == both and res.get("calStart") == both and res.get("calTogether") == anim
               and res.get("calHidden") == none and res.get("mailAfterCal") == none and res.get("mailShown") == both
               and res.get("calShown") == both and res.get("tbSpaces") == none and res.get("tbSpacesBack") == both
               and res.get("tbFolder") == none and res.get("tbFolderBack") == both and len(mig) == 4 and all(mig)

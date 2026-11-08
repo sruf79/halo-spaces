@@ -16685,6 +16685,32 @@ class CardEnhancer {
     // Breite der Ansicht am Anfang (mit der Bereiche-Leiste ändert sie sich)
     const gridStart = column ? grid.getBoundingClientRect().width : 0;
     const grow = () => (column ? grid.getBoundingClientRect().width - gridStart : 0);
+    // Leseansicht für den aktuellen Fortschritt k und die aktuelle Breite der
+    // Ansicht setzen. Mit der Bereiche-Leiste ruft auch deren Animation das in
+    // jedem ihrer Bilder auf: sie startet ein Bild früher und läuft im
+    // Hauptfenster – sonst nahm die Mailliste je Bild deren Schritt auf
+    // (ESR: bis 27 px hin und her)
+    const msgAt = () => {
+      const from = msgStart - msgExtra;
+      const to = parseFloat(endMsgProp);
+      return (Number.isFinite(to) ? from + (to - from) * curve(k) : msgStart + (endMsg - msgStart) * curve(k) - msgExtra) + grow();
+    };
+    const top = column && vertical ? ab.browsingContext?.topChromeWindow : null;
+    const follow = () => {
+      if (!ab.closed) {
+        grid.style.setProperty(msgProp, `${Math.max(0, msgAt())}px`);
+      }
+    };
+    if (top) {
+      top.__mcColumnFollow = follow;
+    }
+    // am Ende loslassen – läuft die Bereiche-Leiste noch, übernimmt sie das
+    // (ruft follow ein letztes Mal und löscht es)
+    const unfollow = () => {
+      if (top?.__mcColumnFollow == follow && !top.__mcSpacesAnimating) {
+        delete top.__mcColumnFollow;
+      }
+    };
     let relocked = false;
     // Breite der Mailliste vor dem Animieren: im vertikalen Layout bleibt sie stehen
     const threadPane = ab.document.getElementById("threadPane");
@@ -16718,10 +16744,7 @@ class CardEnhancer {
         // Leseansicht gleichmäßig von ihrer Ausgangs- zur gemessenen Endbreite – als
         // Rastervariable, damit das letzte Bild genau dem Endwert entspricht (unter
         // Windows ändert sich unterwegs der Zuschlag für die Bildlaufleiste)
-        const from = msgStart - msgExtra;
-        const to = parseFloat(endMsgProp);
-        const msg = (Number.isFinite(to) ? from + (to - from) * curve(k) : msgStart + (endMsg - msgStart) * curve(k) - msgExtra) + grow();
-        grid.style.setProperty(msgProp, `${Math.max(0, msg)}px`);
+        grid.style.setProperty(msgProp, `${Math.max(0, msgAt())}px`);
       }
       this.offsetUpdaters?.forEach(fn => fn());
       if (dir > 0 ? k < 1 : k > 0) {
@@ -16729,6 +16752,7 @@ class CardEnhancer {
         return;
       }
       delete ab.__mcReverse;
+      unfollow();
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
       pane.style.minWidth = "";
@@ -17014,6 +17038,9 @@ class CardEnhancer {
       if (row) {
         row.style.inlineSize = `calc(100vw - ${px})`;
       }
+      // gemeinsame Animation mit der Ordnerliste: Leseansicht im selben Bild
+      // nachziehen, die Mailliste bleibt stehen (animateSidebar, column)
+      w.__mcColumnFollow?.();
     };
     const clear = () => {
       bar?.style.removeProperty("--spaces-total-width");
@@ -17046,6 +17073,8 @@ class CardEnhancer {
       }
       clear();
       root.style.removeProperty("--mc-spaces-w");
+      w.__mcColumnFollow?.();
+      delete w.__mcColumnFollow;
       w.__mcSpacesAnimating = false;
       delete w.__mcSpacesReverse;
       onDone?.();

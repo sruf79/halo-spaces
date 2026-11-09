@@ -181,6 +181,14 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.23.0
+
+- **Sidebar**: the sidebar button hides and shows the spaces bar and the left column of the space together in one animation (clicking again during the animation reverses it); the separate button at the bottom of the spaces bar is gone. Thunderbird's own ways (View menu, context menu, collapsing the folder pane, dragging) move both halves, and the message list stays still while they slide
+- **Mail**: with Gmail, syncing the read status with copies in other labels runs in the background when Thunderbird is idle, so opening a message no longer waits for a search through all Gmail folders (#38)
+- **Calendar**: events in Day, Week and Month no longer show a tooltip on hover; a click opens the details
+- **Add-ons**: the gear in the page header uses the halo.spaces icon
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.22.0
 
 - **Tasks**: the buttons sit above the task in the details column ("Complete" on the left, "Open in New Window" and a "..." menu with Duplicate, Move to List, Open in New Window and Delete Task on the right); the header is an enlarged card with a coloured stripe and a progress bar you can drag, click, type into or change with the arrow keys; the arrow of "Complete" highlights only itself on hover; a list can be renamed in place from its context menu; start and due dates open a month calendar for typing

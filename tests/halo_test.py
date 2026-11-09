@@ -15278,6 +15278,8 @@ Neu
     def pref_halo_category():
         # Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (options_ui bleibt zusätzlich)
         res = m.js(PREFS_OPEN_JS + r"""
+          // Symbol (data:-Bild) ist erst nach dem Laden messbar: auf die Bedingung warten
+          await until(() => { const i = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }, 5000);
           const item = pd.getElementById("mcCat-paneMcHalo"), img = item?.querySelector("img");
           const out = { label: item?.querySelector(".category-name")?.textContent, icon: img ? [img.src.slice(0, 5), img.naturalWidth > 0] : null,
                         // Symbol ohne eigene weiße Kachel auf den Ring zugeschnitten – so groß wie die übrigen Kacheln

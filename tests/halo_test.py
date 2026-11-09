@@ -13390,6 +13390,17 @@ Neu
               return { id: b.id, inRow: r.top >= row.top - 1 && r.bottom <= row.bottom + 1, top: Math.round(r.top), bottom: Math.round(r.bottom), text: !!txt && txt.getBoundingClientRect().width > 0,
                        icon: csOf(b.id == "task-actions-markcompleted" ? b.querySelector(".toolbarbutton-menubutton-button") : b, "::before").maskImage.includes("mailcards/icons"),
                        tip: !!(b.getAttribute("tooltiptext") || b.getAttribute("label")) }; });
+            // Symbol wirklich gezeichnet (Maske mit context-stroke blieb leer, Knopf „In eigenem Fenster“ ohne Symbol):
+            // Bildpunkte im Knopf zählen, die sich deutlich von der Ecke (Hintergrund) abheben
+            for (const a of out.actions) {
+              const r = d.getElementById(a.id).getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+              cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+              try { const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"); ctx.drawImage(bm, 0, 0); }
+              catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+              const px = ctx.getImageData(0, 0, cv.width, cv.height).data, bg = [px[0], px[1], px[2]];
+              let n = 0; for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]) > 90) n++;
+              a.ink = n;
+            }
             // „…“ öffnet die Ansichten, Filter-Knopf die Filter
             box.querySelector(".mc-lh-more").click(); const pop = d.getElementById("mcTaskFilterPopup"); await till(() => pop.state == "open", 3000);
             out.viewMenu = [...pop.querySelectorAll(":scope > menuitem")].map(x => x.getAttribute("label")); pop.hidePopup(); await ruhig(300);
@@ -13408,7 +13419,7 @@ Neu
         same = bool(more and mf.get("more")) and abs(more["l"] - mf["more"]["l"]) <= 2 and abs(more["t"] - mf["more"]["t"]) <= 1 and not tf.get("filter")
         acts = res.get("actions") or []
         ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and [a["id"] for a in acts] == ["task-actions-markcompleted", "mcTaskOpenWindow", "mcTaskMore"]
-              and all(not a["inRow"] and a["bottom"] <= ly.get("cardTop", 0) and not a["text"] and a["icon"] and a["tip"] for a in acts)
+              and all(not a["inRow"] and a["bottom"] <= ly.get("cardTop", 0) and not a["text"] and a["icon"] and a.get("ink", 0) >= 12 and a["tip"] for a in acts)
               and not ly.get("trash") and bool(plus) and plus["l"] >= ly["listRight"] and ly["actRight"] <= ly["detRight"]
               and abs(ly.get("line", 0) - ly.get("split", -9)) <= 1 and ly.get("details", 0) >= ly.get("detMin", 9999) - 1
               and em.get("hidden") and em.get("text") == "No Task Selected" and em.get("content") and em.get("vis") == "visible"
@@ -13416,7 +13427,7 @@ Neu
               and (not res.get("drag") or (res["drag"]["split"] <= -60 and abs(res["drag"]["plus"] - res["drag"]["split"]) <= 2
                                            and abs(res["drag"]["acts"] - res["drag"]["split"]) <= 2 and abs(res["drag"]["back"]) <= 2)))
         return ok, f"{res}"
-    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ über den Details, Knöpfe über der Aufgabe in der Detailspalte und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
+    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ über den Details, Knöpfe über der Aufgabe mit sichtbarem Symbol in der Detailspalte und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Knöpfe über der Aufgabe (5a/5d): links „Complete“,

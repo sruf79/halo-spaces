@@ -10936,7 +10936,8 @@ datepicker[mc-inline] > menulist {
   background: var(--mt-control-hover) !important;
 }
 
-#mcTaskOpenWindow { --mc-ta-icon: url("resource://mailcards/icons/maximize.svg"); }
+/* eigenes Symbol: maximize.svg zeichnet mit context-stroke und bleibt als Maske leer */
+#mcTaskOpenWindow { --mc-ta-icon: url("resource://mailcards/icons/open-window.svg"); }
 #mcTaskMore { --mc-ta-icon: url("resource://mailcards/icons/more.svg"); }
 
 /* „Delete Task“ im „…“-Menü rot wie bei Apple */

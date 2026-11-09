@@ -7680,12 +7680,17 @@ class AvatarResolver {
     }
     await this.cache.loaded;
     const key = org;
-    const cached = this.cache.get(key);
+    let cached = this.cache.get(key);
+    // BIMI-Logos bis 3.23.1 wurden wie Favicons verkleinert (weißer Ring im
+    // Kreis) – das Original ist dann verloren, also einmal neu holen
+    if (cached?.source == "BIMI" && cached.n !== 3) {
+      cached = undefined;
+    }
     if (cached) {
       if (!cached.src) {
         return null;
       }
-      if (cached.n !== 2) {
+      if (cached.n !== 2 && cached.source != "BIMI") {
         // Logo aus einer älteren Version: einmalig zuschneiden und merken
         const src = await this.normalize(cached.src);
         this.cache.set(key, { src, small: false, n: 2, source: cached.source });
@@ -7710,7 +7715,12 @@ class AvatarResolver {
         if (!found) {
           found = await this.siteIcon(win, org);
         }
-        if (found) {
+        // BIMI-Logos sind laut Vorgabe für den Kreis gestaltet (quadratisch,
+        // Motiv in der Mitte) – wie Apple Mail randlos in den Kreis, nicht
+        // zuschneiden und verkleinern wie Favicons
+        if (found?.source == "BIMI") {
+          found = { src: found.src, small: false, n: 3, source: "BIMI" };
+        } else if (found) {
           found = { src: await this.normalize(found.src), small: false, n: 2, source: found.source };
         }
         if (found || fetchTimeouts == timeoutsBefore) {

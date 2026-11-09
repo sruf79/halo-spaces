@@ -91,3 +91,14 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
 
 Zum Ausprobieren im echten Profil: `./install.sh` (Thunderbird vorher beenden).
 Das betrifft das echte Profil des Nutzers – nur auf ausdrücklichen Wunsch.
+
+## Prüfzweig `pruef/<name>` (Probe vom 9.11.2026, grün)
+
+Wer Thunderbird-Änderungen vor dem Push auf `main` absichern will (Cloud, Laptop, Sitzungen ohne Zugriff auf neon), pusht sie
+zuerst auf einen Zweig `pruef/<name>` (z. B. `pruef/probe-20261109`), nie mit Force. Dort laufen nur `changes`, `linux`
+(Release, Beta, ESR) und `statisch` auf GitHub-Runnern, etwa 17 bis 20 Minuten; `mac`, `windows` und `windows-github` werden
+übersprungen und belegen neon nicht (`if:`-Bedingungen unverändert, sie verlangen `main` bzw. `workflow_dispatch`). Bei Grün
+kommen die Commits nach `main` (Fast-Forward oder Rebase, kein Force), danach wird der Zweig auf GitHub und lokal gelöscht
+(`git push origin --delete pruef/<name>`). Nicht getestet wird dort: macOS, Windows und der Dunkelmodus der Mac-Jobs; diese
+Prüfung läuft erst mit dem Push auf `main`. Es gelten dieselben Push-Sperren wie für `main` (01:30–09:00, ab 00:00 keine
+Codeänderung); Release und `release.sh` bleiben ausschließlich auf neon.

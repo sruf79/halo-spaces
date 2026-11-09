@@ -118,6 +118,8 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   `.md`, `.claude/`, Abläufe und Release-Skripte brauchen keine CI (`tests/ci-noetig.sh`).
 - **Gesammelt pushen:** je Eintrag committen, erst am Ende eines Arbeitsblocks pushen; vorher nur die
   betroffenen Prüfungen (`--only`, hell; dunkel nur bei Farben). Den Volllauf macht die CI.
+- **Prüfzweig `pruef/<name>`:** Thunderbird-Änderungen ohne Zugriff auf neon (Cloud, Laptop) zuerst dorthin pushen:
+  nur Linux und statisch auf GitHub, neon bleibt frei; bei Grün nach `main`, Zweig löschen (`docs/tests.md`).
 - **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon committen Fertiges auf `main` und
   pushen nicht, außer etwas hängt davon ab. Ungespeicherte Änderungen anderer Sitzungen legt der
   Nachtlauf auf `rest/<datum>`, nie auf `main` und nie in ein Release – wer fertig ist, committet selbst.
@@ -215,7 +217,7 @@ Apple-Vorlagen, Notweg: `docs/board.md`.
 Kein `gh project`, kein SSH: Board über `neon-board`, alles andere am Mac über `neon` (oben). Fertige
 Arbeit ohne Rückfrage selbst nach `main`: `git fetch origin main`, rebasen, `git push origin
 HEAD:main`; den Zweig `claude/…` stehen lassen (der Nachtlauf räumt auf). Vorher betroffene Prüfungen
-über neon (`--only`, Zweig nennen), wenn frei; Push-Sperren wie oben; Release nur über neon.
+über neon (`--only`, Zweig nennen) oder `pruef/<name>` (oben); Push-Sperren wie oben; Release nur über neon.
 
 ## GitHub-Issues und Pull Requests von Nutzern
 

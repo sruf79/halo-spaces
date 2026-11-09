@@ -30,6 +30,15 @@ const MULTIWEEK_MOMENTUM_MS = 325;
 // jeden Neuaufbau teurer (rund 30 ms bei zwölf Wochen, daher Standbild und
 // Neuaufbau in zwei Bildern)
 const MULTIWEEK_BUFFER_WEEKS = 12;
+// Nacharbeit (9.11.2026, „nach einiger Zeit ruckelt es“): Thunderbird holt bei
+// jedem Neuaufbau alle Termine der geladenen Wochen neu und trug sie in einem
+// Stück ein – mit vielen Terminen ein langer Halt mitten im Scrollen, und die
+// Suche nach dem Tag lief je Termin und Tag über alle Tageszellen. Jetzt: Tag
+// über eine Tabelle, Termine der sichtbaren Wochen (eine Woche Rand) sofort,
+// die übrigen in Häppchen von höchstens MULTIWEEK_SLICE_MS je Bild, die
+// nächstgelegenen zuerst. Unter MULTIWEEK_DEFER_MIN Terminen alles auf einmal
+const MULTIWEEK_DEFER_MIN = 60;
+const MULTIWEEK_SLICE_MS = 4;
 // Schritt 4/6: Monat als Zahl (Jahr * 12 + Monat) und sein Name wie in der
 // Überschrift von Apple Kalender („December 2026“)
 const monthKey = (year, month) => year * 12 + month;
@@ -226,7 +235,9 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     const t0 = win.performance.now();
     let last = -1, same = 0;
     const check = () => {
-      const n = mv.querySelectorAll("calendar-month-day-box-item").length;
+      // nur die Wochen ohne Puffer: dort trägt Thunderbird sofort ein, in
+      // die Puffer-Wochen kommen die Termine danach in Häppchen
+      const n = mv.querySelectorAll("tr:not([mc-buffer]) calendar-month-day-box-item").length;
       same = n == last ? same + 1 : 0;
       last = n;
       if (same >= 3 || win.performance.now() - t0 > 600) {
@@ -383,6 +394,8 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       later = 0;
     }
     const h = rowH();
+    // Richtung für die Reihenfolge, in der Termine der Puffer-Wochen kommen
+    mv.__mcDir = Math.sign(event.deltaY);
     // nur Pixel-Bewegungen (Trackpad) tragen Schwung, ein Mausrad nicht
     samples = event.deltaMode === 0 ? [...samples.slice(-12), { t: event.timeStamp, dy: event.deltaY }] : [];
     pos += event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
@@ -503,6 +516,7 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     delete mv.__mcScrollPos;
     delete mv.__mcScrollReset;
     delete mv.__mcScrollShifts;
+    delete mv.__mcDir;
     delete mv.__mcTopMonth;
   };
 }
@@ -558,7 +572,7 @@ function hookMultiweekBuffer(mv, restorers) {
       }
     });
   };
-  const saved = ["relayout", "setDateRange", "moveView"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
+  const saved = ["relayout", "setDateRange", "moveView", "findDayBoxForDate", "addItems", "clearItems", "doRemoveItem", "removeItemsFromCalendar"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
   const orig = Object.fromEntries(saved.map(([name, , fn]) => [name, fn]));
   // gewählter Tag in einer Zeile, die Thunderbird beim Neuaufbau geleert hat
   // (Puffer-Zeilen, Einstellung aus): seine Auswahl zeigte sonst ins Leere
@@ -626,6 +640,111 @@ function hookMultiweekBuffer(mv, restorers) {
     savedSelectedDay.day += 7 * weeksToMove;
     this.selectedDay = savedSelectedDay;
     return undefined;
+  };
+  // Tageszelle zu einem Datum über eine Tabelle statt über alle Zellen (mit
+  // Puffer rund 200, je Termin und Tag); Treffer zur Sicherheit wie bei
+  // Thunderbird verglichen, sonst dessen eigene Suche
+  proto.findDayBoxForDate = function (date) {
+    const boxes = this.mDateBoxes;
+    if (!on() || !boxes || !date) {
+      return orig.findDayBoxForDate.call(this, date);
+    }
+    const key = d => d.year * 512 + d.month * 32 + d.day;
+    let index = this.__mcBoxIndex;
+    if (index?.boxes !== boxes) {
+      index = this.__mcBoxIndex = { boxes, map: new Map() };
+      for (const box of boxes) {
+        if (box.mDate) {
+          index.map.set(key(box.mDate), box);
+        }
+      }
+    }
+    const box = index.map.get(key(date));
+    return box && box.mDate.compare(date) == 0 ? box : orig.findDayBoxForDate.call(this, date);
+  };
+  // Termine eintragen: die sichtbaren Wochen (eine Woche Rand) sofort, die
+  // Puffer-Wochen danach in Häppchen je Bild, nächstgelegene zuerst
+  const dropQueue = view => {
+    const q = view.__mcQueue;
+    if (q) {
+      if (q.frame) {
+        win.cancelAnimationFrame(q.frame);
+      }
+      view.__mcQueue = null;
+    }
+  };
+  const pump = view => {
+    const q = view.__mcQueue;
+    if (!q) {
+      return;
+    }
+    q.frame = 0;
+    const t0 = win.performance.now();
+    try {
+      while (q.items.length && win.performance.now() - t0 < MULTIWEEK_SLICE_MS) {
+        orig.addItems.call(view, q.items.splice(0, 8));
+      }
+    } catch (e) {
+      log("multiweek queue error", String(e).slice(0, 120));
+      q.items = [];
+    }
+    if (q.items.length) {
+      q.frame = win.requestAnimationFrame(() => pump(view));
+    } else if (view.__mcQueue == q) {
+      view.__mcQueue = null;
+    }
+  };
+  proto.addItems = function (items) {
+    if (!on() || !this.__mcVisible || !this.rangeStartDate || !this.rangeEndDate || items.length < MULTIWEEK_DEFER_MIN) {
+      return orig.addItems.call(this, items);
+    }
+    const s = this.rangeStartDate.clone(), e = this.rangeEndDate.clone();
+    s.day -= 7;
+    e.day += 8;
+    // Entfernung von der Mitte; in Scrollrichtung zählt sie ein Drittel
+    // (dorthin kommt der Nutzer zuerst)
+    const mid = (s.nativeTime + e.nativeTime) / 2, dir = this.__mcDir || 0;
+    const dist = item => {
+      const delta = (item.startDate || item.entryDate || item.dueDate).nativeTime - mid;
+      return Math.abs(delta) * (dir && Math.sign(delta) == dir ? 1 : 3);
+    };
+    const now = [], rest = [];
+    for (const item of items) {
+      const a = item.startDate || item.entryDate || item.dueDate;
+      const b = item.endDate || item.dueDate || a;
+      if (!a || a.compare(e) < 0 && b.compare(s) >= 0) {
+        now.push(item);
+      } else {
+        rest.push(item);
+      }
+    }
+    orig.addItems.call(this, now);
+    if (!rest.length) {
+      return undefined;
+    }
+    // zu den wartenden (mehrere Kalender) und nach Entfernung ordnen
+    const q = this.__mcQueue ||= { items: [], frame: 0 };
+    q.items = q.items.concat(rest).map(item => [dist(item), item]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+    q.frame ||= win.requestAnimationFrame(() => pump(this));
+    return undefined;
+  };
+  proto.clearItems = function (...args) {
+    dropQueue(this);
+    return orig.clearItems.apply(this, args);
+  };
+  proto.doRemoveItem = function (item, ...args) {
+    const q = this.__mcQueue;
+    if (q && item) {
+      q.items = q.items.filter(x => x.hashId != item.hashId);
+    }
+    return orig.doRemoveItem.call(this, item, ...args);
+  };
+  proto.removeItemsFromCalendar = function (calendarId, ...args) {
+    const q = this.__mcQueue;
+    if (q) {
+      q.items = q.items.filter(x => x.calendar?.id != calendarId);
+    }
+    return orig.removeItemsFromCalendar.call(this, calendarId, ...args);
   };
   // Einstellung umgeschaltet: denselben Bereich neu aufbauen
   const observer = () => {

@@ -49,21 +49,10 @@ var SECTIONS = t => [
     { key: "calendarOffline", label: t("Offline copy for online calendars"),
       hint: t("Faster loading."), info: t("Re-creates the calendars once.") },
   ]],
-  // fünfter Platz der Bereichsleiste: Chat oder (bei Aus) Webseite, Erweiterung oder nichts
+  // der fünfte Platz der Bereichsleiste (Chat, Erweiterung, Webseite, nichts) steht in den Einstellungen unter „Chat & More“
   [t("Spaces"), [
-    { key: "showChat", type: "chat", label: t("Chat"), hint: t("In the spaces bar.") },
     { key: "spacesOrderCustom", needs: "spacesOrderCustom", label: t("Own order of spaces"),
       hint: t("Drag a space up or down in the bar. Off: original order.") },
-    { key: "fifthSpace", type: "select", options: ["web", "addon", "none"], showIf: ["fifthSpace", "web", "addon", "none"],
-      labels: { addon: t("Space of an add-on"), web: t("Website"), none: t("Nothing") },
-      label: t("Instead"), hint: t("Only one of them, in the place of Chat.") },
-    { key: "fifthSpaceAddon", type: "select", choices: "fifthSpaceAddons", showIf: ["fifthSpace", "addon"],
-      label: t("Add-on"), hint: t("Opens unchanged in its own tab.") },
-    { key: "fifthSpaceUrl", type: "url", showIf: ["fifthSpace", "web"], label: t("Address"),
-      hint: t("Opens like an app."), info: t("No address bar. Links to other sites open in your browser."), placeholder: "https://…" },
-    { key: "fifthSpaceIcon", type: "select", options: ["mask", "original"], showIf: ["fifthSpace", "addon", "web"],
-      labels: { mask: t("In the space colour"), original: t("Original") },
-      label: t("Symbol"), hint: t("Original: unchanged on a white surface.") },
   ]],
   [t("Appearance"), [
     { key: "solidMenus", label: t("Solid menus"), hint: t("Without transparency.") },

@@ -164,19 +164,7 @@ async function render() {
         updateDependent();
       };
       let control;
-      if (row.type == "chat") {
-        // Chat an/aus; bei Aus erscheint darunter „Stattdessen“
-        control = el("input", { id, type: "checkbox", class: "switch", checked: settings.fifthSpace == "chat", role: "switch" });
-        control.addEventListener("change", async () => {
-          const value = control.checked ? "chat" : "none";
-          await api.setSetting("fifthSpace", value);
-          settings.fifthSpace = value;
-          const insteadSelect = document.getElementById("s-fifthSpace");
-          if (insteadSelect) insteadSelect.value = value == "chat" ? "none" : value;
-          flash(badge);
-          updateDependent();
-        });
-      } else if (row.type == "select") {
+      if (row.type == "select") {
         // feste Auswahl (options) oder Liste von der Erweiterung (choices: [{ value, label }])
         const list = row.choices ? settings[row.choices] || [] : row.options.map(o => ({ value: o,
           label: row.labels?.[o] ?? (row.unit ? `${o} ${row.unit}` : String(o)) }));
@@ -186,14 +174,6 @@ async function render() {
         }
         control.value = String(settings[row.key]);
         if (control.selectedIndex < 0) control.selectedIndex = 0;
-        // fünfter Bereich: Auswahl ohne passende Erweiterung nicht anbieten
-        if (row.key == "fifthSpace" && !(settings.fifthSpaceAddons || []).length) {
-          const opt = control.querySelector('option[value="addon"]');
-          if (opt) {
-            opt.disabled = true;
-            opt.textContent += ` (${t("none installed")})`;
-          }
-        }
         const numeric = typeof (row.options || [])[0] == "number";
         control.addEventListener("change", () => save(numeric ? Number(control.value) : control.value));
       } else if (row.type == "place") {

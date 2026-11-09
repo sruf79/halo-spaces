@@ -15357,7 +15357,7 @@ Neu
 
     def options_minimal():
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),
-        # Chat als Schalter mit „Stattdessen“ bei Aus, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
+        # (Wahl für den fünften Platz liegt unter „Chat & More“), Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
         # Die Seite läuft hier in einem Testfenster mit nachgebildeter Schnittstelle (die echte liegt im Erweiterungsprozess)
         res = m.js(r"""
           const saved = [];
@@ -15405,12 +15405,6 @@ Neu
             out.place.opened = saved.some(e => e[0] == "openLocationSettings");
             od.getElementById("s-calendarEmoji").click(); await ruhig(500);
             out.emojiOff = shown("emojiCustom");
-            od.getElementById("s-showChat").click(); await ruhig(500);
-            out.chatOff = { instead: shown("fifthSpace"), value: od.getElementById("s-fifthSpace")?.value, mode: settings.fifthSpace };
-            const sel = od.getElementById("s-fifthSpace"); sel.value = "web"; sel.dispatchEvent(new ow.Event("change")); await ruhig(500);
-            out.web = { url: shown("fifthSpaceUrl"), icon: shown("fifthSpaceIcon"), mode: settings.fifthSpace };
-            od.getElementById("s-showChat").click(); await ruhig(500);
-            out.chatOn = { instead: shown("fifthSpace"), url: shown("fifthSpaceUrl"), mode: settings.fifthSpace };
             od.querySelector("h2 .disclosure").click(); await ruhig(500);
             out.troubleshoot = shown("debug");
             return out;
@@ -15418,18 +15412,56 @@ Neu
         if not res.get("page"):
             return False, f"{res}"
         st = res["start"]
-        ok = (not st["place"] and st["emoji"] and st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
+        ok = (not st["place"] and st["emoji"] and not st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
               and res["weatherOn"] and not res["emojiOff"]
               and res.get("place", {}).get("tag") == "select" and res["place"]["options"][:2] == ["➤ Current Location", "Graz, Österreich"]
               and res["place"]["options"][-1] == "Choose City…" and res["place"]["value"] == "current" and res["place"]["tone"] == "warn"
               and res["place"]["dot"] == "rgb(255, 149, 0)" and res["place"]["link"] and res["place"]["searchHidden"] is True
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
-              and res["chatOff"] == {"instead": True, "value": "none", "mode": "none"}
-              and res["web"] == {"url": True, "icon": True, "mode": "web"}
-              and res["chatOn"] == {"instead": False, "url": False, "mode": "chat"} and res["troubleshoot"])
+              and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, Chat als Schalter mit „Stattdessen“, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+
+    def pref_chat_more():
+        # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“) mit der Wahl für den fünften Platz der Bereichsleiste ganz oben;
+        # Thunderbirds Chat-Einstellungen nur bei „Chat“, sonst ein Hinweis; Wahl schreibt die Einstellungen, die Seite von halo.spaces hat sie nicht mehr
+        res = m.js(PREFS_OPEN_JS + r"""
+          const P = "extensions.mailcards.fifthSpace";
+          const shown = e => !!e && e.getBoundingClientRect().height > 0;
+          try {
+            pd.getElementById("category-chat").click();
+            const grp = await bis(() => pd.getElementById("mcFifthGroup"), "Gruppe fünfter Platz", 6000);
+            await bis(() => shown(grp), "Gruppe sichtbar", 4000);
+            const kind = pd.getElementById("mcFifthSpace");
+            const out = { name: pd.querySelector("#category-chat .category-name").textContent, head: pd.querySelector("#chatPaneCategory h1").textContent,
+                          first: grp.previousElementSibling?.id, value: kind.value, hint: shown(pd.getElementById("mcFifthHint")),
+                          tb: shown(pd.getElementById("chatStartupAction")), search: [] };
+            const set = async (v) => { kind.value = v; kind.dispatchEvent(new pw.Event("command")); await ruhig(300); };
+            await set("web");
+            out.web = { mode: Services.prefs.getStringPref(P, ""), url: shown(pd.getElementById("mcFifthSpaceUrl")), icon: shown(pd.getElementById("mcFifthSpaceIcon")),
+                        hint: shown(pd.getElementById("mcFifthHint")), tb: shown(pd.getElementById("chatStartupAction")), attr: pd.documentElement.getAttribute("mc-fifth") };
+            const url = pd.getElementById("mcFifthSpaceUrl"); url.value = "example.org"; url.dispatchEvent(new pw.Event("change")); await ruhig(300);
+            out.url = Services.prefs.getStringPref(P + "Url", "");
+            await set("none");
+            out.none = { mode: Services.prefs.getStringPref(P, ""), url: shown(url), tb: shown(pd.getElementById("chatStartupAction")) };
+            await set("chat");
+            out.chat = { has: Services.prefs.prefHasUserValue(P), tb: shown(pd.getElementById("chatStartupAction")), hint: shown(pd.getElementById("mcFifthHint")) };
+            // Suche findet die Wahl (Gruppe liegt in der Seite, Thunderbirds Suche liest sie mit)
+            out.inChat = grp.closest("[data-category]")?.getAttribute("data-category") || grp.getAttribute("data-category");
+            return out;
+          } finally {
+            for (const p of [P, P + "Url"]) Services.prefs.clearUserPref(p);
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }""")
+        ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["value"] == "chat"
+              and not res["hint"] and res["tb"]
+              and res["web"] == {"mode": "web", "url": True, "icon": True, "hint": True, "tb": False, "attr": "web"}
+              and res["url"] == "https://example.org/"
+              and res["none"] == {"mode": "none", "url": False, "tb": False}
+              and res["chat"] == {"has": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
+        return ok, f"{res}"
+    check("Einstellungen: Kategorie „Chat & More“ mit Wahl für den fünften Platz oben, Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
 
     def pref_halo_search():
         # Suche der Einstellungen findet die Optionen von halo.spaces („update“ → „Install updates at start“, „logos“ →

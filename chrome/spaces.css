@@ -3704,6 +3704,27 @@ splitter.splitter:has(+ .conv-bottom) {
   stroke-opacity: 1 !important;
 }
 
+/* „Chat & More“: Thunderbirds Chat-Einstellungen nur, wenn der fünfte Platz
+   Chat zeigt (Attribut mc-fifth setzt die Erweiterung); die Wahl für den
+   fünften Platz und die Überschrift bleiben immer */
+:root[mc-fifth]:not([mc-fifth="chat"]) [data-category="paneChat"]:not(#mcFifthGroup, #chatPaneCategory) {
+  display: none !important;
+}
+
+#mcFifthGroup .mc-fifth-row {
+  min-height: 32px;
+}
+
+#mcFifthGroup .mc-fifth-url {
+  width: 260px;
+}
+
+#mcFifthGroup .mc-fifth-hint {
+  margin: 8px 0 0;
+  color: var(--mt-text-tertiary);
+  font-size: calc(12px * var(--mt-font-scale, 1));
+}
+
 /* Kachelfarben und Symbole (neu gezeichnet im Stil der Systemeinstellungen,
    weiß, wo möglich gefüllt; about:preferences erlaubt Bilder nur aus chrome:
    und data:, daher als content-Bild), leichter Verlauf von oben, im Dunkeln

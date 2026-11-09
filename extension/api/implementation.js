@@ -411,6 +411,160 @@ function hookAppearanceChoice(cw, restorers = null) {
   });
 }
 
+// Einstellungen → „Chat & More“ (Kategorie Chat): oben die Wahl für den fünften
+// Platz der Bereichsleiste (Chat, Bereich einer Erweiterung, Webseite, nichts),
+// darunter Thunderbirds Chat-Einstellungen – nur, wenn dort Chat gewählt ist;
+// sonst steht an ihrer Stelle ein Hinweis, was der Platz gerade zeigt.
+// Schreibt dieselben Einstellungen wie früher die halo.spaces-Seite.
+function hookChatCategory(cw, restorers = null) {
+  const doc = cw.document;
+  const X = "http://www.w3.org/1999/xhtml";
+  const cat = doc.getElementById("category-chat");
+  // Name der Kategorie und Überschrift der Seite
+  const renamed = [];
+  for (const el of [cat?.querySelector(".category-name"), doc.querySelector("#chatPaneCategory h1")]) {
+    if (el && !el.hasAttribute("mc-renamed")) {
+      renamed.push([el, el.getAttribute("data-l10n-id")]);
+      el.setAttribute("mc-renamed", "");
+      el.removeAttribute("data-l10n-id");
+      el.textContent = tr("Chat & More");
+    }
+  }
+  if (cat) {
+    cat.setAttribute("tooltiptext", tr("Chat & More"));
+  }
+  if (renamed.length) {
+    restorers?.push(() => {
+      for (const [el, id] of renamed) {
+        el.removeAttribute("mc-renamed");
+        if (id) {
+          el.setAttribute("data-l10n-id", id);
+        }
+      }
+    });
+  }
+  const header = doc.getElementById("chatPaneCategory");
+  if (!header || ownedElement(doc, "mcFifthGroup")) {
+    return;
+  }
+  const el = (tag, props = {}) => Object.assign(doc.createElementNS(X, tag), props);
+  const group = el("fieldset", { id: "mcFifthGroup" });
+  group.__mcOwner = HOOK_OWNER;
+  group.setAttribute("data-category", "paneChat");
+  const rows = {};
+  const row = (key, text, control) => {
+    const box = doc.createXULElement("hbox");
+    box.setAttribute("align", "center");
+    box.className = "mc-fifth-row";
+    const label = doc.createXULElement("label");
+    label.setAttribute("value", text);
+    label.setAttribute("flex", "1");
+    box.append(label, control);
+    rows[key] = box;
+    group.append(box);
+  };
+  const menu = (id, onPick) => {
+    const list = doc.createXULElement("menulist");
+    list.id = id;
+    list.appendChild(doc.createXULElement("menupopup"));
+    list.addEventListener("command", () => onPick(list.value));
+    return list;
+  };
+  const getPref = (pref, def) => Services.prefs.getStringPref(pref, def);
+  const setPref = (pref, def, value) => {
+    if (value === def) {
+      Services.prefs.clearUserPref(pref); // Standard: nichts im Profil speichern
+    } else {
+      Services.prefs.setStringPref(pref, value);
+    }
+  };
+  group.append(el("legend", { textContent: tr("Fifth space") }));
+  const spacesOf = () => FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane")) || [];
+  const kind = menu("mcFifthSpace", v => {
+    // Bereich einer Erweiterung: gleich die angezeigte (erste) wählen, sonst bliebe der Platz leer
+    const first = spacesOf()[0]?.name;
+    if (v == "addon" && first && !spacesOf().some(a => a.name == getPref(FIFTH_ADDON_PREF, ""))) {
+      setPref(FIFTH_ADDON_PREF, "", first);
+    }
+    setPref(FIFTH_PREF, "chat", v);
+  });
+  const addon = menu("mcFifthSpaceAddon", v => setPref(FIFTH_ADDON_PREF, "", v));
+  const icon = menu("mcFifthSpaceIcon", v => setPref(FIFTH_ICON_PREF, "mask", v));
+  const url = el("input", { id: "mcFifthSpaceUrl", type: "text", placeholder: "https://…", spellcheck: false });
+  url.className = "mc-fifth-url";
+  const saveURL = () => {
+    const normal = FifthSpace.normalizeURL(url.value);
+    if (normal === null) {
+      url.value = getPref(FIFTH_URL_PREF, ""); // keine Webadresse: alte behalten
+    } else {
+      setPref(FIFTH_URL_PREF, "", normal);
+      url.value = normal;
+    }
+  };
+  url.addEventListener("change", saveURL);
+  url.addEventListener("keydown", e => {
+    if (e.key == "Enter") {
+      saveURL();
+    }
+  });
+  row("kind", tr("In the place of Chat"), kind);
+  row("addon", tr("Add-on"), addon);
+  row("url", tr("Address"), url);
+  row("icon", tr("Symbol"), icon);
+  const hint = el("p", { id: "mcFifthHint", className: "mc-fifth-hint" });
+  group.append(hint);
+  header.after(group);
+  const fillMenu = (list, items, value) => {
+    const popup = list.menupopup;
+    popup.textContent = "";
+    for (const [v, text, disabled] of items) {
+      const item = doc.createXULElement("menuitem");
+      item.setAttribute("value", v);
+      item.setAttribute("label", text);
+      if (disabled) {
+        item.setAttribute("disabled", "true");
+      }
+      popup.appendChild(item);
+    }
+    list.value = value;
+  };
+  const fill = () => {
+    const mode = FifthSpace.mode();
+    const spaces = spacesOf();
+    const addonText = tr("Space of an add-on");
+    // Auswahl neu aufbauen (Erweiterungen können dazukommen)
+    fillMenu(kind, [["chat", tr("Chat")], ["addon", spaces.length ? addonText : `${addonText} (${tr("none installed")})`, !spaces.length],
+      ["web", tr("Website")], ["none", tr("Nothing")]], mode);
+    const wanted = getPref(FIFTH_ADDON_PREF, "");
+    fillMenu(addon, spaces.map(a => [a.name, a.title]), spaces.some(a => a.name == wanted) ? wanted : spaces[0]?.name || "");
+    fillMenu(icon, [["mask", tr("In the space colour")], ["original", tr("Original")]], FifthSpace.icon());
+    if (doc.activeElement != url) {
+      url.value = getPref(FIFTH_URL_PREF, "");
+    }
+    rows.addon.hidden = mode != "addon";
+    rows.url.hidden = mode != "web";
+    rows.icon.hidden = mode != "addon" && mode != "web";
+    // Hinweis, solange Thunderbirds Chat-Einstellungen ausgeblendet sind
+    const current = mode == "addon" ? spaces.find(a => a.name == wanted)?.title || addonText
+      : mode == "web" ? getPref(FIFTH_URL_PREF, "") || tr("Website") : tr("Nothing");
+    hint.textContent = tr("The chat settings appear here when Chat is chosen. Shown instead: {what}", { what: current });
+    hint.hidden = mode == "chat";
+    doc.documentElement.setAttribute("mc-fifth", mode);
+  };
+  fill();
+  const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF, FIFTH_ICON_PREF];
+  const observer = { observe: () => fill() };
+  prefs.forEach(pref => Services.prefs.addObserver(pref, observer));
+  // Erweiterungen mit eigenem Bereich können später dazukommen: beim Öffnen einer Kategorie neu lesen
+  doc.addEventListener("paneSelected", fill);
+  restorers?.push(() => {
+    prefs.forEach(pref => Services.prefs.removeObserver(pref, observer));
+    doc.removeEventListener("paneSelected", fill);
+    doc.documentElement.removeAttribute("mc-fifth");
+    group.remove();
+  });
+}
+
 // Einstellungen: Kontoeinstellungen, Add-ons und halo.spaces als eigene
 // Kategorien in der Seitenleiste. Ihr Inhalt erscheint rechts im selben Tab
 // (die Seitenleiste mit General, Appearance … bleibt stehen) – statt wie bei
@@ -10292,6 +10446,11 @@ class CardEnhancer {
             hookAppearanceChoice(cw, winRestorers);
           } catch (e) {
             log("appearance choice error", e);
+          }
+          try {
+            hookChatCategory(cw, winRestorers);
+          } catch (e) {
+            log("chat category error", e);
           }
           try {
             hookPrefCategories(cw, winRestorers);

@@ -9924,8 +9924,10 @@ def run_checks(m, version, profile, results):
           const r = box.getBoundingClientRect(), h = header.getBoundingClientRect();
           const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
           // die Kapsel liegt ganz im Kopf (nicht halb über dem Mailtext, den manche Add-ons darüberlegen)
+          // (Layout kann sich beim Einblenden noch setzen: bis zu 3 s auf den Treffer warten, ESR flackerte hier)
           await ruhig(100);
-          const hit = md.elementFromPoint(cx, r.bottom - 2);
+          let hit = md.elementFromPoint(cx, r.bottom - 2);
+          for (let i = 0; i < 30 && !hit?.closest?.("#mcHoverActions"); i++) { await ruhig(100); const r2 = box.getBoundingClientRect(); hit = md.elementFromPoint(r2.left + r2.width / 2, r2.bottom - 2); }
           const btn = box.querySelector(".mc-hover-reply");
           md.documentElement.dispatchEvent(new am.MouseEvent("mouseenter"));
           const enabledMatch = [...box.querySelectorAll(".mc-hover-action")].every(b => b.disabled == !am.commandController.isCommandEnabled(b.dataset.command));

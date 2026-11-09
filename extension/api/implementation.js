@@ -48,6 +48,35 @@ function uiLanguage() {
 function regionLocale() {
   return Services.locale.regionalPrefsLocales?.[0] || Services.locale.appLocaleAsBCP47;
 }
+// Kurzes Datum zum Anzeigen und Eintippen in Reihenfolge und mit Trennzeichen
+// des Systems (macOS: Sprache & Region → Datumsformat, z. B. 26.11.2026 auch
+// bei englischem Thunderbird mit Region, deren Sprache 26/11/2026 schreibt);
+// Tag und Monat zweistellig, Jahr ganz. Services.intl übernimmt das Muster des
+// Systems nur bei dateStyle, nicht bei einzeln angegebenen Feldern.
+// make: liefert den Formatierer zu Optionen (Logik-Tests)
+function systemDateFormat(make = opts => new Services.intl.DateTimeFormat(undefined, opts)) {
+  const NUMERIC = ["day", "month", "year"];
+  let sample = null;
+  try {
+    sample = make({ dateStyle: "short" }).formatToParts(new Date(2026, 10, 16));
+  } catch {
+    // gewollt: ohne Muster des Systems wie bisher nach der Region
+  }
+  const usable = sample && NUMERIC.every(t => sample.filter(p => p.type == t && /^\d+$/.test(p.value)).length == 1);
+  if (!usable) {
+    return make({ day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+  const parts = sample.filter(p => p.type == "literal" || NUMERIC.includes(p.type)).map(p => ({ type: p.type, value: p.value }));
+  return {
+    formatToParts(date) {
+      const value = { day: String(date.getDate()).padStart(2, "0"), month: String(date.getMonth() + 1).padStart(2, "0"), year: String(date.getFullYear()) };
+      return parts.map(p => ({ type: p.type, value: p.type == "literal" ? p.value : value[p.type] }));
+    },
+    format(date) {
+      return this.formatToParts(date).map(p => p.value).join("");
+    },
+  };
+}
 
 // („Text|Zusammenhang“: gleiches englisches Wort, andere Übersetzung – z. B.
 // „Open|tasks“ = „Offen“ statt „Öffnen“; angezeigt wird nur der Text)
@@ -7026,7 +7055,7 @@ function afterInputBoxValue(picker, fn) {
 // off() → bool } – so auch für andere Felder als Thunderbirds datepicker
 function inlineDateEdit(win, io) {
   const doc = win.document, X = "http://www.w3.org/1999/xhtml";
-  const fmt = new Services.intl.DateTimeFormat(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const fmt = systemDateFormat();
   const dateOf = ([y, m, d]) => {
     const t = new Date(2000, 0, 1);
     t.setFullYear(y, m, d);
@@ -16440,7 +16469,7 @@ class CardEnhancer {
       const x = di.__mcExact;
       return x && dateValue(x) == di.value && timeValue(x) == time ? x : parse(di.value, time);
     };
-    const fmtDate = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fmtDate = systemDateFormat();
     const fmtTime = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
     const toCal = (js, dateOnly) => {
       const dt = cal.dtz.jsDateToDateTime(js, cal.dtz.defaultTimezone);

@@ -4824,6 +4824,10 @@ def calendar_checks(m, results):
             const ymd = () => { const v = dp.value; return [v.getFullYear(), v.getMonth() + 1, v.getDate()]; };
             const keyD = k => id.activeElement?.dispatchEvent(new iw.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
             out.date = { edit: !!de, menulist: csOf(dml).display, text: de?.textContent };
+            // Reihenfolge und Trennzeichen wie das kurze Datum des Systems (macOS: Datumsformat; vorher Muster der Sprache, 26/11/2026)
+            const sv = dp.value, pad2 = x => String(x).padStart(2, "0");
+            out.date.want = new Services.intl.DateTimeFormat(undefined, { dateStyle: "short" }).formatToParts(sv)
+              .map(p => ({ day: pad2(sv.getDate()), month: pad2(sv.getMonth() + 1), year: String(sv.getFullYear()), literal: p.value })[p.type] ?? "").join("");
             if (de && mini) {
               const ys = dseg("y"), hs0 = tp0 => tp0.querySelector('.mc-time-seg[data-seg="h"]');
               // Abstand letzte Ziffer des Datums – erste der Uhrzeit (Text, ohne die Fläche der Felder)
@@ -4930,7 +4934,7 @@ def calendar_checks(m, results):
         ok = ok and bool(mk) and same_color(mk["bg"], mk["cal"]) and same_color(mk["color"], "rgb(255, 255, 255)") and mk["radius"] == "3px" and mk["h"] == 16
         # Datum als Text mit Monatskalender (Abstand zur Uhrzeit wie die Vorlage ~14,5 px statt ~39)
         td, sf = dt.get("today") or ["", "-"], dt.get("surface") or ["", "-"]
-        ok = (ok and dt.get("edit") and dt.get("menulist") == "none" and 11 <= (dt.get("gap") or 0) <= 18 and dt.get("picked")
+        ok = (ok and dt.get("edit") and dt.get("menulist") == "none" and dt.get("text") == dt.get("want") and 11 <= (dt.get("gap") or 0) <= 18 and dt.get("picked")
               and dt.get("tbPopup") == "closed" and same_color(dt.get("ysBg", ""), dt.get("cal", "-")) and int(dt.get("titleWeight") or 0) >= 600
               and len(dt.get("weekdays") or []) == 7 and all(len(x) == 2 for x in dt["weekdays"]) and dt.get("cells") == 42
               and dt.get("selBg") and same_color(td[0], td[1]) and dt.get("other") and dt.get("nav") == 3 and 0 <= (dt.get("below") if dt.get("below") is not None else -1) <= 10
@@ -4938,7 +4942,7 @@ def calendar_checks(m, results):
               and dt.get("day") == [9, True] and (dt.get("arrow") or [False])[0] and dt.get("clicked") == [20, True, True]
               and dt.get("tbAfter") == "closed")
         return ok, f"{res}"
-    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Datum zum Eintippen mit Monatskalender (Jahr in Kalenderfarbe, ◀ ● ▶, heute rot, Tippen geht weiter, Klick auf Tag übernimmt), Abstand Datum–Uhrzeit; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
+    check("Termin-Dialog: Schrift 13 px auch in der Beschreibung, Abstand Beschriftung–Feld; Datum im kurzen Format des Systems zum Eintippen mit Monatskalender (Jahr in Kalenderfarbe, ◀ ● ▶, heute rot, Tippen geht weiter, Klick auf Tag übernimmt), Abstand Datum–Uhrzeit; Uhrzeit zum Eintippen ohne Popover (Stunden in Kalenderfarbe markiert, Ziffern, weiter zu den Minuten), Ende rückt mit, Pfeiltasten, Mausrad", event_dialog, results)
 
     def event_end_list():
         # Endzeit wie Apple Kalender: Beginn eintippen nimmt das Ende mit (gleiche Dauer), Ende eintippen lässt den Beginn

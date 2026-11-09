@@ -73,3 +73,20 @@ test("Monatskalender: sechs Wochen ab dem ersten Wochentag", () => {
   assert.deepEqual(n(monthWeeks(2026, 10, 0))[0][0], [2026, 10, 1]);
   assert.equal(daysInMonth(2028, 1), 29);
 });
+
+test("Kurzes Datum: Reihenfolge und Trennzeichen aus dem Muster des Systems, Tag und Monat zweistellig, Jahr ganz", () => {
+  const { systemDateFormat: fmt } = lade();
+  const mit = locale => fmt(opts => new Intl.DateTimeFormat(locale, opts));
+  const tag = new Date(2026, 10, 6);
+  assert.equal(mit("de-AT").format(tag), "06.11.2026");
+  assert.equal(mit("en-US").format(tag), "11/06/2026");
+  assert.equal(mit("ja-JP").format(tag), "2026/11/06");
+  // System mit zweistelligem Jahr („26.11.26“): angezeigt wird das ganze Jahr
+  const kurz = fmt(() => ({ formatToParts: () => [{ type: "day", value: "16" }, { type: "literal", value: "." },
+    { type: "month", value: "11" }, { type: "literal", value: "." }, { type: "year", value: "26" }] }));
+  assert.equal(kurz.format(tag), "06.11.2026");
+  assert.deepEqual(n(kurz.formatToParts(tag)).map(p => p.type), ["day", "literal", "month", "literal", "year"]);
+  // Muster ohne Zahlen (z. B. Monatsname): wie bisher nach der Region
+  const name = fmt(opts => (opts.dateStyle ? { formatToParts: () => [{ type: "month", value: "Nov" }] } : new Intl.DateTimeFormat("de-AT", opts)));
+  assert.equal(name.format(tag), "06.11.2026");
+});

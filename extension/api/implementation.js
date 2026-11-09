@@ -2213,8 +2213,12 @@ const TASK_SIDE_MIN = 760; // höchstens: Liste 360 + Details 360 + Teiler/Luft
 const TASK_LIST_MIN = 360;
 const TASK_LIST_MAX = 640;
 
+// „board“: Kanban-Ansicht – Karten in Spalten nach Fortschritt (0 %, 1–99 %,
+// 100 %), ohne Detailspalte (Details über das eigene Fenster); Entscheidung des
+// Maintainers vom 9.11.2026
 function taskView() {
-  return Services.prefs.getCharPref(TASK_VIEW_PREF, "list") == "table" ? "table" : "list";
+  const v = Services.prefs.getCharPref(TASK_VIEW_PREF, "list");
+  return v == "table" || v == "board" ? v : "list";
 }
 
 function applyTaskView(win, mode = taskView()) {
@@ -2227,7 +2231,9 @@ function applyTaskView(win, mode = taskView()) {
     return;
   }
   const root = doc.documentElement;
-  const list = mode == "list";
+  // (die Kanban-Ansicht zeigt dieselben Karten wie die Kartenansicht)
+  const board = mode == "board";
+  const list = mode == "list" || board;
   // Spalten: in der Liste nur Erledigt, Titel, Fälligkeit; die Auswahl der
   // Tabelle wird gemerkt und beim Zurückschalten wiederhergestellt
   const cols = [...tree.querySelectorAll("treecol[itemproperty]")];
@@ -2258,6 +2264,7 @@ function applyTaskView(win, mode = taskView()) {
     tree.dataset.mcCols = list ? "list" : "table";
   }
   root.toggleAttribute("mc-task-list", list);
+  root.toggleAttribute("mc-task-board", board);
   // ausgeblendeter Bereich (z. B. gerade in der Mail) hat keine Breite: dann
   // nichts umstellen – sonst stand nach dem Wechsel zuerst nur die Liste da und
   // die Details kamen erst mit dem nächsten Nachmessen
@@ -2268,7 +2275,7 @@ function applyTaskView(win, mode = taskView()) {
   // (Details neben der Liste, solange Liste und ihre Knopfzeile hineinpassen –
   // sonst hält die Mindestbreite des Fensters das ohnehin fest)
   const detailsMin = parseFloat(root.style.getPropertyValue("--mc-task-details-min")) || 360;
-  const side = list && boxWidth >= Math.min(TASK_SIDE_MIN, 280 + detailsMin + 10);
+  const side = list && !board && boxWidth >= Math.min(TASK_SIDE_MIN, 280 + detailsMin + 10);
   if (side == root.hasAttribute("mc-task-side")) {
     return;
   }
@@ -4219,7 +4226,9 @@ function hookTaskCards(win, restorers) {
       return card;
     });
     // (eine Zeile in Bearbeitung nicht umhängen – sie verlöre den Fokus)
-    if (editing?.parentNode == list) {
+    if (doc.documentElement.hasAttribute("mc-task-board")) {
+      renderBoard(tasks, cards);
+    } else if (editing?.parentNode == list) {
       for (const child of [...list.children]) {
         if (child != editing) {
           child.remove();
@@ -4231,6 +4240,45 @@ function hookTaskCards(win, restorers) {
     }
     list.toggleAttribute("data-focused", doc.activeElement == tree);
     enhancer?.updateListHeader?.(win); // Anzahl im Listenkopf
+  };
+  // Kanban-Ansicht: drei Spalten nach Fortschritt – „Not Started“ (0 %),
+  // „In Progress“ (1–99 %), „Completed“ (100 % bzw. erledigt), je mit Anzahl im
+  // Kopf; „New Task“ unter der ersten Spalte. Die Karten sind dieselben wie in
+  // der Kartenansicht (Auswahl, Kreis, Kontextmenü, Doppelklick gleich)
+  const BOARD_COLUMNS = [["todo", "Not Started"], ["doing", "In Progress"], ["done", "Completed"]];
+  const stageOf = task => {
+    const pct = task.percentComplete || 0;
+    return task.isCompleted || pct >= 100 ? 2 : pct > 0 ? 1 : 0;
+  };
+  const renderBoard = (tasks, cards) => {
+    const groups = BOARD_COLUMNS.map(() => []);
+    cards.forEach((card, i) => groups[stageOf(tasks[i])].push(card));
+    let cols = [...list.children];
+    if (cols.length != BOARD_COLUMNS.length || !cols.every(c => c.classList.contains("mc-tb-col"))) {
+      cols = BOARD_COLUMNS.map(([key, label]) => {
+        const col = el("div", "mc-tb-col");
+        col.dataset.stage = key;
+        const head = el("div", "mc-tb-head");
+        head.append(el("span", "mc-tb-title", tr(label)), el("span", "mc-tb-count"));
+        col.append(head, el("div", "mc-tb-cards"));
+        return col;
+      });
+      list.replaceChildren(...cols);
+    }
+    cols.forEach((col, k) => {
+      col.querySelector(".mc-tb-count").textContent = String(groups[k].length);
+      const body = col.querySelector(".mc-tb-cards");
+      if (k == 0 && editing?.parentNode == body) {
+        for (const child of [...body.children]) {
+          if (child != editing) {
+            child.remove();
+          }
+        }
+        editing.before(...groups[k]);
+      } else {
+        body.replaceChildren(...groups[k], ...(k == 0 ? [newTaskRow()] : []));
+      }
+    });
   };
   // Neue Aufgabe wie in Apple Erinnerungen (Aufgaben 4/5): unter der letzten
   // Karte eine leere Zeile mit grauem Kreis und „New Task“ – Klick und gleich
@@ -4328,7 +4376,7 @@ function hookTaskCards(win, restorers) {
   }
   const onSelect = () => {
     const sel = tree.view?.selection;
-    for (const card of list.children) {
+    for (const card of list.querySelectorAll(".mc-tc[data-index]")) {
       card.toggleAttribute("aria-selected", !!sel?.isSelected(+card.dataset.index));
     }
     list.querySelector(`.mc-tc[data-index="${tree.currentIndex}"]`)?.scrollIntoView({ block: "nearest" });
@@ -13139,7 +13187,7 @@ class CardEnhancer {
         }
         if (popup.dataset.kind == "view") {
           // „list“ bleibt der gespeicherte Wert (Kompatibilität), heißt aber wie in der Mail „Kartenansicht“
-          popup.replaceChildren(...[["list", "Card View"], ["table", "Table View"]].map(([key, label]) => {
+          popup.replaceChildren(...[["list", "Card View"], ["table", "Table View"], ["board", "Kanban View"]].map(([key, label]) => {
             const item = d.createXULElement("menuitem");
             item.setAttribute("type", "radio");
             item.setAttribute("name", "mctaskview");

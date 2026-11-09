@@ -13208,13 +13208,85 @@ Neu
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""")
         t, l, n = res["table"], res["list"], res["narrow"]
-        ok = (res["menu"] == ["list", "table", "-", "Sort By"]
+        ok = (res["menu"] == ["list", "table", "board", "-", "Sort By"]
               and not t["side"] and t["below"] and "priority" in t["cols"]
               and l["side"] and l["right"] and l["cols"] == ["completed", "title", "dueDate"] and l["detW"] >= 300
               and (n["side"] == (n["boxW"] >= 760)) and (n["side"] or n["below"]) and res["wideAgain"]
               and res["tableAgain"] == t["cols"])
         return ok, f"{res}"
     check("Aufgaben: Kartenansicht mit Details rechts, Tabellenansicht wie bisher, Wahl über „…“ im Listenkopf, schmal Details unten", task_view_choice, results)
+
+    def task_board():
+        # Kanban-Ansicht der Aufgaben (Entscheidung 9.11.2026): „Kanban View“ im „…“ neben Karten/Tabelle; drei Spalten
+        # nebeneinander nach Fortschritt (0 %, 1–99 %, 100 %) mit Titel und Anzahl, dieselben Karten; keine Detailspalte;
+        # Klick wählt in Thunderbirds Liste; Doppelklick öffnet die Aufgabe; zurück zur Kartenansicht wie vorher
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await pause(400);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const make = async (title, pct, done) => { const t = new CalTodo(); t.title = title; t.calendar = c;
+            if (done) t.isCompleted = true; else if (pct) { t.percentComplete = pct; t.status = "IN-PROCESS"; } return c.addItem(t); };
+          const saved = [await make("Halo Kanban offen", 0), await make("Halo Kanban halb", 40), await make("Halo Kanban fertig", 0, true)];
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await ruhig(1200);
+            // „Alle“ zeigt auch Erledigte
+            const tree = d.getElementById("calendar-task-tree"), list = d.getElementById("mcTaskCards");
+            if (typeof w.taskViewUpdate == "function") w.taskViewUpdate("all");
+            const btn = d.querySelector("#mcListHeader .mc-lh-more"), popup = d.getElementById("mcTaskFilterPopup");
+            btn.click(); const opened = await till(() => popup.state == "open", 2000); await ruhig(200);
+            const it = popup.querySelector('menuitem[data-view="board"]');
+            out.label = it?.getAttribute("label");
+            if (opened && it) it.doCommand(); else Services.prefs.setCharPref("extensions.mailcards.taskView", "board");
+            popup.hidePopup();
+            await bis(() => list.querySelectorAll(".mc-tb-col").length == 3 && /Halo Kanban fertig/.test(list.textContent), "drei Spalten", 6000).catch(() => {});
+            await ruhig(400);
+            const cols = [...list.querySelectorAll(".mc-tb-col")];
+            out.cols = cols.map(col => ({ title: col.querySelector(".mc-tb-title")?.textContent, count: col.querySelector(".mc-tb-count")?.textContent,
+              tasks: [...col.querySelectorAll(".mc-tc[data-index]")].map(k => k.querySelector(".mc-tc-title")?.textContent).filter(t => /Halo Kanban/.test(t)),
+              r: (r => ({ l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }))(col.getBoundingClientRect()) }));
+            out.countsMatch = cols.every(col => +col.querySelector(".mc-tb-count").textContent == col.querySelectorAll(".mc-tc[data-index]").length);
+            out.newRow = cols.map(col => !!col.querySelector(".mc-tc-new"));
+            const det = d.getElementById("calendar-task-details-container");
+            out.details = Math.round(det.getBoundingClientRect().width);
+            out.attr = d.documentElement.hasAttribute("mc-task-board") && !d.documentElement.hasAttribute("mc-task-side");
+            // Klick auf die Karte „halb“ wählt sie in Thunderbirds Liste
+            const card = [...list.querySelectorAll(".mc-tc[data-index]")].find(k => /Halo Kanban halb/.test(k.textContent));
+            if (card) {
+              const r = card.getBoundingClientRect();
+              card.querySelector(".mc-tc-title").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: r.left + 60, clientY: r.top + 10 }));
+              await ruhig(400);
+              out.selected = { task: tree.currentTask?.title, card: card.hasAttribute("aria-selected") };
+              const orig = w.modifyEventWithDialog; let opened2 = null;
+              w.modifyEventWithDialog = item => { opened2 = item?.title; };
+              try {
+                card.querySelector(".mc-tc-title").dispatchEvent(new w.MouseEvent("dblclick", { bubbles: true, button: 0, clientX: r.left + 60, clientY: r.top + 10 }));
+                await ruhig(200);
+              } finally { w.modifyEventWithDialog = orig; }
+              out.dbl = opened2;
+            }
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(800);
+            out.back = { cols: list.querySelectorAll(".mc-tb-col").length, cards: list.querySelectorAll(":scope > .mc-tc[data-index]").length,
+                         board: d.documentElement.hasAttribute("mc-task-board"), details: Math.round(det.getBoundingClientRect().width) };
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            if (typeof w.taskViewUpdate == "function") w.taskViewUpdate("throughcurrent");
+            for (const s of saved) { try { await c.deleteItem(s); } catch {} }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        cols, bk = res.get("cols") or [], res.get("back") or {}
+        row = len(cols) == 3 and all(abs(x["r"]["t"] - cols[0]["r"]["t"]) <= 1 and x["r"]["w"] >= 200 and x["r"]["h"] >= 200 for x in cols) \
+            and cols[0]["r"]["l"] < cols[1]["r"]["l"] < cols[2]["r"]["l"]
+        ok = (res.get("label") == "Kanban View" and row
+              and [x["title"] for x in cols] == ["Not Started", "In Progress", "Completed"]
+              and [x["tasks"] for x in cols] == [["Halo Kanban offen"], ["Halo Kanban halb"], ["Halo Kanban fertig"]]
+              and res.get("countsMatch") and res.get("newRow") == [True, False, False]
+              and res.get("details") == 0 and res.get("attr")
+              and res.get("selected") == {"task": "Halo Kanban halb", "card": True} and res.get("dbl") == "Halo Kanban halb"
+              and bk.get("cols") == 0 and bk.get("cards", 0) >= 2 and not bk.get("board"))
+        return ok, f"{res}"
+    check("Aufgaben: Kanban-Ansicht über „…“, drei Spalten nach Fortschritt (Not Started, In Progress, Completed) mit Anzahl, ohne Detailspalte, Klick wählt, Doppelklick öffnet", task_board, results)
 
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
@@ -13601,7 +13673,7 @@ Neu
               and not ly.get("trash") and bool(plus) and plus["l"] >= ly["listRight"] and ly["actRight"] <= ly["detRight"]
               and abs(ly.get("line", 0) - ly.get("split", -9)) <= 1 and ly.get("details", 0) >= ly.get("detMin", 9999) - 1
               and em.get("hidden") and em.get("text") == "No Task Selected" and em.get("content") and em.get("vis") == "visible"
-              and res.get("viewMenu") == ["Card View", "Table View"]
+              and res.get("viewMenu") == ["Card View", "Table View", "Kanban View"]
               and (not res.get("drag") or (res["drag"]["split"] <= -60 and abs(res["drag"]["plus"] - res["drag"]["split"]) <= 2
                                            and abs(res["drag"]["acts"] - res["drag"]["split"]) <= 2 and abs(res["drag"]["back"]) <= 2)))
         return ok, f"{res}"

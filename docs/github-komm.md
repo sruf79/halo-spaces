@@ -56,6 +56,13 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Regeln dieser Datei) und dem Autor antworten. Mergen, schließen oder
   Teile übernehmen nur mit Freigabe des Maintainers; übernommene Teile im
   Commit dem Autor zuschreiben (`Co-Authored-By:`).
+  **Schließen nach dem Release** (Entscheidung des Maintainers vom 9.11.2026, `ENTSCHEIDUNGEN.md`):
+  Gibt der Maintainer einen PR frei, kommt eine Zeile nach `tests/pr-freigaben.txt` (PR, Issue,
+  Datum, sein Zitat mit Herkunft; Sitzungen tragen nur mit Zitat ein). `publish.sh` schließt ihn
+  über `tests/pr-schliessen.sh`, sobald der Fix „(GitHub #Issue)“ im Release liegt und der PR offen
+  ist (fester Dank-Kommentar mit Version, kein Merge), und verschiebt die Zeile nach
+  `tests/pr-freigaben-erledigt.txt`. Die GitHub-Routinen schließen nie Pull Requests; „kandidat“ im
+  Bericht ist nur ein Hinweis. Probe: `zsh tests/pr-schliessen.sh x.y.z --trocken`.
 - **Forks:** gehören zur Prüfung dazu (Liste mit `gh api repos/sruf79/halo-spaces/forks`, die
   Textsuche `in:name fork:only` findet keinen Fork;
   Stand eines Forks mit `git fetch <url> main:refs/remotes/<name>/main`

@@ -398,3 +398,6 @@ Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „jede session darf darf das
 
 ### 9.11.2026: Kontroverse Issues nicht ins Board, Einschätzung im Stand und im Push (Maintainer in neon)
 Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „Bei Kontroversen neue Issues nicht ins Board, stattdessen Einschätzung im Stand unter ‚wartet auf Entscheidung‘ und im Push“. Ergänzt die Regel vom 9.11.2026 (Wünsche von Nutzern erst nach Einschätzung und OK ins Board, Commit e1c5a56); Umsetzung in `docs/github-komm.md`.
+
+### 9.11.2026: PRs automatisch nach Release schließen (Freigabeliste) (Maintainer in neon)
+Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „ich möchte eine sichere variante um automatisch PRs zu schliessen wenn der entsprechend vermerkte bug/feature erledigt wurde und das entsprechende release veröffentlicht“. Umsetzung (Variante mit Freigabeliste): `tests/pr-freigaben.txt` (nur Einträge mit Zitat des Maintainers), `tests/pr-schliessen.sh` aus `publish.sh` nach dem Release; die GitHub-Routinen schließen nie, kein Merge. Regel in `AGENTS.md`, `docs/github-komm.md`, `docs/release.md`.

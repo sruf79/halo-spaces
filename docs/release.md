@@ -6,6 +6,17 @@ Release in voller Länge (Ablauf, Marke, Hotfix, `publish.sh`, Bericht, Issues, 
 
 **Höchstens ein reguläres Release pro Tag.** Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern. (Freigabe des Maintainers vom 9.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; gilt zusätzlich zu „Wann“ unten.)
 
+## Pull Requests nach dem Release schließen
+
+Nach dem Schließen der Issues ruft `publish.sh` `tests/pr-schliessen.sh <version>` auf: Es schließt nur
+offene PRs mit Eintrag in `tests/pr-freigaben.txt`, deren Issue-Fix „(GitHub #n)“ im Release liegt
+(Dank-Kommentar, kein Merge), verschiebt die Zeile nach `tests/pr-freigaben-erledigt.txt` und committet
+beide Listen lokal (der nächste Push nimmt sie mit). Alles andere (nicht in der Liste, ohne Issue,
+„hold“, schon zu, Kandidaten mit „Closes #n“) steht nur im Bericht; Fehler stehen dort als „FEHLER“ und
+halten das Release nicht auf. Probe ohne Änderung: `./publish.sh --trocken x.y.z` bzw.
+`zsh tests/pr-schliessen.sh x.y.z --trocken`; Test ohne Netz: `zsh tests/pr_schliessen_test.zsh`
+(Entscheidung vom 9.11.2026, `ENTSCHEIDUNGEN.md`).
+
 ## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
 
 Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.

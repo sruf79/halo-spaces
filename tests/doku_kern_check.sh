@@ -59,7 +59,7 @@ if sed 's/`[^`]*`//g' $datei | grep -nE '(^|[[:space:](])@(docs|tests|ENTSCHEIDU
 fi
 
 # ausgelagerte Dateien müssen existieren
-for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md docs/testrechner.md docs/notfall.md; do
+for d in ENTSCHEIDUNGEN.md docs/neon-sitzung.md docs/github-komm.md docs/board.md docs/testrechner.md docs/notfall.md docs/aufbau.md docs/tests.md docs/release.md; do
   [[ -f ${datei:h}/$d ]] || { print "FEHLER fehlt: $d"; fehler=1 }
 done
 

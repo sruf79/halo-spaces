@@ -62,7 +62,9 @@ Bei Entscheidungen des Maintainers gilt die jüngere (Datum im Text).
 ~/halo-aufgaben/doku-kennzahlen.json: ein Objekt, Schlüssel ist die
 ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   dateien, zeilen (Objekt Datei → Zeilen), funde (Objekt Art → Anzahl, Arten
-  wie in Abschnitt 1), behoben, vorschlaege, offen_aus_vorwoche.
+  wie in Abschnitt 1), behoben, vorschlaege, offen_aus_vorwoche und
+  widersprueche (Zahl der gefundenen Widersprüche zwischen .md-Dateien bzw. zu den Skripten;
+  fester Schlüssel, `null` wenn nicht ermittelt).
 Bestehende Wochen nicht überschreiben (außer der eigenen bei erneutem Lauf).
 Im Bericht mit der Vorwoche vergleichen, wenn vorhanden.
 

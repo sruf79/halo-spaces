@@ -118,7 +118,7 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Vorprüfung: $GRUND"
     if (( DOKU_VOLL )); then
       DOKU_HINWEIS="Vollprüfung: alle .md-Dateien gründlich prüfen."
-      MODELL=(--model sonnet --effort medium)
+      MODELL=(--model opus --effort medium)   # Vollprüfung mit Opus (Entscheidung vom 9.11.2026, Stufe 5e)
     else
       DOKU_HINWEIS="Teilprüfung seit der letzten Prüfung (Stand ${DOKU_STAND[1,7]}). Gründlich prüfen: geänderte .md-Dateien (${(j:, :)DOKU_GEAENDERT:-keine})${DOKU_SKRIPTE:+ und die .md, die geänderte Skripte nennen (Skripte: ${(j:, :)DOKU_SKRIPTE}; .md: ${(j:, :)DOKU_BETROFFEN})}. Alle übrigen .md nur auf Widersprüche und Doppeltes zu diesen prüfen, nicht Absatz für Absatz."
     fi

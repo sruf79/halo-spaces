@@ -235,7 +235,8 @@ if [[ -n $TROCKEN ]]; then
 else
   MODUS="Normaler Lauf: Freigaben wie im Auftrag."
 fi
-AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
+WOCHE=$(date +%G-W%V)   # ISO-Woche des Laufs, vom Skript berechnet (nicht von Claude abgeleitet)
+AUFTRAG="Heute: $TAG. Wochenschlüssel (ISO-Woche, maßgeblich): $WOCHE. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
 $MODUS${DOKU_HINWEIS:+
 $DOKU_HINWEIS}${CI_KENNZAHL:+
 $CI_KENNZAHL}

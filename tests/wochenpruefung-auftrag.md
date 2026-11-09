@@ -147,7 +147,7 @@ Maintainer freigibt) – und wirkten die freigegebenen Änderungen der Vorwochen
 ## 2. Kennzahlen speichern
 
 ~/halo-aufgaben/wochen-kennzahlen.json: ein Objekt, Schlüssel ist die
-ISO-Woche, Montag bis Sonntag („2026-W46“; `date +%G-W%V` für den Sonntag der Woche), Wert ein
+ISO-Woche, Montag bis Sonntag („2026-W46“; maßgeblich ist der im Auftrag-Kopf mitgegebene „Wochenschlüssel“, nicht selbst ableiten), Wert ein
 Objekt mit einer **festen Kennzahlenliste**: immer dieselben Schlüssel, ein fehlender Wert steht
 als `null` (nicht weglassen). Feste Kernliste (zusätzlich zu den weiteren Schlüsseln unten):
   ci_gruen, ci_rot (CI-Läufe grün/rot), releases, pushes_je_tag (Objekt Datum → Anzahl der

@@ -118,3 +118,110 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   Laufende Hintergrundprozesse, Tests oder Unteragenten heißen nie „frei“.
 - Der Wert für das Verdichten (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) bleibt wie
   in allen Sitzungen; seltener verdichten heißt weniger vergessen.
+
+## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
+
+Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.
+
+### neon erreichen – gilt für JEDE Sitzung
+
+Jede Sitzung, egal in welcher Umgebung (Cloud, Desktop-App, CLI auf dem
+Laptop, iPhone, Cowork, Claude Tag/Slack, geplante Aufgaben, Unteragenten
+über ihre Hauptsitzung), kann der dauerhaften Sitzung **`neon`** auf dem
+Mac mini Aufträge geben (Entscheidung des Maintainers vom 4.11.2026). Alles,
+was den Mac braucht – Testläufe, Screenshots, Release –, geht so an neon;
+Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
+
+1. `ListAgents`, dann `SendMessage` an `neon` (die Remote-Control-Sitzung,
+   die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
+2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
+   `send_message` mit ihrer ID. Keine feste ID verwenden: nach einem Neustart
+   von neon (`docs/neon-sitzung.md`) kann sich die ID ändern (Stand 6.11.2026
+   `session_01BK9gbfo3oZh8yxoakmG4CD`, bei den bisherigen Neustarts gleich
+   geblieben) – immer über `ListAgents` bzw. die Liste suchen.
+3. Lehnt `send_message` mit einem `content_digest` ab
+   (`confirm_repository_trust`), diese Freigabe sofort anfragen – die
+   Claude-App fragt den Maintainer selbst – und danach erneut senden.
+4. Fehlen die Werkzeuge, erst per `ToolSearch` laden (`SendMessage`,
+   `ListAgents`, `mcp__claude-code-remote__list_sessions`,
+   `…__send_message`, `…__confirm_repository_trust`).
+5. Auf dem Laptop zusätzlich SSH über Tailscale (`tests/MAC-MINI.md`
+   Abschnitte 4 und 7).
+
+**Board und Bilder an `neon-board`** (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`): Eine zweite
+dauerhafte Remote-Control-Sitzung **`neon-board`** auf demselben Mac bedient
+nur die Aufgabenliste (lesen, anlegen, ergänzen, Status, archivieren,
+Doppelte prüfen) und speichert Bilder und Apple-Vorlagen
+(`~/halo-aufgaben/bilder/`, `~/halo-aufgaben/apple/` mit `index.md`,
+`bilder-offen.md`) – nie Tests, Builds, Thunderbird, Pushes oder Releases.
+So erreichen Cloud-, Laptop- und iPhone-Sitzungen das Board auch, während
+neon testet. Board-, Bild- und Vorlagen-Aufträge gehen zuerst an
+`neon-board` (gleiche Wege 1–4 wie oben, Name bzw. Titel `neon-board`),
+nur wenn sie auf keinem Weg antwortet an `neon`. Alles, was den Mac sonst
+braucht (Tests, Screenshots, Release, Dateien außerhalb von
+`~/halo-aufgaben`), geht weiter an `neon`. Läufe, die lokal auf neon
+mit `gh` arbeiten (Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang,
+GitHub-Kommunikation), bleiben, wie sie sind (Deutung in `ENTSCHEIDUNGEN.md`). `neon-board` arbeitet in
+`~/halo-board` (Rolle in der dort erzeugten `CLAUDE.md`), hat eine eigene
+Auftragsliste `~/halo-aufgaben/board-stand.md` und zählt für Nachtlauf,
+Rundgang und Wochenprüfung nie als „belegt“. Einrichtung
+`tests/MAC-MINI.md` Abschnitt 12.
+
+**Sitzung nicht unter ihrem Namen gefunden?** Reihenfolge: Name in `ListAgents` → ähnlicher Name
+(Teilstring, gleicher Arbeitsordner) → `list_sessions` nach Titel → zuletzt bekannte Sitzungs-ID
+(`~/halo-aufgaben/sitzungen.json`); Einzelheiten und Skripthilfe `sitzung_finden`:
+`docs/neon-sitzung.md`. Erst danach „nicht erreichbar“ melden.
+
+Nie „neon nicht erreichbar“ melden, ohne alle passenden Wege versucht zu
+haben; dann dem Maintainer sagen, welche Wege mit welcher Meldung
+gescheitert sind. Ergebnisse von neon abwarten und weitergeben, nie selbst
+erfinden. Sitzungen auf neon selbst sind neon – dort direkt arbeiten.
+
+**Abgelehnte Antwort an eine Sitzung** (Entscheidung des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+wird eine Nachricht abgelehnt (z. B. `send_message` mit Sitzungs-ID: `elevated_session_untrusted_device`), sucht die
+Sitzung selbstständig einen anderen Weg (`SendMessage` an den Namen aus `ListAgents`, Titel über `list_sessions`,
+zuletzt bekannte ID, Reihenfolge wie unter „Sitzung nicht unter ihrem Namen gefunden?“), bis einer klappt; findet sie
+keinen, meldet sie das mit den Fehlermeldungen zurück. Lehnt eine Sitzung die Anfrage einer anderen Sitzung
+ab (auch teilweise, z. B. von der Berechtigungsprüfung gestoppt), schickt sie dieser Sitzung sofort jede Antwort
+mit Grund als Rückmeldung (Entscheidung des Maintainers vom 7.11.2026).
+
+**Antworten von neon:** neon antwortet per `SendMessage` an den Namen der Sitzung; es erscheint
+als neue Nachricht, `send_message` aus neon scheitert. neon merkt sich die Sitzungs-ID und sucht
+den aktuellen Titel erst beim Antworten; Auftraggeber geben ihrer Sitzung einen festen Titel
+(Einzelheiten, Modus „Auto“: `docs/neon-sitzung.md`).
+
+**neon schlank halten:** Alle Sitzungen teilen sich neons Kontext; was dort ankommt, verdrängt
+anderes (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`).
+
+*Aufträge an neon (alle anderen Sitzungen):* Der Weg bleibt derselbe (oben).
+- Nur, was den Mac braucht: Tests, Screenshots, Release, Dateien unter
+  `~/halo-…`. Board und Bilder speichern gehen an `neon-board` (oben),
+  `neon` nur als Ausweichweg. Code, Git-Verlauf, Issues, Pull
+  Requests und CI-Läufe (`actions_list`, `get_job_logs`) liest jede Sitzung
+  selbst.
+- Eine Nachricht je Auftrag, vollständig: was, Zweig bzw. Commit, Port ab
+  2850, was zurückkommen soll und in welcher Form („nur OK/FEHLER-Zeilen“,
+  „nur die id“). Keine Rückfragen nach dem Stand, kein „danke“ – neon meldet
+  sich von selbst.
+- Board gezielt fragen („offene Einträge mit Titel `Kalender:`“), nicht die
+  ganze Liste.
+- Kennzeichen für das Modell, mit dem neon den Auftrag erledigt (siehe
+  `docs/neon-sitzung.md`): `[opus]` erzwingt Opus (Code, Fehlersuche,
+  Design, Analysen), `[sonnet]` erzwingt Sonnet (Routine); ohne Kennzeichen
+  stuft neon selbst ein, im Zweifel Opus.
+- Längere Aufträge bestätigt neon mit einer Nummer („#12 angenommen“), das
+  Ergebnis kommt später als eigene Nachricht. Wer nachfragt, nennt die
+  Nummer.
+
+*Arbeitsweise von neon selbst* (Aufträge in `neon-stand.md`, Unteragenten, `tests/kurz.sh`,
+Modelle Sonnet/Opus – im Zweifel Opus –, `/bereit`, `/clear` von Hand statt täglichem Neustart):
+`docs/neon-sitzung.md`; die Sitzungen `neon` und `neon-board` lesen sie, der SessionStart-Hook
+`tests/neon-hook.sh` weist darauf hin.
+
+#### neon aus der Cloud steuern (aus „Cloud-Sessions“)
+
+**neon aus der Cloud steuern:** über die Remote-Control-Sitzung `neon`
+(kein SSH, kein Tailscale im Container) – Wege und Ablauf unter „neon
+erreichen“. Auftrag vollständig formulieren (Zweig bzw. Commit, Befehl, Port
+ab 2850, was zurückgemeldet werden soll); die Regeln aus „Testrechner“
+gelten dort unverändert.

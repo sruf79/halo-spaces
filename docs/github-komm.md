@@ -101,3 +101,20 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Codes, wo es nicht nötig ist; Rückfragen konkret stellen. Nie auf die
   private Aufgabenliste verweisen, keine Interna (Testrechner, VM, Tokens)
   und keine Zusagen zu Terminen.
+
+## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
+
+Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.
+
+### GitHub-Issues und Pull Requests von Nutzern
+
+Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig; **Ablauf, Labels,
+Forks, Nachsehen und die feste Routine: `docs/github-komm.md` (vor jeder Bearbeitung lesen).**
+
+- Bei jedem Arbeitsblock mit Bugs/Features offene Issues und Pull Requests prüfen (Schritt 2 der
+  „Reihenfolge eines Laufs“), neue oder geänderte kurz nennen. Fix auf `main` mit grüner CI: dem
+  Nutzer antworten (GitHub-Routine, Liste aus `tests/issue-abgleich.sh`), das Issue erst beim
+  Release mit „Fixed in x.y.z“ schließen (`publish.sh`).
+- Pull Requests mergen, schließen oder Teile übernehmen nur mit Freigabe des Maintainers.
+- Ton und Inhalt: Englisch, freundlich, knapp; nie auf die private Aufgabenliste verweisen, keine
+  Interna (Testrechner, VM, Tokens), keine Zusagen zu Terminen.

@@ -261,3 +261,72 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   unter Linux (CI, xvfb) und mit der Beta grün sein. Regelmäßig testet die
   Beta nur noch die CI unter Linux; auf dem Mac (`tests/beta.sh`) und in der
   VM (`--vm --beta`) läuft sie nur noch von Hand.
+
+## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
+
+Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.
+
+### Testrechner (Mac mini)
+
+Ein Mac mini (`tests/MAC-MINI.md`) testet rund um die Uhr; erreichbar nur über Tailscale und die Sitzung
+`neon` (siehe „neon erreichen“). **Einzelheiten – Setup-Prüfung, CI-Laufzeiten, Dunkelmodus-Regel,
+Nachtlauf, CI-Wächter, Wochen- und Doku-Prüfung, Design-Rundgang, Windows-VM, Modelle der Routinen,
+gezielte Prüfungen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen).** Hier nur,
+was jede Sitzung beachten muss:
+
+- Marionette-Ports: 2839 Standard, 2845 CI-Jobs `mac` und `windows`, ab 2850 für Läufe von Hand
+  und parallele Sitzungen (`--port`).
+- Job `mac` in `.github/workflows/test.yml` (self-hosted, Label `halo-mac`) läuft
+  nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
+  öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
+  `tests/mac-runner-hook.sh` alles andere ab.
+- Jeder Push auf `main` mit Thunderbird-Änderung belegt neon mit der CI (`mac`, `windows`) rund 50 Minuten,
+  mit Dunkelmodus rund 70. Solange sie läuft (Prozess `Runner.Worker`), keine eigenen Testläufe
+  starten – zwei Testfenster nehmen sich gegenseitig den Fokus. Änderungen an `.md`, `.claude/`,
+  Abläufen auf neon und Release-Skripten brauchen keinen CI-Lauf (Entscheidung vom 6.11.2026,
+  `ENTSCHEIDUNGEN.md`; Liste in `tests/ci-noetig.sh`).
+- **Gesammelt pushen:** je Eintrag committen, erst am Ende eines Arbeitsblocks pushen; vorher nur die
+  betroffenen Prüfungen (`python3 tests/halo_test.py --port 2851 --only "<Teil des Namens>"`, hell;
+  dunkel nur bei Farben), kein Volllauf – den macht die CI, ihr Ergebnis danach prüfen.
+- **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb des Nachtlaufs committen
+  Fertiges, das nicht sofort auf GitHub muss, auf `main` in `~/halo-spaces` und pushen nicht; sofort
+  pushen nur, wenn etwas davon abhängt (Release, Fix für Nutzer). Ungespeicherte Änderungen anderer
+  Sitzungen legt der Nachtlauf immer auf einen Zweig `rest/<datum>`, nie auf `main` und nie in ein
+  Release (geändert 8.11.2026, Ablauf-Analyse, Stufe 1) – wer fertig ist, committet also selbst.
+- **Den Nachtlauf nicht behindern** (Entscheidung des
+  Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
+  Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was
+  den Nachtlauf auslassen lässt: ab 00:00 keinen
+  Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein; eine
+  Runde mit Dunkelmodus dauert gut 70 Minuten), keine
+  Testläufe auf neon, die über 01:30 hinausgehen, und keine Runde, die um
+  01:30 noch arbeitet – rechtzeitig abschließen bzw. die Antwort geben und
+  warten.
+- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle Sitzungen außer dem
+  Nachtlauf selbst (und der Wochen- bzw. Doku-Prüfung, die erst nach dem
+  Nachtlauf pushen): Der Nachtlauf wartet auf die CI genau seines Commits;
+  ein weiterer Push verlängert die Wartezeit auf dem einen Runner um eine
+  ganze Runde. Früher nur, wenn neon bestätigt, dass
+  der Nachtlauf fertig ist (Bericht `~/halo-berichte/<datum>-nachtlauf.md`
+  liegt vor); sonst bis danach warten bzw. es dem Maintainer sagen.
+- **Pausen mit Ablaufzeit:** `~/halo-nacht/pausen.txt` (`pause_setzen <Routine> <bis> <Grund>` aus
+  `tests/lauf-hilfen.zsh`), damit keine Sperre vergessen wird; Einzelheiten `docs/testrechner.md`,
+  `tests/MAC-MINI.md` Abschnitt 13.
+- **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
+  machen; vor Push, CI und Release das Board nicht erneut laden (Entscheidung
+  des Maintainers vom 3.11.2026).
+- **Nachtlauf** (`tests/nachtlauf.sh`, jede Nacht 01:30) arbeitet die Aufgabenliste ab, pusht, wartet
+  auf die CI und veröffentlicht bei Grün; Pausieren nur über `~/halo-nacht/pausen.txt` (`pause_setzen`, mit Ablaufzeit).
+  Nach grüner CI und Release arbeitet er vor 06:30 alle machbaren Einträge weiter ab, je Eintrag
+  committet mit lokalen `--only`-Prüfungen, ohne Push und ohne zweites Release, höchstens sechs nicht
+  gepushte Commits; die pusht der nächste Nachtlauf mit seiner CI-Runde (Entscheidung vom 8.11.2026,
+  `ENTSCHEIDUNGEN.md`, Auftrag Schritt 5). Rotes aus seinen CI-Läufen trägt er selbst ins Board ein; lief in 24 Stunden keine vollständige
+  Runde und pusht er nichts CI-Auslösendes, startet er nach seiner Arbeit (bis 04:30) selbst eine
+  mit `ziel=alle` – die einzige erlaubte von Hand gestartete Runde während des Nachtlaufs, sie zählt
+  als vollständig (Entscheidung vom 7.11.2026, `tests/ci-runde.zsh`, `docs/testrechner.md`). Zeigt ein
+  späterer vollständiger Lauf derselben Nacht auf einem anderen Commit die rote Prüfung im selben Job
+  grün, gilt sie als repariert: kein Eintrag (nur Zeile im Bericht), ein offener geht mit Notiz auf
+  Done; grün auf demselben Commit heißt „flackert“ und zählt nicht (Entscheidung vom 7.11.2026,
+  gilt auch für das Nachholen durch den CI-Wächter). Die übrigen
+  Routinen (CI-Wächter, Wochenprüfung, Doku-Prüfung, Rundgang) und die Windows-VM stehen in
+  `docs/testrechner.md`; Windows-Abweichungen wie Linux behandeln.

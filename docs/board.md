@@ -151,3 +151,155 @@ gh run list -R sruf79/halo-spaces -w add-task.yml -L 1   # Lauf erfolgreich?
 
 Das Repo ist öffentlich: Der Workflow schreibt Titel und Text bewusst nicht
 ins Log – das beim Ändern beibehalten.
+
+## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
+
+Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.
+
+### Aufgabenliste
+
+Bugs und Wünsche führt der Maintainer in einem privaten GitHub-Project
+„halo.spaces Aufgaben“ (Konto `sruf79`, Felder Typ = Feature/Bug und Status).
+Lokal direkt über `gh project …` (siehe unten); in Cloud-Sessions immer über
+die Sitzung `neon-board`, ersatzweise `neon` (Abschnitt „Cloud-Sessions“). Das Board wird nicht
+automatisch geladen: erst zu Beginn eines Laufs (nach Schritt 1 der Reihenfolge unten) gezielt abrufen
+(`tests/board.sh liste [Muster]` bzw. über `neon-board`). Der SessionStart-Hook auf neon lädt nur die
+offenen Aufträge aus `neon-stand.md`.
+
+- Die Liste ist die Vorlage für die Arbeit: offene Einträge berücksichtigen
+  und passende Aufgaben nennen – in der Reihenfolge unten.
+- **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
+  abends; gilt für jede Sitzung, die die Liste abarbeitet, 5.11.2026):
+  1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
+  Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden und
+  offene GitHub-Issues/Pull Requests prüfen (siehe „GitHub-Issues und Pull Requests von Nutzern“, `docs/github-komm.md`), 3. Bugs,
+  4. einfache Features, 5. zuletzt Reihen (n/m) – Einzelheiten unter
+  „Reihenfolge beim Abarbeiten“ (der Nachtlauf-Auftrag wiederholt sie für
+  den Lauf; bei Änderungen beide Stellen anpassen).
+- **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):
+  Der Nachtlauf immer von sich aus. Jede andere Sitzung nur, wenn der
+  Maintainer sie dazu auffordert (ganze Liste oder einzelne Einträge) – dann
+  in der Reihenfolge oben, ohne weitere Rückfrage je Eintrag. Tagsüber dürfen
+  so Bugs und Features umgesetzt werden: je Eintrag committen, gepusht wird
+  gesammelt am Ende eines Arbeitsblocks (siehe „Testrechner“), veröffentlicht
+  nur Dringendes (siehe „Release“) – Entscheidung des Maintainers vom 5.11.2026.
+- **Regeländerungen wöchentlich bündeln** (Entscheidung des Maintainers vom
+  5.11.2026): Ideen für Abläufe und Regeln dieser Datei sammelt jede Sitzung
+  als Eintrag „Ablauf: …“ mit Status „Wartet auf OK“, statt sie gleich
+  umzusetzen. Der Maintainer entscheidet sonntags mit der Wochenprüfung; die
+  freigegebenen werden dann in einem Commit übernommen. Ausnahme: Sicherheit
+  und Datenschutz (sofort). Eine Entscheidung, die der Maintainer im Gespräch
+  ausdrücklich trifft, gilt wie bisher gleich.
+- **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
+  (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
+  zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
+  hängen (Notiz in beiden Einträgen). Dann **erst alle Bugs,
+  danach einfache Features, zuletzt Reihen** (Bugs fixen ist in jedem Lauf
+  wichtiger als neue Features): jeweils Bereich für Bereich, kleine vor
+  großen; die nächste Stufe erst, wenn in der vorigen nichts Machbares übrig
+  ist; von Reihen n/m nur der nächste Schritt – steht er auf Todo und der
+  vorige ist Done, ohne weitere Nennung durch den Maintainer (nur „Wartet auf
+  OK“ hält an; Klarstellung vom 5.11.2026, ältere Eintragstexte mit „erst
+  nach Nennung“ gelten nicht mehr). Ausnahme: Ein Feature, das
+  einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
+  Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
+- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage als Entwurf anlegen (Typ setzen,
+  Status Todo; ein Zitat des Maintainers darin erst nach seiner Zustimmung, siehe „Zitate erst
+  nach Zustimmung“). Ursache klären und Lösungsidee in den Eintrag schreiben ist erwünscht, aber nicht
+  mitten in der laufenden Aufgabe nebenbei umsetzen und nicht anbieten; umgesetzt wird er wie jeder
+  Eintrag über die Liste („Wer die Liste abarbeitet“). Gehört der Punkt zu einem offenen Eintrag,
+  diesen ergänzen. Jeder Screenshot, den der Maintainer ins Gespräch legt, geht automatisch an `neon-board`
+  (ersatzweise `neon`) und wird dort mit sprechendem Namen gespeichert (7.11.2026); Screenshots von Apple-Apps zusätzlich als Vorlage; Bilder nie über das Repo
+  (echte Mails). **Bildübergabe aus Cloud-/Laptop-/iPhone-Sitzungen (Entscheidung des Maintainers vom 7.11.2026):** Bild als eigene Datei
+  neben einer minimalen privaten `Artifact`-Seite (`files`), Nachricht an `neon-board` mit Link, Dateiname, SHA-256 und
+  Zielname; `neon-board` liest mit `action: "read"` und `path` (rund 150 statt 60.000 Tokens); nie als data:-URI in der
+  Seite, nie als base64 in der Nachricht. Qualitätsprüfung, Namen, Einzelheiten: `docs/board.md`.
+- **Bilder und Vorlagen** (Freigabe des Maintainers vom 7.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+  auf neon unter `~/halo-aufgaben/`: `eingang/` (unbearbeitet, `halobild` legt hier ab, wird alle
+  15 Min. einsortiert), `bilder/` (Bilder zu Board-Einträgen, Index `bilder/index.md`), `apple/`
+  (Apple-Vorlagen, Index `apple/index.md`, Name `<app>-<oberfläche>[-dunkel]`). Wer Aussehen oder
+  Verhalten gestaltet oder prüft, schaut zuerst in den Index und vergleicht; fehlt eine Vorlage,
+  im Bericht bzw. Gespräch nennen, welche helfen würde. Cloud- und Laptop-Sitzungen sehen die
+  Ordner nicht und fragen bei `neon-board` (ersatzweise `neon`) nach, nie eigene Pfade. Nie ins
+  Repo (echte Mails). Einzelheiten: `docs/board.md`.
+- **Bilder-Erinnerung** (Entscheidung des Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung
+  zwischen 08:00 und 22:00 (Wiener Zeit) nennt in ihrer ersten Antwort die offenen Bilder aus
+  `~/halo-aufgaben/bilder-offen.md` (Cloud/Laptop: bei `neon-board` erfragen); nie in automatischen
+  Läufen. Einzelheiten: `docs/board.md`.
+- Bei Arbeitsbeginn Status In Progress; nach dem Commit Notiz mit
+  Commit-Hash („committet, wartet auf Push/CI“), Status bleibt In Progress
+  (gepusht wird gesammelt, siehe „Testrechner“). Erst wenn der Commit auf
+  `main` ist und die CI dazu grün war: Status Done, dann archivieren. Das
+  übernimmt, wer pusht und die CI prüft (Nachtlauf, Cloud-Session über
+  `neon-board`, ersatzweise `neon`).
+  Wird ein Commit bei roter CI zurückgenommen (`git revert`), bleibt der
+  Eintrag offen mit Notiz zum Grund. Teilweise Erledigtes bleibt
+  In Progress mit Notiz, was fehlt.
+- **Höchstens drei Einträge in Arbeit je Sitzung** (Entscheidung des
+  Maintainers vom 5.11.2026): gleichzeitig In Progress, an denen gerade
+  gearbeitet wird; Einträge mit Notiz „committet, wartet auf Push/CI“ zählen
+  nicht mit. Am Ende eines Laufs bzw. einer Sitzung geht, woran nicht mehr
+  gearbeitet wird und was nicht committet ist, mit Notiz zum Stand zurück
+  auf Todo.
+- **Entscheidungen des Maintainers wörtlich** (Entscheidung des
+  Maintainers vom 5.11.2026, gilt sofort; der Wortlaut jeder Entscheidung
+  steht in `ENTSCHEIDUNGEN.md`, neue Entscheidungen dort eintragen): Jede Sitzung schickt eine
+  Entscheidung des Maintainers – nach seiner Zustimmung (siehe nächster
+  Punkt) – an `neon-board` (ersatzweise `neon`) bzw. trägt sie selbst ein –
+  mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
+  keine Umschreibung. Board-Notizen zu Entscheidungen enthalten dieses Zitat
+  unverändert. Ein späterer Vermerk darf eine Entscheidung nur ändern oder
+  aufheben, wenn er ein neues Zitat des Maintainers mitbringt; sonst
+  Rückfrage beim Maintainer. Wer Stände aus dem Board weitergibt (an
+  Sitzungen oder den Maintainer), zitiert die Notiz statt sie
+  zusammenzufassen; eigene Deutungen als solche kennzeichnen.
+- **Zitate erst nach Zustimmung, Konzeptrunden ohne neon** (Entscheidung
+  des Maintainers vom 6.11.2026, Sitzung halo-spaces-72, Wortlaut in `ENTSCHEIDUNGEN.md`):
+  Während einer Konzeptrunde (Vorschaubilder, Varianten, Zwischenmeinungen)
+  geht nichts an neon oder neon-board. Ein Zitat des Maintainers – auch für neue Einträge
+  und Entscheidungen – übermittelt eine Sitzung erst, wenn er zugestimmt
+  hat (z. B. „ja, so an neon“); dann einmal, wörtlich, mit dem Ergebnis.
+  Abfragen von Informationen bei neon bzw. neon-board (Board lesen, Code-Stand, Messungen)
+  gehen weiter ohne Rückfrage. Die Bildübergabe (oben) bleibt automatisch.
+- Inhalte der Liste nie öffentlich machen: keine Verweise in Commits,
+  README, Store-Texten oder öffentlichen Issues.
+
+- Board: <https://github.com/users/sruf79/projects/1> (Nummer `1`, Besitzer `sruf79`), Einträge sind
+  Entwürfe; Feld-IDs, `gh project …`-Befehle, Titelform und Zugang aus Cloud-Sitzungen (nur über
+  `neon-board`, ersatzweise `neon`; Notweg Workflow `add-task.yml`): `docs/board.md`. Das Repo ist
+  öffentlich: den Workflow nie so ändern, dass er Titel oder Text ins Log schreibt.
+
+#### Cloud-Sessions
+
+In Cloud-Sessions geht `gh project …` nicht (GraphQL gesperrt): **Alles am Board – lesen, neu anlegen,
+ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über die Sitzung `neon-board`,
+ersatzweise `neon`** (Entscheidung des Maintainers vom 4.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`,
+Weg: „neon erreichen“). Im Auftrag nennen, was anzulegen oder zu ändern ist und was zurückgemeldet
+werden soll; bis zur Antwort nichts als erledigt melden. Entscheidungen des Maintainers mit Wortlaut
+und Herkunft schicken. Notweg ohne neon-board und neon und Einzelheiten: `docs/board.md`.
+
+**neon aus der Cloud steuern:** über die Remote-Control-Sitzung `neon`
+(kein SSH, kein Tailscale im Container) – Wege und Ablauf unter „neon
+erreichen“. Auftrag vollständig formulieren (Zweig bzw. Commit, Befehl, Port
+ab 2850, was zurückgemeldet werden soll); die Regeln aus „Testrechner“
+gelten dort unverändert.
+
+**Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
+4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen
+fertige Arbeit aber ohne Rückfrage selbst nach `main` – kein Pull Request,
+kein Merge durch den Maintainer. Ablauf am Ende eines Arbeitsblocks:
+`git fetch origin main`, auf `origin/main` rebasen, `git push origin
+HEAD:main`; den eigenen Zweig `claude/…` stehen lassen – der Nachtlauf
+löscht Zweige `claude/…` ohne eigene Commits über `main` hinaus und ohne
+offenen Pull Request (Entscheidung des Maintainers vom 7.11.2026, ersetzt
+das Löschen durch die Sitzung vom 5.11.2026). Dabei:
+
+- Gesammelt pushen wie unter „Testrechner“ (je Eintrag committen, einmal am
+  Ende pushen).
+- Vorher die betroffenen Prüfungen über neon laufen lassen (`--only`, Zweig
+  nennen), wenn neon erreichbar und frei ist; sonst ohne und das im Gespräch
+  sagen. Den Volllauf macht die CI, Rot meldet der CI-Wächter.
+- Push-Sperre 01:30–09:00 und ab 00:00 kein Push mit Codeänderung: wie
+  unter „Testrechner“.
+- Release: siehe „Release“ (nur auf neon); den Board-Status über
+  `neon-board` (ersatzweise `neon`) oder den Maintainer pflegen.

@@ -6612,6 +6612,73 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (Einstellung), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
 
+    def multiweek_many():
+        # Nacharbeit 9.11.2026 („nach einiger Zeit ruckelt es“): vier tägliche Termine, 40 Wochen am Stück scrollen
+        # (mehrere Neuaufbauten). Sichtbare Tage nie ohne Termine, Termine der Puffer-Wochen in Häppchen nachgetragen
+        # (Warteschlange benutzt, am Ende alle geladenen Tage voll), längstes Eintragen in einem Stück und Bildzeit gemessen
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll";
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {}; const added = [];
+          const frame = () => new Promise(r => w.requestAnimationFrame(r));
+          try {
+            Services.prefs.setBoolPref(P, true); await ruhig(800);
+            const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+            const s = mv.rangeStartDate.clone(); s.day -= 7 * 20;
+            const ymd = `${s.year}${String(s.month + 1).padStart(2, "0")}${String(s.day).padStart(2, "0")}`;
+            for (let i = 0; i < 4; i++) {
+              const ev = new CalEvent();
+              ev.icalString = ["BEGIN:VEVENT", `UID:halo-viel-${i}@test`, `SUMMARY:Halo Viel ${i}`, `DTSTART:${ymd}T${String(8 + 2 * i).padStart(2, "0")}0000`,
+                               `DTEND:${ymd}T${String(9 + 2 * i).padStart(2, "0")}0000`, "RRULE:FREQ=DAILY", "END:VEVENT"].join("\r\n");
+              added.push(await testCalendar().addItem(ev));
+            }
+            await bis(() => !mv.__mcQueue && mv.querySelectorAll("calendar-month-day-box-item").length >= 4 * 7 * 20, "Termine eingetragen", 10000); await ruhig(600);
+            // längstes Eintragen in einem Stück (Thunderbird ruft addItems je Kalender bzw. je Häppchen)
+            let longest = 0; const origAdd = mv.addItems;
+            mv.addItems = function (items) { const t = performance.now(); const r = origAdd.call(this, items); longest = Math.max(longest, performance.now() - t); return r; };
+            const idle = []; let tp = performance.now(); for (let i = 0; i < 20; i++) { await frame(); const t = performance.now(); idle.push(t - tp); tp = t; }
+            out.idle = Math.round(idle.sort((a, b) => a - b)[10] * 10) / 10;
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            const target = mv.monthbody.querySelector("calendar-month-day-box");
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom, vb = () => mv.getBoundingClientRect().bottom;
+            // sichtbare Tage ohne Termin (nur ohne Standbild)
+            const missing = () => { if (mv.querySelector(".mc-mw-mask")) return 0; let n = 0;
+              for (const row of mv.monthbody.children) { if (row.hidden) continue;
+                for (const c of row.cells) { const box = c.firstElementChild; const r = box?.getBoundingClientRect();
+                  if (!r || !r.width || r.top < head() - 1 || r.bottom > vb() + 1) continue;
+                  if (![...box.querySelectorAll("calendar-month-day-box-item")].some(i => /^Halo Viel/.test(i.occurrence?.title || ""))) n++; } }
+              return n; };
+            const s0 = mv.__mcScrollShifts; const times = []; let miss = 0, queued = 0, last = performance.now();
+            for (let i = 0; i < 120; i++) {
+              target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 }));
+              await frame(); const t = performance.now(); times.push(t - last); last = t; miss += missing();
+              queued = Math.max(queued, mv.__mcQueue?.items.length || 0);
+            }
+            const sorted = [...times].sort((a, b) => a - b);
+            out.frames = { n: times.length, median: Math.round(sorted[60] * 10) / 10, max: Math.round(sorted[119] * 10) / 10, slow: times.filter(t => t > 2 * out.idle + 2).length };
+            out.missing = miss; out.queued = queued; out.shifts = mv.__mcScrollShifts - s0; out.longest = Math.round(longest * 10) / 10;
+            // nach dem Einrasten: Warteschlange leer, alle geladenen Tage mit ihren vier Terminen
+            await bis(() => !mv.__mcQueue && !mv.querySelector(".mc-mw-mask"), "Häppchen fertig", 8000); await ruhig(400);
+            out.incomplete = (mv.mDateBoxes || []).filter(b => [...b.querySelectorAll("calendar-month-day-box-item")].filter(i => /^Halo Viel/.test(i.occurrence?.title || "")).length != 4).length;
+            out.days = (mv.mDateBoxes || []).length;
+          } finally {
+            delete mv.addItems;
+            for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
+            Services.prefs.clearUserPref(P); await ruhig(600);
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        fr = res.get("frames") or {}
+        idle = res.get("idle", 16.7)
+        # Bildzeit und längstes Stück scharf nur unter macOS (xvfb und VM ohne Grafikkarte schwanken), sonst nur gemeldet
+        smooth = fr.get("median", 99) <= idle * 1.5 + 2 and (sys.platform != "darwin" or (fr.get("slow", 99) <= 6 and fr.get("max", 99) <= 4 * idle
+                                                                                           and res.get("longest", 99) <= 3 * idle))
+        ok = (fr.get("n") == 120 and smooth and res.get("missing") == 0 and res.get("queued", 0) > 0 and res.get("shifts", 0) >= 3
+              and res.get("incomplete") == 0 and res.get("days", 0) >= 7 * 20)
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen – viele Termine über 40 Wochen ohne Ruckeln, sichtbare Tage sofort voll, Puffer-Wochen in Häppchen nachgetragen", multiweek_many, results)
+
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6 (Einstellung): Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
         # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),

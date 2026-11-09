@@ -86,6 +86,8 @@ class Marionette:
         # übersprungenen Prüfungen und zählen nicht (konsole_bewerten); späte Meldungen der gelaufenen bleiben „nach …“
         mark = konsole_setze_js("Vorbereitung (--only)") if ONLY and not IN_CHECK else ""
         script = "return (async () => {" + PRELUDE + mark + body + "})();"
+        if FV0 != "99.0.0":  # Paket ab 99.0.0: erfundene Versionen darüber
+            script = script.replace("99.0.0", FV0).replace("99.0.1", FV1)
         try:
             return self.cmd("WebDriver:ExecuteScript", {"script": script, "args": []}).get("value")
         except RuntimeError as e:
@@ -102,6 +104,20 @@ class Marionette:
 
 
 # gemeinsame Hilfen für alle Prüfungen (im Chrome-Kontext von Thunderbird)
+# erfundene „neuere“ Versionen für Update-Hinweis-Prüfungen: 99.0.0/99.0.1, solange das Paket kleiner ist
+# (sonst, z. B. bei einer Probeversion 99.0.0, gäbe es keine neuere und die hartkodierten Werte wären nicht „neuer“)
+FV0, FV1 = "99.0.0", "99.0.1"
+
+
+def faktisch_setzen(version):
+    global FV0, FV1
+    try:
+        if tuple(int(x) for x in version.split(".")) >= (99, 0, 0):
+            FV0, FV1 = "9999.0.0", "9999.0.1"
+    except ValueError:
+        pass
+
+
 PRELUDE = r"""
 const w = Services.wm.getMostRecentWindow("mail:3pane"); const d = w.document;
 // (ungezählter Zeitgeber, siehe ruhig())
@@ -753,7 +769,11 @@ def main():
                            key=os.path.getmtime, default=None)  # nicht die Store-Variante (ohne update_url)
     if not xpi or not os.path.exists(xpi):
         sys.exit("Kein Paket gefunden – zuerst ./build.sh")
-    version = json.load(open(os.path.join(ROOT, "extension", "manifest.json")))["version"]
+    # Version aus dem getesteten Paket (nicht aus dem Checkout: der Notfall-Release baut mit anderer Version als das Repo);
+    # beim Standardbau stimmen beide überein
+    with zipfile.ZipFile(xpi) as zf:
+        version = json.loads(zf.read("manifest.json"))["version"]
+    faktisch_setzen(version)
     if args.vm:
         sys.exit(run_in_vm(args, xpi))
     if sys.platform == "darwin":
@@ -7620,9 +7640,9 @@ def calendar_checks(m, results):
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           return out;""" % ADDON_ID)
         b, on, af = res.get("before") or {}, res.get("on") or {}, res.get("after") or {}
-        ok = (not b.get("attr") and on.get("attr") and on.get("content") == '""' and on.get("w") == "14px" and "99.0.0" in (on.get("title") or "")
+        ok = (not b.get("attr") and on.get("attr") and on.get("content") == '""' and on.get("w") == "14px" and FV0 in (on.get("title") or "")
               and on.get("tile") == b.get("tile") and res.get("pane") == "mcCat-paneMcHalo" and res.get("catDot") == '""'
-              and "99.0.0" in (res.get("row") or "") and not af.get("attr"))
+              and FV0 in (res.get("row") or "") and not af.get("attr"))
         return ok, f"{res}"
     check("Updates: bereitliegendes Update mit rotem Punkt an der Einstellungen-Kachel, Klick führt zu „halo.spaces“ mit „Install Now“", update_note, results)
 
@@ -7653,7 +7673,7 @@ def calendar_checks(m, results):
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           }
           return out;""" % ADDON_ID)
-        ok = res.get("before") == "none" and "99.0.1" in (res.get("after") or "")
+        ok = res.get("before") == "none" and FV1 in (res.get("after") or "")
         return ok, f"{res}"
     check("Updates: Update erst gefunden, während „halo.spaces“ in den Einstellungen offen ist – Zeile „Install Now“ erscheint mit dem Punkt", update_note_late, results)
 
@@ -12535,7 +12555,7 @@ Neu
           } finally { enh.findUpdate = realFind; Cu.evalInSandbox("delete globalThis.__mcFakeInstall; delete globalThis.__mcContinued;", g); }
           return out;""" % (ADDON_ID, ADDON_ID))
         ok = res.get("continued") and res.get("closed") and any(l.startswith("Installed") for l in res.get("labels", [])) \
-            and "99.0.0" in (res.get("offer") or "") and (res.get("hover") or {}).get("blue")
+            and FV0 in (res.get("offer") or "") and (res.get("hover") or {}).get("blue")
         return ok, f"{res}"
     check("Info-Fenster: „Install version …“ bleibt beim Darüberfahren blau, setzt das zurückgestellte Update gleich fort, meldet „Installed“ und schließt sich", info_install_now, results)
 

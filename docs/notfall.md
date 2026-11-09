@@ -93,3 +93,11 @@ Jede Stufe beginnt mit `notfall.sh sichern stufe-<n>-vor` und endet mit einer gr
 | 5 | `AGENTS.md`, Skills, Hooks | `tests/doku_kern_check.sh` rot; ein Hook blockiert den Nachtlauf |
 
 Rücknahme: `notfall.sh zurueck stufe-<n>-vor`, dann `git revert` der Commits dieser Stufe, Bericht wie beim Wiederanlauf.
+
+## 7. Zeitfenster-Hook (noch nicht aktiv)
+
+Der vorbereitete Hook `tests/zeitfenster-hook.sh` (Push-Sperre 00:00–09:00, keine Testläufe bei laufender CI; Einzelheiten
+`docs/testrechner.md`) ist nicht in `~/.claude/settings.json` eingetragen. Sobald er aktiv ist: Er läuft fail open (jeder Fehler
+lässt durch), Ausnahme für Routinen über `HALO_LAUF`, bewusster Schalter für den Maintainer ist die Datei
+`~/halo-nacht/SPERRE_AUS`. Blockiert er etwas Falsches, diese Datei anlegen und danach den Eintrag aus `~/.claude/settings.json`
+entfernen (Rücknahme Stufe 5).

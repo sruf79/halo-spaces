@@ -334,3 +334,16 @@ was jede Sitzung beachten muss:
   gilt auch für das Nachholen durch den CI-Wächter). Die übrigen
   Routinen (CI-Wächter, Wochenprüfung, Doku-Prüfung, Rundgang) und die Windows-VM stehen in
   `docs/testrechner.md`; Windows-Abweichungen wie Linux behandeln.
+
+## Zeitfenster-Hook (noch nicht aktiv)
+
+`tests/zeitfenster-hook.sh` ist als PreToolUse-Hook für das Werkzeug Bash vorbereitet (Befund B7), aber noch **nicht** in
+`~/.claude/settings.json` eingetragen (Teil B, braucht eine eigene Freigabe des Maintainers in der Sitzung neon). Er liest
+die Hook-JSON von stdin und sperrt mit Exitcode 2 und kurzer Meldung: `git push` von 01:30 bis 09:00 Wiener Zeit sowie von
+00:00 bis 01:30, wenn `tests/ci-noetig.sh origin/main HEAD` Exitcode 0 meldet (`git push --delete` und Push von Tags allein
+bleiben frei); außerdem Befehle, die `halo_test.py`, `update_test.py`, `store_shots.py` oder `ui_tour.py` starten, solange
+`Runner.Worker` läuft. Ausnahmen: gesetzte Umgebungsvariable `HALO_LAUF` (setzen Nachtlauf, Wochen-/Doku-Prüfung und Rundgang
+selbst) und die Datei `~/halo-nacht/SPERRE_AUS` (bewusster Schalter des Maintainers). Fail open: bei jedem Fehler (kein JSON,
+kein jq/python, Zeit nicht lesbar, ci-noetig nicht ausführbar) Exitcode 0. Prüfung: `zsh tests/zeitfenster-hook-test.sh`
+(Zeit über `HALO_JETZT=HHMM`, Runner über `HALO_RUNNER`, ci-noetig über `HALO_CI_NOETIG` simuliert). Abschalten: den Eintrag
+aus `~/.claude/settings.json` entfernen.

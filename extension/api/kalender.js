@@ -188,6 +188,13 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       label.style.transform = `translate3d(0, ${(-y).toFixed(2)}px, 0)`;
     }
     track();
+    // Termine der Wochen im Bild und der nächsten noch nicht eingetragen
+    // (Warteschlange nach einem Neuaufbau): jetzt, vor dem Zeichnen
+    if (rowBase && mv.__mcQueue) {
+      const r = B + Math.floor(pos / rowH());
+      const day = 864e5, base = rowBase.getTime();
+      mv.__mcFlush?.(base + 7 * (r - 1) * day, base + 7 * (r + (mv.weeksInView || 4) + 2) * day);
+    }
   };
   const apply = () => {
     const was = mv.hasAttribute("mc-mw-scroll");
@@ -663,7 +670,14 @@ function hookMultiweekBuffer(mv, restorers) {
     return box && box.mDate.compare(date) == 0 ? box : orig.findDayBoxForDate.call(this, date);
   };
   // Termine eintragen: die sichtbaren Wochen (eine Woche Rand) sofort, die
-  // Puffer-Wochen danach in Häppchen je Bild, nächstgelegene zuerst
+  // Puffer-Wochen danach in Häppchen je Bild, nächstgelegene zuerst. Einträge
+  // der Warteschlange: { a, b, item } mit Beginn und Ende in µs
+  const DAY_US = 864e8;
+  const span = item => {
+    const a = item.startDate || item.entryDate || item.dueDate;
+    const b = item.endDate || item.dueDate || a;
+    return a ? { a: a.nativeTime, b: b.nativeTime, item } : null;
+  };
   const dropQueue = view => {
     const q = view.__mcQueue;
     if (q) {
@@ -671,6 +685,18 @@ function hookMultiweekBuffer(mv, restorers) {
         win.cancelAnimationFrame(q.frame);
       }
       view.__mcQueue = null;
+    }
+  };
+  const done = (view, q) => {
+    if (q.items.length) {
+      q.frame ||= win.requestAnimationFrame(() => pump(view));
+    } else {
+      if (q.frame) {
+        win.cancelAnimationFrame(q.frame);
+      }
+      if (view.__mcQueue == q) {
+        view.__mcQueue = null;
+      }
     }
   };
   const pump = view => {
@@ -682,18 +708,39 @@ function hookMultiweekBuffer(mv, restorers) {
     const t0 = win.performance.now();
     try {
       while (q.items.length && win.performance.now() - t0 < MULTIWEEK_SLICE_MS) {
-        orig.addItems.call(view, q.items.splice(0, 8));
+        orig.addItems.call(view, q.items.splice(0, 8).map(x => x.item));
       }
     } catch (e) {
       log("multiweek queue error", String(e).slice(0, 120));
       q.items = [];
     }
-    if (q.items.length) {
-      q.frame = win.requestAnimationFrame(() => pump(view));
-    } else if (view.__mcQueue == q) {
-      view.__mcQueue = null;
-    }
+    done(view, q);
   };
+  // Wochen, die gerade ins Bild kommen (from bis to in ms): ihre wartenden
+  // Termine sofort, damit nie ein sichtbarer Tag leer ist (ein Tag Rand
+  // gegen Zeitzonen)
+  const flush = (view, from, to) => {
+    const q = view.__mcQueue;
+    if (!q?.items.length) {
+      return;
+    }
+    const s = from * 1000 - DAY_US, e = to * 1000 + DAY_US;
+    const now = [], rest = [];
+    for (const x of q.items) {
+      (x.a < e && x.b >= s ? now : rest).push(x);
+    }
+    if (!now.length) {
+      return;
+    }
+    q.items = rest;
+    try {
+      orig.addItems.call(view, now.map(x => x.item));
+    } catch (err) {
+      log("multiweek queue error", String(err).slice(0, 120));
+    }
+    done(view, q);
+  };
+  mv.__mcFlush = (from, to) => flush(mv, from, to);
   proto.addItems = function (items) {
     if (!on() || !this.__mcVisible || !this.rangeStartDate || !this.rangeEndDate || items.length < MULTIWEEK_DEFER_MIN) {
       return orig.addItems.call(this, items);
@@ -701,21 +748,18 @@ function hookMultiweekBuffer(mv, restorers) {
     const s = this.rangeStartDate.clone(), e = this.rangeEndDate.clone();
     s.day -= 7;
     e.day += 8;
+    const lo = s.nativeTime - DAY_US, hi = e.nativeTime + DAY_US;
     // Entfernung von der Mitte; in Scrollrichtung zählt sie ein Drittel
     // (dorthin kommt der Nutzer zuerst)
-    const mid = (s.nativeTime + e.nativeTime) / 2, dir = this.__mcDir || 0;
-    const dist = item => {
-      const delta = (item.startDate || item.entryDate || item.dueDate).nativeTime - mid;
-      return Math.abs(delta) * (dir && Math.sign(delta) == dir ? 1 : 3);
-    };
+    const mid = (lo + hi) / 2, dir = this.__mcDir || 0;
+    const dist = x => Math.abs(x.a - mid) * (dir && Math.sign(x.a - mid) == dir ? 1 : 3);
     const now = [], rest = [];
     for (const item of items) {
-      const a = item.startDate || item.entryDate || item.dueDate;
-      const b = item.endDate || item.dueDate || a;
-      if (!a || a.compare(e) < 0 && b.compare(s) >= 0) {
+      const x = span(item);
+      if (!x || x.a < hi && x.b >= lo) {
         now.push(item);
       } else {
-        rest.push(item);
+        rest.push(x);
       }
     }
     orig.addItems.call(this, now);
@@ -724,8 +768,8 @@ function hookMultiweekBuffer(mv, restorers) {
     }
     // zu den wartenden (mehrere Kalender) und nach Entfernung ordnen
     const q = this.__mcQueue ||= { items: [], frame: 0 };
-    q.items = q.items.concat(rest).map(item => [dist(item), item]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
-    q.frame ||= win.requestAnimationFrame(() => pump(this));
+    q.items = q.items.concat(rest).map(x => [dist(x), x]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+    done(this, q);
     return undefined;
   };
   proto.clearItems = function (...args) {
@@ -735,14 +779,14 @@ function hookMultiweekBuffer(mv, restorers) {
   proto.doRemoveItem = function (item, ...args) {
     const q = this.__mcQueue;
     if (q && item) {
-      q.items = q.items.filter(x => x.hashId != item.hashId);
+      q.items = q.items.filter(x => x.item.hashId != item.hashId);
     }
     return orig.doRemoveItem.call(this, item, ...args);
   };
   proto.removeItemsFromCalendar = function (calendarId, ...args) {
     const q = this.__mcQueue;
     if (q) {
-      q.items = q.items.filter(x => x.calendar?.id != calendarId);
+      q.items = q.items.filter(x => x.item.calendar?.id != calendarId);
     }
     return orig.removeItemsFromCalendar.call(this, calendarId, ...args);
   };
@@ -763,6 +807,8 @@ function hookMultiweekBuffer(mv, restorers) {
   const stopScroll = hookMultiweekScroll(mv, win, on, B, orig);
   restorers?.push(() => {
     stopScroll();
+    dropQueue(mv);
+    delete mv.__mcFlush;
     Services.prefs.removeObserver(MULTIWEEK_SCROLL_PREF, observer);
     for (const [name, own, fn] of saved) {
       if (own) {

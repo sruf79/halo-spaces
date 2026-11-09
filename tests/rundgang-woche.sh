@@ -1,4 +1,5 @@
 #!/bin/zsh
+export HALO_LAUF=rundgang
 # Wöchentlicher Design-Rundgang auf neon (tests/MAC-MINI.md, Abschnitt 17;
 # Entscheidung des Maintainers vom 5.11.2026): nimmt mit tests/ui_tour.py alle
 # Oberflächen auf und misst sie (--messung), vergleicht mit

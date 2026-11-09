@@ -1,4 +1,5 @@
 #!/bin/zsh
+export HALO_LAUF=nachtlauf
 # Nächtlicher Arbeitslauf auf neon (tests/MAC-MINI.md, Abschnitt 13): Claude Code
 # arbeitet offene Einträge der Aufgabenliste ab und veröffentlicht am Ende nach
 # AGENTS.md: pushen, CI abwarten (tests/ci-warten.sh), bei Grün release.sh und

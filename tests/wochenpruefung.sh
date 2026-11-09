@@ -1,4 +1,5 @@
 #!/bin/zsh
+export HALO_LAUF=wochenpruefung
 # Wöchentliche Prüfung der Läufe auf neon (tests/MAC-MINI.md, Abschnitt 15):
 # Claude Code wertet sonntags die letzten 7 Tage aus (CI-Läufe, Nachtläufe,
 # Berichte, Board), schreibt Kennzahlen und einen Bericht, korrigiert kleine

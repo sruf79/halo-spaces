@@ -5726,6 +5726,22 @@ def calendar_checks(m, results):
               const cs = dw.getComputedStyle(link);
               out.cursor = cs.cursor; out.color = cs.color; out.plain = dw.getComputedStyle(cell.closest("tr").querySelector("th")).color;
             }
+            // Öffnen selbst: mit Thunderbirds echten Angaben zum Schema, aber ohne Rückfrage „Open in …“ (nicht über
+            // loadURI) und ohne Thunderbirds gespeicherte Wahl zu ändern; nur der Start der App wird abgefangen
+            if (out.app) {
+              const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+              const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global;
+              const real = Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService);
+              const hs = Cc["@mozilla.org/uriloader/handler-service;1"].getService(Ci.nsIHandlerService);
+              const stored = () => { const h = real.getProtocolHandlerInfo(scheme); return [hs.exists(h), h.alwaysAskBeforeHandling, h.preferredAction]; };
+              const before = stored();
+              const svc = { getProtocolHandlerInfo: sc => { const h = real.getProtocolHandlerInfo(sc);
+                return { set preferredAction(v) { h.preferredAction = v; }, set alwaysAskBeforeHandling(v) { h.alwaysAskBeforeHandling = v; },
+                         launchWithURI: (u, bc) => { out.launch = { spec: u.spec, system: h.preferredAction == Ci.nsIHandlerInfo.useSystemDefault, ask: h.alwaysAskBeforeHandling, bc }; } }; },
+                loadURI: () => { out.loadURI = true; } };
+              Cu.evalInSandbox("openMaps", g)(`${scheme}:?q=Test`, svc);
+              out.storedSame = JSON.stringify(stored()) == JSON.stringify(before);
+            }
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             try { await c.deleteItem(saved); } catch {}
@@ -5736,9 +5752,12 @@ def calendar_checks(m, results):
         want = {"Darwin": "maps://?q=", "WINNT": "bingmaps:?q="}.get(res.get("os"), "geo:0,0?q=") + "Musterweg%207%2C%201010%20Wien"
         if not res.get("app"):
             return (not res.get("link") and "Musterweg 7" in (res.get("text") or "")), f"keine Karten-App: {res}"
-        ok = res.get("opened") == want and res.get("cursor") == "pointer" and res.get("color") != res.get("plain")
+        la = res.get("launch") or {}
+        ok = (res.get("opened") == want and res.get("cursor") == "pointer" and res.get("color") != res.get("plain")
+              and la.get("system") and la.get("ask") is False and la.get("bc") is None and (la.get("spec") or "").endswith("q=Test")
+              and not res.get("loadURI") and res.get("storedSame"))
         return ok, f"{res}"
-    check("Termin-Lesefenster: Klick auf den Ort öffnet die Karten-App des Systems", summary_location_maps, results)
+    check("Termin-Lesefenster: Klick auf den Ort öffnet die Karten-App des Systems direkt ohne Rückfrage „Open in …“, Thunderbirds gespeicherte Wahl bleibt", summary_location_maps, results)
 
     def reminder_dialog():
         # Erinnerungen anpassen: Liste ohne native Rahmenzeichnung, mit Haarlinie; Trenner neben den Überschriften fein

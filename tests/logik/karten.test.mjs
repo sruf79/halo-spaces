@@ -20,3 +20,16 @@ test("Karten: leerer Ort ergibt keine Adresse", () => {
   assert.equal(mapsUrl("   ", "WINNT"), null);
   assert.equal(mapsUrl(undefined, "Linux"), null);
 });
+
+test("Karten öffnen: direkt mit der App des Systems, ohne Rückfrage und ohne gespeicherte Wahl zu ändern", () => {
+  const { openMaps } = lade();
+  const calls = [];
+  const handler = { alwaysAskBeforeHandling: true, preferredAction: 0,
+    launchWithURI: (uri, bc) => calls.push(["launch", uri, bc]), store: () => calls.push(["store"]) };
+  const svc = { getProtocolHandlerInfo: scheme => (calls.push(["info", scheme]), handler),
+    loadURI: () => calls.push(["loadURI"]) };
+  openMaps("maps://?q=Wien", svc, "URI");
+  assert.deepEqual(calls, [["info", "maps"], ["launch", "URI", null]]);
+  assert.equal(handler.alwaysAskBeforeHandling, false);
+  assert.notEqual(handler.preferredAction, 0);
+});

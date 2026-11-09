@@ -163,9 +163,18 @@ function mapsAppExists(url) {
     return false;
   }
 }
-function openMaps(url) {
-  Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
-    .loadURI(Services.io.newURI(url), Services.scriptSecurityManager.getSystemPrincipal());
+// Direkt mit der Standard-App des Systems wie Apple Kalender – ohne Thunderbirds
+// Rückfrage „Open in …“ (über loadURI fragt Thunderbird bei maps:/bingmaps:/geo:
+// jedes Mal, solange „immer fragen“ gilt). Thunderbirds gespeicherte Wahl für
+// das Schema bleibt unverändert (nur diese Kopie der Angaben, kein store()).
+// svc, uri: Protokolldienst und Adresse (Logik-Tests setzen eigene)
+function openMaps(url, svc = null, uri = null) {
+  svc ??= Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService);
+  uri ??= Services.io.newURI(url);
+  const handler = svc.getProtocolHandlerInfo(url.slice(0, url.indexOf(":")));
+  handler.preferredAction = Ci.nsIHandlerInfo.useSystemDefault;
+  handler.alwaysAskBeforeHandling = false;
+  handler.launchWithURI(uri, null);
 }
 // Wetter in Worten (Tooltip des Wettersymbols)
 const WEATHER_WORDS = {

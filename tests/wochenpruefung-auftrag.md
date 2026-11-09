@@ -2,8 +2,8 @@ Unbeaufsichtigte Wochenprüfung halo.spaces auf neon (gestartet von
 tests/wochenpruefung.sh, sonntags 08:00). Niemand sieht zu, niemand antwortet
 auf Rückfragen. AGENTS.md gilt vollständig; Abweichungen und Ergänzungen
 stehen hier. Ziel: Wie gut liefen Tests, CI, Nachtläufe und Releases in den
-letzten 7 Tagen, was lässt sich an Prüfungen und Abläufen verbessern –
-und wirkten die Verbesserungen der Vorwochen?
+letzten 7 Tagen, was lässt sich an Prüfungen und Abläufen verbessern (als Empfehlung, die der
+Maintainer freigibt) – und wirkten die freigegebenen Änderungen der Vorwochen?
 
 ## 1. Auswerten (letzte 7 Tage)
 
@@ -89,9 +89,9 @@ und wirkten die Verbesserungen der Vorwochen?
   erkennbare Grund (z. B. Plan zu klein gewählt, Einträge fälschlich als
   „braucht Entscheidung“ übersprungen, Abbruch nach Limit, Runde ohne
   Fortsetzung). War das in mindestens zwei Nächten der Woche so, die
-  Ursache beheben wie in Abschnitt 3b (z. B. Auftrag in
+  Ursache als Empfehlung nach Abschnitt 3b melden (z. B. Auftrag in
   tests/nachtlauf-auftrag.md schärfen; Kennzahl naechte_zu_frueh bzw.
-  ungenutzt_min) – bzw. als Vorschlag, wenn es eine Entscheidung des
+  ungenutzt_min), mit Hinweis, wenn es eine Entscheidung des
   Maintainers berührt.
   Zusätzlich (Entscheidung des Maintainers vom 8.11.2026, Wortlaut in
   ENTSCHEIDUNGEN.md): je Nacht die Minuten zwischen dem Ende der Arbeit
@@ -147,7 +147,14 @@ und wirkten die Verbesserungen der Vorwochen?
 ## 2. Kennzahlen speichern
 
 ~/halo-aufgaben/wochen-kennzahlen.json: ein Objekt, Schlüssel ist die
-ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
+ISO-Woche, Montag bis Sonntag („2026-W46“; `date +%G-W%V` für den Sonntag der Woche), Wert ein
+Objekt mit einer **festen Kennzahlenliste**: immer dieselben Schlüssel, ein fehlender Wert steht
+als `null` (nicht weglassen). Feste Kernliste (zusätzlich zu den weiteren Schlüsseln unten):
+  ci_gruen, ci_rot (CI-Läufe grün/rot), releases, pushes_je_tag (Objekt Datum → Anzahl der
+  Pushes auf main), naechte_ausgelassen, uebersprungen_gesamt (Summe der Zeilen
+  „ÜBERSPRUNGEN“), board_neu, board_erledigt, iphone_meldungen (Meldungen aufs iPhone an den
+  Maintainer, gezählt aus den Protokollen; null, wenn nicht ermittelbar).
+Weitere Schlüssel, ebenfalls fest:
   ci_laeufe, ci_gruen, ci_rot, ci_abgebrochen,
   job_dauer_min (Objekt Job → Mittelwert in Minuten),
   rote_pruefungen (Objekt Prüfung → Anzahl), unzuverlaessig (Liste),
@@ -159,7 +166,7 @@ ISO-Woche („2026-W45“), Wert ein Objekt mit mindestens:
   konsole (Objekt: meldungen, board_neu, board_erledigt, board_offen,
   dubletten, verloren, wieder_aufgetreten, durchsicht_runden,
   durchsicht_abgeschlossen),
-  ablauf (Objekt: geaendert, wirkt, zurueck, offen, vorschlaege),
+  ablauf (Objekt: umgesetzt (freigegebene Änderungen im Verlauf), wirkt, zurueck_vorgeschlagen, offen, empfehlungen (Zahl der Empfehlungen dieser Woche, höchstens 3)),
   uebersprungen (Objekt: Routine → Anzahl der Zeilen „ÜBERSPRUNGEN“),
   push_fehler (Objekt: Routine → Anzahl der Zeilen „PUSH-FEHLER“),
   ci_runde_fehler (Objekt: vollrunde, eintrag → Anzahl der Zeilen „VOLLRUNDE-FEHLER“ bzw.
@@ -195,7 +202,7 @@ die eine unzuverlässige oder plattformbedingte Prüfung verlässlich machen:
 - reine Plattform-Abweichungen (Linux/Windows) als Warnung statt Fehler.
 - eindeutige Fehler im Umgang mit Fehlerkonsole und -protokoll (Abschnitt
   1) in tests/halo_test.py und tests/update_test.py; Fehler in
-  tests/ci-waechter.sh bzw. tests/ci-warten.sh als Ablaufänderung (3b).
+  tests/ci-waechter.sh bzw. tests/ci-warten.sh als Empfehlung (3b).
   Nie so, dass eine Konsolen- oder Protokollmeldung doch zum Fehlschlag
   wird; die zwei strengen Prüfungen („Senden rückgängig“,
   Today-Pane-Animation) bleiben streng. Die Bugs aus den Meldungen selbst
@@ -209,62 +216,52 @@ solange Exitcode 2). Rot durch die eigene Änderung: mit git revert zurück,
 pushen, im Bericht sagen. Höchstens fünf solche Korrekturen je Lauf.
 Kein Release aus der Wochenprüfung (der nächste Nachtlauf veröffentlicht).
 
-### 3b. Abläufe selbst verbessern, mit Wirkungskontrolle
+### 3b. Abläufe analysieren und empfehlen, nach Zustimmung umsetzen
 
-Entscheidung des Maintainers vom 5.11.2026: Die Wochenprüfung verbessert die
-Arbeitsabläufe selbst, statt nur vorzuschlagen – wenn die Zahlen es klar
-begründen – und nimmt eine Änderung zurück, die nicht wirkt.
+Entscheidung des Maintainers (Sitzung project.analysis.control, 8.11.2026, am 9.11.2026
+freigegeben; Wortlaut in ENTSCHEIDUNGEN.md; ersetzt die Entscheidung vom 5.11.2026): Die
+Wochenprüfung läuft weiter, ändert Abläufe aber **nicht mehr selbst**. Sie analysiert und gibt
+Empfehlungen; umgesetzt wird nach Zustimmung des Maintainers. Ziel ist eine wiederkehrende
+Routine, die den Workflow immer wieder analysiert und optimiert.
 
-Erlaubt ohne Rückfrage: Änderungen an tests/nachtlauf.sh,
-tests/nachtlauf-auftrag.md, tests/ci-waechter.sh, tests/ci-warten.sh,
-tests/lauf-hilfen.zsh, tests/wochenpruefung*, tests/dokupruefung-auftrag.md,
-tests/farben-betroffen.sh, release.sh/publish.sh (außer der Sperre),
-.github/workflows/test.yml (außer den if:-Bedingungen der Jobs mac und
-windows) und den beschreibenden Sätzen dazu in AGENTS.md und
-tests/MAC-MINI.md. Bedingungen:
-- **Begründet:** dasselbe Problem zeigt sich in den Zahlen mindestens
-  zweimal (zwei Nächte, zwei Läufe, zwei Wochen) oder einmal mit klarem
-  Schaden (verlorene Meldung, verpasstes Release, ausgelassene Nacht). Im
-  Commit und im Bericht steht die Zahl, die es belegt.
-- **Messbar:** vorher festlegen, an welcher Kennzahl (Abschnitt 2) die
-  Wirkung nächste Woche abzulesen ist, und welcher Wert als besser gilt.
-- **Klein und einzeln:** je Änderung ein Commit (Bereich „Ablauf:“ bzw. der
-  Dateiname), höchstens drei Ablaufänderungen je Lauf.
-- **Geprüft:** Shell-Skripte mit zsh -n und, wo vorhanden, einem
-  Trockenlauf (--trocken); Workflow-Änderungen gezielt mit gh workflow run
-  test.yml … -f ziel=linux, bevor sie auf main gehen; danach pushen und
-  die CI wie in Abschnitt 3 abwarten. Geänderte Läufe auf neon danach mit
-  tests/mac-mini-setup.sh --ohne-probelauf übernehmen.
-- **Eingetragen:** in ~/halo-aufgaben/ablauf-aenderungen.json je Änderung
-  ein Eintrag {datum, commit, problem, beleg, kennzahl, vorher, ziel,
-  pruefen_ab (nächste Wochenprüfung), ergebnis: null}.
+Nicht selbst ändern: tests/nachtlauf.sh, tests/nachtlauf-auftrag.md, tests/ci-waechter.sh,
+tests/ci-warten.sh, tests/lauf-hilfen.zsh, tests/wochenpruefung*, tests/dokupruefung-auftrag.md,
+tests/farben-betroffen.sh, release.sh/publish.sh, .github/workflows/test.yml, AGENTS.md,
+docs/, tests/MAC-MINI.md, Zeitpläne, LaunchAgents, mac-mini-setup.sh, neue Routinen.
+Erlaubt bleibt allein Abschnitt 3 (kleine Korrekturen an Prüfungen in tests/halo_test.py und
+tests/update_test.py).
 
-Nicht selbst, nur als Vorschlag (Board-Eintrag, Typ Feature oder Bug,
-Status „Wartet auf OK“, Titel „Ablauf: …“, mit Begründung aus den Zahlen):
-alles, was einer **Entscheidung des Maintainers** widerspricht oder sie
-ändert (in AGENTS.md und den Aufträgen mit „Entscheidung des Maintainers
-vom …“ gekennzeichnet – z. B. Zeiten, Push-Sperre, Reihenfolge der
-Aufgabenliste, Dunkelmodus nur bei Farben, Freigaben), Zeitpläne und
-LaunchAgents, mac-mini-setup.sh, neue Routinen, alles, was Kosten
-spürbar erhöht (längere CI-Runden, mehr Claude-Läufe), und Änderungen ohne
-messbare Kennzahl. Anlegen:
+**Empfehlung** (höchstens drei je Woche): ein Board-Eintrag, Typ Feature oder Bug, Status
+„Wartet auf OK“, Titel „Ablauf: …“, mit vier Angaben:
+- Kennzahl (Abschnitt 2) und aktueller Wert, mit dem Beleg aus den Zahlen (mindestens
+  zweimal dasselbe Problem in zwei Nächten, Läufen oder Wochen, oder einmal mit klarem
+  Schaden);
+- Ziel: welcher Wert als besser gilt;
+- Begründung: Problem und vorgeschlagene Änderung (Datei, Stelle);
+- Rücknahme: wie sie zurückgenommen wird (z. B. `git revert`) und woran man erkennt, dass sie
+  nicht wirkt.
+Anlegen:
   gh project item-create 1 --owner sruf79 --title "…" --body "…" --format json
   gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN8Y --single-select-option-id <ff678ae2 Bug | 39bb4253 Feature>
   gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
-Vorher im Board nachsehen, ob es den Vorschlag schon gibt (dann ergänzen).
+Vorher im Board nachsehen, ob es die Empfehlung schon gibt (dann ergänzen, nicht doppelt
+anlegen). Eine ablehnte oder zurückgestellte Empfehlung nicht erneut stellen, solange sich die
+Zahlen nicht geändert haben. Inhalte der Aufgabenliste nie in Commits.
 
-**Wirkungskontrolle** (jede Woche, vor neuen Änderungen): Für jeden Eintrag
-in ~/halo-aufgaben/ablauf-aenderungen.json mit ergebnis null und
-pruefen_ab erreicht die Kennzahl der Woche mit „vorher“ und „ziel“
-vergleichen. Besser: ergebnis „wirkt“. Gleich oder schlechter: die
-Änderung mit git revert <commit> zurücknehmen (Commit „Ablauf: … zurück –
-wirkte nicht (<Kennzahl> vorher x, jetzt y)“), ergebnis „zurück“, und
-dasselbe Problem nicht noch einmal auf dieselbe Weise angehen. Zu wenig
-Daten (z. B. keine Nacht mit dem Fall): ergebnis bleibt null, pruefen_ab
-eine Woche weiter, höchstens dreimal, dann „unklar“ und so lassen. Schaden
-schon vorher sichtbar (CI rot, ausgelassene Nacht durch die Änderung): der
-Nachtlauf bzw. die nächste Sitzung nimmt sie sofort zurück – dafür steht im
-Commit „Ablauf: …“ die Zeile „Zurück bei: <Anzeichen>“.
+**Verlauf der freigegebenen Änderungen:** ~/halo-aufgaben/ablauf-aenderungen.json bleibt; setzt
+eine Sitzung nach Zustimmung eine Empfehlung um, trägt sie dort {datum, commit, problem, beleg,
+kennzahl, vorher, ziel, pruefen_ab (nächste Wochenprüfung), ergebnis: null} ein. Die
+Wochenprüfung selbst trägt dort nichts ein und ändert keine Datei der Liste oben.
+
+**Wirkungskontrolle** (jede Woche, vor neuen Empfehlungen): Für jeden Eintrag in
+ablauf-aenderungen.json mit ergebnis null und erreichtem pruefen_ab die Kennzahl der Woche mit
+„vorher“ und „ziel“ vergleichen. Besser: ergebnis „wirkt“ (Datei-Eintrag setzen ist hier erlaubt).
+Gleich oder schlechter: Empfehlung „Ablauf: … zurücknehmen“ (Commit, Kennzahl vorher x, jetzt y)
+als Board-Eintrag „Wartet auf OK“, ergebnis „zurück vorgeschlagen“; dasselbe Problem nicht noch
+einmal auf dieselbe Weise empfehlen. Zu wenig Daten: ergebnis bleibt null, pruefen_ab eine Woche
+weiter, höchstens dreimal, dann „unklar“. Sichtbarer Schaden (CI rot, ausgelassene Nacht durch die
+Änderung): sofort im Bericht und per Eintrag melden; zurücknehmen darf nur der Nachtlauf oder eine
+Sitzung auf Anweisung des Maintainers.
 
 Nie anfassen: die Release-Sperre (Testmarke in release.sh/publish.sh),
 die if:-Bedingungen der Jobs mac und windows, tests/mac-runner-hook.sh,
@@ -294,16 +291,16 @@ Diese Punkte sind bekannt und sollen im ersten Bericht bewertet werden:
 
 Pfad oben, Deutsch, knapp, für einen Admin, der nicht programmiert. Erste
 Zeile nach der Überschrift genau so:
-  Kurz: <ein Satz: CI grün/rot-Quote, auffälligste Zahl, Anzahl Korrekturen und Vorschläge>
+  Kurz: <ein Satz: CI grün/rot-Quote, auffälligste Zahl, Anzahl Korrekturen und Empfehlungen>
 Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte:
 Kennzahlen (Tabelle mit Vorwoche), Auffällig (unzuverlässige Prüfungen,
 langsamste Prüfungen, Ausfälle), Fehlerkonsole (Zahlen aus Abschnitt 1,
-Lecks, Durchsicht ja/nein mit Runden), Abläufe (je Änderung dieser Woche:
-Problem, Beleg, Kennzahl, Ziel; Wirkungskontrolle früherer Änderungen:
-wirkt/zurück/offen mit Zahlen), Nachtläufe (je Nacht Beginn, Ende, Grund
+Lecks, Durchsicht ja/nein mit Runden), Abläufe (je Empfehlung dieser Woche:
+Problem, Beleg, Kennzahl, Ziel, Board-ID; Wirkungskontrolle freigegebener Änderungen:
+wirkt/zurück vorgeschlagen/offen mit Zahlen), Nachtläufe (je Nacht Beginn, Ende, Grund
 des Endes, erledigt, ungenutzte Zeit und liegengebliebene machbare
-Einträge, falls zu früh beendet), Geändert (Commit, was und warum; im
-Trockenlauf „Würde ändern“), Top-3-Vorschläge (je ein Satz Nutzen, Board-ID
+Einträge, falls zu früh beendet), Geändert (nur Korrekturen an Prüfungen nach Abschnitt 3: Commit, was und warum; im
+Trockenlauf „Würde ändern“), Top-3-Empfehlungen (je ein Satz Nutzen, Board-ID
 falls angelegt), Probleme dieses Laufs. Den Bericht immer schreiben.
 
 Danach die Fertig-Datei (Pfad oben) anlegen. Keine eigene Push-Meldung

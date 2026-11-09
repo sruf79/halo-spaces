@@ -618,6 +618,27 @@ pruefe_github_comm() {
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
 # (außerhalb des Checkouts, die Läufe ändern ihn).
 AG_DIR=$HOME/.config/halo-spaces
+# Eigene Kopie von /bin/zsh als erstes Programm von Nachtlauf, Wochen-/Doku-Prüfung und Rundgang:
+# Nur diese Kopie steht unter Systemeinstellungen → Bedienungshilfen und darf die Maus bewegen
+# (docs/testrechner.md). Neu kopiert wird nur, wenn sie fehlt; weicht /bin/zsh nach einem macOS-Update
+# ab, gibt es nur einen Hinweis (die Freigabe hängt an der Datei, keine stille Neukopie).
+HALOZSH=$AG_DIR/bin/halo-zsh
+pruefe_halozsh() {
+  local quelle=$HALOZSH.quelle hash=$(shasum -a 256 /bin/zsh | cut -d' ' -f1)
+  if [[ ! -x $HALOZSH ]]; then
+    if (( CHECK )); then
+      offen "halo-zsh" "$HALOZSH fehlt"; tun "tests/mac-mini-setup.sh ohne --check ausführen, dann halo-zsh unter Bedienungshilfen freigeben"
+    elif mkdir -p ${HALOZSH:h} && cp /bin/zsh $HALOZSH && codesign --force --sign - $HALOZSH 2>/dev/null && print $hash > $quelle; then
+      hinweis "halo-zsh" "neu angelegt: unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen freigeben"
+    else
+      offen "halo-zsh" "ließ sich nicht anlegen"
+    fi
+  elif [[ -f $quelle && $(<$quelle) != $hash ]]; then
+    hinweis "halo-zsh" "/bin/zsh hat sich geändert (macOS-Update?); Kopie bleibt: zum Erneuern löschen, setup ausführen, neu unter Bedienungshilfen freigeben"
+  else
+    ok "halo-zsh" "$HALOZSH (Kopie von /bin/zsh, signiert)"
+  fi
+}
 agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel> [<Option für das Skript>]
   cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -626,7 +647,7 @@ agent_plist() {   # <Label> <Skript> <Protokoll> <Zeitplan als plist-Schlüssel>
 <dict>
   <key>Label</key><string>$1</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/zsh</string><string>$AG_DIR/$2</string>${5:+<string>$5</string>}$( [[ $2 == ci-waechter.sh ]] || print -n "<string>$ROOT</string>" )</array>
+  <array><string>$( case $1 in at.halo-spaces.nachtlauf|at.halo-spaces.wochenpruefung|at.halo-spaces.dokupruefung|at.halo-spaces.rundgang) print -n $HALOZSH ;; *) print -n /bin/zsh ;; esac )</string><string>$AG_DIR/$2</string>${5:+<string>$5</string>}$( [[ $2 == ci-waechter.sh ]] || print -n "<string>$ROOT</string>" )</array>
   $4
   <key>ProcessType</key><string>Interactive</string>
   <key>StandardOutPath</key><string>$3</string>
@@ -641,7 +662,8 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Routine fü
   for f in $skript lauf-hilfen.zsh sitzung-finden.zsh; do
     cmp -s $ROOT/tests/$f $AG_DIR/$f || aktuell=0
   done
-  [[ $(agent_plist $label $skript $log $plan $opt) == "$(cat $plist 2>/dev/null)" ]] || aktuell=0
+  # Vergleich über plutil (gleicher Inhalt, auch wenn die Datei von Hand mit plutil umformatiert wurde)
+  [[ $(agent_plist $label $skript $log $plan $opt | plutil -convert xml1 -o - - 2>/dev/null) == "$(plutil -convert xml1 -o - $plist 2>/dev/null)" ]] || aktuell=0
   if (( aktuell )); then
     :
   elif (( CHECK )); then
@@ -670,6 +692,7 @@ pruefe_agent() {   # <Name> <Label> <Skript> <Protokoll> <Zeitplan> <Routine fü
   fi
 }
 pruefe_laeufe() {
+  pruefe_halozsh
   pruefe_agent "Nachtlauf" at.halo-spaces.nachtlauf nachtlauf.sh $HOME/Library/Logs/halo-nachtlauf.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>30</integer></dict>' \

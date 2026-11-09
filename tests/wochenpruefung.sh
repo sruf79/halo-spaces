@@ -2,9 +2,9 @@
 # Wöchentliche Prüfung der Läufe auf neon (tests/MAC-MINI.md, Abschnitt 15):
 # Claude Code wertet sonntags die letzten 7 Tage aus (CI-Läufe, Nachtläufe,
 # Berichte, Board), schreibt Kennzahlen und einen Bericht, korrigiert kleine
-# Dinge an Prüfungen und – mit Beleg und Wirkungskontrolle – Abläufe selbst
-# und legt nur, was Entscheidungen des Maintainers berührt, als „Wartet auf
-# OK“ ins Board. Auftrag: tests/wochenpruefung-auftrag.md. Gestartet vom LaunchAgent
+# Dinge an Prüfungen und gibt für Abläufe höchstens drei Empfehlungen ab (Empfehlungsmodus:
+# keine Selbständerung von Abläufen und Regeln; was Entscheidungen des Maintainers berührt, legt
+# er als „Wartet auf OK“ ins Board). Auftrag: tests/wochenpruefung-auftrag.md. Gestartet vom LaunchAgent
 # at.halo-spaces.wochenpruefung sonntags um 08:00; die Datei wird wie
 # nachtlauf.sh nach ~/.config/halo-spaces/ kopiert.
 # Mit --doku dieselbe Prüfung für alle .md-Dateien (Doku-Prüfung, samstags
@@ -62,7 +62,7 @@ source ${0:A:h}/vorpruefung.zsh
 source ${0:A:h}/ci-runde.zsh
 # Modelle (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison,
 # Wortlaut: „ja, punkt 2 und 3 umsetzen.“): die Doku-Prüfung mit Sonnet und niedriger
-# Reasoning-Stufe, die Wochenprüfung bleibt bei Opus (Standard der Installation)
+# Reasoning-Stufe, die Wochenprüfung bleibt bei Opus (Standard der Installation); sie gibt nur Empfehlungen ab, wie es der Auftrag sagt
 MODELL=()
 [[ -n $DOKU ]] && MODELL=(--model sonnet --effort low)
 

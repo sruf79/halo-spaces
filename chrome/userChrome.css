@@ -28,6 +28,13 @@
   --mt-control-hover: rgba(0, 0, 0, 0.09);
   --mt-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.06);
   --mt-radius-panel: 18px;
+  /* schwebende Seitenleiste (Dia 3/4), an Dia gemessen: 3 px vom Fensterrand,
+     Radius 10 px, zarter Schatten (am Rand ~9 % dunkler, nach 15 px weg),
+     helle Kante innen */
+  --mt-float-inset: 3px;
+  --mt-float-radius: 10px;
+  --mt-float-shadow: 0 0 15px rgba(0, 0, 0, 0.18);
+  --mt-float-rim: rgba(255, 255, 255, 0.5);
   --mt-radius-row: 10px;
   /* Radius-Stufen: Kapsel (Knöpfe, Suchfelder), Popup (Menüs, Tooltips),
      Eingabefeld; Verwendungen mit dem bisherigen Wert als Ersatz, weil nicht
@@ -101,6 +108,9 @@
     --mt-conv-bg: #141416;
     --mt-sidebar: #282828;
     --mt-sidebar-border: rgba(255, 255, 255, 0.07);
+    /* auf dunklem Grund trägt der Schatten mehr, die Kante weniger */
+    --mt-float-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    --mt-float-rim: rgba(255, 255, 255, 0.1);
     --mt-text: #F5F5F7;
     --mt-text-secondary: #A1A1A6;
     --mt-text-tertiary: #7C7C80;
@@ -2424,14 +2434,14 @@ findbar .findbar-textbox:focus {
    Kacheln rücken darunter, die Toolbar-Zeile braucht keinen Platz mehr dafür.
    Bereiche-Leiste ausgeblendet: Ampel wie bisher oben über der Ordnerliste */
 @media (-moz-platform: macos) {
-  :root:has(#spacesToolbar:not([hidden])) {
+  :root:has(#spacesToolbar:not([hidden], [mc-float])) {
     --mc-tl-reserve: 12px;
   }
 
   /* Ampel 14 px vom Rand wie bei Dia; die Fläche über den Kacheln reicht bis an
      die Trennlinie der Leiste (88 px), die Ampel liegt ganz links davon – auch
      bei ausgeblendeter Ordnerliste */
-  :root:has(#spacesToolbar:not([hidden])) #unifiedToolbarContainer .titlebar-buttonbox-container {
+  :root:has(#spacesToolbar:not([hidden], [mc-float])) #unifiedToolbarContainer .titlebar-buttonbox-container {
     position: fixed !important;
     z-index: 5 !important;
     top: 0 !important;
@@ -2449,9 +2459,93 @@ findbar .findbar-textbox:focus {
 
   /* Trennlinie der Leiste von ganz oben bis unten (border-inline-end unten),
      auch neben der Ampel */
-  :root:has(#spacesToolbar:not([hidden])) #spacesToolbar {
+  :root:has(#spacesToolbar:not([hidden], [mc-float])) #spacesToolbar {
     padding-top: 52px !important;
   }
+}
+
+/* Seitenleiste wie Dia 3/4: ausgeblendet schwebt sie beim Zeigen an den
+   linken Fensterrand über dem Inhalt ein (Werte an Dia gemessen). Drei Teile
+   bilden eine Fläche: die Bereiche-Leiste (Hauptfenster) mit den Flächen über
+   und unter der linken Leiste (::after, ::before) und die linke Leiste des
+   Bereichs in ihrem Dokument (.mc-float-pane). Die Ränder zwischen den Teilen
+   schneidet clip-path ab, damit kein Schatten auf den Nachbarn fällt; die
+   Bereiche-Leiste selbst wirft keinen (er fiele über die Ordnerliste) */
+#spacesToolbar[mc-float] {
+  position: fixed !important;
+  z-index: 30 !important;
+  inset-inline-start: var(--mt-float-inset) !important;
+  top: var(--mt-float-inset) !important;
+  bottom: var(--mt-float-inset) !important;
+  height: auto !important;
+  transform: none !important;
+  overflow: visible !important;
+  border-start-start-radius: var(--mt-float-radius) !important;
+  border-end-start-radius: var(--mt-float-radius) !important;
+  box-shadow: inset 1px 0 0 var(--mt-float-rim) !important;
+}
+
+/* Thunderbird rückt den Inhalt neben eine sichtbare Bereiche-Leiste (Regel
+   über ~ #messengerBody) – die schwebende liegt nur darüber */
+#spacesToolbar[mc-float] ~ #messengerBody,
+#spacesToolbar[mc-float] ~ #navigation-toolbox #titlebar {
+  margin-inline-start: 0 !important;
+}
+
+#spacesToolbar[mc-float] ~ #navigation-toolbox #unifiedToolbarContainer {
+  inline-size: auto !important;
+}
+
+@media (-moz-platform: macos) {
+  /* Ampel oben in der Leiste wie eingeblendet: Kacheln auf derselben Höhe */
+  #spacesToolbar[mc-float] {
+    padding-top: calc(52px - var(--mt-float-inset)) !important;
+  }
+}
+
+#spacesToolbar[mc-float]::after,
+#spacesToolbar[mc-float]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(100% + 1px);
+  width: var(--mc-float-w, 0px);
+  background: var(--mt-sidebar);
+  box-shadow: var(--mt-float-shadow), inset -1px 0 0 var(--mt-float-rim);
+  pointer-events: auto;
+}
+
+#spacesToolbar[mc-float]::after {
+  top: 0;
+  height: var(--mc-float-top, 0px);
+  border-start-end-radius: var(--mt-float-radius);
+  clip-path: inset(-40px -40px 0 0);
+}
+
+#spacesToolbar[mc-float]::before {
+  bottom: 0;
+  height: var(--mc-float-bottom, 0px);
+  border-end-end-radius: var(--mt-float-radius);
+  clip-path: inset(0 -40px -40px 0);
+}
+
+:is(#folderPane, #calSidebar, #listPaneBox, #booksPane, #pref-category-box, #accountTreeBox, #sidebar).mc-float-pane.mc-float-pane {
+  display: flex !important;
+  position: fixed !important;
+  z-index: 30 !important;
+  inset-inline-start: var(--mc-float-left) !important;
+  top: var(--mc-float-top) !important;
+  bottom: auto !important;
+  height: var(--mc-float-h) !important;
+  width: var(--mc-float-w) !important;
+  min-width: var(--mc-float-w) !important;
+  max-width: var(--mc-float-w) !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: var(--mt-sidebar) !important;
+  border-start-end-radius: var(--mc-float-rt) !important;
+  border-end-end-radius: var(--mc-float-rb) !important;
+  box-shadow: var(--mt-float-shadow), inset -1px 0 0 var(--mt-float-rim) !important;
+  clip-path: inset(var(--mc-float-ct) -40px var(--mc-float-cb) 0) !important;
 }
 
 #unifiedToolbar {

@@ -10922,8 +10922,9 @@ class CardEnhancer {
     const updateSideEdgeLayout = () => {
       // während die Bereiche-Leiste animiert, nichts ans Fenster schreiben –
       // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
-      // am Ende der Animation wird einmal ausgerichtet
-      if (w.__mcSpacesAnimating) {
+      // am Ende der Animation wird einmal ausgerichtet; die schwebende
+      // Seitenleiste (Dia 3/4) verschiebt nichts – Kanten bleiben stehen
+      if (w.__mcSpacesAnimating || w.__mcSideFloat) {
         return;
       }
       const d = w.document;
@@ -11266,6 +11267,9 @@ class CardEnhancer {
       });
     };
     const updateSideEdge = () => {
+      if (w.__mcSideFloat) {
+        return;
+      }
       updateSideEdgeLayout();
       try {
         squeezeSpace();
@@ -12749,7 +12753,11 @@ class CardEnhancer {
       this.addWinRestorer(doc.defaultView == w ? null : doc.defaultView, () => grip.remove());
       return grip;
     };
+    // Schwebende Seitenleiste (Dia 3/4, unten bei hookSideFloat): Auslösestreifen
+    // am Fensterrand mitsetzen; hier nur die Einsprungstellen
+    const sideFloat = {};
     const placeSideGrip = () => {
+      sideFloat.place?.();
       const pane = sidePane(w.document.getElementById("tabmail")?.currentTabInfo);
       const mainGrip = w.document.getElementById("mcSideGrip");
       if (mainGrip && pane?.el.ownerDocument != w.document) {
@@ -13519,6 +13527,8 @@ class CardEnhancer {
     // mit gleicher Dauer und Kurve. Ein Klick währenddessen kehrt beide um.
     // Bereiche bleiben über ⌃1–⌃5 bzw. das Menü erreichbar.
     const toggleSidebar = () => {
+      // schwebt die Leiste gerade, sofort weg – der Knopf blendet sie richtig ein
+      sideFloat.end?.(false);
       const spaces = w.gSpacesToolbar;
       const tab = w.document.getElementById("tabmail")?.currentTabInfo;
       const mail = tab?.mode?.name == "mail3PaneTab";
@@ -13612,7 +13622,9 @@ class CardEnhancer {
         return;
       }
       const follow = () => {
-        if (!w.__mcSpacesAnimating) {
+        // (die schwebende Leiste nimmt der Bereiche-Leiste kurz „hidden“ –
+        // das ist kein neuer Zustand)
+        if (!w.__mcSpacesAnimating && !bar.hasAttribute("mc-float")) {
           applySideState();
           sidebarTip?.();
         }
@@ -13670,6 +13682,304 @@ class CardEnhancer {
       this.restorers.push(() => {
         tipMo.disconnect();
         spaces.forEach(space => w.document.l10n?.translateElements([space]));
+      });
+    };
+
+    // Seitenleiste wie Dia 3/4: Ist die Seitenleiste ausgeblendet, schwebt sie
+    // beim Zeigen an den linken Fensterrand über dem Inhalt ein – nichts
+    // verschiebt sich, nichts wird gespeichert („schwebt“ ist flüchtig).
+    // Werte an Dia gemessen (9.11.2026, Bildschirm 1×): Auslösestreifen 4 px am
+    // Fensterrand, kaum Verzögerung, Einblenden ~120 ms von links, Ausblenden
+    // ~80 ms, sobald der Zeiger mehr als ~64 px rechts der Leiste steht (bis
+    // dahin bleibt sie); Abstand 3 px zum Fensterrand, Radius 10 px, zarter
+    // Schatten (userChrome.css, --mt-float-*). Die Leiste besteht aus der
+    // Bereiche-Leiste im Hauptfenster (Flächen über/unter der linken Leiste als
+    // ::after/::before) und der linken Leiste des Bereichs in ihrem Dokument
+    // (Klasse mc-float-pane). Offene Menüs und Ziehen halten sie offen, eine
+    // an den Rand gezogene Mail öffnet sie bis zum Ablegen; Esc und Klick
+    // daneben schließen sie.
+    const FLOAT_HOT = 4;
+    const FLOAT_KEEP = 64;
+    // (kurz verzögert: Vorbeistreifen und Größenändern am Fensterrand lösen nicht aus)
+    const FLOAT_DELAY = 50;
+    const FLOAT_IN = 120;
+    const FLOAT_OUT = 80;
+    const FLOAT_INSET = 3;
+    const FLOAT_SPACES = 89; // Bereiche-Leiste samt Linie
+    const FLOAT_VARS = ["--mc-float-left", "--mc-float-top", "--mc-float-h", "--mc-float-w", "--mc-float-rt",
+      "--mc-float-rb", "--mc-float-ct", "--mc-float-cb"];
+    let float = null;
+    let floatTimer = null;
+    const floatPaneHidden = (tab, el) => (tab?.mode?.name == "mail3PaneTab"
+      ? el.classList.contains("collapsed-by-splitter") : el.classList.contains("mc-side-hidden"));
+    const floatCleanup = () => {
+      const f = float;
+      float = null;
+      if (!f) {
+        return;
+      }
+      f.anims.forEach(a => {
+        try {
+          a.cancel();
+        } catch {} // gewollt: Dokument schon weg
+      });
+      f.off.forEach(fn => fn());
+      f.catcher.remove();
+      // Bereiche-Leiste wieder ausblenden – nur, wenn die Seitenleiste noch
+      // ausgeblendet ist (sonst hat sie der Knopf inzwischen eingeblendet)
+      if (w.gSpacesToolbar?.isHidden) {
+        f.bar.hidden = true;
+      }
+      f.bar.removeAttribute("mc-float");
+      ["--mc-float-w", "--mc-float-top", "--mc-float-bottom"].forEach(p => f.bar.style.removeProperty(p));
+      if (f.el) {
+        f.el.classList.remove("mc-float-pane");
+        FLOAT_VARS.forEach(p => f.el.style.removeProperty(p));
+      }
+      w.__mcSideFloat = false;
+    };
+    const floatAnimate = show => {
+      const f = float;
+      const token = ++f.token;
+      const running = f.anims.length && f.anims.every(a => a.playState == "running");
+      if (running) {
+        // mitten in der Bewegung: an der aktuellen Stelle umkehren
+        f.anims.forEach(a => a.reverse());
+      } else {
+        f.anims.forEach(a => a.cancel());
+        const kf = [{ translate: `-${f.right + 30}px 0` }, { translate: "0 0" }];
+        const opts = {
+          duration: motionMs(show ? FLOAT_IN : FLOAT_OUT),
+          easing: show ? "cubic-bezier(0.25, 0.1, 0.25, 1)" : "cubic-bezier(0.42, 0, 1, 1)",
+          direction: show ? "normal" : "reverse",
+          fill: "both",
+        };
+        f.anims = [f.bar, f.el].filter(Boolean).map(e => e.animate(kf, opts));
+      }
+      f.state = show ? "in" : "out";
+      f.anims[0].finished.then(() => {
+        if (float != f || f.token != token) {
+          return;
+        }
+        if (show) {
+          f.state = "on";
+        } else {
+          floatCleanup();
+        }
+      }, () => {});
+    };
+    const floatEnd = (animate = true) => {
+      w.clearTimeout(floatTimer);
+      if (!float) {
+        return;
+      }
+      if (animate && float.state != "out") {
+        floatAnimate(false);
+      } else if (!animate) {
+        floatCleanup();
+      }
+    };
+    const floatPopups = () => float?.popups.size > 0;
+    const floatShow = (drag = false) => {
+      w.clearTimeout(floatTimer);
+      if (float) {
+        float.drag ||= drag;
+        if (float.state == "out") {
+          floatAnimate(true);
+        }
+        float.catcher.style.pointerEvents = float.drag ? "none" : "";
+        return;
+      }
+      const d = w.document;
+      const bar = d.getElementById("spacesToolbar");
+      const tabmail = d.getElementById("tabmail");
+      if (!bar || !w.gSpacesToolbar || !columnHidden() || columnBusy() || w.__mcSideDrag) {
+        return;
+      }
+      const tab = tabmail?.currentTabInfo;
+      let [el, , win] = sidebarFor(tab);
+      if (!el || !win || el.__mcAnimating || win.__mcAnimating || !floatPaneHidden(tab, el)) {
+        el = null;
+      }
+      const H = w.innerHeight;
+      const I = FLOAT_INSET;
+      let W = 0, topH = 0, bottomH = 0;
+      if (el) {
+        const off = el.ownerDocument == d ? { left: 0, top: 0 } : win.browsingContext.embedderElement.getBoundingClientRect();
+        const pr = el.parentNode.getBoundingClientRect();
+        W = tab.mode.name == "preferencesTab" ? 240 : Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
+        const top = Math.max(pr.top, I - off.top);
+        const bottom = Math.min(pr.bottom, H - I - off.top);
+        if (bottom - top < 50) {
+          el = null;
+          W = 0;
+        } else {
+          topH = Math.max(0, Math.round(off.top + top - I));
+          bottomH = Math.max(0, Math.round(H - I - (off.top + bottom)));
+          const R = "var(--mt-float-radius)";
+          const vals = {
+            "--mc-float-left": `${Math.round(I + FLOAT_SPACES - off.left)}px`,
+            "--mc-float-top": `${Math.round(top)}px`,
+            "--mc-float-h": `${Math.round(bottom - top)}px`,
+            "--mc-float-w": `${W}px`,
+            "--mc-float-rt": topH ? "0px" : R,
+            "--mc-float-rb": bottomH ? "0px" : R,
+            "--mc-float-ct": topH ? "0px" : "-40px",
+            "--mc-float-cb": bottomH ? "0px" : "-40px",
+          };
+          for (const [k, v] of Object.entries(vals)) {
+            el.style.setProperty(k, v);
+          }
+          el.classList.add("mc-float-pane");
+        }
+      }
+      bar.style.setProperty("--mc-float-w", `${W}px`);
+      bar.style.setProperty("--mc-float-top", `${topH}px`);
+      bar.style.setProperty("--mc-float-bottom", `${bottomH}px`);
+      w.__mcSideFloat = true;
+      bar.setAttribute("mc-float", "true");
+      bar.hidden = false;
+      const right = I + FLOAT_SPACES + W;
+      // Fläche rechts der Leiste: Zeiger weiter als FLOAT_KEEP weg oder Klick → weg
+      const catcher = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      catcher.id = "mcSideCatch";
+      catcher.setAttribute("aria-hidden", "true");
+      catcher.style.cssText = `position: fixed; z-index: 29; left: ${right}px; top: 0; right: 0; bottom: 0;`;
+      d.documentElement.append(catcher);
+      float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set() };
+      const f = float;
+      catcher.style.pointerEvents = drag ? "none" : "";
+      catcher.addEventListener("mousemove", e => {
+        if (float == f && !f.drag && !floatPopups() && e.clientX > f.right + FLOAT_KEEP) {
+          floatEnd();
+        }
+      });
+      catcher.addEventListener("mousedown", e => {
+        if (float != f || floatPopups()) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        floatEnd();
+      });
+      // offene Menüs (Kontextmenü der Ordnerliste …) halten die Leiste offen
+      const onPopup = e => {
+        const t = e.target;
+        if (t?.localName == "tooltip" || e.originalTarget != t) {
+          return;
+        }
+        if (e.type == "popupshown") {
+          f.popups.add(t);
+        } else {
+          f.popups.delete(t);
+        }
+      };
+      const onKey = e => {
+        if (e.key == "Escape" && !floatPopups()) {
+          e.preventDefault();
+          e.stopPropagation();
+          floatEnd();
+        }
+      };
+      // abgelegt bzw. Ziehen beendet: die Leiste gleitet wieder weg
+      const onDrop = () => {
+        if (f.drag) {
+          floatEnd();
+        }
+      };
+      // (nur echte Größenänderung – ein verspätetes „resize“ ohne Änderung nicht)
+      const size = `${w.innerWidth}x${w.innerHeight}`;
+      const onResize = () => {
+        if (`${w.innerWidth}x${w.innerHeight}` != size) {
+          floatEnd(false);
+        }
+      };
+      const onTab = () => floatEnd(false);
+      for (const target of new Set([w, win].filter(Boolean))) {
+        target.addEventListener("popupshown", onPopup, true);
+        target.addEventListener("popuphidden", onPopup, true);
+        target.addEventListener("keydown", onKey, true);
+        target.addEventListener("drop", onDrop, true);
+        target.addEventListener("dragend", onDrop, true);
+        f.off.push(() => {
+          for (const [type, fn] of [["popupshown", onPopup], ["popuphidden", onPopup], ["keydown", onKey], ["drop", onDrop], ["dragend", onDrop]]) {
+            target.removeEventListener(type, fn, true);
+          }
+        });
+      }
+      w.addEventListener("resize", onResize);
+      tabmail.tabContainer?.addEventListener("TabSelect", onTab);
+      f.off.push(() => {
+        w.removeEventListener("resize", onResize);
+        tabmail.tabContainer?.removeEventListener("TabSelect", onTab);
+      });
+      floatAnimate(true);
+    };
+    // Auslösestreifen am linken Fensterrand (über allen Inhalten); Drücken
+    // darin zieht die Leiste wie bisher an der Greifzone heraus
+    const floatHot = () => {
+      const d = w.document;
+      let hot = d.getElementById("mcSideHot");
+      if (hot?.__mcOwner === HOOK_OWNER) {
+        return hot;
+      }
+      hot?.remove(); // von einer älteren Fassung
+      hot = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      hot.id = "mcSideHot";
+      hot.__mcOwner = HOOK_OWNER;
+      hot.setAttribute("aria-hidden", "true");
+      hot.style.cssText = `position: fixed; z-index: 31; left: 0; top: 0; bottom: 0; width: ${FLOAT_HOT}px; display: none;`;
+      hot.addEventListener("mouseenter", () => {
+        w.clearTimeout(floatTimer);
+        if (!float || float.state == "out") {
+          floatTimer = w.setTimeout(() => floatShow(), FLOAT_DELAY);
+        }
+      });
+      hot.addEventListener("mouseleave", () => {
+        if (!float) {
+          w.clearTimeout(floatTimer);
+        }
+      });
+      // eine Mail an den Rand gezogen: sofort öffnen, offen bis zum Ablegen
+      hot.addEventListener("dragenter", () => floatShow(true));
+      hot.addEventListener("pointerdown", event => {
+        if (event.button != 0) {
+          return;
+        }
+        floatEnd(false);
+        startSideDrag(event);
+      });
+      d.documentElement.append(hot);
+      this.restorers.push(() => {
+        floatEnd(false);
+        hot.remove();
+      });
+      return hot;
+    };
+    const hookSideFloat = () => {
+      floatHot();
+      if (sideFloat.place) {
+        sideFloat.place();
+        return;
+      }
+      sideFloat.end = floatEnd;
+      sideFloat.place = () => {
+        const hot = w.document.getElementById("mcSideHot");
+        const on = columnHidden() && !columnBusy() && !w.__mcSideDrag;
+        if (hot) {
+          hot.style.display = on ? "block" : "none";
+        }
+        if (float && (!columnHidden() || float.tab != w.document.getElementById("tabmail")?.currentTabInfo)) {
+          floatEnd(false);
+        }
+      };
+      sideFloat.place();
+      // für die Prüfungen
+      w.__mcSideFloatState = () => float?.state || "off";
+      this.restorers.push(() => {
+        delete sideFloat.end;
+        delete sideFloat.place;
+        delete w.__mcSideFloatState;
       });
     };
 
@@ -15688,6 +15998,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSpacesToggle();
+      hookSideFloat();
       hookMarkTags();
       UpdateNote.hook(w, this.restorers);
       FifthSpace.attach(w, this.restorers);
@@ -17997,7 +18308,8 @@ class CardEnhancer {
     const update = () => {
       const content = top.document.getElementById("unifiedToolbarContent");
       const browserEl = win.browsingContext.embedderElement;
-      if (!content || !browserEl || win.closed || top.__mcSpacesAnimating) {
+      // (schwebende Seitenleiste: die Ordnerliste liegt nur darüber)
+      if (!content || !browserEl || win.closed || top.__mcSpacesAnimating || top.__mcSideFloat) {
         return;
       }
       keepListWidth();

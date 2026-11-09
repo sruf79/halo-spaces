@@ -16518,6 +16518,127 @@ Neu
     check("Seitenleiste wie Dia 2/4: ein Knopf und eine Animation für Bereiche-Leiste und linke Leiste, Umkehr, Bereichswechsel, "
           "Thunderbirds Wege ziehen mit, Zustand gespeichert, Übernahme der alten Zustände", sidebar_column_toggle, results)
 
+    def sidebar_column_float():
+        # Seitenleiste wie Dia 3/4: ausgeblendet schwebt sie beim Zeigen an den linken Fensterrand über dem Inhalt ein
+        # (Werte an Dia gemessen: 3 px vom Rand, Radius 10 px, Schatten); Mailliste bzw. Kalender verschieben sich
+        # nicht; Zeiger knapp daneben (bis 64 px) → bleibt, weiter weg → weg; offenes Kontextmenü hält sie offen;
+        # Esc und Klick daneben schließen; eine an den Rand gezogene Mail öffnet sie bis zum Ablegen; der Zustand
+        # bleibt „ausgeblendet“ (gespeichert wie vor dem Schweben). Echte Zeigerbewegungen (Marionette), Ziehen
+        # und Esc als Ereignisse
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        def state(want, ms=2000):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        # Lage der Teile im Fenster, Mailliste/Kalender, gespeicherter Zustand
+        info = r"""const ab = tm.currentAbout3Pane, ad = ab?.document;
+          const R = (e, off) => { if (!e) return null; const r = e.getBoundingClientRect(); if (!r.width) return null; const o = off ? off.getBoundingClientRect() : { left: 0, top: 0 };
+            return { l: Math.round(o.left + r.left), t: Math.round(o.top + r.top), r: Math.round(o.left + r.right), b: Math.round(o.top + r.bottom) }; };
+          const bar = d.getElementById("spacesToolbar"), mail = tm.currentTabInfo.mode.name == "mail3PaneTab";
+          const pane = mail ? ad.getElementById("folderPane") : d.getElementById("calSidebar");
+          const cs = getComputedStyle(pane);
+          w.gSpacesToolbar.onUnload?.();
+          return { state: w.__mcSideFloatState(), bar: R(bar), pane: R(pane, mail ? ab.browsingContext.embedderElement : null),
+            list: mail ? R(ad.getElementById("threadPane"), ab.browsingContext.embedderElement) : R(d.getElementById("calendarContent")),
+            H: w.innerHeight, hidden: w.gSpacesToolbar.isHidden, collapsed: mail ? ab.paneLayout.folderPaneSplitter.isCollapsed : pane.classList.contains("mc-side-hidden"),
+            saved: Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml", "spacesToolbar", "hidden"),
+            radius: [getComputedStyle(bar).borderTopLeftRadius, cs.borderBottomRightRadius], shadow: cs.boxShadow,
+            dark: w.matchMedia("(prefers-color-scheme: dark)").matches,
+            right: Math.round(d.getElementById("mcSideCatch")?.getBoundingClientRect().left ?? -1) };"""
+        out = {}
+        m.js("""w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
+          const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+          if (w.gSpacesToolbar.isHidden || sp.isCollapsed) { w.__mcColumnMigrate(false, false); await ruhig(600); }
+          d.getElementById("spacesPinnedButton").click();
+          await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+          await ruhig(600); return 1;""")
+        try:
+            out["before"] = m.js(info)
+            to(400)
+            to(1)
+            out["on"] = state("on")
+            out["float"] = m.js(info)
+            if os.environ.get("HALO_SHOTS"):
+                import base64
+                os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+                dark = m.js('return w.matchMedia("(prefers-color-scheme: dark)").matches;')
+                path = os.path.join(os.environ["HALO_SHOTS"], f"dia34-{'dunkel' if dark else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(m.cmd("WebDriver:TakeScreenshot", {})["value"]))
+                print(f"Screenshot {path}", flush=True)
+            right = out["float"].get("right", 0)
+            # knapp daneben bleibt sie, weiter weg gleitet sie weg
+            to(right + 30)
+            out["near"] = m.js("await wait(300); return w.__mcSideFloatState();")
+            to(right + 150)
+            out["away"] = state("off")
+            out["after"] = m.js(info)
+            # Kontextmenü der Ordnerliste offen: bleibt trotz Zeiger weit weg
+            to(400); to(1); out["on2"] = state("on")
+            out["menu"] = m.js("""const menu = tm.currentAbout3Pane.document.getElementById("folderPaneContext");
+              const shown = new Promise(r => menu.addEventListener("popupshown", r, { once: true }));
+              menu.openPopupAtScreen(w.screenX + 120, w.screenY + 300, true); await Promise.race([shown, wait(2000)]); return menu.state;""")
+            to(right + 250)
+            out["menuStay"] = m.js("await wait(300); return w.__mcSideFloatState();")
+            m.js("""const menu = tm.currentAbout3Pane.document.getElementById("folderPaneContext"); menu.hidePopup(); await wait(200); return 1;""")
+            to(right + 260)
+            out["menuGone"] = state("off")
+            # Esc
+            to(400); to(1); state("on")
+            out["esc"] = m.js("""d.documentElement.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+              await bis(() => w.__mcSideFloatState() == "off", "Esc", 2000); return w.__mcSideFloatState();""")
+            # Klick daneben (innerhalb der 64 px)
+            to(400); to(1); state("on")
+            to(right + 20)
+            act([{"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            out["click"] = state("off")
+            # Mail an den Rand gezogen: öffnet, bleibt bis zum Ablegen
+            to(400)
+            out["drag"] = m.js("""const hot = d.getElementById("mcSideHot");
+              hot.dispatchEvent(new w.DragEvent("dragenter", { bubbles: true, cancelable: true }));
+              await bis(() => w.__mcSideFloatState() == "on", "Ziehen", 2000); await wait(200);
+              const during = [w.__mcSideFloatState(), d.getElementById("mcSideCatch")?.style.pointerEvents];
+              tm.currentAbout3Pane.document.documentElement.dispatchEvent(new w.DragEvent("drop", { bubbles: true, cancelable: true }));
+              await bis(() => w.__mcSideFloatState() == "off", "abgelegt", 2000);
+              return [...during, w.__mcSideFloatState()];""")
+            # Kalender: Kalenderliste schwebt ebenso, die Ansicht bleibt stehen
+            m.js("await toCalendar(); await ruhig(800); return 1;")
+            out["calBefore"] = m.js(info)
+            to(400); to(1)
+            out["calOn"] = state("on")
+            out["cal"] = m.js(info)
+            to(out["cal"].get("right", 0) + 150)
+            out["calOff"] = state("off")
+        finally:
+            m.js("""await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              await ruhig(400); return 1;""")
+        b, f, a = out.get("before") or {}, out.get("float") or {}, out.get("after") or {}
+        bar, pane = f.get("bar") or {}, f.get("pane") or {}
+        H = f.get("H", 0)
+        # 3 px vom Fensterrand links, oben, unten; Ordnerliste schließt rechts an die Bereiche-Leiste an und reicht unten
+        # (bzw. mit der Fläche darunter) bis 3 px über den Rand
+        geo = (bar.get("l") == 3 and bar.get("t") == 3 and bar.get("b") == H - 3 and abs(pane.get("l", 0) - bar.get("r", 0)) <= 1
+               and pane.get("r", 0) - pane.get("l", 0) >= 160 and pane.get("b", 0) <= H - 3 and f.get("right") == pane.get("r"))
+        still = (f.get("list") == b.get("list") and a.get("list") == b.get("list") and f.get("hidden") is True and f.get("collapsed") is True
+                 and f.get("saved") == "true" and a.get("saved") == "true" and a.get("pane") is None and a.get("bar") is None)
+        # Radius 10 px; unten rund an der Ordnerliste, wenn nicht eine Fläche (Statusleiste) darunter liegt;
+        # Schatten 15 px, hell 18 %, dunkel 50 %
+        low = "10px" if pane.get("b") == H - 3 else "0px"
+        look = (f.get("radius") == ["10px", low] and "15px" in (f.get("shadow") or "")
+                and f"rgba(0, 0, 0, {'0.5' if f.get('dark') else '0.18'})" in (f.get("shadow") or ""))
+        cb, cf = out.get("calBefore") or {}, out.get("cal") or {}
+        cal = (out.get("calOn") == "on" and (cf.get("pane") or {}).get("r", 0) - (cf.get("pane") or {}).get("l", 0) >= 160
+               and cf.get("list") == cb.get("list") and out.get("calOff") == "off")
+        ok = (out.get("on") == "on" and geo and still and look and out.get("near") == "on" and out.get("away") == "off"
+              and out.get("on2") == "on" and out.get("menu") == "open" and out.get("menuStay") == "on" and out.get("menuGone") == "off"
+              and out.get("esc") == "off" and out.get("click") == "off" and out.get("drag") == ["on", "none", "off"] and cal)
+        return ok, f"geo={geo} still={still} look={look} cal={cal} {out}"
+    check("Seitenleiste wie Dia 3/4: ausgeblendet schwebt sie am linken Rand ein (3 px Abstand, Radius 10 px, Schatten), "
+          "nichts verschiebt sich, knapp daneben bleibt sie, weiter weg/Esc/Klick daneben weg, Kontextmenü und Ziehen halten sie offen, "
+          "Zustand bleibt ausgeblendet", sidebar_column_float, results)
+
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),
         # ein neuer Start hängt alles wieder an

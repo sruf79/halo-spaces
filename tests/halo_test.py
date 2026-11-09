@@ -16745,6 +16745,80 @@ Neu
     check("Seitenleiste wie Dia 2/4: ein Knopf und eine Animation für Bereiche-Leiste und linke Leiste, Umkehr, Bereichswechsel, "
           "Thunderbirds Wege ziehen mit, Zustand gespeichert, Übernahme der alten Zustände", sidebar_column_toggle, results)
 
+    def sidebar_column_edges():
+        # Seitenleisten-Knopf (ganze Spalte): Grau der Toolbar-Zeile über der Spalte, ihre Trennlinie und der
+        # Seitenleisten-Knopf gleiten in jedem Bild mit der Spalte, statt stehen zu bleiben und am Ende zu springen
+        # (Mail und Kalender, Aus- und Einblenden). Kante in der Toolbar-Zeile = Zeile links + --mc-sidebar-right
+        # (Mail) bzw. --mc-side-right; sie liegt je Bild höchstens einen Schritt der Spalte neben deren echter
+        # Kante (Reihenfolge der Bilder von Hauptfenster und Mail-Ansicht), der Knopf macht nie einen größeren
+        # Schritt als die Spalte, auch nicht ins Endbild
+        res = m.js(r"""
+          const btn = d.getElementById("spacesPinnedButton");
+          const row = d.getElementById("unifiedToolbarContainer");
+          const out = { visibility: d.visibilityState, reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
+          const still = () => !w.__mcSpacesAnimating && !tm.currentAbout3Pane?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating;
+          try {
+            await toMail(); await ruhig(600);
+            if (w.gSpacesToolbar.isHidden || tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter?.isCollapsed) {
+              w.__mcColumnMigrate(false, false); await ruhig(600);
+            }
+            for (const space of ["mail", "calendar"]) {
+              if (space == "calendar") { await toCalendar(); await ruhig(800); }
+              const sample = () => {
+                const rl = row.getBoundingClientRect().left;
+                let col, v;
+                if (space == "mail") {
+                  const ab = tm.currentAbout3Pane, fp = ab.document.getElementById("folderPane"), r = fp.getBoundingClientRect();
+                  col = r.width ? ab.browsingContext.embedderElement.getBoundingClientRect().left + r.right : rl;
+                  v = parseFloat(row.style.getPropertyValue("--mc-sidebar-right")) || 0;
+                } else {
+                  const r = d.getElementById("calSidebar").getBoundingClientRect();
+                  col = r.width ? r.right : rl;
+                  v = parseFloat(row.style.getPropertyValue("--mc-side-right")) || 0;
+                }
+                return { col: Math.round(col * 10) / 10, edge: Math.round((rl + v) * 10) / 10, btn: Math.round(btn.getBoundingClientRect().left * 10) / 10 };
+              };
+              for (const phase of ["aus", "ein"]) {
+                const frames = [sample()];
+                btn.click();
+                const t0 = performance.now();
+                while (performance.now() - t0 < 700) { await new Promise(r => w.requestAnimationFrame(r)); frames.push(sample()); }
+                await bis(still, "Animation fertig", 3000); await ruhig(400);
+                frames.push(sample());
+                const colSteps = frames.map((f, i) => i ? Math.abs(f.col - frames[i - 1].col) : 0);
+                const maxCol = Math.max(...colSteps);
+                const moved = frames.filter((f, i) => i && Math.abs(f.edge - frames[i - 1].edge) > 0.5).length;
+                // Abstand der Kante zur Spalte über das hinaus, was die Spalte in diesem Bild ging
+                const off = Math.max(...frames.map((f, i) => Math.abs(f.edge - f.col) - (i ? colSteps[i] : 0)));
+                const btnStep = Math.max(...frames.map((f, i) => i ? Math.abs(f.btn - frames[i - 1].btn) : 0));
+                out[`${space}/${phase}`] = { moved, off: Math.round(off * 10) / 10, btnStep: Math.round(btnStep * 10) / 10,
+                  maxCol: Math.round(maxCol * 10) / 10, first: frames[0], end: frames[frames.length - 1],
+                  frames: frames.filter((f, i) => !i || f.col != frames[i - 1].col || f.edge != frames[i - 1].edge || f.btn != frames[i - 1].btn)
+                    .map(f => `${f.col}/${f.edge}/${f.btn}`).join(" ") };
+              }
+            }
+          } finally {
+            if (w.gSpacesToolbar.isHidden) { w.__mcColumnMigrate(false, false); }
+            await toMail(); await ruhig(600);
+          }
+          return out;""")
+        if res.get("visibility") == "hidden":
+            return True, f"Testfenster verdeckt – übersprungen {res}"
+        bad = []
+        for k, v in res.items():
+            if not isinstance(v, dict):
+                continue
+            # (ohne Bewegung springt alles in einem Bild ans Ende – dann gibt es nichts zu gleiten)
+            if not res.get("reduced") and v["moved"] < 3:
+                bad.append(f"{k}: Kante bewegt sich nicht mit ({v})")
+            if v["off"] > 3:
+                bad.append(f"{k}: Kante bleibt hinter der Spalte zurück ({v})")
+            if not res.get("reduced") and v["btnStep"] > v["maxCol"] + 3:
+                bad.append(f"{k}: Knopf springt ({v})")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Seitenleiste: Grau, Trennlinie und Seitenleisten-Knopf der Toolbar-Zeile gleiten beim Aus-/Einblenden mit der Spalte, "
+          "kein Sprung am Ende (Mail und Kalender)", sidebar_column_edges, results)
+
     def sidebar_column_float():
         # Seitenleiste wie Dia 3/4: ausgeblendet schwebt sie beim Zeigen an den linken Fensterrand über dem Inhalt ein
         # (Werte an Dia gemessen: 3 px vom Rand, Radius 10 px, Schatten); Mailliste bzw. Kalender verschieben sich

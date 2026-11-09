@@ -15,6 +15,12 @@ Herkunft: Sitzung project.analysis.control, 8.11.2026, am 9.11.2026 vom Maintain
 Vermerk: ersetzt die Entscheidung vom 5.11.2026 („Wochenprüfung verbessert die Abläufe selbst“); beide Wortlaute stehen in dieser Datei.
 Bezug: `tests/wochenpruefung-auftrag.md` (Abschnitt 3b), `docs/testrechner.md` „Wochenprüfung“.
 
+### Symbolleisten-Überlauf wie Apple: Suchfeld zuerst, Pillen nie abschneiden
+Herkunft: Sitzung project.analysis.control, 9.11.2026; der Maintainer hat der wörtlichen Übermittlung zugestimmt („ja“, laut Nachricht der Sitzung an neon).
+Wortlaut 1 (Beschreibung): „bei apple mail werden pillen bei platzmangel niemals abgeschnitten sondern die pille als ganzes ausgeblendet. bei ausgeblendeten pillen wird direkt neben dem suchfeld links davon ein button mit einem chevron eingeblendet (screenshot 1) welcher bei klick auf den chevron die aktionen aller bereits ausgeblendeter pillen anzeigt (screenshot 2)“
+Wortlaut 2 (Entscheidung): „nein. bei platzmangel soll immer zuerst das suchfeld bis auf die lupe minimiert werden. danach gilt diese logik: bei weiterem platzmangel pillen niemals abgeschnitten werden dürfen soll für alle unsere spaces gelten (exklusive chat, wenn dieser von einem 3rd party addon oder webseite ersetzt wurde).“
+Bezug: Board-Einträge „Mail: Mindestbreite des Mail-Space passt nicht zur Knopfleiste über der geöffneten Mail“ und „Alle Spaces: Symbolleisten-Überlauf einheitlich wie Apple Mail“; Vorlagen `apple-mail-toolbar-ueberlauf-chevron.png` und `apple-mail-toolbar-ueberlauf-menue.png` in `~/halo-aufgaben/apple/` (laut Nachricht der Sitzung).
+
 ### Höchstens ein reguläres Release pro Tag
 Herkunft: Sitzung neon, 9.11.2026, Freigabe des Maintainers zu Auftrag #32 (Kürzung von `AGENTS.md`, Ablauf-Analyse Stufe 5). Wortlaut der Freigabe: „Freigabe: ja, Prüfpunkte 1–4 und neue Kernregel 'höchstens ein reguläres Release pro Tag'“.
 Regeltext (Fassung des Auftrags von neon, kein Wortlaut des Maintainers): „Höchstens ein reguläres Release pro Tag. Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.“

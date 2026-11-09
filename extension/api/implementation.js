@@ -4146,19 +4146,29 @@ function hookTaskCards(win, restorers) {
   const rel = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   // Fälligkeit wie in Apple Erinnerungen: „Heute, 14:00“, „Morgen“, „3. Nov.“
+  const dateText = date => {
+    if (!date?.isValid) {
+      return null;
+    }
+    const js = cal.dtz.dateTimeToJsDate(date.isDate ? date : date.getInTimezone(cal.dtz.defaultTimezone));
+    const now = new Date();
+    const days = Math.round((dayStart(js) - dayStart(now)) / 86400000);
+    let text = Math.abs(days) <= 1 ? rel.format(days, "day") : (js.getFullYear() == now.getFullYear() ? fmtDay : fmtDayYear).format(js);
+    text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+    if (!date.isDate) {
+      text += ", " + fmtTime.format(js);
+    }
+    return text;
+  };
   const dueText = task => {
     const due = task.dueDate;
-    if (!due?.isValid) {
+    const text = dateText(due);
+    if (!text) {
       return null;
     }
     const js = cal.dtz.dateTimeToJsDate(due.isDate ? due : due.getInTimezone(cal.dtz.defaultTimezone));
     const now = new Date();
     const days = Math.round((dayStart(js) - dayStart(now)) / 86400000);
-    let text = Math.abs(days) <= 1 ? rel.format(days, "day") : (js.getFullYear() == now.getFullYear() ? fmtDay : fmtDayYear).format(js);
-    text = text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
-    if (!due.isDate) {
-      text += ", " + fmtTime.format(js);
-    }
     return { text, overdue: !task.isCompleted && (due.isDate ? days < 0 : js < now) };
   };
   const color = calendar => {
@@ -4185,46 +4195,60 @@ function hookTaskCards(win, restorers) {
       if (sel?.isSelected(i)) {
         card.setAttribute("aria-selected", "true");
       }
-      const check = el("span", "mc-tc-check");
-      check.style.setProperty("--mc-tc-color", color(task.calendar));
-      // offen: Ring füllt sich mit dem Fortschritt (25 % = ein Viertel), Farbe
-      // nach Stufe wie eine Ampel (Zwischenwerte: nächstliegende Stufe, nie die
-      // der erledigten Aufgabe)
-      const pct = task.percentComplete || 0;
-      if (!task.isCompleted && pct < 100) {
-        check.setAttribute("data-progress", "");
-        check.dataset.step = String(Math.min(75, Math.round(pct / 25) * 25));
-        check.toggleAttribute("data-empty", pct == 0); // 0 %: gestrichelt
-        check.style.setProperty("--mc-tc-p", pct);
-        check.title = tr("{n} % done", { n: pct });
-      }
-      const body = el("div", "mc-tc-body");
-      const line1 = el("div", "mc-tc-title");
+      // Aufbau nach Entwurf I (Entscheidung des Maintainers vom 6.11.2026):
+      // links der Farbstreifen der Liste (so hoch wie der Inhalt, mindestens
+      // 48 px), oben der Titel mit Priorität, rechts der Fortschrittsstrich –
+      // erledigter Teil füllt von unten in der Ampelfarbe der Stufe, der
+      // offene Teil ist fein rot gestrichelt –, unten rechts daneben die Zahl
+      // „n %“; darunter nur, was es gibt: Datum, Ort, Beschreibung,
+      // Kategorien. Kein Abhak-Kreis mehr (zu oft versehentlich erledigt)
+      card.style.setProperty("--mc-tc-color", color(task.calendar));
+      const pct = task.isCompleted ? 100 : Math.max(0, Math.min(100, task.percentComplete || 0));
+      card.dataset.step = String(pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : 25);
+      card.style.setProperty("--mc-tc-p", pct);
+      const title = el("div", "mc-tc-title");
       // Priorität wie Apple: „!!!“ hoch, „!!“ mittel, „!“ niedrig vor dem Titel
       const prio = task.priority;
       if (prio >= 1 && prio <= 9) {
-        line1.append(el("span", "mc-tc-prio", prio <= 4 ? "!!!" : prio == 5 ? "!!" : "!"));
+        title.append(el("span", "mc-tc-prio", prio <= 4 ? "!!!" : prio == 5 ? "!!" : "!"));
       }
-      line1.append(task.title || "");
-      const line2 = el("div", "mc-tc-meta");
+      title.append(task.title || "");
+      const bar = el("span", "mc-tc-bar");
+      bar.title = tr("{n} % done", { n: pct });
+      bar.append(el("i", "mc-tc-fill"));
+      const num = el("span", "mc-tc-pct", `${pct} %`);
+      card.append(el("span", "mc-tc-stripe"), title, num, bar);
       const due = dueText(task);
-      if (due) {
-        const d = el("span", "mc-tc-due", due.text);
-        d.toggleAttribute("data-overdue", due.overdue);
-        line2.append(d);
+      const start = dateText(task.entryDate);
+      if (due || start) {
+        const row = el("div", "mc-tc-row mc-tc-due", start && due ? `${start} – ${due.text}` : due ? due.text : start);
+        row.dataset.icon = "calendar";
+        row.toggleAttribute("data-overdue", !!due?.overdue);
+        card.append(row);
       }
-      const calName = el("span", "mc-tc-cal", task.calendar?.name || "");
-      calName.style.setProperty("--mc-tc-color", color(task.calendar));
-      line2.append(calName);
-      if (!task.isCompleted && pct > 0 && pct < 100) {
-        line2.append(el("span", "mc-tc-pct", tr("{n} % done", { n: pct })));
+      const where = task.getProperty?.("LOCATION");
+      if (where) {
+        const row = el("div", "mc-tc-row mc-tc-where", where);
+        row.dataset.icon = "location";
+        card.append(row);
       }
-      const cats = task.getCategories?.() || [];
-      if (cats.length) {
-        line2.append(el("span", "mc-tc-cats", cats.join(", ")));
+      const note = (task.descriptionText || task.getProperty?.("DESCRIPTION") || "").trim();
+      if (note) {
+        card.append(el("div", "mc-tc-note", note));
       }
-      body.append(line1, line2);
-      card.append(check, body);
+      // Kategorien als Kapseln; eine Liste mit ⚠️ im Namen (iCloud: nicht mehr
+      // abgeglichen) ebenso – die Liste selbst zeigt der Streifen
+      const chips = task.getCategories?.() || [];
+      if (/⚠/.test(task.calendar?.name || "")) {
+        chips.unshift(task.calendar.name);
+      }
+      if (chips.length) {
+        const cats = el("div", "mc-tc-cats");
+        cats.append(...chips.map(c => el("span", "mc-tc-chip", c)));
+        card.append(cats);
+      }
+      // (Streifen, Strich und Zahl reichen über alle Zeilen der Karte)
+      card.style.setProperty("--mc-tc-rows", card.children.length - 3);
       return card;
     });
     // (eine Zeile in Bearbeitung nicht umhängen – sie verlöre den Fokus)
@@ -4383,7 +4407,7 @@ function hookTaskCards(win, restorers) {
       return editing;
     }
     const row = el("div", "mc-tc mc-tc-new");
-    row.append(el("span", "mc-tc-check"), el("div", "mc-tc-body mc-tc-new-text", tr("New Task")));
+    row.append(el("div", "mc-tc-body mc-tc-new-text", tr("New Task")));
     return row;
   };
   const startNewTask = row => {
@@ -4501,16 +4525,7 @@ function hookTaskCards(win, restorers) {
       sel.clearSelection();
       return;
     }
-    // Kreis: erledigt / offen (wie Thunderbirds Spalte „Erledigt“)
-    if (event.button == 0 && event.target.closest(".mc-tc-check")) {
-      const task = tree.mTaskArray?.[i];
-      if (task?.isCompleted) {
-        reopenTasks(win, [task]);
-      } else {
-        tree.mTreeView?.cycleCell(i, { element: tree.querySelector("[itemproperty='completed']") });
-      }
-      return;
-    }
+    // (kein Abhak-Kreis: Erledigen über Kontextmenü, Detailansicht oder 100 %)
     if (event.button == 2 && sel.isSelected(i)) {
       return;
     }
@@ -4528,7 +4543,7 @@ function hookTaskCards(win, restorers) {
   });
   list.addEventListener("dblclick", event => {
     const i = indexOf(event);
-    if (event.button != 0 || event.target.closest(".mc-tc-check") || event.target.closest(".mc-tc-new")) {
+    if (event.button != 0 || event.target.closest(".mc-tc-new")) {
       return;
     }
     const initialDate = cal.dtz.getDefaultStartDate(tree.getInitialDate?.());

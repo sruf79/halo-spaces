@@ -1823,40 +1823,74 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   box-shadow: var(--mt-shadow);
 }
 
+/* Karte nach Entwurf I (Entscheidung 6.11.2026): Raster – links der
+   Farbstreifen der Liste, dann Titel und Zeilen, rechts die Zahl „n %“ und der
+   Fortschrittsstrich. Streifen und Strich sind so hoch wie der Inhalt
+   (mindestens 48 px), die Karte wächst nur nach unten; Kacheln mit Haarlinie
+   auf getönter Fläche, 8 px Abstand, Auswahl als Rahmen statt Fläche */
+/* (oben 4 px: die erste Karte beginnt auf Höhe der Knöpfe über der Aufgabe) */
+:root[mc-task-list]:not([mc-task-board]) #mcTaskCards {
+  padding: 4px 0;
+  background: var(--mt-table-stripe);
+}
+
 .mc-tc {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-inline: 8px;
-  padding: 9px 10px;
-  border-radius: var(--mt-radius-row);
-  box-shadow: inset 0 -0.5px 0 var(--mt-separator);
+  --mc-tc-rows: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) auto 4px;
+  column-gap: 12px;
+  align-items: start;
+  margin: 0 8px 8px;
+  padding: 10px 14px 10px 12px;
+  border-radius: 12px;
+  background: var(--mt-window);
+  box-shadow: 0 0 0 0.5px var(--mt-separator);
 }
 
 .mc-tc:hover {
-  background: var(--mt-hover);
+  background: color-mix(in srgb, var(--mt-window), var(--mt-hover));
 }
 
 .mc-tc[aria-selected] {
-  background: var(--mt-selected-unfocused);
-  box-shadow: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mt-text) 25%, transparent);
 }
 
-/* Zeile „New Task“ unter der letzten Karte (Aufgaben 4/5): grauer Kreis und
-   grauer Text, ohne Linie darunter; beim Bearbeiten ein Feld an Stelle des Texts */
+#mcTaskCards[data-focused] .mc-tc[aria-selected] {
+  box-shadow: 0 0 0 2px var(--mt-accent);
+}
+
+/* Streifen der Liste und Fortschrittsstrich: 4 px, Radius 2 px, über alle
+   Zeilen der Karte, mindestens 48 px */
+.mc-tc-stripe,
+.mc-tc-bar {
+  grid-row: 1 / span var(--mc-tc-rows);
+  align-self: stretch;
+  box-sizing: border-box;
+  width: 4px;
+  min-height: 48px;
+  border-radius: 2px;
+}
+
+.mc-tc-stripe {
+  grid-column: 1;
+  background: var(--mc-tc-color, var(--mt-accent));
+}
+
+/* Zeile „New Task“ unter der letzten Karte (Aufgaben 4/5): grauer Text bündig
+   mit den Titeln, ohne Kachel; beim Bearbeiten ein Feld an Stelle des Texts */
 .mc-tc.mc-tc-new {
+  display: block;
+  min-height: 0;
+  padding: 6px 14px 6px 28px;
+  background: transparent;
   box-shadow: none;
-  align-items: center;
-}
-
-.mc-tc.mc-tc-new .mc-tc-check {
-  margin-top: 0;
-  border-color: var(--mt-text-tertiary);
 }
 
 .mc-tc-new-text {
   color: var(--mt-text-tertiary);
-  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-size: calc(14px * var(--mt-font-scale, 1));
+  line-height: calc(22px * var(--mt-font-scale, 1));
 }
 
 .mc-tc-new-input {
@@ -1868,32 +1902,8 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   background: transparent;
   color: var(--mt-text);
   font: inherit;
-  font-size: calc(13px * var(--mt-font-scale, 1));
-}
-
-#mcTaskCards[data-focused] .mc-tc[aria-selected] {
-  background: var(--mt-accent);
-}
-
-#mcTaskCards[data-focused] .mc-tc[aria-selected] :is(.mc-tc-title, .mc-tc-meta, .mc-tc-due, .mc-tc-prio) {
-  color: var(--mt-accent-text) !important;
-}
-
-.mc-tc-check {
-  flex: none;
-  box-sizing: border-box;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  border: 1.5px solid color-mix(in srgb, var(--mc-tc-color) 75%, var(--mt-text-tertiary));
-  border-radius: 50%;
-}
-
-.mc-tc[data-completed] .mc-tc-check {
-  border-color: var(--mc-tc-color);
-  background: var(--mc-tc-color) url("chrome://messenger/skin/overrides/check.svg") center / 11px no-repeat;
-  -moz-context-properties: fill;
-  fill: white;
+  font-size: calc(14px * var(--mt-font-scale, 1));
+  line-height: calc(22px * var(--mt-font-scale, 1));
 }
 
 /* Fortschritt in Ampelfarben (0 % rot … 75 % grün, erledigt kräftig grün);
@@ -1918,35 +1928,50 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   }
 }
 
-.mc-tc-check[data-step="0"] { --mc-ring: var(--mt-prog-0); }
-.mc-tc-check[data-step="25"] { --mc-ring: var(--mt-prog-25); }
-.mc-tc-check[data-step="50"] { --mc-ring: var(--mt-prog-50); }
-.mc-tc-check[data-step="75"] { --mc-ring: var(--mt-prog-75); }
-
-.mc-tc[data-completed] .mc-tc-check {
-  border-color: var(--mt-prog-100);
-  background-color: var(--mt-prog-100);
+/* Fortschrittsstrich rechts: offener Teil fein rot gestrichelt (Striche
+   1,5 px, Lücken 2,5 px, ca. 55 % Deckkraft), der erledigte Teil füllt von
+   unten in der Farbe der Stufe (25 % orange, 50 % gelb, 75 % grün, erledigt
+   kräftig grün); bei 0 % ist alles gestrichelt, bei 100 % nichts */
+.mc-tc-bar {
+  grid-column: 4;
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(to bottom,
+      color-mix(in srgb, var(--mt-prog-0) 55%, transparent) 0 1.5px, transparent 1.5px 4px);
 }
 
-/* offen: Ring füllt sich mit dem Fortschritt (--mc-tc-p in %, ab 12 Uhr im
-   Uhrzeigersinn), Rest blass in derselben Farbe */
-.mc-tc-check[data-progress] {
-  border: none;
-  background: conic-gradient(var(--mc-ring) calc(var(--mc-tc-p, 0) * 1%),
-                             color-mix(in srgb, var(--mc-ring) var(--mc-ring-track, var(--mt-prog-track)), transparent) 0);
-  mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+.mc-tc-fill {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: calc(var(--mc-tc-p, 0) * 1%);
+  border-radius: 2px;
+  background: var(--mc-bar, var(--mt-prog-25));
 }
 
-/* 0 %: gestrichelter Ring – kräftige Striche auf der blassen Spur, damit ein
-   ganz gefärbter Ring nicht wie „fertig“ wirkt */
-.mc-tc-check[data-progress][data-empty] {
-  background: repeating-conic-gradient(var(--mc-ring) 0 20deg,
-                                       color-mix(in srgb, var(--mc-ring) var(--mt-prog-track), transparent) 0 36deg);
+.mc-tc[data-step="25"] { --mc-bar: var(--mt-prog-25); }
+.mc-tc[data-step="50"] { --mc-bar: var(--mt-prog-50); }
+.mc-tc[data-step="75"] { --mc-bar: var(--mt-prog-75); }
+.mc-tc[data-step="100"] { --mc-bar: var(--mt-prog-100); }
+
+/* Zahl „n %“ unten rechts neben dem Strich, bündig mit dessen Unterkante –
+   diagonal gegenüber vom Titel, in dessen Schrift */
+.mc-tc-pct {
+  grid-column: 3;
+  grid-row: 1 / span var(--mc-tc-rows);
+  align-self: end;
+  justify-self: end;
+  margin-bottom: -3px;
+  font-size: calc(14px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  line-height: calc(20px * var(--mt-font-scale, 1));
+  font-variant-numeric: tabular-nums;
+  color: var(--mt-text);
+  white-space: nowrap;
 }
 
-/* gewählt (Akzentfläche): Ring in der Schrift der Auswahl statt Farbe auf Blau */
-#mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check[data-progress] {
-  --mc-ring: var(--mt-accent-text);
+.mc-tc[data-completed] .mc-tc-pct {
+  color: var(--mt-text-tertiary);
 }
 
 /* Menü „Fortschritt“ (Erledigt-Knopf, Kontextmenü): derselbe Ring vor dem Text */
@@ -1979,20 +2004,13 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   mask: none;
 }
 
-#mcTaskCards[data-focused] .mc-tc[aria-selected] .mc-tc-check {
-  border-color: var(--mt-accent-text);
-}
-
-.mc-tc-body {
-  flex: 1;
-  min-width: 0;
-}
-
 .mc-tc-title {
+  grid-column: 2;
+  grid-row: 1;
   overflow: hidden;
-  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-size: calc(14px * var(--mt-font-scale, 1));
   font-weight: 600;
-  line-height: calc(18px * var(--mt-font-scale, 1));
+  line-height: calc(22px * var(--mt-font-scale, 1));
   color: var(--mt-text);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -2008,39 +2026,71 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   color: var(--mt-accent);
 }
 
-.mc-tc-meta {
+/* darunter, nur wenn vorhanden: Datum (Beginn – Fällig, überfällig rot), Ort –
+   je mit feinem Strichsymbol –, Beschreibung (höchstens zwei Zeilen),
+   Kategorien als Kapseln; alles links der Zahl */
+.mc-tc-row {
+  grid-column: 2;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
-  margin-top: 1px;
+  margin-top: 4px;
   font-size: calc(12px * var(--mt-font-scale, 1));
-  line-height: calc(16px * var(--mt-font-scale, 1));
+  line-height: calc(18px * var(--mt-font-scale, 1));
   color: var(--mt-text-tertiary);
   white-space: nowrap;
-}
-
-.mc-tc-meta > * {
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mc-tc-due {
+.mc-tc-row::before {
+  content: "";
   flex: none;
+  width: 13px;
+  height: 13px;
+  background: var(--mc-tc-icon) center / contain no-repeat;
+  -moz-context-properties: fill, fill-opacity, stroke;
+  fill: transparent;
+  stroke: currentColor;
 }
+
+.mc-tc-row[data-icon="calendar"] { --mc-tc-icon: url("resource://mailcards/icons/calendar.svg"); }
+.mc-tc-row[data-icon="location"] { --mc-tc-icon: url("resource://mailcards/icons/location.svg"); }
 
 .mc-tc-due[data-overdue] {
-  color: #FF3B30;
+  color: var(--mt-prog-0);
+  font-weight: 500;
 }
 
-.mc-tc-cal::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  margin-inline-end: 4px;
-  border-radius: 50%;
-  background: var(--mc-tc-color);
-  vertical-align: 1px;
+.mc-tc-note {
+  grid-column: 2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
+  line-height: calc(17px * var(--mt-font-scale, 1));
+  color: var(--mt-text-tertiary);
+  white-space: pre-line;
+}
+
+.mc-tc-cats {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mc-tc-chip {
+  padding: 0 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mt-text) 6%, transparent);
+  font-size: calc(11.5px * var(--mt-font-scale, 1));
+  line-height: calc(20px * var(--mt-font-scale, 1));
+  color: var(--mt-text-secondary);
+  white-space: nowrap;
 }
 
 /* Tabellenansicht der Aufgaben (Erweiterung: ohne mc-task-list) wie die
@@ -10643,18 +10693,14 @@ datepicker[mc-inline] > menulist {
 
   /* Symbole als Maske: Fläche in der Textfarbe des Designs */
   :is(#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon, #mcListHeader .mc-lh-tools > button::before,
-      #task-actions-toolbar > toolbarbutton::before, .mc-tc-check) {
+      #task-actions-toolbar > toolbarbutton::before, .mc-tc-stripe, .mc-tc-fill) {
     forced-color-adjust: none;
     background-color: ButtonText !important;
   }
 
-  .mc-tc-check {
-    background-color: transparent !important;
-    border-color: ButtonText !important;
-  }
-
-  .mc-tc[data-completed] .mc-tc-check {
-    background-color: ButtonText !important;
+  .mc-tc-bar {
+    background: transparent !important;
+    border: 1px solid ButtonText !important;
   }
 }
 

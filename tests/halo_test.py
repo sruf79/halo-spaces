@@ -13533,17 +13533,22 @@ Neu
     check("Aufgaben: „Complete“ mit Pfeil – beim Überfahren bekommt nur der Teil unter der Maus eine Fläche", tasks_cap_hover, results)
 
     def task_cards():
-        # Kartenansicht der Aufgaben wie die Mail-Karten: Menü heißt „Card View“, Karten mit Radius und Trennlinie wie die
-        # Mailkarten, zweizeilig (Titel, darunter Fälligkeit und Kalender), Auswahl in Akzentfarbe; Klick wählt in
-        # Thunderbirds Liste (Details rechts), Kreis hakt ab; Tabellenansicht zeigt wieder Thunderbirds Liste
+        # Kartenansicht der Aufgaben nach Entwurf I (Entscheidung 6.11.2026): Menü heißt „Card View“; je Karte links der
+        # Farbstreifen der Liste, oben Titel mit Priorität, rechts Fortschrittsstrich (offener Teil rot gestrichelt) und
+        # unten daneben „n %“, Streifen und Strich gleich hoch (mindestens 48 px), darunter Fälligkeit (überfällig rot) und
+        # Kategorien als Kapseln; kein Abhak-Kreis; Auswahl als Rahmen in Akzentfarbe; Klick wählt in Thunderbirds Liste
+        # (Details rechts), Erledigen über den Befehl; Tabellenansicht zeigt wieder Thunderbirds Liste
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900);
           const c = testCalendar();
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
           Services.prefs.clearUserPref("extensions.mailcards.taskView");
           const todo = new CalTodo(); todo.title = "Halo Kartenaufgabe"; todo.calendar = c; todo.priority = 1;
-          const due = cal.dtz.now(); due.day += 1; due.isDate = true; todo.dueDate = due;
-          const saved = await c.addItem(todo);
+          const due = cal.dtz.now(); due.day += 1; due.isDate = true; todo.dueDate = due; todo.setCategories(["Halo Kategorie"]);
+          const late = new CalTodo(); late.title = "Halo Spätaufgabe"; late.calendar = c; late.percentComplete = 50;
+          const past = cal.dtz.now(); past.day -= 1; past.isDate = true; late.dueDate = past;
+          late.setProperty("LOCATION", "Halo Ort"); late.setProperty("DESCRIPTION", "Zeile eins\nZeile zwei\nZeile drei\nZeile vier");
+          const saved = await c.addItem(todo), savedLate = await c.addItem(late);
           const out = {};
           try {
             tm.openTab("tasks", {}); await ruhig(1500);
@@ -13553,16 +13558,33 @@ Neu
             if (!card) return out;
             tree.view.selection.clearSelection(); await ruhig(300);
             const cs = csOf(card), r = card.getBoundingClientRect();
-            out.look = { radius: cs.borderTopLeftRadius, shadow: cs.boxShadow.includes("inset"), h: Math.round(r.height),
-                         lines: card.querySelectorAll(".mc-tc-title, .mc-tc-meta").length, prio: card.querySelector(".mc-tc-prio")?.textContent,
-                         meta: card.querySelector(".mc-tc-meta")?.textContent, treeShown: w.getComputedStyle(tree).opacity != "0" || w.getComputedStyle(tree).pointerEvents != "none" };
-            out.mailRadius = csOf(d.documentElement).getPropertyValue("--mt-radius-row").trim();
-            // Klick auf die Karte: Thunderbirds Liste wählt die Aufgabe, Details zeigen sie
+            const R = e => { const b = e?.getBoundingClientRect(); return b ? { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom), h: Math.round(b.height), w: Math.round(b.width) } : null; };
+            const stripe = card.querySelector(".mc-tc-stripe"), bar = card.querySelector(".mc-tc-bar"), pct = card.querySelector(".mc-tc-pct"), ttl = card.querySelector(".mc-tc-title");
+            out.look = { radius: cs.borderTopLeftRadius, hairline: cs.boxShadow.includes("0.5px"), h: Math.round(r.height), check: !!card.querySelector(".mc-tc-check"),
+                         order: [...card.children].map(e => e.className.split(" ")[0]), prio: card.querySelector(".mc-tc-prio")?.textContent,
+                         stripe: R(stripe), bar: R(bar), pct: R(pct), pctText: pct?.textContent, title: R(ttl), card: R(card),
+                         stripeColor: stripe && csOf(stripe).backgroundColor, calColor: colorOf(d, c.getProperty("color")),
+                         barDashed: bar && csOf(bar).backgroundImage.slice(0, 25), fillH: Math.round(card.querySelector(".mc-tc-fill")?.getBoundingClientRect().height ?? -1),
+                         due: card.querySelector(".mc-tc-due")?.textContent, overdue: card.querySelector(".mc-tc-due")?.hasAttribute("data-overdue"),
+                         chips: [...card.querySelectorAll(".mc-tc-chip")].map(x => [x.textContent, csOf(x).borderTopLeftRadius]),
+                         treeShown: w.getComputedStyle(tree).opacity != "0" || w.getComputedStyle(tree).pointerEvents != "none" };
+            // zweite Karte: überfällig rot, Ort, Beschreibung auf zwei Zeilen, Strich zur Hälfte gefüllt (gelb), Karte nur nach unten gewachsen
+            const lc = [...list.children].find(k => /Halo Spätaufgabe/.test(k.textContent));
+            const lb = lc?.querySelector(".mc-tc-bar"), lf = lc?.querySelector(".mc-tc-fill"), ld = lc?.querySelector(".mc-tc-due"), ln = lc?.querySelector(".mc-tc-note");
+            out.late = lc ? { overdue: ld?.hasAttribute("data-overdue"), dueColor: ld && csOf(ld).color, red: colorOf(d, "var(--mt-prog-0)"),
+                              where: lc.querySelector(".mc-tc-where")?.textContent, noteH: Math.round(ln?.getBoundingClientRect().height ?? -1), noteLine: ln && csOf(ln).lineHeight,
+                              pct: lc.querySelector(".mc-tc-pct")?.textContent, step: lc.dataset.step, fillH: Math.round(lf?.getBoundingClientRect().height ?? -1), barH: Math.round(lb?.getBoundingClientRect().height ?? -1),
+                              fillColor: lf && csOf(lf).backgroundColor, want: colorOf(d, "var(--mt-prog-50)"), stripe: R(lc.querySelector(".mc-tc-stripe")), bar: R(lb), pctBox: R(lc.querySelector(".mc-tc-pct")),
+                              h: Math.round(lc.getBoundingClientRect().height), w: Math.round(lc.getBoundingClientRect().width) } : null;
+            // Klick auf die Karte: Thunderbirds Liste wählt die Aufgabe, Details zeigen sie; Auswahl als Rahmen, nicht als Fläche
             const rect = card.getBoundingClientRect();
             card.querySelector(".mc-tc-title").dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: rect.left + 60, clientY: rect.top + 10 }));
             await ruhig(600);
             const sel = [...list.children].find(k => k.hasAttribute("aria-selected"));
+            const frame = sel && csOf(sel).boxShadow;
             out.selected = { task: tree.currentTask?.title, card: sel?.textContent.includes("Halo Kartenaufgabe"), bg: sel && csOf(sel).backgroundColor,
+                             frame, frameColor: frame && (frame.match(/rgba?\([^)]*\)/) || [null])[0], frameWide: !!frame && /\b2px\b/.test(frame),
+                             titleColor: sel && csOf(sel.querySelector(".mc-tc-title")).color, text: colorOf(d, "var(--mt-text)"),
                              accent: colorOf(d, "var(--mt-accent)"), focused: list.hasAttribute("data-focused"),
                              details: d.getElementById("calendar-task-details-title")?.textContent };
             // Rechtsklick auf die Karte: jeder Eintrag des Aufgabenmenüs nur einmal (früher „Open Task…“/„New Task…“ doppelt)
@@ -13582,11 +13604,15 @@ Neu
             } finally { w.modifyEventWithDialog = origModify; }
             out.edited = edited;
             cmenu?.hidePopup(); await ruhig(300);
-            // Kreis: erledigt
-            const check = card.querySelector(".mc-tc-check"), cr = check.getBoundingClientRect();
-            check.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
+            // Erledigen über den Befehl (kein Kreis mehr): Strich ganz grün, „100 %“
+            d.getElementById("calendar_toggle_completed_command").doCommand();
             await till(async () => (await c.getItem(saved.id))?.isCompleted, 4000); await (async () => { for (let i = 0; i < 80 && !(await c.getItem(saved.id))?.isCompleted; i++) await new Promise(r => setTimeout(r, 50)); })(); await ruhig(500);
             out.completed = !!(await c.getItem(saved.id))?.isCompleted;
+            // (erledigte Aufgaben zeigt erst der Filter „Alle“)
+            w.taskViewUpdate("all"); await bis(() => [...list.children].find(k => /Halo Kartenaufgabe/.test(k.textContent)), "erledigte Karte", 4000).catch(() => {}); await ruhig(400);
+            const dc = [...list.children].find(k => /Halo Kartenaufgabe/.test(k.textContent));
+            out.done = dc ? { step: dc.dataset.step, pct: dc.querySelector(".mc-tc-pct")?.textContent, fillH: Math.round(dc.querySelector(".mc-tc-fill").getBoundingClientRect().height),
+                              barH: Math.round(dc.querySelector(".mc-tc-bar").getBoundingClientRect().height), fill: csOf(dc.querySelector(".mc-tc-fill")).backgroundColor, want: colorOf(d, "var(--mt-prog-100)") } : null;
             // Menü: „Card View“ statt „List View“
             const popup = d.getElementById("mcTaskFilterPopup");
             if (popup) popup.dataset.kind = "view";
@@ -13595,19 +13621,34 @@ Neu
             Services.prefs.setCharPref("extensions.mailcards.taskView", "table"); await ruhig(600);
             out.table = { cards: list.getBoundingClientRect().height > 0, tree: tree.getBoundingClientRect().height > 50 };
           } finally {
-            Services.prefs.clearUserPref("extensions.mailcards.taskView");
-            try { await c.deleteItem(saved); } catch {}
+            Services.prefs.clearUserPref("extensions.mailcards.taskView"); w.taskViewUpdate("throughcurrent");
+            for (const it of [saved, savedLate]) { try { await c.deleteItem(await c.getItem(it.id) || it); } catch {} }
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           }
           return out;""")
-        lk, sl = res.get("look") or {}, res.get("selected") or {}
-        ok = (res.get("card") and lk.get("radius") == res.get("mailRadius") and lk.get("shadow") and lk.get("lines") == 2 and lk.get("prio") == "!!!"
+        lk, sl, lt, dn = res.get("look") or {}, res.get("selected") or {}, res.get("late") or {}, res.get("done") or {}
+        st, br, pc, tt, cd = lk.get("stripe") or {}, lk.get("bar") or {}, lk.get("pct") or {}, lk.get("title") or {}, lk.get("card") or {}
+        layout = (bool(st) and bool(br) and bool(pc) and st["w"] == 4 and br["w"] == 4 and st["h"] >= 48 and st["h"] == br["h"] and st["t"] == br["t"]
+                  and abs(pc["b"] - br["b"]) <= 3 and pc["r"] < br["l"] and br["l"] - pc["r"] <= 14 and abs(tt["t"] - st["t"]) <= 1 and tt["l"] - st["r"] == 12
+                  and st["l"] - cd["l"] == 12 and cd["r"] - br["r"] == 14)
+        lst, lbr, lpc = lt.get("stripe") or {}, lt.get("bar") or {}, lt.get("pctBox") or {}
+        late = (lt.get("overdue") and same_color(lt.get("dueColor", ""), lt.get("red", "")) and lt.get("where") == "Halo Ort"
+                and lt.get("noteH", -1) == 2 * round(float((lt.get("noteLine") or "0px")[:-2])) and lt.get("pct") == "50 %" and lt.get("step") == "50"
+                and abs(lt.get("fillH", -1) * 2 - lt.get("barH", 0)) <= 1 and same_color(lt.get("fillColor", ""), lt.get("want", ""))
+                and lst and lbr and lst["h"] == lbr["h"] and lst["h"] > 48 and abs(lpc["b"] - lbr["b"]) <= 3 and lt.get("h", 0) > lk.get("h", 0) and lt.get("w") == cd.get("w"))
+        ok = (res.get("card") and lk.get("radius") == "12px" and lk.get("hairline") and not lk.get("check") and lk.get("prio") == "!!!"
+              and lk.get("order") == ["mc-tc-stripe", "mc-tc-title", "mc-tc-pct", "mc-tc-bar", "mc-tc-row", "mc-tc-cats"]
+              and lk.get("pctText") == "0 %" and lk.get("fillH") == 0 and lk.get("barDashed") == "repeating-linear-gradient" and same_color(lk.get("stripeColor", ""), lk.get("calColor", ""))
+              and lk.get("due") and not lk.get("overdue") and lk.get("chips") == [["Halo Kategorie", "10px"]] and layout and late
               and not lk.get("treeShown") and sl.get("task") == "Halo Kartenaufgabe" and sl.get("card") and sl.get("focused")
-              and same_color(sl.get("bg", ""), sl.get("accent", "")) and res.get("completed") and (res.get("menu") or [None])[0] == "Card View"
+              and not same_color(sl.get("bg", ""), sl.get("accent", "")) and sl.get("frameWide") and same_color(sl.get("frameColor") or "", sl.get("accent", ""))
+              and same_color(sl.get("titleColor", ""), sl.get("text", ""))
+              and res.get("completed") and dn.get("step") == "100" and dn.get("pct") == "100 %" and dn.get("fillH") == dn.get("barH") and same_color(dn.get("fill", ""), dn.get("want", ""))
+              and (res.get("menu") or [None])[0] == "Card View"
               and res.get("table") == {"cards": False, "tree": True} and res.get("menuDup") == [] and res.get("menuN", 0) >= 4
               and res.get("menuFirst") == "Edit Task…" and not res.get("openTask") and res.get("edited") == "Halo Kartenaufgabe")
         return ok, f"{res}"
-    check("Aufgaben: Kartenansicht wie die Mail-Karten (rund, zweizeilig, Auswahl in Akzentfarbe, Kreis hakt ab), Kontextmenü mit „Edit Task…“ ganz oben, Tabelle zeigt Thunderbirds Liste", task_cards, results)
+    check("Aufgaben: Kartenansicht nach Entwurf I (Streifen der Liste links, Titel, Fortschrittsstrich rechts mit „n %“, Datum/Ort/Beschreibung/Kategorien darunter, kein Kreis, Auswahl als Rahmen), Kontextmenü mit „Edit Task…“ ganz oben, Tabelle zeigt Thunderbirds Liste", task_cards, results)
 
     def task_header():
         # Aufgaben wie die Mail (neue Detailansicht 1/4): „…“ an derselben Stelle wie über der Mailliste (kein Filterknopf), Titel,
@@ -13708,8 +13749,8 @@ Neu
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Knöpfe über der Aufgabe (5a/5d): links „Complete“,
-        # rechts „In eigenem Fenster öffnen“ und „…“ mit Tooltips, Kategorie/Priorität/Löschen ohne Knopf; Fortschritt als Ring am Kreis (50 %); erledigte Aufgabe
-        # per Klick auf den Kreis nach Rückfrage wieder offen (0 %)
+        # rechts „In eigenem Fenster öffnen“ und „…“ mit Tooltips, Kategorie/Priorität/Löschen ohne Knopf; Fortschritt als Strich rechts in der Karte
+        # (50 % halb gefüllt in der Farbe der Stufe, Rest rot gestrichelt), im Menü als Ring; erledigte Aufgabe über „Complete“ nach Rückfrage wieder offen (0 %)
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await pause(600);
           const c = testCalendar();
@@ -13744,17 +13785,13 @@ Neu
             }
             out.prioChecked = checkedIn(prioPopup);
             const halfCard = [...list.children].find(k => /Halo Halbe Aufgabe/.test(k.textContent));
-            const ring = halfCard?.querySelector(".mc-tc-check");
-            // Farbe ohne Auswahl lesen (gewählte Karte zeigt den Ring in der Schrift der Auswahl)
-            const wasFocused = list.hasAttribute("data-focused"); list.removeAttribute("data-focused");
-            out.ring = ring ? { on: ring.hasAttribute("data-progress"), p: ring.style.getPropertyValue("--mc-tc-p"), bg: csOf(ring).backgroundImage.startsWith("conic-gradient"),
-              step: ring.dataset.step, color: csOf(ring).getPropertyValue("--mc-ring").trim(), want: csOf(d.documentElement).getPropertyValue("--mt-prog-50").trim() } : null;
-            // ohne Fortschritt: gestrichelter Ring (wirkt sonst wie fertig), übrige Stufen durchgehend
-            // (Testdaten ohne offene Aufgabe bei 0: Ring nachgebaut wie in den Karten, halbe Aufgabe ohne Merkmal)
-            const zero = d.createElement("span"); zero.className = "mc-tc-check"; zero.setAttribute("data-progress", ""); zero.dataset.step = "0"; zero.setAttribute("data-empty", "");
-            ring?.after(zero);
-            out.zero = [csOf(zero).backgroundImage.slice(0, 24), ring?.hasAttribute("data-empty")]; zero.remove();
-            if (wasFocused) list.setAttribute("data-focused", "");
+            const bar = halfCard?.querySelector(".mc-tc-bar"), fill = halfCard?.querySelector(".mc-tc-fill");
+            out.ring = bar ? { on: true, p: halfCard.style.getPropertyValue("--mc-tc-p"), bg: csOf(bar).backgroundImage.startsWith("repeating-linear-gradient"),
+              step: halfCard.dataset.step, color: csOf(fill).backgroundColor, want: colorOf(d, "var(--mt-prog-50)"),
+              half: Math.abs(fill.getBoundingClientRect().height * 2 - bar.getBoundingClientRect().height) <= 1, pct: halfCard.querySelector(".mc-tc-pct")?.textContent } : null;
+            // ohne Fortschritt: der ganze Strich gestrichelt, keine Füllung (Karte nachgestellt)
+            const zero = halfCard.cloneNode(true); zero.style.setProperty("--mc-tc-p", 0); zero.dataset.step = "25"; halfCard.after(zero);
+            out.zero = [csOf(zero.querySelector(".mc-tc-bar")).backgroundImage.slice(0, 25), Math.round(zero.querySelector(".mc-tc-fill").getBoundingClientRect().height)]; zero.remove();
             // Menü „Fortschritt“: vor jedem Eintrag derselbe Ring in Ampelfarbe
             // das Menü am Erledigt-Knopf der Details (ein Untermenü ließe sich nicht allein öffnen)
             const progs = [...d.querySelectorAll('menupopup[is="calendar-task-progress-menupopup"]')];
@@ -13768,13 +13805,13 @@ Neu
               const lab = it.querySelector(".menu-text, .menu-iconic-text"); const st = lab && w.getComputedStyle(lab, "::before");
               return st ? [st.content, st.backgroundImage.slice(0, 14), st.backgroundColor] : null; }) : null;
             progPopup?.hidePopup(); await ruhig(200);
-            // erledigte Aufgabe: Kreis anklicken → Rückfrage (ersetzt: Marionette schlösse den Dialog selbst) → bestätigen
+            // erledigte Aufgabe: „Complete“ (Befehl) → Rückfrage (ersetzt: Marionette schlösse den Dialog selbst) → bestätigen
             const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
             const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
             Cu.evalInSandbox("globalThis.__mcRealConfirm = confirmReopen; globalThis.__mcAsked = []; confirmReopen = async (win, n) => { __mcAsked.push(n); return true; };", g);
-            const doneCard = [...list.children].find(k => /Halo Erledigte Aufgabe/.test(k.textContent));
-            const check = doneCard?.querySelector(".mc-tc-check"), cr = check?.getBoundingClientRect();
-            check?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
+            const di = tree.mTaskArray.findIndex(t => t.title == "Halo Erledigte Aufgabe");
+            tree.focus(); tree.view.selection.select(di); await ruhig(500);
+            d.getElementById("calendar_toggle_completed_command").doCommand();
             await ruhig(300);
             out.dialog = Cu.evalInSandbox("JSON.stringify(__mcAsked)", g);
             out.texts = Cu.evalInSandbox("JSON.stringify([tr('Reopen task?'), tr('Reopen')])", g);
@@ -13793,15 +13830,15 @@ Neu
         ring = res.get("ring") or {}
         ok = (not (res.get("field") or {}).get("visible", True) and (res.get("field") or {}).get("box", 99) <= 1 and pills
               and res.get("sidePills") == [True, True, True, False, False, False]
-              and res.get("tips") == ["Open in New Window", "More"] and ring.get("on") and ring.get("p") == "50" and ring.get("bg")
+              and res.get("tips") == ["Open in New Window", "More"] and ring.get("on") and ring.get("p") == "50" and ring.get("bg") and ring.get("half") and ring.get("pct") == "50 %"
               and res.get("dialog") == "[1]" and res.get("texts") == '["Reopen task?","Reopen"]' and res.get("reopened") == {"completed": False, "pct": 0}
               and len(res.get("prioChecked") or []) == 1
               # Ampel: 50 % in der Farbe der Stufe 50, Ring auch im Menü vor jedem Eintrag
-              and ring.get("step") == "50" and ring.get("color") and ring.get("color") == ring.get("want")
+              and ring.get("step") == "50" and same_color(ring.get("color", ""), ring.get("want", ""))
               and res.get("menuRings") and len(res["menuRings"]) == 5 and all(r and r[0] == '""' for r in res["menuRings"])
-              and res.get("zero") == ["repeating-conic-gradient", False] and res["menuRings"][0][1] == "repeating-coni")
+              and res.get("zero") == ["repeating-linear-gradient", 0] and res["menuRings"][0][1] == "repeating-coni")
         return ok, f"{res}"
-    check("Aufgaben: ohne Schnelleingabe, Knöpfe über der Aufgabe (Complete, In eigenem Fenster, „…“) mit Tooltips, Fortschritt als Ring in Ampelfarben (auch im Menü), erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
+    check("Aufgaben: ohne Schnelleingabe, Knöpfe über der Aufgabe (Complete, In eigenem Fenster, „…“) mit Tooltips, Fortschritt als Strich in Ampelfarben (im Menü als Ring), erledigte Aufgabe nach Rückfrage wieder offen", task_pills_ring_reopen, results)
 
     def task_more_menu():
         # Aufgaben, neue Detailansicht 5a/5d: „…“ über der Aufgabe öffnet Duplicate ⌘D, Move to List >, Open in New Window ⌘O,

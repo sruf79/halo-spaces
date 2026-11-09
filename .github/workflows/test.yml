@@ -12,7 +12,7 @@ name: Test
 # ci lauf mehr“). Gleiche Liste in tests/ci-noetig.sh – bei Änderungen beide anpassen.
 on:
   push:
-    branches: [main]
+    branches: [main, 'pruef/**']
     paths:
       - 'extension/**'
       - 'chrome/**'

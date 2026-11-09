@@ -15,6 +15,11 @@ Herkunft: Sitzung project.analysis.control, 8.11.2026, am 9.11.2026 vom Maintain
 Vermerk: ersetzt die Entscheidung vom 5.11.2026 („Wochenprüfung verbessert die Abläufe selbst“); beide Wortlaute stehen in dieser Datei.
 Bezug: `tests/wochenpruefung-auftrag.md` (Abschnitt 3b), `docs/testrechner.md` „Wochenprüfung“.
 
+### Bilder mit echten Mails dürfen lokal auf neon automatisch beschrieben werden
+Herkunft: Sitzung project.analysis.control, 9.11.2026; der Maintainer hat der Übermittlung in der Sitzung neon am 9.11.2026 direkt zugestimmt („ja, den Eintrag so in ENTSCHEIDUNGEN.md“).
+Wortlaut: „solange die bilder nur lokal bei neon gespeichert bleiben und nicht auf github oder ins internet veröffentlicht werden ist das okay für mich“
+Thema: Bilder mit echten Mails dürfen automatisch beschrieben werden, solange sie nur lokal auf neon bleiben (Angabe der Sitzung project.analysis.control).
+
 ### Symbolleisten-Überlauf wie Apple: Suchfeld zuerst, Pillen nie abschneiden
 Herkunft: Sitzung project.analysis.control, 9.11.2026; der Maintainer hat der wörtlichen Übermittlung zugestimmt („ja“, laut Nachricht der Sitzung an neon).
 Wortlaut 1 (Beschreibung): „bei apple mail werden pillen bei platzmangel niemals abgeschnitten sondern die pille als ganzes ausgeblendet. bei ausgeblendeten pillen wird direkt neben dem suchfeld links davon ein button mit einem chevron eingeblendet (screenshot 1) welcher bei klick auf den chevron die aktionen aller bereits ausgeblendeter pillen anzeigt (screenshot 2)“

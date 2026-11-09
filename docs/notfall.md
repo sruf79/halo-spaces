@@ -58,10 +58,12 @@ Die Desktop-App-Aufgabe „GitHub-Kommunikation“ hält der Notschalter nur an,
 - Der Maintainer arbeitet in einer Sitzung direkt auf neon.
 - Fixes wie gewohnt, Release mit `release.sh` und `publish.sh`.
 - GitHub-Antworten von Hand, Board über `board.sh`.
+- Zur Erinnerung, wörtlich aus `docs/release.md`: `release.sh` und `publish.sh` laufen **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions. Einzige Bedingung sind grüne Tests: `release.sh` schreibt nur dann die Marke `dist/release-<version>.ok`, `publish.sh` veröffentlicht ohne passende Marke nicht, die Sperre nicht umgehen. Zwischen `release.sh` und `publish.sh` nicht neu bauen. `updates.json` und die Version in `manifest.json` setzt `release.sh`, nicht von Hand. Nach `publish.sh` zeigt der Bericht in `~/halo-berichte/` den Hash- und Update-Prüfstand.
 
 **neon ganz aus:**
 - Board aus Cloud-Sitzungen: Einträge nur anlegen, über den Workflow `add-task.yml` (Notweg, siehe `docs/board.md`).
 - GitHub-Nutzern kurz antworten, ohne Termine.
+- Der Laptop ist kein Release-Rechner (siehe oben). Er schickt Befehle über SSH an neon (`tests/MAC-MINI.md` Abschnitte 4 und 7); ist neon nicht erreichbar, bleibt es bei Commits auf `main`, die der nächste Nachtlauf auf neon testet und veröffentlicht.
 - **Release ist ohne neon derzeit nicht möglich.** Diese Lücke schließt erst ein eigener Notfall-Release-Weg (geplant). Bis dahin: Ursache in einem Issue-Kommentar benennen und neon wiederherstellen (Strom, Netz, Tailscale, Anmeldung).
 
 **Kontingent erschöpft:** Routinen warten von selbst. Release nur von Hand auf neon. Nur Korrekturen schwerer Fehler (Abschnitt 1, Punkt 4).

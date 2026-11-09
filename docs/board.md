@@ -7,7 +7,10 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
 
 ## Neue Bugs und Wünsche, Bilder
 
-- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage dort als
+- **Wünsche und Meldungen von Nutzern** (Reddit, Issues, E-Mail, hineinkopiert) nie sofort eintragen:
+  erst Einschätzung zu Machbarkeit und Sinn mit Empfehlung, Eintrag erst nach ausdrücklichem OK des
+  Maintainers (Entscheidung vom 9.11.2026).
+- Eigene Bugs/Wünsche des Maintainers aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
   Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in
   `~/halo-aufgaben/bilder/` mit Index `bilder/index.md` (der Maintainer schickt sie mit `halobild <name>`,
@@ -203,7 +206,7 @@ offenen Aufträge aus `neon-stand.md`.
   nach Nennung“ gelten nicht mehr). Ausnahme: Ein Feature, das
   einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
-- Neue Bugs/Wünsche aus dem Gespräch sofort und ohne Rückfrage als Entwurf anlegen (Typ setzen,
+- Eigene Bugs/Wünsche des Maintainers (nicht Nutzerwünsche, siehe oben) aus dem Gespräch sofort und ohne Rückfrage als Entwurf anlegen (Typ setzen,
   Status Todo; ein Zitat des Maintainers darin erst nach seiner Zustimmung, siehe „Zitate erst
   nach Zustimmung“). Ursache klären und Lösungsidee in den Eintrag schreiben ist erwünscht, aber nicht
   mitten in der laufenden Aufgabe nebenbei umsetzen und nicht anbieten; umgesetzt wird er wie jeder

@@ -193,8 +193,12 @@ Apple-Vorlagen, Notweg: `docs/board.md`.
 - **Wer die Liste abarbeitet:** der Nachtlauf immer, jede andere Sitzung nur auf Aufforderung des
   Maintainers (dann ohne Rückfrage je Eintrag; je Eintrag committen, gesammelt pushen, nur Dringendes
   veröffentlichen).
-- **Neue Bugs/Wünsche** aus dem Gespräch sofort als Entwurf anlegen (Typ, Status Todo), nicht nebenbei
-  umsetzen; gehört der Punkt zu einem offenen Eintrag, diesen ergänzen.
+- **Wünsche und Meldungen von Nutzern** (Reddit, GitHub-Issues, E-Mail, vom Maintainer hineinkopiert)
+  kommen nie sofort ins Board (Entscheidung des Maintainers vom 9.11.2026): erst Einschätzung zu
+  Machbarkeit und Sinn (auch gegen „Im Zweifel wie Apple“ und „Optionen nur in sehr seltenen Fällen“),
+  Ursache bzw. Lösungsidee, Empfehlung; eintragen erst nach ausdrücklichem OK. Gilt auch für Issues.
+- **Eigene Bugs/Wünsche des Maintainers** aus dem Gespräch sofort als Entwurf anlegen (Typ, Status
+  Todo), nicht nebenbei umsetzen; gehört der Punkt zu einem offenen Eintrag, diesen ergänzen.
 - **Regeländerungen** als Eintrag „Ablauf: …“ mit „Wartet auf OK“ sammeln (Ausnahme: Sicherheit und
   Datenschutz sofort; ausdrückliche Entscheidung im Gespräch gilt gleich).
 - **Status:** In Progress bei Beginn; nach dem Commit Notiz mit Hash („committet, wartet auf

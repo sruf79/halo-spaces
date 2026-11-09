@@ -27,8 +27,8 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   geänderte Einträge im Gespräch kurz nennen.
 - **Neues Issue:** Screenshots ansehen (in Cloud-Sessions nicht abrufbar –
   dann den Maintainer darum bitten), gegen den aktuellen Stand von `main`
-  prüfen, Ursache klären und wie jeden Bug/Wunsch in die Aufgabenliste
-  eintragen (Titel mit „[GitHub #n]“, im Text „GitHub-Issue #n“ vermerken, siehe
+  prüfen, Ursache klären, Machbarkeit und Sinn einschätzen und dem Maintainer vorlegen; erst nach
+  seinem OK in die Aufgabenliste eintragen (Titel mit „[GitHub #n]“, im Text „GitHub-Issue #n“ vermerken, siehe
   „Board-Einträge aus einem Issue“ oben). Dann antworten und Label
   setzen: `bug` bzw. `enhancement`; `question`, solange eine Rückfrage offen
   ist; `duplicate`/`wontfix` mit Begründung schließen.

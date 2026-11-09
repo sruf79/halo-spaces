@@ -347,3 +347,7 @@ selbst) und die Datei `~/halo-nacht/SPERRE_AUS` (bewusster Schalter des Maintain
 kein jq/python, Zeit nicht lesbar, ci-noetig nicht ausführbar) Exitcode 0. Prüfung: `zsh tests/zeitfenster-hook-test.sh`
 (Zeit über `HALO_JETZT=HHMM`, Runner über `HALO_RUNNER`, ci-noetig über `HALO_CI_NOETIG` simuliert). Abschalten: den Eintrag
 aus `~/.claude/settings.json` entfernen.
+
+## halo-zsh: eigene Kopie von zsh für Routinen mit Mausbewegung
+
+Nachtlauf, Wochenprüfung, Doku-Prüfung und Rundgang starten über `~/.config/halo-spaces/bin/halo-zsh` statt `/bin/zsh` (Kopie von `/bin/zsh`, mit `codesign --force --sign -` signiert; `tests/mac-mini-setup.sh` legt sie an). Grund: Die Freigabe unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen gilt für genau diese Datei; `/bin/zsh` selbst soll sie nicht bekommen, sonst dürfte jedes zsh-Skript die Maus bewegen. Nach einem macOS-Update kann `/bin/zsh` sich ändern; `mac-mini-setup.sh --check` weist dann hin (es ersetzt die Kopie nie stillschweigend, weil die Freigabe an der Datei hängt). Dann `halo-zsh` löschen, `mac-mini-setup.sh` ausführen (kopiert und signiert neu) und der Maintainer gibt die neue Datei unter Bedienungshilfen frei. Alle übrigen LaunchAgents bleiben bei `/bin/zsh`.

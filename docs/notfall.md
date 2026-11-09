@@ -94,6 +94,8 @@ Jede Stufe beginnt mit `notfall.sh sichern stufe-<n>-vor` und endet mit einer gr
 
 Rücknahme: `notfall.sh zurueck stufe-<n>-vor`, dann `git revert` der Commits dieser Stufe, Bericht wie beim Wiederanlauf.
 
+Rücknahme von `halo-zsh` (9.11.2026): die plist aus `~/halo-sicherung/at.halo-spaces.<name>.plist.vor-halozsh` nach `~/Library/LaunchAgents/` zurückkopieren und den Agent neu laden (`launchctl bootout` / `bootstrap gui/$(id -u) <plist>`).
+
 ## 7. Zeitfenster-Hook (noch nicht aktiv)
 
 Der vorbereitete Hook `tests/zeitfenster-hook.sh` (Push-Sperre 00:00–09:00, keine Testläufe bei laufender CI; Einzelheiten

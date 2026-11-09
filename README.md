@@ -181,6 +181,13 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.23.1
+
+- **Calendar**: the search field at the top searches events instead of mail; matches by title, location and description appear in the event list below the calendar, and clearing the field closes it again (#53)
+- **Calendar and Tasks**: date fields in the event dialog, the quick event window and Tasks follow the system's date format (for example 26.11.2026 instead of 26/11/2026 when the language is English and the region uses dots)
+- **Tasks**: the "Open in New Window" button above a task shows its icon again
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.23.0
 
 - **Sidebar**: the sidebar button hides and shows the spaces bar and the left column of the space together in one animation (clicking again during the animation reverses it); the separate button at the bottom of the spaces bar is gone. Thunderbird's own ways (View menu, context menu, collapsing the folder pane, dragging) move both halves, and the message list stays still while they slide

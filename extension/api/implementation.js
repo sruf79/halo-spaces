@@ -9325,16 +9325,13 @@ class CardEnhancer {
       status?.style.removeProperty("--mc-status-side");
     });
     const updateSideEdgeLayout = () => {
-      // die schwebende Seitenleiste (Dia 3/4) verschiebt nichts – Kanten
-      // bleiben stehen. Während die Bereiche-Leiste animiert, nur die Kante
-      // der Spalte nachziehen (Grau und Trennlinie der Toolbar-Zeile,
-      // Seitenleisten-Knopf; Variablen an Toolbar-Zeile und Statusleiste,
-      // nicht am Fenster) – sonst blieben sie stehen und sprangen am Ende.
-      // Knöpfe und Überlauf richtet das Ende der Animation einmal aus
-      if (w.__mcSideFloat) {
+      // während die Bereiche-Leiste animiert, nichts ans Fenster schreiben –
+      // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
+      // am Ende der Animation wird einmal ausgerichtet; die schwebende
+      // Seitenleiste (Dia 3/4) verschiebt nichts – Kanten bleiben stehen
+      if (w.__mcSpacesAnimating || w.__mcSideFloat) {
         return;
       }
-      const edgeOnly = !!w.__mcSpacesAnimating;
       const d = w.document;
       const tab = d.getElementById("tabmail")?.currentTabInfo;
       // Aufgaben, während die Today-Pane gleitet: Kanten stehen schon am
@@ -9347,9 +9344,6 @@ class CardEnhancer {
       }
       const el = SIDEBARS[tab?.mode?.name]?.(tab);
       const row = d.getElementById("unifiedToolbarContainer");
-      if (edgeOnly && (!el || !row)) {
-        return;
-      }
       if (!el || !row) {
         barTarget(d).style.removeProperty("--mc-side-right");
         d.getElementById("status-bar")?.style.removeProperty("--mc-status-side");
@@ -9380,9 +9374,6 @@ class CardEnhancer {
       if (status && tab.mode.name != "mail3PaneTab") {
         const sl = rectOf(status).left;
         setVar(status, "--mc-status-side", `${Math.max(0, Math.round(r.width ? shift + r.right - sl : 0))}px`);
-      }
-      if (edgeOnly) {
-        return;
       }
       updateStatusMin();
       // Wo die Knöpfe beginnen (erster Abstandhalter der Toolbar): im
@@ -9694,16 +9685,6 @@ class CardEnhancer {
     this.restorers.push(() => removeOverflowButton(w.document));
     this.sideEdgeUpdaters ??= new Set();
     this.sideEdgeUpdaters.add(updateSideEdge);
-    // je Bild der Bereiche-Leisten-Animation dieses Fensters (animateSpaces):
-    // nur die Kante der Spalte
-    const columnEdge = win => {
-      if (win == w) {
-        updateSideEdgeLayout();
-      }
-    };
-    this.columnEdgeUpdaters ??= new Set();
-    this.columnEdgeUpdaters.add(columnEdge);
-    this.restorers.push(() => this.columnEdgeUpdaters?.delete(columnEdge));
     const sideRO = new w.ResizeObserver(updateSideEdge);
     // (chat-view-toolbox: andere Breite der Chat-Knöpfe, z. B. neuer Statustext)
     for (const id of ["calSidebar", "listPaneBox", "tabmail-container", "chat-view-toolbox"]) {
@@ -15033,15 +15014,8 @@ class CardEnhancer {
     const body = d.getElementById("messengerBody");
     const title = d.getElementById("titlebar");
     const row = d.getElementById("unifiedToolbarContainer");
-    // Seitenleisten-Knopf auf dem Mac: neben der Ampel hält er 84 px Abstand,
-    // solange sie in der Toolbar-Zeile sitzt (Leiste aus), sonst 12 px
-    // (userChrome.css, --mc-tl-reserve). Die Ampel bleibt beim Animieren oben
-    // links stehen – den Abstand mit der Leiste gleiten lassen, statt ihn am
-    // Ende umzuschalten (sonst sprang der Knopf um 72 px)
-    const pinned = Services.appinfo.OS == "Darwin" ? d.getElementById("spacesPinnedButton") : null;
     const set = v => {
       const px = `${v}px`;
-      pinned?.style.setProperty("--mc-tl-reserve", `${Math.max(12, Math.round(84 - v))}px`);
       bar?.style.setProperty("--spaces-total-width", px);
       if (body) {
         body.style.marginInlineStart = px;
@@ -15055,12 +15029,8 @@ class CardEnhancer {
       // gemeinsame Animation mit der Ordnerliste: Leseansicht im selben Bild
       // nachziehen, die Mailliste bleibt stehen (animateSidebar, column)
       w.__mcColumnFollow?.();
-      // Kanten der Spalte in der Toolbar-Zeile (Grau, Trennlinie, Knopf) im
-      // selben Bild mitziehen
-      this.columnEdgeUpdaters?.forEach(fn => fn(w));
     };
     const clear = () => {
-      pinned?.style.removeProperty("--mc-tl-reserve");
       bar?.style.removeProperty("--spaces-total-width");
       body?.style.removeProperty("margin-inline-start");
       title?.style.removeProperty("margin-inline-start");
@@ -16762,77 +16732,11 @@ class CardEnhancer {
         msgSplitter.width = Math.ceil(min);
       }
     };
-    // Kanten der Spalte in der Toolbar-Zeile, Tab-Leiste und Statusleiste
-    // (Grau der Seitenleiste, Trennlinien, Seitenleisten-Knopf)
-    const updateEdges = (content, browserEl, paneRight, moving = false) => {
-      // Rechte Kante der Ordnerliste relativ zur Toolbar-Zeile: damit färbt
-      // userChrome.css die Seitenleiste bis ganz nach oben grau wie in Apple Mail.
-      const folderPane = win.document.getElementById("folderPane");
-      const row = top.document.getElementById("unifiedToolbarContainer");
-      if (folderPane && row) {
-        const fr = rectOf(folderPane);
-        const right = fr.width
-          ? rectOf(browserEl).left + fr.right - rectOf(row).left
-          : 0;
-        setBarVar(top.document, "--mc-sidebar-right", `${Math.max(0, Math.round(right))}px`
-        );
-        // rechte Kante der Mailliste für die Trennlinie in der Toolbar-Zeile
-        // Ist das Fenster für alle Knöpfe zu schmal, schrumpft der Einzug davor –
-        // die Kopfzeile über der Liste endet dann vor dem ersten Knopf
-        const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
-        const buttonsStart = firstSpacer ? rectOf(firstSpacer).right : paneRight;
-        const rowLeft = rectOf(row).left;
-        // Trennlinie an der echten Kante der Mailliste; reicht der Platz nicht
-        // und die Knöpfe beginnen schon links davon, entfällt sie in der
-        // Toolbar-Zeile (statt versetzt quer durch die Knöpfe zu laufen)
-        // (während die Bereiche-Leiste animiert, stehen die Knöpfe noch am
-        // alten Platz – eine sichtbare Linie wandert dann mit der Liste)
-        const lineShown = parseFloat(barTarget(top.document).style.getPropertyValue("--mc-list-right")) > -10;
-        const listRight = (moving ? lineShown : buttonsStart >= paneRight - 2) ? paneRight - rowLeft : -10;
-        setBarVar(top.document, "--mc-lh-right", `${Math.round(Math.min(paneRight, buttonsStart - 6) - rowLeft)}px`);
-        // auf ganze Bildpunkte des Bildschirms (Retina: 0,5 px) – wie der
-        // Rand der Mailliste, sonst steht die Linie oben um einen Punkt daneben
-        const dpr = top.devicePixelRatio || 1;
-        setBarVar(top.document, "--mc-list-right", `${Math.round(listRight * dpr) / dpr}px`
-        );
-        // Die Tab-Leiste kann weiter rechts beginnen (z. B. neben der
-        // Bereiche-Leiste) – dort dieselben Kanten, um den Versatz korrigiert.
-        const tabs = top.document.getElementById("tabs-toolbar");
-        if (tabs) {
-          const shift = rectOf(tabs).left - rectOf(row).left;
-          setVar(tabs, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);
-          setVar(tabs, "--mc-list-right", `${Math.round((listRight - shift) * dpr) / dpr}px`);
-        }
-        // Statusleiste ebenso: Seitenleisten-Grau läuft unten bis zum Fensterrand
-        const status = top.document.getElementById("status-bar");
-        if (status) {
-          const shift = rectOf(status).left - rectOf(row).left;
-          setVar(status, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);
-        }
-      }
-    };
-    // rechte Kante der Mailliste im Hauptfenster (ohne sichtbare Liste: die
-    // zuletzt gemessene Breite rechts der Ordnerliste)
-    const paneEdge = () => {
-      const listRect = rectOf(threadPane);
-      const folderRect = rectOf(win.document.getElementById("folderPane"));
-      const listRight = listRect.width > 1 ? listRect.right : (folderRect?.right || 0) + (this.lastListRight ?? 0);
-      return rectOf(win.browsingContext.embedderElement).left + listRight;
-    };
     const update = () => {
       const content = top.document.getElementById("unifiedToolbarContent");
       const browserEl = win.browsingContext.embedderElement;
       // (schwebende Seitenleiste: die Ordnerliste liegt nur darüber)
-      if (!content || !browserEl || win.closed || top.__mcSideFloat) {
-        return;
-      }
-      // Bereiche-Leiste animiert: nur die Kanten der Spalte nachziehen (sonst
-      // standen Grau, Trennlinie und Seitenleisten-Knopf still und sprangen
-      // am Ende), alles Übrige richtet das Ende der Animation einmal aus
-      if (top.__mcSpacesAnimating) {
-        if (top.document.getElementById("tabmail")?.currentTabInfo?.chromeBrowser == browserEl) {
-          updateEdges(content, browserEl, paneEdge(), true);
-        }
+      if (!content || !browserEl || win.closed || top.__mcSpacesAnimating || top.__mcSideFloat) {
         return;
       }
       keepListWidth();
@@ -16919,18 +16823,51 @@ class CardEnhancer {
           setBarVar(top.document, "--mc-write-gap", `${next}px`);
         }
       }
-      updateEdges(content, browserEl, paneRight);
+      // Rechte Kante der Ordnerliste relativ zur Toolbar-Zeile: damit färbt
+      // userChrome.css die Seitenleiste bis ganz nach oben grau wie in Apple Mail.
+      const folderPane = win.document.getElementById("folderPane");
+      const row = top.document.getElementById("unifiedToolbarContainer");
+      if (folderPane && row) {
+        const fr = rectOf(folderPane);
+        const right = fr.width
+          ? rectOf(browserEl).left + fr.right - rectOf(row).left
+          : 0;
+        setBarVar(top.document, "--mc-sidebar-right", `${Math.max(0, Math.round(right))}px`
+        );
+        // rechte Kante der Mailliste für die Trennlinie in der Toolbar-Zeile
+        // Ist das Fenster für alle Knöpfe zu schmal, schrumpft der Einzug davor –
+        // die Kopfzeile über der Liste endet dann vor dem ersten Knopf
+        const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
+        const buttonsStart = firstSpacer ? rectOf(firstSpacer).right : paneRight;
+        const rowLeft = rectOf(row).left;
+        // Trennlinie an der echten Kante der Mailliste; reicht der Platz nicht
+        // und die Knöpfe beginnen schon links davon, entfällt sie in der
+        // Toolbar-Zeile (statt versetzt quer durch die Knöpfe zu laufen)
+        const listRight = buttonsStart >= paneRight - 2 ? paneRight - rowLeft : -10;
+        setBarVar(top.document, "--mc-lh-right", `${Math.round(Math.min(paneRight, buttonsStart - 6) - rowLeft)}px`);
+        // auf ganze Bildpunkte des Bildschirms (Retina: 0,5 px) – wie der
+        // Rand der Mailliste, sonst steht die Linie oben um einen Punkt daneben
+        const dpr = top.devicePixelRatio || 1;
+        setBarVar(top.document, "--mc-list-right", `${Math.round(listRight * dpr) / dpr}px`
+        );
+        // Die Tab-Leiste kann weiter rechts beginnen (z. B. neben der
+        // Bereiche-Leiste) – dort dieselben Kanten, um den Versatz korrigiert.
+        const tabs = top.document.getElementById("tabs-toolbar");
+        if (tabs) {
+          const shift = rectOf(tabs).left - rectOf(row).left;
+          setVar(tabs, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);
+          setVar(tabs, "--mc-list-right", `${Math.round((listRight - shift) * dpr) / dpr}px`);
+        }
+        // Statusleiste ebenso: Seitenleisten-Grau läuft unten bis zum Fensterrand
+        const status = top.document.getElementById("status-bar");
+        if (status) {
+          const shift = rectOf(status).left - rectOf(row).left;
+          setVar(status, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);
+        }
+      }
     };
     this.offsetUpdaters ??= new Set();
     this.offsetUpdaters.add(update);
-    // je Bild der Bereiche-Leisten-Animation (animateSpaces) dieses Fensters
-    const columnEdge = t => {
-      if (t == top) {
-        update();
-      }
-    };
-    this.columnEdgeUpdaters ??= new Set();
-    this.columnEdgeUpdaters.add(columnEdge);
     // von außen anstoßen (automatisches Einklappen misst danach den Platz)
     win.__mcRelayout = update;
     const ro = new win.ResizeObserver(update);
@@ -16963,7 +16900,6 @@ class CardEnhancer {
       ro.disconnect();
       rowRo?.disconnect();
       this.offsetUpdaters?.delete(update);
-      this.columnEdgeUpdaters?.delete(columnEdge);
       const tabsBar = top.document.getElementById("tabs-toolbar");
       tabsBar?.style.removeProperty("--mc-sidebar-right");
       tabsBar?.style.removeProperty("--mc-list-right");

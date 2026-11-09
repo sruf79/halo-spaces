@@ -89,7 +89,7 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   endet sie sofort, siehe „Claude nur bei Arbeit“ in `docs/testrechner.md`, Umstellung
   durch den Maintainer `tests/MAC-MINI.md` Abschnitt 17a). Keine zweite
   Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
-- **Keine festen Kennungen, nur Namen:** Andere Sitzungen (`neon`, `neon-board`, die
+- **Keine festen Kennungen, nur Namen** (Sitzungen, in Aufträgen, Dateien und Notizen; wiederholt 9.11.2026): Andere Sitzungen (`neon`, `neon-board`, die
   Weiterleitung für Pushs aufs iPhone …) immer nur über ihren Namen ansprechen
   (`SendMessage` an den Namen aus `ListAgents`). Die Kennungen in eckigen Klammern, die
   `ListAgents` hinter einem Namen zeigt (z. B. `[13c214]`), sind je anfragender Sitzung

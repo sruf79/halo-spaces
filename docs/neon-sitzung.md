@@ -65,10 +65,15 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   `archiv`), nie `gh project item-list` ungefiltert.
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
+- **Keine festen Kennungen, nur Namen** (wiederholt 9.11.2026, Regel in `docs/github-komm.md`): Sitzungen
+  immer über ihren Namen aus `ListAgents` ansprechen; Kennungen in eckigen Klammern und Sitzungs-IDs nie
+  fest in Aufträge, Dateien oder Notizen schreiben (ausgenommen der Notfallweg über
+  `~/halo-aufgaben/sitzungen.json`).
 - **Modelle: Routine mit Sonnet, Komplexes mit Opus, im Zweifel Opus**
   (Entscheidung des Maintainers vom 6.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`;
   ersetzt die frühere Regel „Unteragenten immer Sonnet“):
-  - `neon` selbst läuft mit Sonnet: Aufträge annehmen und in
+  - `neon` selbst läuft mit Sonnet (Reasoning-Stufe medium; `neon-board` und
+    `github.comm.routine` Sonnet low): Aufträge annehmen und in
     `neon-stand.md` führen, Testläufe starten und OK/FEHLER melden, Bilder
     und Vorlagen speichern, Zweige mergen, Skripte nach klarer Anleitung,
     Aufträge einstufen.

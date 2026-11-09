@@ -1384,6 +1384,39 @@ class ConversationCards {
     }
   }
 
+  // Mehrere Mails markiert: wie Apple Mail die oberste (erste in der Liste)
+  // als Karte, dahinter je nach Anzahl ein bis drei leere Blätter als Stapel –
+  // statt Thunderbirds Zusammenfassung („4 conversations“ mit Liste). Keine
+  // Zahl (Apple zeigt keine); Toolbar-Befehle wirken weiter auf alle markierten
+  renderStack(top, count) {
+    const doc = this.win.document;
+    const X = "http://www.w3.org/1999/xhtml";
+    this.thread = false;
+    this.observer?.disconnect();
+    this.retire(this.box);
+    const box = doc.createElementNS(X, "div");
+    box.id = "mcConversation";
+    box.className = "mc-stack";
+    box.__mcOwner = HOOK_OWNER;
+    const pile = doc.createElementNS(X, "div");
+    pile.className = "mc-stack-pile";
+    for (let n = Math.min(count - 1, 3); n >= 1; n--) {
+      const sheet = doc.createElementNS(X, "div");
+      sheet.className = "mc-stack-sheet";
+      sheet.dataset.n = n;
+      pile.append(sheet);
+    }
+    const card = doc.createElementNS(X, "div");
+    card.className = "mc-conv-card";
+    card.dataset.messageId = top.messageId;
+    card.__mcHdr = top;
+    pile.append(card);
+    box.append(pile);
+    this.pane.append(box);
+    this.box = box;
+    this.loadCard(card);
+  }
+
   // Toolbar (Antworten, Weiterleiten) neu bewerten – sie fragt Thunderbird
   // nur bei Auswahl und Laden einer Mail
   refreshToolbar() {
@@ -19810,7 +19843,21 @@ class CardEnhancer {
       if (messages.length && win.gDBView?.selection?.count == 1 && conv.enabled()) {
         pane.classList.add("mc-conv-pending");
       }
+      // mehrere Zeilen markiert: Stapel statt Zusammenfassung (ohne Aufblitzen)
+      const stack = messages.length >= 2 && win.gDBView?.selection?.count >= 2;
+      if (stack) {
+        pane.classList.add("mc-conv-pending");
+      }
       const result = many.call(this, messages);
+      if (stack) {
+        try {
+          // Blätter je markierter Zeile (eine zugeklappte Konversation zählt einmal)
+          conv.renderStack(messages[0], win.gDBView.selection.count);
+        } catch (e) {
+          log("stack error", String(e).slice(0, 160));
+        }
+        conv.reveal();
+      }
       // ein zugeklappter Faden (eine Zeile ausgewählt): Konversation statt Zusammenfassung
       if (messages.length && win.gDBView?.selection?.count == 1) {
         const newest = [...messages].sort((a, b) => b.date - a.date)[0];

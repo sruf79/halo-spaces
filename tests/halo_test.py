@@ -834,6 +834,10 @@ def take_shots(m, folder, scheme):
         ("addressbook-edit", ADDRESS_EDIT_JS),
         ("settings", "w.openPreferencesTab(); await ruhig(2000);"),
         ("addon-settings", f'w.openAddonsMgr("addons://detail/" + encodeURIComponent("{ADDON_ID}") + "/preferences"); await ruhig(3000);'),
+        # Mehrfachauswahl als Stapel (drei markierte Mails)
+        ("mail-stack", MAILLIST_JS + """await showFolder(); await asCards(); const v = a3.gDBView;
+          a3.threadTree.selectedIndices = [...Array(v.rowCount).keys()].filter(k => ["halo-ml-3@example.invalid", "halo-ml-4@example.invalid", "halo-ml-5@example.invalid"].includes(v.getMsgHdrAt(k)?.messageId));
+          await bis(() => a3.document.querySelector("#mcConversation.mc-stack browser")?.contentDocument?.getElementById("expandedsubjectBox")?.textContent.includes("Halo"), "Stapel geladen", 8000); await ruhig(1500);"""),
     ]:
         m.js(("" if "resizeTo" in js else "w.resizeTo(1500, 900); ") + js + " await until(() => [1280, 1500].includes(w.outerWidth) || [1280, 1500].includes(w.innerWidth), 3000); await ruhig(600); return 1;")
         data = m.cmd("WebDriver:TakeScreenshot", {})["value"]
@@ -1452,8 +1456,7 @@ def maillist_checks(m, results):
     check("Mailliste: Tabelle in 13 px wie Karten und Spaltenkopf", table_font, results)
 
     def table_unread():
-        # Ungelesen als Punkt in Akzentfarbe (kein Grün), kein Stern vor neuen Mails;
-        # Zusammenfassung mehrerer Mails ebenso
+        # Ungelesen als Punkt in Akzentfarbe (kein Grün), kein Stern vor neuen Mails
         res = m.js(MAILLIST_JS + r"""
           await showFolder(); await asTable(); a3.threadTree.selectedIndex = -1; await ruhig(500);
           if (!tableRows().some(r => props(r).includes("new"))) {
@@ -1469,14 +1472,53 @@ def maillist_checks(m, results):
           // Zusammenfassung: eine ungelesene und eine gelesene Mail auswählen
           const v = a3.gDBView, ids = ["halo-ml-5@example.invalid", "halo-ml-6@example.invalid"];
           a3.threadTree.selectedIndices = [...Array(v.rowCount).keys()].filter(k => ids.includes(v.getMsgHdrAt(k)?.messageId)); await ruhig(1500);
-          const md = a3.multiMessageBrowser?.contentDocument;
-          const li = await until(() => md?.querySelector("#messageList > li.unread"), 5000);
-          out.summary = li ? md.defaultView.getComputedStyle(li, "::before").fill : null;
+          // statt Thunderbirds Zusammenfassung zeigt halo.spaces den Stapel (eigene Prüfung „Mehrfachauswahl als Stapel“)
+          out.stack = !!(await until(() => a3.document.querySelector("#mcConversation.mc-stack"), 5000));
           a3.threadTree.selectedIndex = -1; await ruhig(300);
           return out;""")
-        ok = same_color(res["fill"], res["accent"]) and res["newStar"] == "hidden" and same_color(res["summary"], res["accent"])
+        ok = same_color(res["fill"], res["accent"]) and res["newStar"] == "hidden" and res.get("stack")
         return ok, f"{res}"
-    check("Mailliste: Tabelle und Zusammenfassung mit Ungelesen-Punkt in Akzentfarbe, ohne Stern", table_unread, results)
+    check("Mailliste: Tabelle mit Ungelesen-Punkt in Akzentfarbe, ohne Stern; zwei markierte Mails zeigen den Stapel statt der Zusammenfassung", table_unread, results)
+
+    def multi_stack():
+        # Mehrfachauswahl wie Apple Mail: oberste markierte Mail als Karte (geladen), dahinter je nach Anzahl ein bis
+        # drei Blätter als Stapel, ohne Zahl, über Thunderbirds Zusammenfassung; Einzelauswahl wieder ohne Stapel
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.threadTree.selectedIndex = -1; await ruhig(500);
+          const v = a3.gDBView, pane = a3.document.getElementById("messagePane");
+          const rows = ids => [...Array(v.rowCount).keys()].filter(k => ids.includes(v.getMsgHdrAt(k)?.messageId));
+          const out = {};
+          const look = async (ids, key) => {
+            const want = rows(ids.map(i => `halo-ml-${i}@example.invalid`));
+            a3.threadTree.selectedIndices = want;
+            const box = await until(() => { const b = a3.document.getElementById("mcConversation"); return b?.classList.contains("mc-stack") && b; }, 5000);
+            const card = box?.querySelector(".mc-stack-pile > .mc-conv-card");
+            const first = v.getMsgHdrAt(Math.min(...want))?.mime2DecodedSubject;
+            const subj = await until(() => { const t = card?.querySelector("browser")?.contentDocument?.getElementById("expandedsubjectBox")?.textContent || "";
+              return first && t.includes(first) ? first : null; }, 6000);
+            await ruhig(300);
+            const br = box?.getBoundingClientRect(), pr = pane.getBoundingClientRect(), cr = card?.getBoundingClientRect();
+            out[key] = { n: v.selection.count, sheets: box?.querySelectorAll(".mc-stack-sheet").length, top: subj || null,
+                         first,
+                         covers: !!br && Math.abs(br.width - pr.width) <= 1 && Math.abs(br.height - pr.height) <= 1,
+                         rot: [...(box?.querySelectorAll(".mc-stack-sheet") || [])].map(x => a3.getComputedStyle(x).transform != "none"),
+                         card: cr ? { w: Math.round(cr.width), radius: a3.getComputedStyle(card).borderTopLeftRadius } : null,
+                         text: box?.textContent.replace(/\s+/g, " ").trim() || "",
+                         pending: pane.classList.contains("mc-conv-pending"), tb: a3.document.getElementById("multiMessageBrowser")?.getBoundingClientRect().width > 0 };
+          };
+          await look([4, 5], "two"); await look([1, 4, 5], "three"); await look([1, 3, 4, 5, 6], "five");
+          a3.threadTree.selectedIndices = rows(["halo-ml-6@example.invalid"]); await ruhig(800);
+          out.single = !!a3.document.querySelector("#mcConversation.mc-stack");
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        two, three, five = res.get("two") or {}, res.get("three") or {}, res.get("five") or {}
+        ok = (two.get("sheets") == 1 and three.get("sheets") == 2 and five.get("sheets") == 3
+              and all(x.get("covers") and x.get("top") and x.get("top") == x.get("first") and all(x.get("rot") or [False])
+                      and (x.get("card") or {}).get("radius") == "10px" and (x.get("card") or {}).get("w", 999) <= 520
+                      and not x.get("text") and not x.get("pending") for x in (two, three, five))
+              and five.get("n") == 5 and res.get("single") is False)
+        return ok, f"{res}"
+    check("Leseansicht: Mehrfachauswahl als Stapel wie Apple Mail – oberste markierte Mail als Karte, dahinter ein bis drei Blätter, ohne Zahl", multi_stack, results)
 
     def tag_contrast():
         # Schlagwortfarben als Schrift in der Tabelle mit Kontrast ≥ 4,5:1

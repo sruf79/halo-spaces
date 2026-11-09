@@ -395,3 +395,6 @@ Für diese Regeln nennt `AGENTS.md` nur „Entscheidung des Maintainers vom <Dat
 
 ### 9.11.2026: Jede Sitzung darf Wochen- und 5-Stunden-Kontingent selbst auslesen (Maintainer in neon)
 Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „jede session darf darf das aktuelle wochenkontingent und das 5-hour-limit auslesen“. Umsetzung: `tests/kontingent.sh`, Regel in `AGENTS.md` (Testrechner) und `docs/testrechner.md`.
+
+### 9.11.2026: Kontroverse Issues nicht ins Board, Einschätzung im Stand und im Push (Maintainer in neon)
+Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „Bei Kontroversen neue Issues nicht ins Board, stattdessen Einschätzung im Stand unter ‚wartet auf Entscheidung‘ und im Push“. Ergänzt die Regel vom 9.11.2026 (Wünsche von Nutzern erst nach Einschätzung und OK ins Board, Commit e1c5a56); Umsetzung in `docs/github-komm.md`.

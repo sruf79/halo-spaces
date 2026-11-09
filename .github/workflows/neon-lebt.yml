@@ -1,0 +1,40 @@
+# Prüft alle 6 Stunden, ob der GitHub-Runner auf neon online ist (Notfallplan Stufe 2).
+# Im Log steht nur "Runner online" oder "Runner offline", keine Namen und kein Token.
+# Das Token liegt als Secret RUNNER_LESEN (Leserecht auf Runner); ohne Secret endet der Job mit Erfolg.
+# Kein pull_request-Auslöser (das Repo ist öffentlich).
+name: neon-lebt
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Runner prüfen
+        env:
+          GH_TOKEN: ${{ secrets.RUNNER_LESEN }}
+        run: |
+          set +x
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Secret RUNNER_LESEN fehlt, Prüfung übersprungen"
+            exit 0
+          fi
+          online=$(gh api repos/sruf79/halo-spaces/actions/runners \
+            --jq '[.runners[] | select(.name == "neon" and .status == "online")] | length' 2>/dev/null || echo "fehler")
+          if [ "$online" = "fehler" ]; then
+            echo "Abfrage fehlgeschlagen"
+            exit 1
+          fi
+          if [ "$online" -ge 1 ]; then
+            echo "Runner online"
+          else
+            echo "Runner offline"
+            exit 1
+          fi

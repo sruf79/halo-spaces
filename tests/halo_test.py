@@ -6436,6 +6436,55 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach an der Wochengrenze", multiweek_refill, results)
 
+    def multiweek_momentum():
+        # Mehrwochen-Ansicht scrollen 5/6 (Einstellungen multiweekScroll + multiweekMomentum): nach einem schnellen Wischer
+        # (Pixel-Bewegungen) läuft die Ansicht mit Schwung aus, ohne Zucken (nie zurück), und kommt genau auf einer
+        # Wochengrenze zur Ruhe, weiter als ohne Schwung; Mausrad (Zeilen) und ausgeschalteter Schwung rasten gleich ein
+        res = m.js(CAL_CHECK_JS + r"""
+          const P = "extensions.mailcards.multiweekScroll", M = "extensions.mailcards.multiweekMomentum";
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {};
+          try {
+            Services.prefs.setBoolPref(P, true); await ruhig(800);
+            const top = dt => { const b = mv.findDayBoxForDate(dt); return b ? b.getBoundingClientRect().top : null; };
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
+            const box = () => mv.monthbody.querySelector("calendar-month-day-box");
+            const sleep = ms => new Promise(r => w.setTimeout(r, ms));
+            // feste Pause: Wischer mit echtem Zeitabstand (die Geschwindigkeit kommt aus den Zeitstempeln)
+            const swipe = async (n, dy, mode) => { for (let i = 0; i < n; i++) { box().dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: dy, deltaMode: mode })); await sleep(16); } };
+            const run = async (mode, dy) => {
+              const first = mv.rangeStartDate.clone(); first.isDate = true;
+              await swipe(10, dy, mode);
+              const track = []; let still = 0;
+              const t0 = w.performance.now();
+              while (w.performance.now() - t0 < 4000 && still < 12) {
+                await new Promise(r => w.requestAnimationFrame(r));
+                const p = mv.__mcScrollPos(); track.push(p);
+                still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0;
+              }
+              await ruhig(900);
+              const now = mv.rangeStartDate.clone(); now.isDate = true;
+              return { weeks: Math.round((now.nativeTime - first.nativeTime) / 6048e8), aligned: Math.round(top(now) - head()),
+                       back: track.slice(0, track.indexOf(Math.max(...track)) + 1).some((p, i, a) => i && p < a[i - 1] - 0.5), frames: track.length };
+            };
+            Services.prefs.setBoolPref(M, false);
+            out.off = await run(0, 40);
+            Services.prefs.setBoolPref(M, true);
+            out.on = await run(0, 40);
+            out.wheel = await run(1, 1);
+          } finally {
+            Services.prefs.clearUserPref(P); Services.prefs.clearUserPref(M); await ruhig(600);
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        off, on, wh = (res.get(k) or {} for k in ("off", "on", "wheel"))
+        ok = (abs(off.get("aligned", 9)) <= 1 and abs(on.get("aligned", 9)) <= 1 and abs(wh.get("aligned", 9)) <= 1
+              and on.get("weeks", 0) >= off.get("weeks", 0) + 2 and not on.get("back") and on.get("frames", 0) >= 12
+              and wh.get("weeks", 9) <= 1)
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (Einstellung), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
+
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6 (Einstellung): Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
         # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),

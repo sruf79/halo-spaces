@@ -17,6 +17,12 @@
 // Sichtbar bleibt alles wie bisher: Wochenzahl (calendar.weeks.inview),
 // Überschrift, Pfeile, „Heute“ und Zoom richten sich nach dem sichtbaren Teil
 const MULTIWEEK_SCROLL_PREF = "extensions.mailcards.multiweekScroll";
+// Schritt 5/6: Schwung nach einem Wischer am Trackpad (Standard aus, nur
+// zusammen mit multiweekScroll): die Ansicht läuft mit der zuletzt gemessenen
+// Geschwindigkeit aus und kommt genau auf einer Wochengrenze zur Ruhe
+const MULTIWEEK_MOMENTUM_PREF = "extensions.mailcards.multiweekMomentum";
+// Abklingzeit des Schwungs in ms (zurückgelegt wird etwa Geschwindigkeit * Zeit)
+const MULTIWEEK_MOMENTUM_MS = 325;
 // je Seite zwölf Wochen Vorrat (erst zwei, dann sechs): beim Scrollen wird
 // erst neu aufgebaut, wenn er fast aufgebraucht ist, nach dem Einrasten nur,
 // wenn über die Hälfte verbraucht ist – und dann im Leerlauf (Rückmeldung
@@ -315,9 +321,24 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
   // dann nur den sichtbaren Bereich nachziehen – ohne Neuaufbau
   const snap = () => {
     const h = rowH();
-    const target = Math.round(pos / h) * h;
-    const start = pos, t0 = win.performance.now(), ms = motionMs(180);
-    const curve = cubicBezier(0.25, 0.1, 0.25, 1);
+    // Schwung: Geschwindigkeit der letzten Pixel-Bewegungen (Trackpad) trägt
+    // die Ansicht weiter, das Ziel ist die nächste Wochengrenze davon
+    // (höchstens bis kurz vor das Ende des Vorrats)
+    const v = glideSpeed();
+    samples = [];
+    let target = Math.round(pos / h) * h;
+    let dur = 180;
+    let curve = cubicBezier(0.25, 0.1, 0.25, 1);
+    if (v) {
+      const limit = (B - 1) * h;
+      target = Math.max(-limit, Math.min(limit, Math.round((pos + v * MULTIWEEK_MOMENTUM_MS) / h) * h));
+      if (target != pos) {
+        // auslaufend (kubisch): Anfangsgeschwindigkeit 3 * Weg / Dauer
+        dur = Math.max(300, Math.min(1800, (3 * Math.abs(target - pos)) / Math.abs(v)));
+        curve = k => 1 - Math.pow(1 - k, 3);
+      }
+    }
+    const start = pos, t0 = win.performance.now(), ms = motionMs(dur);
     const step = now => {
       const k = ms ? Math.min(1, (now - t0) / ms) : 1;
       pos = start + (target - start) * curve(k);
@@ -334,6 +355,19 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     };
     anim = win.requestAnimationFrame(step);
   };
+  // Geschwindigkeit (px/ms) aus den Bewegungen der letzten 100 ms vor dem
+  // Ende; 0, wenn der Schwung aus ist, zu langsam oder von einem Mausrad kommt
+  let samples = [];
+  const glideSpeed = () => {
+    if (!Services.prefs.getBoolPref(MULTIWEEK_MOMENTUM_PREF, false) || samples.length < 3) {
+      return 0;
+    }
+    const last = samples[samples.length - 1].t;
+    const recent = samples.filter(x => last - x.t <= 100);
+    const span = Math.max(16, last - recent[0].t);
+    const v = recent.reduce((a, x) => a + x.dy, 0) / span;
+    return Math.abs(v) >= 0.4 ? v : 0;
+  };
   const onWheel = event => {
     if (!active() || event.ctrlKey || event.altKey || event.metaKey || !event.deltaY) {
       return;
@@ -349,6 +383,8 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       later = 0;
     }
     const h = rowH();
+    // nur Pixel-Bewegungen (Trackpad) tragen Schwung, ein Mausrad nicht
+    samples = event.deltaMode === 0 ? [...samples.slice(-12), { t: event.timeStamp, dy: event.deltaY }] : [];
     pos += event.deltaMode == event.DOM_DELTA_LINE ? event.deltaY * LINE
       : event.deltaMode == event.DOM_DELTA_PAGE ? event.deltaY * h : event.deltaY;
     // Vorrat fast aufgebraucht (eine Woche Rest): jetzt schon weiterrücken –
@@ -363,7 +399,9 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
     }
     schedule();
     win.clearTimeout(idle);
-    idle = win.setTimeout(snap, 160);
+    // mit Schwung früher einrasten bzw. loslaufen (die Wartezeit wäre sonst
+    // eine Pause zwischen Wischer und Auslaufen)
+    idle = win.setTimeout(snap, glideSpeed() ? 70 : 160);
   };
   // Termine um die Ansicht vorab abfragen (beim Start von Thunderbird und
   // beim Einblenden, höchstens alle 10 Minuten): ±26 Wochen um den geladenen

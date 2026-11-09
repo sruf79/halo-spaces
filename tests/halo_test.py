@@ -5626,6 +5626,16 @@ def calendar_checks(m, results):
                 const before = sa?.value;
                 sa?.querySelector('menuitem[value="TRANSPARENT"]')?.doCommand(); await ruhig(300);
                 out.event.showAs = [before, sa?.value, !dw.document.getElementById("status-freebusy-free-label")?.hidden];
+                // Auswahlmenüs der Zeitkarte gehen im schmalen Fenster auf und bleiben offen (unter Linux gingen sie früher sofort zu)
+                out.event.menus = {};
+                for (const mid of ["item-repeat", "item-alarm", "mc-showas"]) {
+                  const ml = id.getElementById(mid);
+                  if (!ml?.menupopup) { out.event.menus[mid] = "fehlt"; continue; }
+                  ml.open = true;
+                  await till(() => ml.menupopup.state == "open", 2000); await ruhig(300);
+                  out.event.menus[mid] = ml.menupopup.state;
+                  ml.open = false; await till(() => ml.menupopup.state == "closed", 2000);
+                }
               }
             } finally {
               dw.close(); await till(() => dw.closed, 4000);
@@ -5637,9 +5647,7 @@ def calendar_checks(m, results):
         labels = [r["label"] for r in rows]
         rights = {r["labelRight"] for r in rows if r["labelRight"] is not None}
         lefts = [r["value"] for r in rows if r["value"] is not None]
-        # unter Linux bleibt das Fenster breit (im schmalen gingen dort die Auswahlmenüs der Zeitkarte sofort zu)
-        narrow = abs(ev.get("w", 0) - 320) <= 2 if not sys.platform.startswith("linux") else ev.get("w", 0) > 400
-        narrow_mac = not sys.platform.startswith("linux")
+        narrow = abs(ev.get("w", 0) - 320) <= 2
         bar = res.get("eventBar") or {}
         ok = (bool(ev) and narrow and ev["buttons"] >= 4 and ev["inside"] and ev["saveLast"]
               and ev["saveRight"] is not None and 4 <= ev["saveRight"] <= 24 and not ev["outside"]
@@ -5648,12 +5656,14 @@ def calendar_checks(m, results):
               and all(r.get("keyOk") for r in rows)
               and max(r["h"] for r in rows[1:-1]) - min(r["h"] for r in rows[1:-1]) <= 2
               and ev["statusBar"] == 0 and ev.get("showAs") == ["OPAQUE", "TRANSPARENT", True]
+              and ev.get("menus") == {"item-repeat": "open", "item-alarm": "open", "mc-showas": "open"}
               and bool(task) and task["inside"] and task["saveLast"] and not task["outside"]
-              # Knöpfe unten unter den Notizen, gleiche Abstände, gleicher Rand links und rechts (nur im schmalen Fenster)
-              and (not narrow_mac or (bar.get("bottom", 0) >= bar.get("h", 0) - 2 and bar.get("top", 0) >= bar.get("iframeBottom", 9999) - 1
-                   and bar.get("gaps") and max(bar["gaps"]) - min(bar["gaps"]) <= 1 and bar.get("edges") and abs(bar["edges"][0] - bar["edges"][1]) <= 1)))
+              # Knöpfe unten unter den Notizen, gleiche Abstände, gleicher Rand links und rechts
+              and bar.get("bottom", 0) >= bar.get("h", 0) - 2 and bar.get("top", 0) >= bar.get("iframeBottom", 9999) - 1
+              and bool(bar.get("gaps")) and max(bar["gaps"]) - min(bar["gaps"]) <= 1 and bool(bar.get("edges")) and abs(bar["edges"][0] - bar["edges"][1]) <= 1)
         return ok, f"{res}"
-    check("Termin-Fenster wie die Kalender-App: schmal (320 px), Knöpfe unten gleichmäßig, Sichern rechts, Zeitkarte „All Day“ … „Show As“ ohne Doppelpunkt mit Werten auf einer Linie ohne Pfeile", event_dialog_narrow, results)
+    check("Termin-Fenster wie die Kalender-App: schmal (320 px, auch unter Linux), Knöpfe unten gleichmäßig, Sichern rechts, Zeitkarte „All Day“ … „Show As“ ohne Doppelpunkt mit Werten auf einer Linie ohne Pfeile, ihre Auswahlmenüs bleiben offen", event_dialog_narrow, results)
+
 
     def dialog_edge_reset():
         # Dialog per Doppelklick auf die Kante ausgedehnt (macOS): ein weiterer Doppelklick an der linken bzw. rechten Kante
@@ -8908,6 +8918,14 @@ def run_checks(m, version, profile, results):
     global SCREEN_W
     # verfügbare Bildschirmbreite (Windows-VM: 1024 px) – einige Breitenprüfungen hängen davon ab
     SCREEN_W = m.js("return w.screen.availWidth;") or 99999
+    if sys.platform.startswith("linux"):
+        # xvfb: der Zeiger steht unbewegt in der Bildschirmmitte. Erscheint dort ein per Skript (ohne Klick) geöffnetes
+        # Menü, schließt GTK es sofort wieder (popuphiding vor popupshown) – im schmalen Terminfenster lagen die Listen der
+        # Zeitkarte genau dort; mit echtem Klick bleiben sie offen (CI-Fehlersuche 9.11.2026). Zeiger daher einmal in die
+        # Ecke unten rechts, wo kein Menü erscheint
+        m.js("""const u = w.windowUtils, s = w.devicePixelRatio;
+          u.sendNativeMouseEvent(Math.round((w.screen.width - 1) * s), Math.round((w.screen.height - 1) * s), u.NATIVE_MOUSE_MESSAGE_MOVE ?? 3, 0, 0, w.document.documentElement, null);
+          await ruhig(300); return true;""")
 
     def welcome():
         # Erstinstallation (frisches Profil): einmal die Begrüßung im Info-Fenster – was halo.spaces ändert, wo die

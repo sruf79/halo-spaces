@@ -15324,6 +15324,80 @@ datepicker[mc-inline] > menulist {
   display: none !important;
 }
 
+/* ---------- Aufgabenfenster (Erweiterung: openTaskWindow, mc-task-window) ----------
+   dieselbe Ansicht wie die Detailspalte, nur ohne Liste: oben in der Zeile der
+   Fensterknöpfe „Complete“ links und „…“ rechts, darunter Kopfkarte und Gruppen */
+:root[mc-task-window] {
+  background: var(--mt-window) !important;
+  color: var(--mt-text);
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font);
+}
+
+:root[mc-task-window] > body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+:root[mc-task-window][mc-card-window] > body {
+  padding-top: 0 !important;
+}
+
+:root[mc-task-window] #calendar-task-details-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+  scrollbar-width: none;
+}
+
+:root[mc-task-window] #calendar-task-details {
+  flex-direction: column;
+  flex: none;
+  padding: 0 !important;
+}
+
+:root[mc-task-window] #other-actions-box {
+  padding: 0 14px !important;
+  -moz-window-dragging: drag;
+}
+
+:root[mc-task-window][mc-card-window] #other-actions-box {
+  padding-inline-start: 78px !important;
+}
+
+:root[mc-task-window] #task-actions-toolbox {
+  height: auto !important;
+}
+
+:root[mc-task-window] #calendar-task-details-box {
+  margin: 0 20px !important;
+}
+
+:root[mc-task-window] #calendar-task-details-description-wrapper {
+  margin-inline: 20px;
+}
+
+/* eigener „Complete“-Knopf (kein geteilter Knopf mit Menü) */
+:root[mc-task-window] #task-actions-toolbar > #task-actions-markcompleted {
+  width: 40px !important;
+  min-width: 40px !important;
+}
+
+:root[mc-task-window] #task-actions-toolbar > #task-actions-markcompleted::before {
+  display: block !important;
+}
+
+:root[mc-task-window] #task-actions-toolbar > #task-actions-markcompleted[data-done] {
+  color: AccentColor !important;
+}
+
+:root[mc-task-window] #task-actions-toolbar > #mcTaskMore {
+  margin-inline-start: auto !important;
+}
+
 /* ---------- Dialogfenster als Karte (Erweiterung: mc-card-window) ----------
    ohne sichtbare Titelleiste: oben ein freier Streifen für die Fensterknöpfe,
    über den sich das Fenster verschieben lässt; eine durchgehende Fläche */

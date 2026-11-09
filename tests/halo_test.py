@@ -13364,6 +13364,71 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Kanban-Ansicht über „…“, drei Spalten nach Fortschritt (Not Started, In Progress, Completed) mit Anzahl, ohne Detailspalte, Klick wählt, Doppelklick öffnet, Ziehen in eine Spalte setzt 0/50/100 %", task_board, results)
 
+    def task_window():
+        # neue Detailansicht 5c/5d: Aufgabe in eigenem Fenster – Doppelklick/Enter/Kontextmenü (Thunderbirds modifyEventWithDialog),
+        # ⌘O und der Knopf „In eigenem Fenster öffnen“ öffnen dieselbe Ansicht wie die Detailspalte (Kopfkarte, Gruppen), oben
+        # „Complete“ und „…“; Bearbeiten wirkt sofort, ein zweites Öffnen holt das Fenster nach vorn, Löschen schließt es
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {};
+          w.resizeTo(1500, 900); await wait(400);
+          tm.openTab("tasks", {}); await ruhig(1500);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const todo = new CalTodo(); todo.title = "Halo Fensteraufgabe"; todo.descriptionText = "Notiz im Fenster"; todo.calendar = c;
+          const saved = await c.addItem(todo);
+          const wins = () => [...Services.wm.getEnumerator(null)].filter(x => x.document?.documentElement?.hasAttribute("mc-task-window"));
+          const dialogs = () => [...Services.wm.getEnumerator(null)].filter(x => /calendar-event-dialog|calendar-summary-dialog/.test(x.location.href)).length;
+          try {
+            out.hooked = !!w.modifyEventWithDialog.__mcTaskWindow;
+            w.modifyEventWithDialog(saved, true);
+            const nw = await bis(() => wins()[0], "Aufgabenfenster", 6000);
+            const nd = nw.document;
+            await bis(() => nd.querySelector("#mcTaskInfo .mc-ti-row") && nd.getElementById("calendar-task-details-title")?.textContent, "Ansicht gefüllt", 6000);
+            await ruhig(600);
+            const r = e => { const b = e?.getBoundingClientRect(); return b && b.width ? { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) } : null; };
+            out.title = nd.title; out.head = nd.getElementById("calendar-task-details-title").textContent;
+            out.rows = [...nd.querySelectorAll("#mcTaskInfo .mc-ti-row .mc-ti-label")].map(x => x.textContent);
+            out.note = nd.getElementById("calendar-task-details-description").contentDocument.body.textContent;
+            out.buttons = [...nd.querySelectorAll("#task-actions-toolbar > toolbarbutton")].map(b => b.id);
+            out.complete = r(nd.getElementById("task-actions-markcompleted")); out.more = r(nd.getElementById("mcTaskMore"));
+            out.prog = r(nd.getElementById("mcTaskProg")); out.inner = [nw.innerWidth, nw.innerHeight];
+            out.dialogs = dialogs();
+            // zweites Öffnen: dasselbe Fenster
+            w.modifyEventWithDialog(saved, true); await ruhig(400);
+            out.count = wins().length;
+            // Titel ändern (Klick auf den Titel, Enter)
+            nd.getElementById("calendar-task-details-title").click();
+            const inp = await bis(() => nd.querySelector("#calendar-task-details-title input"), "Titelfeld", 3000);
+            inp.value = "Halo Fenster neu"; inp.dispatchEvent(new nw.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            out.renamed = await until(() => nd.title == "Halo Fenster neu" && nd.getElementById("calendar-task-details-title").textContent == "Halo Fenster neu", 4000);
+            // Complete
+            nd.getElementById("task-actions-markcompleted").click();
+            out.done = await until(() => nd.getElementById("task-actions-markcompleted").hasAttribute("data-done") && nd.getElementById("mcTaskProgNum").textContent.startsWith("100"), 4000);
+            nd.getElementById("task-actions-markcompleted").click();
+            out.undone = await until(() => !nd.getElementById("task-actions-markcompleted").hasAttribute("data-done"), 4000);
+            // „…“: Menü ohne „Open in New Window“, Delete Task schließt das Fenster
+            Services.prefs.setBoolPref("calendar.item.promptDelete", false);
+            nd.getElementById("mcTaskMore").click();
+            const pop = await bis(() => { const p = nd.getElementById("mcTaskMoreMenu"); return p?.state == "open" ? p : null; }, "Menü", 3000);
+            out.menu = [...pop.children].map(x => x.getAttribute("label") || "-");
+            [...pop.children].find(x => x.getAttribute("label") == "Delete Task")?.doCommand(); pop.hidePopup();
+            out.closed = await until(() => nw.closed || !wins().length, 5000);
+            out.left = (await items("Halo Fenster neu")).length;
+          } finally {
+            Services.prefs.clearUserPref("calendar.item.promptDelete");
+            for (const x of wins()) x.close();
+            for (const t of [...await items("Halo Fensteraufgabe"), ...await items("Halo Fenster neu")]) { try { await c.deleteItem(t); } catch {} }
+          }
+          return out;""")
+        cb, mb, pr = res.get("complete"), res.get("more"), res.get("prog")
+        ok = (res.get("hooked") and res.get("title") == "Halo Fensteraufgabe" and res.get("head") == "Halo Fensteraufgabe" and res.get("note") == "Notiz im Fenster"
+              and res.get("rows") == ["Start", "Due", "Repeat", "Reminder", "List", "Category", "Privacy", "Priority", "Location"]
+              and res.get("buttons") == ["task-actions-markcompleted", "mcTaskMore"] and cb and mb and cb["l"] < mb["l"] and mb["l"] + mb["w"] <= res["inner"][0]
+              and pr and pr["h"] >= 20 and not res.get("dialogs") and res.get("count") == 1 and res.get("renamed") and res.get("done") and res.get("undone")
+              and res.get("menu") == ["Duplicate", "Move to List", "-", "Delete Task"] and res.get("closed") and not res.get("left"))
+        return ok, f"{res}"
+    check("Aufgaben: Aufgabe in eigenem Fenster (Doppelklick, Enter, ⌘O, Edit Task) mit derselben Ansicht wie die Detailspalte, oben Complete und „…“, Bearbeiten, zweites Öffnen holt es nach vorn, Löschen schließt es", task_window, results)
+
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
         # liegen nie auf Plus und Suche der Toolbar
@@ -13892,7 +13957,7 @@ Neu
     def task_more_menu():
         # Aufgaben, neue Detailansicht 5a/5d: „…“ über der Aufgabe öffnet Duplicate ⌘D, Move to List >, Open in New Window ⌘O,
         # Delete Task (rot); Duplicate legt eine Kopie an, ⌘D in der Liste ebenso, „In eigenem Fenster“ und ⌘O öffnen die
-        # Aufgabe (bis 5c Thunderbirds Bearbeiten-Fenster, hier ersetzt), Delete Task löscht
+        # Aufgabe im Aufgabenfenster (5c/5d), Delete Task löscht
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await pause(600);
           const c = testCalendar();
@@ -13900,15 +13965,12 @@ Neu
           const todo = new CalTodo(); todo.title = "Halo Mehr-Aufgabe"; todo.calendar = c; const saved = await c.addItem(todo);
           const mine = async () => (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(t => t.title == "Halo Mehr-Aufgabe");
           const out = {};
-          const realOpen = w.modifyEventWithDialog;
-          const opened = [];
           try {
             tm.openTab("tasks", {}); await ruhig(1500);
             const tree = d.getElementById("calendar-task-tree");
             const sel = async () => { const i = await till(() => { const k = tree.mTaskArray.findIndex(t => t.title == "Halo Mehr-Aufgabe"); return k >= 0 ? k + 1 : 0; }, 5000) - 1;
               tree.focus(); tree.view.selection.select(i); await ruhig(800); };
             await sel();
-            w.modifyEventWithDialog = item => opened.push(item?.title);
             const more = d.getElementById("mcTaskMore");
             more.click();
             const pop = await till(() => { const p = d.getElementById("mcTaskMoreMenu"); return p?.state == "open" ? p : null; }, 3000);
@@ -13930,7 +13992,10 @@ Neu
             await sel();
             tree.dispatchEvent(new w.KeyboardEvent("keydown", { key: "o", bubbles: true, cancelable: true, ...mod }));
             d.getElementById("mcTaskOpenWindow").click(); await ruhig(300);
-            out.opened = opened.slice();
+            // (beide öffnen dasselbe Aufgabenfenster, 5c/5d)
+            const tw = [...Services.wm.getEnumerator(null)].filter(x => x.document?.documentElement?.hasAttribute("mc-task-window"));
+            out.opened = tw.map(x => x.document.title);
+            for (const x of tw) x.close();
             // Delete Task über „…“ löscht die gewählte Aufgabe (ohne Thunderbirds Rückfrage, Marionette schlösse sie selbst)
             Services.prefs.setBoolPref("calendar.item.promptDelete", false);
             await sel();
@@ -13940,7 +14005,6 @@ Neu
             for (let k = 0; k < 40 && (await mine()).length > 2; k++) await pause(100);
             out.afterDelete = (await mine()).length;
           } finally {
-            w.modifyEventWithDialog = realOpen;
             Services.prefs.clearUserPref("calendar.item.promptDelete");
             for (const it of await mine()) { try { await c.deleteItem(it); } catch {} }
             for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
@@ -13951,7 +14015,7 @@ Neu
         red = res.get("red") or ["", ""]
         ok = (it == [["Duplicate", acc + "D"], ["Move to List", ""], "-", ["Open in New Window", acc + "O"], "-", ["Delete Task", "⌫" if sys.platform == "darwin" else "Del"]]
               and same_color(red[0], red[1]) and res.get("afterDup") == 2 and res.get("afterKey") == 3
-              and res.get("opened") == ["Halo Mehr-Aufgabe", "Halo Mehr-Aufgabe"] and res.get("afterDelete") == 2)
+              and res.get("opened") == ["Halo Mehr-Aufgabe"] and res.get("afterDelete") == 2)
         return ok, f"{res}"
     check("Aufgaben: „…“ über der Aufgabe mit Duplicate, Move to List, Open in New Window, Delete Task (rot); ⌘D dupliziert, ⌘O und Fenster-Knopf öffnen die Aufgabe", task_more_menu, results)
 

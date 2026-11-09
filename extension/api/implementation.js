@@ -3323,13 +3323,17 @@ async function reopenTasks(win, tasks) {
 // als graue Gruppen: feines Symbol, Bezeichnung links, Wert rechts, leer grau
 // „None“. Nur Anzeige (Bearbeiten weiter per Doppelklick bzw. Menüs);
 // Thunderbirds Zeilen bleiben im Dokument, das CSS blendet sie aus
-function hookTaskInfo(win, restorers) {
+// Die Ansicht einer Aufgabe (Kopfkarte, Abschnitte, Bearbeiten in Ort und Stelle)
+// läuft in der Detailspalte des Hauptfensters und – mit `solo` (tree: Objekt mit
+// currentTask, close: schließt das Fenster) – im eigenen Aufgabenfenster
+// (openTaskWindow), das dieselben Elemente nachbaut. Rückgabe bei solo: refresh()
+function hookTaskInfo(win, restorers, solo = null) {
   const doc = win.document;
-  const tree = doc.getElementById("calendar-task-tree");
+  const tree = solo ? solo.tree : doc.getElementById("calendar-task-tree");
   const wrapper = doc.getElementById("calendar-task-details-description-wrapper");
   const frame = doc.getElementById("calendar-task-details-description");
-  const view = win.taskDetailsView;
-  if (!tree || !wrapper || !frame || typeof view?.onSelect != "function" || doc.getElementById("mcTaskInfo")) {
+  const view = solo ? {} : win.taskDetailsView;
+  if (!tree || !wrapper || !frame || (!solo && typeof view?.onSelect != "function") || doc.getElementById("mcTaskInfo")) {
     return;
   }
   const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
@@ -3978,13 +3982,13 @@ function hookTaskInfo(win, restorers) {
       popup.openPopup(completeBtn, "after_start");
     }
   });
-  const openBtn = btn("mcTaskOpenWindow", "Open in New Window");
+  const openBtn = solo ? null : btn("mcTaskOpenWindow", "Open in New Window");
   const moreBtn = btn("mcTaskMore", "More");
   moreBtn.setAttribute("aria-haspopup", "menu");
   const openTask = () => {
     const item = tree.currentTask;
-    if (item) {
-      win.modifyEventWithDialog?.(item, true);
+    if (item && !solo) {
+      openTaskWindow(win, item);
     }
   };
   const duplicateTask = async () => {
@@ -4000,7 +4004,22 @@ function hookTaskInfo(win, restorers) {
       log("task duplicate error", e);
     }
   };
-  const deleteTask = () => win.goDoCommand?.("calendar_delete_todo_command");
+  const deleteTask = async () => {
+    if (!solo) {
+      win.goDoCommand?.("calendar_delete_todo_command");
+      return;
+    }
+    // (im eigenen Fenster: wie Thunderbird mit Rückfrage, dann schließt das Fenster)
+    const item = tree.currentTask;
+    if (item && cal.acl.isCalendarWritable(item.calendar) && (!Services.prefs.getBoolPref("calendar.item.promptDelete", true) ||
+      Services.prompt.confirm(win, tr("Delete Task"), tr("Delete this task?")))) {
+      try {
+        await win.doTransaction("delete", item, item.calendar, null, null);
+      } catch (e) {
+        log("task delete error", e);
+      }
+    }
+  };
   const accel = key => `${IS_MAC ? "⌘" : "Ctrl+"}${key}`;
   let moreMenu = null;
   const openMore = () => {
@@ -4048,8 +4067,7 @@ function hookTaskInfo(win, restorers) {
       mi("Duplicate", duplicateTask, { key: accel("D"), disabled: !cal.acl.isCalendarWritable(item.calendar) }),
       move,
       doc.createXULElement("menuseparator"),
-      mi("Open in New Window", openTask, { key: accel("O") }),
-      doc.createXULElement("menuseparator"),
+      ...(solo ? [] : [mi("Open in New Window", openTask, { key: accel("O") }), doc.createXULElement("menuseparator")]),
       mi("Delete Task", deleteTask, { key: IS_MAC ? "⌫" : "Del", disabled: !canEdit, cls: "mc-ta-danger" }),
     );
     doc.getElementById("mainPopupSet")?.append(moreMenu) ?? doc.documentElement.append(moreMenu);
@@ -4058,17 +4076,20 @@ function hookTaskInfo(win, restorers) {
     moreMenu.addEventListener("popuphiding", event => event.target == moreMenu && moreBtn.removeAttribute("open"));
     moreMenu.openPopup(moreBtn, "after_end", 0, 2, false, false);
   };
-  openBtn.addEventListener("command", openTask);
+  openBtn?.addEventListener("command", openTask);
   moreBtn.addEventListener("command", openMore);
   // ⌘D und ⌘O in der Aufgabenliste (wie im „…“-Menü angezeigt)
   const onKey = event => {
     if (doc.documentElement.getAttribute("mc-tab") != "tasks" || event.altKey || event.shiftKey ||
       !(IS_MAC ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) ||
-      !(event.target == tree || event.target.closest?.("#calendar-task-tree, #mcTaskCards")) || !tree.currentTask) {
+      (!solo && !(event.target == tree || event.target.closest?.("#calendar-task-tree, #mcTaskCards"))) || !tree.currentTask) {
       return;
     }
     const key = event.key.toLowerCase();
-    if (key == "d" || key == "o") {
+    if (solo && key == "w") {
+      event.preventDefault();
+      win.close();
+    } else if (key == "d" || (key == "o" && !solo)) {
       event.preventDefault();
       event.stopPropagation();
       (key == "d" ? duplicateTask : openTask)();
@@ -4078,12 +4099,11 @@ function hookTaskInfo(win, restorers) {
   restorers.push(() => {
     win.removeEventListener("keydown", onKey, true);
     moreMenu?.remove();
-    openBtn.remove();
+    openBtn?.remove();
     moreBtn.remove();
   });
   const orig = view.onSelect;
-  view.onSelect = function (...args) {
-    const result = orig.apply(this, args);
+  const refresh = () => {
     try {
       render();
       win.requestAnimationFrame(() => {
@@ -4093,14 +4113,22 @@ function hookTaskInfo(win, restorers) {
     } catch (e) {
       log("task info error", e);
     }
-    return result;
   };
+  if (!solo) {
+    view.onSelect = function (...args) {
+      const result = orig.apply(this, args);
+      refresh();
+      return result;
+    };
+  }
   frame.addEventListener("load", sizeNote, true);
   frame.addEventListener("load", hookNote, true);
   hookNote();
   render();
   restorers.push(() => {
-    view.onSelect = orig;
+    if (!solo) {
+      view.onSelect = orig;
+    }
     titleCell?.removeEventListener("click", onTitle);
     frame.removeEventListener("load", hookNote, true);
     noteDoc()?.removeEventListener("click", onNoteClick);
@@ -4114,6 +4142,221 @@ function hookTaskInfo(win, restorers) {
     doc.documentElement.removeAttribute("mc-task-info");
     doc.documentElement.removeAttribute("mc-task-note");
   });
+  return solo ? refresh : undefined;
+}
+
+// Aufgabe in eigenem Fenster (neue Detailansicht 5c/5d): dieselbe Ansicht wie die
+// Detailspalte, oben „Complete“ und „…“. Doppelklick, Enter, ⌘O, „Edit Task“ und
+// der Knopf „In eigenem Fenster öffnen“ kommen hierher. Das Fenster ist ein leeres
+// Chrome-Fenster (about:blank), das die Elemente der Detailspalte unter denselben
+// Kennungen nachbaut – so gelten Stil und Logik (hookTaskInfo) unverändert.
+const TASK_WINDOWS = new Map();
+
+// Thunderbirds „Aufgabe bearbeiten“ (Doppelklick in der Tabelle, Enter, Kontextmenü
+// „Edit Task“, Erinnerungen …) öffnet das Aufgabenfenster statt des Bearbeiten-Dialogs
+function hookTaskOpen(win, restorers) {
+  const orig = win.modifyEventWithDialog;
+  if (typeof orig != "function" || orig.__mcTaskWindow) {
+    return;
+  }
+  const wrapped = function (item, ...rest) {
+    let task = false;
+    try {
+      task = !!item && item instanceof Ci.calITodo && !rest[2];
+    } catch {}
+    if (task) {
+      openTaskWindow(win, item).catch(e => log("task window error", e));
+      return undefined;
+    }
+    return orig.call(this, item, ...rest);
+  };
+  wrapped.__mcTaskWindow = true;
+  win.modifyEventWithDialog = wrapped;
+  restorers.push(() => {
+    if (win.modifyEventWithDialog === wrapped) {
+      win.modifyEventWithDialog = orig;
+    }
+  });
+}
+
+async function openTaskWindow(main, item) {
+  const key = `${item.calendar?.id}:${item.hashId}`;
+  const open = TASK_WINDOWS.get(key);
+  if (open && !open.closed) {
+    open.focus();
+    return open;
+  }
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const nw = main.openDialog("about:blank", "_blank", "chrome,dialog=no,resizable,minimizable,width=500,height=640");
+  TASK_WINDOWS.set(key, nw);
+  for (let tries = 0; tries < 200 && !(nw.document?.readyState == "complete" && nw.document.body); tries++) {
+    await new Promise(r => main.setTimeout(r, 25));
+  }
+  const doc = nw.document;
+  if (nw.closed || !doc.body) {
+    TASK_WINDOWS.delete(key);
+    return null;
+  }
+  try {
+    Services.scriptloader.loadSubScript("chrome://global/content/customElements.js", nw);
+    for (const href of ["chrome://global/skin/global.css", "chrome://messenger/skin/messenger.css"]) {
+      const link = doc.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      doc.head.append(link);
+    }
+    if (ThemeSheet.active) {
+      // (about:blank gilt für ThemeSheet.apply nicht als Thunderbird-Seite)
+      nw.windowUtils.loadSheetUsingURIString(ThemeSheet.uri, nw.windowUtils.USER_SHEET);
+      nw.__mcTheme = ThemeSheet.uri;
+    }
+    cardWindow(nw);
+    const root = doc.documentElement;
+    root.setAttribute("mc-tab", "tasks");
+    root.setAttribute("mc-task-window", "");
+    const X = "http://www.w3.org/1999/xhtml";
+    const xul = (tag, id, cls) => {
+      const e = doc.createXULElement(tag);
+      if (id) {
+        e.id = id;
+      }
+      if (cls) {
+        e.className = cls;
+      }
+      return e;
+    };
+    const html = (tag, id) => {
+      const e = doc.createElementNS(X, tag);
+      if (id) {
+        e.id = id;
+      }
+      return e;
+    };
+    // Aufbau wie die Detailspalte der Aufgaben in Thunderbird (nur, was die Ansicht braucht)
+    const container = xul("vbox", "calendar-task-details-container");
+    const details = xul("hbox", "calendar-task-details");
+    const actionsBox = xul("hbox", "other-actions-box");
+    const toolbox = xul("vbox", "task-actions-toolbox");
+    const toolbar = xul("hbox", "task-actions-toolbar");
+    toolbar.setAttribute("role", "toolbar");
+    const complete = xul("toolbarbutton", "task-actions-markcompleted", "toolbarbutton-1 message-header-view-button");
+    complete.append(xul("image", null, "toolbarbutton-icon"), xul("label", null, "toolbarbutton-text"));
+    complete.setAttribute("tabindex", "0");
+    toolbar.append(complete);
+    toolbox.append(toolbar);
+    actionsBox.append(toolbox);
+    const detailsBox = xul("hbox", "calendar-task-details-box");
+    const grid = html("table", "calendar-task-details-grid");
+    const titleRow = html("tr", "calendar-task-details-title-row");
+    const titleCell = html("td", "calendar-task-details-title");
+    titleCell.className = "task-details-value";
+    titleRow.append(html("th"), titleCell);
+    grid.append(titleRow);
+    detailsBox.append(grid);
+    details.append(actionsBox, detailsBox);
+    const wrapper = xul("hbox", "calendar-task-details-description-wrapper");
+    const frame = html("iframe", "calendar-task-details-description");
+    wrapper.append(frame);
+    container.append(details, wrapper);
+    doc.body.append(container);
+    // (Thunderbirds Transaktionen, Rückgängig inklusive, liegen im Hauptfenster)
+    nw.doTransaction = (...args) => main.doTransaction(...args);
+    const solo = { tree: { currentTask: item }, close: () => nw.close() };
+    const restorers = [];
+    const refresh = hookTaskInfo(nw, restorers, solo);
+    const taskCss = `resource://mailcards/taskdesc.css?v=${extensionVersion}`;
+    const fill = () => {
+      const task = solo.tree.currentTask;
+      doc.title = task.title || tr("Task");
+      titleCell.textContent = task.title || "";
+      const body = frame.contentDocument?.body;
+      if (body) {
+        body.style.whiteSpace = "pre-wrap";
+        body.textContent = task.descriptionText || "";
+        const cw = frame.contentWindow;
+        if (cw && cw.__mcDesc != taskCss) {
+          try {
+            cw.windowUtils.loadSheetUsingURIString(taskCss, cw.windowUtils.USER_SHEET);
+            cw.__mcDesc = taskCss;
+          } catch {}
+        }
+      }
+      complete.setAttribute("tooltiptext", tr(task.isCompleted ? "Mark Not Completed" : "Complete"));
+      complete.setAttribute("aria-label", tr(task.isCompleted ? "Mark Not Completed" : "Complete"));
+      complete.toggleAttribute("data-done", !!task.isCompleted);
+      complete.toggleAttribute("disabled", !cal.acl.isCalendarWritable(task.calendar));
+    };
+    const show = () => {
+      fill();
+      refresh?.();
+    };
+    // Der Rahmen lädt about:blank erst nach dem Einhängen – dann erst füllen
+    frame.addEventListener("load", show, { once: true });
+    complete.addEventListener("command", () => {
+      const task = solo.tree.currentTask;
+      const done = !task.isCompleted;
+      const copy = task.clone();
+      copy.isCompleted = done;
+      if (!done) {
+        copy.status = "NONE";
+        copy.percentComplete = 0;
+      }
+      nw.doTransaction("modify", copy, copy.calendar, task, null).catch(e => log("task complete error", e));
+    });
+    complete.addEventListener("click", event => event.button == 0 && complete.doCommand?.());
+    // Änderungen von außen (auch die eigenen) zeigen: neuer Stand bzw. Fenster zu bei gelöschter Aufgabe
+    const observer = {
+      QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+      onStartBatch() {},
+      onEndBatch() {},
+      onLoad() {},
+      onAddItem() {},
+      onError() {},
+      onPropertyChanged() {},
+      onPropertyDeleting() {},
+      onModifyItem(newItem) {
+        const cur = solo.tree.currentTask;
+        if (newItem.id == cur.id && newItem.calendar?.id == cur.calendar?.id) {
+          solo.tree.currentTask = newItem;
+          show();
+        }
+      },
+      onDeleteItem(gone) {
+        if (gone.id == solo.tree.currentTask.id) {
+          nw.close();
+        }
+      },
+    };
+    const calendar = item.calendar;
+    calendar.addObserver(observer);
+    const onKey = event => {
+      if (event.key == "Escape" && !event.defaultPrevented && !doc.querySelector("input:focus, .mc-ti-input")) {
+        nw.close();
+      }
+    };
+    nw.addEventListener("keydown", onKey);
+    const closeWith = () => nw.close();
+    main.addEventListener("unload", closeWith, { once: true });
+    nw.addEventListener("unload", () => {
+      TASK_WINDOWS.delete(key);
+      try {
+        calendar.removeObserver(observer);
+      } catch {}
+      main.removeEventListener("unload", closeWith);
+      for (const r of restorers.reverse()) {
+        try {
+          r();
+        } catch {}
+      }
+    }, { once: true });
+    if (frame.contentDocument?.readyState == "complete") {
+      show();
+    }
+    nw.focus();
+  } catch (e) {
+    log("task window error", e);
+  }
+  return nw;
 }
 
 function hookTaskCards(win, restorers) {
@@ -11425,6 +11668,7 @@ class CardEnhancer {
           hookTaskView(w, this.restorers);
           hookTaskCards(w, this.restorers);
           hookTaskInfo(w, this.restorers);
+          hookTaskOpen(w, this.restorers);
         } catch (e) {
           log("task filter error", e);
         }

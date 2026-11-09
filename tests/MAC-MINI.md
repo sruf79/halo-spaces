@@ -911,19 +911,11 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
 - Kennzahlen je Woche in `~/halo-aufgaben/wochen-kennzahlen.json`, Vergleich
   zur Vorwoche im Bericht `~/halo-berichte/<datum>-wochenpruefung.md`
   (erste Zeile „Kurz: …“ geht aufs iPhone).
-- Darf selbst: kleine Korrekturen an Prüfungen (Toleranzen, Wartebedingungen
-  statt Pausen, Plattform-Abweichungen als Warnung), mit `--only` prüfen,
-  committen, pushen, CI abwarten; kein Release. Abläufe verbessert sie
-  ebenfalls selbst (Entscheidung des Maintainers vom 5.11.2026; Auftrag
-  Abschnitt 3b): Nachtlauf, CI-Wächter, Aufträge, Workflow,
-  `release.sh`/`publish.sh` außer der Sperre – nur mit Beleg aus den Zahlen,
-  höchstens drei je Woche, je mit Kennzahl und Ziel in
-  `~/halo-aufgaben/ablauf-aenderungen.json`. Jede Woche prüft sie, ob die
-  Änderungen der Vorwochen gewirkt haben, und nimmt Unwirksames mit
-  `git revert` zurück. Nur als „Wartet auf OK“: was Entscheidungen des
-  Maintainers ändert, Zeitpläne, LaunchAgents, `mac-mini-setup.sh`, neue
-  Routinen, Kostensteigerungen. Nie: Release-Sperre, `if:`-Bedingungen der
-  Mac-Jobs, `mac-runner-hook.sh`, Freigaberegeln.
+- Empfehlungsmodus (Entscheidung des Maintainers vom 9.11.2026, `ENTSCHEIDUNGEN.md`): wertet nach
+  ISO-Wochen mit der festen Kennzahlenliste aus (`tests/wochenpruefung-auftrag.md`) und gibt höchstens
+  drei Empfehlungen je Woche als Board-Einträge „Ablauf: …“ (Wartet auf OK) ab; Prüfungen, Abläufe,
+  Aufträge und Skripte ändert sie nicht selbst, umgesetzt wird erst nach Zustimmung des Maintainers.
+  Wirkung früherer Empfehlungen wird an den Zahlen der Woche gemessen (`docs/testrechner.md`).
 - Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
   bis höchstens 09:15 und wertet ihn mit aus.
 - Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`, wartet bis 90 Minuten

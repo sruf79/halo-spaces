@@ -1803,6 +1803,46 @@ findbar .findbar-textbox:focus {
   display: none !important;
 }
 
+/* Überlauf-Knopf „»“ links neben dem Suchfeld (eigene Kapsel wie Apple
+   Mail): erscheint, sobald Pillen ausgeblendet sind; sein Menü zeigt deren
+   Aktionen. Pillen werden nie abgeschnitten, nur ganz ausgeblendet */
+#mcToolbarOverflow {
+  --mt-overflow-icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6 6.5 5.5 5.5L6 17.5%22/%3E%3Cpath d=%22m12.5 6.5 5.5 5.5-5.5 5.5%22/%3E%3C/svg%3E");
+  flex: 0 0 auto !important;
+  margin: 0 6px 0 0 !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background-color: var(--mt-control) !important;
+}
+
+#mcToolbarOverflow > button {
+  min-width: 40px !important;
+  width: 40px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+}
+
+#mcToolbarOverflow > button[open] {
+  background-color: var(--mt-control-hover) !important;
+  color: var(--mt-text) !important;
+}
+
+#mcToolbarOverflow > button .button-icon {
+  background-color: currentColor !important;
+  mask: var(--mt-overflow-icon) center / contain no-repeat !important;
+}
+
+/* Menü des Überlauf-Knopfs: Symbol der ausgeblendeten Knöpfe vor dem Namen */
+#mcToolbarOverflowMenu > menuitem .menu-icon {
+  display: flex !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin-inline-end: 8px !important;
+  background-color: currentColor !important;
+  mask: var(--mc-ov-icon, none) center / contain no-repeat !important;
+  list-style-image: none !important;
+}
+
 /* Today-Pane ein-/ausblenden: Knöpfe, die dabei einklappen, bleiben während
    der Animation an ihrer alten Stelle stehen (außerhalb des Flusses) und
    blenden aus, statt gleich zu Beginn zu verschwinden */
@@ -1861,27 +1901,6 @@ findbar .findbar-textbox:focus {
 }
 
 #unifiedToolbarContent > li:is([item-id="write-message"], [item-id="forward-inline"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"]) {
-  border-start-end-radius: 999px !important;
-  border-end-end-radius: 999px !important;
-  margin-inline-end: 6px !important;
-}
-
-/* Knöpfe bei Platzmangel ausgeblendet (mc-squeezed): erstes bzw. letztes
-   sichtbares Element einer Kapsel bekommt die runde Kante, und vor einem
-   Knopf ohne sichtbaren Nachbarn steht kein Trennstrich */
-#unifiedToolbarContent > li[item-id="get-messages"][mc-squeezed] + li[item-id="write-message"],
-#unifiedToolbarContent > li[item-id="archive"][mc-squeezed] + li[item-id="delete"] {
-  border-start-start-radius: 999px !important;
-  border-end-start-radius: 999px !important;
-}
-
-#unifiedToolbarContent > li[item-id="get-messages"][mc-squeezed] + li[item-id="write-message"]::before,
-#unifiedToolbarContent > li[item-id="archive"][mc-squeezed] + li[item-id="delete"]::before {
-  display: none !important;
-}
-
-#unifiedToolbarContent > li:is([item-id="reply"], [item-id="reply-all"]):has(+ li[mc-squeezed]:is([item-id="reply-all"], [item-id="forward-inline"])),
-#unifiedToolbarContent > li[item-id="delete"]:has(+ li[item-id="junk"][mc-squeezed]) {
   border-start-end-radius: 999px !important;
   border-end-end-radius: 999px !important;
   margin-inline-end: 6px !important;

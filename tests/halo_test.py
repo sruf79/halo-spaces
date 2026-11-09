@@ -8905,7 +8905,7 @@ def run_checks(m, version, profile, results):
             const search = d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]');
             const sw = search && getComputedStyle(search).display != "none" ? Math.round(search.getBoundingClientRect().width) : null;
             return { today: Math.round(tp()?.getBoundingClientRect().width || 0), search: sw,
-                     squeezed: name == "mail" ? [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(l => l.getAttribute("item-id")) : [],
+                     squeezed: name == "mail" ? [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed][item-id]")].map(l => l.getAttribute("item-id")) : [],
                      clipped: items.filter(l => { const r = l.getBoundingClientRect(); return r.width && r.right > row.right + 1; }).map(l => l.getAttribute("item-id")) };
           };
           w.resizeTo(1512, 900); await wait(800);
@@ -8922,8 +8922,9 @@ def run_checks(m, version, profile, results):
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           w.resizeTo(1500, 900); await wait(800);
           return out;""")
+        # (Pillen weichen ganz: danach hat die Suche höchstens eine Pille mehr Platz – die breiteste hat drei Knöpfe, 3 × 44 px)
         ok = (all((v["today"] > 0 or k == "calendar") and not v["clipped"] and (v["search"] is None or v["search"] >= 40)
-                  and (not v["squeezed"] or (v["search"] or 0) <= 100) for k, v in res.items())
+                  and (not v["squeezed"] or (v["search"] or 0) <= 40 + 3 * 44 + 8) for k, v in res.items())
               and res["mail16"]["today"] > 0 and not res["mail16"]["squeezed"])
         return ok, f"{res}"
     check("Toolbar: im schmalen Fenster mit Today-Pane schrumpft zuerst das Suchfeld, Knöpfe bleiben in allen Bereichen sichtbar", toolbar_search_first, results)
@@ -8993,15 +8994,15 @@ def run_checks(m, version, profile, results):
     check("Mailansicht: Trennlinie lässt sich nicht so weit ziehen, dass die Mail wegklappt (mindestens 300 px, Knöpfe bleiben in der Zeile)", message_min_width, results)
 
     def toolbar_wider_list():
-        # Mailliste breiter ziehen (Today-Pane offen): weichen Knöpfe, dann nur so viele, wie nötig – der zuletzt ausgeblendete
-        # Knopf hätte neben der Suche keinen Platz mehr (sie weichen streng der Reihe nach, siehe SQUEEZE)
+        # Mailliste breiter ziehen (Today-Pane offen): weichen Pillen, dann nur so viele, wie nötig – die zuletzt ausgeblendete
+        # Pille hätte neben der Suche keinen Platz mehr (sie weichen streng der Reihe nach und immer ganz, siehe SQUEEZE_PILLS)
         res = m.js(r"""
           const a3 = await toMail();
           const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
           const opened = !w.TodayPane.isVisible; if (opened) { tpCmd.doCommand(); await ruhig(1500); }
           const PREF = "extensions.mailcards.listWidth", before = Services.prefs.getIntPref(PREF, 0);
           const sp = a3.paneLayout?.messagePaneSplitter;
-          const tbItems = () => [...d.querySelectorAll("#unifiedToolbarContent > li")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")));
+          const tbItems = () => [...d.querySelectorAll("#unifiedToolbarContent > li[item-id]")].filter(l => !["spacer", "search-bar"].includes(l.getAttribute("item-id")));
           w.resizeTo(1728, 1000); await wait(1800);
           const widths = Object.fromEntries(tbItems().filter(l => !l.hasAttribute("mc-squeezed")).map(l => [l.getAttribute("item-id"), l.getBoundingClientRect().width]));
           const search = () => Math.round(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]').getBoundingClientRect().width);
@@ -9018,11 +9019,14 @@ def run_checks(m, version, profile, results):
               await ruhig(900);
               const hidden = tbItems().filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
               const ph = d.querySelector("global-search-bar")?.querySelector('[slot="placeholder"]');
-              // Knöpfe weichen streng der Reihe nach und kommen umgekehrt zurück: zurückkommen könnte nur der zuletzt
-              // ausgeblendete (letzter in der Reihenfolge), nicht ein schmalerer, der früher wich
-              const ORDER = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
-              const lastHidden = [...hidden].sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y)).pop();
-              out.steps.push({ add, search: search(), hidden, minHidden: lastHidden ? Math.round(widths[lastHidden] || 999) : null,
+              // Pillen weichen streng der Reihe nach und kommen umgekehrt zurück: zurückkommen könnte nur die zuletzt
+              // ausgeblendete (letzte in der Reihenfolge), nicht eine schmalere, die früher wich
+              const PILLS = [["mark-as"], ["move-to"], ["archive", "delete", "junk"], ["reply", "reply-all", "forward-inline"]];
+              const lastPill = PILLS.filter(p => p.some(id => hidden.includes(id))).pop();
+              // eine Pille weicht nur ganz (nie einzelne Knöpfe daraus)
+              out.partial = (out.partial || []).concat(PILLS.filter(p => p.some(id => hidden.includes(id)) && p.some(id => widths[id] && !hidden.includes(id))).map(p => p.join("+")));
+              out.steps.push({ add, search: search(), hidden, minHidden: lastPill ? Math.round(lastPill.reduce((a, id) => a + (widths[id] || 0), 0)) || 999 : null,
+                chevron: !!d.getElementById("mcToolbarOverflow") && !d.getElementById("mcToolbarOverflow").hasAttribute("mc-squeezed"),
                 ph: ph ? [w.getComputedStyle(ph).visibility != "hidden", firstWordFits(ph)] : null });
             }
           } finally {
@@ -9038,9 +9042,90 @@ def run_checks(m, version, profile, results):
         # Platzhalter nur, wenn wenigstens das erste Wort ganz hineinpasst, sonst nur die Lupe
         ph_bad = [st for st in res.get("steps", []) if st.get("ph") and st["ph"][0] and not st["ph"][1]]
         ok = bool(res.get("steps")) and not bad and not ph_bad and any(st["hidden"] for st in res["steps"]) \
-            and any(st.get("ph") and not st["ph"][0] for st in res["steps"])
+            and any(st.get("ph") and not st["ph"][0] for st in res["steps"]) and not res.get("partial") \
+            and all(st["chevron"] == bool(st["hidden"]) for st in res["steps"])
         return ok, f"{res}"
     check("Toolbar: Mailliste breiter ziehen blendet nur so viele Knöpfe aus wie nötig, die Suche bleibt klein und zeigt dann nur die Lupe", toolbar_wider_list, results)
+
+    def toolbar_overflow():
+        # Symbolleisten-Überlauf wie Apple Mail (alle Bereiche): im schmalen Fenster mit Today-Pane ist das Suchfeld nur noch die
+        # Lupe, Pillen weichen ganz (nie einzelne Knöpfe daraus, nichts ragt aus der Zeile), direkt links neben dem Suchfeld steht
+        # der Überlauf-Knopf „»“ (eigene Kapsel); sein Menü zeigt die Aktionen aller ausgeblendeten Knöpfe in Toolbar-Reihenfolge
+        # mit Symbol, „Verschieben“ öffnet das Ordnermenü. Im breiten Fenster ohne Today-Pane: kein Überlauf-Knopf
+        res = m.js(MESSAGE_JS + r"""
+          const out = {};
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const opened = !w.TodayPane.isVisible; if (opened) { tpCmd.doCommand(); await ruhig(1500); }
+          const PILLS = [["get-messages", "write-message"], ["reply", "reply-all", "forward-inline"], ["archive", "delete", "junk"], ["move-to"], ["mark-as"],
+                         ["new-event", "new-task"], ["create-contact"], ["create-address-book", "create-list"]];
+          const R = e => e.getBoundingClientRect();
+          const state = () => {
+            const content = d.getElementById("unifiedToolbarContent"), row = R(content);
+            const lis = [...content.children].filter(l => !l.hidden && !["spacer", "search-bar"].includes(l.getAttribute("item-id")) && l.id != "mcToolbarOverflow");
+            const hidden = lis.filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
+            const shown = lis.filter(l => !l.hasAttribute("mc-squeezed") && getComputedStyle(l).display != "none").map(l => l.getAttribute("item-id"));
+            const ov = d.getElementById("mcToolbarOverflow"), search = content.querySelector(':scope > li[item-id="search-bar"]');
+            const o = ov && !ov.hasAttribute("mc-squeezed") && R(ov).width ? R(ov) : null, sr = R(search);
+            const icon = ov?.querySelector(".button-icon");
+            return { hidden, partial: PILLS.filter(p => p.some(id => hidden.includes(id)) && p.some(id => shown.includes(id))).map(p => p.join("+")),
+                     clipped: [...content.children].filter(l => l.getAttribute("item-id") != "spacer" && R(l).width && R(l).right > row.right + 1).map(l => l.getAttribute("item-id") || l.id),
+                     search: Math.round(sr.width), ov: o ? { w: Math.round(o.width), gap: Math.round(sr.left - o.right), next: ov.nextElementSibling == search } : null,
+                     icon: icon ? [getComputedStyle(icon).maskImage != "none", getComputedStyle(icon).backgroundColor] : null,
+                     labels: hidden.map(id => (content.querySelector(`:scope > li[item-id="${id}"] .button-label`)?.textContent || "").trim()) };
+          };
+          try {
+            // breit ohne Today-Pane: alles sichtbar, kein Überlauf-Knopf; Breiten der Knöpfe für den Vergleich unten
+            if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1200); }
+            w.resizeTo(Math.min(1900, w.screen.availWidth), 900); await ruhig(1500);
+            out.wide = state();
+            out.widths = Object.fromEntries([...d.querySelectorAll("#unifiedToolbarContent > li[item-id]")].map(l => [l.getAttribute("item-id"), Math.round(R(l).width)]));
+            tpCmd.doCommand(); await ruhig(1500);
+            w.resizeTo(800, 900); await ruhig(1500);
+            out.narrow = state(); out.win = w.innerWidth;
+            const btn = d.querySelector("#mcToolbarOverflow > button");
+            if (btn && out.narrow.ov) {
+              btn.click(); const menu = await bis(() => d.getElementById("mcToolbarOverflowMenu")?.state == "open" && d.getElementById("mcToolbarOverflowMenu"), "Überlauf-Menü offen", 3000);
+              out.menu = [...menu.children].map(i => ({ label: i.getAttribute("label"), id: i.getAttribute("mc-item"), disabled: i.disabled,
+                icon: getComputedStyle(i.querySelector(".menu-icon") || i).maskImage != "none" }));
+              const move = [...menu.children].find(i => i.getAttribute("mc-item") == "move-to");
+              if (move && !move.disabled) {
+                menu.activateItem(move);
+                out.movePopup = !!await until(() => d.getElementById("toolbarMoveToPopup")?.state == "open", 3000);
+                d.getElementById("toolbarMoveToPopup")?.hidePopup(); await ruhig(400);
+              } else { menu.hidePopup(); }
+              await ruhig(400);
+            }
+            // übrige Bereiche: keine abgeschnittene oder halbe Pille, Überlauf-Knopf nur mit ausgeblendeten Pillen
+            out.spaces = {};
+            for (const [name, open] of [["calendar", toCalendar], ["tasks", async () => { tm.openTab("tasks", {}); await ruhig(1500); }],
+                                        ["addressbook", async () => { tm.openTab("addressBookTab", {}); await ruhig(2000); }]]) {
+              await open(); await ruhig(1000); const st = state();
+              out.spaces[name] = { partial: st.partial, clipped: st.clipped, ovOk: !st.ov == !st.hidden.length };
+            }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          } finally {
+            d.getElementById("mcToolbarOverflowMenu")?.hidePopup?.();
+            await toMail(); if (w.TodayPane.isVisible != !opened) { tpCmd.doCommand(); await ruhig(1000); }
+            w.resizeTo(1500, 900); await ruhig(800);
+          }
+          return out;""")
+        n, menu = res.get("narrow") or {}, res.get("menu") or []
+        # nur so viele Pillen wie nötig: die zuletzt ausgeblendete hätte neben der Lupe keinen Platz (ist sie die einzige,
+        # fiele mit ihr auch „»“ weg)
+        order = [["mark-as"], ["move-to"], ["archive", "delete", "junk"], ["reply", "reply-all", "forward-inline"]]
+        hid = [p for p in order if any(i in n.get("hidden", []) for i in p)]
+        last = sum(res.get("widths", {}).get(i, 0) for i in hid[-1]) if hid else 0
+        room = n.get("search", 0) - 40 + (46 if len(hid) == 1 else 0)
+        ok = (bool(n.get("hidden")) and not n.get("partial") and not n.get("clipped") and room < last + 6
+              and bool(n.get("ov")) and n["ov"]["w"] == 40 and n["ov"]["next"] and 0 <= n["ov"]["gap"] <= 8
+              and bool(n.get("icon")) and n["icon"][0] and n["icon"][1] not in ("rgba(0, 0, 0, 0)", "transparent")
+              and [i["id"] for i in menu] == n["hidden"] and [i["label"] for i in menu] == n["labels"] and all(i["icon"] and i["label"] for i in menu)
+              and all(not i["disabled"] for i in menu if i["id"] in ("reply", "forward-inline", "move-to"))
+              and res.get("movePopup") is True
+              and all(not v["partial"] and not v["clipped"] and v["ovOk"] for v in res.get("spaces", {}).values())
+              and not (res.get("wide") or {}).get("ov") and not (res.get("wide") or {}).get("hidden"))
+        return ok, f"{res}"
+    check("Toolbar: Überlauf wie Apple Mail – im schmalen Fenster weichen Pillen ganz, links neben der Lupe erscheint „»“ mit den ausgeblendeten Aktionen", toolbar_overflow, results)
 
     def capsules():
         res = m.js("""

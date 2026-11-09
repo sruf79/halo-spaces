@@ -9067,8 +9067,9 @@ function rowTail(doc) {
   return Math.max(0, Math.round(row.right - content.right));
 }
 
-// minimal: nur die Knöpfe, die bei Platzmangel nicht weichen (SQUEEZE), und
-// das Suchfeld in seiner kleinsten sinnvollen Breite – für Ziehgrenzen
+// minimal: nur die Pillen, die bei Platzmangel nie weichen (KEEP_PILLS), der
+// Überlauf-Knopf und das Suchfeld in seiner kleinsten sinnvollen Breite – für
+// Ziehgrenzen
 function toolbarNeed(doc, minimal = false) {
   const content = doc.getElementById("unifiedToolbarContent");
   if (!content) {
@@ -9079,7 +9080,7 @@ function toolbarNeed(doc, minimal = false) {
   // der Knopfleiste steht (≡-Menü, Fensterknöpfe – das Padding ist darum
   // kleiner, siehe --mc-row-tail)
   const pad = parseFloat(win.getComputedStyle(content).paddingInlineEnd) || 0;
-  let need = 10 + Math.max(pad, 60) + rowTail(doc) + 12;
+  let need = 10 + Math.max(pad, 60) + rowTail(doc) + 12 + (minimal ? OVERFLOW_W : 0);
   let afterFirst = false;
   for (const li of content.children) {
     const id = li.getAttribute("item-id");
@@ -9087,10 +9088,10 @@ function toolbarNeed(doc, minimal = false) {
       afterFirst = true;
       continue;
     }
-    if (!afterFirst || li.hidden || (!li.getBoundingClientRect().width && !li.hasAttribute("mc-squeezed"))) {
+    if (!afterFirst || li.hidden || li.id == OVERFLOW_ID || (!li.getBoundingClientRect().width && !li.hasAttribute("mc-squeezed"))) {
       continue;
     }
-    if (minimal && SQUEEZE.includes(id)) {
+    if (minimal && id != "search-bar" && !KEEP_PILLS.flat().includes(id)) {
       continue;
     }
     if (!minimal && li.hasAttribute("mc-squeezed")) {
@@ -9100,16 +9101,47 @@ function toolbarNeed(doc, minimal = false) {
     const margins = (parseFloat(cs.marginInlineStart) || 0) + (id == "write-message" ? 12 : parseFloat(cs.marginInlineEnd) || 0);
     need += (id == "search-bar" ? (minimal ? 160 : 333) : li.getBoundingClientRect().width) + margins;
   }
+  if (!minimal) {
+    const ov = doc.getElementById(OVERFLOW_ID);
+    if (ov && !ov.hasAttribute("mc-squeezed")) {
+      need += OVERFLOW_W;
+    }
+  }
   return Math.ceil(need);
 }
 
-// Zu wenig Platz rechts der Mailliste (z. B. 1280 px mit Today-Pane): wie
-// Apple Mail die unwichtigsten Knöpfe ausblenden, statt sie über die Liste
-// und den Seitenleisten-Knopf zu schieben. fits() misst nach jedem Schritt.
-// Streng in dieser Reihenfolge (zurück umgekehrt) – ein schmalerer Knopf
-// kommt nicht vor einem wichtigeren zurück, sonst wechselten sie sich beim
-// Ändern der Fensterbreite ab
-const SQUEEZE = ["junk", "mark-as", "move-to", "forward-inline", "reply-all", "get-messages", "archive"];
+// Zu wenig Platz in der Toolbar-Zeile (z. B. 1280 px mit Today-Pane): wie
+// Apple Mail zuerst das Suchfeld bis auf die Lupe, dann ganze Pillen
+// (Knopfgruppen) ausblenden – nie eine Pille abschneiden oder nur einzelne
+// Knöpfe daraus. Links neben dem Suchfeld erscheint dann der Überlauf-Knopf
+// „»“, sein Menü zeigt die Aktionen aller ausgeblendeten Pillen. Gilt in
+// allen eigenen Bereichen (nicht in Bereichen fremder Add-ons, z. B. einem
+// ersetzten Chat). fits() misst nach jedem Schritt. Streng in dieser
+// Reihenfolge (zurück umgekehrt) – eine schmalere Pille kommt nicht vor einer
+// wichtigeren zurück, sonst wechselten sie sich beim Ändern der Breite ab.
+// Pillen weichen von rechts nach links wie in Apple Mail; Knöpfe von Add-ons
+// (unbekannte item-id) zuerst, jeder als eigene Pille.
+const SQUEEZE_PILLS = [
+  ["mark-as"], ["move-to"], ["archive", "delete", "junk"], ["reply", "reply-all", "forward-inline"],
+  ["create-address-book", "create-list"],
+];
+// weichen nie: Abrufen + Verfassen, „Neu“ in Kalender, Aufgaben und Adressbuch
+const KEEP_PILLS = [["get-messages", "write-message"], ["new-event", "new-task"], ["create-contact"]];
+const OVERFLOW_ID = "mcToolbarOverflow";
+// Kapsel 40 px + 6 px Abstand zum Suchfeld
+const OVERFLOW_W = 46;
+// Bereiche, deren Toolbar halo.spaces gestaltet (sonst, z. B. ein von einem
+// Add-on ersetzter Chat, bleibt die Leiste unberührt)
+const OVERFLOW_TABS = ["mail3PaneTab", "mailMessageTab", "calendar", "tasks", "addressBookTab", "chat", "preferencesTab"];
+
+// ids der Knöpfe in Toolbar-Reihenfolge → Pillen in der Reihenfolge, in der
+// sie weichen (reine Funktion, siehe tests/logik/ueberlauf.test.mjs)
+function overflowPills(ids) {
+  const known = new Set([...SQUEEZE_PILLS, ...KEEP_PILLS].flat());
+  const foreign = ids.filter(id => id && !["spacer", "search-bar"].includes(id) && !known.has(id)).reverse().map(id => [id]);
+  return [...foreign, ...SQUEEZE_PILLS.map(pill => pill.filter(id => ids.includes(id))).filter(pill => pill.length)];
+}
+
 function squeezeToolbar(doc, fits) {
   const content = doc.getElementById("unifiedToolbarContent");
   if (!content) {
@@ -9118,15 +9150,125 @@ function squeezeToolbar(doc, fits) {
   for (const li of content.querySelectorAll(":scope > li[mc-squeezed]")) {
     li.removeAttribute("mc-squeezed");
   }
-  for (const id of SQUEEZE) {
+  // (der Überlauf-Knopf ist ausgeblendet wie eine Pille: so blendet er beim
+  // Ein-/Ausblenden der Today-Pane mit aus, statt zu springen)
+  const ov = overflowButton(doc, content);
+  ov.setAttribute("mc-squeezed", "");
+  if (fits()) {
+    return;
+  }
+  // nur Knöpfe, die ohne Ausblenden zu sehen wären (Thunderbird blendet
+  // manche selbst aus, z. B. „Neue Aufgabe“ im Kalender)
+  const win = doc.defaultView;
+  const shown = [...content.children].filter(li => !li.hidden && li.id != OVERFLOW_ID && win.getComputedStyle(li).display != "none");
+  const byId = new Map(shown.map(li => [li.getAttribute("item-id"), li]));
+  const pills = overflowPills(shown.map(li => li.getAttribute("item-id")));
+  if (!pills.length) {
+    return;
+  }
+  ov.removeAttribute("mc-squeezed");
+  for (const pill of pills) {
+    for (const id of pill) {
+      byId.get(id)?.setAttribute("mc-squeezed", "");
+    }
     if (fits()) {
       break;
     }
-    const li = content.querySelector(`:scope > li[item-id="${id}"]`);
-    if (li) {
-      li.setAttribute("mc-squeezed", "");
-    }
   }
+}
+
+// Überlauf-Knopf „»“ direkt links neben dem Suchfeld (eigene Kapsel); wird
+// angelegt, wenn er fehlt (Thunderbird baut die Leiste beim Anpassen neu)
+function overflowButton(doc, content) {
+  let li = doc.getElementById(OVERFLOW_ID);
+  // (Thunderbird blendet beim Bereichswechsel alle Einträge, die nicht zum
+  // Bereich gehören, mit hidden aus – auch diesen; sichtbar macht ihn nur
+  // mc-squeezed)
+  if (li) {
+    li.hidden = false;
+  }
+  const search = content.querySelector(':scope > li[item-id="search-bar"]:not([hidden])');
+  if (li && li.parentNode == content && (!search || li.nextElementSibling == search)) {
+    return li;
+  }
+  if (!li) {
+    li = doc.createElement("li");
+    li.id = OVERFLOW_ID;
+    li.setAttribute("mc-squeezed", "");
+    const button = doc.createElement("button");
+    button.className = "unified-toolbar-button button";
+    button.title = tr("More");
+    button.setAttribute("aria-label", tr("More"));
+    button.setAttribute("aria-haspopup", "menu");
+    const icon = doc.createElement("img");
+    icon.className = "button-icon";
+    icon.alt = "";
+    button.append(icon);
+    li.append(button);
+    button.addEventListener("click", () => openOverflowMenu(doc, button));
+  }
+  if (search) {
+    search.before(li);
+  } else {
+    content.append(li);
+  }
+  return li;
+}
+
+// Menü mit den Aktionen aller ausgeblendeten Pillen (Toolbar-Reihenfolge):
+// Symbol und Name des Knopfs; Knöpfe mit eigenem Menü (Verschieben,
+// Markieren) öffnen es am Überlauf-Knopf
+function openOverflowMenu(doc, button) {
+  const win = doc.defaultView;
+  doc.getElementById("mcToolbarOverflowMenu")?.remove();
+  const menu = doc.createXULElement("menupopup");
+  menu.id = "mcToolbarOverflowMenu";
+  const hidden = [...doc.querySelectorAll(`#unifiedToolbarContent > li[mc-squeezed]:not([hidden], #${OVERFLOW_ID})`)];
+  for (const li of hidden) {
+    const b = li.querySelector("button");
+    if (!b) {
+      continue;
+    }
+    // ausgeblendete Knöpfe erfahren nicht immer, dass sich die Auswahl
+    // geändert hat (z. B. „Antworten“ blieb grau): Zustand jetzt abfragen
+    try {
+      b.onCommandContextChange?.();
+    } catch {}
+    const label = (b.querySelector(".button-label")?.textContent || b.getAttribute("aria-label") || b.title || "").trim();
+    const item = doc.createXULElement("menuitem");
+    item.className = "menuitem-iconic";
+    item.setAttribute("label", label || li.getAttribute("item-id"));
+    item.setAttribute("mc-item", li.getAttribute("item-id") || "");
+    if (b.disabled || b.hasAttribute("disabled")) {
+      item.setAttribute("disabled", "true");
+    }
+    const icon = b.querySelector(".button-icon");
+    const mask = icon ? win.getComputedStyle(icon).maskImage : "none";
+    if (mask && mask != "none") {
+      item.style.setProperty("--mc-ov-icon", mask);
+    }
+    const popupId = b.getAttribute("popup");
+    item.addEventListener("command", () => {
+      if (popupId) {
+        // erst nach dem Schließen dieses Menüs (sonst schließt es das neue mit)
+        win.setTimeout(() => doc.getElementById(popupId)?.openPopup(button, "after_end", 0, 2, false, false), 0);
+      } else {
+        b.click();
+      }
+    });
+    menu.append(item);
+  }
+  (doc.getElementById("mainPopupSet") || doc.documentElement).append(menu);
+  button.setAttribute("open", "true");
+  menu.addEventListener("popuphiding", event => event.target == menu && button.removeAttribute("open"));
+  menu.addEventListener("popuphidden", event => event.target == menu && menu.remove());
+  menu.openPopup(button, "after_end", 0, 2, false, false);
+}
+
+function removeOverflowButton(doc) {
+  squeezeToolbar(doc, () => true);
+  doc.getElementById(OVERFLOW_ID)?.remove();
+  doc.getElementById("mcToolbarOverflowMenu")?.remove();
 }
 
 // ---------------------------------------------------------------------------
@@ -10634,7 +10776,7 @@ class CardEnhancer {
       status?.style.removeProperty("--mc-status-min");
       status?.style.removeProperty("--mc-status-side");
     });
-    const updateSideEdge = () => {
+    const updateSideEdgeLayout = () => {
       // während die Bereiche-Leiste animiert, nichts ans Fenster schreiben –
       // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
       // am Ende der Animation wird einmal ausgerichtet
@@ -10950,7 +11092,45 @@ class CardEnhancer {
         }
       }
     };
-    this.restorers.push(() => squeezeToolbar(w.document, () => true));
+    // Überlauf der Toolbar in den übrigen Bereichen (die Mailansicht misst an
+    // der Listenkante selbst, siehe squeezeToolbar im Mail-Layout)
+    const squeezeSpace = () => {
+      const d = w.document;
+      const tpPanel = d.getElementById("today-pane-panel");
+      if (w.__mcSpacesAnimating || tpPanel?.__mcAnimating || tpPanel?.__mcSliding) {
+        return;
+      }
+      const mode = d.getElementById("tabmail")?.currentTabInfo?.mode?.name;
+      if (mode == "mail3PaneTab") {
+        return;
+      }
+      if (!OVERFLOW_TABS.includes(mode)) {
+        squeezeToolbar(d, () => true);
+        return;
+      }
+      const content = d.getElementById("unifiedToolbarContent");
+      if (!content) {
+        return;
+      }
+      const search = content.querySelector(':scope > li[item-id="search-bar"]');
+      squeezeToolbar(d, () => {
+        const right = rectOf(content).right - (parseFloat(w.getComputedStyle(content).paddingInlineEnd) || 0) + 1;
+        const sw = search ? rectOf(search).width : 0;
+        return [...content.children].every(li => {
+          const r = rectOf(li);
+          return li.getAttribute("item-id") == "spacer" || !r?.width || r.right <= right;
+        }) && (!sw || sw > 41);
+      });
+    };
+    const updateSideEdge = () => {
+      updateSideEdgeLayout();
+      try {
+        squeezeSpace();
+      } catch (e) {
+        log("toolbar overflow error", e);
+      }
+    };
+    this.restorers.push(() => removeOverflowButton(w.document));
     this.sideEdgeUpdaters ??= new Set();
     this.sideEdgeUpdaters.add(updateSideEdge);
     const sideRO = new w.ResizeObserver(updateSideEdge);

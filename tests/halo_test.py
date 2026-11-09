@@ -11728,8 +11728,8 @@ Neu
               const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
               for (const phase of ["aus", "ein"]) {
                 btn.click();
-                const frames = []; const t0 = performance.now();
-                while (performance.now() - t0 < 600) { await new Promise(r => a3.requestAnimationFrame(r)); frames.push(snap()); }
+                const frames = [], times = []; const t0 = performance.now();
+                while (performance.now() - t0 < 600) { await new Promise(r => a3.requestAnimationFrame(r)); frames.push(snap()); times.push(performance.now()); }
                 await ruhig(500); const end = snap();
                 // Richtungswechsel je Spalte (mehr als 1,5 px gegen die Bewegung) und Abstand des Endes zum letzten Bild vor dem Ende
                 const moving = frames.filter((f, i) => i && f.some((v, j) => Math.abs(v - frames[i - 1][j]) > 0.05));
@@ -11739,7 +11739,10 @@ Neu
                 const lastStep = frames.length > 1 ? Math.max(...[0, 1, 2].map(j => {
                   const ch = frames.map((f, i) => i ? Math.abs(f[j] - frames[i - 1][j]) : 0).filter(x => x > 0.05);
                   return ch.length >= 2 ? ch[ch.length - 1] - Math.max(ch[ch.length - 2], 3) : 0; })) : 0;
-                out[`${name}/${phase}`] = { frames: frames.filter((f, i) => !i || f.join() != frames[i - 1].join()).map(f => f.join("|")).join(" "), steps: moving.length, back, lastStep: Math.round(lastStep * 10) / 10, end, last: frames[frames.length - 1] };
+                // Bildabstand während der Bewegung (xvfb unter Last: 40–60 ms statt 16 ms)
+                const dts = frames.map((f, i) => i && f.join() != frames[i - 1].join() ? times[i] - times[i - 1] : 0).filter(Boolean).sort((a, b) => a - b);
+                const frameMs = dts.length ? Math.round(dts[dts.length >> 1]) : 0;
+                out[`${name}/${phase}`] = { frames: frames.filter((f, i) => !i || f.join() != frames[i - 1].join()).map(f => f.join("|")).join(" "), steps: moving.length, frameMs, back, lastStep: Math.round(lastStep * 10) / 10, end, last: frames[frames.length - 1] };
               }
             }
           } finally {
@@ -11753,7 +11756,11 @@ Neu
         # Linux in der CI: Zeitschwankungen unter xvfb, ebenso)
         # (Linux ESR in der CI am 5.11. einmal 2,4 px)
         last_max = 3 if sys.platform != "darwin" else 0
-        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < 6 or any(v["back"]) or v["lastStep"] > last_max
+        # (Linux ESR in der CI: xvfb liefert unter Last nur jedes dritte Bild – 4.11., 5.11., 8.11., 9.11. mit 5 Schritten
+        # bei rund 50 ms je Bild; dann genügen 4 Schritte, Ruck und Richtungswechsel bleiben streng)
+        def min_steps(v):
+            return 4 if sys.platform != "darwin" and v.get("frameMs", 0) > 30 else 6
+        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < min_steps(v) or any(v["back"]) or v["lastStep"] > last_max
                or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"])))]
         return not bad, "; ".join(bad) or f"{res}"
     check("Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck in den letzten Bildern (vertikal und klassisch, enges und breites Fenster)", sidebar_no_jump, results)

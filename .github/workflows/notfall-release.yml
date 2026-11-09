@@ -1,0 +1,501 @@
+# Ablauf-Analyse Stufe 2, M10, 9.11.2026; Freigabe des Maintainers (Sitzung project.analysis.control):
+# „deine empfehlungen durchführen“. Wirkt nur bei Start von Hand; Regeln: docs/notfall.md.
+#
+# Notfall-Release ohne neon: nur für „neon tot, schwerer Fehler bei Nutzern“
+# (docs/notfall.md Abschnitt 1 Punkt 4), typischerweise nach einem `git revert`
+# auf main. Gleiche Sperre wie release.sh/publish.sh:
+#   1. Paket wird EINMAL gebaut (Job paket), alle weiteren Jobs prüfen den Hash.
+#   2. Tests Linux (Release, ESR) + statisch + macOS (macos-latest: halo_test.py hell,
+#      bei Farben auch dunkel, update_test.py). Nur wenn alle grün: Marke
+#      release-<version>.ok (Version, sha256, Commit, Tests) – Job marke.
+#   3. Job veroeffentlichen prüft Marke ↔ Version ↔ Paket-Hash ↔ manifest.json ↔
+#      updates.json (wie publish.sh), wartet auf die Freigabe im Environment
+#      „notfall-release“, committet nur manifest.json + updates.json, pusht auf main
+#      (nur fast-forward), legt den GitHub-Release an und prüft danach Download-Hash
+#      und die updates.json hinter update_url.
+# Keine eigenen Secrets: nur GITHUB_TOKEN, Rechte je Job knapp.
+name: Notfall-Release
+
+on:
+  # einziger Auslöser – kein push, kein pull_request, kein schedule
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Neue Version x.y.z (höher als die letzte in updates.json)
+        type: string
+        required: true
+      notes:
+        description: Versionshinweise für den GitHub-Release (englisch, eine Zeile oder Markdown)
+        type: string
+        required: true
+      bestaetigung:
+        description: Zur Bestätigung genau NOTFALL eintippen
+        type: string
+        required: true
+
+# Standard: keine Rechte; jeder Job bekommt nur, was er braucht
+permissions: {}
+
+# nie zwei Notfall-Releases gleichzeitig, keiner bricht den anderen ab
+concurrency:
+  group: notfall-release
+  cancel-in-progress: false
+
+env:
+  # Repo fest, nicht aus dem Ereignis (Forks rufen workflow_dispatch nicht für dieses Repo auf)
+  REPO: sruf79/halo-spaces
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1. Prüfen und bauen – einmal, Ergebnis als Artefakt
+  # ------------------------------------------------------------------
+  paket:
+    # nur der Maintainer, nur von main
+    if: github.repository == 'sruf79/halo-spaces' && github.ref == 'refs/heads/main' && github.triggering_actor == 'sruf79'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      sha256: ${{ steps.bau.outputs.sha256 }}
+      commit: ${{ steps.bau.outputs.commit }}
+      dunkel: ${{ steps.dunkel.outputs.dunkel }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Eingaben nur über env, nie direkt in Skripte einsetzen (keine Einschleusung)
+      - name: Eingaben prüfen
+        env:
+          VERSION: ${{ inputs.version }}
+          OK: ${{ inputs.bestaetigung }}
+        run: |
+          [ "$OK" = NOTFALL ] || { echo "ABBRUCH: Bestätigung fehlt"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "ABBRUCH: Version muss x.y.z sein"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "ABBRUCH: Tag v$VERSION gibt es schon"; exit 1
+          fi
+          LETZTE=$(python3 -c "import json; print(max((u['version'] for a in json.load(open('updates.json'))['addons'].values() for u in a['updates']), key=lambda v: tuple(map(int, v.split('.')))))")
+          HOECHSTE=$(printf '%s\n%s\n' "$LETZTE" "$VERSION" | sort -V | tail -1)
+          if [ "$HOECHSTE" != "$VERSION" ] || [ "$LETZTE" = "$VERSION" ]; then
+            echo "ABBRUCH: $VERSION ist nicht höher als $LETZTE"; exit 1
+          fi
+          echo "Version $VERSION (bisher $LETZTE), Commit $(git rev-parse --short HEAD)"
+
+      - name: Pakete
+        run: sudo apt-get update -q && sudo apt-get install -yq zsh zip
+
+      # wie release.sh: Version und update_url ins Manifest, bauen, Hash, updates.json
+      - id: bau
+        name: Paket bauen
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          python3 - "$VERSION" "$REPO" main <<'PY'
+          import json, sys
+          version, repo, branch = sys.argv[1:4]
+          p = "extension/manifest.json"
+          m = json.load(open(p))
+          m["version"] = version
+          m["browser_specific_settings"]["gecko"]["update_url"] = f"https://raw.githubusercontent.com/{repo}/{branch}/updates.json"
+          json.dump(m, open(p, "w"), indent=2, ensure_ascii=False)
+          open(p, "a").write("\n")
+          PY
+          XPI=$(./build.sh | tail -n 1)
+          [ "$XPI" = "dist/halo-spaces-$VERSION.xpi" ] || { echo "ABBRUCH: unerwarteter Paketname $XPI"; exit 1; }
+          HASH=$(sha256sum "$XPI" | cut -d' ' -f1)
+          echo "sha256=$HASH" >> "$GITHUB_OUTPUT"
+          ID=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['id'])")
+          MIN=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko'].get('strict_min_version','153.0'))")
+          python3 - "$ID" "$VERSION" "$REPO" "$XPI" "$HASH" "$MIN" <<'PY'
+          import json, sys, os
+          aid, version, repo, xpi, sha, minv = sys.argv[1:7]
+          path = "updates.json"
+          data = json.load(open(path)) if os.path.exists(path) else {"addons": {}}
+          updates = data.setdefault("addons", {}).setdefault(aid, {}).setdefault("updates", [])
+          updates[:] = [u for u in updates if u.get("version") != version]
+          updates.append({
+              "version": version,
+              "update_link": f"https://github.com/{repo}/releases/download/v{version}/{os.path.basename(xpi)}",
+              "update_hash": f"sha256:{sha}",
+              "applications": {"gecko": {"strict_min_version": minv}},
+          })
+          json.dump(data, open(path, "w"), indent=2)
+          open(path, "a").write("\n")
+          PY
+          mkdir -p paket
+          cp "$XPI" extension/manifest.json updates.json paket/
+          echo "Paket $XPI, sha256 ${HASH:0:16}…"
+
+      # dunkel wie release.sh: wenn seit dem letzten Release-Tag Farben betroffen sind
+      - id: dunkel
+        name: Farben betroffen?
+        run: |
+          if tests/farben-betroffen.sh "$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null)" HEAD; then
+            echo "dunkel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dunkel=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: paket
+          path: paket/
+          if-no-files-found: error
+          retention-days: 30
+
+  # ------------------------------------------------------------------
+  # 2a. Linux: aktuelles Thunderbird und ESR (Mindestversion), wie test.yml
+  # ------------------------------------------------------------------
+  linux:
+    needs: paket
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: true
+      matrix:
+        channel: [release, esr]
+    outputs:
+      zeile-release: ${{ steps.test.outputs.zeile-release }}
+      zeile-esr: ${{ steps.test.outputs.zeile-esr }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.paket.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: paket
+          path: paket
+      - name: Hash prüfen
+        env:
+          SOLL: ${{ needs.paket.outputs.sha256 }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          IST=$(sha256sum "paket/halo-spaces-$VERSION.xpi" | cut -d' ' -f1)
+          [ "$IST" = "$SOLL" ] || { echo "ABBRUCH: Paket-Hash weicht ab"; exit 1; }
+      - name: Pakete
+        run: sudo apt-get update -q && sudo apt-get install -yq zsh zip xvfb libgtk-3-0t64 libdbus-glib-1-2 libasound2t64 fonts-noto-color-emoji
+      - name: Thunderbird (${{ matrix.channel }})
+        run: |
+          PRODUCT=thunderbird-latest-SSL
+          [ "${{ matrix.channel }}" = esr ] && PRODUCT=thunderbird-esr-latest-SSL
+          curl -sSfL -o tb.tar "https://download.mozilla.org/?product=$PRODUCT&os=linux64&lang=en-US"
+          mkdir tb && tar -xf tb.tar -C tb
+          tb/thunderbird/thunderbird --version
+      - id: test
+        name: Test hell
+        timeout-minutes: 35
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p shots
+          set -o pipefail
+          xvfb-run -a -s "-screen 0 1920x1200x24" python3 -u tests/halo_test.py --tb tb/thunderbird/thunderbird \
+            --xpi "paket/halo-spaces-$VERSION.xpi" --shots shots --tb-log shots/thunderbird.log | tee test.log
+          echo "zeile-${{ matrix.channel }}=$(grep -E '^[0-9]+ von [0-9]+ Prüfungen' test.log | tail -1)" >> "$GITHUB_OUTPUT"
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: notfall-linux-${{ matrix.channel }}
+          path: shots/
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # 2b. Prüfungen ohne Thunderbird (wie Job statisch in test.yml)
+  # ------------------------------------------------------------------
+  statisch:
+    needs: paket
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.paket.outputs.commit }}
+          persist-credentials: false
+      - name: Logik-Tests (ohne Thunderbird)
+        run: node --test tests/logik/*.test.mjs
+      - name: Adressen (Datenschutz)
+        run: python3 tests/adressen.py
+      - name: Add-on-Prüfung (addons-linter)
+        run: python3 tests/addon_lint.py
+
+  # ------------------------------------------------------------------
+  # 2c. macOS auf einem GitHub-Mac (Ersatz für neon): hell, ggf. dunkel, Update-Test
+  # ------------------------------------------------------------------
+  mac:
+    needs: paket
+    runs-on: macos-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+    outputs:
+      hell: ${{ steps.hell.outputs.zeile }}
+      dunkel: ${{ steps.dunkel.outputs.zeile }}
+      update: ${{ steps.update.outputs.zeile }}
+    env:
+      HALO_TB: ${{ github.workspace }}/tb/Thunderbird.app/Contents/MacOS/thunderbird
+      # ohne Grafikkarte: Prüfungen am Bildtakt nur Warnung (wie windows-github)
+      HALO_FRAMES_WARN: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.paket.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: paket
+          path: paket
+      - name: Hash prüfen
+        env:
+          SOLL: ${{ needs.paket.outputs.sha256 }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          IST=$(shasum -a 256 "paket/halo-spaces-$VERSION.xpi" | cut -d' ' -f1)
+          [ "$IST" = "$SOLL" ] || { echo "ABBRUCH: Paket-Hash weicht ab"; exit 1; }
+      - name: Thunderbird (aktuell)
+        run: |
+          curl -sSfL -o tb.dmg "https://download.mozilla.org/?product=thunderbird-latest-SSL&os=osx&lang=en-US"
+          hdiutil attach -nobrowse -quiet -mountpoint /tmp/tbdmg tb.dmg
+          mkdir tb && cp -R /tmp/tbdmg/Thunderbird.app tb/
+          hdiutil detach -quiet /tmp/tbdmg
+          "$HALO_TB" --version
+          sw_vers; system_profiler SPDisplaysDataType | grep -E 'Resolution|Chipset' || true
+      - id: hell
+        name: Test hell
+        timeout-minutes: 45
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -o pipefail
+          mkdir -p shots/hell
+          python3 -u tests/halo_test.py --xpi "paket/halo-spaces-$VERSION.xpi" --port 2845 \
+            --shots shots/hell --tb-log shots/hell/thunderbird.log | tee hell.log
+          echo "zeile=$(grep -E '^[0-9]+ von [0-9]+ Prüfungen' hell.log | tail -1)" >> "$GITHUB_OUTPUT"
+      - id: dunkel
+        name: Test dunkel
+        if: needs.paket.outputs.dunkel == 'true'
+        timeout-minutes: 45
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -o pipefail
+          mkdir -p shots/dunkel
+          python3 -u tests/halo_test.py --xpi "paket/halo-spaces-$VERSION.xpi" --port 2845 --dark \
+            --shots shots/dunkel --tb-log shots/dunkel/thunderbird.log | tee dunkel.log
+          echo "zeile=$(grep -E '^[0-9]+ von [0-9]+ Prüfungen' dunkel.log | tail -1)" >> "$GITHUB_OUTPUT"
+      # Update vom letzten veröffentlichten Release (meist die fehlerhafte Version) auf dieses Paket
+      - id: update
+        name: Update-Test
+        timeout-minutes: 20
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -o pipefail
+          python3 -u tests/update_test.py --xpi "paket/halo-spaces-$VERSION.xpi" --port 2852 | tee update.log
+          echo "zeile=$(grep -E '^[0-9]+ von [0-9]+ Prüfungen' update.log | tail -1)" >> "$GITHUB_OUTPUT"
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: notfall-mac
+          path: shots/
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # 3. Marke – nur wenn ALLE Tests grün (needs ohne always(): sonst übersprungen)
+  # ------------------------------------------------------------------
+  marke:
+    needs: [paket, linux, statisch, mac]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Marke schreiben
+        env:
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ needs.paket.outputs.sha256 }}
+          COMMIT: ${{ needs.paket.outputs.commit }}
+          DUNKEL: ${{ needs.paket.outputs.dunkel }}
+          L_REL: ${{ needs.linux.outputs.zeile-release }}
+          L_ESR: ${{ needs.linux.outputs.zeile-esr }}
+          M_HELL: ${{ needs.mac.outputs.hell }}
+          M_DUNKEL: ${{ needs.mac.outputs.dunkel }}
+          M_UPD: ${{ needs.mac.outputs.update }}
+        run: |
+          # Mac-Zeilen müssen da sein – ein Test ohne Ergebniszeile zählt nicht als grün.
+          # Linux ist eine Matrix: deren Ausgaben überschreiben sich je nach GitHub-Verhalten
+          # (offener Punkt) – grün ist Linux hier schon, weil marke sonst gar nicht startet
+          for Z in "$M_HELL" "$M_UPD"; do
+            [ -n "$Z" ] || { echo "ABBRUCH: ein Test lieferte keine Ergebniszeile"; exit 1; }
+          done
+          if [ "$DUNKEL" = true ] && [ -z "$M_DUNKEL" ]; then echo "ABBRUCH: dunkel fehlt"; exit 1; fi
+          mkdir -p marke
+          {
+            echo "version=$VERSION"
+            echo "sha256=$SHA"
+            echo "commit=$COMMIT"
+            echo "dunkel=$([ "$DUNKEL" = true ] && echo ja || echo nein)"
+            echo "zeit=$(TZ=Europe/Vienna date '+%Y-%m-%d %H:%M')"
+            echo "test=Notfall-Release (GitHub, ohne neon), Lauf $GITHUB_RUN_ID"
+            echo "test=Linux Release hell: ${L_REL:-grün (Job linux)}"
+            echo "test=Linux ESR hell: ${L_ESR:-grün (Job linux)}"
+            echo "test=statisch (Logik, Adressen, addons-linter): grün"
+            echo "test=macOS (GitHub, macos-latest) hell: $M_HELL"
+            [ "$DUNKEL" = true ] && echo "test=macOS (GitHub, macos-latest) dunkel: $M_DUNKEL"
+            echo "test=Update-Test vom letzten Release (macos-latest): $M_UPD"
+          } > "marke/release-$VERSION.ok"
+          cat "marke/release-$VERSION.ok"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: marke
+          path: marke/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------
+  # 4. Veröffentlichen – Sperre wie publish.sh, Freigabe über Environment
+  # ------------------------------------------------------------------
+  veroeffentlichen:
+    needs: [paket, marke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Environment mit „Required reviewers: sruf79“ (legt der Maintainer an);
+    # ohne Freigabe im Browser bzw. in der GitHub-App läuft dieser Job nicht
+    environment: notfall-release
+    permissions:
+      contents: write          # Commit auf main, Tag, Release – sonst nichts
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.paket.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v7
+        with:
+          name: paket
+          path: paket
+      - uses: actions/download-artifact@v7
+        with:
+          name: marke
+          path: marke
+
+      # Sperre wie publish.sh: Marke ↔ Version ↔ Paket-Hash ↔ Manifest ↔ updates.json
+      - name: Sperre prüfen
+        env:
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ needs.paket.outputs.commit }}
+        run: |
+          XPI="paket/halo-spaces-$VERSION.xpi"
+          MARK="marke/release-$VERSION.ok"
+          [ -f "$XPI" ] || { echo "ABBRUCH: Paket fehlt"; exit 1; }
+          [ -f "$MARK" ] || { echo "ABBRUCH: keine Testmarke – nicht alle Tests grün"; exit 1; }
+          LOCAL=$(sha256sum "$XPI" | cut -d' ' -f1)
+          [ "$(sed -n 's/^version=//p' "$MARK")" = "$VERSION" ] || { echo "ABBRUCH: Marke gehört zu einer anderen Version"; exit 1; }
+          [ "$(sed -n 's/^sha256=//p' "$MARK")" = "$LOCAL" ] || { echo "ABBRUCH: Paket-Hash passt nicht zur Marke"; exit 1; }
+          [ "$(sed -n 's/^commit=//p' "$MARK")" = "$COMMIT" ] || { echo "ABBRUCH: Marke gehört zu einem anderen Commit"; exit 1; }
+          [ "$(git rev-parse HEAD)" = "$COMMIT" ] || { echo "ABBRUCH: Checkout ist nicht der getestete Commit"; exit 1; }
+          MANIFEST=$(python3 -c "import json; print(json.load(open('paket/manifest.json'))['version'])")
+          [ "$MANIFEST" = "$VERSION" ] || { echo "ABBRUCH: Manifest hat $MANIFEST"; exit 1; }
+          LISTED=$(python3 - "$VERSION" <<'PY'
+          import json, sys
+          for addon in json.load(open("paket/updates.json"))["addons"].values():
+              for u in addon["updates"]:
+                  if u["version"] == sys.argv[1]:
+                      print(u["update_hash"].split(":", 1)[1])
+          PY
+          )
+          [ "$LOCAL" = "$LISTED" ] || { echo "ABBRUCH: Hash in updates.json passt nicht zum Paket"; exit 1; }
+          echo "LOCAL=$LOCAL" >> "$GITHUB_ENV"
+          echo "Sperre geprüft: Marke, Version, Hash ${LOCAL:0:16}…, Manifest, updates.json"
+
+      # nur manifest.json und updates.json, wie publish.sh; Push nur als fast-forward:
+      # hat sich main seit dem getesteten Commit bewegt, bricht der Push ab (vor dem Release)
+      - name: Release-Commit und Push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          cp paket/manifest.json extension/manifest.json
+          cp paket/updates.json updates.json
+          GEAENDERT=$(git status --porcelain --untracked-files=no | awk '{print $2}' | sort | tr '\n' ' ')
+          [ "$GEAENDERT" = "extension/manifest.json updates.json " ] || { echo "ABBRUCH: unerwartete Änderungen: $GEAENDERT"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "halo.spaces $VERSION" -- extension/manifest.json updates.json
+          git push -q origin HEAD:refs/heads/main
+          echo "RELEASE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "gepusht: $(git rev-parse --short HEAD) auf main"
+
+      - name: GitHub-Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          printf '%s\n' "$NOTES" > notes.md
+          gh release create "v$VERSION" "paket/halo-spaces-$VERSION.xpi" --repo "$REPO" \
+            --target "$RELEASE_COMMIT" --title "$VERSION" --notes-file notes.md
+          echo "Release v$VERSION angelegt"
+
+      # wie publish.sh: Download-Hash, dann die updates.json hinter update_url
+      - name: Download und Update-Liste prüfen
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          URL="https://github.com/$REPO/releases/download/v$VERSION/halo-spaces-$VERSION.xpi"
+          REMOTE=""
+          for i in $(seq 1 10); do
+            REMOTE=$(curl -sfL "$URL?check=$RANDOM" | sha256sum | cut -d' ' -f1) || true
+            [ "$REMOTE" = "$LOCAL" ] && break
+            sleep 3
+          done
+          [ "$REMOTE" = "$LOCAL" ] || { echo "FEHLER: Download hat nicht den erwarteten Hash – Thunderbird lehnt das Update ab"; exit 1; }
+          echo "Download geprüft: Hash stimmt (${LOCAL:0:16}…)"
+          UPDATE_URL=$(python3 -c "import json; print(json.load(open('extension/manifest.json'))['browser_specific_settings']['gecko']['update_url'])")
+          UPD=fehlt
+          for i in $(seq 1 24); do
+            UPD=$(curl -sfL -H 'Cache-Control: no-cache' "$UPDATE_URL" | python3 -c '
+          import json, sys
+          version, link, sha = sys.argv[1:4]
+          try:
+              data = json.load(sys.stdin)
+          except Exception:
+              print("unlesbar"); sys.exit()
+          for addon in data.get("addons", {}).values():
+              for u in addon.get("updates", []):
+                  if u.get("version") == version:
+                      print("ok" if (u.get("update_link"), u.get("update_hash")) == (link, "sha256:" + sha) else "falsch")
+                      sys.exit()
+          print("fehlt")' "$VERSION" "$URL" "$LOCAL") || UPD="nicht erreichbar"
+            [ "$UPD" = ok ] && break
+            sleep 15
+          done
+          if [ "$UPD" != ok ]; then
+            echo "FEHLER: $UPDATE_URL bietet $VERSION nicht richtig an ($UPD) – Nutzer bekommen das Update nicht"
+            exit 1
+          fi
+          echo "Update-Liste geprüft: $UPDATE_URL bietet $VERSION mit richtigem Hash und Download an"
+
+      # Bericht als Zusammenfassung des Laufs (statt ~/halo-berichte, das liegt auf neon)
+      - name: Bericht
+        if: always()
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          {
+            echo "# halo.spaces $VERSION – Notfall-Release (${{ job.status }})"
+            echo
+            echo "## Tests (Marke)"
+            sed -n 's/^test=/- /p' "marke/release-$VERSION.ok" 2>/dev/null || true
+            echo
+            echo "Release-Commit: ${RELEASE_COMMIT:-keiner}"
+            echo
+            echo "Offen danach: README-Versionshinweise, Issues „Fixed in $VERSION“ schließen, Bericht nach ~/halo-berichte auf neon, neon vor dem nächsten Nachtlauf auf origin/main bringen."
+          } >> "$GITHUB_STEP_SUMMARY"

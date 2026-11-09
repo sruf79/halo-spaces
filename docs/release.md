@@ -35,7 +35,8 @@ direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
 für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests)
 lohnen meist kein eigenes Release. `release.sh` und `publish.sh` laufen
 **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions – die
-beauftragen dafür neon (nach dem Push).
+beauftragen dafür neon (nach dem Push). Ausnahme: Notfall-Release nach `docs/notfall.md`
+(startet und gibt nur der Maintainer von Hand frei, nie eine Sitzung).
 
 **Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests, ob

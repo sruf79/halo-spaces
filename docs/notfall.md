@@ -64,15 +64,20 @@ Die Desktop-App-Aufgabe „GitHub-Kommunikation“ hält der Notschalter nur an,
 - Board aus Cloud-Sitzungen: Einträge nur anlegen, über den Workflow `add-task.yml` (Notweg, siehe `docs/board.md`).
 - GitHub-Nutzern kurz antworten, ohne Termine.
 - Der Laptop ist kein Release-Rechner (siehe oben). Er schickt Befehle über SSH an neon (`tests/MAC-MINI.md` Abschnitte 4 und 7); ist neon nicht erreichbar, bleibt es bei Commits auf `main`, die der nächste Nachtlauf auf neon testet und veröffentlicht.
-- **Release ist ohne neon derzeit nicht möglich.** Diese Lücke schließt erst ein eigener Notfall-Release-Weg (geplant). Bis dahin: Ursache in einem Issue-Kommentar benennen und neon wiederherstellen (Strom, Netz, Tailscale, Anmeldung).
+- **Notfall-Release ohne neon:** nur bei Abschnitt 1 Punkt 4 (schwerer Fehler bei Nutzern, neon nicht rechtzeitig verfügbar), über den Workflow `.github/workflows/notfall-release.yml` (nur von Hand startbar: `workflow_dispatch` mit Version, englischen Versionshinweisen und dem Wort `NOTFALL`). Üblicher Ablauf: Fehler mit `git revert` auf `main` zurücknehmen, Workflow starten; er baut das Paket einmal, testet es auf GitHub (Linux Release und ESR, statisch, macOS) und schreibt nur bei Grün die Marke; der Job „veroeffentlichen“ (Environment `notfall-release`) prüft die Sperre wie `publish.sh` und läuft erst nach der Freigabe des Maintainers. **Den Notfall-Release startet und gibt nur der Maintainer von Hand frei, nie eine Sitzung.** Bei Rot gibt es kein Release, keine Ausnahme.
+- Sonst gilt: Ursache in einem Issue-Kommentar benennen und neon wiederherstellen (Strom, Netz, Tailscale, Anmeldung).
 
 **Kontingent erschöpft:** Routinen warten von selbst. Release nur von Hand auf neon. Nur Korrekturen schwerer Fehler (Abschnitt 1, Punkt 4).
 
 **Wiederanlauf:**
 1. `notfall.sh status`
 2. Ursache und Verlauf in `~/halo-berichte/<datum>-notfall.md`
-3. `notfall.sh weiter`
-4. die nächste Nacht beobachten
+3. Kommt neon nach einem Notfall-Release zurück: zuerst `git fetch`, das lokale `main` auf `origin/main` rebasen und offene, nicht gepushte Nachtlauf-Commits klären (die Version ist schon vergeben, `release.sh` würde sonst eine alte `updates.json` fortschreiben); erst danach die Routinen wieder starten
+4. `notfall.sh weiter`
+5. die nächste Nacht beobachten
+6. Nach einem Notfall-Release auf neon nachholen: README-Versionshinweise, Issues „Fixed in x.y.z“ schließen, Bericht nach `~/halo-berichte`
+
+**Offener Punkt:** Die Probe des Notfall-Release-Wegs (Workflow einmal starten, den Job „veroeffentlichen“ nicht freigeben) steht noch aus, Termin später. Erst danach ist bekannt, ob der Weg auf `macos-latest` überhaupt grün wird; dazu außerdem das Environment `notfall-release` mit „Required reviewers“ und den Branch-Schutz von `main` prüfen (der Push des Release-Commits).
 
 ## 6. Rücknahme je Stufe der Ablauf-Änderungen
 

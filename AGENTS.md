@@ -144,7 +144,8 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   veröffentlicht der nächste Nachtlauf, sobald die CI grün ist. Patch für Korrekturen, Minor für
   Funktionen; Versionshinweise im `README.md` (eigener Commit) und als englische Notizen-Datei.
 - `release.sh` und `publish.sh` laufen **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions –
-  die beauftragen dafür neon (nach dem Push).
+  die beauftragen dafür neon (nach dem Push). Ausnahme: Notfall-Release nach `docs/notfall.md`
+  (startet und gibt nur der Maintainer von Hand frei, nie eine Sitzung).
 - **Einzige Bedingung: grüne Tests.** `release.sh` schreibt die Marke `dist/release-<version>.ok`
   nur nach grünen Tests bzw. vollständig grüner CI desselben Stands; `publish.sh` veröffentlicht ohne
   passende Marke nicht; `SKIP_TESTS=1` erzeugt keine Marke. Die Sperre nicht umgehen; ist ein Test rot,

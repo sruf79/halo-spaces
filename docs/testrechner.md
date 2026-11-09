@@ -157,7 +157,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   --effort low`, Vollprüfung der Doku `medium`) für die Auswertung des Rundgangs, die Doku-Prüfung, neon-board
   und die Unteragenten von neon sowie für die GitHub-Kommunikation (Einstellung in
   der Desktop-App, Schritte `tests/MAC-MINI.md` Abschnitt 17a); Opus bleibt für
-  Nachtlauf und Wochenprüfung, Haiku für `push()`.
+  Nachtlauf und Wochenprüfung, Haiku für `push()`. Gesamtübersicht (je Thema eine Wahrheit, 9.11.2026):
+  `neon` Sonnet medium, `neon-board` Sonnet low, `github.comm.routine` Sonnet low, Nachtlauf und
+  Wochenprüfung Opus; die GitHub-Aufgabe läuft täglich 9:00, 14:00 und 19:00 Wiener Zeit
+  (Cron `0 9,14,19 * * *`).
 - **Bilder-Eingang:** alle 15 Minuten sortiert `tests/bilder-eingang.zsh` (ohne Claude, nur
   `cp`/`mv`, `shasum`, `sips`) Bilder aus `~/halo-aufgaben/eingang/` nach `bilder/` bzw.
   `apple/` ein und legt Indexzeilen an; Claude (Sonnet, `--effort low`) startet nur für
@@ -185,20 +188,20 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   (Entscheidung des Maintainers vom 5.11.2026); ihre Fehler sammelt ein
   Eintrag von Hand. `tests/MAC-MINI.md` Abschnitt 14.
 - **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
-  letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; Kennzahlen in
-  `~/halo-aufgaben/wochen-kennzahlen.json`; auch, ob der Nachtlauf früher als
+  letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; auch, ob der Nachtlauf früher als
   möglich – vor 04:30 bzw. nach grüner CI vor 06:30 – aufhört, obwohl noch
-  machbare Einträge lagen, dazu die Minuten vom Ende der Arbeit bis 06:30,
-  `ungenutzt_bis_0630_min`), behebt kleine Dinge an Prüfungen
-  selbst und **verbessert die Abläufe selbst** (Entscheidung des Maintainers
-  vom 5.11.2026): Änderungen an Nachtlauf, CI-Wächter, Aufträgen, Workflow
-  und Release-Skripten, wenn die Zahlen sie klar begründen, höchstens drei je
-  Woche, jede mit Kennzahl und Ziel in `~/halo-aufgaben/ablauf-aenderungen.json`;
-  wirkt eine Änderung in der Woche darauf nicht, nimmt sie sie mit `git revert`
-  zurück. Was einer Entscheidung des Maintainers widerspricht, Zeitpläne,
-  LaunchAgents, neue Routinen und Kostensteigerungen bleiben Vorschläge
-  („Wartet auf OK“); Release-Sperre, `if:`-Bedingungen der Mac-Jobs und
-  Freigaberegeln nie. Bericht
+  machbare Einträge lagen, dazu `ungenutzt_bis_0630_min`). Kennzahlen stehen je ISO-Woche
+  (Montag bis Sonntag, `2026-W46`) mit fester Liste und `null` bei fehlenden Werten in
+  `~/halo-aufgaben/wochen-kennzahlen.json` (Kern: CI grün/rot, Releases, Pushes je Tag, ausgelassene
+  Nächte, übersprungene Routinen, Board neu/erledigt, Meldungen aufs iPhone). Sie behebt nur kleine Dinge an
+  Prüfungen selbst (`tests/halo_test.py`, `tests/update_test.py`) und **ändert Abläufe nicht
+  mehr selbst** (Entscheidung des Maintainers, Sitzung project.analysis.control, 8.11.2026, am
+  9.11.2026 freigegeben, Wortlaut in `ENTSCHEIDUNGEN.md`; ersetzt die Entscheidung vom 5.11.2026):
+  Sie gibt höchstens drei Empfehlungen je Woche als Board-Einträge „Ablauf: …“ mit Status
+  „Wartet auf OK“ (Kennzahl, Ziel, Begründung, Rücknahme); umgesetzt wird nach Zustimmung des
+  Maintainers, der Verlauf steht in `~/halo-aufgaben/ablauf-aenderungen.json`. Die Folgewoche prüft
+  die Wirkung an der Kennzahl; wirkt es nicht, empfiehlt sie die Rücknahme. Release-Sperre,
+  `if:`-Bedingungen der Mac-Jobs und Freigaberegeln bleiben ohnehin unangetastet. Bericht
   `~/halo-berichte/<datum>-wochenpruefung.md`. `tests/MAC-MINI.md` Abschnitt 15.
 - **Doku-Prüfung:** samstags 08:00 (wartet ebenso bis 09:15 auf den
   Nachtlauf) prüft `tests/wochenpruefung.sh --doku` alle `.md`-Dateien auf

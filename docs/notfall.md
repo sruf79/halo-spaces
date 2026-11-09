@@ -101,3 +101,5 @@ Der vorbereitete Hook `tests/zeitfenster-hook.sh` (Push-Sperre 00:00–09:00, ke
 lässt durch), Ausnahme für Routinen über `HALO_LAUF`, bewusster Schalter für den Maintainer ist die Datei
 `~/halo-nacht/SPERRE_AUS`. Blockiert er etwas Falsches, diese Datei anlegen und danach den Eintrag aus `~/.claude/settings.json`
 entfernen (Rücknahme Stufe 5).
+
+**Zweite Probe vom 9.11.2026 (Version 3.23.2, Lauf 42609979606):** `paket`, `statisch` und der Versionstest grün; `linux (esr)` 388 von 389 (ein Ruck-Test der Seitenleiste, kein Notfall-Problem, wird getrennt behandelt); `linux (release)` wurde durch fail-fast abgebrochen, deshalb ist fail-fast jetzt aus (beide Linux-Jobs laufen zu Ende, die Marke verlangt weiter beide grün). Im macOS-Rauchtest fiel „Einstellungen: eigene Kategorie halo.spaces“ durch, weil das Kategorie-Symbol (ein data:-Bild) beim Messen auf dem GitHub-Mac noch nicht geladen war (Zeitfrage der Prüfung, nicht behoben); die Auswahl nimmt stattdessen „halo.spaces-Fenster schließt mit seinem Hauptfenster“ (im Mac-Lauf der ersten Probe und auf neon grün).

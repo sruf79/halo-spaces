@@ -2069,3 +2069,335 @@ function parseNatural(text, now = new Date()) {
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Kalender-Suche wie Apple Kalender: das Suchfeld oben zeigt die Treffer im
+// rechten Bereich neben der Ansicht (statt in Thunderbirds Terminliste unter
+// dem Kalender), nach Tagen gruppiert (Today, Tomorrow, Wochentag mit Datum),
+// je Zeile Kalenderfarbe, Titel und „all-day“ bzw. Uhrzeit; ohne Treffer
+// „No Results“ mittig. Gesucht wird wie in Thunderbirds Terminliste in Titel,
+// Beschreibung, Ort und Link über alle sichtbaren Kalender; Wiederholungen
+// ein Jahr zurück und zwei voraus. Klick wählt den Termin in der Ansicht
+// (springt zu seinem Tag), Doppelklick öffnet ihn; Leeren schließt den Bereich.
+// Vorlagen: apple-kalender-suchergebnisse*.png (9.11.2026)
+
+// Tag als Zahl JJJJMMTT (Monat wie in Thunderbird ab 0)
+const calDayKey = (y, m, d) => y * 10000 + (m + 1) * 100 + d;
+
+// Treffer wie Thunderbirds Terminliste: Teiltext ohne Groß-/Kleinschreibung
+function calSearchMatch(text, fields) {
+  const norm = s => String(s).normalize().toLowerCase();
+  const needle = norm(text || "").trim();
+  return !!needle && fields.some(f => f && norm(f).includes(needle));
+}
+
+// Einträge ({ key, allDay, time }) nach Tagen gruppiert und sortiert: ganztägige
+// zuerst, dann nach Beginn. „Today“ steht immer da (bei Apple auch leer), damit
+// die Liste dort beginnen kann; kind: "today", "tomorrow" oder "date"
+function calSearchGroups(entries, today, tomorrow) {
+  const sorted = [...entries].sort((a, b) => a.key - b.key || (b.allDay ? 1 : 0) - (a.allDay ? 1 : 0) || a.time - b.time);
+  const groups = [];
+  for (const e of sorted) {
+    const last = groups[groups.length - 1];
+    if (last?.key == e.key) {
+      last.items.push(e);
+    } else {
+      groups.push({ key: e.key, items: [e] });
+    }
+  }
+  if (!groups.some(g => g.key == today)) {
+    const at = groups.findIndex(g => g.key > today);
+    groups.splice(at < 0 ? groups.length : at, 0, { key: today, items: [] });
+  }
+  for (const g of groups) {
+    g.kind = g.key == today ? "today" : g.key == tomorrow ? "tomorrow" : "date";
+  }
+  return groups;
+}
+
+const CalSearch = {
+  // Zustand je Fenster: Suchbegriff, geladene Termine, Beobachter
+  state(w) {
+    if (!w.__mcCalSearch) {
+      w.__mcCalSearch = { term: "", items: null, loading: null, observer: null, composite: null, selected: null };
+    }
+    return w.__mcCalSearch;
+  },
+
+  panel(w) {
+    const d = w.document;
+    let panel = d.getElementById("mc-cal-search");
+    const box = d.getElementById("calendarDisplayBox");
+    if (panel || !box) {
+      return panel;
+    }
+    const X = "http://www.w3.org/1999/xhtml";
+    panel = d.createElementNS(X, "div");
+    panel.id = "mc-cal-search";
+    panel.hidden = true;
+    const list = d.createElementNS(X, "div");
+    list.className = "mc-cal-search-list";
+    list.setAttribute("role", "listbox");
+    const empty = d.createElementNS(X, "div");
+    empty.className = "mc-cal-search-empty";
+    empty.textContent = tr("No Results");
+    empty.hidden = true;
+    panel.append(list, empty);
+    box.append(panel);
+    const rowOf = event => event.target.closest?.(".mc-cal-search-row");
+    panel.addEventListener("click", event => {
+      const row = rowOf(event);
+      if (row?.__mcItem) {
+        this.select(w, row);
+      }
+    });
+    panel.addEventListener("dblclick", event => {
+      const item = rowOf(event)?.__mcItem;
+      if (!item) {
+        return;
+      }
+      try {
+        if (Services.prefs.getBoolPref("calendar.events.defaultActionEdit", true)) {
+          w.modifyEventWithDialog(item, true);
+        } else {
+          w.openEventDialogForViewing(item);
+        }
+      } catch (e) {
+        log("cal search open error", e);
+      }
+    });
+    return panel;
+  },
+
+  // Bereich samt Zustand entfernen (Erweiterung beendet)
+  remove(w) {
+    this.unwatch(w);
+    w.document.getElementById("mc-cal-search")?.remove();
+    w.document.documentElement.removeAttribute("mc-cal-searching");
+    delete w.__mcCalSearch;
+  },
+
+  // Termin in der Ansicht wählen, wie Thunderbirds Terminliste (unifinderSelect)
+  async select(w, row) {
+    const item = row.__mcItem;
+    for (const other of w.document.querySelectorAll("#mc-cal-search .mc-cal-search-row[selected]")) {
+      other.removeAttribute("selected");
+    }
+    row.setAttribute("selected", "");
+    this.state(w).selected = item.hashId;
+    try {
+      const view = w.currentView();
+      const start = item.startDate;
+      if (start && (view.startDate.compare(start) > 0 || view.endDate.compare(start) <= 0)) {
+        view.goToDay(start);
+        await view.ready;
+      }
+      view.setSelectedItems([item], true);
+      w.calendarController?.onSelectionChanged({ detail: [item] });
+    } catch (e) {
+      log("cal search select error", e);
+    }
+  },
+
+  // Suchbegriff aus dem Suchfeld oben
+  set(w, text) {
+    const st = this.state(w);
+    const was = st.term;
+    st.term = text || "";
+    const panel = this.panel(w);
+    if (!panel) {
+      return;
+    }
+    if (!st.term.trim()) {
+      panel.hidden = true;
+      panel.querySelector(".mc-cal-search-list").replaceChildren();
+      w.document.documentElement.removeAttribute("mc-cal-searching");
+      this.unwatch(w);
+      st.items = null;
+      st.selected = null;
+      return;
+    }
+    panel.hidden = false;
+    w.document.documentElement.setAttribute("mc-cal-searching", "");
+    this.watch(w);
+    this.load(w).then(() => {
+      if (st.term == text) {
+        this.render(w, was != text);
+      }
+    });
+  },
+
+  // alle Termine (Wiederholungen erst beim Zeichnen aufgelöst) einmal je Suche
+  load(w) {
+    const st = this.state(w);
+    if (st.items) {
+      return Promise.resolve();
+    }
+    if (!st.loading) {
+      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+      st.loading = cal.view.getCompositeCalendar(w)
+        .getItemsAsArray(Ci.calICalendar.ITEM_FILTER_TYPE_EVENT, 0, null, null)
+        .then(items => {
+          st.items = items;
+        })
+        .catch(e => {
+          log("cal search load error", e);
+          st.items = [];
+        })
+        .finally(() => {
+          st.loading = null;
+        });
+    }
+    return st.loading;
+  },
+
+  // Änderungen an Terminen während der Suche: neu laden und zeichnen
+  watch(w) {
+    const st = this.state(w);
+    if (st.observer) {
+      return;
+    }
+    const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+    let timer = null;
+    const refresh = () => {
+      w.clearTimeout(timer);
+      timer = w.setTimeout(() => {
+        const term = st.term;
+        if (!term || !st.observer) {
+          return;
+        }
+        st.items = null;
+        this.load(w).then(() => st.term == term && this.render(w, false));
+      }, 200);
+    };
+    st.observer = {
+      QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+      onStartBatch() {},
+      onEndBatch: refresh,
+      onLoad: refresh,
+      onAddItem: refresh,
+      onModifyItem: refresh,
+      onDeleteItem: refresh,
+      onError() {},
+      onPropertyChanged: refresh,
+      onPropertyDeleting() {},
+    };
+    st.composite = cal.view.getCompositeCalendar(w);
+    st.composite.addObserver(st.observer);
+  },
+
+  unwatch(w) {
+    const st = this.state(w);
+    if (st.observer) {
+      try {
+        st.composite?.removeObserver(st.observer);
+      } catch {}
+      st.observer = null;
+    }
+  },
+
+  render(w, scrollToToday) {
+    const st = this.state(w);
+    const panel = this.panel(w);
+    if (!panel || panel.hidden) {
+      return;
+    }
+    const d = w.document;
+    const X = "http://www.w3.org/1999/xhtml";
+    const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+    const tz = cal.dtz.defaultTimezone;
+    const now = cal.dtz.now();
+    const from = now.clone(), to = now.clone();
+    from.isDate = to.isDate = true;
+    from.year -= 1;
+    to.year += 2;
+    const entries = [];
+    const add = item => {
+      const start = item.startDate;
+      if (!start) {
+        return;
+      }
+      const local = start.isDate ? start : start.getInTimezone(tz);
+      entries.push({ item, key: calDayKey(local.year, local.month, local.day), allDay: start.isDate, time: local.nativeTime, local });
+    };
+    for (const item of st.items || []) {
+      const fields = ["SUMMARY", "DESCRIPTION", "LOCATION", "URL"].map(p => item.getProperty(p));
+      if (!calSearchMatch(st.term, fields)) {
+        continue;
+      }
+      if (item.recurrenceInfo) {
+        try {
+          for (const occ of item.recurrenceInfo.getOccurrences(from, to, 0)) {
+            add(occ);
+          }
+        } catch (e) {
+          log("cal search occurrences error", e);
+        }
+      } else {
+        add(item);
+      }
+    }
+    const t = new Date(now.year, now.month, now.day), m = new Date(now.year, now.month, now.day + 1);
+    const today = calDayKey(t.getFullYear(), t.getMonth(), t.getDate());
+    const tomorrow = calDayKey(m.getFullYear(), m.getMonth(), m.getDate());
+    const list = panel.querySelector(".mc-cal-search-list");
+    const empty = panel.querySelector(".mc-cal-search-empty");
+    empty.hidden = entries.length > 0;
+    list.hidden = !entries.length;
+    if (!entries.length) {
+      list.replaceChildren();
+      return;
+    }
+    const groups = calSearchGroups(entries, today, tomorrow);
+    const dayOptions = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+    let dayFormat;
+    try {
+      dayFormat = new Intl.DateTimeFormat(regionLocale(), dayOptions);
+    } catch {
+      dayFormat = new Intl.DateTimeFormat(undefined, dayOptions);
+    }
+    const el = (cls, text) => {
+      const node = d.createElementNS(X, "div");
+      node.className = cls;
+      if (text != null) {
+        node.textContent = text;
+      }
+      return node;
+    };
+    let todayNode = null;
+    const out = [];
+    for (const g of groups) {
+      const group = el("mc-cal-search-group");
+      const y = Math.floor(g.key / 10000), mo = Math.floor(g.key / 100) % 100 - 1, da = g.key % 100;
+      const label = g.kind == "today" ? tr("Today") : g.kind == "tomorrow" ? tr("Tomorrow") : dayFormat.format(new Date(y, mo, da));
+      const head = el("mc-cal-search-day", label);
+      head.toggleAttribute("mc-today", g.kind == "today");
+      group.append(head);
+      if (g.kind == "today") {
+        todayNode = group;
+      }
+      for (const e of g.items) {
+        const row = el("mc-cal-search-row");
+        row.setAttribute("role", "option");
+        row.__mcItem = e.item;
+        const icon = el("mc-cal-search-icon");
+        icon.style.setProperty("--mc-cal-color", e.item.calendar?.getProperty("color") || "#007AFF");
+        let time = tr("all-day");
+        if (!e.allDay) {
+          try {
+            time = cal.dtz.formatter.formatTime(e.local);
+          } catch {
+            time = "";
+          }
+        }
+        row.append(icon, el("mc-cal-search-title", e.item.title || ""), el("mc-cal-search-time", time));
+        row.toggleAttribute("selected", !!st.selected && e.item.hashId == st.selected);
+        group.append(row);
+      }
+      out.push(group);
+    }
+    const keep = panel.scrollTop;
+    list.replaceChildren(...out);
+    panel.scrollTop = scrollToToday && todayNode ? todayNode.offsetTop - list.offsetTop : keep;
+  },
+};

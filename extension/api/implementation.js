@@ -11229,49 +11229,13 @@ class CardEnhancer {
           input.dispatchEvent(new w.Event("input", { bubbles: true }));
         },
       },
-      // Kalender: Thunderbirds Terminliste unter dem Kalender („Find Events“)
-      // zeigt die Treffer (Titel, Ort, Beschreibung), wie Apples Trefferliste;
-      // ist sie zu, öffnet die Suche sie und schließt sie beim Leeren wieder.
-      // Während der Suche alle Termine statt des gewählten Zeitraums (Standard:
-      // nächste 7 Tage), danach wieder der vorige Zeitraum (GitHub #53)
+      // Kalender: Treffer wie bei Apple Kalender im rechten Bereich neben der
+      // Ansicht, nach Tagen gruppiert, über alle Termine (CalSearch in
+      // kalender.js); Leeren schließt den Bereich (GitHub #53)
       calendar: {
         label: "Search Calendar",
-        input: () => w.document.getElementById("unifinder-search-field"),
-        set: (input, text) => {
-          const d = w.document;
-          const box = d.getElementById("bottom-events-box");
-          const menu = d.getElementById("event-filter-menulist");
-          if (text) {
-            if (box?.hidden && w.toggleUnifinder) {
-              w.toggleUnifinder();
-              w.__mcCalSearchOpened = true;
-            }
-            if (menu && w.__mcCalSearchInterval == null) {
-              w.__mcCalSearchInterval = menu.value;
-              if (menu.value != "all") {
-                menu.value = "all";
-                w.refreshUnifinderFilterInterval?.();
-              }
-            }
-          }
-          input.value = text;
-          input.dispatchEvent(new w.Event("input", { bubbles: true }));
-          if (!text) {
-            if (menu && w.__mcCalSearchInterval != null) {
-              if (menu.value != w.__mcCalSearchInterval) {
-                menu.value = w.__mcCalSearchInterval;
-                w.refreshUnifinderFilterInterval?.();
-              }
-              w.__mcCalSearchInterval = null;
-            }
-            if (w.__mcCalSearchOpened) {
-              w.__mcCalSearchOpened = false;
-              if (box && !box.hidden) {
-                w.toggleUnifinder?.();
-              }
-            }
-          }
-        },
+        input: () => ({ value: w.__mcCalSearch?.term || "" }),
+        set: (input, text) => CalSearch.set(w, text),
       },
       // Mail: alle Postfächer (Suchordner), Tippen sucht kurz verzögert
       mail3PaneTab: {
@@ -11288,6 +11252,7 @@ class CardEnhancer {
         },
       },
     };
+    this.restorers.push(() => CalSearch.remove(w));
     const currentTarget = () => {
       const tab = w.document.getElementById("tabmail")?.currentTabInfo;
       const target = SEARCH_TARGETS[tab?.mode?.name];

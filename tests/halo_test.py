@@ -14447,8 +14447,10 @@ Neu
     check("Suche: alle Postfächer, Datum, Trefferzahl, Markierung, zurück zum Ordner", mail_search, results)
 
     def calendar_search():
-        # Suchfeld oben im Kalender sucht Termine statt Mails (GitHub #53): Treffer in Thunderbirds Terminliste unter
-        # dem Kalender, auch weit außerhalb der nächsten 7 Tage; Leeren schließt die Liste und stellt den Zeitraum wieder her
+        # Suchfeld oben im Kalender sucht Termine statt Mails (GitHub #53), Treffer wie bei Apple Kalender im rechten
+        # Bereich neben der Ansicht (240 px, Terminliste unten bleibt zu): nach Tagen gruppiert mit „Today“ (rot, auch
+        # leer) und Wochentag + Datum, Zeile mit Titel und Uhrzeit, auch weit außerhalb der nächsten 7 Tage; Klick wählt
+        # den Termin in der Ansicht (springt zu seinem Tag); ohne Treffer „No Results“; Leeren schließt den Bereich
         res = m.js(r'''
           w.resizeTo(1500, 900);
           const c = testCalendar(); const made = [];
@@ -14459,29 +14461,47 @@ Neu
           const out = {};
           try {
             await toCalendar(); w.switchToView("week"); await ruhig(800);
-            const box = d.getElementById("bottom-events-box"), menu = d.getElementById("event-filter-menulist");
-            out.before = { hidden: box.hidden, interval: menu.value };
+            const box = d.getElementById("bottom-events-box");
             const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
             const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
-            const titles = () => { const tree = d.getElementById("unifinder-search-results-tree"), v = tree?.view; const r = [];
-              const col = tree?.columns?.getNamedColumn("unifinder-search-results-tree-col-title");
-              for (let i = 0; i < (v?.rowCount || 0); i++) r.push(v.getCellText(i, col) || ""); return r; };
+            const panel = () => d.getElementById("mc-cal-search");
+            const shown = () => panel() && !panel().hidden && panel().getBoundingClientRect().width > 0;
+            const rows = () => [...(panel()?.querySelectorAll(".mc-cal-search-row") || [])];
             fire("autocomplete", "zahnarzt");
-            await bis(() => !box.hidden && titles().some(t => /Zahnarzt/.test(t)), "Termin in der Trefferliste", 6000); await ruhig(500);
-            out.during = { hidden: box.hidden, interval: menu.value, field: d.getElementById("unifinder-search-field").value, titles: titles().filter(t => /^Halo /.test(t)),
-                           tab: tm.currentTabInfo.mode.name };
-            fire("autocomplete", ""); await bis(() => box.hidden, "Terminliste wieder zu", 4000); await ruhig(300);
-            out.after = { hidden: box.hidden, interval: menu.value, field: d.getElementById("unifinder-search-field").value };
+            await bis(() => shown() && rows().some(r => /Zahnarzt/.test(r.textContent)), "Termin im rechten Bereich", 6000); await ruhig(300);
+            const p = panel(), pr = p.getBoundingClientRect(), vr = d.getElementById("calendar-view-box").getBoundingClientRect();
+            const row = rows().find(r => /Zahnarzt/.test(r.textContent));
+            const day = row.parentNode.querySelector(".mc-cal-search-day");
+            const today = p.querySelector(".mc-cal-search-day[mc-today]");
+            out.during = { tab: tm.currentTabInfo.mode.name, unifinderHidden: box.hidden, width: Math.round(pr.width),
+                           rightOfView: pr.left >= vr.right - 1, titles: rows().map(r => r.querySelector(".mc-cal-search-title").textContent),
+                           time: row.querySelector(".mc-cal-search-time").textContent, rowH: Math.round(row.getBoundingClientRect().height),
+                           day: day.textContent, dayUpper: w.getComputedStyle(day).textTransform,
+                           today: today?.textContent, todayRed: today && w.getComputedStyle(today).color != w.getComputedStyle(day).color,
+                           todayFirst: !!today && today.getBoundingClientRect().top - pr.top < 2 };
+            row.click();
+            await bis(() => (w.currentView().getSelectedItems?.() || []).some(i => i.title == "Halo Zahnarzt Kontrolle"), "Termin in der Ansicht gewählt", 4000);
+            out.selected = row.hasAttribute("selected");
+            fire("autocomplete", "halozzqqx");
+            await bis(() => shown() && !p.querySelector(".mc-cal-search-empty").hidden, "Keine Treffer", 4000);
+            const empty = p.querySelector(".mc-cal-search-empty");
+            out.none = { text: empty.textContent, rows: rows().length, visible: empty.getBoundingClientRect().height > 0 };
+            fire("autocomplete", ""); await bis(() => panel()?.hidden, "Bereich wieder zu", 4000);
+            out.after = { hidden: panel().hidden, unifinderHidden: box.hidden };
           } finally {
             for (const e of made) { try { await c.deleteItem(e); } catch {} }
           }
           return out;''')
-        b, du, af = res.get("before") or {}, res.get("during") or {}, res.get("after") or {}
-        ok = (b.get("hidden") is True and du.get("hidden") is False and du.get("tab") == "calendar" and du.get("interval") == "all"
-              and du.get("field") == "zahnarzt" and du.get("titles") == ["Halo Zahnarzt Kontrolle"]
-              and af.get("hidden") is True and af.get("interval") == b.get("interval") and af.get("field") == "")
+        du, no, af = res.get("during") or {}, res.get("none") or {}, res.get("after") or {}
+        ok = (du.get("tab") == "calendar" and du.get("unifinderHidden") is True and du.get("width") == 240 and du.get("rightOfView")
+              and du.get("titles") == ["Halo Zahnarzt Kontrolle"] and du.get("time") and du.get("rowH") == 42
+              and du.get("day") not in ("Today", "Tomorrow") and du.get("dayUpper") == "uppercase"
+              and du.get("today") == "Today" and du.get("todayRed") and du.get("todayFirst")
+              and res.get("selected") is True
+              and no.get("text") == "No Results" and no.get("rows") == 0 and no.get("visible")
+              and af.get("hidden") is True and af.get("unifinderHidden") is True)
         return ok, f"{res}"
-    check("Kalender: Suchfeld oben sucht Termine (auch in 40 Tagen) in der Terminliste statt Mails, Leeren schließt sie und stellt den Zeitraum wieder her", calendar_search, results)
+    check("Kalender: Suche zeigt Treffer wie Apple im rechten Bereich (nach Tagen, Today oben, Klick wählt, No Results, Leeren schließt)", calendar_search, results)
 
     def calendar_alarm_alert():
         # Terminerinnerung als Mitteilung des Systems statt Thunderbirds Erinnerungsfenster (wie Apple Kalender):

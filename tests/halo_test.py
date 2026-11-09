@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 
 ADDON_ID = "mail-cards@sebastian.local"
 PORT = 2839

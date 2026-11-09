@@ -206,8 +206,13 @@ def mark_check(name):
             pass
 
 
-def check(name, fn, results, immer=False):
+# bekannt=True: offener Bug als Prüfung festgehalten (Konvention aus dem Comment Ranker, „Known gaps“). Sie heißt
+# „BEKANNTER FEHLER: …“, ist grün, solange der Fehler besteht (fn meldet Fehlschlag), und rot, sobald er – auch
+# nebenbei – behoben ist; dann in eine normale Prüfung umwandeln (bekannt=True weg). So fallen mitbehobene Bugs auf
+def check(name, fn, results, immer=False, bekannt=False):
     global IN_CHECK, LAST_END
+    if bekannt:
+        name = f"BEKANNTER FEHLER: {name}"
     if ONLY and not ONLY.search(name) and not immer:
         return
     start = LAST_END or time.time()
@@ -228,6 +233,8 @@ def check(name, fn, results, immer=False):
     if not ok and FRAMES_WARN and FRAME_CHECK.search(name):
         print(f"WARNUNG {name} – am Bildtakt, auf diesem Rechner nur Warnung – {detail}", flush=True)
         ok, detail = True, f"WARNUNG (Bildtakt): {detail}"
+    if bekannt:
+        ok, detail = (not ok), (f"besteht noch – {detail}" if not ok else f"behoben? läuft jetzt durch – in eine normale Prüfung umwandeln – {detail}")
     results.append((name, ok, detail))
     print(f"{'OK     ' if ok else 'FEHLER '} {name}" + (f" – {detail}" if detail else ""), flush=True)
 

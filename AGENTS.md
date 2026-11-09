@@ -34,7 +34,7 @@ Bei Totalausfall gilt `docs/notfall.md` (Kopie `~/NOTFALL.md` auf neon und Lapto
 | `screenshots/` | Bilder für das README (aus dem Testprofil) |
 | `tests/halo_test.py` | automatischer Test per Marionette in frischem Profil (`--perf` mit `tests/perf.js`: Geschwindigkeitsmessung) |
 | `tests/update_test.py` | stellt das Update von einer älteren Version nach (siehe „Bauen und testen“) |
-| `tests/logik/` | schnelle Logik-Tests ohne Thunderbird (Node, `node --test tests/logik/*.test.mjs`, Sekunden): `lader.mjs` lädt `implementation.js` mit Attrappen für Thunderbirds Grundobjekte und reicht die Namen aus `OFFEN` heraus |
+| `tests/logik/` | schnelle Logik-Tests ohne Thunderbird (Node, `node --test tests/logik/*.test.mjs`, Sekunden): `lader.mjs` lädt `implementation.js` mit Attrappen für Thunderbirds Grundobjekte und reicht die Namen aus `OFFEN` heraus; `bekannt.mjs`: offene Bugs als `bekannterFehler(…)`, grün solange der Fehler besteht, rot sobald er behoben ist (in `halo_test.py`: `check(…, bekannt=True)`) |
 | `tests/adressen.py`, `tests/addon_lint.py` | Prüfungen ohne Thunderbird (CI-Job `statisch`): nur erlaubte Adressen im Netz (Datenschutz, Erlaubt-Liste im Skript); Mozillas Add-on-Prüfung (addons-linter) |
 | `tests/testserver.py` | lokaler IMAP-/SMTP-Testserver (nur 127.0.0.1, erfundene Daten) für die Prüfungen mit Testkonto |
 | `tests/ui_tour.py` | Rundgang: Bilder aller Oberflächen (Design-Durchsicht), mit `--messung` (`tests/tour-messung.js`) auch Messwerte je Oberfläche |

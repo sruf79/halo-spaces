@@ -256,7 +256,7 @@ ARGS=(--session-id $SID)
 while true; do
   RUNDE=$((RUNDE + 1))
   OUT=$DIR/$TAG-runde$RUNDE.txt
-  claude -p "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
+  claude -p --model opus "${ARGS[@]}" --permission-mode auto "$PROMPT" > $OUT 2>&1
   RC=$?
   log "Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUT | tr '\n' ' ')"
   if [[ -e $FERTIG ]]; then

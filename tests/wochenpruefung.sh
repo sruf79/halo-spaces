@@ -63,7 +63,7 @@ source ${0:A:h}/ci-runde.zsh
 # Modelle (Entscheidung des Maintainers vom 6.11.2026, Sitzung global.design.comparison,
 # Wortlaut: „ja, punkt 2 und 3 umsetzen.“): die Doku-Prüfung mit Sonnet und niedriger
 # Reasoning-Stufe, die Wochenprüfung bleibt bei Opus (Standard der Installation); sie gibt nur Empfehlungen ab, wie es der Auftrag sagt
-MODELL=()
+MODELL=(--model opus)   # Wochenprüfung ausdrücklich Opus (Entscheidung vom 9.11.2026), Effort unverändert
 [[ -n $DOKU ]] && MODELL=(--model sonnet --effort low)
 
 bericht_kurz() {

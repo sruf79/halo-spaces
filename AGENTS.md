@@ -172,6 +172,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **CSS:** Variablen mit Präfix `--mt-`, Werte für Hell und Dunkel, Akzent über `AccentColor`; keine
   sichtbaren Scrollbalken; Maße wie Apple Mail. Knöpfe und Suchfelder als Kapsel, übrige Felder mit
   kleinem Radius und Haarlinie; Suchfelder ohne Hover-Zustand, erst der Fokus zeigt den Fokusring.
+- **Symbolleisten bei Platzmangel:** zuerst das Suchfeld bis auf die Lupe, danach Pillen nie abschneiden, sondern ganz ausblenden mit Chevron-Menü (alle Spaces außer ersetztem Chat; `ENTSCHEIDUNGEN.md`).
 - **Oberflächentexte** mit englischem Schlüssel, Übersetzung in `DE` in `extension/api/texte.js`.
 - **Einstellungen** unter `extensions.mailcards.*`; Debug-Ausgaben nur bei `extensions.mailcards.debug`.
 - **Store-Regeln:** kein `innerHTML` mit Markup, keine Emojis/4-Byte-Zeichen in Store-Texten.

@@ -17087,9 +17087,10 @@ Neu
         b, f, a = out.get("before") or {}, out.get("float") or {}, out.get("after") or {}
         bar, pane = f.get("bar") or {}, f.get("pane") or {}
         H = f.get("H", 0)
+        # oben darf die Kante unter Windows um 1 px abweichen (4 statt 3 px, CI 9.11.2026, Lauf 42672308269)
         # 3 px vom Fensterrand links, oben, unten; Ordnerliste schließt rechts an die Bereiche-Leiste an und reicht unten
         # (bzw. mit der Fläche darunter) bis 3 px über den Rand
-        geo = (bar.get("l") == 3 and bar.get("t") == 3 and bar.get("b") == H - 3 and abs(pane.get("l", 0) - bar.get("r", 0)) <= 1
+        geo = (bar.get("l") == 3 and abs((bar.get("t") or 0) - 3) <= 1 and bar.get("b") == H - 3 and abs(pane.get("l", 0) - bar.get("r", 0)) <= 1
                and pane.get("r", 0) - pane.get("l", 0) >= 160 and pane.get("b", 0) <= H - 3 and f.get("right") == pane.get("r"))
         still = (f.get("list") == b.get("list") and a.get("list") == b.get("list") and f.get("hidden") is True and f.get("collapsed") is True
                  and f.get("saved") == "true" and a.get("saved") == "true" and a.get("pane") is None and a.get("bar") is None)

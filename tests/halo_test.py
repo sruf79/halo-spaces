@@ -15303,6 +15303,35 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (Add-ons → Einstellungen bleibt)", pref_halo_category, results)
 
+    def pref_symbols():
+        # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
+        # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel
+        res = m.js(PREFS_OPEN_JS + r"""
+          const cs = e => pw.getComputedStyle(e);
+          const sel = { general: "#category-general .category-icon", appearance: "#category-appearance .category-icon", composition: "#category-compose .category-icon, #category-composition .category-icon",
+            calendar: "#category-calendar .category-icon", privacy: "#category-privacy .category-icon", chat: "#category-chat .category-icon",
+            export: "#category-qrexport .category-icon", account: "#mcCat-paneMcAccounts .category-icon", addons: "#mcCat-paneMcAddons .category-icon" };
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          for (const [k, s] of Object.entries(sel)) {
+            const e = pd.querySelector(s);
+            if (!e) { out[k] = null; continue; }
+            const c = cs(e), r = e.getBoundingClientRect();
+            out[k] = { bg: c.backgroundColor, grad: /linear-gradient/.test(c.backgroundImage), shadow: c.boxShadow, size: Math.round(r.width),
+                       glyph: /^url\("data:image\/svg\+xml/.test(c.content) && c.content.includes("%23fff") };
+          }
+          const halo = pd.querySelector("#mcCat-paneMcHalo .category-icon");
+          out.halo = { grad: /linear-gradient/.test(cs(halo).backgroundImage), shadow: cs(halo).boxShadow };
+          out.footer = ["#accountButton", "#addonsButton"].map(s => { const e = pd.querySelector(s + " .sidebar-footer-icon"); return e ? /data:image\/svg/.test(cs(e).content) : null; });
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        want = {"general": "rgb(142, 142, 147)", "appearance": "rgb(15, 163, 184)", "composition": "rgb(255, 149, 0)", "calendar": "rgb(255, 59, 48)", "privacy": "rgb(10, 132, 255)",
+                "chat": "rgb(175, 82, 222)", "export": "rgb(52, 199, 89)", "account": "rgb(94, 92, 230)", "addons": "rgb(255, 45, 85)"}
+        bad = [k for k, c in want.items() if not (res.get(k) and res[k]["bg"] == c and res[k]["grad"] and res[k]["glyph"] and res[k]["size"] == 24
+                                                 and (("rgba(255, 255, 255, 0.16)" in res[k]["shadow"]) == bool(res["dark"])))]
+        ok = not bad and not res["halo"]["grad"] and res["halo"]["shadow"] == "none" and res["footer"] == [True, True]
+        return ok, f"{bad} {res}"
+    check("Einstellungen: Symbole der Seitenleiste neu gezeichnet (weiß auf eigenen Kachelfarben mit Verlauf, General mit Schiebereglern), im Dunkeln helle Innenkante", pref_symbols, results)
+
     def update_source():
         # Update-Weg der Nutzer: Thunderbird kennt aus dem Paket die update_url (raw.githubusercontent.com, Zweig main),
         # updates.json im Repo hat für jede Version einen Download aus den GitHub-Releases und einen sha256-Hash;

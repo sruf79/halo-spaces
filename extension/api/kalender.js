@@ -234,27 +234,36 @@ function hookMultiweekScroll(mv, win, on, B, orig) {
       log("multiweek mask error", String(e).slice(0, 120));
     }
   };
-  // weg, sobald die Termine wieder stehen (Zahl drei Bilder lang gleich), höchstens 600 ms
+  // weg, sobald Thunderbird die Termine des neuen Bereichs geholt und die
+  // sichtbaren Wochen eingetragen hat (ready der Ansicht), höchstens 1,5 s.
+  // Vorher: weg, wenn die Zahl der Termine drei Bilder lang gleich blieb –
+  // mit vielen (wiederkehrenden) Terminen dauert die Abfrage länger, die Zahl
+  // blieb solange bei null und die Tage standen leer im Bild
   const uncover = () => {
-    if (!mask) {
+    const m = mask;
+    if (!m) {
       return;
     }
-    const t0 = win.performance.now();
-    let last = -1, same = 0;
-    const check = () => {
-      // nur die Wochen ohne Puffer: dort trägt Thunderbird sofort ein, in
-      // die Puffer-Wochen kommen die Termine danach in Häppchen
-      const n = mv.querySelectorAll("tr:not([mc-buffer]) calendar-month-day-box-item").length;
-      same = n == last ? same + 1 : 0;
-      last = n;
-      if (same >= 3 || win.performance.now() - t0 > 600) {
-        mask?.remove();
-        mask = null;
+    let gone = false;
+    const drop = () => {
+      if (gone) {
         return;
       }
-      win.requestAnimationFrame(check);
+      gone = true;
+      win.clearTimeout(cap);
+      win.requestAnimationFrame(() => {
+        if (mask == m) {
+          mask.remove();
+          mask = null;
+        }
+      });
     };
-    win.requestAnimationFrame(check);
+    const cap = win.setTimeout(drop, 1500);
+    try {
+      Promise.resolve(mv.ready).then(drop, drop);
+    } catch {
+      drop();
+    }
   };
   // sichtbaren Bereich ohne Neuaufbau auf die Woche k (gegen die Mitte des
   // geladenen) setzen: Überschrift, Pfeile und gewählter Tag folgen

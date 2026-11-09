@@ -19943,6 +19943,12 @@ class CardEnhancer {
     };
     win.addEventListener("folderURIChanged", leave);
     this.restorers.push(() => win.removeEventListener("folderURIChanged", leave));
+    // Platzhalter der Suche auch bei der Auswahl in der Ordnerliste:
+    // scheitert das Öffnen der Ansicht (z. B. „Alle Eingänge“), meldet
+    // Thunderbird folderURIChanged nicht
+    const selected = () => win.setTimeout(() => top.__mcSearchPlaceholder?.(), 0);
+    win.folderTree?.addEventListener("select", selected);
+    this.restorers.push(() => win.folderTree?.removeEventListener("select", selected));
     this.restorers.push(() => {
       tph.onFolderSelected = origSelected;
       tph.updateMessageCount = origCount;

@@ -1,0 +1,2 @@
+# Erledigte Freigaben aus tests/pr-freigaben.txt: tests/pr-schliessen.sh verschiebt die Zeile nach dem
+# Schließen hierher und hängt „| erledigt <Datum> in <Version>“ an. Nicht von Hand bearbeiten.

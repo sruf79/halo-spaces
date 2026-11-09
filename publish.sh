@@ -10,7 +10,9 @@
 # Letzter Schritt: die im Release behobenen GitHub-Issues (Commits „(GitHub #n)“ seit dem vorigen
 # Release-Tag, keine Teil-Fixe) mit „Fixed in <version>“ schließen (tests/issue-abgleich.sh schliessen;
 # Entscheidung des Maintainers vom 7.11.2026). Fehler dabei nur melden, nie zurückrollen.
-#   ./publish.sh --trocken 3.21.0   nur diesen Schritt proben (vorheriges Tag..v3.21.0), nichts schließen
+# Danach freigegebene Pull Requests schließen (tests/pr-schliessen.sh, nur Einträge aus
+# tests/pr-freigaben.txt; Entscheidung vom 9.11.2026). Fehler ebenso nur melden.
+#   ./publish.sh --trocken 3.21.0   nur diese Schritte proben (vorheriges Tag..v3.21.0), nichts schließen
 set -e
 ROOT="${0:A:h}"
 cd "$ROOT"
@@ -31,8 +33,11 @@ issues_schliessen() {   # <version> [--trocken] → Ausgabe von tests/issue-abgl
 }
 if [[ "$1" == --trocken ]]; then
   [[ -n "$2" ]] || { echo "Aufruf: ./publish.sh --trocken <version>"; exit 1; }
-  issues_schliessen "$2" --trocken
-  exit $?
+  RC=0
+  issues_schliessen "$2" --trocken || RC=$?
+  echo "Pull Requests (Freigabeliste):"
+  HALO_REPO="$ROOT" zsh "$ROOT/tests/pr-schliessen.sh" "$2" --trocken || RC=1
+  exit $RC
 fi
 VERSION="$1"
 NOTES="$2"
@@ -189,5 +194,16 @@ else
   echo "$ISSUES"
   echo "FEHLER: GitHub-Issues ließen sich nicht (alle) schließen – von Hand mit „Fixed in $VERSION“ schließen"
   STATUS+=("FEHLER beim Schließen der GitHub-Issues (von Hand nachholen): $(echo "$ISSUES" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
+fi
+
+# freigegebene Pull Requests schließen (nur Einträge aus tests/pr-freigaben.txt, Entscheidung vom 9.11.2026):
+# Fehler nur laut melden und im Bericht vermerken, das Release bleibt
+if PRS=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/pr-schliessen.sh" "$VERSION" 2>&1); then
+  echo "$PRS"
+  STATUS+=("Pull Requests (Freigabeliste): $(echo "${PRS:-keine}" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
+else
+  echo "$PRS"
+  echo "FEHLER: Pull Requests aus tests/pr-freigaben.txt ließen sich nicht (alle) schließen – von Hand nachholen"
+  STATUS+=("FEHLER bei den Pull Requests der Freigabeliste (von Hand nachholen): $(echo "$PRS" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
 fi
 exit 0

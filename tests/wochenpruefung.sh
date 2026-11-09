@@ -164,6 +164,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter Issue-Abgleich ROT: ${${(M)${(f)IAT}:#FEHLER*}}"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/issue_abgleich_test.zsh): ${(j: | :)${(M)${(f)IAT}:#FEHLER*}} – tests/issue-abgleich.sh bzw. publish.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
   fi
+  # PRs nach dem Release schließen (tests/pr_schliessen_test.zsh: nur mit Freigabe, nie #49 ohne Eintrag, ohne Netz)
+  if PST=$(zsh $REPO/tests/pr_schliessen_test.zsh 2>&1); then
+    log "Wächter PR-Schließen: ${PST##*$'\n'}"
+  else
+    log "Wächter PR-Schließen ROT: ${${(M)${(f)PST}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/pr_schliessen_test.zsh): ${(j: | :)${(M)${(f)PST}:#FEHLER*}} – tests/pr-schliessen.sh bzw. publish.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
 fi
 
 # Wochenprüfung: Kennzahl „Tage seit der letzten vollständig grünen Runde“ (Entscheidung des Maintainers vom

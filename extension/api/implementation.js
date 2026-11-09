@@ -16145,6 +16145,19 @@ class CardEnhancer {
       d.getElementById("unifiedToolbarContainer")?.style.setProperty("--mc-tp-room", `${Math.round(full)}px`);
       panel.__mcSliding = "in";
       sideEdgesNow();
+      // ebenso die Platzaufteilung der Toolbar (Suchfeld, ausgeblendete
+      // Pillen): Die Mailliste hat nur jetzt ihr Endmaß – liegt die Pane erst
+      // über dem Inhalt, ist der Mailbereich breiter, die Liste reicht weiter
+      // nach rechts und es wichen mehr Pillen als am Ende (ESR: ganze Pille
+      // „Archivieren | Löschen | Werbung“ weg und am Ende wieder da, Suchfeld
+      // sprang um 120 px)
+      w.__mcTodayTopSync?.();
+      d.getElementById("unifiedToolbarContainer")?.removeAttribute("data-mc-tp-open");
+      for (const f of this.offsetUpdaters || []) {
+        try {
+          f();
+        } catch {}
+      }
     }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
@@ -16202,14 +16215,17 @@ class CardEnhancer {
       sideEdgesNow();
     }
     // Platzaufteilung der Toolbar (Suchfeldbreite, eingeklappte Knöpfe) gleich
-    // für das Endmaß berechnen, nicht erst nach der Animation
-    panel.__mcAnimating = false;
-    for (const f of this.offsetUpdaters || []) {
-      try {
-        f();
-      } catch {}
+    // für das Endmaß berechnen, nicht erst nach der Animation (beim Einblenden
+    // schon oben, solange die Pane im Fluss lag)
+    if (!showing) {
+      panel.__mcAnimating = false;
+      for (const f of this.offsetUpdaters || []) {
+        try {
+          f();
+        } catch {}
+      }
+      panel.__mcAnimating = true;
     }
-    panel.__mcAnimating = true;
     const toAll = kidsAll.map(place);
     // gleiten: vorher und nachher sichtbar; erscheinen: werden eingeblendet
     const riders = kidsAll.filter((_, i) => fromAll[i] != null && toAll[i] != null);

@@ -62,7 +62,16 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   einen Eingriff von uns deutet, z. B. GitHub #38) eine Zeile `KONSOLE  …`;
   die Prüfung „Fehlerkonsole …“ bleibt dabei OK (nur Warnung), auch mit
   `--only` (dann nur für die gelaufenen Prüfungen). `update_test.py` meldet
-  ebenso nach dem Start der neuen Version. Der CI-Wächter trägt jede Zeile
+  ebenso nach dem Start der neuen Version. Startphase (Entscheidung vom
+  9.11.2026): Thunderbirds eigene Fehler bis zum Verbinden vergleicht
+  `halo_test.py` mit einem Vergleichslauf im frischen Profil ohne
+  halo.spaces (einmal je Thunderbird-Version und Plattform, Liste in
+  `~/.cache/halo-spaces/konsole-vergleich/` bzw. `$HALO_KONSOLE_VERGLEICH`;
+  in der CI ein Zusatzstart je Job, etwa 30 s). Verglichen wird nach Text
+  ohne Zahlen, Pfade und Kennungen (`tests/logik/konsole-schluessel.js`);
+  was ohne halo.spaces nie auftritt, steht ebenfalls als `KONSOLE  …`.
+  `--vergleich-neu` nimmt neu auf (ergänzt die Liste), `--ohne-vergleich`
+  lässt den Vergleich aus. Der CI-Wächter trägt jede Zeile
   als Bug „Tests: Fehlerkonsole – …“ ins Board, und dieser wird wie jeder Bug
   abgearbeitet. Löst eine Prüfung absichtlich einen Fehler in halo.spaces
   aus (kein Netz, kaputte Daten, ersetzte Funktion), meldet sie ihn mit

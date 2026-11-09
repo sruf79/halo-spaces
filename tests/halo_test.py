@@ -285,17 +285,26 @@ KONSOLE_JS = r"""
     .replace(/(?:\/private)?\/var\/folders\/[^\s'"),]+|\/tmp\/[^\s'"),]+|[A-Za-z]:\\[^\s'"),]*\\Temp\\[^\s'"),]+/g, "<tmp>")
     .replace(/\s+/g, " ").trim();
   const neu = () => ({ eintraege: [], fremd: 0, warnungen: 0, start: 0, voll: false, erwartet: [], check: "Start",
-    zeitplan: [[Date.now(), "Start"]], host });
+    zeitplan: [[Date.now(), "Start"]], host, startfremd: [], sammleFremd: false });
   const add = (k, msg) => {
     if (!(msg instanceof Ci.nsIScriptError)) return;
     if (msg.flags & Ci.nsIScriptError.warningFlag || msg.flags & Ci.nsIScriptError.infoFlag) { k.warnungen++; return; }
     const raw = String(msg.errorMessage || "");
     let stack = ""; try { stack = String(msg.stack?.toString?.() || ""); } catch {}
-    if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(raw)))) { k.fremd++; return; }
+    if (!(OURS.test(msg.sourceName || "") || OURS.test(stack) || HINTS.some(h => h.test(raw)))) {
+      k.fremd++;
+      // Startphase: Thunderbirds übrige Fehler für den Vergleich mit dem Lauf ohne halo.spaces (je Schlüssel einmal)
+      if (k.sammleFremd && k.startfremd.length < 300) {
+        const schluessel = konsoleSchluessel(norm(raw), msg.sourceName);
+        if (!k.startfremd.some(e => e.schluessel === schluessel))
+          k.startfremd.push({ schluessel, text: norm(raw).slice(0, 200), wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}` });
+      }
+      return;
+    }
     if (k.eintraege.length < 2000) k.eintraege.push({ text: norm(raw).slice(0, 200), wo: `${(msg.sourceName || "?").replace(/^.*\//, "")}:${msg.lineNumber}`, check: k.check });
   };
   const setze = (k, name) => { k.check = name; k.zeitplan.push([Date.now(), name]); };
-"""
+""" + open(os.path.join(ROOT, "tests", "logik", "konsole-schluessel.js"), encoding="utf-8").read()
 
 
 def konsole_start(m):
@@ -307,7 +316,9 @@ def konsole_start(m):
           const k = w.__haloKonsole = neu();
           const snap = Services.console.getMessageArray() || [];
           k.voll = snap.length >= {KONSOLE_PUFFER}; k.start = snap.length;
+          k.sammleFremd = true;  // Startphase: bis hierher (wie im Vergleichslauf ohne halo.spaces, vergleich_aufnehmen)
           for (const msg of snap) add(k, msg);
+          k.sammleFremd = false;
           setze(k, "Start (nach dem Verbinden)");
           k.listener = {{ observe: msg => {{ try {{ add(k, msg); }} catch {{}} }} }};
           Services.console.registerListener(k.listener);
@@ -327,7 +338,8 @@ def konsole_lesen(m):
       let k = {KONSOLE_FIND}, quelle = "Mitschrift";
       if (!k) {{ k = neu(); quelle = "Puffer"; const snap = Services.console.getMessageArray() || [];
         k.voll = snap.length >= {KONSOLE_PUFFER}; for (const msg of snap) add(k, msg); }}
-      return {{ eintraege: k.eintraege, fremd: k.fremd, warnungen: k.warnungen, voll: k.voll, erwartet: k.erwartet, quelle }};""") or {}
+      return {{ eintraege: k.eintraege, fremd: k.fremd, warnungen: k.warnungen, voll: k.voll, erwartet: k.erwartet, quelle,
+               startfremd: quelle === "Mitschrift" ? k.startfremd : null }};""") or {}
 
 
 def protokoll_lesen(m):
@@ -409,6 +421,109 @@ def konsole_nachtrag(m, wann):
             print(f"Hinweis Fehlerkonsole: {len(errors)} Meldung(en) {wann}", flush=True)
     except Exception as e:
         print(f"Hinweis: Fehlerkonsole {wann} nicht lesbar – {e}", flush=True)
+
+
+# Vergleichslauf ohne halo.spaces (Entscheidung des Maintainers vom 9.11.2026: nur die Startphase mit und ohne
+# halo.spaces vergleichen): Thunderbirds eigene Fehler aus der Startphase eines frischen Profils ohne Paket, einmal je
+# Thunderbird-Version und Plattform aufgezeichnet und zwischengespeichert. Startmeldungen von Thunderbird, die dort nie
+# auftreten, meldet die Prüfung „Fehlerkonsole …“ als Zeile „KONSOLE  …“ (nur Warnung). Die Prüfphase wertet weiter
+# nur die bestehende Einordnung aus (Fehler aus halo.spaces, HINTS).
+VERGLEICH_AUS = False  # --ohne-vergleich
+KONSOLE_VERGLEICH = None  # Schlüssel (tests/logik/konsole-schluessel.js) der Startfehler ohne halo.spaces; None: kein Vergleich
+VERGLEICH_ORDNER = os.environ.get("HALO_KONSOLE_VERGLEICH") or os.path.join(os.path.expanduser("~"), ".cache", "halo-spaces",
+                                                                           "konsole-vergleich")
+
+
+def tb_kennung(tb):
+    """Version und Build-ID des Thunderbird-Programms aus application.ini (neben dem Programm, unter macOS in
+    Contents/Resources) – None, wenn sie nicht lesbar ist (dann ohne Zwischenspeicher)."""
+    d = os.path.dirname(os.path.realpath(shutil.which(tb) or tb))
+    for ini in (os.path.join(d, "application.ini"), os.path.join(d, "..", "Resources", "application.ini")):
+        try:
+            text = open(ini, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        v, b = re.search(r"^Version=(.+)$", text, re.M), re.search(r"^BuildID=(.+)$", text, re.M)
+        if v:
+            return re.sub(r"[^\w.-]", "_", f"{v.group(1).strip()}-{b.group(1).strip() if b else '0'}")
+    return None
+
+
+def vergleich_aufnehmen(tb, port, dark):
+    """Startet Thunderbird einmal im frischen Profil OHNE halo.spaces und liefert Thunderbirds Fehler der Startphase
+    (je Schlüssel einmal)."""
+    profile = create_profile(None, port, dark, prefix="halo-test-vergleich-")
+    proc = start_thunderbird(tb, profile)
+    try:
+        if not wait_port(port):
+            raise RuntimeError("Thunderbird hat Marionette nicht geöffnet")
+        m = Marionette(port)
+
+        def run(body):
+            return m.cmd("WebDriver:ExecuteScript", {"script": "return (async () => {" + body + "})();", "args": []}).get("value")
+        end = time.time() + 90
+        while not run('return Services.wm.getMostRecentWindow("mail:3pane")?.document.readyState === "complete";'):
+            if time.time() > end:
+                raise RuntimeError("kein Hauptfenster nach 90 s")
+            time.sleep(0.5)
+        # Feste Pause mit Absicht: der eigentliche Lauf liest die Startphase 8 s nach dem Port (main()); hier etwas
+        # länger, damit späte Startmeldungen sicher im Vergleich stehen (sonst würden sie fälschlich gemeldet)
+        time.sleep(12)
+        return run(KONSOLE_JS + """
+          const k = neu(); k.sammleFremd = true;
+          for (const msg of Services.console.getMessageArray() || []) add(k, msg);
+          return k.startfremd;""") or []
+    finally:
+        stop_thunderbird(port, proc)
+        shutil.rmtree(profile, ignore_errors=True)
+
+
+def vergleich_laden(tb, port, dark, neu=False):
+    """Vergleichsliste aus dem Zwischenspeicher (je Plattform und Thunderbird-Version), sonst mit vergleich_aufnehmen
+    erzeugen und speichern. Eine neue Aufnahme (--vergleich-neu) ergänzt die alte (Vereinigung: Thunderbirds
+    Startfehler schwanken). Nie eine Ausnahme: ohne Liste kein Vergleich (Hinweis)."""
+    kennung = tb_kennung(tb)
+    datei = os.path.join(VERGLEICH_ORDNER, f"{sys.platform}-{kennung}.json") if kennung else None
+    alt = []
+    if datei and os.path.exists(datei):
+        try:
+            alt = json.load(open(datei, encoding="utf-8")).get("schluessel") or []
+        except (OSError, ValueError, AttributeError):
+            alt = []
+        if alt and not neu:
+            print(f"Vergleich ohne halo.spaces: {len(alt)} Startfehler von Thunderbird aus {datei}", flush=True)
+            return set(alt)
+    began = time.time()
+    try:
+        gefunden = vergleich_aufnehmen(tb, port, dark)
+    except Exception as e:
+        print(f"Hinweis Fehlerkonsole: Vergleichslauf ohne halo.spaces gescheitert ({e}) – Startmeldungen von Thunderbird "
+              "werden nicht verglichen", flush=True)
+        return set(alt) if alt else None
+    schluessel = sorted(set(alt) | {e["schluessel"] for e in gefunden})
+    print(f"Vergleichslauf ohne halo.spaces: {len(gefunden)} Startfehler von Thunderbird ({time.time() - began:.0f} s)"
+          + (f", gespeichert in {datei}" if datei else ", ohne Zwischenspeicher (Version unbekannt)"), flush=True)
+    for e in gefunden:
+        print(f"  ohne halo.spaces: {e['text'][:160]} ({e['wo']})", flush=True)
+    if datei:
+        try:
+            os.makedirs(VERGLEICH_ORDNER, exist_ok=True)
+            with open(datei + ".neu", "w", encoding="utf-8") as f:
+                json.dump({"thunderbird": kennung, "plattform": sys.platform, "aufgenommen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                           "schluessel": schluessel}, f, ensure_ascii=False, indent=1)
+            os.replace(datei + ".neu", datei)
+        except OSError as e:
+            print(f"Hinweis Fehlerkonsole: Vergleichsliste nicht gespeichert – {e}", flush=True)
+    return set(schluessel)
+
+
+def konsole_start_vergleichen(startfremd, vergleich):
+    """Startfehler von Thunderbird, die im Lauf ohne halo.spaces nie auftreten – je eine Zeile wie konsole_bewerten
+    (der CI-Wächter schneidet „ – während …“ und den Ort „(…)“ für den Schlüssel ab)."""
+    if vergleich is None or startfremd is None:
+        return []
+    return [f"{e['text']} ({e['wo']}) – während Start (Thunderbird-Meldung, im Vergleichslauf ohne halo.spaces nie)"
+            + (" · dunkel" if KONSOLE_DUNKEL else "") for e in startfremd if e.get("schluessel") not in vergleich]
 
 
 def wait_port(port, timeout=60):
@@ -519,10 +634,12 @@ def local_https(host):
 
 
 def create_profile(xpi, port, dark=False, prefix="halo-test-"):
-    """Legt ein leeres, temporäres Profil mit installiertem Paket an (keine Konten, keine echten Daten)."""
+    """Legt ein leeres, temporäres Profil mit installiertem Paket an (keine Konten, keine echten Daten); ohne xpi
+    ohne Paket (Vergleichslauf)."""
     profile = tempfile.mkdtemp(prefix=prefix)
     os.makedirs(os.path.join(profile, "extensions"))
-    shutil.copy(xpi, os.path.join(profile, "extensions", f"{ADDON_ID}.xpi"))
+    if xpi:
+        shutil.copy(xpi, os.path.join(profile, "extensions", f"{ADDON_ID}.xpi"))
     with open(os.path.join(profile, "user.js"), "w") as f:
         for pref, value in {
             "extensions.autoDisableScopes": 0,
@@ -666,7 +783,8 @@ def run_in_vm(args, xpi):
     before = theme = None
     try:
         os.makedirs(os.path.join(run, "tests"))
-        for f in ("halo_test.py", "testserver.py", "perf.js", "win-display.ps1"):
+        for f in ("halo_test.py", "testserver.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
+            os.makedirs(os.path.dirname(os.path.join(run, "tests", f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt
         shutil.copytree(os.path.join(ROOT, "extension"), os.path.join(run, "extension"))
@@ -675,7 +793,8 @@ def run_in_vm(args, xpi):
         inner = {"xpi": win + "\\" + os.path.basename(xpi), "tb": VM_TB["beta" if args.beta else "release"] if args.tb == DEFAULT_TB else args.tb,
                  "port": args.port, "dark": args.dark, "keep": args.keep, "only": args.only, "eval": args.eval, "perf": args.perf,
                  "tb_log": win + "\\thunderbird.log" if args.tb_log else None,
-                 "shots": win + "\\shots" if args.shots else None, "compare": None}
+                 "shots": win + "\\shots" if args.shots else None, "compare": None,
+                 "ohne_vergleich": args.ohne_vergleich, "vergleich_neu": args.vergleich_neu}
         if args.compare:
             shutil.copytree(args.compare, os.path.join(run, "vorher"))
             inner["compare"] = win + "\\vorher"
@@ -735,7 +854,7 @@ def run_in_vm(args, xpi):
 
 
 def main():
-    global LAST_END, CHECK_M, KONSOLE_DUNKEL
+    global LAST_END, CHECK_M, KONSOLE_DUNKEL, KONSOLE_VERGLEICH, VERGLEICH_AUS
     ap = argparse.ArgumentParser()
     ap.add_argument("--xpi", help="Paket (Standard: neuestes dist/halo-spaces-*.xpi)")
     ap.add_argument("--tb", default=DEFAULT_TB, help="Thunderbird-Programm")
@@ -752,6 +871,10 @@ def main():
                     "danach wird die VM pausiert")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
     ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
+    ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
+                    "Thunderbird in der Fehlerkonsole werden dann nicht verglichen)")
+    ap.add_argument("--vergleich-neu", action="store_true", help="Vergleichslauf ohne halo.spaces neu aufnehmen (ergänzt die "
+                    f"gespeicherte Liste in {VERGLEICH_ORDNER})")
     ap.add_argument("--vm-args", help=argparse.SUPPRESS)  # in der VM: Optionen aus der Datei (prlctl reicht keine Anführungszeichen weiter)
     args = ap.parse_args()
     if args.vm_args:
@@ -779,6 +902,10 @@ def main():
         sys.exit(run_in_vm(args, xpi))
     if sys.platform == "darwin":
         wait_turn("mac")
+    VERGLEICH_AUS = bool(args.ohne_vergleich)
+    if not (args.eval or args.perf or args.ohne_vergleich):
+        # Startphase ohne halo.spaces (einmal je Thunderbird-Version und Plattform, sonst aus dem Zwischenspeicher)
+        KONSOLE_VERGLEICH = vergleich_laden(args.tb, args.port, args.dark, args.vergleich_neu)
 
     profile = create_profile(xpi, args.port, args.dark)
     print(f"halo.spaces {version} · Paket {os.path.basename(xpi)} · Profil {profile}", flush=True)
@@ -17106,8 +17233,9 @@ Neu
         # (Entscheidung des Maintainers vom 5.11.2026: Konsolenfehler halten kein Release auf, wenn die Prüfungen grün
         # sind): Fehler aus halo.spaces und Thunderbird-Meldungen, die auf einen Eingriff von uns deuten, erscheinen
         # als Warnung mit eigener Zeile „KONSOLE  …“, die der CI-Wächter als Bug ins Board trägt; mit erwartet()
-        # angemeldete zählen nicht, Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt.
-        # Läuft auch mit --only (dann nur für die gelaufenen Prüfungen)
+        # angemeldete zählen nicht, Thunderbirds übrige Fehler und alle Warnungen werden nur gezählt – außer in der
+        # Startphase: dort ebenso eine Zeile für jeden Fehler, der im Vergleichslauf ohne halo.spaces nie auftritt
+        # (vergleich_laden; Entscheidung vom 9.11.2026). Läuft auch mit --only (dann nur für die gelaufenen Prüfungen)
         global KONSOLE_STAND
         try:
             res = konsole_lesen(m)
@@ -17115,11 +17243,34 @@ Neu
         except Exception as e:  # Auslesen gescheitert (z. B. Thunderbird abgestürzt): nur Hinweis, nie ein Fehlschlag
             return True, f"WARNUNG: Fehlerkonsole nicht lesbar – {e}"
         KONSOLE_STAND = len(res.get("eintraege") or [])
-        konsole_melden(errors, notes)
-        summary = f"Thunderbird selbst: {res.get('fremd')} Fehler, {res.get('warnungen')} Warnungen"
-        if errors:
-            return True, f"WARNUNG: {len(errors)} Fehler aus halo.spaces, siehe Zeilen darüber – kein Fehlschlag ({summary})"
+        start = konsole_start_vergleichen(res.get("startfremd"), KONSOLE_VERGLEICH)
+        konsole_melden(errors + start, notes)
+        summary = f"Thunderbird selbst: {res.get('fremd')} Fehler, {res.get('warnungen')} Warnungen; " + (
+            "Startphase ohne Vergleich" if KONSOLE_VERGLEICH is None or res.get("startfremd") is None else
+            f"Startphase {len(res['startfremd'])} Fehler, {len(start)} davon ohne halo.spaces nie")
+        if errors or start:
+            return True, (f"WARNUNG: {len(errors)} Fehler aus halo.spaces, {len(start)} Startmeldung(en) von Thunderbird nur mit "
+                          f"halo.spaces, siehe Zeilen darüber – kein Fehlschlag ({summary})")
         return True, f"keine Fehler aus halo.spaces ({summary})"
+    def console_vergleich():
+        # Der Vergleich der Startphase mit dem Lauf ohne halo.spaces (vergleich_laden, konsole_start_vergleichen) muss
+        # wirklich stattfinden: Vergleichsliste da und Startfehler mitgeschrieben – sonst sähe die Prüfung darunter
+        # stillschweigend keine Startmeldungen von Thunderbird mehr
+        if VERGLEICH_AUS:
+            return True, "übersprungen (--ohne-vergleich)"
+        res = konsole_lesen(m)
+        fremd = res.get("startfremd")
+        if KONSOLE_VERGLEICH is None:
+            return False, "keine Vergleichsliste ohne halo.spaces (Vergleichslauf gescheitert, siehe Hinweis am Anfang)"
+        if not isinstance(fremd, list) or not all(isinstance(e, dict) and e.get("schluessel") for e in fremd):
+            return False, f"Startfehler nicht mitgeschrieben (Quelle {res.get('quelle')}): {str(fremd)[:200]}"
+        # der Schlüssel aus konsole-schluessel.js entsteht in Thunderbird gleich wie in den Logik-Tests
+        probe = m.js(KONSOLE_JS + 'return konsoleSchluessel("Fehler 42 in /a/b/c.js", "chrome://x/content/y.js");')
+        if probe != "Fehler # in <pfad>/c.js @ y.js":
+            return False, f"Schlüssel in Thunderbird abweichend: {probe!r}"
+        return True, (f"{len(KONSOLE_VERGLEICH)} Startfehler ohne halo.spaces, {len(fremd)} mit, "
+                      f"{len(konsole_start_vergleichen(fremd, KONSOLE_VERGLEICH))} nur mit halo.spaces")
+    check("Fehlerkonsole: Startphase mit dem Vergleichslauf ohne halo.spaces abgeglichen", console_vergleich, results)
     check("Fehlerkonsole: keine Fehler aus halo.spaces und keine Startmeldung, die auf einen Eingriff deutet (nur Warnung)", console_errors, results, immer=True)
 
 

@@ -10,6 +10,11 @@ Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 
 ## 9.11.2026
 
+### Wochenprüfung gibt Empfehlungen, setzt nach Zustimmung um
+Herkunft: Sitzung project.analysis.control, 8.11.2026, am 9.11.2026 vom Maintainer in der Sitzung neon zur Übermittlung freigegeben. Wortlaut: „die wochenprüfung sollte sehr wohl laufen aber nach einer analyse empfehlungen geben und vorschläge welche nach meiner zustimmung umgesetzt werden. ziel ist es eine wiederkehrende routine zu bauen welche immer wieder den workflow analysiert und optimiert.“
+Vermerk: ersetzt die Entscheidung vom 5.11.2026 („Wochenprüfung verbessert die Abläufe selbst“); beide Wortlaute stehen in dieser Datei.
+Bezug: `tests/wochenpruefung-auftrag.md` (Abschnitt 3b), `docs/testrechner.md` „Wochenprüfung“.
+
 ### Höchstens ein reguläres Release pro Tag
 Herkunft: Sitzung neon, 9.11.2026, Freigabe des Maintainers zu Auftrag #32 (Kürzung von `AGENTS.md`, Ablauf-Analyse Stufe 5). Wortlaut der Freigabe: „Freigabe: ja, Prüfpunkte 1–4 und neue Kernregel 'höchstens ein reguläres Release pro Tag'“.
 Regeltext (Fassung des Auftrags von neon, kein Wortlaut des Maintainers): „Höchstens ein reguläres Release pro Tag. Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.“

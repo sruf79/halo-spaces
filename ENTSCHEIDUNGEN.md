@@ -165,6 +165,11 @@ Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 321–
 >   machen; vor Push, CI und Release das Board nicht erneut laden (Entscheidung
 >   des Maintainers vom 3.11.2026).
 
+### 4.11.2026, geändert 9.11.2026: Windows-Vergleich (Job `windows-github`)
+Alter Wortlaut (4.11.2026, Regeltext aus `.github/workflows/test.yml`, kein Zitat des Maintainers eingetragen): „Windows auf einem Rechner von GitHub (Entscheidung des Maintainers vom 4.11.2026): läuft gleichzeitig mit mac und belegt neon nicht. Vorerst neben dem Job windows in der VM zum Vergleich; ist er zwei bis drei Läufe gleich zuverlässig, ersetzt er ihn.“
+
+Geändert am 9.11.2026 (Sitzung project.analysis.control, Ablauf-Analyse Stufe 2), Zitat des Maintainers: „deine empfehlungen durchführen“. Empfehlung war: `windows-github` abschalten, nur von Hand lauffähig (0 von 34 gelaufenen Läufen grün, Stand 9.11.2026). Der Job läuft seitdem nur noch bei `workflow_dispatch`, nie bei Push; der alte Wortlaut bleibt stehen.
+
 ### 4.11.2026: neon erreichen
 Quelle: `AGENTS.md` „neon erreichen“ (Stand 9.11.2026, Zeilen 182–187), wörtlich:
 

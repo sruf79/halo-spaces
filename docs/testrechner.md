@@ -251,11 +251,12 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     wartenden Lauf abbricht – der eine Runner arbeitet die Jobs der Reihe
     nach ab), vorerst nur hell, Port 2845,
     Screenshots als Artefakt `test-windows`.
-  - Zum Vergleich läuft daneben Job `windows-github` auf einem Windows-Rechner
-    von GitHub (gleichzeitig mit `mac`, belegt neon nicht, noch
-    `continue-on-error`): Prüfungen am Bildtakt zählen dort nur als Warnung
-    (`HALO_FRAMES_WARN=1`). Nach zwei bis drei gleich zuverlässigen Läufen
-    ersetzt er den Job `windows` (Entscheidung des Maintainers vom 4.11.2026).
+  - Zum Vergleich gibt es daneben Job `windows-github` auf einem Windows-Rechner
+    von GitHub (belegt neon nicht, `continue-on-error`): Prüfungen am Bildtakt zählen dort nur als Warnung
+    (`HALO_FRAMES_WARN=1`). Seit 9.11.2026 läuft er nur noch von Hand
+    (`workflow_dispatch`), nie bei Push: 0 von 34 gelaufenen Läufen waren grün (Stand 9.11.2026,
+    Freigabe des Maintainers „deine empfehlungen durchführen“). Er ersetzt den Job `windows` damit nicht
+    (ursprüngliche Entscheidung vom 4.11.2026, siehe `ENTSCHEIDUNGEN.md`).
 - Zwischendurch nur betroffene Prüfungen: `python3 tests/halo_test.py --port 2851
   --only "<Teil des Prüfungsnamens>"` (1–2 Minuten). Neue Prüfungen müssen auch
   unter Linux (CI, xvfb) und mit der Beta grün sein. Regelmäßig testet die

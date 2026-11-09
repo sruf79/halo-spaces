@@ -10329,6 +10329,12 @@ def run_checks(m, version, profile, results):
           const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
           const [arch, del, junk, fwd] = ["archive", "delete", "junk", "forward-inline"].map(li);
           if (![arch, del, junk, fwd].every(Boolean)) return { missing: true };
+          // seit dem Überlauf weichen ganze Pillen: bei 1500 px mit Today-Pane ist „Archivieren | Löschen |
+          // Werbung“ schon im Menü „»“ – breites Fenster, bis die Pille wieder steht
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1920, oldH);
+          await bis(() => ![arch, del, junk, fwd].some(li => li.hasAttribute("mc-squeezed")) && del.getBoundingClientRect().width > 0, "Pille Archivieren | Löschen | Werbung sichtbar", 4000);
+          try {
           const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-cap-line)";
           d.documentElement.append(probe); const capLine = cs(probe).backgroundColor; probe.remove();
           const out = { capLine };
@@ -10361,7 +10367,8 @@ def run_checks(m, version, profile, results):
                                                  sep: filt ? cs(filt, "::after").opacity : null }; }
             finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
           }
-          return out;''')
+          return out;
+          } finally { w.resizeTo(oldW, oldH); await ruhig(300); }''')
         if res.get("missing"):
             return False, f"Toolbar-Knöpfe fehlen {res}"
         r, h, l = res["rest"], res["hover"], res.get("list") or {}

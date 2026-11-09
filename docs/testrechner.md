@@ -351,3 +351,18 @@ aus `~/.claude/settings.json` entfernen.
 ## halo-zsh: eigene Kopie von zsh für Routinen mit Mausbewegung
 
 Nachtlauf, Wochenprüfung, Doku-Prüfung und Rundgang starten über `~/.config/halo-spaces/bin/halo-zsh` statt `/bin/zsh` (Kopie von `/bin/zsh`, mit `codesign --force --sign -` signiert; `tests/mac-mini-setup.sh` legt sie an). Grund: Die Freigabe unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen gilt für genau diese Datei; `/bin/zsh` selbst soll sie nicht bekommen, sonst dürfte jedes zsh-Skript die Maus bewegen. Nach einem macOS-Update kann `/bin/zsh` sich ändern; `mac-mini-setup.sh --check` weist dann hin (es ersetzt die Kopie nie stillschweigend, weil die Freigabe an der Datei hängt). Dann `halo-zsh` löschen, `mac-mini-setup.sh` ausführen (kopiert und signiert neu) und der Maintainer gibt die neue Datei unter Bedienungshilfen frei. Alle übrigen LaunchAgents bleiben bei `/bin/zsh`.
+
+## Kontingent selbst auslesen
+
+Jede Sitzung (neon, Laptop, Routinen, Unteragenten) darf das Kontingent selbst lesen, ohne Rückfrage beim Maintainer:
+
+```bash
+zsh tests/kontingent.sh      # „Woche 88 % (Zurücksetzen 01:00), 5 Stunden 24 %, Status allowed_warning“
+```
+
+- Das Skript ruft `claude -p` mit Haiku einmal auf und liest das `rate_limit_event` (Felder `unifiedWindows.seven_day` und `five_hour`, `utilization` 0 bis 1, `resetsAt`). Ergebnis auch in `~/halo-nacht/kontingent.json`. Kostet einen winzigen Teil des Kontingents.
+- Nur bei Bedarf aufrufen: vor Push, Revert, Warten auf die CI, langen Läufen und wenn der Maintainer ein Limit nennt; nie in Schleifen oder Takten.
+- Ohne Zahl (Ausgabe „KONTINGENT: nicht lesbar“): Status aus `get_session` (`rate_limit_info.status`: `allowed`, `allowed_warning`, `rejected`) als Ersatz nehmen, nichts erfinden.
+- Grenzen und Schutzregeln legt der Maintainer fest (z. B. Wechsel auf Sonnet bei 96 %); das Auslesen allein ändert keine Regel.
+- Nicht erlaubt: Zugangsdaten oder Schlüsselbund auslesen, um das Kontingent anders abzufragen.
+

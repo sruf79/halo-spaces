@@ -18,7 +18,8 @@ export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "p
   "DONATE_URL", "THANKS_UPDATE_DAY_PREF", "UpdateNote", "MULTIWEEK_BUFFER_WEEKS", "listDeleteText", "msgStillInFolder", "rowGone",
   "timeTypeDigit", "timeStep", "durationText", "endFromTime", "dateTypeDigit", "dateFinish", "systemDateFormat", "dateStep", "monthWeeks", "daysInMonth", "mapsUrl", "openMaps",
   "initialsFor", "decodeEntities", "stripHtml", "cleanPreview", "searchDate", "emojiFor", "resetEmojiRules", "senderLabel", "orgDomain",
-  "UndoSend", "SendLater", "TagMenus", "Remind", "FollowUp", "Weather", "SpacesOrder", "FifthSpace"];
+  "UndoSend", "SendLater", "TagMenus", "Remind", "FollowUp", "Weather", "SpacesOrder", "FifthSpace",
+  "PstFs", "PstImport", "ArchiveAccount", "hookArchiveAccount"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy
 function attrappe(name = "attrappe") {

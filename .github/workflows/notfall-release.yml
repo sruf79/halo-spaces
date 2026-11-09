@@ -160,7 +160,9 @@ jobs:
     permissions:
       contents: read
     strategy:
-      fail-fast: true
+      # fail-fast aus (zweite Probe 9.11.2026): sonst bricht ein roter Job den anderen ab und sein Ergebnis fehlt.
+      # Die Marke verlangt weiterhin beide grün.
+      fail-fast: false
       matrix:
         channel: [release, esr]
     outputs:

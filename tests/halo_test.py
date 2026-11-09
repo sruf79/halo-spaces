@@ -16421,6 +16421,46 @@ Neu
         return ok, f"{res}"
     check("Kontaktfotos: Foto aus dem lokalen Adressbuch (Datei im Profil) in der Mailliste", local_ab_photo, results)
 
+    def bimi_full():
+        # BIMI-Logos sind für den Kreis gestaltet: randlos und unverändert in den Profilkreis.
+        # Vorher wurden sie wie Favicons zugeschnitten und auf ~69 % verkleinert – ein weißer
+        # Ring lag um das Logo. Logo ohne Netz: bimi() und Speicher im eigenen Resolver ersetzt.
+        res = m.js('''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          return JSON.parse(await Cu.evalInSandbox(`(async () => {
+            const SVG = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+              + '<rect width="100" height="100" fill="#fff"/><circle cx="50" cy="50" r="50" fill="#c00"/></svg>');
+            const ar = new AvatarResolver(() => Services.wm.getMostRecentWindow("mail:3pane"));
+            const stored = {};
+            ar.cache = { loaded: Promise.resolve(), get: k => stored[k], set: (k, v) => { stored[k] = v; } };
+            let fetched = 0;
+            ar.bimi = async () => { fetched++; return { src: SVG, small: false, source: "BIMI" }; };
+            ar.siteIcon = async () => null;
+            const win = Services.wm.getMostRecentWindow("mail:3pane");
+            // Pixel nahe am Kreisrand (6 %% unter dem oberen Rand, Mitte): Logofarbe statt Weiß
+            const edge = async src => {
+              const img = new win.Image(); await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = src; });
+              const c = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = 100;
+              const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0, 100, 100);
+              return Array.from(ctx.getImageData(50, 6, 1, 1).data.slice(0, 3));
+            };
+            const neu = await ar.domainLogo("halo-bimi.example", "halo-bimi.example");
+            const out = { same: neu?.src == SVG, n: stored["halo-bimi.example"]?.n, edge: neu && await edge(neu.src) };
+            // Speicher aus älterer Version (BIMI schon verkleinert, n: 2): einmal neu holen
+            stored["halo-alt.example"] = { src: "data:image/png;base64,AAAA", small: false, n: 2, source: "BIMI", t: Date.now() };
+            const alt = await ar.domainLogo("halo-alt.example", "halo-alt.example");
+            out.alt = alt?.src == SVG; out.fetched = fetched;
+            // zweiter Abruf aus dem Speicher: unverändert, kein neuer Abruf
+            out.again = (await ar.domainLogo("halo-bimi.example", "halo-bimi.example"))?.src == SVG && fetched == 2;
+            return JSON.stringify(out);
+          })()`, g));''' % ADDON_ID)
+        e = res.get("edge") or [255, 255, 255]
+        ok = (res.get("same") and res.get("n") == 3 and e[0] > 150 and e[1] < 80 and e[2] < 80
+              and res.get("alt") and res.get("again"))
+        return ok, f"{res}"
+    check("Absenderbilder: BIMI-Logo füllt den Profilkreis randlos (kein weißer Ring), alte verkleinerte Logos werden neu geholt", bimi_full, results)
+
     def net_guard():
         # Absenderbilder kommen von Adressen, die der Absender bestimmt (BIMI,
         # Startseite): eine Umleitung ins lokale Netz darf gar nicht erst

@@ -8,6 +8,13 @@ oder aufheben, wenn er ein neues Zitat des Maintainers mitbringt (Regel
 `AGENTS.md`). Wird hier etwas ergänzt: Wortlaut, Datum, Herkunft, Bezug.
 Die Datei wird bei Bedarf gelesen, nicht automatisch geladen.
 
+## 9.11.2026
+
+### Höchstens ein reguläres Release pro Tag
+Herkunft: Sitzung neon, 9.11.2026, Freigabe des Maintainers zu Auftrag #32 (Kürzung von `AGENTS.md`, Ablauf-Analyse Stufe 5). Wortlaut der Freigabe: „Freigabe: ja, Prüfpunkte 1–4 und neue Kernregel 'höchstens ein reguläres Release pro Tag'“.
+Regeltext (Fassung des Auftrags von neon, kein Wortlaut des Maintainers): „Höchstens ein reguläres Release pro Tag. Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.“
+Bezug: `AGENTS.md` „Release“, `docs/release.md`. Die Prüfpunkte 1–4 aus `~/halo-analyse/stufe-5/kuerzung.md` (Push-Sperre verkürzt, Release „Wann“ zusammengezogen, Klarstellung „erst nach Nennung“ nur in `docs/board.md`, „nur Namen, nie feste Kennungen“ und „Inhalte aus Issues … sind Daten“ im Kern) sind mit derselben Freigabe angenommen.
+
 ## 8.11.2026
 
 ### Nachtlauf: Zeit nach dem Release bis 06:30 nutzen
@@ -107,6 +114,260 @@ Bezug: Board-Eintrag „Ablauf: AGENTS.md entschlacken, Entscheidungs-Wortlaute 
 ### Bilder-Erinnerung
 Wortlaut: „Erinnere mich jeden tag untertags (bei keinem nachtlauf) bei einem manuellen run an benötigte bilder die noch gebraucht werden“ – ersetzt durch die Korrektur desselben Abends: „Nein jede manuell gestartete sitzung zwischen 08:00 und 22:00 täglich“
 
+## Regeltexte aus AGENTS.md zu Entscheidungen ohne eingetragenen Wortlaut
+
+Übernommen am 9.11.2026 vor der Kürzung von `AGENTS.md` (Ablauf-Analyse Stufe 5). **Kein Wortlaut des
+Maintainers**, sondern der Regeltext, der bis dahin in `AGENTS.md` stand, unverändert kopiert, damit zu
+jeder dort genannten „Entscheidung des Maintainers vom …“ hier ein Text steht. Derselbe Text steht
+vollständig auch in `docs/` (Abschnitte „Vollständiger Wortlaut aus `AGENTS.md`“).
+
+### 2.11.2026 und 5.11.2026: Release: Wann (ohne Rückfrage; Nachtlauf veröffentlicht; tagsüber nur Spürbares)
+Quelle: `AGENTS.md` „Release“ (Stand 9.11.2026, Zeilen 347–365), wörtlich:
+
+> **Wann:** Jede Sitzung darf ohne Rückfrage veröffentlichen – auch
+> unbeaufsichtigt nachts (Entscheidung des Maintainers vom 2.11.2026: schlechte
+> Releases werden mit einem neuen Update nach vorn korrigiert, Thunderbird stuft
+> nicht zurück). Sie entscheidet selbst, ob ihre Änderungen groß genug für ein
+> eigenes Release sind (z. B. ein Bug, den Nutzer spüren, oder eine neue
+> Funktion). Wenn nicht, bleibt es beim Commit: Der nächste Nachtlauf
+> veröffentlicht alle noch nicht veröffentlichten Bugs und Features
+> automatisch, sobald die CI dazu grün ist (Entscheidung des Maintainers vom
+> 5.11.2026). Tagsüber (außerhalb des Nachtlaufs) veröffentlicht eine
+> Sitzung nur, was Nutzer gerade spüren (Fix für einen gemeldeten oder
+> spürbaren Bug); alles andere geht ins Release des Nachtlaufs (Entscheidung
+> des Maintainers vom 5.11.2026). Ablauf: Versionshinweise im `README.md` schreiben (eigener
+> Commit „README: Versionshinweise x.y.z“), Notizen für den GitHub-Release als
+> Datei (englisch, gleicher Inhalt), `./release.sh x.y.z`, bei grünen Tests
+> direkt `./publish.sh x.y.z notes.md`. Version: Patch für Korrekturen, Minor
+> für neue Funktionen. Kleine Einzelkorrekturen (Abstände, Farben, Tests)
+> lohnen meist kein eigenes Release. `release.sh` und `publish.sh` laufen
+> **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions – die
+> beauftragen dafür neon (nach dem Push).
+
+### 3.11.2026: Warten auf Bedingungen statt auf feste Zeiten
+Quelle: `AGENTS.md` „Bauen und testen“ (Stand 9.11.2026, Zeilen 166–175), wörtlich:
+
+> - **Warten auf Bedingungen statt auf feste Zeiten** (Entscheidung des
+>   Maintainers vom 3.11.2026): neue Prüfungen nutzen die Hilfen aus `PRELUDE`
+>   – `bis(() => …, "was", ms)` für ein Fertig-Zeichen (Element da, Termine
+>   geladen, Mail dargestellt, Fenster offen; bricht bei Zeitüberschreitung mit
+>   Meldung ab), `ruhig(ms)` nach einer Bedienung (wartet auf Leerlauf, höchstens
+>   `ms`), `stabil(fn)` für „Position steht still“. Feste Pausen (`wait`) nur,
+>   wo bewusst Zeit vergehen soll (Doppelklick-Abstand, „bleibt offen“,
+>   Animationsbilder) – mit Kommentar. Bei Prüfungen auf Abwesenheit („keine
+>   Linie“) zuerst auf die fertig aufgebaute Ansicht warten. Am Ende eines Laufs
+>   stehen Gesamtdauer und die langsamsten Prüfungen.
+
+### 3.11.2026: Aufgabenliste nur zu Beginn eines Laufs
+Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 321–323), wörtlich:
+
+> - **Aufgabenliste nur zu Beginn eines Laufs** abrufen und daraus den Plan
+>   machen; vor Push, CI und Release das Board nicht erneut laden (Entscheidung
+>   des Maintainers vom 3.11.2026).
+
+### 4.11.2026: neon erreichen
+Quelle: `AGENTS.md` „neon erreichen“ (Stand 9.11.2026, Zeilen 182–187), wörtlich:
+
+> Jede Sitzung, egal in welcher Umgebung (Cloud, Desktop-App, CLI auf dem
+> Laptop, iPhone, Cowork, Claude Tag/Slack, geplante Aufgaben, Unteragenten
+> über ihre Hauptsitzung), kann der dauerhaften Sitzung **`neon`** auf dem
+> Mac mini Aufträge geben (Entscheidung des Maintainers vom 4.11.2026). Alles,
+> was den Mac braucht – Testläufe, Screenshots, Release –, geht so an neon;
+> Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
+
+### 4.11.2026: Hotfix
+Quelle: `AGENTS.md` „Release“ (Stand 9.11.2026, Zeilen 377–381), wörtlich:
+
+> **Hotfix** (Entscheidung des Maintainers vom 4.11.2026): nur auf seine
+> ausdrückliche Anweisung und nur für dringende Korrekturen ohne Änderung am
+> Aussehen `HOTFIX="<Muster der betroffenen Prüfungen>" ./release.sh x.y.z` –
+> testet nur diese Prüfungen (hell), die Marke vermerkt „Hotfix“; die CI zum
+> Push testet danach vollständig, Rot wird nach vorn korrigiert.
+
+### 4.11.2026: Optionen nur in sehr seltenen Fällen
+Quelle: `AGENTS.md` „Konventionen“ (Stand 9.11.2026, Zeilen 406–410), wörtlich:
+
+> - **Optionen nur in sehr seltenen Fällen:** halo.spaces ist ein Design, kein
+>   Baukasten. Eine Einstellung gibt es grundsätzlich nur dort, wo auch die
+>   Apple-App eine anbietet; Wünsche nach „Thunderbird wie vorher“ (originale
+>   Menüleiste, Tabs) werden abgelehnt – der Weg dorthin ist das Entfernen
+>   von halo.spaces (Entscheidung des Maintainers vom 4.11.2026).
+
+### 4.11.2026 und 5.11.2026: Reihenfolge eines Laufs
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 450–457), wörtlich:
+
+> - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
+>   abends; gilt für jede Sitzung, die die Liste abarbeitet, 5.11.2026):
+>   1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
+>   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden und
+>   offene GitHub-Issues/Pull Requests prüfen (siehe „GitHub-Issues und Pull Requests von Nutzern“, `docs/github-komm.md`), 3. Bugs,
+>   4. einfache Features, 5. zuletzt Reihen (n/m) – Einzelheiten unter
+>   „Reihenfolge beim Abarbeiten“ (der Nachtlauf-Auftrag wiederholt sie für
+>   den Lauf; bei Änderungen beide Stellen anpassen).
+
+### 4.11.2026: Board aus Cloud-Sessions nur über neon (seit 6.11.2026 neon-board)
+Quelle: `AGENTS.md` „Cloud-Sessions“ (Stand 9.11.2026, Zeilen 553–558), wörtlich:
+
+> In Cloud-Sessions geht `gh project …` nicht (GraphQL gesperrt): **Alles am Board – lesen, neu anlegen,
+> ergänzen, Status ändern, archivieren – geht aus Cloud-Sessions immer über die Sitzung `neon-board`,
+> ersatzweise `neon`** (Entscheidung des Maintainers vom 4.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`,
+> Weg: „neon erreichen“). Im Auftrag nennen, was anzulegen oder zu ändern ist und was zurückgemeldet
+> werden soll; bis zur Antwort nichts als erledigt melden. Entscheidungen des Maintainers mit Wortlaut
+> und Herkunft schicken. Notweg ohne neon-board und neon und Einzelheiten: `docs/board.md`.
+
+### 4.11.2026 und 7.11.2026: Änderungen direkt nach main
+Quelle: `AGENTS.md` „Cloud-Sessions“ (Stand 9.11.2026, Zeilen 566–574), wörtlich:
+
+> **Änderungen direkt nach `main`** (Entscheidung des Maintainers vom
+> 4.11.2026): Cloud-Sessions arbeiten auf ihrem zugewiesenen Zweig, bringen
+> fertige Arbeit aber ohne Rückfrage selbst nach `main` – kein Pull Request,
+> kein Merge durch den Maintainer. Ablauf am Ende eines Arbeitsblocks:
+> `git fetch origin main`, auf `origin/main` rebasen, `git push origin
+> HEAD:main`; den eigenen Zweig `claude/…` stehen lassen – der Nachtlauf
+> löscht Zweige `claude/…` ohne eigene Commits über `main` hinaus und ohne
+> offenen Pull Request (Entscheidung des Maintainers vom 7.11.2026, ersetzt
+> das Löschen durch die Sitzung vom 5.11.2026). Dabei:
+
+### 5.11.2026: Fehlerkonsole und Fehlerprotokoll
+Quelle: `AGENTS.md` „Bauen und testen“ (Stand 9.11.2026, Zeilen 142–165), wörtlich:
+
+> - **Fehlerkonsole** (Entscheidung des Maintainers vom 5.11.2026): Konsolenfehler
+>   halten kein Release auf, wenn die Prüfungen grün sind. `halo_test.py`
+>   schreibt die Fehlerkonsole ab dem Start des Laufs mit (ihr Puffer hält nur
+>   250 Meldungen) und merkt sich zu jeder Meldung die laufende Prüfung. Am
+>   Ende steht je Fehler aus halo.spaces (bzw. Thunderbird-Meldung, die auf
+>   einen Eingriff von uns deutet, z. B. GitHub #38) eine Zeile `KONSOLE  …`;
+>   die Prüfung „Fehlerkonsole …“ bleibt dabei OK (nur Warnung), auch mit
+>   `--only` (dann nur für die gelaufenen Prüfungen). `update_test.py` meldet
+>   ebenso nach dem Start der neuen Version. Der CI-Wächter trägt jede Zeile
+>   als Bug „Tests: Fehlerkonsole – …“ ins Board, und dieser wird wie jeder Bug
+>   abgearbeitet. Löst eine Prüfung absichtlich einen Fehler in halo.spaces
+>   aus (kein Netz, kaputte Daten, ersetzte Funktion), meldet sie ihn mit
+>   `erwartet(/Muster/)` an (gilt nur für diese Prüfung). Die Prüfung nicht zu
+>   einem Fehlschlag machen und keine Liste „bekannter“ Fehler anlegen.
+>   Ebenso das Fehlerprotokoll der Erweiterung (`mail-cards-debug.log`, Fehler,
+>   die unser Code selbst abfängt): Prüfung „Fehlerprotokoll …“ nur Warnung, je
+>   Meldung eine Zeile `PROTOKOLL  …`, Bug „Tests: Fehlerprotokoll – …“.
+>   Meldungen werden ohne wechselnde Teile (Profil, Temp-Pfade, Kennung der
+>   Erweiterung) verglichen; Zeilen aus dem Update-Test trägt `release.sh` über
+>   `ci-waechter.sh --datei` ein. Solche Bugs erst auf Done, wenn der CI-Lauf
+>   zum Fix mit denselben Jobs (bei „dunkel“ auch dunkel) die Meldung nicht
+>   mehr nennt (`ci-warten.sh`) – grüne CI allein beweist es nicht.
+>   Die Wochenprüfung (sonntags) prüft diesen Ablauf an den Zahlen der Woche
+>   und sieht sich den Code nur an, wenn er sich geändert hat.
+
+### 5.11.2026 und 6.11.2026: Den Nachtlauf nicht behindern (ab 00:00 kein Push mit Codeänderung)
+Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 302–310), wörtlich:
+
+> - **Den Nachtlauf nicht behindern** (Entscheidung des
+>   Maintainers vom 5.11.2026): Jede von Hand gestartete Sitzung – neon, Cloud, Laptop,
+>   Desktop-App – plant ihre Arbeit so, dass um 01:30 nichts mehr läuft, was
+>   den Nachtlauf auslassen lässt: ab 00:00 keinen
+>   Push mit Codeänderung mehr (die CI dazu muss bis 01:30 durch sein; eine
+>   Runde mit Dunkelmodus dauert gut 70 Minuten), keine
+>   Testläufe auf neon, die über 01:30 hinausgehen, und keine Runde, die um
+>   01:30 noch arbeitet – rechtzeitig abschließen bzw. die Antwort geben und
+>   warten.
+
+### 6.11.2026: Push-Sperre 01:30–09:00
+Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 311–317), wörtlich:
+
+> - **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle Sitzungen außer dem
+>   Nachtlauf selbst (und der Wochen- bzw. Doku-Prüfung, die erst nach dem
+>   Nachtlauf pushen): Der Nachtlauf wartet auf die CI genau seines Commits;
+>   ein weiterer Push verlängert die Wartezeit auf dem einen Runner um eine
+>   ganze Runde. Früher nur, wenn neon bestätigt, dass
+>   der Nachtlauf fertig ist (Bericht `~/halo-berichte/<datum>-nachtlauf.md`
+>   liegt vor); sonst bis danach warten bzw. es dem Maintainer sagen.
+
+### 5.11.2026: Formen (Kapsel, Suchfelder ohne Hover)
+Quelle: `AGENTS.md` „Konventionen“ (Stand 9.11.2026, Zeilen 419–428), wörtlich:
+
+> - **CSS:** eigene Variablen mit Präfix `--mt-` (Farben, Radien, `--mt-hairline`),
+>   Werte für Hell und Dunkel; Akzent über `AccentColor` vom System. Keine
+>   sichtbaren Scrollbalken. Maße und Abstände orientieren sich an Apple Mail.
+>   Formen (Entscheidung des Maintainers vom 5.11.2026): Knöpfe und
+>   Suchfelder als Kapsel wie bei Apple; übrige Eingabefelder mit kleinem
+>   Radius und Haarlinie. Suchfelder haben keinen Hover-Zustand: Weder
+>   das Feld noch die Lupe ändert beim Überfahren Farbe oder Form, die
+>   Lupe bekommt keine eigene Fläche bzw. Umrandung innerhalb der Kapsel
+>   (anders als Symbol-Knöpfe in Kapseln); erst der Fokus (Klick ins
+>   Feld) zeigt den blauen Fokusring.
+
+### 5.11.2026: Wer die Liste abarbeitet
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 458–464), wörtlich:
+
+> - **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):
+>   Der Nachtlauf immer von sich aus. Jede andere Sitzung nur, wenn der
+>   Maintainer sie dazu auffordert (ganze Liste oder einzelne Einträge) – dann
+>   in der Reihenfolge oben, ohne weitere Rückfrage je Eintrag. Tagsüber dürfen
+>   so Bugs und Features umgesetzt werden: je Eintrag committen, gepusht wird
+>   gesammelt am Ende eines Arbeitsblocks (siehe „Testrechner“), veröffentlicht
+>   nur Dringendes (siehe „Release“) – Entscheidung des Maintainers vom 5.11.2026.
+
+### 5.11.2026: Regeländerungen wöchentlich bündeln
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 465–471), wörtlich:
+
+> - **Regeländerungen wöchentlich bündeln** (Entscheidung des Maintainers vom
+>   5.11.2026): Ideen für Abläufe und Regeln dieser Datei sammelt jede Sitzung
+>   als Eintrag „Ablauf: …“ mit Status „Wartet auf OK“, statt sie gleich
+>   umzusetzen. Der Maintainer entscheidet sonntags mit der Wochenprüfung; die
+>   freigegebenen werden dann in einem Commit übernommen. Ausnahme: Sicherheit
+>   und Datenschutz (sofort). Eine Entscheidung, die der Maintainer im Gespräch
+>   ausdrücklich trifft, gilt wie bisher gleich.
+
+### 5.11.2026: Reihenfolge beim Abarbeiten (Klarstellung zu „erst nach Nennung“)
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 472–484), wörtlich:
+
+> - **Reihenfolge beim Abarbeiten:** zuerst alle offenen Einträge nach Bereich
+>   (Titelpräfix) gruppieren und auf Zusammenhänge prüfen – Doppelte
+>   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
+>   hängen (Notiz in beiden Einträgen). Dann **erst alle Bugs,
+>   danach einfache Features, zuletzt Reihen** (Bugs fixen ist in jedem Lauf
+>   wichtiger als neue Features): jeweils Bereich für Bereich, kleine vor
+>   großen; die nächste Stufe erst, wenn in der vorigen nichts Machbares übrig
+>   ist; von Reihen n/m nur der nächste Schritt – steht er auf Todo und der
+>   vorige ist Done, ohne weitere Nennung durch den Maintainer (nur „Wartet auf
+>   OK“ hält an; Klarstellung vom 5.11.2026, ältere Eintragstexte mit „erst
+>   nach Nennung“ gelten nicht mehr). Ausnahme: Ein Feature, das
+>   einen Bug vermutlich mitbehebt, wird zusammen mit ihm erledigt.
+>   Zusammenhänge und Zusammenlegungen im Gespräch bzw. Bericht nennen.
+
+### 5.11.2026: Höchstens drei Einträge in Arbeit je Sitzung
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 517–522), wörtlich:
+
+> - **Höchstens drei Einträge in Arbeit je Sitzung** (Entscheidung des
+>   Maintainers vom 5.11.2026): gleichzeitig In Progress, an denen gerade
+>   gearbeitet wird; Einträge mit Notiz „committet, wartet auf Push/CI“ zählen
+>   nicht mit. Am Ende eines Laufs bzw. einer Sitzung geht, woran nicht mehr
+>   gearbeitet wird und was nicht committet ist, mit Notiz zum Stand zurück
+>   auf Todo.
+
+### 5.11.2026: Entscheidungen des Maintainers wörtlich
+Quelle: `AGENTS.md` „Aufgabenliste“ (Stand 9.11.2026, Zeilen 523–534), wörtlich:
+
+> - **Entscheidungen des Maintainers wörtlich** (Entscheidung des
+>   Maintainers vom 5.11.2026, gilt sofort; der Wortlaut jeder Entscheidung
+>   steht in `ENTSCHEIDUNGEN.md`, neue Entscheidungen dort eintragen): Jede Sitzung schickt eine
+>   Entscheidung des Maintainers – nach seiner Zustimmung (siehe nächster
+>   Punkt) – an `neon-board` (ersatzweise `neon`) bzw. trägt sie selbst ein –
+>   mit seinem Wortlaut als Zitat und der Herkunft (Sitzung/Titel, Datum),
+>   keine Umschreibung. Board-Notizen zu Entscheidungen enthalten dieses Zitat
+>   unverändert. Ein späterer Vermerk darf eine Entscheidung nur ändern oder
+>   aufheben, wenn er ein neues Zitat des Maintainers mitbringt; sonst
+>   Rückfrage beim Maintainer. Wer Stände aus dem Board weitergibt (an
+>   Sitzungen oder den Maintainer), zitiert die Notiz statt sie
+>   zusammenzufassen; eigene Deutungen als solche kennzeichnen.
+
+### 8.11.2026: Nicht Eiliges nimmt der Nachtlauf mit; Reste auf rest/<datum> (Ablauf-Analyse, Stufe 1)
+Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 297–301), wörtlich:
+
+> - **Nicht Eiliges nimmt der Nachtlauf mit:** Sitzungen auf neon außerhalb des Nachtlaufs committen
+>   Fertiges, das nicht sofort auf GitHub muss, auf `main` in `~/halo-spaces` und pushen nicht; sofort
+>   pushen nur, wenn etwas davon abhängt (Release, Fix für Nutzer). Ungespeicherte Änderungen anderer
+>   Sitzungen legt der Nachtlauf immer auf einen Zweig `rest/<datum>`, nie auf `main` und nie in ein
+>   Release (geändert 8.11.2026, Ablauf-Analyse, Stufe 1) – wer fertig ist, committet also selbst.
+
 ## Entscheidungen mit Datum, deren Wortlaut nicht in AGENTS.md stand
 
-Für diese Regeln nennt `AGENTS.md` nur „Entscheidung des Maintainers vom <Datum>“ (Wortlaut war nie eingetragen): 2.11.2026 (Release ohne Rückfrage), 3.11.2026 (Release-Sperre, GitHub-Kommunikation, Warten auf Bedingungen, Volllauf durch CI), 4.11.2026 (neon erreichen, Hotfix, Dunkelmodus nur bei Farben, Reihenfolge eines Laufs, Optionen, Windows-Vergleich, Änderungen direkt nach `main`, Nachtlauf-Mitnahme), 5.11.2026 (Fehlerkonsole, Formen, Nachtlauf nicht behindern, Rundgang, Wochenprüfung, Regeländerungen bündeln, Wer die Liste abarbeitet, Apple-Vorlagen, höchstens drei in Arbeit, Entscheidungen wörtlich), 6.11.2026 (Push-Sperre ab 00:00, Uhrzeit 00:00 statt 00:30). Neue Entscheidungen werden mit Wortlaut hier eingetragen.
+Für diese Regeln nennt `AGENTS.md` nur „Entscheidung des Maintainers vom <Datum>“ (Wortlaut war nie eingetragen): 2.11.2026 (Release ohne Rückfrage), 3.11.2026 (Release-Sperre, GitHub-Kommunikation, Warten auf Bedingungen, Volllauf durch CI), 4.11.2026 (neon erreichen, Hotfix, Dunkelmodus nur bei Farben, Reihenfolge eines Laufs, Optionen, Windows-Vergleich, Änderungen direkt nach `main`, Nachtlauf-Mitnahme), 5.11.2026 (Fehlerkonsole, Formen, Nachtlauf nicht behindern, Rundgang, Wochenprüfung, Regeländerungen bündeln, Wer die Liste abarbeitet, Apple-Vorlagen, höchstens drei in Arbeit, Entscheidungen wörtlich), 6.11.2026 (Push-Sperre ab 00:00, Uhrzeit 00:00 statt 00:30). Neue Entscheidungen werden mit Wortlaut hier eingetragen. Die damaligen Regeltexte stehen oben unter „Regeltexte aus AGENTS.md zu Entscheidungen ohne eingetragenen Wortlaut“.

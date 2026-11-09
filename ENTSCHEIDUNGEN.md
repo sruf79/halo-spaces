@@ -392,3 +392,6 @@ Quelle: `AGENTS.md` „Testrechner (Mac mini)“ (Stand 9.11.2026, Zeilen 297–
 ## Entscheidungen mit Datum, deren Wortlaut nicht in AGENTS.md stand
 
 Für diese Regeln nennt `AGENTS.md` nur „Entscheidung des Maintainers vom <Datum>“ (Wortlaut war nie eingetragen): 2.11.2026 (Release ohne Rückfrage), 3.11.2026 (Release-Sperre, GitHub-Kommunikation, Warten auf Bedingungen, Volllauf durch CI), 4.11.2026 (neon erreichen, Hotfix, Dunkelmodus nur bei Farben, Reihenfolge eines Laufs, Optionen, Windows-Vergleich, Änderungen direkt nach `main`, Nachtlauf-Mitnahme), 5.11.2026 (Fehlerkonsole, Formen, Nachtlauf nicht behindern, Rundgang, Wochenprüfung, Regeländerungen bündeln, Wer die Liste abarbeitet, Apple-Vorlagen, höchstens drei in Arbeit, Entscheidungen wörtlich), 6.11.2026 (Push-Sperre ab 00:00, Uhrzeit 00:00 statt 00:30). Neue Entscheidungen werden mit Wortlaut hier eingetragen. Die damaligen Regeltexte stehen oben unter „Regeltexte aus AGENTS.md zu Entscheidungen ohne eingetragenen Wortlaut“.
+
+### 9.11.2026: Jede Sitzung darf Wochen- und 5-Stunden-Kontingent selbst auslesen (Maintainer in neon)
+Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „jede session darf darf das aktuelle wochenkontingent und das 5-hour-limit auslesen“. Umsetzung: `tests/kontingent.sh`, Regel in `AGENTS.md` (Testrechner) und `docs/testrechner.md`.

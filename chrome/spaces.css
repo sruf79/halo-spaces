@@ -11596,6 +11596,7 @@ tooltip#itemTooltip {
 #mc-cal-search {
   position: relative;
   flex: none;
+  box-sizing: border-box;
   width: 240px;
   min-height: 0;
   overflow-x: hidden;

@@ -14005,6 +14005,43 @@ Neu
         return ok, f"{res}"
     check("Suche: alle Postfächer, Datum, Trefferzahl, Markierung, zurück zum Ordner", mail_search, results)
 
+    def calendar_search():
+        # Suchfeld oben im Kalender sucht Termine statt Mails (GitHub #53): Treffer in Thunderbirds Terminliste unter
+        # dem Kalender, auch weit außerhalb der nächsten 7 Tage; Leeren schließt die Liste und stellt den Zeitraum wieder her
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar(); const made = [];
+          const at = days => { const s = cal.dtz.now(); s.day += days; s.hour = 10; s.minute = 0; s.second = 0; return s; };
+          for (const [t, days] of [["Halo Zahnarzt Kontrolle", 40], ["Halo Anderes Treffen", 2]]) {
+            const e = new CalEvent(); e.title = t; e.calendar = c; const s = at(days), en = s.clone(); en.hour += 1;
+            e.startDate = s; e.endDate = en; made.push(await c.addItem(e)); }
+          const out = {};
+          try {
+            await toCalendar(); w.switchToView("week"); await ruhig(800);
+            const box = d.getElementById("bottom-events-box"), menu = d.getElementById("event-filter-menulist");
+            out.before = { hidden: box.hidden, interval: menu.value };
+            const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+            const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
+            const titles = () => { const tree = d.getElementById("unifinder-search-results-tree"), v = tree?.view; const r = [];
+              const col = tree?.columns?.getNamedColumn("unifinder-search-results-tree-col-title");
+              for (let i = 0; i < (v?.rowCount || 0); i++) r.push(v.getCellText(i, col) || ""); return r; };
+            fire("autocomplete", "zahnarzt");
+            await bis(() => !box.hidden && titles().some(t => /Zahnarzt/.test(t)), "Termin in der Trefferliste", 6000); await ruhig(500);
+            out.during = { hidden: box.hidden, interval: menu.value, field: d.getElementById("unifinder-search-field").value, titles: titles().filter(t => /^Halo /.test(t)),
+                           tab: tm.currentTabInfo.mode.name };
+            fire("autocomplete", ""); await bis(() => box.hidden, "Terminliste wieder zu", 4000); await ruhig(300);
+            out.after = { hidden: box.hidden, interval: menu.value, field: d.getElementById("unifinder-search-field").value };
+          } finally {
+            for (const e of made) { try { await c.deleteItem(e); } catch {} }
+          }
+          return out;''')
+        b, du, af = res.get("before") or {}, res.get("during") or {}, res.get("after") or {}
+        ok = (b.get("hidden") is True and du.get("hidden") is False and du.get("tab") == "calendar" and du.get("interval") == "all"
+              and du.get("field") == "zahnarzt" and du.get("titles") == ["Halo Zahnarzt Kontrolle"]
+              and af.get("hidden") is True and af.get("interval") == b.get("interval") and af.get("field") == "")
+        return ok, f"{res}"
+    check("Kalender: Suchfeld oben sucht Termine (auch in 40 Tagen) in der Terminliste statt Mails, Leeren schließt sie und stellt den Zeitraum wieder her", calendar_search, results)
+
     def search_placeholder():
         # Suchfeld oben: Platzhalter je Bereich steht im eigenen <span slot="placeholder">
         # (das placeholder-Attribut wäre unsichtbar) und in der Sprache der Oberfläche;

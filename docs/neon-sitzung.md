@@ -95,9 +95,9 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     `~/halo-board`).
   - Wo das Modell von neon herkommt: `claude remote-control` hat kein
     `--model`; der Server gibt jeder Sitzung beim (Neu-)Start ihr
-    gespeichertes Modell als `--model` mit (Stand 6.11.2026: neon mit
-    `claude-opus-5-5`, zu sehen mit `ps -o args= -p <pid>` am Kindprozess
-    von `claude remote-control`). Das schlägt Einstellungen und
+    gespeichertes Modell als `--model` mit (neon läuft Sonnet medium, Opus
+    nur über Unteragenten mit `[opus]`; zu sehen mit `ps -o args= -p <pid>`
+    am Kindprozess von `claude remote-control`). Das schlägt Einstellungen und
     `ANTHROPIC_MODEL`. Umstellen deshalb einmal durch den Maintainer im
     Modellwähler der Sitzung `neon` (claude.ai/code bzw. Claude-App); das
     gilt dann auch nach Neustarts. Gleiches gilt für `neon-board`, falls
@@ -141,9 +141,8 @@ Board und Bilder an `neon-board` (unten). Reihenfolge, bis einer klappt:
    die dort als LaunchAgent dauerhaft läuft, `tests/MAC-MINI.md` Abschnitt 12).
 2. `list_sessions` (`mine: true`), Sitzung mit Titel `neon` suchen, dann
    `send_message` mit ihrer ID. Keine feste ID verwenden: nach einem Neustart
-   von neon (`docs/neon-sitzung.md`) kann sich die ID ändern (Stand 6.11.2026
-   `session_01BK9gbfo3oZh8yxoakmG4CD`, bei den bisherigen Neustarts gleich
-   geblieben) – immer über `ListAgents` bzw. die Liste suchen.
+   von neon (`docs/neon-sitzung.md`) kann sich die ID ändern – immer über
+   `ListAgents` bzw. die Liste suchen, nur Namen verwenden.
 3. Lehnt `send_message` mit einem `content_digest` ab
    (`confirm_repository_trust`), diese Freigabe sofort anfragen – die
    Claude-App fragt den Maintainer selbst – und danach erneut senden.

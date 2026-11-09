@@ -4179,7 +4179,9 @@ function hookTaskCards(win, restorers) {
     const cards = tasks.map((task, i) => {
       const card = el("div", "mc-tc");
       card.dataset.index = i;
+      card.__mcTask = task;
       card.toggleAttribute("data-completed", !!task.isCompleted);
+      card.toggleAttribute("data-dragging", !!drag && drag.__mcHash == task.hashId);
       if (sel?.isSelected(i)) {
         card.setAttribute("aria-selected", "true");
       }
@@ -4253,8 +4255,8 @@ function hookTaskCards(win, restorers) {
   const renderBoard = (tasks, cards) => {
     const groups = BOARD_COLUMNS.map(() => []);
     cards.forEach((card, i) => groups[stageOf(tasks[i])].push(card));
-    let cols = [...list.children];
-    if (cols.length != BOARD_COLUMNS.length || !cols.every(c => c.classList.contains("mc-tb-col"))) {
+    let cols = [...list.children].filter(c => c.classList.contains("mc-tb-col"));
+    if (cols.length != BOARD_COLUMNS.length || list.children.length != cols.length + (drag ? 1 : 0)) {
       cols = BOARD_COLUMNS.map(([key, label]) => {
         const col = el("div", "mc-tb-col");
         col.dataset.stage = key;
@@ -4263,7 +4265,8 @@ function hookTaskCards(win, restorers) {
         col.append(head, el("div", "mc-tb-cards"));
         return col;
       });
-      list.replaceChildren(...cols);
+      // (eine gezogene Karte bleibt sichtbar)
+      list.replaceChildren(...cols, ...(drag ? [drag] : []));
     }
     cols.forEach((col, k) => {
       col.querySelector(".mc-tb-count").textContent = String(groups[k].length);
@@ -4279,6 +4282,95 @@ function hookTaskCards(win, restorers) {
         body.replaceChildren(...groups[k], ...(k == 0 ? [newTaskRow()] : []));
       }
     });
+  };
+  // Karte in eine andere Spalte ziehen setzt den Fortschritt: Not Started 0 %,
+  // In Progress 50 %, Completed erledigt (Entscheidung des Maintainers vom
+  // 9.11.2026), über Thunderbirds Transaktion (mit Rückgängig). Beim Ziehen
+  // folgt eine Kopie der Karte der Maus, die Zielspalte ist umrandet
+  const BOARD_PCT = [0, 50, 100];
+  const setStage = async (task, k) => {
+    if (!task || stageOf(task) == k) {
+      return;
+    }
+    try {
+      if (!cal.acl.isCalendarWritable(task.calendar) || !cal.acl.userCanModifyItem(task)) {
+        return;
+      }
+    } catch {
+      return;
+    }
+    const item = task.clone();
+    const p = BOARD_PCT[k];
+    if (p == 100) {
+      item.isCompleted = true;
+    } else {
+      item.isCompleted = false;
+      item.status = p ? "IN-PROCESS" : "NONE";
+      item.percentComplete = p;
+    }
+    try {
+      await win.doTransaction("modify", item, item.calendar, task, null);
+    } catch (e) {
+      log("task board move error", e);
+    }
+  };
+  let drag = null, endDrag = null;
+  const startDrag = (down, i) => {
+    endDrag?.(false); // (ein Ziehen ohne mouseup nicht weiterführen)
+    // (die Aufgabe der Karte selbst, nicht über die Zeilennummer – die Liste
+    // ordnet sich nach einer Änderung neu, bevor die Karten nachziehen)
+    const card = down.target.closest(".mc-tc");
+    const task = card?.__mcTask || tree.mTaskArray?.[i];
+    if (!card || !task) {
+      return;
+    }
+    let over = null;
+    const move = e => {
+      if (!drag) {
+        if (Math.hypot(e.clientX - down.clientX, e.clientY - down.clientY) < 5) {
+          return;
+        }
+        const r = card.getBoundingClientRect();
+        drag = card.cloneNode(true);
+        drag.removeAttribute("data-index");
+        drag.removeAttribute("aria-selected");
+        drag.classList.add("mc-tb-ghost");
+        drag.style.width = `${r.width}px`;
+        drag.__dx = down.clientX - r.left;
+        drag.__dy = down.clientY - r.top;
+        drag.__mcHash = task.hashId;
+        list.append(drag);
+        for (const k of list.querySelectorAll(".mc-tc[data-index]")) {
+          k.toggleAttribute("data-dragging", k.__mcTask?.hashId == task.hashId);
+        }
+      }
+      drag.style.left = `${e.clientX - drag.__dx}px`;
+      drag.style.top = `${e.clientY - drag.__dy}px`;
+      const col = doc.elementFromPoint(e.clientX, e.clientY)?.closest?.(".mc-tb-col") || null;
+      if (col != over) {
+        over?.removeAttribute("data-drop");
+        over = col;
+        over?.setAttribute("data-drop", "");
+      }
+    };
+    const up = (drop = true) => {
+      endDrag = null;
+      win.removeEventListener("mousemove", move, true);
+      win.removeEventListener("mouseup", up, true);
+      const moved = !!drag && drop !== false;
+      drag?.remove();
+      drag = null;
+      for (const k of list.querySelectorAll("[data-dragging]")) {
+        k.removeAttribute("data-dragging");
+      }
+      over?.removeAttribute("data-drop");
+      if (moved && over) {
+        setStage(task, [...list.querySelectorAll(".mc-tb-col")].indexOf(over));
+      }
+    };
+    endDrag = up;
+    win.addEventListener("mousemove", move, true);
+    win.addEventListener("mouseup", up, true);
   };
   // Neue Aufgabe wie in Apple Erinnerungen (Aufgaben 4/5): unter der letzten
   // Karte eine leere Zeile mit grauem Kreis und „New Task“ – Klick und gleich
@@ -4430,6 +4522,9 @@ function hookTaskCards(win, restorers) {
       sel.select(i);
     }
     tree.currentIndex = i;
+    if (event.button == 0 && !event.shiftKey && doc.documentElement.hasAttribute("mc-task-board")) {
+      startDrag(event, i);
+    }
   });
   list.addEventListener("dblclick", event => {
     const i = indexOf(event);

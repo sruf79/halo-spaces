@@ -13265,6 +13265,30 @@ Neu
               } finally { w.modifyEventWithDialog = orig; }
               out.dbl = opened2;
             }
+            // Ziehen: „offen“ nach Completed (erledigt), „halb“ nach Not Started (0 %), „fertig“ nach In Progress (50 %);
+            // Zielspalte beim Ziehen umrandet, Kopie der Karte folgt der Maus
+            const dragTo = async (title, k) => {
+              const cardOf = () => [...list.querySelectorAll(".mc-tc[data-index]")].find(x => x.querySelector(".mc-tc-title")?.textContent.includes(title));
+              const k0 = cardOf(), col = list.querySelectorAll(".mc-tb-col")[k];
+              if (!k0 || !col) return null;
+              const a = k0.getBoundingClientRect(), b = col.getBoundingClientRect();
+              const ev = (type, x, y, t = w) => t.dispatchEvent(new w.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y, view: w }));
+              ev("mousedown", a.left + 60, a.top + 10, k0.querySelector(".mc-tc-title"));
+              ev("mousemove", a.left + 70, a.top + 14);
+              ev("mousemove", b.left + b.width / 2, b.top + b.height / 2);
+              const seen = { drop: col.hasAttribute("data-drop"), ghost: !!list.querySelector(".mc-tb-ghost"), faded: !!list.querySelector(".mc-tc[data-index][data-dragging]")?.textContent.includes(title) };
+              ev("mouseup", b.left + b.width / 2, b.top + b.height / 2);
+              seen.clean = !list.querySelector(".mc-tb-ghost, [data-drop], [data-dragging]");
+              return seen;
+            };
+            out.drag = await dragTo("Halo Kanban offen", 2); await ruhig(300);
+            await dragTo("Halo Kanban halb", 0); await ruhig(300);
+            await dragTo("Halo Kanban fertig", 1);
+            const after = async s => { const t = await c.getItem(s.id); return t && (t.isCompleted ? "done" : String(t.percentComplete || 0)); };
+            await bis(async () => (await after(saved[0])) == "done" && (await after(saved[1])) == "0" && (await after(saved[2])) == "50", "Fortschritt gesetzt", 5000).catch(() => {});
+            await ruhig(500);
+            out.moved = [await after(saved[0]), await after(saved[1]), await after(saved[2])];
+            out.movedCols = [...list.querySelectorAll(".mc-tb-col")].map(col => [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Kanban/.test(t)));
             Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(800);
             out.back = { cols: list.querySelectorAll(".mc-tb-col").length, cards: list.querySelectorAll(":scope > .mc-tc[data-index]").length,
                          board: d.documentElement.hasAttribute("mc-task-board"), details: Math.round(det.getBoundingClientRect().width) };
@@ -13284,9 +13308,12 @@ Neu
               and res.get("countsMatch") and res.get("newRow") == [True, False, False]
               and res.get("details") == 0 and res.get("attr")
               and res.get("selected") == {"task": "Halo Kanban halb", "card": True} and res.get("dbl") == "Halo Kanban halb"
+              and res.get("drag") == {"drop": True, "ghost": True, "faded": True, "clean": True}
+              and res.get("moved") == ["done", "0", "50"]
+              and res.get("movedCols") == [["Halo Kanban halb"], ["Halo Kanban fertig"], ["Halo Kanban offen"]]
               and bk.get("cols") == 0 and bk.get("cards", 0) >= 2 and not bk.get("board"))
         return ok, f"{res}"
-    check("Aufgaben: Kanban-Ansicht über „…“, drei Spalten nach Fortschritt (Not Started, In Progress, Completed) mit Anzahl, ohne Detailspalte, Klick wählt, Doppelklick öffnet", task_board, results)
+    check("Aufgaben: Kanban-Ansicht über „…“, drei Spalten nach Fortschritt (Not Started, In Progress, Completed) mit Anzahl, ohne Detailspalte, Klick wählt, Doppelklick öffnet, Ziehen in eine Spalte setzt 0/50/100 %", task_board, results)
 
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste

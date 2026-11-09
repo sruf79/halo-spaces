@@ -1804,6 +1804,25 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   padding-bottom: 4px;
 }
 
+/* Ziehen zwischen den Spalten: Zielspalte mit Akzentrand, die Karte bleibt
+   blass an ihrem Platz, eine Kopie folgt der Maus */
+.mc-tb-col[data-drop] {
+  box-shadow: inset 0 0 0 2px var(--mt-accent);
+}
+
+.mc-tc[data-dragging] {
+  opacity: 0.4;
+}
+
+.mc-tc.mc-tb-ghost {
+  position: fixed;
+  z-index: 10;
+  margin: 0;
+  pointer-events: none;
+  background: var(--mt-window);
+  box-shadow: var(--mt-shadow);
+}
+
 .mc-tc {
   display: flex;
   align-items: flex-start;

@@ -42,8 +42,11 @@ Reihenfolge:
       ausgelassen), die Änderung mit git revert zurücknehmen und im Bericht
       sowie in ~/halo-aufgaben/ablauf-aenderungen.json (ergebnis „zurück“)
       vermerken.
-      Erst danach die Aufgabenliste laden (Reihenfolge des Maintainers vom
-      4.11.2026: Commits, Liste, Bugs, Features, Reihen).
+      Erst danach die Aufgabenliste laden (Reihenfolge eines Laufs, Entscheidung
+      des Maintainers vom 4.11.2026, gleich wie docs/board.md: 1. neue bzw. nicht
+      gepushte Commits durchsehen, 2. Aufgabenliste laden und offene
+      GitHub-Issues/Pull Requests prüfen, 3. Bugs, 4. einfache Features,
+      5. zuletzt Reihen (n/m)).
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
    Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:

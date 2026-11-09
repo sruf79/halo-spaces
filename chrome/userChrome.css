@@ -3358,12 +3358,13 @@ unified-toolbar {
 
 /* ---------- Nachfassen (wie „Follow Up“ in Apple Mail) ----------
    Hinweis über der Mailliste im Posteingang (#mcFollowUp, setzt die
-   Erweiterung): eigene Mail ohne Antwort, „Nachfassen“ und ✕ */
+   Erweiterung): eigene Mail ohne Antwort, „Nachfassen“ und ✕;
+   unten 8 px Luft bis zur ersten Mail-Kachel (vorher 2 px, klebte daran) */
 #mcFollowUp {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 8px 2px;
+  margin: 6px 8px 8px;
   padding: 8px 8px 8px 12px;
   border-radius: var(--mt-radius-row, 10px);
   background: color-mix(in srgb, var(--mt-accent) 10%, var(--mt-window));

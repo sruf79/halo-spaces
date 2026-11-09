@@ -8249,7 +8249,9 @@ def server_checks(m, results):
                 const probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.background = "AccentColor"; bar.append(probe);
                 out.look = { accent: cs(probe).backgroundColor, goBg: cs(go).backgroundColor, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
                              xBg: cs(x).backgroundColor, xW: Math.round(r(x).width), xH: Math.round(r(x).height),
-                             text: cs(bar.querySelector(".mc-fu-text")).fontSize, barH: Math.round(r(bar).height) };
+                             text: cs(bar.querySelector(".mc-fu-text")).fontSize, barH: Math.round(r(bar).height),
+                             // Luft bis zur Mailliste darunter (vorher 2 px, Hinweis klebte an der ersten Kachel)
+                             gap: Math.round(r(a3.document.getElementById("threadTree")).top - r(bar).bottom) };
                 probe.remove();
               }
               // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
@@ -8266,9 +8268,9 @@ def server_checks(m, results):
             lk = res.get("look") or {}
             ok = ok and (lk.get("goBg") == lk.get("accent") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
                          and lk.get("xBg") in ("transparent", "rgba(0, 0, 0, 0)") and lk.get("xW", 99) <= 24 and lk.get("xH", 99) <= 24
-                         and lk.get("text") == "12px")
+                         and lk.get("text") == "12px" and lk.get("gap", 0) >= 8)
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, Knopf in Akzentfarbe und kleines ✕, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, Knopf in Akzentfarbe und kleines ✕, 8 px Luft zur Mailliste, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen

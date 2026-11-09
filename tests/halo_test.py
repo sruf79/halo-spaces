@@ -14046,6 +14046,48 @@ Neu
         return ok, f"{res}"
     check("Kalender: Suchfeld oben sucht Termine (auch in 40 Tagen) in der Terminliste statt Mails, Leeren schließt sie und stellt den Zeitraum wieder her", calendar_search, results)
 
+    def calendar_alarm_alert():
+        # Terminerinnerung als Mitteilung des Systems statt Thunderbirds Erinnerungsfenster (wie Apple Kalender):
+        # Vorgabe „Fenster zeigen“ aus, Mitteilung mit Titel, Zeit und Ort, Klick öffnet den Termin, danach erledigt
+        res = m.js(r'''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global;
+          const AA = Cu.evalInSandbox("AlarmAlerts", g);
+          const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          const c = testCalendar();
+          const e = new CalEvent(); e.title = "Halo Erinnerungstermin"; e.calendar = c; e.setProperty("LOCATION", "Halo Raum 3");
+          const s = cal.dtz.now(); s.minute += 5; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.minutes = -10; al.offset = off; al.action = "DISPLAY"; e.addAlarm(al);
+          const shown = [];
+          const fake = { showAlertWithCallbacks: (n, cb) => shown.push({ title: n.title, text: n.text, cb }), showAlert: (n, l) => shown.push({ title: n.title, text: n.text, l }) };
+          const out = { pref: Services.prefs.getBoolPref("calendar.alarms.show", true), userSet: Services.prefs.prefHasUserValue("calendar.alarms.show") };
+          let saved = null;
+          try {
+            saved = await c.addItem(e);
+            AA.alerts = fake;
+            AA.onAlarm(saved, saved.getAlarms()[0]);
+            await bis(() => shown.length, "Mitteilung gezeigt", 3000);
+            out.shown = shown.map(x => ({ title: x.title, text: x.text }));
+            let acked = null; for (const end = Date.now() + 5000; !acked && Date.now() < end; await takt(50)) { const i = await c.getItem(saved.id); acked = i?.alarmLastAck ? i : null; }
+            out.acked = !!acked;
+            out.alarmWindow = !!Services.wm.getMostRecentWindow("Calendar:AlarmWindow");
+            // Klick auf die Mitteilung öffnet den Termin
+            const before = new Set([...Services.wm.getEnumerator(null)]);
+            (shown[0].cb ? () => shown[0].cb.onAlertClick() : () => shown[0].l.observe(null, "alertclickcallback"))();
+            const win = await until(() => [...Services.wm.getEnumerator(null)].find(x => !before.has(x)), 5000);
+            if (win) { await until(() => win.location.href != "about:blank" && win.document.readyState == "complete", 5000); out.opened = win.document.documentElement.getAttribute("windowtype") || win.location.href; win.close(); }
+          } finally {
+            AA.alerts = null;
+            if (saved) { try { await c.deleteItem(await c.getItem(saved.id) || saved); } catch {} }
+          }
+          return out;''')
+        sh = (res.get("shown") or [{}])[0]
+        ok = (res.get("pref") is False and len(res.get("shown") or []) == 1 and sh.get("title") == "Halo Erinnerungstermin"
+              and "Halo Raum 3" in (sh.get("text") or "") and res.get("acked") and not res.get("alarmWindow")
+              and "ummary" in str(res.get("opened") or ""))
+        return ok, f"{res}"
+    check("Kalender: Terminerinnerung als Mitteilung des Systems mit Titel, Zeit und Ort statt Erinnerungsfenster, Klick öffnet den Termin, danach erledigt", calendar_alarm_alert, results)
+
     def search_placeholder():
         # Suchfeld oben: Platzhalter je Bereich steht im eigenen <span slot="placeholder">
         # (das placeholder-Attribut wäre unsichtbar) und in der Sprache der Oberfläche;

@@ -7051,6 +7051,114 @@ function afterInputBoxValue(picker, fn) {
   }
 }
 
+// Terminerinnerungen wie bei Apple Kalender als Mitteilung des Systems statt
+// Thunderbirds Erinnerungsfenster. start() schaltet das Fenster als Vorgabe
+// ab (calendar.alarms.show – wer es selbst eingeschaltet hat, behält es, dann
+// zeigt Thunderbird wie bisher sein Fenster) und beobachtet die Erinnerungen:
+// je Erinnerung eine Mitteilung mit Titel, Zeit und Ort, Klick öffnet den
+// Termin. Danach gilt sie als erledigt wie mit „Dismiss“ im Fenster – sonst
+// käme sie beim nächsten Start als verpasst wieder. Den Ton spielt weiter
+// Thunderbird (calendar.alarms.playsound).
+// alerts: Mitteilungsdienst (Tests setzen einen eigenen)
+const ALARM_SHOW_PREF = "calendar.alarms.show";
+const AlarmAlerts = {
+  alerts: null,
+  observer: null,
+  service: null,
+  showBefore: null,
+  start() {
+    if (this.observer) {
+      return;
+    }
+    const defaults = Services.prefs.getDefaultBranch("");
+    this.showBefore = defaults.getBoolPref(ALARM_SHOW_PREF, true);
+    defaults.setBoolPref(ALARM_SHOW_PREF, false);
+    try {
+      this.service = Cc["@mozilla.org/calendar/alarm-service;1"].getService(Ci.calIAlarmService);
+      this.observer = {
+        QueryInterface: ChromeUtils.generateQI(["calIAlarmServiceObserver"]),
+        onAlarm: (item, alarm) => this.onAlarm(item, alarm),
+        onNotification() {},
+        onRemoveAlarmsByItem() {},
+        onRemoveAlarmsByCalendar() {},
+        onAlarmsLoaded() {},
+      };
+      this.service.addObserver(this.observer);
+    } catch (e) {
+      log("alarm alerts start error", String(e).slice(0, 160));
+      this.stop();
+    }
+  },
+  stop() {
+    if (this.observer) {
+      try {
+        this.service.removeObserver(this.observer);
+      } catch {
+        // gewollt: der Dienst ist beim Beenden schon fort
+      }
+    }
+    this.observer = null;
+    if (this.showBefore != null) {
+      Services.prefs.getDefaultBranch("").setBoolPref(ALARM_SHOW_PREF, this.showBefore);
+      this.showBefore = null;
+    }
+  },
+  // Text unter dem Titel: Zeit (wie in Thunderbirds Erinnerungsfenster) und Ort
+  text(cal, item) {
+    let when = "";
+    try {
+      when = cal.dtz.formatter.formatItemInterval(item);
+    } catch (e) {
+      log("alarm alert time error", String(e).slice(0, 120));
+    }
+    const where = item.getProperty("LOCATION");
+    return [when, where].filter(Boolean).join("\n");
+  },
+  onAlarm(item, alarm) {
+    if (alarm.action != "DISPLAY" || Services.prefs.getBoolPref(ALARM_SHOW_PREF, false)) {
+      return;
+    }
+    // abgesagte Termine und abgelehnte Einladungen wie Thunderbird nicht melden
+    if (item.status == "CANCELLED") {
+      return;
+    }
+    try {
+      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+      if (item.calendar instanceof Ci.calISchedulingSupport && item.calendar.isInvitation(item)
+          && item.calendar.getInvitedAttendee(item)?.participationStatus == "DECLINED") {
+        return;
+      }
+      const alerts = this.alerts || Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService);
+      const notice = Cc["@mozilla.org/alert-notification;1"].createInstance(Ci.nsIAlertNotification);
+      const fields = {
+        name: `mc-alarm-${item.hashId}`,
+        // macOS zeigt das Symbol der App selbst
+        imageURL: Services.appinfo.OS == "Darwin" ? "" : "chrome://branding/content/icon48.png",
+        title: item.title || "",
+        text: this.text(cal, item),
+        textClickable: true,
+      };
+      const open = () => cal.window.getCalendarWindow()?.openEventDialogForViewing(item);
+      // wie Thunderbird selbst (ab 159 mit Rückrufen; ältere Versionen über observe)
+      if (typeof notice.initWithObject == "function" && typeof alerts.showAlertWithCallbacks == "function") {
+        notice.initWithObject(fields);
+        alerts.showAlertWithCallbacks(notice, {
+          QueryInterface: ChromeUtils.generateQI(["nsIAlertCallbacks"]),
+          onAlertClick: () => open(),
+          onAlertFinished() {},
+        });
+      } else {
+        notice.init(fields.name, fields.imageURL, fields.title, fields.text, true);
+        alerts.showAlert(notice, { observe: (subject, topic) => topic == "alertclickcallback" && open() });
+      }
+      // wie „Dismiss“ im Erinnerungsfenster (wiederholte Termine: nur dieses Vorkommen)
+      this.service.dismissAlarm(item, alarm)?.catch?.(e => log("alarm dismiss error", String(e).slice(0, 120)));
+    } catch (e) {
+      log("alarm alert error", String(e).slice(0, 160));
+    }
+  },
+};
+
 // Datumsfeld als Text zum Eintippen. io: { get() → Date|null, set(Date),
 // off() → bool } – so auch für andere Felder als Thunderbirds datepicker
 function inlineDateEdit(win, io) {
@@ -10558,6 +10666,9 @@ class CardEnhancer {
     const regionalBefore = defaults.getBoolPref(REGIONAL, false);
     defaults.setBoolPref(REGIONAL, true);
     this.restorers.push(() => defaults.setBoolPref(REGIONAL, regionalBefore));
+    // Terminerinnerungen als Mitteilung des Systems (siehe AlarmAlerts)
+    AlarmAlerts.start();
+    this.restorers.push(() => AlarmAlerts.stop());
     // Anhänge unter der Mail von Anfang an aufgeklappt (wie Apple Mail) – als
     // Vorgabe, wer Thunderbirds Einstellung selbst geändert hat, behält sie
     const ATT_EXPANDED = "mailnews.attachments.display.start_expanded";

@@ -818,7 +818,26 @@ hr[is="pane-splitter"]::after {
   border: none !important;
   border-radius: var(--mt-radius-row) !important;
   margin-inline: 8px !important;
-  box-shadow: inset 0 -0.5px 0 var(--mt-separator) !important;
+  box-shadow: none !important;
+}
+
+/* Trennlinie als gerade Haarlinie zwischen zwei Karten, die weder gewählt
+   noch überfahren sind (wie im Adressbuch); ein Innenschatten folgte der
+   Rundung und lag als schwache Kontur unter jeder Karte (GitHub #55) */
+#threadTree tr[is="thread-card"]:not(.selected, [aria-selected="true"], :hover) + tr[is="thread-card"]:not(.selected, [aria-selected="true"], :hover) .card-container::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  inset-inline: var(--mt-radius-row) !important;
+  height: var(--mt-hairline) !important;
+  background: var(--mt-separator) !important;
+  pointer-events: none !important;
+}
+
+/* Thunderbirds eigene Linie zwischen zugeklappten Gruppen („Gruppiert nach
+   Sortierung“) – sonst doppelt mit der Trennlinie darüber (GitHub #55) */
+#threadTree tr[is="thread-card"] .card-container::after {
+  display: none !important;
 }
 
 #threadTree tr[is="thread-card"]:hover .card-container {

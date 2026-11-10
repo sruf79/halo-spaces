@@ -13178,6 +13178,28 @@ Neu
           addons_buttons, results)
 
 
+    def card_separators():
+        # Kartenansicht: keine Kontur unter jeder Karte (Innenschatten folgte der Rundung), gerade Haarlinie zwischen
+        # zwei Karten, bei „Gruppiert nach Sortierung“ nicht doppelt mit Thunderbirds eigener Linie (GitHub #55)
+        res = m.js(MAILLIST_JS + r''' w.resizeTo(1500, 900); await showFolder(); await asCards();
+          const out = {};
+          for (const mode of ["flat", "grouped"]) {
+            a3.gViewWrapper.showGroupedBySort = mode == "grouped";
+            await bis(() => cards().length >= 2, "Karten " + mode, 5000); await ruhig(600);
+            a3.threadTree.selectedIndex = -1; await ruhig(400);
+            const cs2 = cards().slice(0, 3);
+            out[mode] = cs2.map(r => { const c = r.querySelector(".card-container"), cr = c.getBoundingClientRect(), b = cs(c, "::before"), af = cs(c, "::after");
+              return { shadow: cs(c).boxShadow, after: af.content == "none" || af.display == "none",
+                       line: b.content == "none" ? null : { h: parseFloat(b.height), left: Math.round(parseFloat(b.insetInlineStart ?? b.left)), w: Math.round(parseFloat(b.width)), cw: Math.round(cr.width), bg: b.backgroundColor } }; });
+          }
+          a3.gViewWrapper.showGroupedBySort = false; await ruhig(500);
+          return out;''')
+        def good(rows):
+            return (len(rows) >= 2 and all(r["shadow"] == "none" and r["after"] for r in rows) and rows[0]["line"] is None
+                    and all(r["line"] and 0 < r["line"]["h"] <= 1 and r["line"]["left"] >= 6 and r["line"]["w"] < r["line"]["cw"] for r in rows[1:]))
+        return good(res.get("flat", [])) and good(res.get("grouped", [])), f"{res}"
+    check("Mailliste: Karten ohne Kontur, gerade Haarlinie zwischen den Karten, bei Gruppen nicht doppelt (GitHub #55)", card_separators, results)
+
     def tasks_view():
         # Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapsel-Knöpfe
         res = m.js(r'''

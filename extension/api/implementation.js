@@ -16880,11 +16880,17 @@ class CardEnhancer {
       const content = top.document.getElementById("unifiedToolbarContent");
       const browserEl = win.browsingContext.embedderElement;
       // (schwebende Seitenleiste: die Ordnerliste liegt nur darüber)
-      if (!content || !browserEl || win.closed || top.__mcSpacesAnimating || top.__mcSideFloat) {
+      if (!content || !browserEl || win.closed || top.__mcSideFloat) {
         return;
       }
-      keepListWidth();
-      enforceMessageWidth();
+      // Bereiche-Leiste animiert: nur die Kanten an der Toolbar-Zeile mitführen (wenige Schreibzugriffe), das
+      // Übrige (Listenbreite, Tab- und Statusleiste, Platzaufteilung) erst am Ende – sonst springen die Knöpfe
+      // am Ende, bzw. mit allem pro Bild ruckelt es (Stufe 3)
+      const spacesMoving = !!top.__mcSpacesAnimating;
+      if (!spacesMoving) {
+        keepListWidth();
+        enforceMessageWidth();
+      }
       // nur der Mail-Tab, der gerade vorne ist, richtet die Toolbar aus –
       // sonst überschreibt ein zweiter Mail-Tab im Hintergrund die Kanten
       // (auch nicht, solange ein anderer Bereich vorne ist)
@@ -16892,7 +16898,9 @@ class CardEnhancer {
       if (current?.chromeBrowser != browserEl) {
         return;
       }
-      fixFolderLock();
+      if (!spacesMoving) {
+        fixFolderLock();
+      }
       // im Adressbuch neu gezogene Listenbreite übernehmen
       if (this.mcListPending && msgSplitter && !msgSplitter.isCollapsed && msgSplitter.resizeElement?.id == "messagePane") {
         const listNow = rectOf(threadPane).width;
@@ -16996,14 +17004,14 @@ class CardEnhancer {
         );
         // Die Tab-Leiste kann weiter rechts beginnen (z. B. neben der
         // Bereiche-Leiste) – dort dieselben Kanten, um den Versatz korrigiert.
-        const tabs = top.document.getElementById("tabs-toolbar");
+        const tabs = !spacesMoving && top.document.getElementById("tabs-toolbar");
         if (tabs) {
           const shift = rectOf(tabs).left - rectOf(row).left;
           setVar(tabs, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);
           setVar(tabs, "--mc-list-right", `${Math.round((listRight - shift) * dpr) / dpr}px`);
         }
         // Statusleiste ebenso: Seitenleisten-Grau läuft unten bis zum Fensterrand
-        const status = top.document.getElementById("status-bar");
+        const status = !spacesMoving && top.document.getElementById("status-bar");
         if (status) {
           const shift = rectOf(status).left - rectOf(row).left;
           setVar(status, "--mc-sidebar-right", `${Math.max(0, Math.round(right - shift))}px`);

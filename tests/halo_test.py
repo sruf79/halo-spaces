@@ -9903,16 +9903,19 @@ def run_checks(m, version, profile, results):
           box.style.setProperty("transition", "none", "important");
           InspectorUtils.addPseudoClassLock(md.documentElement, ":hover");
           const shown = cs(box).pointerEvents, opacity = cs(box).opacity;
-          const r = box.getBoundingClientRect(), h = header.getBoundingClientRect();
-          const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+          // erst messen, wenn Kopf und Kapsel stehen (im Volllauf wächst der Kopf nach dem Laden noch; die
+          // Probe lag dann auf dem alten Platz und traf den Mailtext, CI mac 42711550267)
+          await stabil(() => { const a = box.getBoundingClientRect(), b = header.getBoundingClientRect(); return [a.left, a.top, a.width, b.top, b.bottom].map(Math.round).join(); });
+          const hitAt = () => { const q = box.getBoundingClientRect(), e = md.elementFromPoint(q.left + q.width / 2, q.bottom - 2); return e?.closest?.("#mcHoverActions") ? "box" : e?.id || e?.localName; };
           // die Kapsel liegt ganz im Kopf (nicht halb über dem Mailtext, den manche Add-ons darüberlegen)
-          await ruhig(100);
-          const hit = md.elementFromPoint(cx, r.bottom - 2);
+          const hit = (await until(() => hitAt() == "box" && "box", 3000)) || hitAt();
+          const r = box.getBoundingClientRect(), h = header.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
           const btn = box.querySelector(".mc-hover-reply");
           md.documentElement.dispatchEvent(new am.MouseEvent("mouseenter"));
           const enabledMatch = [...box.querySelectorAll(".mc-hover-action")].every(b => b.disabled == !am.commandController.isCommandEnabled(b.dataset.command));
           const out = { found: true, listActions, order, idle, shown, opacity, w: Math.round(r.width), h: Math.round(r.height),
-                        dx: Math.round(cx - (h.left + h.width / 2)), below: Math.round(h.bottom - r.bottom), inHead: r.top >= h.top && r.bottom <= h.bottom, hit: hit?.closest?.("#mcHoverActions") ? "box" : hit?.id || hit?.localName,
+                        dx: Math.round(cx - (h.left + h.width / 2)), below: Math.round(h.bottom - r.bottom), inHead: r.top >= h.top && r.bottom <= h.bottom, hit,
                         icon: cs(btn, "::before").maskImage.slice(0, 20), tabbable: [...box.querySelectorAll("button")].filter(b => b.tabIndex >= 0).length,
                         labeled: [...box.querySelectorAll("button")].every(b => b.getAttribute("aria-label")), enabledMatch };
           // Löschen per Knopf: Mail in den Papierkorb, Thunderbirds Rückgängig geht

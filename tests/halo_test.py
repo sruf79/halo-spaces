@@ -1721,7 +1721,10 @@ def maillist_checks(m, results):
             // erst eine Mail öffnen (Gruppen dafür aufgeklappt), dann alle Gruppen zuklappen: ein gewählter Kopf steht
             // so auf jeder Plattform für alle Mails seiner Gruppe
             view().doCommand(Ci.nsMsgViewCommandType.expandAll); await ruhig(600);
-            const mail = [...Array(view().rowCount).keys()].find(k => view().getMsgHdrAt(k)?.messageId == "halo-ml-3@example.invalid");
+            // nur echte Mailzeilen: getMsgHdrAt liefert für einen Gruppenkopf die erste Mail der Gruppe – sonst wäre
+            // hier der Kopf gewählt (Gruppe mit mehr als einer Mail an erster Stelle, z. B. unter Linux in der CI)
+            const mail = [...Array(view().rowCount).keys()].find(k => !(view().getFlagsAt(k) & DUMMY) && view().getMsgHdrAt(k)?.messageId == "halo-ml-3@example.invalid");
+            out.mailRow = mail;
             out.mail = mail != null;
             if (mail != null) { a3.threadTree.selectedIndex = mail; await ruhig(800); }
             view().doCommand(Ci.nsMsgViewCommandType.collapseAll); await ruhig(600);

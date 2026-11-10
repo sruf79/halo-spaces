@@ -15158,8 +15158,14 @@ class CardEnhancer {
     const body = d.getElementById("messengerBody");
     const title = d.getElementById("titlebar");
     const row = d.getElementById("unifiedToolbarContainer");
+    // Mac: Platz für die Ampel (--mc-tl-reserve) wechselt von 12 auf 84 px, sobald die Bereiche-Leiste weg ist –
+    // mitführen, sonst springt der Seitenleisten-Knopf am Ende um 72 px
+    const followReserve = w.matchMedia("(-moz-platform: macos)").matches;
     const set = v => {
       const px = `${v}px`;
+      if (followReserve && row) {
+        row.style.setProperty("--mc-tl-reserve", `${Math.round(12 + 72 * (1 - v / FULL))}px`);
+      }
       bar?.style.setProperty("--spaces-total-width", px);
       if (body) {
         body.style.marginInlineStart = px;
@@ -15179,6 +15185,7 @@ class CardEnhancer {
       body?.style.removeProperty("margin-inline-start");
       title?.style.removeProperty("margin-inline-start");
       row?.style.removeProperty("inline-size");
+      row?.style.removeProperty("--mc-tl-reserve");
     };
     w.__mcSpacesAnimating = true;
     if (showing) {

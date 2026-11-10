@@ -21,6 +21,10 @@ TROCKEN=; [[ $1 == --trocken ]] && TROCKEN=1
 
 if [[ -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start github-komm; then exit 0; fi
 
+# Board-Aufträge der Aufgabe (~/halo-aufgaben/board-uebergabe.txt) selbst zustellen: die Übergabe per SendMessage
+# an neon-board scheiterte mehrfach („nicht erreichbar“); Einzelheiten tests/board-uebergabe.zsh
+zsh ${0:A:h}/board-uebergabe.zsh ${TROCKEN:+--trocken}
+
 # Ausgang der Aufgabe: ~/halo-aufgaben/github-push-ausgang.txt, je Zeile „<Zeit>\t<offen|zugestellt>\t<Text>“.
 # Die Aufgabe schreibt „zugestellt“, wenn SendMessage an github.comm.routine klappte, sonst „offen“. Offene Zeilen
 # stellt der Wächter selbst zu (push() sucht die Sitzung jedes Mal neu über ihren Namen, auch nach einer neu

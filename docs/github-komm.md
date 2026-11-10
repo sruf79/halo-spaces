@@ -88,8 +88,9 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Aufgabe der Claude-Desktop-App „halo.spaces: GitHub-Kommunikation“
   (`halo-github-kommunikation`), täglich 9:00, 14:00 und 19:00 Wiener Zeit,
   ohne Ablauf; jeder Lauf ist eine neue Sitzung mit `gh` (ohne `gh project`): Board-Einträge
-  gibt sie per `SendMessage` an `neon-board` in Auftrag (Titel mit „[GitHub #n]“, Typ, Status,
-  Text), wartet die Antwort nicht ab und vermerkt im Stand „an neon-board übergeben“.
+  trägt sie als Zeile in `~/halo-aufgaben/board-uebergabe.txt` ein (Titel mit „[GitHub #n]“, Typ, Status,
+  Text; Format im Kopf von `tests/board-uebergabe.zsh`); der Wächter legt den Eintrag selbst an (seit 10.11.2026, die
+  Übergabe per `SendMessage` an `neon-board` scheiterte mehrfach). Im Stand: „Board-Übergabe eingetragen“.
   Den Stand zwischen den Läufen (letzte Prüfung, offene Fäden, Fork-Stände,
   was auf eine Entscheidung des Maintainers wartet) hält
   `~/halo-aufgaben/github-komm-stand.md` – lesen vor, aktualisieren nach

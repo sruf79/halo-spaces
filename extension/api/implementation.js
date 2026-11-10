@@ -16345,6 +16345,14 @@ class CardEnhancer {
       onDone?.();
       return;
     }
+    // Verteiler-Hinweis über der geöffneten Mail (#mcListBanner): füllt die Breite des Mailbereichs, der sich nur am
+    // Anfang bzw. Ende ändert – Abmelden-Knopf und Kreuz sprangen deshalb am Ende (Einblenden) bzw. Anfang (Ausblenden).
+    // Schmale Breite (Pane im Fluss) jetzt messen, breite (Pane darüber) unten; pro Bild dazwischen gleiten
+    const bannerEl = () => {
+      const el = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentWindow?.messageBrowser?.contentDocument?.getElementById("mcListBanner");
+      return el?.isConnected ? el : null;
+    };
+    const bannerNarrow = bannerEl()?.getBoundingClientRect().width || null;
     // Aufgaben: Liste, Details, „+“ und Aktionen gleich für das Endmaß
     // rechnen (die Rechnung richtet sich nach dem gemessenen „+“ – bis sie
     // still steht, wie sonst über zwei Bilder verteilt); danach ruht sie bis
@@ -16417,6 +16425,17 @@ class CardEnhancer {
     const setW = v => {
       panel.style.setProperty("width", `${v}px`, "important");
       panel.style.setProperty("max-width", `${v}px`, "important");
+    };
+    const bannerWide = bannerNarrow ? bannerEl()?.getBoundingClientRect().width || null : null;
+    const bannerFollow = bannerNarrow && bannerWide && Math.abs(bannerWide - bannerNarrow) >= 1 ? bannerEl() : null;
+    const moveBanner = value => {
+      const el = bannerFollow;
+      if (!el?.isConnected) {
+        return;
+      }
+      const wNow = bannerWide - (bannerWide - bannerNarrow) * Math.min(1, Math.max(0, value / full));
+      el.style.setProperty("box-sizing", "border-box", "important");
+      el.style.setProperty("width", `${wNow.toFixed(2)}px`, "important");
     };
     // Mitgleiten ohne Neuanordnung: Toolbar-Zeile und Inhalt ändern ihr
     // Layout nur einmal (Anfang bzw. Ende). Dazwischen werden Suchfeld und
@@ -16509,6 +16528,7 @@ class CardEnhancer {
       if (editBlock) {
         editBlock.style.transform = value ? `translateX(${-value * rtl}px)` : "";
       }
+      moveBanner(value);
     };
     if (showing) {
       setW(0);
@@ -16574,6 +16594,10 @@ class CardEnhancer {
       searchLi?.style.removeProperty("--mc-search-extra");
       if (editBlock) {
         editBlock.style.transform = "";
+      }
+      if (bannerFollow?.isConnected) {
+        bannerFollow.style.removeProperty("width");
+        bannerFollow.style.removeProperty("box-sizing");
       }
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");

@@ -52,7 +52,8 @@ M.start = (modus) => {
     if (w.__mcSpacesAnimating) f.flags.spaces = 1;
     // Toolbar-Knöpfe einzeln
     const kids = d.getElementById("unifiedToolbarContent")?.children || [];
-    f.tb = [...kids].map(k => { const b = k.getBoundingClientRect(); return [k.id || k.localName + "." + (k.className || "").toString().split(" ")[0], Math.round(b.left * 100) / 100, Math.round(b.width * 100) / 100]; });
+    // vierter Wert: tatsächliche Sichtbarkeit (0 ohne Fläche oder bei display none, sonst die eigene Deckkraft)
+    f.tb = [...kids].map(k => { const b = k.getBoundingClientRect(); const cs = w.getComputedStyle(k); const op = !b.width || cs.display == "none" || cs.visibility == "hidden" ? 0 : parseFloat(cs.opacity); return [k.id || k.localName + "." + (k.className || "").toString().split(" ")[0], Math.round(b.left * 100) / 100, Math.round(b.width * 100) / 100, Math.round(op * 100) / 100]; });
     M.daten.frames.push(f);
   };
   const loop = () => { sammeln(); if (!M.stop) w.requestAnimationFrame(loop); else M.fertig = true; };
@@ -111,6 +112,15 @@ def auswerten(daten, kern):
                 continue
             if k in a and (abs(a[k][1] - b[k][1]) > 0.5 or abs(a[k][2] - b[k][2]) > 0.5):
                 tbspaet.setdefault(k, []).append((i - i1, round(abs(a[k][1] - b[k][1]), 1), round(ts[i] - ts[i1], 0)))
+    # Knöpfe, die schlagartig erscheinen oder verschwinden (Sichtbarkeit springt um mehr als 0,5 zwischen zwei Bildern)
+    plopp = {}
+    for i in range(1, len(fr)):
+        a, b = {k[0]: k for k in fr[i - 1]["tb"]}, {k[0]: k for k in fr[i]["tb"]}
+        for k in b:
+            if k.startswith("li.spacer") or k not in a or len(a[k]) < 4 or len(b[k]) < 4:
+                continue
+            if abs(a[k][3] - b[k][3]) > 0.5:
+                plopp.setdefault(k, []).append((i, a[k][3], b[k][3]))
     # Sprung im ersten Bild: Elemente, die sich im ersten Bildwechsel bewegen, bevor das Hauptelement sich bewegt
     frueh = {}
     for name in set(n for f in fr for n in f["e"]):
@@ -135,7 +145,7 @@ def auswerten(daten, kern):
         "max_luecke_ms": max(gaps) if gaps else 0, "luecken>24ms": sum(1 for g in gaps if g > 24),
         "schritt_max_px": max(steps) if steps else 0, "schritte": steps[:40],
         "nachzuegler": {k: v[:6] for k, v in spaet.items()}, "toolbar_nachzuegler": {k: v[:6] for k, v in tbspaet.items()},
-        "fruehe_spruenge": frueh, "richtungswechsel": umkehr, "merker": flags,
+        "plopp": plopp, "fruehe_spruenge": frueh, "richtungswechsel": umkehr, "merker": flags,
     }
 
 

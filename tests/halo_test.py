@@ -11705,6 +11705,83 @@ def run_checks(m, version, profile, results):
         return not bad, f"{gemessen} Messungen; nach dem Ende noch bewegt: {bad}"
     check("Animation: Nach dem Ein- und Ausblenden der Seitenleiste bewegt sich in keinem Bereich mehr etwas (kein Sprung am Ende)", anim_ende, results)
 
+    def anim_heute():
+        # Heute-Fenster ein-/ausblenden (Mail): kein Knopf der Toolbar (Pillen, Chevron „weitere Aktionen“, Suchfeld) darf
+        # schlagartig erscheinen oder verschwinden – sie blenden weich ein bzw. aus (Sichtbarkeit springt nie um mehr als 0,5
+        # zwischen zwei Bildern). Bisher erschien der Chevron beim Öffnen sofort und verschwand beim Schließen am Ende.
+        # Nur auf macOS gemessen (wie die Prüfung zur Seitenleiste); verdecktes Fenster: übersprungen.
+        if sys.platform != "darwin":
+            return True, "übersprungen: nur auf macOS gemessen"
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import animation_lib as A
+        m.js("const s = w.screen; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1522, 900); await wait(1000); await toMail(); await ruhig(1500); return 1;")
+        bad, gemessen = [], 0
+        for label in ("Heute-Fenster ein", "Heute-Fenster aus", "Heute-Fenster ein (2)", "Heute-Fenster aus (2)"):
+            roh = A.messen(m, "mail", lambda: m.js('const b = d.getElementById("mcTodayToggle"); if (!b) throw new Error("kein Heute-Knopf"); b.click(); return 1;'), 700)
+            m.js("await ruhig(1500); return 1;")
+            a = A.auswerten(roh, "today-pane-panel")
+            if "fehler" in a:
+                continue
+            gemessen += 1
+            if a["plopp"]:
+                bad.append(f"{label}: " + ", ".join(f"{k} Bild {v[0][0]} {v[0][1]}→{v[0][2]}" for k, v in list(a["plopp"].items())[:4]))
+        if not gemessen:
+            return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
+        return not bad, f"{gemessen} Messungen; schlagartig erschienen oder verschwunden: {bad}"
+    check("Animation: Beim Ein- und Ausblenden des Heute-Fensters (Mail) erscheint oder verschwindet kein Toolbar-Knopf schlagartig", anim_heute, results)
+
+    def anim_heute_hinweis():
+        # Geöffnete Mail mit Verteiler-Hinweis (blauer „Abmelden“-Streifen über der Mail): beim Ein- und Ausblenden des
+        # Heute-Fensters darf der Hinweis (wie der übrige Mailinhalt) am Ende nicht mehr springen. Gemessen wird seine Lage
+        # im Fenster in jedem Bild; nach dem letzten Bild, in dem sich die Breite des Heute-Fensters ändert, darf er sich
+        # nicht mehr als 2,5 px bewegen (Rundung der Endbreite). Nur macOS (verdecktes Fenster: übersprungen).
+        if sys.platform != "darwin":
+            return True, "übersprungen: nur auf macOS gemessen"
+        res = m.js(MESSAGE_JS + r'''
+          const md = a3.messageBrowser.contentDocument;
+          await bis(() => md.getElementById("mcListBanner")?.getBoundingClientRect().width > 0, "Verteiler-Hinweis", 6000);
+          const out = [];
+          if (d.visibilityState != "visible") return { skip: true };
+          const eb = a3.browsingContext.embedderElement;
+          const pos = () => {
+            const o = eb.getBoundingClientRect(), mb = a3.messageBrowser.getBoundingClientRect(), br = md.getElementById("mcListBanner")?.getBoundingClientRect();
+            return br ? [Math.round((o.left + mb.left + br.left) * 100) / 100, Math.round((o.top + mb.top + br.top) * 100) / 100, Math.round(br.width * 100) / 100] : null;
+          };
+          const panel = d.getElementById("today-pane-panel");
+          for (const label of ["a", "b", "c", "d"]) {
+            const frames = [];
+            d.getElementById("mcTodayToggle").click();
+            const t0 = performance.now();
+            while (performance.now() - t0 < 900) {
+              frames.push({ w: Math.round(panel.getBoundingClientRect().width * 10) / 10, p: pos() });
+              await new Promise(r => w.requestAnimationFrame(r));
+            }
+            out.push(frames); await ruhig(1200);
+          }
+          return { out };''')
+        if res.get("skip"):
+            return True, "nicht gemessen (Fenster verdeckt)"
+        bad, info = [], []
+        for n, frames in enumerate(res["out"]):
+            ws = [f["w"] for f in frames]
+            geaendert = [i for i in range(1, len(ws)) if abs(ws[i] - ws[i - 1]) > 0.3]
+            if not geaendert:
+                continue
+            i1 = geaendert[-1]
+            pts = [f["p"] for f in frames[i1:] if f["p"]]
+            if not pts:
+                continue
+            drift = max(max(abs(p[0] - pts[0][0]), abs(p[1] - pts[0][1]), abs(p[2] - pts[0][2])) for p in pts)
+            # Sprung: größte Lageänderung zwischen zwei Bildern innerhalb der Animation und danach
+            sprung = max([max(abs(a["p"][0] - b["p"][0]), abs(a["p"][2] - b["p"][2])) for a, b in zip(frames[geaendert[0]:], frames[geaendert[0] + 1:]) if a["p"] and b["p"]] or [0])
+            info.append(f"Lauf {n + 1}: nach Ende {drift:.1f} px, größter Schritt {sprung:.1f} px")
+            if drift > 2.5:
+                bad.append(f"Lauf {n + 1}: Hinweis bewegt sich nach dem Ende noch um {drift:.1f} px")
+        if not info:
+            return True, "nicht gemessen"
+        return not bad, "; ".join(bad or info)
+    check("Animation: Der Verteiler-Hinweis über der geöffneten Mail springt am Ende des Ein- und Ausblendens des Heute-Fensters nicht", anim_heute_hinweis, results)
+
     def sidebar_animation():
         # Seitenleiste ein-/ausblenden in Mail, Chat und Einstellungen gleich flüssig: Breite in vielen Zwischenschritten,
         # Knopf vorher und nachher an derselben Stelle, in der Mail bleibt die Liste stehen (kein Neuumbruch der Karten)

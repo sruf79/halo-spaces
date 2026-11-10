@@ -3719,7 +3719,8 @@ splitter.splitter:has(+ .conv-bottom) {
   width: 260px;
 }
 
-#mcFifthGroup .mc-fifth-hint {
+#mcFifthGroup .mc-fifth-hint,
+#mcAppearanceGroup .mc-theme-note {
   margin: 8px 0 0;
   color: var(--mt-text-tertiary);
   font-size: calc(12px * var(--mt-font-scale, 1));

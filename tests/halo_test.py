@@ -10060,6 +10060,49 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Texte: „On My Mac“ und „macOS“ nur unter macOS, sonst „On This Computer“ und „the system“", mac_words, results)
 
+    def custom_theme_note():
+        # GitHub #55: ein eigenes Theme (hier ein im Test erzeugtes) → Hinweiszeile unter der Erscheinungsbild-Auswahl,
+        # die Auswahl zeigt dann nicht „Auto“; mit Hell, Dunkel oder Auto verschwindet die Zeile wieder
+        m.cmd("WebDriver:SetTimeouts", {"script": 60000})
+        res = m.js(r'''
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const THEMES = { auto: "default-theme@mozilla.org", light: "thunderbird-compact-light@mozilla.org", dark: "thunderbird-compact-dark@mozilla.org" };
+          const before = (await AddonManager.getAddonsByTypes(["theme"])).find(a => a.isActive)?.id;
+          const dir = PathUtils.join(PathUtils.profileDir, "halo-theme-test");
+          await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+          await IOUtils.writeUTF8(PathUtils.join(dir, "manifest.json"), JSON.stringify({ manifest_version: 2, name: "Halo Testtheme", version: "1.0",
+            browser_specific_settings: { gecko: { id: "halo-theme-test@example.invalid" } }, theme: { colors: {} } }));
+          const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); file.initWithPath(dir);
+          w.openPreferencesTab("paneAppearance");
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+            return x?.readyState == "complete" && e?.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("mcAppearance");
+          const state = () => { const n = cd.getElementById("mcThemeNote");
+            return { note: !!n && !n.hidden && n.getBoundingClientRect().height > 0, text: n?.textContent || "", value: ml.value, label: ml.label }; };
+          const out = { before, autoLabel: ml.querySelector('menuitem[value="auto"]')?.getAttribute("label") };
+          const addon = await AddonManager.installTemporaryAddon(file);
+          try {
+            await addon.enable();
+            await until(() => state().note, 5000);
+            out.custom = state();
+            for (const k of ["light", "dark", "auto"]) {
+              await (await AddonManager.getAddonByID(THEMES[k])).enable();
+              await until(() => !state().note && state().value == k, 5000);
+              out[k] = state();
+            }
+          } finally {
+            if (before) await (await AddonManager.getAddonByID(before))?.enable();
+            await addon.uninstall();
+            await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
+            tm.closeTab(t); await ruhig(500);
+          }
+          return out;''')
+        c = res.get("custom") or {}
+        ok = (c.get("note") and "halo.spaces" in c.get("text", "") and c.get("value") != "auto" and c.get("label") != res.get("autoLabel")
+              and all(res.get(k) and not res[k]["note"] and res[k]["value"] == k for k in ("light", "dark", "auto")))
+        return ok, f"{res}"
+    check("Einstellungen: eigenes Theme zeigt einen Hinweis unter der Erscheinungsbild-Auswahl statt „Auto“, Hell/Dunkel/Auto keinen (GitHub #55)", custom_theme_note, results)
+
     def prefs_menulist():
         # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen
         # (Thunderbirds In-Content-Stil hinterlegte ihn dauerhaft blau – zwei Balken); Zeilen 24 px, 8 px Innenabstand, Rundung 7 px

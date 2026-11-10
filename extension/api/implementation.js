@@ -394,7 +394,13 @@ function hookAppearanceChoice(cw, restorers = null) {
   }
   list.appendChild(popup);
   row.append(label, list);
-  group.append(legend, row);
+  // eigenes Theme (keins der drei): nur ein Hinweis, nichts wird umgestellt (GitHub #55)
+  const note = doc.createElementNS(X, "p");
+  note.id = "mcThemeNote";
+  note.className = "mc-theme-note";
+  note.textContent = tr("You are using a custom theme. It can change how halo.spaces looks. If something looks wrong, try the default theme first.");
+  note.hidden = true;
+  group.append(legend, row, note);
   colorGroup.before(group);
   restorers?.push(() => group.remove());
   const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
@@ -402,9 +408,25 @@ function hookAppearanceChoice(cw, restorers = null) {
     const themes = await AddonManager.getAddonsByTypes(["theme"]);
     const active = themes.find(a => a.isActive)?.id;
     const key = Object.keys(APPEARANCE_THEMES).find(k => APPEARANCE_THEMES[k] == active);
-    list.value = key || "auto";
+    if (key) {
+      list.value = key;
+    } else {
+      // keine der drei Wahlen trifft zu: Auswahl leer statt fälschlich „Auto“
+      list.selectedItem = null;
+      list.setAttribute("label", "");
+    }
+    note.hidden = !!key || !active;
   };
   sync();
+  // Theme anderswo gewechselt (Add-ons-Verwaltung): Auswahl und Hinweis nachziehen
+  const listener = {
+    onEnabled: a => a.type == "theme" && sync(),
+    onDisabled: a => a.type == "theme" && sync(),
+  };
+  AddonManager.addAddonListener(listener);
+  const stop = () => AddonManager.removeAddonListener(listener);
+  cw.addEventListener("unload", stop, { once: true });
+  restorers?.push(stop);
   list.addEventListener("command", async () => {
     const addon = await AddonManager.getAddonByID(APPEARANCE_THEMES[list.value]);
     await addon?.enable();

@@ -2471,6 +2471,16 @@ function setTaskView(win, key) {
   applyTaskView(win);
 }
 
+// eigene Liste gewählt: in der Kanban-Ansicht mit, sonst ohne Erledigte
+function syncTaskListFilter(win) {
+  const tree = win.document.getElementById("calendar-task-tree");
+  const value = String(tree?.getAttribute("filterValue") || "");
+  const name = taskListFilter(taskListKey(), taskView() == "board");
+  if (value.startsWith("mcTasks-") && value != name && typeof win.taskViewUpdate == "function") {
+    win.taskViewUpdate(name);
+  }
+}
+
 // Aufgaben: Ansichten oben in der Seitenleiste wie in der Erinnerungen-App
 // (Heute, Geplant, Alle, Wichtig, In Arbeit, Erledigt, je mit Anzahl) statt
 // Filterknopf; darunter „Task Lists“ nur mit Kalendern, die Aufgaben können,
@@ -2488,7 +2498,10 @@ const TASK_LISTS = [
   ["completed", "Completed", "done", "any"],
   ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
 ];
-const taskListFilter = key => `mcTasks-${key}`;
+// Kanban-Ansicht: dieselbe Liste samt Erledigten (sonst bliebe die Spalte
+// „Completed“ leer), als eigener Filter „mcTasks-<key>-board“
+const taskListFilter = (key, board = false) => `mcTasks-${key}${board ? "-board" : ""}`;
+const isTaskListFilter = (value, key) => value == taskListFilter(key) || value == taskListFilter(key, true);
 
 // Rückfrage „Delete“ einer Liste im Bereich Aufgaben: eine Liste ist ein
 // Kalender, darum nennt sie dessen Termine mit. modes = Thunderbirds
@@ -2527,6 +2540,7 @@ function defineTaskLists(win) {
   }
   const filter = new win.calFilter();
   for (const [key, , status, due, extra] of TASK_LISTS) {
+   for (const board of [false, true]) {
     const props = new win.calFilterProperties();
     props.start = props.FILTER_DATE_ALL;
     props.end = props.FILTER_DATE_ALL;
@@ -2536,6 +2550,9 @@ function defineTaskLists(win) {
       progress: props.FILTER_STATUS_IN_PROGRESS,
       done: props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE,
     }[status];
+    if (board && status == "open") {
+      props.status |= props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE;
+    }
     props.due = {
       upToToday: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY,
       dated: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY | props.FILTER_DUE_FUTURE,
@@ -2545,7 +2562,8 @@ function defineTaskLists(win) {
       props.onfilter = (item, result) => result && extra(item);
     }
     // die definierten Filter teilen sich alle calFilter (am Prototyp)
-    filter.defineFilter(taskListFilter(key), props);
+    filter.defineFilter(taskListFilter(key, board), props);
+   }
   }
   return true;
 }
@@ -2608,7 +2626,7 @@ function hookTaskLists(win, restorers) {
     }
   };
   const apply = () => {
-    const name = taskListFilter(taskListKey());
+    const name = taskListFilter(taskListKey(), taskView() == "board");
     if (tree.getAttribute("filterValue") != name && typeof win.taskViewUpdate == "function") {
       win.taskViewUpdate(name);
     }
@@ -3411,7 +3429,10 @@ function hookTaskView(win, restorers) {
   win.addEventListener("mouseup", onUp, true);
   const ro = new win.ResizeObserver(() => apply());
   ro.observe(details.parentElement);
-  const prefObs = () => apply();
+  const prefObs = () => {
+    apply();
+    syncTaskListFilter(win);
+  };
   Services.prefs.addObserver(TASK_VIEW_PREF, prefObs);
   apply();
   restorers?.push(() => {
@@ -14997,7 +15018,7 @@ class CardEnhancer {
     const group = d.getElementById("task-tree-filtergroup");
     const tree = d.getElementById("calendar-task-tree");
     const radio = group && ([...group.querySelectorAll("radio")].find(r => r.selected || r.value == group.value));
-    const own = TASK_LISTS.find(([key]) => tree?.getAttribute("filterValue") == taskListFilter(key));
+    const own = TASK_LISTS.find(([key]) => isTaskListFilter(tree?.getAttribute("filterValue"), key));
     box.querySelector(".mc-lh-title").textContent = own ? tr(own[1]) : radio?.label || radio?.getAttribute("label") || tr("Tasks");
     const n = tree?.mTaskArray?.length || 0;
     let count = tr(n == 1 ? "{n} task" : "{n} tasks", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) });

@@ -13559,6 +13559,50 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Kanban-Ansicht über „…“, drei Spalten nach Fortschritt (Not Started, In Progress, Completed) mit Anzahl, ohne Detailspalte, Klick wählt, Doppelklick öffnet, Ziehen in eine Spalte setzt 0/50/100 %", task_board, results)
 
+    def task_board_completed():
+        # Rückschritt: mit der Standardliste „Open“ (eigener Filter mcTasks-all, nur offene) blieb die Spalte
+        # „Completed“ der Kanban-Ansicht leer und zeigte „0“; jetzt bringt die Kanban-Ansicht die Erledigten mit,
+        # zurück in der Kartenansicht zeigt „Open“ wieder nur Offene
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await pause(400);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const make = async (title, done) => { const t = new CalTodo(); t.title = title; t.calendar = c;
+            if (done) t.isCompleted = true; return c.addItem(t); };
+          const saved = [await make("Halo Erledigt offen", false), await make("Halo Erledigt fertig", true)];
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await ruhig(1200);
+            const tree = d.getElementById("calendar-task-tree"), list = d.getElementById("mcTaskCards");
+            const row = d.querySelector('#mcTaskLists .mc-tl-row[data-list="all"]');
+            row?.click();
+            await bis(() => tree.getAttribute("filterValue") == "mcTasks-all", "Liste Open", 4000).catch(() => {});
+            await bis(() => /Halo Erledigt offen/.test(list.textContent), "Karten", 4000).catch(() => {});
+            out.cardsBefore = /Halo Erledigt fertig/.test(list.textContent);
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "board");
+            await bis(() => list.querySelectorAll(".mc-tb-col").length == 3 && /Halo Erledigt fertig/.test(list.textContent), "Completed gefüllt", 6000).catch(() => {});
+            await ruhig(300);
+            const col = list.querySelectorAll(".mc-tb-col")[2];
+            out.done = col ? [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Erledigt/.test(t)) : null;
+            out.count = col ? +col.querySelector(".mc-tb-count").textContent : -1;
+            out.cards = col ? col.querySelectorAll(".mc-tc[data-index]").length : -1;
+            out.title = d.querySelector("#mcListHeader .mc-lh-title")?.textContent;
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "list");
+            await bis(() => tree.getAttribute("filterValue") == "mcTasks-all" && !/Halo Erledigt fertig/.test(list.textContent), "wieder ohne Erledigte", 4000).catch(() => {});
+            out.cardsAfter = { offen: /Halo Erledigt offen/.test(list.textContent), fertig: /Halo Erledigt fertig/.test(list.textContent) };
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            if (typeof w.taskViewUpdate == "function") w.taskViewUpdate("throughcurrent");
+            for (const s of saved) { try { await c.deleteItem(s); } catch {} }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        ok = (res.get("cardsBefore") is False and res.get("done") == ["Halo Erledigt fertig"]
+              and res.get("count") == res.get("cards") and res.get("count", 0) >= 1
+              and res.get("title") == "Open" and res.get("cardsAfter") == {"offen": True, "fertig": False})
+        return ok, f"{res}"
+    check("Aufgaben: Kanban-Ansicht zeigt mit der Liste „Open“ erledigte Aufgaben in der Spalte „Completed“ samt Anzahl, Kartenansicht weiter ohne Erledigte", task_board_completed, results)
+
     def task_window():
         # neue Detailansicht 5c/5d: Aufgabe in eigenem Fenster – Doppelklick/Enter/Kontextmenü (Thunderbirds modifyEventWithDialog),
         # ⌘O und der Knopf „In eigenem Fenster öffnen“ öffnen dieselbe Ansicht wie die Detailspalte (Kopfkarte, Gruppen), oben

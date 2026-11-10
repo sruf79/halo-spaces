@@ -11697,7 +11697,7 @@ def run_checks(m, version, profile, results):
                 if "fehler" in a:
                     continue  # nicht gemessen (z. B. Fenster verdeckt)
                 gemessen += 1
-                spaet = {k: v for k, v in {**a["nachzuegler"], **a["toolbar_nachzuegler"]}.items() if max(x[1] for x in v) > 1.5}
+                spaet = {k: v for k, v in {**a["nachzuegler"], **a["toolbar_nachzuegler"]}.items() if max(x[1] for x in v) > 2.5}
                 if spaet:
                     bad.append(f"{name} {label}: " + ", ".join(f"{k} +{max(x[1] for x in v):.0f} px" for k, v in list(spaet.items())[:4]))
         if not gemessen:

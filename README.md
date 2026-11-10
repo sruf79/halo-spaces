@@ -181,6 +181,19 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.24.0
+
+- **Toolbar**: when the window gets narrow, whole button groups make room instead of single buttons, and a "»" button left of the search field offers the actions of every hidden group, in all spaces
+- **Tasks**: new Kanban view (via "…" next to the card and table views) with columns Not Started, In Progress and Completed; dragging a card to another column sets its progress. The card view has a new layout with the list colour on the left, the title on top and a progress bar on the right. Double-click, Enter, ⌘O and "Edit Task" open a task in its own window with the same view as the detail column
+- **Calendar**: event reminders appear as system notifications with title, time and location, and a click opens the event; clicking the location of an event opens the maps app directly
+- **Reading pane**: several selected messages appear as a stack instead of a list
+- **Sidebar**: ⌃⌘S hides and shows the sidebar on macOS, like the sidebar button (#56); when the sidebar is hidden, pointing at the left edge of the window lets it float in over the content
+- **Settings**: redrawn icons in the sidebar; the category "Chat & More" holds the choice for the fifth place of the spaces bar; "Advanced settings" is the last entry under General and centred; "Get Starred Messages" under Offline works again (it downloads the starred messages of the folder selected in Mail); the link "Show all keyboard shortcuts of Thunderbird" opens again (#56)
+- **Mail**: automatically fetched sender logos fill the profile circle without a white ring; more space between the follow-up hint and the first message; message cards no longer show a faint rounded outline, a straight hairline separates them, and grouped lists no longer show a double line; the line between folder list and message list continues in the toolbar row without an offset (#55)
+- **Search**: the placeholder of the search field always names the selected folder
+- **Add-ons**: the Back button in the page of an add-on shows a single arrow (#55)
+- Requires Thunderbird 153 or newer
+
 ## What's new in 3.23.1
 
 - **Calendar**: the search field at the top searches events instead of mail; matches by title, location and description appear in the event list below the calendar, and clearing the field closes it again (#53)

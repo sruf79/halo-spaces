@@ -19,6 +19,29 @@ TROCKEN=; [[ $1 == --trocken ]] && TROCKEN=1
 
 if [[ -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start github-komm; then exit 0; fi
 
+# Ausgang der Aufgabe: ~/halo-aufgaben/github-push-ausgang.txt, je Zeile „<Zeit>\t<offen|zugestellt>\t<Text>“.
+# Die Aufgabe schreibt „zugestellt“, wenn SendMessage an github.comm.routine klappte, sonst „offen“. Offene Zeilen
+# stellt der Wächter selbst zu (push() sucht die Sitzung jedes Mal neu über ihren Namen, auch nach einer neu
+# erstellten Sitzung) und markiert sie bei Erfolg als zugestellt; bei Misserfolg bleibt die Zeile für den nächsten Lauf.
+AUSGANG=${HALO_PUSH_AUSGANG:-$HOME/halo-aufgaben/github-push-ausgang.txt}
+FEHLERLOG=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+if [[ -z $TROCKEN && -r $AUSGANG ]]; then
+  offen=("${(@f)$(awk -F'\t' '$2=="offen"{print NR"\t"$3}' $AUSGANG | tail -n 5)}")
+  for z in $offen; do
+    [[ -n $z ]] || continue
+    nr=${z%%$'\t'*}; txt=${z#*$'\t'}
+    vorher=$(grep -ac "PUSH-FEHLER github-komm-waechter" $FEHLERLOG 2>/dev/null)
+    push "$txt (nachgeliefert $(date +%H:%M))" github-komm-waechter
+    nachher=$(grep -ac "PUSH-FEHLER github-komm-waechter" $FEHLERLOG 2>/dev/null)
+    if [[ $vorher == $nachher ]]; then
+      awk -F'\t' -v OFS='\t' -v n=$nr 'NR==n{$2="zugestellt"}1' $AUSGANG > $AUSGANG.neu && mv $AUSGANG.neu $AUSGANG
+      log "nachgeliefert: $txt"
+    else
+      log "Zustellung gescheitert (bleibt offen): $txt"
+    fi
+  done
+fi
+
 # Zeitpunkt des letzten Belegs in Sekunden seit 1970 (0 = keiner)
 beleg=$(python3 - "$STAND" "$PROTO" <<'PY'
 import re, sys, datetime, os

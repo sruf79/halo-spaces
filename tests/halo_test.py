@@ -16412,6 +16412,27 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons kommen auch bei spät übersetzter Seitenleiste (langsamer Start), nie halo.spaces allein", pref_embedded_late_l10n, results)
 
+    def pref_embedded_no_footer():
+        # Windows/GitHub #32: fehlen die Fußzeilen-Links (accountButton/addonsButton) ganz, kommen Kontoeinstellungen und
+        # Add-ons trotzdem sofort als Kategorien (eigener Name, Symbol aus dem Stilblatt), nicht erst nach 6 s oder nie
+        res = m.js(PREFS_OPEN_JS + r"""
+          const ids = ["mcCat-paneMcAccounts", "mcCat-paneMcAddons", "mcCat-paneMcHalo"];
+          const has = () => ids.map(id => !!pd.getElementById(id));
+          const links = ["accountButton", "addonsButton"].map(id => pd.getElementById(id));
+          const parents = links.map(l => [l.parentNode, l.nextSibling]);
+          const out = {};
+          try {
+            for (const e of pd.querySelectorAll(".mc-embed-cat, .mc-embed-pane, .mc-subcats")) e.remove();
+            for (const l of links) l.remove();
+            const prefs = tm.currentTabInfo; tm.selectTabByIndex(null, 0); await ruhig(300); tm.switchToTab(prefs);
+            out.found = await until(() => has().every(Boolean), 2500);
+            out.names = ids.slice(0, 2).map(id => pd.querySelector(`#${id} .category-name`)?.textContent);
+          } finally { for (let i = links.length - 1; i >= 0; i--) parents[i][0].insertBefore(links[i], parents[i][1]); }
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        return bool(res.get("found")) and res.get("names") == ["Account Settings", "Add-ons and Themes"], f"{res}"
+    check("Einstellungen: Kontoeinstellungen und Add-ons kommen auch ohne Fußzeilen-Links sofort als Kategorien", pref_embedded_no_footer, results)
+
     def pref_category_groups():
         # Kategorien in drei Gruppen nach Nutzung, nur durch Abstand getrennt: General, Account Settings, Appearance,
         # Composition · Privacy & Security, Calendar, Chat · Add-ons and Themes, halo.spaces, Export for Mobile (ganz unten)

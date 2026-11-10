@@ -660,13 +660,15 @@ function hookPrefCategories(cw, restorers = null) {
   const detach = [];
   const X = "http://www.w3.org/1999/xhtml";
   // Name wie Thunderbird ihn in der Fußzeile zeigt; ist die nach 6 s noch
-  // nicht übersetzt, der eigene (sonst fehlten die Kategorien ganz)
+  // nicht übersetzt oder fehlt der Link ganz (z. B. Windows), der eigene
+  // (sonst fehlten die Kategorien ganz)
   const since = cw.__mcPrefSince || (cw.__mcPrefSince = Date.now());
   const late = Date.now() - since > 6000;
   const labelOf = pane => {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
     return pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
-      link?.querySelector(".sidebar-footer-label")?.getAttribute("value") || (late && pane.name ? tr(pane.name) : "");
+      link?.querySelector(".sidebar-footer-label")?.getAttribute("value") ||
+      ((late || (pane.footer && !link)) && pane.name ? tr(pane.name) : "");
   };
   // alle Kategorien auf einmal: ist eine Fußzeile noch nicht übersetzt
   // (langsamer Start, z. B. Linux), gleich noch einmal – sonst stünde

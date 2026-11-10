@@ -12059,6 +12059,34 @@ class CardEnhancer {
       });
     };
 
+    // Tastenkürzel ⌃⌘S wie „Seitenleiste ausblenden/einblenden“ in Apple Mail:
+    // dieselbe Aktion wie der Seitenleisten-Knopf (GitHub #56). Nur macOS –
+    // für Windows/Linux ist noch kein Kürzel entschieden
+    const hookSidebarKey = () => {
+      const d = w.document;
+      if (!IS_MAC || d.getElementById("mcKeyToggleSidebar")) {
+        return;
+      }
+      // <command> statt oncommand am <key>: kein Skript im Attribut
+      const commandset = d.createXULElement("commandset");
+      const command = d.createXULElement("command");
+      command.id = "mcCmdToggleSidebar";
+      command.addEventListener("command", () => toggleSidebar());
+      commandset.append(command);
+      const keyset = d.createXULElement("keyset");
+      const key = d.createXULElement("key");
+      key.id = "mcKeyToggleSidebar";
+      key.setAttribute("key", "s");
+      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("command", "mcCmdToggleSidebar");
+      keyset.append(key);
+      d.documentElement.append(commandset, keyset);
+      this.restorers.push(() => {
+        keyset.remove();
+        commandset.remove();
+      });
+    };
+
     // Bereiche-Leiste: ein eigener Knopf dafür entfällt (die Leiste gehört zur
     // Seitenleiste, der Seitenleisten-Knopf schaltet beides). Blendet
     // Thunderbird sie selbst ein/aus (Ansicht → Symbolleisten, Kontextmenü,
@@ -14445,6 +14473,7 @@ class CardEnhancer {
       hookTodayPaneHeader();
       hookEscape();
       hookSidebarButton();
+      hookSidebarKey();
       hookSpacesToggle();
       hookSideFloat();
       hookMarkTags();

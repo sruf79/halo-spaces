@@ -1672,11 +1672,37 @@ def maillist_checks(m, results):
         two, three, five = res.get("two") or {}, res.get("three") or {}, res.get("five") or {}
         ok = (two.get("sheets") == 1 and three.get("sheets") == 2 and five.get("sheets") == 3
               and all(x.get("covers") and x.get("top") and x.get("top") == x.get("first") and all(x.get("rot") or [False])
-                      and (x.get("card") or {}).get("radius") == "10px" and (x.get("card") or {}).get("w", 999) <= 520
+                      and (x.get("card") or {}).get("radius") == "10px"
                       and not x.get("text") and not x.get("pending") for x in (two, three, five))
               and five.get("n") == 5 and res.get("single") is False)
         return ok, f"{res}"
     check("Leseansicht: Mehrfachauswahl als Stapel wie Apple Mail – oberste markierte Mail als Karte, dahinter ein bis drei Blätter, ohne Zahl", multi_stack, results)
+
+    def multi_stack_size():
+        # Fehler in 3.24.0: der Stapel war auf 520×620 px begrenzt und blieb im großen Lesebereich klein. Wie Apple
+        # Mail füllt er den Lesebereich bis auf einen schmalen Rand und wächst bzw. schrumpft mit dem Fenster
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.threadTree.selectedIndex = -1; await ruhig(500);
+          const v = a3.gDBView, pane = a3.document.getElementById("messagePane");
+          const rows = ids => [...Array(v.rowCount).keys()].filter(k => ids.includes(v.getMsgHdrAt(k)?.messageId));
+          a3.threadTree.selectedIndices = rows(["halo-ml-4@example.invalid", "halo-ml-5@example.invalid"]);
+          await until(() => a3.document.querySelector("#mcConversation.mc-stack .mc-conv-card"), 5000); await ruhig(500);
+          const rand = () => { const c = a3.document.querySelector("#mcConversation.mc-stack .mc-conv-card")?.getBoundingClientRect(), p = pane.getBoundingClientRect();
+            return c ? { pw: Math.round(p.width), ph: Math.round(p.height), cw: Math.round(c.width), ch: Math.round(c.height),
+                         l: Math.round(c.left - p.left), r: Math.round(p.right - c.right), t: Math.round(c.top - p.top), b: Math.round(p.bottom - c.bottom) } : null; };
+          const out = { gross: rand() };
+          const ow = w.outerWidth, oh = w.outerHeight;
+          try { w.resizeTo(ow - 300, oh - 150); await until(() => w.outerWidth == ow - 300, 3000); await ruhig(800); out.klein = rand(); }
+          finally { w.resizeTo(ow, oh); await until(() => w.outerWidth == ow, 3000); await ruhig(500); }
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        g, k = res.get("gross") or {}, res.get("klein") or {}
+        def voll(x):
+            return bool(x) and all(16 <= x.get(s, 0) <= 48 for s in ("l", "r", "t", "b"))
+        # (die Breite des Lesebereichs folgt dem Fenster nicht, die Mailliste nimmt sie auf; der Rand prüft sie mit)
+        ok = voll(g) and voll(k) and g.get("ch", 0) - k.get("ch", 0) >= 100
+        return ok, f"{res}"
+    check("Leseansicht: Stapel bei Mehrfachauswahl füllt den Lesebereich bis auf einen schmalen Rand und wächst mit dem Fenster", multi_stack_size, results)
 
     def group_header_summary():
         # Gruppenkopf gewählt („In Abschnitten“): Thunderbirds Übersicht der Gruppe, nie die Konversation der

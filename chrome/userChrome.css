@@ -4061,17 +4061,18 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
 
 /* Mehrfachauswahl (wie Apple Mail): oberste markierte Mail als Karte, dahinter
    ein bis drei leere Blätter leicht verdreht als Stapel, ohne Zahl; die Karte
-   zeigt den Anfang der Mail und blendet unten aus statt zu scrollen */
+   zeigt den Anfang der Mail und blendet unten aus statt zu scrollen; der Stapel
+   füllt wie dort den Lesebereich bis auf einen schmalen Rand (Platz für die
+   verdrehten Blätter) und wächst mit dem Fenster, ohne feste Höchstmaße */
 #mcConversation.mc-stack {
   overflow: hidden;
-  padding: 40px 28px;
+  padding: 28px;
 }
 
 #mcConversation .mc-stack-pile {
   position: relative;
-  width: min(520px, 100%);
-  height: min(620px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
 }
 
 #mcConversation .mc-stack-pile > :is(.mc-stack-sheet, .mc-conv-card) {

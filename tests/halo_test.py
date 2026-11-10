@@ -9077,6 +9077,12 @@ def run_checks(m, version, profile, results):
                         count: row?.querySelector(":scope > .container .unread-count")?.textContent,
                         client: name?.clientWidth, scroll: name?.scrollWidth };
           if (row) row.unreadCount = inbox.getNumUnread(false);
+          // Mit „Local Folders“ ohne Posteingang wählt Thunderbird dessen Kontozeile (Kontoübersicht, ohne Liste und
+          // Mail); die Sammelordner kommen erst jetzt dazu und ändern die Auswahl nicht. Die folgenden Prüfungen
+          // brauchen die Mailansicht wie im Alltag: „All Inboxes“ wählen
+          const alle = row?.parentElement?.closest("li");
+          if (alle?.uri) { a3.displayFolder(alle.uri); await bis(() => a3.gFolder?.URI == alle.uri, "All Inboxes gewählt", 3000); await ruhig(500); }
+          out.selected = !!alle?.uri && a3.gFolder?.URI == alle.uri && a3.document.getElementById("threadPane").getBoundingClientRect().width > 0;
           return out;""")
         # die 206 px sind auf die Systemschrift von macOS abgestimmt (dort passt „Local Folders“ genau) – mit
         # anderen Schriften (Linux: 2 px breiter) wird nur die Breite geprüft
@@ -9086,7 +9092,7 @@ def run_checks(m, version, profile, results):
         width_ok = res["width"] == 206 and res["pref"] in (0, 206) if sys.platform == "darwin" else \
             res["width"] >= 206 and res["pref"] in (0, res["width"])
         ok = (width_ok and res["text"] == "Local Folders"
-              and res["count"] == "6" and res["client"] and fits)
+              and res["count"] == "6" and res["client"] and fits and res.get("selected"))
         return ok, f"{res}"
     check("Ordnerliste: im neuen Profil 206 px breit, „Local Folders“ nicht gekürzt", folder_start_width, results)
 

@@ -14908,10 +14908,10 @@ class CardEnhancer {
     // Thunderbird die Ordnerliste zuerst neu auf, das würde sonst den Anfang
     // der Bewegung verschlucken und sie ruckartig starten lassen.
     // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
-    let k = 0, dir = 1, last = null;
-    ab.__mcReverse = () => {
-      dir = -dir;
-    };
+    // (Takt, Umkehr bei erneutem Klick und Bildablauf: der gemeinsame animiere())
+    let k = 0;
+    let anim = null;
+    ab.__mcReverse = () => anim?.umkehren();
     // Breite der Ordnerliste und der Leseansicht für den Fortschritt k setzen
     const apply = () => {
       const shown = collapsing ? 1 - curve(k) : curve(k); // sichtbarer Anteil 1 → 0 bzw. 0 → 1
@@ -14935,9 +14935,8 @@ class CardEnhancer {
       apply();
       k = keep;
     };
-    const step = now => {
-      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
-      last = now;
+    const bildSetzen = kk => {
+      k = kk;
       // setzt Thunderbird währenddessen eine neue Sperre, gilt sie dem
       // Zwischenstand – entfernen und am Ende durch die volle Breite ersetzen
       if (pane.style.getPropertyPriority("width") == "important") {
@@ -14946,10 +14945,9 @@ class CardEnhancer {
       }
       apply();
       this.offsetUpdaters?.forEach(fn => fn());
-      if (dir > 0 ? k < 1 : k > 0) {
-        ab.requestAnimationFrame(step);
-        return;
-      }
+    };
+    const ende = kk => {
+      k = kk;
       delete ab.__mcReverse;
       delete ab.__mcJump;
       unfollow();
@@ -15044,7 +15042,8 @@ class CardEnhancer {
     // Platzaufteilung bleibt die des Endes (__mcAnimating)
     this.offsetUpdaters?.forEach(fn => fn());
     pane.getBoundingClientRect(); // Aufbau der Ordnerliste jetzt erzwingen, nicht im ersten Bild
-    ab.requestAnimationFrame(() => ab.requestAnimationFrame(step));
+    // apply() rechnet den Verlauf selbst aus k: der Takt liefert hier k unverändert
+    anim = animiere(ab, { dauer: DURATION, kurve: p => p, bild: (p, kk) => bildSetzen(kk), ende });
   }
 
   // Titel und Anzahl der Kopfzeile aus dem aktuellen Mail-Tab übernehmen

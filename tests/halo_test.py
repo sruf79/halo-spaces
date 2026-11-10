@@ -194,6 +194,9 @@ const toCalendar = async () => { tm.openTab("calendar", {});
   const view = await bis(() => tm.currentTabInfo?.mode?.name == "calendar" && (v => v?.getBoundingClientRect().width > 0 && v)(w.currentView?.()), "Kalender-Tab");
   await Promise.race([view.ready, wait(4000)]); await ruhig(1500); };
 const testCalendar = () => cal.manager.getCalendars().find(c => c.name == "Halo Test");
+// liegengebliebene Aufgaben früherer Prüfungen im Testkalender entfernen (Vorbedingung leere Aufgabenliste); Titel zurück
+const leftoverTodos = async () => { const c = testCalendar(); const l = (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => i.isTodo?.());
+  for (const it of l) { try { await c.deleteItem(it); } catch {} } return l.map(i => i.title); };
 const items = async title => { const c = testCalendar(); return (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => i.title == title); };
 const rect = el => { const r = el.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
 // Prüfungen, die absichtlich einen Fehler in halo.spaces auslösen (kein Netz, kaputte Daten, ersetzte Funktionen), melden
@@ -13216,13 +13219,12 @@ Neu
           const c = testCalendar();
           // Vorbedingung leere Liste: von früheren Prüfungen liegengebliebene Aufgaben entfernen und mit Titel
           // melden (CI windows 42711550267: eine übrig, dann waren drei Aufgaben-Prüfungen rot)
-          const leftover = (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => i.isTodo?.());
-          for (const it of leftover) { try { await c.deleteItem(it); } catch {} }
+          const leftover = await leftoverTodos();
           tm.openTab("tasks", {}); await ruhig(2000);
           const tree = d.getElementById("calendar-task-tree"); const empty = d.getElementById("mcTasksEmpty");
           const field = d.getElementById("view-task-edit-field");
           const shown = () => empty && !empty.hidden;
-          const out = { emptyAtStart: shown(), leftover: leftover.map(i => i.title) };
+          const out = { emptyAtStart: shown(), leftover };
           // Platzhalter, wie iCloud ihn anlegt – darf nicht erscheinen
           const ph = new CalTodo(); ph.title = "Wo sind meine Erinnerungen?"; ph.calendar = c;
           ph.setProperty("DESCRIPTION", "Weitere Infos: https://support.apple.com/HT210220"); const phSaved = await c.addItem(ph);
@@ -13707,7 +13709,7 @@ Neu
         # überfällige Aufgaben rot (--mt-red), Auswahl mit Fokus ohne eckiges Fokusrechteck
         res = m.js(CAL_CHECK_JS + r'''
           w.resizeTo(1500, 900);
-          const c = testCalendar();
+          const c = testCalendar(); const leftover = await leftoverTodos();
           // Thunderbirds Liste selbst ist nur in der Tabellenansicht zu sehen (Kartenansicht: eigene Karten)
           const viewBefore = Services.prefs.getCharPref("extensions.mailcards.taskView", "");
           Services.prefs.setCharPref("extensions.mailcards.taskView", "table");
@@ -14307,11 +14309,11 @@ Neu
         # „No Results“ statt „No Tasks“; Kalenderliste im niedrigen Fenster ≥ 3 Zeilen, kein Monatskalender
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900);
-          const c = testCalendar();
+          const c = testCalendar(); const leftover = await leftoverTodos();
           tm.openTab("tasks", {}); await ruhig(1500);
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
           const tree = d.getElementById("calendar-task-tree");
-          const out = {};
+          const out = { leftover };
           const theme = await (await fetch("resource://mailcards/theme.css")).text();
           const ruleOf = sel => { const i = theme.indexOf(sel + " {"); return i < 0 ? "" : theme.slice(i, theme.indexOf("}", i)); };
           out.italic = /font-style: normal !important/.test(ruleOf(".calendar-task-tree treechildren::-moz-tree-cell-text(completed)"));
@@ -14372,7 +14374,8 @@ Neu
             await till(() => tree.mTreeView.rowCount == 0, 4000); await ruhig(500);
             out.overdue = [tree.mTreeView.rowCount, !box.hidden, box.querySelector(".mc-te-title")?.textContent, box.querySelector(".mc-te-text")?.textContent];
             d.getElementById("opt_open_filter")?.click();
-            await till(() => tree.mTreeView.rowCount == 0 && tree.getAttribute("filterValue") == "open", 4000); await ruhig(500);
+            // (unter ESR stand der Text nach dem Filterwechsel noch kurz auf dem vorigen)
+            await till(() => tree.mTreeView.rowCount == 0 && tree.getAttribute("filterValue") == "open" && box.querySelector(".mc-te-text")?.textContent == "Tasks you add appear here.", 4000); await ruhig(500);
             out.open = [tree.mTreeView.rowCount, !box.hidden, box.querySelector(".mc-te-text")?.textContent];
             d.getElementById("opt_all_filter")?.click(); await till(() => tree.mTreeView.rowCount > 0, 4000); await ruhig(300);
             // niedriges Fenster: Kalenderliste mindestens drei Zeilen, kein Monatskalender

@@ -93,7 +93,9 @@ bekannte Sitzung, `docs/neon-sitzung.md`) – dann sagen, welcher mit welcher Me
 Ergebnisse von neon abwarten und weitergeben, nie selbst erfinden. Wird eine Nachricht abgelehnt, sucht
 die Sitzung selbstständig einen anderen Weg, bis einer klappt, sonst meldet sie das mit den
 Fehlermeldungen. Lehnt eine Sitzung die Anfrage einer anderen ab (auch teilweise, z. B. von der
-Berechtigungsprüfung gestoppt), schickt sie dieser sofort jede Antwort mit Grund als Rückmeldung.
+Berechtigungsprüfung gestoppt), schickt sie dieser sofort jede Antwort mit Grund als Rückmeldung. **Keine Anfrage bleibt ohne Antwort**, auch
+nicht bei einem Fehler des Sendewegs: nacheinander Namen (`SendMessage`), `ListAgents`/`get_session` versuchen,
+dann den Maintainer bitten (keine Kennungen als Weg).
 
 **neon schlank halten** – alle Sitzungen teilen sich neons Kontext:
 - Eine Nachricht je Auftrag, vollständig: was, Zweig bzw. Commit, Port ab 2850, was in welcher Form

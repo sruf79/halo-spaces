@@ -9059,8 +9059,13 @@ def run_checks(m, version, profile, results):
           if (!root.containsChildNamed("Inbox")) { root.createSubfolder("Inbox", null); }
           const inbox = root.getChildNamed("Inbox");
           const a3 = await toMail(); await ruhig(1000); const ad = a3.document;
-          const row = await until(() => [...ad.querySelectorAll('#folderTree > li[data-mode="smart"] li[is="folder-tree-row"]')]
-            .find(li => li.uri == inbox.URI && li.querySelector(":scope > .container .name")?.clientWidth), 8000);
+          // „All Inboxes“ ist bei einem erst nachträglich entstandenen Posteingang zugeklappt: für die Messung aufklappen
+          const row = await until(() => {
+            const li = [...ad.querySelectorAll('#folderTree > li[data-mode="smart"] li[is="folder-tree-row"]')].find(l => l.uri == inbox.URI);
+            const eltern = li?.parentElement?.closest("li");
+            if (eltern?.classList.contains("collapsed")) eltern.querySelector(":scope > .container .twisty")?.click();
+            return li?.querySelector(":scope > .container .name")?.clientWidth ? li : null;
+          }, 8000);
           const name = row?.querySelector(":scope > .container .name");
           // Ungelesen-Zahl wie im Alltag (einstellig) nur für die Messung anzeigen
           if (row) row.unreadCount = 6; await ruhig(300);

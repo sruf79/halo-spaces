@@ -19427,6 +19427,20 @@ class CardEnhancer {
       }
       return;
     }
+    // Ohne Posteingang (leeres Profil, nur „Lokale Ordner“) wählt Thunderbird beim Start den leeren Sammelordner
+    // und sein Öffnen scheitert (NS_ERROR_ILLEGAL_VALUE in nsIMsgDBView.open): dann erst später einschalten
+    try {
+      const hatPosteingang = MailServices.accounts.allFolders.some(f => f.flags & Ci.nsMsgFolderFlags.Inbox);
+      if (!hatPosteingang) {
+        // alle 2 s erneut prüfen, bis ein Konto mit Posteingang besteht (neues Konto, Posteingang angelegt)
+        if (!win.closed) {
+          win.setTimeout(() => this.enableUnifiedOnce(win, tries + 1), 2000);
+        }
+        return;
+      }
+    } catch (e) {
+      log("unified folders inbox check error", e);
+    }
     try {
       const modes = pane.activeModes;
       if (!modes.includes("smart")) {

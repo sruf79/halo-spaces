@@ -11,6 +11,10 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   erst Einschätzung zu Machbarkeit und Sinn mit Empfehlung, Eintrag erst nach ausdrücklichem OK des
   Maintainers (Entscheidung vom 9.11.2026). Ausnahme: von Nutzern gemeldete Bugs dürfen immer sofort
   eingetragen werden (Entwurf, Todo; Entscheidung vom 10.11.2026), Features und Wünsche nicht.
+  **Bug oder Feature (Typ):** Ein Bug ist etwas, das nicht tut, was es nach Beschreibung oder nach der
+  Apple-App tun soll, oder einen Fehler, Absturz oder Darstellungsfehler zeigt. Alles andere ist ein
+  Feature, auch ein als Bug getarnter Wunsch („wie vorher“, anderes Verhalten gewünscht). Im Zweifel
+  Feature: dann erst nach Absprache eintragen (Maintainer in neon, 10.11.2026: „ja“ zum Vorschlag).
 - Eigene Bugs/Wünsche des Maintainers aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
   Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in

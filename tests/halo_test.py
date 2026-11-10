@@ -1678,6 +1678,44 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Mehrfachauswahl als Stapel wie Apple Mail – oberste markierte Mail als Karte, dahinter ein bis drei Blätter, ohne Zahl", multi_stack, results)
 
+    def group_header_summary():
+        # Gruppenkopf gewählt („In Abschnitten“): Thunderbirds Übersicht der Gruppe, nie die Konversation der
+        # neuesten Mail – sie erschien, wenn diese Mail in einem Faden steckt (Gruppe mit „Re: Halo Faden“), auch
+        # nach einer zuvor geöffneten Mail und beim Wechsel zwischen Gruppen (GitHub #57)
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.threadTree.selectedIndex = -1; await ruhig(500);
+          const gv = a3.gViewWrapper; gv.sort(Ci.nsMsgViewSortType.byDate, Ci.nsMsgViewSortOrder.descending);
+          gv.showGroupedBySort = true; await ruhig(1200);
+          const v = a3.gDBView, DUMMY = 0x20000000, out = { groups: [] };
+          try {
+            const heads = () => [...Array(v.rowCount).keys()].filter(k => v.getFlagsAt(k) & DUMMY);
+            await until(() => heads().length >= 3, 8000);
+            const mail = [...Array(v.rowCount).keys()].find(k => v.getMsgHdrAt(k)?.messageId == "halo-ml-3@example.invalid");
+            const look = async k => {
+              a3.threadTree.selectedIndex = k;
+              // Gruppe mit einer Mail: Thunderbird lässt den Lesebereich leer, sonst die Übersicht
+              await until(() => (v.numSelected < 2 || a3.document.getElementById("multiMessageBrowser")?.getBoundingClientRect().width > 0)
+                && !a3.document.getElementById("messagePane").classList.contains("mc-conv-pending"), 4000);
+              await ruhig(600);
+              const conv = a3.document.getElementById("mcConversation");
+              return { n: v.numSelected, conv: !!conv && conv.getBoundingClientRect().width > 0,
+                       summary: a3.document.getElementById("multiMessageBrowser")?.getBoundingClientRect().width > 0,
+                       mail: a3.document.getElementById("messageBrowser")?.getBoundingClientRect().width > 0 };
+            };
+            // erst eine Mail öffnen, dann jede Gruppe nacheinander, zuletzt wieder die erste
+            if (mail != null) { a3.threadTree.selectedIndex = mail; await ruhig(800); }
+            const hs = heads();
+            for (const k of [...hs, hs[0]]) out.groups.push(await look(k));
+          } finally {
+            a3.threadTree.selectedIndex = -1; gv.showGroupedBySort = false; gv.showThreaded = true; await ruhig(800);
+          }
+          return out;""")
+        groups = res.get("groups", [])
+        ok = (len(groups) >= 4 and any(g.get("n", 0) >= 2 for g in groups)
+              and all(not g.get("conv") and not g.get("mail") and g.get("summary") == (g.get("n", 0) >= 2) for g in groups))
+        return ok, f"{res}"
+    check("Mailliste: Gruppenkopf bei „In Abschnitten“ zeigt die Übersicht der Gruppe, nie den Inhalt der ersten Mail – auch nach geöffneter Mail und beim Wechsel zwischen Gruppen (GitHub #57)", group_header_summary, results)
+
     def tag_contrast():
         # Schlagwortfarben als Schrift in der Tabelle mit Kontrast ≥ 4,5:1
         res = m.js(MAILLIST_JS + r"""

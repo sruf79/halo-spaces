@@ -18666,9 +18666,18 @@ class CardEnhancer {
       }
       return result;
     };
+    // gewählte Zeile ist ein Gruppenkopf („Heute“, „Gestern“ … bei „In Abschnitten“)
+    const groupHeadSelected = () => {
+      try {
+        const index = win.threadTree?.selectedIndex ?? -1;
+        return index >= 0 && !!(win.gDBView.getFlagsAt(index) & 0x20000000);
+      } catch {
+        return false;
+      }
+    };
     pane.displayMessages = function (messages = []) {
       conv.hide();
-      if (messages.length && win.gDBView?.selection?.count == 1 && conv.enabled()) {
+      if (messages.length && win.gDBView?.selection?.count == 1 && conv.enabled() && !groupHeadSelected()) {
         pane.classList.add("mc-conv-pending");
       }
       // mehrere Zeilen markiert: Stapel statt Zusammenfassung (ohne Aufblitzen)
@@ -18686,8 +18695,11 @@ class CardEnhancer {
         }
         conv.reveal();
       }
-      // ein zugeklappter Faden (eine Zeile ausgewählt): Konversation statt Zusammenfassung
-      if (messages.length && win.gDBView?.selection?.count == 1) {
+      // ein zugeklappter Faden (eine Zeile ausgewählt): Konversation statt Zusammenfassung.
+      // Nicht beim Gruppenkopf („In Abschnitten“): er ist auch eine Zeile mit
+      // mehreren Mails, zeigt aber Thunderbirds Übersicht der Gruppe – sonst
+      // erschien die Konversation der neuesten Mail, wenn sie in einem Faden steckt
+      if (messages.length && win.gDBView?.selection?.count == 1 && !groupHeadSelected()) {
         const newest = [...messages].sort((a, b) => b.date - a.date)[0];
         conv.show(newest, { thread: true });
       }

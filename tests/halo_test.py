@@ -15248,6 +15248,22 @@ Neu
           const other = [...cd.querySelectorAll("#paneDeck fieldset")].find(f => f != adv && f.querySelector(":scope > legend") && f.getBoundingClientRect().width);
           out.adv = [cs(adv).backgroundColor, cs(adv).paddingTop, cs(adv).marginBottom,
             other ? cs(other).backgroundColor != "rgba(0, 0, 0, 0)" : null];
+          // „Advanced settings“ als letzte sichtbare Karte unter Allgemein (auch nach Rules und Offline), Knopf mittig
+          await bis(() => cd.getElementById("mcPrefOffline"), "Karte Offline", 4000);
+          const genCards = [...cd.getElementById("paneDeck").children].filter(c => c.localName == "div" && c.getAttribute("data-category") == "paneGeneral" && c.getBoundingClientRect().height > 0);
+          const btn = cd.getElementById("configEditor").getBoundingClientRect(), ar = adv.getBoundingClientRect();
+          out.advLast = genCards.at(-1)?.contains(adv) ? true : genCards.at(-1)?.id;
+          out.advMid = Math.round((btn.left + btn.width / 2) - (ar.left + ar.width / 2));
+          // „Get Starred Messages“ läuft in der Mailansicht (über den Menüeintrag lief es im Einstellungen-Tab ins Leere)
+          const star = [...cd.querySelectorAll("#mcPrefOffline button")][1];
+          const ctl = tm.tabInfo.find(t => t.mode?.name == "mail3PaneTab")?.chromeBrowser?.contentWindow?.commandController;
+          if (star && ctl) {
+            const orig = ctl.doCommand; let ran = null;
+            ctl.doCommand = cmd => { ran = cmd; };
+            try { star.dispatchEvent(new cw.MouseEvent("mouseover", { bubbles: true })); const en = !star.disabled; star.click();
+              out.starred = [star.textContent, en == ctl.isCommandEnabled("cmd_downloadFlagged"), en ? ran : "aus"]; }
+            finally { ctl.doCommand = orig; }
+          }
           cw.gotoPref("panePrivacy"); await ruhig(1500);
           const p = cd.querySelector("#emailE2eeKeyServers > p"), hr = cd.querySelector("#emailE2eeKeyServers > hr");
           const ref = cd.querySelector("#emailE2eeGroupAutomatism description");
@@ -15264,12 +15280,13 @@ Neu
           tm.closeTab(tm.currentTabInfo);
           return out;""")
         ok = (res["adv"][0] in ("rgba(0, 0, 0, 0)", "transparent") and res["adv"][1] == "0px"
-              and res["adv"][2] == "12px" and res["adv"][3] is True
+              and res["adv"][2] == "12px" and res["adv"][3] is True and res.get("advLast") is True and abs(res.get("advMid", 99)) <= 1
+              and res.get("starred") and res["starred"][1] and res["starred"][2] in ("cmd_downloadFlagged", "aus")
               and res["p"] and res["p"][:2] == ["12px", True]
               and res["hr"] and res["hr"][:2] == [True, True] and res["hr"][2] == "none"
               and res["first"] == ["0px", "12px"] and res["link"] in (True, "kein Link"))
         return ok, f"{res}"
-    check("Einstellungen: Karte „Advanced settings“ ohne leere Fläche; Ende-zu-Ende-Texte 12 px grau mit Haarlinie", settings_e2ee_cards, results)
+    check("Einstellungen: Karte „Advanced settings“ ohne leere Fläche, als letzte unter Allgemein und mittig; „Get Starred Messages“ wirkt in der Mailansicht; Ende-zu-Ende-Texte 12 px grau mit Haarlinie", settings_e2ee_cards, results)
 
     def settings_details():
         # Einstellungen: Arbeitstage mittig und mit Abstand, Chat-Vorschau mit Abstand/Rahmen und dunkel als

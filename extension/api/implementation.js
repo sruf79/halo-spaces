@@ -6256,9 +6256,12 @@ const PREF_TOOLS = [
   ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
   // Filter heißen wie in Apple Mail Regeln: alle Regeln ansehen und anlegen
   ["mcPrefRules", "paneGeneral", null, "Rules", [{ button: "filtersCmd" }]],
+  // „Get Starred Messages“ gilt in Thunderbird für den in der Mail gewählten
+  // Ordner; der Befehl kennt nur die Mailansicht (pane3) – über Thunderbirds
+  // Menüeintrag lief er im Einstellungen-Tab ins Leere (Knopf ohne Wirkung)
   ["mcPrefOffline", "paneGeneral", null, "Offline", [
     { button: "menu_synchronizeOffline" },
-    { button: "menu_downloadFlagged" },
+    { button: "menu_downloadFlagged", pane3: "cmd_downloadFlagged" },
   ]],
   ["mcPrefCalendarView", "paneCalendar", null, "Calendar View", [
     { toggle: "calWorkdaysOnlyMenuitem" },
@@ -6326,6 +6329,25 @@ function addPrefTools(doc, restorers) {
         card.addEventListener("focusin", sync);
         lab.append(label(row.choice), " ", select);
         line.append(lab);
+      } else if (row.button && row.pane3) {
+        // Befehl der Mailansicht: dort ausführen; grau, solange Thunderbird ihn
+        // nicht anbietet (kein Ordner gewählt, offline) – wie im Menü
+        const b = doc.createElementNS(X, "button");
+        b.textContent = label(row.button);
+        const ctl = () => mailWin.gTabmail?.tabInfo.find(t => t.mode?.name == "mail3PaneTab")?.chromeBrowser?.contentWindow?.commandController;
+        const able = () => {
+          try {
+            return !!ctl()?.isCommandEnabled(row.pane3);
+          } catch {
+            return false;
+          }
+        };
+        const sync = () => (b.disabled = !able());
+        sync();
+        b.addEventListener("click", () => able() && ctl().doCommand(row.pane3));
+        card.addEventListener("focusin", sync);
+        card.addEventListener("mouseover", sync);
+        line.append(b);
       } else if (row.button) {
         const b = doc.createElementNS(X, "button");
         b.textContent = label(row.button);
@@ -6349,8 +6371,12 @@ function addPrefTools(doc, restorers) {
     }
     card.append(set);
     const anchor = before && doc.getElementById(before);
+    // „Advanced settings“ (about:config) bleibt die letzte Karte unter Allgemein
+    const advanced = doc.getElementById("configEditor")?.closest("#paneDeck > div");
     if (anchor && anchor.parentNode == deck) {
       anchor.before(card);
+    } else if (advanced && advanced.parentNode == deck && cards.includes(advanced)) {
+      advanced.before(card);
     } else {
       cards.at(-1).after(card);
     }

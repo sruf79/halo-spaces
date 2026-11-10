@@ -4045,6 +4045,12 @@ splitter.splitter:has(+ .conv-bottom) {
   padding: 0 !important;
 }
 
+/* … und mittig statt rechtsbündig (die Karte ist die letzte unter Allgemein);
+   pack="end" setzt xul.css fest, automatische Ränder gehen trotzdem vor */
+#paneDeck fieldset:has(#configEditor) > hbox > hbox:has(> #configEditor) {
+  margin-inline: auto !important;
+}
+
 /* Verschachtelte Unterüberschriften („Card view options“, „Display width“,
    „Enable DNS over HTTPS using:“) behielten Thunderbirds 1.3em und waren
    größer als der Kartentitel – gleiche 13 px halbfett */

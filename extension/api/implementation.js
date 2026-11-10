@@ -6333,6 +6333,32 @@ function hookShortcutsLink(cw, restorers = null) {
 // Befehle, die aus der Menüleiste gefallen sind, bekommen einen Platz in
 // Thunderbirds Einstellungen (Knöpfe bzw. Schalter, die Thunderbirds
 // Menüeintrag auslösen; Texte von Thunderbird, die Suche findet sie)
+function downloadStarredForOffline(w) {
+  const folder = w.gFolder;
+  if (!folder || folder.isServer) {
+    return;
+  }
+  let folders = [folder];
+  if (folder.flags & Ci.nsMsgFolderFlags.Virtual) {
+    try {
+      const { VirtualFolderHelper } = ChromeUtils.importESModule("resource:///modules/VirtualFolderWrapper.sys.mjs");
+      folders = VirtualFolderHelper.wrapVirtualFolder(folder).searchFolders;
+    } catch (e) {
+      log("download starred scope", e);
+    }
+  }
+  for (const f of folders) {
+    try {
+      const hdrs = [...f.messages].filter(h => h.isFlagged && !(h.flags & Ci.nsMsgMessageFlags.Offline));
+      if (hdrs.length) {
+        f.downloadMessagesForOffline(hdrs, w.msgWindow);
+      }
+    } catch (e) {
+      log("download starred", e);
+    }
+  }
+}
+
 const PREF_TOOLS = [
   // [Karte, Bereich, vor/nach Thunderbird-Abschnitt, Überschrift, Einträge]
   ["mcPrefFiles", "paneGeneral", "languageAndFontsCategory", "Files and Display", [
@@ -6346,7 +6372,10 @@ const PREF_TOOLS = [
   ["mcPrefRules", "paneGeneral", null, "Rules", [{ button: "filtersCmd" }]],
   // „Get Starred Messages“ gilt in Thunderbird für den in der Mail gewählten
   // Ordner; der Befehl kennt nur die Mailansicht (pane3) – über Thunderbirds
-  // Menüeintrag lief er im Einstellungen-Tab ins Leere (Knopf ohne Wirkung)
+  // Menüeintrag lief er im Einstellungen-Tab ins Leere (Knopf ohne Wirkung).
+  // Auch der Befehl selbst warf, solange die Mailansicht keine Liste aufgebaut hat
+  // (gDBView leer, z. B. Sammelordner): darum lädt downloadStarredForOffline die
+  // markierten Mails des Ordners (bzw. der Ordner hinter einem virtuellen) selbst
   ["mcPrefOffline", "paneGeneral", null, "Offline", [
     { button: "menu_synchronizeOffline" },
     { button: "menu_downloadFlagged", pane3: "cmd_downloadFlagged" },
@@ -6422,7 +6451,8 @@ function addPrefTools(doc, restorers) {
         // nicht anbietet (kein Ordner gewählt, offline) – wie im Menü
         const b = doc.createElementNS(X, "button");
         b.textContent = label(row.button);
-        const ctl = () => mailWin.gTabmail?.tabInfo.find(t => t.mode?.name == "mail3PaneTab")?.chromeBrowser?.contentWindow?.commandController;
+        const pane = () => mailWin.gTabmail?.tabInfo.find(t => t.mode?.name == "mail3PaneTab")?.chromeBrowser?.contentWindow;
+        const ctl = () => pane()?.commandController;
         const able = () => {
           try {
             return !!ctl()?.isCommandEnabled(row.pane3);
@@ -6432,7 +6462,7 @@ function addPrefTools(doc, restorers) {
         };
         const sync = () => (b.disabled = !able());
         sync();
-        b.addEventListener("click", () => able() && ctl().doCommand(row.pane3));
+        b.addEventListener("click", () => able() && downloadStarredForOffline(pane()));
         card.addEventListener("focusin", sync);
         card.addEventListener("mouseover", sync);
         line.append(b);

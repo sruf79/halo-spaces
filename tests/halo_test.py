@@ -15684,11 +15684,14 @@ Neu
           const star = [...cd.querySelectorAll("#mcPrefOffline button")][1];
           const ctl = tm.tabInfo.find(t => t.mode?.name == "mail3PaneTab")?.chromeBrowser?.contentWindow?.commandController;
           if (star && ctl) {
-            const orig = ctl.doCommand; let ran = null;
-            ctl.doCommand = cmd => { ran = cmd; };
+            // echter Befehl (nicht ersetzt): Thunderbirds cmd_downloadFlagged wirft, solange die Mailansicht keine Liste hat (gDBView leer)
+            const pw = tm.tabInfo.find(t => t.mode?.name == "mail3PaneTab").chromeBrowser.contentWindow;
+            const origFolder = pw.gFolder; const got = [];
+            const hdr = (flagged, flags = 0) => ({ isFlagged: flagged, flags });
+            pw.gFolder = { isServer: false, flags: 0, messages: [hdr(true), hdr(false), hdr(true, Ci.nsMsgMessageFlags.Offline)], downloadMessagesForOffline: (h) => got.push(h.length) };
             try { star.dispatchEvent(new cw.MouseEvent("mouseover", { bubbles: true })); const en = !star.disabled; star.click();
-              out.starred = [star.textContent, en == ctl.isCommandEnabled("cmd_downloadFlagged"), en ? ran : "aus"]; }
-            finally { ctl.doCommand = orig; }
+              out.starred = [star.textContent, en, got]; }
+            finally { pw.gFolder = origFolder; }
           }
           cw.gotoPref("panePrivacy"); await ruhig(1500);
           const p = cd.querySelector("#emailE2eeKeyServers > p"), hr = cd.querySelector("#emailE2eeKeyServers > hr");
@@ -15707,7 +15710,7 @@ Neu
           return out;""")
         ok = (res["adv"][0] in ("rgba(0, 0, 0, 0)", "transparent") and res["adv"][1] == "0px"
               and res["adv"][2] == "12px" and res["adv"][3] is True and res.get("advLast") is True and abs(res.get("advMid", 99)) <= 1
-              and res.get("starred") and res["starred"][1] and res["starred"][2] in ("cmd_downloadFlagged", "aus")
+              and res.get("starred") and res["starred"][1] and res["starred"][2] == [1]
               and res["p"] and res["p"][:2] == ["12px", True]
               and res["hr"] and res["hr"][:2] == [True, True] and res["hr"][2] == "none"
               and res["first"] == ["0px", "12px"] and res["link"] in (True, "kein Link"))

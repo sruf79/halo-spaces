@@ -124,6 +124,17 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 | Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
 | Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Done `98236657` |
 
+## Archiv und „War das schon einmal da?“
+
+Archivierte Einträge kommen aus der API nicht mehr in der Liste (nur einzeln per id). Deshalb schreibt
+`board.sh archiv <id> [<Hash>]` vor dem Archivieren eine Zeile (Datum | id | Typ | Titel | Hash, keine Texte)
+nach `~/halo-aufgaben/archiv.md` (nicht im Repo; auch der CI-Wächter schreibt sie). `board.sh suche <Begriff>`
+durchsucht offene, Done- und archivierte Einträge (höchstens 10 Zeilen), `board.sh archiv-zeige <id>` holt
+Status und Text eines archivierten Eintrags. Vor dem Eintragen eines Bugs mit `suche` prüfen: gibt es Treffer,
+dem Maintainer die Titel nennen („War das schon einmal da?“), er entscheidet. Bugs, die schon einmal als behoben
+galten und wiederkamen, gehen mit dem Skill `systematic-debugging` an. Ältere Archivierte fehlen im
+Verzeichnis (nicht nachgefüllt): dafür `git log --grep`.
+
 ## Cloud-Sessions
 
 In Cloud-Sessions ist die GraphQL-API gesperrt, `gh project …` geht dort

@@ -271,6 +271,8 @@ ${2/in derselben Nacht repariert/Prüfung „$1“ in derselben Nacht repariert}
   gh project item-edit --id $di --body "$body
 
 $2" >/dev/null \
+    && { grep -qF " | $id | " ${HALO_ARCHIV:-$HOME/halo-aufgaben/archiv.md} 2>/dev/null \
+         || print -r -- "$(date +%F) | $id | Bug | $(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .title') | -" >> ${HALO_ARCHIV:-$HOME/halo-aufgaben/archiv.md}; } \
     && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_DONE >/dev/null \
     && gh project item-archive 1 --owner sruf79 --id $id >/dev/null \
     || { melde "FEHLER: Eintrag $id (repariert) ließ sich nicht schließen"; return 1 }

@@ -11671,6 +11671,9 @@ def run_checks(m, version, profile, results):
         # allen Bereichen beim Einblenden). Gemessen mit jedem Bildwechsel (tests/animation_lib.py). Ausnahme: das Wegspringen
         # beim Ziehen der Trennlinie unter die Schwelle und das Wiedereinspringen (eigene Prüfung oben, hier nur per Knopf).
         # Verdecktes Fenster: Animationen pausieren, dann keine Messung (übersprungen, nicht rot).
+        # Nur auf macOS gemessen (Linux/Windows: Thunderbird-Toolbar und Bildtakt weichen ab) – dort übersprungen
+        if sys.platform != "darwin":
+            return True, "übersprungen: nur auf macOS gemessen"
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         import animation_lib as A
         bereiche = [

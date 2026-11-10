@@ -11048,13 +11048,32 @@ class CardEnhancer {
       // Leiste (min-width 0, overflow hidden) im ersten Bild schmaler und
       // springt dann zurück (Kalender/Aufgaben)
       setW(show ? 0 : full);
+      // Kante der Leiste für die Toolbar (--mc-side-right: Seitenleisten-Knopf): linke Kante der Leiste
+      // zur Toolbar-Zeile einmal messen, dann pro Bild nur Kante + Breite schreiben (ein Schreiben an der
+      // Zeile, kein Messen) – sonst bliebe der Knopf stehen und spränge am Ende (Stufe 2)
+      const topDoc = w.document;
+      const barRow = topDoc.getElementById("unifiedToolbarContainer");
+      const tabNow = topDoc.getElementById("tabmail")?.currentTabInfo;
+      const edgeBase = barRow ? (el.ownerDocument != topDoc ? rectOf(tabNow?.browser)?.left || 0 : 0) + rectOf(el).left - rectOf(barRow).left : NaN;
+      // Kalender: die Knöpfe beginnen gleich rechts der Leiste (--mc-tab-offset = Kante + 12 px − Anfang der Knöpfe),
+      // der Wert wächst also mit der Breite – vom heutigen Wert aus mitführen
+      const tabOffset0 = parseFloat(barTarget(topDoc).style.getPropertyValue("--mc-tab-offset"));
+      const followTab = mode == "calendar" && Number.isFinite(tabOffset0);
+      const W0 = show ? 0 : full;
       // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück
       const anim = animiere(win, {
         dauer: DURATION,
         kurve: curve,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),
         bild: p => {
-          setW(full * (show ? p : 1 - p));
+          const W = full * (show ? p : 1 - p);
+          setW(W);
+          if (Number.isFinite(edgeBase)) {
+            setBarVar(topDoc, "--mc-side-right", `${Math.max(0, Math.round(edgeBase + W))}px`);
+          }
+          if (followTab) {
+            setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
+          }
           updateSideEdge();
         },
         ende: k => {

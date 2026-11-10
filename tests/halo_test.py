@@ -13179,11 +13179,15 @@ Neu
         res = m.js(r'''
           w.resizeTo(1500, 900);
           const c = testCalendar();
+          // Vorbedingung leere Liste: von früheren Prüfungen liegengebliebene Aufgaben entfernen und mit Titel
+          // melden (CI windows 42711550267: eine übrig, dann waren drei Aufgaben-Prüfungen rot)
+          const leftover = (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => i.isTodo?.());
+          for (const it of leftover) { try { await c.deleteItem(it); } catch {} }
           tm.openTab("tasks", {}); await ruhig(2000);
           const tree = d.getElementById("calendar-task-tree"); const empty = d.getElementById("mcTasksEmpty");
           const field = d.getElementById("view-task-edit-field");
           const shown = () => empty && !empty.hidden;
-          const out = { emptyAtStart: shown() };
+          const out = { emptyAtStart: shown(), leftover: leftover.map(i => i.title) };
           // Platzhalter, wie iCloud ihn anlegt – darf nicht erscheinen
           const ph = new CalTodo(); ph.title = "Wo sind meine Erinnerungen?"; ph.calendar = c;
           ph.setProperty("DESCRIPTION", "Weitere Infos: https://support.apple.com/HT210220"); const phSaved = await c.addItem(ph);

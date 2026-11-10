@@ -8039,6 +8039,10 @@ function overflowButton(doc, content) {
     li = doc.createElement("li");
     li.id = OVERFLOW_ID;
     li.setAttribute("mc-squeezed", "");
+    // Thunderbirds Toolbar ruft bei jedem Tab-Wechsel bzw. Schließen diese
+    // Methoden aller Einträge auf (sonst TypeError in der Fehlerkonsole)
+    li.onTabSwitched = () => {};
+    li.onTabClosing = () => {};
     const button = doc.createElement("button");
     button.className = "unified-toolbar-button button";
     button.title = tr("More");

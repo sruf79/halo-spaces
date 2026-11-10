@@ -12088,6 +12088,27 @@ class CardEnhancer {
       }
       if (mail && folder && !!folder.isCollapsed == show) {
         this.animateSidebar(ab, folder, after, false, withSpaces);
+        // Einblenden: die Platzaufteilung der Toolbar (Pillen, Suchfeld, „»“) gilt für den Endzustand – einmal
+        // dort rechnen (Endzustand synchron herstellen, nichts wird gezeichnet) und zurückstellen; sonst würde
+        // sie erst am Ende neu verteilt und alles spränge (Stufe 4)
+        if (show && withSpaces && w.__mcSpacesJump && ab.__mcJump) {
+          w.__mcDry = true;
+          try {
+            w.__mcSpacesJump(1);
+            ab.__mcJump(1);
+            w.document.documentElement.getBoundingClientRect();
+            this.offsetUpdaters?.forEach(fn => fn());
+          } catch (e) {
+            log("dry-run error", e);
+          } finally {
+            ab.__mcJump(0);
+            w.__mcSpacesJump(0);
+            w.__mcDry = false;
+          }
+          // Kanten für den Anfangszustand wieder herstellen (die Vorabrechnung schrieb die Endwerte)
+          w.document.documentElement.getBoundingClientRect();
+          this.offsetUpdaters?.forEach(fn => fn());
+        }
       } else if (!mail && side && side.classList.contains("mc-side-hidden") == show) {
         toggleSpaceSidebar();
       }
@@ -14856,15 +14877,8 @@ class CardEnhancer {
     ab.__mcReverse = () => {
       dir = -dir;
     };
-    const step = now => {
-      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
-      last = now;
-      // setzt Thunderbird währenddessen eine neue Sperre, gilt sie dem
-      // Zwischenstand – entfernen und am Ende durch die volle Breite ersetzen
-      if (pane.style.getPropertyPriority("width") == "important") {
-        relocked = true;
-        pane.style.removeProperty("width");
-      }
+    // Breite der Ordnerliste und der Leseansicht für den Fortschritt k setzen
+    const apply = () => {
       const shown = collapsing ? 1 - curve(k) : curve(k); // sichtbarer Anteil 1 → 0 bzw. 0 → 1
       const width = vertical ? (collapsing ? endFolder + (full - endFolder) * shown : endFolder * shown) : full * shown;
       grid.style.setProperty(prop, `${width}px`);
@@ -14878,12 +14892,31 @@ class CardEnhancer {
         // Windows ändert sich unterwegs der Zuschlag für die Bildlaufleiste)
         grid.style.setProperty(msgProp, `${Math.max(0, msgAt())}px`);
       }
+    };
+    // Endzustand kurz herstellen (Platzaufteilung der Toolbar vorab rechnen, siehe toggleSidebar)
+    ab.__mcJump = to => {
+      const keep = k;
+      k = to;
+      apply();
+      k = keep;
+    };
+    const step = now => {
+      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      last = now;
+      // setzt Thunderbird währenddessen eine neue Sperre, gilt sie dem
+      // Zwischenstand – entfernen und am Ende durch die volle Breite ersetzen
+      if (pane.style.getPropertyPriority("width") == "important") {
+        relocked = true;
+        pane.style.removeProperty("width");
+      }
+      apply();
       this.offsetUpdaters?.forEach(fn => fn());
       if (dir > 0 ? k < 1 : k > 0) {
         ab.requestAnimationFrame(step);
         return;
       }
       delete ab.__mcReverse;
+      delete ab.__mcJump;
       unfollow();
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
@@ -15188,6 +15221,7 @@ class CardEnhancer {
       row?.style.removeProperty("--mc-tl-reserve");
     };
     w.__mcSpacesAnimating = true;
+    w.__mcSpacesJump = v => set(v * FULL);
     if (showing) {
       set(0);
       spaces.toggleToolbar(false);
@@ -15214,6 +15248,7 @@ class CardEnhancer {
       root.style.removeProperty("--mc-spaces-w");
       w.__mcColumnFollow?.();
       delete w.__mcColumnFollow;
+      delete w.__mcSpacesJump;
       w.__mcSpacesAnimating = false;
       delete w.__mcSpacesReverse;
       onDone?.();
@@ -16893,7 +16928,7 @@ class CardEnhancer {
       // Bereiche-Leiste animiert: nur die Kanten an der Toolbar-Zeile mitführen (wenige Schreibzugriffe), das
       // Übrige (Listenbreite, Tab- und Statusleiste, Platzaufteilung) erst am Ende – sonst springen die Knöpfe
       // am Ende, bzw. mit allem pro Bild ruckelt es (Stufe 3)
-      const spacesMoving = !!top.__mcSpacesAnimating;
+      const spacesMoving = !!top.__mcSpacesAnimating && !top.__mcDry;
       if (!spacesMoving) {
         keepListWidth();
         enforceMessageWidth();
@@ -16955,8 +16990,8 @@ class CardEnhancer {
       setVar(top.document.getElementById("unifiedToolbarContainer"), "--mc-row-tail", `${rowTail(top.document)}px`);
       // auch während die Today-Pane ein-/ausgleitet: sonst blendet das
       // Nachmessen mitten in der Animation Knöpfe um (ein 45-ms-Hänger)
-      const animating = top.__mcSpacesAnimating || win.__mcAnimating ||
-        top.document.getElementById("today-pane-panel")?.__mcAnimating;
+      const animating = !top.__mcDry && (top.__mcSpacesAnimating || win.__mcAnimating ||
+        top.document.getElementById("today-pane-panel")?.__mcAnimating);
       if (!animating) {
         const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld

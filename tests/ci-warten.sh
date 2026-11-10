@@ -4,10 +4,16 @@
 # Für Nachtlauf und Wochenprüfung (tests/MAC-MINI.md Abschnitte 13 und 15): ein
 # Aufruf wartet höchstens <minuten>, dann wieder aufrufen, bis der Lauf fertig ist.
 #   tests/ci-warten.sh [<commit>] [<minuten>]     Standard: HEAD, 9 Minuten
+#   tests/ci-warten.sh --windows [<commit>] [<minuten>]
+#     wartet statt auf den Push-Lauf auf den letzten Lauf von Hand zum Commit (der Nachtlauf startet
+#     ihn mit `gh workflow run test.yml -f ziel=windows --ref main`, Job windows läuft nicht mehr bei
+#     Push); das Ergebnis richtet sich nur nach dem Job windows (windows-github zählt nicht)
 # Exitcode: 0 grün (oder kein Lauf nötig, tests/ci-noetig.sh), 1 rot, 2 läuft noch, 3 abgebrochen, 4 kein Lauf zum Commit
 emulate -L zsh
 path=(/opt/homebrew/bin /usr/local/bin $path)
 R=sruf79/halo-spaces
+EVENT=push WINDOWS=
+[[ $1 == --windows ]] && { WINDOWS=1 EVENT=workflow_dispatch; shift }
 SHA=$(git -C ${0:A:h:h} rev-parse ${1:-HEAD} 2>/dev/null) || { print -u2 "Unbekannter Commit: $1"; exit 4 }
 MIN=${2:-9}
 BIS=$(( $(date +%s) + MIN * 60 ))
@@ -20,13 +26,13 @@ jobs_zeilen() {
 
 RUN=
 while true; do
-  [[ -z $RUN ]] && RUN=$(gh run list -R $R -w test.yml -c $SHA -e push -L 1 --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null)
+  [[ -z $RUN ]] && RUN=$(gh run list -R $R -w test.yml -c $SHA -e $EVENT -L 1 --json databaseId --jq '.[0].databaseId // empty' 2>/dev/null)
   if [[ -n $RUN ]]; then
     INFO=$(gh run view $RUN -R $R --json status,conclusion,createdAt,updatedAt \
       --jq '"\(.status) \(.conclusion) \((((.updatedAt | fromdate) - (.createdAt | fromdate)) / 60 | floor))"' 2>/dev/null)
     [[ ${INFO%% *} == completed ]] && break
   fi
-  if [[ -z $RUN ]]; then
+  if [[ -z $RUN && -z $WINDOWS ]]; then
     # Kein Lauf, weil seit dem letzten grün getesteten Stand nichts Thunderbird direkt
     # betrifft (paths in test.yml, tests/ci-noetig.sh)? Dann gibt es nichts abzuwarten.
     BASIS=""
@@ -40,7 +46,11 @@ while true; do
   fi
   if (( $(date +%s) >= BIS )); then
     if [[ -z $RUN ]]; then
-      print "Kein CI-Lauf für ${SHA:0:7} gefunden (gepusht? Läufe erscheinen nach einigen Sekunden)"
+      if [[ -n $WINDOWS ]]; then
+        print "Kein Windows-Lauf von Hand für ${SHA:0:7} gefunden (gh workflow run test.yml -f ziel=windows --ref main gestartet? Läufe erscheinen nach einigen Sekunden)"
+      else
+        print "Kein CI-Lauf für ${SHA:0:7} gefunden (gepusht? Läufe erscheinen nach einigen Sekunden)"
+      fi
       exit 4
     fi
     print "CI-Lauf $RUN für ${SHA:0:7} läuft noch (https://github.com/$R/actions/runs/$RUN):"
@@ -57,6 +67,17 @@ case $ERGEBNIS in
   cancelled) T=abgebrochen RC=3 ;;
   *)         T=$ERGEBNIS RC=1 ;;
 esac
+if [[ -n $WINDOWS ]]; then
+  # nur der Job windows zählt; ohne ihn (anderes ziel, nur Teil der Prüfungen) kein Grün
+  W=$(gh run view $RUN -R $R --json jobs --jq '(if any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Nur Teil der Prüfungen" and .conclusion == "success")) then "teil" else ([.jobs[] | select(.name == "windows") | .conclusion][0] // "fehlt") end)' 2>/dev/null)
+  case $W in
+    success)   T=grün RC=0 ;;
+    cancelled) T=abgebrochen RC=3 ;;
+    teil)      T="nicht vollständig (nur Teil der Prüfungen)" RC=1 ;;
+    *)         T="rot (Job windows: $W)" RC=1 ;;
+  esac
+  print -n "Windows-"
+fi
 print "CI-Lauf $RUN für ${SHA:0:7}: $T nach $DAUER Min. (https://github.com/$R/actions/runs/$RUN)"
 jobs_zeilen $RUN
 # Fehlerkonsole/-protokoll: nie Rot, nur zur Kenntnis (den Bug trägt der CI-Wächter ein; AGENTS.md „Bauen und testen“).

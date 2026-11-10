@@ -93,12 +93,20 @@ Reihenfolge:
       git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
-      Ein Lauf dauert etwa 50 Minuten, mit Dunkelmodus etwa 70 (erst Linux
-      ~17, danach mac hell ~17 bzw. hell und dunkel ~35, windows ~19; bei
-      Rot unter Linux laufen mac und windows nicht).
-      Solange er läuft, keine eigenen Testläufe auf diesem Mac (auch nicht
-      --vm): die Jobs mac und windows laufen hier.
-   b) Grün (Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
+      Ein Lauf dauert etwa 35 Minuten, mit Dunkelmodus etwa 50 (erst Linux
+      ~17, danach mac hell ~17 bzw. hell und dunkel ~35; bei Rot unter Linux
+      läuft mac nicht). Der Job windows läuft nicht mehr bei Push.
+      Nach grünem Push-Lauf (Exitcode 0, Linux und mac) den Windows-Lauf
+      starten: gh workflow run test.yml -f ziel=windows --ref main, dann
+      tests/ci-warten.sh --windows HEAD 9 (wie oben erneut aufrufen,
+      solange Exitcode 2; ~19 Minuten). Erst bei Grün weiter mit b) –
+      release.sh verlangt den grünen Windows-Lauf zum Pushstand, ohne ihn
+      kein Release. Rot: wie rote CI behandeln (Schritt 5), nicht
+      veröffentlichen. Kein Release nötig (nichts CI-Auslösendes gepusht):
+      kein Windows-Lauf.
+      Solange ein Lauf läuft, keine eigenen Testläufe auf diesem Mac (auch
+      nicht --vm): die Jobs mac und windows laufen hier.
+   b) Grün (Push-Lauf und Windows-Lauf, je Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
       README.md – zählt nicht als neuer Stand), Notizdatei für den
       GitHub-Release (englisch), ./release.sh x.y.z (überspringt die Tests
       dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>. Die

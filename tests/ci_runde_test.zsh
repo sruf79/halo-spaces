@@ -40,12 +40,16 @@ lauf() {
     ({gruen: testjobs("success"; "success"; "success"), macrot: testjobs("success"; "failure"; "success"),
       linuxrot: [j("linux (release)"; "success"), j("linux (beta)"; "failure"), j("linux (esr)"; "success"), j("mac"; "skipped"), j("windows"; "skipped")],
       release: testjobs("skipped"; "skipped"; "skipped"), gezielt: testjobs("skipped"; "success"; "skipped"),
-      wgrot: testjobs("success"; "success"; "success"), laeuft: testjobs("success"; ""; "")}[$art]) as $tj
+      wgrot: testjobs("success"; "success"; "success"), laeuft: testjobs("success"; ""; ""),
+      ohnewin: testjobs("success"; "success"; "skipped"), wingruen: testjobs("skipped"; "skipped"; "success"),
+      winrot: testjobs("skipped"; "skipped"; "failure"), winteil: testjobs("skipped"; "skipped"; "success")}[$art]) as $tj
     | {databaseId: $id, createdAt: $t, updatedAt: $t, status: (if $art == "laeuft" then "in_progress" else "completed" end),
-       conclusion: ({gruen: "success", macrot: "failure", linuxrot: "failure", release: "success", gezielt: "success", wgrot: "success", laeuft: ""}[$art]),
+       conclusion: ({gruen: "success", macrot: "failure", linuxrot: "failure", release: "success", gezielt: "success", wgrot: "success", laeuft: "",
+                     ohnewin: "success", wingruen: "success", winrot: "failure", winteil: "success"}[$art]),
        event: $ev, headSha: $sha, displayTitle: "Lauf \($id) \($art)",
        jobs: ([{name: "changes", conclusion: "success", status: "completed",
-                steps: (if $art == "gezielt" then [{name: "Gezielter Lauf", conclusion: "success"}] else [{name: "Gezielter Lauf", conclusion: "skipped"}] end)}]
+                steps: (if ($art | IN("gezielt", "wingruen", "winrot", "winteil")) then [{name: "Gezielter Lauf", conclusion: "success"}] else [{name: "Gezielter Lauf", conclusion: "skipped"}] end)
+                       + (if $art == "winteil" then [{name: "Nur Teil der Prüfungen", conclusion: "success"}] else [] end)}]
               + $tj + [j("windows-github"; (if $art == "wgrot" then "failure" else "success" end))])}'
 }
 daten() { jq -s . > $T/d.json }          # stdin: Läufe → Datei
@@ -91,6 +95,21 @@ pruefe "gemischt: rote Läufe der Nacht = nur 22" '[[ $(ci_rote_laeufe $T/d.json
 lauf 30 2 wgrot | daten
 pruefe "windows-github rot: Lauf gilt als grün" 'ci_tage_seit_gruen $T/d.json'
 pruefe "windows-github rot: kein roter Lauf" '[[ -z $(ci_rote_laeufe $T/d.json $START) ]]'
+
+# 8. Windows nur noch im Windows-Lauf des Nachtlaufs (ziel=windows), nicht bei Push
+lauf 40 3 ohnewin push shaW | daten
+pruefe "Push ohne Windows-Lauf: keine Vollrunde" '! ci_vollrunde_24h $T/d.json'
+pruefe "Push ohne Windows-Lauf: nicht grün" '! ci_tage_seit_gruen $T/d.json'
+{ lauf 40 3 ohnewin push shaW; lauf 41 2 wingruen workflow_dispatch shaW } | daten
+pruefe "Push + grüner Windows-Lauf zum Commit: Vollrunde" '[[ $(ci_vollrunde_24h $T/d.json) == 40 ]]'
+pruefe "Push + grüner Windows-Lauf zum Commit: grün" '[[ $(ci_einstufen $T/d.json | grep "^40 ") == "40 grün"* ]]'
+pruefe "Windows-Lauf selbst eingestuft als gezielt" '[[ $(ci_einstufen $T/d.json | grep "^41 ") == "41 gezielt"* ]]'
+{ lauf 40 3 ohnewin push shaW; lauf 41 2 wingruen workflow_dispatch shaX } | daten
+pruefe "Windows-Lauf zu anderem Commit zählt nicht" '! ci_vollrunde_24h $T/d.json'
+{ lauf 40 3 ohnewin push shaW; lauf 41 2 winrot workflow_dispatch shaW } | daten
+pruefe "Push + roter Windows-Lauf: keine Vollrunde" '! ci_vollrunde_24h $T/d.json'
+{ lauf 40 3 ohnewin push shaW; lauf 41 2 winteil workflow_dispatch shaW } | daten
+pruefe "Push + Windows-Lauf nur mit Teil der Prüfungen: keine Vollrunde" '! ci_vollrunde_24h $T/d.json'
 
 # 9. nach 04:30 nicht neu starten (Grenze in Wiener Zeit)
 lauf 12 26 gruen | daten

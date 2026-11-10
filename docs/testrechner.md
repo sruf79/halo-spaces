@@ -18,9 +18,10 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
   öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
   `tests/mac-runner-hook.sh` alles andere ab.
-- Jeder Push auf `main` belegt neon mit den Jobs `mac` und `windows` rund
-  35 Minuten, mit Dunkelmodus rund 55 (laut den letzten grünen Läufen: `mac`
-  hell ~17, hell und dunkel ~35, `windows` ~19). Beide starten erst nach
+- Jeder Push auf `main` belegt neon mit dem Job `mac` rund 17 Minuten, mit
+  Dunkelmodus rund 35. Der Job `windows` (~19 Minuten) läuft nicht mehr bei Push,
+  sondern nur von Hand bzw. einmal je Nacht vor dem Release (`ziel=windows`,
+  `tests/nachtlauf-auftrag.md` Schritt 4a; `release.sh` verlangt ihn). Beide starten erst nach
   grünem Linux (~17 Minuten vorher; Entscheidung des Maintainers vom
   5.11.2026), bei Rot unter Linux laufen sie nicht – ein ganzer Lauf dauert
   damit rund 50 Minuten, mit Dunkelmodus rund 70. Solange er
@@ -249,8 +250,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     Beim Probelauf blieb der Mac bei 6 GB VM über 40 % freiem Speicher ohne
     zusätzliche Auslagerung. Kein Passwort, kein Microsoft-Konto, keine
     echten Mails in der VM.
-  - CI: Job `windows` in `test.yml` läuft nach `mac` (gleiche Bedingung, gleicher
-    Runner und Wächter; ohne `concurrency`-Gruppe, damit GitHub keinen
+  - CI: Job `windows` in `test.yml` läuft nur bei `workflow_dispatch` (`ziel=alle|windows`,
+    der Nachtlauf startet ihn vor dem Release), nach `mac` (gleicher Runner und Wächter; ohne `concurrency`-Gruppe, damit GitHub keinen
     wartenden Lauf abbricht – der eine Runner arbeitet die Jobs der Reihe
     nach ab), vorerst nur hell, Port 2845,
     Screenshots als Artefakt `test-windows`.
@@ -284,8 +285,8 @@ was jede Sitzung beachten muss:
   nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
   öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
   `tests/mac-runner-hook.sh` alles andere ab.
-- Jeder Push auf `main` mit Thunderbird-Änderung belegt neon mit der CI (`mac`, `windows`) rund 50 Minuten,
-  mit Dunkelmodus rund 70. Solange sie läuft (Prozess `Runner.Worker`), keine eigenen Testläufe
+- Jeder Push auf `main` mit Thunderbird-Änderung belegt neon mit der CI (`mac`) rund 35 Minuten,
+  mit Dunkelmodus rund 50; der Windows-Lauf (~19 Minuten) folgt einmal je Nacht vor dem Release. Solange sie läuft (Prozess `Runner.Worker`), keine eigenen Testläufe
   starten – zwei Testfenster nehmen sich gegenseitig den Fokus. Änderungen an `.md`, `.claude/`,
   Abläufen auf neon und Release-Skripten brauchen keinen CI-Lauf (Entscheidung vom 6.11.2026,
   `ENTSCHEIDUNGEN.md`; Liste in `tests/ci-noetig.sh`).

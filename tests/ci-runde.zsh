@@ -13,6 +13,10 @@
 # übersprungenen Jobs, z. B. reiner Release-Commit, endet auch mit „success“):
 #   Testjobs     linux (release), linux (beta), linux (esr), mac, windows (windows-github nicht:
 #                Versuchsjob mit continue-on-error)
+#   Windows      läuft nicht mehr bei Push, sondern im Lauf von Hand (ziel=alle) bzw. im Windows-Lauf
+#                des Nachtlaufs (ziel=windows, gezielt, ohne „Nur Teil der Prüfungen“). Ein Lauf ohne
+#                eigenen Job windows zählt als Vollrunde bzw. grün nur, wenn ein solcher Windows-Lauf
+#                zum selben Commit grün war (tests/nachtlauf-auftrag.md Schritt 4a)
 #   gezielt      Schritt „Gezielter Lauf“ im Job changes (only/ziel von Hand) – zählt nie; der vom
 #                Nachtlauf gestartete Lauf mit ziel=alle ist nicht gezielt und zählt
 #   Vollrunde    abgeschlossen, nicht gezielt, alle Testjobs gelaufen (success oder failure)
@@ -27,14 +31,21 @@ CI_CACHE=${HALO_CI_CACHE:-$HOME/halo-nacht/ci-jobs}
 CI_GRENZE=${HALO_CI_GRENZE:-0430}          # nach 04:30 (Wiener Zeit) keine Vollrunde neu beginnen
 CI_TROCKEN=${CI_TROCKEN:-}
 
-CI_JQ='
-def testjobs: ["linux (release)", "linux (beta)", "linux (esr)", "mac", "windows"];
+# Eingabe jedes Programms ist die Liste aller Läufe ($alle, für den Windows-Lauf zum selben Commit)
+CI_JQ='. as $alle |
+def kernjobs: ["linux (release)", "linux (beta)", "linux (esr)", "mac"];
+def testjobs: kernjobs + ["windows"];
 def job($n): [.jobs[]? | select(.name == $n)][0];
 def gezielt: any(.jobs[]?; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"));
-def gelaufen: . as $l | [testjobs[] | . as $n | $l | job($n) | (. != null and (.conclusion == "success" or .conclusion == "failure"))] | all;
+def teil: any(.jobs[]?; .name == "changes" and any(.steps[]?; .name == "Nur Teil der Prüfungen" and .conclusion == "success"));
+def lief: . != null and (.conclusion == "success" or .conclusion == "failure");
+def windows_gruen_fuer($sha): any($alle[]; .headSha == $sha and .status == "completed" and (teil | not) and (job("windows") | . != null and .conclusion == "success"));
+def windows_gelaufen: (job("windows") | lief) or windows_gruen_fuer(.headSha);
+def windows_success: (job("windows") | . != null and .conclusion == "success") or windows_gruen_fuer(.headSha);
+def gelaufen: (. as $l | [kernjobs[] | . as $n | $l | job($n) | lief] | all) and windows_gelaufen;
 def alle_uebersprungen: . as $l | [testjobs[] | . as $n | $l | job($n) | (. == null or .conclusion == "skipped")] | all;
 def vollrunde: .status == "completed" and (gezielt | not) and gelaufen;
-def gruen: vollrunde and (. as $l | [testjobs[] | . as $n | $l | job($n) | .conclusion == "success"] | all);
+def gruen: vollrunde and (. as $l | [kernjobs[] | . as $n | $l | job($n) | .conclusion == "success"] | all) and windows_success;
 def rot: .status == "completed" and (gezielt | not) and any(.jobs[]?; .conclusion == "failure" and .name != "windows-github");
 def zeit: (.createdAt | fromdate);
 def ende: ((.updatedAt // .createdAt) | fromdate);

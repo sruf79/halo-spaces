@@ -114,7 +114,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - Job `mac` in `test.yml` läuft nur bei Push auf `main` und von Hand, nie bei `pull_request` (Repo
   öffentlich). Die `if:`-Bedingung nicht lockern; `tests/mac-runner-hook.sh` weist alles andere ab.
 - Solange die CI auf neon läuft (Prozess `Runner.Worker`), keine eigenen Testläufe – zwei Testfenster
-  nehmen sich den Fokus. Ein Push mit Thunderbird-Änderung belegt neon rund 50 Minuten (dunkel 70);
+  nehmen sich den Fokus. Ein Push mit Thunderbird-Änderung belegt neon rund 35 Minuten (dunkel 50; Windows einmal je Nacht vor dem Release);
   `.md`, `.claude/`, Abläufe und Release-Skripte brauchen keine CI (`tests/ci-noetig.sh`).
 - **Gesammelt pushen:** je Eintrag committen, erst am Ende eines Arbeitsblocks pushen; vorher nur die
   betroffenen Prüfungen (`--only`, hell; dunkel nur bei Farben). Den Volllauf macht die CI.

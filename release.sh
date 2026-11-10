@@ -37,33 +37,61 @@ fehlschlag() {
   exit 1
 }
 
-# Tests überspringen, wenn die CI (Linux, Mac, Windows) denselben Stand schon
-# vollständig grün getestet hat: Seitdem darf sich nichts geändert haben, was
-# Thunderbird direkt betrifft (tests/ci-noetig.sh, gleiche Liste wie test.yml),
-# und es darf nichts Ungespeichertes herumliegen
+# Tests überspringen, wenn die CI denselben Stand schon vollständig grün getestet hat:
+# Linux (Release, Beta, ESR) und Mac im Lauf zum Pushstand, Windows in einem eigenen Lauf
+# von Hand (der Job windows läuft nicht mehr bei Push; der Nachtlauf startet ihn mit
+# `gh workflow run test.yml -f ziel=windows --ref main`, tests/nachtlauf-auftrag.md Schritt 4a).
+# Seit dem grünen Stand darf sich nichts geändert haben, was Thunderbird direkt betrifft
+# (tests/ci-noetig.sh, gleiche Liste wie test.yml), und es darf nichts Ungespeichertes
+# herumliegen. Linux und Mac grün, aber kein grüner Windows-Lauf: kein Release.
+
+# grüner Windows-Lauf von Hand für <sha> oder einen Nachfolger, seit dem sich bis HEAD nichts
+# für Thunderbird geändert hat; setzt WIN_RUN, WIN_SHA, WIN_DATUM
+windows_lauf() {
+  local Z ID WSHA DATUM
+  for Z in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -e workflow_dispatch -L 30 \
+               --json databaseId,headSha,createdAt --jq '.[] | "\(.databaseId):\(.headSha):\(.createdAt[0:10])"' 2>/dev/null); do
+    ID=${Z%%:*} WSHA=${${Z#*:}%%:*} DATUM=${Z##*:}
+    git merge-base --is-ancestor "$1" "$WSHA" 2>/dev/null || continue     # derselbe oder ein Nachfolge-Commit
+    git merge-base --is-ancestor "$WSHA" HEAD 2>/dev/null || continue
+    tests/ci-noetig.sh "$WSHA" HEAD && continue                            # seitdem Thunderbird geändert
+    # Job windows grün, ohne Auswahl von Prüfungen (windows-github zählt nicht)
+    gh run view "$ID" -R "$GITHUB_REPO" --json jobs --jq 'any(.jobs[]; .name == "windows" and .conclusion == "success")
+        and (any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Nur Teil der Prüfungen" and .conclusion == "success")) | not)' \
+      | grep -q true || continue
+    WIN_RUN=$ID WIN_SHA=$WSHA WIN_DATUM=$DATUM
+    return 0
+  done
+  return 1
+}
+
 if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh >/dev/null; then
   if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then
-    for SHA in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -s success -L 20 \
-                   --json headSha --jq '.[].headSha' 2>/dev/null); do
+    for Z in $(gh run list -R "$GITHUB_REPO" -w test.yml -b "$BRANCH" -s success -L 30 \
+                 --json databaseId,headSha --jq '.[] | "\(.databaseId):\(.headSha)"' 2>/dev/null); do
+      RUN=${Z%%:*} SHA=${Z#*:}
       git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null || continue
       if tests/ci-noetig.sh "$SHA" HEAD; then
         break                              # Code seit dem grünen Lauf geändert
       fi
-      RUN=$(gh run list -R "$GITHUB_REPO" -w test.yml -c "$SHA" -s success -L 1 --json databaseId --jq '.[0].databaseId')
-      # vollständig: mac und windows gelaufen (nicht übersprungen), kein gezielter Lauf von Hand
-      if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq '(any(.jobs[]; .name == "mac" and .conclusion == "success") and any(.jobs[]; .name == "windows" and .conclusion == "success")
+      # vollständig: Linux x3 und mac gelaufen (nicht übersprungen), kein gezielter Lauf von Hand
+      # (Windows-Läufe von Hand sind gezielt und werden hier übersprungen)
+      gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq '(any(.jobs[]; .name == "mac" and .conclusion == "success")
           and ([.jobs[] | select(.name | startswith("linux")) | select(.conclusion == "success")] | length) == 3
-          and (any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success")) | not))' | grep -q true; then
-        echo "CI-Lauf $RUN für ${SHA:0:7} ist vollständig grün (Linux, Mac, Windows) – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
-        SKIP_TESTS=1
-        CI_OK=1
-        # dunkel nur, wenn Farben betroffen waren (Job changes, tests/farben-betroffen.sh)
-        if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq 'any(.jobs[]; .name == "mac" and any(.steps[]?; .name == "Test dunkel" and .conclusion == "success"))' | grep -q true; then
-          DUNKEL=ja
-          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel), Windows")
-        else
-          TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell; dunkel entfiel, seit dem zuletzt dunkel getesteten Stand keine Farben geändert), Windows")
-        fi
+          and (any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success")) | not))' \
+        | grep -q true || continue
+      windows_lauf "$SHA" \
+        || fehlschlag "CI-Lauf $RUN für ${SHA:0:7} ist grün (Linux, Mac), aber kein grüner Windows-Lauf zu diesem Stand (gh workflow run test.yml -f ziel=windows --ref $BRANCH; tests/ci-warten.sh --windows) – kein Release, keine Marke"
+      echo "CI-Lauf $RUN für ${SHA:0:7} grün (Linux, Mac), Windows-Lauf $WIN_RUN für ${WIN_SHA:0:7} grün – Tests übersprungen (FORCE_TESTS=1 testet trotzdem)"
+      SKIP_TESTS=1
+      CI_OK=1
+      WIN_TEXT="Windows: Lauf $WIN_RUN vom $WIN_DATUM für ${WIN_SHA:0:7}"
+      # dunkel nur, wenn Farben betroffen waren (Job changes, tests/farben-betroffen.sh)
+      if gh run view "$RUN" -R "$GITHUB_REPO" --json jobs --jq 'any(.jobs[]; .name == "mac" and any(.steps[]?; .name == "Test dunkel" and .conclusion == "success"))' | grep -q true; then
+        DUNKEL=ja
+        TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell, dunkel); $WIN_TEXT")
+      else
+        TESTS+=("CI-Lauf $RUN für ${SHA:0:7} grün: Linux (Release, Beta, ESR), Mac (hell; dunkel entfiel, seit dem zuletzt dunkel getesteten Stand keine Farben geändert); $WIN_TEXT")
       fi
       break
     done

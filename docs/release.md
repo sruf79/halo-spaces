@@ -52,7 +52,9 @@ beauftragen dafür neon (nach dem Push). Ausnahme: Notfall-Release nach `docs/no
 **Einzige Bedingung: grüne Tests.** `release.sh` schreibt nur dann die Marke
 `dist/release-<version>.ok` (Version, Hash des Pakets, gelaufene Tests, ob
 dunkel lief), wenn hell (und ggf. dunkel) grün waren – oder die CI denselben Stand vollständig
-grün getestet hat (Linux mit Beta, `mac`, `windows`; dann werden die Tests
+grün getestet hat (Linux mit Beta und `mac` im Push-Lauf, `windows` im eigenen Lauf von Hand
+`ziel=windows` zum selben oder einem späteren Stand ohne Thunderbird-Änderung; Linux und `mac` grün
+ohne grünen Windows-Lauf heißt kein Release; dann werden die Tests
 übersprungen, solange seitdem nichts geändert wurde, was Thunderbird direkt
 betrifft (`tests/ci-noetig.sh`, siehe „CI nur für Thunderbird“); `FORCE_TESTS=1` testet trotzdem). Bei einem
 Testfehler setzt `release.sh` Manifest und `updates.json` zurück und bricht

@@ -41,7 +41,9 @@ python3 tests/halo_test.py --xpi dist/….xpi --shots /tmp/shots --keep
   Linux belegt neon nicht. Ein gezielter Lauf (Schritt „Gezielter Lauf“ im
   Job `changes`) zählt nicht als vollständig grün für `release.sh`, der
   CI-Wächter trägt ihn nicht ein, `ci-warten.sh` wartet nur auf Läufe aus
-  einem Push. `mac`/`windows` gezielt nicht während des Nachtlaufs starten –
+  einem Push (mit `--windows` auf den Windows-Lauf von Hand). Ausnahme: der
+  Windows-Lauf des Nachtlaufs (`ziel=windows`, ohne `only`) – der Job `windows`
+  läuft nicht mehr bei Push; `release.sh` verlangt ihn grün zum Pushstand. `mac`/`windows` gezielt nicht während des Nachtlaufs starten –
   sie warten auf demselben Runner und verlängern seine CI-Runde.
 - Mindestversion (`strict_min_version`) ist die aktuelle ESR (153). Ältere
   Versionen bekommen keine Updates mehr; vor dem Anheben auf eine neue ESR

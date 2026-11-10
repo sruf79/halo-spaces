@@ -1,7 +1,8 @@
 # Automatischer Test bei jedem Push: aktuelles Thunderbird unter Linux,
 # frisches Testprofil, virtueller Bildschirm (xvfb). Screenshots als Artefakt.
 # Dazu macOS auf dem eigenen Mac mini (Job mac, nur bei Push auf main oder von Hand)
-# und danach Windows 11 in der Parallels-VM auf demselben Mac (Job windows, ebenso).
+# Windows 11 in der Parallels-VM auf demselben Mac (Job windows) nur noch von Hand bzw. einmal je
+# Nacht vor dem Release (workflow_dispatch, ziel=alle|windows), nicht mehr bei Push.
 name: Test
 
 # Nur Änderungen, die Thunderbird direkt betreffen, lösen einen Lauf aus: Paket,
@@ -116,6 +117,9 @@ jobs:
           ZIEL: ${{ inputs.ziel }}
         run: |
           linux='["release","beta","esr"]'; mac=true; windows=true
+          # bei Push kein Windows: den Lauf startet der Nachtlauf vor dem Release per ziel=windows
+          # (tests/nachtlauf-auftrag.md Schritt 4a; release.sh verlangt ihn zusätzlich)
+          [ "${{ github.event_name }}" = push ] && windows=false
           case "$ZIEL" in
             linux) mac=false; windows=false ;;
             linux-*) linux="[\"${ZIEL#linux-}\"]"; mac=false; windows=false ;;
@@ -131,6 +135,13 @@ jobs:
           ONLY: ${{ inputs.only }}
           ZIEL: ${{ inputs.ziel }}
         run: echo "Gezielter Lauf (System $ZIEL, Prüfungen ${ONLY:-alle}) zählt nicht als vollständig grün"
+      # Kennzeichen für release.sh und ci-warten.sh --windows: ein Windows-Lauf von Hand zählt
+      # nur ohne Auswahl von Prüfungen (only leer) als vollständig
+      - name: Nur Teil der Prüfungen
+        if: github.event_name == 'workflow_dispatch' && inputs.only != ''
+        env:
+          ONLY: ${{ inputs.only }}
+        run: echo "Nur Prüfungen „$ONLY“ – zählt nicht als vollständiger Windows-Lauf"
 
   linux:
     needs: changes
@@ -307,12 +318,14 @@ jobs:
 
   windows:
     # Windows 11 in der Parallels-VM auf dem Mac mini (tests/MAC-MINI.md, Abschnitt 11).
-    # Gleiche Bedingung wie mac – hier nur zusätzlich !cancelled(), damit der Job auch nach
-    # einem roten mac-Lauf startet; Pull-Requests bleiben ausgeschlossen, der Wächter
-    # (tests/mac-runner-hook.sh) prüft auch diesen Job.
+    # Nur von Hand bzw. durch den Nachtlauf (workflow_dispatch, ziel=alle|windows), nicht mehr
+    # bei Push (rund 19 Minuten je Push gespart); release.sh verlangt dafür einen grünen
+    # Windows-Lauf zum Pushstand. !cancelled(), damit der Job auch nach einem roten mac-Lauf
+    # startet; Pull-Requests bleiben ausgeschlossen, der Wächter (tests/mac-runner-hook.sh)
+    # prüft auch diesen Job.
     # (wie mac erst nach grünem bzw. nicht gelaufenem linux)
     needs: [changes, linux, mac]
-    if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, macOS, halo-mac]
     # ein Lauf rund 19 Minuten, dazu Fortsetzen der VM
     timeout-minutes: 60

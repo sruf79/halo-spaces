@@ -198,6 +198,9 @@ Apple-Vorlagen, Notweg: `docs/board.md`.
   kommen nie sofort ins Board (Entscheidung des Maintainers vom 9.11.2026): erst Einschätzung zu
   Machbarkeit und Sinn (auch gegen „Im Zweifel wie Apple“ und „Optionen nur in sehr seltenen Fällen“),
   Ursache bzw. Lösungsidee, Empfehlung; eintragen erst nach ausdrücklichem OK. Gilt auch für Issues.
+  Ausnahme: **von Nutzern gemeldete Bugs** dürfen immer sofort auf die Liste (Entwurf, Todo); Features und
+  Wünsche weiter nur nach Absprache (Maintainer in neon, 10.11.2026: „von usern gemeldete bugs dürfen immer auf die liste“,
+  korrigiert aus „von uns bestätigte“).
 - **Eigene Bugs/Wünsche des Maintainers** aus dem Gespräch sofort als Entwurf anlegen (Typ, Status
   Todo), nicht nebenbei umsetzen; gehört der Punkt zu einem offenen Eintrag, diesen ergänzen.
 - **Regeländerungen** als Eintrag „Ablauf: …“ mit „Wartet auf OK“ sammeln (Ausnahme: Sicherheit und

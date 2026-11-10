@@ -9,7 +9,8 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
 
 - **Wünsche und Meldungen von Nutzern** (Reddit, Issues, E-Mail, hineinkopiert) nie sofort eintragen:
   erst Einschätzung zu Machbarkeit und Sinn mit Empfehlung, Eintrag erst nach ausdrücklichem OK des
-  Maintainers (Entscheidung vom 9.11.2026).
+  Maintainers (Entscheidung vom 9.11.2026). Ausnahme: von Nutzern gemeldete Bugs dürfen immer sofort
+  eingetragen werden (Entwurf, Todo; Entscheidung vom 10.11.2026), Features und Wünsche nicht.
 - Eigene Bugs/Wünsche des Maintainers aus dem Gespräch sofort und ohne Rückfrage dort als
   Entwurf anlegen (ein Zitat des Maintainers darin erst nach seiner
   Zustimmung, siehe „Zitate erst nach Zustimmung“) (Typ setzen, Status Todo); Screenshots liegen in

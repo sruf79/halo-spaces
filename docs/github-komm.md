@@ -29,6 +29,7 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   dann den Maintainer darum bitten), gegen den aktuellen Stand von `main`
   prüfen, Ursache klären, Machbarkeit und Sinn einschätzen und dem Maintainer vorlegen; erst nach
   seinem OK in die Aufgabenliste eintragen (Titel mit „[GitHub #n]“, im Text „GitHub-Issue #n“ vermerken, siehe
+  Ausnahme: von Nutzern gemeldete Bugs dürfen immer sofort ins Board (Entwurf, Todo; Entscheidung vom 10.11.2026), Features und Wünsche nur nach Absprache.
   Bei Kontroversen (umstrittene Wünsche, Grundsatzfragen) kommt das neue Issue gar nicht ins Board: stattdessen die Einschätzung im Stand
   (`github-komm-stand.md`) unter „wartet auf Entscheidung“ und in der Push-Meldung (Entscheidung des Maintainers vom 9.11.2026, `ENTSCHEIDUNGEN.md`).
   „Board-Einträge aus einem Issue“ oben). Dann antworten und Label

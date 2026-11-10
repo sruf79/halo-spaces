@@ -553,12 +553,29 @@ function hookChatCategory(cw, restorers = null) {
   };
   fill();
   const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF, FIFTH_ICON_PREF];
-  const observer = { observe: () => fill() };
+  // Beobachter mit dem Einstellungs-Tab abmelden: sonst rief jede spätere
+  // Änderung der Einstellung fill() im geschlossenen Dokument auf („Refusing
+  // to execute function from global in which script is disabled“, tausendfach)
+  const unwatch = () => prefs.forEach(pref => Services.prefs.removeObserver(pref, observer));
+  const observer = {
+    observe: () => {
+      if (Cu.isDeadWrapper(doc) || !doc.defaultView || doc.defaultView.closed) {
+        unwatch();
+        return;
+      }
+      fill();
+    },
+  };
   prefs.forEach(pref => Services.prefs.addObserver(pref, observer));
+  doc.defaultView?.addEventListener("unload", unwatch, { once: true });
   // Erweiterungen mit eigenem Bereich können später dazukommen: beim Öffnen einer Kategorie neu lesen
   doc.addEventListener("paneSelected", fill);
   restorers?.push(() => {
-    prefs.forEach(pref => Services.prefs.removeObserver(pref, observer));
+    unwatch();
+    if (Cu.isDeadWrapper(doc)) {
+      return;
+    }
+    doc.defaultView?.removeEventListener("unload", unwatch);
     doc.removeEventListener("paneSelected", fill);
     doc.documentElement.removeAttribute("mc-fifth");
     group.remove();

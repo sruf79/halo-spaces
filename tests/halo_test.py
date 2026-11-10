@@ -15676,6 +15676,29 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Kategorie „Chat & More“ mit Wahl für den fünften Platz oben, Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
 
+    def pref_fifth_closed():
+        # Wahl des fünften Platzes nach dem Schließen der Einstellungen ändern: kein
+        # Fehler aus dem geschlossenen Tab (Beobachter blieb angemeldet, tausendfach
+        # „Refusing to execute function from global in which script is disabled“)
+        res = m.js(PREFS_OPEN_JS + r"""
+          const P = "extensions.mailcards.fifthSpace";
+          const t0 = Date.now();
+          try {
+            pd.getElementById("category-chat").click();
+            await bis(() => pd.getElementById("mcFifthGroup"), "Gruppe fünfter Platz", 6000);
+          } finally {
+            tm.closeTab(tm.currentTabInfo);
+          }
+          await bis(() => Cu.isDeadWrapper(pd) || !pd.defaultView || pd.defaultView.closed, "Einstellungs-Tab zu", 6000);
+          await ruhig(300);
+          for (const v of ["none", "web", "chat"]) { Services.prefs.setStringPref(P, v); await ruhig(100); }
+          Services.prefs.clearUserPref(P); await ruhig(300);
+          const errs = (Services.console.getMessageArray() || []).filter(x => x instanceof Ci.nsIScriptError && (x.timeStamp || 0) >= t0
+            && /script is disabled|dead object/.test(x.errorMessage || "") && /mailcards|implementation\.js|halo/.test(x.sourceName || ""));
+          return { errors: errs.length, first: errs[0]?.errorMessage?.slice(0, 120) || null };""")
+        return res["errors"] == 0, f"{res}"
+    check("Einstellungen: Wahl des fünften Platzes nach dem Schließen der Einstellungen ändern ohne Fehler aus dem geschlossenen Tab", pref_fifth_closed, results)
+
     def pref_halo_search():
         # Suche der Einstellungen findet die Optionen von halo.spaces („update“ → „Install updates at start“, „logos“ →
         # „Logos from sender websites“), Treffer wie Thunderbirds eigene markiert; „Show“ öffnet halo.spaces bei der Option

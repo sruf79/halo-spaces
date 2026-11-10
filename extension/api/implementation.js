@@ -12661,8 +12661,15 @@ class CardEnhancer {
       // macOS meldet die innersten Pixel am Fensterrand (dort beginnt das
       // Größenändern des Fensters) nicht als Bewegung, sondern als Verlassen
       // des Fensters: Zeiger links hinaus zählt wie Ankommen im Streifen –
-      // sonst löst nur ein Treffer genau auf x = 3 aus
-      const outLeft = e => !e.relatedTarget && e.clientX < FLOAT_HOT && e.clientY >= 0 && e.clientY < w.innerHeight;
+      // sonst löst nur ein Treffer genau auf x = 3 aus. Lage über die
+      // Bildschirmkoordinaten: das Verlassen eines eingebetteten Dokuments
+      // (Mailliste, Mail im Lesebereich) kommt hier auch ohne relatedTarget
+      // an, mit clientX in dessen Koordinaten (links der Mail negativ)
+      const outLeft = e => {
+        const x = e.screenX - w.mozInnerScreenX;
+        const y = e.screenY - w.mozInnerScreenY;
+        return !e.relatedTarget && x < FLOAT_HOT && y >= 0 && y < w.innerHeight;
+      };
       hot.addEventListener("mouseenter", arm);
       hot.addEventListener("mouseleave", e => {
         if (!float && !outLeft(e)) {

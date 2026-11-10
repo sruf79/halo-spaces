@@ -17538,7 +17538,10 @@ Neu
         # des Fensters, dort kommt keine Mausbewegung an, sondern nur „Fenster verlassen“ (mit echter Systemmaus
         # nachgemessen 10.11.2026: x = 3 erreicht den Streifen, x = 0..2 nur mouseout ohne relatedTarget). Zeiger
         # echt (Marionette) bis 8 px an den Rand, dann das Verlassen des Fensters, wie Gecko es meldet; ebenso vom
-        # Streifen (x = 3) aus vor Ablauf der Verzögerung. Gegenprobe: Verlassen nach oben bzw. rechts löst nicht aus
+        # Streifen (x = 3) aus vor Ablauf der Verzögerung. Gegenprobe: Verlassen nach oben bzw. rechts löst nicht aus,
+        # ebenso wenig der Zeiger, der eine Mail im Lesebereich nach links verlässt (das eingebettete Dokument meldet
+        # dabei mouseout ohne relatedTarget mit clientX in seinen Koordinaten, links der Mail negativ – unter Linux
+        # in der CI schwebte die Leiste so schon bei x = 400 ein)
         def act(steps):
             m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
             m.cmd("WebDriver:ReleaseActions", {})
@@ -17557,7 +17560,12 @@ Neu
             to(900)
             return m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2000); } catch {} return w.__mcSideFloatState?.();')
         out = {}
-        m.js("""w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
+        def mitte():
+            to(400)
+            return m.js("await wait(200); return w.__mcSideFloatState?.();")
+        m.js(MAILLIST_JS + """w.resizeTo(1300, 800); await wait(400); w.__mcVorOrdner = a3.gFolder?.URI;
+          await showFolder(); a3.threadTree.selectedIndex = 0;
+          await bis(() => ad.getElementById("messageBrowser")?.getBoundingClientRect().width > 0, "Mail im Lesebereich", 4000);
           const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
           if (w.gSpacesToolbar.isHidden || sp.isCollapsed) { w.__mcColumnMigrate(false, false); await ruhig(600); }
           d.getElementById("spacesPinnedButton").click();
@@ -17565,24 +17573,29 @@ Neu
           await ruhig(600); return 1;""")
         m.js("""w.__mcSpurZiel = null; w.__mcSpurFn = e => { w.__mcSpurZiel = e.target; }; w.addEventListener("mouseover", w.__mcSpurFn, true); return 1;""")
         try:
-            to(400); to(8)
+            out["mid"] = [mitte()]
+            to(8)
             out["near"] = m.js("await wait(200); return w.__mcSideFloatState?.();")
             out["edge"] = leave(1)
             out["edge_off"] = weg()
-            to(400); to(3)
+            out["mid"].append(mitte())
+            to(3)
             out["strip"] = leave(0)
             out["strip_off"] = weg()
-            to(400); to(600, 1)
+            out["mid"].append(mitte())
+            to(600, 1)
             out["top"] = leave(600, -1, "off")
-            to(400); to(1290)
+            out["mid"].append(mitte())
+            to(1290)
             out["right"] = leave(1299, 420, "off")
         finally:
             weg()
             m.js("""w.removeEventListener("mouseover", w.__mcSpurFn, true); delete w.__mcSpurFn; delete w.__mcSpurZiel;
               await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
               await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
-              await ruhig(400); return 1;""")
-        ok = out == {"near": "off", "edge": "on", "edge_off": "off", "strip": "on", "strip_off": "off", "top": "off", "right": "off"}
+              const a3 = tm.currentAbout3Pane; if (w.__mcVorOrdner && a3.gFolder?.URI != w.__mcVorOrdner) { a3.displayFolder(w.__mcVorOrdner); }
+              delete w.__mcVorOrdner; await ruhig(400); return 1;""")
+        ok = out == {"mid": ["off"] * 4, "near": "off", "edge": "on", "edge_off": "off", "strip": "on", "strip_off": "off", "top": "off", "right": "off"}
         return ok, str(out)
     check("Seitenleiste: am linken Fensterrand blendet sie auch ein, wenn der Zeiger in die Größenänderungszone "
           "des Fensters fährt (macOS meldet dort nur das Verlassen des Fensters)", sidebar_float_edge, results)

@@ -10692,7 +10692,9 @@ class CardEnhancer {
       // (noch keine eigene Breite gespeichert: 206 px wie die Ordnerliste in Apple Mail)
       // (nie breiter als die gemeinsame Höchstbreite, --mt-sidebar-max-width)
       const [el, splitter, win] = sidebarFor(tab);
-      if (busy(el, win)) {
+      // beim Ziehen an der Trennlinie nicht (der verzögerte Abgleich nach dem Bereichswechsel setzte die Breite mitten im
+      // Ziehen kurz auf den gespeicherten Wert zurück); gespeichert wird beim Loslassen
+      if (busy(el, win) || w.__mcSideDrag) {
         return;
       }
       const W = Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);

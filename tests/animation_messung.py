@@ -144,7 +144,16 @@ def main():
                     m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
                     m.cmd("WebDriver:ReleaseActions", {})
                 z1 = zustand(m, modus)
+                if os.environ.get("HALO_SPUR") and modus == "calendar":
+                    # Fehlersuche: wer schreibt die Breite der Seitenleiste während des Ziehens? (Aufrufer mitschreiben)
+                    m.js("""const el = d.getElementById("calSidebar"); w.__spur = []; const st = el.style; const o = st.setProperty.bind(st);
+                        st.setProperty = (...a) => { if (a[0] == "width") w.__spur.push([Math.round(performance.now()), "setProperty " + a[1], String(new Error().stack).split("\\n").slice(1, 5).join(" < ")]); return o(...a); };
+                        new w.MutationObserver(ms => ms.forEach(x => w.__spur.push([Math.round(performance.now()), "attr " + x.attributeName + "=" + el.getAttribute(x.attributeName), ""]))).observe(el, { attributes: true });
+                        return 1;""")
                 roh = messen(m, modus, ziehen, 500)
+                if os.environ.get("HALO_SPUR") and modus == "calendar":
+                    for z in m.js("return w.__spur;"):
+                        print("   SPUR", z, flush=True)
                 m.js("await ruhig(1000); return 1;")
                 a = auswerten(roh, kern)
                 melde(f"{name}: Trennlinie ziehen 40 px hin und zurück", a, out, roh, args.json, f"{name} Ziehen")

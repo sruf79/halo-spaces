@@ -11782,6 +11782,33 @@ def run_checks(m, version, profile, results):
         return not bad, "; ".join(bad or info)
     check("Animation: Der Verteiler-Hinweis über der geöffneten Mail springt am Ende des Ein- und Ausblendens des Heute-Fensters nicht", anim_heute_hinweis, results)
 
+    def ziehen_stetig():
+        # Seitenleiste per Trennlinie ziehen, gleich nach dem Wechsel in den Kalender: die Breite folgt der Maus stetig, auch wenn
+        # nach dem Bereichswechsel der verzögerte Abgleich der gemeinsamen Breite (nach ca. 400 ms) läuft – er setzte die Breite
+        # mitten im Ziehen kurz auf den gespeicherten Wert zurück (z. B. 262 → 228 → 266). Gemessen wird jedes Bild; zwischen
+        # zwei Bildern darf sich die Breite um höchstens 12 px ändern (die Maus bewegt sich 2 px je Bild).
+        # Verdecktes Fenster: übersprungen.
+        if sys.platform != "darwin":
+            return True, "übersprungen: nur auf macOS gemessen"
+        m.js("const s = w.screen; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1522, 900); await wait(1000); await toMail(); await ruhig(1200); return 1;")
+        if m.js('return d.visibilityState') != "visible":
+            return True, "nicht gemessen (Fenster verdeckt)"
+        # Wechsel in den Kalender und gleich danach ziehen (ohne ruhig): der verzögerte Abgleich fällt in das Ziehen
+        m.js("const rec = (w.__mcZug = { w: [], stop: false }); (async () => { while (!rec.stop) { rec.w.push(Math.round((d.getElementById('calSidebar')?.getBoundingClientRect().width || 0) * 10) / 10); await new Promise(r => w.requestAnimationFrame(r)); } })(); await toCalendar(); return 1;")
+        pos = m.js("""const s = d.getElementById("calsidebar_splitter"); const r = s.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 300) };""")
+        steps = [{"type": "pointerMove", "x": pos["x"], "y": pos["y"], "origin": "viewport"}, {"type": "pointerDown", "button": 0}]
+        for i in range(1, 31):
+            steps.append({"type": "pointerMove", "x": pos["x"] + 2 * i, "y": pos["y"], "origin": "viewport", "duration": 16})
+        for i in range(1, 31):
+            steps.append({"type": "pointerMove", "x": pos["x"] + 60 - 2 * i, "y": pos["y"], "origin": "viewport", "duration": 16})
+        steps.append({"type": "pointerUp", "button": 0})
+        m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+        m.cmd("WebDriver:ReleaseActions", {})
+        ws = m.js("const rec = w.__mcZug; rec.stop = true; await wait(100); await ruhig(800); return rec.w;")
+        groesst = max((abs(b - a), i) for i, (a, b) in enumerate(zip(ws, ws[1:]))) if len(ws) > 1 else (0, 0)
+        return groesst[0] <= 12, f"{len(ws)} Bilder, größter Sprung zwischen zwei Bildern {groesst[0]:.0f} px (Bild {groesst[1]}), Breiten {min(ws):.0f} bis {max(ws):.0f} px"
+    check("Trennlinie: Die Seitenleiste folgt der Maus beim Ziehen stetig (kein kurzes Zurückspringen durch den verzögerten Breitenabgleich)", ziehen_stetig, results)
+
     def sidebar_animation():
         # Seitenleiste ein-/ausblenden in Mail, Chat und Einstellungen gleich flüssig: Breite in vielen Zwischenschritten,
         # Knopf vorher und nachher an derselben Stelle, in der Mail bleibt die Liste stehen (kein Neuumbruch der Karten)

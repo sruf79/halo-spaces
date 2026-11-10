@@ -11665,6 +11665,43 @@ def run_checks(m, version, profile, results):
         return not bad, ("; ".join(bad) + f" {out}") if bad else f"{out}"
     check("Trennlinien: Seitenleisten aller Bereiche und Today-Pane bis zur gemeinsamen Höchstbreite ziehbar, im selben Zug wieder ein, ausgeblendet am Rand wieder herausziehbar, ohne Animation", drag_reshow, results)
 
+    def anim_ende():
+        # Nach dem Ein-/Ausblenden der Seitenleiste bewegt sich nichts mehr: sobald die Leiste ihre Endbreite hat, dürfen
+        # Leiste, Trennlinie, Inhalt und Toolbar-Knöpfe sich nicht mehr verschieben (Sprünge am Animationsende, bisher in
+        # allen Bereichen beim Einblenden). Gemessen mit jedem Bildwechsel (tests/animation_lib.py). Ausnahme: das Wegspringen
+        # beim Ziehen der Trennlinie unter die Schwelle und das Wiedereinspringen (eigene Prüfung oben, hier nur per Knopf).
+        # Verdecktes Fenster: Animationen pausieren, dann keine Messung (übersprungen, nicht rot).
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import animation_lib as A
+        bereiche = [
+            ("Mail", "mail", "a3.folderPane", "await toMail();"),
+            ("Kalender", "calendar", "calSidebar", "await toCalendar();"),
+            ("Aufgaben", "tasks", "calSidebar", 'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
+            ("Adressbuch", "addressbook", "ab.booksPane", 'tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000);'),
+            ("Chat", "chat", "listPaneBox", 'tm.openTab("chat", {}); await bis(() => tm.currentTabInfo?.mode?.name == "chat" && d.getElementById("listPaneBox")?.getBoundingClientRect().width > 0, "Chat", 8000); await ruhig(1500);'),
+            ("Einstellungen", "settings", "pref.pref-category-box", 'w.openPreferencesTab(); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("pref-category-box")?.getBoundingClientRect().width > 0, "Einstellungen", 8000); await ruhig(2000);'),
+        ]
+        m.js("const s = w.screen; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1522, 900); await wait(1000); return 1;")
+        bad, gemessen = [], 0
+        for name, modus, kern, geh in bereiche:
+            m.js(geh + " return 1;")
+            if m.js(A.SAMPLER + f'const g = w.__mcMess.ziele("{modus}")["{kern}"]; const r = g && g(); return r ? Math.round(r[0].getBoundingClientRect().width) : -1;') <= 0:
+                m.js('d.getElementById("spacesPinnedButton").click(); await ruhig(1000); return 1;')
+            for label in ("aus", "ein"):
+                roh = A.messen(m, modus, lambda: m.js('d.getElementById("spacesPinnedButton").click(); return 1;'), 700)
+                m.js("await ruhig(1500); return 1;")
+                a = A.auswerten(roh, kern)
+                if "fehler" in a:
+                    continue  # nicht gemessen (z. B. Fenster verdeckt)
+                gemessen += 1
+                spaet = {k: v for k, v in {**a["nachzuegler"], **a["toolbar_nachzuegler"]}.items() if max(x[1] for x in v) > 1.5}
+                if spaet:
+                    bad.append(f"{name} {label}: " + ", ".join(f"{k} +{max(x[1] for x in v):.0f} px" for k, v in list(spaet.items())[:4]))
+        if not gemessen:
+            return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
+        return not bad, f"{gemessen} Messungen; nach dem Ende noch bewegt: {bad}"
+    check("Animation: Nach dem Ein- und Ausblenden der Seitenleiste bewegt sich in keinem Bereich mehr etwas (kein Sprung am Ende)", anim_ende, results)
+
     def sidebar_animation():
         # Seitenleiste ein-/ausblenden in Mail, Chat und Einstellungen gleich flüssig: Breite in vielen Zwischenschritten,
         # Knopf vorher und nachher an derselben Stelle, in der Mail bleibt die Liste stehen (kein Neuumbruch der Karten)

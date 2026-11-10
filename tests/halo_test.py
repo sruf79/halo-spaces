@@ -11028,10 +11028,13 @@ def run_checks(m, version, profile, results):
             btn.blur();
             // Statuskapsel: Text 13 px wie „Add Contact“, ohne Konto gedimmt wie die übrigen Knöpfe; flacher Punkt
             const lbl = d.getElementById("statusMessageLabel"), type = d.getElementById("statusTypeIcon"), ic = q("#statusTypeIcon > .toolbarbutton-icon");
+            const effOp = e => { let o = 1; for (let x = e; x && x.id != "chat-toolbar"; x = x.parentElement) o *= parseFloat(cs(x).opacity); return String(Math.round(o * 100) / 100); };
             const addText = q("#button-add-buddy .toolbarbutton-text"), addIcon = q("#button-add-buddy .toolbarbutton-icon");
             const ir = ic.getBoundingClientRect(), sr = q("#chat-status-selector").getBoundingClientRect();
             out.status = { size: cs(lbl).fontSize, addSize: cs(addText).fontSize, disabled: type.hasAttribute("disabled"),
-              lblOp: cs(lbl).opacity, addTextOp: cs(addText).opacity, dotOp: cs(ic).opacity, addIconOp: cs(addIcon).opacity,
+              // wirksame Deckkraft samt Knopf darüber: Thunderbird 161 dimmt deaktivierte Knöpfe als Ganzes statt Text und
+              // Symbol einzeln (Beta 161.0b1: Text des Knopfs 1, Knopf 0.4)
+              lblOp: effOp(lbl), addTextOp: effOp(addText), dotOp: effOp(ic), addIconOp: effOp(addIcon),
               img: cs(ic).listStyleImage, w: ir.width, h: ir.height, mid: Math.abs((ir.top + ir.bottom) / 2 - (sr.top + sr.bottom) / 2),
               online: cs(ic).backgroundColor == colorOf("var(--mt-status-online)", "backgroundColor") };
             // Innenabstand der Kapsel links (bis zum Punkt) und rechts (hinter dem Textende) gleich

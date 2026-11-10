@@ -7714,14 +7714,26 @@ class AvatarResolver {
       if (!opaque && bw > N * 0.9 && bh > N * 0.9) {
         return src;
       }
-      // Motiv auf ca. 69 % der Kantenlänge – passt auch diagonal in den Kreis
-      const side = Math.max(bw, bh) * 1.45;
       const cx = (minX + maxX + 1) / 2;
       const cy = (minY + maxY + 1) / 2;
+      // Scheibe auf durchsichtigem Grund (z. B. Tasse auf farbigem Kreis oder
+      // Rundquadrat mit Rand): Berührt die Fläche an allen vier Kantenmitten
+      // einfarbig den Rand, ist sie selbst der Hintergrund – zuschneiden und
+      // den Kreis damit füllen statt sie verkleinert auf Weiß zu setzen
+      let disc = null;
+      if (!opaque) {
+        const pts = [at(minX + 3, cy), at(maxX - 3, cy), at(cx, minY + 3), at(cx, maxY - 3)];
+        const same = [0, 1, 2].every(k => Math.max(...pts.map(c => c[k])) - Math.min(...pts.map(c => c[k])) <= 16);
+        if (same && pts.every(c => c[3] > 200)) {
+          disc = [0, 1, 2].map(k => Math.round(pts.reduce((t, c) => t + c[k], 0) / 4));
+        }
+      }
+      // Motiv auf ca. 69 % der Kantenlänge – passt auch diagonal in den Kreis
+      const side = Math.max(bw, bh) * (disc ? 1 : 1.45);
       const out = win.document.createElementNS(XHTML, "canvas");
       out.width = out.height = N;
       const octx = out.getContext("2d");
-      octx.fillStyle = opaque ? `rgb(${bg.join(",")})` : "#fff";
+      octx.fillStyle = opaque ? `rgb(${bg.join(",")})` : disc ? `rgb(${disc.join(",")})` : "#fff";
       octx.fillRect(0, 0, N, N);
       octx.drawImage(canvas, cx - side / 2, cy - side / 2, side, side, 0, 0, N, N);
       return out.toDataURL("image/png");

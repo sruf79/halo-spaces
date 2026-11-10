@@ -17036,6 +17036,28 @@ Neu
         return ok, f"{res}"
     check("Absenderbilder: BIMI-Logo füllt den Profilkreis randlos (kein weißer Ring), alte verkleinerte Logos werden neu geholt", bimi_full, results)
 
+    def site_icon_disc():
+        # Website-Icon mit eigener farbiger Scheibe auf durchsichtigem Grund (wie die Tasse von
+        # Buy Me a Coffee): die Scheibe füllt den Profilkreis, kein verkleinertes Motiv im weißen Ring.
+        res = m.js('''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          return JSON.parse(await Cu.evalInSandbox(`(async () => {
+            const SVG = "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 100 100">'
+              + '<circle cx="50" cy="50" r="38" fill="#fd0"/><rect x="40" y="40" width="20" height="24" fill="#111"/></svg>');
+            const win = Services.wm.getMostRecentWindow("mail:3pane");
+            const ar = new AvatarResolver(() => win);
+            const out = await ar.normalize(SVG);
+            const img = new win.Image(); await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = out; });
+            const c = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = 100;
+            const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0, 100, 100);
+            return JSON.stringify({ edge: Array.from(ctx.getImageData(50, 6, 1, 1).data.slice(0, 3)) });
+          })()`, g));''' % ADDON_ID)
+        e = res.get("edge") or [255, 255, 255]
+        ok = e[0] > 200 and e[1] > 170 and e[2] < 80
+        return ok, f"{res}"
+    check("Absenderbilder: Website-Icon mit eigener Scheibe füllt den Profilkreis (kein weißer Ring)", site_icon_disc, results)
+
     def net_guard():
         # Absenderbilder kommen von Adressen, die der Absender bestimmt (BIMI,
         # Startseite): eine Umleitung ins lokale Netz darf gar nicht erst

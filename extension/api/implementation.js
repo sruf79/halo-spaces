@@ -9689,6 +9689,10 @@ class CardEnhancer {
           if (pr?.width && pr.left - 2 < headRight) {
             headRight = pr.left - 2;
           }
+          // Knöpfe der gewählten Aufgabe gleich rechts vom „+“ in der Toolbar-Zeile
+          if (pr?.width) {
+            setVar(d.getElementById("task-actions-toolbar"), "--mc-ta-left", `${Math.round(pr.right + 8)}px`);
+          }
         }
         setBarVar(d, "--mc-task-list-right", `${Math.round(headRight - rowLeft)}px`);
         // Aktionen und Kopf richten sich nach dem gemessenen „+“ – das springt
@@ -9748,6 +9752,11 @@ class CardEnhancer {
       const sb = rectOf(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]:not([hidden])'));
       if (sb?.width) {
         rowVar("--mc-search-left", `${Math.round(sb.left)}px`);
+        // Aufgaben: der Hinweis endet vor den Knöpfen der Aufgabe (stehen vor dem Suchfeld)
+        const ta = tab.mode.name == "tasks" ? rectOf(d.getElementById("task-actions-toolbar")) : null;
+        if (ta?.width) {
+          setVar(d.getElementById("task-addition-box"), "--mc-search-left", `${Math.round(ta.left)}px`);
+        }
       }
       rowVar("--mc-row-top", `${Math.round(rr.top)}px`);
       rowVar("--mc-row-h", `${Math.round(rr.height)}px`);

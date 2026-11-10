@@ -6423,9 +6423,9 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 :root[mc-task-info] #calendar-task-details-box {
-  /* (die Knöpfe über der Aufgabe stehen auf Höhe der ersten Karte der Liste,
-     die Kopfkarte darunter) */
-  margin-top: 0;
+  /* Oberkante der Kopfkarte auf Höhe der ersten Karte der Liste (die Knöpfe
+     stehen oben in der Toolbar-Zeile) */
+  margin-top: -5px;
   background: var(--mc-ti-card);
   border-radius: 12px;
   padding: 16px 16px 16px 14px !important;
@@ -15192,25 +15192,34 @@ datepicker[mc-inline] > menulist {
   background: var(--mt-pane-line) !important;
 }
 
-/* ---------- Aufgaben: Knöpfe über der Aufgabe ----------
-   wie Apple Erinnerungen und Kanban-Karten in der Detailspalte über der
-   Kopfkarte: links „Complete“ (Haken | Fortschritt), rechts „In eigenem
+/* ---------- Aufgaben: Knöpfe der gewählten Aufgabe ----------
+   wie die Knöpfe über der Mail oben in der Toolbar-Zeile zwischen „+“ und
+   Suchfeld: links „Complete“ (Haken | Fortschritt), rechts „In eigenem
    Fenster öffnen“ und „…“; Kategorie, Priorität und Löschen entfallen als
-   Knöpfe (Zeilen darunter, „…“, Kontextmenü, Entf-Taste) */
-:root[mc-tab="tasks"] #other-actions-box {
-  flex: none !important;
-  align-self: stretch !important;
-  width: auto !important;
-  height: auto !important;
+   Knöpfe (Zeilen darunter, „…“, Kontextmenü, Entf-Taste).
+   --mc-row-top/-h, --mc-search-left und --mc-ta-left (rechte Kante des „+“)
+   setzt die Erweiterung; das „+“ hält dafür Platz frei */
+:root[mc-tab="tasks"]:has(#calendar-task-details-container:not([hidden])) #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]),
+:root[mc-tab="tasks"][mc-task-side] #unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]):not([hidden]) {
+  /* (Details neben der Liste: Platz auch ohne Auswahl, wie die Mail-Knöpfe;
+     68 + 6 + 40 + 6 + 40 und je 8 px Abstand) */
+  margin-inline-end: 176px !important;
 }
 
-:root[mc-tab="tasks"] #task-actions-toolbox {
-  flex: 1 !important;
-  height: auto !important;
+/* die Zeile, in der die Knöpfe vorher über der Aufgabe standen, entfällt */
+:root[mc-tab="tasks"] #task-actions-toolbox,
+:root[mc-tab="tasks"] #other-actions-box {
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: visible !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar {
-  position: static !important;
+  position: fixed !important;
+  z-index: 3 !important;
+  top: calc(var(--mc-row-top, 0px) + (var(--mc-row-h, 50px) - 38px) / 2) !important;
+  inset-inline-start: var(--mc-ta-left, 50vw) !important;
+  width: max(164px, calc(var(--mc-search-left, 100vw) - var(--mc-ta-left, 50vw) - 8px)) !important;
   height: 38px !important;
   margin: 0 !important;
   padding: 0 !important;

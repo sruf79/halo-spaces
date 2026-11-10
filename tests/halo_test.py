@@ -7156,8 +7156,8 @@ def calendar_checks(m, results):
     check("Aufgaben: nach dem Wechsel aus der Mail stehen die Details sofort rechts neben der Liste", tasks_side_after_switch, results)
 
     def tasks_details_top():
-        # Aufgaben: Details beginnen auf Höhe der ersten Karte (wie im Mail-Bereich; seit 5a/5d die Knöpfe über der Aufgabe,
-        # die Kopfkarte darunter), Beschriftungen groß
+        # Aufgaben: Details beginnen auf Höhe der ersten Karte (wie im Mail-Bereich; Oberkante der Kopfkarte, die Knöpfe
+        # stehen oben in der Toolbar-Zeile), Beschriftungen groß
         res = m.js(CAL_CHECK_JS + r"""
           w.resizeTo(1500, 900); await wait(600);
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
@@ -7171,8 +7171,8 @@ def calendar_checks(m, results):
           card?.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           card?.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, button: 0, clientX: cr.left + 5, clientY: cr.top + 5 }));
           await ruhig(1000);
-          // (mit der Kopfkarte wie Erinnerungen zählt die Zeile der Knöpfe darüber, der Titel steht in der Karte darunter)
-          const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("task-actions-toolbar") : d.getElementById("calendar-task-details-title");
+          // (mit der Kopfkarte wie Erinnerungen zählt die Oberkante der Kopfkarte; die Knöpfe stehen oben in der Toolbar-Zeile)
+          const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("calendar-task-details-box") : d.getElementById("calendar-task-details-title");
           const th = d.querySelector("#calendar-task-details-grid > tr > th");
           // (Kopfkarte: Oberkante wie die Oberkante der ersten Karte der Liste)
           const cardTop = d.documentElement.hasAttribute("mc-task-info") ? card?.closest(".mc-tc") : card;
@@ -7184,7 +7184,7 @@ def calendar_checks(m, results):
         ok = res.get("side") and res.get("card") is not None and res.get("title") is not None and abs(res["card"] - res["title"]) <= 3 \
             and res.get("transform") == "capitalize"
         return ok, f"{res}"
-    check("Aufgaben: Details (Knöpfe über der Aufgabe) auf Höhe der ersten Karte, Beschriftungen groß", tasks_details_top, results)
+    check("Aufgaben: Details (Kopfkarte) auf Höhe der ersten Karte, Beschriftungen groß", tasks_details_top, results)
 
     def tasks_info_column():
         # Aufgaben: Detailspalte wie das Info-Fenster von Apple Erinnerungen – Titel und Notiz als Kopfkarte, Abschnitte
@@ -14072,6 +14072,61 @@ Neu
         return ok, f"{res} {out}"
     check("Aufgaben: „Complete“ mit Pfeil – beim Überfahren bekommt nur der Teil unter der Maus eine Fläche", tasks_cap_hover, results)
 
+    def tasks_actions_in_row():
+        # Kartenansicht, Aufgabe per Mausklick gewählt: die Knöpfe „Complete“, „In eigenem Fenster öffnen“ und „…“ stehen
+        # wie bei der Mail oben in der Toolbar-Zeile zwischen „+“ und Suchfeld (saßen eine Zeile tiefer über der Aufgabe);
+        # der Pfeil von „Complete“ öffnet mit echter Maus das Menü, ein zweiter Klick schließt es wieder
+        res = m.js(CAL_CHECK_JS + r'''
+          w.resizeTo(1500, 900); await ruhig(600);
+          const c = testCalendar();
+          const viewBefore = Services.prefs.getCharPref("extensions.mailcards.taskView", "");
+          Services.prefs.setCharPref("extensions.mailcards.taskView", "list");
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const todo = new CalTodo(); todo.title = "Halo Zeilenaufgabe"; todo.calendar = c;
+          const saved = await c.addItem(todo);
+          w.__zeile = { c, saved, viewBefore };
+          tm.openTab("tasks", {});
+          const card = await bis(() => [...d.querySelectorAll("#mcTaskCards .mc-tc-title")].find(e => e.textContent.includes("Halo Zeilenaufgabe")), "Aufgabenkarte", 6000);
+          await ruhig(800);
+          const mitte = e => { const r = e.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)]; };
+          return { card: mitte(card) };''')
+        out = {}
+        try:
+            m.pointer([{"type": "pointerMove", "duration": 100, "x": res["card"][0], "y": res["card"][1]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            out["lage"] = m.js(r'''
+              await bis(() => !d.getElementById("calendar-task-details-container").hidden, "Details", 4000); await ruhig(800);
+              const R = e => { const r = e?.getBoundingClientRect(); return r && r.width ? { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom) } : null; };
+              const plus = [...d.querySelectorAll('#unifiedToolbarContent > li:is([item-id="new-task"], [item-id="new-event"]) button')].find(b => b.getBoundingClientRect().width);
+              const cap = d.getElementById("task-actions-markcompleted"), dm = cap.querySelector(".toolbarbutton-menubutton-dropmarker");
+              const dr = dm.getBoundingClientRect();
+              return { row: R(d.getElementById("unifiedToolbarContainer")), plus: R(plus), search: R(d.querySelector('#unifiedToolbarContent > li[item-id="search-bar"]')),
+                       acts: [...d.getElementById("task-actions-toolbar").children].filter(b => b.getBoundingClientRect().width).map(b => ({ id: b.id, ...R(b) })),
+                       dm: [Math.round(dr.left + dr.width / 2), Math.round(dr.top + dr.height / 2)] };''')
+            dm = out["lage"]["dm"]
+            klick = [{"type": "pointerMove", "duration": 100, "x": dm[0], "y": dm[1]}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}]
+            zustand = r'''await ruhig(500); return d.querySelector("#task-actions-markcompleted menupopup")?.state;'''
+            m.pointer(klick)
+            out["auf"] = m.js(zustand)
+            m.pointer(klick)
+            out["zu"] = m.js(zustand)
+        finally:
+            m.js(r'''
+              d.querySelector("#task-actions-markcompleted menupopup")?.hidePopup();
+              const h = w.__zeile; delete w.__zeile;
+              try { await h.c.deleteItem(h.saved); } catch {}
+              if (h.viewBefore) Services.prefs.setCharPref("extensions.mailcards.taskView", h.viewBefore); else Services.prefs.clearUserPref("extensions.mailcards.taskView");
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+              return 1;''')
+        ly = out.get("lage") or {}
+        row, plus, search, acts = ly.get("row"), ly.get("plus"), ly.get("search"), ly.get("acts") or []
+        ids = [a["id"] for a in acts]
+        in_row = bool(row) and all(abs((a["t"] + a["b"]) / 2 - (row["t"] + row["b"]) / 2) <= 2 for a in acts)
+        between = bool(plus and search) and all(a["l"] >= plus["r"] + 4 and a["r"] <= search["l"] - 4 for a in acts)
+        ok = (ids == ["task-actions-markcompleted", "mcTaskOpenWindow", "mcTaskMore"] and in_row and between
+              and out.get("auf") == "open" and out.get("zu") in ("closed", "hiding"))
+        return ok, f"zeile={in_row} zwischen={between} {out}"
+    check("Aufgaben: Knöpfe der gewählten Aufgabe oben in der Toolbar-Zeile zwischen „+“ und Suchfeld, Pfeil von „Complete“ öffnet und schließt das Menü", tasks_actions_in_row, results)
+
     def task_cards():
         # Kartenansicht der Aufgaben nach Entwurf I (Entscheidung 6.11.2026): Menü heißt „Card View“; je Karte links der
         # Farbstreifen der Liste, oben Titel mit Priorität, rechts Fortschrittsstrich (offener Teil rot gestrichelt) und
@@ -14192,7 +14247,7 @@ Neu
 
     def task_header():
         # Aufgaben wie die Mail (neue Detailansicht 1/4): „…“ an derselben Stelle wie über der Mailliste (kein Filterknopf), Titel,
-        # Anzahl; „+“ über den Details; die Knöpfe über der Aufgabe (5a/5d: Complete, In eigenem Fenster, „…“) in der Detailspalte
+        # Anzahl; „+“ über den Details; die Knöpfe der Aufgabe (5a/5d: Complete, In eigenem Fenster, „…“) oben in der Toolbar-Zeile
         # über der Kopfkarte als Symbole ohne Text, mit Tooltip;
         # Haarlinie zur Detailspalte durchgehend (Toolbar-Zeile über dem Teiler), Details mindestens so breit wie ihre Knopfzeile,
         # ohne Auswahl „No Task Selected“
@@ -14277,7 +14332,7 @@ Neu
         same = bool(more and mf.get("more")) and abs(more["l"] - mf["more"]["l"]) <= 2 and abs(more["t"] - mf["more"]["t"]) <= 1 and not tf.get("filter")
         acts = res.get("actions") or []
         ok = (same and re.match(r"\d+ tasks?\b", tf.get("count", "")) and [a["id"] for a in acts] == ["task-actions-markcompleted", "mcTaskOpenWindow", "mcTaskMore"]
-              and all(not a["inRow"] and a["bottom"] <= ly.get("cardTop", 0) and not a["text"] and a["icon"] and a.get("ink", 0) >= 12 and a["tip"] for a in acts)
+              and all(a["inRow"] and a["bottom"] <= ly.get("cardTop", 0) and not a["text"] and a["icon"] and a.get("ink", 0) >= 12 and a["tip"] for a in acts)
               and not ly.get("trash") and bool(plus) and plus["l"] >= ly["listRight"] and ly["actRight"] <= ly["detRight"]
               and abs(ly.get("line", 0) - ly.get("split", -9)) <= 1 and ly.get("details", 0) >= ly.get("detMin", 9999) - 1
               and em.get("hidden") and em.get("text") == "No Task Selected" and em.get("content") and em.get("vis") == "visible"
@@ -14285,7 +14340,7 @@ Neu
               and (not res.get("drag") or (res["drag"]["split"] <= -60 and abs(res["drag"]["plus"] - res["drag"]["split"]) <= 2
                                            and abs(res["drag"]["acts"] - res["drag"]["split"]) <= 2 and abs(res["drag"]["back"]) <= 2)))
         return ok, f"{res}"
-    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ über den Details, Knöpfe über der Aufgabe mit sichtbarem Symbol in der Detailspalte und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
+    check("Aufgaben wie die Mail: „…“ an derselben Stelle, „+“ über den Details, Knöpfe der Aufgabe mit sichtbarem Symbol oben in der Toolbar-Zeile und folgen dem Teiler, Details mindestens so breit wie ihre Knopfzeile, Haarlinie durchgehend, ohne Auswahl „No Task Selected“", task_header, results)
 
     def task_pills_ring_reopen():
         # Aufgaben: keine Schnelleingabe „Click here to add a new task“; Knöpfe über der Aufgabe (5a/5d): links „Complete“,

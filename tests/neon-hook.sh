@@ -38,7 +38,7 @@ if [ "$neon" = board ]; then
   fi
   cat <<'EOF'
 neon-board – nur Board und Bilder (CLAUDE.md in ~/halo-board, AGENTS.md „neon erreichen“, docs/neon-sitzung.md, docs/board.md):
-- Board nur über ~/.config/halo-spaces/board.sh (liste [Muster], zeige, neu, status, notiz, archiv); vor „neu“ Doppelte prüfen und lieber ergänzen.
+- Board nur über ~/.config/halo-spaces/board.sh (liste [Muster], zeige, neu, status, notiz, archiv, suche <Begriff>, archiv-zeige <id>); vor „neu“ Doppelte prüfen und lieber ergänzen.
 - Bilder und Apple-Vorlagen unverändert nach ~/halo-aufgaben/bilder bzw. ~/halo-aufgaben/apple (+ index.md), SHA-256 und Qualität prüfen, bilder-offen.md pflegen. halobild-Bilder aus ~/halo-aufgaben/eingang sortiert tests/bilder-eingang.zsh selbst ein (beim Arbeiten von Hand ~/halo-aufgaben/bilder-eingang.sperre anlegen, danach löschen).
 - Nie Tests, Builds, Thunderbird, git commit/push, Release – solche Aufträge an die Sitzung neon verweisen.
 - Längere Aufträge: HALO_STAND_NAME=board ~/.config/halo-spaces/neon-stand.sh neu|notiz|fertig. Antworten knapp per SendMessage.

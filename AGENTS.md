@@ -187,7 +187,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 Bugs und Wünsche führt der Maintainer im privaten GitHub-Project „halo.spaces Aufgaben“
 (<https://github.com/users/sruf79/projects/1>). Auf neon über `tests/board.sh`, aus Cloud-, Laptop- und
 iPhone-Sitzungen immer über `neon-board` (ersatzweise `neon`). Feld-IDs, Befehle, Titelform, Bilder,
-Apple-Vorlagen, Notweg: `docs/board.md`.
+Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal da?“): `docs/board.md`.
 
 - **Reihenfolge eines Laufs:** 1. neue bzw. nicht gepushte Commits durchsehen, 2. dann die
   Aufgabenliste laden und offene GitHub-Issues/Pull Requests prüfen, 3. Bugs, 4. einfache Features,

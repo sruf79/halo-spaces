@@ -57,7 +57,7 @@ erreichen“ und „Cloud-Sessions“ sowie docs/board.md (Feld-IDs, Bilder, App
 
 Erlaubt:
 - Board nur über $cfg/board.sh (liste [Muster], zeige, neu, status, notiz,
-  archiv): lesen, anlegen, ergänzen, Status, archivieren. Vor „neu“ mit
+  archiv, suche, archiv-zeige): lesen, anlegen, ergänzen, Status, archivieren. Vor „neu“ mit
   „liste '^Bereich:'“ Doppelte prüfen und lieber ergänzen. Nie ganze Listen
   ausgeben, nie gh project item-list ungefiltert.
 - Bilder aus privaten Artifact-Seiten holen: Artifact, action "read" mit path

@@ -62,7 +62,7 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
   (volles Log unter `~/halo-neon/logs/`, ausgegeben werden Exitcode,
   Fehlerzeilen und das Ende), Testläufe dabei im Hintergrund. Board nur über
   `tests/board.sh` (`liste [Muster]`, `zeige`, `neu`, `status`, `notiz`,
-  `archiv`), nie `gh project item-list` ungefiltert.
+  `archiv`, `suche <Begriff>`, `archiv-zeige <id>`), nie `gh project item-list` ungefiltert.
 - Antworten knapp: Ergebnis, Fehlerzeilen, Pfad zum Log. Zitate und
   Entscheidungen weiter wörtlich (siehe „Aufgabenliste“).
 - **Keine festen Kennungen, nur Namen** (wiederholt 9.11.2026, Regel in `docs/github-komm.md`): Sitzungen

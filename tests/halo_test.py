@@ -9722,10 +9722,15 @@ def run_checks(m, version, profile, results):
 
     def readstatus():
         res = m.js("""
-          await toCalendar(); const c = testCalendar(); c.readOnly = true; await ruhig(800);
+          // Thunderbird setzt [calendar-readonly] über einen Beobachter – darauf warten
+          // statt fest 400 ms (Mac dunkel unter Last: noch 0.75 nach dem Zurücksetzen)
+          await toCalendar(); const c = testCalendar(); c.readOnly = true;
           const li = [...d.querySelectorAll("#calendar-list li")].find(l => /Halo Test/.test(l.textContent));
+          await until(() => li?.hasAttribute("calendar-readonly"), 4000); await ruhig(300);
           const shown = getComputedStyle(li.querySelector(".calendar-readstatus")).opacity;
-          c.readOnly = false; await ruhig(400); const hidden = getComputedStyle(li.querySelector(".calendar-readstatus")).opacity;
+          c.readOnly = false;
+          await until(() => !li.hasAttribute("calendar-readonly") && getComputedStyle(li.querySelector(".calendar-readstatus")).opacity == "0", 4000);
+          const hidden = getComputedStyle(li.querySelector(".calendar-readstatus")).opacity;
           return [shown, hidden];""")
         return float(res[0]) > 0 and float(res[1]) == 0, f"schreibgeschützt {res[0]}, normal {res[1]}"
     check("Kalenderliste zeigt Status bei Schreibschutz", readstatus, results)

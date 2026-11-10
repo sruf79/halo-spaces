@@ -449,7 +449,10 @@ global-search-bar {
   /* Seitenleisten-Grau bis zur Ordnerliste, dann je eine feine Linie an der
      rechten Kante von Ordnerliste und Mailliste – wie in Apple Mail. Die
      Linie der Mailliste liegt wie deren Rand innen an der Kante und ist
-     genauso dünn, sonst sitzt sie oben versetzt zur Linie darunter */
+     genauso dünn, sonst sitzt sie oben versetzt zur Linie darunter.
+     --mc-sidebar-right ist die Außenkante der Ordnerliste samt ihrer 1-px-
+     Linie: die Linie oben liegt auf dem letzten Pixel davor über dem Grau,
+     wie unten (lag 1 px rechts davon auf Weiß, heller; GitHub #55) */
   background:
     linear-gradient(
       to right,
@@ -459,9 +462,14 @@ global-search-bar {
     ),
     linear-gradient(
       to right,
-      var(--mt-sidebar) 0 var(--mc-sidebar-right, 0px),
-      var(--mt-sidebar-border) var(--mc-sidebar-right, 0px) calc(var(--mc-sidebar-right, 0px) + 1px),
-      var(--mt-window) calc(var(--mc-sidebar-right, 0px) + 1px)
+      transparent calc(var(--mc-sidebar-right, 0px) - 1px),
+      var(--mt-sidebar-border) calc(var(--mc-sidebar-right, 0px) - 1px) var(--mc-sidebar-right, 0px),
+      transparent var(--mc-sidebar-right, 0px)
+    ),
+    linear-gradient(
+      to right,
+      var(--mt-sidebar) var(--mc-sidebar-right, 0px),
+      var(--mt-window) var(--mc-sidebar-right, 0px)
     ) !important;
 }
 

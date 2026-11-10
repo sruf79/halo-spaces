@@ -11114,13 +11114,22 @@ def run_checks(m, version, profile, results):
           } finally {
             await toMail();
           }
+          // Mail: Ordnerliste in about:3pane (GitHub #55: oben 1 px versetzt und heller)
+          { await ruhig(800); const a3 = tm.currentAbout3Pane, fr = a3.frameElement.getBoundingClientRect();
+            const rowEl = d.getElementById("unifiedToolbarContainer"), row = rowEl.getBoundingClientRect();
+            const side = parseFloat(w.getComputedStyle(rowEl).getPropertyValue("--mc-sidebar-right"));
+            const paneEl = a3.document.getElementById("folderPane"), pr = paneEl.getBoundingClientRect(), right = fr.left + pr.right;
+            const px = await pixels(new w.DOMRect(Math.round(right) - 3, row.bottom - 4, 5, 8));
+            const col = x => ({ up: px(x, 1), down: px(x, 6) });
+            out.mail = { off: row.left + side - right, border: a3.getComputedStyle(paneEl).borderInlineEndWidth,
+              layers: (w.getComputedStyle(rowEl).backgroundImage.match(/linear-gradient/g) || []).length - 1, cols: [col(1), col(2), col(3)] }; }
           return out;""")
         def same(a, b):
             return all(abs(x - y) <= 6 for x, y in zip(a, b))
-        ok = all(v["border"] == "1px" and abs(v["off"]) <= 0.5 and v["layers"] == 2
+        ok = len(res) == 3 and all(v["border"] == "1px" and abs(v["off"]) <= 0.5 and v["layers"] == 2
                  and all(same(c["up"], c["down"]) for c in v["cols"]) for v in res.values())
         return ok, f"{res}"
-    check("Bereiche: Trennlinie der Seitenleiste läuft in der Toolbar-Zeile ohne Versatz und Farbsprung weiter (Chat, Kalender)", side_line, results)
+    check("Bereiche: Trennlinie der Seitenleiste läuft in der Toolbar-Zeile ohne Versatz und Farbsprung weiter (Chat, Kalender, Mail)", side_line, results)
 
     def today_closed():
         # Today-Pane aus: keine graue Fläche oben rechts neben dem Knopf

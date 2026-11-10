@@ -32,8 +32,9 @@ TROCKEN=
 
 tu() { if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: ${(q-)@}"; else "$@"; fi }
 melden() { [[ -z $TROCKEN ]] && log "$*"; print -r -- "$*" }
+# $2 = Art: handeln (Standard, der Maintainer muss etwas tun) oder info
 pushen() {
-  if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: push „NOTFALL: $1“"; else push "NOTFALL: $1" notfall handeln; fi
+  if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: push „NOTFALL: $1“"; else push "NOTFALL: $1" notfall ${2:-handeln}; fi
 }
 
 geladen() { launchctl list | awk '$3 ~ /^at\.halo-spaces\./ {print $3}' }
@@ -109,7 +110,7 @@ weiter() {
   done
   tu rm -f $ENTLADEN
   melden "WEITER: NOTFALL-Pausen entfernt"
-  pushen "Routinen laufen wieder"
+  pushen "Routinen laufen wieder" info
 }
 
 sichern() {
@@ -137,7 +138,7 @@ sichern() {
     tu git -C $REPO tag -a $name -m "Sicherungspunkt $name ($stempel), docs/notfall.md"
   fi
   melden "SICHERUNG: $ziel, Tag $name auf $(git -C $REPO rev-parse --short HEAD) (Tag nicht gepusht)"
-  pushen "Sicherung $name angelegt"
+  pushen "Sicherung $name angelegt" info
 }
 
 zurueck() {

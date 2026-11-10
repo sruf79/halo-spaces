@@ -16,4 +16,5 @@ pruefe "unbekannte Art wird [info]" '[[ $(push "X" q foo) == "TROCKEN: push [inf
 printf '2026-11-09 10:00:00 a x\n2026-11-10 10:00:00 b y\n2026-11-16 10:00:00 c z\n' > $T/w.log
 pruefe "Wochenzählung" '[[ $(HALO_HANDELN_LOG=$T/w.log zsh $HIER/handeln-zaehlen.zsh 2026-W46) == "2026-W46 Maintainer nötig: 2" && $(HALO_HANDELN_LOG=$T/w.log zsh $HIER/handeln-zaehlen.zsh 2026-W47) == "2026-W47 Maintainer nötig: 1" ]]'
 pruefe "Woche ohne Datei: 0" '[[ $(HALO_HANDELN_LOG=$T/nix zsh $HIER/handeln-zaehlen.zsh 2026-W46) == "2026-W46 Maintainer nötig: 0" ]]'
+pruefe "notfall.sh: Sicherung und „Routinen laufen wieder“ sind [info], Stopp und Rücknahme [handeln]" '[[ $(grep -c "^ *pushen .* info$" $HIER/notfall.sh) -eq 2 && $(grep -c "pushen \"Routinen laufen wieder\" info\|pushen \"Sicherung \$name angelegt\" info" $HIER/notfall.sh) -eq 2 && $(grep -c "pushen \"Routinen angehalten\|pushen \"Rücknahme" $HIER/notfall.sh) -eq 2 ]]'
 exit $FEHLER

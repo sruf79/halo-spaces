@@ -477,7 +477,8 @@ SK_DIR=$HOME/.config/halo-spaces
 SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
           board.sh board.sh neon-stand.sh neon-stand.sh
           vorpruefung.zsh vorpruefung.zsh github-vorpruefung.sh github-vorpruefung.sh
-          ci-runde.zsh ci-runde.zsh issue-abgleich.sh issue-abgleich.sh)
+          ci-runde.zsh ci-runde.zsh issue-abgleich.sh issue-abgleich.sh
+          github-komm-waechter.sh github-komm-waechter.sh)
 skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
   local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
   for q z in $SK_PAARE; do

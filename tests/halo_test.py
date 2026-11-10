@@ -9372,6 +9372,67 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Toolbar: Überlauf wie Apple Mail – im schmalen Fenster weichen Pillen ganz, links neben der Lupe erscheint „»“ mit den ausgeblendeten Aktionen", toolbar_overflow, results)
 
+    def toolbar_min_window():
+        # Mail-Space auf Mindestbreite (Fenster so schmal wie möglich, geöffnete Mail, mit und ohne Today-Pane, mit
+        # Ordnerliste): die Knopfleiste über der Mail schneidet nichts ab – keine Pille halb, kein Knopf über einem anderen
+        # oder über dem Seitenleisten-Knopf, nichts aus der Zeile; Suchfeld mindestens die Lupe; „»“ nur mit ausgeblendeten Pillen
+        res = m.js(MESSAGE_JS + r"""
+          const out = {};
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const tpBefore = w.TodayPane.isVisible;
+          const PILLS = [["get-messages", "write-message"], ["reply", "reply-all", "forward-inline"], ["archive", "delete", "junk"], ["move-to"], ["mark-as"]];
+          const R = e => e.getBoundingClientRect();
+          const state = () => {
+            const content = d.getElementById("unifiedToolbarContent"), row = R(content);
+            const lis = [...content.children].filter(l => !l.hidden && l.getAttribute("item-id") != "spacer" && getComputedStyle(l).display != "none" && R(l).width > 0);
+            const ids = l => l.getAttribute("item-id") || l.id;
+            const all = [...content.children].filter(l => !l.hidden && !["spacer", "search-bar"].includes(l.getAttribute("item-id")) && l.id != "mcToolbarOverflow");
+            const hidden = all.filter(l => l.hasAttribute("mc-squeezed")).map(ids);
+            const shown = lis.map(ids);
+            const overlap = [];
+            for (let i = 1; i < lis.length; i++) if (R(lis[i]).left < R(lis[i - 1]).right - 1) overlap.push(ids(lis[i - 1]) + "/" + ids(lis[i]));
+            const tog = d.getElementById("spacesPinnedButton"), tr = tog && R(tog).width ? R(tog) : null;
+            const ov = d.getElementById("mcToolbarOverflow");
+            const search = content.querySelector(':scope > li[item-id="search-bar"]');
+            return { win: w.outerWidth, today: !!w.TodayPane.isVisible, hidden, shown,
+                     partial: PILLS.filter(p => p.some(id => hidden.includes(id)) && p.some(id => shown.includes(id))).map(p => p.join("+")),
+                     clipped: lis.filter(l => R(l).right > row.right + 1 || R(l).right > w.innerWidth).map(ids),
+                     overToggle: tr ? lis.filter(l => R(l).left < tr.right - 1).map(ids) : [],
+                     overlap, search: search ? Math.round(R(search).width) : null,
+                     ov: !!ov && !ov.hasAttribute("mc-squeezed") && R(ov).width > 0 };
+          };
+          const sp = a3.paneLayout.folderPaneSplitter;
+          let sideHidden = false;
+          try {
+            for (const side of [true, false]) {
+              if (!side) {
+                d.getElementById("spacesPinnedButton").click(); sideHidden = true;
+                await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !a3.__mcAnimating, "Seitenleiste aus", 3000);
+              }
+              for (const today of [false, true]) {
+                if (w.TodayPane.isVisible != today) { tpCmd.doCommand(); await ruhig(1500); }
+                w.resizeTo(200, 800); await ruhig(1800);
+                out[(side ? "" : "ohneLeiste-") + (today ? "today" : "plain")] = state();
+              }
+            }
+            // Mail im eigenen Tab
+            const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+            tm.openTab("mailMessageTab", { messageURI: hdr.folder.getUriForMsg(hdr), background: false });
+            await bis(() => tm.currentTabInfo.mode.name == "mailMessageTab", "Mail-Tab offen", 4000); await ruhig(1500);
+            w.resizeTo(200, 800); await ruhig(1500);
+            out.tab = state();
+            tm.closeTab(tm.currentTabInfo); await ruhig(800);
+          } finally {
+            if (sideHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1200); }
+            if (w.TodayPane.isVisible != tpBefore) { tpCmd.doCommand(); await ruhig(1000); }
+            w.resizeTo(1500, 900); await ruhig(800);
+          }
+          return out;""")
+        ok = bool(res) and all(not v["partial"] and not v["clipped"] and not v["overToggle"] and not v["overlap"]
+                               and (v["search"] or 0) >= 38 and v["ov"] == bool(v["hidden"]) for v in res.values())
+        return ok, f"{res}"
+    check("Toolbar: Mail-Space auf Mindestbreite mit geöffneter Mail – Knopfleiste ohne abgeschnittene oder überlappende Knöpfe, Suche mindestens Lupe", toolbar_min_window, results)
+
     def capsules():
         res = m.js("""
           w.resizeTo(1280, 900); await wait(1300); await toMail();

@@ -8011,7 +8011,7 @@ function rowTail(doc) {
 // minimal: nur die Pillen, die bei Platzmangel nie weichen (KEEP_PILLS), der
 // Überlauf-Knopf und das Suchfeld in seiner kleinsten sinnvollen Breite – für
 // Ziehgrenzen
-function toolbarNeed(doc, minimal = false) {
+function toolbarNeed(doc, minimal = false, searchMin = 160) {
   const content = doc.getElementById("unifiedToolbarContent");
   if (!content) {
     return 0;
@@ -8040,7 +8040,7 @@ function toolbarNeed(doc, minimal = false) {
     }
     const cs = win.getComputedStyle(li);
     const margins = (parseFloat(cs.marginInlineStart) || 0) + (id == "write-message" ? 12 : parseFloat(cs.marginInlineEnd) || 0);
-    need += (id == "search-bar" ? (minimal ? 160 : 333) : li.getBoundingClientRect().width) + margins;
+    need += (id == "search-bar" ? (minimal ? searchMin : 333) : li.getBoundingClientRect().width) + margins;
   }
   if (!minimal) {
     const ov = doc.getElementById(OVERFLOW_ID);
@@ -9784,6 +9784,40 @@ class CardEnhancer {
         }
       }
     };
+    // Mindestbreite des Fensters in der Mail im eigenen Tab: so breit, dass rechts
+    // vom Seitenleisten-Knopf die Pillen, die nie weichen (Abrufen + Verfassen),
+    // „»“ und das Suchfeld als Lupe Platz haben – ohne Ordner- und Mailliste
+    // ließ sich das Fenster sonst so schmal machen, dass Knöpfe aus der Zeile
+    // ragten bzw. über dem Seitenleisten-Knopf lagen (in der Mailansicht mit
+    // Listen ist das Fenster durch deren Mindestbreiten ohnehin breiter)
+    const fitMailWindow = mode => {
+      const root = w.document.documentElement;
+      if (mode != "mailMessageTab") {
+        if (w.__mcMinWidth) {
+          root.style.removeProperty("min-width");
+          delete w.__mcMinWidth;
+        }
+        return;
+      }
+      const content = w.document.getElementById("unifiedToolbarContent");
+      const pinned = rectOf(w.document.getElementById("spacesPinnedButton"));
+      const left = pinned?.width ? pinned.right + 12 : rectOf(content)?.left || 0;
+      const need = Math.ceil(left + toolbarNeed(w.document, true, 40));
+      if (need > 200 && need != w.__mcMinWidth) {
+        w.__mcMinWidth = need;
+        root.style.setProperty("min-width", `${need}px`);
+      }
+      // schon schmaler (z. B. zuvor in einem anderen Bereich verkleinert): verbreitern
+      if (w.__mcMinWidth && w.innerWidth < w.__mcMinWidth && w.windowState == w.STATE_NORMAL) {
+        w.resizeBy(w.__mcMinWidth - w.innerWidth, 0);
+      }
+    };
+    this.restorers.push(() => {
+      if (w.__mcMinWidth) {
+        w.document.documentElement.style.removeProperty("min-width");
+        delete w.__mcMinWidth;
+      }
+    });
     // Überlauf der Toolbar in den übrigen Bereichen (die Mailansicht misst an
     // der Listenkante selbst, siehe squeezeToolbar im Mail-Layout)
     const squeezeSpace = () => {
@@ -9793,6 +9827,7 @@ class CardEnhancer {
         return;
       }
       const mode = d.getElementById("tabmail")?.currentTabInfo?.mode?.name;
+      fitMailWindow(mode);
       if (mode == "mail3PaneTab") {
         return;
       }

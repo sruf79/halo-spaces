@@ -16117,6 +16117,25 @@ Neu
         return res["errors"] == 0, f"{res}"
     check("Einstellungen: Wahl des fünften Platzes nach dem Schließen der Einstellungen ändern ohne Fehler aus dem geschlossenen Tab", pref_fifth_closed, results)
 
+    def pref_fifth_start():
+        # frisch geöffnete Einstellungen (Kategorie General): die Wahl des fünften Platzes
+        # gehört in „Chat & More“, nicht unten in General (nach einem Neustart stand sie dort
+        # sichtbar, bis man „Chat & More“ einmal anklickte)
+        res = m.js(PREFS_OPEN_JS + r"""
+          try {
+            const grp = pd.getElementById("mcFifthGroup");
+            await ruhig(500);
+            const gen = pd.getElementById("paneGeneral");
+            return { has: !!grp, shown: !!grp && grp.getBoundingClientRect().height > 0,
+                     inGeneral: !!grp && !!gen && gen.contains(grp), parent: grp?.parentNode?.id || grp?.parentNode?.localName || null,
+                     cat: grp?.closest("[data-category]")?.getAttribute("data-category"),
+                     hdrHidden: pd.getElementById("chatPaneCategory")?.hidden, grpHidden: grp?.hidden };
+          } finally {
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }""")
+        return res["has"] and not res["shown"] and not res["inGeneral"], f"{res}"
+    check("Einstellungen: Wahl des fünften Platzes steht beim frischen Öffnen nicht in General", pref_fifth_start, results)
+
     def pref_halo_search():
         # Suche der Einstellungen findet die Optionen von halo.spaces („update“ → „Install updates at start“, „logos“ →
         # „Logos from sender websites“), Treffer wie Thunderbirds eigene markiert; „Show“ öffnet halo.spaces bei der Option

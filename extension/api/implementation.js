@@ -535,6 +535,9 @@ function hookChatCategory(cw, restorers = null) {
   row("icon", tr("Symbol"), icon);
   const hint = el("p", { id: "mcFifthHint", className: "mc-fifth-hint" });
   group.append(hint);
+  // wie die übrigen Teile der Seite: solange „Chat & More“ nicht gewählt ist, versteckt (Thunderbird
+  // blendet beim Wechsel nur aus, was schon da war – sonst stand die Wahl unten in General)
+  group.hidden = !!header.hidden;
   header.after(group);
   const fillMenu = (list, items, value) => {
     const popup = list.menupopup;

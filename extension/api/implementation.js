@@ -12582,17 +12582,29 @@ class CardEnhancer {
       hot.__mcOwner = HOOK_OWNER;
       hot.setAttribute("aria-hidden", "true");
       hot.style.cssText = `position: fixed; z-index: 31; left: 0; top: 0; bottom: 0; width: ${FLOAT_HOT}px; display: none;`;
-      hot.addEventListener("mouseenter", () => {
+      const arm = () => {
         w.clearTimeout(floatTimer);
         if (!float || float.state == "out") {
           floatTimer = w.setTimeout(() => floatShow(), FLOAT_DELAY);
         }
-      });
-      hot.addEventListener("mouseleave", () => {
-        if (!float) {
+      };
+      // macOS meldet die innersten Pixel am Fensterrand (dort beginnt das
+      // Größenändern des Fensters) nicht als Bewegung, sondern als Verlassen
+      // des Fensters: Zeiger links hinaus zählt wie Ankommen im Streifen –
+      // sonst löst nur ein Treffer genau auf x = 3 aus
+      const outLeft = e => !e.relatedTarget && e.clientX < FLOAT_HOT && e.clientY >= 0 && e.clientY < w.innerHeight;
+      hot.addEventListener("mouseenter", arm);
+      hot.addEventListener("mouseleave", e => {
+        if (!float && !outLeft(e)) {
           w.clearTimeout(floatTimer);
         }
       });
+      const onOut = e => {
+        if (outLeft(e) && hot.style.display != "none") {
+          arm();
+        }
+      };
+      w.addEventListener("mouseout", onOut, true);
       // eine Mail an den Rand gezogen: sofort öffnen, offen bis zum Ablegen
       hot.addEventListener("dragenter", () => floatShow(true));
       hot.addEventListener("pointerdown", event => {
@@ -12604,6 +12616,7 @@ class CardEnhancer {
       });
       d.documentElement.append(hot);
       this.restorers.push(() => {
+        w.removeEventListener("mouseout", onOut, true);
         floatEnd(false);
         hot.remove();
       });

@@ -9429,7 +9429,7 @@ class CardEnhancer {
       // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
       // am Ende der Animation wird einmal ausgerichtet; die schwebende
       // Seitenleiste (Dia 3/4) verschiebt nichts – Kanten bleiben stehen
-      if (w.__mcSpacesAnimating || w.__mcSideFloat) {
+      if ((w.__mcSpacesAnimating && !w.__mcDry) || w.__mcSideFloat) {
         return;
       }
       const d = w.document;
@@ -11060,6 +11060,35 @@ class CardEnhancer {
       const tabOffset0 = parseFloat(barTarget(topDoc).style.getPropertyValue("--mc-tab-offset"));
       const followTab = mode == "calendar" && Number.isFinite(tabOffset0);
       const W0 = show ? 0 : full;
+      // Einblenden mit Bereiche-Leiste: Kanten für den Endzustand einmal vorab rechnen (Endzustand synchron
+      // herstellen, nichts wird gezeichnet, dann zurückstellen) und pro Bild zwischen Anfangs- und Endwert führen –
+      // sonst springen Abstand und Knöpfe am Ende (Stufe 4)
+      const EDGE_VARS = ["--mc-side-right", "--mc-tab-offset"];
+      let edgeEnd = null;
+      if (show && w.__mcSpacesJump && barRow) {
+        const read = () => EDGE_VARS.map(n => parseFloat(barRow.style.getPropertyValue(n)));
+        const start = read();
+        w.__mcDry = true;
+        try {
+          w.__mcSpacesJump(1);
+          setW(full);
+          topDoc.documentElement.getBoundingClientRect();
+          this.sideEdgeUpdaters?.forEach(f => f());
+          edgeEnd = read();
+        } catch (e) {
+          log("dry-run error", e);
+        } finally {
+          setW(0);
+          w.__mcSpacesJump(0);
+          w.__mcDry = false;
+          EDGE_VARS.forEach((n, i) => Number.isFinite(start[i]) && barRow.style.setProperty(n, `${start[i]}px`));
+        }
+        if (!edgeEnd || edgeEnd.some(v => !Number.isFinite(v)) || start.some(v => !Number.isFinite(v))) {
+          edgeEnd = null;
+        } else {
+          edgeEnd = start.map((v, i) => [v, edgeEnd[i]]);
+        }
+      }
       // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück
       const anim = animiere(win, {
         dauer: DURATION,
@@ -11068,10 +11097,14 @@ class CardEnhancer {
         bild: p => {
           const W = full * (show ? p : 1 - p);
           setW(W);
-          if (Number.isFinite(edgeBase)) {
+          if (edgeEnd) {
+            // Fortschritt der Breite 0 → 1 (Einblenden)
+            const q = full ? W / full : 1;
+            EDGE_VARS.forEach((n, i) => setBarVar(topDoc, n, `${Math.max(0, Math.round(edgeEnd[i][0] + (edgeEnd[i][1] - edgeEnd[i][0]) * q))}px`));
+          } else if (Number.isFinite(edgeBase)) {
             setBarVar(topDoc, "--mc-side-right", `${Math.max(0, Math.round(edgeBase + W))}px`);
           }
-          if (followTab) {
+          if (followTab && !edgeEnd) {
             setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
           }
           updateSideEdge();

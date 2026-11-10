@@ -96,6 +96,9 @@ def auswerten(daten, kern):
             a, b = serie[i - 1], serie[i]
             if not a or not b:
                 continue
+            # nicht sichtbar (ganz links außerhalb des Fensters oder ohne Fläche): zählt nicht
+            if (a[0] + a[2] <= 1 and b[0] + b[2] <= 1) or (a[2] <= 1 and b[2] <= 1) or (a[2] <= 1 and a[0] + a[2] <= 1) or (b[2] <= 1 and b[0] + b[2] <= 1):
+                continue
             dx = max(abs(a[0] - b[0]), abs(a[2] - b[2]), abs(a[1] - b[1]))
             if dx > 0.5:
                 spaet.setdefault(name, []).append((i - i1, round(dx, 1), round(ts[i] - ts[i1], 0)))
@@ -103,6 +106,9 @@ def auswerten(daten, kern):
     for i in range(i1 + 1, len(fr)):
         a, b = {k[0]: k for k in fr[i - 1]["tb"]}, {k[0]: k for k in fr[i]["tb"]}
         for k in b:
+            # leerer Abstandhalter vorn: unsichtbar, seine Wirkung zeigt sich an den Knöpfen dahinter
+            if k.startswith("li.spacer"):
+                continue
             if k in a and (abs(a[k][1] - b[k][1]) > 0.5 or abs(a[k][2] - b[k][2]) > 0.5):
                 tbspaet.setdefault(k, []).append((i - i1, round(abs(a[k][1] - b[k][1]), 1), round(ts[i] - ts[i1], 0)))
     # Sprung im ersten Bild: Elemente, die sich im ersten Bildwechsel bewegen, bevor das Hauptelement sich bewegt

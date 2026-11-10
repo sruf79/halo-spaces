@@ -6223,10 +6223,17 @@ function hookShortcutsLink(cw, restorers = null) {
   link.className = "text-link";
   link.href = shortcutsURL();
   link.textContent = tr("Show all keyboard shortcuts of Thunderbird");
+  // loadURI braucht seit Thunderbird 140 einen Principal und tat ohne ihn nichts
+  // (GitHub #56); wie „Danke sagen“ über Thunderbirds openLinkExternally
   link.addEventListener("click", event => {
     event.preventDefault();
-    Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
-      .loadURI(Services.io.newURI(link.href));
+    const main = Services.wm.getMostRecentWindow("mail:3pane");
+    if (typeof main?.openLinkExternally == "function") {
+      main.openLinkExternally(link.href);
+    } else {
+      Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+        .loadURI(Services.io.newURI(link.href), Services.scriptSecurityManager.getSystemPrincipal());
+    }
   });
   line.append(link);
   set.append(legend, line);

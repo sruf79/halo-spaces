@@ -15685,6 +15685,11 @@ Neu
           const out = { card: !!card, shown: !!card && card.getBoundingClientRect().height > 0, href: a?.getAttribute("href"), text: a?.textContent,
                         next: card?.nextElementSibling?.id, locale: Services.locale.appLocaleAsBCP47,
                         legend: card ? pw.getComputedStyle(card.querySelector("legend")).fontWeight : null };
+          // Klick öffnet die Seite im Standardbrowser (GitHub #56: tat nichts); Thunderbirds Aufruf abfangen
+          const orig = w.openLinkExternally; let opened = null;
+          w.openLinkExternally = url => { opened = String(url); };
+          try { a?.click(); await until(() => opened, 2000); } finally { w.openLinkExternally = orig; }
+          out.opened = opened;
           await pick("paneMcHalo", 1500); out.hiddenElsewhere = !!card && card.getBoundingClientRect().height == 0;
           const input = pd.getElementById("searchInput"); input.value = "shortcuts"; input.dispatchEvent(new pw.Event("command", { bubbles: true }));
           input.dispatchEvent(new pw.Event("input", { bubbles: true })); await bis(() => pd.getElementById("sorry-message-query")?.textContent == "shortcuts", "Suche nach shortcuts fertig", 5000); await ruhig(1500);
@@ -15693,9 +15698,9 @@ Neu
           return out;""")
         lang = "en-US" if res.get("locale", "").startswith("en") else res.get("locale")
         ok = (res.get("shown") and res.get("next") == "languageAndFontsCategory" and res.get("hiddenElsewhere") and res.get("found")
-              and res.get("href") == f"https://support.mozilla.org/{lang}/kb/keyboard-shortcuts-thunderbird")
+              and res.get("href") == f"https://support.mozilla.org/{lang}/kb/keyboard-shortcuts-thunderbird" and res.get("opened") == res.get("href"))
         return ok, f"{res}"
-    check("Einstellungen → Allgemein: Link zu den Tastaturkürzeln in der Sprache von Thunderbird", pref_shortcuts_link, results)
+    check("Einstellungen → Allgemein: Link zu den Tastaturkürzeln in der Sprache von Thunderbird, Klick öffnet ihn im Browser", pref_shortcuts_link, results)
 
     def options_page_slim():
         # Einstellungsseite schlank: Breite der Mailliste und doppelte Kontakte nur in der Oberfläche,

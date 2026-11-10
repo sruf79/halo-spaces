@@ -35,6 +35,10 @@ Maintainer freigibt) – und wirkten die freigegebenen Änderungen der Vorwochen
   zählt nur „belegt“), keine zu früh beendeten und keine Fehler. Prüfen, ob die
   Vorprüfung zu streng war (z. B. am selben Tag ein offener machbarer Eintrag im
   Board, den der Nachtlauf hätte nehmen sollen) und im Bericht nennen.
+- **Maintainer nötig** (Messung der Pflichtzeit, Maintainer-Freigabe 10.11.2026): `zsh tests/handeln-zaehlen.zsh <Wochenschlüssel>`
+  ausführen (zählt die Zeilen in ~/halo-nacht/handeln.log, also die iPhone-Meldungen mit „[handeln]“) und im Bericht
+  die Zeile „Maintainer nötig: n“ nennen, mit der Vorwoche verglichen; in den Kennzahlen als `maintainer_noetig`
+  (Zahl). Ausgangswert: ~/halo-nacht/handeln-ausgangswert.txt (Zählung beginnt am 10.11.2026, Woche 2026-W46).
 - **Pausen:** `~/halo-nacht/pausen.txt` lesen: aktive Pausen (bis, Grund), Zeilen „PAUSE ABGELAUFEN“ der
   letzten 7 Tage aus ~/halo-nacht/uebersprungen.log zählen, ebenso „PAUSE UNLESBAR“ (Tippfehler: die Pause galt
   nicht, die Routine lief – Zeile in pausen.txt nennen), Pausen mit mehr als 7 Tagen Laufzeit melden.
@@ -153,7 +157,7 @@ als `null` (nicht weglassen). Feste Kernliste (zusätzlich zu den weiteren Schl�
   ci_gruen, ci_rot (CI-Läufe grün/rot), releases, pushes_je_tag (Objekt Datum → Anzahl der
   Pushes auf main), naechte_ausgelassen, uebersprungen_gesamt (Summe der Zeilen
   „ÜBERSPRUNGEN“), board_neu, board_erledigt, iphone_meldungen (Meldungen aufs iPhone an den
-  Maintainer, gezählt aus den Protokollen; null, wenn nicht ermittelbar).
+  Maintainer, gezählt aus den Protokollen; null, wenn nicht ermittelbar), maintainer_noetig (Zeilen in handeln.log der Woche).
 Weitere Schlüssel, ebenfalls fest:
   ci_laeufe, ci_gruen, ci_rot, ci_abgebrochen,
   job_dauer_min (Objekt Job → Mittelwert in Minuten),

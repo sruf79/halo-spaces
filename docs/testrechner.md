@@ -367,3 +367,7 @@ zsh tests/kontingent.sh      # „Woche 88 % (Zurücksetzen 01:00), 5 Stunden 24
 - Grenzen und Schutzregeln legt der Maintainer fest (z. B. Wechsel auf Sonnet bei 96 %); das Auslesen allein ändert keine Regel.
 - Nicht erlaubt: Zugangsdaten oder Schlüsselbund auslesen, um das Kontingent anders abzufragen.
 
+
+## Pflichtzeit des Maintainers messen (10.11.2026)
+
+Jede iPhone-Meldung aus `push()` (`tests/lauf-hilfen.zsh`) beginnt mit `[info]` oder `[handeln]`. `[handeln]` (drittes Argument `handeln` oder `HALO_PUSH_ART=handeln`) setzen nur Stellen, an denen der Maintainer etwas tun oder entscheiden muss (heute: `NOTFALL:` in `tests/notfall.sh`, fehlende Bildschirmaufnahme im Rundgang). Solche Meldungen stehen zusätzlich als `<Zeit> <Quelle> <Text>` in `~/halo-nacht/handeln.log`; `zsh tests/handeln-zaehlen.zsh [<Woche>]` zählt sie je ISO-Woche, die Wochenprüfung schreibt „Maintainer nötig: n“ in den Bericht. Ausgangswert: `~/halo-nacht/handeln-ausgangswert.txt`. Probelauf ohne Nachricht: `HALO_PUSH_TROCKEN=1`.

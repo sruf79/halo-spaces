@@ -33,7 +33,7 @@ TROCKEN=
 tu() { if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: ${(q-)@}"; else "$@"; fi }
 melden() { [[ -z $TROCKEN ]] && log "$*"; print -r -- "$*" }
 pushen() {
-  if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: push „NOTFALL: $1“"; else push "NOTFALL: $1" notfall; fi
+  if [[ -n $TROCKEN ]]; then print -r -- "TROCKEN: push „NOTFALL: $1“"; else push "NOTFALL: $1" notfall handeln; fi
 }
 
 geladen() { launchctl list | awk '$3 ~ /^at\.halo-spaces\./ {print $3}' }

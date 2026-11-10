@@ -154,8 +154,22 @@ pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
 # des Laufs und in ~/halo-nacht/uebersprungen.log (Wochenprüfung zählt sie);
 # kein zweiter Versuch, kein weiterer Claude-Aufruf. push <Text> [<Routine>]:
 # Routine standardmäßig der Name des aufrufenden Skripts.
+# Kennzeichen am Zeilenanfang (Pflichtzeit des Maintainers messbar machen, 10.11.2026):
+# „[info]“ ist der Standard; ein drittes Argument „handeln“ (oder HALO_PUSH_ART=handeln)
+# macht „[handeln]“ daraus: der Maintainer muss etwas tun oder entscheiden. Solche
+# Meldungen stehen zusätzlich als „<Zeit> <Quelle> <Text>“ in ~/halo-nacht/handeln.log
+# (HALO_HANDELN_LOG), auch wenn die Zustellung scheitert; tests/handeln-zaehlen.zsh
+# zählt sie je Kalenderwoche. HALO_PUSH_TROCKEN=1: nur Kennzeichen und Log, kein Claude.
 push() {
-  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} out grund ziel
+  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} art=${3:-${HALO_PUSH_ART:-info}} out grund ziel
+  [[ $art == handeln ]] || art=info
+  text="[$art] ${text//$'\n'/ }"
+  if [[ $art == handeln ]]; then
+    local hlog=${HALO_HANDELN_LOG:-$HOME/halo-nacht/handeln.log}
+    mkdir -p ${hlog:h} 2>/dev/null
+    print -r -- "$(zeit) $routine ${text#\[handeln\] }" >> $hlog
+  fi
+  if [[ -n $HALO_PUSH_TROCKEN ]]; then print -r -- "TROCKEN: push $text"; return 0; fi
   local fehlerlog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
   local sollname=${HALO_PUSH_SITZUNG:-github.comm.routine}
   # Name der Empfangssitzung ohne Claude auflösen (auch bei abweichendem Namen);

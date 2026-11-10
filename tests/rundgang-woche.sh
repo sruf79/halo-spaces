@@ -134,7 +134,7 @@ done
 BA=$(osascript -l JavaScript -e 'ObjC.import("Cocoa"); ObjC.bindFunction("CGPreflightScreenCaptureAccess", ["bool", []]); function run() { return $.CGPreflightScreenCaptureAccess() ? "ja" : "nein"; }' 2>&1)
 print -r -- "$(zeit) $BA (Prozess $(ps -o comm= -p $$), Eltern $(ps -o comm= -p $PPID))" > $TOUR/bildschirmaufnahme.txt
 log "Rundgang: Bildschirmaufnahme erlaubt: $BA"
-[[ $BA == ja ]] || push "Design-Rundgang $TAG: Bildschirmaufnahme für den LaunchAgent nicht erlaubt ($BA) – Popups fehlen im Rundgang"
+[[ $BA == ja ]] || push "Design-Rundgang $TAG: Bildschirmaufnahme für den LaunchAgent nicht erlaubt ($BA) – Popups fehlen im Rundgang" rundgang-woche handeln
 
 # Stand von origin/main in einem eigenen Checkout bauen
 log "Rundgang: Start ${TROCKEN:+(trocken) }${ONLY:+nur $ONLY}"

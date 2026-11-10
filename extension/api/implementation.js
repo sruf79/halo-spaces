@@ -14907,7 +14907,6 @@ class CardEnhancer {
     // Die Uhr läuft erst ab dem ersten gezeichneten Bild: beim Einblenden baut
     // Thunderbird die Ordnerliste zuerst neu auf, das würde sonst den Anfang
     // der Bewegung verschlucken und sie ruckartig starten lassen.
-    // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
     // (Takt, Umkehr bei erneutem Klick und Bildablauf: der gemeinsame animiere())
     let k = 0;
     let anim = null;

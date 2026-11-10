@@ -10,6 +10,8 @@
 # erste Zeile „PUSH: …“ an github.comm.routine), höchstens einmal je Zeitfenster. Pausen: Routine github-komm.
 emulate -L zsh
 setopt pipefail
+# Im LaunchAgent fehlt der PATH, in dem claude liegt (push() ruft claude auf): wie halo-zsh beim Nachtlauf setzen
+export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH
 source ${0:A:h}/lauf-hilfen.zsh
 LOG=${HALO_WAECHTER_LOG:-$HOME/Library/Logs/halo-github-komm-waechter.log}
 STAND=${HALO_KOMM_STAND:-$HOME/halo-aufgaben/github-komm-stand.md}

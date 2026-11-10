@@ -404,3 +404,6 @@ Wortlaut des Maintainers, Sitzung neon, 9.11.2026: „ich möchte eine sichere v
 
 ### 10.11.2026: Von Nutzern gemeldete Bugs dürfen immer auf die Liste (Maintainer in neon)
 Wortlaut des Maintainers, Sitzung neon, 10.11.2026: zuerst „ja von uns bestätigte bugs dürfen immer auf die liste“, dann die Korrektur: „von usern gemeldete bugs dürfen immer auf die liste.“ Es gilt die Korrektur. Auf Anfrage von neon-board, das den Satz vom 9.11.2026 (github.comm.routine, ca. 19:50) „bugs dürfen immer auf die liste, features nur nach absprache mit mir“ weitergab. Gilt als Ausnahme zur Regel vom 9.11.2026: von Nutzern gemeldete Bugs kommen sofort als Entwurf (Todo) ins Board; Features und Wünsche weiter nur nach Absprache. Eingetragen in `AGENTS.md`, `docs/board.md`, `docs/github-komm.md`.
+
+### 10.11.2026: Aufgaben, Knöpfe der gewählten Aufgabe stehen oben in der Toolbar-Zeile (Maintainer in neon)
+Wortlaut des Maintainers, Sitzung neon, 10.11.2026 (nach Vorschaubild mit Variante A „über der Aufgabe in der Detailspalte“ und Variante B „oben in der Toolbar-Zeile zwischen ‚+‘ und Suchfeld“): „die anordnung aus bild b ist die korrekte“. Es gilt Variante B (Commit 70e6f3a); sie ersetzt die Anordnung „Knöpfe über der Aufgabe“ aus der Detailansicht 5a/5d (Commit 6c705a0).

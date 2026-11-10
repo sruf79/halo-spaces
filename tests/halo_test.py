@@ -13164,15 +13164,19 @@ Neu
             out[k] = [...ad.querySelectorAll("moz-button")].map(h => [h, h.shadowRoot?.querySelector('[part~="button"]')]).filter(([h, b]) => b && R(b).width)
               .map(([h, b]) => [h.closest("addon-card") ? (h.matches(".more-options-button") ? "karte-symbol" : "karte-text") : "kopf",
                                 Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == ctl ? "fläche" : cs(b).backgroundColor]);
+            // Zurück-Knopf nur mit einem Pfeil: Thunderbird malt ihn zusätzlich als Hintergrund des Knopfs (GitHub #55)
+            if (k == "detail") out.backBg = [...ad.querySelectorAll("addon-page-header .back-button")].map(h => cs(h).backgroundImage);
           }
           tm.closeTab(tm.currentTabInfo); await ruhig(300);
           return out;''')
+        back = res.pop("backBg", None)
         want = {"kopf": [28, "999px", "fläche"], "karte-text": [28, "999px", "fläche"], "karte-symbol": [24, "50%", "rgba(0, 0, 0, 0)"]}
         ok = all(res.get(k) for k in ("list", "theme", "detail", "pref")) and any(b[0] == "karte-text" for b in res["theme"]) \
-            and all(b[1:] == want[b[0]] for v in res.values() for b in v)
-        return ok, f"{res}"
-    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche",
+            and all(b[1:] == want[b[0]] for v in res.values() for b in v) and back and all(x == "none" for x in back)
+        return ok, f"{res} zurück={back}"
+    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche, Zurück mit nur einem Pfeil",
           addons_buttons, results)
+
 
     def tasks_view():
         # Leeranzeige, iCloud-Platzhalter ausgeblendet, Hinweis unter dem Titel im Listenkopf, Kapsel-Knöpfe

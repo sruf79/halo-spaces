@@ -144,6 +144,12 @@ addon-card .more-options-button::part(button):hover {
   background-color: var(--mt-control-hover) !important;
 }
 
+/* Zurück im Seitenkopf: Thunderbird malt den Pfeil zusätzlich als Hintergrund
+   des Knopfs, neben dem Bild im Knopf erschien er doppelt (GitHub #55) */
+addon-page-header .back-button {
+  background-image: none !important;
+}
+
 /* Add-ons-Verwaltung: Textknöpfe in den Karten („Enable“ bei den Themes)
    als 28-px-Kapsel mit der üblichen Knopffläche wie die übrigen Knöpfe in
    halo.spaces statt 24 px hoch; die Symbolknöpfe „…“ bleiben wie oben */

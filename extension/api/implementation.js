@@ -1782,6 +1782,31 @@ function motionMs(ms) {
   return ms;
 }
 
+// Gemeinsamer Takt für die Ein-/Ausblend-Animationen (Stufe 1 der Vereinheitlichung): läuft über Bildwechsel
+// (requestAnimationFrame) von 0 bis 1; bild(p, k) bekommt den Verlauf p = kurve(k) (k = Fortschritt), ende(k) den
+// Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer Umkehr wieder am Anfang). Beginn nach zwei Bildwechseln
+// (Aufbau abwarten). umkehren() kehrt an der aktuellen Stelle um (Klick während der Animation).
+function animiere(win, { dauer, kurve, bild, ende, beiUmkehr }) {
+  let k = 0, dir = 1, last = null;
+  const step = now => {
+    k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / dauer)));
+    last = now;
+    bild(kurve(k), k);
+    if (dir > 0 ? k < 1 : k > 0) {
+      win.requestAnimationFrame(step);
+      return;
+    }
+    ende(k);
+  };
+  win.requestAnimationFrame(() => win.requestAnimationFrame(step));
+  return {
+    umkehren() {
+      dir = -dir;
+      beiUmkehr?.(dir);
+    },
+  };
+}
+
 // Mail-Zusätze in api/mail.js: Senden rückgängig (UndoSend), Später senden
 // (SendLater), Schlagwort-Menüs (TagMenus), Erinnern (Remind) und
 // Nachfassen (FollowUp) – hier geladen, damit die Reihenfolge bleibt
@@ -11023,50 +11048,46 @@ class CardEnhancer {
       // Leiste (min-width 0, overflow hidden) im ersten Bild schmaler und
       // springt dann zurück (Kalender/Aufgaben)
       setW(show ? 0 : full);
-      // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
-      let k = 0, dir = 1, last = null;
-      el.__mcReverse = () => {
-        dir = -dir;
-        saveState(dir > 0 ? !show : show);
-      };
-      const step = now => {
-        k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
-        last = now;
-        setW(full * (show ? curve(k) : 1 - curve(k)));
-        updateSideEdge();
-        if (dir > 0 ? k < 1 : k > 0) {
-          win.requestAnimationFrame(step);
-          return;
-        }
-        const shown = show == (k >= 1);
-        delete el.__mcReverse;
-        for (const [prop, value, prio] of saved) {
-          if (value) {
-            el.style.setProperty(prop, value, prio);
-          } else {
-            el.style.removeProperty(prop);
+      // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück
+      const anim = animiere(win, {
+        dauer: DURATION,
+        kurve: curve,
+        beiUmkehr: dir => saveState(dir > 0 ? !show : show),
+        bild: p => {
+          setW(full * (show ? p : 1 - p));
+          updateSideEdge();
+        },
+        ende: k => {
+          const shown = show == (k >= 1);
+          delete el.__mcReverse;
+          for (const [prop, value, prio] of saved) {
+            if (value) {
+              el.style.setProperty(prop, value, prio);
+            } else {
+              el.style.removeProperty(prop);
+            }
           }
-        }
-        kids.forEach(kid => kid.style.removeProperty("min-width"));
-        if (gridBody) {
-          if (savedColumn) {
-            gridBody.style.setProperty("--booksSplitter-width", savedColumn);
-          } else {
-            gridBody.style.removeProperty("--booksSplitter-width");
+          kids.forEach(kid => kid.style.removeProperty("min-width"));
+          if (gridBody) {
+            if (savedColumn) {
+              gridBody.style.setProperty("--booksSplitter-width", savedColumn);
+            } else {
+              gridBody.style.removeProperty("--booksSplitter-width");
+            }
           }
-        }
-        if (!shown) {
-          el.classList.add("mc-side-hidden");
-          splitter?.classList.add("mc-side-hidden");
-        }
-        el.classList.remove("mc-side-anim");
-        el.__mcAnimating = false;
-        delete el.__mcShowing;
-        updateSideEdge();
-        sidebarTip?.();
-        placeSideGrip();
-      };
-      win.requestAnimationFrame(() => win.requestAnimationFrame(step));
+          if (!shown) {
+            el.classList.add("mc-side-hidden");
+            splitter?.classList.add("mc-side-hidden");
+          }
+          el.classList.remove("mc-side-anim");
+          el.__mcAnimating = false;
+          delete el.__mcShowing;
+          updateSideEdge();
+          sidebarTip?.();
+          placeSideGrip();
+        },
+      });
+      el.__mcReverse = () => anim.umkehren();
     };
 
     // Seitenleiste per Trennlinie ziehen – in allen Bereichen dieselbe Logik

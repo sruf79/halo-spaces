@@ -9705,7 +9705,10 @@ def run_checks(m, version, profile, results):
           li.querySelector("button").click(); await ruhig(900);
           out.reset = [f.repeat.value, f.repeat.querySelector('option[value="CUSTOM"]').textContent];
           p.hidePopup(); await ruhig(300);
-          // Termin wieder weg, sonst gehen seine Erinnerungen mitten im Lauf auf
+          // Termin wieder weg, sonst gehen seine Erinnerungen mitten im Lauf auf. Vorher abwarten, bis halo.spaces die
+          // schon fällige Erinnerung (1 Tag vorher) als erledigt gespeichert hat: Löschen davor lässt dieses Speichern
+          // scheitern, Thunderbird hält den Testkalender dann für „Lesen fehlgeschlagen“ (später rot: Kalenderliste zeigt Status)
+          for (const end = Date.now() + 5000; Date.now() < end && !(await items("Halo Eigene Regel"))[0]?.alarmLastAck; await takt(50));
           for (const x of await items("Halo Eigene Regel")) { try { await x.calendar.deleteItem(x); } catch {} }
           out.left = (await items("Halo Eigene Regel")).length;
           return out;
@@ -9848,6 +9851,12 @@ def run_checks(m, version, profile, results):
           set(f.alert, "PT15M"); const due = f.hasDue.checked;
           set(f.hasDue, false); const cleared = f.alert.value;
           set(f.alert, "PT15M");
+          // Fälligkeit morgen: vorgegeben ist die nächste volle Stunde, zwischen :45 und :59 wäre die Erinnerung dann schon
+          // fällig – halo.spaces zeigte eine echte Mitteilung und speicherte sie als erledigt, während die Prüfung die Aufgabe
+          // gleich löscht; das gescheiterte Speichern ließ Thunderbird den Testkalender als „Lesen fehlgeschlagen“ führen
+          // (CI mac hell 11.11. 03:46: „Kalenderliste zeigt Status bei Schreibschutz“ rot)
+          const morgen = new Date(Date.now() + 864e5), zwei = n => String(n).padStart(2, "0");
+          set(f.dueDate, `${morgen.getFullYear()}-${zwei(morgen.getMonth() + 1)}-${zwei(morgen.getDate())}`);
           f.add.click();
           const td = await find("Halo Aufgabe Erinnerung");
           await until(() => p.state == "closed", 3000);

@@ -786,7 +786,7 @@ def run_in_vm(args, xpi):
     before = theme = None
     try:
         os.makedirs(os.path.join(run, "tests"))
-        for f in ("halo_test.py", "testserver.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
+        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
             os.makedirs(os.path.dirname(os.path.join(run, "tests", f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt

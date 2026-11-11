@@ -11006,7 +11006,6 @@ class CardEnhancer {
       if (!el || el.__mcAnimating) {
         return;
       }
-      const win = el.ownerDocument.defaultView;
       const show = el.classList.contains("mc-side-hidden");
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
@@ -11102,8 +11101,12 @@ class CardEnhancer {
           edgeEnd = start.map((v, i) => [v, edgeEnd[i]]);
         }
       }
-      // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück
-      const anim = animiere(win, {
+      // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück. Takt immer aus dem
+      // Hauptfenster, auch wenn die Leiste in einem eigenen Dokument liegt (Adressbuch, Einstellungen): jedes Bild
+      // schreibt Kanten an die Toolbar-Zeile des Hauptfensters; aus dem Bildtakt des eingebetteten Dokuments kamen
+      // sie erst nach dessen Durchrechnen an, das Hauptfenster wurde je Bild zweimal neu berechnet (unter Windows
+      // gingen dabei Bilder verloren)
+      const anim = animiere(w, {
         dauer: DURATION,
         kurve: curve,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),

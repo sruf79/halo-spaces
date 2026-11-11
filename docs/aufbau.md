@@ -52,6 +52,8 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `docs/github-komm.md` | GitHub-Kommunikation mit Nutzern (Issues, Pull Requests, Forks, Routine); Kern in `AGENTS.md` |
 | `docs/board.md` | Board-Einzelheiten: Feld-IDs, `gh`-Befehle, Cloud-Weg, Bilder, Apple-Vorlagen, Bilder-Erinnerung; Pflichtregeln in `AGENTS.md` |
 | `docs/testrechner.md` | Testrechner-Einzelheiten: Mac-mini-Prüfung, CI-Laufzeiten, Dunkelmodus, Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang, Windows-VM, Modelle der Routinen; Sperren in `AGENTS.md` |
+| `docs/dauerfreigaben.md` | Stufen A bis D: was neon und die Routinen ohne Rückfrage tun dürfen, was nur der Maintainer entscheidet |
+| `docs/umbau.md` | Umbau der Abläufe (November 2026): Maßnahmen M01–M31, Messplan 6.12.2026, Rücknahme je Stufe |
 | `tests/sitzung-finden.zsh` | `sitzung_finden`/`sitzung_merken`: lokale Sitzung auch bei abweichendem Namen finden (Teil von `lauf-hilfen.zsh`, Sitzungs-IDs in `~/halo-aufgaben/sitzungen.json`) |
 | `tests/pausen_test.zsh`, `tests/pausen_check.sh` | Pausen-Logik (`~/halo-nacht/pausen.txt`, `pause_start`): Einzelfälle ohne Claude; Wächter gegen Reste alter Pausen-Dateien, läuft in der Doku-Prüfung |
 | `tests/doku_kern_check.sh` | Wächter: harte Sperren und Pflichtbegriffe stehen in `AGENTS.md`, keine `@`-Importe; läuft in der Doku-Prüfung (`wochenpruefung.sh --doku`) |

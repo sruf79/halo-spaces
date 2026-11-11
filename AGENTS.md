@@ -210,6 +210,8 @@ Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal d
   Todo), nicht nebenbei umsetzen; gehört der Punkt zu einem offenen Eintrag, diesen ergänzen.
 - **Regeländerungen** als Eintrag „Ablauf: …“ mit „Wartet auf OK“ sammeln (Ausnahme: Sicherheit und
   Datenschutz sofort; ausdrückliche Entscheidung im Gespräch gilt gleich).
+- **Dauerfreigaben** (A ohne Rückfrage, B allein mit Meldung im Morgenbrief, C nur der Maintainer, D nie
+  automatisch): `docs/dauerfreigaben.md`; im Zweifel wie C behandeln.
 - **Status:** In Progress bei Beginn; nach dem Commit Notiz mit Hash („committet, wartet auf
   Push/CI“); Done und archivieren erst, wenn der Commit auf `main` ist und die CI grün war (macht, wer
   pusht und die CI prüft). Höchstens drei Einträge in Arbeit je Sitzung (zugleich In Progress,

@@ -93,6 +93,8 @@ BEREICHE = {
     "Adressbuch": ("addressbook", 'tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000);'),
     "Kalender": ("calendar", 'await toCalendar(); w.switchToView?.("month"); await ruhig(1500);'),
     "KalenderWoche": ("calendar", 'await toCalendar(); w.switchToView?.("week"); await ruhig(1500);'),
+    "KalenderMultiweek": ("calendar", 'await toCalendar(); w.switchToView?.("multiweek"); await ruhig(1500);'),
+    "KalenderTag": ("calendar", 'await toCalendar(); w.switchToView?.("day"); await ruhig(1500);'),
     "Aufgaben": ("tasks", 'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
     "Chat": ("chat", 'tm.openTab("chat", {}); await bis(() => tm.currentTabInfo?.mode?.name == "chat" && d.getElementById("listPaneBox")?.getBoundingClientRect().width > 0, "Chat", 8000); await ruhig(1500);'),
     "Einstellungen": ("settings", 'w.openPreferencesTab(); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("pref-category-box")?.getBoundingClientRect().width > 0, "Einstellungen", 8000); await ruhig(2000);'),
@@ -126,6 +128,7 @@ def main():
     ap.add_argument("--json")
     ap.add_argument("--dark", action="store_true")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--prefs", default="", help="Einstellungen vorab, z. B. extensions.mailcards.multiweekScroll=true,extensions.mailcards.multiweekMomentum=true")
     ap.add_argument("--termine", type=int, default=0, help="so viele Termine im laufenden Monat anlegen (Monatsraster voll)")
     args = ap.parse_args()
     if not args.xpi:
@@ -150,6 +153,10 @@ def main():
         m.js("const s = w.screen; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1500, 900); await wait(1200); return 1;")
         # Testkalender wie im Volllauf (für Aufgaben)
         m.js('''if (!testCalendar()) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Test"; cal.manager.registerCalendar(c); await ruhig(1000); } return 1;''')
+        for kv in [x for x in args.prefs.split(",") if "=" in x]:
+            k, v = kv.split("=", 1)
+            m.js(f'Services.prefs.setBoolPref("{k}", {v.lower()}); await ruhig(1500); return 1;')
+            print(f"Einstellung {k} = {v}", flush=True)
         if args.termine:
             # Termine über den Monat verteilt (bis zu 10 je Tag), damit das Monatsraster voll ist
             n = m.js(f'''const {{ CalEvent }} = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");

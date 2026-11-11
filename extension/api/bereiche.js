@@ -438,6 +438,7 @@ const Weather = {
 // hookSpacesOrder): Liste der Knopf-IDs; ohne Eintrag Thunderbirds Reihenfolge.
 // Gilt auch für das Bereiche-Menü bei ausgeblendeter Leiste
 const SPACES_ORDER_PREF = "extensions.mailcards.spacesOrder";
+const SPACES_ROW_PREF = "extensions.mailcards.spacesRow"; // Bereiche als waagrechte Knopfreihe
 const SpacesOrder = {
   IDS: ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton"],
   MENU: {

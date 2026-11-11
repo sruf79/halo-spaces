@@ -55,6 +55,8 @@ var SECTIONS = t => [
       hint: t("Drag a space up or down in the bar. Off: original order.") },
   ]],
   [t("Appearance"), [
+    { key: "spacesRow", label: t("Spaces in the toolbar"),
+      hint: t("Small buttons next to the sidebar button, instead of the vertical bar.") },
     { key: "solidMenus", label: t("Solid menus"), hint: t("Without transparency.") },
     { key: "inlinePrompts", label: t("Dialogs inside the window"),
       hint: t("Questions appear as a sheet at the top."), info: t("Dialogs without title bar. For newly opened windows.") },

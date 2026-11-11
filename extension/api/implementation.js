@@ -12316,6 +12316,158 @@ class CardEnhancer {
       });
     };
 
+    // Bereiche als waagrechte Knopfreihe (Option, Standard aus): statt der
+    // senkrechten Bereiche-Leiste stehen Mail, Kontakte, Kalender, Aufgaben, der
+    // fünfte Platz und die Einstellungen als kleine Knöpfe oben in der
+    // Seitenleiste, links neben dem Seitenleisten-Knopf (wie die Knöpfe über
+    // der Seitenleiste in Apple Mail).
+    // Für Thunderbird bleibt die Leiste eingeblendet (der Seitenleisten-Knopf
+    // schaltet weiter beides); sie wird nur nicht gezeichnet (userChrome.css,
+    // :root[mc-spaces-row]). Titel, Reihenfolge, Ausblenden und „aktuell“
+    // kommen von den echten Knöpfen; ausgeblendet schwebt die senkrechte
+    // Leiste wie gewohnt ein. Bei schmaler Seitenleiste reicht die Reihe
+    // höchstens bis an die Ampel; was nicht passt, steht wie in der Toolbar
+    // im Menü eines Überlauf-Knopfs „»“ am Ende der Reihe (Mail bleibt vorn)
+    const hookSpacesRow = () => {
+      const d = w.document;
+      const pinned = d.getElementById("spacesPinnedButton");
+      const bar = d.getElementById("spacesToolbar");
+      // (spaces ist beim ersten Durchlauf nach dem Start noch null)
+      if (!pinned || !bar || !w.gSpacesToolbar?.spaces || d.getElementById("mcSpacesRow")) {
+        return;
+      }
+      const H = "http://www.w3.org/1999/xhtml";
+      const row = d.createElementNS(H, "div");
+      row.id = "mcSpacesRow";
+      row.setAttribute("role", "toolbar");
+      row.setAttribute("aria-label", tr("Spaces"));
+      const SOURCES = "#mailButton, #addressBookButton, #calendarButton, #tasksButton, #chatButton, #settingsButton";
+      const more = d.createElementNS(H, "button");
+      more.type = "button";
+      more.className = "mc-row-more";
+      more.title = tr("More");
+      more.setAttribute("aria-label", tr("More"));
+      more.setAttribute("aria-haspopup", "menu");
+      more.append(d.createElementNS(H, "span"));
+      const spaceButtons = () => [...row.querySelectorAll(":scope > .mc-row-space")];
+      // Menü des Überlauf-Knopfs: die Bereiche, die nicht in die Reihe passen,
+      // mit Symbol (wie das Menü von „»“ in der Toolbar)
+      const openMore = () => {
+        d.getElementById("mcSpacesRowMenu")?.remove();
+        const menu = d.createXULElement("menupopup");
+        menu.id = "mcSpacesRowMenu";
+        for (const btn of spaceButtons().filter(b => b.hasAttribute("mc-row-over"))) {
+          const item = d.createXULElement("menuitem");
+          item.className = "menuitem-iconic";
+          item.setAttribute("label", btn.title);
+          const cs = w.getComputedStyle(btn);
+          item.style.setProperty("--mc-ov-icon", cs.getPropertyValue("--mc-row-icon"));
+          item.addEventListener("command", () => d.getElementById(btn.dataset.source)?.click());
+          menu.append(item);
+        }
+        (d.getElementById("mainPopupSet") || d.documentElement).append(menu);
+        more.setAttribute("open", "true");
+        menu.addEventListener("popuphiding", e => e.target == menu && more.removeAttribute("open"));
+        menu.addEventListener("popuphidden", e => e.target == menu && menu.remove());
+        menu.openPopup(more, "after_start", 0, 2, false, false);
+      };
+      more.addEventListener("click", openMore);
+      // Platz messen: die Breite gibt das CSS vor (max-width der Reihe, vom
+      // Seitenleisten-Knopf bis an die Ampel); passen nicht alle Knöpfe,
+      // bekommt „»“ den letzten Platz und der Rest kommt in sein Menü
+      const SLOT = 32; // 30 px Knopf + 2 px Abstand
+      let frame = 0;
+      const layout = () => {
+        frame = 0;
+        spaceButtons().forEach(b => b.removeAttribute("mc-row-over"));
+        const visible = spaceButtons().filter(b => w.getComputedStyle(b).display != "none");
+        const avail = parseFloat(w.getComputedStyle(row).maxWidth) || 0;
+        const fit = visible.length * SLOT - 2 <= avail ? visible.length : Math.max(0, Math.floor((avail - 30 + 2) / SLOT));
+        visible.slice(fit).forEach(b => b.setAttribute("mc-row-over", ""));
+        more.hidden = fit >= visible.length;
+      };
+      const relayout = () => {
+        if (!frame) {
+          frame = w.requestAnimationFrame(layout);
+        }
+      };
+      const fill = () => {
+        const sources = [...bar.querySelectorAll(SOURCES)];
+        row.replaceChildren(more, ...sources.map(source => {
+          const btn = d.createElementNS(H, "button");
+          btn.type = "button";
+          btn.className = "mc-row-space";
+          btn.dataset.source = source.id;
+          btn.append(d.createElementNS(H, "span"));
+          btn.addEventListener("click", () => source.click());
+          return btn;
+        }));
+        row.append(more);
+        sync();
+      };
+      const sync = () => {
+        for (const btn of spaceButtons()) {
+          const source = d.getElementById(btn.dataset.source);
+          if (!source) {
+            continue;
+          }
+          const title = source.title || source.getAttribute("aria-label") || "";
+          if (btn.title != title) {
+            btn.title = title;
+            btn.setAttribute("aria-label", title);
+          }
+          btn.hidden = source.hidden;
+          btn.toggleAttribute("mc-fifth-hidden", source.hasAttribute("mc-fifth-hidden"));
+          const img = source.querySelector("img")?.src;
+          if (img) {
+            btn.style.setProperty("--mc-row-img", `url("${img.replace(/["\\]/g, "")}")`);
+          }
+          btn.classList.toggle("current", source.classList.contains("current"));
+          btn.setAttribute("aria-pressed", btn.classList.contains("current"));
+        }
+        relayout();
+      };
+      // Reihenfolge (eigene Reihenfolge der Bereiche) und fünfter Platz können
+      // sich ändern: Kinder neu aufbauen; sonst nur Zustand übernehmen
+      const mo = new w.MutationObserver(records => {
+        if (records.some(r => r.type == "childList")) {
+          fill();
+        } else {
+          sync();
+        }
+      });
+      mo.observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "title", "aria-label", "hidden", "mc-fifth-hidden"] });
+      pinned.before(row);
+      fill();
+      const root = d.documentElement;
+      // die Breite folgt der Seitenleiste (--mc-sidebar-right bzw.
+      // --mc-side-right an der Toolbar), dem Bereich und dem Fenster
+      const sizeMo = new w.MutationObserver(relayout);
+      sizeMo.observe(barTarget(d), { attributes: true, attributeFilter: ["style"] });
+      sizeMo.observe(root, { attributes: true, attributeFilter: ["style", "mc-mail", "mc-spaces-row", "mc-fifth"] });
+      w.addEventListener("resize", relayout);
+      const apply = () => {
+        const on = Services.prefs.getBoolPref(SPACES_ROW_PREF, false);
+        root.toggleAttribute("mc-spaces-row", on);
+        this.offsetUpdaters?.forEach(fn => fn());
+      };
+      const obs = { observe: apply };
+      Services.prefs.addObserver(SPACES_ROW_PREF, obs);
+      apply();
+      this.restorers.push(() => {
+        Services.prefs.removeObserver(SPACES_ROW_PREF, obs);
+        mo.disconnect();
+        sizeMo.disconnect();
+        w.removeEventListener("resize", relayout);
+        if (frame) {
+          w.cancelAnimationFrame(frame);
+        }
+        d.getElementById("mcSpacesRowMenu")?.remove();
+        row.remove();
+        root.removeAttribute("mc-spaces-row");
+      });
+    };
+
     // Seitenleiste wie Dia 3/4: Ist die Seitenleiste ausgeblendet, schwebt sie
     // beim Zeigen an den linken Fensterrand über dem Inhalt ein – nichts
     // verschiebt sich, nichts wird gespeichert („schwebt“ ist flüchtig).
@@ -14650,6 +14802,7 @@ class CardEnhancer {
       hookSidebarButton();
       hookSidebarKey();
       hookSpacesToggle();
+      hookSpacesRow();
       hookSideFloat();
       hookMarkTags();
       UpdateNote.hook(w, this.restorers);
@@ -21483,6 +21636,7 @@ const SETTINGS = {
   followUp: [FOLLOWUP_PREF, "bool", true],
   weather: [WEATHER_PREF, "bool", false],
   weatherPlace: [WEATHER_PLACE_PREF, "string", ""],
+  spacesRow: [SPACES_ROW_PREF, "bool", false],
   fifthSpace: [FIFTH_PREF, "string", "chat"],
   fifthSpaceAddon: [FIFTH_ADDON_PREF, "string", ""],
   fifthSpaceUrl: [FIFTH_URL_PREF, "string", ""],

@@ -17192,7 +17192,11 @@ class CardEnhancer {
         // das Suchfeld wird höchstens so breit wie Lupe + Platzhalter
         // (max-width mit --mc-search-fit, z. B. 169 px bei „Search All
         // Mailboxes“) – fehlt ihm nur bis dahin Platz
-        const searchMax = Math.min(333, parseFloat(top.getComputedStyle(search).maxWidth) || 333);
+        // (aus --mc-search-fit, nicht aus der berechneten max-width: die hält das
+        // Feld auf der Lupe, solange Pillen weichen – der Abstand muss trotzdem
+        // zuerst auf 12 px, sonst stand er bei 69 px und „Abrufen“ rutschte im
+        // schmalsten Fenster über den Seitenleisten-Knopf)
+        const searchMax = Math.min(333, parseFloat(search.style.getPropertyValue("--mc-search-fit")) || 333);
         const spare = (spacer?.getAttribute("item-id") == "spacer" ? rectOf(spacer).width : 0) -
           Math.max(0, searchMax - rectOf(search).width);
         const next = Math.max(12, Math.min(69, Math.round(gap + spare)));

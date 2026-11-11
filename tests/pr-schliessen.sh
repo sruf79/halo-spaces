@@ -11,6 +11,8 @@
 #   - der PR liegt in sruf79/halo-spaces, ist offen, kein Entwurf, ohne Label „hold“,
 #   - ein voller Fix-Commit „(GitHub #<Issue-Nr>)“ liegt in diesem Release (vorheriges Tag..v<version>;
 #     Teil-Fixe und zurückgenommene Commits zählen nicht, wie tests/issue-abgleich.sh).
+# Ausnahme „abgelehnt“: steht statt der Issue-Nummer „abgelehnt“ in der Zeile, wird der PR beim nächsten Release ohne Fix-Commit
+# geschlossen, mit festem Absage-Kommentar (ps_text_abgelehnt; kein Merge, Zweig bleibt); alle übrigen Bedingungen gelten gleich.
 # Dann: englischer Dank-Kommentar (fester Text, nur Version und Autorname aus der API, nie Text aus dem
 # PR), PR schließen (nie mergen, Zweig bleibt), Zeile nach tests/pr-freigaben-erledigt.txt verschieben
 # und beide Dateien lokal committen (nicht pushen; der nächste Push nimmt den Commit mit).
@@ -44,10 +46,10 @@ ps_liste_lesen() {   # <Datei>
     { n = split($0, f, "|"); zitat = ""
       for (k = 4; k <= n; k++) zitat = zitat (k > 4 ? "|" : "") f[k]
       pr = trim(f[1]); is = trim(f[2]); sub(/^#/, "", pr); sub(/^#/, "", is); zitat = trim(zitat)
-      if (n < 4 || pr !~ /^[0-9]+$/ || (is !~ /^[0-9]+$/ && is != "-") || trim(f[3]) == "" || zitat !~ /[„“"]/) {
+      if (n < 4 || pr !~ /^[0-9]+$/ || (is !~ /^[0-9]+$/ && is != "-" && is != "abgelehnt") || trim(f[3]) == "" || zitat !~ /[„“"]/) {
         printf "{\"fehler\": \"ungültig Zeile %d\"}\n", nr; next }
       if (seen[pr]++) { printf "{\"fehler\": \"doppelt #%s\"}\n", pr; next }
-      printf "{\"pr\": %s, \"issue\": %s, \"zeile\": %d}\n", pr, (is == "-" ? "null" : is), nr }' $1 | jq -s .
+      printf "{\"pr\": %s, \"issue\": %s, \"abgelehnt\": %s, \"zeile\": %d}\n", pr, (is == "-" || is == "abgelehnt" ? "null" : is), (is == "abgelehnt" ? "true" : "false"), nr }' $1 | jq -s .
 }
 
 # Auswahl → Zeilen „schliessen <p> <i> <autor>“ bzw. Bericht (siehe Kopf)
@@ -63,6 +65,7 @@ ps_auswahl() {   # <liste.json> <fix-Nummern als JSON-Array> <prs.json> <offen.j
           elif $pr.repo != $r then "fremdes Repo #\($e.pr)"
           elif $pr.state != "open" then "schon zu #\($e.pr)"
           elif $pr.draft or any($pr.labels[]?; test("hold"; "i")) then "hold #\($e.pr)"
+          elif $e.abgelehnt then "abgelehnt \($e.pr) - \(if ($pr.autor // "") | test("^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$") then $pr.autor else "-" end)"
           elif $e.issue == null then "ohne Issue #\($e.pr)"
           elif any($fix[]; . == $e.issue) | not then "wartet #\($e.pr) (Issue #\($e.issue) nicht in diesem Release)"
           else "schliessen \($e.pr) \($e.issue) \(if ($pr.autor // "") | test("^[A-Za-z0-9](-?[A-Za-z0-9]){0,38}$") then $pr.autor else "-" end)"
@@ -78,6 +81,14 @@ ps_text() {   # <version> <autor oder -> <genannt: 1/leer>
   local dank="Thank you very much!"
   [[ $2 != - ]] && dank="Thank you very much, $2!"
   print -r -- "Quick update: this is now part of release $1, which Thunderbird installs automatically.${3:+ We built it in our own code, and your work is credited in the commit.} $dank We're closing this pull request now, since the change has landed."
+}
+
+# Text für einen abgelehnten PR (Freigabe „abgelehnt“ statt Issue-Nummer; englisch, fest; nur der Autorname, geprüft)
+# Wortlaut vom Maintainer freigegeben (11.11.2026, „Ja passt“)
+ps_text_abgelehnt() {   # <autor oder ->
+  local an=
+  [[ $1 != - ]] && an=", $1"
+  print -r -- "Thank you very much for this pull request and for the care you put into the implementation and the testing notes${an}. We're closing it without merging: the sidebar can now be hidden and floats back in when you point at the left edge of the window (halo.spaces 3.25.0), which covers switching spaces while the Spaces bar is hidden, and the change would need a rework after the sidebar changes anyway. We appreciate the contribution and you're very welcome to suggest more ideas."
 }
 
 # Autor in einer Zeile „Co-Authored-By:“ der Commits im Bereich genannt (Login oder Name)?
@@ -137,13 +148,15 @@ ps_lauf() {   # <version> [--trocken]
       $tmp/o.roh > $tmp/offen.json
     ps_auswahl $tmp/liste.json "$(<$tmp/fix.json)" $tmp/prs.json $tmp/offen.json > $tmp/a.txt || { print "FEHLER Auswertung"; return 1 }
     while read -r z; do
-      [[ $z == schliessen\ * ]] || { print -r -- $z; continue }
+      [[ $z == schliessen\ * || $z == abgelehnt\ * ]] || { print -r -- $z; continue }
+      local art=${z%% *}
       read -r z p i a <<< $z
       name=
       [[ $a != - ]] && name=$(gh api users/$a 2>/dev/null | jq -r '.name // ""' 2>/dev/null)
       local text=$(ps_text $version $a "$(ps_genannt $bereich $a "$name" && print 1)")
+      [[ $art == abgelehnt ]] && text=$(ps_text_abgelehnt $a)
       if [[ $trocken == --trocken ]]; then
-        print "würde schließen #$p (Issue #$i, Autor $a)"
+        if [[ $art == abgelehnt ]]; then print "würde schließen #$p (abgelehnt, Autor $a)"; else print "würde schließen #$p (Issue #$i, Autor $a)"; fi
         print -r -- "  Text: $text"
         continue
       fi
@@ -152,7 +165,7 @@ ps_lauf() {   # <version> [--trocken]
         print "FEHLER #$p: nicht mehr offen bzw. nicht lesbar, nichts getan"; fehler=1; continue
       fi
       if gh pr close $p -R $PS_R --comment "$text" >/dev/null 2>$tmp/err; then
-        print "geschlossen #$p (Issue #$i, Autor $a)"
+        if [[ $art == abgelehnt ]]; then print "geschlossen #$p (abgelehnt, Autor $a)"; else print "geschlossen #$p (Issue #$i, Autor $a)"; fi
         if ps_erledigt $p $version; then erledigt+=($p); else print "FEHLER #$p: geschlossen, Zeile nicht nach ${PS_ERLEDIGT:t} verschoben"; fehler=1; fi
       else
         print "FEHLER #$p: $(head -1 $tmp/err)"; fehler=1

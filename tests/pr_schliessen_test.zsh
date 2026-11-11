@@ -47,6 +47,7 @@ cat > $HALO_PR_FREIGABEN <<'EOF'
 abc | 1 | 9.11.2026 | „x“
 63 | 70 | 9.11.2026 | ohne Zitat
 52 | 70 | 9.11.2026 | „doppelt“
+49 | abgelehnt | 11.11.2026 | „Ja schliessen“, Maintainer im Gespräch mit halo-github
 EOF
 print '# Kopf' > $HALO_PR_ERLEDIGT
 g add tests; g commit -qm Listen
@@ -89,7 +90,7 @@ gh() {
 
 # --- reine Auswahl ---
 ps_liste_lesen $HALO_PR_FREIGABEN > $T/l.json
-pruefe "Liste: Kopf und Beispiel übersprungen, 10 gültige Einträge" '[[ $(jq "[.[] | select(.pr)] | length" $T/l.json) == 10 ]]'
+pruefe "Liste: Kopf und Beispiel übersprungen, 11 gültige Einträge" '[[ $(jq "[.[] | select(.pr)] | length" $T/l.json) == 11 ]]'
 pruefe "Liste: ungültige Nummer und fehlendes Zitat erkannt" '[[ $(jq -r "[.[] | .fehler // empty] | join(\",\")" $T/l.json) == "ungültig Zeile 13,ungültig Zeile 14,doppelt #52" ]]'
 pruefe "Liste: Zitat mit „|“, „#70“ als Issue gelesen" 'jq -e ".[] | select(.pr == 62) | .issue == 70" $T/l.json'
 
@@ -103,7 +104,8 @@ pruefe "Trockenlauf: Text mit Version und Nennung im Commit (#52)" 'grep -A1 "#5
 pruefe "Trockenlauf: ohne Co-Authored-By keine Nennung (#62)" '! grep -A1 "#62" $T/t.txt | grep -q credited'
 pruefe "Teil-Fix (#60) und zurückgenommener Fix (#48) zählen nicht" 'grep -q "^wartet #53 (Issue #60" $T/t.txt && grep -q "^wartet #47 (Issue #48" $T/t.txt'
 pruefe "ohne Issue, schon zu, fremdes Repo, hold, Entwurf, kein PR" 'grep -qx "ohne Issue #54" $T/t.txt && grep -qx "schon zu #55" $T/t.txt && grep -qx "fremdes Repo #56" $T/t.txt && grep -qx "hold #57" $T/t.txt && grep -qx "hold #58" $T/t.txt && grep -qx "kein PR #59" $T/t.txt'
-pruefe "nicht in der Liste: #49 nicht freigegeben, #61 Kandidat (Fixes #70), #64" 'grep -qx "nicht freigegeben #49 (offen, nicht in der Liste)" $T/t.txt && grep -q "^kandidat #61 (Closes #70, in diesem Release" $T/t.txt && grep -q "^nicht freigegeben #64" $T/t.txt'
+pruefe "nicht in der Liste: #61 Kandidat (Fixes #70), #64 nicht freigegeben" 'grep -q "^kandidat #61 (Closes #70, in diesem Release" $T/t.txt && grep -q "^nicht freigegeben #64" $T/t.txt'
+pruefe "abgelehnt: #49 ohne Fix-Commit schließen, Absage-Text mit Autor, ohne Release-Satz" 'grep -qx "würde schließen #49 (abgelehnt, Autor btirmarche)" $T/t.txt && grep -A1 "#49" $T/t.txt | grep -q "closing it without merging" && ! grep -A1 "#49" $T/t.txt | grep -q "part of release" && grep -A1 "#49" $T/t.txt | grep -q "pull request and for the care you put into the implementation and the testing notes, btirmarche\\."'
 pruefe "nie Text aus dem PR in der Ausgabe" '! grep -q EVIL $T/t.txt'
 pruefe "Trockenlauf: nichts geschlossen, Listen unverändert" '! grep -q "^pr close" $T/aufrufe && [[ -z "$(g status --porcelain)" ]]'
 
@@ -111,11 +113,11 @@ pruefe "Trockenlauf: nichts geschlossen, Listen unverändert" '! grep -q "^pr cl
 : > $T/aufrufe
 SCHLIESSEN_FEHLT=62 HALO_PR_BEREICH=v1.0.0..v1.1.0 ps_lauf 1.1.0 > $T/e.txt; RC=$?
 pruefe "Fehler beim Schließen: FEHLER #62, Exitcode 1" '[[ $RC == 1 ]] && grep -q "^FEHLER #62: HTTP 502" $T/e.txt'
-pruefe "Schließen: nur #52 und #62 versucht, nie #49, kein Merge" '[[ "$(grep "^pr " $T/aufrufe | cut -d" " -f1-3 | sort | tr "\n" ,)" == "pr close 52,pr close 62,pr list -R," ]] && ! grep -q merge $T/aufrufe'
+pruefe "Schließen: nur #49, #52 und #62 versucht, kein Merge" '[[ "$(grep "^pr " $T/aufrufe | cut -d" " -f1-3 | sort | tr "\n" ,)" == "pr close 49,pr close 52,pr close 62,pr list -R," ]] && ! grep -q merge $T/aufrufe'
 pruefe "Schließen: Kommentar mit Version, Repo sruf79/halo-spaces" 'grep -q "^pr close 52 -R sruf79/halo-spaces --comment Quick update: this is now part of release 1.1.0" $T/aufrufe'
 pruefe "erledigt: #52 verschoben, #62 bleibt in der Liste" '! grep -q "^52 | 50" $HALO_PR_FREIGABEN && grep -q "^62 |" $HALO_PR_FREIGABEN && grep -q "^52 | 50 | 9.11.2026 | „#52 nach dem Release schließen“, Maintainer in neon | erledigt [0-9-]* in 1.1.0$" $HALO_PR_ERLEDIGT'
 pruefe "erledigt: Doppel-Zeile #52 bleibt (nur die erste verschoben)" 'grep -q "^52 | 70" $HALO_PR_FREIGABEN'
-pruefe "Listen committet (nur diese zwei Dateien), nichts offen" '[[ "$(g log -1 --format=%s)" == "Release: PR #52 nach dem Release 1.1.0 geschlossen (Freigabeliste)" ]] && [[ "$(g show --name-only --format= HEAD | sort | tr "\n" " ")" == "tests/pr-freigaben-erledigt.txt tests/pr-freigaben.txt " ]] && [[ -z "$(g status --porcelain)" ]]'
+pruefe "Listen committet (nur diese zwei Dateien), nichts offen" '[[ "$(g log -1 --format=%s)" == "Release: PR #52, #49 nach dem Release 1.1.0 geschlossen (Freigabeliste)" ]] && [[ "$(g show --name-only --format= HEAD | sort | tr "\n" " ")" == "tests/pr-freigaben-erledigt.txt tests/pr-freigaben.txt " ]] && [[ -z "$(g status --porcelain)" ]]'
 
 # --- zweiter Lauf: #52 erledigt, #62 jetzt erfolgreich ---
 : > $T/aufrufe

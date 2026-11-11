@@ -7,7 +7,8 @@
 #   PR-Nr | Issue-Nr | Datum | Wortlaut der Freigabe des Maintainers („Zitat“, Herkunft)
 #   Beispiel: 52 | 50 | 9.11.2026 | „#52 nach dem Release schließen“, Maintainer in neon
 # Issue-Nr: das Issue, dessen Fix-Commit „(GitHub #n)“ im Release liegen muss; „-“ = ohne Issue (wird nie
-# geschlossen, nur im Bericht genannt). Das Zitat muss Anführungszeichen enthalten.
+# geschlossen, nur im Bericht genannt); „abgelehnt“ = PR ohne Fix-Commit schließen (fester Absage-Text, kein Merge). Das Zitat muss Anführungszeichen enthalten.
 # Geschlossen wird nur, wenn der PR offen ist, in sruf79/halo-spaces liegt, kein Entwurf ist, kein Label
 # „hold“ trägt und ein voller Fix „(GitHub #<Issue-Nr>)“ im Release liegt. Danach wandert die Zeile nach
 # tests/pr-freigaben-erledigt.txt. Kein Merge, nie.
+49 | abgelehnt | 11.11.2026 | „Ja schliessen“ (Maintainer, 11.11.2026, im Gespräch mit der Sitzung halo-github, Antwort auf „Soll ich neon mit dem Schließen von #49 beauftragen?“); Kommentartext freigegeben mit „Ja passt“ (11.11.2026)

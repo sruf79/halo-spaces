@@ -11057,7 +11057,16 @@ class CardEnhancer {
       const PROPS = ["overflow", "min-width", "width", "max-width"];
       const saved = PROPS.map(p => [p, el.style.getPropertyValue(p), el.style.getPropertyPriority(p)]);
       const kids = [...el.children];
-      kids.forEach(k => k.style.setProperty("min-width", `${full}px`));
+      // (die Kinder behalten während der Bewegung die volle Breite der Leiste: als Innenmaß gerechnet, sonst machen
+      // Innenabstände sie breiter als nach der Bewegung und Texte wie „All Address Books“ springen und werden am
+      // Ende zusätzlich gekürzt, z. B. 222 statt 205 px in der Adressbuchliste)
+      const base = el.clientWidth || full;
+      kids.forEach(k => {
+        const cs = k.ownerDocument.defaultView.getComputedStyle(k);
+        const edge = cs.boxSizing == "border-box" ? 0 : ["paddingInlineStart", "paddingInlineEnd", "borderInlineStartWidth", "borderInlineEndWidth"]
+          .reduce((n, prop) => n + (parseFloat(cs[prop]) || 0), 0);
+        k.style.setProperty("min-width", `${Math.max(0, base - edge)}px`);
+      });
       el.style.setProperty("overflow", "hidden", "important");
       el.style.setProperty("min-width", "0px", "important");
       // Adressbuch: die Rasterspalte der Liste mitziehen, sonst bliebe die

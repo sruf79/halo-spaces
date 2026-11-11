@@ -7913,6 +7913,42 @@ def calendar_checks(m, results):
         return ok, f"{len(bad)}/{len(runs)} mit verlorenen Bildern oder Sprung {res}"
     check("Seitenleiste Adressbuch: Ein-/Ausblenden ohne verlorene Bilder und ohne Sprung (zehnmal, höchstens ein einzelnes Bild)", ab_sidebar_frames, results)
 
+    def ab_label_width():
+        # Adressbuch: der Text „All Address Books“ behält beim Aus- und Einblenden der Seitenleiste seine Breite
+        # (die Kinder der Leiste wurden als Außenmaß festgehalten: 222 statt 205 px, der Text sprang am Ende von
+        # 129 auf 112 px und wurde dort gekürzt; Maintainer 11.11.2026)
+        res = m.js(r"""
+          if (d.visibilityState == "hidden") return { visibility: "hidden" };
+          w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); await ruhig(600);
+          tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList, "Adressbuch", 8000); await ruhig(1500);
+          const bd = tm.currentTabInfo.browser.contentDocument, btn = d.getElementById("spacesPinnedButton"), bp = bd.getElementById("booksPane");
+          const el = bd.querySelector("#allAddressBooks .bookRow-name");
+          const still = () => !w.__mcSpacesAnimating && !bp.__mcAnimating;
+          const out = { reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches, ruhe: Math.round(el.getBoundingClientRect().width * 10) / 10, widths: [] };
+          try {
+            for (let i = 0; i < 2; i++) {
+              btn.click();
+              const t0 = performance.now();
+              while (performance.now() - t0 < 500) {
+                await new Promise(r => w.requestAnimationFrame(r));
+                if (bp.getBoundingClientRect().width > 8) out.widths.push(Math.round(el.getBoundingClientRect().width * 10) / 10);
+              }
+              await bis(still, "Animation fertig", 3000); await ruhig(300);
+            }
+            out.ende = Math.round(el.getBoundingClientRect().width * 10) / 10;
+          } finally {
+            if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            await ruhig(500);
+          }
+          return out;""")
+        if res.get("visibility") == "hidden":
+            return True, f"Testfenster verdeckt – übersprungen {res}"
+        ws = res.get("widths") or []
+        ok = res.get("reduced") or (len(ws) >= 8 and all(abs(x - res["ruhe"]) <= 1 for x in ws) and abs(res["ende"] - res["ruhe"]) <= 1)
+        return ok, f"{res}"
+    check("Seitenleiste Adressbuch: Der Text „All Address Books“ behält beim Aus- und Einblenden seine Breite (kein Sprung und keine Kürzung am Ende)", ab_label_width, results)
+
     def ab_list_keeps_width():
         # Adressbuch: Adressbuchliste ausblenden – die Kontaktliste behält ihre Breite (wuchs um die frei gewordene Spalte,
         # und das Fenster ließ sich nicht mehr schmaler machen als vorher)

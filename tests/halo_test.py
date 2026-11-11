@@ -17714,7 +17714,10 @@ Neu
           // Seitenleiste aus (Knopf, ab Dia 2/4 samt Bereiche-Leiste): Ampel ganz links oben
           const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");
           d.getElementById("spacesPinnedButton").click(); await bis(() => !(fp()?.getBoundingClientRect().width >= 1) && w.gSpacesToolbar.isHidden, "Seitenleiste aus", 3000); await ruhig(600);
-          out.noSide = { box: R(box), side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };
+          // (Dia 4/4: macOS-Ampel lässt sich in Gecko nicht ausblenden, nur über -moz-window-button-box platzieren –
+          // sie bleibt links oben in der Toolbar-Zeile; der Seitenleisten-Knopf liegt rechts daneben, ohne Überlappung)
+          out.noSide = { box: R(box), side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden,
+                         btn: R(d.getElementById("spacesPinnedButton")) };
           d.getElementById("spacesPinnedButton").click(); await bis(() => fp()?.getBoundingClientRect().width > 100, "Seitenleiste wieder da", 3000); await ruhig(600);
           const side = { mail: () => tm.currentAbout3Pane?.document.getElementById("folderPane"), calendar: () => d.getElementById("calSidebar"),
                          tasks: () => d.getElementById("calSidebar"), addressBook: () => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane") };
@@ -17742,7 +17745,8 @@ Neu
             ok = (b and b["l"] >= 8 and b["r"] <= ln.get("left", 0) - 8 and b["b"] <= 52
                   and all(v.get("first", 0) >= 52 and v["first"] >= b["b"] for v in tiles.values())
                   and res.get("pad") == 52 and all_tiles and hd and hd["l"] < 20 and hd["b"] <= 52 and bar_ok
-                  and ns.get("side", 1) <= 0 and nsb and nsb["l"] < 20 and nsb["b"] <= 52)
+                  and ns.get("side", 1) <= 0 and nsb and nsb["l"] < 20 and nsb["b"] <= 52
+                  and (ns.get("btn") or {}).get("l", 0) >= nsb["r"] + 4)
         else:
             ok = res.get("pad", 0) < 20 and all_tiles and bar_ok
         return ok, f"{res}"

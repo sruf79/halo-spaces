@@ -6504,16 +6504,18 @@ def calendar_checks(m, results):
             await nextFrame();
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
             out.fast = { moved: Math.round(t0 - top(first)), rowH: Math.round(rowH) };
-            // Einrasten: liegt danach genau auf einer Wochengrenze
-            await ruhig(900);
+            // Einrasten: liegt danach genau auf einer Wochengrenze (unter xvfb mit der ESR kam das Einrasten nach
+            // ruhig(900) gelegentlich noch nicht an – bis zu 3 s darauf warten, eingerastet sein muss es trotzdem)
+            const eingerastet = () => until(() => { const f = mv.rangeStartDate.clone(); f.isDate = true; return Math.abs(top(f) - head()) <= 1; }, 3000);
+            await ruhig(900); await eingerastet();
             const firstNow = mv.rangeStartDate.clone(); firstNow.isDate = true;
             out.snap = { aligned: Math.round(top(firstNow) - head()), weeks: Math.round((firstNow.nativeTime - first.nativeTime) / 6048e8) };
             // mehr als eine halbe Woche (Trackpad, Pixel) → zur nächsten Woche
-            wheel(rowH * 0.6, 0); await ruhig(900);
+            wheel(rowH * 0.6, 0); await ruhig(900); await eingerastet();
             const f2 = mv.rangeStartDate.clone(); f2.isDate = true;
             out.half = { aligned: Math.round(top(f2) - head()), weeks: Math.round((f2.nativeTime - firstNow.nativeTime) / 6048e8) };
             // weniger als halb → zurück auf dieselbe Woche
-            wheel(rowH * 0.3, 0); await ruhig(900);
+            wheel(rowH * 0.3, 0); await ruhig(900); await eingerastet();
             const f3 = mv.rangeStartDate.clone(); f3.isDate = true;
             out.back = { aligned: Math.round(top(f3) - head()), weeks: Math.round((f3.nativeTime - f2.nativeTime) / 6048e8) };
             // Termin weiter an seinem Tag

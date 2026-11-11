@@ -3501,6 +3501,19 @@ function hookTaskView(win, restorers) {
   });
 }
 
+// Fenstertitel einer Rückfrage leeren, wenn er die sichtbare Überschrift
+// (#infoTitle) wiederholt; gibt true zurück, wenn er geleert wurde
+function dropRepeatedTitle(w) {
+  const doc = w.document;
+  const head = doc.getElementById("infoTitle");
+  const same = (a, b) => a.replace(/\s+/g, " ").trim() == b.replace(/\s+/g, " ").trim();
+  if (!head || head.hidden || !doc.title || !same(head.textContent, doc.title)) {
+    return false;
+  }
+  doc.title = "";
+  return true;
+}
+
 // Erledigte Aufgaben wieder öffnen: erst kurz nachfragen (Karte wie die
 // übrigen Rückfragen), dann wie neu – nicht erledigt, 0 %, ohne Erledigt-Datum.
 // Über Thunderbirds Transaktion, damit Rückgängig geht
@@ -9034,6 +9047,7 @@ class CardEnhancer {
       }
     });
     this.watchChatVariant();
+    this.watchPromptTitles();
     // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
     // „Regionale Einstellungen des Systems verwenden“ als Vorgabe an – wer es
     // selbst eingestellt hat, behält seine Wahl
@@ -9084,6 +9098,24 @@ class CardEnhancer {
         } catch {}
       }
     });
+  }
+
+  // Rückfragen (Thunderbirds commonDialog als eigenes Fenster): unter macOS
+  // steht der Titel schon fett als Überschrift im Dialog – die Titelleiste
+  // bleibt dann leer wie bei Apple, statt denselben Text zu wiederholen.
+  // Unter Windows/Linux zeigt nur die Titelleiste den Titel, dort unverändert
+  watchPromptTitles() {
+    ExtensionSupport.registerWindowListener("mail-cards-prompt-title", {
+      chromeURLs: ["chrome://global/content/commonDialog.xhtml", "chrome://messenger/content/commonDialog.xhtml"],
+      onLoadWindow: w => {
+        try {
+          dropRepeatedTitle(w);
+        } catch (e) {
+          log("prompt title error", e);
+        }
+      },
+    });
+    this.restorers.push(() => ExtensionSupport.unregisterWindowListener("mail-cards-prompt-title"));
   }
 
   // Chat-Stil „Thunderbird“ (mail): im Dunkelmodus die mitgelieferte Variante

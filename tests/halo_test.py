@@ -10885,6 +10885,53 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Verteiler-Hinweis: Ein-Klick-Abmeldung fragt nach und sendet statt Browser", one_click_unsubscribe, results)
 
+    def prompt_title():
+        # Rückfrage als eigenes Fenster (z. B. „Unsubscribe“): unter macOS steht der Titel fett im Dialog, die
+        # Titelleiste bleibt leer statt ihn zu wiederholen; Windows/Linux zeigen ihn nur in der Titelleiste
+        # Solange die Rückfrage offen ist, antwortet Marionette auf Skripte nicht: ein Beobachter im Fenster liest
+        # Titel und Überschrift, schließt sie selbst und legt das Ergebnis ab; danach wird es abgeholt
+        m.js(r"""
+          w.__mcPromptResult = null;
+          const mac = Services.appinfo.OS == "Darwin";
+          const obs = (sub, topic) => {
+            if (topic != "domwindowopened") return;
+            sub.addEventListener("load", async () => {
+              if (!/commonDialog/.test(sub.location.href)) return;
+              Services.ww.unregisterNotification(obs);
+              const t0 = Date.now();
+              while (mac && sub.document.title != "" && Date.now() - t0 < 3000) await new Promise(r => sub.setTimeout(r, 50));
+              const head = sub.document.getElementById("infoTitle");
+              const out = { mac, title: sub.document.title, head: head?.textContent, headShown: !!head && !head.hidden };
+              sub.document.getElementById("commonDialog").cancelDialog();
+              w.__mcPromptResult = out;
+            }, { once: true });
+          };
+          Services.ww.registerNotification(obs);
+          w.__mcPromptObs = obs;
+          const P = Services.prompt;
+          w.setTimeout(() => P.asyncConfirmEx(w.browsingContext.top, P.MODAL_TYPE_WINDOW, "Unsubscribe from messages from Halo Test?",
+            "The sender will be told directly that you no longer want these messages.",
+            P.BUTTON_POS_0 * P.BUTTON_TITLE_IS_STRING + P.BUTTON_POS_1 * P.BUTTON_TITLE_CANCEL, "Unsubscribe", null, null, null, false), 0);
+          return 1;""")
+        res = None
+        for _ in range(40):
+            try:
+                res = m.js("return w.__mcPromptResult;")
+            except Exception:
+                res = None
+            if isinstance(res, dict):
+                break
+            time.sleep(0.25)
+        m.js("""try { Services.ww.unregisterNotification(w.__mcPromptObs); } catch {} delete w.__mcPromptObs;
+          return [...Services.wm.getEnumerator(null)].filter(x => /commonDialog/.test(x.location.href)).length;""")
+        if not isinstance(res, dict):
+            return False, f"keine Antwort: {res!r}"
+        res["closed"] = True
+        ok = res["closed"] and res["head"] == "Unsubscribe from messages from Halo Test?" and (
+            (res["title"] == "" and res["headShown"]) if res["mac"] else (res["title"] == res["head"] and not res["headShown"]))
+        return ok, f"{res}"
+    check("Rückfrage: Fenstertitel leer, wenn er die Überschrift im Dialog wiederholt (macOS), sonst Titel in der Titelleiste", prompt_title, results)
+
     def unsubscribe_identity():
         # nur Abmelde-Mail (mailto, z. B. LISTSERV): Absender ist die Identität,
         # an die die Mail ging, nicht die erste/Standard-Identität. Das

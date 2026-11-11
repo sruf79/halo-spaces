@@ -1903,7 +1903,7 @@ function decorateAttachments(target) {
       if (items.length) {
         try {
           list.setOptimumWidth?.();
-        } catch {}
+        } catch {} // gewollt: Liste noch nicht aufgebaut, Breite folgt beim nächsten Füllen
       }
       const single = items.length == 1;
       view.toggleAttribute("mc-single", single);
@@ -1911,7 +1911,7 @@ function decorateAttachments(target) {
       if (single && list.collapsed) {
         try {
           win.toggleAttachmentList?.(true);
-        } catch {}
+        } catch {} // gewollt: Fenster ohne Anhangsliste
       }
       fitHeight();
     };
@@ -1978,7 +1978,7 @@ function fitShortMessage(target) {
           mp.style.removeProperty("flex");
           mp.style.removeProperty("height");
         }
-      } catch {}
+      } catch {} // Kandidat fürs Protokoll: Höhe der kurzen Mail nicht angepasst (Dokument schon entladen ist gewollt)
     };
     const later = () => win.requestAnimationFrame(apply);
     // neue Mail: erst ohne feste Höhe messen
@@ -2002,7 +2002,7 @@ function fitShortMessage(target) {
       new iw.ResizeObserver(later).observe(mdoc.body || mdoc.documentElement);
       mdoc.addEventListener("load", later, true);
     }
-  } catch {}
+  } catch {} // gewollt: Mail schon entladen, keine Anpassung nötig
 }
 
 function fitWideMessage(target) {
@@ -2181,7 +2181,7 @@ function hookComposeApple(win, cleanups) {
       if (listener) {
         win.gMsgCompose?.UnregisterStateListener(listener);
       }
-    } catch {}
+    } catch {} // gewollt: Verfassen-Fenster schon geschlossen
     delete bar.__mcApple;
   });
 }
@@ -2422,7 +2422,7 @@ function shareDialogBox(win, restorers) {
   restorers?.push(() => {
     try {
       delete win.gDialogBox;
-    } catch {}
+    } catch {} // gewollt: Fenster schon geschlossen
   });
 }
 
@@ -2480,7 +2480,7 @@ function applyTaskView(win, mode = taskView()) {
       let shown = null;
       try {
         shown = JSON.parse(Services.prefs.getCharPref(TASK_COLUMNS_PREF, "null"));
-      } catch {}
+      } catch {} // gewollt: gespeicherte Spalten unlesbar, Standardspalten
       if (Array.isArray(shown) && shown.length) {
         for (const c of cols) {
           c.hidden = !shown.includes(key(c));
@@ -4423,7 +4423,7 @@ function hookTaskOpen(win, restorers) {
     let task = false;
     try {
       task = !!item && item instanceof Ci.calITodo && !rest[2];
-    } catch {}
+    } catch {} // gewollt: kein Kalenderobjekt, wie Termin behandeln
     if (task) {
       openTaskWindow(win, item).catch(e => log("task window error", e));
       return undefined;
@@ -4538,7 +4538,7 @@ async function openTaskWindow(main, item) {
           try {
             cw.windowUtils.loadSheetUsingURIString(taskCss, cw.windowUtils.USER_SHEET);
             cw.__mcDesc = taskCss;
-          } catch {}
+          } catch {} // gewollt: Rahmen schon entladen, beim nächsten Laden erneut
         }
       }
       complete.setAttribute("tooltiptext", tr(task.isCompleted ? "Mark Not Completed" : "Complete"));
@@ -4601,12 +4601,12 @@ async function openTaskWindow(main, item) {
       TASK_WINDOWS.delete(key);
       try {
         calendar.removeObserver(observer);
-      } catch {}
+      } catch {} // gewollt: Beobachter schon entfernt
       main.removeEventListener("unload", closeWith);
       for (const r of restorers.reverse()) {
         try {
           r();
-        } catch {}
+        } catch {} // gewollt: Fenster schon weg, übrige Aufräumer laufen weiter
       }
     }, { once: true });
     if (frame.contentDocument?.readyState == "complete") {
@@ -5233,7 +5233,7 @@ function renamePersonalBookOnce() {
       tbDefault = Services.strings
         .createBundle("chrome://messenger/locale/addressbook/addressBook.properties")
         .GetStringFromName(PAB_NAME_PREF);
-    } catch {}
+    } catch {} // gewollt: ohne Thunderbirds Namen nur der eigene Vergleich
     if (!Services.prefs.prefHasUserValue(PAB_NAME_PREF) || (tbDefault && book.dirName == tbDefault)) {
       book.dirName = tr("Contacts");
       Services.prefs.setStringPref(PAB_RENAMED_TO_PREF, book.dirName);
@@ -5323,7 +5323,7 @@ function cleanupAfterUninstall() {
         Services.prefs.clearUserPref("extensions.mailcards.sidebarWidth");
       }
     }, 2000);
-  } catch {}
+  } catch {} // gewollt: beim Entfernen nur Aufräumen, Fehler ändern nichts
   log("deinstalliert: Einstellungen aufgeräumt");
   return reverted;
 }
@@ -5348,7 +5348,7 @@ function hookCollectedAddresses(cw, restorers) {
     let uid = null;
     try {
       uid = MailServices.ab.directories.find(d => d.dirPrefId == "ldap_2.servers.history")?.UID;
-    } catch {}
+    } catch {} // gewollt: Adressbücher nicht lesbar, gesammelte nicht markiert
     for (const row of books.querySelectorAll(":scope > li")) {
       row.toggleAttribute("data-mc-collected", !!uid && row.dataset.uid == uid);
     }
@@ -5394,7 +5394,7 @@ function personalBookState() {
     const dirs = MailServices.ab.directories;
     pab = dirs.find(d => d.URI == PAB_URI) || null;
     others = dirs.filter(d => d.URI != PAB_URI && !(hideCollected && d.dirPrefId == "ldap_2.servers.history"));
-  } catch {}
+  } catch {} // Kandidat fürs Protokoll: Adressbücher nicht lesbar, Liste bleibt leer
   if (!pab) {
     return { pab: null, uid: null, canHide: false, hidden: false };
   }
@@ -5681,7 +5681,7 @@ function hookPhotoDialog(cw, restorers = null) {
       if (doc.activeElement != zoom) {
         zoom.value = String(valueFor(width));
       }
-    } catch {}
+    } catch {} // gewollt: Zuschnitt-Dialog anders aufgebaut, Thunderbirds Darstellung bleibt
     return result;
   };
   // Regler nur, wenn ein Bild zum Zuschneiden da ist
@@ -5950,7 +5950,7 @@ function addTypeSwitch(iw) {
       let calendar = null;
       try {
         calendar = iw.getCurrentCalendar?.() || iw.calendarItem?.calendar || null;
-      } catch {}
+      } catch {} // gewollt: Fenster ohne Kalenderwahl
       const start = iw.gStartTime?.clone?.() || null;
       const end = iw.gEndTime?.clone?.() || null;
       // ohne „Änderungen speichern?“ schließen
@@ -6194,7 +6194,7 @@ function accountReorder(container, rowOf, keyOf, targetKeyOf = keyOf) {
       let local = null;
       try {
         local = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer)?.key;
-      } catch {} // ohne „Lokale Ordner“
+      } catch {} // gewollt: ohne „Lokale Ordner“
       if (local && local != key && !Services.prefs.getBoolPref(ACCOUNTS_ORDERED_PREF, false)) {
         keys.splice(keys.indexOf(local), 1);
         keys.unshift(local);
@@ -8240,7 +8240,7 @@ function openOverflowMenu(doc, button) {
     // geändert hat (z. B. „Antworten“ blieb grau): Zustand jetzt abfragen
     try {
       b.onCommandContextChange?.();
-    } catch {}
+    } catch {} // gewollt: Knopf ohne Zustandsabfrage
     const label = (b.querySelector(".button-label")?.textContent || b.getAttribute("aria-label") || b.title || "").trim();
     const item = doc.createXULElement("menuitem");
     item.className = "menuitem-iconic";

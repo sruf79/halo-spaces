@@ -407,3 +407,8 @@ Wortlaut des Maintainers, Sitzung neon, 10.11.2026: zuerst „ja von uns bestät
 
 ### 10.11.2026: Aufgaben, Knöpfe der gewählten Aufgabe stehen oben in der Toolbar-Zeile (Maintainer in neon)
 Wortlaut des Maintainers, Sitzung neon, 10.11.2026 (nach Vorschaubild mit Variante A „über der Aufgabe in der Detailspalte“ und Variante B „oben in der Toolbar-Zeile zwischen ‚+‘ und Suchfeld“): „die anordnung aus bild b ist die korrekte“. Es gilt Variante B (Commit 70e6f3a); sie ersetzt die Anordnung „Knöpfe über der Aufgabe“ aus der Detailansicht 5a/5d (Commit 6c705a0).
+
+### 11.11.2026: Hilfe-Menü bleibt wie heute; Favoriten der Ordnerliste bündig (Variante A) (Maintainer, Leitstelle)
+Wortlaut des Maintainers, Leitstelle (Sitzung project.analysis.control), 11.11.2026, nach Ansicht der Entscheidungsbilder von neon (Variante A/B je Thema): „bezüglich hilfe-menü - option a. bezüglich favoriten - option a“. Weitergabe durch die Leitstelle an neon.
+Bedeutung (Deutung der Leitstelle): Hilfe-Menü bleibt wie heute (360 pt, wie Apple Mail; Board-Eintrag Done und archiviert). Favoriten-Ausrichtung: Variante A, alles bündig wie Apple Mail, Konten eine Stufe tiefer, Ordnerliste 240 statt 206 px; Board-Eintrag „Seitenleiste: Favoriten-Symbole und Überschrift an den Spalten der Konten ausrichten“ steht auf Todo (Bild `seitenleiste-favoriten-variante-a.png`).
+Bezug: Entscheidungsbilder `~/halo-analyse/entscheidungsbilder/` (favoriten-A.png, hilfe-A.png).

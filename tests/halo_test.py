@@ -7875,6 +7875,8 @@ def calendar_checks(m, results):
           const book = MailServices.ab.directories.find(b => !b.readOnly);
           const card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard); card.displayName = "Halo Bildtakt"; card.primaryEmail = "bildtakt@example.invalid";
           const added = book.addCard(card); await ruhig(800);
+          // VORÜBERGEHEND (Diagnose im Prüfzweig): Today-Pane öffnen wie im Volllauf (dort bleibt das Fenster durch die Mindestbreite bei 1500 px)
+          if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
           const out = { reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches, iw: w.innerWidth, runs: [] };
           // Diagnose (Prüfzweig): Fensterzustand nach dem Resize, Bildabstände, Layoutkosten und Kosten der Bildschritte des Add-ons
           out.diag = { ow: w.outerWidth, state: w.windowState, minW: d.documentElement.style.minWidth, tp: !!d.getElementById("today-pane-panel") && !d.getElementById("today-pane-panel").collapsed, tabs: tm.tabInfo.length, cards: Math.round(bd.getElementById("cardsPane").getBoundingClientRect().width), books: Math.round(bd.getElementById("booksPane").getBoundingClientRect().width) };
@@ -7883,12 +7885,15 @@ def calendar_checks(m, results):
           try {
             cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1000);
             for (let i = 0; i < 10; i++) {
-              w.__mcSideTrace = [];
+              w.__mcSideTrace = []; w.__mcEndeTrace = [];
+              const rest = Math.round(bp.getBoundingClientRect().width);
+              const t0 = performance.now();
               btn.click();
-              const ts = [], ws = [], lay = []; const t0 = performance.now();
+              const ts = [], ws = [], lay = [];
               while (performance.now() - t0 < 500) { const t = await new Promise(r => w.requestAnimationFrame(r)); ts.push(t); const a = performance.now(); d.documentElement.getBoundingClientRect(); const b = performance.now(); ws.push(Math.round(bp.getBoundingClientRect().width)); lay.push([Math.round((b - a) * 10) / 10, Math.round((performance.now() - b) * 10) / 10]); }
               await bis(still, "Animation fertig", 3000); await ruhig(300);
               const trace = w.__mcSideTrace; delete w.__mcSideTrace;
+              const endeTrace = w.__mcEndeTrace.map(e => [e[0], Math.round(e[1] - t0), ...e.slice(2)]); delete w.__mcEndeTrace;
               const dts = ts.slice(1).map((t, k) => t - ts[k]), med = [...dts].sort((a, b) => a - b)[dts.length >> 1] || 16;
               // nur während der Bewegung (Breite ändert sich noch); das erste Bild der Bewegung trägt den Aufbau der
               // Animation und zählt nicht (steht als „start“ dabei)
@@ -7897,8 +7902,9 @@ def calendar_checks(m, results):
               const lost = dts.filter((dt, k) => k + 1 > firstMove && k + 1 <= lastMove + 1 && dt > med * 1.6).length;
               const steps = ws.slice(1).map((v, k) => Math.abs(v - ws[k])).slice(Math.max(0, firstMove), lastMove + 1);
               // Diagnose: je Bild [Abstand ms, Layout Hauptfenster ms, Layout Adressbuch ms, Breite]; Add-on-Schritte je Bild [Zeit ab Klick ms, setW, Kante, updateSideEdge]
-              const diag = { frames: ts.map((t, k) => [Math.round(k ? t - ts[k - 1] : 0), ...lay[k], ws[k]]).slice(Math.max(0, firstMove - 2), lastMove + 3), first: firstMove, last: lastMove,
-                             bild: (trace || []).map(x => [Math.round(x[0] - t0), x[1], x[2], x[3]]) };
+              const diag = { rest, frames: ts.map((t, k) => [Math.round(k ? t - ts[k - 1] : 0), ...lay[k], ws[k]]).slice(Math.max(0, firstMove - 2), lastMove + 3), first: firstMove, last: lastMove,
+                             raf: ts.map(t => Math.round(t - t0)).slice(Math.max(0, lastMove - 2), lastMove + 4),
+                             bild: (trace || []).map(x => [Math.round(x[0] - t0), x[1], x[2], x[3]]), ende: endeTrace };
               out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length, diag });
             }
           } finally {

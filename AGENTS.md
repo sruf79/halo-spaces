@@ -198,7 +198,7 @@ Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal d
 - **Reihenfolge eines Laufs:** 1. neue bzw. nicht gepushte Commits durchsehen, 2. dann die
   Aufgabenliste laden und offene GitHub-Issues/Pull Requests prüfen, 3. Bugs, 4. einfache Features,
   5. zuletzt Reihen (n/m, nur der nächste Schritt). Vorher nach Bereich gruppieren, Doppelte
-  zusammenlegen; „Wartet auf OK“ bleibt liegen. Einzelheiten: `docs/board.md`.
+  zusammenlegen; „Wartet auf OK“ bleibt liegen. Bereichsfolge (Maintainer 11.11.2026): global (alle Spaces), Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere (Absturz, Datenverlust) geht vor Bereich, ein Eintrag über 7 Tage offen rückt eine Stufe vor, ausdrückliche Wünsche im Gespräch haben Vorrang. Gilt für jede Sitzung und jeden Lauf (Nachtlauf wie Tag). Einzelheiten: `docs/board.md`.
 - **Wer die Liste abarbeitet:** der Nachtlauf immer, jede andere Sitzung nur auf Aufforderung des
   Maintainers (dann ohne Rückfrage je Eintrag; je Eintrag committen, gesammelt pushen, nur Dringendes
   veröffentlichen).

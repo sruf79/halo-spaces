@@ -53,7 +53,7 @@ Reihenfolge:
    Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
    hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
    Dann in dieser Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
-   abends): **1. alle Bugs**, Bereich für Bereich, kleine vor großen;
+   abends): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
    **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
    Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
    wenn in der vorigen nichts Machbares übrig ist – außer ein Feature behebt

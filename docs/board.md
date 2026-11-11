@@ -218,7 +218,10 @@ offenen Aufträge aus `neon-stand.md`.
   zusammenlegen; Bugs, die ein Feature ohnehin behebt, an dieses Feature
   hängen (Notiz in beiden Einträgen). Dann **erst alle Bugs,
   danach einfache Features, zuletzt Reihen** (Bugs fixen ist in jedem Lauf
-  wichtiger als neue Features): jeweils Bereich für Bereich, kleine vor
+  wichtiger als neue Features): jeweils Bereich für Bereich in der Bereichsfolge (global, Mail, Kalender,
+  Adressbuch, Aufgaben, Einstellungen, Chat; Schwere geht vor Bereich, Einträge über 7 Tage offen rücken eine
+  Stufe vor, ausdrückliche Wünsche im Gespräch haben Vorrang; Maintainer 11.11.2026, gilt für Nachtlauf und
+  Tag), kleine vor
   großen; die nächste Stufe erst, wenn in der vorigen nichts Machbares übrig
   ist; von Reihen n/m nur der nächste Schritt – steht er auf Todo und der
   vorige ist Done, ohne weitere Nennung durch den Maintainer (nur „Wartet auf

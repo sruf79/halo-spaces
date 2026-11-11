@@ -285,4 +285,8 @@ if [[ ! -s $BERICHT ]] || (( $(stat -f %m $BERICHT) < START )); then
 fi
 log "Ende"
 push "$NAME $TAG${TROCKEN:+ (Probelauf)}: $(bericht_kurz) – Bericht ~/halo-berichte/$TAG-$BERICHT_NAME.md"
+# Vier-Wochen-Messung (docs/umbau.md, Messplan): am 6.12.2026 zusätzlich der Vergleichsbericht, ohne Sprachmodell
+if [[ $ART == woche && -z $TROCKEN && $TAG == 2026-12-06 ]]; then
+  zsh $REPO/tests/vergleich-6-12.sh $REPO >> $LOG 2>&1 || log "FEHLER Vergleichsbericht (tests/vergleich-6-12.sh)"
+fi
 exit 0

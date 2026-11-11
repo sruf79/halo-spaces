@@ -718,6 +718,10 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <array>'"$(for t in 1 2 3 4 5; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done)"'</array>' \
     tagesroutine "Mo–Fr 09:00 bis 21:00, pusht nie nach main, Berichte in ~/halo-berichte"
+  pruefe_agent "Morgenbrief" at.halo-spaces.morgenbrief morgenbrief.sh $HOME/Library/Logs/halo-morgenbrief.log \
+    '<key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>' \
+    morgenbrief "täglich 08:30 eine iPhone-Meldung, am Wochenende nur bei Auffälligkeiten, Berichte in ~/halo-berichte"
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.

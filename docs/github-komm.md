@@ -64,6 +64,9 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   ist (fester Dank-Kommentar mit Version, kein Merge), und verschiebt die Zeile nach
   `tests/pr-freigaben-erledigt.txt`. Die GitHub-Routinen schließen nie Pull Requests; „kandidat“ im
   Bericht ist nur ein Hinweis. Probe: `zsh tests/pr-schliessen.sh x.y.z --trocken`.
+  Lehnt der Maintainer einen PR ab (Feature nicht geplant), steht statt der Issue-Nummer `abgelehnt` in der
+  Zeile: Das Skript schließt ihn beim nächsten Release ohne Fix-Commit mit festem Absage-Kommentar (kein
+  Merge, Wortlaut vom Maintainer freigegeben, 11.11.2026).
 - **Forks:** gehören zur Prüfung dazu (Liste mit `gh api repos/sruf79/halo-spaces/forks`, die
   Textsuche `in:name fork:only` findet keinen Fork;
   Stand eines Forks mit `git fetch <url> main:refs/remotes/<name>/main`

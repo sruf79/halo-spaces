@@ -5984,6 +5984,22 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   box-shadow: 0 0 0 2px var(--mt-accent);
 }
 
+/* Suchtreffer gelb hinterlegt wie in der Mail (markHits) */
+.mc-tc mark.mc-hit {
+  --mt-hit: rgba(255, 214, 10, 0.45);
+  background: var(--mt-hit);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+  margin: 0 -1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mc-tc mark.mc-hit {
+    --mt-hit: rgba(255, 214, 10, 0.35);
+  }
+}
+
 /* Streifen der Liste und Fortschrittsstrich: 4 px, Radius 2 px, über alle
    Zeilen der Karte, mindestens 48 px */
 .mc-tc-stripe,

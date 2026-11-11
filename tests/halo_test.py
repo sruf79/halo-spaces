@@ -14570,6 +14570,44 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Kartenansicht nach Entwurf I (Streifen der Liste links, Titel, Fortschrittsstrich rechts mit „n %“, Datum/Ort/Beschreibung/Kategorien darunter, kein Kreis, Auswahl als Rahmen), Kontextmenü mit „Edit Task…“ ganz oben, Tabelle zeigt Thunderbirds Liste", task_cards, results)
 
+    def task_search_hits():
+        # Suchfeld oben filtert die Aufgaben; die Treffer in Titel, Ort, Notiz und Kategorie sind wie in der Mail gelb
+        # hinterlegt (auch, wenn sich beim Weitertippen die Treffermenge nicht ändert), nach dem Leeren keine Markierung
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(600);
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar();
+          const t = new CalTodo(); t.title = "Halo Gelbtreffer Einkauf"; t.calendar = c; t.descriptionText = "Milch und Gelbtreffer-Brot";
+          const saved = await c.addItem(t);
+          Services.prefs.clearUserPref("extensions.mailcards.taskView");
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await ruhig(800);
+            w.taskViewUpdate?.("all"); await bis(() => d.querySelector("#mcTaskCards .mc-tc-title"), "Aufgabenkarte", 6000); await ruhig(500);
+            const f = d.getElementById("task-text-filter-field");
+            const type = async v => { f.value = v; f.dispatchEvent(new w.Event("input", { bubbles: true })); f.dispatchEvent(new w.Event("command", { bubbles: true })); await ruhig(500); };
+            const card = () => [...d.querySelectorAll("#mcTaskCards .mc-tc")].find(k => /Gelbtreffer Einkauf/.test(k.textContent));
+            const marks = () => [...(card()?.querySelectorAll("mark.mc-hit") || [])].map(x => [x.closest(".mc-tc-title, .mc-tc-note")?.className.split(" ")[0], x.textContent]);
+            await type("gelbtreff"); await bis(() => marks().length >= 2, "Markierung", 4000);
+            out.first = marks();
+            const mk = card().querySelector("mark.mc-hit");
+            out.bg = w.getComputedStyle(mk).backgroundColor; out.title = card().querySelector(".mc-tc-title").textContent;
+            await type("gelbtreffer"); await bis(() => marks().every(x => x[1].length == 11), "Markierung länger", 4000);
+            out.second = marks();
+            await type(""); await bis(() => card() && !marks().length, "ohne Markierung", 4000);
+            out.cleared = marks().length;
+          } finally {
+            const f = d.getElementById("task-text-filter-field"); if (f) { f.value = ""; f.dispatchEvent(new w.Event("input", { bubbles: true })); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        bg = res.get("bg") or ""
+        ok = (["mc-tc-title", "Gelbtreff"] in (res.get("first") or []) and ["mc-tc-note", "Gelbtreff"] in (res.get("first") or [])
+              and res.get("title") == "Halo Gelbtreffer Einkauf" and "255, 214, 10" in bg
+              and len(res.get("second") or []) >= 2 and res.get("cleared") == 0)
+        return ok, f"{res}"
+    check("Aufgaben: Suchtreffer in den Karten gelb hinterlegt wie in der Mail, beim Weitertippen nachgeführt, nach dem Leeren weg", task_search_hits, results)
+
     def task_header():
         # Aufgaben wie die Mail (neue Detailansicht 1/4): „…“ an derselben Stelle wie über der Mailliste (kein Filterknopf), Titel,
         # Anzahl; „+“ über den Details; die Knöpfe der Aufgabe (5a/5d: Complete, In eigenem Fenster, „…“) oben in der Toolbar-Zeile

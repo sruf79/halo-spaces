@@ -4686,6 +4686,7 @@ function hookTaskCards(win, restorers) {
     }
     const tasks = tree.mTaskArray || [];
     const sel = tree.view?.selection;
+    const term = (doc.getElementById("task-text-filter-field")?.value || "").trim();
     const cards = tasks.map((task, i) => {
       const card = el("div", "mc-tc");
       card.dataset.index = i;
@@ -4746,6 +4747,12 @@ function hookTaskCards(win, restorers) {
         const cats = el("div", "mc-tc-cats");
         cats.append(...chips.map(c => el("span", "mc-tc-chip", c)));
         card.append(cats);
+      }
+      // Suchtreffer gelb hinterlegt wie in der Mail (Suchfeld oben filtert die Liste)
+      if (term) {
+        for (const part of card.querySelectorAll(".mc-tc-title, .mc-tc-where, .mc-tc-note, .mc-tc-chip")) {
+          markHits(part, term);
+        }
       }
       // (Streifen, Strich und Zahl reichen über alle Zeilen der Karte)
       card.style.setProperty("--mc-tc-rows", card.children.length - 3);
@@ -5075,6 +5082,9 @@ function hookTaskCards(win, restorers) {
   });
   const prefObs = () => schedule();
   Services.prefs.addObserver(TASK_VIEW_PREF, prefObs);
+  // Suchbegriff geändert: Markierungen neu (auch wenn die Treffer gleich bleiben)
+  const filterField = doc.getElementById("task-text-filter-field");
+  filterField?.addEventListener("input", schedule);
   // Hinweis „schreibgeschützt“ wechselt mit dem Standardkalender → Listenkopf neu
   const field = doc.getElementById("view-task-edit-field");
   const fieldMo = field ? new win.MutationObserver(() => enhancer?.updateListHeader?.(win)) : null;
@@ -5155,6 +5165,7 @@ function hookTaskCards(win, restorers) {
     tree.removeEventListener("focus", onFocus);
     tree.removeEventListener("blur", onFocus);
     Services.prefs.removeObserver(TASK_VIEW_PREF, prefObs);
+    filterField?.removeEventListener("input", schedule);
     fieldMo?.disconnect();
     win.clearInterval(timer);
     list.remove();

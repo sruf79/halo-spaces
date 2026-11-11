@@ -16400,7 +16400,9 @@ Neu
         # sichtbar, bis man „Chat & More“ einmal anklickte)
         res = m.js(PREFS_OPEN_JS + r"""
           try {
-            const grp = pd.getElementById("mcFifthGroup");
+            // die Gruppe fügt halo.spaces erst nach dem Laden der Seite ein – unter Linux in der CI fehlte sie beim
+            // sofortigen Nachsehen noch (has: False), also bis zu 5 s auf sie warten
+            const grp = await until(() => pd.getElementById("mcFifthGroup"), 5000);
             await ruhig(500);
             const gen = pd.getElementById("paneGeneral");
             return { has: !!grp, shown: !!grp && grp.getBoundingClientRect().height > 0,

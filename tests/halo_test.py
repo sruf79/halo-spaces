@@ -13753,17 +13753,36 @@ Neu
             out[k] = [...ad.querySelectorAll("moz-button")].map(h => [h, h.shadowRoot?.querySelector('[part~="button"]')]).filter(([h, b]) => b && R(b).width)
               .map(([h, b]) => [h.closest("addon-card") ? (h.matches(".more-options-button") ? "karte-symbol" : "karte-text") : "kopf",
                                 Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == ctl ? "fläche" : cs(b).backgroundColor]);
-            // Zurück-Knopf nur mit einem Pfeil: Thunderbird malt ihn zusätzlich als Hintergrund des Knopfs (GitHub #55)
-            if (k == "detail") out.backBg = [...ad.querySelectorAll("addon-page-header .back-button")].map(h => cs(h).backgroundImage);
+            // Zurück-Knopf nur mit einem Pfeil: Thunderbird malt ihn zusätzlich als Hintergrund des Knopfs (GitHub #55).
+            // In der Ansicht des Add-ons und seinen Einstellungen: ohne das Bild im Knopf bleibt die Fläche leer
+            // (Bildpunkte, die deutlich von der Knopffläche abweichen), mit Bild genau ein Pfeil
+            if (k == "detail" || k == "pref") {
+              const h = ad.querySelector("addon-page-header .back-button"), b = h?.shadowRoot?.querySelector('[part~="button"]'), img = b?.querySelector("img");
+              const br = tm.currentTabInfo.browser.getBoundingClientRect(), r = b ? R(b) : null;
+              const ink = async () => { const rr = new w.DOMRect(br.left + r.left, br.top + r.top, r.width, r.height);
+                const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = Math.round(rr.width); cv.height = Math.round(rr.height); const ctx = cv.getContext("2d");
+                try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(rr, 1, "white"), 0, 0); }
+                catch { ctx.drawWindow(w, rr.left, rr.top, rr.width, rr.height, "white"); }
+                const data = ctx.getImageData(0, 0, cv.width, cv.height).data, c = (Math.round(cv.width / 2) + 3 * cv.width) * 4; let n = 0;
+                for (let y = 4; y < cv.height - 4; y++) for (let x = 4; x < cv.width - 4; x++) { const i = (y * cv.width + x) * 4;
+                  if (Math.abs(data[i] - data[c]) + Math.abs(data[i + 1] - data[c + 1]) + Math.abs(data[i + 2] - data[c + 2]) > 60) n++; }
+                return n; };
+              if (img && r?.width) {
+                const mit = await ink(); img.style.visibility = "hidden"; await ruhig(200);
+                const ohne = await ink(); img.style.visibility = "";
+                (out.back ||= {})[k] = { bg: cs(h).backgroundImage, mit, ohne };
+              }
+            }
           }
           tm.closeTab(tm.currentTabInfo); await ruhig(300);
           return out;''')
-        back = res.pop("backBg", None)
+        back = res.pop("back", None) or {}
         want = {"kopf": [28, "999px", "fläche"], "karte-text": [28, "999px", "fläche"], "karte-symbol": [24, "50%", "rgba(0, 0, 0, 0)"]}
         ok = all(res.get(k) for k in ("list", "theme", "detail", "pref")) and any(b[0] == "karte-text" for b in res["theme"]) \
-            and all(b[1:] == want[b[0]] for v in res.values() for b in v) and back and all(x == "none" for x in back)
+            and all(b[1:] == want[b[0]] for v in res.values() for b in v) and set(back) == {"detail", "pref"} \
+            and all(v["bg"] == "none" and v["mit"] > 0 and v["ohne"] == 0 for v in back.values())
         return ok, f"{res} zurück={back}"
-    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche, Zurück mit nur einem Pfeil",
+    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche, Zurück mit nur einem Pfeil (auch in den Einstellungen des Add-ons)",
           addons_buttons, results)
 
 

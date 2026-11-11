@@ -92,6 +92,7 @@ BEREICHE = {
     "Mail": ("mail", "await toMail();"),
     "Adressbuch": ("addressbook", 'tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000);'),
     "Kalender": ("calendar", 'await toCalendar(); w.switchToView?.("month"); await ruhig(1500);'),
+    "KalenderWoche": ("calendar", 'await toCalendar(); w.switchToView?.("week"); await ruhig(1500);'),
     "Aufgaben": ("tasks", 'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
     "Chat": ("chat", 'tm.openTab("chat", {}); await bis(() => tm.currentTabInfo?.mode?.name == "chat" && d.getElementById("listPaneBox")?.getBoundingClientRect().width > 0, "Chat", 8000); await ruhig(1500);'),
     "Einstellungen": ("settings", 'w.openPreferencesTab(); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("pref-category-box")?.getBoundingClientRect().width > 0, "Einstellungen", 8000); await ruhig(2000);'),
@@ -125,6 +126,7 @@ def main():
     ap.add_argument("--json")
     ap.add_argument("--dark", action="store_true")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--termine", type=int, default=0, help="so viele Termine im laufenden Monat anlegen (Monatsraster voll)")
     args = ap.parse_args()
     if not args.xpi:
         b = subprocess.run([os.path.join(ROOT, "build.sh")], capture_output=True, text=True, cwd=ROOT)
@@ -148,6 +150,15 @@ def main():
         m.js("const s = w.screen; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1500, 900); await wait(1200); return 1;")
         # Testkalender wie im Volllauf (für Aufgaben)
         m.js('''if (!testCalendar()) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Test"; cal.manager.registerCalendar(c); await ruhig(1000); } return 1;''')
+        if args.termine:
+            # Termine über den Monat verteilt (bis zu 10 je Tag), damit das Monatsraster voll ist
+            n = m.js(f'''const {{ CalEvent }} = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+                const c = testCalendar(); const now = cal.dtz.now(); let n = 0;
+                for (let i = 0; i < {args.termine}; i++) {{ const e = new CalEvent(); e.title = "Halo Termin " + i;
+                  const s = now.clone(); s.day = 1 + (i % 28); s.hour = 7 + (i % 11); s.minute = 0; s.second = 0;
+                  const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; await c.addItem(e); n++; }}
+                await ruhig(2000); return n;''')
+            print(f"Termine angelegt: {n}", flush=True)
         info = m.js("return { hidden: d.hidden, occluded: w.windowUtils?.isOccluded ?? null, v: Services.appinfo.version, avail: [w.screen.availWidth, w.screen.availHeight] };")
         print(f"Fenster: {info}", flush=True)
         wid = fenster_id(proc.pid, m.js("return [w.screenX, w.screenY, w.outerWidth, w.outerHeight];")) if args.shots else None
@@ -219,7 +230,7 @@ def melde(key, a):
             ampel = f", Ampel rot {v[0]},{v[1]} → {n[0]},{n[1]}" + (" SPRUNG" if abs(v[0] - n[0]) > 0.5 or abs(v[1] - n[1]) > 0.5 else "")
         else:
             ampel = f", Ampel nicht gefunden {a['ampel']}"
-    print(f"{key:40s} {a['dauer_ms']:4d} ms, Breite {a['breite'][0]}→{a['breite'][1]}, {a['bilder']} Bilder, Lücken>20ms: {a['luecken']}, Ende-Sprünge: {n_ende}, Rucke: {n_ruck}"
+    print(f"{key:40s} {a['dauer_ms']:4d} ms, Breite {a['breite'][0]}→{a['breite'][1]}, {a['bilder']} Bilder, Bild max {a.get('bild_max')} mittel {a.get('bild_mittel')} ms, Lücken>20ms: {a['luecken']}, Ende-Sprünge: {n_ende}, Rucke: {n_ruck}"
           f"{', Fenster ' + str(a['win']) if a['win'] else ''}{ampel}", flush=True)
     for k, v in list(a["ende"].items())[:12]:
         print(f"      ENDE {k}: {v[:4]}", flush=True)

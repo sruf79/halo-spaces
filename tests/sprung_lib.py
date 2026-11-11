@@ -32,6 +32,8 @@ S.sammle = (modus) => {
   let inner = null;
   if (modus == "addressbook" || modus == "settings") inner = tm.currentTabInfo?.browser;
   if (inner?.contentDocument) { const b = inner.getBoundingClientRect(); add(inner.contentDocument, "ab", b.left, b.top, SEL, 140 - b.top + 60); }
+  // Kalender: auch das Raster selbst (erste zwei Tagesspalten der Monats- bzw. Wochenansicht, Ansichtsrahmen)
+  if (modus == "calendar") add(d, "cal", 0, 0, "#month-view calendar-month-day-box:nth-child(-n+2), #week-view calendar-event-column:nth-child(-n+2), #view-box, #calendar-view-box", 100000);
   const kern = S.kern(modus);
   S.liste = list; S.kernEl = kern;
   S.kernOff = (() => { try { const win = kern.ownerDocument.defaultView; const e = win.browsingContext?.embedderElement; return e && win != w ? e.getBoundingClientRect().left : 0; } catch { return 0; } })();
@@ -84,13 +86,20 @@ def auswerten(fr, toleranz=2):
     ws = [f["kern"][1] if f.get("kern") else 0 for f in fr]
     # rechte Kante der Seitenleiste im Fenster (mit der Bereiche-Leiste davor): das Maß, dem die Knöpfe folgen dürfen
     kanten = [(f["kern"][0] + f["kern"][1]) if f.get("kern") else 0 for f in fr]
-    bewegt = [i for i in range(1, len(ws)) if abs(ws[i] - ws[i - 1]) > 0.5]
+    # jede Breitenänderung zählt als Bewegung, auch der letzte halbe Pixel der Kurve (205,5 → 206 px): sonst galt das
+    # letzte Bild der Animation als „nach dem Ende“ und die Pillen schienen um 1,2 px nachzurücken
+    bewegt = [i for i in range(1, len(ws)) if abs(ws[i] - ws[i - 1]) > 0.05]
     if not bewegt:
         out["fehler"] = "keine Breitenänderung der Seitenleiste"
         return out
     i0, i1 = bewegt[0], bewegt[-1]
     out["i0"], out["i1"] = i0, i1
     out["dauer_ms"] = round(ts[min(i1, len(ts) - 1)] - ts[i0 - 1])
+    # Bildzeiten während der Bewegung (Ruckeln: einzelne Bilder weit über 16,7 ms)
+    zeiten = [round(ts[i] - ts[i - 1], 1) for i in range(i0, min(i1, len(ts) - 1) + 1)]
+    out["bild_max"] = max(zeiten) if zeiten else None
+    out["bild_mittel"] = round(sum(zeiten) / len(zeiten), 1) if zeiten else None
+    out["bildzeiten"] = zeiten
     out["breite"] = [ws[0], ws[-1]]
     kante_max = max(abs(kanten[i] - kanten[i - 1]) for i in range(i0, i1 + 1))
     kante_weg = abs(kanten[i1] - kanten[i0 - 1]) or 1

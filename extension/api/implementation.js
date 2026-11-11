@@ -9526,7 +9526,9 @@ class CardEnhancer {
         // Mailliste ohne Ordnerliste) – sonst wuchs sie um die frei gewordene
         // Spalte und das Fenster ließ sich nicht mehr schmaler machen
         const cl = rectOf(cards);
-        if (this.mcButtonsLeft && shared && "width" in shared && !shared.__mcDragging && cl && !el.__mcShowing &&
+        // (nicht im Trockenlauf der Seitenleisten-Animation: der stellt den Endzustand nur zum Messen her – eine
+        // Breite, die dort gesetzt wird, bliebe und ließe die Kontaktliste im ersten Bild um 260 px springen)
+        if (this.mcButtonsLeft && shared && "width" in shared && !shared.__mcDragging && cl && !el.__mcShowing && !w.__mcDry &&
             !el.ownerDocument.body.classList.contains("layout-table")) {
           // … aber nie so breit, dass die Kontaktdetails unter ihre Mindestbreite
           // kämen (mit Today-Pane ist das Adressbuch enger als die Mail – sonst
@@ -11074,33 +11076,73 @@ class CardEnhancer {
       const tabOffset0 = parseFloat(barTarget(topDoc).style.getPropertyValue("--mc-tab-offset"));
       const followTab = mode == "calendar" && Number.isFinite(tabOffset0);
       const W0 = show ? 0 : full;
-      // Einblenden mit Bereiche-Leiste: Kanten für den Endzustand einmal vorab rechnen (Endzustand synchron
-      // herstellen, nichts wird gezeichnet, dann zurückstellen) und pro Bild zwischen Anfangs- und Endwert führen –
-      // sonst springen Abstand und Knöpfe am Ende (Stufe 4)
-      const EDGE_VARS = ["--mc-side-right", "--mc-tab-offset"];
-      let edgeEnd = null;
-      if (show && w.__mcSpacesJump && barRow) {
-        const read = () => EDGE_VARS.map(n => parseFloat(barRow.style.getPropertyValue(n)));
-        const start = read();
+      // Gemeinsam mit der Bereiche-Leiste (ab Dia 2/4, Ein- und Ausblenden): alle Werte, die das Ausrichten der
+      // Toolbar-Zeile (updateSideEdge) an die Zeile und die in sie verlegten Leisten schreibt – Kanten
+      // (--mc-side-right, --mc-tab-offset), Listenkopf (--mc-ab-list-right, --mc-task-list-right), Umschalter des
+      // Kalenders (--mc-tab-left), Aktionen der Aufgabe (--mc-ta-left), Statusleiste –, einmal für den Endzustand
+      // vorab rechnen (Endzustand synchron herstellen, nichts wird gezeichnet, dann zurückstellen) und pro Bild
+      // zwischen Anfangs- und Endwert führen. Solange die Bereiche-Leiste animiert, richtet updateSideEdge nicht aus
+      // (jedes Schreiben ans Fenster kostet einen vollen Layout-Durchlauf): ohne Vorabrechnung standen diese Werte
+      // beim Einblenden ab dem ersten Bild am Endplatz und blieben beim Ausblenden bis zum letzten am Anfang –
+      // „New“ und Anzeigeoptionen im Adressbuch sprangen 207 px, „Mark“ in den Aufgaben 28 px, Day/Week/Month im
+      // Kalender 96 px (Stufe 4, auf alle Werte und beide Richtungen erweitert)
+      const hosts = [barRow, topDoc.getElementById("status-bar"),
+        ...["chat-view-toolbox", "viewToggle", "task-addition-box", "task-actions-toolbar"].map(id => topDoc.getElementById(id)),
+        topDoc.documentElement].filter(Boolean);
+      const snapshot = () => {
+        const s = new Map();
+        for (const host of hosts) {
+          for (let i = 0; i < host.style.length; i++) {
+            const n = host.style[i];
+            if (n.startsWith("--mc-")) {
+              s.set(`${host.id || host.localName}|${n}`, [host, n, host.style.getPropertyValue(n)]);
+            }
+          }
+        }
+        return s;
+      };
+      let edgeRun = null; // [Element, Variable, Anfang, Ende] je Wert, der sich ändert
+      if (w.__mcSpacesJump && barRow) {
+        const start = snapshot();
         w.__mcDry = true;
         try {
-          w.__mcSpacesJump(1);
-          setW(full);
+          w.__mcSpacesJump(show ? 1 : 0);
+          setW(show ? full : 0);
           topDoc.documentElement.getBoundingClientRect();
-          this.sideEdgeUpdaters?.forEach(f => f());
-          edgeEnd = read();
+          // bis die Werte stillstehen (höchstens vier Durchgänge): Aufgaben rechnen Kopf und Aktionen nach dem
+          // gemessenen „+“, das erst mit dem Abstand des vorigen Durchgangs an seinem Platz steht
+          let end = null;
+          for (let i = 0, before = null; i < 4; i++) {
+            this.sideEdgeUpdaters?.forEach(f => f());
+            end = snapshot();
+            const now = [...end.values()].map(v => v[2]).join("|");
+            if (now == before) {
+              break;
+            }
+            before = now;
+          }
+          edgeRun = [];
+          for (const [key, [host, n, v1]] of end) {
+            const v0 = start.get(key)?.[2];
+            const a = parseFloat(v0), b = parseFloat(v1);
+            // (das Wurzelelement nur zurückstellen, nicht je Bild schreiben – das rechnete das ganze Fenster neu)
+            if (host != topDoc.documentElement && /px$/.test(v0 || "") && /px$/.test(v1) && Number.isFinite(a) && Number.isFinite(b) && a != b) {
+              edgeRun.push([host, n, a, b]);
+            }
+            // Anfangswerte zurück; Werte, die erst der Trockenlauf anlegte, wieder weg
+            if (v0) {
+              host.style.setProperty(n, v0);
+            } else {
+              host.style.removeProperty(n);
+            }
+          }
         } catch (e) {
           log("dry-run error", e);
+          edgeRun = null;
         } finally {
-          setW(0);
-          w.__mcSpacesJump(0);
+          setW(W0);
+          w.__mcSpacesJump(show ? 0 : 1);
           w.__mcDry = false;
-          EDGE_VARS.forEach((n, i) => Number.isFinite(start[i]) && barRow.style.setProperty(n, `${start[i]}px`));
-        }
-        if (!edgeEnd || edgeEnd.some(v => !Number.isFinite(v)) || start.some(v => !Number.isFinite(v))) {
-          edgeEnd = null;
-        } else {
-          edgeEnd = start.map((v, i) => [v, edgeEnd[i]]);
         }
       }
       // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück. Takt immer aus dem
@@ -11115,14 +11157,16 @@ class CardEnhancer {
         bild: (p, k, letzt) => {
           const W = full * (show ? p : 1 - p);
           setW(W);
-          if (edgeEnd) {
-            // Fortschritt der Breite 0 → 1 (Einblenden)
-            const q = full ? W / full : 1;
-            EDGE_VARS.forEach((n, i) => setBarVar(topDoc, n, `${Math.max(0, Math.round(edgeEnd[i][0] + (edgeEnd[i][1] - edgeEnd[i][0]) * q))}px`));
+          if (edgeRun) {
+            // Fortschritt vom Anfangs- zum Endzustand 0 → 1 (Einblenden: mit der Breite, Ausblenden: gegen sie)
+            const q = full ? (show ? W / full : 1 - W / full) : 1;
+            for (const [host, n, a, b] of edgeRun) {
+              setVar(host, n, `${Math.max(0, Math.round(a + (b - a) * q))}px`);
+            }
           } else if (Number.isFinite(edgeBase)) {
             setBarVar(topDoc, "--mc-side-right", `${Math.max(0, Math.round(edgeBase + W))}px`);
           }
-          if (followTab && !edgeEnd) {
+          if (followTab && !edgeRun) {
             setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
           }
           // im letzten Bild nicht: ende() stellt gleich darauf die Stile zurück und richtet dann einmal aus – ein

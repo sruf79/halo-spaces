@@ -96,10 +96,10 @@ Rücknahme: `notfall.sh zurueck stufe-<n>-vor`, dann `git revert` der Commits di
 
 Rücknahme von `halo-zsh` (9.11.2026): die plist aus `~/halo-sicherung/at.halo-spaces.<name>.plist.vor-halozsh` nach `~/Library/LaunchAgents/` zurückkopieren und den Agent neu laden (`launchctl bootout` / `bootstrap gui/$(id -u) <plist>`).
 
-## 7. Zeitfenster-Hook (noch nicht aktiv)
+## 7. Zeitfenster-Hook (aktiv, in ~/.claude/settings.json eingetragen)
 
 Der vorbereitete Hook `tests/zeitfenster-hook.sh` (Push-Sperre 00:00–09:00, keine Testläufe bei laufender CI; Einzelheiten
-`docs/testrechner.md`) ist nicht in `~/.claude/settings.json` eingetragen. Sobald er aktiv ist: Er läuft fail open (jeder Fehler
+`docs/testrechner.md`) ist in `~/.claude/settings.json` eingetragen und aktiv. Er läuft fail open (jeder Fehler
 lässt durch), Ausnahme für Routinen über `HALO_LAUF`, bewusster Schalter für den Maintainer ist die Datei
 `~/halo-nacht/SPERRE_AUS`. Blockiert er etwas Falsches, diese Datei anlegen und danach den Eintrag aus `~/.claude/settings.json`
 entfernen (Rücknahme Stufe 5).

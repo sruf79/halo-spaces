@@ -336,10 +336,10 @@ was jede Sitzung beachten muss:
   Routinen (CI-Wächter, Wochenprüfung, Doku-Prüfung, Rundgang) und die Windows-VM stehen in
   `docs/testrechner.md`; Windows-Abweichungen wie Linux behandeln.
 
-## Zeitfenster-Hook (noch nicht aktiv)
+## Zeitfenster-Hook (aktiv, in ~/.claude/settings.json eingetragen)
 
-`tests/zeitfenster-hook.sh` ist als PreToolUse-Hook für das Werkzeug Bash vorbereitet (Befund B7), aber noch **nicht** in
-`~/.claude/settings.json` eingetragen (Teil B, braucht eine eigene Freigabe des Maintainers in der Sitzung neon). Er liest
+`tests/zeitfenster-hook.sh` ist als PreToolUse-Hook für das Werkzeug Bash vorbereitet (Befund B7), und in
+`~/.claude/settings.json` eingetragen (Freigabe des Maintainers). Er liest
 die Hook-JSON von stdin und sperrt mit Exitcode 2 und kurzer Meldung: `git push` von 01:30 bis 09:00 Wiener Zeit sowie von
 00:00 bis 01:30, wenn `tests/ci-noetig.sh origin/main HEAD` Exitcode 0 meldet (`git push --delete` und Push von Tags allein
 bleiben frei); außerdem Befehle, die `halo_test.py`, `update_test.py`, `store_shots.py` oder `ui_tour.py` starten, solange

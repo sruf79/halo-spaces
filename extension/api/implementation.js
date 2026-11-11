@@ -15271,6 +15271,8 @@ class CardEnhancer {
       const px = `${v}px`;
       if (followReserve && row) {
         row.style.setProperty("--mc-tl-reserve", `${Math.round(12 + 72 * (1 - v / FULL))}px`);
+        // ebenso der Platz der Ampel-Fläche im Fluss der Zeile (84 → 0 px, userChrome.css --mc-tl-flow)
+        row.style.setProperty("--mc-tl-flow", `${Math.round(84 * (1 - v / FULL))}px`);
       }
       bar?.style.setProperty("--spaces-total-width", px);
       if (body) {
@@ -15292,6 +15294,7 @@ class CardEnhancer {
       title?.style.removeProperty("margin-inline-start");
       row?.style.removeProperty("inline-size");
       row?.style.removeProperty("--mc-tl-reserve");
+      row?.style.removeProperty("--mc-tl-flow");
     };
     w.__mcSpacesAnimating = true;
     w.__mcSpacesJump = v => set(v * FULL);

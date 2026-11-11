@@ -2444,8 +2444,26 @@ findbar .findbar-textbox:focus {
 
   /* Ampel 14 px vom Rand wie bei Dia; die Fläche über den Kacheln reicht bis an
      die Trennlinie der Leiste (88 px), die Ampel liegt ganz links davon – auch
-     bei ausgeblendeter Ordnerliste */
-  :root:has(#spacesToolbar:not([hidden], [mc-float])) #unifiedToolbarContainer .titlebar-buttonbox-container {
+     bei ausgeblendeter Ordnerliste. Immer fest links oben, auch ohne
+     Bereiche-Leiste: läge die Fläche dann im Fluss der Toolbar-Zeile (84 px),
+     spränge beim Ein-/Ausblenden der Seitenleiste der Anfang der Zeile um
+     84 px und die Ampel um 2 px (12 ↔ 14 px). Ihren Platz im Fluss gibt
+     --mc-tl-flow (84 px ohne Bereiche-Leiste, 0 mit ihr); die Animation der
+     Bereiche-Leiste führt den Wert an der Zeile mit */
+  :root {
+    --mc-tl-flow: 84px;
+  }
+
+  :root:has(#spacesToolbar:not([hidden], [mc-float])),
+  :root[sizemode="fullscreen"] {
+    --mc-tl-flow: 0px;
+  }
+
+  :root:not([sizemode="fullscreen"]) #unifiedToolbarContainer > #unifiedToolbar {
+    margin-inline-start: var(--mc-tl-flow) !important;
+  }
+
+  :root:not([sizemode="fullscreen"]) #unifiedToolbarContainer .titlebar-buttonbox-container {
     position: fixed !important;
     z-index: 5 !important;
     top: 0 !important;

@@ -1774,29 +1774,6 @@ findbar .findbar-textbox:focus {
   }
 }
 
-/* feine Linie unter der Toolbar-Zeile über der Spalte, in der die Maus ist
-   (wie Apple Mail; Lage und Breite setzt die Erweiterung) */
-#mcHoverLine {
-  position: absolute;
-  bottom: 0;
-  height: var(--mt-hairline, 1px);
-  background: var(--mt-pane-line);
-  opacity: 0;
-  transition: opacity 150ms ease;
-  pointer-events: none;
-  z-index: 2;
-}
-
-#mcHoverLine[data-on] {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #mcHoverLine {
-    transition: none;
-  }
-}
-
 /* ---------- Apple-Mail-Toolbar (Belegung setzt die Erweiterung) ---------- */
 
 #unifiedToolbarContent {

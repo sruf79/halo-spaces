@@ -4469,42 +4469,36 @@ def folder_checks(m, results):
     check("Adressbuch: „+“ rechts über der Kontaktliste mit Menü zum Anlegen, „…“ mit eigenem Tooltip, Toolbar ohne Anlegen-Knöpfe", addressbook_plus, results)
 
     def hover_line():
-        # wie Apple Mail: feine Linie unter der Toolbar-Zeile nur über der Spalte, in der die Maus ist (Mailliste,
-        # geöffnete Mail), ohne Maus keine
+        # keine Linie unter der Toolbar-Zeile, auch nicht mit der Maus in der Toolbar-Zeile über Mailliste oder Mail
+        # (früher absichtlich eine feine Linie über der Spalte unter der Maus; auf Wunsch des Maintainers entfernt,
+        # GitHub #55): kein eigenes Element mehr, und die Bildpunkte an der Unterkante der Toolbar-Zeile bleiben beim
+        # Darüberfahren gleich und zeigen keine Linie
         res = m.js(MESSAGE_JS + r"""
-          const ad = a3.document, line = d.getElementById("mcHoverLine");
-          const frame = a3.frameElement.getBoundingClientRect(), row = d.getElementById("unifiedToolbarContainer").getBoundingClientRect();
-          // Maus in der Toolbar-Zeile über der Spalte: Linie dieser Spalte; Maus in der Spalte selbst: keine
-          const rowEl = d.getElementById("unifiedToolbarContainer");
-          const at = id => {
-            const r = ad.getElementById(id).getBoundingClientRect();
-            rowEl.dispatchEvent(new w.MouseEvent("mousemove", { bubbles: true, clientX: frame.left + r.left + 20, clientY: row.top + row.height / 2 }));
-            return { left: Math.round(frame.left + r.left - row.left), width: Math.round(r.width) };
-          };
-          const read = () => ({ on: line?.hasAttribute("data-on"), left: parseFloat(line?.style.left), width: parseFloat(line?.style.width) });
-          const out = {};
-          out.listWant = at("threadPane"); await ruhig(200); out.list = read();
-          out.msgWant = at("messagePane"); await ruhig(200); out.msg = read();
-          const mp = ad.getElementById("messagePane"), mr = mp.getBoundingClientRect();
-          mp.dispatchEvent(new a3.MouseEvent("mousemove", { bubbles: true, clientX: mr.left + 20, clientY: mr.top + 40 })); await ruhig(200);
-          out.below = read();
-          at("threadPane"); await ruhig(200);
-          d.documentElement.dispatchEvent(new w.MouseEvent("mouseleave", { bubbles: false, relatedTarget: null })); await ruhig(200);
-          out.off = read();
-          // Kalender: keine Linie unter der Toolbar (ruhige Fläche bis zum Monatskopf)
-          tm.openTab("calendar", {}); await bis(() => d.getElementById("calendarDisplayBox")?.getBoundingClientRect().width > 0, "Kalender sichtbar", 4000); await ruhig(1200);
-          const box = d.getElementById("calendarDisplayBox")?.getBoundingClientRect();
-          if (box) { rowEl.dispatchEvent(new w.MouseEvent("mousemove", { bubbles: true, clientX: box.left + box.width / 2, clientY: row.top + row.height / 2 })); await ruhig(200); }
-          out.calendar = read();
+          const ad = a3.document, frame = a3.frameElement.getBoundingClientRect();
+          const rowEl = d.getElementById("unifiedToolbarContainer"), row = rowEl.getBoundingClientRect();
+          const strip = async (x, wd) => { const r = new w.DOMRect(Math.round(x), Math.round(row.bottom) - 4, Math.round(wd), 8);
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = r.width; cv.height = r.height; const ctx = cv.getContext("2d");
+            try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(r, 1, "white"), 0, 0); }
+            catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+            const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+            // je Bildzeile der hellste Unterschied zur obersten Zeile (eine Linie wäre eine ganze Zeile anders)
+            return [...Array(r.height).keys()].map(y => { let n = 0; for (let x = 0; x < r.width; x++) { const i = (y * r.width + x) * 4, j = x * 4;
+              if (Math.abs(data[i] - data[j]) + Math.abs(data[i + 1] - data[j + 1]) + Math.abs(data[i + 2] - data[j + 2]) > 12) n++; } return Math.round(100 * n / r.width); }); };
+          const out = { element: !!d.getElementById("mcHoverLine") };
+          for (const id of ["threadPane", "messagePane"]) {
+            const r = ad.getElementById(id).getBoundingClientRect(), x = frame.left + r.left + 20, wd = r.width - 40;
+            const before = await strip(x, wd);
+            rowEl.dispatchEvent(new w.MouseEvent("mousemove", { bubbles: true, clientX: frame.left + r.left + r.width / 2, clientY: row.top + row.height / 2 }));
+            await ruhig(300);
+            out[id] = { before, hover: await strip(x, wd) };
+          }
           d.documentElement.dispatchEvent(new w.MouseEvent("mouseleave", { bubbles: false, relatedTarget: null }));
-          tm.selectTabByMode("mail3PaneTab"); await ruhig(500);
           return out;""")
-        near = lambda a, b: a and b and abs(a["left"] - b["left"]) <= 1 and abs(a["width"] - b["width"]) <= 1
-        ok = (res.get("list", {}).get("on") and near(res.get("list"), res.get("listWant")) and res.get("msg", {}).get("on")
-              and near(res.get("msg"), res.get("msgWant")) and not res.get("below", {}).get("on") and not res.get("off", {}).get("on")
-              and not res.get("calendar", {}).get("on"))
+        # keine Bildzeile, die über die halbe Breite anders aussieht als die Toolbar darüber, und mit Maus wie ohne
+        cols = [res.get(k) or {} for k in ("threadPane", "messagePane")]
+        ok = res.get("element") is False and all(c.get("hover") and c["hover"] == c["before"] and max(c["hover"]) < 50 for c in cols)
         return ok, f"{res}"
-    check("Toolbar: feine Linie nur, solange die Maus in der Toolbar-Zeile über der Spalte ist (Mailliste, Mail), in der Spalte und ohne Maus keine, im Kalender nie", hover_line, results)
+    check("Toolbar: keine Linie unter der Toolbar-Zeile, auch nicht beim Darüberfahren über Mailliste oder Mail (GitHub #55)", hover_line, results)
 
     def solid_menus():
         # Einstellung „Solid menus“: Menüs ohne Durchscheinen (deckende Fläche), schaltet sofort um

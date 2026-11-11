@@ -181,6 +181,18 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.25.0
+
+- **Sidebar**: hiding and showing the sidebar in Mail, Calendar, Tasks, Chat, Address Book and Settings now moves buttons and spacing along smoothly instead of jumping at the end; dragging the divider no longer snaps back for a moment; with the sidebar hidden, pointing at the very left edge of the window lets it float in again, and it no longer floats in when the pointer leaves a message in the reading pane
+- **Tasks**: the buttons of the selected task (Complete, open in its own window, "…") sit in the top toolbar row next to "+", like in Mail; search matches are highlighted in the cards; the Kanban view shows completed tasks in the "Completed" column
+- **Calendar**: the multi-week view scrolls smoothly even with many recurring events and no longer shows empty days after a redraw; reminders appear in Thunderbird's own reminder window when the system has no notification service; the event window stays narrow and its menus stay open on Linux
+- **Mail**: a selected group header in "By group" shows the group overview again (#57); a message opened in its own tab keeps all toolbar buttons visible at the smallest window width; the stack of several selected messages fills the reading pane; website icons with their own coloured disc fill the profile circle without a ring
+- **Toolbar**: the spacing after "Compose" is wide again in a wide window; the faint line under the toolbar while hovering is gone (#55); the divider next to the folder list no longer shifts (#55)
+- **Settings**: Appearance is now a choice of three tiles (Light, Dark, Auto); with a custom Thunderbird theme a short hint appears instead of a wrong "Auto" (#55); account settings and add-ons appear as categories at once (#32); "Get Starred Messages" also works in a folder view without a list
+- **Dialogs**: confirmation windows such as "Unsubscribe" no longer repeat their heading as the window title on macOS
+- **Add-ons**: the Back button shows a single arrow in the add-on's page and its settings (#55)
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.24.0
 
 - **Toolbar**: when the window gets narrow, whole button groups make room instead of single buttons, and a "»" button left of the search field offers the actions of every hidden group, in all spaces

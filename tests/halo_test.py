@@ -12180,6 +12180,11 @@ def run_checks(m, version, profile, results):
         m.js('''if (!testCalendar()) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Test"; cal.manager.registerCalendar(c); await ruhig(1000); } return 1;''')
         mac = sys.platform == "darwin"
         bad, gemessen = [], 0
+        # Today-Pane (je Bereich gemerkt) am Ende wieder wie zu Beginn – sonst misst „Aufgaben wie die Mail“ danach eine
+        # Aufgabenliste ohne Today-Pane (Details 710 statt 463 px, „…“ 34 px weiter rechts)
+        TODAY_JS = '''const todayOffen = () => { const tp = d.getElementById("today-pane-panel"); return !!(tp && !tp.collapsed && tp.getBoundingClientRect().width > 0); };
+            const geheZu = async (mode) => { if (mode == "calendar") await toCalendar(); else { tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben", 8000); } await ruhig(800); };'''
+        m.js(TODAY_JS + 'w.__sprToday = {}; for (const mode of ["calendar", "tasks"]) { await geheZu(mode); w.__sprToday[mode] = todayOffen(); } return 1;')
         try:
             for name, modus, knoepfe, geh in bereiche:
                 m.js(geh + " return 1;")
@@ -12217,11 +12222,13 @@ def run_checks(m, version, profile, results):
                                     if box and (max(b[0] for b in box) - min(b[0] for b in box) > 0.5 or max(b[1] for b in box) - min(b[1] for b in box) > 0.5):
                                         bad.append(f"{lage}: Ampel-Fläche bewegt sich {min(b[0] for b in box)}–{max(b[0] for b in box)} / {min(b[1] for b in box)}–{max(b[1] for b in box)}")
         finally:
-            m.js('''try { const [book, card] = w.__sprCard || []; if (card) book.deleteCards([card]); delete w.__sprCard; } catch {}
+            m.js(TODAY_JS + '''try { const [book, card] = w.__sprCard || []; if (card) book.deleteCards([card]); delete w.__sprCard; } catch {}
                 try { if (w.__sprTodo) { await testCalendar().deleteItem(w.__sprTodo); delete w.__sprTodo; } } catch {}
+                try { for (const mode of ["calendar", "tasks"]) { await geheZu(mode);
+                  if (todayOffen() != w.__sprToday[mode]) { d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); } } } catch {}
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
                 if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1500); }
-                w.resizeTo(1500, 900); await ruhig(800); return 1;''')
+                w.resizeTo(1500, 900); await ruhig(800); await toMail(); return 1;''')
         if not gemessen:
             return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
         return not bad, f"{gemessen} Messungen; " + ("; ".join(bad[:12]) if bad else "kein Sprung")

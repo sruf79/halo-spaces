@@ -11111,8 +11111,11 @@ class CardEnhancer {
         kurve: curve,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),
         bild: p => {
+          // Diagnose (Prüfzweig): Kosten je Bild in w.__mcSideTrace, wenn die Prüfung das Feld anlegt
+          const T = w.__mcSideTrace, t0 = T && w.performance.now();
           const W = full * (show ? p : 1 - p);
           setW(W);
+          const t1 = T && w.performance.now();
           if (edgeEnd) {
             // Fortschritt der Breite 0 → 1 (Einblenden)
             const q = full ? W / full : 1;
@@ -11123,7 +11126,12 @@ class CardEnhancer {
           if (followTab && !edgeEnd) {
             setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
           }
+          const t2 = T && w.performance.now();
           updateSideEdge();
+          if (T) {
+            const t3 = w.performance.now();
+            T.push([Math.round(t0 * 10) / 10, Math.round((t1 - t0) * 100) / 100, Math.round((t2 - t1) * 100) / 100, Math.round((t3 - t2) * 100) / 100]);
+          }
         },
         ende: k => {
           const shown = show == (k >= 1);

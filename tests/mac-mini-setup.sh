@@ -714,6 +714,10 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
     dokupruefung "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
+  pruefe_agent "Tagesroutine" at.halo-spaces.tagesroutine tagesroutine.sh $HOME/Library/Logs/halo-tagesroutine.log \
+    '<key>StartCalendarInterval</key>
+  <array>'"$(for t in 1 2 3 4 5; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done)"'</array>' \
+    tagesroutine "Mo–Fr 09:00 bis 21:00, pusht nie nach main, Berichte in ~/halo-berichte"
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.

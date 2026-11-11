@@ -3330,7 +3330,10 @@ unified-toolbar {
   opacity: 0 !important;
 }
 
-/* „+“ (nur Adressbuch): eigene runde Kapsel ganz rechts, wie Apple Kontakte */
+/* „+“ (nur Adressbuch): eigene Kapsel ganz rechts, wie Apple Kontakte – in
+   den Maßen des „+“ im Kalender und in den Aufgaben (Knopf 44 × 38 px,
+   Symbol 22 px; Thunderbirds button-Regel gäbe sonst min-inline-size 5.5em
+   = 60,5 px, die Kapsel wurde ein breites Oval) */
 #mcListHeader > .mc-lh-plus {
   display: none !important;
 }
@@ -3341,7 +3344,8 @@ unified-toolbar {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  width: 38px !important;
+  width: 44px !important;
+  min-width: 0 !important;
   height: 38px !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -3358,10 +3362,10 @@ unified-toolbar {
 
 :root[mc-tab="addressBookTab"] #mcListHeader > .mc-lh-plus::before {
   content: "" !important;
-  width: 20px !important;
-  height: 20px !important;
+  width: 22px !important;
+  height: 22px !important;
   background-color: currentColor !important;
-  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M12 5v14M5 12h14%22/%3E%3C/svg%3E") center / contain no-repeat !important;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M12 5v14M5 12h14%22/%3E%3C/svg%3E") center / contain no-repeat !important;
 }
 
 /* Filter „nur ungelesene“ eingeschaltet: getönt in Akzentfarbe wie der

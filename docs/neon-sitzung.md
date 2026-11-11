@@ -6,6 +6,13 @@ nicht für Cloud-, Laptop- oder iPhone-Sitzungen. `tests/neon-hook.sh` weist bei
 jedem Verdichten) darauf hin; die Regeln für **Aufträge an neon**, die Wege zu neon und die
 `neon-board`-Regel stehen weiter in `AGENTS.md` „neon erreichen“. Wortlaute: `ENTSCHEIDUNGEN.md`.
 
+**Keine Erinnerungen an die eigene Sitzung** (11.11.2026): `send_later`, `create_trigger` mit Bindung an diese
+Sitzung und `ScheduleWakeup` nie benutzen. Geplante Läufe können neon nicht fortsetzen („session can only be used
+from your trusted devices“), scheitern immer und schicken dem Maintainer eine Fehlermeldung aufs iPhone. Auf CI
+und Hintergrundläufe im selben Zug warten (`gh run view` in einer kurzen Schleife, Hintergrundbefehl mit
+Benachrichtigung) oder dem Maintainer sagen, dass beim nächsten Gespräch nachgesehen wird. Wiederkehrende Arbeit
+gehört in die LaunchAgents auf neon (Nachtlauf, Tagesroutine, Morgenbrief), nicht in geplante Aufgaben dieser Sitzung.
+
 **Antworten von neon:** neon muss im Modus „Auto“ laufen wie die
 Cloud-Sitzungen (in der Cloud gibt es kein `bypassPermissions`). Bei
 verschiedenen Modi hält die empfangende Sitzung Nachrichten zurück, und auf

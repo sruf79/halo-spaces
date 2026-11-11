@@ -11545,21 +11545,33 @@ def run_checks(m, version, profile, results):
             await toMail();
           }
           // Mail: Ordnerliste in about:3pane (GitHub #55: oben 1 px versetzt und heller)
-          { await ruhig(800); const a3 = tm.currentAbout3Pane, fr = a3.frameElement.getBoundingClientRect();
+          // auch nach dem Ziehen der Trennlinie (Ordnerliste 100 px breiter) und über die ganze Höhe der Toolbar-Zeile
+          // (GitHub #46/#55: oben neben dem Seitenleisten-Knopf versetzt)
+          const a3 = tm.currentAbout3Pane, fp = () => Math.round(a3.document.getElementById("folderPane").getBoundingClientRect().width);
+          const WP = "extensions.mailcards.sidebarWidth", oldWP = Services.prefs.getIntPref(WP, 0), was = fp();
+          const mailLine = async () => { await ruhig(800); const fr = a3.frameElement.getBoundingClientRect();
             const rowEl = d.getElementById("unifiedToolbarContainer"), row = rowEl.getBoundingClientRect();
             const side = parseFloat(w.getComputedStyle(rowEl).getPropertyValue("--mc-sidebar-right"));
             const paneEl = a3.document.getElementById("folderPane"), pr = paneEl.getBoundingClientRect(), right = fr.left + pr.right;
-            const px = await pixels(new w.DOMRect(Math.round(right) - 3, row.bottom - 4, 5, 8));
-            const col = x => ({ up: px(x, 1), down: px(x, 6) });
-            out.mail = { off: row.left + side - right, border: a3.getComputedStyle(paneEl).borderInlineEndWidth,
-              layers: (w.getComputedStyle(rowEl).backgroundImage.match(/linear-gradient/g) || []).length - 1, cols: [col(1), col(2), col(3)] }; }
+            const px = await pixels(new w.DOMRect(Math.round(right) - 3, row.top + 2, 5, row.height + 2));
+            const col = x => ({ top: px(x, 2), up: px(x, row.height - 3), down: px(x, row.height + 1) });
+            return { off: row.left + side - right, border: a3.getComputedStyle(paneEl).borderInlineEndWidth,
+              layers: (w.getComputedStyle(rowEl).backgroundImage.match(/linear-gradient/g) || []).length - 1, cols: [col(1), col(2), col(3)] }; };
+          out.mail = await mailLine();
+          // (gemeinsame Breite der Seitenleisten wie nach dem Ziehen; übernommen beim Wechsel in die Mail)
+          try { Services.prefs.setIntPref(WP, was + 100); tm.openTab("calendar", {}); await ruhig(500); await toMail();
+                await bis(() => fp() >= was + 90, "Ordnerliste breiter", 4000).catch(() => {});
+                out.mailBreit = await mailLine(); out.mailBreit.width = [was, fp()]; }
+          finally { if (oldWP) Services.prefs.setIntPref(WP, oldWP); else Services.prefs.clearUserPref(WP);
+                    tm.openTab("calendar", {}); await ruhig(500); await toMail(); await ruhig(500); }
           return out;""")
         def same(a, b):
             return all(abs(x - y) <= 6 for x, y in zip(a, b))
-        ok = len(res) == 3 and all(v["border"] == "1px" and abs(v["off"]) <= 0.5 and v["layers"] == 2
-                 and all(same(c["up"], c["down"]) for c in v["cols"]) for v in res.values())
+        ok = len(res) == 4 and res["mailBreit"]["width"][1] > res["mailBreit"]["width"][0] \
+            and all(v["border"] == "1px" and abs(v["off"]) <= 0.5 and v["layers"] == 2
+                    and all(same(c["up"], c["down"]) and same(c.get("top", c["up"]), c["down"]) for c in v["cols"]) for v in res.values())
         return ok, f"{res}"
-    check("Bereiche: Trennlinie der Seitenleiste läuft in der Toolbar-Zeile ohne Versatz und Farbsprung weiter (Chat, Kalender, Mail)", side_line, results)
+    check("Bereiche: Trennlinie der Seitenleiste läuft in der Toolbar-Zeile ohne Versatz und Farbsprung weiter (Chat, Kalender, Mail, auch nach dem Ziehen und bis oben)", side_line, results)
 
     def today_closed():
         # Today-Pane aus: keine graue Fläche oben rechts neben dem Knopf

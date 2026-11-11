@@ -9870,15 +9870,20 @@ def run_checks(m, version, profile, results):
         res = m.js("""
           // Thunderbird setzt [calendar-readonly] über einen Beobachter – darauf warten
           // statt fest 400 ms (Mac dunkel unter Last: noch 0.75 nach dem Zurücksetzen)
+          // Die Zeile jedes Mal neu suchen: Thunderbird baut sie bei erneuter
+          // Anmeldung des Kalenders neu auf (addCalendarItem), eine gemerkte
+          // Zeile behielte dann [calendar-readonly] (Mac dunkel: 0.75 nach dem Zurücksetzen)
           await toCalendar(); const c = testCalendar(); c.readOnly = true;
-          const li = [...d.querySelectorAll("#calendar-list li")].find(l => /Halo Test/.test(l.textContent));
-          await until(() => li?.hasAttribute("calendar-readonly"), 4000); await ruhig(300);
-          const shown = getComputedStyle(li.querySelector(".calendar-readstatus")).opacity;
+          const zeile = () => d.getElementById(`calendar-listitem-${c.id}`)
+            || [...d.querySelectorAll("#calendar-list li")].find(l => /Halo Test/.test(l.textContent));
+          const deck = () => getComputedStyle(zeile().querySelector(".calendar-readstatus")).opacity;
+          await until(() => zeile()?.hasAttribute("calendar-readonly"), 4000); await ruhig(300);
+          const shown = deck();
           c.readOnly = false;
-          await until(() => !li.hasAttribute("calendar-readonly") && getComputedStyle(li.querySelector(".calendar-readstatus")).opacity == "0", 4000);
-          const hidden = getComputedStyle(li.querySelector(".calendar-readstatus")).opacity;
-          return [shown, hidden];""")
-        return float(res[0]) > 0 and float(res[1]) == 0, f"schreibgeschützt {res[0]}, normal {res[1]}"
+          await until(() => !zeile().hasAttribute("calendar-readonly") && deck() == "0", 4000);
+          const li = zeile();
+          return [shown, deck(), li.hasAttribute("calendar-readonly"), li.hasAttribute("calendar-readfailed"), c.readOnly];""")
+        return float(res[0]) > 0 and float(res[1]) == 0, f"schreibgeschützt {res[0]}, normal {res[1]} (readonly {res[2]}, readfailed {res[3]}, Kalender readOnly {res[4]})"
     check("Kalenderliste zeigt Status bei Schreibschutz", readstatus, results)
 
     def splitter():

@@ -1668,16 +1668,18 @@ function motionMs(ms) {
 }
 
 // Gemeinsamer Takt für die Ein-/Ausblend-Animationen (Stufe 1 der Vereinheitlichung): läuft über Bildwechsel
-// (requestAnimationFrame) von 0 bis 1; bild(p, k) bekommt den Verlauf p = kurve(k) (k = Fortschritt), ende(k) den
-// Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer Umkehr wieder am Anfang). Beginn nach zwei Bildwechseln
-// (Aufbau abwarten). umkehren() kehrt an der aktuellen Stelle um (Klick während der Animation).
+// (requestAnimationFrame) von 0 bis 1; bild(p, k, letzt) bekommt den Verlauf p = kurve(k) (k = Fortschritt) und ob es
+// das letzte Bild ist (ende folgt im selben Aufruf), ende(k) den Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer
+// Umkehr wieder am Anfang). Beginn nach zwei Bildwechseln (Aufbau abwarten). umkehren() kehrt an der aktuellen Stelle
+// um (Klick während der Animation).
 function animiere(win, { dauer, kurve, bild, ende, beiUmkehr }) {
   let k = 0, dir = 1, last = null;
   const step = now => {
     k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / dauer)));
     last = now;
-    bild(kurve(k), k);
-    if (dir > 0 ? k < 1 : k > 0) {
+    const letzt = !(dir > 0 ? k < 1 : k > 0);
+    bild(kurve(k), k, letzt);
+    if (!letzt) {
       win.requestAnimationFrame(step);
       return;
     }
@@ -11117,7 +11119,7 @@ class CardEnhancer {
         dauer: DURATION,
         kurve: curve,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),
-        bild: p => {
+        bild: (p, k, letzt) => {
           // Diagnose (Prüfzweig): Kosten je Bild in w.__mcSideTrace, wenn die Prüfung das Feld anlegt
           const T = w.__mcSideTrace, t0 = T && w.performance.now();
           const W = full * (show ? p : 1 - p);
@@ -11134,7 +11136,12 @@ class CardEnhancer {
             setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
           }
           const t2 = T && w.performance.now();
-          updateSideEdge();
+          // im letzten Bild nicht: ende() stellt gleich darauf die Stile zurück und richtet dann einmal aus – ein
+          // Ausrichten davor wäre ein zweiter voller Layout-Durchlauf im selben Bild (mit dem Ende der Bereiche-Leiste
+          // im selben Bild der dritte; in der Windows-VM 20–26 ms Skript im Endbild, ein verlorenes Bild)
+          if (!letzt) {
+            updateSideEdge();
+          }
           if (T) {
             const t3 = w.performance.now();
             T.push([Math.round(t0 * 10) / 10, Math.round((t1 - t0) * 100) / 100, Math.round((t2 - t1) * 100) / 100, Math.round((t3 - t2) * 100) / 100]);

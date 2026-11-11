@@ -12139,6 +12139,95 @@ def run_checks(m, version, profile, results):
         return not bad, f"{gemessen} Messungen; nach dem Ende noch bewegt: {bad}"
     check("Animation: Nach dem Ein- und Ausblenden der Seitenleiste bewegt sich in keinem Bereich mehr etwas (kein Sprung am Ende)", anim_ende, results)
 
+    def sidebar_button_no_jump():
+        # Seitenleiste über den Knopf ein- und ausblenden (ab Dia 2/4 samt Bereiche-Leiste), in verschiedenen Breiten,
+        # mit und ohne Today-Pane, mit und ohne gewählten Kontakt bzw. gewählte Aufgabe (Maintainer 11.11.2026: Sprünge
+        # in der echten Nutzung, die Prüfungen bei 1500 px maßen das Falsche): Mit jedem Bildwechsel (tests/sprung_lib.py)
+        # dürfen die Ampel-Fläche (.titlebar-buttonbox, macOS: die nativen Knöpfe folgen ihr), der Anfang der Toolbar-Zeile
+        # (erster Abstandhalter) und die Knöpfe des Bereichs – Adressbuch „New“ und Anzeigeoptionen, Aufgaben „+“, „Mark“
+        # und „…“, Kalender Day/Week/Multiweek/Month und „+“ – nie weiter springen als die Kante der Seitenleiste in
+        # demselben Bild (+3 px), und nach dem Ende der Bewegung nichts mehr um mehr als 1,5 px. Vorher: die Ampel-Fläche
+        # kippte mit #spacesToolbar[hidden] zwischen Fluss und „fixed“ (Zeilenanfang 84 px, Ampel 2 px), die Werte des
+        # Listenkopfs standen beim Einblenden ab dem ersten Bild am Endplatz und blieben beim Ausblenden bis zum letzten
+        # am Anfang (Adressbuch 207 px, Kalender 96 px, Aufgaben 28 px).
+        # Verdecktes Fenster: nicht gemessen (übersprungen, nicht rot)
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import sprung_lib as S
+        bereiche = [
+            ("Adressbuch", "addressbook", ["mc-lh-more", "mc-lh-plus"],
+             'tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000);'),
+            ("Aufgaben", "tasks", ["mc-lh-more", "#task-actions-markcompleted", "[new-event]"],
+             'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
+            ("Kalender", "calendar", ["#calTabDay", "#calTabWeek", "#calTabMultiweek", "#calTabMonth", "[new-event]"],
+             'await toCalendar(); w.switchToView?.("month"); await ruhig(1500);'),
+            ("Mail", "mail", [], "await toMail();"),
+            ("Chat", "chat", [], 'tm.openTab("chat", {}); await bis(() => tm.currentTabInfo?.mode?.name == "chat" && d.getElementById("listPaneBox")?.getBoundingClientRect().width > 0, "Chat", 8000); await ruhig(1500);'),
+        ]
+        wahl = {
+            "addressbook": ('''const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                const cw = tm.currentTabInfo.browser.contentWindow;
+                if (!w.__sprCard) { const book = MailServices.ab.directories.find(b => !b.readOnly); const card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+                  card.displayName = "Halo Sprung"; card.primaryEmail = "sprung@example.invalid"; w.__sprCard = [book, book.addCard(card)]; await ruhig(800); }
+                cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1000);''',
+                            'try { tm.currentTabInfo.browser.contentWindow.cardsPane.cardsList.selectedIndex = -1; } catch {} await ruhig(800);'),
+            "tasks": ('''if (!w.__sprTodo) { const c = testCalendar(); const t = new (ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs").CalTodo)(); t.title = "Halo Sprung"; w.__sprTodo = await c.addItem(t); await ruhig(1500); }
+                const tree = d.getElementById("calendar-task-tree"); if (tree?.view?.rowCount) tree.view.selection.select(0); await ruhig(1000);''',
+                      'try { d.getElementById("calendar-task-tree")?.view?.selection?.clearSelection(); } catch {} await ruhig(800);'),
+        }
+        if m.js("return d.visibilityState;") == "hidden":
+            return True, "Testfenster verdeckt – übersprungen"
+        # Testkalender für die Aufgabe (im Volllauf schon da, mit --only nicht)
+        m.js('''if (!testCalendar()) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Test"; cal.manager.registerCalendar(c); await ruhig(1000); } return 1;''')
+        mac = sys.platform == "darwin"
+        bad, gemessen = [], 0
+        try:
+            for name, modus, knoepfe, geh in bereiche:
+                m.js(geh + " return 1;")
+                for breite in (1280, 1728):
+                    m.js(f"w.resizeTo({breite}, 900); await until(() => w.outerWidth == {breite}, 3000); await ruhig(1000); return 1;")
+                    for today in ((1, 0) if modus in ("calendar", "tasks") else (0,)):
+                        m.js(f'''const tp = d.getElementById("today-pane-panel"); const offen = () => tp && !tp.collapsed && tp.getBoundingClientRect().width > 0;
+                            if (!!{today} != offen()) {{ d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); }} return 1;''')
+                        for gewaehlt in ((1, 0) if modus in wahl else (0,)):
+                            if modus in wahl:
+                                m.js(wahl[modus][gewaehlt] + " return 1;")
+                            if m.js(S.SAMPLER + f'const k = w.__mcSpr.kern("{modus}"); return k ? Math.round(k.getBoundingClientRect().width) : -1;') <= 0:
+                                m.js('d.getElementById("spacesPinnedButton").click(); await ruhig(1500); return 1;')
+                            for label in ("aus", "ein"):
+                                fr = S.messen(m, modus, 'd.getElementById("spacesPinnedButton").click();')
+                                a = S.auswerten(fr, 3)
+                                if "fehler" in a:
+                                    continue
+                                gemessen += 1
+                                lage = f"{name} {breite} px tp{today} gewählt{gewaehlt} {label}"
+                                # Ampel-Fläche (nur macOS: sonst sitzen die Fensterknöpfe rechts), Zeilenanfang (erster Abstandhalter;
+                                # der zweite in Mail folgt der Nachrichtenliste, eigener Weg), Knöpfe des Bereichs
+                                spacer = min((k for f in fr for k in f["e"] if k.startswith("top:[spacer]@")), key=lambda k: int(k.rsplit("@", 1)[1]), default="")
+                                passt = lambda k: (mac and "titlebar-buttonbox." in k) or k == spacer or any(x in k for x in knoepfe)
+                                for k, v in a["ruck"].items():
+                                    if passt(k) and v["gross"]:
+                                        bad.append(f"{lage}: {k} springt {v['gross'][0][1]:.0f} px in Bild {v['gross'][0][0]} (Kante höchstens {a['kante']} px"
+                                                   + (f", Weg {a['weg'][k]} × Kante" if k in a.get("weg", {}) else "") + ")")
+                                for k, v in a["ende"].items():
+                                    if passt(k) and max(x[1] for x in v) > 1.5:
+                                        bad.append(f"{lage}: {k} nach dem Ende noch {max(x[1] for x in v)} px")
+                                # Ampel-Fläche: durchgehend an derselben Stelle (auch beim Zeilenanfang 84 ↔ 0)
+                                if mac:
+                                    box = [f["e"][k] for f in fr for k in f["e"] if "titlebar-buttonbox." in k]
+                                    if box and (max(b[0] for b in box) - min(b[0] for b in box) > 0.5 or max(b[1] for b in box) - min(b[1] for b in box) > 0.5):
+                                        bad.append(f"{lage}: Ampel-Fläche bewegt sich {min(b[0] for b in box)}–{max(b[0] for b in box)} / {min(b[1] for b in box)}–{max(b[1] for b in box)}")
+        finally:
+            m.js('''try { const [book, card] = w.__sprCard || []; if (card) book.deleteCards([card]); delete w.__sprCard; } catch {}
+                try { if (w.__sprTodo) { await testCalendar().deleteItem(w.__sprTodo); delete w.__sprTodo; } } catch {}
+                for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+                if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1500); }
+                w.resizeTo(1500, 900); await ruhig(800); return 1;''')
+        if not gemessen:
+            return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
+        return not bad, f"{gemessen} Messungen; " + ("; ".join(bad[:12]) if bad else "kein Sprung")
+    check("Seitenleiste: Ein-/Ausblenden über den Knopf ohne Sprung von Ampel-Fläche, Zeilenanfang und Knöpfen (Adressbuch New/Anzeige, Aufgaben +/Mark/…, Kalender Day…Month) "
+          "in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
+
     def anim_heute():
         # Heute-Fenster ein-/ausblenden (Mail): kein Knopf der Toolbar (Pillen, Chevron „weitere Aktionen“, Suchfeld) darf
         # schlagartig erscheinen oder verschwinden – sie blenden weich ein bzw. aus (Sichtbarkeit springt nie um mehr als 0,5

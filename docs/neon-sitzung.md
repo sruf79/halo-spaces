@@ -85,17 +85,57 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     `model: "sonnet"`.
   - Kennzeichen im Auftrag: `[opus]` erzwingt Opus, `[sonnet]` erzwingt
     Sonnet.
-  - **Eskalation bei hartnäckigem Rot (Maintainer 11.11.2026):** Bleibt dieselbe
-    Prüfung nach einer Reparatur rot (CI, Release gesperrt, Windows), geht die
-    nächste Reparatur an das nächsthöhere Modell: 1. Versuch Sonnet (Flackern,
-    Routine) bzw. Opus (Code), 2. Versuch Opus, ab dem 3. Versuch Fable
-    (`model: "fable"`) mit dem Skill `systematic-debugging` (Ursache belegen,
-    Beweis vor dem Fix, ein Fix je Versuch, nie die Prüfung abschwächen). Ist ein
-    Release blockiert, gilt ab dem ersten Fehlversuch Opus und ab dem zweiten
-    Fable. Der Fehlversuch zählt je Prüfung, nicht je Tag; der Vorgänger wird
-    gestoppt, der Nachfolger liest dessen Zweig und Logs als Hinweis, nicht als
-    Beweis. Fable nur, wenn das 5-Stunden-Fenster unter 50 % liegt
-    (`FABLE_5H_MAX`); sonst zuerst Pause bis zum Fensterende bzw. Opus.
+  - **Fehlerbehebung bei hartnäckigem Rot (Maintainer 11.11.2026, an vier
+    Fällen vom 10./11.11. gegengeprüft):** Gilt für jede rote Prüfung (CI,
+    Nachtlauf, gesperrtes Release, Windows).
+    0. **Wiederholen auf der roten Plattform:** Mac lokal 8× mit `--only`
+       (nur wenn kein `Runner.Worker` läuft); Linux und Windows mit gezieltem
+       CI-Lauf (`docs/tests.md`, je rund 3 Min statt 22 bzw. 25 im vollen
+       Lauf). Grün auf einer anderen Plattform beweist kein Flackern. Rot
+       nur im vollen Lauf, mit `--only` grün, heißt Abhängigkeit von früher
+       laufenden Prüfungen. Werden nach einem Push Prüfungen neu rot, zuerst
+       dessen Commits und die vorher laufenden Prüfungen ansehen.
+    1. **Diagnoselauf vor dem Fix:** Die Prüfung gibt alle Messwerte und den
+       Zustand vor dem Messen aus; gezielter Lauf nur dieser Prüfung, bei
+       Abhängigkeit der volle Job der Plattform (Linux belegt neon nicht).
+    2. **Ursache belegen** mit dem Skill `systematic-debugging` (ab dem
+       1. Versuch Pflicht). Timing/Runner nur, wenn die Wiederholung auf
+       derselben Plattform in derselben Reihenfolge wechselnd grün und rot
+       ist und die Messwerte keinen fremden Zustand zeigen: dann die Prüfung
+       stabilisieren (auf Bedingungen warten, `bis()`), Sonnet bzw. Opus.
+       Sonst echter Fehler, im Code oder in der Prüfung, wenn sie belegbar
+       etwas anderes misst als ihr Name verlangt.
+    3. **Bis zu 3 Hypothesen gleichzeitig**, je eigener Zweig `pruef/<name>-<n>`
+       mit einem gezielten Lauf, geführt von einem Agenten (nicht drei).
+       Linux läuft parallel auf GitHub; Mac und Windows warten nacheinander
+       auf neons Runner. Eine Gegenprobe ohne Fix (Stand `main`) läuft mit.
+       GitHub höchstens alle 60 s abfragen.
+    4. **Ein belegter Fix, nie die Prüfung abschwächen:** keine Toleranz
+       anheben, keine Plattform ausnehmen, kein `bekannt=True`, keinen Zustand
+       vorab zurücksetzen, den Code oder eine andere Prüfung fälschlich
+       hinterlässt (das verdeckt nur das Symptom); das geht nur mit dem
+       Maintainer. Modell: 1. Versuch Opus (Stabilisieren Sonnet bzw. Opus),
+       2. und 3. Versuch Fable (`model: "fable"`); bei gesperrtem Release
+       dieselben Stufen. Ein gescheitertes Stabilisieren zählt als
+       Fehlversuch, danach gilt der Weg „echter Fehler“. Fable höchstens ein
+       Agent gleichzeitig und nur, wenn das 5-Stunden-Fenster unter 50 % liegt
+       (`FABLE_5H_MAX`, `zsh tests/kontingent.sh`); sonst Opus oder Pause bis
+       zum Fensterende. Der Vorgänger wird gestoppt, der Nachfolger liest
+       dessen Zweig, Logs und Diagnose als Hinweis, nicht als Beweis.
+    5. **Kontrolle:** gezielter Lauf der betroffenen Plattform zweimal grün;
+       war die Ursache eine Abhängigkeit, zusätzlich einmal der volle Job.
+    6. **Voller Lauf** (Linux und Mac, Windows) erst vor `main` bzw. dem
+       Release.
+
+    Gezählt wird je Prüfung, nicht je Tag oder Sitzung (Notiz mit Versuch,
+    Modell und Befund im Board-Eintrag der Prüfung). Mehrere Prüfungen mit
+    derselben belegten Ursache zählen als eine; eine neue, belegte Ursache an
+    derselben Prüfung beginnt wieder bei Opus, Fable-Versuche zählen für die
+    Stopp-Regel aber weiter. **Stopp-Regel:** Nach zwei Fable-Versuchen ohne
+    belegte Ursache keine weitere Reparatur, Übergabe an den Maintainer mit
+    Befund (Messwerte, verworfene Hypothesen, Zweige). Der Nachtlauf behält
+    seine Grenze von zwei Reparaturrunden; die Zählung läuft in der nächsten
+    Sitzung weiter.
   - **Im Zweifel Opus.** Gilt für jede Einstufung.
   - Scheitert ein Auftrag mit Sonnet einmal, sofort mit Opus wiederholen.
   - Kein `/model`-Wechsel in neon selbst (der Zwischenspeicher ginge

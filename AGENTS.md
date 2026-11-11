@@ -103,7 +103,9 @@ dann den Maintainer bitten (keine Kennungen als Weg).
 - Board gezielt fragen („offene Einträge mit Titel `Kalender:`“), nicht die ganze Liste.
 - Modell-Kennzeichen: `[opus]` (Code, Fehlersuche, Design, Analysen), `[sonnet]` (Routine); ohne
   Kennzeichen stuft neon selbst ein.
-- **Rot bleibt rot → höheres Modell:** Je Fehlversuch an derselben roten Prüfung eine Stufe höher (1. Reparatur Sonnet bzw. Opus, 2. Opus, ab der 3. Fable mit Skill `systematic-debugging`: Ursache belegen, dann ein Fix); `docs/neon-sitzung.md`.
+- **Rot bleibt rot → Ursache belegen, dann höheres Modell:** auf der roten Plattform wiederholen (Mac lokal 8× `--only`, Linux/Windows gezielter CI-Lauf; nur im vollen Lauf rot = Abhängigkeit, kein Flackern), Diagnoselauf vor dem Fix, Skill `systematic-debugging`,
+  ein belegter Fix, nie die Prüfung abschwächen. Je Fehlversuch an derselben Prüfung höher (1. Opus bzw. Stabilisieren mit Sonnet/Opus, 2. und 3. Fable, höchstens ein Fable-Agent, nur unter 50 % im
+  5-Stunden-Fenster); nach zwei Fable-Versuchen ohne belegte Ursache Übergabe an den Maintainer; Schritte 0–6 in `docs/neon-sitzung.md`.
 - Arbeitsweise von neon und neon-board, Antworten, Sitzung unter anderem Namen finden:
   `docs/neon-sitzung.md`.
 

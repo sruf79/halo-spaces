@@ -349,6 +349,15 @@ kein jq/python, Zeit nicht lesbar, ci-noetig nicht ausführbar) Exitcode 0. Prü
 (Zeit über `HALO_JETZT=HHMM`, Runner über `HALO_RUNNER`, ci-noetig über `HALO_CI_NOETIG` simuliert). Abschalten: den Eintrag
 aus `~/.claude/settings.json` entfernen.
 
+## Erzeugt-Hook (ab 11.11.2026)
+
+`tests/erzeugt-hook.sh` (Kopie `~/.config/halo-spaces/erzeugt-hook.sh`, PreToolUse für die Werkzeuge Edit und Write in
+`~/.claude/settings.json`) sperrt mit Exitcode 2 das Bearbeiten erzeugter Dateien: `extension/theme.css`, alles unter `dist/`
+(nur in einem Stand mit `build.sh`) und `*.xpi`; die Meldung nennt die Quelle (`chrome/userChrome.css` bzw. `chrome/spaces.css`,
+auch für den Bereiche-Block, den der Hook nicht erkennt). Bash bleibt frei, `build.sh` und `release.sh` erzeugen die Dateien
+weiter. Fail open, Schalter `~/halo-nacht/SPERRE_AUS` wie oben. Prüfung: `zsh tests/erzeugt-hook-test.sh`; nach Änderung die
+Kopie erneuern. Abschalten: Eintrag aus `~/.claude/settings.json` entfernen (Sicherung in `~/halo-sicherung/`).
+
 ## halo-zsh: eigene Kopie von zsh für Routinen mit Mausbewegung
 
 Nachtlauf, Wochenprüfung, Doku-Prüfung und Rundgang starten über `~/.config/halo-spaces/bin/halo-zsh` statt `/bin/zsh` (Kopie von `/bin/zsh`, mit `codesign --force --sign -` signiert; `tests/mac-mini-setup.sh` legt sie an). Grund: Die Freigabe unter Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen gilt für genau diese Datei; `/bin/zsh` selbst soll sie nicht bekommen, sonst dürfte jedes zsh-Skript die Maus bewegen. Nach einem macOS-Update kann `/bin/zsh` sich ändern; `mac-mini-setup.sh --check` weist dann hin (es ersetzt die Kopie nie stillschweigend, weil die Freigabe an der Datei hängt). Dann `halo-zsh` löschen, `mac-mini-setup.sh` ausführen (kopiert und signiert neu) und der Maintainer gibt die neue Datei unter Bedienungshilfen frei. Alle übrigen LaunchAgents bleiben bei `/bin/zsh`.

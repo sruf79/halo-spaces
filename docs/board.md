@@ -81,6 +81,10 @@ Zustimmung) stehen weiter in `AGENTS.md`. Wortlaute: `ENTSCHEIDUNGEN.md`.
   Liste, Design-Durchsicht mit `ui_tour.py`), schaut zuerst im Index
   nach einer passenden Vorlage und vergleicht damit; fehlt eine, im
   Bericht bzw. Gespräch nennen, welche Vorlage helfen würde.
+- **Bildvarianten** (Freigabe des Maintainers 11.11.2026): Für neue Einträge mit sichtbarem Aussehen und ohne
+  Apple-Vorlage erstellt die Tagesroutine vor dem Bauen zwei Varianten (A/B) als Bild aus dem Testprofil (keine echten
+  Mails; Datei neben einer privaten Artifact-Seite, Link mit Name und SHA-256) und legt sie in den Morgenbrief; der
+  Maintainer antwortet „A“ oder „B“. Apple-Vorlage und Vorschaubild vor der Veröffentlichung bleiben wie bisher.
 
 ## Bilder-Erinnerung
 

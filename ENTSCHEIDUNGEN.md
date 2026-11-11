@@ -417,3 +417,7 @@ Bezug: Entscheidungsbilder `~/halo-analyse/entscheidungsbilder/` (favoriten-A.pn
 Wortlaut des Maintainers, Leitstelle (Sitzung project.analysis.control), 11.11.2026: „1.) ja 2.) nicht umsetzen“. Weitergabe durch die Leitstelle an neon.
 Bedeutung (Deutung der Leitstelle): 1.) Die Dauerfreigaben Stufen A bis D gelten wie in `docs/dauerfreigaben.md`. 2.) M30 (automatisches /clear bei neon) wird nicht umgesetzt, die Entscheidung vom 6.11.2026 bleibt; der Board-Eintrag M30 wird von neon-board geschlossen.
 Bezug: `docs/dauerfreigaben.md`, `docs/umbau.md`.
+
+### 11.11.2026: Hartnäckiges Rot → höheres Modell mit systematischer Fehlersuche (Maintainer in neon)
+Wortlaut des Maintainers, Sitzung neon, 11.11.2026: „nein der release bleibt nicht für den nachtlauf. wenn der fehler so oft rot ist müssen wir einen subagenten mit höherem modell starten um das problem effizient zu lösen mittels dem skill superpowers /systematic-debugging“; danach: „wir sollten irgendwo festlegen: je öfter ein problem nicht gelöst wird und der testlauf rot bleibt, desto höher muss das modell für die problemlösung werden.“
+Umsetzung: AGENTS.md (Regel „Rot bleibt rot → höheres Modell“), `docs/neon-sitzung.md` (Stufen und Ausnahmen; die Fable-Grenze über das 5-Stunden-Fenster und die Stufen nennt neon, nicht der Wortlaut).

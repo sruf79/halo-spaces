@@ -85,6 +85,17 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     `model: "sonnet"`.
   - Kennzeichen im Auftrag: `[opus]` erzwingt Opus, `[sonnet]` erzwingt
     Sonnet.
+  - **Eskalation bei hartnäckigem Rot (Maintainer 11.11.2026):** Bleibt dieselbe
+    Prüfung nach einer Reparatur rot (CI, Release gesperrt, Windows), geht die
+    nächste Reparatur an das nächsthöhere Modell: 1. Versuch Sonnet (Flackern,
+    Routine) bzw. Opus (Code), 2. Versuch Opus, ab dem 3. Versuch Fable
+    (`model: "fable"`) mit dem Skill `systematic-debugging` (Ursache belegen,
+    Beweis vor dem Fix, ein Fix je Versuch, nie die Prüfung abschwächen). Ist ein
+    Release blockiert, gilt ab dem ersten Fehlversuch Opus und ab dem zweiten
+    Fable. Der Fehlversuch zählt je Prüfung, nicht je Tag; der Vorgänger wird
+    gestoppt, der Nachfolger liest dessen Zweig und Logs als Hinweis, nicht als
+    Beweis. Fable nur, wenn das 5-Stunden-Fenster unter 50 % liegt
+    (`FABLE_5H_MAX`); sonst zuerst Pause bis zum Fensterende bzw. Opus.
   - **Im Zweifel Opus.** Gilt für jede Einstufung.
   - Scheitert ein Auftrag mit Sonnet einmal, sofort mit Opus wiederholen.
   - Kein `/model`-Wechsel in neon selbst (der Zwischenspeicher ginge

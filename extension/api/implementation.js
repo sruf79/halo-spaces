@@ -9788,18 +9788,11 @@ class CardEnhancer {
       if (w.__mcSideFloat) {
         return;
       }
-      // Diagnose (Prüfzweig): Zeitpunkt und Dauer je Aufruf in w.__mcEndeTrace, wenn die Prüfung das Feld anlegt
-      const T = w.__mcEndeTrace, t0 = T && w.performance.now();
       updateSideEdgeLayout();
-      const t1 = T && w.performance.now();
       try {
         squeezeSpace();
       } catch (e) {
         log("toolbar overflow error", e);
-      }
-      if (T) {
-        const t2 = w.performance.now();
-        T.push(["edge", Math.round(t0), Math.round((t1 - t0) * 10) / 10, Math.round((t2 - t1) * 10) / 10, new Error().stack.split("\n").slice(1, 4).map(s => s.replace(/@.*\//, "@").replace(/:\d+$/, "")).join("<")]);
       }
     };
     this.restorers.push(() => removeOverflowButton(w.document));
@@ -11120,11 +11113,8 @@ class CardEnhancer {
         kurve: curve,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),
         bild: (p, k, letzt) => {
-          // Diagnose (Prüfzweig): Kosten je Bild in w.__mcSideTrace, wenn die Prüfung das Feld anlegt
-          const T = w.__mcSideTrace, t0 = T && w.performance.now();
           const W = full * (show ? p : 1 - p);
           setW(W);
-          const t1 = T && w.performance.now();
           if (edgeEnd) {
             // Fortschritt der Breite 0 → 1 (Einblenden)
             const q = full ? W / full : 1;
@@ -11135,20 +11125,14 @@ class CardEnhancer {
           if (followTab && !edgeEnd) {
             setBarVar(topDoc, "--mc-tab-offset", `${Math.max(0, Math.round(tabOffset0 + W - W0))}px`);
           }
-          const t2 = T && w.performance.now();
           // im letzten Bild nicht: ende() stellt gleich darauf die Stile zurück und richtet dann einmal aus – ein
           // Ausrichten davor wäre ein zweiter voller Layout-Durchlauf im selben Bild (mit dem Ende der Bereiche-Leiste
           // im selben Bild der dritte; in der Windows-VM 20–26 ms Skript im Endbild, ein verlorenes Bild)
           if (!letzt) {
             updateSideEdge();
           }
-          if (T) {
-            const t3 = w.performance.now();
-            T.push([Math.round(t0 * 10) / 10, Math.round((t1 - t0) * 100) / 100, Math.round((t2 - t1) * 100) / 100, Math.round((t3 - t2) * 100) / 100]);
-          }
         },
         ende: k => {
-          const T = w.__mcEndeTrace, t0 = T && w.performance.now();
           const shown = show == (k >= 1);
           delete el.__mcReverse;
           for (const [prop, value, prio] of saved) {
@@ -11173,14 +11157,9 @@ class CardEnhancer {
           el.classList.remove("mc-side-anim");
           el.__mcAnimating = false;
           delete el.__mcShowing;
-          const t1 = T && w.performance.now();
           updateSideEdge();
-          const t2 = T && w.performance.now();
           sidebarTip?.();
           placeSideGrip();
-          if (T) {
-            T.push(["ende", Math.round(t0), Math.round((t1 - t0) * 10) / 10, Math.round((t2 - t1) * 10) / 10, Math.round((w.performance.now() - t2) * 10) / 10]);
-          }
         },
       });
       el.__mcReverse = () => anim.umkehren();
@@ -15335,11 +15314,9 @@ class CardEnhancer {
         return;
       }
       const shown = showing == (k >= 1);
-      const T = w.__mcEndeTrace, t0 = T && w.performance.now();
       if (!shown && !spaces.isHidden) {
         spaces.toggleToolbar(true);
       }
-      const t1 = T && w.performance.now();
       clear();
       root.style.removeProperty("--mc-spaces-w");
       w.__mcColumnFollow?.();
@@ -15347,22 +15324,12 @@ class CardEnhancer {
       delete w.__mcSpacesJump;
       w.__mcSpacesAnimating = false;
       delete w.__mcSpacesReverse;
-      const t2 = T && w.performance.now();
       onDone?.();
-      const t3 = T && w.performance.now();
       const realign = () => {
-        const Tr = w.__mcEndeTrace, r0 = Tr && w.performance.now();
         this.offsetUpdaters?.forEach(fn => fn());
-        const r1 = Tr && w.performance.now();
         this.sideEdgeUpdaters?.forEach(fn => fn());
-        if (Tr) {
-          Tr.push(["realign", Math.round(r0), Math.round((r1 - r0) * 10) / 10, Math.round((w.performance.now() - r1) * 10) / 10]);
-        }
       };
       realign();
-      if (T) {
-        T.push(["spacesEnde", Math.round(t0), Math.round((t1 - t0) * 10) / 10, Math.round((t2 - t1) * 10) / 10, Math.round((t3 - t2) * 10) / 10, Math.round((w.performance.now() - t3) * 10) / 10]);
-      }
       w.setTimeout(realign, 30);
     };
     w.requestAnimationFrame(() => w.requestAnimationFrame(step));

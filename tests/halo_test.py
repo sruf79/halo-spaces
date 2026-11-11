@@ -10002,17 +10002,24 @@ def run_checks(m, version, profile, results):
           // Die Zeile jedes Mal neu suchen: Thunderbird baut sie bei erneuter
           // Anmeldung des Kalenders neu auf (addCalendarItem), eine gemerkte
           // Zeile behielte dann [calendar-readonly] (Mac dunkel: 0.75 nach dem Zurücksetzen)
-          await toCalendar(); const c = testCalendar(); c.readOnly = true;
+          // Vorbedingung: Fehlerstatus früherer Prüfungen löschen – ein einziger gescheiterter Zugriff auf den Testkalender
+          // (z. B. Löschen einer schon gelöschten Aufgabe) setzt currentStatus, Thunderbird zeigt dann „Lesen fehlgeschlagen“
+          // mit demselben Symbol (CI mac hell 11.11.: readfailed True, 0.75 nach dem Zurücksetzen)
+          await toCalendar(); const c = testCalendar();
           const zeile = () => d.getElementById(`calendar-listitem-${c.id}`)
             || [...d.querySelectorAll("#calendar-list li")].find(l => /Halo Test/.test(l.textContent));
+          const vorher = c.getProperty("currentStatus");
+          c.setProperty("currentStatus", Cr.NS_OK);
+          await until(() => zeile() && !zeile().hasAttribute("calendar-readfailed"), 4000);
+          c.readOnly = true;
           const deck = () => getComputedStyle(zeile().querySelector(".calendar-readstatus")).opacity;
           await until(() => zeile()?.hasAttribute("calendar-readonly"), 4000); await ruhig(300);
           const shown = deck();
           c.readOnly = false;
           await until(() => !zeile().hasAttribute("calendar-readonly") && deck() == "0", 4000);
           const li = zeile();
-          return [shown, deck(), li.hasAttribute("calendar-readonly"), li.hasAttribute("calendar-readfailed"), c.readOnly];""")
-        return float(res[0]) > 0 and float(res[1]) == 0, f"schreibgeschützt {res[0]}, normal {res[1]} (readonly {res[2]}, readfailed {res[3]}, Kalender readOnly {res[4]})"
+          return [shown, deck(), li.hasAttribute("calendar-readonly"), li.hasAttribute("calendar-readfailed"), c.readOnly, Components.isSuccessCode(vorher ?? Cr.NS_OK) ? "ok" : "0x" + (vorher >>> 0).toString(16)];""")
+        return float(res[0]) > 0 and float(res[1]) == 0, f"schreibgeschützt {res[0]}, normal {res[1]} (readonly {res[2]}, readfailed {res[3]}, Kalender readOnly {res[4]}, Status vorher {res[5]})"
     check("Kalenderliste zeigt Status bei Schreibschutz", readstatus, results)
 
     def splitter():

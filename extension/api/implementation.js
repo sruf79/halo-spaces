@@ -378,21 +378,25 @@ function hookAppearanceChoice(cw, restorers = null) {
   group.hidden = colorGroup.hidden;
   const legend = doc.createElementNS(X, "legend");
   legend.textContent = tr("Appearance");
-  const row = doc.createXULElement("hbox");
-  row.setAttribute("align", "center");
+  // Bildauswahl wie Thunderbirds „Message list view style“ (Klasse appearance-options):
+  // drei Kacheln Hell, Dunkel, Auto mit Fenstergrafik wie in den Systemeinstellungen
   const label = doc.createXULElement("label");
   label.setAttribute("value", tr(IS_MAC ? "Light, dark or follow macOS" : "Light, dark or follow the system"));
-  label.setAttribute("flex", "1");
-  const list = doc.createXULElement("menulist");
+  label.setAttribute("control", "mcAppearance");
+  const list = doc.createXULElement("radiogroup");
   list.id = "mcAppearance";
-  const popup = doc.createXULElement("menupopup");
-  for (const [value, text] of [["auto", tr(IS_MAC ? "Automatic (like macOS)" : "Automatic (like the system)")], ["light", tr("Light")], ["dark", tr("Dark")]]) {
-    const item = doc.createXULElement("menuitem");
+  list.className = "indent appearance-options mc-appearance-tiles";
+  for (const [value, text, tip] of [["light", tr("Light")], ["dark", tr("Dark")], ["auto", tr("Auto"), tr(IS_MAC ? "Automatic (like macOS)" : "Automatic (like the system)")]]) {
+    const item = doc.createXULElement("radio");
+    item.id = `mcAppearance-${value}`;
     item.setAttribute("value", value);
     item.setAttribute("label", text);
-    popup.appendChild(item);
+    if (tip) {
+      item.setAttribute("tooltiptext", tip);
+    }
+    list.appendChild(item);
   }
-  list.appendChild(popup);
+  const row = doc.createXULElement("vbox");
   row.append(label, list);
   // eigenes Theme (keins der drei): nur ein Hinweis, nichts wird umgestellt (GitHub #55)
   const note = doc.createElementNS(X, "p");
@@ -412,8 +416,7 @@ function hookAppearanceChoice(cw, restorers = null) {
       list.value = key;
     } else {
       // keine der drei Wahlen trifft zu: Auswahl leer statt fälschlich „Auto“
-      list.selectedItem = null;
-      list.setAttribute("label", "");
+      list.selectedIndex = -1;
     }
     note.hidden = !!key || !active;
   };
@@ -428,7 +431,7 @@ function hookAppearanceChoice(cw, restorers = null) {
   cw.addEventListener("unload", stop, { once: true });
   restorers?.push(stop);
   list.addEventListener("command", async () => {
-    const addon = await AddonManager.getAddonByID(APPEARANCE_THEMES[list.value]);
+    const addon = APPEARANCE_THEMES[list.value] && await AddonManager.getAddonByID(APPEARANCE_THEMES[list.value]);
     await addon?.enable();
   });
 }

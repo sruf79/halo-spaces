@@ -10338,7 +10338,7 @@ def run_checks(m, version, profile, results):
           const cd = tm.currentTabInfo.browser.contentWindow.document;
           const group = cd.getElementById("mcAppearanceGroup");
           const out = { local: L.native ? null : L.onMyMac, label: group?.querySelector("label")?.getAttribute("value"),
-                        auto: group?.querySelector('menuitem[value="auto"]')?.getAttribute("label") };
+                        auto: group?.querySelector('radio[value="auto"]')?.getAttribute("tooltiptext") };
           tm.closeTab(tm.currentTabInfo); await ruhig(500);
           return out;''' % ADDON_ID)
         mac = sys.platform == "darwin"
@@ -10365,8 +10365,8 @@ def run_checks(m, version, profile, results):
             return x?.readyState == "complete" && e?.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
           const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("mcAppearance");
           const state = () => { const n = cd.getElementById("mcThemeNote");
-            return { note: !!n && !n.hidden && n.getBoundingClientRect().height > 0, text: n?.textContent || "", value: ml.value, label: ml.label }; };
-          const out = { before, autoLabel: ml.querySelector('menuitem[value="auto"]')?.getAttribute("label") };
+            return { note: !!n && !n.hidden && n.getBoundingClientRect().height > 0, text: n?.textContent || "", value: ml.selectedItem?.value ?? "", label: ml.selectedItem?.label ?? "" }; };
+          const out = { before, autoLabel: ml.querySelector('radio[value="auto"]')?.getAttribute("label") };
           const addon = await AddonManager.installTemporaryAddon(file);
           try {
             await addon.enable();
@@ -10390,16 +10390,58 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Einstellungen: eigenes Theme zeigt einen Hinweis unter der Erscheinungsbild-Auswahl statt „Auto“, Hell/Dunkel/Auto keinen (GitHub #55)", custom_theme_note, results)
 
+    def appearance_tiles():
+        # Erscheinungsbild als Bildauswahl wie „Message list view style“: drei Kacheln Hell, Dunkel, Auto (in dieser
+        # Reihenfolge) mit Fenstergrafik 68×44 nebeneinander, die gewählte entspricht dem Theme; Klick stellt um
+        res = m.js(r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const THEMES = { auto: "default-theme@mozilla.org", light: "thunderbird-compact-light@mozilla.org", dark: "thunderbird-compact-dark@mozilla.org" };
+          const active = async () => (await AddonManager.getAddonsByTypes(["theme"])).find(a => a.isActive)?.id;
+          const before = await active();
+          w.openPreferencesTab("paneAppearance");
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+            return x?.readyState == "complete" && e?.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
+          await ruhig(500);
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, pw = t.browser.contentWindow, rg = cd.getElementById("mcAppearance");
+          const radios = [...rg.querySelectorAll("radio")];
+          const out = { menulist: !!cd.querySelector("#mcAppearanceGroup menulist"),
+            tiles: radios.map(r => { const i = r.querySelector(".radio-icon"), b = i?.getBoundingClientRect();
+              return { v: r.value, label: r.label, w: Math.round(b?.width || 0), h: Math.round(b?.height || 0),
+                       img: (pw.getComputedStyle(i).listStyleImage || "").startsWith("url(\"data:image/svg"), top: Math.round(r.getBoundingClientRect().top) }; }),
+            selected: rg.selectedItem?.value, theme: Object.keys(THEMES).find(k => THEMES[k] == before) };
+          try {
+            const target = out.selected == "dark" ? "light" : "dark";
+            cd.getElementById(`mcAppearance-${target}`).click();
+            out.clicked = { target };
+            const end = Date.now() + 5000; let id;
+            while (Date.now() < end && (id = await active()) != THEMES[target]) await takt(50);
+            out.clicked.now = Object.keys(THEMES).find(k => THEMES[k] == id);
+            await until(() => rg.selectedItem?.value == target, 3000);
+            out.clicked.sel = rg.selectedItem?.value;
+          } finally {
+            if (before) await (await AddonManager.getAddonByID(before))?.enable();
+            tm.closeTab(t); await ruhig(500);
+          }
+          return out;""")
+        ts = res.get("tiles") or []
+        cl = res.get("clicked") or {}
+        ok = (not res.get("menulist") and [x["v"] for x in ts] == ["light", "dark", "auto"]
+              and all(x["w"] == 68 and x["h"] == 44 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
+              and res.get("selected") == res.get("theme") and cl.get("now") == cl.get("target") and cl.get("sel") == cl.get("target"))
+        return ok, f"{res}"
+    check("Einstellungen: Erscheinungsbild als Bildauswahl – Kacheln Hell, Dunkel, Auto mit Fenstergrafik nebeneinander, gewählt ist das aktive Theme, Klick stellt um", appearance_tiles, results)
+
     def prefs_menulist():
         # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen
         # (Thunderbirds In-Content-Stil hinterlegte ihn dauerhaft blau – zwei Balken); Zeilen 24 px, 8 px Innenabstand, Rundung 7 px
         res = m.js(COMPOSE_CHECK_JS + r"""
           // erst weiter, wenn die Seite fertig geladen und die Liste sichtbar ist (eine verborgene Liste öffnet nicht)
           w.openPreferencesTab("paneAppearance");
-          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("mcAppearance");
+          // (Beispiel: Thunderbirds Sortierliste – die Erscheinungsbild-Wahl ist seit 11.11.2026 eine Bildauswahl)
+          await bis(() => { const x = tm.currentTabInfo?.browser?.contentDocument, e = x?.getElementById("defaultSortType");
             return x?.readyState == "complete" && e?.menupopup && e.getBoundingClientRect().width > 0 && e; }, "Einstellungen Darstellung sichtbar", 10000);
           await ruhig(1000);
-          const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("mcAppearance"), pop = ml.menupopup;
+          const t = tm.currentTabInfo, cd = t.browser.contentDocument, ml = cd.getElementById("defaultSortType"), pop = ml.menupopup;
           try {
             // Im Volllauf ist oft ein anderes Fenster vorn (Verfassen, Dialoge) – dann öffnet macOS die native Liste
             // nicht: erst Hauptfenster und Liste fokussieren, öffnen und auf popupshown warten, notfalls erneut

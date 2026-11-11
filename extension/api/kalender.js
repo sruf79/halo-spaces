@@ -1396,21 +1396,50 @@ const AlarmAlerts = {
       };
       const open = () => cal.window.getCalendarWindow()?.openEventDialogForViewing(item);
       // wie Thunderbird selbst (ab 159 mit Rückrufen; ältere Versionen über observe)
-      if (typeof notice.initWithObject == "function" && typeof alerts.showAlertWithCallbacks == "function") {
-        notice.initWithObject(fields);
-        alerts.showAlertWithCallbacks(notice, {
-          QueryInterface: ChromeUtils.generateQI(["nsIAlertCallbacks"]),
-          onAlertClick: () => open(),
-          onAlertFinished() {},
-        });
-      } else {
-        notice.init(fields.name, fields.imageURL, fields.title, fields.text, true);
-        alerts.showAlert(notice, { observe: (subject, topic) => topic == "alertclickcallback" && open() });
+      try {
+        if (typeof notice.initWithObject == "function" && typeof alerts.showAlertWithCallbacks == "function") {
+          notice.initWithObject(fields);
+          alerts.showAlertWithCallbacks(notice, {
+            QueryInterface: ChromeUtils.generateQI(["nsIAlertCallbacks"]),
+            onAlertClick: () => open(),
+            onAlertFinished() {},
+          });
+        } else {
+          notice.init(fields.name, fields.imageURL, fields.title, fields.text, true);
+          alerts.showAlert(notice, { observe: (subject, topic) => topic == "alertclickcallback" && open() });
+        }
+      } catch (e) {
+        // kein Mitteilungsdienst (z. B. Linux ohne Benachrichtigungsdienst, xvfb): Erinnerung nicht verlieren,
+        // sondern wie ohne halo.spaces in Thunderbirds Erinnerungsfenster, dort bleibt sie bis „Dismiss“
+        log("alarm alert fallback window", (e?.result ?? 0).toString(16));
+        Promise.resolve().then(() => this.showWindow(item, alarm));
+        return;
       }
       // wie „Dismiss“ im Erinnerungsfenster (wiederholte Termine: nur dieses Vorkommen)
       this.service.dismissAlarm(item, alarm)?.catch?.(e => log("alarm dismiss error", String(e).slice(0, 120)));
     } catch (e) {
       log("alarm alert error", String(e).slice(0, 160));
+    }
+  },
+  // Thunderbirds Erinnerungsfenster für eine Erinnerung öffnen (wie CalAlarmMonitor.onAlarm bei
+  // calendar.alarms.show). Läuft nach den übrigen Beobachtern, der Monitor hat sie dann schon in mAlarms;
+  // fehlt sie dort (eigener Aufruf), kommt sie dazu – sonst schlösse das Fenster beim Laden gleich wieder
+  showWindow(item, alarm) {
+    try {
+      const mon = Cc["@mozilla.org/calendar/alarm-monitor;1"].getService(Ci.calIAlarmServiceObserver).wrappedJSObject;
+      if (!mon.mAlarms.some(([i, a]) => i == item && a == alarm)) {
+        mon.mAlarms.push([item, alarm]);
+      }
+      const win = Services.wm.getMostRecentWindow("Calendar:AlarmWindow");
+      if (!win && (!mon.mWindowOpening || mon.mWindowOpening.closed)) {
+        mon.mWindowOpening = Services.ww.openWindow(null, "chrome://calendar/content/calendar-alarm-dialog.xhtml",
+          "_blank", "chrome,dialog=yes,all,resizable", mon);
+      }
+      if (!mon.mWindowOpening) {
+        win.addWidgetFor(item, alarm);
+      }
+    } catch (e) {
+      log("alarm window error", String(e).slice(0, 160));
     }
   },
 };

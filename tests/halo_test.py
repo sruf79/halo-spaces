@@ -9544,6 +9544,12 @@ def run_checks(m, version, profile, results):
         res = m.js('''
           const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
           const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          // die Erinnerung (10 Minuten vorher) ist sofort fällig: Mitteilungen stumm abfangen, sonst ginge eine echte auf
+          // (unter Linux/xvfb ohne Mitteilungsdienst stattdessen Thunderbirds Erinnerungsfenster)
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const AA = Cu.evalInSandbox("AlarmAlerts", ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local").experimentAPIManager.global);
+          AA.alerts = { showAlertWithCallbacks() {}, showAlert() {} };
+          try {
           await toCalendar();
           const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
           li.querySelector("button").click(); await ruhig(900);
@@ -9586,7 +9592,8 @@ def run_checks(m, version, profile, results):
           // Termin wieder weg, sonst gehen seine Erinnerungen mitten im Lauf auf
           for (const x of await items("Halo Eigene Regel")) { try { await x.calendar.deleteItem(x); } catch {} }
           out.left = (await items("Halo Eigene Regel")).length;
-          return out;''')
+          return out;
+          } finally { AA.alerts = null; }''')
         it = res.get("item") or {}
         ok = (res.get("cancelled") == "WEEKLY" and it.get("type") == "WEEKLY" and it.get("interval") == 2 and it.get("alarms") == 2
               and res["labels"][1] == "2 alerts" and res["labels"][0] not in ("Custom…", "", None) and "\n" not in res["labels"][0] and "2" in res["labels"][0]
@@ -15112,7 +15119,9 @@ Neu
           const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
           const c = testCalendar();
           const e = new CalEvent(); e.title = "Halo Erinnerungstermin"; e.calendar = c; e.setProperty("LOCATION", "Halo Raum 3");
-          const s = cal.dtz.now(); s.minute += 5; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          // erst in 20 Minuten fällig: nur der eigene Aufruf löst aus, nie Thunderbirds Erinnerungsdienst mit dem echten
+          // Mitteilungsdienst (den gibt es unter Linux/xvfb nicht, siehe die nächste Prüfung)
+          const s = cal.dtz.now(); s.minute += 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
           const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.minutes = -10; al.offset = off; al.action = "DISPLAY"; e.addAlarm(al);
           const shown = [];
           const fake = { showAlertWithCallbacks: (n, cb) => shown.push({ title: n.title, text: n.text, cb }), showAlert: (n, l) => shown.push({ title: n.title, text: n.text, l }) };
@@ -15143,6 +15152,45 @@ Neu
               and "ummary" in str(res.get("opened") or ""))
         return ok, f"{res}"
     check("Kalender: Terminerinnerung als Mitteilung des Systems mit Titel, Zeit und Ort statt Erinnerungsfenster, Klick öffnet den Termin, danach erledigt", calendar_alarm_alert, results)
+
+    def calendar_alarm_fallback():
+        # Ohne Mitteilungsdienst (Linux ohne Benachrichtigungsdienst, xvfb: showAlert scheitert mit NS_ERROR_FAILURE) geht die
+        # Erinnerung nicht verloren: Thunderbirds Erinnerungsfenster zeigt sie, sie bleibt offen (nicht erledigt).
+        # Der Termin wird nicht gespeichert: das Anlegen ließ den Erinnerungsdienst unter Release/Beta den Kalender neu
+        # laden, der nahm die Erinnerung dabei wieder aus dem Fenster (Prüfung wackelte)
+        res = m.js(r'''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const AA = Cu.evalInSandbox("AlarmAlerts", g);
+          const { CalAlarm } = ChromeUtils.importESModule("resource:///modules/CalAlarm.sys.mjs");
+          const e = new CalEvent(); e.id = "halo-erinnerung-ohne-dienst"; e.title = "Halo Erinnerung ohne Dienst"; e.calendar = testCalendar();
+          const s = cal.dtz.now(); s.minute += 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const al = new CalAlarm(); al.related = Ci.calIAlarm.ALARM_RELATED_START; const off = cal.createDuration(); off.minutes = -10; al.offset = off; al.action = "DISPLAY"; e.addAlarm(al);
+          const fail = () => { throw Components.Exception("kein Mitteilungsdienst", Cr.NS_ERROR_FAILURE); };
+          const out = { dismissed: false };
+          const service = AA.service;
+          let win = null;
+          try {
+            AA.alerts = { showAlertWithCallbacks: fail, showAlert: fail };
+            AA.service = { dismissAlarm() { out.dismissed = true; } };
+            AA.onAlarm(e, e.getAlarms()[0]);
+            win = await until(() => Services.wm.getMostRecentWindow("Calendar:AlarmWindow"), 5000);
+            const list = () => win?.document.getElementById("alarm-richlist");
+            await until(() => list()?.children.length, 5000);
+            out.widgets = [...(list()?.children || [])].map(x => x.item?.title);
+          } finally {
+            AA.alerts = null; AA.service = service;
+            const mon = Cc["@mozilla.org/calendar/alarm-monitor;1"].getService(Ci.calIAlarmServiceObserver).wrappedJSObject;
+            mon.mAlarms = mon.mAlarms.filter(([i]) => i.id != e.id);
+            if (win && !win.closed) { win.close(); }
+            // das Fenstermanager-Register gibt das Fenster erst etwas nach win.closed frei
+            await until(() => !Services.wm.getMostRecentWindow("Calendar:AlarmWindow"), 3000);
+          }
+          out.windowLeft = !!Services.wm.getMostRecentWindow("Calendar:AlarmWindow");
+          return out;''' % ADDON_ID)
+        ok = res.get("widgets") == ["Halo Erinnerung ohne Dienst"] and res.get("dismissed") is False and not res.get("windowLeft")
+        return ok, f"{res}"
+    check("Kalender: ohne Mitteilungsdienst zeigt Thunderbirds Erinnerungsfenster die Terminerinnerung, sie bleibt offen", calendar_alarm_fallback, results)
 
     def search_placeholder():
         # Suchfeld oben: Platzhalter je Bereich steht im eigenen <span slot="placeholder">

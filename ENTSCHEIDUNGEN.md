@@ -412,3 +412,8 @@ Wortlaut des Maintainers, Sitzung neon, 10.11.2026 (nach Vorschaubild mit Varian
 Wortlaut des Maintainers, Leitstelle (Sitzung project.analysis.control), 11.11.2026, nach Ansicht der Entscheidungsbilder von neon (Variante A/B je Thema): „bezüglich hilfe-menü - option a. bezüglich favoriten - option a“. Weitergabe durch die Leitstelle an neon.
 Bedeutung (Deutung der Leitstelle): Hilfe-Menü bleibt wie heute (360 pt, wie Apple Mail; Board-Eintrag Done und archiviert). Favoriten-Ausrichtung: Variante A, alles bündig wie Apple Mail, Konten eine Stufe tiefer, Ordnerliste 240 statt 206 px; Board-Eintrag „Seitenleiste: Favoriten-Symbole und Überschrift an den Spalten der Konten ausrichten“ steht auf Todo (Bild `seitenleiste-favoriten-variante-a.png`).
 Bezug: Entscheidungsbilder `~/halo-analyse/entscheidungsbilder/` (favoriten-A.png, hilfe-A.png).
+
+### 11.11.2026: Dauerfreigaben Stufen A–D gelten; M30 (automatisches /clear bei neon) wird nicht umgesetzt (Maintainer, Leitstelle)
+Wortlaut des Maintainers, Leitstelle (Sitzung project.analysis.control), 11.11.2026: „1.) ja 2.) nicht umsetzen“. Weitergabe durch die Leitstelle an neon.
+Bedeutung (Deutung der Leitstelle): 1.) Die Dauerfreigaben Stufen A bis D gelten wie in `docs/dauerfreigaben.md`. 2.) M30 (automatisches /clear bei neon) wird nicht umgesetzt, die Entscheidung vom 6.11.2026 bleibt; der Board-Eintrag M30 wird von neon-board geschlossen.
+Bezug: `docs/dauerfreigaben.md`, `docs/umbau.md`.

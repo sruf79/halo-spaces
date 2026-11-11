@@ -17220,17 +17220,28 @@ class CardEnhancer {
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
           (!search || rectOf(search).width > 41));
       }
-      // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail): fehlt
-      // dafür Platz, wird zuerst der Abstand nach „Verfassen“ kleiner (69 → 12 px)
+      // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail, bzw. so
+      // breit wie sein Platzhalter): fehlt dafür Platz, wird zuerst der Abstand
+      // nach „Verfassen“ kleiner (69 → 12 px)
       const write = content.querySelector(':scope > li[item-id="write-message"]');
       const search = content.querySelector(':scope > li[item-id="search-bar"]');
       // (nicht während einer Ein-/Ausblend-Animation – das kostet pro Bild ein
       // komplettes Neuberechnen; am Ende wird einmal gemessen)
       if (!animating && write && search && rectOf(write).width) {
-        const spacer = search.previousElementSibling;
+        // Abstandhalter vor dem Suchfeld – der Überlauf-Knopf „»“ steht
+        // dazwischen (auch ausgeblendet), ebenso ausgeblendete Einträge
+        let spacer = search.previousElementSibling;
+        while (spacer && spacer.getAttribute("item-id") != "spacer" &&
+               (spacer.id == OVERFLOW_ID || spacer.hidden || !rectOf(spacer).width)) {
+          spacer = spacer.previousElementSibling;
+        }
         const gap = parseFloat(top.getComputedStyle(write).marginInlineEnd) || 0;
+        // das Suchfeld wird höchstens so breit wie Lupe + Platzhalter
+        // (max-width mit --mc-search-fit, z. B. 169 px bei „Search All
+        // Mailboxes“) – fehlt ihm nur bis dahin Platz
+        const searchMax = Math.min(333, parseFloat(top.getComputedStyle(search).maxWidth) || 333);
         const spare = (spacer?.getAttribute("item-id") == "spacer" ? rectOf(spacer).width : 0) -
-          (333 - rectOf(search).width);
+          Math.max(0, searchMax - rectOf(search).width);
         const next = Math.max(12, Math.min(69, Math.round(gap + spare)));
         if (Math.abs(next - gap) >= 1) {
           setBarVar(top.document, "--mc-write-gap", `${next}px`);

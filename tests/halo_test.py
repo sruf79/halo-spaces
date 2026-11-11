@@ -9257,6 +9257,23 @@ def run_checks(m, version, profile, results):
         return ok, detail
     check("Toolbar: Trennlinie, Knopfkante, Suchfeld", toolbar_edges, results)
 
+    def toolbar_write_gap():
+        # Abstand nach „Verfassen“ 69 px wie Apple Mail; im schmalen Fenster schrumpft er (bis 12 px), danach wächst er
+        # wieder – vorher blieb er klein, weil der Überlauf-Knopf „»“ (auch ausgeblendet) vor dem Suchfeld als
+        # Abstandhalter gemessen wurde (im breiten Fenster standen die Gruppen dicht, rechts viel leerer Platz)
+        res = m.js("""
+          const gap = () => Math.round(parseFloat(getComputedStyle(d.querySelector('#unifiedToolbarContent > li[item-id="write-message"]')).marginInlineEnd));
+          const out = {};
+          await toMail(); w.resizeTo(2400, 900); await wait(1500); out.wide = gap();
+          w.resizeTo(1000, 900); await wait(1500); out.narrow = gap();
+          w.resizeTo(2400, 900); await wait(1500); out.again = gap();
+          out.overflow = d.getElementById("mcToolbarOverflow")?.nextElementSibling?.getAttribute("item-id") || null;
+          w.resizeTo(1500, 900); await wait(800);
+          return out;""")
+        ok = res["wide"] == 69 and res["narrow"] < 69 and res["again"] == 69
+        return ok, f"{res}"
+    check("Toolbar: Abstand nach „Verfassen“ 69 px, im schmalen Fenster kleiner, danach wieder 69 px", toolbar_write_gap, results)
+
     def toolbar_search_first():
         # schmales Fenster mit Today-Pane: in jedem Bereich schrumpft zuerst das Suchfeld (bis zur Lupe), Knöpfe ragen nie aus der
         # Zeile; in der Mail weichen Knöpfe erst, wenn die Suche schon zur Lupe geworden ist (danach hat sie höchstens einen Knopf

@@ -786,7 +786,7 @@ def run_in_vm(args, xpi):
     before = theme = None
     try:
         os.makedirs(os.path.join(run, "tests"))
-        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
+        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "toolbar_lib.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
             os.makedirs(os.path.dirname(os.path.join(run, "tests", f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt
@@ -12234,6 +12234,43 @@ def run_checks(m, version, profile, results):
         return not bad, f"{gemessen} Messungen; " + ("; ".join(bad[:12]) if bad else "kein Sprung")
     check("Seitenleiste: Ein-/Ausblenden über den Knopf ohne Sprung von Ampel-Fläche, Zeilenanfang und Knöpfen (Adressbuch New/Anzeige, Aufgaben +/Mark/…, Kalender Day…Month) "
           "in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
+
+    def toolbar_shrink_monotone():
+        # Fenster wie mit der Maus stetig verkleinern (10-px-Schritte, 40 ms Abstand) und wieder vergrößern (Mail, mit und
+        # ohne Seitenleiste; Aufgaben mit Today-Pane): das Suchfeld wird beim Verkleinern nie wieder breiter, keine Pille
+        # kommt zurück, bei der Lupe (≤ 41 px) bleibt es; beim Vergrößern nie schmaler; Today-Pane ohne Hin und Her
+        # (Maintainer 11.11.2026: „springt … von klein auf größer und wieder zurück“ – vorher 47 → 66 → 46 → 104 px bei
+        # 1620 → 1580 px, weil das Feld den Platz jeder gewichenen Pille nahm). Mit halo.spaces liegt die Mindestbreite
+        # des Fensters um 1500 px (Seitenleiste + Today-Pane), gemessen wird 1800 → 1250 → 1800
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import toolbar_lib as T
+        if m.js("return d.visibilityState;") == "hidden":
+            return True, "Testfenster verdeckt – übersprungen"
+        folge = list(range(1800, 1249, -10))
+        bad, n = [], 0
+        try:
+            for name, geh, seiten in (("Mail", "await toMail(); await ruhig(800);", (1, 0)),
+                                      ("Aufgaben", 'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben", 8000); await ruhig(1500);'
+                                       ' if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); }', (1,))):
+                m.js('w.resizeTo(1800, 900); await ruhig(600); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1500); } return 1;')
+                m.js(geh + " return 1;")
+                for seite in seiten:
+                    m.js(f'if (w.gSpacesToolbar.isHidden == !!{seite}) {{ d.getElementById("spacesPinnedButton").click(); await ruhig(1500); }} return 1;')
+                    for richtung, reihe in (("kleiner", folge), ("groesser", list(reversed(folge)))):
+                        daten = m.js(T.MESS + f'''const out = []; for (const b of {json.dumps(reihe)}) {{ w.resizeTo(b, 900); await wait(40);
+                            await new Promise(r => w.requestAnimationFrame(() => w.requestAnimationFrame(r))); out.push(w.__mcTb.mess()); }}
+                            await ruhig(800); out.push(Object.assign(w.__mcTb.mess(), {{ ruhe: 1 }})); return out;''')
+                        n += 1
+                        a = T.auswerten(daten, richtung)
+                        lage = f"{name} sl{seite} {richtung}"
+                        for k in ("suche", "pillen", "today", "lupe"):
+                            if a[k]:
+                                bad.append(f"{lage}: {k} rückwärts {a[k][:3]}")
+        finally:
+            m.js('for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1000); } w.resizeTo(1500, 900); await ruhig(800); return 1;')
+        return not bad, f"{n} Folgen; " + ("; ".join(bad[:8]) if bad else "Suchfeld, Pillen und Today-Pane monoton")
+    check("Toolbar beim Verkleinern des Fensters: Suchfeld wird nie wieder breiter und bleibt bei der Lupe, keine Pille kommt zurück, Today-Pane ohne Hin und Her "
+          "(Mail mit und ohne Seitenleiste, Aufgaben mit Today-Pane; 1800 → 1250 → 1800 px in 10-px-Schritten)", toolbar_shrink_monotone, results)
 
     def anim_heute():
         # Heute-Fenster ein-/ausblenden (Mail): kein Knopf der Toolbar (Pillen, Chevron „weitere Aktionen“, Suchfeld) darf

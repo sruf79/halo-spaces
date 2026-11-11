@@ -1878,9 +1878,11 @@ findbar .findbar-textbox:focus {
      Platzmangel schrumpft zuerst das Suchfeld (in den Bereichen bis zur
      Lupe), erst dann blendet die Erweiterung unwichtige Knöpfe aus */
   flex: 0 50 333px !important;
-  /* höchstens so breit wie Lupe + Platzhalter (--mc-search-fit misst die Erweiterung) */
-  max-width: min(333px, var(--mc-search-fit, 333px)) !important;
-  min-width: min(160px, var(--mc-search-fit, 160px)) !important;
+  /* höchstens so breit wie Lupe + Platzhalter (--mc-search-fit misst die Erweiterung); solange Pillen weichen,
+     hält die Erweiterung das Feld mit --mc-search-lock auf der Lupe (40 px), sonst nähme es den Platz jeder
+     gewichenen Pille und spränge beim Verkleinern des Fensters hin und her (Maintainer 11.11.2026) */
+  max-width: min(333px, var(--mc-search-fit, 333px), var(--mc-search-lock, 333px)) !important;
+  min-width: min(160px, var(--mc-search-fit, 160px), var(--mc-search-lock, 160px)) !important;
 }
 
 /* Thunderbird gibt dem Suchfeld innen 5em Mindestbreite – sonst bliebe es

@@ -8014,6 +8014,19 @@ function squeezeToolbar(doc, fits) {
   // Ein-/Ausblenden der Today-Pane mit aus, statt zu springen)
   const ov = overflowButton(doc, content);
   ov.setAttribute("mc-squeezed", "");
+  // Suchfeld erst wieder frei (es misst sich mit allen Pillen)
+  const search = content.querySelector(':scope > li[item-id="search-bar"]');
+  lockSearch(content, search, false);
+  if (fits()) {
+    return;
+  }
+  // Ab hier weichen Pillen: das Suchfeld bleibt dabei die Lupe (40 px) und
+  // wird auch nicht wieder breiter, wenn das Fenster weiter schrumpft – sonst
+  // nahm es den Platz jeder gewichenen Pille, wurde 47 → 66 → 46 → 104 px
+  // (Mail, 1620 → 1580 px) und sprang beim Ziehen hin und her. Erst wenn alle
+  // Pillen wieder passen, gibt die Messung oben das Feld wieder frei
+  // (Maintainer 11.11.2026).
+  lockSearch(content, search, true);
   if (fits()) {
     return;
   }
@@ -8034,6 +8047,21 @@ function squeezeToolbar(doc, fits) {
     if (fits()) {
       break;
     }
+  }
+}
+
+// Suchfeld auf die Lupe festhalten (mc-search-lupe), solange Pillen weichen
+function lockSearch(content, search, lock) {
+  content.toggleAttribute("mc-search-lupe", lock);
+  if (!search) {
+    return;
+  }
+  // (über eine Variable, die userChrome.css in min() liest – Inline-Stile
+  // schlagen die !important-Regeln des Nutzer-Stilblatts nicht)
+  if (lock) {
+    search.style.setProperty("--mc-search-lock", "40px");
+  } else {
+    search.style.removeProperty("--mc-search-lock");
   }
 }
 
@@ -9783,7 +9811,7 @@ class CardEnhancer {
         return [...content.children].every(li => {
           const r = rectOf(li);
           return li.getAttribute("item-id") == "spacer" || !r?.width || r.right <= right;
-        }) && (!sw || sw > 41);
+        }) && (!sw || sw > 41 || content.hasAttribute("mc-search-lupe"));
       });
     };
     const updateSideEdge = () => {
@@ -17143,7 +17171,7 @@ class CardEnhancer {
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
         squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width > 41));
+          (!search || rectOf(search).width > 41 || content.hasAttribute("mc-search-lupe")));
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail, bzw. so
       // breit wie sein Platzhalter): fehlt dafür Platz, wird zuerst der Abstand

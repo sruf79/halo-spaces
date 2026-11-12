@@ -1,2 +1,3 @@
 # Erledigte Freigaben aus tests/pr-freigaben.txt: tests/pr-schliessen.sh verschiebt die Zeile nach dem
 # Schließen hierher und hängt „| erledigt <Datum> in <Version>“ an. Nicht von Hand bearbeiten.
+49 | abgelehnt | 11.11.2026 | „Ja schliessen“ (Maintainer, 11.11.2026, im Gespräch mit der Sitzung halo-github, Antwort auf „Soll ich neon mit dem Schließen von #49 beauftragen?“); Kommentartext freigegeben mit „Ja passt“ (11.11.2026) | erledigt 2026-11-12 in 3.25.1

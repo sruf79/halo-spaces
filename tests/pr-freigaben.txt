@@ -11,4 +11,3 @@
 # Geschlossen wird nur, wenn der PR offen ist, in sruf79/halo-spaces liegt, kein Entwurf ist, kein Label
 # „hold“ trägt und ein voller Fix „(GitHub #<Issue-Nr>)“ im Release liegt. Danach wandert die Zeile nach
 # tests/pr-freigaben-erledigt.txt. Kein Merge, nie.
-49 | abgelehnt | 11.11.2026 | „Ja schliessen“ (Maintainer, 11.11.2026, im Gespräch mit der Sitzung halo-github, Antwort auf „Soll ich neon mit dem Schließen von #49 beauftragen?“); Kommentartext freigegeben mit „Ja passt“ (11.11.2026)

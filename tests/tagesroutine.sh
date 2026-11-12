@@ -12,7 +12,12 @@ export HALO_LAUF=tagesroutine
 # und statisch auf GitHub, belegt neon nicht) und löscht ihn am Ende des Tages. Nichts veröffentlichen.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
-#   Abstand > NICHTS_NEUES_UEBER → nichts Neues; > NUR_SONNET_UEBER → nur Sonnet;
+#   Abstand > SPAR_MAX → nichts Neues bis morgen; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
+#   12.11.2026): Rate = (100 − Ist − RESERVE_NACHT) / Stunden bis zum Reset (nie negativ); seit START
+#   angesparte Punkte (Rate × Stunden − heute im Sparmodus verbraucht) müssen die geschätzten Kosten je
+#   Eintrag decken (SPAR_KOSTEN_JE_EINTRAG, ab 3 Messungen deren Mittel), sonst bis zur vollen Stunde
+#   warten; nur SPAR_MODELL, nur Einträge, die es sicher schafft, höchstens SPAR_MAX_EINTRAEGE_TAG je Tag
+#   bis 3 gemessen sind; Messungen in ~/halo-nacht/tagesroutine-spar.tsv (HALO_SPAR_DATEI).
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende (Pause über pausen.txt).
 # Schwellen: ~/.config/halo-spaces/tagesroutine.conf (HALO_TAGESROUTINE_CONF), sonst die neben dem Skript.
@@ -40,7 +45,8 @@ typeset -A KONF
 KONF=(
   WOCHENTAGE "1 2 3 4 5"  START 09:00  LETZTER_BEGINN 19:30  ENDE 21:00
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
-  WEIT_DARUNTER 8  IM_SOLL 3  NUR_SONNET_UEBER 0  NICHTS_NEUES_UEBER 2
+  WEIT_DARUNTER 8  IM_SOLL 3
+  SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
   FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
   MAX_COMMITS_TAG 8  BELEGT_WARTEN 60
@@ -72,6 +78,7 @@ export HALO_ROUTINEN="$PAUSEN_ROUTINEN"
 DIR=$HOME/halo-nacht
 BERICHTE=$HOME/halo-berichte
 KONT_JSON=$DIR/kontingent.json
+SPAR_DATEI=${HALO_SPAR_DATEI:-$DIR/tagesroutine-spar.tsv}   # Messungen des Sparmodus (eine Zeile je Runde)
 KONT_SKRIPT=$HIER/kontingent.sh
 [[ -r $KONT_SKRIPT ]] || KONT_SKRIPT=$REPO/tests/kontingent.sh
 AUFTRAG_DATEI=$REPO/tests/tagesroutine-auftrag.md
@@ -103,9 +110,29 @@ std = (jetzt.astimezone(UTC) - reset.astimezone(UTC)).total_seconds() / 3600
 soll = min(100.0, std / 168 * 100)
 woche, h5 = zahl("K_WOCHE"), zahl("K_5H")
 weit, band = zahl("K_WEIT_DARUNTER", 8), zahl("K_IM_SOLL", 3)
-nur_s, stopp = zahl("K_NUR_SONNET_UEBER", 0), zahl("K_NICHTS_NEUES_UEBER", 2)
 h5max, fmax = zahl("K_FUENF_STUNDEN_MAX", 80), zahl("K_FABLE_5H_MAX", 50)
 stark, routine = e["K_MODELL_STARK"], e["K_MODELL_ROUTINE"]
+spar_max, reserve = zahl("K_SPAR_MAX", 10), zahl("K_RESERVE_NACHT", 15)
+spar_tag, kosten0 = zahl("K_SPAR_MAX_EINTRAEGE_TAG", 1), zahl("K_SPAR_KOSTEN_JE_EINTRAG", 1.0)
+spar_m = e.get("K_SPAR_MODELL") or "haiku"
+def spar_rate(ist, std_bis_reset, reserve):
+    """Punkte je Stunde: (Rest − Reserve) / Stunden bis zum Reset, nie negativ"""
+    if std_bis_reset <= 0: return 0.0
+    return max(0.0, (100 - ist - reserve) / std_bis_reset)
+# Sparmodus-Messungen (Tabulator: Datum Zeit Item Modell vor nach Kosten Minuten Ergebnis), nur lesen
+zeilen = []
+try:
+    with open(e.get("K_SPAR_DATEI", ""), encoding="utf-8") as f:
+        zeilen = [t for t in (z.rstrip("\n").split("\t") for z in f if z.strip() and not z.startswith("#")) if len(t) >= 9]
+except OSError:
+    pass
+def fl(x):
+    try: return float(x)
+    except ValueError: return None
+heute_z = [t for t in zeilen if t[0] == jetzt.strftime("%Y-%m-%d")]
+eintraege = sum(1 for t in heute_z if t[8] != "nichts_passend")
+verbraucht = sum(max(0.0, fl(t[6]) or 0.0) for t in heute_z)
+gemessen = [fl(t[6]) for t in zeilen if t[8] == "erledigt" and fl(t[6]) is not None]
 # Zeitfenster
 tage = {int(x) for x in e["K_WOCHENTAGE"].split()}
 def heute(s):
@@ -122,12 +149,39 @@ if math.isnan(woche):
 else:
     a = woche - soll
     aus["ABSTAND"] = "%+.1f" % a
-    if a > stopp:
-        aus.update(STUFE="deutlich darüber (> %g)" % stopp, ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
+    if a > spar_max:
+        aus.update(STUFE="deutlich darüber (> %g)" % spar_max, ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
                    GRUND="Woche %.1f Punkte über dem Soll – nichts Neues bis morgen" % a)
-    elif a > nur_s:
-        aus.update(STUFE="darüber (> %g)" % nur_s, ENTSCHEIDUNG="nur_sonnet", M_KOMPLEX=routine, M_ROUTINE=routine,
-                   GRUND="über dem Soll – bremsen")
+    elif a > 0:
+        # Sparmodus (Maintainer 12.11.2026): Restkontingent abzüglich Reserve auf die Stunden bis zum Reset
+        # verteilen; seit Tagesbeginn (START) angespart, minus heute im Sparmodus verbraucht
+        std_rest = (naechster.astimezone(UTC) - ju).total_seconds() / 3600
+        rest, rate = 100 - woche, spar_rate(woche, std_rest, reserve)
+        seit = max(0.0, (jetzt - heute(e["K_START"])).total_seconds() / 3600)
+        angespart = rate * seit - verbraucht
+        kosten, quelle = (sum(gemessen) / len(gemessen), "Mittel aus %d Messungen" % len(gemessen)) \
+            if len(gemessen) >= 3 else (kosten0, "Standard, %d von 3 gemessen" % len(gemessen))
+        grenze = len(gemessen) < 3 and eintraege >= spar_tag
+        bis = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        aus.update(STUFE="Sparmodus (0 < Abstand ≤ %g)" % spar_max, M_KOMPLEX=spar_m, M_ROUTINE=spar_m,
+                   SPAR_RATE="%.2f" % rate, SPAR_REST="%.1f" % rest, SPAR_RESERVE="%g" % reserve,
+                   SPAR_STD="%.1f" % std_rest, SPAR_ANGESPART="%.2f" % angespart, SPAR_KOSTEN="%.2f" % kosten,
+                   SPAR_KOSTEN_QUELLE=quelle, SPAR_HEUTE="%d" % eintraege,
+                   SPAR_GRENZE=("%g" % spar_tag) if len(gemessen) < 3 else "keine (3 gemessen)",
+                   SPAR_VERBRAUCHT="%.2f" % verbraucht, SPAR_MODELL=spar_m)
+        if rate <= 0:
+            aus.update(ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
+                       GRUND="Sparmodus: Rest %.1f nicht über der Reserve %g – nichts Neues bis zum Reset" % (rest, reserve))
+        elif grenze:
+            aus.update(ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
+                       GRUND="Sparmodus: heute %d Eintrag bearbeitet (höchstens %g je Tag, bis 3 gemessen) – nichts Neues bis morgen" % (eintraege, spar_tag))
+        elif angespart < kosten:
+            aus.update(ENTSCHEIDUNG="spar_warten", SPAR_WARTEN_BIS=bis.isoformat(timespec="minutes"),
+                       GRUND="Sparmodus: warte, Rate %.2f Punkte/h, angespart %.2f von %.2f Punkten – nächster Versuch %s" % (
+                           rate, angespart, kosten, bis.strftime("%H:%M")))
+        else:
+            aus.update(ENTSCHEIDUNG="spar",
+                       GRUND="Sparmodus: angespart %.2f ≥ Kosten %.2f – ein Eintrag mit %s" % (angespart, kosten, spar_m))
     elif a < -weit:
         aus.update(STUFE="weit darunter (< -%g)" % weit, ENTSCHEIDUNG="neu", M_KOMPLEX=stark, M_ROUTINE=stark,
                    GRUND="weit unter dem Soll – aufholen")
@@ -196,8 +250,9 @@ entscheiden() {
     K_WOCHE=$K_WOCHE K_5H=$K_5H K_5H_ENDE=$K_5H_ENDE \
     K_RESET_WOCHENTAG=$KONF[RESET_WOCHENTAG] K_RESET_ZEIT=$KONF[RESET_ZEIT] K_WOCHENTAGE=$KONF[WOCHENTAGE] \
     K_START=$KONF[START] K_ENDE=$KONF[ENDE] K_LETZTER_BEGINN=$KONF[LETZTER_BEGINN] \
-    K_WEIT_DARUNTER=$KONF[WEIT_DARUNTER] K_IM_SOLL=$KONF[IM_SOLL] K_NUR_SONNET_UEBER=$KONF[NUR_SONNET_UEBER] \
-    K_NICHTS_NEUES_UEBER=$KONF[NICHTS_NEUES_UEBER] K_FUENF_STUNDEN_MAX=$KONF[FUENF_STUNDEN_MAX] \
+    K_WEIT_DARUNTER=$KONF[WEIT_DARUNTER] K_IM_SOLL=$KONF[IM_SOLL] K_FUENF_STUNDEN_MAX=$KONF[FUENF_STUNDEN_MAX] \
+    K_SPAR_MAX=$KONF[SPAR_MAX] K_RESERVE_NACHT=$KONF[RESERVE_NACHT] K_SPAR_MAX_EINTRAEGE_TAG=$KONF[SPAR_MAX_EINTRAEGE_TAG] \
+    K_SPAR_KOSTEN_JE_EINTRAG=$KONF[SPAR_KOSTEN_JE_EINTRAG] K_SPAR_MODELL=$KONF[SPAR_MODELL] K_SPAR_DATEI=$SPAR_DATEI \
     K_PAUSE_OHNE_ENDE=$KONF[PAUSE_OHNE_ENDE] K_FABLE_5H_MAX=$KONF[FABLE_5H_MAX] \
     K_MODELL_STARK=$KONF[MODELL_STARK] K_MODELL_ROUTINE=$KONF[MODELL_ROUTINE] \
     python3 -I -c $ENTSCHEID_PY)
@@ -206,12 +261,16 @@ entscheiden() {
 entscheidung_text() {
   case $E[ENTSCHEIDUNG] in
     neu)        print -r -- "neu beginnen" ;;
-    nur_sonnet) print -r -- "nur Sonnet" ;;
+    spar)       print -r -- "Sparmodus: ein Eintrag mit $E[SPAR_MODELL]" ;;
+    spar_warten) print -r -- "Sparmodus: warten" ;;
     *)          print -r -- "nichts Neues" ;;
   esac
 }
 kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
-  print -r -- "Woche ${K_WOCHE:-?} % (Soll $E[SOLL] %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)"
+  print -r -- "Woche ${K_WOCHE:-?} % (Soll $E[SOLL] %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
+}
+spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
+  print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
 }
 
 # =================================== Trockenlauf ===================================
@@ -228,6 +287,7 @@ if [[ -n $TROCKEN ]]; then
   print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein )"
+  [[ -n $E[SPAR_RATE] ]] && print -r -- "Sparen:       $(spar_zeile); Modell $E[SPAR_MODELL]; Messungen $SPAR_DATEI"
   print "Entscheidung: $(entscheidung_text) – $E[GRUND]"
   if [[ -n $E[PAUSE_BIS] ]]; then
     print "Pause:        würde in ${HALO_PAUSEN_DATEI:-~/halo-nacht/pausen.txt} schreiben (Trockenlauf: NICHT geschrieben):"
@@ -240,6 +300,11 @@ if [[ -n $TROCKEN ]]; then
   elif [[ $E[ENTSCHEIDUNG] == nichts ]]; then
     if [[ -n $E[PAUSE_BIS] ]]; then print "Würde:        Pause schreiben, bis zum Fensterende warten, dann Kontingent neu lesen (Bericht am Ende des Laufs)"
     else print "Würde:        Bericht „nichts Neues“, Lauf beenden"; fi
+  elif [[ $E[ENTSCHEIDUNG] == spar_warten ]]; then
+    print "Würde:        kein Claude, warten bis ${${E[SPAR_WARTEN_BIS]}[12,16]} (höchstens bis $KONF[LETZTER_BEGINN]), dann Kontingent neu lesen"
+  elif [[ $E[ENTSCHEIDUNG] == spar ]]; then
+    print "Würde:        eine Sparmodus-Runde mit claude -p --model $E[SPAR_MODELL] (kein Plan-Lauf): Einstufung, höchstens ein passender Eintrag,"
+    print "              Messung vor/nach in $SPAR_DATEI; Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}"
   else
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
     print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
@@ -259,7 +324,7 @@ PRUEF=pruef/tagesroutine-${TAG//-/}
 uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
-ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0
+ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG=
 typeset -a MODELLE_GENUTZT ABSCHNITTE
 START_KOPF=$(git -C $REPO rev-parse -q --verify main 2>/dev/null)
 
@@ -275,14 +340,15 @@ bericht_schreiben() {
     print
     print "## Kontingent"
     print
-    print "- Anfang: ${K_ANFANG:-nicht gelesen}"
-    print "- Ende: ${K_ENDE:-nicht gelesen}"
-    print "- Fable-Wochenzähler: ${K_FABLE:-nicht im rate_limit_event (kontingent.sh); get_usage der Leitstelle}"
-    print "- Fable-Läufe heute: $FABLE_LAEUFE"
+    print -r -- "- Anfang: ${K_ANFANG:-nicht gelesen}"
+    print -r -- "- Ende: ${K_ENDE:-nicht gelesen}"
+    print -r -- "- Fable-Wochenzähler: ${K_FABLE:-nicht im rate_limit_event (kontingent.sh); get_usage der Leitstelle}"
+    print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
+    [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
     print
     print "## Modelle"
     print
-    (( $#MODELLE_GENUTZT )) && print -rl -- "- "${^MODELLE_GENUTZT} || print "- keine Claude-Runde"
+    (( $#MODELLE_GENUTZT )) && print -rl -- "- "${^MODELLE_GENUTZT} || print -r -- "- keine Claude-Runde"
     for f in $ABSCHNITTE; do [[ -s $f ]] && { print; cat $f }; done
     print
     print "## Commits heute (nicht gepusht, der Nachtlauf nimmt sie mit)"
@@ -382,6 +448,50 @@ while true; do
       continue
     fi
     ENDGRUND=$E[GRUND]; break
+  fi
+
+  # --- Sparmodus: angespartes Kontingent reicht noch nicht → ohne Claude bis zur vollen Stunde warten ---
+  if [[ $E[ENTSCHEIDUNG] == spar_warten ]]; then
+    log "$E[GRUND]; $(spar_zeile)"
+    bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[SPAR_WARTEN_BIS])
+    (( bis >= LETZTER )) && { ENDGRUND="$E[GRUND] (nach $KONF[LETZTER_BEGINN], heute kein Versuch mehr)"; break }
+    while (( $(date +%s) < bis )); do sleep 120; done
+    continue
+  fi
+  # --- Sparmodus: genau eine Runde mit dem niedrigsten Modell (Einstufung, höchstens ein Eintrag) ---
+  if [[ $E[ENTSCHEIDUNG] == spar ]]; then
+    N=$((N + 1)) ERG=$DIR/$TAG-tagesroutine-$N.erg
+    SZ=$(spar_zeile) VOR=$K_WOCHE T0=$(date +%s)
+    ABSCHNITTE+=($DIR/$TAG-tagesroutine-$N.md)
+    MODELLE_GENUTZT+=("Sparmodus-Runde $N: $E[SPAR_MODELL]")
+    log "$SZ – Runde mit $E[SPAR_MODELL]"
+    runde $E[SPAR_MODELL] "$(kopf)
+
+JETZT: Sparmodus-Runde (Abschnitt „Sparmodus“ des Auftrags). Modell dieser Runde: $E[SPAR_MODELL] (niedrigstes Modell). $SZ.
+Heute schon bearbeitet (nicht noch einmal nehmen): $(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null | tr '\n' ' ').
+Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, siehe Auftrag). Berichtsabschnitt: $DIR/$TAG-tagesroutine-$N.md." \
+      $DIR/$TAG-tagesroutine-$N.txt
+    rc=$?
+    DAUER=$(( ($(date +%s) - T0 + 59) / 60 ))
+    kontingent_lesen || K_WOCHE=
+    NACH=$K_WOCHE
+    if [[ -n $VOR && -n $NACH ]] && (( NACH >= VOR )); then KOSTEN=$(printf '%.1f' $(( NACH - VOR ))); else KOSTEN=-; fi
+    ERGZ=$(head -1 $ERG 2>/dev/null); ERGW=${${ERGZ%% *}:-zurück}
+    EZ=$(sed -n '2s/^eintrag[[:space:]]*//p' $ERG 2>/dev/null); EID=${EZ%%[[:space:]]*}
+    [[ $ERGW == (erledigt|zurück|entscheidung|nichts_passend) ]] || ERGW=zurück
+    print -r -- "$TAG	$(date +%H:%M)	${EID:--}	$E[SPAR_MODELL]	${VOR:--}	${NACH:--}	$KOSTEN	$DAUER	$ERGW" >> $SPAR_DATEI
+    SPAR_MESSUNG+="${SPAR_MESSUNG:+
+}  - Runde $N: $ERGW${EZ:+ ($EZ)}, Modell $E[SPAR_MODELL], Woche vor ${VOR:-?} % / nach ${NACH:-?} % (Kosten $KOSTEN Punkte), Dauer $DAUER Min.; $SZ"
+    log "Sparmodus-Runde $N: $ERGW, Woche ${VOR:-?} → ${NACH:-?} %, $DAUER Min."
+    [[ -n $EID ]] && print -r -- "$EID	$ERGZ" >> $DIR/$TAG-tagesroutine-erledigt.txt
+    case $ERGW in
+      erledigt)       ERLEDIGT=$((ERLEDIGT + 1)); pruef_pushen ;;
+      entscheidung)   ENTSCHEIDUNG_NOETIG=$((ENTSCHEIDUNG_NOETIG + 1)) ;;
+      nichts_passend) ENDGRUND="Sparmodus: nichts Passendes für $E[SPAR_MODELL]"; break ;;
+      *)              ZURUECK=$((ZURUECK + 1)) ;;
+    esac
+    (( rc == 9 )) && { ENDGRUND="Limit erreicht"; break }
+    continue      # Tagesgrenze und Kontingent prüft die nächste Entscheidung
   fi
 
   if [[ -z $GEPLANT ]]; then

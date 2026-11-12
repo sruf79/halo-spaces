@@ -7093,6 +7093,30 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalenderliste: Plakette „Aktivieren“ als graue Kapsel ohne Großschrift; Haken des deaktivierten Kalenders grau statt weiß", enable_badge, results)
 
+    def cal_minimonth_apple():
+        # Mini-Kalender unten in der Kalender-Seitenleiste wie Apple Kalender: nah am unteren Rand (letzte Zeile höchstens
+        # 16 px darüber, vorher 52 px Innenabstand), darüber eine Haarlinie mit Abstand zu den Rändern; heute als roter
+        # Kreis in Apples Rot (Rohwerte der Vorlagen: hell #EB4C46 mit weißer, dunkel #EB534D mit schwarzer Zahl)
+        res = m.js(r"""
+          await toCalendar(); await ruhig(800);
+          const mm = d.getElementById("calMinimonth"), pane = d.getElementById("minimonth-pane"), side = d.getElementById("calSidebar");
+          mm.showMonth?.(new Date()); await ruhig(300);
+          const rows = [...mm.querySelectorAll("tr")].filter(r => r.querySelector("td.minimonth-day") && r.getBoundingClientRect().height);
+          const last = rows.at(-1)?.getBoundingClientRect(), sr = side.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+          const today = mm.querySelector("td.minimonth-day[today]"), cs = getComputedStyle(pane), ts = today && getComputedStyle(today);
+          const head = mm.querySelector(".minimonth-header")?.getBoundingClientRect();
+          return { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, gap: last ? Math.round(sr.bottom - last.bottom) : null,
+                   line: cs.backgroundImage, linePos: cs.backgroundPositionX, lineSize: cs.backgroundSize,
+                   lineToHead: head ? Math.round(head.top - pr.top) : null,
+                   today: ts ? { bg: ts.backgroundImage, color: ts.color } : null };""")
+        t = res.get("today") or {}
+        red, num = ("rgb(235, 83, 77)", "rgb(0, 0, 0)") if res.get("dark") else ("rgb(235, 76, 70)", "rgb(255, 255, 255)")
+        ok = (res.get("gap") is not None and 0 <= res["gap"] <= 16 and "linear-gradient" in res.get("line", "")
+              and res.get("linePos", "").startswith("16px") and 12 <= (res.get("lineToHead") or 0) <= 28
+              and red in t.get("bg", "") and t.get("color") == num)
+        return ok, f"{res}"
+    check("Kalender: Mini-Kalender in der Seitenleiste nah am unteren Rand, Haarlinie darüber, heute im roten Kreis wie Apple (hell weiße, dunkel schwarze Zahl)", cal_minimonth_apple, results)
+
     def print_minimonths():
         # Drucken: „Von“/„Bis“-Minikalender passen ins Formular, Pfeile sichtbar, Knöpfe ohne helle Fläche (dunkel)
         res = m.js(CAL_CHECK_JS + r"""

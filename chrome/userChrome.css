@@ -4218,9 +4218,12 @@ menuseparator[mc-tidy-hidden] {
   display: none !important;
 }
 
+/* Mini-Kalender wie Apple Kalender: nah am unteren Rand, darüber eine
+   Haarlinie mit 16 px Abstand zu den Rändern (bündig mit der Kalenderliste) */
 #minimonth-pane {
   order: 2 !important;
-  padding: 0 8px 52px !important;
+  padding: 16px 8px 8px !important;
+  background: linear-gradient(var(--mt-separator), var(--mt-separator)) 16px 0 / calc(100% - 32px) var(--mt-hairline) no-repeat !important;
 }
 
 /* Kalenderliste: Überschrift klein und grau wie „Google“/„Other“ bei Apple */
@@ -4715,11 +4718,20 @@ menuseparator[mc-tidy-hidden] {
   background: var(--mt-control) !important;
 }
 
-/* heute: weiße Zahl im roten Kreis wie Apple */
+/* heute: Zahl im roten Kreis wie Apple (Rot der Vorlagen als Rohwert: hell
+   #EB4C46 mit weißer Zahl, dunkel etwas heller #EB534D mit schwarzer Zahl) */
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[today] {
-  background: radial-gradient(circle closest-side, #FF3B30 calc(11px * var(--mt-font-scale, 1)), transparent calc(11.5px * var(--mt-font-scale, 1))) !important;
+  --mc-today-red: #EB4C46;
+  background: radial-gradient(circle closest-side, var(--mc-today-red) calc(11px * var(--mt-font-scale, 1)), transparent calc(11.5px * var(--mt-font-scale, 1))) !important;
   color: white !important;
   font-weight: 700 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[today] {
+    --mc-today-red: #EB534D;
+    color: black !important;
+  }
 }
 
 /* Drucken („Von“/„Bis“): dieselben Minikalender wie in der Seitenleiste,

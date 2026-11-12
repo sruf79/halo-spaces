@@ -51,6 +51,7 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `docs/neon-sitzung.md` | Arbeitsweise der Sitzungen `neon` und `neon-board` (Aufträge in `neon-stand.md`, Modelle, `/bereit`, Antworten); `tests/neon-hook.sh` weist darauf hin |
 | `docs/github-komm.md` | GitHub-Kommunikation mit Nutzern (Issues, Pull Requests, Forks, Routine); Kern in `AGENTS.md` |
 | `docs/board.md` | Board-Einzelheiten: Feld-IDs, `gh`-Befehle, Cloud-Weg, Bilder, Apple-Vorlagen, Bilder-Erinnerung; Pflichtregeln in `AGENTS.md` |
+| `docs/neon-ersetzen.md` | neon sichern (Time Machine) und bei Ausfall ersetzen: Reihenfolge, Zeiten (Schätzung), offene Punkte |
 | `docs/testrechner.md` | Testrechner-Einzelheiten: Mac-mini-Prüfung, CI-Laufzeiten, Dunkelmodus, Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang, Windows-VM, Modelle der Routinen; Sperren in `AGENTS.md` |
 | `docs/dauerfreigaben.md` | Stufen A bis D: was neon und die Routinen ohne Rückfrage tun dürfen, was nur der Maintainer entscheidet |
 | `docs/umbau.md` | Umbau der Abläufe (November 2026): Maßnahmen M01–M31, Messplan 6.12.2026, Rücknahme je Stufe |

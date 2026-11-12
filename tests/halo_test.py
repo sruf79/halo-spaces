@@ -4650,6 +4650,34 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü (aktiver mit Häkchen), Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 
+    def menubar_status_bar():
+        # Ansicht → „Show Status Bar“ direkt unter der Today-Pane, Häkchen nach dem echten Zustand; einmal
+        # ausgeblendet, holt derselbe Eintrag die Statusleiste zurück (vorher fehlte er mit dem Untermenü „Toolbars“)
+        res = m.js(r"""
+          const p = d.getElementById("menu_View_Popup"), sb = d.getElementById("status-bar");
+          const state = async () => { p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(50);
+            const vis = [...p.children].filter(el => !el.hidden && !el.collapsed).map(el => el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id));
+            const item = d.getElementById("menu_showTaskbar");
+            const r = { vis, checked: item?.getAttribute("checked"), hidden: sb.hidden, shown: !!sb.getClientRects().length };
+            p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return r; };
+          await toMail();
+          const out = { before: await state() };
+          d.getElementById("menu_showTaskbar").doCommand();
+          await bis(() => sb.hidden, "Statusleiste aus", 2000);
+          out.off = await state();
+          d.getElementById("menu_showTaskbar").doCommand();
+          await bis(() => !sb.hidden, "Statusleiste an", 2000);
+          out.on = await state();
+          return out;""")
+        vis = res.get("before", {}).get("vis", [])
+        i = vis.index("Show Status Bar") if "Show Status Bar" in vis else -1
+        ok = i > 0 and "Today" in vis[i - 1] \
+            and res["before"]["checked"] == "true" and res["before"]["shown"] \
+            and res["off"]["checked"] == "false" and res["off"]["hidden"] and not res["off"]["shown"] \
+            and res["on"]["checked"] == "true" and res["on"]["shown"]
+        return ok, f"{res}"
+    check("Menüleiste: Ansicht → „Show Status Bar“ unter der Today-Pane blendet die Statusleiste aus und wieder ein, Häkchen nach dem Zustand", menubar_status_bar, results)
+
     def context_flat():
         # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit
         # „Remove Star“, nur Gelesen oder Ungelesen, keine Schlagwörter/Speichern/Drucken; Zeilen gleich hoch; Stern per Menü.

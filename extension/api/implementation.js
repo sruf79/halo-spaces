@@ -3034,7 +3034,7 @@ function hookMenubar(win, restorers) {
       ...(MENUBAR_MAC ? [] : [S, L("menu_preferences")]),
     ]],
     ["menu_View_Popup", [
-      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), S,
+      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), L("menu_showTaskbar", "Show Status Bar"), S,
       L("viewSortMenu"), L("viewMessageViewMenu", "Filter"), L("viewMessagesMenu"), L("menu_FolderViews", "Folder List"), [msgMenu], S,
       L("calChangeViewDay"), L("calChangeViewWeek"), L("calChangeViewMonth"), L("calendar-go-to-today-menuitem", "Go to Today"), S,
       L("menu_fullZoomEnlarge"), L("menu_fullZoomReduce"), L("menu_fullZoomReset", "Actual Size"),
@@ -3165,6 +3165,12 @@ function hookMenubar(win, restorers) {
       // Häkchen der Today-Pane nach dem echten Zustand: Thunderbird setzt es am
       // Befehl, unsere Animation blendet sie aber selbst ein/aus – und
       // „checked = false“ entfernt das Attribut bei <command> nicht
+      // Häkchen der Statusleiste nach dem echten Zustand (Thunderbird setzt es
+      // sonst erst beim Öffnen seines Untermenüs „Symbolleisten“, das hier fehlt)
+      const sb = $("menu_showTaskbar");
+      if (sb) {
+        sb.setAttribute("checked", String(!$("status-bar")?.hidden));
+      }
       const tp = $("calShowTodayPane-2");
       if (tp) {
         const shown = !!win.TodayPane?.isVisible;

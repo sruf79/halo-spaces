@@ -11659,6 +11659,41 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Bereiche: Trennlinie der Seitenleiste läuft in der Toolbar-Zeile ohne Versatz und Farbsprung weiter (Chat, Kalender, Mail, auch nach dem Ziehen und bis oben)", side_line, results)
 
+    def spaces_bar_no_line():
+        # keine senkrechte Linie zwischen der Spalte der Bereichs-Kacheln und der Seitenleiste daneben (die Kacheln sind
+        # eigene Flächen mit Abstand): der letzte Bildpunkt der Bereiche-Leiste hat das Grau der Leiste, in allen Bereichen,
+        # oben neben der Ampel wie unten; die Leiste bleibt 89 px breit
+        res = m.js(r"""
+          const out = {};
+          const pixels = async r => { const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+            cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+            try { const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"); ctx.drawImage(bm, 0, 0); }
+            catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+            const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
+            return (x, y) => { const i = (Math.round(y) * cv.width + Math.round(x)) * 4; return [data[i], data[i + 1], data[i + 2]]; }; };
+          const bar = d.getElementById("spacesToolbar");
+          try {
+            w.resizeTo(1500, 900); await wait(600);
+            if (w.gSpacesToolbar.isHidden) { w.__mcColumnMigrate?.(false, false); await ruhig(600); }
+            for (const [mode, open] of [["mail", () => toMail()], ["calendar", () => toCalendar()], ["tasks", async () => { tm.openTab("tasks", {}); }],
+                                        ["addressbook", async () => { tm.openTab("addressBookTab", {}); }], ["chat", async () => { tm.openTab("chat", {}); }]]) {
+              await open(); await ruhig(1200);
+              const r = bar.getBoundingClientRect();
+              const px = await pixels(new w.DOMRect(Math.round(r.right) - 6, 0, 6, Math.round(r.height)));
+              const row = y => ({ inner: px(2, y), edge: px(5, y) });
+              out[mode] = { w: Math.round(r.width), top: row(30), mid: row(Math.round(r.height / 2)), low: row(Math.round(r.height) - 40) };
+            }
+          } finally {
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            await toMail(); await ruhig(400);
+          }
+          return out;""")
+        def same(a, b):
+            return all(abs(x - y) <= 3 for x, y in zip(a, b))
+        bad = {k: v for k, v in res.items() if v["w"] != 89 or not all(same(v[p]["inner"], v[p]["edge"]) for p in ("top", "mid", "low"))}
+        return len(res) == 5 and not bad, f"{'abweichend ' + str(bad) + ' ' if bad else ''}{res}"
+    check("Bereiche: keine senkrechte Linie zwischen den Bereichs-Kacheln und der Seitenleiste (Mail, Kalender, Aufgaben, Adressbuch, Chat; Leiste 89 px)", spaces_bar_no_line, results)
+
     def today_closed():
         # Today-Pane aus: keine graue Fläche oben rechts neben dem Knopf
         res = m.js('''

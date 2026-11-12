@@ -44,7 +44,7 @@ Beginn: 5.11.2026 (Umbau-Beginn für die Messung), Stufen 0–6 vom 8. bis 10.11
 | M25 | Wochenprüfung im Empfehlungsmodus, ISO-Wochen, feste Kennzahlen (M25b–d) | umgesetzt | 5e9b065, bf91a84, 67bbb89, 8fda5b2, d2a1a4e |
 | M26 | gestaffelte Verteilung | wartend | siehe unten |
 | M27 | „Maintainer nötig“: `[info]`/`[handeln]`, `handeln.log`, Zählung je Woche | umgesetzt (Zählung ab 10.11.) | ff532e7, 9bb010d |
-| M28 | Push ohne Sprachmodell | wartend | siehe unten |
+| M28 | Push ohne Sprachmodell | gestrichen (12.11.2026) | `ENTSCHEIDUNGEN.md` |
 | M29 | Betrieb verschlanken | wartend | siehe unten |
 | M30 | `/clear` bei neon ohne Maintainer | nicht umgesetzt (Entscheidung 6.11. bleibt) | `ENTSCHEIDUNGEN.md`, Freigabe 11.11. |
 | M31 | – | Status unklar | – |
@@ -61,13 +61,13 @@ a9958fe), Morgenbrief täglich 08:30, am Wochenende nur bei `[handeln]` (`tests/
 
 ## Wartend
 
-Bedingung für alle drei: **nach der Vier-Wochen-Messung um den 6.12.2026** und nur mit Freigabe des
+(M28 Push ohne Sprachmodell ist seit 12.11.2026 gestrichen, siehe `ENTSCHEIDUNGEN.md`.)
+
+Bedingung für beide: **nach der Vier-Wochen-Messung um den 6.12.2026** und nur mit Freigabe des
 Maintainers (Board-Einträge „Ablauf: …“, Status „Wartet auf OK“).
 
 - **M26 gestaffelte Verteilung** – erst wenn die Messung zeigt, dass Releases je Tag und Rückmeldungen
   von Nutzern stabil sind.
-- **M28 Push ohne Sprachmodell** – heute stellt `push()` jede Meldung über einen kurzen Haiku-Aufruf
-  zu (auch der Morgenbrief); der Wechsel braucht einen Zustellweg ohne Claude.
 - **M29 Betrieb verschlanken** – Routinen zusammenlegen oder streichen, je nach Kontingent und
   „Maintainer nötig“ der vier Wochen.
 

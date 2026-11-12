@@ -194,10 +194,10 @@ print("- „erledigt je Nacht (Bericht)“ zählt Aufzählungspunkte unter „##
 print()
 print("## Zu entscheiden (Maintainer)")
 print()
-print("- Wartende Maßnahmen nach dieser Messung: M26 gestaffelte Verteilung, M28 Push ohne Sprachmodell, M29 Betrieb verschlanken (M30 /clear bleibt nach der Entscheidung vom 6.11. aus). Einzelheiten docs/umbau.md.")
+print("- Wartende Maßnahmen nach dieser Messung: M26 gestaffelte Verteilung, M29 Betrieb verschlanken (M30 /clear bleibt nach der Entscheidung vom 6.11. aus). Einzelheiten docs/umbau.md.")
 PY
 rc=$?
 (( rc == 0 )) || { print -u2 "FEHLER: Auswertung gescheitert (Exitcode $rc)"; exit 1 }
 print "Bericht: $BERICHT"
-push "Vergleich Vorher/Nachher (Vier-Wochen-Messung) liegt vor: M26, M28, M29 entscheiden – Bericht ${BERICHT/#$HOME/~}" wochenpruefung handeln
+push "Vergleich Vorher/Nachher (Vier-Wochen-Messung) liegt vor: M26, M29 entscheiden – Bericht ${BERICHT/#$HOME/~}" wochenpruefung handeln
 exit 0

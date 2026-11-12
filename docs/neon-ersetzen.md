@@ -10,8 +10,12 @@ schnell weiterlaufen. Nicht erprobt: Die Zeiten sind Schätzungen, ein Probelauf
   `gh` und Tailscale, die Runner-Konfiguration.
 - Platte verschlüsseln (Schloss am Ziel in Systemeinstellungen → Time Machine): Anmeldedaten und Screenshots
   mit echten Mails liegen darauf.
-- Die Windows-VM (Parallels) nach Möglichkeit ausschließen (Time Machine → Optionen) und neu aufsetzen
-  (`tests/MAC-MINI.md` Abschnitt 11); eine große, ständig geänderte Datei sichert Time Machine schlecht.
+- Windows-VM: `/Users/neosky.cat/Parallels` (51 GB, 12.11.2026) liegt im Benutzerordner und ist von Time Machine
+  eingeschlossen (`tmutil isexcluded`: Included). Gesamtplatte 931 GB, belegt sind auf neon 146 GB. Die VM wird
+  also mitgesichert; ändert sie sich (nachts bei den Windows-Läufen), kopiert Time Machine große Teile erneut, alte
+  Stände räumt es selbst weg. Ein Backup, das mitten im Lauf der VM entsteht, kann inkonsistent sein; ein
+  Backup, während die VM aus oder angehalten ist, taugt. Die VM zusätzlich neu aufzusetzen bleibt der Rückfallweg
+  (`tests/MAC-MINI.md` Abschnitt 11).
 - Empfehlung (nicht beschlossen, siehe Abschnitt 6): nach dem ersten Backup einen Wiederherstellungstest machen.
 - Was auf GitHub liegt (Code, Verlauf, Issues, Board, Releases, `updates.json`), braucht keine Sicherung.
   Nicht gepushte lokale Commits liegen nur auf neon: Der Nachtlauf pusht täglich (01:30).
@@ -27,7 +31,7 @@ schnell weiterlaufen. Nicht erprobt: Die Zeiten sind Schätzungen, ein Probelauf
    ./svc.sh status` (bei neuem Gerät neu registrieren, `tests/MAC-MINI.md` Abschnitt 8).
 4. LaunchAgents prüfen (`~/.config/halo-spaces/notfall.sh status`); Nachtlauf, CI-Wächter und Routinen laden
    nur nach Freigabe des Maintainers.
-5. Windows-VM neu aufsetzen (Abschnitt 11), erst dann Windows-Prüfungen und Release auf neon.
+5. Windows-VM aus der Sicherung wiederherstellen (sonst neu aufsetzen, Abschnitt 11), erst dann Windows-Prüfungen und Release auf neon.
 
 ## 3. Ersatz ohne Sicherung (langsamer Weg)
 
@@ -57,4 +61,4 @@ schnell weiterlaufen. Nicht erprobt: Die Zeiten sind Schätzungen, ein Probelauf
   Es gibt also weder eine Sicherung außer Haus noch einen Wiederherstellungstest; ob die Sicherung wiederherstellbar
   ist, ist unbelegt (Risiko vom Maintainer angenommen). Abschnitt 1 (Test nach dem ersten Backup) ist damit nur eine
   Empfehlung.
-- Offen: Liegt die Windows-VM auf dem Systemlaufwerk oder woanders (Systemlaufwerk belegt nur etwa 13 GB)?
+- Offen: Ob die VM zu den Backup-Zeiten (nachts) aus oder angehalten ist; nicht geprüft.

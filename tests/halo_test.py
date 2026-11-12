@@ -2092,6 +2092,13 @@ def reading_checks(m, results):
           out.open = !list.collapsed && list.getBoundingClientRect().height > 20;
           out.chevron = { shown: chev.maskImage.startsWith("url") && chev.width == "12px", x: Math.round((doc.getElementById("attachmentInfo").getBoundingClientRect().left - vr.left) * 10) / 10 };
           out.icon = x(rows[0].querySelector(".attachmentcell-icon"));
+          // Datei-Symbol senkrecht mittig zur Zeile des Namens (Mitte des Symbols = Mitte der Schrift)
+          const mid = el => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+          const valign = it => { const ic = it.querySelector(".attachmentcell-icon"), nm = it.querySelector(".attachmentcell-name");
+            const r = doc.createRange(); r.selectNodeContents(nm); const tr = r.getBoundingClientRect();
+            return { d: Math.round((mid(ic) - (tr.top + tr.bottom) / 2) * 10) / 10, icon: [Math.round(ic.getBoundingClientRect().top * 10) / 10, ic.getBoundingClientRect().height],
+              text: [Math.round(tr.top * 10) / 10, tr.height], item: it.getBoundingClientRect().height, align: cs(it).alignItems }; };
+          out.valign = rows.map(valign);
           out.font = { count: parseFloat(cs(count).fontSize), name: parseFloat(cs(rows[0].querySelector(".attachmentcell-name")).fontSize) };
           out.line = { border: parseFloat(cs(view).borderTopWidth), image: cs(view).backgroundImage.startsWith("linear-gradient"), pos: cs(view).backgroundPositionX, size: cs(view).backgroundSize };
           out.saves = rows.map(i => vis(i.querySelector(".mc-att-save")));
@@ -2122,7 +2129,7 @@ def reading_checks(m, results):
           out.single = { attr: v1.hasAttribute("mc-single"), bar: vis(doc.getElementById("attachmentBar")), name: vis(name) ? name.textContent : null,
             save: vis(it?.querySelector(".mc-att-save")), icon: Math.round((it.querySelector(".attachmentcell-icon").getBoundingClientRect().left - v1r.left) * 10) / 10,
             menu: ["context-openAttachment", "context-saveAttachment", "context-detachAttachment", "context-deleteAttachment"].filter(id => doc.getElementById(id)).length,
-            ctx: it?.getAttribute("context") };
+            ctx: it?.getAttribute("context"), valign: valign(it) };
           return out;""")
         sg = res.get("single") or {}
         ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
@@ -2131,9 +2138,10 @@ def reading_checks(m, results):
               and all(c <= 0.5 for c in res.get("cut", [99]))
               and res["calls"] == [["save", "Ausflug-02.txt"]]
               and sg.get("attr") and not sg.get("bar") and sg.get("name") and sg.get("save") and abs(sg.get("icon", 0) - 16) <= 1.5
-              and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
+              and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext"
+              and all(abs(v["d"]) <= 1 for v in res.get("valign", []) + [sg.get("valign", {"d": 99})]))
         return ok, f"{res}"
-    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
+    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Datei-Symbol mittig zum Namen, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter

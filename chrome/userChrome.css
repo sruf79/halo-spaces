@@ -1370,10 +1370,13 @@ body:has(> #accountCentral),
   padding-inline: 8px !important;
 }
 
-/* Datei-Symbol bündig mit Chevron und Mailtext (16 px vom Rand) */
+/* Datei-Symbol bündig mit Chevron und Mailtext (16 px vom Rand) und
+   senkrecht mittig zum Namen (Thunderbird richtet an der Grundlinie aus, das
+   Symbol saß 5 px zu hoch) */
 #attachmentList .attachmentItem {
   border-radius: 6px !important;
   padding-inline: 6px !important;
+  align-items: center !important;
 }
 
 #attachmentList .attachmentItem :is(.attachmentcell-name, .attachmentcell-extension, .attachmentcell-size) {

@@ -18144,7 +18144,17 @@ Neu
             to(3)
             out["strip"] = leave(0)
             out["strip_off"] = weg()
+            # erst nach Verweilen am Rand (400 ms, wie das Dock): nach 200 ms noch nicht, dann schon; kurz an
+            # den Rand gestoßen und gleich zurück löst nicht aus
             out["mid"].append(mitte())
+            to(3)
+            out["dwell"] = m.js("await wait(200); return w.__mcSideFloatState?.();")
+            out["dwell_on"] = m.js('try { await bis(() => w.__mcSideFloatState?.() == "on", "verweilt", 1500); } catch {} return w.__mcSideFloatState?.();')
+            out["dwell_off"] = weg()
+            out["mid"].append(mitte())
+            to(3)
+            to(400)
+            out["brush"] = m.js("await wait(700); return w.__mcSideFloatState?.();")
             to(600, 1)
             out["top"] = leave(600, -1, "off")
             out["mid"].append(mitte())
@@ -18157,10 +18167,11 @@ Neu
               await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
               const a3 = tm.currentAbout3Pane; if (w.__mcVorOrdner && a3.gFolder?.URI != w.__mcVorOrdner) { a3.displayFolder(w.__mcVorOrdner); }
               delete w.__mcVorOrdner; await ruhig(400); return 1;""")
-        ok = out == {"mid": ["off"] * 4, "near": "off", "edge": "on", "edge_off": "off", "strip": "on", "strip_off": "off", "top": "off", "right": "off"}
+        ok = out == {"mid": ["off"] * 5, "near": "off", "edge": "on", "edge_off": "off", "strip": "on", "strip_off": "off",
+                     "dwell": "off", "dwell_on": "on", "dwell_off": "off", "brush": "off", "top": "off", "right": "off"}
         return ok, str(out)
-    check("Seitenleiste: am linken Fensterrand blendet sie auch ein, wenn der Zeiger in die Größenänderungszone "
-          "des Fensters fährt (macOS meldet dort nur das Verlassen des Fensters)", sidebar_float_edge, results)
+    check("Seitenleiste: am linken Fensterrand blendet sie erst nach kurzem Verweilen ein (kurz anstoßen löst nicht aus), auch wenn "
+          "der Zeiger in die Größenänderungszone des Fensters fährt (macOS meldet dort nur das Verlassen des Fensters)", sidebar_float_edge, results)
     def sidebar_column_edges():
         # Seitenleisten-Knopf (ganze Spalte): Grau der Toolbar-Zeile über der Spalte, ihre Trennlinie und der
         # Seitenleisten-Knopf gleiten in jedem Bild mit der Spalte, statt stehen zu bleiben und am Ende zu springen

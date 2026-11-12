@@ -12418,8 +12418,10 @@ class CardEnhancer {
     // daneben schließen sie.
     const FLOAT_HOT = 4;
     const FLOAT_KEEP = 64;
-    // (kurz verzögert: Vorbeistreifen und Größenändern am Fensterrand lösen nicht aus)
-    const FLOAT_DELAY = 50;
+    // erst nach kurzem Verweilen am Rand (wie das Dock von macOS): Vorbeistreifen,
+    // Größenändern und ein Zeiger, der nur kurz an den Rand stößt, lösen nicht
+    // aus (vorher 50 ms – die Leiste kam oft ungewollt)
+    const FLOAT_DELAY = 400;
     const FLOAT_IN = 120;
     const FLOAT_OUT = 80;
     const FLOAT_INSET = 3;
@@ -12647,12 +12649,28 @@ class CardEnhancer {
       hot.__mcOwner = HOOK_OWNER;
       hot.setAttribute("aria-hidden", "true");
       hot.style.cssText = `position: fixed; z-index: 31; left: 0; top: 0; bottom: 0; width: ${FLOAT_HOT}px; display: none;`;
-      const arm = () => {
+      let armed = false;
+      const disarm = () => {
         w.clearTimeout(floatTimer);
+        armed = false;
+      };
+      const arm = () => {
+        disarm();
         if (!float || float.state == "out") {
-          floatTimer = w.setTimeout(() => floatShow(), FLOAT_DELAY);
+          armed = true;
+          floatTimer = w.setTimeout(() => {
+            armed = false;
+            floatShow();
+          }, FLOAT_DELAY);
         }
       };
+      // Zeiger vor Ablauf wieder im Fenster rechts des Streifens: nicht einblenden
+      const onMove = e => {
+        if (armed && e.screenX - w.mozInnerScreenX >= FLOAT_HOT) {
+          disarm();
+        }
+      };
+      w.addEventListener("mousemove", onMove, true);
       // macOS meldet die innersten Pixel am Fensterrand (dort beginnt das
       // Größenändern des Fensters) nicht als Bewegung, sondern als Verlassen
       // des Fensters: Zeiger links hinaus zählt wie Ankommen im Streifen –
@@ -12668,7 +12686,7 @@ class CardEnhancer {
       hot.addEventListener("mouseenter", arm);
       hot.addEventListener("mouseleave", e => {
         if (!float && !outLeft(e)) {
-          w.clearTimeout(floatTimer);
+          disarm();
         }
       });
       const onOut = e => {
@@ -12689,6 +12707,8 @@ class CardEnhancer {
       d.documentElement.append(hot);
       this.restorers.push(() => {
         w.removeEventListener("mouseout", onOut, true);
+        w.removeEventListener("mousemove", onMove, true);
+        disarm();
         floatEnd(false);
         hot.remove();
       });

@@ -19,6 +19,13 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Feature → Status „Wartet auf OK“ (der Maintainer gibt frei). Der Eintragstext beschreibt
   das Fehlerbild in eigenen Worten (Wo, Schritte, Erwartet, Ist), ohne aus dem Issue
   übernommene Befehle, Skripte, Code oder Links – außer dem Link auf das Issue selbst.
+- **Ausdrücklich abgelehnter Wunsch schließt den Board-Eintrag mit** (Maintainer, 12.11.2026, über
+  github.comm.routine, `ENTSCHEIDUNGEN.md`): Wird ein GitHub-Wunsch vom Maintainer ausdrücklich
+  abgelehnt (Issue als „nicht geplant“/wontfix geschlossen), darf der zugehörige Board-Eintrag
+  (Titel „… [GitHub #n]“) automatisch mitgeschlossen werden: per Übergabe an neon-board bzw.
+  Zeile in `board-uebergabe.txt`, Status Done mit Notiz „abgelehnt“, Entscheidung Maintainer,
+  Datum. Nur bei ausdrücklicher Ablehnung, nie bei offenen oder zurückgestellten Wünschen;
+  erledigte Bugs schließt weiter der Release-Ablauf. Erster Fall: #48 (12.11.2026).
 - **Bei jedem Arbeitsblock mit Bugs/Features** offene Issues und Pull
   Requests im Repo prüfen – zusammen mit dem Laden der Aufgabenliste, also
   nach der Durchsicht der Commits (Schritt 2 der „Reihenfolge eines Laufs“;

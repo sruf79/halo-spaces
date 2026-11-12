@@ -130,6 +130,11 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 
 ## Archiv und „War das schon einmal da?“
 
+**Done heißt immer auch archivieren** (Entscheidung des Maintainers vom 12.11.2026): `board.sh status <id> done [<Hash>]`
+setzt den Status und archiviert gleich mit (der Hash kommt ins Archivverzeichnis); ein Eintrag mit Status Done
+und ohne Archivierung bleibt sonst im Board sichtbar. Wer den Status von Hand oder über den Cloud-Weg setzt,
+archiviert im selben Zug.
+
 Archivierte Einträge kommen aus der API nicht mehr in der Liste (nur einzeln per id). Deshalb schreibt
 `board.sh archiv <id> [<Hash>]` vor dem Archivieren eine Zeile (Datum | id | Typ | Titel | Hash, keine Texte)
 nach `~/halo-aufgaben/archiv.md` (nicht im Repo; auch der CI-Wächter schreibt sie). `board.sh suche <Begriff>`

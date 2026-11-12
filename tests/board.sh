@@ -7,7 +7,7 @@
 #   tests/board.sh liste [<Muster>]              offene Einträge (Status ≠ Done), Muster: Regex auf den Titel
 #   tests/board.sh zeige <id|Muster>             ein Eintrag mit Text
 #   tests/board.sh neu <bug|feature> <Titel> <Text> [<Status>]   legt an, gibt die id aus
-#   tests/board.sh status <id> <todo|arbeit|ok|done>
+#   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis)
 #   tests/board.sh notiz <id> <Text>             hängt einen Absatz an den Text an
 #   tests/board.sh archiv <id> [<Commit-Hash>]   schreibt eine Zeile ins Archivverzeichnis, dann archiviert
 #   tests/board.sh suche <Begriff>               offene und Done-Einträge sowie archivierte (Verzeichnis), höchstens 10 Zeilen
@@ -80,10 +80,15 @@ case $befehl in
     ;;
   status)
     typeset opt e
-    opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done>"
+    opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]"
     e=$(eintrag $1) || exit 1
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt || fehler "Status ließ sich nicht setzen"
     print -r -- "$(print -r -- $e | jq -r .id)  Status $2: $(print -r -- $e | jq -r .title)"
+    # Done heißt immer auch archivieren (Entscheidung des Maintainers vom 12.11.2026): sonst bleibt der Eintrag
+    # sichtbar; der Commit-Hash (optional, dritter Wert) kommt ins Archivverzeichnis
+    if [[ $2 == done ]]; then
+      $0 archiv $(print -r -- $e | jq -r .id) $3 || fehler "Status Done gesetzt, aber Archivieren fehlgeschlagen – mit „archiv“ nachholen"
+    fi
     ;;
   notiz)
     typeset e di body

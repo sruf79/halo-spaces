@@ -16576,7 +16576,8 @@ Neu
             const shown = id => { const r = od.getElementById("row-" + id); return !!r && !r.hidden && r.getBoundingClientRect().height > 0; };
             const out = { page: true, start: { place: shown("weatherPlace"), emoji: shown("emojiCustom"), chat: shown("showChat"), instead: shown("fifthSpace"),
               url: shown("fifthSpaceUrl"), debug: shown("debug"), dashes: od.body.textContent.includes(" – "),
-              infos: od.querySelectorAll(".row .info[title]").length, disclosure: !!od.querySelector("h2 .disclosure[aria-expanded='false']") } };
+              infos: od.querySelectorAll(".row .info[title]").length, disclosure: !!od.querySelector("h2 .disclosure[aria-expanded='false']"),
+              heads: [...od.querySelectorAll("h2")].map(h => h.textContent), empty: [...od.querySelectorAll("section")].filter(x => !x.children.length).length } };
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -16602,6 +16603,7 @@ Neu
         st = res["start"]
         ok = (not st["place"] and st["emoji"] and not st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
+              and "Spaces" not in st["heads"] and st["empty"] == 0
               and res["weatherOn"] and not res["emojiOff"]
               and res.get("place", {}).get("tag") == "select" and res["place"]["options"][:2] == ["➤ Current Location", "Graz, Österreich"]
               and res["place"]["options"][-1] == "Choose City…" and res["place"]["value"] == "current" and res["place"]["tone"] == "warn"
@@ -16609,7 +16611,7 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (Spaces ohne eigene Reihenfolge, GitHub #58), ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
         # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“) mit der Wahl für den fünften Platz der Bereichsleiste ganz oben;

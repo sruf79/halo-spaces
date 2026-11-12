@@ -310,6 +310,9 @@ async function render() {
       section.append(node);
       if (row.showIf) dependent.push({ row, node });
     }
+    // Abschnitt ohne sichtbare Zeile (z. B. „Spaces“, solange die Reihenfolge
+    // nicht eigen ist) nicht als leere Überschrift zeigen (GitHub #58)
+    if (!section.children.length) continue;
     if (opts.collapsed) {
       // eingeklappt: Überschrift als Knopf mit Pfeil
       const head = el("button", { type: "button", class: "disclosure", "aria-expanded": "false" }, title);

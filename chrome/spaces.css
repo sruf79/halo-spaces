@@ -8003,8 +8003,10 @@ body:has(> #booksPane.mc-side-hidden) {
   --ab-pane-min-width: 0px !important;
 }
 
+/* (während der Bewegung höchstens so breit wie das Bild: setzt die Erweiterung
+   je Bild, sonst sprang die Spalte im schmalen Fenster am Ende auf 160 px) */
 body:has(> #booksPane.mc-side-anim) {
-  --ab-pane-min-width: 0px !important;
+  --ab-pane-min-width: var(--mc-ab-anim-min, 0px) !important;
 }
 
 /* Kontoeinstellungen ohne Kontoliste: Die Seite ist ein Raster aus zwei Spalten –

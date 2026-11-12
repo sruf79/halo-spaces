@@ -11068,6 +11068,12 @@ class CardEnhancer {
       if (!full) {
         return;
       }
+      // Adressbuch: Mindestbreite der Bücherspalte im Ruhezustand (halo.spaces: 160 px), bevor „mc-side-anim“ sie auf
+      // 0 setzt – je Bild gilt dann höchstens die Breite des Bildes als Mindestbreite (--mc-ab-anim-min). Mit 0 drückte
+      // das Raster die Spalte im schmalen Fenster (Kontaktliste und Details an ihren Mindestbreiten) auf 88 px, am Ende
+      // galten wieder 160 px: Sprung um 72 px beim Ein- und Ausblenden
+      const abMin = el.id == "booksPane"
+        ? parseFloat(el.ownerDocument.defaultView.getComputedStyle(el.ownerDocument.body).getPropertyValue("--ab-pane-min-width")) || 0 : 0;
       el.__mcAnimating = true;
       el.classList.add("mc-side-anim");
       // gespeicherte Breite der Leiste (Inline-Stil) merken und danach wiederherstellen
@@ -11096,6 +11102,7 @@ class CardEnhancer {
       const setW = v => {
         if (gridBody) {
           gridBody.style.setProperty("--booksSplitter-width", `${v}px`);
+          gridBody.style.setProperty("--mc-ab-anim-min", `${Math.max(0, Math.min(v, abMin))}px`);
           return;
         }
         el.style.setProperty("width", `${v}px`, "important");
@@ -11242,6 +11249,7 @@ class CardEnhancer {
           }
           kids.forEach(kid => kid.style.removeProperty("min-width"));
           if (gridBody) {
+            gridBody.style.removeProperty("--mc-ab-anim-min");
             if (savedColumn) {
               gridBody.style.setProperty("--booksSplitter-width", savedColumn);
             } else {

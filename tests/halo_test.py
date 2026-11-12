@@ -13759,6 +13759,41 @@ Neu
     check("Info-Fenster: Logo, Name und Version mittig untereinander; „Say Thanks“ öffnet die Spendenseite, keine Mailadresse unten; "
           "nicht scrollbar, unten 18 px; Emojis in Status und Hinweisen in voller Farbe; ohne Fotos/Emojis, „Settings…“ öffnet Einstellungen → halo.spaces", donate, results)
 
+    def recommend():
+        # „Recommend“ neben „Say Thanks“: kopiert einen kurzen Text mit dem Link der Projektseite (aus dem Manifest),
+        # zeigt 2,5 s „Text with link copied ✓“ in Grün und dann wieder „Recommend“; Fenster bleibt ohne Scrollen
+        res = m.js('''
+          await toMail();
+          d.getElementById("mcHaloSpaces").doCommand();
+          const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent));
+          await ruhig(300);
+          const btn = hw?.document.getElementById("recommend");
+          const label = () => btn?.querySelector(".label")?.textContent;
+          const before = label();
+          const capsule = btn?.classList.contains("capsule");
+          const afterDonate = btn?.previousElementSibling?.id;
+          btn?.click();
+          const copiedLabel = label(), green = btn ? hw.getComputedStyle(btn).color : null;
+          const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+          trans.init(null); trans.addDataFlavor("text/plain");
+          Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
+          const data = {}; trans.getTransferData("text/plain", data);
+          const text = data.value?.QueryInterface(Ci.nsISupportsString).data || "";
+          const back = await until(() => label() == before && !btn.classList.contains("copied"), 5000);
+          const overflow = hw ? hw.document.documentElement.scrollHeight - hw.innerHeight : null;
+          try { if (hw && !hw.closed) hw.close(); } catch {}
+          return { before, capsule, afterDonate, copiedLabel, green, text, back: !!back, overflow };''')
+        import re
+        rgb = [int(x) for x in re.findall(r"\d+", res.get("green") or "")[:3]]
+        green = len(rgb) == 3 and rgb[1] > rgb[0] + 40 and rgb[1] > rgb[2] + 40
+        text = res.get("text") or ""
+        return (res.get("before") == "Recommend" and res.get("capsule") and res.get("afterDonate") == "donate"
+                and res.get("copiedLabel") == "Text with link copied ✓" and green
+                and text.endswith(" https://github.com/sruf79/halo-spaces") and "Apple" not in text
+                and res.get("back") and res.get("overflow") is not None and res["overflow"] <= 0), f"{res}"
+    check("Info-Fenster: „Recommend“ neben „Say Thanks“ kopiert einen kurzen Text mit Link, bestätigt 2,5 s grün „Text with link copied ✓“, "
+          "Fenster ohne Scrollen", recommend, results)
+
     def thanks_reminder():
         # „Danke sagen“ mit leiser Erinnerung: Nutzungstage zählen (frisches Profil: Tag 1, nichts fällig), Plan 14, 35, 67 …;
         # fällig: Punkt am Symbol von Help → halo.spaces und Ring um „Say Thanks“ im Info-Fenster; Klick öffnet die

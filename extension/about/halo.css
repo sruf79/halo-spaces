@@ -142,6 +142,25 @@ main {
   opacity: 0.85;
 }
 
+/* Weiterempfehlen: Bestätigung nach dem Kopieren grün, Fehler rot */
+#recommend.copied {
+  color: #248A3D;
+}
+
+#recommend.failed {
+  color: #D70015;
+}
+
+@media (prefers-color-scheme: dark) {
+  #recommend.copied {
+    color: #30D158;
+  }
+
+  #recommend.failed {
+    color: #FF453A;
+  }
+}
+
 /* Spenden: Knopf wie im Comment Ranker (coffee-button.css); fällige
    Erinnerung (.due, Thanks in implementation.js): Dampf läuft von selbst */
 
@@ -167,7 +186,8 @@ main {
    Akzentfarbe) und „Weiter“ */
 .welcome #update,
 .welcome #feedback,
-.welcome #donate {
+.welcome #donate,
+.welcome #recommend {
   /* (!important: der Danke-Knopf setzt seine Anzeige in coffee-button.css fest) */
   display: none !important;
 }

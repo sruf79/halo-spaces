@@ -18355,7 +18355,7 @@ class CardEnhancer {
       donate: () => Thanks.open(w),
     };
     const hw = w.openDialog("resource://mailcards/about/halo.html", "halo-spaces",
-      `chrome,dialog=yes,centerscreen,resizable=no,width=360,height=${349 + (platformNote ? 64 : 0)}`);
+      `chrome,dialog=yes,centerscreen,resizable=no,width=360,height=${395 + (platformNote ? 64 : 0)}`);
     // schließt mit dem Hauptfenster – sonst lief Thunderbird unter Windows und
     // Linux nach dem Schließen des Hauptfensters weiter, solange dieses
     // kleine Fenster (oft dahinter) offen war
@@ -18729,6 +18729,32 @@ class CardEnhancer {
     Thanks.listeners.add(ring);
     hw.addEventListener("unload", () => Thanks.listeners.delete(ring), { once: true });
     donate.addEventListener("click", () => api.donate());
+    // Weiterempfehlen: kurzer Text mit Link in die Zwischenablage, 2,5 s
+    // Bestätigung im Knopf (grün), danach wieder „Recommend“
+    const recommend = $("recommend");
+    const recLabel = recommend?.querySelector(".label");
+    let recTimer = null;
+    recommend?.addEventListener("click", () => {
+      let ok = false;
+      try {
+        if (!extensionHomepage) {
+          throw new Error("no homepage");
+        }
+        Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper)
+          .copyString(`${tr("halo.spaces gives Thunderbird a calm, modern look on macOS. Free. Screenshots and download:")} ${extensionHomepage}`);
+        ok = true;
+      } catch (e) {
+        log("recommend copy failed", String(e));
+      }
+      recLabel.textContent = ok ? tr("Text with link copied ✓") : tr("Copying not possible");
+      recommend.classList.toggle("copied", ok);
+      recommend.classList.toggle("failed", !ok);
+      hw.clearTimeout(recTimer);
+      recTimer = hw.setTimeout(() => {
+        recLabel.textContent = tr("Recommend");
+        recommend.classList.remove("copied", "failed");
+      }, 2500);
+    });
     // Logo mit Versionsnummer laden (sonst zeigt Thunderbird nach einem
     // Update noch das zwischengespeicherte alte)
     const icon = doc.querySelector(".icon");
@@ -21658,6 +21684,8 @@ function readSetting([pref, type, def]) {
 var enhancer = null;
 var extensionRoot = null; // rootURI der Erweiterung, für resource://mailcards/
 var extensionVersion = ""; // hängt an den Stylesheet-Adressen, damit ein Update sofort greift
+// Projektseite, einzige Quelle ist homepage_url im Manifest (Weiterempfehlen im Info-Fenster)
+var extensionHomepage = "";
 var extensionBaseURL = ""; // moz-extension://…/ – für die eingebettete Einstellungsseite
 
 this.mailCards = class extends ExtensionCommon.ExtensionAPI {
@@ -21793,6 +21821,7 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
     }
     extensionRoot = this.extension.rootURI;
     extensionVersion = this.extension.version;
+    extensionHomepage = this.extension.manifest.homepage_url || "";
     extensionBaseURL = this.extension.baseURL;
     log("start (onStartup)", { version: this.extension.version }, Services.appinfo.version);
     enhancer = new CardEnhancer({});

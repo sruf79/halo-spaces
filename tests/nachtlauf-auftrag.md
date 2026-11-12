@@ -117,6 +117,11 @@ Reihenfolge:
       status.sh kennt diesen Status nicht):
         gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> --field-id PVTSSF_lAHODEPpks4BoBQwzhmjN5E --single-select-option-id 2327eecc
       und Commit-Hash als Notiz in den Eintrag.
+      Danach auch die Einträge anderer Sitzungen und der Tagesroutine schließen (Maintainer 12.11.2026,
+      Gespräch mit neon: Der Nachtlauf soll alle erledigten Punkte von der Liste nehmen): jeden Eintrag mit
+      Status „In Progress“ und der Notiz „wartet auf Push/CI“, dessen letzter Commit-Hash aus der Notiz auf
+      origin/main liegt (git merge-base --is-ancestor), mit fertig.sh bzw. bei Reihen (n/m) wie oben
+      abschließen. Hash nicht gefunden (z. B. nach Rebase): stehen lassen, nichts raten, im Bericht nennen.
    Notizen zu Entscheidungen des Maintainers nur mit seinem Wortlaut als
    Zitat und Herkunft; eine Entscheidung im Eintrag nur mit neuem Zitat
    ändern oder aufheben, sonst im Bericht als Rückfrage nennen. Im Bericht

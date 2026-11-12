@@ -17725,6 +17725,52 @@ Neu
     check("Nachrichtenfenster: Knöpfe wie im Vorbild (Archivieren, Löschen, Werbung | Antworten, Allen antworten, Weiterleiten | Mehr, Stern); "
           "markiert kein zweiter Stern unter der Uhrzeit", message_window_order, results)
 
+    def message_window_reply_all():
+        # Fenster einer geöffneten Mail wie im Vorbild: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten
+        # (Thunderbird zeigte dann allein „Antworten“); im Hauptfenster bleibt Thunderbirds Auswahl
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          // nur an die eigene Adresse: dann zeigt Thunderbird von sich aus kein „Allen antworten“
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          const mine = new Set(acc.identities.map(i => i.email.toLowerCase()));
+          let hdr = null;
+          for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
+            for (const h of f.messages) if (!h.ccList && /<([^>]+)>|^(\S+@\S+)$/.test(h.recipients) && mine.has((h.recipients.match(/<([^>]+)>/)?.[1] || h.recipients).toLowerCase())
+                                          && !mine.has((h.author.match(/<([^>]+)>/)?.[1] || h.author).toLowerCase())) { hdr = h; break; }
+            if (hdr) break; }
+          if (!hdr) {
+            // (mit --only fehlt sonst die Vorarbeit anderer Prüfungen) eigene Testmail nur an die eigene Adresse
+            const root = MailServices.accounts.localFoldersServer.rootFolder;
+            const inbox = root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox) || root.subFolders[0] || root.createLocalSubfolder("Halo Eingang");
+            const me = acc.identities[0].email;
+            inbox.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From - Sat Oct 17 10:00:00 2026\r\nFrom: Ben Muster <ben@example.invalid>\r\nTo: Halo Test <" + me + ">\r\nSubject: Halo nur an mich\r\nDate: Sat, 17 Oct 2026 09:41:00 +0200\r\nMessage-ID: <halo-only-me@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHallo\r\n");
+            hdr = await until(() => [...inbox.messages].find(h => h.messageId == "halo-only-me@example.invalid"), 4000);
+          }
+          if (!hdr) return { mail: false };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = { subject: hdr.mime2DecodedSubject };
+          try {
+            const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage ? x : null; }, 8000);
+            await ruhig(1000);
+            const vis = id => { const e = md?.getElementById(id); return !!e && !e.hidden && e.getBoundingClientRect().width > 0; };
+            out.shown = ["hdrReplyToSenderButton", "hdrReplyButton", "hdrReplyAllButton", "hdrForwardButton"].filter(vis);
+            const x = id => Math.round(md.getElementById(id).getBoundingClientRect().left);
+            out.order = out.shown.length == 3 ? [x("hdrReplyToSenderButton"), x("hdrReplyAllButton"), x("hdrForwardButton")] : null;
+            // Gegenprobe: Thunderbirds eigene Wahl für diese Mail wäre allein „Antworten“
+            out.tbOnlyReply = md.defaultView.IsReplyAllEnabled?.() === false && md.defaultView.IsReplyListEnabled?.() === false;
+          } finally { mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "keine Testmail mit nur einem Empfänger"
+        o = res.get("order")
+        ok = (res.get("tbOnlyReply") and res.get("shown") == ["hdrReplyToSenderButton", "hdrReplyAllButton", "hdrForwardButton"]
+              and o and o == sorted(o))
+        return ok, f"{res}"
+    check("Nachrichtenfenster: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten", message_window_reply_all, results)
+
     def header_split_hover():
         # GitHub-Issue #33: „Allen antworten“ mit Pfeil im Mailkopf – beim Überfahren eine Fläche in der Form des
         # Kapselstücks, keine eigene runde Fläche von Knopf oder Pfeil, kein Schatten

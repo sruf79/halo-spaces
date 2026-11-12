@@ -8930,6 +8930,9 @@ class CardEnhancer {
                   (!this.replyInToolbar() || win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow")) {
                 doc.documentElement.setAttribute("mc-standalone", "true");
               }
+              if (url.startsWith("about:message") && win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow") {
+                this.alwaysReplyAll(win);
+              }
             }, { once: true });
           }
           if (!win || win.__mcSheet || ThemeSheet.active) {
@@ -18632,6 +18635,32 @@ class CardEnhancer {
   }
 
   // Texte setzen und Knöpfe verbinden (aus der Erweiterung heraus)
+  // Fenster einer geöffneten Mail wie im Vorbild: immer Antworten, Allen
+  // antworten, Weiterleiten – Thunderbird zeigt bei nur einem Empfänger allein
+  // „Antworten“. Nachrichtengruppen (Followup) und Feeds bleiben, wie sie sind.
+  // (Bleibt nach dem Abschalten bis zum Schließen des Fensters; ruft nur
+  // Thunderbirds eigene Fassung und schaltet sichtbare Knöpfe um)
+  alwaysReplyAll(win) {
+    const orig = win.UpdateReplyButtons;
+    if (typeof orig != "function" || orig.__mcReplyAll) {
+      return;
+    }
+    const wrapped = function (...args) {
+      const result = orig.apply(this, args);
+      const d = win.document;
+      const reply = d.getElementById("hdrReplyButton"), all = d.getElementById("hdrReplyAllButton");
+      const sender = d.getElementById("hdrReplyToSenderButton");
+      if (reply && all && sender && !reply.hidden && win.gMessage) {
+        reply.hidden = true;
+        all.hidden = false;
+        sender.hidden = false;
+      }
+      return result;
+    };
+    wrapped.__mcReplyAll = true;
+    win.UpdateReplyButtons = wrapped;
+  }
+
   wireHaloWindow(hw, api) {
     const doc = hw.document;
     const $ = id => doc.getElementById(id);

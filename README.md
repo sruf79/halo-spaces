@@ -181,6 +181,18 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.25.1
+
+- **Sidebar**: when the sidebar is hidden, it floats in only after the pointer rests briefly at the left edge of the window, so brushing the edge no longer opens it; hiding and showing the sidebar keeps the window buttons in place and moves the buttons above the list along with the edge; in a narrow Address Book window the list of address books slides without jumping, and "All Address Books" keeps its full width
+- **Toolbar**: when the window gets narrow, the search field shrinks to the magnifier and stays there until all buttons are back, instead of growing and shrinking as each group makes room
+- **View menu**: "Show Status Bar" brings back a hidden status bar
+- **Attachments**: the file icon is centred on the file name
+- **Reading pane**: the stack of several selected messages is a little smaller and centred
+- **Tasks**: in the Kanban view all three columns stay fully visible in a narrow window
+- **Address Book**: the circle around "+" of "New" has the same size as in Calendar and Tasks
+- **Settings**: a section without options no longer shows an empty heading (#58); "Get Starred Messages" tells you what happened, for example that all starred messages are already available offline
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.25.0
 
 - **Sidebar**: hiding and showing the sidebar in Mail, Calendar, Tasks, Chat, Address Book and Settings now moves buttons and spacing along smoothly instead of jumping at the end; dragging the divider no longer snaps back for a moment; with the sidebar hidden, pointing at the very left edge of the window lets it float in again, and it no longer floats in when the pointer leaves a message in the reading pane

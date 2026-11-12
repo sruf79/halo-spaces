@@ -12,14 +12,19 @@ export HALO_LAUF=tagesroutine
 # und statisch auf GitHub, belegt neon nicht) und löscht ihn am Ende des Tages. Nichts veröffentlichen.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
-#   Abstand > SPAR_MAX → nichts Neues bis morgen; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
+#   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
 #   12.11.2026): Rate = (100 − Ist − RESERVE_NACHT) / Stunden bis zum Reset (nie negativ); seit START
 #   angesparte Punkte (Rate × Stunden − heute im Sparmodus verbraucht) müssen die geschätzten Kosten je
 #   Eintrag decken (SPAR_KOSTEN_JE_EINTRAG, ab 3 Messungen deren Mittel), sonst bis zur vollen Stunde
 #   warten; nur SPAR_MODELL, nur Einträge, die es sicher schafft, höchstens SPAR_MAX_EINTRAEGE_TAG je Tag
 #   bis 3 gemessen sind; Messungen in ~/halo-nacht/tagesroutine-spar.tsv (HALO_SPAR_DATEI).
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
-#   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende (Pause über pausen.txt).
+#   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
+#   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
+#   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 21:00).
+# Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
+#   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
+#   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
 # Schwellen: ~/.config/halo-spaces/tagesroutine.conf (HALO_TAGESROUTINE_CONF), sonst die neben dem Skript.
 # Zum Proben: HALO_JETZT=<ISO-Zeit mit Zone> ersetzt die Uhr; HALO_KONTINGENT_WOCHE / HALO_KONTINGENT_5H
 # (Prozent) ersetzen kontingent.sh, HALO_KONTINGENT_5H_ENDE=<ISO-Zeit> das Ende des 5-Stunden-Fensters.
@@ -29,8 +34,9 @@ emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna
 
-TROCKEN=
+TROCKEN= ZAEHLEN=
 [[ $1 == --trocken ]] && { TROCKEN=1; shift }
+[[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
 REPO=${1:-$HOME/halo-spaces}
 HIER=${0:A:h}
 if [[ ! -d $REPO/.git ]]; then
@@ -139,6 +145,7 @@ def heute(s):
     h, m = hm(s); return jetzt.replace(hour=h, minute=m, second=0, microsecond=0)
 fenster = jetzt.isoweekday() in tage and heute(e["K_START"]) <= jetzt < heute(e["K_ENDE"])
 neu_zeit = fenster and jetzt < heute(e["K_LETZTER_BEGINN"])
+volle = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)   # nächste volle Stunde
 def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + x.strftime(" %Y-%m-%d %H:%M")
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
        "STUNDEN": "%.1f" % std, "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
@@ -150,8 +157,11 @@ else:
     a = woche - soll
     aus["ABSTAND"] = "%+.1f" % a
     if a > spar_max:
-        aus.update(STUFE="deutlich darüber (> %g)" % spar_max, ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
-                   GRUND="Woche %.1f Punkte über dem Soll – nichts Neues bis morgen" % a)
+        # Maintainer 12.11.2026 („die risikoärmere variante bitte“): nicht enden, sondern ohne Claude bis zur
+        # vollen Stunde warten und neu entscheiden (die Sollkurve steigt, der Abstand sinkt)
+        aus.update(STUFE="deutlich darüber (> %g)" % spar_max, ENTSCHEIDUNG="warten", M_KOMPLEX="-", M_ROUTINE="-",
+                   WARTEN_BIS=volle.isoformat(timespec="minutes"),
+                   GRUND="Woche %.1f Punkte über dem Soll – nichts Neues, nächster Versuch %s" % (a, volle.strftime("%H:%M")))
     elif a > 0:
         # Sparmodus (Maintainer 12.11.2026): Restkontingent abzüglich Reserve auf die Stunden bis zum Reset
         # verteilen; seit Tagesbeginn (START) angespart, minus heute im Sparmodus verbraucht
@@ -162,7 +172,7 @@ else:
         kosten, quelle = (sum(gemessen) / len(gemessen), "Mittel aus %d Messungen" % len(gemessen)) \
             if len(gemessen) >= 3 else (kosten0, "Standard, %d von 3 gemessen" % len(gemessen))
         grenze = len(gemessen) < 3 and eintraege >= spar_tag
-        bis = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        bis = volle
         aus.update(STUFE="Sparmodus (0 < Abstand ≤ %g)" % spar_max, M_KOMPLEX=spar_m, M_ROUTINE=spar_m,
                    SPAR_RATE="%.2f" % rate, SPAR_REST="%.1f" % rest, SPAR_RESERVE="%g" % reserve,
                    SPAR_STD="%.1f" % std_rest, SPAR_ANGESPART="%.2f" % angespart, SPAR_KOSTEN="%.2f" % kosten,
@@ -177,6 +187,7 @@ else:
                        GRUND="Sparmodus: heute %d Eintrag bearbeitet (höchstens %g je Tag, bis 3 gemessen) – nichts Neues bis morgen" % (eintraege, spar_tag))
         elif angespart < kosten:
             aus.update(ENTSCHEIDUNG="spar_warten", SPAR_WARTEN_BIS=bis.isoformat(timespec="minutes"),
+                       WARTEN_BIS=bis.isoformat(timespec="minutes"),
                        GRUND="Sparmodus: warte, Rate %.2f Punkte/h, angespart %.2f von %.2f Punkten – nächster Versuch %s" % (
                            rate, angespart, kosten, bis.strftime("%H:%M")))
         else:
@@ -190,17 +201,20 @@ else:
     else:
         aus.update(STUFE=("im Soll (±%g)" % band) if abs(a) <= band else "darunter", ENTSCHEIDUNG="neu",
                    M_KOMPLEX=stark, M_ROUTINE=routine, GRUND="im Soll" if abs(a) <= band else "unter dem Soll")
-    # zweite Bremse: 5-Stunden-Fenster
+    # zweite Bremse: 5-Stunden-Fenster. Warten (Pause über pausen.txt) bis zum Fensterende, höchstens bis
+    # zur nächsten vollen Stunde, dann neu entscheiden (Maintainer 12.11.2026)
     if not math.isnan(h5) and h5 >= h5max:
         ende = e.get("K_5H_ENDE", "")
         try:
-            bis = dt.datetime.fromisoformat(ende).astimezone(W)
+            fe = dt.datetime.fromisoformat(ende).astimezone(W)
         except ValueError:
-            bis = jetzt + dt.timedelta(minutes=zahl("K_PAUSE_OHNE_ENDE", 60))
-        aus.update(ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-", FABLE="nein",
-                   PAUSE_BIS=bis.isoformat(timespec="minutes"),
-                   GRUND="5-Stunden-Fenster %.0f %% ≥ %g %% – nichts Neues bis %s%s" % (
-                       h5, h5max, bis.strftime("%H:%M"), "" if ende else " (Fensterende unbekannt, %g Min.)" % zahl("K_PAUSE_OHNE_ENDE", 60)))
+            fe = jetzt + dt.timedelta(minutes=zahl("K_PAUSE_OHNE_ENDE", 60))
+        bis = max(jetzt + dt.timedelta(minutes=1), min(fe, volle))
+        aus.update(ENTSCHEIDUNG="warten", M_KOMPLEX="-", M_ROUTINE="-", FABLE="nein",
+                   PAUSE_BIS=bis.isoformat(timespec="minutes"), WARTEN_BIS=bis.isoformat(timespec="minutes"),
+                   GRUND="5-Stunden-Fenster %.0f %% ≥ %g %% – nichts Neues, Fensterende %s%s, nächster Versuch %s" % (
+                       h5, h5max, fe.strftime("%H:%M"), "" if ende else " (unbekannt, %g Min.)" % zahl("K_PAUSE_OHNE_ENDE", 60),
+                       bis.strftime("%H:%M")))
 for k, v in aus.items():
     print("%s=%s" % (k, v))
 '
@@ -263,6 +277,7 @@ entscheidung_text() {
     neu)        print -r -- "neu beginnen" ;;
     spar)       print -r -- "Sparmodus: ein Eintrag mit $E[SPAR_MODELL]" ;;
     spar_warten) print -r -- "Sparmodus: warten" ;;
+    warten)     print -r -- "warten bis ${${E[WARTEN_BIS]}[12,16]}" ;;
     *)          print -r -- "nichts Neues" ;;
   esac
 }
@@ -272,6 +287,26 @@ kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
 spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
   print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
 }
+
+# Commits dieses Laufs: auf main, Autorzeit (%at) innerhalb einer eigenen Runde (RUNDEN_ZEIT: „<von> <bis>“).
+# Früher START_KOPF..main: nach einem Rebase von main (12.11.2026, 10:29) war START_KOPF kein Vorfahr mehr,
+# alle neu geschriebenen Commits zählten mit („8 Commits heute erreicht“, ohne eigenen Commit).
+typeset -a RUNDEN_ZEIT
+eigene_commits() {
+  (( $#RUNDEN_ZEIT )) || return 0
+  local at z iv
+  git -C $REPO log -n 500 main --format='%at %h %s' 2>/dev/null | while read -r at z; do
+    for iv in $RUNDEN_ZEIT; do
+      (( at >= ${iv%% *} && at <= ${iv##* } )) && { print -r -- "- ${z[1,198]}"; break }
+    done
+  done
+}
+eigene_commits_zahl() { eigene_commits | grep -c . }
+if [[ -n $ZAEHLEN ]]; then
+  RUNDEN_ZEIT=(${(s:;:)HALO_RUNDEN_ZEIT})
+  print "Eigene Commits: $(eigene_commits_zahl)"; eigene_commits
+  exit 0
+fi
 
 # =================================== Trockenlauf ===================================
 if [[ -n $TROCKEN ]]; then
@@ -292,16 +327,14 @@ if [[ -n $TROCKEN ]]; then
   if [[ -n $E[PAUSE_BIS] ]]; then
     print "Pause:        würde in ${HALO_PAUSEN_DATEI:-~/halo-nacht/pausen.txt} schreiben (Trockenlauf: NICHT geschrieben):"
     print "              tagesroutine $E[PAUSE_BIS] 5-Stunden-Fenster ${K_5H} % ≥ $KONF[FUENF_STUNDEN_MAX] %, keine neuen Einträge"
-    print "              danach warten bis ${${E[PAUSE_BIS]}[12,16]} (höchstens bis $KONF[LETZTER_BEGINN]), Kontingent neu lesen"
   fi
   if g=$(pause_aktiv tagesroutine); then print "Pause aktiv:  $g"; else print "Pause aktiv:  nein"; fi
   if [[ $E[FENSTER] != ja ]]; then
     print "Würde:        nichts tun (außerhalb des Zeitfensters), kein Bericht"
   elif [[ $E[ENTSCHEIDUNG] == nichts ]]; then
-    if [[ -n $E[PAUSE_BIS] ]]; then print "Würde:        Pause schreiben, bis zum Fensterende warten, dann Kontingent neu lesen (Bericht am Ende des Laufs)"
-    else print "Würde:        Bericht „nichts Neues“, Lauf beenden"; fi
-  elif [[ $E[ENTSCHEIDUNG] == spar_warten ]]; then
-    print "Würde:        kein Claude, warten bis ${${E[SPAR_WARTEN_BIS]}[12,16]} (höchstens bis $KONF[LETZTER_BEGINN]), dann Kontingent neu lesen"
+    print "Würde:        Bericht „nichts Neues“, Lauf beenden"
+  elif [[ $E[ENTSCHEIDUNG] == (warten|spar_warten) ]]; then
+    print "Würde:        kein Claude, ${E[PAUSE_BIS]:+Pause schreiben, }warten bis ${${E[WARTEN_BIS]}[12,16]} (höchstens bis $KONF[LETZTER_BEGINN], sonst Lauf beenden), dann Kontingent neu lesen und neu entscheiden"
   elif [[ $E[ENTSCHEIDUNG] == spar ]]; then
     print "Würde:        eine Sparmodus-Runde mit claude -p --model $E[SPAR_MODELL] (kein Plan-Lauf): Einstufung, höchstens ein passender Eintrag,"
     print "              Messung vor/nach in $SPAR_DATEI; Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}"
@@ -326,7 +359,6 @@ LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
 ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG=
 typeset -a MODELLE_GENUTZT ABSCHNITTE
-START_KOPF=$(git -C $REPO rev-parse -q --verify main 2>/dev/null)
 
 # Bericht: Kopf + Abschnitte der Runden + Ende; immer geschrieben
 bericht_schreiben() {
@@ -353,7 +385,7 @@ bericht_schreiben() {
     print
     print "## Commits heute (nicht gepusht, der Nachtlauf nimmt sie mit)"
     print
-    git -C $REPO log ${START_KOPF:+$START_KOPF..}main --format='- %h %s' 2>/dev/null | cut -c1-200
+    eigene_commits | grep . || print -r -- "- keine"
     print
     print "## Prüfzweig"
     print
@@ -387,12 +419,13 @@ done
 
 # eine Claude-Runde mit Wache bis ENDE; Sitzungs-ID ins Protokoll (aktive_sitzung() übergeht eigene Läufe)
 runde() {   # <Modell> <Prompt> <Ausgabe>
-  local sid=$(uuidgen | tr A-Z a-z)
+  local sid=$(uuidgen | tr A-Z a-z) t0=$(date +%s)
   log "Runde mit $1, Sitzung $sid"
   ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $sid" ) &
   WACHE=$!
   claude -p --model $1 --session-id $sid --permission-mode auto "$2" > $3 2>&1
   local rc=$?
+  RUNDEN_ZEIT+=("$t0 $(date +%s)")   # für eigene_commits (Tageslimit, Bericht)
   kill $WACHE 2>/dev/null; WACHE=
   log "Runde beendet (Exitcode $rc): $(tail -c 300 $3 | tr '\n' ' ')"
   grep -qiE "usage limit|hit your limit|limit reached|rate limit" $3 && return 9
@@ -433,31 +466,26 @@ while true; do
     log "warte: $GRUND"; sleep 300; w=$((w + 5))
   done
   if GRUND=$(belegt); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
-  if (( $(git -C $REPO rev-list --count ${START_KOPF:+$START_KOPF..}main 2>/dev/null || print 0) >= KONF[MAX_COMMITS_TAG] )); then
-    ENDGRUND="$KONF[MAX_COMMITS_TAG] Commits heute erreicht"; break
+  if (( $(eigene_commits_zahl) >= KONF[MAX_COMMITS_TAG] )); then
+    ENDGRUND="$KONF[MAX_COMMITS_TAG] eigene Commits heute erreicht"; break   # Ende, kein Warten
   fi
   # Kontingent vor jedem neuen Eintrag
   entscheiden; log "Kontingent: $(kontingent_zeile)"
-  if [[ $E[ENTSCHEIDUNG] == nichts ]]; then
+  # --- Kontingentgrenzen (über dem Soll > SPAR_MAX, 5-Stunden-Fenster, Sparmodus noch nicht angespart):
+  # ohne Claude warten (bis zur vollen Stunde bzw. zum Fensterende), dann neu entscheiden; nur bis LETZTER_BEGINN ---
+  if [[ $E[ENTSCHEIDUNG] == (warten|spar_warten) ]]; then
+    log "$E[GRUND]${E[SPAR_RATE]:+; $(spar_zeile)}"
+    bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[WARTEN_BIS])
+    [[ -n $bis ]] || { ENDGRUND="$E[GRUND] (Wartezeit nicht lesbar)"; break }
+    (( bis >= LETZTER )) && { ENDGRUND="$E[GRUND] (nach $KONF[LETZTER_BEGINN], heute kein Versuch mehr)"; break }
     if [[ -n $E[PAUSE_BIS] ]]; then
       pause_setzen tagesroutine $E[PAUSE_BIS] "5-Stunden-Fenster ${K_5H} % ≥ $KONF[FUENF_STUNDEN_MAX] %, keine neuen Einträge" 2>>$LOG
       log "Pause bis $E[PAUSE_BIS] (pausen.txt)"
-      bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[PAUSE_BIS])
-      (( bis > LETZTER )) && { ENDGRUND="$E[GRUND] (Fensterende nach $KONF[LETZTER_BEGINN])"; break }
-      while (( $(date +%s) < bis )); do sleep 120; done
-      continue
     fi
-    ENDGRUND=$E[GRUND]; break
-  fi
-
-  # --- Sparmodus: angespartes Kontingent reicht noch nicht → ohne Claude bis zur vollen Stunde warten ---
-  if [[ $E[ENTSCHEIDUNG] == spar_warten ]]; then
-    log "$E[GRUND]; $(spar_zeile)"
-    bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[SPAR_WARTEN_BIS])
-    (( bis >= LETZTER )) && { ENDGRUND="$E[GRUND] (nach $KONF[LETZTER_BEGINN], heute kein Versuch mehr)"; break }
     while (( $(date +%s) < bis )); do sleep 120; done
     continue
   fi
+  if [[ $E[ENTSCHEIDUNG] == nichts ]]; then ENDGRUND=$E[GRUND]; break; fi
   # --- Sparmodus: genau eine Runde mit dem niedrigsten Modell (Einstufung, höchstens ein Eintrag) ---
   if [[ $E[ENTSCHEIDUNG] == spar ]]; then
     N=$((N + 1)) ERG=$DIR/$TAG-tagesroutine-$N.erg

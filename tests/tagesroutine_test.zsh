@@ -38,8 +38,11 @@ pruefe "Abstand +3,7 um 09:00: Sparmodus, Rate (63−15)/112 h = 0.43, noch nich
 # 12:00: 59 h, Soll 35.1, Rate 48/109 = 0.44, angespart 3 h × 0.44 = 1.32 ≥ 1.0
 pruefe "Abstand +1,9 um 12:00: Sparmodus beginnt einen Eintrag mit haiku" "$(lauf 2026-11-12T12:00:00+01:00 37)" \
   'Rate 0\.44' 'angespart 1\.32' 'Entscheidung: Sparmodus: ein Eintrag mit haiku' 'claude -p --model haiku'
-pruefe "Abstand +12: nichts Neues bis morgen" "$(lauf $J9 45.3)" \
-  'Abstand: \+12\.0' 'deutlich darüber \(> 10\)' 'Entscheidung: nichts Neues – Woche 12\.0 Punkte über dem Soll'
+pruefe "Abstand +12: wartet bis zur vollen Stunde statt zu enden" "$(lauf $J9 45.3)" \
+  'Abstand: \+12\.0' 'deutlich darüber \(> 10\)' 'Entscheidung: warten bis 10:00 – Woche 12\.0 Punkte über dem Soll' \
+  'Würde: +kein Claude, warten bis 10:00 .*neu entscheiden'
+pruefe "Abstand > SPAR_MAX um 19:10: Wartezeit 20:00 nach LETZTER_BEGINN" "$(lauf 2026-11-12T19:10:00+01:00 50)" \
+  'Entscheidung: warten bis 20:00' 'höchstens bis 19:30, sonst Lauf beenden'
 # Mo 16.11. 12:00 Wien: 155 h, Soll 92.3; Ist 95 → Rest 5 < Reserve 15 → Rate 0
 pruefe "Rest unter der Reserve: Rate 0, nichts Neues" "$(lauf 2026-11-16T12:00:00+01:00 95)" \
   'Rate 0\.00' 'Entscheidung: nichts Neues – Sparmodus: Rest 5\.0 nicht über der Reserve 15'
@@ -53,6 +56,24 @@ print -lr -- "2026-11-10	10:00	a	haiku	30	32	2.0	10	erledigt" "2026-11-10	12:00	
   "2026-11-11	10:00	c	haiku	34	37	3.0	10	erledigt" > $T/drei.tsv
 pruefe "nach 3 Messungen: Kosten = Mittel (2.33), keine Tagesgrenze mehr" "$(lauf 2026-11-12T15:00:00+01:00 37 10 '' $T/drei.tsv)" \
   'Kosten je Eintrag 2\.33 \(Mittel aus 3 Messungen\)' 'Grenze keine'
-pruefe "5-Stunden-Fenster ≥ 80 % hat Vorrang vor dem Sparmodus" "$(lauf 2026-11-12T12:00:00+01:00 37 85)" \
-  'Entscheidung: nichts Neues – 5-Stunden-Fenster 85 %'
+pruefe "5-Stunden-Fenster ≥ 80 % hat Vorrang vor dem Sparmodus, wartet bis zur vollen Stunde" "$(lauf 2026-11-12T12:00:00+01:00 37 85)" \
+  'Entscheidung: warten bis 13:00 – 5-Stunden-Fenster 85 %' 'Pause schreiben, warten bis 13:00'
+pruefe "5-Stunden-Fenster: Fensterende vor der vollen Stunde wird genommen" \
+  "$(HALO_KONTINGENT_5H_ENDE=2026-11-12T12:20:00+01:00 HALO_JETZT=2026-11-12T12:00:00+01:00 HALO_KONTINGENT_WOCHE=30 \
+     HALO_KONTINGENT_5H=90 HALO_TAGESROUTINE_CONF=$T/leer.conf HALO_SPAR_DATEI=$T/keine.tsv HALO_PAUSEN_DATEI=$T/pausen.txt \
+     zsh $SKRIPT --trocken $REPO 2>&1)" \
+  'Entscheidung: warten bis 12:20' 'Fensterende 12:20'
+[[ -e $T/pausen.txt ]] && { print "FEHLER Trockenlauf hat pausen.txt geschrieben"; FEHLER=1 }
+
+# Tageslimit: nur Commits dieses Laufs (Autorzeit in einer eigenen Runde), auch nach einem Rebase von main
+G=$T/repo; git init -q -b main $G
+gc() { GIT_AUTHOR_DATE="@$1 +0000" GIT_COMMITTER_DATE="@$1 +0000" git -C $G -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$2" }
+gc 1000 alt; gc 2000 fremd-vorher; gc 3100 eigen-1; gc 3200 eigen-2; gc 3500 fremd-danach
+git -C $G checkout -q -b neu HEAD~4; gc 2500 remote-commit
+git -C $G checkout -q main; GIT_COMMITTER_DATE="@9000 +0000" git -C $G -c user.name=t -c user.email=t@t rebase -q neu
+zaehl() { HALO_RUNDEN_ZEIT=$1 zsh $SKRIPT --zaehlen $G 2>&1 }
+pruefe "Tageslimit zählt nur eigene Commits, nicht fremde, auch nach Rebase von main" "$(zaehl '3000 3300')" \
+  'Eigene Commits: 2$' 'eigen-1' 'eigen-2'
+pruefe "Tageslimit ohne eigene Runde: 0, obwohl main neu geschrieben ist" "$(zaehl '')" 'Eigene Commits: 0$'
+pruefe "Tageslimit mit zwei Runden" "$(zaehl '3000 3150;3400 3600')" 'Eigene Commits: 2$' 'eigen-1' 'fremd-danach'
 exit $FEHLER

@@ -75,7 +75,9 @@ Liegt die Woche bis zu SPAR_MAX (10) Punkte über dem Soll, ruft es statt Plan- 
 höchstens eine Sparmodus-Runde mit dem niedrigsten Modell auf (Rate = Restkontingent abzüglich 15 Punkten
 Reserve für Nachtlauf, Windows, Release und Reparaturen, verteilt auf die Stunden bis zum Reset; begonnen
 wird erst, wenn das seit Tagesbeginn Angesparte die geschätzten Kosten eines Eintrags deckt). Mehr als 10
-Punkte darüber: nichts Neues bis morgen.
+Punkte darüber oder 5-Stunden-Fenster ab 80 %: nichts Neues; das Skript wartet ohne Claude bis zur vollen
+Stunde, liest das Kontingent neu und entscheidet erneut (bis 19:30, Maintainer 12.11.2026). Nach 8 eigenen
+Commits des Laufs endet er.
 
 Sparmodus-Runde („JETZT: Sparmodus-Runde“):
 - Liste laden wie in Schritt 2 (nur „Todo“, ohne „Wartet auf OK“, ohne Heute-schon-bearbeitete). VOR dem

@@ -4066,8 +4066,9 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
 /* Mehrfachauswahl (wie Apple Mail): oberste markierte Mail als Karte, dahinter
    ein bis drei leere Blätter leicht verdreht als Stapel, ohne Zahl; die Karte
    zeigt den Anfang der Mail und blendet unten aus statt zu scrollen; der Stapel
-   füllt wie dort den Lesebereich bis auf einen schmalen Rand (Platz für die
-   verdrehten Blätter) und wächst mit dem Fenster, ohne feste Höchstmaße */
+   nimmt 90 % der Fläche innerhalb des Rands ein (Platz für die verdrehten
+   Blätter), mittig, und wächst mit dem Fenster, ohne feste Höchstmaße
+   (Maintainer 11.11.2026: den ganzen Lesebereich füllend war er zu groß) */
 #mcConversation.mc-stack {
   overflow: hidden;
   padding: 28px;
@@ -4075,8 +4076,10 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
 
 #mcConversation .mc-stack-pile {
   position: relative;
-  width: 100%;
-  height: 100%;
+  left: 5%;
+  top: 5%;
+  width: 90%;
+  height: 90%;
 }
 
 #mcConversation .mc-stack-pile > :is(.mc-stack-sheet, .mc-conv-card) {

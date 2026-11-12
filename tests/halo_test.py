@@ -1698,11 +1698,13 @@ def maillist_checks(m, results):
           return out;""")
         g, k = res.get("gross") or {}, res.get("klein") or {}
         def voll(x):
-            return bool(x) and all(16 <= x.get(s, 0) <= 48 for s in ("l", "r", "t", "b"))
+            # Karte 90 % der Fläche innerhalb des 28-px-Rands, mittig (Maintainer 11.11.2026: vorher ganz gefüllt, zu groß)
+            return (bool(x) and abs(x["cw"] - 0.9 * (x["pw"] - 56)) <= 2 and abs(x["ch"] - 0.9 * (x["ph"] - 56)) <= 2
+                    and abs(x["l"] - x["r"]) <= 2 and abs(x["t"] - x["b"]) <= 2)
         # (die Breite des Lesebereichs folgt dem Fenster nicht, die Mailliste nimmt sie auf; der Rand prüft sie mit)
         ok = voll(g) and voll(k) and g.get("ch", 0) - k.get("ch", 0) >= 100
         return ok, f"{res}"
-    check("Leseansicht: Stapel bei Mehrfachauswahl füllt den Lesebereich bis auf einen schmalen Rand und wächst mit dem Fenster", multi_stack_size, results)
+    check("Leseansicht: Stapel bei Mehrfachauswahl nimmt 90 % des Lesebereichs innerhalb des Rands ein, mittig, und wächst mit dem Fenster", multi_stack_size, results)
 
     def group_header_summary():
         # Gruppenkopf gewählt („In Abschnitten“): Thunderbirds Übersicht der Gruppe, nie die Konversation der

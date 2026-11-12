@@ -12,7 +12,7 @@ schnell weiterlaufen. Nicht erprobt: Die Zeiten sind Schätzungen, ein Probelauf
   mit echten Mails liegen darauf.
 - Die Windows-VM (Parallels) nach Möglichkeit ausschließen (Time Machine → Optionen) und neu aufsetzen
   (`tests/MAC-MINI.md` Abschnitt 11); eine große, ständig geänderte Datei sichert Time Machine schlecht.
-- Nach dem ersten Backup einen Wiederherstellungstest machen (eine unwichtige Datei aus `~/halo-berichte`).
+- Empfehlung (nicht beschlossen, siehe Abschnitt 6): nach dem ersten Backup einen Wiederherstellungstest machen.
 - Was auf GitHub liegt (Code, Verlauf, Issues, Board, Releases, `updates.json`), braucht keine Sicherung.
   Nicht gepushte lokale Commits liegen nur auf neon: Der Nachtlauf pusht täglich (01:30).
 
@@ -51,8 +51,10 @@ schnell weiterlaufen. Nicht erprobt: Die Zeiten sind Schätzungen, ein Probelauf
 | Test- und CI-Betrieb auf neuem Mini | einige Stunden | ein bis zwei Tage |
 | Windows-VM und Windows-CI | ein bis mehrere Tage (VM neu) | ein bis mehrere Tage |
 
-## 6. Zu klären
+## 6. Entscheidungen und offene Punkte
 
-- Liegt die Windows-VM auf dem Systemlaufwerk oder woanders (Systemlaufwerk belegt nur etwa 13 GB)?
-- Zweites Ziel außer Haus für `~/halo-aufgaben`, `~/halo-berichte`, `~/.config/halo-spaces` (verschlüsselt)?
-- Wiederherstellungstest durchführen und hier mit Datum eintragen.
+- Entscheidung des Maintainers, 12.11.2026, Gespräch mit neon: „kein zweites ziel, keinen wiederherstellungstest“.
+  Es gibt also weder eine Sicherung außer Haus noch einen Wiederherstellungstest; ob die Sicherung wiederherstellbar
+  ist, ist unbelegt (Risiko vom Maintainer angenommen). Abschnitt 1 (Test nach dem ersten Backup) ist damit nur eine
+  Empfehlung.
+- Offen: Liegt die Windows-VM auf dem Systemlaufwerk oder woanders (Systemlaufwerk belegt nur etwa 13 GB)?

@@ -14405,6 +14405,41 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Kanban-Ansicht zeigt mit der Liste „Open“ erledigte Aufgaben in der Spalte „Completed“ samt Anzahl, Kartenansicht weiter ohne Erledigte", task_board_completed, results)
 
+    def task_board_min_width():
+        # Kanban-Ansicht im schmalen Fenster: alle drei Spalten gleich breit (mindestens 240 px) und ganz zu sehen –
+        # das Fenster wird nicht schmaler als die drei Spalten (vorher lief „Completed“ rechts aus dem Bild)
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {};
+          const size = async W => { const before = w.outerWidth; w.resizeTo(W, 900);
+            if (before != W) await until(() => w.outerWidth != before, 1500);
+            await stabil(() => [w.outerWidth, w.innerWidth], 3000); await ruhig(400); };
+          try {
+            await size(1500);
+            tm.openTab("tasks", {}); await ruhig(1200);
+            const list = d.getElementById("mcTaskCards");
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "board");
+            await bis(() => list.querySelectorAll(".mc-tb-col").length == 3, "drei Spalten", 6000).catch(() => {});
+            await ruhig(300);
+            const measure = () => { const lr = list.getBoundingClientRect();
+              return { window: w.outerWidth, inner: w.innerWidth, cards: [Math.round(lr.left), Math.round(lr.right)],
+                cols: [...list.querySelectorAll(".mc-tb-col")].map(c => { const r = c.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; }) }; };
+            out.wide = measure();
+            await size(600);
+            out.narrow = measure();
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            w.resizeTo(1500, 900); await wait(800); await toMail();
+          }
+          return out;""")
+        n = res.get("narrow", {})
+        cols = n.get("cols", [])
+        widths = [c[1] for c in cols]
+        ok = (len(cols) == 3 and min(widths) >= 239 and max(widths) - min(widths) <= 1
+              and cols[-1][0] + cols[-1][1] <= min(n["inner"], n["cards"][1]) + 1)
+        return ok, f"{res}"
+    check("Aufgaben: Kanban-Spalten im schmalen Fenster gleich breit und alle drei ganz zu sehen (Fenster nicht schmaler als die Spalten)", task_board_min_width, results)
+
     def task_window():
         # neue Detailansicht 5c/5d: Aufgabe in eigenem Fenster – Doppelklick/Enter/Kontextmenü (Thunderbirds modifyEventWithDialog),
         # ⌘O und der Knopf „In eigenem Fenster öffnen“ öffnen dieselbe Ansicht wie die Detailspalte (Kopfkarte, Gruppen), oben

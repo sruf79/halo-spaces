@@ -5888,10 +5888,12 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   display: none !important;
 }
 
+/* (mindestens drei Spalten breit: das Fenster wird nicht schmaler, statt
+   „Completed“ rechts abzuschneiden) */
 :root[mc-task-board] #mcTaskCards {
   display: flex;
   gap: 12px;
-  min-width: 0;
+  min-width: calc(3 * 240px + 2 * 12px + 32px);
   padding: 8px 16px 12px;
   overflow: auto hidden;
   scrollbar-width: none;

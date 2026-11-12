@@ -9235,6 +9235,22 @@ class CardEnhancer {
         }
         return { width: cw.innerWidth - cp.getBoundingClientRect().right, min, watch };
       }
+      // Aufgaben als Kanban: keine Detailspalte, es schrumpfen die drei Spalten
+      // bis zu ihrer Mindestbreite (CSS von #mcTaskCards, ohne Innenabstand
+      // gerechnet). Unter der Mindestbreite läuft die Fläche über (rechts unter
+      // die Today-Pane bzw. aus dem Fenster), darum zählt der Platz bis dorthin,
+      // nicht die eigene Breite – sonst blieb „Completed“ abgeschnitten
+      if (mode == "tasks" && root.hasAttribute("mc-task-board")) {
+        const list = d.getElementById("mcTaskCards");
+        if (shown(list)) {
+          const cs = w.getComputedStyle(list);
+          const pad = cs.boxSizing == "border-box" ? 0 : (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+          const tp = d.getElementById("today-pane-panel");
+          const end = shown(tp) ? tp.getBoundingClientRect().left : w.innerWidth;
+          const watch = [list, tp].filter(Boolean);
+          return { width: end - list.getBoundingClientRect().left, min: (parseFloat(cs.minWidth) || 0) + pad, watch, overflow: true };
+        }
+      }
       const docs = [tab?.chromeBrowser?.contentDocument, bd, d].filter(Boolean);
       for (const doc of docs) {
         for (const id of FLEX) {
@@ -9266,7 +9282,7 @@ class CardEnhancer {
           later = w.setTimeout(update, 350);
           return;
         }
-        const { width, min, watch } = measure();
+        const { width, min, watch, overflow } = measure();
         const next = new Set(watch);
         for (const el of observed) {
           if (!next.has(el)) {
@@ -9284,7 +9300,8 @@ class CardEnhancer {
           root.style.removeProperty("min-width");
           return;
         }
-        const slack = Math.max(0, width - min);
+        // (Kanban: der Platz kann kleiner als die Mindestbreite sein, dann wird das Fenster breiter)
+        const slack = overflow ? width - min : Math.max(0, width - min);
         // nie unter 800 px (dann wäre schon die Toolbar zu eng)
         let value = Math.max(800, Math.round(w.innerWidth - slack));
         // Chat: Kontaktspalte + Chat-Knöpfe + kleinstes Suchfeld (40 px) + was

@@ -34,7 +34,8 @@ emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna
 
-TROCKEN= ZAEHLEN=
+TROCKEN= ZAEHLEN= NICHTSPASSEND=
+[[ $1 == --nichts-passend ]] && { NICHTSPASSEND=1; shift }
 [[ $1 == --trocken ]] && { TROCKEN=1; shift }
 [[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
 REPO=${1:-$HOME/halo-spaces}
@@ -302,6 +303,20 @@ eigene_commits() {
   done
 }
 eigene_commits_zahl() { eigene_commits | grep -c . }
+# Nach einer Sparmodus-Runde „nichts_passend“ (Maintainer 12.11.2026, „einfachere variante umsetzen mit jeder
+# stunde“): kein Ende, sondern ohne Claude bis zur nächsten vollen Stunde warten und neu entscheiden; nur
+# solange die nächste volle Stunde vor dem letzten Beginn liegt. Ausgabe: „warten <Unix-Sekunden>“ oder „ende“.
+nichts_passend_weiter() {   # <jetzt> <letzter Beginn> (Unix-Sekunden)
+  local bis=$(( $1 - $1 % 3600 + 3600 ))
+  (( bis < $2 )) && print "warten $bis" || print ende
+}
+if [[ -n $NICHTSPASSEND ]]; then   # Probe: HALO_JETZT (ISO mit Zone), letzter Beginn aus der Konfiguration
+  python3 -I -c 'import sys,datetime as d
+j=d.datetime.fromisoformat(sys.argv[1]); h,m=map(int,sys.argv[2].split(":"))
+print(int(j.timestamp()), int(j.replace(hour=h,minute=m,second=0).timestamp()))' $HALO_JETZT $KONF[LETZTER_BEGINN] \
+    | { read j l; nichts_passend_weiter $j $l }
+  exit 0
+fi
 if [[ -n $ZAEHLEN ]]; then
   RUNDEN_ZEIT=(${(s:;:)HALO_RUNDEN_ZEIT})
   print "Eigene Commits: $(eigene_commits_zahl)"; eigene_commits
@@ -515,7 +530,15 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
     case $ERGW in
       erledigt)       ERLEDIGT=$((ERLEDIGT + 1)); pruef_pushen ;;
       entscheidung)   ENTSCHEIDUNG_NOETIG=$((ENTSCHEIDUNG_NOETIG + 1)) ;;
-      nichts_passend) ENDGRUND="Sparmodus: nichts Passendes für $E[SPAR_MODELL]"; break ;;
+      nichts_passend)
+        # kein Ende: ohne Claude bis zur nächsten vollen Stunde warten, Kontingent neu lesen, neu entscheiden
+        w=$(nichts_passend_weiter $(date +%s) $LETZTER)
+        if [[ $w == ende ]]; then ENDGRUND="Sparmodus: nichts Passendes (bis $KONF[LETZTER_BEGINN] stündlich geprüft)"; break; fi
+        bis=${w#warten }
+        log "Sparmodus: nichts Passendes für $E[SPAR_MODELL]; warte bis $(date -r $bis +%H:%M) ohne Claude, dann neu entscheiden"
+        (( rc == 9 )) && { ENDGRUND="Limit erreicht"; break }
+        while (( $(date +%s) < bis )); do sleep 120; done
+        continue ;;
       *)              ZURUECK=$((ZURUECK + 1)) ;;
     esac
     (( rc == 9 )) && { ENDGRUND="Limit erreicht"; break }

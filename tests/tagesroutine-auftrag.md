@@ -91,7 +91,9 @@ Sparmodus-Runde („JETZT: Sparmodus-Runde“):
   4. eine vorhandene oder kleine neue Prüfung deckt es ab;
   5. nicht „Wartet auf OK“, keine Sicherheit/Datenschutz, kein Ablauf-/Release-Eintrag.
 - Den ersten passenden Eintrag (Bugs vor Features) wie eine Eintragsrunde bearbeiten, genau einen.
-  Kein passender: nichts erfinden, Ergebnis „nichts_passend“.
+  Kein passender: nichts erfinden, Ergebnis „nichts_passend“. Das beendet den Lauf nicht: das Skript
+  wartet bis zur nächsten vollen Stunde und startet dann wieder eine Sparmodus-Runde (bis 19:30); die Runde
+  zählt nicht als Eintrag.
 - Ergebnisdatei: Zeile 1 wie bei der Eintragsrunde (erledigt/zurück/entscheidung) oder
   „nichts_passend <Grund>“; Zeile 2 „eintrag <Item-ID> <Titel>“, wenn ein Eintrag gewählt wurde.
   „fable“ ist kein gültiges Ergebnis.

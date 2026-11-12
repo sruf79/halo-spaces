@@ -9896,6 +9896,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   display: none !important;
 }
 
+/* im eigenen Fenster zeigt schon der Stern in der Knopfzeile den Zustand –
+   kein zweiter darunter */
+:root[mc-standalone] #mcHdrMeta .mc-hdr-star {
+  display: none !important;
+}
+
 /* Verschlüsselt/signiert (OpenPGP, S/MIME): wie Apple Mail nur ruhige
    graue Symbole (Schloss, Siegel) ohne „OpenPGP“; Klick öffnet weiter
    Thunderbirds Details. Warnzustände (ungültig, unbekannt, nicht bestätigt)
@@ -9951,7 +9957,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   top: -10px !important;
 }
 
-#messageHeader:has(.mc-hdr-star:not([hidden])) #encryptionTechBtn {
+:root:not([mc-standalone]) #messageHeader:has(.mc-hdr-star:not([hidden])) #encryptionTechBtn {
   margin-inline-end: 20px !important;
 }
 

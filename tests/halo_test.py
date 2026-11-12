@@ -17683,6 +17683,48 @@ Neu
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: ohne Betreff in der Titelleiste; Knöpfe einzeilig in eigener Zeile über Absender, Ordner und Uhrzeit (wie Apple Mail), auch schmal", message_window_bar, results)
 
+    def message_window_order():
+        # Fenster einer geöffneten Mail wie im Vorbild: links Archivieren, Löschen, Werbung, daneben Antworten, Allen antworten,
+        # Weiterleiten, dann Mehr und Stern; markiert kein zweiter Stern unter der Uhrzeit (der Stern der Knopfzeile reicht)
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          let hdr = null;
+          for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
+            for (const h of f.messages) if (h.mime2DecodedSubject.includes("Treffen am Donnerstag")) { hdr = h; break; }
+            if (hdr) break; }
+          if (!hdr) return { mail: false };
+          const flagged = hdr.isFlagged;
+          hdr.folder.markMessagesFlagged([hdr], true);
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = {};
+          try {
+            await until(() => mw.document.title.includes("Treffen"), 6000); await ruhig(1500);
+            const md = mw.document.getElementById("messageBrowser").contentDocument;
+            const ids = ["hdrArchiveButton", "hdrTrashButton", "hdrJunkButton", "hdrReplyToSenderButton", "hdrSmartReplyButton", "hdrForwardButton", "otherActionsButton", "starMessageButton"];
+            out.order = ids.map(id => { const e = md.getElementById(id), b = e?.getBoundingClientRect(); return b && b.width ? [id, Math.round(b.left), Math.round(b.right)] : null; }).filter(Boolean);
+            const gap = (a, b) => { const x = md.getElementById(a)?.getBoundingClientRect(), y = md.getElementById(b)?.getBoundingClientRect(); return x && y && x.width && y.width ? Math.round(y.left - x.right) : null; };
+            out.gaps = { junkReply: gap("hdrJunkButton", "hdrReplyToSenderButton") ?? gap("hdrJunkButton", "hdrSmartReplyButton"), forwardMore: gap("hdrForwardButton", "otherActionsButton"), archiveTrash: gap("hdrArchiveButton", "hdrTrashButton") };
+            const st = md.querySelector("#mcHdrMeta .mc-hdr-star");
+            out.metaStar = st ? st.getBoundingClientRect().width : null;
+            out.barStar = md.getElementById("starMessageButton")?.getBoundingClientRect().width || 0;
+          } finally { mw.close(); if (!flagged) hdr.folder.markMessagesFlagged([hdr], false); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail fehlt"
+        order = res.get("order") or []
+        names = [o[0] for o in order]
+        lefts = [o[1] for o in order]
+        need = ["hdrArchiveButton", "hdrTrashButton", "hdrJunkButton", "hdrForwardButton", "otherActionsButton", "starMessageButton"]
+        g = res.get("gaps") or {}
+        ok = (all(n in names for n in need) and lefts == sorted(lefts) and names.index("hdrJunkButton") < names.index("hdrForwardButton")
+              and g.get("junkReply") == 6 and g.get("forwardMore") == 6 and g.get("archiveTrash") == 0
+              and not res.get("metaStar") and res.get("barStar", 0) > 0)
+        return ok, f"{res}"
+    check("Nachrichtenfenster: Knöpfe wie im Vorbild (Archivieren, Löschen, Werbung | Antworten, Allen antworten, Weiterleiten | Mehr, Stern); "
+          "markiert kein zweiter Stern unter der Uhrzeit", message_window_order, results)
+
     def header_split_hover():
         # GitHub-Issue #33: „Allen antworten“ mit Pfeil im Mailkopf – beim Überfahren eine Fläche in der Form des
         # Kapselstücks, keine eigene runde Fläche von Knopf oder Pfeil, kein Schatten

@@ -2024,9 +2024,10 @@ findbar .findbar-textbox:focus {
 
 /* im eigenen Fenster wie Apple Mail: Knöpfe in einer eigenen Zeile ganz oben
    links, darunter Absender, Ordner und Uhrzeit (vorher brachen sie neben Ordner
-   und Uhrzeit auf zwei Zeilen um). Kapseln, Maße, Trennstriche und Reihenfolge
-   wie in der Mail-Toolbar des Hauptfensters: Antworten, Allen antworten,
-   Weiterleiten | Archivieren, Löschen, Werbung | Mehr, Stern */
+   und Uhrzeit auf zwei Zeilen um). Kapseln, Maße und Trennstriche wie in der
+   Mail-Toolbar des Hauptfensters, Reihenfolge wie das Fenster von Apple Mail:
+   Archivieren, Löschen, Werbung | Antworten, Allen antworten, Weiterleiten |
+   Mehr, Stern */
 :root[mc-standalone] #messageHeader {
   --mc-standalone-bar: 52px;
   padding-top: calc(var(--mc-standalone-bar) + 12px) !important;
@@ -2050,12 +2051,12 @@ findbar .findbar-textbox:focus {
   align-items: center !important;
 }
 
-:root[mc-standalone] #hdrReplyToSenderButton { order: 1 !important; }
-:root[mc-standalone] #hdrSmartReplyButton { order: 1 !important; }
-:root[mc-standalone] #hdrForwardButton { order: 2 !important; }
-:root[mc-standalone] #hdrArchiveButton { order: 3 !important; }
-:root[mc-standalone] #hdrTrashButton { order: 4 !important; }
-:root[mc-standalone] #hdrJunkButton { order: 5 !important; }
+:root[mc-standalone] #hdrArchiveButton { order: 1 !important; }
+:root[mc-standalone] #hdrTrashButton { order: 2 !important; }
+:root[mc-standalone] #hdrJunkButton { order: 3 !important; }
+:root[mc-standalone] #hdrReplyToSenderButton { order: 4 !important; }
+:root[mc-standalone] #hdrSmartReplyButton { order: 4 !important; }
+:root[mc-standalone] #hdrForwardButton { order: 5 !important; }
 :root[mc-standalone] #otherActionsButton { order: 6 !important; }
 :root[mc-standalone] #starMessageButton { order: 7 !important; }
 
@@ -2079,7 +2080,10 @@ findbar .findbar-textbox:focus {
   border-end-start-radius: 999px !important;
 }
 
-:root[mc-standalone] #header-view-toolbar > :is(#hdrArchiveButton, #otherActionsButton) {
+/* (wie im Fenster von Apple Mail: zuerst Archivieren, Löschen, Werbung, dann
+   die Antworten-Kapsel; sie beginnt mit „Antworten“ an den Absender, fehlt
+   der, mit der Antworten-Gruppe) */
+:root[mc-standalone] #header-view-toolbar > :is(#hdrReplyToSenderButton:not([hidden]), #hdrReplyToSenderButton[hidden] ~ #hdrSmartReplyButton, #otherActionsButton) {
   margin-inline-start: 6px !important;
 }
 
@@ -14030,6 +14034,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   display: none !important;
 }
 
+/* im eigenen Fenster zeigt schon der Stern in der Knopfzeile den Zustand –
+   kein zweiter darunter */
+:root[mc-standalone] #mcHdrMeta .mc-hdr-star {
+  display: none !important;
+}
+
 /* Verschlüsselt/signiert (OpenPGP, S/MIME): wie Apple Mail nur ruhige
    graue Symbole (Schloss, Siegel) ohne „OpenPGP“; Klick öffnet weiter
    Thunderbirds Details. Warnzustände (ungültig, unbekannt, nicht bestätigt)
@@ -14085,7 +14095,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   top: -10px !important;
 }
 
-#messageHeader:has(.mc-hdr-star:not([hidden])) #encryptionTechBtn {
+:root:not([mc-standalone]) #messageHeader:has(.mc-hdr-star:not([hidden])) #encryptionTechBtn {
   margin-inline-end: 20px !important;
 }
 

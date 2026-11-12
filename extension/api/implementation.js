@@ -1835,7 +1835,16 @@ function fitShortMessage(target) {
           mp.style.removeProperty("flex");
           mp.style.removeProperty("height");
         }
-      } catch {} // Kandidat fürs Protokoll: Höhe der kurzen Mail nicht angepasst (Dokument schon entladen ist gewollt)
+      } catch (e) {
+        // Dokument schon entladen ist gewollt, alles andere ins Protokoll (Mail bliebe ohne angepasste Höhe)
+        let gone = true;
+        try {
+          gone = Cu.isDeadWrapper(doc) || Cu.isDeadWrapper(mp) || !doc.defaultView || doc.defaultView.closed || !mp.contentDocument;
+        } catch {} // gewollt: Zugriff scheitert nur, wenn das Fenster schon weg ist
+        if (!gone) {
+          log("short message height error", e);
+        }
+      }
     };
     const later = () => win.requestAnimationFrame(apply);
     // neue Mail: erst ohne feste Höhe messen
@@ -5257,7 +5266,9 @@ function personalBookState() {
     const dirs = MailServices.ab.directories;
     pab = dirs.find(d => d.URI == PAB_URI) || null;
     others = dirs.filter(d => d.URI != PAB_URI && !(hideCollected && d.dirPrefId == "ldap_2.servers.history"));
-  } catch {} // Kandidat fürs Protokoll: Adressbücher nicht lesbar, Liste bleibt leer
+  } catch (e) {
+    log("address books not readable", e);
+  }
   if (!pab) {
     return { pab: null, uid: null, canHide: false, hidden: false };
   }

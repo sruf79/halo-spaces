@@ -1,7 +1,7 @@
 #!/bin/zsh
 export HALO_LAUF=tagesroutine
 # Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00 arbeitet Claude Code die
-# Aufgabenliste ab, bis spätestens 21:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
+# Aufgabenliste ab, bis spätestens 22:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
 # (Interpreter /bin/zsh: keine Bildschirmprüfungen mit Maus); die Datei wird wie nachtlauf.sh nach
 # ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt.
 #   tagesroutine.sh [<Repo-Ordner>]
@@ -21,7 +21,7 @@ export HALO_LAUF=tagesroutine
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
-#   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 21:00).
+#   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
@@ -50,7 +50,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 # --- Schwellen: Standard, dann tagesroutine.conf ---
 typeset -A KONF
 KONF=(
-  WOCHENTAGE "1 2 3 4 5"  START 09:00  LETZTER_BEGINN 19:30  ENDE 21:00
+  WOCHENTAGE "1 2 3 4 5"  START 09:00  LETZTER_BEGINN 20:30  ENDE 22:00
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku

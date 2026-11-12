@@ -16,7 +16,7 @@ Regeln:
    solange Runner.Worker läuft (pgrep -f Runner.Worker; dann warten, nicht umgehen – HALO_LAUF
    schaltet den Zeitfenster-Hook für diesen Lauf ab, die Regel gilt trotzdem).
 2. Es pusht nur der Nachtlauf (ein Push, eine CI, ein Release). Kein git push, kein gh workflow run,
-   kein release.sh/publish.sh. Vor 21:00 enden; nichts darf um 01:30 noch laufen.
+   kein release.sh/publish.sh. Vor 22:00 enden; nichts darf um 01:30 noch laufen.
 3. Prüfzweig: Fertiges schiebt das Skript selbst (ohne Force) auf pruef/tagesroutine-<datum> und
    löscht den Zweig am Ende des Tages. Du pushst auch dorthin nicht. Meldet das Skript „Prüfzweig rot“,
    erst diese Ursache beheben (eigener Commit) oder den schuldigen Commit mit git revert zurücknehmen,
@@ -76,7 +76,7 @@ höchstens eine Sparmodus-Runde mit dem niedrigsten Modell auf (Rate = Restkonti
 Reserve für Nachtlauf, Windows, Release und Reparaturen, verteilt auf die Stunden bis zum Reset; begonnen
 wird erst, wenn das seit Tagesbeginn Angesparte die geschätzten Kosten eines Eintrags deckt). Mehr als 10
 Punkte darüber oder 5-Stunden-Fenster ab 80 %: nichts Neues; das Skript wartet ohne Claude bis zur vollen
-Stunde, liest das Kontingent neu und entscheidet erneut (bis 19:30, Maintainer 12.11.2026). Nach 8 eigenen
+Stunde, liest das Kontingent neu und entscheidet erneut (bis 20:30, Maintainer 12.11.2026). Nach 8 eigenen
 Commits des Laufs endet er.
 
 Sparmodus-Runde („JETZT: Sparmodus-Runde“):
@@ -92,7 +92,7 @@ Sparmodus-Runde („JETZT: Sparmodus-Runde“):
   5. nicht „Wartet auf OK“, keine Sicherheit/Datenschutz, kein Ablauf-/Release-Eintrag.
 - Den ersten passenden Eintrag (Bugs vor Features) wie eine Eintragsrunde bearbeiten, genau einen.
   Kein passender: nichts erfinden, Ergebnis „nichts_passend“. Das beendet den Lauf nicht: das Skript
-  wartet bis zur nächsten vollen Stunde und startet dann wieder eine Sparmodus-Runde (bis 19:30); die Runde
+  wartet bis zur nächsten vollen Stunde und startet dann wieder eine Sparmodus-Runde (bis 20:30); die Runde
   zählt nicht als Eintrag.
 - Ergebnisdatei: Zeile 1 wie bei der Eintragsrunde (erledigt/zurück/entscheidung) oder
   „nichts_passend <Grund>“; Zeile 2 „eintrag <Item-ID> <Titel>“, wenn ein Eintrag gewählt wurde.

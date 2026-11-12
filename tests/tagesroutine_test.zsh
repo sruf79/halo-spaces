@@ -41,8 +41,8 @@ pruefe "Abstand +1,9 um 12:00: Sparmodus beginnt einen Eintrag mit haiku" "$(lau
 pruefe "Abstand +12: wartet bis zur vollen Stunde statt zu enden" "$(lauf $J9 45.3)" \
   'Abstand: \+12\.0' 'deutlich darüber \(> 10\)' 'Entscheidung: warten bis 10:00 – Woche 12\.0 Punkte über dem Soll' \
   'Würde: +kein Claude, warten bis 10:00 .*neu entscheiden'
-pruefe "Abstand > SPAR_MAX um 19:10: Wartezeit 20:00 nach LETZTER_BEGINN" "$(lauf 2026-11-12T19:10:00+01:00 50)" \
-  'Entscheidung: warten bis 20:00' 'höchstens bis 19:30, sonst Lauf beenden'
+pruefe "Abstand > SPAR_MAX um 20:10: Wartezeit 21:00 nach LETZTER_BEGINN" "$(lauf 2026-11-12T20:10:00+01:00 50)" \
+  'Entscheidung: warten bis 21:00' 'höchstens bis 20:30, sonst Lauf beenden'
 # Mo 16.11. 12:00 Wien: 155 h, Soll 92.3; Ist 95 → Rest 5 < Reserve 15 → Rate 0
 pruefe "Rest unter der Reserve: Rate 0, nichts Neues" "$(lauf 2026-11-16T12:00:00+01:00 95)" \
   'Rate 0\.00' 'Entscheidung: nichts Neues – Sparmodus: Rest 5\.0 nicht über der Reserve 15'
@@ -76,11 +76,11 @@ pruefe "Tageslimit zählt nur eigene Commits, nicht fremde, auch nach Rebase von
   'Eigene Commits: 2$' 'eigen-1' 'eigen-2'
 pruefe "Tageslimit ohne eigene Runde: 0, obwohl main neu geschrieben ist" "$(zaehl '')" 'Eigene Commits: 0$'
 pruefe "Tageslimit mit zwei Runden" "$(zaehl '3000 3150;3400 3600')" 'Eigene Commits: 2$' 'eigen-1' 'fremd-danach'
-# „nichts_passend“ (Sparmodus) beendet den Lauf nicht mehr: warten bis zur nächsten vollen Stunde, nur bis 19:30
+# „nichts_passend“ (Sparmodus) beendet den Lauf nicht mehr: warten bis zur nächsten vollen Stunde, nur bis 20:30
 np() { HALO_JETZT=$1 HALO_TAGESROUTINE_CONF=$T/leer.conf HALO_PAUSEN_DATEI=$T/pausen.txt zsh $SKRIPT --nichts-passend $REPO 2>&1 }
 pruefe "nichts_passend um 12:28: warten bis 13:00 statt Ende" "$(np 2026-11-12T12:28:00+01:00)" '^warten [0-9]+$'
 pruefe "nichts_passend um 12:28: Wartezeit ist genau 13:00" \
   "$([[ $(np 2026-11-12T12:28:00+01:00) == "warten $(python3 -c 'import datetime as d;print(int(d.datetime.fromisoformat("2026-11-12T13:00:00+01:00").timestamp()))')" ]] && echo gleich)" '^gleich$'
-pruefe "nichts_passend um 18:40: noch warten (19:00 liegt vor 19:30)" "$(np 2026-11-12T18:40:00+01:00)" '^warten '
-pruefe "nichts_passend um 19:00: Ende (nächste Stunde 20:00 nach 19:30)" "$(np 2026-11-12T19:00:00+01:00)" '^ende$'
+pruefe "nichts_passend um 19:40: noch warten (20:00 liegt vor 20:30)" "$(np 2026-11-12T19:40:00+01:00)" '^warten '
+pruefe "nichts_passend um 20:00: Ende (nächste Stunde 21:00 nach 20:30)" "$(np 2026-11-12T20:00:00+01:00)" '^ende$'
 exit $FEHLER

@@ -88,7 +88,7 @@ jobs:
           echo "Version $VERSION (bisher $LETZTE), Commit $(git rev-parse --short HEAD)"
 
       - name: Pakete
-        run: sudo apt-get update -q && sudo apt-get install -yq zsh zip
+        run: sudo apt-get -o Acquire::Retries=5 update -q && sudo apt-get -o Acquire::Retries=5 install -yq zsh zip
 
       # wie release.sh: Version und update_url ins Manifest, bauen, Hash, updates.json
       - id: bau
@@ -185,7 +185,7 @@ jobs:
           IST=$(sha256sum "paket/halo-spaces-$VERSION.xpi" | cut -d' ' -f1)
           [ "$IST" = "$SOLL" ] || { echo "ABBRUCH: Paket-Hash weicht ab"; exit 1; }
       - name: Pakete
-        run: sudo apt-get update -q && sudo apt-get install -yq zsh zip xvfb libgtk-3-0t64 libdbus-glib-1-2 libasound2t64 fonts-noto-color-emoji
+        run: sudo apt-get -o Acquire::Retries=5 update -q && sudo apt-get -o Acquire::Retries=5 install -yq zsh zip xvfb libgtk-3-0t64 libdbus-glib-1-2 libasound2t64 fonts-noto-color-emoji
       - name: Thunderbird (${{ matrix.channel }})
         run: |
           PRODUCT=thunderbird-latest-SSL

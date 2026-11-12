@@ -12140,6 +12140,14 @@ body:has(> #booksPane.mc-side-anim) {
   --ab-pane-min-width: var(--mc-ab-anim-min, 0px) !important;
 }
 
+/* Einstellungen → Offline: Rückmeldung neben „Get Starred Messages“ (geladen,
+   schon offline, keine markierten Mails), klein und grau */
+.mc-pref-tool-note {
+  margin-inline-start: 8px;
+  font-size: calc(12px * var(--mt-font-scale, 1));
+  color: var(--mt-text-secondary, GrayText);
+}
+
 /* Kontoeinstellungen ohne Kontoliste: Die Seite ist ein Raster aus zwei Spalten –
    fehlt die Liste, rutschte der Inhalt in die erste (12 px schmale) Spalte und
    übrig blieb eine weiße Fläche. Nur noch eine Spalte für den Inhalt */

@@ -6236,11 +6236,17 @@ function hookShortcutsLink(cw, restorers = null) {
 // Befehle, die aus der Menüleiste gefallen sind, bekommen einen Platz in
 // Thunderbirds Einstellungen (Knöpfe bzw. Schalter, die Thunderbirds
 // Menüeintrag auslösen; Texte von Thunderbird, die Suche findet sie)
+// Gibt zurück, wie viele markierte Mails geladen werden und wie viele schon
+// offline lagen (für die Rückmeldung am Knopf: ist der Ordner wie in Thunderbird
+// üblich ohnehin offline synchronisiert, gibt es nichts zu laden – ohne
+// Rückmeldung sah das aus, als täte der Knopf nichts)
 function downloadStarredForOffline(w) {
+  const result = { queued: 0, already: 0, folder: "" };
   const folder = w.gFolder;
   if (!folder || folder.isServer) {
-    return;
+    return result;
   }
+  result.folder = folder.prettyName || folder.name || "";
   let folders = [folder];
   if (folder.flags & Ci.nsMsgFolderFlags.Virtual) {
     try {
@@ -6252,14 +6258,18 @@ function downloadStarredForOffline(w) {
   }
   for (const f of folders) {
     try {
-      const hdrs = [...f.messages].filter(h => h.isFlagged && !(h.flags & Ci.nsMsgMessageFlags.Offline));
+      const starred = [...f.messages].filter(h => h.isFlagged);
+      const hdrs = starred.filter(h => !(h.flags & Ci.nsMsgMessageFlags.Offline));
+      result.already += starred.length - hdrs.length;
       if (hdrs.length) {
         f.downloadMessagesForOffline(hdrs, w.msgWindow);
+        result.queued += hdrs.length;
       }
     } catch (e) {
       log("download starred", e);
     }
   }
+  return result;
 }
 
 const PREF_TOOLS = [
@@ -6363,12 +6373,26 @@ function addPrefTools(doc, restorers) {
             return false;
           }
         };
+        // Rückmeldung neben dem Knopf (geladen, schon offline, keine markierten Mails)
+        const note = doc.createElementNS(X, "span");
+        note.className = "mc-pref-tool-note";
+        note.setAttribute("role", "status");
         const sync = () => (b.disabled = !able());
         sync();
-        b.addEventListener("click", () => able() && downloadStarredForOffline(pane()));
+        b.addEventListener("click", () => {
+          if (!able()) {
+            return;
+          }
+          const r = downloadStarredForOffline(pane());
+          note.textContent = r.queued
+            ? tr("Downloading {n} starred messages from {folder}.", { n: r.queued, folder: r.folder })
+            : r.already
+              ? tr("All starred messages in {folder} are already available offline.", { folder: r.folder })
+              : tr("No starred messages in {folder}.", { folder: r.folder });
+        });
         card.addEventListener("focusin", sync);
         card.addEventListener("mouseover", sync);
-        line.append(b);
+        line.append(b, note);
       } else if (row.button) {
         const b = doc.createElementNS(X, "button");
         b.textContent = label(row.button);

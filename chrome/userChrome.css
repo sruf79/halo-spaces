@@ -2746,10 +2746,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   transform: translateX(calc(var(--spaces-total-width) - 89px)) !important;
   box-sizing: border-box !important;
   gap: 0 !important;
-  /* keine Linie zur Seitenleiste daneben: die Kacheln sind eigene Flächen mit
-     Abstand, beide Spalten haben dasselbe Grau (der Rand bleibt 1 px breit,
-     durchsichtig – Maße und Kanten der Leiste ändern sich nicht) */
-  border-inline-end: 1px solid transparent !important;
+  border-inline-end: 1px solid var(--mt-sidebar-border) !important;
   /* Thunderbirds eigene Positionierung (fest, volle Fensterhöhe) bleibt */
 }
 

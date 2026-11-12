@@ -445,3 +445,6 @@ Wortlaut des Maintainers, 11.11.2026, im Gespräch mit neon: „Äbderungen am s
 
 ### 12.11.2026: M28 „Ablauf: Push ohne Sprachmodell“ gestrichen (Maintainer, Sitzung global.run)
 Wortlaut des Maintainers, Sitzung global.run, 12.11.2026: „wenn der gewinn durch einsparung von tokens bei nutzung von einem externen dienst nur minimal ist sollte dieser punkt gestrichen werden oder auf completed gesetzt werden“; auf die Rückfrage (Streichen und Archivieren oder Done): „ja, streichen und archivieren“. Grund (Beschreibung von global.run, Deutung nicht des Maintainers): Einsparung minimal (ein Haiku-Aufruf je Meldung); ein externer Dienst bräuchte eine Datenschutzprüfung (`tests/adressen.py`, Datenschutzhinweise). Board-Eintrag PVTI_lAHODEPpks4BoBQwzhHepEw archiviert (nicht Done).
+
+### 12.11.2026: Aufgaben-Space, Umbau der Ansichten macht die übrigen Aufgaben-Einträge zur Oberfläche obsolet (Maintainer, Sitzung global.run)
+Sachentscheidung auf Anweisung des Maintainers (Sitzung global.run, 12.11.2026, ohne Wortlaut): Der Umbau der Ansichten (Board-Eintrag PVTI_…H9KZs) macht die Einträge zur bisherigen Aufgaben-Oberfläche obsolet. Archiviert (nicht Done) wurden PVTI_…H8uzQ und …Hf7pM; …HM_Qc, …GOH2c und …G18MU werden bei Schritt 3 geklärt; …G18Jc, …IEtvU und …HdRlg bleiben.

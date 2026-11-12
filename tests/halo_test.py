@@ -12291,7 +12291,9 @@ def run_checks(m, version, profile, results):
         # demselben Bild (+3 px), und nach dem Ende der Bewegung nichts mehr um mehr als 1,5 px. Vorher: die Ampel-Fläche
         # kippte mit #spacesToolbar[hidden] zwischen Fluss und „fixed“ (Zeilenanfang 84 px, Ampel 2 px), die Werte des
         # Listenkopfs standen beim Einblenden ab dem ersten Bild am Endplatz und blieben beim Ausblenden bis zum letzten
-        # am Anfang (Adressbuch 207 px, Kalender 96 px, Aufgaben 28 px).
+        # am Anfang (Adressbuch 207 px, Kalender 96 px, Aufgaben 28 px). Mail: Verfassen und die Pillen rechts davon,
+        # auch mit Today-Pane – der Abstand nach „Verfassen“ (12 ↔ 69 px) stand beim Einblenden ab dem ersten Bild am
+        # Endwert und beim Ausblenden bis zum letzten am Anfangswert (alle Pillen sprangen 55 px).
         # Verdecktes Fenster: nicht gemessen (übersprungen, nicht rot)
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         import sprung_lib as S
@@ -12302,7 +12304,8 @@ def run_checks(m, version, profile, results):
              'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
             ("Kalender", "calendar", ["#calTabDay", "#calTabWeek", "#calTabMultiweek", "#calTabMonth", "[new-event]"],
              'await toCalendar(); w.switchToView?.("month"); await ruhig(1500);'),
-            ("Mail", "mail", [], "await toMail();"),
+            ("Mail", "mail", ["[write-message]", "[reply]", "[reply-all]", "[forward-inline]", "[archive]", "[delete]", "[junk]", "[move-to]", "[mark-as]"],
+             "await toMail();"),
             ("Chat", "chat", [], 'tm.openTab("chat", {}); await bis(() => tm.currentTabInfo?.mode?.name == "chat" && d.getElementById("listPaneBox")?.getBoundingClientRect().width > 0, "Chat", 8000); await ruhig(1500);'),
         ]
         wahl = {
@@ -12325,14 +12328,14 @@ def run_checks(m, version, profile, results):
         # Today-Pane (je Bereich gemerkt) am Ende wieder wie zu Beginn – sonst misst „Aufgaben wie die Mail“ danach eine
         # Aufgabenliste ohne Today-Pane (Details 710 statt 463 px, „…“ 34 px weiter rechts)
         TODAY_JS = '''const todayOffen = () => { const tp = d.getElementById("today-pane-panel"); return !!(tp && !tp.collapsed && tp.getBoundingClientRect().width > 0); };
-            const geheZu = async (mode) => { if (mode == "calendar") await toCalendar(); else { tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben", 8000); } await ruhig(800); };'''
-        m.js(TODAY_JS + 'w.__sprToday = {}; for (const mode of ["calendar", "tasks"]) { await geheZu(mode); w.__sprToday[mode] = todayOffen(); } return 1;')
+            const geheZu = async (mode) => { if (mode == "calendar") await toCalendar(); else if (mode == "mail") await toMail(); else { tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben", 8000); } await ruhig(800); };'''
+        m.js(TODAY_JS + 'w.__sprToday = {}; for (const mode of ["calendar", "tasks", "mail"]) { await geheZu(mode); w.__sprToday[mode] = todayOffen(); } return 1;')
         try:
             for name, modus, knoepfe, geh in bereiche:
                 m.js(geh + " return 1;")
                 for breite in (1280, 1728):
                     m.js(f"w.resizeTo({breite}, 900); await until(() => w.outerWidth == {breite}, 3000); await ruhig(1000); return 1;")
-                    for today in ((1, 0) if modus in ("calendar", "tasks") else (0,)):
+                    for today in ((1, 0) if modus in ("calendar", "tasks", "mail") else (0,)):
                         m.js(f'''const tp = d.getElementById("today-pane-panel"); const offen = () => tp && !tp.collapsed && tp.getBoundingClientRect().width > 0;
                             if (!!{today} != offen()) {{ d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); }} return 1;''')
                         for gewaehlt in ((1, 0) if modus in wahl else (0,)):
@@ -12352,8 +12355,14 @@ def run_checks(m, version, profile, results):
                                 spacer = min((k for f in fr for k in f["e"] if k.startswith("top:[spacer]@")), key=lambda k: int(k.rsplit("@", 1)[1]), default="")
                                 passt = lambda k: (mac and "titlebar-buttonbox." in k) or k == spacer or any(x in k for x in knoepfe)
                                 for k, v in a["ruck"].items():
-                                    if passt(k) and v["gross"]:
-                                        bad.append(f"{lage}: {k} springt {v['gross'][0][1]:.0f} px in Bild {v['gross'][0][0]} (Kante höchstens {a['kante']} px"
+                                    gross = v["gross"]
+                                    if modus == "mail" and k != spacer:
+                                        # Pillen der Mail: Aus-/Einblenden an der Platzschwelle (schmales Fenster mit Today-Pane:
+                                        # Breite 0 ↔ voll) ist erlaubt, nur Bewegung sichtbarer Knöpfe zählt
+                                        sicht = lambda i: all((fr[j]["e"].get(k) or [0, 0, 0])[2] > 0 for j in (i - 1, i))
+                                        gross = [g for g in gross if sicht(g[0])]
+                                    if passt(k) and gross:
+                                        bad.append(f"{lage}: {k} springt {gross[0][1]:.0f} px in Bild {gross[0][0]} (Kante höchstens {a['kante']} px"
                                                    + (f", Weg {a['weg'][k]} × Kante" if k in a.get("weg", {}) else "") + ")")
                                 for k, v in a["ende"].items():
                                     if passt(k) and max(x[1] for x in v) > 1.5:
@@ -12366,7 +12375,7 @@ def run_checks(m, version, profile, results):
         finally:
             m.js(TODAY_JS + '''try { const [book, card] = w.__sprCard || []; if (card) book.deleteCards([card]); delete w.__sprCard; } catch {}
                 try { if (w.__sprTodo) { await testCalendar().deleteItem(w.__sprTodo); delete w.__sprTodo; } } catch {}
-                try { for (const mode of ["calendar", "tasks"]) { await geheZu(mode);
+                try { for (const mode of ["calendar", "tasks", "mail"]) { await geheZu(mode);
                   if (todayOffen() != w.__sprToday[mode]) { d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); } } } catch {}
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
                 if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1500); }
@@ -12375,7 +12384,7 @@ def run_checks(m, version, profile, results):
             return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
         return not bad, f"{gemessen} Messungen; " + ("; ".join(bad[:12]) if bad else "kein Sprung")
     check("Seitenleiste: Ein-/Ausblenden über den Knopf ohne Sprung von Ampel-Fläche, Zeilenanfang und Knöpfen (Adressbuch New/Anzeige, Aufgaben +/Mark/…, Kalender Day…Month) "
-          "in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
+          "und der Mail-Toolbar (Verfassen, Antworten … Markieren) in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
 
     def toolbar_shrink_monotone():
         # Fenster wie mit der Maus stetig verkleinern (10-px-Schritte, 40 ms Abstand) und wieder vergrößern (Mail, mit und

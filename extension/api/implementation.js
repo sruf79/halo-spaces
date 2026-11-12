@@ -12279,22 +12279,58 @@ class CardEnhancer {
         this.animateSidebar(ab, folder, after, false, withSpaces);
         // Einblenden: die Platzaufteilung der Toolbar (Pillen, Suchfeld, „»“) gilt für den Endzustand – einmal
         // dort rechnen (Endzustand synchron herstellen, nichts wird gezeichnet) und zurückstellen; sonst würde
-        // sie erst am Ende neu verteilt und alles spränge (Stufe 4)
-        if (show && withSpaces && w.__mcSpacesJump && ab.__mcJump) {
+        // sie erst am Ende neu verteilt und alles spränge (Stufe 4). Ausblenden: dort nur den Abstand nach
+        // „Verfassen“ fürs Ende messen (mit der Pillenverteilung des Endes, sonst endete er im schmalen Fenster
+        // 3 px daneben), danach die Pillen wieder wie am Anfang verteilen – sie passten sonst am Anfang nicht.
+        // In beiden Richtungen gleitet der Abstand dann je Bild vom Anfangs- zum Endwert (vorher stand er beim
+        // Einblenden ab dem ersten Bild am Endwert und beim Ausblenden bis zum letzten am Anfangswert: alle Knöpfe
+        // rechts von „Verfassen“ sprangen 55 px)
+        if ((!withSpaces || w.__mcSpacesJump) && ab.__mcJump) {
+          const bar = barTarget(w.document);
+          const write = w.document.querySelector('#unifiedToolbarContent > li[item-id="write-message"]');
+          const gapNow = () => (write ? parseFloat(w.getComputedStyle(write).marginInlineEnd) : NaN);
+          const gapStart = gapNow();
+          const gapVar = bar.style.getPropertyValue("--mc-write-gap");
+          let gapEnd = NaN;
           w.__mcDry = true;
           try {
-            w.__mcSpacesJump(1);
+            if (withSpaces) {
+              w.__mcSpacesJump(show ? 1 : 0);
+            }
             ab.__mcJump(1);
             w.document.documentElement.getBoundingClientRect();
             this.offsetUpdaters?.forEach(fn => fn());
+            gapEnd = gapNow();
           } catch (e) {
             log("dry-run error", e);
           } finally {
             ab.__mcJump(0);
-            w.__mcSpacesJump(0);
+            if (withSpaces) {
+              w.__mcSpacesJump(show ? 0 : 1);
+            }
             w.__mcDry = false;
           }
-          // Kanten für den Anfangszustand wieder herstellen (die Vorabrechnung schrieb die Endwerte)
+          if (!show) {
+            // Pillen und Suchfeld wieder für den Anfang verteilen (Ausblenden: bis zum Ende so)
+            w.__mcDry = true;
+            try {
+              w.document.documentElement.getBoundingClientRect();
+              this.offsetUpdaters?.forEach(fn => fn());
+            } catch (e) {
+              log("dry-run error", e);
+            } finally {
+              w.__mcDry = false;
+            }
+          }
+          // Abstand und Kanten für den Anfangszustand wieder herstellen (die Vorabrechnung schrieb die Endwerte)
+          if (gapVar) {
+            bar.style.setProperty("--mc-write-gap", gapVar);
+          } else {
+            bar.style.removeProperty("--mc-write-gap");
+          }
+          if (Number.isFinite(gapStart) && Number.isFinite(gapEnd) && Math.abs(gapEnd - gapStart) >= 1) {
+            ab.__mcGapRun = [gapStart, gapEnd];
+          }
           w.document.documentElement.getBoundingClientRect();
           this.offsetUpdaters?.forEach(fn => fn());
         }
@@ -15120,6 +15156,8 @@ class CardEnhancer {
         grid.style.setProperty(msgProp, `${Math.max(0, msgAt())}px`);
       }
     };
+    // sichtbarer Fortschritt 0 → 1 vom Anfang zum Ende (für Werte der Toolbar, die mitgleiten)
+    ab.__mcFortschritt = () => curve(k);
     // Endzustand kurz herstellen (Platzaufteilung der Toolbar vorab rechnen, siehe toggleSidebar)
     ab.__mcJump = to => {
       const keep = k;
@@ -15142,6 +15180,8 @@ class CardEnhancer {
       k = kk;
       delete ab.__mcReverse;
       delete ab.__mcJump;
+      delete ab.__mcFortschritt;
+      delete ab.__mcGapRun;
       unfollow();
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
@@ -17284,6 +17324,13 @@ class CardEnhancer {
         if (Math.abs(next - gap) >= 1) {
           setBarVar(top.document, "--mc-write-gap", `${next}px`);
         }
+      } else if (animating && win.__mcGapRun && win.__mcFortschritt) {
+        // Ein-/Ausblenden der Seitenleiste: der Abstand gleitet je Bild vom
+        // Anfangs- zum vorab gerechneten Endwert (toggleSidebar) – sonst blieb
+        // er bis zum Ende stehen, und alle Knöpfe rechts von „Verfassen“
+        // sprangen dann um bis zu 57 px (12 → 69 px)
+        const [a, b] = win.__mcGapRun;
+        setBarVar(top.document, "--mc-write-gap", `${Math.round(a + (b - a) * win.__mcFortschritt())}px`);
       }
       // Rechte Kante der Ordnerliste relativ zur Toolbar-Zeile: damit färbt
       // userChrome.css die Seitenleiste bis ganz nach oben grau wie in Apple Mail.

@@ -12500,6 +12500,61 @@ def run_checks(m, version, profile, results):
         return not bad, "; ".join(bad or info)
     check("Animation: Der Verteiler-Hinweis über der geöffneten Mail springt am Ende des Ein- und Ausblendens des Heute-Fensters nicht", anim_heute_hinweis, results)
 
+    def anim_heute_stapel():
+        # Mehrere Mails markiert (Stapel): beim Ein- und Ausblenden des Heute-Fensters rückte der Stapel am Ende des
+        # Einblendens um ein paar Pixel (er liegt mittig im Mailbereich, der seine Breite erst am Ende ändert). Gemessen
+        # wird die Lage der obersten Karte im Fenster in jedem Bild; nach dem letzten Bild, in dem sich die Breite des
+        # Heute-Fensters ändert, darf sie sich nicht mehr als 2,5 px bewegen. Nur macOS (verdecktes Fenster: übersprungen).
+        if sys.platform != "darwin":
+            return True, "übersprungen: nur auf macOS gemessen"
+        res = m.js(MAILLIST_JS + r'''
+          await showFolder(); await asCards(); a3.threadTree.selectedIndex = -1; await ruhig(500);
+          const dd = w.document;
+          if (dd.visibilityState != "visible") return { skip: true };
+          const v = a3.gDBView;
+          a3.threadTree.selectedIndices = [...Array(v.rowCount).keys()].filter(k => ["halo-ml-4@example.invalid", "halo-ml-5@example.invalid"].includes(v.getMsgHdrAt(k)?.messageId));
+          await bis(() => a3.document.querySelector("#mcConversation.mc-stack .mc-conv-card"), "Stapel", 5000); await ruhig(800);
+          const eb = a3.browsingContext.embedderElement;
+          const pos = () => {
+            const o = eb.getBoundingClientRect(), c = a3.document.querySelector("#mcConversation.mc-stack .mc-conv-card")?.getBoundingClientRect();
+            return c ? [Math.round((o.left + c.left) * 100) / 100, Math.round((o.top + c.top) * 100) / 100, Math.round(c.width * 100) / 100] : null;
+          };
+          const panel = dd.getElementById("today-pane-panel");
+          const out = [];
+          try {
+            for (const label of ["a", "b", "c", "d"]) {
+              const frames = [];
+              dd.getElementById("mcTodayToggle").click();
+              const t0 = performance.now();
+              while (performance.now() - t0 < 900) {
+                frames.push({ w: Math.round(panel.getBoundingClientRect().width * 10) / 10, p: pos() });
+                await new Promise(r => w.requestAnimationFrame(r));
+              }
+              out.push(frames); await ruhig(1200);
+            }
+          } finally { a3.threadTree.selectedIndex = -1; await ruhig(300); }
+          return { out };''')
+        if res.get("skip"):
+            return True, "nicht gemessen (Fenster verdeckt)"
+        bad, info = [], []
+        for n, frames in enumerate(res["out"]):
+            ws = [f["w"] for f in frames]
+            geaendert = [i for i in range(1, len(ws)) if abs(ws[i] - ws[i - 1]) > 0.3]
+            if not geaendert:
+                continue
+            i1 = geaendert[-1]
+            pts = [f["p"] for f in frames[i1:] if f["p"]]
+            if not pts:
+                continue
+            drift = max(max(abs(p[0] - pts[0][0]), abs(p[1] - pts[0][1]), abs(p[2] - pts[0][2])) for p in pts)
+            info.append(f"Lauf {n + 1}: nach Ende {drift:.1f} px")
+            if drift > 2.5:
+                bad.append(f"Lauf {n + 1}: Stapel bewegt sich nach dem Ende noch um {drift:.1f} px")
+        if not info:
+            return True, "nicht gemessen"
+        return not bad, "; ".join(bad or info)
+    check("Animation: Der Stapel bei Mehrfachauswahl springt am Ende des Ein- und Ausblendens des Heute-Fensters nicht", anim_heute_stapel, results)
+
     def ziehen_stetig():
         # Seitenleiste per Trennlinie ziehen, gleich nach dem Wechsel in den Kalender: die Breite folgt der Maus stetig, auch wenn
         # nach dem Bereichswechsel der verzögerte Abgleich der gemeinsamen Breite (nach ca. 400 ms) läuft – er setzte die Breite

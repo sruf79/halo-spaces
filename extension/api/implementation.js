@@ -16589,6 +16589,14 @@ class CardEnhancer {
       return el?.isConnected ? el : null;
     };
     const bannerNarrow = bannerEl()?.getBoundingClientRect().width || null;
+    // Mehrfachauswahl-Stapel (#mcConversation.mc-stack): liegt mittig mit Rand in Prozent im Mailbereich und rückte
+    // deshalb am Ende des Einblendens (Anfang des Ausblendens) mit dessen neuer Breite um ein paar Pixel – wie den
+    // Hinweis pro Bild in der Breite mitführen
+    const stackEl = () => {
+      const el = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentDocument?.querySelector("#mcConversation.mc-stack");
+      return el?.isConnected ? el : null;
+    };
+    const stackNarrow = stackEl()?.getBoundingClientRect().width || null;
     // Aufgaben: Liste, Details, „+“ und Aktionen gleich für das Endmaß
     // rechnen (die Rechnung richtet sich nach dem gemessenen „+“ – bis sie
     // still steht, wie sonst über zwei Bilder verteilt); danach ruht sie bis
@@ -16664,14 +16672,18 @@ class CardEnhancer {
     };
     const bannerWide = bannerNarrow ? bannerEl()?.getBoundingClientRect().width || null : null;
     const bannerFollow = bannerNarrow && bannerWide && Math.abs(bannerWide - bannerNarrow) >= 1 ? bannerEl() : null;
+    const stackWide = stackNarrow ? stackEl()?.getBoundingClientRect().width || null : null;
+    const stackFollow = stackNarrow && stackWide && Math.abs(stackWide - stackNarrow) >= 1 ? stackEl() : null;
     const moveBanner = value => {
-      const el = bannerFollow;
-      if (!el?.isConnected) {
-        return;
+      const share = Math.min(1, Math.max(0, value / full));
+      for (const [el, wide, narrow] of [[bannerFollow, bannerWide, bannerNarrow], [stackFollow, stackWide, stackNarrow]]) {
+        if (!el?.isConnected) {
+          continue;
+        }
+        const wNow = wide - (wide - narrow) * share;
+        el.style.setProperty("box-sizing", "border-box", "important");
+        el.style.setProperty("width", `${wNow.toFixed(2)}px`, "important");
       }
-      const wNow = bannerWide - (bannerWide - bannerNarrow) * Math.min(1, Math.max(0, value / full));
-      el.style.setProperty("box-sizing", "border-box", "important");
-      el.style.setProperty("width", `${wNow.toFixed(2)}px`, "important");
     };
     // Mitgleiten ohne Neuanordnung: Toolbar-Zeile und Inhalt ändern ihr
     // Layout nur einmal (Anfang bzw. Ende). Dazwischen werden Suchfeld und
@@ -16831,9 +16843,11 @@ class CardEnhancer {
       if (editBlock) {
         editBlock.style.transform = "";
       }
-      if (bannerFollow?.isConnected) {
-        bannerFollow.style.removeProperty("width");
-        bannerFollow.style.removeProperty("box-sizing");
+      for (const el of [bannerFollow, stackFollow]) {
+        if (el?.isConnected) {
+          el.style.removeProperty("width");
+          el.style.removeProperty("box-sizing");
+        }
       }
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");

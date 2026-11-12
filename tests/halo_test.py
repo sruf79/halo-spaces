@@ -4670,14 +4670,23 @@ def menu_checks(m, results):
             const item = d.getElementById("menu_showTaskbar");
             const r = { vis, checked: item?.getAttribute("checked"), hidden: sb.hidden, shown: !!sb.getClientRects().length };
             p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return r; };
-          await toMail();
-          const out = { before: await state() };
-          d.getElementById("menu_showTaskbar").doCommand();
-          await bis(() => sb.hidden, "Statusleiste aus", 2000);
-          out.off = await state();
-          d.getElementById("menu_showTaskbar").doCommand();
-          await bis(() => !sb.hidden, "Statusleiste an", 2000);
-          out.on = await state();
+          // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie
+          // vorher, sonst messen spätere Prüfungen mit eingeblendeter Menüleiste (Trennlinie der Seitenleiste: Pixel verschoben)
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          const out = {};
+          try {
+            await toMail();
+            out.before = await state();
+            d.getElementById("menu_showTaskbar").doCommand();
+            await bis(() => sb.hidden, "Statusleiste aus", 2000);
+            out.off = await state();
+            d.getElementById("menu_showTaskbar").doCommand();
+            await bis(() => !sb.hidden, "Statusleiste an", 2000);
+            out.on = await state();
+          } finally {
+            if (sb.hidden) d.getElementById("menu_showTaskbar").doCommand();
+            if (inactive != null) tbm.setAttribute("inactive", inactive);
+          }
           return out;""")
         vis = res.get("before", {}).get("vis", [])
         i = vis.index("Show Status Bar") if "Show Status Bar" in vis else -1

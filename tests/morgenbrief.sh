@@ -14,7 +14,7 @@ export HALO_LAUF=morgenbrief
 #   ~/halo-berichte/<Datum>-halo.spaces-<Version>.md (FEHLER von publish.sh)
 #   gh release list, gh run list (test.yml auf main; workflow_dispatch = Windows-Lauf der Nacht)
 #   ~/halo-nacht/handeln.log (ohne eigene Zeilen „morgenbrief“), ~/halo-nacht/pausen.txt
-#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 01:00 Wiener Zeit) / 168 × 100 %
+#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %
 # Geschrieben (nur echter Lauf): ~/halo-berichte/<heute>-morgenbrief.md, ~/halo-nacht/<heute>-morgenbrief.log,
 #   ~/halo-nacht/kontingent-tage.tsv (eine Zeile je Tag, Grundlage für vergleich-6-12.sh)
 # Meldung: erste Zeile „Du musst heute: …“ oder „Nichts nötig“, danach höchstens 8 Zeilen.
@@ -73,11 +73,13 @@ d = jetzt.date() - dt.timedelta(days=1)
 while d.isoweekday() > 5: d -= dt.timedelta(days=1)
 s = jetzt.date() - dt.timedelta(days=1) if jetzt.isoweekday() > 5 else d
 seit = dt.datetime(s.year, s.month, s.day, 8, 30, tzinfo=W)
-r = jetzt.date() - dt.timedelta(days=(jetzt.isoweekday() - 2) % 7)
-reset = dt.datetime(r.year, r.month, r.day, 1, 0, tzinfo=W)
-if reset > jetzt:
-    r -= dt.timedelta(days=7); reset = dt.datetime(r.year, r.month, r.day, 1, 0, tzinfo=W)
-r2 = r + dt.timedelta(days=7); naechster = dt.datetime(r2.year, r2.month, r2.day, 1, 0, tzinfo=W)
+# Reset fest Di 00:00 UTC (Sommerzeit ändert ihn nicht; Maintainer 12.11.2026)
+ju = jetzt.astimezone(UTC)
+r = ju.date() - dt.timedelta(days=(ju.isoweekday() - 2) % 7)
+reset = dt.datetime(r.year, r.month, r.day, 0, 0, tzinfo=UTC)
+if reset > ju:
+    r -= dt.timedelta(days=7); reset = dt.datetime(r.year, r.month, r.day, 0, 0, tzinfo=UTC)
+r2 = r + dt.timedelta(days=7); naechster = dt.datetime(r2.year, r2.month, r2.day, 0, 0, tzinfo=UTC).astimezone(W)
 std = (jetzt.astimezone(UTC) - reset.astimezone(UTC)).total_seconds() / 3600
 print("JETZT=" + jetzt.isoformat(timespec="minutes")); print("HEUTE=" + jetzt.strftime("%Y-%m-%d"))
 print("WT=%d" % jetzt.isoweekday()); print("SEIT=" + seit.isoformat(timespec="minutes"))

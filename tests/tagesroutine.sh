@@ -11,7 +11,7 @@ export HALO_LAUF=tagesroutine
 # schiebt das Skript (nicht Claude) ohne Force auf den Prüfzweig pruef/tagesroutine-<datum> (nur Linux
 # und statisch auf GitHub, belegt neon nicht) und löscht ihn am Ende des Tages. Nichts veröffentlichen.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
-#   Soll = Stunden seit dem Reset (Di 01:00 Wiener Zeit) / 168 × 100 %, Abstand = Ist − Soll.
+#   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
 #   Abstand > NICHTS_NEUES_UEBER → nichts Neues; > NUR_SONNET_UEBER → nur Sonnet;
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende (Pause über pausen.txt).
@@ -39,7 +39,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 typeset -A KONF
 KONF=(
   WOCHENTAGE "1 2 3 4 5"  START 09:00  LETZTER_BEGINN 19:30  ENDE 21:00
-  RESET_WOCHENTAG 2  RESET_ZEIT 01:00
+  RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3  NUR_SONNET_UEBER 0  NICHTS_NEUES_UEBER 2
   FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
@@ -91,12 +91,14 @@ def hm(s):
 j = e.get("HALO_JETZT")
 jetzt = dt.datetime.fromisoformat(j).astimezone(W) if j else dt.datetime.now(W)
 rt = int(e["K_RESET_WOCHENTAG"]); rh, rm = hm(e["K_RESET_ZEIT"])
-# letzter Reset: Wochentag rt, Uhrzeit rh:rm Wiener Zeit, nicht nach jetzt (Wandzeit, Sommerzeit richtig)
-d = jetzt.date() - dt.timedelta(days=(jetzt.isoweekday() - rt) % 7)
-reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=W)
-if reset > jetzt:
-    d -= dt.timedelta(days=7); reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=W)
-d2 = d + dt.timedelta(days=7); naechster = dt.datetime(d2.year, d2.month, d2.day, rh, rm, tzinfo=W)
+# letzter Reset: Wochentag rt, Uhrzeit rh:rm in UTC (fest, Sommerzeit ändert ihn nicht; Maintainer 12.11.2026), nicht nach jetzt
+ju = jetzt.astimezone(UTC)
+d = ju.date() - dt.timedelta(days=(ju.isoweekday() - rt) % 7)
+reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=UTC)
+if reset > ju:
+    d -= dt.timedelta(days=7); reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=UTC)
+d2 = d + dt.timedelta(days=7); naechster = dt.datetime(d2.year, d2.month, d2.day, rh, rm, tzinfo=UTC).astimezone(W)
+reset = reset.astimezone(W)
 std = (jetzt.astimezone(UTC) - reset.astimezone(UTC)).total_seconds() / 3600
 soll = min(100.0, std / 168 * 100)
 woche, h5 = zahl("K_WOCHE"), zahl("K_5H")

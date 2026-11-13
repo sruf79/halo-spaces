@@ -16458,8 +16458,10 @@ class CardEnhancer {
     // Thunderbird zeigt für andere Tage als heute nur diesen einen Tag –
     // hier immer den Monat des Tags bis zum Monatsende
     agenda.update = async function (date) {
-      // (Thunderbird lädt neu mit startDate – das ist hier der Monatserste)
-      if (date && this.__mcAnchor && this.startDate && dayKey(date) == dayKey(this.startDate)) {
+      // (Thunderbird lädt neu mit startDate – das ist hier der Monatserste.
+      // Nur genau dieses Objekt zählt als Neuladen: ein gewählter Monatserster
+      // (Klick im Mini-Kalender) kam sonst nie an, die Liste blieb stehen)
+      if (date && this.__mcAnchor && date === this.startDate) {
         date = this.__mcAnchor;
       }
       date ||= this.__mcAnchor || w.TodayPane.start;

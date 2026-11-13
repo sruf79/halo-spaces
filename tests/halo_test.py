@@ -7441,6 +7441,52 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: ‹ in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
 
+    def agenda_minimonth_click():
+        # Klick (echte Maus) auf einen Tag im Mini-Kalender der Today-Pane: die Liste springt zu diesem Tag (erste Zeile
+        # ab dem Tag oben), auch für den Monatsersten und zurück auf heute
+        prep = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), ids = [];
+          const now = today(), last = new Date(now.year, now.month + 1, 0).getDate();
+          for (let day = 1; day <= last; day += 2) { const e = new CalEvent(); e.title = "Halo Sprung " + day; e.calendar = c;
+            const st = today(); st.day = day; st.isDate = false; st.hour = 10; const en = st.clone(); en.hour = 11; e.startDate = st; e.endDate = en; ids.push((await c.addItem(e)).id); }
+          w.__mcSprungIds = ids;
+          await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+          const agenda = d.getElementById("agenda");
+          await bis(() => [...agenda.querySelectorAll(":scope > li.agenda-listitem")].filter(l => l.textContent.includes("Halo Sprung")).length >= Math.floor(last / 2), "Termine in der Liste", 8000);
+          await ruhig(600);
+          return { day: now.day, last, scrolls: agenda.scrollHeight > agenda.clientHeight + 40 };""")
+        today_day = prep.get("day") or 1
+        targets = [24 if today_day <= 14 else 6, 1, today_day]
+        res = {"prep": prep, "clicks": []}
+        try:
+            for t in targets:
+                rect = m.js(r"""
+                  const mm = d.getElementById("today-minimonth");
+                  const td = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")].find(c => c.textContent.trim() == "%d");
+                  const r = td.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];""" % t)
+                m.pointer([{"type": "pointerMove", "duration": 0, "x": int(rect[0]), "y": int(rect[1]), "origin": "viewport"},
+                           {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+                one = m.js(r"""
+                  const agenda = d.getElementById("agenda"), t = %d;
+                  await bis(() => w.TodayPane.start.day == t, "Today-Pane auf dem Tag", 3000).catch(() => {}); await ruhig(500);
+                  const now = w.TodayPane.start, key = `${now.year}${String(now.month + 1).padStart(2, "0")}${String(t).padStart(2, "0")}`;
+                  const rows = [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
+                  const row = rows.find(li => (li.dateString || "").slice(0, 8) >= key);
+                  const ar = agenda.getBoundingClientRect(), rr = row?.getBoundingClientRect();
+                  return { t, start: w.TodayPane.start.day, row: row?.textContent.trim().slice(0, 40), off: rr ? Math.round(rr.top - ar.top) : null,
+                           atEnd: agenda.scrollTop >= agenda.scrollHeight - agenda.clientHeight - 1, h: agenda.clientHeight, rh: rr ? Math.round(rr.height) : 0 };""" % t)
+                res["clicks"].append(one)
+        finally:
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+            m.js(CAL_CHECK_JS + r"""
+              const c = testCalendar(); for (const id of w.__mcSprungIds || []) { const it = await c.getItem(id); if (it) await c.deleteItem(it); }
+              delete w.__mcSprungIds; return true;""")
+        # (steht die Liste am Ende, kann die Zeile nicht ganz nach oben – dann muss sie wenigstens sichtbar sein)
+        ok = bool(prep.get("scrolls")) and len(res["clicks"]) == 3 and all(
+            c["start"] == c["t"] and c["off"] is not None and (abs(c["off"]) <= 2 or (c["atEnd"] and 0 <= c["off"] <= c["h"] - c["rh"])) for c in res["clicks"])
+        return ok, f"{res}"
+    check("Today-Pane: Klick auf einen Tag im Mini-Kalender bringt die Liste zu diesem Tag (auch zum Monatsersten und zurück)", agenda_minimonth_click, results)
+
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird
         res = m.js(r"""

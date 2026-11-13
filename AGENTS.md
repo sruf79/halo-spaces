@@ -184,6 +184,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   sichtbaren Scrollbalken; Maße wie Apple Mail. Knöpfe und Suchfelder als Kapsel, übrige Felder mit
   kleinem Radius und Haarlinie; Suchfelder ohne Hover-Zustand, erst der Fokus zeigt den Fokusring.
 - **Symbolleisten bei Platzmangel:** zuerst das Suchfeld bis auf die Lupe, danach Pillen nie abschneiden, sondern ganz ausblenden mit Chevron-Menü (alle Spaces außer ersetztem Chat; `ENTSCHEIDUNGEN.md`).
+- **Seitenleiste eingeblendet und schwebend:** Optische Änderungen an der Seitenleiste (Kacheln, Schein, Schrift, Farben, Abstände) prüft jede Sitzung automatisch auch im schwebenden Zustand (`mc-float-pane`, `__mcSideFloatState`; Prüfung in `run_checks()`) und baut sie bei problemloser Umsetzung für beide Zustände ein; gewollte Unterschiede nur wie vom Maintainer genannt (Schatten, Abstand 3 px, fehlender Seitenleisten-Knopf; `ENTSCHEIDUNGEN.md`, 13.11.2026).
 - **Oberflächentexte** mit englischem Schlüssel, Übersetzung in `DE` in `extension/api/texte.js`.
 - **Einstellungen** unter `extensions.mailcards.*`; Debug-Ausgaben nur bei `extensions.mailcards.debug`.
 - **Store-Regeln:** kein `innerHTML` mit Markup, keine Emojis/4-Byte-Zeichen in Store-Texten.

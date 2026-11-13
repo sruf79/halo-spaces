@@ -17456,13 +17456,76 @@ Neu
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
           return rows;""")
         ids = [r[0] for r in res]
-        want = ["category-general", "mcCat-paneMcAccounts", "category-appearance", "category-compose", "category-privacy",
+        want = ["category-general", "mcCat-paneMcAccounts", "category-appearance", "category-compose", "mcCat-paneMcRules", "category-privacy",
                 "category-calendar", "category-chat", "mcCat-paneMcAddons", "mcCat-paneMcHalo", "category-qrexport"]
         gaps = {res[i + 1][0]: res[i + 1][1] - res[i][2] for i in range(len(res) - 1)}
         starts = {"category-privacy", "mcCat-paneMcAddons"}
         ok = (ids == want and all(g >= 12 if k in starts else g <= 6 for k, g in gaps.items()))
         return ok, f"{ids} Abstände {gaps}"
     check("Einstellungen: Kategorien in drei Gruppen nach Nutzung (Account Settings nach General, Export for Mobile ganz unten) mit Abstand", pref_category_groups, results)
+
+    def pref_rules_pane():
+        # Regeln wie Apple Mail: Kategorie „Rules“ nach Composition, eine Liste aller Regeln aller Konten (Konto unter dem
+        # Namen), Häkchen schaltet die Regel ein/aus und speichert, Bearbeiten/Duplizieren/Entfernen erst mit gewählter Regel;
+        # Mail → Rules… und der Knopf unter General öffnen diese Seite statt Thunderbirds Fenster
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const local = MailServices.accounts.localFoldersServer;
+          const srv = MailServices.accounts.createIncomingServer("nobody", "halo-regeln.invalid", "none");
+          srv.prettyName = "Halo Regelkonto";
+          const acc = MailServices.accounts.createAccount(); acc.incomingServer = srv;
+          const addRule = (server, name, on) => { const l = server.rootFolder.getEditableFilterList(null), f = l.createFilter(name);
+            f.enabled = on; l.insertFilterAt(l.filterCount, f); l.saveToDefaultFile(); return [l, f]; };
+          const [la, fa] = addRule(local, "Halo Regel A", true), [lb, fb] = addRule(srv, "Halo Regel B", false);
+          const out = {};
+          try {
+        """ + PREFS_OPEN_JS + r"""
+            const cats = [...pd.querySelectorAll("#categories > richlistitem.category")].map(e => e.id);
+            out.after = cats[cats.indexOf("mcCat-paneMcRules") - 1];
+            out.label = pd.querySelector("#mcCat-paneMcRules .category-name")?.textContent;
+            await pick("paneMcRules", 800);
+            const list = await until(() => pd.getElementById("mcRulesList"), 3000);
+            out.embed = pd.documentElement.hasAttribute("mc-embed");
+            out.visible = !!list && list.getBoundingClientRect().height > 0;
+            const rows = () => [...pd.querySelectorAll("#mcRulesList .mc-rule")];
+            const mine = () => rows().filter(r => /^Halo Regel/.test(r.querySelector(".mc-rule-name").textContent));
+            out.rows = mine().map(r => [r.querySelector(".mc-rule-name").textContent, r.querySelector(".mc-rule-account")?.textContent, r.querySelector("input").checked]);
+            const btns = () => ["mcRuleAdd", "mcRuleEdit", "mcRuleDuplicate", "mcRuleRemove"].map(id => [pd.getElementById(id)?.textContent, !!pd.getElementById(id)?.disabled]);
+            out.buttons = btns();
+            // Häkchen der zweiten Regel: eingeschaltet und gespeichert (neu gelesen aus der Datei)
+            const rb = mine().find(r => r.textContent.includes("Halo Regel B"));
+            rb.querySelector("input").click(); await ruhig(300);
+            out.enabledB = fb.enabled;
+            // Auswahl schaltet Bearbeiten frei
+            mine()[0].dispatchEvent(new pw.MouseEvent("mousedown", { bubbles: true })); await ruhig(200);
+            out.selected = btns().map(b => b[1]);
+            // Knopf unter General
+            await pick("paneGeneral", 800);
+            pd.querySelector("#mcPrefRules button")?.click(); await ruhig(800);
+            out.fromCard = pd.getElementById("categories").selectedItem?.value;
+            tm.closeTab(tm.currentTabInfo); await ruhig(500);
+            // Mail → Rules…
+            d.getElementById("filtersCmd").doCommand();
+            const pw2 = await until(() => tm.currentTabInfo.mode?.name == "preferencesTab" && tm.currentTabInfo.browser?.contentWindow, 8000);
+            await until(() => pw2.document.getElementById("categories")?.selectedItem?.value == "paneMcRules", 8000);
+            out.fromMenu = pw2.document.getElementById("categories").selectedItem?.value;
+            out.oldWindow = !!Services.wm.getMostRecentWindow("mailnews:filterlist");
+            Services.wm.getMostRecentWindow("mailnews:filterlist")?.close();
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          } finally {
+            for (const [l, f] of [[la, fa], [lb, fb]]) { try { l.removeFilter(f); l.saveToDefaultFile(); } catch {} }
+            try { MailServices.accounts.removeAccount(acc); } catch {}
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        ok = (res.get("after") == "category-compose" and res.get("label") == "Rules" and res.get("visible") and not res.get("embed")
+              and sorted(res.get("rows") or []) == [["Halo Regel A", "Local Folders", True], ["Halo Regel B", "Halo Regelkonto", False]]
+              and res.get("buttons") == [["Add Rule", False], ["Edit", True], ["Duplicate", True], ["Remove", True]]
+              and res.get("enabledB") is True and res.get("selected") == [False, False, False, False]
+              and res.get("fromCard") == "paneMcRules" and res.get("fromMenu") == "paneMcRules" and not res.get("oldWindow"))
+        return ok, f"{res}"
+    check("Einstellungen: Regeln wie Apple Mail – Kategorie nach Composition, alle Regeln aller Konten mit Konto, Häkchen schaltet ein/aus, Mail → Rules… öffnet die Seite", pref_rules_pane, results)
 
     def pref_embedded_subnav():
         # keine zweite graue Leiste: Konten (mit Seiten des gewählten Kontos) bzw. Extensions/Themes … als eingerückte

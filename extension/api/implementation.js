@@ -619,11 +619,230 @@ function hookChatCategory(cw, restorers = null) {
 // → Einstellungen“ (options_ui), eingebettet wie dort.
 const PREF_PANES = [
   { value: "paneMcAccounts", footer: "accountButton", name: "Account Settings", src: "about:accountsettings" },
+  // Regeln wie Apple Mail: eine Liste über alle Konten (Entscheidung des
+  // Maintainers vom 9.11.2026: letzter Punkt der ersten Gruppe nach Composition)
+  { value: "paneMcRules", name: "Rules", rules: true },
   { value: "paneMcAddons", footer: "addonsButton", name: "Add-ons and Themes", src: "about:addons" },
   // Symbol ohne seine weiße Kachel; der Ausschnitt lässt den weichen Rand des Rings ganz drin (enger wirkte er dick und kantig)
   { value: "paneMcHalo", label: "halo.spaces", icon: "resource://mailcards/about/icon.svg", crop: "3 3 58 58", options: true },
 ];
 const HALO_PANE = "paneMcHalo";
+const RULES_PANE = "paneMcRules";
+
+// Einstellungen → Regeln: alle Regeln (Thunderbirds Nachrichtenfilter) aller
+// Konten in einer Liste wie in Apple Mail – Häkchen schaltet ein/aus, das
+// Konto steht unter dem Namen; Hinzufügen, Bearbeiten, Duplizieren, Entfernen
+// über Thunderbirds Regel-Editor. Thunderbird führt Regeln je Konto: eine neue
+// Regel kommt ins Konto der gewählten Regel bzw. (mehrere Konten) ins
+// gewählte aus dem Menü des Knopfs
+function ruleLists() {
+  const out = [];
+  // (Reihenfolge der Konten wie in Thunderbird)
+  for (const server of MailServices.accounts.accounts.map(a => a.incomingServer).filter(Boolean)) {
+    try {
+      if (server.canHaveFilters) {
+        out.push({ server, list: server.rootFolder.getEditableFilterList(null) });
+      }
+    } catch (e) {
+      log("rule list", server?.prettyName, e);
+    }
+  }
+  return out;
+}
+
+function buildRulesPane(cw, box) {
+  const doc = cw.document;
+  const X = "http://www.w3.org/1999/xhtml";
+  const el = (tag, cls, text) => {
+    const e = doc.createElementNS(X, tag);
+    if (cls) {
+      e.className = cls;
+    }
+    if (text != null) {
+      e.textContent = text;
+    }
+    return e;
+  };
+  const wrap = el("div", "mc-rules");
+  const head = el("h1", "mc-rules-title", tr("Rules"));
+  const list = el("div", "mc-rules-list");
+  list.id = "mcRulesList";
+  list.setAttribute("role", "listbox");
+  list.tabIndex = 0;
+  const bar = el("div", "mc-rules-buttons");
+  const btn = (id, text) => {
+    const b = el("button", null, text);
+    b.id = id;
+    bar.append(b);
+    return b;
+  };
+  const add = btn("mcRuleAdd", tr("Add Rule"));
+  const edit = btn("mcRuleEdit", tr("Edit"));
+  const dup = btn("mcRuleDuplicate", tr("Duplicate"));
+  const del = btn("mcRuleRemove", tr("Remove"));
+  const menu = doc.createXULElement("menupopup");
+  menu.id = "mcRuleAddMenu";
+  wrap.append(head, list, bar);
+  box.append(wrap, menu);
+  let selected = null; // { list, filter }
+  const mailWin = () => Services.wm.getMostRecentWindow("mail:3pane");
+  const save = l => {
+    try {
+      l.saveToDefaultFile();
+    } catch (e) {
+      log("rules save", e);
+    }
+  };
+  const indexOf = (l, f) => {
+    for (let i = 0; i < l.filterCount; i++) {
+      if (l.getFilterAt(i) == f) {
+        return i;
+      }
+    }
+    return -1;
+  };
+  const sync = () => {
+    for (const b of [edit, dup, del]) {
+      b.disabled = !selected;
+    }
+    add.disabled = !ruleLists().length;
+  };
+  const select = row => {
+    for (const r of list.children) {
+      r.toggleAttribute("selected", r == row);
+      r.setAttribute("aria-selected", r == row);
+    }
+    selected = row?.__mcRule || null;
+    sync();
+  };
+  const fill = () => {
+    const keep = selected?.filter;
+    list.replaceChildren();
+    selected = null;
+    const lists = ruleLists();
+    const many = lists.length > 1;
+    for (const { server, list: l } of lists) {
+      for (let i = 0; i < l.filterCount; i++) {
+        const filter = l.getFilterAt(i);
+        const row = el("div", "mc-rule");
+        row.setAttribute("role", "option");
+        row.__mcRule = { list: l, filter };
+        const check = el("input");
+        check.type = "checkbox";
+        check.checked = filter.enabled;
+        check.setAttribute("aria-label", filter.filterName);
+        check.addEventListener("change", () => {
+          if (filter.unparseable && check.checked) {
+            check.checked = false;
+            return;
+          }
+          filter.enabled = check.checked;
+          save(l);
+        });
+        const text = el("div", "mc-rule-text");
+        text.append(el("div", "mc-rule-name", filter.filterName));
+        if (many) {
+          text.append(el("div", "mc-rule-account", server.prettyName));
+        }
+        row.append(check, text);
+        row.addEventListener("mousedown", () => select(row));
+        row.addEventListener("dblclick", e => {
+          if (e.target != check) {
+            editRule();
+          }
+        });
+        list.append(row);
+        if (filter == keep) {
+          select(row);
+        }
+      }
+    }
+    if (!list.children.length) {
+      list.append(el("div", "mc-rules-empty", tr("No Rules")));
+    }
+    sync();
+  };
+  // Thunderbirds Editor (modal): args.refresh nach OK – der Editor schreibt
+  // nicht selbst auf die Platte
+  const editor = (l, args) => {
+    args.filterList = l;
+    mailWin()?.openDialog("chrome://messenger/content/FilterEditor.xhtml", "FilterEditor",
+      "chrome,modal,titlebar,resizable,centerscreen", args);
+    if (args.refresh) {
+      save(l);
+      if (args.newFilter) {
+        selected = { list: l, filter: args.newFilter };
+      }
+      fill();
+    }
+  };
+  const newRule = l => editor(l, { filterPosition: l.filterCount });
+  function editRule() {
+    if (selected) {
+      editor(selected.list, { filter: selected.filter });
+    }
+  }
+  add.addEventListener("click", () => {
+    const lists = ruleLists();
+    if (selected || lists.length == 1) {
+      newRule(selected?.list || lists[0].list);
+      return;
+    }
+    menu.replaceChildren();
+    for (const { server, list: l } of lists) {
+      const item = doc.createXULElement("menuitem");
+      item.setAttribute("label", server.prettyName);
+      item.addEventListener("command", () => newRule(l));
+      menu.append(item);
+    }
+    menu.openPopup(add, "after_start");
+  });
+  edit.addEventListener("click", editRule);
+  dup.addEventListener("click", () => {
+    if (selected) {
+      editor(selected.list, { copiedFilter: selected.filter, filterPosition: indexOf(selected.list, selected.filter) + 1 });
+    }
+  });
+  del.addEventListener("click", () => {
+    if (!selected) {
+      return;
+    }
+    const { list: l, filter } = selected;
+    const ok = Services.prompt.confirmEx(cw, tr("Rules"), tr("Remove the rule “{name}”?", { name: filter.filterName }),
+      Services.prompt.STD_YES_NO_BUTTONS, "", "", "", null, {}) == 0;
+    if (ok) {
+      l.removeFilter(filter);
+      save(l);
+      selected = null;
+      fill();
+    }
+  });
+  list.addEventListener("keydown", e => {
+    const rows = [...list.querySelectorAll(".mc-rule")];
+    const i = rows.findIndex(r => r.hasAttribute("selected"));
+    if (e.key == "ArrowDown" || e.key == "ArrowUp") {
+      e.preventDefault();
+      select(rows[Math.max(0, Math.min(rows.length - 1, i + (e.key == "ArrowDown" ? 1 : -1)))] || null);
+    } else if (e.key == "Enter") {
+      editRule();
+    } else if (e.key == "Backspace" || e.key == "Delete") {
+      del.click();
+    }
+  });
+  // beim Zurückkommen neu lesen (Regeln aus „Regel aus E-Mail erstellen …“ oder Thunderbirds Fenster)
+  doc.addEventListener("paneSelected", () => {
+    if (box.isConnected && !box.hidden) {
+      fill();
+    }
+  });
+  fill();
+}
+
+// Mail → Rules… und „Regeln …“ unter General öffnen die Seite statt
+// Thunderbirds Fenster
+async function openRulesSettings(w) {
+  return openHaloSettings(w, RULES_PANE);
+}
 const dataURIs = new Map();
 // crop: neuer viewBox („x y b h“) – dann ohne das erste <rect> (Kachel des Symbols)
 function dataURI(url, crop = null) {
@@ -669,7 +888,7 @@ function hookPrefCategories(cw, restorers = null) {
   const late = Date.now() - since > 6000;
   const labelOf = pane => {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
-    return pane.label || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
+    return pane.label || (pane.rules && tr(pane.name)) || link?.querySelector(".sidebar-footer-label")?.textContent.trim() ||
       link?.querySelector(".sidebar-footer-label")?.getAttribute("value") ||
       ((late || (pane.footer && !link)) && pane.name ? tr(pane.name) : "");
   };
@@ -695,7 +914,7 @@ function hookPrefCategories(cw, restorers = null) {
   for (const pane of PREF_PANES) {
     const link = pane.footer ? doc.getElementById(pane.footer) : null;
     const label = labelOf(pane);
-    if (!label || (!pane.options && !host)) {
+    if (!label || (!pane.options && !pane.rules && !host)) {
       continue;
     }
     const item = doc.createXULElement("richlistitem");
@@ -741,7 +960,11 @@ function hookPrefCategories(cw, restorers = null) {
     box.hidden = true;
     deck.append(box);
     const init = () => {
-      if (pane.options) {
+      if (pane.rules) {
+        if (!box.firstChild) {
+          buildRulesPane(cw, box);
+        }
+      } else if (pane.options) {
         loadOptionsPane(cw, box);
       } else if (!overlays.has(pane.value)) {
         const browserEl = embedPage(host, pane.src);
@@ -773,6 +996,10 @@ function hookPrefCategories(cw, restorers = null) {
   const generalCat = doc.getElementById("category-general");
   if (mine(generalCat)) {
     generalCat.after(...own("paneMcAccounts"));
+  }
+  const composeCat = doc.getElementById("category-compose") || doc.getElementById("category-composition");
+  if (mine(composeCat)) {
+    composeCat.after(...own(RULES_PANE));
   }
   const privacyCat = doc.getElementById("category-privacy");
   const chatCat = doc.getElementById("category-chat");
@@ -882,7 +1109,7 @@ function hookPrefCategories(cw, restorers = null) {
     if (event) {
       folded = false; // neue Kategorie: Unterpunkte wieder offen
     }
-    doc.documentElement.toggleAttribute("mc-embed", PREF_PANES.some(p => p.value == value));
+    doc.documentElement.toggleAttribute("mc-embed", PREF_PANES.some(p => p.value == value && !p.rules));
     for (const [key, browserEl] of overlays) {
       browserEl.hidden = key != value;
     }
@@ -2923,6 +3150,18 @@ function hookMenubar(win, restorers) {
     return;
   }
   bar.__mcMenubar = true;
+  // Mail → Rules… (auch im App-Menü) zeigt die Regeln in den Einstellungen wie
+  // Apple Mail statt Thunderbirds Fenster; „Regel aus E-Mail erstellen …“
+  // ruft Thunderbird weiter selbst auf (Editor vorbelegt)
+  const onRulesCmd = e => {
+    if (e.target?.id == "filtersCmd" || e.target?.id == "appmenu_filtersCmd") {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      openRulesSettings(win);
+    }
+  };
+  win.addEventListener("command", onRulesCmd, true);
+  restorers.push(() => win.removeEventListener("command", onRulesCmd, true));
   const $ = id => doc.getElementById(id);
   const S = "-";
   const created = [];
@@ -5862,7 +6101,7 @@ loadPart("kalender.js");
 
 // Einstellungen → halo.spaces öffnen (Info-Fenster, Begrüßung): Thunderbird
 // springt beim Öffnen sofort zur Kategorie, die gibt es erst kurz danach
-async function openHaloSettings(w) {
+async function openHaloSettings(w, pane = HALO_PANE) {
   // (das Versprechen von openPreferencesTab erfüllt sich nur bei einem neuen
   // Tab – ist schon einer offen, wechselt Thunderbird nur dorthin)
   w.openPreferencesTab?.("paneGeneral");
@@ -5871,10 +6110,10 @@ async function openHaloSettings(w) {
     return tab?.mode?.name == "preferencesTab" ? tab.browser?.contentWindow : null;
   };
   let pw = null;
-  for (let i = 0; i < 80 && !(pw = prefsWindow())?.document?.getElementById("mcCat-" + HALO_PANE); i++) {
+  for (let i = 0; i < 80 && !(pw = prefsWindow())?.document?.getElementById("mcCat-" + pane); i++) {
     await new Promise(r => setTimeout(r, 100));
   }
-  pw?.gotoPref?.(HALO_PANE);
+  pw?.gotoPref?.(pane);
 }
 
 // Thunderbird-Seite (Kontoeinstellungen, Add-ons) über der Inhaltsfläche des
@@ -6282,7 +6521,7 @@ const PREF_TOOLS = [
   ]],
   ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
   // Filter heißen wie in Apple Mail Regeln: alle Regeln ansehen und anlegen
-  ["mcPrefRules", "paneGeneral", null, "Rules", [{ button: "filtersCmd" }]],
+  ["mcPrefRules", "paneGeneral", null, "Rules", [{ button: "filtersCmd", pane: RULES_PANE }]],
   // „Get Starred Messages“ gilt in Thunderbird für den in der Mail gewählten
   // Ordner; der Befehl kennt nur die Mailansicht (pane3) – über Thunderbirds
   // Menüeintrag lief er im Einstellungen-Tab ins Leere (Knopf ohne Wirkung).
@@ -6396,7 +6635,7 @@ function addPrefTools(doc, restorers) {
       } else if (row.button) {
         const b = doc.createElementNS(X, "button");
         b.textContent = label(row.button);
-        b.addEventListener("click", () => item(row.button)?.doCommand());
+        b.addEventListener("click", () => (row.pane ? doc.defaultView.gotoPref(row.pane) : item(row.button)?.doCommand()));
         line.append(b);
       } else {
         const lab = doc.createElementNS(X, "label");
@@ -8886,13 +9125,15 @@ class CardEnhancer {
             const aw = doc.defaultView;
             aw.addEventListener("load", () => aw.setTimeout(() => hookDateTimePickers(aw), 0), { once: true });
           }
-          // Filterliste heißt wie in Apple Mail „Rules“ (Titel unter Windows/Linux sichtbar)
-          if (url.startsWith("chrome://messenger/content/FilterListDialog.xhtml") && doc.defaultView) {
+          // Filterliste und Filter-Editor heißen wie in Apple Mail „Rules“ bzw. „Rule“ (Titel unter Windows/Linux sichtbar)
+          const ruleTitle = url.startsWith("chrome://messenger/content/FilterListDialog.xhtml") ? "Rules"
+            : url.startsWith("chrome://messenger/content/FilterEditor.xhtml") ? "Rule" : null;
+          if (ruleTitle && doc.defaultView) {
             const fw = doc.defaultView;
             fw.addEventListener("DOMContentLoaded", () => {
               const title = fw.document.querySelector("title");
               title?.removeAttribute("data-l10n-id");
-              fw.document.title = tr("Rules");
+              fw.document.title = tr(ruleTitle);
             }, { once: true });
           }
           // Eigenschaften eines Kalenders aus dem Bereich Aufgaben: „List Info“

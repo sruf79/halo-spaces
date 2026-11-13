@@ -15,6 +15,11 @@
 // TRANSLATIONS eintragen.
 // ---------------------------------------------------------------------------
 const DE = {
+  "Add Rule": "Regel hinzufügen",
+  "Edit": "Bearbeiten",
+  "No Rules": "Keine Regeln",
+  "Rule": "Regel",
+  "Remove the rule “{name}”?": "Die Regel „{name}“ entfernen?",
   "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} ist eine Outlook-Datendatei, die halo.spaces noch nicht lesen kann (manche neueren Dateien aus Outlook lassen sich nicht öffnen).",
   "Rules": "Regeln",
   "Apply Rules": "Regeln anwenden",
@@ -518,6 +523,11 @@ const DE = {
   "{n} days before": "{n} Tage vorher",
 };
 const FR = {
+  "Add Rule": "Ajouter une règle",
+  "Edit": "Modifier",
+  "No Rules": "Aucune règle",
+  "Rule": "Règle",
+  "Remove the rule “{name}”?": "Supprimer la règle « {name} » ?",
   "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} est un fichier de données Outlook que halo.spaces ne peut pas encore lire (certains fichiers récents d’Outlook ne peuvent pas être ouverts).",
   "Rules": "Règles",
   "Apply Rules": "Appliquer les règles",
@@ -1021,6 +1031,11 @@ const FR = {
   "{n} days before": "{n} jours avant",
 };
 const ES = {
+  "Add Rule": "Añadir regla",
+  "Edit": "Editar",
+  "No Rules": "No hay reglas",
+  "Rule": "Regla",
+  "Remove the rule “{name}”?": "¿Eliminar la regla «{name}»?",
   "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} es un archivo de datos de Outlook que halo.spaces aún no puede leer (algunos archivos recientes de Outlook no se pueden abrir).",
   "Rules": "Reglas",
   "Apply Rules": "Aplicar reglas",
@@ -1524,6 +1539,11 @@ const ES = {
   "{n} days before": "{n} días antes",
 };
 const IT = {
+  "Add Rule": "Aggiungi regola",
+  "Edit": "Modifica",
+  "No Rules": "Nessuna regola",
+  "Rule": "Regola",
+  "Remove the rule “{name}”?": "Rimuovere la regola «{name}»?",
   "{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).": "{file} è un file di dati di Outlook che halo.spaces non può ancora leggere (alcuni file recenti di Outlook non si possono aprire).",
   "Rules": "Regole",
   "Apply Rules": "Applica regole",

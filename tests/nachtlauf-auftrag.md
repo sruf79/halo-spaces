@@ -121,7 +121,19 @@ Reihenfolge:
         Mail zuerst (80 % der Nutzer; ein Gewicht, kein Ausschluss anderer
         Bereiche); von Nutzern gemeldete Bugs (Titel mit „[GitHub #n]“,
         Nummer nennen); Wartbarkeit und Betrieb nur, soweit sie Releases oder
-        Tempo sichern. Kein fester Betriebsanteil, kein starrer
+        Tempo sichern. Maßstab für die Mail-Funktion ist Apple Mail (Wortlaut
+        13.11.2026: „Vorbild für mail-funktionalität ist apple mail.  Manche
+        mail clients haben überbordernde funktionen welche 99% der user nicht
+        nutzen“): lesen, schreiben, beantworten, weiterleiten, Anhänge, Suche,
+        Ordner/Postfächer, Konten, Markieren/Flaggen, Regeln, VIPs bzw.
+        Absenderbilder usw., nicht der volle Umfang von Thunderbird. Seltene
+        oder überbordende Thunderbird-Funktionen zählen nicht als
+        Mail-Grundfunktion; Wünsche danach niedrig bewerten, neue Optionen
+        oder Funktionen ohne belegten Nutzen im Zweifel nach f) („Im Zweifel
+        wie Apple“, „Optionen nur in sehr seltenen Fällen“, nur belegte
+        Features). Grenze: nichts ersatzlos entfernen (Entscheidung des
+        Maintainers) – der Director streicht oder versteckt keine
+        Thunderbird-Funktion, er priorisiert seltene nur nicht. Kein fester Betriebsanteil, kein starrer
         Design-Vorrang. Niedriger: selten gesehene Ecken, Chat, reine
         Feinheiten.
       - Aufwand klein / mittel / groß (Schätzung aus Text und Bereich: klein
@@ -167,7 +179,8 @@ Reihenfolge:
         in Schritt 5 drankommen.
       Diese Rahmenregeln darf der Director nicht überstimmen:
       (a) Schwere (Absturz, Datenverlust, Mail-Grundfunktion gestört oder
-          gefährdet) geht immer vor, auch wenn groß. Die Funktion des
+          gefährdet; Mail-Grundfunktion = Umfang von Apple Mail, siehe b)
+          geht immer vor, auch wenn groß. Die Funktion des
           Mailclients muss immer gewährleistet sein: keine Änderung
           einplanen, die sie riskiert, ohne dass eine passende Prüfung in
           run_checks() sie absichert; im Zweifel Weg f). Design nie auf

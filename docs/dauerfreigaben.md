@@ -22,9 +22,19 @@ Reihenfolge der Liste (komplexe zuerst; im Nachtlauf der Director-Plan nach Nutz
 eines Eintrags mit Notiz, Aufteilen großer Einträge in Schritte (`n/m`), Lauf der Tagesroutine,
 Kontingent-Schwellen innerhalb von `~/.config/halo-spaces/tagesroutine.conf`.
 
+**LaunchAgents laden und neu starten** (Maintainer 13.11.2026, „Ja“ auf neons Vorschlag): neon darf die
+Zeitplan-Agenten (Tagesroutine, Nachtlauf, Morgenbrief, Wochenprüfung, Doku-Prüfung, Rundgang,
+CI-Wächter, Bilder-Eingang, GitHub-Wächter) mit `launchctl bootout`/`bootstrap` laden und neu starten,
+damit eine freigegebene Änderung wirkt. Bedingungen: kein Lauf aktiv (`pgrep` und Sperrdateien), neue
+plist vorher mit `plutil -lint` geprüft und gelesen, der Nachtlauf nicht zwischen 00:00 und 09:00, jede
+Änderung steht im Bericht oder im Morgenbrief. Ausgenommen bleiben die drei Fernsteuerungs-Agenten
+(`remote-control`, `neon-board`, `github-comm`): ein Neustart beendet die Sitzung selbst, dort nennt neon
+dem Maintainer Befehl und Zeitpunkt. Neons Berechtigungsprüfung bleibt eigene Schutzschicht (lehnt sie ab,
+wird es gemeldet, nicht umgangen).
+
 ## C. Immer der Maintainer (nur mit seinem Satz direkt in neon)
 
-Regeln in `AGENTS.md`; neue oder geänderte LaunchAgents; `settings.json` und Hooks (Zeitfenster-Hook,
+Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der drei Fernsteuerungs-Agenten; `settings.json` und Hooks (Zeitfenster-Hook,
 Hook gegen erzeugte Dateien); Auslöser in `test.yml`; Release-Regeln und Hotfix; Notfall und
 Notfall-Release (nur von Hand durch ihn, `docs/notfall.md`); Push-Sperre; Datenschutz; Zitate von ihm an
 neon oder neon-board; Design (nach Vergleich mit der Vorlage); strittige Entscheidungen zu

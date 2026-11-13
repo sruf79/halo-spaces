@@ -18902,6 +18902,33 @@ Neu
         return ok, f"vorher={pre} aus={off} ein={on}"
     check("Seitenleiste: ⌃⌘S blendet sie aus und wieder ein wie der Knopf (GitHub #56)", sidebar_key, results)
 
+    def today_key():
+        # ⌃⌘T blendet die Today-Pane ein und aus wie der Knopf #mcTodayToggle; der Menüpunkt zeigt das Kürzel – nur macOS
+        # (für Windows/Linux ist kein Kürzel entschieden)
+        if sys.platform != "darwin":
+            return True, "nur macOS (für Windows/Linux kein Kürzel entschieden)"
+        state = r"""await ruhig(400); return { shown: !!w.TodayPane?.isVisible };"""
+        pre = m.js(r"""await toMail(); await ruhig(400);
+          if (w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await bis(() => !w.TodayPane.isVisible, "Today-Pane aus", 3000); await ruhig(400); }
+          tm.currentAbout3Pane.threadTree?.focus(); await ruhig(300);
+          const keys = [...d.querySelectorAll("key")].filter(k => (k.getAttribute("key") || "").toLowerCase() == "t" && /control/.test(k.getAttribute("modifiers") || "")
+            && /accel|meta/.test(k.getAttribute("modifiers") || "")).map(k => k.id || "(ohne id)");
+          const menu = [...d.querySelectorAll('menuitem[command="calendar_toggle_todaypane_command"]')].map(i => i.getAttribute("key"));
+          return { keys, items: menu, shown: !!w.TodayPane?.isVisible };""")
+        def press():
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": "\uE009"}, {"type": "keyDown", "value": "\uE03D"}, {"type": "keyDown", "value": "t"},
+                {"type": "keyUp", "value": "t"}, {"type": "keyUp", "value": "\uE03D"}, {"type": "keyUp", "value": "\uE009"}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        press()
+        on = m.js(r"""await until(() => w.TodayPane?.isVisible, 3000);""" + state)
+        press()
+        off = m.js(r"""await until(() => !w.TodayPane?.isVisible, 3000);""" + state)
+        ok = (pre["keys"] == ["mcKeyToggleTodayPane"] and pre["items"] and all(i == "mcKeyToggleTodayPane" for i in pre["items"])
+              and not pre["shown"] and on["shown"] and not off["shown"])
+        return ok, f"vorher={pre} ein={on} aus={off}"
+    check("Today-Pane: ⌃⌘T blendet sie ein und aus wie der Knopf, der Menüpunkt zeigt das Kürzel", today_key, results)
+
     def sidebar_float_edge():
         # Einblenden am linken Fensterrand unter macOS: Die innersten 3 px am Fensterrand gehören dem Größenändern
         # des Fensters, dort kommt keine Mausbewegung an, sondern nur „Fenster verlassen“ (mit echter Systemmaus

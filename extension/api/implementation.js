@@ -10998,6 +10998,54 @@ class CardEnhancer {
       });
     };
 
+    // Tastenkürzel ⌃⌘T blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle
+    // (Animation inklusive); im Menü steht das Kürzel am Punkt „Today Pane“
+    // (Thunderbirds F11 bleibt daneben bestehen). Nur macOS – für Windows/Linux
+    // ist noch kein Kürzel entschieden (zusammen mit ⌃⌘S, Maintainer-Entscheidung offen)
+    const hookTodayKey = () => {
+      const d = w.document;
+      if (!IS_MAC || d.getElementById("mcKeyToggleTodayPane")) {
+        return;
+      }
+      const commandset = d.createXULElement("commandset");
+      const command = d.createXULElement("command");
+      command.id = "mcCmdToggleTodayPane";
+      command.addEventListener("command", () => {
+        const btn = d.getElementById("mcTodayToggle");
+        if (btn) {
+          btn.click();
+        } else {
+          d.getElementById("calendar_toggle_todaypane_command")?.doCommand();
+        }
+      });
+      commandset.append(command);
+      const keyset = d.createXULElement("keyset");
+      const key = d.createXULElement("key");
+      key.id = "mcKeyToggleTodayPane";
+      key.setAttribute("key", "t");
+      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("command", "mcCmdToggleTodayPane");
+      keyset.append(key);
+      d.documentElement.append(commandset, keyset);
+      // Menüpunkte zur Today-Pane zeigen das neue Kürzel statt F11
+      const items = [...d.querySelectorAll('menuitem[command="calendar_toggle_todaypane_command"]')]
+        .map(item => [item, item.getAttribute("key")]);
+      for (const [item] of items) {
+        item.setAttribute("key", "mcKeyToggleTodayPane");
+      }
+      this.restorers.push(() => {
+        for (const [item, old] of items) {
+          if (old) {
+            item.setAttribute("key", old);
+          } else {
+            item.removeAttribute("key");
+          }
+        }
+        keyset.remove();
+        commandset.remove();
+      });
+    };
+
     // Bereiche-Leiste: ein eigener Knopf dafür entfällt (die Leiste gehört zur
     // Seitenleiste, der Seitenleisten-Knopf schaltet beides). Blendet
     // Thunderbird sie selbst ein/aus (Ansicht → Symbolleisten, Kontextmenü,
@@ -13455,6 +13503,7 @@ class CardEnhancer {
       hookEscape();
       hookSidebarButton();
       hookSidebarKey();
+      hookTodayKey();
       hookSpacesToggle();
       hookSideFloat();
       hookMarkTags();

@@ -1,4 +1,4 @@
-Unbeaufsichtigte Tagesroutine halo.spaces auf neon (gestartet von tests/tagesroutine.sh, Mo–Fr 09:00).
+Unbeaufsichtigte Tagesroutine halo.spaces auf neon (gestartet von tests/tagesroutine.sh, Mo–Fr 09:00, Sa/So 12:00).
 Niemand sieht zu, niemand antwortet auf Rückfragen. AGENTS.md gilt vollständig; Abweichungen und
 Ergänzungen stehen hier. Das Skript ruft dich mehrmals auf: einmal für den Plan, danach je Runde für
 genau einen Eintrag. Welches Modell du bist und was diese Runde tun soll, steht oben unter „JETZT:“.

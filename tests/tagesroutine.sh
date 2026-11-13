@@ -1,7 +1,7 @@
 #!/bin/zsh
 export HALO_LAUF=tagesroutine
-# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00 arbeitet Claude Code die
-# Aufgabenliste ab, bis spätestens 22:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
+# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00, Sa/So ab 12:00 (Maintainer 13.11.2026,
+# START_WOCHENENDE) arbeitet Claude Code die Aufgabenliste ab, bis spätestens 22:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
 # (Interpreter /bin/zsh: keine Bildschirmprüfungen mit Maus); die Datei wird wie nachtlauf.sh nach
 # ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt.
 #   tagesroutine.sh [<Repo-Ordner>]
@@ -54,7 +54,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 # --- Schwellen: Standard, dann tagesroutine.conf ---
 typeset -A KONF
 KONF=(
-  WOCHENTAGE "1 2 3 4 5"  START 09:00  LETZTER_BEGINN 20:30  ENDE 22:00
+  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 12:00  LETZTER_BEGINN 20:30  ENDE 22:00
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
@@ -148,12 +148,14 @@ gemessen = [fl(t[6]) for t in zeilen if t[8] == "erledigt" and fl(t[6]) is not N
 tage = {int(x) for x in e["K_WOCHENTAGE"].split()}
 def heute(s):
     h, m = hm(s); return jetzt.replace(hour=h, minute=m, second=0, microsecond=0)
-fenster = jetzt.isoweekday() in tage and heute(e["K_START"]) <= jetzt < heute(e["K_ENDE"])
+# Beginn: Sa/So START_WOCHENENDE (Maintainer 13.11.2026, „ab 12:00 mittags“), sonst START
+start = heute(e.get("K_START_WOCHENENDE") or e["K_START"]) if jetzt.isoweekday() >= 6 else heute(e["K_START"])
+fenster = jetzt.isoweekday() in tage and start <= jetzt < heute(e["K_ENDE"])
 neu_zeit = fenster and jetzt < heute(e["K_LETZTER_BEGINN"])
 volle = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)   # nächste volle Stunde
 def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + x.strftime(" %Y-%m-%d %H:%M")
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
-       "STUNDEN": "%.1f" % std, "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
+       "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
        "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein"}
 if math.isnan(woche):
     aus.update(ABSTAND="?", STUFE="unbekannt", ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
@@ -172,7 +174,7 @@ else:
         # verteilen; seit Tagesbeginn (START) angespart, minus heute im Sparmodus verbraucht
         std_rest = (naechster.astimezone(UTC) - ju).total_seconds() / 3600
         rest, rate = 100 - woche, spar_rate(woche, std_rest, reserve)
-        seit = max(0.0, (jetzt - heute(e["K_START"])).total_seconds() / 3600)
+        seit = max(0.0, (jetzt - start).total_seconds() / 3600)
         angespart = rate * seit - verbraucht
         kosten, quelle = (sum(gemessen) / len(gemessen), "Mittel aus %d Messungen" % len(gemessen)) \
             if len(gemessen) >= 3 else (kosten0, "Standard, %d von 3 gemessen" % len(gemessen))
@@ -268,7 +270,7 @@ entscheiden() {
   while IFS='=' read -r k v; do E[$k]=$v; done < <(
     K_WOCHE=$K_WOCHE K_5H=$K_5H K_5H_ENDE=$K_5H_ENDE \
     K_RESET_WOCHENTAG=$KONF[RESET_WOCHENTAG] K_RESET_ZEIT=$KONF[RESET_ZEIT] K_WOCHENTAGE=$KONF[WOCHENTAGE] \
-    K_START=$KONF[START] K_ENDE=$KONF[ENDE] K_LETZTER_BEGINN=$KONF[LETZTER_BEGINN] \
+    K_START=$KONF[START] K_START_WOCHENENDE=$KONF[START_WOCHENENDE] K_ENDE=$KONF[ENDE] K_LETZTER_BEGINN=$KONF[LETZTER_BEGINN] \
     K_WEIT_DARUNTER=$KONF[WEIT_DARUNTER] K_IM_SOLL=$KONF[IM_SOLL] K_FUENF_STUNDEN_MAX=$KONF[FUENF_STUNDEN_MAX] \
     K_SPAR_MAX=$KONF[SPAR_MAX] K_RESERVE_NACHT=$KONF[RESERVE_NACHT] K_SPAR_MAX_EINTRAEGE_TAG=$KONF[SPAR_MAX_EINTRAEGE_TAG] \
     K_SPAR_KOSTEN_JE_EINTRAG=$KONF[SPAR_KOSTEN_JE_EINTRAG] K_SPAR_MODELL=$KONF[SPAR_MODELL] K_SPAR_DATEI=$SPAR_DATEI \
@@ -347,7 +349,7 @@ if [[ -n $TROCKEN ]]; then
   print "Tagesroutine – Trockenlauf (nichts geschrieben, kein Claude, kein Push)"
   print "Jetzt:        $E[JETZT] (Wiener Zeit${HALO_JETZT:+, HALO_JETZT})"
   print "Schwellen:    $KONF_DATEI"
-  print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
+  print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE] (Sa/So ab $KONF[START_WOCHENENDE]), heute ab $E[START]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
   print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
   print "Kontingent:   $K_QUELLE"
   print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
@@ -438,7 +440,7 @@ bericht_schreiben() {
 }
 
 if [[ $E[FENSTER] != ja ]]; then
-  log "außerhalb des Zeitfensters ($KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE]) – kein Lauf"
+  log "außerhalb des Zeitfensters ($KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE], Sa/So ab $KONF[START_WOCHENENDE]) – kein Lauf"
   exit 0
 fi
 if pause_start tagesroutine; then
@@ -498,6 +500,17 @@ offene_planzeilen() {
     | grep -vFf <(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null; print -- '@@')
 }
 
+# belegt() plus die Routinen mit Sperrdatei (Nachtlauf, Wochen- und Doku-Prüfung, Rundgang): am Wochenende
+# wartet der Rundgang (Sa 10:00, spätester Start 14:00) evtl. noch, wenn die Tagesroutine um 12:00 beginnt.
+# Er sieht unsere Claude-Runden nicht als belegt (aktive_sitzung() übergeht eigene Läufe), daher warten wir.
+belegt_tag() {
+  local l
+  for l in lauf:Nachtlauf woche:Wochenprüfung doku:Doku-Prüfung rundgang:Design-Rundgang; do
+    [[ -e $DIR/${l%%:*}.lock ]] && kill -0 $(<$DIR/${l%%:*}.lock) 2>/dev/null && { print "${l#*:} läuft oder wartet"; return 0 }
+  done
+  belegt
+}
+
 # --- Kontingent am Anfang ---
 entscheiden; K_ANFANG=$(kontingent_zeile); log "Kontingent Anfang: $K_ANFANG"
 
@@ -506,12 +519,12 @@ GEPLANT=
 while true; do
   if (( $(date +%s) >= LETZTER )); then ENDGRUND="$KONF[LETZTER_BEGINN] erreicht, kein neuer Eintrag"; break; fi
   if g=$(pause_aktiv tagesroutine); then ENDGRUND="Pause $g"; break; fi
-  # Mac belegt (CI, Testlauf, andere Sitzung, ungespeicherte Änderungen)? Warten, dann neu versuchen
+  # Mac belegt (CI, Testlauf, andere Sitzung, ungespeicherte Änderungen, Routine)? Warten, dann neu versuchen
   w=0
-  while GRUND=$(belegt) && (( w < KONF[BELEGT_WARTEN] && $(date +%s) < LETZTER )); do
+  while GRUND=$(belegt_tag) && (( w < KONF[BELEGT_WARTEN] && $(date +%s) < LETZTER )); do
     log "warte: $GRUND"; sleep 300; w=$((w + 5))
   done
-  if GRUND=$(belegt); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
+  if GRUND=$(belegt_tag); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
   if (( $(eigene_commits_zahl) >= KONF[MAX_COMMITS_TAG] )); then
     ENDGRUND="$KONF[MAX_COMMITS_TAG] eigene Commits heute erreicht"; break   # Ende, kein Warten
   fi

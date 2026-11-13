@@ -139,7 +139,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Nachtlauf** (`tests/nachtlauf.sh`, jede Nacht 01:30) arbeitet die Liste ab, pusht, wartet auf die CI
   und veröffentlicht bei Grün; danach bis 06:30 weitere Einträge ohne Push (Einzelheiten, Vollrunde,
   „repariert“/„flackert“: `docs/testrechner.md`).
-- **Tagesroutine** (`tests/tagesroutine.sh`, Mo–Fr 09:00–22:00) arbeitet die Liste ab, je Eintrag ein Commit, pusht nie
+- **Tagesroutine** (`tests/tagesroutine.sh`, Mo–Fr 09:00–22:00, Sa/So 12:00–22:00) arbeitet die Liste ab, je Eintrag ein Commit, pusht nie
   (nur das Skript auf `pruef/tagesroutine-<datum>`); Modell nach Sollkurve des Wochenkontingents, Schwellen in
   `~/.config/halo-spaces/tagesroutine.conf`, Bericht `~/halo-berichte/<datum>-tagesroutine.md` (`docs/testrechner.md`).
 

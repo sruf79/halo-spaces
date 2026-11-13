@@ -88,4 +88,10 @@ pruefe "Plan abgearbeitet um 14:20: warten bis 15:00, dann neu planen" "$(lauf 2
   'Plan abgearbeitet: ohne Claude warten bis 15:00, dann Kontingent neu lesen und neu planen' '3 Plan-Runden hintereinander ohne erledigten Eintrag'
 pruefe "Plan abgearbeitet um 20:10: Ende, kein neuer Plan" "$(lauf 2026-11-12T20:10:00+01:00 30)" \
   'Plan abgearbeitet: Ende \(nächste volle Stunde nach 20:30\), kein neuer Plan'
+# Wochenende ab 12:00 (Maintainer 13.11.2026, „Bitte lass die tagesroutine auch am Wochenende ab 12:00 mittags laufen.“)
+pruefe "Samstag 11:00: noch außerhalb des Zeitfensters" "$(lauf 2026-11-14T11:00:00+01:00 30)" \
+  'heute ab 12:00: nein' 'Würde: +nichts tun \(außerhalb des Zeitfensters\)'
+pruefe "Sonntag 12:05: im Zeitfenster, Plan-Runde" "$(lauf 2026-11-15T12:05:00+01:00 30)" \
+  'heute ab 12:00: ja' 'Würde: +Plan-Runde'
+pruefe "Montag 09:05: Werktag ab 09:00" "$(lauf 2026-11-16T09:05:00+01:00 85)" 'heute ab 09:00: ja'
 exit $FEHLER

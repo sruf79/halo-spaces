@@ -109,7 +109,11 @@ Reihenfolge:
         ~/halo-nacht/<datum>-tagesroutine-plan.tsv, Kosten und Minuten in
         ~/halo-nacht/tagesroutine-spar.tsv, Notizen früherer Versuche im
         Eintrag (z. B. „zurück auf Todo, …“) und frühere Nachtberichte in
-        ~/halo-berichte/ (gescheitert = eher groß).
+        ~/halo-berichte/ (gescheitert = eher groß). Vor dem Schätzen die
+        letzten drei Berichte ~/halo-berichte/*-nachtlauf.md lesen (nur den
+        Abschnitt „Director-Plan“): Wo „geschätzt“ und „tatsächlich“ dort
+        deutlich auseinanderlagen, die Schätzung für ähnliche Einträge
+        anpassen und das im Plan in einem Satz nennen.
       - Abhängigkeiten: Reihen (n/m) nur der nächste Schritt; Einträge, die
         zusammengehören (Zusammenlegungen und angehängte Bugs aus Schritt 1),
         bleiben zusammen und werden gemeinsam bewertet.
@@ -170,8 +174,15 @@ Reihenfolge:
       - Im Bericht (Schritt 6) Abschnitt „Director-Plan“ mit derselben
         Tabelle, dem Zeitbudget (Stunden, Kontingent), der Zahl großer und
         kleiner bzw. mittlerer Einträge, der Reserve und den übersprungenen
-        Einträgen mit Grund,
-        dazu je Zeile, ob erledigt, zurückgestellt oder nicht mehr erreicht.
+        Einträgen mit Grund. Die Tabelle hat zusätzlich die Spalten
+        | Ergebnis | Aufwand geschätzt → tatsächlich |, die Schritt 6
+        ausfüllt: Ergebnis „fertig (<Commit-Hash>)“, „nicht geschafft
+        (<Grund>)“ oder „übersprungen (<Grund>)“; Aufwand z. B. „klein → 25
+        Min., 2 Punkte“ (Minuten aus den Uhrzeiten von Status In Progress bis
+        Commit bzw. Abbruch, Kontingentpunkte aus zsh tests/kontingent.sh
+        davor und danach, soweit messbar, sonst „nicht gemessen“). Die
+        Wochenpunkte dazu beim Start und Ende jedes Eintrags in der Plandatei
+        notieren. Der nächste Director liest diese Spalten (Schritt 1a b).
    Aufwand, Nutzen und Begründung sind deine Deutung; im Bericht als solche
    kennzeichnen (AGENTS.md, „Entscheidungen des Maintainers wörtlich“).
    e) Am Ende der Nacht (Schritt 6, Zusatz des Maintainers vom 13.11.2026,
@@ -341,7 +352,7 @@ Reihenfolge:
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
-   (Schritt 0: Commits, Zweige rest/…), Director-Plan (Schritt 1a/1b), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
+   (Schritt 0: Commits, Zweige rest/…), Director-Plan (Schritt 1a/1b; Spalten „Ergebnis“ und „Aufwand geschätzt → tatsächlich“ jetzt für jede Zeile ausfüllen), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
    „nach dem Release, wartet auf nächsten Nachtlauf“ und Ergebnis der
    --only-Prüfungen), Ende der Arbeit (Endegrund nach Schritt 5 d, Uhrzeit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),

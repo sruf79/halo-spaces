@@ -16002,6 +16002,52 @@ Neu
         return joined and flow and res["icon"].startswith("url(") and not res["emoji"], f"{res}"
     check("Kalender: mehrtägige Termine als Balken, Titel läuft über alle Stücke weiter, Kalendersymbol ohne Emoji", month_spans, results)
 
+    def month_spans_timed():
+        # mehrtägige Termine mit Uhrzeit wie bei Apple Kalender als ein durchgehender Balken (früher je Tag ein
+        # getrennter Eintrag mit Uhrzeit am Rand): Farbbalken nur am Anfang, Startzeit gedämpft gleich hinter dem
+        # Titel, läuft mit dem Titel über die Stücke; ein Termin an einem Tag bleibt wie er war
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar();
+          const mk = async (title, d1, h1, d2, h2) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.createDateTime(); s.resetTo(2026, 9, d1, h1, 0, 0, cal.dtz.defaultTimezone); const en = s.clone(); en.resetTo(2026, 9, d2, h2, 0, 0, cal.dtz.defaultTimezone);
+            e.startDate = s; e.endDate = en; return await c.addItem(e); };
+          // Mo 19. 08:00 bis Mi 21. 10:00 – Mo bis Mi liegen bei Wochenbeginn So wie Mo in einer Zeile
+          const made = [await mk("Halo Mehrtagig Lernwoche Englisch", 19, 8, 21, 10), await mk("Qwrtz Einzeltermin", 19, 9, 19, 10)];
+          await toCalendar(); w.switchToView("month"); w.currentView().goToDay(cal.createDateTime("20261015"));
+          await bis(() => { const t = [...d.querySelectorAll("calendar-month-day-box-item")].map(e => e.occurrence?.title);
+            return t.filter(x => x == "Halo Mehrtagig Lernwoche Englisch").length == 3 && t.includes("Qwrtz Einzeltermin"); }, "Monatsansicht mit Testterminen", 6000);
+          await bis(() => [...d.querySelectorAll("calendar-month-day-box-item[data-mc-multi]")].length >= 3, "Stücke als mehrtägig markiert", 3000).catch(() => {});
+          await ruhig(1500);
+          const all = [...d.querySelectorAll("calendar-month-day-box-item")];
+          const col = (e, pseudo) => w.getComputedStyle(e, pseudo);
+          const parts = all.filter(e => e.occurrence?.title == "Halo Mehrtagig Lernwoche Englisch").map(e => { const b = e.getBoundingClientRect();
+            const lab = e.querySelector(".event-name-label"), cs = col(lab), after = col(lab, "::after"), bar = col(e, "::before");
+            return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), multi: e.hasAttribute("data-mc-multi"),
+                     jl: e.hasAttribute("data-mc-join-l"), jr: e.hasAttribute("data-mc-join-r"), bg: col(e).backgroundColor,
+                     ll: Math.round(lab.getBoundingClientRect().left * 10) / 10, vis: cs.visibility, indent: parseFloat(cs.textIndent), ov: cs.textOverflow,
+                     after: after.content, afterColor: after.color, color: cs.color, bar: bar.display == "none" ? 0 : Math.round(parseFloat(bar.width) || 0),
+                     time: col(e.querySelector(".item-time-label")).display }; });
+          const one = all.find(e => e.occurrence?.title == "Qwrtz Einzeltermin");
+          const single = one ? { multi: one.hasAttribute("data-mc-multi"), time: one.querySelector(".item-time-label").textContent,
+            timeDisplay: col(one.querySelector(".item-time-label")).display, after: col(one.querySelector(".event-name-label"), "::after").content } : null;
+          for (const e of made) { try { await c.deleteItem(e); } catch {} }
+          return { parts, single };''')
+        p = sorted(res["parts"], key=lambda q: q["l"])
+        joined = (len(p) == 3 and len({q["t"] for q in p}) == 1 and all(q["multi"] for q in p)
+                  and not p[0]["jl"] and not p[-1]["jr"]
+                  and all(abs(p[i + 1]["l"] - p[i]["r"]) <= 2 and p[i]["jr"] and p[i + 1]["jl"] for i in range(2)))
+        look = joined and (
+            all(rgba_alpha(q["bg"]) > 0.5 and q["time"] == "none" for q in p)
+            and p[0]["bar"] == 4 and all(q["bar"] == 0 for q in p[1:])
+            and all("8" in q["after"] and ":00" in q["after"] and not same_color(q["afterColor"], q["color"]) for q in p))
+        flow = joined and (all(q["vis"] == "visible" and abs(q["indent"] + (q["ll"] - p[0]["ll"])) <= 1 for q in p[1:])
+                           and all(q["ov"] == "clip" for q in p[:-1]))
+        sg = res["single"] or {}
+        single = sg and not sg["multi"] and sg["time"] and sg["timeDisplay"] != "none" and sg["after"] in ("none", "normal")
+        return bool(joined and look and flow and single), f"{res}"
+    check("Kalender: mehrtägige Termine mit Uhrzeit als ein Balken wie Apple Kalender, Startzeit gedämpft hinter dem Titel, Termin an einem Tag unverändert", month_spans_timed, results)
+
     def month_more():
         # volle Tage zeigen „+N weitere“ – danach bleibt die Ansicht ruhig (früher setzte
         # update() den Text in jedem Bild neu und lief so endlos, Dauerlast auf der CPU)

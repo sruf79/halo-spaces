@@ -14313,33 +14313,63 @@ class CardEnhancer {
         }
       }
     };
-    // Mehrtägige ganztägige Termine in Monat/Mehrwochen als durchgehender
-    // Balken wie in Apple Kalender: jedes Tagesstück weiß, ob es links/rechts
-    // weitergeht (innerhalb einer Wochenzeile); der Titel läuft über alle
-    // Stücke weiter: Folgestücke rücken ihn um ihren Abstand zum ersten
-    // Stück derselben Zeile ein (--mc-span-x, data-mc-span)
+    // Mehrtägige Termine in Monat/Mehrwochen als durchgehender Balken wie in
+    // Apple Kalender – ganztägige wie solche mit Uhrzeit (data-mc-multi, mit
+    // der Startzeit hinter dem Titel in data-mc-time): jedes Tagesstück weiß,
+    // ob es links/rechts weitergeht (innerhalb einer Wochenzeile); der Titel
+    // läuft über alle Stücke weiter: Folgestücke rücken ihn um ihren Abstand
+    // zum ersten Stück derselben Zeile ein (--mc-span-x, data-mc-span)
     const annotateSpans = root => {
       const joined = [];
       for (const el of root.querySelectorAll("calendar-month-day-box-item")) {
         let left = false;
         let right = false;
+        let time = "";
         try {
           const occ = el.occurrence;
           const day = el.parentBox?.date;
           const start = occ?.startDate;
           const end = occ?.endDate;
-          if (el.hasAttribute("allday") && day && start && end) {
-            const next = day.clone();
-            next.day += 1;
+          if (day && start && end) {
             const cell = el.closest("td");
             const row = cell?.parentElement;
             const col = cell ? [...row.children].indexOf(cell) : -1;
-            left = day.compare(start) > 0 && col > 0;
-            right = next.compare(end) < 0 && col >= 0 && col < row.children.length - 1;
+            let before = false;
+            let after = false;
+            if (el.hasAttribute("allday")) {
+              const next = day.clone();
+              next.day += 1;
+              before = day.compare(start) > 0;
+              after = next.compare(end) < 0;
+            } else if (!start.isDate) {
+              // wie Thunderbird beim Einordnen (calendar-month-view.js): beginnt vor
+              // diesem Tag bzw. endet nach dessen Mitternacht
+              const from = day.clone();
+              from.isDate = false;
+              const to = from.clone();
+              to.day += 1;
+              before = start.compare(from) < 0;
+              after = end.compare(to) > 0;
+              if (before || after) {
+                const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+                time = cal.dtz.formatter.formatTime(start.getInTimezone(day.timezone));
+              }
+            }
+            left = before && col > 0;
+            right = after && col >= 0 && col < row.children.length - 1;
           }
         } catch {}
         el.toggleAttribute("data-mc-join-l", left);
         el.toggleAttribute("data-mc-join-r", right);
+        el.toggleAttribute("data-mc-multi", !!time);
+        const label = el.querySelector(".event-name-label");
+        if (label && (label.getAttribute("data-mc-time") || "") != time) {
+          if (time) {
+            label.setAttribute("data-mc-time", time);
+          } else {
+            label.removeAttribute("data-mc-time");
+          }
+        }
         if (left) {
           joined.push(el);
         } else if (el.hasAttribute("data-mc-span")) {
@@ -14352,7 +14382,7 @@ class CardEnhancer {
         try {
           const id = el.occurrence?.hashId;
           const row = el.closest("tr");
-          const first = id && row && [...row.querySelectorAll("calendar-month-day-box-item[allday]:not([data-mc-join-l])")]
+          const first = id && row && [...row.querySelectorAll("calendar-month-day-box-item:is([allday], [data-mc-multi]):not([data-mc-join-l])")]
             .find(x => x.occurrence?.hashId == id);
           const a = el.querySelector(".event-name-label")?.getBoundingClientRect();
           const b = first?.querySelector(".event-name-label")?.getBoundingClientRect();

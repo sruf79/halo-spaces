@@ -113,15 +113,39 @@ Reihenfolge:
       - Abhängigkeiten: Reihen (n/m) nur der nächste Schritt; Einträge, die
         zusammengehören (Zusammenlegungen und angehängte Bugs aus Schritt 1),
         bleiben zusammen und werden gemeinsam bewertet.
-   c) Reihenfolge: nach Nutzen je Aufwand (klein = 1, mittel = 2, groß = 4;
-      Wert = Nutzen / Aufwand), höchster zuerst. Diese Rahmenregeln darf der
-      Director nicht überstimmen:
+   c) Zeitbudget und Reihenfolge. Große Einträge, die lange ununterbrochene
+      Arbeit brauchen, gehören in die Nacht (Zusatzinfo des Maintainers vom
+      13.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „… dass ich selbst schlafe
+      und daher nicht Claude benutze. Untertags würde ich zu oft aktuelle
+      arbeiten an schweren Features aufgrund der langen dauer unterbrechen.“).
+      Darum:
+      - Zeitbudget: Beginn neuer Einträge bis 04:30 (Schritt 3), danach
+        Schritt 5 bis 06:30 (höchstens sechs nicht gepushte Commits); dazu
+        einmal das Kontingent lesen (zsh tests/kontingent.sh) und nur so viel
+        einplanen, wie hineinpasst.
+      - Große Einträge: mehrere erlaubt, so viele wie in Nachtzeit und
+        Kontingent passen; bei vergleichbarem Nutzen zieht der Director große
+        Einträge vor (Auswahl nach Nutzen, nicht nach Nutzen je Aufwand).
+      - Reserve: grob ein Drittel der Nachtzeit bleibt für kleine Einträge mit
+        hohem Nutzen, damit die Nacht nicht von wenigen großen aufgefressen
+        wird („bei einer 50 punkte liste kann ich eventuell 2,3 schwere pro
+        nacht macht oder stattdessen vielleicht 30 kleine punkte“). Kleine und
+        mittlere ordnet er nach Nutzen je Aufwand (klein = 1, mittel = 2;
+        Wert = Nutzen / Aufwand), höchster zuerst. Kleine Einträge, die die
+        Tagesroutine tagsüber ohnehin schafft (Einstufung „einfach“ in deren
+        Plandatei bzw. offensichtlich klein und risikoarm), bevorzugt er nachts
+        nicht.
+      - Folge: große Einträge zuerst beginnen (sie brauchen die lange Zeit),
+        die Reserve so legen, dass ihre kleinen Einträge noch vor 04:30 bzw.
+        in Schritt 5 drankommen.
+      Diese Rahmenregeln darf der Director nicht überstimmen:
       (a) Schwere (Absturz, Datenverlust) geht immer vor, auch wenn groß.
       (b) Ausdrückliche Wünsche des Maintainers im Gespräch bzw. Notiz
           „Vorrang“ im Eintrag gehen vor (nach (a)).
-      (c) Höchstens EIN großer Eintrag pro Nacht, der Rest klein oder mittel;
-          weitere große bleiben für die nächste Nacht (Grund im Plan). Nur
-          (a) und (b) dürfen einen zweiten großen erzwingen (dann nennen).
+      (c) Reserve: grob ein Drittel der Nachtzeit für kleine Einträge mit
+          hohem Nutzen (siehe oben); große, die nicht mehr in Zeit oder
+          Kontingent passen, bleiben für die nächste Nacht (Grund im Plan).
+          (a) und (b) dürfen die Reserve verkleinern (dann nennen).
       (d) Gleichstand: Bugs vor einfachen Features vor Reihen, dann die
           Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben,
           Einstellungen, Chat; ein Eintrag über 7 Tage offen rückt eine Stufe
@@ -134,9 +158,6 @@ Reihenfolge:
       (g) Einträge „In Progress“, die laut Notiz bzw. Commit schon fertig sind
           und nur auf Push/CI warten, nicht neu bearbeiten, nur im Plan
           vermerken (sie schließt Schritt 4 b ab).
-      Damit nach einem Abbruch möglichst etwas Wertvolles veröffentlicht ist,
-      kommen kleine Einträge mit hohem Nutzen vor den großen, wenn (a)/(b)
-      nichts anderes verlangen.
    d) Plan schreiben, bevor der erste Eintrag beginnt:
       - Plandatei ~/halo-nacht/<Heute>-plan.md („Plan dieses Laufs“, Datum aus
         „Heute:“ oben): Tabelle | Nr. | id | Titel | Nutzen | Aufwand |
@@ -147,7 +168,9 @@ Reihenfolge:
         planen. Gelingt ein Eintrag nicht, in der Plandatei markieren
         (z. B. „zurück auf Todo“) und mit dem nächsten weitermachen.
       - Im Bericht (Schritt 6) Abschnitt „Director-Plan“ mit derselben
-        Tabelle und den übersprungenen Einträgen mit Grund,
+        Tabelle, dem Zeitbudget (Stunden, Kontingent), der Zahl großer und
+        kleiner bzw. mittlerer Einträge, der Reserve und den übersprungenen
+        Einträgen mit Grund,
         dazu je Zeile, ob erledigt, zurückgestellt oder nicht mehr erreicht.
    Aufwand, Nutzen und Begründung sind deine Deutung; im Bericht als solche
    kennzeichnen (AGENTS.md, „Entscheidungen des Maintainers wörtlich“).
@@ -271,8 +294,7 @@ Reihenfolge:
    Plan dieses Laufs (Plandatei ~/halo-nacht/<Heute>-plan.md, Schritt 1a)
    weiter abarbeiten wie Schritt 2 (gleiche Reihenfolge wie im Director-Plan,
    bzw. im Rückfall Bugs, einfache Features, Reihen; alle Arten; keine neu
-   dazugekommenen Einträge; den einen großen Eintrag der Nacht nur, wenn er
-   noch nicht dran war). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
+   dazugekommenen Einträge). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
    entfällt dieser Schritt.
    a) Je Eintrag: nur die betroffenen Prüfungen lokal (--only, Port 2850,
       hell; --dark nur bei Farben). Grün: committen (nur eigene Hunks), nicht

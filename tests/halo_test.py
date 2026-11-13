@@ -6510,11 +6510,11 @@ def calendar_checks(m, results):
     check("Kalender: „Find Events“ öffnet und schließt die Terminliste (beim Start zu)", unifinder_toggle, results)
 
     def multiweek_buffer():
-        # Mehrwochen-Ansicht scrollen 2/6 (nur mit extensions.mailcards.multiweekScroll): je zwölf unsichtbare Wochen
-        # davor und danach, Termine darin geladen; sichtbar, Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht
-        # wie ohne (Überschrift seit 4/6: Monat der obersten Woche); Thunderbirds Einstellungen der Wochenzahl unverändert
+        # Mehrwochen-Ansicht scrollen 2/6 (seit 6/6 immer an, ohne Einstellung): je zwölf unsichtbare Wochen davor und
+        # danach, Termine darin geladen; sichtbar so viele Wochen wie calendar.weeks.inview, sie füllen die Ansicht unter der
+        # Kopfzeile; Überschrift, Pfeile, „Heute“, Zoom und Wechsel der Ansicht (Überschrift seit 4/6: Monat der obersten
+        # Woche); Thunderbirds Einstellungen der Wochenzahl unverändert; die frühere Einstellung schaltet nichts mehr ab
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(1000);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const weeksPref = Services.prefs.getIntPref("calendar.weeks.inview", 4), prevPref = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
@@ -6530,12 +6530,16 @@ def calendar_checks(m, results):
             label: d.getElementById("intervalDescription")?.textContent || d.querySelector("#calendarNavigationBar .view-header")?.textContent || "",
             // seit 4/6 steht mit Einstellung der Monat der obersten Woche (Monat ihres letzten Tags) in der Überschrift
             top: (() => { const s = mv.rangeStartDate; return s ? new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47[0], { month: "long", year: "numeric" }).format(new Date(s.year, s.month, s.day + 6)) : ""; })(),
-            h: Math.round(rows().filter(inView).reduce((a, r) => a + r.cells[0].firstElementChild.getBoundingClientRect().height, 0)) });
-          const out = { off: look() };
+            h: Math.round(rows().filter(inView).reduce((a, r) => a + r.cells[0].firstElementChild.getBoundingClientRect().height, 0)),
+            area: Math.round(mv.getBoundingClientRect().bottom - (mv.querySelector("calendar-day-label")?.getBoundingClientRect().bottom ?? 0)) });
+          const out = { weeksPref };
           const added = [];
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             out.on = look();
+            // frühere Einstellung der Testphase (bis 5/6): aus gesetzt ändert sie nichts mehr
+            Services.prefs.setBoolPref("extensions.mailcards.multiweekScroll", false); w.switchToView("week"); await ruhig(500);
+            w.switchToView("multiweek"); await ruhig(800); out.oldPref = look();
+            Services.prefs.clearUserPref("extensions.mailcards.multiweekScroll");
             // Termin in der Puffer-Woche davor: schon geladen (Tageszelle mit Eintrag, unsichtbar)
             const day = mv.rangeStartDate.clone(); day.day -= 4; day.isDate = true;
             const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
@@ -6559,34 +6563,32 @@ def calendar_checks(m, results):
             out.start = start;
           } finally {
             for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
-            Services.prefs.clearUserPref(P); await ruhig(600);
-            out.offAgain = look();
+            Services.prefs.clearUserPref("extensions.mailcards.multiweekScroll");
             out.prefs = [Services.prefs.getIntPref("calendar.weeks.inview", 4) == weeksPref, Services.prefs.getIntPref("calendar.previousweeks.inview", 0) == prevPref];
             w.switchToView("week"); await ruhig(500);
           }
           return out;""")
-        off, on, nx, bk, zm, ag, oa = (res.get(k) or {} for k in ("off", "on", "next", "back", "zoom", "again", "offAgain"))
+        on, nx, bk, zm, ag, op = (res.get(k) or {} for k in ("on", "next", "back", "zoom", "again", "oldPref"))
         week = lambda a, b: a and b and abs((__import__("datetime").date(*map(int, a.split("-"))) - __import__("datetime").date(*map(int, b.split("-")))).days)
+        wp = res.get("weeksPref")
         # (seit der zweiten Nacharbeit an 3/6 zwölf Puffer-Wochen je Seite)
-        ok = (on.get("shown") == off.get("shown") and on.get("buffer") == 2 * 12 and on.get("bufferHidden") and on.get("range") == off.get("range")
-              and on.get("label") == on.get("top") and nx.get("label") == nx.get("top") and abs(on.get("h", 0) - off.get("h", 0)) <= 3 and week(on.get("loaded"), on.get("range")) == 84
+        ok = (on.get("shown") == wp and on.get("buffer") == 2 * 12 and on.get("bufferHidden") and abs(on.get("h", 0) - on.get("area", -9)) <= 3
+              and on.get("label") == on.get("top") and nx.get("label") == nx.get("top") and week(on.get("loaded"), on.get("range")) == 84
               and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
-              and zm.get("shown") == 3 and zm.get("buffer") == 24 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == off.get("shown")
-              and oa.get("buffer") == 0 and oa.get("shown") == off.get("shown") and res.get("prefs") == [True, True])
+              and zm.get("shown") == 3 and zm.get("buffer") == 24 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == wp
+              and op.get("buffer") == 24 and op.get("shown") == wp and op.get("range") == on.get("range") and res.get("prefs") == [True, True])
         return ok, f"{res}"
-    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (Einstellung), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
+    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (immer an), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
 
     def multiweek_scroll():
-        # Mehrwochen-Ansicht scrollen 3/6 (Einstellung): eine Raste verschiebt um ein Stück, nicht um eine Woche; jede
+        # Mehrwochen-Ansicht scrollen 3/6: eine Raste verschiebt um ein Stück, nicht um eine Woche; jede
         # Bewegung sofort; schnelle Rastenfolge ohne Verlust (Bereich rückt unbemerkt um ganze Wochen weiter); nach dem
         # Scrollen Einrasten auf die nächstgelegene ganze Woche; Termine am richtigen Tag
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {}; const added = [];
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             const iso = dt => `${dt.year}-${dt.month + 1}-${dt.day}`;
             const top = dt => { const b = mv.findDayBoxForDate(dt); return b ? b.getBoundingClientRect().top : null; };
             const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
@@ -6626,7 +6628,6 @@ def calendar_checks(m, results):
             out.label = !!(d.getElementById("intervalDescription")?.textContent || "").trim();
           } finally {
             for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
-            Services.prefs.clearUserPref(P); await ruhig(600);
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
@@ -6645,13 +6646,11 @@ def calendar_checks(m, results):
         # 25 Wochen am Stück scrollen – je Bild ein Stück; kein Bild länger als zwei Bildwechsel, Termine in neu
         # hereingeschobenen Wochen sofort da; danach Einrasten ohne leere Tage (Standbild deckt den Neuaufbau)
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {}; const added = [];
           const frame = () => new Promise(r => w.requestAnimationFrame(r));
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             // je Woche ein Termin am Mittwoch, 30 Wochen ab der ersten sichtbaren
             const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
             const first = mv.rangeStartDate.clone(); first.isDate = true;
@@ -6680,6 +6679,12 @@ def calendar_checks(m, results):
             out.frames = { n: times.length, median: Math.round([...times].sort((a, b) => a - b)[37] * 10) / 10, max: Math.round(Math.max(...times) * 10) / 10,
                            slow: times.filter(t => t > 2 * out.idle + 2).length };
             out.missing = miss;
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
+            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
+            // rastet die Ansicht ohne Schwung ein
+            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
+            await halt(target);
             // Einrasten: während des Neuaufbaus nie leere sichtbare Tage
             let emptyFrames = 0; const t0 = performance.now();
             while (performance.now() - t0 < 1200) { await frame(); emptyFrames += missing() ? 1 : 0; }
@@ -6689,7 +6694,6 @@ def calendar_checks(m, results):
             out.mask = !!mv.querySelector(".mc-mw-mask");
           } finally {
             for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
-            Services.prefs.clearUserPref(P); await ruhig(600);
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
@@ -6712,12 +6716,10 @@ def calendar_checks(m, results):
         # baut innerhalb des halben Vorrats nicht neu auf – nur Überschrift und sichtbarer Bereich folgen; erst danach
         # einmal im Leerlauf; Pfeile danach eine Woche weiter, wieder genau an der Wochengrenze
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {};
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             const iso = dt => `${dt.year}-${dt.month + 1}-${dt.day}`;
             const wk = (a, b) => Math.round((a.nativeTime - b.nativeTime) / 6048e8);
             const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
@@ -6726,9 +6728,15 @@ def calendar_checks(m, results):
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
             const target = mv.monthbody.querySelector("calendar-month-day-box");
             const first = mv.rangeStartDate.clone(); const l0 = label(); const s0 = mv.__mcScrollShifts;
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
+            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
+            // rastet die Ansicht ohne Schwung ein
+            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
             // eine Woche in drei Bildern scrollen, dann warten, bis sie eingerastet ist (Überschrift folgt)
             let n = 0;
             const week1 = async () => { n++; for (let i = 0; i < 3; i++) { target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); await new Promise(r => w.requestAnimationFrame(r)); }
+              await halt(target);
               await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); await ruhig(300); };
             for (let i = 0; i < 5; i++) await week1();
             out.five = { weeks: wk(mv.rangeStartDate, first), shifts: mv.__mcScrollShifts - s0, aligned: aligned(), label: label() != l0 };
@@ -6742,7 +6750,6 @@ def calendar_checks(m, results):
             mv.moveView(1); await ruhig(800);
             out.arrow = { weeks: wk(mv.rangeStartDate, r9), before: wk(r9, r7), aligned: aligned(), pos: Math.round(mv.__mcScrollPos()) };
           } finally {
-            Services.prefs.clearUserPref(P); await ruhig(600);
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
@@ -6755,16 +6762,15 @@ def calendar_checks(m, results):
     check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach an der Wochengrenze", multiweek_refill, results)
 
     def multiweek_momentum():
-        # Mehrwochen-Ansicht scrollen 5/6 (Einstellungen multiweekScroll + multiweekMomentum): nach einem schnellen Wischer
+        # Mehrwochen-Ansicht scrollen 5/6 (seit 6/6 immer an, ohne Einstellung): nach einem schnellen Wischer
         # (Pixel-Bewegungen) läuft die Ansicht mit Schwung aus, ohne Zucken (nie zurück), und kommt genau auf einer
-        # Wochengrenze zur Ruhe, weiter als ohne Schwung; Mausrad (Zeilen) und ausgeschalteter Schwung rasten gleich ein
+        # Wochengrenze zur Ruhe, mindestens zwei Wochen weiter als der Wischer selbst (ohne Schwung: nächste Woche zum
+        # gewischten Weg); Mausrad (Zeilen) rastet ohne Schwung ein
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll", M = "extensions.mailcards.multiweekMomentum";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {};
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             const top = dt => { const b = mv.findDayBoxForDate(dt); return b ? b.getBoundingClientRect().top : null; };
             const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom;
             const box = () => mv.monthbody.querySelector("calendar-month-day-box");
@@ -6786,35 +6792,32 @@ def calendar_checks(m, results):
               return { weeks: Math.round((now.nativeTime - first.nativeTime) / 6048e8), aligned: Math.round(top(now) - head()),
                        back: track.slice(0, track.indexOf(Math.max(...track)) + 1).some((p, i, a) => i && p < a[i - 1] - 0.5), frames: track.length };
             };
-            Services.prefs.setBoolPref(M, false);
-            out.off = await run(0, 40);
-            Services.prefs.setBoolPref(M, true);
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            // Weg des Wischers ohne Schwung: zehnmal 40 Pixel, auf die nächste Woche gerundet
+            out.plain = Math.round(10 * 40 / rowH);
             out.on = await run(0, 40);
             out.wheel = await run(1, 1);
           } finally {
-            Services.prefs.clearUserPref(P); Services.prefs.clearUserPref(M); await ruhig(600);
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
-        off, on, wh = (res.get(k) or {} for k in ("off", "on", "wheel"))
-        ok = (abs(off.get("aligned", 9)) <= 1 and abs(on.get("aligned", 9)) <= 1 and abs(wh.get("aligned", 9)) <= 1
-              and on.get("weeks", 0) >= off.get("weeks", 0) + 2 and not on.get("back") and on.get("frames", 0) >= 12
+        on, wh = (res.get(k) or {} for k in ("on", "wheel"))
+        ok = (isinstance(res.get("plain"), int) and abs(on.get("aligned", 9)) <= 1 and abs(wh.get("aligned", 9)) <= 1
+              and on.get("weeks", 0) >= res["plain"] + 2 and not on.get("back") and on.get("frames", 0) >= 12
               and wh.get("weeks", 9) <= 1)
         return ok, f"{res}"
-    check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (Einstellung), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
+    check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (immer an), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
 
     def multiweek_many():
         # Nacharbeit 9.11.2026 („nach einiger Zeit ruckelt es“): vier tägliche Termine, 40 Wochen am Stück scrollen
         # (mehrere Neuaufbauten). Sichtbare Tage nie ohne Termine, Termine der Puffer-Wochen in Häppchen nachgetragen
         # (Warteschlange benutzt, am Ende alle geladenen Tage voll), längstes Eintragen in einem Stück und Bildzeit gemessen
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {}; const added = [];
           const frame = () => new Promise(r => w.requestAnimationFrame(r));
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
             const s = mv.rangeStartDate.clone(); s.day -= 7 * 20;
             const ymd = `${s.year}${String(s.month + 1).padStart(2, "0")}${String(s.day).padStart(2, "0")}`;
@@ -6859,7 +6862,6 @@ def calendar_checks(m, results):
           } finally {
             delete mv.addItems;
             for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
-            Services.prefs.clearUserPref(P); await ruhig(600);
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
@@ -6889,17 +6891,15 @@ def calendar_checks(m, results):
         check("Kalender: Mehrwochen-Ansicht scrollen – viele Termine über 40 Wochen ohne Ruckeln (kein Bild über vier Bildwechsel)", multiweek_many_smooth, results, bekannt=True)
 
     def multiweek_months():
-        # Mehrwochen-Ansicht scrollen 4/6 (Einstellung): Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
+        # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
         # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),
         # sobald die Woche mit dem 1. oben ankommt; Tage anderer Monate grau, danach nach dem neuen Monat
         res = m.js(CAL_CHECK_JS + r"""
-          const P = "extensions.mailcards.multiweekScroll";
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
           const out = {};
           const frame = () => new Promise(r => w.requestAnimationFrame(() => w.requestAnimationFrame(r)));
           try {
-            Services.prefs.setBoolPref(P, true); await ruhig(800);
             const fmt = new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47[0], { month: "long", year: "numeric" });
             const title = () => (d.getElementById("intervalDescription")?.textContent || "").replace(/\s+/g, " ").trim();
             const s = mv.rangeStartDate, base = new Date(s.year, s.month, s.day);
@@ -6933,21 +6933,24 @@ def calendar_checks(m, results):
             // ein paar Pixel weiter: Woche mit dem 1. oben → neuer Monat, sofort (vor dem Einrasten)
             wheel(8); await frame();
             out.after = { title: title() == newM, gray: gray(dt(newDay), false) && gray(dt(oldDay), true) };
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
+            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
+            // rastet die Ansicht ohne Schwung ein
+            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
+            await halt(target);
             await ruhig(900);
             out.snap = { title: title() == newM, place: place() };
           } finally {
-            Services.prefs.clearUserPref(P); await ruhig(600);
-            out.off = { labels: mv.querySelectorAll(".mc-mw-monthlabel").length, gray: mv.querySelectorAll("calendar-month-day-box[mc-other]").length };
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
-        st, bf, af, sn, off = (res.get(k) or {} for k in ("start", "before", "after", "snap", "off"))
+        st, bf, af, sn = (res.get(k) or {} for k in ("start", "before", "after", "snap"))
         sitzt = lambda p: bool(p) and abs(p.get("dy", 9)) <= 1 and abs(p.get("dx", 9)) <= 1
         rh_ok = bf.get("moved") is not None and bf["moved"] > 0
         ok = (st.get("title") and st.get("n", 0) >= 6 and sitzt(st.get("place")) and st.get("gray") and st.get("colors")
               and bf.get("title") and rh_ok and sitzt(bf.get("place"))
-              and af.get("title") and af.get("gray") and sn.get("title") and sitzt(sn.get("place"))
-              and off.get("labels") == 0 and off.get("gray") == 0)
+              and af.get("title") and af.get("gray") and sn.get("title") and sitzt(sn.get("place")))
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 4/6 – Monatsname im Band über der Woche mit dem 1., wandert mit, Überschrift wechselt beim Scrollen, andere Monate grau", multiweek_months, results)
 

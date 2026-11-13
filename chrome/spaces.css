@@ -882,8 +882,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   display: none !important;
 }
 
-/* Mehrwochen-Ansicht stufenlos scrollen (Schritt 3/6, extensions.mailcards.
-   multiweekScroll): alle Wochen samt Puffer gleich hoch (eine Woche = sichtbare
+/* Mehrwochen-Ansicht stufenlos scrollen (Schritt 3/6, seit 6/6 immer an): alle Wochen samt Puffer gleich hoch (eine Woche = sichtbare
    Höhe / Wochenzahl), das Raster wird unter der stehenden Kopfzeile verschoben
    (transform setzt die Erweiterung je Bild am Raster und gegenläufig an den
    Wochentagen, eigene Ebene), außerhalb abgeschnitten */

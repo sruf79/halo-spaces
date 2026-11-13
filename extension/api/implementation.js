@@ -18712,7 +18712,6 @@ class CardEnhancer {
     input.addEventListener("keydown", e => e.key == "Enter" && useWeb());
   }
 
-  // Texte setzen und Knöpfe verbinden (aus der Erweiterung heraus)
   // Fenster einer geöffneten Mail wie im Vorbild: immer Antworten, Allen
   // antworten, Weiterleiten – Thunderbird zeigt bei nur einem Empfänger allein
   // „Antworten“. Nachrichtengruppen (Followup) und Feeds bleiben, wie sie sind.
@@ -18739,6 +18738,7 @@ class CardEnhancer {
     win.UpdateReplyButtons = wrapped;
   }
 
+  // Texte setzen und Knöpfe verbinden (aus der Erweiterung heraus)
   wireHaloWindow(hw, api) {
     const doc = hw.document;
     const $ = id => doc.getElementById(id);

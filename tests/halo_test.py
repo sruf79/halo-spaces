@@ -1529,9 +1529,13 @@ def maillist_checks(m, results):
           const i = [...Array(v.rowCount).keys()].find(k => v.isContainer(k) && !v.isContainerOpen(k) && (v.getMsgHdrAt(k)?.mime2DecodedSubject || "").includes("Halo Faden"));
           const out = { found: i >= 0 };
           if (i < 0) return out;
+          // Gelesen-Zustand aller Mails des Ordners vor dem Auswählen (Auswahl und Fenster können markieren)
+          const all = [...a3.gFolder.messages], wasRead = Object.fromEntries(all.map(h => [h.messageId, h.isRead]));
           a3.threadTree.selectedIndex = i; await ruhig(500);
           const hdrs = [...v.getSelectedMsgHdrs()], newest = hdrs.reduce((a, b) => (b.dateInSeconds > a.dateInSeconds ? b : a));
           out.inThread = hdrs.length;
+          // (Anzeigen im Fenster soll nichts als gelesen markieren – die folgenden Prüfungen brauchen die ungelesene Antwort)
+          Services.prefs.setBoolPref("mailnews.mark_message_read.auto", false);
           a3.threadTree.getRowAtIndex(i).dispatchEvent(new a3.MouseEvent("dblclick", { bubbles: true, button: 0, detail: 2 }));
           await until(() => wins().length, 8000);
           // (weitere Fenster kämen gleich danach – kurz warten, ob noch eins aufgeht)
@@ -1544,6 +1548,11 @@ def maillist_checks(m, results):
           if (!out.newest) out.ids = [shown()?.messageId, hdrs.map(h => [h.messageId, h.dateInSeconds])];
           for (const x of wins()) x.close();
           await ruhig(600); a3.threadTree.selectedIndex = -1;
+          // (das Fenster hat die neueste Mail gelesen markiert – für die folgenden Prüfungen wieder ungelesen,
+          // wie vorher; sonst fehlt der Ungelesen-Punkt an der Konversation)
+          for (const h of all) if (h.isRead != wasRead[h.messageId]) h.folder.markMessagesRead([h], !!wasRead[h.messageId]);
+          Services.prefs.clearUserPref("mailnews.mark_message_read.auto");
+          await ruhig(300); out.restored = all.every(h => h.isRead == wasRead[h.messageId]);
           return out;""")
         ok = res.get("found") and (res.get("inThread") or 0) >= 2 and res.get("windows") == 1 and res.get("newest") is True
         return ok, f"{res}"

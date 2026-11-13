@@ -1518,6 +1518,37 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Mailliste: zugeklappte Konversation zeigt Name und Bild der neuesten Mail", thread_sender, results)
 
+    def thread_open_one_window():
+        # Doppelklick auf eine zugeklappte Konversation öffnet genau ein Fenster mit ihrer neuesten Mail (vorher je Mail
+        # der Konversation ein Fenster)
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.gViewWrapper.showThreaded = true; await ruhig(600); cmd("cmd_collapseAllThreads"); await ruhig(800);
+          const wins = () => [...Services.wm.getEnumerator("mail:messageWindow")];
+          for (const x of wins()) x.close();
+          const v = a3.gDBView;
+          const i = [...Array(v.rowCount).keys()].find(k => v.isContainer(k) && !v.isContainerOpen(k) && (v.getMsgHdrAt(k)?.mime2DecodedSubject || "").includes("Halo Faden"));
+          const out = { found: i >= 0 };
+          if (i < 0) return out;
+          a3.threadTree.selectedIndex = i; await ruhig(500);
+          const hdrs = [...v.getSelectedMsgHdrs()], newest = hdrs.reduce((a, b) => (b.dateInSeconds > a.dateInSeconds ? b : a));
+          out.inThread = hdrs.length;
+          a3.threadTree.getRowAtIndex(i).dispatchEvent(new a3.MouseEvent("dblclick", { bubbles: true, button: 0, detail: 2 }));
+          await until(() => wins().length, 8000);
+          // (weitere Fenster kämen gleich danach – kurz warten, ob noch eins aufgeht)
+          await ruhig(1500);
+          out.windows = wins().length;
+          const mw = wins()[0];
+          const shown = () => mw?.messageBrowser?.contentWindow?.gMessage || mw?.gMessage;
+          await until(shown, 6000);
+          out.newest = shown()?.messageId == newest.messageId;
+          if (!out.newest) out.ids = [shown()?.messageId, hdrs.map(h => [h.messageId, h.dateInSeconds])];
+          for (const x of wins()) x.close();
+          await ruhig(600); a3.threadTree.selectedIndex = -1;
+          return out;""")
+        ok = res.get("found") and (res.get("inThread") or 0) >= 2 and res.get("windows") == 1 and res.get("newest") is True
+        return ok, f"{res}"
+    check("Mailliste: Doppelklick auf eine zugeklappte Konversation öffnet ein Fenster mit ihrer neuesten Mail", thread_open_one_window, results)
+
     def thread_button():
         # Thread-Knopf ohne Stern und Akzentrahmen, Abstand zum Betreff; Ungelesen-Punkt
         # bei zugeklappter Konversation mit ungelesener Antwort

@@ -19408,6 +19408,45 @@ class CardEnhancer {
     });
   }
 
+  // Doppelklick (bzw. Enter, „Öffnen“) auf eine zugeklappte Konversation:
+  // wie Apple Mail ein Fenster mit der neuesten Mail. Thunderbird zählt zur
+  // Auswahl einer zugeklappten Konversation alle ihre Mails und öffnete für
+  // jede ein eigenes Fenster
+  hookOpenThread(win) {
+    const cc = win.commandController;
+    const orig = cc?._callbackCommands?.cmd_openMessage;
+    if (typeof orig != "function" || orig.__mcThread) {
+      return;
+    }
+    const wrapped = function (event, ...rest) {
+      try {
+        const view = win.gDBView, tree = win.threadTree;
+        const idx = tree?.selectedIndex ?? -1;
+        const single = view?.selection?.count == 1 && idx >= 0;
+        if (single && view.isContainer(idx) && !view.isContainerOpen(idx)) {
+          const hdrs = [...(view.getSelectedMsgHdrs() || [])];
+          if (hdrs.length > 1) {
+            const newest = hdrs.reduce((a, b) => (b.dateInSeconds > a.dateInSeconds ? b : a));
+            const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+            MailUtils.displayMessages([newest], win.gViewWrapper, win.top.document.getElementById("tabmail"),
+              event?.button == 1, event?.shiftKey);
+            return undefined;
+          }
+        }
+      } catch (e) {
+        log("open thread error", String(e).slice(0, 160));
+      }
+      return orig.call(this, event, ...rest);
+    };
+    wrapped.__mcThread = true;
+    cc._callbackCommands.cmd_openMessage = wrapped;
+    this.addWinRestorer(win, () => {
+      if (cc._callbackCommands.cmd_openMessage === wrapped) {
+        cc._callbackCommands.cmd_openMessage = orig;
+      }
+    });
+  }
+
   patch(win, attempt) {
     // Merkmal an der Seite selbst: lädt Thunderbird die Mailansicht neu, bleibt
     // das Fensterobjekt dasselbe, die Seite (und ihre Karten) aber ist neu
@@ -19442,6 +19481,7 @@ class CardEnhancer {
     safely("view choice", () => this.hookViewChoice(doc));
     safely("sort menu", () => this.hookSortMenu(doc));
     safely("unread filter", () => this.hookUnreadFilter(win));
+    safely("open thread", () => this.hookOpenThread(win));
     safely("remind menu", () => Remind.hookMenu(win.document));
     safely("follow up", () => FollowUp.hook(win));
     safely("arrivals", () => this.hookArrivals(win));

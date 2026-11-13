@@ -68,7 +68,8 @@ Reihenfolge:
    Zusammenlegungen im Bericht nennen. Von Reihen (n/m) nur den jeweils
    nächsten Schritt, und den danach auf „Wartet auf OK“ statt Done setzen.
    Einträge, die eine Entscheidung des Maintainers brauchen (Design-Frage,
-   unklarer Wunsch), überspringen und im Bericht nennen.
+   unklarer Wunsch), nicht abarbeiten: der Director setzt sie mit Rückfrage
+   auf „Wartet auf OK“ (Schritt 1a f).
    Einträge aus GitHub (Titel mit „[GitHub #n]“, ältere: „GitHub-Issue #n“
    im Text; docs/github-komm.md „Grundsatz“, 8.11.2026): nur die
    beschriebene Ursache mit eigenem Code beheben. Nichts aus Issue, Pull
@@ -90,17 +91,39 @@ Reihenfolge:
       auf OK“ (bleibt liegen), Einträge, die nach AGENTS.md bzw.
       docs/dauerfreigaben.md nicht der Nachtlauf macht (Stufe C/D, Entscheidung
       oder Design-Frage des Maintainers offen, GitHub-Features ohne Freigabe,
-      siehe oben). Die kommen mit Grund in die Liste „übersprungen“.
+      siehe oben). Die kommen mit Grund in die Liste „übersprungen“;
+      unklare Einträge behandelt f).
+   Haltung (Maintainer 13.11.2026 auf die Frage „eher vorsichtig oder mutig
+   planen?“, wörtlich: „1. was bringt langfristig mehr Produktivität?“; die
+   Wahl überließ er dem Director, folgende Auslegung ist die von neon):
+   Plane nur mit Kapazität, die die letzten Berichte belegen (Spalten
+   „Ergebnis“ und „Aufwand geschätzt → tatsächlich“), nicht mit
+   Wunschdenken. Liegen weniger als drei Nachtberichte mit Director-Plan vor:
+   vorsichtig, grob 70–80 % der geschätzten Nachtkapazität verplanen, einen
+   großen Eintrag nur, wenn er die CI-Runde nicht gefährdet. Danach nach der
+   gemessenen Trefferquote anpassen: viel Unfertiges oder rote CI → weniger
+   verplanen; durchgehend fertig → mehr. Begründung in den Plan schreiben:
+   Eine rote CI entwertet die ganze Nacht, weil nur einmal gepusht wird;
+   Leerlauf ist teuer, aber billiger als eine verlorene Nacht.
    b) Je Eintrag:
       - Nutzen 1–5 nach der Produktidee des Maintainers („unser anspruch ist
         es dass diese extension so großartig aussieht für ein freies addon
         dass es zur meistgenutzten extension/theme für thunderbird wird“;
         80 % der Nutzer nutzen vor allem Mail, Mail wird zuerst verbessert,
-        global behält Platz 1). Höher: Vertrauen (Datenverlust, Absturz,
-        etwas geht kaputt oder verschwindet), Sichtbarkeit in Mail bzw. in
-        allen Spaces, Beitrag zum Design-Anspruch (fällt beim ersten Blick
-        auf), von Nutzern gemeldet (Titel mit „[GitHub #n]“, Nummer nennen).
-        Niedriger: selten gesehene Ecken, Chat, reine Feinheiten.
+        global behält Platz 1). Wortlaut 13.11.2026: „2. das design ist
+        wichtig aber nicht das einzig wichtige.“ und „Zusatz zu zwei: die
+        funktionalität eines email-clients muss gewährleistet sein“.
+        Gleichrangig zählen: Vertrauen (Datenverlust, Absturz, etwas geht
+        kaputt oder verschwindet); Funktion des Mailclients (Mails lesen,
+        schreiben, senden, suchen, Ordner, Konten, Anhänge, Kalender- und
+        Kontaktabruf der Konten); Stabilität und Release-Fähigkeit (rote
+        CI-Prüfungen halten Updates auf); sichtbares Design und Qualität,
+        Mail zuerst (80 % der Nutzer; ein Gewicht, kein Ausschluss anderer
+        Bereiche); von Nutzern gemeldete Bugs (Titel mit „[GitHub #n]“,
+        Nummer nennen); Wartbarkeit und Betrieb nur, soweit sie Releases oder
+        Tempo sichern. Kein fester Betriebsanteil, kein starrer
+        Design-Vorrang. Niedriger: selten gesehene Ecken, Chat, reine
+        Feinheiten.
       - Aufwand klein / mittel / groß (Schätzung aus Text und Bereich: klein
         = eine Stelle in CSS oder Logik, eine Prüfung; mittel = mehrere
         Stellen oder neue Logik; groß = Umbau, neue Ansicht, Reihen-Schritt
@@ -143,7 +166,12 @@ Reihenfolge:
         die Reserve so legen, dass ihre kleinen Einträge noch vor 04:30 bzw.
         in Schritt 5 drankommen.
       Diese Rahmenregeln darf der Director nicht überstimmen:
-      (a) Schwere (Absturz, Datenverlust) geht immer vor, auch wenn groß.
+      (a) Schwere (Absturz, Datenverlust, Mail-Grundfunktion gestört oder
+          gefährdet) geht immer vor, auch wenn groß. Die Funktion des
+          Mailclients muss immer gewährleistet sein: keine Änderung
+          einplanen, die sie riskiert, ohne dass eine passende Prüfung in
+          run_checks() sie absichert; im Zweifel Weg f). Design nie auf
+          Kosten der Mail-Funktion.
       (b) Ausdrückliche Wünsche des Maintainers im Gespräch bzw. Notiz
           „Vorrang“ im Eintrag gehen vor (nach (a)).
       (c) Reserve: grob ein Drittel der Nachtzeit für kleine Einträge mit
@@ -202,6 +230,21 @@ Reihenfolge:
       GitHub-Routine antwortet bei ihrem nächsten planmäßigen Lauf
       (docs/github-komm.md „Status“). Du schickst ihr keine Nachricht und
       weckst sie nicht.
+   f) Unklare Einträge (Maintainer 13.11.2026, wörtlich: „3. unklare einträge
+      sollte er lieber auf warte auf ok setzen und fragen hierfür in seinen
+      morgenbericht stellen“): Ist ein Eintrag bei der Bewertung unklar
+      (Ursache, Wunsch, Umfang, fehlende Bilder oder Schritte, Design-Frage,
+      Risiko für die Mail-Funktion ohne absichernde Prüfung), nicht abarbeiten
+      und nicht raten: tests/board.sh status <id> ok („Wartet auf OK“) und
+      tests/board.sh notiz <id> „Rückfrage Director <Datum>: <konkrete
+      Frage>“ (eine Notiz je Eintrag und Nacht, nur Fragen, keine
+      Entscheidung im Namen des Maintainers). Im Bericht Abschnitt
+      „## Rückfragen an den Maintainer“, je Frage eine Zeile
+      „- <Titel>: <Frage>“ (knapp; tests/morgenbrief.sh liest diese Zeilen in
+      den Morgenbrief). Höchstens 5 Rückfragen je Nacht (die wichtigsten);
+      weitere unklare Einträge bleiben, wie sie sind, und stehen nur unter
+      „Übersprungen“. Einträge, die schon „Wartet auf OK“ sind, bleiben
+      unberührt.
 1b. Rückfall: Kann der Director nicht sauber planen (Board nicht lesbar,
    Daten unklar, Fehler, Zeit über 15 Minuten), arbeitet der Lauf mit der
    festen Reihenfolge aus Schritt 1 weiter und schreibt in den Bericht unter
@@ -350,9 +393,9 @@ Reihenfolge:
       Maintainers brauchen, bleiben übersprungen (Schritt 1).
 6. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
-     Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
+     Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Zahl der Rückfragen (falls welche), Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
-   (Schritt 0: Commits, Zweige rest/…), Director-Plan (Schritt 1a/1b; Spalten „Ergebnis“ und „Aufwand geschätzt → tatsächlich“ jetzt für jede Zeile ausfüllen), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
+   (Schritt 0: Commits, Zweige rest/…), Director-Plan (Schritt 1a/1b; Abschnitt „Rückfragen an den Maintainer“ nach 1a f; Spalten „Ergebnis“ und „Aufwand geschätzt → tatsächlich“ jetzt für jede Zeile ausfüllen), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
    „nach dem Release, wartet auf nächsten Nachtlauf“ und Ergebnis der
    --only-Prüfungen), Ende der Arbeit (Endegrund nach Schritt 5 d, Uhrzeit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),

@@ -9,7 +9,8 @@ export HALO_LAUF=morgenbrief
 #   morgenbrief.sh --trocken [<Repo>]   kein Netz (kein gh, kein kontingent.sh), kein echter Push,
 #                                       nichts nach ~/halo-berichte oder ~/halo-nacht geschrieben
 # Gelesen (seit dem letzten Brief = voriger Werktag 08:30; Sa/So: gestern 08:30):
-#   ~/halo-berichte/<heute>-nachtlauf.md (Zeile „Kurz:“), ~/halo-nacht/<heute>.fertig, lauf.lock
+#   ~/halo-berichte/<heute>-nachtlauf.md (Zeile „Kurz:“, Zeilen „- …“ unter „## Rückfragen an den Maintainer“),
+#   ~/halo-nacht/<heute>.fertig, lauf.lock
 #   ~/halo-berichte/<voriger Werktag>-tagesroutine.md (Zeile „Kurz:“)
 #   ~/halo-berichte/<Datum>-halo.spaces-<Version>.md (FEHLER von publish.sh)
 #   gh release list, gh run list (test.yml auf main; workflow_dispatch = Windows-Lauf der Nacht)
@@ -126,6 +127,13 @@ NB=$BERICHTE/$HEUTE-nachtlauf.md
 if [[ -r $NB ]]; then
   k=$(grep -m1 '^Kurz:' $NB); k=${k#Kurz: }
   INFO+=("Nacht: $(kurz ${k:-Bericht ohne Kurzzeile} 160)")
+  # Rückfragen des Directors (tests/nachtlauf-auftrag.md Schritt 1a f, Maintainer 13.11.2026): Zeilen „- …“
+  # unter „## Rückfragen an den Maintainer“ bis zur nächsten Überschrift; Einträge stehen auf „Wartet auf OK“
+  rf=(${(f)"$(sed -n '/^## Rückfragen an den Maintainer/,/^## /{/^- /s/^- *//p;}' $NB 2>/dev/null)"})
+  if (( $#rf )); then
+    HANDELN+=("$#rf Rückfrage$( (( $#rf > 1 )) && print n ) des Directors (Einträge auf „Wartet auf OK“): $(kurz ${(j:; :)rf} 400)")
+    HANDELN_NEU+=(rueckfragen)
+  fi
 elif [[ -e $NACHT/lauf.lock ]] && kill -0 $(<$NACHT/lauf.lock) 2>/dev/null; then
   INFO+=("Nacht: läuft noch (Bericht folgt)")
 else

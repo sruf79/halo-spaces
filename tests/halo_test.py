@@ -11018,6 +11018,45 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def default_sort():
+        # Frisches Profil: Mailliste nach Datum, neueste zuerst (wie Apple Mail) – im Posteingang, in einem
+        # neu angelegten Ordner und in den Sammelordnern; die Vorgabe gilt auch für Ordner, die später entstehen
+        res = m.js(r"""
+          const V = Ci.nsMsgViewSortType, O = Ci.nsMsgViewSortOrder;
+          const a3 = await toMail();
+          const info = f => { const i = f.msgDatabase.dBFolderInfo; return [i.sortType, i.sortOrder]; };
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Sortierung neu")) { root.createSubfolder("Sortierung neu", null); await bis(() => root.containsChildNamed("Sortierung neu"), "Ordner Sortierung neu angelegt", 4000); }
+          const neu = root.getChildNamed("Sortierung neu");
+          const out = { prefType: Services.prefs.getIntPref("mailnews.default_sort_type"), prefOrder: Services.prefs.getIntPref("mailnews.default_sort_order"),
+                        neu: info(neu), folders: {} };
+          // Sammelordner (All Inboxes, All Sent …) liegen auf dem versteckten Server „smart mailboxes“
+          const { SmartMailboxUtils } = ChromeUtils.importESModule("resource:///modules/SmartMailboxUtils.sys.mjs");
+          const smart = SmartMailboxUtils.getSmartMailbox().rootFolder;
+          out.smart = smart.descendants.length;
+          for (const f of [...MailServices.accounts.allFolders, ...smart.descendants]) {
+            try { out.folders[f.URI] = info(f); } catch (e) { out.folders[f.URI] = String(e); }
+          }
+          a3.displayFolder(neu.URI); await until(() => a3.gViewWrapper?.displayedFolder == neu, 5000);
+          out.view = [a3.gDBView.sortType, a3.gDBView.sortOrder];
+          // nur Vorgabe: im Profil steht keine eigene Wahl, die eine spätere Wahl des Nutzers verdrängen könnte
+          out.userValue = ["mailnews.default_sort_type", "mailnews.default_sort_order"].filter(p => Services.prefs.prefHasUserValue(p));
+          out.want = [V.byDate, O.descending];
+          // eigene Wahl bleibt: aufsteigend sortieren, Ordner wechseln und zurück
+          const dateCol = a3.gViewWrapper.primarySortColumnId;   // Spalten-id (ab 159 statt Sortierart)
+          a3.gViewWrapper.sort(dateCol, O.ascending); await ruhig(300);
+          const other = root.getChildNamed("Trash");
+          a3.displayFolder(other.URI); await until(() => a3.gViewWrapper?.displayedFolder == other, 5000);
+          a3.displayFolder(neu.URI); await until(() => a3.gViewWrapper?.displayedFolder == neu, 5000);
+          out.own = [a3.gDBView.sortType, a3.gDBView.sortOrder, ...info(neu)];
+          a3.gViewWrapper.sort(dateCol, O.descending);
+          return out;""")
+        want = res["want"]
+        ok = (res["prefType"] == want[0] and res["prefOrder"] == want[1] and res["neu"] == want and res["view"] == want
+              and res["own"] == [want[0], 1, want[0], 1] and not res["userValue"] and res["smart"] > 0 and all(v == want for v in res["folders"].values()))
+        return ok, f"{res}"
+    check("Mailliste: frisches Profil sortiert nach Datum, neueste zuerst (Posteingang, neue Ordner, Sammelordner), eigene Wahl bleibt", default_sort, results)
+
     def star_sort_resort():
         # Liste nach Stern sortiert: Stern setzen/entfernen ordnet die Mail sofort ein (nicht erst nach Ordnerwechsel),
         # die gewählte Mail bleibt gewählt

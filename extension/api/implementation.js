@@ -9298,6 +9298,16 @@ class CardEnhancer {
     const attExpandedBefore = defaults.getBoolPref(ATT_EXPANDED, false);
     defaults.setBoolPref(ATT_EXPANDED, true);
     this.restorers.push(() => defaults.setBoolPref(ATT_EXPANDED, attExpandedBefore));
+    // Mailliste nach Datum, neueste zuerst (wie Apple Mail) – nur als Vorgabe:
+    // gilt für Ordner, deren Sortierung Thunderbird neu anlegt; eine gewählte
+    // Sortierung (im Ordner gespeichert) bleibt, auch bei Updates
+    const SORT = [["mailnews.default_sort_type", Ci.nsMsgViewSortType.byDate],
+                  ["mailnews.default_sort_order", Ci.nsMsgViewSortOrder.descending]];
+    for (const [pref, value] of SORT) {
+      const before = defaults.getIntPref(pref, value);
+      defaults.setIntPref(pref, value);
+      this.restorers.push(() => defaults.setIntPref(pref, before));
+    }
     // Verfassen-Fenster: Symbolleiste nur mit Symbolen, sobald Beschriftungen
     // gekürzt würden (siehe watchComposeToolbar)
     const composeCleanups = new Set();

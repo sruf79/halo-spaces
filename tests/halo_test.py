@@ -16022,11 +16022,13 @@ Neu
           const all = [...d.querySelectorAll("calendar-month-day-box-item")];
           const col = (e, pseudo) => w.getComputedStyle(e, pseudo);
           const parts = all.filter(e => e.occurrence?.title == "Halo Mehrtagig Lernwoche Englisch").map(e => { const b = e.getBoundingClientRect();
+            // (ESR liefert content von ::after unaufgelöst als „attr(data-mc-time)“ – dann den Wert des Attributs, das angezeigt wird)
+            const aufgeloest = (el, c) => { const a = /^attr\(([\w-]+)\)$/.exec(c || ""); return a ? JSON.stringify(el.getAttribute(a[1]) || "") : c; };
             const lab = e.querySelector(".event-name-label"), cs = col(lab), after = col(lab, "::after"), bar = col(e, "::before");
             return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), multi: e.hasAttribute("data-mc-multi"),
                      jl: e.hasAttribute("data-mc-join-l"), jr: e.hasAttribute("data-mc-join-r"), bg: col(e).backgroundColor,
                      ll: Math.round(lab.getBoundingClientRect().left * 10) / 10, vis: cs.visibility, indent: parseFloat(cs.textIndent), ov: cs.textOverflow,
-                     after: after.content, afterColor: after.color, color: cs.color, bar: bar.display == "none" ? 0 : Math.round(parseFloat(bar.width) || 0),
+                     after: aufgeloest(lab, after.content), afterColor: after.color, color: cs.color, bar: bar.display == "none" ? 0 : Math.round(parseFloat(bar.width) || 0),
                      time: col(e.querySelector(".item-time-label")).display }; });
           const one = all.find(e => e.occurrence?.title == "Qwrtz Einzeltermin");
           const single = one ? { multi: one.hasAttribute("data-mc-multi"), time: one.querySelector(".item-time-label").textContent,

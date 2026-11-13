@@ -46,13 +46,19 @@ Reihenfolge:
       des Maintainers vom 4.11.2026, gleich wie docs/board.md: 1. neue bzw. nicht
       gepushte Commits durchsehen, 2. Aufgabenliste laden und offene
       GitHub-Issues/Pull Requests prüfen, 3. Bugs, 4. einfache Features,
-      5. zuletzt Reihen (n/m)).
+      5. zuletzt Reihen (n/m); die Reihenfolge der Einträge in der Nacht legt
+      seit 13.11.2026 der Director fest, Schritt 1a).
 1. Liste lesen: gh project item-list 1 --owner sruf79 --limit 200 --format json
    Status „Todo“ und „In Progress“; „Wartet auf OK“ nicht anfassen.
    Zuerst nach Bereich (Titelpräfix) gruppieren und Zusammenhänge prüfen:
    Doppelte zusammenlegen, Bugs, die ein Feature ohnehin behebt, an dieses
    hängen (Notiz in beiden Einträgen; Feature und Bug dann zusammen erledigen).
-   Dann in dieser Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
+   Danach plant der Director (Schritt 1a) die Reihenfolge der Nacht. Die feste
+   Reihenfolge unten gilt nur noch als Rückfall (Schritt 1b) und als
+   Gleichstand-Regel des Directors; alle übrigen Regeln dieses Schritts
+   (Reihen nur der nächste Schritt, Entscheidungsfragen überspringen,
+   GitHub-Einträge, Liste nur am Anfang lesen) gelten unverändert.
+   Feste Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
    abends): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
    **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
    Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
@@ -72,7 +78,86 @@ Reihenfolge:
    freigegeben hat (Status nicht „Wartet auf OK“).
    Die Liste nur hier am Anfang lesen, vor Push und Release nicht erneut:
    Was während des Laufs dazukommt, arbeitet der nächste Nachtlauf ab.
-2. Je Eintrag: Status In Progress (~/halo-aufgaben/status.sh <id> progress),
+1a. Director (Entscheidung des Maintainers vom 13.11.2026, Wortlaut in
+   ENTSCHEIDUNGEN.md: „ja und ich möchte den director bereits heute nacht zum
+   ersten mal einsetzen“): Du bist bei jedem Start der Director. Statt die
+   feste Reihenfolge abzuarbeiten, bewertest du die Liste und legst fest, was
+   diese Nacht den größten Nutzen je Aufwand bringt („bei einer 50 punkte
+   liste kann ich eventuell 2,3 schwere pro nacht macht oder stattdessen
+   vielleicht 30 kleine punkte“). Zügig, ohne Code zu ändern: höchstens etwa
+   15 Minuten; nur lesen (Eintragstext, ggf. kurzer Blick in den Code).
+   a) Bewertet wird jeder offene Eintrag (Todo, In Progress) außer: „Wartet
+      auf OK“ (bleibt liegen), Einträge, die nach AGENTS.md bzw.
+      docs/dauerfreigaben.md nicht der Nachtlauf macht (Stufe C/D, Entscheidung
+      oder Design-Frage des Maintainers offen, GitHub-Features ohne Freigabe,
+      siehe oben). Die kommen mit Grund in die Liste „übersprungen“.
+   b) Je Eintrag:
+      - Nutzen 1–5 nach der Produktidee des Maintainers („unser anspruch ist
+        es dass diese extension so großartig aussieht für ein freies addon
+        dass es zur meistgenutzten extension/theme für thunderbird wird“;
+        80 % der Nutzer nutzen vor allem Mail, Mail wird zuerst verbessert,
+        global behält Platz 1). Höher: Vertrauen (Datenverlust, Absturz,
+        etwas geht kaputt oder verschwindet), Sichtbarkeit in Mail bzw. in
+        allen Spaces, Beitrag zum Design-Anspruch (fällt beim ersten Blick
+        auf), von Nutzern gemeldet (Titel mit „[GitHub #n]“, Nummer nennen).
+        Niedriger: selten gesehene Ecken, Chat, reine Feinheiten.
+      - Aufwand klein / mittel / groß (Schätzung aus Text und Bereich: klein
+        = eine Stelle in CSS oder Logik, eine Prüfung; mittel = mehrere
+        Stellen oder neue Logik; groß = Umbau, neue Ansicht, Reihen-Schritt
+        mit viel Neuem, unklare Ursache). Wo vorhanden, gemessene Werte
+        nutzen: Einstufung „einfach/komplex“ in
+        ~/halo-nacht/<datum>-tagesroutine-plan.tsv, Kosten und Minuten in
+        ~/halo-nacht/tagesroutine-spar.tsv, Notizen früherer Versuche im
+        Eintrag (z. B. „zurück auf Todo, …“) und frühere Nachtberichte in
+        ~/halo-berichte/ (gescheitert = eher groß).
+      - Abhängigkeiten: Reihen (n/m) nur der nächste Schritt; Einträge, die
+        zusammengehören (Zusammenlegungen und angehängte Bugs aus Schritt 1),
+        bleiben zusammen und werden gemeinsam bewertet.
+   c) Reihenfolge: nach Nutzen je Aufwand (klein = 1, mittel = 2, groß = 4;
+      Wert = Nutzen / Aufwand), höchster zuerst. Diese Rahmenregeln darf der
+      Director nicht überstimmen:
+      (a) Schwere (Absturz, Datenverlust) geht immer vor, auch wenn groß.
+      (b) Ausdrückliche Wünsche des Maintainers im Gespräch bzw. Notiz
+          „Vorrang“ im Eintrag gehen vor (nach (a)).
+      (c) Höchstens EIN großer Eintrag pro Nacht, der Rest klein oder mittel;
+          weitere große bleiben für die nächste Nacht (Grund im Plan). Nur
+          (a) und (b) dürfen einen zweiten großen erzwingen (dann nennen).
+      (d) Gleichstand: Bugs vor einfachen Features vor Reihen, dann die
+          Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben,
+          Einstellungen, Chat; ein Eintrag über 7 Tage offen rückt eine Stufe
+          vor (Maintainer 11.11.2026).
+      (e) Dauerfreigaben (docs/dauerfreigaben.md) und „Wartet auf OK“
+          unverändert.
+      (f) Höchstens drei Einträge zugleich In Progress (ohne „wartet auf
+          Push/CI“) – der Plan ist eine Reihenfolge, kein gleichzeitiges
+          Anfangen.
+      (g) Einträge „In Progress“, die laut Notiz bzw. Commit schon fertig sind
+          und nur auf Push/CI warten, nicht neu bearbeiten, nur im Plan
+          vermerken (sie schließt Schritt 4 b ab).
+      Damit nach einem Abbruch möglichst etwas Wertvolles veröffentlicht ist,
+      kommen kleine Einträge mit hohem Nutzen vor den großen, wenn (a)/(b)
+      nichts anderes verlangen.
+   d) Plan schreiben, bevor der erste Eintrag beginnt:
+      - Plandatei ~/halo-nacht/<Heute>-plan.md („Plan dieses Laufs“, Datum aus
+        „Heute:“ oben): Tabelle | Nr. | id | Titel | Nutzen | Aufwand |
+        Begründung |, darunter „Übersprungen“ (id, Titel, Grund) und „Wartet
+        auf Push/CI“ (Regel g). Schritt 2, Schritt 5 und jede Fortsetzung
+        (auch nach Limit-Pause oder Neustart der Runde) arbeiten in dieser
+        Reihenfolge; vor jedem neuen Eintrag die Plandatei lesen, nicht neu
+        planen. Gelingt ein Eintrag nicht, in der Plandatei markieren
+        (z. B. „zurück auf Todo“) und mit dem nächsten weitermachen.
+      - Im Bericht (Schritt 6) Abschnitt „Director-Plan“ mit derselben
+        Tabelle und den übersprungenen Einträgen mit Grund,
+        dazu je Zeile, ob erledigt, zurückgestellt oder nicht mehr erreicht.
+   Aufwand, Nutzen und Begründung sind deine Deutung; im Bericht als solche
+   kennzeichnen (AGENTS.md, „Entscheidungen des Maintainers wörtlich“).
+1b. Rückfall: Kann der Director nicht sauber planen (Board nicht lesbar,
+   Daten unklar, Fehler, Zeit über 15 Minuten), arbeitet der Lauf mit der
+   festen Reihenfolge aus Schritt 1 weiter und schreibt in den Bericht unter
+   „Director-Plan“ die Zeile „Director: Rückfall auf feste Reihenfolge, Grund
+   …“; die Plandatei enthält dann diese Reihenfolge. Der Lauf darf wegen des
+   Directors nie ausfallen oder anhalten.
+2. Je Eintrag (in der Reihenfolge der Plandatei): Status In Progress (~/halo-aufgaben/status.sh <id> progress),
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
    --only "…", bei Farben auch mit --dark), committen (nur eigene Hunks, Stil nach
@@ -183,9 +268,11 @@ Reihenfolge:
    ist einfach wichtig dass wir die zeit nicht frei verstreichen lassen ohne
    nutzen.“): Ist Schritt 4 abgeschlossen – CI grün und Release veröffentlicht
    bzw. nicht nötig – und ist es vor 06:30, alle machbaren Einträge aus dem
-   Plan dieses Laufs weiter abarbeiten wie Schritt 2 (gleiche Reihenfolge:
-   Bugs, einfache Features, Reihen; alle Arten; keine neu dazugekommenen
-   Einträge). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
+   Plan dieses Laufs (Plandatei ~/halo-nacht/<Heute>-plan.md, Schritt 1a)
+   weiter abarbeiten wie Schritt 2 (gleiche Reihenfolge wie im Director-Plan,
+   bzw. im Rückfall Bugs, einfache Features, Reihen; alle Arten; keine neu
+   dazugekommenen Einträge; den einen großen Eintrag der Nacht nur, wenn er
+   noch nicht dran war). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
    entfällt dieser Schritt.
    a) Je Eintrag: nur die betroffenen Prüfungen lokal (--only, Port 2850,
       hell; --dark nur bei Farben). Grün: committen (nur eigene Hunks), nicht
@@ -215,7 +302,7 @@ Reihenfolge:
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Probleme>
    Diese Zeile geht als Push-Meldung aufs iPhone. Dann Abschnitte: Mitgenommen
-   (Schritt 0: Commits, Zweige rest/…), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
+   (Schritt 0: Commits, Zweige rest/…), Director-Plan (Schritt 1a/1b), Erledigt (Eintrag, Commit; Einträge aus Schritt 5 mit
    „nach dem Release, wartet auf nächsten Nachtlauf“ und Ergebnis der
    --only-Prüfungen), Ende der Arbeit (Endegrund nach Schritt 5 d, Uhrzeit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
@@ -243,5 +330,6 @@ Grenzen:
   nicht von dir ist): aufhören, nichts davon anfassen, im Bericht vermerken,
   Fertig-Datei anlegen.
 - Wird es nach einer Limit-Pause fortgesetzt: Stand mit git log/git status und dem
-  Status der Einträge aus dem Plan dieses Laufs prüfen und dort weitermachen
+  Status der Einträge aus dem Plan dieses Laufs (Plandatei ~/halo-nacht/<Heute>-plan.md)
+  prüfen und dort weitermachen
   (keine neu dazugekommenen Einträge aufnehmen).

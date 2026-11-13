@@ -18,7 +18,7 @@ Nutzer in GitHub nach `docs/github-komm.md`.
 
 ## B. neon entscheidet allein und meldet im Morgenbrief
 
-Reihenfolge der Liste (komplexe zuerst), Modellwahl nach Sollkurve und 5-Stunden-Fenster, Zurücksetzen
+Reihenfolge der Liste (komplexe zuerst; im Nachtlauf der Director-Plan nach Nutzen je Aufwand, `tests/nachtlauf-auftrag.md` Schritt 1a), Modellwahl nach Sollkurve und 5-Stunden-Fenster, Zurücksetzen
 eines Eintrags mit Notiz, Aufteilen großer Einträge in Schritte (`n/m`), Lauf der Tagesroutine,
 Kontingent-Schwellen innerhalb von `~/.config/halo-spaces/tagesroutine.conf`.
 

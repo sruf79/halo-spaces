@@ -717,7 +717,7 @@ pruefe_laeufe() {
   pruefe_agent "Tagesroutine" at.halo-spaces.tagesroutine tagesroutine.sh $HOME/Library/Logs/halo-tagesroutine.log \
     '<key>StartCalendarInterval</key>
   <array>'"$(for t in 1 2 3 4 5; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done
-    for t in 6 0; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>"; done)"'</array>' \
+    for t in 6 0; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done)"'</array>' \
     tagesroutine "Mo–Fr ab 09:00, Sa und So ab 10:00, jeweils bis 22:00, pusht nie nach main, Berichte in ~/halo-berichte"
   pruefe_agent "Morgenbrief" at.halo-spaces.morgenbrief morgenbrief.sh $HOME/Library/Logs/halo-morgenbrief.log \
     '<key>StartCalendarInterval</key>

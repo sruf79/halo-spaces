@@ -89,11 +89,11 @@ pruefe "Plan abgearbeitet um 14:20: warten bis 15:00, dann neu planen" "$(lauf 2
   'Plan abgearbeitet: ohne Claude warten bis 15:00, dann Kontingent neu lesen und neu planen' '3 Plan-Runden hintereinander ohne erledigten Eintrag'
 pruefe "Plan abgearbeitet um 20:10: Ende, kein neuer Plan" "$(lauf 2026-11-12T20:10:00+01:00 30)" \
   'Plan abgearbeitet: Ende \(nächste volle Stunde nach 20:30\), kein neuer Plan'
-# Wochenende ab 10:00 (Maintainer 13.11.2026: zuerst 12:00, dann „Auch am wochenende tagesablauf Routine um 10::00 starten wie unter der woche“)
-pruefe "Samstag 09:30: noch außerhalb des Zeitfensters" "$(lauf 2026-11-14T09:30:00+01:00 30)" \
-  'heute ab 10:00: nein' 'Würde: +nichts tun \(außerhalb des Zeitfensters\)'
-pruefe "Sonntag 10:05: im Zeitfenster, Plan-Runde" "$(lauf 2026-11-15T10:05:00+01:00 30)" \
-  'heute ab 10:00: ja' 'Würde: +Plan-Runde'
+# Wochenende ab 09:00 (Maintainer 13.11.2026: zuerst 12:00, dann „um 10::00“, zuletzt „Start am Wochenende um 09:00“)
+pruefe "Samstag 08:30: noch außerhalb des Zeitfensters" "$(lauf 2026-11-14T08:30:00+01:00 30)" \
+  'heute ab 09:00: nein' 'Würde: +nichts tun \(außerhalb des Zeitfensters\)'
+pruefe "Sonntag 09:05: im Zeitfenster, Plan-Runde" "$(lauf 2026-11-15T09:05:00+01:00 30)" \
+  'heute ab 09:00: ja' 'Würde: +Plan-Runde'
 pruefe "Montag 09:05: Werktag ab 09:00" "$(lauf 2026-11-16T09:05:00+01:00 85)" 'heute ab 09:00: ja'
 # Volldampf (Maintainer 13.11.2026): Override für Sollkurve und Sparmodus; 5-Stunden-Fenster bremst weiter
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt

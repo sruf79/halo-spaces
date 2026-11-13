@@ -12593,6 +12593,62 @@ def run_checks(m, version, profile, results):
     check("Seitenleiste: Ein-/Ausblenden über den Knopf ohne Sprung von Ampel-Fläche, Zeilenanfang und Knöpfen (Adressbuch New/Anzeige, Aufgaben +/Mark/…, Kalender Day…Month) "
           "und der Mail-Toolbar (Verfassen, Antworten … Markieren) in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
 
+    def sidebar_click_short():
+        # Klick auf den Seitenleisten-Knopf (Mail, Kalender, Adressbuch): die Vorabrechnung des Endzustands läuft im
+        # zweiten Bild nach dem Klick, nicht im Klick selbst – vorher rechnete der Klick beim Ausblenden 18–22 ms
+        # (Mail 39–42 ms), beim Einblenden 29–44 ms, das erste Bild dauerte 34–74 ms (Ruckeln am Anfang). Gemessen
+        # wird die Dauer des Klicks beim Ausblenden (Median aus drei; Einblenden trägt Thunderbirds eigenen Aufbau der
+        # Bereiche-Leiste); die Bildabstände bis zum Beginn der Bewegung stehen zur Auskunft dabei (in der Mail trägt
+        # das zweite Bild die Vorabrechnung, dort bewegt sich noch nichts). Nur unter macOS (Bildtakt)
+        if sys.platform.startswith("linux"):
+            return True, "unter Linux (xvfb) übersprungen"
+        res = m.js(r"""
+          if (d.visibilityState == "hidden") return { visibility: "hidden" };
+          const btn = d.getElementById("spacesPinnedButton");
+          const still = () => !w.__mcSpacesAnimating && !tm.tabInfo[0]?.chromeBrowser?.contentWindow?.__mcAnimating &&
+            !d.getElementById("calSidebar")?.__mcAnimating && !tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksPane")?.__mcAnimating;
+          const out = {};
+          const geh = { Mail: async () => { await toMail(); }, Kalender: async () => { await toCalendar(); },
+            Adressbuch: async () => { tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); } };
+          try {
+            for (const [name, hin] of Object.entries(geh)) {
+              await hin(); await ruhig(800);
+              if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); await ruhig(500); }
+              const aus = [], vorher = [];
+              const breite = () => Math.round((name == "Mail" ? tm.tabInfo[0].chromeBrowser.contentWindow.document.getElementById("folderPane")
+                : name == "Kalender" ? d.getElementById("calSidebar") : tm.currentTabInfo.browser.contentDocument.getElementById("booksPane"))?.getBoundingClientRect().width || 0);
+              const vorBreite = breite();
+              for (let i = 0; i < 3; i++) {
+                const frames = []; let stop = false;
+                const loop = t => { frames.push(t); if (!stop) w.requestAnimationFrame(loop); };
+                w.requestAnimationFrame(loop); await new Promise(r => w.setTimeout(r, 60)); // (Bildtakt vor dem Klick einschwingen)
+                const t0 = performance.now();
+                btn.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+                aus.push(Math.round(performance.now() - t0));
+                await bis(still, "Animation fertig", 3000); stop = true; await ruhig(300);
+                // nach dem ersten Bild nach dem Klick: Bildabstände bis zum Beginn der Bewegung (2.–4. Bild)
+                const nach = frames.filter(f => f > t0);
+                vorher.push(Math.round(Math.max(0, ...nach.slice(1, 4).map((f, k) => f - nach[k]))));
+                btn.click(); await bis(still, "Animation fertig", 3000); await ruhig(500);
+              }
+              out[name] = { aus: aus.sort((a, b) => a - b), median: aus[1], vorher, breite: vorBreite };
+            }
+          } finally {
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }
+            await ruhig(500);
+          }
+          return out;""")
+        if res.get("visibility") == "hidden":
+            return True, f"Testfenster verdeckt – übersprungen {res}"
+        # Grenzen mit Abstand zu vorher (Mail 39–42, sonst 18–22 ms) und nachher (Mail 18–21, sonst 1–7 ms)
+        grenze = {"Mail": 30, "Kalender": 12, "Adressbuch": 12}
+        bad = [f"{n}: Klick {r['median']} ms (höchstens {grenze[n]})" for n, r in res.items() if r["median"] > grenze[n]]
+        # (die Leiste muss vor dem Klick offen sein, sonst misst der Klick nur die Bereiche-Leiste)
+        bad += [f"{n}: Seitenleiste vor dem Klick zu ({r['breite']} px)" for n, r in res.items() if r["breite"] < 100]
+        return len(res) == 3 and not bad, ("; ".join(bad) + " – " if bad else "") + f"{res}"
+    check("Seitenleiste: Klick auf den Knopf beim Ausblenden kurz, Vorabrechnung erst im zweiten Bild (Bildzeit; Mail, Kalender, Adressbuch)", sidebar_click_short, results)
+
     def toolbar_shrink_monotone():
         # Fenster wie mit der Maus stetig verkleinern (10-px-Schritte, 40 ms Abstand) und wieder vergrößern (Mail, mit und
         # ohne Seitenleiste; Aufgaben mit Today-Pane): das Suchfeld wird beim Verkleinern nie wieder breiter, keine Pille

@@ -11224,49 +11224,56 @@ class CardEnhancer {
         return s;
       };
       let edgeRun = null; // [Element, Variable, Anfang, Ende] je Wert, der sich ändert
-      if (w.__mcSpacesJump && barRow) {
-        const start = snapshot();
-        w.__mcDry = true;
-        try {
-          w.__mcSpacesJump(show ? 1 : 0);
-          setW(show ? full : 0);
-          topDoc.documentElement.getBoundingClientRect();
-          // bis die Werte stillstehen (höchstens vier Durchgänge): Aufgaben rechnen Kopf und Aktionen nach dem
-          // gemessenen „+“, das erst mit dem Abstand des vorigen Durchgangs an seinem Platz steht
-          let end = null;
-          for (let i = 0, before = null; i < 4; i++) {
-            this.sideEdgeUpdaters?.forEach(f => f());
-            end = snapshot();
-            const now = [...end.values()].map(v => v[2]).join("|");
-            if (now == before) {
-              break;
+      // Die Vorabrechnung läuft im zweiten Bild nach dem Klick, nicht im Klick selbst: die Bewegung beginnt ohnehin
+      // erst nach zwei Bildwechseln (animiere), bis dahin bleibt alles am Anfang. Im Klick kostete sie 7–16 ms
+      // zusätzlich zum Einblenden der Bereiche-Leiste (≈18 ms) – das erste Bild dauerte so 34–74 ms (Ruckeln am Anfang)
+      const vorab = () => {
+        if (el.__mcAnimating && w.__mcSpacesJump && barRow) {
+          const start = snapshot();
+          w.__mcDry = true;
+          try {
+            w.__mcSpacesJump(show ? 1 : 0);
+            setW(show ? full : 0);
+            topDoc.documentElement.getBoundingClientRect();
+            // bis die Werte stillstehen (höchstens vier Durchgänge): Aufgaben rechnen Kopf und Aktionen nach dem
+            // gemessenen „+“, das erst mit dem Abstand des vorigen Durchgangs an seinem Platz steht
+            let end = null;
+            for (let i = 0, before = null; i < 4; i++) {
+              this.sideEdgeUpdaters?.forEach(f => f());
+              end = snapshot();
+              const now = [...end.values()].map(v => v[2]).join("|");
+              if (now == before) {
+                break;
+              }
+              before = now;
             }
-            before = now;
+            edgeRun = [];
+            for (const [key, [host, n, v1]] of end) {
+              const v0 = start.get(key)?.[2];
+              const a = parseFloat(v0), b = parseFloat(v1);
+              // (das Wurzelelement nur zurückstellen, nicht je Bild schreiben – das rechnete das ganze Fenster neu)
+              if (host != topDoc.documentElement && /px$/.test(v0 || "") && /px$/.test(v1) && Number.isFinite(a) && Number.isFinite(b) && a != b) {
+                edgeRun.push([host, n, a, b]);
+              }
+              // Anfangswerte zurück; Werte, die erst der Trockenlauf anlegte, wieder weg
+              if (v0) {
+                host.style.setProperty(n, v0);
+              } else {
+                host.style.removeProperty(n);
+              }
+            }
+          } catch (e) {
+            log("dry-run error", e);
+            edgeRun = null;
+          } finally {
+            setW(W0);
+            w.__mcSpacesJump(show ? 0 : 1);
+            w.__mcDry = false;
           }
-          edgeRun = [];
-          for (const [key, [host, n, v1]] of end) {
-            const v0 = start.get(key)?.[2];
-            const a = parseFloat(v0), b = parseFloat(v1);
-            // (das Wurzelelement nur zurückstellen, nicht je Bild schreiben – das rechnete das ganze Fenster neu)
-            if (host != topDoc.documentElement && /px$/.test(v0 || "") && /px$/.test(v1) && Number.isFinite(a) && Number.isFinite(b) && a != b) {
-              edgeRun.push([host, n, a, b]);
-            }
-            // Anfangswerte zurück; Werte, die erst der Trockenlauf anlegte, wieder weg
-            if (v0) {
-              host.style.setProperty(n, v0);
-            } else {
-              host.style.removeProperty(n);
-            }
-          }
-        } catch (e) {
-          log("dry-run error", e);
-          edgeRun = null;
-        } finally {
-          setW(W0);
-          w.__mcSpacesJump(show ? 0 : 1);
-          w.__mcDry = false;
         }
-      }
+      };
+      // (vor animiere angemeldet: läuft im zweiten Bild vor dessen Anmeldung des ersten Schritts)
+      w.requestAnimationFrame(() => w.requestAnimationFrame(vorab));
       // gemeinsamer Takt (animiere): Fortschritt läuft vor oder nach einer Umkehr zurück. Takt immer aus dem
       // Hauptfenster, auch wenn die Leiste in einem eigenen Dokument liegt (Adressbuch, Einstellungen): jedes Bild
       // schreibt Kanten an die Toolbar-Zeile des Hauptfensters; aus dem Bildtakt des eingebetteten Dokuments kamen
@@ -12326,55 +12333,60 @@ class CardEnhancer {
         // In beiden Richtungen gleitet der Abstand dann je Bild vom Anfangs- zum Endwert (vorher stand er beim
         // Einblenden ab dem ersten Bild am Endwert und beim Ausblenden bis zum letzten am Anfangswert: alle Knöpfe
         // rechts von „Verfassen“ sprangen 55 px)
-        if ((!withSpaces || w.__mcSpacesJump) && ab.__mcJump) {
-          const bar = barTarget(w.document);
-          const write = w.document.querySelector('#unifiedToolbarContent > li[item-id="write-message"]');
-          const gapNow = () => (write ? parseFloat(w.getComputedStyle(write).marginInlineEnd) : NaN);
-          const gapStart = gapNow();
-          const gapVar = bar.style.getPropertyValue("--mc-write-gap");
-          let gapEnd = NaN;
-          w.__mcDry = true;
-          try {
-            if (withSpaces) {
-              w.__mcSpacesJump(show ? 1 : 0);
-            }
-            ab.__mcJump(1);
-            w.document.documentElement.getBoundingClientRect();
-            this.offsetUpdaters?.forEach(fn => fn());
-            gapEnd = gapNow();
-          } catch (e) {
-            log("dry-run error", e);
-          } finally {
-            ab.__mcJump(0);
-            if (withSpaces) {
-              w.__mcSpacesJump(show ? 0 : 1);
-            }
-            w.__mcDry = false;
-          }
-          if (!show) {
-            // Pillen und Suchfeld wieder für den Anfang verteilen (Ausblenden: bis zum Ende so)
+        // Vorabrechnung im zweiten Bild nach dem Klick (wie toggleSpaceSidebar): die Bewegung beginnt erst nach
+        // zwei Bildwechseln; im Klick kostete sie 13–23 ms zusätzlich zum Aufbau der Ordnerliste (Ruckeln am Anfang)
+        const vorab = () => {
+          if ((!withSpaces || w.__mcSpacesJump) && ab.__mcJump && ab.__mcAnimating) {
+            const bar = barTarget(w.document);
+            const write = w.document.querySelector('#unifiedToolbarContent > li[item-id="write-message"]');
+            const gapNow = () => (write ? parseFloat(w.getComputedStyle(write).marginInlineEnd) : NaN);
+            const gapStart = gapNow();
+            const gapVar = bar.style.getPropertyValue("--mc-write-gap");
+            let gapEnd = NaN;
             w.__mcDry = true;
             try {
+              if (withSpaces) {
+                w.__mcSpacesJump(show ? 1 : 0);
+              }
+              ab.__mcJump(1);
               w.document.documentElement.getBoundingClientRect();
               this.offsetUpdaters?.forEach(fn => fn());
+              gapEnd = gapNow();
             } catch (e) {
               log("dry-run error", e);
             } finally {
+              ab.__mcJump(0);
+              if (withSpaces) {
+                w.__mcSpacesJump(show ? 0 : 1);
+              }
               w.__mcDry = false;
             }
+            if (!show) {
+              // Pillen und Suchfeld wieder für den Anfang verteilen (Ausblenden: bis zum Ende so)
+              w.__mcDry = true;
+              try {
+                w.document.documentElement.getBoundingClientRect();
+                this.offsetUpdaters?.forEach(fn => fn());
+              } catch (e) {
+                log("dry-run error", e);
+              } finally {
+                w.__mcDry = false;
+              }
+            }
+            // Abstand und Kanten für den Anfangszustand wieder herstellen (die Vorabrechnung schrieb die Endwerte)
+            if (gapVar) {
+              bar.style.setProperty("--mc-write-gap", gapVar);
+            } else {
+              bar.style.removeProperty("--mc-write-gap");
+            }
+            if (Number.isFinite(gapStart) && Number.isFinite(gapEnd) && Math.abs(gapEnd - gapStart) >= 1) {
+              ab.__mcGapRun = [gapStart, gapEnd];
+            }
+            w.document.documentElement.getBoundingClientRect();
+            this.offsetUpdaters?.forEach(fn => fn());
           }
-          // Abstand und Kanten für den Anfangszustand wieder herstellen (die Vorabrechnung schrieb die Endwerte)
-          if (gapVar) {
-            bar.style.setProperty("--mc-write-gap", gapVar);
-          } else {
-            bar.style.removeProperty("--mc-write-gap");
-          }
-          if (Number.isFinite(gapStart) && Number.isFinite(gapEnd) && Math.abs(gapEnd - gapStart) >= 1) {
-            ab.__mcGapRun = [gapStart, gapEnd];
-          }
-          w.document.documentElement.getBoundingClientRect();
-          this.offsetUpdaters?.forEach(fn => fn());
-        }
+        };
+        w.requestAnimationFrame(() => w.requestAnimationFrame(vorab));
       } else if (!mail && side && side.classList.contains("mc-side-hidden") == show) {
         toggleSpaceSidebar();
       }

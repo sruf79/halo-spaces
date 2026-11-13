@@ -8243,6 +8243,20 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Seitenleiste Adressbuch: Der Text „All Address Books“ behält beim Aus- und Einblenden seine Breite (kein Sprung und keine Kürzung am Ende)", ab_label_width, results)
 
+    def ab_all_contacts_label():
+        # Adressbuch: der oberste Eintrag heißt wie in Apple Kontakte „All Contacts“ (nicht „All Address Books“)
+        res = m.js(r"""
+          tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList, "Adressbuch", 8000); await ruhig(1000);
+          try {
+            const bd = tm.currentTabInfo.browser.contentDocument;
+            return { text: bd.querySelector("#allAddressBooks .bookRow-name")?.textContent.trim() };
+          } finally {
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            await ruhig(300);
+          }""")
+        return res.get("text") in ("All Contacts", "Alle Kontakte", "Tous les contacts", "Todos los contactos", "Tutti i contatti"), f"{res}"
+    check("Adressbuch: „All Address Books“ heißt „All Contacts“ (Alle Kontakte)", ab_all_contacts_label, results)
+
     def ab_list_keeps_width():
         # Adressbuch: Adressbuchliste ausblenden – die Kontaktliste behält ihre Breite (wuchs um die frei gewordene Spalte,
         # und das Fenster ließ sich nicht mehr schmaler machen als vorher)

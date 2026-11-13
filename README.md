@@ -196,7 +196,7 @@ Changes take effect right away unless noted.
 
 ## What's new in 3.25.1
 
-- **Sidebar**: when the sidebar is hidden, it floats in only after the pointer rests briefly at the left edge of the window, so brushing the edge no longer opens it; hiding and showing the sidebar keeps the window buttons in place and moves the buttons above the list along with the edge; in a narrow Address Book window the list of address books slides without jumping, and "All Address Books" keeps its full width
+- **Sidebar**: when the sidebar is hidden, it floats in only after the pointer rests briefly at the left edge of the window, so brushing the edge no longer opens it; hiding and showing the sidebar keeps the window buttons in place and moves the buttons above the list along with the edge; in a narrow Address Book window the list of address books slides without jumping, and "All Contacts" keeps its full width
 - **Toolbar**: when the window gets narrow, the search field shrinks to the magnifier and stays there until all buttons are back, instead of growing and shrinking as each group makes room
 - **View menu**: "Show Status Bar" brings back a hidden status bar
 - **Attachments**: the file icon is centred on the file name

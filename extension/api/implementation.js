@@ -5669,6 +5669,36 @@ function hookPersonalBook(cw, restorers) {
   });
 }
 
+// Adressbuch: „All Address Books“ heißt wie in Apple Kontakte „All Contacts“ („Alle Kontakte“);
+// Thunderbird setzt den Text über Fluent, deshalb wird er bei jeder Änderung neu gesetzt
+function hookAllContactsLabel(cw, restorers) {
+  const doc = cw.document;
+  const nameEl = doc.querySelector("#allAddressBooks .bookRow-name");
+  if (!nameEl || nameEl.__mcAllContacts) {
+    return;
+  }
+  nameEl.__mcAllContacts = { l10n: nameEl.getAttribute("data-l10n-id") };
+  const apply = () => {
+    nameEl.removeAttribute("data-l10n-id");
+    const text = tr("All Contacts");
+    if (nameEl.textContent != text) {
+      nameEl.textContent = text;
+    }
+  };
+  const mo = new cw.MutationObserver(apply);
+  mo.observe(nameEl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["data-l10n-id"] });
+  apply();
+  restorers?.push(() => {
+    mo.disconnect();
+    const { l10n } = nameEl.__mcAllContacts;
+    delete nameEl.__mcAllContacts;
+    if (l10n) {
+      nameEl.setAttribute("data-l10n-id", l10n);
+      doc.l10n?.translateElements([nameEl]);
+    }
+  });
+}
+
 // Adressbuch wie Apple Kontakte: nie eine Kontaktliste ohne gewählten Kontakt.
 // Beim Öffnen und nach jedem Neuaufbau der Liste (Buchwechsel, Suche, Löschen)
 // den zuletzt gewählten Kontakt wieder wählen, sonst den ersten Kontakt aus
@@ -9270,6 +9300,11 @@ class CardEnhancer {
             hookPersonalBook(cw, winRestorers);
           } catch (e) {
             log("personal book error", e);
+          }
+          try {
+            hookAllContactsLabel(cw, winRestorers);
+          } catch (e) {
+            log("all contacts label error", e);
           }
           try {
             hookLastContact(cw, winRestorers);

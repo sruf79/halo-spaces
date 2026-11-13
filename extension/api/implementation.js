@@ -10776,6 +10776,18 @@ class CardEnhancer {
     // bekommt dessen Seitenleiste dieselbe Breite – die Knöpfe springen nicht.
     // Zieht man eine Seitenleiste breiter/schmaler, gilt das für alle.
     const WIDTH_PREF = "extensions.mailcards.sidebarWidth";
+    // Standardbreite aller Seitenleisten: 240 px, damit die Favoriten in den
+    // Spalten der Konten stehen und „Local Folders“ darunter ungekürzt bleibt
+    // (Maintainer 11.11.2026, Variante A; vorher 206 wie Apple Mail)
+    const SIDE_WIDTH = 240;
+    // einmalig: die alte Standardbreite 206 war keine eigene Wahl (Startwert bzw.
+    // Doppelklick auf den Trenner) – sie weicht der neuen; selbst gezogene bleiben
+    if (!Services.prefs.getBoolPref("extensions.mailcards.sidebarWidth240", false)) {
+      if (Services.prefs.getIntPref(WIDTH_PREF, 0) == 206) {
+        Services.prefs.clearUserPref(WIDTH_PREF);
+      }
+      Services.prefs.setBoolPref("extensions.mailcards.sidebarWidth240", true);
+    }
     // gemeinsame Höchstbreite aller Seitenleisten (CSS-Variable, 360 px wie im Kalender)
     const sideMax = el => {
       const win = el.ownerDocument.defaultView;
@@ -10798,7 +10810,7 @@ class CardEnhancer {
       if (tab?.mode?.name == "preferencesTab") {
         return;
       }
-      // (noch keine eigene Breite gespeichert: 206 px wie die Ordnerliste in Apple Mail)
+      // (noch keine eigene Breite gespeichert: SIDE_WIDTH)
       // (nie breiter als die gemeinsame Höchstbreite, --mt-sidebar-max-width)
       const [el, splitter, win] = sidebarFor(tab);
       // beim Ziehen an der Trennlinie nicht (der verzögerte Abgleich nach dem Bereichswechsel setzte die Breite mitten im
@@ -10806,7 +10818,7 @@ class CardEnhancer {
       if (busy(el, win) || w.__mcSideDrag) {
         return;
       }
-      const W = Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
+      const W = Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || SIDE_WIDTH);
       if (W < 160) {
         return;
       }
@@ -10855,8 +10867,8 @@ class CardEnhancer {
       if (!Services.prefs.getIntPref(WIDTH_PREF, 0) && tab.mode?.name == "mail3PaneTab") {
         const width = Math.round(el.getBoundingClientRect().width);
         if (width >= 160) {
-          // nie schmaler als Apple Mails 206 px; Thunderbirds Vorgabe (198) ist keine eigene Wahl
-          Services.prefs.setIntPref(WIDTH_PREF, Math.max(width, 206));
+          // nie schmaler als die Standardbreite; Thunderbirds Vorgabe (198) ist keine eigene Wahl
+          Services.prefs.setIntPref(WIDTH_PREF, Math.max(width, SIDE_WIDTH));
         }
       }
       // Nur echtes Ziehen am Trenner zählt als neue Breite – übernommen erst
@@ -10884,7 +10896,7 @@ class CardEnhancer {
       }
     };
     // Doppelklick auf eine Trennlinie stellt ihre Standardbreite wieder her:
-    // Seitenleisten 206 px (gemeinsam), Mail-/Kontaktliste Thunderbirds
+    // Seitenleisten SIDE_WIDTH (gemeinsam), Mail-/Kontaktliste Thunderbirds
     // Standard (die andere Liste zieht mit), Today-Pane 280 px
     const hookSplitterReset = doc => {
       if (!doc || doc.__mcSplitterReset) {
@@ -11350,7 +11362,7 @@ class CardEnhancer {
       if (!el || !win) {
         return null;
       }
-      const commonWidth = () => Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
+      const commonWidth = () => Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || SIDE_WIDTH);
       const pane = {
         el, splitter, win, mode,
         side: "left",
@@ -12638,7 +12650,7 @@ class CardEnhancer {
       if (el) {
         const off = el.ownerDocument == d ? { left: 0, top: 0 } : win.browsingContext.embedderElement.getBoundingClientRect();
         const pr = el.parentNode.getBoundingClientRect();
-        W = tab.mode.name == "preferencesTab" ? 240 : Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
+        W = tab.mode.name == "preferencesTab" ? 240 : Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || SIDE_WIDTH);
         const top = Math.max(pr.top, I - off.top);
         const bottom = Math.min(pr.bottom, H - I - off.top);
         if (bottom - top < 50) {

@@ -8552,6 +8552,49 @@ def server_checks(m, results):
             return ok, f"{res}"
         check("Testkonto: IMAP-Ordner in der Ordnerliste, Mail im Posteingang", account_folders, results)
 
+        def favourites_columns():
+            # wie Apple Mail (Maintainer 11.11.2026, Variante A): Symbole von All Inboxes/All Sent bündig über den
+            # Ordnersymbolen der Konten, „Favourites“ beginnt wie die Kontonamen; aufgeklappt stehen die Konten
+            # unter All Inboxes eine Stufe tiefer, ihr Symbol unter dem Text der Zeile darüber
+            res = m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const acc = MailServices.accounts.getAccount("%s"), root = acc.incomingServer.rootFolder;
+              const a3 = await toMail(), ad = a3.document, tree = ad.getElementById("folderTree");
+              await until(() => root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox), 10000);
+              const left0 = ad.getElementById("folderPane").getBoundingClientRect().left;
+              const shown = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+              const x = el => shown(el) ? Math.round(el.getBoundingClientRect().left - left0) : null;
+              // Textanfang (nicht die Box): ein Range über den Text
+              const tx = el => { if (!shown(el) || !el.firstChild) return null; const r = ad.createRange(); r.selectNodeContents(el);
+                                 return Math.round(r.getBoundingClientRect().left - left0); };
+              const smart = await until(() => tree.querySelector(':scope > li[data-mode="smart"]'), 8000);
+              const fav = smart && [...smart.querySelectorAll(':scope > ul > li[is="folder-tree-row"]')].filter(shown);
+              const inboxRow = fav?.find(l => l.dataset.folderType == "inbox");
+              const accRow = await until(() => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type="imap"]')].find(shown), 8000);
+              await until(() => [...(accRow?.querySelectorAll(':scope > ul > li[is="folder-tree-row"]') || [])].some(shown), 15000);
+              const accFolders = [...(accRow?.querySelectorAll(':scope > ul > li[is="folder-tree-row"]') || [])].filter(shown);
+              const icon = li => x(li.querySelector(":scope > .container .icon"));
+              const name = li => tx(li.querySelector(":scope > .container .name"));
+              const out = { favIcons: fav?.map(icon), favText: fav?.map(name), accIcons: [...new Set(accFolders.map(icon))], accText: [...new Set(accFolders.map(name))],
+                            header: tx(smart?.querySelector(":scope > .mode-container .mode-name")), accName: name(accRow) };
+              // aufgeklappt: Konten unter All Inboxes
+              if (inboxRow?.classList.contains("collapsed")) inboxRow.querySelector(":scope > .container .twisty")?.click();
+              await until(() => [...inboxRow?.querySelectorAll(":scope > ul > li") || []].some(shown), 4000);
+              const kids = [...(inboxRow?.querySelectorAll(":scope > ul > li[is='folder-tree-row']") || [])].filter(shown);
+              out.kidIcons = [...new Set(kids.map(icon))]; out.inboxText = inboxRow ? name(inboxRow) : null;
+              out.kidNames = kids.map(l => [l.querySelector(":scope > .container .name")?.textContent, (n => n && n.scrollWidth <= n.clientWidth)(l.querySelector(":scope > .container .name"))]);
+              out.pane = Math.round(ad.getElementById("folderPane").getBoundingClientRect().width);
+              return out;""" % key)
+            fi, ai = res.get("favIcons") or [], res.get("accIcons") or []
+            ok = (len(fi) >= 2 and len(ai) == 1 and all(v == ai[0] for v in fi)
+                  and len(set(res.get("favText") or [])) == 1 and res.get("favText")[0] == (res.get("accText") or [None])[0]
+                  and res.get("header") is not None and res.get("header") == res.get("accName")
+                  and res.get("kidIcons") and len(res["kidIcons"]) == 1 and abs(res["kidIcons"][0] - res["inboxText"]) <= 2
+                  # „Local Folders“ ungekürzt (Vorgabe); längere Kontonamen kürzt auch Apple Mail
+                  and any(n == "Local Folders" and fits for n, fits in res.get("kidNames") or []))
+            return ok, f"{res}"
+        check("Ordnerliste: Favoriten-Symbole und „Favourites“ bündig mit den Spalten der Konten, Konten unter All Inboxes eine Stufe tiefer", favourites_columns, results)
+
         def local_hidden():
             # wie Apple Mail: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind (es gibt ein anderes Konto);
             # liegt dort etwas, ist es wieder da
@@ -9448,7 +9491,7 @@ def run_checks(m, version, profile, results):
     check("Erweiterung aktiv und richtige Version", addon, results)
 
     def folder_start_width():
-        # Neues Profil, Mail-Tab zuerst offen: Ordnerliste 206 px wie in Apple Mail (und wie nach
+        # Neues Profil, Mail-Tab zuerst offen: Ordnerliste 240 px (Maintainer 11.11.2026, Variante A; wie nach
         # Doppelklick auf den Trenner) statt Thunderbirds 198 px, sodass „Local Folders“ in den
         # Favoriten neben einer Ungelesen-Zahl nicht gekürzt wird. Muss vor „Ordnerleiste: Ziehen
         # und Doppelklick“ laufen, das die gespeicherte Breite ändert
@@ -9481,17 +9524,17 @@ def run_checks(m, version, profile, results):
           if (alle?.uri) { a3.displayFolder(alle.uri); await bis(() => a3.gFolder?.URI == alle.uri, "All Inboxes gewählt", 3000); await ruhig(500); }
           out.selected = !!alle?.uri && a3.gFolder?.URI == alle.uri && a3.document.getElementById("threadPane").getBoundingClientRect().width > 0;
           return out;""")
-        # die 206 px sind auf die Systemschrift von macOS abgestimmt (dort passt „Local Folders“ genau) – mit
+        # die 240 px sind auf die Systemschrift von macOS abgestimmt („Local Folders“ eine Stufe tiefer passt) – mit
         # anderen Schriften (Linux: 2 px breiter) wird nur die Breite geprüft
         fits = res["scroll"] <= res["client"] or sys.platform != "darwin"
         # Linux: Thunderbird legt die Ordnerliste mit der breiteren Systemschrift schon breiter an (240 px) –
-        # dort bleibt sie so (nie schmaler als 206), gemerkt als eigene Breite
-        width_ok = res["width"] == 206 and res["pref"] in (0, 206) if sys.platform == "darwin" else \
-            res["width"] >= 206 and res["pref"] in (0, res["width"])
+        # dort bleibt sie so (nie schmaler als 240), gemerkt als eigene Breite
+        width_ok = res["width"] == 240 and res["pref"] in (0, 240) if sys.platform == "darwin" else \
+            res["width"] >= 240 and res["pref"] in (0, res["width"])
         ok = (width_ok and res["text"] == "Local Folders"
               and res["count"] == "6" and res["client"] and fits and res.get("selected"))
         return ok, f"{res}"
-    check("Ordnerliste: im neuen Profil 206 px breit, „Local Folders“ nicht gekürzt", folder_start_width, results)
+    check("Ordnerliste: im neuen Profil 240 px breit, „Local Folders“ nicht gekürzt", folder_start_width, results)
 
     def folder_header_hidden():
         # Thunderbirds Knopfzeile über der Ordnerliste („…“, Abrufen, Verfassen) ist immer aus, auch wenn
@@ -9527,7 +9570,7 @@ def run_checks(m, version, profile, results):
         # dort etwas mehr Platz und die Liste gibt bis zu 30 px ab (gewollte Begrenzung im engen Fenster; unter Linux
         # je nach Fenstermanager, daher dort mal 460, mal 431); ab 2000 px muss sie wieder ihre 460 haben.
         # Ebenso schmaler, wenn die Leseansicht schon auf ihrer Mindestbreite (480 px) steht – dann fehlt der Platz
-        # wirklich (ESR: schmalere Ansicht; Linux: Ordnerliste mit breiterer Schrift 240 statt 206 px, siehe
+        # wirklich (ESR: schmalere Ansicht; Linux: Ordnerliste mit breiterer Schrift, siehe
         # „Ordnerliste: im neuen Profil“), die Liste bekommt dann alles, was übrig ist
         ok = all(abs(v - 460) <= 1 or (v < 460 and at_min.get(k))
                  or (sys.platform != "darwin" and k == "1500" and 430 <= v <= 460) for k, v in lists.items())
@@ -10337,7 +10380,7 @@ def run_checks(m, version, profile, results):
                    {"type": "pause", "duration": 80}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
         m.js("await ruhig(1200); return 1;")
         reset = pos()[2]
-        return dragged > before and reset == 206, f"{before} → gezogen {dragged} → Doppelklick {reset} (soll 206)"
+        return dragged > before and reset == 240, f"{before} → gezogen {dragged} → Doppelklick {reset} (soll 240)"
     check("Ordnerleiste: Ziehen und Doppelklick", splitter, results)
 
     def double_click():

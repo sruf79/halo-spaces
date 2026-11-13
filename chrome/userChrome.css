@@ -698,6 +698,19 @@ body.layout-wide {
   border-block-start: none !important;
 }
 
+/* Favoriten in den Spalten der Konten wie Apple Mail (Maintainer 11.11.2026,
+   Variante A): „Favourites“ beginnt wie die Kontonamen, All Inboxes/All Sent/
+   Starred stehen mit Symbol und Text bündig über den Ordnern der Konten (eine
+   Stufe = 16 px wie dort); die Konten darunter je Stufe eine Textspalte tiefer
+   (33 px: Symbol unter dem Text der Zeile darüber) */
+#folderTree > li[data-mode="smart"] > .mode-container {
+  margin-inline-start: 40px !important;
+}
+
+#folderTree > li[data-mode="smart"] li > .container {
+  padding-inline-start: calc(16px + var(--depth, 0) * 33px) !important;
+}
+
 #folderTree .mode-name {
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;

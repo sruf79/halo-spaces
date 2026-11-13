@@ -4711,19 +4711,30 @@ menuseparator[mc-tidy-hidden] {
   color: var(--mt-text-tertiary) !important;
 }
 
+/* Hover, Auswahl und heute als Kreis gleicher Größe um die Zahl (vorher
+   füllten Hover und Auswahl das breitere Kästchen als Kapsel). Die Mitte liegt
+   0,5 px tiefer als die des Kästchens: Ziffern sitzen in der Zeile optisch
+   etwas unter der Mitte (an den Bildern gemessen 0,5 bis 0,75 px) */
+:is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day {
+  --mc-day-circle: radial-gradient(circle calc(11.5px * var(--mt-font-scale, 1)) at 50% calc(50% + 0.5px), var(--mc-day-fill) calc(11px * var(--mt-font-scale, 1)), transparent calc(11.5px * var(--mt-font-scale, 1)));
+}
+
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day:hover {
-  background: var(--mt-control-hover) !important;
+  --mc-day-fill: var(--mt-control-hover);
+  background: var(--mc-day-circle) !important;
 }
 
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[selected] {
-  background: var(--mt-control) !important;
+  --mc-day-fill: var(--mt-control);
+  background: var(--mc-day-circle) !important;
 }
 
 /* heute: Zahl im roten Kreis wie Apple (Rot der Vorlagen als Rohwert: hell
    #EB4C46 mit weißer Zahl, dunkel etwas heller #EB534D mit schwarzer Zahl) */
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[today] {
   --mc-today-red: #EB4C46;
-  background: radial-gradient(circle closest-side, var(--mc-today-red) calc(11px * var(--mt-font-scale, 1)), transparent calc(11.5px * var(--mt-font-scale, 1))) !important;
+  --mc-day-fill: var(--mc-today-red);
+  background: var(--mc-day-circle) !important;
   color: white !important;
   font-weight: 700 !important;
 }

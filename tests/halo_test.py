@@ -7333,6 +7333,87 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: in Aufgaben mit Minikalender und gleichem Monatstitel wie in Mail", today_same_in_tasks, results)
 
+    def today_minimonth_circles():
+        # Kreise im Mini-Kalender der Today-Pane exakt um die Zahl: der rote Heute-Kreis und der graue Hover-Kreis
+        # sind rund (gleich breit wie hoch) und ihre Mitte liegt auf der Mitte der gezeichneten Ziffern, bei ein- und
+        # zweistelligen Zahlen (Bildpunkte gemessen; „heute“ dafür kurz an einen Tag 5 und einen Tag 25 gesetzt). Vorher
+        # füllte der Hover das breitere Kästchen als Kapsel (32 × 30 px). Toleranz 1 Bildpunkt: Die Prüfung misst in 1×,
+        # die Kästchen liegen auf Bruchteilen von Pixeln
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
+          const mm = d.getElementById("today-minimonth"); mm.showMonth?.(new Date()); await ruhig(400);
+          const cells = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")];
+          const cell = n => cells.find(c => c.textContent.trim() == String(n));
+          // gemalte Fläche und Ziffern in einem Tag messen: Hintergrund = Ecke des Kästchens
+          const measure = async (td, isText) => {
+            const r = td.getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+            cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+            try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"), 0, 0); }
+            catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+            const px = ctx.getImageData(0, 0, cv.width, cv.height).data, bg = [px[0], px[1], px[2]];
+            const box = () => ({ l: 1e9, r: -1, t: 1e9, b: -1 }), shape = box(), text = box();
+            const add = (b, x, y) => { b.l = Math.min(b.l, x); b.r = Math.max(b.r, x); b.t = Math.min(b.t, y); b.b = Math.max(b.b, y); };
+            for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+              const i = (y * cv.width + x) * 4, c = [px[i], px[i + 1], px[i + 2]];
+              const dBg = Math.abs(c[0] - bg[0]) + Math.abs(c[1] - bg[1]) + Math.abs(c[2] - bg[2]);
+              if (dBg > 12) add(shape, x, y);
+            }
+            // Ziffern nur innerhalb des Kreises (der geglättete Rand des Kreises zählt nicht)
+            const cx = (shape.l + shape.r + 1) / 2, cy = (shape.t + shape.b + 1) / 2, rad = (shape.r - shape.l + 1) / 2 - 3;
+            for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+              const i = (y * cv.width + x) * 4, c = [px[i], px[i + 1], px[i + 2]];
+              if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < rad && isText(c)) add(text, x, y);
+            }
+            const mid = b => b.r < 0 ? null : { x: (b.l + b.r + 1) / 2, y: (b.t + b.b + 1) / 2, w: b.r - b.l + 1, h: b.b - b.t + 1 };
+            return { shape: mid(shape), text: mid(text) };
+          };
+          const dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          const out = { dark, today: {}, hover: {} };
+          const real = mm.querySelector("td.minimonth-day[today]");
+          real?.removeAttribute("today");
+          try {
+            for (const n of [5, 25]) {
+              const td = cell(n); td.setAttribute("today", "true"); await ruhig(150);
+              // Ziffern: weiß (hell) bzw. schwarz (dunkel) im roten Kreis
+              out.today[n] = await measure(td, c => dark ? c[0] + c[1] + c[2] < 120 : c[1] > 200 && c[2] > 200);
+              td.removeAttribute("today");
+            }
+          } finally { real?.setAttribute("today", "true"); }
+          out.rects = Object.fromEntries([5, 25].map(n => { const r = cell(n).getBoundingClientRect(); return [n, [r.left, r.top, r.width, r.height]]; }));
+          return out;""")
+        ok = True
+        for n, t in (res.get("today") or {}).items():
+            sh, tx = t.get("shape"), t.get("text")
+            ok = ok and bool(sh and tx) and abs(sh["w"] - sh["h"]) <= 1 and abs(sh["x"] - tx["x"]) <= 1 and abs(sh["y"] - tx["y"]) <= 1
+        for n in (5, 25):
+            x, y, wd, ht = (res.get("rects") or {}).get(str(n), [0, 0, 0, 0])
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": int(x + wd / 2), "y": int(y + ht / 2), "origin": "viewport"}])
+            hv = m.js(r"""
+              await ruhig(250);
+              const mm = d.getElementById("today-minimonth"), td = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")].find(c => c.textContent.trim() == "%d");
+              const r = td.getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+              cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+              try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"), 0, 0); }
+              catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+              const px = ctx.getImageData(0, 0, cv.width, cv.height).data, bg = [px[0], px[1], px[2]];
+              const dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+              const sh = { l: 1e9, r: -1, t: 1e9, b: -1 }, tx = { l: 1e9, r: -1, t: 1e9, b: -1 };
+              const add = (b, x, y) => { b.l = Math.min(b.l, x); b.r = Math.max(b.r, x); b.t = Math.min(b.t, y); b.b = Math.max(b.b, y); };
+              for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+                const i = (y * cv.width + x) * 4, s = px[i] + px[i + 1] + px[i + 2], dBg = Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]);
+                if (dBg > 6) add(sh, x, y);
+                if (dark ? s > 500 : s < 250) add(tx, x, y);
+              }
+              const mid = b => b.r < 0 ? null : { x: (b.l + b.r + 1) / 2, y: (b.t + b.b + 1) / 2, w: b.r - b.l + 1, h: b.b - b.t + 1 };
+              return { hover: td.matches(":hover"), shape: mid(sh), text: mid(tx), cell: [r.width, r.height] };""" % n)
+            res["hover"][n] = hv
+            sh, tx = hv.get("shape"), hv.get("text")
+            ok = ok and hv.get("hover") and bool(sh and tx) and abs(sh["w"] - sh["h"]) <= 1 and abs(sh["x"] - tx["x"]) <= 1 and abs(sh["y"] - tx["y"]) <= 1
+        m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+        return ok, f"{res}"
+    check("Today-Pane: Heute- und Hover-Kreis im Mini-Kalender rund und mittig um ein- und zweistellige Zahlen", today_minimonth_circles, results)
+
     def agenda_past_month():
         # ‹ in einen vergangenen Monat: die Liste steht am Ende, die letzten Termine des Monats sind ohne Scrollen
         # sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben

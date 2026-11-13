@@ -6133,7 +6133,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   --mc-tc-rows: 1;
   position: relative;
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-columns: 4px minmax(0, 1fr) auto 4px;
   column-gap: 12px;
   align-items: start;
   margin: 0 8px 8px;
@@ -6171,9 +6171,10 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   }
 }
 
-/* Streifen der Liste: 4 px, Radius 2 px, über alle Zeilen der Karte,
-   mindestens 48 px */
-.mc-tc-stripe {
+/* Streifen der Liste und Fortschrittsstrich: 4 px, Radius 2 px, über alle
+   Zeilen der Karte, mindestens 48 px */
+.mc-tc-stripe,
+.mc-tc-bar {
   grid-row: 1 / span var(--mc-tc-rows);
   align-self: stretch;
   box-sizing: border-box;
@@ -6238,52 +6239,55 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   }
 }
 
-/* Zustand unten rechts, bündig mit der letzten Zeile – diagonal gegenüber vom
-   Titel, gedämpft, mit dem Ring des Menüs „Status“ davor (In Arbeit halb gelb,
-   Erledigt grün mit Haken); offene Aufgaben zeigen nichts. In der
-   Kanban-Ansicht nennt schon die Spalte den Zustand */
-.mc-tc-state {
+/* Fortschrittsstrich rechts: offener Teil fein rot gestrichelt (Striche
+   1,5 px, Lücken 2,5 px, ca. 55 % Deckkraft), der erledigte Teil füllt von
+   unten in der Farbe der Stufe (25 % orange, 50 % gelb, 75 % grün, erledigt
+   kräftig grün); bei 0 % ist alles gestrichelt, bei 100 % nichts */
+.mc-tc-bar {
+  grid-column: 4;
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(to bottom,
+      color-mix(in srgb, var(--mt-prog-0) 55%, transparent) 0 1.5px, transparent 1.5px 4px);
+}
+
+.mc-tc-fill {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: calc(var(--mc-tc-p, 0) * 1%);
+  border-radius: 2px;
+  background: var(--mc-bar, var(--mt-prog-25));
+}
+
+.mc-tc[data-step="25"] { --mc-bar: var(--mt-prog-25); }
+.mc-tc[data-step="50"] { --mc-bar: var(--mt-prog-50); }
+.mc-tc[data-step="75"] { --mc-bar: var(--mt-prog-75); }
+.mc-tc[data-step="100"] { --mc-bar: var(--mt-prog-100); }
+
+/* Zahl „n %“ unten rechts neben dem Strich, bündig mit dessen Unterkante –
+   diagonal gegenüber vom Titel, in dessen Schrift */
+.mc-tc-pct {
   grid-column: 3;
   grid-row: 1 / span var(--mc-tc-rows);
   align-self: end;
   justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: -2px;
-  font-size: calc(12px * var(--mt-font-scale, 1));
-  line-height: calc(18px * var(--mt-font-scale, 1));
-  color: var(--mt-text-secondary);
+  margin-bottom: -3px;
+  font-size: calc(14px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  line-height: calc(20px * var(--mt-font-scale, 1));
+  font-variant-numeric: tabular-nums;
+  color: var(--mt-text);
   white-space: nowrap;
 }
 
-.mc-tc-state::before {
-  content: "";
-  flex: none;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: conic-gradient(var(--mt-prog-50) 50%, color-mix(in srgb, var(--mt-prog-50) var(--mt-prog-track), transparent) 0);
-  mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+.mc-tc[data-completed] .mc-tc-pct {
+  color: var(--mt-text-tertiary);
 }
 
-.mc-tc[data-stage="done"] .mc-tc-state::before {
-  background: var(--mt-prog-100) url("chrome://messenger/skin/overrides/check.svg") center / 7px no-repeat;
-  -moz-context-properties: fill;
-  fill: white;
-  mask: none;
-}
-
-:root[mc-task-board] .mc-tc-state {
-  display: none;
-}
-
-/* Menü „Status“ (Erledigt-Knopf, Kontextmenü, Menü Tasks): Ring vor dem Text –
-   Offen gestrichelt rot, In Arbeit halb gelb, Erledigt grün mit Haken
-   (hookTaskStageMenus; Thunderbirds Prozentstufen sind ausgeblendet) */
+/* Menü „Fortschritt“ (Erledigt-Knopf, Kontextmenü): derselbe Ring vor dem Text */
 :is(menuitem.percent-0-menuitem, menuitem.percent-25-menuitem, menuitem.percent-50-menuitem,
-    menuitem.percent-75-menuitem, menuitem.percent-100-menuitem,
-    menuitem.mc-stage-0, menuitem.mc-stage-1, menuitem.mc-stage-2) > :is(.menu-text, .menu-iconic-text)::before {
+    menuitem.percent-75-menuitem, menuitem.percent-100-menuitem) > :is(.menu-text, .menu-iconic-text)::before {
   content: "";
   display: inline-block;
   vertical-align: -2px;
@@ -6296,15 +6300,15 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
   mask: radial-gradient(closest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
 }
 
-:is(menuitem.percent-0-menuitem, menuitem.mc-stage-0) > :is(.menu-text, .menu-iconic-text)::before {
+menuitem.percent-0-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   --mc-ring: var(--mt-prog-0);
   background: repeating-conic-gradient(var(--mc-ring) 0 25deg,
                                        color-mix(in srgb, var(--mc-ring) var(--mt-prog-track), transparent) 0 45deg);
 }
 menuitem.percent-25-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-25); --mc-p: 25; }
-:is(menuitem.percent-50-menuitem, menuitem.mc-stage-1) > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-50); --mc-p: 50; }
+menuitem.percent-50-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-50); --mc-p: 50; }
 menuitem.percent-75-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc-ring: var(--mt-prog-75); --mc-p: 75; }
-:is(menuitem.percent-100-menuitem, menuitem.mc-stage-2) > :is(.menu-text, .menu-iconic-text)::before {
+menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   background: var(--mt-prog-100) url("chrome://messenger/skin/overrides/check.svg") center / 9px no-repeat;
   -moz-context-properties: fill;
   fill: white;
@@ -6646,12 +6650,70 @@ menuitem.percent-75-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc
   min-height: 96px;
 }
 
-#mcTaskStripe {
+#mcTaskStripe,
+#mcTaskProg,
+#mcTaskProgNum {
   position: absolute;
   z-index: 1;
+}
+
+#mcTaskStripe {
   width: 5px;
   border-radius: 2.5px;
   pointer-events: none;
+}
+
+/* (17 px breit zum Greifen, sichtbar die 5 px in der Mitte) */
+#mcTaskProg {
+  width: 17px;
+  cursor: ns-resize;
+  background: repeating-linear-gradient(color-mix(in srgb, var(--mt-red) 55%, transparent) 0 1.5px, transparent 1.5px 4px) center / 5px 100% no-repeat;
+  border-radius: 2.5px;
+  --mc-tp: var(--mt-prog-0);
+}
+
+#mcTaskProg[data-step="25"] { --mc-tp: var(--mt-prog-25); }
+#mcTaskProg[data-step="50"] { --mc-tp: var(--mt-prog-50); }
+#mcTaskProg[data-step="75"] { --mc-tp: var(--mt-prog-75); }
+#mcTaskProg[data-step="100"] { --mc-tp: var(--mt-prog-100); }
+
+#mcTaskProg > i {
+  position: absolute;
+  inset-inline: 6px;
+  bottom: 0;
+  border-radius: 2.5px;
+  background: var(--mc-tp);
+}
+
+#mcTaskProg:focus-visible {
+  outline: 2px solid AccentColor;
+  outline-offset: 0;
+}
+
+#mcTaskProg[data-readonly],
+#mcTaskProgNum[data-readonly] {
+  cursor: default;
+}
+
+#mcTaskProgNum {
+  font-size: calc(20px * var(--mt-font-scale, 1));
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--mt-text);
+  cursor: text;
+}
+
+#mcTaskProgNum > small {
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-weight: 600;
+  color: var(--mt-text-secondary);
+}
+
+#mcTaskProgNum > .mc-ti-input {
+  width: 56px;
+  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-weight: 400;
 }
 
 /* Notiz direkt unter dem Titel in derselben Karte, nur so hoch wie ihr Text;
@@ -6871,7 +6933,6 @@ menuitem.percent-75-menuitem > :is(.menu-text, .menu-iconic-text)::before { --mc
 #mcTaskInfo .mc-ti-row[data-icon="list"] { --mc-ti-icon: url("resource://mailcards/icons/checkbox.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="tag"] { --mc-ti-icon: url("resource://mailcards/icons/tag.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="lock"] { --mc-ti-icon: url("resource://mailcards/icons/lock.svg"); }
-#mcTaskInfo .mc-ti-row[data-icon="status"] { --mc-ti-icon: url("resource://mailcards/icons/task-done.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="star"] { --mc-ti-icon: url("resource://mailcards/icons/star.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="link"] { --mc-ti-icon: url("resource://mailcards/icons/link.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="location"] { --mc-ti-icon: url("resource://mailcards/icons/location.svg"); }
@@ -15076,9 +15137,14 @@ datepicker[mc-inline] > menulist {
 
   /* Symbole als Maske: Fläche in der Textfarbe des Designs */
   :is(#unifiedToolbarContent li:is([item-id="get-messages"], [item-id="write-message"], [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"], [item-id="archive"], [item-id="delete"], [item-id="junk"], [item-id="move-to"], [item-id="mark-as"], [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]) button .button-icon, #mcListHeader .mc-lh-tools > button::before,
-      #task-actions-toolbar > toolbarbutton::before, .mc-tc-stripe) {
+      #task-actions-toolbar > toolbarbutton::before, .mc-tc-stripe, .mc-tc-fill) {
     forced-color-adjust: none;
     background-color: ButtonText !important;
+  }
+
+  .mc-tc-bar {
+    background: transparent !important;
+    border: 1px solid ButtonText !important;
   }
 }
 

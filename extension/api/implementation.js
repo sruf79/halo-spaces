@@ -2580,49 +2580,12 @@ const TASK_SIDE_MIN = 760; // höchstens: Liste 360 + Details 360 + Teiler/Luft
 const TASK_LIST_MIN = 360;
 const TASK_LIST_MAX = 640;
 
-// „board“: Kanban-Ansicht – Karten in Spalten nach Zustand (Offen, In Arbeit,
-// Erledigt), ohne Detailspalte (Details über das eigene Fenster); Entscheidung
-// des Maintainers vom 9.11.2026. Die Tabellenansicht ist gestrichen
-// (Maintainer 11.11.2026: Tabellenansicht „Ja, komplett streichen“): ein
-// gespeichertes „table“ gilt als Kartenansicht und wird beim Start entfernt
+// „board“: Kanban-Ansicht – Karten in Spalten nach Fortschritt (0 %, 1–99 %,
+// 100 %), ohne Detailspalte (Details über das eigene Fenster); Entscheidung des
+// Maintainers vom 9.11.2026
 function taskView() {
-  return Services.prefs.getCharPref(TASK_VIEW_PREF, "list") == "board" ? "board" : "list";
-}
-
-function migrateTaskView() {
-  if (Services.prefs.getCharPref(TASK_VIEW_PREF, "") == "table") {
-    Services.prefs.clearUserPref(TASK_VIEW_PREF); // Standard: Kartenansicht
-  }
-}
-
-// Zustand einer Aufgabe statt Prozent (Maintainer 11.11.2026, Fortschrittsbalken
-// „Durch drei Zustände ersetzen“): 0 Offen, 1 In Arbeit, 2 Erledigt, über den
-// Standard-Status (STATUS aus RFC 5545). Prozentwerte anderer Programme zählen
-// beim Lesen mit (1–99 % = In Arbeit, 100 % = Erledigt) – nichts wird dafür in
-// die Kalenderdaten geschrieben
-const TASK_STAGES = [["open", "Open|tasks"], ["progress", "In Progress"], ["done", "Completed"]];
-function taskStage(task) {
-  const pct = task?.percentComplete || 0;
-  if (!task || !(task.isCompleted || task.status == "COMPLETED" || pct >= 100)) {
-    return task && (task.status == "IN-PROCESS" || pct > 0) ? 1 : 0;
-  }
-  return 2;
-}
-
-// Zustand setzen (auf einer Kopie, gespeichert über Thunderbirds Transaktion):
-// Erledigt wie Thunderbird (COMPLETED, Datum, 100 %); In Arbeit IN-PROCESS,
-// ein Prozentwert unter 100 bleibt stehen; Offen NEEDS-ACTION ohne Prozent
-function setTaskStage(item, k) {
-  if (k == 2) {
-    item.isCompleted = true;
-    return;
-  }
-  const pct = item.isCompleted ? 0 : item.percentComplete || 0;
-  item.isCompleted = false; // (entfernt STATUS, PERCENT-COMPLETE und COMPLETED)
-  item.status = k == 1 ? "IN-PROCESS" : "NEEDS-ACTION";
-  if (k == 1 && pct > 0 && pct < 100) {
-    item.percentComplete = pct;
-  }
+  const v = Services.prefs.getCharPref(TASK_VIEW_PREF, "list");
+  return v == "table" || v == "board" ? v : "list";
 }
 
 function applyTaskView(win, mode = taskView()) {
@@ -2727,9 +2690,7 @@ const TASK_LISTS = [
   ["today", "Today", "open", "upToToday"],
   ["scheduled", "Scheduled", "open", "dated"],
   ["all", "Open|tasks", "open", "any"],
-  // (In Arbeit nach Zustand: auch IN-PROCESS ohne Prozentwert – Thunderbirds
-  // eigener Filter kennt nur „mehr als 0 %“)
-  ["progress", "In Progress", "open", "any", item => taskStage(item) == 1],
+  ["progress", "In Progress", "progress", "any"],
   ["completed", "Completed", "done", "any"],
   ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
 ];
@@ -2785,7 +2746,7 @@ function defineTaskLists(win) {
       progress: props.FILTER_STATUS_IN_PROGRESS,
       done: props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE,
     }[status];
-    if (board && status == "open" && key != "progress") {
+    if (board && status == "open") {
       props.status |= props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE;
     }
     props.due = {
@@ -3588,105 +3549,6 @@ function hookMenubar(win, restorers) {
   });
 }
 
-// Thunderbirds Menüs „Progress“ (Kontextmenü der Aufgabenliste, Menü Tasks,
-// Pfeil am Erledigt-Knopf) heißen „Status“ und zeigen statt der Prozentstufen
-// die drei Zustände wie Liste und Kanban (setTaskStage, mit Rückgängig). Nur in
-// einer als Tab geöffneten Aufgabe bleibt Thunderbirds Menü, es gilt dort dem Tab
-function hookTaskStageMenus(win, restorers) {
-  const doc = win.document;
-  const root = doc.documentElement;
-  const popups = [...doc.querySelectorAll('menupopup[is="calendar-task-progress-menupopup"]')];
-  if (root.__mcStageMenus || !popups.length) {
-    return;
-  }
-  root.__mcStageMenus = true;
-  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-  const selected = () => {
-    try {
-      return win.getSelectedTasks?.() || [];
-    } catch {
-      return [];
-    }
-  };
-  const writable = task => {
-    try {
-      return cal.acl.isCalendarWritable(task.calendar) && cal.acl.userCanModifyItem(task);
-    } catch {
-      return false;
-    }
-  };
-  const setStage = k => {
-    const tasks = selected().filter(t => writable(t) && taskStage(t) != k);
-    if (!tasks.length) {
-      return;
-    }
-    win.startBatchTransaction?.();
-    try {
-      for (const task of tasks) {
-        const item = task.clone();
-        setTaskStage(item, k);
-        win.doTransaction("modify", item, item.calendar, task, null);
-      }
-    } catch (e) {
-      log("task stage menu error", e);
-    } finally {
-      win.endBatchTransaction?.();
-    }
-  };
-  const inTaskTab = () => win.gTabmail?.currentTabInfo?.mode?.type == "calendarTask";
-  const onShowing = event => {
-    const popup = event.currentTarget;
-    if (event.target != popup) {
-      return;
-    }
-    let items = [...popup.querySelectorAll(":scope > menuitem.mc-stage")];
-    if (!items.length) {
-      items = TASK_STAGES.map(([, label], k) => {
-        const m = doc.createXULElement("menuitem");
-        m.className = `mc-stage mc-stage-${k}`;
-        m.setAttribute("type", "checkbox");
-        m.setAttribute("label", tr(label));
-        m.addEventListener("command", () => setStage(k));
-        return m;
-      });
-      popup.prepend(...items);
-    }
-    const tab = inTaskTab();
-    for (const m of popup.querySelectorAll(':scope > menuitem[command^="calendar_percentComplete-"]')) {
-      m.hidden = !tab;
-    }
-    const tasks = selected();
-    const k0 = tasks.length ? taskStage(tasks[0]) : -1;
-    const same = tasks.every(t => taskStage(t) == k0);
-    items.forEach((m, k) => {
-      m.hidden = tab;
-      m.toggleAttribute("checked", same && k == k0);
-    });
-  };
-  const menus = [];
-  for (const popup of popups) {
-    popup.addEventListener("popupshowing", onShowing);
-    const menu = popup.parentElement;
-    if (menu?.localName == "menu" && menu.hasAttribute("data-l10n-id")) {
-      menus.push([menu, menu.getAttribute("data-l10n-id")]);
-      menu.removeAttribute("data-l10n-id");
-      menu.removeAttribute("accesskey");
-      menu.setAttribute("label", tr("Status"));
-    }
-  }
-  restorers?.push(() => {
-    delete root.__mcStageMenus;
-    for (const popup of popups) {
-      popup.removeEventListener("popupshowing", onShowing);
-      popup.querySelectorAll(":scope > menuitem.mc-stage").forEach(m => m.remove());
-      popup.querySelectorAll(":scope > menuitem[command]").forEach(m => (m.hidden = false));
-    }
-    for (const [menu, id] of menus) {
-      menu.setAttribute("data-l10n-id", id); // (Fluent setzt Text und Kürzel wieder)
-    }
-  });
-}
-
 function hookTaskView(win, restorers) {
   const doc = win.document;
   const details = doc.getElementById("calendar-task-details-container");
@@ -3695,7 +3557,6 @@ function hookTaskView(win, restorers) {
     return;
   }
   splitter.__mcTaskView = true;
-  migrateTaskView();
   const apply = () => {
     try {
       applyTaskView(win);
@@ -3991,20 +3852,65 @@ function hookTaskInfo(win, restorers, solo = null) {
     return r;
   };
   // Kopfkarte wie eine vergrößerte Karte (K2, Entscheidung des Maintainers
-  // vom 6.11.2026): links der Streifen in Listenfarbe. Titel und Notiz bleiben
-  // Thunderbirds Elemente – der Streifen liegt darüber und folgt der Höhe der
-  // Karte (place). Den Fortschrittsstrich gibt es nicht mehr, der Zustand steht
-  // in der Zeile „Status“ (Maintainer 11.11.2026: Fortschrittsbalken „Durch
-  // drei Zustände ersetzen“)
+  // vom 6.11.2026): links der Streifen in Listenfarbe, rechts der
+  // Fortschrittsstrich (farbig von unten, offener Teil fein rot gestrichelt)
+  // mit der Zahl unten links daneben. Der Fortschritt steht nur hier und ist
+  // direkt bedienbar: Strich ziehen bzw. anklicken (5-%-Schritte), Zahl
+  // anklicken zum Eintippen, Pfeiltasten; Rechtsklick auf den Strich: Stufen
+  // und „Cancelled“. Titel und Notiz bleiben Thunderbirds Elemente – Streifen
+  // und Strich liegen darüber und folgen der Höhe der Karte (place)
   const detailsEl = doc.getElementById("calendar-task-details");
   const cardBox = doc.getElementById("calendar-task-details-box");
   const stripe = el("div");
   stripe.id = "mcTaskStripe";
-  detailsEl?.append(stripe);
+  const bar = el("div");
+  bar.id = "mcTaskProg";
+  bar.tabIndex = 0;
+  bar.setAttribute("role", "slider");
+  bar.setAttribute("aria-label", tr("Progress"));
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", "100");
+  const fill = el("i");
+  bar.append(fill);
+  const num = el("div");
+  num.id = "mcTaskProgNum";
+  detailsEl?.append(stripe, bar, num);
+  const stepOf = p => (p >= 100 ? "100" : String(Math.min(75, Math.round(p / 25) * 25)));
+  const showPct = p => {
+    fill.style.height = `${p}%`;
+    bar.dataset.step = stepOf(p);
+    bar.setAttribute("aria-valuenow", String(p));
+    num.replaceChildren(String(p), el("small", null, "\u2009%"));
+  };
+  const curPct = item => (item.isCompleted ? 100 : item.percentComplete || 0);
+  const setPct = v => {
+    const p = Math.max(0, Math.min(100, Math.round(v)));
+    const item = tree.currentTask;
+    if (!item || p == curPct(item)) {
+      if (item) {
+        showPct(curPct(item));
+      }
+      return;
+    }
+    showPct(p);
+    save(it => {
+      if (p == 100) {
+        it.isCompleted = true;
+      } else {
+        it.isCompleted = false;
+        it.status = p ? "IN-PROCESS" : "NONE";
+        it.percentComplete = p;
+      }
+    }).catch(() => {});
+  };
   const head = (item, color) => {
     stripe.style.backgroundColor = color;
+    showPct(curPct(item));
+    const canEdit = writable(item);
+    bar.toggleAttribute("data-readonly", !canEdit);
+    num.toggleAttribute("data-readonly", !canEdit);
   };
-  // Streifen an die Karte (Titel samt Notiz) legen
+  // Streifen, Strich und Zahl an die Karte (Titel samt Notiz) legen
   const place = () => {
     if (!detailsEl || !cardBox) {
       return;
@@ -4013,16 +3919,86 @@ function hookTaskInfo(win, restorers, solo = null) {
     const top = cardBox.getBoundingClientRect();
     const note = doc.documentElement.hasAttribute("mc-task-note") ? frame.getBoundingClientRect() : null;
     const shown = !!tree.currentTask && top.height > 0;
-    stripe.hidden = !shown;
+    for (const e of [stripe, bar, num]) {
+      e.hidden = !shown;
+    }
     if (!shown) {
       return;
     }
     const y0 = top.top - base.top + detailsEl.scrollTop + 16;
     const y1 = Math.max(top.bottom, note?.height ? note.bottom : 0) - base.top + detailsEl.scrollTop - 16;
     const h = Math.max(20, y1 - y0);
-    const left = top.left - base.left + 14;
+    const left = top.left - base.left + 14, right = base.right - top.right + 16;
     Object.assign(stripe.style, { top: `${y0}px`, height: `${h}px`, insetInlineStart: `${left}px` });
+    // (der Strich ist zum Greifen 17 px breit, sichtbar die 5 px in der Mitte)
+    Object.assign(bar.style, { top: `${y0}px`, height: `${h}px`, insetInlineEnd: `${right - 6}px` });
+    Object.assign(num.style, { top: `${y0 + h - 17}px`, insetInlineEnd: `${right + 5 + 14}px` });
   };
+  const fromY = y => {
+    const r = bar.getBoundingClientRect();
+    return Math.round(Math.max(0, Math.min(1, (r.bottom - y) / r.height)) * 20) * 5;
+  };
+  const onBarDown = event => {
+    if (event.button != 0 || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    bar.focus();
+    let p = fromY(event.clientY);
+    showPct(p);
+    const move = e => {
+      p = fromY(e.clientY);
+      showPct(p);
+    };
+    const up = () => {
+      win.removeEventListener("mousemove", move, true);
+      win.removeEventListener("mouseup", up, true);
+      setPct(p);
+    };
+    win.addEventListener("mousemove", move, true);
+    win.addEventListener("mouseup", up, true);
+  };
+  const onBarKey = event => {
+    const item = tree.currentTask;
+    const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5 }[event.key];
+    if (!item || !d || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    setPct(Math.round((curPct(item) + d) / 5) * 5);
+  };
+  // (Rechtsklick: Stufen wie bisher und „Cancelled“ – den Status gibt es sonst noch nirgends)
+  const onBarMenu = event => {
+    const item = tree.currentTask;
+    if (!item || bar.hasAttribute("data-readonly")) {
+      return;
+    }
+    event.preventDefault();
+    const pct = curPct(item);
+    openMenu(bar, [
+      ...[0, 25, 50, 75, 100].map(v => ({ label: `${v} %`, type: "radio", checked: pct == v && item.status != "CANCELLED", run: () => setPct(v) })),
+      null,
+      { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => (it.status = "CANCELLED")) },
+    ]);
+  };
+  const onNum = () => {
+    const item = tree.currentTask;
+    if (!item || num.hasAttribute("data-readonly") || num.querySelector("input")) {
+      return;
+    }
+    editText(num, String(curPct(item)), text => setPct(parseFloat(text) || 0), { type: "number" });
+    const input = num.querySelector("input");
+    if (input) {
+      input.min = "0";
+      input.max = "100";
+      input.step = "5";
+    }
+  };
+  bar.addEventListener("mousedown", onBarDown);
+  bar.addEventListener("keydown", onBarKey);
+  bar.addEventListener("contextmenu", onBarMenu);
+  num.addEventListener("click", onNum);
   const headRO = new win.ResizeObserver(() => place());
   for (const e of [detailsEl, cardBox, frame]) {
     e && headRO.observe(e);
@@ -4030,6 +4006,8 @@ function hookTaskInfo(win, restorers, solo = null) {
   restorers.push(() => {
     headRO.disconnect();
     stripe.remove();
+    bar.remove();
+    num.remove();
   });
   const render = () => {
     const item = tree.currentTask;
@@ -4068,7 +4046,6 @@ function hookTaskInfo(win, restorers, solo = null) {
         row("lock", "Privacy", tr(privacy)),
       ]),
       ...group(null, [
-        row("status", "Status", tr(item.status == "CANCELLED" && !item.isCompleted ? "Cancelled" : TASK_STAGES[taskStage(item)][1])),
         row("star", "Priority", prio >= 1 && prio <= 4 ? tr("High") : prio == 5 ? tr("Medium") : prio >= 6 && prio <= 9 ? tr("Low") : null),
       ]),
       ...group("Place", [row("location", "Location", item.getProperty("LOCATION"))]),
@@ -4338,20 +4315,6 @@ function hookTaskInfo(win, restorers, solo = null) {
     });
     on("lock", r => openMenu(r, [["PUBLIC", "Public"], ["PRIVATE", "Private"], ["CONFIDENTIAL", "Confidential"]].map(([v, label]) =>
       ({ label: tr(label), type: "radio", checked: (item.privacy || "PUBLIC") == v, run: () => save(it => (it.privacy = v)) }))));
-    // Zustand Offen / In Arbeit / Erledigt, dazu „Cancelled“ wie bisher im
-    // Menü des früheren Fortschrittsstrichs (den Status gibt es sonst nirgends)
-    on("status", r => {
-      const cancelled = item.status == "CANCELLED" && !item.isCompleted;
-      openMenu(r, [
-        ...TASK_STAGES.map(([, label], k) => ({ label: tr(label), type: "radio", checked: !cancelled && taskStage(item) == k,
-          run: () => save(it => setTaskStage(it, k)) })),
-        null,
-        { label: tr("Cancelled"), type: "radio", checked: cancelled, run: () => save(it => {
-          it.isCompleted = false;
-          it.status = "CANCELLED";
-        }) },
-      ]);
-    });
     on("star", r => openMenu(r, [[0, "None"], [1, "High"], [5, "Medium"], [9, "Low"]].map(([v, label]) => {
       const cur = item.priority >= 1 && item.priority <= 4 ? 1 : item.priority == 5 ? 5 : item.priority >= 6 ? 9 : 0;
       return { label: tr(label), type: "radio", checked: cur == v, run: () => save(it => (it.priority = v)) };
@@ -4752,7 +4715,11 @@ async function openTaskWindow(main, item) {
       const task = solo.tree.currentTask;
       const done = !task.isCompleted;
       const copy = task.clone();
-      setTaskStage(copy, done ? 2 : 0);
+      copy.isCompleted = done;
+      if (!done) {
+        copy.status = "NONE";
+        copy.percentComplete = 0;
+      }
       nw.doTransaction("modify", copy, copy.calendar, task, null).catch(e => log("task complete error", e));
     });
     complete.addEventListener("click", event => event.button == 0 && complete.doCommand?.());
@@ -4893,15 +4860,15 @@ function hookTaskCards(win, restorers) {
       }
       // Aufbau nach Entwurf I (Entscheidung des Maintainers vom 6.11.2026):
       // links der Farbstreifen der Liste (so hoch wie der Inhalt, mindestens
-      // 48 px), oben der Titel mit Priorität; darunter nur, was es gibt: Datum,
-      // Ort, Beschreibung, Kategorien. Statt Fortschrittsstrich und „n %“ steht
-      // unten rechts der Zustand „In Progress“ bzw. „Completed“ mit seinem Ring
-      // wie im Menü, eine offene Aufgabe zeigt nichts (Maintainer 11.11.2026:
-      // Fortschrittsbalken „Durch drei Zustände ersetzen“). Kein Abhak-Kreis
-      // mehr (zu oft versehentlich erledigt)
+      // 48 px), oben der Titel mit Priorität, rechts der Fortschrittsstrich –
+      // erledigter Teil füllt von unten in der Ampelfarbe der Stufe, der
+      // offene Teil ist fein rot gestrichelt –, unten rechts daneben die Zahl
+      // „n %“; darunter nur, was es gibt: Datum, Ort, Beschreibung,
+      // Kategorien. Kein Abhak-Kreis mehr (zu oft versehentlich erledigt)
       card.style.setProperty("--mc-tc-color", color(task.calendar));
-      const stage = taskStage(task);
-      card.dataset.stage = TASK_STAGES[stage][0];
+      const pct = task.isCompleted ? 100 : Math.max(0, Math.min(100, task.percentComplete || 0));
+      card.dataset.step = String(pct >= 100 ? 100 : pct >= 75 ? 75 : pct >= 50 ? 50 : 25);
+      card.style.setProperty("--mc-tc-p", pct);
       const title = el("div", "mc-tc-title");
       // Priorität wie Apple: „!!!“ hoch, „!!“ mittel, „!“ niedrig vor dem Titel
       const prio = task.priority;
@@ -4909,10 +4876,11 @@ function hookTaskCards(win, restorers) {
         title.append(el("span", "mc-tc-prio", prio <= 4 ? "!!!" : prio == 5 ? "!!" : "!"));
       }
       title.append(task.title || "");
-      card.append(el("span", "mc-tc-stripe"), title);
-      if (stage) {
-        card.append(el("span", "mc-tc-state", tr(TASK_STAGES[stage][1])));
-      }
+      const bar = el("span", "mc-tc-bar");
+      bar.title = tr("{n} % done", { n: pct });
+      bar.append(el("i", "mc-tc-fill"));
+      const num = el("span", "mc-tc-pct", `${pct} %`);
+      card.append(el("span", "mc-tc-stripe"), title, num, bar);
       const due = dueText(task);
       const start = dateText(task.entryDate);
       if (due || start) {
@@ -4948,8 +4916,8 @@ function hookTaskCards(win, restorers) {
           markHits(part, term);
         }
       }
-      // (Streifen und Zustand reichen über alle Zeilen der Karte)
-      card.style.setProperty("--mc-tc-rows", card.children.length - (stage ? 2 : 1));
+      // (Streifen, Strich und Zahl reichen über alle Zeilen der Karte)
+      card.style.setProperty("--mc-tc-rows", card.children.length - 3);
       return card;
     });
     // (eine Zeile in Bearbeitung nicht umhängen – sie verlöre den Fokus)
@@ -4968,12 +4936,15 @@ function hookTaskCards(win, restorers) {
     list.toggleAttribute("data-focused", doc.activeElement == tree);
     enhancer?.updateListHeader?.(win); // Anzahl im Listenkopf
   };
-  // Kanban-Ansicht: drei Spalten nach Zustand – „Open“, „In Progress“,
-  // „Completed“ (taskStage), je mit Anzahl im Kopf; „New Task“ unter der
-  // ersten Spalte. Die Karten sind dieselben wie in der Kartenansicht
-  // (Auswahl, Kontextmenü, Doppelklick gleich)
-  const BOARD_COLUMNS = TASK_STAGES;
-  const stageOf = taskStage;
+  // Kanban-Ansicht: drei Spalten nach Fortschritt – „Not Started“ (0 %),
+  // „In Progress“ (1–99 %), „Completed“ (100 % bzw. erledigt), je mit Anzahl im
+  // Kopf; „New Task“ unter der ersten Spalte. Die Karten sind dieselben wie in
+  // der Kartenansicht (Auswahl, Kreis, Kontextmenü, Doppelklick gleich)
+  const BOARD_COLUMNS = [["todo", "Not Started"], ["doing", "In Progress"], ["done", "Completed"]];
+  const stageOf = task => {
+    const pct = task.percentComplete || 0;
+    return task.isCompleted || pct >= 100 ? 2 : pct > 0 ? 1 : 0;
+  };
   const renderBoard = (tasks, cards) => {
     const groups = BOARD_COLUMNS.map(() => []);
     cards.forEach((card, i) => groups[stageOf(tasks[i])].push(card));
@@ -5005,9 +4976,11 @@ function hookTaskCards(win, restorers) {
       }
     });
   };
-  // Karte in eine andere Spalte ziehen setzt den Zustand (setTaskStage), über
-  // Thunderbirds Transaktion (mit Rückgängig). Beim Ziehen folgt eine Kopie der
-  // Karte der Maus, die Zielspalte ist umrandet
+  // Karte in eine andere Spalte ziehen setzt den Fortschritt: Not Started 0 %,
+  // In Progress 50 %, Completed erledigt (Entscheidung des Maintainers vom
+  // 9.11.2026), über Thunderbirds Transaktion (mit Rückgängig). Beim Ziehen
+  // folgt eine Kopie der Karte der Maus, die Zielspalte ist umrandet
+  const BOARD_PCT = [0, 50, 100];
   const setStage = async (task, k) => {
     if (!task || stageOf(task) == k) {
       return;
@@ -5020,7 +4993,14 @@ function hookTaskCards(win, restorers) {
       return;
     }
     const item = task.clone();
-    setTaskStage(item, k);
+    const p = BOARD_PCT[k];
+    if (p == 100) {
+      item.isCompleted = true;
+    } else {
+      item.isCompleted = false;
+      item.status = p ? "IN-PROCESS" : "NONE";
+      item.percentComplete = p;
+    }
     try {
       await win.doTransaction("modify", item, item.calendar, task, null);
     } catch (e) {
@@ -10576,7 +10556,7 @@ class CardEnhancer {
         }
         if (popup.dataset.kind == "view") {
           // „list“ bleibt der gespeicherte Wert (Kompatibilität), heißt aber wie in der Mail „Kartenansicht“
-          popup.replaceChildren(...[["list", "Card View"], ["board", "Kanban View"]].map(([key, label]) => {
+          popup.replaceChildren(...[["list", "Card View"], ["table", "Table View"], ["board", "Kanban View"]].map(([key, label]) => {
             const item = d.createXULElement("menuitem");
             item.setAttribute("type", "radio");
             item.setAttribute("name", "mctaskview");
@@ -10711,7 +10691,6 @@ class CardEnhancer {
           hookTaskLists(w, this.restorers);
           relinkTaskTree(w, this.restorers);
           hookTaskView(w, this.restorers);
-          hookTaskStageMenus(w, this.restorers);
           hookTaskCards(w, this.restorers);
           hookTaskInfo(w, this.restorers);
           hookTaskOpen(w, this.restorers);

@@ -9354,7 +9354,10 @@ def run_checks(m, version, profile, results):
             const fits = () => hd.documentElement.scrollHeight - hw.innerHeight <= 1;
             out.start = { h: hw.innerHeight, weatherShut: shut("weather"), fifthShut: shut("fifth"), dashes: hd.body.textContent.includes(" – "),
                           chatChosen: btn("fifth", "Yes")?.classList.contains("chosen") };
-            btn("weather", "Yes").click(); await wait(700);
+            // auf den Endzustand warten statt fest 700 ms: gilt die Begrüßung als verdeckt (visibilityState hidden, auf dem
+            // Testrechner nach dem Ein- oder Zuklappen), laufen Übergänge und requestAnimationFrame stark gedrosselt
+            const done = (f, h0) => until(() => f() && fits() && (h0 == null || hw.innerHeight != h0), 10000).then(() => ruhig(200));
+            btn("weather", "Yes").click(); await done(() => isOpen("weather"), out.start.h);
             out.weatherYes = { open: isOpen("weather"), h: hw.innerHeight, fits: fits() };
             btn("weather", "City …").click(); await ruhig(300);
             const input = hd.querySelector("#weather .city input"); input.value = "Wi"; input.dispatchEvent(new hw.Event("input"));
@@ -9364,15 +9367,15 @@ def run_checks(m, version, profile, results):
             sug[0]?.click(); await ruhig(800);
             out.chosen = { on: Services.prefs.getBoolPref(P + "weather", false), place: Services.prefs.getStringPref(P + "weatherPlace", ""),
                            status: hd.querySelector("#weather .status").textContent };
-            btn("weather", "No").click(); await wait(700);
+            const hOpen = hw.innerHeight; btn("weather", "No").click(); await done(() => shut("weather"), hOpen);
             out.weatherNo = { shut: shut("weather"), on: Services.prefs.getBoolPref(P + "weather", false), h: hw.innerHeight, fits: fits() };
-            btn("fifth", "No").click(); await wait(700);
+            btn("fifth", "No").click(); await done(() => isOpen("fifth"));
             out.chatNo = { open: isOpen("fifth"), mode: Services.prefs.getStringPref(P + "fifthSpace", "chat"),
                            nothing: btn("fifth", "Nothing")?.classList.contains("chosen"), choices: [...hd.querySelectorAll("#fifth .choices:not(.yesno) button")].map(b => b.textContent), fits: fits() };
             btn("fifth", "Website …").click(); await ruhig(300);
             const url = hd.querySelector("#fifth .city input"); url.value = "kalender.example.com"; btn("fifth", "OK").click(); await ruhig(300);
             out.web = { mode: Services.prefs.getStringPref(P + "fifthSpace", ""), url: Services.prefs.getStringPref(P + "fifthSpaceUrl", "") };
-            btn("fifth", "Yes").click(); await wait(700);
+            btn("fifth", "Yes").click(); await done(() => shut("fifth"));
             out.chatYes = { shut: shut("fifth"), mode: Services.prefs.getStringPref(P + "fifthSpace", "chat"), fits: fits() };
             out.endDashes = hd.body.textContent.includes(" – ");
             hw.close();

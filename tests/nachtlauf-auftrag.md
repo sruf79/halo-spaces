@@ -81,7 +81,8 @@ Reihenfolge:
    Was während des Laufs dazukommt, arbeitet der nächste Nachtlauf ab.
 1a. Director (Entscheidung des Maintainers vom 13.11.2026, Wortlaut in
    ENTSCHEIDUNGEN.md: „ja und ich möchte den director bereits heute nacht zum
-   ersten mal einsetzen“): Du bist bei jedem Start der Director. Statt die
+   ersten mal einsetzen“; steht oben „Volldampf: …“, zusätzlich Schritt 1c):
+   Du bist bei jedem Start der Director. Statt die
    feste Reihenfolge abzuarbeiten, bewertest du die Liste und legst fest, was
    diese Nacht den größten Nutzen je Aufwand bringt („bei einer 50 punkte
    liste kann ich eventuell 2,3 schwere pro nacht macht oder stattdessen
@@ -264,6 +265,64 @@ Reihenfolge:
    „Director-Plan“ die Zeile „Director: Rückfall auf feste Reihenfolge, Grund
    …“; die Plandatei enthält dann diese Reihenfolge. Der Lauf darf wegen des
    Directors nie ausfallen oder anhalten.
+1c. Volldampf – gilt NUR, wenn oben eine Zeile „Volldampf: …“ steht (sonst
+   diesen Abschnitt überspringen, nichts ändert sich). Entscheidung des
+   Maintainers vom 13.11.2026, Wortlaute in ENTSCHEIDUNGEN.md („Ist wie ein
+   override schalter“; „wenn das wochenlimit erreicht wurde wird Volldampf
+   automatisch deaktiviert. Nur bei erreichen des wichenlimits und nicht bei
+   erreichen des 5 Stunden Limits“; Fable „Freier aber auch nicht
+   überbordernd“). Den aktuellen Stand liest du jederzeit selbst mit
+   zsh -c 'source tests/lauf-hilfen.zsh; LOG=/dev/null volldampf_status'
+   (keine Ausgabe = keine Zeile in ~/halo-nacht/volldampf.txt).
+   a) Pflichtvermerk: Die erste Zeile im Abschnitt „Director-Plan“ ist immer
+      die Volldampf-Zeile von oben („Volldampf aktiv bis …“, „Volldampf
+      beendet: Wochenlimit erreicht um …“ oder „Volldampf angemeldet (ab …,
+      bis …), nicht aktiv“), und die Zeile „Kurz:“ beginnt mit „Volldampf
+      aktiv bis <Zeit>“ bzw. „Volldampf beendet …“ (bei „angemeldet, nicht
+      aktiv“ nur im Director-Plan). Hat sich der Stand während der Nacht
+      geändert (Fortsetzungs- oder Limit-Meldung des Skripts), den letzten
+      Stand nennen und die Uhrzeit des Wechsels.
+   b) Nur bei „Volldampf aktiv“ (bei „beendet“ und „angemeldet“ gilt alles
+      wie ohne Volldampf):
+      - Planen mit voller Kapazität: Die 70–80 %-Vorsicht (Haltung) und die
+        Reserve von einem Drittel (c, Rahmenregel (c)) entfallen. Zuerst die
+        token-intensivsten WERTVOLLEN Einträge nach Nutzen (große Bugs und
+        Features mit hohem Nutzen, Reihen-Schritte), danach mittlere und
+        kleine nach Nutzen je Aufwand. „Wertvoll“ heißt Nutzen für Nutzer:
+        große reine Umbauten ohne Nutzernutzen (z. B. Module zerlegen) nur
+        nachrangig. Unverändert gelten: Rahmenregeln (a)–(g), Schutz der
+        Mail-Funktion, Apple-Mail-Maßstab, Rückfragen statt Raten (f),
+        „Wartet auf OK“ bleibt liegen, Grenze 04:30 für neue Einträge vor dem
+        Push (Schritt 3) und die Zeiten für CI und Release (Schritt 4).
+      - Schritt 5 und Fortsetzungen bis 08:00 (das Skript setzt dann die
+        Grenzen auf 08:00, höchstens acht Fortsetzungen und zwölf nicht
+        gepushte Commits statt 06:30/vier/sechs): bis 08:00 neue Einträge
+        beginnen, jeden bis spätestens 08:45 committen oder verwerfen (um
+        09:00 beendet das Skript Claude hart). Endegründe wie Schritt 5 d mit
+        08:00 und zwölf Commits.
+      - 5-Stunden-Limit: nicht abbrechen; es gilt die bestehende Limit-Pause
+        des Skripts (warten, dann weiter). Es beendet Volldampf nicht.
+      - Wochenlimit: Das Skript prüft vor jeder Runde; ab 98 % („alle
+        Modelle“) ist Volldampf dauerhaft beendet, ab dann gelten wieder alle
+        normalen Regeln (Vorsicht, Reserve, 06:30). Nicht selbst wieder
+        einschalten, nichts in volldampf.txt oder volldampf-beendet.txt
+        schreiben (nur der Maintainer).
+      - Fable (statt der Regel aus AGENTS.md „Rot bleibt rot“, nur im
+        Volldampf): nur für die wirklich schwersten Fälle – belegte Ursache
+        fehlt nach einem Opus-Versuch bei einem Eintrag mit hohem Nutzen, oder
+        Analyse/Design, die ein starkes Modell braucht; nie für Routine oder
+        Mechanisches (Vorschaubilder, Tests, Doku). Höchstens zwei
+        Fable-Agenten in dieser Nacht, nacheinander, nie parallel; nur bei
+        5-Stunden-Fenster unter 60 % (zsh tests/kontingent.sh); die
+        Soll-Bedingung der Woche entfällt. „Fable only“ (Wochenwert nur für
+        Fable) ist mit kontingent.sh derzeit nicht lesbar (das
+        rate_limit_event enthält nur seven_day und five_hour): im
+        Director-Plan „Fable-Wochenwert nicht lesbar“ vermerken. Wäre er
+        lesbar und über 80 %: kein Fable mehr. Nach zwei Fable-Versuchen ohne
+        belegte Ursache an derselben Sache: Übergabe an den Maintainer
+        (Bericht), wie bisher.
+      - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
+        am Anfang und Ende (Woche, 5 Stunden).
 2. Je Eintrag (in der Reihenfolge der Plandatei): Status In Progress (~/halo-aufgaben/status.sh <id> progress),
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850

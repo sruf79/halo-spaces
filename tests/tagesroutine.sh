@@ -29,6 +29,12 @@ export HALO_LAUF=tagesroutine
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
+# Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, Datei ~/halo-nacht/volldampf.txt, Hilfen in
+#   lauf-hilfen.zsh): solange aktiv, bremsen Sollkurve und Sparmodus nicht (Modellwahl wie im Normalbetrieb),
+#   MAX_COMMITS_TAG gilt doppelt, Fable ohne Soll-Bedingung bei 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF und
+#   „Fable only“ höchstens FABLE_WOCHE_MAX (nicht lesbar: kein Halt, im Bericht vermerkt); das 5-Stunden-Fenster
+#   bremst wie sonst. Vor jeder Entscheidung beendet volldampf_wochenlimit_pruefen Volldampf dauerhaft, sobald die
+#   Woche VOLLDAMPF_WOCHE_ENDE erreicht. Bericht und „Kurz:“ nennen den Zustand. Probe: HALO_VOLLDAMPF_DATEI.
 # Schwellen: ~/.config/halo-spaces/tagesroutine.conf (HALO_TAGESROUTINE_CONF), sonst die neben dem Skript.
 # Zum Proben: HALO_JETZT=<ISO-Zeit mit Zone> ersetzt die Uhr; HALO_KONTINGENT_WOCHE / HALO_KONTINGENT_5H
 # (Prozent) ersetzen kontingent.sh, HALO_KONTINGENT_5H_ENDE=<ISO-Zeit> das Ende des 5-Stunden-Fensters.
@@ -61,6 +67,7 @@ KONF=(
   FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
   MAX_COMMITS_TAG 20 BELEGT_WARTEN 60
+  FABLE_5H_MAX_VOLLDAMPF 60  FABLE_WOCHE_MAX 80  VOLLDAMPF_WOCHE_ENDE 98
 )
 KONF_DATEI=${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf}
 [[ -r $KONF_DATEI ]] || KONF_DATEI=$HIER/tagesroutine.conf
@@ -80,6 +87,7 @@ conf_laden
 # zeit, log, push, belegt, pause_*: gemeinsam mit den anderen Läufen
 HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
+VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf endet ab diesem Wochenwert (lauf-hilfen.zsh)
 source $HILFEN
 # „tagesroutine“ ist (noch) nicht in PAUSEN_ROUTINEN von lauf-hilfen.zsh: hier ergänzen, sonst gelten
 # Pausenzeilen „tagesroutine …“ als unlesbar (beim Einschalten in lauf-hilfen.zsh nachtragen)
@@ -157,13 +165,25 @@ def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + 
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
        "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
        "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein"}
+volldampf = e.get("K_VOLLDAMPF") == "ja"
+fable_woche = zahl("K_FABLE_WOCHE")      # „Fable only“ in Prozent, nan = nicht lesbar
 if math.isnan(woche):
     aus.update(ABSTAND="?", STUFE="unbekannt", ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
                GRUND="Kontingent nicht lesbar – nichts Neues beginnen")
 else:
     a = woche - soll
     aus["ABSTAND"] = "%+.1f" % a
-    if a > spar_max:
+    if volldampf:
+        # Volldampf (Maintainer 13.11.2026, „Ist wie ein override schalter“): Sollkurve, Sparmodus und Reserve
+        # bremsen nicht; Modellwahl wie im Normalbetrieb (komplex/Plan stark, Routine routine). Fable freier:
+        # 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF, ohne Soll-Bedingung, nicht bei „Fable only“ über
+        # FABLE_WOCHE_MAX. Das 5-Stunden-Fenster bremst weiter (unten).
+        aus.update(STUFE="Volldampf (Sollkurve bremst nicht)", ENTSCHEIDUNG="neu", M_KOMPLEX=stark, M_ROUTINE=routine,
+                   GRUND="Volldampf aktiv – Sollkurve und Sparmodus ausgesetzt")
+        if not math.isnan(h5) and h5 < zahl("K_FABLE_5H_MAX_VOLLDAMPF", 60) and \
+           (math.isnan(fable_woche) or fable_woche <= zahl("K_FABLE_WOCHE_MAX", 80)):
+            aus["FABLE"] = "ja"
+    elif a > spar_max:
         # Maintainer 12.11.2026 („die risikoärmere variante bitte“): nicht enden, sondern ohne Claude bis zur
         # vollen Stunde warten und neu entscheiden (die Sollkurve steigt, der Abstand sinkt)
         aus.update(STUFE="deutlich darüber (> %g)" % spar_max, ENTSCHEIDUNG="warten", M_KOMPLEX="-", M_ROUTINE="-",
@@ -267,6 +287,7 @@ entscheiden() {
   local k v
   E=()
   kontingent_lesen || K_WOCHE=
+  volldampf_lesen
   while IFS='=' read -r k v; do E[$k]=$v; done < <(
     K_WOCHE=$K_WOCHE K_5H=$K_5H K_5H_ENDE=$K_5H_ENDE \
     K_RESET_WOCHENTAG=$KONF[RESET_WOCHENTAG] K_RESET_ZEIT=$KONF[RESET_ZEIT] K_WOCHENTAGE=$KONF[WOCHENTAGE] \
@@ -276,8 +297,21 @@ entscheiden() {
     K_SPAR_KOSTEN_JE_EINTRAG=$KONF[SPAR_KOSTEN_JE_EINTRAG] K_SPAR_MODELL=$KONF[SPAR_MODELL] K_SPAR_DATEI=$SPAR_DATEI \
     K_PAUSE_OHNE_ENDE=$KONF[PAUSE_OHNE_ENDE] K_FABLE_5H_MAX=$KONF[FABLE_5H_MAX] \
     K_MODELL_STARK=$KONF[MODELL_STARK] K_MODELL_ROUTINE=$KONF[MODELL_ROUTINE] \
+    K_VOLLDAMPF=$VD K_FABLE_5H_MAX_VOLLDAMPF=$KONF[FABLE_5H_MAX_VOLLDAMPF] K_FABLE_WOCHE_MAX=$KONF[FABLE_WOCHE_MAX] \
+    K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
     python3 -I -c $ENTSCHEID_PY)
   [[ -n $E[SOLL] ]]
+}
+# Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst Wochenlimit prüfen (beendet
+# Volldampf dauerhaft, nicht im Trockenlauf), dann Zustand lesen. Setzt VD (ja/nein), VD_STATUS (Berichtszeile)
+# und MAX_COMMITS (im Volldampf das Doppelte von MAX_COMMITS_TAG).
+VD=nein VD_STATUS= VD_BERICHT= MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
+volldampf_lesen() {
+  [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_wochenlimit_pruefen $K_WOCHE
+  if volldampf_aktiv >/dev/null; then VD=ja; else VD=nein; fi
+  VD_STATUS=$(volldampf_status)
+  VD_BERICHT=${VD_STATUS:#*angemeldet*}   # Bericht, Kurz-Zeile, Auftrag: nur aktiv bzw. beendet
+  [[ $VD == ja ]] && MAX_COMMITS=$(( KONF[MAX_COMMITS_TAG] * 2 )) || MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
 }
 entscheidung_text() {
   case $E[ENTSCHEIDUNG] in
@@ -289,7 +323,7 @@ entscheidung_text() {
   esac
 }
 kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
-  print -r -- "Woche ${K_WOCHE:-?} % (Soll $E[SOLL] %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
+  print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % (Soll $E[SOLL] %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
 }
 spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
   print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
@@ -354,7 +388,8 @@ if [[ -n $TROCKEN ]]; then
   print "Kontingent:   $K_QUELLE"
   print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
-  print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein )"
+  print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; Tageslimit $MAX_COMMITS eigene Commits"
+  print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein ); Fable-Woche: ${K_FABLE:-nicht lesbar}"
   [[ -n $E[SPAR_RATE] ]] && print -r -- "Sparen:       $(spar_zeile); Modell $E[SPAR_MODELL]; Messungen $SPAR_DATEI"
   print "Entscheidung: $(entscheidung_text) – $E[GRUND]"
   if [[ -n $E[PAUSE_BIS] ]]; then
@@ -402,7 +437,7 @@ bericht_schreiben() {
   {
     print "# halo.spaces Tagesroutine $TAG – $titel"
     print
-    print "Kurz: $titel – $ERLEDIGT erledigt, $ZURUECK zurück auf Todo${ENDGRUND:+, Ende: $ENDGRUND}"
+    print "Kurz: ${VD_BERICHT:+${VD_BERICHT%% – *}; }$titel – $ERLEDIGT erledigt, $ZURUECK zurück auf Todo${ENDGRUND:+, Ende: $ENDGRUND}"
     print
     print "$(zeit), $(hostname -s); Schwellen: $KONF_DATEI"
     print
@@ -410,7 +445,8 @@ bericht_schreiben() {
     print
     print -r -- "- Anfang: ${K_ANFANG:-nicht gelesen}"
     print -r -- "- Ende: ${K_ENDE:-nicht gelesen}"
-    print -r -- "- Fable-Wochenzähler: ${K_FABLE:-nicht im rate_limit_event (kontingent.sh); get_usage der Leitstelle}"
+    [[ -n $VD_BERICHT ]] && print -r -- "- $VD_BERICHT; Tageslimit $MAX_COMMITS eigene Commits"
+    print -r -- "- Fable-Wochenzähler: ${K_FABLE:-nicht lesbar (kein Fable-Wert im rate_limit_event von kontingent.sh)}"
     print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
     [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
     print
@@ -526,8 +562,8 @@ while true; do
     log "warte: $GRUND"; sleep 300; w=$((w + 5))
   done
   if GRUND=$(belegt_tag); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
-  if (( $(eigene_commits_zahl) >= KONF[MAX_COMMITS_TAG] )); then
-    ENDGRUND="$KONF[MAX_COMMITS_TAG] eigene Commits heute erreicht"; break   # Ende, kein Warten
+  if (( $(eigene_commits_zahl) >= MAX_COMMITS )); then   # im Volldampf das Doppelte (volldampf_lesen)
+    ENDGRUND="$MAX_COMMITS eigene Commits heute erreicht"; break   # Ende, kein Warten
   fi
   # Kontingent vor jedem neuen Eintrag
   entscheiden; log "Kontingent: $(kontingent_zeile)"
@@ -665,7 +701,8 @@ Ergebnisdatei: $ERG (eine Zeile, siehe Auftrag). Berichtsabschnitt: $DIR/$TAG-ta
     erledigt*)    ERLEDIGT=$((ERLEDIGT + 1)); pruef_pushen ;;
     entscheidung*) ENTSCHEIDUNG_NOETIG=$((ENTSCHEIDUNG_NOETIG + 1)) ;;
     fable*)
-      # Fable-Regel: nur weit unter dem Soll, 5-Stunden-Fenster unter FABLE_5H_MAX, nacheinander, höchstens FABLE_JE_LAUF
+      # Fable-Regel: nur weit unter dem Soll, 5-Stunden-Fenster unter FABLE_5H_MAX, nacheinander, höchstens FABLE_JE_LAUF;
+      # im Volldampf ohne Soll-Bedingung, 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF, „Fable only“ höchstens FABLE_WOCHE_MAX
       entscheiden
       if [[ $E[FABLE] == ja ]] && (( FABLE_LAEUFE < KONF[FABLE_JE_LAUF] )) && (( $(date +%s) < LETZTER )); then
         FABLE_LAEUFE=$((FABLE_LAEUFE + 1)) N=$((N + 1))

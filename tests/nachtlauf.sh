@@ -22,6 +22,10 @@ export HALO_LAUF=nachtlauf
 # „github.comm.routine“, die Remote Control hat).
 # Pausieren: nur über ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh, mit Ablaufzeit).
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
+# Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, ~/halo-nacht/volldampf.txt): Zeile
+# „Volldampf: …“ im Auftrag, vor jeder Runde Wochenlimit prüfen (beendet Volldampf dauerhaft), solange aktiv
+# Fortsetzungen bis 08:00, höchstens acht, Grenze zwölf nicht gepushte Commits; Vermerk in „Kurz:“ und Bericht.
+# Ohne Datei bzw. ohne gültiges Fenster ändert sich nichts.
 emulate -L zsh
 setopt extendedglob
 
@@ -180,7 +184,7 @@ notbericht() {
 # räumt der Nachtlauf an seinem Ende auf, auch hier bei einer Pause ---
 if pause_start nachtlauf; then
   notbericht "pausiert" "Pause $PAUSE_GRUND, nichts gemacht"
-  pausen_aufraeumen
+  pausen_aufraeumen; volldampf_aufraeumen
   exit 0
 fi
 
@@ -190,7 +194,7 @@ if [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null; then
   exit 0                                  # der laufende schreibt seinen Bericht selbst
 fi
 print $$ > $LOCK
-trap 'rm -f $LOCK; pausen_aufraeumen' EXIT
+trap 'rm -f $LOCK; pausen_aufraeumen; volldampf_aufraeumen' EXIT
 
 # --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor (belegt) ---
 # ein CI-Lauf dauert knapp eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
@@ -226,8 +230,30 @@ else
   exit 0
 fi
 
+# --- Volldampf: nur mit Zeile in ~/halo-nacht/volldampf.txt. Vor jeder Runde (auch vor dem Director-Plan und
+# vor Fortsetzungen) Wochenlimit prüfen: nur bei offenem Fenster ein kontingent.sh-Aufruf (Haiku); ab
+# VOLLDAMPF_WOCHE_ENDE dauerhaft beendet (lauf-hilfen.zsh). Setzt VD_STATUS und die Fortsetzungs-Grenzen. ---
+FORTSETZ_MAX=4 VD_STATUS=
+NORMAL_GRENZE=$NACHT_GRENZE NORMAL_MAX_COMMITS=$NACHT_MAX_COMMITS   # Werte aus vorpruefung.zsh (ohne Volldampf)
+volldampf_runde() {
+  local z
+  if volldampf_aktiv >/dev/null; then
+    z=$(zsh $REPO/tests/kontingent.sh 2>/dev/null)
+    [[ $z == Woche* ]] && volldampf_wochenlimit_pruefen ${${z#Woche }%% *}
+  fi
+  VD_STATUS=$(volldampf_status)
+  if volldampf_aktiv >/dev/null; then
+    NACHT_GRENZE=08:00 NACHT_MAX_COMMITS=12 FORTSETZ_MAX=8
+  else
+    NACHT_GRENZE=$NORMAL_GRENZE NACHT_MAX_COMMITS=$NORMAL_MAX_COMMITS FORTSETZ_MAX=4
+  fi
+  [[ -n $VD_STATUS ]] && log "$VD_STATUS"
+  return 0
+}
+
 # --- Arbeit: claude -p, bei Limit nach 30 Minuten fortsetzen ---
 cd $REPO || exit 2
+volldampf_runde
 SID=$(uuidgen | tr A-Z a-z)
 log "Start, Sitzung $SID"
 # Vollrunde fällig? Dann soll ein CI-auslösender Push dunkel testen ([dunkel]) – seine Runde ist dann die Vollrunde
@@ -243,13 +269,14 @@ fi
 rm -f $CI_D*
 AUFTRAG="Heute: $TAG. Bericht: $BERICHT. Fertig-Datei: $FERTIG. Protokoll: $LOG.
 Thunderbird auf neon vor dem Lauf: $TB_INFO
-$CI_HINWEIS
+$CI_HINWEIS${VD_STATUS:+
+Volldampf: $VD_STATUS}
 
 $(<$REPO/tests/nachtlauf-auftrag.md)"
 # Sicherheitsnetz: um 09:00 hart beenden
 ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $SID|--resume $SID" ) &
 WACHE=$!
-trap 'rm -f $LOCK; kill $WACHE 2>/dev/null; pausen_aufraeumen' EXIT
+trap 'rm -f $LOCK; kill $WACHE 2>/dev/null; pausen_aufraeumen; volldampf_aufraeumen' EXIT
 
 RUNDE=0 LEER=0 FORTSETZ=0 KOPF_VORHER=
 PROMPT=$AUFTRAG
@@ -270,8 +297,9 @@ while true; do
       log "Arbeit beendet: nichts Machbares mehr (Fortsetzung $FORTSETZ ohne neuen Commit)"
       break
     fi
-    if (( FORTSETZ >= 4 )); then
-      log "Arbeit beendet: höchstens vier Fortsetzungen erreicht"
+    volldampf_runde
+    if (( FORTSETZ >= FORTSETZ_MAX )); then
+      log "Arbeit beendet: höchstens $FORTSETZ_MAX Fortsetzungen erreicht"
       break
     fi
     if ! FGRUND=$(nachtlauf_fortsetzen $FERTIG); then
@@ -282,7 +310,7 @@ while true; do
     mv -f $FERTIG $DIR/$TAG-fertig-runde$RUNDE.txt
     log "Fertig-Datei vor $NACHT_GRENZE – Fortsetzung $FORTSETZ: $FGRUND"
     ARGS=(--resume $SID)
-    PROMPT="Schritt 5 fortsetzen (nachtlauf.sh, $(date +%H:%M)): $FGRUND. Die Fertig-Datei ist entfernt. Arbeite nach Schritt 5 des Auftrags die nächsten machbaren Einträge aus dem Plan dieses Laufs ab (gleiche Reihenfolge, je Eintrag committen, nur --only lokal, nicht pushen, kein Release), bis ein gültiger Endegrund eintritt (nichts Machbares mehr, $NACHT_GRENZE erreicht, $NACHT_MAX_COMMITS nicht gepushte Commits). Dann Bericht ergänzen und $FERTIG mit Zeile „Grund: …“ neu anlegen."
+    PROMPT="Schritt 5 fortsetzen (nachtlauf.sh, $(date +%H:%M)): $FGRUND. Die Fertig-Datei ist entfernt. Arbeite nach Schritt 5 des Auftrags die nächsten machbaren Einträge aus dem Plan dieses Laufs ab (gleiche Reihenfolge, je Eintrag committen, nur --only lokal, nicht pushen, kein Release), bis ein gültiger Endegrund eintritt (nichts Machbares mehr, $NACHT_GRENZE erreicht, $NACHT_MAX_COMMITS nicht gepushte Commits). Dann Bericht ergänzen und $FERTIG mit Zeile „Grund: …“ neu anlegen.${VD_STATUS:+ Volldampf: $VD_STATUS (Schritt 1c des Auftrags).}"
     continue
   fi
   (( $(date +%s) >= ENDE )) && { log "Arbeit beendet: 08:00 erreicht – nicht mehr fortsetzen"; break }
@@ -290,12 +318,14 @@ while true; do
   if grep -qiE "usage limit|hit your limit|limit reached|resets (at )?[0-9]|rate limit|overloaded" $OUT; then
     log "Limit – Pause 30 Minuten"
     sleep 1800
-    PROMPT="Weiter nach der Limit-Pause: mach dort weiter, wo du warst (Auftrag oben). Zeitgrenzen beachten, am Ende Bericht und Fertig-Datei."
+    volldampf_runde      # Wochenlimit (nicht das 5-Stunden-Limit) beendet Volldampf
+    PROMPT="Weiter nach der Limit-Pause: mach dort weiter, wo du warst (Auftrag oben). Zeitgrenzen beachten, am Ende Bericht und Fertig-Datei.${VD_STATUS:+ Volldampf: $VD_STATUS.}"
   else
     # ohne Fertig-Datei beendet: höchstens zweimal nachfragen
     LEER=$((LEER + 1))
     (( LEER > 2 )) && { log "Arbeit beendet: dreimal ohne Fertig-Datei aufgehört"; break }
-    PROMPT="Du hast aufgehört, aber $FERTIG fehlt. Wenn noch etwas offen ist, weitermachen; sonst jetzt Bericht nach $BERICHT schreiben (Vorgabe im Auftrag) und $FERTIG anlegen."
+    volldampf_runde
+    PROMPT="${VD_STATUS:+Volldampf: $VD_STATUS. }Du hast aufgehört, aber $FERTIG fehlt. Wenn noch etwas offen ist, weitermachen; sonst jetzt Bericht nach $BERICHT schreiben (Vorgabe im Auftrag) und $FERTIG anlegen."
   fi
 done
 
@@ -309,10 +339,14 @@ fi
   EG=$(grep 'Arbeit beendet:' $LOG | tail -1 | cut -d' ' -f3-)
   print -r -- "- ${EG:-Arbeit beendet: Fertig-Datei ohne Prüfung (unbekannt)}"
   print "- Fortsetzungen nach der Fertig-Datei (Schritt 5): $FORTSETZ"
+  [[ -n $VD_STATUS ]] && print -r -- "- $VD_STATUS (Stand Ende der Arbeit)"
 } >> $BERICHT
+# Pflichtvermerk (Maintainer 13.11.2026): steht Volldampf nicht in „Kurz:“, setzt das Skript ihn davor
+KURZ=$(bericht_kurz)
+[[ -n $VD_STATUS && $VD_STATUS != *angemeldet* && $KURZ != *Volldampf* ]] && KURZ="${VD_STATUS%% – *}; $KURZ"
 kill $WACHE 2>/dev/null                   # Claude ist fertig; der CI-Abschluss hält selbst die 09:00 ein
 zweige_abschluss
 ci_abschluss
 log "Ende"
-push "Nachtlauf $TAG: $(bericht_kurz) – Bericht ~/halo-berichte/$TAG-nachtlauf.md"
+push "Nachtlauf $TAG: $KURZ – Bericht ~/halo-berichte/$TAG-nachtlauf.md"
 exit 0

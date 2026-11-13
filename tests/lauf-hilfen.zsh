@@ -147,6 +147,187 @@ pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
   mkdir -p ${datei:h}; print -r -- "$1 $2 ${*[3,-1]}" >> $datei
 }
 
+# Volldampf (Maintainer 13.11.2026, Wortlaute in ENTSCHEIDUNGEN.md, docs/testrechner.md „Volldampf“): ein
+# Override-Schalter für Sparmodus, Sollkurve, Reserve und Vorsicht der Planung („Ist wie ein override
+# schalter“). Wie die Pausen eine Datei mit Zeitfenster, aber umgekehrt – sie gibt Kontingent frei.
+# ~/halo-nacht/volldampf.txt, eine Zeile je Fenster:
+#   volldampf <ab ISO-Zeit mit Zone> <bis ISO-Zeit mit Zone> <Grund>
+# Aktiv nur zwischen ab und bis (reiner Zeitvergleich) und solange das Fenster nicht beendet ist. Beendet
+# wird es DAUERHAFT, sobald die Woche („alle Modelle“) VOLLDAMPF_WOCHE_ENDE (98 %) erreicht („wenn das
+# wochenlimit erreicht wurde wird Volldampf automatisch deaktiviert“): volldampf_wochenlimit_pruefen schreibt
+# dann „<ab> <bis> <Zeit> <Woche>“ nach ~/halo-nacht/volldampf-beendet.txt. Danach bleibt das Fenster aus,
+# auch wenn der Wert nach dem freien Reset oder dem Wochenreset sinkt; wieder ein schaltet nur der Maintainer
+# mit einer neuen Zeile (anderes ab oder bis). Das 5-Stunden-Limit beendet Volldampf nicht.
+# Abgelaufene Zeilen zählen nicht (auch nicht als „angemeldet“); unlesbare Zeilen (Tippfehler, ab nicht vor
+# bis) gelten als NICHT aktiv und stehen einmal je Lauf als „VOLLDAMPF UNLESBAR …“ im Protokoll und in
+# uebersprungen.log. Kein Claude (außer der Zustellung von push()).
+#   volldampf_aktiv              0 = aktiv, gibt „bis <Zeit> – <Grund>“ aus (mehrere: spätestes Ende);
+#                                2 = Fenster jetzt, aber beendet, gibt „beendet: Wochenlimit erreicht um
+#                                <TT.MM. HH:MM> (<N> %), Fenster bis <Zeit>“ aus; 1 = kein Fenster jetzt
+#   volldampf_angemeldet         0 = ein künftiges Fenster steht in der Datei, gibt „ab <Zeit>, bis <Zeit>“ aus
+#   volldampf_status             eine Zeile für Berichte: „Volldampf aktiv bis … (endet bei Wochenlimit)“,
+#                                „Volldampf beendet: Wochenlimit erreicht um …“ oder „Volldampf angemeldet
+#                                (ab …, bis …), nicht aktiv“; Rückgabe 1 und keine Ausgabe ohne Fenster
+#   volldampf_wochenlimit_pruefen [<Woche %>]  am Beginn jeder Runde bzw. Schleife: Woche aus dem Argument,
+#                                HALO_VOLLDAMPF_WOCHE oder ~/halo-nacht/kontingent.json (höchstens 3 Stunden
+#                                alt, sonst nichts geprüft); ab VOLLDAMPF_WOCHE_ENDE: Marker, Protokollzeile
+#                                „Volldampf beendet: Wochenlimit erreicht (N %, HH:MM)“, einmal push().
+#                                Rückgabe 0 = gerade beendet
+#   volldampf_setzen <ab> <bis> <Grund>
+#   volldampf_aufraeumen         entfernt abgelaufene Zeilen, je Zeile „VOLLDAMPF ABGELAUFEN …“ (Ende Nachtlauf)
+# Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_VOLLDAMPF_DATEI die Datei, HALO_VOLLDAMPF_BEENDET
+# den Marker, HALO_KONTINGENT_JSON die Kontingent-Datei, HALO_VOLLDAMPF_WOCHE den Wochenwert.
+VOLLDAMPF_WOCHE_ENDE=${VOLLDAMPF_WOCHE_ENDE:-98}   # Vorschlag (neon, 13.11.2026): ab hier gilt das Wochenlimit als erreicht
+VOLLDAMPF_PY='
+import sys, os, datetime
+datei, modus = sys.argv[1], sys.argv[2]
+marker = sys.argv[3] if len(sys.argv) > 3 else ""
+def jetzt():
+    j = os.environ.get("HALO_JETZT")
+    return datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.now().astimezone()
+def lesen(z):
+    t = z.strip().split(None, 3)
+    if len(t) < 4 or t[0] != "volldampf":
+        raise ValueError(z)
+    ab, bis = datetime.datetime.fromisoformat(t[1]), datetime.datetime.fromisoformat(t[2])
+    if ab.tzinfo is None or bis.tzinfo is None or not ab < bis:
+        raise ValueError(z)
+    return ab.astimezone(), bis.astimezone(), t[1], t[2], t[3]
+def zeilen_von(p):
+    try:
+        return open(p, encoding="utf-8").read().splitlines()
+    except OSError:
+        return []
+zeilen = zeilen_von(datei)
+beendet = {}
+for z in zeilen_von(marker) if marker else []:
+    t = z.split()
+    if len(t) >= 4:
+        beendet[(t[0], t[1])] = (t[2], t[3])
+def gueltig():
+    for z in zeilen:
+        if not z.strip() or z.lstrip().startswith("#"):
+            continue
+        try:
+            yield z, lesen(z)
+        except ValueError:
+            yield z, None
+n = jetzt()
+if modus in ("aktiv", "fenster"):
+    offen = [w for z, w in gueltig() if w and w[0] <= n < w[1]]
+    an = [w for w in offen if (w[2], w[3]) not in beendet]
+    if an:
+        b = max(an, key=lambda w: w[1])
+        print(("%s %s" % (b[2], b[3])) if modus == "fenster" else ("bis %s – %s" % (b[3], b[4]))); sys.exit(0)
+    if offen and modus == "aktiv":
+        b = max(offen, key=lambda w: w[1]); um, wo = beendet[(b[2], b[3])]
+        u = datetime.datetime.fromisoformat(um).astimezone()
+        print("beendet: Wochenlimit erreicht um %s (%s %%), Fenster bis %s" % (u.strftime("%d.%m. %H:%M"), wo, b[3])); sys.exit(2)
+    sys.exit(1)
+if modus == "angemeldet":
+    k = sorted((w for z, w in gueltig() if w and w[0] > n), key=lambda w: w[0])
+    if k:
+        print("ab %s, bis %s" % (k[0][2], k[0][3])); sys.exit(0)
+    sys.exit(1)
+if modus == "unlesbar":
+    for z, w in gueltig():
+        if w is None:
+            print(z.strip())
+    sys.exit(0)
+if modus == "aufraeumen":
+    bleibt, weg = [], []
+    for z in zeilen:
+        try:
+            ok = not z.strip() or z.lstrip().startswith("#") or lesen(z)[1] > n
+        except ValueError:
+            ok = True      # unlesbar: bleibt stehen (wird gemeldet, nicht gelöscht)
+        (bleibt if ok else weg).append(z)
+    if weg:
+        open(datei, "w", encoding="utf-8").write("".join(l + "\n" for l in bleibt))
+        for z in weg:
+            print(z)
+'
+volldampf_unlesbar_melden() {
+  local z datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
+  local marke=${TMPDIR:-/tmp}/halo-volldampf-unlesbar.$$.$(print -r -- $datei | cksum | cut -d' ' -f1)
+  [[ -r $datei && ! -e $marke ]] || return 0
+  python3 -I -c $VOLLDAMPF_PY $datei unlesbar 2>/dev/null | while IFS= read -r z; do
+    [[ -n $LOG ]] && log "VOLLDAMPF UNLESBAR $z – gilt als nicht aktiv"
+    print -r -- "$(zeit) VOLLDAMPF UNLESBAR $z – gilt als nicht aktiv" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  done
+  : > $marke
+}
+volldampf_marker() { print -r -- ${HALO_VOLLDAMPF_BEENDET:-$HOME/halo-nacht/volldampf-beendet.txt} }
+volldampf_aktiv() {
+  local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
+  [[ -r $datei ]] || return 1
+  volldampf_unlesbar_melden
+  python3 -I -c $VOLLDAMPF_PY $datei aktiv $(volldampf_marker) 2>/dev/null
+}
+volldampf_angemeldet() {
+  local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
+  [[ -r $datei ]] || return 1
+  volldampf_unlesbar_melden
+  python3 -I -c $VOLLDAMPF_PY $datei angemeldet 2>/dev/null
+}
+volldampf_status() {
+  local g rc
+  g=$(volldampf_aktiv); rc=$?
+  if (( rc == 0 )); then print -r -- "Volldampf aktiv ${g/ – / (endet bei Wochenlimit) – }"; return 0; fi
+  if (( rc == 2 )); then print -r -- "Volldampf $g"; return 0; fi
+  if g=$(volldampf_angemeldet); then print -r -- "Volldampf angemeldet ($g), nicht aktiv"; return 0; fi
+  return 1
+}
+# Wochenwert („alle Modelle“, ganze Prozent) aus kontingent.json, nur wenn höchstens 3 Stunden alt
+volldampf_woche_gespeichert() {
+  local j=${HALO_KONTINGENT_JSON:-$HOME/halo-nacht/kontingent.json}
+  [[ -r $j ]] || return 1
+  python3 -I -c '
+import sys, os, json, datetime
+d = json.load(open(sys.argv[1])); i = d["info"]
+j = os.environ.get("HALO_JETZT")
+n = datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.now().astimezone()
+stand = datetime.datetime.strptime(d["stand"], "%Y-%m-%dT%H:%M:%S%z")
+if not datetime.timedelta(0) <= n - stand <= datetime.timedelta(hours=3): sys.exit(1)
+w = i.get("unifiedWindows", {}).get("seven_day", {})
+print(round(100 * w.get("utilization", 0)))
+' $j 2>/dev/null
+}
+volldampf_wochenlimit_pruefen() {   # [<Woche %>]
+  local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt} woche=${1:-$HALO_VOLLDAMPF_WOCHE} f um
+  [[ -r $datei ]] || return 1
+  [[ -n $woche ]] || woche=$(volldampf_woche_gespeichert) || return 1
+  [[ $woche == <-> ]] || woche=${woche%%.*}
+  [[ $woche == <-> ]] && (( woche >= VOLLDAMPF_WOCHE_ENDE )) || return 1
+  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) 2>/dev/null) || return 1
+  um=$(python3 -I -c 'import os,datetime as d;j=os.environ.get("HALO_JETZT");print((d.datetime.fromisoformat(j).astimezone() if j else d.datetime.now().astimezone()).isoformat(timespec="minutes"))')
+  mkdir -p ${$(volldampf_marker):h}
+  print -r -- "$f $um $woche" >> $(volldampf_marker)
+  [[ -n $LOG ]] && log "Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]})"
+  print -r -- "$(zeit) Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]}), Fenster $f" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  push "Volldampf beendet, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, Volldampf nur auf Zuruf wieder an" "${HALO_LAUF:-volldampf}" handeln
+  return 0
+}
+volldampf_aufraeumen() {
+  local z datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
+  [[ -r $datei ]] || return 0
+  volldampf_unlesbar_melden
+  python3 -I -c $VOLLDAMPF_PY $datei aufraeumen 2>/dev/null | while IFS= read -r z; do
+    [[ -n $LOG ]] && log "VOLLDAMPF ABGELAUFEN $z"
+    print -r -- "$(zeit) VOLLDAMPF ABGELAUFEN $z" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  done
+}
+volldampf_setzen() {   # <ab ISO-Zeit mit Zone> <bis ISO-Zeit mit Zone> <Grund>
+  local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt} ok=1
+  [[ -n $1 && -n $2 && -n $3 ]] || { print -u2 "Aufruf: volldampf_setzen <ab> <bis> <Grund>"; return 2 }
+  print -r -- "volldampf $1 $2 ${*[3,-1]}" > $datei.neu
+  # lesbar? Bei einer Uhr genau zum Beginn muss die Zeile aktiv sein (ohne Marker geprüft)
+  HALO_JETZT=$1 python3 -I -c $VOLLDAMPF_PY $datei.neu aktiv >/dev/null 2>&1 || ok=0
+  rm -f $datei.neu
+  (( ok )) || { print -u2 "volldampf_setzen: Zeit nicht lesbar (ISO mit Zone) oder ab nicht vor bis"; return 1 }
+  mkdir -p ${datei:h}; print -r -- "volldampf $1 $2 ${*[3,-1]}" >> $datei
+}
+
 # eine Zeile aufs iPhone: eine kurze Claude-Sitzung gibt sie per SendMessage an
 # die Sitzung mit Remote Control weiter, die sie als Push-Meldung zustellt.
 # Scheitert die Zustellung (Sitzung nicht gefunden, Claude nicht erreichbar,

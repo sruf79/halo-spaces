@@ -109,6 +109,14 @@ dieser Runde nicht gelöst hat. Ob Fable läuft, entscheidet das Skript (nur wei
 Fable-Runde („JETZT: Fable-Runde“) liest zuerst den Abschnitt der Opus-Runde und arbeitet dann wie
 eine Eintragsrunde; „fable“ ist dort kein gültiges Ergebnis.
 
+Volldampf (nur wenn die Zeile „Kontingent (Skript): …“ mit „Volldampf aktiv“ beginnt; Maintainer
+13.11.2026, docs/testrechner.md „Volldampf“): Sollkurve und Sparmodus bremsen nicht, das Skript wählt
+Modell und Fable; in der Plan-Runde die token-intensivsten wertvollen Einträge mit hohem Nutzen nicht
+scheuen (reine Umbauten ohne Nutzernutzen nachrangig), alle übrigen Regeln unverändert. „fable“ als
+Ergebnis nur für die wirklich schwersten Fälle (belegte Ursache fehlt nach Opus bei hohem Nutzen, oder
+Analyse/Design, die ein starkes Modell braucht), nie für Routine oder Mechanisches. volldampf.txt und
+volldampf-beendet.txt nie selbst ändern.
+
 Bericht: ~/halo-berichte/<datum>-tagesroutine.md setzt das Skript aus deinen Abschnitten zusammen
 (mit Kontingent am Anfang und Ende, Modell je Runde, Commits, Prüfzweig, Endegrund, Fable-Zähler).
 Du schreibst den Bericht nicht selbst und schickst keine Push-Meldung; eine „[handeln]“-Meldung

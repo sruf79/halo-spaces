@@ -15,6 +15,7 @@ FEHLER=0
 lauf() {
   HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
+  HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt \
     zsh $SKRIPT --trocken $REPO 2>&1
 }
 # pruefe <Name> <Ausgabe> <Muster …>  (alle Muster müssen vorkommen, grep -E)
@@ -94,4 +95,25 @@ pruefe "Samstag 09:30: noch außerhalb des Zeitfensters" "$(lauf 2026-11-14T09:3
 pruefe "Sonntag 10:05: im Zeitfenster, Plan-Runde" "$(lauf 2026-11-15T10:05:00+01:00 30)" \
   'heute ab 10:00: ja' 'Würde: +Plan-Runde'
 pruefe "Montag 09:05: Werktag ab 09:00" "$(lauf 2026-11-16T09:05:00+01:00 85)" 'heute ab 09:00: ja'
+# Volldampf (Maintainer 13.11.2026): Override für Sollkurve und Sparmodus; 5-Stunden-Fenster bremst weiter
+print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
+JD=2026-11-17T10:00:00+01:00   # 9 h nach dem Reset, Soll 5.4 %
+pruefe "ohne Volldampf: Woche 30 % am Dienstag 10:00 → deutlich über Soll, warten" "$(lauf $JD 30)" \
+  'deutlich darüber' 'Entscheidung: warten bis 11:00' 'Volldampf: +keine Zeile' 'Tageslimit 20 eigene'
+pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, Tageslimit doppelt" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Volldampf: +Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(endet bei Wochenlimit\)' '→ Volldampf \(Sollkurve bremst nicht\)' \
+  'Entscheidung: neu beginnen' 'komplexe Einträge: opus, Routine: sonnet' 'Tageslimit 40 eigene' 'Würde: +Plan-Runde'
+pruefe "Volldampf: Fable bei 5-Stunden-Fenster 55 % erlaubt (unter 60), ohne Soll-Bedingung" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
+  'Fable: erlaubt'
+pruefe "Volldampf: Fable bei 5-Stunden-Fenster 65 % nicht erlaubt" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 65)" 'Fable: nein'
+pruefe "Volldampf: 5-Stunden-Fenster ≥ 80 % bremst weiter" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 85)" \
+  'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
+pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-16T12:00:00+01:00 95)" \
+  'Volldampf angemeldet \(ab 2026-11-17T01:00\+01:00, bis 2026-11-24T01:00\+01:00\), nicht aktiv' 'Rate 0\.00' 'Tageslimit 20 eigene'
+print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
+pruefe "Volldampf beendet (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Volldampf beendet: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\)' 'deutlich darüber' 'Tageslimit 20 eigene'
+rm -f $T/volldampf-beendet.txt
+pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'
+[[ -e $T/volldampf-beendet.txt ]] && { print "FEHLER Trockenlauf hat volldampf-beendet.txt geschrieben"; FEHLER=1 }
 exit $FEHLER

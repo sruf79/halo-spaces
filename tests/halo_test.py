@@ -2116,7 +2116,10 @@ def reading_checks(m, results):
 
     def attachments_layout():
         # Anhänge: Liste von Anfang an offen, Chevron vor der Anzahl klappt zu und auf (Kopfzeile bleibt ruhig),
-        # Chevron, Datei-Symbole und Linie bündig 16 px vom Rand, Schrift 12/13 px, Download-Symbol je Zeile
+        # Chevron, erste Kachel und Linie bündig 16 px vom Rand, Schrift 12 px; Kacheln wie Apple Mail (Variante A,
+        # ENTSCHEIDUNGEN.md 11.11.2026): 52 px hoch, Radius 10, leichte Fläche, beim Überfahren Akzentfarbe, Symbol
+        # 32 px und Sichern-Knopf rund und senkrecht mittig, Name fett bis zwei Zeilen, voller Name als Tooltip;
+        # „Save All“ endet bündig mit der rechten Kachelspalte (auch im schmaleren Fenster); Sichern-Knopf je Kachel
         # speichert genau diesen Anhang; ein einzelner Anhang ohne Kopfzeile, Rechtsklick bietet weiter alles
         res = m.js(READING_JS + r"""
           const out = {};
@@ -2133,15 +2136,35 @@ def reading_checks(m, results):
           const rows = [...list.querySelectorAll(".attachmentItem")];
           out.open = !list.collapsed && list.getBoundingClientRect().height > 20;
           out.chevron = { shown: chev.maskImage.startsWith("url") && chev.width == "12px", x: Math.round((doc.getElementById("attachmentInfo").getBoundingClientRect().left - vr.left) * 10) / 10 };
-          out.icon = x(rows[0].querySelector(".attachmentcell-icon"));
-          // Datei-Symbol senkrecht mittig zur Zeile des Namens (Mitte des Symbols = Mitte der Schrift)
+          out.icon = x(rows[0]);
+          // Kachel: Symbol, Text und Sichern-Knopf senkrecht mittig, Maße, Fläche, Tooltip
           const mid = el => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
-          const valign = it => { const ic = it.querySelector(".attachmentcell-icon"), nm = it.querySelector(".attachmentcell-name");
-            const r = doc.createRange(); r.selectNodeContents(nm); const tr = r.getBoundingClientRect();
-            return { d: Math.round((mid(ic) - (tr.top + tr.bottom) / 2) * 10) / 10, icon: [Math.round(ic.getBoundingClientRect().top * 10) / 10, ic.getBoundingClientRect().height],
-              text: [Math.round(tr.top * 10) / 10, tr.height], item: it.getBoundingClientRect().height, align: cs(it).alignItems }; };
-          out.valign = rows.map(valign);
-          out.font = { count: parseFloat(cs(count).fontSize), name: parseFloat(cs(rows[0].querySelector(".attachmentcell-name")).fontSize) };
+          const r1 = v => Math.round(v * 10) / 10;
+          const tile = it => { const ic = it.querySelector(".attachmentcell-icon"), tx = it.querySelector(".mc-att-text"), sv = it.querySelector(".mc-att-save");
+            const r = it.getBoundingClientRect();
+            return { w: r1(r.width), h: r1(r.height), radius: parseFloat(cs(it).borderTopLeftRadius), bg: cs(it).backgroundColor,
+              d: [ic, tx, sv].map(e => e ? r1(mid(e) - mid(it)) : 99), icon: [r1(ic.getBoundingClientRect().width), (ic.getAttribute("srcset") || ic.getAttribute("src") || "").replace(/^.*size=(\d+).*$/s, "$1")],
+              save: sv ? { w: r1(sv.getBoundingClientRect().width), round: cs(sv).borderTopLeftRadius == "50%", pe: cs(sv).pointerEvents } : null,
+              inText: !!tx?.querySelector(".attachmentcell-name") && !!tx?.querySelector(".attachmentcell-extension") && !!tx?.querySelector(".attachmentcell-size"),
+              tip: it.getAttribute("tooltiptext") }; };
+          out.tiles = rows.map(tile);
+          out.font = { count: parseFloat(cs(count).fontSize), name: parseFloat(cs(rows[0].querySelector(".mc-att-title")).fontSize), weight: parseInt(cs(rows[0].querySelector(".mc-att-title")).fontWeight) };
+          // Überfahren: Fläche in Akzentfarbe statt grau
+          InspectorUtils.addPseudoClassLock(rows[2], ":hover");
+          try { out.hover = cs(rows[2]).backgroundColor; } finally { InspectorUtils.removePseudoClassLock(rows[2], ":hover"); }
+          // langer Name: zwei Zeilen, dann gekürzt; Tooltip zeigt ihn ganz
+          const longName = "Ladung zu einem bestimmten Termin mit sehr langem Namen für die Kachel.txt";
+          list.setAttachmentName(rows[2], longName); await ruhig(200);
+          const lt = rows[2].querySelector(".mc-att-title"), lh = parseFloat(cs(lt).lineHeight);
+          out.long = { lines: r1(lt.getBoundingClientRect().height / lh), clipped: lt.scrollHeight > lt.clientHeight + 1, h: r1(rows[2].getBoundingClientRect().height) };
+          list.setAttachmentName(rows[2], "Notizen.txt"); await ruhig(100);
+          // „Save All“ endet am rechten Rand der rechten Kachelspalte, die Anzahl steht links
+          const saveAll = doc.getElementById("attachmentSaveAllMultiple");
+          const edge = () => { const its = [...list.querySelectorAll(".attachmentItem")], tops = new Set(its.map(i => Math.round(i.getBoundingClientRect().top)));
+            return { d: r1(saveAll.getBoundingClientRect().right - Math.max(...its.map(i => i.getBoundingClientRect().right))), rows: tops.size }; };
+          out.edge = [edge()];
+          const ow = w.outerWidth; try { w.resizeTo(Math.max(900, ow - 500), w.outerHeight); await ruhig(800); out.edge.push(edge()); } finally { w.resizeTo(ow, w.outerHeight); await ruhig(500); }
+          out.edge.push(edge());
           out.line = { border: parseFloat(cs(view).borderTopWidth), image: cs(view).backgroundImage.startsWith("linear-gradient"), pos: cs(view).backgroundPositionX, size: cs(view).backgroundSize };
           out.saves = rows.map(i => vis(i.querySelector(".mc-att-save")));
           // Zuklappen per Chevron: Lage der Anzahl Bild für Bild
@@ -2169,21 +2192,30 @@ def reading_checks(m, results):
           const it = l1.querySelector(".attachmentItem"), name = it?.querySelector(".attachmentcell-name");
           const v1r = v1.getBoundingClientRect();
           out.single = { attr: v1.hasAttribute("mc-single"), bar: vis(doc.getElementById("attachmentBar")), name: vis(name) ? name.textContent : null,
-            save: vis(it?.querySelector(".mc-att-save")), icon: Math.round((it.querySelector(".attachmentcell-icon").getBoundingClientRect().left - v1r.left) * 10) / 10,
+            save: vis(it?.querySelector(".mc-att-save")), icon: Math.round((it.getBoundingClientRect().left - v1r.left) * 10) / 10,
             menu: ["context-openAttachment", "context-saveAttachment", "context-detachAttachment", "context-deleteAttachment"].filter(id => doc.getElementById(id)).length,
-            ctx: it?.getAttribute("context"), valign: valign(it) };
+            ctx: it?.getAttribute("context"), tile: tile(it) };
           return out;""")
         sg = res.get("single") or {}
+        tiles = res.get("tiles", []) + [sg.get("tile")] if sg.get("tile") else res.get("tiles", [])
+        names = ["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt", "Plan.txt"]
+        tiles_ok = (len(tiles) == 4 and all(t["h"] == 52 and t["radius"] == 10 and 150 <= t["w"] <= 240 and all(abs(d) <= 1 for d in t["d"])
+                                            and t["icon"][0] == 32 and t["inText"] and t["save"] and t["save"]["round"] and t["save"]["w"] == 24
+                                            and t["save"]["pe"] == "auto" and not same_color(t["bg"], res.get("hover", "")) for t in tiles)
+                    and [t["tip"] for t in tiles] == names and len({t["bg"] for t in tiles}) == 1)
+        lg = res.get("long") or {}
+        edge = res.get("edge") or []
         ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
-              and res["font"] == {"count": 12, "name": 13} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
+              and res["font"] == {"count": 12, "name": 12, "weight": 600} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
+              and tiles_ok and 1.9 <= lg.get("lines", 0) <= 2.1 and lg.get("clipped") and lg.get("h") == 52
+              and len(edge) == 3 and all(abs(e["d"]) <= 1 for e in edge)
               and all(res["saves"]) and res["closed"] is True and res.get("rot") and res["jump"] <= 1 and res["reopened"]
               and all(c <= 0.5 for c in res.get("cut", [99]))
               and res["calls"] == [["save", "Ausflug-02.txt"]]
               and sg.get("attr") and not sg.get("bar") and sg.get("name") and sg.get("save") and abs(sg.get("icon", 0) - 16) <= 1.5
-              and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext"
-              and all(abs(v["d"]) <= 1 for v in res.get("valign", []) + [sg.get("valign", {"d": 99})]))
+              and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
-    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Datei-Symbol mittig zum Namen, Download-Symbol je Datei, ein Anhang ohne Kopfzeile", attachments_layout, results)
+    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe, runder Sichern-Knopf, Akzent beim Überfahren, Tooltip), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter

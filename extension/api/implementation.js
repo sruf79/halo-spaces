@@ -1940,11 +1940,15 @@ loadPart("bereiche.js");
 // Lücke am unteren Rand. Lange Mails bleiben wie bisher (Text scrollt, Liste
 // unten). Nicht in den Karten der Konversation (dort hat jede Karte ohnehin
 // Inhaltshöhe)
-// Anhänge unter der Mail (Einzelansicht und Karten der Konversation): je
-// Zeile ein Download-Symbol (speichert genau diesen Anhang mit Dialog); bei
-// einem einzigen Anhang keine Kopfzeile, die Dateizeile steht immer offen
-// (mc-single, Gestaltung in userChrome.css). Die Liste baut Thunderbird erst
-// nach „MsgLoaded“ fertig – daher über einen Beobachter der Liste
+// Anhänge unter der Mail (Einzelansicht und Karten der Konversation) als
+// Kacheln wie Apple Mail: Dateisymbol in 32 px, Name und Endung zusammen in
+// .mc-att-text (bis zwei Zeilen, darunter die Größe), voller Name als Tooltip,
+// je Kachel ein runder Sichern-Knopf (speichert genau diesen Anhang mit
+// Dialog); bei einem einzigen Anhang keine Kopfzeile, die Kachel steht immer
+// offen (mc-single, Gestaltung in userChrome.css). Ab zwei Anhängen endet die
+// Kopfzeile am rechten Rand der rechten Kachelspalte (--mt-att-cols-right).
+// Die Liste baut Thunderbird erst nach „MsgLoaded“ fertig – daher über einen
+// Beobachter der Liste
 function decorateAttachments(target) {
   try {
     const doc = target?.document || target?.contentDocument || target?.ownerDocument || target;
@@ -1979,16 +1983,34 @@ function decorateAttachments(target) {
           event.stopPropagation();
           item.attachment?.save(win.browsingContext).catch(e => log("attachment save error", e));
         });
+        // Name und Endung in einem Block, damit der Name über zwei Zeilen
+        // umbrechen kann (Thunderbird findet beide weiter per querySelector)
+        const name = item.querySelector(":scope > .attachmentcell-name");
+        const ext = item.querySelector(":scope > .attachmentcell-extension");
+        const size = item.querySelector(":scope > .attachmentcell-size");
+        if (name && ext && size) {
+          const text = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+          text.className = "mc-att-text";
+          const title = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+          title.className = "mc-att-title";
+          item.insertBefore(text, name);
+          title.append(name, ext);
+          text.append(title, size);
+        }
         const after = item.querySelector(":scope > .attach-drop-indicator.after");
         item.insertBefore(btn, after);
       }
+      for (const item of items) {
+        // voller Name beim Überfahren (Kachel kürzt nach zwei Zeilen)
+        const full = item.getAttribute("name") || item.attachment?.name || "";
+        if (item.getAttribute("tooltiptext") != full) {
+          item.setAttribute("tooltiptext", full);
+        }
+      }
+      bigIcons();
       // (Breite der Zeilen neu, mit dem Symbol – sonst fehlte bei einem
       // Anhang der Dateiname)
-      if (items.length) {
-        try {
-          list.setOptimumWidth?.();
-        } catch {} // gewollt: Liste noch nicht aufgebaut, Breite folgt beim nächsten Füllen
-      }
+
       const single = items.length == 1;
       view.toggleAttribute("mc-single", single);
       // eine Datei: immer offen (die Kopfzeile zum Aufklappen fehlt dann)
@@ -1999,11 +2021,36 @@ function decorateAttachments(target) {
       }
       fitHeight();
     };
+    // Dateisymbol in 32 px statt 16 (scharf statt vergrößert); Thunderbird
+    // setzt es beim Laden neu
+    const bigIcons = () => {
+      for (const img of list.querySelectorAll(".attachmentItem > img.attachmentcell-icon[srcset*='size=16']")) {
+        img.setAttribute("srcset", img.getAttribute("srcset").replace(/size=16/g, "size=32"));
+      }
+    };
+    // rechter Rand der rechten Kachelspalte, gemessen ab dem Rand der Ansicht
+    const alignBar = () => {
+      if (list.collapsed) {
+        return;
+      }
+      const left = view.getBoundingClientRect().left;
+      let right = 0;
+      for (const item of list.querySelectorAll(":scope > .attachmentItem")) {
+        right = Math.max(right, item.getBoundingClientRect().right - left);
+      }
+      if (right > 0) {
+        const px = `${Math.round(right)}px`;
+        if (view.style.getPropertyValue("--mt-att-cols-right") != px) {
+          view.style.setProperty("--mt-att-cols-right", px);
+        }
+      }
+    };
     // Höhe der aufgeklappten Liste: Thunderbird misst sie einmal beim
     // Aufklappen (--preferred-height) – unsere Zeilen sind höher und bekommen
     // den Speichern-Knopf erst danach, die letzte Datei war dann halb
     // abgeschnitten. Neu messen, sobald sich Liste oder Zeilen ändern
     const fitHeight = () => {
+      alignBar();
       if (!view.classList.contains("list-expanded") || list.collapsed) {
         return;
       }
@@ -2014,6 +2061,7 @@ function decorateAttachments(target) {
       }
     };
     new win.MutationObserver(update).observe(list, { childList: true });
+    new win.MutationObserver(bigIcons).observe(list, { subtree: true, attributes: true, attributeFilter: ["srcset"] });
     new win.MutationObserver(fitHeight).observe(view, { attributeFilter: ["class"] });
     new win.ResizeObserver(fitHeight).observe(list);
     update();

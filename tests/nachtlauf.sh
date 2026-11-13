@@ -240,6 +240,7 @@ volldampf_runde() {
   if volldampf_aktiv >/dev/null; then
     z=$(zsh $REPO/tests/kontingent.sh 2>/dev/null)
     [[ $z == Woche* ]] && volldampf_wochenlimit_pruefen ${${z#Woche }%% *}
+    [[ $z == Woche* ]] && volldampf_reset_erinnern ${${z#Woche }%% *}   # einmal ab 90 % (eigener Commit)
   fi
   VD_STATUS=$(volldampf_status)
   if volldampf_aktiv >/dev/null; then

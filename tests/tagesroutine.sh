@@ -308,6 +308,7 @@ entscheiden() {
 VD=nein VD_STATUS= VD_BERICHT= MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
 volldampf_lesen() {
   [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_wochenlimit_pruefen $K_WOCHE
+  [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_reset_erinnern $K_WOCHE   # einmal ab 90 % (eigener Commit)
   if volldampf_aktiv >/dev/null; then VD=ja; else VD=nein; fi
   VD_STATUS=$(volldampf_status)
   VD_BERICHT=${VD_STATUS:#*angemeldet*}   # Bericht, Kurz-Zeile, Auftrag: nur aktiv bzw. beendet

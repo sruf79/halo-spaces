@@ -62,6 +62,17 @@ print -r -- "volldampf 2026-11-17T05:00+01:00 2026-11-24T01:00+01:00 Maintainer:
 HALO_JETZT=2026-11-17T05:30+01:00 pruefe "neue Zeile des Maintainers schaltet wieder ein" '[[ $(volldampf_aktiv) == "bis 2026-11-24T01:00+01:00 – Maintainer: wieder an" ]]'
 VOLLDAMPF_WOCHE_ENDE=90 HALO_JETZT=2026-11-17T05:30+01:00 pruefe "Schwelle einstellbar (VOLLDAMPF_WOCHE_ENDE=90, Woche 92)" 'volldampf_wochenlimit_pruefen 92 && ! volldampf_aktiv'
 
+# Erinnerung an den freien Reset ab 90 %: einmal je Fenster, nach dem Reset wieder möglich
+neu
+export HALO_VOLLDAMPF_ERINNERT=$T/n/erinnert.txt
+print -r -- $Z > $HALO_VOLLDAMPF_DATEI
+pruefe "Erinnerung: 89 % keine Meldung" '! volldampf_reset_erinnern 89 && [[ ! -s $HALO_HANDELN_LOG ]]'
+pruefe "Erinnerung: 90 % meldet" 'volldampf_reset_erinnern 90 && grep -q "Volldampf: Woche 90 % – Erinnerung" $LOG'
+pruefe "Erinnerung: 95 % meldet nicht noch einmal" '! volldampf_reset_erinnern 95 && [[ $(grep -c "Erinnerung an den freien Reset" $LOG) == 1 ]]'
+pruefe "Erinnerung: nach dem Reset (10 %) wieder scharf" '! volldampf_reset_erinnern 10 && volldampf_reset_erinnern 91'
+pruefe "Erinnerung: ohne aktives Fenster nie" 'HALO_JETZT=2026-11-16T12:00+01:00 ; ! HALO_JETZT=2026-11-16T12:00+01:00 volldampf_reset_erinnern 95'
+unset HALO_VOLLDAMPF_ERINNERT
+
 # unlesbare Zeilen: nicht aktiv, einmal gemeldet, bleiben stehen
 neu
 printf '%s\n' "volldampf 2026-11-17T01:00 2026-11-24T01:00+01:00 ohne Zone" "volldampf 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00 verkehrt" \

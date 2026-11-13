@@ -308,6 +308,27 @@ volldampf_wochenlimit_pruefen() {   # [<Woche %>]
   push "Volldampf beendet, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, Volldampf nur auf Zuruf wieder an" "${HALO_LAUF:-volldampf}" handeln
   return 0
 }
+# Erinnerung an den freien Reset (Vorschlag von neon, 13.11.2026, zur Entscheidung des Maintainers; eigener
+# Commit, leicht entfernbar): bei aktivem Volldampf und Woche ab VOLLDAMPF_ERINNERN (90 %) einmal je Fenster
+# bzw. Wochenzyklus eine iPhone-Meldung. Zustand in ~/halo-nacht/volldampf-erinnert.txt („<ab> <bis>“ des
+# Fensters); sinkt die Woche unter die Schwelle (Reset), wird die Zeile entfernt und die nächste Erinnerung
+# ist wieder möglich. volldampf_reset_erinnern <Woche %>; Rückgabe 0 = gerade erinnert.
+VOLLDAMPF_ERINNERN=${VOLLDAMPF_ERINNERN:-90}
+volldampf_reset_erinnern() {
+  local woche=${1%%.*} f datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
+  local merk=${HALO_VOLLDAMPF_ERINNERT:-$HOME/halo-nacht/volldampf-erinnert.txt}
+  [[ -r $datei && $woche == <-> ]] || return 1
+  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) 2>/dev/null) || return 1
+  if (( woche < VOLLDAMPF_ERINNERN )); then
+    [[ -e $merk ]] && grep -qxF -- $f $merk && { grep -vxF -- $f $merk > $merk.neu; mv -f $merk.neu $merk }
+    return 1
+  fi
+  [[ -e $merk ]] && grep -qxF -- $f $merk && return 1
+  mkdir -p ${merk:h}; print -r -- $f >> $merk
+  [[ -n $LOG ]] && log "Volldampf: Woche $woche % – Erinnerung an den freien Reset gesendet"
+  push "Volldampf: Wochenkontingent bei $woche %, freien Reset in Einstellungen > Nutzung drücken?" "${HALO_LAUF:-volldampf}"
+  return 0
+}
 volldampf_aufraeumen() {
   local z datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
   [[ -r $datei ]] || return 0

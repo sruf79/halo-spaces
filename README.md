@@ -181,6 +181,19 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.26.0
+
+- **Mail**: double-clicking a collapsed conversation opens one window with its newest message instead of one window per message; the toolbar buttons slide along when you hide or show the sidebar, and the stack of several selected messages slides along with the Today pane instead of jumping at the end
+- **Message window**: buttons in the order Archive, Delete, Junk | Reply, Reply All, Forward | More, Star; Reply All is always there, also for messages sent only to you; no second star below the time
+- **Sidebar**: dragging the divider below its minimum hides the sidebar and the space tiles together (and brings both back in the same drag) instead of leaving the tiles behind
+- **Today pane**: clicking the 1st of a month in the mini calendar moves the list to that day; the circles for today, hover and selection are round and centred on the number
+- **Calendar**: the mini calendar sits close to the bottom of the sidebar with a fine line above it; today is marked in a softer red (black number in dark mode)
+- **Tasks**: in a task's own window, Complete and More sit in the title bar row again instead of on top of the title; the Kanban view widens the window enough for all three columns, also with the Today pane open
+- **Address Book**: the line right of the contact list continues straight into the toolbar row
+- **Website as fifth space**: Back, Forward and the address now sit in the toolbar row, so the page starts right below it; the address is display only
+- **About**: new "Recommend" button copies a short text with a link to the project page
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.25.1
 
 - **Sidebar**: when the sidebar is hidden, it floats in only after the pointer rests briefly at the left edge of the window, so brushing the edge no longer opens it; hiding and showing the sidebar keeps the window buttons in place and moves the buttons above the list along with the edge; in a narrow Address Book window the list of address books slides without jumping, and "All Address Books" keeps its full width

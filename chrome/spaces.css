@@ -11780,3 +11780,145 @@ tooltip#itemTooltip {
   display: flex;
   gap: 8px;
 }
+
+/* Kalender-Suche wie Apple Kalender: Treffer im rechten Bereich neben der
+   Ansicht (CalSearch in kalender.js), 240 px breit, Tageskopf in Großbuchstaben
+   auf heller Leiste, Zeilen 42 px auf Grau mit eingerückter Haarlinie, 24 px
+   Luft nach jedem Tag; ohne Treffer „No Results“ mittig. Maße und Farben aus
+   apple-kalender-suchergebnisse*.png (hell und dunkel) */
+:root {
+  --mt-cal-search-bg: #EDEDED;
+  --mt-cal-search-day-bg: #FBFBFB;
+  --mt-cal-search-day-line: #E2E2E2;
+  --mt-cal-search-row-line: #D6D6D6;
+  --mt-cal-search-day-text: #4C4C4C;
+  --mt-cal-search-text: #474747;
+  --mt-cal-search-empty: #A0A0A0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mt-cal-search-bg: #2A2828;
+    --mt-cal-search-day-bg: #202020;
+    --mt-cal-search-day-line: #3F3F3F;
+    --mt-cal-search-row-line: #454545;
+    --mt-cal-search-day-text: #D0D0D0;
+    --mt-cal-search-text: #E9E9E9;
+    --mt-cal-search-empty: #7A7A7A;
+  }
+}
+
+#mc-cal-search {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 240px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--mt-cal-search-bg);
+  border-inline-start: 1px solid var(--mt-pane-line);
+  font: menu;
+  font-family: system-ui, -apple-system, sans-serif;
+  -moz-window-dragging: no-drag;
+}
+
+#mc-cal-search[hidden],
+#mc-cal-search > [hidden] {
+  display: none !important;
+}
+
+.mc-cal-search-group {
+  padding-bottom: 24px;
+}
+
+.mc-cal-search-day {
+  height: 27px;
+  display: flex;
+  align-items: center;
+  padding-inline: 16px 12px;
+  background: var(--mt-cal-search-day-bg);
+  border-bottom: 1px solid var(--mt-cal-search-day-line);
+  color: var(--mt-cal-search-day-text);
+  font-size: calc(11px * var(--mt-font-scale, 1));
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-cal-search-day[mc-today] {
+  color: var(--mt-red);
+  font-weight: 600;
+}
+
+.mc-cal-search-row {
+  position: relative;
+  height: 42px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-inline: 12px;
+  border-bottom: 1px solid transparent;
+  background:
+    linear-gradient(var(--mt-cal-search-row-line), var(--mt-cal-search-row-line)) bottom / calc(100% - 12px) 1px no-repeat;
+  color: var(--mt-cal-search-text);
+  font-size: calc(14px * var(--mt-font-scale, 1));
+  cursor: default;
+}
+
+.mc-cal-search-row[selected] {
+  background: AccentColor;
+  color: AccentColorText;
+  border-radius: 6px;
+  margin-inline: 4px;
+  padding-inline: 8px;
+}
+
+.mc-cal-search-icon {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--mc-cal-color, #007AFF);
+}
+
+/* kleines Kalenderblatt im Kreis wie bei Apple */
+.mc-cal-search-icon::after {
+  content: "";
+  position: absolute;
+  inset: 4.5px 4px 4px;
+  border: 1px solid #FFFFFF;
+  border-top-width: 2px;
+  border-radius: 1.5px;
+}
+
+.mc-cal-search-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-cal-search-time {
+  flex: none;
+  margin-inline-start: 4px;
+  white-space: nowrap;
+}
+
+.mc-cal-search-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mt-cal-search-empty);
+  font-size: calc(18px * var(--mt-font-scale, 1));
+}

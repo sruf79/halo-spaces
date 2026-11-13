@@ -7651,6 +7651,39 @@ menupopup menucaption {
   display: none !important;
 }
 
+/* ---------- Webseite als fünfter Bereich: Zurück/Vor und Adresse oben ----------
+   in der Toolbar-Zeile wie beim Chat (Lage misst die Erweiterung:
+   --mc-web-top/-h/-left/-w) statt einer eigenen Zeile unter einem leeren
+   Streifen; die Adresse ist nur Anzeige (kein Klick, kein Fokus, kein Cursor) */
+:root[mc-fifth-current][mc-fifth="web"] .contentTabInstance[mc-web-bar] > .contentTabToolbox {
+  position: fixed !important;
+  top: calc(var(--mc-web-top, 0px) + (var(--mc-web-h, 50px) - 34px) / 2) !important;
+  inset-inline-start: var(--mc-web-left, 100px) !important;
+  width: var(--mc-web-w, 400px) !important;
+  height: 34px !important;
+  z-index: 3 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+:root[mc-fifth-current][mc-fifth="web"] .contentTabInstance[mc-web-bar] .contentTabToolbar {
+  min-height: 0 !important;
+  height: 34px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  align-items: center !important;
+}
+
+.contentTabInstance[mc-web-bar] .contentTabUrlInput {
+  pointer-events: none !important;
+  -moz-user-focus: ignore !important;
+  user-select: none !important;
+  caret-color: transparent !important;
+}
+
 #chat-toolbar {
   background: transparent !important;
   border: none !important;

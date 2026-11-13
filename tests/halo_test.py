@@ -17629,6 +17629,59 @@ Neu
         return ok, f"{res}"
     check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol (Adressbuch als Person im Kreis), 16 % Fläche und kurzem Schatten (dunkel mit heller Kante) statt Chevron; Überfahren ändert nichts", spaces_current_fill, results)
 
+    def fifth_space_web_bar():
+        # fünfter Bereich als Webseite: Zurück/Vor und Adresse stehen oben in der Toolbar-Zeile wie beim Chat, die Seite
+        # beginnt direkt darunter (vorher eigene Zeile unter der leeren Toolbar-Zeile – ein großer leerer Streifen über
+        # der Seite); das Adressfeld ist nur Anzeige: Klick setzt keinen Fokus, nicht in der Tabulator-Reihenfolge
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'<!doctype html><meta charset="utf-8"><title>Halo Webzeile</title><h1>Halo Webzeile</h1>')
+
+            def log_message(self, *a):
+                pass
+        web = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=web.serve_forever, daemon=True).start()
+        P = "extensions.mailcards.fifthSpace"
+        try:
+            res = m.js(r"""
+              w.resizeTo(1500, 900); await toMail(); await ruhig(400);
+              Services.prefs.setStringPref("extensions.mailcards.fifthSpaceUrl", "http://127.0.0.1:%d/");
+              Services.prefs.setStringPref("%s", "web"); await ruhig(500);
+              d.getElementById("chatButton").click();
+              const wt = await bis(() => tm.currentTabInfo.mode.name == "contentTab" && tm.currentTabInfo.browser?.currentURI?.spec.includes("127.0.0.1") && tm.currentTabInfo, "Webseiten-Tab", 8000);
+              await until(() => wt.browser?.contentTitle == "Halo Webzeile", 6000); await ruhig(600);
+              const R = e => { const r = e?.getBoundingClientRect(); return r ? { t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), r: Math.round(r.right), h: Math.round(r.height) } : null; };
+              const row = d.getElementById("unifiedToolbarContainer"), box = wt.root?.querySelector(".contentTabToolbox"), bar = wt.toolbar, url = wt.urlbar;
+              const cs = w.getComputedStyle(bar), bs = w.getComputedStyle(box);
+              return { row: R(row), box: R(box), bar: R(bar), url: R(url), back: R(wt.backButton), browser: R(wt.browser),
+                       pad: [cs.paddingTop, cs.paddingBottom, cs.marginTop, bs.paddingTop, bs.marginTop, cs.minHeight], urlStyle: [w.getComputedStyle(url).pointerEvents, url.tabIndex] };""" % (web.server_port, P))
+            r = res.get("url") or {}
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": r.get("l", 0) + 40, "y": (r.get("t", 0) + r.get("b", 0)) // 2, "origin": "viewport"},
+                       {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            res.update(m.js(r"""
+              await ruhig(300); const wt = tm.currentTabInfo, url = wt.urlbar;
+              const focused = d.activeElement == url || url.matches(":focus");
+              return { clickFocus: focused, tabIndex: url.tabIndex };"""))
+        finally:
+            m.js(r"""
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+              for (const p of ["%s", "extensions.mailcards.fifthSpaceUrl"]) Services.prefs.clearUserPref(p);
+              await toMail(); return true;""" % P)
+            web.shutdown()
+        row, bar, url, br = (res.get(k) or {} for k in ("row", "bar", "url", "browser"))
+        ok = (bool(row and bar and url and br) and bar.get("t", -1) >= row.get("t", 0) and bar.get("b", 99) <= row.get("b", 0)
+              and abs((bar["t"] + bar["b"]) - (row["t"] + row["b"])) <= 2 and abs(br.get("t", 0) - row.get("b", 0)) <= 1
+              and bar.get("l", 0) >= row.get("l", 0) and bar.get("r", 9999) <= br.get("r", 0)
+              and not res.get("clickFocus") and res.get("tabIndex") == -1)
+        return ok, f"{res}"
+    check("Bereichsleiste: Webseite als fünfter Bereich – Zurück/Vor und Adresse oben in der Toolbar-Zeile, Seite direkt darunter, Adressfeld nur Anzeige (kein Fokus per Klick oder Tabulator)", fifth_space_web_bar, results)
+
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),
         # Bereich einer Erweiterung (Chat-Platz, Chat-Farbe, Symbol der Erweiterung, eigener Knopf weg, Inhalt 1:1

@@ -612,10 +612,65 @@ const FifthSpace = {
     const root = d.documentElement;
     const item = () => d.getElementById("spacesPopupButtonChat");
     let target = { mode: "chat" };
+    // Webseite: Zurück/Vor und Adresse oben in der Toolbar-Zeile (wie der
+    // Chat, wie ein Browser) statt in einer eigenen Zeile darunter – die
+    // Toolbar-Zeile war sonst ein leerer Streifen über der Seite. Lage aus der
+    // Toolbar-Zeile, der Seite und dem Today-Knopf; neu bei jeder Größenänderung
+    // der Seite (Fenster, Today-Pane)
+    const webTabs = new Set();
+    const placeWeb = tab => {
+      const box = tab?.root?.querySelector?.(".contentTabToolbox");
+      const row = d.getElementById("unifiedToolbarContainer")?.getBoundingClientRect();
+      const br = tab?.browser?.getBoundingClientRect();
+      if (!box || !row?.height || !br?.width || tm.currentTabInfo != tab) {
+        return;
+      }
+      const tg = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+      const left = Math.max(row.left, br.left) + 12;
+      let right = Math.min(row.right, br.right) - 12;
+      if (tg?.width && tg.left < right + 12) {
+        right = tg.left - 12;
+      }
+      const st = tab.root.style;
+      st.setProperty("--mc-web-top", `${Math.round(row.top)}px`);
+      st.setProperty("--mc-web-h", `${Math.round(row.height)}px`);
+      st.setProperty("--mc-web-left", `${Math.round(left)}px`);
+      st.setProperty("--mc-web-w", `${Math.max(120, Math.round(right - left))}px`);
+      tab.root.setAttribute("mc-web-bar", "");
+      // Adresse nur zur Anzeige: kein Fokus über die Tabulatortaste
+      if (tab.urlbar) {
+        tab.urlbar.tabIndex = -1;
+      }
+      if (!webTabs.has(tab)) {
+        webTabs.add(tab);
+        tab.__mcWebRo = new w.ResizeObserver(() => placeWeb(tab));
+        tab.__mcWebRo.observe(tab.browser);
+      }
+    };
+    const unplaceWeb = tab => {
+      tab.__mcWebRo?.disconnect();
+      delete tab.__mcWebRo;
+      tab.root?.removeAttribute?.("mc-web-bar");
+      for (const v of ["--mc-web-top", "--mc-web-h", "--mc-web-left", "--mc-web-w"]) {
+        tab.root?.style?.removeProperty(v);
+      }
+      if (tab.urlbar) {
+        tab.urlbar.removeAttribute("tabindex");
+      }
+      webTabs.delete(tab);
+    };
     const sync = () => {
       const on = (target.mode == "addon" || target.mode == "web") && this.isTarget(w, target, tm.currentTabInfo);
       chat.classList.toggle("current", on || (target.mode == "chat" && w.gSpacesToolbar.currentSpace?.button == chat));
       root.toggleAttribute("mc-fifth-current", on);
+      if (on && target.mode == "web") {
+        placeWeb(tm.currentTabInfo);
+      }
+      for (const t of [...webTabs]) {
+        if (!tm.tabInfo.includes(t) || target.mode != "web") {
+          unplaceWeb(t);
+        }
+      }
     };
     const reset = () => {
       for (const e of d.querySelectorAll("[mc-fifth-hidden]")) {
@@ -726,6 +781,9 @@ const FifthSpace = {
       mo?.disconnect();
       prefs.forEach(p => Services.prefs.removeObserver(p, obs));
       reset();
+      for (const t of [...webTabs]) {
+        unplaceWeb(t);
+      }
       if (item()) {
         item().hidden = false;
       }

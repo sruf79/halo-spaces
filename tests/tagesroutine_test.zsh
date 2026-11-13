@@ -83,4 +83,9 @@ pruefe "nichts_passend um 12:28: Wartezeit ist genau 13:00" \
   "$([[ $(np 2026-11-12T12:28:00+01:00) == "warten $(python3 -c 'import datetime as d;print(int(d.datetime.fromisoformat("2026-11-12T13:00:00+01:00").timestamp()))')" ]] && echo gleich)" '^gleich$'
 pruefe "nichts_passend um 19:40: noch warten (20:00 liegt vor 20:30)" "$(np 2026-11-12T19:40:00+01:00)" '^warten '
 pruefe "nichts_passend um 20:00: Ende (nächste Stunde 21:00 nach 20:30)" "$(np 2026-11-12T20:00:00+01:00)" '^ende$'
+# „Plan abgearbeitet“ ist kein Ende (Maintainer 13.11.2026): warten bis zur vollen Stunde, dann neu planen; nur bis 20:30
+pruefe "Plan abgearbeitet um 14:20: warten bis 15:00, dann neu planen" "$(lauf 2026-11-12T14:20:00+01:00 30)" \
+  'Plan abgearbeitet: ohne Claude warten bis 15:00, dann Kontingent neu lesen und neu planen' '3 Plan-Runden hintereinander ohne erledigten Eintrag'
+pruefe "Plan abgearbeitet um 20:10: Ende, kein neuer Plan" "$(lauf 2026-11-12T20:10:00+01:00 30)" \
+  'Plan abgearbeitet: Ende \(nächste volle Stunde nach 20:30\), kein neuer Plan'
 exit $FEHLER

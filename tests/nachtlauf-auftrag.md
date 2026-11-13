@@ -141,7 +141,7 @@ Reihenfolge:
         Stellen oder neue Logik; groß = Umbau, neue Ansicht, Reihen-Schritt
         mit viel Neuem, unklare Ursache). Wo vorhanden, gemessene Werte
         nutzen: Einstufung „einfach/komplex“ in
-        ~/halo-nacht/<datum>-tagesroutine-plan.tsv, Kosten und Minuten in
+        ~/halo-nacht/<datum>-tagesroutine-plan.tsv (und -plan-<n>.tsv), Kosten und Minuten in
         ~/halo-nacht/tagesroutine-spar.tsv, Notizen früherer Versuche im
         Eintrag (z. B. „zurück auf Todo, …“) und frühere Nachtberichte in
         ~/halo-berichte/ (gescheitert = eher groß). Vor dem Schätzen die

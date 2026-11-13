@@ -22,6 +22,10 @@ export HALO_LAUF=tagesroutine
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
 #   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
+# Plan abgearbeitet (Maintainer 13.11.2026, „Ja“ zum Vorschlag): kein Ende, sondern ohne Claude bis zur
+#   nächsten vollen Stunde warten (nichts_passend_weiter, nur vor LETZTER_BEGINN), Kontingent neu lesen und
+#   eine neue Plan-Runde (Plan <datum>-tagesroutine-plan-<n>.tsv, heute Bearbeitetes ausgeschlossen).
+#   Ende bei leerem Plan einer Plan-Runde oder nach 3 Plan-Runden hintereinander ohne erledigten Eintrag.
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
@@ -310,6 +314,18 @@ nichts_passend_weiter() {   # <jetzt> <letzter Beginn> (Unix-Sekunden)
   local bis=$(( $1 - $1 % 3600 + 3600 ))
   (( bis < $2 )) && print "warten $bis" || print ende
 }
+# Text für den Trockenlauf: was nach abgearbeitetem Plan geschähe (HALO_JETZT oder jetzt)
+nichts_passend_weiter_text() {
+  local j l w
+  read j l < <(python3 -I -c 'import sys,datetime as d
+from zoneinfo import ZoneInfo
+j=d.datetime.fromisoformat(sys.argv[1]).astimezone(ZoneInfo("Europe/Vienna")) if sys.argv[1] else d.datetime.now(ZoneInfo("Europe/Vienna"))
+h,m=map(int,sys.argv[2].split(":"))
+print(int(j.timestamp()), int(j.replace(hour=h,minute=m,second=0,microsecond=0).timestamp()))' "${HALO_JETZT:-}" $KONF[LETZTER_BEGINN])
+  w=$(nichts_passend_weiter $j $l)
+  [[ $w == ende ]] && print -r -- "Ende (nächste volle Stunde nach $KONF[LETZTER_BEGINN]), kein neuer Plan" \
+    || print -r -- "ohne Claude warten bis $(date -r ${w#warten } +%H:%M), dann Kontingent neu lesen und neu planen (heute Bearbeitetes ausgeschlossen)"
+}
 if [[ -n $NICHTSPASSEND ]]; then   # Probe: HALO_JETZT (ISO mit Zone), letzter Beginn aus der Konfiguration
   python3 -I -c 'import sys,datetime as d
 j=d.datetime.fromisoformat(sys.argv[1]); h,m=map(int,sys.argv[2].split(":"))
@@ -356,6 +372,8 @@ if [[ -n $TROCKEN ]]; then
   else
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
     print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
+    print "              Plan abgearbeitet: $(nichts_passend_weiter_text);"
+    print "              Ende bei leerem Plan einer Plan-Runde oder nach 3 Plan-Runden hintereinander ohne erledigten Eintrag"
   fi
   exit 0
 fi
@@ -373,6 +391,7 @@ uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
 ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG=
+PLANRUNDE=0 OHNE_ERGEBNIS=0 ERLEDIGT_VOR_PLAN=0 PLAN_RUNDEN=   # Neuplanen nach abgearbeitetem Plan (13.11.2026)
 typeset -a MODELLE_GENUTZT ABSCHNITTE
 
 # Bericht: Kopf + Abschnitte der Runden + Ende; immer geschrieben
@@ -393,6 +412,12 @@ bericht_schreiben() {
     print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
     [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
     print
+    if [[ -n $PLAN_RUNDEN ]]; then
+      print "## Plan-Runden"
+      print
+      print -r -- "$PLAN_RUNDEN"
+      print
+    fi
     print "## Modelle"
     print
     (( $#MODELLE_GENUTZT )) && print -rl -- "- "${^MODELLE_GENUTZT} || print -r -- "- keine Claude-Runde"
@@ -465,6 +490,12 @@ pruef_pushen() {
 pruef_rot() {   # gibt „<Lauf-ID> <Commit>“ aus, wenn der letzte abgeschlossene Lauf rot ist
   gh run list -R sruf79/halo-spaces -b $PRUEF -L 1 --json databaseId,headSha,status,conclusion \
     --jq '.[0] | select(.status == "completed" and .conclusion == "failure") | "\(.databaseId) \(.headSha[:7])"' 2>/dev/null
+}
+
+# offene Zeilen des aktuellen Plans: ohne Kommentare, Leerzeilen und heute schon Bearbeitetes
+offene_planzeilen() {
+  grep -v -e '^#' -e '^[[:space:]]*$' $PLAN 2>/dev/null \
+    | grep -vFf <(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null; print -- '@@')
 }
 
 # --- Kontingent am Anfang ---
@@ -546,23 +577,62 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
   fi
 
   if [[ -z $GEPLANT ]]; then
-    # Plan-Runde: Commits durchsehen, Liste laden, Plan schreiben (komplexe zuerst)
-    ABSCHNITTE+=($DIR/$TAG-tagesroutine-plan.md)
-    MODELLE_GENUTZT+=("Plan: $E[M_KOMPLEX]")
+    # Plan-Runde: Commits durchsehen, Liste laden, Plan schreiben (komplexe zuerst). Ab der zweiten Runde
+    # (vorheriger Plan abgearbeitet, Maintainer 13.11.2026) eigene Dateien und heute Bearbeitetes ausgeschlossen
+    PLANRUNDE=$((PLANRUNDE + 1))
+    if (( PLANRUNDE == 1 )); then
+      PLANMD=$DIR/$TAG-tagesroutine-plan.md UEB="## Plan" NEUPLAN= PTXT=$DIR/$TAG-tagesroutine-plan.txt
+    else
+      PLAN=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.tsv PLANMD=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.md
+      PTXT=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.txt UEB="## Plan-Runde $PLANRUNDE ($(date +%H:%M))"
+      NEUPLAN="Neue Plan-Runde $PLANRUNDE: der vorige Plan ist abgearbeitet. Commits und Liste neu lesen. Heute schon bearbeitet (nicht noch einmal planen): $(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null | tr '\n' ' '). Nur Einträge planen, die heute noch nicht bearbeitet wurden; ist keiner geeignet, leeren Plan lassen.
+"
+    fi
+    ABSCHNITTE+=($PLANMD)
+    MODELLE_GENUTZT+=("Plan-Runde $PLANRUNDE: $E[M_KOMPLEX]")
+    T0=$(date +%H:%M)
     runde $E[M_KOMPLEX] "$(kopf)
 
-JETZT: Plan-Runde (Schritte 1–2 des Auftrags). Schreibe den Plan nach $PLAN und den Abschnitt „## Plan“ nach $DIR/$TAG-tagesroutine-plan.md. Keinen Eintrag bearbeiten." \
-      $DIR/$TAG-tagesroutine-plan.txt
+JETZT: Plan-Runde (Schritte 1–2 des Auftrags). ${NEUPLAN}Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen Eintrag bearbeiten." \
+      $PTXT
     rc=$?
-    GEPLANT=1
-    (( rc == 9 )) && { ENDGRUND="Limit in der Plan-Runde"; break }
-    [[ -s $PLAN ]] || { ENDGRUND="kein Plan (keine geeignete Aufgabe oder Plan-Runde gescheitert)"; break }
+    GEPLANT=1 ERLEDIGT_VOR_PLAN=$ERLEDIGT
+    (( rc == 9 )) && { PLAN_RUNDEN+="${PLAN_RUNDEN:+
+}- Plan-Runde $PLANRUNDE ($T0, $E[M_KOMPLEX]): Limit erreicht"; ENDGRUND="Limit in der Plan-Runde"; break }
+    NEU=$(offene_planzeilen | grep -c .)
+    PLAN_RUNDEN+="${PLAN_RUNDEN:+
+}- Plan-Runde $PLANRUNDE ($T0, $E[M_KOMPLEX]): $NEU Einträge geplant (${PLAN:t})"
+    if (( NEU == 0 )); then
+      (( PLANRUNDE == 1 )) && ENDGRUND="kein Plan (keine geeignete Aufgabe oder Plan-Runde gescheitert)" \
+        || ENDGRUND="kein Plan in Plan-Runde $PLANRUNDE (keine geeignete Aufgabe mehr oder Plan-Runde gescheitert)"
+      break
+    fi
     continue      # Kontingent vor dem ersten Eintrag erneut prüfen
   fi
 
   # nächster offener Eintrag aus dem Plan (Spalten: id, komplex|routine, Titel)
-  ZEILE=$(grep -v '^#' $PLAN | grep -vFf <(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null; print -- '@@') | head -1)
-  [[ -n $ZEILE ]] || { ENDGRUND="Plan abgearbeitet"; break }
+  ZEILE=$(offene_planzeilen | head -1)
+  if [[ -z $ZEILE ]]; then
+    # Plan abgearbeitet (Maintainer 13.11.2026, „Ja“): kein Ende, sondern wie nach „nichts_passend“ ohne Claude
+    # bis zur nächsten vollen Stunde warten, dann Kontingent neu lesen und neu planen (nur vor LETZTER_BEGINN).
+    # Schutz vor Leerlauf: nach 3 Plan-Runden hintereinander ohne erledigten Eintrag Ende.
+    (( ERLEDIGT > ERLEDIGT_VOR_PLAN )) && OHNE_ERGEBNIS=0 || OHNE_ERGEBNIS=$((OHNE_ERGEBNIS + 1))
+    PLAN_RUNDEN+="
+  - abgearbeitet $(date +%H:%M): $((ERLEDIGT - ERLEDIGT_VOR_PLAN)) erledigt"
+    if (( OHNE_ERGEBNIS >= 3 )); then
+      ENDGRUND="Plan abgearbeitet, 3 Plan-Runden hintereinander ohne erledigten Eintrag – kein neuer Plan"; break
+    fi
+    w=$(nichts_passend_weiter $(date +%s) $LETZTER)
+    if [[ $w == ende ]]; then
+      ENDGRUND="Plan abgearbeitet, nächste volle Stunde nach $KONF[LETZTER_BEGINN] – kein neuer Plan"; break
+    fi
+    bis=${w#warten }
+    log "Plan abgearbeitet: warte bis $(date -r $bis +%H:%M), dann neu planen"
+    PLAN_RUNDEN+=", warte bis $(date -r $bis +%H:%M), dann neu planen"
+    while (( $(date +%s) < bis )); do sleep 120; done
+    GEPLANT=
+    continue      # Zeitgrenze, Pause, belegt, Tageslimit und Kontingent prüft der Schleifenanfang
+  fi
   ID=${ZEILE%%$'\t'*} REST=${ZEILE#*$'\t'}; ART=${REST%%$'\t'*} TITEL=${REST#*$'\t'}
   [[ $ART == komplex ]] && MODELL=$E[M_KOMPLEX] || MODELL=$E[M_ROUTINE]
   N=$((N + 1)) ERG=$DIR/$TAG-tagesroutine-$N.erg

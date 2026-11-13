@@ -7579,14 +7579,16 @@ menupopup menucaption {
   display: none !important;
 }
 
-/* feine Linie an der rechten Kante der Kontaktliste, wie über der Mailliste */
+/* feine Linie an der rechten Kante der Kontaktliste, wie über der Mailliste:
+   genau über deren Rand (Haarlinie innen an der rechten Kante), sonst lief
+   sie neben „…“ und „+“ breiter und versetzt */
 :root[mc-tab="addressBookTab"]:not([mc-ab-table]) #unifiedToolbarContainer::before {
   content: "" !important;
   position: absolute !important;
-  inset-inline-start: var(--mc-ab-list-right, -10px) !important;
+  inset-inline-start: calc(var(--mc-ab-list-right, -10px) - var(--mt-hairline)) !important;
   top: 0 !important;
   bottom: 0 !important;
-  width: 1px !important;
+  width: var(--mt-hairline) !important;
   background-color: var(--mt-pane-line) !important;
   pointer-events: none !important;
 }

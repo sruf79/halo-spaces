@@ -9644,7 +9644,8 @@ class CardEnhancer {
         } else if (cr?.width) {
           // Knöpfe nie über der Kontaktliste
           edge = Math.max(this.mcButtonsLeft ? edge : 0, shift + cr.right + 6);
-          setBarVar(d, "--mc-ab-list-right", `${Math.round(shift + cr.right - rowLeft)}px`);
+          // (ungerundet: die Linie darüber setzt auf den Haarlinien-Rand der Liste auf)
+          setBarVar(d, "--mc-ab-list-right", `${(shift + cr.right - rowLeft).toFixed(2)}px`);
         }
       }
       // Aufgaben wie die Mail: Kartenliste so breit wie die Mailliste (die Details

@@ -4509,6 +4509,27 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Adressbuch: „+“ rechts über der Kontaktliste mit Menü zum Anlegen, „…“ mit eigenem Tooltip, Toolbar ohne Anlegen-Knöpfe", addressbook_plus, results)
 
+    def addressbook_line_straight():
+        # Trennlinie rechts der Kontaktliste läuft gerade von der Toolbar-Zeile in die Liste: Linie in der Toolbar-Zeile
+        # so breit wie der Rand der Liste (Haarlinie) und an derselben Stelle (vorher 1 px breit, rechts neben dem Rand –
+        # neben „…“ und „+“ sichtbar versetzt)
+        res = m.js(r"""
+          w.resizeTo(1500, 900);
+          await toMail(); await ruhig(600);
+          const tab = tm.openTab("addressBookTab", {}); await bis(() => d.getElementById("mcListHeader")?.querySelector(".mc-lh-plus")?.getBoundingClientRect().width, "Adressbuch-Kopf mit „+“", 8000); await ruhig(1500);
+          try {
+            const row = d.getElementById("unifiedToolbarContainer"), st = w.getComputedStyle(row, "::before");
+            const br = tab.browser.getBoundingClientRect(), ad = tab.browser.contentDocument, cards = ad.getElementById("cardsPane");
+            const cr = cards.getBoundingClientRect(), cs = ad.defaultView.getComputedStyle(cards), bw = parseFloat(cs.borderInlineEndWidth);
+            const left = row.getBoundingClientRect().left + parseFloat(st.insetInlineStart);
+            return { content: st.content, lineLeft: +left.toFixed(2), lineW: parseFloat(st.width), borderLeft: +(br.left + cr.right - bw).toFixed(2), borderW: bw,
+                     lineColor: st.backgroundColor, borderColor: cs.borderInlineEndColor };
+          } finally { tm.closeTab(tab); await toMail(); }""")
+        ok = (res.get("content") not in (None, "none") and abs(res.get("lineLeft", 0) - res.get("borderLeft", 99)) <= 0.05
+              and abs(res.get("lineW", 0) - res.get("borderW", 99)) <= 0.01 and res.get("lineColor") == res.get("borderColor"))
+        return ok, f"{res}"
+    check("Adressbuch: Trennlinie rechts der Kontaktliste läuft in der Toolbar-Zeile ohne Versatz weiter (gleiche Stelle, gleiche Breite)", addressbook_line_straight, results)
+
     def hover_line():
         # keine Linie unter der Toolbar-Zeile, auch nicht mit der Maus in der Toolbar-Zeile über Mailliste oder Mail
         # (früher absichtlich eine feine Linie über der Spalte unter der Maus; auf Wunsch des Maintainers entfernt,

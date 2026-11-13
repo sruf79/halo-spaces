@@ -71,6 +71,11 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   ist (fester Dank-Kommentar mit Version, kein Merge), und verschiebt die Zeile nach
   `tests/pr-freigaben-erledigt.txt`. Die GitHub-Routinen schließen nie Pull Requests; „kandidat“ im
   Bericht ist nur ein Hinweis. Probe: `zsh tests/pr-schliessen.sh x.y.z --trocken`.
+  Der Director des Nachtlaufs schlägt im Nachtbericht („Pull Requests zum Schließen vorgeschlagen“)
+  schließbare PRs mit fertiger Zeile für `tests/pr-freigaben.txt` vor; eingetragen wird erst mit Zitat
+  des Maintainers (13.11.2026). Einen eigenen Hinweis an die GitHub-Routine gibt es nicht: Nach einem
+  Release des Nachtlaufs hat `publish.sh` die Issues schon mit „Fixed in x.y.z“ geschlossen, Fixes vor
+  dem Release meldet `issue-abgleich.txt`; die Routine bleibt bei ihren Zeiten.
   Lehnt der Maintainer einen PR ab (Feature nicht geplant), steht statt der Issue-Nummer `abgelehnt` in der
   Zeile: Das Skript schließt ihn beim nächsten Release ohne Fix-Commit mit festem Absage-Kommentar (kein
   Merge, Wortlaut vom Maintainer freigegeben, 11.11.2026).

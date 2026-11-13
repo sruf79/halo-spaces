@@ -12205,7 +12205,10 @@ def run_checks(m, version, profile, results):
             m.js('d.getElementById("spacesPinnedButton").click(); await ruhig(800); return 1;')
         drag(p["x"], p["y"], -(p["w"] - 60))
         out["calDuring"] = m.js('return d.getElementById("calSidebar").classList.contains("mc-side-hidden");')
+        # Bereiche-Kacheln gehören zur Seitenleiste: schon beim Ziehen mit weg, nicht erst beim Loslassen
+        out["colDuring"] = m.js('return !!w.gSpacesToolbar.isHidden;')
         release(); m.js("await ruhig(500); return 1;")
+        out["colAfter"] = m.js('return !!w.gSpacesToolbar.isHidden;')
         out["calShown"] = m.js(r"""d.getElementById("spacesPinnedButton").click(); await ruhig(900);
           const sb = d.getElementById("calSidebar"); return [sb.classList.contains("mc-side-hidden"), Math.round(sb.getBoundingClientRect().width)];""")
         out["calWidth"] = p["w"]
@@ -12226,12 +12229,13 @@ def run_checks(m, version, profile, results):
           btn.click(); const right = row.hasAttribute("data-mc-tp-open"); await ruhig(900);
           btn.click(); await ruhig(900); return { open, plusAtStart: right };""")
         c = out["todayClick"]
-        ok = (out["calDuring"] is True and out["calShown"][0] is False and abs(out["calShown"][1] - out["calWidth"]) <= 2
+        ok = (out["calDuring"] is True and out["colDuring"] is True and out["colAfter"] is True
+              and out["calShown"][0] is False and abs(out["calShown"][1] - out["calWidth"]) <= 2
               and out["mailBar"] == "none"
               and out["todayWidth"] == 280 and out["plusBefore"] and out["todayDuring"] == [False, False]
               and c["open"] == [True, True, 280] and c["plusAtStart"] is False)
         return ok, f"{out}"
-    check("Trennlinien: Seitenleiste beim Zuziehen sofort weg, kein blauer Balken, Today-Pane fest 280 px und nach rechts gezogen sofort aus, „+“ gleich weg", drag_hide, results)
+    check("Trennlinien: Seitenleiste beim Zuziehen sofort weg (mit den Bereiche-Kacheln), kein blauer Balken, Today-Pane fest 280 px und nach rechts gezogen sofort aus, „+“ gleich weg", drag_hide, results)
 
     def drag_reshow():
         # Eine Zieh-Logik für alle Bereiche: Seitenleiste (Kalender, Mail, Adressbuch, Einstellungen) bis zur gemeinsamen

@@ -7262,7 +7262,11 @@ function dragPane(event, pane) {
   const win = doc.defaultView;
   const root = doc.documentElement;
   const dir = pane.side == "right" ? -1 : 1;
-  const startX = event.clientX;
+  // Lage auf dem Bildschirm statt im Dokument: blendet das Ziehen die
+  // Bereiche-Leiste aus, rutscht ein eingebettetes Dokument (Adressbuch,
+  // Einstellungen, Mail) mit – clientX spränge dann unter dem Zeiger
+  const posX = e => e.clientX + (win.mozInnerScreenX || 0);
+  const startX = posX(event);
   const startHidden = pane.hidden();
   const startWidth = startHidden ? 0 : pane.width();
   const threshold = pane.threshold(startHidden, startWidth);
@@ -7279,7 +7283,7 @@ function dragPane(event, pane) {
       end();
       return;
     }
-    const size = startWidth + dir * (e.clientX - startX);
+    const size = startWidth + dir * (posX(e) - startX);
     const hide = size < threshold;
     if (hide != hidden) {
       hidden = hide;
@@ -11435,15 +11439,22 @@ class CardEnhancer {
       } catch {}
       const max = Math.max(SIDE_MIN, Math.min(sideMax(pane.el), room));
       let resized = false;
-      // während des Ziehens bleibt die Bereiche-Leiste stehen (sonst spränge
-      // der Inhalt unter dem Zeiger), beim Loslassen zieht sie mit
+      // Seitenleiste und Bereiche-Kacheln sind ein gemeinsamer Bereich: an
+      // der Schwelle gehen beide zugleich weg bzw. kommen zurück (vorher blieben
+      // die Kacheln bis zum Loslassen allein stehen). Der Sprung an der Schwelle
+      // ist erlaubt; dazwischen bleibt die Bereiche-Leiste stehen
       w.__mcSideDrag = true;
       dragPane(event, {
         side: "left",
         hidden: pane.hidden,
         width: pane.width,
         threshold: pane.threshold,
-        setHidden: pane.setHidden,
+        setHidden: h => {
+          pane.setHidden(h);
+          if (w.gSpacesToolbar && !w.__mcColumnQuiet && columnHidden() != h) {
+            w.gSpacesToolbar.toggleToolbar(h);
+          }
+        },
         setWidth: pane.setWidth && (W => {
           pane.setWidth(Math.round(Math.min(max, Math.max(SIDE_MIN, W))));
           resized = true;

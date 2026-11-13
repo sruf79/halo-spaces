@@ -12485,8 +12485,12 @@ def run_checks(m, version, profile, results):
         # Today-Pane (je Bereich gemerkt) am Ende wieder wie zu Beginn – sonst misst „Aufgaben wie die Mail“ danach eine
         # Aufgabenliste ohne Today-Pane (Details 710 statt 463 px, „…“ 34 px weiter rechts)
         TODAY_JS = '''const todayOffen = () => { const tp = d.getElementById("today-pane-panel"); return !!(tp && !tp.collapsed && tp.getBoundingClientRect().width > 0); };
-            const geheZu = async (mode) => { if (mode == "calendar") await toCalendar(); else if (mode == "mail") await toMail(); else { tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben", 8000); } await ruhig(800); };'''
-        m.js(TODAY_JS + 'w.__sprToday = {}; for (const mode of ["calendar", "tasks", "mail"]) { await geheZu(mode); w.__sprToday[mode] = todayOffen(); } return 1;')
+            const geheZu = async (mode) => { if (mode == "calendar") await toCalendar(); else if (mode == "mail") await toMail();
+              else { const tab = { tasks: "tasks", addressbook: "addressBookTab", chat: "chat" }[mode]; tm.openTab(tab, {}); await bis(() => tm.currentTabInfo?.mode?.name == tab, tab, 8000); } await ruhig(800); };
+            const ALLE = ["calendar", "tasks", "addressbook", "chat", "mail"];'''
+        # (auch Adressbuch und Chat: dort schließt die Prüfung die Today-Pane – blieb sie zu, zeigte danach die Webseite
+        # als fünfter Bereich, die sich den Zustand mit ihnen teilt, den Today-Knopf an anderer Stelle als die Mail)
+        m.js(TODAY_JS + 'w.__sprToday = {}; for (const mode of ALLE) { await geheZu(mode); w.__sprToday[mode] = todayOffen(); } for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); return 1;')
         try:
             for name, modus, knoepfe, geh in bereiche:
                 m.js(geh + " return 1;")
@@ -12532,7 +12536,7 @@ def run_checks(m, version, profile, results):
         finally:
             m.js(TODAY_JS + '''try { const [book, card] = w.__sprCard || []; if (card) book.deleteCards([card]); delete w.__sprCard; } catch {}
                 try { if (w.__sprTodo) { await testCalendar().deleteItem(w.__sprTodo); delete w.__sprTodo; } } catch {}
-                try { for (const mode of ["calendar", "tasks", "mail"]) { await geheZu(mode);
+                try { for (const mode of ALLE) { await geheZu(mode);
                   if (todayOffen() != w.__sprToday[mode]) { d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); } } } catch {}
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
                 if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1500); }

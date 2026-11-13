@@ -1,6 +1,6 @@
 #!/bin/zsh
 export HALO_LAUF=tagesroutine
-# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00, Sa/So ab 12:00 (Maintainer 13.11.2026,
+# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00, Sa/So ab 10:00 (Maintainer 13.11.2026,
 # START_WOCHENENDE) arbeitet Claude Code die Aufgabenliste ab, bis spätestens 22:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
 # (Interpreter /bin/zsh: keine Bildschirmprüfungen mit Maus); die Datei wird wie nachtlauf.sh nach
 # ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt.
@@ -54,7 +54,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 # --- Schwellen: Standard, dann tagesroutine.conf ---
 typeset -A KONF
 KONF=(
-  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 12:00  LETZTER_BEGINN 20:30  ENDE 22:00
+  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 10:00  LETZTER_BEGINN 20:30  ENDE 22:00
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
@@ -148,7 +148,7 @@ gemessen = [fl(t[6]) for t in zeilen if t[8] == "erledigt" and fl(t[6]) is not N
 tage = {int(x) for x in e["K_WOCHENTAGE"].split()}
 def heute(s):
     h, m = hm(s); return jetzt.replace(hour=h, minute=m, second=0, microsecond=0)
-# Beginn: Sa/So START_WOCHENENDE (Maintainer 13.11.2026, „ab 12:00 mittags“), sonst START
+# Beginn: Sa/So START_WOCHENENDE (Maintainer 13.11.2026, zuerst 12:00, dann „um 10::00 starten“), sonst START
 start = heute(e.get("K_START_WOCHENENDE") or e["K_START"]) if jetzt.isoweekday() >= 6 else heute(e["K_START"])
 fenster = jetzt.isoweekday() in tage and start <= jetzt < heute(e["K_ENDE"])
 neu_zeit = fenster and jetzt < heute(e["K_LETZTER_BEGINN"])
@@ -501,8 +501,9 @@ offene_planzeilen() {
 }
 
 # belegt() plus die Routinen mit Sperrdatei (Nachtlauf, Wochen- und Doku-Prüfung, Rundgang): am Wochenende
-# wartet der Rundgang (Sa 10:00, spätester Start 14:00) evtl. noch, wenn die Tagesroutine um 12:00 beginnt.
-# Er sieht unsere Claude-Runden nicht als belegt (aktive_sitzung() übergeht eigene Läufe), daher warten wir.
+# laufen Doku-Prüfung (Sa 08:00) bzw. Wochenprüfung (So 08:00) evtl. noch, wenn die Tagesroutine um 10:00 beginnt
+# (Doku-Prüfung 7.11.2026 bis 09:57); der Rundgang (Sa 10:00, derzeit pausiert) wartet bis 14:00. Sie sehen
+# unsere Claude-Runden nicht als belegt (aktive_sitzung() übergeht eigene Läufe), daher warten wir.
 belegt_tag() {
   local l
   for l in lauf:Nachtlauf woche:Wochenprüfung doku:Doku-Prüfung rundgang:Design-Rundgang; do

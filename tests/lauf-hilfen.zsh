@@ -305,7 +305,7 @@ volldampf_wochenlimit_pruefen() {   # [<Woche %>]
   print -r -- "$f $um $woche" >> $(volldampf_marker)
   [[ -n $LOG ]] && log "Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]})"
   print -r -- "$(zeit) Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]}), Fenster $f" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
-  push "Volldampf beendet, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, Volldampf nur auf Zuruf wieder an" "${HALO_LAUF:-volldampf}" handeln
+  push "Volldampf beendet, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, Volldampf nur auf Zuruf wieder an; Fable-Anteil in Einstellungen > Nutzung mit ansehen" "${HALO_LAUF:-volldampf}" handeln
   return 0
 }
 # Erinnerung an den freien Reset (Vorschlag von neon, 13.11.2026, zur Entscheidung des Maintainers; eigener
@@ -326,7 +326,7 @@ volldampf_reset_erinnern() {
   [[ -e $merk ]] && grep -qxF -- $f $merk && return 1
   mkdir -p ${merk:h}; print -r -- $f >> $merk
   [[ -n $LOG ]] && log "Volldampf: Woche $woche % – Erinnerung an den freien Reset gesendet"
-  push "Volldampf: Wochenkontingent bei $woche %, freien Reset in Einstellungen > Nutzung drücken?" "${HALO_LAUF:-volldampf}"
+  push "Volldampf: Wochenkontingent bei $woche %, freien Reset in Einstellungen > Nutzung drücken? Fable-Anteil in Einstellungen > Nutzung mit ansehen" "${HALO_LAUF:-volldampf}"
   return 0
 }
 volldampf_aufraeumen() {

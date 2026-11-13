@@ -447,7 +447,7 @@ bericht_schreiben() {
     print -r -- "- Anfang: ${K_ANFANG:-nicht gelesen}"
     print -r -- "- Ende: ${K_ENDE:-nicht gelesen}"
     [[ -n $VD_BERICHT ]] && print -r -- "- $VD_BERICHT; Tageslimit $MAX_COMMITS eigene Commits"
-    print -r -- "- Fable-Wochenzähler: ${K_FABLE:-nicht lesbar (kein Fable-Wert im rate_limit_event von kontingent.sh)}"
+    print -r -- "- Fable-Wochenzähler: ${K_FABLE:-Fable only nicht lesbar, Stopp nur über die Zahl der Agenten (kein Fable-Wert im rate_limit_event von kontingent.sh)}"
     print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
     [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
     print

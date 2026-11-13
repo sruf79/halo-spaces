@@ -14787,6 +14787,55 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Kanban-Spalten im schmalen Fenster gleich breit und alle drei ganz zu sehen (Fenster nicht schmaler als die Spalten, auch wenn es vor dem Öffnen schon schmal war)", task_board_min_width, results)
 
+    def view_switch_grows_window():
+        # Wechsel der Ansicht bei schmalem Fenster am rechten Bildschirmrand (Aufgaben Liste → Kanban, Kalender Tag → Monat):
+        # das Fenster wird so breit, wie die neue Ansicht braucht, und bleibt ganz im Bildschirm (vorher wuchs es nur nach
+        # rechts und lief dort aus dem Bild, „Completed“ verdeckt). Unter Linux nur die Breite (die Lage setzt dort der
+        # Fenstermanager, halo.spaces verschiebt nichts)
+        linux = sys.platform.startswith("linux")
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {};
+          const sc = w.screen, end = sc.availLeft + sc.availWidth;
+          const size = async W => { const before = w.outerWidth; w.resizeTo(W, 900);
+            if (before != W) await until(() => w.outerWidth != before, 1500);
+            await stabil(() => [w.outerWidth, w.innerWidth], 3000); await ruhig(400); };
+          const toEdge = async () => { w.moveTo(end - w.outerWidth, w.screenY); await stabil(() => [w.screenX, w.outerWidth], 3000); await ruhig(400); };
+          const after = async () => { await ruhig(800); await stabil(() => [w.screenX, w.outerWidth, w.innerWidth], 3000); await ruhig(400); };
+          const state = () => ({ x: w.screenX, right: w.screenX + w.outerWidth, inner: w.innerWidth, min: parseFloat(d.documentElement.style.minWidth) || 0,
+                                 scroll: d.documentElement.scrollWidth });
+          try {
+            await size(1500);
+            tm.openTab("tasks", {}); await ruhig(1200);
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(800);
+            await size(600); await toEdge(); out.taskBefore = state();
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "board");
+            const list = d.getElementById("mcTaskCards");
+            await bis(() => list.querySelectorAll(".mc-tb-col").length == 3, "drei Spalten", 6000).catch(() => {});
+            await after();
+            const tp = d.getElementById("today-pane-panel"), tr = tp?.getBoundingClientRect();
+            out.task = { ...state(), colsEnd: Math.max(0, ...[...list.querySelectorAll(".mc-tb-col")].map(c => Math.round(c.getBoundingClientRect().right))),
+                         end: Math.round(tr?.width > 0 && tp.checkVisibility() ? tr.left : w.innerWidth), cols: list.querySelectorAll(".mc-tb-col").length };
+            Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            await toMail(); w.moveTo(sc.availLeft, w.screenY); await size(1500);
+            await toCalendar(); w.switchToView("day"); await ruhig(800);
+            await size(600); await toEdge(); out.calBefore = state();
+            w.switchToView("month"); await after();
+            out.cal = { ...state(), box: Math.round(d.getElementById("calendarDisplayBox").getBoundingClientRect().right) };
+          } finally {
+            Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+            w.moveTo(sc.availLeft, w.screenY); w.resizeTo(1500, 900); await wait(800); await toMail();
+          }
+          out.end = end;
+          return out;""")
+        def gut(n, extra):
+            return bool(n) and n["inner"] >= n["min"] - 1 and n["scroll"] <= n["inner"] + 1 and extra(n) and (linux or n["right"] <= res["end"] + 2)
+        ok = (gut(res.get("task"), lambda n: n["cols"] == 3 and n["colsEnd"] <= min(n["inner"], n["end"]) + 1)
+              and gut(res.get("cal"), lambda n: n["box"] <= n["inner"] + 1))
+        return ok, f"{res}"
+    check("Spaces: Ansicht wechseln bei schmalem Fenster am rechten Bildschirmrand – Fenster wird breit genug für die neue Ansicht und bleibt im Bildschirm", view_switch_grows_window, results)
+
     def task_window():
         # neue Detailansicht 5c/5d: Aufgabe in eigenem Fenster – Doppelklick/Enter/Kontextmenü (Thunderbirds modifyEventWithDialog),
         # ⌘O und der Knopf „In eigenem Fenster öffnen“ öffnen dieselbe Ansicht wie die Detailspalte (Kopfkarte, Gruppen), oben

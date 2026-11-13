@@ -9569,9 +9569,44 @@ class CardEnhancer {
         if (Math.abs((parseFloat(root.style.minWidth) || 0) - value) >= 2) {
           root.style.minWidth = `${value}px`;
         }
+        if (value > w.innerWidth + 1) {
+          grow(value);
+        }
       } catch (e) {
         log("min window width error", e);
       }
+    };
+    // Neue Ansicht braucht mehr Platz, als das Fenster hat (z. B. Kanban nach
+    // der schmalen Liste): breit genug machen und ganz im Bildschirm halten.
+    // macOS verbreitert das Fenster durch die Mindestbreite selbst, aber nur
+    // nach rechts – am rechten Rand lief es aus dem Bild. Nur im normalen
+    // Fensterzustand (maximiert/Vollbild nichts tun), nicht unter Linux (siehe
+    // fitScreen), und ein Fenster, das schon über den Rand ragte, bleibt stehen
+    let growLater = null;
+    const grow = value => {
+      if (Services.appinfo.OS == "Linux" || w.windowState != w.STATE_NORMAL || w.fullScreen || !w.screen?.availWidth) {
+        return;
+      }
+      const end = w.screen.availLeft + w.screen.availWidth;
+      const inside = w.screenX + w.outerWidth <= end + 2;
+      w.clearTimeout(growLater);
+      growLater = w.setTimeout(() => {
+        try {
+          if (w.windowState != w.STATE_NORMAL || w.fullScreen) {
+            return;
+          }
+          const outer = w.outerWidth + Math.max(0, value - w.innerWidth);
+          const x = inside ? Math.max(w.screen.availLeft, Math.min(w.screenX, end - outer)) : w.screenX;
+          if (x != w.screenX) {
+            w.moveTo(x, w.screenY);
+          }
+          if (outer > w.outerWidth) {
+            w.resizeTo(outer, w.outerHeight);
+          }
+        } catch (e) {
+          log("grow window error", e);
+        }
+      }, 250);
     };
     const onTab = () => w.setTimeout(update, 300);
     tabmail?.tabContainer?.addEventListener("TabSelect", onTab);
@@ -9614,6 +9649,7 @@ class CardEnhancer {
       ro.disconnect();
       w.clearTimeout(timer);
       w.clearTimeout(fitLater);
+      w.clearTimeout(growLater);
       tabmail?.tabContainer?.removeEventListener("TabSelect", onTab);
       w.removeEventListener("resize", update);
       w.removeEventListener("resize", fitScreen);

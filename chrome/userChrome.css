@@ -15560,6 +15560,28 @@ datepicker[mc-inline] > menulist {
   height: auto !important;
 }
 
+/* Das Fenster trägt mc-tab="tasks" (gleiche Kartenregeln wie die
+   Detailspalte) – die Lage der Knöpfe in der Toolbar-Zeile des Hauptfensters
+   (fest, über --mc-ta-left) gilt hier nicht: sonst lagen „Complete“ und „…“
+   mitten auf der Kopfkarte */
+:root[mc-task-window] #other-actions-box,
+:root[mc-task-window] #task-actions-toolbox {
+  min-height: auto !important;
+  height: auto !important;
+}
+
+:root[mc-task-window] #task-actions-toolbox {
+  flex: 1 !important;
+}
+
+:root[mc-task-window] #task-actions-toolbar {
+  position: static !important;
+  top: auto !important;
+  inset-inline-start: auto !important;
+  width: auto !important;
+  flex: 1 !important;
+}
+
 :root[mc-task-window] #calendar-task-details-box {
   margin: 0 20px !important;
 }

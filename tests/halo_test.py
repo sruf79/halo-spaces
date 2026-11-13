@@ -14792,6 +14792,7 @@ Neu
             out.buttons = [...nd.querySelectorAll("#task-actions-toolbar > toolbarbutton")].map(b => b.id);
             out.complete = r(nd.getElementById("task-actions-markcompleted")); out.more = r(nd.getElementById("mcTaskMore"));
             out.prog = r(nd.getElementById("mcTaskProg")); out.inner = [nw.innerWidth, nw.innerHeight];
+            out.card = r(nd.getElementById("calendar-task-details-box"));
             out.dialogs = dialogs();
             // zweites Öffnen: dasselbe Fenster
             w.modifyEventWithDialog(saved, true); await ruhig(400);
@@ -14824,6 +14825,8 @@ Neu
         ok = (res.get("hooked") and res.get("title") == "Halo Fensteraufgabe" and res.get("head") == "Halo Fensteraufgabe" and res.get("note") == "Notiz im Fenster"
               and res.get("rows") == ["Start", "Due", "Repeat", "Reminder", "List", "Category", "Privacy", "Priority", "Location"]
               and res.get("buttons") == ["task-actions-markcompleted", "mcTaskMore"] and cb and mb and cb["l"] < mb["l"] and mb["l"] + mb["w"] <= res["inner"][0]
+              # Knöpfe oben über der Kopfkarte, nicht darin (vorher griff die Lage der Toolbar-Zeile des Hauptfensters)
+              and bool(res.get("card")) and cb["t"] + cb["h"] <= res["card"]["t"] and mb["t"] + mb["h"] <= res["card"]["t"] and cb["t"] >= 0 and mb["l"] + mb["w"] >= res["inner"][0] - 30
               and pr and pr["h"] >= 20 and not res.get("dialogs") and res.get("count") == 1 and res.get("renamed") and res.get("done") and res.get("undone")
               and res.get("menu") == ["Duplicate", "Move to List", "-", "Delete Task"] and res.get("closed") and not res.get("left"))
         return ok, f"{res}"

@@ -19333,6 +19333,42 @@ Neu
           "nichts verschiebt sich, knapp daneben bleibt sie, weiter weg/Esc/Klick daneben weg, Kontextmenü und Ziehen halten sie offen, "
           "Zustand bleibt ausgeblendet", sidebar_column_float, results)
 
+    def sidebar_drag_button():
+        # Seitenleiste durch Ziehen der Trennlinie nach links eingeklappt: der Seitenleisten-Knopf steht wie nach dem
+        # Ausblenden über den Knopf (neben den Fensterknöpfen), nicht über ihnen (3.26.0, Adressbuch und Mail)
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        geo = r"""const b = d.getElementById("spacesPinnedButton").getBoundingClientRect();
+          return { left: Math.round(b.left), hidden: w.gSpacesToolbar.isHidden, reserve: getComputedStyle(d.getElementById("spacesPinnedButton")).getPropertyValue("--mc-tl-reserve").trim(),
+                   mac: w.matchMedia("(-moz-platform: macos)").matches };"""
+        out = {}
+        try:
+            for space, go, split in (("adressbuch", 'tm.openTab("addressBookTab", {}); await ruhig(1500);', "booksSplitter"),
+                                     ("mail", "await toMail(); await ruhig(600);", "folderPaneSplitter")):
+                start = m.js(f"""w.resizeTo(1300, 800); await wait(300); {go}
+                  if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ein", 3000); await ruhig(600); }}
+                  const tab = tm.currentTabInfo, br = tab.mode.name == "mail3PaneTab" ? tab.chromeBrowser : tab.browser;
+                  const s = br.contentDocument.getElementById("{split}").getBoundingClientRect(), o = br.getBoundingClientRect();
+                  return {{ x: Math.round(o.left + s.left + s.width / 2), y: Math.round(o.top + s.top + s.height / 2) }};""")
+                act([{"type": "pointerMove", "x": start["x"], "y": start["y"], "origin": "viewport", "duration": 20},
+                     {"type": "pointerDown", "button": 0},
+                     {"type": "pointerMove", "x": start["x"] - 60, "y": start["y"], "origin": "viewport", "duration": 80},
+                     {"type": "pointerMove", "x": 30, "y": start["y"], "origin": "viewport", "duration": 120},
+                     {"type": "pointerUp", "button": 0}])
+                dragged = m.js("await ruhig(800);" + geo)
+                # Vergleich: einblenden und über den Knopf ausblenden
+                m.js("""d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ein", 3000); await ruhig(600);
+                  d.getElementById("spacesPinnedButton").click(); await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "aus", 3000); await ruhig(800); return 1;""")
+                out[space] = {"start": start, "drag": dragged, "button": m.js(geo)}
+        finally:
+            m.js("""await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "Seitenleiste wieder da", 3000); } await ruhig(400); return 1;""")
+        ok = bool(out) and all(v["drag"]["hidden"] and v["button"]["hidden"] and abs(v["drag"]["left"] - v["button"]["left"]) <= 2
+                               and (not v["drag"]["mac"] or v["drag"]["left"] >= 80) for v in out.values())
+        return ok, f"{out}"
+    check("Seitenleiste: per Ziehen eingeklappt steht der Seitenleisten-Knopf wie nach dem Ausblenden per Knopf neben den Fensterknöpfen (Adressbuch, Mail)", sidebar_drag_button, results)
+
     def restart_cycle():
         # wie bei einem Update: stop() räumt auf (Breiten-Merkmal, Adressbuch-Überschrift, Ordnernamen),
         # ein neuer Start hängt alles wieder an

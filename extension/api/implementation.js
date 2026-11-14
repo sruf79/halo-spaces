@@ -7782,7 +7782,7 @@ class CardEnhancer {
               if (dlg.arguments?.[0]?.calendarEvent?.isEvent?.()) {
                 doc.documentElement.setAttribute("mc-event", "");
               }
-            } catch {}
+            } catch {} // gewollt: Dialog ohne Terminangabe, bleibt wie Thunderbird ihn zeigt
             dlg.addEventListener("load", () => this.tidyEventDialog(dlg), { once: true });
           }
           // Beschreibung eines Termins/einer Aufgabe (Fenster und Tab): Schrift
@@ -7984,7 +7984,7 @@ class CardEnhancer {
       for (const cleanup of [...composeCleanups]) {
         try {
           cleanup();
-        } catch {}
+        } catch {} // gewollt: Verfassen-Fenster schon geschlossen, nichts mehr aufzuräumen
       }
     });
   }
@@ -8055,7 +8055,7 @@ class CardEnhancer {
       for (const remove of queries.values()) {
         try {
           remove();
-        } catch {}
+        } catch {} // gewollt: Abfrage schon entfernt
       }
       queries.clear();
       defaults.setCharPref(VARIANT, original);
@@ -8920,7 +8920,7 @@ class CardEnhancer {
       let props = null;
       try {
         props = card.supportsVCard ? card.vCardProperties : null;
-      } catch {}
+      } catch {} // gewollt: Karte ohne lesbare vCard, Name wie von Thunderbird
       const showAs = String(props?.getFirstValue("x-abshowas") || "").toUpperCase();
       if (showAs == "COMPANY") {
         return true;
@@ -9026,7 +9026,7 @@ class CardEnhancer {
           try {
             const org = c.supportsVCard ? c.vCardProperties?.getFirstValue("org") : null;
             company = String((Array.isArray(org) ? org[0] : org) || c.getProperty?.("Company", "") || "").trim();
-          } catch {}
+          } catch {} // gewollt: Firma nicht lesbar, Name bleibt wie von Thunderbird
           const nameEl = row.querySelector(".ab-card-first-line .name");
           // ohne Namen erzeugt Thunderbird ihn aus der Adresse („nur.firma“)
           const named = !!(c.displayName || c.firstName || c.lastName);
@@ -9268,7 +9268,7 @@ class CardEnhancer {
         let n = 0;
         try {
           n = card.vCardProperties?.entries?.length || 0;
-        } catch {}
+        } catch {} // gewollt: Karte ohne vCard-Einträge, Zahl bleibt 0
         // lokal gespeicherte Fotos zeigen sicher an, Web-Adressen (iCloud) oft nicht
         const photo = card.photoURL || "";
         return n + (/^(data|file|moz-icon):/.test(photo) ? 6 : photo ? 1 : 0);
@@ -9286,7 +9286,7 @@ class CardEnhancer {
         let shown = "";
         try {
           shown = row.getText?.("GeneratedName") || "";
-        } catch {}
+        } catch {} // gewollt: Zeile ohne Text, Name kommt aus der Karte
         const name = norm(shown) || norm(card.displayName) ||
           norm(`${card.firstName || ""} ${card.lastName || ""}`);
         const email = norm(card.primaryEmail);
@@ -9457,7 +9457,7 @@ class CardEnhancer {
         cw.document.documentElement.style.setProperty("--mc-card-h", `${this.mcCardHeight || 67}px`);
         try {
           cw.cardsPane?.cardsList?.reset?.();
-        } catch {}
+        } catch {} // gewollt: Liste noch nicht aufgebaut, baut sich beim Öffnen mit der neuen Höhe auf
         restorers.push(() => {
           delete Row.ROW_HEIGHT;
           Row.ROW_HEIGHT = 52;
@@ -9545,7 +9545,7 @@ class CardEnhancer {
         });
         try {
           cw.cardsPane?.cardsList?.reset?.();
-        } catch {}
+        } catch {} // gewollt: Liste noch nicht aufgebaut, baut sich beim Öffnen mit der neuen Höhe auf
         restorers.push(() => {
           delete TableRow.ROW_HEIGHT;
           TableRow.ROW_HEIGHT = tbHeight;
@@ -9562,7 +9562,7 @@ class CardEnhancer {
           try {
             pane.table.setColumns(pane.COLUMNS);
             pane.cardsList.reset?.();
-          } catch {}
+          } catch {} // Kandidat fürs Protokoll: Spalten der Kontaktliste nicht neu gesetzt (Fenster schon entladen ist gewollt)
           Services.prefs.setBoolPref(COLUMN_PREF, true);
         }
       }
@@ -9830,7 +9830,7 @@ class CardEnhancer {
           el.setAttribute("width", String(W));
           try {
             Services.xulStore.persist(el, "width");
-          } catch {}
+          } catch {} // gewollt: Breite nicht gemerkt, gilt nur für diese Sitzung
         }
       }
       // Toolbar-Kanten (Mail: Beginn der Knöpfe über der Nachricht) neu messen
@@ -10420,7 +10420,7 @@ class CardEnhancer {
               el.setAttribute("width", String(Math.round(W)));
               try {
                 Services.xulStore.persist(el, "width");
-              } catch {}
+              } catch {} // gewollt: Breite nicht gemerkt, gilt nur für diese Sitzung
             }
           };
         }
@@ -10449,7 +10449,7 @@ class CardEnhancer {
         if (parent) {
           room = parent.getBoundingClientRect().width - Math.max(SIDE_ROOM, need);
         }
-      } catch {}
+      } catch {} // gewollt: Platz nicht messbar, Höchstbreite ohne Abzug
       const max = Math.max(SIDE_MIN, Math.min(sideMax(pane.el), room));
       let resized = false;
       // Seitenleiste und Bereiche-Kacheln sind ein gemeinsamer Bereich: an
@@ -10776,7 +10776,7 @@ class CardEnhancer {
             mw.__mcLight = null;
             try {
               pane().browsingContext.prefersColorSchemeOverride = "none";
-            } catch {}
+            } catch {} // gewollt: Nachrichtenbereich schon weg
           }
           return origDisplay.call(this, uri, ...rest);
         };
@@ -10829,7 +10829,7 @@ class CardEnhancer {
             Object.defineProperty(mw, "adaptMessageForDarkMode", { configurable: true, writable: true, value: origAdapt });
             delete mw.__mcLight;
             delete mw.__mcLightPatched;
-          } catch {}
+          } catch {} // gewollt: Fenster schon geschlossen, Rückbau nicht mehr nötig
         }
       });
     };
@@ -11534,7 +11534,7 @@ class CardEnhancer {
         let name;
         try {
           name = JSON.parse(space.getAttribute("data-l10n-args") || "{}").title;
-        } catch {}
+        } catch {} // gewollt: Titel nicht lesbar, Name bleibt wie er ist
         if (name && space.title != name) {
           space.title = name;
         }
@@ -12991,7 +12991,7 @@ class CardEnhancer {
             const start = li.item?.startDate;
             const begins = start && !start.isDate ? start.nativeTime / 1000 - Date.now() : Infinity;
             li.toggleAttribute("data-mc-soon", begins > 0 && begins <= 3 * 3600 * 1000);
-          } catch {}
+          } catch {} // gewollt: Termin ohne lesbaren Beginn, kein Zusatz „bald“
           // Kalenderfarbe für den Farbblock
           const dot = li.querySelector(".agenda-listitem-calendar");
           const details = li.querySelector(".agenda-listitem-details");
@@ -13010,7 +13010,7 @@ class CardEnhancer {
           if (start) {
             date = new Date(start.year, start.month, start.day);
           }
-        } catch {}
+        } catch {} // gewollt: Beginn der Today-Pane nicht lesbar, es gilt heute
         const month = monthFmt.format(date);
         label.replaceChildren(
           Object.assign(d.createElementNS(X, "b"), { textContent: month }),
@@ -13097,7 +13097,7 @@ class CardEnhancer {
             left = before && col > 0;
             right = after && col >= 0 && col < row.children.length - 1;
           }
-        } catch {}
+        } catch {} // gewollt: Termin ohne Layout, keine Verbindung zum Nachbartag
         el.toggleAttribute("data-mc-join-l", left);
         el.toggleAttribute("data-mc-join-r", right);
         el.toggleAttribute("data-mc-multi", !!time);
@@ -13130,7 +13130,7 @@ class CardEnhancer {
           if (a?.width && b?.width) {
             dx = Math.round((a.left - b.left) * 10) / 10;
           }
-        } catch {}
+        } catch {} // gewollt: ohne Layout (verdeckte Ansicht) bleibt der letzte Einzug
         if (dx !== null) {
           if (el.style.getPropertyValue("--mc-span-x") != `${dx}px`) {
             el.style.setProperty("--mc-span-x", `${dx}px`);
@@ -13321,7 +13321,7 @@ class CardEnhancer {
           if (item?.isTodo?.() && /support\.apple\.com\/(?:[a-z-]+\/)?HT210220/i.test(item.getProperty("DESCRIPTION") || "")) {
             return false;
           }
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Aufgabe nicht geprüft, Thunderbirds Filter entscheidet (Fenster schon entladen ist gewollt)
         return orig.call(this, item);
       };
       proto.__mcPlaceholders = true;
@@ -13337,7 +13337,7 @@ class CardEnhancer {
         try {
           const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
           cals = cal.view.getCompositeCalendar(w).getCalendars() || [];
-        } catch {}
+        } catch {} // gewollt: Kalender nicht lesbar, dann bleibt die Liste ohne Neuladen
         for (const tree of w.document.querySelectorAll(".calendar-task-tree")) {
           if (!tree.mTreeView || typeof tree.refreshFromCalendar != "function") {
             continue;
@@ -13345,7 +13345,7 @@ class CardEnhancer {
           for (const calendar of cals.filter(c => !c.getProperty("disabled"))) {
             try {
               tree.refreshFromCalendar(calendar);
-            } catch {}
+            } catch {} // Kandidat fürs Protokoll: Neuladen eines Kalenders fehlgeschlagen
           }
         }
       };
@@ -13580,7 +13580,7 @@ class CardEnhancer {
         if (cw?.__mcDesc) {
           try {
             cw.windowUtils.removeSheetUsingURIString(cw.__mcDesc, cw.windowUtils.USER_SHEET);
-          } catch {}
+          } catch {} // gewollt: Stylesheet schon entfernt
           delete cw.__mcDesc;
         }
         delete frame.__mcDescHooked;
@@ -13761,7 +13761,7 @@ class CardEnhancer {
       try {
         text = new Intl.RelativeTimeFormat(Services.locale.appLocaleAsBCP47, { numeric: "auto" }).format(0, "day");
         text = text.charAt(0).toLocaleUpperCase(Services.locale.appLocaleAsBCP47) + text.slice(1);
-      } catch {}
+      } catch {} // gewollt: Sprache nicht ermittelbar, es bleibt „Today“
       btn.dataset.mcLabel = text;
     };
 
@@ -14398,7 +14398,7 @@ class CardEnhancer {
     let starred = false;
     try {
       starred = !!w.document.getElementById("tabmail")?.currentTabInfo?.message?.isFlagged;
-    } catch {}
+    } catch {} // gewollt: kein Tab oder keine Nachricht, nicht markiert
     li.toggleAttribute("mc-starred", starred);
   }
 
@@ -14799,7 +14799,7 @@ class CardEnhancer {
         let def = null;
         try {
           def = w.getSelectedCalendar?.();
-        } catch {}
+        } catch {} // gewollt: kein gewählter Kalender, der erste gilt
         f.calendar.value = list.some(c => c.id == current) ? current : (list.some(c => c.id == def?.id) ? def.id : list[0]?.id || "");
         // kein passender Kalender (z. B. keiner kann Aufgaben): sagen statt still nichts tun
         if (!list.length) {
@@ -15325,7 +15325,7 @@ class CardEnhancer {
       if (anchor?.id == "todaypane-new-event-button" && ts) {
         day = new Date(ts.year, ts.month, ts.day, now.getHours(), now.getMinutes());
       }
-    } catch {}
+    } catch {} // gewollt: Beginn der Today-Pane nicht lesbar, es gilt heute
     // ein anderer Tag als heute bleibt auch nach 23 Uhr dieser Tag (23:00 statt
     // 0:00 am Folgetag); heute – auch per „+“ der Today-Pane – wie bisher 0:00 am
     // Folgetag statt eines Beginns in der Vergangenheit (Datum vergleichen, die
@@ -15638,7 +15638,7 @@ class CardEnhancer {
     };
     try {
       w.TodayPane.updatePeriod();
-    } catch {}
+    } catch {} // gewollt: Today-Pane noch nicht bereit
     this.restorers.push(() => {
       delete agenda.update;
       delete agenda.__mcAnchor;
@@ -15657,7 +15657,7 @@ class CardEnhancer {
       delete agenda.__mcMonthRange;
       try {
         w.TodayPane.updatePeriod();
-      } catch {}
+      } catch {} // gewollt: Today-Pane schon entladen
     });
   }
 
@@ -15784,7 +15784,7 @@ class CardEnhancer {
           for (const f of this.sideEdgeUpdaters || []) {
             try {
               f();
-            } catch {}
+            } catch {} // Kandidat fürs Protokoll: Aktualisierung einer Seitenkante fehlgeschlagen (Fenster schon geschlossen ist gewollt)
           }
           const now = barTarget(d).style.getPropertyValue("--mc-tab-offset") + "|" + (bar?.style.getPropertyValue("--mc-task-line") || "");
           if (now == before) {
@@ -15811,7 +15811,7 @@ class CardEnhancer {
       for (const f of this.offsetUpdaters || []) {
         try {
           f();
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
     }
     panel.__mcAnimating = true;

@@ -11285,6 +11285,19 @@ class CardEnhancer {
       d.documentElement.append(catcher);
       float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set() };
       const f = float;
+      // Einstellungen mit eingebetteter Seite (Add-ons, Kontoeinstellungen):
+      // deren Browser liegt im Hauptfenster über dem Einstellungs-Dokument und
+      // verdeckte die schwebende Kategorienliste darin (GitHub #64) – solange
+      // sie schwebt, gibt die Seite links den Streifen samt Schatten frei
+      if (el && tab.mode.name == "preferencesTab") {
+        for (const page of tab.browser?.parentNode?.querySelectorAll(":scope > .mc-embed-page:not([hidden])") || []) {
+          const cut = Math.round(right + 30 - page.getBoundingClientRect().left);
+          if (cut > 0) {
+            page.style.setProperty("clip-path", `inset(0 0 0 ${cut}px)`, "important");
+            f.off.push(() => page.style.removeProperty("clip-path"));
+          }
+        }
+      }
       catcher.style.pointerEvents = drag ? "none" : "";
       catcher.addEventListener("mousemove", e => {
         if (float == f && !f.drag && !floatPopups() && e.clientX > f.right + FLOAT_KEEP) {

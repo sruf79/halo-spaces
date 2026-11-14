@@ -17597,6 +17597,47 @@ Neu
         return ok, f"Seitenleiste rechts bei {right} {res}"
     check("Einstellungen: Kontoeinstellungen und Add-ons als Kategorien, Seitenleiste bleibt gleich breit, Kontoseite linksbündig, Ausblenden zieht mit", pref_embedded_pages, results)
 
+    def pref_embedded_float():
+        # Seitenleiste ausgeblendet, Einstellungen → Add-ons: die schwebende Kategorienliste liegt sichtbar über der
+        # eingebetteten Add-on-Seite (deren Browser im Hauptfenster verdeckte sie, GitHub #64); weg → Seite wieder ganz
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        def state(want, ms=2500):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        out = {}
+        m.js(PREFS_OPEN_JS + r"""
+          await pick("paneMcAddons", 3500);
+          await until(() => page("about:addons")?.contentDocument?.querySelector("addon-card"), 8000);
+          const btn = d.getElementById("spacesPinnedButton");
+          if (!w.gSpacesToolbar.isHidden) { btn.click(); await until(() => pd.getElementById("pref-category-box").classList.contains("mc-side-hidden") && !w.__mcSpacesAnimating, 3000); }
+          await ruhig(600); return 1;""")
+        info = r"""const tab = tm.currentTabInfo, host = tab.browser.parentNode, pd = tab.browser.contentDocument;
+          const ad = host.querySelector('.mc-embed-page[src="about:addons"]'), pane = pd.getElementById("pref-category-box");
+          const r = pane.getBoundingClientRect(), o = tab.browser.getBoundingClientRect();
+          const x = Math.round(o.left + r.left + r.width / 2), y = Math.round(o.top + r.top + r.height / 2);
+          const hit = r.width > 0 ? d.elementFromPoint(x, y) : null;
+          return { state: w.__mcSideFloatState?.(), float: pane.classList.contains("mc-float-pane"), w: Math.round(r.width),
+                   hit: hit == tab.browser ? "einstellungen" : hit == ad ? "addons" : hit?.id || hit?.localName || null,
+                   clip: ad?.style.clipPath || "", adHidden: ad?.hidden };"""
+        try:
+            to(500); to(1)
+            out["on"] = state("on")
+            out["float"] = m.js(info)
+            to(out["float"].get("w", 240) + 89 + 3 + 250)
+            out["off"] = state("off")
+            out["after"] = m.js(info)
+        finally:
+            m.js("""if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "Seitenleiste wieder da", 3000); }
+              if (tm.currentTabInfo.mode.name == "preferencesTab") tm.closeTab(tm.currentTabInfo); await ruhig(400); return 1;""")
+        f, a = out.get("float") or {}, out.get("after") or {}
+        ok = (out.get("on") == "on" and f.get("float") and f.get("w", 0) >= 160 and f.get("hit") == "einstellungen" and f.get("adHidden") is False
+              and out.get("off") == "off" and a.get("clip") == "")
+        return ok, f"{out}"
+    check("Einstellungen: ausgeblendete Seitenleiste schwebt auch über der eingebetteten Add-on-Seite sichtbar ein", pref_embedded_float, results)
+
     def pref_embedded_late_l10n():
         # langsamer Start (GitHub-Issue #32, Linux-CI): ist die Fußzeile mit „Account Settings“/„Add-ons and Themes“
         # beim Aufbau noch nicht übersetzt, kommen die Kategorien nach, sobald sie es ist – nie halo.spaces allein,

@@ -8814,6 +8814,9 @@ def server_checks(m, results):
               out.kidIcons = [...new Set(kids.map(icon))]; out.inboxText = inboxRow ? name(inboxRow) : null;
               out.kidNames = kids.map(l => [l.querySelector(":scope > .container .name")?.textContent, (n => n && n.scrollWidth <= n.clientWidth)(l.querySelector(":scope > .container .name"))]);
               out.pane = Math.round(ad.getElementById("folderPane").getBoundingClientRect().width);
+              // zur Fehlersuche (Linux: Ordnerliste 160 statt 240 px breit): Fenster, gemeinsame Breite, Teiler
+              out.why = { win: w.outerWidth, pref: Services.prefs.getIntPref("extensions.mailcards.sidebarWidth", 0),
+                          splitter: ad.getElementById("folderPaneSplitter")?.width ?? null, body: Math.round(ad.body.getBoundingClientRect().width) };
               return out;""" % key)
             fi, ai = res.get("favIcons") or [], res.get("accIcons") or []
             ok = (len(fi) >= 2 and len(ai) == 1 and all(v == ai[0] for v in fi)
@@ -12780,17 +12783,20 @@ def run_checks(m, version, profile, results):
         if s["hidden"]:
             m.js('d.getElementById("spacesPinnedButton").click(); await ruhig(900); return 1;')
             s = m.js(st)
-        left, x0, y, mn = s["left"], s["x"], s["y"], s["min"]
+        x0, y, mn = s["x"], s["y"], s["min"]
         act([{"type": "pointerMove", "x": x0, "y": y, "origin": "viewport"}, {"type": "pointerDown", "button": 0}])
         rows, bad = [], []
-        # Zeiger in 6-px-Schritten bis 10 px vor den linken Rand; je Schritt die Breite über fünf Bilder
+        # Zeiger in 6-px-Schritten bis 10 px vor den linken Rand; je Schritt die Breite über fünf Bilder. Die Leiste wird
+        # px breit, wenn der Zeiger um (Start - px) vom Greifpunkt x0 nach links wandert – gerechnet ab x0, nicht ab dem
+        # linken Rand: die Mitte der Trennlinie liegt je nach Plattform einige px neben der Kante der Leiste (Linux +3,
+        # macOS -2), ab dem Rand gerechnet maß die Prüfung dort 231 statt 234 bzw. klappte bei 114 schon ein
         for px in range(s["w"] - 6, 9, -6):
-            act([{"type": "pointerMove", "x": left + px, "y": y, "origin": "viewport", "duration": 10}])
+            act([{"type": "pointerMove", "x": x0 + px - s["w"], "y": y, "origin": "viewport", "duration": 10}])
             r = m.js(r"""const sb = d.getElementById("calSidebar"), ws = [];
               for (let i = 0; i < 5; i++) { ws.push(sb.classList.contains("mc-side-hidden") ? 0 : Math.round(sb.getBoundingClientRect().width)); await new Promise(f => w.requestAnimationFrame(f)); }
               return ws;""")
             rows.append([px, r])
-        act([{"type": "pointerMove", "x": left + s["w"], "y": y, "origin": "viewport", "duration": 10}, {"type": "pointerUp", "button": 0}])
+        act([{"type": "pointerMove", "x": x0, "y": y, "origin": "viewport", "duration": 10}, {"type": "pointerUp", "button": 0}])
         m.cmd("WebDriver:ReleaseActions", {})
         m.js("await ruhig(600); return 1;")
         end = m.js(st)
@@ -15921,16 +15927,23 @@ Neu
               const ev = (el, type, dx) => el.dispatchEvent(new w.MouseEvent(type, { bubbles: true, cancelable: true, button: 0,
                 clientX: x + dx, clientY: y, screenX: w.mozInnerScreenX + x + dx, screenY: w.mozInnerScreenY + y }));
               const acts = () => Math.round(d.getElementById("task-actions-toolbar").getBoundingClientRect().left);
-              const before = { plus: R(plusB).l, acts: acts(), split: Math.round(sr.left) };
-              ev(split, "mousedown", 0); ev(w, "mousemove", -40); ev(w, "mousemove", -80); await ruhig(300);
+              // Platz zum Ziehen: seit der Seitenleiste mit 240 statt 206 px stieß die Liste unter Linux (ESR) nach links
+              // schon nach 53 px an ihre Mindestbreite (360 px, richtig so) – erst ungemessen 60 px nach rechts (Liste
+              // breiter, Details ab 300 px haben überall Platz), am Ende wieder zurück. Nach rechts messen geht nicht:
+              // dort halten „+“ und Aktionen vor der Suche an
+              ev(split, "mousedown", 0); ev(w, "mousemove", 30); ev(w, "mousemove", 60); ev(w, "mouseup", 60); await ruhig(400);
+              const pre = Math.round(split.getBoundingClientRect().left) - Math.round(sr.left);
+              const before = { plus: R(plusB).l, acts: acts(), split: Math.round(split.getBoundingClientRect().left) };
+              ev(split, "mousedown", pre); ev(w, "mousemove", pre - 40); ev(w, "mousemove", pre - 80); await ruhig(300);
               const moved = { plus: R(plusB).l, acts: acts(), split: Math.round(split.getBoundingClientRect().left) };
-              ev(w, "mouseup", -80); await ruhig(300);
+              ev(w, "mouseup", pre - 80); await ruhig(300);
               // zurück um genau die gezogene Strecke (die Liste hat eine Mindestbreite)
               const dx = moved.split - before.split;
-              ev(split, "mousedown", dx); ev(w, "mousemove", 0); ev(w, "mouseup", 0); await ruhig(500);
+              ev(split, "mousedown", pre + dx); ev(w, "mousemove", pre); ev(w, "mouseup", pre); await ruhig(500);
+              const back = R(plusB).l - before.plus;
+              ev(split, "mousedown", pre); ev(w, "mousemove", 0); ev(w, "mouseup", 0); await ruhig(500);
               if (had == null) Services.prefs.clearUserPref(TW); else Services.prefs.setIntPref(TW, had);
-              out.drag = { split: moved.split - before.split, plus: moved.plus - before.plus, acts: moved.acts - before.acts,
-                           back: R(plusB).l - before.plus };
+              out.drag = { split: moved.split - before.split, plus: moved.plus - before.plus, acts: moved.acts - before.acts, back, pre };
             }
             const row = d.getElementById("unifiedToolbarContainer").getBoundingClientRect();
             const bar = d.getElementById("task-actions-toolbar");
@@ -17697,7 +17710,10 @@ Neu
             const out = { page: true, start: { place: shown("weatherPlace"), emoji: shown("emojiCustom"), chat: shown("showChat"), instead: shown("fifthSpace"),
               url: shown("fifthSpaceUrl"), debug: shown("debug"), dashes: od.body.textContent.includes(" – "),
               infos: od.querySelectorAll(".row .info[title]").length, disclosure: !!od.querySelector("h2 .disclosure[aria-expanded='false']"),
-              heads: [...od.querySelectorAll("h2")].map(h => h.textContent), empty: [...od.querySelectorAll("section")].filter(x => !x.children.length).length } };
+              heads: [...od.querySelectorAll("h2")].map(h => h.textContent), empty: [...od.querySelectorAll("section")].filter(x => !x.children.length).length,
+              // Überschriften ohne sichtbare Zeile darunter (eingeklappte mit Pfeil ausgenommen), GitHub #58
+              bare: [...od.querySelectorAll("h2")].filter(h => !h.querySelector(".disclosure") && ![...(h.nextElementSibling?.querySelectorAll(".row") || [])].some(r => !r.hidden && r.getBoundingClientRect().height > 0)).map(h => h.textContent),
+              glow: shown("sidebarGlow"), order: shown("spacesOrderCustom") } };
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -17723,7 +17739,10 @@ Neu
         st = res["start"]
         ok = (not st["place"] and st["emoji"] and not st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
-              and "Spaces" not in st["heads"] and st["empty"] == 0
+              # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
+              # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
+              and st.get("bare") == [] and st["empty"] == 0
+              and ("Spaces" not in st["heads"] or st.get("glow") or st.get("order"))
               and res["weatherOn"] and not res["emojiOff"]
               and res.get("place", {}).get("tag") == "select" and res["place"]["options"][:2] == ["➤ Current Location", "Graz, Österreich"]
               and res["place"]["options"][-1] == "Choose City…" and res["place"]["value"] == "current" and res["place"]["tone"] == "warn"
@@ -20098,7 +20117,7 @@ Neu
       return { mode: tab.mode.name, c: rgb, bar: bar.getAttribute("mc-glow"), pane: pane.getAttribute("mc-glow"), float: pane.classList.contains("mc-float-pane"),
         y: Math.round(y), far: Math.round(far), pt: Math.round(P.t), dist: Math.round(Math.abs(y - far)),
         near: px(P.l + 2, y), farPx: px(P.l + 2, far), lineNear: px(lx, y), lineFar: px(lx, far),
-        above: px(P.l + 2, P.t - 4), below: px(P.l + 2, P.t + 4), tilePx: px(tr.left + 4, y) };"""
+        above: px(P.l + 2, P.t - 4), below: px(P.l + 2, P.t + 4), below2: px(P.l + 2, P.t + 12), tilePx: px(tr.left + 4, y) };"""
 
     def sidebar_glow():
         # Lichtschein und gefärbte Trennlinie in der Spacefarbe (Maintainer 13.11.2026, Umsetzung 2/3): in Mail,
@@ -20147,7 +20166,12 @@ Neu
         if (out.get("float") or {}).get("float") is not True:
             bad.append("float-Zustand")
         mail = out.get("mailButton") or {}
-        if max((abs(a - b) for a, b in zip(mail.get("above", [0]), mail.get("below", [99]))), default=99) > 4:
+        # kein Abbruch: der Sprung über die Kante (je 4 px darüber und darunter) höchstens 4 Stufen größer als die
+        # Änderung auf derselben Strecke in der Ordnerliste. Liegt die Kachel nah an der Oberkante (Linux: 21 px, macOS
+        # 70 px), ändert sich der Schein dort schon im Verlauf selbst um 6 Stufen je 8 px; ein Abbruch (kein Schein über
+        # der Kante) macht dagegen über 30 Stufen
+        step = lambda a, b: max((abs(x - y) for x, y in zip(a, b)), default=99) if a and b else 99
+        if step(mail.get("above"), mail.get("below")) > step(mail.get("below"), mail.get("below2")) + 4:
             bad.append("Mail-Oberkante")
         s = out.get("settingsButton") or {}
         if s.get("bar") is not None or s.get("pane") is not None or dist(s.get("lineNear", [0]), s.get("lineFar", [99])) > 2:

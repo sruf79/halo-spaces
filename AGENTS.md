@@ -176,6 +176,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Zeit:** gegenüber dem Maintainer immer Wiener Zeit; Zeitstempel in Dateien dürfen UTC bleiben.
 - **Im Zweifel wie Apple:** Design und Verhalten der Apple-App nachahmen (Mail, Kontakte, Kalender),
   statt Eigenes zu erfinden; Vorlagen in `~/halo-aufgaben/apple/` (über `neon-board`).
+- **Designer** (Maintainer 14.11.2026): Design-Einträge setzt der vom Director beauftragte Designer um (mind. Opus, Auftrag `tests/designer-auftrag.md`); Regeln, Einspruch und Rückfragen: `docs/design-vorgaben.md`.
 - **Optionen nur in sehr seltenen Fällen:** nur wo auch die Apple-App eine bietet; Wünsche nach
   „Thunderbird wie vorher“ werden abgelehnt.
 - **Sprache:** Kommentare, Commits und Skriptausgaben Deutsch; `README.md` und Store Englisch.

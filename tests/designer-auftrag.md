@@ -1,6 +1,3 @@
-Entwurf vom 14.11.2026, noch nicht eingehängt: Weder tests/nachtlauf-auftrag.md noch
-tests/tagesroutine-auftrag.md rufen diesen Auftrag bisher auf. Einhängen erst nach OK des Maintainers.
-
 Auftrag „Designer“ für halo.spaces auf neon (vom Director im Nachtlauf bzw. in der Tagesroutine
 beauftragt). Niemand sieht zu. AGENTS.md gilt vollständig, die Vorgaben stehen in
 docs/design-vorgaben.md (lesen, bevor du etwas änderst). Oben unter „JETZT:“ stehen Eintrag (Board-id),

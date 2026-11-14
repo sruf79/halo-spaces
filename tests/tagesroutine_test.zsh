@@ -137,6 +137,25 @@ print kaputt > $T/kaputt.json
 pruefe "Häufung: Skript scheitert → Rückfall-Zeile, Plan-Runde läuft trotzdem" \
   "$(DIR=$T TAG=2026-11-15 HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py HALO_HAEUFUNG_EINGABE=$T/kaputt.json haeufung_zeile; print rc=$?)" \
   '^FEHLER, Skript gescheitert .*selbst gruppieren' 'rc=0'
+# Designer (Freigabe des Maintainers 14.11.2026): Design-Einträge mit mindestens Opus, Designfragen sofort aufs iPhone
+pruefe "Designer: Trockenlauf nennt Design-Einträge mit Opus" "$(lauf 2026-11-15T09:05:00+01:00 30)" \
+  'Designer: +Einträge „design“ mit opus \(Director beauftragt den Designer, Designfragen sofort aufs iPhone\)'
+eval "$(sed -n '/^designer_modell()/,/^}/p;/^designfrage_melden()/,/^}/p' $SKRIPT)"
+pruefe "Designer: Modell opus bleibt, sonnet wird nicht beauftragt" \
+  "$(designer_modell opus; designer_modell claude-opus-5-5; designer_modell fable; print -n x; designer_modell sonnet; print y)" \
+  '^opus$' '^claude-opus-5-5$' '^fable$' '^xy$'
+dm() { ( source $REPO/tests/lauf-hilfen.zsh; LOG=/dev/null HALO_PUSH_TROCKEN=1 HALO_HANDELN_LOG=$T/handeln.log designfrage_melden "$@" ) 2>&1 }
+pruefe "Designer: vorschau meldet sofort als [handeln] mit Link" \
+  "$(dm design 'Mail-Toolbar: Spacer' 'vorschau PVTI_x https://claude.ai/artifact/abc Welche Variante, A oder B?')" \
+  'TROCKEN: push \[handeln\] Designfrage „Mail-Toolbar: Spacer“: Welche Variante, A oder B\? – Bilder: https://claude.ai/artifact/abc' '^sofort$'
+pruefe "Designer: Meldung steht im handeln-Log" "$(<$T/handeln.log)" 'tagesroutine Designfrage „Mail-Toolbar: Spacer“'
+pruefe "Designer: entscheidung eines Design-Eintrags sofort" "$(dm design 'Sidebar: Schrift' 'entscheidung Größe wie Mail oder wie Kalender?')" \
+  'push \[handeln\] Designfrage „Sidebar: Schrift“: Größe wie Mail oder wie Kalender\?' '^sofort$'
+pruefe "Designer: entscheidung ohne Design bleibt fürs Tagesende (keine Meldung)" "$(dm komplex 'Code: Module' 'entscheidung Reihenfolge?'; print ende)" '^ende$'
+pruefe "Designer: erledigt meldet nichts" "$(dm design 'X' 'erledigt abc123'; print ende)" '^ende$'
+pruefe "Designer: Auftrag kennt vorschau, Einstufung design und den Designer-Auftrag" "$(<$REPO/tests/tagesroutine-auftrag.md)" \
+  'vorschau <id> <Link> <Frage>' '<komplex\|routine\|design>' 'tests/designer-auftrag.md' 'SOFORT als' 'kein Design-Eintrag'
+pruefe "Designer: Eintragsrunde gibt Design-Einträgen den Designer-Kopf" "$(grep -c 'Design-Eintrag: Du bist der Director' $SKRIPT)" '^1$'
 # Leerer Plan ist kein Ende (Berichtigung von neon 14.11.2026 zur Entscheidung 13.11.2026)
 eval "$(sed -n '/^nichts_passend_weiter()/,/^}/p;/^nach_plan()/,/^}/p' $SKRIPT)"
 ts() { python3 -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $1 }

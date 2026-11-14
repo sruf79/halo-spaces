@@ -5,6 +5,7 @@
 # (Entscheidung des Maintainers vom 6.11.2026, docs/neon-sitzung.md).
 # Braucht gh mit Scope project (geht nur lokal, nicht in Cloud-Sitzungen).
 #   tests/board.sh liste [<Muster>]              offene Einträge (Status ≠ Done), Muster: Regex auf den Titel
+#   tests/board.sh export                        offene Einträge mit Text als JSON {"items":[…]} (für tests/haeufung.py)
 #   tests/board.sh zeige <id|Muster>             ein Eintrag mit Text
 #   tests/board.sh neu <bug|feature> <Titel> <Text> [<Status>]   legt an, gibt die id aus
 #   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis)
@@ -56,11 +57,14 @@ setze() {   # <Item-id> <Feld> <Option>
 
 befehl=$1; (( $# )) && shift
 # einmal laden (im eigenen Prozess, nicht in $(…)): danach liest jeder Schritt dieselbe Liste
-[[ $befehl == (liste|zeige|neu|status|notiz|archiv|suche) ]] && board >/dev/null
+[[ $befehl == (liste|export|zeige|neu|status|notiz|archiv|suche) ]] && board >/dev/null
 case $befehl in
   liste)
     board | jq -r --arg m "${1:-.}" '[.items[] | select(.status != "Done" and (.title | test($m; "i")))]
       | sort_by(.title)[] | "\(.id)  \(.typ // "-")  \(.status // "-")  \(.title)"'
+    ;;
+  export)
+    board | jq -c '{items: [.items[] | select(.status != "Done") | {id, typ, status, title, body: (.content.body // "")}]}'
     ;;
   zeige)
     [[ -n $1 ]] || fehler "Aufruf: board.sh zeige <id|Muster>"

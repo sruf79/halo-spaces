@@ -1,6 +1,6 @@
 #!/bin/zsh
 export HALO_LAUF=tagesroutine
-# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00, Sa/So ab 10:00 (Maintainer 13.11.2026,
+# Tagesroutine auf neon (Auftrag stufe-6, 10.11.2026): Mo–Fr ab 09:00, Sa/So ab 09:00 (Maintainer 13.11.2026,
 # START_WOCHENENDE) arbeitet Claude Code die Aufgabenliste ab, bis spätestens 22:00. Gestartet vom LaunchAgent at.halo-spaces.tagesroutine
 # (Interpreter /bin/zsh: keine Bildschirmprüfungen mit Maus); die Datei wird wie nachtlauf.sh nach
 # ~/.config/halo-spaces/ kopiert, nicht aus dem Checkout benutzt.
@@ -564,7 +564,7 @@ offene_planzeilen() {
 }
 
 # belegt() plus die Routinen mit Sperrdatei (Nachtlauf, Wochen- und Doku-Prüfung, Rundgang): am Wochenende
-# laufen Doku-Prüfung (Sa 08:00) bzw. Wochenprüfung (So 08:00) evtl. noch, wenn die Tagesroutine um 10:00 beginnt
+# laufen Doku-Prüfung (Sa 08:00) bzw. Wochenprüfung (So 08:00) evtl. noch, wenn die Tagesroutine um 09:00 beginnt
 # (Doku-Prüfung 7.11.2026 bis 09:57); der Rundgang (Sa 10:00, derzeit pausiert) wartet bis 14:00. Sie sehen
 # unsere Claude-Runden nicht als belegt (aktive_sitzung() übergeht eigene Läufe), daher warten wir.
 belegt_tag() {

@@ -29,7 +29,7 @@ Regel (deterministisch, gleiche Liste ergibt gleiche Gruppen):
 
 Aufruf:
   tests/haeufung.py [--eingabe <board.json>] [--aus <Ordner>] [--datum JJJJ-MM-TT] [--stdout]
-Ohne --eingabe liest es die Liste über tests/board.sh export (neben diesem Skript oder im Checkout).
+Ohne --eingabe (bzw. HALO_HAEUFUNG_EINGABE) liest es die Liste über tests/board.sh export (neben diesem Skript oder im Checkout).
 Schreibt <Ordner>/<datum>-haeufung.md und .tsv (Standard ~/halo-nacht), gibt eine Kurzzeile aus.
 Exitcode 0 bei Erfolg (auch ohne Gruppen), sonst 1.
 """
@@ -256,13 +256,14 @@ def board_lesen():
     hier = os.path.dirname(os.path.abspath(__file__))
     kandidaten = [os.path.join(hier, 'board.sh'),
                   os.path.expanduser('~/halo-spaces/tests/board.sh')]
-    for k in kandidaten:
+    meldungen = []
+    for k in kandidaten:   # ältere Kopie ohne „export“ → nächste Fundstelle
         if os.path.exists(k):
             r = subprocess.run(['zsh', k, 'export'], capture_output=True, text=True, timeout=300)
             if r.returncode == 0 and r.stdout.strip():
                 return json.loads(r.stdout)['items']
-            raise SystemExit(f'FEHLER: board.sh export scheiterte: {r.stderr.strip()[:300]}')
-    raise SystemExit('FEHLER: tests/board.sh nicht gefunden')
+            meldungen.append(f'{k}: {r.stderr.strip()[:200] or "keine Ausgabe"}')
+    raise SystemExit('FEHLER: board.sh export scheiterte (' + ('; '.join(meldungen) or 'board.sh nicht gefunden') + ')')
 
 
 def schreiben(gruppen, zahl, aus, datum):
@@ -300,7 +301,7 @@ def schreiben(gruppen, zahl, aus, datum):
 
 def main():
     ap = argparse.ArgumentParser(description='Häufung zusammenhängender Einträge der Aufgabenliste')
-    ap.add_argument('--eingabe')
+    ap.add_argument('--eingabe', default=os.environ.get('HALO_HAEUFUNG_EINGABE') or None)   # Probe ohne Board
     ap.add_argument('--aus', default=os.path.expanduser('~/halo-nacht'))
     ap.add_argument('--datum', default=datetime.date.today().isoformat())
     a = ap.parse_args()

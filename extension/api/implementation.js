@@ -18374,6 +18374,15 @@ class CardEnhancer {
     if (typeof orig != "function" || orig.__mcFitWindow) {
       return;
     }
+    // Kacheln wie im Hauptfenster (Download-Knopf je Kachel, Name fett bis
+    // zwei Zeilen, Größe darunter): dessen Aufruf bei „MsgLoaded“ erreicht
+    // dieses Fenster nicht, ohne ihn blieb Thunderbirds Zeile (Name einzeilig
+    // in eigener Schrift, Größe rechts, kein Knopf)
+    const decorate = () => decorateAttachments(mwin.document);
+    const browser = mwin.frameElement;
+    browser?.addEventListener("MsgLoaded", decorate, true);
+    decorate();
+    this.addWinRestorer(top, () => browser?.removeEventListener("MsgLoaded", decorate, true));
     const wrapped = function (expanded, updateFocus, ...rest) {
       const view = mwin.document.getElementById("attachmentView");
       const before = updateFocus && view ? view.getBoundingClientRect().height : null;

@@ -18940,6 +18940,53 @@ Neu
         return ok, f"{res}"
     check("Nachrichtenfenster: Chevron der Anhänge macht das Fenster genau um die Liste kleiner bzw. wieder größer, die Zeile „n attachments“ bleibt stehen, zugeklappt 8 px Luft nach unten", message_window_attachments, results)
 
+    def message_window_tiles():
+        # Fenster einer geöffneten Mail: Anhänge als Kacheln wie im Hauptfenster (Vorlage Apple Mail): runder
+        # Download-Knopf rechts in jeder Kachel, Name und Endung zusammen fett in 12 px wie die Zeile „n attachments“
+        # (bis zwei Zeilen), Größe darunter statt rechts daneben; Knopf speichert genau diesen Anhang. Vorher fehlte die
+        # Gestaltung dort ganz (Name einzeilig in Thunderbirds Schrift, Größe rechts, kein Knopf)
+        res = m.js(READING_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          const hdr = [...f.messages].find(h => h.mime2DecodedSubject == "Halo Anhänge");
+          if (!hdr) return { mail: false };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = {};
+          try {
+            const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage ? x : null; }, 8000);
+            const list = md.getElementById("attachmentList"), count = md.getElementById("attachmentCount");
+            await until(() => list.querySelectorAll(".attachmentItem > .mc-att-save").length == 3, 4000);
+            await ruhig(300);
+            const cs = (el, p) => md.defaultView.getComputedStyle(el, p);
+            const mid = el => { const r = el.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+            const rows = [...list.querySelectorAll(".attachmentItem")];
+            out.tiles = rows.map(it => {
+              const sv = it.querySelector(":scope > .mc-att-save"), tx = it.querySelector(":scope > .mc-att-text"), tt = tx?.querySelector(".mc-att-title");
+              const sz = tx?.querySelector(".attachmentcell-size"), r = it.getBoundingClientRect();
+              return { save: sv ? { w: Math.round(sv.getBoundingClientRect().width), round: cs(sv).borderTopLeftRadius == "50%",
+                                    right: Math.round(r.right - sv.getBoundingClientRect().right), d: Math.round(mid(sv) - mid(it)) } : null,
+                       font: tt ? parseFloat(cs(tt).fontSize) : 0, weight: tt ? parseInt(cs(tt).fontWeight) : 0,
+                       below: sz && tt ? sz.getBoundingClientRect().top >= tt.getBoundingClientRect().bottom - 1 : false,
+                       tip: it.getAttribute("tooltiptext") };
+            });
+            out.count = parseFloat(cs(count).fontSize);
+            const calls = [], second = rows[1], att = second.attachment, origSave = att.save, origOpen = att.open;
+            att.save = async () => { calls.push(["save", att.name]); }; att.open = async () => { calls.push(["open", att.name]); };
+            try { second.querySelector(".mc-att-save")?.click(); await ruhig(300); } finally { att.save = origSave; att.open = origOpen; }
+            out.calls = calls;
+          } finally { mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail „Halo Anhänge“ fehlt"
+        tiles = res.get("tiles") or []
+        ok = (len(tiles) == 3 and all(t["save"] and t["save"]["w"] == 24 and t["save"]["round"] and 0 <= t["save"]["right"] <= 12 and abs(t["save"]["d"]) <= 1
+                                     and t["font"] == res.get("count") == 12 and t["weight"] == 600 and t["below"] for t in tiles)
+              and [t["tip"] for t in tiles] == ["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt"]
+              and res.get("calls") == [["save", "Ausflug-02.txt"]])
+        return ok, f"{res}"
+    check("Nachrichtenfenster: Anhänge als Kacheln wie im Hauptfenster – runder Download-Knopf rechts je Kachel (speichert genau diesen Anhang), Name fett in 12 px wie „n attachments“, Größe darunter", message_window_tiles, results)
+
     def message_window_pill_size():
         # Kapselstücke im eigenen Fenster so groß wie in der Mail-Toolbar des Hauptfensters (3.26.0: „Allen antworten“
         # mit unsichtbarem Pfeil fast doppelt so breit)

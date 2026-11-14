@@ -18810,6 +18810,55 @@ Neu
         return ok, f"{res}"
     check("Nachrichtenfenster: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten", message_window_reply_all, results)
 
+    def message_window_attachments():
+        # Fenster einer geöffneten Mail: Chevron klappt die Anhänge zu – das Fenster wird genau um den frei werdenden Platz
+        # der Liste kleiner (auch ein vergrößertes Fenster), beim Aufklappen um diesen Platz wieder größer; die Zeile
+        # „n attachments“ bleibt an ihrer Stelle; zugeklappt mindestens 8 px Luft bis zum unteren Rand
+        # (Maintainer 14.11.2026); automatisches Auf-/Zuklappen (ohne Klick) ändert die Fenstergröße nicht
+        res = m.js(READING_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          const hdr = [...f.messages].find(h => h.mime2DecodedSubject == "Halo Anhänge");
+          if (!hdr) return { mail: false };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = {};
+          try {
+            const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage ? x : null; }, 8000);
+            const g = id => md.getElementById(id), view = g("attachmentView"), list = g("attachmentList"), bar = g("attachmentBar"), count = g("attachmentCount");
+            await until(() => !view.collapsed && list.querySelectorAll(".attachmentItem").length == 3, 6000);
+            // vergrößertes Fenster, Liste offen (ohne Klick: Fenster bleibt)
+            mw.resizeTo(820, 760); await until(() => mw.outerHeight == 760, 3000); await ruhig(600);
+            md.defaultView.toggleAttachmentList(true); await ruhig(600);
+            const h0 = mw.outerHeight, top0 = count.getBoundingClientRect().top, view0 = view.getBoundingClientRect().height;
+            md.defaultView.toggleAttachmentList(false); await ruhig(600);
+            out.auto = [mw.outerHeight - h0];
+            md.defaultView.toggleAttachmentList(true); await ruhig(600);
+            out.auto.push(mw.outerHeight - h0);
+            // Klick auf die Zeile mit dem Chevron: zu
+            bar.click();
+            await until(() => list.collapsed && mw.outerHeight != h0, 3000); await ruhig(800);
+            const view1 = view.getBoundingClientRect().height, br = bar.getBoundingClientRect();
+            out.closed = { collapsed: list.collapsed, shrink: h0 - mw.outerHeight, freed: Math.round(view0 - view1),
+                           move: Math.round((count.getBoundingClientRect().top - top0) * 10) / 10,
+                           pad: parseFloat(md.defaultView.getComputedStyle(bar).paddingBottom),
+                           bottom: Math.round(md.documentElement.getBoundingClientRect().bottom - Math.max(count.getBoundingClientRect().bottom, (g("attachmentSaveAllMultiple")?.getBoundingClientRect().bottom || 0))),
+                           barEnd: Math.round(md.documentElement.getBoundingClientRect().bottom - br.bottom) };
+            // wieder auf: um denselben Platz größer
+            bar.click();
+            await until(() => !list.collapsed && mw.outerHeight == h0, 3000); await ruhig(800);
+            out.open = { collapsed: list.collapsed, back: mw.outerHeight - h0, move: Math.round((count.getBoundingClientRect().top - top0) * 10) / 10 };
+          } finally { mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail „Halo Anhänge“ fehlt"
+        c, o = res.get("closed") or {}, res.get("open") or {}
+        ok = (res.get("auto") == [0, 0] and c.get("collapsed") is True and c.get("freed", 0) > 20 and abs(c.get("shrink", 0) - c.get("freed", 0)) <= 1
+              and abs(c.get("move", 99)) <= 1 and c.get("pad", 0) >= 8 and c.get("bottom", 0) >= 8 and c.get("barEnd", 99) <= 1
+              and o.get("collapsed") is False and o.get("back") == 0 and abs(o.get("move", 99)) <= 1)
+        return ok, f"{res}"
+    check("Nachrichtenfenster: Chevron der Anhänge macht das Fenster genau um die Liste kleiner bzw. wieder größer, die Zeile „n attachments“ bleibt stehen, zugeklappt 8 px Luft nach unten", message_window_attachments, results)
+
     def message_window_pill_size():
         # Kapselstücke im eigenen Fenster so groß wie in der Mail-Toolbar des Hauptfensters (3.26.0: „Allen antworten“
         # mit unsichtbarem Pfeil fast doppelt so breit)

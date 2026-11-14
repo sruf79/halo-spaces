@@ -1567,6 +1567,12 @@ body:has(> #accountCentral),
   min-height: 0 !important;
 }
 
+/* zugeklappt: Luft unter der Zeile wie darüber, sonst klebt sie am unteren
+   Rand (Maintainer 14.11.2026: „sieht gepresst aus“) */
+#attachmentView:not(.list-expanded) > #attachmentBar {
+  padding-bottom: 8px !important;
+}
+
 /* ab zwei Anhängen: Anzahl links über den Kacheln, „Save All“ bündig mit dem
    rechten Rand der rechten Kachelspalte (ENTSCHEIDUNGEN.md 11.11.2026); die
    Erweiterung misst diesen Rand je nach Breite der Mail (--mt-att-cols-right) */

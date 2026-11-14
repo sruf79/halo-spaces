@@ -18764,6 +18764,87 @@ Neu
     check("Nachrichtenfenster: Knöpfe wie im Vorbild (Archivieren, Löschen, Werbung | Antworten, Allen antworten, Weiterleiten | Mehr, Stern); "
           "markiert kein zweiter Stern unter der Uhrzeit", message_window_order, results)
 
+    def message_window_right_tools():
+        # Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand Drucken | Stern · Pfeil | Ordner · Pfeil;
+        # der Pfeil am Stern öffnet das Markieren-Menü (Stern setzt den Stern), Ordner verschiebt die Mail, Drucken druckt
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          const inbox = f;
+          let target = root.subFolders.find(x => x.name == "Halo Ablage");
+          if (!target) { root.createSubfolder("Halo Ablage", null); target = await until(() => root.subFolders.find(x => x.name == "Halo Ablage"), 4000); }
+          const mid = "halo-right-tools-" + Date.now() + "@example.invalid";
+          inbox.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From - Sat Oct 17 10:00:00 2026\r\nFrom: Ben Muster <ben@example.invalid>\r\nTo: Halo Test <halo@example.invalid>\r\nSubject: Halo rechte Knöpfe\r\nDate: Sat, 17 Oct 2026 09:41:00 +0200\r\nMessage-ID: <" + mid + ">\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nHallo\r\n");
+          const hdr = await until(() => [...inbox.messages].find(h => h.messageId == mid), 4000);
+          if (!hdr || !target) return { mail: false };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          const out = {};
+          try {
+            mw.resizeTo(900, 700);
+            const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage && x.getElementById("mcHdrMoveButton") ? x : null; }, 8000);
+            await ruhig(1200);
+            const win = md.defaultView, g = id => md.getElementById(id);
+            const r = id => { const b = g(id)?.getBoundingClientRect(); return b && b.width ? { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), h: Math.round(b.height), w: Math.round(b.width) } : null; };
+            out.rects = Object.fromEntries(["hdrForwardButton", "otherActionsButton", "mcHdrPrintButton", "starMessageButton", "mcHdrFlagMenuButton", "mcHdrMoveButton"].map(id => [id, r(id)]));
+            out.width = Math.round(md.documentElement.getBoundingClientRect().width);
+            const radius = id => win.getComputedStyle(g(id)).borderStartStartRadius + "/" + win.getComputedStyle(g(id)).borderStartEndRadius;
+            out.radius = { print: radius("mcHdrPrintButton"), star: radius("starMessageButton"), flag: radius("mcHdrFlagMenuButton"), move: radius("mcHdrMoveButton"), more: radius("otherActionsButton") };
+            const icon = id => { const i = g(id).querySelector(".toolbarbutton-icon"); const s = win.getComputedStyle(i); return { w: Math.round(i.getBoundingClientRect().width), mask: /data:image/.test(s.maskImage) }; };
+            out.icons = { print: icon("mcHdrPrintButton"), flag: icon("mcHdrFlagMenuButton"), move: icon("mcHdrMoveButton") };
+            // Pfeil am Stern: Menü mit Markieren-Befehlen, „Stern“ setzt den Stern
+            const was = hdr.isFlagged;
+            const fp = g("mcHdrFlagPopup");
+            g("mcHdrFlagMenuButton").open = true;
+            await until(() => fp.state == "open", 3000);
+            const items = [...fp.querySelectorAll("menuitem")];
+            out.flagMenu = { open: fp.state == "open", items: items.map(i => i.dataset.mcCommand), labels: items.every(i => (i.label || "").trim().length > 0) };
+            items.find(i => i.dataset.mcCommand == "cmd_markAsFlagged").doCommand();
+            fp.hidePopup();
+            await until(() => hdr.isFlagged != was, 3000);
+            out.flagged = [was, hdr.isFlagged, g("starMessageButton").classList.contains("flagged")];
+            // Drucken: Thunderbirds Druckbefehl (ohne echten Druckdialog)
+            const ctrl = win.commandController, origDo = ctrl.doCommand;
+            const seen = [];
+            ctrl.doCommand = function (cmd, ...a) { if (cmd == "cmd_print") { seen.push(cmd); return; } return origDo.call(this, cmd, ...a); };
+            try { g("mcHdrPrintButton").doCommand(); } finally { ctrl.doCommand = origDo; }
+            out.print = seen;
+            // Ordner: Menü mit Ordnern; Auswahl verschiebt die Mail
+            const mp = g("mcHdrMovePopup");
+            g("mcHdrMoveButton").open = true;
+            await until(() => mp.state == "open" && mp.querySelector("menuitem, menu"), 3000);
+            out.moveMenu = { open: mp.state == "open", entries: mp.querySelectorAll(":scope > menuitem, :scope > menu").length };
+            mp.hidePopup();
+            const pick = md.createXULElement("menuitem");
+            pick._folder = target;
+            mp.append(pick);
+            pick.doCommand();
+            pick.remove();
+            out.moved = !!(await until(() => [...target.messages].find(h => h.messageId == mid), 5000));
+          } finally { if (!mw.closed) mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail oder Ordner fehlt"
+        rc = res.get("rects") or {}
+        fw, more, pr, st, fl, mv = (rc.get(k) or {} for k in ("hdrForwardButton", "otherActionsButton", "mcHdrPrintButton", "starMessageButton", "mcHdrFlagMenuButton", "mcHdrMoveButton"))
+        W = res.get("width", 0)
+        lay = (all((fw, more, pr, st, fl, mv)) and more["l"] - fw["r"] == 6
+               and pr["l"] > more["r"] + 100 and st["l"] - pr["r"] == 6 and fl["l"] == st["r"] and mv["l"] - fl["r"] == 6
+               and abs(W - mv["r"] - 12) <= 1 and len({x["t"] for x in (fw, pr, st, fl, mv)}) == 1
+               and all(x["h"] == 38 for x in (pr, st, fl, mv)) and 26 <= fl["w"] <= 32 and mv["w"] >= 48)
+        rad = res.get("radius") or {}
+        rnd = (rad.get("print") == "999px/999px" and rad.get("move") == "999px/999px" and rad.get("more") == "999px/999px"
+               and rad.get("star", "").startswith("999px/0") and rad.get("flag", "").startswith("0px/999px"))
+        ic = res.get("icons") or {}
+        icons = all((ic.get(k) or {}).get("mask") for k in ("print", "flag", "move"))
+        fm = res.get("flagMenu") or {}
+        menu = (fm.get("open") and fm.get("labels") and fm.get("items") == ["cmd_markAsRead", "cmd_markAsUnread", "cmd_markAsFlagged", "cmd_markAsJunk", "cmd_markAsNotJunk"])
+        f = res.get("flagged") or []
+        acts = (len(f) == 3 and f[1] != f[0] and f[2] == f[1] and res.get("print") == ["cmd_print"]
+                and (res.get("moveMenu") or {}).get("open") and (res.get("moveMenu") or {}).get("entries", 0) > 0 and res.get("moved"))
+        return bool(lay and rnd and icons and menu and acts), f"Lage {lay}, Rundung {rnd}, Symbole {icons}, Menü {menu}, Befehle {acts}: {res}"
+    check("Nachrichtenfenster: rechts am Fensterrand Drucken | Stern mit Pfeil (Markieren) | Ordner mit Pfeil (Verschieben) wie Apple Mail; Menü, Stern, Drucken und Verschieben wirken", message_window_right_tools, results)
+
     def message_window_reply_all():
         # Fenster einer geöffneten Mail wie im Vorbild: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten
         # (Thunderbird zeigte dann allein „Antworten“); im Hauptfenster bleibt Thunderbirds Auswahl

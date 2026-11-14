@@ -11,7 +11,7 @@ export HALO_LAUF=morgenbrief
 # Gelesen (seit dem letzten Brief = voriger Werktag 08:30; Sa/So: gestern 08:30):
 #   ~/halo-berichte/<heute>-nachtlauf.md (Zeile „Kurz:“, Zeilen „- …“ unter „## Rückfragen an den Maintainer“),
 #   ~/halo-nacht/<heute>.fertig, lauf.lock
-#   ~/halo-berichte/<voriger Werktag>-tagesroutine.md (Zeile „Kurz:“)
+#   ~/halo-berichte/<Datum>-tagesroutine.md für jeden Tag seit dem letzten Brief bis gestern, auch Sa/So (Zeile „Kurz:“)
 #   ~/halo-berichte/<Datum>-halo.spaces-<Version>.md (FEHLER von publish.sh)
 #   gh release list, gh run list (test.yml auf main; workflow_dispatch = Windows-Lauf der Nacht)
 #   ~/halo-nacht/handeln.log (ohne eigene Zeilen „morgenbrief“), ~/halo-nacht/pausen.txt
@@ -145,11 +145,17 @@ else
   HANDELN_NEU+=(nachtlauf)
 fi
 
-# --- 4. Tagesroutine des vorigen Werktags ---
-TB=$BERICHTE/$T[VORTAG]-tagesroutine.md
-if [[ -r $TB ]]; then
-  k=$(grep -m1 '^Kurz:' $TB); INFO+=("Tag ${T[VORTAG][9,10]}.${T[VORTAG][6,7]}.: $(kurz ${${k#Kurz: }:-ohne Kurzzeile} 120)")
-fi   # kein Bericht: Tagesroutine aus oder pausiert, keine Zeile
+# --- 4. Tagesroutine seit dem letzten Brief (Maintainer 14.11.2026: auch Sa/So) ---
+# Alle Tage vom Tag des letzten Briefs bis gestern: Mo also Fr, Sa, So; Di–Fr der Vortag; Sa Fr, So Sa.
+for td in ${(f)"$(SEIT=$T[SEIT] HEUTE=$HEUTE python3 -I -c '
+import os, datetime as dt
+d = dt.date.fromisoformat(os.environ["SEIT"][:10]); h = dt.date.fromisoformat(os.environ["HEUTE"])
+while d < h: print(d.isoformat()); d += dt.timedelta(days=1)
+')"}; do
+  TB=$BERICHTE/$td-tagesroutine.md
+  [[ -r $TB ]] || continue   # kein Bericht: Tagesroutine aus oder pausiert, keine Zeile
+  k=$(grep -m1 '^Kurz:' $TB); INFO+=("Tag ${td[9,10]}.${td[6,7]}.: $(kurz ${${k#Kurz: }:-ohne Kurzzeile} 120)")
+done
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---
 if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)

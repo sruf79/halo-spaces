@@ -15010,6 +15010,9 @@ Neu
             out.complete = r(nd.getElementById("task-actions-markcompleted")); out.more = r(nd.getElementById("mcTaskMore"));
             out.prog = r(nd.getElementById("mcTaskProg")); out.inner = [nw.innerWidth, nw.innerHeight];
             out.card = r(nd.getElementById("calendar-task-details-box"));
+            // macOS: ohne eigene Titelleiste, Complete und „…“ in der Zeile der Fensterknöpfe (vorher 32 px Titelleiste darüber)
+            out.titlebar = nw.outerHeight - nw.innerHeight; out.mac = Services.appinfo.OS == "Darwin";
+            out.icon = (() => { const s = nw.getComputedStyle(nd.getElementById("task-actions-markcompleted"), "::before"); return [s.display, s.maskImage != "none" || s.backgroundImage != "none"]; })();
             out.dialogs = dialogs();
             // zweites Öffnen: dasselbe Fenster
             w.modifyEventWithDialog(saved, true); await ruhig(400);
@@ -15044,10 +15047,11 @@ Neu
               and res.get("buttons") == ["task-actions-markcompleted", "mcTaskMore"] and cb and mb and cb["l"] < mb["l"] and mb["l"] + mb["w"] <= res["inner"][0]
               # Knöpfe oben über der Kopfkarte, nicht darin (vorher griff die Lage der Toolbar-Zeile des Hauptfensters)
               and bool(res.get("card")) and cb["t"] + cb["h"] <= res["card"]["t"] and mb["t"] + mb["h"] <= res["card"]["t"] and cb["t"] >= 0 and mb["l"] + mb["w"] >= res["inner"][0] - 30
+              and (not res.get("mac") or res.get("titlebar", 99) <= 2) and res.get("icon", [None, False])[1]
               and pr and pr["h"] >= 20 and not res.get("dialogs") and res.get("count") == 1 and res.get("renamed") and res.get("done") and res.get("undone")
               and res.get("menu") == ["Duplicate", "Move to List", "-", "Delete Task"] and res.get("closed") and not res.get("left"))
         return ok, f"{res}"
-    check("Aufgaben: Aufgabe in eigenem Fenster (Doppelklick, Enter, ⌘O, Edit Task) mit derselben Ansicht wie die Detailspalte, oben Complete und „…“, Bearbeiten, zweites Öffnen holt es nach vorn, Löschen schließt es", task_window, results)
+    check("Aufgaben: Aufgabe in eigenem Fenster (Doppelklick, Enter, ⌘O, Edit Task) mit derselben Ansicht wie die Detailspalte, oben Complete und „…“ (macOS in der Zeile der Fensterknöpfe, ohne Titelleiste), Bearbeiten, zweites Öffnen holt es nach vorn, Löschen schließt es", task_window, results)
 
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste

@@ -2360,6 +2360,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   --mc-ti-card: color-mix(in srgb, var(--mt-text) 5%, transparent);
 }
 
+:root[mc-task-info] #calendar-task-details-attachment-row,
 :root[mc-task-info] #calendar-task-details-grid > :not(#calendar-task-details-title-row),
 :root[mc-task-info] #calendar-task-details-title-row > th {
   display: none !important;
@@ -2691,6 +2692,112 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 #mcTaskInfo .mc-ti-row[data-icon="star"] { --mc-ti-icon: url("resource://mailcards/icons/star.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="link"] { --mc-ti-icon: url("resource://mailcards/icons/link.svg"); }
 #mcTaskInfo .mc-ti-row[data-icon="location"] { --mc-ti-icon: url("resource://mailcards/icons/location.svg"); }
+#mcTaskInfo .mc-ti-row[data-icon="sun"] { --mc-ti-icon: url("resource://mailcards/icons/sun-12.svg"); }
+#mcTaskInfo .mc-ti-row[data-icon="status"] { --mc-ti-icon: url("resource://mailcards/icons/task-done.svg"); }
+#mcTaskInfo .mc-ti-row[data-icon="done"] { --mc-ti-icon: url("resource://mailcards/icons/calendar-today.svg"); }
+#mcTaskInfo .mc-ti-row[data-icon="attach"] { --mc-ti-icon: url("resource://mailcards/icons/attachment.svg"); }
+#mcTaskInfo .mc-ti-row[data-icon="attach-add"] { --mc-ti-icon: url("resource://mailcards/icons/add.svg"); }
+
+/* Anhänge (5d/5d): Name als Link in Akzentfarbe, „Add Link…“ ebenso */
+#mcTaskInfo .mc-ti-row[data-icon="attach"] > .mc-ti-label,
+#mcTaskInfo .mc-ti-row[data-icon="attach-add"] > .mc-ti-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: AccentColor;
+  cursor: pointer;
+}
+
+#mcTaskInfo .mc-ti-row[data-icon="attach-add"] > .mc-ti-icon {
+  stroke: AccentColor;
+}
+
+/* Ganztägig als Schalter wie in Apple Erinnerungen */
+#mcTaskInfo .mc-ti-switch {
+  appearance: none !important;
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: var(--mt-control);
+  transition: background-color 0.15s;
+}
+
+#mcTaskInfo .mc-ti-switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.3);
+  transition: inset-inline-start 0.15s;
+}
+
+#mcTaskInfo .mc-ti-switch:checked {
+  background: AccentColor;
+}
+
+#mcTaskInfo .mc-ti-switch:checked::before {
+  inset-inline-start: 16px;
+}
+
+#mcTaskInfo .mc-ti-switch:disabled {
+  opacity: 0.5;
+}
+
+/* Formatleiste unter der Notiz, nur beim Bearbeiten (Fett, Kursiv, Unterstrichen, Listen, Link) */
+#mcTaskNoteBar {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin: 0 20px 8px;
+  padding: 2px;
+  width: fit-content;
+  border-radius: var(--mt-radius-capsule, 999px);
+  background: var(--mt-control);
+}
+
+#mcTaskNoteBar[hidden] {
+  display: none;
+}
+
+#mcTaskNoteBar > button {
+  appearance: none;
+  min-width: 26px;
+  height: 22px;
+  margin: 0;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--mt-radius-capsule, 999px);
+  background: transparent;
+  color: var(--mt-text);
+  font: inherit;
+  font-size: calc(12px * var(--mt-font-scale, 1));
+}
+
+#mcTaskNoteBar > button:hover {
+  background: color-mix(in srgb, var(--mt-text) 8%, transparent);
+}
+
+#mcTaskNoteBar > button[data-cmd="bold"] { font-weight: 700; }
+#mcTaskNoteBar > button[data-cmd="italic"] { font-style: italic; }
+#mcTaskNoteBar > button[data-cmd="underline"] { text-decoration: underline; }
+
+#mcTaskNoteBar > button[data-cmd="createLink"]::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: auto;
+  background: url("resource://mailcards/icons/link.svg") center / contain no-repeat;
+  -moz-context-properties: fill, stroke;
+  fill: transparent;
+  stroke: var(--mt-text);
+}
 
 /* Aktionen (Kategorie, Erledigt, Priorität, Löschen) als Kapseln wie im
    Adressbuch und in der Mail */

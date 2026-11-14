@@ -1189,7 +1189,7 @@ SURFACES = [
       'await toTasks(); const f = d.getElementById("task-text-filter-field"); f.value = "xyzxyz"; f.dispatchEvent(new w.Event("input")); f.dispatchEvent(new w.Event("command")); await wait(1500);',
       close='const f = d.getElementById("task-text-filter-field"); if (f) { f.value = ""; f.dispatchEvent(new w.Event("input")); f.dispatchEvent(new w.Event("command")); } await wait(500);'),
     S("aufg-dialog", "aufgaben", "fenster", "Neue Aufgabe (Dialog)",
-      'await toTasks(); w.createTodoWithDialog(testCalendar());', cap="window", win="calendar-event-dialog"),
+      'await toTasks(); (w.createTodoWithDialog.__mcOrig || w.createTodoWithDialog)(testCalendar());', cap="window", win="calendar-event-dialog"),
     S("aufg-bearbeiten", "aufgaben", "fenster", "Aufgabe bearbeiten",
       'await toTasks(); const it = await anyItem("Präsentation vorbereiten"); w.modifyEventWithDialog(it, true);', cap="window", win="calendar-event-dialog"),
     S("aufg-schnellfenster", "aufgaben", "popup", "Aufgaben: Schnellfenster „Neue Aufgabe“",

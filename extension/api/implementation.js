@@ -3900,6 +3900,30 @@ function hookTaskInfo(win, restorers, solo = null) {
     r.append(el("span", "mc-ti-icon"), el("span", "mc-ti-label", tr(label)), v);
     return r;
   };
+  // Zeile nur mit Symbol und Text (Anhänge, „Add Link…“), Text unübersetzt
+  const plainRow = (icon, text, extra = null) => {
+    const r = el("div", "mc-ti-row");
+    r.dataset.icon = icon;
+    r.append(el("span", "mc-ti-icon"), el("span", "mc-ti-label", text), el("span", "mc-ti-value"));
+    extra?.(r);
+    return r;
+  };
+  // Anhang kurz: Dateiname bzw. Rechner und Pfad einer Webseite
+  const attachName = spec => {
+    try {
+      const uri = Services.io.newURI(spec);
+      if (uri.schemeIs("file")) {
+        return decodeURIComponent(uri.spec.split("/").pop() || spec);
+      }
+      return decodeURIComponent((uri.host || "") + (uri.filePath && uri.filePath != "/" ? uri.filePath : "")) || spec;
+    } catch {
+      return spec;
+    }
+  };
+  const isAllDay = item => !!(item.entryDate?.isValid && item.entryDate.isDate) || !!(item.dueDate?.isValid && item.dueDate.isDate);
+  const STATUS = { NONE: "Not Started", "IN-PROCESS": "In Progress", COMPLETED: "Completed", CANCELLED: "Cancelled" };
+  const statusOf = item => (item.isCompleted ? "COMPLETED" : item.status == "CANCELLED" ? "CANCELLED" :
+    item.status == "IN-PROCESS" || (item.percentComplete > 0 && item.percentComplete < 100) ? "IN-PROCESS" : "NONE");
   // Kopfkarte wie eine vergrößerte Karte (K2, Entscheidung des Maintainers
   // vom 6.11.2026): links der Streifen in Listenfarbe, rechts der
   // Fortschrittsstrich (farbig von unten, offener Teil fein rot gestrichelt)
@@ -4079,11 +4103,19 @@ function hookTaskInfo(win, restorers, solo = null) {
     head(item, calColor);
     const privacy = { PRIVATE: "Private", CONFIDENTIAL: "Confidential" }[item.privacy] || "Public";
     const url = item.getProperty("URL");
+    // Ganztägig als Schalter wie in Apple Erinnerungen (5d/5d)
+    const allDay = el("input", "mc-ti-switch");
+    allDay.type = "checkbox";
+    allDay.checked = isAllDay(item);
+    allDay.disabled = !writable(item);
+    allDay.setAttribute("aria-label", tr("All Day"));
+    const done = item.isCompleted ? when(item.completedDate) : null;
     box.replaceChildren(
       ...group(null, [url ? row("link", "URL", url) : null]),
       ...group("Date & Time", [
         row("calendar", "Start", start?.text),
         row("clock", "Due", due?.text, (r, v) => v.toggleAttribute("data-overdue", !!due?.past && !item.isCompleted)),
+        row("sun", "All Day", allDay),
       ]),
       ...group(null, [
         row("repeat", "Repeat", repeatText(item)),
@@ -4096,8 +4128,18 @@ function hookTaskInfo(win, restorers, solo = null) {
       ]),
       ...group(null, [
         row("star", "Priority", prio >= 1 && prio <= 4 ? tr("High") : prio == 5 ? tr("Medium") : prio >= 6 && prio <= 9 ? tr("Low") : null),
+        // Status wie im alten Dialog, erledigt mit Datum („Completed On …“, änderbar)
+        row("status", "Status", tr(STATUS[statusOf(item)])),
+        item.isCompleted ? row("done", "Completed On", done?.text) : null,
       ]),
       ...group("Place", [row("location", "Location", item.getProperty("LOCATION"))]),
+      ...group("Attachments", [
+        ...item.getAttachments().map(a => plainRow("attach", attachName(a.uri?.spec || ""), r => {
+          r.dataset.uri = a.uri?.spec || "";
+          r.title = r.dataset.uri;
+        })),
+        writable(item) ? plainRow("attach-add", tr("Add Link…")) : null,
+      ]),
     );
     wire(item);
     sizeNote();
@@ -4224,7 +4266,7 @@ function hookTaskInfo(win, restorers, solo = null) {
     // Start/Fällig: Datum (und Uhrzeit) zum Eintippen wie im Termin-Dialog, der
     // Monatskalender ist sofort offen; Enter oder Klick daneben speichert, Esc
     // bricht ab. Ohne Wert beginnt es bei der nächsten vollen Stunde heute
-    const dateRow = (icon, prop) => on(icon, (r, v) => {
+    const dateRow = (icon, prop, { removable = true } = {}) => on(icon, (r, v) => {
       if (v.querySelector(".mc-ti-dates")) {
         return;
       }
@@ -4293,7 +4335,7 @@ function hookTaskInfo(win, restorers, solo = null) {
       // (der Monatskalender nimmt nie den Fokus – Klick auf einen Tag bleibt drin)
       wrap.addEventListener("focusout", () => win.setTimeout(() => !wrap.contains(doc.activeElement) && finish(true), 0));
       const parts = [wrap];
-      if (cur?.isValid) {
+      if (cur?.isValid && removable) {
         const b = el("button", "mc-ti-remove", tr("Remove"));
         b.type = "button";
         b.addEventListener("mousedown", event => event.preventDefault());
@@ -4311,6 +4353,110 @@ function hookTaskInfo(win, restorers, solo = null) {
     });
     dateRow("calendar", "entryDate");
     dateRow("clock", "dueDate");
+    // Datum der Erledigung (nur bei erledigten Aufgaben, ohne „Remove“)
+    dateRow("done", "completedDate", { removable: false });
+    // Ganztägig: Start und Fälligkeit werden zu reinen Tagen bzw. bekommen eine
+    // Uhrzeit (die nächste volle Stunde); ohne Datum wird es heute fällig
+    rowOf("sun")?.querySelector("input")?.addEventListener("change", event => {
+      const wantAll = event.target.checked;
+      save(it => {
+        const hour = new Date().getHours() + 1;
+        const dates = ["entryDate", "dueDate"].filter(p => it[p]?.isValid);
+        if (!dates.length) {
+          if (wantAll) {
+            const today = cal.dtz.now();
+            today.isDate = true;
+            it.dueDate = today;
+          }
+          return;
+        }
+        let prev = null;
+        for (const p of dates) {
+          const cur = it[p];
+          if (wantAll) {
+            const d = cur.isDate ? cur.clone() : cur.getInTimezone(cal.dtz.defaultTimezone).clone();
+            d.isDate = true;
+            it[p] = d;
+          } else if (cur.isDate) {
+            const js = cal.dtz.dateTimeToJsDate(cur);
+            js.setHours(Math.min(23, hour), 0, 0, 0);
+            // (Fälligkeit am selben Tag eine Stunde nach dem Start)
+            if (prev && js <= prev) {
+              js.setTime(prev.getTime() + 3600000);
+            }
+            prev = js;
+            it[p] = cal.dtz.jsDateToDateTime(js, cal.dtz.defaultTimezone);
+          }
+        }
+      }).catch(() => {});
+    });
+    on("status", r => {
+      const cur = statusOf(item);
+      openMenu(r, Object.entries(STATUS).map(([v, label]) => ({ label: tr(label), type: "radio", checked: cur == v,
+        run: () => v != cur && save(it => {
+          if (v == "COMPLETED") {
+            it.isCompleted = true;
+            return;
+          }
+          // (isCompleted = false löscht auch den Fortschritt – „In Progress“ behält ihn, sonst 50 %)
+          const pct = it.percentComplete;
+          it.isCompleted = false;
+          it.status = v;
+          if (v == "IN-PROCESS") {
+            it.percentComplete = pct > 0 && pct < 100 ? pct : 50;
+          } else if (v == "CANCELLED" && pct > 0 && pct < 100) {
+            it.percentComplete = pct;
+          }
+        }) })));
+    });
+    // Anhänge: Klick öffnet (Webseite im Browser, Datei mit ihrem Programm),
+    // Rechtsklick bietet „Remove“; „Add Link…“ hängt eine Webseite an wie der Dialog
+    for (const r of box.querySelectorAll('.mc-ti-row[data-icon="attach"]')) {
+      r.setAttribute("data-edit", "");
+      r.addEventListener("click", () => {
+        try {
+          Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+            .loadURI(Services.io.newURI(r.dataset.uri));
+        } catch (e) {
+          log("task attachment open error", e);
+        }
+      });
+      r.addEventListener("contextmenu", event => {
+        event.preventDefault();
+        openMenu(r, [{ label: tr("Remove"), run: () => save(it => {
+          for (const a of it.getAttachments()) {
+            if (a.uri?.spec == r.dataset.uri) {
+              it.removeAttachment(a);
+            }
+          }
+        }) }]);
+      });
+    }
+    on("attach-add", () => {
+      const input = { value: "https://" };
+      if (!Services.prompt.prompt(win, tr("Add Link…").replace(/\s*…$/, ""), tr("Address of the webpage:"), input, null, {})) {
+        return;
+      }
+      let spec = input.value.trim();
+      if (!spec || spec == "https://") {
+        return;
+      }
+      if (!/^[a-z][a-z0-9+.-]*:/i.test(spec)) {
+        spec = "https://" + spec;
+      }
+      let uri;
+      try {
+        uri = Services.io.newURI(spec);
+      } catch {
+        return;
+      }
+      save(it => {
+        const { CalAttachment } = ChromeUtils.importESModule("resource:///modules/CalAttachment.sys.mjs");
+        const a = new CalAttachment();
+        a.uri = uri;
+        it.addAttachment(a);
+      }).catch(() => {});
+    });
     const base = item.entryDate?.isValid || item.dueDate?.isValid;
     on("repeat", r => {
       const info = (item.parentItem || item).recurrenceInfo;
@@ -4381,24 +4527,107 @@ function hookTaskInfo(win, restorers, solo = null) {
     editText(titleCell, item.title || "", text => text.trim() && save(it => (it.title = text.trim())));
   };
   titleCell?.addEventListener("click", onTitle);
-  // Notiz: Klick macht den Text bearbeitbar, Verlassen speichert ihn
-  const onNoteClick = () => {
+  // (neue Aufgabe ohne Dialog: Titel gleich zum Eintippen, siehe createTaskDirect)
+  win.__mcEditTaskTitle = onTitle;
+  // Notiz: Klick macht den Text bearbeitbar, Verlassen speichert ihn. Mit
+  // Formatierung wie im alten Dialog (5d/5d): Leiste unter der Notiz mit Fett,
+  // Kursiv, Unterstrichen, Listen und Link, dazu ⌘B, ⌘I, ⌘U; formatierter Text
+  // wird als HTML gespeichert (Thunderbird zeigt ihn so auch an)
+  const noteBar = el("div");
+  noteBar.id = "mcTaskNoteBar";
+  noteBar.setAttribute("role", "toolbar");
+  noteBar.hidden = true;
+  let noteBusy = false;
+  const FORMATS = [["bold", "Bold"], ["italic", "Italic"], ["underline", "Underline"],
+    ["insertUnorderedList", "Bulleted List"], ["insertOrderedList", "Numbered List"], ["createLink", "Link"]];
+  for (const [cmd, label] of FORMATS) {
+    const b = el("button");
+    b.type = "button";
+    b.dataset.cmd = cmd;
+    b.textContent = { bold: "B", italic: "I", underline: "U", insertUnorderedList: "\u2022", insertOrderedList: "1." }[cmd] || "";
+    b.title = tr(label);
+    b.setAttribute("aria-label", tr(label));
+    b.addEventListener("mousedown", event => event.preventDefault());
+    b.addEventListener("click", () => {
+      const ndoc = frame.contentDocument;
+      if (!ndoc || ndoc.designMode != "on") {
+        return;
+      }
+      if (cmd == "createLink") {
+        const input = { value: "https://" };
+        noteBusy = true;
+        const ok = Services.prompt.prompt(win, tr("Link"), tr("Address of the webpage:"), input, null, {});
+        noteBusy = false;
+        frame.contentWindow.focus();
+        if (ok && input.value.trim() && input.value.trim() != "https://") {
+          ndoc.execCommand("createLink", false, input.value.trim());
+        }
+        return;
+      }
+      frame.contentWindow.focus();
+      ndoc.execCommand(cmd, false, null);
+    });
+    noteBar.append(b);
+  }
+  box.before(noteBar);
+  const FORMATTED = "b, i, u, strong, em, a, ul, ol, h1, h2, h3, h4, blockquote, pre, font, span[style], p[style], div[style]";
+  const onNoteKey = event => {
+    const ndoc = frame.contentDocument;
+    const accel = IS_MAC ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+    const cmd = { b: "bold", i: "italic", u: "underline" }[event.key.toLowerCase()];
+    if (ndoc?.designMode == "on" && accel && !event.altKey && !event.shiftKey && cmd) {
+      event.preventDefault();
+      ndoc.execCommand(cmd, false, null);
+    }
+  };
+  const onNoteClick = event => {
     const item = tree.currentTask, ndoc = frame.contentDocument;
-    if (!item || !writable(item) || !ndoc?.body || ndoc.designMode == "on") {
+    if (!item || !ndoc?.body || ndoc.designMode == "on") {
       return;
     }
-    const before = ndoc.body.innerText;
+    // (Links öffnen Thunderbirds Handler im Browser; beim Bearbeiten bleibt der Klick im Text)
+    if (event?.target?.closest?.("a") || !writable(item)) {
+      return;
+    }
+    const before = ndoc.body.innerHTML;
     ndoc.designMode = "on";
-    frame.contentWindow.addEventListener("blur", () => {
-      ndoc.designMode = "off";
-      const text = ndoc.body.innerText.replace(/\n+$/, "");
-      if (text != before.replace(/\n+$/, "")) {
-        save(it => (it.descriptionText = text));
+    try {
+      ndoc.execCommand("styleWithCSS", false, false);
+    } catch {}
+    noteBar.hidden = false;
+    doc.documentElement.setAttribute("mc-task-note-edit", "");
+    place();
+    let finished = false;
+    const onBlur = () => win.setTimeout(() => {
+      if (finished || noteBusy || frame.contentDocument != ndoc) {
+        return;
       }
-    }, { once: true });
+      finished = true;
+      frame.contentWindow.removeEventListener("blur", onBlur);
+      ndoc.designMode = "off";
+      noteBar.hidden = true;
+      doc.documentElement.removeAttribute("mc-task-note-edit");
+      if (ndoc.body.innerHTML == before) {
+        place();
+        return;
+      }
+      const text = ndoc.body.innerText.replace(/\n+$/, "");
+      const html = ndoc.body.querySelector(FORMATTED) ? ndoc.body.innerHTML : null;
+      save(it => {
+        if (html && text.trim()) {
+          it.descriptionHTML = html;
+        } else {
+          it.descriptionText = text;
+        }
+      }).catch(() => {});
+    }, 0);
+    frame.contentWindow.addEventListener("blur", onBlur);
   };
   const noteDoc = () => frame.contentDocument;
-  const hookNote = () => noteDoc()?.addEventListener("click", onNoteClick);
+  const hookNote = () => {
+    noteDoc()?.addEventListener("click", onNoteClick);
+    noteDoc()?.addEventListener("keydown", onNoteKey, true);
+  };
   // Notiz nur so hoch wie ihr Text (Thunderbird lässt sie den Rest füllen),
   // leer ganz weg – die Kopfkarte endet dann mit dem Titel
   const sizeNote = () => {
@@ -4598,8 +4827,14 @@ function hookTaskInfo(win, restorers, solo = null) {
       view.onSelect = orig;
     }
     titleCell?.removeEventListener("click", onTitle);
+    if (win.__mcEditTaskTitle === onTitle) {
+      delete win.__mcEditTaskTitle;
+    }
     frame.removeEventListener("load", hookNote, true);
     noteDoc()?.removeEventListener("click", onNoteClick);
+    noteDoc()?.removeEventListener("keydown", onNoteKey, true);
+    noteBar.remove();
+    doc.documentElement.removeAttribute("mc-task-note-edit");
     menu?.remove();
     frame.removeEventListener("load", sizeNote, true);
     frame.style.removeProperty("height");
@@ -4645,6 +4880,102 @@ function hookTaskOpen(win, restorers) {
       win.modifyEventWithDialog = orig;
     }
   });
+  // Neue Aufgabe (5d/5d): ohne Bearbeiten-Dialog – sie entsteht sofort und steht
+  // gewählt in der Detailspalte mit dem Titel zum Eintippen bzw. außerhalb des
+  // Aufgaben-Space im eigenen Aufgabenfenster. (__mcOrig: alter Dialog, nur noch
+  // für den Umschalter „Event | Task“ im großen Termin-Dialog)
+  const origNew = win.createTodoWithDialog;
+  if (typeof origNew == "function" && !origNew.__mcOrig) {
+    const wrappedNew = function (...args) {
+      createTaskDirect(win, ...args).then(done => {
+        if (!done) {
+          origNew.apply(win, args);
+        }
+      }, e => {
+        log("task create error", e);
+        origNew.apply(win, args);
+      });
+    };
+    wrappedNew.__mcOrig = origNew;
+    win.createTodoWithDialog = wrappedNew;
+    restorers.push(() => {
+      if (win.createTodoWithDialog === wrappedNew) {
+        win.createTodoWithDialog = origNew;
+      }
+    });
+  }
+}
+
+async function createTaskDirect(win, calendar, dueDate, summary, todo, initialDate) {
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+  const usable = c => {
+    try {
+      return !!c && !c.getProperty("disabled") && cal.acl.isCalendarWritable(c) && cal.acl.userCanAddItemsToCalendar(c) &&
+        c.getProperty("capabilities.tasks.supported") !== false;
+    } catch {
+      return false;
+    }
+  };
+  let item;
+  if (todo) {
+    item = todo.clone();
+  } else {
+    item = new CalTodo();
+    win.setDefaultItemValues?.(item, calendar, null, dueDate, initialDate);
+    if (summary) {
+      item.title = summary;
+    }
+  }
+  let target = [calendar, todo?.calendar, item.calendar, win.getSelectedCalendar?.()].find(usable) ||
+    cal.manager.getCalendars().find(usable);
+  if (!target) {
+    return false;
+  }
+  const named = !!item.title;
+  if (!named) {
+    item.title = tr("New Task");
+  }
+  item.id = cal.getUUID();
+  item.calendar = target;
+  await win.doTransaction("add", item, target, null, null);
+  let added = item;
+  try {
+    added = (await target.getItem(item.id)) || item;
+  } catch {}
+  // Titel erst zum Eintippen öffnen, wenn die Ansicht die Aufgabe zeigt
+  const editTitle = async (w, ready) => {
+    for (let i = 0; i < 40 && !ready(); i++) {
+      await new Promise(r => win.setTimeout(r, 25));
+    }
+    w.__mcEditTaskTitle?.();
+  };
+  const doc = win.document;
+  const tree = doc.getElementById("calendar-task-tree");
+  // im Aufgaben-Space: neue Aufgabe in der Liste wählen, Titel zum Eintippen
+  if (doc.documentElement.getAttribute("mc-tab") == "tasks" && tree?.view) {
+    let index = -1;
+    for (let i = 0; i < 40 && index < 0; i++) {
+      index = (tree.mTaskArray || []).findIndex(t => t.id == item.id);
+      if (index < 0) {
+        await new Promise(r => win.setTimeout(r, 50));
+      }
+    }
+    if (index >= 0) {
+      tree.view.selection.select(index);
+      tree.ensureRowIsVisible?.(index);
+      if (!named) {
+        const cell = doc.getElementById("calendar-task-details-title");
+        await editTitle(win, () => tree.currentTask?.id == item.id && cell?.textContent == item.title);
+      }
+      return true;
+    }
+  }
+  const nw = await openTaskWindow(win, added);
+  if (nw && !named) {
+    await editTitle(nw, () => nw.document?.getElementById("calendar-task-details-title")?.textContent == item.title);
+  }
+  return true;
 }
 
 async function openTaskWindow(main, item) {
@@ -4748,9 +5079,21 @@ async function openTaskWindow(main, item) {
       titleEl.textContent = task.title || tr("Task");
       titleCell.textContent = task.title || "";
       const body = frame.contentDocument?.body;
-      if (body) {
-        body.style.whiteSpace = "pre-wrap";
-        body.textContent = task.descriptionText || "";
+      if (body && frame.contentDocument.designMode != "on") {
+        // (mit Formatierung wie in Thunderbirds Detailspalte; Links öffnen im Browser)
+        const frag = cal.view.textToHtmlDocumentFragment(task.descriptionText || "", frame.contentDocument, task.descriptionHTML);
+        for (const a of frag.querySelectorAll("a")) {
+          a.addEventListener("click", event => {
+            event.preventDefault();
+            if (event.isTrusted && frame.contentDocument.designMode != "on") {
+              try {
+                Cc["@mozilla.org/uriloader/external-protocol-service;1"].getService(Ci.nsIExternalProtocolService)
+                  .loadURI(Services.io.newURI(a.getAttribute("href")));
+              } catch {}
+            }
+          });
+        }
+        body.replaceChildren(frag);
         const cw = frame.contentWindow;
         if (cw && cw.__mcDesc != taskCss) {
           try {
@@ -6208,7 +6551,7 @@ function addTypeSwitch(iw) {
       dlg.close();
       main.setTimeout(() => {
         if (mode == "task") {
-          main.createTodoWithDialog(calendar, null, title, null, start);
+          (main.createTodoWithDialog.__mcOrig || main.createTodoWithDialog)(calendar, null, title, null, start);
         } else {
           main.createEventWithDialog(calendar, start, end, title);
         }

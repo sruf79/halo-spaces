@@ -4567,7 +4567,7 @@ function hookTaskInfo(win, restorers, solo = null) {
 // Aufgabe in eigenem Fenster (neue Detailansicht 5c/5d): dieselbe Ansicht wie die
 // Detailspalte, oben „Complete“ und „…“. Doppelklick, Enter, ⌘O, „Edit Task“ und
 // der Knopf „In eigenem Fenster öffnen“ kommen hierher. Das Fenster ist ein leeres
-// Chrome-Fenster (about:blank), das die Elemente der Detailspalte unter denselben
+// Chrome-Fenster (leeres Chrome-Dokument), das die Elemente der Detailspalte unter denselben
 // Kennungen nachbaut – so gelten Stil und Logik (hookTaskInfo) unverändert.
 const TASK_WINDOWS = new Map();
 
@@ -4606,29 +4606,33 @@ async function openTaskWindow(main, item) {
     return open;
   }
   const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-  const nw = main.openDialog("about:blank", "_blank", "chrome,dialog=no,resizable,minimizable,width=500,height=640");
+  // Leeres Chrome-Dokument mit XUL-Wurzel statt about:blank: nur dort wirken customtitlebar/chromemargin
+  // nachträglich (about:blank hat eine HTML-Wurzel – das Fenster behielt seine Titelleiste, Complete und „…“
+  // standen darunter statt in der Zeile der Fensterknöpfe)
+  const BLANK = "chrome://extensions/content/dummy.xhtml";
+  const nw = main.openDialog(BLANK, "_blank", "chrome,dialog=no,resizable,minimizable,width=500,height=640");
   TASK_WINDOWS.set(key, nw);
-  for (let tries = 0; tries < 200 && !(nw.document?.readyState == "complete" && nw.document.body); tries++) {
+  for (let tries = 0; tries < 200 && !(nw.location?.href == BLANK && nw.document?.readyState == "complete"); tries++) {
     await new Promise(r => main.setTimeout(r, 25));
   }
   const doc = nw.document;
-  if (nw.closed || !doc.body) {
+  if (nw.closed || nw.location?.href != BLANK || !doc.documentElement) {
     TASK_WINDOWS.delete(key);
     return null;
   }
   try {
     Services.scriptloader.loadSubScript("chrome://global/content/customElements.js", nw);
+    // (Stilblätter über windowUtils: die Seite erlaubt per CSP nur chrome:, das Design kommt als Nutzer-Stilblatt)
     for (const href of ["chrome://global/skin/global.css", "chrome://messenger/skin/messenger.css"]) {
-      const link = doc.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      doc.head.append(link);
+      nw.windowUtils.loadSheetUsingURIString(href, nw.windowUtils.AUTHOR_SHEET);
     }
-    if (ThemeSheet.active) {
-      // (about:blank gilt für ThemeSheet.apply nicht als Thunderbird-Seite)
+    if (ThemeSheet.active && nw.__mcTheme != ThemeSheet.uri) {
       nw.windowUtils.loadSheetUsingURIString(ThemeSheet.uri, nw.windowUtils.USER_SHEET);
       nw.__mcTheme = ThemeSheet.uri;
     }
+    // Körper wie bisher (Stilregeln „:root[mc-task-window] > body“)
+    const body = doc.createElementNS("http://www.w3.org/1999/xhtml", "body");
+    doc.documentElement.append(body);
     cardWindow(nw);
     const root = doc.documentElement;
     root.setAttribute("mc-tab", "tasks");
@@ -4677,7 +4681,7 @@ async function openTaskWindow(main, item) {
     const frame = html("iframe", "calendar-task-details-description");
     wrapper.append(frame);
     container.append(details, wrapper);
-    doc.body.append(container);
+    body.append(container);
     // (Thunderbirds Transaktionen, Rückgängig inklusive, liegen im Hauptfenster)
     nw.doTransaction = (...args) => main.doTransaction(...args);
     const solo = { tree: { currentTask: item }, close: () => nw.close() };
@@ -4686,7 +4690,13 @@ async function openTaskWindow(main, item) {
     const taskCss = `resource://mailcards/taskdesc.css?v=${extensionVersion}`;
     const fill = () => {
       const task = solo.tree.currentTask;
-      doc.title = task.title || tr("Task");
+      // (XUL-Wurzel: document.title lässt sich nicht setzen, es liest aber ein HTML-<title> – das legen wir an)
+      let titleEl = doc.querySelector("title");
+      if (!titleEl) {
+        titleEl = doc.createElementNS("http://www.w3.org/1999/xhtml", "title");
+        doc.documentElement.prepend(titleEl);
+      }
+      titleEl.textContent = task.title || tr("Task");
       titleCell.textContent = task.title || "";
       const body = frame.contentDocument?.body;
       if (body) {

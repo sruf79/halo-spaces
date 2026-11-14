@@ -1558,6 +1558,69 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Mailliste: Doppelklick auf eine zugeklappte Konversation öffnet ein Fenster mit ihrer neuesten Mail", thread_open_one_window, results)
 
+    def thread_window_whole():
+        # Doppelklick auf eine zugeklappte Konversation: das Fenster zeigt wie die Leseansicht die ganze Konversation
+        # als Karten (Betreff, Anzahl, je Mail eine geladene Karte), unter der freien Knopfzeile; das Laden der Karten
+        # verschiebt nichts; Klick auf eine Karte lässt die Knöpfe auf ihre Mail wirken, die Karten bleiben
+        res = m.js(MAILLIST_JS + r"""
+          await showFolder(); await asCards(); a3.gViewWrapper.showThreaded = true; await ruhig(600); cmd("cmd_collapseAllThreads"); await ruhig(800);
+          const wins = () => [...Services.wm.getEnumerator("mail:messageWindow")];
+          for (const x of wins()) x.close();
+          const v = a3.gDBView;
+          const i = [...Array(v.rowCount).keys()].find(k => v.isContainer(k) && !v.isContainerOpen(k) && (v.getMsgHdrAt(k)?.mime2DecodedSubject || "").includes("Halo Faden"));
+          const out = { found: i >= 0 };
+          if (i < 0) return out;
+          const all = [...a3.gFolder.messages], wasRead = Object.fromEntries(all.map(h => [h.messageId, h.isRead]));
+          Services.prefs.setBoolPref("mailnews.mark_message_read.auto", false);
+          a3.threadTree.selectedIndex = i; await ruhig(500);
+          out.inThread = v.getSelectedMsgHdrs().length;
+          a3.threadTree.getRowAtIndex(i).dispatchEvent(new a3.MouseEvent("dblclick", { bubbles: true, button: 0, detail: 2 }));
+          const mw = await until(() => wins().find(x => x.document.readyState == "complete"), 8000);
+          try {
+            const md = () => mw.document.getElementById("messageBrowser").contentDocument;
+            const box = await until(() => mw.document.getElementById("mcConversation"), 6000);
+            out.box = !!box;
+            if (!box) return out;
+            const cards = () => [...box.querySelectorAll(".mc-conv-card")];
+            // alle Karten zeigen ihre Mail (Fenster groß genug, dass alle in Ladereichweite liegen)
+            await until(() => cards().length >= 2 && cards().every(c => c.querySelector("browser")?.contentWindow?.gMessage), 10000);
+            await stabil(() => cards().map(c => c.querySelector("browser")?.getBoundingClientRect().height | 0).join(), 6000);
+            out.count = box.querySelector(".mc-conv-count")?.textContent;
+            out.title = box.querySelector(".mc-conv-title")?.textContent;
+            out.cards = cards().length;
+            out.loaded = cards().filter(c => c.querySelector("browser")?.contentWindow?.gMessage?.messageId == c.__mcHdr?.messageId).length;
+            out.scroll = box.scrollTop;
+            const bar = md().getElementById("header-view-toolbox").getBoundingClientRect();
+            const br = box.getBoundingClientRect();
+            const mb = mw.document.getElementById("messageBrowser").getBoundingClientRect();
+            out.barBottom = Math.round(mb.top + bar.bottom); out.boxTop = Math.round(br.top); out.boxBottom = Math.round(br.bottom); out.winH = mw.innerHeight;
+            out.barVisible = mw.getComputedStyle(mw.document.getElementById("messageBrowser")).visibility == "visible" && bar.height > 0;
+            // Knopf der Knopfzeile ist an seiner Stelle wirklich oben (nicht von den Karten verdeckt)
+            const btn = [...md().querySelectorAll("#header-view-toolbar toolbarbutton")].find(b => b.getBoundingClientRect().width);
+            if (btn) { const q = btn.getBoundingClientRect(); out.barHit = mw.document.elementFromPoint(mb.left + q.left + q.width / 2, mb.top + q.top + q.height / 2)?.id == "messageBrowser"; }
+            // zweite Karte anklicken: Mailansicht darunter zeigt ihre Mail, die Karten bleiben dieselben
+            const second = cards()[1], want = second.__mcHdr.messageId;
+            second.dispatchEvent(new mw.MouseEvent("click", { bubbles: true }));
+            await until(() => mw.document.getElementById("messageBrowser").contentWindow.gMessage?.messageId == want, 6000); await ruhig(500);
+            out.follows = mw.document.getElementById("messageBrowser").contentWindow.gMessage?.messageId == want;
+            out.same = mw.document.getElementById("mcConversation") === box && second.classList.contains("mc-selected");
+          } finally {
+            for (const x of wins()) x.close();
+            await ruhig(600); a3.threadTree.selectedIndex = -1;
+            for (const h of all) if (h.isRead != wasRead[h.messageId]) h.folder.markMessagesRead([h], !!wasRead[h.messageId]);
+            Services.prefs.clearUserPref("mailnews.mark_message_read.auto");
+            await ruhig(300);
+          }
+          return out;""")
+        n = res.get("inThread") or 0
+        ok = (res.get("found") and n >= 2 and res.get("box") and res.get("cards") == n and res.get("loaded") == n
+              and str(n) in (res.get("count") or "") and "Halo Faden" in (res.get("title") or "")
+              and res.get("scroll") == 0 and res.get("barVisible") and res.get("barHit") is True
+              and res.get("boxTop", 0) >= res.get("barBottom", 999) and res.get("boxBottom", 0) >= res.get("winH", 999) - 2
+              and res.get("follows") and res.get("same"))
+        return ok, f"{res}"
+    check("Nachrichtenfenster: Doppelklick auf eine zugeklappte Konversation zeigt die ganze Konversation als Karten unter der freien Knopfzeile; Klick auf eine Karte lässt die Knöpfe auf ihre Mail wirken", thread_window_whole, results)
+
     def thread_button():
         # Thread-Knopf ohne Stern und Akzentrahmen, Abstand zum Betreff; Ungelesen-Punkt
         # bei zugeklappter Konversation mit ungelesener Antwort

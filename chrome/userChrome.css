@@ -4202,6 +4202,20 @@ message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {
   visibility: hidden !important;
 }
 
+/* eigenes Nachrichtenfenster: Konversation über der Einzelansicht, unter
+   deren Knopfzeile (Abstand setzt die Erweiterung als --mc-conv-top) */
+.mc-conv-window {
+  position: relative;
+}
+
+.mc-conv-window.mc-conv-pending > #messageBrowser {
+  visibility: hidden !important;
+}
+
+.mc-conv-window > #mcConversation {
+  top: var(--mc-conv-top, 0px);
+}
+
 #mcConversation {
   position: absolute;
   inset: 0;

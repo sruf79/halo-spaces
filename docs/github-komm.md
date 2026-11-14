@@ -73,7 +73,12 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Bericht ist nur ein Hinweis. Probe: `zsh tests/pr-schliessen.sh x.y.z --trocken`.
   Der Director des Nachtlaufs schlägt im Nachtbericht („Pull Requests zum Schließen vorgeschlagen“)
   schließbare PRs mit fertiger Zeile für `tests/pr-freigaben.txt` vor; eingetragen wird erst mit Zitat
-  des Maintainers (13.11.2026). Einen eigenen Hinweis an die GitHub-Routine gibt es nicht: Nach einem
+  des Maintainers (13.11.2026). Ausnahme (Dauerfreigabe 14.11.2026, „ja bitte“, `ENTSCHEIDUNGEN.md`):
+  Der Director trägt selbst ein (Issue-Feld `director`, Vermerk „Director <Datum>, Nachweis: <Hashes>,
+  Release <x.y.z>“), wenn der Inhalt nachweislich in `main` ist (kein nicht übernommener Fremdcode),
+  die Hashes in einem Release liegen bzw. mit dem laufenden kommen und der Dank „Fixed in x.y.z“ nennt;
+  `tests/pr-schliessen.sh` schließt erst, wenn jeder Hash im Tag `v<x.y.z>` liegt. Abgelehnt, unklar
+  oder Inhalt nicht in `main`: weiter nur Vorschlag. Einen eigenen Hinweis an die GitHub-Routine gibt es nicht: Nach einem
   Release des Nachtlaufs hat `publish.sh` die Issues schon mit „Fixed in x.y.z“ geschlossen, Fixes vor
   dem Release meldet `issue-abgleich.txt`; die Routine bleibt bei ihren Zeiten.
   Lehnt der Maintainer einen PR ab (Feature nicht geplant), steht statt der Issue-Nummer `abgelehnt` in der
@@ -141,6 +146,7 @@ Forks, Nachsehen und die feste Routine: `docs/github-komm.md` (vor jeder Bearbei
   „Reihenfolge eines Laufs“), neue oder geänderte kurz nennen. Fix auf `main` mit grüner CI: dem
   Nutzer antworten (GitHub-Routine, Liste aus `tests/issue-abgleich.sh`), das Issue erst beim
   Release mit „Fixed in x.y.z“ schließen (`publish.sh`).
-- Pull Requests mergen, schließen oder Teile übernehmen nur mit Freigabe des Maintainers.
+- Pull Requests mergen, schließen oder Teile übernehmen nur mit Freigabe des Maintainers (Ausnahme:
+  Director-Einträge in `tests/pr-freigaben.txt` nach der Dauerfreigabe vom 14.11.2026, oben).
 - Ton und Inhalt: Englisch, freundlich, knapp; nie auf die private Aufgabenliste verweisen, keine
   Interna (Testrechner, VM, Tokens), keine Zusagen zu Terminen.

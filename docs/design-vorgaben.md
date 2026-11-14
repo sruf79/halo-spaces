@@ -72,8 +72,9 @@ zu den farbigen Spaces, also zur Bereiche-Leiste, zur aktiven Kachel und (nach U
 zum Lichtschein in der Seitenleiste in der Farbe des aktiven Space. An Stellen ohne Vorlage überträgt
 er den Gedanken nur so: Farbe und Licht kommen vom aktiven Space und bleiben leise (Lichtschein 16 %
 hell / 20 % dunkel, gefärbte Linie 35 % / 30 %, Abschnitt 4); übrige Flächen und Pillen bleiben in
-Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Einstellungen und
-Webseiten-Space haben keinen Schein (E 13.11.2026).
+Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Die Einstellungen tragen
+statt der grauen Kachelfarbe einen leisen Mehrfarb-Hauch aus allen Space-Farben (E 14.11.2026, „ja mehrfarb
+hauch passt“); der Webseiten-Space hat keinen Schein (E 13.11.2026).
 
 ### 2b. Rangfolge bei Konflikten zwischen Regeln
 
@@ -231,7 +232,7 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 | Linie zwischen Kachelspalte und Seitenleiste | bleibt („besser mit linie als ohne“, 12.11.2026) | Eichfall V1 |
 | Aktive Kachel (live) | gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron, kein Hover | M `spaces-leiste-aktiv` (2.11.2026); Commit c69d1a4 |
 | Aktive Kachel F4a (nicht live) | Ring 40 %, Hof 9 px, Abschrägung; dunkel eigenes Rezept | B `…IekSY`, Wartet auf OK |
-| Lichtschein | Kern 120 × 90 px, Hauptlicht 230 × 175 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; nicht in Einstellungen und Webseiten-Space; abschaltbar | C :2880–2889; E 13.11.2026; B `…IekNU` |
+| Lichtschein | Variante D: Kern 120 × 113 px, Hauptlicht 230 × 219 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; Linie 35 % / 30 %, ±219 px (halbe Stärke bei ±109,5 px); Einstellungen als Mehrfarb-Hauch aller Space-Farben, 8 % hell / 10 % dunkel, gleiche Maße; nicht im Webseiten-Space; abschaltbar | C :2881–3016, spaces.css `#pref-category-box[mc-glow="hauch"]`; E 13.11.2026, 14.11.2026 (Variante D, Mehrfarb-Hauch); B `…IekNU`, `…IuiKQ` |
 | Seitenleiste größte Breite | 360 px in allen Bereichen | C :86 |
 | Seitenleistenbreite beim Start | 206 px (Variante A mit 240 px zurückgenommen) | Commit 32f9d08; siehe F2 |
 

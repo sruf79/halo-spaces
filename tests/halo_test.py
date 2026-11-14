@@ -20117,14 +20117,18 @@ Neu
       return { mode: tab.mode.name, c: rgb, bar: bar.getAttribute("mc-glow"), pane: pane.getAttribute("mc-glow"), float: pane.classList.contains("mc-float-pane"),
         y: Math.round(y), far: Math.round(far), pt: Math.round(P.t), dist: Math.round(Math.abs(y - far)),
         near: px(P.l + 2, y), farPx: px(P.l + 2, far), lineNear: px(lx, y), lineFar: px(lx, far),
-        above: px(P.l + 2, P.t - 4), below: px(P.l + 2, P.t + 4), below2: px(P.l + 2, P.t + 12), tilePx: px(tr.left + 4, y) };"""
+        above: px(P.l + 2, P.t - 4), below: px(P.l + 2, P.t + 4), below2: px(P.l + 2, P.t + 12), tilePx: px(tr.left + 4, y),
+        // Unterkante der Seitenleiste (Einstellungen: Kachel unten, darunter die Fläche der Bereiche-Leiste)
+        edgeB: P.b + 4 < bm.height ? [px(P.l + 2, P.b - 12), px(P.l + 2, P.b - 4), px(P.l + 2, P.b + 4)] : null };"""
 
     def sidebar_glow():
         # Lichtschein und gefärbte Trennlinie in der Spacefarbe (Maintainer 13.11.2026, Umsetzung 2/3): in Mail,
         # Adressbuch, Kalender, Aufgaben und Chat leuchtet die Seitenleiste am linken Rand auf Höhe der aktiven Kachel in
         # deren Farbe, die Linie rechts der Bereiche-Leiste ist dort in der Farbe getönt, weiter weg nicht; Einstellungen
-        # ohne Schein, Linie neutral; in Mail läuft der Schein über die Oberkante der Ordnerliste weiter (kein Abbruch);
-        # schwebend wie eingeblendet. Gemessen am Bild (drawSnapshot), nicht nur an Attributen
+        # (Maintainer 14.11.2026, „ja mehrfarb hauch passt“) mit leisem Mehrfarb-Hauch statt der grauen Kachelfarbe: die
+        # Seitenleiste wird an der Kachel bunter, die Linie dort farbig, weiter weg nicht; in Mail läuft der Schein über
+        # die Oberkante der Ordnerliste weiter (kein Abbruch); schwebend wie eingeblendet (Mail, Einstellungen). Gemessen
+        # am Bild (drawSnapshot), nicht nur an Attributen
         def act(steps):
             m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
             m.cmd("WebDriver:ReleaseActions", {})
@@ -20146,6 +20150,13 @@ Neu
               await ruhig(600); return 1;""")
             to(400); to(1)
             out["float"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + glow_measure)
+            to(700)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+            # schwebend (Einstellungen, Hauch): Seitenleiste ist noch aus (gilt für alle Bereiche)
+            m.js("""d.getElementById("settingsButton").click();
+              await bis(() => d.getElementById("settingsButton").classList.contains("current"), "Einstellungen", 5000); await ruhig(900); return 1;""")
+            to(400); to(1)
+            out["settingsFloat"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + glow_measure)
             to(700)
             m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
         finally:
@@ -20173,12 +20184,25 @@ Neu
         step = lambda a, b: max((abs(x - y) for x, y in zip(a, b)), default=99) if a and b else 99
         if step(mail.get("above"), mail.get("below")) > step(mail.get("below"), mail.get("below2")) + 4:
             bad.append("Mail-Oberkante")
-        s = out.get("settingsButton") or {}
-        if s.get("bar") is not None or s.get("pane") is not None or dist(s.get("lineNear", [0]), s.get("lineFar", [99])) > 2:
-            bad.append("Einstellungen")
+        # Einstellungen: Hauch (Buntheit an der Kachel mindestens 3 Stufen höher als weiter weg, gemessen hell 19,
+        # dunkel 26 am Rand), Linie dort farbig, weiter weg neutral; eingeblendet und schwebend
+        chroma = lambda a: max(a) - min(a) if a else 0
+        for k in ["settingsButton", "settingsFloat"]:
+            s = out.get(k) or {}
+            if not (s.get("bar") == "hauch" and s.get("pane") == "hauch" and s.get("dist", 0) >= 250
+                    and dist(s.get("near", [0]), s.get("farPx", [99])) >= 5 and chroma(s.get("near")) >= chroma(s.get("farPx")) + 3
+                    and dist(s.get("lineNear", [0]), s.get("lineFar", [99])) >= 5 and chroma(s.get("lineNear")) >= chroma(s.get("lineFar")) + 3):
+                bad.append(k)
+            # kein Abbruch an der Unterkante (eingeblendet wie schwebend): Sprung über die Kante höchstens 4 Stufen
+            # größer als die Änderung auf derselben Strecke darüber (gemessen 0 bis 2; ohne Schein unter der Kante 6 bis 9)
+            e = s.get("edgeB")
+            if e and step(e[1], e[2]) > step(e[0], e[1]) + 4:
+                bad.append(f"{k}-Unterkante")
+        if (out.get("settingsFloat") or {}).get("float") is not True:
+            bad.append("float-Zustand Einstellungen")
         return not bad, f"abweichend: {bad} {out}"
     check("Seitenleiste: Lichtschein und gefärbte Trennlinie in der Spacefarbe auf Höhe der aktiven Kachel (Mail, Adressbuch, Kalender, Aufgaben, Chat, "
-          "auch schwebend), Einstellungen ohne Schein mit neutraler Linie, in Mail kein Abbruch an der Oberkante der Ordnerliste", sidebar_glow, results)
+          "auch schwebend), Einstellungen mit Mehrfarb-Hauch (auch schwebend), in Mail kein Abbruch an der Oberkante der Ordnerliste", sidebar_glow, results)
 
     def sidebar_glow_switch():
         # Schalter „Light glow in the sidebar“ in den halo.spaces-Einstellungen (Maintainer 13.11.2026: „ja aus schaltet auch
@@ -20194,7 +20218,7 @@ Neu
               await ruhig(600); return 1;""")
             for state in ["on", "off", "again"]:
                 m.js(f'Services.prefs.setBoolPref("{P}", {"false" if state == "off" else "true"}); return 1;')
-                for tile in ["mailButton", "calendarButton"]:
+                for tile in ["mailButton", "calendarButton", "settingsButton"]:
                     out[f"{state}-{tile}"] = m.js(f"""d.getElementById("{tile}").click();
                       await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
                       await ruhig(900); await takt(2);""" + glow_measure)
@@ -20227,10 +20251,16 @@ Neu
                 bad.append(f"off-{tile}")
             if dist(r.get("tilePx", [0]), on.get("tilePx", [99])) > 2 or r.get("c") != on.get("c"):
                 bad.append(f"Kachel-{tile}")
+        # Einstellungen (Mehrfarb-Hauch): an mit Hauch, aus ohne Schein und mit neutraler Linie
+        for state in ["on", "off", "again"]:
+            r = out.get(f"{state}-settingsButton") or {}
+            want = None if state == "off" else "hauch"
+            if r.get("bar") != want or r.get("pane") != want or (dist(r.get("lineNear", [0]), r.get("lineFar", [99])) > 2) != (state != "off"):
+                bad.append(f"{state}-settingsButton")
         if "Light glow in the sidebar" not in (out.get("search") or []):
             bad.append("Suche")
         return not bad, f"abweichend: {bad} {out}"
-    check("Einstellungen: Schalter „Light glow in the sidebar“ nimmt Lichtschein und gefärbte Trennlinie weg (Mail, Kalender), Kacheln "
+    check("Einstellungen: Schalter „Light glow in the sidebar“ nimmt Lichtschein und gefärbte Trennlinie weg (Mail, Kalender, Hauch in den Einstellungen), Kacheln "
           "unverändert, wieder an ohne Neustart, Standard an, Suche findet ihn", sidebar_glow_switch, results)
 
     def sidebar_drag_button():

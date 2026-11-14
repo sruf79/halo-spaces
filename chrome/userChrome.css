@@ -2879,37 +2879,50 @@ findbar .findbar-textbox:focus {
 }
 
 /* Lichtschein in der Spacefarbe (Maintainer 13.11.2026: Schein „C geneigt“, Reichweite 1, leise; Werte der
-   Vorschau sidebar-c5): Kern 120 × 90 px am linken Rand der Seitenleiste auf Höhe der aktiven Kachel,
-   Hauptlicht 230 × 175 px, Mitte 80 px vom Rand, je Kachel 30 px zur Mitte der Kachelspalte geneigt.
-   Stärke 16 % hell, 20 % dunkel. Gefärbte Trennlinie rechts der Bereiche-Leiste nur auf Kachelhöhe
-   (Lesart a): 35 % hell, 30 % dunkel, je 175 px nach oben und unten zurück in die normale Linienfarbe.
+   Vorschau sidebar-c5; 14.11.2026 Variante D: Kegel 25 % höher, Breite gleich): Kern 120 × 113 px am linken
+   Rand der Seitenleiste auf Höhe der aktiven Kachel, Hauptlicht 230 × 219 px, Mitte 80 px vom Rand, je Kachel
+   30 px zur Mitte der Kachelspalte geneigt. Stärke 16 % hell, 20 % dunkel. Gefärbte Trennlinie rechts der
+   Bereiche-Leiste nur auf Kachelhöhe (Lesart a): 35 % hell, 30 % dunkel, je 219 px nach oben und unten zurück
+   in die normale Linienfarbe. Einstellungen (14.11.2026, „ja mehrfarb hauch passt“): leiser Mehrfarb-Hauch
+   aus allen Space-Farben (mc-glow="hauch"), Stärke 8 % hell, 10 % dunkel, gleiche Maße.
    Höhe, Neigung und Farbe setzt implementation.js (mc-glow); nur Anstrich, keine Maße.
    Gleich eingeblendet und schwebend (höhere Spezifität als .mc-float-pane) */
 :root {
   --mt-glow-g: 16%;
+  --mt-glow-g-hauch: 8%;
   --mt-glow-line: 35%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --mt-glow-g: 20%;
+    --mt-glow-g-hauch: 10%;
     --mt-glow-line: 30%;
   }
 }
 
 /* (die Fläche des Scheins als Variable: Panes und die Flächen der Bereiche-Leiste darüber und darunter
-   rechnen sie mit ihrer eigenen Höhe --mt-glow-y) */
-:is(#folderPane, #calSidebar, #listPaneBox, #booksPane, #spacesToolbar)[mc-glow] {
+   rechnen sie mit ihrer eigenen Höhe --mt-glow-y; der Hauch nimmt dieselbe Form als Maske über den
+   Farbverlauf --mt-glow-paint) */
+:is(#folderPane, #calSidebar, #listPaneBox, #booksPane, #pref-category-box, #spacesToolbar)[mc-glow],
+#spacesToolbar[mc-glow="hauch"][mc-float]::after,
+#spacesToolbar[mc-glow="hauch"][mc-float]::before {
   --mt-glow-img:
-    radial-gradient(120px 90px at 0 var(--mt-glow-y),
+    radial-gradient(120px 113px at 0 var(--mt-glow-y),
       color-mix(in srgb, var(--mt-glow-c) var(--mt-glow-g), transparent) 0%,
       color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.4), transparent) 45%,
       transparent 100%),
-    radial-gradient(230px 175px at 80px calc(var(--mt-glow-y) + var(--mt-glow-tilt)),
+    radial-gradient(230px 219px at 80px calc(var(--mt-glow-y) + var(--mt-glow-tilt)),
       color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.7), transparent) 0%,
       color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.38), transparent) 35%,
       color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.12), transparent) 65%,
       transparent 100%);
+}
+
+/* (Hauch: --mt-glow-img in Schwarz ist die Maske, Deckkraft wie die Stärke; vor den Werten im style-Attribut) */
+:is(#pref-category-box, #spacesToolbar)[mc-glow="hauch"] {
+  --mt-glow-c: black !important;
+  --mt-glow-g: var(--mt-glow-g-hauch) !important;
 }
 
 :is(#folderPane, #calSidebar, #listPaneBox, #booksPane)[mc-glow][mc-glow][mc-glow] {
@@ -2959,15 +2972,47 @@ findbar .findbar-textbox:focus {
   background-position: 0 100% !important;
 }
 
+#spacesToolbar[mc-glow="hauch"]:not([mc-float])::after,
+#spacesToolbar[mc-glow="hauch"]:not([mc-float])::before {
+  background-image: var(--mt-glow-paint) !important;
+  mask-image: var(--mt-glow-img);
+  mask-size: 100% var(--mt-glow-h, 100vh);
+  mask-repeat: no-repeat;
+}
+
+#spacesToolbar[mc-glow="hauch"]:not([mc-float])::after {
+  mask-position: 0 0;
+}
+
+#spacesToolbar[mc-glow="hauch"]:not([mc-float])::before {
+  mask-position: 0 100%;
+}
+
+/* (schwebend sind die Flächen darüber und darunter Teil der Seitenleiste mit Grund, Schatten und Radius; eine
+   Maske nähme sie mit weg. Dort trägt der Schein die Farbe des Verlaufs in der Mitte der jeweiligen Fläche,
+   von implementation.js gesetzt; die Flächen sind nur wenige Pixel hoch) */
+#spacesToolbar[mc-glow="hauch"][mc-float]::after {
+  --mt-glow-c: var(--mt-glow-c-oben) !important;
+}
+
+#spacesToolbar[mc-glow="hauch"][mc-float]::before {
+  --mt-glow-c: var(--mt-glow-c-unten) !important;
+}
+
 #spacesToolbar[mc-glow] {
   border-image: linear-gradient(to bottom,
       var(--mt-sidebar-border) 0,
-      var(--mt-sidebar-border) calc(var(--mt-glow-y) - 175px),
-      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) - 87.5px),
+      var(--mt-sidebar-border) calc(var(--mt-glow-y) - 219px),
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) - 109.5px),
       color-mix(in srgb, var(--mt-glow-c) var(--mt-glow-line), var(--mt-sidebar)) var(--mt-glow-y),
-      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) + 87.5px),
-      var(--mt-sidebar-border) calc(var(--mt-glow-y) + 175px),
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) + 109.5px),
+      var(--mt-sidebar-border) calc(var(--mt-glow-y) + 219px),
       var(--mt-sidebar-border) 100%) 0 1 0 0 / 0 1px 0 0 !important;
+}
+
+/* (Hauch: die Linie trägt die Space-Farben in derselben Reihenfolge, Verlauf von implementation.js) */
+#spacesToolbar[mc-glow="hauch"] {
+  border-image: var(--mt-glow-line-img) 0 1 0 0 / 0 1px 0 0 !important;
 }
 
 #unifiedToolbar {
@@ -8360,6 +8405,30 @@ splitter.splitter:has(+ .conv-bottom) {
   border-inline-end: 1px solid var(--mt-sidebar-border) !important;
   /* erster Eintrag auf derselben Höhe wie „Favoriten“ in der Mail */
   padding-top: 3px !important;
+}
+
+/* Lichtschein in den Einstellungen als leiser Mehrfarb-Hauch (Maintainer 14.11.2026, „ja mehrfarb hauch
+   passt“): Farbverlauf der Space-Farben (--mt-glow-paint), Form und Stärke als Maske (--mt-glow-img, Werte im
+   Abschnitt „Lichtschein in der Spacefarbe“ in userChrome.css); eigene Fläche unter den Kategorien, weil die
+   Seitenleiste ihren Grund behält */
+#pref-category-box[mc-glow="hauch"]:not(.mc-float-pane) {
+  position: relative !important;
+}
+
+#pref-category-box[mc-glow="hauch"] {
+  isolation: isolate !important;
+}
+
+#pref-category-box[mc-glow="hauch"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--mt-glow-paint);
+  background-repeat: no-repeat;
+  mask-image: var(--mt-glow-img);
+  mask-repeat: no-repeat;
 }
 
 #categories {

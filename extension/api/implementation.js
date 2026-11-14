@@ -11917,15 +11917,54 @@ class CardEnhancer {
     // Lichtschein und gefärbte Trennlinie in der Spacefarbe (Maintainer 13.11.2026, Schein „C geneigt“,
     // Reichweite 1, leise; Linie nur auf Kachelhöhe): Höhe der aktiven Kachel, Neigung zur Mitte der
     // Kachelspalte und Farbe der Kachel für die Seitenleiste des Bereichs und die Linie rechts der
-    // Bereiche-Leiste (Attribut mc-glow, Werte in userChrome.css). Einstellungen, Webseite, Erweiterung
-    // und Tabs ohne Seitenleiste: kein Schein, Linie neutral
-    const GLOW_MODES = new Set(["mail3PaneTab", "calendar", "tasks", "chat", "addressBookTab"]);
+    // Bereiche-Leiste (Attribut mc-glow, Werte in userChrome.css). Einstellungen (14.11.2026, „ja mehrfarb hauch
+    // passt“): statt der grauen Kachelfarbe ein leiser Hauch aus allen Space-Farben (mc-glow="hauch"). Webseite,
+    // Erweiterung und Tabs ohne Seitenleiste: kein Schein, Linie neutral
+    const GLOW_MODES = new Set(["mail3PaneTab", "calendar", "tasks", "chat", "addressBookTab", "preferencesTab"]);
+    const GLOW_HAUCH = new Set(["preferencesTab"]);
     const GLOW_TILT = 30; // px je Kachel Abstand zur mittleren Kachel (Vorschau sidebar-c5)
-    const GLOW_VARS = ["--mt-glow-y", "--mt-glow-tilt", "--mt-glow-c", "--mt-glow-top", "--mt-glow-bottom", "--mt-glow-w", "--mt-glow-h"];
+    const GLOW_VARS = ["--mt-glow-y", "--mt-glow-tilt", "--mt-glow-c", "--mt-glow-top", "--mt-glow-bottom", "--mt-glow-w", "--mt-glow-h",
+      "--mt-glow-paint", "--mt-glow-line-img", "--mt-glow-c-oben", "--mt-glow-c-unten"];
+    // Hauch: Space-Farben von oben nach unten über ±160 px um die Mitte des Kegels (Vorschau
+    // lichtschein-einstellungen, Runde 2); die Linie in denselben Farben, zur Mitte am kräftigsten, ab ±219 px neutral
+    const glowHauch = colors => {
+      const n = colors.length;
+      const at = i => (n > 1 ? Math.round(-160 + (320 * i) / (n - 1)) : 0);
+      // Farbe des Verlaufs an einer Stelle (px ab der Mitte des Kegels), für die Flächen der schwebenden Leiste
+      const cx = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
+      const rgb = colors.map(c => {
+        cx.fillStyle = "#000";
+        cx.fillStyle = c;
+        const h = /^#[0-9a-f]{6}$/i.test(cx.fillStyle) ? cx.fillStyle : "#8e8e93";
+        return [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+      });
+      const colorAt = pos => {
+        let i = 0;
+        while (i < n - 1 && at(i + 1) < pos) {
+          i++;
+        }
+        const t = n > 1 ? Math.min(1, Math.max(0, (pos - at(i)) / (at(i + 1) - at(i) || 1))) : 0;
+        const [a, b] = [rgb[i], rgb[Math.min(n - 1, i + 1)]];
+        return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(", ")})`;
+      };
+      // (Stellen auf die Fläche begrenzt: Farbstellen jenseits ihres Endes verschiebt die Darstellung sonst um bis zu
+      // 100 px nach unten, gemessen in den Einstellungen mit der Kachel unten)
+      const pos = v => `clamp(0px, calc(${v}), 100%)`;
+      const paint = `linear-gradient(to bottom, ${colors.map((c, i) => `${c} ${pos(`var(--mt-glow-y) + var(--mt-glow-tilt) + ${at(i)}px`)}`).join(", ")})`;
+      const line = colors.map((c, i) => {
+        const k = n > 1 ? +(1 - 0.55 * Math.abs(-1 + (2 * i) / (n - 1))).toFixed(3) : 1;
+        return `color-mix(in srgb, ${c} calc(var(--mt-glow-line) * ${k}), var(--mt-sidebar)) ${pos(`var(--mt-glow-y) + ${at(i)}px`)}`;
+      });
+      return {
+        colorAt,
+        "--mt-glow-paint": n > 1 ? paint : `linear-gradient(${colors[0]}, ${colors[0]})`,
+        "--mt-glow-line-img": `linear-gradient(to bottom, var(--mt-sidebar-border) 0, var(--mt-sidebar-border) ${pos("var(--mt-glow-y) - 219px")}, ${line.join(", ")}, var(--mt-sidebar-border) ${pos("var(--mt-glow-y) + 219px")}, var(--mt-sidebar-border) 100%)`,
+      };
+    };
     let glowEl = null;
     let glowRo = null;
     let glowFrame = 0;
-    const glowSet = (el, vals) => {
+    const glowSet = (el, vals, kind = "true") => {
       if (!el) {
         return;
       }
@@ -11936,7 +11975,9 @@ class CardEnhancer {
               el.style.setProperty(k, v);
             }
           }
-          el.setAttribute("mc-glow", "true");
+          if (el.getAttribute("mc-glow") != kind) {
+            el.setAttribute("mc-glow", kind);
+          }
         } else {
           el.removeAttribute("mc-glow");
           GLOW_VARS.forEach(p => el.style.removeProperty(p));
@@ -11976,23 +12017,38 @@ class CardEnhancer {
       const r = tile.getBoundingClientRect();
       const y = r.top + r.height / 2;
       const i = tiles.indexOf(tile);
+      const kind = GLOW_HAUCH.has(mode) ? "hauch" : "true";
+      const tileColor = b => w.getComputedStyle(b).getPropertyValue("--c").trim();
       const common = {
         "--mt-glow-tilt": `${Math.round(((tiles.length - 1) / 2 - i) * GLOW_TILT)}px`,
-        "--mt-glow-c": w.getComputedStyle(tile).getPropertyValue("--c").trim() || "#8E8E93",
+        "--mt-glow-c": tileColor(tile) || "#8E8E93",
       };
       const offTop = el.ownerDocument == d ? 0 : win.browsingContext?.embedderElement?.getBoundingClientRect().top || 0;
       const er = el.getBoundingClientRect();
       const br = bar.getBoundingClientRect();
+      const top = Math.max(0, Math.round(offTop + er.top - br.top));
+      const bottom = Math.max(0, Math.round(br.bottom - offTop - er.bottom));
+      const extra = {};
+      if (kind == "hauch") {
+        const colors = tiles.filter(b => b != tile && b.id != "settingsButton").map(tileColor).filter(Boolean);
+        const { colorAt, ...vals } = glowHauch(colors.length ? colors : [common["--mt-glow-c"]]);
+        Object.assign(common, vals);
+        // (Mitte der Flächen über und unter der Seitenleiste, gemessen ab der Mitte des Kegels)
+        const mid = y - br.top + parseInt(common["--mt-glow-tilt"]);
+        extra["--mt-glow-c-oben"] = colorAt(top / 2 - mid);
+        extra["--mt-glow-c-unten"] = colorAt(br.height - bottom / 2 - mid);
+      }
       // (Bereiche-Leiste: Flächen über und unter der Seitenleiste, in denen der Schein weiterläuft)
       glowSet(bar, {
         ...common,
+        ...extra,
         "--mt-glow-y": `${Math.round(y - br.top)}px`,
         "--mt-glow-h": `${Math.round(br.height)}px`,
         "--mt-glow-w": `${Math.round(er.width)}px`,
-        "--mt-glow-top": `${Math.max(0, Math.round(offTop + er.top - br.top))}px`,
-        "--mt-glow-bottom": `${Math.max(0, Math.round(br.bottom - offTop - er.bottom))}px`,
-      });
-      glowSet(el, { ...common, "--mt-glow-y": `${Math.round(y - offTop - er.top)}px` });
+        "--mt-glow-top": `${top}px`,
+        "--mt-glow-bottom": `${bottom}px`,
+      }, kind);
+      glowSet(el, { ...common, "--mt-glow-y": `${Math.round(y - offTop - er.top)}px` }, kind);
     };
     const glowSoon = () => {
       if (!glowFrame) {

@@ -89,10 +89,6 @@ HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
 VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf endet ab diesem Wochenwert (lauf-hilfen.zsh)
 source $HILFEN
-# „tagesroutine“ ist (noch) nicht in PAUSEN_ROUTINEN von lauf-hilfen.zsh: hier ergänzen, sonst gelten
-# Pausenzeilen „tagesroutine …“ als unlesbar (beim Einschalten in lauf-hilfen.zsh nachtragen)
-(( ${PAUSEN_ROUTINEN[(Ie)tagesroutine]} )) || PAUSEN_ROUTINEN+=(tagesroutine)
-export HALO_ROUTINEN="$PAUSEN_ROUTINEN"
 
 DIR=$HOME/halo-nacht
 BERICHTE=$HOME/halo-berichte

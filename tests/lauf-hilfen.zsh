@@ -24,7 +24,7 @@ log() { print -r -- "$(zeit) $*" >> $LOG }
 #                              ins Protokoll und in uebersprungen.log (läuft am Ende des Nachtlaufs)
 #   pause_setzen <Routine> <bis> <Grund>
 # Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_PAUSEN_DATEI die Datei.
-PAUSEN_ROUTINEN=(nachtlauf rundgang dokupruefung wochenpruefung github-komm ci-waechter bilder-eingang)
+PAUSEN_ROUTINEN=(nachtlauf tagesroutine rundgang dokupruefung wochenpruefung github-komm ci-waechter bilder-eingang)
 export HALO_ROUTINEN="$PAUSEN_ROUTINEN"
 PAUSEN_PY='
 import sys, os, datetime

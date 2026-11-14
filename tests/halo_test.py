@@ -18435,6 +18435,45 @@ Neu
         return ok, f"{res}"
     check("Nachrichtenfenster: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten", message_window_reply_all, results)
 
+    def message_window_pill_size():
+        # Kapselstücke im eigenen Fenster so groß wie in der Mail-Toolbar des Hauptfensters (3.26.0: „Allen antworten“
+        # mit unsichtbarem Pfeil fast doppelt so breit)
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          let hdr = null;
+          for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
+            for (const h of f.messages) if (h.mime2DecodedSubject.includes("Treffen am Donnerstag")) { hdr = h; break; }
+            if (hdr) break; }
+          if (!hdr) return { mail: false };
+          await toMail(); await ruhig(300);
+          const tb = id => { const b = d.querySelector(`#unifiedToolbarContent li[item-id="${id}"] button`); const r = b?.getBoundingClientRect();
+            return r && r.width ? [Math.round(r.width), Math.round(r.height)] : null; };
+          const out = { toolbar: { reply: tb("reply"), replyAll: tb("reply-all"), forward: tb("forward-inline"), archive: tb("archive"), del: tb("delete") } };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          try {
+            await until(() => mw.document.title.includes("Treffen"), 6000); await ruhig(1500);
+            const md = mw.document.getElementById("messageBrowser").contentDocument;
+            const sz = id => { const e = md.getElementById(id); const r = e?.getBoundingClientRect(); return r && r.width && !e.hidden ? [Math.round(r.width), Math.round(r.height)] : null; };
+            out.window = { replySender: sz("hdrReplyToSenderButton"), smart: sz("hdrSmartReplyButton"), replyAll: sz("hdrReplyAllButton"),
+                           forward: sz("hdrForwardButton"), archive: sz("hdrArchiveButton"), del: sz("hdrTrashButton"), junk: sz("hdrJunkButton"),
+                           more: sz("otherActionsButton"), star: sz("starMessageButton") };
+          } finally { mw.close(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail fehlt"
+        t, wnd = res.get("toolbar") or {}, res.get("window") or {}
+        ref = t.get("reply") or [40, 38]
+        sizes = [v for k, v in wnd.items() if v and k not in ("smart", "replyAll")]
+        ra = wnd.get("replyAll")
+        # jedes Stück so hoch wie in der Toolbar, höchstens 4 px breiter als ein Toolbar-Knopf; „Allen antworten“ mit
+        # Pfeil höchstens 14 px breiter
+        ok = (bool(sizes) and all(abs(h - ref[1]) <= 1 and w <= ref[0] + 4 for w, h in sizes)
+              and (not ra or (abs(ra[1] - ref[1]) <= 1 and ra[0] <= ref[0] + 14)))
+        return ok, f"{res}"
+    check("Nachrichtenfenster: Kapselstücke (Antworten, Allen antworten, Weiterleiten …) so groß wie in der Mail-Toolbar", message_window_pill_size, results)
+
     def header_split_hover():
         # GitHub-Issue #33: „Allen antworten“ mit Pfeil im Mailkopf – beim Überfahren eine Fläche in der Form des
         # Kapselstücks, keine eigene runde Fläche von Knopf oder Pfeil, kein Schatten

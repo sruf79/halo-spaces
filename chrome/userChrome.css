@@ -2250,6 +2250,20 @@ findbar .findbar-textbox:focus {
 :root[mc-standalone] #header-view-toolbar toolbaritem > toolbarbutton[is="toolbarbutton-menu-button"] {
   border-radius: inherit !important;
   box-shadow: none !important;
+  /* schmal wie ein Toolbar-Knopf plus Pfeil: Knopf und Pfeil bekamen sonst
+     je die volle Mindestbreite, außen kam der Rand noch dazu (90 statt 44 px) */
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button {
+  min-width: 0 !important;
+  padding: 0 1px 0 11px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker {
+  min-width: 0 !important;
+  padding: 0 7px 0 1px !important;
 }
 
 :root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker),

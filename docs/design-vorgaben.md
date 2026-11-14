@@ -1,8 +1,10 @@
-# Design-Vorgaben für die Rolle „Designer“ (Entwurf)
+# Design-Vorgaben für die Rolle „Designer“
 
-**Stand:** Entwurf vom 14.11.2026, noch nicht live. Der Nachtlauf-Auftrag
-(`tests/nachtlauf-auftrag.md`) beauftragt den Designer noch nicht; das geschieht erst nach OK des
-Maintainers. Bei Bedarf lesen, nie per `@` einbinden.
+**Stand:** live seit 14.11.2026 (Freigabe des Maintainers, Wortlaut in `ENTSCHEIDUNGEN.md`: „designer
+ist jetzt freigegeben von mir. verbinde den direktor mit dem designer.“). Der Director beauftragt den
+Designer im Nachtlauf (`tests/nachtlauf-auftrag.md`, Schritte 1a g und 2a) und in der Tagesroutine
+(`tests/tagesroutine-auftrag.md`, Abschnitt „Designer“); Auftrag `tests/designer-auftrag.md`. Bei
+Bedarf lesen, nie per `@` einbinden.
 
 **Grundsatz dieser Datei:** Jede Regel nennt Quelle und Datum. Quellen sind ausschließlich
 `ENTSCHEIDUNGEN.md` (Wortlaute), `AGENTS.md` (Konventionen), `README.md`, die Memory-Dateien des
@@ -10,7 +12,7 @@ Projekts (`~/.claude/projects/-Users-neosky-cat-halo-spaces/memory/`), Board-Ein
 (`tests/board.sh zeige|archiv-zeige <id>`), der Vorlagen-Index `~/halo-aufgaben/apple/index.md` und
 die Werte im Code (`chrome/userChrome.css`, `icons/`). Zitate des Maintainers stehen in „…“ und
 unverändert; was nicht wörtlich vom Maintainer stammt, ist als „Beschreibung“ oder „Deutung“
-gekennzeichnet. Lücken beantwortet Abschnitt 9; offen ist nur, was eine fehlende Vorlage braucht (9a).
+gekennzeichnet. Lücken beantwortet Abschnitt 9; die nachgelieferten Vorlagen stehen in 9a (geschlossen).
 
 Abkürzungen der Quellen: **E** = `ENTSCHEIDUNGEN.md`, **A** = `AGENTS.md`, **M** = Memory-Datei
 (Name), **B** = Board-Eintrag (`PVTI_…`-id), **C** = Code (Datei:Zeile, Stand dceb76c),
@@ -281,7 +283,7 @@ bearbeitenden schritt wählt kann der direktor selbstständig den designer beauf
 problem zu kümmern. nachfragen sollte im besten fall keine entstehen sondern bereits alle im vorfeld
 überprüft worden sein.“
 
-Umsetzung im Entwurf (Beschreibung von neon, Deutung nicht des Maintainers):
+Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers):
 
 1. **Selbstständige Beauftragung.** Wählt der Director in Nachtlauf oder Tagesroutine einen Eintrag
    mit Status Todo und Designthema (Größen, Abstände, Knöpfe, Symbole, Platzierung, Farben) als
@@ -291,12 +293,12 @@ Umsetzung im Entwurf (Beschreibung von neon, Deutung nicht des Maintainers):
    - Apple-Vorlage vorhanden (`~/halo-aufgaben/apple/index.md`) bzw. Ausnahme nach G3;
    - nötige Maße in Abschnitt 4 belegt oder aus der Vorlage messbar;
    - kein Widerspruch zu G1–G14 oder zu `ENTSCHEIDUNGEN.md`;
-   - keine offene Entscheidungsfrage (Abschnitt 9a, Eintrag nicht „Wartet auf OK“).
+   - keine offene Entscheidungsfrage (Eintrag nicht „Wartet auf OK“).
    Ergebnis im Plan je Eintrag: „Vorab geprüft: ja“ (bzw. welcher Punkt fehlt).
 3. **Lücke in der Vorab-Prüfung:** zuerst „Im Zweifel wie Apple“ (Vorlage messen) statt fragen. Nur
    bei echtem Widerspruch oder fehlender Vorlage Rückfrage über den Weg „Wartet auf OK“ (Abschnitt
    8), möglichst vor dem Lauf (Planung), nicht mittendrin; der Designer wird dann nicht beauftragt.
-4. Abschnitt 9 beantwortet die bekannten Lücken; offen sind nur fehlende Vorlagen (9a).
+4. Abschnitt 9 beantwortet die bekannten Lücken; die fehlenden Vorlagen sind seit 14.11.2026 da (9a).
 
 ### 6b. Arbeit des Designers
 
@@ -394,7 +396,7 @@ Auftrag des Maintainers (14.11.2026, E): „deine 16 offenen fragen können sich
 beantwortet werden wenn man sich ansieht wie das design bei apple mail aussieht. fehlende screenshots
 kann ich gerne nachliefern.“ Antworten je Frage mit Beleg; „Entscheidung“ heißt, soweit nicht als
 Wortlaut des Maintainers gekennzeichnet: nach Vorlage bzw. Vorgaben entschieden (Beschreibung von
-neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
+neon). Die dafür fehlenden Vorlagen hat der Maintainer am 14.11.2026 nachgeliefert (Abschnitt 9a).
 
 - **F1 Einspruchsgründe.** Entschieden: G1–G14 sind abschließend, Erweiterung nur mit Wortlaut des
   Maintainers (Abschnitt 3, Absatz „Einspruchsgründe abschließend“).
@@ -402,7 +404,7 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
   favoriten - option a“; Vorbild Apple Mail, V `mail-seitenleiste-ausgeklappt-dunkel.webp`). Die
   Breite folgt nicht der Zahl 240 px, sondern der Vorlage und der Bedingung, dass die Aufgabenliste
   unter Linux ESR nicht zu schmal wird (Grund der Rücknahme 32f9d08, 13.11.2026); Prüfung in
-  `run_checks()`. Hell fehlt als Vorlage (9a, Nr. 3), dunkel genügt für die Ausrichtung.
+  `run_checks()`. Seit 14.11.2026 auch hell als Vorlage (`mail-hell.png`, 9a Nr. 3).
 - **F3 Halo-Umfang.** Entschieden: kein Apple-Vorbild, also entscheidet der Designer nach den
   Vorgaben (Maintainer 14.11.2026: „wenn es kein vorbild von apple gibt (wie bei f3) kann der designer
   basierend auf unseren vorgaben selbst entscheiden“). Rahmen: P2, G5 (nicht wie Fokusring, ruhig),
@@ -457,7 +459,8 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
   höchstens ein Fable-Agent, nur unter 50 % im 5-Stunden-Fenster; im Volldampf die Werte aus E
   13.11.2026). Gilt in Nachtlauf und Tagesroutine.
 - **F12 Fehlende Vorlagen.** Kontakte und Erinnerungen-Details liegen seit 14.11.2026 vor
-  (`contacts-window-*.png`, `erinnerungen-task-*.png`; B `…IZM9w` damit messbar). Rest in 9a.
+  (`contacts-window-*.png`, `erinnerungen-task-*.png`; B `…IZM9w` damit messbar); die übrigen
+  (Toolbar-Zustände, Mail hell, Einstellungen) ebenfalls seit 14.11.2026 (9a).
 - **F13 Designthema erkennen.** Entschieden: Designthema, wenn der Eintrag Aussehen oder Platzierung
   ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung; Aufzählung aus dem
   Auftrag des Maintainers zur Rolle). Gemischte Einträge (Aussehen plus Logik): der Designer
@@ -470,26 +473,40 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
 - **F15 Vorlage selbst fotografieren.** Entschieden: ja, mit Testdaten und nur Fensterausschnitt (M
   `apple-apps-vergleich`, 26.10.2026); gilt als Vorlage, Bild mit Index nach `~/halo-aufgaben/apple/`.
   Grenze: Apple Mail ohne Konto zeigt nur den Dialog „Add Account“ (B `…GYF4o`), also Mail-Ansichten
-  vom Maintainer nachliefern lassen (9a).
+  vom Maintainer nachliefern lassen (wie in 9a).
 - **F16 Offene Einträge mit Lücken.** Entschieden: `…Iqjl4` (Toolbar) mit den Hauptfenster-Vorlagen
-  aus F4 messen; `…Ic9wY` (Sidebar-Schrift) an V `mail-seitenleiste-ausgeklappt-dunkel.webp` und
+  aus F4 und den Zuständen `mail-toolbar-pille-hover/-active.png` (9a Nr. 1) messen; `…Ic9wY` (Sidebar-Schrift) an V `mail-seitenleiste-ausgeklappt-dunkel.webp` und
   `kalender-sidebar-minikalender-trennlinie.webp` und `contacts-window-hell/-dunkel.png` messen; `…GYrXA` nach F5;
   `…GYq_c` nach F4; `…HmgTE` nach F2.
 
-### 9a. Offen: Apple-Screenshots, die der Maintainer nachliefern soll
+### 9a. Nachgelieferte Apple-Screenshots (geschlossen am 14.11.2026)
 
-Nur diese Punkte lassen sich weder aus Vorlagen noch aus den Vorgaben entscheiden (je App, Ansicht,
-Zustand; Name nach `docs/board.md` „Apple-Vorlagen“). Seit 14.11.2026 vorhanden: Kontakte
-(`contacts-window-hell/-dunkel.png`) und Erinnerungen-Details (`erinnerungen-task-hell/-dunkel.png`).
+Der Maintainer hat am 14.11.2026 die fehlenden Vorlagen geliefert (Wortlaut in `ENTSCHEIDUNGEN.md`:
+„screenshots für 1 hab ich dir übermittelt. bei punkt 2 - bei apple mail kann man nicht mit tabulator
+einen toolbar knopf auswählen, daher keine screenshots. bei punkt 3 und 4 hab ich screenshots
+geschickt.“). Ablage `~/halo-aufgaben/apple/` (Index `index.md`); die Bilder zeigen echte Mails und
+bleiben dort, nie im Repo. Beschreibung der Bilder von neon (Deutung nicht des Maintainers):
 
-1. Mail: Toolbar-Kapsel beim Überfahren und gedrückt, dunkel (B `…GYF4o`: „Hover, gedrückt und
-   Dunkelmodus nicht messbar“; vorhanden ist nur `mail-toolbar-kapsel-dunkel.webp` in Ruhe).
-2. Mail: Tastaturfokus (Tab-Taste) auf einem Toolbar-Knopf und in der Mailliste, hell und dunkel
-   (Fokusring, F3; B `…Ih2aA`: „wie der Fokusring heute aussieht, steht nicht im CSS“).
-3. Mail: Hauptfenster hell mit ausgeklappter Seitenleiste samt Favoriten und Konten (bisher nur
-   dunkel; F2, Sidebar-Schrift).
-4. Mail: Fenster „Settings“ (Einstellungen), Reiter General, hell und dunkel (Einstellungen-Space,
-   G14).
+1. **Mail: Toolbar-Kapsel beim Überfahren und gedrückt, dunkel:** `mail-toolbar-pille-hover.png`
+   (Ausschnitt: in der Gruppen-Kapsel liegt hinter dem überfahrenen Symbol ein runder, etwas hellerer
+   Kreis innerhalb der Kapsel, dazu der Tooltip) und `mail-toolbar-pille-active.png` (ganzes Fenster,
+   dunkel, Knopf „Antworten“ gedrückt). Maßstab für Hover und gedrückt in der Mail-Toolbar (F4, F16).
+2. **Mail: Tastaturfokus auf Toolbar-Knöpfen:** keine Vorlage, weil Apple Mail ihn nicht hat (Wortlaut
+   oben). **Regel** (Beschreibung von neon nach diesem Wortlaut und G2): Fokusring nur dort, wo Apple
+   einen zeigt (z. B. Suchfeld beim Fokus, sichtbar in `mail-hell.png`; E4); Toolbar-Knöpfe bekommen
+   keinen eigenen, auffälligen Fokusring nach Apple-Vorbild. Die Tastaturbedienung von Thunderbird
+   bleibt erhalten (G2, nichts ersatzlos entfernen): was heute per Tastatur erreichbar ist, bleibt es;
+   ein Einspruch nach G2 gilt, wenn eine Änderung sie bricht.
+3. **Mail: Hauptfenster hell mit ausgeklappter Seitenleiste:** `mail-hell.png` (Favoriten, Konten
+   Google und iCloud, „On My Mac“, Mailliste, Lesebereich, Toolbar mit Gruppen-Kapseln, Suchfeld mit
+   Fokusring). Maßstab für F2 hell und die Sidebar-Schrift (F16).
+4. **Mail: Einstellungen, Reiter General, hell und dunkel:** `mail-settings-allgemein.png` und
+   `mail-settings-allgemein-dunkel.png` (Reiterleiste mit Symbol und Beschriftung, gewählter Reiter auf
+   heller Fläche mit Akzentfarbe; Beschriftungen rechtsbündig vor Auswahlfeldern mit kleinem Radius;
+   Kontrollkästchen in Akzentfarbe). Maßstab für den Einstellungen-Space (G14).
+
+Neue Lücken meldet der Designer über den Weg in Abschnitt 8 (Vorschaubilder), nicht als Liste hier.
+
 ## 10. Eichfälle
 
 Zehn bis fünfzehn erledigte Entscheidungen als Maßstab für künftige Urteile, dazu verworfene
@@ -524,8 +541,8 @@ Gegenbeispiele.
 
 ## 11. Arbeitsauftrag des Designers
 
-Vollständiger Entwurf: `tests/designer-auftrag.md` (noch nicht in `tests/nachtlauf-auftrag.md` oder
-`tests/tagesroutine-auftrag.md` eingehängt). Kurzfassung (Beschreibung von neon, Grundlagen mit
+Vollständig: `tests/designer-auftrag.md` (seit 14.11.2026 eingehängt in `tests/nachtlauf-auftrag.md`
+und `tests/tagesroutine-auftrag.md`). Kurzfassung (Beschreibung von neon, Grundlagen mit
 Quelle in den Abschnitten oben):
 
 - **Rolle:** hauptverantwortlich für das Gesamtdesign aller Spaces (G14); setzt Todo-Einträge mit

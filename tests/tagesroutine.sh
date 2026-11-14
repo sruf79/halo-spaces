@@ -400,6 +400,32 @@ if [[ -n $ZAEHLEN ]]; then
   exit 0
 fi
 
+# Designer (Freigabe des Maintainers 14.11.2026, docs/design-vorgaben.md): Einträge der Art „design“ bearbeitet
+# die Runde als Director, der den Designer (tests/designer-auftrag.md) mit mindestens Opus beauftragt.
+# designer_modell <Modell für komplexe Einträge>: gibt das Modell aus oder nichts, wenn es unter Opus liegt
+# (dann wird der Eintrag heute nicht beauftragt, statt mit einem kleineren Modell zu gestalten).
+designer_modell() {
+  [[ ${1:l} == *(opus|fable)* ]] && print -r -- $1
+}
+# Designfragen sofort aufs iPhone (Maintainer 14.11.2026: „wenn unklarheiten bezüglich design auftreten die ich
+# sofort entscheiden muss möchte ich die nachricht aufs iphone geschickt haben“). designfrage_melden <Art> <Titel>
+# <Ergebniszeile>: bei „vorschau …“ (immer) und bei „entscheidung …“ eines Design-Eintrags sofort eine
+# [handeln]-Meldung über push() (lauf-hilfen.zsh), Ausgabe „sofort“; sonst nichts (Meldung am Tagesende wie bisher).
+designfrage_melden() {
+  local art=$1 titel=$2 z=$3 rest link frage
+  case $z in
+    vorschau\ *)
+      rest=${z#vorschau }; rest=${rest#*[[:space:]]}          # <id> weg
+      link=${rest%%[[:space:]]*}; frage=${rest#$link}; frage=${frage# }
+      push "Designfrage „$titel“: ${frage:-siehe Eintrag} – Bilder: ${link:-fehlt}" tagesroutine handeln
+      print sofort ;;
+    entscheidung*)
+      [[ $art == design ]] || return 0
+      push "Designfrage „$titel“: ${${z#entscheidung}# }" tagesroutine handeln
+      print sofort ;;
+  esac
+}
+
 # =================================== Trockenlauf ===================================
 if [[ -n $TROCKEN ]]; then
   LOG=/dev/null                         # pause_aktiv & Co. schreiben nichts
@@ -415,6 +441,7 @@ if [[ -n $TROCKEN ]]; then
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; Tageslimit $MAX_COMMITS eigene Commits"
   print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein ); Fable-Woche: ${K_FABLE:-nicht lesbar}"
+  print "Designer:     Einträge „design“ $( m=$(designer_modell $E[M_KOMPLEX]) && print "mit $m (Director beauftragt den Designer, Designfragen sofort aufs iPhone)" || print "heute nicht (Modellstufe $E[M_KOMPLEX] unter Opus)" )"
   [[ -n $E[SPAR_RATE] ]] && print -r -- "Sparen:       $(spar_zeile); Modell $E[SPAR_MODELL]; Messungen $SPAR_DATEI"
   print "Entscheidung: $(entscheidung_text) – $E[GRUND]"
   if [[ -n $E[PAUSE_BIS] ]]; then
@@ -454,7 +481,7 @@ PRUEF=pruef/tagesroutine-${TAG//-/}
 uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
-ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG=
+ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG= DESIGNFRAGEN=
 PLANRUNDE=0 OHNE_ERGEBNIS=0 ERLEDIGT_VOR_PLAN=0 PLAN_RUNDEN=   # Neuplanen nach abgearbeitetem Plan (13.11.2026)
 typeset -a MODELLE_GENUTZT ABSCHNITTE
 
@@ -562,6 +589,7 @@ offene_planzeilen() {
   grep -v -e '^#' -e '^[[:space:]]*$' $PLAN 2>/dev/null \
     | grep -vFf <(cut -f1 $DIR/$TAG-tagesroutine-erledigt.txt 2>/dev/null; print -- '@@')
 }
+
 
 # belegt() plus die Routinen mit Sperrdatei (Nachtlauf, Wochen- und Doku-Prüfung, Rundgang): am Wochenende
 # laufen Doku-Prüfung (Sa 08:00) bzw. Wochenprüfung (So 08:00) evtl. noch, wenn die Tagesroutine um 09:00 beginnt
@@ -727,7 +755,15 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
     continue      # Zeitgrenze, Pause, belegt, Tageslimit und Kontingent prüft der Schleifenanfang
   fi
   ID=${ZEILE%%$'\t'*} REST=${ZEILE#*$'\t'}; ART=${REST%%$'\t'*} TITEL=${REST#*$'\t'}
-  [[ $ART == komplex ]] && MODELL=$E[M_KOMPLEX] || MODELL=$E[M_ROUTINE]
+  [[ $ART == (komplex|design) ]] && MODELL=$E[M_KOMPLEX] || MODELL=$E[M_ROUTINE]
+  if [[ $ART == design ]] && ! MODELL=$(designer_modell $E[M_KOMPLEX]); then
+    log "Designer: $ID „$TITEL“ heute nicht beauftragt – Modellstufe $E[M_KOMPLEX] unter Opus"
+    print -r -- "$ID	übersprungen Designer braucht mindestens Opus (heute $E[M_KOMPLEX])" >> $DIR/$TAG-tagesroutine-erledigt.txt
+    continue
+  fi
+  DESIGNER=
+  [[ $ART == design ]] && DESIGNER="
+Design-Eintrag: Du bist der Director und beauftragst den Designer als Unteragent (Agent-Werkzeug, Modell $MODELL, nie kleiner) mit dem Inhalt von $REPO/tests/designer-auftrag.md und dem Kopf aus Abschnitt „Designer“ des Auftrags; Ergebnisdatei des Designers $DIR/$TAG-designer-$ID.erg, Berichtsabschnitt $DIR/$TAG-designer-$ID.md."
   N=$((N + 1)) ERG=$DIR/$TAG-tagesroutine-$N.erg
   ROT=$(pruef_rot); [[ -n $ROT && $ROT != $ROT_GEMELDET ]] || ROT=
   ABSCHNITTE+=($DIR/$TAG-tagesroutine-$N.md)
@@ -736,10 +772,16 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
 
 JETZT: genau einen Eintrag bearbeiten (Schritt 3 des Auftrags): $ID ($ART) „$TITEL“. Modell dieser Runde: $MODELL.
 ${ROT:+Zuerst: Prüfzweig $PRUEF ist rot (Lauf ${ROT%% *}, Commit ${ROT##* }) – Ursache beheben oder den Commit mit git revert zurücknehmen (Regel 4).}
-Ergebnisdatei: $ERG (eine Zeile, siehe Auftrag). Berichtsabschnitt: $DIR/$TAG-tagesroutine-$N.md." $DIR/$TAG-tagesroutine-$N.txt
+Ergebnisdatei: $ERG (eine Zeile, siehe Auftrag). Berichtsabschnitt: $DIR/$TAG-tagesroutine-$N.md.$DESIGNER" $DIR/$TAG-tagesroutine-$N.txt
   rc=$?
   [[ -n $ROT ]] && ROT_GEMELDET=$ROT
   print -r -- "$ID	$(head -1 $ERG 2>/dev/null)" >> $DIR/$TAG-tagesroutine-erledigt.txt
+  # Designfragen sofort melden, die Routine arbeitet danach mit dem nächsten Eintrag weiter
+  if [[ $(designfrage_melden $ART "$TITEL" "$(head -1 $ERG 2>/dev/null)") == sofort ]]; then
+    DESIGNFRAGEN=$(( ${DESIGNFRAGEN:-0} + 1 )); log "Designfrage zu $ID sofort aufs iPhone gemeldet"
+    (( rc == 9 )) && { ENDGRUND="Limit erreicht"; break }
+    continue
+  fi
   case $(head -1 $ERG 2>/dev/null) in
     erledigt*)    ERLEDIGT=$((ERLEDIGT + 1)); pruef_pushen ;;
     entscheidung*) ENTSCHEIDUNG_NOETIG=$((ENTSCHEIDUNG_NOETIG + 1)) ;;
@@ -779,8 +821,8 @@ log "Kontingent Ende: $K_ENDE"
 log "Ende: $ENDGRUND"
 bericht_schreiben "$ERLEDIGT erledigt"
 if (( ENTSCHEIDUNG_NOETIG )); then
-  push "Tagesroutine $TAG: $ENTSCHEIDUNG_NOETIG Einträge brauchen eine Entscheidung – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine handeln
+  push "Tagesroutine $TAG: $ENTSCHEIDUNG_NOETIG Einträge brauchen eine Entscheidung${DESIGNFRAGEN:+ (dazu $DESIGNFRAGEN Designfragen, schon gemeldet)} – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine handeln
 else
-  push "Tagesroutine $TAG: $ERLEDIGT erledigt, $ZURUECK zurück, Ende: $ENDGRUND – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine
+  push "Tagesroutine $TAG: $ERLEDIGT erledigt, $ZURUECK zurück${DESIGNFRAGEN:+, $DESIGNFRAGEN Designfragen (schon gemeldet)}, Ende: $ENDGRUND – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine
 fi
 exit 0

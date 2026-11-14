@@ -303,6 +303,28 @@ Reihenfolge:
       weitere unklare Einträge bleiben, wie sie sind, und stehen nur unter
       „Übersprungen“. Einträge, die schon „Wartet auf OK“ sind, bleiben
       unberührt.
+   g) Designer (Freigabe des Maintainers 14.11.2026, Wortlaute in
+      ENTSCHEIDUNGEN.md: „designer ist jetzt freigegeben von mir. verbinde den
+      direktor mit dem designer.“; „wenn ein status eines tasks auf todo ist
+      und der direktor diesen tasks … als nächsten zu bearbeitenden schritt
+      wählt kann der direktor selbstständig den designer beauftragen …
+      nachfragen sollte im besten fall keine entstehen sondern bereits alle im
+      vorfeld überprüft worden sein.“). Vorgaben: docs/design-vorgaben.md.
+      - Erkennen (design-vorgaben.md F13): Todo-Eintrag, der Aussehen oder
+        Platzierung ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe,
+        Schrift, Ausrichtung). Gemischte Einträge an den Designer, wenn das
+        sichtbare Ergebnis der Kern ist.
+      - Vorab-Prüfung beim Planen (design-vorgaben.md 6a): Soll-Zustand
+        eindeutig (Wo/Erwartet/Ist), Apple-Vorlage in
+        ~/halo-aufgaben/apple/index.md (bzw. Ausnahme G3), Maße in Abschnitt 4
+        belegt oder messbar, kein Widerspruch zu G1–G14 oder
+        ENTSCHEIDUNGEN.md, keine offene Entscheidungsfrage. Lücke: zuerst nach
+        der Vorlage, ohne Apple-Vorbild entscheidet der Designer selbst; nur
+        bei echtem Widerspruch Weg f) schon beim Planen. Plan-Spalte
+        „Begründung“ beginnt mit „Vorab geprüft: ja, Designer“ (bzw. „Vorab
+        geprüft: nein, <was fehlt>“, dann nicht beauftragen).
+      - Zeitbudget, Reserve und Rahmenregeln (a)–(g) gelten unverändert; ein
+        Designer-Eintrag ist ein Eintrag des Plans wie jeder andere.
 1b. Rückfall: Kann der Director nicht sauber planen (Board nicht lesbar,
    Daten unklar, Fehler, Zeit über 15 Minuten), arbeitet der Lauf mit der
    festen Reihenfolge aus Schritt 1 weiter und schreibt in den Bericht unter
@@ -368,6 +390,29 @@ Reihenfolge:
         (Bericht), wie bisher.
       - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
         am Anfang und Ende (Woche, 5 Stunden).
+2a. Designer-Einträge (Plan „Vorab geprüft: ja, Designer“): Du beauftragst
+   den Designer selbst als Unteragent (Agent-Werkzeug, Modell opus, nie
+   kleiner; Fable nur nach Schritt 1c bzw. AGENTS.md „Rot bleibt rot“). Auftrag:
+   Inhalt von tests/designer-auftrag.md, davor ein Kopf
+   „JETZT: Eintrag <id> „<Titel>“; Vorab-Prüfung: <Zeile aus dem Plan>;
+   Lauf: Nachtlauf <Heute>; Ergebnisdatei ~/halo-nacht/<Heute>-designer-<id>.erg;
+   Berichtsabschnitt ~/halo-nacht/<Heute>-designer-<id>.md“. Nacheinander,
+   nie zwei Designer zugleich. Danach die Ergebnisdatei lesen:
+   - erledigt <Hash>: Ergebnis gegen G1–G14 prüfen (design-vorgaben.md
+     Abschnitt 7: Berichtsabschnitt, Vorher/Nachher-Bilder, Prüfungen). Verstößt
+     es gegen eine Regel: Einspruch an den Designer mit Kennung und Zitat der
+     Regel; er überarbeitet EINMAL (neuer Unteragent mit demselben Kopf plus
+     „Einspruch: …“). Bleibt es strittig: Commit mit git revert zurücknehmen,
+     Designer legt Vorschaubilder beider Lösungen an (Weg wie „vorschau“).
+     Sonst wie Schritt 2 (bleibt In Progress, Done nach grüner CI).
+   - zurück <Grund>: wie ein nicht gelungener Eintrag in Schritt 2.
+   - vorschau <id> <Pfad/Link> <Frage>: Eintrag steht auf „Wartet auf OK“ mit
+     Notiz „Rückfrage Designer <Datum>: <Frage>, Bilder: <Pfad/Link>“ (setzt
+     der Designer; fehlt sie, setzt du sie). Nachts KEINE Sofortnachricht: die
+     Frage kommt in den Bericht unter „## Rückfragen an den Maintainer“
+     („- <Titel>: <Frage> (Bilder: <Pfad/Link>)“), zählt zu den höchstens 5.
+   Den Berichtsabschnitt des Designers übernimmst du in Schritt 6 unter
+   „Designer“ (je Eintrag Ergebnis, Einspruch ja/nein, Urteil).
 2. Je Eintrag (in der Reihenfolge der Plandatei): Status In Progress (~/halo-aufgaben/status.sh <id> progress),
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
@@ -480,7 +525,7 @@ Reihenfolge:
    nutzen.“): Ist Schritt 4 abgeschlossen – CI grün und Release veröffentlicht
    bzw. nicht nötig – und ist es vor 06:30, alle machbaren Einträge aus dem
    Plan dieses Laufs (Plandatei ~/halo-nacht/<Heute>-plan.md, Schritt 1a)
-   weiter abarbeiten wie Schritt 2 (gleiche Reihenfolge wie im Director-Plan,
+   weiter abarbeiten wie Schritt 2 bzw. 2a für Designer-Einträge (gleiche Reihenfolge wie im Director-Plan,
    bzw. im Rückfall Bugs, einfache Features, Reihen; alle Arten; keine neu
    dazugekommenen Einträge). Bei roter CI in Schritt 4 (auch nach den Reparaturrunden)
    entfällt dieser Schritt.

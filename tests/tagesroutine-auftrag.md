@@ -1,5 +1,6 @@
 Unbeaufsichtigte Tagesroutine halo.spaces auf neon (gestartet von tests/tagesroutine.sh, Mo–Fr ab 09:00, Sa und So ab 09:00, jeweils bis 22:00).
-Niemand sieht zu, niemand antwortet auf Rückfragen. AGENTS.md gilt vollständig; Abweichungen und
+Niemand sieht zu und antwortet sofort; Designfragen meldet das Skript sofort aufs iPhone (Abschnitt
+„Designer“), andere Fragen am Tagesende. AGENTS.md gilt vollständig; Abweichungen und
 Ergänzungen stehen hier. Das Skript ruft dich mehrmals auf: einmal für den Plan, danach je Runde für
 genau einen Eintrag. Welches Modell du bist und was diese Runde tun soll, steht oben unter „JETZT:“.
 
@@ -56,10 +57,14 @@ Plan-Runde („JETZT: Plan-Runde“):
   Oberfläche, gleiche GitHub-Nummer) und im Abschnitt „Häufung: Skript gescheitert“ vermerken. Keine
   Notizen oder Verknüpfungen in Board-Einträgen nur für die Häufung anlegen.
 - Plan-Datei (Pfad oben), eine Zeile je Eintrag, Tabulator-getrennt, in Bearbeitungsreihenfolge:
-    <Item-ID>	<komplex|routine>	<Titel>
+    <Item-ID>	<komplex|routine|design>	<Titel>
   „komplex“: mehrere Dateien oder Bereiche, unklare Ursache, Design nach Vorlage, Logik in
   implementation.js, frühere Fehlversuche. „routine“: klare Ursache, eine Stelle, Texte, kleine
-  CSS-Korrektur, Doku. Komplexe zuerst (Regel 1). Das Skript wählt danach je Zeile das Modell.
+  CSS-Korrektur, Doku. „design“: Todo-Eintrag mit Designthema nach docs/design-vorgaben.md F13 (Aussehen
+oder Platzierung: Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung), nur wenn die
+Vorab-Prüfung (design-vorgaben.md 6a) besteht; im Abschnitt „## Plan“ je Design-Eintrag „Vorab geprüft:
+ja, Designer“ bzw. „Vorab geprüft: nein, <was fehlt>“ (dann nicht planen). Komplexe und Design-Einträge
+zuerst (Regel 1). Das Skript wählt danach je Zeile das Modell (design mindestens Opus, sonst heute nicht).
 - Abschnitt „## Plan“ (Pfad oben): Plan mit Begründung je Einstufung, Zusammenlegungen,
   übersprungene Einträge mit Grund. Board-Stände zitieren statt zusammenfassen.
 
@@ -72,6 +77,8 @@ Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
   Kontingent.
 - Ergebnisdatei (Pfad oben), genau eine Zeile:
     erledigt <Commit-Hash>          committet, Prüfungen grün
+    vorschau <id> <Link> <Frage>    nur Design-Einträge: Entscheidung des Maintainers nötig, Vorschaubilder
+                                    liegen vor, Eintrag steht auf „Wartet auf OK“ (Abschnitt „Designer“)
     zurück <Grund>                  nicht gelungen, Änderungen verworfen, Eintrag zurück auf Todo
     entscheidung <Frage>            braucht eine Entscheidung des Maintainers, Eintrag unverändert
     fable <Grund>                   nur Opus: nicht gelöst, besonders heikel, Fable könnte es lösen
@@ -103,7 +110,8 @@ Sparmodus-Runde („JETZT: Sparmodus-Runde“):
   3. keine Logik in implementation.js über wenige Zeilen, keine Animation, kein Layout über mehrere
      Spaces, kein Eintrag mit mehreren Fehlversuchen;
   4. eine vorhandene oder kleine neue Prüfung deckt es ab;
-  5. nicht „Wartet auf OK“, keine Sicherheit/Datenschutz, kein Ablauf-/Release-Eintrag.
+  5. nicht „Wartet auf OK“, keine Sicherheit/Datenschutz, kein Ablauf-/Release-Eintrag;
+  6. kein Design-Eintrag (der Designer braucht mindestens Opus).
 - Den ersten passenden Eintrag (Bugs vor Features) wie eine Eintragsrunde bearbeiten, genau einen.
   Kein passender: nichts erfinden, Ergebnis „nichts_passend“. Das beendet den Lauf nicht: das Skript
   wartet bis zur nächsten vollen Stunde und startet dann wieder eine Sparmodus-Runde (bis 20:30); die Runde
@@ -114,6 +122,28 @@ Sparmodus-Runde („JETZT: Sparmodus-Runde“):
 - Berichtsabschnitt „## Sparmodus-Runde“: Einstufung je geprüftem Kandidaten (Titel, machbar ja/nein,
   welche Bedingung fehlt), dann wie bei der Eintragsrunde. Kontingent vor/nach und Dauer misst das
   Skript (~/halo-nacht/tagesroutine-spar.tsv) und schreibt sie in den Bericht.
+
+Designer (Freigabe des Maintainers 14.11.2026, Wortlaute in ENTSCHEIDUNGEN.md: „designer ist jetzt
+freigegeben von mir. verbinde den direktor mit dem designer.“; „bezüglich tagesroutine - wenn unklarheiten
+bezüglich design auftreten die ich sofort entscheiden muss möchte ich die nachricht aufs iphone geschickt
+haben“). Vorgaben: docs/design-vorgaben.md.
+- Steht im JETZT-Kopf „Design-Eintrag“, bist du der Director: Beauftrage den Designer als Unteragent
+  (Agent-Werkzeug, Modell wie dort angegeben, nie kleiner als Opus) mit dem Inhalt von
+  tests/designer-auftrag.md und diesem Kopf: „JETZT: Eintrag <id> „<Titel>“; Vorab-Prüfung: <Zeile aus
+  dem Plan>; Lauf: Tagesroutine <Heute>; Ergebnisdatei <Pfad aus dem JETZT-Kopf>; Berichtsabschnitt
+  <Pfad aus dem JETZT-Kopf>“. Nie zwei Designer zugleich.
+- Ergebnis des Designers lesen. „erledigt <Hash>“: gegen G1–G14 prüfen (design-vorgaben.md Abschnitt 7);
+  bei Verstoß Einspruch mit Kennung und Zitat der Regel, der Designer überarbeitet EINMAL (neuer Unteragent,
+  Kopf plus „Einspruch: …“); bleibt es strittig, Commit mit git revert zurücknehmen und Vorschaubilder
+  beider Lösungen anlegen lassen (wie „vorschau“). „zurück“: wie sonst.
+- „vorschau <id> <Link> <Frage>“: Eintrag steht auf „Wartet auf OK“ mit Notiz „Rückfrage Designer <Datum>:
+  <Frage>, Bilder: <Link>“ (setzt der Designer; fehlt sie, setzt du sie mit tests/board.sh status/notiz).
+  Deine Ergebniszeile ist dann dieselbe „vorschau …“-Zeile. Das Skript schickt sie SOFORT als
+  „[handeln]“-Meldung mit Link aufs iPhone und macht mit dem nächsten Eintrag weiter. Der Link ist eine
+  private Artifact-Seite mit den Bildern als eigene Dateien (AGENTS.md „Bilder“), nie echte Mails.
+- Eine „entscheidung …“ bei einem Design-Eintrag meldet das Skript ebenfalls sofort; andere „entscheidung“
+  wie bisher am Tagesende.
+- Den Berichtsabschnitt des Designers übernimmst du in deinen Abschnitt (Ergebnis, Einspruch ja/nein).
 
 Fable-Regel (Ergebnis des Tests vom 10.11.2026: Fable zählt in „alle Modelle“ und zusätzlich in
 „Weekly · Fable“; ein Fable-Lauf füllt das 5-Stunden-Fenster stark, drei parallele große Läufe etwa

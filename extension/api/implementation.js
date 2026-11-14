@@ -11508,6 +11508,118 @@ class CardEnhancer {
       });
     };
 
+    // Lichtschein und gefärbte Trennlinie in der Spacefarbe (Maintainer 13.11.2026, Schein „C geneigt“,
+    // Reichweite 1, leise; Linie nur auf Kachelhöhe): Höhe der aktiven Kachel, Neigung zur Mitte der
+    // Kachelspalte und Farbe der Kachel für die Seitenleiste des Bereichs und die Linie rechts der
+    // Bereiche-Leiste (Attribut mc-glow, Werte in userChrome.css). Einstellungen, Webseite, Erweiterung
+    // und Tabs ohne Seitenleiste: kein Schein, Linie neutral
+    const GLOW_MODES = new Set(["mail3PaneTab", "calendar", "tasks", "chat", "addressBookTab"]);
+    const GLOW_TILT = 30; // px je Kachel Abstand zur mittleren Kachel (Vorschau sidebar-c5)
+    const GLOW_VARS = ["--mt-glow-y", "--mt-glow-tilt", "--mt-glow-c", "--mt-glow-top", "--mt-glow-bottom", "--mt-glow-w", "--mt-glow-h"];
+    let glowEl = null;
+    let glowRo = null;
+    let glowFrame = 0;
+    const glowSet = (el, vals) => {
+      if (!el) {
+        return;
+      }
+      try {
+        if (vals) {
+          for (const [k, v] of Object.entries(vals)) {
+            if (el.style.getPropertyValue(k) != v) {
+              el.style.setProperty(k, v);
+            }
+          }
+          el.setAttribute("mc-glow", "true");
+        } else {
+          el.removeAttribute("mc-glow");
+          GLOW_VARS.forEach(p => el.style.removeProperty(p));
+        }
+      } catch {} // gewollt: Dokument des Bereichs schon geschlossen
+    };
+    const updateGlow = () => {
+      const d = w.document;
+      const bar = d.getElementById("spacesToolbar");
+      if (!bar) {
+        return;
+      }
+      const tab = d.getElementById("tabmail")?.currentTabInfo;
+      const mode = tab?.mode?.name;
+      const tiles = [...bar.querySelectorAll(".spaces-toolbar-button")].filter(b => b.getBoundingClientRect().height > 0);
+      const tile = tiles.find(b => b.classList.contains("current"));
+      let [el, , win] = GLOW_MODES.has(mode) ? sidebarFor(tab) : [];
+      if (!tile || !el || !win) {
+        el = null;
+      }
+      if (glowEl != el) {
+        glowSet(glowEl, null);
+        // Breite der Seitenleiste (Ziehen am Teiler, Ein-/Ausblenden) für die Flächen der Bereiche-Leiste
+        try {
+          glowRo?.disconnect();
+        } catch {} // gewollt: Dokument des Bereichs schon geschlossen
+        glowRo = el ? new win.ResizeObserver(glowSoon) : null;
+        glowRo?.observe(el);
+      }
+      glowEl = el;
+      if (!el) {
+        glowSet(bar, null);
+        return;
+      }
+      const r = tile.getBoundingClientRect();
+      const y = r.top + r.height / 2;
+      const i = tiles.indexOf(tile);
+      const common = {
+        "--mt-glow-tilt": `${Math.round(((tiles.length - 1) / 2 - i) * GLOW_TILT)}px`,
+        "--mt-glow-c": w.getComputedStyle(tile).getPropertyValue("--c").trim() || "#8E8E93",
+      };
+      const offTop = el.ownerDocument == d ? 0 : win.browsingContext?.embedderElement?.getBoundingClientRect().top || 0;
+      const er = el.getBoundingClientRect();
+      const br = bar.getBoundingClientRect();
+      // (Bereiche-Leiste: Flächen über und unter der Seitenleiste, in denen der Schein weiterläuft)
+      glowSet(bar, {
+        ...common,
+        "--mt-glow-y": `${Math.round(y - br.top)}px`,
+        "--mt-glow-h": `${Math.round(br.height)}px`,
+        "--mt-glow-w": `${Math.round(er.width)}px`,
+        "--mt-glow-top": `${Math.max(0, Math.round(offTop + er.top - br.top))}px`,
+        "--mt-glow-bottom": `${Math.max(0, Math.round(br.bottom - offTop - er.bottom))}px`,
+      });
+      glowSet(el, { ...common, "--mt-glow-y": `${Math.round(y - offTop - er.top)}px` });
+    };
+    const glowSoon = () => {
+      if (!glowFrame) {
+        glowFrame = w.requestAnimationFrame(() => {
+          glowFrame = 0;
+          updateGlow();
+        });
+      }
+    };
+    const hookGlow = () => {
+      const bar = w.document.getElementById("spacesToolbar");
+      if (bar && !bar.__mcGlowMo) {
+        // Kachelwechsel, Umsortieren, fünfter Bereich ein/aus, Größe des Fensters
+        const mo = new w.MutationObserver(glowSoon);
+        mo.observe(bar, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "hidden", "mc-fifth-hidden", "mc-float"] });
+        bar.__mcGlowMo = mo;
+        w.addEventListener("resize", glowSoon);
+        this.restorers.push(() => {
+          mo.disconnect();
+          delete bar.__mcGlowMo;
+          w.removeEventListener("resize", glowSoon);
+          w.cancelAnimationFrame(glowFrame);
+          glowFrame = 0;
+          try {
+            glowRo?.disconnect();
+          } catch {} // gewollt: Dokument des Bereichs schon geschlossen
+          glowRo = null;
+          glowSet(glowEl, null);
+          glowSet(bar, null);
+          glowEl = null;
+        });
+      }
+      updateGlow();
+    };
+
     // Today-Pane ein-/ausblenden: Knopf unten rechts (Gegenstück zum
     // Bereiche-Knopf unten links) statt des ✕ oben in der Today-Pane
 
@@ -13556,6 +13668,7 @@ class CardEnhancer {
       hookTodayKey();
       hookSpacesToggle();
       hookSideFloat();
+      hookGlow();
       hookMarkTags();
       UpdateNote.hook(w, this.restorers);
       FifthSpace.attach(w, this.restorers);

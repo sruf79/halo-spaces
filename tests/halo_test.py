@@ -19434,6 +19434,86 @@ Neu
           "nichts verschiebt sich, knapp daneben bleibt sie, weiter weg/Esc/Klick daneben weg, Kontextmenü und Ziehen halten sie offen, "
           "Zustand bleibt ausgeblendet", sidebar_column_float, results)
 
+    def sidebar_glow():
+        # Lichtschein und gefärbte Trennlinie in der Spacefarbe (Maintainer 13.11.2026, Umsetzung 2/3): in Mail,
+        # Adressbuch, Kalender, Aufgaben und Chat leuchtet die Seitenleiste am linken Rand auf Höhe der aktiven Kachel in
+        # deren Farbe, die Linie rechts der Bereiche-Leiste ist dort in der Farbe getönt, weiter weg nicht; Einstellungen
+        # ohne Schein, Linie neutral; in Mail läuft der Schein über die Oberkante der Ordnerliste weiter (kein Abbruch);
+        # schwebend wie eingeblendet. Gemessen am Bild (drawSnapshot), nicht nur an Attributen
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        measure = r"""
+          const bar = d.getElementById("spacesToolbar"), tab = tm.currentTabInfo;
+          const tile = bar.querySelector(".spaces-toolbar-button.current");
+          const panes = { mail3PaneTab: () => tm.currentAbout3Pane?.document.getElementById("folderPane"), calendar: () => d.getElementById("calSidebar"),
+            tasks: () => d.getElementById("calSidebar"), chat: () => d.getElementById("listPaneBox"),
+            addressBookTab: () => tab.browser?.contentDocument?.getElementById("booksPane"), preferencesTab: () => tab.browser?.contentDocument?.getElementById("pref-category-box") };
+          const pane = panes[tab.mode.name]?.();
+          const off = pane && pane.ownerDocument != d ? pane.ownerDocument.defaultView.browsingContext.embedderElement.getBoundingClientRect() : { left: 0, top: 0 };
+          const pr = pane.getBoundingClientRect(), tr = tile.getBoundingClientRect(), br = bar.getBoundingClientRect();
+          const P = { l: off.left + pr.left, t: off.top + pr.top, b: off.top + pr.bottom, w: pr.width };
+          const y = tr.top + tr.height / 2;
+          // weit weg von der Kachel, aber noch in der Seitenleiste
+          const far = y - P.t > P.b - y ? P.t + 30 : P.b - 30;
+          const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
+          const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+          const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
+          const px = (x, yy) => [...ctx.getImageData(Math.round(x), Math.round(yy), 1, 1).data].slice(0, 3);
+          const c = getComputedStyle(tile).getPropertyValue("--c").trim();
+          const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+          const lx = br.right - 1;
+          return { mode: tab.mode.name, c: rgb, bar: bar.getAttribute("mc-glow"), pane: pane.getAttribute("mc-glow"), float: pane.classList.contains("mc-float-pane"),
+            y: Math.round(y), far: Math.round(far), pt: Math.round(P.t), dist: Math.round(Math.abs(y - far)),
+            near: px(P.l + 2, y), farPx: px(P.l + 2, far), lineNear: px(lx, y), lineFar: px(lx, far),
+            above: px(P.l + 2, P.t - 4), below: px(P.l + 2, P.t + 4) };"""
+        out = {}
+        before = m.js("return tm.tabInfo.length;")
+        try:
+            m.js("""await toMail(); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste da", 3000); }
+              await ruhig(600); return 1;""")
+            for tile in ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton", "settingsButton"]:
+                out[tile] = m.js(f"""d.getElementById("{tile}").click();
+                  await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
+                  await ruhig(900); await takt(2);""" + measure)
+            # schwebend (Mail): Seitenleiste aus, am linken Rand einblenden
+            m.js("""await toMail(); d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            to(400); to(1)
+            out["float"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + measure)
+            to(700)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+        finally:
+            m.js(f"""await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              while (tm.tabInfo.length > {before}) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
+              await toMail(); return 1;""")
+        dist = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+        def tinted(a, base, c):
+            # deutlich anders als weiter weg und näher an der Spacefarbe
+            return dist(a, base) >= 5 and dist(a, c) < dist(base, c)
+        bad = []
+        for k in ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton", "float"]:
+            r = out.get(k) or {}
+            if not (r.get("bar") == "true" and r.get("pane") == "true" and r.get("dist", 0) >= 250
+                    and tinted(r.get("near", []), r.get("farPx", []), r.get("c", [])) and tinted(r.get("lineNear", []), r.get("lineFar", []), r.get("c", []))):
+                bad.append(k)
+        if (out.get("float") or {}).get("float") is not True:
+            bad.append("float-Zustand")
+        mail = out.get("mailButton") or {}
+        if max((abs(a - b) for a, b in zip(mail.get("above", [0]), mail.get("below", [99]))), default=99) > 4:
+            bad.append("Mail-Oberkante")
+        s = out.get("settingsButton") or {}
+        if s.get("bar") is not None or s.get("pane") is not None or dist(s.get("lineNear", [0]), s.get("lineFar", [99])) > 2:
+            bad.append("Einstellungen")
+        return not bad, f"abweichend: {bad} {out}"
+    check("Seitenleiste: Lichtschein und gefärbte Trennlinie in der Spacefarbe auf Höhe der aktiven Kachel (Mail, Adressbuch, Kalender, Aufgaben, Chat, "
+          "auch schwebend), Einstellungen ohne Schein mit neutraler Linie, in Mail kein Abbruch an der Oberkante der Ordnerliste", sidebar_glow, results)
+
     def sidebar_drag_button():
         # Seitenleiste durch Ziehen der Trennlinie nach links eingeklappt: der Seitenleisten-Knopf steht wie nach dem
         # Ausblenden über den Knopf (neben den Fensterknöpfen), nicht über ihnen (3.26.0, Adressbuch und Mail; vorher blieb der

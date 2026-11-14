@@ -2744,6 +2744,98 @@ findbar .findbar-textbox:focus {
   clip-path: inset(var(--mc-float-ct) -40px var(--mc-float-cb) 0) !important;
 }
 
+/* Lichtschein in der Spacefarbe (Maintainer 13.11.2026: Schein „C geneigt“, Reichweite 1, leise; Werte der
+   Vorschau sidebar-c5): Kern 120 × 90 px am linken Rand der Seitenleiste auf Höhe der aktiven Kachel,
+   Hauptlicht 230 × 175 px, Mitte 80 px vom Rand, je Kachel 30 px zur Mitte der Kachelspalte geneigt.
+   Stärke 16 % hell, 20 % dunkel. Gefärbte Trennlinie rechts der Bereiche-Leiste nur auf Kachelhöhe
+   (Lesart a): 35 % hell, 30 % dunkel, je 175 px nach oben und unten zurück in die normale Linienfarbe.
+   Höhe, Neigung und Farbe setzt implementation.js (mc-glow); nur Anstrich, keine Maße.
+   Gleich eingeblendet und schwebend (höhere Spezifität als .mc-float-pane) */
+:root {
+  --mt-glow-g: 16%;
+  --mt-glow-line: 35%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mt-glow-g: 20%;
+    --mt-glow-line: 30%;
+  }
+}
+
+/* (die Fläche des Scheins als Variable: Panes und die Flächen der Bereiche-Leiste darüber und darunter
+   rechnen sie mit ihrer eigenen Höhe --mt-glow-y) */
+:is(#folderPane, #calSidebar, #listPaneBox, #booksPane, #spacesToolbar)[mc-glow] {
+  --mt-glow-img:
+    radial-gradient(120px 90px at 0 var(--mt-glow-y),
+      color-mix(in srgb, var(--mt-glow-c) var(--mt-glow-g), transparent) 0%,
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.4), transparent) 45%,
+      transparent 100%),
+    radial-gradient(230px 175px at 80px calc(var(--mt-glow-y) + var(--mt-glow-tilt)),
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.7), transparent) 0%,
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.38), transparent) 35%,
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-g) * 0.12), transparent) 65%,
+      transparent 100%);
+}
+
+:is(#folderPane, #calSidebar, #listPaneBox, #booksPane)[mc-glow][mc-glow][mc-glow] {
+  background-image: var(--mt-glow-img) !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Liegt die aktive Kachel nah am oberen oder unteren Ende der Seitenleiste (Mail: Kopf der
+   Ordnerliste beginnt erst unter der Toolbar), läuft der Schein über der Seitenleiste weiter statt
+   an ihrer Kante abzubrechen: Flächen links neben der Bereiche-Leiste, so breit wie die Seitenleiste;
+   schwebend sind das die vorhandenen Flächen über und unter der Leiste */
+#spacesToolbar[mc-glow]:not([mc-float]) {
+  overflow: visible !important;
+}
+
+#spacesToolbar[mc-glow]:not([mc-float])::after,
+#spacesToolbar[mc-glow]:not([mc-float])::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(100% + 1px);
+  width: var(--mt-glow-w, 0px);
+  pointer-events: none;
+}
+
+#spacesToolbar[mc-glow]:not([mc-float])::after {
+  top: 0;
+  height: var(--mt-glow-top, 0px);
+}
+
+#spacesToolbar[mc-glow]:not([mc-float])::before {
+  bottom: 0;
+  height: var(--mt-glow-bottom, 0px);
+}
+
+#spacesToolbar[mc-glow]::after,
+#spacesToolbar[mc-glow]::before {
+  background-image: var(--mt-glow-img) !important;
+  background-size: 100% var(--mt-glow-h, 100vh) !important;
+  background-repeat: no-repeat !important;
+}
+
+#spacesToolbar[mc-glow]::after {
+  background-position: 0 0 !important;
+}
+
+#spacesToolbar[mc-glow]::before {
+  background-position: 0 100% !important;
+}
+
+#spacesToolbar[mc-glow] {
+  border-image: linear-gradient(to bottom,
+      var(--mt-sidebar-border) 0,
+      var(--mt-sidebar-border) calc(var(--mt-glow-y) - 175px),
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) - 87.5px),
+      color-mix(in srgb, var(--mt-glow-c) var(--mt-glow-line), var(--mt-sidebar)) var(--mt-glow-y),
+      color-mix(in srgb, var(--mt-glow-c) calc(var(--mt-glow-line) * 0.45), var(--mt-sidebar)) calc(var(--mt-glow-y) + 87.5px),
+      var(--mt-sidebar-border) calc(var(--mt-glow-y) + 175px),
+      var(--mt-sidebar-border) 100%) 0 1 0 0 / 0 1px 0 0 !important;
+}
+
 #unifiedToolbar {
   position: static !important;
 }

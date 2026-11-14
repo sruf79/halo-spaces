@@ -7637,6 +7637,70 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: Klick auf einen Tag im Mini-Kalender bringt die Liste zu diesem Tag (auch zum Monatsersten und zurück)", agenda_minimonth_click, results)
 
+    def agenda_minimonth_follow():
+        # Scrollen in der Terminliste der Today-Pane: der graue Kreis (gewählter Tag) im Mini-Kalender wandert zum obersten
+        # sichtbaren Tag, schon wenn nur die untersten Zeilen des Vortags hereinragen; die Liste lädt dabei nicht neu; Klick
+        # (echte Maus) auf den noch gewählten Tag bringt Liste und Kreis zu ihm zurück
+        prep = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), ids = [];
+          const now = today(), last = new Date(now.year, now.month + 1, 0).getDate();
+          for (let day = 1; day <= last; day++) for (const hour of [9, 14]) { const e = new CalEvent(); e.title = `Halo Folgen ${day}/${hour}`; e.calendar = c;
+            const st = today(); st.day = day; st.isDate = false; st.hour = hour; const en = st.clone(); en.hour = hour + 1; e.startDate = st; e.endDate = en; ids.push((await c.addItem(e)).id); }
+          w.__mcFolgenIds = ids;
+          await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+          const agenda = d.getElementById("agenda");
+          await bis(() => agenda.querySelectorAll(":scope > li.agenda-listitem").length >= last * 2, "Termine in der Liste", 8000);
+          // Liste auf den 1. des Monats, dann um einige Tage nach unten scrollen
+          const first = today(); first.day = 1; w.TodayPane.setDay(first);
+          await bis(() => w.TodayPane.start.day == 1, "Today-Pane auf dem 1.", 3000); await ruhig(500);
+          await stabil(() => [agenda.scrollTop, agenda.scrollHeight], 3000);
+          return { last, scrolls: agenda.scrollHeight > agenda.clientHeight * 2 };""")
+        res = {"prep": prep}
+        try:
+            res["steps"] = m.js(r"""
+              const agenda = d.getElementById("agenda"), mm = d.getElementById("today-minimonth");
+              const rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")].filter(li => li.textContent.includes("Halo Folgen"));
+              const sel = () => [...mm.querySelectorAll("td.minimonth-day[selected]")].map(td => td.textContent.trim() + (td.hasAttribute("othermonth") ? "x" : ""));
+              const dayOf = li => +(li.dateString || "").slice(6, 8);
+              let reloads = 0; const mo = new w.MutationObserver(r => r.forEach(x => (reloads += x.removedNodes.length))); mo.observe(agenda, { childList: true });
+              const scrollTo = async y => { agenda.dispatchEvent(new w.WheelEvent("wheel", { deltaY: 1 })); agenda.scrollTop = y;
+                await bis(() => Math.abs(agenda.scrollTop - Math.min(y, agenda.scrollHeight - agenda.clientHeight)) < 2, "gescrollt", 1500).catch(() => {}); await ruhig(200); };
+              const ar = () => agenda.getBoundingClientRect();
+              const out = { before: sel() };
+              // Tag 5 oben: erste Zeile des 5. an die Oberkante
+              const r5 = rows().find(li => dayOf(li) == 5);
+              await scrollTo(agenda.scrollTop + r5.getBoundingClientRect().top - ar().top);
+              out.top5 = sel();
+              // etwas hoch: die letzte Zeile des 4. ragt 4 px herein
+              const r4 = rows().filter(li => dayOf(li) == 4).pop();
+              await scrollTo(agenda.scrollTop + r4.getBoundingClientRect().bottom - ar().top - 4);
+              out.peek4 = sel(); out.startStill = w.TodayPane.start.day;
+              mo.disconnect(); out.reloads = reloads; out.value = mm.value.getDate();
+              return out;""")
+            rect = m.js(r"""
+              const mm = d.getElementById("today-minimonth");
+              const td = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")].find(c => c.textContent.trim() == "1");
+              const r = td.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];""")
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": int(rect[0]), "y": int(rect[1]), "origin": "viewport"},
+                       {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            res["back"] = m.js(r"""
+              const agenda = d.getElementById("agenda"), mm = d.getElementById("today-minimonth");
+              await ruhig(400); await stabil(() => [agenda.scrollTop, agenda.scrollHeight], 3000);
+              const row = [...agenda.querySelectorAll(":scope > li.agenda-listitem")].find(li => li.textContent.includes("Halo Folgen"));
+              return { sel: [...mm.querySelectorAll("td.minimonth-day[selected]")].map(td => td.textContent.trim()),
+                       off: Math.round(row.getBoundingClientRect().top - agenda.getBoundingClientRect().top), start: w.TodayPane.start.day };""")
+        finally:
+            m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+            m.js(CAL_CHECK_JS + r"""
+              const c = testCalendar(); for (const id of w.__mcFolgenIds || []) { const it = await c.getItem(id); if (it) await c.deleteItem(it); }
+              delete w.__mcFolgenIds; try { w.TodayPane.setDay(today()); } catch {} return true;""")
+        s, b = res.get("steps") or {}, res.get("back") or {}
+        ok = (bool(prep.get("scrolls")) and s.get("before") == ["1"] and s.get("top5") == ["5"] and s.get("peek4") == ["4"]
+              and s.get("startStill") == 1 and s.get("value") == 1 and s.get("reloads") == 0
+              and b.get("sel") == ["1"] and b.get("start") == 1 and b.get("off") is not None and abs(b["off"]) <= 2)
+        return ok, f"{res}"
+    check("Today-Pane: grauer Kreis im Mini-Kalender folgt beim Scrollen dem obersten sichtbaren Tag der Liste, Klick auf den gewählten Tag bringt die Liste zurück", agenda_minimonth_follow, results)
+
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird
         res = m.js(r"""

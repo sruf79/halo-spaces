@@ -330,6 +330,27 @@ unified-toolbar button:hover,
   color: var(--mt-text) !important;
 }
 
+/* Toolbar-Knöpfe immer nur als Symbol, auch wenn in „Symbolleiste anpassen“
+   eine Darstellung mit Text gewählt ist (Thunderbird setzt dann icons-beside-text,
+   icons-above-text oder text-only an die Toolbar): sonst werden die Knöpfe
+   breiter bzw. höher und überdecken den Titel der Today-Pane
+   (Maintainer 14.11.2026, GitHub #62) */
+unified-toolbar:not(.icons-only) .unified-toolbar-button .button-label {
+  display: none !important;
+}
+
+unified-toolbar.text-only .unified-toolbar-button .button-icon {
+  display: revert !important;
+}
+
+unified-toolbar.icons-above-text .unified-toolbar-button {
+  flex-direction: row !important;
+}
+
+unified-toolbar:not(.icons-only) {
+  --unified-toolbar-content-min-height: calc(16px + var(--unified-toolbar-button-spacing-height)) !important;
+}
+
 /* Suchfeld als Kapsel (Variablen wirken bis ins Shadow-DOM) */
 global-search-bar {
   --button-border-radius: var(--mt-radius-capsule, 999px) !important;

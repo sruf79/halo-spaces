@@ -12054,6 +12054,51 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Today-Pane: Fläche oben in der Toolbar-Zeile bündig mit der Pane darunter (linke und rechte Kante)", today_top_flush, results)
 
+    def toolbar_icons_only_any_style():
+        # GitHub #62: mit „Symbol und Text“, „Text unter Symbol“ oder „Nur Text“ in „Symbolleiste anpassen“ wurden die
+        # Knöpfe breiter bzw. höher und überdeckten den Titel der Today-Pane; jetzt immer nur Symbole (Maintainer
+        # 14.11.2026), gleiche Zeilenhöhe wie bei „nur Symbole“, kein Knopf über dem Titel
+        res = m.js('''
+          const PREF = "toolbar.unifiedtoolbar.buttonstyle";
+          const saved = Services.prefs.getIntPref(PREF, 2);
+          const cmd = d.getElementById("calendar_toggle_todaypane_command");
+          const tb = d.querySelector("unified-toolbar");
+          const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).display != "none"; };
+          const over = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+          const out = {};
+          try {
+            for (const [name, go] of [["mail", toMail], ["calendar", async () => { tm.openTab("calendar", {}); }]]) {
+              await go(); await ruhig(900);
+              const was = w.TodayPane?.isVisible;
+              if (!was) { cmd.doCommand(); await ruhig(900); }
+              const res = {};
+              for (const style of [2, 0, 1, 3]) {
+                Services.prefs.setIntPref(PREF, style);
+                await until(() => tb.classList.contains(["icons-beside-text", "icons-above-text", "icons-only", "text-only"][style]));
+                await ruhig(500);
+                const btns = [...tb.querySelectorAll(".unified-toolbar-button")].filter(vis);
+                const title = d.getElementById("mcTodayTitle").getBoundingClientRect();
+                res[style] = {
+                  n: btns.length,
+                  labels: btns.filter(b => [...b.querySelectorAll(".button-label")].some(vis)).length,
+                  noIcon: btns.filter(b => { const i = b.querySelector(".button-icon"); return i && !vis(i); }).length,
+                  hit: btns.filter(b => over(b.getBoundingClientRect(), title)).map(b => b.className).slice(0, 3),
+                  h: Math.round(tb.getBoundingClientRect().height),
+                };
+              }
+              out[name] = res;
+              if (!was) { cmd.doCommand(); await ruhig(800); }
+            }
+          } finally {
+            Services.prefs.setIntPref(PREF, saved); await ruhig(500);
+            await toMail();
+          }
+          return out;''')
+        ok = all(v["2"]["n"] > 0 and all(s["n"] == v["2"]["n"] and s["labels"] == 0 and s["noIcon"] == 0 and not s["hit"]
+                                          and s["h"] == v["2"]["h"] for s in v.values()) for v in res.values())
+        return ok, f"{res}"
+    check("Toolbar: Knöpfe bei jeder Darstellung in „Symbolleiste anpassen“ nur als Symbol, gleiche Höhe, kein Knopf über dem Titel der Today-Pane (Mail, Kalender)", toolbar_icons_only_any_style, results)
+
     def statusbar():
         # kein Today-Pane-Knopf mehr unten rechts (das Symbol oben übernimmt
         # weiter dessen Tageszahl); Leiste flach, Grau der Seitenleiste läuft

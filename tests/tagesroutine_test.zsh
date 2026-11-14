@@ -86,7 +86,8 @@ pruefe "nichts_passend um 19:40: noch warten (20:00 liegt vor 20:30)" "$(np 2026
 pruefe "nichts_passend um 20:00: Ende (nächste Stunde 21:00 nach 20:30)" "$(np 2026-11-12T20:00:00+01:00)" '^ende$'
 # „Plan abgearbeitet“ ist kein Ende (Maintainer 13.11.2026): warten bis zur vollen Stunde, dann neu planen; nur bis 20:30
 pruefe "Plan abgearbeitet um 14:20: warten bis 15:00, dann neu planen" "$(lauf 2026-11-12T14:20:00+01:00 30)" \
-  'Plan abgearbeitet: ohne Claude warten bis 15:00, dann Kontingent neu lesen und neu planen' '3 Plan-Runden hintereinander ohne erledigten Eintrag'
+  'Plan abgearbeitet: ohne Claude warten bis 15:00, dann Kontingent neu lesen und neu planen' \
+  'leerer Plan genauso \(warten, neu planen, kein Ende\)' '3 Plan-Runden hintereinander mit Einträgen, aber ohne erledigten'
 pruefe "Plan abgearbeitet um 20:10: Ende, kein neuer Plan" "$(lauf 2026-11-12T20:10:00+01:00 30)" \
   'Plan abgearbeitet: Ende \(nächste volle Stunde nach 20:30\), kein neuer Plan'
 # Wochenende ab 09:00 (Maintainer 13.11.2026: zuerst 12:00, dann „um 10::00“, zuletzt „Start am Wochenende um 09:00“)
@@ -136,4 +137,19 @@ print kaputt > $T/kaputt.json
 pruefe "Häufung: Skript scheitert → Rückfall-Zeile, Plan-Runde läuft trotzdem" \
   "$(DIR=$T TAG=2026-11-15 HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py HALO_HAEUFUNG_EINGABE=$T/kaputt.json haeufung_zeile; print rc=$?)" \
   '^FEHLER, Skript gescheitert .*selbst gruppieren' 'rc=0'
+# Leerer Plan ist kein Ende (Berichtigung von neon 14.11.2026 zur Entscheidung 13.11.2026)
+eval "$(sed -n '/^nichts_passend_weiter()/,/^}/p;/^nach_plan()/,/^}/p' $SKRIPT)"
+ts() { python3 -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $1 }
+L=$(ts 2026-11-14T20:30:00+01:00)
+pruefe "Leerer Plan in Runde 1 um 09:10: warten bis 10:00 statt Ende, Zähler bleibt 0" \
+  "$(nach_plan 0 0 0 $(ts 2026-11-14T09:10:00+01:00) $L)" "^warten $(ts 2026-11-14T10:00:00+01:00) 0\$"
+pruefe "Leerer Plan in Runde 3 um 15:06: warten bis 16:00, Zähler bleibt 2" \
+  "$(nach_plan 0 0 2 $(ts 2026-11-14T15:06:00+01:00) $L)" "^warten $(ts 2026-11-14T16:00:00+01:00) 2\$"
+pruefe "Leerer Plan um 20:10: Ende (nächste volle Stunde nach 20:30)" "$(nach_plan 0 0 0 $(ts 2026-11-14T20:10:00+01:00) $L)" '^ende 0$'
+pruefe "Plan mit Einträgen, keiner erledigt, dritter in Folge: Leerlauf-Ende" "$(nach_plan 2 0 2 $(ts 2026-11-14T15:06:00+01:00) $L)" '^leerlauf 3$'
+pruefe "Plan mit Einträgen, einer erledigt: Zähler zurück auf 0, warten" "$(nach_plan 2 1 2 $(ts 2026-11-14T15:06:00+01:00) $L)" '^warten [0-9]+ 0$'
+pruefe "Leere Pläne zählen nicht zum Leerlauf: viele leere Runden ohne Ende" \
+  "$(o=0; for i in 1 2 3 4 5; do w=(${=$(nach_plan 0 0 $o $(ts 2026-11-14T1${i}:10:00+01:00) $L)}); o=$w[-1]; print -n "$w[1] "; done)" '^(warten ){5}$'
+pruefe "Skript: kein Ende mehr mit „kein Plan in Plan-Runde“" "$(grep -c 'kein Plan in Plan-Runde' $SKRIPT)" '^0$'
+pruefe "Skript: Bericht „Plan-Runde n: 0 Einträge, nächste Planung“" "$(grep -c '0 Einträge, nächste Planung' $SKRIPT)" '^[1-9]'
 exit $FEHLER

@@ -25,7 +25,9 @@ export HALO_LAUF=tagesroutine
 # Plan abgearbeitet (Maintainer 13.11.2026, „Ja“ zum Vorschlag): kein Ende, sondern ohne Claude bis zur
 #   nächsten vollen Stunde warten (nichts_passend_weiter, nur vor LETZTER_BEGINN), Kontingent neu lesen und
 #   eine neue Plan-Runde (Plan <datum>-tagesroutine-plan-<n>.tsv, heute Bearbeitetes ausgeschlossen).
-#   Ende bei leerem Plan einer Plan-Runde oder nach 3 Plan-Runden hintereinander ohne erledigten Eintrag.
+#   Ein leerer Plan ist ebenfalls kein Ende (Berichtigung von neon 14.11.2026): warten wie oben, Bericht
+#   „Plan-Runde n: 0 Einträge, nächste Planung HH:00“. Ende nur nach LETZTER_BEGINN oder nach 3 Plan-Runden
+#   hintereinander mit Einträgen, aber ohne erledigten (leere Pläne zählen nicht; nach_plan).
 # Häufung (Maintainer 14.11.2026, „der automatismus soll natürlich bei der tagesroutine und auch bei der
 #   nachtroutine automatisch eingesetzt werden“): vor jeder Plan-Runde (auch beim stündlichen Neuplanen)
 #   tests/haeufung.py; Gruppen und Zuschläge aus ~/halo-nacht/<datum>-haeufung.md sind für den Plan verbindlich.
@@ -361,6 +363,18 @@ nichts_passend_weiter() {   # <jetzt> <letzter Beginn> (Unix-Sekunden)
   local bis=$(( $1 - $1 % 3600 + 3600 ))
   (( bis < $2 )) && print "warten $bis" || print ende
 }
+# Nach einer Plan-Runde ohne offenen Eintrag (leerer Plan oder Plan abgearbeitet; Maintainer 13.11.2026, „Ja“;
+# leerer Plan ab 14.11.2026 kein Ende mehr, Berichtigung von neon): Leerlauf-Schutz zählt nur Pläne MIT
+# Einträgen, von denen keiner erledigt wurde; leere Pläne lassen den Zähler stehen.
+# Ausgabe: „leerlauf <n>“ (3 Pläne ohne Ergebnis, Ende), „ende <n>“ (nächste volle Stunde nach dem letzten
+# Beginn) oder „warten <Unix-Sekunden> <n>“; <n> ist der neue Zählerstand.
+nach_plan() {   # <geplante Einträge> <davon erledigt> <Zähler bisher> <jetzt> <letzter Beginn>
+  local o=$3 w
+  if (( $1 > 0 )); then (( $2 > 0 )) && o=0 || o=$(( o + 1 )); fi
+  (( o >= 3 )) && { print "leerlauf $o"; return }
+  w=$(nichts_passend_weiter $4 $5)
+  [[ $w == ende ]] && print "ende $o" || print "$w $o"
+}
 # Text für den Trockenlauf: was nach abgearbeitetem Plan geschähe (HALO_JETZT oder jetzt)
 nichts_passend_weiter_text() {
   local j l w
@@ -422,7 +436,8 @@ if [[ -n $TROCKEN ]]; then
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
     print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
     print "              Plan abgearbeitet: $(nichts_passend_weiter_text);"
-    print "              Ende bei leerem Plan einer Plan-Runde oder nach 3 Plan-Runden hintereinander ohne erledigten Eintrag"
+    print "              leerer Plan genauso (warten, neu planen, kein Ende);"
+    print "              Ende nur nach $KONF[LETZTER_BEGINN] oder nach 3 Plan-Runden hintereinander mit Einträgen, aber ohne erledigten"
   fi
   exit 0
 fi
@@ -668,9 +683,22 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
     PLAN_RUNDEN+="${PLAN_RUNDEN:+
 }- Plan-Runde $PLANRUNDE ($T0, $E[M_KOMPLEX]): $NEU Einträge geplant (${PLAN:t})"
     if (( NEU == 0 )); then
-      (( PLANRUNDE == 1 )) && ENDGRUND="kein Plan (keine geeignete Aufgabe oder Plan-Runde gescheitert)" \
-        || ENDGRUND="kein Plan in Plan-Runde $PLANRUNDE (keine geeignete Aufgabe mehr oder Plan-Runde gescheitert)"
-      break
+      # Leerer Plan ist kein Ende (Berichtigung von neon 14.11.2026 zur Entscheidung 13.11.2026): wie nach
+      # „Plan abgearbeitet“ ohne Claude bis zur nächsten vollen Stunde warten, dann neu planen (nur vor
+      # LETZTER_BEGINN). Leere Pläne zählen nicht zum Leerlauf-Schutz.
+      w=(${=$(nach_plan 0 0 $OHNE_ERGEBNIS $(date +%s) $LETZTER)})
+      OHNE_ERGEBNIS=$w[-1]
+      if [[ $w[1] == ende ]]; then
+        PLAN_RUNDEN+=", nächste volle Stunde nach $KONF[LETZTER_BEGINN]"
+        ENDGRUND="Plan-Runde $PLANRUNDE: 0 Einträge, nächste volle Stunde nach $KONF[LETZTER_BEGINN] – kein neuer Plan"; break
+      fi
+      bis=$w[2]
+      log "Plan-Runde $PLANRUNDE: 0 Einträge, nächste Planung $(date -r $bis +%H:%M)"
+      PLAN_RUNDEN+="
+  - Plan-Runde $PLANRUNDE: 0 Einträge, nächste Planung $(date -r $bis +%H:%M)"
+      while (( $(date +%s) < bis )); do sleep 120; done
+      GEPLANT=
+      continue    # Zeitgrenze, Pause, belegt, Tageslimit und Kontingent prüft der Schleifenanfang
     fi
     continue      # Kontingent vor dem ersten Eintrag erneut prüfen
   fi
@@ -680,18 +708,18 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
   if [[ -z $ZEILE ]]; then
     # Plan abgearbeitet (Maintainer 13.11.2026, „Ja“): kein Ende, sondern wie nach „nichts_passend“ ohne Claude
     # bis zur nächsten vollen Stunde warten, dann Kontingent neu lesen und neu planen (nur vor LETZTER_BEGINN).
-    # Schutz vor Leerlauf: nach 3 Plan-Runden hintereinander ohne erledigten Eintrag Ende.
-    (( ERLEDIGT > ERLEDIGT_VOR_PLAN )) && OHNE_ERGEBNIS=0 || OHNE_ERGEBNIS=$((OHNE_ERGEBNIS + 1))
+    # Schutz vor Leerlauf: nach 3 Plan-Runden hintereinander mit Einträgen, aber ohne erledigten, Ende.
+    w=(${=$(nach_plan 1 $((ERLEDIGT - ERLEDIGT_VOR_PLAN)) $OHNE_ERGEBNIS $(date +%s) $LETZTER)})
+    OHNE_ERGEBNIS=$w[-1]
     PLAN_RUNDEN+="
   - abgearbeitet $(date +%H:%M): $((ERLEDIGT - ERLEDIGT_VOR_PLAN)) erledigt"
-    if (( OHNE_ERGEBNIS >= 3 )); then
+    if [[ $w[1] == leerlauf ]]; then
       ENDGRUND="Plan abgearbeitet, 3 Plan-Runden hintereinander ohne erledigten Eintrag – kein neuer Plan"; break
     fi
-    w=$(nichts_passend_weiter $(date +%s) $LETZTER)
-    if [[ $w == ende ]]; then
+    if [[ $w[1] == ende ]]; then
       ENDGRUND="Plan abgearbeitet, nächste volle Stunde nach $KONF[LETZTER_BEGINN] – kein neuer Plan"; break
     fi
-    bis=${w#warten }
+    bis=$w[2]
     log "Plan abgearbeitet: warte bis $(date -r $bis +%H:%M), dann neu planen"
     PLAN_RUNDEN+=", warte bis $(date -r $bis +%H:%M), dann neu planen"
     while (( $(date +%s) < bis )); do sleep 120; done

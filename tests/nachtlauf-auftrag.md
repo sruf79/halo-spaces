@@ -153,6 +153,15 @@ Reihenfolge:
       - Abhängigkeiten: Reihen (n/m) nur der nächste Schritt; Einträge, die
         zusammengehören (Zusammenlegungen und angehängte Bugs aus Schritt 1),
         bleiben zusammen und werden gemeinsam bewertet.
+      - Häufung (Maintainer 14.11.2026, Wortlaut in ENTSCHEIDUNGEN.md): Verweisen
+        mehrere offene Einträge auf dasselbe Problem (gleicher Bereich und
+        dieselbe Stelle der Oberfläche, z. B. Symbolleisten-Symbole einer
+        geöffneten Mail), steigt die Priorität schrittweise mit jedem weiteren
+        Eintrag, nicht erst ab einer Mindestzahl: je weiterer Eintrag der
+        Nutzen der ganzen Gruppe um eine halbe Stufe (aufgerundet, höchstens
+        auf 5). Der Director erledigt die Gruppe am Stück in derselben Nacht,
+        nennt im Plan die Gruppe, alle Nummern und den Zuschlag. Schwere und
+        Rahmenregeln a–g gehen vor, der Zuschlag gilt nur im Nutzen.
    c) Zeitbudget und Reihenfolge. Große Einträge, die lange ununterbrochene
       Arbeit brauchen, gehören in die Nacht (Zusatzinfo des Maintainers vom
       13.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „… dass ich selbst schlafe

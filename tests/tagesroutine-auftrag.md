@@ -46,7 +46,8 @@ Plan-Runde („JETZT: Plan-Runde“):
   mehr gemeinsame punkte verknüpft sind“, „der automatismus soll natürlich bei der tagesroutine und auch
   bei der nachtroutine automatisch eingesetzt werden“): Das Skript ruft vor jeder Plan-Runde
   tests/haeufung.py auf; Ergebnis oben unter „Häufung (Skript)“, Gruppen in
-  ~/halo-nacht/<datum>-haeufung.md. Diese Gruppen sind verbindlich: Einträge einer Gruppe stehen im Plan
+  ~/halo-nacht/<datum>-haeufung.md. Fehlt diese Zeile (ältere Kopie des Skripts), selbst
+  python3 tests/haeufung.py aufrufen. Diese Gruppen sind verbindlich: Einträge einer Gruppe stehen im Plan
   direkt hintereinander und gemeinsam (ganz oder, wenn Teile nicht geeignet sind, die geeigneten);
   Gruppen kommen innerhalb gleicher Einstufung vor Einzeleinträgen, größerer Zuschlag zuerst (Schritt 1b
   und Schwere gehen vor). Der Abschnitt „## Plan“ nennt jede Gruppe (G1 …, ids, Zuschlag). Eigene

@@ -15130,8 +15130,28 @@ class CardEnhancer {
     const unpin = () => (pinned = false);
     const pinEvents = ["wheel", "pointerdown", "keydown", "touchstart"];
     pinEvents.forEach(type => agenda.addEventListener(type, unpin, { passive: true }));
-    const pinMo = new w.MutationObserver(() => pinned && scrollToAnchor());
+    // Zeilen wachsen oft erst nach dem Einfügen (Emoji vor dem Titel lässt ihn
+    // umbrechen, Zusatz „in 2 hr“ kommt dazu): dann rutschte der Tag um eine
+    // Zeile nach unten bzw. die Liste stand nicht mehr am Ende – nach jeder
+    // Größenänderung einer Zeile neu ausrichten, solange niemand gescrollt hat
+    const pinRo = w.ResizeObserver ? new w.ResizeObserver(() => pinned && scrollToAnchor()) : null;
+    const pinMo = new w.MutationObserver(records => {
+      if (pinRo) {
+        for (const r of records) {
+          r.removedNodes.forEach(n => n.nodeType == 1 && pinRo.unobserve(n));
+          r.addedNodes.forEach(n => n.nodeType == 1 && pinRo.observe(n));
+        }
+      }
+      if (pinned) {
+        scrollToAnchor();
+      }
+    });
     pinMo.observe(agenda, { childList: true });
+    if (pinRo) {
+      for (const li of agenda.children) {
+        pinRo.observe(li);
+      }
+    }
     // Thunderbird zeigt für andere Tage als heute nur diesen einen Tag –
     // hier immer den Monat des Tags bis zum Monatsende
     agenda.update = async function (date) {
@@ -15172,6 +15192,7 @@ class CardEnhancer {
       delete agenda.__mcAtEnd;
       pinEvents.forEach(type => agenda.removeEventListener(type, unpin));
       pinMo.disconnect();
+      pinRo?.disconnect();
       Object.defineProperty(agenda, "numberOfDays", {
         configurable: true,
         get: () => Services.prefs.getIntPref("calendar.agenda.days", 14),

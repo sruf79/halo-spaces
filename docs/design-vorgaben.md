@@ -51,16 +51,69 @@ vom 14.11.2026 (Vorgabe zur Rolle, kein Wortlaut des Maintainers außer dem Eins
 
 ## 2. Charakter des Designers
 
-(Vorgabe des Auftrags, 14.11.2026; Entscheidungsweg nach dem Maintainer, 14.11.2026, E.)
+(Vorgabe des Auftrags, 14.11.2026; Wortlaute des Maintainers vom 14.11.2026 in E.)
 
 Der Designer ist ruhig und genau. Er arbeitet nur nach den Vorgaben dieser Datei, nach Vorlagen und
 nach Zitaten des Maintainers; er erfindet keine Gestaltung, die sich darauf nicht stützen lässt. Er
-misst, statt zu schätzen, und zeigt Vorher und Nachher. Gibt es eine Apple-Vorlage, folgt er ihr;
-gibt es keine, entscheidet er selbst nach diesen Vorgaben („wenn es kein vorbild von apple gibt …
-kann der designer basierend auf unseren vorgaben selbst entscheiden“, Maintainer 14.11.2026). Nur
-was eine Entscheidung des Maintainers braucht, legt er ihm als Vorschaubild vor (Abschnitt 8).
-Modell: mindestens Opus, Fable nur nach der Fable-Regel (Abschnitt 11). Arbeitsauftrag:
-Abschnitt 11 und `tests/designer-auftrag.md`.
+misst, statt zu schätzen, und sieht sich seine Bilder selbst an, bevor er etwas abgibt. Gibt es eine
+Apple-Vorlage, folgt er ihr; gibt es keine, entscheidet er selbst nach diesen Vorgaben („wenn es kein
+vorbild von apple gibt … kann der designer basierend auf unseren vorgaben selbst entscheiden“).
+Modell: mindestens Opus, Fable nur nach der Fable-Regel (Abschnitt 11). Arbeitsauftrag: Abschnitt 11
+und `tests/designer-auftrag.md`.
+
+### 2a. Was „Halo“ heißt
+
+Wortlaut des Maintainers (14.11.2026, E): „halo bedeutet Lichthof und bezieht sich bei unserer
+extension auf die farbigen spaces und in zukunft auch auf deren lichtschein in der sidebar (wenn
+diese umgesetzt wurden).“ Für den Designer heißt das (Ableitung, kein Wortlaut): Der Lichthof gehört
+zu den farbigen Spaces, also zur Bereiche-Leiste, zur aktiven Kachel und (nach Umsetzung, B `…IekNU`)
+zum Lichtschein in der Seitenleiste in der Farbe des aktiven Space. An Stellen ohne Vorlage überträgt
+er den Gedanken nur so: Farbe und Licht kommen vom aktiven Space und bleiben leise (Lichtschein 16 %
+hell / 20 % dunkel, gefärbte Linie 35 % / 30 %, Abschnitt 4); übrige Flächen und Pillen bleiben in
+Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Einstellungen und
+Webseiten-Space haben keinen Schein (E 13.11.2026).
+
+### 2b. Rangfolge bei Konflikten zwischen Regeln
+
+Ableitung aus den Belegen (keine ausdrückliche Rangliste des Maintainers; vom Director bestätigt
+anzuwenden, bei Zweifel 2d):
+1. **G1 Mail-Funktion** vor allem Design: „das design ist wichtig aber nicht das einzig wichtige“, „die
+   funktionalität eines email-clients muss gewährleistet sein“ (13.11.2026).
+2. **G2 nichts ersatzlos entfernen** (1.11.2026); Ausnahme nur bei belegtem Nutzen null (P7).
+3. **Ausdrückliche Entscheidung des Maintainers mit Wortlaut** vor der Apple-Vorlage, die neuere vor
+   der älteren. Belege: Kapsel für Knöpfe (5.11.2026) obwohl die Dialogvorlage gerundete Rechtecke
+   zeigt (F4); Lichtschein-Schalter trotz „Optionen nur wie Apple“ (13.11.2026); Aufgaben-Space mit
+   eigenem Vorbild (11.11.2026).
+4. **G14 Einheitlichkeit** vor der einzelnen Vorlage: Der Aufgaben-Space folgt in der Optik dem
+   Halo-Design, nicht Erinnerungen („optik … an vorhandenem user design von halo.spaces orientieren“,
+   11.11.2026); „die spaces dürfen nicht wie unterschiedliche apps aussehen“ (14.11.2026).
+5. **Apple-Vorlage** (G3), gemessen.
+6. **Ruhe** (G5, 2c).
+7. Eigenes Urteil nach P1 (Anspruch „großartig“), begründet im Bericht.
+
+### 2c. Was „ruhig genug“ heißt
+
+Aus den Belegen, messbar wo möglich:
+- **Keine zusätzlichen Konturen oder Ringe** für Zustände: Rahmen um die aktive Kachel abgelehnt
+  („wirkt wie der macOS-Fokusring“), Glimmen abgelehnt (M `spaces-leiste-aktiv`); Pillen in Ruhe ohne
+  Haarlinie, nur Fläche (B `…Ih2aA`).
+- **Kleine Kontrastschritte:** aktive Kachel Fläche 16 % statt 11 %; Hover 4,5 % / gedrückt 8 % (hell),
+  7 % / 12 % (dunkel); Trennlinien 8 %; kein Sprung von leise auf kräftig (Abschnitt 4).
+- **Keine getönten großen Flächen:** Seitenleiste in Bereichsfarbe „zu unruhig“, getönte Auswahlfelder
+  „sieht nicht gut aus“ (V2, V3); Farbe nur als leiser Schein (2a).
+- **Nichts doppelt:** gleiche Symbole nicht zweimal sichtbar (Entwurf E abgelehnt, V3); kein
+  Hinweis, der „zu sehr nach hier musste du hinklicken“ wirkt (LED-Streifen, V3).
+- **Abstände und Maße aus Abschnitt 4**, keine neuen Zwischenwerte ohne Vorlage.
+- **Keine Sprünge** in Animationen (G8); Suchfelder ohne Hover (G9).
+- **Weniger Text auf einmal** (M `ui-texte-kiss`: „so wenig Information wie möglich auf einmal zeigen,
+  wie Apple“).
+
+### 2d. Letzter Ausweg
+
+Wortlaut des Maintainers (14.11.2026, E): „wenn der designer trotz abwägung der grundphilosophie noch
+immer keine entscheidung treffen konnte kann er auch mich fragen.“ Dann über den Vorschau-Weg
+(Abschnitt 8): Varianten als Bilder, Empfehlung, „Wartet auf OK“.
+
 ## 3. Harte Grundphilosophien (Grund für einen Einspruch)
 
 Nur ein Verstoß gegen eine dieser Regeln begründet einen Einspruch des Directors (Wortlaut des
@@ -303,6 +356,8 @@ Verfahren (Vorgabe des Auftrags, 14.11.2026, keine Entscheidung des Maintainers)
   task nicht erldigen konnte weil unklarheiten entstehen müssen diese unklarheiten so bald wie möglich
   erwähnt werden. beim nachtlauf reicht der morgenbericht, untertags kann mich die session neon direkt
   kontaktieren und nachfragen“. Also beim Auftreten, nicht erst am Ende des Laufs.
+- **Letzter Ausweg** (Abschnitt 2d): keine Entscheidung trotz Abwägung → Maintainer fragen, über
+  Vorschaubilder wie folgt.
 - **Entscheidung des Maintainers nötig → Vorschaubilder.** Wortlaut (14.11.2026, E): „wenn es
   wirklich offene fragen vom designer gibt die meine entscheidungen in bezug auf design oder grafik
   benötigen möchte ich immer anhand von vorschaubildern entscheiden, die mir der designer vorlegt.“
@@ -347,7 +402,7 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
   favoriten - option a“; Vorbild Apple Mail, V `mail-seitenleiste-ausgeklappt-dunkel.webp`). Die
   Breite folgt nicht der Zahl 240 px, sondern der Vorlage und der Bedingung, dass die Aufgabenliste
   unter Linux ESR nicht zu schmal wird (Grund der Rücknahme 32f9d08, 13.11.2026); Prüfung in
-  `run_checks()`. Hell fehlt als Vorlage (9a, Nr. 5), dunkel genügt für die Ausrichtung.
+  `run_checks()`. Hell fehlt als Vorlage (9a, Nr. 3), dunkel genügt für die Ausrichtung.
 - **F3 Halo-Umfang.** Entschieden: kein Apple-Vorbild, also entscheidet der Designer nach den
   Vorgaben (Maintainer 14.11.2026: „wenn es kein vorbild von apple gibt (wie bei f3) kann der designer
   basierend auf unseren vorgaben selbst entscheiden“). Rahmen: P2, G5 (nicht wie Fokusring, ruhig),
@@ -368,22 +423,25 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
 - **F6 Apple zuerst, sonst eigene Entscheidung.** Entschieden durch den Maintainer (14.11.2026, F3
   oben): Vorlage vorhanden → wie Apple; keine Vorlage → Designer entscheidet nach den Vorgaben;
   „nichts ändern“ nur, wenn die Vorgaben selbst widersprechen (dann Vorschaubild, Abschnitt 8).
-- **F7 Größe in der Anhang-Kachel.** Frage des Maintainers (14.11.2026): „ist es für einen modernen
-  email-client wirklich essentiell bei den attachments auch die dateigrösse anzuzeigen? wie machen das
-  andere email-clients, wie macht es apple? das sollte die frage bereits beantworten.“ Befund:
+- **F7 Größe in der Anhang-Kachel.** Der Maintainer überlässt die Entscheidung dem Designer
+  (14.11.2026, E): „fraglich ist nur, ob outlook als besonders schöner und moderner email client gilt.
+  andere email clients welche als schöner und moderner mit besserem design gelten haben vielleicht
+  keine dateigrösse. der designer soll hier entscheiden.“ Belege:
   - Apple Mail zeigt keine Größe: V `mail-anhang-kachel-download-knopf.png` (Symbol, Name fett
     zweizeilig, runder Download-Knopf) und V `mail-anhaenge-kacheln-hover.webp` (zwei Kacheln, beim
-    Überfahren nur Tooltip mit vollem Dateinamen), beide ohne Größe.
-  - Thunderbird zeigt Größe je Anhang und die Summe (Bugzilla 623346 „Show Total File Size of all
-    attachments“, behoben 2011, https://bugzilla.mozilla.org/show_bug.cgi?id=623346; gHacks,
-    https://www.ghacks.net/?p=22968).
+    Überfahren nur Tooltip mit vollem Dateinamen).
+  - Outlook für macOS zeigt die Größe unter dem Namen („77,9 KB“) in umrandeten Kacheln mit Chevron
+    (Bildschirmfoto des Maintainers, 14.11.2026, Sitzungsbild `images/8.png`, nicht im Repo).
+  - Thunderbird zeigt Größe je Anhang und die Summe (Bugzilla 623346, behoben 2011,
+    https://bugzilla.mozilla.org/show_bug.cgi?id=623346; gHacks, https://www.ghacks.net/?p=22968).
   - Gmail: Die Hilfe beschreibt Anhänge unten in der Nachricht, Überfahren und Download-Symbol, nennt
-    keine Größe (https://support.google.com/mail/answer/30719); ob die Größe angezeigt wird, ist damit
-    nicht belegt.
-  - Outlook und Spark: keine belegte Aussage gefunden (Websuche 14.11.2026).
-  Entscheidung: wie Apple, keine Größe in der Kachel (ändert Variante A vom 11.11.2026 auf Grund des
-  neuen Wortlauts). Damit die Angabe nicht ersatzlos verschwindet (G2), steht sie im Tooltip hinter
-  dem vollen Dateinamen (Deutung von neon, kein Wortlaut).
+    keine Größe (https://support.google.com/mail/answer/30719); nicht belegt, ob sie angezeigt wird.
+  - Spark und weitere: keine belegte Aussage gefunden (Websuche 14.11.2026).
+  **Entscheidung des Designers** (Entwurf, Eichfall E16): keine Größe in der Kachel, wie Apple Mail;
+  die Größe steht im Tooltip hinter dem vollen Dateinamen. Begründung: Apple-Vorbild (G3) und Ruhe
+  (G5: eine Zeile weniger je Kachel, Name bis zwei Zeilen lesbar, was B `…IqvDo` bemängelte); die
+  Angabe fällt nicht ersatzlos weg (G2). Outlook und Thunderbird zeigen sie, gelten aber nicht als
+  Vorbild (G3, Maintainer zu Outlook oben).
 - **F8 Radius schwebend.** Entschieden: 10 px, gemessen an der Vorlage „Dia 3/4“ (C userChrome.css:37–41,
   Eintrag „Seitenleiste: wie Dia 3/4“, archiviert 11.11.2026, e20fb91) und vom Maintainer angenommen
   (13.11.2026).
@@ -398,7 +456,8 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
 - **F11 Modell.** Entschieden: mindestens Opus; Fable nur nach der Fable-Regel (A „Rot bleibt rot“:
   höchstens ein Fable-Agent, nur unter 50 % im 5-Stunden-Fenster; im Volldampf die Werte aus E
   13.11.2026). Gilt in Nachtlauf und Tagesroutine.
-- **F12 Fehlende Vorlagen.** Teils offen, siehe 9a.
+- **F12 Fehlende Vorlagen.** Kontakte und Erinnerungen-Details liegen seit 14.11.2026 vor
+  (`contacts-window-*.png`, `erinnerungen-task-*.png`; B `…IZM9w` damit messbar). Rest in 9a.
 - **F13 Designthema erkennen.** Entschieden: Designthema, wenn der Eintrag Aussehen oder Platzierung
   ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung; Aufzählung aus dem
   Auftrag des Maintainers zur Rolle). Gemischte Einträge (Aussehen plus Logik): der Designer
@@ -414,25 +473,22 @@ neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
   vom Maintainer nachliefern lassen (9a).
 - **F16 Offene Einträge mit Lücken.** Entschieden: `…Iqjl4` (Toolbar) mit den Hauptfenster-Vorlagen
   aus F4 messen; `…Ic9wY` (Sidebar-Schrift) an V `mail-seitenleiste-ausgeklappt-dunkel.webp` und
-  `kalender-sidebar-minikalender-trennlinie.webp` messen, Kontakte fehlt (9a); `…GYrXA` nach F5;
+  `kalender-sidebar-minikalender-trennlinie.webp` und `contacts-window-hell/-dunkel.png` messen; `…GYrXA` nach F5;
   `…GYq_c` nach F4; `…HmgTE` nach F2.
 
 ### 9a. Offen: Apple-Screenshots, die der Maintainer nachliefern soll
 
 Nur diese Punkte lassen sich weder aus Vorlagen noch aus den Vorgaben entscheiden (je App, Ansicht,
-Zustand; Name nach `docs/board.md` „Apple-Vorlagen“):
+Zustand; Name nach `docs/board.md` „Apple-Vorlagen“). Seit 14.11.2026 vorhanden: Kontakte
+(`contacts-window-hell/-dunkel.png`) und Erinnerungen-Details (`erinnerungen-task-hell/-dunkel.png`).
 
-1. Kontakte: Hauptfenster mit Seitenleiste (Listen) und geöffneter Kontaktkarte, hell und dunkel
-   (`kontakte-hauptfenster`, für F16/`…Ic9wY` und das Adressbuch).
-2. Erinnerungen: Details einer Aufgabe (Info-Ansicht bzw. Popover nach Klick auf ⓘ), hell (B
-   `…IZM9w`; die vorhandene `erinnerungen-today-liste.png` zeigt keine Details).
-3. Mail: Toolbar-Kapsel beim Überfahren und gedrückt, dunkel (B `…GYF4o`: „Hover, gedrückt und
+1. Mail: Toolbar-Kapsel beim Überfahren und gedrückt, dunkel (B `…GYF4o`: „Hover, gedrückt und
    Dunkelmodus nicht messbar“; vorhanden ist nur `mail-toolbar-kapsel-dunkel.webp` in Ruhe).
-4. Mail: Tastaturfokus (Tab-Taste) auf einem Toolbar-Knopf und in der Mailliste, hell und dunkel
+2. Mail: Tastaturfokus (Tab-Taste) auf einem Toolbar-Knopf und in der Mailliste, hell und dunkel
    (Fokusring, F3; B `…Ih2aA`: „wie der Fokusring heute aussieht, steht nicht im CSS“).
-5. Mail: Hauptfenster hell mit ausgeklappter Seitenleiste samt Favoriten und Konten (bisher nur
+3. Mail: Hauptfenster hell mit ausgeklappter Seitenleiste samt Favoriten und Konten (bisher nur
    dunkel; F2, Sidebar-Schrift).
-6. Mail: Fenster „Settings“ (Einstellungen), Reiter General, hell und dunkel (Einstellungen-Space,
+4. Mail: Fenster „Settings“ (Einstellungen), Reiter General, hell und dunkel (Einstellungen-Space,
    G14).
 ## 10. Eichfälle
 
@@ -452,11 +508,12 @@ Gegenbeispiele.
 | E8 | Wunsch Tab-Leiste als Option → abgelehnt, Mails im eigenen Fenster | Apple Mail hat keine Tabs | M `tab-leiste-aus` (3.11.2026, GitHub #30) |
 | E9 | Ausgeblendete Menüs → Befehle ins Ordner-Kontextmenü, Menüleiste schlank, Saved Files entfällt | Kontextmenü vor Menüleiste, ans Objekt gebunden | M `kontextmenue-vor-menueleiste` (4.11.2026, GitHub #34) |
 | E10 | Aufgaben: Knöpfe über der Aufgabe → oben in der Toolbar-Zeile | „die anordnung aus bild b ist die korrekte“ | E 10.11.2026; 70e6f3a |
-| E11 | Anhänge als graue Leiste → ruhige Kacheln, „Save All“ bündig mit der rechten Spalte, runder Download-Knopf (Größe in der Kachel entfällt nach F7, 14.11.2026) | „Variante A, so an neon“; „ich möchte den save all button bündig mit der rechten spalte …“ | E 11.11.2026; 7cb3522 (14.11.2026) |
+| E11 | Anhänge als graue Leiste → ruhige Kacheln, „Save All“ bündig mit der rechten Spalte, runder Download-Knopf (Größe in der Kachel entfällt nach F7/E16, 14.11.2026) | „Variante A, so an neon“; „ich möchte den save all button bündig mit der rechten spalte …“ | E 11.11.2026; 7cb3522 (14.11.2026) |
 | E12 | Hilfe-Menü → bleibt wie heute (360 pt wie Apple Mail) | „bezüglich hilfe-menü - option a“ | E 11.11.2026 |
 | E13 | Seitenleiste ohne Licht → Lichtschein C geneigt, gefärbte Trennlinie, per Schalter abschaltbar | „bezüglich lichtschein würde ich der empfehlung des agenten folgen“; „mit dem schalter möchte ich die farbänderung in der sidebar an- und wieder ausschalten können“ | E 13.11.2026; 4dae841, 77d3e04 |
 | E14 | Today-Pane: Symbol plus Text überlappt den Titel → Knöpfe dort immer nur als Symbol | „ja a.“ | E 14.11.2026 (GitHub #62) |
 | E15 | Aufgabenordner „All“ → „Open“ | Logik vor unlogischer Apple-Benennung | M `im-zweifel-apple` (3.11.2026) |
+| E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026 |
 
 ### Verworfen (Gegenbeispiele)
 | # | Vorschlag | Begründung des Maintainers | Quelle |

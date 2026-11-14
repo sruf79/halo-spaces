@@ -190,7 +190,7 @@ Changes take effect right away unless noted.
 - **Calendar**: search results appear in a panel to the right of the calendar, grouped by day; in the month view, multi-day events with a time show as one continuous bar; the multi-week view always scrolls smoothly, with momentum after a swipe
 - **Spaces**: when a view needs more room after switching (for example Tasks as Kanban), the window grows and stays on screen
 - **Sidebar**: when hidden, it floats in visibly over the Add-ons and Account Settings pages in Settings (#64); after collapsing it by dragging the divider, the sidebar button sits next to the window buttons instead of on top of them; dragging collapses it only at half its minimum width, like macOS
-- **Today pane**: Control-Command-T shows and hides it on macOS
+- **Today pane**: Control-Command-T shows and hides it on macOS; after clicking a day in the mini calendar, the list stays on that day even when entries above it grow while loading
 - **Address Book**: "All Address Books" is now called "All Contacts"
 - Tested with Thunderbird 160; requires Thunderbird 153 or newer
 

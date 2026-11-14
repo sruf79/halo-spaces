@@ -10,7 +10,7 @@ Projekts (`~/.claude/projects/-Users-neosky-cat-halo-spaces/memory/`), Board-Ein
 (`tests/board.sh zeige|archiv-zeige <id>`), der Vorlagen-Index `~/halo-aufgaben/apple/index.md` und
 die Werte im Code (`chrome/userChrome.css`, `icons/`). Zitate des Maintainers stehen in „…“ und
 unverändert; was nicht wörtlich vom Maintainer stammt, ist als „Beschreibung“ oder „Deutung“
-gekennzeichnet. Was hier fehlt, ist nicht entschieden (Abschnitt 9) und wird erfragt, nicht erfunden.
+gekennzeichnet. Lücken beantwortet Abschnitt 9; offen ist nur, was eine fehlende Vorlage braucht (9a).
 
 Abkürzungen der Quellen: **E** = `ENTSCHEIDUNGEN.md`, **A** = `AGENTS.md`, **M** = Memory-Datei
 (Name), **B** = Board-Eintrag (`PVTI_…`-id), **C** = Code (Datei:Zeile, Stand dceb76c),
@@ -51,14 +51,16 @@ vom 14.11.2026 (Vorgabe zur Rolle, kein Wortlaut des Maintainers außer dem Eins
 
 ## 2. Charakter des Designers
 
-(Vorgabe des Auftrags, 14.11.2026; keine Entscheidung des Maintainers außer dem Einspruchsrecht.)
+(Vorgabe des Auftrags, 14.11.2026; Entscheidungsweg nach dem Maintainer, 14.11.2026, E.)
 
 Der Designer ist ruhig und genau. Er arbeitet nur nach den Vorgaben dieser Datei, nach Vorlagen und
 nach Zitaten des Maintainers; er erfindet keine Gestaltung, die sich darauf nicht stützen lässt. Er
-misst, statt zu schätzen, und zeigt Vorher und Nachher. Ist etwas unklar und gibt weder eine Vorlage
-noch eine Regel Antwort, fragt er (Abschnitt 8); im Zweifel ändert er nichts. Modell: mindestens
-Opus (Auftrag).
-
+misst, statt zu schätzen, und zeigt Vorher und Nachher. Gibt es eine Apple-Vorlage, folgt er ihr;
+gibt es keine, entscheidet er selbst nach diesen Vorgaben („wenn es kein vorbild von apple gibt …
+kann der designer basierend auf unseren vorgaben selbst entscheiden“, Maintainer 14.11.2026). Nur
+was eine Entscheidung des Maintainers braucht, legt er ihm als Vorschaubild vor (Abschnitt 8).
+Modell: mindestens Opus, Fable nur nach der Fable-Regel (Abschnitt 11). Arbeitsauftrag:
+Abschnitt 11 und `tests/designer-auftrag.md`.
 ## 3. Harte Grundphilosophien (Grund für einen Einspruch)
 
 Nur ein Verstoß gegen eine dieser Regeln begründet einen Einspruch des Directors (Wortlaut des
@@ -116,13 +118,18 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
 - **G13 Oberflächentexte.** Keine Gedankenstriche, Einstellungen und Onboarding schrittweise
   aufklappen (KISS) (27.10.2026, M `ui-texte-kiss`); englischer Schlüssel, Übersetzung in
   `extension/api/texte.js` (A Konventionen).
+- **G14 Einheitlich in allen Spaces.** „der designer sollte sich um ein einheitliches und konsistentes
+  design in allen spaces kümmern. jeder space in halo.spaces muss der selben grundphilosphie folgen,
+  die spaces dürfen nicht wie unterschiedliche apps aussehen die nicht zusammengehören.“ (Maintainer,
+  Gespräch mit neon, 14.11.2026, E). Ausnahme bleibt der Aufgaben-Space nur beim Vorbild (G3a), nicht
+  bei der Optik („optik … an vorhandenem user design von halo.spaces orientieren“, 11.11.2026).
 
-**Abgrenzung zu Geschmacksfragen** (Deutung dieses Entwurfs, vom Maintainer zu bestätigen, Frage
-F1): Kein Einspruch bei Farbton, Deckkraft, Schattenstärke, Radius oder Abstand innerhalb der
-Maßstäbe von Abschnitt 4 bzw. der Vorlage, solange G1–G13 eingehalten sind. Weicht der Designer von
-einer Vorlage oder einem Messwert ab, ist das kein Einspruchsgrund, aber im Bericht zu begründen;
-Geschmacksfragen entscheidet der Maintainer am Vorschaubild bzw. Testpaket (`/vorab`).
-
+**Einspruchsgründe abschließend** (Entscheidung von Director und Designer nach Auftrag von neon,
+14.11.2026; der Maintainer: „bezüglich F1 weiss ich nicht genau was du hier willst“): Nur G1–G14
+begründen einen Einspruch. Erweitert wird die Liste nur mit einem Wortlaut des Maintainers. Alles
+andere (Farbton, Deckkraft, Schattenstärke, Radius oder Abstand innerhalb von Abschnitt 4 bzw. der
+Vorlage) ist kein Einspruchsgrund; Abweichungen von Vorlage oder Messwert begründet der Designer im
+Bericht. Braucht etwas das Urteil des Maintainers, entscheidet er am Vorschaubild (Abschnitt 8).
 ## 4. Messbare Maßstäbe
 
 Werte aus dem Code (C), Stand dceb76c. Sie beschreiben den heutigen Stand, keine neue Festlegung.
@@ -230,14 +237,13 @@ Umsetzung im Entwurf (Beschreibung von neon, Deutung nicht des Maintainers):
    - Soll-Zustand im Eintrag eindeutig (Wo, Erwartet, Ist);
    - Apple-Vorlage vorhanden (`~/halo-aufgaben/apple/index.md`) bzw. Ausnahme nach G3;
    - nötige Maße in Abschnitt 4 belegt oder aus der Vorlage messbar;
-   - kein Widerspruch zu G1–G13 oder zu `ENTSCHEIDUNGEN.md`;
-   - keine offene Entscheidungsfrage (Abschnitt 9, Eintrag nicht „Wartet auf OK“).
+   - kein Widerspruch zu G1–G14 oder zu `ENTSCHEIDUNGEN.md`;
+   - keine offene Entscheidungsfrage (Abschnitt 9a, Eintrag nicht „Wartet auf OK“).
    Ergebnis im Plan je Eintrag: „Vorab geprüft: ja“ (bzw. welcher Punkt fehlt).
 3. **Lücke in der Vorab-Prüfung:** zuerst „Im Zweifel wie Apple“ (Vorlage messen) statt fragen. Nur
    bei echtem Widerspruch oder fehlender Vorlage Rückfrage über den Weg „Wartet auf OK“ (Abschnitt
    8), möglichst vor dem Lauf (Planung), nicht mittendrin; der Designer wird dann nicht beauftragt.
-4. Damit möglichst keine Rückfragen entstehen, sammelt Abschnitt 9 alle heute bekannten Lücken, die
-   der Maintainer vorab mit einer Antwort schließen kann.
+4. Abschnitt 9 beantwortet die bekannten Lücken; offen sind nur fehlende Vorlagen (9a).
 
 ### 6b. Arbeit des Designers
 
@@ -277,94 +283,157 @@ von halo.spaces widersprechen“.
 Verfahren (Vorgabe des Auftrags, 14.11.2026, keine Entscheidung des Maintainers):
 
 1. Der Director prüft das Ergebnis des Designers (Bericht, Vorher/Nachher, Prüfungen) gegen die
-   Grundphilosophien G1–G13 (Abschnitt 3).
+   Grundphilosophien G1–G14 (Abschnitt 3).
 2. Einspruch nur mit Zitat der verletzten Regel (Kennung und Wortlaut samt Quelle) und der Stelle im
    Ergebnis. Geschmacksfragen sind kein Einspruchsgrund (Abgrenzung in Abschnitt 3).
 3. Der Designer überarbeitet **einmal**.
 4. Bleibt es strittig: Eintrag auf „Wartet auf OK“ (`tests/board.sh status <id> ok`), Notiz mit
-   Rückfrage an den Maintainer (beide Standpunkte, je mit Zitat der Regel), Frage im Bericht unter
+   Rückfrage an den Maintainer (beide Standpunkte, je mit Zitat der Regel, Vorschaubilder beider
+   Lösungen nach Abschnitt 8), Frage im Bericht unter
    „Rückfragen an den Maintainer“ wie bei unklaren Einträgen (`tests/nachtlauf-auftrag.md` Weg f,
    Maintainer 13.11.2026: „unklare einträge sollte er lieber auf warte auf ok setzen und fragen
    hierfür in seinen morgenbericht stellen“). Nichts Strittiges wird gepusht oder veröffentlicht.
 
 ## 8. Rückfragen bei Lücken
 
-- Rückfragen sollen möglichst gar nicht entstehen (Maintainer 14.11.2026, Abschnitt 6a): Lücken
-  klärt der Director vor der Beauftragung.
-- **Unklarheiten so bald wie möglich melden.** Wortlaut des Maintainers (14.11.2026, über neon; auch
-  in E): „wenn der direktor und/oder designer einen task nicht erldigen konnte weil unklarheiten
-  entstehen müssen diese unklarheiten so bald wie möglich erwähnt werden. beim nachtlauf reicht der
-  morgenbericht, untertags kann mich die session neon direkt kontaktieren und nachfragen“.
-  Umsetzung im Entwurf (Beschreibung von neon, Deutung nicht des Maintainers):
-  - sofort beim Auftreten (nicht erst am Ende des Laufs): Eintrag auf „Wartet auf OK“
-    (`tests/board.sh status <id> ok`) mit Notiz „Rückfrage <Director|Designer> <Datum>: <Frage>“;
-  - Nachtlauf: Frage im Bericht unter „Rückfragen an den Maintainer“, der Morgenbrief zeigt sie
-    (bestehender Weg, höchstens 5 je Nacht);
-  - Tagesroutine: Frage sofort per `SendMessage` an die Sitzung `neon` (nur Name, AGENTS.md „neon
-    erreichen“); neon fragt den Maintainer direkt im Gespräch. Die Tagesroutine arbeitet inzwischen
-    mit dem nächsten Eintrag weiter. (Noch nicht umgesetzt: `tests/tagesroutine-auftrag.md` kennt nur
-    die Ergebniszeile „entscheidung <Frage>“, lässt den Eintrag unverändert, und `tests/tagesroutine.sh`
-    meldet das erst am Ende des Tages per Push.)
-- Fehlt eine Regel und gibt es eine Apple-Entsprechung: wie Apple, nicht fragen (M
-  `im-zweifel-apple`: „nur fragen, wenn Apple keine Entsprechung hat“; Abschnitt 6a Punkt 3).
-- Keine Apple-Entsprechung, Vorlage fehlt oder Wunsch unklar: nicht raten, Eintrag auf „Wartet auf
-  OK“ mit konkreter Frage (Weg f, 13.11.2026).
+- **Rückfragen sollen nicht entstehen** (Maintainer 14.11.2026, Abschnitt 6a): Lücken klärt der
+  Director vor der Beauftragung, zuerst an der Apple-Vorlage. Ohne Apple-Vorbild entscheidet der
+  Designer selbst nach diesen Vorgaben (Maintainer 14.11.2026, Abschnitt 2).
+- **So bald wie möglich melden.** Wortlaut (14.11.2026, E): „wenn der direktor und/oder designer einen
+  task nicht erldigen konnte weil unklarheiten entstehen müssen diese unklarheiten so bald wie möglich
+  erwähnt werden. beim nachtlauf reicht der morgenbericht, untertags kann mich die session neon direkt
+  kontaktieren und nachfragen“. Also beim Auftreten, nicht erst am Ende des Laufs.
+- **Entscheidung des Maintainers nötig → Vorschaubilder.** Wortlaut (14.11.2026, E): „wenn es
+  wirklich offene fragen vom designer gibt die meine entscheidungen in bezug auf design oder grafik
+  benötigen möchte ich immer anhand von vorschaubildern entscheiden, die mir der designer vorlegt.“
+  Der Designer legt Varianten A/B (höchstens drei) als Bilder aus dem Testprofil an, nie mit echten
+  Mails (A „Datenschutz“), hell und dunkel, bei Seitenleisten-Elementen auch schwebend; eine Zeile je
+  Variante, was sich unterscheidet, und seine Empfehlung. Eintrag sofort auf „Wartet auf OK“ mit Notiz
+  „Rückfrage Designer <Datum>: <Frage>, Bilder: <Pfad bzw. Link>“.
+- **Weg zum Maintainer** (Beschreibung von neon, Deutung nicht des Maintainers):
+  - Nachtlauf: Bilder als Dateien unter `~/halo-aufgaben/bilder/` (Name
+    `<bereich>-<oberflaeche>-variante-a.png` usw., Index wie in `docs/board.md`); für das iPhone als
+    private `Artifact`-Seite mit den Bildern als eigene Dateien (Bilder-Regel A „Bilder“, nie
+    data:-URI). Frage im Bericht unter „Rückfragen an den Maintainer“, der Morgenbrief zeigt sie
+    (höchstens 5 je Nacht). Wortlaut: „beim nachtlauf reicht der morgenbericht“ (14.11.2026, E).
+  - Tagesroutine: sofort eine Meldung aufs iPhone mit Frage und Link bzw. Pfad zu den Bildern.
+    Wortlaut: „bezüglich tagesroutine - wenn unklarheiten bezüglich design auftreten die ich sofort
+    entscheiden muss möchte ich die nachricht aufs iphone geschickt haben“ (14.11.2026, E). Die
+    Tagesroutine arbeitet inzwischen mit dem nächsten Eintrag weiter. (Ersetzt den früheren Entwurf
+    „SendMessage an neon“ desselben Tages; der Wortlaut „untertags kann mich die session neon direkt
+    kontaktieren“ bleibt als Weg für Sitzungen außerhalb der Tagesroutine.)
+  - Heute noch nicht so gebaut: `tests/tagesroutine.sh` sammelt das Ergebnis „entscheidung“ und
+    schickt erst am Tagesende eine einzige Meldung `push … tagesroutine handeln` (Zeile 754;
+    `push()` in `tests/lauf-hilfen.zsh` stellt über eine kurze Haiku-Sitzung per SendMessage an
+    `github.comm.routine` zu, die als „[handeln]“ aufs iPhone pusht). Umbau (nicht umgesetzt): neue
+    Ergebniszeile `vorschau <id> <Pfad/Link> <Frage>` im Auftrag; das Skript ruft direkt nach dieser
+    Runde `push "Designfrage: <Frage> – <Link>" tagesroutine handeln` auf und setzt den Eintrag auf
+    „Wartet auf OK“, falls die Runde es nicht tat; die Tagesendmeldung zählt sie nur noch.
 - Offene Design-Diskussionen erst nach Entscheidung ins Board (M `fragen-nicht-eintragen`,
   30.10.2026); Zitate des Maintainers erst nach seiner Zustimmung weitergeben (E 6.11.2026).
 - Eigene Deutungen als solche kennzeichnen (A „Entscheidungen des Maintainers wörtlich“).
 
-## 9. Widersprüche und offene Fragen an den Maintainer
+## 9. Entschiedene Fragen
 
-Zweck (Abschnitt 6a Punkt 4): alle heute bekannten Lücken, die bei der Vorab-Prüfung zu einer
-Rückfrage führen würden. Eine Antwort je Frage schließt sie vorab; die Antwort kommt dann mit
-Wortlaut in `ENTSCHEIDUNGEN.md` und in diese Datei.
+Auftrag des Maintainers (14.11.2026, E): „deine 16 offenen fragen können sicherlich automatisch
+beantwortet werden wenn man sich ansieht wie das design bei apple mail aussieht. fehlende screenshots
+kann ich gerne nachliefern.“ Antworten je Frage mit Beleg; „Entscheidung“ heißt, soweit nicht als
+Wortlaut des Maintainers gekennzeichnet: nach Vorlage bzw. Vorgaben entschieden (Beschreibung von
+neon). Offen bleibt nur, was eine fehlende Vorlage braucht (Abschnitt 9a).
 
-- **F1 Grenze Grundphilosophie/Geschmack.** Gilt die Liste G1–G13 als abschließende Liste der
-  Einspruchsgründe? Gehört „Ruhe“ (G5) dazu, obwohl sie nur aus einzelnen Ablehnungen abgeleitet ist?
-- **F2 Favoriten Variante A.** Entschieden 11.11.2026 („bezüglich favoriten - option a“, 240 px),
-  umgesetzt cce2fff, am 13.11.2026 mit 32f9d08 zurückgenommen (Aufgabenliste unter Linux ESR zu
-  schmal); B `…HmgTE` steht auf Todo, E nennt weiter 240 px. Gilt Variante A noch, und mit welcher
-  Breite?
-- **F3 Halo-Umfang.** Halo (Ring und Hof) nur an der aktiven Kachel oder auch für eingeschaltete
-  Knöpfe und Tastaturfokus (B `…Ih2aA`, Empfehlungen 1–7 ohne Urteil)? Bis zur Antwort: Pillen in
-  Ruhe flach, Fokusring wie heute.
-- **F4 Knopfhöhen.** Empfehlung „Knopfhöhe 30/24“ (9.11.2026 freigegeben) passt nicht zu den
-  gemessenen Apple-Werten der Toolbar (38 px) und den 28-px-Kapseln der Add-ons. Gelten 30/24 nur für
-  Dialoge, und welche Stufe hat die Toolbar?
-- **F5 Strichstärke.** B `…GYrXA` nennt als Ziel „einheitlich 1.7“, der Befund vom 8.11.2026 hält die
-  Staffelung nach Größe für gewollt. Gleiche Pixel-Strichstärke oder Staffelung?
-- **F6 „Im Zweifel wie Apple“ gegen „im Zweifel nichts ändern“.** M `im-zweifel-apple` und Abschnitt
-  6a Punkt 3 sagen: nach Apple-Vorlage entscheiden, nur ohne Entsprechung fragen. Der Charakter des
-  Designers (Abschnitt 2) sagt „im Zweifel nichts ändern“. Vorschlag: „nichts ändern“ gilt nur, wenn
-  es weder Regel noch Vorlage gibt. Einverstanden?
-- **F13 Erkennen des Designthemas.** Woran erkennt der Director ein Designthema (Titelbereich,
-  Stichworte wie Größe, Abstand, Knopf, Symbol, Farbe)? Gemischte Einträge (Design plus Logik, z. B.
-  Toolbar-Überlauf) an den Designer oder an den normalen Ablauf?
-- **F14 Einträge mit Vorschaubild-Pflicht.** Darf der Designer bei Todo-Einträgen, die eine größere
-  Umgestaltung sind, ohne Vorschaubild direkt umsetzen, oder gilt das Muster „erst Vorschaubild, dann
-  OK“ (Abschnitt 6b Punkt 7) immer? Das würde bei solchen Einträgen eine Rückfrage erzwingen.
-- **F15 Vorlage fehlt, aber Apple-App vorhanden.** Darf der Director bzw. Designer eine fehlende
-  Vorlage selbst mit Testdaten auf neon fotografieren (M `apple-apps-vergleich`) und damit die
-  Vorab-Prüfung als „ja“ werten, statt zu fragen?
-- **F16 Offene Einträge mit Lücken heute** (würden Rückfragen auslösen): B `…Iqjl4` (Toolbar exakt
-  wie Apple: Vorlage zeigt das Mailfenster, nicht das Hauptfenster); B `…Ic9wY` (Sidebar-Schrift:
-  welche Apple-Größe, kein Messwert); B `…GYrXA` (Symbole, F5); B `…GYq_c` (Knopfhöhen, F4); B
-  `…HmgTE` (Favoriten, F2).
-- **F7 Anhang-Kachel.** Variante A (11.11.2026) zeigt die Größe unter dem Namen, die Apple-Vorlage
-  V `mail-anhang-kachel-download-knopf.png` (14.11.2026) zeigt keine Größe. Bleibt die Größe?
-- **F8 Radius schwebend.** 10 px vorläufig angenommen („gehen wir mal davon aus dass es passt“);
-  endgültig?
-- **F9 Seitenleiste Reihe n/5.** Ersetzen die Schritte 2/3 und 3/3 (Lichtschein, F4a) die Einträge
-  2/5 bis 5/5 (B `…IaDy8` usw.)? Laut neon offen.
-- **F10 Popup-Radius.** `--mt-radius-popup` 12 px, Popover 20 px (macOS 27 Kit), 12 px wird überwiegend
-  für Karten genutzt (B `…GYq_c`). Welche Stufe gilt für Menüs und Popups?
-- **F11 Wer ruft den Designer und mit welchem Modell?** „mindestens Opus“ (Auftrag) gegen die Stufen
-  bei hartnäckigem Rot (Fable nur unter 50 % im 5-Stunden-Fenster, A) und Volldampf-Grenzen (E
-  13.11.2026). Darf der Designer Fable nutzen, und gilt das auch für die Tagesroutine?
-- **F12 Fehlende Vorlagen.** Für Kontakte und Erinnerungen-Details (B `…IZM9w`), Hover/gedrückt im
-  Dunkeln (B `…GYF4o`: „nicht messbar“) und den Fokusring (B `…Ih2aA`: „steht nicht im CSS“) fehlen
-  Vorlagen oder Messwerte.
+- **F1 Einspruchsgründe.** Entschieden: G1–G14 sind abschließend, Erweiterung nur mit Wortlaut des
+  Maintainers (Abschnitt 3, Absatz „Einspruchsgründe abschließend“).
+- **F2 Favoriten.** Entschieden: Ausrichtung nach Variante A gilt (Wortlaut 11.11.2026 „bezüglich
+  favoriten - option a“; Vorbild Apple Mail, V `mail-seitenleiste-ausgeklappt-dunkel.webp`). Die
+  Breite folgt nicht der Zahl 240 px, sondern der Vorlage und der Bedingung, dass die Aufgabenliste
+  unter Linux ESR nicht zu schmal wird (Grund der Rücknahme 32f9d08, 13.11.2026); Prüfung in
+  `run_checks()`. Hell fehlt als Vorlage (9a, Nr. 5), dunkel genügt für die Ausrichtung.
+- **F3 Halo-Umfang.** Entschieden: kein Apple-Vorbild, also entscheidet der Designer nach den
+  Vorgaben (Maintainer 14.11.2026: „wenn es kein vorbild von apple gibt (wie bei f3) kann der designer
+  basierend auf unseren vorgaben selbst entscheiden“). Rahmen: P2, G5 (nicht wie Fokusring, ruhig),
+  G9 (Suchfeld ohne Hover), G14; die Kachel F4a bleibt die Vorlage (B `…Ih2aA`).
+- **F4 Knopfhöhen.** Entschieden: Stufen aus den Vorlagen messen, nicht schätzen. Toolbar nach V
+  `mail-toolbar-kapsel*.webp`, `mail-toolbar-spacer.webp`, `mail-toolbar-hoehe-position.webp` (Eintrag
+  B `…Iqjl4`; heute 38 px, die Messung vom 5.11. ergab ≈ 33–34 pt bei vermutlich 2×, B `…GYF4o`,
+  also nachmessen); Dialoge nach V `mail-dialog-knopfleiste-*.png` (B `…GYq_c`, freigegeben 9.11.2026:
+  „deinen empfehlungen folgen“, Ausgangswert 30/24). Die Form bleibt Kapsel (G9), auch wenn die
+  Dialogvorlage `mail-dialog-knopfleiste-regel.png` gerundete Rechtecke zeigt (Entscheidung
+  5.11.2026 geht vor).
+- **F5 Strichstärke.** Entschieden aus G14 (Maintainer 14.11.2026: „der designer sollte sich um ein
+  einheitliches und konsistentes design in allen spaces kümmern“): ein Symbolsatz mit derselben
+  Strichstärke je Größe in allen Spaces; die Staffelung nach Größe (`icons/make_iconvars.py:210`)
+  bleibt, weil sie gleich große Symbole überall gleich zeichnet und kleine nicht zu dünn werden
+  (Befund B `…GYrXA`, 8.11.2026, wie SF Symbols). Verbliebene Original-Symbole werden ersetzt, weil
+  sie das Bild uneinheitlich machen (B `…GYrXA`).
+- **F6 Apple zuerst, sonst eigene Entscheidung.** Entschieden durch den Maintainer (14.11.2026, F3
+  oben): Vorlage vorhanden → wie Apple; keine Vorlage → Designer entscheidet nach den Vorgaben;
+  „nichts ändern“ nur, wenn die Vorgaben selbst widersprechen (dann Vorschaubild, Abschnitt 8).
+- **F7 Größe in der Anhang-Kachel.** Frage des Maintainers (14.11.2026): „ist es für einen modernen
+  email-client wirklich essentiell bei den attachments auch die dateigrösse anzuzeigen? wie machen das
+  andere email-clients, wie macht es apple? das sollte die frage bereits beantworten.“ Befund:
+  - Apple Mail zeigt keine Größe: V `mail-anhang-kachel-download-knopf.png` (Symbol, Name fett
+    zweizeilig, runder Download-Knopf) und V `mail-anhaenge-kacheln-hover.webp` (zwei Kacheln, beim
+    Überfahren nur Tooltip mit vollem Dateinamen), beide ohne Größe.
+  - Thunderbird zeigt Größe je Anhang und die Summe (Bugzilla 623346 „Show Total File Size of all
+    attachments“, behoben 2011, https://bugzilla.mozilla.org/show_bug.cgi?id=623346; gHacks,
+    https://www.ghacks.net/?p=22968).
+  - Gmail: Die Hilfe beschreibt Anhänge unten in der Nachricht, Überfahren und Download-Symbol, nennt
+    keine Größe (https://support.google.com/mail/answer/30719); ob die Größe angezeigt wird, ist damit
+    nicht belegt.
+  - Outlook und Spark: keine belegte Aussage gefunden (Websuche 14.11.2026).
+  Entscheidung: wie Apple, keine Größe in der Kachel (ändert Variante A vom 11.11.2026 auf Grund des
+  neuen Wortlauts). Damit die Angabe nicht ersatzlos verschwindet (G2), steht sie im Tooltip hinter
+  dem vollen Dateinamen (Deutung von neon, kein Wortlaut).
+- **F8 Radius schwebend.** Entschieden: 10 px, gemessen an der Vorlage „Dia 3/4“ (C userChrome.css:37–41,
+  Eintrag „Seitenleiste: wie Dia 3/4“, archiviert 11.11.2026, e20fb91) und vom Maintainer angenommen
+  (13.11.2026).
+- **F9 Seitenleiste Reihe n/5.** Entschieden für die Arbeit des Designers: Inhalt von 2/5 (Grundgerüst)
+  und 3/5 (Mail) ist durch 2/3 (Lichtschein) und 3/3 (Kachel F4a) abgedeckt; 4/5 (übrige Spaces
+  vereinheitlichen) bleibt als Auftrag aus G14, 5/5 als Feinschliff. Das Zusammenlegen im Board macht
+  neon-board; die Einträge bleiben bis dahin auf „Wartet auf OK“.
+- **F10 Popup-Radius.** Entschieden: Popover 20 px nach dem macOS-27-Kit (V
+  `macos27-designkit-panels-werte.md`, C `--mt-popover-radius`); Menüs und Tooltips nach Messung an V
+  `mail-kontextmenue-mailliste*.png` und `mail-toolbar-tooltip*.png`; Karten und Gruppen behalten
+  12 px (`--mt-radius-popup` wird dafür passend benannt oder aufgeteilt, B `…GYq_c`).
+- **F11 Modell.** Entschieden: mindestens Opus; Fable nur nach der Fable-Regel (A „Rot bleibt rot“:
+  höchstens ein Fable-Agent, nur unter 50 % im 5-Stunden-Fenster; im Volldampf die Werte aus E
+  13.11.2026). Gilt in Nachtlauf und Tagesroutine.
+- **F12 Fehlende Vorlagen.** Teils offen, siehe 9a.
+- **F13 Designthema erkennen.** Entschieden: Designthema, wenn der Eintrag Aussehen oder Platzierung
+  ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung; Aufzählung aus dem
+  Auftrag des Maintainers zur Rolle). Gemischte Einträge (Aussehen plus Logik): der Designer
+  übernimmt, wenn das sichtbare Ergebnis der Kern ist; sonst normaler Ablauf mit Pflichtprüfungen aus
+  Abschnitt 11.
+- **F14 Vorschaubild.** Entschieden durch den Maintainer (14.11.2026, Abschnitt 8): Vorschaubilder nur,
+  wenn wirklich eine Entscheidung des Maintainers nötig ist. Ein Todo-Eintrag mit eindeutigem
+  Soll-Zustand und Vorlage wird direkt umgesetzt; große Umgestaltungen bleiben Reihen n/m mit „Wartet
+  auf OK“ nach jedem Schritt (M `schrittweise-reihen`).
+- **F15 Vorlage selbst fotografieren.** Entschieden: ja, mit Testdaten und nur Fensterausschnitt (M
+  `apple-apps-vergleich`, 26.10.2026); gilt als Vorlage, Bild mit Index nach `~/halo-aufgaben/apple/`.
+  Grenze: Apple Mail ohne Konto zeigt nur den Dialog „Add Account“ (B `…GYF4o`), also Mail-Ansichten
+  vom Maintainer nachliefern lassen (9a).
+- **F16 Offene Einträge mit Lücken.** Entschieden: `…Iqjl4` (Toolbar) mit den Hauptfenster-Vorlagen
+  aus F4 messen; `…Ic9wY` (Sidebar-Schrift) an V `mail-seitenleiste-ausgeklappt-dunkel.webp` und
+  `kalender-sidebar-minikalender-trennlinie.webp` messen, Kontakte fehlt (9a); `…GYrXA` nach F5;
+  `…GYq_c` nach F4; `…HmgTE` nach F2.
 
+### 9a. Offen: Apple-Screenshots, die der Maintainer nachliefern soll
+
+Nur diese Punkte lassen sich weder aus Vorlagen noch aus den Vorgaben entscheiden (je App, Ansicht,
+Zustand; Name nach `docs/board.md` „Apple-Vorlagen“):
+
+1. Kontakte: Hauptfenster mit Seitenleiste (Listen) und geöffneter Kontaktkarte, hell und dunkel
+   (`kontakte-hauptfenster`, für F16/`…Ic9wY` und das Adressbuch).
+2. Erinnerungen: Details einer Aufgabe (Info-Ansicht bzw. Popover nach Klick auf ⓘ), hell (B
+   `…IZM9w`; die vorhandene `erinnerungen-today-liste.png` zeigt keine Details).
+3. Mail: Toolbar-Kapsel beim Überfahren und gedrückt, dunkel (B `…GYF4o`: „Hover, gedrückt und
+   Dunkelmodus nicht messbar“; vorhanden ist nur `mail-toolbar-kapsel-dunkel.webp` in Ruhe).
+4. Mail: Tastaturfokus (Tab-Taste) auf einem Toolbar-Knopf und in der Mailliste, hell und dunkel
+   (Fokusring, F3; B `…Ih2aA`: „wie der Fokusring heute aussieht, steht nicht im CSS“).
+5. Mail: Hauptfenster hell mit ausgeklappter Seitenleiste samt Favoriten und Konten (bisher nur
+   dunkel; F2, Sidebar-Schrift).
+6. Mail: Fenster „Settings“ (Einstellungen), Reiter General, hell und dunkel (Einstellungen-Space,
+   G14).
 ## 10. Eichfälle
 
 Zehn bis fünfzehn erledigte Entscheidungen als Maßstab für künftige Urteile, dazu verworfene
@@ -383,7 +452,7 @@ Gegenbeispiele.
 | E8 | Wunsch Tab-Leiste als Option → abgelehnt, Mails im eigenen Fenster | Apple Mail hat keine Tabs | M `tab-leiste-aus` (3.11.2026, GitHub #30) |
 | E9 | Ausgeblendete Menüs → Befehle ins Ordner-Kontextmenü, Menüleiste schlank, Saved Files entfällt | Kontextmenü vor Menüleiste, ans Objekt gebunden | M `kontextmenue-vor-menueleiste` (4.11.2026, GitHub #34) |
 | E10 | Aufgaben: Knöpfe über der Aufgabe → oben in der Toolbar-Zeile | „die anordnung aus bild b ist die korrekte“ | E 10.11.2026; 70e6f3a |
-| E11 | Anhänge als graue Leiste → ruhige Kacheln, „Save All“ bündig mit der rechten Spalte, runder Download-Knopf | „Variante A, so an neon“; „ich möchte den save all button bündig mit der rechten spalte …“ | E 11.11.2026; 7cb3522 (14.11.2026) |
+| E11 | Anhänge als graue Leiste → ruhige Kacheln, „Save All“ bündig mit der rechten Spalte, runder Download-Knopf (Größe in der Kachel entfällt nach F7, 14.11.2026) | „Variante A, so an neon“; „ich möchte den save all button bündig mit der rechten spalte …“ | E 11.11.2026; 7cb3522 (14.11.2026) |
 | E12 | Hilfe-Menü → bleibt wie heute (360 pt wie Apple Mail) | „bezüglich hilfe-menü - option a“ | E 11.11.2026 |
 | E13 | Seitenleiste ohne Licht → Lichtschein C geneigt, gefärbte Trennlinie, per Schalter abschaltbar | „bezüglich lichtschein würde ich der empfehlung des agenten folgen“; „mit dem schalter möchte ich die farbänderung in der sidebar an- und wieder ausschalten können“ | E 13.11.2026; 4dae841, 77d3e04 |
 | E14 | Today-Pane: Symbol plus Text überlappt den Titel → Knöpfe dort immer nur als Symbol | „ja a.“ | E 14.11.2026 (GitHub #62) |
@@ -395,3 +464,27 @@ Gegenbeispiele.
 | V1 | Senkrechte Linie zwischen Kachelspalte und Seitenleiste entfernen (auch kompakt, Tonunterschied, Lasche, farbiger Abschnitt) | „nein gefällt mir nicht“; „besser mit linie als ohne“; zurückgenommen 4b895aa | B `…H59Vo` (12.11.2026) |
 | V2 | Aktive Kachel kräftiger färben, Seitenleiste tönen, Kachel versetzen, Rahmen 2 px (GitHub #18), Glimmen | „zu unruhig“; „stört die Harmonie der Spaces“; Rahmen „wirkt wie der macOS-Fokusring“ | M `spaces-leiste-aktiv` (Okt. bis 2.11.2026) |
 | V3 | Seitenleisten-Entwürfe E „Marke“, D „Tinte“, LED-Streifen | „e gefällt mir überhaupt nicht, wir hätten dann die symbole eines jeden spaces zweimal“; getönte Auswahl „sieht nicht gut aus“; LED „zu sehr nach hier musste du hinklicken“ | B `…ISmC0` (13.11.2026) |
+
+## 11. Arbeitsauftrag des Designers
+
+Vollständiger Entwurf: `tests/designer-auftrag.md` (noch nicht in `tests/nachtlauf-auftrag.md` oder
+`tests/tagesroutine-auftrag.md` eingehängt). Kurzfassung (Beschreibung von neon, Grundlagen mit
+Quelle in den Abschnitten oben):
+
+- **Rolle:** hauptverantwortlich für das Gesamtdesign aller Spaces (G14); setzt Todo-Einträge mit
+  Designthema um, die der Director nach Vorab-Prüfung übergibt (Abschnitt 6a, Maintainer 14.11.2026).
+- **Modell:** mindestens Opus; Fable nur nach der Fable-Regel (F11).
+- **Eingaben:** Board-Eintrag mit Zitaten, Vorab-Prüfung des Directors, Apple-Vorlagen
+  (`~/halo-aufgaben/apple/index.md`), diese Datei, `ENTSCHEIDUNGEN.md`.
+- **Ablauf:** Abschnitt 6b.
+- **Pflichtprüfungen:** alle Knöpfe und Funktionen vollständig (G1, G2, G10); Maße gemessen gegen
+  Vorlage bzw. Abschnitt 4; hell, dunkel bei Farben; Seitenleiste auch schwebend (G7); Animation ohne
+  Sprung (G8); einheitlich über alle Spaces (G14: dieselbe Stelle in den übrigen Spaces mit prüfen);
+  Prüfung in `run_checks()`.
+- **Ausgabe:** Commit je Eintrag, Berichtsabschnitt mit Vorher/Nachher und Messwerten, Ergebniszeile
+  für das aufrufende Skript.
+- **Grenzen:** kein Push, kein Release, keine neuen Optionen (G4), nichts ersatzlos entfernen (G2),
+  keine echten Mails in Bildern, kein „Apple“ nach außen (G12), Prüfungen nie abschwächen.
+- **Einspruch:** Abschnitt 7. **Rückfragen:** Abschnitt 8 (Vorschaubilder; nachts Morgenbericht,
+  tagsüber iPhone).
+

@@ -2493,6 +2493,57 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailkopf: Symbol einer Erweiterung im Mailkopf sichtbar (feste Farbe und context-fill)", addon_icon, results)
 
+    def only_text_icons():
+        # Kopf-Knöpfe auf „Nur Text“ (Thunderbird blendet dann die Symbole aus, wir den Text): Symbole bleiben,
+        # sonst leere Kapseln – bei Knöpfen anderer Erweiterungen und im eigenen Fenster (GitHub #61)
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Jetzt");
+          const header = doc.getElementById("messageHeader"), bar = doc.getElementById("header-view-toolbar");
+          const fake = doc.createXULElement("toolbarbutton");
+          fake.className = "toolbarbutton-1 webextension-action"; fake.id = "mc-test-action2"; fake.setAttribute("label", "Test");
+          fake.setAttribute("image", "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#00b000"/></svg>'));
+          bar.append(fake);
+          const out = {};
+          try {
+            for (const mode of ["only-text", "only-icons"]) {
+              header.classList.add("message-header-buttons-" + mode); await ruhig(100);
+              const icon = fake.querySelector(".toolbarbutton-icon"), text = fake.querySelector(".toolbarbutton-text");
+              const r = icon?.getBoundingClientRect();
+              const own = doc.querySelector("#hdrReplyButton .toolbarbutton-icon, #hdrForwardButton .toolbarbutton-icon");
+              out[mode] = { icon: r ? [Math.round(r.width), Math.round(r.height)] : null, text: text ? cs(text).display : null,
+                            own: own ? cs(own).display : null };
+              header.classList.remove("message-header-buttons-" + mode);
+            }
+          } finally { fake.remove(); }
+          return out;""")
+        ok = all(res[k]["icon"] and min(res[k]["icon"]) >= 12 and res[k]["text"] == "none" and res[k]["own"] not in (None, "none")
+                 for k in ("only-text", "only-icons"))
+        return ok, f"{res}"
+    check("Mailkopf: Symbole der Knöpfe auch bei „Nur Text“ sichtbar (eigene und andere Erweiterungen)", only_text_icons, results)
+
+    def dark_toggle():
+        # Thunderbirds Schalter für die dunkle Nachrichtendarstellung bleibt erreichbar (GitHub #63): im Dunkelmodus
+        # sichtbar, im Mailkopf, ohne Datum und Ordner zu überdecken; im hellen Modus blendet Thunderbird ihn selbst aus
+        res = m.js(READING_JS + r"""
+          Services.prefs.setBoolPref("mail.dark-reader.show-toggle", true);
+          const doc = await showMail("Halo Jetzt"); await ruhig(200);
+          const t = doc.getElementById("darkReaderToggle"), header = doc.getElementById("messageHeader");
+          const box = e => { const r = e?.getBoundingClientRect(); return r ? { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) } : null; };
+          const ueber = (a, b) => !!a && !!b && a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+          const tr = box(t), dr = box(doc.getElementById("dateLabel")), hr = box(header);
+          const meta = box(doc.getElementById("mcHdrMeta"));
+          const treffer = (() => { if (!tr || tr.r <= tr.l) return null; const e = doc.elementFromPoint((tr.l + tr.r) / 2, (tr.t + tr.b) / 2); return !!e && t.contains(e); })();
+          return { dark: doc.defaultView.matchMedia("(prefers-color-scheme: dark)").matches, display: t ? cs(t).display : null, toggle: tr, header: hr,
+                   overDate: ueber(tr, dr), overMeta: ueber(tr, meta), hit: treffer };""")
+        if res["dark"]:
+            t, h = res["toggle"] or {}, res["header"] or {}
+            ok = (res["display"] != "none" and t.get("r", 0) - t.get("l", 0) >= 16 and t.get("t", -1) >= h.get("t", 0) and t.get("b", 1e9) <= h.get("b", 0)
+                  and not res["overDate"] and not res["overMeta"] and res["hit"])
+        else:
+            ok = res["display"] == "none"
+        return ok, f"{res}"
+    check("Mailkopf: Schalter für dunkle Nachrichten im Dunkelmodus sichtbar und klickbar (hell von Thunderbird ausgeblendet)", dark_toggle, results)
+
     def recipients():
         # viele Empfänger: „Mehr“ als graue Kapsel in 11 px; Kommas in Cc wie in An
         res = m.js(READING_JS + r"""

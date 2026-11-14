@@ -1808,6 +1808,13 @@ findbar .findbar-textbox:focus {
   display: none !important;
 }
 
+/* Symbole auch, wenn im Mailkopf „Nur Text“ gewählt ist: Thunderbird blendet
+   dann die Symbole aus, wir den Text – übrig blieben leere Kapseln, auch für
+   Knöpfe anderer Erweiterungen (GitHub #61) */
+#messageHeader.message-header-buttons-only-text #header-view-toolbar .toolbarbutton-icon {
+  display: flex !important;
+}
+
 #header-view-toolbar toolbarbutton,
 #header-view-toolbar toolbaritem toolbarbutton {
   background-color: transparent !important;
@@ -14587,11 +14594,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* Thunderbirds Schalter „Nachricht dunkel darstellen“ im Mailkopf (nur im
-   Dunkelmodus sichtbar) passt nicht ins Design – ausgeblendet; die
-   Umfärbung folgt weiter Thunderbirds Einstellung */
-#darkReaderToggle {
-  display: none !important;
-}
+   Dunkelmodus und wenn im Mailkopf eingeschaltet) bleibt sichtbar – er war
+   ausgeblendet und damit ohne Ersatz (GitHub #63) */
 
 /* Empfänger beim Überfahren: dezent grau hinterlegt, Schrift bleibt lesbar
    (Thunderbird färbt sonst kräftig blau mit grauer Schrift) */

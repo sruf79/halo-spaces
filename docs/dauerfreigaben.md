@@ -22,6 +22,14 @@ Reihenfolge der Liste (komplexe zuerst; im Nachtlauf der Director-Plan nach Nutz
 eines Eintrags mit Notiz, Aufteilen großer Einträge in Schritte (`n/m`), Lauf der Tagesroutine,
 Kontingent-Schwellen innerhalb von `~/.config/halo-spaces/tagesroutine.conf`.
 
+**PRs zum Schließen eintragen** (Maintainer 14.11.2026, „ja bitte“, Wortlaut in `ENTSCHEIDUNGEN.md`): Der
+Director trägt einen PR selbst in `tests/pr-freigaben.txt` ein (Issue-Feld `director`, „Nachweis: <Hashes>,
+Release <x.y.z>“), nur wenn (1) der Inhalt nachweislich in `main` ist (Commit-Vergleich, kein nicht
+übernommener Fremdcode), (2) der Fix in einem Release steht bzw. mit dem laufenden kommt und (3) `publish.sh`
+dem Autor mit „Fixed in x.y.z“ dankt; geschlossen wird nur durch `publish.sh`, nie per `gh` und nie gemergt.
+Bericht: „PRs zum Schließen eingetragen: #n (Nachweis …)“. Abgelehnt, unklar oder Inhalt nicht in `main`:
+bleibt beim Maintainer (Vorschlag im Bericht).
+
 **LaunchAgents laden und neu starten** (Maintainer 13.11.2026, „Ja“ auf neons Vorschlag): neon darf die
 Zeitplan-Agenten (Tagesroutine, Nachtlauf, Morgenbrief, Wochenprüfung, Doku-Prüfung, Rundgang,
 CI-Wächter, Bilder-Eingang, GitHub-Wächter) mit `launchctl bootout`/`bootstrap` laden und neu starten,
@@ -50,7 +58,7 @@ Nutzer-Anfragen; Löschen oder Archivieren von Sitzungen und Dauerprozessen.
 ## D. Ausdrücklich nie automatisch
 
 Veröffentlichen mit abgeschwächten oder ausgesetzten Prüfungen; Aufheben der Windows- oder
-Linux-Pflicht; Freigabe fremder Pull Requests.
+Linux-Pflicht; Freigabe fremder Pull Requests (Mergen; Schließen nur wie unter B).
 
 ## Nicht Teil der Freigabe
 

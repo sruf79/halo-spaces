@@ -8,6 +8,11 @@
 #   Beispiel: 52 | 50 | 9.11.2026 | „#52 nach dem Release schließen“, Maintainer in neon
 # Issue-Nr: das Issue, dessen Fix-Commit „(GitHub #n)“ im Release liegen muss; „-“ = ohne Issue (wird nie
 # geschlossen, nur im Bericht genannt); „abgelehnt“ = PR ohne Fix-Commit schließen (fester Absage-Text, kein Merge). Das Zitat muss Anführungszeichen enthalten.
+# „director“ = Eintrag des Directors aus der Dauerfreigabe des Maintainers vom 14.11.2026 („ja bitte“), nur wenn
+# der Inhalt des PR nachweislich in main ist (übernommen, kein nicht übernommener Fremdcode) und der Fix in
+# einem Release steht bzw. mit dem laufenden kommt; Hashes und Release Pflicht, sonst nur vorschlagen:
+#   65 | director | 14.11.2026 | Director 14.11.2026, Nachweis: abc1234 def5678, Release 3.27.0; Freigabe „ja bitte“ (Maintainer in neon, 14.11.2026)
+# Geschlossen wird erst, wenn jeder Hash im Tag v<Release> liegt (Dank mit „Fixed in <Release>“).
 # Geschlossen wird nur, wenn der PR offen ist, in sruf79/halo-spaces liegt, kein Entwurf ist, kein Label
 # „hold“ trägt und ein voller Fix „(GitHub #<Issue-Nr>)“ im Release liegt. Danach wandert die Zeile nach
 # tests/pr-freigaben-erledigt.txt. Kein Merge, nie.

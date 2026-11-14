@@ -181,6 +181,19 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.27.0
+
+- **Settings**: a new "Rules" category lists all rules of all accounts in one place, with switches to turn each on or off, and buttons to add, edit, duplicate and remove
+- **Mail**: attachments appear below the message as tiles with a file icon, name and size, each with its own save button; new installs sort the message list by date, newest first (a sort order you chose stays)
+- **Message header**: button icons stay visible when the header is set to show text only, also for buttons of other add-ons (#61); the switch for dark message mode is back in the header in dark mode (#63)
+- **Message window**: Reply All is as wide as the other buttons
+- **Calendar**: search results appear in a panel to the right of the calendar, grouped by day; in the month view, multi-day events with a time show as one continuous bar; the multi-week view always scrolls smoothly, with momentum after a swipe
+- **Spaces**: when a view needs more room after switching (for example Tasks as Kanban), the window grows and stays on screen
+- **Sidebar**: when hidden, it floats in visibly over the Add-ons and Account Settings pages in Settings (#64); after collapsing it by dragging the divider, the sidebar button sits next to the window buttons instead of on top of them; dragging collapses it only at half its minimum width, like macOS
+- **Today pane**: Control-Command-T shows and hides it on macOS
+- **Address Book**: "All Address Books" is now called "All Contacts"
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.26.0
 
 - **Mail**: double-clicking a collapsed conversation opens one window with its newest message instead of one window per message; the toolbar buttons slide along when you hide or show the sidebar, and the stack of several selected messages slides along with the Today pane instead of jumping at the end

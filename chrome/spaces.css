@@ -7816,6 +7816,12 @@ menupopup menucaption {
   -moz-user-focus: ignore !important;
   user-select: none !important;
   caret-color: transparent !important;
+  /* Name der Webseite zentriert und ohne Rahmen */
+  text-align: center !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 #chat-toolbar {

@@ -18419,7 +18419,8 @@ Neu
               const row = d.getElementById("unifiedToolbarContainer"), box = wt.root?.querySelector(".contentTabToolbox"), bar = wt.toolbar, url = wt.urlbar;
               const cs = w.getComputedStyle(bar), bs = w.getComputedStyle(box);
               return { row: R(row), box: R(box), bar: R(bar), url: R(url), back: R(wt.backButton), browser: R(wt.browser),
-                       pad: [cs.paddingTop, cs.paddingBottom, cs.marginTop, bs.paddingTop, bs.marginTop, cs.minHeight], urlStyle: [w.getComputedStyle(url).pointerEvents, url.tabIndex] };""" % (web.server_port, P))
+                       pad: [cs.paddingTop, cs.paddingBottom, cs.marginTop, bs.paddingTop, bs.marginTop, cs.minHeight], urlStyle: [w.getComputedStyle(url).pointerEvents, url.tabIndex],
+                       urlLook: (u => [u.textAlign, u.borderTopWidth, u.borderLeftWidth, u.outlineStyle, u.boxShadow, u.backgroundColor])(w.getComputedStyle(url)) };""" % (web.server_port, P))
             r = res.get("url") or {}
             m.pointer([{"type": "pointerMove", "duration": 0, "x": r.get("l", 0) + 40, "y": (r.get("t", 0) + r.get("b", 0)) // 2, "origin": "viewport"},
                        {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
@@ -18438,8 +18439,12 @@ Neu
               and abs((bar["t"] + bar["b"]) - (row["t"] + row["b"])) <= 2 and abs(br.get("t", 0) - row.get("b", 0)) <= 1
               and bar.get("l", 0) >= row.get("l", 0) and bar.get("r", 9999) <= br.get("r", 0)
               and not res.get("clickFocus") and res.get("tabIndex") == -1)
+        # Name der Webseite zentriert, ohne Rahmen (kein Rand, keine Kontur, kein Schatten, kein Hintergrund)
+        look = res.get("urlLook") or []
+        ok = ok and len(look) == 6 and look[0] == "center" and look[1] == "0px" and look[2] == "0px" and look[3] in ("none", "") \
+            and look[4] == "none" and look[5] in ("rgba(0, 0, 0, 0)", "transparent")
         return ok, f"{res}"
-    check("Bereichsleiste: Webseite als fünfter Bereich – Zurück/Vor und Adresse oben in der Toolbar-Zeile, Seite direkt darunter, Adressfeld nur Anzeige (kein Fokus per Klick oder Tabulator)", fifth_space_web_bar, results)
+    check("Bereichsleiste: Webseite als fünfter Bereich – Zurück/Vor und Adresse oben in der Toolbar-Zeile, Seite direkt darunter, Adressfeld nur Anzeige (kein Fokus per Klick oder Tabulator), Name zentriert ohne Rahmen", fifth_space_web_bar, results)
 
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),

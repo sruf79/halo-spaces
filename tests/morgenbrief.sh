@@ -134,6 +134,9 @@ if [[ -r $NB ]]; then
     HANDELN+=("$#rf Rückfrage$( (( $#rf > 1 )) && print n ) des Directors (Einträge auf „Wartet auf OK“): $(kurz ${(j:; :)rf} 400)")
     HANDELN_NEU+=(rueckfragen)
   fi
+  # Aufräumen am Ende der Nacht (tests/aufraeumen.sh, Maintainer 14.11.2026): stehen gebliebene Reste mit Risiko als Hinweis
+  ar=$(grep -a '^Rest mit Risiko, nichts angefasst: ' $NB 2>/dev/null | tail -1); ar=${ar##*: }
+  [[ $ar == <-> ]] && (( ar > 0 )) && INFO+=("Aufräumen: $ar Rest$( (( ar > 1 )) && print e ) mit Risiko stehen gelassen (Bericht, Abschnitt Aufgeräumt)")
 elif [[ -e $NACHT/lauf.lock ]] && kill -0 $(<$NACHT/lauf.lock) 2>/dev/null; then
   INFO+=("Nacht: läuft noch (Bericht folgt)")
 else

@@ -9,7 +9,7 @@ export HALO_LAUF=nachtlauf
 # ändert den Checkout).
 #   nachtlauf.sh <Repo-Ordner>
 #   nachtlauf.sh --push-test <Text>     nur eine Testnachricht aufs iPhone
-#   nachtlauf.sh --trocken [<Repo>]     nur Zweig-Aufräumen und CI-Abschluss proben (tests/ci-runde.zsh): zeigt, was er
+#   nachtlauf.sh --trocken [<Repo>]     nur Aufräumen (tests/aufraeumen.sh) und CI-Abschluss proben (tests/ci-runde.zsh): zeigt, was er
 #                                       löschen, eintragen bzw. starten würde – kein Push, kein workflow run, kein Board
 # Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) der CI-Abschluss aus tests/ci-runde.zsh
 # (Entscheidung des Maintainers vom 7.11.2026): rote Prüfungen der CI-Läufe dieser Nacht ins Board,
@@ -78,54 +78,36 @@ ci_abschluss() {
   { print; print "## CI-Runde der Nacht (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
 }
 
-# Verwaiste Zweige claude/… auf GitHub löschen (Entscheidung des Maintainers vom 7.11.2026, Board
-# „Ablauf: Nachtlauf räumt verwaiste claude/-Zweige auf GitHub auf“): Cloud-Sitzungen lassen ihren
-# Zweig nach dem Push nach main stehen (die Cloud-Prüfung verlangt ihn, Löschen aus der Cloud scheitert
-# teils mit 403). Gelöscht wird nur, wenn 1. der Name mit claude/ beginnt (nie rest/… o. a.), 2. der Zweig
-# keine Commits über origin/main hinaus hat (umgeschriebene Commits nach einem Rebase zählen als eigene:
-# im Zweifel bleibt er) und 3. kein offener Pull Request ihn nutzt. Je Zweig eine Zeile; nie ein Abbruch.
-#   zweige_aufraeumen <Repo> [trocken]
-zweige_aufraeumen() {
-  local repo=$1 trocken=$2 b offen n=0
-  if ! git -C $repo fetch -q --prune origin 2>/dev/null; then
-    print -r -- "- git fetch fehlgeschlagen, nichts gelöscht"
-    return 0
-  fi
-  if ! offen=$(gh pr list -R sruf79/halo-spaces --state open -L 200 --json headRefName --jq '.[].headRefName' 2>/dev/null); then
-    print -r -- "- offene Pull Requests nicht lesbar, nichts gelöscht"
-    return 0
-  fi
-  for b in $(git -C $repo for-each-ref --format='%(refname:strip=3)' 'refs/remotes/origin/claude/'); do
-    n=$((n + 1))
-    if [[ -n $(git -C $repo rev-list -n 1 origin/main..origin/$b 2>/dev/null) ]]; then
-      print -r -- "- bleibt: $b (eigene Commits über main hinaus)"
-    elif print -r -- $offen | grep -qxF -- $b; then
-      print -r -- "- bleibt: $b (offener Pull Request)"
-    elif [[ -n $trocken ]]; then
-      print -r -- "- würde löschen: $b"
-    elif git -C $repo push -q origin --delete $b 2>/dev/null; then
-      print -r -- "- gelöscht: $b"
-    else
-      print -r -- "- Löschen fehlgeschlagen: $b"
-    fi
-  done
-  (( n )) || print -r -- "- keine Zweige claude/… auf GitHub"
-}
-
-# hängt die Zeilen an den Bericht. Nie ein Abbruch.
-zweige_abschluss() {
+# Aufräumen unbenötigter Reste mit Risiko null (Maintainer 14.11.2026, Wortlaut in ENTSCHEIDUNGEN.md;
+# tests/aufraeumen.sh): Arbeitskopien der Hilfsagenten, tote Sperrdateien, in main enthaltene Zweige
+# claude/…, rest/…, pruef/… (ersetzt das Zweig-Aufräumen vom 7.11.2026). Claude ruft es in Schritt 6a des
+# Auftrags auf und schreibt „## Aufgeräumt“ in den Bericht. Hier der Rückfall (auch bei „übersprungen“):
+# fehlt der Abschnitt, hängt das Skript ihn an; sonst nur eine Nachlese, wenn noch etwas entfernt wurde.
+# Nie ein Abbruch.
+AUFR=${0:A:h}/aufraeumen.sh
+aufraeumen_abschluss() {
   local zeilen
-  zeilen=$(zweige_aufraeumen $REPO)
-  log "Zweige: ${zeilen//$'\n'/ | }"
-  { print; print "## Verwaiste Zweige claude/… (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
+  if [[ ! -r $AUFR ]]; then
+    log "Aufräumen: $AUFR fehlt"
+    { print; print "## Aufgeräumt (nachtlauf.sh)"; print; print -r -- "- aufraeumen.sh fehlt in ${AUFR:h}, nichts aufgeräumt" } >> $BERICHT
+    return 0
+  fi
+  zeilen=$(LOG=$LOG zsh $AUFR $REPO 2>&1)
+  log "Aufräumen: ${zeilen//$'\n'/ | }"
+  if ! grep -q '^## Aufgeräumt' $BERICHT 2>/dev/null; then
+    { print; print "## Aufgeräumt (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
+  elif [[ $zeilen != Aufgeräumt:\ 0* ]]; then
+    { print; print "## Aufgeräumt, Nachlese (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
+  fi
+  return 0
 }
 
 if [[ -n $TROCKEN ]]; then
   # Probelauf: Protokoll in eine Wegwerf-Datei (die echte würde der CI-Wächter als Nachtfenster lesen),
   # Beginn der Nacht = heute 01:30
   LOG=$(mktemp) CI_TROCKEN=1
-  print "Zweige (Probelauf, nichts gelöscht):"
-  zweige_aufraeumen $REPO trocken
+  print "Aufräumen (Probelauf, nichts entfernt):"
+  zsh $AUFR --trocken $REPO
   print "CI-Abschluss (Probelauf, $(zeit)):"
   ci_nacht_abschluss $(date -j -v1H -v30M -v0S +%s) $HART
   print "Protokoll: $(<$LOG)"
@@ -224,7 +206,7 @@ if GRUND=$(nachtlauf_arbeit); then
 else
   uebersprungen nachtlauf "$GRUND"
   notbericht "übersprungen" "nichts zu tun: $GRUND"
-  zweige_abschluss
+  aufraeumen_abschluss
   ci_abschluss
   log "Ende"
   exit 0
@@ -346,7 +328,7 @@ fi
 KURZ=$(bericht_kurz)
 [[ -n $VD_STATUS && $VD_STATUS != *angemeldet* && $KURZ != *Volldampf* ]] && KURZ="${VD_STATUS%% – *}; $KURZ"
 kill $WACHE 2>/dev/null                   # Claude ist fertig; der CI-Abschluss hält selbst die 09:00 ein
-zweige_abschluss
+aufraeumen_abschluss
 ci_abschluss
 log "Ende"
 push "Nachtlauf $TAG: $KURZ – Bericht ~/halo-berichte/$TAG-nachtlauf.md"

@@ -32,6 +32,13 @@ plist vorher mit `plutil -lint` geprüft und gelesen, der Nachtlauf nicht zwisch
 dem Maintainer Befehl und Zeitpunkt. Neons Berechtigungsprüfung bleibt eigene Schutzschicht (lehnt sie ab,
 wird es gemeldet, nicht umgangen).
 
+**Aufräumen unbenötigter Reste mit Risiko null** (Maintainer 14.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+am Ende des Nachtlaufs (Auftrag Schritt 6a, Rückfall in `tests/nachtlauf.sh`), ohne Nachfrage. Was entfernt
+wird, legen allein die Kriterien in `tests/aufraeumen.sh` fest (Arbeitskopien der Hilfsagenten ohne
+Ungespeichertes und ohne eigene Commits, tote Sperrdateien in `~/halo-nacht`, in `main` enthaltene Zweige
+`claude/…`, `rest/…`, `pruef/…`); alles andere bleibt und steht als „Rest mit Risiko“ im Bericht und im
+Morgenbrief. Sitzungen und Dauerprozesse berührt das nicht (bleibt Stufe C).
+
 ## C. Immer der Maintainer (nur mit seinem Satz direkt in neon)
 
 Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der drei Fernsteuerungs-Agenten; `settings.json` und Hooks (Zeitfenster-Hook,

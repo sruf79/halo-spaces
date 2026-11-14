@@ -5828,7 +5828,7 @@ def calendar_checks(m, results):
             };
             walk(el); return Math.round(best);
           };
-          for (const [kind, open] of [["event", () => w.createEventWithDialog(c)], ["task", () => w.createTodoWithDialog(c)]]) {
+          for (const [kind, open] of [["event", () => w.createEventWithDialog(c)], ["task", () => (w.createTodoWithDialog.__mcOrig || w.createTodoWithDialog)(c)]]) {
             const known = new Set([...Services.wm.getEnumerator(null)]);
             open();
             const dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog")), 8000);
@@ -7880,8 +7880,8 @@ def calendar_checks(m, results):
         f, e = res.get("full") or {}, res.get("empty") or {}
         vals = {r[0]: r[2] for r in f.get("rows", [])}
         order = [r[0] for r in f.get("rows", [])]
-        ok = (f.get("heads") == ["Date & Time", "Organisation", "Place"]
-              and order == ["calendar", "clock", "repeat", "bell", "list", "tag", "lock", "star", "location"]
+        ok = (f.get("heads") == ["Date & Time", "Organisation", "Place", "Attachments"]
+              and order == ["calendar", "clock", "sun", "repeat", "bell", "list", "tag", "lock", "star", "status", "location", "attach-add"]
               and res.get("series") == "Every week" and vals.get("repeat") == "None" and vals.get("bell") == "1 hour before" and vals.get("tag") == "Kunden"
               and vals.get("lock") == "Public" and vals.get("star") == "High" and vals.get("location") == "Wien"
               and "Halo Test" in vals.get("list", "") and vals.get("calendar") == vals.get("clock") and ("16:00" in vals.get("clock", "") or "4:00" in vals.get("clock", ""))
@@ -15258,7 +15258,7 @@ Neu
           return out;""")
         cb, mb, pr = res.get("complete"), res.get("more"), res.get("prog")
         ok = (res.get("hooked") and res.get("title") == "Halo Fensteraufgabe" and res.get("head") == "Halo Fensteraufgabe" and res.get("note") == "Notiz im Fenster"
-              and res.get("rows") == ["Start", "Due", "Repeat", "Reminder", "List", "Category", "Privacy", "Priority", "Location"]
+              and res.get("rows") == ["Start", "Due", "All Day", "Repeat", "Reminder", "List", "Category", "Privacy", "Priority", "Status", "Location", "Add Link…"]
               and res.get("buttons") == ["task-actions-markcompleted", "mcTaskMore"] and cb and mb and cb["l"] < mb["l"] and mb["l"] + mb["w"] <= res["inner"][0]
               # Knöpfe oben über der Kopfkarte, nicht darin (vorher griff die Lage der Toolbar-Zeile des Hauptfensters)
               and bool(res.get("card")) and cb["t"] + cb["h"] <= res["card"]["t"] and mb["t"] + mb["h"] <= res["card"]["t"] and cb["t"] >= 0 and mb["l"] + mb["w"] >= res["inner"][0] - 30
@@ -15267,6 +15267,148 @@ Neu
               and res.get("menu") == ["Duplicate", "Move to List", "-", "Delete Task"] and res.get("closed") and not res.get("left"))
         return ok, f"{res}"
     check("Aufgaben: Aufgabe in eigenem Fenster (Doppelklick, Enter, ⌘O, Edit Task) mit derselben Ansicht wie die Detailspalte, oben Complete und „…“ (macOS in der Zeile der Fensterknöpfe, ohne Titelleiste), Bearbeiten, zweites Öffnen holt es nach vorn, Löschen schließt es", task_window, results)
+
+    def task_detail_fields():
+        # Aufgaben (neue Detailansicht 5d/5d): die Detailspalte kann, was der alte Bearbeiten-Dialog konnte – All Day als
+        # Schalter, Status mit Datum („Completed On“), Beschreibung mit Formatierung (Leiste unter der Notiz, als HTML
+        # gespeichert), Anhänge (Name, Rechtsklick „Remove“, „Add Link…“); eine neue Aufgabe entsteht ohne Dialog, gewählt
+        # in der Spalte mit dem Titel zum Eintippen
+        res = m.js(CAL_CHECK_JS + r"""
+          const out = {};
+          w.resizeTo(1500, 900); await wait(400);
+          tm.openTab("tasks", {}); await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+          // alle Aufgaben (auch erledigte und abgesagte)
+          w.taskViewUpdate?.("all"); await ruhig(600);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalAttachment } = ChromeUtils.importESModule("resource:///modules/CalAttachment.sys.mjs");
+          const t = new CalTodo(); t.title = "Halo Felder"; t.calendar = c; t.descriptionText = "Notiz fett";
+          const due = cal.dtz.now(); due.day += 1; due.hour = 15; due.minute = 0; due.second = 0; t.dueDate = due;
+          const a = new CalAttachment(); a.uri = Services.io.newURI("https://example.org/plan.pdf"); t.addAttachment(a);
+          await c.addItem(t);
+          const tree = d.getElementById("calendar-task-tree");
+          const dialogs = () => [...Services.wm.getEnumerator(null)].filter(x => /calendar-event-dialog/.test(x.location.href)).length;
+          const spaeter = async (fn, ms = 4000) => { const end = Date.now() + ms; while (Date.now() < end) { const v = await fn(); if (v) return v; await takt(50); } return fn(); };
+          const cur = async () => (await items("Halo Felder"))[0];
+          const row = icon => d.querySelector(`#mcTaskInfo .mc-ti-row[data-icon="${icon}"]`);
+          const menuPick = async (anchor, label) => {
+            anchor.click();
+            const p = await bis(() => { const x = d.getElementById("mcTaskInfoMenu"); return x?.state == "open" ? x : null; }, "Menü " + label, 3000);
+            const items_ = [...p.children].map(x => x.getAttribute("label"));
+            [...p.children].find(x => x.getAttribute("label") == label)?.doCommand(); p.hidePopup();
+            return items_;
+          };
+          let created = null;
+          // (nach jedem Speichern neu wählen: Thunderbird baut die Liste neu auf)
+          const pick = async () => {
+            await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Felder"), "Aufgabe in der Liste", 6000);
+            const i = tree.mTaskArray.findIndex(x => x.title == "Halo Felder");
+            if (tree.currentIndex != i || !tree.currentTask) tree.view.selection.select(i);
+            await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes("Halo Felder") && row("sun"), "Details", 6000);
+            await ruhig(300);
+          };
+          try {
+            // Kleinstes Fenster (resizeTo 820, die Mindestbreite hält es fest): lange Anhänge, „Completed On“ und die Formatleiste machen die Detailspalte nicht breiter –
+            // Liste, Teiler und Fläche bleiben wie bei einer Aufgabe ohne diese Felder (früherer Versuch: Fläche 723–740 statt 811 px)
+            const s1 = new CalTodo(); s1.title = "Halo Schmal Leer"; s1.calendar = c; await c.addItem(s1);
+            const s2 = new CalTodo(); s2.title = "Halo Schmal Voll"; s2.calendar = c; s2.descriptionText = "Notiz";
+            s2.setProperty("LOCATION", "Ein_sehr_langer_Ort_ohne_jeden_Umbruch_der_breiter_ist_als_die_Detailspalte");
+            const a2 = new CalAttachment(); a2.uri = Services.io.newURI("https://example.org/ein-sehr-langer-dateiname-ohne-umbruch-fuer-den-anhang-der-aufgabe-2026.pdf"); s2.addAttachment(a2);
+            s2.isCompleted = true; await c.addItem(s2);
+            w.resizeTo(820, 900); await stabil(() => w.outerWidth, 3000); await ruhig(800); out.narrowWin = w.outerWidth;
+            const geo = () => { const r = x => x?.getBoundingClientRect(); const b = r(tree.parentElement), l = r(d.getElementById("calendar-task-tree")),
+              dt = r(d.getElementById("calendar-task-details-container"));
+              return { box: Math.round(b.width), list: Math.round(l.width), det: dt ? [Math.round(dt.left), Math.round(dt.right)] : null,
+                side: d.documentElement.hasAttribute("mc-task-side"), inner: w.innerWidth }; };
+            const pickT = async title => {
+              await bis(() => (tree.mTaskArray || []).some(x => x.title == title), title, 6000);
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == title));
+              await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes(title) && row("status"), "Details " + title, 6000);
+              await ruhig(400);
+            };
+            await pickT("Halo Schmal Leer"); out.narrowEmpty = geo();
+            await pickT("Halo Schmal Voll"); out.narrowFull = geo();
+            out.narrowRows = [!!row("done"), !!row("attach")];
+            const f0 = d.getElementById("calendar-task-details-description");
+            await bis(() => f0.contentDocument?.body?.textContent.includes("Notiz"), "Notiz schmal", 3000);
+            f0.contentDocument.body.dispatchEvent(new f0.contentWindow.MouseEvent("click", { bubbles: true }));
+            await bis(() => !d.getElementById("mcTaskNoteBar")?.hidden, "Formatleiste schmal", 3000); await ruhig(300);
+            out.narrowEdit = geo();
+            f0.contentWindow.dispatchEvent(new f0.contentWindow.FocusEvent("blur"));
+            await until(() => d.getElementById("mcTaskNoteBar")?.hidden, 3000);
+            for (const x of [...await items("Halo Schmal Leer"), ...await items("Halo Schmal Voll")]) { try { await c.deleteItem(x); } catch {} }
+            w.resizeTo(1500, 900); await stabil(() => w.outerWidth, 3000); await ruhig(600);
+            await pick();
+            // All Day: Schalter an → Fälligkeit nur noch ein Tag
+            out.allDayBefore = row("sun").querySelector("input.mc-ti-switch")?.checked;
+            row("sun").querySelector("input").click();
+            out.allDay = !!(await spaeter(async () => (await cur())?.dueDate?.isDate));
+            await pick();
+            out.allDayShown = await until(() => row("sun")?.querySelector("input")?.checked, 3000);
+            // Status: Completed zeigt „Completed On“ mit Datum, Cancelled setzt den Status
+            await bis(() => row("status"), "Zeile Status", 3000);
+            out.statusMenu = await menuPick(row("status"), "Completed");
+            out.completed = !!(await spaeter(async () => (await cur())?.isCompleted && (await cur())?.completedDate));
+            await pick();
+            const doneRow = await until(() => row("done"), 3000);
+            out.doneRow = doneRow ? [doneRow.querySelector(".mc-ti-label").textContent, doneRow.querySelector(".mc-ti-value").hasAttribute("data-none")] : null;
+            await menuPick(row("status"), "Cancelled");
+            out.cancelled = !!(await spaeter(async () => (await cur())?.status == "CANCELLED"));
+            await pick();
+            out.doneGone = await until(() => row("status") && !row("done"), 3000);
+            // Anhang: Name in der Zeile, Rechtsklick „Remove“
+            out.attach = row("attach")?.querySelector(".mc-ti-label").textContent;
+            out.addLink = row("attach-add")?.querySelector(".mc-ti-label").textContent;
+            row("attach").dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+            const rp = await bis(() => { const x = d.getElementById("mcTaskInfoMenu"); return x?.state == "open" ? x : null; }, "Menü Anhang", 3000);
+            [...rp.children].find(x => x.getAttribute("label") == "Remove")?.doCommand(); rp.hidePopup();
+            out.attachGone = !!(await spaeter(async () => (await cur())?.getAttachments().length === 0));
+            await pick();
+            // Beschreibung: Klick macht sie bearbeitbar mit Formatleiste, Fett wird als HTML gespeichert
+            const frame = d.getElementById("calendar-task-details-description");
+            await bis(() => frame.contentDocument?.body?.textContent.includes("Notiz fett"), "Notiz", 3000);
+            const nd = frame.contentDocument, nwin = frame.contentWindow;
+            nd.body.dispatchEvent(new nwin.MouseEvent("click", { bubbles: true }));
+            const bar = d.getElementById("mcTaskNoteBar");
+            out.edit = [nd.designMode, !!bar && !bar.hidden, bar ? [...bar.children].map(b => b.dataset.cmd) : null];
+            nwin.focus(); nd.execCommand("selectAll", false, null);
+            bar.querySelector('[data-cmd="bold"]').click();
+            nwin.dispatchEvent(new nwin.FocusEvent("blur"));
+            out.html = await spaeter(async () => { const x = await cur(); return /<(b|strong)\b/i.test(x?.descriptionHTML || "") && x.descriptionText.includes("Notiz fett") ? x.descriptionHTML : null; });
+            out.editOff = await until(() => frame.contentDocument.designMode == "off" && d.getElementById("mcTaskNoteBar")?.hidden, 3000);
+            await pick();
+            // neue Aufgabe ohne Dialog: gewählt, Titel zum Eintippen
+            const before = dialogs();
+            w.createTodoWithDialog();
+            const inp = await until(() => tree.currentTask?.title == "New Task" && d.querySelector("#calendar-task-details-title input"), 5000);
+            created = tree.currentTask;
+            out.newTask = !!inp; out.newDialogs = dialogs() - before;
+            if (inp) {
+              inp.value = "Halo Neu ohne Dialog"; inp.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+              out.newTitle = await until(() => tree.currentTask?.title == "Halo Neu ohne Dialog", 4000);
+            }
+          } finally {
+            for (const x of [...Services.wm.getEnumerator(null)]) if (/calendar-event-dialog/.test(x.location.href)) x.close();
+            for (const x of [...await items("Halo Felder"), ...await items("Halo Schmal Leer"), ...await items("Halo Schmal Voll")]) { try { await c.deleteItem(x); } catch {} }
+            w.resizeTo(1500, 900);
+            if (created) { try { const cc = created.calendar; const all = await cc.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null);
+              for (const x of all.filter(i => i.id == created.id)) await cc.deleteItem(x); } catch {} }
+            for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+          }
+          return out;""")
+        ne, nf, nx = res.get("narrowEmpty") or {}, res.get("narrowFull") or {}, res.get("narrowEdit") or {}
+        same = lambda a, b: bool(a) and bool(b) and abs(a["box"] - b["box"]) <= 1 and abs(a["list"] - b["list"]) <= 1 and a["side"] == b["side"] \
+            and a["det"] and b["det"] and abs(a["det"][0] - b["det"][0]) <= 1 and b["det"][1] <= b["inner"] + 1
+        ok = (same(ne, nf) and same(ne, nx) and res.get("narrowRows") == [True, True]
+              and res.get("allDayBefore") is False and res.get("allDay") and res.get("allDayShown")
+              and res.get("statusMenu") == ["Not Started", "In Progress", "Completed", "Cancelled"] and res.get("completed")
+              and res.get("doneRow") == ["Completed On", False] and res.get("cancelled") and res.get("doneGone")
+              and res.get("attach") == "example.org/plan.pdf" and res.get("addLink") == "Add Link…" and res.get("attachGone")
+              and res.get("edit") == ["on", True, ["bold", "italic", "underline", "insertUnorderedList", "insertOrderedList", "createLink"]]
+              and res.get("html") and res.get("editOff")
+              and res.get("newTask") and res.get("newDialogs") == 0 and res.get("newTitle"))
+        return ok, f"{res}"
+    check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
 
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
@@ -16221,7 +16363,7 @@ Neu
           let dw = null;
           try {
             await toCalendar();
-            let r = await inner(() => w.createTodoWithDialog(testCalendar(), null, "Halo Aufgabendialog"), "todo-has-duedate");
+            let r = await inner(() => (w.createTodoWithDialog.__mcOrig || w.createTodoWithDialog)(testCalendar(), null, "Halo Aufgabendialog"), "todo-has-duedate");
             if (!r || !r[1]) return { dialog: false };
             [dw] = r; const id = r[1];
             out.id = id.documentElement.id;

@@ -12439,7 +12439,11 @@ def run_checks(m, version, profile, results):
                 move(x + 60, x + 500, y)
                 r["max"] = m.js(state)["w"]
                 x += 500
-            move(x, s["left"] + 40, y)
+            # knapp unter der Mindestbreite (100 px) bleibt sie stehen, erst unter der halben (80 px) geht sie weg
+            move(x, s["left"] + 100, y)
+            mid = m.js(state)
+            r["min"] = [mid["hidden"], mid["w"]]
+            move(s["left"] + 100, s["left"] + 40, y)
             mid = m.js(state)
             r["off"] = [mid["hidden"], mid["anim"]]
             move(s["left"] + 40, s["left"] + 240, y)
@@ -12457,6 +12461,8 @@ def run_checks(m, version, profile, results):
             e = m.js(state)
             r["grip"] = [e["hidden"], e["grip"], e["anim"]]
             out[name] = r
+            if r["min"][0] is not False:
+                bad.append(f"{name}: bei 100 px schon weg {r['min']}")
             if r["off"] != [True, False] or r["on"][:2] != [False, False] or abs(r["on"][2] - 240) > 30:
                 bad.append(f"{name}: im selben Zug {r['off']} / {r['on']}")
             if r["released"][:2] != [True, True] or not 0 <= r["released"][2] <= 6:
@@ -19335,7 +19341,8 @@ Neu
 
     def sidebar_drag_button():
         # Seitenleiste durch Ziehen der Trennlinie nach links eingeklappt: der Seitenleisten-Knopf steht wie nach dem
-        # Ausblenden über den Knopf (neben den Fensterknöpfen), nicht über ihnen (3.26.0, Adressbuch und Mail)
+        # Ausblenden über den Knopf (neben den Fensterknöpfen), nicht über ihnen (3.26.0, Adressbuch und Mail; vorher blieb der
+        # Ampel-Platz der letzten Animation an der Toolbar-Zeile stehen)
         def act(steps):
             m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
             m.cmd("WebDriver:ReleaseActions", {})
@@ -19347,7 +19354,10 @@ Neu
             for space, go, split in (("adressbuch", 'tm.openTab("addressBookTab", {}); await ruhig(1500);', "booksSplitter"),
                                      ("mail", "await toMail(); await ruhig(600);", "folderPaneSplitter")):
                 start = m.js(f"""w.resizeTo(1300, 800); await wait(300); {go}
-                  if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ein", 3000); await ruhig(600); }}
+                  // (einmal per Knopf aus und wieder ein: die Animation hinterlässt ihre Werte an der Toolbar-Zeile)
+                  const pin = d.getElementById("spacesPinnedButton");
+                  if (!w.gSpacesToolbar.isHidden) {{ pin.click(); await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "aus", 3000); await ruhig(400); }}
+                  pin.click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ein", 3000); await ruhig(600);
                   const tab = tm.currentTabInfo, br = tab.mode.name == "mail3PaneTab" ? tab.chromeBrowser : tab.browser;
                   const s = br.contentDocument.getElementById("{split}").getBoundingClientRect(), o = br.getBoundingClientRect();
                   return {{ x: Math.round(o.left + s.left + s.width / 2), y: Math.round(o.top + s.top + s.height / 2) }};""")

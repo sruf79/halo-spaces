@@ -9554,11 +9554,24 @@ class CardEnhancer {
     // Bereiche-Leiste an die linke Leiste angleichen (ohne Animation), wenn
     // Thunderbird bzw. das Ziehen nur die linke Leiste ein-/ausgeblendet hat –
     // nie „nur eins von beiden“
+    // Bereiche-Leiste ohne Animation umschalten (Ziehen, Thunderbirds eigene
+    // Wege): Reste einer früheren Animation an der Toolbar-Zeile entfernen –
+    // ein dort stehengebliebener Platz für die Ampel (12 px aus der
+    // eingeblendeten Lage) setzte den Seitenleisten-Knopf sonst nach dem
+    // Einklappen per Ziehen über die Fensterknöpfe
+    const toggleSpacesNow = hidden => {
+      w.gSpacesToolbar.toggleToolbar(hidden);
+      if (!w.__mcSpacesAnimating) {
+        const row = w.document.getElementById("unifiedToolbarContainer");
+        row?.style.removeProperty("--mc-tl-reserve");
+        row?.style.removeProperty("--mc-tl-flow");
+      }
+    };
     const spacesFollow = hidden => {
       if (!w.gSpacesToolbar || w.__mcColumnQuiet || w.__mcSideDrag || columnBusy() || columnHidden() == hidden) {
         return;
       }
-      w.gSpacesToolbar.toggleToolbar(hidden);
+      toggleSpacesNow(hidden);
     };
     // Ordnerliste: Thunderbirds eigene Wege (Ansicht → Layout → Ordnerliste,
     // F9, Teiler) melden sich am Teiler – die Bereiche-Leiste zieht mit
@@ -9909,7 +9922,9 @@ class CardEnhancer {
     // zurückgezogen wieder da. Ausgeblendet bleibt am linken Rand eine schmale
     // Greifzone (#mcSideGrip), an der man sie wieder herauszieht. Die Breite
     // von vor dem Ziehen bleibt fürs Einblenden
-    const DRAG_HIDE = 120;
+    // (wie macOS: erst bei halber Mindestbreite, vorher klappte sie schon bei
+    // 120 px und damit zu früh ein, kaum dass sie an der Mindestbreite stand)
+    const DRAG_HIDE = 80;
     const SIDE_MIN = 160;
     const SIDE_ROOM = 400; // mindestens so viel Platz bleibt der Ansicht daneben
     const SIDE_GRIP = 5; // so breit wie die Trennlinien
@@ -10035,7 +10050,7 @@ class CardEnhancer {
         setHidden: h => {
           pane.setHidden(h);
           if (w.gSpacesToolbar && !w.__mcColumnQuiet && columnHidden() != h) {
-            w.gSpacesToolbar.toggleToolbar(h);
+            toggleSpacesNow(h);
           }
         },
         setWidth: pane.setWidth && (W => {

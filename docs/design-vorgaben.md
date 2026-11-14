@@ -291,6 +291,20 @@ Verfahren (Vorgabe des Auftrags, 14.11.2026, keine Entscheidung des Maintainers)
 
 - Rückfragen sollen möglichst gar nicht entstehen (Maintainer 14.11.2026, Abschnitt 6a): Lücken
   klärt der Director vor der Beauftragung.
+- **Unklarheiten so bald wie möglich melden.** Wortlaut des Maintainers (14.11.2026, über neon; auch
+  in E): „wenn der direktor und/oder designer einen task nicht erldigen konnte weil unklarheiten
+  entstehen müssen diese unklarheiten so bald wie möglich erwähnt werden. beim nachtlauf reicht der
+  morgenbericht, untertags kann mich die session neon direkt kontaktieren und nachfragen“.
+  Umsetzung im Entwurf (Beschreibung von neon, Deutung nicht des Maintainers):
+  - sofort beim Auftreten (nicht erst am Ende des Laufs): Eintrag auf „Wartet auf OK“
+    (`tests/board.sh status <id> ok`) mit Notiz „Rückfrage <Director|Designer> <Datum>: <Frage>“;
+  - Nachtlauf: Frage im Bericht unter „Rückfragen an den Maintainer“, der Morgenbrief zeigt sie
+    (bestehender Weg, höchstens 5 je Nacht);
+  - Tagesroutine: Frage sofort per `SendMessage` an die Sitzung `neon` (nur Name, AGENTS.md „neon
+    erreichen“); neon fragt den Maintainer direkt im Gespräch. Die Tagesroutine arbeitet inzwischen
+    mit dem nächsten Eintrag weiter. (Noch nicht umgesetzt: `tests/tagesroutine-auftrag.md` kennt nur
+    die Ergebniszeile „entscheidung <Frage>“, lässt den Eintrag unverändert, und `tests/tagesroutine.sh`
+    meldet das erst am Ende des Tages per Push.)
 - Fehlt eine Regel und gibt es eine Apple-Entsprechung: wie Apple, nicht fragen (M
   `im-zweifel-apple`: „nur fragen, wenn Apple keine Entsprechung hat“; Abschnitt 6a Punkt 3).
 - Keine Apple-Entsprechung, Vorlage fehlt oder Wunsch unklar: nicht raten, Eintrag auf „Wartet auf

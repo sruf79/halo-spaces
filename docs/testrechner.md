@@ -420,6 +420,16 @@ Maintainer 14.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`: „designer ist jetzt fr
 - **Nachtlauf** (`tests/nachtlauf-auftrag.md` Schritt 1a g und 2a): Unteragent je Eintrag, nacheinander; Ergebnis `~/halo-nacht/<datum>-designer-<id>.erg/.md`. Nachts keine Sofortnachricht: Designfragen stehen im Bericht unter „Rückfragen an den Maintainer“ und damit im Morgenbrief.
 - **Tagesroutine** (`tests/tagesroutine-auftrag.md` Abschnitt „Designer“, `tests/tagesroutine.sh`): Plan-Spalte `design`; die Eintragsrunde läuft mit dem Modell für komplexe Einträge, liegt dieses unter Opus, wird der Eintrag heute übersprungen („Designer braucht mindestens Opus“). Ergebnis `vorschau <id> <Link> <Frage>` (Eintrag auf „Wartet auf OK“ mit Notiz) und `entscheidung …` eines Design-Eintrags schickt das Skript sofort als „[handeln]“-Push aufs iPhone (`push … tagesroutine handeln`) und macht mit dem nächsten Eintrag weiter; übrige Entscheidungsfragen weiter gesammelt am Tagesende. Prüfung: `zsh tests/tagesroutine_test.zsh` (Abschnitt „Designer“).
 
+## Paketzweig paket/lichtschein-kachel (ab 14.11.2026)
+
+Paketzweig paket/lichtschein-kachel (Maintainer 14.11.2026: „ja, kein lichtschein ohne neue kacheln“,
+ENTSCHEIDUNGEN.md): Einträge zum Lichtschein und zur aktiven Kachel d2h (Board: „Lichtschein …“, „… aktive
+Space-Kachel … F4a (Umsetzung 3/3)“) werden auf dem Zweig paket/lichtschein-kachel in einem eigenen Worktree
+umgesetzt und committet, nie auf main. Nach main kommt der Zweig erst, wenn der Maintainer es ausdrücklich
+freigibt oder Lichtschein und Kachel d2h fertig und beide Prüfungen grün sind und der Director das im Bericht
+begründet; dann Merge (kein Rebase) mit Hinweis im Bericht. Bis dahin kein Release mit Lichtschein; Testpakete
+für /vorab werden aus dem Zweig gebaut.
+
 ## Aufräumen am Ende des Nachtlaufs (ab 14.11.2026)
 
 `tests/aufraeumen.sh` (Kopie in `~/.config/halo-spaces/`, SK_PAARE in `tests/mac-mini-setup.sh`) entfernt

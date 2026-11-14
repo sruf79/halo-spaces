@@ -248,6 +248,17 @@ Reihenfolge:
       das Testpaket für den Laptop (/vorab, dist/*.xpi) nach dem Bau bereitliegt
       (am Laptop nichts ändern). Ob die Größe in die Nacht passt, beurteilst du
       selbst und begründest es im Plan; bei Zweifel Weg f) statt Raten.
+      Paketzweig paket/lichtschein-kachel (Maintainer 14.11.2026: „ja,
+      kein lichtschein ohne neue kacheln“, ENTSCHEIDUNGEN.md): Einträge
+      zum Lichtschein und zur aktiven Kachel d2h (Board: „Lichtschein
+      …“, „… aktive Space-Kachel … F4a (Umsetzung 3/3)“) werden auf dem
+      Zweig paket/lichtschein-kachel in einem eigenen Worktree umgesetzt
+      und committet, nie auf main. Nach main kommt der Zweig erst, wenn
+      der Maintainer es ausdrücklich freigibt oder Lichtschein und
+      Kachel d2h fertig und beide Prüfungen grün sind und der Director
+      das im Bericht begründet; dann Merge (kein Rebase) mit Hinweis im
+      Bericht. Bis dahin kein Release mit Lichtschein; Testpakete für
+      /vorab werden aus dem Zweig gebaut.
    d) Plan schreiben, bevor der erste Eintrag beginnt:
       - Plandatei ~/halo-nacht/<Heute>-plan.md („Plan dieses Laufs“, Datum aus
         „Heute:“ oben): Tabelle | Nr. | id | Titel | Nutzen | Aufwand |

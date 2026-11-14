@@ -145,6 +145,14 @@ haben“). Vorgaben: docs/design-vorgaben.md.
   wie bisher am Tagesende.
 - Den Berichtsabschnitt des Designers übernimmst du in deinen Abschnitt (Ergebnis, Einspruch ja/nein).
 
+Paketzweig paket/lichtschein-kachel (Maintainer 14.11.2026: „ja, kein lichtschein ohne neue kacheln“,
+ENTSCHEIDUNGEN.md): Einträge zum Lichtschein und zur aktiven Kachel d2h (Board: „Lichtschein …“, „…
+aktive Space-Kachel … F4a (Umsetzung 3/3)“) werden auf dem Zweig paket/lichtschein-kachel in einem
+eigenen Worktree umgesetzt und committet, nie auf main. Nach main kommt der Zweig erst, wenn der
+Maintainer es ausdrücklich freigibt oder Lichtschein und Kachel d2h fertig und beide Prüfungen grün sind
+und der Director das im Bericht begründet; dann Merge (kein Rebase) mit Hinweis im Bericht. Bis dahin
+kein Release mit Lichtschein; Testpakete für /vorab werden aus dem Zweig gebaut.
+
 Fable-Regel (Ergebnis des Tests vom 10.11.2026: Fable zählt in „alle Modelle“ und zusätzlich in
 „Weekly · Fable“; ein Fable-Lauf füllt das 5-Stunden-Fenster stark, drei parallele große Läufe etwa
 12 Punkte): Standard bleibt Opus. „fable“ nur für einzelne besonders heikle Einträge, die Opus in

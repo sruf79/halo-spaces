@@ -1655,6 +1655,33 @@ const EarlyTheme = {
     const at = (head || "").indexOf(this.HEAD);
     return at < 0 ? null : head.slice(at + this.HEAD.length).split(" ")[0];
   },
+  // Stand des Designs in der Kopfzeile („Stand <Prüfsumme>“), sonst null (ältere Kopie ohne Stand)
+  stampOf(head) {
+    const at = (head || "").indexOf(this.HEAD);
+    const m = at < 0 ? null : / Stand ([0-9a-f]{8}) /.exec(head.slice(at, at + this.HEAD.length + 80));
+    return m ? m[1] : null;
+  },
+  // Prüfsumme (FNV-1a, 32 Bit) über den Text von theme.css: ein Paket mit derselben Version, aber anderem
+  // Design (Testpaket über /vorab, gleiche Versionsnummer wie das letzte Release) galt sonst als aktuell –
+  // Thunderbird lud dann die alte Kopie und theme.css gar nicht, neue Regeln (Lichtschein) fehlten
+  hash(css) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < css.length; i++) {
+      h = Math.imul(h ^ css.charCodeAt(i), 0x01000193);
+    }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  },
+  css() {
+    const channel = NetUtil.newChannel({ uri: "resource://mailcards/theme.css", loadUsingSystemPrincipal: true });
+    const stream = channel.open();
+    const css = NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
+    stream.close();
+    return css;
+  },
+  // Kopie im Profil gehört genau zu diesem Paket: gleiche Version und gleicher Stand
+  current(head, css = this.css()) {
+    return this.versionOf(head) == extensionVersion && this.stampOf(head) == this.hash(css);
+  },
   async head() {
     const path = this.file().path;
     if (!(await IOUtils.exists(path))) {
@@ -1679,17 +1706,14 @@ const EarlyTheme = {
       log("early theme: eigene userChrome.css des Nutzers – nicht überschrieben");
       return false;
     }
-    if (head !== null && this.versionOf(head) == extensionVersion) {
+    const css = this.css();
+    if (head !== null && this.current(head, css)) {
       this.legacyOn();
       return true;
     }
-    const channel = NetUtil.newChannel({ uri: "resource://mailcards/theme.css", loadUsingSystemPrincipal: true });
-    const stream = channel.open();
-    const css = NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
-    stream.close();
     const file = this.file();
     await IOUtils.makeDirectory(file.parent.path, { ignoreExisting: true });
-    await IOUtils.writeUTF8(file.path, `${this.HEAD}${extensionVersion} – nicht von Hand ändern, wird ersetzt */\n${css}`);
+    await IOUtils.writeUTF8(file.path, `${this.HEAD}${extensionVersion} Stand ${this.hash(css)} – nicht von Hand ändern, wird ersetzt */\n${css}`);
     this.legacyOn();
     return true;
   },
@@ -1730,10 +1754,14 @@ const ThemeSheet = {
         const head = NetUtil.readInputStreamToString(stream, Math.min(stream.available(), 4096));
         stream.close();
         // eigene Kopie für den Start ohne Aufblitzen (EarlyTheme): gilt nur in der
-        // aktuellen Fassung – nach einem Update lud Thunderbird noch die alte
+        // aktuellen Fassung – nach einem Update lud Thunderbird noch die alte; gleiche Version mit anderem
+        // Design (Testpaket) zählt ebenfalls als alt (Stand in der Kopfzeile)
         const managed = EarlyTheme.versionOf(head);
         if (managed !== null) {
-          if (managed == extensionVersion) {
+          // (erst in diesem Programmlauf geschrieben – nach einem neuen Paket startet die Erweiterung zweimal, der
+          // erste Start schreibt die Datei –: Thunderbird hat beim Öffnen der Fenster noch die alte geladen)
+          const started = Services.startup.getStartupInfo().process?.getTime() || 0;
+          if (EarlyTheme.current(head) && !(started && file.lastModifiedTime > started)) {
             log("theme: eigene userChrome.css (Start ohne Aufblitzen) ist aktuell");
             return;
           }

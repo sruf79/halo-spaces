@@ -18599,7 +18599,7 @@ Neu
             for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
             await ruhig(200);
             const cs = e => mwin.getComputedStyle(e);
-            out.outer = { radius: cs(btn).borderTopLeftRadius, item: cs(item).borderTopLeftRadius, shadow: cs(btn).boxShadow };
+            out.outer = { radius: cs(btn).borderTopLeftRadius, item: cs(item).borderTopLeftRadius, shadow: cs(btn).boxShadow, bg: cs(btn).backgroundColor, img: cs(btn).backgroundImage };
             out.parts = parts.map(e => ({ bg: cs(e).backgroundColor, img: cs(e).backgroundImage, radius: cs(e).borderTopLeftRadius, shadow: cs(e).boxShadow }));
             for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover");
           } finally { mw.close(); }
@@ -18608,12 +18608,113 @@ Neu
         if res.get("mail") is False or res.get("button") is False:
             return False, f"Testmail oder Knopf fehlt {res}"
         o = res.get("outer") or {}
-        # wie Apple: jede Hälfte unter der Maus eine runde Fläche mit Abstand zum Kapselrand
-        # (radial-gradient), keine eigene Hintergrundfarbe, Rundung oder Schatten der Teile
+        # wie Apple und die übrigen Knöpfe: ein Kreis auf dem ganzen Kapselstück (mittig hinter dem Symbol, Lage misst
+        # die Prüfung am Bild unten), Knopf und Pfeil ohne eigene Fläche, Rundung oder Schatten
         ok = (o.get("radius") == o.get("item") and o.get("shadow") == "none"
-              and all(rgba_alpha(p["bg"]) == 0 and "radial-gradient" in p["img"] and p["radius"] == "0px" and p["shadow"] == "none" for p in res.get("parts") or [{}]))
+              and rgba_alpha(o.get("bg", "")) == 0 and "radial-gradient" in o.get("img", "")
+              and all(rgba_alpha(p["bg"]) == 0 and p["img"] == "none" and p["radius"] == "0px" and p["shadow"] == "none" for p in res.get("parts") or [{}]))
         return ok, f"{res}"
-    check("Mailkopf: „Allen antworten“ mit Pfeil beim Überfahren je Hälfte eine runde Fläche mit Abstand zum Kapselrand, ohne Schatten", header_split_hover, results)
+    check("Mailkopf: „Allen antworten“ mit Pfeil beim Überfahren ein Kreis auf dem Kapselstück, Knopf und Pfeil ohne eigene Fläche und ohne Schatten", header_split_hover, results)
+
+    def message_window_hover_dots():
+        # Fenster einer geöffneten Mail: beim Überfahren zeigt jeder Knopf denselben grauen Kreis wie die Mail-Toolbar,
+        # mittig hinter dem Symbol, kein Rechteck (vorher: kein Kreis, bei „Allen antworten“ ein dunkles Rechteck mit
+        # einem nach links verschobenen Kreis); der Stern ist der Stern der Mail-Toolbar (Umriss, markiert orange gefüllt)
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          let hdr = null;
+          for (const f of MailServices.accounts.localFoldersServer.rootFolder.descendants) {
+            for (const h of f.messages) if (h.mime2DecodedSubject.includes("Treffen am Donnerstag")) { hdr = h; break; }
+            if (hdr) break; }
+          if (!hdr) return { mail: false };
+          const flagged = hdr.isFlagged;
+          hdr.folder.markMessagesFlagged([hdr], false);
+          // Vergleich: Stern der Mail-Toolbar
+          await toMail(); await ruhig(300);
+          const tic = d.querySelector('#unifiedToolbarContent li[item-id="mark-as"] button .button-icon');
+          const out = { tbStar: tic ? w.getComputedStyle(tic).maskImage : null };
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          try {
+            await until(() => mw.document.title.includes("Treffen"), 6000); await ruhig(1500);
+            const br = mw.document.getElementById("messageBrowser"), md = br.contentDocument, mwin = md.defaultView;
+            const bar = md.getElementById("header-view-toolbar"), box = md.getElementById("header-view-toolbox");
+            const ids = ["hdrArchiveButton", "hdrTrashButton", "hdrJunkButton", "hdrReplyToSenderButton", "hdrSmartReplyButton", "hdrForwardButton", "otherActionsButton", "starMessageButton"];
+            // ohne Konto sind manche Befehle gesperrt – zum Messen wie bei einem echten Konto freigeben
+            for (const e of bar.querySelectorAll("[disabled]")) e.removeAttribute("disabled");
+            const cv = mw.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+            const shot = async r => {
+              const o = br.getBoundingClientRect(), x = o.left + r.left, y = o.top + r.top;
+              cv.width = Math.round(r.width); cv.height = Math.round(r.height); ctx.fillStyle = "white"; ctx.fillRect(0, 0, cv.width, cv.height);
+              try { ctx.drawImage(await mw.browsingContext.currentWindowGlobal.drawSnapshot(new mw.DOMRect(x, y, r.width, r.height), 1, "white"), 0, 0); }
+              catch { ctx.drawWindow(mw, x, y, r.width, r.height, "white"); }
+              return ctx.getImageData(0, 0, cv.width, cv.height);
+            };
+            const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2]]; };
+            const diff = (a, b, x, y) => { const p = px(a, x, y), q = px(b, x, y); return Math.max(...p.map((v, k) => Math.abs(v - q[k]))); };
+            out.btn = {};
+            for (const id of ids) {
+              const e = md.getElementById(id);
+              if (!e || e.hidden || !e.getBoundingClientRect().width) continue;
+              // im geteilten Knopf zeigt der sichtbare Knopf das Symbol
+              const inner = e.localName == "toolbaritem" ? [...e.children].find(c => c.localName == "toolbarbutton" && !c.hidden && c.getBoundingClientRect().width) : null;
+              const hot = inner?.querySelector(".toolbarbutton-menubutton-button") || inner || e;
+              const icon = (inner || e).querySelector(".toolbarbutton-icon, img");
+              const r = e.getBoundingClientRect(), ir = icon?.getBoundingClientRect();
+              const rest = await shot(r);
+              const lock = [box, bar, e, ...(inner ? [inner, hot] : [])].filter((x, i, a) => x && a.indexOf(x) == i);
+              for (const x of lock) InspectorUtils.addPseudoClassLock(x, ":hover");
+              await ruhig(150);
+              const hov = await shot(r);
+              for (const x of lock) InspectorUtils.removePseudoClassLock(x, ":hover");
+              await ruhig(100);
+              // Kreis = Pixel, die beim Überfahren dunkler bzw. heller werden; Mitte Zeile, Rand oben und unten
+              const W = rest.width, H = rest.height, mid = Math.floor(H / 2);
+              // (die äußeren 2 px nicht: dort verschwindet beim Überfahren der Trennstrich)
+              const row = y => { const xs = []; for (let x = 2; x < W - 2; x++) if (diff(rest, hov, x, y) >= 3) xs.push(x); return xs; };
+              const m = row(mid), top = [0, 1].flatMap(row), bottom = [H - 1, H - 2].flatMap(row);
+              let rows = 0; for (let y = 0; y < H; y++) if (row(y).length) rows++;
+              out.btn[id] = { w: Math.round(r.width), h: Math.round(r.height), l: m.length ? m[0] : null, r: m.length ? m[m.length - 1] : null,
+                              iconMid: ir ? Math.round((ir.left + ir.width / 2 - r.left) * 2) / 2 : null, top: top.length, bottom: bottom.length, rows };
+            }
+            // Stern: Form wie in der Mail-Toolbar, Umriss grau, markiert orange gefüllt
+            const st = md.getElementById("starMessageButton"), si = st?.querySelector("img");
+            const star = async () => { const cs = mwin.getComputedStyle(si), r = si.getBoundingClientRect(), img = await shot(r);
+              let grey = 0, orange = 0; for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) { const [a, b, c] = px(img, x, y);
+                if (a < 200 && Math.abs(a - b) < 12 && Math.abs(b - c) < 12) grey++; if (a > 200 && b > 100 && b < 190 && c < 80) orange++; }
+              return { mask: cs.maskImage, w: Math.round(r.width), h: Math.round(r.height), bg: cs.backgroundColor, grey, orange }; };
+            if (si) {
+              out.star = await star();
+              hdr.folder.markMessagesFlagged([hdr], true); await bis(() => st.classList.contains("flagged"), "Stern markiert", 3000); await ruhig(300);
+              out.starOn = await star();
+            }
+          } finally { mw.close(); hdr.folder.markMessagesFlagged([hdr], flagged); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail fehlt"
+        bad = []
+        btn = res.get("btn") or {}
+        for need in ("hdrTrashButton", "hdrForwardButton", "starMessageButton"):
+            if need not in btn:
+                bad.append(f"{need} fehlt")
+        for k, v in btn.items():
+            # Kreis 32 px (Toolbar: radial-gradient 16 px), höchstens 1 px neben der Mitte des Symbols, oben und unten frei
+            # (ein Rechteck reichte bis an den Rand des Kapselstücks)
+            if v.get("l") is None or v.get("iconMid") is None:
+                bad.append(f"{k}: kein Kreis {v}"); continue
+            width, center = v["r"] - v["l"] + 1, (v["l"] + v["r"] + 1) / 2
+            if not (28 <= width <= 33 and abs(center - v["iconMid"]) <= 1 and v["top"] == 0 and v["bottom"] == 0 and 26 <= v["rows"] <= 34):
+                bad.append(f"{k}: {v}")
+        tb, s0, s1 = res.get("tbStar"), res.get("star") or {}, res.get("starOn") or {}
+        # Umriss gleich dem Toolbar-Stern, 22 px, grau; markiert gefüllt und orange (Toolbar: --mi-star-fill in --mt-star)
+        if not (tb and s0.get("mask") == tb and s0.get("w") == 22 and s0.get("grey", 0) > 20 and s0.get("orange") == 0):
+            bad.append(f"Stern: {s0} (Toolbar {tb and tb[:40]})")
+        if not (s1.get("mask") != s0.get("mask") and "fill=%22%23000%22" in (s1.get("mask") or "") and s1.get("orange", 0) > 60 and s1.get("w") == 22):
+            bad.append(f"Stern markiert: {s1}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Nachrichtenfenster: beim Überfahren jeder Knopf mit grauem Kreis mittig hinter dem Symbol, kein Rechteck; "
+          "Stern wie in der Mail-Toolbar", message_window_hover_dots, results)
 
     def calendar_list_light():
         # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe

@@ -2269,8 +2269,14 @@ findbar .findbar-textbox:focus {
 }
 
 :root[mc-standalone] #header-view-toolbar :is(toolbarbutton, button):hover:not([disabled]) {
-  background-color: var(--mt-control-hover) !important;
   color: var(--mt-text) !important;
+}
+
+/* Fläche nur für Knöpfe direkt in der Zeile (z. B. anderer Erweiterungen) –
+   der Knopf in „Allen antworten“ färbte sonst sein ganzes Kapselstück als
+   dunkles Rechteck */
+:root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, button):hover:not([disabled]) {
+  background-color: var(--mt-control-hover) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar toolbarbutton .toolbarbutton-icon {
@@ -2321,28 +2327,49 @@ findbar .findbar-textbox:focus {
   background-color: var(--mt-control) !important;
 }
 
-:root[mc-standalone] #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:not([disabled]) {
+/* (mit #header-view-toolbox: die Regel darüber ist durch die Kennungen in
+   :has() spezifischer und nahm sonst den Kreis wieder weg – kein Knopf zeigte
+   beim Überfahren etwas) */
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:not([disabled]) {
   background-image: var(--mt-cap-dot) !important;
+  /* Größe und Lage des Trennstrichs (1 × 20 px links) nicht auf den Kreis
+     übertragen – er wurde sonst in diesen Streifen gemalt */
+  background-size: auto !important;
+  background-position: 0 0 !important;
+  background-repeat: no-repeat !important;
 }
 
-:root[mc-standalone] #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:active:not([disabled]) {
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:active:not([disabled]) {
   background-image: var(--mt-cap-dot-press) !important;
 }
 
-:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button:hover:not([disabled]) {
+/* Knöpfe der Antworten-Gruppe („Allen antworten“ mit Pfeil): ein Kreis
+   mittig hinter dem Symbol wie bei den übrigen Knöpfen – auf dem ganzen
+   Kapselstück, nicht auf seiner Knopfhälfte (die ist links 11, rechts 1 px
+   gepolstert, der Kreis saß dort 5 px links vom Symbol) */
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > toolbaritem > toolbarbutton:hover:not([disabled]) {
   background: var(--mt-cap-dot) !important;
 }
 
-:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker:hover:not([disabled]) {
-  background: var(--mt-cap-dot-narrow) !important;
-}
-
-:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button:hover:active:not([disabled]) {
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > toolbaritem > toolbarbutton:is(:hover:active, [open]):not([disabled]) {
   background: var(--mt-cap-dot-press) !important;
 }
 
-:root[mc-standalone] #header-view-toolbar toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker:is(:hover:active, [open]):not([disabled]) {
-  background: var(--mt-cap-dot-narrow-press) !important;
+/* Stern wie der Markieren-Knopf der Mail-Toolbar (Thunderbirds kleiner Stern
+   in Hellorange mit Kontur wich in Form, Größe und Farbe ab): Umriss in der
+   Knopffarbe, markiert gefüllt in Orange */
+:root[mc-standalone] #starMessageButton > img {
+  width: 22px !important;
+  height: 22px !important;
+  fill: transparent !important;
+  stroke: transparent !important;
+  background-color: currentColor !important;
+  mask: var(--mi-star) center / contain no-repeat !important;
+}
+
+:root[mc-standalone] #starMessageButton.flagged > img {
+  mask-image: var(--mi-star-fill) !important;
+  background-color: var(--mt-star) !important;
 }
 
 :root[mc-standalone] #messageHeader .recipient-avatar.mc-hdr-avatar {

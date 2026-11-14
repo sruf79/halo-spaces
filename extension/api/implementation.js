@@ -15287,6 +15287,45 @@ class CardEnhancer {
         pinRo.observe(li);
       }
     }
+    // grauer Kreis im Mini-Kalender folgt beim Scrollen dem obersten
+    // sichtbaren Tag der Liste. Nur die Markierung wandert: der gewählte Tag
+    // des Mini-Kalenders bleibt, sonst lüde Thunderbird die Liste neu und
+    // sie spränge zurück
+    const mm = w.document.getElementById("today-minimonth");
+    const follow = () => {
+      if (pinned || !mm?.getBoxForDate) {
+        return;
+      }
+      const top = agenda.getBoundingClientRect().top + 1;
+      const row = [...agenda.querySelectorAll(":scope > li.agenda-listitem")].find(li => li.getBoundingClientRect().bottom > top);
+      const s = (row?.dateString || "").slice(0, 8);
+      if (!/^\d{8}$/.test(s)) {
+        return;
+      }
+      const box = mm.getBoxForDate(new Date(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8)));
+      if (box && box != mm.mSelected) {
+        mm.mSelected?.removeAttribute("selected");
+        mm.mSelected = box;
+        box.toggleAttribute("selected", true);
+      }
+    };
+    agenda.addEventListener("scroll", follow, { passive: true });
+    // Klick auf den noch gewählten Tag, während der Kreis woanders steht:
+    // Thunderbird meldet keine Änderung – die Liste springt hier selbst zu
+    // ihm zurück, der Mini-Kalender stellt den Kreis dabei selbst zurück
+    // (Thunderbird setzt bei jedem Klick ein neues Datumsobjekt; meldete es
+    // dabei eine Änderung, ist es dasselbe wie beim letzten „change“ – ein
+    // bloßer Merker blieb nach setDay() ohne Klick stehen)
+    let mmChanged = null;
+    const onMmChange = () => (mmChanged = mm.value);
+    const onMmSelect = () => {
+      if (mm.value !== mmChanged && agenda.__mcScrollToAnchor) {
+        delete agenda.__mcAtEnd;
+        agenda.__mcScrollToAnchor();
+      }
+    };
+    mm?.addEventListener("change", onMmChange);
+    mm?.addEventListener("select", onMmSelect);
     // Thunderbird zeigt für andere Tage als heute nur diesen einen Tag –
     // hier immer den Monat des Tags bis zum Monatsende
     agenda.update = async function (date) {
@@ -15326,6 +15365,9 @@ class CardEnhancer {
       delete agenda.__mcScrollToAnchor;
       delete agenda.__mcAtEnd;
       pinEvents.forEach(type => agenda.removeEventListener(type, unpin));
+      agenda.removeEventListener("scroll", follow);
+      mm?.removeEventListener("change", onMmChange);
+      mm?.removeEventListener("select", onMmSelect);
       pinMo.disconnect();
       pinRo?.disconnect();
       Object.defineProperty(agenda, "numberOfDays", {

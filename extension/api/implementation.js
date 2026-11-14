@@ -88,6 +88,8 @@ function tr(english, vars = null) {
 const STYLE_ID = "mail-cards-style";
 const TOOLBAR_PREF = "extensions.mailcards.toolbarApplied";
 const PREVIEW_PREF = "extensions.mailcards.previewLines";
+// Lichtschein und gefärbte Trennlinie in der Seitenleiste (Maintainer 13.11.2026), Standard an
+const GLOW_PREF = "extensions.mailcards.sidebarGlow";
 // Filter über der Mailliste wie Apple Mail: Klick schaltet ihn ein, Halten
 // oder Rechtsklick wählt die Bedingungen (alle müssen zutreffen); Schlüssel
 // sind Thunderbirds Schnellfilter, Standard „Ungelesen“
@@ -11940,7 +11942,9 @@ class CardEnhancer {
       const mode = tab?.mode?.name;
       const tiles = [...bar.querySelectorAll(".spaces-toolbar-button")].filter(b => b.getBoundingClientRect().height > 0);
       const tile = tiles.find(b => b.classList.contains("current"));
-      let [el, , win] = GLOW_MODES.has(mode) ? sidebarFor(tab) : [];
+      // Schalter „Lichtschein in der Seitenleiste“ aus: kein Schein, Linie neutral (Kacheln unverändert)
+      const glowOn = Services.prefs.getBoolPref(GLOW_PREF, true);
+      let [el, , win] = glowOn && GLOW_MODES.has(mode) ? sidebarFor(tab) : [];
       if (!tile || !el || !win) {
         el = null;
       }
@@ -11995,8 +11999,10 @@ class CardEnhancer {
         mo.observe(bar, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "hidden", "mc-fifth-hidden", "mc-float"] });
         bar.__mcGlowMo = mo;
         w.addEventListener("resize", glowSoon);
+        Services.prefs.addObserver(GLOW_PREF, glowSoon);
         this.restorers.push(() => {
           mo.disconnect();
+          Services.prefs.removeObserver(GLOW_PREF, glowSoon);
           delete bar.__mcGlowMo;
           w.removeEventListener("resize", glowSoon);
           w.cancelAnimationFrame(glowFrame);
@@ -21119,6 +21125,7 @@ const SETTINGS = {
   showLocalFolders: [SHOW_LOCAL_PREF, "bool", true],
   unreadTint: [UNREAD_TINT_PREF, "bool", false],
   solidMenus: [SOLID_MENUS_PREF, "bool", false],
+  sidebarGlow: [GLOW_PREF, "bool", true],
   earlyTheme: [EARLY_THEME_PREF, "bool", false],
   inlinePrompts: [INLINE_PROMPTS_PREF, "bool", true],
   composeFormatBar: [COMPOSE_FORMAT_PREF, "bool", false],

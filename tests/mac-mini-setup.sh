@@ -467,7 +467,7 @@ EOF
 # vorpruefung.zsh für Nachtlauf, Rundgang und Doku-Prüfung, ci-runde.zsh für Nachtlauf und
 # Wochenprüfung sowie
 # github-vorpruefung.sh und issue-abgleich.sh für die GitHub-Kommunikation, issue-abgleich.sh auch
-# für die Wochenprüfung) nach
+# für die Wochenprüfung, haeufung.py für die Plan-Runden der Tagesroutine) nach
 # ~/.config/halo-spaces/ (Entscheidung des Maintainers vom 6.11.2026, Sitzung
 # global.design.comparison, Wortlaut: „ja selbst übernehmen“): nur geänderte
 # Dateien, ersetzt über eine neue Datei (mv) statt überschrieben; laufende
@@ -479,7 +479,7 @@ SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
           vorpruefung.zsh vorpruefung.zsh github-vorpruefung.sh github-vorpruefung.sh
           ci-runde.zsh ci-runde.zsh issue-abgleich.sh issue-abgleich.sh
           github-komm-waechter.sh github-komm-waechter.sh board-uebergabe.zsh board-uebergabe.zsh
-          aufraeumen.sh aufraeumen.sh)
+          aufraeumen.sh aufraeumen.sh haeufung.py haeufung.py)
 skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
   local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
   for q z in $SK_PAARE; do

@@ -324,6 +324,11 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers):
    Messwerten; Abweichungen von der Vorlage begründen.
 6. **Commit** ein Satz, Bereich vorneweg, sichtbares Verhalten (A „Konventionen“); kein „Apple“ im
    Commit (G12).
+8. **Dazulernen:** Wird bei der Arbeit eine Regel oder ein Maßstab sichtbar (Messwert, Wahrnehmung,
+   Entscheidung des Maintainers), trägt der Designer sie am Ende des Laufs ein: Eichfall oder Zeile unter
+   „Wahrnehmungsregeln“ in Abschnitt 10, mit Datum und, wo vorhanden, Wortlaut; abgelöste Eichfälle mit
+   Verweis auf den neuen markieren. Nichts ohne Beleg, keine Deutung als Entscheidung des Maintainers
+   ausgeben.
 7. **Größere Umgestaltung:** zuerst Vorschaubild, Umsetzung erst nach OK (Muster: Seitenleiste 1/5,
    B `…ISmC0`: „fable müsste aber zuerst ein vorschaubild bauen bevor wir irgendeinem design
    zustimmen“); große Features als Reihe n/m, ein Schritt je Lauf, danach „Wartet auf OK“ (M
@@ -515,7 +520,7 @@ Gegenbeispiele.
 ### Erledigt
 | # | Vorher → Nachher | Begründung des Maintainers | Quelle |
 |---|---|---|---|
-| E1 | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
+| E1 (abgelöst durch E17, sobald d2h live ist) | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
 | E2 | Schnellantwort unter der Mail (Vorschlag „standardmäßig aus“) → ganz entfernt samt Einstellung | Nutzen nicht belegt, schlankes Produkt | M `nur-belegte-features` (29.10.2026); 9c3e252 |
 | E3 | Antwortfeld als Kapsel → Eingabefeld mit kleinem Radius und Haarlinie | Kapsel „unpassend zum übrigen Mail-Design“ (28.10.); Regel Formen | M `pillen-nur-knoepfe`; be19867; E 5.11.2026 |
 | E4 | Suchfelder eckig mit Rahmen bzw. mit Hover → Kapsel ohne Rand, ohne Hover, Fokusring erst beim Klick | wie Apple | E Regeltext „Formen“ 5.11.2026; 6303d32, 81767e6 |
@@ -531,6 +536,14 @@ Gegenbeispiele.
 | E14 | Today-Pane: Symbol plus Text überlappt den Titel → Knöpfe dort immer nur als Symbol | „ja a.“ | E 14.11.2026 (GitHub #62) |
 | E15 | Aufgabenordner „All“ → „Open“ | Logik vor unlogischer Apple-Benennung | M `im-zweifel-apple` (3.11.2026) |
 | E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026 |
+| E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
+| E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
+
+### Wahrnehmungsregeln aus Entscheidungen (vom Designer fortzuschreiben, Abschnitt 6b Schritt 9)
+- Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).
+- Gleich starke, kräftige farbige Kontur rundum wirkt wie ein Rahmen oder Fokusring und ist verworfen (V2); die Lichtrichtung geht verloren.
+- Hell und Dunkel nutzen dieselbe Bauart; nur Werte dürfen sich unterscheiden (Querverlauf, Kantenstärke), damit die Wirkung gleich ist (G11, G14). Wenn die Neigung hell stärker wirkt als dunkel, liegt es an der Umgebung der blassen Fläche, nicht an stärkerem Verlauf.
+- Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026).
 
 ### Verworfen (Gegenbeispiele)
 | # | Vorschlag | Begründung des Maintainers | Quelle |

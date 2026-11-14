@@ -60,6 +60,12 @@ Ablauf (je Eintrag genau einer)
 8. Commit: ein Satz, Bereich vorneweg, sichtbares Verhalten, Deutsch, ohne „Apple“; nur eigene Hunks.
    Danach tests/board.sh notiz <id> „committet, wartet auf Push/CI (<Hash>)“.
 
+9. Dazulernen: Neue Regeln, Maßstäbe oder Entscheidungen des Maintainers aus diesem Lauf trägst du am
+   Ende in docs/design-vorgaben.md ein (Abschnitt 10: Eichfall bzw. „Wahrnehmungsregeln“; abgelöste
+   Eichfälle mit Verweis markieren), mit Datum und Wortlaut, im selben Commit oder einem eigenen
+   („Designvorgaben: …“). Nichts ohne Beleg, nichts als Wortlaut des Maintainers ausgeben, was seine
+   Deutung ist.
+
 Ausgabe
 - Ergebnisdatei, genau eine Zeile:
     erledigt <Commit-Hash>

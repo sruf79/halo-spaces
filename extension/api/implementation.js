@@ -1380,9 +1380,12 @@ const CONVERSATION_MAX = 30;
 // frühere Schnellantwort unter der Mail (entfernt): alte Einstellung beim Start löschen
 const QUICK_REPLY_PREF = "extensions.mailcards.quickReply";
 class ConversationCards {
-  constructor(win, pane) {
+  // browser: im eigenen Nachrichtenfenster dessen Mailansicht (about:message),
+  // über der die Karten liegen – sonst die Leseansicht im Hauptfenster
+  constructor(win, pane, { browser = null } = {}) {
     this.win = win;
     this.pane = pane;
+    this.browser = browser;
     this.seq = 0;
     this.box = null;
   }
@@ -1642,6 +1645,7 @@ class ConversationCards {
     });
     this.pane.append(box);
     this.box = box;
+    this.fitWindowTop();
     // Klick auf eine Karte (Rand, Kopf, Text) wählt sie wie in Apple Mail –
     // die Klicks im Mailinhalt meldet loadCard
     box.addEventListener("click", event => {
@@ -1718,6 +1722,46 @@ class ConversationCards {
     }
     card.classList.add("mc-selected");
     this.refreshToolbar();
+    // eigenes Fenster: die Knöpfe oben gehören zur Mailansicht unter den
+    // Karten – sie zeigt die gewählte Mail, damit Antworten, Löschen …
+    // auf sie wirken (die Karten bleiben stehen, siehe hookWindowConversation)
+    const hdr = card.__mcHdr, cw = this.browser?.contentWindow;
+    if (cw?.displayMessage && hdr?.folder && cw.gMessage != hdr) {
+      this.syncing = true;
+      try {
+        cw.displayMessage(hdr.folder.getUriForMsg(hdr));
+      } catch (e) {
+        log("conversation window select error", e);
+      } finally {
+        this.syncing = false;
+      }
+    }
+  }
+
+  // Karte der Konversation zu einer Mail (nur solange die Karten stehen)
+  cardOf(hdr) {
+    if (!hdr || !this.box?.isConnected || this.box.classList.contains("mc-stack")) {
+      return null;
+    }
+    return [...this.box.querySelectorAll(".mc-conv-card")].find(c => c.__mcHdr == hdr ||
+      (hdr.messageId && c.__mcHdr?.messageId == hdr.messageId)) || null;
+  }
+
+  // eigenes Fenster: Karten unter der Knopfzeile der Mailansicht beginnen
+  // lassen (sie liegt oben in deren Mailkopf, mc-standalone)
+  fitWindowTop() {
+    if (!this.browser) {
+      return;
+    }
+    let top = 0;
+    try {
+      const bar = this.browser.contentDocument?.getElementById("header-view-toolbox");
+      const r = bar?.getBoundingClientRect();
+      if (r?.height) {
+        top = Math.ceil(r.bottom + 8);
+      }
+    } catch {} // gewollt: Mailansicht noch nicht geladen – ohne Abstand
+    this.pane.style.setProperty("--mc-conv-top", `${top}px`);
   }
 
   loadCard(card) {
@@ -1757,6 +1801,11 @@ class ConversationCards {
       root.removeAttribute("mc-standalone");
       // Klick in Kopf oder Anhänge wählt die Karte
       browserEl.contentDocument.addEventListener("click", () => this.select(card));
+      // eigenes Fenster: ohne Tab bzw. Fenster bliebe die Karte inaktiv
+      // (Thunderbird zeichnet und markiert sie dann nicht)
+      if (this.browser && !cw.tabOrWindow) {
+        cw.tabOrWindow = this.win;
+      }
       try {
         cw.displayMessage(hdr.folder.getUriForMsg(hdr), this.win.gViewWrapper);
       } catch (e) {
@@ -7478,6 +7527,7 @@ class CardEnhancer {
               }
               if (url.startsWith("about:message") && win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow") {
                 this.alwaysReplyAll(win);
+                this.hookWindowConversation(win);
               }
             }, { once: true });
           }
@@ -17899,6 +17949,65 @@ class CardEnhancer {
       delete pane.__mcConv;
       delete pane.__mcConversation;
     });
+  }
+
+  // Nachricht im eigenen Fenster (Doppelklick, auch auf eine zugeklappte
+  // Konversation): wie in der Leseansicht die ganze Konversation als Karten,
+  // über Thunderbirds Einzelansicht; deren Knopfzeile oben bleibt frei und
+  // wirkt auf die gewählte Karte (ConversationCards.select). Nur die
+  // Mailansicht des Fensters selbst, nicht die der Karten
+  hookWindowConversation(mwin) {
+    const browser = mwin.frameElement;
+    const stack = browser?.parentNode;
+    if (browser?.id != "messageBrowser" || !stack || typeof mwin.displayMessage != "function" || mwin.displayMessage.__mcConv) {
+      return;
+    }
+    const top = mwin.top;
+    let conv = stack.__mcConversation;
+    if (!conv) {
+      conv = new ConversationCards(top, stack, { browser });
+      stack.__mcConversation = conv;
+      stack.classList.add("mc-conv-window");
+      // die Knopfzeile hat erst nach dem Laden der Mail ihren Platz
+      const fit = () => conv.fitWindowTop();
+      browser.addEventListener("MsgLoaded", fit, true);
+      top.addEventListener("resize", fit);
+      this.addWinRestorer(top, () => {
+        browser.removeEventListener("MsgLoaded", fit, true);
+        top.removeEventListener("resize", fit);
+        conv.hide();
+        stack.classList.remove("mc-conv-window");
+        stack.style.removeProperty("--mc-conv-top");
+        delete stack.__mcConversation;
+      });
+    }
+    const orig = mwin.displayMessage;
+    const wrapped = function (uri, ...rest) {
+      // Klick auf eine Karte: die Mailansicht darunter folgt, die Karten bleiben
+      if (conv.syncing) {
+        return orig.call(this, uri, ...rest);
+      }
+      conv.hide();
+      if (uri && conv.enabled()) {
+        stack.classList.add("mc-conv-pending");
+      }
+      const result = orig.call(this, uri, ...rest);
+      if (uri) {
+        conv.show(conv.hdrFromURI(uri));
+      }
+      return result;
+    };
+    wrapped.__mcConv = true;
+    mwin.displayMessage = wrapped;
+    this.addWinRestorer(top, () => {
+      if (mwin.displayMessage === wrapped) {
+        mwin.displayMessage = orig;
+      }
+    });
+    // Mail schon angezeigt (Fenster war schneller): gleich nachholen
+    if (mwin.gMessage) {
+      conv.show(mwin.gMessage);
+    }
   }
 
   // Drei-Punkte-Menü über der Mailliste: Ansicht und Layout als eine Auswahl

@@ -26,6 +26,9 @@ export HALO_LAUF=tagesroutine
 #   nächsten vollen Stunde warten (nichts_passend_weiter, nur vor LETZTER_BEGINN), Kontingent neu lesen und
 #   eine neue Plan-Runde (Plan <datum>-tagesroutine-plan-<n>.tsv, heute Bearbeitetes ausgeschlossen).
 #   Ende bei leerem Plan einer Plan-Runde oder nach 3 Plan-Runden hintereinander ohne erledigten Eintrag.
+# Häufung (Maintainer 14.11.2026, „der automatismus soll natürlich bei der tagesroutine und auch bei der
+#   nachtroutine automatisch eingesetzt werden“): vor jeder Plan-Runde (auch beim stündlichen Neuplanen)
+#   tests/haeufung.py; Gruppen und Zuschläge aus ~/halo-nacht/<datum>-haeufung.md sind für den Plan verbindlich.
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
@@ -98,6 +101,17 @@ KONT_SKRIPT=$HIER/kontingent.sh
 [[ -r $KONT_SKRIPT ]] || KONT_SKRIPT=$REPO/tests/kontingent.sh
 AUFTRAG_DATEI=$REPO/tests/tagesroutine-auftrag.md
 [[ -r $AUFTRAG_DATEI ]] || AUFTRAG_DATEI=$HIER/tagesroutine-auftrag.md
+HAEUFUNG_SKRIPT=$HIER/haeufung.py   # Kopie neben dem Skript (mac-mini-setup.sh), sonst aus dem Checkout
+[[ -r $HAEUFUNG_SKRIPT ]] || HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py
+# Häufung vor einer Plan-Runde: gibt die Zeile für den Auftrag aus (Erfolg oder Rückfall), scheitert nie
+haeufung_zeile() {
+  local aus
+  if aus=$(python3 $HAEUFUNG_SKRIPT --aus $DIR --datum $TAG 2>&1); then
+    print -r -- "${aus##*$'\n'} – Gruppen und Zuschläge verbindlich (Auftrag Schritt 2)"
+  else
+    print -r -- "FEHLER, Skript gescheitert (${${aus//$'\n'/ }[1,200]}) – selbst gruppieren und im Plan vermerken (Auftrag Schritt 2)"
+  fi
+}
 
 # --- Sollkurve und Entscheidung (rein rechnerisch, ohne Claude). Eingabe über K_*-Variablen,
 # Ausgabe Zeilen SCHLÜSSEL=Wert, die entscheiden() in E[...] übernimmt ---
@@ -404,6 +418,7 @@ if [[ -n $TROCKEN ]]; then
     print "Würde:        eine Sparmodus-Runde mit claude -p --model $E[SPAR_MODELL] (kein Plan-Lauf): Einstufung, höchstens ein passender Eintrag,"
     print "              Messung vor/nach in $SPAR_DATEI; Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}"
   else
+    print "Häufung:      vor jeder Plan-Runde python3 $HAEUFUNG_SKRIPT → ~/halo-nacht/$E[TAG]-haeufung.md (verbindlich im Plan)"
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
     print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
     print "              Plan abgearbeitet: $(nichts_passend_weiter_text);"
@@ -638,9 +653,12 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
     ABSCHNITTE+=($PLANMD)
     MODELLE_GENUTZT+=("Plan-Runde $PLANRUNDE: $E[M_KOMPLEX]")
     T0=$(date +%H:%M)
+    HAEUFUNG=$(haeufung_zeile)
+    log "Häufung: $HAEUFUNG"
     runde $E[M_KOMPLEX] "$(kopf)
 
-JETZT: Plan-Runde (Schritte 1–2 des Auftrags). ${NEUPLAN}Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen Eintrag bearbeiten." \
+JETZT: Plan-Runde (Schritte 1–2 des Auftrags). ${NEUPLAN}Häufung (Skript): $HAEUFUNG
+Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen Eintrag bearbeiten." \
       $PTXT
     rc=$?
     GEPLANT=1 ERLEDIGT_VOR_PLAN=$ERLEDIGT

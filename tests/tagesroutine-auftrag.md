@@ -41,6 +41,19 @@ Plan-Runde („JETZT: Plan-Runde“):
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
   Features mit „[GitHub #n]“ ohne Freigabe und Reihen über den nächsten Schritt hinaus nicht planen.
   Ist keine geeignete Aufgabe da: nichts erfinden, leeren Plan lassen und im Abschnitt sagen, warum.
+- Häufung (Maintainer 14.11.2026, Wortlaute in ENTSCHEIDUNGEN.md: „… funktionierende automatismen die
+  zusammenhängende punkte auf der liste zuverlässig erkennen und dementsprechend höher priorisieren, je
+  mehr gemeinsame punkte verknüpft sind“, „der automatismus soll natürlich bei der tagesroutine und auch
+  bei der nachtroutine automatisch eingesetzt werden“): Das Skript ruft vor jeder Plan-Runde
+  tests/haeufung.py auf; Ergebnis oben unter „Häufung (Skript)“, Gruppen in
+  ~/halo-nacht/<datum>-haeufung.md. Diese Gruppen sind verbindlich: Einträge einer Gruppe stehen im Plan
+  direkt hintereinander und gemeinsam (ganz oder, wenn Teile nicht geeignet sind, die geeigneten);
+  Gruppen kommen innerhalb gleicher Einstufung vor Einzeleinträgen, größerer Zuschlag zuerst (Schritt 1b
+  und Schwere gehen vor). Der Abschnitt „## Plan“ nennt jede Gruppe (G1 …, ids, Zuschlag). Eigene
+  Ergänzungen nur mit Grund, gekennzeichnet „Ergänzung“; eine Gruppe des Skripts nicht trennen. Steht
+  dort „FEHLER“: selbst nach derselben Regel gruppieren (gleicher Bereich und gleiche Stelle der
+  Oberfläche, gleiche GitHub-Nummer) und im Abschnitt „Häufung: Skript gescheitert“ vermerken. Keine
+  Notizen oder Verknüpfungen in Board-Einträgen nur für die Häufung anlegen.
 - Plan-Datei (Pfad oben), eine Zeile je Eintrag, Tabulator-getrennt, in Bearbeitungsreihenfolge:
     <Item-ID>	<komplex|routine>	<Titel>
   „komplex“: mehrere Dateien oder Bereiche, unklare Ursache, Design nach Vorlage, Logik in

@@ -116,4 +116,24 @@ pruefe "Volldampf beendet (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDA
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'
 [[ -e $T/volldampf-beendet.txt ]] && { print "FEHLER Trockenlauf hat volldampf-beendet.txt geschrieben"; FEHLER=1 }
+# Häufung (Maintainer 14.11.2026: „der automatismus soll natürlich bei der tagesroutine und auch bei der
+# nachtroutine automatisch eingesetzt werden“): jede Plan-Runde ruft tests/haeufung.py, Gruppen gehen in den Auftrag
+pruefe "Häufung: Trockenlauf nennt den Aufruf vor jeder Plan-Runde" "$(lauf 2026-11-15T09:05:00+01:00 30)" \
+  'Häufung: +vor jeder Plan-Runde python3 .*haeufung\.py' 'Würde: +Plan-Runde'
+pruefe "Häufung: Plan-Runde gibt die Zeile „Häufung (Skript)“ in den Auftrag" \
+  "$(grep -c 'JETZT: Plan-Runde.*Häufung (Skript): \$HAEUFUNG' $SKRIPT)" '^1$'
+pruefe "Häufung: Auftrag Schritt 2 macht die Gruppen verbindlich" "$(<$REPO/tests/tagesroutine-auftrag.md)" \
+  'tests/haeufung.py' 'Diese Gruppen sind verbindlich' 'direkt hintereinander' 'Skript gescheitert'
+eval "$(sed -n '/^haeufung_zeile()/,/^}/p' $SKRIPT)"
+print -r -- '{"items":[{"id":"a","status":"Todo","title":"Mail-Toolbar: Spacer wie in Apple Mail"},
+ {"id":"b","status":"Todo","title":"Mailfenster: Toolbar-Knöpfe ohne Hover-Kreise"},
+ {"id":"c","status":"Todo","title":"Kalender: Mini-Kalender näher an den Rand"}]}' > $T/board.json
+pruefe "Häufung: Plan-Runde bekommt Gruppe und Zuschlag aus dem Skript" \
+  "$(DIR=$T TAG=2026-11-15 HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py HALO_HAEUFUNG_EINGABE=$T/board.json haeufung_zeile; \
+     grep '^gruppe' $T/2026-11-15-haeufung.tsv)" \
+  'Häufung: 1 Gruppen aus 3 offenen Einträgen \(G1 2\)' 'verbindlich' $'^gruppe\tG1\t2\t0\.5\t1\ta,b\t'
+print kaputt > $T/kaputt.json
+pruefe "Häufung: Skript scheitert → Rückfall-Zeile, Plan-Runde läuft trotzdem" \
+  "$(DIR=$T TAG=2026-11-15 HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py HALO_HAEUFUNG_EINGABE=$T/kaputt.json haeufung_zeile; print rc=$?)" \
+  '^FEHLER, Skript gescheitert .*selbst gruppieren' 'rc=0'
 exit $FEHLER

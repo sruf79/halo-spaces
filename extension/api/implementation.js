@@ -13071,6 +13071,8 @@ class CardEnhancer {
     // zum ersten Stück derselben Zeile ein (--mc-span-x, data-mc-span)
     const annotateSpans = root => {
       const joined = [];
+      // mehrtägige Stücke je Wochenzeile (für die gemeinsamen Spuren unten)
+      const multiRows = new Map();
       for (const el of root.querySelectorAll("calendar-month-day-box-item")) {
         let left = false;
         let right = false;
@@ -13107,6 +13109,12 @@ class CardEnhancer {
             }
             left = before && col > 0;
             right = after && col >= 0 && col < row.children.length - 1;
+            if ((before || after) && col >= 0 && el.parentElement?.localName == "li") {
+              if (!multiRows.has(row)) {
+                multiRows.set(row, []);
+              }
+              multiRows.get(row).push({ el, occ, start, end, day, col });
+            }
           }
         } catch {} // gewollt: Termin ohne Layout, keine Verbindung zum Nachbartag
         el.toggleAttribute("data-mc-join-l", left);
@@ -13125,6 +13133,83 @@ class CardEnhancer {
         } else if (el.hasAttribute("data-mc-span")) {
           el.removeAttribute("data-mc-span");
           el.style.removeProperty("--mc-span-x");
+        }
+      }
+      // Spuren wie Apple Kalender: Thunderbird sortiert jeden Tag für sich nach
+      // Beginn – ein mehrtägiger Termin mit Uhrzeit stand am ersten Tag unter
+      // früheren Terminen, an den Folgetagen oben, der Balken brach an den
+      // Tagesgrenzen. Je Wochenzeile bekommt jeder mehrtägige Termin eine feste
+      // Spur (früherer Beginn, dann längere zuerst), oben in jedem Tag; frei
+      // bleibende Spuren eines Tages halten ihren Platz als Abstand
+      const laned = new Set();
+      for (const pieces of multiRows.values()) {
+        const occs = new Map();
+        for (const p of pieces) {
+          const id = p.occ.hashId;
+          if (!occs.has(id)) {
+            const s = p.start.isDate ? p.start : p.start.getInTimezone(p.day.timezone);
+            occs.set(id, { first: p, cols: new Set(), key: s.year * 10000 + (s.month + 1) * 100 + s.day });
+          }
+          occs.get(id).cols.add(p.col);
+        }
+        const order = [...occs.values()].sort((a, b) => a.key - b.key
+          || b.first.end.nativeTime - a.first.end.nativeTime
+          || (b.first.start.isDate ? 1 : 0) - (a.first.start.isDate ? 1 : 0)
+          || a.first.start.nativeTime - b.first.start.nativeTime
+          || String(a.first.occ.title).localeCompare(String(b.first.occ.title)));
+        const used = [];
+        for (const o of order) {
+          let lane = 0;
+          while ([...o.cols].some(c => used[lane]?.has(c))) {
+            lane++;
+          }
+          (used[lane] ||= new Set());
+          for (const c of o.cols) {
+            used[lane].add(c);
+          }
+          o.lane = lane;
+        }
+        const byList = new Map();
+        for (const p of pieces) {
+          const list = p.el.parentElement.parentElement;
+          if (!byList.has(list)) {
+            byList.set(list, []);
+          }
+          byList.get(list).push({ li: p.el.parentElement, lane: occs.get(p.occ.hashId).lane });
+        }
+        for (const [list, items] of byList) {
+          items.sort((a, b) => a.lane - b.lane);
+          // Abstand einer Spur: Höhe eines Eintrags samt Zwischenraum
+          const pitch = items[0].li.getBoundingClientRect().height + 2;
+          let anchor = null;
+          let prev = -1;
+          for (const it of items) {
+            const want = anchor ? anchor.nextElementSibling : list.firstElementChild;
+            // nur bei falscher Reihenfolge verschieben – sonst meldet der
+            // Beobachter jede Verschiebung, und das liefe endlos
+            if (want != it.li) {
+              list.insertBefore(it.li, want);
+            }
+            anchor = it.li;
+            const gap = it.lane - prev - 1;
+            prev = it.lane;
+            const mt = gap > 0 && pitch > 2 ? `${Math.round(gap * pitch + 2)}px` : "";
+            if (it.li.style.marginTop != mt) {
+              it.li.style.marginTop = mt;
+            }
+            laned.add(it.li);
+          }
+        }
+      }
+      for (const li of root.querySelectorAll("li[data-mc-lane]")) {
+        if (!laned.has(li)) {
+          li.removeAttribute("data-mc-lane");
+          li.style.removeProperty("margin-top");
+        }
+      }
+      for (const li of laned) {
+        if (!li.hasAttribute("data-mc-lane")) {
+          li.setAttribute("data-mc-lane", "");
         }
       }
       for (const el of joined) {
@@ -13226,6 +13311,10 @@ class CardEnhancer {
             el.removeAttribute("data-mc-join-r");
             el.removeAttribute("data-mc-span");
             el.style.removeProperty("--mc-span-x");
+          }
+          for (const li of root.querySelectorAll("li[data-mc-lane]")) {
+            li.removeAttribute("data-mc-lane");
+            li.style.removeProperty("margin-top");
           }
           delete root.__mcEmoji;
         });

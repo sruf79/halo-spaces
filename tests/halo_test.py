@@ -16528,6 +16528,51 @@ Neu
         return bool(joined and look and flow and single), f"{res}"
     check("Kalender: mehrtägige Termine mit Uhrzeit als ein Balken wie Apple Kalender, Startzeit gedämpft hinter dem Titel, Termin an einem Tag unverändert", month_spans_timed, results)
 
+    def month_spans_lanes():
+        # mehrtägige Termine stehen an allen Tagen in derselben Zeile, oben (Spuren wie Apple Kalender): früher stand ein
+        # mehrtägiger Termin mit Uhrzeit am ersten Tag unter früher beginnenden Terminen, an den Folgetagen oben, und
+        # der Balken brach an jeder Tagesgrenze; ein zweiter, später beginnender Balken behält seine Spur auch dort,
+        # wo die erste frei ist
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar();
+          const tz = cal.dtz.defaultTimezone;
+          const mk = async (title, d1, h1, d2, h2, allday) => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.createDateTime(); s.resetTo(2026, 9, d1, h1, 0, 0, allday ? cal.dtz.floating : tz); if (allday) s.isDate = true;
+            const en = s.clone(); en.resetTo(2026, 9, d2, h2, 0, 0, allday ? cal.dtz.floating : tz); if (allday) en.isDate = true;
+            e.startDate = s; e.endDate = en; return await c.addItem(e); };
+          // Mo 19. bis Do 22. liegen bei Wochenbeginn Mo wie So in einer Zeile
+          const made = [await mk("Halo Spur Sommerferien buchen", 19, 7, 21, 10),
+                        await mk("Qwrtz Spur Frueh", 19, 6, 19, 7), await mk("Qwrtz Spur Gleich", 19, 7, 19, 8),
+                        await mk("Qwrtz Spur Morgen", 20, 6, 20, 7), await mk("Halo Spur Messe", 20, 0, 23, 0, true)];
+          const names = made.map(e => e.title);
+          await toCalendar(); w.switchToView("month"); w.currentView().goToDay(cal.createDateTime("20261015"));
+          await bis(() => { const t = [...d.querySelectorAll("calendar-month-day-box-item")].map(e => e.occurrence?.title);
+            return t.filter(x => x == "Halo Spur Sommerferien buchen").length == 3 && t.filter(x => x == "Halo Spur Messe").length == 3 && t.includes("Qwrtz Spur Morgen"); }, "Monatsansicht mit Testterminen", 6000);
+          await bis(() => [...d.querySelectorAll("li[data-mc-lane]")].length >= 6, "Spuren gesetzt", 3000).catch(() => {});
+          await ruhig(1500);
+          const found = [...d.querySelectorAll("calendar-month-day-box-item")].filter(e => names.includes(e.occurrence?.title)).map(e => {
+            const b = e.getBoundingClientRect(); return { n: e.occurrence.title, l: Math.round(b.left), t: Math.round(b.top), h: Math.round(b.height),
+              day: e.parentBox?.date?.day, jl: e.hasAttribute("data-mc-join-l"), jr: e.hasAttribute("data-mc-join-r") }; });
+          for (const e of made) { try { await c.deleteItem(e); } catch {} }
+          return { items: found };''')
+        it = res["items"]
+        of = lambda n: sorted((q for q in it if q["n"] == n), key=lambda q: q["l"])
+        ferien, messe = of("Halo Spur Sommerferien buchen"), of("Halo Spur Messe")
+        if len(ferien) != 3 or len(messe) != 3:
+            return False, f"{res}"
+        # je Balken eine Höhe über alle Tage, durchgehend verbunden
+        same = lambda ps: len({q["t"] for q in ps}) == 1 and not ps[0]["jl"] and not ps[-1]["jr"] and all(q["jr"] for q in ps[:-1]) and all(q["jl"] for q in ps[1:])
+        # Ferien beginnen früher: Spur 1 ganz oben; Messe darunter, auch am 22., wo Spur 1 frei ist
+        top = {q["day"]: min(x["t"] for x in it if x["day"] == q["day"]) for q in it}
+        lanes = (all(q["t"] == top[q["day"]] for q in ferien) and messe[0]["t"] > ferien[0]["t"]
+                 and messe[0]["t"] - ferien[0]["t"] <= 2 * ferien[0]["h"] + 6)
+        # Einzeltermine eines Tages stehen unter den Balken
+        below = all(q["t"] > max(x["t"] for x in ferien + messe if x["day"] == q["day"]) for q in it
+                    if q["n"].startswith("Qwrtz") and any(x["day"] == q["day"] for x in ferien + messe))
+        return bool(same(ferien) and same(messe) and lanes and below), f"{res}"
+    check("Kalender: mehrtägige Termine mit und ohne Uhrzeit an allen Tagen in derselben Zeile oben, Einzeltermine darunter", month_spans_lanes, results)
+
     def month_more():
         # volle Tage zeigen „+N weitere“ – danach bleibt die Ansicht ruhig (früher setzte
         # update() den Text in jedem Bild neu und lief so endlos, Dauerlast auf der CPU)

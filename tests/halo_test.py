@@ -12641,7 +12641,7 @@ def run_checks(m, version, profile, results):
         # festes, breites Fenster (frühere Prüfungen hinterlassen teils ein schmales mit Today-Pane – dann fehlt der
         # Platz und die Seitenleiste hält zu Recht vor der Höchstbreite an)
         old_size = m.js("const s = w.screen; const o = [w.screenX, w.screenY, w.outerWidth, w.outerHeight]; w.moveTo(s.availLeft, s.availTop); w.resizeTo(1500, 900); await wait(1200); return o;")
-        def side(name, state, widen):
+        def side(name, state, widen, keep=100):
             # breiter ziehen, ganz nach rechts (Höchstbreite), nach links (aus), zurück (ein), wieder aus und loslassen,
             # dann an der Greifzone herausziehen
             s = m.js(state)
@@ -12658,10 +12658,11 @@ def run_checks(m, version, profile, results):
                 r["max"] = m.js(state)["w"]
                 x += 500
             # knapp unter der Mindestbreite (100 px) bleibt sie stehen, erst unter der halben (80 px) geht sie weg
-            move(x, s["left"] + 100, y)
+            # (Kalender: Mindestbreite 228 px für den Minikalender, Hälfte 114 – dort bei 130 px geprüft)
+            move(x, s["left"] + keep, y)
             mid = m.js(state)
             r["min"] = [mid["hidden"], mid["w"]]
-            move(s["left"] + 100, s["left"] + 40, y)
+            move(s["left"] + keep, s["left"] + 40, y)
             mid = m.js(state)
             r["off"] = [mid["hidden"], mid["anim"]]
             move(s["left"] + 40, s["left"] + 240, y)
@@ -12680,7 +12681,7 @@ def run_checks(m, version, profile, results):
             r["grip"] = [e["hidden"], e["grip"], e["anim"]]
             out[name] = r
             if r["min"][0] is not False:
-                bad.append(f"{name}: bei 100 px schon weg {r['min']}")
+                bad.append(f"{name}: bei {keep} px schon weg {r['min']}")
             if r["off"] != [True, False] or r["on"][:2] != [False, False] or abs(r["on"][2] - 240) > 30:
                 bad.append(f"{name}: im selben Zug {r['off']} / {r['on']}")
             if r["released"][:2] != [True, True] or not 0 <= r["released"][2] <= 6:
@@ -12696,7 +12697,7 @@ def run_checks(m, version, profile, results):
         out["max"] = m.js(cal_js)["max"]
         if out["max"] != 360:
             bad.append(f"--mt-sidebar-max-width {out['max']}")
-        side("Kalender", cal_js, True)
+        side("Kalender", cal_js, True, keep=130)
         m.js('await toMail(); await ruhig(500); return 1;')
         side("Mail", mail_js, True)
         m.js('tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000); return 1;')
@@ -12763,6 +12764,48 @@ def run_checks(m, version, profile, results):
         m.js("w.resizeTo(%d, %d); w.moveTo(%d, %d); await wait(800); return 1;" % (old_size[2], old_size[3], old_size[0], old_size[1]))
         return not bad, ("; ".join(bad) + f" {out}") if bad else f"{out}"
     check("Trennlinien: Seitenleisten aller Bereiche und Today-Pane bis zur gemeinsamen Höchstbreite ziehbar, im selben Zug wieder ein, ausgeblendet am Rand wieder herausziehbar, ohne Animation", drag_reshow, results)
+
+    def drag_cal_min():
+        # Kalender: Trennlinie Schritt für Schritt nach links ziehen – die Leiste folgt dem Zeiger bis zu ihrer
+        # Mindestbreite (CSS, Minikalender), bleibt dort ruhig stehen (kein Hin und Her zwischen Bildern) und klappt erst
+        # bei der Hälfte dieser Mindestbreite ein (wie macOS); vorher rechnete das Ziehen mit 160 px statt der
+        # Mindestbreite der Kalenderleiste
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+        old_size = m.js("const o = [w.screenX, w.screenY, w.outerWidth, w.outerHeight]; w.resizeTo(1522, 900); await wait(800); await toCalendar(); await ruhig(1000); return o;")
+        st = r"""const sb = d.getElementById("calSidebar"), sp = d.getElementById("calsidebar_splitter").getBoundingClientRect();
+          return { hidden: sb.classList.contains("mc-side-hidden"), w: Math.round(sb.getBoundingClientRect().width), x: Math.round(sp.left + sp.width / 2), y: Math.round(sp.top + 300),
+            left: Math.round(sb.getBoundingClientRect().left), min: parseFloat(getComputedStyle(sb).minWidth) || 0 };"""
+        s = m.js(st)
+        if s["hidden"]:
+            m.js('d.getElementById("spacesPinnedButton").click(); await ruhig(900); return 1;')
+            s = m.js(st)
+        left, x0, y, mn = s["left"], s["x"], s["y"], s["min"]
+        act([{"type": "pointerMove", "x": x0, "y": y, "origin": "viewport"}, {"type": "pointerDown", "button": 0}])
+        rows, bad = [], []
+        # Zeiger in 6-px-Schritten bis 10 px vor den linken Rand; je Schritt die Breite über fünf Bilder
+        for px in range(s["w"] - 6, 9, -6):
+            act([{"type": "pointerMove", "x": left + px, "y": y, "origin": "viewport", "duration": 10}])
+            r = m.js(r"""const sb = d.getElementById("calSidebar"), ws = [];
+              for (let i = 0; i < 5; i++) { ws.push(sb.classList.contains("mc-side-hidden") ? 0 : Math.round(sb.getBoundingClientRect().width)); await new Promise(f => w.requestAnimationFrame(f)); }
+              return ws;""")
+            rows.append([px, r])
+        act([{"type": "pointerMove", "x": left + s["w"], "y": y, "origin": "viewport", "duration": 10}, {"type": "pointerUp", "button": 0}])
+        m.cmd("WebDriver:ReleaseActions", {})
+        m.js("await ruhig(600); return 1;")
+        end = m.js(st)
+        for px, ws in rows:
+            want = 0 if px < mn / 2 else max(mn, px)
+            if max(ws) - min(ws) > 1:
+                bad.append(f"{px}: wechselt {ws}")
+            elif abs(ws[-1] - want) > 2:
+                bad.append(f"{px}: {ws[-1]} statt {want}")
+        if end["hidden"] or abs(end["w"] - s["w"]) > 2:
+            bad.append(f"zurückgezogen {end['hidden']} {end['w']} statt {s['w']}")
+        m.js("w.resizeTo(%d, %d); w.moveTo(%d, %d); await wait(800); return 1;" % (old_size[2], old_size[3], old_size[0], old_size[1]))
+        info = f"Mindestbreite {mn}, Start {s['w']}, " + " ".join(f"{px}:{ws[-1]}" for px, ws in rows)
+        return not bad, ("; ".join(bad[:8]) + " | " + info) if bad else info
+    check("Trennlinien: Kalender-Seitenleiste folgt beim Zuziehen dem Zeiger bis zur Mindestbreite ohne Ruckeln und klappt erst bei deren Hälfte ein", drag_cal_min, results)
 
     def anim_ende():
         # Nach dem Ein-/Ausblenden der Seitenleiste bewegt sich nichts mehr: sobald die Leiste ihre Endbreite hat, dürfen

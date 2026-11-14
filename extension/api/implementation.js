@@ -10370,11 +10370,17 @@ class CardEnhancer {
         return null;
       }
       const commonWidth = () => Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || SIDE_WIDTH);
+      // Mindestbreite der Leiste: die gemeinsame (SIDE_MIN) oder eine größere aus dem CSS (Kalender: 228 px für den
+      // Minikalender) – mit 160 px gerechnet blieb die Kalenderleiste beim Zuziehen über 150 px Zeigerweg bei 228 px
+      // stehen und sprang erst bei 80 px weg (ruckelte, klappte scheinbar unvermittelt ein). Eingeklappt wird bei der
+      // Hälfte davon (wie macOS)
+      const minWidth = () => Math.max(SIDE_MIN, parseFloat(win.getComputedStyle(el).minWidth) || 0);
       const pane = {
         el, splitter, win, mode,
         side: "left",
         width: () => el.getBoundingClientRect().width,
-        threshold: () => DRAG_HIDE,
+        min: minWidth,
+        threshold: () => Math.max(DRAG_HIDE, minWidth() / 2),
       };
       const lock = W => {
         // Thunderbirds Sperre der Breite („width: …px !important“) mitziehen
@@ -10456,7 +10462,8 @@ class CardEnhancer {
           room = parent.getBoundingClientRect().width - Math.max(SIDE_ROOM, need);
         }
       } catch {} // gewollt: Platz nicht messbar, Höchstbreite ohne Abzug
-      const max = Math.max(SIDE_MIN, Math.min(sideMax(pane.el), room));
+      const min = pane.min();
+      const max = Math.max(min, Math.min(sideMax(pane.el), room));
       let resized = false;
       // Seitenleiste und Bereiche-Kacheln sind ein gemeinsamer Bereich: an
       // der Schwelle gehen beide zugleich weg bzw. kommen zurück (vorher blieben
@@ -10475,7 +10482,7 @@ class CardEnhancer {
           }
         },
         setWidth: pane.setWidth && (W => {
-          pane.setWidth(Math.round(Math.min(max, Math.max(SIDE_MIN, W))));
+          pane.setWidth(Math.round(Math.min(max, Math.max(min, W))));
           resized = true;
           updateSideEdge();
         }),

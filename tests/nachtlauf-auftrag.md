@@ -483,6 +483,22 @@ Reihenfolge:
       startet eine neue Runde „Schritt 5 fortsetzen“ – dann mit dem nächsten
       machbaren Eintrag weitermachen. Einträge, die eine Entscheidung des
       Maintainers brauchen, bleiben übersprungen (Schritt 1).
+6a. Aufräumen (vor dem Bericht in Schritt 6; Entscheidung des Maintainers vom
+   14.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „unbenötigte reste sollten immer am
+   ende des nachtlaufs automatisch aufgeräumt werden ohne nachfrage wenn das
+   risiko null ist“; Dauerfreigabe Stufe B): Erst wenn die Arbeit zu Ende ist –
+   nach Push, CI und Release (Schritt 4 läuft nicht mehr, kein CI-Lauf wartet
+   auf dich) und nach Schritt 5 –, und keine andere Sitzung arbeitet im Repo,
+   `zsh tests/aufraeumen.sh` aufrufen (ohne Rückfrage, auch bei Volldampf). Es
+   entfernt nur Reste mit Risiko null nach seinen Kriterien (Arbeitskopien der
+   Hilfsagenten ohne Ungespeichertes und ohne eigene Commits, tote Sperrdateien,
+   in main enthaltene Zweige claude/…, rest/…, pruef/…) und lässt alles andere
+   stehen. Seine Ausgabe (Zeilen „Aufgeräumt: …“ und „Rest mit Risiko, nichts
+   angefasst: …“ samt Listen) unverändert in den Bericht unter „## Aufgeräumt“.
+   Die Zahl der Reste mit Risiko übernimmt der Morgenbrief als Hinweis. Nichts
+   davon von Hand nachholen oder erzwingen (kein --force, kein -D, kein rm).
+   Scheitert das Skript, nicht abbrechen: nur eine Zeile unter „## Aufgeräumt“
+   (Fehlermeldung); nachtlauf.sh räumt am Ende selbst noch einmal auf.
 6. Bericht schreiben (Pfad oben), Deutsch, knapp, für einen Admin, der kein
    Programmierer ist. Erste Zeile nach der Überschrift genau so:
      Kurz: <ein Satz: Version oder „kein Release“, Anzahl erledigt, Zahl der Rückfragen (falls welche), Probleme>
@@ -494,7 +510,7 @@ Reihenfolge:
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
-   der Grund ist, und das im Bericht sagen), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
+   der Grund ist, und das im Bericht sagen), Aufgeräumt (Schritt 6a), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.
 7. Fertig-Datei (Pfad oben) anlegen, erste Zeile „Grund: <Endegrund>“
    (Schritt 5 d; z. B. „Grund: rote CI in Schritt 4“, „Grund: nichts

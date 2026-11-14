@@ -120,10 +120,9 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   des Maintainers vom 4.11.2026), oder es laufen Tests, VM-Lauf, Release bzw.
   die CI ist nach dieser Wartezeit noch nicht fertig. Vor der Arbeit bringt er Thunderbird unter `/Applications`
   auf die aktuelle Version von Mozilla (nur mit Mozillas Signatur), damit die
-  CI-Runde der Nacht damit testet. Nach Claudes Arbeit (auch wenn die Vorprüfung nichts fand) löscht
-  `zweige_aufraeumen` (`tests/nachtlauf.sh`) verwaiste Zweige `claude/…` auf GitHub – nur ohne eigene
-  Commits über `origin/main` hinaus und ohne offenen Pull Request, nie `rest/…` o. a.; je Zweig eine
-  Zeile im Bericht, Abschnitt „Verwaiste Zweige“ (Entscheidung des Maintainers vom 7.11.2026). Danach wartet
+  CI-Runde der Nacht damit testet. Am Ende der Arbeit (auch wenn die Vorprüfung nichts fand) räumt
+  `tests/aufraeumen.sh` Reste mit Risiko null auf (Abschnitt „Aufräumen“ unten; ersetzt das Löschen
+  verwaister Zweige `claude/…` vom 7.11.2026). Danach wartet
   `ci_nacht_abschluss` (`tests/ci-runde.zsh`) noch laufende CI-Läufe der Nacht ab (bis 90 Minuten,
   längstens 09:00), trägt rote Prüfungen daraus über `ci-waechter.sh --lauf` ins Board ein (gleiche
   Dublettenprüfung wie der Wächter, `windows-github` und gezielte Läufe nicht; in derselben Nacht
@@ -409,3 +408,18 @@ Entscheidung des Maintainers vom 13.11.2026 (Wortlaute in `ENTSCHEIDUNGEN.md`): 
 ### Director: Vorrang gehäufter Nutzer-Bugs, Freigabe Lichtschein 2/3 (13.11.2026)
 
 Maintainer 13.11.2026, „Ja sie Empfehlungen umsetzen“ (Wortlaut und Vorschläge in `ENTSCHEIDUNGEN.md`): Ein von mehreren Nutzern unabhängig gemeldeter gleicher Fehler (`[GitHub #n]`-Einträge mit gemeinsamer Ursache, z. B. #59, #61–#64 nach 3.26.0) und ein Fehler, der ein Bedienelement oder die Anzeige für alle Nutzer einer Plattform blockiert, zählen wie „Mail-Grundfunktion gestört“ (Rahmenregel a, Vorrang); der Director fasst sie im Plan zusammen. Eine Einzelmeldung hat hohen Nutzen, aber keinen Vorrang. „Seitenleiste: Lichtschein und gefärbte Trennlinie (Umsetzung 2/3)“ mit dem Schalter darf der Director einplanen (Prüfung schwebend und Animation, Testpaket /vorab im Bericht ankündigen, Größe selbst beurteilen, bei Zweifel Rückfrage).
+
+## Aufräumen am Ende des Nachtlaufs (ab 14.11.2026)
+
+`tests/aufraeumen.sh` (Kopie in `~/.config/halo-spaces/`, SK_PAARE in `tests/mac-mini-setup.sh`) entfernt
+ohne Nachfrage nur Reste mit Risiko null (Maintainer 14.11.2026, Wortlaut und Kriterien in
+`ENTSCHEIDUNGEN.md`, Stufe B in `docs/dauerfreigaben.md`): Arbeitskopien von Hilfsagenten unter
+`.claude/worktrees/agent-*` (sauber, alle Commits in `main`, nicht gesperrt, niemand arbeitet darin, älter als
+6 Stunden; `git worktree remove` ohne `--force`), tote Sperrdateien `~/halo-nacht/*.lock` (Prozess weg, älter
+als 1 Stunde) und in `main` enthaltene Zweige `claude/…`, `rest/…`, `pruef/…` (lokal und auf GitHub, ohne
+offenen Pull Request, nicht ausgecheckt). Alles andere bleibt und steht als „Rest mit Risiko, nichts
+angefasst“ im Bericht; der Morgenbrief nennt die Zahl. Aufruf: Claude in Schritt 6a des Auftrags, danach
+`aufraeumen_abschluss` in `tests/nachtlauf.sh` als Rückfall (hängt „## Aufgeräumt“ an, falls er fehlt, sonst
+nur eine Nachlese). Von Hand: `zsh tests/aufraeumen.sh --trocken` (nur auflisten), `--ohne-zweige` (ohne
+Netz). Prüfung: `zsh tests/aufraeumen_test.zsh` (temporäres Repo, kein Eingriff ins echte). Der Wächter für
+Pausen (`tests/pausen_check.sh`) durchsucht `.claude/worktrees` und `dist/` nicht mehr.

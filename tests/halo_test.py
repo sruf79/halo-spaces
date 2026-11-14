@@ -7616,6 +7616,9 @@ def calendar_checks(m, results):
                 one = m.js(r"""
                   const agenda = d.getElementById("agenda"), t = %d;
                   await bis(() => w.TodayPane.start.day == t, "Today-Pane auf dem Tag", 3000).catch(() => {}); await ruhig(500);
+                  // bis Bildlauf und Liste stillstehen (CI 14.11.2026, Lauf 43537653660: nach 500 ms stand die Liste noch
+                  // 17 px vor dem Ende)
+                  await stabil(() => [agenda.scrollTop, agenda.scrollHeight], 3000);
                   const now = w.TodayPane.start, key = `${now.year}${String(now.month + 1).padStart(2, "0")}${String(t).padStart(2, "0")}`;
                   const rows = [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
                   const row = rows.find(li => (li.dateString || "").slice(0, 8) >= key);

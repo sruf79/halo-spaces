@@ -41,6 +41,10 @@ ICONS = {
                          '<path d="M3 10.3h18"/><path d="M30.5 6v12" stroke-width="1"/><path d="m36 10.5 3.5 3.5 3.5-3.5"/>'),
     # kleiner Pfeil für geteilte Knöpfe
     "chevron": (24, '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>'),
+    # Drucker (Fenster einer geöffneten Mail, rechts wie Apple Mail)
+    "print": (24, '<path d="M7 8V4.6A1.1 1.1 0 0 1 8.1 3.5h7.8A1.1 1.1 0 0 1 17 4.6V8"/>'
+                  '<path d="M7 16.5H5.4A2.4 2.4 0 0 1 3 14.1v-3.7A2.4 2.4 0 0 1 5.4 8h13.2A2.4 2.4 0 0 1 21 10.4v3.7a2.4 2.4 0 0 1-2.4 2.4H17"/>'
+                  '<rect x="7" y="13" width="10" height="7.5" rx="1.1"/><path d="M9.5 15.8h5M9.5 18h3.4"/>'),
     # Bereiche (Mail, Adressbuch, Kalender, Aufgaben, Chat, Einstellungen)
     "addressbook": (24, '<rect x="4.5" y="3.5" width="15" height="17" rx="2.4"/><circle cx="12" cy="10.2" r="2.6"/><path d="M8.1 16.6c.8-1.9 2.2-2.8 3.9-2.8s3.1.9 3.9 2.8"/><path d="M4.5 7.5H3M4.5 12H3M4.5 16.5H3"/>'),
     "calendar": (24, '<rect x="3.5" y="5" width="17" height="15.5" rx="2.6"/><path d="M3.5 9.6h17"/><path d="M8 3.2v3.4M16 3.2v3.4"/><circle cx="8" cy="13.2" r=".9" fill="#000" stroke="none"/><circle cx="12" cy="13.2" r=".9" fill="#000" stroke="none"/><circle cx="16" cy="13.2" r=".9" fill="#000" stroke="none"/><circle cx="8" cy="16.8" r=".9" fill="#000" stroke="none"/><circle cx="12" cy="16.8" r=".9" fill="#000" stroke="none"/>'),

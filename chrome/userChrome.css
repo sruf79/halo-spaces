@@ -2378,6 +2378,106 @@ findbar .findbar-textbox:focus {
   background-color: var(--mt-star) !important;
 }
 
+/* Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand
+   Drucken | Stern · Pfeil (Markieren) | Ordner · Pfeil (Verschieben); die drei
+   Knöpfe (mcHdr…) setzt die Erweiterung nur dort. Links bleibt „Mehr“ als
+   eigener runder Knopf hinter der Antworten-Kapsel */
+:root[mc-standalone] #header-view-toolbox:has(#mcHdrPrintButton) {
+  inset-inline-end: 12px !important;
+}
+
+/* (die Zeile füllt den Kasten, sonst stand sie samt linker Kapseln rechts) */
+:root[mc-standalone] #header-view-toolbox:has(#mcHdrPrintButton) #header-view-toolbar {
+  width: 100% !important;
+  flex: 1 1 auto !important;
+  justify-content: flex-start !important;
+}
+
+:root[mc-standalone] #mcHdrPrintButton { order: 8 !important; }
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #starMessageButton { order: 9 !important; }
+:root[mc-standalone] #mcHdrFlagMenuButton { order: 10 !important; }
+:root[mc-standalone] #mcHdrMoveButton { order: 11 !important; }
+
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #otherActionsButton,
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton) {
+  border-radius: 999px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton) {
+  background: var(--mt-control) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > #mcHdrPrintButton {
+  margin-inline-start: auto !important;
+}
+
+/* Stern und Pfeil: eine Kapsel, Trennstrich vor dem Pfeil */
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #starMessageButton {
+  margin-inline-start: 6px !important;
+  background: var(--mt-control) !important;
+  border-radius: 999px 0 0 999px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > #mcHdrMoveButton {
+  margin-inline-start: 6px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > #mcHdrFlagMenuButton {
+  border-radius: 0 999px 999px 0 !important;
+  min-width: 30px !important;
+  width: 30px !important;
+  padding: 0 4px 0 2px !important;
+  justify-content: center !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrFlagMenuButton, #mcHdrMoveButton) > .toolbarbutton-menu-dropmarker,
+:root[mc-standalone] #header-view-toolbar > .mc-hdr-tool > .toolbarbutton-text {
+  display: none !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > .mc-hdr-tool > .toolbarbutton-icon {
+  background-color: currentColor !important;
+  mask: var(--mi-print) center / contain no-repeat !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > #mcHdrFlagMenuButton > .toolbarbutton-icon {
+  width: 14px !important;
+  height: 14px !important;
+  mask-image: var(--mi-chevron) !important;
+}
+
+/* Ordner mit Pfeil als ein Symbol (34 × 24) wie Verschieben in der Mail-Toolbar */
+:root[mc-standalone] #header-view-toolbar > #mcHdrMoveButton > .toolbarbutton-icon {
+  width: 31px !important;
+  mask-image: var(--mi-folder-menu) !important;
+}
+
+/* Überfahren: Stern bzw. Pfeil bekommen je einen Kreis, der Trennstrich
+   verschwindet (wie die Kapseln links) */
+:root[mc-standalone] #header-view-toolbar:has(> :is(#starMessageButton, #mcHdrFlagMenuButton):is(:hover, [open])) > #mcHdrFlagMenuButton {
+  background-image: none !important;
+}
+
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > #mcHdrFlagMenuButton:is(:hover, [open]):not([disabled]) {
+  background: var(--mt-cap-dot-narrow), var(--mt-control) !important;
+}
+
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > #mcHdrFlagMenuButton:is(:hover:active, [open]):not([disabled]) {
+  background: var(--mt-cap-dot-narrow-press), var(--mt-control) !important;
+}
+
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton):hover:not([disabled]) {
+  background: var(--mt-control-hover) !important;
+}
+
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton):is(:hover:active, [open]):not([disabled]) {
+  background: linear-gradient(var(--mt-cap-press), var(--mt-cap-press)), var(--mt-control-hover) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > .mc-hdr-tool[disabled] {
+  opacity: 0.4 !important;
+}
+
 :root[mc-standalone] #messageHeader .recipient-avatar.mc-hdr-avatar {
   top: calc(var(--mc-standalone-bar) + 12px) !important;
 }
@@ -2442,6 +2542,7 @@ findbar .findbar-textbox:focus {
   --mi-star-fill: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3.8 9.71 9.24l-5.89.5 4.47 3.87-1.34 5.75L12 16.3l5.05 3.06-1.34-5.75 4.47-3.87-5.89-.5z%22 fill=%22%23000%22/%3E%3C/svg%3E");
   --mi-folder-split: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 46 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 7.8A2.3 2.3 0 0 1 5.3 5.5h3.9l2.1 2.1h7.4A2.3 2.3 0 0 1 21 9.9v7.8a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 17.7z%22/%3E%3Cpath d=%22M3 10.3h18%22/%3E%3Cpath d=%22M30.5 6v12%22 stroke-width=%221%22/%3E%3Cpath d=%22m36 10.5 3.5 3.5 3.5-3.5%22/%3E%3C/svg%3E");
   --mi-chevron: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E");
+  --mi-print: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M7 8V4.6A1.1 1.1 0 0 1 8.1 3.5h7.8A1.1 1.1 0 0 1 17 4.6V8%22/%3E%3Cpath d=%22M7 16.5H5.4A2.4 2.4 0 0 1 3 14.1v-3.7A2.4 2.4 0 0 1 5.4 8h13.2A2.4 2.4 0 0 1 21 10.4v3.7a2.4 2.4 0 0 1-2.4 2.4H17%22/%3E%3Crect x=%227%22 y=%2213%22 width=%2210%22 height=%227.5%22 rx=%221.1%22/%3E%3Cpath d=%22M9.5 15.8h5M9.5 18h3.4%22/%3E%3C/svg%3E");
   /* Adressbuch in Bereichsleiste und -menü: Person im Kreis wie das Kontaktbild
      (--mi-addressbook bleibt für die einzelnen Adressbücher der Seitenleiste) */
   --mi-contacts: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%229%22/%3E%3CclipPath id=%22c%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%228.1%22/%3E%3C/clipPath%3E%3Cg clip-path=%22url(%23c)%22%3E%3Ccircle cx=%2212%22 cy=%229.6%22 r=%223.1%22/%3E%3Cpath d=%22M5.4 21.5c1.65-5.18 3.30-6.90 6.6 -6.90s4.95 1.73 6.6 6.90%22/%3E%3C/g%3E%3C/svg%3E");

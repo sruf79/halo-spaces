@@ -7874,6 +7874,7 @@ class CardEnhancer {
                 this.alwaysReplyAll(win);
                 this.hookWindowConversation(win);
                 this.hookWindowAttachments(win);
+                this.hookWindowHeaderTools(win);
               }
             }, { once: true });
           }
@@ -18241,6 +18242,122 @@ class CardEnhancer {
     if (mwin.gMessage) {
       conv.show(mwin.gMessage);
     }
+  }
+
+  // Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand
+  // Drucken, Stern mit Auswahlpfeil (Markieren-Menü) und Ordner mit
+  // Auswahlpfeil (Verschieben); Stern im Mailkopf bleibt Thunderbirds eigener
+  // Knopf, die übrigen sind neu (mc-hdr-…), Lage und Kapseln in userChrome.css
+  hookWindowHeaderTools(mwin) {
+    const doc = mwin.document;
+    const bar = doc.getElementById("header-view-toolbar");
+    if (!bar || doc.getElementById("mcHdrPrintButton")) {
+      return;
+    }
+    const button = (id, tip) => {
+      const b = doc.createXULElement("toolbarbutton");
+      b.id = id;
+      b.className = "toolbarbutton-1 message-header-view-button mc-hdr-tool";
+      b.setAttribute("tooltiptext", tip);
+      return b;
+    };
+    const print = button("mcHdrPrintButton", tr("Print"));
+    print.addEventListener("command", () => mwin.commandController?.doCommand("cmd_print"));
+
+    // Pfeil neben dem Stern: Thunderbirds Befehle zum Markieren (gelesen,
+    // ungelesen, Stern, Werbung) – Beschriftung von Thunderbird, sonst eigene
+    const flag = button("mcHdrFlagMenuButton", tr("More"));
+    flag.setAttribute("type", "menu");
+    const flagPopup = doc.createXULElement("menupopup");
+    flagPopup.id = "mcHdrFlagPopup";
+    const items = [
+      ["cmd_markAsRead", "mailContext-markRead", "Mark as Read"],
+      ["cmd_markAsUnread", "mailContext-markUnread", "Mark as Unread"],
+      null,
+      ["cmd_markAsFlagged", "mailContext-markFlagged", "Star"],
+      null,
+      ["cmd_markAsJunk", "mailContext-markAsJunk", "Mark as Spam"],
+      ["cmd_markAsNotJunk", "mailContext-markAsNotJunk", "Mark as Not Spam"],
+    ];
+    for (const entry of items) {
+      if (!entry) {
+        flagPopup.append(doc.createXULElement("menuseparator"));
+        continue;
+      }
+      const [cmd, from, fallback] = entry;
+      const item = doc.createXULElement("menuitem");
+      item.dataset.mcCommand = cmd;
+      const orig = doc.getElementById(from);
+      if (orig?.getAttribute("data-l10n-id")) {
+        item.setAttribute("data-l10n-id", orig.getAttribute("data-l10n-id"));
+      } else {
+        item.setAttribute("label", orig?.getAttribute("label") || tr(fallback));
+      }
+      if (cmd == "cmd_markAsFlagged") {
+        item.setAttribute("type", "checkbox");
+      }
+      flagPopup.append(item);
+    }
+    flagPopup.addEventListener("popupshowing", event => {
+      if (event.target != flagPopup) {
+        return;
+      }
+      const ctrl = mwin.commandController;
+      for (const item of flagPopup.querySelectorAll("menuitem")) {
+        const cmd = item.dataset.mcCommand;
+        let enabled = true;
+        try {
+          enabled = ctrl ? ctrl.isCommandEnabled(cmd) : true;
+        } catch {}
+        item.disabled = !enabled;
+        if (cmd == "cmd_markAsFlagged") {
+          item.toggleAttribute("checked", !!mwin.gMessage?.isFlagged);
+        }
+      }
+    });
+    flagPopup.addEventListener("command", event => {
+      const cmd = event.target.dataset?.mcCommand;
+      if (cmd) {
+        mwin.commandController?.doCommand(cmd);
+      }
+    });
+    flag.append(flagPopup);
+
+    // Ordner mit Pfeil: Thunderbirds Ordnermenü zum Ablegen (zuletzt benutzt,
+    // Favoriten, alle Konten) – Auswahl verschiebt die Mail dorthin
+    const move = button("mcHdrMoveButton", tr("Move to Folder"));
+    move.setAttribute("type", "menu");
+    const movePopup = doc.createXULElement("menupopup", { is: "folder-menupopup" });
+    movePopup.id = "mcHdrMovePopup";
+    movePopup.setAttribute("mode", "filing");
+    movePopup.setAttribute("showFileHereLabel", "true");
+    movePopup.setAttribute("showRecent", "true");
+    movePopup.setAttribute("showFavorites", "true");
+    movePopup.addEventListener("command", event => {
+      const folder = event.target._folder;
+      if (folder) {
+        mwin.commandController?.doCommand("cmd_moveMessage", folder);
+      }
+    });
+    move.append(movePopup);
+    const sync = () => {
+      let canMove = !!mwin.gMessage;
+      try {
+        canMove &&= mwin.commandController?.isCommandEnabled("cmd_moveMessage") ?? true;
+      } catch {}
+      move.disabled = !canMove;
+      print.disabled = !mwin.gMessage;
+    };
+    const browser = mwin.frameElement;
+    browser?.addEventListener("MsgLoaded", sync, true);
+    bar.append(print, flag, move);
+    sync();
+    this.addWinRestorer(mwin.top, () => {
+      browser?.removeEventListener("MsgLoaded", sync, true);
+      print.remove();
+      flag.remove();
+      move.remove();
+    });
   }
 
   // Fenster einer geöffneten Mail: Klappt der Nutzer die Anhänge per Chevron

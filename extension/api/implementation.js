@@ -2109,6 +2109,8 @@ function decorateAttachments(target) {
         view.style.setProperty("--preferred-height", `${h}px`);
       }
     };
+    // (für das Fenster einer geöffneten Mail: Höhe gleich beim Umschalten)
+    view.__mcFitHeight = fitHeight;
     new win.MutationObserver(update).observe(list, { childList: true });
     new win.MutationObserver(bigIcons).observe(list, { subtree: true, attributes: true, attributeFilter: ["srcset"] });
     new win.MutationObserver(fitHeight).observe(view, { attributeFilter: ["class"] });
@@ -7871,6 +7873,7 @@ class CardEnhancer {
               if (url.startsWith("about:message") && win.top?.document.documentElement.getAttribute("windowtype") == "mail:messageWindow") {
                 this.alwaysReplyAll(win);
                 this.hookWindowConversation(win);
+                this.hookWindowAttachments(win);
               }
             }, { once: true });
           }
@@ -18238,6 +18241,47 @@ class CardEnhancer {
     if (mwin.gMessage) {
       conv.show(mwin.gMessage);
     }
+  }
+
+  // Fenster einer geöffneten Mail: Klappt der Nutzer die Anhänge per Chevron
+  // zu bzw. auf, wird das Fenster genau um den frei werdenden bzw. gebrauchten
+  // Platz der Liste kleiner bzw. größer – auch ein selbst vergrößertes Fenster,
+  // nicht auf Inhaltsgröße (Maintainer 14.11.2026). Sonst füllte der Mailtext
+  // den Platz und die Zeile „n attachments“ sprang an den unteren Rand.
+  // Thunderbird ruft toggleAttachmentList nur bei Klick und Taste mit
+  // updateFocus auf – das automatische Auf- und Zuklappen beim Laden einer Mail
+  // ändert die Fenstergröße nicht; maximiert und im Vollbild bleibt sie auch
+  hookWindowAttachments(mwin) {
+    const top = mwin.top;
+    const orig = mwin.toggleAttachmentList;
+    if (typeof orig != "function" || orig.__mcFitWindow) {
+      return;
+    }
+    const wrapped = function (expanded, updateFocus, ...rest) {
+      const view = mwin.document.getElementById("attachmentView");
+      const before = updateFocus && view ? view.getBoundingClientRect().height : null;
+      const result = orig.call(this, expanded, updateFocus, ...rest);
+      if (before != null) {
+        try {
+          // eigene Höhe der Liste gleich setzen (sonst erst im nächsten Bild)
+          view.__mcFitHeight?.();
+          const delta = Math.round(view.getBoundingClientRect().height - before);
+          if (delta && top.windowState == top.STATE_NORMAL && !top.fullScreen) {
+            top.resizeBy(0, delta);
+          }
+        } catch (e) {
+          log("attachment window fit error", e);
+        }
+      }
+      return result;
+    };
+    wrapped.__mcFitWindow = true;
+    mwin.toggleAttachmentList = wrapped;
+    this.addWinRestorer(top, () => {
+      if (mwin.toggleAttachmentList === wrapped) {
+        mwin.toggleAttachmentList = orig;
+      }
+    });
   }
 
   // Drei-Punkte-Menü über der Mailliste: Ansicht und Layout als eine Auswahl

@@ -176,6 +176,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Zeit:** gegenüber dem Maintainer immer Wiener Zeit; Zeitstempel in Dateien dürfen UTC bleiben.
 - **Im Zweifel wie Apple:** Design und Verhalten der Apple-App nachahmen (Mail, Kontakte, Kalender),
   statt Eigenes zu erfinden; Vorlagen in `~/halo-aufgaben/apple/` (über `neon-board`).
+- **Rollen mit Gedächtnis** (Maintainer 14.11.2026: „Jede aktuelle und zukünftig angestellte Persönlichkeit muss ein Gedächtnis haben und aus ihren Fehlern und Erfolgen dazulernen“): Jeder Auftrag einer Rolle hat einen Schritt „Dazulernen“ und einen Ort für ihr Gedächtnis; Regeln für Aufträge nur als Vorschlag im Bericht, bis der Maintainer sie bestätigt; Einzelheiten `ENTSCHEIDUNGEN.md`.
 - **Designer** (Maintainer 14.11.2026): Design-Einträge setzt der vom Director beauftragte Designer um (mind. Opus, Auftrag `tests/designer-auftrag.md`); Regeln, Einspruch und Rückfragen: `docs/design-vorgaben.md`.
 - **Optionen nur in sehr seltenen Fällen:** nur wo auch die Apple-App eine bietet; Wünsche nach
   „Thunderbird wie vorher“ werden abgelehnt.

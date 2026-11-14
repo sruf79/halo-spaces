@@ -259,6 +259,17 @@ Reihenfolge:
       das im Bericht begründet; dann Merge (kein Rebase) mit Hinweis im
       Bericht. Bis dahin kein Release mit Lichtschein; Testpakete für
       /vorab werden aus dem Zweig gebaut.
+      Nacht auf den 15.11.2026: Der Maintainer sah keinen Alltagstest
+      nötig („es gibt bei einem neuen design wie den lichtkegeln und den
+      buttons nicht viel zu testen, da diese keine neue funktionalität mit
+      sich bringen. entweder sie sehen gut aus oder nicht.“). Deshalb wählt
+      der Director den Eintrag „aktive Space-Kachel … F4a (Umsetzung 3/3)“
+      (Zielbild d2h, ENTSCHEIDUNGEN.md) als ersten; der Designer setzt ihn
+      auf dem Paketzweig um. Sind Kachel und Lichtschein fertig, alle
+      Pflichtprüfungen des Designers und die CI grün, mergt der Director
+      den Zweig (Konflikt bei halo_test.py aus der Trennung erwartet) und
+      das Release mit beiden geht in dieser Nacht raus; sonst bleibt alles
+      auf dem Zweig und nur die Fehlerkorrektur 37bf1f2 wird veröffentlicht.
    d) Plan schreiben, bevor der erste Eintrag beginnt:
       - Plandatei ~/halo-nacht/<Heute>-plan.md („Plan dieses Laufs“, Datum aus
         „Heute:“ oben): Tabelle | Nr. | id | Titel | Nutzen | Aufwand |

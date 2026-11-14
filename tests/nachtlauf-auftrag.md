@@ -162,6 +162,22 @@ Reihenfolge:
         auf 5). Der Director erledigt die Gruppe am Stück in derselben Nacht,
         nennt im Plan die Gruppe, alle Nummern und den Zuschlag. Schwere und
         Rahmenregeln a–g gehen vor, der Zuschlag gilt nur im Nutzen.
+        Automatisch, nicht nach Augenmaß (Maintainer 14.11.2026: „nein ich
+        möchte hier keine manuellen adjustierungen sondern ebenfalls
+        funktionierende automatismen …“): vor dem Bewerten
+        python3 tests/haeufung.py aufrufen (liest die Liste über
+        tests/board.sh export, ändert nichts, schreibt
+        ~/halo-nacht/<datum>-haeufung.md und .tsv mit Gruppen, Einträgen,
+        Zahl, Zuschlag und je Paar dem Grund der Verbindung). Gruppen und
+        Zuschläge daraus sind verbindlich; der Plan nennt jede Gruppe mit
+        Namen (G1 …), ids und Zuschlag. Augenmaß nur zum Ergänzen (weitere
+        Einträge, die das Skript nicht verbunden hat), jede Ergänzung im
+        Plan mit Grund und als „Ergänzung Director“ gekennzeichnet; eine
+        Gruppe des Skripts trennt er nicht. Keine Notizen oder Verknüpfungen
+        in Board-Einträgen nur für die Häufung anlegen. Scheitert das Skript
+        (Exitcode ≠ 0), gruppiert er selbst nach derselben Regel und
+        vermerkt im Plan „Häufung: Skript gescheitert (<Meldung>), Gruppen
+        vom Director“.
    c) Zeitbudget und Reihenfolge. Große Einträge, die lange ununterbrochene
       Arbeit brauchen, gehören in die Nacht (Zusatzinfo des Maintainers vom
       13.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „… dass ich selbst schlafe

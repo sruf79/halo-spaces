@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>at.halo-spaces.designer</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>/Users/neosky.cat/.config/halo-spaces/remote-control.sh</string><string>/Users/neosky.cat/halo-designer</string></array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HALO_RC_NAME</key><string>designer</string>
+    <key>HALO_RC_LOG</key><string>/Users/neosky.cat/Library/Logs/halo-designer.log</string>
+    <key>HALO_RC_MODELL</key><string>opus</string>
+    <key>HALO_RC_EFFORT</key><string>high</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>60</integer>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>/Users/neosky.cat/Library/Logs/halo-designer.log</string>
+  <key>StandardErrorPath</key><string>/Users/neosky.cat/Library/Logs/halo-designer.log</string>
+</dict>
+</plist>

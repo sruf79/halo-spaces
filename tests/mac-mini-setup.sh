@@ -642,6 +642,45 @@ pruefe_github_comm() {
   fi
 }
 
+# Vierte Remote-Control-Sitzung designer (Gesprächskanal zum Designer, Arbeitsordner
+# ~/halo-designer, Vorlage der plist tests/at.halo-spaces.designer.plist): wie
+# neon-board nur geprüft, nie eingerichtet oder geladen – das tut der Maintainer
+# (Fernsteuerungs-Agent, docs/dauerfreigaben.md B/C).
+DS_LABEL=at.halo-spaces.designer
+DS_PLIST=$HOME/Library/LaunchAgents/$DS_LABEL.plist
+DS_DIR=$HOME/halo-designer
+DS_LOG=$HOME/Library/Logs/halo-designer.log
+pruefe_designer() {
+  local dom=gui/$(id -u) vorlage=$ROOT/tests/$DS_LABEL.plist
+  if [[ ! -f $DS_PLIST ]]; then
+    hinweis "designer" "nicht eingerichtet (Gesprächskanal zum Designer, Abschnitt 12)"
+    tun "cp $vorlage $DS_PLIST && launchctl bootstrap $dom $DS_PLIST"
+    return
+  fi
+  grep -q '<string>designer</string>' $DS_PLIST ||
+    { offen "designer" "$DS_PLIST setzt HALO_RC_NAME=designer nicht"; tun "Vorlage $vorlage"; return }
+  [[ $HOME != /Users/neosky.cat ]] || cmp -s $vorlage $DS_PLIST ||
+    hinweis "designer" "$DS_PLIST weicht von der Vorlage $vorlage ab"
+  if ! python3 - "$DS_DIR" <<'EOF' >/dev/null 2>&1
+import json, os, sys
+d = json.load(open(os.path.expanduser("~/.claude.json")))
+sys.exit(0 if d.get("projects", {}).get(sys.argv[1], {}).get("hasTrustDialogAccepted") else 1)
+EOF
+  then
+    hinweis "designer" "$DS_DIR ist in Claude Code vermutlich noch nicht freigegeben"
+    tun "cd $DS_DIR && claude   („Trust this folder“ bestätigen, /exit)"
+  fi
+  if ! launchctl print $dom/$DS_LABEL 2>/dev/null | grep -q 'state = running'; then
+    offen "designer" "LaunchAgent nicht geladen oder läuft nicht"
+    tun "launchctl bootstrap $dom $DS_PLIST bzw. launchctl kickstart -k $dom/$DS_LABEL; Protokoll $DS_LOG"
+  elif ! pgrep -f 'remote-control.*--name designer' >/dev/null; then
+    offen "designer" "LaunchAgent läuft, aber kein claude remote-control --name designer"
+    tun "Protokoll $DS_LOG"
+  else
+    ok "designer" "läuft als LaunchAgent in $DS_DIR ($DS_LOG)"
+  fi
+}
+
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
 # Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
@@ -956,6 +995,7 @@ skripte_kopieren
 pruefe_remote_control
 pruefe_neon_board
 pruefe_github_comm
+pruefe_designer
 pruefe_laeufe
 pruefe_vm
 pruefe_speicher

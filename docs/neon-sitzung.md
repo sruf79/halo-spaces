@@ -229,6 +229,18 @@ Auftragsliste `~/halo-aufgaben/board-stand.md` und zählt für Nachtlauf,
 Rundgang und Wochenprüfung nie als „belegt“. Einrichtung
 `tests/MAC-MINI.md` Abschnitt 12.
 
+**Gesprächskanal `designer`** (Auftrag des Maintainers vom 15.11.2026: „bitte erstelle mir eine eigene
+remote session welche auf neon läuft und "designer" heisst. diese session soll wie ein
+kommunikationskanal zum designer sein und vor allem fragen zum thema design behandeln.“): vierte
+dauerhafte Remote-Control-Sitzung, Arbeitsordner `~/halo-designer` (Rolle in der dort von
+`mac-remote-control.sh` erzeugten `CLAUDE.md`, Opus mit hoher Reasoning-Stufe). Sie beantwortet Fragen
+zum Design nach `tests/designer-auftrag.md` und `docs/design-vorgaben.md`, macht auf Wunsch
+Vorschaubilder (`~/halo-aufgaben/vorschau/`, private Artifact-Seite), liest Designer-Berichte und
+Abschnitt 10 als Gedächtnis; sie ändert keinen Code, committet und pusht nicht. Umsetzungen gehen als
+Board-Eintrag an `neon-board`, Testprofil-Screenshots als Auftrag an `neon`. Der SessionStart-Hook
+erkennt sie am Namen bzw. Ordner und lädt ihre Rolle auch nach `/clear`; sie zählt für Nachtlauf und
+Prüfungen nie als „belegt“. Einrichtung `tests/MAC-MINI.md` Abschnitt 12.
+
 **Sitzung nicht unter ihrem Namen gefunden?** Reihenfolge: Name in `ListAgents` → ähnlicher Name
 (Teilstring, gleicher Arbeitsordner) → `list_sessions` nach Titel → zuletzt bekannte Sitzungs-ID
 (`~/halo-aufgaben/sitzungen.json`); Einzelheiten und Skripthilfe `sitzung_finden`:

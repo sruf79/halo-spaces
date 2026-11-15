@@ -414,6 +414,9 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
 # Ebenso die GitHub-Kommunikation (Sitzung github.comm.routine, Arbeitsordner
 # ~/halo-github bzw. HALO_GITHUB_DIR): nur Issues, PRs und Anhänge, kein
 # Thunderbird, Push und Release gesperrt; Projektordner …-halo-github.
+# Ebenso der Gesprächskanal zum Designer (Sitzung designer, Arbeitsordner
+# ~/halo-designer bzw. HALO_DESIGNER_DIR): nur lesen und Vorschaubilder, keine
+# Änderungen im Checkout; Projektordner …-halo-designer.
 # Die 2 Stunden zählen ab dem Zeitstempel des letzten echten Eintrags, nicht ab
 # der Dateizeit: /compact schreibt die Datei neu, ohne dass die Runde weitergeht.
 # sitzung_arbeitet <datei> [frisch] – „frisch“: ein Unteragent schrieb zuletzt
@@ -448,8 +451,9 @@ sys.exit(1 if alt.total_seconds() > 7200 and not os.environ.get("FRISCH") else 0
 aktive_sitzung() {
   local f id letzte neu unter board=${${HALO_BOARD_DIR:-$HOME/halo-board}//[\/.]/-}
   local github=${${HALO_GITHUB_DIR:-$HOME/halo-github}//[\/.]/-}
+  local designer=${${HALO_DESIGNER_DIR:-$HOME/halo-designer}//[\/.]/-}
   for f in $HOME/.claude/projects/${HOME//[\/.]/-}-halo*/*.jsonl(N.); do
-    [[ ${f:h:t} == $board || ${f:h:t} == $github ]] && continue
+    [[ ${f:h:t} == $board || ${f:h:t} == $github || ${f:h:t} == $designer ]] && continue
     unter=(${f:r}/**/*.jsonl(N.mh-2))
     neu=($f(N.mh-2) $unter)
     (( $#neu )) || continue

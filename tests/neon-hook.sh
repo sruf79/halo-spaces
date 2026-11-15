@@ -16,19 +16,32 @@
 # soll in sonntagsablauf eingebaut werden“). Erkannt über ~/.claude/sessions/<pid>.json
 # mit name „github.comm.routine“ (pid aus der Prozesskette, ersatzweise sessionId
 # aus der Hook-Eingabe) oder „--name github.comm.routine“ am remote-control.
+# Ebenso die Sitzung designer (Gesprächskanal zum Designer, ~/halo-designer;
+# Auftrag des Maintainers vom 15.11.2026): erkannt an HALO_ROLLE=designer, am
+# Namen „designer“ in der Sitzungsdatei, an „--name designer“ am remote-control
+# oder am Ordner ~/halo-designer (HALO_DESIGNER_DIR); sie bekommt ihren eigenen
+# Rollenblock statt der neon-Hinweise.
 # Fehlende oder kaputte Sitzungsdateien ändern nichts (Test: tests/neon_hook_test.zsh).
 # POSIX-sh, damit es in Cloud-Sitzungen ohne zsh still endet.
 
 eingabe=$(cat 2>/dev/null)
 sitz=${HALO_SITZUNGEN_DIR:-$HOME/.claude/sessions}
-ist_github() { [ -f "$1" ] && grep -q '"name" *: *"github\.comm\.routine"' "$1" 2>/dev/null; }
-neon=${HALO_NEON:-} github= rc=
+# Rolle aus einer Sitzungsdatei: github bzw. designer, sonst Rückgabe 1
+rolle_von() {
+  [ -f "$1" ] || return 1
+  if grep -q '"name" *: *"github\.comm\.routine"' "$1" 2>/dev/null; then echo github
+  elif grep -q '"name" *: *"designer"' "$1" 2>/dev/null; then echo designer
+  else return 1; fi
+}
+neon=${HALO_NEON:-} rolle= rc=
+[ "${HALO_ROLLE:-}" = designer ] && rolle=designer
 pid=$PPID i=0
-while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
-  ist_github "$sitz/$pid.json" && { github=1; break; }
+while [ -z "$rolle" ] && [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+  r=$(rolle_von "$sitz/$pid.json") && { rolle=$r; break; }
   if [ -z "$rc" ]; then
     case $(ps -o args= -p "$pid" 2>/dev/null) in
-      *claude*remote-control*--name\ github.comm.routine*) github=1; break ;;
+      *claude*remote-control*--name\ github.comm.routine*) rolle=github; break ;;
+      *claude*remote-control*--name\ designer*) rolle=designer; break ;;
       *claude*remote-control*--name\ neon-board*) rc=board ;;
       *claude*remote-control*) rc=1 ;;
     esac
@@ -37,14 +50,35 @@ while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
   i=$((i + 1))
 done
 sid=$(printf '%s\n' "$eingabe" | sed -n 's/.*"session_id" *: *"\([A-Za-z0-9-]*\)".*/\1/p' | head -1)
-if [ -z "$github" ] && [ -n "$sid" ] && [ -d "$sitz" ]; then
+if [ -z "$rolle" ] && [ -n "$sid" ] && [ -d "$sitz" ]; then
   for f in "$sitz"/*.json; do
-    grep -q "\"sessionId\" *: *\"$sid\"" "$f" 2>/dev/null && ist_github "$f" && { github=1; break; }
+    grep -q "\"sessionId\" *: *\"$sid\"" "$f" 2>/dev/null && r=$(rolle_von "$f") && { rolle=$r; break; }
   done
 fi
+# Arbeitsordner von designer gilt immer als designer
+designer_dir=${HALO_DESIGNER_DIR:-$HOME/halo-designer}
+[ -n "$rolle" ] || case ${CLAUDE_PROJECT_DIR:-$(pwd)} in "$designer_dir"|"$designer_dir"/*) rolle=designer ;; esac
 quelle=$(printf '%s\n' "$eingabe" | sed -n 's/.*"source" *: *"\([a-z]*\)".*/\1/p' | head -1)
 
-if [ -n "$github" ]; then
+if [ "$rolle" = designer ]; then
+  [ "$quelle" = compact ] && echo "designer: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
+  cat <<'EOF'
+designer – Gesprächskanal des Maintainers zum Designer (gilt auch nach /clear; ~/halo-designer/CLAUDE.md):
+- Rolle und Maßstäbe aus ~/halo-spaces (nur lesen): tests/designer-auftrag.md, docs/design-vorgaben.md (G1–G14, Rangfolge 2b, Abschnitte 4, 9, 10), ENTSCHEIDUNGEN.md; Vorlagen ~/halo-aufgaben/apple/index.md.
+- Fragen zum Design beantworten (warum so, was wäre schöner, Vergleich mit den Vorlagen), mit Quelle; einfache Worte, der Maintainer ist Admin, kein Programmierer; Wiener Zeit.
+- Gedächtnis: docs/design-vorgaben.md Abschnitt 10 (Eichfälle, Wahrnehmungsregeln, Verworfen) zuerst lesen. Neues nur als Vorschlag; nach Bestätigung des Maintainers als Auftrag an neon („Designvorgaben: …“).
+- Vorschaubilder auf Wunsch: private Artifact-Seite, Bilder als eigene Dateien unter ~/halo-aufgaben/vorschau/<thema>-<datum>/, nie data:-URI, nie echte Mails; Testprofil-Screenshots nur als Auftrag an neon (Port ab 2850, nie echtes Profil).
+- Kein Code, keine Datei in ~/halo-spaces ändern, kein commit/push/Release, keine Tests; Umsetzung als Board-Eintrag über neon-board, die Arbeit machen Nachtlauf/Tagesroutine.
+- Entscheidungen nur wörtlich mit Datum zitieren, Deutungen kennzeichnen; Zitate erst nach Zustimmung weitergeben; Rückfragen nicht selbst zu Regeln machen.
+- Andere Sitzungen nur per SendMessage an den Namen (neon, neon-board, github.comm.routine), nie über Kennungen.
+EOF
+  nacht=${HALO_NACHT_DIR:-$HOME/halo-nacht}
+  berichte=$(ls -t "$nacht"/*-designer-*.md 2>/dev/null | head -3 | tr '\n' ' ')
+  echo "Neueste Designer-Berichte: ${berichte:-keine}"
+  exit 0
+fi
+
+if [ "$rolle" = github ]; then
   [ "$quelle" = compact ] && echo "github.comm.routine: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
   cat <<'EOF'
 github.comm.routine – Rolle (gilt auch nach /clear; ~/halo-github/CLAUDE.md, docs/github-komm.md):

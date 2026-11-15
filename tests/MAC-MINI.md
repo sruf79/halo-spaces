@@ -614,6 +614,34 @@ Protokoll nennt Modell und Effort. `mac-remote-control.sh` setzt für sie kein `
 `tests/notfall.sh` hält sie im Notfall an (nicht in `BLEIBEN`).
 Neu starten, abschalten: wie neon-board mit dem Label `at.halo-spaces.github-comm`.
 
+### Vierte Sitzung `designer` (Gesprächskanal zum Designer)
+
+Auftrag des Maintainers vom 15.11.2026, Wortlaut: „bitte erstelle mir eine eigene remote session welche
+auf neon läuft und "designer" heisst. diese session soll wie ein kommunikationskanal zum designer sein
+und vor allem fragen zum thema design behandeln.“ Ein vierter LaunchAgent `at.halo-spaces.designer`
+(Vorlage `tests/at.halo-spaces.designer.plist`) startet dasselbe Skript mit `HALO_RC_NAME=designer`,
+Arbeitsordner `~/halo-designer` (kein Checkout), Protokoll `~/Library/Logs/halo-designer.log`,
+`HALO_RC_MODELL=opus` und `HALO_RC_EFFORT=high` (Designer mindestens Opus, AGENTS.md „Designer“).
+Wie bei neon-board schreibt `mac-remote-control.sh` bei jedem Start `CLAUDE.md` (Rolle) und
+`.claude/settings.json` (lesen in `~/halo-spaces`, `~/halo-aufgaben`, `~/halo-nacht`, `~/halo-berichte`;
+schreiben nur `~/halo-aufgaben/vorschau/`; Board nur lesen; Änderungen im Checkout, `git`-Schreibbefehle,
+Tests, Builds, Release, `gh`, `launchctl` gesperrt; SessionStart-Hook). Kein `HALO_NEON`, dafür
+`HALO_ROLLE=designer`; der Hook erkennt die Sitzung auch am Namen in `~/.claude/sessions` und am Ordner
+und lädt ihren Rollenblock auch nach `/clear` (Test `tests/neon_hook_test.zsh`). `aktive_sitzung()`
+zählt sie nie als „belegt“ (`HALO_DESIGNER_DIR`). `mac-mini-setup.sh --check` prüft sie nur; geladen
+wird sie wie die anderen Fernsteuerungs-Agenten nur vom Maintainer (`docs/dauerfreigaben.md`):
+
+```bash
+cd ~/halo-spaces && tests/mac-mini-setup.sh          # Skripte nach ~/.config/halo-spaces/
+HALO_RC_NAME=designer zsh ~/.config/halo-spaces/remote-control.sh ~/halo-designer --nur-ordner
+cd ~/halo-designer && claude                          # „Trust this folder“, dann /exit
+cp ~/halo-spaces/tests/at.halo-spaces.designer.plist ~/Library/LaunchAgents/ &&
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/at.halo-spaces.designer.plist
+```
+
+Danach muss `designer` in `ListAgents` erscheinen. Neu starten, abschalten: wie neon-board mit dem
+Label `at.halo-spaces.designer`; `tests/notfall.sh stopp --hart` hält sie an (nicht in `BLEIBEN`).
+
 ### Kein täglicher Neustart von `neon`, `/clear` von Hand
 
 Entscheidung des Maintainers (Cloud-Sitzung global.design.comparison,

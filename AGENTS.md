@@ -79,9 +79,10 @@ Alles, was den Mac mini braucht (Testläufe, Screenshots, Release, Dateien unter
 Auftrag an die dauerhafte Remote-Control-Sitzung **`neon`**; Board, Bilder und Apple-Vorlagen an
 **`neon-board`** (nur wenn sie auf keinem Weg antwortet an `neon`). Code, Git-Verlauf, Issues, Pull
 Requests und CI-Läufe liest jede Sitzung selbst. Sitzungen auf neon selbst sind neon – dort direkt
-arbeiten.
+arbeiten. **`designer`** ist der Gesprächskanal des Maintainers zum Designer (Fragen zum Design,
+Vorschaubilder; ändert keinen Code, Maintainer 15.11.2026), erreichbar wie die anderen nur über den Namen.
 
-1. `ListAgents`, dann `SendMessage` an den **Namen** (`neon`, `neon-board`, `github.comm.routine`).
+1. `ListAgents`, dann `SendMessage` an den **Namen** (`neon`, `neon-board`, `github.comm.routine`, `designer`).
    **Nur Namen, nie feste Kennungen oder IDs**: Kennungen in eckigen Klammern sind je Sitzung
    verschieden, IDs ändern sich bei Neustarts.
 2. Kein Treffer: `list_sessions` nach Titel, dann `send_message`; lehnt es mit `content_digest` ab,

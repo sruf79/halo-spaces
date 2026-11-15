@@ -1,5 +1,5 @@
 # Prüfung des SessionStart-Hooks tests/neon-hook.sh ohne Claude, ohne Netz, im Wegwerf-Ordner:
-# Rollenblock für github.comm.routine, neon und neon-board unverändert gegenüber dem letzten Commit,
+# Rollenblöcke für github.comm.routine und designer, neon und neon-board unverändert gegenüber dem letzten Commit,
 # fehlende oder kaputte Sitzungsdateien ändern nichts. Echte Sitzungsdateien (~/.claude/sessions)
 # bleiben unberührt: der Test baut eine Kopie im Wegwerf-Ordner nach (HALO_SITZUNGEN_DIR).
 # Aufruf: zsh tests/neon_hook_test.zsh   → je Fall eine Zeile OK/FEHLER, Exitcode 1 bei einem Fehler
@@ -58,6 +58,35 @@ for q in startup clear compact; do
 done
 alt=$(ref board $SID_NEON clear); neu=$(HALO_NEON=board lauf $HOOK $T/sitz $SID_NEON clear)
 pruefe "neon-board: unverändert" '[[ -n $neu && $neu == $alt && $neu == *Board-Probe* ]]'
+
+# 3a. designer (Gesprächskanal zum Designer): Rollenblock über sessionId (nach /clear), Prozesskette,
+#     HALO_ROLLE und Arbeitsordner; ohne neon-Auftragsliste, auch wenn HALO_NEON gesetzt ist
+SID_DES=5c3d0e11-0000-4000-8000-00000000cccc
+mkdir -p $T/nacht $T/designer/unter
+print x > $T/nacht/2026-11-15-designer-PVTI_probe.md
+export HALO_NACHT_DIR=$T/nacht HALO_DESIGNER_DIR=$T/designer
+rm -f $T/sitz/*; sitzung $T/sitz/40003.json $SID_DES designer; sitzung $T/sitz/40002.json $SID_NEON neon
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_DES clear); rc=$?
+pruefe "designer per sessionId: Rollenblock" '[[ $aus == *"designer – Gesprächskanal"* && $aus == *design-vorgaben.md* && $aus == *"Abschnitt 10"* ]]'
+pruefe "designer per sessionId: ohne neon-Hinweise und ohne github-Rolle" '[[ $aus != *"Offene Aufträge"* && $aus != *Probeauftrag* && $aus != *"neon – Arbeitsweise"* && $aus != *PushNotification* ]]'
+pruefe "designer: Grenzen (kein Code, nur Name, Zitate nach Zustimmung) und neueste Berichte" '[[ $aus == *"kein commit/push"* && $aus == *"nie über Kennungen"* && $aus == *"nach Zustimmung"* && $aus == *designer-PVTI_probe.md* ]]'
+pruefe "designer: höchstens 12 Zeilen und unter 2600 Zeichen, Exitcode 0" '(( ${#${(f)aus}} <= 12 && ${#aus} < 2600 && rc == 0 ))'
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_DES compact)
+pruefe "designer nach Verdichten: Hinweis und Rollenblock" '[[ $aus == *verdichtet* && $aus == *"designer – Gesprächskanal"* ]]'
+rm -f $T/sitz/*; sitzung $T/sitz/$$.json alte-id designer
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_NEON startup)
+pruefe "designer per Prozesskette: Rollenblock" '[[ $aus == *"designer – Gesprächskanal"* && $aus != *"Offene Aufträge"* ]]'
+rm -f $T/sitz/*
+aus=$(HALO_ROLLE=designer lauf $HOOK $T/sitz $SID_NEON startup)
+pruefe "designer per HALO_ROLLE: Rollenblock" '[[ $aus == *"designer – Gesprächskanal"* ]]'
+aus=$(CLAUDE_PROJECT_DIR=$T/designer/unter lauf $HOOK $T/sitz $SID_NEON startup)
+pruefe "designer per Arbeitsordner: Rollenblock" '[[ $aus == *"designer – Gesprächskanal"* ]]'
+# github und neon bleiben bei vorhandener designer-Sitzungsdatei unverändert
+sitzung $T/sitz/40003.json $SID_DES designer; sitzung $T/sitz/40001.json $SID_GH github.comm.routine
+aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear)
+pruefe "designer daneben: github weiter mit eigener Rolle" '[[ $aus == *PushNotification* && $aus != *"designer – Gesprächskanal"* ]]'
+alt=$(ref 1 $SID_NEON clear); neu=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_NEON clear)
+pruefe "designer daneben: neon unverändert" '[[ -n $neu && $neu == $alt && $neu != *"designer – Gesprächskanal"* ]]'
 
 # 4. fehlende bzw. kaputte Sitzungsdateien: wie bisher, nie Abbruch
 for fall in fehlt leer kaputt; do

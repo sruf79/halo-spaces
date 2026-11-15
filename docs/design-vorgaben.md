@@ -574,4 +574,9 @@ Quelle in den Abschnitten oben):
   keine echten Mails in Bildern, kein „Apple“ nach außen (G12), Prüfungen nie abschwächen.
 - **Einspruch:** Abschnitt 7. **Rückfragen:** Abschnitt 8 (Vorschaubilder; nachts Morgenbericht,
   tagsüber iPhone).
+- **Gesprächskanal:** Die Remote-Control-Sitzung `designer` (Maintainer 15.11.2026, Wortlaut in
+  `docs/neon-sitzung.md`) ist der Designer im direkten Gespräch mit dem Maintainer: beantwortet
+  Fragen zum Design nach dieser Datei, macht auf Wunsch Vorschaubilder, liest Abschnitt 10 als
+  Gedächtnis und schlägt Ergänzungen nur vor (eingetragen erst nach Bestätigung, über neon); sie
+  ändert keinen Code, Umsetzungen laufen über das Board.
 

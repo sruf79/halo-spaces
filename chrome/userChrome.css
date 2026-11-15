@@ -1966,7 +1966,7 @@ findbar .findbar-textbox:focus {
    genau über der geöffneten Mail */
 /* erster sichtbarer Abstandhalter – davor können ausgeblendete Knöpfe
    anderer Bereiche liegen, daher nicht :first-child */
-#unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
+#unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"]:not([hidden]) ~ li) {
   /* schrumpft erst, wenn das Suchfeld schon ganz klein ist (Gewicht fast 0
      gegenüber 50 beim Suchfeld) – sonst rücken die Knöpfe über die Kante der
      Mailliste und die Trennlinie in der Toolbar-Zeile bricht */
@@ -1978,6 +1978,31 @@ findbar .findbar-textbox:focus {
 #unifiedToolbarContent > li[item-id="spacer"] ~ li[item-id="spacer"],
 #unifiedToolbarContent[mc-no-lead] > li[item-id="spacer"] {
   flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Mail wie Apple Mail: Abstand nach „Verfassen“ und Abstand vor dem
+   Suchfeld wachsen gleich, die Mittelgruppe steht dazwischen mittig. Der
+   Abstand vor dem Suchfeld beginnt beim Abstand nach „Verfassen“ (69 px
+   Rand, abzüglich 6 px Rand nach „Markieren“) und schrumpft bei Platzmangel
+   vor allem anderen auf 0 (Gewicht 100000 gegenüber 50 beim Suchfeld);
+   der Abstand nach „Verfassen“ wächst nur (Grundmaß 0) */
+:root[mc-mail] #unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"] ~ li[item-id="spacer"] ~ li[item-id="spacer"]:not(li[item-id="search-bar"] ~ li) {
+  flex: 1 100000 max(0px, calc(var(--mc-write-gap, 69px) - 6px)) !important;
+  min-width: 0 !important;
+}
+
+/* … solange Pillen ausgeblendet sind, gibt es keinen freien Platz zu
+   verteilen: die Mittelgruppe folgt dann direkt auf „Verfassen“ (sonst
+   rückte sie mit jeder weichenden Pille um deren halbe Breite) */
+:root[mc-mail] #unifiedToolbarContent:has(> li[mc-squeezed][item-id]) > li[item-id="write-message"] + li[item-id="spacer"] {
+  flex-grow: 0 !important;
+}
+
+/* … beim Ein-/Ausblenden der Seitenleiste gleitet der Abstand vor der
+   Mittelgruppe vom Anfangs- zum Endwert (die Erweiterung rechnet je Bild) */
+:root[mc-mail] #unifiedToolbarContent[mc-mid-run] > li[item-id="write-message"] + li[item-id="spacer"] {
+  flex: 0 100000 var(--mc-mid-gap, 0px) !important;
   min-width: 0 !important;
 }
 
@@ -12112,8 +12137,9 @@ menupopup menucaption {
 /* ---------- Gleiches Toolbar-Layout in allen Bereichen ----------
    Knöpfe beginnen wie in der Mail an einer Spaltenkante (Adressbuch: rechts
    der Kontaktliste, sonst rechts der Seitenleiste; --mc-tab-offset misst die
-   Erweiterung), Suchfeld oben rechts. */
-:root:not([mc-mail]) #unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"] ~ li) {
+   Erweiterung), Suchfeld oben rechts. Ausgeblendete Abstandhalter anderer
+   Bereiche (z. B. der nach „Verfassen“ der Mail) zählen nicht mit. */
+:root:not([mc-mail]) #unifiedToolbarContent:not([mc-no-lead]) > li[item-id="spacer"]:not(li[item-id="spacer"]:not([hidden]) ~ li) {
   /* (Mail: --mc-toolbar-offset, siehe Apple-Mail-Toolbar) */
   flex: 0 1 var(--mc-tab-offset, 0px) !important;
   min-width: 0 !important;

@@ -116,13 +116,16 @@ const SORT_CHOICES = [
 ];
 // Kontaktfoto bzw. Initialen links in den Karten (Drei-Punkte-Menü über der Liste)
 const CONTACT_PHOTOS_PREF = "extensions.mailcards.contactPhotos";
-// Reihenfolge wie in der Apple-Mail-Toolbar: Abrufen, Verfassen |
+// Reihenfolge wie in der Apple-Mail-Toolbar: Abrufen, Verfassen | Abstand |
 // Antworten, Allen antworten, Weiterleiten | Archiv, Löschen, Spam |
-// Verschieben | Markieren … Suchfeld ganz rechts.
+// Verschieben | Markieren | Abstand | Suchfeld ganz rechts. Die beiden
+// Abstände wachsen gleich, so steht die Mittelgruppe zwischen „Verfassen“
+// und Suchfeld mittig; bei Platzmangel schrumpfen sie zuerst.
 const APPLE_TOOLBAR = [
   "spacer",
   "get-messages",
   "write-message",
+  "spacer",
   "reply",
   "reply-all",
   "forward-inline",
@@ -138,6 +141,9 @@ const APPLE_TOOLBAR = [
 // Adressbuch: „Neuer Kontakt“ (mit Text) | Kapsel „Neues Adressbuch · Neue Liste“.
 // bis 3.12 Vorgabe im Adressbuch – unverändert übernommen, wird sie durch die
 // neue ersetzt (Anlegen jetzt über das „+“ über der Kontaktliste)
+// bis 3.27 Vorgabe der Mail ohne Abstand nach „Verfassen“ – unverändert
+// übernommen, wird sie durch die neue ersetzt
+const OLD_MAIL_TOOLBAR = APPLE_TOOLBAR.filter((id, i) => i != 3);
 const OLD_ADDRESSBOOK_TOOLBAR = ["spacer", "create-contact", "create-address-book", "create-list", "spacer", "search-bar"];
 const SPACE_TOOLBARS = {
   addressbook: ["spacer", "spacer", "search-bar"],
@@ -5866,7 +5872,7 @@ function cleanupAfterUninstall() {
       const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
       const { EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
       const state = { ...getState() };
-      for (const [space, items] of Object.entries({ mail: APPLE_TOOLBAR, ...SPACE_TOOLBARS })) {
+      for (const [space, items] of [["mail", OLD_MAIL_TOOLBAR], ...Object.entries({ mail: APPLE_TOOLBAR, ...SPACE_TOOLBARS })]) {
         if (state[space] && items.every((id, i) => state[space][i] == id)
             && state[space].slice(items.length).every(id => id.startsWith(EXTENSION_PREFIX))) {
           delete state[space];
@@ -11329,6 +11335,17 @@ class CardEnhancer {
           const gapStart = gapNow();
           const gapVar = bar.style.getPropertyValue("--mc-write-gap");
           let gapEnd = NaN;
+          // Abstand vor der Mittelgruppe (Antworten … Markieren steht mittig zwischen „Verfassen“ und Suchfeld):
+          // gleitet ebenso vom Anfangs- zum Endwert – sonst sprang die Gruppe, wenn am Ende Pillen dazukommen
+          // oder am Anfang weichen (die Mitte verschiebt sich um die halbe Pillenbreite)
+          const mid = w.document.querySelector('#unifiedToolbarContent > li[item-id="write-message"] + li[item-id="spacer"]');
+          const midStart = mid ? mid.getBoundingClientRect().width : NaN;
+          let midEnd = NaN;
+          // Anteil der Bewegung am Einzug der Knöpfe ablesen (nicht an der Zeitkurve): so laufen „Verfassen“ und die
+          // Mittelgruppe im selben Takt, die Gruppe eilt nie voraus oder hinterher
+          const leadNow = () => parseFloat(bar.style.getPropertyValue("--mc-toolbar-offset"));
+          const leadStart = leadNow();
+          let leadEnd = NaN;
           w.__mcDry = true;
           try {
             if (withSpaces) {
@@ -11338,6 +11355,8 @@ class CardEnhancer {
             w.document.documentElement.getBoundingClientRect();
             this.offsetUpdaters?.forEach(fn => fn());
             gapEnd = gapNow();
+            midEnd = mid ? mid.getBoundingClientRect().width : NaN;
+            leadEnd = leadNow();
           } catch (e) {
             log("dry-run error", e);
           } finally {
@@ -11367,6 +11386,16 @@ class CardEnhancer {
           }
           if (Number.isFinite(gapStart) && Number.isFinite(gapEnd) && Math.abs(gapEnd - gapStart) >= 1) {
             ab.__mcGapRun = [gapStart, gapEnd];
+          }
+          if (Number.isFinite(midStart) && Number.isFinite(midEnd)) {
+            const content = mid.parentNode;
+            ab.__mcMidRun = [midStart, midEnd, leadStart, leadEnd];
+            bar.style.setProperty("--mc-mid-gap", `${midStart.toFixed(2)}px`);
+            content.setAttribute("mc-mid-run", "");
+            ab.__mcMidEnde = () => {
+              content.removeAttribute("mc-mid-run");
+              bar.style.removeProperty("--mc-mid-gap");
+            };
           }
           w.document.documentElement.getBoundingClientRect();
           this.offsetUpdaters?.forEach(fn => fn());
@@ -14423,6 +14452,9 @@ class CardEnhancer {
       delete ab.__mcJump;
       delete ab.__mcFortschritt;
       delete ab.__mcGapRun;
+      delete ab.__mcMidRun;
+      ab.__mcMidEnde?.();
+      delete ab.__mcMidEnde;
       unfollow();
       inner.forEach(el => (el.style.minWidth = ""));
       pane.style.overflow = "";
@@ -16289,6 +16321,13 @@ class CardEnhancer {
       const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
       const state = { ...getState() };
       let changed = false;
+      const { EXTENSION_PREFIX: EXT } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+      const ml = state.mail;
+      if (ml && OLD_MAIL_TOOLBAR.every((id, i) => ml[i] == id) &&
+          ml.slice(OLD_MAIL_TOOLBAR.length).every(id => id.startsWith(EXT))) {
+        state.mail = [...APPLE_TOOLBAR, ...ml.slice(OLD_MAIL_TOOLBAR.length)];
+        changed = true;
+      }
       const ab = state.addressbook;
       if (ab && OLD_ADDRESSBOOK_TOOLBAR.every((id, i) => ab[i] == id) &&
           ab.slice(OLD_ADDRESSBOOK_TOOLBAR.length).every(id => !SPACE_TOOLBARS.addressbook.includes(id))) {
@@ -16651,6 +16690,14 @@ class CardEnhancer {
         // sprangen dann um bis zu 57 px (12 → 69 px)
         const [a, b] = win.__mcGapRun;
         setBarVar(top.document, "--mc-write-gap", `${Math.round(a + (b - a) * win.__mcFortschritt())}px`);
+      }
+      // ebenso der Abstand vor der Mittelgruppe (Mail, siehe toggleSidebar)
+      if (animating && win.__mcMidRun && win.__mcFortschritt) {
+        const [a, b, l0, l1] = win.__mcMidRun;
+        const p = Number.isFinite(l0) && Number.isFinite(l1) && Math.abs(l1 - l0) >= 1
+          ? Math.min(1, Math.max(0, (offset - l0) / (l1 - l0)))
+          : win.__mcFortschritt();
+        setBarVar(top.document, "--mc-mid-gap", `${(a + (b - a) * p).toFixed(2)}px`);
       }
       // Rechte Kante der Ordnerliste relativ zur Toolbar-Zeile: damit färbt
       // userChrome.css die Seitenleiste bis ganz nach oben grau wie in Apple Mail.

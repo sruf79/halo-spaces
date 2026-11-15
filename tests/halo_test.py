@@ -4466,7 +4466,7 @@ def folder_checks(m, results):
           }
           return out;""")
         mail, shown = res.get("mail") or [], res.get("shown") or []
-        ok = ("reply" in mail and "reply-all" in mail and "reply" in shown and mail[:4] == ["spacer", "get-messages", "write-message", "reply"]
+        ok = ("reply" in mail and "reply-all" in mail and "reply" in shown and mail[:5] == ["spacer", "get-messages", "write-message", "spacer", "reply"]
               and (res.get("addressbook") or [])[:3] == ["spacer", "spacer", "search-bar"] and res.get("standaloneAfter") is False
               and res.get("buttonStyle") == 2)
         if res.get("standaloneOwn") is not None:
@@ -10019,6 +10019,42 @@ def run_checks(m, version, profile, results):
         ok = res["wide"] == 69 and res["narrow"] < 69 and res["again"] == 69
         return ok, f"{res}"
     check("Toolbar: Abstand nach „Verfassen“ 69 px, im schmalen Fenster kleiner, danach wieder 69 px", toolbar_write_gap, results)
+
+    def toolbar_center_group():
+        # Mail wie Apple Mail: Abrufen + Verfassen links an der Mailliste, die übrigen Pillen mittig zwischen „Verfassen“ und
+        # Suchfeld (je ein wachsender Abstand), Suchfeld rechts; im schmalen Fenster schrumpfen die Abstände zuerst (keine
+        # Pille ragt aus der Zeile, Suche mindestens Lupe). Eine gespeicherte frühere halo.spaces-Anordnung (ohne Abstand
+        # nach „Verfassen“, mit Knopf eines Add-ons) bekommt den neuen Abstand, der Add-on-Knopf bleibt am Ende
+        res = m.js(r"""
+          const R = el => el.getBoundingClientRect();
+          const out = {};
+          const measure = () => {
+            const content = d.getElementById("unifiedToolbarContent"), row = R(content);
+            const q = id => content.querySelector(`:scope > li[item-id="${id}"]`);
+            const shown = [...content.children].filter(l => R(l).width > 0 && getComputedStyle(l).display != "none");
+            const mid = shown.filter(l => !["spacer", "search-bar", "get-messages", "write-message"].includes(l.getAttribute("item-id")) && l.id != "mcToolbarOverflow");
+            const write = q("write-message"), search = q("search-bar");
+            return { left: Math.round(R(mid[0]).left - R(write).right), right: Math.round(R(search).left - R(mid.at(-1)).right),
+                     search: Math.round(R(search).width), squeezed: content.querySelectorAll(":scope > li[mc-squeezed][item-id]").length,
+                     clipped: shown.filter(l => R(l).right > row.right + 1).length };
+          };
+          await toMail(); w.resizeTo(2400, 900); await wait(1500); out.wide = measure();
+          w.resizeTo(1000, 900); await wait(1500); out.narrow = measure();
+          w.resizeTo(1500, 900); await wait(800);
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const { EXTENSION_PREFIX } = ChromeUtils.importESModule("resource:///modules/CustomizableItems.sys.mjs");
+          const saved = getState(), ext = EXTENSION_PREFIX + "halo-test-addon";
+          const old = ["spacer", "get-messages", "write-message", "reply", "reply-all", "forward-inline", "archive", "delete", "junk", "move-to", "mark-as", "spacer", "search-bar"];
+          try { storeState({ ...saved, mail: [...old, ext] }); await ruhig(600); out.migrated = getState().mail; }
+          finally { storeState(saved); await ruhig(500); }
+          return out;""")
+        wide, narrow, mig = res.get("wide") or {}, res.get("narrow") or {}, res.get("migrated") or []
+        ok = (not wide.get("squeezed") and wide.get("left", 0) >= 69 and abs(wide.get("left", 0) - wide.get("right", 0)) <= 2
+              and not narrow.get("clipped") and narrow.get("search", 0) >= 40 and 12 <= narrow.get("left", 0) <= 69
+              and mig[:5] == ["spacer", "get-messages", "write-message", "spacer", "reply"]
+              and mig[-1].endswith("halo-test-addon") and mig.count("spacer") == 3)
+        return ok, f"{res}"
+    check("Toolbar: Mail-Pillen mittig zwischen „Verfassen“ und Suchfeld, im schmalen Fenster schrumpfen zuerst die Abstände; frühere Anordnung wird übernommen", toolbar_center_group, results)
 
     def toolbar_search_first():
         # schmales Fenster mit Today-Pane: in jedem Bereich schrumpft zuerst das Suchfeld (bis zur Lupe), Knöpfe ragen nie aus der

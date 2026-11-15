@@ -6,7 +6,7 @@ import { lade } from "./lader.mjs";
 // (Felder aus dem vm-Kontext haben andere Prototypen)
 const j = x => JSON.parse(JSON.stringify(x));
 
-const MAIL = ["spacer", "get-messages", "write-message", "reply", "reply-all", "forward-inline", "archive", "delete", "junk",
+const MAIL = ["spacer", "get-messages", "write-message", "spacer", "reply", "reply-all", "forward-inline", "archive", "delete", "junk",
   "move-to", "mark-as", "spacer", "search-bar"];
 
 test("Überlauf: Mail-Pillen weichen von rechts nach links und immer ganz", () => {

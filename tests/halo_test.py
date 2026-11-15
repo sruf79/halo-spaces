@@ -486,7 +486,9 @@ def vergleich_laden(tb, port, dark, neu=False):
     erzeugen und speichern. Eine neue Aufnahme (--vergleich-neu) ergänzt die alte (Vereinigung: Thunderbirds
     Startfehler schwanken). Nie eine Ausnahme: ohne Liste kein Vergleich (Hinweis)."""
     kennung = tb_kennung(tb)
-    datei = os.path.join(VERGLEICH_ORDNER, f"{sys.platform}-{kennung}.json") if kennung else None
+    # je Modus eine eigene Liste: der Vergleichslauf startet hell bzw. dunkel, Startfehler nur im Dunkelmodus gehörten
+    # sonst nicht zur Liste des dunklen Laufs
+    datei = os.path.join(VERGLEICH_ORDNER, f"{sys.platform}-{kennung}{'-dunkel' if dark else ''}.json") if kennung else None
     alt = []
     if datei and os.path.exists(datei):
         try:

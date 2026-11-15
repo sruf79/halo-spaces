@@ -8358,9 +8358,10 @@ def calendar_checks(m, results):
           try {
             cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1000);
             for (let i = 0; i < 10; i++) {
+              const w0 = bp.getBoundingClientRect().width;
               btn.click();
-              const ts = [], ws = []; const t0 = performance.now();
-              while (performance.now() - t0 < 500) { const t = await new Promise(r => w.requestAnimationFrame(r)); ts.push(t); ws.push(Math.round(bp.getBoundingClientRect().width)); }
+              const ts = [], ws = [], wr = [w0]; const t0 = performance.now();
+              while (performance.now() - t0 < 500) { const t = await new Promise(r => w.requestAnimationFrame(r)); ts.push(t); const bw = bp.getBoundingClientRect().width; wr.push(bw); ws.push(Math.round(bw)); }
               await bis(still, "Animation fertig", 3000); await ruhig(300);
               const dts = ts.slice(1).map((t, k) => t - ts[k]), med = [...dts].sort((a, b) => a - b)[dts.length >> 1] || 16;
               // nur während der Bewegung (Breite ändert sich noch); das erste Bild der Bewegung trägt den Aufbau der
@@ -8369,7 +8370,12 @@ def calendar_checks(m, results):
               const lastMove = moving.lastIndexOf(true), firstMove = moving.indexOf(true);
               const lost = dts.filter((dt, k) => k + 1 > firstMove && k + 1 <= lastMove + 1 && dt > med * 1.6).length;
               const steps = ws.slice(1).map((v, k) => Math.abs(v - ws[k])).slice(Math.max(0, firstMove), lastMove + 1);
-              out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length });
+              // Ruck vor der Bewegung (Ausblenden): bis zum ersten echten Schritt (über 1,5 px) bleibt die Liste auf ihrer
+              // Breite vor dem Klick (ungerundet, ab dem Klick selbst) – sonst täuscht er den Beginn der Bewegung vor. Beim
+              // Einblenden erscheint vorab nur der 1-px-Rand der Liste (Spalte noch 0 px), das zählt nicht
+              const firstStep = wr.findIndex((v, k) => k > 0 && Math.abs(v - wr[k - 1]) > 1.5);
+              const pre = w0 < 2 ? 0 : Math.max(0, ...wr.slice(0, firstStep < 0 ? wr.length : firstStep).map(v => Math.abs(v - w0)));
+              out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), pre: Math.round(pre * 100) / 100, med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length });
             }
           } finally {
             if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }
@@ -8386,8 +8392,12 @@ def calendar_checks(m, results):
         bad = [r for r in runs if r["lost"] > 0 or r["jump"] > 55]
         # in der Windows-VM (x64 unter Emulation) geht selten einmal ein einzelnes Bild verloren (1 von 20 Läufen,
         # Sprung 63 px) – geduldet: höchstens ein Lauf mit einem Bild, nie zwei in einem Lauf (vorher 14 von 20 mit zwei)
-        ok = res.get("reduced") or (len(runs) == 10 and len(bad) <= 1 and all(r["lost"] <= 1 and r["jump"] <= 70 for r in bad))
-        return ok, f"{len(bad)}/{len(runs)} mit verlorenen Bildern oder Sprung {res}"
+        # kein Ruck vor der Bewegung (Ausblenden: die Mindestbreite der Spalte während der Bewegung war auf 160 px
+        # begrenzt, die Liste stand auf 161 px und fiel vor dem ersten Bild auf 160 – die Prüfung hielt diesen Ruck
+        # für den Beginn und zählte das Aufbau-Bild als verloren; lokal mit --only 3/10, Windows 2–4/10 rot)
+        snap = [r for r in runs if r.get("pre", 0) > 0.5]
+        ok = res.get("reduced") or (len(runs) == 10 and not snap and len(bad) <= 1 and all(r["lost"] <= 1 and r["jump"] <= 70 for r in bad))
+        return ok, f"{len(bad)}/{len(runs)} mit verlorenen Bildern oder Sprung, {len(snap)} mit Ruck vor der Bewegung {res}"
     check("Seitenleiste Adressbuch: Ein-/Ausblenden ohne verlorene Bilder und ohne Sprung (zehnmal, höchstens ein einzelnes Bild)", ab_sidebar_frames, results)
 
     def ab_label_width():

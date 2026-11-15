@@ -10123,7 +10123,9 @@ class CardEnhancer {
       // Adressbuch: Mindestbreite der Bücherspalte im Ruhezustand (halo.spaces: 160 px), bevor „mc-side-anim“ sie auf
       // 0 setzt – je Bild gilt dann höchstens die Breite des Bildes als Mindestbreite (--mc-ab-anim-min). Mit 0 drückte
       // das Raster die Spalte im schmalen Fenster (Kontaktliste und Details an ihren Mindestbreiten) auf 88 px, am Ende
-      // galten wieder 160 px: Sprung um 72 px beim Ein- und Ausblenden
+      // galten wieder 160 px: Sprung um 72 px beim Ein- und Ausblenden. Obergrenze die Breite vor der Bewegung, nicht die
+      // Mindestbreite: stand die Liste auf 161 px, drückte das Raster sie mit 160 px gleich beim Ausblenden vor dem ersten
+      // Bild um 1 px zusammen (Ruck, das Aufbau-Bild zählte dann als verloren – lokal 3/10, Windows 2–4/10)
       const abMin = el.id == "booksPane"
         ? parseFloat(el.ownerDocument.defaultView.getComputedStyle(el.ownerDocument.body).getPropertyValue("--ab-pane-min-width")) || 0 : 0;
       el.__mcAnimating = true;
@@ -10154,7 +10156,7 @@ class CardEnhancer {
       const setW = v => {
         if (gridBody) {
           gridBody.style.setProperty("--booksSplitter-width", `${v}px`);
-          gridBody.style.setProperty("--mc-ab-anim-min", `${Math.max(0, Math.min(v, abMin))}px`);
+          gridBody.style.setProperty("--mc-ab-anim-min", `${Math.max(0, Math.min(v, Math.max(abMin, full)))}px`);
           return;
         }
         el.style.setProperty("width", `${v}px`, "important");

@@ -12494,7 +12494,11 @@ def run_checks(m, version, profile, results):
             // Lücke nach dem letzten Bild der Animation (tl und ts gehören zum selben Bild)
             const iLast = tl.findLastIndex(([, a]) => a);
             if (phase.startsWith("ein") && iLast >= 0 && iLast + 1 < ts.length) out[phase].endGapMs = Math.round(ts[iLast + 1] - ts[iLast]);
-            if (!(out[phase].endGapMs > Math.max(2 * out.idleFrameMs, 40)) || verworfen.length >= 2) break;
+            // nur neu messen, wenn das Ende dadurch scheinbar daneben lag: unter Linux (xvfb) folgt auf das letzte Bild der
+            // Animation stets eine Lücke von 45–68 ms (CI 15.11. Läufe 43718030028 und 43718834733, alle Linux-Jobs,
+            // titleEnd jedes Mal 0,4) – sonst misst jede Prüfung dreimal und ein Lastbild in einer überflüssigen
+            // Messung macht sie rot (linux beta, maxJump 149 bei 76 ms je Bild)
+            if (!(out[phase].titleEnd > 1 && out[phase].endGapMs > Math.max(2 * out.idleFrameMs, 40)) || verworfen.length >= 2) break;
             verworfen.push(out[phase]);
             btn.click(); await ruhig(1000); await wait(300);   // (zurück: ausblenden, Ruhe abwarten, dann neu einblenden)
             }

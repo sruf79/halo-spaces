@@ -9807,6 +9807,13 @@ class CardEnhancer {
       if (!current || Math.abs(current - W) < 1.5) {
         return;
       }
+      // schon gesetzt, nur eine Mindestbreite hält die Leiste breiter (Kalender:
+      // 206 px gesetzt, 228 px breit): nicht erneut setzen – sonst lief bei jedem
+      // Bereichswechsel und in den ersten 30 s jede Sekunde das Nachmessen der
+      // Toolbar dreimal an, ohne dass sich etwas änderte
+      if (!hr && el.style.getPropertyValue("width") == `${W}px` && el.style.getPropertyPriority("width") == "important") {
+        return;
+      }
       el.__mcSetting = Date.now();
       if (splitter?.localName == "hr" && "width" in splitter) {
         // Thunderbirds Pane-Splitter (Mail, Adressbuch) – speichert selbst

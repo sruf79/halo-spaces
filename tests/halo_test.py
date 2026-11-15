@@ -157,12 +157,16 @@ const ruhig = async (ms = 1000) => {
     x.cancelAnimationFrame = function (id) { frames.delete(id); return caf.call(x, id); };
     x.__haloFrames = frames; x.__haloTimer = open; x.__haloSetTimeout = st; }
   let last = Date.now(), wer = ""; const obs = [];
-  // (Attribute, die nur mit demselben Wert neu gesetzt werden, zählen nicht)
-  const echt = r => { try { return r.type != "attributes" || r.oldValue !== r.target.getAttribute(r.attributeName); } catch { return true; } };
+  // (Attribute, die nur mit demselben Wert neu gesetzt werden, zählen nicht – auch nicht, wenn sie im selben Durchgang
+  // entfernt und wieder gesetzt werden: maßgeblich ist der Wert vor dem ersten Eintrag; die Toolbar-Anpassung nimmt
+  // mc-squeezed bei jedem Messen erst weg und setzt es danach gleich wieder, das zählte als Änderung)
+  const vorher = rs => { const v = new Map(); for (const r of rs) if (r.type == "attributes") { let a = v.get(r.target);
+    if (!a) v.set(r.target, a = new Map()); if (!a.has(r.attributeName)) a.set(r.attributeName, r.oldValue); } return v; };
+  const echt = (r, v) => { try { return r.type != "attributes" || v.get(r.target).get(r.attributeName) !== r.target.getAttribute(r.attributeName); } catch { return true; } };
   // welches Element sich zuletzt änderte (für die Auswertung, wenn bis zur Höchstzeit gewartet wurde)
   const name = r => { const e = r.target.nodeType == 1 ? r.target : r.target.parentElement;
     return `${e?.localName || "?"}${e?.id ? "#" + e.id : e?.classList?.length ? "." + e.classList[0] : ""} ${r.type == "attributes" ? "[" + r.attributeName + "]" : r.type == "childList" ? "Kinder" : "Text"}`; };
-  for (const x of wins) { try { const o = new x.MutationObserver(rs => { const r = rs.findLast(echt); if (r) { last = Date.now(); wer = name(r); } });
+  for (const x of wins) { try { const o = new x.MutationObserver(rs => { const v = vorher(rs), r = rs.findLast(q => echt(q, v)); if (r) { last = Date.now(); wer = name(r); } });
     o.observe(x.document, { subtree: true, childList: true, attributes: true, attributeOldValue: true, characterData: true }); obs.push(o); } catch {} }
   // (ein Fenster, das inzwischen geschlossen wurde, wird nicht mehr beobachtet)
   const busy = () => [...wins].some(x => { try { return busyWin(x); } catch { wins.delete(x); return false; } });
@@ -4819,7 +4823,7 @@ def menu_checks(m, results):
         # je Menü die vorgesehenen Einträge in dieser Reihenfolge, Kalender-Ansichten außerhalb des Kalenders ausgegraut,
         # Hilfe → Troubleshooting mit Activity und Entwicklerwerkzeugen
         res = m.js(r"""
-          const show = async id => { const p = d.getElementById(id); p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(50);
+          const show = async id => { const p = d.getElementById(id); p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
             const out = []; for (const el of p.children) { if (el.hidden || el.collapsed) continue; out.push(el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)); }
             p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return out; };
           const out = {};
@@ -4835,7 +4839,7 @@ def menu_checks(m, results):
           out.calInMail = d.getElementById("calChangeViewWeek")?.getAttribute("disabled");
           out.sortInMail = d.getElementById("viewSortMenu")?.getAttribute("disabled");
           // Häkchen am aktiven Bereich (Fenster-Menü bzw. Ansicht), nur dort
-          const checks = async id => { const p = d.getElementById(id); if (!p) return null; p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(50);
+          const checks = async id => { const p = d.getElementById(id); if (!p) return null; p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
             const r = [...p.querySelectorAll("menuitem[data-space]")].filter(x => x.getAttribute("checked") == "true").map(x => x.getAttribute("label"));
             p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return r; };
           const spaceMenu = d.getElementById("windowPopup") ? "windowPopup" : "menu_View_Popup";
@@ -4874,7 +4878,7 @@ def menu_checks(m, results):
         # ausgeblendet, holt derselbe Eintrag die Statusleiste zurück (vorher fehlte er mit dem Untermenü „Toolbars“)
         res = m.js(r"""
           const p = d.getElementById("menu_View_Popup"), sb = d.getElementById("status-bar");
-          const state = async () => { p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(50);
+          const state = async () => { p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
             const vis = [...p.children].filter(el => !el.hidden && !el.collapsed).map(el => el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id));
             const item = d.getElementById("menu_showTaskbar");
             const r = { vis, checked: item?.getAttribute("checked"), hidden: sb.hidden, shown: !!sb.getClientRects().length };
@@ -8568,7 +8572,7 @@ def calendar_checks(m, results):
           // und bliebe ohne das Gegenstück offen – folgende Prüfungen sähen sie zwischen Toolbar und Seitenleiste)
           const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
           const look = async () => { popup.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(100);
-            const on = item?.getAttribute("checked") == "true"; popup.dispatchEvent(new w.Event("popuphidden", { bubbles: true })); await ruhig(50);
+            const on = item?.getAttribute("checked") == "true"; popup.dispatchEvent(new w.Event("popuphidden", { bubbles: true })); await ruhig(300);
             if (inactive !== null && inactive !== undefined) tbm?.setAttribute("inactive", inactive); return on; };
           const out = { item: !!item };
           for (const want of [true, false]) {
@@ -12733,6 +12737,24 @@ def run_checks(m, version, profile, results):
         m.js("w.resizeTo(%d, %d); w.moveTo(%d, %d); await wait(800); return 1;" % (old_size[2], old_size[3], old_size[0], old_size[1]))
         return not bad, ("; ".join(bad) + f" {out}") if bad else f"{out}"
     check("Trennlinien: Seitenleisten aller Bereiche und Today-Pane bis zur gemeinsamen Höchstbreite ziehbar, im selben Zug wieder ein, ausgeblendet am Rand wieder herausziehbar, ohne Animation", drag_reshow, results)
+
+    def cal_width_no_reapply():
+        # Kalender-Seitenleiste: die gemeinsame Breite (206 px) ist gesetzt, eine Mindestbreite hält die Leiste breiter
+        # (228 px). Beim Wechsel in den Kalender wird sie nicht erneut gesetzt – vorher schrieb der Abgleich bei jedem
+        # Bereichswechsel und in den ersten 30 s jede Sekunde dieselbe Breite und stieß jedes Mal dreimal das Nachmessen
+        # der Toolbar an (ruhig() wartete deshalb oft bis zur Höchstzeit)
+        res = m.js(r"""
+          await toCalendar(); await toMail();
+          const el = d.getElementById("calSidebar"); const writes = [];
+          const mo = new w.MutationObserver(rs => { for (const r of rs) writes.push(r.attributeName); });
+          mo.observe(el, { attributes: true, attributeFilter: ["width", "style"] });
+          await toCalendar(); await wait(1200); mo.disconnect();  // (fest: über den verzögerten Abgleich nach 400 ms hinaus)
+          return { writes, style: el.style.getPropertyValue("width"), breit: Math.round(el.getBoundingClientRect().width),
+            pref: Services.prefs.getIntPref("extensions.mailcards.sidebarWidth", 0) };""")
+        m.js("await toMail(); return 1;")
+        ok = not res["writes"] and res["style"] == f"{res['pref']}px"
+        return ok, f"{res}"
+    check("Kalender: Seitenleiste mit Mindestbreite bekommt die gemeinsame Breite nicht bei jedem Wechsel erneut (kein ständiges Nachmessen der Toolbar)", cal_width_no_reapply, results)
 
     def drag_cal_min():
         # Kalender: Trennlinie Schritt für Schritt nach links ziehen – die Leiste folgt dem Zeiger bis zu ihrer

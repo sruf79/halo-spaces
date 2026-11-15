@@ -198,7 +198,10 @@ offenen Aufträge aus `neon-stand.md`.
   und passende Aufgaben nennen – in der Reihenfolge unten.
 - **Reihenfolge eines Laufs** (Entscheidung des Maintainers vom 4.11.2026,
   abends; gilt für jede Sitzung, die die Liste abarbeitet, 5.11.2026):
-  1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
+  0. vor allem anderen ein Fehler, der jedes Release verhindert (rote oder
+  flackernde Prüfung, die die Testmarke blockiert), auch vor Schwere und
+  Bereichsfolge; Vorgehen nach AGENTS.md „Rot bleibt rot“ (Maintainer
+  15.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`), 1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden und
   offene GitHub-Issues/Pull Requests prüfen (siehe „GitHub-Issues und Pull Requests von Nutzern“, `docs/github-komm.md`), 3. Bugs,
   4. einfache Features, 5. zuletzt Reihen (n/m) – Einzelheiten unter

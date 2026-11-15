@@ -38,6 +38,12 @@ Plan-Runde („JETZT: Plan-Runde“):
   gibt es auch in der nächsten Nacht keinen Release. Den Stand aus dem letzten Nachtlauf-Bericht in
   ~/halo-berichte lesen (Abschnitt „Tests“), nicht per gh abfragen (Ratenlimit der Schnittstelle 5.000/h
   für alle Werkzeuge zusammen). Prüfung nie abschwächen (Regel 4).
+  Gleiches gilt ab 15.11.2026 für jeden Fehler, der jedes Release verhindert (rote oder flackernde
+  Prüfung, die die Testmarke blockiert, auch nur unter Windows bzw. in der CI, z. B. Board-Eintrag
+  „CI rot …“): erster Eintrag, vor Schwere, Häufung und Bereichsfolge (Maintainer 15.11.2026: „wenn ein
+  fehler wie das flackern allgemein JEDEN release verhindern würde muss so ein fehler mit höchster
+  priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen nach AGENTS.md „Rot bleibt rot“: Ursache
+  belegen, ein belegter Fix.
 - Schritt 2: Liste laden (tests/board.sh bzw. gh project item-list 1 --owner sruf79 --limit 200
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,

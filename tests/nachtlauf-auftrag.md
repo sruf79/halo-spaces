@@ -59,7 +59,8 @@ Reihenfolge:
    (Reihen nur der nächste Schritt, Entscheidungsfragen überspringen,
    GitHub-Einträge, Liste nur am Anfang lesen) gelten unverändert.
    Feste Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
-   abends): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
+   abends; davor seit 15.11.2026 ein Fehler, der jedes Release verhindert,
+   Regel (0) in Schritt 1a): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
    **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
    Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
    wenn in der vorigen nichts Machbares übrig ist – außer ein Feature behebt
@@ -204,6 +205,14 @@ Reihenfolge:
         die Reserve so legen, dass ihre kleinen Einträge noch vor 04:30 bzw.
         in Schritt 5 drankommen.
       Diese Rahmenregeln darf der Director nicht überstimmen:
+      (0) Ein Fehler, der jedes Release verhindert (rote oder flackernde
+          Prüfung, die die Testmarke blockiert, auch nur unter Windows bzw.
+          in der CI), steht im Plan an erster Stelle, vor (a) bis (d)
+          (Maintainer 15.11.2026: „wenn ein fehler wie das flackern
+          allgemein JEDEN release verhindern würde muss so ein fehler mit
+          höchster priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen
+          nach AGENTS.md „Rot bleibt rot“: Ursache belegen, ein belegter
+          Fix, Prüfung nie abschwächen.
       (a) Schwere (Absturz, Datenverlust, Mail-Grundfunktion gestört oder
           gefährdet; Mail-Grundfunktion = Umfang von Apple Mail, siehe b)
           geht immer vor, auch wenn groß. Die Funktion des
@@ -259,6 +268,12 @@ Reihenfolge:
       das im Bericht begründet; dann Merge (kein Rebase) mit Hinweis im
       Bericht. Bis dahin kein Release mit Lichtschein; Testpakete für
       /vorab werden aus dem Zweig gebaut.
+      Ab 15.11.2026 (Regel (0) oben): Blockiert eine rote oder flackernde
+      Prüfung jedes Release, wird sie vor dem erneuten Zusammenführen von
+      paket/lichtschein-kachel behoben. Ist sie danach grün (CI vollständig
+      grün), führt der Director den Zweig ohne Rückfrage erneut zusammen
+      (Merge, kein Rebase; Deutung von neon, siehe ENTSCHEIDUNGEN.md). Bleibt
+      sie rot: kein Merge, der Bericht nennt die Prüfung und den Grund.
       Nacht auf den 15.11.2026: Der Maintainer sah keinen Alltagstest
       nötig („es gibt bei einem neuen design wie den lichtkegeln und den
       buttons nicht viel zu testen, da diese keine neue funktionalität mit

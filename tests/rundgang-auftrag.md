@@ -81,5 +81,7 @@ oder scheitert es, nur im Bericht unter „Ergebnisseite“ vermerken.
 
 ## 5. Abschluss
 
-Die Kurz-Zeile des Berichts schickt rundgang-woche.sh aufs iPhone. Zuletzt
-die Fertig-Datei (Pfad oben) anlegen.
+Die Kurz-Zeile des Berichts schickt rundgang-woche.sh aufs iPhone. Hat der
+Rundgang einen eigenen Board-Eintrag, setzt du ihn auf „Wartet auf OK“ (nicht
+In Progress, nicht Done) mit Notiz zu Ablageort und Zahlen (Maintainer
+15.11.2026, ENTSCHEIDUNGEN.md). Zuletzt die Fertig-Datei (Pfad oben) anlegen.

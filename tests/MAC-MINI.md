@@ -1010,6 +1010,11 @@ die `halo_test.py` nicht sieht.
   Testläufe, VM, andere Sitzungen in einer Runde (`belegt()` aus
   `lauf-hilfen.zsh`). Spätester Start 23:30, sonst ausgelassen (Meldung aufs
   iPhone).
+- Ist ein Rundgang oder eine Bestandsaufnahme mit eigenem Board-Eintrag fertig
+  (Bilder und Liste liegen vor), setzt neon den Eintrag auf „Wartet auf OK“
+  (nicht In Progress, nicht Done) mit Notiz zu Ablageort und Zahlen; der Designer
+  wertet aus und meldet dem Maintainer; Done erst nach dessen OK bzw. Freigabe des
+  Folgeschritts (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md).
 - Baut `origin/main` in einem eigenen Checkout `~/halo-tour/stand` (nicht in
   `~/halo-spaces`) und ruft `tests/ui_tour.py --messung` auf: immer hell,
   dunkel nur, wenn `tests/farben-betroffen.sh <Commit des vorigen

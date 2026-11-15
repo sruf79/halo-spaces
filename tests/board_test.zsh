@@ -10,6 +10,7 @@ T=${0:h}
 art=other
 [[ "$1 $2" == "project item-list" ]] && art=list
 [[ "$1 $2" == "project item-edit" ]] && art=edit
+[[ "$1 $2" == "api graphql" ]] && art=node
 [[ "$1 $2" == "api rate_limit" ]] && { print $(( $(date +%s) + 2 )); exit 0 }
 print -r -- "$art ${(j: :)@}" >> $T/aufrufe
 for f in limit kaputt; do
@@ -20,6 +21,10 @@ for f in limit kaputt; do
   fi
 done
 [[ $art == list ]] && cat $T/board.json
+if [[ $art == node ]]; then   # (Einzelabfrage per id: gh wendet --jq an, hier gleich das Ergebnis)
+  i=${${(M)@:#i=*}#i=}
+  jq -c --arg i $i '.items[] | select(.id == $i) | {id, status, title, content: {id: .content.id, body: .content.body}}' $T/board.json
+fi
 exit 0
 S
 chmod +x $T/gh
@@ -83,12 +88,12 @@ B status PVTI_b ok >/dev/null 2>&1
 B liste > $T/aus 2>&1
 pruefe "status ohne neues Laden, Liste danach mit neuem Status" '(( $(anzahl list) == 1 )) && grep -q "PVTI_b  Bug  Wartet auf OK" $T/aus'
 B notiz PVTI_a "neu" >/dev/null 2>&1
-pruefe "notiz lädt immer frisch" '(( $(anzahl list) == 2 ))'
+pruefe "notiz mit id: Einzelabfrage, die Liste wird nicht geladen" '(( $(anzahl list) == 1 && $(anzahl node) == 1 ))'
 B zeige PVTI_a > $T/aus 2>&1
-pruefe "Notiz im Zwischenspeicher nachgeführt (ohne Laden)" '(( $(anzahl list) == 2 )) && grep -q "^neu" $T/aus'
+pruefe "Notiz im Zwischenspeicher nachgeführt (ohne Laden)" '(( $(anzahl list) == 1 )) && grep -q "^neu" $T/aus'
 B status PVTI_b done abc1234 >/dev/null 2>&1; B liste > $T/aus 2>&1
-pruefe "Done: archiviert, aus dem Zwischenspeicher entfernt, kein Laden" '(( $(anzahl list) == 2 )) && ! grep -q PVTI_b $T/aus'
+pruefe "Done: archiviert, aus dem Zwischenspeicher entfernt, kein Laden" '(( $(anzahl list) == 1 )) && ! grep -q PVTI_b $T/aus'
 touch -t 202001010000 $T/zw.json; B liste >/dev/null 2>&1
-pruefe "Zwischenspeicher älter als 60 s: neu geladen" '(( $(anzahl list) == 3 ))'
+pruefe "Zwischenspeicher älter als 60 s: neu geladen" '(( $(anzahl list) == 2 ))'
 export HALO_BOARD_ZWISCHEN_S=0
 exit $F

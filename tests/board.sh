@@ -114,6 +114,10 @@ eintrag() {
   (( n == 1 )) || fehler "„$1“ passt auf $n offene Einträge – id oder genaueres Muster angeben"
   print -r -- $e | jq -c '.[0]'
 }
+eintrag_direkt() {   # <PVTI_…-id> → Eintrag (JSON wie in der Liste, nur die genutzten Felder), ohne das Board zu laden
+  gh_wdh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{id fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}} content{... on DraftIssue{id title body}}}}}' -f i=$1 \
+    --jq '.data.node | select(.id != null) | {id, status: .fieldValueByName.name, title: .content.title, content: {id: .content.id, body: .content.body}}'
+}
 setze() {   # <Item-id> <Feld> <Option>
   gh_wdh project item-edit --project-id $PROJEKT --id $1 --field-id $2 --single-select-option-id $3 >/dev/null
 }
@@ -123,8 +127,12 @@ befehl=$1; (( $# )) && shift
 # (notiz/status mit Board-id: auch ohne lesbares Board weiter – dann in die Warteschlange)
 if [[ $befehl == (liste|export|zeige|neu|status|notiz|archiv|suche|nachtragen) ]]; then
   [[ $befehl == (notiz|neu|nachtragen) ]] && FRISCH=1
-  board_laden || [[ $befehl == (notiz|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
-  [[ -n $BOARD ]] && nachtragen && board_laden
+  # notiz mit Board-id fragt nur den einen Eintrag ab (ein Punkt statt der ganzen Liste, die allein mehr als 1000 Punkte kosten kann)
+  if [[ $befehl == notiz && $1 == PVTI_* ]]; then :
+  else
+    board_laden || [[ $befehl == (notiz|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
+    [[ -n $BOARD ]] && nachtragen && board_laden
+  fi
 fi
 case $befehl in
   liste)
@@ -175,8 +183,14 @@ case $befehl in
   notiz)
     typeset e di body
     [[ -n $2 ]] || fehler "Aufruf: board.sh notiz <id> <Text>"
-    [[ -n $BOARD ]] || in_warteschlange notiz $1 "$2" "Board nicht lesbar, Notiz für $1 nicht angehängt"
-    e=$(eintrag $1) || exit 1
+    if [[ $1 == PVTI_* ]]; then
+      e=$(eintrag_direkt $1)
+      [[ -n $e ]] || in_warteschlange notiz $1 "$2" "Eintrag nicht lesbar, Notiz für $1 nicht angehängt"
+      zw_frisch && BOARD=$(<$ZWISCHEN)   # (Zwischenspeicher nur nachführen, nie dafür laden)
+    else
+      [[ -n $BOARD ]] || in_warteschlange notiz $1 "$2" "Board nicht lesbar, Notiz für $1 nicht angehängt"
+      e=$(eintrag $1) || exit 1
+    fi
     di=$(print -r -- $e | jq -r '.content.id // ""')
     [[ $di == DI_* ]] || fehler "kein Entwurf im Board (content.id $di) – Notiz von Hand"
     body=$(print -r -- $e | jq -r '.content.body // ""')

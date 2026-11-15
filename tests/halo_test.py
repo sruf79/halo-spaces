@@ -695,6 +695,28 @@ def stop_thunderbird(port, proc):
         proc.wait(timeout=20)
     except subprocess.TimeoutExpired:
         proc.kill()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+    # erst zurück, wenn der Marionette-Port nichts mehr annimmt: sonst verbindet sich wait_port() des nächsten Starts
+    # (Vergleichslauf → eigentlicher Lauf, gleicher Port) noch mit dem alten Thunderbird und Marionette() trifft 8 s
+    # später auf den geschlossenen Port (CI linux 15.11.2026: Port nach 0,4 s „offen“, dann „Connection refused“)
+    began, end = time.time(), time.time() + 30
+    while time.time() < end:
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=1).close()
+        except OSError:
+            break
+        time.sleep(0.25)
+    else:
+        print(f"Hinweis: Marionette-Port {port} nimmt 30 s nach dem Beenden von Thunderbird noch Verbindungen an", flush=True)
+        if shutil.which("lsof"):
+            subprocess.run(["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"], check=False)
+        return
+    if time.time() - began > 0.5:
+        print(f"Hinweis: Marionette-Port {port} nach dem Beenden von Thunderbird noch {time.time() - began:.1f} s offen",
+              flush=True)
 
 
 def prl(*args, check=True, timeout=300):

@@ -12454,6 +12454,12 @@ def run_checks(m, version, profile, results):
           const ow = w.outerWidth;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
             if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
+            // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
+            // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
+            // messen (höchstens zweimal); alle übrigen Bedingungen gelten auch für die verworfenen Messungen
+            const verworfen = [];
+            for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
@@ -12485,6 +12491,14 @@ def run_checks(m, version, profile, results):
             const lastAnim = tl.filter(([, a]) => a).at(-1);
             if (phase.startsWith("ein")) out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
             if (phase.startsWith("ein") && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
+            // Lücke nach dem letzten Bild der Animation (tl und ts gehören zum selben Bild)
+            const iLast = tl.findLastIndex(([, a]) => a);
+            if (phase.startsWith("ein") && iLast >= 0 && iLast + 1 < ts.length) out[phase].endGapMs = Math.round(ts[iLast + 1] - ts[iLast]);
+            if (!(out[phase].endGapMs > Math.max(2 * out.idleFrameMs, 40)) || verworfen.length >= 2) break;
+            verworfen.push(out[phase]);
+            btn.click(); await ruhig(1000); await wait(300);   // (zurück: ausblenden, Ruhe abwarten, dann neu einblenden)
+            }
+            if (verworfen.length) out[phase].verworfen = verworfen;
           }
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
@@ -12502,12 +12516,15 @@ def run_checks(m, version, profile, results):
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
-        ok = all(res[p]["steps"] >= 6 and res[p]["maxJump"] < res["start"] / 2 and res[p]["searchJump"] <= res[p]["maxJump"] + 2
-                 and res[p].get("buttonJump", 0) <= res[p]["searchJump"] + 2
-                 and res[p]["searchWidthJump"] <= res[p]["maxJump"] + 2
-                 and all(v["first"] and v["first"][0] <= 2 and v["first"][1] >= 0.5 and v["fading"] for v in res[p]["vanish"].values())
-                 and res[p]["titleMid"] is not False and res[p].get("titleEnd", 0) <= 1 and
-                 res[p]["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2 for p in phases) and res["end"] == res["start"]
+        def glatt(v, ende=True):
+            return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
+                    and v.get("buttonJump", 0) <= v["searchJump"] + 2
+                    and v["searchWidthJump"] <= v["maxJump"] + 2
+                    and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
+                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
+                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+        # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
+        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
     check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 

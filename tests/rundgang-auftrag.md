@@ -1,5 +1,5 @@
 Unbeaufsichtigter Design-Rundgang halo.spaces auf neon (gestartet von
-tests/rundgang-woche.sh, sonntags 08:00; Entscheidung des Maintainers vom
+tests/rundgang-woche.sh, samstags 22:15; Entscheidung des Maintainers vom
 5.11.2026). Niemand sieht zu, niemand antwortet auf Rückfragen. AGENTS.md
 gilt vollständig (besonders „Konventionen“, „Aufgabenliste“ und
 „Apple-Vorlagen“); Abweichungen und Ergänzungen stehen hier. Ziel:

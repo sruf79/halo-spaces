@@ -213,8 +213,8 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   nur als „Doku: …“ mit „Wartet auf OK“ an. Bericht
   `~/halo-berichte/<datum>-dokupruefung.md`. `tests/MAC-MINI.md` Abschnitt 16.
 - **Design-Rundgang** (Entscheidung des Maintainers vom 5.11.2026; seit 13.11.2026 vom Maintainer auf weiteres pausiert, `pausen.txt`):
-  sonntags 08:00 (wartet auf Nachtlauf, Doku-Prüfung und CI, spätester
-  Start 14:00) nimmt `tests/rundgang-woche.sh` mit `ui_tour.py --messung`
+  samstags 22:15 (wartet auf Nachtlauf, Doku-Prüfung und CI, spätester
+  Start 23:30) nimmt `tests/rundgang-woche.sh` mit `ui_tour.py --messung`
   alle Oberflächen auf (immer hell, dunkel nur bei Farbänderungen seit dem
   vorigen Rundgang), vergleicht mit dem häufigsten Wert je Kategorie und der
   Vorwoche und lässt Claude neue Ausreißer als Bug eintragen (außer

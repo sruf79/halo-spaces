@@ -135,7 +135,7 @@ Maintainer freigibt) – und wirkten die freigegebenen Änderungen der Vorwochen
   Vermutungen; seine Befunde selbst nachprüfen. Fertig erst nach drei Runden
   in Folge ohne Fehler oder Verbesserung, höchstens fünf Runden – sonst im
   Bericht „nicht abgeschlossen“ mit Stand. Befunde behandeln wie Abschnitt 3.
-- **Design-Rundgang** (sonntags, tests/MAC-MINI.md Abschnitt 17): aus
+- **Design-Rundgang** (samstags abends, tests/MAC-MINI.md Abschnitt 17): aus
   ~/halo-aufgaben/rundgang-kennzahlen.json der Lauf der Woche – Status
   (fertig, ausgelassen mit Grund, pausiert, gescheitert), Dauer je Schema,
   OK/nicht erreicht, Ausreißer neu/behoben/gesamt; dazu der Bericht

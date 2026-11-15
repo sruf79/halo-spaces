@@ -6,7 +6,7 @@ export HALO_LAUF=rundgang
 # tests/rundgang_vergleich.py gegen den häufigsten Wert und den vorigen
 # Rundgang und lässt Claude (Auftrag tests/rundgang-auftrag.md) Ausreißer ins
 # Board tragen, den Bericht schreiben und die Ergebnisseite aktualisieren.
-# Gestartet vom LaunchAgent at.halo-spaces.rundgang sonntags 08:00; die Datei
+# Gestartet vom LaunchAgent at.halo-spaces.rundgang samstags 22:15; die Datei
 # wird wie die anderen Läufe nach ~/.config/halo-spaces/ kopiert.
 #   rundgang-woche.sh [--trocken] [--only <ids>] [<Repo-Ordner>]
 #   --trocken    Rundgang und Vergleich, aber kein Claude (kein Board, kein Bericht)
@@ -47,8 +47,10 @@ FERTIG=$DIR/$TAG-rundgang.fertig
 LOCK=$DIR/rundgang.lock
 KENNZAHLEN=$HOME/halo-aufgaben/rundgang-kennzahlen.json
 START=$(date +%s)
-SPAETESTENS=$(date -j -v14H -v0M -v0S +%s)   # nach 14:00 nicht mehr anfangen
-HART=$(( START + 9 * 3600 ))                  # claude spätestens nach 9 Stunden beenden
+SPAETESTENS=$(date -j -v23H -v30M -v0S +%s)  # nach 23:30 nicht mehr anfangen (Nachtlauf 01:30)
+HART=$(( START + 9 * 3600 ))                  # claude spätestens nach 9 Stunden beenden (Probelauf)
+# abends gestartet: spätestens 01:15 beenden, damit um 01:30 nichts mehr läuft (Maintainer 15.11.2026, AGENTS.md)
+[[ -n $ONLY ]] || (( $(date +%H) < 12 )) || HART=$(date -j -v+1d -v1H -v15M -v0S +%s)
 PORT_HELL=2853 PORT_DUNKEL=2854
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
@@ -100,7 +102,7 @@ trap 'rm -f $LOCK' EXIT
 
 # Warten, bis neon frei ist: Nachtlauf, Wochen- und Doku-Prüfung, CI,
 # Testläufe, andere Sitzungen in einer Runde (belegt() aus lauf-hilfen.zsh).
-# Spätester Start 14:00, sonst auslassen.
+# Spätester Start 23:30, sonst auslassen.
 belegt_rundgang() {
   local l
   for l in lauf:Nachtlauf woche:Wochenprüfung doku:Doku-Prüfung; do
@@ -117,14 +119,12 @@ if [[ -n $ONLY ]]; then
     return 1
   }
 fi
-# Start um 08:00 zugleich mit Wochenprüfung (08:00): kurz warten, damit deren Sperrdatei sicher da ist (nicht bei Probelauf)
-[[ -n $ONLY ]] || sleep 60
 while GRUND=$(belegt_rundgang); do
   if (( $(date +%s) >= SPAETESTENS )); then
-    log "Rundgang ausgelassen (14:00 erreicht): $GRUND"
-    notbericht "ausgelassen" "bis 14:00 belegt: $GRUND"
+    log "Rundgang ausgelassen (23:30 erreicht): $GRUND"
+    notbericht "ausgelassen" "bis 23:30 belegt: $GRUND"
     kennzahl ausgelassen "{\"grund\": $(print -r -- $GRUND | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))')}"
-    push "Design-Rundgang $TAG ausgelassen: bis 14:00 belegt ($GRUND)"
+    push "Design-Rundgang $TAG ausgelassen: bis 23:30 belegt ($GRUND)"
     exit 0
   fi
   log "Rundgang wartet: $GRUND"

@@ -999,7 +999,7 @@ keine geplante Aufgabe der Desktop-App).
 
 ## 17. Design-Rundgang
 
-Sonntags um 08:00 nimmt der Mac alle Oberflächen auf, misst sie und vergleicht
+Samstags um 22:15 nimmt der Mac alle Oberflächen auf, misst sie und vergleicht
 mit dem Rundgang der Vorwoche (Entscheidung des Maintainers vom 5.11.2026;
 LaunchAgent `at.halo-spaces.rundgang`, `tests/rundgang-woche.sh`, Auftrag
 `tests/rundgang-auftrag.md`). Ziel: Rückschritte und neue Ausreißer bei
@@ -1008,7 +1008,7 @@ die `halo_test.py` nicht sieht.
 
 - Wartet, bis neon frei ist: Nachtlauf, Wochen- und Doku-Prüfung, CI,
   Testläufe, VM, andere Sitzungen in einer Runde (`belegt()` aus
-  `lauf-hilfen.zsh`). Spätester Start 14:00, sonst ausgelassen (Meldung aufs
+  `lauf-hilfen.zsh`). Spätester Start 23:30, sonst ausgelassen (Meldung aufs
   iPhone).
 - Baut `origin/main` in einem eigenen Checkout `~/halo-tour/stand` (nicht in
   `~/halo-spaces`) und ruft `tests/ui_tour.py --messung` auf: immer hell,

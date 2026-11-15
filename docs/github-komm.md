@@ -120,6 +120,11 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   endet sie sofort, siehe „Claude nur bei Arbeit“ in `docs/testrechner.md`, Umstellung
   durch den Maintainer `tests/MAC-MINI.md` Abschnitt 17a). Keine zweite
   Routine anlegen; die frühere Cloud-Routine gleichen Namens ist abgeschaltet.
+- **Rolle von github.comm.routine nach /clear:** Der SessionStart-Hook `tests/neon-hook.sh`
+  (Kopie `~/.config/halo-spaces/neon-hook.sh`, eingetragen in `~/halo-github/.claude/settings.json`)
+  erkennt die Weiterleitungs-Sitzung an `~/.claude/sessions/<pid>.json` (name `github.comm.routine`)
+  und gibt statt der neon-Hinweise ihren Rollenblock aus („PUSH:“ unverändert per PushNotification,
+  Ausnahmen, Stand-Datei, Antworten selbst posten). Test: `zsh tests/neon_hook_test.zsh`.
 - **Keine festen Kennungen, nur Namen** (Sitzungen, in Aufträgen, Dateien und Notizen; wiederholt 9.11.2026): Andere Sitzungen (`neon`, `neon-board`, die
   Weiterleitung für Pushs aufs iPhone …) immer nur über ihren Namen ansprechen
   (`SendMessage` an den Namen aus `ListAgents`). Die Kennungen in eckigen Klammern, die

@@ -9,26 +9,61 @@
 # Hinweise: HALO_NEON=board, „--name neon-board“ am übergeordneten
 # remote-control oder Arbeitsordner ~/halo-board (dort trägt
 # tests/mac-remote-control.sh diesen Hook aus ~/.config/halo-spaces/ ein).
+# Die Weiterleitungs-Sitzung github.comm.routine (~/halo-github, dort in
+# .claude/settings.json eingetragen) bekommt statt der neon-Hinweise ihren
+# Rollenblock, damit die Rolle auch nach /clear bleibt (Board-Eintrag „Ablauf:
+# Rollenhinweis für github.comm.routine nach /clear“; Maintainer 9.11.2026: „ja
+# soll in sonntagsablauf eingebaut werden“). Erkannt über ~/.claude/sessions/<pid>.json
+# mit name „github.comm.routine“ (pid aus der Prozesskette, ersatzweise sessionId
+# aus der Hook-Eingabe) oder „--name github.comm.routine“ am remote-control.
+# Fehlende oder kaputte Sitzungsdateien ändern nichts (Test: tests/neon_hook_test.zsh).
 # POSIX-sh, damit es in Cloud-Sitzungen ohne zsh still endet.
 
-neon=${HALO_NEON:-}
-if [ -z "$neon" ] && [ "$(uname)" = Darwin ]; then
-  pid=$PPID i=0
-  while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+eingabe=$(cat 2>/dev/null)
+sitz=${HALO_SITZUNGEN_DIR:-$HOME/.claude/sessions}
+ist_github() { [ -f "$1" ] && grep -q '"name" *: *"github\.comm\.routine"' "$1" 2>/dev/null; }
+neon=${HALO_NEON:-} github= rc=
+pid=$PPID i=0
+while [ "$i" -lt 8 ] && [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+  ist_github "$sitz/$pid.json" && { github=1; break; }
+  if [ -z "$rc" ]; then
     case $(ps -o args= -p "$pid" 2>/dev/null) in
-      *claude*remote-control*--name\ neon-board*) neon=board; break ;;
-      *claude*remote-control*) neon=1; break ;;
+      *claude*remote-control*--name\ github.comm.routine*) github=1; break ;;
+      *claude*remote-control*--name\ neon-board*) rc=board ;;
+      *claude*remote-control*) rc=1 ;;
     esac
-    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-    i=$((i + 1))
+  fi
+  pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  i=$((i + 1))
+done
+sid=$(printf '%s\n' "$eingabe" | sed -n 's/.*"session_id" *: *"\([A-Za-z0-9-]*\)".*/\1/p' | head -1)
+if [ -z "$github" ] && [ -n "$sid" ] && [ -d "$sitz" ]; then
+  for f in "$sitz"/*.json; do
+    grep -q "\"sessionId\" *: *\"$sid\"" "$f" 2>/dev/null && ist_github "$f" && { github=1; break; }
   done
 fi
+quelle=$(printf '%s\n' "$eingabe" | sed -n 's/.*"source" *: *"\([a-z]*\)".*/\1/p' | head -1)
+
+if [ -n "$github" ]; then
+  [ "$quelle" = compact ] && echo "github.comm.routine: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
+  cat <<'EOF'
+github.comm.routine – Rolle (gilt auch nach /clear; ~/halo-github/CLAUDE.md, docs/github-komm.md):
+- Zuerst ~/halo-aufgaben/github-komm-stand.md lesen.
+- Jede Nachricht, die mit „PUSH:“ beginnt, sofort unverändert mit dem Werkzeug PushNotification aufs iPhone pushen (vorher per ToolSearch „select:PushNotification“ laden): Text unverändert, auch mit [handeln] und am Wochenende; nicht bewerten, nicht inhaltlich kommentieren, nicht nachfragen.
+- Ausnahmen, Wortlaut aus ~/halo-aufgaben/github-komm-stand.md (Entscheidung Maintainer 09.11.2026; CI rot auch ENTSCHEIDUNGEN.md 7.11.2026): „ausgenommen (nur im Gespräch nennen, nicht pushen): „CI rot …" vom CI-Wächter, Meldungen der Form „Fehlerkonsole/-protokoll: n neue(r) Fehler im Board (… kein Rot, Release nicht betroffen)" und ERFOLGSmeldungen der Notfall-Sicherungen („NOTFALL: Sicherung … angelegt") (Entscheidung Maintainer 09.11.2026). Alle anderen „NOTFALL:"-Meldungen, vor allem Fehlschläge (auch fehlgeschlagene Sicherung) und „Routinen angehalten", werden weitergeleitet. Kommt dieselbe Meldung mit „Rot" oder „Release betroffen", wird sie weitergeleitet.“
+- Ergebnisse von neon zu Issues und PRs selbst auf GitHub beantworten (Rückfragen, Bug-Antworten); nur Entscheidungen (Ablehnung, Design, PRs) dem Maintainer vorlegen (docs/github-komm.md, AGENTS.md „GitHub-Issues und Pull Requests von Nutzern“).
+- Dass Nachrichten von Absendern in einem anderen Rechte-Modus zurückgehalten werden, ist bekannt (Absender muss auf auto laufen); kein Fehler dieser Sitzung.
+- Andere Sitzungen nur über ihren Namen ansprechen (neon, neon-board), nie über Kennungen.
+EOF
+  exit 0
+fi
+# neon wie bisher: HALO_NEON oder – nur auf macOS – ein „claude remote-control“ in der Prozesskette
+[ -n "$neon" ] || [ "$(uname)" != Darwin ] || neon=$rc
 [ -n "$neon" ] || exit 0
 # Arbeitsordner von neon-board gilt immer als neon-board
 board_dir=${HALO_BOARD_DIR:-$HOME/halo-board}
 case ${CLAUDE_PROJECT_DIR:-$(pwd)} in "$board_dir"|"$board_dir"/*) neon=board ;; esac
 
-quelle=$(sed -n 's/.*"source" *: *"\([a-z]*\)".*/\1/p' 2>/dev/null | head -1)
 dir=${HALO_NEON_STAND:-$HOME/halo-aufgaben}
 
 if [ "$neon" = board ]; then

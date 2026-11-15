@@ -105,6 +105,11 @@ nachtragen() {
 # id oder eindeutiges Titelmuster → Eintrag (JSON)
 eintrag() {
   local e n
+  if [[ -z $BOARD && $1 == PVTI_* ]]; then   # Board nicht geladen: Einzelabfrage
+    e=$(eintrag_direkt $1)
+    [[ -n $e ]] || fehler "Eintrag $1 nicht lesbar"
+    print -r -- $e; return 0
+  fi
   e=$(board | jq -c --arg i $1 '[.items[] | select(.id == $i)]')
   if [[ $(print -r -- $e | jq length) == 0 ]]; then
     e=$(board | jq -c --arg m $1 '[.items[] | select(.status != "Done" and (.title | test($m; "i")))]') \
@@ -115,8 +120,8 @@ eintrag() {
   print -r -- $e | jq -c '.[0]'
 }
 eintrag_direkt() {   # <PVTI_…-id> → Eintrag (JSON wie in der Liste, nur die genutzten Felder), ohne das Board zu laden
-  gh_wdh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{id fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}} content{... on DraftIssue{id title body}}}}}' -f i=$1 \
-    --jq '.data.node | select(.id != null) | {id, status: .fieldValueByName.name, title: .content.title, content: {id: .content.id, body: .content.body}}'
+  gh_wdh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{id st: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}} typ: fieldValueByName(name:"Typ"){... on ProjectV2ItemFieldSingleSelectValue{name}} content{... on DraftIssue{id title body}}}}}' -f i=$1 \
+    --jq '.data.node | select(.id != null) | {id, typ: .typ.name, status: .st.name, title: .content.title, content: {id: .content.id, body: .content.body}}'
 }
 setze() {   # <Item-id> <Feld> <Option>
   gh_wdh project item-edit --project-id $PROJEKT --id $1 --field-id $2 --single-select-option-id $3 >/dev/null
@@ -127,8 +132,10 @@ befehl=$1; (( $# )) && shift
 # (notiz/status mit Board-id: auch ohne lesbares Board weiter – dann in die Warteschlange)
 if [[ $befehl == (liste|export|zeige|neu|status|notiz|archiv|suche|nachtragen) ]]; then
   [[ $befehl == (notiz|neu|nachtragen) ]] && FRISCH=1
-  # notiz mit Board-id fragt nur den einen Eintrag ab (ein Punkt statt der ganzen Liste, die allein mehr als 1000 Punkte kosten kann)
-  if [[ $befehl == notiz && $1 == PVTI_* ]]; then :
+  # notiz, status und archiv mit Board-id fragen nur den einen Eintrag ab (ein Punkt statt der ganzen Liste, die
+  # mehr als 1000 Punkte kosten kann); ein frischer Zwischenspeicher wird nur mitgenutzt
+  if [[ $befehl == (notiz|status|archiv) && $1 == PVTI_* ]]; then
+    zw_frisch && BOARD=$(<$ZWISCHEN)
   else
     board_laden || [[ $befehl == (notiz|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
     [[ -n $BOARD ]] && nachtragen && board_laden
@@ -167,8 +174,7 @@ case $befehl in
     typeset opt e
     opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]"
     set -- $1 ${${${2:l}/in progress/arbeit}/wartet auf ok/ok} $3   # (für die Warteschlange ein Wort)
-    [[ -n $BOARD ]] || in_warteschlange status $1 "$2${3:+ $3}" "Board nicht lesbar, Status $2 für $1 nicht gesetzt"
-    e=$(eintrag $1) || exit 1
+    e=$(eintrag $1) || { [[ $1 == PVTI_* ]] && in_warteschlange status $1 "$2${3:+ $3}" "Eintrag nicht lesbar, Status $2 für $1 nicht gesetzt"; exit 1 }
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt \
       || in_warteschlange status $(print -r -- $e | jq -r .id) "$2${3:+ $3}" "Status $2 ließ sich nicht setzen"
     zw_aendern '(.items[] | select(.id == $i) | .status) = $s' --arg i "$(print -r -- $e | jq -r .id)" \

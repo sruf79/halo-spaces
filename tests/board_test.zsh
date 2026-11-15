@@ -23,7 +23,7 @@ done
 [[ $art == list ]] && cat $T/board.json
 if [[ $art == node ]]; then   # (Einzelabfrage per id: gh wendet --jq an, hier gleich das Ergebnis)
   i=${${(M)@:#i=*}#i=}
-  jq -c --arg i $i '.items[] | select(.id == $i) | {id, status, title, content: {id: .content.id, body: .content.body}}' $T/board.json
+  jq -c --arg i $i '.items[] | select(.id == $i) | {id, typ, status, title, content: {id: .content.id, body: .content.body}}' $T/board.json
 fi
 exit 0
 S
@@ -52,7 +52,7 @@ rm -f $T/w.txt
 B notiz PVTI_a $'Zeile 1\n\tZeile 2' 2> $T/fe; rc=$?
 pruefe "Limit hält an: 3 Versuche, dann Warteschlange" '(( rc == 0 && $(anzahl edit) == 3 )) && (( $(wc -l < $T/w.txt) == 1 )) && [[ $(cut -f2,3 $T/w.txt) == $'"'"'notiz\tPVTI_a'"'"' ]]'
 # Board ganz unlesbar: Notiz und Status mit id direkt in die Warteschlange, Liste scheitert
-print 99 > $T/list.limit
+print 99 > $T/list.limit; print 99 > $T/node.limit
 B status PVTI_a "In Progress" 2>/dev/null; rc=$?
 pruefe "Board unlesbar: Status in die Warteschlange (ein Wort)" '(( rc == 0 )) && [[ $(sed -n 2p $T/w.txt | cut -f2,3) == $'"'"'status\tPVTI_a'"'"' ]] && [[ $(sed -n 2p $T/w.txt | cut -f4 | base64 -D) == arbeit ]]'
 B liste >/dev/null 2>&1; rc=$?
@@ -61,7 +61,7 @@ B notiz "Mail:" "per Muster" >/dev/null 2>&1; rc=$?
 pruefe "Board unlesbar, Muster statt id: Fehler, nicht in die Warteschlange" '(( rc == 1 && $(wc -l < $T/w.txt) == 2 ))'
 
 # 4. nächster Aufruf mit lesbarem Board trägt nach (Text unverändert), Warteschlange leer
-: > $T/aufrufe; print 0 > $T/list.limit; print 0 > $T/edit.limit
+: > $T/aufrufe; print 0 > $T/list.limit; print 0 > $T/node.limit; print 0 > $T/edit.limit
 B liste > $T/aus 2> $T/fe; rc=$?
 pruefe "Nachtragen: Notiz und Status nachgetragen, Warteschlange leer" '(( rc == 0 )) && [[ ! -e $T/w.txt ]] && grep -q "2 nachgetragen, 0 offen" $T/fe'
 pruefe "Nachtragen: Notiztext mit Umbruch und Tab erhalten" 'grep -q "Text A" $T/aufrufe && grep -q "	Zeile 2" $T/aufrufe'
@@ -95,5 +95,9 @@ B status PVTI_b done abc1234 >/dev/null 2>&1; B liste > $T/aus 2>&1
 pruefe "Done: archiviert, aus dem Zwischenspeicher entfernt, kein Laden" '(( $(anzahl list) == 1 )) && ! grep -q PVTI_b $T/aus'
 touch -t 202001010000 $T/zw.json; B liste >/dev/null 2>&1
 pruefe "Zwischenspeicher älter als 60 s: neu geladen" '(( $(anzahl list) == 2 ))'
+rm -f $T/zw.json; l=$(anzahl list); n=$(anzahl node)
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/board.json
+B status PVTI_a todo > $T/aus 2>&1; rc=$?
+pruefe "status mit id ohne Zwischenspeicher: Einzelabfrage, Liste nicht geladen" '(( rc == 0 )) && (( $(anzahl list) == l )) && (( $(anzahl node) == n + 1 )) && grep -q "Status todo: Mail: Test" $T/aus'
 export HALO_BOARD_ZWISCHEN_S=0
 exit $F

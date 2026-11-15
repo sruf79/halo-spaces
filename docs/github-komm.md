@@ -155,3 +155,7 @@ Forks, Nachsehen und die feste Routine: `docs/github-komm.md` (vor jeder Bearbei
   Director-Einträge in `tests/pr-freigaben.txt` nach der Dauerfreigabe vom 14.11.2026, oben).
 - Ton und Inhalt: Englisch, freundlich, knapp; nie auf die private Aufgabenliste verweisen, keine
   Interna (Testrechner, VM, Tokens), keine Zusagen zu Terminen.
+
+## Inaktivität (Maintainer 15.11.2026)
+
+Wartet ein Issue auf die Antwort eines Nutzers, fragt die Routine nach 1 Woche erneut nach; die Nachfrage enthält den Satz „we will close this issue due to inactivity“ innerhalb einer Woche (Markierung). Kommt danach wieder 1 Woche lang keine Antwort, wird das Issue mit Hinweis auf Inaktivität (inactivity) geschlossen, durch neon bzw. den Maintainer, nicht durch die GitHub-Routine. Der Zustand wird je Lauf aus GitHub abgeleitet (letzter Kommentar, Markierung, Alter über 7 Tage), keine Einzel-Fristen im Stand. Ausnahmen: Der Nutzer wartet auf einen Fix von uns (z. B. #45) und bewusst offene Issues (z. B. #59). Gilt rückwirkend. Wortlaut: `ENTSCHEIDUNGEN.md` (15.11.2026).

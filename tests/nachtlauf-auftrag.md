@@ -374,7 +374,10 @@ Reihenfolge:
         eindeutig (Wo/Erwartet/Ist), Apple-Vorlage in
         ~/halo-aufgaben/apple/index.md (bzw. Ausnahme G3), Maße in Abschnitt 4
         belegt oder messbar, kein Widerspruch zu G1–G15 oder
-        ENTSCHEIDUNGEN.md, keine offene Entscheidungsfrage. Lücke: zuerst nach
+        ENTSCHEIDUNGEN.md, keine offene Entscheidungsfrage, kein jüngerer
+        freigegebener Eintrag zur selben Stelle (dann gilt der jüngere, der
+        ältere wird mit Verweis geschlossen oder angepasst, Maintainer
+        15.11.2026). Lücke: zuerst nach
         der Vorlage, ohne Apple-Vorbild entscheidet der Designer selbst; nur
         bei echtem Widerspruch Weg f) schon beim Planen. Plan-Spalte
         „Begründung“ beginnt mit „Vorab geprüft: ja, Designer“ (bzw. „Vorab

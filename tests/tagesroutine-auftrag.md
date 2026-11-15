@@ -72,7 +72,7 @@ Plan-Runde („JETZT: Plan-Runde“):
   implementation.js, frühere Fehlversuche. „routine“: klare Ursache, eine Stelle, Texte, kleine
   CSS-Korrektur, Doku. „design“ (alle Einträge zu Optik und Design gehören dem Designer, Maintainer 15.11.2026; nie als „routine“ einstufen): Todo-Eintrag mit Designthema nach docs/design-vorgaben.md F13 (Aussehen
 oder Platzierung: Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung), nur wenn die
-Vorab-Prüfung (design-vorgaben.md 6a) besteht; im Abschnitt „## Plan“ je Design-Eintrag „Vorab geprüft:
+Vorab-Prüfung (design-vorgaben.md 6a, auch: kein jüngerer freigegebener Eintrag zur selben Stelle, Maintainer 15.11.2026) besteht; im Abschnitt „## Plan“ je Design-Eintrag „Vorab geprüft:
 ja, Designer“ bzw. „Vorab geprüft: nein, <was fehlt>“ (dann nicht planen). Komplexe und Design-Einträge
 zuerst (Regel 1). Das Skript wählt danach je Zeile das Modell (design mindestens Opus, sonst heute nicht).
 - Abschnitt „## Plan“ (Pfad oben): Plan mit Begründung je Einstufung, Zusammenlegungen,

@@ -96,7 +96,7 @@ anzuwenden, bei Zweifel 2d):
    funktionalität eines email-clients muss gewährleistet sein“ (13.11.2026).
 2. **G2 nichts ersatzlos entfernen** (1.11.2026); Ausnahme nur bei belegtem Nutzen null (P7).
 3. **Ausdrückliche Entscheidung des Maintainers mit Wortlaut** vor der Apple-Vorlage, die neuere vor
-   der älteren. Belege: Kapsel für Knöpfe (5.11.2026) obwohl die Dialogvorlage gerundete Rechtecke
+   der älteren (gilt auch für Einträge auf der Liste: ein jüngerer freigegebener Eintrag zur selben Stelle geht vor, 6a, Maintainer 15.11.2026). Belege: Kapsel für Knöpfe (5.11.2026) obwohl die Dialogvorlage gerundete Rechtecke
    zeigt (F4); Lichtschein-Schalter trotz „Optionen nur wie Apple“ (13.11.2026); Aufgaben-Space mit
    eigenem Vorbild (11.11.2026).
 4. **G14 Einheitlichkeit** vor der einzelnen Vorlage: Der Aufgaben-Space folgt in der Optik dem
@@ -332,7 +332,10 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers):
    - Apple-Vorlage vorhanden (`~/halo-aufgaben/apple/index.md`) bzw. Ausnahme nach G3;
    - nötige Maße in Abschnitt 4 belegt oder aus der Vorlage messbar;
    - kein Widerspruch zu G1–G15 oder zu `ENTSCHEIDUNGEN.md`;
-   - keine offene Entscheidungsfrage (Eintrag nicht „Wartet auf OK“).
+   - keine offene Entscheidungsfrage (Eintrag nicht „Wartet auf OK“);
+   - **kein jüngerer freigegebener Eintrag zur selben Stelle** (Maintainer 15.11.2026: „Die Regel gilt
+     auch in Zukunft“, `ENTSCHEIDUNGEN.md`): gibt es einen, gilt der jüngere; der ältere wird nicht
+     umgesetzt, sondern mit Verweis geschlossen oder an den jüngeren angepasst.
    Ergebnis im Plan je Eintrag: „Vorab geprüft: ja“ (bzw. welcher Punkt fehlt).
 3. **Lücke in der Vorab-Prüfung:** zuerst „Im Zweifel wie Apple“ (Vorlage messen) statt fragen. Nur
    bei echtem Widerspruch oder fehlender Vorlage Rückfrage über den Weg „Wartet auf OK“ (Abschnitt

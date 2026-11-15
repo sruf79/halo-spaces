@@ -1020,7 +1020,16 @@ die `halo_test.py` nicht sieht.
   Kategorie, Suchfelder mit Hover oder ohne Kapsel, neue/behobene/geänderte
   Ausreißer gegen die Vorwoche, neu nicht erreichte Oberflächen, neue
   Original-Symbole; Bilder nur zur Information). Nach 8 Wochen werden Bilder
-  und Logs gelöscht, die JSON-Dateien bleiben.
+  und Logs gelöscht, die JSON-Dateien bleiben (`rundgang_ausduennen` in
+  `tests/vorpruefung.zsh`, Test `tests/rundgang_ausduennen_test.zsh`).
+  Dauerhaft, nie gelöscht (Maintainer 15.11.2026, `ENTSCHEIDUNGEN.md`): die
+  Bestandsaufnahme „aus einem Guss“ vom 15.11.2026
+  (`~/halo-aufgaben/vorschau/bestandsaufnahme-2026-11-15/`, Verweis
+  `~/halo-tour/2026-11-15-bestandsaufnahme`) und je veröffentlichter Version
+  ein Rundgang. Markierung: eine Datei `DAUERHAFT` im Ordner (Inhalt: Grund und
+  Version); der Löschlauf überspringt solche Ordner und symbolische Links. Wer
+  eine Version veröffentlicht, legt `DAUERHAFT` in den ersten Rundgang danach;
+  ältere Läufe werden nicht rückwirkend einer Version zugeordnet.
 - Danach wertet Claude (`claude -p`) den Vergleich aus: neue Ausreißer als
   Bug ins Board (außer Entscheidungen des Maintainers und „Wartet auf OK“),
   Done-Einträge bestätigen bzw. Rückschritte melden, Bericht

@@ -191,11 +191,9 @@ print(json.dumps({"commit": sys.argv[2][:7], "schemata": v["schemata"], "kennzah
   "neue_original_symbole": len(v["neue_original_symbole"]), "dauer_min": json.loads(sys.argv[3])}))' \
   $OUT/vergleich.json $COMMIT "{$(for k v in ${(kv)DAUER}; do print -n "\"$k\": $v,"; done | sed 's/,$//')}" 2>/dev/null)
 
-# Ältere Läufe nach 8 Wochen ausdünnen: Bilder weg, Mess-, Ergebnis- und Vergleichsdateien bleiben
-for d in $TOUR/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]*(N/m+56); do
-  rm -f $d/*.png(N) $d/tour-*.log(N)
-  log "Rundgang: Bilder in ${d:t} gelöscht (älter als 8 Wochen)"
-done
+# Ältere Läufe nach 8 Wochen ausdünnen: Bilder weg, Mess-, Ergebnis- und Vergleichsdateien bleiben;
+# Ordner mit der Datei DAUERHAFT bleiben ganz (rundgang_ausduennen in vorpruefung.zsh)
+rundgang_ausduennen $TOUR | while IFS= read -r z; do log "$z"; done
 
 if [[ -n $TROCKEN || -n $ONLY ]]; then
   log "Rundgang: ohne Claude beendet (${TROCKEN:+trocken}${ONLY:+Probelauf})"

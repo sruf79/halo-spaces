@@ -105,6 +105,24 @@ sys.exit(1)
 EOF
 }
 
+# Ältere Rundgänge ausdünnen (tests/MAC-MINI.md Abschnitt Rundgang): Ordner
+# <Tour>/<datum>* älter als <Tage> (Standard 56 = 8 Wochen) verlieren Bilder und
+# Logs, die JSON-Dateien bleiben. Ausgenommen sind dauerhafte Ordner mit einer
+# Datei DAUERHAFT darin (Entscheidung des Maintainers vom 15.11.2026: Bestandsaufnahme
+# vom 15.11.2026 und je veröffentlichter Version ein Rundgang, nie löschen) und
+# Verweise (symbolische Links), deren Ziel woanders liegt. Gibt je gelöschtem
+# Ordner eine Zeile aus.
+rundgang_ausduennen() {   # <Tour-Ordner> [<Tage>]
+  emulate -L zsh
+  setopt extendedglob
+  local tour=$1 tage=${2:-56} d
+  for d in $tour/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]*(N/m+$tage); do
+    [[ -L $d || -e $d/DAUERHAFT ]] && continue
+    rm -f $d/*.png(N) $d/tour-*.log(N)
+    print -r -- "Rundgang: Bilder in ${d:t} gelöscht (älter als 8 Wochen)"
+  done
+}
+
 # Doku-Prüfung (Entscheidung des Maintainers vom 6.11.2026, Sitzung
 # global.design.comparison, Wortlaut: „nein die doku prüfung soll auch
 # widersprüche sehen“; die Regeln unten sind die Deutung dieser Sitzung):

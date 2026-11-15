@@ -171,6 +171,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter Inaktivität ROT: ${${(M)${(f)INT}:#FEHLER*}}"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/inaktivitaet_test.zsh): ${(j: | :)${(M)${(f)INT}:#FEHLER*}} – tests/inaktivitaet.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
   fi
+  # Release unter Tage (tests/release_unter_tage_test.zsh: Prüffunktion, Sperren, erste Plan-Runde, ohne Netz)
+  if RUT=$(zsh $REPO/tests/release_unter_tage_test.zsh 2>&1); then
+    log "Wächter Release unter Tage: ${RUT##*$'\n'}"
+  else
+    log "Wächter Release unter Tage ROT: ${${(M)${(f)RUT}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/release_unter_tage_test.zsh): ${(j: | :)${(M)${(f)RUT}:#FEHLER*}} – tests/release-unter-tage.sh bzw. tests/release-nachtlauf-gescheitert.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
   # PRs nach dem Release schließen (tests/pr_schliessen_test.zsh: nur mit Freigabe, nie #49 ohne Eintrag, ohne Netz)
   if PST=$(zsh $REPO/tests/pr_schliessen_test.zsh 2>&1); then
     log "Wächter PR-Schließen: ${PST##*$'\n'}"

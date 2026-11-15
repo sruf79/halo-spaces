@@ -54,6 +54,11 @@ Markierung „we will close this issue due to inactivity“ über 7 Tage unbeant
 `keep-open`/`waiting-on-us` und `tests/inaktivitaet-ausnahmen.txt`; nie Pull Requests. Der Morgenbrief nennt
 die geschlossenen Issues (`docs/github-komm.md` „Inaktivität“).
 
+**Release unter Tage nach fehlgeschlagenem Nachtlauf** (Maintainer 15.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
+der Director der Tagesroutine entscheidet in der ersten Plan-Runde selbst und veröffentlicht nur über
+`tests/release-unter-tage.sh` (Bedingungen unverändert: Testmarke nach vollständig grüner CI samt Windows, ein
+Release je Tag, nicht 01:30–09:00); Entscheidung und Begründung im Bericht der Tagesroutine, `docs/release.md`.
+
 ## C. Immer der Maintainer (nur mit seinem Satz direkt in neon)
 
 Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der drei Fernsteuerungs-Agenten; `settings.json` und Hooks (Zeitfenster-Hook,

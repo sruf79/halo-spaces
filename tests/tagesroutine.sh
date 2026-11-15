@@ -10,6 +10,10 @@ export HALO_LAUF=tagesroutine
 # Regeln (Auftrag): je Eintrag committen, nie nach main pushen – es pusht nur der Nachtlauf. Fertiges
 # schiebt das Skript (nicht Claude) ohne Force auf den Prüfzweig pruef/tagesroutine-<datum> (nur Linux
 # und statisch auf GitHub, belegt neon nicht) und löscht ihn am Ende des Tages. Nichts veröffentlichen.
+# Einzige Ausnahme (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md): Release unter Tage nach fehlgeschlagenem Nachtlauf.
+#   Erste Plan-Runde bekommt rut_zeile (tests/release-nachtlauf-gescheitert.sh); bei „ja“ entscheidet der Director
+#   und veröffentlicht nur über tests/release-unter-tage.sh (erzwingt Uhrzeit, ein Release je Tag, belegt, grüne CI
+#   samt Windows über NUR_CI=1 release.sh). Ergebnis in <datum>-release-unter-tage.erg → Bericht, iPhone [info].
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
 #   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
@@ -105,6 +109,19 @@ AUFTRAG_DATEI=$REPO/tests/tagesroutine-auftrag.md
 [[ -r $AUFTRAG_DATEI ]] || AUFTRAG_DATEI=$HIER/tagesroutine-auftrag.md
 HAEUFUNG_SKRIPT=$HIER/haeufung.py   # Kopie neben dem Skript (mac-mini-setup.sh), sonst aus dem Checkout
 [[ -r $HAEUFUNG_SKRIPT ]] || HAEUFUNG_SKRIPT=$REPO/tests/haeufung.py
+# Release unter Tage nach fehlgeschlagenem Nachtlauf (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md): nur in der ersten
+# Plan-Runde; Fakten ohne Sprachmodell, der Director entscheidet (Auftrag „Release unter Tage“)
+rut_zeile() {   # <datum> → eine Zeile für den Auftrag der ersten Plan-Runde
+  local g w
+  g=$(zsh $REPO/tests/release-nachtlauf-gescheitert.sh $1 2>/dev/null) || g=
+  [[ -n $g ]] || g="nein Prüfung gescheitert (tests/release-nachtlauf-gescheitert.sh)"
+  w=$(grep -m1 '^Release unter Tage: Wunsch ' ${HALO_BERICHTE:-$BERICHTE}/$1-nachtlauf.md 2>/dev/null)
+  if [[ $g == ja* ]]; then
+    print -r -- "${g} – du entscheidest jetzt (Abschnitt „Release unter Tage“ des Auftrags). Nachtlauf: ${w:-kein Wunsch im Bericht}"
+  else
+    print -r -- "${g} – nichts zu entscheiden"
+  fi
+}
 # Häufung vor einer Plan-Runde: gibt die Zeile für den Auftrag aus (Erfolg oder Rückfall), scheitert nie
 haeufung_zeile() {
   local aus
@@ -459,6 +476,7 @@ if [[ -n $TROCKEN ]]; then
     print "Würde:        eine Sparmodus-Runde mit claude -p --model $E[SPAR_MODELL] (kein Plan-Lauf): Einstufung, höchstens ein passender Eintrag,"
     print "              Messung vor/nach in $SPAR_DATEI; Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}"
   else
+    print -r -- "Release:      erste Plan-Runde, Release unter Tage: $(rut_zeile $E[TAG])"
     print "Häufung:      vor jeder Plan-Runde python3 $HAEUFUNG_SKRIPT → ~/halo-nacht/$E[TAG]-haeufung.md (verbindlich im Plan)"
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
     print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
@@ -482,6 +500,7 @@ uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
 ENDGRUND= ERLEDIGT=0 ZURUECK=0 ENTSCHEIDUNG_NOETIG=0 FABLE_LAEUFE=0 N=0 SPAR_MESSUNG= DESIGNFRAGEN=
+RUT_INFO= RUT_ERG=   # Release unter Tage (Maintainer 15.11.2026)
 PLANRUNDE=0 OHNE_ERGEBNIS=0 ERLEDIGT_VOR_PLAN=0 PLAN_RUNDEN=   # Neuplanen nach abgearbeitetem Plan (13.11.2026)
 typeset -a MODELLE_GENUTZT ABSCHNITTE
 
@@ -504,6 +523,12 @@ bericht_schreiben() {
     print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
     [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
     print
+    if [[ -n $RUT_INFO ]]; then
+      print "## Release unter Tage"
+      print
+      print -r -- "- $RUT_INFO (Begründung im Abschnitt „Plan“)"
+      print
+    fi
     if [[ -n $PLAN_RUNDEN ]]; then
       print "## Plan-Runden"
       print
@@ -687,6 +712,10 @@ Ergebnisdatei: $ERG (Zeile 1 Ergebnis, Zeile 2 „eintrag <Item-ID> <Titel>“, 
     PLANRUNDE=$((PLANRUNDE + 1))
     if (( PLANRUNDE == 1 )); then
       PLANMD=$DIR/$TAG-tagesroutine-plan.md UEB="## Plan" NEUPLAN= PTXT=$DIR/$TAG-tagesroutine-plan.txt
+      RUT_ERG=$DIR/$TAG-release-unter-tage.erg
+      NEUPLAN="Release unter Tage (Skript): $(rut_zeile $TAG). Ergebnisdatei Release unter Tage: $RUT_ERG.
+"
+      log "Release unter Tage: ${NEUPLAN%%$'\n'*}"
     else
       PLAN=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.tsv PLANMD=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.md
       PTXT=$DIR/$TAG-tagesroutine-plan-$PLANRUNDE.txt UEB="## Plan-Runde $PLANRUNDE ($(date +%H:%M))"
@@ -705,6 +734,10 @@ Schreibe den Plan nach $PLAN und den Abschnitt „$UEB“ nach $PLANMD. Keinen E
       $PTXT
     rc=$?
     GEPLANT=1 ERLEDIGT_VOR_PLAN=$ERLEDIGT
+    if (( PLANRUNDE == 1 )) && [[ -s $RUT_ERG ]]; then
+      RUT_INFO=$(head -1 $RUT_ERG); log "Release unter Tage: $RUT_INFO"
+      [[ $RUT_INFO == release\ * ]] && push "Tagesroutine $TAG: Release unter Tage ${${RUT_INFO#release }%% *} veröffentlicht (Nachtlauf ohne Release) – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine
+    fi
     (( rc == 9 )) && { PLAN_RUNDEN+="${PLAN_RUNDEN:+
 }- Plan-Runde $PLANRUNDE ($T0, $E[M_KOMPLEX]): Limit erreicht"; ENDGRUND="Limit in der Plan-Runde"; break }
     NEU=$(offene_planzeilen | grep -c .)

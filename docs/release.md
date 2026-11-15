@@ -6,6 +6,37 @@ Release in voller Länge (Ablauf, Marke, Hotfix, `publish.sh`, Bericht, Issues, 
 
 **Höchstens ein reguläres Release pro Tag.** Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern. (Freigabe des Maintainers vom 9.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; gilt zusätzlich zu „Wann“ unten.)
 
+## Release unter Tage nach fehlgeschlagenem Nachtlauf
+
+Maintainer 15.11.2026 (Wortlaut in `ENTSCHEIDUNGEN.md`): „der direktor soll bitte ab sofort bei fehlgeschlagenen
+nachtläufen selbst entscheiden, ob die commits und änderungen des fehlgeschlagenen nachtlaufs so wichtig sind dass
+diese aufgrund des fehlgeschlagenen nachtlaufs einen release unter tage rechtfertigen“; dazu: „wenn der
+fehlgeschlagene release des nachtlaufs wichtig genug ist damit es am tag dennoch released wird sollte der wunsch
+des direktors im morgenbericht stehen damit ich es weiss“.
+
+- **Nachtlauf** (ohne Release): eine Zeile im Bericht unter „## Release“, feste Anfangsworte für den Morgenbrief:
+  `Release unter Tage: Wunsch ja – <Grund>` bzw. `Release unter Tage: Wunsch nein – <Grund>`. Er löst nichts aus.
+- **Tagesroutine**, nur erste Plan-Runde: `tests/release-nachtlauf-gescheitert.sh` (ohne Sprachmodell) meldet
+  `ja <Grund>` (Bericht „Kurz:“ mit „kein Release“, oder kein Release an dem Tag trotz Thunderbird-Änderungen) oder
+  `nein <Grund>`. Bei „ja“ entscheidet der Director endgültig nach den Kriterien unten, begründet in Bericht und
+  Plan-Datei (Abweichung vom Wunsch mit Grund) und veröffentlicht nur über `tests/release-unter-tage.sh` (Ablauf
+  Schritt für Schritt: `tests/tagesroutine-auftrag.md` „Release unter Tage“).
+- **Bedingungen unverändert, vom Skript erzwungen:** 09:00–22:00, höchstens ein Release pro Tag, nichts belegt
+  (Runner.Worker, Testlauf, andere Sitzung, Ungespeichertes, Nachtlauf), lokale Commits über `origin/main` ohne
+  Thunderbird-Änderung, README-Commit „What's new in x.y.z“, Notizdatei; dann `NUR_CI=1 ./release.sh` (Marke nur
+  bei vollständig grüner CI samt Windows, keine eigenen Tests als Ersatz) und `./publish.sh`. Rot oder Marke fehlt:
+  kein Release, Grund im Bericht, Eintrag „Tests: …“ (vorhanden oder neu).
+
+### Release unter Tage: Kriterien
+
+Gemeinsame Liste für den Wunsch des Nachtlaufs und die Entscheidung der Tagesroutine. **Ja**, wenn unter den
+Commits seit dem letzten Release mindestens einer davon ist: Fehlerkorrektur für einen von Nutzern gemeldeten Bug
+(„(GitHub #n)“); Absturz, Datenverlust oder hängende Oberfläche; Sicherheit oder Datenschutz; eine spürbare
+Verbesserung, die Nutzer täglich merken. **Nicht** (allein kein Grund): reine Ablauf-, Doku-, Test- oder
+Code-Aufräum-Änderungen; kleine Design-Feinheiten; Unfertiges oder Arbeit, die auf einem Paketzweig wartet
+(Lichtschein und Kachel nur zusammen, `ENTSCHEIDUNGEN.md` 14.11.2026). Im Zweifel nein: der nächste Nachtlauf
+veröffentlicht ohnehin.
+
 ## Pull Requests nach dem Release schließen
 
 Nach dem Schließen der Issues ruft `publish.sh` `tests/pr-schliessen.sh <version>` auf: Es schließt nur

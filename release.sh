@@ -97,6 +97,9 @@ if [[ -z "$SKIP_TESTS" && -z "$FORCE_TESTS" && -z "$HOTFIX" ]] && command -v gh 
     done
   fi
 fi
+# NUR_CI=1 (Release unter Tage, tests/release-unter-tage.sh): nur mit vollständig grüner CI samt Windows,
+# keine eigenen Tests als Ersatz (sie belegen neon lange und ersetzen den Windows-Lauf nicht)
+[[ -n "$NUR_CI" && -z "$CI_OK" ]] && fehlschlag "NUR_CI: keine vollständig grüne CI (Linux, Mac, Windows) zu diesem Stand – kein Release, keine Marke"
 
 # Version und Update-Adresse ins Manifest
 python3 - "$VERSION" "$GITHUB_REPO" "$BRANCH" <<'PY'

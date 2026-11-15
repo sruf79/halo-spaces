@@ -614,7 +614,10 @@ Reihenfolge:
    --only-Prüfungen), Ende der Arbeit (Endegrund nach Schritt 5 d, Uhrzeit), Übersprungen/offen (mit Grund), Tests (Prüfungen mit
    --only; CI-Läufe mit ID, Ergebnis und Dauer je Job aus tests/ci-warten.sh),
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
-   Store-Upload), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
+   Store-Upload; ohne Release genau eine Zeile „Release unter Tage: Wunsch ja – <Grund>“
+   bzw. „Release unter Tage: Wunsch nein – <Grund>“, ein Satz, einfache Worte, Kriterien
+   docs/release.md „Release unter Tage: Kriterien“; Maintainer 15.11.2026, der Morgenbrief
+   liest sie, die Tagesroutine entscheidet um 09:00; nichts auslösen), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
    der Grund ist, und das im Bericht sagen), Aufgeräumt (Schritt 6a), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.

@@ -17,7 +17,8 @@ Regeln:
    solange Runner.Worker läuft (pgrep -f Runner.Worker; dann warten, nicht umgehen – HALO_LAUF
    schaltet den Zeitfenster-Hook für diesen Lauf ab, die Regel gilt trotzdem).
 2. Es pusht nur der Nachtlauf (ein Push, eine CI, ein Release). Kein git push, kein gh workflow run,
-   kein release.sh/publish.sh. Vor 22:00 enden; nichts darf um 01:30 noch laufen.
+   kein release.sh/publish.sh. Einzige Ausnahme: Abschnitt „Release unter Tage“ (nur erste Plan-Runde,
+   nur über tests/release-unter-tage.sh). Vor 22:00 enden; nichts darf um 01:30 noch laufen.
 3. Prüfzweig: Fertiges schiebt das Skript selbst (ohne Force) auf pruef/tagesroutine-<datum> und
    löscht den Zweig am Ende des Tages. Du pushst auch dorthin nicht. Meldet das Skript „Prüfzweig rot“,
    erst diese Ursache beheben (eigener Commit) oder den schuldigen Commit mit git revert zurücknehmen,
@@ -67,6 +68,39 @@ ja, Designer“ bzw. „Vorab geprüft: nein, <was fehlt>“ (dann nicht planen)
 zuerst (Regel 1). Das Skript wählt danach je Zeile das Modell (design mindestens Opus, sonst heute nicht).
 - Abschnitt „## Plan“ (Pfad oben): Plan mit Begründung je Einstufung, Zusammenlegungen,
   übersprungene Einträge mit Grund. Board-Stände zitieren statt zusammenfassen.
+
+Release unter Tage (Maintainer 15.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „der direktor soll bitte ab sofort
+bei fehlgeschlagenen nachtläufen selbst entscheiden, ob die commits und änderungen des fehlgeschlagenen
+nachtlaufs so wichtig sind dass diese aufgrund des fehlgeschlagenen nachtlaufs einen release unter tage
+rechtfertigen“). Nur in der ersten Plan-Runde des Tages; dort steht oben „Release unter Tage (Skript): …“
+(tests/release-nachtlauf-gescheitert.sh, ohne Sprachmodell) und die Ergebnisdatei. Fehlt die Zeile (spätere
+Plan-Runde, ältere Kopie des Skripts): nichts tun.
+- „nein …“: nichts tun, keine Ergebnisdatei.
+- „ja …“: Du bist der Director und entscheidest jetzt endgültig, vor dem Plan. Commits seit dem letzten Release
+  lesen: git fetch origin; git log --format='%h %s' <letztes Tag v…>..origin/main und je Commit die Dateien
+  (git show --stat). Kriterien: docs/release.md „Release unter Tage: Kriterien“ (gleiche Liste wie der Wunsch
+  des Nachtlaufs). Steht oben ein Wunsch des Nachtlaufs („Release unter Tage: Wunsch ja/nein – …“) und
+  entscheidest du anders, nenne den Grund.
+- Entscheidung und Begründung (höchstens 3 Sätze, einfache Worte) als Absatz „Release unter Tage:“ an den Anfang
+  des Abschnitts „## Plan“ und als Kommentarzeile „# Release unter Tage: <ja|nein> – <ein Satz>“ in die erste
+  Zeile der Plan-Datei.
+- Bei Ja, Schritt für Schritt (nie SKIP_TESTS, FORCE_TESTS, HOTFIX, keine Marke von Hand, Sperren nie umgehen):
+  1. Version: Patch des letzten Tags für Korrekturen (3.27.0 → 3.27.1), Minor nur bei neuen Funktionen.
+  2. Vorprüfung: zsh tests/release-unter-tage.sh --pruefen <version> /dev/null. Meldet sie ABBRUCH aus einem
+     anderen Grund als README oder Notizen: nicht veröffentlichen (weiter bei 6).
+  3. Versionshinweise im README.md (Abschnitt „What's new in <version>“, Englisch, nach docs/release.md),
+     eigener Commit „README: Versionshinweise <version>“ (nur README.md). Englische Notizdatei mit gleichem Inhalt
+     nach ~/halo-nacht/<datum>-notes-<version>.md (außerhalb des Repos). Inhalte der Aufgabenliste nie hinein.
+  4. zsh tests/release-unter-tage.sh <version> ~/halo-nacht/<datum>-notes-<version>.md – prüft alles erneut,
+     ruft NUR_CI=1 ./release.sh (ohne vollständig grüne CI samt Windows keine Marke) und ./publish.sh auf.
+     Meldet publish.sh „FEHLER“: sofort klären (docs/release.md), im Bericht nennen.
+  5. Ergebnisdatei (Pfad oben), eine Zeile: „release <version> <Commit>“.
+  6. Kein Release (ABBRUCH, CI oder Windows rot, Marke fehlt): Ergebnisdatei „kein_release <Grund>“. Den
+     README-Commit aus 3 mit git revert zurücknehmen. Ist die Ursache eine rote oder flackernde Prüfung: auf
+     den vorhandenen Eintrag „Tests: …“ verweisen (Board suchen, z. B. Seitenleiste Adressbuch, Windows) oder
+     einen neuen anlegen (Typ Bug, Todo); er kommt nach Schritt 1b als erster Eintrag in den Plan.
+- Bei Nein: Ergebnisdatei „nicht_noetig <ein Satz>“. Die Änderungen nimmt der nächste Nachtlauf mit.
+- Die iPhone-Meldung ([info]) und die Zeile im Bericht schreibt das Skript aus der Ergebnisdatei.
 
 Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
 - Status In Progress (~/halo-aufgaben/status.sh <id> progress), Ursache klären, beheben, Prüfung in

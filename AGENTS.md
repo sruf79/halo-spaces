@@ -156,6 +156,11 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   neuen Update nach vorn korrigiert. Tagsüber nur, was Nutzer gerade spüren; alles andere
   veröffentlicht der nächste Nachtlauf, sobald die CI grün ist. Patch für Korrekturen, Minor für
   Funktionen; Versionshinweise im `README.md` (eigener Commit) und als englische Notizen-Datei.
+  Ausnahme (Maintainer 15.11.2026: „der direktor soll bitte ab sofort bei fehlgeschlagenen nachtläufen selbst
+  entscheiden, ob die commits und änderungen des fehlgeschlagenen nachtlaufs so wichtig sind dass diese aufgrund
+  des fehlgeschlagenen nachtlaufs einen release unter tage rechtfertigen“): nach einem Nachtlauf ohne Release
+  entscheidet der Director der Tagesroutine darüber und veröffentlicht nur über `tests/release-unter-tage.sh`
+  (`docs/release.md` „Release unter Tage“).
 - `release.sh` und `publish.sh` laufen **nur auf neon**, nie auf dem Laptop oder in Cloud-Sessions –
   die beauftragen dafür neon (nach dem Push). Ausnahme: Notfall-Release nach `docs/notfall.md`
   (startet und gibt nur der Maintainer von Hand frei, nie eine Sitzung).

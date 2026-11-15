@@ -637,3 +637,8 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers): Der Rundgang d
 
 Herkunft: Gespräch mit neon, 15.11.2026, nachdem `/systematic-debugging` in der Sitzung nicht verfügbar war. Wortlaut des Maintainers: „dieser skill muss für alle sessions verfügbar sein. ansonsten würden unteragenten im zuge des nachtlaufs oder tagesablaufs diesen nicht zur verfügung stehen haben.“
 Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers): Der Skill (MIT-Lizenz, Quelle: synchronisiertes Plugin „superpowers“, Lizenzdatei als LICENSE-Quelle beigelegt) liegt jetzt als Benutzer-Skill in ~/.claude/skills/systematic-debugging auf neon; eine neue `claude -p`-Sitzung im Projekt findet ihn (geprüft 15.11.2026). Nicht im Repo (öffentlich, fremde Datei). Bei neuer Einrichtung des Mac mini oder Auf dem Laptop muss der Ordner ebenfalls dorthin; Prüfung steht aus.
+
+## Kontextmenüs der Kacheln: Umsetzung im Paketzweig (15.11.2026)
+
+Herkunft: Gespräch mit neon, 15.11.2026, zur Rückfrage der Tagesroutine beim Eintrag „Spaces-Leiste: Kontextmenüs der Kacheln deaktivieren“ (jetzt auf main oder im Paketzweig mitnehmen); neon empfahl den Paketzweig. Wortlaut des Maintainers: „ja“ (auf die Frage „Soll das Menü in den Paketzweig?“ nach der Aussage, der Paketzweig sei die risikoärmere Variante).
+Umsetzung (Deutung von neon, nicht des Maintainers): Der Eintrag wird auf paket/lichtschein-kachel zusammen mit dem Umbau der Kacheln umgesetzt, nicht auf main. Der Zweck des Eintrags ist, dass ein Rechtsklick auf eine Kachel kein Menü mehr zeigt; neon hatte ihn dem Maintainer vorher irrtümlich als „Menü soll erscheinen“ beschrieben.

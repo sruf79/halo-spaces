@@ -379,6 +379,10 @@ Reihenfolge:
         bei echtem Widerspruch Weg f) schon beim Planen. Plan-Spalte
         „Begründung“ beginnt mit „Vorab geprüft: ja, Designer“ (bzw. „Vorab
         geprüft: nein, <was fehlt>“, dann nicht beauftragen).
+      - Gruppen (Maintainer 15.11.2026): Gibt es neue oder geänderte
+        Design-Einträge, lässt du den Designer einmal je Lauf die Gruppen
+        der Design-Einträge bilden (nach den vier Bausteinen); du stufst
+        die Gruppen in den Plan ein, Priorität bleibt deine Entscheidung.
       - Zeitbudget, Reserve und Rahmenregeln (a)–(g) gelten unverändert; ein
         Designer-Eintrag ist ein Eintrag des Plans wie jeder andere.
 1b. Rückfall: Kann der Director nicht sauber planen (Board nicht lesbar,

@@ -315,6 +315,27 @@ const addAlarm = async () => { const { CalEvent } = ChromeUtils.importESModule("
   const a = new CalAlarm(); a.related = Ci.calIAlarm.ALARM_RELATED_START; a.offset = cal.createDuration("-PT15M"); a.action = "DISPLAY"; e.addAlarm(a);
   w.__tourAlarm = await testCalendar().addItem(e); };
 const dropAlarm = async () => { if (w.__tourAlarm) { try { await testCalendar().deleteItem(w.__tourAlarm); } catch {} w.__tourAlarm = null; } await wait(500); };
+// Einladung im Kalender „Halo Test“: Anna Beispiel lädt die Test-Identität ein (Teilnahme offen). Der Kalender bekommt die
+// Test-Identität, sonst gilt der Termin nicht als Einladung. Doppelklick auf den Termin öffnet das Einladungsfenster;
+// nur ansehen, keinen Knopf auslösen (würde antworten). Beim Schließen Termin löschen und Identität wieder entfernen
+const inviteEvent = async () => { const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+  const { CalAttendee } = ChromeUtils.importESModule("resource:///modules/CalAttendee.sys.mjs");
+  const c = testCalendar(); const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+  c.setProperty("imip.identity.key", acc.identities[0].key);
+  const person = (mail, name, o = {}) => { const a = new CalAttendee(); a.id = "mailto:" + mail; a.commonName = name; Object.assign(a, o); return a; };
+  const e = new CalEvent(); e.id = "halo-temp-einladung-kalender@example.invalid"; e.title = "Workshop Gestaltung";
+  const s = cal.dtz.now(); s.hour = 11; s.minute = 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+  e.setProperty("LOCATION", "Raum 2.01"); e.setProperty("DESCRIPTION", "Anna Beispiel lädt dich zum Workshop Gestaltung ein (erfundene Einladung).");
+  e.organizer = person("anna@example.invalid", "Anna Beispiel", { isOrganizer: true });
+  e.addAttendee(person("halo@example.invalid", "Halo Test", { role: "REQ-PARTICIPANT", participationStatus: "NEEDS-ACTION", rsvp: "TRUE" }));
+  e.addAttendee(person("anna@example.invalid", "Anna Beispiel", { role: "CHAIR", participationStatus: "ACCEPTED" }));
+  w.__tourInvite = await c.addItem(e);
+  await toCalendar(); w.switchCalendarView("week"); w.currentView().goToDay(cal.dtz.now()); await wait(1200);
+  const b = await until(() => [...d.querySelectorAll("#week-view calendar-event-box")].find(x => x.occurrence?.title == "Workshop Gestaltung" && vis(x)), 4000);
+  if (!b) throw new Error("Einladung nicht in der Wochenansicht"); return b; };
+const dropInviteEvent = async () => { const c = testCalendar();
+  if (w.__tourInvite) { try { await c.deleteItem(w.__tourInvite); } catch {} w.__tourInvite = null; }
+  c.deleteProperty("imip.identity.key"); await wait(500); };
 """
 
 # erfundene Testdaten (alle Adressen @example.invalid) – wird beim Start einmal ausgeführt
@@ -1139,6 +1160,10 @@ SURFACES = [
       ' ml.value = "custom"; later(() => iw.updateReminder());', cap="window", win="calendar-event-dialog-reminder"),
     S("kal-zusammenfassung", "kalender", "fenster", "Termin aus schreibgeschütztem Kalender (Zusammenfassung)",
       'await toCalendar(); const it = await anyItem("Nationalfeiertag"); w.modifyEventWithDialog(it, true);', cap="window", win="calendar-summary-dialog"),
+    # Einladung im Kalender per Doppelklick (wie im Alltag): Thunderbird öffnet die Übersicht mit Zusagen/Absagen statt des Termin-Dialogs
+    S("kal-einladung-doppelklick", "kalender", "fenster", "Kalender: Einladung per Doppelklick (Übersicht mit Teilnahme: Zusagen, Vielleicht, Absagen)",
+      'const b = await inviteEvent(); later(() => { fire(b, "mousedown"); fire(b, "mouseup"); fire(b, "click"); fire(b, "dblclick"); });',
+      cap="window", win="calendar-summary-dialog", close="await dropInviteEvent();", note="nur geöffnet, keine Antwort gewählt; Termin wird danach gelöscht"),
     S("kal-erinnerung", "kalender", "fenster", "Erinnerungsfenster (Alarm)",
       'await addAlarm();', cap="window", win="calendar-alarm-dialog", close='await dropAlarm();'),
     S("kal-erinnerung-spaeter", "kalender", "popup", "Erinnerungsfenster: Menü „Später erinnern“ (Schlummern für alle)",

@@ -337,6 +337,7 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers):
 3. **Lücke in der Vorab-Prüfung:** zuerst „Im Zweifel wie Apple“ (Vorlage messen) statt fragen. Nur
    bei echtem Widerspruch oder fehlender Vorlage Rückfrage über den Weg „Wartet auf OK“ (Abschnitt
    8), möglichst vor dem Lauf (Planung), nicht mittendrin; der Designer wird dann nicht beauftragt.
+5. **Gruppen (Maintainer 15.11.2026):** Der Designer bildet die Gruppen aller Design-Einträge nach den vier Bausteinen (Abschnitt 12) und legt Zusammengehöriges zusammen; Priorität und Reihenfolge bleiben beim Director. Höchstens eine Gruppierung je Lauf, nur bei neuen oder geänderten Design-Einträgen; Gruppen merkt er sich in Abschnitt 10.
 4. Abschnitt 9 beantwortet die bekannten Lücken; die fehlenden Vorlagen sind seit 14.11.2026 da (9a).
 
 ### 6b. Arbeit des Designers

@@ -186,6 +186,7 @@ haben“). Vorgaben: docs/design-vorgaben.md.
   private Artifact-Seite mit den Bildern als eigene Dateien (AGENTS.md „Bilder“), nie echte Mails.
 - Eine „entscheidung …“ bei einem Design-Eintrag meldet das Skript ebenfalls sofort; andere „entscheidung“
   wie bisher am Tagesende.
+- Gruppen (Maintainer 15.11.2026): Bei neuen oder geänderten Design-Einträgen lässt du den Designer höchstens einmal je Lauf die Gruppen bilden (nach den vier Bausteinen), sonst übernimmst du die letzte Gruppierung; im Sparmodus immer die letzte. Priorität bleibt deine Entscheidung.
 - Den Berichtsabschnitt des Designers übernimmst du in deinen Abschnitt (Ergebnis, Einspruch ja/nein).
 
 Paketzweig paket/lichtschein-kachel (Maintainer 14.11.2026: „ja, kein lichtschein ohne neue kacheln“,

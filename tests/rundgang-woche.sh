@@ -6,7 +6,7 @@ export HALO_LAUF=rundgang
 # tests/rundgang_vergleich.py gegen den häufigsten Wert und den vorigen
 # Rundgang und lässt Claude (Auftrag tests/rundgang-auftrag.md) Ausreißer ins
 # Board tragen, den Bericht schreiben und die Ergebnisseite aktualisieren.
-# Gestartet vom LaunchAgent at.halo-spaces.rundgang samstags 10:00; die Datei
+# Gestartet vom LaunchAgent at.halo-spaces.rundgang sonntags 10:00; die Datei
 # wird wie die anderen Läufe nach ~/.config/halo-spaces/ kopiert.
 #   rundgang-woche.sh [--trocken] [--only <ids>] [<Repo-Ordner>]
 #   --trocken    Rundgang und Vergleich, aber kein Claude (kein Board, kein Bericht)

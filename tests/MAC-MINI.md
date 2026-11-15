@@ -999,7 +999,7 @@ keine geplante Aufgabe der Desktop-App).
 
 ## 17. Design-Rundgang
 
-Sonntags um 10:00 nimmt der Mac alle Oberflächen auf, misst sie und vergleicht
+Sonntags um 08:00 nimmt der Mac alle Oberflächen auf, misst sie und vergleicht
 mit dem Rundgang der Vorwoche (Entscheidung des Maintainers vom 5.11.2026;
 LaunchAgent `at.halo-spaces.rundgang`, `tests/rundgang-woche.sh`, Auftrag
 `tests/rundgang-auftrag.md`). Ziel: Rückschritte und neue Ausreißer bei

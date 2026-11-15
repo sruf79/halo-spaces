@@ -684,7 +684,7 @@ EOF
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
 # Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
-# sonntags 10:00 (rundgang-woche.sh). Die
+# sonntags 08:00 (rundgang-woche.sh). Die
 # Skripte werden mit lauf-hilfen.zsh nach ~/.config/halo-spaces/ kopiert
 # (außerhalb des Checkouts, die Läufe ändern ihn).
 AG_DIR=$HOME/.config/halo-spaces
@@ -800,8 +800,8 @@ pruefe_laeufe() {
   fi
   pruefe_agent "Design-Rundgang" at.halo-spaces.rundgang rundgang-woche.sh $HOME/Library/Logs/halo-rundgang.log \
     '<key>StartCalendarInterval</key>
-  <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>' \
-    rundgang "sonntags 10:00, Ablage ~/halo-tour, Berichte in ~/halo-berichte"
+  <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>' \
+    rundgang "sonntags 08:00, Ablage ~/halo-tour, Berichte in ~/halo-berichte"
   # Bildschirmaufnahme im LaunchAgent: der Rundgang hält beim Start fest, ob er
   # aufnehmen darf (Popups per screencapture -l)
   local ba=$HOME/halo-tour/bildschirmaufnahme.txt

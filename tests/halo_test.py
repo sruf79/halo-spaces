@@ -6298,6 +6298,51 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Terminübersicht: zu niedrig gemessenes Fenster wächst nach dem Zeichnen nach, „Edit“ behält Abstand zum Rand", summary_height_grows, results)
 
+    def invitation_double_click():
+        # Einladung im Kalender per Doppelklick: halo.spaces fängt Doppelklicks im Kalender für das Schnellfenster ab – auf einer
+        # Einladung (Anna lädt die Test-Identität ein, Teilnahme offen) muss trotzdem Thunderbirds Einladungsfenster aufgehen
+        # (Übersicht mit Zusagen, Vielleicht, Absagen), kein Schnellfenster und kein Termin-Dialog; wie im Rundgang
+        # (kal-einladung-doppelklick). Keine Antwort auslösen
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalAttendee } = ChromeUtils.importESModule("resource:///modules/CalAttendee.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const me = acc.identities[0].email;  // Test-Identität (COMPOSE_CHECK_JS)
+          const c = testCalendar(); c.setProperty("imip.identity.key", acc.identities[0].key);
+          const person = (mail, name, o = {}) => { const a = new CalAttendee(); a.id = "mailto:" + mail; a.commonName = name; Object.assign(a, o); return a; };
+          const e = new CalEvent(); e.title = "Halo Einladung"; e.calendar = c;
+          const s = cal.dtz.now(); s.hour = 11; s.minute = 30; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          e.organizer = person("anna@example.invalid", "Anna Beispiel", { isOrganizer: true });
+          e.addAttendee(person(me, "Halo Test", { role: "REQ-PARTICIPANT", participationStatus: "NEEDS-ACTION", rsvp: "TRUE" }));
+          const saved = await c.addItem(e);
+          const out = {};
+          let dw = null;
+          try {
+            await toWeek(); w.currentView().scrollToMinute(600); await ruhig(600);
+            const box = await till(() => [...d.querySelectorAll("#week-view calendar-event-box")].find(x => x.occurrence?.title == "Halo Einladung" && vis(x)), 4000);
+            if (!box) return { box: false };
+            const known = new Set([...Services.wm.getEnumerator(null)]);
+            const r = box.getBoundingClientRect(), x = r.left + Math.min(r.width / 2, 40), y = r.top + Math.min(r.height / 2, 10);
+            const ev = (type, detail) => new w.MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: w, button: 0, detail,
+              clientX: x, clientY: y, screenX: w.mozInnerScreenX + x, screenY: w.mozInnerScreenY + y });
+            w.setTimeout(() => { for (const [type, detail] of [["mousedown", 1], ["mouseup", 1], ["click", 1], ["mousedown", 2], ["mouseup", 2], ["click", 2], ["dblclick", 2]]) box.dispatchEvent(ev(type, detail)); }, 0);
+            dw = await till(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.document.readyState == "complete"), 6000);
+            await ruhig(1200);
+            out.url = dw ? dw.location.href.split("/").pop() : null;
+            out.quick = d.getElementById("mcQuickPanel")?.state || null;
+            if (dw) { const doc = dw.document;
+              out.buttons = ["acceptButton", "tentativeButton", "declineButton"].map(id => vis(doc.getElementById(id))); }
+          } finally {
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            w.focus(); await pause(300);
+            try { await c.deleteItem(saved); } catch {}
+            c.deleteProperty("imip.identity.key");
+          }
+          return out;""")
+        ok = (res.get("url", "") or "").startswith("calendar-summary-dialog") and res.get("buttons") == [True, True, True] and res.get("quick") in (None, "closed")
+        return ok, f"{res}"
+    check("Kalender: Doppelklick auf eine Einladung öffnet das Einladungsfenster (Zusagen, Vielleicht, Absagen), kein Schnellfenster",
+          invitation_double_click, results)
+
     def summary_description():
         # Lesefenster (Termin → Öffnen): Beschreibung im eigenen Inhaltsdokument (iframe.item-description) dunkel
         # lesbar und in der Systemschrift – früher schwarz auf grau (Meldung unter Windows mit dunklem Theme)

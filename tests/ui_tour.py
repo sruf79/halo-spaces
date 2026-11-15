@@ -336,6 +336,10 @@ const inviteEvent = async () => { const { CalEvent } = ChromeUtils.importESModul
 const dropInviteEvent = async () => { const c = testCalendar();
   if (w.__tourInvite) { try { await c.deleteItem(w.__tourInvite); } catch {} w.__tourInvite = null; }
   c.deleteProperty("imip.identity.key"); await wait(500); };
+const dblClick = el => { for (const t of ["mousedown", "mouseup", "click", "dblclick"]) fire(el, t); };
+// Einladungsfenster per Doppelklick öffnen und auf das fertige Fenster warten
+const openInvite = async () => { const b = await inviteEvent(); later(() => dblClick(b));
+  const dw = await winUrl("calendar-summary-dialog"); if (!dw) throw new Error("Einladungsfenster nicht offen"); await wait(1500); return dw; };
 """
 
 # erfundene Testdaten (alle Adressen @example.invalid) – wird beim Start einmal ausgeführt
@@ -1162,8 +1166,20 @@ SURFACES = [
       'await toCalendar(); const it = await anyItem("Nationalfeiertag"); w.modifyEventWithDialog(it, true);', cap="window", win="calendar-summary-dialog"),
     # Einladung im Kalender per Doppelklick (wie im Alltag): Thunderbird öffnet die Übersicht mit Zusagen/Absagen statt des Termin-Dialogs
     S("kal-einladung-doppelklick", "kalender", "fenster", "Kalender: Einladung per Doppelklick (Übersicht mit Teilnahme: Zusagen, Vielleicht, Absagen)",
-      'const b = await inviteEvent(); later(() => { fire(b, "mousedown"); fire(b, "mouseup"); fire(b, "click"); fire(b, "dblclick"); });',
+      'const b = await inviteEvent(); later(() => dblClick(b));',
       cap="window", win="calendar-summary-dialog", close="await dropInviteEvent();", note="nur geöffnet, keine Antwort gewählt; Termin wird danach gelöscht"),
+    S("kal-einladung-zusagen-menue", "kalender", "popup", "Einladungsfenster: Menü am Knopf „Zusagen“",
+      'const dw = await openInvite(); const btn = dw.document.getElementById("acceptButton"); if (!vis(btn)) throw new Error("Knopf „Zusagen“ fehlt");'
+      ' return await pop(dw.document.getElementById("acceptDropdown"), p => p.openPopup(btn, "after_start"));', cap="popup",
+      close="await dropInviteEvent();", note="nur geöffnet, kein Eintrag gewählt; Termin wird danach gelöscht"),
+    S("kal-einladung-vielleicht-menue", "kalender", "popup", "Einladungsfenster: Menü am Knopf „Vielleicht“",
+      'const dw = await openInvite(); const btn = dw.document.getElementById("tentativeButton"); if (!vis(btn)) throw new Error("Knopf „Vielleicht“ fehlt");'
+      ' return await pop(dw.document.getElementById("tentativeDropdown"), p => p.openPopup(btn, "after_start"));', cap="popup",
+      close="await dropInviteEvent();", note="nur geöffnet, kein Eintrag gewählt; Termin wird danach gelöscht"),
+    S("kal-einladung-absagen-menue", "kalender", "popup", "Einladungsfenster: Menü am Knopf „Absagen“",
+      'const dw = await openInvite(); const btn = dw.document.getElementById("declineButton"); if (!vis(btn)) throw new Error("Knopf „Absagen“ fehlt");'
+      ' return await pop(dw.document.getElementById("declineDropdown"), p => p.openPopup(btn, "after_start"));', cap="popup",
+      close="await dropInviteEvent();", note="nur geöffnet, kein Eintrag gewählt; Termin wird danach gelöscht"),
     S("kal-erinnerung", "kalender", "fenster", "Erinnerungsfenster (Alarm)",
       'await addAlarm();', cap="window", win="calendar-alarm-dialog", close='await dropAlarm();'),
     S("kal-erinnerung-spaeter", "kalender", "popup", "Erinnerungsfenster: Menü „Später erinnern“ (Schlummern für alle)",

@@ -258,7 +258,8 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 | Aktive Kachel F4a (nicht live) | Ring 40 %, Hof 9 px, Abschrägung; dunkel eigenes Rezept | B `…IekSY`, Wartet auf OK |
 | Lichtschein | Kern 120 × 90 px, Hauptlicht 230 × 175 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; nicht in Einstellungen und Webseiten-Space; abschaltbar | C :2880–2889; E 13.11.2026; B `…IekNU` |
 | Seitenleiste größte Breite | 360 px in allen Bereichen | C :86 |
-| Seitenleistenbreite beim Start | 206 px (Variante A mit 240 px zurückgenommen) | Commit 32f9d08; siehe F2 |
+| Seitenleistenbreite beim Start | 206 px (Variante A mit 240 px zurückgenommen; bleibt auch mit bündigen Favoriten, E20) | Commit 32f9d08; siehe F2; E 15.11.2026 |
+| Favoriten der Ordnerliste | Symbole x = 44, Text x = 77 wie die Kontoordner; „Favourites“ x = 52 wie die Kontonamen; Konten darunter je Stufe 33 px tiefer (Symbol unter dem Text darüber); Aufklapp-Pfeil links davon (x = 29–41) | E20 |
 
 ### Farben (Auswahl, hell / dunkel)
 | Was | Wert | Quelle |
@@ -566,12 +567,14 @@ Gegenbeispiele.
 | E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
 | E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
 | E19 | Halo nur an Kachel und Seitenleiste → übergeordnetes Gestaltungsmerkmal für alle Bereiche; je Dialog oder Popup nur der Hauptknopf in Systemfarbe mit Halo-Licht, gleich in allen Spaces; Space-Farbe nur an Kachel und Lichtkegel (G15, nach Veröffentlichung des Pakets) | „die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“; „ich folge deinen empfehlungen und möchte ein vorschaubild“ | E 15.11.2026 (Gespräch mit dem Designer) |
+| E20 | Favoriten links eingerückt (Symbole 16 px, „Favourites“ 22 px links der Konten) → bündig in den Spalten der Konten bei unveränderter Breite 206 px; Kontonamen unter All Inboxes/All Sent dürfen mit „…“ gekürzt erscheinen (Variante A mit 240 px zurückgenommen, 32f9d08) | „anstelle dass wir die ganze logik der sidebar umbauen sollten wir den einfacheren weg gehen und den namen "local folder" optisch abkürzen falls das notwendig ist. jene user, denen der vollständige name von local folders wichtig ist, können frei die sidebar via verschiebbare trennleiste vergrössern bei bedarf.“ | E 15.11.2026 (`ENTSCHEIDUNGEN.md`) |
 
 ### Wahrnehmungsregeln aus Entscheidungen (vom Designer fortzuschreiben, Abschnitt 6b Schritt 9)
 - Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).
 - Gleich starke, kräftige farbige Kontur rundum wirkt wie ein Rahmen oder Fokusring und ist verworfen (V2); die Lichtrichtung geht verloren.
 - Hell und Dunkel nutzen dieselbe Bauart; nur Werte dürfen sich unterscheiden (Querverlauf, Kantenstärke), damit die Wirkung gleich ist (G11, G14). Wenn die Neigung hell stärker wirkt als dunkel, liegt es an der Umgebung der blassen Fläche, nicht an stärkerem Verlauf.
 - Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026).
+- Bündige Spalten gehen vor ungekürzten Namen: Lieber ein Name mit „…“ als eine Spalte, die aus der Flucht springt, oder eine breitere Standardbreite, die allen Bereichen Platz nimmt; wer den ganzen Namen braucht, zieht die Seitenleiste breiter (Deutung des Designers aus E20, 15.11.2026).
 
 ### Verworfen (Gegenbeispiele)
 | # | Vorschlag | Begründung des Maintainers | Quelle |

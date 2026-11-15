@@ -8820,6 +8820,61 @@ def server_checks(m, results):
             return ok, f"{res}"
         check("Testkonto: IMAP-Ordner in der Ordnerliste, Mail im Posteingang", account_folders, results)
 
+        def favourites_columns():
+            # wie Apple Mail (Maintainer 11.11.2026, Variante A): Symbole von All Inboxes/All Sent bündig über den
+            # Ordnersymbolen der Konten, „Favourites“ beginnt wie die Kontonamen; aufgeklappt stehen die Konten
+            # unter All Inboxes eine Stufe tiefer, ihr Symbol unter dem Text der Zeile darüber. Breite bleibt
+            # 206 px, „Local Folders“ darf dort mit „…“ gekürzt erscheinen (Maintainer 15.11.2026); unter Linux ist
+            # die Ordnerliste in diesem Fenster nur 160 px breit, die Spalten müssen trotzdem stimmen
+            res = m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const acc = MailServices.accounts.getAccount("%s"), root = acc.incomingServer.rootFolder;
+              // „Local Folders“ unter All Inboxes wie im Alltag (mit --only fehlt der Posteingang sonst)
+              try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+              const lroot = MailServices.accounts.localFoldersServer.rootFolder;
+              if (!lroot.containsChildNamed("Inbox")) { lroot.createSubfolder("Inbox", null); }
+              const a3 = await toMail(), ad = a3.document, tree = ad.getElementById("folderTree");
+              await until(() => root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox), 10000);
+              const left0 = ad.getElementById("folderPane").getBoundingClientRect().left;
+              const shown = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+              const x = el => shown(el) ? Math.round(el.getBoundingClientRect().left - left0) : null;
+              // Textanfang (nicht die Box): ein Range über den Text
+              const tx = el => { if (!shown(el) || !el.firstChild) return null; const r = ad.createRange(); r.selectNodeContents(el);
+                                 return Math.round(r.getBoundingClientRect().left - left0); };
+              const smart = await until(() => tree.querySelector(':scope > li[data-mode="smart"]'), 8000);
+              const fav = smart && [...smart.querySelectorAll(':scope > ul > li[is="folder-tree-row"]')].filter(shown);
+              const inboxRow = fav?.find(l => l.dataset.folderType == "inbox");
+              const accRow = await until(() => [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type="imap"]')].find(shown), 8000);
+              await until(() => [...(accRow?.querySelectorAll(':scope > ul > li[is="folder-tree-row"]') || [])].some(shown), 15000);
+              const accFolders = [...(accRow?.querySelectorAll(':scope > ul > li[is="folder-tree-row"]') || [])].filter(shown);
+              const icon = li => x(li.querySelector(":scope > .container .icon"));
+              const name = li => tx(li.querySelector(":scope > .container .name"));
+              const out = { favIcons: fav?.map(icon), favText: fav?.map(name), accIcons: [...new Set(accFolders.map(icon))], accText: [...new Set(accFolders.map(name))],
+                            header: tx(smart?.querySelector(":scope > .mode-container .mode-name")), accName: name(accRow) };
+              // aufgeklappt: Konten unter All Inboxes
+              if (inboxRow?.classList.contains("collapsed")) inboxRow.querySelector(":scope > .container .twisty")?.click();
+              await until(() => [...inboxRow?.querySelectorAll(":scope > ul > li") || []].some(shown), 4000);
+              const kids = [...(inboxRow?.querySelectorAll(":scope > ul > li[is='folder-tree-row']") || [])].filter(shown);
+              out.kidIcons = [...new Set(kids.map(icon))]; out.inboxText = inboxRow ? name(inboxRow) : null;
+              // der Aufklapp-Pfeil bleibt links vom Symbol in eigener Spalte (sichtbar beim Überfahren)
+              const tw = inboxRow?.querySelector(":scope > .container .twisty .twisty-icon")?.getBoundingClientRect();
+              out.twisty = tw && tw.width > 0 ? [Math.round(tw.left - left0), Math.round(tw.right - left0)] : null;
+              // je Konto: Name, ganz sichtbar, sonst mit „…“ gekürzt
+              out.kidNames = kids.map(l => (n => [n?.textContent, !!n && n.scrollWidth <= n.clientWidth,
+                                                  !!n && a3.getComputedStyle(n).textOverflow == "ellipsis"])(l.querySelector(":scope > .container .name")));
+              out.pane = Math.round(ad.getElementById("folderPane").getBoundingClientRect().width);
+              return out;""" % key)
+            fi, ai = res.get("favIcons") or [], res.get("accIcons") or []
+            ok = (len(fi) >= 2 and len(ai) == 1 and all(v == ai[0] for v in fi)
+                  and len(set(res.get("favText") or [])) == 1 and res.get("favText")[0] == (res.get("accText") or [None])[0]
+                  and res.get("header") is not None and res.get("header") == res.get("accName")
+                  and res.get("kidIcons") and len(res["kidIcons"]) == 1 and abs(res["kidIcons"][0] - res["inboxText"]) <= 2
+                  and res.get("twisty") and res["twisty"][0] >= 0 and res["twisty"][1] <= fi[0]
+                  # „Local Folders“ da, ganz oder mit „…“ gekürzt (Maintainer 15.11.2026)
+                  and any(n == "Local Folders" and (fits or dots) for n, fits, dots in res.get("kidNames") or []))
+            return ok, f"{res}"
+        check("Ordnerliste: Favoriten-Symbole und „Favourites“ bündig mit den Spalten der Konten, Konten unter All Inboxes eine Stufe tiefer", favourites_columns, results)
+
         def local_hidden():
             # wie Apple Mail: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind (es gibt ein anderes Konto);
             # liegt dort etwas, ist es wieder da
@@ -9717,9 +9772,11 @@ def run_checks(m, version, profile, results):
 
     def folder_start_width():
         # Neues Profil, Mail-Tab zuerst offen: Ordnerliste 206 px wie in Apple Mail (und wie nach
-        # Doppelklick auf den Trenner) statt Thunderbirds 198 px, sodass „Local Folders“ in den
-        # Favoriten neben einer Ungelesen-Zahl nicht gekürzt wird. Muss vor „Ordnerleiste: Ziehen
-        # und Doppelklick“ laufen, das die gespeicherte Breite ändert
+        # Doppelklick auf den Trenner) statt Thunderbirds 198 px. „Local Folders“ steht unter All Inboxes
+        # eine Stufe tiefer und darf dort gekürzt erscheinen, aber nur mit „…“ und mit sichtbarer
+        # Ungelesen-Zahl daneben (Maintainer 15.11.2026: „den namen "local folder" optisch abkürzen falls
+        # das notwendig ist“). Muss vor „Ordnerleiste: Ziehen und Doppelklick“ laufen, das die gespeicherte
+        # Breite ändert
         res = m.js("""
           const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
           try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
@@ -9741,6 +9798,11 @@ def run_checks(m, version, profile, results):
                         pref: Services.prefs.getIntPref("extensions.mailcards.sidebarWidth", 0), text: name?.textContent,
                         count: row?.querySelector(":scope > .container .unread-count")?.textContent,
                         client: name?.clientWidth, scroll: name?.scrollWidth };
+          // gekürzt nur mit „…“ (nicht hart abgeschnitten), die Zahl ganz sichtbar rechts neben dem Namen in der Liste
+          const cs = name && a3.getComputedStyle(name), cnt = row?.querySelector(":scope > .container .unread-count");
+          const pr = ad.getElementById("folderPane").getBoundingClientRect(), cr = cnt?.getBoundingClientRect(), nr = name?.getBoundingClientRect();
+          out.ellipsis = cs ? cs.textOverflow == "ellipsis" && cs.whiteSpace == "nowrap" : null;
+          out.countShown = !!cr && cr.width > 0 && cr.left >= nr.right - 1 && cr.right <= pr.right + 0.5;
           if (row) row.unreadCount = inbox.getNumUnread(false);
           // Mit „Local Folders“ ohne Posteingang wählt Thunderbird dessen Kontozeile (Kontoübersicht, ohne Liste und
           // Mail); die Sammelordner kommen erst jetzt dazu und ändern die Auswahl nicht. Die folgenden Prüfungen
@@ -9749,17 +9811,16 @@ def run_checks(m, version, profile, results):
           if (alle?.uri) { a3.displayFolder(alle.uri); await bis(() => a3.gFolder?.URI == alle.uri, "All Inboxes gewählt", 3000); await ruhig(500); }
           out.selected = !!alle?.uri && a3.gFolder?.URI == alle.uri && a3.document.getElementById("threadPane").getBoundingClientRect().width > 0;
           return out;""")
-        # die 206 px sind auf die Systemschrift von macOS abgestimmt (dort passt „Local Folders“ genau) – mit
-        # anderen Schriften (Linux: 2 px breiter) wird nur die Breite geprüft
-        fits = res["scroll"] <= res["client"] or sys.platform != "darwin"
+        # ganz oder mit „…“ gekürzt (auf allen Systemen)
+        fits = res["scroll"] <= res["client"] or res.get("ellipsis") is True
         # Linux: Thunderbird legt die Ordnerliste mit der breiteren Systemschrift schon breiter an (240 px) –
         # dort bleibt sie so (nie schmaler als 206), gemerkt als eigene Breite
         width_ok = res["width"] == 206 and res["pref"] in (0, 206) if sys.platform == "darwin" else \
             res["width"] >= 206 and res["pref"] in (0, res["width"])
         ok = (width_ok and res["text"] == "Local Folders"
-              and res["count"] == "6" and res["client"] and fits and res.get("selected"))
+              and res["count"] == "6" and res.get("countShown") and res["client"] and fits and res.get("selected"))
         return ok, f"{res}"
-    check("Ordnerliste: im neuen Profil 206 px breit, „Local Folders“ nicht gekürzt", folder_start_width, results)
+    check("Ordnerliste: im neuen Profil 206 px breit, „Local Folders“ ganz oder mit … gekürzt, Zahl sichtbar", folder_start_width, results)
 
     def folder_header_hidden():
         # Thunderbirds Knopfzeile über der Ordnerliste („…“, Abrufen, Verfassen) ist immer aus, auch wenn

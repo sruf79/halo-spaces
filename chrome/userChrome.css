@@ -84,6 +84,12 @@
      Kalender, dessen Ansicht daneben Platz braucht); die Erweiterung liest sie
      beim Ziehen an der Trennlinie */
   --mt-sidebar-max-width: 360px;
+  /* Favoriten der Ordnerliste in den Spalten der Konten (hell und dunkel gleich):
+     Überschrift wie die Kontonamen, Zeilen wie die Kontoordner, je Stufe eine
+     Textspalte (16 px Symbol + Abstand) tiefer */
+  --mt-fav-head-start: 40px;
+  --mt-fav-row-start: 16px;
+  --mt-fav-level: 33px;
   /* Tabellen (Mailliste als Tabelle, Adressbuch-Tabelle, Aufgabenliste): Schrift,
      Zeilen- und Kopfhöhe, Tönung jeder zweiten Zeile – überall gleich wie die
      Mail-Tabelle. Die Zeilenhöhe rechnet die Erweiterung zusätzlich in
@@ -727,6 +733,19 @@ body.layout-wide {
      außer dem ersten – mit ausgeblendetem „Alle Ordner“ stand sie nur
      teilweise); gegliedert wird wie in Apple Mail durch den Abstand */
   border-block-start: none !important;
+}
+
+/* Favoriten in den Spalten der Konten (Variante A, Maintainer 11.11.2026; Breite
+   bleibt 206 px, „Local Folders“ darf gekürzt erscheinen, Maintainer 15.11.2026):
+   „Favourites“ beginnt wie die Kontonamen, All Inboxes/All Sent/Starred stehen
+   mit Symbol und Text bündig über den Ordnern der Konten; die Konten darunter je
+   Stufe eine Textspalte tiefer (Symbol unter dem Text der Zeile darüber) */
+#folderTree > li[data-mode="smart"] > .mode-container {
+  margin-inline-start: var(--mt-fav-head-start) !important;
+}
+
+#folderTree > li[data-mode="smart"] li > .container {
+  padding-inline-start: calc(var(--mt-fav-row-start) + var(--depth, 0) * var(--mt-fav-level)) !important;
 }
 
 #folderTree .mode-name {

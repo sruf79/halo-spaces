@@ -85,7 +85,7 @@ Lesart seit 15.11.2026 (Deutung des Designers, vom Maintainer bestätigt: „ich
 empfehlungen und möchte ein vorschaubild“; Wortlaut zum Umfang in P2): Die Bauart der Kachel d2h
 (E17) ist Vorbild für das **eine** hervorgehobene Element je Dialog oder Popup, den Hauptknopf. Alles
 andere bleibt ruhig und neutral wie bei Apple: kein Rahmen, kein Glimmen, keine getönten großen
-Flächen (V2, V3). Regel: G15.
+Flächen (V2, V3). Regel: G15. (Farbe des Hauptknopfs offen, siehe G15; bis zur Entscheidung gilt G11)
 
 ### 2b. Rangfolge bei Konflikten zwischen Regeln
 
@@ -180,7 +180,7 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
   abschneiden, Suchfeld wird beim Verkleinern nie wieder größer (9.11. und 11.11.2026, E).
 - **G11 Hell und dunkel, Systemakzent.** Werte für Hell und Dunkel, Akzent über `AccentColor`, keine
   sichtbaren Scrollbalken (A Konventionen „CSS“). Ausnahme nach G15: Hauptknopf in der Farbe des
-  aktiven Space, sobald umgesetzt.
+  aktiven Space, sobald umgesetzt (Farbe des Hauptknopfs offen, siehe G15; bis zur Entscheidung gilt G11).
 - **G12 Kein „Apple“ nach außen.** UI, README, Store, Releases, Issues, Commit-Texte nennen Apple
   nicht (27.10.2026, M `kein-apple-nach-aussen`).
 - **G13 Oberflächentexte.** Keine Gedankenstriche, Einstellungen und Onboarding schrittweise
@@ -203,6 +203,7 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
   Knöpfe um. Danach Bereich für Bereich mit Vorschaubildern, zuerst Dialoge mit Hauptknopf.
   Grundlage als harte Regel: Empfehlung (3) des Designers, vom Maintainer angenommen („ich folge
   deinen empfehlungen und möchte ein vorschaubild“, 15.11.2026, E).
+  Farbe des Hauptknopfs offen (Beschreibung des Designers, kein Wortlaut des Maintainers, 15.11.2026): Der Maintainer hat nachgefragt, ob eine je Space wechselnde Knopffarbe unruhig wirkt. Der Designer hat seine Empfehlung daraufhin geändert: Halo über das Licht, Knopffarbe gleichbleibend in der Systemfarbe; Space-Farbe nur an Kacheln und Lichtkegel. Bis zur Entscheidung des Maintainers gilt für den Hauptknopf weiter G11, nicht umsetzen.
 
 **Einspruchsgründe abschließend** (Entscheidung von Director und Designer nach Auftrag von neon,
 14.11.2026; der Maintainer: „bezüglich F1 weiss ich nicht genau was du hier willst“; G15 ergänzt
@@ -268,7 +269,7 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 | Seitenleiste | `#F2F2F4` / `#282828` | C :19, :115 |
 | Text, zweit, dritt | `#1D1D1F`, `#6E6E73`, `#8E8E93` / `#F5F5F7`, `#A1A1A6`, `#7C7C80` | C :21–23, :120–122 |
 | Warnrot, Stern | `#FF3B30` / `#FF6961`; `#FF9500` / `#FF9F0A` (systemRed/systemOrange) | C :74, :79, :152, :155 |
-| Akzent | immer `AccentColor` des Systems, keine feste Farbe. Ausnahme nach G15: Hauptknopf in der Farbe des aktiven Space, sobald umgesetzt | C :12; G11, G15 |
+| Akzent | immer `AccentColor` des Systems, keine feste Farbe. Ausnahme nach G15: Hauptknopf in der Farbe des aktiven Space, sobald umgesetzt (Farbe des Hauptknopfs offen, siehe G15; bis zur Entscheidung gilt G11) | C :12; G11, G15 |
 
 ### Symbole
 | Was | Wert | Quelle |
@@ -566,7 +567,7 @@ Gegenbeispiele.
 | E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026 |
 | E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
 | E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
-| E19 | Halo nur an Kachel und Seitenleiste → übergeordnetes Gestaltungsmerkmal für alle Bereiche; je Dialog oder Popup nur der Hauptknopf in Farbe und Licht des aktiven Space (G15, nach Veröffentlichung des Pakets) | „die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“; „ich folge deinen empfehlungen und möchte ein vorschaubild“ | E 15.11.2026 (Gespräch mit dem Designer) |
+| E19 | Halo nur an Kachel und Seitenleiste → übergeordnetes Gestaltungsmerkmal für alle Bereiche; je Dialog oder Popup nur der Hauptknopf in Farbe und Licht des aktiven Space (G15, nach Veröffentlichung des Pakets; Farbe des Hauptknopfs offen, siehe G15) | „die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“; „ich folge deinen empfehlungen und möchte ein vorschaubild“ | E 15.11.2026 (Gespräch mit dem Designer) |
 
 ### Wahrnehmungsregeln aus Entscheidungen (vom Designer fortzuschreiben, Abschnitt 6b Schritt 9)
 - Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).

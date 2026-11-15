@@ -39,7 +39,8 @@ aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH clear); rc=$?
 pruefe "github per sessionId: Rollenblock mit PushNotification" '[[ $aus == *PushNotification* && $aus == *"github.comm.routine – Rolle"* ]]'
 pruefe "github per sessionId: ohne neon-Auftragsliste und Bilder" '[[ $aus != *"Offene Aufträge"* && $aus != *Probeauftrag* && $aus != *Vorlagen:* && $aus != *"neon – Arbeitsweise"* ]]'
 pruefe "github per sessionId: Stand-Datei, Ausnahmen, Rechte-Modus" '[[ $aus == *github-komm-stand.md* && $aus == *"CI rot"* && $aus == *"NOTFALL: Sicherung"* && $aus == *Rechte-Modus* ]]'
-pruefe "github: höchstens 15 Zeilen und unter 2000 Zeichen" '(( ${#${(f)aus}} <= 15 && ${#aus} < 2000 ))'
+pruefe "github per sessionId: Inaktivitätsregel mit Markierung, Skript und Ausnahmen" '[[ $aus == *"we will close this issue due to inactivity"* && $aus == *inaktivitaet.sh* && $aus == *inaktivitaet-ausnahmen.txt* ]]'
+pruefe "github: höchstens 15 Zeilen und unter 2600 Zeichen" '(( ${#${(f)aus}} <= 15 && ${#aus} < 2600 ))'
 pruefe "github: Exitcode 0" '(( rc == 0 ))'
 aus=$(HALO_NEON=1 lauf $HOOK $T/sitz $SID_GH compact)
 pruefe "github nach Verdichten: Hinweis und Rollenblock" '[[ $aus == *verdichtet* && $aus == *PushNotification* && $aus != *"Offene Aufträge"* ]]'

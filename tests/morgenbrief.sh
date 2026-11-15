@@ -157,6 +157,12 @@ while d < h: print(d.isoformat()); d += dt.timedelta(days=1)
   k=$(grep -m1 '^Kurz:' $TB); INFO+=("Tag ${td[9,10]}.${td[6,7]}.: $(kurz ${${k#Kurz: }:-ohne Kurzzeile} 120)")
 done
 
+# --- 4a. GitHub-Issues wegen Inaktivität geschlossen (tests/inaktivitaet.sh in der GitHub-Routine, Maintainer
+# 15.11.2026): Zeilen „<Datum> <Zeit> geschlossen #n …“ aus ~/halo-nacht/inaktivitaet.log seit dem letzten Brief
+ina=(${(u)${(f)"$(awk -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  '$3 == "geschlossen" { z = $1 " " substr($2, 1, 5); if (z > s && z <= j) print $4 }' $NACHT/inaktivitaet.log 2>/dev/null)"}})
+(( $#ina )) && INFO+=("GitHub: geschlossen wegen Inaktivität: ${(j:, :)ina}")
+
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---
 if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)
 elif [[ -z $TROCKEN ]]; then REL_JSON=$(gh release list -R $REPO_GH -L 5 --json tagName,publishedAt,isDraft 2>/dev/null)

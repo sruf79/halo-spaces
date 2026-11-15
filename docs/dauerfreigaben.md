@@ -47,6 +47,13 @@ Ungespeichertes und ohne eigene Commits, tote Sperrdateien in `~/halo-nacht`, in
 `claude/…`, `rest/…`, `pruef/…`); alles andere bleibt und steht als „Rest mit Risiko“ im Bericht und im
 Morgenbrief. Sitzungen und Dauerprozesse berührt das nicht (bleibt Stufe C).
 
+**Inaktive GitHub-Issues schließen** (Maintainer 15.11.2026, „… automatisch geschieht ohne mich zu fragen“,
+Wortlaut in `ENTSCHEIDUNGEN.md`): Allein die GitHub-Routine (Vorprüfung `tests/github-vorpruefung.sh` um
+9/14/19 Uhr, nicht der Nachtlauf) schließt über `tests/inaktivitaet.sh` Issues, deren Nachfrage mit der
+Markierung „we will close this issue due to inactivity“ über 7 Tage unbeantwortet ist; ausgenommen Label
+`keep-open`/`waiting-on-us` und `tests/inaktivitaet-ausnahmen.txt`; nie Pull Requests. Der Morgenbrief nennt
+die geschlossenen Issues (`docs/github-komm.md` „Inaktivität“).
+
 ## C. Immer der Maintainer (nur mit seinem Satz direkt in neon)
 
 Regeln in `AGENTS.md`; neue oder inhaltlich geänderte LaunchAgents (Zeitpläne, Programmaufruf; nur auf ausdrücklichen Wunsch des Maintainers im Gespräch, das Laden danach siehe B), Neustart der drei Fernsteuerungs-Agenten; `settings.json` und Hooks (Zeitfenster-Hook,

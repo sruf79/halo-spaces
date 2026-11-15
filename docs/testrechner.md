@@ -150,7 +150,9 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   und als Vollprüfung am ersten Samstag im Monat bzw. mit `~/halo-nacht/DOKU-VOLL`
   (Ergänzung vom selben Tag, Wortlaut in `ENTSCHEIDUNGEN.md`; Regeln = Deutung der Sitzung
   global.design.comparison, `tests/MAC-MINI.md` Abschnitt 16);
-  GitHub-Kommunikation nur bei Neuem von anderen seit „Letzte Prüfung“. Ein
+  GitHub-Kommunikation nur bei Neuem von anderen seit „Letzte Prüfung“ (dazu fällige Nachfragen bzw.
+  wegen Inaktivität geschlossene Issues aus `tests/inaktivitaet.sh`, das die Vorprüfung aufruft und das
+  schließt, unabhängig vom Nachtlauf; `docs/github-komm.md` „Inaktivität“). Ein
   übersprungener Lauf schreibt `ÜBERSPRUNGEN <Routine> <Grund>` ins Protokoll und in
   `~/halo-nacht/uebersprungen.log`, ohne Push aufs iPhone; die Wochenprüfung zählt
   diese Zeilen. Modelle: Sonnet mit niedriger Reasoning-Stufe (`--model sonnet

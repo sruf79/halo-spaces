@@ -22,7 +22,9 @@
 # offene Issues mit Fix auf main und grüner CI ohne „behoben“-Antwort zählen als Fund; die Liste
 # steht danach in ~/halo-aufgaben/issue-abgleich.txt (Zeilen „antworten #n …“). Ist der Abgleich
 # nicht möglich, steht nur ein Hinweis in der Ausgabe (kein Fund).
-# Die Datei wird nach ~/.config/halo-spaces/ kopiert (tests/mac-mini-setup.sh).
+# Dazu die Inaktivitätsregel (tests/inaktivitaet.sh, Maintainer 15.11.2026): schließt Issues, deren Nachfrage
+# über 7 Tage unbeantwortet ist (nicht mit --trocken), und meldet fällige Nachfragen als Fund.
+# Die Datei wird nach ~/.config/halo-spaces/ kopiert (tests/mac-mini-setup.sh), inaktivitaet.sh daneben.
 emulate -L zsh
 setopt pipe_fail
 path=(~/.local/bin /opt/homebrew/bin /usr/local/bin $path)
@@ -105,6 +107,19 @@ if ABGL=$(zsh ${0:A:h}/issue-abgleich.sh ${TROCKEN:+--trocken} 2>&1); then
   FUNDE+=(${(f)"$(print -r -- $ABGL | sed -n 's/^antworten \(#[0-9]*\) \([0-9a-f]*\) .*/Issue \1: Fix \2 auf main mit grüner CI, Antwort „behoben“ fehlt (Liste ~\/halo-aufgaben\/issue-abgleich.txt)/p')"})
 else
   HINWEIS="Hinweis: Issue-Abgleich nicht möglich (${${(f)ABGL}[-1]})"
+fi
+# Inaktivitätsregel (tests/inaktivitaet.sh, Maintainer 15.11.2026, docs/github-komm.md „Inaktivität“): Issues,
+# deren Nachfrage mit Markierung über 7 Tage ohne Antwort ist, schließt das Skript hier selbst (--trocken: nur
+# anzeigen); fällige Nachfragen („anfrage #n …“) und Geschlossenes zählen als Fund (die Routine postet die
+# Nachfrage bzw. trägt das Schließen in den Stand ein). Nicht möglich: nur ein Hinweis.
+if [[ -r ${0:A:h}/inaktivitaet.sh ]]; then
+  INA=$(zsh ${0:A:h}/inaktivitaet.sh ${TROCKEN:+--trocken} 2>&1); ina_rc=$?
+  FUNDE+=(${(f)"$(print -r -- $INA | sed -n \
+    -e 's/^anfrage \(#[0-9]*\) \(.*\)/Issue \1: letzte Antwort von '$EIGENER' am \2, seit über 7 Tagen keine Antwort – Nachfrage mit „we will close this issue due to inactivity“ fällig (Inaktivitätsregel)/p' \
+    -e 's/^würde schließen \(#[0-9]*\) \(.*\)/Issue \1: würde wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh)/p' \
+    -e 's/^geschlossen \(#[0-9]*\) \(.*\)/Issue \1: wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh), im Stand vermerken/p')"})
+  (( ina_rc == 1 )) && FUNDE+=(${(f)"$(print -r -- $INA | sed -n 's/^\(FEHLER .*\)/Inaktivität: \1/p')"})
+  (( ina_rc == 2 )) && HINWEIS+="${HINWEIS:+ }Hinweis: Inaktivitätsregel nicht prüfbar (${${(f)INA}[-1]})"
 fi
 FUNDE=(${(u)FUNDE:#})
 

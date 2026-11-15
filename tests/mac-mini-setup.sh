@@ -479,7 +479,8 @@ SK_PAARE=(mac-remote-control.sh remote-control.sh neon-hook.sh neon-hook.sh
           vorpruefung.zsh vorpruefung.zsh github-vorpruefung.sh github-vorpruefung.sh
           ci-runde.zsh ci-runde.zsh issue-abgleich.sh issue-abgleich.sh
           github-komm-waechter.sh github-komm-waechter.sh board-uebergabe.zsh board-uebergabe.zsh
-          aufraeumen.sh aufraeumen.sh haeufung.py haeufung.py inaktivitaet.sh inaktivitaet.sh)
+          aufraeumen.sh aufraeumen.sh haeufung.py haeufung.py inaktivitaet.sh inaktivitaet.sh
+          bericht-html.py bericht-html.py)
 skripte_kopieren() {   # [<Quellordner> <Zielordner>] – Standard: Checkout und SK_DIR
   local von=${1:-$ROOT/tests} nach=${2:-$SK_DIR} q z veraltet=() kopiert=()
   for q z in $SK_PAARE; do
@@ -723,7 +724,7 @@ pruefe_laeufe() {
   pruefe_agent "Morgenbrief" at.halo-spaces.morgenbrief morgenbrief.sh $HOME/Library/Logs/halo-morgenbrief.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>' \
-    morgenbrief "täglich 08:30 eine iPhone-Meldung, am Wochenende nur bei Auffälligkeiten, Berichte in ~/halo-berichte"
+    morgenbrief "täglich 08:30 der Tagesbericht und eine iPhone-Meldung (am Wochenende nur bei Auffälligkeiten), Bericht in ~/halo-berichte"
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.

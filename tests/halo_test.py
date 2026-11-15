@@ -13326,41 +13326,57 @@ Neu
         # Mail: Ordnerliste ein-/ausblenden ohne Ruck in den letzten Bildern – vertikal und klassisch, enges Fenster
         # (Leseansicht an ihrer Mindestbreite) und breites: Ordnerliste, Mailliste und Leseansicht ändern sich je Bild
         # nur in eine Richtung, der Zustand nach dem Ende entspricht dem letzten Bild
-        res = m.js(r'''
-          const btn = d.getElementById("spacesPinnedButton");
-          const out = { visibility: d.visibilityState };
-          const viewBefore = [Services.prefs.getIntPref("mail.threadpane.listview", 0), Services.prefs.getIntPref("mail.pane_config.dynamic", 0)];
-          try {
-            for (const [name, view, layout, width] of [["karten-eng", 0, 2, 1280], ["karten-breit", 0, 2, 1500], ["klassisch-eng", 1, 0, 1280]]) {
-              w.resizeTo(width, 900);
-              Services.prefs.setIntPref("mail.threadpane.listview", view); Services.prefs.setIntPref("mail.pane_config.dynamic", layout);
-              const a3 = await toMail(); await wait(1500);
-              const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
-              const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
-              for (const phase of ["aus", "ein"]) {
-                btn.click();
-                const frames = [], times = []; const t0 = performance.now();
-                while (performance.now() - t0 < 600) { await new Promise(r => a3.requestAnimationFrame(r)); frames.push(snap()); times.push(performance.now()); }
-                await ruhig(500); const end = snap();
-                // Richtungswechsel je Spalte (mehr als 1,5 px gegen die Bewegung) und Abstand des Endes zum letzten Bild vor dem Ende
-                const moving = frames.filter((f, i) => i && f.some((v, j) => Math.abs(v - frames[i - 1][j]) > 0.05));
-                const back = [0, 1, 2].map(j => { let dir = 0, bad = 0; for (let i = 1; i < frames.length; i++) { const dv = frames[i][j] - frames[i - 1][j];
-                  if (Math.abs(dv) < 0.05) continue; const sg = Math.sign(dv); if (dir && sg != dir && Math.abs(dv) > 1.5) bad++; dir = sg; } return bad; });
-                // letzter Schritt: Thunderbirds Teiler (1 px) und Rundung dürfen 3 px ausmachen
-                const lastStep = frames.length > 1 ? Math.max(...[0, 1, 2].map(j => {
-                  const ch = frames.map((f, i) => i ? Math.abs(f[j] - frames[i - 1][j]) : 0).filter(x => x > 0.05);
-                  return ch.length >= 2 ? ch[ch.length - 1] - Math.max(ch[ch.length - 2], 3) : 0; })) : 0;
-                // Bildabstand während der Bewegung (xvfb unter Last: 40–60 ms statt 16 ms)
-                const dts = frames.map((f, i) => i && f.join() != frames[i - 1].join() ? times[i] - times[i - 1] : 0).filter(Boolean).sort((a, b) => a - b);
-                const frameMs = dts.length ? Math.round(dts[dts.length >> 1]) : 0;
-                out[`${name}/${phase}`] = { frames: frames.filter((f, i) => !i || f.join() != frames[i - 1].join()).map(f => f.join("|")).join(" "), steps: moving.length, frameMs, back, lastStep: Math.round(lastStep * 10) / 10, end, last: frames[frames.length - 1] };
+        # (Neumessungen bei zu großem Bildabstand brauchen unter Last mehr als die üblichen 30 s)
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        try:
+            res = m.js(r'''
+              const btn = d.getElementById("spacesPinnedButton");
+              const out = { visibility: d.visibilityState };
+              const viewBefore = [Services.prefs.getIntPref("mail.threadpane.listview", 0), Services.prefs.getIntPref("mail.pane_config.dynamic", 0)];
+              try {
+                for (const [name, view, layout, width] of [["karten-eng", 0, 2, 1280], ["karten-breit", 0, 2, 1500], ["klassisch-eng", 1, 0, 1280]]) {
+                  w.resizeTo(width, 900);
+                  Services.prefs.setIntPref("mail.threadpane.listview", view); Services.prefs.setIntPref("mail.pane_config.dynamic", layout);
+                  const a3 = await toMail(); await wait(1500);
+                  const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
+                  const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
+                  const measure = async () => {
+                    btn.click();
+                    const frames = [], times = []; const t0 = performance.now();
+                    while (performance.now() - t0 < 600) { await new Promise(r => a3.requestAnimationFrame(r)); frames.push(snap()); times.push(performance.now()); }
+                    await ruhig(500); const end = snap();
+                    // Richtungswechsel je Spalte (mehr als 1,5 px gegen die Bewegung) und Abstand des Endes zum letzten Bild vor dem Ende
+                    const moving = frames.filter((f, i) => i && f.some((v, j) => Math.abs(v - frames[i - 1][j]) > 0.05));
+                    const back = [0, 1, 2].map(j => { let dir = 0, bad = 0; for (let i = 1; i < frames.length; i++) { const dv = frames[i][j] - frames[i - 1][j];
+                      if (Math.abs(dv) < 0.05) continue; const sg = Math.sign(dv); if (dir && sg != dir && Math.abs(dv) > 1.5) bad++; dir = sg; } return bad; });
+                    // letzter Schritt: Thunderbirds Teiler (1 px) und Rundung dürfen 3 px ausmachen
+                    const lastStep = frames.length > 1 ? Math.max(...[0, 1, 2].map(j => {
+                      const ch = frames.map((f, i) => i ? Math.abs(f[j] - frames[i - 1][j]) : 0).filter(x => x > 0.05);
+                      return ch.length >= 2 ? ch[ch.length - 1] - Math.max(ch[ch.length - 2], 3) : 0; })) : 0;
+                    // Bildabstand während der Bewegung (xvfb unter Last: 40–60 ms statt 16 ms)
+                    const dts = frames.map((f, i) => i && f.join() != frames[i - 1].join() ? times[i] - times[i - 1] : 0).filter(Boolean).sort((a, b) => a - b);
+                    const frameMs = dts.length ? Math.round(dts[dts.length >> 1]) : 0;
+                    return { frames: frames.filter((f, i) => !i || f.join() != frames[i - 1].join()).map(f => f.join("|")).join(" "), steps: moving.length, frameMs, back, lastStep: Math.round(lastStep * 10) / 10, end, last: frames[frames.length - 1] };
+                  };
+                  for (const phase of ["aus", "ein"]) {
+                    // Die Animation dauert 250 ms; liefert xvfb unter Last mehr als 62 ms je Bild, passen keine 4 Bilder
+                    // hinein (14.11. Lauf 43534717826: 89 ms, 3 Schritte, sonst einwandfrei) – die Messung sagt dann über
+                    // die Schritte nichts aus. Dann zurückschalten und neu messen (höchstens zweimal); Ruck, Richtung und
+                    // Ende gelten für jede Messung, auch die verworfenen
+                    let r = await measure(); const verworfen = [];
+                    while (r.frameMs > 62 && verworfen.length < 2) {
+                      verworfen.push(r); btn.click(); await ruhig(1000); await wait(300); r = await measure();
+                    }
+                    out[`${name}/${phase}`] = verworfen.length ? { ...r, verworfen } : r;
+                  }
+                }
+              } finally {
+                Services.prefs.setIntPref("mail.threadpane.listview", viewBefore[0]); Services.prefs.setIntPref("mail.pane_config.dynamic", viewBefore[1]);
+                w.resizeTo(1500, 900); await wait(800);
               }
-            }
-          } finally {
-            Services.prefs.setIntPref("mail.threadpane.listview", viewBefore[0]); Services.prefs.setIntPref("mail.pane_config.dynamic", viewBefore[1]);
-            w.resizeTo(1500, 900); await wait(800);
-          }
-          return out;''')
+              return out;''')
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
         if res.get("visibility") == "hidden":
             return True, f"Testfenster verdeckt – übersprungen {res}"
         # (Windows-VM: emuliert, dort fallen Einzelbilder aus – der letzte Schritt darf etwas größer sein;
@@ -13371,8 +13387,10 @@ Neu
         # bei rund 50 ms je Bild; dann genügen 4 Schritte, Ruck und Richtungswechsel bleiben streng)
         def min_steps(v):
             return 4 if sys.platform != "darwin" and v.get("frameMs", 0) > 30 else 6
-        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < min_steps(v) or any(v["back"]) or v["lastStep"] > last_max
-               or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"])))]
+        def ruck(v):
+            return any(v["back"]) or v["lastStep"] > last_max or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"]))
+        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < min_steps(v) or ruck(v)
+               or any(ruck(x) for x in v.get("verworfen", [])))]
         return not bad, "; ".join(bad) or f"{res}"
     check("Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck in den letzten Bildern (vertikal und klassisch, enges und breites Fenster)", sidebar_no_jump, results)
 
@@ -14139,10 +14157,13 @@ Neu
     def ab_background_header():
         # Adressbuch im Hintergrund: Änderungen an Kontakten (gesammelte Adressen,
         # CardDAV) überschreiben nicht die Kopfzeile über der Mailliste
-        res = m.js(MESSAGE_JS + OPEN_BOOKS_JS + r"""
-          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+        # (Kopfzeile im Adressbuch erst abwarten: in der CI unter Last war sie nach ruhig(800) noch die der Mailliste,
+        # 14.11. Lauf 43534717826 – abTitle == before; bleibt sie gleich, ist die Prüfung weiter rot)
+        res = m.js(MESSAGE_JS + r"""
           const title = () => d.querySelector("#mcListHeader .mc-lh-title")?.textContent;
-          await ruhig(800);
+          const mailTitle = title();""" + OPEN_BOOKS_JS + r"""
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          await until(() => title() != mailTitle, 5000); await ruhig(800);
           const abTitle = title();
           await toMail();
           const before = title(); const seen = new Set([before]);

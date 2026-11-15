@@ -642,3 +642,8 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers): Der Skill (MIT
 
 Herkunft: Gespräch mit neon, 15.11.2026, zur Rückfrage der Tagesroutine beim Eintrag „Spaces-Leiste: Kontextmenüs der Kacheln deaktivieren“ (jetzt auf main oder im Paketzweig mitnehmen); neon empfahl den Paketzweig. Wortlaut des Maintainers: „ja“ (auf die Frage „Soll das Menü in den Paketzweig?“ nach der Aussage, der Paketzweig sei die risikoärmere Variante).
 Umsetzung (Deutung von neon, nicht des Maintainers): Der Eintrag wird auf paket/lichtschein-kachel zusammen mit dem Umbau der Kacheln umgesetzt, nicht auf main. Der Zweck des Eintrags ist, dass ein Rechtsklick auf eine Kachel kein Menü mehr zeigt; neon hatte ihn dem Maintainer vorher irrtümlich als „Menü soll erscheinen“ beschrieben.
+
+## Ablauf: Board-Zugriffe bei Abfragelimit wiederholen, verlorene Notizen nachtragen, freigegeben (15.11.2026)
+
+Herkunft: Gespräch mit neon, 15.11.2026; Vorlage des Eintrags (Beleg: zwei Einträge blieben wegen verlorener Notizen auf Todo, obwohl behoben) mit der Frage „Soll ich ihn freigeben?“. Wortlaut des Maintainers: „ja“.
+Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers): Der Eintrag „Ablauf: Board-Zugriffe bei Abfragelimit wiederholen, verlorene Notizen nachtragen“ steht auf Todo und wird von den Läufen umgesetzt (tests/board.sh, CI-Wächter).

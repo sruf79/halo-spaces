@@ -13361,6 +13361,16 @@ Neu
           const out = {};
           try {
             await until(() => nw.document?.readyState == "complete" && nw.document.getElementById("tabmail")?.currentAbout3Pane?.document?.getElementById("threadPane"), 15000);
+            // Zeigt das Fenster noch die Kontoübersicht (Wurzelordner, z. B. mit --only ohne vorherige Prüfungen), hat
+            // die Mailliste keine Breite – dann einen echten Ordner (Papierkorb der Lokalen Ordner) anzeigen
+            const a3n = nw.document.getElementById("tabmail").currentAbout3Pane;
+            out.root = !a3n.gFolder || a3n.gFolder.isServer;
+            if (out.root) {
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const trash = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Trash);
+              a3n.displayFolder(trash.URI);
+              await until(() => a3n.gFolder?.URI == trash.URI && a3n.document.getElementById("threadPane").getBoundingClientRect().width > 0, 5000);
+            }
             nw.resizeTo(1500, 900); await wait(4000);
             const nd = nw.document, a3 = nd.getElementById("tabmail").currentAbout3Pane, off = a3.browsingContext.embedderElement.getBoundingClientRect();
             const R = e => { const r = e?.getBoundingClientRect(); return r && r.width ? { l: Math.round(r.left), r: Math.round(r.right) } : null; };

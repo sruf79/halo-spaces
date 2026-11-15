@@ -157,6 +157,13 @@ if [[ -n $DOKU && -z $TROCKEN ]]; then
     log "Wächter CI-Runden ROT: ${${(M)${(f)CIR}:#FEHLER*}}"
     DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/ci_runde_test.zsh): ${(j: | :)${(M)${(f)CIR}:#FEHLER*}} – tests/ci-runde.zsh bzw. tests/ci-waechter.sh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
   fi
+  # Board-Zugriffe (tests/board_test.zsh: Abfragelimit wiederholen, Warteschlange für Notizen/Status, ohne Netz)
+  if BRT=$(zsh $REPO/tests/board_test.zsh 2>&1); then
+    log "Wächter Board-Zugriffe: $(print -r -- $BRT | grep -c '^OK') Fälle grün"
+  else
+    log "Wächter Board-Zugriffe ROT: ${${(M)${(f)BRT}:#FEHLER*}}"
+    DOKU_HINWEIS="$DOKU_HINWEIS WÄCHTER ROT (tests/board_test.zsh): ${(j: | :)${(M)${(f)BRT}:#FEHLER*}} – tests/board.sh bzw. tests/gh-wdh.zsh prüfen (Eintrag „Tests: …“ im Board, nicht den Test lockern)."
+  fi
   # Issue-Abgleich (tests/issue_abgleich_test.zsh: Fix-Nummern, Teil-Fix, Revert, CI, Antwort, Schließen, ohne Netz)
   if IAT=$(zsh $REPO/tests/issue_abgleich_test.zsh 2>&1); then
     log "Wächter Issue-Abgleich: ${IAT##*$'\n'}"

@@ -129,7 +129,7 @@ nachholen() {
 
 BOARD=
 board() {   # scheitert (Exitcode 1), wenn das Board nicht lesbar ist – dann nichts anlegen (sonst Dubletten)
-  [[ -n $BOARD ]] || BOARD=$(gh project item-list 1 --owner sruf79 --limit 1000 --format json) || { BOARD=; return 1 }
+  [[ -n $BOARD ]] || BOARD=$(gh_wdh project item-list 1 --owner sruf79 --limit 1000 --format json) || { BOARD=; return 1 }
   [[ -n $BOARD ]] || return 1
   print -r -- $BOARD
 }
@@ -171,7 +171,7 @@ Schlüssel: $schluessel"
       print -u2 "  (trocken) würde ergänzen: $id"
     else
       body=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
-      gh project item-edit --id $di --body "$body
+      gh_wdh project item-edit --id $di --body "$body
 
 $zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen"; return 1 }
     fi
@@ -190,10 +190,10 @@ Wieder aufgetreten: „$frueher“ war schon Done – der Fehler tritt vermutlic
   if [[ -n $TROCKEN ]]; then
     print "  (trocken) würde anlegen: $titel" >&2
   else
-    id=$(gh project item-create 1 --owner sruf79 --title "$titel" --body "$text" --format json --jq .id) \
+    id=$(gh_wdh project item-create 1 --owner sruf79 --title "$titel" --body "$text" --format json --jq .id) \
       || { melde "FEHLER: Eintrag „$titel“ ließ sich nicht anlegen"; return 1 }
-    gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_TYP --single-select-option-id $TYP_BUG >/dev/null
-    gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_TODO >/dev/null
+    gh_wdh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_TYP --single-select-option-id $TYP_BUG >/dev/null
+    gh_wdh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_TODO >/dev/null
     BOARD=                                   # neu laden: der nächste Job findet ihn dann
   fi
   print neu
@@ -202,7 +202,7 @@ Wieder aufgetreten: „$frueher“ war schon Done – der Fehler tritt vermutlic
 # Versuchsjobs eines Commits: Jobs, die in .github/workflows/test.yml dieses Stands
 # continue-on-error haben (Job-Schlüssel bzw. sein name:). Ausgabe eine Zeile je Job.
 versuchsjobs() {   # <Commit>
-  gh api "repos/$R/contents/.github/workflows/test.yml?ref=$1" --jq .content 2>/dev/null | base64 -D 2>/dev/null | awk '
+  gh_wdh api "repos/$R/contents/.github/workflows/test.yml?ref=$1" --jq .content 2>/dev/null | base64 -D 2>/dev/null | awk '
     /^jobs:/ { in_jobs = 1; next }
     in_jobs && /^[^ #]/ { in_jobs = 0 }
     in_jobs && /^  [A-Za-z0-9_-]+:[ ]*$/ { job = $1; sub(/:$/, "", job); name[job] = job; next }
@@ -256,7 +256,7 @@ repariert_schliessen() {   # <Prüfung> <Notiz>
       print -u2 "  (trocken) würde Notiz anlegen (übrige Prüfungen noch rot): $id"
       return 0
     fi
-    gh project item-edit --id $di --body "$body
+    gh_wdh project item-edit --id $di --body "$body
 
 ${2/in derselben Nacht repariert/Prüfung „$1“ in derselben Nacht repariert} Übrige Prüfungen des Eintrags noch offen:$rest" >/dev/null \
       || { melde "FEHLER: Eintrag $id (repariert) ließ sich nicht ergänzen"; return 1 }
@@ -268,13 +268,13 @@ ${2/in derselben Nacht repariert/Prüfung „$1“ in derselben Nacht repariert}
     print -u2 "  (trocken) würde mit Notiz auf Done setzen und archivieren: $id"
     return 0
   fi
-  gh project item-edit --id $di --body "$body
+  gh_wdh project item-edit --id $di --body "$body
 
 $2" >/dev/null \
     && { grep -qF " | $id | " ${HALO_ARCHIV:-$HOME/halo-aufgaben/archiv.md} 2>/dev/null \
          || print -r -- "$(date +%F) | $id | Bug | $(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .title') | -" >> ${HALO_ARCHIV:-$HOME/halo-aufgaben/archiv.md}; } \
-    && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_DONE >/dev/null \
-    && gh project item-archive 1 --owner sruf79 --id $id >/dev/null \
+    && gh_wdh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_DONE >/dev/null \
+    && gh_wdh project item-archive 1 --owner sruf79 --id $id >/dev/null \
     || { melde "FEHLER: Eintrag $id (repariert) ließ sich nicht schließen"; return 1 }
   BOARD=
   melde "  Eintrag $id: in derselben Nacht repariert – Done, archiviert"
@@ -319,7 +319,7 @@ rot() {   # <Lauf-ID>
   RUN_FEHL=0                               # 1: ein Eintrag scheiterte (--lauf: Exitcode 3)
   local -a namen zeilen versuch rote
   local -A jobs_von detail_von paare_von jobs_rot notiz_von
-  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs,createdAt) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
+  info=$(gh_wdh run view $run -R $R --json headSha,displayTitle,url,jobs,createdAt) || { melde "FEHLER: Lauf $run nicht lesbar"; return 1 }
   versuch=(${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"})
   # gezielter Lauf von Hand (nur einzelne Prüfungen/Systeme, test.yml): Fehlersuche, kein Board-Eintrag
   if jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null; then
@@ -330,7 +330,7 @@ rot() {   # <Lauf-ID>
   titel=$(jq -r '.displayTitle[:100]' <<< $info)
   url=$(jq -r .url <<< $info)
   heute=$(date '+%d.%m.%Y %H:%M')
-  flog=$(gh run view $run -R $R --log-failed 2>/dev/null)
+  flog=$(gh_wdh run view $run -R $R --log-failed 2>/dev/null)
   # gescheiterte Prüfungen sammeln; dieselbe Prüfung in mehreren Jobs ergibt einen Eintrag
   for job in ${(f)"$(jq -r '.jobs[] | select(.conclusion == "failure") | .name' <<< $info)"}; do
     if (( ${versuch[(Ie)$job]} )); then
@@ -432,7 +432,7 @@ ${zeilen_von[$id]%$'\n'}"
           continue
         fi
         text=$(print -r -- $b | jq -r --arg i $id '.items[] | select(.id == $i) | .content.body')
-        gh project item-edit --id ${zeilen_von[$id.di]} --body "$text
+        gh_wdh project item-edit --id ${zeilen_von[$id.di]} --body "$text
 
 $zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen"; RUN_FEHL=1 }
       done
@@ -470,9 +470,9 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh, ein Eintrag je rotem La
           print -u2 "  (trocken) würde anlegen: $ttl"
           print -r -- $text | sed -n '/^Ist: /,/^$/p' | sed 's/^/    /' >&2
         else
-          id=$(gh project item-create 1 --owner sruf79 --title "$ttl" --body "$text" --format json --jq .id) \
-            && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_TYP --single-select-option-id $TYP_BUG >/dev/null \
-            && gh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_TODO >/dev/null \
+          id=$(gh_wdh project item-create 1 --owner sruf79 --title "$ttl" --body "$text" --format json --jq .id) \
+            && gh_wdh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_TYP --single-select-option-id $TYP_BUG >/dev/null \
+            && gh_wdh project item-edit --project-id $PROJEKT --id $id --field-id $FELD_STATUS --single-select-option-id $STATUS_TODO >/dev/null \
             || { melde "FEHLER: Eintrag „$ttl“ ließ sich nicht anlegen"; RUN_FEHL=1 }
           BOARD=
         fi
@@ -552,9 +552,9 @@ Commit: $sha „$titel“
 
 konsole() {   # <Lauf-ID>; Exitcode 2, wenn der Lauf nicht lesbar ist (dann später erneut)
   local run=$1 info flog
-  info=$(gh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "Lauf $run nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
+  info=$(gh_wdh run view $run -R $R --json headSha,displayTitle,url,jobs) || { melde "Lauf $run nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
   jq -e 'any(.jobs[]; .name == "changes" and any(.steps[]?; .name == "Gezielter Lauf" and .conclusion == "success"))' <<< $info >/dev/null && return 0
-  flog=$(gh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
+  flog=$(gh_wdh run view $run -R $R --log 2>/dev/null) || { melde "Lauf $run: Protokoll nicht lesbar (Fehlerkonsole) – später erneut"; return 2 }
   # Zeilen aus Versuchsjobs (continue-on-error) weglassen; die Zeilen beginnen mit „<Job><Tab>“
   local j
   for j in ${(f)"$(versuchsjobs $(jq -r .headSha <<< $info))"}; do
@@ -595,14 +595,14 @@ if [[ -z $NUR && -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start ci-waechter; 
 fi
 
 FENSTER=$(nacht_fenster)
-LISTE=$(gh run list -R $R -w test.yml -b main -L 30 --json databaseId,status,conclusion,createdAt,headSha \
+LISTE=$(gh_wdh run list -R $R -w test.yml -b main -L 30 --json databaseId,status,conclusion,createdAt,headSha \
   --jq 'sort_by(.databaseId) | .[] | "\(.databaseId) \(.status) \(.conclusion // "-") \(.createdAt | fromdate) \(.headSha[:7])"') \
   || { log "FEHLER: gh run list gescheitert"; exit 1 }
 
 if [[ -n $NUR ]]; then
   zeile=$(print -r -- $LISTE | grep "^$NUR ")
   if [[ -z $zeile ]]; then              # älter als die letzten 30 Läufe
-    zeile=$(gh run view $NUR -R $R --json databaseId,status,conclusion,createdAt,headSha \
+    zeile=$(gh_wdh run view $NUR -R $R --json databaseId,status,conclusion,createdAt,headSha \
       --jq '"\(.databaseId) \(.status) \(.conclusion // "-") \(.createdAt | fromdate) \(.headSha[:7])"') || exit 1
   fi
   auswerten ${=zeile} || exit 3

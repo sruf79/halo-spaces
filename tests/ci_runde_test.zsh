@@ -177,6 +177,13 @@ pz 61 $GRUEN "mac${TAB}Test hell${TAB}FEHLER${TAB}Mailkopf: Abstand"
 { lauf 60 80m macrot; lauf 61 40m macrot } | daten
 pruefe "Teil repariert: Kalender repariert" '[[ $(rep) == "repariert 61 sha61" ]]'
 pruefe "Teil repariert: Mailkopf bleibt rot" '[[ $(rep x $JETZT sha60 "Mailkopf: Abstand") == rot ]]'
+# Fix-Lauf ohne Windows (nachts läuft Windows nur einmal vor dem Release; 14.11.: Mac-Lauf 43555831729 grün, nicht erkannt)
+pz 60 $ROT
+{ lauf 60 80m macrot; lauf 67 40m ohnewin } | daten; pz 67 $GRUEN
+pruefe "rot → Fix → grün ohne Windows-Job: repariert" '[[ $(rep) == "repariert 67 sha67" ]]'
+# Lauf, in dem der rote Job nicht lief (nur Linux), ändert nichts
+{ lauf 60 80m macrot; lauf 68 40m linuxrot } | daten; pz 68 "linux (beta)${TAB}Test${TAB}FEHLER${TAB}Mailkopf: Abstand"
+pruefe "späterer Lauf ohne Mac-Job: bleibt rot" '[[ $(rep) == rot ]]'
 # gezielter Lauf grün zählt nicht; abgebrochener Schritt: Job später grün = repariert
 { lauf 60 80m macrot; lauf 66 40m gezielt workflow_dispatch } | daten; pz 66 $GRUEN
 pruefe "gezielter Lauf grün: zählt nicht" '[[ $(rep) == rot ]]'

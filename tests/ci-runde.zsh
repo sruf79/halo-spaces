@@ -27,6 +27,8 @@
 
 CI_R=sruf79/halo-spaces
 CI_HIER=${0:A:h}
+# gh bei Abfragelimit warten und wiederholen (tests/gh-wdh.zsh; ältere Kopie ohne die Datei: ohne Wiederholen)
+source $CI_HIER/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }
 CI_CACHE=${HALO_CI_CACHE:-$HOME/halo-nacht/ci-jobs}
 CI_GRENZE=${HALO_CI_GRENZE:-0430}          # nach 04:30 (Wiener Zeit) keine Vollrunde neu beginnen
 CI_TROCKEN=${CI_TROCKEN:-}
@@ -45,6 +47,7 @@ def windows_success: (job("windows") | . != null and .conclusion == "success") o
 def gelaufen: (. as $l | [kernjobs[] | . as $n | $l | job($n) | lief] | all) and windows_gelaufen;
 def alle_uebersprungen: . as $l | [testjobs[] | . as $n | $l | job($n) | (. == null or .conclusion == "skipped")] | all;
 def vollrunde: .status == "completed" and (gezielt | not) and gelaufen;
+def abgeschlossen: .status == "completed" and (gezielt | not);
 def gruen: vollrunde and (. as $l | [kernjobs[] | . as $n | $l | job($n) | .conclusion == "success"] | all) and windows_success;
 def rot: .status == "completed" and (gezielt | not) and any(.jobs[]?; .conclusion == "failure" and .name != "windows-github");
 def zeit: (.createdAt | fromdate);
@@ -72,7 +75,7 @@ ci_fehler() {   # <VOLLRUNDE-FEHLER|EINTRAG-FEHLER> <Grund>
 # Zwischenspeicher (ändern sich nicht mehr). Rückgabe 1, wenn gh nicht lesbar ist.
 ci_laeufe_holen() {   # <Datei> [<Anzahl>, Standard 40]
   local datei=$1 n=${2:-40} liste id st jobs
-  liste=$(gh run list -R $CI_R -w test.yml -b main -L $n \
+  liste=$(gh_wdh run list -R $CI_R -w test.yml -b main -L $n \
     --json databaseId,createdAt,updatedAt,status,conclusion,event,headSha,displayTitle 2>/dev/null) || return 1
   [[ -n $liste ]] || return 1
   mkdir -p $CI_CACHE
@@ -81,7 +84,7 @@ ci_laeufe_holen() {   # <Datei> [<Anzahl>, Standard 40]
     if [[ $st == completed && -s $CI_CACHE/$id.json ]]; then
       jobs=$(<$CI_CACHE/$id.json)
     else
-      jobs=$(gh run view $id -R $CI_R --json jobs --jq '.jobs | map({name, conclusion, status, steps: [.steps[]? | {name, conclusion}]})' 2>/dev/null) || return 1
+      jobs=$(gh_wdh run view $id -R $CI_R --json jobs --jq '.jobs | map({name, conclusion, status, steps: [.steps[]? | {name, conclusion}]})' 2>/dev/null) || return 1
       [[ $st == completed ]] && print -r -- $jobs > $CI_CACHE/$id.json
     fi
     jq --argjson i $id --argjson j "$jobs" '. + [{id: $i, jobs: $j}]' $datei.jobs > $datei.tmp && mv $datei.tmp $datei.jobs
@@ -176,7 +179,7 @@ ci_lauf_aus_treffern() {   # <JSON von gh run list> <SHA>
 ci_lauf_finden() {   # <Start ISO UTC> <SHA>; wiederholt (HALO_CI_VERSUCHE, Standard 9 × 20 s)
   local i treffer rc=1
   for i in {1..${HALO_CI_VERSUCHE:-9}}; do
-    treffer=$(gh run list -R $CI_R --workflow test.yml --event workflow_dispatch --created ">=$1" \
+    treffer=$(gh_wdh run list -R $CI_R --workflow test.yml --event workflow_dispatch --created ">=$1" \
       --json databaseId,headSha,createdAt 2>/dev/null) || treffer='[]'
     ci_lauf_aus_treffern "$treffer" $2; rc=$?
     (( rc == 1 )) || return $rc
@@ -189,7 +192,7 @@ ci_lauf_finden() {   # <Start ISO UTC> <SHA>; wiederholt (HALO_CI_VERSUCHE, Stan
 ci_lauf_abwarten() {   # <ID> <bis-Epoch>
   local st
   while true; do
-    st=$(gh run view $1 -R $CI_R --json status --jq .status 2>/dev/null) || return 1
+    st=$(gh_wdh run view $1 -R $CI_R --json status --jq .status 2>/dev/null) || return 1
     [[ $st == completed ]] && return 0
     (( $(ci_jetzt) + ${HALO_CI_POLL:-300} > $2 )) && return 2
     sleep ${HALO_CI_POLL:-300}
@@ -216,7 +219,7 @@ ci_pruef_log() {   # <Lauf-ID>
   local f=$CI_CACHE/$1.pruef
   if [[ ! -e $f ]]; then
     mkdir -p $CI_CACHE
-    gh run view $1 -R $CI_R --log 2>/dev/null | ci_pruefzeilen > $f.tmp && mv $f.tmp $f || { rm -f $f.tmp; return 1 }
+    gh_wdh run view $1 -R $CI_R --log 2>/dev/null | ci_pruefzeilen > $f.tmp && mv $f.tmp $f || { rm -f $f.tmp; return 1 }
   fi
   print -r -- $f
 }
@@ -234,7 +237,7 @@ ci_pruef_ergebnis() {   # <Läufe-Datei> <Lauf-ID> <Job> <Schritt> <Prüfung>
     if ($3 == "FEHLER") e = "FEHLER"; else if (e == "") e = "OK" } END { print e }' $f
 }
 # Zustand einer roten Prüfung am Ende der Nacht: „repariert <Lauf> <Commit>“, „flackert <Lauf> <Commit>“ oder „rot“.
-# Je Paar Job|Schritt, in dem sie rot war, die späteren Vollrunden (nicht gezielt) bis <bis> der Reihe nach:
+# Je Paar Job|Schritt, in dem sie rot war, die späteren abgeschlossenen Läufe (nicht gezielt) bis <bis> der Reihe nach:
 # FEHLER → rot (Bezug: dieser Commit); OK nach rot auf anderem Commit → repariert, auf demselben → flackert (bleibt
 # vermerkt, auch wenn später ein anderer Commit grün ist). Repariert nur, wenn alle Paare repariert sind.
 ci_reparatur() {   # <Läufe-Datei> <Commit des roten Laufs> <Beginn-Epoch des roten Laufs> <bis-Epoch> <Prüfung> <Job|Schritt …>
@@ -244,7 +247,10 @@ ci_reparatur() {   # <Läufe-Datei> <Commit des roten Laufs> <Beginn-Epoch des r
   local -A zst bezug flat
   (( ${#paare} )) || { print rot; return }
   for p in $paare; do zst[$p]=rot bezug[$p]=$rsha; done
-  laeufe=(${(f)"$(jq -r --argjson v $von --argjson b $bis "$CI_JQ"' [.[] | select(vollrunde and zeit > $v and zeit <= $b)]
+  # jeder abgeschlossene, nicht gezielte Lauf zählt, auch ohne Windows (nachts läuft Windows nur einmal vor dem
+  # Release; mit „vollrunde“ zählte der grüne Mac-Lauf 43555831729 vom 14.11. nicht, die schon reparierte Prüfung
+  # kam als neuer Eintrag ins Board). Lief der Job bzw. die Prüfung dort nicht, bleibt der Stand (ci_pruef_ergebnis leer)
+  laeufe=(${(f)"$(jq -r --argjson v $von --argjson b $bis "$CI_JQ"' [.[] | select(abgeschlossen and zeit > $v and zeit <= $b)]
     | sort_by(zeit) | .[] | "\(.databaseId) \(.headSha)"' $datei)"})
   for z in $laeufe; do
     y=${z%% *} ysha=${z#* }
@@ -311,7 +317,7 @@ ci_nacht_abschluss() {   # <Start-Epoch> <spätestes Ende Epoch, z. B. 09:00>
       print "(trocken) würde starten: gh workflow run test.yml -R $CI_R -f ziel=alle, dann abwarten (bis 90 Minuten, längstens $(ci_wien $hart %H:%M))"
       print -r -- "- Vollrunde: ${ent#starten: } – Probelauf, nicht gestartet"
     else
-      sha=$(gh api repos/$CI_R/commits/main --jq .sha 2>/dev/null)
+      sha=$(gh_wdh api repos/$CI_R/commits/main --jq .sha 2>/dev/null)
       t0=$(TZ=UTC date -r $(( $(date +%s) - 60 )) +%Y-%m-%dT%H:%M:%SZ)
       if [[ -z $sha ]] || ! gh workflow run test.yml -R $CI_R -f ziel=alle >/dev/null 2>&1; then
         ci_fehler VOLLRUNDE-FEHLER "gh workflow run test.yml -f ziel=alle scheiterte"

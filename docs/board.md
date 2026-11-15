@@ -128,6 +128,13 @@ gh project item-edit --project-id PVT_kwHODEPpks4BoBQw --id <id> \
 | Typ | `PVTSSF_lAHODEPpks4BoBQwzhmjN8Y` | Feature `39bb4253`, Bug `ff678ae2` |
 | Status | `PVTSSF_lAHODEPpks4BoBQwzhmjN5E` | Todo `f75ad846`, In Progress `47fc9ee4`, Wartet auf OK `2327eecc`, Done `98236657` |
 
+**Abfragelimit von GitHub** (Wochenprüfung W46, Freigabe des Maintainers 15.11.2026: „ja“): `board.sh`,
+`ci-waechter.sh` und `ci-runde.zsh` rufen `gh` über `tests/gh-wdh.zsh` auf. Meldet GitHub ein Abfragelimit,
+warten sie bis zum Reset (höchstens 15 Minuten je Pause) und versuchen es bis zu dreimal. Kommt eine Notiz oder
+ein Status von `board.sh` trotzdem nicht an, landet er in `~/halo-nacht/board-warteschlange.txt` (Warnung, Exitcode
+0 – nicht selbst wiederholen, sonst steht die Notiz doppelt da). Der nächste `board.sh`-Aufruf, der das Board lesen
+kann, trägt ihn nach; `board.sh nachtragen` tut das gezielt und zeigt, was offen bleibt.
+
 ## Archiv und „War das schon einmal da?“
 
 **Done heißt immer auch archivieren** (Entscheidung des Maintainers vom 12.11.2026): `board.sh status <id> done [<Hash>]`

@@ -100,7 +100,7 @@ Aus den Belegen, messbar wo möglich:
 - **Keine zusätzlichen Konturen oder Ringe** für Zustände: Rahmen um die aktive Kachel abgelehnt
   („wirkt wie der macOS-Fokusring“), Glimmen abgelehnt (M `spaces-leiste-aktiv`); Pillen in Ruhe ohne
   Haarlinie, nur Fläche (B `…Ih2aA`).
-- **Kleine Kontrastschritte:** aktive Kachel Fläche 16 % statt 11 %; Hover 4,5 % / gedrückt 8 % (hell),
+- **Kleine Kontrastschritte:** inaktive Kacheln 8 % (bis d2h 11 %, aktive 16 %), aktive Kachel d2h 34 % hell; Hover 4,5 % / gedrückt 8 % (hell),
   7 % / 12 % (dunkel); Trennlinien 8 %; kein Sprung von leise auf kräftig (Abschnitt 4).
 - **Keine getönten großen Flächen:** Seitenleiste in Bereichsfarbe „zu unruhig“, getönte Auswahlfelder
   „sieht nicht gut aus“ (V2, V3); Farbe nur als leiser Schein (2a).
@@ -230,9 +230,9 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 |---|---|---|
 | Bereiche-Leiste | 89 px = 20 + 48 + 20 px Fläche + 1 px Linie, Ampel (bis 74 px) links der Linie | C :3120–3137; Commit 211a634 (GitHub #46) |
 | Linie zwischen Kachelspalte und Seitenleiste | bleibt („besser mit linie als ohne“, 12.11.2026) | Eichfall V1 |
-| Aktive Kachel (live) | gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron, kein Hover | M `spaces-leiste-aktiv` (2.11.2026); Commit c69d1a4 |
-| Aktive Kachel F4a (nicht live) | Ring 40 %, Hof 9 px, Abschrägung; dunkel eigenes Rezept | B `…IekSY`, Wartet auf OK |
-| Lichtschein | Variante D: Kern 120 × 113 px, Hauptlicht 230 × 219 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; Linie 35 % / 30 %, ±219 px (halbe Stärke bei ±109,5 px); Einstellungen als Mehrfarb-Hauch aller Space-Farben, 8 % hell / 10 % dunkel, gleiche Maße; nicht im Webseiten-Space; abschaltbar | C :2881–3016, spaces.css `#pref-category-box[mc-glow="hauch"]`; E 13.11.2026, 14.11.2026 (Variante D, Mehrfarb-Hauch); B `…IekNU`, `…IuiKQ` |
+| Aktive Kachel (live auf `main`) | gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron, kein Hover | M `spaces-leiste-aktiv` (2.11.2026); Commit c69d1a4 |
+| Aktive Kachel d2h (umgesetzt auf Zweig `paket/lichtschein-kachel`, kommt mit dem Lichtschein) | gefülltes Symbol; Fläche hell 34 %, dunkel 36 → 44 %; Kante rundum 1 px 28 % / 35 %, rechts 55 % / 60 % mit Saum; Lichtkante oben (Weiß 70 % / 22 %), leiser Schatten unten, Lichthof rechts 6 px 0 12 px −4 px 40 % / 45 %; inaktive Kacheln 8 %; Variablen `--mt-tile-*`; unabhängig vom Schalter; ersetzt F4a | E 14.11.2026; B `…IekSY`; E17 |
+| Lichtschein | Variante D: Kern 120 × 113 px, Hauptlicht 230 × 219 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; Linie 35 % / 30 %, volle Stärke ±55 px um die Kachelmitte, Auslauf 164 px ∓ Neigung (bei Neigung 0 wie früher ±219 px), mit Schalter aus neutral; Einstellungen als Mehrfarb-Hauch aller Space-Farben, 8 % hell / 10 % dunkel, gleiche Maße; nicht im Webseiten-Space; abschaltbar | C :2881–3016, spaces.css `#pref-category-box[mc-glow="hauch"]`; E 13.11.2026, 14.11.2026 (Variante D, Mehrfarb-Hauch); B `…IekNU`, `…IuiKQ` |
 | Seitenleiste größte Breite | 360 px in allen Bereichen | C :86 |
 | Seitenleistenbreite beim Start | 206 px (Variante A mit 240 px zurückgenommen) | Commit 32f9d08; siehe F2 |
 
@@ -521,7 +521,7 @@ Gegenbeispiele.
 ### Erledigt
 | # | Vorher → Nachher | Begründung des Maintainers | Quelle |
 |---|---|---|---|
-| E1 (abgelöst durch E17, sobald d2h live ist) | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
+| E1 (abgelöst durch E17, sobald d2h live ist; im Paket umgesetzt 15.11.2026) | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
 | E2 | Schnellantwort unter der Mail (Vorschlag „standardmäßig aus“) → ganz entfernt samt Einstellung | Nutzen nicht belegt, schlankes Produkt | M `nur-belegte-features` (29.10.2026); 9c3e252 |
 | E3 | Antwortfeld als Kapsel → Eingabefeld mit kleinem Radius und Haarlinie | Kapsel „unpassend zum übrigen Mail-Design“ (28.10.); Regel Formen | M `pillen-nur-knoepfe`; be19867; E 5.11.2026 |
 | E4 | Suchfelder eckig mit Rahmen bzw. mit Hover → Kapsel ohne Rand, ohne Hover, Fokusring erst beim Klick | wie Apple | E Regeltext „Formen“ 5.11.2026; 6303d32, 81767e6 |
@@ -537,14 +537,16 @@ Gegenbeispiele.
 | E14 | Today-Pane: Symbol plus Text überlappt den Titel → Knöpfe dort immer nur als Symbol | „ja a.“ | E 14.11.2026 (GitHub #62) |
 | E15 | Aufgabenordner „All“ → „Open“ | Logik vor unlogischer Apple-Benennung | M `im-zweifel-apple` (3.11.2026) |
 | E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026 |
-| E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
+| E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (umgesetzt 15.11.2026 auf `paket/lichtschein-kachel`, live mit dem Lichtschein; Bild-Prüfung „aktive Kachel d2h am Bild“): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
 | E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
 
 ### Wahrnehmungsregeln aus Entscheidungen (vom Designer fortzuschreiben, Abschnitt 6b Schritt 9)
 - Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).
 - Gleich starke, kräftige farbige Kontur rundum wirkt wie ein Rahmen oder Fokusring und ist verworfen (V2); die Lichtrichtung geht verloren.
 - Hell und Dunkel nutzen dieselbe Bauart; nur Werte dürfen sich unterscheiden (Querverlauf, Kantenstärke), damit die Wirkung gleich ist (G11, G14). Wenn die Neigung hell stärker wirkt als dunkel, liegt es an der Umgebung der blassen Fläche, nicht an stärkerem Verlauf.
-- Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026).
+- Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026); geprüft in allen Spaces, eingeblendet und schwebend (15.11.2026).
+- Eine Vorschau aus einem temporären Stilblatt lässt sich 1:1 übernehmen, wenn die Werte als `--mt-`-Variablen mit Hell- und Dunkelwert eingesetzt werden; Abgleich am Pixel gegen die Vorschau-Rohbilder (Abweichung ≤ 5 Stufen nur durch Rundung 1x/2x) belegt die Übernahme (15.11.2026, d2h).
+- Halbtransparente Flächen misst man als Deckkraft über dem Grund (Projektion von Pixel minus Grund auf Farbe minus Grund), nicht als Farbabstand: so sind Werte wie 34 % oder 8 % direkt prüfbar, auch unter Linux und dunkel (15.11.2026).
 
 ### Verworfen (Gegenbeispiele)
 | # | Vorschlag | Begründung des Maintainers | Quelle |

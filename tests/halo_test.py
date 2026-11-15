@@ -18463,8 +18463,9 @@ Neu
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
     def spaces_current_fill():
-        # aktiver Bereich: gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron; inaktive Kacheln
-        # 11 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
+        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche 34 %, dunkel 36 %, als
+        # Farbe, damit der Wechsel weich überblendet, darüber Lichtkante und Restverlauf; Werte am Bild in sidebar_tile_d2h), Kante innen, kurzer Schatten und Lichthof rechts, kein Chevron;
+        # inaktive Kacheln 8 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
           const out = {};
           const pct = c => { const m = /\/ ?([\d.]+)\)$/.exec(c) || /rgba\([^)]*,\s*([\d.]+)\)$/.exec(c); return m ? Math.round(parseFloat(m[1]) * 100) : null; };
@@ -18477,7 +18478,7 @@ Neu
             const cs = w.getComputedStyle(b), after = w.getComputedStyle(b, "::after");
             const ob = w.getComputedStyle(other).backgroundColor;
             InspectorUtils.addPseudoClassLock(other, ":hover"); const hov = w.getComputedStyle(other).backgroundColor; InspectorUtils.removePseudoClassLock(other, ":hover");
-            out[name] = { bg: pct(cs.backgroundColor), shadow: cs.boxShadow, icon: (/icons\/([\w-]+-fill)\.svg/.exec(w.getComputedStyle(b.querySelector("img")).maskImage) || [])[1] || null,
+            out[name] = { bg: pct(cs.backgroundColor), grad: (cs.backgroundImage.match(/linear-gradient/g) || []).length, shadow: cs.boxShadow, icon: (/icons\/([\w-]+-fill)\.svg/.exec(w.getComputedStyle(b.querySelector("img")).maskImage) || [])[1] || null,
                           fill: w.getComputedStyle(b.querySelector("img")).maskImage.includes("-fill.svg"),
                           chevron: after.content != "none" && after.width != "auto", tile: Math.round(b.getBoundingClientRect().width),
                           other: { bg: pct(ob), hover: pct(hov), fill: w.getComputedStyle(other.querySelector("img")).maskImage.includes("-fill.svg"), shadow: w.getComputedStyle(other).boxShadow != "none" } };
@@ -18488,12 +18489,12 @@ Neu
           return out;""")
         dark = res.pop("dark", False)
         icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
-        # Schatten kräftiger, aber kurz (2 px 4 px statt 3 px 8 px – nicht bis in die Nachbarkachel); dunkel mit heller Kante
-        ok = all(v["bg"] == 16 and "2px 4px" in v["shadow"] and ("inset" in v["shadow"]) == dark and v["icon"] == icons[k]
-                 and v["fill"] and not v["chevron"] and v["tile"] == 48
-                 and v["other"]["bg"] == v["other"]["hover"] == 11 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
+        # Schatten kurz (2 px 4 px – nicht bis in die Nachbarkachel), feine Kante innen, Lichthof 6 px nach rechts
+        ok = all(v["bg"] == (36 if dark else 34) and v["grad"] == 2 and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
+                 and v["icon"] == icons[k] and v["fill"] and not v["chevron"] and v["tile"] == 48
+                 and v["other"]["bg"] == v["other"]["hover"] == 8 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
-    check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol (Adressbuch als Person im Kreis), 16 % Fläche und kurzem Schatten (dunkel mit heller Kante) statt Chevron; Überfahren ändert nichts", spaces_current_fill, results)
+    check("Bereichsleiste: aktiver Bereich mit gefülltem Symbol (Adressbuch als Person im Kreis), Kachel d2h mit Kante, kurzem Schatten und Lichthof statt Chevron, inaktive Kacheln 8 %; Überfahren ändert nichts", spaces_current_fill, results)
 
     def fifth_space_web_bar():
         # fünfter Bereich als Webseite: Zurück/Vor und Adresse stehen oben in der Toolbar-Zeile wie beim Chat, die Seite
@@ -20262,6 +20263,142 @@ Neu
         return not bad, f"abweichend: {bad} {out}"
     check("Einstellungen: Schalter „Light glow in the sidebar“ nimmt Lichtschein und gefärbte Trennlinie weg (Mail, Kalender, Hauch in den Einstellungen), Kacheln "
           "unverändert, wieder an ohne Neustart, Standard an, Suche findet ihn", sidebar_glow_switch, results)
+
+    # Messung der aktiven Kachel am Bild (sidebar_tile_d2h): Deckkraft der Spacefarbe über dem Grund der Leiste,
+    # geschätzt aus dem Pixel (a = Projektion von Pixel minus Grund auf Farbe minus Grund)
+    tile_measure = r"""
+      const bar = d.getElementById("spacesToolbar");
+      const tile = bar.querySelector(".spaces-toolbar-button.current");
+      const other = [...bar.querySelectorAll(".spaces-toolbar-button:not(.current)")].find(e => e.getBoundingClientRect().width > 0);
+      const tr = tile.getBoundingClientRect(), orr = other.getBoundingClientRect();
+      const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
+      const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+      const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
+      const px = (x, yy) => [...ctx.getImageData(Math.floor(x), Math.floor(yy), 1, 1).data].slice(0, 3);
+      const hex = e => { const c = getComputedStyle(e).getPropertyValue("--c").trim(); return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); };
+      const cy = tr.top + tr.height * 0.55, oy = orr.top + orr.height * 0.55;
+      return { id: tile.id, float: bar.hasAttribute("mc-float"), c: hex(tile), oc: hex(other),
+        bg: px(tr.left - 10, cy), obg: px(orr.left - 10, oy),
+        faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
+        halo: px(tr.right + 3, cy), idle: px(orr.left + 6, oy) };"""
+
+    def sidebar_tile_d2h():
+        # Aktive Kachel als Lichtquelle (Zielbild d2h, Maintainer 14.11.2026: „d2h ist jetzt zielbild.“), gemessen am Bild
+        # in allen Spaces, eingeblendet und schwebend: Fläche hell gleichmäßig 34 %, dunkel 36 % links bis 44 % rechts
+        # (links gemessen ~37 %, rechts ~43 %); Kante rechts kräftiger als links; Lichthof nur rechts neben der Kachel;
+        # inaktive Kacheln 8 % („bezüglich punkt 2 folge ich der empfehlung mit 8%.“); schwebend wie eingeblendet
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        tiles = ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton", "settingsButton"]
+        out = {}
+        before = m.js("return tm.tabInfo.length;")
+        try:
+            out["dark"] = m.js("""await toMail(); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste da", 3000); }
+              await ruhig(600); return w.matchMedia("(prefers-color-scheme: dark)").matches;""")
+            to(900, 700)
+            for tile in tiles:
+                out[tile] = m.js(f"""d.getElementById("{tile}").click();
+                  await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
+                  await ruhig(900); await takt(2);""" + tile_measure)
+            m.js("""await toMail(); d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            for tile in tiles:
+                m.js(f"""d.getElementById("{tile}").click();
+                  await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000); await ruhig(700); return 1;""")
+                to(400); to(1)
+                out[f"float-{tile}"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + tile_measure)
+                to(700)
+                m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+        finally:
+            m.js(f"""await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              while (tm.tabInfo.length > {before}) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
+              await toMail(); return 1;""")
+        dark = out.pop("dark", False)
+        def alpha(p, bg, c):
+            num = sum((x - b) * (k - b) for x, b, k in zip(p, bg, c)); den = sum((k - b) ** 2 for b, k in zip(bg, c))
+            return round(num / den, 3) if den else -1
+        dist = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+        bad, werte = [], {}
+        for k, r in out.items():
+            if not r:
+                bad.append(k); continue
+            a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "edgeL", "edgeR")}
+            a["idle"] = alpha(r["idle"], r["obg"], r["oc"])
+            werte[k] = a
+            want_l, want_r = (0.37, 0.43) if dark else (0.34, 0.34)
+            if not (abs(a["faceL"] - want_l) <= 0.05 and abs(a["faceR"] - want_r) <= 0.05):
+                bad.append(f"{k}-Fläche")
+            if not (a["edgeR"] >= a["edgeL"] + 0.1 and a["edgeL"] >= a["faceL"] + 0.05):
+                bad.append(f"{k}-Kante")
+            if abs(a["idle"] - 0.08) > 0.03:
+                bad.append(f"{k}-inaktiv")
+            # Lichthof rechts: neben der Kachel zur Spacefarbe hin getönt, links (Grund) nicht
+            if not (dist(r["halo"], r["bg"]) >= 4 and dist(r["halo"], r["c"]) < dist(r["bg"], r["c"])):
+                bad.append(f"{k}-Lichthof")
+            if k.startswith("float-") and r.get("float") is not True:
+                bad.append(f"{k}-nicht schwebend")
+        for tile in tiles:
+            e, f = werte.get(tile), werte.get(f"float-{tile}")
+            if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "idle")):
+                bad.append(f"{tile}-schwebend anders")
+        return not bad, f"abweichend: {bad} dunkel={dark} {werte}"
+    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 34 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, inaktive Kacheln 8 %, "
+          "alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
+
+    def sidebar_glow_switch_line():
+        # Schalter für den Lichtschein aus (Maintainer 14.11.2026: „wenn wir via settings den lichtkegel deaktivieren muss natürlich
+        # auch die auswirkung der farbe auf vertikale trennline deaktiviert sein.“): die Trennlinie rechts der Bereiche-Leiste
+        # ist auf Höhe der aktiven Kachel so neutral wie weit weg, in allen Spaces, eingeblendet und schwebend; kein Schein
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        P = "extensions.mailcards.sidebarGlow"
+        tiles = ["mailButton", "addressBookButton", "calendarButton", "tasksButton", "chatButton", "settingsButton"]
+        out = {}
+        before = m.js("return tm.tabInfo.length;")
+        try:
+            m.js(f"""Services.prefs.setBoolPref("{P}", false); await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste da", 3000); }}
+              await ruhig(600); return 1;""")
+            for tile in tiles:
+                out[tile] = m.js(f"""d.getElementById("{tile}").click();
+                  await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
+                  await ruhig(900); await takt(2);""" + glow_measure)
+            m.js("""await toMail(); d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            for tile in tiles:
+                m.js(f"""d.getElementById("{tile}").click();
+                  await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000); await ruhig(700); return 1;""")
+                to(400); to(1)
+                out[f"float-{tile}"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + glow_measure)
+                to(700)
+                m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+        finally:
+            m.js(f"""Services.prefs.clearUserPref("{P}"); await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              while (tm.tabInfo.length > {before}) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
+              await toMail(); return 1;""")
+        dist = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+        bad = []
+        for k, r in out.items():
+            r = r or {}
+            if (r.get("bar") is not None or r.get("pane") is not None or dist(r.get("lineNear", [0]), r.get("lineFar", [99])) > 2
+                    or dist(r.get("near", [0]), r.get("farPx", [99])) > 3):
+                bad.append(k)
+            if k.startswith("float-") and r.get("float") is not True:
+                bad.append(f"{k}-nicht schwebend")
+        return not bad, f"abweichend: {bad} {out}"
+    check("Seitenleiste: Schalter aus: Linie neutral, alle Spaces, eingeblendet und schwebend (kein Schein, keine gefärbte Trennlinie)",
+          sidebar_glow_switch_line, results)
 
     def sidebar_drag_button():
         # Seitenleiste durch Ziehen der Trennlinie nach links eingeklappt: der Seitenleisten-Knopf steht wie nach dem

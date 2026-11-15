@@ -6,7 +6,7 @@
 # Braucht gh mit Scope project (geht nur lokal, nicht in Cloud-Sitzungen).
 #   tests/board.sh liste [<Muster>]              offene Einträge (Status ≠ Done), Muster: Regex auf den Titel
 #   tests/board.sh export                        offene Einträge mit Text als JSON {"items":[…]} (für tests/haeufung.py)
-#   tests/board.sh zeige <id|Muster>             ein Eintrag mit Text
+#   tests/board.sh zeige <id|Muster> […]         Einträge mit Text (mehrere in einem Aufruf: Board nur einmal geladen)
 #   tests/board.sh neu <bug|feature> <Titel> <Text> [<Status>]   legt an, gibt die id aus
 #   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis)
 #   tests/board.sh notiz <id> <Text>             hängt einen Absatz an den Text an
@@ -41,9 +41,35 @@ source ${0:A:h}/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }   # (ältere Kopi
 SKRIPT=${0:A}                                  # ($0 ist in Funktionen deren Name)
 WARTESCHLANGE=${HALO_BOARD_WARTESCHLANGE:-$HOME/halo-nacht/board-warteschlange.txt}
 
+# Zwischenspeicher (Abfragelimit, 15.11.2026: Durchsicht von 17 Einträgen und Schreibbefehle luden das ganze Board
+# je Aufruf und verbrauchten das Stundenkontingent): lesende Befehle sowie status und archiv nehmen die Liste aus
+# der Datei, wenn sie jünger als HALO_BOARD_ZWISCHEN_S Sekunden ist (Standard 60; 0 = aus); notiz, neu und
+# nachtragen lesen immer frisch (Notiz hängt an den aktuellen Text an). Schreibbefehle halten die Datei aktuell.
+zmodload -F zsh/stat b:zstat 2>/dev/null; zmodload zsh/datetime 2>/dev/null
+ZWISCHEN=${HALO_BOARD_ZWISCHEN:-$HOME/halo-nacht/board-zwischen.json}
+ZWISCHEN_S=${HALO_BOARD_ZWISCHEN_S:-60}
+zw_frisch() {
+  local m
+  (( ZWISCHEN_S > 0 )) && [[ -s $ZWISCHEN ]] && m=$(zstat +mtime $ZWISCHEN 2>/dev/null) && (( EPOCHSECONDS - m < ZWISCHEN_S ))
+}
+zw_speichern() {   # <JSON>
+  (( ZWISCHEN_S > 0 )) || return 0
+  mkdir -p ${ZWISCHEN:h} 2>/dev/null && print -r -- $1 > $ZWISCHEN.neu 2>/dev/null && mv $ZWISCHEN.neu $ZWISCHEN
+  return 0
+}
+zw_aendern() {   # <jq-Filter> [jq-Argumente]: Zwischenspeicher und BOARD nachführen, bei Fehler verwerfen
+  local f=$1; shift
+  [[ -n $BOARD ]] || return 0
+  BOARD=$(print -r -- $BOARD | jq -c "$@" "$f") && zw_speichern $BOARD || { BOARD=; rm -f $ZWISCHEN; }
+  return 0
+}
 BOARD=
+FRISCH=
 board_laden() {
-  [[ -n $BOARD ]] || BOARD=$(gh_wdh project item-list 1 --owner sruf79 --limit 1000 --format json) || BOARD=
+  [[ -n $BOARD ]] && return 0
+  if [[ -z $FRISCH ]] && zw_frisch; then BOARD=$(<$ZWISCHEN); [[ -n $BOARD ]] && return 0; fi
+  BOARD=$(gh_wdh project item-list 1 --owner sruf79 --limit 1000 --format json) || BOARD=
+  [[ -n $BOARD ]] && zw_speichern $BOARD
   [[ -n $BOARD ]]
 }
 board() {
@@ -73,7 +99,7 @@ nachtragen() {
   done < $WARTESCHLANGE
   if (( ${#bleibt} )); then print -rl -- $bleibt > $WARTESCHLANGE.neu && mv $WARTESCHLANGE.neu $WARTESCHLANGE
   else rm -f $WARTESCHLANGE; fi
-  (( n )) && { print -u2 "Warteschlange: $n nachgetragen, ${#bleibt} offen"; BOARD= }
+  (( n )) && { print -u2 "Warteschlange: $n nachgetragen, ${#bleibt} offen"; BOARD=; rm -f $ZWISCHEN }
   return 0
 }
 # id oder eindeutiges Titelmuster → Eintrag (JSON)
@@ -96,6 +122,7 @@ befehl=$1; (( $# )) && shift
 # einmal laden (im eigenen Prozess, nicht in $(…)): danach liest jeder Schritt dieselbe Liste
 # (notiz/status mit Board-id: auch ohne lesbares Board weiter – dann in die Warteschlange)
 if [[ $befehl == (liste|export|zeige|neu|status|notiz|archiv|suche|nachtragen) ]]; then
+  [[ $befehl == (notiz|neu|nachtragen) ]] && FRISCH=1
   board_laden || [[ $befehl == (notiz|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
   [[ -n $BOARD ]] && nachtragen && board_laden
 fi
@@ -108,8 +135,12 @@ case $befehl in
     board | jq -c '{items: [.items[] | select(.status != "Done") | {id, typ, status, title, body: (.content.body // "")}]}'
     ;;
   zeige)
-    [[ -n $1 ]] || fehler "Aufruf: board.sh zeige <id|Muster>"
-    { eintrag $1 || exit 1 } | jq -r '"\(.id)  \(.typ // "-")  \(.status // "-")\n\(.title)\n\n\(.content.body // "")"'
+    [[ -n $1 ]] || fehler "Aufruf: board.sh zeige <id|Muster> [<id|Muster> …]"
+    typeset z zn=0
+    for z in "$@"; do
+      (( zn++ )) && print "\n----"
+      { eintrag $z || exit 1 } | jq -r '"\(.id)  \(.typ // "-")  \(.status // "-")\n\(.title)\n\n\(.content.body // "")"'
+    done
     ;;
   neu)
     typeset typ=$1 titel=$2 text=$3 st=${4:-todo} id
@@ -121,6 +152,7 @@ case $befehl in
       || fehler "Eintrag ließ sich nicht anlegen"
     setze $id $FELD_TYP $(typ_option $typ) && setze $id $FELD_STATUS $(status_option $st) \
       || fehler "$id angelegt, Typ/Status ließ sich nicht setzen"
+    BOARD=; rm -f $ZWISCHEN   # (neuer Eintrag fehlt in der Liste)
     print "$id  neu: $titel"
     ;;
   status)
@@ -131,6 +163,8 @@ case $befehl in
     e=$(eintrag $1) || exit 1
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt \
       || in_warteschlange status $(print -r -- $e | jq -r .id) "$2${3:+ $3}" "Status $2 ließ sich nicht setzen"
+    zw_aendern '(.items[] | select(.id == $i) | .status) = $s' --arg i "$(print -r -- $e | jq -r .id)" \
+      --arg s "$(case $2 in todo) print Todo;; arbeit) print "In Progress";; ok) print "Wartet auf OK";; done) print Done;; esac)"
     print -r -- "$(print -r -- $e | jq -r .id)  Status $2: $(print -r -- $e | jq -r .title)"
     # Done heißt immer auch archivieren (Entscheidung des Maintainers vom 12.11.2026): sonst bleibt der Eintrag
     # sichtbar; der Commit-Hash (optional, dritter Wert) kommt ins Archivverzeichnis
@@ -149,6 +183,9 @@ case $befehl in
     gh_wdh project item-edit --id $di --body "$body
 
 $2" >/dev/null || in_warteschlange notiz $(print -r -- $e | jq -r .id) "$2" "Notiz ließ sich nicht anhängen"
+    zw_aendern '(.items[] | select(.id == $i) | .content.body) = $b' --arg i "$(print -r -- $e | jq -r .id)" --arg b "$body
+
+$2"
     print -r -- "$(print -r -- $e | jq -r .id)  Notiz ergänzt: $(print -r -- $e | jq -r .title)"
     ;;
   archiv)
@@ -161,6 +198,7 @@ $2" >/dev/null || in_warteschlange notiz $(print -r -- $e | jq -r .id) "$2" "Not
         || fehler "Archivverzeichnis nicht beschreibbar ($ARCHIV), nicht archiviert"
     fi
     gh_wdh project item-archive 1 --owner sruf79 --id $(print -r -- $e | jq -r .id) >/dev/null || fehler "Archivieren fehlgeschlagen"
+    zw_aendern 'del(.items[] | select(.id == $i))' --arg i $aid
     print -r -- "$(print -r -- $e | jq -r .id)  archiviert: $(print -r -- $e | jq -r .title)"
     ;;
   suche)

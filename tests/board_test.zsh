@@ -25,6 +25,7 @@ S
 chmod +x $T/gh
 print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/board.json
 export GH_WDH_BEFEHL=$T/gh GH_WDH_MAX_S=0 HALO_BOARD_WARTESCHLANGE=$T/w.txt HALO_ARCHIV=$T/archiv.md
+export HALO_BOARD_ZWISCHEN=$T/zw.json HALO_BOARD_ZWISCHEN_S=0   # (Zwischenspeicher in Abschnitt 6 eigens geprüft)
 B() { zsh $HIER/board.sh "$@" }
 anzahl() { grep -c "^$1 " $T/aufrufe 2>/dev/null || print 0 }
 
@@ -69,4 +70,25 @@ B liste >/dev/null 2>&1
 pruefe "Nachtragen scheitert: Zeile bleibt einmal stehen" '(( $(wc -l < $T/w.txt) == 1 ))'
 print 0 > $T/edit.kaputt
 pruefe "board.sh nachtragen: trägt nach, dann leer" '[[ $(B nachtragen 2>/dev/null) == "Warteschlange leer" ]] && [[ ! -e $T/w.txt ]]'
+
+# 6. Zwischenspeicher: lesende Befehle laden das Board höchstens einmal je Minute, Schreibbefehle halten ihn aktuell
+export HALO_BOARD_ZWISCHEN_S=60; rm -f $T/zw.json
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress","typ":"Bug","content":{"id":"DI_a","body":"Text A"}},{"id":"PVTI_b","title":"Kalender: Zwei","status":"Todo","typ":"Bug","content":{"id":"DI_b","body":"Text B"}}]}' > $T/board.json
+: > $T/aufrufe
+B liste >/dev/null 2>&1; B zeige PVTI_a >/dev/null 2>&1; B suche Mail >/dev/null 2>&1
+pruefe "Zwischenspeicher: drei lesende Aufrufe, ein Laden" '(( $(anzahl list) == 1 ))'
+B zeige PVTI_a PVTI_b > $T/aus 2>&1
+pruefe "zeige mit mehreren Einträgen: beide ausgegeben" 'grep -q "Text A" $T/aus && grep -q "Text B" $T/aus && (( $(anzahl list) == 1 ))'
+B status PVTI_b ok >/dev/null 2>&1
+B liste > $T/aus 2>&1
+pruefe "status ohne neues Laden, Liste danach mit neuem Status" '(( $(anzahl list) == 1 )) && grep -q "PVTI_b  Bug  Wartet auf OK" $T/aus'
+B notiz PVTI_a "neu" >/dev/null 2>&1
+pruefe "notiz lädt immer frisch" '(( $(anzahl list) == 2 ))'
+B zeige PVTI_a > $T/aus 2>&1
+pruefe "Notiz im Zwischenspeicher nachgeführt (ohne Laden)" '(( $(anzahl list) == 2 )) && grep -q "^neu" $T/aus'
+B status PVTI_b done abc1234 >/dev/null 2>&1; B liste > $T/aus 2>&1
+pruefe "Done: archiviert, aus dem Zwischenspeicher entfernt, kein Laden" '(( $(anzahl list) == 2 )) && ! grep -q PVTI_b $T/aus'
+touch -t 202001010000 $T/zw.json; B liste >/dev/null 2>&1
+pruefe "Zwischenspeicher älter als 60 s: neu geladen" '(( $(anzahl list) == 3 ))'
+export HALO_BOARD_ZWISCHEN_S=0
 exit $F

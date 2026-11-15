@@ -645,3 +645,36 @@ Maintainer angenommen („1. ja …“, „2. ja aus einem guss hat vorrang“, 
 
 Reihenfolge nach Sichtbarkeit: Verfassen-Fenster, Mail-Fenster, Dialoge. Vorrang: 2b Punkt 4. Die
 Umfärbung nach G15 bleibt an die Veröffentlichung des Pakets Lichtschein und Kachel d2h gebunden.
+
+### 12a. Bestandsaufnahme vom 15.11.2026 (Befund des Designers, kein Wortlaut des Maintainers)
+
+Ablage `~/halo-aufgaben/vorschau/bestandsaufnahme-2026-11-15/` (dauerhaft, Verweis
+`~/halo-tour/2026-11-15-bestandsaufnahme`), Liste `LIES-MICH.md`, Werte `<hell|dunkel>-ergebnis.json`
+mit den Feldern `zustand` und `auffaelligkeiten` je Baustein, Vergleich mit 2026-11-05 in `vergleich.md`.
+Paket 3.27.0, Testprofil, 312 Oberflächen je Modus, 274 aufgenommen, 38 nicht erreicht (native
+Menüleiste und Dateiauswahl, commonDialog-Rückfragen, Erinnerungsfenster, Schnellfilter-Leiste u. a.).
+Zustand je Modus: 12 original, 56 teilweise, 206 halo.
+
+- **Original zuerst:** Einladung per Doppelklick (`kal-einladung-fenster`: Werkzeugleiste mit
+  Textknöpfen, Gruppenüberschriften mit Linie, Original-Teilnehmersymbole, blauer Fokusrahmen am
+  Organisator), Account Hub (Adressbuch, Konto einrichten), Über, Aktivitäten, about:support,
+  about:config, Toolbar anpassen, Tooltip (Radius 0, `#DDD`), Rückfrage „Ordner komprimieren“,
+  Chat-Konto-Assistent, Quelltextfenster.
+- **Knöpfe:** in Dialogen und Fenstern 30 px (110×), daneben 24, 26, 22 und 16 px; 17 Knöpfe mit
+  Radius 0. Einladung ohne Hauptknopf; Aufgaben-Dialog mit blassem Speichern-Kreis; „Say Thanks“ mit
+  farbigem Rand (V2).
+- **Symbole:** Original-Symbole auf 124 von 274 Oberflächen, am häufigsten `nav-down-sm.svg` (77),
+  `check.svg` (24), im Verfassen-Fenster `arrow-up/down`, `close`, `overflow` (je 9–10), dazu
+  `img-align-*.gif`, `move-*.svg`, `calendar-itip-icons.svg`, `deleteMailIcon.svg`, `help.svg`.
+- **Fenster und Dialoge:** Dialoge im Tab klein (11 px) mit sichtbarem Größengriff, eigene Fenster
+  (Filter- und Junk-Protokoll) mit 13 px; Popups überwiegend Radius 12 px (65×), Ausnahmen
+  Datumswähler 6 px, „Anhänge neu anordnen“ 20 px, Tooltip 0; Texteinzug in Menüs 19 oder 40 px;
+  gelbe TB-Leiste „blocked remote content“, im Dunkelmodus grell; Chat-Auswahl voll blau statt grau.
+- **Felder und Formulare:** Feldradius 7 px (120×), daneben 6 px und Kapsel; Feldhöhen 28, 24, 26,
+  32 px. Verfassen mit allen Kopfzeilen: Wertespalte nicht bündig (Von x = 82, An x = 61, Betreff
+  x = 91), Betreff-Beschriftung rund 3 px höher als der Wert, Text ab x = 8. Aufgaben-Dialog anders
+  aufgebaut als der Termindialog (G14); Beschriftungen mal mit, mal ohne Doppelpunkt.
+
+Vorschlag für Schritt 2 (Deutung des Designers): Reihenfolge der Bausteine nach Häufigkeit der
+Abweichung, zuerst Symbole (`nav-down-sm`, `check`) und Knopfhöhen in Dialogen, dann Fenster und
+Dialoge, zuletzt Felder; Einladungsfenster und Verfassen-Kopfzeilen als erste Vorschauen.

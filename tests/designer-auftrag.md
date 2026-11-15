@@ -24,7 +24,7 @@ Eingaben
   sRGB-Umrechnung). Fehlt eine Vorlage: Kalender, Kontakte, Erinnerungen mit Testdaten selbst
   fotografieren (nur Fensterausschnitt, kein System-Events-osascript); Mail-Ansichten nicht (ohne Konto
   nur „Add Account“), dann Rückfrage nach Abschnitt „Rückfragen“.
-- docs/design-vorgaben.md (Grundphilosophien G1–G14, Maßstäbe Abschnitt 4, entschiedene Fragen
+- docs/design-vorgaben.md (Grundphilosophien G1–G15, Maßstäbe Abschnitt 4, entschiedene Fragen
   Abschnitt 9), ENTSCHEIDUNGEN.md.
 
 Ablauf (je Eintrag genau einer)
@@ -80,7 +80,7 @@ Grenzen
   Repo. Marionette-Ports 2850–2869, keine Testläufe, solange Runner.Worker läuft.
 
 Einspruch
-- Der Director prüft dein Ergebnis gegen G1–G14. Ein Einspruch nennt die verletzte Regel mit Zitat.
+- Der Director prüft dein Ergebnis gegen G1–G15. Ein Einspruch nennt die verletzte Regel mit Zitat.
   Du überarbeitest einmal. Bleibt es strittig, Weg „Vorschau“ unten mit beiden Lösungen.
 
 Rückfragen
@@ -88,7 +88,7 @@ Rückfragen
   entscheiden, geht an den Maintainer, und zwar sofort beim Auftreten.
 - Letzter Ausweg (Maintainer 14.11.2026: „wenn der designer trotz abwägung der grundphilosophie noch
   immer keine entscheidung treffen konnte kann er auch mich fragen.“): Konntest du nach Abwägung der
-  Grundphilosophien G1–G14 nicht entscheiden, fragst du den Maintainer über den Vorschau-Weg unten.
+  Grundphilosophien G1–G15 nicht entscheiden, fragst du den Maintainer über den Vorschau-Weg unten.
 - Vorschaubilder: Varianten A/B (höchstens drei) aus dem Testprofil, hell und dunkel, bei
   Seitenleisten auch schwebend, als Dateien unter ~/halo-aufgaben/bilder/
   (<bereich>-<oberflaeche>-variante-a.png …) mit Indexzeile; dazu eine private Artifact-Seite mit den

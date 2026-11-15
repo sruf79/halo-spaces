@@ -172,7 +172,7 @@ haben“). Vorgaben: docs/design-vorgaben.md.
   tests/designer-auftrag.md und diesem Kopf: „JETZT: Eintrag <id> „<Titel>“; Vorab-Prüfung: <Zeile aus
   dem Plan>; Lauf: Tagesroutine <Heute>; Ergebnisdatei <Pfad aus dem JETZT-Kopf>; Berichtsabschnitt
   <Pfad aus dem JETZT-Kopf>“. Nie zwei Designer zugleich.
-- Ergebnis des Designers lesen. „erledigt <Hash>“: gegen G1–G14 prüfen (design-vorgaben.md Abschnitt 7);
+- Ergebnis des Designers lesen. „erledigt <Hash>“: gegen G1–G15 prüfen (design-vorgaben.md Abschnitt 7);
   bei Verstoß Einspruch mit Kennung und Zitat der Regel, der Designer überarbeitet EINMAL (neuer Unteragent,
   Kopf plus „Einspruch: …“); bleibt es strittig, Commit mit git revert zurücknehmen und Vorschaubilder
   beider Lösungen anlegen lassen (wie „vorschau“). „zurück“: wie sonst.

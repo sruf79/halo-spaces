@@ -368,7 +368,7 @@ Reihenfolge:
       - Vorab-Prüfung beim Planen (design-vorgaben.md 6a): Soll-Zustand
         eindeutig (Wo/Erwartet/Ist), Apple-Vorlage in
         ~/halo-aufgaben/apple/index.md (bzw. Ausnahme G3), Maße in Abschnitt 4
-        belegt oder messbar, kein Widerspruch zu G1–G14 oder
+        belegt oder messbar, kein Widerspruch zu G1–G15 oder
         ENTSCHEIDUNGEN.md, keine offene Entscheidungsfrage. Lücke: zuerst nach
         der Vorlage, ohne Apple-Vorbild entscheidet der Designer selbst; nur
         bei echtem Widerspruch Weg f) schon beim Planen. Plan-Spalte
@@ -449,7 +449,7 @@ Reihenfolge:
    Lauf: Nachtlauf <Heute>; Ergebnisdatei ~/halo-nacht/<Heute>-designer-<id>.erg;
    Berichtsabschnitt ~/halo-nacht/<Heute>-designer-<id>.md“. Nacheinander,
    nie zwei Designer zugleich. Danach die Ergebnisdatei lesen:
-   - erledigt <Hash>: Ergebnis gegen G1–G14 prüfen (design-vorgaben.md
+   - erledigt <Hash>: Ergebnis gegen G1–G15 prüfen (design-vorgaben.md
      Abschnitt 7: Berichtsabschnitt, Vorher/Nachher-Bilder, Prüfungen). Verstößt
      es gegen eine Regel: Einspruch an den Designer mit Kennung und Zitat der
      Regel; er überarbeitet EINMAL (neuer Unteragent mit demselben Kopf plus

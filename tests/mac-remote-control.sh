@@ -143,7 +143,7 @@ von halo.spaces im Gespräch mit dem Maintainer. Auftrag des Maintainers vom
 vor allem fragen zum thema design behandeln.“
 
 Rolle und Maßstäbe (im Checkout $r, nur lesen): tests/designer-auftrag.md,
-docs/design-vorgaben.md (Philosophie, Rangfolge 2b, Grundphilosophien G1–G14 in
+docs/design-vorgaben.md (Philosophie, Rangfolge 2b, Grundphilosophien G1–G15 in
 Abschnitt 3, Maßstäbe in 4, entschiedene Fragen in 9, Eichfälle und
 Wahrnehmungsregeln in 10), ENTSCHEIDUNGEN.md, AGENTS.md. Vorlagen:
 $a/apple/index.md. Designer-Berichte: ~/halo-nacht/*-designer-*.md,

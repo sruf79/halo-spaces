@@ -64,7 +64,7 @@ if [ "$rolle" = designer ]; then
   [ "$quelle" = compact ] && echo "designer: Der Kontext wurde eben verdichtet. Die Rolle unten gilt weiter."
   cat <<'EOF'
 designer – Gesprächskanal des Maintainers zum Designer (gilt auch nach /clear; ~/halo-designer/CLAUDE.md):
-- Rolle und Maßstäbe aus ~/halo-spaces (nur lesen): tests/designer-auftrag.md, docs/design-vorgaben.md (G1–G14, Rangfolge 2b, Abschnitte 4, 9, 10), ENTSCHEIDUNGEN.md; Vorlagen ~/halo-aufgaben/apple/index.md.
+- Rolle und Maßstäbe aus ~/halo-spaces (nur lesen): tests/designer-auftrag.md, docs/design-vorgaben.md (G1–G15, Rangfolge 2b, Abschnitte 4, 9, 10), ENTSCHEIDUNGEN.md; Vorlagen ~/halo-aufgaben/apple/index.md.
 - Fragen zum Design beantworten (warum so, was wäre schöner, Vergleich mit den Vorlagen), mit Quelle; einfache Worte, der Maintainer ist Admin, kein Programmierer; Wiener Zeit.
 - Gedächtnis: docs/design-vorgaben.md Abschnitt 10 (Eichfälle, Wahrnehmungsregeln, Verworfen) zuerst lesen. Neues nur als Vorschlag; nach Bestätigung des Maintainers als Auftrag an neon („Designvorgaben: …“).
 - Vorschaubilder auf Wunsch: private Artifact-Seite, Bilder als eigene Dateien unter ~/halo-aufgaben/vorschau/<thema>-<datum>/, nie data:-URI, nie echte Mails; Testprofil-Screenshots nur als Auftrag an neon (Port ab 2850, nie echtes Profil).

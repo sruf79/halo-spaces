@@ -31,9 +31,15 @@ vom 14.11.2026 (Vorgabe zur Rolle, kein Wortlaut des Maintainers außer dem Eins
 - **P2 Halo als Gestaltungssprache.** „halo.spaces ist unser produktname und endlich haben wir auch
   das richtige designelement passend zum namen gefunden“ (13.11.2026, B `…Ih2aA`). Anlass, wörtlich:
   „basierend auf dem namen halo.spaces passen die farbigen elemente der neuen kacheln gut zum namen
-  aber die diskrepanz zum pillen design ist recht groß oder“. **Wie weit** der Halo (Ring und Hof)
-  über die Kachel hinaus gilt, ist **nicht entschieden** (Eintrag „Wartet auf OK“, Empfehlungen des
-  Agenten ohne Urteil des Maintainers; Frage F3).
+  aber die diskrepanz zum pillen design ist recht groß oder“. **Wie weit** der Halo über die Kachel
+  hinaus gilt, ist **entschieden** (15.11.2026, Gespräch mit dem Designer, E): „wir haben uns vor
+  kurzem für ein neues design der kacheln und der lichtkegeln festgelegt. dieses neue design wurde
+  allerdings noch nicht released, ist also unveröffentlicht. der name dieses projects heisst
+  "halo.spaces" und bezieht die farbigen buttons und die lichtkegeln sind die entsprechenden
+  design-elemente. die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle
+  anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch
+  weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“ Umsetzung nach
+  G15 (Abschnitt 3), Lesart in 2a.
 - **P3 Ruhig wie Apple.** README: „A calm, tidy Mac look for Mozilla Thunderbird“, „Mail, Calendar,
   Contacts, Tasks and Chat in one quiet design“ (README.md Z. 8–9). Ziel des Maintainers für die
   Bereichsleiste: „sofort erkennbar und trotzdem ruhig“ (2.11.2026, M `spaces-leiste-aktiv`).
@@ -74,6 +80,12 @@ er den Gedanken nur so: Farbe und Licht kommen vom aktiven Space und bleiben lei
 hell / 20 % dunkel, gefärbte Linie 35 % / 30 %, Abschnitt 4); übrige Flächen und Pillen bleiben in
 Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Einstellungen und
 Webseiten-Space haben keinen Schein (E 13.11.2026).
+
+Lesart seit 15.11.2026 (Deutung des Designers, vom Maintainer bestätigt: „ich folge deinen
+empfehlungen und möchte ein vorschaubild“; Wortlaut zum Umfang in P2): Die Bauart der Kachel d2h
+(E17) ist Vorbild für das **eine** hervorgehobene Element je Dialog oder Popup, den Hauptknopf. Alles
+andere bleibt ruhig und neutral wie bei Apple: kein Rahmen, kein Glimmen, keine getönten großen
+Flächen (V2, V3). Regel: G15.
 
 ### 2b. Rangfolge bei Konflikten zwischen Regeln
 
@@ -167,7 +179,8 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
   bis auf die Lupe, 3. Pillen ganz ausblenden mit Chevron-Menü links vom Suchfeld; Pillen nie
   abschneiden, Suchfeld wird beim Verkleinern nie wieder größer (9.11. und 11.11.2026, E).
 - **G11 Hell und dunkel, Systemakzent.** Werte für Hell und Dunkel, Akzent über `AccentColor`, keine
-  sichtbaren Scrollbalken (A Konventionen „CSS“).
+  sichtbaren Scrollbalken (A Konventionen „CSS“). Ausnahme nach G15: Hauptknopf in der Farbe des
+  aktiven Space, sobald umgesetzt.
 - **G12 Kein „Apple“ nach außen.** UI, README, Store, Releases, Issues, Commit-Texte nennen Apple
   nicht (27.10.2026, M `kein-apple-nach-aussen`).
 - **G13 Oberflächentexte.** Keine Gedankenstriche, Einstellungen und Onboarding schrittweise
@@ -178,9 +191,22 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
   die spaces dürfen nicht wie unterschiedliche apps aussehen die nicht zusammengehören.“ (Maintainer,
   Gespräch mit neon, 14.11.2026, E). Ausnahme bleibt der Aufgaben-Space nur beim Vorbild (G3a), nicht
   bei der Optik („optik … an vorhandenem user design von halo.spaces orientieren“, 11.11.2026).
+- **G15 Halo führt.** Kacheln und Lichtkegel sind das übergeordnete Gestaltungsmerkmal für alle
+  Bereiche (Dialoge, Popups, Knöpfe), im Rahmen der Ruhe der Apple-Apps (P3, G5). Wortlaut des
+  Maintainers in P2 (15.11.2026, E). Je Dialog oder Popup trägt höchstens **ein** Element Farbe und
+  Licht des aktiven Space, der Hauptknopf (z. B. OK, Senden, Erstellen) nach der Bauart der Kachel
+  d2h (2a). Lichtkegel nur in der Seitenleiste; Dialoge und Popups bekommen keinen eigenen.
+  Fokusring und Textauswahl bleiben in der Systemfarbe (G5, G11), damit sie nicht mit dem Halo
+  verwechselt werden. Die genaue Form des Hauptknopfs entscheidet der Maintainer am Vorschaubild.
+  **Gilt für die Umsetzung erst, wenn das Paket Lichtschein und Kachel d2h
+  (`paket/lichtschein-kachel`) veröffentlicht ist.** Vorher färbt kein Lauf Dialoge, Popups oder
+  Knöpfe um. Danach Bereich für Bereich mit Vorschaubildern, zuerst Dialoge mit Hauptknopf.
+  Grundlage als harte Regel: Empfehlung (3) des Designers, vom Maintainer angenommen („ich folge
+  deinen empfehlungen und möchte ein vorschaubild“, 15.11.2026, E).
 
 **Einspruchsgründe abschließend** (Entscheidung von Director und Designer nach Auftrag von neon,
-14.11.2026; der Maintainer: „bezüglich F1 weiss ich nicht genau was du hier willst“): Nur G1–G14
+14.11.2026; der Maintainer: „bezüglich F1 weiss ich nicht genau was du hier willst“; G15 ergänzt
+mit Wortlaut des Maintainers vom 15.11.2026, E): Nur G1–G15
 begründen einen Einspruch. Erweitert wird die Liste nur mit einem Wortlaut des Maintainers. Alles
 andere (Farbton, Deckkraft, Schattenstärke, Radius oder Abstand innerhalb von Abschnitt 4 bzw. der
 Vorlage) ist kein Einspruchsgrund; Abweichungen von Vorlage oder Messwert begründet der Designer im
@@ -242,7 +268,7 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 | Seitenleiste | `#F2F2F4` / `#282828` | C :19, :115 |
 | Text, zweit, dritt | `#1D1D1F`, `#6E6E73`, `#8E8E93` / `#F5F5F7`, `#A1A1A6`, `#7C7C80` | C :21–23, :120–122 |
 | Warnrot, Stern | `#FF3B30` / `#FF6961`; `#FF9500` / `#FF9F0A` (systemRed/systemOrange) | C :74, :79, :152, :155 |
-| Akzent | immer `AccentColor` des Systems, keine feste Farbe | C :12; G11 |
+| Akzent | immer `AccentColor` des Systems, keine feste Farbe. Ausnahme nach G15: Hauptknopf in der Farbe des aktiven Space, sobald umgesetzt | C :12; G11, G15 |
 
 ### Symbole
 | Was | Wert | Quelle |
@@ -292,7 +318,7 @@ Umsetzung (Beschreibung von neon, Deutung nicht des Maintainers):
    - Soll-Zustand im Eintrag eindeutig (Wo, Erwartet, Ist);
    - Apple-Vorlage vorhanden (`~/halo-aufgaben/apple/index.md`) bzw. Ausnahme nach G3;
    - nötige Maße in Abschnitt 4 belegt oder aus der Vorlage messbar;
-   - kein Widerspruch zu G1–G14 oder zu `ENTSCHEIDUNGEN.md`;
+   - kein Widerspruch zu G1–G15 oder zu `ENTSCHEIDUNGEN.md`;
    - keine offene Entscheidungsfrage (Eintrag nicht „Wartet auf OK“).
    Ergebnis im Plan je Eintrag: „Vorab geprüft: ja“ (bzw. welcher Punkt fehlt).
 3. **Lücke in der Vorab-Prüfung:** zuerst „Im Zweifel wie Apple“ (Vorlage messen) statt fragen. Nur
@@ -343,7 +369,7 @@ von halo.spaces widersprechen“.
 Verfahren (Vorgabe des Auftrags, 14.11.2026, keine Entscheidung des Maintainers):
 
 1. Der Director prüft das Ergebnis des Designers (Bericht, Vorher/Nachher, Prüfungen) gegen die
-   Grundphilosophien G1–G14 (Abschnitt 3).
+   Grundphilosophien G1–G15 (Abschnitt 3).
 2. Einspruch nur mit Zitat der verletzten Regel (Kennung und Wortlaut samt Quelle) und der Stelle im
    Ergebnis. Geschmacksfragen sind kein Einspruchsgrund (Abgrenzung in Abschnitt 3).
 3. Der Designer überarbeitet **einmal**.
@@ -403,7 +429,7 @@ kann ich gerne nachliefern.“ Antworten je Frage mit Beleg; „Entscheidung“ 
 Wortlaut des Maintainers gekennzeichnet: nach Vorlage bzw. Vorgaben entschieden (Beschreibung von
 neon). Die dafür fehlenden Vorlagen hat der Maintainer am 14.11.2026 nachgeliefert (Abschnitt 9a).
 
-- **F1 Einspruchsgründe.** Entschieden: G1–G14 sind abschließend, Erweiterung nur mit Wortlaut des
+- **F1 Einspruchsgründe.** Entschieden: G1–G15 sind abschließend, Erweiterung nur mit Wortlaut des
   Maintainers (Abschnitt 3, Absatz „Einspruchsgründe abschließend“).
 - **F2 Favoriten.** Entschieden: Ausrichtung nach Variante A gilt (Wortlaut 11.11.2026 „bezüglich
   favoriten - option a“; Vorbild Apple Mail, V `mail-seitenleiste-ausgeklappt-dunkel.webp`). Die
@@ -413,7 +439,9 @@ neon). Die dafür fehlenden Vorlagen hat der Maintainer am 14.11.2026 nachgelief
 - **F3 Halo-Umfang.** Entschieden: kein Apple-Vorbild, also entscheidet der Designer nach den
   Vorgaben (Maintainer 14.11.2026: „wenn es kein vorbild von apple gibt (wie bei f3) kann der designer
   basierend auf unseren vorgaben selbst entscheiden“). Rahmen: P2, G5 (nicht wie Fokusring, ruhig),
-  G9 (Suchfeld ohne Hover), G14; die Kachel F4a bleibt die Vorlage (B `…Ih2aA`).
+  G9 (Suchfeld ohne Hover), G14; die Kachel F4a bleibt die Vorlage (B `…Ih2aA`). Nachtrag
+  15.11.2026: Umfang vom Maintainer entschieden (Wortlaut in P2), Regel G15; Vorbild ist jetzt die
+  Kachel d2h (E17, 2a).
 - **F4 Knopfhöhen.** Entschieden: Stufen aus den Vorlagen messen, nicht schätzen. Toolbar nach V
   `mail-toolbar-kapsel*.webp`, `mail-toolbar-spacer.webp`, `mail-toolbar-hoehe-position.webp` (Eintrag
   B `…Iqjl4`; heute 38 px, die Messung vom 5.11. ergab ≈ 33–34 pt bei vermutlich 2×, B `…GYF4o`,
@@ -538,6 +566,7 @@ Gegenbeispiele.
 | E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026 |
 | E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
 | E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
+| E19 | Halo nur an Kachel und Seitenleiste → übergeordnetes Gestaltungsmerkmal für alle Bereiche; je Dialog oder Popup nur der Hauptknopf in Farbe und Licht des aktiven Space (G15, nach Veröffentlichung des Pakets) | „die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“; „ich folge deinen empfehlungen und möchte ein vorschaubild“ | E 15.11.2026 (Gespräch mit dem Designer) |
 
 ### Wahrnehmungsregeln aus Entscheidungen (vom Designer fortzuschreiben, Abschnitt 6b Schritt 9)
 - Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).

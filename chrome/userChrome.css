@@ -1367,6 +1367,21 @@ body:has(> #accountCentral),
   background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 14px no-repeat !important;
 }
 
+/* Pfeil der rechten Hälfte wie in Verfassen und der Mail-Toolbar (⌄, 14 px):
+   Thunderbirds Pfeil ist ein Hintergrundbild, das der Trennstrich ersetzt */
+#imip-view-toolbar > toolbarbutton > .toolbarbutton-menubutton-dropmarker::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background-color: currentColor !important;
+  mask: url("resource://mailcards/icons/nav-down.svg") center / 14px 14px no-repeat !important;
+  pointer-events: none !important;
+}
+
+#imip-view-toolbar > toolbarbutton[disabled] > .toolbarbutton-menubutton-dropmarker::before {
+  opacity: 0.4 !important;
+}
+
 #imip-view-toolbar > toolbarbutton:hover > .toolbarbutton-menubutton-dropmarker {
   background-image: none !important;
 }
@@ -9575,7 +9590,7 @@ addon-card .addon-inline-options {
   box-shadow: none !important;
 }
 
-#composeToolbar2 > toolbarbutton[type="menu-button"] {
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] {
   padding: 0 !important;
 }
 
@@ -9589,25 +9604,47 @@ addon-card .addon-inline-options {
 
 /* geteilte Knöpfe wie Apple: Trennstrich 1 px, gut die halbe Kapselhöhe, der
    beim Überfahren verschwindet; statt der ganzen Kapsel bekommt nur die Hälfte
-   unter der Maus eine Fläche mit 3 px Abstand zum Kapselrand */
-#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]):hover {
+   unter der Maus eine Fläche mit 3 px Abstand zum Kapselrand. Thunderbird
+   setzt bei diesen Knöpfen type="menu" (nicht mehr "menu-button"), deshalb
+   über is= erkannt */
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]):hover {
   background: var(--mt-control) !important;
 }
 
 #composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker {
+  width: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
   border: none !important;
   background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px 18px no-repeat !important;
+}
+
+/* Pfeil der rechten Hälfte wie in der Mail-Toolbar (⌄, 14 px, in Textfarbe):
+   Thunderbird malt ihn als Hintergrundbild, das der Trennstrich oben ersetzt,
+   die rechte Hälfte blieb sonst leer. Maske aus der Erweiterung, weil das
+   Verfassen-Fenster data:-Masken (var(--mi-chevron)) nicht zeichnet */
+#composeToolbar2 > toolbarbutton .toolbarbutton-menubutton-dropmarker::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background-color: currentColor !important;
+  mask: url("resource://mailcards/icons/nav-down.svg") center / 14px 14px no-repeat !important;
+  pointer-events: none !important;
+}
+
+#composeToolbar2 > toolbarbutton[disabled] .toolbarbutton-menubutton-dropmarker::before {
+  opacity: 0.4 !important;
 }
 
 #composeToolbar2 > toolbarbutton:hover .toolbarbutton-menubutton-dropmarker {
   background-image: none !important;
 }
 
-#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
   position: relative !important;
 }
 
-#composeToolbar2 > toolbarbutton[type="menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker)::after {
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker)::after {
   content: "" !important;
   position: absolute !important;
   inset: 3px !important;
@@ -9617,11 +9654,11 @@ addon-card .addon-inline-options {
   pointer-events: none !important;
 }
 
-#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
   opacity: 1 !important;
 }
 
-#composeToolbar2 > toolbarbutton[type="menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
   background-color: var(--mt-cap-press) !important;
 }
 
@@ -9756,7 +9793,7 @@ addon-card .addon-inline-options {
   display: none !important;
 }
 
-#composeToolbar2[mc-icons-only] > toolbarbutton:not([type="menu-button"]),
+#composeToolbar2[mc-icons-only] > toolbarbutton:not([is="toolbarbutton-menu-button"]),
 #composeToolbar2[mc-icons-only] > toolbarbutton > .toolbarbutton-menubutton-button {
   padding-inline: 10px !important;
 }
@@ -9899,9 +9936,13 @@ addon-card .addon-inline-options {
   display: none !important;
 }
 
-#composeToolbar2 > toolbarbutton:not([type="menu-button"]),
+#composeToolbar2 > toolbarbutton,
 #composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button {
   min-height: 30px !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"]),
+#composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button {
   padding-inline: 9px !important;
 }
 

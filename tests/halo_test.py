@@ -2176,6 +2176,39 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Einladung: Leiste als graue Kapsel (Text über die ganze Zeile, lesbar, Knöpfe darunter), Details als Karte in der Breite des Lesebereichs", invitation, results)
 
+    def invitation_split():
+        # Zusagen/Vielleicht/Absagen sind geteilte Pillen: beide Hälften zeigen ein Symbol, rechts den Pfeil ⌄ (vorher
+        # blieb die rechte Hälfte leer, wie in Verfassen). Ohne beschreibbaren Kalender blendet Thunderbird sie aus –
+        # zum Messen sichtbar gemacht
+        res = m.js(READING_JS + r"""
+          await showMail("Halo Workshop"); const doc = md();
+          const bar = await until(() => vis(doc.getElementById("imip-bar")) && doc.getElementById("imip-bar"), 6000);
+          if (!bar) return { bar: false };
+          const ids = ["imipAcceptButton", "imipTentativeButton", "imipDeclineButton"], hid = [];
+          for (const id of ids) { const e = doc.getElementById(id); if (e?.hidden) { e.hidden = false; hid.push(e); } }
+          await ruhig(400);
+          const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+          // wie bei Verfassen: Pixel deutlich abweichend von der Kapselfläche, doppelt aufgelöst, ohne Trennstrich
+          const ink = async (el, skip) => {
+            const q = el.getBoxQuadsFromWindowOrigin()[0].getBounds(), w1 = Math.round(q.width - skip), h1 = Math.round(q.height);
+            cv.width = w1 * 2; cv.height = h1 * 2; ctx.fillStyle = "white"; ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(q.left + skip, q.top, w1, h1), 2, "white"), 0, 0);
+            const img = ctx.getImageData(0, 0, cv.width, cv.height).data, ref = [...ctx.getImageData(cv.width >> 1, 3, 1, 1).data];
+            let n = 0; for (let i = 0; i < img.length; i += 4) if (Math.max(...[0, 1, 2].map(k => Math.abs(img[i + k] - ref[k]))) > 60) n++;
+            return n; };
+          const out = { bar: true, pills: {} };
+          try {
+            for (const id of ids) { const p = doc.getElementById(id);
+              if (!vis(p)) { out.pills[id] = null; continue; }
+              out.pills[id] = { left: await ink(p.querySelector(".toolbarbutton-menubutton-button"), 0),
+                                right: await ink(p.querySelector(".toolbarbutton-menubutton-dropmarker"), 3) }; }
+          } finally { for (const e of hid) e.hidden = true; }
+          return out;""")
+        pills = res.get("pills") or {}
+        ok = res.get("bar") and len(pills) == 3 and all(o and o["left"] >= 40 and o["right"] >= 20 for o in pills.values())
+        return ok, f"{res}"
+    check("Einladung: Zusagen, Vielleicht, Absagen zeigen in beiden Hälften ein Symbol, rechts den Pfeil", invitation_split, results)
+
     def attachments():
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Anhänge");
@@ -3621,6 +3654,51 @@ def compose_checks(m, results):
               and wd["labels"] <= 1 and fits(wd) and tx["labels"] >= 3)
         return ok, f"{res}"
     check("Verfassen: Symbolleiste nur mit Symbolen (außer „Aa“), auch schmal ohne Überlauf, Formatleiste bleibt im Fenster; Modus „nur Text“ mit Beschriftung", narrow_toolbar, results)
+
+    def split_pills():
+        # geteilte Pillen (Rechtschreibung, Sichern, Anhang): beide Hälften zeigen ein Symbol, rechts der Pfeil ⌄
+        # (vorher blieb die rechte Hälfte leer: der Trennstrich ersetzte Thunderbirds Pfeil); die Hälften füllen die
+        # Kapsel, beim Überfahren bekommt nur die Hälfte unter der Maus eine Fläche, die Kapsel bleibt grau
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({}, async (cw, cd) => {
+            const bar = cd.getElementById("composeToolbar2");
+            const pills = [...bar.querySelectorAll(':scope > toolbarbutton[is="toolbarbutton-menu-button"]')].filter(vis);
+            const cv = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+            // Pixel, die deutlich von der Kapselfläche abweichen (Symbol), ohne den Trennstrich am linken Rand des Pfeils;
+            // doppelt aufgelöst, damit der feine Pfeil auch ohne Retina-Bildschirm (CI) genug Pixel hat
+            const ink = async (el, skip) => {
+              const r = el.getBoundingClientRect(), x = r.left + skip, w1 = Math.round(r.width - skip), h1 = Math.round(r.height), wd = w1 * 2, ht = h1 * 2;
+              cv.width = wd; cv.height = ht; ctx.fillStyle = "white"; ctx.fillRect(0, 0, wd, ht);
+              try { ctx.drawImage(await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(x, r.top, w1, h1), 2, "white"), 0, 0); }
+              catch { ctx.scale(2, 2); ctx.drawWindow(cw, x, r.top, w1, h1, "white"); ctx.setTransform(1, 0, 0, 1, 0, 0); }
+              const img = ctx.getImageData(0, 0, wd, ht).data, ref = [...ctx.getImageData(Math.round(wd / 2), 2, 1, 1).data];
+              let n = 0; for (let i = 0; i < img.length; i += 4) if (Math.max(...[0, 1, 2].map(k => Math.abs(img[i + k] - ref[k]))) > 60) n++;
+              return n; };
+            const out = { ids: pills.map(p => p.id), pills: {} };
+            for (const p of pills) {
+              const btn = p.querySelector(".toolbarbutton-menubutton-button"), dm = p.querySelector(".toolbarbutton-menubutton-dropmarker");
+              const pr = p.getBoundingClientRect(), br = btn.getBoundingClientRect(), dr = dm.getBoundingClientRect();
+              const o = { left: await ink(btn, 0), right: await ink(dm, 3),
+                          fill: [Math.round(br.left - pr.left), Math.round(pr.right - dr.right), Math.round(dr.left - br.right)] };
+              // Überfahren: nur die Hälfte unter der Maus bekommt ihre Fläche
+              for (const [name, half, other] of [["hoverLeft", btn, dm], ["hoverRight", dm, btn]]) {
+                for (const e of [p, half]) InspectorUtils.addPseudoClassLock(e, ":hover");
+                await ruhig(150);
+                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundColor,
+                            rest: colorOf(cd, "var(--mt-control)", "backgroundColor") };
+                for (const e of [p, half]) InspectorUtils.removePseudoClassLock(e, ":hover");
+              }
+              await ruhig(150);
+              out.pills[p.id] = o;
+            }
+            return out; });""")
+        pills = res.get("pills") or {}
+        ok = (len(pills) >= 3 and all(
+            o["left"] >= 40 and o["right"] >= 20 and all(abs(v) <= 1 for v in o["fill"])
+            and all(o[h]["on"] == "1" and o[h]["off"] == "0" and o[h]["pill"] == o[h]["rest"] for h in ("hoverLeft", "hoverRight"))
+            for o in pills.values()))
+        return ok, f"{res}"
+    check("Verfassen: geteilte Pillen (Rechtschreibung, Sichern, Anhang) zeigen in beiden Hälften ein Symbol, rechts den Pfeil; beim Überfahren nur die Hälfte unter der Maus mit Fläche", split_pills, results)
 
     def apple_compose():
         # Verfassen wie Apple Mail: Symbole mittig, Senden rund rechts, „Aa“ blendet die Formatleiste ein (aus: versteckt),

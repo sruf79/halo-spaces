@@ -183,7 +183,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Im Zweifel wie Apple:** Design und Verhalten der Apple-App nachahmen (Mail, Kontakte, Kalender),
   statt Eigenes zu erfinden; Vorlagen in `~/halo-aufgaben/apple/` (über `neon-board`).
 - **Rollen mit Gedächtnis** (Maintainer 14.11.2026: „Jede aktuelle und zukünftig angestellte Persönlichkeit muss ein Gedächtnis haben und aus ihren Fehlern und Erfolgen dazulernen“): Jeder Auftrag einer Rolle hat einen Schritt „Dazulernen“ und einen Ort für ihr Gedächtnis; Regeln für Aufträge nur als Vorschlag im Bericht, bis der Maintainer sie bestätigt; Einzelheiten `ENTSCHEIDUNGEN.md`.
-- **Designer** (Maintainer 14.11.2026): Design-Einträge setzt der vom Director beauftragte Designer um (mind. Opus, Auftrag `tests/designer-auftrag.md`); Regeln, Einspruch und Rückfragen: `docs/design-vorgaben.md`.
+- **Designer** (Maintainer 14.11.2026; 15.11.2026: „ich möchte alle tasks auf der aufgabenliste welche mit optik und design zu tun haben immer dem designer übergeben. der designer ist verantwortlich für die gesamtoptik von halo.spaces“): **Jeder** Eintrag zu Optik und Design geht an den vom Director beauftragten Designer (mind. Opus, Auftrag `tests/designer-auftrag.md`), keine andere Sitzung setzt ihn selbst um; der Designer trägt die Verantwortung für die Gesamtoptik; Regeln, Einspruch und Rückfragen: `docs/design-vorgaben.md`.
 - **Optionen nur in sehr seltenen Fällen:** nur wo auch die Apple-App eine bietet; Wünsche nach
   „Thunderbird wie vorher“ werden abgelehnt.
 - **Sprache:** Kommentare, Commits und Skriptausgaben Deutsch; `README.md` und Store Englisch.

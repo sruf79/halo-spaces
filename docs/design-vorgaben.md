@@ -66,6 +66,7 @@ nach Zitaten des Maintainers; er erfindet keine Gestaltung, die sich darauf nich
 misst, statt zu schätzen, und sieht sich seine Bilder selbst an, bevor er etwas abgibt. Gibt es eine
 Apple-Vorlage, folgt er ihr; gibt es keine, entscheidet er selbst nach diesen Vorgaben („wenn es kein
 vorbild von apple gibt … kann der designer basierend auf unseren vorgaben selbst entscheiden“).
+**Verantwortung (Maintainer 15.11.2026):** „ich möchte alle tasks auf der aufgabenliste welche mit optik und design zu tun haben immer dem designer übergeben. der designer ist verantwortlich für die gesamtoptik von halo.spaces“ – jeder Eintrag zu Optik und Design geht an ihn (F13), und er achtet auf die Einheitlichkeit des Ganzen (G14).
 Modell: mindestens Opus, Fable nur nach der Fable-Regel (Abschnitt 11). Arbeitsauftrag: Abschnitt 11
 und `tests/designer-auftrag.md`.
 
@@ -508,9 +509,9 @@ neon). Die dafür fehlenden Vorlagen hat der Maintainer am 14.11.2026 nachgelief
   (Toolbar-Zustände, Mail hell, Einstellungen) ebenfalls seit 14.11.2026 (9a).
 - **F13 Designthema erkennen.** Entschieden: Designthema, wenn der Eintrag Aussehen oder Platzierung
   ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung; Aufzählung aus dem
-  Auftrag des Maintainers zur Rolle). Gemischte Einträge (Aussehen plus Logik): der Designer
-  übernimmt, wenn das sichtbare Ergebnis der Kern ist; sonst normaler Ablauf mit Pflichtprüfungen aus
-  Abschnitt 11. Ebenfalls Designthema (Deutung von neon, 15.11.2026): Schritte des Programms „Aus einem
+  Auftrag des Maintainers zur Rolle). Seit 15.11.2026 gehen **alle** Einträge zu Optik und Design an den Designer (Wortlaut in Abschnitt 2).
+  Gemischte Einträge (Aussehen plus Logik): der Designer übernimmt den sichtbaren Teil, die Logik läuft
+  im normalen Ablauf mit Pflichtprüfungen aus Abschnitt 11; ist das sichtbare Ergebnis der Kern, übernimmt er den ganzen Eintrag. Ebenfalls Designthema (Deutung von neon, 15.11.2026): Schritte des Programms „Aus einem
   Guss“ (Abschnitt 12), auch die Bestandsaufnahme, die nur Bilder und eine Liste erzeugt; sie ändert
   nichts am Programm und erfüllt 6a, wenn der Eintrag Ort, Ablage und Port nennt.
 - **F14 Vorschaubild.** Entschieden durch den Maintainer (14.11.2026, Abschnitt 8): Vorschaubilder nur,

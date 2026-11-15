@@ -366,8 +366,10 @@ Reihenfolge:
       vorfeld überprüft worden sein.“). Vorgaben: docs/design-vorgaben.md.
       - Erkennen (design-vorgaben.md F13): Todo-Eintrag, der Aussehen oder
         Platzierung ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe,
-        Schrift, Ausrichtung). Gemischte Einträge an den Designer, wenn das
-        sichtbare Ergebnis der Kern ist.
+        Schrift, Ausrichtung). **Alle** Einträge zu Optik und Design gehören
+        dem Designer (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md); nie selbst
+        umsetzen. Gemischte Einträge: sichtbarer Teil an den Designer, ist
+        das sichtbare Ergebnis der Kern, der ganze Eintrag.
       - Vorab-Prüfung beim Planen (design-vorgaben.md 6a): Soll-Zustand
         eindeutig (Wo/Erwartet/Ist), Apple-Vorlage in
         ~/halo-aufgaben/apple/index.md (bzw. Ausnahme G3), Maße in Abschnitt 4

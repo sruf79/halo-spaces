@@ -211,7 +211,8 @@ Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal d
   Vorgehen nach „Rot bleibt rot“ (Maintainer 15.11.2026: „muss so ein fehler mit höchster priorität
   behoben werden“, `ENTSCHEIDUNGEN.md`). 1. neue bzw. nicht gepushte Commits durchsehen, 2. dann die
   Aufgabenliste laden und offene GitHub-Issues/Pull Requests prüfen, 3. Bugs, 4. einfache Features,
-  5. zuletzt Reihen (n/m, nur der nächste Schritt). Vorher nach Bereich gruppieren, Doppelte
+  5. zuletzt Reihen (n/m, nur der nächste Schritt). Einträge „aus einem Guss“ (Einheitlichkeit, vier Grundbausteine) gehen nach den Bugs
+  neuen reinen Funktionen vor (Maintainer 15.11.2026, `docs/design-vorgaben.md` 2b Punkt 4). Vorher nach Bereich gruppieren, Doppelte
   zusammenlegen; „Wartet auf OK“ bleibt liegen. Bereichsfolge (Maintainer 11.11.2026): global (alle Spaces), Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere (Absturz, Datenverlust) geht vor Bereich, ein Eintrag über 7 Tage offen rückt eine Stufe vor, ausdrückliche Wünsche im Gespräch haben Vorrang. Gilt für jede Sitzung und jeden Lauf (Nachtlauf wie Tag). Im Nachtlauf legt seit 13.11.2026 ein Director nach Nutzen je Aufwand die Reihenfolge fest, diese Regeln bleiben dabei Rahmen und Gleichstand-Regel (`tests/nachtlauf-auftrag.md` Schritt 1a, `docs/testrechner.md` „Director“). Einzelheiten: `docs/board.md`.
 - **Wer die Liste abarbeitet:** der Nachtlauf immer, jede andere Sitzung nur auf Aufforderung des
   Maintainers (dann ohne Rückfrage je Eintrag; je Eintrag committen, gesammelt pushen, nur Dringendes

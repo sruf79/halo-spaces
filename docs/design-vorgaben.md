@@ -101,6 +101,12 @@ anzuwenden, bei Zweifel 2d):
 4. **G14 Einheitlichkeit** vor der einzelnen Vorlage: Der Aufgaben-Space folgt in der Optik dem
    Halo-Design, nicht Erinnerungen („optik … an vorhandenem user design von halo.spaces orientieren“,
    11.11.2026); „die spaces dürfen nicht wie unterschiedliche apps aussehen“ (14.11.2026).
+   **Vorrang „aus einem Guss“** (Maintainer 15.11.2026, E: „2. ja aus einem guss hat vorrang“, Antwort
+   auf Frage 2 des Designers; Deutung des Designers, kein Wortlaut): Einheitlichkeit hat Vorrang vor
+   neuen Funktionen, bis die vier Bausteine aus Abschnitt 12 stehen. Davor bleiben G1 (Fehler, die die
+   Mail-Funktion stören) und ein Fehler, der jedes Release verhindert (höchste Priorität, Maintainer
+   15.11.2026, E). Gilt für Einträge, die zu den vier Bausteinen gehören bzw. die Einheitlichkeit
+   herstellen; neue reine Funktionen stehen dahinter, Bugs davor.
 5. **Apple-Vorlage** (G3), gemessen.
 6. **Ruhe** (G5, 2c).
 7. Eigenes Urteil nach P1 (Anspruch „großartig“), begründet im Bericht.
@@ -190,6 +196,11 @@ Einspruchsrechts in Abschnitt 7 und in E, 14.11.2026). Jede Regel mit Quelle:
   die spaces dürfen nicht wie unterschiedliche apps aussehen die nicht zusammengehören.“ (Maintainer,
   Gespräch mit neon, 14.11.2026, E). Ausnahme bleibt der Aufgaben-Space nur beim Vorbild (G3a), nicht
   bei der Optik („optik … an vorhandenem user design von halo.spaces orientieren“, 11.11.2026).
+  Dringendste Abweichungen sind Fenster, Dialoge und Popups im originalen Thunderbird-Design
+  (Maintainer 15.11.2026, E: „3. besonders stören mich aktuell popups oder fenster vom originalen
+  thunderbird design, welche noch nicht via halo.spaces angepasst wurden. zum beispiel das fenster im
+  kalender space das man sieht, wenn man eine invitation im kalender doppelklickt“); Programm „Aus
+  einem Guss“ in Abschnitt 12, Vorrang in 2b Punkt 4.
 - **G15 Halo führt.** Kacheln und Lichtkegel sind das übergeordnete Gestaltungsmerkmal für alle
   Bereiche (Dialoge, Popups, Knöpfe), im Rahmen der Ruhe der Apple-Apps (P3, G5). Wortlaut des
   Maintainers in P2 (15.11.2026, E). Je Dialog oder Popup trägt höchstens **ein** Element das Halo-Licht,
@@ -499,7 +510,9 @@ neon). Die dafür fehlenden Vorlagen hat der Maintainer am 14.11.2026 nachgelief
   ändert (Größe, Abstand, Knopf, Symbol, Platzierung, Farbe, Schrift, Ausrichtung; Aufzählung aus dem
   Auftrag des Maintainers zur Rolle). Gemischte Einträge (Aussehen plus Logik): der Designer
   übernimmt, wenn das sichtbare Ergebnis der Kern ist; sonst normaler Ablauf mit Pflichtprüfungen aus
-  Abschnitt 11.
+  Abschnitt 11. Ebenfalls Designthema (Deutung von neon, 15.11.2026): Schritte des Programms „Aus einem
+  Guss“ (Abschnitt 12), auch die Bestandsaufnahme, die nur Bilder und eine Liste erzeugt; sie ändert
+  nichts am Programm und erfüllt 6a, wenn der Eintrag Ort, Ablage und Port nennt.
 - **F14 Vorschaubild.** Entschieden durch den Maintainer (14.11.2026, Abschnitt 8): Vorschaubilder nur,
   wenn wirklich eine Entscheidung des Maintainers nötig ist. Ein Todo-Eintrag mit eindeutigem
   Soll-Zustand und Vorlage wird direkt umgesetzt; große Umgestaltungen bleiben Reihen n/m mit „Wartet
@@ -614,3 +627,20 @@ Quelle in den Abschnitten oben):
   Gedächtnis und schlägt Ergänzungen nur vor (eingetragen erst nach Bestätigung, über neon); sie
   ändert keinen Code, Umsetzungen laufen über das Board.
 
+## 12. Programm „Aus einem Guss“ (15.11.2026)
+
+Anlass (Maintainer 15.11.2026, Wortlaut in E): halo.spaces „wirkt … noch wie ein fleckenteppich“,
+„nicht wie aus einem guss“. Vorschlag des Designers (Beschreibung des Designers, kein Wortlaut), vom
+Maintainer angenommen („1. ja …“, „2. ja aus einem guss hat vorrang“, E):
+
+1. **Bestandsaufnahme** aller Fenster, Dialoge und Popups in allen Spaces im Testprofil, hell und
+   dunkel, ohne Änderung am Programm (Grundlage `tests/ui_tour.py`); je Bild Fenster, Space, Zustand
+   (halo.spaces-Design / teilweise / originales Thunderbird-Design) und Auffälligkeiten je Baustein.
+   Fenster im originalen Thunderbird-Design zuerst (G14).
+2. **Vier Grundbausteine**, je mit Vorschau zur Freigabe durch den Maintainer: Knöpfe (Knopf-Familie
+   aus G15), Symbole (auch fehlende), Fenster und Dialoge, Felder und Formulare.
+3. **Umsetzung** Baustein für Baustein über alle Fenster zugleich, dazu eine Prüfung je Lauf, die
+   Abweichungen vom Baustein meldet.
+
+Reihenfolge nach Sichtbarkeit: Verfassen-Fenster, Mail-Fenster, Dialoge. Vorrang: 2b Punkt 4. Die
+Umfärbung nach G15 bleibt an die Veröffentlichung des Pakets Lichtschein und Kachel d2h gebunden.

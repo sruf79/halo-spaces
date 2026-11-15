@@ -48,6 +48,9 @@ Plan-Runde („JETZT: Plan-Runde“):
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
   Features mit „[GitHub #n]“ ohne Freigabe und Reihen über den nächsten Schritt hinaus nicht planen.
+  Einträge „aus einem Guss“ (Einheitlichkeit, vier Grundbausteine) nach Schritt 1b, G1 und Bugs, vor
+  neuen reinen Funktionen, auch vor Häufungs-Gruppen reiner Funktionen (Maintainer 15.11.2026: „ja aus
+  einem guss hat vorrang“, docs/design-vorgaben.md 2b Punkt 4, G14).
   Ist keine geeignete Aufgabe da: nichts erfinden, leeren Plan lassen und im Abschnitt sagen, warum.
 - Häufung (Maintainer 14.11.2026, Wortlaute in ENTSCHEIDUNGEN.md: „… funktionierende automatismen die
   zusammenhängende punkte auf der liste zuverlässig erkennen und dementsprechend höher priorisieren, je

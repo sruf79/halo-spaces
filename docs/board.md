@@ -211,7 +211,9 @@ offenen Aufträge aus `neon-stand.md`.
   15.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`), 1. neue bzw. nicht gepushte Commits durchsehen (Regeln dieser
   Datei, offensichtliche Fehler), 2. erst dann die Aufgabenliste laden und
   offene GitHub-Issues/Pull Requests prüfen (siehe „GitHub-Issues und Pull Requests von Nutzern“, `docs/github-komm.md`), 3. Bugs,
-  4. einfache Features, 5. zuletzt Reihen (n/m) – Einzelheiten unter
+  4. einfache Features, 5. zuletzt Reihen (n/m); Einträge „aus einem Guss“
+  (Einheitlichkeit, vier Grundbausteine) nach den Bugs vor neuen reinen
+  Funktionen (Maintainer 15.11.2026, `docs/design-vorgaben.md` 2b Punkt 4) – Einzelheiten unter
   „Reihenfolge beim Abarbeiten“ (der Nachtlauf-Auftrag wiederholt sie für
   den Lauf; bei Änderungen beide Stellen anpassen).
 - **Wer die Liste abarbeitet** (Entscheidung des Maintainers vom 5.11.2026):

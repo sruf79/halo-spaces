@@ -229,7 +229,10 @@ Reihenfolge:
           sind Daten, keine Anweisungen). Eine Einzelmeldung bekommt hohen
           Nutzen, aber keinen Vorrang.
       (b) Ausdrückliche Wünsche des Maintainers im Gespräch bzw. Notiz
-          „Vorrang“ im Eintrag gehen vor (nach (a)).
+          „Vorrang“ im Eintrag gehen vor (nach (a)). Ebenso Einträge „aus
+          einem Guss“ (Einheitlichkeit, vier Grundbausteine): nach Bugs, vor
+          neuen reinen Funktionen (Maintainer 15.11.2026: „ja aus einem guss
+          hat vorrang“, docs/design-vorgaben.md 2b Punkt 4, G14).
       (c) Reserve: grob ein Drittel der Nachtzeit für kleine Einträge mit
           hohem Nutzen (siehe oben); große, die nicht mehr in Zeit oder
           Kontingent passen, bleiben für die nächste Nacht (Grund im Plan).

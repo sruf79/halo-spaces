@@ -53,8 +53,6 @@ var SECTIONS = t => [
   [t("Spaces"), [
     { key: "spacesOrderCustom", needs: "spacesOrderCustom", label: t("Own order of spaces"),
       hint: t("Drag a space up or down in the bar. Off: original order.") },
-    { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
-      info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
   ]],
   [t("Appearance"), [
     { key: "solidMenus", label: t("Solid menus"), hint: t("Without transparency.") },

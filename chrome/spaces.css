@@ -3822,30 +3822,6 @@ splitter.splitter:has(+ .conv-bottom) {
   padding-top: 3px !important;
 }
 
-/* Lichtschein in den Einstellungen als leiser Mehrfarb-Hauch (Maintainer 14.11.2026, „ja mehrfarb hauch
-   passt“): Farbverlauf der Space-Farben (--mt-glow-paint), Form und Stärke als Maske (--mt-glow-img, Werte im
-   Abschnitt „Lichtschein in der Spacefarbe“ in userChrome.css); eigene Fläche unter den Kategorien, weil die
-   Seitenleiste ihren Grund behält */
-#pref-category-box[mc-glow="hauch"]:not(.mc-float-pane) {
-  position: relative !important;
-}
-
-#pref-category-box[mc-glow="hauch"] {
-  isolation: isolate !important;
-}
-
-#pref-category-box[mc-glow="hauch"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: var(--mt-glow-paint);
-  background-repeat: no-repeat;
-  mask-image: var(--mt-glow-img);
-  mask-repeat: no-repeat;
-}
-
 #categories {
   background: transparent !important;
   padding: 0 10px !important;

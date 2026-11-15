@@ -605,6 +605,7 @@ Ergänzung (Gespräch mit neon, 15.11.2026, über die beauftragende Sitzung weit
 Ergänzung (Gespräch mit neon, 15.11.2026, über die beauftragende Sitzung weitergegeben): „wir sollten nicht zuviel in den nachtlauf hineinpacken, wenn der ablauf gestört wird hängen zuviele issues dran“
 Ergänzung (Gespräch mit neon, 15.11.2026): „solange ein user auf unsere antwort oder ein feature von uns wartet werden die entsprechenden issues nicht geschlossen. die github routine überprüft ja regelmässig alle github issues und muss auch entsprechend überprüfen, ob eventuell ein feature oder fix von unser released wurde dass mit dem gemeldeten issue zu tun hat. wenn das der fall ist soll eine antwort mit dem hinweis des fix im neuen release vermerkt werden und das issue geschlossen werden.“
 Umsetzung (Deutung von neon, nicht des Maintainers): Das ist die allgemeine Regel statt einzelner Ausnahmen; offen bleibt jedes Issue, in dem ein Nutzer auf uns wartet (auch auf eine zugesagte Funktion, z. B. #54). Die GitHub-Routine prüft zusätzlich bei jedem Lauf die Releases gegen offene Issues und schließt mit Hinweis auf das Release, wenn ein Fix oder eine Funktion dazu veröffentlicht wurde. Umsetzung steht als Board-Eintrag aus.
+Entscheidung (Gespräch mit neon, 15.11.2026): „ich folge deinen empfehlungen“, bezogen auf die Empfehlung von neon, die Labels `keep-open` und `waiting-on-us` nicht anzulegen (Nutzer-Wartezustand erkennt die Routine am Gesprächsverlauf).
 
 ## Ein einziger Bericht statt Morgenbrief und Nachtlauf-Bericht (15.11.2026)
 

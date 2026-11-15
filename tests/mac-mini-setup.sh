@@ -245,6 +245,34 @@ pruefe_werkzeuge() {
     hinweis "Python 3" "kommt aus Homebrew – Tests von Hand laufen dann mit einem anderen Python als der Runner"
 }
 
+# Skill systematic-debugging als Benutzer-Skill (Maintainer 15.11.2026: „dieser skill muss für alle sessions
+# verfügbar sein. ansonsten würden unteragenten im zuge des nachtlaufs oder tagesablaufs diesen nicht zur
+# verfügung stehen haben.“): Nachtlauf, Tagesroutine und ihre Unteragenten starten mit `claude -p` und
+# kennen nur Benutzer- und Projekt-Skills. Quelle ist das synchronisierte Plugin (MIT, nicht im Repo);
+# kopiert wird nur, wenn der Skill fehlt, --check meldet nur.
+pruefe_skill_debugging() {
+  local ziel=$HOME/.claude/skills/systematic-debugging quelle=""
+  if [[ -f $ziel/SKILL.md ]]; then
+    ok "Skill systematic-debugging" "als Benutzer-Skill vorhanden"
+    return
+  fi
+  local q
+  for q in $HOME/.claude/plugins/synced/*/*/skills/systematic-debugging(N) $HOME/.claude/remote/plugins/*/*/skills/systematic-debugging(N); do
+    [[ -f $q/SKILL.md ]] && { quelle=$q; break; }
+  done
+  if [[ -z $quelle ]]; then
+    offen "Skill systematic-debugging" "fehlt und keine Quelle gefunden"
+    tun "Ordner systematic-debugging (Plugin superpowers) nach ~/.claude/skills/ kopieren, samt Lizenzdatei"
+  elif (( CHECK )); then
+    offen "Skill systematic-debugging" "fehlt als Benutzer-Skill (Quelle: $quelle)"
+    tun "tests/mac-mini-setup.sh ohne --check ausführen"
+  else
+    mkdir -p $HOME/.claude/skills && cp -R $quelle $ziel.neu && mv $ziel.neu $ziel
+    [[ -f ${quelle:h:h}/LICENSE ]] && cp ${quelle:h:h}/LICENSE $ziel/LICENSE-Quelle
+    ok "Skill systematic-debugging" "als Benutzer-Skill eingerichtet"
+  fi
+}
+
 # gh für die Aufgabenliste (optional, für die Tests nicht nötig). Auch ohne
 # Homebrew im PATH suchen: Skript und Runner lesen ~/.zprofile nicht.
 pruefe_gh() {
@@ -917,6 +945,7 @@ pruefe_ruhezustand
 pruefe_thunderbird
 pruefe_werkzeuge
 pruefe_gh
+pruefe_skill_debugging
 pruefe_bildschirm
 pruefe_rechte
 pruefe_anmeldung

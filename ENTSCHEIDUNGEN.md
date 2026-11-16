@@ -718,3 +718,7 @@ Nachtrag, Wortlaut des Maintainers (neon-Sitzung, 16.11.2026): „Nein nach dem 
 ## Ablehnungen immer zurückmelden (16.11.2026)
 
 Herkunft: neon-Sitzung, 16.11.2026. Anlass: neon lehnte die Bitte von github.comm.routine ab (blockierter Schreibzugriff) und meldete es zunächst nur dem Maintainer. Wortlaut des Maintainers: „ab sofort schreibst du bei ablehnungen anfragen anderer sessions betreffend IMMER eine rückmeldung. Immer.“ und: „diese regelt gilt ab sofort für immer und auch nach neustart der session.“ Gilt für jede Sitzung. Ebenfalls Wortlaut: „bitte trage den vermerk in github-komm-stand.md immer ein wenn die github.comm.routine darum bittet“ (Dauerfreigabe für neon, nur diese Datei).
+
+## GitHub: Wünsche mit mehreren Punkten (16.11.2026)
+
+Herkunft: neon-Sitzung, 16.11.2026, Anlass GitHub #66. Wortlaute des Maintainers: „#66 ist eine ausnahme“ sowie „1. sehe ich genauso 2. jeder wunsch wird evaluiert und der user erhält feedback. wenn ein wunsch sinn macht kommt er auf unsere to-do liste und das issue ist auf waiting gesetzt, egal wieviele andere wünsche innerhalb des selben requests bereits von uns abgelehnt wurden. 3. wir schliessen das issue erst wenn alle im issue erwähnten einzelnen punkte entweder abgelehnt oder umgesetzt wurden.“ Umsetzung: `docs/github-komm.md` „Wünsche mit mehreren Punkten“ (Punkt 4 dort ist Deutung von neon).

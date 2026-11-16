@@ -2242,7 +2242,8 @@ def reading_checks(m, results):
         # Anhänge: Liste von Anfang an offen, Chevron vor der Anzahl klappt zu und auf (Kopfzeile bleibt ruhig),
         # Chevron, erste Kachel und Linie bündig 16 px vom Rand, Schrift 12 px; Kacheln wie Apple Mail (Variante A,
         # ENTSCHEIDUNGEN.md 11.11.2026): 52 px hoch, Radius 10, leichte Fläche, beim Überfahren Akzentfarbe, Symbol
-        # 32 px und Sichern-Knopf rund und senkrecht mittig, Name fett bis zwei Zeilen, voller Name als Tooltip;
+        # 32 px und Sichern-Knopf rund und senkrecht mittig, Name fett bis zwei Zeilen 8 px neben dem Symbol, keine Größe in der
+        # Kachel, voller Name mit Größe als Tooltip (Eichfall E16);
         # „Save All“ endet bündig mit der rechten Kachelspalte (auch im schmaleren Fenster); Sichern-Knopf je Kachel
         # speichert genau diesen Anhang; ein einzelner Anhang ohne Kopfzeile, Rechtsklick bietet weiter alles
         res = m.js(READING_JS + r"""
@@ -2270,7 +2271,8 @@ def reading_checks(m, results):
               d: [ic, tx, sv].map(e => e ? r1(mid(e) - mid(it)) : 99), icon: [r1(ic.getBoundingClientRect().width), (ic.getAttribute("srcset") || ic.getAttribute("src") || "").replace(/^.*size=(\d+).*$/s, "$1")],
               save: sv ? { w: r1(sv.getBoundingClientRect().width), round: cs(sv).borderTopLeftRadius == "50%", pe: cs(sv).pointerEvents } : null,
               inText: !!tx?.querySelector(".attachmentcell-name") && !!tx?.querySelector(".attachmentcell-extension") && !!tx?.querySelector(".attachmentcell-size"),
-              tip: it.getAttribute("tooltiptext") }; };
+              gap: (n => { const g = doc.createRange(); g.selectNodeContents(n); return r1(g.getClientRects()[0].left - ic.getBoundingClientRect().right); })(it.querySelector(".attachmentcell-name")),
+              tip: it.getAttribute("tooltiptext"), size: (sz => sz ? { shown: vis(sz), text: sz.textContent.trim() } : null)(tx?.querySelector(".attachmentcell-size")) }; };
           out.tiles = rows.map(tile);
           out.font = { count: parseFloat(cs(count).fontSize), name: parseFloat(cs(rows[0].querySelector(".mc-att-title")).fontSize), weight: parseInt(cs(rows[0].querySelector(".mc-att-title")).fontWeight) };
           // Überfahren: Fläche in Akzentfarbe statt grau
@@ -2326,7 +2328,8 @@ def reading_checks(m, results):
         tiles_ok = (len(tiles) == 4 and all(t["h"] == 52 and t["radius"] == 10 and 150 <= t["w"] <= 240 and all(abs(d) <= 1 for d in t["d"])
                                             and t["icon"][0] == 32 and t["inText"] and t["save"] and t["save"]["round"] and t["save"]["w"] == 24
                                             and t["save"]["pe"] == "auto" and not same_color(t["bg"], res.get("hover", "")) for t in tiles)
-                    and [t["tip"] for t in tiles] == names and len({t["bg"] for t in tiles}) == 1)
+                    and all(t["size"] and t["size"]["text"] and not t["size"]["shown"] and 7 <= t["gap"] <= 9 for t in tiles)
+                    and [t["tip"] for t in tiles] == [f"{n} ({t['size']['text']})" for n, t in zip(names, tiles)] and len({t["bg"] for t in tiles}) == 1)
         lg = res.get("long") or {}
         edge = res.get("edge") or []
         ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
@@ -2339,7 +2342,7 @@ def reading_checks(m, results):
               and sg.get("attr") and not sg.get("bar") and sg.get("name") and sg.get("save") and abs(sg.get("icon", 0) - 16) <= 1.5
               and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
-    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe, runder Sichern-Knopf, Akzent beim Überfahren, Tooltip), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
+    check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe nur im Tooltip, runder Sichern-Knopf, Akzent beim Überfahren), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter
@@ -19331,7 +19334,7 @@ Neu
     def message_window_tiles():
         # Fenster einer geöffneten Mail: Anhänge als Kacheln wie im Hauptfenster (Vorlage Apple Mail): runder
         # Download-Knopf rechts in jeder Kachel, Name und Endung zusammen fett in 12 px wie die Zeile „n attachments“
-        # (bis zwei Zeilen), Größe darunter statt rechts daneben; Knopf speichert genau diesen Anhang. Vorher fehlte die
+        # (bis zwei Zeilen), Größe nur im Tooltip hinter dem Namen (Eichfall E16); Knopf speichert genau diesen Anhang. Vorher fehlte die
         # Gestaltung dort ganz (Name einzeilig in Thunderbirds Schrift, Größe rechts, kein Knopf)
         res = m.js(READING_JS + r"""
           const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
@@ -19354,7 +19357,7 @@ Neu
               return { save: sv ? { w: Math.round(sv.getBoundingClientRect().width), round: cs(sv).borderTopLeftRadius == "50%",
                                     right: Math.round(r.right - sv.getBoundingClientRect().right), d: Math.round(mid(sv) - mid(it)) } : null,
                        font: tt ? parseFloat(cs(tt).fontSize) : 0, weight: tt ? parseInt(cs(tt).fontWeight) : 0,
-                       below: sz && tt ? sz.getBoundingClientRect().top >= tt.getBoundingClientRect().bottom - 1 : false,
+                       size: sz ? { shown: sz.getBoundingClientRect().height > 0 && cs(sz).display != "none", text: sz.textContent.trim() } : null,
                        tip: it.getAttribute("tooltiptext") };
             });
             out.count = parseFloat(cs(count).fontSize);
@@ -19369,11 +19372,12 @@ Neu
             return False, "Testmail „Halo Anhänge“ fehlt"
         tiles = res.get("tiles") or []
         ok = (len(tiles) == 3 and all(t["save"] and t["save"]["w"] == 24 and t["save"]["round"] and 0 <= t["save"]["right"] <= 12 and abs(t["save"]["d"]) <= 1
-                                     and t["font"] == res.get("count") == 12 and t["weight"] == 600 and t["below"] for t in tiles)
-              and [t["tip"] for t in tiles] == ["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt"]
+                                     and t["font"] == res.get("count") == 12 and t["weight"] == 600
+                                     and t["size"] and t["size"]["text"] and not t["size"]["shown"] for t in tiles)
+              and [t["tip"] for t in tiles] == [f"{n} ({t['size']['text']})" for n, t in zip(["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt"], tiles)]
               and res.get("calls") == [["save", "Ausflug-02.txt"]])
         return ok, f"{res}"
-    check("Nachrichtenfenster: Anhänge als Kacheln wie im Hauptfenster – runder Download-Knopf rechts je Kachel (speichert genau diesen Anhang), Name fett in 12 px wie „n attachments“, Größe darunter", message_window_tiles, results)
+    check("Nachrichtenfenster: Anhänge als Kacheln wie im Hauptfenster – runder Download-Knopf rechts je Kachel (speichert genau diesen Anhang), Name fett in 12 px wie „n attachments“, Größe nur im Tooltip", message_window_tiles, results)
 
     def message_window_pill_size():
         # Kapselstücke im eigenen Fenster so groß wie in der Mail-Toolbar des Hauptfensters (3.26.0: „Allen antworten“

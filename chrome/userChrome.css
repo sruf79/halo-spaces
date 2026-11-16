@@ -1433,8 +1433,9 @@ body:has(> #accountCentral),
 
 /* Anhänge als Kacheln wie Apple Mail (Variante A, ENTSCHEIDUNGEN.md
    11.11.2026): leichte Fläche mit 10 px Radius, Dateisymbol links, Name fett
-   bis zwei Zeilen, Größe darunter, runder Sichern-Knopf rechts; beim
-   Überfahren Akzentfarbe, voller Name im Tooltip. Mehrere Anhänge in einem
+   bis zwei Zeilen, runder Sichern-Knopf rechts; beim Überfahren
+   Akzentfarbe, voller Name und Größe im Tooltip (keine Größe in der Kachel,
+   Eichfall E16 in docs/design-vorgaben.md). Mehrere Anhänge in einem
    umbrechenden Raster, linke Kante bündig mit dem Mailtext (16 px). Name und
    Endung legt die Erweiterung in .mc-att-text zusammen (decorateAttachments) */
 #attachmentList {
@@ -1487,22 +1488,15 @@ body:has(> #accountCentral),
 
 #attachmentList .attachmentItem .mc-att-title > :is(.attachmentcell-name, .attachmentcell-extension) {
   display: inline !important;
+  /* (Thunderbird rückt den Namen um 6 px ein: Abstand zum Symbol sonst 15 statt 8 px) */
+  margin-inline-start: 0 !important;
   white-space: normal !important;
   overflow: visible !important;
   font-size: inherit !important;
 }
 
+/* Größe nur im Tooltip (decorateAttachments), Thunderbird braucht das Element */
 #attachmentList .attachmentItem .mc-att-text > .attachmentcell-size {
-  display: block !important;
-  margin: 1px 0 0 !important;
-  font-size: calc(11px * var(--mt-font-scale, 1)) !important;
-  color: var(--mt-text-secondary) !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-#attachmentList .attachmentItem .mc-att-text > .attachmentcell-size[hidden] {
   display: none !important;
 }
 
@@ -1550,11 +1544,6 @@ body:has(> #accountCentral),
   color: var(--mt-accent-text) !important;
   border-color: transparent !important;
   outline: none !important;
-}
-
-#attachmentList:focus-within .attachmentItem[selected] :is(.attachmentcell-size, .mc-att-text > .attachmentcell-size) {
-  color: inherit !important;
-  opacity: 0.85;
 }
 
 #attachmentList:focus-within .attachmentItem[selected] > .mc-att-save {

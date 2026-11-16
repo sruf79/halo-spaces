@@ -1997,7 +1997,8 @@ loadPart("bereiche.js");
 // Inhaltshöhe)
 // Anhänge unter der Mail (Einzelansicht und Karten der Konversation) als
 // Kacheln wie Apple Mail: Dateisymbol in 32 px, Name und Endung zusammen in
-// .mc-att-text (bis zwei Zeilen, darunter die Größe), voller Name als Tooltip,
+// .mc-att-text (bis zwei Zeilen; die Größe steht nur im Tooltip hinter dem
+// vollen Namen, Eichfall E16),
 // je Kachel ein runder Sichern-Knopf (speichert genau diesen Anhang mit
 // Dialog); bei einem einzigen Anhang keine Kopfzeile, die Kachel steht immer
 // offen (mc-single, Gestaltung in userChrome.css). Ab zwei Anhängen endet die
@@ -2055,13 +2056,7 @@ function decorateAttachments(target) {
         const after = item.querySelector(":scope > .attach-drop-indicator.after");
         item.insertBefore(btn, after);
       }
-      for (const item of items) {
-        // voller Name beim Überfahren (Kachel kürzt nach zwei Zeilen)
-        const full = item.getAttribute("name") || item.attachment?.name || "";
-        if (item.getAttribute("tooltiptext") != full) {
-          item.setAttribute("tooltiptext", full);
-        }
-      }
+      tips();
       bigIcons();
       // (Breite der Zeilen neu, mit dem Symbol – sonst fehlte bei einem
       // Anhang der Dateiname)
@@ -2075,6 +2070,20 @@ function decorateAttachments(target) {
         } catch {} // gewollt: Fenster ohne Anhangsliste
       }
       fitHeight();
+    };
+    // voller Name und Größe beim Überfahren (die Kachel kürzt den Namen nach
+    // zwei Zeilen und zeigt keine Größe); Thunderbird trägt die Größe teils
+    // erst später ein
+    const tips = () => {
+      for (const item of list.querySelectorAll(":scope > .attachmentItem")) {
+        const full = item.getAttribute("name") || item.attachment?.name || "";
+        const size = item.querySelector(".attachmentcell-size");
+        const bytes = size && !size.hidden ? size.textContent.trim() : "";
+        const tip = bytes ? `${full} (${bytes})` : full;
+        if (item.getAttribute("tooltiptext") != tip) {
+          item.setAttribute("tooltiptext", tip);
+        }
+      }
     };
     // Dateisymbol in 32 px statt 16 (scharf statt vergrößert); Thunderbird
     // setzt es beim Laden neu
@@ -2119,6 +2128,7 @@ function decorateAttachments(target) {
     view.__mcFitHeight = fitHeight;
     new win.MutationObserver(update).observe(list, { childList: true });
     new win.MutationObserver(bigIcons).observe(list, { subtree: true, attributes: true, attributeFilter: ["srcset"] });
+    new win.MutationObserver(tips).observe(list, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["name", "hidden"] });
     new win.MutationObserver(fitHeight).observe(view, { attributeFilter: ["class"] });
     new win.ResizeObserver(fitHeight).observe(list);
     update();

@@ -181,6 +181,20 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.28.0
+
+- **Mail**: the toolbar buttons Reply, Archive, Move and Flag sit centred between New Message and the search field, and the space around them shrinks first when the window gets narrow; toolbar buttons always show only their icon, also with "Icons and Text" in Customize, and no longer cover the Today pane title (#62)
+- **Folder list**: Favourites icons and names line up with the folders of the accounts; long account names are shortened with "…" and the unread count stays visible
+- **Message window**: Print, a star with a menu (read, unread, star, junk) and a folder with a menu (move) sit at the right edge; every button shows the grey hover circle; attachments appear as tiles with their own save button, and hiding them with the chevron makes the window smaller; a conversation opened by double-click shows all its messages as cards
+- **Compose**: split buttons (Spelling, Save, Attach) show their arrow on the right half again and highlight only the half under the pointer; the same for Accept, Maybe and Decline in invitations
+- **Calendar**: in the month view, multi-day events stay in the same row on every day; dragging the sidebar divider follows the pointer down to the minimum width and collapses at half of it
+- **Tasks**: the detail column and the task window can do everything the old edit dialog could (All Day, Status, Completed On and more); on macOS the task window has no separate title bar
+- **Sidebar**: in the Address Book it hides without a 1 px jerk
+- **Today pane**: the grey circle in the mini calendar follows the day at the top of the list while you scroll
+- **Website as fifth space**: the page name in the toolbar is centred, without a frame
+- **Fix**: after an update, a new design takes effect at once instead of only after restarting twice
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.27.0
 
 - **Settings**: a new "Rules" category lists all rules of all accounts in one place, with switches to turn each on or off, and buttons to add, edit, duplicate and remove

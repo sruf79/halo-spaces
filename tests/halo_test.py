@@ -2381,6 +2381,59 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Anhänge: Kontextmenü mit „Quick Look“ unter „Öffnen“ (Thunderbirds Vorschau mit dem gewählten Anhang, ohne sie verborgen)", attachment_quicklook, results)
 
+    def menu_text_column():
+        # Eine Textspalte in allen Menüs: „Save All“ der Anhänge und das Kontextmenü eines Anhangs hielten eine leere
+        # Symbolspalte frei (Text rund 22 px weiter rechts), im Kontextmenü der Mailliste standen nur „Ignore Thread“ und
+        # „Watch Thread“ weiter rechts. Jetzt beginnt jeder Text an derselben Stelle; ein eingeschalteter Eintrag zeigt
+        # sein Häkchen links davor im Rand, ohne den Text zu verschieben
+        res = m.js(READING_JS + r"""
+          const doc = await showMail("Halo Anhänge"), mw = doc.defaultView;
+          mw.toggleAttachmentList?.(true, true); await ruhig(900);
+          const R = e => e.getBoundingClientRect();
+          const textOf = e => [...e.querySelectorAll(".menu-text, .menu-highlightable-text")].map(R).find(r => r.width > 0);
+          const measure = p => { const pr = R(p);
+            return [...p.children].filter(e => /^(menu|menuitem)$/.test(e.localName) && R(e).height > 0).map(e => {
+              const t = textOf(e); return [e.getAttribute("label"), t ? Math.round((t.left - pr.left) * 10) / 10 : null]; }); };
+          const click = (el, win) => { const r = R(el), x = r.left + Math.min(r.width / 2, 40), y = r.top + r.height / 2;
+            for (const [type, buttons] of [["mousedown", 2], ["contextmenu", 2], ["mouseup", 0]])
+              el.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: win, button: 2, buttons,
+                clientX: x, clientY: y, screenX: win.mozInnerScreenX + x, screenY: win.mozInnerScreenY + y })); };
+          const out = {};
+          const save = doc.getElementById("attachmentSaveAllMultipleMenu");
+          save.openPopup(doc.getElementById("attachmentSaveAllMultiple"), "after_end");
+          out.saveState = await until(() => save.state == "open" && "open", 3000) || save.state; await ruhig(300);
+          try { out.save = measure(save); } finally { save.hidePopup(); await ruhig(300); }
+          const list = doc.getElementById("attachmentList"), actx = doc.getElementById("attachmentItemContext");
+          list.selectedIndex = 0; await ruhig(200); click(list.getItemAtIndex(0), mw);
+          out.attState = await until(() => actx.state == "open" && "open", 3000) || actx.state; await ruhig(300);
+          try { out.att = measure(actx); } finally { actx.hidePopup(); await ruhig(300); }
+          mw.toggleAttachmentList?.(false);
+          const ad = a3.document, P = ad.getElementById("mailContext");
+          const row = ad.querySelector('#threadTree tr.selected, #threadTree tr[aria-selected="true"]');
+          click(row, a3);
+          out.ctxState = await until(() => P.state == "open" && "open", 4000) || P.state; await ruhig(300);
+          const watch = ad.getElementById("mailContext-watchThread"), had = watch.getAttribute("checked");
+          try {
+            watch.setAttribute("checked", "true"); await ruhig(200);
+            out.ctx = measure(P);
+            const ic = watch.querySelector(".menu-icon"), icr = R(ic), wr = R(watch), tr = textOf(watch), pr = R(P);
+            out.check = { display: a3.getComputedStyle(ic).display, visibility: a3.getComputedStyle(ic).visibility, w: Math.round(icr.width * 10) / 10,
+                          left: Math.round((icr.left - pr.left) * 10) / 10, right: Math.round((icr.right - pr.left) * 10) / 10,
+                          row: Math.round((wr.left - pr.left) * 10) / 10, text: Math.round((tr.left - pr.left) * 10) / 10 };
+          } finally { if (had == null) watch.removeAttribute("checked"); else watch.setAttribute("checked", had); P.hidePopup(); await ruhig(400); }
+          return out;""")
+        cols = [x for k in ("save", "att", "ctx") for _, x in res.get(k, [])]
+        ch = res.get("check", {})
+        ok = (res.get("saveState") == res.get("attState") == res.get("ctxState") == "open"
+              and len(res.get("save", [])) >= 3 and len(res.get("att", [])) >= 3 and len(res.get("ctx", [])) >= 10
+              and None not in cols and max(cols) - min(cols) <= 0.5
+              and ch.get("display") != "none" and ch.get("visibility") == "visible" and ch.get("w", 0) >= 9
+              # das Zeichen (Häkchen-Symbol: 3/16 bis 14/16 seines Felds) bleibt in der markierten Zeile
+              and ch.get("right", 99) <= ch.get("text", 0) + 0.5 and ch.get("left", -99) + ch.get("w", 0) * 3 / 16 >= ch.get("row", 0) - 0.5
+              and abs(ch.get("text", 0) - cols[0]) <= 0.5)
+        return ok, f"{res}"
+    check("Menüs: eine Textspalte („Save All“, Anhang, Mailliste gleich), Häkchen links davor im Rand, kein leerer Platz für Symbole", menu_text_column, results)
+
     def find_bar():
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Jetzt"); await narrow();
@@ -12136,21 +12189,41 @@ def run_checks(m, version, profile, results):
     check("Drucken: Mail mit Kopf wie Apple Mail (Systemschrift, Beschriftungen grau, Betreff fett, Linie), Text in Systemschrift", print_style, results)
 
     def remote_bar():
+        # „Externe Inhalte blockiert“ als graue Karte wie der Hinweis über der Mailliste: 10 px Abstand links und rechts,
+        # Radius 10, leise graue Fläche (nicht mehr gelb, auch nicht doppelt gemalt), Text in Textfarbe, Symbol grau;
+        # „Preferences“ als graue Kapsel 24 px neben dem Text, Schließen als runder Knopf 24 px – alles innerhalb der
+        # Karte und der Leseansicht (vorher war Schließen am rechten Rand halb abgeschnitten)
         res = m.js(r"""
           const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
           const f = MailServices.accounts.localFoldersServer.rootFolder.getChildNamed("Schrift");
           const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount > 0, "Ordner Schrift angezeigt", 5000); await ruhig(800);
           for (let i = 0; i < a3.gDBView.rowCount; i++) if (a3.gDBView.getMsgHdrAt(i).subject == "Schrift 1") a3.threadTree.selectedIndex = i;
-          const md = a3.messageBrowser.contentDocument; const mw = md.defaultView;
+          const md = a3.messageBrowser.contentDocument; const mw = md.defaultView, cs = e => mw.getComputedStyle(e);
           const n = await until(() => md.querySelector('#mail-notification-top notification-message[value="remoteContent"]'));
           await until(() => n?.shadowRoot?.querySelector("style.mc-layout"), 3000); await ruhig(600);
-          const text = n?.shadowRoot?.querySelector(".text-container")?.getBoundingClientRect();
-          const btn = n?.querySelector("button")?.getBoundingClientRect();
-          return { bar: !!n, styled: !!n?.shadowRoot?.querySelector("style.mc-layout"), paneWidth: Math.round(md.documentElement.clientWidth),
-                   sameRow: !!(text && btn && btn.top < text.bottom && btn.left >= text.right - 1), bg: n && mw.getComputedStyle(n).backgroundColor };""")
-        yellow = res.get("bg", "").startswith("rgb(255, 2")
-        return res.get("bar") and res.get("styled") and res.get("sameRow") and yellow, f"{res}"
-    check("Hinweis über der Mail: Knopf neben dem Text, Farbe unverändert", remote_bar, results)
+          const R = e => { if (!e) return null; const q = e.getBoundingClientRect(); return { l: Math.round(q.left * 10) / 10, t: Math.round(q.top * 10) / 10, r: Math.round(q.right * 10) / 10, b: Math.round(q.bottom * 10) / 10, w: Math.round(q.width * 10) / 10, h: Math.round(q.height * 10) / 10 }; };
+          const probe = md.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.color = "var(--mt-hint-bg)"; probe.style.backgroundColor = "var(--mt-text-secondary)";
+          md.documentElement.append(probe); const hint = cs(probe).color, grey = cs(probe).backgroundColor, text = cs(md.documentElement).getPropertyValue("--mt-text").trim(); probe.remove();
+          const sr = n?.shadowRoot, box = sr?.querySelector("div.container"), tx = sr?.querySelector(".text-container"), icon = sr?.querySelector("img.icon");
+          const btn = n?.querySelector("button"), close = sr?.querySelector("moz-button.close"), closeBtn = close?.shadowRoot?.querySelector('[part~="button"]');
+          return { bar: !!n, styled: !!sr?.querySelector("style.mc-layout"), pane: md.documentElement.clientWidth, card: R(n), box: R(box),
+                   hostBg: n && cs(n).backgroundColor, boxBg: box && cs(box).backgroundColor, hint, radius: box && [cs(n).borderTopLeftRadius, cs(box).borderBottomRightRadius],
+                   shadow: box && cs(box).boxShadow, text: R(tx), textColor: tx && cs(tx).color, iconColor: icon && cs(icon).color, grey,
+                   btn: R(btn), btnBg: btn && cs(btn).backgroundColor, close: R(closeBtn), closeRadius: closeBtn && cs(closeBtn).borderTopLeftRadius,
+                   closeBg: closeBtn && cs(closeBtn).backgroundColor };""")
+        c, box, b, x, t = res.get("card") or {}, res.get("box") or {}, res.get("btn") or {}, res.get("close") or {}, res.get("text") or {}
+        inside = lambda e: bool(e) and e["l"] >= c["l"] - 0.5 and e["r"] <= c["r"] + 0.5 and e["t"] >= c["t"] - 0.5 and e["b"] <= c["b"] + 0.5
+        ok = (res.get("bar") and res.get("styled") and bool(c) and abs(c["l"] - 10) <= 0.5 and abs(res["pane"] - c["r"] - 10) <= 0.5
+              and box == c and res["radius"] == ["10px", "10px"] and res["shadow"] == "none"
+              and same_color(res["boxBg"], res["hint"]) and res["hostBg"] in ("rgba(0, 0, 0, 0)", "transparent")
+              and not res["boxBg"].startswith("rgb(255, 2")
+              and same_color(res["iconColor"], res["grey"]) and not same_color(res["textColor"], res["iconColor"])
+              and abs(b.get("h", 0) - 24) <= 0.5 and res["btnBg"] not in ("rgba(0, 0, 0, 0)", "transparent")
+              and abs(x.get("w", 0) - 24) <= 0.5 and abs(x.get("h", 0) - 24) <= 0.5 and res["closeRadius"] not in ("0px", "")
+              and res["closeBg"] not in ("rgba(0, 0, 0, 0)", "transparent")
+              and inside(b) and inside(x) and inside(t) and b["l"] >= t["r"] - 1 and x["l"] >= b["r"] and b["t"] < t["b"])
+        return ok, f"{res}"
+    check("Hinweis über der Mail: „Externe Inhalte blockiert“ als graue Karte (10 px Rand, Radius 10), Knopf 24 px neben dem Text, runder Schließen-Knopf, nichts abgeschnitten", remote_bar, results)
 
     def blocked_image():
         res = m.js(r"""

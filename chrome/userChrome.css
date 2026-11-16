@@ -49,6 +49,17 @@
   --mt-radius-popup: 12px;
   --mt-radius-field: 7px;
   --mt-menu-bg: rgba(246, 246, 248, 0.80);
+  /* Menüs: eine Textspalte; das Häkchen steht davor im Rand (Feld 9 px,
+     1 px Luft zum Text, das Zeichen selbst bleibt in der markierten Zeile),
+     kein leerer Platz für Symbole */
+  --mt-menu-check-size: 9px;
+  --mt-menu-check-gap: 1px;
+  /* Auswahllisten in Einstellungen (Häkchen als Zeichen, Zeilen mit 8 px
+     Innenabstand): schmaleres Feld, damit es in der Zeile bleibt */
+  --mt-menu-check-field: 8px;
+  /* Hinweiskarte über der Mail (z. B. entfernte Inhalte blockiert): leise
+     graue Fläche statt gelber Leiste */
+  --mt-hint-bg: rgba(0, 0, 0, 0.045);
   --mt-tooltip-bg: #FFFFFF;
   /* Popover wie macOS 27 („Liquid Glass Regular – Medium“, Radius 20) als
      deckende Näherung, weil Panels hier keine Unschärfe dahinter haben:
@@ -143,6 +154,7 @@
     --mt-menu-bg: rgba(90, 90, 90, 0.5);
     /* dieselbe Fläche deckend über der Fensterfarbe #1E1E1E */
     --mt-menu-solid: #3C3C3C;
+    --mt-hint-bg: rgba(255, 255, 255, 0.065);
     --mt-tooltip-bg: #2C2C2E;
     /* Popover dunkel: Füllung #1A1A1A, Rand #A6A6A6 80 % */
     --mt-popover-bg: #1A1A1A;
@@ -3326,6 +3338,29 @@ menupopup > :is(menu, menuitem) {
   border-radius: 6px !important;
 }
 
+/* Eine Textspalte in allen Menüs: Thunderbird hält in vielen Menüs (Anhänge,
+   Hinweisleiste, Schreiben …) eine leere Symbolspalte frei, in anderen nur
+   bei Einträgen mit Häkchen (Ignore/Watch Thread) – der Text sprang zwischen
+   zwei Spalten. Leere Symbolplätze fallen weg; das Häkchen eines
+   eingeschalteten Eintrags steht links davor im Rand, ohne den Text zu
+   verschieben. Einträge mit eigenem Symbol (Ordner, Einfügen, Ausrichten …)
+   behalten es, das Symbol beginnt in der Textspalte */
+menupopup > :is(menu:not(.menu-iconic), menuitem:not(.menuitem-iconic, [image], [type="checkbox"], [type="radio"], [checked="true"], [selected="true"]), menucaption) > .menu-icon {
+  display: none !important;
+}
+
+menupopup > menuitem:is([type="checkbox"], [type="radio"], [checked="true"], [selected="true"]):not(.menuitem-iconic, [image]) > .menu-icon {
+  display: flex !important;
+  box-sizing: border-box !important;
+  width: var(--mt-menu-check-size) !important;
+  min-width: 0 !important;
+  height: var(--mt-menu-check-size) !important;
+  padding: 0 !important;
+  margin-block: 0 !important;
+  margin-inline: calc(-1 * (var(--mt-menu-check-size) + var(--mt-menu-check-gap))) var(--mt-menu-check-gap) !important;
+  align-self: center !important;
+}
+
 /* Markierter Eintrag in Akzentfarbe mit weißer Schrift */
 menupopup > :is(menu, menuitem)[_moz-menuactive]:not([disabled]) {
   background-color: var(--mt-accent) !important;
@@ -3349,6 +3384,18 @@ menupopup > :is(menu, menuitem)[_moz-menuactive]:not([disabled]) {
   menulist > menupopup > :is(menu, menuitem)[selected]:not([_moz-menuactive]) {
     background-color: transparent !important;
     color: var(--mt-text) !important;
+  }
+
+  /* Häkchen des gewählten Eintrags (macOS zeichnet es als ::before in einer
+     eigenen Spalte) links davor im Rand wie in den übrigen Menüs: der Text
+     beginnt in derselben Spalte */
+  menulist > menupopup[needsgutter] > :is(menu, menuitem, menucaption)::before {
+    box-sizing: border-box !important;
+    width: var(--mt-menu-check-field) !important;
+    margin-inline: calc(-1 * (var(--mt-menu-check-field) + var(--mt-menu-check-gap))) var(--mt-menu-check-gap) !important;
+    padding: 0 !important;
+    text-align: center !important;
+    font-size: calc(var(--mt-menu-check-field) + 1px) !important;
   }
 }
 
@@ -3385,6 +3432,7 @@ menupopup > :is(menu, menuitem)[disabled] {
    Text der Einträge darüber; die Spalte der Häkchen bleibt leer (wie bei
    „As Read“), der Name folgt 6 px rechts vom Symbol */
 menupopup > menuitem.mc-tag-item > .menu-icon {
+  display: none !important;
   visibility: hidden !important;
 }
 
@@ -13876,12 +13924,43 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border-radius: 0 !important;
 }
 
-/* Hinweise über der Mail füllen den Streifen zwischen Kopf und Mail ganz aus –
-   ohne weißen Rand und ohne runde Ecken */
+/* Hinweise über der Mail als Karte wie der Hinweis über der Mailliste:
+   10 px Abstand links und rechts, Radius 10 px. „Externe Inhalte blockiert“
+   ist ein Hinweis, keine Warnung: leise graue Fläche, Text in Textfarbe,
+   Symbol grau statt kräftig gelber Leiste (im Dunkeln grell). Junk- und
+   Betrugswarnungen behalten ihre Warnfarbe. Schließen im Schatten-DOM
+   richtet die Erweiterung ein (hookNotificationLayout) */
 #mail-notification-top notification-message {
-  margin: 0 !important;
-  border-radius: 0 !important;
-  --message-bar-border-radius: 0 !important;
+  margin: 8px 10px 0 !important;
+  border-radius: var(--mt-radius-row, 10px) !important;
+  --message-bar-border-radius: var(--mt-radius-row, 10px) !important;
+  --message-bar-border-width: 0 !important;
+  /* die Fläche malt die Karte im Schatten-DOM (div.container); die zweite
+     auf dem Element selbst verdoppelte den grauen Ton */
+  background-color: transparent !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) {
+  --message-bar-background-color: var(--mt-hint-bg) !important;
+  --message-bar-text-color: var(--mt-text) !important;
+}
+
+/* Knöpfe der Karte („Preferences“): graue Textkapsel, 24 px hoch */
+#mail-notification-top notification-message :is(button, toolbarbutton).notification-button {
+  min-height: 24px !important;
+  height: 24px !important;
+  margin-block: 0 !important;
+  padding: 0 12px !important;
+  font-weight: 400 !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) :is(button, toolbarbutton).notification-button {
+  background: var(--mt-control) !important;
+  color: var(--mt-text) !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) :is(button, toolbarbutton).notification-button:hover {
+  background: var(--mt-control-hover) !important;
 }
 
 /* keine Mehrtages-Pfeile (⇕ ↓ ↑) neben den Terminen – wie in Apple Kalender */

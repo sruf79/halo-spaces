@@ -20815,7 +20815,8 @@ class CardEnhancer {
   // der Text in seiner Spalte um, der Knopf bleibt rechts daneben – statt in
   // eine eigene Zeile darunter zu rutschen. Thunderbirds moz-message-bar legt
   // das im Schatten-DOM fest (flex-wrap ohne Variable), daher eine kleine
-  // Stilregel dort hinein; Farben bleiben unverändert.
+  // Stilregel dort hinein. Dazu die Karte: Inhalt mittig, Schließen als runder
+  // grauer Symbolknopf (24 px); Flächenfarben setzt userChrome.css.
   hookNotificationLayout(doc) {
     const win = doc.defaultView;
     const box = doc.getElementById("mail-notification-top");
@@ -20824,10 +20825,29 @@ class CardEnhancer {
     }
     box.__mcLayout = true;
     const CSS_TEXT = `
-      .container { align-items: flex-start; }
+      div.container { align-items: center; gap: 10px; min-height: 0; padding: 6px 8px 6px 12px;
+        border-radius: inherit; box-shadow: none; }
       .content { flex-wrap: nowrap; column-gap: 12px; }
-      .text-container { flex: 1 1 auto; min-width: 0; }
-      .actions.active { flex: none; }
+      .text-container { flex: 1 1 auto; min-width: 0; padding-block: 0; }
+      .text-content { padding-block: 0; }
+      .actions.active { flex: none; align-items: center; }
+      :host([value="remoteContent"]) img.icon { color: var(--mt-text-secondary); }
+      moz-button.close {
+        margin: 0;
+        --button-size-icon: 24px;
+        --button-min-height: 24px;
+        --button-border-radius: 999px;
+        --icon-size: 12px;
+        --button-background-color-ghost: var(--mt-control);
+        --button-background-color-ghost-hover: var(--mt-control-hover);
+        --button-background-color-ghost-active: var(--mt-control-hover);
+        --button-text-color-ghost: var(--mt-text-secondary);
+        --button-text-color-ghost-hover: var(--mt-text);
+        --button-text-color-ghost-active: var(--mt-text);
+        --button-border-color-ghost: transparent;
+        --button-border-color-ghost-hover: transparent;
+        --button-border-color-ghost-active: transparent;
+      }
       /* sehr schmal: Knopf doch unter den Text */
       @media (max-width: 420px) { .content { flex-wrap: wrap; } }`;
     const apply = () => {

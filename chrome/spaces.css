@@ -9393,12 +9393,43 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border-radius: 0 !important;
 }
 
-/* Hinweise über der Mail füllen den Streifen zwischen Kopf und Mail ganz aus –
-   ohne weißen Rand und ohne runde Ecken */
+/* Hinweise über der Mail als Karte wie der Hinweis über der Mailliste:
+   10 px Abstand links und rechts, Radius 10 px. „Externe Inhalte blockiert“
+   ist ein Hinweis, keine Warnung: leise graue Fläche, Text in Textfarbe,
+   Symbol grau statt kräftig gelber Leiste (im Dunkeln grell). Junk- und
+   Betrugswarnungen behalten ihre Warnfarbe. Schließen im Schatten-DOM
+   richtet die Erweiterung ein (hookNotificationLayout) */
 #mail-notification-top notification-message {
-  margin: 0 !important;
-  border-radius: 0 !important;
-  --message-bar-border-radius: 0 !important;
+  margin: 8px 10px 0 !important;
+  border-radius: var(--mt-radius-row, 10px) !important;
+  --message-bar-border-radius: var(--mt-radius-row, 10px) !important;
+  --message-bar-border-width: 0 !important;
+  /* die Fläche malt die Karte im Schatten-DOM (div.container); die zweite
+     auf dem Element selbst verdoppelte den grauen Ton */
+  background-color: transparent !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) {
+  --message-bar-background-color: var(--mt-hint-bg) !important;
+  --message-bar-text-color: var(--mt-text) !important;
+}
+
+/* Knöpfe der Karte („Preferences“): graue Textkapsel, 24 px hoch */
+#mail-notification-top notification-message :is(button, toolbarbutton).notification-button {
+  min-height: 24px !important;
+  height: 24px !important;
+  margin-block: 0 !important;
+  padding: 0 12px !important;
+  font-weight: 400 !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) :is(button, toolbarbutton).notification-button {
+  background: var(--mt-control) !important;
+  color: var(--mt-text) !important;
+}
+
+#mail-notification-top notification-message:is([value="remoteContent"], :not([type="warning"], [type="error"], [type="critical"], [type="success"])) :is(button, toolbarbutton).notification-button:hover {
+  background: var(--mt-control-hover) !important;
 }
 
 /* keine Mehrtages-Pfeile (⇕ ↓ ↑) neben den Terminen – wie in Apple Kalender */

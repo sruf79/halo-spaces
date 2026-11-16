@@ -3238,7 +3238,7 @@ FIND_SHAPE_JS = r"""
                 inner: [parseFloat(fcs(prev).borderTopRightRadius), parseFloat(fcs(next).borderTopLeftRadius)],
                 icons: [fcs(prev).listStyleImage, fcs(next).listStyleImage], line: fcs(next).backgroundImage, bg: fcs(prev).backgroundColor },
       done: { label: close.dataset.mcLabel || "", after: fcs(close, "::after").content, icon: fcs(close.querySelector(".toolbarbutton-icon")).display,
-              right: c.l >= k.r - 0.5, h: Math.round(c.h * 10) / 10, radius: parseFloat(fcs(close).borderTopLeftRadius), bg: fcs(close).backgroundColor },
+              right: c.l >= k.r - 0.5, w: Math.round(c.w * 10) / 10, h: Math.round(c.h * 10) / 10, radius: parseFloat(fcs(close).borderTopLeftRadius), bg: fcs(close).backgroundColor },
       options: [...fb.querySelectorAll(".findbar-container > checkbox")].filter(e => R(e).w > 0).length,
       replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor } : null; })() });
     await type("Xyzzy Qwv");
@@ -3261,7 +3261,10 @@ def find_shape_ok(s, compose):
           and a.get("joined") and 23 <= a.get("h", 0) <= 25 and all(cap(x) for x in a.get("outer", [])) and a.get("inner") == [0, 0]
           and "nav-up-12.svg" in a["icons"][0] and "nav-down-12.svg" in a["icons"][1] and "linear-gradient" in a.get("line", "")
           and same_color(a.get("bg"), s["control"])
-          and d.get("label") and d.get("label") in d.get("after", "") and d.get("icon") == "none" and d.get("right")
+          # Text „Done“ aus data-mc-label: neuere Versionen liefern ::after aufgelöst ("Done"), ESR als attr(data-mc-label);
+          # die Breite belegt in beiden Fällen, dass der Text gezeichnet ist (Symbol ausgeblendet)
+          and d.get("label") and (d.get("label") in d.get("after", "") or d.get("after") == "attr(data-mc-label)")
+          and d.get("w", 0) >= 30 and d.get("icon") == "none" and d.get("right")
           and 23 <= d.get("h", 0) <= 25 and cap(d.get("radius")) and same_color(d.get("bg"), s["control"])
           and s.get("options") == 4
           and (not compose or (s.get("replace") and s["replace"]["w"] > 30 and cap(s["replace"]["radius"]) and same_color(s["replace"]["bg"], s["control"])))
@@ -9678,9 +9681,15 @@ def server_checks(m, results):
               if (it) {
                 if (d.activeElement == listbox) listbox.blur();
                 await ruhig(300);
-                out.item = { ...look(), focus: d.activeElement == listbox, wantBg: want("var(--mt-selected-unfocused)"), wantColor: want("var(--mt-text)") };
-                listbox.focus(); await ruhig(300);
-                out.itemFocus = { ...look(), focus: d.activeElement == listbox, wantBg: want("color-mix(in srgb, var(--mt-accent) 22%%, transparent)") };
+                out.item = { ...look(), focus: listbox.matches(":focus"), wantBg: want("var(--mt-selected-unfocused)"), wantColor: want("var(--mt-text)") };
+                // Hauptfenster vorn, sonst greift :focus unter Linux (xvfb) nicht, obwohl activeElement die Liste ist
+                for (let i = 0; i < 4 && !listbox.matches(":focus"); i++) {
+                  w.focus(); await until(() => Services.focus.activeWindow == w, 3000);
+                  listbox.focus(); await until(() => listbox.matches(":focus"), 2000);
+                }
+                await ruhig(300);
+                out.itemFocus = { ...look(), focus: listbox.matches(":focus"), active: Services.focus.activeWindow == w,
+                                  wantBg: want("color-mix(in srgb, var(--mt-accent) 22%%, transparent)") };
                 listbox.blur(); await ruhig(200);
               }
               conv?.sendMsg("Hallo zurück");

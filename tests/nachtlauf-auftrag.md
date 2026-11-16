@@ -464,6 +464,9 @@ Reihenfolge:
    ~/halo-aufgaben/vorschau/nachtlauf-plan-2026-11-17.md (Abschnitte 2, 3, 6;
    Einzelheiten dort, Deutung des Designers). Regel (0) und Rahmenregel (a)
    (Fehler, der jedes Release verhindert; gestörte Mail-Funktion) gehen vor.
+   Maintainer 16.11.2026 (Volldampf): „weg 1. wir müssen unser wochenkontingent so rasch wie möglich verbrauchen ab morgen nacht 01:30“
+   und „korrektur: die maximale produktivität zählt“. Solange Volldampf läuft, setzt das Skript Fortsetzungen bis 08:45 (statt 08:00)
+   fort; claude läuft bis 09:00 (HART), danach übernimmt die Tagesroutine. Plane so, dass ein Eintrag vor 09:00 committet ist.
    a) Zuerst das Paket Kachel d2h + Lichtschein Variante D als Ganzes (mit
       Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1);
       gilt, obwohl IekSY auf „Wartet auf OK“ steht. Das Paket wird gebaut,

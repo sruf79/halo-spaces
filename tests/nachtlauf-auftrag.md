@@ -273,13 +273,13 @@ Reihenfolge:
       /vorab werden aus dem Zweig gebaut.
       Ab 16.11.2026 bis 24.11.2026 01:00 gilt für das Zusammenführen Schritt 1d a)
       (Revert von 671880a statt erneutem Merge), nicht der Merge-Text unten.
-      Ab 15.11.2026 (Regel (0) oben): Blockiert eine rote oder flackernde
+      [Erledigt/überholt, es gilt 1d:] Ab 15.11.2026 (Regel (0) oben): Blockiert eine rote oder flackernde
       Prüfung jedes Release, wird sie vor dem erneuten Zusammenführen von
       paket/lichtschein-kachel behoben. Ist sie danach grün (CI vollständig
       grün), führt der Director den Zweig ohne Rückfrage erneut zusammen
       (Merge, kein Rebase; Deutung von neon, siehe ENTSCHEIDUNGEN.md). Bleibt
       sie rot: kein Merge, der Bericht nennt die Prüfung und den Grund.
-      Nacht auf den 15.11.2026: Der Maintainer sah keinen Alltagstest
+      [Erledigt/überholt, es gilt 1d:] Nacht auf den 15.11.2026: Der Maintainer sah keinen Alltagstest
       nötig („es gibt bei einem neuen design wie den lichtkegeln und den
       buttons nicht viel zu testen, da diese keine neue funktionalität mit
       sich bringen. entweder sie sehen gut aus oder nicht.“). Deshalb wählt
@@ -465,23 +465,35 @@ Reihenfolge:
    Einzelheiten dort, Deutung des Designers). Regel (0) und Rahmenregel (a)
    (Fehler, der jedes Release verhindert; gestörte Mail-Funktion) gehen vor.
    a) Zuerst das Paket Kachel d2h + Lichtschein Variante D als Ganzes (mit
-      Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1):
-      Revert von 671880a auf main (der Zweig paket/lichtschein-kachel hat
-      seither nichts Neues; ein erneuter Merge brächte nach dem Revert nichts
-      zurück), Konflikte lösen, keine Werte ändern; Vorab-Prüfung 6a gegen
-      E17/E18/Variante D, nicht gegen den Text von IekNU; jüngere Stände
-      (Chat-Auswahl grau, Seitenleisten-Schrift) bleiben erhalten. Lokal
-      --only hell und dunkel, dann volle CI mit Windows, Designer-Abgleich mit
-      Bildern, Release bei Grün. Höchstens eine Reparaturrunde; bleibt es rot,
-      Paket wieder zurück, nichts halb, Bericht.
+      Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1);
+      gilt, obwohl IekSY auf „Wartet auf OK“ steht. Das Paket wird gebaut,
+      IekSY bleibt danach mit neuem Titel (d2h) auf „Wartet auf OK“ für die
+      Abnahme. Reihenfolge: Revert von 671880a auf main (der Zweig
+      paket/lichtschein-kachel hat seither nichts Neues; ein erneuter Merge
+      brächte nach dem Revert nichts zurück) → Konflikte lösen, keine Werte
+      ändern → lokal --only hell und dunkel → Designer-Abgleich mit Bildern im
+      Testprofil → erst dann Push, CI (Linux, mac, Windows) und Release bei
+      Grün. Keine Bilder und keine Tests, während die CI läuft. Vorab-Prüfung
+      6a gegen E17/E18/Variante D, nicht gegen den Text von IekNU; jüngere
+      Stände (Chat-Auswahl grau, Seitenleisten-Schrift) bleiben erhalten.
+      Prüfung auch schwebend (mc-float-pane, __mcSideFloatState) und die
+      Animationsprüfungen der Seitenleiste; im Bericht ankündigen, dass das
+      Testpaket für /vorab (dist/*.xpi) bereitliegt. Höchstens eine
+      Reparaturrunde; bleibt es rot, Paket wieder zurück, nichts halb, Bericht.
    b) Danach ohne Pause die Kette: Knöpfe (GYq_c zuerst, dann I6FHI) →
       Felder (I_AFI, dann Ia-H0) → Fenster und Dialoge (Reihenfolge Plan
       Schritt 5) → Aufgaben-Umbau Schritte 2–4 (H9KZs); Symbole nebenher, wo
-      frei. Kleine unabhängige A-Einträge (Plan Schritt 2) in der CI-Wartezeit.
+      frei. Kleine unabhängige A-Einträge (Plan Schritt 2) direkt nach dem
+      Release in Schritt 5, vor der Kette. Aufgaben-Umbau erst nach dem OK des
+      Maintainers aus der Abnahmerunde; bis dahin überspringt die Kette ihn.
+      I6FHI (und damit G15) ist frei, sobald das Paket in dieser Nacht
+      veröffentlicht ist. Die Sperrnotiz im Eintrag gilt dann als erfüllt.
+      Ohne Release (CI rot) bleibt I6FHI gesperrt, und die Kette beginnt mit
+      den Symbolen und den kleinen A-Einträgen.
    c) Neue Design-Einträge ordnest du nach Plan Abschnitt 3 ein (vor die Kette
       nur Release-Blocker und G1; ins Paket nur Kleines zu Kachel, Schein,
       Trennlinie, Schalter; Baustein-Einträge in ihre Gruppe mit Notiz
-      „wartet auf <Baustein>“; kleine Einzelkorrektur in die CI-Wartezeit;
+      „wartet auf <Baustein>“; kleine Einzelkorrektur nach dem Release (Schritt 5);
       ohne Freigabe oder Vorschau des Designers nicht umsetzen, zuerst zum
       Designer; neue Funktionen hinter die Bausteine; jüngerer Eintrag gilt).
    d) Volldampf: Die Grenze „ein großer Schritt je Nacht“ aus dem Plan

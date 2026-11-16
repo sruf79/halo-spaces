@@ -2302,6 +2302,28 @@ function unsubscribeKey(data, hdr) {
 // zuerst, Datum in Ortszeit statt „+0000“ (Rahmen und Balken: compose-body.css)
 const COMPOSE_FORMAT_PREF = "extensions.mailcards.composeFormatBar";
 
+// Suchleiste (Verfassen, Leseansicht): Schließen heißt wie beim Mac „Done“
+// und steht als Textknopf rechts (userChrome.css zeigt data-mc-label nur
+// dann, ohne halo.spaces bleibt Thunderbirds ×). Thunderbird legt die Leiste
+// in der Leseansicht erst beim ersten Öffnen an, darum beim Öffnen
+// beschriften; kein „label“, das entfernt Fluent beim Übersetzen wieder
+function hookFindbarDone(doc) {
+  if (!doc || doc.__mcFindDone) {
+    return;
+  }
+  doc.__mcFindDone = true;
+  const label = bar => {
+    const close = bar?.querySelector?.(".findbar-closebutton");
+    if (close && close.dataset.mcLabel != tr("Done")) {
+      close.dataset.mcLabel = tr("Done");
+    }
+  };
+  doc.addEventListener("findbaropen", e => label(e.target), true);
+  for (const bar of doc.querySelectorAll("findbar")) {
+    label(bar);
+  }
+}
+
 function hookComposeApple(win, cleanups) {
   const doc = win.document;
   const bar = doc.getElementById("composeToolbar2");
@@ -7878,6 +7900,7 @@ class CardEnhancer {
               }
               if (url.startsWith("about:message")) {
                 this.hookHeaderAvatar(doc);
+                hookFindbarDone(doc);
               }
               // Nachricht im eigenen Fenster: Knöpfe im Mailkopf zeigen
               // – ebenso, wenn die Mail-Toolbar keine Antworten-Knöpfe hat
@@ -7945,6 +7968,13 @@ class CardEnhancer {
         TagMenus.detach(w);
       }
     });
+    // Suchleisten im Hauptfenster (Webseiten-Tabs, Chat-Verlauf) und im
+    // Mailfenster: „Done“ wie im Verfassen-Fenster und in der Leseansicht
+    ExtensionSupport.registerWindowListener("mail-cards-findbar", {
+      chromeURLs: ["chrome://messenger/content/messenger.xhtml", "chrome://messenger/content/messageWindow.xhtml"],
+      onLoadWindow: w => hookFindbarDone(w.document),
+    });
+    this.restorers.push(() => ExtensionSupport.unregisterWindowListener("mail-cards-findbar"));
     this.watchChatVariant();
     this.watchPromptTitles();
     // Datumsfelder (z. B. im Terminfenster) im Format des Systems: Thunderbirds
@@ -7985,6 +8015,11 @@ class CardEnhancer {
           hookComposeApple(w, composeCleanups);
         } catch (e) {
           log("compose apple error", e);
+        }
+        try {
+          hookFindbarDone(w.document);
+        } catch (e) {
+          log("compose find bar error", e);
         }
         try {
           UndoSend.hook(w, composeCleanups);
@@ -19055,6 +19090,7 @@ class CardEnhancer {
     if (mb?.readyState == "complete") {
       safely("message context", () => this.hookMailContext(mb));
       safely("message header", () => this.hookHeaderAvatar(mb));
+      safely("find bar", () => hookFindbarDone(mb));
     }
     const threadPane = win.threadPane;
 

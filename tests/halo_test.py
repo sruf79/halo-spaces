@@ -2454,6 +2454,21 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Suchleiste in der Mail: nichts abgeschnitten, Suchfeld ohne Rahmen, geschlossen ohne Lücke", find_bar, results)
 
+    def find_bar_shape():
+        # gleiche Gestalt wie im Verfassen-Fenster (Thunderbird legt die Leiste hier erst beim Öffnen an)
+        res = m.js(READING_JS + FIND_SHAPE_JS + r"""
+          const doc = await showMail("Halo Jetzt");
+          a3.commandController.doCommand("cmd_find"); await ruhig(900);
+          const fb = doc.querySelector("findbar");
+          if (!fb || fb.hidden) return { open: false };
+          // (Text der Testmail: „Erfundene Testnachricht.“)
+          const out = await findShape(fb, "Testnachricht"); out.open = true;
+          fb.close(); await ruhig(600); return out;""")
+        if not res.get("open"):
+            return False, f"{res}"
+        return find_shape_ok(res, compose=False)
+    check("Suchleiste in der Mail: gleiche Gestalt wie im Verfassen-Fenster (Lupe, Trefferzahl im Feld, Pfeile als Kapsel, „Done“ rechts, alle Optionen da)", find_bar_shape, results)
+
     def contact_panel():
         # Panel „Kontakt bearbeiten“ (über das Menü zur Absenderadresse) mit der Fläche der Tooltips
         res = m.js(READING_JS + r"""
@@ -3196,6 +3211,65 @@ def reading_checks(m, results):
 # Editor-Dialoge (modal) erst nach dem Skript öffnen. Gewartet wird über den Zeitgeber des Moduls –
 # solange ein modaler Dialog offen ist, ruhen die Zeitgeber der Fenster.
 
+# Gestalt der Suchleiste (Verfassen und Leseansicht gleich): misst die offene Leiste mit einem Treffer und mit
+# „nicht gefunden“; shape = await findShape(fb, "Wort mit Treffer"). Auswertung: find_shape_ok()
+FIND_SHAPE_JS = r"""
+  const findShape = async (fb, hit) => {
+    const fw = fb.ownerDocument.defaultView, fcs = (e, p) => fw.getComputedStyle(e, p);
+    const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+    const varColor = v => { const e = fb.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.color = v;
+      fb.ownerDocument.documentElement.append(e); const c = fcs(e).color; e.remove(); return c; };
+    const sleep = ms => new Promise(r => fw.setTimeout(r, ms));
+    const tb = fb.querySelector(".findbar-textbox"), prev = fb.querySelector(".findbar-find-previous"), next = fb.querySelector(".findbar-find-next");
+    const close = fb.querySelector(".findbar-closebutton"), box = fb.querySelector(".findbar-container");
+    const type = async v => { tb.value = v; tb.dispatchEvent(new fw.Event("input", { bubbles: true }));
+      for (let i = 0; i < 40 && !(fb.querySelector(".found-matches:not([hidden])") || tb.getAttribute("status") == "notfound"); i++) await sleep(100);
+      // (das gelbe Blinken beim ersten Gebrauch, Attribut „flash“, bleibt ausgeschaltet: das Feld bleibt grau)
+      await sleep(150); };
+    const out = { control: varColor("var(--mt-control)"), tertiary: varColor("var(--mt-text-tertiary)") };
+    await type(hit);
+    const fm = fb.querySelector(".found-matches"), t = R(tb), p = R(prev), n = R(next), c = R(close), k = R(box);
+    Object.assign(out, {
+      field: { h: Math.round(t.h * 10) / 10, radius: parseFloat(fcs(tb).borderTopLeftRadius), img: fcs(tb).backgroundImage, bg: fcs(tb).backgroundColor },
+      count: fm.hidden ? null : { inField: R(fm).l >= t.l - 0.5 && R(fm).r <= t.r + 0.5 && R(fm).t >= t.t - 0.5 && R(fm).b <= t.b + 0.5,
+                                  textRight: Math.round((t.r - R(fm).r + parseFloat(fcs(fm).paddingRight)) * 10) / 10, color: fcs(fm).color, text: fm.getAttribute("value") || fm.textContent },
+      arrows: { joined: Math.abs(n.l - p.r) <= 0.5 && Math.abs(n.t - p.t) <= 0.5, h: Math.round(p.h * 10) / 10,
+                outer: [parseFloat(fcs(prev).borderTopLeftRadius), parseFloat(fcs(next).borderTopRightRadius)],
+                inner: [parseFloat(fcs(prev).borderTopRightRadius), parseFloat(fcs(next).borderTopLeftRadius)],
+                icons: [fcs(prev).listStyleImage, fcs(next).listStyleImage], line: fcs(next).backgroundImage, bg: fcs(prev).backgroundColor },
+      done: { label: close.dataset.mcLabel || "", after: fcs(close, "::after").content, icon: fcs(close.querySelector(".toolbarbutton-icon")).display,
+              right: c.l >= k.r - 0.5, h: Math.round(c.h * 10) / 10, radius: parseFloat(fcs(close).borderTopLeftRadius), bg: fcs(close).backgroundColor },
+      options: [...fb.querySelectorAll(".findbar-container > checkbox")].filter(e => R(e).w > 0).length,
+      replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor } : null; })() });
+    await type("Xyzzy Qwv");
+    const st = fb.querySelector(".findbar-find-status"), s2 = R(st), t2 = R(tb);
+    out.notfound = { status: tb.getAttribute("status"), bg: fcs(tb).backgroundColor, text: st.textContent,
+                     inField: s2.l >= t2.l - 0.5 && s2.r <= t2.r + 0.5 && s2.t >= t2.t - 0.5 && s2.b <= t2.b + 0.5, color: fcs(st).color };
+    tb.value = ""; tb.dispatchEvent(new fw.Event("input", { bubbles: true }));
+    return out; };
+"""
+
+
+def find_shape_ok(s, compose):
+    """Suchleiste wie beim Mac: graue Kapsel mit Lupe, Trefferzahl und „nicht gefunden“ grau rechts im Feld (kein rosa
+    Feld), Pfeile als Paar in einer Kapsel (halo-Pfeile, Trennstrich), „Done“ als graue Textkapsel rechts außen, alle
+    vier Optionen sichtbar, im Verfassen-Fenster „Replace…“ als Textkapsel."""
+    f, a, d, cnt, nf = s.get("field", {}), s.get("arrows", {}), s.get("done", {}), s.get("count") or {}, s.get("notfound", {})
+    cap = lambda r: r is not None and r >= 11.5
+    ok = (cap(f.get("radius")) and 23 <= f.get("h", 0) <= 25 and "search.svg" in f.get("img", "") and same_color(f.get("bg"), s["control"])
+          and cnt.get("inField") and 4 <= cnt.get("textRight", 0) <= 14 and same_color(cnt.get("color"), s["tertiary"])
+          and a.get("joined") and 23 <= a.get("h", 0) <= 25 and all(cap(x) for x in a.get("outer", [])) and a.get("inner") == [0, 0]
+          and "nav-up-12.svg" in a["icons"][0] and "nav-down-12.svg" in a["icons"][1] and "linear-gradient" in a.get("line", "")
+          and same_color(a.get("bg"), s["control"])
+          and d.get("label") and d.get("label") in d.get("after", "") and d.get("icon") == "none" and d.get("right")
+          and 23 <= d.get("h", 0) <= 25 and cap(d.get("radius")) and same_color(d.get("bg"), s["control"])
+          and s.get("options") == 4
+          and (not compose or (s.get("replace") and s["replace"]["w"] > 30 and cap(s["replace"]["radius"]) and same_color(s["replace"]["bg"], s["control"])))
+          and nf.get("status") == "notfound" and nf.get("text") and nf.get("inField") and same_color(nf.get("bg"), s["control"])
+          and same_color(nf.get("color"), s["tertiary"]))
+    return ok, f"{s}"
+
+
 COMPOSE_CHECK_JS = r"""
   const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
   const { setTimeout: modTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
@@ -3683,6 +3757,52 @@ def compose_checks(m, results):
         return ok, (f"Pille {r['pill']} auf {r['bar']} (Leuchtdichte {r['pillLum']:.4f} gegen {r['barLum']:.4f}), "
                     f"ausgewählt {r['selected']} (Akzent {r['accent']}), ungültige Adresse {r['invalid']}")
     check("Verfassen: Empfänger-Pillen dunkel heller als die Fläche; Auswahl und Warnfarbe ungültiger Adressen bleiben", pill_color, results)
+
+    def compose_header_symbols():
+        # Kopfzeilen: „…“ (halo-Symbol) statt » als runder Symbolknopf 24 px (in Ruhe ohne Fläche, unter der Maus grau),
+        # öffnet weiter das Menü der weiteren Kopfzeilen; Entfernen als grauer Kreis 16 px mit ausgespartem halo-× rechts
+        # am Ende der Zeile, weiter nur unter der Maus sichtbar und weiter wirksam; Beschriftungen bleiben bündig mit „From“
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({}, async (cw, cd) => {
+            const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+            const btn = cd.getElementById("extraAddressRowsMenuButton"), img = btn.querySelector("img"), b = R(btn);
+            const out = { more: { w: b.w, h: b.h, radius: csOf(btn).borderTopLeftRadius, rest: csOf(btn).backgroundColor, content: csOf(img).content,
+                                  control: colorOf(cd, "var(--mt-control)", "backgroundColor") } };
+            InspectorUtils.addPseudoClassLock(btn, ":hover"); await ruhig(200);
+            out.more.hover = csOf(btn).backgroundColor; InspectorUtils.removePseudoClassLock(btn, ":hover");
+            const menu = cd.getElementById("extraAddressRowsMenu");
+            btn.click(); out.more.menu = await till(() => menu.state == "open" && "open", 3000) || menu.state; menu.hidePopup(); await ruhig(300);
+            cw.showAndFocusAddressRow("addressRowReply"); await ruhig(500); cd.getElementById("msgSubject").focus(); await ruhig(400);
+            const row = cd.getElementById("addressRowReply"), rm = row.querySelector(".remove-field-button"), col = rm.parentElement;
+            const r = R(rm), rr = R(row), lab = R(row.querySelector(".address-label-container > label")), from = R(cd.getElementById("identityLabel"));
+            out.remove = { w: r.w, h: r.h, radius: csOf(rm).borderTopLeftRadius, bg: csOf(rm).backgroundColor, content: csOf(rm.querySelector("img")).content,
+                           tertiary: colorOf(cd, "var(--mt-text-tertiary)", "backgroundColor"), fromRowEnd: Math.round((rr.r - r.r) * 10) / 10,
+                           afterLabel: r.l > lab.r, labelLeft: Math.round((lab.l - from.l) * 10) / 10, rest: csOf(col).opacity };
+            InspectorUtils.addPseudoClassLock(row, ":hover"); col.style.transition = "none"; await ruhig(200);
+            out.remove.hover = csOf(col).opacity; InspectorUtils.removePseudoClassLock(row, ":hover"); col.style.transition = "";
+            rm.click(); await ruhig(500);
+            out.remove.removed = row.classList.contains("hidden") || row.hidden || R(row).h == 0;
+            return out; });""")
+        mo, rm = res.get("more", {}), res.get("remove", {})
+        ok = (mo.get("w") == 24 and mo.get("h") == 24 and mo.get("radius") == "50%" and "more.svg" in mo.get("content", "")
+              and same_color(mo.get("rest"), "rgba(0, 0, 0, 0)") and same_color(mo.get("hover"), mo.get("control")) and mo.get("menu") == "open"
+              and rm.get("w") == 16 and rm.get("h") == 16 and rm.get("radius") == "50%" and "close-12.svg" in rm.get("content", "")
+              and same_color(rm.get("bg"), rm.get("tertiary")) and 0 <= rm.get("fromRowEnd", 99) <= 8 and rm.get("afterLabel")
+              and abs(rm.get("labelLeft", 99)) <= 0.5 and rm.get("rest") == "0" and rm.get("hover") == "1" and rm.get("removed"))
+        return ok, f"{res}"
+    check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
+
+    def compose_find_bar():
+        res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
+          return await withCompose({ body: "<p>Hallo Anna,</p><p>das ist ein Testentwurf mit einer Liste.</p>" }, async (cw, cd) => {
+            cw.focusMsgBody?.(); await ruhig(300); cw.goDoCommand("cmd_find"); await ruhig(900);
+            const fb = cd.getElementById("FindToolbar");
+            if (!fb || fb.hidden) return { open: false };
+            const out = await findShape(fb, "Liste"); out.open = true; fb.close(); await ruhig(500); return out; });""")
+        if not res.get("open"):
+            return False, f"{res}"
+        return find_shape_ok(res, compose=True)
+    check("Verfassen: Suchleiste wie beim Mac (Lupe in grauer Kapsel, Trefferzahl im Feld, Pfeile als Kapsel, „Done“ rechts, „Replace…“ und alle Optionen da)", compose_find_bar, results)
 
     def narrow_toolbar():
         # Symbolleiste wie Apple Mail immer nur mit Symbolen (außer „Aa“), auch schmal ohne Überlauf; Formatleiste

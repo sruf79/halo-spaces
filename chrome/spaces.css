@@ -5426,6 +5426,103 @@ addon-card .addon-inline-options {
   margin-inline-end: 0 !important;
 }
 
+/* Weitere Kopfzeilen (Reply-To, Followup-To …): halo-Symbol „…“ statt »
+   (» steht in halo für ausgeblendete Knöpfe der Werkzeugleiste) als runder
+   Symbolknopf 24 px, in Ruhe ohne Fläche, unter der Maus ein grauer Kreis,
+   gedrückt bzw. mit offenem Menü dunkler */
+#MsgHeadersToolbar #extraAddressRowsMenuButton {
+  display: inline-flex;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mt-text-secondary) !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsMenuButton[hidden] {
+  display: none !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsMenuButton:hover {
+  background: var(--mt-control) !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsMenuButton:is(:hover:active, [aria-expanded="true"]) {
+  background: var(--mt-control-hover) !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsMenuButton > .overflow-icon {
+  content: url("resource://mailcards/icons/more.svg") !important;
+  width: 16px !important;
+  height: 16px !important;
+  -moz-context-properties: stroke, fill, fill-opacity !important;
+  stroke: var(--mt-text-secondary) !important;
+  fill: transparent !important;
+  transform: none !important;
+}
+
+/* Kopfzeile entfernen: kleiner grauer Kreis (16 px) mit ausgespartem
+   halo-× rechts am Ende der Zeile statt × links vor der Beschriftung, wie
+   das Löschen im Suchfeld. Sichtbar wie bisher nur unter der Maus bzw. mit
+   Fokus in der Zeile (Thunderbird blendet die Spalte ein); die Beschriftung
+   bleibt an ihrer Stelle (28 px, so breit wie die frühere Spalte) */
+#MsgHeadersToolbar .address-row {
+  padding-inline-start: 28px !important;
+}
+
+#MsgHeadersToolbar .address-row > .aw-firstColBox {
+  order: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  inline-size: 28px !important;
+  padding: 0 !important;
+}
+
+#MsgHeadersToolbar .address-row .remove-field-button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: var(--mt-text-tertiary) !important;
+  box-shadow: none !important;
+}
+
+#MsgHeadersToolbar .address-row .remove-field-button[hidden] {
+  display: none !important;
+}
+
+#MsgHeadersToolbar .address-row .remove-field-button:hover {
+  background: var(--mt-text-secondary) !important;
+}
+
+#MsgHeadersToolbar .address-row .remove-field-button > img {
+  content: url("resource://mailcards/icons/close-12.svg") !important;
+  width: 12px !important;
+  height: 12px !important;
+  -moz-context-properties: stroke, fill, fill-opacity !important;
+  stroke: var(--mt-window) !important;
+  fill: transparent !important;
+}
+
 #headersSplitter {
   border: none !important;
   background: transparent !important;

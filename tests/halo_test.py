@@ -6663,6 +6663,14 @@ def calendar_checks(m, results):
               const lab = b.querySelector(".button-text"), t = lab ? lab.getBoundingClientRect() : { width: 0, left: 0, right: 0 }, br = b.getBoundingClientRect();
               return { img: csOf(b).listStyleImage, icon: !!ic && vis(ic), tw: Math.round(t.width), bw: Math.round(br.width), h: Math.round(br.height),
                        padL: Math.round((t.left - br.left) * 10) / 10, padR: Math.round((br.right - t.right) * 10) / 10 }; });
+            // Alle Knöpfe vollständig im Fenster (Abbrechen war unten abgeschnitten: feste Höhe 34ex
+            // aus Thunderbirds Stilblatt, Inhalt mit Kapselknöpfen höher)
+            const dlg = pd.querySelector("dialog"), ih = pw.innerHeight, iw = pw.innerWidth;
+            out.win = { ih, iw, sh: pd.documentElement.scrollHeight, root: csOf(pd.documentElement).blockSize };
+            out.all = [...out.buttons.map((_, i) => [...pd.querySelectorAll(".occurrence-accept-buttons")].filter(vis)[i]),
+                       ...["accept", "cancel"].map(t => dlg.getButton(t))].filter(b => b && vis(b)).map(b => {
+              const r = b.getBoundingClientRect(); return { id: b.id || b.getAttribute("dlgtype"), top: Math.round(r.top), bottom: Math.round(r.bottom * 10) / 10,
+                left: Math.round(r.left), right: Math.round(r.right * 10) / 10 }; });
           } finally {
             if (pw && !pw.closed) { pw.close(); await till(() => pw.closed, 4000); await ruhig(500); }
             try { await c.deleteItem(saved); } catch {}
@@ -6673,8 +6681,12 @@ def calendar_checks(m, results):
         b = res.get("buttons") or []
         ok = res["header"]["bw"] == "0px" and len(b) >= 2 and all(x["img"] == "none" and not x["icon"] for x in b)
         ok = ok and all(0 < x["tw"] < x["bw"] - 20 and abs(x["padL"] - x["padR"]) <= 2 and x["h"] >= 30 for x in b)
+        # Alle Knöpfe (beide Wahlknöpfe und „Abbrechen“) ganz im Fenster, mit Rand unten
+        win, alle = res.get("win") or {}, res.get("all") or []
+        ok = ok and any(x["id"] == "cancel" for x in alle) and all(x["top"] >= 0 and x["left"] >= 0 and x["right"] <= win.get("iw", 0)
+                                                                and x["bottom"] <= win.get("ih", 0) - 8 for x in alle)
         return ok, f"{res}"
-    check("Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Knöpfe ohne alte Kalendersymbole, 30 px, Text mittig", occurrence_prompt, results)
+    check("Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Knöpfe ohne alte Kalendersymbole, 30 px, Text mittig, alle Knöpfe samt Abbrechen ganz sichtbar", occurrence_prompt, results)
 
     def quick_segment():
         # Schnellfenster: gewähltes Segment („Termin“/„Aufgabe“) heller als die Spur – dunkel früher dunkler (#1E1E1E)

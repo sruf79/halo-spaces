@@ -11842,7 +11842,14 @@ dialog tabpanels:not(#event-grid-tabpanels) {
 
 /* Rückfrage wiederholter Termin („Nur diesen / alle …“): Titelkasten als
    ruhige graue Fläche statt eckigem Feldrahmen; ohne Thunderbirds alte
-   Kalendersymbole neben den Kapselknöpfen; Text mittig, da ohne Symbol */
+   Kalendersymbole neben den Kapselknöpfen; Text mittig, da ohne Symbol.
+   Fenster so hoch wie sein Inhalt: Thunderbird setzt eine feste Höhe von
+   34ex (rund 197 px), mit den 30-px-Kapselknöpfen ragte „Abbrechen“ unten
+   hinaus; die alte Höhe bleibt als Mindesthöhe */
+#calendar-occurrence-prompt {
+  block-size: auto !important;
+}
+
 #occurrence-prompt-header {
   border: none !important;
   border-radius: 10px !important;

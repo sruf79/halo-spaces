@@ -453,6 +453,41 @@ Reihenfolge:
         (Bericht), wie bisher.
       - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
         am Anfang und Ende (Woche, 5 Stunden).
+1d. Redesign-Ablauf – gilt NUR bis zum Ende der Volldampf-Woche (24.11.2026
+   01:00, Ende der Zeile in ~/halo-nacht/volldampf.txt), danach diesen
+   Abschnitt überspringen. Freigabe des Maintainers (16.11.2026, Gespräch mit
+   dem Designer, Wortlaut in ENTSCHEIDUNGEN.md): „ansonsten bin ich mit deinem
+   vorschlag bezüglich ablauf des designumbaus einverstanden. kacheln und
+   lichtkegel sind ein paket und abnahmerunde morgen.“ Plan des Designers:
+   ~/halo-aufgaben/vorschau/nachtlauf-plan-2026-11-17.md (Abschnitte 2, 3, 6;
+   Einzelheiten dort, Deutung des Designers). Regel (0) und Rahmenregel (a)
+   (Fehler, der jedes Release verhindert; gestörte Mail-Funktion) gehen vor.
+   a) Zuerst das Paket Kachel d2h + Lichtschein Variante D als Ganzes (mit
+      Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1):
+      Revert von 671880a auf main (der Zweig paket/lichtschein-kachel hat
+      seither nichts Neues; ein erneuter Merge brächte nach dem Revert nichts
+      zurück), Konflikte lösen, keine Werte ändern; Vorab-Prüfung 6a gegen
+      E17/E18/Variante D, nicht gegen den Text von IekNU; jüngere Stände
+      (Chat-Auswahl grau, Seitenleisten-Schrift) bleiben erhalten. Lokal
+      --only hell und dunkel, dann volle CI mit Windows, Designer-Abgleich mit
+      Bildern, Release bei Grün. Höchstens eine Reparaturrunde; bleibt es rot,
+      Paket wieder zurück, nichts halb, Bericht.
+   b) Danach ohne Pause die Kette: Knöpfe (GYq_c zuerst, dann I6FHI) →
+      Felder (I_AFI, dann Ia-H0) → Fenster und Dialoge (Reihenfolge Plan
+      Schritt 5) → Aufgaben-Umbau Schritte 2–4 (H9KZs); Symbole nebenher, wo
+      frei. Kleine unabhängige A-Einträge (Plan Schritt 2) in der CI-Wartezeit.
+   c) Neue Design-Einträge ordnest du nach Plan Abschnitt 3 ein (vor die Kette
+      nur Release-Blocker und G1; ins Paket nur Kleines zu Kachel, Schein,
+      Trennlinie, Schalter; Baustein-Einträge in ihre Gruppe mit Notiz
+      „wartet auf <Baustein>“; kleine Einzelkorrektur in die CI-Wartezeit;
+      ohne Freigabe oder Vorschau des Designers nicht umsetzen, zuerst zum
+      Designer; neue Funktionen hinter die Bausteine; jüngerer Eintrag gilt).
+   d) Volldampf: Die Grenze „ein großer Schritt je Nacht“ aus dem Plan
+      entfällt. Unverändert bleiben die Reihenfolge, Vorab-Prüfung 6a je
+      Eintrag, Designer-Abgleich mit Bildern je Baustein, --only vor jedem
+      Commit, kein Schritt ohne grüne Prüfungen und höchstens ein reguläres
+      Release pro Tag (alles danach geht mit dem nächsten). Lieber ein Baustein
+      fertig und geprüft als drei halb.
 2a. Designer-Einträge (Plan „Vorab geprüft: ja, Designer“): Du beauftragst
    den Designer selbst als Unteragent (Agent-Werkzeug, Modell opus, nie
    kleiner; Fable nur nach Schritt 1c bzw. AGENTS.md „Rot bleibt rot“). Auftrag:

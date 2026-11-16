@@ -1820,6 +1820,7 @@ class ConversationCards {
     }, true);
     browserEl.addEventListener("MsgLoaded", () => {
       decorateAttachments(browserEl.contentDocument);
+      decorateInvitation(browserEl.contentDocument);
       const mp0 = browserEl.contentDocument?.getElementById("messagepane");
       // Klick in den Mailtext wählt die Karte ebenfalls
       const body = mp0?.contentDocument;
@@ -2003,6 +2004,79 @@ loadPart("bereiche.js");
 // Dialog); bei einem einzigen Anhang keine Kopfzeile, die Kachel steht immer
 // offen (mc-single, Gestaltung in userChrome.css). Ab zwei Anhängen endet die
 // Kopfzeile am rechten Rand der rechten Kachelspalte (--mt-att-cols-right).
+// Einladung in der Mail (Thunderbirds Einladungsdetails unter dem Text, Variante
+// A der Vorschau „Seltene Symbole“, 15.11.2026): wie im Einladungsfenster graue
+// Karte, Beschriftungen ohne Doppelpunkt, Personen mit Initialen im grauen Kreis,
+// Name und Adresse getrennt (die eigene Adresse als „You“), rechts das Zeichen
+// des Zusage-Stands (.mc-inv-st[data-st], Gestaltung in parts.css). Nur bei den
+// Teilnehmern: Beim Organisator kennt Thunderbird meist keinen Stand (ORGANIZER
+// ohne PARTSTAT gilt als NEEDS-ACTION), dort also kein Zeichen. Rolle und Stand
+// stehen weiter im Tooltip der Zeile. Die Leiste über der Mail ersetzt die
+// Personen bei einem Abgleich mit dem Kalender neu – daher ein Beobachter
+function decorateInvitation(target) {
+  try {
+    const doc = target?.document || target?.contentDocument || target?.ownerDocument || target;
+    const body = doc?.getElementById?.("messagepane")?.contentDocument;
+    const table = body?.querySelector?.(".invitation-table");
+    if (!table) {
+      return;
+    }
+    const run = () => {
+      for (const th of table.querySelectorAll("th.description")) {
+        const t = th.textContent, u = t.replace(/\s*:\s*$/, "");
+        if (u != t) {
+          th.textContent = u;
+        }
+      }
+      let own = null;
+      for (const label of table.querySelectorAll(".attendee-label:not([mc-inv])")) {
+        const nameEl = label.querySelector(":scope > .attendee-name");
+        if (!nameEl) {
+          continue;
+        }
+        label.setAttribute("mc-inv", "");
+        const text = nameEl.textContent.trim();
+        const m = text.match(/^(.*?)\s*<([^<>]+)>\s*(.*)$/);
+        const name = (m ? m[1] : "").replace(/^"(.*)"$/, "$1").trim();
+        const mail = (m ? m[2] : text).replace(/^mailto:/i, "").trim();
+        const rest = m ? m[3] : "";
+        own ||= new Set([...MailServices.accounts.allIdentities].map(i => (i.email || "").toLowerCase()).filter(Boolean));
+        const self = own.has(mail.toLowerCase());
+        const words = (name || mail.split("@")[0]).split(/[\s._-]+/).filter(Boolean);
+        const initials = ((words[0]?.[0] || "") + (words.length > 1 ? words.at(-1)[0] : "")).toUpperCase() || "?";
+        const av = body.createElement("span");
+        av.className = "mc-inv-av";
+        av.textContent = initials;
+        const nm = body.createElement("span");
+        nm.className = "mc-inv-name";
+        nm.textContent = name || mail;
+        const sub = body.createElement("span");
+        sub.className = "mc-inv-mail";
+        sub.textContent = self ? tr("You") : name ? mail : "";
+        nameEl.replaceChildren(nm, sub);
+        if (rest) {
+          nameEl.append(" " + rest);
+        }
+        label.insertBefore(av, label.firstChild);
+        const icon = label.querySelector(":scope > .itip-icon");
+        if (label.closest("#imipHtml-attendees-cell") && icon) {
+          const st = body.createElement("span");
+          st.className = "mc-inv-st";
+          st.dataset.st = icon.getAttribute("partstat") || "NEEDS-ACTION";
+          label.append(st);
+        }
+      }
+    };
+    run();
+    if (!table.__mcInvObserver) {
+      table.__mcInvObserver = new body.defaultView.MutationObserver(run);
+      table.__mcInvObserver.observe(table, { childList: true, subtree: true });
+    }
+  } catch (e) {
+    log("invitation decorate error", e);
+  }
+}
+
 // Die Liste baut Thunderbird erst nach „MsgLoaded“ fertig – daher über einen
 // Beobachter der Liste
 function decorateAttachments(target) {
@@ -12332,6 +12406,7 @@ class CardEnhancer {
           fitWideMessage(event.target);
           fitShortMessage(event.target);
           decorateAttachments(event.target);
+          decorateInvitation(event.target);
         }
       };
       const tabs = w.document.getElementById("tabmail")?.tabContainer;
@@ -18573,7 +18648,10 @@ class CardEnhancer {
     // zwei Zeilen, Größe darunter): dessen Aufruf bei „MsgLoaded“ erreicht
     // dieses Fenster nicht, ohne ihn blieb Thunderbirds Zeile (Name einzeilig
     // in eigener Schrift, Größe rechts, kein Knopf)
-    const decorate = () => decorateAttachments(mwin.document);
+    const decorate = () => {
+      decorateAttachments(mwin.document);
+      decorateInvitation(mwin.document);
+    };
     const browser = mwin.frameElement;
     browser?.addEventListener("MsgLoaded", decorate, true);
     decorate();

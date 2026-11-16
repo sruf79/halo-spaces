@@ -2176,6 +2176,45 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Einladung: Leiste als graue Kapsel (Text über die ganze Zeile, lesbar, Knöpfe darunter), Details als Karte in der Breite des Lesebereichs", invitation, results)
 
+    def invitation_card():
+        # Einladungsdetails wie im Einladungsfenster: graue Karte ohne Rand, Beschriftungen grau ohne Doppelpunkt,
+        # halo-Pfeil statt Dreieck, Personen mit Initialen, Name und Adresse getrennt (eigene Adresse als „You“),
+        # Zusage-Stand nur bei den Teilnehmern (zugesagt / offen), keine Thunderbird-Figuren mehr sichtbar
+        res = m.js(READING_JS + r"""
+          await showMail("Halo Workshop"); const doc = md();
+          const body = doc.getElementById("messagepane").contentDocument;
+          const card = await until(() => body.querySelector(".invitation-border .attendee-label[mc-inv]") && body.querySelector(".invitation-border"), 6000);
+          if (!card) return { card: false };
+          await ruhig(300);
+          const sum = body.querySelector(".invitation-details > summary");
+          const people = [...body.querySelectorAll(".invitation-table .attendee-label")].map(l => ({
+            cell: l.closest("td").id.replace("imipHtml-", ""), av: l.querySelector(".mc-inv-av")?.textContent,
+            avSize: l.querySelector(".mc-inv-av") ? Math.round(l.querySelector(".mc-inv-av").getBoundingClientRect().width) : 0,
+            name: l.querySelector(".mc-inv-name")?.textContent, mail: l.querySelector(".mc-inv-mail")?.textContent,
+            st: l.querySelector(".mc-inv-st")?.dataset.st || null, title: !!l.getAttribute("title"),
+            figure: vis(l.querySelector(".itip-icon")) }));
+          const { MailServices: MS } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const own = [...MS.accounts.allIdentities].some(i => (i.email || "").toLowerCase() == "halo@example.invalid");
+          return { card: true, own, bg: cs(card).backgroundColor, border: cs(card).borderTopWidth, radius: cs(card).borderTopLeftRadius,
+                   labels: [...body.querySelectorAll(".invitation-table tr:not([hidden]) > th.description")].map(t => t.textContent.trim()),
+                   labelColor: cs(body.querySelector("th.description")).color, labelAlign: cs(body.querySelector("th.description")).textAlign,
+                   marker: cs(sum).listStyleType, arrow: cs(sum, "::before").maskImage.slice(0, 30) || cs(sum, "::before").maskImage, people };""")
+        if not res.get("card"):
+            return False, f"keine Einladungskarte {res}"
+        p = res["people"]
+        org = [x for x in p if x["cell"] == "organizer-cell"]
+        att = {x["name"]: x for x in p if x["cell"] == "attendees-cell"}
+        ok = (rgba_alpha(res["bg"]) > 0 and res["border"] == "0px" and res["radius"] == "12px"
+              and res["labels"] and not any(l.endswith(":") for l in res["labels"]) and res["labelAlign"] == "end"
+              and res["marker"] == "none" and res["arrow"].startswith("url(")
+              and len(org) == 1 and org[0]["av"] == "AB" and org[0]["mail"] == "anna@example.invalid" and org[0]["st"] is None
+              and att.get("Halo Test", {}).get("av") == "HT" and att["Halo Test"]["st"] == "NEEDS-ACTION"
+              and (att["Halo Test"]["mail"] != "halo@example.invalid") == bool(res["own"])
+              and att.get("Anna Beispiel", {}).get("st") == "ACCEPTED"
+              and all(x["avSize"] == 24 and x["title"] and not x["figure"] for x in p))
+        return ok, f"{res}"
+    check("Einladung in der Mail: graue Karte ohne Rand, Beschriftungen ohne Doppelpunkt, halo-Pfeil, Personen mit Initialen, Zusage-Stand bei den Teilnehmern", invitation_card, results)
+
     def invitation_split():
         # Zusagen/Vielleicht/Absagen sind geteilte Pillen: beide Hälften zeigen ein Symbol, rechts den Pfeil ⌄ (vorher
         # blieb die rechte Hälfte leer, wie in Verfassen). Ohne beschreibbaren Kalender blendet Thunderbird sie aus –

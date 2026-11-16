@@ -77,21 +77,73 @@ dialog::part(dialog-button) {
   padding: 0 !important;
 }
 
-/* Einladungsdetails (Kalender-Einladung in der Mail, Thunderbirds imip.css):
-   Tabelle fest 40em breit – im schmalen Lesebereich fehlten rechts Rand und
-   Teile der Uhrzeit, und ohne Scrollbalken gab es keinen Hinweis darauf. Jetzt
-   so breit wie der Lesebereich, als Karte mit feiner Linie statt 3-px-Rahmen,
-   Werte linksbündig.
-   (Im Mailinhalt gibt es keine --mt-Variablen: neutrales Grau für hell und dunkel.) */
+/* Einladungsdetails (Kalender-Einladung in der Mail, Thunderbirds imip.css) wie
+   im Einladungsfenster (Variante A der Vorschau „Seltene Symbole“, 15.11.2026):
+   graue Karte ohne Rand in der Breite des Lesebereichs (Thunderbirds Tabelle war
+   fest 40em breit, im schmalen Lesebereich fehlte rechts ein Teil), Zeilen mit
+   Haarlinie, Beschriftungen grau rechtsbündig (Doppelpunkt entfernt die
+   Erweiterung), halo-Pfeil zum Aufklappen statt Dreieck, Personen mit Initialen
+   im grauen Kreis, Name und Adresse getrennt, rechts der Zusage-Stand
+   (zugesagt grüner Haken, offen graues Fragezeichen, vielleicht orange, abgesagt
+   rot). Im Mailinhalt gibt es die --mt-Variablen von theme.css nicht: eigene
+   Werte hier für hell und dunkel, gleich denen in theme.css. */
 .invitation-details {
+  --mt-inv-card: rgba(0, 0, 0, 0.05);
+  --mt-inv-line: rgba(0, 0, 0, 0.08);
+  --mt-inv-text2: #6E6E73;
+  --mt-inv-text3: #8E8E93;
+  --mt-inv-avatar: linear-gradient(#A5ADBD, #868E9E);
+  --mt-inv-yes: #34C759;
+  --mt-inv-maybe: #FF9500;
+  --mt-inv-no: #FF3B30;
   text-align: start !important;
   padding-inline: 0 !important;
 }
 
+@media (prefers-color-scheme: dark) {
+  .invitation-details {
+    --mt-inv-card: rgba(255, 255, 255, 0.07);
+    --mt-inv-line: rgba(255, 255, 255, 0.08);
+    --mt-inv-text2: #A1A1A6;
+    --mt-inv-text3: #7C7C80;
+    --mt-inv-yes: #30D158;
+    --mt-inv-maybe: #FF9F0A;
+    --mt-inv-no: #FF6961;
+  }
+}
+
+.invitation-details > summary {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  list-style: none !important;
+  font-weight: 500 !important;
+  cursor: default;
+}
+
+.invitation-details > summary::-moz-list-bullet,
+.invitation-details > summary::marker {
+  content: none !important;
+}
+
+.invitation-details > summary::before {
+  content: "";
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  background-color: var(--mt-inv-text2);
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222.1%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.invitation-details:not([open]) > summary::before {
+  transform: rotate(-90deg);
+}
+
 .invitation-border {
-  border: 1px solid rgba(128, 128, 128, 0.3) !important;
-  border-radius: 10px !important;
-  overflow: hidden !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: var(--mt-inv-card) !important;
+  padding: 6px 14px !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
   margin-inline: 0 !important;
@@ -101,12 +153,109 @@ dialog::part(dialog-button) {
   inline-size: auto !important;
   max-width: 100% !important;
   margin-block: 0 !important;
+  border-collapse: collapse !important;
+}
+
+.invitation-table :is(td, th) {
+  padding: 6px 0 !important;
+  vertical-align: baseline !important;
+}
+
+.invitation-table tr:not([hidden]) ~ tr:not([hidden]) > :is(td, th) {
+  border-top: 0.5px solid var(--mt-inv-line) !important;
+}
+
+.invitation-table th.description {
+  inline-size: auto !important;
+  padding-inline-end: 12px !important;
+  text-align: end !important;
+  font-weight: normal !important;
+  white-space: nowrap !important;
+  color: var(--mt-inv-text2) !important;
+  background: none !important;
+  border-inline-end: none !important;
 }
 
 .invitation-table td:not(.description) {
   text-align: start !important;
   overflow-wrap: anywhere !important;
 }
+
+/* Personen: Initialen, Name, Adresse grau, Zusage-Stand rechts */
+.invitation-table .attendee-list {
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+.invitation-table .attendee-label[mc-inv] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 2px 0 !important;
+}
+
+.invitation-table .attendee-label[mc-inv] > .itip-icon {
+  display: none !important;
+}
+
+.invitation-table .attendee-label[mc-inv] > .attendee-name {
+  flex: 1 1 auto !important;
+  margin: 0 !important;
+}
+
+.mc-inv-av {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  background: var(--mt-inv-avatar);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.mc-inv-mail {
+  margin-inline-start: 8px;
+  font-size: 12px;
+  color: var(--mt-inv-text2);
+}
+
+.mc-inv-mail:empty {
+  display: none;
+}
+
+.mc-inv-st {
+  position: relative;
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  margin-inline-start: auto;
+  background-color: var(--mt-inv-text3);
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%229.2%22 stroke-width=%221.6%22/%3E%3Cpath d=%22M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.4v.4%22/%3E%3Ccircle cx=%2212%22 cy=%2216.8%22 r=%221%22 fill=%22black%22 stroke=%22none%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.mc-inv-st:is([data-st="ACCEPTED"], [data-st="TENTATIVE"], [data-st="DECLINED"]) {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%220%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22 fill=%22black%22 stroke=%22none%22/%3E%3C/svg%3E");
+}
+
+.mc-inv-st[data-st="ACCEPTED"] { background-color: var(--mt-inv-yes); }
+.mc-inv-st[data-st="TENTATIVE"] { background-color: var(--mt-inv-maybe); }
+.mc-inv-st[data-st="DECLINED"] { background-color: var(--mt-inv-no); }
+
+.mc-inv-st:is([data-st="ACCEPTED"], [data-st="TENTATIVE"], [data-st="DECLINED"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: #FFFFFF;
+  mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m7.5 12.3 3 3 6-6.3%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.mc-inv-st[data-st="TENTATIVE"]::after { mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222.0%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.4v.4%22/%3E%3Ccircle cx=%2212%22 cy=%2216.8%22 r=%221%22 fill=%22black%22 stroke=%22none%22/%3E%3C/svg%3E"); }
+.mc-inv-st[data-st="DECLINED"]::after { mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m8.6 8.6 6.8 6.8M15.4 8.6l-6.8 6.8%22/%3E%3C/svg%3E"); }
 
 /* Add-ons-Verwaltung: „…“-Knopf im Kartenkopf wie das Werkzeug daneben
    (spaces.css) – 24 × 24, rund, ohne Fläche, dezenter Hover */

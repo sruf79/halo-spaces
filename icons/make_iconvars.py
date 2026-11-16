@@ -229,6 +229,14 @@ SIZES = {"xs": 8, "sm": 12, "md": 20, "lg": 24}
 EXTRA = {
     "chevron-updown-14.svg": ('<path d="m7.5 9.5 4.5-4.5 4.5 4.5M7.5 14.5l4.5 4.5 4.5-4.5"/>', 14, 2.3),
     "check-box-12.svg": (GLYPHS["check"], 12, 3.4),
+    # „Anhänge anordnen“ im Verfassen-Fenster (Vorschau „Seltene Symbole“, 15.11.2026):
+    # ganz nach vorne/hinten mit Anschlag, zusammenrücken als zwei Pfeile zur Mitte
+    "move-first.svg": ('<path d="M6.5 6v12M16.5 6.5 11 12l5.5 5.5"/>', 16, STROKE),
+    "move-last.svg": ('<path d="M17.5 6v12M7.5 6.5 13 12l-5.5 5.5"/>', 16, STROKE),
+    "move-together.svg": ('<path d="M3.5 12h6M7 9.5 9.5 12 7 14.5M20.5 12h-6M17 9.5 14.5 12l2.5 2.5"/>', 16, STROKE),
+    # Person ganz gefüllt (Teilnehmer-Dialog: Pflicht; Linie = optional)
+    "user-fill.svg": ('<circle cx="12" cy="8.3" r="3.6" fill="context-stroke" fill-opacity="1"/>'
+                      '<path d="M5 19.8c.9-3.7 3.6-5.6 7-5.6s6.1 1.9 7 5.6z" fill="context-stroke" fill-opacity="1"/>', 16, STROKE),
 }
 
 

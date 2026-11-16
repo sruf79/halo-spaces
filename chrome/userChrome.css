@@ -3701,6 +3701,26 @@ panel {
   border-width: var(--mt-hairline) !important;
 }
 
+/* Symbole im Panel „Anhänge anordnen“: feine graue halo-Pfeile statt Thunderbirds
+   kräftiger schwarzer Flächen-Pfeile; ganz nach vorne/hinten und zusammenrücken
+   neu gezeichnet, Sortieren mit dem halo-Symbol (Pfeil umgedreht bleibt) */
+#reorderAttachmentsPanel toolbarbutton > .toolbarbutton-icon {
+  -moz-context-properties: stroke, fill, fill-opacity !important;
+  stroke: var(--mt-text-secondary) !important;
+  fill: none !important;
+}
+
+#reorderAttachmentsPanel toolbarbutton[disabled] > .toolbarbutton-icon {
+  opacity: 0.4 !important;
+}
+
+#btn_moveAttachmentFirst { list-style-image: url("resource://mailcards/icons/move-first.svg") !important; }
+#btn_moveAttachmentLeft { list-style-image: url("resource://mailcards/icons/nav-left.svg") !important; }
+#btn_moveAttachmentBundleUp { list-style-image: url("resource://mailcards/icons/move-together.svg") !important; }
+#btn_moveAttachmentRight { list-style-image: url("resource://mailcards/icons/nav-right.svg") !important; }
+#btn_moveAttachmentLast { list-style-image: url("resource://mailcards/icons/move-last.svg") !important; }
+#btn_sortAttachmentsToggle { list-style-image: url("resource://mailcards/icons/sort.svg") !important; }
+
 /* Vorschlagsliste der Suche oben (Kalender, Chat, Inhalts-Tabs) wie die
    übrigen Menüs: durchscheinend ohne harten Rand, 13 px, Auswahl in
    Akzentfarbe, Adressen grau statt in Linkblau */
@@ -15559,7 +15579,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #calendar-event-dialog-attendees-v2 .role-icon,
 #calendar-event-dialog-attendees-v2 .role-icon[attendeerole="REQ-PARTICIPANT"] {
-  content: url("resource://mailcards/icons/user.svg") !important;
+  content: url("resource://mailcards/icons/user-fill.svg") !important;
 }
 
 #calendar-event-dialog-attendees-v2 .role-icon[attendeerole="OPT-PARTICIPANT"] {
@@ -15580,6 +15600,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 #calendar-event-dialog-attendees-v2 .usertype-icon,
 #calendar-event-dialog-attendees-v2 .usertype-icon[usertype="INDIVIDUAL"] {
   content: url("resource://mailcards/icons/contact.svg") !important;
+  fill-opacity: 0 !important;
 }
 
 #calendar-event-dialog-attendees-v2 .usertype-icon[usertype="GROUP"] {
@@ -15591,7 +15612,47 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #calendar-event-dialog-attendees-v2 .usertype-icon[usertype="ROOM"] {
-  content: url("resource://mailcards/icons/pin.svg") !important;
+  content: url("resource://mailcards/icons/location.svg") !important;
+}
+
+/* Zoom − und + als runde graue Symbolknöpfe (24 px wie die übrigen runden
+   Symbolknöpfe) mit den halo-Zeichen statt Thunderbirds Kreis-Symbolen;
+   die Lichtkante der Knopffamilie kommt erst mit dem Paket */
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button) {
+  appearance: none !important;
+  inline-size: 24px !important;
+  block-size: 24px !important;
+  min-inline-size: 24px !important;
+  min-block-size: 24px !important;
+  margin: 0 0 0 6px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button):not([disabled]):hover {
+  background: var(--mt-control-hover) !important;
+}
+
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button) > .toolbarbutton-icon {
+  inline-size: 16px !important;
+  block-size: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  -moz-context-properties: stroke, fill, fill-opacity !important;
+  stroke: var(--mt-text) !important;
+  fill: none !important;
+}
+
+#calendar-event-dialog-attendees-v2 #zoom-in-button { list-style-image: url("resource://mailcards/icons/add.svg") !important; }
+#calendar-event-dialog-attendees-v2 #zoom-out-button { list-style-image: url("resource://mailcards/icons/remove.svg") !important; }
+
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button)[disabled] > .toolbarbutton-icon {
+  opacity: 0.4 !important;
 }
 
 #calendar-event-dialog-attendees-v2 :is(.role-icon, .usertype-icon)[disabled] {

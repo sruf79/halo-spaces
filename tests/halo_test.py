@@ -3640,6 +3640,17 @@ def compose_checks(m, results):
                                   radius: parseFloat(csOf(p).getPropertyValue("--panel-border-radius")), appearance: csOf(p).appearance };
               const c = p.shadowRoot?.querySelector('[part~="content"]'); if (c) r.bw = parseFloat(csOf(c).borderTopWidth); return r; };
             out.reorder = look(cd.getElementById("reorderAttachmentsPanel"));
+            // Symbole im Panel: halo-Zeichen in Grau (Strich), keine Thunderbird-Grafik aus chrome:// – die Knöpfe
+            // legen ihr Bild erst im geöffneten Panel an, darum kurz öffnen
+            const rp = cd.getElementById("reorderAttachmentsPanel");
+            if (!rp.querySelector("toolbarbutton > .toolbarbutton-icon")) {
+              try { rp.openPopup(cd.getElementById("attachmentBucket") || cd.documentElement, "after_start"); } catch {}
+              await till(() => rp.querySelector("toolbarbutton > .toolbarbutton-icon"), 4000);
+            }
+            out.reorderIcons = [...cd.querySelectorAll("#reorderAttachmentsPanel toolbarbutton")].map(b => { const ic = b.querySelector(".toolbarbutton-icon");
+              return [b.id, (csOf(b).listStyleImage.match(/^url\("resource:\/\/mailcards\/icons\/([\w-]+)\.svg"\)$/) || [])[1] || csOf(b).listStyleImage.slice(0, 50), ic && csOf(ic).stroke]; });
+            out.gray = colorOf(cd, "var(--mt-text-secondary)");
+            if (rp.state != "closed") { rp.hidePopup(); await till(() => rp.state == "closed", 3000); }
             // Adressvorschläge: die Empfängerfelder legen ein eigenes, namenloses Panel an (nicht #PopupAutoComplete) –
             // in das An-Feld tippen und das tatsächlich offene Panel messen, samt berechnetem Rand der Inhaltsfläche
             const inp = cd.querySelector(".address-row:not(.hidden) input.address-row-input, #toAddrInput");
@@ -3662,13 +3673,17 @@ def compose_checks(m, results):
                   and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if dark else "rgb(219, 219, 219)")
                   and same_color(res["menu"], "rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)"))
         reorder_ok = (bool(r) and same_color(r["bg"], res["pop"]) and same_color(r["border"], res["rim"]) and r.get("radius") == 20
-                      and 0 < (r.get("bw") or 0) <= 1 and not bluish(r["bg"]))
+                      and 0 < (r.get("bw") or 0) <= 1 and not bluish(r["bg"])
+                      and dict((i[0], i[1]) for i in res.get("reorderIcons") or []) == {
+                          "btn_moveAttachmentFirst": "move-first", "btn_moveAttachmentLeft": "nav-left", "btn_moveAttachmentBundleUp": "move-together",
+                          "btn_moveAttachmentRight": "nav-right", "btn_moveAttachmentLast": "move-last", "btn_sortAttachmentsToggle": "sort"}
+                      and all(same_color(i[2], res["gray"]) for i in res["reorderIcons"]))
         ac_ok = (bool(ac) and same_color(ac["bg"], res["menu"]) and rgba_alpha(ac["border"]) == 0 and ac.get("radius") == 12
                  and (sys.platform != "darwin" or ac.get("appearance") == "auto")
                  and (ac.get("content") is None or rgba_alpha(ac["content"]) == 0 or not bluish(ac["content"]))
                  and rgba_alpha(ac.get("list")) == 0)
         return tokens and reorder_ok and ac_ok, f"{res}"
-    check("Verfassen: Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie, Radius 20), Adressvorschläge als Menü ohne bläulichen Rand", compose_panels, results)
+    check("Verfassen: Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie, Radius 20) mit grauen halo-Symbolen, Adressvorschläge als Menü ohne bläulichen Rand", compose_panels, results)
 
     def format_toolbox():
         # Reintext: Thunderbird blendet nur die Formatleiste aus – die leere Box darf keine zweite Linie unter den Betreff legen;
@@ -6016,6 +6031,14 @@ def calendar_checks(m, results):
               .filter(td => td.textContent.trim() && vis(td)).map(td => csOf(td).color))];
             out.grid.rows = csOf(inner).backgroundImage.includes("to bottom");
             out.icon = role ? (csOf(role).content || "").slice(0, 60) : null;
+            // Rollen und Arten der Legende: halo-Symbole (Pflicht gefüllt, sonst Linie, Raum als Ortsnadel)
+            const file = e => (csOf(e).content.match(/icons\/([\w-]+)\.svg/) || [])[1] || csOf(e).content.slice(0, 40);
+            out.legendIcons = Object.fromEntries([...ad.querySelectorAll("table .role-icon, table .usertype-icon")]
+              .map(e => [e.getAttribute("attendeerole") || e.getAttribute("usertype"), [file(e), csOf(e).fillOpacity]]));
+            // Zoom − und + als runde graue Symbolknöpfe mit halo-Zeichen
+            out.zoom = ["zoom-out-button", "zoom-in-button"].map(id => { const z = ad.getElementById(id), r = z.getBoundingClientRect();
+              return [Math.round(r.width), Math.round(r.height), csOf(z).borderTopLeftRadius, csOf(z).backgroundColor, (csOf(z).listStyleImage.match(/icons\/([\w-]+)\.svg/) || [])[1] || csOf(z).listStyleImage.slice(0, 50)]; });
+            out.control = colorOf(ad, "var(--mt-control)", "backgroundColor");
             // Uhrzeit zum Eintippen wie im Termin-Dialog (kein Popover), als Feld wie das Datum daneben
             const te = ad.querySelector("#event-starttime .mc-time-edit");
             out.combined = !!te && !ad.querySelector(".mc-time-panel") && Math.round(te.getBoundingClientRect().height) == 28;
@@ -6038,10 +6061,15 @@ def calendar_checks(m, results):
               and same_color(res["bar"]["border"], res["bar"]["accent"]) and not res["bar"]["topVisible"] and res["bar"]["below"] and res["bar"]["topWidth"] == "1px"
               and res["legend"]["border"] == "0px" and res["legend"]["radius"] == "50%" and res["legend"]["w"] == res["legend"]["h"]
               and len(res["labelColors"]) == 1
-              and res["icon"] and "mailcards/icons/user.svg" in res["icon"] and res["combined"]
+              and res["icon"] and "mailcards/icons/user-fill.svg" in res["icon"] and res["combined"]
+              and res["legendIcons"] == {"REQ-PARTICIPANT": ["user-fill", "1"], "OPT-PARTICIPANT": ["user", "0"], "NON-PARTICIPANT": ["user", "0"],
+                                         "CHAIR": ["star", "1"], "INDIVIDUAL": ["contact", "0"], "GROUP": ["user-list", "0"],
+                                         "RESOURCE": ["tools", "0"], "ROOM": ["location", "0"]}
+              and [z[4] for z in res["zoom"]] == ["remove", "add"]
+              and all(z[0] == z[1] == 24 and z[2] == "50%" and same_color(z[3], res["control"]) for z in res["zoom"])
               and same_color(res["ok"]["bg"], res["ok"]["accent"]) and contrast(res["busy"]["bg"], res["busy"]["win"]) >= 3)
         return ok, f"{res}"
-    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, einfarbige Symbole, Akzent statt Pink, Uhrzeit zum Eintippen, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
+    check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, halo-Symbole (Pflicht gefüllt, Raum als Ortsnadel), Zoom als runde Symbolknöpfe, Akzent statt Pink, Uhrzeit zum Eintippen, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
 
     def event_window_still():
         # Termin-Fenster springt nach dem Öffnen nicht: Detailansicht (Doppelklick auf einen Termin) und Bearbeiten –

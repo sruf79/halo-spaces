@@ -1954,9 +1954,7 @@ function motionMs(ms) {
 // das letzte Bild ist (ende folgt im selben Aufruf), ende(k) den Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer
 // Umkehr wieder am Anfang). Beginn nach zwei Bildwechseln (Aufbau abwarten). umkehren() kehrt an der aktuellen Stelle
 // um (Klick während der Animation).
-// spät: der Aufruf kommt schon aus dem ersten Bild nach dem Klick (Seitenleiste neben der Bereiche-Leiste) – Beginn dann
-// nach einem Bildwechsel, im selben Bild wie die Bereiche-Leiste.
-function animiere(win, { dauer, kurve, bild, ende, beiUmkehr, spät = false }) {
+function animiere(win, { dauer, kurve, bild, ende, beiUmkehr }) {
   let k = 0, dir = 1, last = null;
   const step = now => {
     k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / dauer)));
@@ -1969,11 +1967,7 @@ function animiere(win, { dauer, kurve, bild, ende, beiUmkehr, spät = false }) {
     }
     ende(k);
   };
-  if (spät) {
-    win.requestAnimationFrame(step);
-  } else {
-    win.requestAnimationFrame(() => win.requestAnimationFrame(step));
-  }
+  win.requestAnimationFrame(() => win.requestAnimationFrame(step));
   return {
     umkehren() {
       dir = -dir;
@@ -10117,7 +10111,7 @@ class CardEnhancer {
       placeSideGrip();
     };
     // reverse: Klick während der Animation kehrt sie an der aktuellen Stelle um
-    const toggleSpaceSidebar = (reverse = false, spät = false) => {
+    const toggleSpaceSidebar = (reverse = false) => {
       const { mode, el, splitter } = currentSide();
       if (el?.__mcAnimating && reverse) {
         el.__mcReverse?.();
@@ -10287,7 +10281,6 @@ class CardEnhancer {
       const anim = animiere(w, {
         dauer: DURATION,
         kurve: curve,
-        spät,
         beiUmkehr: dir => saveState(dir > 0 ? !show : show),
         bild: (p, k, letzt) => {
           const W = full * (show ? p : 1 - p);
@@ -11313,13 +11306,8 @@ class CardEnhancer {
       if (withSpaces) {
         this.animateSpaces(w, after);
       }
-      // Mit der Bereiche-Leiste trägt der Klick nur deren Sichtbarmachen (Thunderbird baut das Fenster neu auf, 16–18 ms);
-      // die Seitenleiste samt Vorabrechnung des Endzustands folgt im ersten Bild danach, vor dem Beginn der Bewegung –
-      // beide in einem Klick ließen das erste Bild nach dem Klick 34–74 ms dauern (Ruckeln am Anfang). Beide Bewegungen
-      // beginnen weiter im selben Bild (animiere „spät“: ein Bildwechsel statt zwei). Bis dahin gilt die Leiste als
-      // animiert; ein Klick davor hebt den Start auf (die Bereiche-Leiste kehrt um), ein weiterer wieder an
-      const startFolder = spät => {
-        this.animateSidebar(ab, folder, after, false, withSpaces, spät);
+      if (mail && folder && !!folder.isCollapsed == show) {
+        this.animateSidebar(ab, folder, after, false, withSpaces);
         // Einblenden: die Platzaufteilung der Toolbar (Pillen, Suchfeld, „»“) gilt für den Endzustand – einmal
         // dort rechnen (Endzustand synchron herstellen, nichts wird gezeichnet) und zurückstellen; sonst würde
         // sie erst am Ende neu verteilt und alles spränge (Stufe 4). Ausblenden: dort nur den Abstand nach
@@ -11400,31 +11388,8 @@ class CardEnhancer {
           w.document.documentElement.getBoundingClientRect();
           this.offsetUpdaters?.forEach(fn => fn());
         }
-      };
-      const imErstenBild = (holder, win, start) => {
-        let aus = false;
-        holder.__mcAnimating = true;
-        holder.__mcReverse = () => (aus = !aus);
-        win.requestAnimationFrame(() => {
-          holder.__mcAnimating = false;
-          delete holder.__mcReverse;
-          if (!aus && !win.closed) {
-            start();
-          }
-        });
-      };
-      if (mail && folder && !!folder.isCollapsed == show) {
-        if (withSpaces) {
-          imErstenBild(ab, ab, () => startFolder(true));
-        } else {
-          startFolder(false);
-        }
       } else if (!mail && side && side.classList.contains("mc-side-hidden") == show) {
-        if (withSpaces) {
-          imErstenBild(side, w, () => toggleSpaceSidebar(false, true));
-        } else {
-          toggleSpaceSidebar();
-        }
+        toggleSpaceSidebar();
       }
     };
     const hookSidebarButton = () => {
@@ -14265,7 +14230,7 @@ class CardEnhancer {
   // die Ansicht wird dabei Bild für Bild breiter bzw. schmaler; im vertikalen
   // Layout nimmt die Leseansicht das gleich mit auf, statt im letzten Bild zu
   // springen
-  animateSidebar(ab, splitter, onDone, reverse = false, column = false, spät = false) {
+  animateSidebar(ab, splitter, onDone, reverse = false, column = false) {
     if (ab.__mcAnimating) {
       if (reverse) {
         ab.__mcReverse?.();
@@ -14548,7 +14513,7 @@ class CardEnhancer {
     this.offsetUpdaters?.forEach(fn => fn());
     pane.getBoundingClientRect(); // Aufbau der Ordnerliste jetzt erzwingen, nicht im ersten Bild
     // apply() rechnet den Verlauf selbst aus k: der Takt liefert hier k unverändert
-    anim = animiere(ab, { dauer: DURATION, kurve: p => p, bild: (p, kk) => bildSetzen(kk), ende, spät });
+    anim = animiere(ab, { dauer: DURATION, kurve: p => p, bild: (p, kk) => bildSetzen(kk), ende });
   }
 
   // Titel und Anzahl der Kopfzeile aus dem aktuellen Mail-Tab übernehmen

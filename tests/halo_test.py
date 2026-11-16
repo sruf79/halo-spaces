@@ -13478,65 +13478,6 @@ def run_checks(m, version, profile, results):
         return not bad, f"{bad} {res}"
     check("Seitenleiste: Ein-/Ausblenden in Mail, Chat, Einstellungen und Adressbuch gleich flüssig, Knopf bleibt stehen, Mailliste behält ihre Breite, kein grauer Balken", sidebar_animation, results)
 
-    def sidebar_first_frame():
-        # Einblenden über den Knopf (Mail, Kalender, Adressbuch): das erste Bild nach dem Klick kommt schnell. Der Klick
-        # bereitete die Seitenleiste samt Vorabrechnung des Endzustands synchron vor, zusätzlich zum Sichtbarmachen der
-        # Bereiche-Leiste – das erste Bild nach dem Klick dauerte 34–74 ms (Mail bis 50, Ruckeln am Anfang). Jetzt im
-        # Klick nur die Bereiche-Leiste, die Seitenleiste im ersten Bild danach (vor dem Beginn der Bewegung, beide
-        # Animationen im selben Takt). Gemessen: Zeit vom Klick bis zum ersten Bild und längster Bildabstand bis zum
-        # Bild 5 (Median aus drei). Nur unter macOS (Bildtakt; xvfb und VM zu ungleichmäßig)
-        if sys.platform != "darwin":
-            return True, "übersprungen: nur auf macOS gemessen"
-        res = m.js(r"""
-          if (d.visibilityState == "hidden") return { visibility: "hidden" };
-          const btn = d.getElementById("spacesPinnedButton");
-          const still = () => !w.__mcSpacesAnimating && !tm.tabInfo[0]?.chromeBrowser?.contentWindow?.__mcAnimating &&
-            !d.getElementById("calSidebar")?.__mcAnimating && !tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksPane")?.__mcAnimating;
-          const out = {};
-          const geh = { Mail: async () => { await toMail(); }, Kalender: async () => { await toCalendar(); },
-            Adressbuch: async () => { tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); } };
-          try {
-            for (const [name, hin] of Object.entries(geh)) {
-              await hin(); await ruhig(800);
-              if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); await ruhig(500); }
-              const breite = () => Math.round((name == "Mail" ? tm.tabInfo[0].chromeBrowser.contentWindow.document.getElementById("folderPane")
-                : name == "Kalender" ? d.getElementById("calSidebar") : tm.currentTabInfo.browser.contentDocument.getElementById("booksPane"))?.getBoundingClientRect().width || 0);
-              const erst = [], luecke = [], klick = [], ws = [], abst = [];
-              for (let i = 0; i < 3; i++) {
-                btn.click(); await bis(still, "Animation fertig", 3000); await ruhig(600);
-                const frames = []; let stop = false;
-                const loop = () => { frames.push([performance.now(), breite(), Math.round(d.getElementById("spacesToolbar").getBoundingClientRect().width)]); if (!stop) w.requestAnimationFrame(loop); };
-                w.requestAnimationFrame(loop); await new Promise(r => w.setTimeout(r, 80)); // (Bildtakt vor dem Klick einschwingen)
-                const t0 = performance.now();
-                btn.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
-                klick.push(Math.round(performance.now() - t0));
-                await bis(still, "Animation fertig", 3000); stop = true; await ruhig(300);
-                const nach = frames.filter(f => f[0] > t0);
-                const vor = frames.filter(f => f[0] <= t0).pop();
-                // erstes Bild, in dem sich Seitenleiste oder Bereiche-Leiste bewegt hat
-                const bew = nach.findIndex(f => f[1] > 0 && f[1] != vor[1]);
-                erst.push(Math.round(nach[0][0] - t0));
-                const zeiten = [t0, ...nach.slice(0, 5).map(f => f[0])];
-                luecke.push(Math.round(Math.max(...zeiten.slice(1).map((t, k) => t - zeiten[k]))));
-                ws.push(bew); abst.push(zeiten.slice(1).map((t, k) => Math.round(t - zeiten[k])).join("/"));
-              }
-              const med = a => [...a].sort((x, y) => x - y)[1];
-              out[name] = { erst: med(erst), luecke: med(luecke), klick: med(klick), alle: { erst, luecke, klick, bewegtAb: ws, abst } };
-            }
-          } finally {
-            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
-            if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }
-            await ruhig(500);
-          }
-          return out;""")
-        if res.get("visibility") == "hidden":
-            return True, f"Testfenster verdeckt – übersprungen {res}"
-        # Grenze mit Abstand zu vorher (Median 28–35 ms, Mail bis 41) und nachher (9–17 ms); der längste Abstand in den
-        # ersten fünf Bildern (vorher 28–35, nachher 18–31 ms: das zweite Bild trägt jetzt die Seitenleiste) steht zur Auskunft dabei
-        bad = [f"{n}: erstes Bild {r['erst']} ms nach dem Klick (höchstens 22)" for n, r in res.items() if r["erst"] > 22]
-        return len(res) == 3 and not bad, ("; ".join(bad) + " – " if bad else "") + f"{res}"
-    check("Seitenleiste: Einblenden über den Knopf – erstes Bild nach dem Klick ohne lange Pause (Mail, Kalender, Adressbuch)", sidebar_first_frame, results)
-
     def sidebar_toolbar_no_jump():
         # Seitenleiste mehrmals ein-/ausblenden (Mail rechts neben der Liste): die Knöpfe der Toolbar-Zeile gleiten in
         # eine Richtung und springen nie zurück – beim Einblenden standen sie ein Bild lang am Endplatz (Flackern oben)

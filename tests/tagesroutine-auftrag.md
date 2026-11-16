@@ -16,6 +16,12 @@ Regeln:
    python3 tests/halo_test.py --port 2850 --only "…" (hell; --dark nur bei Farben), keine Testläufe,
    solange Runner.Worker läuft (pgrep -f Runner.Worker; dann warten, nicht umgehen – HALO_LAUF
    schaltet den Zeitfenster-Hook für diesen Lauf ab, die Regel gilt trotzdem).
+1a. Redesign-Woche (gilt nur bis 24.11.2026 01:00, Ende der Zeile in ~/halo-nacht/volldampf.txt; Freigabe des
+   Maintainers 16.11.2026, Wortlaut in ENTSCHEIDUNGEN.md, Plan ~/halo-aufgaben/vorschau/nachtlauf-plan-2026-11-17.md,
+   Schritt 1d in tests/nachtlauf-auftrag.md): Design-Einträge nur in der Reihenfolge des Plans (Paket Kachel d2h + Lichtschein
+   D, dann Knöpfe, Felder, Fenster/Dialoge, Aufgaben 2–4); Einträge mit Notiz „wartet auf <Baustein>“ und Gruppe C/D des
+   Plans nicht anfassen; nichts an der Seitenleiste, solange das Paket nicht auf main ist; Vorab-Prüfung 6a und Designer-Abgleich
+   je Baustein wie im Plan. Neue Design-Einträge des Tages nach Plan Abschnitt 3 einsortieren.
 2. Es pusht nur der Nachtlauf (ein Push, eine CI, ein Release). Kein git push, kein gh workflow run,
    kein release.sh/publish.sh. Einzige Ausnahme: Abschnitt „Release unter Tage“ (nur erste Plan-Runde,
    nur über tests/release-unter-tage.sh). Vor 22:00 enden; nichts darf um 01:30 noch laufen.

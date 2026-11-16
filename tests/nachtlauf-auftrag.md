@@ -271,6 +271,8 @@ Reihenfolge:
       das im Bericht begründet; dann Merge (kein Rebase) mit Hinweis im
       Bericht. Bis dahin kein Release mit Lichtschein; Testpakete für
       /vorab werden aus dem Zweig gebaut.
+      Ab 16.11.2026 bis 24.11.2026 01:00 gilt für das Zusammenführen Schritt 1d a)
+      (Revert von 671880a statt erneutem Merge), nicht der Merge-Text unten.
       Ab 15.11.2026 (Regel (0) oben): Blockiert eine rote oder flackernde
       Prüfung jedes Release, wird sie vor dem erneuten Zusammenführen von
       paket/lichtschein-kachel behoben. Ist sie danach grün (CI vollständig

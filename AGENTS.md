@@ -94,7 +94,7 @@ bekannte Sitzung, `docs/neon-sitzung.md`) – dann sagen, welcher mit welcher Me
 Ergebnisse von neon abwarten und weitergeben, nie selbst erfinden. Wird eine Nachricht abgelehnt, sucht
 die Sitzung selbstständig einen anderen Weg, bis einer klappt, sonst meldet sie das mit den
 Fehlermeldungen. Lehnt eine Sitzung die Anfrage einer anderen ab (auch teilweise, z. B. von der
-Berechtigungsprüfung gestoppt), schickt sie dieser sofort jede Antwort mit Grund als Rückmeldung. **Keine Anfrage bleibt ohne Antwort**, auch
+Berechtigungsprüfung gestoppt), schickt sie dieser IMMER und sofort eine Rückmeldung mit Grund, egal welche Sitzung anfragt (Maintainer 16.11.2026: „ab sofort schreibst du bei ablehnungen anfragen anderer sessions betreffend IMMER eine rückmeldung. Immer.“). **Keine Anfrage bleibt ohne Antwort**, auch
 nicht bei einem Fehler des Sendewegs: nacheinander Namen (`SendMessage`), `ListAgents`/`get_session` versuchen,
 dann den Maintainer bitten (keine Kennungen als Weg).
 

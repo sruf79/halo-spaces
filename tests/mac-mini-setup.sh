@@ -681,6 +681,7 @@ EOF
   fi
 }
 
+# Tagesroutine täglich 08:45 (Maintainer 16.11.2026: „nur solange volldampf läuft“): ohne Volldampf wartet tagesroutine.sh bis 09:00.
 # Läufe als LaunchAgents (tests/MAC-MINI.md Abschnitte 13–18): Nachtlauf jede
 # Nacht 01:30, CI-Wächter und Bilder-Eingang alle 15 Minuten, Wochenprüfung sonntags 08:00,
 # Doku-Prüfung samstags 08:00 (wochenpruefung.sh --doku), Design-Rundgang
@@ -785,9 +786,8 @@ pruefe_laeufe() {
     dokupruefung "samstags 08:00, alle .md-Dateien, Berichte in ~/halo-berichte" --doku
   pruefe_agent "Tagesroutine" at.halo-spaces.tagesroutine tagesroutine.sh $HOME/Library/Logs/halo-tagesroutine.log \
     '<key>StartCalendarInterval</key>
-  <array>'"$(for t in 1 2 3 4 5; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done
-    for t in 6 0; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>9</integer><key>Minute</key><integer>0</integer></dict>"; done)"'</array>' \
-    tagesroutine "Mo–Fr ab 09:00, Sa und So ab 09:00, jeweils bis 22:00, pusht nie nach main, Berichte in ~/halo-berichte"
+  <array>'"$(for t in 1 2 3 4 5 6 0; do print -n "<dict><key>Weekday</key><integer>$t</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>45</integer></dict>"; done)"'</array>' \
+    tagesroutine "Start 08:45; mit Volldampf ab 08:45 (nach dem Nachtlauf), sonst wartet das Skript bis 09:00; bis 22:00, pusht nie nach main, Berichte in ~/halo-berichte"
   pruefe_agent "Morgenbrief" at.halo-spaces.morgenbrief morgenbrief.sh $HOME/Library/Logs/halo-morgenbrief.log \
     '<key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>' \

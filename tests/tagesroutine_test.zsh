@@ -91,8 +91,8 @@ pruefe "Plan abgearbeitet um 14:20: warten bis 15:00, dann neu planen" "$(lauf 2
 pruefe "Plan abgearbeitet um 20:10: Ende, kein neuer Plan" "$(lauf 2026-11-12T20:10:00+01:00 30)" \
   'Plan abgearbeitet: Ende \(nächste volle Stunde nach 20:30\), kein neuer Plan'
 # Wochenende ab 09:00 (Maintainer 13.11.2026: zuerst 12:00, dann „um 10::00“, zuletzt „Start am Wochenende um 09:00“)
-pruefe "Samstag 08:30: noch außerhalb des Zeitfensters" "$(lauf 2026-11-14T08:30:00+01:00 30)" \
-  'heute ab 09:00: nein' 'Würde: +nichts tun \(außerhalb des Zeitfensters\)'
+pruefe "Samstag 08:30: noch außerhalb des Zeitfensters, wartet ohne Claude bis 09:00 (16.11.2026)" "$(lauf 2026-11-14T08:30:00+01:00 30)" \
+  'heute ab 09:00: nein' 'Würde: +ohne Claude warten bis 09:00'
 pruefe "Sonntag 09:05: im Zeitfenster, Plan-Runde" "$(lauf 2026-11-15T09:05:00+01:00 30)" \
   'heute ab 09:00: ja' 'Würde: +Plan-Runde'
 pruefe "Montag 09:05: Werktag ab 09:00" "$(lauf 2026-11-16T09:05:00+01:00 85)" 'heute ab 09:00: ja'
@@ -117,6 +117,23 @@ pruefe "Volldampf beendet (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDA
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'
 [[ -e $T/volldampf-beendet.txt ]] && { print "FEHLER Trockenlauf hat volldampf-beendet.txt geschrieben"; FEHLER=1 }
+# Beginn 08:45 nur mit Volldampf (Maintainer 16.11.2026: „nur solange volldampf läuft“); LaunchAgent startet 08:45
+J845=2026-11-17T08:45:00+01:00
+pruefe "ohne Volldampf 08:45: außerhalb, wartet ohne Claude bis 09:00" "$(lauf $J845 3)" \
+  'heute ab 09:00: nein' 'Würde: +ohne Claude warten bis 09:00 \(Beginn ohne Volldampf\)'
+pruefe "Volldampf 08:45: Zeitfenster ab 08:45, Plan-Runde" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $J845 3)" \
+  'mit Volldampf ab 08:45' 'heute ab 08:45: ja' 'Würde: +Plan-Runde'
+pruefe "Volldampf Samstag 08:45: auch am Wochenende ab 08:45" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-21T08:45:00+01:00 30)" \
+  'heute ab 08:45: ja'
+pruefe "Volldampf 08:30: noch vor dem Beginn, wartet bis 08:45" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T08:30:00+01:00 3)" \
+  'heute ab 08:45: nein' 'warten bis 08:45'
+pruefe "ohne Volldampf 07:00: nichts tun (mehr als 60 Min. vor dem Beginn)" "$(lauf 2026-11-17T07:00:00+01:00 3)" \
+  'Würde: +nichts tun \(außerhalb des Zeitfensters\)'
+pruefe "ohne Volldampf 09:05: Beginn 09:00 unverändert" "$(lauf 2026-11-17T09:05:00+01:00 3)" 'heute ab 09:00: ja'
+pruefe "Skript wartet vor dem Beginn auf WARTE_START, dann neu entscheiden" "$(grep -c 'E\[WARTE_START\]' $SKRIPT)" '^[3-9]'
+pruefe "Skript wartet auf das Ende des Nachtlaufs (lauf.lock) vor der ersten Runde" "$(grep -c 'lauf.lock.*kill -0' $SKRIPT)" '^[1-9]'
+pruefe "LaunchAgent: sieben Tage 08:45" "$(grep -A2 'pruefe_agent "Tagesroutine"' $REPO/tests/mac-mini-setup.sh)" \
+  'for t in 1 2 3 4 5 6 0;.*<integer>8</integer>.*<integer>45</integer>'
 # Häufung (Maintainer 14.11.2026: „der automatismus soll natürlich bei der tagesroutine und auch bei der
 # nachtroutine automatisch eingesetzt werden“): jede Plan-Runde ruft tests/haeufung.py, Gruppen gehen in den Auftrag
 pruefe "Häufung: Trockenlauf nennt den Aufruf vor jeder Plan-Runde" "$(lauf 2026-11-15T09:05:00+01:00 30)" \

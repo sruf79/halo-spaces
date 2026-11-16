@@ -44,6 +44,10 @@ export HALO_LAUF=tagesroutine
 #   „Fable only“ höchstens FABLE_WOCHE_MAX (nicht lesbar: kein Halt, im Bericht vermerkt); das 5-Stunden-Fenster
 #   bremst wie sonst. Vor jeder Entscheidung beendet volldampf_wochenlimit_pruefen Volldampf dauerhaft, sobald die
 #   Woche VOLLDAMPF_WOCHE_ENDE erreicht. Bericht und „Kurz:“ nennen den Zustand. Probe: HALO_VOLLDAMPF_DATEI.
+#   Beginn (Maintainer 16.11.2026: „nur solange volldampf läuft“): der LaunchAgent startet täglich um 08:45; mit
+#   Volldampf beginnt das Zeitfenster um START_VOLLDAMPF (nahtlos nach dem Nachtlauf, der bis 08:45 Fortsetzungen
+#   macht; die Tagesroutine wartet auf sein Ende, lauf.lock), ohne Volldampf wartet das Skript ohne Claude bis
+#   START bzw. START_WOCHENENDE (WARTE_START, höchstens 60 Minuten vor dem Beginn).
 # Schwellen: ~/.config/halo-spaces/tagesroutine.conf (HALO_TAGESROUTINE_CONF), sonst die neben dem Skript.
 # Zum Proben: HALO_JETZT=<ISO-Zeit mit Zone> ersetzt die Uhr; HALO_KONTINGENT_WOCHE / HALO_KONTINGENT_5H
 # (Prozent) ersetzen kontingent.sh, HALO_KONTINGENT_5H_ENDE=<ISO-Zeit> das Ende des 5-Stunden-Fensters.
@@ -69,7 +73,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 # --- Schwellen: Standard, dann tagesroutine.conf ---
 typeset -A KONF
 KONF=(
-  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 09:00  LETZTER_BEGINN 20:30  ENDE 22:00
+  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 09:00  START_VOLLDAMPF 08:45  LETZTER_BEGINN 20:30  ENDE 22:00
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
@@ -187,14 +191,20 @@ def heute(s):
     h, m = hm(s); return jetzt.replace(hour=h, minute=m, second=0, microsecond=0)
 # Beginn: Sa/So START_WOCHENENDE (Maintainer 13.11.2026, zuerst 12:00, dann „um 10::00 starten“), sonst START
 start = heute(e.get("K_START_WOCHENENDE") or e["K_START"]) if jetzt.isoweekday() >= 6 else heute(e["K_START"])
+volldampf = e.get("K_VOLLDAMPF") == "ja"
+# Volldampf (Maintainer 16.11.2026: „nur solange volldampf läuft“): Beginn START_VOLLDAMPF, nahtlos nach dem Nachtlauf
+if volldampf and e.get("K_START_VOLLDAMPF"):
+    start = min(start, heute(e["K_START_VOLLDAMPF"]))
+# vor dem Beginn am Arbeitstag (LaunchAgent 08:45 ohne Volldampf): ohne Claude bis zum Beginn warten, höchstens 60 Min.
+warte_start = jetzt.isoweekday() in tage and jetzt < start and (start - jetzt) <= dt.timedelta(minutes=60)
 fenster = jetzt.isoweekday() in tage and start <= jetzt < heute(e["K_ENDE"])
 neu_zeit = fenster and jetzt < heute(e["K_LETZTER_BEGINN"])
 volle = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)   # nächste volle Stunde
 def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + x.strftime(" %Y-%m-%d %H:%M")
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
        "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
-       "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein"}
-volldampf = e.get("K_VOLLDAMPF") == "ja"
+       "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein",
+       "WARTE_START": start.isoformat(timespec="minutes") if warte_start else ""}
 fable_woche = zahl("K_FABLE_WOCHE")      # „Fable only“ in Prozent, nan = nicht lesbar
 if math.isnan(woche):
     aus.update(ABSTAND="?", STUFE="unbekannt", ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
@@ -320,7 +330,7 @@ entscheiden() {
   while IFS='=' read -r k v; do E[$k]=$v; done < <(
     K_WOCHE=$K_WOCHE K_5H=$K_5H K_5H_ENDE=$K_5H_ENDE \
     K_RESET_WOCHENTAG=$KONF[RESET_WOCHENTAG] K_RESET_ZEIT=$KONF[RESET_ZEIT] K_WOCHENTAGE=$KONF[WOCHENTAGE] \
-    K_START=$KONF[START] K_START_WOCHENENDE=$KONF[START_WOCHENENDE] K_ENDE=$KONF[ENDE] K_LETZTER_BEGINN=$KONF[LETZTER_BEGINN] \
+    K_START=$KONF[START] K_START_WOCHENENDE=$KONF[START_WOCHENENDE] K_START_VOLLDAMPF=$KONF[START_VOLLDAMPF] K_ENDE=$KONF[ENDE] K_LETZTER_BEGINN=$KONF[LETZTER_BEGINN] \
     K_WEIT_DARUNTER=$KONF[WEIT_DARUNTER] K_IM_SOLL=$KONF[IM_SOLL] K_FUENF_STUNDEN_MAX=$KONF[FUENF_STUNDEN_MAX] \
     K_SPAR_MAX=$KONF[SPAR_MAX] K_RESERVE_NACHT=$KONF[RESERVE_NACHT] K_SPAR_MAX_EINTRAEGE_TAG=$KONF[SPAR_MAX_EINTRAEGE_TAG] \
     K_SPAR_KOSTEN_JE_EINTRAG=$KONF[SPAR_KOSTEN_JE_EINTRAG] K_SPAR_MODELL=$KONF[SPAR_MODELL] K_SPAR_DATEI=$SPAR_DATEI \
@@ -451,7 +461,7 @@ if [[ -n $TROCKEN ]]; then
   print "Tagesroutine – Trockenlauf (nichts geschrieben, kein Claude, kein Push)"
   print "Jetzt:        $E[JETZT] (Wiener Zeit${HALO_JETZT:+, HALO_JETZT})"
   print "Schwellen:    $KONF_DATEI"
-  print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE] (Sa/So ab $KONF[START_WOCHENENDE]), heute ab $E[START]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
+  print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE] (Sa/So ab $KONF[START_WOCHENENDE], mit Volldampf ab $KONF[START_VOLLDAMPF]), heute ab $E[START]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
   print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
   print "Kontingent:   $K_QUELLE"
   print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
@@ -466,7 +476,9 @@ if [[ -n $TROCKEN ]]; then
     print "              tagesroutine $E[PAUSE_BIS] 5-Stunden-Fenster ${K_5H} % ≥ $KONF[FUENF_STUNDEN_MAX] %, keine neuen Einträge"
   fi
   if g=$(pause_aktiv tagesroutine); then print "Pause aktiv:  $g"; else print "Pause aktiv:  nein"; fi
-  if [[ $E[FENSTER] != ja ]]; then
+  if [[ $E[FENSTER] != ja && -n $E[WARTE_START] ]]; then
+    print "Würde:        ohne Claude warten bis ${${E[WARTE_START]}[12,16]} (Beginn ohne Volldampf), dann neu entscheiden"
+  elif [[ $E[FENSTER] != ja ]]; then
     print "Würde:        nichts tun (außerhalb des Zeitfensters), kein Bericht"
   elif [[ $E[ENTSCHEIDUNG] == nichts ]]; then
     print "Würde:        Bericht „nichts Neues“, Lauf beenden"
@@ -554,6 +566,13 @@ bericht_schreiben() {
   } > $BERICHT
 }
 
+# LaunchAgent 08:45, ohne Volldampf Beginn 09:00 (Maintainer 16.11.2026): ohne Claude bis zum Beginn warten
+if [[ $E[FENSTER] != ja && -n $E[WARTE_START] ]]; then
+  log "vor dem Beginn ${${E[WARTE_START]}[12,16]} (kein Volldampf) – warte ohne Claude"
+  bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[WARTE_START])
+  while (( $(date +%s) < bis )); do sleep 20; done
+  HALO_KONTINGENT_WOCHE=0 entscheiden >/dev/null 2>&1 || true
+fi
 if [[ $E[FENSTER] != ja ]]; then
   log "außerhalb des Zeitfensters ($KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE], Sa/So ab $KONF[START_WOCHENENDE]) – kein Lauf"
   exit 0
@@ -568,10 +587,11 @@ print $$ > $LOCK
 WACHE=
 trap 'rm -f $LOCK; [[ -n $WACHE ]] && kill $WACHE 2>/dev/null' EXIT
 
-# Nachtlauf noch nicht fertig (endet spätestens 09:00)? Bis 30 Minuten warten.
-for i in {1..6}; do
+# Nachtlauf noch nicht fertig (claude endet spätestens 09:00; mit Volldampf beginnen wir schon 08:45)? Bis 30 Minuten
+# warten, minütlich prüfen, damit der Übergang nahtlos ist; danach wartet belegt_tag weiter (nie zwei Läufe zugleich).
+for i in {1..30}; do
   [[ -e $DIR/lauf.lock ]] && kill -0 $(<$DIR/lauf.lock) 2>/dev/null || break
-  log "warte: Nachtlauf läuft noch"; sleep 300
+  (( i == 1 )) && log "warte: Nachtlauf läuft noch"; sleep 60
 done
 
 # eine Claude-Runde mit Wache bis ENDE; Sitzungs-ID ins Protokoll (aktive_sitzung() übergeht eigene Läufe)

@@ -193,3 +193,26 @@ addon-card moz-button:not(.more-options-button)::part(button):hover {
 #msgIdentity::part(description) {
   display: none;
 }
+
+/* Auswahlfelder (Wert wählen): rechts der halo-Doppelpfeil (oben und unten)
+   in Textfarbe statt Thunderbirds Pfeil nach unten (arrow-down-12.svg →
+   nav-down-sm.svg), Schrift normal statt halbfett; Feld in spaces.css.
+   Das Termin-Fenster wie Apple Kalender (Zeitkarte ohne Pfeil, oben) und
+   Datum/Uhrzeit (editierbar) bleiben ausgenommen; der Absender im
+   Verfassen-Kopf behält den Einzug seines Textes */
+menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(dropmarker) {
+  content: url("resource://mailcards/icons/chevron-updown-14.svg") !important;
+  width: 14px !important;
+  height: 14px !important;
+  margin-inline: 8px 0 !important;
+  -moz-context-properties: stroke !important;
+  stroke: currentColor !important;
+}
+
+menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(label-box) {
+  font-weight: 400 !important;
+}
+
+menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist, #msgIdentity))::part(label) {
+  margin-inline: 0 !important;
+}

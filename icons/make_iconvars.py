@@ -9,6 +9,7 @@ die Dateien in der Erweiterung; sie meldet resource://mailcards/ an und lädt
 icon-vars.css als Benutzer-Stylesheet in alle Fenster.
 
 Aufruf: python3 make_iconvars.py   → schreibt ../extension/icons/*.svg und ../extension/icon-vars.css
+        python3 make_iconvars.py --extra → schreibt nur die Zusatzsymbole (EXTRA)
 """
 
 import math
@@ -220,6 +221,23 @@ def svg(name, size=16):
 
 SIZES = {"xs": 8, "sm": 12, "md": 20, "lg": 24}
 
+# Eigene Symbole ohne Gegenstück in Thunderbirds icons.css (keine --icon-Variable,
+# das Design bindet sie direkt ein): Datei → (Zeichnung, Eigengröße, Strich).
+# Strich nach der freigegebenen Vorschau „Symbole: Pfeil und Häkchen“ (15.11.2026):
+# der Doppelpfeil der Auswahlfelder (Wert wählen, wie chevron.up.chevron.down)
+# und das Häkchen im Kästchen so kräftig wie Thunderbirds bisheriges.
+EXTRA = {
+    "chevron-updown-14.svg": ('<path d="m7.5 9.5 4.5-4.5 4.5 4.5M7.5 14.5l4.5 4.5 4.5-4.5"/>', 14, 2.3),
+    "check-box-12.svg": (GLYPHS["check"], 12, 3.4),
+}
+
+
+def svg_extra(glyph, size, width):
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" fill-opacity="context-fill-opacity" '
+        f'stroke="context-stroke" stroke-width="{width}" stroke-linecap="round" stroke-linejoin="round">{glyph}</svg>\n'
+    )
+
 
 def tb_names():
     """(Name, Eigengröße) aller --icon-*-Variablen aus Thunderbirds icons.css (falls angegeben),
@@ -240,7 +258,19 @@ def tb_names():
     return sorted(found.items())
 
 
+def write_extra():
+    folder = os.path.join(OUT, "icons")
+    for file, (glyph, size, width) in EXTRA.items():
+        with open(os.path.join(folder, file), "w") as f:
+            f.write(svg_extra(glyph, size, width))
+
+
 def main():
+    # nur die eigenen Zusatzsymbole schreiben (Ordner bleibt, wie er ist)
+    if "--extra" in sys.argv:
+        write_extra()
+        print(f"{len(EXTRA)} Zusatzsymbole")
+        return
     # Ohne Thunderbirds icons.css fehlen die Größenvarianten (-12, -20, -24 …):
     # dann nicht den vollständigen Satz im Repo durch einen kleineren ersetzen
     if not (TB_ICONS_CSS and os.path.exists(TB_ICONS_CSS)) and "--minimal" not in sys.argv:
@@ -262,6 +292,7 @@ def main():
         with open(os.path.join(folder, file), "w") as f:
             f.write(svg(base, size))
         rules.append(f'  --icon-{tb}: url("resource://mailcards/icons/{file}") !important;')
+    write_extra()
     css = (
         "/* Erzeugt von icons/make_iconvars.py – eigene Symbole statt der Thunderbird-Originale. */\n"
         ":root {\n" + "\n".join(rules) + "\n}\n"

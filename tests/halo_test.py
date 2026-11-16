@@ -3327,27 +3327,34 @@ def compose_checks(m, results):
     Listen, Reiter, Anpassen, Trennlinie, Empfängerzeilen, schmale Symbolleiste."""
 
     def checkboxes():
-        # angehakt mit Haken: data:-Bilder sperrt die CSP der Dialoge (default-src chrome:) – nur die blaue Fläche blieb
+        # angehakt mit dem halo-Häkchen: data:-Bilder sperrt die CSP der Dialoge (default-src chrome:) – nur die blaue
+        # Fläche blieb; resource: lädt dort. Weiße Punkte im Kästchen belegen, dass das Häkchen wirklich gezeichnet ist
         res = m.js(COMPOSE_CHECK_JS + r"""
-          const look = (dd, cb) => { const s = csOf(cb.querySelector(".checkbox-check"));
-            return { img: s.backgroundImage, fill: s.fill, bg: s.backgroundColor, accent: colorOf(dd, "AccentColor"), accentText: colorOf(dd, "AccentColorText") }; };
+          const look = async (dd, cb) => { const box = cb.querySelector(".checkbox-check"), s = csOf(box);
+            return { img: s.backgroundImage, stroke: s.stroke, bg: s.backgroundColor, accent: colorOf(dd, "AccentColor"), accentText: colorOf(dd, "AccentColorText"),
+                     white: await whiteInk(dd, box) }; };
+          const whiteInk = async (dd, box) => { const win = dd.defaultView, r = box.getBoundingClientRect();
+            const bmp = await win.browsingContext.currentWindowGlobal.drawSnapshot(new win.DOMRect(r.left + 2, r.top + 2, r.width - 4, r.height - 4), 2, "black");
+            const c = dd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height;
+            const x = c.getContext("2d"); x.drawImage(bmp, 0, 0); const px = x.getImageData(0, 0, c.width, c.height).data;
+            let n = 0; for (let i = 0; i < px.length; i += 4) if (px[i] > 220 && px[i + 1] > 220 && px[i + 2] > 220) n++; return n; };
           const out = {};
           out.replace = await withCompose({}, cw => dialog(() => cw.goDoCommand("cmd_findReplace"), "EdReplace", async (dw, dd) => {
             const blocked = []; dd.addEventListener("securitypolicyviolation", e => blocked.push(e.blockedURI));
             const cb = dd.getElementById("dialog.wrap"), was = cb.checked;
             cb.checked = false; await pause(100); cb.checked = true; await pause(400);
-            const r = look(dd, cb); r.blocked = blocked; cb.checked = was; return r; }));
+            const r = await look(dd, cb); r.blocked = blocked; cb.checked = was; return r; }));
           const f = await testFolder(); tm.switchToTab(0); await ruhig(500); const a3 = tm.currentAbout3Pane; a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView, "Ordner Lesen angezeigt", 4000); await ruhig(800);
           out.folder = await dialog(() => a3.commandController.doCommand("cmd_properties"), "folderProps", async (dw, dd) => {
             const cb = [...dd.querySelectorAll("checkbox")].find(vis), was = cb.checked;
-            cb.checked = true; await pause(300); const r = look(dd, cb); cb.checked = was; return r; });
+            cb.checked = true; await pause(300); const r = await look(dd, cb); cb.checked = was; return r; });
           return out;""")
         def good(r):
-            return (r["img"].startswith('url("chrome://') and "data:" not in r["img"]
-                    and same_color(r["fill"], r["accentText"]) and same_color(r["bg"], r["accent"]))
+            return ('url("resource://mailcards/icons/check-box-12.svg")' in r["img"] and "data:" not in r["img"]
+                    and same_color(r["stroke"], r["accentText"]) and same_color(r["bg"], r["accent"]) and r["white"] >= 12)
         ok = good(res["replace"]) and not res["replace"]["blocked"] and good(res["folder"])
         return ok, f"{res}"
-    check("Dialoge: angehakte Kästchen mit Haken (chrome://-Grafik, die CSP sperrt data:) – Suchen/Ersetzen, Ordner-Eigenschaften", checkboxes, results)
+    check("Dialoge: angehakte Kästchen mit dem halo-Häkchen (resource:-Grafik, die CSP sperrt data:), weiß sichtbar – Suchen/Ersetzen, Ordner-Eigenschaften", checkboxes, results)
 
     def attachments():
         res = m.js(COMPOSE_CHECK_JS + r"""
@@ -3982,7 +3989,7 @@ def dialog_checks(m, results):
                        line: s.borderTopColor, paneLine: colorOf(ld, "var(--mt-pane-line)"), cb: c && [c.appearance, c.backgroundImage, c.backgroundColor], accent: colorOf(ld, "AccentColor") };
             } finally { await shut(lw); } }); """)
         ok = (res.get("picker") and same_color(res["bg"], res["window"]) and not same_color(res["bg"], "rgb(0, 0, 0)") and res["radius"] == "8px"
-              and same_color(res["line"], res["paneLine"]) and res["cb"] and res["cb"][0] == "none" and res["cb"][1].startswith('url("chrome://')
+              and same_color(res["line"], res["paneLine"]) and res["cb"] and res["cb"][0] == "none" and res["cb"][1].startswith('url("resource://mailcards/icons/check-box-12.svg')
               and same_color(res["cb"][2], res["accent"]) and None not in res["mids"] and abs(res["mids"][0] - res["mids"][1]) <= 1)
         return ok, f"{res}"
     check("Suchordner: Ordnerwahl in der Inhaltsfläche mit Haarlinie und 8 px, Kästchen im macOS-Stil mit Haken; +/− mittig zur Bedingungszeile", folder_picker, results)
@@ -14585,14 +14592,15 @@ Neu
                      split: [csOf(sp).borderTopWidth, csOf(sp).borderBottomWidth],
                      win: colorOf(sd, "var(--mt-window)", "backgroundColor"), line: colorOf(sd, "var(--mt-pane-line)", "borderTopColor"),
                      buttons: [...sd.querySelectorAll('#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]')].map(b => [Math.round(b.getBoundingClientRect().height), csOf(b).borderTopLeftRadius]),
-                     fields: [...sd.querySelectorAll("menulist")].filter(vis).map(e => [Math.round(e.getBoundingClientRect().height), csOf(e).borderTopColor]) };
+                     fields: [...sd.querySelectorAll("menulist")].filter(vis).map(e => [Math.round(e.getBoundingClientRect().height), csOf(e).borderTopWidth, csOf(e).backgroundColor]),
+                     control: colorOf(sd, "var(--mt-control)", "backgroundColor") };
           } finally { await shut(sw); }""")
         ok = (all(same_color(x[0], res["win"]) and x[1] == "8px" and same_color(x[2], res["line"]) for x in (res["tree"], res["terms"]))
               and res["tree"][0] != "rgb(0, 0, 0)" and res["split"][1] == "0px" and res["split"][0] in ("1px", "0.5px")
               and len(res["buttons"]) == 5 and all(h >= 30 and r == "999px" for h, r in res["buttons"])
-              and len(res["fields"]) >= 3 and all(h >= 28 and same_color(c, res["line"]) for h, c in res["fields"]))
+              and len(res["fields"]) >= 3 and all(h >= 28 and bw == "0px" and same_color(bg, res["control"]) for h, bw, bg in res["fields"]))
         return ok, f"{res}"
-    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie, Knöpfe 30 px als Kapsel, Auswahllisten 28 px mit Haarlinie", ab_search_dialog, results)
+    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie, Knöpfe 30 px als Kapsel, Auswahllisten 28 px als graues Feld ohne Rand (Bauart der Auswahlfelder)", ab_search_dialog, results)
 
     def ab_edit_dialogs():
         # Bearbeiten gleich nach dem Öffnen: das Layout (Weitere Felder) greift
@@ -16957,8 +16965,8 @@ Neu
         seps = res.get("seps") or []
         ok = (res.get("id") == "calendar-task-dialog-inner" and t.get("border") == "none" and t.get("h") == "32px" and same_color(t.get("bg", ""), t.get("cat") or "x")
               and p.get("h") == 32 and p.get("border") == "none" and same_color(bg[0], bg[1])
-              and res.get("check") and res["check"][0].startswith('url("chrome://') and rgba_alpha(res["check"][1]) > 0
-              and (res.get("eventCheck") or "").startswith('url("chrome://')
+              and res.get("check") and res["check"][0].startswith('url("resource://mail') and rgba_alpha(res["check"][1]) > 0
+              and (res.get("eventCheck") or "").startswith('url("resource://mail')
               and lk(res.get("taskLink")) and lk(res.get("eventLink")) and fit(res.get("taskDesc")) and fit(res.get("eventDesc"))
               and res.get("spin") == "textfield"
               and len(seps) >= 2 and all(rgba_alpha(c) <= 0.12 and float(wd[:-2]) <= 1 for c, wd in seps))
@@ -18070,6 +18078,59 @@ Neu
               and res.get("smtp") and min(res["smtp"]) >= 4)
         return ok, f"{res}"
     check("Kontoeinstellungen: Fußzeile einzeilig, Fläche --mt-window, Abstände Überschrift/Karten, Junk-Adressbücher, SMTP-Port, Archiv-Beispiel", account_pages, results)
+
+    def select_fields():
+        # Auswahlfelder (Wert wählen) überall in einer Bauart: graues Feld --mt-control ohne Rand, Ecken 7 px,
+        # mindestens 26 px, Schrift normal, rechts der halo-Doppelpfeil (oben und unten sichtbar gezeichnet);
+        # Einstellungen (menulist und select „Density“) und Kontoeinstellungen (select „Connection security“).
+        # Aufklapp-Pfeile in Ordnerliste und Kontenbaum: der halo-Pfeil statt nav-down-sm.svg
+        res = m.js(r"""
+          const cs = e => e.ownerDocument.defaultView.getComputedStyle(e); const R = e => e.getBoundingClientRect();
+          const ink = async (doc, r, bg) => { const win = doc.defaultView;
+            const bmp = await win.browsingContext.currentWindowGlobal.drawSnapshot(new win.DOMRect(r.left, r.top, r.width, r.height), 2, bg);
+            const c = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height;
+            const x = c.getContext("2d"); x.drawImage(bmp, 0, 0); const px = x.getImageData(0, 0, c.width, c.height).data;
+            const ref = [px[0], px[1], px[2]]; const rows = new Array(c.height).fill(0);
+            for (let y = 0; y < c.height; y++) for (let xx = 0; xx < c.width; xx++) { const i = (y * c.width + xx) * 4;
+              if (Math.abs(px[i] - ref[0]) + Math.abs(px[i + 1] - ref[1]) + Math.abs(px[i + 2] - ref[2]) > 120) rows[y]++; }
+            const h = c.height, part = (a, b) => rows.slice(Math.floor(a * h), Math.ceil(b * h)).reduce((s, v) => s + v, 0);
+            return [part(0, 0.32), part(0.68, 1)]; };
+          const look = async (el, kind) => { const s = cs(el), d = el.ownerDocument;
+            const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.color = "var(--mt-control)"; d.documentElement.append(probe);
+            const control = cs(probe).color; probe.remove();
+            const o = { id: el.id, h: Math.round(R(el).height), radius: s.borderTopLeftRadius, border: s.borderTopWidth, bg: s.backgroundColor, control, weight: s.fontWeight };
+            if (kind == "menulist") { const dm = el.shadowRoot.querySelector("dropmarker"); o.arrow = cs(dm).content; o.ink = await ink(d, R(dm), "white"); }
+            else { o.arrow = s.backgroundImage; const r = R(el); o.ink = await ink(d, { left: r.right - 21, top: r.top + (r.height - 14) / 2, width: 14, height: 14 }, "white"); }
+            return o; };
+          const out = {};
+          w.openPreferencesTab("paneGeneral"); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("defaultFont")?.getBoundingClientRect().width > 0, "Einstellungen", 8000); await ruhig(1500);
+          const pd = tm.currentTabInfo.browser.contentDocument;
+          const font = pd.getElementById("defaultFont"); font.scrollIntoView({ block: "center" }); await ruhig(500);
+          out.menulist = await look(font, "menulist");
+          const sel = [...pd.querySelectorAll("select:not([multiple], [size])")].find(e => R(e).width > 0);
+          if (sel) { sel.scrollIntoView({ block: "center" }); await ruhig(500); out.select = await look(sel, "select"); }
+          tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          w.MsgAccountManager(null);
+          const aw = await until(() => tm.currentTabInfo.browser?.contentWindow?.document.getElementById("accounttree") && tm.currentTabInfo.browser.contentWindow, 8000);
+          await ruhig(1200); const ad = aw.document, tree = ad.getElementById("accounttree");
+          out.accountTwisty = [...tree.querySelectorAll("img.twisty-icon")].filter(e => R(e).width > 0).map(e => cs(e).content).slice(0, 2);
+          const li = [...tree.querySelectorAll("li")].find(l => (l.getAttribute("PageTag") || "") == "am-server.xhtml");
+          if (li) { tree.selectedIndex = tree.rows.indexOf(li);
+            const sd = await until(() => { const d = ad.getElementById("contentFrame").contentDocument; return d?.readyState == "complete" && d.location.href.includes("am-server") && d.getElementById("server.socketType") && d; }, 8000);
+            await ruhig(800); if (sd) { const st = sd.getElementById("server.socketType"); st.scrollIntoView({ block: "center" }); await ruhig(400); out.account = await look(st, "select"); } }
+          tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          const a3 = await toMail(); await ruhig(800);
+          out.folderTwisty = [...a3.document.querySelectorAll("#folderTree img.twisty-icon")].map(e => cs(e).content).slice(0, 2);
+          return out;""")
+        def good(o):
+            return (bool(o) and 26 <= o["h"] <= 32 and o["radius"] == "7px" and o["border"] == "0px" and same_color(o["bg"], o["control"])
+                    and o["weight"] == "400" and "resource://mailcards/icons/chevron-updown-14.svg" in o["arrow"]
+                    and o["ink"][0] >= 4 and o["ink"][1] >= 4)
+        tw = (res.get("accountTwisty") or []) + (res.get("folderTwisty") or [])
+        ok = (good(res.get("menulist")) and good(res.get("select")) and good(res.get("account"))
+              and bool(res.get("accountTwisty")) and bool(res.get("folderTwisty")) and all("resource://mailcards/icons/nav-down-12.svg" in t for t in tw))
+        return ok, f"{res}"
+    check("Auswahlfelder: eine Bauart (graues Feld, Ecken 7 px, Schrift normal) mit halo-Doppelpfeil in Einstellungen und Kontoeinstellungen; Aufklapp-Pfeile in Ordnerliste und Kontenbaum als halo-Pfeil", select_fields, results)
 
     def account_sidebar_toggle():
         # Seitenleiste in den Kontoeinstellungen ausblenden: Kontodetails bleiben sichtbar und füllen die Breite
@@ -19192,12 +19253,19 @@ Neu
           const iw = dlg.windowGlobalChild.innerWindowId;
           const blocked = (Services.console.getMessageArray() || []).filter(x => x instanceof Ci.nsIScriptError
             && x.innerWindowID == iw && /Content-Security-Policy/.test(x.errorMessage)).length;
-          const out = { img: cs.backgroundImage.slice(0, 40), fill: cs.fill, bg: cs.backgroundColor, blocked };
+          // weiße Punkte im Kästchen: das Häkchen ist wirklich gezeichnet (nicht nur die blaue Fläche)
+          const r = box.querySelector(".checkbox-check").getBoundingClientRect();
+          const bmp = await dlg.browsingContext.currentWindowGlobal.drawSnapshot(new dlg.DOMRect(r.left + 2, r.top + 2, r.width - 4, r.height - 4), 2, "black");
+          const c = dlg.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height;
+          const x = c.getContext("2d"); x.drawImage(bmp, 0, 0); const px = x.getImageData(0, 0, c.width, c.height).data;
+          let white = 0; for (let i = 0; i < px.length; i += 4) if (px[i] > 220 && px[i + 1] > 220 && px[i + 2] > 220) white++;
+          const out = { img: cs.backgroundImage.slice(0, 60), stroke: cs.stroke, bg: cs.backgroundColor, blocked, white };
           dlg.close(); await ruhig(300);
           return out;''')
-        ok = res["img"].startswith('url("chrome:') and res["fill"] == "rgb(255, 255, 255)" and res["blocked"] == 0
+        ok = (res["img"].startswith('url("resource://mailcards/icons/check-box-12.svg') and res["stroke"] == "rgb(255, 255, 255)"
+              and res["blocked"] == 0 and res["white"] >= 12)
         return ok, f"{res}"
-    check("Standardprogramm-Dialog: Haken im Kästchen trotz Bildsperre", system_integration_check, results)
+    check("Standardprogramm-Dialog: halo-Häkchen im Kästchen trotz Bildsperre (weiß sichtbar)", system_integration_check, results)
 
     def search_prefs():
         res = m.js('''

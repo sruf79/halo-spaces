@@ -470,7 +470,8 @@ Reihenfolge:
    Vorarbeit (nur gelesen und geplant, nach dem Paket gegen den Stand prüfen): ~/halo-aufgaben/vorschau/nachtlauf-vorarbeit-2026-11-17/
    (knoepfe.md = Umsetzungsplan Knöpfe GYq_c/I6FHI, designer-antworten-knoepfe.md = verbindliche Antworten des Designers auf die
    offenen Fragen; felder-fenster.md = Plan Felder und Fenster I_AFI/Ia-H0/…, designer-antworten-felder-fenster.md = Antworten;
-   was dort [offen] ist, heute Nacht nicht anfassen).
+   was dort [offen] ist, heute Nacht nicht anfassen; kleine.md + patches/ = vorbereitete Patches für JHMvE, JHchI, JHf-g+JHcuc (nicht
+   angewendet, `git apply --check` vorher; Prüfungen müssen mit angepasst werden; JHMmo wartet auf I6FHI)).
    a) Zuerst das Paket Kachel d2h + Lichtschein Variante D als Ganzes (mit
       Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1);
       gilt, obwohl IekSY auf „Wartet auf OK“ steht. Das Paket wird gebaut,

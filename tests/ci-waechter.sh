@@ -53,6 +53,8 @@ DIR=$HOME/halo-aufgaben
 STAND=$DIR/ci-waechter.stand
 NACHHOLEN=$DIR/ci-waechter.nachholen   # rote Läufe des Nachtlaufs, nachzuholen nach seinem Ende
 VERSUCHE=$DIR/ci-waechter.versuche     # „<Lauf> <Anzahl>“: Leseversuche eines unlesbaren Laufs
+ROTFERTIG=$DIR/ci-waechter.rotfertig   # Lauf, dessen Rot-Teil erledigt ist, während der Konsolen-Teil noch scheitert
+VERSATZ=$DIR/ci-waechter.versatz       # Beginn der nächsten Runde bei mehr als 60 Meldungen (rotierend)
 ROT=$DIR/ci-waechter.rot               # „<Lauf><Tab><Commit><Tab><Prüfung>“ je roter Prüfung (für „wackelig“)
 LOG=$DIR/ci-waechter.log
 NACHT=$HOME/halo-nacht
@@ -148,13 +150,13 @@ eintragen() {   # <Job> <Prüfung> <Text> <Ergänzung> [<Titelanfang>, Standard 
   if [[ -n $job ]]; then titel="$anfang – $job: $kurz"; else titel="$anfang – $kurz"; fi
   b=$(board) || { melde "FEHLER: Board nicht lesbar – nichts eingetragen"; return 1 }
   if [[ -n $schluessel ]]; then
-    # Fehlerkonsole/-protokoll: über die ganze (normalisierte) Meldung im Text – zwei Meldungen mit gleichem Anfang
-    # bleiben getrennt
+    # Fehlerkonsole/-protokoll: über die ganze (normalisierte) Meldung im Text, als ganze Zeile „Schlüssel: …“ – zwei
+    # Meldungen mit gleichem Anfang bleiben getrennt (auch wenn die eine nur länger ist)
     text+="
 
 Schlüssel: $schluessel"
     read -r id di <<< $(print -r -- $b | jq -r --arg s "Schlüssel: $schluessel" --arg a "$anfang" \
-      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.content.body // "") | contains($s)))][0] | "\(.id // "") \(.content.id // "")"')
+      '[.items[] | select(.status != "Done" and (.title | startswith($a)) and ((.content.body // "") | split("\n") | any(. == $s)))][0] | "\(.id // "") \(.content.id // "")"')
   else
     # offener Eintrag zur selben Prüfung (egal welcher Job)? Vergleich über die ersten 60 Zeichen
     read -r id di <<< $(print -r -- $b | jq -r --arg p "${pruefung[1,60]}" --arg a "$anfang" \
@@ -182,7 +184,7 @@ $zusatz" >/dev/null || { melde "FEHLER: Eintrag $id ließ sich nicht ergänzen";
     # schon einmal als behoben (Done) eingetragen? Dann flackert der Fehler vermutlich – im neuen Eintrag sagen
     local frueher
     frueher=$(print -r -- $b | jq -r --arg s "Schlüssel: $schluessel" --arg a "$anfang" \
-      '[.items[] | select(.status == "Done" and (.title | startswith($a)) and ((.content.body // "") | contains($s))) | .title][0] // ""')
+      '[.items[] | select(.status == "Done" and (.title | startswith($a)) and ((.content.body // "") | split("\n") | any(. == $s))) | .title][0] // ""')
     [[ -n $frueher ]] && text+="
 
 Wieder aufgetreten: „$frueher“ war schon Done – der Fehler tritt vermutlich nur manchmal auf; behoben erst nach mehreren Läufen ohne ihn."
@@ -489,6 +491,10 @@ Erkannt am $heute vom CI-Wächter (tests/ci-waechter.sh, ein Eintrag je rotem La
 # Meldung ein Bug im Board („Tests: Fehlerkonsole – …“ bzw. „Tests: Fehlerprotokoll – …“; ein offener Eintrag zur
 # selben Meldung wird höchstens einmal am Tag ergänzt). Für jeden abgeschlossenen Lauf, auch während Nachtlauf und
 # Wochenprüfung (die werten diese Zeilen nicht selbst aus)
+protokoll_schluessel() {   # <Meldung des Fehlerprotokolls> → ohne Ort („ @ <Stapelzeile>“, auch abgeschnitten)
+  print -r -- "$1" | sed -E 's/ @ [^ ]+//g'
+}
+
 konsole_zeilen() {   # <Zeilen> <Quelle (Lauf-Adresse bzw. Datei)> <Commit> <Commit-Titel> [<Job für Zeilen ohne Job>]
   local zeilen=$1 quelle=$2 sha=$3 titel=$4 standardjob=$5 heute zeile job fehler key n=0 neu=0 erg=0 fehl=0 ergebnis art wo meldung
   local -a keys
@@ -503,7 +509,9 @@ konsole_zeilen() {   # <Zeilen> <Quelle (Lauf-Adresse bzw. Datei)> <Commit> <Com
     fi
     key=${fehler%% – während *}
     key=${key#<->× }
-    [[ $art == K ]] && key=${key% \(*\)}  # ohne Ort (Datei:Zeile) – der verschiebt sich mit jedem Commit
+    # ohne Ort – der verschiebt sich mit jedem Commit: Konsole „ (Datei:Zeile)“ am Ende, Protokoll „ @ Funktion@Datei:Zeile:Spalte“
+    # (erste Zeile des Stapels; dieselbe Regel in tests/ci-warten.sh)
+    if [[ $art == K ]]; then key=${key% \(*\)}; else key=$(protokoll_schluessel "$key"); fi
     [[ -z $key ]] && continue
     key="$art|$key"
     if (( ! ${+jobs_von[$key]} )); then
@@ -515,11 +523,20 @@ konsole_zeilen() {   # <Zeilen> <Quelle (Lauf-Adresse bzw. Datei)> <Commit> <Com
     fi
   done
   (( ${#keys} )) || return 0
+  # mehr als 60 Meldungen: rotierend – jeder Lauf beginnt dort, wo der vorige aufhörte (sonst kämen die hinteren nie
+  # ins Board, weil jeder Lauf sie in derselben Reihenfolge nennt)
+  local versatz=0
+  if (( ${#keys} > 60 )); then
+    [[ -r $VERSATZ ]] && versatz=$(<$VERSATZ)
+    [[ $versatz == <-> ]] || versatz=0
+    versatz=$(( versatz % ${#keys} ))
+    keys=(${keys[versatz+1,-1]} ${keys[1,versatz]})
+    [[ -z $TROCKEN ]] && print $(( (versatz + 60) % ${#keys} )) > $VERSATZ
+  fi
   for key in $keys; do
     n=$((n + 1))
-    # keine Obergrenze von 8 wie bei Rot: sonst kämen bei vielen Meldungen die hinteren nie ins Board (jeder Lauf
-    # nennt sie in derselben Reihenfolge); Wiederholungen kosten nur einen Vergleich
-    (( n > 60 )) && { (( n == 61 )) && melde "  … mehr als 60 Meldungen, Rest im nächsten Lauf"; continue }
+    # keine Obergrenze von 8 wie bei Rot; Wiederholungen kosten nur einen Vergleich
+    (( n > 60 )) && { (( n == 61 )) && melde "  … mehr als 60 Meldungen, Rest im nächsten Lauf (rotierend)"; continue }
     meldung=${key[3,-1]}
     if [[ ${key[1]} == P ]]; then
       art="Tests: Fehlerprotokoll" wo="in sein Fehlerprotokoll (mail-cards-debug.log)"
@@ -564,9 +581,23 @@ konsole() {   # <Lauf-ID>; Exitcode 2, wenn der Lauf nicht lesbar ist (dann spä
     "$(jq -r '.headSha[:7]' <<< $info)" "$(jq -r '.displayTitle[:100]' <<< $info)"
 }
 
+# Konsolen-Teil und Rot-Teil unabhängig: scheitert der Konsolen-Teil (Exitcode 2, der Lauf wird später erneut
+# ausgewertet), kommt der Rot-Eintrag trotzdem – und bei der Wiederholung nicht noch einmal (ROTFERTIG)
 auswerten() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
+  local run=$1 kr=0 rr=0
+  konsole $run || kr=2
+  if [[ -z $NUR && -r $ROTFERTIG && $(<$ROTFERTIG) == $run ]]; then
+    melde "Lauf $run: Rot-Teil schon ausgewertet, nur der Konsolen-Teil wird wiederholt"
+  else
+    auswerten_rot "$@"; rr=$?
+    (( rr == 0 && kr )) && [[ -z $TROCKEN && -z $NUR ]] && print $run > $ROTFERTIG
+  fi
+  (( rr )) && return $rr
+  return $kr
+}
+
+auswerten_rot() {   # <ID> <status> <conclusion> <Beginn-Epoch> <sha>
   local run=$1 st=$2 erg=$3 beginn=$4 sha=$5
-  konsole $run || return 2
   if [[ -z $NUR ]] && vom_nachtlauf $beginn; then
     melde "Lauf $run ($sha): $erg – während Nachtlauf/Wochenprüfung, übernimmt deren Bericht"
     # Rot aus dem Nachtlauf: nach seinem Ende nachholen, falls er es nicht selbst eingetragen hat

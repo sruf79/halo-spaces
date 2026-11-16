@@ -88,6 +88,7 @@ if (( RC != 4 )); then
   if KLOG=$(gh run view $RUN -R $R --log 2>/dev/null); then
     KONSOLE=$(print -r -- $KLOG | grep -aE 'KONSOLE  |PROTOKOLL  ' \
       | sed -E 's/^([^	]*)	[^	]*	[^ ]* (KONSOLE|PROTOKOLL)  (.*)$/\2  \3	\1/' \
+      | sed -E '/^PROTOKOLL  /s/ @ [^ 	]+//g' \
       | awk -F'\t' '{ if (!($1 in j)) { o[++n] = $1; j[$1] = $2 } else if (index(", " j[$1] ", ", ", " $2 ", ") == 0) j[$1] = j[$1] ", " $2 }
                      END { for (i = 1; i <= n; i++) print "  " o[i] "  [" j[o[i]] "]" }')
     if [[ -n $KONSOLE ]]; then

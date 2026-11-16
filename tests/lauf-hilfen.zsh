@@ -385,7 +385,8 @@ push() {
   out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „$ziel“ ist (aus ListAgents), genau diese eine Nachricht und sonst nichts:
 PUSH: $text
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
-    | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1)
+    | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1 \
+    | grep -v '^Permission allow rule')   # Warnzeile zu einer Berechtigungsregel in settings.json steht vor der Antwort (16.11.2026) und hat die Zustellung fälschlich als Fehler gezählt
   log "Push: $out"
   if [[ ${out:l} == gesendet* ]]; then
     sitzung_merken $sollname $ziel

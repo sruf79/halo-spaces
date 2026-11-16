@@ -8124,12 +8124,45 @@ search-bar {
 
 #contactlistbox > richlistitem {
   min-height: 52px !important;
-  border-radius: 10px !important;
+  border-radius: var(--mt-radius-row) !important;
 }
 
+/* Auswahl wie in der Ordnerliste der Mail (G14): grau, Schrift in Textfarbe;
+   mit Fokus in der Liste in der Akzentfarbe getönt */
 #contactlistbox > richlistitem[selected] {
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  background: var(--mt-selected-unfocused) !important;
+  color: var(--mt-text) !important;
+}
+
+#contactlistbox:focus > richlistitem[selected] {
+  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  color: var(--mt-text) !important;
+}
+
+/* ohne Thunderbirds blauen Strich links und die Ränder oben und unten an der
+   Auswahl: die Fläche allein zeigt sie, wie in der Ordnerliste (Platz bleibt) */
+#contactlistbox > richlistitem[selected] {
+  border-color: transparent !important;
+}
+
+#contactlistbox > richlistitem > .box-line[selected] {
+  background-color: transparent !important;
+}
+
+/* mehr Kontrast und erzwungene Farben wie die Ordnerliste der Mail */
+@media (prefers-contrast: more) {
+  #contactlistbox > richlistitem[selected] {
+    box-shadow: inset 0 0 0 1px var(--mt-text-secondary) !important;
+  }
+}
+
+@media (forced-colors: active) {
+  #contactlistbox > richlistitem[selected],
+  #contactlistbox:focus > richlistitem[selected] {
+    forced-color-adjust: none;
+    background: Highlight !important;
+    color: HighlightText !important;
+  }
 }
 
 #contactlistbox > richlistitem:is(#conversationsGroup, #onlinecontactsGroup, #offlinecontactsGroup) {

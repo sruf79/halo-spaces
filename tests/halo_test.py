@@ -9524,7 +9524,7 @@ def server_checks(m, results):
         check("Testkonto: abgelehnte Mail → Fehler-Dialog (mit „Postausgang zeigen“), Mail bleibt im Postausgang", send_error, results)
 
         def chat_irc():
-            # Chat mit dem IRC-Testserver: anmelden, Raum betreten, Gespräch in der Liste ausgewählt (Akzentfarbe),
+            # Chat mit dem IRC-Testserver: anmelden, Raum betreten, Gespräch in der Liste ausgewählt (grau wie die Ordnerliste),
             # Nachricht einer erfundenen Person erscheint, eigene Nachricht kommt beim Server an
             res = m.js(r"""
               const { IMServices } = ChromeUtils.importESModule("resource:///modules/IMServices.sys.mjs");
@@ -9540,7 +9540,22 @@ def server_checks(m, results):
               const it = await until(() => [...listbox.querySelectorAll("richlistitem")].find(i => i.getAttribute("displayname") == "#halo" || i.textContent.includes("#halo")), 8000);
               if (it) listbox.selectedItem = it;
               await ruhig(1500);
-              out.item = it ? { bg: w.getComputedStyle(it).backgroundColor, accent: w.getComputedStyle(d.documentElement).getPropertyValue("--mt-accent").trim() } : null;
+              // Auswahl wie in der Ordnerliste der Mail: grau (--mt-selected-unfocused), Schrift in Textfarbe, ohne
+              // Thunderbirds blauen Strich links und ohne Ränder; mit Fokus in der Liste in der Akzentfarbe getönt
+              const want = v => { const p = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); p.style.backgroundColor = v; p.style.color = v;
+                                  d.documentElement.append(p); const c = w.getComputedStyle(p).backgroundColor; p.remove(); return c; };
+              const look = () => { const cs = w.getComputedStyle(it), line = it.querySelector(".box-line");
+                return { bg: cs.backgroundColor, color: cs.color, radius: cs.borderTopLeftRadius,
+                         borders: [cs.borderTopColor, cs.borderBottomColor, cs.borderLeftColor].every(c => c == "rgba(0, 0, 0, 0)" || cs.borderTopWidth == "0px"),
+                         line: line ? w.getComputedStyle(line).backgroundColor : "keine" }; };
+              if (it) {
+                if (d.activeElement == listbox) listbox.blur();
+                await ruhig(300);
+                out.item = { ...look(), focus: d.activeElement == listbox, wantBg: want("var(--mt-selected-unfocused)"), wantColor: want("var(--mt-text)") };
+                listbox.focus(); await ruhig(300);
+                out.itemFocus = { ...look(), focus: d.activeElement == listbox, wantBg: want("color-mix(in srgb, var(--mt-accent) 22%%, transparent)") };
+                listbox.blur(); await ruhig(200);
+              }
               conv?.sendMsg("Hallo zurück");
               w.__mcChatAcc = acc.id;
               return out;""" % servers.irc_port)
@@ -9567,14 +9582,17 @@ def server_checks(m, results):
               await toMail();
               for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
               return out;""")
-            it = res.get("item") or {}
-            ok = (res.get("connected") and it and it.get("bg") not in ("", "transparent", "rgba(0, 0, 0, 0)")
+            it, itf = res.get("item") or {}, res.get("itemFocus") or {}
+            ok = (res.get("connected") and it and not it.get("focus") and it.get("bg") == it.get("wantBg") and it.get("color") == it.get("wantColor")
+                  and it.get("radius") == "10px" and it.get("borders") and it.get("line") in ("keine", "rgba(0, 0, 0, 0)")
+                  and itf.get("focus") and itf.get("bg") == itf.get("wantBg") and itf.get("color") == it.get("wantColor")
+                  and itf.get("line") in ("keine", "rgba(0, 0, 0, 0)")
                   and res2.get("shown") and res2.get("own") and ("#halo", "Hallo zurück") in servers.irc.said)
             lk = res2.get("look") or {}
             ok = (ok and lk.get("side") and lk.get("nicks", 0) >= 1 and lk.get("circles") == lk.get("nicks")
                   and (lk.get("box") or {}).get("radius", 99) <= 8 and (lk.get("box") or {}).get("border", 0) > 0)
             return ok, f"{res} {res2} IRC: {servers.irc.log[:8]}"
-        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt, Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
+        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
 
         def wrong_password():
             # Server lehnt die Anmeldung ab → Thunderbirds Nachfrage erscheint als Kachel im Fenster (wie ein macOS-Sheet)

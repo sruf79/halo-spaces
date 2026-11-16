@@ -18220,6 +18220,16 @@ class CardEnhancer {
       } catch {}
     }
     this.windows.clear();
+    // offenes Info-Fenster schließen: es überlebt sonst ein Update ohne Neustart mit der alten Seite und dem
+    // alten Code, und „halo.spaces“ im Menü holt nur dieses Fenster nach vorn (mit 3.26.0 fehlte so
+    // „Recommend“ bis zum Neustart)
+    for (const win of [...Services.wm.getEnumerator(null)]) {
+      if (win.location?.href.startsWith("resource://mailcards/about/halo.html") && !win.closed) {
+        try {
+          win.close();
+        } catch {}
+      }
+    }
   }
 
   anyWindow() {

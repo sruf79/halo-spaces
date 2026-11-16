@@ -20536,6 +20536,83 @@ Neu
 
     server_checks(m, results)
 
+    def update_live_code():
+        # Update ohne Neustart (wie „Install Now“ in den Einstellungen oder im Info-Fenster): danach läuft der Code der
+        # neuen Version, und ein vorher offenes Info-Fenster ist zu – es blieb sonst mit der alten Seite und dem alten
+        # Code stehen, „halo.spaces“ im Menü holte nur dieses Fenster nach vorn (mit 3.26.0 fehlte so „Recommend“ bis
+        # zum Neustart). Nachgestellt mit einem Paket gleichen Inhalts, höherer Version und einer Marke in
+        # implementation.js und texte.js; danach das ursprüngliche Paket zurück
+        xpi = os.path.join(profile, "extensions", f"{ADDON_ID}.xpi")
+        tmp = tempfile.mkdtemp(prefix="halo-update-")
+        alt, neu = os.path.join(tmp, "alt.xpi"), os.path.join(tmp, "neu.xpi")
+        shutil.copy(xpi, alt)
+        marke, neu_ver = f"stand-{int(time.time())}", f"{version}.1"
+        with zipfile.ZipFile(alt) as zin, zipfile.ZipFile(neu, "w", zipfile.ZIP_DEFLATED) as zout:
+            for info in zin.infolist():
+                data = zin.read(info.filename)
+                if info.filename == "manifest.json":
+                    man = json.loads(data)
+                    man["version"] = neu_ver
+                    data = json.dumps(man, ensure_ascii=False, indent=2).encode()
+                elif info.filename in ("api/implementation.js", "api/texte.js"):
+                    data += f'\n;Services.prefs.setStringPref("extensions.mailcards.test.stand.{info.filename[4:-3]}", "{marke}");\n'.encode()
+                zout.writestr(info, data)
+        m.cmd("WebDriver:SetTimeouts", {"script": 120000})
+        try:
+            res = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+              const ID = %s, P = "extensions.mailcards.test.stand.";
+              const laeuft = ver => { const e = ExtensionParent.GlobalManager.getExtension(ID), g = e?.experimentAPIManager?.global;
+                return e?.version == ver && !!g && Cu.evalInSandbox("typeof enhancer == 'object' && !!enhancer", g); };
+              const einspielen = async (pfad, ver) => {
+                const f = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); f.initWithPath(pfad);
+                const install = await AddonManager.getInstallForFile(f);
+                await new Promise((resolve, reject) => {
+                  install.addListener({ onInstallPostponed: () => install.continuePostponedInstall(), onInstallEnded: () => resolve(),
+                    onInstallFailed: () => reject(new Error("Installation gescheitert: " + install.error)),
+                    onInstallCancelled: () => reject(new Error("Installation abgebrochen")) });
+                  install.install().catch(() => {});
+                });
+                return !!(await until(() => laeuft(ver), 20000));
+              };
+              const stand = () => ({ impl: Services.prefs.getStringPref(P + "implementation", ""), texte: Services.prefs.getStringPref(P + "texte", "") });
+              const out = {};
+              try {
+                // Info-Fenster schon offen (Update aus dem Fenster oder den Einstellungen heraus)
+                await toMail();
+                d.getElementById("mcHaloSpaces")?.doCommand();
+                out.vorher = !!(await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html")
+                                                                                     && x.document.getElementById("version")?.textContent), 8000));
+                out.neu = await einspielen(%s, %s);
+                out.offen = [...Services.wm.getEnumerator(null)].filter(x => x.location?.href.startsWith("resource://mailcards/about/halo.html")).length;
+                out.stand = stand();
+                // sichtbares Zeichen: Info-Fenster der neuen Version, „Recommend“ ganz im Fenster
+                await toMail();
+                d.getElementById("mcHaloSpaces")?.doCommand();
+                const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html")
+                                                                                     && x.document.getElementById("version")?.textContent), 8000);
+                if (hw) {
+                  await ruhig(300);
+                  const b = hw.document.getElementById("recommend")?.getBoundingClientRect();
+                  out.fenster = { version: hw.document.getElementById("version").textContent, recommend: !!b && b.height > 0 && b.bottom <= hw.innerHeight };
+                  hw.close(); await ruhig(300);
+                }
+              } finally {
+                out.zurueck = await einspielen(%s, %s);
+                for (const k of ["implementation", "texte"]) Services.prefs.clearUserPref(P + k);
+                await toMail();
+              }
+              return out;""" % (json.dumps(ADDON_ID), json.dumps(neu), json.dumps(neu_ver), json.dumps(alt), json.dumps(version)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        f = res.get("fenster") or {}
+        ok = (res.get("vorher") and res.get("neu") and res.get("offen") == 0 and res.get("stand") == {"impl": marke, "texte": marke}
+              and f.get("version") == f"Version {neu_ver}" and f.get("recommend") and res.get("zurueck"))
+        return ok, f"Marke {marke}: {res}"
+    check("Updates: Update ohne Neustart schließt ein offenes Info-Fenster und lädt den Code der neuen Version, Info-Fenster danach neu mit „Recommend“",
+          update_live_code, results)
+
     def errors():
         # Fehlerprotokoll der Erweiterung (mail-cards-debug.log, Fehler, die unser Code selbst abfängt). Nie ein
         # Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile

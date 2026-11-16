@@ -467,6 +467,9 @@ Reihenfolge:
    Maintainer 16.11.2026 (Volldampf): „weg 1. wir müssen unser wochenkontingent so rasch wie möglich verbrauchen ab morgen nacht 01:30“
    und „korrektur: die maximale produktivität zählt“. Solange Volldampf läuft, setzt das Skript Fortsetzungen bis 08:45 (statt 08:00)
    fort; claude läuft bis 09:00 (HART), danach übernimmt die Tagesroutine. Plane so, dass ein Eintrag vor 09:00 committet ist.
+   Vorarbeit (nur gelesen und geplant, nach dem Paket gegen den Stand prüfen): ~/halo-aufgaben/vorschau/nachtlauf-vorarbeit-2026-11-17/
+   (knoepfe.md = Umsetzungsplan Knöpfe GYq_c/I6FHI, designer-antworten-knoepfe.md = verbindliche Antworten des Designers auf die
+   offenen Fragen; was dort [offen] ist, heute Nacht nicht anfassen).
    a) Zuerst das Paket Kachel d2h + Lichtschein Variante D als Ganzes (mit
       Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1);
       gilt, obwohl IekSY auf „Wartet auf OK“ steht. Das Paket wird gebaut,

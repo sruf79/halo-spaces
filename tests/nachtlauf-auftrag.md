@@ -468,6 +468,11 @@ Reihenfolge:
       Schalter, earlyTheme-Kopie und Kontextmenüs der Kacheln, Plan Schritt 1);
       gilt, obwohl IekSY auf „Wartet auf OK“ steht. Das Paket wird gebaut,
       IekSY bleibt danach mit neuem Titel (d2h) auf „Wartet auf OK“ für die
+      Probe vom 16.11.2026 (Bericht ~/halo-aufgaben/vorschau/revert-probe-2026-11-16.md): Der Revert hat nur in
+      docs/design-vorgaben.md Konflikte (2 Blöcke: E16 von main, E17 aus dem Revert; Regelliste beide Seiten behalten),
+      Code und Tests laufen ohne Konflikt; danach in der Doku „umgesetzt auf Zweig paket/…“ auf „live auf main“ ändern.
+      Risiko: Windows-CI „Seitenleiste Adressbuch: Ein-/Ausblenden ohne verlorene Bilder“ (Grund von 671880a, seit
+      c6673de behoben) beobachten.
       Abnahme. Reihenfolge: Revert von 671880a auf main (der Zweig
       paket/lichtschein-kachel hat seither nichts Neues; ein erneuter Merge
       brächte nach dem Revert nichts zurück) → Konflikte lösen, keine Werte

@@ -24,7 +24,7 @@ export HALO_LAUF=nachtlauf
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, ~/halo-nacht/volldampf.txt): Zeile
 # „Volldampf: …“ im Auftrag, vor jeder Runde Wochenlimit prüfen (beendet Volldampf dauerhaft), solange aktiv
-# Fortsetzungen bis 08:00, höchstens acht, Grenze zwölf nicht gepushte Commits; Vermerk in „Kurz:“ und Bericht.
+# Fortsetzungen bis 08:45 (16.11.2026, vorher 08:00), höchstens acht, Grenze zwölf nicht gepushte Commits; Vermerk in „Kurz:“ und Bericht.
 # Ohne Datei bzw. ohne gültiges Fenster ändert sich nichts.
 emulate -L zsh
 setopt extendedglob
@@ -52,6 +52,7 @@ FERTIG=$DIR/$TAG.fertig
 LOCK=$DIR/lauf.lock
 START=$(date +%s)
 ENDE=$(date -j -v8H -v0M -v0S +%s)       # nach 08:00 nicht mehr fortsetzen
+NACHT_ENDE_TEXT=08:00
 HART=$(date -j -v9H -v0M -v0S +%s)       # um 09:00 wird claude beendet
 # zeit, log, push (Zeile aufs iPhone) und belegt: gemeinsam mit den anderen Läufen
 source ${0:A:h}/lauf-hilfen.zsh
@@ -226,7 +227,10 @@ volldampf_runde() {
   fi
   VD_STATUS=$(volldampf_status)
   if volldampf_aktiv >/dev/null; then
-    NACHT_GRENZE=08:00 NACHT_MAX_COMMITS=12 FORTSETZ_MAX=8
+    # Maintainer 16.11.2026 („weg 1. wir müssen unser wochenkontingent so rasch wie möglich verbrauchen“): mit Volldampf
+    # Fortsetzungen bis 08:45 statt 08:00; claude läuft weiter bis HART (09:00), die Tagesroutine startet um 09:00
+    NACHT_GRENZE=08:45 NACHT_MAX_COMMITS=12 FORTSETZ_MAX=8
+    ENDE=$(date -j -v8H -v45M -v0S +%s) NACHT_ENDE_TEXT=08:45
   else
     NACHT_GRENZE=$NORMAL_GRENZE NACHT_MAX_COMMITS=$NORMAL_MAX_COMMITS FORTSETZ_MAX=4
   fi
@@ -296,7 +300,7 @@ while true; do
     PROMPT="Schritt 5 fortsetzen (nachtlauf.sh, $(date +%H:%M)): $FGRUND. Die Fertig-Datei ist entfernt. Arbeite nach Schritt 5 des Auftrags die nächsten machbaren Einträge aus dem Plan dieses Laufs ab (gleiche Reihenfolge, je Eintrag committen, nur --only lokal, nicht pushen, kein Release), bis ein gültiger Endegrund eintritt (nichts Machbares mehr, $NACHT_GRENZE erreicht, $NACHT_MAX_COMMITS nicht gepushte Commits). Dann Bericht ergänzen und $FERTIG mit Zeile „Grund: …“ neu anlegen.${VD_STATUS:+ Volldampf: $VD_STATUS (Schritt 1c des Auftrags).}"
     continue
   fi
-  (( $(date +%s) >= ENDE )) && { log "Arbeit beendet: 08:00 erreicht – nicht mehr fortsetzen"; break }
+  (( $(date +%s) >= ENDE )) && { log "Arbeit beendet: $NACHT_ENDE_TEXT erreicht – nicht mehr fortsetzen"; break }
   ARGS=(--resume $SID)
   if grep -qiE "usage limit|hit your limit|limit reached|resets (at )?[0-9]|rate limit|overloaded" $OUT; then
     log "Limit – Pause 30 Minuten"

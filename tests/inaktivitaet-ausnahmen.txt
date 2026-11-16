@@ -7,3 +7,4 @@
 59 | bewusst offen (Tastenkürzel unter Linux/Windows werden angesehen), Maintainer 12.11. und 15.11.2026
 54 | Nutzer wartet auf eine zugesagte Funktion (Codes in Mails, Antwort vom 09.11.2026); Deutung von neon 15.11.2026, nicht des Maintainers
 65 | Nutzer wartet auf unsere Prüfung (Zahl der ungelesenen Mails an das Maß angleichen, Antwort vom 15.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 16.11.2026, nicht des Maintainers
+66 | Nutzer wartet auf unsere Entscheidung bzw. Umsetzung („Search for <Name>“, Antwort vom 16.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Maintainer 16.11.2026: „#66 ist eine ausnahme“

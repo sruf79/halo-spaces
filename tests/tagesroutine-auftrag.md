@@ -223,6 +223,8 @@ seinem eigenen Worktree (~/halo-zwischen-release), nie du. Für dich heißt das:
 über den Prüfzweig grün wird – jeder grüne Stand mit mindestens drei Thunderbird-Commits kann bis 19:30 veröffentlicht
 werden. Den Worktree, den Zweig zr/release und die Datei ~/halo-nacht/zwischen-schleife.lock nicht anfassen.
 
+Prioritäten im Volldampf (Maintainer 17.11.2026, Wortlaut: „prioritäten reihenfolge während volldampf: 1. wochenkontingent so rasch wie möglich verbrauchen indem die token-intensivsten tasks priorisiert werden 2.multiple releases ohne limit von halo.spaces innerhalb des tages“): 1. Das Wochenkontingent so rasch wie möglich verbrauchen: in der Plan-Runde die token-intensivsten Einträge zuerst (große, aufwendige, mit Opus/Fable und vielen parallelen Agenten), kleine Einträge danach; 2. beliebig viele Releases am Tag über den Wächter. Tests, CI und Windows bleiben wie bisher.
+
 Volldampf (nur wenn die Zeile „Kontingent (Skript): …“ mit „Volldampf aktiv“ beginnt; Maintainer
 13.11.2026, docs/testrechner.md „Volldampf“): Sollkurve und Sparmodus bremsen nicht, das Skript wählt
 Modell und Fable; in der Plan-Runde die token-intensivsten wertvollen Einträge mit hohem Nutzen nicht

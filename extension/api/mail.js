@@ -645,6 +645,13 @@ const Remind = {
       debugLog("remind alert", String(e).slice(0, 120));
     }
   },
+  // nur bei Mails, die man verschieben kann (nicht in Entwürfen, Vorlagen,
+  // Postausgang oder Newsgruppen) – Kontextmenü und Menüleiste gleich
+  canRemind(hdrs) {
+    const F = Ci.nsMsgFolderFlags;
+    const list = [...(hdrs || [])];
+    return list.length > 0 && !list.some(h => !h.folder || h.folder.isSpecialFolder(F.Drafts | F.Queue | F.Templates, true) || h.folder.server?.type == "nntp");
+  },
   // Kontextmenü der Mailliste: Untermenü „Erinnern“ nach „Markieren“
   hookMenu(doc) {
     const popup = doc.getElementById("mailContext");
@@ -674,14 +681,11 @@ const Remind = {
         return it;
       }));
     });
-    // nur bei Mails, die man verschieben kann (nicht in Entwürfen/Postausgang)
     const onShow = event => {
       if (event.target != popup) {
         return;
       }
-      const hdrs = win.gDBView?.getSelectedMsgHdrs?.() || [];
-      const F = Ci.nsMsgFolderFlags;
-      menu.hidden = !hdrs.length || [...hdrs].some(h => !h.folder || h.folder.isSpecialFolder(F.Drafts | F.Queue | F.Templates, true) || h.folder.server?.type == "nntp");
+      menu.hidden = !this.canRemind(win.gDBView?.getSelectedMsgHdrs?.() || []);
     };
     popup.addEventListener("popupshowing", onShow);
     this.start();

@@ -3830,7 +3830,7 @@ function hookMenubar(win, restorers) {
         star.removeAttribute("type");
         star.setAttribute("label", tr(hdrs[0]?.isFlagged ? "Remove Star" : "Star"));
       }
-      remind.disabled = !hdrs.length;
+      remind.disabled = !Remind.canRemind(hdrs);
       getMail.disabled = false;
     }
     // aktiver Bereich mit Häkchen (wie das aktive Fenster im Fenster-Menü)

@@ -19918,6 +19918,31 @@ Neu
         return ok, f"{res}"
     check("Menüleiste: Entfernte Befehle in Einstellungen (per Suche findbar, auch „Rules…“), Ordner-Kontextmenü und Bearbeiten-Menü", menubar_new_places, results)
 
+    def pref_density_choice():
+        # Allgemein → „Files and Display“ → Dichte: die Auswahl stellt genau die gewählte Dichte ein und zeigt danach die
+        # aktive (Thunderbirds Menüeinträge kennen ihre Dichte erst, wenn das Menü Ansicht → Dichte einmal offen war –
+        # ohne das stellte jede Wahl „Compact“ ein und die Auswahl sprang beim nächsten Fokus zurück)
+        res = m.js(PREFS_OPEN_JS + r"""
+          const P = "mail.uidensity", out = { steps: [] };
+          try {
+            await pick("paneGeneral", 800);
+            const sel = await bis(() => pd.querySelector("#mcPrefFiles select"), "Auswahl Dichte", 6000);
+            for (const v of ["uiDensityTouch", "uiDensityCompact", "uiDensityNormal"]) {
+              sel.value = v; sel.dispatchEvent(new pw.Event("change", { bubbles: true }));
+              await ruhig(300);
+              // Fokus verlässt die Karte und kommt zurück: Anzeige neu gelesen
+              pd.getElementById("mcPrefFiles").dispatchEvent(new pw.FocusEvent("focusin", { bubbles: true }));
+              out.steps.push([v, Services.prefs.getIntPref(P, -1), sel.value]);
+            }
+            return out;
+          } finally {
+            Services.prefs.clearUserPref(P);
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }""")
+        ok = res.get("steps") == [["uiDensityTouch", 2, "uiDensityTouch"], ["uiDensityCompact", 0, "uiDensityCompact"], ["uiDensityNormal", 1, "uiDensityNormal"]]
+        return ok, f"{res}"
+    check("Einstellungen → Allgemein: Auswahl der Dichte stellt die gewählte Dichte ein und zeigt sie danach weiter an", pref_density_choice, results)
+
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),
         # unter „General“ vor „Language & Fonts“; nur bei „Allgemein“ sichtbar, die Suche findet sie

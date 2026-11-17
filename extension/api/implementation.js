@@ -7370,7 +7370,10 @@ const PREF_TOOLS = [
     { button: "menu_openSavedFilesWnd" },
     { toggle: "menu_fullZoomToggle" },
     { toggle: "viewAttachmentsInlineMenuitem" },
-    { choice: "menu_uiDensity", items: ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"] },
+    // Dichte über ihre Einstellung: Thunderbirds Menüeinträge kennen ihren Wert
+    // (mode, checked) erst, wenn das Menü Ansicht → Dichte einmal offen war –
+    // über sie stellte jede Wahl „Compact“ ein und die Auswahl sprang zurück
+    { choice: "menu_uiDensity", items: ["uiDensityCompact", "uiDensityNormal", "uiDensityTouch"], pref: "mail.uidensity", values: [0, 1, 2] },
   ]],
   ["mcPrefPrivacy", "panePrivacy", null, "History", [{ button: "sanitizeHistory" }]],
   // Filter heißen wie in Apple Mail Regeln: alle Regeln ansehen und anlegen
@@ -7445,9 +7448,13 @@ function addPrefTools(doc, restorers) {
           opt.textContent = label(id);
           select.append(opt);
         }
-        const sync = () => (select.value = row.items.find(id => item(id)?.getAttribute("checked") == "true") || row.items[1]);
+        const sync = () => (select.value = row.pref
+          ? row.items[row.values.indexOf(Services.prefs.getIntPref(row.pref, row.values[1]))] || row.items[1]
+          : row.items.find(id => item(id)?.getAttribute("checked") == "true") || row.items[1]);
         sync();
-        select.addEventListener("change", () => item(select.value)?.doCommand());
+        select.addEventListener("change", () => (row.pref
+          ? Services.prefs.setIntPref(row.pref, row.values[row.items.indexOf(select.value)])
+          : item(select.value)?.doCommand()));
         card.addEventListener("focusin", sync);
         lab.append(label(row.choice), " ", select);
         line.append(lab);

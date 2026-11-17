@@ -61,7 +61,9 @@ Plan-Runde („JETZT: Plan-Runde“):
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
   Features mit „[GitHub #n]“ ohne Freigabe und Reihen über den nächsten Schritt hinaus nicht planen.
   Ebenso Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter tests/auslastung-schleife.zsh) ohne spätere
-  „In Arbeit beendet“-Notiz: sie gehören diesem Worker.
+  „In Arbeit beendet“-Notiz: sie gehören diesem Worker, solange die Notiz jünger als 5 Stunden ist (Worker enden nach
+  4 Stunden). Ältere Notiz ohne „committet auf …“: Eintrag normal planen; mit „committet auf pruef/worker-…“: nicht
+  planen, den Commit übernimmt der Nachtlauf.
   Einträge „aus einem Guss“ (Einheitlichkeit, vier Grundbausteine) nach Schritt 1b, G1 und Bugs, vor
   neuen reinen Funktionen, auch vor Häufungs-Gruppen reiner Funktionen (Maintainer 15.11.2026: „ja aus
   einem guss hat vorrang“, docs/design-vorgaben.md 2b Punkt 4, G14).

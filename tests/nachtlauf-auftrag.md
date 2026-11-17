@@ -97,7 +97,13 @@ Reihenfolge:
       unklare Einträge behandelt f).
       Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter, Volldampf)
       ohne spätere „In Arbeit beendet“-Notiz gehören diesem Worker: nicht planen
-      (Liste „übersprungen“, Grund „Worker“).
+      (Liste „übersprungen“, Grund „Worker“) – aber nur, solange die Notiz jünger
+      als 5 Stunden ist (der Wächter beendet Worker nach 4 Stunden). Ältere
+      Worker-Notiz: Worker ist beendet. Steht danach „committet auf pruef/worker-…:
+      <Hash>“, den Commit übernehmen (git cherry-pick nach main, --only der
+      betroffenen Prüfungen, geht mit der CI-Runde dieser Nacht hinaus; rot:
+      verwerfen, Eintrag zurück auf Todo); sonst den Eintrag normal planen. Gilt
+      auch ohne Volldampf (Reste nach dem Ausschalten, docs/volldampf-regelwerk.md).
    Haltung (Maintainer 13.11.2026 auf die Frage „eher vorsichtig oder mutig
    planen?“, wörtlich: „1. was bringt langfristig mehr Produktivität?“; die
    Wahl überließ er dem Director, folgende Auslegung ist die von neon):

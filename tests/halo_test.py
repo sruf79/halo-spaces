@@ -3539,7 +3539,10 @@ def compose_checks(m, results):
     def contacts():
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, async (cw, cd) => {
+            // Seitenleiste danach wieder zu: Thunderbird merkt sich den Zustand für jedes weitere Verfassen-Fenster
+            // (sonst ist „Contacts“ dort gedrückt und spätere Prüfungen sehen eine andere Symbolleiste)
             cw.toggleContactsSidebar();
+            try {
             const d2 = await till(() => { const b = cd.getElementById("contactsBrowser"); const x = b?.contentDocument;
               return x?.readyState == "complete" && x.getElementById("abResultsTree") && x; }, 6000);
             if (!d2) return { open: false };
@@ -3549,7 +3552,8 @@ def compose_checks(m, results):
             return { open: true, tree: csOf(tree).backgroundColor, root: csOf(d2.documentElement).backgroundColor,
                      listBorder: parseFloat(csOf(list).borderTopWidth), listRadius: parseFloat(csOf(list).borderTopLeftRadius),
                      labelMargin: label && parseFloat(csOf(label).marginInlineStart),
-                     headLine: csOf(head).borderBottomColor, line: colorOf(cd, "var(--mt-pane-line)") }; });""")
+                     headLine: csOf(head).borderBottomColor, line: colorOf(cd, "var(--mt-pane-line)") };
+            } finally { cw.toggleContactsSidebar(); } });""")
         ok = (res.get("open") and (rgba_alpha(res["tree"]) == 0 or same_color(res["tree"], res["root"])) and not same_color(res["tree"], "rgb(0, 0, 0)")
               and res["listBorder"] == 0 and res["listRadius"] >= 12 and (res["labelMargin"] or 0) >= 6 and same_color(res["headLine"], res["line"]))
         return ok, f"{res}"

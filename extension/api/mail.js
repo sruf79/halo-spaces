@@ -945,3 +945,65 @@ function findCode(subject, body) {
   const lines = s => clean(s).split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim());
   return codeInLines(lines(subject)) || codeInLines(lines(body));
 }
+
+// Hinweis über der geöffneten Mail mit dem gefundenen Code und „Kopieren“
+// (#mcCodeBanner): Baustein und Gestaltung wie der Verteiler-Hinweis
+// (#mcListBanner), ohne Symbol. In der Einzelansicht und im Fenster einer
+// Mail, nicht in den Karten der Konversation und nicht im Spam-Ordner. In die
+// Zwischenablage als vertraulich markiert (Verlaufsprogramme speichern ihn
+// nicht); der Code wird nie protokolliert
+function decorateCode(target) {
+  try {
+    const doc = target?.document || target?.contentDocument || target?.ownerDocument || target;
+    const win = doc?.defaultView;
+    if (!win || !doc.getElementById || win.frameElement?.classList?.contains("mc-conv-browser")) {
+      return;
+    }
+    doc.getElementById("mcCodeBanner")?.remove();
+    const hdr = win.gMessage;
+    const body = doc.getElementById("messagepane")?.contentDocument?.body;
+    const view = doc.getElementById("msgHeaderView");
+    if (!hdr || !body || !view || !Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true)) {
+      return;
+    }
+    try {
+      if (hdr.folder?.getFlag(Ci.nsMsgFolderFlags.Junk)) {
+        return;
+      }
+    } catch {}
+    const code = findCode(hdr.mime2DecodedSubject || hdr.subject, String(body.innerText || body.textContent || "").slice(0, 8000));
+    if (!code) {
+      return;
+    }
+    const X = "http://www.w3.org/1999/xhtml";
+    const banner = doc.createElementNS(X, "div");
+    banner.id = "mcCodeBanner";
+    banner.dataset.mcFor = hdr.messageId;
+    const text = doc.createElementNS(X, "span");
+    text.className = "mc-lb-text";
+    text.textContent = tr("Verification code: {code}", { code });
+    const copy = doc.createElementNS(X, "button");
+    copy.className = "mc-lb-unsub mc-cb-copy";
+    copy.type = "button";
+    copy.textContent = tr("Copy");
+    copy.addEventListener("click", () => {
+      const helper = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper);
+      try {
+        helper.copyString(code, null, Ci.nsIClipboardHelper.Sensitive ?? 1);
+      } catch {
+        helper.copyString(code);
+      }
+      copy.textContent = tr("Copied");
+    });
+    const close = doc.createElementNS(X, "button");
+    close.className = "mc-lb-close";
+    close.type = "button";
+    close.title = tr("Close");
+    close.setAttribute("aria-label", tr("Close"));
+    close.addEventListener("click", () => banner.remove());
+    banner.append(text, copy, close);
+    view.before(banner);
+  } catch (e) {
+    log("code banner error", String(e?.name || "Fehler"));
+  }
+}

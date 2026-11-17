@@ -12540,6 +12540,7 @@ class CardEnhancer {
           fitShortMessage(event.target);
           decorateAttachments(event.target);
           decorateInvitation(event.target);
+          decorateCode(event.target);
         }
       };
       const tabs = w.document.getElementById("tabmail")?.tabContainer;

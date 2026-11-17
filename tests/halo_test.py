@@ -12778,6 +12778,60 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def code_banner():
+        # Codes in E-Mails (GitHub #54): Bestätigungscode über der Mail mit „Kopieren“ (Baustein des
+        # Verteiler-Hinweises), Klick legt genau den Code in die Zwischenablage; keine Anzeige bei einer Mail
+        # mit Telefonnummer, Datum und Betrag, und der Hinweis der vorigen Mail verschwindet beim Wechsel
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Codes")) { root.createSubfolder("Codes", null); await bis(() => root.containsChildNamed("Codes"), "Ordner Codes", 4000); }
+          const f = root.getChildNamed("Codes");
+          const mail = (subject, id, minutesAgo, type, body) => unescape(encodeURIComponent([`From: Konto Dienst <konto@example.invalid>`, `To: Halo Test <halo@example.invalid>`,
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            "MIME-Version: 1.0", `Content-Type: ${type}; charset=UTF-8`, "", body, ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(mail("Anmeldung bei Beispiel", "halo-code-1", 20, "text/html",
+              '<html><body><p>Hallo,</p><p>dein Bestätigungscode:</p><p style="font-size:24px"><b>482913</b></p><p>Er gilt 10 Minuten.</p></body></html>'));
+            lf.addMessage(mail("Deine Rechnung", "halo-code-2", 10, "text/plain",
+              "Hallo,\r\n\r\ndeine Rechnung vom 17.11.2026 über 49,90 EUR ist da.\r\nFragen? Ruf uns an: 0664 1234567\r\n"));
+            await bis(() => f.getTotalMessages(false) >= 2, "Testmails gespeichert", 5000);
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 2, "Ordner Codes", 6000); await ruhig(600);
+          const idx = id => [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == `${id}@example.invalid`);
+          const md = () => a3.messageBrowser.contentDocument;
+          const loaded = word => bis(() => md().getElementById("messagepane")?.contentDocument?.body?.textContent.includes(word), `Mail mit „${word}“ geladen`, 6000);
+          a3.threadTree.selectedIndex = idx("halo-code-1"); await loaded("482913");
+          const banner = await until(() => md().getElementById("mcCodeBanner"), 4000);
+          const out = { banner: !!banner, text: banner?.querySelector(".mc-lb-text")?.textContent || null };
+          const list = md().getElementById("mcListBanner");
+          if (banner) {
+            const cs = md().defaultView.getComputedStyle(banner);
+            out.style = { radius: cs.borderTopLeftRadius, display: cs.display, h: Math.round(banner.getBoundingClientRect().height) };
+            const btn = banner.querySelector(".mc-cb-copy");
+            out.btn = btn?.textContent || null;
+            out.btnRadius = btn ? md().defaultView.getComputedStyle(btn).borderTopLeftRadius : null;
+            btn?.click();
+            out.after = btn?.textContent || null;
+            const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+            trans.init(null); trans.addDataFlavor("text/plain");
+            Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
+            const data = {}; trans.getTransferData("text/plain", data);
+            out.clip = data.value?.QueryInterface(Ci.nsISupportsString).data || "";
+          }
+          out.list = !!list;
+          a3.threadTree.selectedIndex = idx("halo-code-2"); await loaded("Rechnung");
+          await ruhig(400);
+          out.second = !!md().getElementById("mcCodeBanner");
+          return out;""")
+        ok = (res.get("banner") and "482913" in (res.get("text") or "") and res.get("btn") == "Copy" and res.get("after") == "Copied"
+              and res.get("clip") == "482913" and (res.get("style") or {}).get("radius") == "12px" and (res.get("style") or {}).get("display") == "flex"
+              and res.get("btnRadius") not in (None, "0px") and not res.get("second"))
+        return ok, f"{res}"
+    check("Mail: Bestätigungscode über der Mail mit „Kopieren“ in die Zwischenablage, nicht bei Telefonnummer, Datum und Betrag (GitHub #54)", code_banner, results)
+
     def default_sort():
         # Frisches Profil: Mailliste nach Datum, neueste zuerst (wie Apple Mail) – im Posteingang, in einem
         # neu angelegten Ordner und in den Sammelordnern; die Vorgabe gilt auch für Ordner, die später entstehen

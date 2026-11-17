@@ -10798,6 +10798,79 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Import: Outlook-PST – nicht lesbare Datei hält Thunderbird nicht an (Fehler sofort), „keine PST“ und „PST, aber nicht lesbar“ unterschieden", pst_read_guard, results)
 
+    def pst_import_mail():
+        # Outlook-Datendatei importieren (Reihe PST 2/3): Mails als Kopie nach Lokale Ordner/<Datei> mit Ordnerbaum, Betreff
+        # mit Umlauten, gelesen/markiert und Anhang; ein zweiter Import legt nichts doppelt an (Message-ID); der Assistent
+        # zeigt Ordner mit Anzahl, Fortschritt und Abschluss. Die CI hat keine PST: erfundene Daten gehen denselben Weg wie die
+        # aus der Datei (Lesen aus der Datei prüfen die Logik-Tests und HALO_PST=<Datei> zusätzlich hier)
+        real = os.environ.get("HALO_PST") or ""
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { MsgHdrToMimeMessage } = ChromeUtils.importESModule("resource:///modules/gloda/MimeMessage.sys.mjs");
+          const mk = (i, extra = {}) => ({ subject: `PST-Probe ${i} Grüße`, date: new Date(Date.UTC(2026, 9, i, 10)),
+            from: { name: "Dora Müller", email: "dora@example.invalid" }, to: [{ name: "Halo Test", email: "halo@example.invalid" }],
+            text: `Text ${i}`, messageId: `pst-probe-${i}@example.invalid`, read: i % 2 == 0, flagged: i == 1, ...extra });
+          const source = () => ({ name: "Halo PST-Probe", mail: [
+            { name: "Posteingang", count: 3, depth: 0, path: ["Posteingang"], items: [mk(1, { html: "<p>Hallo <b>1</b></p>",
+              attachments: [{ name: "Rechnung.txt", type: "text/plain", data: new TextEncoder().encode("Summe 42") }] }), mk(2), mk(3)] },
+            { name: "Projekte", count: 0, depth: 0, path: ["Projekte"], items: [] },
+            { name: "2026/Q4", count: 1, depth: 1, path: ["Projekte", "2026/Q4"], items: [mk(4)] } ] });
+          const first = await w.__mcPstImport(source());
+          const second = await w.__mcPstImport(source());
+          const local = MailServices.accounts.localFoldersServer.rootFolder;
+          const target = local.getChildNamed("Halo PST-Probe");
+          const inbox = target?.getChildNamed("Posteingang"), q4 = target?.getChildNamed("Projekte")?.getChildNamed("2026-Q4");
+          const hdrs = inbox ? [...inbox.msgDatabase.enumerateMessages()] : [];
+          const h1 = hdrs.find(h => h.messageId == "pst-probe-1@example.invalid");
+          const atts = h1 ? await Promise.race([new Promise(r => MsgHdrToMimeMessage(h1, null, (h, mm) => r(mm ? mm.allUserAttachments.map(a => a.name) : null), true)), wait(8000)]) : null;
+          const out = { first: { copied: first?.copied, skipped: first?.skipped, failed: first?.failed }, second: { copied: second?.copied, skipped: second?.skipped },
+            inbox: inbox?.getTotalMessages(false), q4: q4?.getTotalMessages(false),
+            mails: Object.fromEntries(hdrs.map(h => [h.mime2DecodedSubject, [h.isRead, h.isFlagged]])), from: h1?.mime2DecodedAuthor, atts };
+          // Assistent: Übersicht, Import (alles schon da), Abschluss mit Anzahl je Ordner
+          const hw = w.__mcPstWizard(source());
+          const doc = await until(() => hw.document?.querySelector("body.pst table tr") && hw.document, 8000);
+          if (doc) {
+            const rows = () => [...doc.querySelectorAll("table tr")];
+            out.wiz = { title: doc.querySelector("h1")?.textContent, folders: rows().map(r => r.cells[0].textContent), nums: rows().map(r => r.cells[1].textContent),
+              summary: doc.querySelector(".summary")?.textContent, indent: rows().map(r => parseFloat(r.cells[0].style.paddingInlineStart)) };
+            doc.querySelector(".buttons .primary").click();
+            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
+            out.wiz.end = { button: doc.querySelector(".buttons .primary .label")?.textContent, states: rows().map(r => r.dataset.state),
+              nums: rows().map(r => r.cells[1].textContent), summary: doc.querySelector(".summary")?.textContent };
+            hw.close();
+          }
+          // echte Datei (nur von Hand mit HALO_PST): Anzahl je Ordner wie in der Datei
+          const real = %s;
+          if (real) {
+            const { source: rs, close } = w.__mcPstSource(real);
+            try {
+              const job = await w.__mcPstImport(rs);
+              out.real = { copied: job?.copied, failed: job?.failed, folders: rs.mail.map(f => [f.path.join("/"), f.count,
+                job?.done.find(d => d.path.join("/") == f.path.join("/"))?.dest.getTotalMessages(false)]) };
+            } finally { close(); }
+            try { local.propagateDelete(local.getChildNamed(rs.name), true); } catch {}
+          }
+          // aufräumen: leere Lokale Ordner bleiben in der Ordnerliste ausgeblendet
+          try { target && local.propagateDelete(target, true); } catch (e) { out.cleanup = String(e); }
+          return out;""" % json.dumps(real))
+        mails, wiz = res.get("mails") or {}, res.get("wiz") or {}
+        end = wiz.get("end") or {}
+        ok = (res.get("first", {}).get("copied") == 4 and not res["first"].get("failed") and res.get("second", {}).get("copied") == 0
+              and res["second"].get("skipped") == 4 and res.get("inbox") == 3 and res.get("q4") == 1
+              and mails.get("PST-Probe 1 Grüße") == [False, True] and mails.get("PST-Probe 2 Grüße") == [True, False]
+              and mails.get("PST-Probe 3 Grüße") == [False, False] and "Dora Müller" in (res.get("from") or "")
+              and res.get("atts") == ["Rechnung.txt"]
+              and wiz.get("title") == "Import “Halo PST-Probe”" and wiz.get("folders") == ["Posteingang", "Projekte", "2026/Q4"]
+              and wiz.get("nums") == ["3", "0", "1"] and wiz.get("indent", [0])[2] > wiz.get("indent", [0])[1]
+              and "4 messages in 3 folders" in (wiz.get("summary") or "")
+              and end.get("button") == "Done" and end.get("states") == ["done"] * 3 and end.get("nums") == ["3 ✓", "0 ✓", "1 ✓"]
+              and "4 messages were already there" in (end.get("summary") or ""))
+        if real:
+            r = res.get("real") or {}
+            ok = ok and r.get("folders") and all(c == d for _, c, d in r["folders"]) and not r.get("failed")
+        return ok, f"{res}"
+    check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, Assistent mit Anzahl je Ordner", pst_import_mail, results)
+
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief
         # Thunderbird unter Windows/Linux nach dem Schließen des Hauptfensters weiter (GitHub-Issue #15).

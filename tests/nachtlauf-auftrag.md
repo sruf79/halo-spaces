@@ -95,6 +95,9 @@ Reihenfolge:
       oder Design-Frage des Maintainers offen, GitHub-Features ohne Freigabe,
       siehe oben). Die kommen mit Grund in die Liste „übersprungen“;
       unklare Einträge behandelt f).
+      Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter, Volldampf)
+      ohne spätere „In Arbeit beendet“-Notiz gehören diesem Worker: nicht planen
+      (Liste „übersprungen“, Grund „Worker“).
    Haltung (Maintainer 13.11.2026 auf die Frage „eher vorsichtig oder mutig
    planen?“, wörtlich: „1. was bringt langfristig mehr Produktivität?“; die
    Wahl überließ er dem Director, folgende Auslegung ist die von neon):

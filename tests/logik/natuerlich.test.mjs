@@ -40,3 +40,14 @@ test("Natürlich: „übermorgen ganztägig“ und „Freitag für 2 Stunden“"
   assert.equal(b.duration, 120);
   assert.equal(b.start.getTime(), at(6, 0));
 });
+
+test("Natürlich: ungültiges Datum („31.02.“, „0.5.“, „17.13.“, „31. Februar“, „Feb 30“) wird nicht erkannt statt in den Folgemonat zu rutschen", () => {
+  for (const text of ["Termin 31.02.", "Termin 0.5.", "Termin 17.13.", "Termin 31.4.2027", "Party 31. Februar", "Feb 30 lunch"]) {
+    const r = parseNatural(text, NOW);
+    assert.equal(r.title, text, text);
+    assert.equal(r.start, undefined, text);
+  }
+  // gültige Grenzfälle bleiben
+  assert.equal(parseNatural("Silvester 31.12.", NOW).start.getTime(), new Date(2026, 11, 31).getTime());
+  assert.equal(parseNatural("Schalttag 29.2.2028", NOW).start.getTime(), new Date(2028, 1, 29).getTime());
+});

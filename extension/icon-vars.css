@@ -58,7 +58,9 @@
   --icon-file: url("resource://mailcards/icons/file.svg") !important;
   --icon-file-draft: url("resource://mailcards/icons/file-draft.svg") !important;
   --icon-filter: url("resource://mailcards/icons/filter.svg") !important;
+  --icon-flexible-space: url("resource://mailcards/icons/flexible-space.svg") !important;
   --icon-folder: url("resource://mailcards/icons/folder.svg") !important;
+  --icon-folder-compact-sm: url("resource://mailcards/icons/folder-compact.svg") !important;
   --icon-folder-filter: url("resource://mailcards/icons/folder-filter.svg") !important;
   --icon-folder-rss: url("resource://mailcards/icons/folder-rss.svg") !important;
   --icon-folder-save: url("resource://mailcards/icons/folder-save.svg") !important;

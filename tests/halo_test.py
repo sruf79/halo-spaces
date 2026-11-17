@@ -5029,6 +5029,52 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Toolbar anpassen: Listenkopf und Today-Knöpfe ausgeblendet, Zeile einfarbig; danach wieder da", customize_toolbar, results)
 
+    def customize_symbols():
+        # E27 (Symbolsatz, 17.11.2026): „Symbolleiste anpassen“ zeigt in Vorschauzeile und Auswahl aller Spaces nur
+        # eigene Symbole; Abrufen, Verschieben und Markieren wie in der Leiste (Briefumschlag, Ordner, Stern),
+        # Komprimieren als eigener Ordner. Ausgenommen nur die Aktivitätsanzeige (Thunderbirds Lade-Animation)
+        res = m.js(FOLDER_JS + r"""
+          await toMail();
+          d.querySelector("unified-toolbar").showCustomization();
+          const out = { on: !!await until(() => d.documentElement.classList.contains("customizingUnifiedToolbar")), panes: {}, items: {} };
+          try {
+            await ruhig(800);
+            const cust = d.querySelector("unified-toolbar-customization");
+            for (const pane of cust.querySelectorAll("unified-toolbar-customization-pane")) {
+              const root = pane.shadowRoot || pane, space = pane.getAttribute("space");
+              const list = out.panes[space] = [];
+              for (const li of root.querySelectorAll("li[item-id]")) {
+                const id = li.getAttribute("item-id");
+                for (const img of li.querySelectorAll(".button-icon, .preview-icon")) {
+                  const s = csOf(img);
+                  // nur, was gezeigt wird (Vorschauzeile: Knopf; Auswahl: Vorschaubild); andere Spaces liegen verdeckt
+                  let x = img, aus = false; for (; x && x != li; x = x.parentElement) if (csOf(x).display == "none") aus = true;
+                  if (aus) continue;
+                  const where = img.classList.contains("preview-icon") ? "auswahl" : "zeile";
+                  const src = String(s.content).replace(/^url\("?|"?\)$/g, "");
+                  list.push([id, where, src]);
+                  if (space == "mail") out.items[id + ":" + where] = src;
+                }
+              }
+            }
+          } finally {
+            d.querySelector("unified-toolbar-customization").toggle(false);
+            await until(() => !d.documentElement.classList.contains("customizingUnifiedToolbar")); await ruhig(400);
+          }
+          return out;""")
+        if not res or not res.get("on"):
+            return False, f"{res}"
+        it = res.get("items") or {}
+        want = {"get-messages": "/mail.svg", "move-to": "/folder.svg", "mark-as": "/star.svg", "compact": "/folder-compact.svg"}
+        bad = [f"{k}={v}" for k, v in it.items() if k.split(":")[0] in want and not (v.startswith("resource://mailcards/icons/") and v.endswith(want[k.split(":")[0]]))]
+        missing = [i for i in want if not any(k.split(":")[0] == i for k in it)]
+        orig = [f"{sp}:{i}:{w}:{src}" for sp, lst in res["panes"].items() for i, w, src in lst
+                if "messenger/skin" in src and i not in ("throbber",)]
+        zahl = {sp: len(lst) for sp, lst in res["panes"].items()}
+        return not bad and not missing and not orig and len(zahl) >= 5 and min(zahl.values()) > 0, f"falsch={bad} fehlt={missing} original={orig} Symbole je Space={zahl}"
+    check("Toolbar anpassen: nur eigene Symbole in Vorschauzeile und Auswahl aller Spaces außer der Aktivitätsanzeige (Abrufen Briefumschlag, Verschieben Ordner, Markieren Stern, Komprimieren eigener Ordner, freier Platz)",
+          customize_symbols, results)
+
     def toolbar_reset():
         # „Zurücksetzen“ in „Symbolleiste anpassen“ stellt die halo.spaces-Anordnung her (nicht Thunderbirds Standard ohne
         # Antworten-Knöpfe), auch für die übrigen Bereiche; der Mailkopf hat danach ohne Neustart keine eigenen Antworten-Knöpfe

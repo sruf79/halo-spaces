@@ -3427,6 +3427,13 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 #unifiedToolbarContent li[item-id="new-event"] button .button-icon { mask-image: var(--mi-new-event) !important; }
 #unifiedToolbarContent li[item-id="new-task"] button .button-icon { mask-image: var(--mi-new-task) !important; }
 
+/* „Symbolleiste anpassen“ (Vorschauzeile und Auswahl): Abrufen, Verschieben
+   und Markieren mit denselben Bildern wie in der Leiste (Briefumschlag,
+   Ordner, Stern) statt Wolke, Blatt und Punkt (E27) */
+:is([is="customization-target"]:not(#unifiedToolbarContent), [is="customization-palette"]) .get-messages :is(.button-icon, .preview-icon) { content: var(--icon-mail) !important; }
+:is([is="customization-target"]:not(#unifiedToolbarContent), [is="customization-palette"]) .move-to :is(.button-icon, .preview-icon) { content: var(--icon-folder) !important; }
+:is([is="customization-target"]:not(#unifiedToolbarContent), [is="customization-palette"]) .mark-as :is(.button-icon, .preview-icon) { content: var(--icon-star) !important; }
+
 /* Ordnerliste: Symbol in Akzentfarbe wie in Apple Mail (grau, wenn das Fenster inaktiv ist); 22 px groß (sichtbar ca. 17 px wie Apple Mail),
    Text beginnt 29 px nach dem Symbol-Anfang wie bei Apple */
 #folderTree li > .container .icon {

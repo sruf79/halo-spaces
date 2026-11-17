@@ -91,6 +91,11 @@ GLYPHS = {
     "folder": FOLDER,
     "folder-filter": FOLDER + '<path d="M8.5 12.6h7M10 15.6h4"/>',
     "folder-save": FOLDER + '<path d="M12 10.8v5.4M9.6 14l2.4 2.4 2.4-2.4"/>',
+    # freier Platz in „Symbolleiste anpassen“: Pfeile nach außen, dazwischen drei Punkte
+    "flexible-space": '<path d="M6.3 7.8 2.5 12l3.8 4.2M17.7 7.8l3.8 4.2-3.8 4.2"/><circle cx="9" cy="12" r=".95"' + D + '/><circle cx="12" cy="12" r=".95"' + D + '/><circle cx="15" cy="12" r=".95"' + D + '/>',
+    # Ordner komprimieren (Symbolleiste): Ordner, darin zwei flache Pfeile zur Mitte (von oben und unten),
+    # mit Luft dazwischen, damit es nicht wie das Kreuz von Junk wirkt
+    "folder-compact": FOLDER + '<path d="m9.4 10.6 2.6 2 2.6-2M9.4 17.6l2.6-2 2.6 2"/>',
     "rss": body("rss"),
     "newsletter": '<rect x="3.5" y="5" width="17" height="14.5" rx="2.4"' + F + '/><path d="M7 9h10M7 12.3h10M7 15.6h6"/>',
     "reply": body("reply"),

@@ -111,5 +111,28 @@ pruefe "Auftrag: keine Design-Einträge, keine geplanten Einträge von Nachtlauf
   'Design- und Optik-Einträge' '<Heute>-plan\.md' 'tagesroutine-plan' 'worker-gedaechtnis\.md' 'Rückblick'
 pruefe "Nacht- und Tagesauftrag übergehen Worker-Einträge" \
   "$(grep -c 'In Arbeit: worker-<Nr>' $HIER/nachtlauf-auftrag.md $HIER/tagesroutine-auftrag.md)" 'nachtlauf-auftrag\.md:1' 'tagesroutine-auftrag\.md:1'
-pruefe "Testhilfe: Ports 2874–2889, Sperre bilder.lock, belegt()" "$(<$HIER/auslastung-test.zsh)" '<2874-2889>' 'lockf -t 3600 \$HOME/halo-nacht/bilder\.lock' 'g=\$\(belegt\)'
+pruefe "Testhilfe: Ports 2874–2889, Sperre bilder.lock, belegt()" "$(<$HIER/auslastung-test.zsh)" '<2874-2889>' 'lockf -t 3600 \$HOME/halo-nacht/bilder\.lock' 'g=\$\(nachtschutz .*\|\| belegt\)'
+# freie Worker-Nummer: lebende Worker behalten ihre Nummer (bis 17.11.2026 bekam jeder Worker Nummer 1)
+mkdir -p $T/zustand
+FN=$(sed -n '/^freie_nummer() {/,/^}/p' $SKRIPT)
+print -r -- "$$ sid opus 1 /wt pruef/x /erg" > $T/zustand/worker-1
+print -r -- "999999 sid opus 1 /wt pruef/y /erg" > $T/zustand/worker-2
+pruefe "freie Nummer: Worker 1 lebt, Worker 2 beendet → 2" "$(ZUSTAND=$T/zustand; eval $FN; freie_nummer)" '^2$'
+print -r -- "$$ sid opus 1 /wt pruef/y /erg" > $T/zustand/worker-2
+pruefe "freie Nummer: 1 und 2 leben → 3" "$(ZUSTAND=$T/zustand; eval $FN; freie_nummer)" '^3$'
+# belegt(): nur echte Programmaufrufe, nicht Auftragstexte von claude -p (hielt Testsperre und Nachtlauf an)
+M=$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print -r -- "$BELEGT_TEST_MUSTER"; print -r -- "$BELEGT_RELEASE_MUSTER"; print -r -- "$BELEGT_TB_MUSTER")
+MT=${${(f)M}[1]} MR=${${(f)M}[2]} MB=${${(f)M}[3]}
+CL='claude -p --model opus --session-id x --permission-mode auto JETZT: … tests/halo_test.py kein release.sh/publish.sh ./release.sh 3 /Applications/Thunderbird.app/Contents/MacOS/thunderbird -marionette'
+pruefe "belegt: Auftragstext von claude -p zählt nicht" "$(print -r -- $CL | grep -cE -- $MT; print -r -- $CL | grep -cE -- $MR; print -r -- $CL | grep -cE -- $MB)" '^0$' '^0
+0
+0$'
+pruefe "belegt: echte Läufe zählen" "$(print -r -- 'python3 /x/tests/halo_test.py --port 2874' | grep -cE -- $MT; print -r -- '/bin/zsh ./release.sh 3.31.0' | grep -cE -- $MR; print -r -- '/Applications/Thunderbird Beta.app/Contents/MacOS/thunderbird -profile /p -no-remote -marionette' | grep -cE -- $MB)" '^1
+1
+1$'
+# Nachtlauf-Schutz der Testhilfe: 01:10–01:45 beginnt kein Testlauf
+NS=$(grep '^nachtschutz()' $HIER/auslastung-test.zsh)
+pruefe "Testhilfe: Nachtlauf-Schutz 01:10–01:45" "$(eval $NS; for h in 0100 0110 0130 0144 0145 2300; do HALO_AS_TEST_HM=$h nachtschutz && print "$h ja" || print "$h nein"; done)" \
+  '0100 nein' '0110 ja' '0130 ja' '0144 ja' '0145 nein' '2300 nein'
+pruefe "Auftrag: ohne Volldampf kein neuer Eintrag (Regel 6)" "$A" 'nichts_passend Volldampf nicht aktiv'
 exit $FEHLER

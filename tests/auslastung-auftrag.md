@@ -25,6 +25,11 @@ Regeln:
    Änderungen verwerfen. Keine Regeln, Hooks, Rechte, Abläufe (tests/*.sh, *.zsh, *-auftrag.md), AGENTS.md,
    ENTSCHEIDUNGEN.md, volldampf.txt, pausen.txt oder Konfiguration unter ~/.config ändern.
 5. Vor 4 Stunden fertig sein (der Wächter beendet dich danach). Unfertiges: Änderungen verwerfen, Eintrag zurück.
+6. Worker gibt es nur im Volldampf. Vor der Wahl des Eintrags prüfen:
+   zsh -c 'source tests/lauf-hilfen.zsh; LOG=/dev/null volldampf_status' – beginnt die Ausgabe nicht mit „Volldampf aktiv“
+   (aus, beendet, abgelaufen), keinen Eintrag mehr wählen, Ergebnis „nichts_passend Volldampf nicht aktiv“
+   (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären modus laufen.“). Einen schon gewählten
+   Eintrag sauber abschließen (committen oder zurück), keinen weiteren beginnen.
 
 Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein „export“ genügt):
 - Ausgeschlossen: Status „In Progress“ (egal wessen), „Wartet auf OK“, „Done“; Einträge mit Notiz „In Arbeit:“;

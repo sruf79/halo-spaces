@@ -3,18 +3,23 @@
 # produktivität. … das betrifft die anzahl der gleichzeitigen agents, die anzahl der releases, einfach alles.“).
 # Einziger Weg, auf dem tagsüber Thunderbird-Änderungen nach main gehen und veröffentlicht werden (sonst pusht nur
 # der Nachtlauf). Gilt NUR bei aktiver Volldampf-Zeile (~/halo-nacht/volldampf.txt, endet beim Wochenlimit).
-# Aufgerufen von tests/tagesroutine.sh (Abschnitt „Zwischen-Release“ in tests/tagesroutine-auftrag.md), auf neon.
+# Aufgerufen vom Wächter tests/zwischen-schleife.zsh (Maintainer 17.11.2026: „ich habe auch kein problem mit 30 releases
+# untertags während volldampf läuft solange wir so viel wie möglich abarbeiten können“), auf neon, in einem eigenen
+# Worktree (HALO_REPO, Zweig zr/release mit Upstream origin/main): der Checkout ~/halo-spaces bleibt unberührt.
 #   tests/zwischen-release.zsh --pruefen <version> <notizen>   nur die Bedingungen vor dem Push prüfen (kein Warten)
 #   tests/zwischen-release.zsh <version> <notizen>             prüfen, Prüfzweig abwarten, pushen, CI samt Windows
 #                                                             abwarten, dann tests/release-unter-tage.sh --volldampf
 # Bedingungen vor dem Push (eine nicht erfüllt: „ABBRUCH: <Grund>“, Exitcode 1, nichts gepusht):
 #   - Volldampf aktiv (volldampf_aktiv)
-#   - Push-Beginn 09:00 bis 13:00 Wiener Zeit: nie in der Push-Sperre 01:30–09:00; CI (~35–50 Min.) und Windows
-#     (~20 Min.) sind lange vor 22:00 durch, neon ist ab 00:00 für den Nachtlauf frei
+#   - Push-Beginn 09:00 bis 19:30 Wiener Zeit (ZWISCHEN_RELEASE_BIS): nie in der Push-Sperre 01:30–09:00; CI
+#     (~35–50 Min.) und Windows (~30 Min.) sind vor 22:00 durch, neon ist ab 00:00 für den Nachtlauf frei
 #   - nichts belegt (CI, Testlauf, andere Sitzung, Ungespeichertes, release.sh/publish.sh, Nachtlauf)
-#   - Zweig main, sauber, origin/main enthalten; Version, Tag, README „What's new in x.y.z“, Notizdatei
+#   - Zweig main oder ein Zweig mit Upstream origin/main (Worktree), sauber, origin/main enthalten; Version, Tag,
+#     README „What's new in x.y.z“, Notizdatei
 #   - Thunderbird-Änderungen über origin/main: der letzte Lauf auf dem Prüfzweig (pruef/tagesroutine-<JJJJMMTT>,
-#     sonst HALO_PRUEFZWEIG) zu einem Stand, nach dem bis HEAD nichts Thunderbird betrifft, ist grün
+#     sonst HALO_PRUEFZWEIG) zu einem Stand, nach dem bis HEAD nichts Thunderbird betrifft, ist grün; mit
+#     HALO_ZR_STAND=<Commit> (Wächter): genau dieser Stand grün, und HEAD bringt darüber nur, was origin/main
+#     seither geändert hat, und README.md
 # Danach: git push origin HEAD:main, Push-Lauf (Linux, Mac) grün abwarten, Windows-Lauf starten und grün abwarten,
 # dann release-unter-tage.sh --volldampf (NUR_CI=1 release.sh: ohne vollständig grüne CI samt Windows keine Marke).
 # Rot: kein Release, Ausgabe „ROT: …“, Exitcode 1 (rote CI auf main behandelt Regel 0 des nächsten Laufs).
@@ -26,7 +31,7 @@ path=(/opt/homebrew/bin /usr/local/bin $path)
 HIER=${0:A:h}
 REPO=${HALO_REPO:-${HIER:h}}
 R=sruf79/halo-spaces
-BIS=${ZWISCHEN_RELEASE_BIS:-1300}   # spätester Push-Beginn (HHMM)
+BIS=${ZWISCHEN_RELEASE_BIS:-1930}   # spätester Push-Beginn (HHMM; Maintainer 17.11.2026 „30 releases untertags“)
 PRUEFEN=
 [[ $1 == --pruefen ]] && { PRUEFEN=1; shift }
 VERSION=$1 NOTIZEN=$2
@@ -51,7 +56,12 @@ fi
 [[ -z $GR ]] || abbruch "neon belegt: $GR"
 git fetch -q --tags origin main 2>/dev/null || abbruch "git fetch gescheitert"
 # Stand
-[[ $(git rev-parse --abbrev-ref HEAD) == main ]] || abbruch "nicht auf Zweig main"
+ZWEIG=$(git rev-parse --abbrev-ref HEAD)
+if [[ $ZWEIG != main ]]; then
+  [[ $(git rev-parse --abbrev-ref @{upstream} 2>/dev/null) == origin/main ]] || abbruch "weder Zweig main noch Upstream origin/main ($ZWEIG)"
+  # „git push“ ohne Ziel (im Veröffentlichen-Skript) geht im Worktree-Zweig an seinen Upstream origin/main
+  export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=push.default GIT_CONFIG_VALUE_0=upstream
+fi
 [[ -z $(git status --porcelain --untracked-files=no) ]] || abbruch "ungespeicherte Änderungen im Repo"
 git merge-base --is-ancestor origin/main HEAD || abbruch "origin/main ist nicht in main enthalten (erst abgleichen)"
 LETZT=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)
@@ -68,7 +78,17 @@ zsh tests/ci-noetig.sh origin/main HEAD && PUSHEN=1
 # Prüfzweig: neuester Lauf zu einem Stand P (Vorfahr von HEAD, danach nichts für Thunderbird) – „<id> <status> <ergebnis>“
 PZ=${HALO_PRUEFZWEIG:-pruef/tagesroutine-$(date +%Y%m%d)}
 pruef_lauf() {
-  local id sha st erg
+  local id sha st erg f
+  if [[ -n $HALO_ZR_STAND ]]; then
+    # Wächter: genau dieser Stand; darüber nur Änderungen von origin/main (seit der Gabelung) und README.md
+    for f in $(git diff --name-only $HALO_ZR_STAND HEAD); do
+      [[ $f == README.md ]] && continue
+      git diff --name-only $(git merge-base $HALO_ZR_STAND origin/main) origin/main | grep -qxF -- $f || return 1
+    done
+    gh run list -R $R -w test.yml -b $PZ -e push -c $HALO_ZR_STAND -L 1 --json databaseId,status,conclusion \
+      --jq '.[0] | select(. != null) | "\(.databaseId) \(.status) \(.conclusion)"' 2>/dev/null | grep .
+    return
+  fi
   gh run list -R $R -w test.yml -b $PZ -e push -L 20 --json databaseId,headSha,status,conclusion \
       --jq '.[] | "\(.databaseId) \(.headSha) \(.status) \(.conclusion)"' 2>/dev/null \
     | while read -r id sha st erg; do

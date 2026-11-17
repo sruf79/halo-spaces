@@ -72,7 +72,8 @@ Z() { HALO_VOLLDAMPF_DATEI=${VDD:-$T/vd.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beende
         zsh -c "export HALO_JETZT=${JZ:-1000}; zsh $HIER/zwischen-release.zsh --pruefen 3.27.1 $T/notes.md" 2>&1; print rc=$? }
 pruefe "Zwischen-Release ohne Volldampf: Abbruch" "$(VDD=$T/keine.txt Z)" 'ABBRUCH: Volldampf nicht aktiv' 'rc=1'
 pruefe "Zwischen-Release 08:59: Push-Sperre bis 09:00" "$(JZ=0859 Z)" 'ABBRUCH: Push-Sperre bis 09:00' 'rc=1'
-pruefe "Zwischen-Release 13:00: Push-Beginn nur bis 13:00 (neon ab 00:00 frei)" "$(JZ=1300 Z)" 'ABBRUCH: Push-Beginn nur bis 1300' 'rc=1'
+pruefe "Zwischen-Release 19:30: Push-Beginn nur bis 19:30 (Release vor 22:00, neon ab 00:00 frei)" "$(JZ=1930 Z)" 'ABBRUCH: Push-Beginn nur bis 1930' 'rc=1'
+pruefe "Zwischen-Release 19:29: Uhrzeit sperrt nicht (weiter bis belegt)" "$(JZ=1929 BL='Probe-Halt' Z)" 'ABBRUCH: neon belegt: Probe-Halt' 'rc=1'
 pruefe "Zwischen-Release 23:30: Abbruch" "$(JZ=2330 Z)" 'ABBRUCH: Push-Beginn nur bis' 'rc=1'
 pruefe "Zwischen-Release: belegt (CI) → Abbruch" "$(BL='CI-Lauf auf dem GitHub-Runner' Z)" 'ABBRUCH: neon belegt: CI-Lauf' 'rc=1'
 pruefe "Zwischen-Release: nie SKIP_TESTS/FORCE_TESTS/HOTFIX/NUR_CI-Umgehung, kein Force-Push, Release nur über release-unter-tage --volldampf" \

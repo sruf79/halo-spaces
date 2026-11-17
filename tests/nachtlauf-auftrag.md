@@ -521,8 +521,8 @@ Reihenfolge:
       Commit, kein Schritt ohne grüne Prüfungen und ein Release je Nachtlauf
       (Schritt 5 b bleibt: kein zweites Release in derselben Nacht). Die
       Grenze „ein Release pro Tag“ entfällt im Volldampf (Maintainer
-      17.11.2026): tagsüber veröffentlicht die Tagesroutine weitere über
-      tests/zwischen-release.zsh (docs/release.md „Volldampf“). Lieber ein Baustein
+      17.11.2026): tagsüber veröffentlicht der Wächter
+      tests/zwischen-schleife.zsh weitere (docs/release.md „Volldampf“). Lieber ein Baustein
       fertig und geprüft als drei halb.
 2a. Designer-Einträge (Plan „Vorab geprüft: ja, Designer“): Du beauftragst
    den Designer selbst als Unteragent (Agent-Werkzeug, Modell opus, nie

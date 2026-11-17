@@ -767,3 +767,7 @@ Maintainer (in neon, 17.11.2026): „bezüglich punkt 2 - wie unterscheidet sich
 ## 17.11.2026 – GitHub #45: Ausnahme entfernt
 
 Maintainer (in neon, 17.11.2026), nach neons Empfehlung (Ausnahme zu #45 in `tests/inaktivitaet-ausnahmen.txt` entfernen, damit die Inaktivitätsregel gilt; #45 beim Release schließen, das den schmalen Fall behebt, mit „Fixed in x.y.z“): „ich folge deinen empfehlungen. wichtig ist, dass github issues nicht ewig lang offen bleiben“. Die Ausnahme vom 15.11.2026 für #45 ist damit aufgehoben.
+
+## 17.11.2026 – Volldampf: Ein-/Ausschalter
+
+Maintainer (in neon, 17.11.2026): „in zukunft werden wir vielleicht öfters volldampf nutzen. daher müssen wir dieses regelwerk klar absichern um quasi mittels ein- und aus-schalter jederzeit aktivieren und wieder deaktivieren zu können“; davor: „nein wir werden keinen trockenlauf laufen lassen. wir müssen dann sofort weiter aktiv im regulären modus laufen.“ Umsetzung: `tests/volldampf.sh an|aus|status`.

@@ -99,4 +99,13 @@ pruefe "setzen: gültige Zeile wird angehängt" 'volldampf_setzen 2026-11-17T01:
 pruefe "setzen: ab nach bis abgelehnt" '! volldampf_setzen 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00 x'
 pruefe "setzen: Zeit ohne Zone abgelehnt" '! volldampf_setzen 2026-11-17T01:00 2026-11-24T01:00+01:00 x'
 pruefe "setzen: nichts Falsches geschrieben" '[[ $(grep -c . $HALO_VOLLDAMPF_DATEI) == 1 ]]'
+# Ein-/Ausschalter (tests/volldampf.sh), ohne Prozesse zu starten
+neu
+export HALO_VD_KEINE_WAECHTER=1 HALO_NACHT_DIR=$T
+pruefe "schalter: an schreibt eine aktive Zeile" 'zsh $HIER/volldampf.sh an >/dev/null && volldampf_aktiv >/dev/null'
+pruefe "schalter: bis ist ein Dienstag 01:00" 'grep -q "T01:00+0[12]:00 " $HALO_VOLLDAMPF_DATEI && [[ $(date -j -f "%Y-%m-%dT%H:%M" "$(awk "{print substr(\$3,1,16)}" $HALO_VOLLDAMPF_DATEI)" +%u) == 2 ]]'
+pruefe "schalter: zweites an ändert nichts" '[[ $(zsh $HIER/volldampf.sh an | head -1) == "Volldampf ist schon an." && $(grep -c . $HALO_VOLLDAMPF_DATEI) == 1 ]]'
+pruefe "schalter: aus entfernt die Zeile, Verlauf bleibt" 'zsh $HIER/volldampf.sh aus >/dev/null && ! volldampf_aktiv >/dev/null && ls $T/volldampf-aus-*.txt >/dev/null'
+pruefe "schalter: nach aus gilt Volldampf nicht mehr" '! volldampf_status >/dev/null'
+unset HALO_VD_KEINE_WAECHTER HALO_NACHT_DIR
 exit $FEHLER

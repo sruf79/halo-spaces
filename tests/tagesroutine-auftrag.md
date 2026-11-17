@@ -220,7 +220,7 @@ eine Eintragsrunde; „fable“ ist dort kein gültiges Ergebnis.
 Zwischen-Release (Volldampf; Maintainer 17.11.2026, Wortlaute in ENTSCHEIDUNGEN.md, u. a. „ich habe auch kein problem
 mit 30 releases untertags während volldampf läuft“): macht der eigenständige Wächter tests/zwischen-schleife.zsh in
 seinem eigenen Worktree (~/halo-zwischen-release), nie du. Für dich heißt das: Fertiges sauber committen, damit es
-über den Prüfzweig grün wird – jeder grüne Stand mit mindestens drei Thunderbird-Commits kann bis 19:30 veröffentlicht
+über den Prüfzweig grün wird – jeder grüne Stand mit mindestens drei Thunderbird-Commits kann bis 22:30 veröffentlicht
 werden. Den Worktree, den Zweig zr/release und die Datei ~/halo-nacht/zwischen-schleife.lock nicht anfassen.
 
 Freigabe „alles“ im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „du darfst alles um volldampf maximal laufen zu lassen“): Reihen (n/m) dürfen mehrere Schritte nacheinander ohne Abnahme dazwischen bearbeitet werden (Einträge „Wartet auf OK“ nur wegen eines Reihen-Vorschritts zählen als machbar); der Designer darf Bausteine parallel durch Unteragenten bauen lassen; offene Entscheidungen im Zweifel „wie Apple“. Unverändert: Tests, CI, Windows, Testmarke, Dauerfreigaben C und D, Sicherheit/Datenschutz, GitHub-Antworten an Nutzer nur über die Routine, nichts am echten Profil.

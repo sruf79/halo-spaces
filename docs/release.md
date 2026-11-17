@@ -20,7 +20,7 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
   LaunchAgent): `nohup zsh ~/halo-spaces/tests/zwischen-schleife.zsh >/dev/null 2>&1 &!`; Probe `--trocken`, ein
   Durchgang `--einmal`, anhalten über `pause_setzen zwischen-release <bis> <Grund>` oder Prozess beenden. Alle 5 Minuten:
   neuester grüner Stand P auf `pruef/tagesroutine-<JJJJMMTT>`, mindestens 3 Thunderbird-Commits über `origin/main`,
-  Push-Beginn 09:00–19:30, nichts belegt. Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
+  Push-Beginn 09:00–22:30, nichts belegt. Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
   Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde
   (README-Commit, Notizdatei), `tests/zwischen-release.zsh` (Push, Push-Lauf und Windows-Lauf grün), dann
   `tests/release-unter-tage.sh --volldampf` mit `NUR_CI=1 ./release.sh` und `./publish.sh` (pusht über den Upstream,

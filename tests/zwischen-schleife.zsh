@@ -6,7 +6,7 @@
 #   nohup zsh ~/halo-spaces/tests/zwischen-schleife.zsh >/dev/null 2>&1 &!
 #   zsh tests/zwischen-schleife.zsh --einmal    eine Prüfung (und ggf. ein Zwischen-Release), dann Ende
 #   zsh tests/zwischen-schleife.zsh --trocken   nur zeigen, was jetzt geschähe (kein Claude, kein Push, kein Worktree)
-# Alle TAKT Minuten (5): Volldampf aktiv? (sonst Ende) Push-Beginn 09:00 bis BIS (19:30, danach Ende)? keine Pause
+# Alle TAKT Minuten (5): Volldampf aktiv? (sonst Ende) Push-Beginn 09:00 bis BIS (22:30, danach Ende)? keine Pause
 # „zwischen-release“ in pausen.txt? Neuester grüner Stand P auf dem Prüfzweig pruef/tagesroutine-<JJJJMMTT> (Vorfahr
 # von main), mindestens AB (3) Commits mit Thunderbird-Änderung über origin/main, P nicht der Stand eines roten
 # Versuchs (erst ein neuer grüner Stand nach der Behebung), neon nicht belegt? Dann:
@@ -32,7 +32,7 @@ HIER=${0:A:h}
 MAIN=${HALO_REPO_MAIN:-${HIER:h}}
 WT=${HALO_ZR_WT:-$HOME/halo-zwischen-release}
 DIR=$HOME/halo-nacht
-TAKT=${ZS_TAKT:-5} AB=${ZWISCHEN_RELEASE_AB:-3} BIS=${ZWISCHEN_RELEASE_BIS:-1930} MODELL=${ZS_MODELL:-sonnet}
+TAKT=${ZS_TAKT:-5} AB=${ZWISCHEN_RELEASE_AB:-3} BIS=${ZWISCHEN_RELEASE_BIS:-2230} MODELL=${ZS_MODELL:-sonnet}
 R=sruf79/halo-spaces
 MODUS=
 [[ $1 == --(einmal|trocken) ]] && MODUS=${1#--}

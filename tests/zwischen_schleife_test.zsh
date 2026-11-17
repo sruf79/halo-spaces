@@ -38,8 +38,8 @@ pruefe "Stand eines roten Versuchs: warten bis zu einem neuen grünen Stand" "$(
 pruefe "neuer grüner Stand nach Rot: wieder fällig" "$(W HALO_ZS_GESPERRT=0000000 )" 'fällig'
 pruefe "belegt (CI): warten" "$(W HALO_BELEGT='CI-Lauf auf dem GitHub-Runner')" 'warten belegt: CI-Lauf'
 pruefe "08:59: Push-Sperre" "$(W HALO_JETZT_HM=0859)" 'warten Push-Sperre bis 09:00'
-pruefe "19:29: noch fällig (spätester Push-Beginn 19:30)" "$(W HALO_JETZT_HM=1929)" 'fällig'
-pruefe "19:30: Ende (Release vor 22:00, nichts nach 00:00)" "$(W HALO_JETZT_HM=1930)" 'ende Push-Beginn nur bis 1930'
+pruefe "22:29: noch fällig (spätester Push-Beginn 22:30)" "$(W HALO_JETZT_HM=2229)" 'fällig'
+pruefe "22:30: Ende (Release vor 01:00, nichts nach 01:30)" "$(W HALO_JETZT_HM=2230)" 'ende Push-Beginn nur bis 2230'
 pruefe "ohne Volldampf: Ende" "$(W HALO_VOLLDAMPF_DATEI=$T/keine.txt)" 'ende Volldampf nicht aktiv'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/vd-beendet.txt
 pruefe "Volldampf beendet (Wochenlimit): Ende" "$(W)" 'ende Volldampf nicht aktiv'

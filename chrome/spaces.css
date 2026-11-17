@@ -10888,8 +10888,10 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   overflow: hidden !important;
 }
 
-/* Hinweis bei Verteilern wie Apple Mail */
-#mcListBanner {
+/* Hinweis bei Verteilern wie Apple Mail; der Code-Hinweis (#mcCodeBanner,
+   Bestätigungscode mit „Kopieren“) nutzt denselben Baustein ohne Symbol */
+#mcListBanner,
+#mcCodeBanner {
   display: flex !important;
   align-items: center !important;
   gap: 10px !important;
@@ -10909,12 +10911,12 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   mask: var(--mi-envelope) center / contain no-repeat !important;
 }
 
-#mcListBanner .mc-lb-text {
+:is(#mcListBanner, #mcCodeBanner) .mc-lb-text {
   flex: 1 !important;
   min-width: 0 !important;
 }
 
-#mcListBanner :is(.mc-lb-unsub, .mc-lb-close) {
+:is(#mcListBanner, #mcCodeBanner) :is(.mc-lb-unsub, .mc-lb-close) {
   appearance: none !important;
   border: none !important;
   margin: 0 !important;
@@ -10922,7 +10924,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   cursor: default !important;
 }
 
-#mcListBanner .mc-lb-unsub {
+:is(#mcListBanner, #mcCodeBanner) .mc-lb-unsub {
   min-height: 26px !important;
   padding: 0 12px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
@@ -10930,11 +10932,11 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   color: var(--mt-accent) !important;
 }
 
-#mcListBanner .mc-lb-unsub:hover {
+:is(#mcListBanner, #mcCodeBanner) .mc-lb-unsub:hover {
   background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
 }
 
-#mcListBanner .mc-lb-close {
+:is(#mcListBanner, #mcCodeBanner) .mc-lb-close {
   flex: none !important;
   min-width: 0 !important;
   max-width: 26px !important;
@@ -10946,7 +10948,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   color: var(--mt-text-secondary) !important;
 }
 
-#mcListBanner .mc-lb-close::before {
+:is(#mcListBanner, #mcCodeBanner) .mc-lb-close::before {
   content: "✕" !important;
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
 }

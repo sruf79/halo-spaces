@@ -360,7 +360,7 @@ volldampf_lesen() {
 tageslimit_text() { (( MAX_COMMITS > 0 )) && print -r -- "Tageslimit $MAX_COMMITS eigene Commits" || print -r -- "kein Tageslimit für Commits (Volldampf)" }
 # Wächter für Zwischen-Releases (tests/zwischen-schleife.zsh, Maintainer 17.11.2026): läuft er?
 zs_zustand() {
-  local l=$HOME/halo-nacht/zwischen-schleife.lock
+  local l=${HALO_ZS_LOCK:-$HOME/halo-nacht/zwischen-schleife.lock}   # Probe: eigene Sperrdatei, damit der echte Wächter das Ergebnis nicht verändert
   [[ -e $l ]] && kill -0 $(<$l) 2>/dev/null && { print -r -- "Wächter tests/zwischen-schleife.zsh läuft (PID $(<$l))"; return 0 }
   [[ $VD == ja ]] && print -r -- "Wächter tests/zwischen-schleife.zsh läuft nicht (von Hand starten, docs/release.md „Volldampf“)" \
     || print -r -- "aus (nur im Volldampf)"

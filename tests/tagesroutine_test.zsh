@@ -13,7 +13,7 @@ FEHLER=0
 
 # lauf <Jetzt> <Woche %> [<5h %>] [<Konfig>] [<Spar-Datei>]
 lauf() {
-  HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
+  HALO_ZS_LOCK=/nonexistent/zs.lock HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt \
   HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1

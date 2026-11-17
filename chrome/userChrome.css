@@ -2708,6 +2708,12 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   background-color: var(--mt-star) !important;
 }
 
+/* im inaktiven Fenster blasser wie die übrigen Knöpfe daneben (Thunderbird
+   blasst nur Symbole von toolbarbutton ab, der Stern ist ein button) */
+:root[mc-standalone] #starMessageButton:not(:hover):-moz-window-inactive > img {
+  opacity: 0.5 !important;
+}
+
 /* Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand
    Drucken | Stern · Pfeil (Markieren) | Ordner · Pfeil (Verschieben); die drei
    Knöpfe (mcHdr…) setzt die Erweiterung nur dort. Links bleibt „Mehr“ als

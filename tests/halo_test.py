@@ -20590,6 +20590,63 @@ Neu
     check("Nachrichtenfenster: Knöpfe wie im Vorbild (Archivieren, Löschen, Werbung | Antworten, Allen antworten, Weiterleiten | Mehr, Stern); "
           "markiert kein zweiter Stern unter der Uhrzeit", message_window_order, results)
 
+    def message_window_strength():
+        # Knöpfe im Mailkopf einer Mail im eigenen Fenster: im aktiven Fenster bereit und so kräftig wie die Mail-Leiste
+        # des Hauptfensters (Symbol in Textfarbe, volle Deckkraft); nur im inaktiven Fenster blasser (wie macOS) –
+        # ein Bild bei inaktivem Fenster sah aus wie gesperrt
+        res = m.js(MESSAGE_JS + r"""
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          // wie bei Nutzern mit Konto: eine Identität (ohne sie sperrt Thunderbird Antworten, Weiterleiten und Archivieren
+          // überall, auch in der Mail-Leiste – so entstand das blasse Bild aus dem Testprofil ohne Identität)
+          const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+          if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          const cs = el => el.ownerDocument.defaultView.getComputedStyle(el);
+          const text = (() => { const e = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.color = "var(--mt-text)"; d.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })();
+          // Deckkraft vom Symbol bis zur Wurzel, über das eingebettete Dokument hinaus bis zum Fenster
+          const alpha = el => { let a = 1, x = el; while (x) { if (x.nodeType == 1) a *= Number(cs(x).opacity); x = x.parentElement || x.ownerDocument?.defaultView?.frameElement || null; } return Math.round(a * 100) / 100; };
+          const icon = b => b.querySelector(":scope > .toolbarbutton-icon, :scope > .toolbarbutton-menubutton-button > .toolbarbutton-icon, :scope > img, .button-icon") || b;
+          const look = b => { const i = icon(b); const s = cs(i); return { dis: b.disabled || b.hasAttribute("disabled"), color: s.color, fill: s.fill, bg: s.backgroundColor, alpha: alpha(i) }; };
+          // Bezug: Antworten in der Mail-Leiste des Hauptfensters, Hauptfenster vorn
+          w.focus(); await until(() => Services.focus.activeWindow == w, 3000);
+          // Leiste neu bewerten lassen (die Identität kam eben erst dazu): Auswahl neu setzen
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = 0;
+          const ref = d.querySelector('#unifiedToolbarContent li[item-id="reply"] button');
+          await until(() => ref && !ref.disabled, 4000); await ruhig(300);
+          const out = { text, ref: ref && { ...look(ref), active: Services.focus.activeWindow == w } };
+          const hdr = a3.gDBView.hdrForFirstSelectedMessage;
+          MailUtils.openMessageInNewWindow(hdr);
+          const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+          try {
+            const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.documentElement.hasAttribute("mc-standalone") && x.defaultView?.gMessage ? x : null; }, 8000);
+            await ruhig(1200);
+            const ids = ["hdrArchiveButton", "hdrTrashButton", "hdrJunkButton", "hdrReplyToSenderButton", "hdrSmartReplyButton", "hdrForwardButton", "otherActionsButton", "starMessageButton", "mcHdrPrintButton", "mcHdrMoveButton"];
+            const btn = id => { const e = md.getElementById(id); if (!e || !e.getBoundingClientRect().width) return null;
+              return e.localName == "toolbaritem" ? e.querySelector("toolbarbutton") : e; };
+            const take = () => Object.fromEntries(ids.map(id => [id, btn(id)]).filter(([, b]) => b).map(([id, b]) => [id, look(b)]));
+            for (let i = 0; i < 4 && Services.focus.activeWindow != mw; i++) { mw.focus(); await until(() => Services.focus.activeWindow == mw, 3000); }
+            await ruhig(400);
+            out.active = { win: Services.focus.activeWindow == mw, inactiveCss: md.documentElement.matches(":-moz-window-inactive"), btns: take() };
+            w.focus(); await until(() => Services.focus.activeWindow == w, 3000); await ruhig(400);
+            out.inactive = { win: Services.focus.activeWindow != mw, inactiveCss: md.documentElement.matches(":-moz-window-inactive"), btns: take() };
+          } finally { mw.close(); w.focus(); }
+          await ruhig(300);
+          return out;""")
+        if res.get("mail") is False:
+            return False, "Testmail fehlt"
+        act, ref = res.get("active") or {}, res.get("ref") or {}
+        btns = act.get("btns") or {}
+        if not act.get("win"):
+            return True, f"Nachrichtenfenster kam nicht nach vorn – übersprungen {res}"
+        paint = lambda x: x["bg"] if x["bg"] not in ("rgba(0, 0, 0, 0)", "transparent") else x["color"]
+        bad = [k for k, x in btns.items() if x["dis"] or x["alpha"] < 1 or x["alpha"] < ref.get("alpha", 1) or not same_color(x["color"], res["text"])]
+        # inaktives Fenster (nur wenn es wirklich hinten war): blasser als im aktiven, wie macOS
+        ina = res.get("inactive") or {}
+        dim = not (ina.get("win") and ina.get("inactiveCss")) or all(x["alpha"] < btns[k]["alpha"] for k, x in (ina.get("btns") or {}).items() if k in btns)
+        ok = len(btns) >= 8 and not bad and dim and not ref.get("dis") and ref.get("alpha") == 1 and same_color(paint(ref), res["text"])
+        return ok, f"blass/gesperrt: {bad}, inaktiv blasser: {dim} {res}"
+    check("Nachrichtenfenster: Knöpfe im Mailkopf im aktiven Fenster bereit und so kräftig wie die Mail-Leiste (Textfarbe, volle Deckkraft)",
+          message_window_strength, results)
+
     def message_window_right_tools():
         # Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand Drucken | Stern · Pfeil | Ordner · Pfeil;
         # der Pfeil am Stern öffnet das Markieren-Menü (Stern setzt den Stern), Ordner verschiebt die Mail, Drucken druckt
@@ -20914,7 +20971,10 @@ Neu
           MailUtils.openMessageInNewWindow(hdr);
           const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
           try {
-            await until(() => mw.document.title.includes("Treffen"), 6000); await ruhig(1500);
+            await until(() => mw.document.title.includes("Treffen"), 6000);
+            // Fenster vorn wie beim Arbeiten darin (im inaktiven Fenster sind alle Symbole absichtlich blasser)
+            for (let i = 0; i < 4 && Services.focus.activeWindow != mw; i++) { mw.focus(); await until(() => Services.focus.activeWindow == mw, 3000); }
+            await ruhig(1500); out.active = Services.focus.activeWindow == mw;
             const br = mw.document.getElementById("messageBrowser"), md = br.contentDocument, mwin = md.defaultView;
             const bar = md.getElementById("header-view-toolbar"), box = md.getElementById("header-view-toolbox");
             const ids = ["hdrArchiveButton", "hdrTrashButton", "hdrJunkButton", "hdrReplyToSenderButton", "hdrSmartReplyButton", "hdrForwardButton", "otherActionsButton", "starMessageButton"];
@@ -20966,7 +21026,7 @@ Neu
               hdr.folder.markMessagesFlagged([hdr], true); await bis(() => st.classList.contains("flagged"), "Stern markiert", 3000); await ruhig(300);
               out.starOn = await star();
             }
-          } finally { mw.close(); hdr.folder.markMessagesFlagged([hdr], flagged); }
+          } finally { mw.close(); w.focus(); hdr.folder.markMessagesFlagged([hdr], flagged); }
           await ruhig(300);
           return out;""")
         if res.get("mail") is False:

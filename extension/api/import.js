@@ -165,7 +165,10 @@ const PstImport = {
 // Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle
 // Ordner samt Unterordnern als Kopie nach Lokale Ordner/<Konto> (Archive).
 // Papierkorb, Spam, Entwürfe, Postausgang und virtuelle Ordner bleiben weg.
-// Ein erneuter Lauf überspringt Ordner, die schon gleich viele Mails haben.
+// Ein erneuter Lauf vergleicht je Ordner über die Message-ID und kopiert nur
+// Neues (keine Duplikate). Kontakte (CardDAV) und Kalender des Kontos kommen
+// in ein lokales Adressbuch bzw. einen lokalen Kalender „<Konto> (Archiv)“,
+// ebenfalls nur Neues (Vergleich über die UID).
 const ArchiveAccount = {
   running: null,
   SKIP: Ci.nsMsgFolderFlags.Trash | Ci.nsMsgFolderFlags.Junk | Ci.nsMsgFolderFlags.Drafts |
@@ -222,11 +225,167 @@ const ArchiveAccount = {
       }
     });
   },
+  // Schlüssel einer Mail für den Vergleich Quelle/Archiv: Message-ID, ohne
+  // sie Datum, Absender und Betreff
+  msgKey(h) {
+    const id = String(h?.messageId || "").trim().replace(/^<|>$/g, "");
+    return id || `~${h?.date || ""}|${h?.author || ""}|${h?.subject || ""}`;
+  },
+  // nur, was im Archiv noch fehlt (auch doppelte in der Quelle nur einmal)
+  newOnly(source, existing, key = x => x) {
+    const seen = new Set([...existing].map(key));
+    const fresh = [];
+    for (const x of source) {
+      const k = key(x);
+      if (!seen.has(k)) {
+        seen.add(k);
+        fresh.push(x);
+      }
+    }
+    return { fresh, known: source.length - fresh.length };
+  },
+  // Wer ist das Konto: E-Mail-Adressen (klein), Benutzername, Identitäten
+  who(server) {
+    const emails = new Set(), identities = new Set();
+    try {
+      const account = MailServices.accounts.findAccountForServer(server);
+      for (const id of account?.identities || []) {
+        identities.add(id.key);
+        id.email && emails.add(id.email.toLowerCase());
+      }
+    } catch {}
+    server.username && emails.add(String(server.username).toLowerCase());
+    return { emails, identities };
+  },
+  // gehört ein Adressbuch zum Konto? (CardDAV mit dessen Adresse als Benutzername)
+  isLinkedBook(book, who) {
+    return !!book.carddav && !!book.username && who.emails.has(String(book.username).toLowerCase());
+  },
+  // gehört ein Kalender zum Konto? (Identität für Einladungen oder Benutzername)
+  isLinkedCalendar(c, who) {
+    return (!!c.identity && who.identities.has(c.identity)) || (!!c.username && who.emails.has(String(c.username).toLowerCase()));
+  },
+  books(server) {
+    const who = this.who(server);
+    try {
+      return MailServices.ab.directories.filter(d => this.isLinkedBook({
+        carddav: d.dirType == Ci.nsIAbManager.CARDDAV_DIRECTORY_TYPE, username: d.getStringValue("carddav.username", ""),
+      }, who));
+    } catch {
+      return [];
+    }
+  },
+  calendars(server) {
+    const who = this.who(server);
+    try {
+      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+      return cal.manager.getCalendars().filter(c => this.isLinkedCalendar({
+        identity: c.getProperty("imip.identity.key"), username: c.getProperty("username"),
+      }, who));
+    } catch {
+      return [];
+    }
+  },
+  // Kontakte und Kalender des Kontos (für Übersicht und Lauf)
+  extras(server) {
+    return [
+      ...this.books(server).map(d => ({ kind: "contacts", source: d, URI: `ab:${d.UID}`,
+        name: tr("{name} (Contacts)", { name: d.dirName }), count: this.cards(d).length })),
+      ...this.calendars(server).map(c => ({ kind: "calendar", source: c, URI: `cal:${c.id}`,
+        name: tr("{name} (Calendar)", { name: c.name }), count: null })),
+    ];
+  },
+  cards(dir) {
+    try {
+      return dir.childCards.filter(c => !c.isMailList);
+    } catch {
+      return [];
+    }
+  },
+  async events(calendar) {
+    try {
+      return await calendar.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null);
+    } catch {
+      return [];
+    }
+  },
+  // lokales Adressbuch „<Konto> (Archiv)“ (vorhandenes wiederverwenden)
+  targetBook(server) {
+    const name = this.targetName(server);
+    const local = d => d.dirType == Ci.nsIAbManager.JS_DIRECTORY_TYPE && d.dirName == name;
+    let book = MailServices.ab.directories.find(local);
+    if (!book) {
+      const id = MailServices.ab.newAddressBook(name, "", Ci.nsIAbManager.JS_DIRECTORY_TYPE);
+      book = MailServices.ab.getDirectoryFromId(id) || MailServices.ab.directories.find(local);
+    }
+    return book || null;
+  },
+  // lokaler Kalender „<Konto> (Archiv)“ (vorhandenen wiederverwenden)
+  targetCalendar(server) {
+    const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+    const name = this.targetName(server);
+    let c = cal.manager.getCalendars().find(x => x.type == "storage" && x.name == name);
+    if (!c) {
+      c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+      c.name = name;
+      cal.manager.registerCalendar(c);
+    }
+    return c;
+  },
+  // Kontakte und Termine kopieren, nur Neues (Vergleich über die UID)
+  async runExtras(server, job, progress) {
+    const extras = this.extras(server);
+    let book = null, calendar = null;
+    for (const x of extras) {
+      if (job.stop) {
+        return;
+      }
+      progress(x, { state: "busy", copied: 0 });
+      let total = 0, copied = 0, failed = false, archived = 0;
+      try {
+        if (x.kind == "contacts") {
+          book ||= this.targetBook(server);
+          const src = this.cards(x.source);
+          total = src.length;
+          const { fresh } = this.newOnly(src, this.cards(book), c => c.UID);
+          for (const card of fresh) {
+            book.addCard(card);
+            copied++;
+          }
+          job.contacts += copied;
+          archived = total - this.newOnly(src, this.cards(book), c => c.UID).fresh.length;
+        } else {
+          calendar ||= this.targetCalendar(server);
+          const src = await this.events(x.source);
+          total = src.length;
+          const { fresh } = this.newOnly(src, await this.events(calendar), i => i.id);
+          for (const item of fresh) {
+            if (job.stop) {
+              break;
+            }
+            await calendar.addItem(item.clone());
+            copied++;
+          }
+          job.events += copied;
+          archived = total - this.newOnly(src, await this.events(calendar), i => i.id).fresh.length;
+        }
+      } catch (e) {
+        log("archive extras", e);
+        job.failed.push(x.name);
+        failed = true;
+      }
+      progress(x, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied, total, archived });
+    }
+  },
   messages(folder) {
     try {
       return [...folder.msgDatabase.enumerateMessages()];
     } catch {
-      return [...folder.messages];
+      try {
+        return [...folder.messages];
+      } catch {
+        return [];
+      }
     }
   },
   copy(src, hdrs, dest, win) {
@@ -270,7 +429,7 @@ const ArchiveAccount = {
     if (this.running) {
       return null;
     }
-    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failed: [], done: [] };
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, contacts: 0, events: 0, failed: [], done: [] };
     this.running = job;
     try {
       const local = MailServices.accounts.localFoldersServer.rootFolder;
@@ -297,30 +456,34 @@ const ArchiveAccount = {
           progress(sub, { state: "busy", copied: 0 });
           await this.update(sub, win);
           const hdrs = this.messages(sub);
+          // nur Mails, deren Message-ID im Archivordner noch fehlt
+          const { fresh, known } = this.newOnly(hdrs, this.messages(dest), h => this.msgKey(h));
+          job.skipped += known;
           let mine = 0, failed = false;
-          if (hdrs.length && dest.getTotalMessages(false) >= hdrs.length) {
-            job.skipped += hdrs.length;
-          } else {
-            for (let i = 0; i < hdrs.length && !job.stop; i += 100) {
-              const part = hdrs.slice(i, i + 100);
-              if (await this.copy(sub, part, dest, win)) {
-                job.copied += part.length;
-                mine += part.length;
-              } else {
-                job.failed.push(sub.prettyName);
-                failed = true;
-                break;
-              }
-              status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
-              progress(sub, { state: "busy", copied: mine, total: hdrs.length });
+          for (let i = 0; i < fresh.length && !job.stop; i += 100) {
+            const part = fresh.slice(i, i + 100);
+            if (await this.copy(sub, part, dest, win)) {
+              job.copied += part.length;
+              mine += part.length;
+            } else {
+              job.failed.push(sub.prettyName);
+              failed = true;
+              break;
             }
+            status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
+            progress(sub, { state: "busy", copied: known + mine, total: hdrs.length });
           }
+          // Abschluss: wie viele Mails der Quelle jetzt im Archiv liegen
+          const archived = hdrs.length - this.newOnly(hdrs, this.messages(dest), h => this.msgKey(h)).fresh.length;
           job.done.push({ folder: sub, dest, source: hdrs.length });
-          progress(sub, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: hdrs.length, archived: dest.getTotalMessages(false) });
+          progress(sub, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: hdrs.length, archived });
           await walk(sub, dest);
         }
       };
       await walk(server.rootFolder, target);
+      if (!job.stop) {
+        await this.runExtras(server, job, progress);
+      }
       job.target = target;
       return job;
     } finally {
@@ -407,12 +570,31 @@ ArchiveAccount.openWizard = function (mailWin, server) {
         rows.set(p.folder.URI, { tr: tr0, num, count: p.count });
         return tr0;
       }));
+      // Kontakte und Kalender des Kontos als eigene Zeilen (Termine zählt der Kalender später)
+      const extras = current ? ArchiveAccount.extras(current) : [];
+      for (const x of extras) {
+        const tr0 = el("tr");
+        tr0.dataset.kind = x.kind;
+        const num = el("td", "num", x.count == null ? "…" : String(x.count));
+        tr0.append(el("td", "name", x.name), num);
+        table.append(tr0);
+        rows.set(x.URI, { tr: tr0, num, count: x.count });
+        if (x.count == null) {
+          ArchiveAccount.events(x.source).then(list => {
+            if (num.textContent == "…") {
+              num.textContent = String(list.length);
+            }
+          });
+        }
+      }
+      note.textContent = tr("The copy goes to Local Folders and stays when you remove the account. Trash, Spam and Drafts are left out.") +
+        (extras.length ? ` ${tr("Contacts and calendars of the account go to a local address book and calendar.")}` : "");
       const total = plan.reduce((a, p) => a + p.count, 0), size = plan.reduce((a, p) => a + p.size, 0);
       const free = ArchiveAccount.freeSpace();
       summary.textContent = [tr("{n} messages in {f} folders", { n: total, f: plan.length }),
         size ? tr("about {size}", { size: mb(size) }) : null,
         free != null ? tr("{size} free", { size: mb(free) }) : null].filter(Boolean).join(" · ");
-      start.disabled = !plan.length;
+      start.disabled = !plan.length && !extras.length;
     };
     pickAccount.addEventListener("change", () => {
       current = servers.find(sv => sv.key == pickAccount.value) || current;
@@ -461,6 +643,9 @@ ArchiveAccount.openWizard = function (mailWin, server) {
       }
       const lines = [tr(job.stop ? "Archiving stopped." : "Archiving finished."),
         tr("{n} messages copied in {f} folders.", { n: job.copied, f: job.folders })];
+      if (job.contacts || job.events) {
+        lines.push(tr("{n} contacts and {e} events copied.", { n: job.contacts, e: job.events }));
+      }
       if (job.skipped) {
         lines.push(tr("{n} messages were already archived.", { n: job.skipped }));
       }

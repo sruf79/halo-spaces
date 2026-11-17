@@ -48,6 +48,12 @@
   --mt-radius-capsule: 999px;
   --mt-radius-popup: 12px;
   --mt-radius-field: 7px;
+  /* Knopfhöhen: 30 px Dialog- und Textknöpfe, 24 px kleine Knöpfe in Leisten,
+     Karten und Hinweisen; Fokusring der Eingabefelder (Knöpfe behalten den
+     Umriss in der Systemfarbe) */
+  --mt-btn-h: 30px;
+  --mt-btn-h-small: 24px;
+  --mt-focus-ring: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent);
   --mt-menu-bg: rgba(246, 246, 248, 0.80);
   /* Menüs: eine Textspalte; das Häkchen steht davor im Rand (Feld 9 px,
      1 px Luft zum Text, das Zeichen selbst bleibt in der markierten Zeile),
@@ -1532,7 +1538,7 @@ body:has(> #accountCentral),
   justify-content: center !important;
   box-sizing: border-box !important;
   width: 24px !important;
-  height: 24px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   min-width: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
@@ -2052,7 +2058,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 
 #threadPaneHeaderBar button {
   min-width: 30px !important;
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding: 0 7px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   border: none !important;
@@ -4215,7 +4221,7 @@ unified-toolbar {
   appearance: none !important;
   flex: none !important;
   min-width: 0 !important;
-  height: 24px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 10px !important;
@@ -4415,7 +4421,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 
 .glodaTabToolbar .remote-gloda-search:focus {
   outline: none !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 
@@ -4451,7 +4457,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
    Inhalt waren 24 px hoch neben 30 px hohen Dialog-Knöpfen – wie diese 30 px
    als Kapsel */
 :root:is(#spellCheckDlg, #replaceDlg, #viewLogWindow) dialog button {
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding-inline: 14px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
@@ -4571,7 +4577,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 :root:is([windowtype="mailnews:search"], [windowtype="mailnews:filterlist"]) input:not([type="checkbox"], [type="radio"]):focus {
   outline: none !important;
   border-color: var(--mt-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 /* „Öffnen von …“ (Anhang ohne gespeicherte Aktion): das Toolkit-Fenster
@@ -4723,7 +4729,7 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 
 #aboutDialog #updateDeck button {
   appearance: none !important;
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding-block: 0 !important;
   padding-inline: 14px !important;
   border: none !important;
@@ -7755,8 +7761,8 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 
 #task-actions-toolbar > toolbarbutton {
   appearance: none !important;
-  height: 30px !important;
-  min-height: 30px !important;
+  height: var(--mt-btn-h, 30px) !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   margin: 0 !important;
   padding: 0 12px !important;
   border: none !important;
@@ -8723,7 +8729,7 @@ splitter.splitter:has(+ .conv-bottom) {
 .conv-textbox:focus {
   border-color: var(--mt-accent) !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 /* leerer Zustand: ruhig und mittig */
@@ -9990,9 +9996,9 @@ search-addons moz-input-search {
    Schatten-DOM: extension/parts.css */
 addon-card .extension-options-button {
   width: 24px !important;
-  height: 24px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   min-width: 24px !important;
-  min-height: 24px !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
   border: none !important;
   border-radius: 50% !important;
   background-color: transparent !important;
@@ -10419,8 +10425,8 @@ addon-card .addon-inline-options {
   box-sizing: border-box !important;
   width: 24px !important;
   min-width: 24px !important;
-  height: 24px !important;
-  min-height: 24px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
@@ -11132,7 +11138,7 @@ addon-card .addon-inline-options {
    Auswahllisten und Felder 28 px statt 24 px, Felder mit Haarlinie (Auswahl-
    felder ohne Rand wie überall) */
 #searchAddressBookWindow :is(#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]) {
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding-inline: 14px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
@@ -11228,7 +11234,7 @@ addon-card .addon-inline-options {
 }
 
 #photoDropTarget:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 #editContactForm .contact-photo {
@@ -11409,7 +11415,7 @@ addon-card .addon-inline-options {
 #editContactForm :is(input, textarea):focus {
   outline: none !important;
   border-color: var(--mt-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 #editContactForm select,
@@ -11820,7 +11826,7 @@ button.wizard-button {
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding-inline: 16px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
@@ -11875,7 +11881,7 @@ button.wizard-button[disabled] {
 :is(dialog:not(.account-hub-dialog), wizard) :is(input, textarea):focus {
   outline: none !important;
   border-color: var(--mt-accent) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  box-shadow: var(--mt-focus-ring, 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)) !important;
 }
 
 /* Gesperrte Felder (z. B. Name des persönlichen Adressbuchs, den Thunderbird
@@ -12491,7 +12497,7 @@ dialog tabpanels:not(#event-grid-tabpanels) {
 }
 
 #accept-buttons-box > .occurrence-accept-buttons {
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   list-style-image: none !important;
   text-align: center !important;
 }
@@ -13593,7 +13599,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 #alarm-richlist .alarm-action-buttons button,
 #alarm-actionbar button {
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   margin: 0 !important;
   padding: 0 14px !important;
   border: none !important;
@@ -13708,8 +13714,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 #alarm-richlist .alarm-action-buttons button {
-  min-height: 24px !important;
-  height: 24px !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   padding: 0 10px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background: color-mix(in srgb, var(--mt-text) 7%, transparent) !important;
@@ -13850,7 +13856,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 #calendar-summary-dialog :is(#calendar-summary-dialog-edit-button, #calendar-summary-dialog-edit-menu-button, #calendar-summary-dialog-custom-button-footer button) {
   margin: 0 16px 14px 0 !important;
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding: 0 18px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -14618,8 +14624,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 /* Knöpfe der Karte („Preferences“): graue Textkapsel, 24 px hoch */
 #mail-notification-top notification-message :is(button, toolbarbutton).notification-button {
-  min-height: 24px !important;
-  height: 24px !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   margin-block: 0 !important;
   padding: 0 12px !important;
   font-weight: 400 !important;

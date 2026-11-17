@@ -59,7 +59,7 @@
 
 /* Dialog-Knöpfe rund wie im übrigen Design */
 dialog::part(dialog-button) {
-  min-height: 30px !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   min-width: 84px !important;
   padding-inline: 16px !important;
   border: none !important;
@@ -261,9 +261,9 @@ dialog::part(dialog-button) {
    (spaces.css) – 24 × 24, rund, ohne Fläche, dezenter Hover */
 addon-card .more-options-button::part(button) {
   width: 24px !important;
-  height: 24px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   min-width: 24px !important;
-  min-height: 24px !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
   border: none !important;
   border-radius: 50% !important;
   background-color: transparent !important;

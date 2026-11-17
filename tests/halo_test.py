@@ -15331,6 +15331,13 @@ Neu
           const vars = x => { const cs = x.defaultView.getComputedStyle(x.documentElement);
             return ["capsule", "popup", "field"].map(k => cs.getPropertyValue("--mt-radius-" + k).trim()); };
           const out = { main: vars(d) };
+          // Knopfhöhen und Fokusring: Variable vorhanden, Fokusring ergibt denselben Schatten wie der bisherige Wert
+          const rcs = w.getComputedStyle(d.documentElement);
+          out.btn = ["--mt-btn-h", "--mt-btn-h-small"].map(k => rcs.getPropertyValue(k).trim());
+          const probe = (sh) => { const e = d.createElement("div"); e.style.boxShadow = sh; d.documentElement.append(e);
+            const v = w.getComputedStyle(e).boxShadow; e.remove(); return v; };
+          out.ringVar = rcs.getPropertyValue("--mt-focus-ring").trim() ? probe("var(--mt-focus-ring)") : "";
+          out.ringOld = probe("0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)");
           w.openAddonsMgr("addons://list/extension");
           const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector("addon-page-header .page-options-menu .more-options-button") && x; }, "about:addons", 8000);
           await ruhig(500);
@@ -15340,9 +15347,10 @@ Neu
           tm.closeTab(tm.currentTabInfo); await ruhig(300);
           return out;''')
         want = ["999px", "12px", "7px"]
-        ok = res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
+        ok = (res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
+              and res["btn"] == ["30px", "24px"] and res["ringVar"] and res["ringVar"] == res["ringOld"] and "3px" in res["ringOld"])
         return ok, f"{res}"
-    check("CSS: Radius-Stufen als --mt-Variablen (Kapsel, Popup, Feld) mit den bisherigen Werten", radius_tiers, results)
+    check("CSS: Radius-Stufen als --mt-Variablen (Kapsel, Popup, Feld), Knopfhöhen 30/24 und Fokusring mit den bisherigen Werten", radius_tiers, results)
 
     def addons_buttons():
         # Add-ons-Verwaltung (Liste, Themes, Detail, halo-Einstellungen): sichtbare Fläche jedes moz-button ist seit

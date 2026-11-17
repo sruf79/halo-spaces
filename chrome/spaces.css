@@ -6874,7 +6874,7 @@ dialog {
 button.wizard-button {
   appearance: none !important;
   border: none !important;
-  box-shadow: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -6885,6 +6885,11 @@ button.wizard-button {
 
 button.wizard-button:not([disabled]):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+button.wizard-button:not([default]):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 button.wizard-button[default]:not([disabled]) {

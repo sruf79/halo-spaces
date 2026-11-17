@@ -64,7 +64,8 @@ dialog::part(dialog-button) {
   padding-inline: 16px !important;
   border: none !important;
   border-radius: 999px !important;
-  box-shadow: none !important;
+  /* Textknopf mit Lichtkante; Hauptknopf und Zustände: userChrome.css */
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
   font-weight: 500 !important;
 }
 

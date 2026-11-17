@@ -4371,6 +4371,14 @@ def dialog_checks(m, results):
             InspectorUtils.removePseudoClassLock(ok, ":active"); InspectorUtils.removePseudoClassLock(ok, ":hover"); await pause(100);
             out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.startsWith("linear-gradient")).length;
             ok.disabled = true; await pause(200); out.off = look(); ok.disabled = was;
+            // Textknopf „Cancel“: grau mit Lichtkante, Maus dunkler, gedrückt ohne Kante, gesperrt flach
+            const cn = dl.getButton("cancel"), lookC = () => { const s = csOf(cn); return { bg: s.backgroundColor, sh: s.boxShadow, op: s.opacity, color: s.color }; };
+            out.hoverC = colorOf(dd, "var(--mt-control-hover)", "backgroundColor"); out.pressC = colorOf(dd, "var(--mt-btn-press)", "backgroundColor");
+            out.c = { ready: lookC() };
+            InspectorUtils.addPseudoClassLock(cn, ":hover"); await pause(150); out.c.hover = lookC();
+            InspectorUtils.addPseudoClassLock(cn, ":active"); await pause(150); out.c.press = lookC();
+            InspectorUtils.removePseudoClassLock(cn, ":active"); InspectorUtils.removePseudoClassLock(cn, ":hover");
+            cn.disabled = true; await pause(200); out.c.off = lookC(); cn.disabled = false; await pause(100);
             return out; };
           const out = {};
           const f = await testFolder(); tm.switchToTab(0); await ruhig(500); const a3 = tm.currentAbout3Pane; a3.displayFolder(f.URI);
@@ -4389,9 +4397,27 @@ def dialog_checks(m, results):
                     and same_color(off["bg"], r["control"]) and off["img"] == "none" and off["sh"] == "none" and float(off["op"]) == 1
                     and not same_color(off["color"], r["text"]) and r["lit"] == 1)
         ok = good(res.get("folderProps")) and good(res.get("newFolder"))
+        PRIMARY_RES["res"] = res
         return ok, f"{res}"
+    PRIMARY_RES = {}
     check("Knöpfe: Hauptknopf der Dialoge in Systemfarbe mit Licht (Neuer Ordner, Ordner-Eigenschaften gleich), Maus ohne Änderung, gedrückt dunkler ohne Licht, "
           "gesperrt grau und flach; höchstens ein leuchtender Knopf je Dialog", primary_button, results)
+
+    def text_button():
+        # Textknopf der Dialoge („Cancel“ in Neuer Ordner und Ordner-Eigenschaften, gemessen in der Prüfung davor):
+        # grau mit Lichtkante (innerer Schatten oben plus Schlagschatten), Maus dunkler mit Kante, gedrückt dunkler
+        # mit innerem Schatten ohne Kante, gesperrt grau und flach ohne Transparenz
+        res = PRIMARY_RES.get("res")
+        def good(r):
+            if not r or "c" not in r: return False
+            c = r["c"]; rd, hv, pr, off = c["ready"], c["hover"], c["press"], c["off"]
+            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2
+                    and same_color(hv["bg"], r["hoverC"]) and hv["sh"] == rd["sh"]
+                    and same_color(pr["bg"], r["pressC"]) and "inset" in pr["sh"] and pr["sh"] != rd["sh"] and pr["sh"].count("rgba") == 1
+                    and same_color(off["bg"], r["control"]) and off["sh"] == "none" and float(off["op"]) == 1 and not same_color(off["color"], r["text"]))
+        ok = bool(res) and good(res.get("folderProps")) and good(res.get("newFolder"))
+        return ok, f"{ {k: (v or {}).get('c') for k, v in (res or {}).items()} }"
+    check("Knöpfe: Textknopf der Dialoge grau mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
 
     def rule_rows():
         # Bedingungszeilen (Suchordner-Dialog und Suchfenster): Auswahllisten nur in --mt-control ohne zweiten Verlauf (vorher doppelt

@@ -146,6 +146,8 @@
   --mt-primary-press: color-mix(in srgb, var(--mt-accent) 86%, #000);
   --mt-primary-press-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 60%, #000);
   --mt-btn-disabled-text: color-mix(in srgb, var(--mt-text) 35%, transparent);
+  /* Textknopf: Lichtkante oben mit feinem Schlagschatten; gedrückt innerer Schatten */
+  --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-lite-drop);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
 }
 
@@ -159,6 +161,7 @@
     --mt-primary-top: rgba(255, 255, 255, 0.22);
     --mt-primary-halo: 60%;
     --mt-primary-drop: 0 2px 4px rgba(0, 0, 0, 0.5);
+    --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-lite-drop);
     --mt-primary-shadow: inset 0 1px 0 var(--mt-primary-top), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 70%, #000), var(--mt-primary-drop), 0 6px 12px -5px color-mix(in srgb, var(--mt-accent) var(--mt-primary-halo), transparent);
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
@@ -4678,6 +4681,35 @@ button[part~="dialog-button"][dlgtype][default][disabled] {
   box-shadow: none !important;
   color: var(--mt-btn-disabled-text) !important;
   font-weight: 400 !important;
+}
+
+/* Textknopf der Dialoge (alle übrigen Dialogknöpfe): grau mit Lichtkante;
+   Maus etwas dunkler mit Kante, gedrückt dunkler mit innerem Schatten ohne
+   Kante, gesperrt grau und flach mit blasser Schrift */
+button[part~="dialog-button"][dlgtype]:not([default]):not([disabled]),
+:root:is(#spellCheckDlg, #replaceDlg, #viewLogWindow) dialog button:not([default]):not([disabled]) {
+  appearance: none !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: var(--mt-btn-lite-shadow) !important;
+}
+
+button[part~="dialog-button"][dlgtype]:not([default]):not([disabled]):hover,
+:root:is(#spellCheckDlg, #replaceDlg, #viewLogWindow) dialog button:not([default]):not([disabled]):hover {
+  background-color: var(--mt-control-hover) !important;
+}
+
+button[part~="dialog-button"][dlgtype]:not([default]):not([disabled]):hover:active,
+:root:is(#spellCheckDlg, #replaceDlg, #viewLogWindow) dialog button:not([default]):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+button[part~="dialog-button"][dlgtype]:not([default])[disabled],
+:root:is(#spellCheckDlg, #replaceDlg, #viewLogWindow) dialog button:not([default])[disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
 }
 
 /* Druckvorschau: Firefox-Proton-Akzent (hell #0062FA, dunkel Türkis) und
@@ -11902,7 +11934,7 @@ dialog {
 button.wizard-button {
   appearance: none !important;
   border: none !important;
-  box-shadow: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
@@ -11913,6 +11945,11 @@ button.wizard-button {
 
 button.wizard-button:not([disabled]):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+button.wizard-button:not([default]):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 button.wizard-button[default]:not([disabled]) {

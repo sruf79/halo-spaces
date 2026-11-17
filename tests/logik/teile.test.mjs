@@ -17,6 +17,20 @@ export const TEILE = {
   "kalender.js": ["parseNatural"],
   "grundlagen.js": ["LogoCache"],
   "unterhaltung.js": ["CONVERSATION_PREF", "CONVERSATION_NEWEST_PREF", "QUICK_REPLY_PREF", "ConversationCards", "foldQuotedHistory"],
+  "oberflaeche.js": ["EnhancerOberflaeche"],
+  "kalenderfenster.js": ["EnhancerKalender"],
+  "halofenster.js": ["EnhancerHaloFenster"],
+  "mailliste.js": ["EnhancerMailliste"],
+  "mailkarten.js": ["EnhancerMailkarten"],
+};
+
+// Teile von CardEnhancer: Klasse im Teil → einige ihrer Methoden
+export const CARD_TEILE = {
+  EnhancerOberflaeche: ["styleSearch", "animateSidebar", "trackToolbarOffset", "hookMailContext"],
+  EnhancerKalender: ["openQuickCreate", "animateTodayPane", "syncTodayModes", "fitSummaryDialog"],
+  EnhancerHaloFenster: ["sendFeedback", "openHaloWindow", "wireHaloWindow"],
+  EnhancerMailliste: ["hookConversation", "hookViewChoice", "patch", "decorateFolders"],
+  EnhancerMailkarten: ["cardStyle", "mailSearch", "decorateHeader", "refreshPreviewsNow"],
 };
 
 const quelle = name => readFileSync(fileURLToPath(new URL(`../../extension/api/${name}`, import.meta.url)), "utf8");
@@ -46,6 +60,24 @@ test("Teile: umgezogene Namen sind nach dem Laden da", () => {
   for (const namen of Object.values(TEILE)) {
     for (const name of namen) {
       assert.notEqual(vm.runInContext(`typeof ${name}`, context), "undefined", `${name} fehlt nach dem Laden`);
+    }
+  }
+});
+
+test("Teile: Methoden der CardEnhancer-Teile hängen an CardEnhancer, wie Klassenmethoden, keine doppelt", () => {
+  const { context } = lade();
+  const impl = quelle("implementation.js");
+  for (const [klasse, beispiele] of Object.entries(CARD_TEILE)) {
+    const namen = vm.runInContext(`Object.getOwnPropertyNames(${klasse}.prototype).filter(n => n != "constructor")`, context);
+    for (const name of beispiele) {
+      assert.ok(namen.includes(name), `${klasse}.${name} fehlt`);
+    }
+    for (const name of namen) {
+      const [gleich, aufzaehlbar] = vm.runInContext(
+        `[CardEnhancer.prototype.${name} === ${klasse}.prototype.${name}, Object.getOwnPropertyDescriptor(CardEnhancer.prototype, "${name}").enumerable]`, context);
+      assert.ok(gleich, `CardEnhancer.prototype.${name} ist nicht die Methode aus ${klasse}`);
+      assert.equal(aufzaehlbar, false, `CardEnhancer.prototype.${name} aufzählbar (anders als eine Klassenmethode)`);
+      assert.ok(!new RegExp(`^  (?:async )?${name}\\(`, "m").test(impl), `${name} steht noch in implementation.js`);
     }
   }
 });

@@ -89,6 +89,8 @@ function hookMultiweekScroll(mv, win, B) {
   // vis: um so viele Wochen ist der sichtbare Bereich gegen den geladenen
   // (Mitte) schon weitergerückt, ohne Neuaufbau; later: Neuaufbau im Leerlauf
   let vis = 0, later = 0, shifting = false, pending = 0;
+  // letzte Bewegung (das Vorladen wartet, bis das Scrollen ruht)
+  let wheelAt = 0;
   // Schritt 4/6: oberste sichtbare Woche (gegen den geladenen Bereich), ihr
   // Monat, erster geladener Tag und die Tage des Rasters
   let topRow = NaN, topKey = -1, rowBase = null, boxes = [];
@@ -460,6 +462,7 @@ function hookMultiweekScroll(mv, win, B) {
     event.preventDefault();
     event.stopPropagation();
     unpark();
+    wheelAt = win.performance.now();
     if (anim) {
       win.cancelAnimationFrame(anim);
       anim = 0;
@@ -550,6 +553,8 @@ function hookMultiweekScroll(mv, win, B) {
   mv.__mcScrollPos = () => pos;
   // (für Bewegungen, die die Breite gleich ändern: schon vor dem ersten Bild, siehe toggleSpaceSidebar)
   mv.__mcPark = park;
+  // scrollt gerade (Bewegung, Auslaufen, Neuaufbau mit Standbild)
+  mv.__mcScrollBusy = () => !!(anim || pending || mask) || win.performance.now() - wheelAt < 400;
   apply();
   return () => {
     mv.removeEventListener("wheel", onWheel, { capture: true });
@@ -584,6 +589,7 @@ function hookMultiweekScroll(mv, win, B) {
     delete mv.__mcScrollApply;
     delete mv.__mcScrollPos;
     delete mv.__mcPark;
+    delete mv.__mcScrollBusy;
     delete mv.__mcScrollReset;
     delete mv.__mcScrollShifts;
     delete mv.__mcDir;
@@ -659,7 +665,7 @@ function hookMultiweekBuffer(mv, restorers) {
   const EVENTS = Ci.calICalendar.ITEM_FILTER_TYPE_EVENT;
   const WEEK_US = 7 * 864e8;
   const store = new Map(), version = new Map();
-  let loading = null, idleLoad = 0;
+  let loading = null, idleLoad = 0, idleWait = 0;
   const shown = c => !!c && !c.getProperty("disabled") && !!c.getProperty("calendar-main-in-composite");
   const covers = (st, lo, hi) => st && st.s <= lo && st.e >= hi;
   // Kalender, deren Vorrat den geladenen Bereich nicht mehr um ein halbes Jahr
@@ -702,6 +708,15 @@ function hookMultiweekBuffer(mv, restorers) {
     if (!idleLoad) {
       const run = () => {
         idleLoad = 0;
+        // nicht mitten im Scrollen: die Abfrage über zwei Jahre (bei vielen
+        // Wiederholungen rund 50 ms) machte sonst ein Bild zu lang
+        if (mv.__mcScrollBusy?.()) {
+          idleWait ||= win.setTimeout(() => {
+            idleWait = 0;
+            preloadLater();
+          }, 300);
+          return;
+        }
         if (mv.__mcVisible && mv.isVisible?.()) {
           preload();
         }
@@ -779,8 +794,15 @@ function hookMultiweekBuffer(mv, restorers) {
       log("multiweek buffer layout error", String(e).slice(0, 120));
     }
     // nach dem Aufruf (setDateRange setzt danach erst den sichtbaren Bereich,
-    // nach dem sich das Eintragen in Häppchen richtet), noch vor dem Zeichnen
-    Promise.resolve().then(() => {
+    // nach dem sich das Eintragen in Häppchen richtet), im nächsten Bild vor
+    // dem Zeichnen: im selben Bild wie der Neuaufbau (rund 20 ms) kamen die
+    // sichtbaren Wochen (rund 25 ms) dazu, ein Bild über 60 ms beim Scrollen;
+    // bis dahin liegt das Standbild
+    if (this.__mcPrefillFrame) {
+      win.cancelAnimationFrame(this.__mcPrefillFrame);
+    }
+    this.__mcPrefillFrame = win.requestAnimationFrame(() => {
+      this.__mcPrefillFrame = 0;
       try {
         prefill(this);
       } catch (e) {
@@ -1014,8 +1036,12 @@ function hookMultiweekBuffer(mv, restorers) {
     if (idleLoad) {
       (win.cancelIdleCallback || win.clearTimeout).call(win, idleLoad);
     }
+    win.clearTimeout(idleWait);
     store.clear();
-    for (const name of ["__mcPreload", "__mcPre", "__mcSeen", "__mcPreloads", "__mcPrefills"]) {
+    if (mv.__mcPrefillFrame) {
+      win.cancelAnimationFrame(mv.__mcPrefillFrame);
+    }
+    for (const name of ["__mcPreload", "__mcPre", "__mcSeen", "__mcPreloads", "__mcPrefills", "__mcPrefillFrame"]) {
       delete mv[name];
     }
     for (const [name, own, fn] of saved) {

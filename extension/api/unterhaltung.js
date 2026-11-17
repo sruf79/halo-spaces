@@ -313,8 +313,44 @@ class ConversationCards {
     cards.forEach(card => this.observer.observe(card));
     const sel = cards.find(c => c.classList.contains("mc-selected"));
     if (sel && sel != cards[0]) {
-      win.requestAnimationFrame(() => sel.scrollIntoView({ block: "start" }));
+      this.keepInView(box, sel);
     }
+  }
+
+  // gewählte Karte oben halten, bis der Nutzer selbst scrollt: die Karten
+  // darüber sind beim ersten Scrollen noch leer und wachsen erst beim Laden –
+  // vorher blieb die Ansicht oben stehen und zeigte die neueste Mail statt
+  // der gewählten (GitHub #60)
+  keepInView(box, card) {
+    const win = this.win;
+    let expected = null, height = 0;
+    const align = () => {
+      if (this.box != box || !card.isConnected) {
+        stop();
+        return;
+      }
+      card.scrollIntoView({ block: "start" });
+      expected = box.scrollTop;
+      height = box.scrollHeight;
+    };
+    // Scrollen ohne gewachsene Karten kommt vom Nutzer – dann nicht mehr eingreifen
+    const onScroll = () => {
+      if (expected != null && box.scrollHeight == height && Math.abs(box.scrollTop - expected) > 2) {
+        stop();
+      }
+    };
+    const resize = new win.ResizeObserver(() => align());
+    const stop = () => {
+      resize.disconnect();
+      box.removeEventListener("scroll", onScroll);
+    };
+    this.keepStop?.();
+    this.keepStop = stop;
+    for (const c of box.querySelectorAll(".mc-conv-card")) {
+      resize.observe(c);
+    }
+    box.addEventListener("scroll", onScroll, { passive: true });
+    win.requestAnimationFrame(align);
   }
 
   // Mehrere Mails markiert: wie Apple Mail die oberste (erste in der Liste)
@@ -363,6 +399,8 @@ class ConversationCards {
     if (!card?.isConnected || card.classList.contains("mc-selected")) {
       return;
     }
+    // andere Karte angeklickt: nicht mehr zur zuerst gewählten zurückspringen
+    this.keepStop?.();
     for (const c of card.parentNode.querySelectorAll(".mc-conv-card.mc-selected")) {
       c.classList.remove("mc-selected");
     }

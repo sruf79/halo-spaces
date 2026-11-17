@@ -2937,6 +2937,53 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Konversation verschwindet beim Ordnerwechsel ohne neue Auswahl", conversation_folder_switch, results)
 
+    def conversation_right_mail():
+        # GitHub #60: die Karten zeigen die gewählte Mail – auch wenn sie in einer langen Konversation weiter unten
+        # liegt und die Karten darüber erst nach dem Hinscrollen fertig laden (wachsen)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const f = folder("KonvRichtig");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", ...Array.from({ length: 60 }, (_, n) => `Zeile ${n + 1} von ${id}.`), ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            const add = (...a) => f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail(...a));
+            add("Halo Richtig", "halo-richtig-1", null, 100); add("Re: Halo Richtig", "halo-richtig-2", "halo-richtig-1", 90);
+            add("Re: Halo Richtig", "halo-richtig-3", "halo-richtig-2", 80); add("Re: Halo Richtig", "halo-richtig-4", "halo-richtig-3", 70);
+            await bis(() => f.getTotalMessages(false) >= 4, "Testmails gespeichert", 5000);
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner KonvRichtig", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.goDoCommand?.("cmd_expandAllThreads"); await ruhig(500);
+          // welche Karte steht nach dem Laden oben in der Ansicht (und ist die gewählte ganz zu sehen)
+          const pick = async id => {
+            a3.threadTree.selectedIndex = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId.startsWith(id)) ?? -1;
+            const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
+            if (!box) return { id, box: false };
+            await until(() => [...box.querySelectorAll(".mc-conv-browser")].some(b => parseFloat(b.style.height) > 100), 8000);
+            await stabil(() => [box.scrollTop, ...[...box.querySelectorAll(".mc-conv-browser")].map(b => b.style.height)], 6000); await ruhig(400);
+            const top = box.getBoundingClientRect().top;
+            const cards = [...box.querySelectorAll(".mc-conv-card")];
+            const atTop = cards.find(c => { const r = c.getBoundingClientRect(); return r.bottom > top + 40; });
+            const sel = cards.find(c => c.classList.contains("mc-selected"));
+            return { id, sel: sel?.dataset.messageId.split("@")[0], top: atTop?.dataset.messageId.split("@")[0], off: sel ? Math.round(sel.getBoundingClientRect().top - top) : null };
+          };
+          const out = { pick: [] };
+          for (const id of ["halo-richtig-1", "halo-richtig-4", "halo-richtig-2", "halo-richtig-3"]) out.pick.push(await pick(id));
+          // selbst gescrollt: die Ansicht bleibt dort, die gewählte Karte holt sie nicht zurück
+          const box = a3.document.getElementById("mcConversation");
+          if (box) { box.scrollTop = 0; await ruhig(800); out.user = box.scrollTop; }
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        p = res.get("pick") or []
+        ok = (len(p) == 4 and all(x.get("sel") == x["id"] and x.get("top") == x["id"] and x.get("off") is not None and -40 <= x["off"] <= 120 for x in p)
+              and res.get("user") == 0)
+        return ok, f"{res}"
+    check("Leseansicht: Konversation zeigt immer die gewählte Mail (GitHub #60)", conversation_right_mail, results)
+
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der
         # Uhrzeit nur bei markierten Mails; folgt Änderungen sofort

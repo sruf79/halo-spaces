@@ -671,7 +671,6 @@ function blockNativeSplitter(event) {
 // ab. An den Kontakten selbst ändert sich nichts.
 const MAC_PHOTOS_PREF = "extensions.mailcards.macContactPhotos";
 // Updates beim Start suchen und installieren (höchstens alle 6 Stunden)
-const AUTO_UPDATE_PREF = "extensions.mailcards.autoUpdate";
 const AUTO_UPDATE_LAST_PREF = "extensions.mailcards.autoUpdateLast";
 // reine Textmails in der Systemschrift (plaintext.css)
 const PLAIN_TEXT_PREF = "extensions.mailcards.plainTextSystemFont";
@@ -1554,7 +1553,6 @@ function removeOverflowButton(doc) {
 }
 
 const UNREAD_TINT_PREF = "extensions.mailcards.unreadTint";
-const SOLID_MENUS_PREF = "extensions.mailcards.solidMenus";
 const BDAY_PREF = "extensions.mailcards.birthdays";
 const BDAY_CAL_PREF = "extensions.mailcards.birthdayCalendarId";
 // iCloud hängt alten Erinnerungslisten nach dem Update der Erinnerungen-App

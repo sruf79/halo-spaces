@@ -52,8 +52,15 @@ USER_PREFS = {
     "extensions.mailcards.earlyTheme": True,
     "extensions.mailcards.senderLogos": False,
     "extensions.mailcards.hideCollectedAddresses": True,
-    "extensions.mailcards.inlinePrompts": False,
 }
+# Einstellungen alter Versionen, deren Option es nicht mehr gibt: die neue Version löscht sie beim Start
+# (REMOVED_OPTION_PREFS in implementation.js); geprüft nur, wenn das neue Paket das Aufräumen schon kennt
+REMOVED_PREFS = {
+    "extensions.mailcards.inlinePrompts": False,
+    "extensions.mailcards.showLocalFolders": False,
+    "extensions.mailcards.solidMenus": True,
+}
+EXPECT_CLEANUP = False
 
 # Zustand lesen: Version, Einstellungen, Toolbar, Chat-Knopf, Begrüßung, userChrome.css
 STATE_JS = r"""
@@ -183,6 +190,9 @@ def main():
         if not os.path.exists(new):
             sys.exit(f"{new} fehlt – zuerst ./build.sh")
         target = version_of(new)
+        global EXPECT_CLEANUP
+        with zipfile.ZipFile(new) as z:
+            EXPECT_CLEANUP = all(k in z.read("api/implementation.js").decode("utf-8", "replace") for k in REMOVED_PREFS)
         site = os.path.join(work, "site")
         os.makedirs(site)
         shutil.copy(new, os.path.join(site, "new.xpi"))
@@ -201,8 +211,10 @@ def main():
     with open(os.path.join(profile, "user.js"), "a") as f:
         # lokaler Server ohne https (nur ohne --github nötig)
         f.write('user_pref("extensions.checkUpdateSecurity", false);\n' if not args.github else "")
-        # die eigene Update-Prüfung von halo.spaces beim Start nicht dazwischenfunken lassen
+        # die eigene Update-Prüfung von halo.spaces beim Start nicht dazwischenfunken lassen: alte Versionen
+        # haben dafür einen eigenen Schalter, neue prüfen höchstens alle 6 Stunden (gerade eben geprüft)
         f.write('user_pref("extensions.mailcards.autoUpdate", false);\n')
+        f.write(f'user_pref("extensions.mailcards.autoUpdateLast", {int(time.time())});\n')
     print(f"Update {args.old} → {target} · Profil {profile}", flush=True)
 
     results = []
@@ -213,7 +225,7 @@ def main():
         before = m.js(r"""
           await wait(2000);
           for (const x of [...Services.wm.getEnumerator(null)]) if (x.location?.href.startsWith("resource://mailcards/about/halo.html")) x.close();
-          const userPrefs = """ + json.dumps(USER_PREFS) + r""";
+          const userPrefs = """ + json.dumps({**USER_PREFS, **REMOVED_PREFS}) + r""";
           for (const [k, v] of Object.entries(userPrefs)) {
             if (typeof v == "boolean") Services.prefs.setBoolPref(k, v);
             else Services.prefs.setStringPref(k, v);
@@ -318,6 +330,10 @@ def compare(results, when, before, after, target):
     results.append((f"Version {target} aktiv ({when})", after.get("version") == target and after.get("active"),
                     f"{after.get('version')} aktiv={after.get('active')}"))
     results.append((f"Einstellungen erhalten ({when})", not lost, f"verändert: {lost}" if lost else f"{len(USER_PREFS)} gleich"))
+    if EXPECT_CLEANUP:
+        left = {k: after["prefs"][k] for k in REMOVED_PREFS if k in after["prefs"]}
+        results.append((f"Einstellungen entfernter Optionen aufgeräumt ({when})", not left,
+                        f"übrig: {left}" if left else f"{len(REMOVED_PREFS)} entfernt"))
     results.append((f"angepasste Toolbar erhalten ({when})", after["toolbar"] == before["toolbar"],
                     after["toolbar"][:200] if after["toolbar"] != before["toolbar"] else "gleich"))
     results.append((f"Chat-Bereich wie gewohnt ({when})", after["chat"] and after["prefs"].get("extensions.mailcards.fifthSpace", "chat") == "chat",

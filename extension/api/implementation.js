@@ -1547,6 +1547,16 @@ const CONVERSATION_NEWEST_PREF = "extensions.mailcards.conversationNewestFirst";
 const CONVERSATION_MAX = 30;
 // frühere Schnellantwort unter der Mail (entfernt): alte Einstellung beim Start löschen
 const QUICK_REPLY_PREF = "extensions.mailcards.quickReply";
+// Optionen, die es nicht mehr gibt (17.11.2026): „On My Mac“ erscheint von
+// selbst, sobald darin etwas liegt; Menüs immer wie macOS (keine deckenden);
+// Rückfragen immer als Blatt im Fenster; Updates nach Thunderbirds eigener
+// Einstellung (Add-ons-Manager)
+const REMOVED_OPTION_PREFS = [
+  "extensions.mailcards.autoUpdate",
+  "extensions.mailcards.showLocalFolders",
+  "extensions.mailcards.solidMenus",
+  "extensions.mailcards.inlinePrompts",
+];
 class ConversationCards {
   // browser: im eigenen Nachrichtenfenster dessen Mailansicht (about:message),
   // über der die Karten liegen – sonst die Leseansicht im Hauptfenster
@@ -2721,7 +2731,7 @@ const CARD_WINDOWS = [
 ];
 
 function cardWindow(win) {
-  if (Services.appinfo.OS != "Darwin" || !Services.prefs.getBoolPref(INLINE_PROMPTS_PREF, true)) {
+  if (Services.appinfo.OS != "Darwin") {
     return;
   }
   const root = win.document.documentElement;
@@ -2757,12 +2767,11 @@ function cardWindow(win) {
 // Prompter zeigt Nachfragen eines Fensters als Kachel darin, sobald das Fenster
 // ein gDialogBox anbietet (Prompter.sys.mjs: MODAL_TYPE_INTERNAL_WINDOW). Wir
 // bieten es im Haupt- und im Verfassen-Fenster an – mit Thunderbirds eigenem
-// SubDialog (wie die Unterdialoge der Einstellungen). Ausschaltbar über
-// extensions.mailcards.inlinePrompts.
-const INLINE_PROMPTS_PREF = "extensions.mailcards.inlinePrompts";
+// SubDialog (wie die Unterdialoge der Einstellungen). Immer an, wie die
+// Blätter in Apple Mail (die Option entfiel am 17.11.2026)
 
 function installDialogBox(win, restorers) {
-  if (!Services.prefs.getBoolPref(INLINE_PROMPTS_PREF, true) || win.gDialogBox || !win.document?.documentElement) {
+  if (win.gDialogBox || !win.document?.documentElement) {
     return;
   }
   const doc = win.document;
@@ -2875,7 +2884,7 @@ function installDialogBox(win, restorers) {
 // Seiten im Fenster (Mailansicht about:3pane/about:message) fragen über ihr
 // eigenes Fenster nach – dort auf die Kachel des äußeren Fensters verweisen
 function shareDialogBox(win, restorers) {
-  if (!Services.prefs.getBoolPref(INLINE_PROMPTS_PREF, true) || Object.getOwnPropertyDescriptor(win, "gDialogBox")) {
+  if (Object.getOwnPropertyDescriptor(win, "gDialogBox")) {
     return;
   }
   Object.defineProperty(win, "gDialogBox", {
@@ -6181,7 +6190,8 @@ function cleanupAfterUninstall() {
 // Adressbuch: „Collected Addresses“ (automatisch gesammelte Empfänger) nicht
 // in der Seitenleiste – Apple Kontakte kennt so etwas nicht (Apple Mail führt
 // sie getrennt als „Frühere Empfänger“). Das Adressbuch selbst bleibt, die
-// Ergänzung beim Schreiben funktioniert weiter. Einstellung, Standard: aus.
+// Ergänzung beim Schreiben funktioniert weiter. Einblenden über das „…“-Menü
+// der Kontaktliste (wie das persönliche Adressbuch), Standard: ausgeblendet.
 const HIDE_COLLECTED_PREF = "extensions.mailcards.hideCollectedAddresses";
 
 function hookCollectedAddresses(cw, restorers) {
@@ -6192,13 +6202,47 @@ function hookCollectedAddresses(cw, restorers) {
   }
   books.__mcCollected = true;
   const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+  const collected = () => {
+    try {
+      return MailServices.ab.directories.find(d => d.dirPrefId == "ldap_2.servers.history") || null;
+    } catch {
+      return null; // gewollt: Adressbücher nicht lesbar, gesammelte nicht markiert
+    }
+  };
+  // abhakbarer Eintrag im „…“-Menü der Kontaktliste, gleich unter dem für
+  // das persönliche Adressbuch (hookPersonalBook)
+  const menu = doc.getElementById("sortContext");
+  let item = null;
+  const updateItem = () => {
+    const dir = collected();
+    item.hidden = !dir;
+    item.setAttribute("label", tr("Show Address Book “{name}”", { name: dir?.dirName || "" }));
+    item.toggleAttribute("checked", !Services.prefs.getBoolPref(HIDE_COLLECTED_PREF, true));
+    const pab = doc.getElementById("mcShowPersonalBook");
+    if (pab && pab.nextElementSibling != item) {
+      pab.after(item);
+    }
+  };
+  if (menu && !doc.getElementById("mcShowCollected")) {
+    item = doc.createXULElement("menuitem");
+    item.id = "mcShowCollected";
+    item.setAttribute("type", "checkbox");
+    item.addEventListener("command", () => {
+      // Standard (ausgeblendet) nicht im Profil speichern
+      if (item.hasAttribute("checked")) {
+        Services.prefs.setBoolPref(HIDE_COLLECTED_PREF, false);
+      } else {
+        Services.prefs.clearUserPref(HIDE_COLLECTED_PREF);
+      }
+    });
+    menu.append(item);
+    menu.addEventListener("popupshowing", updateItem);
+    updateItem();
+  }
   const mark = () => {
     const hide = Services.prefs.getBoolPref(HIDE_COLLECTED_PREF, true);
     doc.documentElement.toggleAttribute("mc-hide-collected", hide);
-    let uid = null;
-    try {
-      uid = MailServices.ab.directories.find(d => d.dirPrefId == "ldap_2.servers.history")?.UID;
-    } catch {} // gewollt: Adressbücher nicht lesbar, gesammelte nicht markiert
+    const uid = collected()?.UID || null;
     for (const row of books.querySelectorAll(":scope > li")) {
       row.toggleAttribute("data-mc-collected", !!uid && row.dataset.uid == uid);
     }
@@ -6222,6 +6266,8 @@ function hookCollectedAddresses(cw, restorers) {
   restorers?.push(() => {
     detach();
     cw.removeEventListener("unload", detach);
+    menu?.removeEventListener("popupshowing", updateItem);
+    item?.remove();
     doc.documentElement.removeAttribute("mc-hide-collected");
     delete books.__mcCollected;
   });
@@ -6618,15 +6664,8 @@ function hookFolderContextExtras(a3, restorers) {
   const filters = make("mcFolderRunFilters", "applyFilters", "cmd_applyFilters", tr("Apply Rules"));
   const eraseJunk = make("mcFolderEraseJunk", "deleteJunk", "cmd_deleteJunk", tr("Erase Junk Mail"));
   anchor.after(byDate, junk, filters, eraseJunk);
-  // „On My Mac“ ausblenden – ganz unten im Kontextmenü dieser Zeile; wieder
-  // einblenden über die Einstellungen
-  const hideSep = doc.createXULElement("menuseparator");
-  hideSep.id = "mcFolderHideLocalSep";
-  const hideLocal = doc.createXULElement("menuitem");
-  hideLocal.id = "mcFolderHideLocal";
-  hideLocal.setAttribute("label", tr("Hide “{name}”", { name: localFoldersName() }));
-  hideLocal.addEventListener("command", () => Services.prefs.setBoolPref(SHOW_LOCAL_PREF, false));
-  popup.append(hideSep, hideLocal);
+  // „On My Mac“ lässt sich nicht ausblenden: wie Apple Mail erscheint es von
+  // selbst, sobald darin etwas liegt (decorateFolders)
   const onShow = event => {
     if (event.target != popup) {
       return;
@@ -6637,22 +6676,14 @@ function hookFolderContextExtras(a3, restorers) {
     junk.hidden = !mail || folder.server?.type == "nntp" || folder.server?.type == "rss";
     filters.hidden = !mail || !folder.server?.canHaveFilters;
     eraseJunk.hidden = junk.hidden || !folder.getFlag(Ci.nsMsgFolderFlags.Junk);
-    const isLocal = !!folder?.isServer && folder.server?.type == "none";
-    hideSep.hidden = hideLocal.hidden = !isLocal;
   };
   popup.addEventListener("popupshowing", onShow);
-  // Einstellung geändert: Ordnerliste neu beschriften
-  const onPref = () => enhancer?.decorateFolders?.(a3);
-  Services.prefs.addObserver(SHOW_LOCAL_PREF, onPref);
   restorers.push(() => {
     popup.removeEventListener("popupshowing", onShow);
-    Services.prefs.removeObserver(SHOW_LOCAL_PREF, onPref);
     byDate.remove();
     junk.remove();
     filters.remove();
     eraseJunk.remove();
-    hideSep.remove();
-    hideLocal.remove();
   });
 }
 
@@ -7959,6 +7990,10 @@ class CardEnhancer {
     this.restorers.push(() => Services.prefs.removeObserver(ROWS_PREF, rowsObs));
     this.applyToolbarOnce();
     Services.prefs.clearUserPref(QUICK_REPLY_PREF); // (Schnellantwort entfernt)
+    // entfernte Optionen (17.11.2026): alte Werte nicht im Profil lassen
+    for (const pref of REMOVED_OPTION_PREFS) {
+      Services.prefs.clearUserPref(pref);
+    }
     // Suche über alle Konten und Treffer als einfache Liste (Einstellungen →
     // Allgemein) – einmalig, wer es danach abschaltet, behält das
     if (!Services.prefs.getBoolPref("extensions.mailcards.searchApplied", false)) {
@@ -17512,26 +17547,6 @@ class CardEnhancer {
         sss.unregisterSheet(tint, sss.USER_SHEET);
       }
     });
-    // Deckende Menüs (Option, Standard aus) – schaltet sofort um
-    const solid = Services.io.newURI(`resource://mailcards/solid-menus.css?v=${extensionVersion}`);
-    const applySolid = () => {
-      const on = Services.prefs.getBoolPref(SOLID_MENUS_PREF, false);
-      const has = sss.sheetRegistered(solid, sss.USER_SHEET);
-      if (on && !has) {
-        sss.loadAndRegisterSheet(solid, sss.USER_SHEET);
-      } else if (!on && has) {
-        sss.unregisterSheet(solid, sss.USER_SHEET);
-      }
-    };
-    const solidObs = { observe: applySolid };
-    Services.prefs.addObserver(SOLID_MENUS_PREF, solidObs);
-    applySolid();
-    this.restorers.push(() => {
-      Services.prefs.removeObserver(SOLID_MENUS_PREF, solidObs);
-      if (sss.sheetRegistered(solid, sss.USER_SHEET)) {
-        sss.unregisterSheet(solid, sss.USER_SHEET);
-      }
-    });
     // ::part-Regeln gelten nur aus Author-Stylesheets (siehe parts.css)
     if (Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true)) {
       const parts = Services.io.newURI(`resource://mailcards/parts.css?v=${extensionVersion}`);
@@ -18238,11 +18253,11 @@ class CardEnhancer {
   }
 
   // Beim Start nach einem Update suchen und es gleich installieren – höchstens
-  // alle 6 Stunden, und nur wenn automatische Updates erlaubt sind (eigener
-  // Schalter, Thunderbirds Einstellung und die des Add-ons im Add-ons-Manager)
+  // alle 6 Stunden, und nur wenn automatische Updates erlaubt sind
+  // (Thunderbirds Einstellung und die des Add-ons im Add-ons-Manager; einen
+  // eigenen Schalter gibt es seit 17.11.2026 nicht mehr)
   async autoUpdate() {
     try {
-      const own = Services.prefs.getBoolPref(AUTO_UPDATE_PREF, true);
       const now = Math.floor(Date.now() / 1000);
       const last = Services.prefs.getIntPref(AUTO_UPDATE_LAST_PREF, 0);
       if (last && now - last < 6 * 3600 && now >= last) {
@@ -18254,7 +18269,7 @@ class CardEnhancer {
         return;
       }
       const mode = addon.applyBackgroundUpdates;
-      const allowed = own && (mode == AddonManager.AUTOUPDATE_ENABLE ||
+      const allowed = (mode == AddonManager.AUTOUPDATE_ENABLE ||
         (mode == AddonManager.AUTOUPDATE_DEFAULT && AddonManager.autoUpdateDefault));
       Services.prefs.setIntPref(AUTO_UPDATE_LAST_PREF, now);
       const result = await this.findUpdate();
@@ -20022,8 +20037,8 @@ class CardEnhancer {
           setText(header, L.favourites);
         }
       }
-      // leer oder vom Nutzer ausgeblendet (Einstellung bzw. Kontextmenü)
-      const hideLocal = localIsEmpty() || !Services.prefs.getBoolPref(SHOW_LOCAL_PREF, true);
+      // wie Apple Mail: nur ausgeblendet, solange nichts darin liegt
+      const hideLocal = localIsEmpty();
       for (const li of tree.querySelectorAll('li[is="folder-tree-row"]')) {
         const modeLi = li.closest("li[data-mode]");
         const mode = modeLi?.dataset.mode;
@@ -22015,14 +22030,10 @@ class CardEnhancer {
 
 // Einstellungen der Optionsseite: Schlüssel → Pref (Typ), nur diese sind erlaubt
 // (Vorschauzeilen: Menü Ansicht, Geburtstage: Häkchen in der Kalenderliste)
-const SHOW_LOCAL_PREF = "extensions.mailcards.showLocalFolders";
 const SETTINGS = {
-  showLocalFolders: [SHOW_LOCAL_PREF, "bool", true],
   unreadTint: [UNREAD_TINT_PREF, "bool", false],
-  solidMenus: [SOLID_MENUS_PREF, "bool", false],
   sidebarGlow: [GLOW_PREF, "bool", true],
   earlyTheme: [EARLY_THEME_PREF, "bool", false],
-  inlinePrompts: [INLINE_PROMPTS_PREF, "bool", true],
   composeFormatBar: [COMPOSE_FORMAT_PREF, "bool", false],
   fullConversation: [CONVERSATION_PREF, "bool", true],
   conversationNewestFirst: [CONVERSATION_NEWEST_PREF, "bool", true],
@@ -22031,11 +22042,7 @@ const SETTINGS = {
   macContactPhotos: [MAC_PHOTOS_PREF, "bool", false],
   senderLogos: [SENDER_LOGOS_PREF, "bool", true],
   plainTextSystemFont: [PLAIN_TEXT_PREF, "bool", true],
-  autoUpdate: [AUTO_UPDATE_PREF, "bool", true],
-  hideCollectedAddresses: [HIDE_COLLECTED_PREF, "bool", true],
   calendarOffline: ["extensions.mailcards.calendarOffline", "bool", false],
-  appleIcons: ["extensions.mailcards.appleIcons", "bool", true],
-  bundledTheme: ["extensions.mailcards.bundledTheme", "bool", true],
   debug: ["extensions.mailcards.debug", "bool", false],
   // Thunderbirds eigene Umfärbung von HTML-Mails im Dunkelmodus (ab Thunderbird 13x);
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
@@ -22120,9 +22127,10 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           openLocationSettings();
         },
         async setSetting(key, value) {
-          // eigene Reihenfolge der Bereiche: nur zurücksetzen (geändert wird per Ziehen)
-          if (key == "spacesOrderCustom") {
-            if (!value) {
+          // Knopf „Reset“ in der Fehlerbehebung: ursprüngliche Reihenfolge der
+          // Bereiche (geändert wird sie per Ziehen in der Leiste)
+          if (key == "spacesOrderReset") {
+            if (value) {
               Services.prefs.clearUserPref(SPACES_ORDER_PREF);
             }
             return SpacesOrder.isCustom();

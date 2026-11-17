@@ -174,8 +174,8 @@ No `userChrome.css` is needed. An older copy of this theme in your profile's
 ### Options
 
 Options that belong to a view are set right there: preview lines under
-**View → Preview Lines**, contact photos in the list's **…** menu, and the
-Birthdays calendar with its checkbox in the calendar list. Everything else is
+**View → Preview Lines**, contact photos and the Collected Addresses book in
+the contact list's **…** menu, and the Birthdays calendar with its checkbox in the calendar list. Everything else is
 in **Settings → halo.spaces** (also via **Help → halo.spaces → Settings…**).
 Changes take effect right away unless noted.
 

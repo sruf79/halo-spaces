@@ -12067,6 +12067,10 @@ class CardEnhancer {
     // Erweiterung und Tabs ohne Seitenleiste: kein Schein, Linie neutral
     const GLOW_MODES = new Set(["mail3PaneTab", "calendar", "tasks", "chat", "addressBookTab", "preferencesTab"]);
     const GLOW_HAUCH = new Set(["preferencesTab"]);
+    // Kachel je Bereich: beim Wechsel meldet Thunderbird den neuen Tab, bevor die Kachel „current“ wird – bis
+    // beide zusammenpassen, bleibt der Schein stehen (sonst kurz Farbe und Höhe der vorigen Kachel im neuen Bereich)
+    const GLOW_TILE = { mail3PaneTab: "mailButton", calendar: "calendarButton", tasks: "tasksButton", chat: "chatButton",
+      addressBookTab: "addressBookButton", preferencesTab: "settingsButton" };
     const GLOW_TILT = 30; // px je Kachel Abstand zur mittleren Kachel (Vorschau sidebar-c5)
     const GLOW_VARS = ["--mt-glow-y", "--mt-glow-tilt", "--mt-glow-c", "--mt-glow-top", "--mt-glow-bottom", "--mt-glow-w", "--mt-glow-h",
       "--mt-glow-paint", "--mt-glow-line-img", "--mt-glow-c-oben", "--mt-glow-c-unten"];
@@ -12109,7 +12113,10 @@ class CardEnhancer {
     let glowEl = null;
     let glowRo = null;
     let glowFrame = 0;
-    const glowSet = (el, vals, kind = "true") => {
+    // (keep: nur das Attribut abnehmen, die Variablen bleiben stehen – sie wirken nur mit mc-glow, und beim
+    // nächsten Besuch des Bereichs muss so nichts neu ins style-Attribut geschrieben werden, das sonst bei jedem
+    // Wechsel das Nachmessen der Seitenleiste und der Toolbar anstößt)
+    const glowSet = (el, vals, kind = "true", keep = false) => {
       if (!el) {
         return;
       }
@@ -12125,7 +12132,9 @@ class CardEnhancer {
           }
         } else {
           el.removeAttribute("mc-glow");
-          GLOW_VARS.forEach(p => el.style.removeProperty(p));
+          if (!keep) {
+            GLOW_VARS.forEach(p => el.style.removeProperty(p));
+          }
         }
       } catch {} // gewollt: Dokument des Bereichs schon geschlossen
     };
@@ -12144,9 +12153,15 @@ class CardEnhancer {
       let [el, , win] = glowOn && GLOW_MODES.has(mode) ? sidebarFor(tab) : [];
       if (!tile || !el || !win) {
         el = null;
+      } else if (GLOW_TILE[mode] && tile.id != GLOW_TILE[mode]) {
+        return; // (Wechsel noch nicht fertig, die Klasse der Kachel meldet sich gleich)
       }
       if (glowEl != el) {
-        glowSet(glowEl, null);
+        glowSet(glowEl, null, "true", true);
+        if (glowEl && !el) {
+          // (beim Verlassen aller Bereiche mit Schein, z. B. Webseite oder Schalter aus, ganz aufräumen)
+          glowSet(glowEl, null);
+        }
         // Breite der Seitenleiste (Ziehen am Teiler, Ein-/Ausblenden) für die Flächen der Bereiche-Leiste
         try {
           glowRo?.disconnect();

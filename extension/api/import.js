@@ -729,8 +729,20 @@ const PstImport = {
       this.running = null;
     }
   },
+  // Lokale Ordner (ohne sie – neues Profil, nur Konten – legt Thunderbird sie erst bei Bedarf an)
+  localRoot() {
+    let server = null;
+    try {
+      server = MailServices.accounts.localFoldersServer;
+    } catch {}
+    if (!server) {
+      MailServices.accounts.createLocalMailAccount();
+      server = MailServices.accounts.localFoldersServer;
+    }
+    return server.rootFolder;
+  },
   async runMail(job, source, win, status, progress) {
-    const local = MailServices.accounts.localFoldersServer.rootFolder;
+    const local = this.localRoot();
     const target = await ArchiveAccount.child(local, this.folderName(source.name), win);
     if (!target) {
       job.failed.push(source.name);

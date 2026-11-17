@@ -64,3 +64,24 @@ test("Erinnern: nur für Mails, die man verschieben kann – Kontextmenü und Me
   assert.equal(Remind.canRemind([mail(0, "nntp")]), false);
   assert.equal(Remind.canRemind([{ folder: null }]), false);
 });
+
+// Prüfzeitgeber von Erinnern und Später senden: als Modul-Zeitgeber, nicht am
+// Hauptfenster – sonst endeten sie mit dem ersten Hauptfenster (ein zweites
+// bleibt offen), und start() setzte sie nie wieder auf
+for (const name of ["Remind", "SendLater"]) {
+  test(`${name}: Prüfzeitgeber hängt nicht am Hauptfenster`, () => {
+    const x = lade();
+    const obj = x[name];
+    const fenster = [];
+    const win = { setInterval: () => fenster.push("setInterval"), setTimeout: () => fenster.push("setTimeout"), clearInterval() {} };
+    x.context.Services.wm.getMostRecentWindow = () => win;
+    const modul = [];
+    x.context.setInterval = () => (modul.push("setInterval"), 1);
+    x.context.setTimeout = () => (modul.push("setTimeout"), 1);
+    x.context.clearInterval = () => {};
+    obj.ensureHeaderIndexed = () => {};
+    obj.start();
+    assert.deepEqual(fenster, []);
+    assert.ok(modul.includes("setInterval"));
+  });
+}

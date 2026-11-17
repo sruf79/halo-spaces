@@ -7,8 +7,8 @@
  * vorher schon da sind; Namen aus implementation.js (tr, log …) erst zur
  * Laufzeit. Reihe „Code: implementation.js in Module zerlegen“ 4/8.
  */
-// Outlook-Datendatei (PST) lesen – Schritt 1: Ordnerbaum mit Anzahl der Mails
-// anzeigen, noch ohne Import. Bibliothek pst-extractor (MIT), gebündelt in
+// Outlook-Datendatei (PST) lesen und als Kopie importieren (Mails nach Lokale
+// Ordner/<Name der Datei>, Ordnerbaum wie in der Datei). Bibliothek pst-extractor (MIT), gebündelt in
 // vendor/pst (Herkunft und Lizenzen dort in SOURCE.md). Die Datei wird
 // stückweise über Thunderbird gelesen, nicht ganz in den Speicher geladen.
 const PstFs = {
@@ -69,15 +69,11 @@ const PstImport = {
       return false;
     }
   },
-  // Ordnerbaum: [{ name, count, depth }], Gesamtzahl der Mails. Grenzen für
-  // Tiefe und Ordnerzahl; ein Ordner, dessen Unterordner nicht lesbar sind,
-  // fehlt nur selbst (die Bibliothek scheitert an manchen neueren PSTs aus
-  // Office 365 – vorher hing sie dabei endlos, siehe tools/pst-bundle/fix.py)
-  read(path) {
+  // Datei öffnen: { pst, close }. Scheitert die Bibliothek schon beim Öffnen,
+  // schließt sie die Datei nicht (unter Windows blieb sie dann gesperrt) –
+  // alles, was ab hier geöffnet wird, schließt close() sicher
+  openFile(path) {
     const lib = this.load();
-    // scheitert die Bibliothek schon beim Öffnen, schließt sie die Datei nicht
-    // (unter Windows blieb sie dann gesperrt) – alles, was ab hier geöffnet
-    // wird, am Ende sicher schließen
     const firstFd = PstFs.next;
     const closeAll = () => {
       for (const fd of [...PstFs.files.keys()].filter(fd => fd >= firstFd)) {
@@ -93,43 +89,502 @@ const PstImport = {
       closeAll();
       throw e;
     }
+    return {
+      pst,
+      close() {
+        try {
+          pst.close();
+        } catch {}
+        closeAll();
+      },
+    };
+  },
+  // Ordnerbaum { name, count, cls, children, ref }. Grenzen für Tiefe und
+  // Ordnerzahl; ein Ordner, dessen Unterordner nicht lesbar sind, fehlt nur
+  // selbst (die Bibliothek scheitert an manchen neueren PSTs aus Office 365 –
+  // vorher hing sie dabei endlos, siehe tools/pst-bundle/fix.py)
+  scan(pst) {
+    let n = 0, broken = 0;
+    const MAX_DEPTH = 30, MAX_FOLDERS = 10000;
+    const walk = (folder, depth) => {
+      let subs = [];
+      try {
+        subs = folder.hasSubfolders ? folder.getSubFolders() : [];
+      } catch (e) {
+        broken++;
+        log("pst folder error", String(e).slice(0, 160));
+      }
+      const out = [];
+      for (const sub of subs) {
+        if (n >= MAX_FOLDERS) {
+          break;
+        }
+        n++;
+        let cls = "";
+        try {
+          cls = sub.containerClass || "";
+        } catch {}
+        out.push({ name: sub.displayName || "?", count: sub.contentCount || 0, cls, ref: sub,
+          children: depth < MAX_DEPTH ? walk(sub, depth + 1) : [] });
+      }
+      return out;
+    };
+    const root = { name: "", count: 0, cls: "", children: walk(pst.getRootFolder(), 0) };
+    if (!n && broken) {
+      throw new Error("pst: folder tree unreadable");
+    }
+    return root;
+  },
+  // Ordnerbaum als Liste: [{ name, count, depth }], Gesamtzahl der Mails
+  read(path) {
+    const file = this.openFile(path);
     try {
       const folders = [];
-      let total = 0, broken = 0;
-      const MAX_DEPTH = 30, MAX_FOLDERS = 10000;
-      const walk = (folder, depth) => {
-        let subs = [];
-        try {
-          subs = folder.hasSubfolders ? folder.getSubFolders() : [];
-        } catch (e) {
-          broken++;
-          log("pst folder error", String(e).slice(0, 160));
-        }
-        for (const sub of subs) {
-          if (folders.length >= MAX_FOLDERS) {
-            return;
-          }
-          const count = sub.contentCount || 0;
-          total += count;
-          folders.push({ name: sub.displayName || "?", count, depth });
-          if (depth < MAX_DEPTH) {
-            walk(sub, depth + 1);
-          }
+      let total = 0;
+      const flat = (list, depth) => {
+        for (const f of list) {
+          total += f.count;
+          folders.push({ name: f.name, count: f.count, depth });
+          flat(f.children, depth + 1);
         }
       };
-      walk(pst.getRootFolder(), 0);
-      if (!folders.length && broken) {
-        throw new Error("pst: folder tree unreadable");
-      }
-      // „Top of Personal Folders“ u. Ä. als eigene Ebene weglassen, wenn nur sie oben steht
-      return { name: pst.getMessageStore?.()?.displayName || "", folders, total };
+      flat(this.scan(file.pst).children, 0);
+      return { name: file.pst.getMessageStore?.()?.displayName || "", folders, total };
     } finally {
-      try {
-        pst.close();
-      } catch {}
-      closeAll();
+      file.close();
     }
   },
+
+  // ---- Bausteine für den Import (reine Funktionen, Logik-Tests in tests/logik/pst.test.mjs)
+
+  // Art eines Ordners nach seiner Klasse; ohne Klasse wie ein Mailordner
+  kind(cls) {
+    cls = String(cls || "");
+    if (!cls || /^IPF\.(Note|Imap)(\.|$)/.test(cls)) {
+      return "mail";
+    }
+    if (/^IPF\.Contact(\.|$)/.test(cls)) {
+      return "contacts";
+    }
+    if (/^IPF\.Appointment(\.|$)/.test(cls)) {
+      return "calendar";
+    }
+    if (/^IPF\.Task(\.|$)/.test(cls)) {
+      return "tasks";
+    }
+    return "other";
+  },
+  // was importiert wird: Mailordner ohne leere Zweige, ohne Such- und
+  // Systemordner; eine einzelne leere Hülle ohne Klasse oben („Top of Personal
+  // Folders“, „Root - Mailbox“/„IPM_SUBTREE“) fällt weg. Kontakte, Kalender, Aufgaben:
+  // alle Ordner dieser Art mit Inhalt
+  plan(root) {
+    const prune = node => {
+      const children = (node.children || []).filter(c => this.kind(c.cls) == "mail").map(prune).filter(Boolean);
+      return node.count > 0 || children.length ? { ...node, children } : null;
+    };
+    let top = (root.children || []).filter(c => this.kind(c.cls) == "mail").map(prune).filter(Boolean);
+    while (top.length == 1 && !top[0].count && !top[0].cls && top[0].children.length) {
+      top = top[0].children;
+    }
+    const mail = [];
+    const flat = (list, depth, path) => {
+      for (const n of list) {
+        const p = [...path, n.name];
+        mail.push({ name: n.name, count: n.count, depth, path: p, node: n });
+        flat(n.children, depth + 1, p);
+      }
+    };
+    flat(top, 0, []);
+    const out = { mail, contacts: [], calendar: [], tasks: [] };
+    const other = list => {
+      for (const n of list || []) {
+        const k = this.kind(n.cls);
+        if (out[k] && k != "mail" && n.count > 0) {
+          out[k].push({ name: n.name, count: n.count, node: n });
+        }
+        other(n.children);
+      }
+    };
+    other(root.children);
+    return out;
+  },
+  // Ordnername in Lokale Ordner (ohne Schrägstriche und Zeilenumbrüche)
+  folderName(name) {
+    return String(name || "").replace(/[\/\\\r\n\t]+/g, "-").replace(/^\.+/, "").trim().slice(0, 120) || "Outlook";
+  },
+  // kurzer, fester Fingerabdruck eines Textes (für erzeugte Message-IDs und UIDs)
+  hash(s, rounds = 2) {
+    s = String(s);
+    let out = "";
+    for (let r = 0; r < rounds; r++) {
+      let h = (0x811c9dc5 ^ (r * 0x9e3779b9)) >>> 0;
+      for (let i = 0; i < s.length; i++) {
+        h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+      }
+      out += h.toString(16).padStart(8, "0");
+    }
+    return out;
+  },
+  uuid(s) {
+    const h = this.hash(s, 4);
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+  },
+  bare(id) {
+    return String(id || "").trim().replace(/^<|>$/g, "");
+  },
+  email(...candidates) {
+    for (const c of candidates) {
+      const e = String(c || "").trim().replace(/^<|>$/g, "");
+      if (/^[^\s@<>"]+@[^\s@<>"]+$/.test(e)) {
+        return e;
+      }
+    }
+    return "";
+  },
+  // Text als Bytefolge (je Zeichen ein Byte 0–255), UTF-8
+  utf8(s) {
+    s = String(s ?? "");
+    return unescape(encodeURIComponent(s.toWellFormed ? s.toWellFormed() : s));
+  },
+  bin(data) {
+    if (typeof data == "string") {
+      return data;
+    }
+    const parts = [];
+    for (let i = 0; i < (data?.length || 0); i += 0x8000) {
+      parts.push(String.fromCharCode.apply(null, data.subarray ? data.subarray(i, i + 0x8000) : data.slice(i, i + 0x8000)));
+    }
+    return parts.join("");
+  },
+  b64(bin) {
+    const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const out = [];
+    for (let i = 0; i < bin.length; i += 3) {
+      const n = (bin.charCodeAt(i) << 16) | ((bin.charCodeAt(i + 1) || 0) << 8) | (bin.charCodeAt(i + 2) || 0);
+      out.push(A[(n >> 18) & 63] + A[(n >> 12) & 63] + (i + 1 < bin.length ? A[(n >> 6) & 63] : "=") + (i + 2 < bin.length ? A[n & 63] : "="));
+    }
+    return out.join("");
+  },
+  // Base64 in Zeilen zu 76 Zeichen
+  b64lines(bin) {
+    const s = this.b64(bin), lines = [];
+    for (let i = 0; i < s.length; i += 76) {
+      lines.push(s.slice(i, i + 76));
+    }
+    return lines.join("\r\n");
+  },
+  // Kopfzeilen-Wert nach RFC 2047 (nur wenn nötig)
+  word(s) {
+    s = String(s ?? "").replace(/[\r\n]+/g, " ");
+    if (/^[\x20-\x7e]*$/.test(s)) {
+      return s;
+    }
+    const words = [];
+    let cur = "";
+    for (const ch of s) {
+      const b = this.utf8(ch);
+      if (cur.length + b.length > 45) {
+        words.push(cur);
+        cur = "";
+      }
+      cur += b;
+    }
+    if (cur) {
+      words.push(cur);
+    }
+    return words.map(w => `=?UTF-8?B?${this.b64(w)}?=`).join("\r\n ");
+  },
+  addr(a) {
+    const email = this.email(a?.email);
+    const name = String(a?.name ?? "").replace(/[\r\n]+/g, " ").trim();
+    if (!name || name.toLowerCase() == email.toLowerCase()) {
+      return email;
+    }
+    const n = /^[\x20-\x7e]*$/.test(name)
+      ? (/[()<>@,;:\\".[\]]/.test(name) ? `"${name.replace(/[\\"]/g, "\\$&")}"` : name)
+      : this.word(name);
+    return `${n} <${email}>`;
+  },
+  rfcDate(d) {
+    if (!d || typeof d.getTime != "function" || isNaN(d.getTime())) {
+      return "";
+    }
+    const p = n => String(n).padStart(2, "0");
+    return `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()]}, ${d.getUTCDate()} ` +
+      `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]} ${d.getUTCFullYear()} ` +
+      `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} +0000`;
+  },
+  // Kopfzeilen aus dem Original (transportMessageHeaders): [[Name, Wert]],
+  // Fortsetzungszeilen bleiben am Wert
+  headers(raw) {
+    const out = [];
+    for (const line of String(raw || "").split(/\r?\n/)) {
+      if (!line) {
+        if (out.length) {
+          break;
+        }
+        continue;
+      }
+      if (/^[ \t]/.test(line) && out.length) {
+        out[out.length - 1][1] += `\r\n${line}`;
+      } else {
+        const m = /^([!-9;-~]+):[ \t]?(.*)$/.exec(line);
+        if (m) {
+          out.push([m[1], m[2]]);
+        }
+      }
+    }
+    return out;
+  },
+  KEEP: ["from", "sender", "reply-to", "to", "cc", "subject", "date", "in-reply-to", "references"],
+  // Mail als RFC-822-Text. d: { headers (Original-Kopf, optional), from: { name,
+  // email }, to, cc: [{ name, email }], subject, date, messageId, inReplyTo,
+  // text, html, attachments: [{ name, type, data (Bytes), cid, message (d) }] }.
+  // Kopfzeilen aus dem Original gehen vor; Inhalte als Base64, Zeilenende CRLF
+  mime(d, depth = 0) {
+    const keep = new Map();
+    for (const [n, v] of this.headers(d.headers)) {
+      if (this.KEEP.includes(n.toLowerCase()) && !keep.has(n.toLowerCase())) {
+        keep.set(n.toLowerCase(), `${n}: ${v}`);
+      }
+    }
+    const head = [];
+    const put = (k, line) => {
+      if (keep.has(k)) {
+        head.push(keep.get(k));
+      } else if (line) {
+        head.push(line);
+      }
+    };
+    const list = l => (l || []).map(a => this.addr(a)).filter(Boolean).join(",\r\n ");
+    put("from", d.from && (this.addr(d.from) || null) && `From: ${this.addr(d.from)}`);
+    put("sender");
+    put("reply-to");
+    put("to", list(d.to) && `To: ${list(d.to)}`);
+    put("cc", list(d.cc) && `Cc: ${list(d.cc)}`);
+    put("subject", `Subject: ${this.word(d.subject || "")}`);
+    put("date", this.rfcDate(d.date) && `Date: ${this.rfcDate(d.date)}`);
+    if (this.bare(d.messageId)) {
+      head.push(`Message-ID: <${this.bare(d.messageId)}>`);
+    }
+    put("in-reply-to", this.bare(d.inReplyTo) && `In-Reply-To: <${this.bare(d.inReplyTo)}>`);
+    put("references");
+    head.push("MIME-Version: 1.0");
+    const body = this.body(d, depth);
+    return `${[...head, ...body.head].join("\r\n")}\r\n\r\n${body.text}\r\n`;
+  },
+  body(d, depth) {
+    let count = 0;
+    const part = (type, bin, extra = []) => ({ head: [`Content-Type: ${type}`, "Content-Transfer-Encoding: base64", ...extra], text: this.b64lines(bin) });
+    const multi = (sub, parts) => {
+      const b = `----=_halo_${depth}_${sub}_${count++}`;
+      return { head: [`Content-Type: multipart/${sub}; boundary="${b}"`],
+        text: `${parts.map(p => `--${b}\r\n${p.head.join("\r\n")}\r\n\r\n${p.text}\r\n`).join("")}--${b}--` };
+    };
+    const text = d.text ? part("text/plain; charset=UTF-8", this.utf8(d.text)) : null;
+    // (eine Angabe im HTML wie charset=Windows-1252 passte nach dem Umschreiben nicht mehr)
+    const html = d.html ? part("text/html; charset=UTF-8", this.utf8(String(d.html).replace(/(<meta\b[^>]*?charset=)(["']?)[\w.:-]+/gi, "$1$2utf-8"))) : null;
+    const main = text && html ? multi("alternative", [text, html]) : html || text || part("text/plain; charset=UTF-8", "");
+    const atts = (d.attachments || []).map(a => {
+      const name = String(a.name || "attachment").replace(/[\r\n\t"\\]+/g, "_");
+      const ascii = /^[\x20-\x7e]*$/.test(name);
+      const fn = ascii ? `filename="${name}"` : `filename*=UTF-8''${encodeURIComponent(name).replace(/['()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
+      if (a.message && depth < 3) {
+        return { head: ["Content-Type: message/rfc822", `Content-Disposition: attachment; ${fn}`], text: this.mime(a.message, depth + 1).replace(/\r\n$/, "") };
+      }
+      const type = /^[\w.+-]+\/[\w.+-]+$/.test(a.type || "") ? a.type.toLowerCase() : "application/octet-stream";
+      const cid = this.bare(a.cid);
+      return part(`${type}; name="${ascii ? name : this.word(name)}"`, this.bin(a.data || ""),
+        [`Content-Disposition: ${cid && a.inline ? "inline" : "attachment"}; ${fn}`, ...(cid ? [`Content-ID: <${cid}>`] : [])]);
+    });
+    return atts.length ? multi("mixed", [main, ...atts]) : main;
+  },
+
+  // ---- Lesen aus der PST (Bibliothek) in die einfachen Daten oben
+
+  // Elemente eines Ordners nacheinander (Fehler je Element: { error })
+  *items(folder, convert) {
+    try {
+      folder.moveChildCursorTo(0);
+    } catch {}
+    const max = (folder.contentCount || 0) + 100;
+    for (let i = 0; i < max; i++) {
+      let item;
+      try {
+        item = folder.getNextChild();
+      } catch (e) {
+        log("pst item error", String(e).slice(0, 160));
+        return;
+      }
+      if (!item) {
+        return;
+      }
+      try {
+        yield convert(item);
+      } catch (e) {
+        log("pst item error", String(e).slice(0, 160));
+        yield { error: true };
+      }
+    }
+  },
+  mailOf(msg, store, depth = 0) {
+    const s = v => (v == null ? "" : String(v));
+    const date = msg.clientSubmitTime || msg.messageDeliveryTime || null;
+    const to = [], cc = [];
+    for (let i = 0; i < (msg.numberOfRecipients || 0); i++) {
+      try {
+        const r = msg.getRecipient(i);
+        if (r) {
+          (r.recipientType == 2 ? cc : r.recipientType == 1 ? to : []).push({ name: s(r.displayName), email: this.email(r.smtpAddress, r.emailAddress) });
+        }
+      } catch {}
+    }
+    const attachments = [];
+    for (let i = 0; i < (msg.numberOfAttachments || 0); i++) {
+      try {
+        const a = msg.getAttachment(i);
+        const name = s(a.longFilename || a.filename || a.displayName) || "attachment";
+        // 5: eingebettete Nachricht (weitergeleitete Mail als Anhang)
+        if (a.attachMethod == 5) {
+          const inner = depth < 3 && a.embeddedPSTMessage;
+          if (inner) {
+            attachments.push({ name: name.endsWith(".eml") ? name : `${name}.eml`, message: this.mailOf(inner, store, depth + 1) });
+          }
+          continue;
+        }
+        const stream = a.fileInputStream;
+        const len = stream ? Number(stream.length) : 0;
+        const data = new Uint8Array(len);
+        if (len) {
+          stream.read(data);
+        }
+        attachments.push({ name, type: s(a.mimeTag), data, cid: s(a.contentId), inline: !!a.contentId && !!msg.bodyHTML });
+      } catch (e) {
+        log("pst attachment error", String(e).slice(0, 160));
+      }
+    }
+    let flagged = false;
+    try {
+      flagged = msg.getIntItem(0x1090) == 2; // PidTagFlagStatus: 2 = markiert
+    } catch {}
+    const subject = s(msg.subject);
+    return {
+      headers: s(msg.transportMessageHeaders), subject, date,
+      from: { name: s(msg.senderName || msg.sentRepresentingName), email: this.email(msg.senderEmailAddress, msg.sentRepresentingEmailAddress) },
+      to, cc, text: s(msg.body), html: s(msg.bodyHTML), attachments,
+      messageId: this.bare(msg.internetMessageId) || `pst.${this.hash(`${store}|${s(msg.descriptorNodeId)}|${subject}|${date?.getTime?.()}`)}@halo.spaces`,
+      inReplyTo: s(msg.inReplyToId), read: !!msg.isRead, flagged,
+    };
+  },
+  // was der Assistent und der Import brauchen: { name, mail: [{ name, count,
+  // depth, path, items() }] } – items() liefert die Mails nacheinander
+  source(pst, name) {
+    const plan = this.plan(this.scan(pst));
+    const wrap = list => list.map(f => ({ name: f.name, count: f.count, depth: f.depth, path: f.path,
+      items: () => this.items(f.node.ref, m => this.mailOf(m, name)) }));
+    return { name, mail: wrap(plan.mail) };
+  },
+
+  // ---- Import in Lokale Ordner/<Name der Datei>
+
+  running: null,
+  copyFile(path, dest, flags) {
+    return new Promise(resolve => {
+      const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+      file.initWithPath(path);
+      MailServices.copy.copyFileMessage(file, dest, null, false, flags, "", {
+        QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
+        onStartCopy() {}, onProgress() {}, setMessageKey() {}, getMessageId() {},
+        onStopCopy: status => resolve(Components.isSuccessCode(status)),
+        OnStartCopy() {}, OnProgress() {}, SetMessageKey() {}, GetMessageId() {},
+        OnStopCopy: status => resolve(Components.isSuccessCode(status)),
+      }, null);
+    });
+  },
+  async addMessage(d, dest) {
+    let path = null;
+    try {
+      path = await IOUtils.createUniqueFile(PathUtils.tempDir, "halo-pst.eml", 0o600);
+      await IOUtils.writeUTF8(path, this.mime(d));
+      const flags = (d.read ? Ci.nsMsgMessageFlags.Read : 0) | (d.flagged ? Ci.nsMsgMessageFlags.Marked : 0);
+      return await this.copyFile(path, dest, flags);
+    } catch (e) {
+      log("pst import error", String(e).slice(0, 160));
+      return false;
+    } finally {
+      if (path) {
+        await IOUtils.remove(path).catch(() => {});
+      }
+    }
+  },
+  // Mails aus source (siehe source()) als Kopie importieren; ein zweiter Lauf
+  // überspringt Mails, deren Message-ID im Zielordner schon steht
+  async run(source, win, status = () => {}, progress = () => {}) {
+    if (this.running) {
+      return null;
+    }
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failedMessages: 0, failed: [], done: [] };
+    this.running = job;
+    try {
+      const local = MailServices.accounts.localFoldersServer.rootFolder;
+      const target = await ArchiveAccount.child(local, this.folderName(source.name), win);
+      if (!target) {
+        job.failed.push(source.name);
+        return job;
+      }
+      job.target = target;
+      const dests = new Map();
+      for (const f of source.mail || []) {
+        if (job.stop) {
+          break;
+        }
+        const parent = f.path.length > 1 ? dests.get(f.path.slice(0, -1).join("\u0000")) : target;
+        const dest = parent && await ArchiveAccount.child(parent, this.folderName(f.name), win);
+        if (!dest) {
+          job.failed.push(f.name);
+          progress(f, { state: "failed", copied: 0, total: f.count });
+          continue;
+        }
+        dests.set(f.path.join("\u0000"), dest);
+        job.folders++;
+        const have = new Set(ArchiveAccount.messages(dest).map(h => h.messageId));
+        let mine = 0, failed = 0;
+        status(tr("Importing {folder}…", { folder: f.name }));
+        progress(f, { state: "busy", copied: 0, total: f.count });
+        for (const d of typeof f.items == "function" ? f.items() : f.items || []) {
+          if (job.stop) {
+            break;
+          }
+          const id = this.bare(d?.messageId);
+          if (!d || d.error) {
+            failed++;
+          } else if (id && have.has(id)) {
+            job.skipped++;
+          } else if (await this.addMessage(d, dest)) {
+            id && have.add(id);
+            job.copied++;
+            mine++;
+          } else {
+            failed++;
+          }
+          progress(f, { state: "busy", copied: mine, total: f.count });
+          // (der Assistent bleibt bedienbar, auch wenn ein Ordner lang ist)
+          await new Promise(r => win.setTimeout(r, 0));
+        }
+        job.failedMessages += failed;
+        if (failed) {
+          job.failed.push(f.name);
+        }
+        job.done.push({ name: f.name, path: f.path, dest, source: f.count });
+        progress(f, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: f.count, imported: dest.getTotalMessages(false) });
+      }
+      return job;
+    } finally {
+      this.running = null;
+    }
+  },
+
   async open(win) {
     const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
     fp.init(win.browsingContext, tr("Open Outlook Data File"), Ci.nsIFilePicker.modeOpen);
@@ -141,10 +596,12 @@ const PstImport = {
     }
     const bc = win.browsingContext;
     const title = tr("Outlook Data File (PST)");
-    let info;
+    let file, source;
     try {
-      info = this.read(fp.file.path);
+      file = this.openFile(fp.file.path);
+      source = this.source(file.pst, fp.file.leafName.replace(/\.(pst|ost)$/i, ""));
     } catch (e) {
+      file?.close();
       log("pst read error", e);
       // gültige Outlook-Datei, nur nicht lesbar: ehrlich sagen statt „beschädigt“
       await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title, this.isPst(fp.file.path)
@@ -152,14 +609,140 @@ const PstImport = {
         : tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
       return;
     }
-    const lines = info.folders.slice(0, 40).map(f => `${"    ".repeat(f.depth)}${f.name}: ${f.count}`);
-    if (info.folders.length > 40) {
-      lines.push("…");
-    }
-    const head = tr("{file}: {n} messages in {f} folders.", { file: fp.file.leafName, n: info.total, f: info.folders.length });
-    await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title,
-      `${head}\n\n${lines.join("\n")}\n\n${tr("Importing the messages comes in a later version.")}`);
+    this.openWizard(win, source, () => file.close());
   },
+};
+
+// Assistent „Outlook-Datendatei importieren“ (eigenes kleines Fenster wie
+// „Konto lokal archivieren“ und „Postfächer importieren“ bei Apple Mail):
+// Übersicht (Ordner mit Anzahl), Import, Fortschritt je Ordner, Abbruch,
+// Abschluss mit Anzahl je Ordner. done() schließt die Datei wieder
+PstImport.openWizard = function (mailWin, source, done = () => {}) {
+  const hw = mailWin.openDialog("resource://mailcards/about/pst.html", "_blank",
+    "chrome,dialog=yes,centerscreen,resizable=yes,width=460,height=480");
+  let tries = 0, closed = false;
+  const finish = () => {
+    if (!closed) {
+      closed = true;
+      done();
+    }
+  };
+  const wait = () => {
+    if (hw.closed || tries++ > 100) {
+      finish();
+      return;
+    }
+    const doc = hw.document;
+    if (doc?.documentURI?.startsWith("resource://mailcards/about/pst.html") && doc.readyState == "complete" && doc.body) {
+      build(doc);
+    } else {
+      mailWin.setTimeout(wait, 30);
+    }
+  };
+  mailWin.setTimeout(wait, 30);
+  const build = doc => {
+    doc.title = tr("Import Outlook Data File");
+    const el = (tag, cls, text) => {
+      const e = doc.createElement(tag);
+      if (cls) {
+        e.className = cls;
+      }
+      if (text != null) {
+        e.textContent = text;
+      }
+      return e;
+    };
+    const h1 = el("h1", null, tr("Import “{name}”", { name: source.name }));
+    const summary = el("p", "summary");
+    const list = el("div", "folders");
+    const table = el("table");
+    list.append(table);
+    const target = PstImport.folderName(source.name);
+    const note = el("p", "note", tr("The messages are copied to Local Folders under {target}. The Outlook data file stays unchanged.", { target }));
+    const cancel = el("button", "capsule");
+    const start = el("button", "capsule primary");
+    cancel.append(el("span", "label", tr("Cancel")));
+    start.append(el("span", "label", tr("Import")));
+    const buttons = el("div", "buttons");
+    buttons.append(cancel, start);
+    doc.body.replaceChildren(h1, summary, list, note, buttons);
+    const rows = new Map();
+    table.replaceChildren(...source.mail.map(f => {
+      const tr0 = el("tr");
+      const name = el("td", "name", f.name);
+      name.style.paddingInlineStart = `${12 + f.depth * 14}px`;
+      const num = el("td", "num", String(f.count));
+      tr0.append(name, num);
+      rows.set(f, { tr: tr0, num });
+      return tr0;
+    }));
+    const total = source.mail.reduce((a, f) => a + f.count, 0);
+    summary.textContent = tr("{n} messages in {f} folders", { n: total, f: source.mail.length });
+    start.disabled = !total;
+    let phase = "overview";
+    const progress = (f, st) => {
+      const r = rows.get(f);
+      if (!r) {
+        return;
+      }
+      r.tr.dataset.state = st.state;
+      if (st.state == "busy") {
+        r.num.textContent = st.total ? `${st.copied} / ${st.total}` : "…";
+        r.tr.scrollIntoView({ block: "nearest" });
+      } else if (st.imported != null) {
+        // Abschluss: Anzahl in der Datei und im Zielordner
+        r.num.textContent = st.imported >= st.total ? `${st.total} ✓` : `${st.imported} / ${st.total}`;
+        if (st.imported < st.total && st.state == "done") {
+          r.tr.dataset.state = "failed";
+        }
+      }
+    };
+    cancel.addEventListener("click", () => {
+      if (phase == "running") {
+        PstImport.running && (PstImport.running.stop = true);
+      } else {
+        hw.close();
+      }
+    });
+    start.addEventListener("click", async () => {
+      if (phase == "finished") {
+        hw.close();
+        return;
+      }
+      if (phase != "overview") {
+        return;
+      }
+      phase = "running";
+      start.disabled = true;
+      cancel.querySelector(".label").textContent = tr("Stop");
+      const job = await PstImport.run(source, mailWin, text => (summary.textContent = text), progress);
+      phase = "finished";
+      finish();
+      if (hw.closed || !job) {
+        return;
+      }
+      const lines = [tr(job.stop ? "Import stopped." : "Import finished."),
+        tr("{n} messages imported in {f} folders.", { n: job.copied, f: job.folders })];
+      if (job.skipped) {
+        lines.push(tr("{n} messages were already there.", { n: job.skipped }));
+      }
+      if (job.failed.length) {
+        lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
+      }
+      summary.textContent = lines.join(" ");
+      cancel.hidden = true;
+      start.disabled = false;
+      start.querySelector(".label").textContent = tr("Done");
+    });
+    hw.addEventListener("unload", () => {
+      if (phase == "running" && PstImport.running) {
+        PstImport.running.stop = true;
+      } else {
+        finish();
+      }
+    });
+  };
+  return hw;
 };
 
 // Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle

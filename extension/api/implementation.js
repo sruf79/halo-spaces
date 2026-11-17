@@ -3615,6 +3615,13 @@ function hookMenubar(win, restorers) {
   // für den automatischen Test
   win.__mcPstRead = path => PstImport.read(path);
   win.__mcPstIsPst = path => PstImport.isPst(path);
+  // Import mit erfundenen Daten (CI hat keine PST) bzw. aus einer echten Datei
+  win.__mcPstImport = source => PstImport.run(source, win);
+  win.__mcPstWizard = source => PstImport.openWizard(win, source);
+  win.__mcPstSource = path => {
+    const file = PstImport.openFile(path);
+    return { source: PstImport.source(file.pst, PathUtils.filename(path).replace(/\.(pst|ost)$/i, "")), close: () => file.close() };
+  };
   // Link auf die Mail (mid:) – wie im Kontextmenü von Thunderbird, das ihn nicht mehr anbietet
   const copyLink = own("mcEditCopyMessageLink", "Copy Message Link", () => {
     const hdr = selected()[0];

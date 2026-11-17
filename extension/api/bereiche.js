@@ -618,6 +618,134 @@ const FifthSpace = {
     // Toolbar-Zeile, der Seite und dem Today-Knopf; neu bei jeder Größenänderung
     // der Seite (Fenster, Today-Pane)
     const webTabs = new Set();
+    // Leiste in der Farbe der Seite wie Safari mit Website-Färbung: eine
+    // Fläche hinter der Toolbar-Zeile über der Breite der Seite (#mcWebBand),
+    // Farbe am oberen Rand der Seite (Bildprobe nach dem Laden), Pfeile und
+    // Name im Kontrast; keine eindeutige Farbe → neutrale Leiste. Die Leiste
+    // folgt der Seite, nicht dem Erscheinungsbild der App. Nur der Host als
+    // Name, volle Adresse im Tooltip, kein Schloss (CSS)
+    const XHTML = "http://www.w3.org/1999/xhtml";
+    const band = () => {
+      let b = d.getElementById("mcWebBand");
+      if (!b) {
+        b = d.createElementNS(XHTML, "div");
+        b.id = "mcWebBand";
+        d.getElementById("unifiedToolbarContainer")?.prepend(b);
+      }
+      return b;
+    };
+    // vorherrschende Farbe einer Pixelreihe: mindestens 85 % gleich (auf
+    // 8er-Stufen gerundet), sonst null (Bild, Verlauf); Seiten ohne eigene
+    // Hintergrundfarbe zeigt Thunderbird weiß, sie bekommen die weiße Leiste
+    const dominant = px => {
+      const n = px.length / 4, count = new Map();
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] < 250) {
+          return null;
+        }
+        const k = (px[i] >> 3) << 10 | (px[i + 1] >> 3) << 5 | px[i + 2] >> 3;
+        const c = count.get(k) || { n: 0, r: 0, g: 0, b: 0 };
+        c.n++;
+        c.r += px[i];
+        c.g += px[i + 1];
+        c.b += px[i + 2];
+        count.set(k, c);
+      }
+      const top = [...count.values()].sort((a, b) => b.n - a.n)[0];
+      return top && top.n >= n * 0.85 ? [top.r, top.g, top.b].map(v => Math.round(v / top.n)) : null;
+    };
+    const luminance = rgb => {
+      const [r, g, b] = rgb.map(v => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const paintWeb = rgb => {
+      if (!rgb) {
+        for (const a of ["mc-web-color", "mc-web-dark", "mc-web-white"]) {
+          root.removeAttribute(a);
+        }
+        return;
+      }
+      const l = luminance(rgb);
+      root.style.setProperty("--mc-web-bg", `rgb(${rgb.join(", ")})`);
+      root.setAttribute("mc-web-color", "");
+      // Schwelle etwa 0,4: darüber dunkle Schrift, darunter weiße
+      root.toggleAttribute("mc-web-dark", l < 0.4);
+      // fast weiß: Haarlinie zur Seite
+      root.toggleAttribute("mc-web-white", l > 0.9);
+    };
+    const probeWeb = async tab => {
+      const wg = tab?.browser?.browsingContext?.currentWindowGlobal;
+      // (nur fertig geladen und mit Größe: sonst scheitert die Bildprobe mit „Data conversion failed“; nach dem
+      // Laden folgt ohnehin eine)
+      const br = tab.browser.getBoundingClientRect();
+      if (!wg || tm.currentTabInfo != tab || target.mode != "web" || tab.browser.webProgress?.isLoadingDocument || !br.width || !br.height) {
+        return;
+      }
+      let rgb = null;
+      try {
+        // nur ein schmaler Streifen am oberen Rand (die ganze Seite zu zeichnen ist teuer und scheitert bei
+        // großen Seiten mit „Data conversion failed“)
+        const bmp = await wg.drawSnapshot(new w.DOMRect(0, 0, Math.max(1, Math.round(br.width)), 4), 0.5, "white");
+        const c = d.createElementNS(XHTML, "canvas");
+        c.width = bmp.width;
+        c.height = 1;
+        const g = c.getContext("2d", { willReadFrequently: true });
+        g.drawImage(bmp, 0, 0);
+        bmp.close?.();
+        rgb = dominant(g.getImageData(0, 0, c.width, 1).data);
+      } catch (e) {
+        log("web bar color", String(e).slice(0, 120));
+      }
+      if (tm.currentTabInfo == tab && webTabs.has(tab)) {
+        paintWeb(rgb);
+      }
+    };
+    // Laden: statt des Kreisels (fällt mit dem Schloss weg) eine feine Linie
+    // am unteren Rand der Leiste, von Start bis Ende des Ladens (CSS
+    // mc-web-loading); nur für die gerade gezeigte Seite
+    const loadingWeb = tab => {
+      const on = tm.currentTabInfo == tab && webTabs.has(tab) && !!tab?.browser?.webProgress?.isLoadingDocument;
+      root.toggleAttribute("mc-web-loading", on);
+    };
+    const nameWeb = tab => {
+      const uri = tab?.browser?.currentURI, url = tab?.urlbar;
+      if (!url || !uri?.schemeIs?.("http") && !uri?.schemeIs?.("https")) {
+        return;
+      }
+      url.value = uri.host.replace(/^www\./, "");
+      url.closest(".contentTabAddress")?.setAttribute("tooltiptext", uri.spec);
+    };
+    const NOTIFY = Ci.nsIWebProgress.NOTIFY_LOCATION | Ci.nsIWebProgress.NOTIFY_STATE_WINDOW;
+    const webListener = tab => ({
+      QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+      // nach Thunderbirds eigenem Listener (setzt die volle Adresse)
+      onLocationChange(wp) {
+        if (wp?.isTopLevel !== false) {
+          w.setTimeout(() => nameWeb(tab), 0);
+        }
+      },
+      // Farbe erst nach dem Laden messen (bis dahin bleibt die alte: kein
+      // Flackern); zweite Probe für Seiten, die ihren Kopf nachträglich färben
+      onStateChange(wp, req, state) {
+        const L = Ci.nsIWebProgressListener;
+        if (wp?.isTopLevel !== false && state & L.STATE_IS_WINDOW && state & (L.STATE_START | L.STATE_STOP)) {
+          if (tm.currentTabInfo == tab) {
+            root.toggleAttribute("mc-web-loading", !!(state & L.STATE_START));
+          }
+        }
+        if (wp?.isTopLevel !== false && state & L.STATE_STOP && state & L.STATE_IS_WINDOW) {
+          w.setTimeout(() => probeWeb(tab), 50);
+          w.setTimeout(() => probeWeb(tab), 800);
+        }
+      },
+      onProgressChange() {},
+      onStatusChange() {},
+      onSecurityChange() {},
+      onContentBlockingEvent() {},
+    });
     const placeWeb = tab => {
       const box = tab?.root?.querySelector?.(".contentTabToolbox");
       const row = d.getElementById("unifiedToolbarContainer")?.getBoundingClientRect();
@@ -637,6 +765,10 @@ const FifthSpace = {
       st.setProperty("--mc-web-left", `${Math.round(left)}px`);
       st.setProperty("--mc-web-w", `${Math.max(120, Math.round(right - left))}px`);
       tab.root.setAttribute("mc-web-bar", "");
+      // Fläche der Leiste: Breite der Seite, Höhe der Toolbar-Zeile
+      band();
+      root.style.setProperty("--mc-web-band-l", `${Math.round(br.left - row.left)}px`);
+      root.style.setProperty("--mc-web-band-w", `${Math.round(br.width)}px`);
       // Adresse nur zur Anzeige: kein Fokus über die Tabulatortaste
       if (tab.urlbar) {
         tab.urlbar.tabIndex = -1;
@@ -645,11 +777,27 @@ const FifthSpace = {
         webTabs.add(tab);
         tab.__mcWebRo = new w.ResizeObserver(() => placeWeb(tab));
         tab.__mcWebRo.observe(tab.browser);
+        tab.__mcWebPl = webListener(tab);
+        tab.browser.addProgressListener(tab.__mcWebPl, NOTIFY);
+        nameWeb(tab);
+        probeWeb(tab);
       }
     };
     const unplaceWeb = tab => {
       tab.__mcWebRo?.disconnect();
       delete tab.__mcWebRo;
+      if (tab.__mcWebPl) {
+        try {
+          tab.browser?.removeProgressListener(tab.__mcWebPl);
+        } catch {}
+        delete tab.__mcWebPl;
+      }
+      // volle Adresse und Thunderbirds Tooltip-loses Adressfeld zurück
+      const uri = tab.browser?.currentURI;
+      if (tab.urlbar && uri && !uri.schemeIs("about")) {
+        tab.urlbar.value = uri.spec;
+      }
+      tab.urlbar?.closest(".contentTabAddress")?.removeAttribute("tooltiptext");
       tab.root?.removeAttribute?.("mc-web-bar");
       for (const v of ["--mc-web-top", "--mc-web-h", "--mc-web-left", "--mc-web-w"]) {
         tab.root?.style?.removeProperty(v);
@@ -670,6 +818,20 @@ const FifthSpace = {
         if (!tm.tabInfo.includes(t) || target.mode != "web") {
           unplaceWeb(t);
         }
+      }
+      if (!webTabs.size) {
+        paintWeb(null);
+        d.getElementById("mcWebBand")?.remove();
+        for (const v of ["--mc-web-bg", "--mc-web-band-l", "--mc-web-band-w"]) {
+          root.style.removeProperty(v);
+        }
+      } else if (on && target.mode == "web") {
+        probeWeb(tm.currentTabInfo);
+      }
+      if (on && target.mode == "web") {
+        loadingWeb(tm.currentTabInfo);
+      } else {
+        root.removeAttribute("mc-web-loading");
       }
     };
     const reset = () => {
@@ -756,6 +918,10 @@ const FifthSpace = {
       onTabSwitched: () => w.setTimeout(sync, 0),
     };
     tm.registerTabMonitor(monitor);
+    // Seiten mit eigenem Dunkelmodus wechseln ihre Farbe mit dem System
+    const scheme = w.matchMedia("(prefers-color-scheme: dark)");
+    const onScheme = () => w.setTimeout(() => webTabs.size && probeWeb(tm.currentTabInfo), 300);
+    scheme.addEventListener("change", onScheme);
     // Bereiche anderer Erweiterungen entstehen erst nach dem Start
     const addons = d.getElementById("spacesToolbarAddonsContainer");
     let pending = false;
@@ -778,11 +944,18 @@ const FifthSpace = {
       bar.removeEventListener("click", onBarClick, true);
       d.removeEventListener("command", onCommand, true);
       tm.unregisterTabMonitor(monitor);
+      scheme.removeEventListener("change", onScheme);
       mo?.disconnect();
       prefs.forEach(p => Services.prefs.removeObserver(p, obs));
       reset();
       for (const t of [...webTabs]) {
         unplaceWeb(t);
+      }
+      paintWeb(null);
+      root.removeAttribute("mc-web-loading");
+      d.getElementById("mcWebBand")?.remove();
+      for (const v of ["--mc-web-bg", "--mc-web-band-l", "--mc-web-band-w"]) {
+        root.style.removeProperty(v);
       }
       if (item()) {
         item().hidden = false;

@@ -19220,6 +19220,85 @@ Neu
         return ok, f"{res}"
     check("Bereichsleiste: Webseite als fünfter Bereich – Zurück/Vor und Adresse oben in der Toolbar-Zeile, Seite direkt darunter, Adressfeld nur Anzeige (kein Fokus per Klick oder Tabulator), Name zentriert ohne Rahmen", fifth_space_web_bar, results)
 
+    def fifth_space_web_color():
+        # Webseite als fünfter Bereich: die Leiste über der Seite nimmt die Farbe am oberen Rand der Seite an (blau → weiße
+        # Pfeile und Name, weiß → dunkle Schrift mit Haarlinie, dunkel → weiße Schrift), Name nur der Host, volle Adresse im
+        # Tooltip, kein Schloss; beim Laden statt des Kreisels eine feine Linie am unteren Rand, danach weg
+        import http.server
+        import threading
+        import time as _t
+        pages = {"/blau": "#1e5aa0", "/weiss": "#ffffff", "/dunkel": "#111111"}
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                bg = pages.get(self.path, "#ffffff")
+                self.wfile.write(f'<!doctype html><meta charset="utf-8"><title>Halo {self.path[1:]}</title>'
+                                 f'<body style="margin:0;background:{bg}"><h1>Halo</h1>'.encode())
+                if self.path == "/langsam":
+                    self.wfile.flush()
+                    _t.sleep(2.5)  # (fest: die Seite lädt absichtlich langsam, damit die Ladelinie messbar ist)
+                    self.wfile.write(b"<p>fertig</p>")
+
+            def log_message(self, *a):
+                pass
+        web = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=web.serve_forever, daemon=True).start()
+        P = "extensions.mailcards.fifthSpace"
+        base = f"http://127.0.0.1:{web.server_port}"
+        try:
+            res = m.js(r"""
+              w.resizeTo(1500, 900); await toMail(); await ruhig(400);
+              Services.prefs.setStringPref("extensions.mailcards.fifthSpaceUrl", "%s/blau");
+              Services.prefs.setStringPref("%s", "web"); await ruhig(500);
+              d.getElementById("chatButton").click();
+              const wt = await bis(() => tm.currentTabInfo.mode.name == "contentTab" && tm.currentTabInfo.browser?.currentURI?.spec.includes("127.0.0.1") && tm.currentTabInfo, "Webseiten-Tab", 8000);
+              const root = d.documentElement, band = () => d.getElementById("mcWebBand");
+              const rgb = c => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+              const look = () => ({ color: root.hasAttribute("mc-web-color"), bg: rgb(w.getComputedStyle(band()).backgroundColor),
+                fg: rgb(w.getComputedStyle(wt.urlbar).color), line: w.getComputedStyle(band()).boxShadow != "none",
+                name: wt.urlbar.value, tip: wt.urlbar.closest(".contentTabAddress")?.getAttribute("tooltiptext") || "",
+                lock: w.getComputedStyle(wt.root.querySelector(".contentTabSecurity")).display });
+              const go = async (path, title) => {
+                if (path) wt.browser.fixupAndLoadURIString("%s" + path, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+                await bis(() => wt.browser.contentTitle == title, title, 8000);
+                const want = { "Halo blau": [30, 90, 160], "Halo weiss": [255, 255, 255], "Halo dunkel": [17, 17, 17] }[title];
+                await until(() => root.hasAttribute("mc-web-color") && rgb(w.getComputedStyle(band()).backgroundColor).every((v, i) => Math.abs(v - want[i]) <= 6), 4000);
+                await ruhig(400); return look(); };
+              const out = { blau: await go(null, "Halo blau"), weiss: await go("/weiss", "Halo weiss"), dunkel: await go("/dunkel", "Halo dunkel") };
+              // Laden: Linie sichtbar, solange die Seite lädt, danach weg
+              const after = () => +w.getComputedStyle(band(), "::after").opacity;
+              wt.browser.fixupAndLoadURIString("%s/langsam", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+              await until(() => root.hasAttribute("mc-web-loading"), 3000); await wait(450);  // (fest: Einblenden 0,25 s abwarten)
+              out.loading = { attr: root.hasAttribute("mc-web-loading"), opacity: after(), h: Math.round(parseFloat(w.getComputedStyle(band(), "::after").height)) };
+              await bis(() => wt.browser.contentTitle == "Halo langsam" && !wt.browser.webProgress?.isLoadingDocument, "langsame Seite fertig", 8000);
+              await until(() => !root.hasAttribute("mc-web-loading"), 3000); await wait(450);  // (fest: Ausblenden 0,25 s abwarten)
+              out.loaded = { attr: root.hasAttribute("mc-web-loading"), opacity: after() };
+              return out;""" % (base, P, base, base))
+        finally:
+            m.js(r"""
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+              for (const p of ["%s", "extensions.mailcards.fifthSpaceUrl"]) Services.prefs.clearUserPref(p);
+              await toMail(); return true;""" % P)
+            web.shutdown()
+        near = lambda a, b: len(a) == 3 and all(abs(x - y) <= 6 for x, y in zip(a, b))
+        bad = []
+        for k, page, fg, line in (("blau", [30, 90, 160], [255, 255, 255], False), ("weiss", [255, 255, 255], [29, 29, 31], True),
+                                  ("dunkel", [17, 17, 17], [255, 255, 255], False)):
+            v = res.get(k) or {}
+            if not (v.get("color") and near(v.get("bg", []), page) and near(v.get("fg", []), fg) and v.get("line") == line
+                    and v.get("name") == "127.0.0.1" and v.get("tip", "").startswith(base + "/") and v.get("lock") == "none"):
+                bad.append(k)
+        ld, lf = res.get("loading") or {}, res.get("loaded") or {}
+        if not (ld.get("attr") and ld.get("opacity", 0) > 0.9 and ld.get("h") == 2):
+            bad.append("Ladelinie fehlt")
+        if lf.get("attr") or lf.get("opacity", 1) > 0.05:
+            bad.append("Ladelinie bleibt")
+        return not bad, f"{bad} {res}"
+    check("Bereichsleiste: Webseite als fünfter Bereich – Leiste in der Farbe der Seite mit Kontrast für Zurück/Vor und Name (blau, weiß mit Haarlinie, dunkel), Name nur der Host, volle Adresse im Tooltip, kein Schloss, beim Laden eine feine Linie statt Kreisel", fifth_space_web_color, results)
+
     def fifth_space():
         # fünfter Bereich der Leiste: keiner (Chat weg, übrige Knöpfe gleich groß, Bereiche-Symbol mit fünf Feldern),
         # Bereich einer Erweiterung (Chat-Platz, Chat-Farbe, Symbol der Erweiterung, eigener Knopf weg, Inhalt 1:1

@@ -8023,12 +8023,95 @@ menupopup menucaption {
   -moz-user-focus: ignore !important;
   user-select: none !important;
   caret-color: transparent !important;
-  /* Name der Webseite zentriert und ohne Rahmen */
+  /* Name der Webseite (nur der Host, volle Adresse im Tooltip) zentriert
+     und ohne Rahmen, 12 px mittel */
   text-align: center !important;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   background: transparent !important;
+  font-size: calc(12px * var(--mt-font-scale, 1)) !important;
+  font-weight: 500 !important;
+  transition: color 0.25s ease !important;
+}
+
+/* kein Schloss (auch kein Ladekreisel an seiner Stelle: der Name bliebe
+   sonst nicht ruhig in der Mitte) */
+.contentTabInstance[mc-web-bar] .contentTabSecurity {
+  display: none !important;
+}
+
+/* Fläche der Leiste in der Farbe der Seite (misst und färbt die
+   Erweiterung: --mc-web-band-l/-w, --mc-web-bg), hinter dem Inhalt der
+   Toolbar-Zeile; weicher Übergang beim Seitenwechsel. Ohne eindeutige Farbe
+   durchsichtig: neutrale Leiste. Kein Lichtschein im Webseiten-Space */
+#mcWebBand {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  inset-inline-start: var(--mc-web-band-l, 0px);
+  width: var(--mc-web-band-w, 0px);
+  background-color: transparent;
+  pointer-events: none;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+:root:not([mc-fifth-current][mc-fifth="web"]) #mcWebBand {
+  display: none;
+}
+
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color] #mcWebBand {
+  background-color: var(--mc-web-bg);
+}
+
+/* Laden: feine Linie 2 px am unteren Rand der Leiste über der Breite der
+   Seite, Kontrastfarbe mit 40 % (ohne Farbe der Seite: Textfarbe), ohne
+   Fortschritt, weich ein- und ausgeblendet (Ersatz für den Kreisel) */
+#mcWebBand::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background-color: color-mix(in srgb, var(--mc-web-fg, var(--mt-text)) 40%, transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+:root[mc-web-loading] #mcWebBand::after {
+  opacity: 1;
+}
+
+/* fast weiße Leiste: Haarlinie zur Seite; farbig oder dunkel ohne Linie */
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color][mc-web-white] #mcWebBand {
+  box-shadow: inset 0 -1px 0 var(--mt-separator);
+}
+
+/* Kontrast: Pfeile und Name dunkel auf heller, weiß auf dunkler Farbe;
+   ein gerade nicht möglicher Pfeil mit 35 % Deckkraft */
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color] {
+  --mc-web-fg: #1D1D1F;
+}
+
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color][mc-web-dark] {
+  --mc-web-fg: #FFFFFF;
+}
+
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color] .contentTabInstance[mc-web-bar] :is(.nav-button, .contentTabUrlInput) {
+  color: var(--mc-web-fg) !important;
+  fill: var(--mc-web-fg) !important;
+  stroke: var(--mc-web-fg) !important;
+}
+
+.contentTabInstance[mc-web-bar] .nav-button[disabled] {
+  opacity: 0.35 !important;
+}
+
+/* Today-Knopf auf der gefärbten Leiste im selben Kontrast */
+:root[mc-fifth-current][mc-fifth="web"][mc-web-color] #unifiedToolbarContainer:not([data-mc-tp-open]) > #mcTodayToggle {
+  color: var(--mc-web-fg) !important;
+  background-color: color-mix(in srgb, var(--mc-web-fg) 12%, transparent) !important;
 }
 
 #chat-toolbar {

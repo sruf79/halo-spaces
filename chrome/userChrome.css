@@ -3905,6 +3905,15 @@ panel {
   --autocomplete-popup-highlight-color: var(--mt-accent-text) !important;
   --autocomplete-popup-url-color: var(--mt-text-secondary) !important;
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
+  /* so breit wie das Suchfeld in voller Breite (333 px), auch wenn das Feld
+     bei wenig Platz schmaler ist, und mit dem Feld bündig: Breite und
+     Verschiebung setzt die Erweiterung beim Öffnen; sonst nur ein Wort breit
+     und die Einträge abgeschnitten */
+  --mc-suggest-min: 333px;
+  --panel-width: var(--mc-suggest-width, 333px) !important;
+  width: var(--mc-suggest-width, 333px) !important;
+  min-width: var(--mc-suggest-width, 333px) !important;
+  margin-inline-start: var(--mc-suggest-shift, 0px) !important;
 }
 
 #PopupGlodaAutocomplete .autocomplete-richlistitem[type^="gloda-"] {

@@ -4655,6 +4655,45 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Suche: Vorschlagsliste wie die übrigen Menüs (13 px, ohne harten Rand, Adressen grau)", suggestions, results)
 
+    def suggestions_width():
+        # Chat: Vorschläge der Suche oben waren nur so breit wie das (bei wenig Platz schmale) Feld bzw. ein Wort,
+        # der Eintrag abgeschnitten – jetzt so breit wie das Suchfeld in voller Breite (333 px), rechts bündig mit dem
+        # Feld, Liste und Einträge über die ganze Breite, nichts abgeschnitten; auch bei schmalem Feld
+        try:
+            res = m.js(FOLDER_JS + r"""
+              w.resizeTo(1500, 900); tm.openTab("chat", {});
+              await bis(() => tm.currentTabInfo?.mode?.name == "chat", "Chat-Tab", 6000); await ruhig(500);
+              const bar = await bis(() => [...d.querySelectorAll("#unifiedToolbarContent global-search-bar")].find(b => b.getBoundingClientRect().width > 0), "Suchfeld", 4000);
+              const inp = bar.shadowRoot.querySelector("input"), p = d.getElementById("PopupGlodaAutocomplete");
+              const R = e => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
+              const out = {};
+              for (const [k, fw] of [["voll", null], ["schmal", 120]]) {
+                if (fw) { bar.style.setProperty("max-width", fw + "px", "important"); await ruhig(300); }
+                inp.focus(); inp.value = "Anna"; inp.dispatchEvent(new w.InputEvent("input", { bubbles: true, composed: true }));
+                await bis(() => p.state == "open" && [...p.querySelectorAll("richlistitem")].some(x => x.getBoundingClientRect().height > 0), "Vorschläge offen", 5000);
+                await ruhig(300);
+                const items = [...p.querySelectorAll("richlistitem")].filter(x => x.getBoundingClientRect().height > 0);
+                out[k] = { feld: R(bar), popup: R(p), liste: R(p.querySelector("richlistbox")), items: items.map(x => R(x).w),
+                           cut: items.flatMap(x => [...x.querySelectorAll(".explanation, .ac-comment, .ac-title-text")]).filter(t => t.getBoundingClientRect().width > 0)
+                                .filter(t => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > p.getBoundingClientRect().right).length };
+                inp.value = ""; inp.dispatchEvent(new w.InputEvent("input", { bubbles: true, composed: true })); p.hidePopup(); await ruhig(300);
+              }
+              bar.style.removeProperty("max-width"); inp.blur();
+              return out;""")
+        finally:
+            m.js(FOLDER_JS + r"""for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); await toMail(); return true;""")
+        bad = []
+        for k in ("voll", "schmal"):
+            v = res.get(k) or {}
+            f, p, li = v.get("feld") or {}, v.get("popup") or {}, v.get("liste") or {}
+            if not (p.get("w", 0) >= max(332, f.get("w", 999) - 1) and abs(p.get("r", 0) - f.get("r", -9)) <= 1
+                    and li.get("w", 0) >= p.get("w", 0) - 4 and v.get("items") and min(v["items"]) >= p.get("w", 0) - 14 and v.get("cut") == 0):
+                bad.append(k)
+        if (res.get("schmal") or {}).get("feld", {}).get("w", 999) > 130:
+            bad.append("Feld nicht schmal")
+        return not bad, f"{bad} {res}"
+    check("Chat: Vorschlagsliste der Suche oben so breit wie das Suchfeld in voller Breite, rechts bündig mit dem Feld, Einträge nicht abgeschnitten (auch bei schmalem Feld)", suggestions_width, results)
+
     def customize_toolbar():
         res = m.js(FOLDER_JS + r"""
           await toMail();

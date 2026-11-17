@@ -148,6 +148,8 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   **Ein-/Ausschalter** `zsh tests/volldampf.sh an|aus|status` (nur auf neon, nur auf Zuruf des Maintainers, 17.11.2026; `docs/testrechner.md`): schreibt bzw. entfernt die Regelzeile und startet bzw. beendet die Wächter; alle Volldampf-Werte gelten nur bei aktiver Zeile.
   Auslastungswächter `tests/auslastung-schleife.zsh` (gilt für Tagesroutine und Nachtlauf, solange Volldampf aktiv ist; von Hand gestartet): startet bei Rückstand zur 48-h-Sollkurve zusätzliche Worker auf eigenen Prüfzweigen (`docs/testrechner.md` „Auslastungswächter“).
 
+- **Festlegung Alltag und Volldampf:** Zeiten, Grenzen, Modelle und Push-Regeln ohne Volldampf in `docs/alltagsmodus.md`, was nur bei „an“ gilt und der Rückfall in `docs/volldampf-regelwerk.md`.
+
 ## Release (selbstständig auf neon)
 
 ```bash

@@ -1503,7 +1503,8 @@ body:has(> #accountCentral),
   -webkit-line-clamp: 2;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: calc(12px * var(--mt-font-scale, 1));
+  /* Name 11 px halbfett wie Apple Mail, beide Zeilen bündig links */
+  font-size: calc(11px * var(--mt-font-scale, 1));
   font-weight: 600;
   line-height: 1.25;
 }
@@ -1560,20 +1561,14 @@ body:has(> #accountCentral),
   background: var(--mt-text);
 }
 
-/* gewählte Kachel in Akzentfarbe (ohne Fokus grau), ohne Rahmen */
+/* gewählte Kachel wie Apple Mail nur akzentgetönt (wie beim Überfahren),
+   Schrift in Textfarbe, Sichern-Knopf grau wie sonst; ohne Fokus grau;
+   ohne Rahmen */
 #attachmentList .attachmentItem[selected] {
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  background: var(--mt-att-tile-hover) !important;
+  color: var(--mt-text) !important;
   border-color: transparent !important;
   outline: none !important;
-}
-
-#attachmentList:focus-within .attachmentItem[selected] > .mc-att-save {
-  background: rgba(255, 255, 255, 0.22) !important;
-}
-
-#attachmentList:focus-within .attachmentItem[selected] > .mc-att-save::before {
-  background: var(--mt-accent-text);
 }
 
 #attachmentList:not(:focus-within) .attachmentItem[selected] {

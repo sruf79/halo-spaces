@@ -2262,10 +2262,15 @@ def reading_checks(m, results):
             inactive = d.documentElement.matches(":-moz-window-inactive") || !list.matches(":focus-within");
           }
           const item = list.querySelector(".attachmentItem[selected]");
-          const focused = { bg: cs(item).backgroundColor, radius: parseFloat(cs(item).borderTopLeftRadius), outline: cs(item).outlineStyle, inactive };
+          const focused = { bg: cs(item).backgroundColor, radius: parseFloat(cs(item).borderTopLeftRadius), outline: cs(item).outlineStyle, inactive,
+                            color: cs(item).color, save: cs(item.querySelector(".mc-att-save") || item).backgroundColor };
+          // Sollwerte aus den Variablen: Auswahl akzentgetönt wie beim Überfahren, Schrift in Textfarbe, Sichern-Knopf grau wie sonst
+          const want = prop => { const e = doc.createElement("div"); e.style.background = `var(${prop})`; e.style.color = "var(--mt-text)";
+            doc.documentElement.append(e); const c = [cs(e).backgroundColor, cs(e).color]; e.remove(); return c; };
+          const [tileHover, text] = want("--mt-att-tile-hover"), [saveBg] = want("--mt-att-save");
           a3.threadTree.focus(); await ruhig(300);
           const out = { list: cs(list).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
-                        bar: cs(doc.getElementById("attachmentBar")).backgroundColor, focused, unfocused: cs(item).backgroundColor,
+                        bar: cs(doc.getElementById("attachmentBar")).backgroundColor, focused, unfocused: cs(item).backgroundColor, tileHover, text, saveBg,
                         accent: (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })() };
           doc.defaultView.toggleAttachmentList?.(false); return out;""")
         f = res["focused"]
@@ -2274,8 +2279,9 @@ def reading_checks(m, results):
         if f["inactive"]:
             # Fenster trotz mehrerer Versuche nicht aktiv: die Akzentfarbe mit Fokus lässt sich nicht messen
             return ok, f"Testfenster nicht aktiv (anderes Fenster hat den Fokus) – Fokusfarbe übersprungen {res}"
-        return ok and same_color(f["bg"], res["accent"]), f"{res}"
-    check("Anhänge: Liste auf der Fläche der Mail, markierte Datei abgerundet ohne Rahmen (unfokussiert grau)", attachments, results)
+        return (ok and same_color(f["bg"], res["tileHover"]) and same_color(f["color"], res["text"]) and same_color(f["save"], res["saveBg"])
+                and not same_color(f["bg"], res["accent"])), f"{res}"
+    check("Anhänge: Liste auf der Fläche der Mail, markierte Datei abgerundet ohne Rahmen, mit Fokus akzentgetönt wie beim Überfahren mit Schrift in Textfarbe (unfokussiert grau)", attachments, results)
 
     def attachments_layout():
         # Anhänge: Liste von Anfang an offen, Chevron vor der Anzahl klappt zu und auf (Kopfzeile bleibt ruhig),
@@ -2306,7 +2312,7 @@ def reading_checks(m, results):
           const r1 = v => Math.round(v * 10) / 10;
           const tile = it => { const ic = it.querySelector(".attachmentcell-icon"), tx = it.querySelector(".mc-att-text"), sv = it.querySelector(".mc-att-save");
             const r = it.getBoundingClientRect();
-            return { w: r1(r.width), h: r1(r.height), radius: parseFloat(cs(it).borderTopLeftRadius), bg: cs(it).backgroundColor,
+            return { w: r1(r.width), h: r1(r.height), radius: parseFloat(cs(it).borderTopLeftRadius), bg: cs(it).backgroundColor, sel: it.hasAttribute("selected"),
               d: [ic, tx, sv].map(e => e ? r1(mid(e) - mid(it)) : 99), icon: [r1(ic.getBoundingClientRect().width), (ic.getAttribute("srcset") || ic.getAttribute("src") || "").replace(/^.*size=(\d+).*$/s, "$1")],
               save: sv ? { w: r1(sv.getBoundingClientRect().width), round: cs(sv).borderTopLeftRadius == "50%", pe: cs(sv).pointerEvents } : null,
               inText: !!tx?.querySelector(".attachmentcell-name") && !!tx?.querySelector(".attachmentcell-extension") && !!tx?.querySelector(".attachmentcell-size"),
@@ -2366,13 +2372,13 @@ def reading_checks(m, results):
         names = ["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt", "Plan.txt"]
         tiles_ok = (len(tiles) == 4 and all(t["h"] == 52 and t["radius"] == 10 and 150 <= t["w"] <= 240 and all(abs(d) <= 1 for d in t["d"])
                                             and t["icon"][0] == 32 and t["inText"] and t["save"] and t["save"]["round"] and t["save"]["w"] == 24
-                                            and t["save"]["pe"] == "auto" and not same_color(t["bg"], res.get("hover", "")) for t in tiles)
+                                            and t["save"]["pe"] == "auto" and (t.get("sel") or not same_color(t["bg"], res.get("hover", ""))) for t in tiles)
                     and all(t["size"] and t["size"]["text"] and not t["size"]["shown"] and 7 <= t["gap"] <= 9 for t in tiles)
                     and [t["tip"] for t in tiles] == [f"{n} ({t['size']['text']})" for n, t in zip(names, tiles)] and len({t["bg"] for t in tiles}) == 1)
         lg = res.get("long") or {}
         edge = res.get("edge") or []
         ok = (res.get("open") and res["chevron"]["shown"] and abs(res["chevron"]["x"] - 16) <= 1 and abs(res["icon"] - 16) <= 1.5
-              and res["font"] == {"count": 12, "name": 12, "weight": 600} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
+              and res["font"] == {"count": 12, "name": 11, "weight": 600} and res["line"]["border"] == 0 and res["line"]["image"] and res["line"]["pos"].startswith("16px")
               and tiles_ok and 1.9 <= lg.get("lines", 0) <= 2.1 and lg.get("clipped") and lg.get("h") == 52
               and len(edge) == 3 and all(abs(e["d"]) <= 1 for e in edge)
               and all(res["saves"]) and res["closed"] is True and res.get("rot") and res["jump"] <= 1 and res["reopened"]
@@ -19756,12 +19762,12 @@ Neu
             return False, "Testmail „Halo Anhänge“ fehlt"
         tiles = res.get("tiles") or []
         ok = (len(tiles) == 3 and all(t["save"] and t["save"]["w"] == 24 and t["save"]["round"] and 0 <= t["save"]["right"] <= 12 and abs(t["save"]["d"]) <= 1
-                                     and t["font"] == res.get("count") == 12 and t["weight"] == 600
+                                     and t["font"] == 11 and res.get("count") == 12 and t["weight"] == 600
                                      and t["size"] and t["size"]["text"] and not t["size"]["shown"] for t in tiles)
               and [t["tip"] for t in tiles] == [f"{n} ({t['size']['text']})" for n, t in zip(["Ausflug-01.txt", "Ausflug-02.txt", "Notizen.txt"], tiles)]
               and res.get("calls") == [["save", "Ausflug-02.txt"]])
         return ok, f"{res}"
-    check("Nachrichtenfenster: Anhänge als Kacheln wie im Hauptfenster – runder Download-Knopf rechts je Kachel (speichert genau diesen Anhang), Name fett in 12 px wie „n attachments“, Größe nur im Tooltip", message_window_tiles, results)
+    check("Nachrichtenfenster: Anhänge als Kacheln wie im Hauptfenster – runder Download-Knopf rechts je Kachel (speichert genau diesen Anhang), Name halbfett 11 px, Größe nur im Tooltip", message_window_tiles, results)
 
     def message_window_pill_size():
         # Kapselstücke im eigenen Fenster so groß wie in der Mail-Toolbar des Hauptfensters (3.26.0: „Allen antworten“

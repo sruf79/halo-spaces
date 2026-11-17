@@ -6,8 +6,9 @@
 // Nur was sich nicht direkt in der Oberfläche einstellen lässt (wie Apple Mail):
 // Breite der Mailliste (Trennlinie ziehen, Doppelklick), doppelte Kontakte
 // (Adressbuch → Ansicht), Vorschauzeilen (Mail → Ansicht) und Geburtstage
-// (Häkchen am Kalender „Geburtstage“ in der Kalenderliste) stehen hier
-// bewusst nicht; ihre Prefs bleiben.
+// (Häkchen am Kalender „Geburtstage“ in der Kalenderliste) und das Adressbuch
+// „Gesammelte Adressen“ („…“-Menü der Kontaktliste) stehen hier bewusst nicht;
+// ihre Prefs bleiben. type: "action" ist ein Knopf (button) statt Schalter.
 // Wenig auf einmal (wie Apple): je Zeile ein kurzer Satz, Einzelheiten im ⓘ
 // (info); Zeilen mit showIf: [Schlüssel, Werte …] erscheinen erst, wenn die
 // Option davor passt; collapsed: Abschnitt eingeklappt. Keine Gedankenstriche
@@ -30,10 +31,6 @@ var SECTIONS = t => [
       hint: t("In dark mode."), info: t("Thunderbird recolours HTML messages carefully. Images stay as they are.") },
     { key: "plainTextSystemFont", label: t("Messages in system font"),
       hint: t("Calm and easy to read."), info: t("Messages with their own font keep it. Off: Thunderbird’s fonts.") },
-    { key: "showLocalFolders", mac: true, label: t("Show “On My Mac”"), hint: t("In the folder list. Hidden while empty.") },
-    { key: "showLocalFolders", notMac: true, label: t("Show “On This Computer”"), hint: t("In the folder list. Hidden while empty.") },
-    { key: "hideCollectedAddresses", label: t("Hide “Collected Addresses”"),
-      hint: t("In the address book sidebar."), info: t("Completion while writing keeps working.") },
   ]],
   [t("Calendar"), [
     { key: "calendarEmoji", label: t("Emojis before event titles"),
@@ -46,30 +43,26 @@ var SECTIONS = t => [
       info: t("Asks open-meteo.com about every 30 minutes. Off: no symbol next to the title, no outside requests.") + " " + t("Weather data: Open-Meteo.com, CC BY 4.0") },
     { key: "weatherPlace", type: "place", showIf: ["weather", true], label: t("Place"),
       info: t("The system asks for permission once."), placeholder: t("City") },
-    { key: "calendarOffline", label: t("Offline copy for online calendars"),
-      hint: t("Faster loading."), info: t("Re-creates the calendars once.") },
   ]],
   // der fünfte Platz der Bereichsleiste (Chat, Erweiterung, Webseite, nichts) steht in den Einstellungen unter „Chat & More“
   [t("Spaces"), [
-    { key: "spacesOrderCustom", needs: "spacesOrderCustom", label: t("Own order of spaces"),
-      hint: t("Drag a space up or down in the bar. Off: original order.") },
     { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
       info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
   ]],
   [t("Appearance"), [
-    { key: "solidMenus", label: t("Solid menus"), hint: t("Without transparency.") },
-    { key: "inlinePrompts", label: t("Dialogs inside the window"),
-      hint: t("Questions appear as a sheet at the top."), info: t("Dialogs without title bar. For newly opened windows.") },
     { key: "earlyTheme", label: t("Design without flicker at start"),
       hint: t("From the next start."), info: t("Writes a userChrome.css into your profile.") },
   ]],
-  [t("Updates"), [
-    { key: "autoUpdate", label: t("Install updates at start"), hint: t("At most every 6 hours."), info: t("Active after a restart.") },
-  ]],
-  // Fehlerbehebung: nur abschalten, wenn etwas nicht stimmt (eingeklappt)
+  // Fehlerbehebung: nur, wenn etwas nicht stimmt (eingeklappt). Design und
+  // eigene Symbole lassen sich nur noch über about:config abschalten
+  // (extensions.mailcards.bundledTheme, .appleIcons), als Notausgang für Support;
+  // Updates nach Thunderbirds Einstellung im Add-ons-Manager
   [t("Troubleshooting"), [
-    { key: "bundledTheme", label: t("halo.spaces design"), hint: t("After a restart.") },
-    { key: "appleIcons", label: t("Own icons"), hint: t("After a restart.") },
+    { key: "calendarOffline", label: t("Offline copy for online calendars"),
+      hint: t("Faster loading."), info: t("Re-creates the calendars once.") },
+    // Knopf statt Schalter: die Reihenfolge ändert sich per Ziehen in der Leiste
+    { key: "spacesOrderReset", type: "action", label: t("Order of spaces"),
+      hint: t("Drag a space up or down in the bar."), button: t("Reset") },
     { key: "debug", label: t("Detailed log"),
       hint: t("mail-cards-debug.log in the profile."), info: t("Includes sender addresses.") },
   ], { collapsed: true }],

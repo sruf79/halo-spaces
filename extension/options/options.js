@@ -302,6 +302,13 @@ async function render() {
         section.append(node);
         if (row.showIf) dependent.push({ row, node });
         continue;
+      } else if (row.type == "action") {
+        // einmalige Handlung (z. B. Reihenfolge zurücksetzen): Knopf, kein gespeicherter Wert
+        control = el("button", { id, type: "button", textContent: row.button });
+        control.addEventListener("click", async () => {
+          await api.setSetting(row.key, true);
+          flash(badge);
+        });
       } else {
         control = el("input", { id, type: "checkbox", class: "switch", checked: !!settings[row.key], role: "switch" });
         control.addEventListener("change", () => save(control.checked));
@@ -310,8 +317,7 @@ async function render() {
       section.append(node);
       if (row.showIf) dependent.push({ row, node });
     }
-    // Abschnitt ohne sichtbare Zeile (z. B. „Spaces“, solange die Reihenfolge
-    // nicht eigen ist) nicht als leere Überschrift zeigen (GitHub #58)
+    // Abschnitt ohne sichtbare Zeile nicht als leere Überschrift zeigen (GitHub #58)
     if (!section.children.length) continue;
     if (opts.collapsed) {
       // eingeklappt: Überschrift als Knopf mit Pfeil

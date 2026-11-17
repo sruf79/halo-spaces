@@ -935,3 +935,101 @@ const FollowUp = {
     });
   },
 };
+
+// ---------- Codes in E-Mails (wie Apple Mail, GitHub #54) ----------
+// Bestätigungs- und Anmeldecodes erkennen und über der Mail zum Kopieren
+// anbieten. findCode ist eine reine Funktion (Logik-Tests in
+// tests/logik/codes.test.mjs): Ein Code ist eine Folge von 4–8 Ziffern (auch
+// „123 456“, „1234-5678“, „G-123456“) oder 5–8 Großbuchstaben und Ziffern
+// gemischt, die in derselben Zeile wie ein Wort wie Code/OTP/TAN steht oder
+// in einer der zwei nächsten kurzen Zeilen danach; der Betreff zählt für sich
+// und geht vor. Verworfen werden Teile größerer Zahlen (Telefonnummern,
+// Datum, Uhrzeit), Jahreszahlen, Beträge und Einheiten, Nummern nach Wörtern
+// wie Bestellnummer/Telefon, Gutschein-, Post- und Quelltext-Codes, Links und
+// Adressen. Datenschutz: Codes werden nie protokolliert oder gesendet.
+const CODE_WORD = /(\p{L}*)([ -]?)(code|código|codice|otp|passcode|pin|tan|one-time password|einmalpasswort|einmalkennwort)(?!\p{L})/giu;
+// Codes, die keine Anmelde- oder Bestätigungscodes sind
+const CODE_NOT = new Set(["bar", "qr", "source", "quell", "quelltext", "post", "postal", "zip", "area", "country", "länder",
+  "promo", "promotional", "discount", "rabatt", "gutschein", "aktions", "voucher", "coupon", "gift", "geschenk", "referral",
+  "dress", "error", "fehler", "status", "swift", "bank", "sort", "tracking", "sendungs", "de", "en", "uni", "color", "colour",
+  "farb", "html", "morse", "zahlen", "programm", "program"]);
+// direkt angehängt erlaubt: pushTAN, smsTAN, mTAN, chipTAN, photoTAN, appTAN
+const CODE_TAN_PREFIX = new Set(["push", "sms", "m", "chip", "photo", "app", "i"]);
+const CODE_LINE_NOT = /checkout|discount|rabatt|gutschein|coupon|voucher|% off|\bsale\b|angebot/i;
+const CODE_CAND = /(?<![\p{L}\p{N}_])(?:G-)?(\d{3,4}[ -]\d{3,4}|\d{4,8}|(?=[A-Z0-9]*\d)(?=[A-Z0-9]*[A-Z][A-Z0-9]*[A-Z])[A-Z0-9]{5,8})(?![\p{L}\p{N}_])/gu;
+const CODE_BEFORE_NOT = /(?<!\p{L})(?:tel|telefon|phone|fax|mobil|mobile|call|nr|no|iban|bic|blz|plz|konto|account|ref|referenz|reference|order|invoice|ticket|id|number|nummer|kundennummer|bestellnummer|rechnungsnummer|version|room|raum|zimmer)\.?:?\s*#?$/iu;
+const CODE_AFTER_NOT = /^(?:\s?[-./:,]\d|\s{1,2}\(?\d|\s?(?:€|eur\b|usd\b|chf\b|gbp\b|\$|%|uhr\b|h\b|min\b|km\b|kg\b|mb\b|gb\b|px\b|cm\b|mm\b))/iu;
+
+// Wörter wie Code/OTP/TAN in einer Zeile: [{ start, end }]
+function codeWords(line) {
+  const found = [];
+  for (const m of line.matchAll(CODE_WORD)) {
+    const prefix = m[1].toLowerCase(), joined = !m[2] && prefix, word = m[3].toLowerCase();
+    if (word == "code" || word == "código" || word == "codice") {
+      if (CODE_NOT.has(prefix) || /^\s*of conduct/i.test(line.slice(m.index + m[0].length))) {
+        continue;
+      }
+    } else if (joined && !(word == "tan" && CODE_TAN_PREFIX.has(prefix))) {
+      continue; // „Sultan“, „Spinning“ …
+    }
+    found.push({ start: m.index + m[1].length + m[2].length, end: m.index + m[0].length });
+  }
+  return found;
+}
+
+// mögliche Codes in einer Zeile: [{ code, start }]
+function codeCandidates(line) {
+  const found = [];
+  for (const m of line.matchAll(CODE_CAND)) {
+    const raw = m[1], start = m.index, end = m.index + m[0].length;
+    const groups = raw.split(/[ -]/);
+    if (groups.length == 2 && groups[0].length != groups[1].length) {
+      continue; // „555-0199“, „123 4567“: eher eine Telefonnummer
+    }
+    if (/^(?:19|20)\d\d$/.test(raw)) {
+      continue; // Jahreszahl
+    }
+    const before = line.slice(0, start), after = line.slice(end);
+    if (/[+#€$£¥]\s?$/.test(before) || /\d[\s\-./:,()]{1,2}$/.test(before) || CODE_BEFORE_NOT.test(before) || CODE_AFTER_NOT.test(after)) {
+      continue;
+    }
+    found.push({ code: groups.join(""), start });
+  }
+  return found;
+}
+
+// Code in einem Block (Betreff bzw. Mailtext); "" wenn keiner
+function codeInLines(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || CODE_LINE_NOT.test(line)) {
+      continue;
+    }
+    for (const word of codeWords(line)) {
+      const cands = codeCandidates(line);
+      const pick = cands.find(c => c.start >= word.end) || cands.filter(c => c.start < word.start).at(-1);
+      if (pick) {
+        return pick.code;
+      }
+      // „Dein Code:“ und der Code allein in einer der nächsten zwei Zeilen
+      const next = lines.slice(i + 1).filter(Boolean).slice(0, 2);
+      for (const l of next) {
+        if (l.length <= 40 && !CODE_LINE_NOT.test(l)) {
+          const c = codeCandidates(l)[0];
+          if (c) {
+            return c.code;
+          }
+        }
+      }
+    }
+  }
+  return "";
+}
+
+function findCode(subject, body) {
+  const clean = s => String(s || "")
+    .replace(/(?:https?:\/\/|www\.)\S+/gi, " ")
+    .replace(/\S+@\S+\.\S+/g, " ");
+  const lines = s => clean(s).split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim());
+  return codeInLines(lines(subject)) || codeInLines(lines(body));
+}

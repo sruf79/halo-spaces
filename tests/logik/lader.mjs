@@ -21,7 +21,7 @@ export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "p
   "UndoSend", "SendLater", "TagMenus", "Remind", "FollowUp", "Weather", "SpacesOrder", "FifthSpace",
   "PstFs", "PstImport", "ArchiveAccount", "hookArchiveAccount", "overflowPills",
   "hookMultiweekScroll", "hookMultiweekBuffer", "appleEventLayout", "hookDateTimePickers", "EMOJI_RULES",
-  "calDayKey", "calSearchMatch", "calSearchGroups", "occurrenceScope", "shiftSeriesTime",
+  "calDayKey", "calSearchMatch", "calSearchGroups", "occurrenceScope", "shiftSeriesTime", "findCode",
   "log", "LogoCache", "MacPhotos", "AvatarResolver", "EarlyTheme", "ThemeSheet"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy

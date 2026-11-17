@@ -16698,6 +16698,45 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: „Cancelled“ im Menü des Fortschrittsstrichs sagt auch eine erledigte Aufgabe ab", task_bar_cancel, results)
 
+    def task_series_repeat():
+        # Die eigenen Ansichten (Heute, Offen …) zeigen von einer Serie nur Vorkommen: „Repeat“ → „Never“ in der Detailspalte
+        # beendet die ganze Serie (vorher änderte es nur das gewählte Vorkommen, die Aufgabe wiederholte sich weiter)
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(400);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const r = new CalTodo(); r.title = "Halo Serienende"; r.calendar = c;
+          const rs = cal.dtz.now(); rs.day -= 1; rs.hour = 9; rs.minute = 0; rs.second = 0; r.entryDate = rs;
+          const ri = new CalRecurrenceInfo(r), rule = cal.createRecurrenceRule(); rule.type = "WEEKLY"; rule.interval = 1; ri.appendRecurrenceItem(rule); r.recurrenceInfo = ri;
+          const saved = await c.addItem(r);
+          const out = {};
+          try {
+            tm.openTab("tasks", {}); await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+            w.taskViewUpdate("mcTasks-all"); await ruhig(600);
+            const tree = d.getElementById("calendar-task-tree");
+            await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Serienende"), "Vorkommen in der Liste", 6000);
+            tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == "Halo Serienende"));
+            const row = icon => d.querySelector(`#mcTaskInfo .mc-ti-row[data-icon="${icon}"]`);
+            await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes("Halo Serienende") && row("repeat"), "Details", 6000);
+            await ruhig(300);
+            out.occurrence = !!tree.currentTask?.recurrenceId;
+            out.shown = row("repeat").querySelector(".mc-ti-value").textContent;
+            row("repeat").querySelector(".mc-ti-value").click();
+            const mp = await bis(() => { const x = d.getElementById("mcTaskInfoMenu"); return x?.state == "open" ? x : null; }, "Menü Repeat", 3000);
+            [...mp.children].find(x => x.getAttribute("label") == "Never")?.doCommand(); mp.hidePopup();
+            let x = null;
+            for (let i = 0; i < 40; i++) { x = await c.getItem(saved.id); if (!x?.recurrenceInfo) break; await wait(100); }
+            out.seriesLeft = !!x?.recurrenceInfo;
+          } finally {
+            for (const x of await items("Halo Serienende")) { try { await c.deleteItem(x); } catch {} }
+            for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+          }
+          return out;""")
+        ok = res.get("occurrence") is True and res.get("shown") == "Every week" and res.get("seriesLeft") is False
+        return ok, f"{res}"
+    check("Aufgaben: „Repeat“ → „Never“ an einem Vorkommen beendet die ganze Serie", task_series_repeat, results)
+
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
         # liegen nie auf Plus und Suche der Toolbar

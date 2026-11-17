@@ -9887,6 +9887,13 @@ class CardEnhancer {
               current = cur && (kept.has(cur) ? cur : cur.mcBest);
             }
             this._rowMap = rows;
+            // weggefallene Dubletten → stehen gebliebener Eintrag (für getIndexForUID)
+            this.__mcMerged ??= new Map();
+            for (const r of old) {
+              if (!kept.has(r) && r.card?.UID && r.mcBest) {
+                this.__mcMerged.set(r.card.UID, r.mcBest);
+              }
+            }
             if (picked) {
               const at = new Map(rows.map((r, i) => [r, i]));
               sel.selectEventsSuppressed = true;
@@ -9911,9 +9918,24 @@ class CardEnhancer {
         }
         return result;
       };
+      // Thunderbird sucht Kontakte über die UID in der Liste („Kontakt anzeigen“
+      // bzw. „bearbeiten“ aus dem Mailkopf, der Kontakte-Seitenleiste, der
+      // Adresssuche): eine weggefallene Dublette fand es nicht und zeigte einen
+      // anderen Kontakt – dann den stehen gebliebenen Eintrag liefern
+      const origIndex = Adapter.prototype.getIndexForUID;
+      if (typeof origIndex == "function") {
+        Adapter.prototype.getIndexForUID = function (uid) {
+          const index = origIndex.call(this, uid);
+          const best = index < 0 ? this.__mcMerged?.get(uid) : null;
+          return best ? this._rowMap.indexOf(best) : index;
+        };
+      }
       Adapter.prototype.__mcDedupe = true;
       restorers.push(() => {
         Adapter.prototype.sortBy = orig;
+        if (typeof origIndex == "function") {
+          Adapter.prototype.getIndexForUID = origIndex;
+        }
         delete Adapter.prototype.__mcDedupe;
       });
 
@@ -10150,8 +10172,15 @@ class CardEnhancer {
         menu.append(item);
         restorers.push(() => item.remove());
       }
-      // aktuelle Liste sofort bereinigen
-      cw.booksList?.dispatchEvent(new cw.CustomEvent("select"));
+      // aktuelle Liste sofort bereinigen – neu sortieren statt neu aufbauen:
+      // ein Neuaufbau verwarf die Auswahl, ein von außen geöffneter Kontakt
+      // („Kontakt anzeigen“ aus dem Mailkopf) wich dann dem zuletzt gewählten
+      const current = cw.cardsPane?.cardsList?.view;
+      if (current?.sortColumn && typeof current.sortBy == "function") {
+        current.sortBy(current.sortColumn, current.sortDirection, true);
+      } else {
+        cw.booksList?.dispatchEvent(new cw.CustomEvent("select"));
+      }
     };
 
     const styleContentPages = () => {

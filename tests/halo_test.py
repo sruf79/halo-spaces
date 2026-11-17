@@ -16045,6 +16045,61 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Zusammenführen von Dubletten lässt die Auswahl beim gewählten Kontakt, Details zeigen den verbliebenen Eintrag", ab_dedupe_selection, results)
 
+    def ab_open_from_outside():
+        # „Kontakt anzeigen“ bzw. „bearbeiten“ von außen (Stern im Mailkopf,
+        # Kontakte-Seitenleiste, Adresssuche) öffnet das Adressbuch mit diesem
+        # Kontakt. Das Zusammenführen der Dubletten baute die Liste danach neu auf
+        # und verwarf die Auswahl – die Details zeigten den zuletzt gewählten bzw.
+        # ersten Kontakt. Erwartet: derselbe Kontakt, bei einer zusammengeführten
+        # Dublette deren stehen gebliebener Eintrag
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const add = props => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            for (const [k, v] of Object.entries(props)) c.setProperty(k, v);
+            c.displayName = props.DisplayName; c.primaryEmail = props.PrimaryEmail; return book.addCard(c); };
+          const cards = [add({ DisplayName: "Anna Andere", PrimaryEmail: "anna@example.invalid" }),
+                         add({ DisplayName: "Hanna Hidden", PrimaryEmail: "hanna@example.invalid" }),
+                         add({ DisplayName: "Hanna Hidden", PrimaryEmail: "hanna@example.invalid", Company: "Hidden AG", JobTitle: "Leitung", WorkPhone: "+43 1 555" }),
+                         add({ DisplayName: "Zora Zeigen", PrimaryEmail: "zora@example.invalid" })];
+          const out = {};
+          const closeAb = async () => { const t = tm.tabInfo.find(t => t.mode?.name == "addressBookTab"); if (t) { tm.closeTab(t); } await toMail(); };
+          const cases = { single: ["cmd_displayContact", cards[3], [cards[3]]],
+            dupShow: ["cmd_displayContact", cards[1], [cards[1], cards[2]]],
+            dupEdit: ["cmd_editContact", cards[1], [cards[1], cards[2]]],
+            // Adressbuch schon offen (Dubletten schon zusammengeführt)
+            dupOpen: ["cmd_displayContact", cards[1], [cards[1], cards[2]], true] };
+          try {
+            await closeAb();
+            for (const [key, [cmd, card, want, open]] of Object.entries(cases)) {
+              if (open) {
+                const pre = await w.toAddressBook();
+                await until(() => pre.cardsPane?.cardsList?.view?.rowCount, 5000); await ruhig(600);
+              }
+              const cw = await w.toAddressBook([cmd, card]);
+              await until(() => cw.cardsPane?.cardsList?.view?.rowCount, 5000); await ruhig(600);
+              const view = cw.cardsPane.cardsList.view;
+              const rows = [...Array(view.rowCount).keys()].map(i => view.getCardFromRow(i));
+              const p = cw.detailsPane;
+              out[key] = { hanna: rows.filter(c => c?.displayName == "Hanna Hidden").length,
+                editing: !!p.isEditing, shown: p.currentCard?.displayName || "",
+                ok: want.some(c => c.UID == p.currentCard?.UID) && !!p.isEditing == (cmd == "cmd_editContact") };
+              if (p.isEditing) {
+                p.isDirty = false;
+                p.cancelEditButton?.click(); await ruhig(300);
+              }
+              await closeAb();
+            }
+          } finally {
+            book.deleteCards(cards); await ruhig(300);
+            await closeAb();
+          }
+          return out;""")
+        ok = all(res.get(k, {}).get("ok") for k in ("single", "dupShow", "dupEdit", "dupOpen")) and all(
+            res[k]["hanna"] == 1 for k in ("dupShow", "dupEdit", "dupOpen"))
+        return ok, f"{res}"
+    check("Adressbuch: Kontakt anzeigen bzw. bearbeiten von außen zeigt diesen Kontakt (auch als zusammengeführte Dublette), nicht den zuletzt gewählten", ab_open_from_outside, results)
+
     def folder_density():
         # Ordnerliste folgt Thunderbirds Dichte: „Kompakt“ niedrigere Zeilen, „Touch“ höhere (sonst fest 32 px)
         res = m.js(r"""

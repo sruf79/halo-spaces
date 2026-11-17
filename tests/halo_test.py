@@ -16662,6 +16662,42 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Detailspalte statt Bearbeiten-Dialog – All Day als Schalter, Status mit „Completed On“, Beschreibung mit Formatleiste (als HTML gespeichert), Anhänge mit „Remove“ und „Add Link…“, neue Aufgabe ohne Dialog mit Titel zum Eintippen", task_detail_fields, results)
 
+    def task_bar_cancel():
+        # Rechtsklick auf den Fortschrittsstrich, „Cancelled“: auch eine erledigte Aufgabe wird abgesagt (vorher blieb sie
+        # über Erledigt-Datum und 100 % erledigt, nur der Status wechselte unsichtbar)
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(400);
+          tm.openTab("tasks", {}); await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+          w.taskViewUpdate?.("all"); await ruhig(600);
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const t = new CalTodo(); t.title = "Halo Absage"; t.calendar = c; t.isCompleted = true;
+          await c.addItem(t);
+          const tree = d.getElementById("calendar-task-tree");
+          const cur = async () => (await items("Halo Absage"))[0];
+          const out = {};
+          try {
+            await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Absage"), "Aufgabe in der Liste", 6000);
+            tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == "Halo Absage"));
+            await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes("Halo Absage") && d.querySelector('#mcTaskInfo .mc-ti-row[data-icon="status"]'), "Details", 6000);
+            await ruhig(300);
+            out.before = (await cur())?.isCompleted;
+            d.getElementById("mcTaskProg").dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+            const p = await bis(() => { const x = d.getElementById("mcTaskInfoMenu"); return x?.state == "open" ? x : null; }, "Menü am Strich", 3000);
+            out.menu = [...p.children].map(x => x.getAttribute("label") || "-");
+            [...p.children].find(x => x.getAttribute("label") == "Cancelled")?.doCommand(); p.hidePopup();
+            for (let i = 0; i < 40 && (await cur())?.status != "CANCELLED"; i++) await wait(100);
+            const x = await cur();
+            out.after = [x?.status, x?.isCompleted];
+          } finally {
+            for (const x of await items("Halo Absage")) { try { await c.deleteItem(x); } catch {} }
+            for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+          }
+          return out;""")
+        ok = res.get("before") is True and "Cancelled" in (res.get("menu") or []) and res.get("after") == ["CANCELLED", False]
+        return ok, f"{res}"
+    check("Aufgaben: „Cancelled“ im Menü des Fortschrittsstrichs sagt auch eine erledigte Aufgabe ab", task_bar_cancel, results)
+
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
         # liegen nie auf Plus und Suche der Toolbar

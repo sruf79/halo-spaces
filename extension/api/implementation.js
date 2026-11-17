@@ -4328,7 +4328,15 @@ function hookTaskInfo(win, restorers, solo = null) {
     openMenu(bar, [
       ...[0, 25, 50, 75, 100].map(v => ({ label: `${v} %`, type: "radio", checked: pct == v && item.status != "CANCELLED", run: () => setPct(v) })),
       null,
-      { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => (it.status = "CANCELLED")) },
+      // (wie im Statusmenü: erst „nicht erledigt“ – sonst bliebe eine erledigte Aufgabe über Datum und 100 % erledigt)
+      { label: tr("Cancelled"), type: "radio", checked: item.status == "CANCELLED", run: () => save(it => {
+        const pct = it.percentComplete;
+        it.isCompleted = false;
+        it.status = "CANCELLED";
+        if (pct > 0 && pct < 100) {
+          it.percentComplete = pct;
+        }
+      }).catch(() => {}) },
     ]);
   };
   const onNum = () => {

@@ -16927,6 +16927,75 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: „Repeat“ → „Never“ an einem Vorkommen beendet die ganze Serie", task_series_repeat, results)
 
+    def task_occurrence_prompt():
+        # Wie Apple Kalender: eine Änderung an einem Vorkommen in der Detailspalte (hier „Priority“) fragt mit Thunderbirds
+        # Rückfrage nach – „Alle Vorkommen“ ändert die Serie, „Nur dieses“ legt eine Ausnahme an, Abbrechen ändert nichts
+        # (vorher änderte es still nur das Vorkommen)
+        res = m.js(CAL_CHECK_JS + r"""
+          w.resizeTo(1500, 900); await wait(400);
+          for (const x of [...Services.wm.getEnumerator(null)]) if (x.location.href.includes("calendar-occurrence-prompt")) x.close();
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const r = new CalTodo(); r.title = "Halo Vorkommen"; r.calendar = c;
+          const rs = cal.dtz.now(); rs.day -= 1; rs.hour = 9; rs.minute = 0; rs.second = 0; r.entryDate = rs;
+          const ri = new CalRecurrenceInfo(r), rule = cal.createRecurrenceRule(); rule.type = "WEEKLY"; rule.interval = 1; ri.appendRecurrenceItem(rule); r.recurrenceInfo = ri;
+          const saved = await c.addItem(r);
+          const out = { steps: [] };
+          try {
+            tm.openTab("tasks", {}); await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+            w.taskViewUpdate("mcTasks-all"); await ruhig(600);
+            const tree = d.getElementById("calendar-task-tree");
+            const row = icon => d.querySelector(`#mcTaskInfo .mc-ti-row[data-icon="${icon}"]`);
+            // Priorität eines Vorkommens über das Menü setzen und die Rückfrage mit `answer` beantworten
+            const step = async (label, answer) => {
+              await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Vorkommen"), "Vorkommen in der Liste", 6000);
+              tree.view.selection.clearSelection();
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == "Halo Vorkommen"));
+              await bis(() => d.getElementById("calendar-task-details-title")?.textContent.includes("Halo Vorkommen") && row("star"), "Details", 6000);
+              await ruhig(300);
+              const s = { label, answer, occurrence: !!tree.currentTask?.recurrenceId && tree.currentTask != tree.currentTask.parentItem };
+              row("star").querySelector(".mc-ti-value").click();
+              const mp = await bis(() => { const x = d.getElementById("mcTaskInfoMenu"); return x?.state == "open" ? x : null; }, "Menü Priority", 3000);
+              const mi = [...mp.children].find(x => x.getAttribute("label") == label);
+              // (die Rückfrage ist modal – aus einem eigenen Zeitgeber auslösen, sonst wartet das Skript auf sie)
+              s.item = !!mi; s.labels = [...mp.children].map(x => x.getAttribute("label"));
+              later(() => { mi.doCommand(); mp.hidePopup(); });
+              const pw = await winUrl("calendar-occurrence-prompt", 6000);
+              s.prompt = !!pw;
+              if (pw) {
+                await bis(() => pw.document.getElementById("accept-parent-button")?.label, "Knöpfe beschriftet", 4000);
+                const pd = pw.document;
+                s.buttons = [...pd.querySelectorAll(".occurrence-accept-buttons")].filter(b => !b.hidden).map(b => b.id);
+                if (answer == "cancel") pd.querySelector("dialog").cancelDialog();
+                else pd.getElementById(answer == "all" ? "accept-parent-button" : "accept-occurrence-button").doCommand();
+                await till(() => pw.closed, 4000);
+              }
+              await ruhig(600);
+              const p = await c.getItem(saved.id);
+              const exc = p?.recurrenceInfo?.getExceptionIds?.() || [];
+              s.parent = p?.priority; s.exceptions = exc.length;
+              s.exc = exc.map(id => p.recurrenceInfo.getExceptionFor(id)?.priority);
+              out.steps.push(s);
+            };
+            await step("High", "all");      // Serie: Priorität 1, keine Ausnahme
+            await step("Low", "one");       // nur dieses: Serie bleibt 1, Ausnahme mit 9
+            await step("Medium", "cancel"); // nichts ändert sich
+          } finally {
+            for (const x of [...Services.wm.getEnumerator(null)]) if (x.location.href.includes("calendar-occurrence-prompt")) x.close();
+            for (const x of await items("Halo Vorkommen")) { try { await c.deleteItem(x); } catch {} }
+            for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+          }
+          return out;""")
+        st = res.get("steps") or []
+        both = lambda s: "accept-occurrence-button" in (s.get("buttons") or []) and "accept-parent-button" in (s.get("buttons") or [])
+        ok = len(st) == 3 and all(s.get("occurrence") and s.get("prompt") and both(s) for s in st)
+        ok = ok and st[0]["parent"] == 1 and st[0]["exceptions"] == 0
+        ok = ok and st[1]["parent"] == 1 and st[1]["exceptions"] == 1 and st[1]["exc"] == [9]
+        ok = ok and st[2]["parent"] == 1 and st[2]["exceptions"] == 1 and st[2]["exc"] == [9]
+        return ok, f"{res}"
+    check("Aufgaben: Änderung an einem Vorkommen in der Detailspalte fragt „nur dieses / alle“ wie der Kalender, Abbrechen ändert nichts", task_occurrence_prompt, results)
+
     def task_window_occurrence():
         # Vorkommen einer Serie im eigenen Aufgabenfenster: nach „Complete“ zeigt das Fenster weiter das Vorkommen (erledigt),
         # nicht die Serie (vorher sprang es auf die Serie, „Complete“ schien wirkungslos)

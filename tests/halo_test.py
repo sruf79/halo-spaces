@@ -11259,6 +11259,24 @@ def run_checks(m, version, profile, results):
         return v == [version, True], f"{v}"
     check("Erweiterung aktiv und richtige Version", addon, results)
 
+    def parts_loaded():
+        # Reihe „implementation.js in Module zerlegen“: jeder Teil (api/…) ist in der Experiment-API geladen, seine
+        # Namen sind dort da (gleiche Liste wie tests/logik/teile.test.mjs)
+        teile = {"texte.js": ["TRANSLATIONS"], "mail.js": ["UndoSend"], "bereiche.js": ["Weather"], "import.js": ["PstImport"],
+                 "kalender.js": ["parseNatural"], "grundlagen.js": ["LogoCache"],
+                 "unterhaltung.js": ["ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF"]}
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const namen = %s;
+          return { geladen: Cu.evalInSandbox("typeof loadedParts == 'undefined' ? null : loadedParts.join(',')", g),
+                   fehlt: namen.filter(n => Cu.evalInSandbox(`typeof ${n}`, g) == "undefined") };""" % (
+            ADDON_ID, json.dumps(sorted({n for v in teile.values() for n in v}))))
+        geladen = (res["geladen"] or "").split(",")
+        ok = all(t in geladen for t in teile) and not res["fehlt"]
+        return ok, f"{res}"
+    check("Erweiterung: Teile der Experiment-API (api/unterhaltung.js …) geladen, ihre Namen da", parts_loaded, results)
+
     def folder_start_width():
         # Neues Profil, Mail-Tab zuerst offen: Ordnerliste 206 px wie in Apple Mail (und wie nach
         # Doppelklick auf den Trenner) statt Thunderbirds 198 px. „Local Folders“ steht unter All Inboxes

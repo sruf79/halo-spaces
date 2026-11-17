@@ -4340,7 +4340,8 @@ def dialog_checks(m, results):
             // OK ist anfangs gesperrt (Sicherheitsverzögerung) – zum Messen freigeben, nie anklicken
             // gesperrtes Aussehen am „Cancel“ messen – OK schaltet Thunderbirds Sicherheitsverzögerung selbst um
             // (unter Linux mitten in der Messung)
-            cancel.disabled = true; await nap(150); out.disabled = x.getComputedStyle(cancel).opacity; cancel.disabled = false;
+            cancel.disabled = true; await nap(150); { const s = x.getComputedStyle(cancel);
+              out.disabled = [s.opacity, s.backgroundColor, s.boxShadow, s.color]; out.text = colorIn(x.document, "var(--mt-text)"); } cancel.disabled = false;
             ok.disabled = false; await nap(150); out.ok = look(ok);
             return out;
           } finally { try { dl.cancelDialog(); } catch {} await tillM(() => x.closed, 3000); if (!x.closed) x.close(); await nap(300); }""")
@@ -4348,9 +4349,49 @@ def dialog_checks(m, results):
             return False, f"{res}"
         c, o = res["cancel"], res["ok"]
         ok = (c[0] == "none" and o[0] == "none" and c[2] == "999px" and o[2] == "999px" and c[3] == o[3]
-              and same_color(c[1], res["control"]) and same_color(o[1], res["accent"]) and float(res["disabled"]) < 1)
+              and same_color(c[1], res["control"]) and same_color(o[1], res["accent"])
+              and float(res["disabled"][0]) == 1 and same_color(res["disabled"][1], res["control"]) and res["disabled"][2] == "none"
+              and not same_color(res["disabled"][3], res["text"]))
         return ok, f"{res}"
-    check("„Öffnen von …“: Knöpfe als flache Kapseln wie in den Dialogen (Cancel grau, OK in Akzentfarbe) statt nativem Knopf", open_with, results)
+    check("„Öffnen von …“: Knöpfe als Kapseln wie in den Dialogen (Cancel grau, OK in Akzentfarbe), gesperrt grau und flach mit blasser Schrift statt Transparenz, statt nativem Knopf", open_with, results)
+
+    def primary_button():
+        # Hauptknopf der Dialoge (Neuer Ordner, Ordner-Eigenschaften): Systemfarbe mit Licht (Verlauf, innere Kanten),
+        # Maus ohne Änderung, gedrückt dunkler ohne Verlauf, gesperrt grau und flach ohne Transparenz; höchstens ein
+        # leuchtender Knopf je Dialog. Zustände über InspectorUtils.addPseudoClassLock, nie anklicken
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const measure = async (dw, dd) => {
+            const dl = dd.querySelector("dialog"), sr = dl.shadowRoot, ok = dl.getButton("accept");
+            const was = ok.disabled; ok.disabled = false; await pause(200);
+            const look = () => { const s = csOf(ok); return { bg: s.backgroundColor, img: s.backgroundImage, sh: s.boxShadow, op: s.opacity, color: s.color }; };
+            const out = { accent: colorOf(dd, "AccentColor"), control: colorOf(dd, "var(--mt-control)", "backgroundColor"), text: colorOf(dd, "var(--mt-text)") };
+            out.ready = look();
+            InspectorUtils.addPseudoClassLock(ok, ":hover"); await pause(150); out.hover = look();
+            InspectorUtils.addPseudoClassLock(ok, ":active"); await pause(150); out.press = look();
+            InspectorUtils.removePseudoClassLock(ok, ":active"); InspectorUtils.removePseudoClassLock(ok, ":hover"); await pause(100);
+            out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.startsWith("linear-gradient")).length;
+            ok.disabled = true; await pause(200); out.off = look(); ok.disabled = was;
+            return out; };
+          const out = {};
+          const f = await testFolder(); tm.switchToTab(0); await ruhig(500); const a3 = tm.currentAbout3Pane; a3.displayFolder(f.URI);
+          await bis(() => a3.gFolder?.URI == f.URI, "Ordner Lesen angezeigt", 4000); await ruhig(500);
+          out.folderProps = await dialog(() => a3.commandController.doCommand("cmd_properties"), "folderProps", measure);
+          out.newFolder = await dialog(() => w.openDialog("chrome://messenger/content/newFolderDialog.xhtml", "", "chrome,modal=no,titlebar,centerscreen",
+            { folder: f, dualUseFolders: true, okCallback() {} }), "newFolderDialog", measure);
+          return out;""")
+        def good(r):
+            if not r: return False
+            rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
+            return (same_color(rd["bg"], r["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+                    and same_color(hv["bg"], r["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
+                    and not same_color(pr["bg"], r["accent"]) and pr["img"] == "none" and "inset" in pr["sh"]
+                    and luminance(pr["bg"]) < luminance(rd["bg"])
+                    and same_color(off["bg"], r["control"]) and off["img"] == "none" and off["sh"] == "none" and float(off["op"]) == 1
+                    and not same_color(off["color"], r["text"]) and r["lit"] == 1)
+        ok = good(res.get("folderProps")) and good(res.get("newFolder"))
+        return ok, f"{res}"
+    check("Knöpfe: Hauptknopf der Dialoge in Systemfarbe mit Licht (Neuer Ordner, Ordner-Eigenschaften gleich), Maus ohne Änderung, gedrückt dunkler ohne Licht, "
+          "gesperrt grau und flach; höchstens ein leuchtender Knopf je Dialog", primary_button, results)
 
     def rule_rows():
         # Bedingungszeilen (Suchordner-Dialog und Suchfenster): Auswahllisten nur in --mt-control ohne zweiten Verlauf (vorher doppelt

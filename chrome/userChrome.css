@@ -139,6 +139,13 @@
   --mt-primary-top: rgba(255, 255, 255, 0.42);
   --mt-primary-halo: 50%;
   --mt-primary-drop: 0 1px 1.5px rgba(0, 0, 0, 0.16);
+  /* Hauptknopf: Verlauf und Licht in der Systemfarbe; gedrückt dunkler ohne
+     Licht; gesperrt grau und flach mit blasser Schrift */
+  --mt-primary-image: linear-gradient(to bottom, color-mix(in srgb, var(--mt-accent) 86%, #fff), var(--mt-accent) 55%, color-mix(in srgb, var(--mt-accent) 92%, #000));
+  --mt-primary-shadow: inset 0 1px 0 var(--mt-primary-top), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 70%, #000), var(--mt-primary-drop), 0 6px 12px -5px color-mix(in srgb, var(--mt-accent) var(--mt-primary-halo), transparent);
+  --mt-primary-press: color-mix(in srgb, var(--mt-accent) 86%, #000);
+  --mt-primary-press-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 60%, #000);
+  --mt-btn-disabled-text: color-mix(in srgb, var(--mt-text) 35%, transparent);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
 }
 
@@ -152,6 +159,7 @@
     --mt-primary-top: rgba(255, 255, 255, 0.22);
     --mt-primary-halo: 60%;
     --mt-primary-drop: 0 2px 4px rgba(0, 0, 0, 0.5);
+    --mt-primary-shadow: inset 0 1px 0 var(--mt-primary-top), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 70%, #000), var(--mt-primary-drop), 0 6px 12px -5px color-mix(in srgb, var(--mt-accent) var(--mt-primary-halo), transparent);
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
     --mt-sidebar: #282828;
@@ -4489,11 +4497,15 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
   button[part~="dialog-button"][dlgtype="accept"]:not([disabled]) {
     appearance: none !important;
     background-color: var(--mt-accent) !important;
+    background-image: var(--mt-primary-image) !important;
+    box-shadow: var(--mt-primary-shadow) !important;
     color: var(--mt-accent-text) !important;
   }
 
-  button[part~="dialog-button"][dlgtype="accept"]:not([disabled]):hover {
-    background-color: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+  button[part~="dialog-button"][dlgtype="accept"]:not([disabled]):hover:active {
+    background-color: var(--mt-primary-press) !important;
+    background-image: none !important;
+    box-shadow: var(--mt-primary-press-shadow) !important;
   }
 }
 
@@ -4618,16 +4630,54 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 
   button[part~="dialog-button"][default]:not([disabled]) {
     background-color: var(--mt-accent) !important;
+    background-image: var(--mt-primary-image) !important;
+    box-shadow: var(--mt-primary-shadow) !important;
     color: var(--mt-accent-text) !important;
   }
 
-  button[part~="dialog-button"][default]:not([disabled]):hover {
-    background-color: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+  button[part~="dialog-button"][default]:not([disabled]):hover:active {
+    background-color: var(--mt-primary-press) !important;
+    background-image: none !important;
+    box-shadow: var(--mt-primary-press-shadow) !important;
   }
 
+  /* gesperrt grau und flach, blasse Schrift statt Transparenz */
   button[part~="dialog-button"][disabled] {
-    opacity: 0.45 !important;
+    opacity: 1 !important;
+    background-color: var(--mt-control) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    color: var(--mt-btn-disabled-text) !important;
+    font-weight: 400 !important;
   }
+}
+
+/* Hauptknopf der Dialoge (Standardknopf, wandert mit [default] mit): Systemfarbe
+   mit Licht – Verlauf, helle Oberkante, feiner Rand, Schlagschatten und
+   Lichthof; Maus ohne Änderung, gedrückt dunkler ohne Licht, gesperrt grau und
+   flach. Die Knöpfe liegen im Schatten-DOM des Dialogs: nur ohne Vorfahren
+   erreichbar. Der Fokus bleibt Thunderbirds Umriss (outline) */
+button[part~="dialog-button"][dlgtype][default]:not([disabled]) {
+  appearance: none !important;
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+button[part~="dialog-button"][dlgtype][default]:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+button[part~="dialog-button"][dlgtype][default][disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
+  font-weight: 400 !important;
 }
 
 /* Druckvorschau: Firefox-Proton-Akzent (hell #0062FA, dunkel Türkis) und
@@ -4636,8 +4686,8 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
 @-moz-document url("chrome://global/content/print.html") {
   :root {
     --color-accent-primary: var(--mt-accent) !important;
-    --color-accent-primary-hover: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
-    --color-accent-primary-active: color-mix(in srgb, var(--mt-accent) 78%, black) !important;
+    --color-accent-primary-hover: var(--mt-accent) !important;
+    --color-accent-primary-active: var(--mt-primary-press) !important;
     --color-accent-primary-selected: var(--mt-accent) !important;
     --text-color-accent-primary-selected: var(--mt-accent-text) !important;
     --button-text-color-primary: var(--mt-accent-text) !important;
@@ -4646,6 +4696,16 @@ html:root.customizingUnifiedToolbar #unifiedToolbarContainer::before {
     --link-color: var(--mt-accent) !important;
     --background-color-canvas: var(--mt-window) !important;
     background-color: var(--mt-window) !important;
+  }
+
+  #print-button:not([disabled]) {
+    background-image: var(--mt-primary-image) !important;
+    box-shadow: var(--mt-primary-shadow) !important;
+  }
+
+  #print-button:not([disabled]):hover:active {
+    background-image: none !important;
+    box-shadow: var(--mt-primary-press-shadow) !important;
   }
 }
 
@@ -11818,8 +11878,9 @@ wizard {
   --button-text-color: var(--mt-text) !important;
   --button-hover-text-color: var(--mt-text) !important;
   --button-primary-background-color: var(--mt-accent) !important;
-  --button-primary-hover-background-color: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
-  --button-primary-active-background-color: color-mix(in srgb, var(--mt-accent) 78%, black) !important;
+  /* Hauptknopf: Maus ohne Änderung, gedrückt dunkler (Licht: userChrome.css) */
+  --button-primary-hover-background-color: var(--mt-accent) !important;
+  --button-primary-active-background-color: var(--mt-primary-press, color-mix(in srgb, var(--mt-accent) 86%, black)) !important;
   --button-primary-border-color: transparent !important;
   --button-primary-hover-border-color: transparent !important;
   --button-primary-text-color: var(--mt-accent-text) !important;
@@ -11856,11 +11917,25 @@ button.wizard-button:not([disabled]):hover {
 
 button.wizard-button[default]:not([disabled]) {
   background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
   color: var(--mt-accent-text) !important;
 }
 
+button.wizard-button[default]:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* gesperrt grau und flach, blasse Schrift statt Transparenz */
 button.wizard-button[disabled] {
-  opacity: 0.45 !important;
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
+  font-weight: 400 !important;
 }
 
 /* Eingabefelder und Auswahllisten in Dialogen und Assistenten. Der Account

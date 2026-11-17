@@ -6850,8 +6850,9 @@ wizard {
   --button-text-color: var(--mt-text) !important;
   --button-hover-text-color: var(--mt-text) !important;
   --button-primary-background-color: var(--mt-accent) !important;
-  --button-primary-hover-background-color: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
-  --button-primary-active-background-color: color-mix(in srgb, var(--mt-accent) 78%, black) !important;
+  /* Hauptknopf: Maus ohne Änderung, gedrückt dunkler (Licht: userChrome.css) */
+  --button-primary-hover-background-color: var(--mt-accent) !important;
+  --button-primary-active-background-color: var(--mt-primary-press, color-mix(in srgb, var(--mt-accent) 86%, black)) !important;
   --button-primary-border-color: transparent !important;
   --button-primary-hover-border-color: transparent !important;
   --button-primary-text-color: var(--mt-accent-text) !important;
@@ -6888,11 +6889,25 @@ button.wizard-button:not([disabled]):hover {
 
 button.wizard-button[default]:not([disabled]) {
   background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
   color: var(--mt-accent-text) !important;
 }
 
+button.wizard-button[default]:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+/* gesperrt grau und flach, blasse Schrift statt Transparenz */
 button.wizard-button[disabled] {
-  opacity: 0.45 !important;
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
+  font-weight: 400 !important;
 }
 
 /* Eingabefelder und Auswahllisten in Dialogen und Assistenten. Der Account

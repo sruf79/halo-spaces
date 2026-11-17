@@ -2153,6 +2153,7 @@ function parseNatural(text, now = new Date()) {
   const B = "(?<![\\p{L}\\p{N}])"; // Wortanfang
   const E = "(?![\\p{L}\\p{N}])"; // Wortende
   let day = null;
+  let want = null; // Monat und Tag eines geschriebenen Datums (zum Prüfen)
   let allDay = false;
   // ganztägig
   if (take(new RegExp(`${B}(ganztägig|ganztags|den ganzen tag|all[ -]?day)${E}`, "iu"))) {
@@ -2175,6 +2176,7 @@ function parseNatural(text, now = new Date()) {
       y += 2000;
     }
     day = new Date(y, Number(m[2]) - 1, Number(m[1]));
+    want = [Number(m[2]) - 1, Number(m[1])];
     if (!m[3] && day < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
       day.setFullYear(y + 1); // ohne Jahr: nächstes Vorkommen
     }
@@ -2183,8 +2185,10 @@ function parseNatural(text, now = new Date()) {
   const monthNames = Object.keys(NL_MONTHS).sort((a, b) => b.length - a.length).join("|");
   if (!day && (m = take(new RegExp(`${B}(?:am\\s+|on\\s+)?(\\d{1,2})\\.?\\s*(${monthNames})\\.?(?:\\s+(\\d{4}))?${E}`, "iu")))) {
     day = new Date(m[3] ? Number(m[3]) : now.getFullYear(), NL_MONTHS[m[2].toLowerCase()], Number(m[1]));
+    want = [NL_MONTHS[m[2].toLowerCase()], Number(m[1])];
   } else if (!day && (m = take(new RegExp(`${B}(${monthNames})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?${E}`, "iu")))) {
     day = new Date(m[3] ? Number(m[3]) : now.getFullYear(), NL_MONTHS[m[1].toLowerCase()], Number(m[2]));
+    want = [NL_MONTHS[m[1].toLowerCase()], Number(m[2])];
   }
   if (day && !m?.[3] && day < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && !/heute|today/i.test(m?.[0] || "")) {
     day.setFullYear(day.getFullYear() + 1);
@@ -2243,6 +2247,11 @@ function parseNatural(text, now = new Date()) {
     startMin = toMinutes(m[1], m[2]);
   } else if ((m = take(new RegExp(`${B}(\\d{1,2})[:](\\d{2})${E}`, "iu")))) {
     startMin = toMinutes(m[1], m[2]);
+  }
+  // kein gültiges Datum („31.02.“, „0.5.“, „17.13.“): nichts erkannt – sonst
+  // rutschte es still in den Folgemonat (31.02. → 3. März)
+  if (want && (day.getMonth() != want[0] || day.getDate() != want[1])) {
+    return { title: text.trim() };
   }
   if (startMin != null && (startMin >= 24 * 60 || (endMin != null && endMin >= 24 * 60))) {
     return { title: text.trim() }; // keine gültige Uhrzeit – nichts erkannt

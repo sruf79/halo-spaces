@@ -39,6 +39,19 @@ const MULTIWEEK_BUFFER_WEEKS = 12;
 // nächstgelegenen zuerst. Unter MULTIWEEK_DEFER_MIN Terminen alles auf einmal
 const MULTIWEEK_DEFER_MIN = 60;
 const MULTIWEEK_SLICE_MS = 4;
+// Rückmeldung 17.11.2026 („das nachladen dauert noch immer zu lange, wenn man
+// ein paar monate in die vergangenheit scrollt“): Thunderbird leert bei jedem
+// Neuaufbau alle Tage und fragt die Kalender für den ganzen geladenen Bereich
+// neu ab; die neuen Puffer-Wochen blieben leer, bis die Abfrage zurück war (das
+// frühere Vorab-Abfragen warf die Ergebnisse weg – der Kalender selbst merkt
+// sich keine Vorkommen). Jetzt: Vorkommen je Kalender für ein Jahr vor und
+// nach dem geladenen Bereich im Speicher (im Leerlauf beim Betreten des
+// Kalenders, neu um die Ansicht, wenn weniger als ein halbes Jahr Vorrat
+// bleibt, je Kalender verworfen bei jeder Änderung); jeder Neuaufbau trägt
+// sie sofort ein, Thunderbirds eigene Abfrage bestätigt sie danach (Doppelte
+// übersprungen, nicht bestätigte entfernt)
+const MULTIWEEK_PRELOAD_WEEKS = 52;
+const MULTIWEEK_PRELOAD_MARGIN_WEEKS = 26;
 // Schritt 4/6: Monat als Zahl (Jahr * 12 + Monat) und sein Name wie in der
 // Überschrift von Apple Kalender („December 2026“)
 const monthKey = (year, month) => year * 12 + month;
@@ -72,7 +85,7 @@ function hookMultiweekScroll(mv, win, B) {
   const LINE = 18; // eine Mausrad-Raste: etwa eine Textzeile
   // pos: Verschiebung gegen den geladenen Bereich; moved: alles, was seit
   // dem Öffnen um ganze Wochen weitergerückt wurde (für das Standbild)
-  let pos = 0, moved = 0, idle = 0, anim = 0, frame = 0, rowCache = 0, shownAt = 0, mask = null;
+  let pos = 0, moved = 0, idle = 0, anim = 0, frame = 0, rowCache = 0, mask = null;
   // vis: um so viele Wochen ist der sichtbare Bereich gegen den geladenen
   // (Mitte) schon weitergerückt, ohne Neuaufbau; later: Neuaufbau im Leerlauf
   let vis = 0, later = 0, shifting = false, pending = 0;
@@ -432,25 +445,14 @@ function hookMultiweekScroll(mv, win, B) {
     // eine Pause zwischen Wischer und Auslaufen)
     idle = win.setTimeout(snap, glideSpeed() ? 70 : 160);
   };
-  // Termine um die Ansicht vorab abfragen (beim Start von Thunderbird und
-  // beim Einblenden, höchstens alle 10 Minuten): ±26 Wochen um den geladenen
-  // Bereich bzw. um heute
+  // Vorkommen um die Ansicht in den Speicher (beim Start von Thunderbird und
+  // beim Einblenden; nichts zu tun, solange der Vorrat reicht – Rückmeldung
+  // 17.11.2026, vorher nur abgefragt und verworfen)
   const warm = (force = false) => {
-    if (!force && !active() || win.performance.now() - shownAt < 600000 && shownAt) {
+    if (!force && !active()) {
       return;
     }
-    shownAt = win.performance.now();
-    try {
-      const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-      const s = mv.startDate?.clone() || cal.dtz.now(), e = mv.endDate?.clone() || cal.dtz.now();
-      s.day -= 7 * 26;
-      e.day += 7 * 26;
-      cal.view.getCompositeCalendar(win)
-        .getItemsAsArray(Ci.calICalendar.ITEM_FILTER_TYPE_EVENT | Ci.calICalendar.ITEM_FILTER_CLASS_OCCURRENCES, 0, s, e)
-        .catch(err => log("multiweek warm error", String(err).slice(0, 120)));
-    } catch (err) {
-      log("multiweek warm error", String(err).slice(0, 120));
-    }
+    mv.__mcPreload?.();
   };
   mv.addEventListener("wheel", onWheel, { capture: true, passive: false });
   const ro = new win.ResizeObserver(() => {
@@ -587,6 +589,122 @@ function hookMultiweekBuffer(mv, restorers) {
       view.mSelectedDayBox = null;
     }
   };
+  // Vorrat an Vorkommen (Rückmeldung 17.11.2026, MULTIWEEK_PRELOAD_WEEKS): je
+  // Kalender { s, e (µs), items: [{ a, b, item }] }, nur für Termine (ohne
+  // Aufgaben in der Ansicht wie bisher nur Thunderbirds Abfrage)
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const EVENTS = Ci.calICalendar.ITEM_FILTER_TYPE_EVENT;
+  const WEEK_US = 7 * 864e8;
+  const store = new Map(), version = new Map();
+  let loading = null, idleLoad = 0;
+  const shown = c => !!c && !c.getProperty("disabled") && !!c.getProperty("calendar-main-in-composite");
+  const covers = (st, lo, hi) => st && st.s <= lo && st.e >= hi;
+  // Kalender, deren Vorrat den geladenen Bereich nicht mehr um ein halbes Jahr
+  // überragt, für ein Jahr davor und danach neu abfragen (im Hintergrund)
+  const preload = () => {
+    if (loading || mv.itemType && mv.itemType != EVENTS) {
+      return loading;
+    }
+    // vor dem ersten Öffnen der Ansicht (Start von Thunderbird): um heute
+    const now = cal.dtz.now();
+    const start = mv.startDate || now, end = mv.endDate || now;
+    const lo = start.nativeTime, hi = end.nativeTime, margin = MULTIWEEK_PRELOAD_MARGIN_WEEKS * WEEK_US;
+    const need = cal.manager.getCalendars().filter(c => shown(c) && !covers(store.get(c.id), lo - margin, hi + margin));
+    if (!need.length) {
+      return null;
+    }
+    const s = start.clone(), e = end.clone();
+    s.day -= 7 * MULTIWEEK_PRELOAD_WEEKS;
+    e.day += 7 * MULTIWEEK_PRELOAD_WEEKS;
+    const t0 = win.performance.now();
+    loading = Promise.all(need.map(async c => {
+      const v = version.get(c.id) || 0;
+      try {
+        const list = await c.getItemsAsArray(EVENTS | Ci.calICalendar.ITEM_FILTER_CLASS_OCCURRENCES, 0, s, e);
+        // inzwischen geändert: verwerfen (der nächste Durchgang holt ihn neu)
+        if ((version.get(c.id) || 0) == v) {
+          store.set(c.id, { s: s.nativeTime, e: e.nativeTime, items: list.map(span).filter(Boolean) });
+        }
+      } catch (err) {
+        log("multiweek preload error", String(err).slice(0, 120));
+      }
+    })).then(() => {
+      log("multiweek preload", need.length, "calendars", Math.round(win.performance.now() - t0), "ms");
+      loading = null;
+      mv.__mcPreloads = (mv.__mcPreloads || 0) + 1;
+    });
+    return loading;
+  };
+  const preloadLater = () => {
+    if (!idleLoad) {
+      const run = () => {
+        idleLoad = 0;
+        if (mv.__mcVisible && mv.isVisible?.()) {
+          preload();
+        }
+      };
+      idleLoad = win.requestIdleCallback ? win.requestIdleCallback(run, { timeout: 2000 }) : win.setTimeout(run, 500);
+    }
+  };
+  // jede Änderung an einem Kalender verwirft seinen Vorrat
+  const drop = id => {
+    version.set(id, (version.get(id) || 0) + 1);
+    store.delete(id);
+    preloadLater();
+  };
+  const observer = {
+    QueryInterface: ChromeUtils.generateQI(["calIObserver"]),
+    onStartBatch() {},
+    onEndBatch() {},
+    onLoad: c => c && drop(c.id),
+    onAddItem: item => item?.calendar && drop(item.calendar.id),
+    onModifyItem: item => item?.calendar && drop(item.calendar.id),
+    onDeleteItem: item => item?.calendar && drop(item.calendar.id),
+    onError() {},
+    onPropertyChanged: c => c && drop(c.id),
+    onPropertyDeleting: c => c && drop(c.id),
+  };
+  cal.manager.addCalendarObserver(observer);
+  // nach einem Neuaufbau (Thunderbird hat alle Tage geleert und fragt ab): die
+  // Vorkommen des geladenen Bereichs sofort aus dem Vorrat eintragen (sichtbare
+  // Wochen sofort, Puffer-Wochen in Häppchen wie sonst). Thunderbirds
+  // Ergebnisse dazu werden übersprungen, nicht bestätigte danach entfernt
+  const prefill = view => {
+    view.__mcPre = null;
+    if (!view.__mcVisible || view.itemType != EVENTS || !view.startDate || !view.endDate) {
+      return;
+    }
+    const lo = view.startDate.nativeTime, hi = view.endDate.nativeTime;
+    const seen = view.__mcSeen, map = new Map();
+    for (const c of cal.manager.getCalendars()) {
+      const st = store.get(c.id);
+      if (!shown(c) || !covers(st, lo, hi)) {
+        continue;
+      }
+      for (const x of st.items) {
+        if (x.a < hi && (x.b > lo || x.a >= lo) && !seen?.has(x.item.hashId)) {
+          map.set(x.item.hashId, x.item);
+        }
+      }
+    }
+    preloadLater();
+    if (!map.size) {
+      return;
+    }
+    view.addItems([...map.values()]);
+    const pre = view.__mcPre = { map, ok: new Set() };
+    view.__mcPrefills = (view.__mcPrefills || 0) + 1;
+    Promise.resolve(view.ready).then(() => {
+      if (view.__mcPre != pre) {
+        return;
+      }
+      view.__mcPre = null;
+      const stale = [...pre.map].filter(([id]) => !pre.ok.has(id)).map(([, item]) => item);
+      if (stale.length) {
+        view.removeItems(stale);
+      }
+    }, () => {});
+  };
   proto.relayout = function (...args) {
     dropStale(this);
     const r = orig.relayout.apply(this, args);
@@ -597,6 +715,15 @@ function hookMultiweekBuffer(mv, restorers) {
     } catch (e) {
       log("multiweek buffer layout error", String(e).slice(0, 120));
     }
+    // nach dem Aufruf (setDateRange setzt danach erst den sichtbaren Bereich,
+    // nach dem sich das Eintragen in Häppchen richtet), noch vor dem Zeichnen
+    Promise.resolve().then(() => {
+      try {
+        prefill(this);
+      } catch (e) {
+        log("multiweek prefill error", String(e).slice(0, 120));
+      }
+    });
     return r;
   };
   proto.setDateRange = function (startDate, endDate) {
@@ -727,6 +854,19 @@ function hookMultiweekBuffer(mv, restorers) {
   };
   mv.__mcFlush = (from, to) => flush(mv, from, to);
   proto.addItems = function (items) {
+    // seit dem letzten Leeren eingetragen (Vorrat überspringt sie); schon aus
+    // dem Vorrat eingetragene von Thunderbirds Abfrage nur bestätigen
+    const seen = this.__mcSeen ||= new Set();
+    const pre = this.__mcPre;
+    if (pre) {
+      items = items.filter(item => !(pre.map.has(item.hashId) && pre.ok.add(item.hashId)));
+    }
+    for (const item of items) {
+      seen.add(item.hashId);
+    }
+    if (!items.length) {
+      return undefined;
+    }
     if (!this.__mcVisible || !this.rangeStartDate || !this.rangeEndDate || items.length < MULTIWEEK_DEFER_MIN) {
       return orig.addItems.call(this, items);
     }
@@ -759,6 +899,8 @@ function hookMultiweekBuffer(mv, restorers) {
   };
   proto.clearItems = function (...args) {
     dropQueue(this);
+    this.__mcPre = null;
+    this.__mcSeen = null;
     return orig.clearItems.apply(this, args);
   };
   proto.doRemoveItem = function (item, ...args) {
@@ -766,12 +908,22 @@ function hookMultiweekBuffer(mv, restorers) {
     if (q && item) {
       q.items = q.items.filter(x => x.item.hashId != item.hashId);
     }
+    if (item) {
+      this.__mcPre?.map.delete(item.hashId);
+      this.__mcSeen?.delete(item.hashId);
+    }
     return orig.doRemoveItem.call(this, item, ...args);
   };
   proto.removeItemsFromCalendar = function (calendarId, ...args) {
     const q = this.__mcQueue;
     if (q) {
       q.items = q.items.filter(x => x.item.calendar?.id != calendarId);
+    }
+    const pre = this.__mcPre;
+    for (const [id, item] of pre?.map || []) {
+      if (item.calendar?.id == calendarId) {
+        pre.map.delete(id);
+      }
     }
     return orig.removeItemsFromCalendar.call(this, calendarId, ...args);
   };
@@ -789,11 +941,20 @@ function hookMultiweekBuffer(mv, restorers) {
       log("multiweek buffer rebuild error", String(e).slice(0, 120));
     }
   };
+  mv.__mcPreload = preload;
   const stopScroll = hookMultiweekScroll(mv, win, B);
   restorers?.push(() => {
     stopScroll();
     dropQueue(mv);
     delete mv.__mcFlush;
+    cal.manager.removeCalendarObserver(observer);
+    if (idleLoad) {
+      (win.cancelIdleCallback || win.clearTimeout).call(win, idleLoad);
+    }
+    store.clear();
+    for (const name of ["__mcPreload", "__mcPre", "__mcSeen", "__mcPreloads", "__mcPrefills"]) {
+      delete mv[name];
+    }
     for (const [name, own, fn] of saved) {
       if (own) {
         proto[name] = fn;

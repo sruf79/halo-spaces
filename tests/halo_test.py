@@ -7855,6 +7855,78 @@ def calendar_checks(m, results):
     if sys.platform == "darwin" and mw_many.get("res"):
         check("Kalender: Mehrwochen-Ansicht scrollen – viele Termine über 40 Wochen ohne Ruckeln (kein Bild über vier Bildwechsel)", multiweek_many_smooth, results, bekannt=True)
 
+    def multiweek_preload():
+        # Rückmeldung 17.11.2026 („das nachladen dauert noch immer zu lange, wenn man ein paar monate in die vergangenheit
+        # scrollt“): Thunderbird leert bei jedem Neuaufbau alle Tage und fragt die Kalender neu ab, die neuen Puffer-Wochen
+        # blieben bis zur Antwort leer. Ein langsamer Kalender (Abfrage erst nach 400 ms, wie im Netz oder mit vielen
+        # Wiederholungen) und 26 Wochen am Stück zurück: kein sichtbarer Tag ohne seine Termine (außer unter dem Standbild),
+        # jeder Neuaufbau aus dem Vorrat gefüllt. Danach: neuer Termin Monate zurück erscheint dort, gelöschter bleibt weg
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar(); d.getElementById("calendar_multiweek-view_command").doCommand(); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const c = testCalendar(); const added = []; const out = {};
+          const frame = () => new Promise(r => w.requestAnimationFrame(r));
+          const sleep = ms => new Promise(r => w.setTimeout(r, ms));
+          const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+          const { CalReadableStreamFactory } = ChromeUtils.importESModule("resource:///modules/CalReadableStreamFactory.sys.mjs");
+          const origGet = c.getItems;
+          try {
+            const s = mv.rangeStartDate.clone(); s.day -= 7 * 60;
+            const ymd = `${s.year}${String(s.month + 1).padStart(2, "0")}${String(s.day).padStart(2, "0")}`;
+            for (let i = 0; i < 4; i++) {
+              const ev = new CalEvent();
+              ev.icalString = ["BEGIN:VEVENT", `UID:halo-vorrat-${i}@test`, `SUMMARY:Halo Vorrat ${i}`, `DTSTART:${ymd}T${String(8 + 2 * i).padStart(2, "0")}0000`,
+                               `DTEND:${ymd}T${String(9 + 2 * i).padStart(2, "0")}0000`, "RRULE:FREQ=DAILY", "END:VEVENT"].join("\r\n");
+              added.push(await c.addItem(ev));
+            }
+            // Abfrage dieses Kalenders erst nach 400 ms (feste Pause: so langsam ist der Kalender gedacht)
+            c.getItems = function (...a) { const st = origGet.apply(this, a);
+              return CalReadableStreamFactory.createReadableStream({ async start(ctl) { await sleep(400);
+                for await (const v of cal.iterate.streamValues(st)) ctl.enqueue(v); ctl.close(); } }); };
+            w.goToDate(cal.dtz.now()); await ruhig(600);
+            // Vorrat im Hintergrund (beim Betreten des Kalenders)
+            await bis(() => mv.__mcPreload?.() === null, "Vorrat geladen", 15000);
+            await Promise.race([mv.ready, sleep(5000)]); await ruhig(600);
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom, vb = () => mv.getBoundingClientRect().bottom;
+            const has = (box, re) => [...box.querySelectorAll("calendar-month-day-box-item")].some(i => re.test(i.occurrence?.title || ""));
+            const empty = () => { const mk = mv.querySelector(".mc-mw-mask")?.getBoundingClientRect(); let n = 0;
+              for (const row of mv.monthbody.children) { if (row.hidden) continue;
+                for (const cell of row.cells) { const box = cell.firstElementChild; const r = box?.getBoundingClientRect();
+                  if (!r || !r.width || r.bottom < head() + 2 || r.top > vb() - 2) continue;
+                  if (mk && r.top >= mk.top - 1 && r.bottom <= mk.bottom + 1) continue;
+                  if (!has(box, /^Halo Vorrat/)) n++; } }
+              return n; };
+            const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            const s0 = mv.__mcScrollShifts, p0 = mv.__mcPrefills || 0; let frames = 0, days = 0;
+            for (let i = 0; i < 26 * 8; i++) {
+              mv.monthbody.querySelector("calendar-month-day-box").dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -rowH / 8, deltaMode: 0 }));
+              await frame(); const e = empty(); if (e) { frames++; days += e; }
+            }
+            out.scroll = { shifts: mv.__mcScrollShifts - s0, prefills: (mv.__mcPrefills || 0) - p0, emptyFrames: frames, emptyDays: days };
+            await bis(() => !mv.querySelector(".mc-mw-mask") && !mv.__mcQueue, "Ansicht ruhig", 8000); await ruhig(800);
+            // neuer Termin 30 Wochen zurück (im Vorrat), dorthin springen: da; gelöscht, weg und zurück: weg
+            const day = cal.dtz.now(); day.day -= 7 * 30; day.isDate = false; day.hour = 20; day.minute = 0;
+            const ev = new CalEvent(); ev.title = "Halo Vorrat Neu"; ev.startDate = day.clone(); const e2 = day.clone(); e2.hour += 1; ev.endDate = e2;
+            const neu = await c.addItem(ev); added.push(neu);
+            w.goToDate(cal.dtz.now()); await ruhig(600); await Promise.race([mv.ready, sleep(5000)]);
+            await bis(() => mv.__mcPreload?.() === null, "Vorrat neu", 15000);
+            const find = () => { const b = mv.findDayBoxForDate((() => { const x = day.clone(); x.isDate = true; return x; })()); return b ? has(b, /^Halo Vorrat Neu$/) : null; };
+            w.goToDate(day); await frame(); out.newAtOnce = find(); await Promise.race([mv.ready, sleep(5000)]); await ruhig(400); out.newLater = find();
+            await c.deleteItem(neu); added.pop();
+            w.goToDate(cal.dtz.now()); await ruhig(400); await Promise.race([mv.ready, sleep(5000)]);
+            w.goToDate(day); await frame(); out.goneAtOnce = find() === false; await Promise.race([mv.ready, sleep(5000)]); await ruhig(400); out.goneLater = find() === false;
+          } finally {
+            try { delete c.getItems; } catch {}
+            for (const it of added) try { await c.deleteItem(it); } catch {}
+            w.goToDate(cal.dtz.now()); w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        sc = res.get("scroll") or {}
+        ok = (sc.get("shifts", 0) >= 2 and sc.get("prefills", 0) >= sc.get("shifts", 9) and sc.get("emptyFrames") == 0
+              and res.get("newAtOnce") is True and res.get("newLater") is True and res.get("goneAtOnce") and res.get("goneLater"))
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht scrollen – Monate zurück ohne Nachladen sichtbar (Termine aus dem Vorrat sofort da, auch bei langsamem Kalender), neue und gelöschte Termine richtig", multiweek_preload, results)
+
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
         # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),

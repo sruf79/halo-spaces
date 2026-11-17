@@ -11736,12 +11736,44 @@ class CardEnhancer {
           sidebarTip?.();
         }
       };
+      // Ausgeblendet „ruht“ die Bereiche-Leiste: sie bleibt aufgebaut, nur unsichtbar und ohne Platz (userChrome.css
+      // [mc-ruht]), statt hidden zu tragen. hidden heißt display:none (xul.css, !important, nicht überschreibbar) –
+      // beim Einblenden baute Thunderbird die Leiste dann neu auf: 7–12 ms im Klick, mit dem Layout 14–19 ms (neon),
+      // im vollen Testlauf bis 32 ms; das erste Bild nach dem Klick kam spät (Ruckeln am Anfang). Nur die
+      // Sichtbarkeit wechseln kostet ≈1 ms. isHidden bleibt Thunderbirds Zustand (Menü, gespeichert); die schwebende
+      // Leiste ([mc-float]) zeigt sich darüber hinweg. Auch aufgerufen von animateSpaces (im selben Bild)
+      const ruhen = () => {
+        if (w.gSpacesToolbar?.isHidden) {
+          if (!bar.hasAttribute("mc-ruht")) {
+            bar.setAttribute("mc-ruht", "true");
+          }
+          if (bar.hidden) {
+            bar.hidden = false;
+          }
+        } else if (bar.hasAttribute("mc-ruht")) {
+          bar.removeAttribute("mc-ruht");
+        }
+      };
+      w.__mcSpacesRuhen = ruhen;
+      const ruhMo = new w.MutationObserver(ruhen);
+      ruhMo.observe(bar, { attributes: true, attributeFilter: ["hidden"] });
+      ruhMo.observe(d.documentElement, { attributes: true, attributeFilter: ["spacestoolbar"] });
+      ruhen();
       const columnMo = new w.MutationObserver(follow);
       columnMo.observe(bar, { attributes: true, attributeFilter: ["hidden"] });
+      // (Einblenden ändert hidden nicht mehr – die ruhende Leiste trägt es nicht; Thunderbird setzt dann nur das
+      // Attribut spacestoolbar am Wurzelelement)
+      columnMo.observe(d.documentElement, { attributes: true, attributeFilter: ["spacestoolbar"] });
       bar.__mcColumnMo = columnMo;
       this.restorers.push(() => {
         columnMo.disconnect();
         delete bar.__mcColumnMo;
+        ruhMo.disconnect();
+        delete w.__mcSpacesRuhen;
+        bar.removeAttribute("mc-ruht");
+        if (w.gSpacesToolbar?.isHidden && !bar.hasAttribute("mc-float")) {
+          bar.hidden = true;
+        }
       });
       // „Anpassen…“ der Bereiche-Leiste ausblenden: Thunderbirds Panel hängt am
       // ausgeblendeten Knopf #collapseButton – es öffnet nicht und sperrt danach
@@ -15157,6 +15189,7 @@ class CardEnhancer {
     if (showing) {
       set(0);
       spaces.toggleToolbar(false);
+      w.__mcSpacesRuhen?.(); // (ruhende Leiste sichtbar machen, im Klick statt erst nach dem Beobachter)
       root.getBoundingClientRect(); // Aufbau jetzt erzwingen, nicht im ersten Bild
     }
     // Fortschritt k läuft vor (dir 1) oder nach einer Umkehr zurück (dir -1)
@@ -15175,6 +15208,9 @@ class CardEnhancer {
       const shown = showing == (k >= 1);
       if (!shown && !spaces.isHidden) {
         spaces.toggleToolbar(true);
+        // gleich ruhen lassen (sichtbar bleibt sie nicht, aufgebaut schon): sonst nähme ein erzwungenes Layout danach
+        // (realign) die Leiste ganz aus dem Aufbau, und der Beobachter baute sie im nächsten Bild wieder auf
+        w.__mcSpacesRuhen?.();
       }
       clear();
       root.style.removeProperty("--mc-spaces-w");

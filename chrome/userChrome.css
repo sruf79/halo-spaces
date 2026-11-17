@@ -3045,7 +3045,11 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
    Kacheln rücken darunter, die Toolbar-Zeile braucht keinen Platz mehr dafür.
    Bereiche-Leiste ausgeblendet: Ampel wie bisher oben über der Ordnerliste */
 @media (-moz-platform: macos) {
-  :root:has(#spacesToolbar:not([hidden], [mc-float])) {
+  /* (an der Toolbar-Zeile, nicht am Wurzelelement über :has(): eine Variable dort
+     ließ Thunderbird beim Ein-/Ausblenden den Stil aller ~3000 Elemente des
+     Fensters neu rechnen, 15–25 ms im Klick – das erste Bild kam spät; die
+     Werte braucht nur die Zeile mit Seitenleisten-Knopf und Ampel-Fläche) */
+  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer {
     --mc-tl-reserve: 12px;
   }
 
@@ -3061,7 +3065,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
     --mc-tl-flow: 84px;
   }
 
-  :root:has(#spacesToolbar:not([hidden], [mc-float])),
+  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer,
   :root[sizemode="fullscreen"] {
     --mc-tl-flow: 0px;
   }
@@ -3088,7 +3092,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 
   /* Trennlinie der Leiste von ganz oben bis unten (border-inline-end unten),
      auch neben der Ampel */
-  :root:has(#spacesToolbar:not([hidden], [mc-float])) #spacesToolbar {
+  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) {
     padding-top: 52px !important;
   }
 }
@@ -3115,14 +3119,28 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 }
 
 /* Thunderbird rückt den Inhalt neben eine sichtbare Bereiche-Leiste (Regel
-   über ~ #messengerBody) – die schwebende liegt nur darüber */
-#spacesToolbar[mc-float] ~ #messengerBody,
-#spacesToolbar[mc-float] ~ #navigation-toolbox #titlebar {
+   über ~ #messengerBody) – die schwebende liegt nur darüber, die ruhende
+   (ausgeblendet, aber aufgebaut: implementation.js hookSpacesToggle) ist
+   unsichtbar und nimmt keinen Platz */
+#spacesToolbar:is([mc-float], [mc-ruht]) ~ #messengerBody,
+#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #titlebar {
   margin-inline-start: 0 !important;
 }
 
-#spacesToolbar[mc-float] ~ #navigation-toolbox #unifiedToolbarContainer {
+#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer {
   inline-size: auto !important;
+}
+
+#spacesToolbar[mc-ruht]:not([mc-float]) {
+  visibility: hidden !important;
+}
+
+/* Thunderbirds In-App-Hinweise rücken über :root:has(#spacesToolbar[hidden])
+   neben die Bereiche-Leiste – die ruhende trägt hidden nicht; der Wert gilt
+   nur am Hinweis-Element (eine Variable am Wurzelelement ließe beim
+   Ein-/Ausblenden den Stil des ganzen Fensters neu rechnen) */
+:root:not([spacestoolbar]) in-app-notification-manager {
+  --in-app-notification-offset-inline: var(--in-app-notification-window-padding);
 }
 
 @media (-moz-platform: macos) {

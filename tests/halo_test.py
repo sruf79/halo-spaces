@@ -14039,6 +14039,75 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Seitenleiste: Toolbar-Knöpfe gleiten beim mehrmaligen Ein-/Ausblenden ohne Zurückspringen (kein Flackern oben)", sidebar_toolbar_no_jump, results)
 
+    def sidebar_spaces_rest():
+        # Ausgeblendet „ruht“ die Bereiche-Leiste (aufgebaut, unsichtbar, ohne Platz) statt hidden zu tragen, und keine
+        # Regel hängt über :root:has() am Zustand der Leiste. Beides machte den Klick zum Einblenden langsam: hidden ist
+        # display:none, Thunderbird baute die Leiste beim Einblenden neu auf (7–12 ms); die :has()-Regeln setzten
+        # Variablen am Wurzelelement, Thunderbird rechnete den Stil aller ~3000 Elemente neu (15–25 ms) – das erste
+        # Bild nach dem Klick kam spät (Ruckeln am Anfang). Auch über Thunderbirds eigenen Weg (Menü Ansicht) und mit
+        # der Seitenleiste, die der Leiste folgt. Zeiten stehen nur zur Auskunft dabei (Bildtakt im vollen Lauf schwankt)
+        res = m.js(r"""
+          const btn = d.getElementById("spacesPinnedButton"), sp = w.gSpacesToolbar, bar = d.getElementById("spacesToolbar");
+          const body = d.getElementById("messengerBody"), row = d.getElementById("unifiedToolbarContainer");
+          const still = () => !w.__mcSpacesAnimating && !tm.currentAbout3Pane?.__mcAnimating;
+          const folder = () => tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter;
+          const zustand = () => {
+            const r = bar.getBoundingClientRect();
+            const hit = d.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+            return { isHidden: sp.isHidden, hiddenAttr: bar.hidden, ruht: bar.hasAttribute("mc-ruht"), vis: w.getComputedStyle(bar).visibility,
+              body: Math.round(body.getBoundingClientRect().left), hitBar: !!hit && bar.contains(hit),
+              reserve: w.getComputedStyle(row).getPropertyValue("--mc-tl-reserve").trim(), folder: !folder()?.isCollapsed, hinweis: hinweis() };
+          };
+          const out = {};
+          const nm = d.querySelector("in-app-notification-manager");
+          const hinweis = () => nm ? w.getComputedStyle(nm).getPropertyValue("--in-app-notification-offset-inline").trim() : "fehlt";
+          await toMail(); await ruhig(800);
+          try {
+            if (sp.isHidden) { btn.click(); await bis(still, "Seitenleiste da", 3000); await ruhig(400); }
+            out.an = zustand();
+            btn.click(); await bis(() => still() && sp.isHidden, "Seitenleiste aus", 3000); await ruhig(500);
+            out.aus = zustand();
+            // Einblenden: Kosten der Bereiche-Leiste allein (Auskunft)
+            const t0 = performance.now(); bar.removeAttribute("mc-ruht"); d.documentElement.setAttribute("spacestoolbar", "true");
+            d.documentElement.getBoundingClientRect(); out.msZeigen = Math.round((performance.now() - t0) * 10) / 10;
+            bar.setAttribute("mc-ruht", "true"); d.documentElement.removeAttribute("spacestoolbar"); await ruhig(300);
+            btn.click(); await bis(() => still() && !sp.isHidden, "Seitenleiste wieder da", 3000); await ruhig(500);
+            out.wieder = zustand();
+            // Thunderbirds eigener Weg (Ansicht → Symbolleisten): ruht ebenso, die Ordnerliste folgt
+            sp.toggleToolbar(true); await bis(() => still() && !!folder()?.isCollapsed, "Ordnerliste folgt", 3000); await ruhig(400);
+            out.menuAus = zustand();
+            sp.toggleToolbar(false); await bis(() => still() && !folder()?.isCollapsed, "Ordnerliste folgt", 3000); await ruhig(400);
+            out.menuAn = zustand();
+          } finally {
+            if (sp.isHidden) { btn.click(); await bis(still, "Seitenleiste wieder da", 3000); await ruhig(400); }
+          }
+          return out;""")
+        mac = sys.platform == "darwin"
+        # Regeln von halo.spaces mit :root:has(…spacesToolbar…) im ausgelieferten Stilblatt (Thunderbird liest es nicht
+        # über document.styleSheets ein)
+        with open(os.path.join(ROOT, "extension", "theme.css"), encoding="utf-8") as f:
+            res["hasRules"] = re.findall(r":root:has\([^)]*spacesToolbar[^{,]*", re.sub(r"/\*.*?\*/", "", f.read(), flags=re.S))
+        def sichtbar(z):
+            return (z and not z["isHidden"] and not z["hiddenAttr"] and not z["ruht"] and z["vis"] == "visible"
+                    and z["body"] >= 80 and z["hitBar"] and z["folder"] and (z["reserve"] == "12px" or not mac)
+                    and z["hinweis"] not in ("24px", "fehlt"))
+        def ruhend(z):
+            return (z and z["isHidden"] and not z["hiddenAttr"] and z["ruht"] and z["vis"] == "hidden"
+                    and z["body"] == 0 and not z["hitBar"] and not z["folder"] and (z["reserve"] == "84px" or not mac)
+                    and z["hinweis"] == "24px")
+        bad = []
+        if res.get("hasRules"):
+            bad.append(f"Regeln über :root:has() am Zustand der Bereiche-Leiste: {res['hasRules']}")
+        for k in ("an", "wieder", "menuAn"):
+            if not sichtbar(res.get(k)):
+                bad.append(f"{k}: nicht richtig eingeblendet")
+        for k in ("aus", "menuAus"):
+            if not ruhend(res.get(k)):
+                bad.append(f"{k}: ruht nicht (hidden statt mc-ruht, sichtbar, Platz oder Klicks)")
+        return not bad, ("; ".join(bad) + " – " if bad else "") + f"{res}"
+    check("Seitenleiste: ausgeblendet ruht die Bereiche-Leiste (aufgebaut, unsichtbar, ohne Platz, ohne :root:has()), "
+          "auch über das Menü – Einblenden ohne Neuaufbau und ohne Neuberechnung des ganzen Fensters", sidebar_spaces_rest, results)
+
 
     def motion():
         # Bewegung: gelöschte Karte verschwindet direkt ohne Wegrutschen (das Gleiten wirkte wie Flackern nach links,
@@ -20965,7 +21034,8 @@ Neu
           const pane = mail ? ad.getElementById("folderPane") : d.getElementById("calSidebar");
           const cs = getComputedStyle(pane);
           w.gSpacesToolbar.onUnload?.();
-          return { state: w.__mcSideFloatState(), bar: R(bar), pane: R(pane, mail ? ab.browsingContext.embedderElement : null),
+          // (ausgeblendet ruht die Bereiche-Leiste: aufgebaut, aber unsichtbar – zählt wie nicht da)
+          return { state: w.__mcSideFloatState(), bar: getComputedStyle(bar).visibility == "hidden" ? null : R(bar), pane: R(pane, mail ? ab.browsingContext.embedderElement : null),
             list: mail ? R(ad.getElementById("threadPane"), ab.browsingContext.embedderElement) : R(d.getElementById("calendarContent")),
             H: w.innerHeight, hidden: w.gSpacesToolbar.isHidden, collapsed: mail ? ab.paneLayout.folderPaneSplitter.isCollapsed : pane.classList.contains("mc-side-hidden"),
             saved: Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml", "spacesToolbar", "hidden"),

@@ -7368,8 +7368,8 @@ const PREF_TOOLS = [
   // [Karte, Bereich, vor/nach Thunderbird-Abschnitt, Überschrift, Einträge]
   ["mcPrefFiles", "paneGeneral", "languageAndFontsCategory", "Files and Display", [
     { button: "menu_openSavedFilesWnd" },
-    // Zustand aus der Einstellung: Thunderbird setzt „checked“ dieser Einträge
-    // erst beim Öffnen ihres Menüs
+    // Zustand aus der Einstellung und Umschalten über sie: Thunderbird setzt
+    // „checked“ dieser Einträge erst beim Öffnen ihres Menüs
     { toggle: "menu_fullZoomToggle", pref: "browser.zoom.full", def: true, invert: true },
     { toggle: "viewAttachmentsInlineMenuitem", pref: "mail.inline_attachments", def: true },
     // Dichte über ihre Einstellung: Thunderbirds Menüeinträge kennen ihren Wert
@@ -7516,7 +7516,11 @@ function addPrefTools(doc, restorers) {
           : checked(item(row.toggle)));
         sync();
         box.addEventListener("change", () => {
-          if (row.call && typeof mailWin[row.call] == "function") {
+          if (row.pref) {
+            // über die Einstellung: Thunderbirds Befehl (Zoom) ist im
+            // Einstellungs-Tab je nach Version gesperrt und bliebe ohne Wirkung
+            Services.prefs.setBoolPref(row.pref, box.checked != !!row.invert);
+          } else if (row.call && typeof mailWin[row.call] == "function") {
             try {
               mailWin[row.call]();
             } catch (e) {

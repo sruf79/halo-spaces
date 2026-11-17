@@ -23,7 +23,7 @@ Regeln:
    Plans nicht anfassen; nichts an der Seitenleiste, solange das Paket nicht auf main ist; Vorab-Prüfung 6a und Designer-Abgleich
    je Baustein wie im Plan. Neue Design-Einträge des Tages nach Plan Abschnitt 3 einsortieren.
    Parallel (Maintainer 17.11.2026 „Ja“, nur solange Volldampf läuft): so viele Opus-Agenten gleichzeitig, wie
-   getrennte Einträge vorliegen (bis zu vier; andere Dateien, z. B. Knöpfe, Felder, Fenster, Symbole), nie am selben Baustein,
+   getrennte Einträge vorliegen (keine feste Obergrenze, so viele wie möglich und nötig; andere Dateien, z. B. Knöpfe, Felder, Fenster, Symbole), nie am selben Baustein,
    nie während einer Testlauf-Phase auf neon (Runner.Worker); Testläufe der Agenten nacheinander (je eigener Port ab 2850),
    Commits nacheinander, Prüfungen je Eintrag wie bisher. Volldampf heißt maximale Produktivität: nie müßig warten,
    solange machbare Einträge da sind; Bremse bleibt nur das Wochenlimit.

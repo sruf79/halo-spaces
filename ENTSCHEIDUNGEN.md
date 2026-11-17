@@ -731,3 +731,5 @@ Nachtrag (16.11.2026, neon-Sitzung), Wortlaut des Maintainers auf die Frage, ob 
 Nachtrag (17.11.2026, neon-Sitzung), Volldampf-Woche, parallele Agenten: Auf den Hinweis „Wochen Limit erst bei 3%“ und den Vorschlag, bis zu zwei Opus-Agenten gleichzeitig an getrennten Einträgen arbeiten zu lassen, antwortete der Maintainer: „Ja“. Umsetzung (Deutung neon): gilt nur solange Volldampf läuft; Nachtlauf-Fortsetzungen und Tagesroutine (Auftragsdateien); gepusht wird weiter nur über Prüfzweig und Nachtlauf.
 
 Nachtrag (17.11.2026, neon-Sitzung), Wortlaut des Maintainers: „Volldampf heisst maximale Produktivität“. Umsetzung (Deutung neon): Die Grenze von zwei parallelen Opus-Agenten ist auf bis zu vier angehoben; Bremse nur das Wochenlimit.
+
+Nachtrag (17.11.2026, neon-Sitzung), Wortlaut des Maintainers: „du darfst im volldampf so viele agents gleichzeitig laufen lassen wie es möglich und notwendig ist“. Umsetzung (Deutung neon): keine feste Obergrenze mehr (löst „bis zu vier“ ab); Grenzen bleiben getrennte Einträge, Testläufe nacheinander, Wochenlimit.

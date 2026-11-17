@@ -224,7 +224,7 @@
   min-height: 32px;
   padding: 0 8px;
   border-radius: 8px;
-  font-size: calc(13px * var(--mt-font-scale, 1));
+  font-size: var(--mt-sidebar-font);
   color: var(--mt-text);
   cursor: default;
 }
@@ -235,7 +235,7 @@
 
 #mcTaskLists .mc-tl-row.selected {
   background: var(--mt-selected-unfocused);
-  font-weight: 600;
+  font-weight: var(--mt-sidebar-selected-weight);
 }
 
 #mcTaskLists .mc-tl-list:focus-visible .mc-tl-row.selected {
@@ -333,7 +333,7 @@
   border-radius: 8px !important;
   gap: 8px !important;
   align-items: center !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-size: var(--mt-sidebar-font) !important;
   color: var(--mt-text) !important;
   background: transparent !important;
 }
@@ -347,7 +347,7 @@
 }
 
 #calendar-list > li.selected .calendar-name {
-  font-weight: 600 !important;
+  font-weight: var(--mt-sidebar-selected-weight) !important;
 }
 
 /* farbiges Häkchen-Kästchen statt Punkt + Checkbox rechts */
@@ -2957,7 +2957,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   border-radius: 8px !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-size: var(--mt-sidebar-font) !important;
   align-items: center !important;
 }
 
@@ -2969,9 +2969,10 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   border: none !important;
 }
 
+/* gewählte Zeile halbfett wie in allen Seitenleisten */
 #books .bookRow.selected > .bookRow-container {
   background: var(--mt-selected-unfocused) !important;
-  font-weight: 400 !important;
+  font-weight: var(--mt-sidebar-selected-weight) !important;
   outline: none !important;
 }
 
@@ -3015,7 +3016,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   outline: none !important;
   background: transparent !important;
   color: var(--mt-text) !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-size: var(--mt-sidebar-font) !important;
   align-items: center !important;
 }
 
@@ -3026,6 +3027,7 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 #books .listRow.selected > .listRow-container {
   background: var(--mt-selected-unfocused) !important;
   color: var(--mt-text) !important;
+  font-weight: var(--mt-sidebar-selected-weight) !important;
 }
 
 /* fokussiert wie die Ordnerliste der Mail: Auswahl in der Akzentfarbe getönt */
@@ -3591,9 +3593,18 @@ search-bar {
   padding: 6px 8px !important;
 }
 
+/* Zeilen wie in den übrigen Seitenleisten: 32 px, Name 13 px, gewählt halbfett */
 #contactlistbox > richlistitem {
-  min-height: 52px !important;
+  min-height: 32px !important;
   border-radius: var(--mt-radius-row) !important;
+}
+
+#contactlistbox > richlistitem .blistDisplayName {
+  font-size: var(--mt-sidebar-font) !important;
+}
+
+#contactlistbox > richlistitem[selected] .blistDisplayName {
+  font-weight: var(--mt-sidebar-selected-weight) !important;
 }
 
 /* Auswahl wie in der Ordnerliste der Mail (G14): grau, Schrift in Textfarbe;
@@ -3640,6 +3651,17 @@ search-bar {
   color: var(--mt-text-tertiary) !important;
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
+}
+
+/* Pfeile vor den Abschnitten nur beim Überfahren der Seitenleiste, wie in der
+   Ordnerliste der Mail */
+#contactlistbox > richlistitem .twisty {
+  opacity: 0 !important;
+  transition: opacity 0.15s !important;
+}
+
+#listPaneBox:hover #contactlistbox > richlistitem .twisty {
+  opacity: 1 !important;
 }
 
 /* Seitenleiste rechts (Raum und Thema, Teilnehmer, frühere Unterhaltungen)

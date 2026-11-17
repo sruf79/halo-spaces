@@ -4654,7 +4654,8 @@ def folder_checks(m, results):
     def new_messages():
         res = m.js(FOLDER_JS + r"""
           const a3 = await toMail(); const ad = a3.document; const tree = ad.getElementById("folderTree");
-          const li = await until(() => [...tree.querySelectorAll("li:not([data-server-type], [data-mode], .unselectable)")]
+          // ein nicht gewählter Ordner (der gewählte ist halbfett wie in allen Seitenleisten)
+          const li = await until(() => [...tree.querySelectorAll("li:not([data-server-type], [data-mode], .unselectable, .selected)")]
             .find(x => x.querySelector(":scope > .container > .name")?.getBoundingClientRect().width));
           if (!li) return { folder: null };
           li.classList.add("new-messages"); await ruhig(150);
@@ -9556,6 +9557,51 @@ def server_checks(m, results):
             return ok, f"{res}"
         check("Ordnerliste: Favoriten-Symbole und „Favourites“ bündig mit den Spalten der Konten, Konten unter All Inboxes eine Stufe tiefer", favourites_columns, results)
 
+        def sidebar_fonts():
+            # Seitenleisten aus einem Guss (Variante A, Maintainer 16.11.2026): Zeilen 13 px, die gewählte Zeile halbfett (600)
+            # in Mail (Ordnerliste), Kalender (Kalenderliste), Aufgaben (Filter) und Adressbuch, die übrigen normal; ein
+            # gewählter Ordner bleibt halbfett, auch wenn er ungelesen ist oder neue Mails hat, ein nicht gewählter ungelesener
+            # Ordner bleibt normal (Chat: Prüfung „Testkonto: Chat mit Testserver“)
+            res = m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const acc = MailServices.accounts.getAccount("%s"), root = acc.incomingServer.rootFolder;
+              const f = e => e ? [e.ownerDocument.defaultView.getComputedStyle(e).fontSize, e.ownerDocument.defaultView.getComputedStyle(e).fontWeight] : null;
+              const out = {};
+              const a3 = await toMail(), tree = a3.document.getElementById("folderTree");
+              const inbox = await until(() => root.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox), 10000);
+              const rows = await until(() => (r => r.some(l => l.uri == inbox.URI) && r)([...tree.querySelectorAll(':scope > li[data-mode="all"] li[is="folder-tree-row"]')]
+                .filter(l => l.getBoundingClientRect().height)), 8000) || [];
+              const target = rows.find(l => l.uri == inbox.URI);
+              if (target) { target.querySelector(":scope > .container").click(); await until(() => target.classList.contains("selected"), 4000); await ruhig(300); }
+              const sel = rows.find(l => l.classList.contains("selected") && l.uri == inbox.URI), other = rows.find(l => !l.classList.contains("selected") && !l.dataset.serverType);
+              const nm = l => l?.querySelector(":scope > .container > .name");
+              out.mail = { sel: f(nm(sel)), other: f(nm(other)) };
+              if (sel && other) {
+                const had = [sel.classList.contains("unread"), other.classList.contains("unread")];
+                sel.classList.add("unread", "new-messages"); other.classList.add("unread", "new-messages"); await ruhig(100);
+                out.mail.selUnread = f(nm(sel)); out.mail.otherUnread = f(nm(other));
+                sel.classList.remove("new-messages"); other.classList.remove("new-messages");
+                if (!had[0]) sel.classList.remove("unread"); if (!had[1]) other.classList.remove("unread");
+              }
+              const go = async id => { d.getElementById(id).click(); await until(() => d.getElementById(id).classList.contains("current"), 8000); await ruhig(800); };
+              await go("calendarButton");
+              out.cal = { sel: f(await until(() => d.querySelector("#calendar-list > li.selected .calendar-name"), 4000)),
+                          other: f(d.querySelector("#calendar-list > li:not(.selected) .calendar-name")) };
+              await go("tasksButton");
+              out.tasks = { sel: f(await until(() => d.querySelector("#mcTaskLists .mc-tl-row.selected .mc-tl-name"), 4000)),
+                            other: f(d.querySelector("#mcTaskLists .mc-tl-row:not(.selected) .mc-tl-name")) };
+              await go("addressBookButton");
+              const ab = await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector("#books .bookRow.selected .bookRow-name") && tm.currentTabInfo.browser.contentDocument, 6000);
+              out.ab = { sel: f(ab?.querySelector("#books .bookRow.selected .bookRow-name")), other: f(ab?.querySelector("#books .bookRow:not(.selected) .bookRow-name")) };
+              await toMail();
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+              return out;""" % key)
+            want_sel, want_other = ["13px", "600"], ["13px", "400"]
+            ok = all((res.get(k) or {}).get("sel") == want_sel and (res.get(k) or {}).get("other") == want_other for k in ("mail", "cal", "tasks", "ab"))
+            ok = ok and res["mail"].get("selUnread") == want_sel and res["mail"].get("otherUnread") == want_other
+            return ok, f"{res}"
+        check("Seitenleisten: Zeilen 13 px, gewählter Eintrag halbfett in Mail, Kalender, Aufgaben und Adressbuch, übrige und ungelesene normal", sidebar_fonts, results)
+
         def local_hidden():
             # wie Apple Mail: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind (es gibt ein anderes Konto);
             # liegt dort etwas, ist es wieder da
@@ -10042,6 +10088,11 @@ def server_checks(m, results):
                 if (d.activeElement == listbox) listbox.blur();
                 await ruhig(300);
                 out.item = { ...look(), focus: listbox.matches(":focus"), wantBg: want("var(--mt-selected-unfocused)"), wantColor: want("var(--mt-text)") };
+                // Schrift und Zeile wie in den übrigen Seitenleisten: Name 13 px, gewählt halbfett, Zeile 32 px; der Pfeil vor
+                // „Conversations“ nur beim Überfahren der Seitenleiste (wie in der Ordnerliste der Mail)
+                const nameEl = it.querySelector(".blistDisplayName"), tw = d.querySelector("#conversationsGroup .twisty");
+                out.font = { name: nameEl && [w.getComputedStyle(nameEl).fontSize, w.getComputedStyle(nameEl).fontWeight], h: Math.round(it.getBoundingClientRect().height),
+                             twisty: tw ? (d.getElementById("listPaneBox").matches(":hover") ? "hover" : w.getComputedStyle(tw).opacity) : "fehlt" };
                 // Hauptfenster vorn, sonst greift :focus unter Linux (xvfb) nicht, obwohl activeElement die Liste ist
                 for (let i = 0; i < 4 && !listbox.matches(":focus"); i++) {
                   w.focus(); await until(() => Services.focus.activeWindow == w, 3000);
@@ -10079,7 +10130,9 @@ def server_checks(m, results):
               for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
               return out;""")
             it, itf = res.get("item") or {}, res.get("itemFocus") or {}
-            ok = (res.get("connected") and it and not it.get("focus") and it.get("bg") == it.get("wantBg") and it.get("color") == it.get("wantColor")
+            fo = res.get("font") or {}
+            ok = (res.get("connected") and it and not it.get("focus") and fo.get("name") == ["13px", "600"] and fo.get("h") == 32
+                  and fo.get("twisty") in ("0", "hover") and it.get("bg") == it.get("wantBg") and it.get("color") == it.get("wantColor")
                   and it.get("radius") == "10px" and it.get("borders") and it.get("line") in ("keine", "rgba(0, 0, 0, 0)")
                   and itf.get("focus") and itf.get("bg") == itf.get("wantBg") and itf.get("color") == it.get("wantColor")
                   and itf.get("line") in ("keine", "rgba(0, 0, 0, 0)")
@@ -10088,7 +10141,7 @@ def server_checks(m, results):
             ok = (ok and lk.get("side") and lk.get("nicks", 0) >= 1 and lk.get("circles") == lk.get("nicks")
                   and (lk.get("box") or {}).get("radius", 99) <= 8 and (lk.get("box") or {}).get("border", 0) > 0)
             return ok, f"{res} {res2} IRC: {servers.irc.log[:8]}"
-        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
+        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich; Name 13 px halbfett, Zeile 32 px, Pfeil nur beim Überfahren), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
 
         def wrong_password():
             # Server lehnt die Anmeldung ab → Thunderbirds Nachfrage erscheint als Kachel im Fenster (wie ein macOS-Sheet)

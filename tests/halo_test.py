@@ -19496,6 +19496,51 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Suche findet die Optionen von halo.spaces, „Show“ zeigt die Option", pref_halo_search, results)
 
+    def pref_search_late_start():
+        # Thunderbird wählt nach dem Laden des Einstellungs-Tabs die verlangte Kategorie (selectPrefPane, teils Sekunden
+        # später); begann die Suche schon vorher, sprang die Seite auf General und Suchfeld und Treffer waren weg (Mac-CI:
+        # „update“ fand nichts). Nachgestellt: Tab ganz geladen (der echte Aufruf ist durch), suchen, dann derselbe Aufruf
+        res = m.js(r"""
+          w.resizeTo(1500, 900); await wait(400);
+          // (neuere Thunderbird-Versionen geben ein Versprechen zurück, das nach selectPrefPane erfüllt ist; sonst bis zum Laden warten)
+          const opening = w.openPreferencesTab("paneGeneral");
+          const pw = (opening && await opening) || await bis(() => tm.currentTabInfo.browser?.contentWindow?.document.readyState == "complete"
+            && tm.currentTabInfo.browser.contentWindow, "Einstellungen geladen", 8000);
+          // (Thunderbirds Aufruf folgt der ersten gezeigten Seite: pageLoaded, dann ein Zeitgeber)
+          await bis(() => tm.currentTabInfo.pageLoaded, "Startseite der Einstellungen gewählt", 8000);
+          await ruhig(300);
+          await bis(() => pw.document.getElementById("mcCat-paneMcHalo"), "halo.spaces-Kategorie", 6000);
+          const pd = pw.document, input = pd.getElementById("searchInput");
+          const fire = q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true })); };
+          const found = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].filter(e => !e.hidden && !e.classList.contains("visually-hidden")
+            && e.getBoundingClientRect().height > 0).map(e => e.querySelector(".mc-halo-found-name").textContent);
+          const state = () => ({ cat: pw.gLastCategory.category, input: input.value, found: found(), marked: pw.gSearchResultsPane.getFindSelection(pw).rangeCount > 0 });
+          const out = {};
+          try {
+            fire("update");
+            await bis(() => pd.getElementById("sorry-message-query")?.textContent == "update", "Suche nach update fertig", 15000);
+            await until(() => found().length > 0, 3000);
+            out.before = state();
+            await pw.selectPrefPane("paneGeneral"); await ruhig(300);
+            out.after = state();
+            // Leeren der Suche kehrt weiter zu General zurück, ein Klick auf eine Kategorie wählt sie weiter
+            fire("");
+            await until(() => pw.gLastCategory.category == "paneGeneral", 3000);
+            out.cleared = pw.gLastCategory.category;
+            fire("update");
+            await bis(() => pw.gLastCategory.category == "paneSearchResults" && found().length > 0, "zweite Suche", 10000);
+            pd.getElementById("category-compose").click();
+            await until(() => pw.gLastCategory.category == "paneCompose", 3000);
+            out.clicked = [pw.gLastCategory.category, input.value];
+          } finally {
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }
+          return out;""")
+        good = lambda s: s and s["cat"] == "paneSearchResults" and s["input"] == "update" and "Install updates at start" in s["found"] and s["marked"]
+        ok = good(res.get("before")) and good(res.get("after")) and res.get("cleared") == "paneGeneral" and res.get("clicked") == ["paneCompose", ""]
+        return ok, f"{res}"
+    check("Einstellungen: Suche bleibt stehen, wenn Thunderbirds verspätete Wahl der Startseite nach dem Tippen ankommt", pref_search_late_start, results)
+
     def menubar_new_places():
         # was aus der Menüleiste fällt, steht anderswo: Einstellungen (Saved Files, Zoom nur Text, Anhänge eingebettet, Verlauf
         # löschen, Offline-Abgleich, Kalenderansicht) – die Suche der Einstellungen findet sie; Ordner-Kontextmenü mit Spamfilter

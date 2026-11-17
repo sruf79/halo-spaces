@@ -1159,7 +1159,8 @@ function hookPrefCategories(cw, restorers = null) {
   // gezeigte, auch über die Adresse #general) teils erst Sekunden später auf –
   // bei langsamem Start (Linux) nach einer schon gewählten Kategorie, die
   // Auswahl sprang auf General zurück. Hat der Nutzer seit dem Öffnen selbst
-  // gewählt, wird dieser eine verspätete Aufruf übergangen
+  // gewählt oder schon eine Suche begonnen, wird dieser eine verspätete Aufruf
+  // übergangen (sonst waren Suchfeld und Treffer wieder weg)
   const origGoto = cw.gotoPref;
   const startPane = categories.selectedItem?.value || "paneGeneral";
   const opened = Date.now();
@@ -1173,12 +1174,15 @@ function hookPrefCategories(cw, restorers = null) {
     userPane = categories.selectedItem?.value || null;
   };
   const selectEnd = () => (inSelect = Math.max(0, inSelect - 1));
+  // laufende Suche: Thunderbird leert beim Löschen der Eingabe erst seine Anfrage
+  // und kehrt dann selbst zu General zurück – das bleibt erlaubt
+  const searching = () => !!(cw.gSearchResultsPane?.query && doc.getElementById("searchInput")?.value.trim());
   categories.addEventListener("select", selectStart, true);
   categories.addEventListener("select", selectEnd);
   if (typeof origGoto == "function") {
     cw.gotoPref = function (category, ...rest) {
-      const late = !inSelect && !skipped && userPane && userPane != startPane && Date.now() - opened < 30000 &&
-        (category == startPane || category == "paneGeneral");
+      const late = !inSelect && !skipped && ((userPane && userPane != startPane) || searching()) &&
+        Date.now() - opened < 30000 && (category == startPane || category == "paneGeneral");
       if (late) {
         skipped = true;
         // (für den automatischen Test: der echte verspätete Aufruf kam schon)

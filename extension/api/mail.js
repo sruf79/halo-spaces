@@ -544,11 +544,21 @@ const Remind = {
     });
   },
   async remind(hdrs, when) {
-    const list = this.list().filter(e => !hdrs.some(h => h.messageId == e.id));
+    const before = this.list();
+    const list = before.filter(e => !hdrs.some(h => h.messageId == e.id));
     const bySrc = new Map();
     for (const hdr of hdrs) {
       const dest = await this.folderFor(hdr);
-      if (!dest || dest == hdr.folder) {
+      if (!dest) {
+        continue;
+      }
+      if (dest == hdr.folder) {
+        // liegt schon im Ordner „Erinnern“: nur die Zeit neu, Herkunft bleibt
+        // (sonst fiel die Erinnerung weg und die Mail kam nie zurück)
+        const prev = before.find(e => e.id == hdr.messageId);
+        if (prev) {
+          list.push({ ...prev, at: when.getTime() });
+        }
         continue;
       }
       list.push({ id: hdr.messageId, at: when.getTime(), back: hdr.folder.URI, folder: dest.URI, subject: hdr.mime2DecodedSubject || "" });
@@ -591,7 +601,11 @@ const Remind = {
       if (!due.length) {
         return;
       }
-      const rest = list.filter(e => e.at > now);
+      // erledigte bzw. aufgegebene Einträge; gespeichert wird am Ende auf den
+      // dann aktuellen Stand – Erinnerungen, die während des Zurückholens
+      // dazukommen, bleiben so erhalten
+      const key = e => `${e.id}\n${e.at}`;
+      const done = new Set();
       for (const e of due) {
         let folder, back;
         try {
@@ -601,8 +615,8 @@ const Remind = {
         const hdr = folder?.msgDatabase?.getMsgHdrForMessageID(e.id);
         if (!hdr || !back) {
           // noch nicht da (Server) – höchstens einen Tag lang weiter versuchen
-          if (now - e.at < 24 * 60 * 60 * 1000) {
-            rest.push(e);
+          if (now - e.at >= 24 * 60 * 60 * 1000) {
+            done.add(key(e));
           }
           continue;
         }
@@ -611,9 +625,10 @@ const Remind = {
         folder.markMessagesRead([hdr], false);
         await new Promise(r => setTimeout(r, 500));
         await this.move(folder, [hdr], back);
+        done.add(key(e));
         this.notify(e);
       }
-      this.save(rest);
+      this.save(this.list().filter(e => !done.has(key(e))));
     } catch (err) {
       log("remind check error", err);
     } finally {

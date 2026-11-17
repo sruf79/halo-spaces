@@ -14,7 +14,7 @@ const SRC = fileURLToPath(new URL("../../extension/api/implementation.js", impor
 const teil = name => fileURLToPath(new URL(`../../extension/api/${name}`, import.meta.url));
 
 // ausgewählte innere Namen von implementation.js
-export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "parseNatural", "TASK_LISTS", "taskListFilter",
+export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "parseNatural", "TASK_LISTS", "taskListFilter", "TASK_ARCHIVED_PROP", "isTaskArchived", "taskInList", "archiveAction",
   "DONATE_URL", "THANKS_UPDATE_DAY_PREF", "UpdateNote", "MULTIWEEK_BUFFER_WEEKS", "listDeleteText", "msgStillInFolder", "rowGone",
   "timeTypeDigit", "timeStep", "durationText", "endFromTime", "dateTypeDigit", "dateFinish", "systemDateFormat", "dateStep", "monthWeeks", "daysInMonth", "mapsUrl", "openMaps",
   "initialsFor", "decodeEntities", "stripHtml", "cleanPreview", "searchDate", "hitRanges", "emojiFor", "resetEmojiRules", "senderLabel", "orgDomain",

@@ -10504,7 +10504,7 @@ def run_checks(m, version, profile, results):
           const { MsgHdrToMimeMessage } = ChromeUtils.importESModule("resource:///modules/gloda/MimeMessage.sys.mjs");
           const mk = (i, extra = {}) => ({ subject: `PST-Probe ${i} Grüße`, date: new Date(Date.UTC(2026, 9, i, 10)),
             from: { name: "Dora Müller", email: "dora@example.invalid" }, to: [{ name: "Halo Test", email: "halo@example.invalid" }],
-            text: `Text ${i}`, messageId: `pst-probe-${i}@example.invalid`, read: i % 2 == 0, flagged: i == 1, ...extra });
+            text: `Text ${i}`, messageId: `pst-probe-${i}@example.invalid`, read: (i & 1) == 0, flagged: i == 1, ...extra });
           const source = () => ({ name: "Halo PST-Probe", mail: [
             { name: "Posteingang", count: 3, depth: 0, path: ["Posteingang"], items: [mk(1, { html: "<p>Hallo <b>1</b></p>",
               attachments: [{ name: "Rechnung.txt", type: "text/plain", data: new TextEncoder().encode("Summe 42") }] }), mk(2), mk(3)] },
@@ -10565,6 +10565,72 @@ def run_checks(m, version, profile, results):
             ok = ok and r.get("folders") and all(c == d for _, c, d in r["folders"]) and not r.get("failed")
         return ok, f"{res}"
     check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, Assistent mit Anzahl je Ordner", pst_import_mail, results)
+
+    def pst_import_contacts_calendar():
+        # Outlook-Datendatei importieren (Reihe PST 3/3): Kontakte als neues Adressbuch und Termine/Aufgaben als neuer lokaler
+        # Kalender mit dem Namen der Datei, je als Kopie; zweiter Import ohne Duplikate (UID); im Assistenten die Auswahl der
+        # Teile (Mail, Kontakte, Kalender) – hier nur Kontakte und Kalender gewählt, die Mailordner bleiben unberührt
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+          const name = "Halo PST-Kontakte";
+          const day = (d, h = 9) => new Date(Date.UTC(2026, 10, d, h));
+          const source = () => ({ name,
+            mail: [{ name: "Posteingang", count: 1, depth: 0, path: ["Posteingang"], items: [{ subject: "Nur Mail", text: "x", messageId: "pst-kc-1@example.invalid" }] }],
+            contacts: [{ name: "Kontakte", count: 2, items: [
+              { uid: "aaaaaaaa-0000-4000-8000-000000000001", first: "Dora", last: "Müller", emails: ["dora@example.invalid"], org: "Halo", phones: [["cell", "+43 660 1"]],
+                birthday: new Date(Date.UTC(1980, 4, 3, 23)) },
+              { uid: "aaaaaaaa-0000-4000-8000-000000000002", display: "Erik Probe", emails: ["erik@example.invalid"] }] }],
+            calendar: [{ name: "Kalender", count: 3, items: [
+              { uid: "pst-kc-ev-1", summary: "Besprechung PST", start: day(18), end: day(18, 10), location: "Wien" },
+              { uid: "pst-kc-ev-2", summary: "Feiertag PST", allDay: true, start: day(19, 0), end: day(20, 0) },
+              { uid: "pst-kc-task-1", task: true, summary: "Aufgabe PST", due: day(21, 0), done: false }] }] });
+          const first = await w.__mcPstImport(source(), { contacts: true, calendar: true });
+          const second = await w.__mcPstImport(source(), { contacts: true, calendar: true });
+          const book = MailServices.ab.directories.find(d => d.dirName == name);
+          const calendar = cal.manager.getCalendars().find(c => c.name == name);
+          const cards = book ? book.childCards : [];
+          const dora = cards.find(c => c.primaryEmail == "dora@example.invalid");
+          const items = calendar ? await Promise.all(["pst-kc-ev-1", "pst-kc-ev-2", "pst-kc-task-1"].map(u => calendar.getItem(u))) : [];
+          const out = { first: { contacts: first?.contacts, events: first?.events }, second: { contacts: second?.contacts, events: second?.events },
+            book: !!book, cards: cards.length, dora: dora && [dora.displayName, dora.getProperty("Company", ""), dora.vCardProperties?.getFirstValue("bday")],
+            calType: calendar?.type, items: items.map(i => i && [i.title, "dueDate" in i ? "task" : "event", i.startDate?.isDate ?? null, i.getProperty?.("LOCATION") || null]) };
+          // Assistent: drei Teile zur Auswahl; nur Kontakte und Kalender importieren (alles schon da), Mailordner unberührt
+          const hw = w.__mcPstWizard(source());
+          const doc = await until(() => hw.document?.querySelector("body.pst .parts input") && hw.document, 8000);
+          if (doc) {
+            const boxes = [...doc.querySelectorAll(".parts input")];
+            out.wiz = { parts: [...doc.querySelectorAll(".parts label")].map(l => l.textContent), visible: !doc.querySelector(".parts").hidden,
+              summary: doc.querySelector(".summary")?.textContent };
+            const mailBox = boxes.find(b => b.dataset.part == "mail");
+            mailBox.click();
+            out.wiz.off = doc.querySelector(".folders").hasAttribute("data-off");
+            doc.querySelector(".buttons .primary").click();
+            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
+            out.wiz.end = doc.querySelector(".summary")?.textContent;
+            out.wiz.localMail = !!MailServices.accounts.localFoldersServer.rootFolder.getChildNamed(name);
+            hw.close();
+          }
+          // aufräumen
+          try { book && MailServices.ab.deleteAddressBook(book.URI); } catch (e) { out.cleanup = String(e); }
+          try { calendar && cal.manager.removeCalendar(calendar); } catch (e) { out.cleanup = String(e); }
+          return out;""")
+        f, s = res.get("first") or {}, res.get("second") or {}
+        wiz = res.get("wiz") or {}
+        items = res.get("items") or []
+        ok = (f.get("contacts", {}).get("added") == 2 and f.get("events", {}).get("added") == 3
+              and s.get("contacts", {}).get("added") == 0 and s.get("contacts", {}).get("skipped") == 2
+              and s.get("events", {}).get("added") == 0 and s.get("events", {}).get("skipped") == 3
+              and res.get("cards") == 2 and (res.get("dora") or [None])[0] == "Dora Müller" and (res.get("dora") or [None, None])[1] == "Halo"
+              and str((res.get("dora") or [None] * 3)[2] or "").replace("-", "") == "19800504" and res.get("calType") == "storage"
+              and len(items) == 3 and all(items) and items[0][:2] == ["Besprechung PST", "event"] and items[0][3] == "Wien"
+              and items[1][:3] == ["Feiertag PST", "event", True] and items[2][:2] == ["Aufgabe PST", "task"]
+              and wiz.get("visible") and wiz.get("parts") == ["Mail (1)", "Contacts (2)", "Calendar (3)"] and wiz.get("off")
+              and "2 contacts" in (wiz.get("summary") or "") and "3 events and tasks" in (wiz.get("summary") or "")
+              and "2 contacts were already there" in (wiz.get("end") or "") and "3 events and tasks were already there" in (wiz.get("end") or "")
+              and "messages imported" not in (wiz.get("end") or "") and not wiz.get("localMail"))
+        return ok, f"{res}"
+    check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile im Assistenten", pst_import_contacts_calendar, results)
 
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief

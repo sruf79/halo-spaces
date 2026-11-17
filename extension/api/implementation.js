@@ -3616,7 +3616,7 @@ function hookMenubar(win, restorers) {
   win.__mcPstRead = path => PstImport.read(path);
   win.__mcPstIsPst = path => PstImport.isPst(path);
   // Import mit erfundenen Daten (CI hat keine PST) bzw. aus einer echten Datei
-  win.__mcPstImport = source => PstImport.run(source, win);
+  win.__mcPstImport = (source, parts) => PstImport.run(source, win, undefined, undefined, parts);
   win.__mcPstWizard = source => PstImport.openWizard(win, source);
   win.__mcPstSource = path => {
     const file = PstImport.openFile(path);

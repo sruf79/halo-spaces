@@ -60,11 +60,11 @@ pruefe "MODELL aus der Datei, unbekannte Schlüssel übergangen" "$(W HALO_AS_CO
 
 # Nacht (00:00–09:00 oder Nachtlauf läuft): Grenze MAX_WORKER − 1, nur unter Soll
 pruefe "Nacht 03:00, unter Soll, 2 aktiv: starten" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_AKTIV=2)" 'starten opus unter dem Soll .*nachts'
-pruefe "Nacht 03:00, 3 aktiv: warten (Grenze 3)" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_AKTIV=3)" 'warten 3 Arbeits-Sitzungen aktiv \(Grenze 3, nachts'
+pruefe "Nacht 03:00, 4 aktiv: warten (Grenze 4, keine Nachtabsenkung)" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_AKTIV=4)" 'warten 4 Arbeits-Sitzungen aktiv \(Grenze 4\)'
 pruefe "Nacht 03:00, über Soll, 5 Stunden 10 %: warten (nachts nur unter Soll)" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=10)" 'warten nachts nur unter dem Soll'
 pruefe "08:59 noch Nacht, 09:00 Tag" "$(W HALO_JETZT=2026-11-18T08:59+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=10)" 'nachts nur'
 pruefe "09:00 Tag: über Soll, 5 Stunden 10 % → starten" "$(W HALO_JETZT=2026-11-18T09:00+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=10)" 'starten opus 5-Stunden-Fenster'
-pruefe "Nachtlauf läuft um 10:00 (lauf.lock): Nachtregeln" "$(W HALO_AS_NACHTLAUF=ja HALO_AS_AKTIV=3)" 'Grenze 3, nachts'
+pruefe "Nachtlauf läuft um 10:00 (lauf.lock): gleiche Grenze wie tagsüber" "$(W HALO_AS_NACHTLAUF=ja HALO_AS_AKTIV=4)" 'Grenze 4\)'
 pruefe "23:30: kein Zeitende, Tagregeln" "$(W HALO_JETZT=2026-11-17T23:30+01:00 HALO_AS_WOCHE=40)" 'starten'
 
 # Doppelstart, Pausen, Ende

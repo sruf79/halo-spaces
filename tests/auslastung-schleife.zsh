@@ -12,7 +12,7 @@
 #   1. Volldampf aktiv? (sonst Ende) Pause „auslastung“ in pausen.txt? (dann warten)
 #   2. Arbeits-Sitzungen zählen: alle „claude -p --model … --session-id|--resume …“ außer Haiku (Worker, Tagesroutine,
 #      Nachtlauf, Zwischen-Release; nicht die interaktiven Remote-Control-Sitzungen). Grenze MAX_WORKER (4, höchstens 8,
-#      in auslastung.conf änderbar); nachts (00:00–09:00 oder solange der Nachtlauf läuft) MAX_WORKER − 1, damit
+#      in auslastung.conf änderbar); nachts gilt dieselbe Grenze (Maintainer 17.11.2026); früher MAX_WORKER − 1, damit
 #      Kontingent für den Nachtlauf bleibt. Grenze erreicht: warten, ohne das Kontingent zu messen.
 #   3. Kontingent (kontingent.json, wenn jünger als KONT_ALTER Minuten, sonst tests/kontingent.sh). Status nicht
 #      „allowed…“ oder Woche ab VOLLDAMPF_WOCHE_ENDE: Ende (Volldampf-Marker wie in den anderen Läufen).
@@ -117,9 +117,9 @@ pruefen() {
   s=($(python3 -I -c $SOLL_PY $K[SOLL_STUNDEN])) || { print -r -- "warten Uhrzeit nicht lesbar"; return }
   std=$s[1] soll=$s[2] hm=$((10#$s[3])) jetzt=$s[4]
   { (( hm < K[NACHT_BIS] )) || nachtlauf_laeuft } && nacht=1
-  grenze=$K[MAX_WORKER]; (( nacht && grenze > 0 )) && grenze=$((grenze - 1))
+  grenze=$K[MAX_WORKER]   # Maintainer 17.11.2026: „maximale produktivität während des volldampf modus, egal ob untertags oder im nachtlauf“ – nachts keine Absenkung mehr
   n=$(aktiv_zahl)
-  (( n >= grenze )) && { print -r -- "warten $n Arbeits-Sitzungen aktiv (Grenze $grenze${nacht:+, nachts MAX_WORKER − 1})"; return }
+  (( n >= grenze )) && { print -r -- "warten $n Arbeits-Sitzungen aktiv (Grenze $grenze)"; return }
   (( jetzt - $(letzter_start) < K[START_ABSTAND] * 60 )) && { print -r -- "warten letzter Worker vor weniger als $K[START_ABSTAND] Minuten gestartet"; return }
   kw=($(kontingent)) || { print -r -- "warten Kontingent nicht lesbar"; return }
   w=$kw[1] f5=$kw[2] st=$kw[3]

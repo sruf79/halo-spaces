@@ -181,6 +181,20 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.29.0
+
+- **Sidebar**: the active space tile catches the light: a calm surface with a fine edge, a soft highlight on top and a gentle glow to the right; inactive tiles are quieter
+- **Sidebar**: a soft glow in the colour of the active space falls from its tile into the sidebar, and the divider takes on the same colour at that height; in Settings it is a faint blend of all space colours; same look docked and floating; turn it off with "Light glow in the sidebar" in the halo.spaces settings
+- **Spaces**: right-clicking a space tile no longer opens a menu; Settings, Account Settings and Add-ons stay in the menu bar
+- **Mail**: blocked remote content shows as a quiet grey card instead of a bright yellow bar (junk and scam warnings stay yellow); menu text lines up in one column
+- **Attachments**: tiles show the file name without the size; the size is in the tooltip
+- **Compose and find bar**: more header fields open from a round "…" button, a field is removed with a small grey × at the end of its row; the find bar is a grey capsule with the match count inside
+- **Menus and settings**: all drop-down fields share one calm style with a double arrow; rare icons (attachment order, invite attendees, invitation details in a message) follow the halo style
+- **Chat**: the selected chat is grey like the selected folder in Mail
+- **Calendar**: the question for repeating events is tall enough, "Cancel" is no longer cut off
+- **Fix**: after an update without restart, the "halo.spaces" window opens the new version (the "Recommend" button was missing until a restart)
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.28.0
 
 - **Mail**: the toolbar buttons Reply, Archive, Move and Flag sit centred between New Message and the search field, and the space around them shrinks first when the window gets narrow; toolbar buttons always show only their icon, also with "Icons and Text" in Customize, and no longer cover the Today pane title (#62)

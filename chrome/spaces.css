@@ -790,7 +790,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
@@ -9671,7 +9671,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-width: 0 !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -9694,7 +9694,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-width: 0 !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -11988,7 +11988,7 @@ datepicker[mc-inline] > menulist {
   min-height: 38px !important;
   padding: 0 !important;
   gap: 0 !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   justify-content: center !important;
 }
 

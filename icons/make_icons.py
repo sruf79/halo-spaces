@@ -14,8 +14,13 @@ import os
 import sys
 from urllib.parse import quote
 
+from hohlpfeil import zeichnungen
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 STROKE = 1.7
+# Hohle Antwortpfeile (freigegeben 16.11.2026, Probe „halo neu“): Kontur 1,6 wie in der Probe (20-px-Stufe nach F5)
+PFEILE = zeichnungen()
+STRICH = {"reply": 1.6, "reply-all": 1.6, "forward": 1.6}
 
 # Name → (viewBox-Breite, SVG-Inhalt). Alles mit Strich, ohne Füllung, außer wo angegeben.
 ICONS = {
@@ -23,12 +28,14 @@ ICONS = {
     "envelope": (24, '<rect x="3" y="5.5" width="18" height="13" rx="2.6"/><path d="M3.9 7.4 12 13.2l8.1-5.8"/>'),
     "compose": (24, '<path d="M11.2 4.5H6.6A2.6 2.6 0 0 0 4 7.1v10.3A2.6 2.6 0 0 0 6.6 20h10.3a2.6 2.6 0 0 0 2.6-2.6v-4.6"/>'
                     '<path d="M17.7 3.7a1.9 1.9 0 0 1 2.7 2.7l-8.1 8.1-3.4.8.8-3.4z"/>'),
-    "reply": (24, '<path d="M9.5 6 4.5 11l5 5"/><path d="M4.8 11h8.7a6.5 6.5 0 0 1 6.5 6.5V19"/>'),
-    "reply-all": (24, '<path d="M11 6 6 11l5 5"/><path d="M6.8 6 1.8 11l5 5"/><path d="M6.3 11h8.2a6.5 6.5 0 0 1 6.5 6.5V19"/>'),
-    "forward": (24, '<path d="m14.5 6 5 5-5 5"/><path d="M19.2 11h-8.7A6.5 6.5 0 0 0 4 17.5V19"/>'),
+    # hohle Pfeilform: rundum aufgeweiteter Grundriss als Kontur (icons/hohlpfeil.py)
+    "reply": (24, f'<path d="{PFEILE["reply"]}"/>'),
+    "reply-all": (24, f'<path d="{PFEILE["reply-all"]}"/>'),
+    "forward": (24, f'<path d="{PFEILE["forward"]}"/>'),
     "archive": (24, '<rect x="3" y="4" width="18" height="4.8" rx="1.4"/><path d="M4.8 8.8v9.6A1.6 1.6 0 0 0 6.4 20h11.2a1.6 1.6 0 0 0 1.6-1.6V8.8"/><path d="M9.8 12.6h4.4"/>'),
-    "trash": (24, '<path d="M3.8 6.6h16.4"/><path d="M9 6.6V5.1A1.6 1.6 0 0 1 10.6 3.5h2.8A1.6 1.6 0 0 1 15 5.1v1.5"/>'
-                  '<path d="m5.9 6.6 1 12a1.6 1.6 0 0 0 1.6 1.4h7a1.6 1.6 0 0 0 1.6-1.4l1-12"/><path d="M10 10.4v6.2M14 10.4v6.2"/>'),
+    # Papierkorb mit drei Strichen und etwas höherem Korb (Variante A, 16.11.2026)
+    "trash": (24, '<path d="M3.8 6.2h16.4"/><path d="M9 6.2V4.6c0-.6.4-1 1-1h4c.6 0 1 .4 1 1v1.6"/>'
+                  '<path d="M5.8 6.2 6.9 19a1.8 1.8 0 0 0 1.8 1.6h6.6a1.8 1.8 0 0 0 1.8-1.6l1.1-12.8"/><path d="M9.6 9.6v7.6M12 9.6v7.6M14.4 9.6v7.6"/>'),
     "junk": (24, '<rect x="3" y="4" width="18" height="4.8" rx="1.4"/><path d="M4.8 8.8v9.6A1.6 1.6 0 0 0 6.4 20h11.2a1.6 1.6 0 0 0 1.6-1.6V8.8"/>'
                  '<path d="m9.6 11.4 4.8 5.2M14.4 11.4l-4.8 5.2"/>'),
     "folder-menu": (34, '<path d="M3 7.8A2.3 2.3 0 0 1 5.3 5.5h3.9l2.1 2.1h7.4A2.3 2.3 0 0 1 21 9.9v7.8a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 17.7z"/>'
@@ -83,7 +90,7 @@ def svg(name):
     width, body = ICONS[name]
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} 24" fill="none" '
-        f'stroke="#000" stroke-width="{STROKE}" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
+        f'stroke="#000" stroke-width="{STRICH.get(name, STROKE)}" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
     )
 
 

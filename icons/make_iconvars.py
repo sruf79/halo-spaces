@@ -17,7 +17,7 @@ import os
 import re
 import sys
 
-from make_icons import ICONS, STROKE
+from make_icons import ICONS, PFEILE, STROKE
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "extension")
@@ -68,7 +68,8 @@ GLYPHS = {
     "remove": '<path d="M5 12h14"/>',
     "close": '<path d="m6.8 6.8 10.4 10.4M17.2 6.8 6.8 17.2"/>',
     "clear": CIRCLE + '<path d="m9.2 9.2 5.6 5.6M14.8 9.2l-5.6 5.6"/>',
-    "search": '<circle cx="10.5" cy="10.5" r="6.2"' + F + '/><path d="m15.1 15.1 4.9 4.9"/>',
+    # Lupe fein und ohne getönte Fläche (Farbe grau setzt das Suchfeld)
+    "search": '<circle cx="10.5" cy="10.5" r="6.2"/><path d="m15.1 15.1 4.9 4.9"/>',
     "more": '<circle cx="6" cy="12" r="1.5"' + D + '/><circle cx="12" cy="12" r="1.5"' + D + '/><circle cx="18" cy="12" r="1.5"' + D + '/>',
     "kebab": CIRCLE + '<circle cx="8.3" cy="12" r="1.1"' + D + '/><circle cx="12" cy="12" r="1.1"' + D + '/><circle cx="15.7" cy="12" r="1.1"' + D + '/>',
     "overflow": '<path d="m6.5 7 5 5-5 5M12.5 7l5 5-5 5"/>',
@@ -96,7 +97,7 @@ GLYPHS = {
     "reply-all": body("reply-all"),
     "reply-list": body("reply-all"),
     "forward": body("forward"),
-    "redirect": '<path d="m15 5 4 4-4 4"/><path d="M18.7 9H9.5a5 5 0 0 0 0 10H12"/>',
+    "redirect": f'<path d="{PFEILE["redirect"]}"/>',
     "replies": body("reply"),
     "unread": '<circle cx="12" cy="12" r="4.6"' + D + '/>',
     "dot": '<circle cx="12" cy="12" r="3.4"' + D + '/>',

@@ -1864,7 +1864,7 @@ findbar .findbar-textbox {
   background-position: 6px center !important;
   background-size: 16px 16px !important;
   -moz-context-properties: stroke, fill, fill-opacity !important;
-  stroke: var(--mt-text-secondary) !important;
+  stroke: var(--mt-text-tertiary) !important;
   fill: transparent !important;
   fill-opacity: 0 !important;
 }
@@ -2592,7 +2592,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   height: 38px !important;
   padding: 0 11px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
-  color: var(--mt-text-secondary) !important;
+  color: var(--mt-text) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, button) {
@@ -2861,11 +2861,11 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 :root {
   --mi-envelope: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%225.5%22 width=%2218%22 height=%2213%22 rx=%222.6%22/%3E%3Cpath d=%22M3.9 7.4 12 13.2l8.1-5.8%22/%3E%3C/svg%3E");
   --mi-compose: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11.2 4.5H6.6A2.6 2.6 0 0 0 4 7.1v10.3A2.6 2.6 0 0 0 6.6 20h10.3a2.6 2.6 0 0 0 2.6-2.6v-4.6%22/%3E%3Cpath d=%22M17.7 3.7a1.9 1.9 0 0 1 2.7 2.7l-8.1 8.1-3.4.8.8-3.4z%22/%3E%3C/svg%3E");
-  --mi-reply: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9.5 6 4.5 11l5 5%22/%3E%3Cpath d=%22M4.8 11h8.7a6.5 6.5 0 0 1 6.5 6.5V19%22/%3E%3C/svg%3E");
-  --mi-reply-all: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 6 6 11l5 5%22/%3E%3Cpath d=%22M6.8 6 1.8 11l5 5%22/%3E%3Cpath d=%22M6.3 11h8.2a6.5 6.5 0 0 1 6.5 6.5V19%22/%3E%3C/svg%3E");
-  --mi-forward: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m14.5 6 5 5-5 5%22/%3E%3Cpath d=%22M19.2 11h-8.7A6.5 6.5 0 0 0 4 17.5V19%22/%3E%3C/svg%3E");
+  --mi-reply: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.6%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M10.6 9.6L10.6 6.6A1.4 1.4 0 0 0 8.21 5.61L3.81 10.01A1.4 1.4 0 0 0 3.81 11.99L8.21 16.39A1.4 1.4 0 0 0 10.6 15.4L10.6 12.4L13 12.4C13.84 12.4 14.47 12.52 15.15 12.8C15.82 13.07 16.29 13.39 16.78 13.9C17.28 14.41 17.61 14.93 17.9 15.66C18.2 16.4 18.36 17.13 18.4 18.07A1.4 1.4 0 0 0 19.87 19.4A1.4 1.4 0 0 0 21.2 17.93C21.14 16.77 20.89 15.58 20.5 14.61C20.11 13.64 19.48 12.66 18.79 11.95C18.1 11.23 17.15 10.59 16.21 10.21C15.28 9.83 14.11 9.6 13 9.6L10.6 9.6Z%22/%3E%3C/svg%3E");
+  --mi-reply-all: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.6%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12.7 9.6L12.7 6.6A1.4 1.4 0 0 0 10.31 5.61L5.91 10.01A1.4 1.4 0 0 0 5.91 11.99L10.31 16.39A1.4 1.4 0 0 0 12.7 15.4L12.7 12.4L15.1 12.4C15.94 12.4 16.57 12.52 17.25 12.8C17.92 13.07 18.39 13.39 18.88 13.9C19.38 14.41 19.71 14.93 20 15.66C20.3 16.4 20.46 17.13 20.5 18.07A1.4 1.4 0 0 0 21.97 19.4A1.4 1.4 0 0 0 23.3 17.93C23.24 16.77 22.99 15.58 22.6 14.61C22.21 13.64 21.58 12.66 20.89 11.95C20.2 11.23 19.25 10.59 18.31 10.21C17.38 9.83 16.21 9.6 15.1 9.6L12.7 9.6ZM6.86 5.25A1.4 1.4 0 0 0 5.51 5.61L1.11 10.01A1.4 1.4 0 0 0 1.11 11.99L5.51 16.39A1.4 1.4 0 0 0 6.86 16.75%22/%3E%3C/svg%3E");
+  --mi-forward: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.6%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M13.4 9.6L13.4 6.6A1.4 1.4 0 0 1 15.79 5.61L20.19 10.01A1.4 1.4 0 0 1 20.19 11.99L15.79 16.39A1.4 1.4 0 0 1 13.4 15.4L13.4 12.4L11 12.4C10.16 12.4 9.53 12.52 8.85 12.8C8.18 13.07 7.71 13.39 7.22 13.9C6.72 14.41 6.39 14.93 6.1 15.66C5.8 16.4 5.64 17.13 5.6 18.07A1.4 1.4 0 0 1 4.13 19.4A1.4 1.4 0 0 1 2.8 17.93C2.86 16.77 3.11 15.58 3.5 14.61C3.89 13.64 4.52 12.66 5.21 11.95C5.9 11.23 6.85 10.59 7.79 10.21C8.72 9.83 9.89 9.6 11 9.6L13.4 9.6Z%22/%3E%3C/svg%3E");
   --mi-archive: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%224%22 width=%2218%22 height=%224.8%22 rx=%221.4%22/%3E%3Cpath d=%22M4.8 8.8v9.6A1.6 1.6 0 0 0 6.4 20h11.2a1.6 1.6 0 0 0 1.6-1.6V8.8%22/%3E%3Cpath d=%22M9.8 12.6h4.4%22/%3E%3C/svg%3E");
-  --mi-trash: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3.8 6.6h16.4%22/%3E%3Cpath d=%22M9 6.6V5.1A1.6 1.6 0 0 1 10.6 3.5h2.8A1.6 1.6 0 0 1 15 5.1v1.5%22/%3E%3Cpath d=%22m5.9 6.6 1 12a1.6 1.6 0 0 0 1.6 1.4h7a1.6 1.6 0 0 0 1.6-1.4l1-12%22/%3E%3Cpath d=%22M10 10.4v6.2M14 10.4v6.2%22/%3E%3C/svg%3E");
+  --mi-trash: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3.8 6.2h16.4%22/%3E%3Cpath d=%22M9 6.2V4.6c0-.6.4-1 1-1h4c.6 0 1 .4 1 1v1.6%22/%3E%3Cpath d=%22M5.8 6.2 6.9 19a1.8 1.8 0 0 0 1.8 1.6h6.6a1.8 1.8 0 0 0 1.8-1.6l1.1-12.8%22/%3E%3Cpath d=%22M9.6 9.6v7.6M12 9.6v7.6M14.4 9.6v7.6%22/%3E%3C/svg%3E");
   --mi-junk: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%224%22 width=%2218%22 height=%224.8%22 rx=%221.4%22/%3E%3Cpath d=%22M4.8 8.8v9.6A1.6 1.6 0 0 0 6.4 20h11.2a1.6 1.6 0 0 0 1.6-1.6V8.8%22/%3E%3Cpath d=%22m9.6 11.4 4.8 5.2M14.4 11.4l-4.8 5.2%22/%3E%3C/svg%3E");
   --mi-folder-menu: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 34 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M3 7.8A2.3 2.3 0 0 1 5.3 5.5h3.9l2.1 2.1h7.4A2.3 2.3 0 0 1 21 9.9v7.8a2.3 2.3 0 0 1-2.3 2.3H5.3A2.3 2.3 0 0 1 3 17.7z%22/%3E%3Cpath d=%22M3 10.3h18%22/%3E%3Cpath d=%22m26 11 3 3 3-3%22/%3E%3C/svg%3E");
   --mi-star: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M12 3.8 9.71 9.24l-5.89.5 4.47 3.87-1.34 5.75L12 16.3l5.05 3.06-1.34-5.75 4.47-3.87-5.89-.5z%22/%3E%3C/svg%3E");
@@ -2920,9 +2920,9 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   height: 22px !important;
 }
 
-/* Toolbar-Symbole so dunkel wie in Apple Mail */
+/* Toolbar-Symbole in Textfarbe (E27); gesperrte bleiben blass */
 #unifiedToolbarContent li:not([item-id="search-bar"]) button {
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
 }
 
 /* Verschieben und Markieren: Thunderbirds eigener Pfeil (Hintergrundbild
@@ -3387,7 +3387,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   justify-content: center !important;
   align-items: center !important;
 }
@@ -3808,6 +3808,15 @@ menupopup:not(.autoscroller) {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
 }
 
+/* Lupe in allen Suchfeldern aller Spaces grau und fein (E27): Thunderbird
+   zeichnet sie in Textfarbe mit getönter Fläche, sie wirkte schwarz und fett */
+:is(search-bar, global-search-bar) img,
+.search-button-icon,
+:is(.searchBox, .themeableSearchBox, input[type="search"]) {
+  stroke: var(--mt-text-tertiary) !important;
+  fill: transparent !important;
+}
+
 menupopup > :is(menu, menuitem) {
   margin-inline: 5px !important;
   min-height: 22px !important;
@@ -4210,7 +4219,7 @@ unified-toolbar {
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -4282,7 +4291,7 @@ unified-toolbar {
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
 }
 
 :root[mc-tab="addressBookTab"] #mcListHeader > .mc-lh-plus:hover {
@@ -5986,7 +5995,7 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background: transparent !important;
   box-shadow: none !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
 }
@@ -14867,7 +14876,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-width: 0 !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -14890,7 +14899,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   min-width: 0 !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -17184,7 +17193,7 @@ datepicker[mc-inline] > menulist {
   min-height: 38px !important;
   padding: 0 !important;
   gap: 0 !important;
-  color: color-mix(in srgb, var(--mt-text) 82%, transparent) !important;
+  color: var(--mt-text) !important;
   justify-content: center !important;
 }
 

@@ -4894,6 +4894,65 @@ def folder_checks(m, results):
     check("Ordnermenüs (Verschieben): Umriss-Symbole in Akzentfarbe wie die Ordnerliste statt Thunderbirds gefüllter Ordner",
           folder_menu_icons, results)
 
+    def main_symbols():
+        # Hauptsymbole (E27, Variante A vom 16.11.2026): Antworten, Allen antworten, Weiterleiten und Umleiten als hohle
+        # Pfeilform (geschlossene Kontur statt Linienpfeil), Papierkorb mit drei Strichen (Leiste, Ordnerliste, Menüs),
+        # Symbole der Leisten in Textfarbe statt 82 % (gesperrte bleiben blass), Lupe in den Suchfeldern grau ohne Fläche
+        res = m.js(FOLDER_JS + r"""
+          const a3 = await toMail();
+          const svg = async f => { try { return await (await fetch("resource://mailcards/icons/" + f)).text(); } catch (e) { return "Fehler " + e; } };
+          const out = { files: {} };
+          for (const f of ["reply.svg", "reply-all.svg", "reply-list.svg", "forward.svg", "redirect.svg", "replies-12.svg", "trash.svg", "trash-12.svg", "search.svg"])
+            out.files[f] = await svg(f);
+          const mask = v => { const e = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.maskImage = v;
+            d.documentElement.append(e); const r = decodeURIComponent(csOf(e).maskImage); e.remove(); return r; };
+          out.mi = Object.fromEntries(["reply", "reply-all", "forward", "trash"].map(n => [n, mask(`var(--mi-${n})`)]));
+          out.text = colorOf(d, "var(--mt-text)"); out.tertiary = colorOf(d, "var(--mt-text-tertiary)");
+          // Leiste: Symbolfarbe (Maske in currentColor) und Blässe gesperrter Knöpfe (Deckkraft entlang der Vorfahren)
+          // (nur vom Symbol bis zum Eintrag der Leiste: was darüber liegt, betrifft alle Knöpfe gleich, etwa ein Übergang der Leiste)
+          const alpha = el => { let a = 1; for (let x = el; x && x.nodeType == 1 && x.id != "unifiedToolbarContent"; x = x.parentElement) a *= Number(csOf(x).opacity); return Math.round(a * 100) / 100; };
+          out.tb = {};
+          for (const li of d.querySelectorAll("#unifiedToolbarContent li[item-id]")) {
+            const id = li.getAttribute("item-id"), b = li.querySelector("button"), i = b?.querySelector(".button-icon");
+            if (!i || !["get-messages", "write-message", "reply", "reply-all", "forward-inline", "archive", "delete", "junk", "move-to", "mark-as"].includes(id)) continue;
+            out.tb[id] = { color: csOf(i).backgroundColor, mask: decodeURIComponent(csOf(i).maskImage).slice(0, 60), disabled: !!b.disabled, alpha: alpha(i) };
+          }
+          out.folderTrash = decodeURIComponent(csOf(a3.document.querySelector('#folderTree li[data-folder-type="trash"] > .container .icon') || d.documentElement).maskImage);
+          // Lupe der Suchfelder: Leiste (alle Spaces teilen sie), Schnellfilter der Mailliste, Adressbuch
+          const lupe = (doc, sel) => { const sb = doc?.querySelector(sel); const img = sb?.querySelector(".search-button-icon, img");
+            if (!img) return null; const s = csOf(img); return { stroke: s.stroke, fill: s.fill }; };
+          out.lupe = { leiste: lupe(d, "global-search-bar"), filter: lupe(a3.document, "#qfb-qs-textbox") };
+          tm.openTab("addressBookTab", {});
+          const abDoc = () => { const x = tm.currentTabInfo?.mode?.name == "addressBookTab" && tm.currentTabInfo.browser?.contentDocument;
+            return x && x.URL.startsWith("about:addressbook") && x.readyState == "complete" && x.querySelector("#searchInput .search-button-icon, #searchInput img") && x; };
+          await bis(abDoc, "Adressbuch-Tab mit Suchfeld"); await ruhig(800);
+          out.lupe.adressbuch = lupe(abDoc(), "#searchInput");
+          out.lupe.leisteAdressbuch = lupe(d, "global-search-bar");
+          await toMail();
+          return out;""")
+        if not res or "files" not in res:
+            return False, f"{res}"
+        f, mi, tb = res["files"], res["mi"], res["tb"]
+        hohl = lambda t: t.count("Z") >= 1 and "A1.4 1.4" in t
+        rgba = lambda c: [float(x) for x in re.findall(r"[\d.]+", str(c))]
+        transparent = lambda c: "rgba(0, 0, 0, 0)" in str(c) or str(c) == "transparent" or (len(rgba(c)) == 4 and rgba(c)[3] == 0)
+        flags = {
+            "Pfeile hohl (Dateien)": all(hohl(f[n]) for n in ("reply.svg", "reply-all.svg", "reply-list.svg", "forward.svg", "redirect.svg", "replies-12.svg")),
+            "Pfeile hohl (Leiste)": all(hohl(mi[n]) for n in ("reply", "reply-all", "forward")),
+            "Allen antworten mit zweitem Kopf": mi["reply-all"].count("<path") == 1 and mi["reply-all"].count("M") == 2,
+            "Papierkorb drei Striche": all(t.count("v7.6") == 3 for t in (f["trash.svg"], f["trash-12.svg"], mi["trash"], res["folderTrash"])),
+            "Lupe ohne Fläche": "<circle" in f["search.svg"] and "context-fill\"/>" not in f["search.svg"] and 'r="6.2" fill' not in f["search.svg"],
+            "Leiste in Textfarbe": bool(tb) and all(same_color(x["color"], res["text"]) for x in tb.values()),
+            # (im Verhältnis zu den bereiten Knöpfen: im inaktiven Fenster blasst Thunderbird die ganze Leiste ab)
+            "gesperrt blass": (lambda on, off: bool(on) and len(set(on)) == 1 and all(a <= 0.6 * on[0] for a in off))(
+                [x["alpha"] for x in tb.values() if not x["disabled"]], [x["alpha"] for x in tb.values() if x["disabled"]]),
+            "Lupe grau": all(x and same_color(x["stroke"], res["tertiary"]) and transparent(x["fill"]) for x in res["lupe"].values()),
+        }
+        detail = {"tb": tb, "lupe": res["lupe"], "text": res["text"], "tertiary": res["tertiary"]}
+        return all(flags.values()), f"{flags} {detail}"
+    check("Symbole: hohle Antwortpfeile, Papierkorb mit drei Strichen, Leisten-Symbole in Textfarbe (gesperrt blass), Lupe grau ohne Fläche in allen Suchfeldern",
+          main_symbols, results)
+
     def suggestions():
         res = m.js(FOLDER_JS + r"""
           const p = d.getElementById("PopupGlodaAutocomplete"); if (!p) return null; const s = csOf(p);

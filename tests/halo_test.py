@@ -3290,11 +3290,13 @@ FIND_SHAPE_JS = r"""
       arrows: { joined: Math.abs(n.l - p.r) <= 0.5 && Math.abs(n.t - p.t) <= 0.5, h: Math.round(p.h * 10) / 10,
                 outer: [parseFloat(fcs(prev).borderTopLeftRadius), parseFloat(fcs(next).borderTopRightRadius)],
                 inner: [parseFloat(fcs(prev).borderTopRightRadius), parseFloat(fcs(next).borderTopLeftRadius)],
-                icons: [fcs(prev).listStyleImage, fcs(next).listStyleImage], line: fcs(next).backgroundImage, bg: fcs(prev).backgroundColor },
+                icons: [fcs(prev).listStyleImage, fcs(next).listStyleImage], line: fcs(next).backgroundImage, bg: fcs(prev).backgroundColor,
+                sh: [fcs(prev).boxShadow, fcs(next).boxShadow] },
       done: { label: close.dataset.mcLabel || "", after: fcs(close, "::after").content, icon: fcs(close.querySelector(".toolbarbutton-icon")).display,
-              right: c.l >= k.r - 0.5, w: Math.round(c.w * 10) / 10, h: Math.round(c.h * 10) / 10, radius: parseFloat(fcs(close).borderTopLeftRadius), bg: fcs(close).backgroundColor },
+              right: c.l >= k.r - 0.5, w: Math.round(c.w * 10) / 10, h: Math.round(c.h * 10) / 10, radius: parseFloat(fcs(close).borderTopLeftRadius), bg: fcs(close).backgroundColor,
+              sh: fcs(close).boxShadow },
       options: [...fb.querySelectorAll(".findbar-container > checkbox")].filter(e => R(e).w > 0).length,
-      replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor } : null; })() });
+      replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor, sh: fcs(b).boxShadow } : null; })() });
     await type("Xyzzy Qwv");
     const st = fb.querySelector(".findbar-find-status"), s2 = R(st), t2 = R(tb);
     out.notfound = { status: tb.getAttribute("status"), bg: fcs(tb).backgroundColor, text: st.textContent,
@@ -3307,7 +3309,7 @@ FIND_SHAPE_JS = r"""
 def find_shape_ok(s, compose):
     """Suchleiste wie beim Mac: graue Kapsel mit Lupe, Trefferzahl und „nicht gefunden“ grau rechts im Feld (kein rosa
     Feld), Pfeile als Paar in einer Kapsel (halo-Pfeile, Trennstrich), „Done“ als graue Textkapsel rechts außen, alle
-    vier Optionen sichtbar, im Verfassen-Fenster „Replace…“ als Textkapsel."""
+    vier Optionen sichtbar, im Verfassen-Fenster „Replace…“ als Textkapsel; Kapseln mit der Lichtkante der Knopf-Familie."""
     f, a, d, cnt, nf = s.get("field", {}), s.get("arrows", {}), s.get("done", {}), s.get("count") or {}, s.get("notfound", {})
     cap = lambda r: r is not None and r >= 11.5
     ok = (cap(f.get("radius")) and 23 <= f.get("h", 0) <= 25 and "search.svg" in f.get("img", "") and same_color(f.get("bg"), s["control"])
@@ -3315,6 +3317,9 @@ def find_shape_ok(s, compose):
           and a.get("joined") and 23 <= a.get("h", 0) <= 25 and all(cap(x) for x in a.get("outer", [])) and a.get("inner") == [0, 0]
           and "nav-up-12.svg" in a["icons"][0] and "nav-down-12.svg" in a["icons"][1] and "linear-gradient" in a.get("line", "")
           and same_color(a.get("bg"), s["control"])
+          # Knopf-Familie: Pfeil-Kapsel und Textkapseln mit Lichtkante (innerer heller Strich oben)
+          and all("inset" in x for x in a.get("sh", ["", ""])) and "inset" in d.get("sh", "")
+          and (not compose or "inset" in (s.get("replace") or {}).get("sh", ""))
           # Text „Done“ aus data-mc-label: neuere Versionen liefern ::after aufgelöst ("Done"), ESR als attr(data-mc-label);
           # die Breite belegt in beiden Fällen, dass der Text gezeichnet ist (Symbol ausgeblendet)
           and d.get("label") and (d.get("label") in d.get("after", "") or d.get("after") == "attr(data-mc-label)")
@@ -4239,12 +4244,13 @@ def dialog_checks(m, results):
           const t = tm.openTab("contentTab", { url: "about:support", background: false });
           try { await bis(() => t.browser?.contentDocument?.getElementById("copy-to-clipboard") && t.browser.contentWindow.__mcTheme, "about:support mit Design", 8000); await ruhig(400);
             const dd = t.browser.contentDocument;
-            const bs = [...dd.querySelectorAll("button")].filter(b => b.getClientRects().length).slice(0, 6).map(b => { const s = csOf(b); return [b.id || b.textContent.trim().slice(0, 20), Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor]; });
+            const bs = [...dd.querySelectorAll("button")].filter(b => b.getClientRects().length).slice(0, 6).map(b => { const s = csOf(b); return [b.id || b.textContent.trim().slice(0, 20), Math.round(b.getBoundingClientRect().height), s.borderTopLeftRadius, s.backgroundColor, s.boxShadow]; });
             return { bs, control: colorOf(dd, "var(--mt-control)", "backgroundColor") };
           } finally { tm.closeTab(t); await ruhig(300); }""")
-        ok = len(res["bs"]) >= 3 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) for _, h, r, bg in res["bs"])
+        # Knopf-Familie: Textknöpfe mit Lichtkante (innerer heller Strich oben)
+        ok = len(res["bs"]) >= 3 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) and "inset" in sh for _, h, r, bg, sh in res["bs"])
         return ok, f"{res}"
-    check("Fehlerbehebung: Knöpfe in about:support als 28-px-Kapsel mit Knopffläche", support_page, results)
+    check("Fehlerbehebung: Knöpfe in about:support als 28-px-Kapsel mit Knopffläche und Lichtkante", support_page, results)
 
     def config_page():
         # Konfiguration (about:config): „Show All“ und die Knöpfe der Tabelle als 28-px-Kapsel mit Knopffläche,
@@ -4356,16 +4362,25 @@ def dialog_checks(m, results):
           const pd = await tillM(() => all().map(bc => { try { return bc.window?.document; } catch { return null; } })
             .find(x => x && x.documentURI == "chrome://global/content/print.html" && x.getElementById("print-button")), 12000);
           if (!pd) return { open: false };
-          try { await nap(1500); const pw = pd.defaultView, s = pw.getComputedStyle(pd.getElementById("print-button"));
-            return { open: true, btn: s.backgroundColor, text: s.color, accent: colorIn(pd, "AccentColor"), accentText: colorIn(pd, "AccentColorText"),
+          try { await nap(1500); const pw = pd.defaultView, pb = pd.getElementById("print-button"), s = pw.getComputedStyle(pb), cb = pd.getElementById("cancel-button");
+            const out = { open: true, btn: s.backgroundColor, text: s.color, accent: colorIn(pd, "AccentColor"), accentText: colorIn(pd, "AccentColorText"),
                      root: pw.getComputedStyle(pd.documentElement).backgroundColor,
-                     sheet: colorIn(pd, "var(--mt-sheet)", "backgroundColor"), window: colorIn(pd, "var(--mt-window)", "backgroundColor") };
+                     sheet: colorIn(pd, "var(--mt-sheet)", "backgroundColor"), window: colorIn(pd, "var(--mt-window)", "backgroundColor"),
+                     // Knopf-Familie: „Print“ mit Licht (Verlauf, Lichtkante), „Cancel“ Textknopf mit Lichtkante
+                     img: s.backgroundImage, sh: s.boxShadow, cancelSh: pw.getComputedStyle(cb).boxShadow,
+                     control: colorIn(pd, "var(--mt-control)", "backgroundColor") };
+            // gesperrt (lädt die Vorschau noch): grau und flach statt halb durchsichtig – nur zum Messen gesperrt, nie gedruckt
+            const was = pb.disabled; pb.disabled = true; await nap(150); const g = pw.getComputedStyle(pb);
+            out.off = [g.opacity, g.backgroundColor, g.backgroundImage, g.boxShadow]; pb.disabled = was;
+            return out;
           } finally { try { pd.getElementById("cancel-button")?.click(); } catch {} await nap(800);
             try { if (!pd.defaultView.closed) pd.defaultView.close(); } catch {} await nap(400); }""")
         ok = (res.get("open") and same_color(res["btn"], res["accent"]) and same_color(res["text"], res["accentText"])
-              and (same_color(res["root"], res["sheet"]) or same_color(res["root"], res["window"])) and not same_color(res["root"], "rgb(28, 27, 34)"))
+              and (same_color(res["root"], res["sheet"]) or same_color(res["root"], res["window"])) and not same_color(res["root"], "rgb(28, 27, 34)")
+              and res["img"].startswith("linear-gradient") and "inset" in res["sh"] and "inset" in res["cancelSh"]
+              and float(res["off"][0]) == 1 and same_color(res["off"][1], res["control"]) and res["off"][2] == "none" and res["off"][3] == "none")
         return ok, f"{res}"
-    check("Druckvorschau: Hauptknopf in der Systemakzentfarbe statt Proton-Blau/-Türkis, Panel neutral", print_preview, results)
+    check("Druckvorschau: Hauptknopf in der Systemakzentfarbe mit Licht statt Proton-Blau/-Türkis, gesperrt grau und flach, „Cancel“ mit Lichtkante, Panel neutral", print_preview, results)
 
     def open_with():
         # Anhang ohne gespeicherte Aktion → „Öffnen von …“: Knöpfe flach wie in den übrigen Dialogen (Cancel grau, OK in Akzentfarbe)
@@ -4510,6 +4525,73 @@ def dialog_checks(m, results):
         return ok, f"{res}"
     check("Knöpfe: Hauptknöpfe ohne Standard-Merkmal leuchten wie im Dialog (Kontakt sichern, Termin-Fenster Sichern, Schnellfenster), "
           "je Fenster nur einer; Maus ohne Änderung, gedrückt dunkler ohne Licht", primary_elsewhere, results)
+
+    def family_more():
+        # Knopf-Familie an weiteren Stellen: Import/Export („Continue“ usw. Hauptknopf mit Licht, „Back“ Textknopf mit Lichtkante),
+        # Panel „Kontakt bearbeiten“ („Done“ Hauptknopf, übrige Textknöpfe), „Add Account“ in den Kontoeinstellungen als
+        # Textknopf (Seitenleiste eines Tabs, kein Dialog); gesperrt grau und flach statt halb
+        # durchsichtig. Zustände über addPseudoClassLock bzw. kurz gesetztes disabled, nie anklicken
+        res = m.js(READING_JS + r"""
+          const look = el => { const s = el.ownerDocument.defaultView.getComputedStyle(el); return { bg: s.backgroundColor, img: s.backgroundImage, sh: s.boxShadow, op: s.opacity }; };
+          // nach jedem Zustandswechsel warten, bis Thunderbirds Übergänge (Fläche, Schatten) fertig sind
+          const settle = async el => { await ruhig(100); for (let i = 0; i < 30 && el.getAnimations().length; i++) await wait(50); };
+          const states = async el => { await settle(el); const r = { ready: look(el) };
+            InspectorUtils.addPseudoClassLock(el, ":hover"); await settle(el); r.hover = look(el);
+            InspectorUtils.addPseudoClassLock(el, ":active"); await settle(el); r.press = look(el);
+            InspectorUtils.removePseudoClassLock(el, ":active"); InspectorUtils.removePseudoClassLock(el, ":hover");
+            const was = el.disabled; el.disabled = true; await settle(el); r.off = look(el); el.disabled = was; await settle(el); return r; };
+          const colorIn = (dc, v, prop = "color") => { const e = dc.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style[prop] = v; dc.documentElement.append(e);
+            const c = e.ownerDocument.defaultView.getComputedStyle(e)[prop]; e.remove(); return c; };
+          const shown = el => el && el.getBoundingClientRect().width > 0;
+          const out = { accent: colorIn(d, "AccentColor"), control: colorIn(d, "var(--mt-control)", "backgroundColor") };
+          // Import (about:import), erster Schritt: „Continue“ und „Back“ (Back ist auf der Startseite verborgen: zum Messen gezeigt)
+          tm.switchToTab(0); await ruhig(300); w.toImport();
+          const t = await bis(() => tm.tabInfo.find(x => x.browser?.currentURI?.spec?.startsWith("about:import")), "Tab about:import", 6000);
+          try { const dd = t.browser.contentDocument; await bis(() => dd.getElementById("stepNav") && [...dd.querySelectorAll("button.primary")].find(shown), "Import-Knöpfe", 6000); await ruhig(600);
+            out.imp = await states([...dd.querySelectorAll("button.primary")].find(shown));
+            const back = dd.getElementById("startBackButton"), hid = back.hidden; back.hidden = false; back.style.display = "inline-block"; await ruhig(150);
+            out.impBack = await states(back); back.hidden = hid; back.style.display = "";
+            out.impNav = look(dd.querySelector("#stepNav button")).sh;
+          } finally { tm.closeTab(t); await ruhig(400); }
+          // Panel „Kontakt bearbeiten“ aus dem Mailkopf
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = book.childCards.find(c => c.primaryEmail == "paula@example.invalid");
+          if (!card) { card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            card.displayName = "Paula Panel"; card.primaryEmail = "paula@example.invalid"; card = book.addCard(card); }
+          try { const doc = await showMail("Halo Kontakt");
+            const menu = doc.getElementById("emailAddressPopup"), from = doc.querySelector("#fromRecipient0");
+            (from.querySelector(".recipient-single-line, .recipient-multi-line-name") || from).click();
+            await bis(() => menu.state == "open", "Adressmenü offen", 3000);
+            doc.getElementById("editContactItem").doCommand(); menu.hidePopup();
+            const panel = await bis(() => { const p = doc.getElementById("editContactPanel"); return p?.state == "open" && p; }, "Panel Kontakt bearbeiten", 4000);
+            try { await ruhig(400); out.contact = await states(doc.getElementById("editContactPanelDoneButton"));
+              out.contactOthers = ["editContactPanelEditDetailsButton", "editContactPanelDeleteContactButton"].map(id => look(doc.getElementById(id)));
+              out.contactLit = [...panel.querySelectorAll("button")].filter(b => shown(b) && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+            } finally { panel.hidePopup(); await ruhig(300); }
+          } finally { book.deleteCards([card]); }
+          // Kontoeinstellungen: „Add Account“
+          w.MsgAccountManager(null);
+          const add = await bis(() => { const b = tm.currentTabInfo.browser?.contentDocument?.getElementById("accountTreeCreateAccount"); return shown(b) && b; }, "Add Account", 8000);
+          try { await ruhig(500); out.add = await states(add); } finally { tm.closeTab(tm.currentTabInfo); await ruhig(400); }
+          return out;""")
+        acc, ctl = res["accent"], res["control"]
+        def primary(r):
+            rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
+            return (same_color(rd["bg"], acc) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+                    and same_color(hv["bg"], acc) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
+                    and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"])
+                    and float(off["op"]) == 1 and same_color(off["bg"], ctl) and off["img"] == "none" and off["sh"] == "none")
+        def text(r):
+            rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
+            return (same_color(rd["bg"], ctl) and "gradient" not in rd["img"] and "inset" in rd["sh"] and "inset" in hv["sh"]
+                    and "inset" in pr["sh"] and pr["sh"] != rd["sh"] and not same_color(pr["bg"], rd["bg"])
+                    and float(off["op"]) == 1 and off["sh"] == "none")
+        ok = (primary(res["imp"]) and text(res["impBack"]) and res["impNav"] == "none"
+              and primary(res["contact"]) and res["contactLit"] == ["editContactPanelDoneButton"] and all("inset" in o["sh"] for o in res["contactOthers"])
+              and text(res["add"]))
+        return ok, f"{res}"
+    check("Knöpfe: Import/Export und „Kontakt bearbeiten“ mit einem Hauptknopf mit Licht, „Add Account“ als Textknopf "
+          "mit Lichtkante; gesperrt grau und flach", family_more, results)
 
     def rule_rows():
         # Bedingungszeilen (Suchordner-Dialog und Suchfenster): Auswahllisten nur in --mt-control ohne zweiten Verlauf (vorher doppelt
@@ -6280,7 +6362,8 @@ def calendar_checks(m, results):
               .map(e => [e.getAttribute("attendeerole") || e.getAttribute("usertype"), [file(e), csOf(e).fillOpacity]]));
             // Zoom − und + als runde graue Symbolknöpfe mit halo-Zeichen
             out.zoom = ["zoom-out-button", "zoom-in-button"].map(id => { const z = ad.getElementById(id), r = z.getBoundingClientRect();
-              return [Math.round(r.width), Math.round(r.height), csOf(z).borderTopLeftRadius, csOf(z).backgroundColor, (csOf(z).listStyleImage.match(/icons\/([\w-]+)\.svg/) || [])[1] || csOf(z).listStyleImage.slice(0, 50)]; });
+              return [Math.round(r.width), Math.round(r.height), csOf(z).borderTopLeftRadius, csOf(z).backgroundColor, (csOf(z).listStyleImage.match(/icons\/([\w-]+)\.svg/) || [])[1] || csOf(z).listStyleImage.slice(0, 50),
+                      csOf(z).boxShadow]; });
             out.control = colorOf(ad, "var(--mt-control)", "backgroundColor");
             // Uhrzeit zum Eintippen wie im Termin-Dialog (kein Popover), als Feld wie das Datum daneben
             const te = ad.querySelector("#event-starttime .mc-time-edit");
@@ -6310,6 +6393,8 @@ def calendar_checks(m, results):
                                          "RESOURCE": ["tools", "0"], "ROOM": ["location", "0"]}
               and [z[4] for z in res["zoom"]] == ["remove", "add"]
               and all(z[0] == z[1] == 24 and z[2] == "50%" and same_color(z[3], res["control"]) for z in res["zoom"])
+              # Knopf-Familie: einzeln stehender Symbolknopf mit Lichtkante (innerer heller Strich oben)
+              and all("inset" in z[5] for z in res["zoom"])
               and same_color(res["ok"]["bg"], res["ok"]["accent"]) and contrast(res["busy"]["bg"], res["busy"]["win"]) >= 3)
         return ok, f"{res}"
     check("Termin: „Teilnehmer einladen“ ohne Zeilenlinien, zarte Stundenlinien, Legende als Farbpunkte, halo-Symbole (Pflicht gefüllt, Raum als Ortsnadel), Zoom als runde Symbolknöpfe, Akzent statt Pink, Uhrzeit zum Eintippen, „OK“ in Akzentfarbe, „Busy“ gut sichtbar", attendees_dialog, results)
@@ -15473,7 +15558,7 @@ Neu
             .map(b => b ? [Math.round(R(b).width * 2) / 2, Math.round(R(b).height * 2) / 2, cs(b).backgroundColor, cs(b).borderTopLeftRadius] : null);
           const card = ad.querySelector(`addon-card[addon-id="${ID}"]`);
           out.knobs = [knobs(card)];
-          const headBtn = sel => { const b = ad.querySelector(sel)?.shadowRoot?.querySelector('[part="button"]'); return b && R(b).height ? [Math.round(R(b).width), Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == bg("var(--mt-control)")] : null; };
+          const headBtn = sel => { const b = ad.querySelector(sel)?.shadowRoot?.querySelector('[part="button"]'); return b && R(b).height ? [Math.round(R(b).width), Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == bg("var(--mt-control)"), cs(b).boxShadow.includes("inset")] : null; };
           out.head = [headBtn("addon-page-header .page-options-menu .more-options-button"), headBtn("search-addons moz-button")];
           const tb = card.querySelector("moz-toggle")?.shadowRoot?.querySelector('button[aria-pressed="true"]');
           out.toggleDot = tb ? cs(tb, "::before").backgroundColor : null;
@@ -15535,7 +15620,8 @@ Neu
         s = res.get("search") or [None, 0, False, 0]
         search_ok = rgba_alpha(s[0]) == 0 and s[1] >= 14 and s[2] and 26 <= s[3] <= 30
         knobs_ok = all(k and all(b and b[0] == 24 and b[1] == 24 and b[2] == "rgba(0, 0, 0, 0)" and b[3] == "50%" for b in k) for k in res["knobs"])
-        head_ok = len(res["head"]) == 3 and all(h and h[:3] == [28, 28, "999px"] and h[3] for h in res["head"])
+        # Kopfknöpfe als einzeln stehende Symbolknöpfe der Knopf-Familie: grau mit Lichtkante
+        head_ok = len(res["head"]) == 3 and all(h and h[:3] == [28, 28, "999px"] and h[3] and h[4] for h in res["head"])
         menus_ok = len(res["menus"]) == 2 and all(mn and mn["radius"] == "12px" and mn["border"] == "0px" and mn["bg"] and not mn["blue"]
                                                    and mn["itemRadius"] == "6px" and mn["itemH"] >= 22 and mn["hover"] and mn["hr"] is not False for mn in res["menus"])
         dt = res.get("detail") or {}

@@ -287,11 +287,17 @@ addon-card .more-options-button::part(button):hover {
   border: none !important;
   border-radius: 999px !important;
   background-color: var(--mt-control) !important;
-  box-shadow: none !important;
+  /* Knopf-Familie: einzeln stehender Symbolknopf grau mit Lichtkante */
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
 }
 
 :is(addon-page-header .back-button, addon-page-header .page-options-menu .more-options-button, search-addons moz-button)::part(button):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+:is(addon-page-header .back-button, addon-page-header .page-options-menu .more-options-button, search-addons moz-button)::part(button):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 /* Zurück im Seitenkopf: Thunderbird malt den Pfeil zusätzlich als Hintergrund
@@ -309,11 +315,23 @@ addon-card moz-button:not(.more-options-button)::part(button) {
   border: none !important;
   border-radius: 999px !important;
   background-color: var(--mt-control) !important;
-  box-shadow: none !important;
+  /* Textknopf der Knopf-Familie: grau mit Lichtkante */
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
 }
 
 addon-card moz-button:not(.more-options-button)::part(button):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+addon-card moz-button:not(.more-options-button)::part(button):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
+  opacity: 1 !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text, GrayText) !important;
 }
 
 /* Add-ons-Verwaltung: Zeilen der Menüs („…“ an der Karte, Zahnrad im Kopf)

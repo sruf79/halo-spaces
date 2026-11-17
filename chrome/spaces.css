@@ -5016,6 +5016,42 @@ categories-box moz-page-nav-button {
   color: var(--mt-text) !important;
 }
 
+/* Knopf-Familie im Import/Export: je Schritt ist „Continue“, „Start Import“,
+   „Finish“ bzw. „Export“ (.primary) der Hauptknopf in der Systemfarbe mit
+   Licht (Maus ohne Änderung, gedrückt dunkler ohne Licht, gesperrt grau und
+   flach); „Back“, „Start Over“, „Select All“ usw. Textknöpfe grau mit
+   Lichtkante. Schrittanzeige (#stepNav), Links (.btn-link) und der
+   Suchknopf bleiben, wie sie sind */
+:root:has(#stepNav) main button.primary:not([disabled]) {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+:root:has(#stepNav) main button.primary:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+:root:has(#stepNav) main button:not(.primary, .btn-link, #stepNav button, #search-button):not([disabled]) {
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+:root:has(#stepNav) main button:not(.primary, .btn-link, #stepNav button, #search-button):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+:root:has(#stepNav) main button:not(.btn-link, #stepNav button, #search-button)[disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
+}
+
 /* Thunderbird malt Suchzeile und Überschrift darin noch einmal in
    --layout-background-0 */
 :root:has(#sidebar > categories-box) :is(.main-search, .main-heading) {
@@ -7754,12 +7790,29 @@ button:not(.icon-only, .tree-button-more, .twisty, .button-flat, [is="tree-view-
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
   color: var(--mt-text) !important;
-  box-shadow: none !important;
+  /* Knopf-Familie: „Add Account“ ist ein Textknopf (grau mit Lichtkante), kein
+     Hauptknopf – er schließt keine Aufgabe ab und steht in der Seitenleiste
+     eines Tabs, nicht in einem Dialog (G15 „je Dialog oder Popup“) */
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
 }
 
 #accountTreeBox .sidebar-panel-header button:hover,
 #accountTreeBox > header button:hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+#accountTreeBox .sidebar-panel-header button:not([disabled]):hover:active,
+#accountTreeBox > header button:not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#accountTreeBox .sidebar-panel-header button[disabled],
+#accountTreeBox > header button[disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
 }
 
 /* Inhaltsseiten (am-*.xhtml) wie die Einstellungen: große Überschrift, runde Felder */
@@ -11066,7 +11119,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 /* Zoom − und + als runde graue Symbolknöpfe (24 px wie die übrigen runden
    Symbolknöpfe) mit den halo-Zeichen statt Thunderbirds Kreis-Symbolen;
-   die Lichtkante der Knopffamilie kommt erst mit dem Paket */
+   Knopf-Familie: Lichtkante, Maus etwas dunkler, gedrückt dunkler ohne
+   Kante, gesperrt flach mit blassem Symbol */
 #calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button) {
   appearance: none !important;
   inline-size: 24px !important;
@@ -11078,13 +11132,22 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   border: none !important;
   border-radius: 50% !important;
   background: var(--mt-control) !important;
-  box-shadow: none !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
   justify-content: center !important;
   align-items: center !important;
 }
 
 #calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button):not([disabled]):hover {
   background: var(--mt-control-hover) !important;
+}
+
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button):not([disabled]):hover:active {
+  background: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button)[disabled] {
+  box-shadow: none !important;
 }
 
 #calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button) > .toolbarbutton-icon {
@@ -11101,7 +11164,8 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 #calendar-event-dialog-attendees-v2 #zoom-out-button { list-style-image: url("resource://mailcards/icons/remove.svg") !important; }
 
 #calendar-event-dialog-attendees-v2 :is(#zoom-in-button, #zoom-out-button)[disabled] > .toolbarbutton-icon {
-  opacity: 0.4 !important;
+  opacity: 1 !important;
+  stroke: color-mix(in srgb, var(--mt-text) 30%, transparent) !important;
 }
 
 #calendar-event-dialog-attendees-v2 :is(.role-icon, .usertype-icon)[disabled] {

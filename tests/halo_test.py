@@ -16737,6 +16737,44 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: „Repeat“ → „Never“ an einem Vorkommen beendet die ganze Serie", task_series_repeat, results)
 
+    def task_window_occurrence():
+        # Vorkommen einer Serie im eigenen Aufgabenfenster: nach „Complete“ zeigt das Fenster weiter das Vorkommen (erledigt),
+        # nicht die Serie (vorher sprang es auf die Serie, „Complete“ schien wirkungslos)
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const r = new CalTodo(); r.title = "Halo Fensterserie"; r.calendar = c;
+          const rs = cal.dtz.now(); rs.day -= 1; rs.hour = 9; rs.minute = 0; rs.second = 0; r.entryDate = rs;
+          const ri = new CalRecurrenceInfo(r), rule = cal.createRecurrenceRule(); rule.type = "DAILY"; rule.interval = 1; ri.appendRecurrenceItem(rule); r.recurrenceInfo = ri;
+          const saved = await c.addItem(r);
+          const wins = () => [...Services.wm.getEnumerator(null)].filter(x => x.document?.documentElement?.hasAttribute("mc-task-window"));
+          const out = {};
+          try {
+            const from = rs.clone(); from.day += 1; from.hour = 0; const to = from.clone(); to.day += 1;
+            const occ = saved.recurrenceInfo.getOccurrences(from, to, 0)[0];
+            out.occurrence = !!occ?.recurrenceId;
+            w.modifyEventWithDialog(occ, true);
+            const nw = await bis(() => wins()[0], "Aufgabenfenster", 6000);
+            const nd = nw.document;
+            await bis(() => nd.querySelector("#mcTaskInfo .mc-ti-row") && nd.getElementById("calendar-task-details-title")?.textContent, "Ansicht gefüllt", 6000);
+            await ruhig(400);
+            const btn = nd.getElementById("task-actions-markcompleted");
+            btn.click();
+            for (let i = 0; i < 40; i++) { const p = await c.getItem(saved.id); if (p?.recurrenceInfo?.getExceptionIds().length) break; await wait(100); }
+            await ruhig(600);
+            out.saved = !!(await c.getItem(saved.id))?.recurrenceInfo?.getExceptionFor(occ.recurrenceId)?.isCompleted;
+            out.done = btn.hasAttribute("data-done");
+            out.num = nd.getElementById("mcTaskProgNum").textContent.replace(/\s/g, "");
+          } finally {
+            for (const x of wins()) x.close();
+            for (const x of await items("Halo Fensterserie")) { try { await c.deleteItem(x); } catch {} }
+          }
+          return out;""")
+        ok = res.get("occurrence") is True and res.get("saved") is True and res.get("done") is True and res.get("num") == "100%"
+        return ok, f"{res}"
+    check("Aufgaben: Vorkommen einer Serie im eigenen Fenster bleibt nach „Complete“ das Vorkommen (erledigt)", task_window_occurrence, results)
+
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
         # liegen nie auf Plus und Suche der Toolbar

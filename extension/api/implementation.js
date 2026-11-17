@@ -5424,7 +5424,10 @@ async function openTaskWindow(main, item) {
       onModifyItem(newItem) {
         const cur = solo.tree.currentTask;
         if (newItem.id == cur.id && newItem.calendar?.id == cur.calendar?.id) {
-          solo.tree.currentTask = newItem;
+          // (Vorkommen einer Serie: Thunderbird meldet die ganze Serie – das Fenster
+          // bleibt beim Vorkommen, sonst zeigte es nach dem Ändern die Serie)
+          const occ = cur.recurrenceId && newItem.recurrenceInfo ? newItem.recurrenceInfo.getOccurrenceFor(cur.recurrenceId) : null;
+          solo.tree.currentTask = occ || newItem;
           show();
         }
       },

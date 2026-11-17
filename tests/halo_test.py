@@ -4755,14 +4755,14 @@ def folder_checks(m, results):
           // Rechtsklick auf die leere Leiste: kein (leeres) Menü
           out.bar = await pop(item("spacesToolbarContextMenu"), item("spacesToolbar"));
           out.customizing = w.gSpacesToolbar.isCustomizing;
-          // Gegenprobe: das Menü am Einstellungen-Knopf geht weiter auf (Einstellungen, Konten, Add-ons)
+          // Einstellungen-Kachel: wie alle Kacheln ohne Kontextmenü (Einstellungen, Konten und Add-ons stehen in der Menüleiste)
           out.settings = await pop(item("settingsContextMenu"), item("settingsButton"));
           const before = w.gSpacesToolbar.isHidden;
           w.gSpacesToolbar.toggleToolbar(!before); await ruhig(300); out.toggled = w.gSpacesToolbar.isHidden != before;
           w.gSpacesToolbar.toggleToolbar(before); await ruhig(500); out.restored = w.gSpacesToolbar.isHidden == before;
           return out;""")
         ok = (res["hidden"] == [True, True] and res["sep"] is True and res["bar"]["state"] == "closed" and res["customizing"] is False
-              and res["settings"]["state"] in ("open", "showing") and res["settings"]["visible"] == 3 and res["toggled"] and res["restored"])
+              and res["settings"]["state"] == "closed" and res["toggled"] and res["restored"])
         return ok, f"{res}"
     check("Bereiche-Leiste: „Anpassen…“ (öffnete nicht, sperrte das Ausblenden) entfernt, leere Leiste ohne leeres Menü", spaces_customize, results)
 
@@ -12858,14 +12858,23 @@ def run_checks(m, version, profile, results):
           if (folderRow) out.folder = await openAt(ad.getElementById("folderPaneContext"), folderRow.querySelector(".container"));
           const tab = d.getElementById("tabmail").tabContainer.allTabs[0];
           out.tab = await openAt(d.getElementById("tabContextMenu"), tab);
-          const space = d.getElementById("calendarButton");
-          const sp = d.getElementById("spacesContextMenu");
-          if (space && sp) { space.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 })); await ruhig(500);
-            out.spaces = { state: sp.state, ...look(sp) }; sp.hidePopup(); await ruhig(300); }
+          // Kacheln der Bereiche-Leiste: Rechtsklick öffnet kein Menü (auch nicht an der Einstellungen-Kachel)
+          out.tiles = {};
+          for (const [id, menu] of [["calendarButton", "spacesContextMenu"], ["mailButton", "spacesContextMenu"], ["settingsButton", "settingsContextMenu"]]) {
+            const space = d.getElementById(id), sp = d.getElementById(menu);
+            if (!space || !sp) { out.tiles[id] = "fehlt"; continue; }
+            const r = space.getBoundingClientRect();
+            space.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+              screenX: w.mozInnerScreenX + r.left + r.width / 2, screenY: w.mozInnerScreenY + r.top + r.height / 2 }));
+            await ruhig(500);
+            out.tiles[id] = sp.state; if (sp.state != "closed") { sp.hidePopup(); await ruhig(300); }
+          }
           return out;""")
+        tiles = res.pop("tiles", {})
         bad = [k for k, v in res.items() if v and (v.get("bad") or v.get("seps"))]
-        return not bad and "folder" in res and "tab" in res, f"{bad} {res}"
-    check("Kontextmenüs: ohne „In neuem Tab/Fenster öffnen“, ohne doppelte Trennlinien", no_new_tab_items, results)
+        bad += [f"Kachel {k}: {v}" for k, v in tiles.items() if v != "closed"]
+        return not bad and "folder" in res and "tab" in res and len(tiles) == 3, f"{bad} {res} Kacheln {tiles}"
+    check("Kontextmenüs: ohne „In neuem Tab/Fenster öffnen“, ohne doppelte Trennlinien; Kacheln der Bereiche-Leiste ohne Kontextmenü", no_new_tab_items, results)
 
     def task_lists():
         # Aufgaben wie die Erinnerungen-App: Ansichten oben in der Seitenleiste (Today, Scheduled, All, Important, In Progress,

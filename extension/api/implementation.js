@@ -11677,9 +11677,21 @@ class CardEnhancer {
         }
       };
       spacesMenu?.addEventListener("popupshowing", noEmpty);
+      // Kacheln ohne Kontextmenü: Rechtsklick auf eine Kachel der
+      // Bereiche-Leiste öffnet kein Menü (Mail, Kalender, …, Einstellungen);
+      // Thunderbird öffnet es selbst im contextmenu-Listener jeder Kachel,
+      // darum das Ereignis schon beim Durchlauf durch die Leiste anhalten
+      const noTileMenu = e => {
+        if (e.target.closest?.("#spacesToolbar button, #spacesToolbar .spaces-toolbar-button")) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      };
+      bar.addEventListener("contextmenu", noTileMenu, true);
       this.restorers.push(() => {
         custHide.forEach(el => (el.hidden = false));
         spacesMenu?.removeEventListener("popupshowing", noEmpty);
+        bar.removeEventListener("contextmenu", noTileMenu, true);
       });
       // Tooltips der Bereiche nur mit Namen („Mail“ statt „Mail (⌃ 1)“):
       // Thunderbird setzt sie per Fluent aus Titel und Kurzbefehl, auch

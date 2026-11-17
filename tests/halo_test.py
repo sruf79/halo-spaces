@@ -4478,10 +4478,6 @@ def dialog_checks(m, results):
             const c = dc.defaultView.getComputedStyle(e).color; e.remove(); return c; };
           const out = { accent: accentIn(ad) };
           const foot = [...ad.querySelectorAll("#detailsFooter button")].filter(b => b.getClientRects().length && b.getBoundingClientRect().width);
-          { const sb = ad.getElementById("saveEditButton"), cb = ad.getElementById("cancelEditButton"), r = sb.getBoundingClientRect(), r2 = cb.getBoundingClientRect(), dk = ab.matchMedia("(prefers-color-scheme: dark)").matches;
-            const bmp = await ab.browsingContext.currentWindowGlobal.drawSnapshot(new ab.DOMRect(Math.min(r.left, r2.left) - 20, r.top - 16, Math.max(r.right, r2.right) - Math.min(r.left, r2.left) + 40, r.height + 32), 2, dk ? "black" : "white");
-            const cv = ad.createElement("canvas"); cv.width = bmp.width; cv.height = bmp.height; cv.getContext("2d").drawImage(bmp, 0, 0);
-            const b = await new Promise(res => cv.toBlob(res, "image/png")); await IOUtils.write("/tmp/knopfbild/k-" + (dk ? "dunkel" : "hell") + ".png", new Uint8Array(await b.arrayBuffer())); }
           out.contact = await states(ad.getElementById("saveEditButton"));
           out.contactLit = foot.filter(b => look(b).img.startsWith("linear-gradient")).map(b => b.id);
           out.contactOthers = foot.filter(b => !["saveEditButton", "detailsDeleteButton"].includes(b.id)).map(b => [b.id, look(b).sh.includes("inset")]);

@@ -6563,15 +6563,36 @@ addon-card .addon-inline-options {
   background-color: var(--mt-control-hover) !important;
 }
 
-#detailsFooter button.button-primary,
-#detailsFooter #saveEditButton {
+/* Knopf-Familie: nur „Sichern“ ist der Hauptknopf (Systemfarbe mit Licht,
+   Maus ohne Änderung, gedrückt dunkler ohne Licht, gesperrt grau und flach);
+   die übrigen Knöpfe im Fuß sind Textknöpfe mit Lichtkante */
+#detailsFooter button:not(#detailsDeleteButton, #saveEditButton) {
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+#detailsFooter button:not(#detailsDeleteButton, #saveEditButton):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#detailsFooter #saveEditButton:not([disabled]) {
   background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
   color: var(--mt-accent-text) !important;
 }
 
-#detailsFooter button.button-primary:hover,
-#detailsFooter #saveEditButton:hover {
-  background-color: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+#detailsFooter #saveEditButton:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+#detailsFooter #saveEditButton[disabled] {
+  opacity: 1 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
 }
 
 #detailsFooter #detailsDeleteButton {
@@ -7207,10 +7228,23 @@ dialog separator.groove:not([orient="vertical"]) {
 
 #event-toolbar > #button-saveandclose {
   background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
   color: var(--mt-accent-text) !important;
   -moz-context-properties: fill, stroke !important;
   fill: var(--mt-accent-text) !important;
   stroke: var(--mt-accent-text) !important;
+}
+
+/* Sichern ist der Hauptknopf: Maus ohne Änderung, gedrückt dunkler ohne Licht */
+#event-toolbar > #button-saveandclose:not([disabled]):hover {
+  background-color: var(--mt-accent) !important;
+}
+
+#event-toolbar > #button-saveandclose:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
 }
 
 /* Termin: Fenster schmal wie das Termin-Popover von Apple Kalender (rund
@@ -7260,7 +7294,12 @@ dialog separator.groove:not([orient="vertical"]) {
 }
 
 #event-toolbar > #button-saveandclose[disabled] {
-  background-color: color-mix(in srgb, var(--mt-accent) 40%, var(--mt-window)) !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
+  fill: color-mix(in srgb, var(--mt-text) 30%, transparent) !important;
+  stroke: color-mix(in srgb, var(--mt-text) 30%, transparent) !important;
 }
 
 :is(#calendar-event-dialog-inner, #calendar-task-dialog-inner) {
@@ -10306,7 +10345,9 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 #mcQuickPanel .mc-qc-primary {
-  background: var(--mt-accent) !important;
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
   color: var(--mt-accent-text) !important;
 }
 
@@ -10314,8 +10355,25 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   opacity: 0.45 !important;
 }
 
-#mcQuickPanel .mc-qc-primary:hover {
-  background: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+/* Hauptknopf: Maus ohne Änderung, gedrückt dunkler ohne Licht, gesperrt grau
+   und flach statt halb durchsichtig */
+#mcQuickPanel .mc-qc-primary:not([disabled]):hover {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+}
+
+#mcQuickPanel .mc-qc-primary:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
+}
+
+#mcQuickPanel .mc-qc-primary[disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
 }
 
 /* Einstellungen und Kontoeinstellungen unten links („Add-ons und Themes“):

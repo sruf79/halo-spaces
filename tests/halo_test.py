@@ -18038,6 +18038,46 @@ Neu
         return ok, f"{res}"
     check("Kalender: Suche zeigt Treffer wie Apple im rechten Bereich (nach Tagen, Today oben, Klick wählt, getippte zweite Suche bleibt, No Results, Leeren schließt)", calendar_search, results)
 
+    def calendar_search_exception():
+        # Suche in Serien je Vorkommen: ein umbenanntes Vorkommen wird unter seinem neuen Titel gefunden und erscheint
+        # nicht mehr unter dem Titel der Serie (vorher galt nur der Titel der Serie)
+        res = m.js(CAL_CHECK_JS + r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar();
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const e = new CalEvent(); e.title = "Halo Serie Basis"; e.calendar = c;
+          const s = cal.dtz.now(); s.day += 2; s.hour = 10; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1;
+          e.startDate = s; e.endDate = en;
+          const ri = new CalRecurrenceInfo(e), rule = cal.createRecurrenceRule(); rule.type = "DAILY"; rule.interval = 1; rule.count = 6;
+          ri.appendRecurrenceItem(rule); e.recurrenceInfo = ri;
+          let saved = await c.addItem(e);
+          const out = {};
+          try {
+            const rid = saved.startDate.clone(); rid.day += 3;
+            const occ = saved.recurrenceInfo.getOccurrenceFor(rid).clone(); occ.title = "Halo Sonderzahnarzt";
+            const np = saved.clone(); np.recurrenceInfo.modifyException(occ, true);
+            saved = await c.modifyItem(np, saved);
+            await toCalendar(); w.switchToView("week"); await ruhig(800);
+            const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+            const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
+            const panel = () => d.getElementById("mc-cal-search");
+            const titles = () => [...(panel()?.querySelectorAll(".mc-cal-search-row .mc-cal-search-title") || [])].map(t => t.textContent);
+            fire("autocomplete", "sonderzahnarzt");
+            await until(() => panel() && !panel().hidden && (titles().length || !panel().querySelector(".mc-cal-search-empty").hidden), 6000); await ruhig(500);
+            out.renamed = titles();
+            fire("autocomplete", "serie basis");
+            await until(() => titles().some(t => t == "Halo Serie Basis"), 6000); await ruhig(500);
+            out.series = titles();
+            fire("autocomplete", ""); await until(() => panel()?.hidden, 4000);
+          } finally {
+            for (const x of await items("Halo Serie Basis")) { try { await c.deleteItem(x); } catch {} }
+          }
+          return out;''')
+        se = res.get("series") or []
+        ok = (res.get("renamed") == ["Halo Sonderzahnarzt"] and len(se) == 5 and all(t == "Halo Serie Basis" for t in se))
+        return ok, f"{res}"
+    check("Kalender: Suche findet ein umbenanntes Vorkommen einer Serie unter seinem Titel, nicht unter dem der Serie", calendar_search_exception, results)
+
     def calendar_alarm_alert():
         # Terminerinnerung als Mitteilung des Systems statt Thunderbirds Erinnerungsfenster (wie Apple Kalender):
         # Vorgabe „Fenster zeigen“ aus, Mitteilung mit Titel, Zeit und Ort, Klick öffnet den Termin, danach erledigt

@@ -7901,11 +7901,11 @@ def calendar_checks(m, results):
           const c = testCalendar(); const added = []; const out = {};
           const frame = () => new Promise(r => w.requestAnimationFrame(r));
           const sleep = ms => new Promise(r => w.setTimeout(r, ms));
-          const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
           const { CalReadableStreamFactory } = ChromeUtils.importESModule("resource:///modules/CalReadableStreamFactory.sys.mjs");
-          const origGet = c.getItems;
+          const raw = c.wrappedJSObject || c; const origGet = raw.getItems;
           try {
-            const s = mv.rangeStartDate.clone(); s.day -= 7 * 60;
+            // Beginn 60 Wochen vor heute (nicht vor der Ansicht: frühere Prüfungen lassen den gewählten Tag Monate weiter)
+            const s = cal.dtz.now(); s.day -= 7 * 60;
             const ymd = `${s.year}${String(s.month + 1).padStart(2, "0")}${String(s.day).padStart(2, "0")}`;
             for (let i = 0; i < 4; i++) {
               const ev = new CalEvent();
@@ -7914,7 +7914,7 @@ def calendar_checks(m, results):
               added.push(await c.addItem(ev));
             }
             // Abfrage dieses Kalenders erst nach 400 ms (feste Pause: so langsam ist der Kalender gedacht)
-            c.getItems = function (...a) { const st = origGet.apply(this, a);
+            raw.getItems = function (...a) { const st = origGet.apply(this, a);
               return CalReadableStreamFactory.createReadableStream({ async start(ctl) { await sleep(400);
                 for await (const v of cal.iterate.streamValues(st)) ctl.enqueue(v); ctl.close(); } }); };
             w.goToDate(cal.dtz.now()); await ruhig(600);
@@ -7931,6 +7931,7 @@ def calendar_checks(m, results):
                   if (!has(box, /^Halo Vorrat/)) n++; } }
               return n; };
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
+            out.before = { empty: empty(), items: [...mv.querySelectorAll("calendar-month-day-box-item")].filter(i => /^Halo Vorrat/.test(i.occurrence?.title || "")).length };
             const s0 = mv.__mcScrollShifts, p0 = mv.__mcPrefills || 0; let frames = 0, days = 0;
             for (let i = 0; i < 26 * 8; i++) {
               mv.monthbody.querySelector("calendar-month-day-box").dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -rowH / 8, deltaMode: 0 }));
@@ -7950,16 +7951,59 @@ def calendar_checks(m, results):
             w.goToDate(cal.dtz.now()); await ruhig(400); await Promise.race([mv.ready, sleep(5000)]);
             w.goToDate(day); await frame(); out.goneAtOnce = find() === false; await Promise.race([mv.ready, sleep(5000)]); await ruhig(400); out.goneLater = find() === false;
           } finally {
-            try { delete c.getItems; } catch {}
+            try { delete raw.getItems; } catch {}
             for (const it of added) try { await c.deleteItem(it); } catch {}
             w.goToDate(cal.dtz.now()); w.switchToView("week"); await ruhig(400);
           }
           return out;""")
         sc = res.get("scroll") or {}
-        ok = (sc.get("shifts", 0) >= 2 and sc.get("prefills", 0) >= sc.get("shifts", 9) and sc.get("emptyFrames") == 0
+        ok = ((res.get("before") or {}).get("empty") == 0 and sc.get("shifts", 0) >= 2 and sc.get("prefills", 0) >= sc.get("shifts", 9) and sc.get("emptyFrames") == 0
               and res.get("newAtOnce") is True and res.get("newLater") is True and res.get("goneAtOnce") and res.get("goneLater"))
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen – Monate zurück ohne Nachladen sichtbar (Termine aus dem Vorrat sofort da, auch bei langsamem Kalender), neue und gelöschte Termine richtig", multiweek_preload, results)
+
+    def view_toggle():
+        # Befund 17.11.2026 (Abnahmebilder: Umschalter zeigte „Week“ in der Mehrwochen-Ansicht): Thunderbird setzt die
+        # Markierung des Umschalters nur in switchCalendarView (Klick, Menü, Tastenkürzel, Neustart), nicht in
+        # switchToView – die Bilder schalteten per Skript mit switchToView um. Echte Wege zeigen die offene Ansicht; so
+        # auch „+n more“ in der Monatsansicht (öffnet den Tag; Umschalter blieb vorher auf „Month“, halo.spaces rief
+        # switchToView)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar();
+          const sel = () => [...d.querySelectorAll(".calview-toggle-item")].filter(t => t.getAttribute("aria-selected") == "true").map(t => t.value).join(",");
+          const now = () => [w.currentView().id.replace("-view", ""), sel()];
+          const out = {}; const added = []; const c = testCalendar();
+          try {
+            const click = async v => { d.querySelector(`.calview-toggle-item[value="${v}"]`).click(); await ruhig(500); };
+            await click("multiweek"); out.click = now();
+            await click("week"); out.clickWeek = now();
+            // Menü Ansicht › Kalender › Mehrwochen (Thunderbird hat dafür kein Tastenkürzel)
+            d.getElementById("calendar_multiweek-view_command").doCommand(); await ruhig(500); out.command = now();
+            // Neustart: gemerkte Ansicht vergessen, Kalender-Tab zu und wieder auf (liest die Ansicht aus dem xulStore)
+            const calTab = () => tm.tabInfo.find(t => t.mode?.name == "calendar");
+            tm.closeTab(calTab()); await ruhig(500);
+            w.gLastShownCalendarView._lastView = null;
+            for (const t of d.querySelectorAll(".calview-toggle-item")) t.ariaSelected = false;
+            await toCalendar(); out.restart = now();
+            // „+n more“ in der Monatsansicht öffnet den Tag
+            d.getElementById("calendar_month-view_command").doCommand(); await ruhig(600); out.month = now();
+            const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+            const day = w.currentView().rangeStartDate.clone(); day.day += 9; day.isDate = false;
+            for (let i = 0; i < 30; i++) { const ev = new CalEvent(); ev.title = "Halo Umschalter " + i; const a = day.clone(); a.hour = i % 20; a.minute = 0;
+              ev.startDate = a; const b = a.clone(); b.minute = 30; ev.endDate = b; added.push(await c.addItem(ev)); }
+            const more = await bis(() => d.querySelector("#month-view .mc-more"), "„+n more“", 6000);
+            more.click(); await ruhig(600); out.more = now();
+            tm.switchToTab(0); await ruhig(500); await toCalendar(); out.moreBack = now();
+          } finally {
+            for (const it of added) try { await c.deleteItem(it); } catch {}
+            d.getElementById("calendar_week-view_command").doCommand(); await ruhig(400);
+          }
+          return out;""")
+        same = lambda k, v: res.get(k) == [v, v]
+        ok = (same("click", "multiweek") and same("clickWeek", "week") and same("command", "multiweek")
+              and same("restart", "multiweek") and same("month", "month") and same("more", "day") and same("moreBack", "day"))
+        return ok, f"{res}"
+    check("Kalender: Umschalter oben zeigt die offene Ansicht (Klick, Menübefehl, Neustart, „+n more“ öffnet den Tag)", view_toggle, results)
 
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),

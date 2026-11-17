@@ -13423,7 +13423,9 @@ class CardEnhancer {
               event.stopPropagation();
               const date = box.date;
               if (date) {
-                w.switchToView?.("day");
+                // über switchCalendarView: nur so folgen Umschalter oben und
+                // gemerkte Ansicht (switchToView ließ „Month“ markiert)
+                (w.switchCalendarView || w.switchToView)?.("day");
                 w.currentView?.()?.goToDay?.(date);
               }
             });
@@ -17989,7 +17991,7 @@ class CardEnhancer {
       }
       w.focus();
       w.document.getElementById("tabmail")?.openTab("calendar");
-      w.switchToView?.("month");
+      (w.switchCalendarView || w.switchToView)?.("month");
       const start = ev.startDate || ev.entryDate || ev.dueDate;
       if (start) {
         w.goToDate?.(start);

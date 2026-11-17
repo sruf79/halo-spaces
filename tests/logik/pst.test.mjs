@@ -144,3 +144,84 @@ test("PST: Base64 wie Node", () => {
   }
   assert.equal(P.utf8("ä"), "Ã¤");
 });
+
+test("PST: Kontakt als vCard 4.0 mit Namen, Adressen, Telefon, Geburtstag; Sonderzeichen maskiert", () => {
+  const v = P.vcard({
+    uid: "11111111-2222-3333-4444-555555555555", first: "Dora", last: "Müller", prefix: "Dr.", nick: "Do",
+    emails: ["dora@example.invalid", "/O=EX/CN=X", "dora@example.invalid", "d2@example.invalid"],
+    org: "Halo, GmbH", dept: "Technik", title: "Leitung", phones: [["work", "+43 1 234"], ["cell", " "]],
+    adr: { work: { street: "Ring 1;\nStiege 2", city: "Wien", zip: "1010", country: "Österreich" }, home: {} },
+    // Mitternacht in Wien als UTC (Vortag 23:00) – bleibt der 4. Mai
+    birthday: new Date(Date.UTC(1980, 4, 3, 23)), note: "Zeile 1\nZeile 2",
+  });
+  const L = v.split("\r\n");
+  assert.equal(L[0], "BEGIN:VCARD");
+  assert.equal(L[1], "VERSION:4.0");
+  assert.ok(L.includes("UID:11111111-2222-3333-4444-555555555555"));
+  assert.ok(L.includes("FN:Dr. Dora Müller"));
+  assert.ok(L.includes("N:Müller;Dora;;Dr.;"));
+  assert.ok(L.includes("NICKNAME:Do"));
+  assert.deepEqual(L.filter(l => l.startsWith("EMAIL")), ["EMAIL;PREF=1:dora@example.invalid", "EMAIL:d2@example.invalid"]);
+  assert.deepEqual(L.filter(l => l.startsWith("TEL")), ["TEL;TYPE=work;VALUE=TEXT:+43 1 234"]);
+  assert.deepEqual(L.filter(l => l.startsWith("ADR")), ["ADR;TYPE=work:;;Ring 1\\;\\nStiege 2;Wien;;1010;Österreich"]);
+  assert.ok(L.includes("ORG:Halo\\, GmbH;Technik"));
+  assert.ok(L.includes("TITLE:Leitung"));
+  assert.ok(L.includes("BDAY;VALUE=DATE:19800504"));
+  assert.ok(L.includes("NOTE:Zeile 1\\nZeile 2"));
+  assert.equal(L.at(-2), "END:VCARD");
+  // nur E-Mail: Anzeigename aus der Adresse
+  assert.match(P.vcard({ emails: ["x@example.invalid"] }), /\r\nFN:x@example\.invalid\r\n/);
+});
+
+test("PST: Termin als VEVENT – mit Uhrzeit in UTC, ganztägig als Datum mit Ende am Folgetag", () => {
+  const e = P.vevent({ uid: "u1", summary: "Besprechung; Raum 2", start: new Date(Date.UTC(2026, 10, 17, 13, 0)), end: new Date(Date.UTC(2026, 10, 17, 14, 30)),
+    location: "Wien, Büro", description: "a\nb" });
+  const L = e.split("\r\n");
+  assert.deepEqual([L[0], L.at(-2)], ["BEGIN:VEVENT", "END:VEVENT"]);
+  assert.ok(L.includes("UID:u1"));
+  assert.ok(L.includes("SUMMARY:Besprechung\\; Raum 2"));
+  assert.ok(L.includes("DTSTART:20261117T130000Z"));
+  assert.ok(L.includes("DTEND:20261117T143000Z"));
+  assert.ok(L.includes("LOCATION:Wien\\, Büro"));
+  assert.ok(L.includes("DESCRIPTION:a\\nb"));
+  assert.ok(L.includes("TRANSP:OPAQUE"));
+  // ganztägig, in Wien angelegt (Mitternacht Ortszeit = 23:00 UTC am Vortag)
+  const a = P.vevent({ uid: "u2", summary: "Feiertag", allDay: true, start: new Date(Date.UTC(2026, 11, 7, 23)), end: new Date(Date.UTC(2026, 11, 8, 23)), free: true });
+  assert.ok(a.includes("\r\nDTSTART;VALUE=DATE:20261208\r\nDTEND;VALUE=DATE:20261209\r\n"));
+  assert.ok(a.includes("TRANSP:TRANSPARENT"));
+  // ganztägig ohne Ende, Monatsende
+  assert.ok(P.vevent({ uid: "u3", allDay: true, start: new Date(Date.UTC(2026, 11, 31)) }).includes("DTEND;VALUE=DATE:20270101"));
+  // ohne Beginn: nichts
+  assert.equal(P.vevent({ uid: "u4", summary: "x", start: null }), "");
+});
+
+test("PST: Aufgabe als VTODO mit Beginn, Fälligkeit, erledigt und Fortschritt", () => {
+  const t = P.vtodo({ uid: "t1", summary: "Steuer", start: new Date(Date.UTC(2026, 10, 1)), due: new Date(Date.UTC(2026, 10, 30)), percent: 0.5 });
+  assert.ok(t.startsWith("BEGIN:VTODO\r\nUID:t1\r\nSUMMARY:Steuer\r\n"));
+  assert.ok(t.includes("\r\nDTSTART;VALUE=DATE:20261101\r\nDUE;VALUE=DATE:20261130\r\n"));
+  assert.ok(t.includes("\r\nPERCENT-COMPLETE:50\r\n"));
+  const d = P.vtodo({ uid: "t2", summary: "Erledigt", done: true, completed: new Date(Date.UTC(2026, 9, 2, 8)) });
+  assert.ok(d.includes("\r\nSTATUS:COMPLETED\r\nPERCENT-COMPLETE:100\r\nCOMPLETED:20261002T080000Z\r\n"));
+});
+
+test("PST: Kontakte, Termine und Aufgaben aus Bibliotheksobjekten, Verteilerlisten und Antworten bleiben weg", () => {
+  const c = P.contactOf({ messageClass: "IPM.Contact", descriptorNodeId: 42, displayName: "Dora Müller", givenName: "Dora", surname: "Müller",
+    email1EmailAddress: "dora@example.invalid", email2EmailAddress: "/O=EX", companyName: "Halo", businessTelephoneNumber: "+43 1",
+    mobileTelephoneNumber: "", workAddressCity: "Wien", birthday: null }, "Archiv");
+  assert.equal(c.display, "Dora Müller");
+  assert.deepEqual(n(c.emails), ["dora@example.invalid"]);
+  assert.deepEqual(n(c.phones), [["work", "+43 1"]]);
+  assert.equal(c.adr.work.city, "Wien");
+  assert.match(c.uid, /^[0-9a-f-]{36}$/);
+  assert.equal(c.uid, P.contactOf({ messageClass: "IPM.Contact", descriptorNodeId: 42, displayName: "Dora Müller" }, "Archiv").uid);
+  assert.equal(P.contactOf({ messageClass: "IPM.DistList" }, "Archiv"), null);
+  const start = new Date(Date.UTC(2026, 10, 17, 9));
+  const e = P.eventOf({ messageClass: "IPM.Appointment", descriptorNodeId: 7, subject: "Termin", startTime: start, endTime: start, subType: false, busyStatus: 0 }, "Archiv");
+  assert.equal(e.summary, "Termin");
+  assert.equal(e.free, true);
+  assert.equal(P.eventOf({ messageClass: "IPM.Schedule.Meeting.Resp.Pos" }, "Archiv"), null);
+  const t = P.taskOf({ messageClass: "IPM.Task", descriptorNodeId: 8, subject: "Aufgabe", isTaskComplete: true, percentComplete: 1 }, "Archiv");
+  assert.equal(t.task, true);
+  assert.equal(t.done, true);
+  assert.deepEqual(n(P.counts({ mail: [{ count: 2 }, { count: 3 }], contacts: [{ count: 4 }], calendar: [] })), { mail: 5, contacts: 4, calendar: 0 });
+});

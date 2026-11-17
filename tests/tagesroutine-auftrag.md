@@ -28,8 +28,9 @@ Regeln:
    Commits nacheinander, Prüfungen je Eintrag wie bisher. Volldampf heißt maximale Produktivität: nie müßig warten,
    solange machbare Einträge da sind; Bremse bleibt nur das Wochenlimit.
 2. Es pusht nur der Nachtlauf (ein Push, eine CI, ein Release). Kein git push, kein gh workflow run,
-   kein release.sh/publish.sh. Einzige Ausnahme: Abschnitt „Release unter Tage“ (nur erste Plan-Runde,
-   nur über tests/release-unter-tage.sh). Vor 22:00 enden; nichts darf um 01:30 noch laufen.
+   kein release.sh/publish.sh. Ausnahmen: Abschnitt „Release unter Tage“ (nur erste Plan-Runde,
+   nur über tests/release-unter-tage.sh) und, nur im Volldampf, Abschnitt „Zwischen-Release (Volldampf)“
+   (Push und Release macht das Skript, nicht du). Vor 22:00 enden; nichts darf um 01:30 noch laufen.
 3. Prüfzweig: Fertiges schiebt das Skript selbst (ohne Force) auf pruef/tagesroutine-<datum> und
    löscht den Zweig am Ende des Tages. Du pushst auch dorthin nicht. Meldet das Skript „Prüfzweig rot“,
    erst diese Ursache beheben (eigener Commit) oder den schuldigen Commit mit git revert zurücknehmen,
@@ -216,10 +217,27 @@ dieser Runde nicht gelöst hat. Ob Fable läuft, entscheidet das Skript (nur wei
 Fable-Runde („JETZT: Fable-Runde“) liest zuerst den Abschnitt der Opus-Runde und arbeitet dann wie
 eine Eintragsrunde; „fable“ ist dort kein gültiges Ergebnis.
 
+Zwischen-Release (Volldampf) („JETZT: Zwischen-Release vorbereiten“; Maintainer 17.11.2026, Wortlaut in
+ENTSCHEIDUNGEN.md: „volldampf bedeutet maximale produktivität. … das betrifft … die anzahl der releases, einfach
+alles.“). Das Skript ruft diese Runde nur im Volldampf, vor 12:30, ab drei nicht gepushten Commits mit
+Thunderbird-Änderung. Du pushst und veröffentlichst nicht selbst; das macht danach tests/zwischen-release.zsh
+(Prüfzweig grün, Push nach main, CI samt Windows grün, dann release-unter-tage.sh --volldampf mit NUR_CI=1).
+  1. Version: Patch des letzten Tags (Korrekturen), Minor bei neuen Funktionen (git tag -l 'v*' --sort=-v:refname).
+  2. Vorprüfung: zsh tests/zwischen-release.zsh --pruefen <version> /dev/null. ABBRUCH aus einem anderen Grund als
+     README oder Notizen (Prüfzweig nicht grün oder läuft, belegt, Uhrzeit): Ergebnisdatei „nein <Grund>“, fertig.
+  3. Versionshinweise im README.md („What's new in <version>“, Englisch, docs/release.md), eigener Commit
+     „README: Versionshinweise <version>“ (nur README.md); englische Notizdatei mit gleichem Inhalt nach
+     ~/halo-nacht/<datum>-notes-<version>.md. Inhalte der Aufgabenliste nie hinein. Nur Commits über dem letzten
+     Tag nennen, Unfertiges (Paketzweige) nicht.
+  4. Ergebnisdatei (Pfad oben), eine Zeile: „bereit <version> <Notizdatei>“. Den Rest macht das Skript; bei Rot
+     oder ABBRUCH nimmt es den README-Commit zurück und versucht es heute nicht noch einmal.
+Grüne Tests samt Windows bleiben die einzige Bedingung; nie SKIP_TESTS, FORCE_TESTS, HOTFIX, nie selbst pushen.
+
 Volldampf (nur wenn die Zeile „Kontingent (Skript): …“ mit „Volldampf aktiv“ beginnt; Maintainer
 13.11.2026, docs/testrechner.md „Volldampf“): Sollkurve und Sparmodus bremsen nicht, das Skript wählt
 Modell und Fable; in der Plan-Runde die token-intensivsten wertvollen Einträge mit hohem Nutzen nicht
-scheuen (reine Umbauten ohne Nutzernutzen nachrangig), alle übrigen Regeln unverändert. „fable“ als
+scheuen (reine Umbauten ohne Nutzernutzen nachrangig), alle übrigen Regeln unverändert. Kein Tageslimit für
+Commits (MAX_COMMITS_VOLLDAMPF, Maintainer 17.11.2026); Zwischen-Release siehe oben. „fable“ als
 Ergebnis nur für die wirklich schwersten Fälle (belegte Ursache fehlt nach Opus bei hohem Nutzen, oder
 Analyse/Design, die ein starkes Modell braucht), nie für Routine oder Mechanisches. volldampf.txt und
 volldampf-beendet.txt nie selbst ändern.

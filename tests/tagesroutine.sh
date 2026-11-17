@@ -14,6 +14,12 @@ export HALO_LAUF=tagesroutine
 #   Erste Plan-Runde bekommt rut_zeile (tests/release-nachtlauf-gescheitert.sh); bei „ja“ entscheidet der Director
 #   und veröffentlicht nur über tests/release-unter-tage.sh (erzwingt Uhrzeit, ein Release je Tag, belegt, grüne CI
 #   samt Windows über NUR_CI=1 release.sh). Ergebnis in <datum>-release-unter-tage.erg → Bericht, iPhone [info].
+# Zweite Ausnahme, nur im Volldampf (Maintainer 17.11.2026, ENTSCHEIDUNGEN.md: „volldampf bedeutet maximale
+#   produktivität … die anzahl der releases, einfach alles.“): Zwischen-Release. Ab ZWISCHEN_RELEASE_AB Commits mit
+#   Thunderbird-Änderung über origin/main und vor ZWISCHEN_RELEASE_BIS (Push-Beginn, 09:00 frühestens) bereitet eine
+#   kurze Runde README und Notizen vor (Ergebnis „bereit <version> <notizen>“), dann ruft das Skript (nicht Claude)
+#   tests/zwischen-release.zsh auf: Prüfzweig grün, Push nach main, CI samt Windows grün, release-unter-tage.sh
+#   --volldampf. Rot oder ABBRUCH: README-Commit zurück, heute kein weiterer Versuch. Mehrere je Tag möglich.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
 #   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
@@ -40,7 +46,7 @@ export HALO_LAUF=tagesroutine
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, Datei ~/halo-nacht/volldampf.txt, Hilfen in
 #   lauf-hilfen.zsh): solange aktiv, bremsen Sollkurve und Sparmodus nicht (Modellwahl wie im Normalbetrieb),
-#   MAX_COMMITS_TAG gilt doppelt, Fable ohne Soll-Bedingung bei 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF und
+#   statt MAX_COMMITS_TAG gilt MAX_COMMITS_VOLLDAMPF (0 = keine Grenze, Maintainer 17.11.2026), Fable ohne Soll-Bedingung bei 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF und
 #   „Fable only“ höchstens FABLE_WOCHE_MAX (nicht lesbar: kein Halt, im Bericht vermerkt); das 5-Stunden-Fenster
 #   bremst wie sonst. Vor jeder Entscheidung beendet volldampf_wochenlimit_pruefen Volldampf dauerhaft, sobald die
 #   Woche VOLLDAMPF_WOCHE_ENDE erreicht. Bericht und „Kurz:“ nennen den Zustand. Probe: HALO_VOLLDAMPF_DATEI.
@@ -79,7 +85,7 @@ KONF=(
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
   FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
-  MAX_COMMITS_TAG 20 BELEGT_WARTEN 60
+  MAX_COMMITS_TAG 20 BELEGT_WARTEN 60  MAX_COMMITS_VOLLDAMPF 0  ZWISCHEN_RELEASE_AB 3  ZWISCHEN_RELEASE_BIS 12:30
   FABLE_5H_MAX_VOLLDAMPF 60  FABLE_WOCHE_MAX 80  VOLLDAMPF_WOCHE_ENDE 98
 )
 KONF_DATEI=${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf}
@@ -343,7 +349,7 @@ entscheiden() {
 }
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst Wochenlimit prüfen (beendet
 # Volldampf dauerhaft, nicht im Trockenlauf), dann Zustand lesen. Setzt VD (ja/nein), VD_STATUS (Berichtszeile)
-# und MAX_COMMITS (im Volldampf das Doppelte von MAX_COMMITS_TAG).
+# und MAX_COMMITS (im Volldampf MAX_COMMITS_VOLLDAMPF, 0 = keine Grenze; Maintainer 17.11.2026).
 VD=nein VD_STATUS= VD_BERICHT= MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
 volldampf_lesen() {
   [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_wochenlimit_pruefen $K_WOCHE
@@ -351,7 +357,29 @@ volldampf_lesen() {
   if volldampf_aktiv >/dev/null; then VD=ja; else VD=nein; fi
   VD_STATUS=$(volldampf_status)
   VD_BERICHT=${VD_STATUS:#*angemeldet*}   # Bericht, Kurz-Zeile, Auftrag: nur aktiv bzw. beendet
-  [[ $VD == ja ]] && MAX_COMMITS=$(( KONF[MAX_COMMITS_TAG] * 2 )) || MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
+  [[ $VD == ja ]] && MAX_COMMITS=$KONF[MAX_COMMITS_VOLLDAMPF] || MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
+}
+tageslimit_text() { (( MAX_COMMITS > 0 )) && print -r -- "Tageslimit $MAX_COMMITS eigene Commits" || print -r -- "kein Tageslimit für Commits (Volldampf)" }
+# Zwischen-Release (nur Volldampf, Maintainer 17.11.2026): fällig? Gibt den Grund aus; 0 = fällig.
+# Probe: HALO_ZR_TB=<Zahl der Thunderbird-Commits über origin/main>.
+ZR_ZAHL=0 ZR_INFO= ZR_GESPERRT= NL=$'\n'
+zr_hhmm() { [[ -n $HALO_JETZT ]] && print -r -- ${HALO_JETZT[12,13]}${HALO_JETZT[15,16]} || date +%H%M }
+zr_tb_commits() {   # Commits über origin/main, die Thunderbird ändern (tests/ci-noetig.sh je Commit)
+  local c n=0
+  for c in $(git -C $REPO rev-list origin/main..main 2>/dev/null); do
+    zsh $REPO/tests/ci-noetig.sh "${c}^" "$c" 2>/dev/null && n=$((n + 1))
+  done
+  print $n
+}
+zr_faellig() {
+  local j n bis=${KONF[ZWISCHEN_RELEASE_BIS]/:/}
+  [[ $VD == ja ]] || { print -r -- "aus (nur im Volldampf)"; return 1 }
+  [[ -z $ZR_GESPERRT ]] || { print -r -- "heute kein weiterer Versuch ($ZR_GESPERRT)"; return 1 }
+  j=$((10#$(zr_hhmm)))
+  (( j >= 900 && j < 10#$bis )) || { print -r -- "nicht jetzt (Push-Beginn nur 09:00–$KONF[ZWISCHEN_RELEASE_BIS])"; return 1 }
+  n=${HALO_ZR_TB:-$(zr_tb_commits)}
+  (( n >= KONF[ZWISCHEN_RELEASE_AB] )) || { print -r -- "nicht nötig ($n Thunderbird-Commits über origin/main, ab $KONF[ZWISCHEN_RELEASE_AB])"; return 1 }
+  print -r -- "fällig ($n Thunderbird-Commits über origin/main)"
 }
 entscheidung_text() {
   case $E[ENTSCHEIDUNG] in
@@ -466,7 +494,8 @@ if [[ -n $TROCKEN ]]; then
   print "Kontingent:   $K_QUELLE"
   print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
-  print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; Tageslimit $MAX_COMMITS eigene Commits"
+  print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; $(tageslimit_text)"
+  print -r -- "Zwischen-Release: $(zr_faellig) – Push-Beginn bis $KONF[ZWISCHEN_RELEASE_BIS], ab $KONF[ZWISCHEN_RELEASE_AB] Thunderbird-Commits, tests/zwischen-release.zsh"
   print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein ); Fable-Woche: ${K_FABLE:-nicht lesbar}"
   print "Designer:     Einträge „design“ $( m=$(designer_modell $E[M_KOMPLEX]) && print "mit $m (Director beauftragt den Designer, Designfragen sofort aufs iPhone)" || print "heute nicht (Modellstufe $E[M_KOMPLEX] unter Opus)" )"
   [[ -n $E[SPAR_RATE] ]] && print -r -- "Sparen:       $(spar_zeile); Modell $E[SPAR_MODELL]; Messungen $SPAR_DATEI"
@@ -530,7 +559,7 @@ bericht_schreiben() {
     print
     print -r -- "- Anfang: ${K_ANFANG:-nicht gelesen}"
     print -r -- "- Ende: ${K_ENDE:-nicht gelesen}"
-    [[ -n $VD_BERICHT ]] && print -r -- "- $VD_BERICHT; Tageslimit $MAX_COMMITS eigene Commits"
+    [[ -n $VD_BERICHT ]] && print -r -- "- $VD_BERICHT; $(tageslimit_text)"
     print -r -- "- Fable-Wochenzähler: ${K_FABLE:-Fable only nicht lesbar, Stopp nur über die Zahl der Agenten (kein Fable-Wert im rate_limit_event von kontingent.sh)}"
     print -r -- "- Fable-Läufe heute: $FABLE_LAEUFE"
     [[ -n $SPAR_MESSUNG ]] && print -r -- "- Sparmodus-Runden heute:" && print -r -- "$SPAR_MESSUNG"
@@ -539,6 +568,12 @@ bericht_schreiben() {
       print "## Release unter Tage"
       print
       print -r -- "- $RUT_INFO (Begründung im Abschnitt „Plan“)"
+      print
+    fi
+    if [[ -n $ZR_INFO ]]; then
+      print "## Zwischen-Release (Volldampf)"
+      print
+      print -r -- "$ZR_INFO"
       print
     fi
     if [[ -n $PLAN_RUNDEN ]]; then
@@ -648,6 +683,52 @@ belegt_tag() {
   belegt
 }
 
+# Zwischen-Release (nur Volldampf, Maintainer 17.11.2026): kurze Runde bereitet README-Commit und Notizen vor,
+# dann pusht und veröffentlicht tests/zwischen-release.zsh (Prüfzweig grün, CI samt Windows grün). Rückgabe 9 = Limit.
+zwischen_release() {
+  local nr=$((ZR_ZAHL + 1)) z v n rc g c erg aus
+  erg=$DIR/$TAG-zwischen-release-$nr.erg aus=$DIR/$TAG-zwischen-release-$nr.log
+  N=$((N + 1))
+  ABSCHNITTE+=($DIR/$TAG-tagesroutine-$N.md)
+  MODELLE_GENUTZT+=("Zwischen-Release $nr: $E[M_ROUTINE]")
+  g=$(zr_faellig); log "Zwischen-Release $nr: $g – Vorbereitung mit $E[M_ROUTINE]"
+  runde $E[M_ROUTINE] "$(kopf)
+
+JETZT: Zwischen-Release vorbereiten (Abschnitt „Zwischen-Release (Volldampf)“ des Auftrags), Skript: $g.
+Ergebnisdatei: $erg (eine Zeile „bereit <version> <notizdatei>“ oder „nein <Grund>“). Berichtsabschnitt: $DIR/$TAG-tagesroutine-$N.md. Keinen Eintrag bearbeiten, nicht pushen." \
+    $DIR/$TAG-tagesroutine-$N.txt
+  rc=$?
+  z=$(head -1 $erg 2>/dev/null)
+  if [[ $z != bereit\ *\ * ]]; then
+    ZR_GESPERRT="Vorbereitung: ${z:-keine Ergebnisdatei}"
+    ZR_INFO+="${ZR_INFO:+$NL}- $(date +%H:%M) kein Zwischen-Release: $ZR_GESPERRT"
+    log "Zwischen-Release $nr: $ZR_GESPERRT"; return $rc
+  fi
+  ZR_ZAHL=$nr
+  v=${${z#bereit }%% *} n=${z##* }
+  log "Zwischen-Release $nr: $v – tests/zwischen-release.zsh (Prüfzweig, Push, CI samt Windows, Release)"
+  zsh $REPO/tests/zwischen-release.zsh $v $n > $aus 2>&1; rc=$?
+  cat $aus >> $LOG
+  if (( rc == 0 )); then
+    ZR_INFO+="${ZR_INFO:+$NL}- $(date +%H:%M) $v veröffentlicht"
+    push "Tagesroutine $TAG: Zwischen-Release $v veröffentlicht (Volldampf) – Bericht ~/halo-berichte/$TAG-tagesroutine.md" tagesroutine
+    return 0
+  fi
+  g=$(grep -E '^(ABBRUCH|ROT|FEHLER)' $aus | tail -1); g=${g:-Exitcode $rc}
+  ZR_GESPERRT="$v: $g"
+  if git -C $REPO rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+    # Tag steht, publish.sh meldete einen Fehler: sofort klären (docs/release.md)
+    ZR_INFO+="${ZR_INFO:+$NL}- $(date +%H:%M) $v getaggt, aber Fehler: $g"
+    push "Tagesroutine $TAG: Zwischen-Release $v mit Fehler ($g) – bitte prüfen" tagesroutine handeln
+  else
+    c=$(git -C $REPO log -1 --format=%H --grep="^README: Versionshinweise $v\$" main 2>/dev/null)
+    [[ -n $c ]] && git -C $REPO revert --no-edit $c >>$LOG 2>&1 && g+="; README-Commit zurückgenommen"
+    ZR_INFO+="${ZR_INFO:+$NL}- $(date +%H:%M) $v nicht veröffentlicht: $g"
+  fi
+  log "Zwischen-Release $nr: $g"
+  return 0
+}
+
 # --- Kontingent am Anfang ---
 entscheiden; K_ANFANG=$(kontingent_zeile); log "Kontingent Anfang: $K_ANFANG"
 
@@ -662,7 +743,12 @@ while true; do
     log "warte: $GRUND"; sleep 300; w=$((w + 5))
   done
   if GRUND=$(belegt_tag); then log "belegt nach $w Min.: $GRUND – später erneut"; continue; fi
-  if (( $(eigene_commits_zahl) >= MAX_COMMITS )); then   # im Volldampf das Doppelte (volldampf_lesen)
+  # Zwischen-Release im Volldampf (Maintainer 17.11.2026): Vorbereitung durch Claude, Push und Release durch das Skript
+  if zr_faellig >/dev/null; then
+    zwischen_release; (( $? == 9 )) && { ENDGRUND="Limit erreicht"; break }
+    continue
+  fi
+  if (( MAX_COMMITS > 0 && $(eigene_commits_zahl) >= MAX_COMMITS )); then   # im Volldampf MAX_COMMITS_VOLLDAMPF (0 = keine)
     ENDGRUND="$MAX_COMMITS eigene Commits heute erreicht"; break   # Ende, kein Warten
   fi
   # Kontingent vor jedem neuen Eintrag

@@ -425,12 +425,14 @@ Reihenfolge:
         Mail-Funktion, Apple-Mail-Maßstab, Rückfragen statt Raten (f),
         „Wartet auf OK“ bleibt liegen, Grenze 04:30 für neue Einträge vor dem
         Push (Schritt 3) und die Zeiten für CI und Release (Schritt 4).
-      - Schritt 5 und Fortsetzungen bis 08:00 (das Skript setzt dann die
-        Grenzen auf 08:00, höchstens acht Fortsetzungen und zwölf nicht
-        gepushte Commits statt 06:30/vier/sechs): bis 08:00 neue Einträge
-        beginnen, jeden bis spätestens 08:45 committen oder verwerfen (um
-        09:00 beendet das Skript Claude hart). Endegründe wie Schritt 5 d mit
-        08:00 und zwölf Commits.
+      - Schritt 5 und Fortsetzungen bis 08:45 (das Skript setzt dann die
+        Grenzen auf 08:45, höchstens 50 Fortsetzungen und 40 nicht gepushte
+        Commits statt 06:30/vier/sechs; Maintainer 17.11.2026 „volldampf
+        bedeutet maximale produktivität“, die Zahlen sind praktisch
+        aufgehoben): bis 08:45 neue Einträge beginnen, jeden vor 09:00
+        committen oder verwerfen (um 09:00 beendet das Skript Claude hart).
+        Endegründe wie Schritt 5 d mit 08:45 und „Commit-Grenze“ (40).
+        Schritt 5 c (sechs Commits) gilt dann nicht.
       - 5-Stunden-Limit: nicht abbrechen; es gilt die bestehende Limit-Pause
         des Skripts (warten, dann weiter). Es beendet Volldampf nicht.
       - Wochenlimit: Das Skript prüft vor jeder Runde; ab 98 % („alle
@@ -516,8 +518,11 @@ Reihenfolge:
    d) Volldampf: Die Grenze „ein großer Schritt je Nacht“ aus dem Plan
       entfällt. Unverändert bleiben die Reihenfolge, Vorab-Prüfung 6a je
       Eintrag, Designer-Abgleich mit Bildern je Baustein, --only vor jedem
-      Commit, kein Schritt ohne grüne Prüfungen und höchstens ein reguläres
-      Release pro Tag (alles danach geht mit dem nächsten). Lieber ein Baustein
+      Commit, kein Schritt ohne grüne Prüfungen und ein Release je Nachtlauf
+      (Schritt 5 b bleibt: kein zweites Release in derselben Nacht). Die
+      Grenze „ein Release pro Tag“ entfällt im Volldampf (Maintainer
+      17.11.2026): tagsüber veröffentlicht die Tagesroutine weitere über
+      tests/zwischen-release.zsh (docs/release.md „Volldampf“). Lieber ein Baustein
       fertig und geprüft als drei halb.
 2a. Designer-Einträge (Plan „Vorab geprüft: ja, Designer“): Du beauftragst
    den Designer selbst als Unteragent (Agent-Werkzeug, Modell opus, nie

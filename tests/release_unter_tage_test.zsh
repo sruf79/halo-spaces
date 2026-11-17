@@ -51,6 +51,36 @@ pruefe "andere Sitzung arbeitet → kein Release" "$(BL='Claude-Sitzung abc arbe
 pruefe "Skript: nie SKIP_TESTS/FORCE_TESTS/HOTFIX, release.sh mit NUR_CI" "$(grep -vE '^#' $HIER/release-unter-tage.sh | grep -cE 'SKIP_TESTS|FORCE_TESTS|HOTFIX='; grep -c '^NUR_CI=1 ./release.sh' $HIER/release-unter-tage.sh)" '^0$' '^1$'
 pruefe "release.sh: NUR_CI ohne grüne CI samt Windows → keine Marke" "$(grep -c 'NUR_CI" && -z "\$CI_OK" ]] && fehlschlag' $HIER/../release.sh)" '^1$'
 
+# --- Volldampf (Maintainer 17.11.2026): --volldampf hebt nur „Nachtlauf ohne Release“ und „ein Release pro Tag“ auf ---
+print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
+V() { HALO_VOLLDAMPF_DATEI=${VDD:-$T/vd.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
+        HALO_BERICHTE=$T/b HALO_GESCHEITERT=${GS:-nein Release erschienen} HALO_BELEGT=${BL:-Probe-Halt} \
+        zsh -c "export HALO_JETZT=${JZ:-1000}; zsh $HIER/release-unter-tage.sh --volldampf --pruefen 3.27.1 $T/notes.md" 2>&1; print rc=$? }
+: > $T/b/$TAG-halo.spaces-9.9.9.md
+pruefe "Volldampf: zweites Release am Tag und Nachtlauf mit Release sperren nicht mehr (bis belegt)" "$(V)" 'ABBRUCH: neon belegt: Probe-Halt' 'rc=1'
+rm $T/b/$TAG-halo.spaces-9.9.9.md
+pruefe "Volldampf ohne Zeile: --volldampf bricht ab" "$(VDD=$T/keine.txt V)" 'ABBRUCH: Volldampf nicht aktiv' 'rc=1'
+print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/vd-beendet.txt
+pruefe "Volldampf beendet (Wochenlimit): --volldampf bricht ab" "$(V)" 'ABBRUCH: Volldampf nicht aktiv' 'rc=1'
+rm -f $T/vd-beendet.txt
+pruefe "Volldampf: Sperre 01:30–09:00 bleibt" "$(JZ=0800 V)" 'ABBRUCH: nur zwischen 09:00 und 22:00' 'rc=1'
+pruefe "Volldampf: belegt bleibt Sperre" "$(BL='CI-Lauf auf dem GitHub-Runner' V)" 'ABBRUCH: neon belegt: CI-Lauf' 'rc=1'
+
+# --- Zwischen-Release (tests/zwischen-release.zsh), Sperren vor git fetch ---
+Z() { HALO_VOLLDAMPF_DATEI=${VDD:-$T/vd.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_BELEGT=${BL:-} \
+      HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
+        zsh -c "export HALO_JETZT=${JZ:-1000}; zsh $HIER/zwischen-release.zsh --pruefen 3.27.1 $T/notes.md" 2>&1; print rc=$? }
+pruefe "Zwischen-Release ohne Volldampf: Abbruch" "$(VDD=$T/keine.txt Z)" 'ABBRUCH: Volldampf nicht aktiv' 'rc=1'
+pruefe "Zwischen-Release 08:59: Push-Sperre bis 09:00" "$(JZ=0859 Z)" 'ABBRUCH: Push-Sperre bis 09:00' 'rc=1'
+pruefe "Zwischen-Release 13:00: Push-Beginn nur bis 13:00 (neon ab 00:00 frei)" "$(JZ=1300 Z)" 'ABBRUCH: Push-Beginn nur bis 1300' 'rc=1'
+pruefe "Zwischen-Release 23:30: Abbruch" "$(JZ=2330 Z)" 'ABBRUCH: Push-Beginn nur bis' 'rc=1'
+pruefe "Zwischen-Release: belegt (CI) → Abbruch" "$(BL='CI-Lauf auf dem GitHub-Runner' Z)" 'ABBRUCH: neon belegt: CI-Lauf' 'rc=1'
+pruefe "Zwischen-Release: nie SKIP_TESTS/FORCE_TESTS/HOTFIX/NUR_CI-Umgehung, kein Force-Push, Release nur über release-unter-tage --volldampf" \
+  "$(grep -vE '^#' $HIER/zwischen-release.zsh | grep -cE 'SKIP_TESTS|FORCE_TESTS|HOTFIX=|--force|push -f|release\.sh|publish\.sh'; grep -c '^zsh \$HIER/release-unter-tage.sh --volldampf' $HIER/zwischen-release.zsh)" '^0$' '^1$'
+pruefe "Zwischen-Release: Windows-Lauf muss grün sein, Prüfzweig grün vor dem Push" \
+  "$(<$HIER/zwischen-release.zsh)" 'gh workflow run test.yml -R \$R -f ziel=windows --ref main' '\.name == "windows" and \.conclusion == "success"' 'Prüfzweig \$PZ nicht grün'
+pruefe "Name ohne „release.sh“ (belegt() sucht release\.sh|publish\.sh)" "$(print -r -- zwischen-release.zsh release-unter-tage.sh | grep -cE 'release\.sh|publish\.sh')" '^0$'
+
 # --- Tagesroutine: Zeile nur in der ersten Plan-Runde ---
 SKRIPT=$HIER/tagesroutine.sh
 eval "$(sed -n '/^rut_zeile()/,/^}/p' $SKRIPT)"

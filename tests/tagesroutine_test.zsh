@@ -16,7 +16,7 @@ lauf() {
   HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt \
-    zsh $SKRIPT --trocken $REPO 2>&1
+  HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
 }
 # pruefe <Name> <Ausgabe> <Muster …>  (alle Muster müssen vorkommen, grep -E)
 pruefe() {
@@ -101,9 +101,35 @@ print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T
 JD=2026-11-17T10:00:00+01:00   # 9 h nach dem Reset, Soll 5.4 %
 pruefe "ohne Volldampf: Woche 30 % am Dienstag 10:00 → deutlich über Soll, warten" "$(lauf $JD 30)" \
   'deutlich darüber' 'Entscheidung: warten bis 11:00' 'Volldampf: +keine Zeile' 'Tageslimit 20 eigene'
-pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, Tageslimit doppelt" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, kein Tageslimit für Commits (17.11.2026)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Volldampf: +Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(endet bei Wochenlimit\)' '→ Volldampf \(Sollkurve bremst nicht\)' \
-  'Entscheidung: neu beginnen' 'komplexe Einträge: opus, Routine: sonnet' 'Tageslimit 40 eigene' 'Würde: +Plan-Runde'
+  'Entscheidung: neu beginnen' 'komplexe Einträge: opus, Routine: sonnet' 'kein Tageslimit für Commits \(Volldampf\)' 'Würde: +Plan-Runde'
+# Volldampf = maximale Produktivität (Maintainer 17.11.2026): Commit-Grenze, Zwischen-Release, Nachtlauf-Grenzen
+print 'MAX_COMMITS_VOLLDAMPF=100' > $T/vd100.conf
+pruefe "Volldampf: MAX_COMMITS_VOLLDAMPF aus der Konfiguration" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 10 $T/vd100.conf)" 'Tageslimit 100 eigene'
+pruefe "ohne Volldampf: Zwischen-Release aus, Tageslimit unverändert" "$(HALO_ZR_TB=9 lauf 2026-11-17T10:00:00+01:00 3)" \
+  'Zwischen-Release: aus \(nur im Volldampf\)' 'Tageslimit 20 eigene'
+pruefe "Volldampf 10:00, 3 Thunderbird-Commits: Zwischen-Release fällig" "$(HALO_ZR_TB=3 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Zwischen-Release: fällig \(3 Thunderbird-Commits über origin/main\)'
+pruefe "Volldampf 10:00, 2 Thunderbird-Commits: nicht nötig" "$(HALO_ZR_TB=2 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Zwischen-Release: nicht nötig \(2 Thunderbird-Commits'
+pruefe "Volldampf 12:30: kein Zwischen-Release mehr (Push-Beginn bis 12:30, neon ab 00:00 frei)" "$(HALO_ZR_TB=9 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T12:30:00+01:00 30)" \
+  'Zwischen-Release: nicht jetzt \(Push-Beginn nur 09:00–12:30\)'
+pruefe "Volldampf 08:50: kein Zwischen-Release in der Push-Sperre" "$(HALO_ZR_TB=9 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T08:50:00+01:00 3)" \
+  'Zwischen-Release: nicht jetzt'
+print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
+pruefe "Volldampf beendet: Zwischen-Release aus, Tageslimit normal" "$(HALO_ZR_TB=9 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Zwischen-Release: aus' 'Tageslimit 20 eigene'
+rm -f $T/volldampf-beendet.txt
+pruefe "Skript: Commit-Grenze nur wenn MAX_COMMITS > 0, Zwischen-Release nur über tests/zwischen-release.zsh" \
+  "$(grep -c 'MAX_COMMITS > 0 && \$(eigene_commits_zahl)' $SKRIPT; grep -c 'zsh \$REPO/tests/zwischen-release.zsh' $SKRIPT; grep -E -c '^[^#]*(git[^|;]* push[^|;]*main:refs/heads/main|push[^|;]* origin[^|;]* HEAD:main|release\.sh|publish\.sh)' $SKRIPT)" '^1$' '^1$' '^0$'
+pruefe "Skript: rote oder abgebrochene Zwischen-Release nimmt README-Commit zurück, kein zweiter Versuch" \
+  "$(sed -n '/^zwischen_release()/,/^}/p' $SKRIPT)" 'git -C \$REPO revert --no-edit' 'ZR_GESPERRT="\$v: \$g"'
+pruefe "Nachtlauf: Volldampf hebt Fortsetzungen und Commit-Grenze an (50/40), normal 4/6" \
+  "$(grep -E 'VD_FORTSETZ_MAX=|VD_MAX_COMMITS=|NACHT_MAX_COMMITS=\$VD_MAX_COMMITS FORTSETZ_MAX=\$VD_FORTSETZ_MAX|NACHT_MAX_COMMITS=\$NORMAL_MAX_COMMITS FORTSETZ_MAX=4' $REPO/tests/nachtlauf.sh)" \
+  'VD_FORTSETZ_MAX:-50' 'VD_MAX_COMMITS:-40' 'NACHT_MAX_COMMITS=\$VD_MAX_COMMITS FORTSETZ_MAX=\$VD_FORTSETZ_MAX' 'NORMAL_MAX_COMMITS FORTSETZ_MAX=4'
+pruefe "Auftrag: Abschnitt Zwischen-Release ohne eigenen Push" "$(<$REPO/tests/tagesroutine-auftrag.md)" \
+  'Zwischen-Release \(Volldampf\)' 'zwischen-release\.zsh --pruefen' 'bereit <version> <Notizdatei>' 'nie selbst pushen'
 pruefe "Volldampf: Fable bei 5-Stunden-Fenster 55 % erlaubt (unter 60), ohne Soll-Bedingung" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
   'Fable: erlaubt'
 pruefe "Volldampf: Fable bei 5-Stunden-Fenster 65 % nicht erlaubt" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 65)" 'Fable: nein'

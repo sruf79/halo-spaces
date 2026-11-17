@@ -24,7 +24,9 @@ export HALO_LAUF=nachtlauf
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, ~/halo-nacht/volldampf.txt): Zeile
 # „Volldampf: …“ im Auftrag, vor jeder Runde Wochenlimit prüfen (beendet Volldampf dauerhaft), solange aktiv
-# Fortsetzungen bis 08:45 (16.11.2026, vorher 08:00), höchstens acht, Grenze zwölf nicht gepushte Commits; Vermerk in „Kurz:“ und Bericht.
+# Fortsetzungen bis 08:45 (16.11.2026, vorher 08:00); Grenzen VD_FORTSETZ_MAX Fortsetzungen und VD_MAX_COMMITS nicht
+# gepushte Commits (Maintainer 17.11.2026 „volldampf bedeutet maximale produktivität“: praktisch aufgehoben, Bremse
+# sind 08:45 und das Wochenlimit); Vermerk in „Kurz:“ und Bericht.
 # Ohne Datei bzw. ohne gültiges Fenster ändert sich nichts.
 emulate -L zsh
 setopt extendedglob
@@ -217,6 +219,7 @@ fi
 # vor Fortsetzungen) Wochenlimit prüfen: nur bei offenem Fenster ein kontingent.sh-Aufruf (Haiku); ab
 # VOLLDAMPF_WOCHE_ENDE dauerhaft beendet (lauf-hilfen.zsh). Setzt VD_STATUS und die Fortsetzungs-Grenzen. ---
 FORTSETZ_MAX=4 VD_STATUS=
+VD_FORTSETZ_MAX=${VD_FORTSETZ_MAX:-50} VD_MAX_COMMITS=${VD_MAX_COMMITS:-40}   # Volldampf (17.11.2026, vorher 8 und 12)
 NORMAL_GRENZE=$NACHT_GRENZE NORMAL_MAX_COMMITS=$NACHT_MAX_COMMITS   # Werte aus vorpruefung.zsh (ohne Volldampf)
 volldampf_runde() {
   local z
@@ -229,7 +232,9 @@ volldampf_runde() {
   if volldampf_aktiv >/dev/null; then
     # Maintainer 16.11.2026 („weg 1. wir müssen unser wochenkontingent so rasch wie möglich verbrauchen“): mit Volldampf
     # Fortsetzungen bis 08:45 statt 08:00; claude läuft weiter bis HART (09:00), die Tagesroutine startet um 09:00
-    NACHT_GRENZE=08:45 NACHT_MAX_COMMITS=12 FORTSETZ_MAX=8
+    # Maintainer 17.11.2026 („volldampf bedeutet maximale produktivität … einfach alles“): Fortsetzungen und nicht
+    # gepushte Commits praktisch ohne Grenze (vorher 8 und 12); es bremsen 08:45, HART 09:00 und das Wochenlimit
+    NACHT_GRENZE=08:45 NACHT_MAX_COMMITS=$VD_MAX_COMMITS FORTSETZ_MAX=$VD_FORTSETZ_MAX
     ENDE=$(date -j -v8H -v45M -v0S +%s) NACHT_ENDE_TEXT=08:45
   else
     NACHT_GRENZE=$NORMAL_GRENZE NACHT_MAX_COMMITS=$NORMAL_MAX_COMMITS FORTSETZ_MAX=4
@@ -276,8 +281,8 @@ while true; do
   log "Runde $RUNDE beendet (Exitcode $RC): $(tail -c 300 $OUT | tr '\n' ' ')"
   if [[ -e $FERTIG ]]; then
     # Schritt 5 (Entscheidung des Maintainers vom 8.11.2026, Wortlaut in ENTSCHEIDUNGEN.md): vor 06:30
-    # mit machbaren Einträgen und unter der Sechs-Commits-Grenze ist die Fertig-Datei kein Ende –
-    # neue Runde „Schritt 5 fortsetzen“. Höchstens vier Fortsetzungen; eine Fortsetzung ohne neuen
+    # mit machbaren Einträgen und unter der Commit-Grenze (6, Volldampf VD_MAX_COMMITS) ist die Fertig-Datei kein Ende –
+    # neue Runde „Schritt 5 fortsetzen“. Höchstens FORTSETZ_MAX Fortsetzungen; eine Fortsetzung ohne neuen
     # Commit beendet (nichts Machbares mehr, z. B. nur Einträge, die eine Entscheidung brauchen).
     KOPF=$(git -C $REPO rev-parse -q main 2>/dev/null)
     if (( FORTSETZ > 0 )) && [[ $KOPF == $KOPF_VORHER ]]; then

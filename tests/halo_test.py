@@ -3037,12 +3037,13 @@ def reading_checks(m, results):
     check("Mailliste: Sortiermenü mit neun Sortierungen wie Apple Mail, Richtung je Sortierung benannt, Stern zuerst mit Datum als zweiter Sortierung", sort_menu, results)
 
     def attachment_header():
-        # Anhänge: Kopfzeile als leise Überschrift (12 px, grau, mit Chevron, ohne Büroklammer), „Save All“ als Textknopf in
-        # Akzentfarbe mit kleinem ⌄ direkt dahinter; kurze Mail: Liste direkt unter dem Text statt am unteren Rand
+        # Anhänge: Kopfzeile als leise Überschrift (12 px, grau, mit Chevron, ohne Büroklammer), „Save All“ als grauer
+        # Textknopf (24-px-Kapsel mit Lichtkante, Schrift in Textfarbe, Maus dunkler mit Kante) mit kleinem ⌄ direkt dahinter; kurze Mail: Liste direkt unter dem Text statt am unteren Rand
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Anhänge");
           doc.defaultView.toggleAttachmentList?.(false); await ruhig(600);
           const g = id => doc.getElementById(id);
+          const colorOf = (dc, value, prop) => { const e = dc.createElement("div"); e.style[prop] = value; dc.documentElement.append(e); const c = cs(e)[prop]; e.remove(); return c; };
           const accent = (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })();
           const save = [g("attachmentSaveAllMultiple"), g("attachmentSaveAllSingle")].find(vis);
           const text = save?.querySelector(".toolbarbutton-text");
@@ -3053,10 +3054,15 @@ def reading_checks(m, results):
           const out = { toggle: vis(g("attachmentToggle")), chevron: cs(g("attachmentInfo"), "::before").width == "12px", icon: vis(g("attachmentIcon")),
             count: { size: cs(g("attachmentCount")).fontSize, color: cs(g("attachmentCount")).color, text: cs(doc.getElementById("messageHeader")).color },
             save: save && { bg: cs(save).backgroundColor, color: text && cs(text).color, accent, size: text && cs(text).fontSize,
+                            sh: cs(save).boxShadow, h: Math.round(save.getBoundingClientRect().height), r: cs(save).borderTopLeftRadius,
+                            control: colorOf(doc, "var(--mt-control)", "backgroundColor"), hoverC: colorOf(doc, "var(--mt-control-hover)", "backgroundColor"),
+                            textC: colorOf(doc, "var(--mt-text)", "color"),
                             gap: text && drop && vis(drop) ? Math.round(drop.getBoundingClientRect().left - text.getBoundingClientRect().right) : null,
                             dropBorder: drop && cs(drop).borderInlineStartWidth },
             gap: Math.round(view.getBoundingClientRect().top - (mp.getBoundingClientRect().top + body.getBoundingClientRect().bottom)),
             paneH: Math.round(g("messagepanebox").getBoundingClientRect().height) };
+          if (save) { InspectorUtils.addPseudoClassLock(save, ":hover"); await ruhig(200);
+            out.save.hover = [cs(save).backgroundColor, cs(save).boxShadow]; InspectorUtils.removePseudoClassLock(save, ":hover"); await ruhig(100); }
           // Menü über ⌄ erreichbar
           // (zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu; CI mac 5.11.)
           if (drop && vis(drop)) {
@@ -3067,11 +3073,14 @@ def reading_checks(m, results):
           return out;""")
         c, sv = res.get("count") or {}, res.get("save") or {}
         ok = (res.get("toggle") is False and res.get("chevron") and res.get("icon") is False and c.get("size") == "12px" and not same_color(c.get("color", ""), c.get("text", ""))
-              and sv.get("size") == "12px" and same_color(sv.get("color") or "", sv.get("accent") or "x") and sv.get("bg") in ("rgba(0, 0, 0, 0)", "transparent")
+              and sv.get("size") == "12px" and same_color(sv.get("color") or "", sv.get("textC") or "x") and not same_color(sv.get("color") or "", sv.get("accent") or "x")
+              and same_color(sv.get("bg") or "", sv.get("control") or "x") and "inset" in (sv.get("sh") or "") and (sv.get("sh") or "").count("rgba") >= 2
+              and sv.get("h") == 24 and sv.get("r") == "999px"
+              and same_color((sv.get("hover") or [""])[0], sv.get("hoverC") or "x") and (sv.get("hover") or ["", ""])[1] == sv.get("sh")
               and sv.get("gap") is not None and sv["gap"] <= 6 and res.get("menu") in ("open", "showing")
               and res.get("gap", 999) <= 40)
         return ok, f"{res}"
-    check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als Textknopf in Akzentfarbe mit ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
+    check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als grauer Textknopf mit Lichtkante und ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
 
     def no_quick_reply():
         # Schnellantwort entfernt (Entscheidung Maintainer 29.10.2026): kein Feld unter der Mail, keine Einstellung,

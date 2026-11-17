@@ -1721,14 +1721,25 @@ body:has(> #accountCentral),
   margin-inline-start: 6px !important;
 }
 
+/* „Save All“ als Textknopf der Knopf-Familie: graue Kapsel mit Lichtkante,
+   Maus etwas dunkler mit Kante, gedrückt dunkler ohne Kante */
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) {
-  background: none !important;
+  background: var(--mt-control) !important;
   border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+  box-shadow: var(--mt-btn-lite-shadow) !important;
+  padding: 0 6px 0 10px !important;
   margin: 0 !important;
-  min-height: 0 !important;
-  border-radius: 4px !important;
+  min-height: var(--mt-btn-h-small, 24px) !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) {
+  background: var(--mt-control-hover) !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):hover:active {
+  background: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) > :is(.box-inherit, toolbarbutton, .toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
@@ -1747,14 +1758,14 @@ body:has(> #accountCentral),
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
-  font-weight: 500 !important;
-  color: AccentColor !important;
+  font-weight: 400 !important;
+  color: var(--mt-text) !important;
   padding: 0 !important;
   margin: 0 !important;
 }
 
 /* Thunderbirds Pfeil liegt im Schatten-DOM und ist hier fast durchsichtig –
-   stattdessen ein kleines ⌄ als Maske in Akzentfarbe */
+   stattdessen ein kleines ⌄ als Maske in Textfarbe */
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-menubutton-dropmarker {
   border-inline-start: none !important;
   width: 14px !important;
@@ -1764,16 +1775,13 @@ body:has(> #accountCentral),
   list-style-image: none !important;
   -moz-context-properties: none !important;
   fill: transparent !important;
-  background: AccentColor !important;
+  background: var(--mt-text) !important;
+  opacity: 0.6 !important;
   mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E") center / 10px 10px no-repeat !important;
 }
 
-:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) > :is(.box-inherit, toolbarbutton, .toolbarbutton-menubutton-button):is(:hover, :focus-visible, [open]) {
-  background: var(--mt-hover) !important;
-}
-
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) > .toolbarbutton-menubutton-dropmarker:hover {
-  opacity: 0.7 !important;
+  opacity: 1 !important;
 }
 
 @media (prefers-contrast: more) {

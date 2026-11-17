@@ -10274,7 +10274,6 @@ def server_checks(m, results):
             setup_js = r"""
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
               const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
-              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
               const account = MailServices.accounts.getAccount("%s"), id = account.identities[0];
               // CardDAV-Buch ohne Server-Adresse (kein Abgleich); Karten ohne Hochladen anlegen
               const prefId = MailServices.ab.newAddressBook("Halo CardDAV", null, Ci.nsIAbManager.CARDDAV_DIRECTORY_TYPE);
@@ -10294,7 +10293,6 @@ def server_checks(m, results):
               return { book: book.childCards.length, cal: c.id };""" % key
             run_js = r"""
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
               const server = MailServices.accounts.getAccount("%s").incomingServer, root = server.rootFolder;
               const job = await w.__mcArchiveAccount(server);
               const local = MailServices.accounts.localFoldersServer.rootFolder;
@@ -10322,7 +10320,6 @@ def server_checks(m, results):
               return out;""" % key
             cleanup_js = r"""
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
               const server = MailServices.accounts.getAccount("%s").incomingServer;
               const archiv = n => n.startsWith(server.prettyName + " (");
               for (const d of MailServices.ab.directories.filter(d => d.dirName == "Halo CardDAV" || archiv(d.dirName))) MailServices.ab.deleteAddressBook(d.URI);

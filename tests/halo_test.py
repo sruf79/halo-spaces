@@ -11013,7 +11013,6 @@ def run_checks(m, version, profile, results):
         # Teile (Mail, Kontakte, Kalender) – hier nur Kontakte und Kalender gewählt, die Mailordner bleiben unberührt
         res = m.js(r"""
           const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-          const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
           const name = "Halo PST-Kontakte";
           const day = (d, h = 9) => new Date(Date.UTC(2026, 10, d, h));
           const source = () => ({ name,
@@ -11049,7 +11048,7 @@ def run_checks(m, version, profile, results):
             doc.querySelector(".buttons .primary").click();
             await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
             out.wiz.end = doc.querySelector(".summary")?.textContent;
-            out.wiz.localMail = !!MailServices.accounts.localFoldersServer.rootFolder.getChildNamed(name);
+            try { out.wiz.localMail = !!MailServices.accounts.localFoldersServer.rootFolder.getChildNamed(name); } catch { out.wiz.localMail = false; }
             hw.close();
           }
           // aufräumen

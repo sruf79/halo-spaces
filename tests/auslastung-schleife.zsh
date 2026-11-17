@@ -143,9 +143,11 @@ pruefen() {
 
 # erste freie Worker-Nummer 1…8 (Zustandsdatei fehlt oder Prozess beendet)
 freie_nummer() {
-  local i
+  local i z
   for i in {1..8}; do
-    [[ -r $ZUSTAND/worker-$i ]] && kill -0 ${$(<$ZUSTAND/worker-$i)%% *} 2>/dev/null && continue
+    # erstes Wort der Zustandszeile = PID (als Feld lesen: ${$(<…)%% *} zerlegt die Zeile in Wörter, kill -0 bekam
+    # alle Wörter und scheiterte immer – jeder Worker bekam bis 17.11.2026 Nummer 1 und dieselben Ports 2874/2875)
+    [[ -r $ZUSTAND/worker-$i ]] && z=($(<$ZUSTAND/worker-$i)) && kill -0 $z[1] 2>/dev/null && continue
     print $i; return 0
   done
   return 1

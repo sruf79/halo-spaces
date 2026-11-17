@@ -16068,7 +16068,7 @@ Neu
                                 Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).backgroundColor == ctl ? "fläche" : cs(b).backgroundColor]);
             // Zurück-Knopf nur mit einem Pfeil: Thunderbird malt ihn zusätzlich als Hintergrund des Knopfs (GitHub #55).
             // In der Ansicht des Add-ons und seinen Einstellungen: ohne das Bild im Knopf bleibt die Fläche leer
-            // (Bildpunkte, die deutlich von der Knopffläche abweichen), mit Bild genau ein Pfeil
+            // (Bildpunkte innerhalb der Kapsel, die deutlich von der Knopffläche abweichen), mit Bild genau ein Pfeil
             if (k == "detail" || k == "pref") {
               const h = ad.querySelector("addon-page-header .back-button"), b = h?.shadowRoot?.querySelector('[part~="button"]'), img = b?.querySelector("img");
               const br = tm.currentTabInfo.browser.getBoundingClientRect(), r = b ? R(b) : null;
@@ -16077,7 +16077,10 @@ Neu
                 try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(rr, 1, "white"), 0, 0); }
                 catch { ctx.drawWindow(w, rr.left, rr.top, rr.width, rr.height, "white"); }
                 const data = ctx.getImageData(0, 0, cv.width, cv.height).data, c = (Math.round(cv.width / 2) + 3 * cv.width) * 4; let n = 0;
-                for (let y = 4; y < cv.height - 4; y++) for (let x = 4; x < cv.width - 4; x++) { const i = (y * cv.width + x) * 4;
+                // nur innerhalb der Kapsel, 4 px vom Rand: die Lichtkante oben (Knopf-Familie, dunkel heller) folgt der
+                // Rundung und lag sonst in der Ecke des Quadrats als ein Bildpunkt im Messfeld
+                const hr = cv.height / 2, inKapsel = (x, y) => Math.hypot(Math.max(hr - x - 0.5, 0, x + 0.5 - (cv.width - hr)), y + 0.5 - hr) <= hr - 4;
+                for (let y = 4; y < cv.height - 4; y++) for (let x = 4; x < cv.width - 4; x++) { const i = (y * cv.width + x) * 4; if (!inKapsel(x, y)) continue;
                   if (Math.abs(data[i] - data[c]) + Math.abs(data[i + 1] - data[c + 1]) + Math.abs(data[i + 2] - data[c + 2]) > 60) n++; }
                 return n; };
               if (img && r?.width) {

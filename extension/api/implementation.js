@@ -22204,6 +22204,10 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           if (key == "weather" || key == "weatherPlace") {
             await Weather.refresh(true); // Zeile unter dem Ortsfeld gleich mit Ergebnis
           }
+          // Offline-Kopie gleich anlegen, nicht erst beim nächsten Start
+          if (key == "calendarOffline" && value) {
+            enableCalendarOffline();
+          }
           if (key == "macContactPhotos") {
             if (value) {
               MacPhotos.sync();

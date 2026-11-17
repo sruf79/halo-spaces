@@ -12373,6 +12373,8 @@ class CardEnhancer {
     let glowEl = null;
     let glowRo = null;
     let glowFrame = 0;
+    let glowWait = 0;
+    let glowTries = 0;
     // (keep: nur das Attribut abnehmen, die Variablen bleiben stehen – sie wirken nur mit mc-glow, und beim
     // nächsten Besuch des Bereichs muss so nichts neu ins style-Attribut geschrieben werden, das sonst bei jedem
     // Wechsel das Nachmessen der Seitenleiste und der Toolbar anstößt)
@@ -12411,6 +12413,16 @@ class CardEnhancer {
       // Schalter „Lichtschein in der Seitenleiste“ aus: kein Schein, Linie neutral (Kacheln unverändert)
       const glowOn = Services.prefs.getBoolPref(GLOW_PREF, true);
       let [el, , win] = glowOn && GLOW_MODES.has(mode) ? sidebarFor(tab) : [];
+      w.clearTimeout(glowWait);
+      if (tile && (!el || !win) && glowOn && GLOW_MODES.has(mode) && tile.id == GLOW_TILE[mode] && glowTries < 30) {
+        // Seitenleiste noch nicht aufgebaut (Einstellungen beim ersten Öffnen: die Kachel ist „current“, bevor
+        // about:preferences die Kategorienliste hat, gemessen 33 gegen 99 ms): kurz darauf erneut, statt auf ein
+        // zufälliges späteres Ereignis zu warten (unter Linux mit der Beta blieb der Hauch sonst ganz aus)
+        glowTries++;
+        glowWait = w.setTimeout(glowSoon, 100);
+      } else {
+        glowTries = 0;
+      }
       if (!tile || !el || !win) {
         el = null;
       } else if (GLOW_TILE[mode] && tile.id != GLOW_TILE[mode]) {
@@ -12513,6 +12525,7 @@ class CardEnhancer {
           w.removeEventListener("resize", glowSoon);
           w.cancelAnimationFrame(glowFrame);
           glowFrame = 0;
+          w.clearTimeout(glowWait);
           try {
             glowRo?.disconnect();
           } catch {} // gewollt: Dokument des Bereichs schon geschlossen

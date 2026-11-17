@@ -12976,6 +12976,9 @@ menupopup menucaption {
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
   transition: color 0.25s ease !important;
+  /* Thunderbird rückt das Feld beim Laden für den Kreisel 25 px ein; der
+     Kreisel ist ausgeblendet, der Name bleibt deshalb an seiner Stelle */
+  padding-inline: 4px !important;
 }
 
 /* kein Schloss (auch kein Ladekreisel an seiner Stelle: der Name bliebe

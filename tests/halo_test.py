@@ -19311,10 +19311,10 @@ Neu
               const after = () => +w.getComputedStyle(band(), "::after").opacity;
               wt.browser.fixupAndLoadURIString("%s/langsam", { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
               await until(() => root.hasAttribute("mc-web-loading"), 3000); await wait(450);  // (fest: Einblenden 0,25 s abwarten)
-              out.loading = { attr: root.hasAttribute("mc-web-loading"), opacity: after(), h: Math.round(parseFloat(w.getComputedStyle(band(), "::after").height)) };
+              out.loading = { attr: root.hasAttribute("mc-web-loading"), opacity: after(), h: Math.round(parseFloat(w.getComputedStyle(band(), "::after").height)), pad: w.getComputedStyle(wt.urlbar).paddingInlineStart };
               await bis(() => wt.browser.contentTitle == "Halo langsam" && !wt.browser.webProgress?.isLoadingDocument, "langsame Seite fertig", 8000);
               await until(() => !root.hasAttribute("mc-web-loading"), 3000); await wait(450);  // (fest: Ausblenden 0,25 s abwarten)
-              out.loaded = { attr: root.hasAttribute("mc-web-loading"), opacity: after() };
+              out.loaded = { attr: root.hasAttribute("mc-web-loading"), opacity: after(), pad: w.getComputedStyle(wt.urlbar).paddingInlineStart };
               return out;""" % (base, P, base, base))
         finally:
             m.js(r"""
@@ -19335,6 +19335,9 @@ Neu
             bad.append("Ladelinie fehlt")
         if lf.get("attr") or lf.get("opacity", 1) > 0.05:
             bad.append("Ladelinie bleibt")
+        # Name rückt beim Laden nicht ein (Thunderbird gibt dem Feld 25 px für den ausgeblendeten Kreisel)
+        if not ld.get("pad") or ld.get("pad") != lf.get("pad"):
+            bad.append("Name rückt beim Laden")
         return not bad, f"{bad} {res}"
     check("Bereichsleiste: Webseite als fünfter Bereich – Leiste in der Farbe der Seite mit Kontrast für Zurück/Vor und Name (blau, weiß mit Haarlinie, dunkel), Name nur der Host, volle Adresse im Tooltip, kein Schloss, beim Laden eine feine Linie statt Kreisel", fifth_space_web_color, results)
 

@@ -10581,6 +10581,12 @@ class CardEnhancer {
       const DURATION = motionMs(250);
       const curve = cubicBezier(0.25, 0.1, 0.25, 1);
       unCollapse(el, splitter);
+      // Kalender, Mehrwochen-Ansicht: Puffer-Wochen schon vor der Vorabrechnung aus dem Aufbau (kalender.js, park) –
+      // sie wurden sonst schon im Klick zweimal und danach in jedem Bild neu umbrochen
+      if (mode == "calendar") {
+        const mw = w.document.getElementById("multiweek-view");
+        (mw?.wrappedJSObject || mw)?.__mcPark?.();
+      }
       if (show) {
         el.classList.remove("mc-side-hidden");
         splitter?.classList.remove("mc-side-hidden");

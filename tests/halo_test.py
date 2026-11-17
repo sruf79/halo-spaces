@@ -8008,6 +8008,68 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Kalender: Umschalter oben zeigt die offene Ansicht (Klick, Menübefehl, Neustart, „+n more“ öffnet den Tag)", view_toggle, results)
 
+    def multiweek_park():
+        # „Ein-/Ausblenden ruckelt umso stärker, je mehr Inhalt“ (17.11.2026): die Puffer-Wochen über und unter dem
+        # Bild (drei Viertel aller Tage) wurden mit jedem Bild der Bewegung neu umbrochen – gemessen 10 statt 6 ms Arbeit
+        # je Bild. Solange sich die Breite ändert, ist ihr Inhalt aus dem Aufbau (mc-mw-park); die Tage behalten Platz
+        # und Lage, Tage im Bild sind nie betroffen, danach und vor jedem Scrollen ist alles wieder da. (Zustand statt
+        # Bildzeit: die schwankt im vollen Lauf und unter xvfb mit der Last)
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const out = {}; const added = [];
+          const frame = () => new Promise(r => w.requestAnimationFrame(r));
+          try {
+            const s = mv.rangeStartDate.clone(); s.day -= 7 * 20;
+            const ymd = `${s.year}${String(s.month + 1).padStart(2, "0")}${String(s.day).padStart(2, "0")}`;
+            for (let i = 0; i < 2; i++) {
+              const ev = new CalEvent();
+              ev.icalString = ["BEGIN:VEVENT", `UID:halo-park-${i}@test`, `SUMMARY:Halo Park ${i}`, `DTSTART:${ymd}T${String(8 + 2 * i).padStart(2, "0")}0000`,
+                               `DTEND:${ymd}T${String(9 + 2 * i).padStart(2, "0")}0000`, "RRULE:FREQ=DAILY", "END:VEVENT"].join("\r\n");
+              added.push(await testCalendar().addItem(ev));
+            }
+            const mine = () => [...mv.querySelectorAll("calendar-month-day-box-item")].filter(i => /^Halo Park/.test(i.occurrence?.title || ""));
+            const boxes = () => [...mv.querySelectorAll("calendar-month-day-box")].filter(b => b.getBoundingClientRect().width > 0);
+            await bis(() => !mv.__mcQueue && mine().length >= 2 * boxes().length, "Termine eingetragen", 10000); await ruhig(600);
+            const parked = () => mv.querySelectorAll("calendar-month-day-box[mc-mw-park]").length;
+            const shown = () => mine().filter(i => i.getBoundingClientRect().width > 0).length;
+            const head = () => mv.querySelector("calendar-day-label").getBoundingClientRect().bottom, vb = () => mv.getBoundingClientRect().bottom;
+            // Tage im Bild, die geparkt sind oder deren Termine keine Fläche haben
+            const bad = () => boxes().filter(b => { const r = b.getBoundingClientRect(); if (r.bottom <= head() + 1 || r.top >= vb() - 1) return false;
+              return b.hasAttribute("mc-mw-park") || [...b.querySelectorAll("calendar-month-day-box-item")].some(i => !i.getBoundingClientRect().width); }).length;
+            const lage = () => boxes().map(b => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(x => Math.round(x * 10) / 10).join("/"); }).join(";");
+            out.days = boxes().length; out.all = mine().length; out.before = { parked: parked(), shown: shown() };
+            // 1) parken ändert weder Platz noch Lage der Tage; das Mausrad holt den Inhalt sofort zurück
+            const l0 = lage();
+            mv.__mcPark(); const p1 = parked(); const l1 = lage();
+            out.park = { parked: p1, same: l0 == l1, bad: bad(), shown: shown() };
+            mv.monthbody.querySelector("calendar-month-day-box").dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 1, deltaMode: 0 }));
+            out.wheel = { parked: parked(), shown: shown() };
+            await ruhig(900);
+            // 2) Seitenleiste aus und wieder ein: währenddessen geparkt, im Bild nie etwas betroffen, danach alles zurück
+            for (const step of ["hide", "show"]) {
+              let most = 0, wrong = 0, frames = 0;
+              d.getElementById("spacesPinnedButton").click();
+              const t0 = w.performance.now();
+              // feste Dauer: die Bewegung (250 ms) Bild für Bild mitlesen
+              while (w.performance.now() - t0 < 450) { await frame(); frames++; most = Math.max(most, parked()); wrong += bad(); }
+              await bis(() => !parked(), "Puffer-Wochen zurück (" + step + ")", 3000); await ruhig(600);
+              out[step] = { most, wrong, frames, parked: parked(), shown: shown(), all: mine().length };
+            }
+          } finally {
+            for (const it of added) try { await testCalendar().deleteItem(it); } catch {}
+            w.switchToView("week"); await ruhig(400);
+          }
+          return out;""")
+        pk, wh, hi, sh = (res.get(k) or {} for k in ("park", "wheel", "hide", "show"))
+        alles = res.get("all", 0)
+        ok = (alles > 0 and res.get("before") == {"parked": 0, "shown": alles}
+              and pk.get("parked", 0) >= res.get("days", 0) // 2 and pk.get("same") and pk.get("bad") == 0 and 0 < pk.get("shown", 0) < alles
+              and wh == {"parked": 0, "shown": alles}
+              and all(x.get("most", 0) >= res.get("days", 0) // 2 and x.get("wrong") == 0 and x.get("parked") == 0 and x.get("shown") == x.get("all") for x in (hi, sh)))
+        return ok, f"{res}"
+    check("Kalender: Mehrwochen-Ansicht – beim Ein-/Ausblenden der Seitenleiste ruhen die Puffer-Wochen (Inhalt aus dem Aufbau, Tage im Bild unberührt, gleiche Lage), danach und beim Scrollen sofort wieder da", multiweek_park, results)
+
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
         # wandert mit; Überschrift = Monat der obersten Woche, wechselt schon beim Scrollen (nicht erst beim Einrasten),

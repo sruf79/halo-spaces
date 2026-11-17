@@ -79,8 +79,9 @@ zu den farbigen Spaces, also zur Bereiche-Leiste, zur aktiven Kachel und (nach U
 zum Lichtschein in der Seitenleiste in der Farbe des aktiven Space. An Stellen ohne Vorlage überträgt
 er den Gedanken nur so: Farbe und Licht kommen vom aktiven Space und bleiben leise (Lichtschein 16 %
 hell / 20 % dunkel, gefärbte Linie 35 % / 30 %, Abschnitt 4); übrige Flächen und Pillen bleiben in
-Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Einstellungen und
-Webseiten-Space haben keinen Schein (E 13.11.2026).
+Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Die Einstellungen tragen
+statt der grauen Kachelfarbe einen leisen Mehrfarb-Hauch aus allen Space-Farben (E 14.11.2026, „ja mehrfarb
+hauch passt“); der Webseiten-Space hat keinen Schein (E 13.11.2026).
 
 Lesart seit 15.11.2026 (Deutung des Designers, vom Maintainer bestätigt: „ich folge deinen
 empfehlungen und möchte ein vorschaubild“; Wortlaut zum Umfang in P2): Das Halo-Licht der Kachel d2h
@@ -118,7 +119,7 @@ Aus den Belegen, messbar wo möglich:
 - **Keine zusätzlichen Konturen oder Ringe** für Zustände: Rahmen um die aktive Kachel abgelehnt
   („wirkt wie der macOS-Fokusring“), Glimmen abgelehnt (M `spaces-leiste-aktiv`); Pillen in Ruhe ohne
   Haarlinie, nur Fläche (B `…Ih2aA`).
-- **Kleine Kontrastschritte:** aktive Kachel Fläche 16 % statt 11 %; Hover 4,5 % / gedrückt 8 % (hell),
+- **Kleine Kontrastschritte:** inaktive Kacheln 8 % (bis d2h 11 %, aktive 16 %), aktive Kachel d2h 34 % hell; Hover 4,5 % / gedrückt 8 % (hell),
   7 % / 12 % (dunkel); Trennlinien 8 %; kein Sprung von leise auf kräftig (Abschnitt 4).
 - **Keine getönten großen Flächen:** Seitenleiste in Bereichsfarbe „zu unruhig“, getönte Auswahlfelder
   „sieht nicht gut aus“ (V2, V3); Farbe nur als leiser Schein (2a).
@@ -268,9 +269,9 @@ Neue Werte nur aus einer Vorlage gemessen (Abschnitt 6) oder vom Maintainer ents
 |---|---|---|
 | Bereiche-Leiste | 89 px = 20 + 48 + 20 px Fläche + 1 px Linie, Ampel (bis 74 px) links der Linie | C :3120–3137; Commit 211a634 (GitHub #46) |
 | Linie zwischen Kachelspalte und Seitenleiste | bleibt („besser mit linie als ohne“, 12.11.2026) | Eichfall V1 |
-| Aktive Kachel (live) | gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron, kein Hover | M `spaces-leiste-aktiv` (2.11.2026); Commit c69d1a4 |
-| Aktive Kachel F4a (nicht live) | Ring 40 %, Hof 9 px, Abschrägung; dunkel eigenes Rezept | B `…IekSY`, Wartet auf OK |
-| Lichtschein | Kern 120 × 90 px, Hauptlicht 230 × 175 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; nicht in Einstellungen und Webseiten-Space; abschaltbar | C :2880–2889; E 13.11.2026; B `…IekNU` |
+| Aktive Kachel (live auf `main`) | gefülltes Symbol, Fläche 16 % statt 11 %, leiser Schatten, kein Chevron, kein Hover | M `spaces-leiste-aktiv` (2.11.2026); Commit c69d1a4 |
+| Aktive Kachel d2h (live auf main seit 17.11.2026, mit dem Lichtschein) | gefülltes Symbol; Fläche hell 34 %, dunkel 36 → 44 %; Kante rundum 1 px 28 % / 35 %, rechts 55 % / 60 % mit Saum; Lichtkante oben (Weiß 70 % / 22 %), leiser Schatten unten, Lichthof rechts 6 px 0 12 px −4 px 40 % / 45 %; inaktive Kacheln 8 %; Variablen `--mt-tile-*`; unabhängig vom Schalter; ersetzt F4a | E 14.11.2026; B `…IekSY`; E17 |
+| Lichtschein | Variante D: Kern 120 × 113 px, Hauptlicht 230 × 219 px, Mitte 80 px vom Rand, je Kachel 30 px geneigt, 16 % hell / 20 % dunkel; Linie 35 % / 30 %, volle Stärke ±55 px um die Kachelmitte, Auslauf 164 px ∓ Neigung (bei Neigung 0 wie früher ±219 px), mit Schalter aus neutral; Einstellungen als Mehrfarb-Hauch aller Space-Farben, 8 % hell / 10 % dunkel, gleiche Maße; nicht im Webseiten-Space; abschaltbar | C :2881–3016, spaces.css `#pref-category-box[mc-glow="hauch"]`; E 13.11.2026, 14.11.2026 (Variante D, Mehrfarb-Hauch); B `…IekNU`, `…IuiKQ` |
 | Seitenleiste größte Breite | 360 px in allen Bereichen | C :86 |
 | Seitenleistenbreite beim Start | 206 px (Variante A mit 240 px zurückgenommen; bleibt auch mit bündigen Favoriten, E20) | Commit 32f9d08; siehe F2; E 15.11.2026 |
 | Favoriten der Ordnerliste | Symbole x = 44, Text x = 77 wie die Kontoordner; „Favourites“ x = 52 wie die Kontonamen; Konten darunter je Stufe 33 px tiefer (Symbol unter dem Text darüber); Aufklapp-Pfeil links davon (x = 29–41) | E20 |
@@ -570,7 +571,7 @@ Gegenbeispiele.
 ### Erledigt
 | # | Vorher → Nachher | Begründung des Maintainers | Quelle |
 |---|---|---|---|
-| E1 (abgelöst durch E17, sobald d2h live ist) | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
+| E1 (abgelöst durch E17, sobald d2h live ist; im Paket umgesetzt 15.11.2026) | Aktive Kachel mit Chevron (bzw. Linie 31.10.) → gefülltes Symbol, Fläche 16 %, leiser Schatten, kein Hover | „sofort erkennbar und trotzdem ruhig“; gefüllte Symbole fein gezeichnet | M `spaces-leiste-aktiv` (2.11.2026); c69d1a4, 45da339 |
 | E2 | Schnellantwort unter der Mail (Vorschlag „standardmäßig aus“) → ganz entfernt samt Einstellung | Nutzen nicht belegt, schlankes Produkt | M `nur-belegte-features` (29.10.2026); 9c3e252 |
 | E3 | Antwortfeld als Kapsel → Eingabefeld mit kleinem Radius und Haarlinie | Kapsel „unpassend zum übrigen Mail-Design“ (28.10.); Regel Formen | M `pillen-nur-knoepfe`; be19867; E 5.11.2026 |
 | E4 | Suchfelder eckig mit Rahmen bzw. mit Hover → Kapsel ohne Rand, ohne Hover, Fokusring erst beim Klick | wie Apple | E Regeltext „Formen“ 5.11.2026; 6303d32, 81767e6 |
@@ -586,7 +587,7 @@ Gegenbeispiele.
 | E14 | Today-Pane: Symbol plus Text überlappt den Titel → Knöpfe dort immer nur als Symbol | „ja a.“ | E 14.11.2026 (GitHub #62) |
 | E15 | Aufgabenordner „All“ → „Open“ | Logik vor unlogischer Apple-Benennung | M `im-zweifel-apple` (3.11.2026) |
 | E16 | Anhang-Kachel mit Größe unter dem Namen → ohne Größe, Größe im Tooltip (Entscheidung des Designers, Entwurf) | Maintainer: „der designer soll hier entscheiden“; Apple Mail ohne, Outlook/Thunderbird mit Größe | F7; E 14.11.2026; umgesetzt 16.11.2026 (Tooltip „Name (Größe)“, Name 8 px neben dem Symbol) |
-| E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (Entwurf, nicht live): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
+| E17 | Aktive Kachel F4a (Ring 40 %, Hof 9 px) → Zielbild d2h (umgesetzt 15.11.2026, live auf main seit 17.11.2026 mit dem Lichtschein; Bild-Prüfung „aktive Kachel d2h am Bild“): Fläche hell 34 %, dunkel 36 % links bis 44 % rechts; feine Kante rundum 1 px (hell 28 %, dunkel 35 %), rechts 55 % / 60 % mit weichem Saum; Lichtkante oben, leiser Schatten unten; inaktive Kacheln 8 % statt 11 %; Linie geneigt in heutiger Stärke | „d2h ist jetzt zielbild.“; „bezüglich punkt 2 folge ich der empfehlung mit 8%.“ | E 14.11.2026 (`ENTSCHEIDUNGEN.md`) |
 | E18 | Lichtwinkel je Kachelposition ((2,5 − Index) × 30 px) statt starrer Lichtposition; Hell und Dunkel gleiche Bauart, nur Werte getrennt abgestimmt | Designer: Licht fällt in die Seitenleiste hinein statt am Fensterrand abgeschnitten zu werden; zwei Bauarten je Modus widersprechen dem Geist von G14 | Designer 14.11.2026, vom Maintainer mit d2h übernommen |
 | E19 | Halo nur an Kachel und Seitenleiste → übergeordnetes Gestaltungsmerkmal für alle Bereiche; je Dialog oder Popup nur der Hauptknopf in Systemfarbe mit Halo-Licht, gleich in allen Spaces; Space-Farbe nur an Kachel und Lichtkegel; gilt für alle Knöpfe, auch Symbolknöpfe (G15, nach Veröffentlichung des Pakets) | „die buttons und die lichtkegeln sind das übergeordnete gestaltungsmerkmal für alle anderen bereiche von halo.spaces, das betrifft dialoge, popups, buttons, etc. natürlich auch weiterhin im hinblick auf das ruhige design von apple apps (mail, calender, etc.).“; „ich folge deinen empfehlungen und möchte ein vorschaubild“ | E 15.11.2026 (Gespräch mit dem Designer) |
 | E20 | Favoriten links eingerückt (Symbole 16 px, „Favourites“ 22 px links der Konten) → bündig in den Spalten der Konten bei unveränderter Breite 206 px; Kontonamen unter All Inboxes/All Sent dürfen mit „…“ gekürzt erscheinen (Variante A mit 240 px zurückgenommen, 32f9d08) | „anstelle dass wir die ganze logik der sidebar umbauen sollten wir den einfacheren weg gehen und den namen "local folder" optisch abkürzen falls das notwendig ist. jene user, denen der vollständige name von local folders wichtig ist, können frei die sidebar via verschiebbare trennleiste vergrössern bei bedarf.“ | E 15.11.2026 (`ENTSCHEIDUNGEN.md`) |
@@ -604,7 +605,7 @@ Gegenbeispiele.
 - Eine einseitig helle Kante liest das Auge als Lichtkante einer Fase: das Objekt wirkt gekippt oder angehoben. Ein Helligkeitsgefälle quer über eine Fläche ist ein starkes Signal für eine geneigte Fläche (14.11.2026, Kachel d2b; Lösung d2h: gleichmäßige Fläche, rundum feine Kante, rechts nur weich betont).
 - Gleich starke, kräftige farbige Kontur rundum wirkt wie ein Rahmen oder Fokusring und ist verworfen (V2); die Lichtrichtung geht verloren.
 - Hell und Dunkel nutzen dieselbe Bauart; nur Werte dürfen sich unterscheiden (Querverlauf, Kantenstärke), damit die Wirkung gleich ist (G11, G14). Wenn die Neigung hell stärker wirkt als dunkel, liegt es an der Umgebung der blassen Fläche, nicht an stärkerem Verlauf.
-- Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026).
+- Schalter „Lichtschein“ aus heißt: auch die Farbwirkung der Trennlinie aus (Maintainer 14.11.2026); geprüft in allen Spaces, eingeblendet und schwebend (15.11.2026).
 - Bündige Spalten gehen vor ungekürzten Namen: Lieber ein Name mit „…“ als eine Spalte, die aus der Flucht springt, oder eine breitere Standardbreite, die allen Bereichen Platz nimmt; wer den ganzen Namen braucht, zieht die Seitenleiste breiter (Deutung des Designers aus E20, 15.11.2026).
 - Popup-Rundung je nach Art: Menüs, Auswahllisten und Tooltips 12 px (`--mt-radius-popup`); Popover mit eigenem Inhalt, z. B. Termin-Schnellfenster und „Anhänge anordnen“, 20 px (`--mt-popover-radius`, macOS 27); Datumswahl (Mini-Kalender am Feld) 6 px wie Apple (Vorlage apple/kalender-termin-datum-minikalender.png). Anlass: Die Bestandsaufnahme vom 15.11. meldete 6 px und 20 px als Abweichung von 12 px; beide stimmen mit Vorlage bzw. Maß überein (Fehlalarm des Rundgangs). Abweichungen vom häufigsten Wert sind nicht automatisch Fehler: erst die Art des Elements bestimmen, dann gegen den passenden Wert prüfen. Die Rundgang-Messung (Ausreißer „Popup-Radius“) muss künftig nach Art unterscheiden. (15.11.2026; Frage des Designers: „Soll ich als Lehre ins Gedächtnis des Designers eintragen lassen, dass der Rundgang Popups je nach Art misst und nicht alles an 12 px? Meine Empfehlung: ja.“, nachgefragt mit der ausformulierten Regel; Antwort des Maintainers: „ja“; Befund des Designers)
 - Ein Hinweis ist keine Warnung: Hinweise (z. B. entfernte Inhalte blockiert) als leise graue Karte; Warnfarbe nur, wo der Nutzer handeln muss oder Gefahr droht (Junk, Betrug), damit Gelb seine Bedeutung behält (Deutung des Designers aus E22, 16.11.2026; Junk- und Betrugsleiste darum weiter gelb).
@@ -616,6 +617,8 @@ Gegenbeispiele.
 - Ein Häkchen im Kästchen ist eine Marke, kein Liniensymbol: Es darf kräftiger sein als die Staffel für 12 px (Strich 3.4 statt 2.1), damit es auf der Systemfarbe so deutlich bleibt wie bisher; der Doppelpfeil folgt der freigegebenen Vorschau (2.3 bei 14 px). Grundsatz: Ist ein Strich in einer freigegebenen Vorschau gezeigt, gilt dieser Wert vor der Staffel (Befund des Designers, 16.11.2026).
 - Ein Zeichen nur, wo es etwas weiß: Der Zusage-Stand erscheint nur bei Personen, deren Stand die Einladung trägt (Teilnehmer); der Organisator bekommt kein Zeichen, weil Thunderbird ihn ohne Angabe als „offen“ führt und ein Fragezeichen dort falsch wäre. Rolle und Stand bleiben im Tooltip der Zeile (G2) (Befund des Designers aus E26, 16.11.2026).
 - Original-Symbole, die Thunderbird als `<img src>` setzt (Aufklapp-Pfeile, Anhänge im Verfassen, Aufgabenfilter, Sortierpfeile), lassen sich mit `content: url(resource://mailcards/…)` ersetzen; `resource:`-Grafiken laden auch in Dialogen, deren CSP nur `chrome:` erlaubt (Standardprogramm, Editor-Dialoge), `data:` dort nicht. Der Rundgang (`tests/tour-messung.js`) liest bei `<img>` darum zuerst `content` (Befund des Designers, 16.11.2026).
+- Eine Vorschau aus einem temporären Stilblatt lässt sich 1:1 übernehmen, wenn die Werte als `--mt-`-Variablen mit Hell- und Dunkelwert eingesetzt werden; Abgleich am Pixel gegen die Vorschau-Rohbilder (Abweichung ≤ 5 Stufen nur durch Rundung 1x/2x) belegt die Übernahme (15.11.2026, d2h).
+- Halbtransparente Flächen misst man als Deckkraft über dem Grund (Projektion von Pixel minus Grund auf Farbe minus Grund), nicht als Farbabstand: so sind Werte wie 34 % oder 8 % direkt prüfbar, auch unter Linux und dunkel (15.11.2026).
 
 ### Verworfen (Gegenbeispiele)
 | # | Vorschlag | Begründung des Maintainers | Quelle |

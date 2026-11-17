@@ -456,8 +456,9 @@ Reihenfolge:
       - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
         am Anfang und Ende (Woche, 5 Stunden).
 1d. Redesign-Ablauf – gilt NUR bis zum Ende der Volldampf-Woche (24.11.2026
-      Parallel (Maintainer 17.11.2026 „Ja“, nur solange Volldampf läuft): Fortsetzungen dürfen bis zu zwei Opus-Agenten
-      gleichzeitig an getrennten Einträgen führen (andere Dateien), nie am selben Baustein und nie während Tests auf neon.
+      Parallel (Maintainer 17.11.2026 „Ja“, nur solange Volldampf läuft): Fortsetzungen führen so viele Opus-Agenten
+      gleichzeitig, wie getrennte Einträge da sind (bis zu vier, andere Dateien), nie am selben Baustein, Testläufe nacheinander
+      (je eigener Port ab 2850); Volldampf heißt maximale Produktivität, nicht müßig warten, Bremse nur das Wochenlimit.
    01:00, Ende der Zeile in ~/halo-nacht/volldampf.txt), danach diesen
    Abschnitt überspringen. Freigabe des Maintainers (16.11.2026, Gespräch mit
    dem Designer, Wortlaut in ENTSCHEIDUNGEN.md): „ansonsten bin ich mit deinem

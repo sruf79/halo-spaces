@@ -729,3 +729,5 @@ Nachtrag (16.11.2026, neon-Sitzung), Wortlaut des Maintainers zur Volldampf-Woch
 Nachtrag (16.11.2026, neon-Sitzung), Wortlaut des Maintainers auf die Frage, ob die Tagesroutine in der Volldampf-Woche um 08:45 statt 09:00 beginnen soll: „nur solange volldampf läuft“. Umsetzung: LaunchAgent der Tagesroutine täglich 08:45; mit Volldampf Beginn `START_VOLLDAMPF` 08:45 nach dem Ende des Nachtlaufs, ohne Volldampf wartet das Skript bis 09:00 (`tests/tagesroutine.sh`, `docs/testrechner.md` „Volldampf“).
 
 Nachtrag (17.11.2026, neon-Sitzung), Volldampf-Woche, parallele Agenten: Auf den Hinweis „Wochen Limit erst bei 3%“ und den Vorschlag, bis zu zwei Opus-Agenten gleichzeitig an getrennten Einträgen arbeiten zu lassen, antwortete der Maintainer: „Ja“. Umsetzung (Deutung neon): gilt nur solange Volldampf läuft; Nachtlauf-Fortsetzungen und Tagesroutine (Auftragsdateien); gepusht wird weiter nur über Prüfzweig und Nachtlauf.
+
+Nachtrag (17.11.2026, neon-Sitzung), Wortlaut des Maintainers: „Volldampf heisst maximale Produktivität“. Umsetzung (Deutung neon): Die Grenze von zwei parallelen Opus-Agenten ist auf bis zu vier angehoben; Bremse nur das Wochenlimit.

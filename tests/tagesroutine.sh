@@ -75,7 +75,7 @@ path=(~/.local/bin /opt/homebrew/bin /usr/local/bin /Library/Frameworks/Python.f
 # --- Schwellen: Standard, dann tagesroutine.conf ---
 typeset -A KONF
 KONF=(
-  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 09:00  START_VOLLDAMPF 08:45  LETZTER_BEGINN 20:30  ENDE 22:00
+  WOCHENTAGE "1 2 3 4 5 6 7"  START 09:00  START_WOCHENENDE 09:00  START_VOLLDAMPF 08:45  LETZTER_BEGINN 20:30  ENDE 22:00  LETZTER_BEGINN_VOLLDAMPF 23:30  ENDE_VOLLDAMPF 23:59
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
@@ -104,6 +104,8 @@ HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
 VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf endet ab diesem Wochenwert (lauf-hilfen.zsh)
 source $HILFEN
+# Nur mit Volldampf gelten die späteren Zeiten (Maintainer 17.11.2026: kein Zeitlimit abends außer Nachtlauf); ohne Volldampf die normalen
+if volldampf_aktiv >/dev/null 2>&1; then KONF[LETZTER_BEGINN]=$KONF[LETZTER_BEGINN_VOLLDAMPF]; KONF[ENDE]=$KONF[ENDE_VOLLDAMPF]; fi
 
 DIR=$HOME/halo-nacht
 BERICHTE=$HOME/halo-berichte

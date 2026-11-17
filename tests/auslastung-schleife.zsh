@@ -65,11 +65,12 @@ konf_lesen() {
 # Arbeits-Sitzungen: claude -p mit Sitzungs-ID, ohne Haiku (kontingent.sh, push() sind kurz)
 aktiv_zahl() {
   [[ -n $HALO_AS_AKTIV ]] && { print $HALO_AS_AKTIV; return }
-  pgrep -fl 'claude -p --model [^ ]+ --(session-id|resume) ' 2>/dev/null | grep -vc -- '--model haiku'
+  # Prozesse zählen, nicht Zeilen: der Auftragstext hat Zeilenumbrüche (pgrep -l druckt jede Zeile einzeln; 17.11. zählte das 85 statt 1)
+  pgrep -f 'claude -p --model [^ ]+ --(session-id|resume) ' 2>/dev/null | while read -r p; do ps -o command= -p $p 2>/dev/null | head -1; done | grep -vc -- '--model haiku'
 }
 fable_zahl() {
   [[ -n $HALO_AS_FABLE ]] && { print $HALO_AS_FABLE; return }
-  pgrep -fl "claude -p --model $K[MODELL_FABLE] --(session-id|resume) " 2>/dev/null | grep -c .
+  pgrep -f "claude -p --model $K[MODELL_FABLE] --(session-id|resume) " 2>/dev/null | grep -c .
 }
 nachtlauf_laeuft() {
   [[ -n $HALO_AS_NACHTLAUF ]] && { [[ $HALO_AS_NACHTLAUF == ja ]]; return }

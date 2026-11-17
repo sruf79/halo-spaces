@@ -79,7 +79,7 @@ zu den farbigen Spaces, also zur Bereiche-Leiste, zur aktiven Kachel und (nach U
 zum Lichtschein in der Seitenleiste in der Farbe des aktiven Space. An Stellen ohne Vorlage überträgt
 er den Gedanken nur so: Farbe und Licht kommen vom aktiven Space und bleiben leise (Lichtschein 16 %
 hell / 20 % dunkel, gefärbte Linie 35 % / 30 %, Abschnitt 4); übrige Flächen und Pillen bleiben in
-Ruhe flach und neutral (Empfehlung im Eintrag B `…Ih2aA`, „Pillen in Ruhe flach“). Die Einstellungen tragen
+Ruhe neutral, ohne Farbe und ohne Leuchten; Knöpfe heben sich wie bei Apple mit feiner Kante und leisem Schatten ab (plastische Kapseln, 17.11.2026; früher „Pillen in Ruhe flach“, Empfehlung im Eintrag B `…Ih2aA`; Umsetzung Notiz an B `…I6FHI`). Wortlaut des Maintainers zum Satz (17.11.2026, Gespräch mit dem Designer): „Ja der wortlaut passt“; zur Variante: „Nein keine Vorschau ich folge deiner Empfehlung“. Die Einstellungen tragen
 statt der grauen Kachelfarbe einen leisen Mehrfarb-Hauch aus allen Space-Farben (E 14.11.2026, „ja mehrfarb
 hauch passt“); der Webseiten-Space hat keinen Schein (E 13.11.2026).
 

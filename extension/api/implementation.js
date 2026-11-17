@@ -7294,10 +7294,12 @@ const PREF_TOOLS = [
     { button: "menu_downloadFlagged", pane3: "cmd_downloadFlagged" },
   ]],
   ["mcPrefCalendarView", "paneCalendar", null, "Calendar View", [
-    { toggle: "calWorkdaysOnlyMenuitem" },
+    // Arbeitstage und Drehen: Thunderbirds Befehle gelten nur bei offenem
+    // Kalender (sonst ohne Wirkung) – darum direkt dessen Umschalter (call)
+    { toggle: "calWorkdaysOnlyMenuitem", call: "toggleWorkdaysOnly" },
     { toggle: "calTasksInViewMenuitem" },
     { toggle: "calShowCompletedInViewMenuItem" },
-    { toggle: "calViewRotated" },
+    { toggle: "calViewRotated", call: "toggleOrientation" },
   ]],
 ];
 
@@ -7417,7 +7419,16 @@ function addPrefTools(doc, restorers) {
           : checked(item(row.toggle)));
         sync();
         box.addEventListener("change", () => {
-          item(row.toggle)?.doCommand();
+          if (row.call && typeof mailWin[row.call] == "function") {
+            try {
+              mailWin[row.call]();
+            } catch (e) {
+              // umgeschaltet ist schon; nur das Neuzeichnen der (noch nie gezeigten) Kalenderansicht scheitert
+              log("pref tool", row.call, String(e).slice(0, 120));
+            }
+          } else {
+            item(row.toggle)?.doCommand();
+          }
           mailWin.setTimeout(sync, 50);
         });
         card.addEventListener("focusin", sync);

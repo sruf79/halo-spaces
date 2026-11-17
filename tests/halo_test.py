@@ -19644,6 +19644,8 @@ Neu
     check("Einstellungen: Kästchen unter „Files and Display“ und „Calendar View“ zeigen den wirklichen Zustand, auch nach dem Umschalten",
           lambda: pref_tool_toggles([["paneGeneral", "mcPrefFiles", ["menu_fullZoomToggle", "viewAttachmentsInlineMenuitem"]],
                                      ["paneCalendar", "mcPrefCalendarView", ["calTasksInViewMenuitem", "calShowCompletedInViewMenuItem"]]]), results)
+    check("Einstellungen → Kalender: „Workweek days only“ und „Rotate View“ wirken auch, solange der Kalender nicht offen ist",
+          lambda: pref_tool_toggles([["paneCalendar", "mcPrefCalendarView", ["calWorkdaysOnlyMenuitem", "calViewRotated"]]]), results)
 
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),

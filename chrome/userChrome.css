@@ -3618,9 +3618,9 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 
 /* Fünfter Bereich (Erweiterung: mc-fifth = chat | addon | web | none): ohne
    Chat rücken die übrigen Knöpfe gleichmäßig zusammen; als Ersatz behält der
-   Platz Farbe und Knopf des Chats, das Symbol kommt von der Erweiterung bzw.
-   der Webseite – einfarbig in der Bereichsfarbe oder unverändert auf neutraler
-   Fläche (mc-fifth-icon=original). Im Tab einer Erweiterung keine Today-Pane
+   Platz Farbe und Knopf des Chats, das Symbol ist immer einfarbig in der
+   Bereichsfarbe wie alle Kacheln: das Leistensymbol der Erweiterung als Maske,
+   bei einer Webseite das halo-Symbol (Globus). Im Tab einer Erweiterung keine Today-Pane
    (1:1), bei einer Webseite wie in den übrigen Bereichen */
 :root[mc-fifth="none"] :is(#chatButton, #spacesPopupButtonChat),
 :is(.spaces-toolbar-button, .spaces-popup-menuitem)[mc-fifth-hidden],
@@ -3635,29 +3635,6 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 @media (prefers-color-scheme: dark) {
   :root:is([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat) > :is(img, .menu-icon) {
     mask-image: var(--mc-fifth-img-dark, var(--mc-fifth-img, var(--mi-globe))) !important;
-  }
-}
-
-:root:is([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat)[mc-fifth-icon="original"] > :is(img, .menu-icon) {
-  mask: none !important;
-  background: var(--mc-fifth-img, none) center / contain no-repeat !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:is([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat)[mc-fifth-icon="original"] > :is(img, .menu-icon) {
-    background-image: var(--mc-fifth-img-dark, var(--mc-fifth-img, none)) !important;
-  }
-}
-
-/* Original-Symbol: Fläche weiß, im Dunkeln neutral statt weiß */
-:root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"] {
-  background-color: #fff !important;
-  box-shadow: inset 0 0 0 0.5px var(--mt-pane-line) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"] {
-    background-color: color-mix(in srgb, var(--mt-text) 14%, transparent) !important;
   }
 }
 
@@ -3676,7 +3653,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
    1 px (28 % hell, 35 % dunkel), rechts 1 px kräftiger (55 % / 60 %) mit weichem Saum; Lichtkante oben, leiser
    Schatten unten; gerichteter Lichthof nur nach rechts zur Seitenleiste. Gilt unabhängig vom Lichtschein
    (der Schalter ändert die Kachel nicht), eingeblendet und schwebend gleich. Inaktive Kacheln 8 % („bezüglich
-   punkt 2 folge ich der empfehlung mit 8%.“). Ersatz-Bereich mit Originalsymbol behält seine weiße Fläche */
+   punkt 2 folge ich der empfehlung mit 8%.“). Der Ersatz-Bereich auf dem Platz des Chats wie alle Kacheln */
 :root {
   --mt-tile-idle: 8%;
   --mt-tile-face: 34%;
@@ -3705,7 +3682,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
   }
 }
 
-#spacesToolbar .spaces-toolbar-button.current:not([mc-fifth-icon="original"]) {
+#spacesToolbar .spaces-toolbar-button.current {
   background-color: color-mix(in srgb, var(--c) var(--mt-tile-face), transparent) !important;
   background-image: var(--mt-tile-gloss), linear-gradient(to right, transparent, color-mix(in srgb, var(--c) var(--mt-tile-face-lift), transparent)) !important;
   box-shadow: inset 0 1px 0 var(--mt-tile-top),
@@ -3723,19 +3700,6 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 :is(#tasksButton, #spacesPopupButtonTasks).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/tasks-fill.svg") !important; }
 :root:not([mc-fifth="addon"], [mc-fifth="web"]) :is(#chatButton, #spacesPopupButtonChat).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/chat-fill.svg") !important; }
 :is(#settingsButton, #spacesPopupButtonSettings).current > :is(img, .menu-icon) { mask-image: url("resource://mailcards/icons/settings-fill.svg") !important; }
-
-/* Ersatz-Bereich mit Originalsymbol: hell bleibt die Fläche weiß (Markierung
-   nur durch den Schatten), dunkel das Neutralgrau etwas heller */
-:root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
-  box-shadow: inset 0 0 0 0.5px var(--mt-pane-line), 0 1px 1.5px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.17) !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:is([mc-fifth="addon"], [mc-fifth="web"]) #spacesToolbar #chatButton[mc-fifth-icon="original"].current {
-    background-color: color-mix(in srgb, var(--mt-text) 20%, transparent) !important;
-    box-shadow: 0 1px 1.5px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-  }
-}
 
 /* „Leiste ausblenden“ sitzt nicht in der Leiste: der Seitenleisten-Knopf
    schaltet Bereiche-Leiste und linke Leiste gemeinsam */

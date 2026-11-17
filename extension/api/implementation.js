@@ -12178,7 +12178,7 @@ class CardEnhancer {
         try {
           glowRo?.disconnect();
         } catch {} // gewollt: Dokument des Bereichs schon geschlossen
-        glowRo = el ? new win.ResizeObserver(glowSoon) : null;
+        glowRo = el ? new win.ResizeObserver(glowResized) : null;
         glowRo?.observe(el);
       }
       glowEl = el;
@@ -12222,6 +12222,22 @@ class CardEnhancer {
       }, kind);
       glowSet(el, { ...common, "--mt-glow-y": `${Math.round(y - offTop - er.top)}px` }, kind);
     };
+    // Größe der Seitenleiste geändert: während des Ein-/Ausblendens nur die Breite der Flächen nachführen, direkt aus
+    // der Messung des ResizeObservers – die volle Aktualisierung misst Kacheln und Seitenleiste in zwei Dokumenten
+    // nach (erzwungenes Layout in jedem Bild; unter Windows ging dabei beim Ausblenden ein Bild verloren); am Ende der
+    // Bewegung rechnet sie wieder alles (sideEdgeUpdaters)
+    const glowResized = entries => {
+      const bar = w.document.getElementById("spacesToolbar");
+      if ((w.__mcSpacesAnimating || glowEl?.__mcAnimating) && glowEl && bar?.hasAttribute("mc-glow")) {
+        const e = entries[entries.length - 1];
+        const v = `${Math.round(e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width)}px`;
+        if (bar.style.getPropertyValue("--mt-glow-w") != v) {
+          bar.style.setProperty("--mt-glow-w", v);
+        }
+        return;
+      }
+      glowSoon();
+    };
     const glowSoon = () => {
       if (!glowFrame) {
         glowFrame = w.requestAnimationFrame(() => {
@@ -12239,9 +12255,12 @@ class CardEnhancer {
         bar.__mcGlowMo = mo;
         w.addEventListener("resize", glowSoon);
         Services.prefs.addObserver(GLOW_PREF, glowSoon);
+        this.sideEdgeUpdaters ??= new Set();
+        this.sideEdgeUpdaters.add(glowSoon);
         this.restorers.push(() => {
           mo.disconnect();
           Services.prefs.removeObserver(GLOW_PREF, glowSoon);
+          this.sideEdgeUpdaters?.delete(glowSoon);
           delete bar.__mcGlowMo;
           w.removeEventListener("resize", glowSoon);
           w.cancelAnimationFrame(glowFrame);

@@ -5631,19 +5631,21 @@ def folder_checks(m, results):
     check("Toolbar: keine Linie unter der Toolbar-Zeile, auch nicht beim Darüberfahren über Mailliste oder Mail (GitHub #55)", hover_line, results)
 
     def solid_menus():
-        # Einstellung „Solid menus“: Menüs ohne Durchscheinen (deckende Fläche), schaltet sofort um
+        # Option „Solid menus“ entfernt (Maintainer 17.11.2026, „19-disablen“): Menüs scheinen immer durch wie unter macOS,
+        # ein alter Wert (beim Start gelöscht) ändert nichts, das Stilblatt dafür gibt es nicht mehr
         res = m.js(r"""
           const P = "extensions.mailcards.solidMenus";
           const popup = d.getElementById("mcMailFilterPopup") || d.querySelector("menupopup");
           const look = () => ({ app: w.getComputedStyle(popup).appearance, bg: w.getComputedStyle(popup).getPropertyValue("--panel-background-color").trim() });
-          const out = { before: look() };
-          Services.prefs.setBoolPref(P, true); await ruhig(300); out.on = look();
-          Services.prefs.clearUserPref(P); await ruhig(300); out.off = look();
+          const out = { before: look(), startPref: Services.prefs.prefHasUserValue(P) };
+          Services.prefs.setBoolPref(P, true); await ruhig(300); out.oldPref = look();
+          Services.prefs.clearUserPref(P);
+          out.sheet = await fetch("resource://mailcards/solid-menus.css").then(r => r.ok, () => false);
           return out;""")
-        on, off = res.get("on") or {}, res.get("off") or {}
-        ok = on.get("app") == "none" and on.get("bg", "").startswith("#") and off.get("app") != "none" and off == res.get("before")
+        before = res.get("before") or {}
+        ok = (res.get("startPref") is False and res.get("oldPref") == before and before.get("app") != "none" and res.get("sheet") is False)
         return ok, f"{res}"
-    check("Einstellungen: deckende Menüs schalten das Durchscheinen ab und wieder ein", solid_menus, results)
+    check("Menüs: immer durchscheinend wie unter macOS, die frühere Option „Solid menus“ wirkt nicht mehr", solid_menus, results)
 
     def starred_scope_gmail():
         # „Markiert“: bei Gmail nur „[Gmail]/Alle Nachrichten“ durchsuchen (jede Mail einmal), sonst fand der Suchordner
@@ -10025,21 +10027,24 @@ def server_checks(m, results):
                 await bis(() => !shownRow(trash), "leerer Papierkorb ausgeblendet", 4000).catch(() => {});
                 out.trashEmptied = shownRow(trash);
               }
-              // Einstellung „Show On My Mac“ aus: auch mit Inhalt weg; Kontextmenü der Zeile bietet das Ausblenden an
+              // wie Apple Mail ohne Wahl (Option entfernt 17.11.2026): mit Inhalt immer da – das Kontextmenü der Zeile bietet
+              // kein Ausblenden, ein alter Wert der früheren Einstellung (beim Start gelöscht) bliebe wirkungslos
               local.createSubfolder("Halo Sichtbar2", null); const f2 = await until(() => local.getChildNamed?.("Halo Sichtbar2"), 3000); f2?.createSubfolder("Unter", null);
               await ruhig(1000);
               const popup = a3.document.getElementById("folderPaneContext");
               const shown = new Promise(r => popup.addEventListener("popupshown", r, { once: true }));
               row()?.querySelector(".container")?.dispatchEvent(new a3.MouseEvent("contextmenu", { bubbles: true, button: 2, clientX: 20, clientY: 10 }));
-              await Promise.race([shown, wait(3000)]);
-              const hideItem = a3.document.getElementById("mcFolderHideLocal");
-              out.menu = hideItem && !hideItem.hidden ? hideItem.getAttribute("label") : null;
-              out.menuLast = popup.lastElementChild?.id;
-              hideItem?.doCommand(); popup.hidePopup(); await ruhig(1200);
-              out.pref = Services.prefs.getBoolPref("extensions.mailcards.showLocalFolders", true);
-              out.hiddenByPref = vis();
-              Services.prefs.clearUserPref("extensions.mailcards.showLocalFolders"); await ruhig(1200);
-              out.backByPref = vis();
+              out.menuOpened = await Promise.race([shown.then(() => true), wait(3000).then(() => false)]);
+              out.hideItem = !!a3.document.getElementById("mcFolderHideLocal");
+              popup.hidePopup();
+              out.startPref = Services.prefs.prefHasUserValue("extensions.mailcards.showLocalFolders");
+              Services.prefs.setBoolPref("extensions.mailcards.showLocalFolders", false);
+              // neuer Unterordner: die Ordnerliste wird neu beschriftet (mit dem alten Wert, falls er noch zählte)
+              local.createSubfolder("Halo Sichtbar3", null); const f3 = await until(() => local.getChildNamed?.("Halo Sichtbar3"), 3000);
+              await ruhig(1200);
+              out.oldPref = vis();
+              try { f3 && local.propagateDelete(f3, true); } catch {}
+              Services.prefs.clearUserPref("extensions.mailcards.showLocalFolders");
               try { f && local.propagateDelete(f, true); } catch {}
               try { f2 && local.propagateDelete(f2, true); } catch {}
               await ruhig(1500); out.after = vis();
@@ -10048,10 +10053,11 @@ def server_checks(m, results):
             sp = res.get("special") or {}
             ok = (res.get("before") is not res.get("empty") and res.get("withFolder") is True and res.get("after") is not res.get("emptyAfter")
                   and all(v and v[0] == v[1] for v in sp.values()) and res.get("trashFull", True) is True and res.get("trashEmptied", False) is False
-                  and res.get("menu") and res.get("menuLast") == "mcFolderHideLocal" and res.get("pref") is False
-                  and res.get("hiddenByPref") is False and res.get("backByPref") is True)
+                  and res.get("menuOpened") is True and res.get("hideItem") is False and res.get("startPref") is False
+                  and res.get("oldPref") is True)
             return ok, f"{res}"
-        check("Ordnerliste: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind, Papierkorb und Postausgang darin nur mit Inhalt; Einstellung und Kontextmenü blenden es auch mit Inhalt aus", local_hidden, results)
+        check("Ordnerliste: „On My Mac“ ganz ausgeblendet, solange die lokalen Ordner leer sind, Papierkorb und Postausgang darin nur mit Inhalt; "
+              "mit Inhalt immer da wie Apple Mail (kein Ausblenden im Kontextmenü, alte Einstellung wirkungslos)", local_hidden, results)
 
         def get_new():
             # neue Mail auf dem Server → „Abrufen“ in der Toolbar holt sie; das Menü am Knopf ist im halo-Stil
@@ -15007,16 +15013,40 @@ Neu
           const uid = MailServices.ab.directories.find(x => x.dirPrefId == "ldap_2.servers.history")?.UID;
           const row = () => ad.querySelector(`#books > li[data-uid="${uid}"]`);
           const vis = () => !!row() && row().getBoundingClientRect().height > 0;
-          const out = { uid: !!uid, hidden: !vis(), pab: [...ad.querySelectorAll("#books > li")].some(r => r.getBoundingClientRect().height > 0 && r.dataset.uid != uid) };
-          Services.prefs.setBoolPref("extensions.mailcards.hideCollectedAddresses", false); await ruhig(400);
-          out.shownWhenOff = vis();
-          Services.prefs.clearUserPref("extensions.mailcards.hideCollectedAddresses"); await ruhig(400);
-          out.hiddenAgain = !vis();
-          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          const out = { uid: !!uid, hidden: !vis(), pab: [...ad.querySelectorAll("#books > li")].some(r => r.getBoundingClientRect().height > 0 && r.dataset.uid != uid),
+                        name: MailServices.ab.directories.find(x => x.dirPrefId == "ldap_2.servers.history")?.dirName };
+          // Einblenden über das „…“-Menü der Kontaktliste (Abschnitt „View“, gleich unter dem persönlichen Adressbuch; seit 17.11.2026
+          // nicht mehr auf der Einstellungsseite)
+          const P = "extensions.mailcards.hideCollectedAddresses", sc = ad.getElementById("sortContext");
+          const item = await until(() => ad.getElementById("mcShowCollected"), 6000);
+          const menuState = async () => {
+            const shown = new Promise(r => sc.addEventListener("popupshown", r, { once: true }));
+            sc.openPopup(ad.getElementById("cards"), "after_start"); await Promise.race([shown, wait(3000)]); await ruhig(200);
+            const st = { checked: item.hasAttribute("checked"), shown: !item.hidden, label: item.getAttribute("label"),
+              prev: item.previousElementSibling?.id,
+              view: (() => { let e = item.previousElementSibling; while (e && e.localName != "menucaption") e = e.previousElementSibling; return e?.getAttribute("mc-section"); })() };
+            const hid = new Promise(r => sc.addEventListener("popuphidden", r, { once: true }));
+            sc.hidePopup(); await Promise.race([hid, wait(2000)]);
+            return st;
+          };
+          try {
+            out.menuOff = item ? await menuState() : null;
+            item?.setAttribute("checked", "true"); item?.doCommand(); await ruhig(400);
+            out.shownByMenu = vis() && Services.prefs.getBoolPref(P, true) === false;
+            out.menuOn = item ? await menuState() : null;
+            item?.removeAttribute("checked"); item?.doCommand(); await ruhig(400);
+            out.hiddenAgain = !vis() && !Services.prefs.prefHasUserValue(P);
+          } finally {
+            Services.prefs.clearUserPref(P);
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }
           return out;""")
-        ok = res["uid"] and res["hidden"] and res["pab"] and res["shownWhenOff"] and res["hiddenAgain"]
+        off, on = res.get("menuOff") or {}, res.get("menuOn") or {}
+        ok = (res["uid"] and res["hidden"] and res["pab"] and res.get("shownByMenu") and res.get("hiddenAgain")
+              and off.get("shown") and off.get("checked") is False and on.get("checked") is True and res.get("name") and res["name"] in (off.get("label") or "")
+              and off.get("view") == "view" and off.get("prev") in ("mcShowPersonalBook", "mcHideDuplicates"))
         return ok, f"{res}"
-    check("Adressbuch: „Collected Addresses“ nicht in der Seitenleiste (abschaltbar)", collected_hidden, results)
+    check("Adressbuch: „Collected Addresses“ nicht in der Seitenleiste, Einblenden über das „…“-Menü der Kontaktliste", collected_hidden, results)
 
     def pab_properties_locked():
         # Eigenschaften des persönlichen Adressbuchs: Thunderbird sperrt den Namen
@@ -15990,10 +16020,9 @@ Neu
         res = m.js(r"""
           let thanked = 0;
           const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
-            macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, hideCollectedAddresses: true, calendarEmoji: true,
+            macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, calendarEmoji: true,
             emojiCustom: "", weather: false, weatherPlace: "", calendarOffline: false, fifthSpace: "chat", fifthSpaceAddon: "",
-            fifthSpaceUrl: "", fifthSpaceIcon: "mask", fifthSpaceAddons: [], inlinePrompts: true, earlyTheme: false, autoUpdate: true,
-            bundledTheme: true, appleIcons: true, debug: false, thanksDue: true };
+            fifthSpaceUrl: "", fifthSpaceAddons: [], earlyTheme: false, sidebarGlow: true, debug: false, thanksDue: true };
           const obs = { observe(doc) {
             if (!doc.location?.href.startsWith("resource://mailcards/options/options.html")) return;
             const win = doc.defaultView;
@@ -16351,8 +16380,13 @@ Neu
     def inline_prompt_narrow():
         # Rückfrage „Save Message“ im kleinen Verfassen-Fenster (GitHub #45): die Kachel bleibt im Fenster, der Text bricht
         # um, die Kachel wächst nach unten mit – alle drei Knöpfe ganz sichtbar; im breiten Fenster unverändert 29em breit (unter Windows mit kleinerer Schrift rund 348 px, darum ab 340 und breiter als im schmalen)
+        # Das Blatt ist fest an (Option „Dialogs inside the window“ entfernt, Maintainer 17.11.2026): ein alter Wert
+        # „inlinePrompts = false“ aus früheren Versionen ändert für neue Fenster nichts
         res = m.js(COMPOSE_CHECK_JS + r"""
           const res = {};
+          res.startPref = Services.prefs.prefHasUserValue("extensions.mailcards.inlinePrompts");
+          Services.prefs.setBoolPref("extensions.mailcards.inlinePrompts", false);
+          try {
           for (const width of [700, 360]) {
             const cw = await compose({ width });
             try {
@@ -16373,12 +16407,14 @@ Neu
               dl.cancelDialog(); await p.catch(() => {}); await ruhig(300);
             } finally { await closeCompose(cw); }
           }
+          } finally { Services.prefs.clearUserPref("extensions.mailcards.inlinePrompts"); }
           return res;""")
         wide, narrow = res.get("700") or {}, res.get("360") or {}
-        ok = (isinstance(wide, dict) and isinstance(narrow, dict) and wide.get("btns") == 3 and wide.get("inside") and wide["card"][2] >= 340 and wide["card"][2] > narrow.get("card", [0, 0, 999])[2]
+        ok = (res.get("startPref") is False and isinstance(wide, dict) and isinstance(narrow, dict) and wide.get("btns") == 3 and wide.get("inside") and wide["card"][2] >= 340 and wide["card"][2] > narrow.get("card", [0, 0, 999])[2]
               and narrow.get("btns") == 3 and narrow.get("inside") and narrow["card"][0] >= 0 and narrow["card"][1] <= narrow["win"])
         return ok, f"{res}"
-    check("Nachfragen: im kleinen Verfassen-Fenster bleibt die Kachel im Fenster, alle Knöpfe ganz sichtbar (GitHub #45)", inline_prompt_narrow, results)
+    check("Nachfragen: im kleinen Verfassen-Fenster bleibt die Kachel im Fenster, alle Knöpfe ganz sichtbar (GitHub #45); "
+          "das Blatt ist fest an, auch mit altem Wert der früheren Option", inline_prompt_narrow, results)
 
     def type_switch():
         # großer Dialog beim Anlegen: Umschalter „Event | Task“ oben in voller Breite wie im Schnell-Dialog; „Task“ macht aus
@@ -19608,10 +19644,9 @@ Neu
         res = m.js(r"""
           const saved = [];
           const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
-            macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, hideCollectedAddresses: true, calendarEmoji: true,
+            macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, calendarEmoji: true,
             emojiCustom: "", weather: false, weatherPlace: "", calendarOffline: false, fifthSpace: "chat", fifthSpaceAddon: "",
-            fifthSpaceUrl: "", fifthSpaceIcon: "mask", fifthSpaceAddons: [], inlinePrompts: true, earlyTheme: false, autoUpdate: true,
-            bundledTheme: true, appleIcons: true, debug: false,
+            fifthSpaceUrl: "", fifthSpaceAddons: [], earlyTheme: false, sidebarGlow: true, debug: false,
             weatherStatus: "Location access is off.", weatherTone: "warn", weatherLink: true, weatherRecent: [{ label: "Graz, Österreich", lat: 47.07, lon: 15.44 }] };
           const obs = { observe(doc) {
             if (!doc.location?.href.startsWith("resource://mailcards/options/options.html")) return;
@@ -19638,7 +19673,10 @@ Neu
               heads: [...od.querySelectorAll("h2")].map(h => h.textContent), empty: [...od.querySelectorAll("section")].filter(x => !x.children.length).length,
               // Überschriften ohne sichtbare Zeile darunter (eingeklappte mit Pfeil ausgenommen), GitHub #58
               bare: [...od.querySelectorAll("h2")].filter(h => !h.querySelector(".disclosure") && ![...(h.nextElementSibling?.querySelectorAll(".row") || [])].some(r => !r.hidden && r.getBoundingClientRect().height > 0)).map(h => h.textContent),
-              glow: shown("sidebarGlow"), order: shown("spacesOrderCustom") } };
+              glow: shown("sidebarGlow"),
+              // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
+              removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
+                        "hideCollectedAddresses", "spacesOrderCustom"].filter(k => od.getElementById("row-" + k)) } };
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -19657,6 +19695,13 @@ Neu
             out.emojiOff = shown("emojiCustom");
             od.querySelector("h2 .disclosure").click(); await ruhig(500);
             out.troubleshoot = shown("debug");
+            // Fehlerbehebung: Offline-Kopie der Kalender, Knopf „Reset“ für die Reihenfolge der Bereiche, Protokoll (zuletzt)
+            const tsRows = [...(od.getElementById("row-debug")?.closest("section")?.querySelectorAll(":scope > .row") || [])];
+            out.tsKeys = tsRows.map(r => r.id.replace("row-", ""));
+            const reset = od.getElementById("s-spacesOrderReset");
+            out.reset = { tag: reset?.localName, text: reset?.textContent };
+            reset?.click(); await ruhig(200);
+            out.reset.saved = saved.filter(e => e[0] == "spacesOrderReset");
             return out;
           } finally { Services.obs.removeObserver(obs, "document-element-inserted"); ow.close(); }""")
         if not res.get("page"):
@@ -19667,7 +19712,10 @@ Neu
               # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
               # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
               and st.get("bare") == [] and st["empty"] == 0
-              and ("Spaces" not in st["heads"] or st.get("glow") or st.get("order"))
+              and ("Spaces" not in st["heads"] or st.get("glow"))
+              and st.get("removed") == [] and "Updates" not in st["heads"]
+              and res.get("tsKeys") == ["calendarOffline", "spacesOrderReset", "debug"]
+              and res.get("reset") == {"tag": "button", "text": "Reset", "saved": [["spacesOrderReset", True]]}
               and res["weatherOn"] and not res["emojiOff"]
               and res.get("place", {}).get("tag") == "select" and res["place"]["options"][:2] == ["➤ Current Location", "Graz, Österreich"]
               and res["place"]["options"][-1] == "Choose City…" and res["place"]["value"] == "current" and res["place"]["tone"] == "warn"
@@ -19675,7 +19723,7 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (Spaces ohne eigene Reihenfolge, GitHub #58), ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
         # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“) mit der Wahl für den fünften Platz der Bereichsleiste ganz oben;
@@ -19762,7 +19810,8 @@ Neu
     check("Einstellungen: Wahl des fünften Platzes steht beim frischen Öffnen nicht in General", pref_fifth_start, results)
 
     def pref_halo_search():
-        # Suche der Einstellungen findet die Optionen von halo.spaces („update“ → „Install updates at start“, „logos“ →
+        # Suche der Einstellungen findet die Optionen von halo.spaces („order“ → „Order of spaces“ mit dem Knopf „Reset“ in der
+        # eingeklappten Fehlerbehebung, „logos“ →
         # „Logos from sender websites“), Treffer wie Thunderbirds eigene markiert; „Show“ öffnet halo.spaces bei der Option
         res = m.js(PREFS_OPEN_JS + r"""
           const input = pd.getElementById("searchInput");
@@ -19776,7 +19825,7 @@ Neu
               .map(e => e.querySelector(".mc-halo-found-name").textContent); };
           const out = {};
           out.normal = [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].filter(e => e.getBoundingClientRect().height > 0).length;
-          out.update = await search("update");
+          out.order = await search("order");
           out.marked = pw.gSearchResultsPane.getFindSelection(pw).rangeCount > 0;
           out.follow = await search("follow-up");
           out.logos = await search("logos");
@@ -19786,7 +19835,7 @@ Neu
           out.after = { cat: pd.getElementById("categories").selectedItem?.value, url: b?.currentURI?.spec.replace(/^moz-extension:\/\/[^/]+/, ""), search: input.value };
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
           return out;""")
-        ok = (res.get("normal") == 0 and "Install updates at start" in res.get("update", []) and res.get("marked")
+        ok = (res.get("normal") == 0 and "Order of spaces" in res.get("order", []) and res.get("marked")
               and res.get("logos") == ["Logos from sender websites"] and "Follow-Up Suggestions" in res.get("follow", [])
               and res.get("after", {}).get("cat") == "paneMcHalo" and res["after"].get("url", "").endswith("#s-senderLogos") and res["after"].get("search") == "")
         return ok, f"{res}"
@@ -19911,20 +19960,33 @@ Neu
           const T = Cu.evalInSandbox("TRANSLATIONS", g), SETTINGS = Cu.evalInSandbox("SETTINGS", g);
           const api = Cu.evalInSandbox("mailCards.prototype.getAPI({})", g).mailCards, st = await api.getSettings();
           const gone = ["Message list width", "pixels; double-click the divider to reset", "Merge duplicate contacts", "display only", "Default",
-                        "Preview lines in the message list", "Birthdays from the address book", "separate read-only calendar"];
+                        "Preview lines in the message list", "Birthdays from the address book", "separate read-only calendar",
+                        // am 17.11.2026 entfernte Optionen (Maintainer, „Optionen ausmisten“)
+                        "Solid menus", "Dialogs inside the window", "Install updates at start", "Own order of spaces",
+                        "Hide “Collected Addresses”", "Show “On My Mac”", "Show “On This Computer”", "halo.spaces design", "Own icons"];
+          const removed = ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
+                           "hideCollectedAddresses"];
           return { sections, missing: Object.entries(T).flatMap(([l, tab]) => used.filter(u => !(u in tab) && !["Mail", "Updates"].includes(u)).map(u => l + ":" + u)),
                    leftover: Object.entries(T).flatMap(([l, tab]) => gone.filter(k => k in tab).map(k => l + ":" + k)),
-                   unknown: sections.flatMap(([, keys]) => keys).filter(k => !(k in SETTINGS) && k != "spacesOrderCustom"), inTable: ["listWidth", "hideDuplicateContacts", "previewLines", "birthdays"].filter(k => k in SETTINGS),
+                   unknown: sections.flatMap(([, keys]) => keys).filter(k => !(k in SETTINGS) && k != "spacesOrderReset"),
+                   removedInTable: removed.filter(k => k in SETTINGS || k in st),
+                   // Design und eigene Symbole bleiben als Notausgang über about:config (an, solange nichts gesetzt ist)
+                   escape: [Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true), Services.prefs.getBoolPref("extensions.mailcards.appleIcons", true),
+                            !!d.documentElement.getAttribute("mc-tab")],
+                   inTable: ["listWidth", "hideDuplicateContacts", "previewLines", "birthdays"].filter(k => k in SETTINGS),
                    emoji: st.calendarEmoji, emojiStored: Services.prefs.prefHasUserValue("extensions.mailcards.calendarEmoji"),
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]
         last = res["sections"][-1][1] if res["sections"] else []
         ok = (not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
-              and last == ["bundledTheme", "appleIcons", "debug"] and keys.count("bundledTheme") == 1 and keys.count("appleIcons") == 1
+              and last == ["calendarOffline", "spacesOrderReset", "debug"] and keys.count("calendarOffline") == 1
+              and not {"bundledTheme", "appleIcons"} & set(keys) and res.get("removedInTable") == [] and res.get("escape") == [True, True, True]
               and not res["missing"] and not res["leftover"] and not res["unknown"] and not res["inTable"]
               and res["emoji"] is True and not res["emojiStored"] and res["width"])
         return ok, f"{res}"
-    check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, Design/Symbole/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an", options_page_slim, results)
+    check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, ohne die am 17.11.2026 entfernten Optionen "
+          "(Design und Symbole nur noch über about:config), Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
+          options_page_slim, results)
 
     def preview_menu():
         # Ansicht → Vorschauzeilen (Menüleiste und App-Menü): Häkchen am aktuellen Wert,
@@ -20680,8 +20742,7 @@ Neu
               chat.click();
               const wt = await until(() => tm.currentTabInfo.mode.name == "contentTab" && tm.currentTabInfo.browser?.currentURI?.spec.includes("127.0.0.1") && tm.currentTabInfo, 8000);
               await until(() => wt?.browser?.contentTitle == "Halo Webbereich" || wt?.title == "Halo Webbereich", 6000);
-              out.web.tab = !!wt; out.web.group = wt?.browser?.getAttribute("messagemanagergroup"); out.web.current = chat.classList.contains("current");
-              // Webseite: kein Seitenleisten-Knopf, kein Suchfeld; Today-Knopf wie in der Mail
+              out.web.tab = !!wt; out.web.group = wt?.browser?.getAttribute("messagemanagergroup"); out.web.current = chat.classList.contains("current");              // Webseite: kein Seitenleisten-Knopf, kein Suchfeld; Today-Knopf wie in der Mail
               await ruhig(600);
               const toggleL = () => Math.round(d.getElementById("mcTodayToggle")?.getBoundingClientRect().left || -1);
               out.web.pinned = w.getComputedStyle(d.getElementById("spacesPinnedButton")).visibility;
@@ -21694,6 +21755,46 @@ Neu
           return out;''')
         return bool(res["last"]) and res["sinceStart"] is not None and res["sinceStart"] >= -5, f"Update-Prüfung beim Start gelaufen: {res}"
     check("Updates: Prüfung beim Start", auto_update, results)
+
+    def auto_update_thunderbird_setting():
+        # kein eigener Schalter mehr (17.11.2026): ein alter Wert „autoUpdate = false“ wird beim Start gelöscht und
+        # hätte keine Wirkung; ob installiert wird, entscheidet allein Thunderbirds Einstellung des Add-ons
+        # (Add-ons-Manager), aus heißt nur Hinweis. Die Suche nach dem Update ist ersetzt, es wird nichts geladen
+        res = m.js('''
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const enh = Cu.waiveXrays(Cu.evalInSandbox("enhancer", g));
+          const note = Cu.waiveXrays(Cu.evalInSandbox("UpdateNote", g));
+          const addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+          const out = { startPref: Services.prefs.prefHasUserValue("extensions.mailcards.autoUpdate"), updateEnabled: AddonManager.updateEnabled };
+          const origFind = enh.findUpdate, origSet = note.set, origMode = addon.applyBackgroundUpdates;
+          let installed = 0, noted = [];
+          enh.findUpdate = async () => ({ available: true, version: "99.0.0", install: async () => { installed++; } });
+          note.set = (v, auto) => { noted.push(v + ":" + auto); };
+          const run = async mode => {
+            installed = 0; noted = [];
+            addon.applyBackgroundUpdates = mode;
+            Services.prefs.clearUserPref("extensions.mailcards.autoUpdateLast");
+            await enh.autoUpdate();
+            return { installed, noted: noted.slice() };
+          };
+          try {
+            Services.prefs.setBoolPref("extensions.mailcards.autoUpdate", false); // alter Wert des früheren Schalters
+            out.on = await run(AddonManager.AUTOUPDATE_ENABLE);
+            out.off = await run(AddonManager.AUTOUPDATE_DISABLE);
+          } finally {
+            enh.findUpdate = origFind; note.set = origSet; addon.applyBackgroundUpdates = origMode;
+            Services.prefs.clearUserPref("extensions.mailcards.autoUpdate");
+            Services.prefs.setIntPref("extensions.mailcards.autoUpdateLast", Math.floor(Date.now() / 1000));
+          }
+          return out;''' % ADDON_ID)
+        on, off = res.get("on") or {}, res.get("off") or {}
+        ok = (res.get("startPref") is False and res.get("updateEnabled") is True and on.get("installed") == 1 and not on.get("noted")
+              and off.get("installed") == 0 and off.get("noted") == ["99.0.0:false"])
+        return ok, f"{res}"
+    check("Updates: kein eigener Schalter mehr, Thunderbirds Einstellung des Add-ons entscheidet über das Installieren beim Start",
+          auto_update_thunderbird_setting, results)
 
     ENH_JS = '''
           const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");

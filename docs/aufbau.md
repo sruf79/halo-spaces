@@ -17,7 +17,7 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `extension/api/implementation.js` | Experiment-API `mailCards` – die eigentliche Logik (~22.400 Zeilen); lädt ihre Teile aus `extension/api/` mit `loadPart()` (bisher `texte.js`: Oberflächentexte `DE`, `FR`, `ES`, `IT`; `mail.js`: Mail-Zusätze wie Senden rückgängig, Später senden, Erinnern; `bereiche.js`: Bereiche und Hinweise wie Danke sagen, Wetter, Reihenfolge der Bereiche, fünfter Bereich, Update-Hinweis) |
 | `extension/api/schema.json` | Schema der Experiment-API |
 | `extension/background.js` | startet die Experiment-API (`browser.mailCards.start()`) und meldet bereitliegende Updates (`updateReady`); geladen über `extension/background.html` |
-| `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `solid-menus.css`, `taskdesc.css`, `unread-tint.css`) |
+| `extension/*.css` | zusätzliche Stilblätter der Erweiterung (`parts.css`, `noscroll.css`, `plaintext.css`, `print.css`, `icon-vars.css`, `compose-body.css`, `dialog-box.css`, `event-description.css`, `taskdesc.css`, `unread-tint.css`) |
 | `extension/icons/` | Apple-artige Ersatzsymbole |
 | `extension/about/`, `extension/options/` | Fenster „Hilfe → halo.spaces“ und Einstellungsseite |
 | `build.sh`, `release.sh`, `publish.sh`, `install.sh` | Paket bauen; Release vorbereiten (Tests, Testmarke) und veröffentlichen; ins echte Profil installieren (nur auf Wunsch) |

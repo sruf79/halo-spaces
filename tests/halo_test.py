@@ -11487,6 +11487,10 @@ def run_checks(m, version, profile, results):
               return { v: r.value, label: r.label, w: Math.round(b?.width || 0), h: Math.round(b?.height || 0),
                        img: (pw.getComputedStyle(i).listStyleImage || "").startsWith("url(\"data:image/svg"), top: Math.round(r.getBoundingClientRect().top) }; }),
             selected: rg.selectedItem?.value, theme: Object.keys(THEMES).find(k => THEMES[k] == before) };
+          // Beschriftungen der Darstellung ohne Doppelpunkt (Fluent setzt sie spät, darum auf den übersetzten Wert warten)
+          const lab = id => cd.querySelector(`label[data-l10n-id="${id}"]`);
+          await until(() => ["appearance-view-style-select", "default-flag-label"].every(id => !lab(id) || lab(id).value), 3000);
+          out.labels = ["appearance-view-style-select", "default-flag-label"].map(id => lab(id)?.value ?? "fehlt");
           try {
             const target = out.selected == "dark" ? "light" : "dark";
             cd.getElementById(`mcAppearance-${target}`).click();
@@ -11505,9 +11509,11 @@ def run_checks(m, version, profile, results):
         cl = res.get("clicked") or {}
         ok = (not res.get("menulist") and [x["v"] for x in ts] == ["light", "dark", "auto"]
               and all(x["w"] == 68 and x["h"] == 44 and x["img"] and x["label"] for x in ts) and len({x["top"] for x in ts}) == 1
-              and res.get("selected") == res.get("theme") and cl.get("now") == cl.get("target") and cl.get("sel") == cl.get("target"))
+              and res.get("selected") == res.get("theme") and cl.get("now") == cl.get("target") and cl.get("sel") == cl.get("target")
+              # (ältere Versionen, z. B. die ESR, haben „View style“ noch nicht: fehlende Beschriftung zählt nicht, eine muss da sein)
+              and any(x and x != "fehlt" for x in res.get("labels") or []) and not any(x.rstrip().endswith(":") for x in res.get("labels") or []))
         return ok, f"{res}"
-    check("Einstellungen: Erscheinungsbild als Bildauswahl – Kacheln Hell, Dunkel, Auto mit Fenstergrafik nebeneinander, gewählt ist das aktive Theme, Klick stellt um", appearance_tiles, results)
+    check("Einstellungen: Erscheinungsbild als Bildauswahl – Kacheln Hell, Dunkel, Auto mit Fenstergrafik nebeneinander, gewählt ist das aktive Theme, Klick stellt um, Beschriftungen ohne Doppelpunkt", appearance_tiles, results)
 
     def prefs_menulist():
         # Auswahlliste in den Einstellungen (Darstellung): nur der Eintrag unter der Maus blau, der gewählte nur mit Häkchen

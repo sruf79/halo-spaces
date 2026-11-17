@@ -1254,6 +1254,41 @@ function hookPrefKeyboardScroll(cw, restorers = null) {
   });
 }
 
+// Einstellungen → Appearance: Beschriftungen ohne Doppelpunkt wie die
+// übrigen Felder („Select view style“, „Default Threading“). Fluent setzt
+// value neu (Sprachwechsel, spätes Übersetzen) → beobachten
+function hookPrefLabelColons(cw, restorers = null) {
+  const doc = cw.document;
+  if (doc.__mcLabelColons) {
+    return;
+  }
+  const SEL = 'label[data-l10n-id="appearance-view-style-select"], label[data-l10n-id="default-flag-label"]';
+  const strip = v => v.replace(/\s*:\s*$/, "");
+  const fix = () => {
+    for (const el of doc.querySelectorAll(SEL)) {
+      const v = el.getAttribute("value");
+      if (v && strip(v) != v) {
+        el.setAttribute("value", strip(v));
+      }
+    }
+  };
+  const labels = [...doc.querySelectorAll(SEL)];
+  if (!labels.length) {
+    return;
+  }
+  doc.__mcLabelColons = true;
+  fix();
+  const mo = new cw.MutationObserver(fix);
+  for (const el of labels) {
+    mo.observe(el, { attributes: true, attributeFilter: ["value"] });
+  }
+  restorers?.push(() => {
+    mo.disconnect();
+    delete doc.__mcLabelColons;
+    doc.l10n?.translateElements(labels).catch(() => {});
+  });
+}
+
 // Wie Apple Mail ohne Tabs: Inhalte, die Thunderbird als Tab ohne Bereich
 // öffnet, wären bei ausgeblendeter Tab-Leiste nach dem nächsten Wechsel
 // unsichtbar. Darum
@@ -9792,6 +9827,11 @@ class CardEnhancer {
             hookPrefKeyboardScroll(cw, winRestorers);
           } catch (e) {
             log("pref keyboard scroll error", e);
+          }
+          try {
+            hookPrefLabelColons(cw, winRestorers);
+          } catch (e) {
+            log("pref label colons error", e);
           }
           try {
             addPrefTools(cw.document, winRestorers);

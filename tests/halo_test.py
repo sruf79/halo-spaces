@@ -4464,6 +4464,57 @@ def dialog_checks(m, results):
         return ok, f"{ {k: (v or {}).get('c') for k, v in (res or {}).items()} }"
     check("Knöpfe: Textknopf der Dialoge grau mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
 
+    def primary_elsewhere():
+        # Hauptknöpfe ohne Standard-Merkmal wie der Hauptknopf der Dialoge: Kontakt sichern (nur „Save“ leuchtet, der
+        # übrige Fuß sind Textknöpfe), Termin-Fenster „Save“, Schnellfenster „Add“; Maus ohne Änderung, gedrückt dunkler
+        # ohne Licht. Zustände über addPseudoClassLock, nie anklicken
+        res = m.js(ADDRESS_EDIT_JS + r"""
+          const look = (el) => { const s = el.ownerDocument.defaultView.getComputedStyle(el); return { bg: s.backgroundColor, img: s.backgroundImage, sh: s.boxShadow }; };
+          const states = async (el) => { const r = { ready: look(el) };
+            InspectorUtils.addPseudoClassLock(el, ":hover"); await ruhig(150); r.hover = look(el);
+            InspectorUtils.addPseudoClassLock(el, ":active"); await ruhig(150); r.press = look(el);
+            InspectorUtils.removePseudoClassLock(el, ":active"); InspectorUtils.removePseudoClassLock(el, ":hover"); await ruhig(100); return r; };
+          const accentIn = dc => { const e = dc.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.color = "AccentColor"; dc.documentElement.append(e);
+            const c = dc.defaultView.getComputedStyle(e).color; e.remove(); return c; };
+          const out = { accent: accentIn(ad) };
+          const foot = [...ad.querySelectorAll("#detailsFooter button")].filter(b => b.getClientRects().length && b.getBoundingClientRect().width);
+          { const sb = ad.getElementById("saveEditButton"), cb = ad.getElementById("cancelEditButton"), r = sb.getBoundingClientRect(), r2 = cb.getBoundingClientRect(), dk = ab.matchMedia("(prefers-color-scheme: dark)").matches;
+            const bmp = await ab.browsingContext.currentWindowGlobal.drawSnapshot(new ab.DOMRect(Math.min(r.left, r2.left) - 20, r.top - 16, Math.max(r.right, r2.right) - Math.min(r.left, r2.left) + 40, r.height + 32), 2, dk ? "black" : "white");
+            const cv = ad.createElement("canvas"); cv.width = bmp.width; cv.height = bmp.height; cv.getContext("2d").drawImage(bmp, 0, 0);
+            const b = await new Promise(res => cv.toBlob(res, "image/png")); await IOUtils.write("/tmp/knopfbild/k-" + (dk ? "dunkel" : "hell") + ".png", new Uint8Array(await b.arrayBuffer())); }
+          out.contact = await states(ad.getElementById("saveEditButton"));
+          out.contactLit = foot.filter(b => look(b).img.startsWith("linear-gradient")).map(b => b.id);
+          out.contactOthers = foot.filter(b => !["saveEditButton", "detailsDeleteButton"].includes(b.id)).map(b => [b.id, look(b).sh.includes("inset")]);
+          ad.getElementById("cancelEditButton")?.click(); await ruhig(600);
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          await toCalendar();
+          const known = new Set([...Services.wm.getEnumerator(null)]);
+          w.createEventWithDialog(null, null, null, "Halo Hauptknopf");
+          const dw = await bis(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog") && x.document.readyState == "complete"), "Termin-Fenster offen", 8000);
+          try { await ruhig(1500); const sv = dw.document.getElementById("button-saveandclose");
+            out.event = await states(sv);
+            out.eventLit = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+          } finally { dw.gConfirmCancel = false; try { dw.document.querySelector("dialog")?.cancelDialog?.(); } catch {} dw.close(); await ruhig(600); }
+          const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
+          li.querySelector("button").click();
+          const p = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
+          try { await ruhig(400); const pr = p.querySelector(".mc-qc-primary"); const was = pr.disabled; pr.disabled = false; await ruhig(100);
+            out.quick = await states(pr); pr.disabled = was;
+            out.quickLit = [...p.querySelectorAll("button")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).length;
+          } finally { p.hidePopup(); await ruhig(400); }
+          return out;""")
+        def good(r):
+            if not r: return False
+            rd, hv, pr = r["ready"], r["hover"], r["press"]
+            return (same_color(rd["bg"], res["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+                    and same_color(hv["bg"], res["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
+                    and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"]))
+        ok = (good(res.get("contact")) and res.get("contactLit") == ["saveEditButton"] and all(x[1] for x in res.get("contactOthers") or [])
+              and good(res.get("event")) and res.get("eventLit") == ["button-saveandclose"] and good(res.get("quick")) and res.get("quickLit") == 1)
+        return ok, f"{res}"
+    check("Knöpfe: Hauptknöpfe ohne Standard-Merkmal leuchten wie im Dialog (Kontakt sichern, Termin-Fenster Sichern, Schnellfenster), "
+          "je Fenster nur einer; Maus ohne Änderung, gedrückt dunkler ohne Licht", primary_elsewhere, results)
+
     def rule_rows():
         # Bedingungszeilen (Suchordner-Dialog und Suchfenster): Auswahllisten nur in --mt-control ohne zweiten Verlauf (vorher doppelt
         # grau bzw. Fensterfarbe), gleich wie die Auswahl außerhalb der Liste; +/− mit Lücke statt aneinander; im Suchfenster der Teiler

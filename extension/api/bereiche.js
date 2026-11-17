@@ -510,18 +510,16 @@ const SpacesOrder = {
 const FIFTH_PREF = "extensions.mailcards.fifthSpace"; // chat | addon | web | none
 const FIFTH_ADDON_PREF = "extensions.mailcards.fifthSpaceAddon"; // Name des Bereichs (Knopf-ID)
 const FIFTH_URL_PREF = "extensions.mailcards.fifthSpaceUrl";
-const FIFTH_ICON_PREF = "extensions.mailcards.fifthSpaceIcon"; // mask | original
+// Symbol immer einfarbig in der Bereichsfarbe wie alle Kacheln (die Wahl
+// „Original“ entfiel am 17.11.2026, extensions.mailcards.fifthSpaceIcon wird
+// beim Start gelöscht): Erweiterung mit ihrem Leistensymbol als Maske,
+// Webseite mit dem halo-Symbol (kein Favicon)
 const FIFTH_CHOICES = ["chat", "addon", "web", "none"];
-const FIFTH_ICONS = ["mask", "original"];
 
 const FifthSpace = {
   mode() {
     const m = Services.prefs.getStringPref(FIFTH_PREF, "chat");
     return FIFTH_CHOICES.includes(m) ? m : "chat";
-  },
-  icon() {
-    const m = Services.prefs.getStringPref(FIFTH_ICON_PREF, "mask");
-    return FIFTH_ICONS.includes(m) ? m : "mask";
   },
   // nur http(s); ohne Schema wird https:// vorangestellt
   normalizeURL(text) {
@@ -841,7 +839,6 @@ const FifthSpace = {
       for (const e of [chat, item()].filter(Boolean)) {
         e.style.removeProperty("--mc-fifth-img");
         e.style.removeProperty("--mc-fifth-img-dark");
-        e.removeAttribute("mc-fifth-icon");
       }
     };
     const apply = () => {
@@ -865,11 +862,8 @@ const FifthSpace = {
           const s = target.space.button.querySelector("img")?.style;
           img = s?.getPropertyValue("--webextension-toolbar-image") || "";
           dark = s?.getPropertyValue("--webextension-toolbar-image-dark") || "";
-        } else if (this.icon() == "original") {
-          img = `url("${Services.io.newURI(target.url).resolve("/favicon.ico")}")`;
         }
         for (const e of [chat, mi].filter(Boolean)) {
-          e.setAttribute("mc-fifth-icon", this.icon());
           if (img) {
             e.style.setProperty("--mc-fifth-img", img);
           }
@@ -936,7 +930,7 @@ const FifthSpace = {
     };
     const mo = addons ? new w.MutationObserver(later) : null;
     mo?.observe(addons, { childList: true });
-    const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF, FIFTH_ICON_PREF];
+    const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF];
     const obs = { observe: later };
     prefs.forEach(p => Services.prefs.addObserver(p, obs));
     apply();

@@ -19073,7 +19073,7 @@ Neu
               glow: shown("sidebarGlow"),
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
-                        "hideCollectedAddresses", "spacesOrderCustom"].filter(k => od.getElementById("row-" + k)) } };
+                        "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -19155,7 +19155,7 @@ Neu
           }""")
         ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["value"] == "chat"
               and not res["hint"] and res["tb"]
-              and res["web"] == {"mode": "web", "url": True, "icon": True, "hint": True, "tb": False, "attr": "web"}
+              and res["web"] == {"mode": "web", "url": True, "icon": False, "hint": True, "tb": False, "attr": "web"}
               and res["url"] == "https://example.org/"
               and res["none"] == {"mode": "none", "url": False, "tb": False}
               and res["chat"] == {"has": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
@@ -19317,7 +19317,7 @@ Neu
                         "Solid menus", "Dialogs inside the window", "Install updates at start", "Own order of spaces",
                         "Hide “Collected Addresses”", "Show “On My Mac”", "Show “On This Computer”", "halo.spaces design", "Own icons"];
           const removed = ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
-                           "hideCollectedAddresses"];
+                           "hideCollectedAddresses", "fifthSpaceIcon"];
           return { sections, missing: Object.entries(T).flatMap(([l, tab]) => used.filter(u => !(u in tab) && !["Mail", "Updates"].includes(u)).map(u => l + ":" + u)),
                    leftover: Object.entries(T).flatMap(([l, tab]) => gone.filter(k => k in tab).map(k => l + ":" + k)),
                    unknown: sections.flatMap(([, keys]) => keys).filter(k => !(k in SETTINGS) && k != "spacesOrderReset"),
@@ -20079,9 +20079,13 @@ Neu
                 out.addon.tab = !!tab; out.addon.url = !!tab?.browser?.currentURI?.spec.endsWith("/page.html"); out.addon.pageTitle = tab?.browser?.contentTitle;
                 out.addon.current = chat.classList.contains("current");
                 out.addon.today = shown(d.getElementById("today-pane-panel"));
-                // aktiver Ersatz-Bereich mit Originalsymbol: Markierung durch den Schatten
+                // Symbol immer einfarbig (Wahl „Original“ entfernt 17.11.2026): aktiv wie jede Kachel (Fläche mit Lichtkante,
+                // d2h) und das Leistensymbol der Erweiterung als Maske; ein alter Wert „original“ ändert nichts
+                const look = () => { const cs = w.getComputedStyle(chat), ims = w.getComputedStyle(img);
+                  return { mask: ims.maskImage.includes("moz-extension://"), face: cs.backgroundImage.includes("gradient"), bg: ims.backgroundImage }; };
+                out.addon.active = look();
                 Services.prefs.setStringPref("extensions.mailcards.fifthSpaceIcon", "original"); await ruhig(400);
-                out.addon.shadow = w.getComputedStyle(chat).boxShadow.includes("2px 4px");
+                out.addon.oldOriginal = look();
                 Services.prefs.clearUserPref("extensions.mailcards.fifthSpaceIcon"); await ruhig(400);
                 await toMail(); await ruhig(300);
                 out.addon.afterMail = { current: chat.classList.contains("current"), today: shown(d.getElementById("today-pane-panel")) };
@@ -20094,7 +20098,10 @@ Neu
               chat.click();
               const wt = await until(() => tm.currentTabInfo.mode.name == "contentTab" && tm.currentTabInfo.browser?.currentURI?.spec.includes("127.0.0.1") && tm.currentTabInfo, 8000);
               await until(() => wt?.browser?.contentTitle == "Halo Webbereich" || wt?.title == "Halo Webbereich", 6000);
-              out.web.tab = !!wt; out.web.group = wt?.browser?.getAttribute("messagemanagergroup"); out.web.current = chat.classList.contains("current");              // Webseite: kein Seitenleisten-Knopf, kein Suchfeld; Today-Knopf wie in der Mail
+              out.web.tab = !!wt; out.web.group = wt?.browser?.getAttribute("messagemanagergroup"); out.web.current = chat.classList.contains("current");
+              // Webseite: halo-Symbol (Globus) als Maske, kein Favicon; aktiv wie jede Kachel
+              out.web.activeFace = w.getComputedStyle(chat).backgroundImage.includes("gradient") && !w.getComputedStyle(chat.querySelector("img")).maskImage.includes("favicon");
+              // Webseite: kein Seitenleisten-Knopf, kein Suchfeld; Today-Knopf wie in der Mail
               await ruhig(600);
               const toggleL = () => Math.round(d.getElementById("mcTodayToggle")?.getBoundingClientRect().left || -1);
               out.web.pinned = w.getComputedStyle(d.getElementById("spacesPinnedButton")).visibility;
@@ -20132,8 +20139,8 @@ Neu
               and a.get("space") and a.get("chat") and a.get("title") == "Halo Testbereich" and not a.get("ownShown") and a.get("mask")
               and a.get("heights") == before and a.get("tab") and a.get("url") and a.get("pageTitle") == "Testbereich"
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
-              and a.get("shadow")
-              and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("tab") and wb.get("group") == "single-site"
+              and (a.get("active") or {}).get("mask") and a["active"].get("face") and a.get("oldOriginal") == a.get("active")
+              and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("activeFace") and wb.get("tab") and wb.get("group") == "single-site"
               and wb.get("current") and wb.get("reused") == 1
               and wb.get("pinned") == "hidden" and not wb.get("search") and wb.get("toggle", -1) > 0 and abs(wb.get("toggle", 0) - wb.get("mailToggle", 0)) <= 1
               and bk.get("chat") and bk.get("title") != "Halo Testbereich" and bk.get("heights") == before and not bk.get("extra")

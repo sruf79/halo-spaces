@@ -522,7 +522,6 @@ function hookChatCategory(cw, restorers = null) {
     setPref(FIFTH_PREF, "chat", v);
   });
   const addon = menu("mcFifthSpaceAddon", v => setPref(FIFTH_ADDON_PREF, "", v));
-  const icon = menu("mcFifthSpaceIcon", v => setPref(FIFTH_ICON_PREF, "mask", v));
   const url = el("input", { id: "mcFifthSpaceUrl", type: "text", placeholder: "https://…", spellcheck: false });
   url.className = "mc-fifth-url";
   const saveURL = () => {
@@ -543,7 +542,6 @@ function hookChatCategory(cw, restorers = null) {
   row("kind", tr("In the place of Chat"), kind);
   row("addon", tr("Add-on"), addon);
   row("url", tr("Address"), url);
-  row("icon", tr("Symbol"), icon);
   const hint = el("p", { id: "mcFifthHint", className: "mc-fifth-hint" });
   group.append(hint);
   // wie die übrigen Teile der Seite: solange „Chat & More“ nicht gewählt ist, versteckt (Thunderbird
@@ -573,13 +571,11 @@ function hookChatCategory(cw, restorers = null) {
       ["web", tr("Website")], ["none", tr("Nothing")]], mode);
     const wanted = getPref(FIFTH_ADDON_PREF, "");
     fillMenu(addon, spaces.map(a => [a.name, a.title]), spaces.some(a => a.name == wanted) ? wanted : spaces[0]?.name || "");
-    fillMenu(icon, [["mask", tr("In the space colour")], ["original", tr("Original")]], FifthSpace.icon());
     if (doc.activeElement != url) {
       url.value = getPref(FIFTH_URL_PREF, "");
     }
     rows.addon.hidden = mode != "addon";
     rows.url.hidden = mode != "web";
-    rows.icon.hidden = mode != "addon" && mode != "web";
     // Hinweis, solange Thunderbirds Chat-Einstellungen ausgeblendet sind
     const current = mode == "addon" ? spaces.find(a => a.name == wanted)?.title || addonText
       : mode == "web" ? getPref(FIFTH_URL_PREF, "") || tr("Website") : tr("Nothing");
@@ -588,7 +584,7 @@ function hookChatCategory(cw, restorers = null) {
     doc.documentElement.setAttribute("mc-fifth", mode);
   };
   fill();
-  const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF, FIFTH_ICON_PREF];
+  const prefs = [FIFTH_PREF, FIFTH_ADDON_PREF, FIFTH_URL_PREF];
   // Beobachter mit dem Einstellungs-Tab abmelden: sonst rief jede spätere
   // Änderung der Einstellung fill() im geschlossenen Dokument auf („Refusing
   // to execute function from global in which script is disabled“, tausendfach)
@@ -1550,8 +1546,9 @@ const QUICK_REPLY_PREF = "extensions.mailcards.quickReply";
 // Optionen, die es nicht mehr gibt (17.11.2026): „On My Mac“ erscheint von
 // selbst, sobald darin etwas liegt; Menüs immer wie macOS (keine deckenden);
 // Rückfragen immer als Blatt im Fenster; Updates nach Thunderbirds eigener
-// Einstellung (Add-ons-Manager)
+// Einstellung (Add-ons-Manager); Symbol des fünften Platzes immer einfarbig
 const REMOVED_OPTION_PREFS = [
+  "extensions.mailcards.fifthSpaceIcon",
   "extensions.mailcards.autoUpdate",
   "extensions.mailcards.showLocalFolders",
   "extensions.mailcards.solidMenus",
@@ -11981,7 +11978,7 @@ class CardEnhancer {
       // später noch (Übersetzung läuft verzögert) – also jedes Mal den
       // Titel aus den Fluent-Argumenten übernehmen
       const plainTitle = space => {
-        if (space.hasAttribute("mc-fifth-icon")) {
+        if (space.id == "chatButton" && ["addon", "web"].includes(w.document.documentElement.getAttribute("mc-fifth"))) {
           return; // fünfter Bereich: Titel der Erweiterung bzw. Webseite
         }
         let name;
@@ -22005,7 +22002,6 @@ const SETTINGS = {
   fifthSpace: [FIFTH_PREF, "string", "chat"],
   fifthSpaceAddon: [FIFTH_ADDON_PREF, "string", ""],
   fifthSpaceUrl: [FIFTH_URL_PREF, "string", ""],
-  fifthSpaceIcon: [FIFTH_ICON_PREF, "string", "mask"],
 };
 // Voraussetzungen einzelner Optionen (needs in options/sections.js)
 function settingNeeds() {
@@ -22093,7 +22089,6 @@ this.mailCards = class extends ExtensionCommon.ExtensionAPI {
           const [pref, type, def] = spec;
           // fünfter Bereich: nur bekannte Werte, Adresse nur http(s)
           if (key == "fifthSpace" && !FIFTH_CHOICES.includes(value)) throw new Error("not a choice");
-          if (key == "fifthSpaceIcon" && !FIFTH_ICONS.includes(value)) throw new Error("not a choice");
           if (key == "fifthSpaceUrl") {
             const url = FifthSpace.normalizeURL(value);
             if (url === null) throw new Error("not a web address");

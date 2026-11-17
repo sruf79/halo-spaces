@@ -474,7 +474,7 @@ aktive_sitzung() {
 belegt() {
   local s
   s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} arbeitet gerade am Repo"; return 0 }
-  pgrep -f 'actions-runner/bin/Runner\.Worker' >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
+  pgrep -f 'actions-runner/bin[^/ ]*/Runner\.Worker' >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
   pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
   pgrep -f -- "-marionette" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }
   local p

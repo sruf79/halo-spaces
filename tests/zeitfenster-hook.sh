@@ -34,7 +34,7 @@ sperre() { print -u2 "Zeitfenster-Hook: $1\nGrund: $2\nWie weiter: $3"; exit 2 }
 if [[ $BEFEHL =~ '(halo_test|update_test|store_shots|ui_tour)\.py' && $BEFEHL =~ 'python' ]]; then
   LAEUFT=${HALO_RUNNER:-}
   if [[ -z $LAEUFT ]]; then
-    pgrep -f '[R]unner.Worker' >/dev/null 2>&1 && LAEUFT=ja || LAEUFT=nein
+    pgrep -f 'actions-runner/bin[^/ ]*/[R]unner\.Worker' >/dev/null 2>&1 && LAEUFT=ja || LAEUFT=nein
   fi
   [[ $LAEUFT == ja ]] && sperre "Testlauf gesperrt, solange die CI läuft (Runner.Worker)." \
     "Zwei Testfenster nehmen sich gegenseitig den Fokus (AGENTS.md, Testrechner)." \

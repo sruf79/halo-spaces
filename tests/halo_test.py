@@ -13681,6 +13681,59 @@ def run_checks(m, version, profile, results):
         return not bad, ("; ".join(bad[:8]) + " | " + info) if bad else info
     check("Trennlinien: Kalender-Seitenleiste folgt beim Zuziehen dem Zeiger bis zur Mindestbreite ohne Ruckeln und klappt erst bei deren Hälfte ein", drag_cal_min, results)
 
+    def drag_cal_multiweek():
+        # Mehrwochen-Ansicht: Ziehen der Trennlinie ruckelte nur dort (Rückmeldung 16.11.2026). Ursache: jede
+        # Größenänderung startete die ganze Auswertung der Termine (Balken, Spuren, Startzeit) über alle Termine im
+        # Kalender – mit den Puffer-Wochen rund 800, rund 8 ms je Lauf – zusätzlich zum teureren Layout der vielen Wochen.
+        # Jetzt misst eine Größenänderung nur den Einzug der Balkentitel neu: beim Ziehen kein voller Lauf, aber der
+        # Titel eines mehrtägigen Termins läuft bei jeder Breite bündig über die Stücke weiter
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+        old_size = m.js("const o = [w.screenX, w.screenY, w.outerWidth, w.outerHeight]; w.resizeTo(1522, 900); await wait(800); return o;")
+        s = m.js(r"""
+          const c = testCalendar();
+          const s = cal.createDateTime(); s.resetTo(2026, 9, 19, 8, 0, 0, cal.dtz.defaultTimezone); const en = s.clone(); en.resetTo(2026, 9, 21, 10, 0, 0, cal.dtz.defaultTimezone);
+          const e = new CalEvent(); e.title = "Halo Mehrwochen Ziehen Lernwoche"; e.calendar = c; e.startDate = s; e.endDate = en;
+          w.__mwDrag = await c.addItem(e);
+          await toCalendar(); w.__mwView = w.currentView().type; w.switchToView("multiweek"); w.currentView().goToDay(cal.createDateTime("20261015"));
+          const sb = d.getElementById("calSidebar");
+          if (sb.classList.contains("mc-side-hidden")) { d.getElementById("spacesPinnedButton").click(); await ruhig(900); }
+          await bis(() => [...d.querySelectorAll("#multiweek-view calendar-month-day-box-item[data-mc-span]")].some(x => x.occurrence?.title == "Halo Mehrwochen Ziehen Lernwoche"), "Folgestück mit Einzug", 6000);
+          await ruhig(1000);
+          const sp = d.getElementById("calsidebar_splitter").getBoundingClientRect();
+          return { x: Math.round(sp.left + sp.width / 2), y: Math.round(sp.top + 300), w: Math.round(sb.getBoundingClientRect().width) };""")
+        look = r"""const vb = d.getElementById("view-box"), sb = d.getElementById("calSidebar");
+          const p = [...d.querySelectorAll("#multiweek-view calendar-month-day-box-item")].filter(x => x.occurrence?.title == "Halo Mehrwochen Ziehen Lernwoche" && x.getBoundingClientRect().width)
+            .map(x => { const lab = x.querySelector(".event-name-label"); return { l: x.getBoundingClientRect().left, ll: lab.getBoundingClientRect().left, indent: parseFloat(getComputedStyle(lab).textIndent) || 0 }; })
+            .sort((a, b) => a.l - b.l);
+          return { runs: { ...(vb.__mcSpanRuns || {}) }, w: Math.round(sb.getBoundingClientRect().width), n: p.length,
+            off: p.slice(1).map(q => Math.round((q.indent + q.ll - p[0].ll) * 10) / 10) };"""
+        a = m.js(look)
+        act([{"type": "pointerMove", "x": s["x"], "y": s["y"], "origin": "viewport"}, {"type": "pointerDown", "button": 0}])
+        steps = []
+        for dx in range(12, 181, 12):
+            act([{"type": "pointerMove", "x": s["x"] + dx, "y": s["y"], "origin": "viewport", "duration": 10}])
+            steps.append(m.js("await ruhig(150); " + look))
+        act([{"type": "pointerMove", "x": s["x"], "y": s["y"], "origin": "viewport", "duration": 10}, {"type": "pointerUp", "button": 0}])
+        m.cmd("WebDriver:ReleaseActions", {})
+        # Ansicht und Datum zurück: die verdeckte Mehrwochen-Ansicht zeigte sonst Termine späterer Prüfungen im Oktober 2026 mit
+        m.js("await ruhig(600); try { await testCalendar().deleteItem(w.__mwDrag); } catch {} delete w.__mwDrag; w.currentView().goToDay(cal.dtz.now()); "
+             "w.switchToView(w.__mwView || 'week'); delete w.__mwView; await ruhig(400); return 1;")
+        m.js("w.resizeTo(%d, %d); w.moveTo(%d, %d); await wait(800); return 1;" % (old_size[2], old_size[3], old_size[0], old_size[1]))
+        z = steps[-1]
+        bad = []
+        if z["w"] - a["w"] < 120:
+            bad.append(f"Leiste nur {a['w']} → {z['w']} px")
+        if z["runs"].get("full") != a["runs"].get("full"):
+            bad.append(f"volle Auswertung beim Ziehen {a['runs']} → {z['runs']}")
+        if z["runs"].get("indent", 0) <= a["runs"].get("indent", 0):
+            bad.append(f"Einzug nicht nachgemessen {a['runs']} → {z['runs']}")
+        if a["n"] < 2 or any(len(st["off"]) != a["n"] - 1 or any(abs(o) > 1 for o in st["off"]) for st in [a] + steps):
+            bad.append("Titel nicht bündig: " + " ".join(f"{st['w']}:{st['off']}" for st in [a] + steps))
+        info = f"Breite {a['w']} → {z['w']} px, Läufe {a['runs']} → {z['runs']}, Stücke {a['n']}, Versatz am Ende {z['off']}"
+        return not bad, ("; ".join(bad) + " | " + info) if bad else info
+    check("Trennlinien: Kalender-Seitenleiste in der Mehrwochen-Ansicht ziehen ohne Neuauswertung aller Termine (nur Einzug der Balkentitel nachgemessen, Titel bleibt bündig)", drag_cal_multiweek, results)
+
     def anim_ende():
         # Nach dem Ein-/Ausblenden der Seitenleiste bewegt sich nichts mehr: sobald die Leiste ihre Endbreite hat, dürfen
         # Leiste, Trennlinie, Inhalt und Toolbar-Knöpfe sich nicht mehr verschieben (Sprünge am Animationsende, bisher in

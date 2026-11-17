@@ -13826,6 +13826,15 @@ class CardEnhancer {
           li.setAttribute("data-mc-lane", "");
         }
       }
+      indentSpans(joined);
+    };
+    // Einzug der Folgestücke (--mc-span-x) neu messen – hängt als einziges an
+    // den Spaltenbreiten. Bei einer Größenänderung (Trennlinie ziehen, Fenster)
+    // nur das statt der ganzen Auswertung: die lief über alle Termine im
+    // Kalender (Mehrwochen mit den Puffer-Wochen rund 800) und kostete rund
+    // 8 ms je Bild; mit dem teureren Layout der Mehrwochen-Ansicht (5 statt
+    // 1,6 ms) ruckelte dort das Ziehen der Trennlinie
+    const indentSpans = joined => {
       for (const el of joined) {
         let dx = null;
         try {
@@ -13878,30 +13887,45 @@ class CardEnhancer {
           continue;
         }
         root.__mcEmoji = true;
+        // pending: Lauf geplant; full: ganze Auswertung nötig (sonst nur der Einzug)
         let pending = false;
+        let full = true;
         const run = () => {
           pending = false;
-          annotateEmoji(root);
-          if (id == "view-box") {
-            annotateSpans(root);
+          // Zahl der Läufe je Art (für die Prüfung)
+          root.__mcSpanRuns ||= { full: 0, indent: 0 };
+          root.__mcSpanRuns[full || id != "view-box" ? "full" : "indent"]++;
+          if (full || id != "view-box") {
+            full = false;
+            annotateEmoji(root);
+            if (id == "view-box") {
+              annotateSpans(root);
+            }
+          } else {
+            indentSpans(root.querySelectorAll("calendar-month-day-box-item[data-mc-join-l]"));
           }
         };
-        const mo = new w.MutationObserver(() => {
+        const later = all => {
+          full ||= all;
           if (!pending) {
             pending = true;
             // Zeitgeber statt requestAnimationFrame: läuft auch, wenn das Fenster verdeckt ist
             w.setTimeout(run, 16);
           }
-        });
+        };
+        const mo = new w.MutationObserver(() => later(true));
         mo.observe(root, { childList: true, subtree: true, characterData: true });
-        // Spaltenbreiten ändern sich mit dem Fenster – Einzug der Balkentitel neu messen
+        // Spaltenbreiten ändern sich mit dem Fenster und beim Ziehen der Trennlinie – dann nur den Einzug der
+        // Balkentitel neu messen. Bekommt eine Ansicht erst jetzt eine Größe (Wechsel zu Monat/Mehrwochen), alles:
+        // die Abstände der Spuren brauchen die Höhe eines Eintrags, die es ohne Layout nicht gab
         let ro = null;
         if (id == "view-box" && w.ResizeObserver) {
-          ro = new w.ResizeObserver(() => {
-            if (!pending) {
-              pending = true;
-              w.setTimeout(run, 16);
-            }
+          ro = new w.ResizeObserver(entries => {
+            later(entries.some(e => {
+              const was = e.target.__mcSized;
+              e.target.__mcSized = e.contentRect.width > 0 && e.contentRect.height > 0;
+              return !was;
+            }));
           });
           // auch die Ansichten selbst: beim Wechsel zu Monat/Mehrwochen bekommen sie erst dann eine Größe
           for (const v of [root, ...root.querySelectorAll(":scope > *")]) {
@@ -13915,6 +13939,10 @@ class CardEnhancer {
         this.restorers.push(() => {
           mo.disconnect();
           ro?.disconnect();
+          for (const v of [root, ...root.children]) {
+            delete v.__mcSized;
+          }
+          delete root.__mcSpanRuns;
           Services.prefs.removeObserver(EMOJI_PREF, prefObs);
           Services.prefs.removeObserver(EMOJI_CUSTOM_PREF, prefObs);
           for (const label of root.querySelectorAll("[data-mc-emoji]")) {

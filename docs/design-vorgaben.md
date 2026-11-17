@@ -637,6 +637,7 @@ Gegenbeispiele.
 | V1 | Senkrechte Linie zwischen Kachelspalte und Seitenleiste entfernen (auch kompakt, Tonunterschied, Lasche, farbiger Abschnitt) | „nein gefällt mir nicht“; „besser mit linie als ohne“; zurückgenommen 4b895aa | B `…H59Vo` (12.11.2026) |
 | V2 | Aktive Kachel kräftiger färben, Seitenleiste tönen, Kachel versetzen, Rahmen 2 px (GitHub #18), Glimmen | „zu unruhig“; „stört die Harmonie der Spaces“; Rahmen „wirkt wie der macOS-Fokusring“ | M `spaces-leiste-aktiv` (Okt. bis 2.11.2026) |
 | V3 | Seitenleisten-Entwürfe E „Marke“, D „Tinte“, LED-Streifen | „e gefällt mir überhaupt nicht, wir hätten dann die symbole eines jeden spaces zweimal“; getönte Auswahl „sieht nicht gut aus“; LED „zu sehr nach hier musste du hinklicken“ | B `…ISmC0` (13.11.2026) |
+| V4 | Themen-Schmuck in der ganzen Oberfläche: Neon/Laser (leuchtende Röhren-Kacheln, Laserlinien, Laserboden), Antike (Marmor, Goldadern, Mäander, Sternbilder), Edelsteine (geschliffene Kacheln, Brokat, Seide, Faden); übernommen werden nur einzelne Mittel, die Form und Tiefe zeigen (gewünscht: die plastischen Knopf-Kapseln aus Neon) | „Sie sehen alle cool aus aber auch sehr kindlich und eben unruhig. Ich glaube auf Dauer zu unruhig. Mir gefällt aber wie plastisch die Buttons bei Neon sind“ | Gespräch mit dem Designer, Fantasie-Studie der Mail-Ansicht (Artifact YQThGtRLHevFZyf8YhjCw9, Ordner fantasie-mail-2026-11-17) (17.11.2026) |
 
 ## 11. Arbeitsauftrag des Designers
 

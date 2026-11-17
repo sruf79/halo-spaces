@@ -4095,6 +4095,9 @@ def dialog_checks(m, results):
             const row = dd.querySelector("#searchTermList > richlistitem");
             const btn = [...row.querySelectorAll(".small-button")].find(vis), ml = [...row.querySelectorAll("menulist")].find(vis);
             const out = { mids: [mid(btn), mid(ml)] };
+            // höhere Zeile wie unter Linux/Windows (höhere Systemschrift): Auswahlliste bleibt mittig zu +/−
+            const sv = row.querySelector("search-value"); sv.style.minHeight = "36px"; await pause(300);
+            out.tall = [mid(btn), mid(ml)]; sv.style.minHeight = ""; await pause(200);
             // die Ordnerwahl ist modal zum Dialog – über dessen Zeitgeber öffnen, sonst wartet dieses Skript, bis sie zu ist
             dw.setTimeout(() => dd.getElementById("folderListPicker").click(), 0);
             const lw = await winUrl("virtualFolderListEdit"); if (!lw) return { ...out, picker: false };
@@ -4107,9 +4110,10 @@ def dialog_checks(m, results):
             } finally { await shut(lw); } }); """)
         ok = (res.get("picker") and same_color(res["bg"], res["window"]) and not same_color(res["bg"], "rgb(0, 0, 0)") and res["radius"] == "8px"
               and same_color(res["line"], res["paneLine"]) and res["cb"] and res["cb"][0] == "none" and res["cb"][1].startswith('url("resource://mailcards/icons/check-box-12.svg')
-              and same_color(res["cb"][2], res["accent"]) and None not in res["mids"] and abs(res["mids"][0] - res["mids"][1]) <= 1)
+              and same_color(res["cb"][2], res["accent"]) and None not in res["mids"] and abs(res["mids"][0] - res["mids"][1]) <= 1
+              and None not in (res.get("tall") or [None]) and abs(res["tall"][0] - res["tall"][1]) <= 1)
         return ok, f"{res}"
-    check("Suchordner: Ordnerwahl in der Inhaltsfläche mit Haarlinie und 8 px, Kästchen im macOS-Stil mit Haken; +/− mittig zur Bedingungszeile", folder_picker, results)
+    check("Suchordner: Ordnerwahl in der Inhaltsfläche mit Haarlinie und 8 px, Kästchen im macOS-Stil mit Haken; +/− mittig zur Bedingungszeile, auch in höherer Zeile", folder_picker, results)
 
     def filter_windows():
         # Filterliste, Filterprotokoll und Nachrichten suchen sind <window>: Listen und Felder trotzdem mit Haarlinie statt hartem Rahmen;
@@ -7059,9 +7063,9 @@ def calendar_checks(m, results):
                                    and not same_color(x["border"], "rgb(113, 113, 122)") and float(x["radius"][:-2]) >= 10 for x in ms)
               and any(x["busy"] for x in ms))
         al, hs = res.get("align"), res.get("heights") or [None, None]
-        ok = ok and al is not None and abs(al) <= 1 and None not in hs and abs(hs[0] - 28) <= 1 and abs(hs[1] - 28) <= 1
+        ok = ok and al is not None and abs(al) <= 1 and None not in hs and abs(hs[0] - 30) <= 1 and abs(hs[1] - 30) <= 1
         return ok, f"{res}"
-    check("Wiederholung: Vorschau-Monate mit Haarlinie und 10 px Radius, ohne Fläche, Belegt-Punkte bleiben; „Repeat“ mittig zur Liste, Zahlenfeld 28 px", recurrence_preview, results)
+    check("Wiederholung: Vorschau-Monate mit Haarlinie und 10 px Radius, ohne Fläche, Belegt-Punkte bleiben; „Repeat“ mittig zur Liste, Zahlenfeld 30 px wie die Liste", recurrence_preview, results)
 
     def today_weather():
         # Wetter in der Today-Pane (Option, aus): Stadt → Koordinaten (gerundet) → Symbol und Temperatur im Tooltip;

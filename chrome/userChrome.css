@@ -5839,23 +5839,23 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
    1 px Zinkgrau (dunkel #71717A) */
 /* Wiederholung: „Repeat“ mittig zur Auswahlliste (Thunderbird rückt die
    Beschriftung passend zu seiner eigenen, anders hohen Liste 6 px ein);
-   Zahlenfelder 28 px hoch wie die Liste – die Regel für Dialogfelder greift
-   hier nicht */
+   Zahlenfelder 30 px hoch wie die Liste (Feldhöhe der Dialoge, E28) – die
+   Regel für Dialogfelder greift hier nicht */
 #calendar-event-dialog-recurrence .recurrence-pattern-hbox-label {
-  margin-block-start: 11px !important;
+  margin-block-start: 12px !important;
 }
 
-/* Windows/Linux: die Systemschrift ist dort höher, mit 11 px stünde
+/* Windows/Linux: die Systemschrift ist dort höher, mit 12 px stünde
    „Repeat“ 1,5 px unter der Mitte der Liste */
 @media not (-moz-platform: macos) {
   #calendar-event-dialog-recurrence .recurrence-pattern-hbox-label {
-    margin-block-start: 9.5px !important;
+    margin-block-start: 10.5px !important;
   }
 }
 
 #calendar-event-dialog-recurrence input.input-inline {
   box-sizing: border-box !important;
-  height: 28px !important;
+  height: var(--mt-field-h, 30px) !important;
   min-height: 0 !important;
 }
 
@@ -12327,6 +12327,15 @@ dialog menulist {
    (im Suchordner-Dialog saßen sie 2 px zu hoch) */
 :is(#searchTermList, #filterActionList) > richlistitem .small-button {
   align-self: center !important;
+}
+
+/* Auswahllisten der Bedingungszeilen sind seit E28 24 px hoch und damit
+   niedriger als die Zeile: ohne Zentrierung kleben sie oben, wo die Zeile
+   höher ist (Linux, Windows: höhere Systemschrift), und stehen bis 1,5 px
+   über der Mitte von +/− */
+:is(#searchTermList, #filterActionList) > richlistitem,
+:is(#searchTermList, #filterActionList) > richlistitem hbox {
+  align-items: center !important;
 }
 
 /* … und mit 4 px Lücke zwischen + und − statt aneinanderzustoßen */

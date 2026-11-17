@@ -4126,6 +4126,27 @@ async function reopenTasks(win, tasks) {
 // läuft in der Detailspalte des Hauptfensters und – mit `solo` (tree: Objekt mit
 // currentTask, close: schließt das Fenster) – im eigenen Aufgabenfenster
 // (openTaskWindow), das dieselben Elemente nachbaut. Rückgabe bei solo: refresh()
+// Antwort der Rückfrage bei Vorkommen (Thunderbirds calendar-occurrence-prompt):
+// 1 nur dieses Vorkommen, 3 alle (die Serie), 0 Abbrechen; 2 („dieses und alle
+// folgenden“) blendet Thunderbird aus und führt es nicht aus – gilt als Abbrechen
+function occurrenceScope(answer) {
+  return answer == 1 ? "occurrence" : answer == 3 ? "series" : null;
+}
+
+// Datum der Serie, wenn bei „Alle Vorkommen“ das Datum eines Vorkommens geändert
+// wurde (Wanduhrzeiten in ms): wie Apple um dieselbe Spanne verschoben statt auf
+// den Tag des Vorkommens gesetzt; entfernt bleibt entfernt, fehlte es (bei der
+// Serie oder dem Vorkommen), gilt der neue Wert
+function shiftSeriesTime(series, occOld, occNew) {
+  if (occNew == null) {
+    return null;
+  }
+  if (series == null || occOld == null) {
+    return occNew;
+  }
+  return series + (occNew - occOld);
+}
+
 function hookTaskInfo(win, restorers, solo = null) {
   const doc = win.document;
   const tree = solo ? solo.tree : doc.getElementById("calendar-task-tree");
@@ -4494,15 +4515,64 @@ function hookTaskInfo(win, restorers, solo = null) {
       return false;
     }
   };
-  // series: die ganze Serie ändern (Wiederholung) – die Ansichten zeigen von
-  // einer Serie nur Vorkommen, deren Wiederholung gälte sonst nur einer Ausnahme
-  const save = async (mutate, calendar = null, { series = false } = {}) => {
-    const old = series ? tree.currentTask?.parentItem : tree.currentTask;
+  // Rückfrage bei einem Vorkommen einer Serie wie Apple Kalender: Thunderbirds
+  // eigene Rückfrage („Nur dieses Vorkommen“ / „Alle Vorkommen“, dieselbe wie
+  // beim Löschen und im Termin-Dialog); Rückgabe "occurrence", "series" oder null
+  const askOccurrence = (item, action) => {
+    const rv = { value: 0, items: [item], action };
+    win.openDialog("chrome://calendar/content/calendar-occurrence-prompt.xhtml", "PromptOccurrenceModification",
+      "centerscreen,chrome,modal,titlebar", rv);
+    return occurrenceScope(rv.value);
+  };
+  // abgebrochen: Feld bzw. Titel und Notiz wieder mit dem gespeicherten Stand
+  const reshow = () => {
+    try {
+      solo ? solo.reshow?.() : view.onSelect();
+    } catch (e) {
+      log("task info reshow error", e);
+    }
+  };
+  // Datum als Wanduhrzeit (ms, in der Zeitzone des Kalenders) und zurück – so
+  // verschiebt eine Änderung über die Sommerzeit hinweg die Serie um ganze Tage
+  const wall = dt => {
+    if (!dt?.isValid) {
+      return null;
+    }
+    const d = dt.isDate ? dt : dt.getInTimezone(cal.dtz.defaultTimezone);
+    return Date.UTC(d.year, d.month, d.day, d.isDate ? 0 : d.hour, d.isDate ? 0 : d.minute, d.isDate ? 0 : d.second);
+  };
+  const fromWall = (ms, isDate) => {
+    const j = new Date(ms);
+    const dt = cal.createDateTime();
+    dt.resetTo(j.getUTCFullYear(), j.getUTCMonth(), j.getUTCDate(), j.getUTCHours(), j.getUTCMinutes(), j.getUTCSeconds(),
+      isDate ? cal.dtz.floating : cal.dtz.defaultTimezone);
+    dt.isDate = isDate;
+    return dt;
+  };
+  // series: immer die ganze Serie (Wiederholung, Liste); occurrence: immer nur
+  // dieses Vorkommen ohne Rückfrage (Erledigen, Status – wie Apple Erinnerungen);
+  // sonst fragt ein Vorkommen nach. shift: Datumsfeld, das bei „Alle“ die Serie
+  // um dieselbe Spanne verschiebt wie das Vorkommen (statt sie auf dessen Tag zu setzen)
+  const save = async (mutate, calendar = null, { series = false, occurrence = false, shift = null } = {}) => {
+    const cur = tree.currentTask;
+    let scope = series ? "series" : "occurrence";
+    if (!series && !occurrence && cur && cur.parentItem && cur.parentItem != cur && writable(cur)) {
+      scope = askOccurrence(cur, "edit");
+      if (!scope) {
+        reshow();
+        return;
+      }
+    }
+    const old = scope == "series" ? cur?.parentItem : cur;
     if (!old || !writable(old)) {
       return;
     }
     const item = old.clone();
     mutate(item);
+    if (shift && scope == "series" && old != cur) {
+      const ms = shiftSeriesTime(wall(old[shift]), wall(cur[shift]), wall(item[shift]));
+      item[shift] = ms == null ? null : fromWall(ms, !!(old[shift]?.isValid ? old[shift] : item[shift]).isDate);
+    }
     try {
       await win.doTransaction("modify", item, calendar || item.calendar, old, null);
     } catch (e) {
@@ -4658,7 +4728,7 @@ function hookTaskInfo(win, restorers, solo = null) {
         if (keep && value.getTime() !== before) {
           const dt = cal.dtz.jsDateToDateTime(value, cal.dtz.defaultTimezone);
           dt.isDate = isDate;
-          save(it => (it[prop] = dt));
+          save(it => (it[prop] = dt), null, { shift: prop, occurrence: prop == "completedDate" });
         } else {
           v.replaceChildren(...old);
         }
@@ -4684,7 +4754,7 @@ function hookTaskInfo(win, restorers, solo = null) {
           done = true;
           mini.panel.hidePopup();
           mini.panel.remove();
-          save(it => (it[prop] = null));
+          save(it => (it[prop] = null), null, { shift: prop });
         });
         parts.push(b);
       }
@@ -4748,7 +4818,7 @@ function hookTaskInfo(win, restorers, solo = null) {
           } else if (v == "CANCELLED" && pct > 0 && pct < 100) {
             it.percentComplete = pct;
           }
-        }) })));
+        }, null, { occurrence: true }) })));
     });
     // Anhänge: Klick öffnet (Webseite im Browser, Datei mit ihrem Programm),
     // Rechtsklick bietet „Remove“; „Add Link…“ hängt eine Webseite an wie der Dialog
@@ -4837,7 +4907,7 @@ function hookTaskInfo(win, restorers, solo = null) {
       const cals = cal.manager.getCalendars().filter(c => !c.getProperty("disabled") && cal.acl.isCalendarWritable(c) &&
         c.getProperty("capabilities.tasks.supported") !== false);
       openMenu(r, cals.map(c => ({ label: c.name, type: "radio", checked: c.id == item.calendar?.id,
-        run: () => c.id != item.calendar?.id && save(it => (it.calendar = c), c) })));
+        run: () => c.id != item.calendar?.id && save(it => (it.calendar = c), c, { series: true }) })));
     });
     on("tag", r => {
       const cats = [...new Set([...cal.category.fromPrefs(), ...item.getCategories()])].sort((a, b) => a.localeCompare(b));
@@ -5052,6 +5122,21 @@ function hookTaskInfo(win, restorers, solo = null) {
     if (item && cal.acl.isCalendarWritable(item.calendar) && (!Services.prefs.getBoolPref("calendar.item.promptDelete", true) ||
       Services.prompt.confirm(win, tr("Delete Task"), tr("Delete this task?")))) {
       try {
+        // Vorkommen einer Serie: wie in der Liste nachfragen, „nur dieses“
+        // nimmt das Vorkommen aus der Serie, „alle“ löscht die Serie
+        const parent = item.parentItem;
+        if (parent && parent != item) {
+          const scope = askOccurrence(item, "delete");
+          if (scope == "occurrence") {
+            const next = parent.clone();
+            next.recurrenceInfo.removeOccurrenceAt(item.recurrenceId);
+            await win.doTransaction("modify", next, next.calendar, parent, null);
+            solo.close();
+          } else if (scope == "series") {
+            await win.doTransaction("delete", parent, parent.calendar, null, null);
+          }
+          return;
+        }
         await win.doTransaction("delete", item, item.calendar, null, null);
       } catch (e) {
         log("task delete error", e);
@@ -5090,7 +5175,7 @@ function hookTaskInfo(win, restorers, solo = null) {
     const cals = cal.manager.getCalendars().filter(c => !c.getProperty("disabled") && cal.acl.isCalendarWritable(c) &&
       c.getProperty("capabilities.tasks.supported") !== false);
     for (const c of cals) {
-      const m = mi(c.name, () => c.id != item.calendar?.id && save(it => (it.calendar = c), c));
+      const m = mi(c.name, () => c.id != item.calendar?.id && save(it => (it.calendar = c), c, { series: true }));
       m.setAttribute("type", "radio");
       if (c.id == item.calendar?.id) {
         m.setAttribute("checked", "true");
@@ -5452,6 +5537,8 @@ async function openTaskWindow(main, item) {
       fill();
       refresh?.();
     };
+    // (abgebrochene Rückfrage bei einem Vorkommen: gespeicherten Stand wieder zeigen)
+    solo.reshow = show;
     // Der Rahmen lädt about:blank erst nach dem Einhängen – dann erst füllen
     frame.addEventListener("load", show, { once: true });
     complete.addEventListener("command", () => {

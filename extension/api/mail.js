@@ -268,10 +268,12 @@ const SendLater = {
       setTimeout(() => this.start(), 3000); // Hauptfenster noch nicht offen
       return;
     }
-    this.timer = win.setInterval(() => this.check(), 30 * 1000);
-    win.setTimeout(() => this.check(true), 5000);
+    // Modul-Zeitgeber: ein Fenster-Zeitgeber endete mit diesem Hauptfenster,
+    // auch wenn ein anderes offen bleibt – und start() setzte ihn nie wieder auf
+    this.timer = setInterval(() => this.check(), 30 * 1000);
+    setTimeout(() => this.check(true), 5000);
     enhancer?.restorers.push(() => {
-      win.clearInterval(this.timer);
+      clearInterval(this.timer);
       this.timer = null;
     });
   },
@@ -582,10 +584,11 @@ const Remind = {
       setTimeout(() => this.start(), 3000);
       return;
     }
-    this.timer = win.setInterval(() => this.check(), 30 * 1000);
-    win.setTimeout(() => this.check(), 6000);
+    // Modul-Zeitgeber (wie bei SendLater.start)
+    this.timer = setInterval(() => this.check(), 30 * 1000);
+    setTimeout(() => this.check(), 6000);
     enhancer?.restorers.push(() => {
-      win.clearInterval(this.timer);
+      clearInterval(this.timer);
       this.timer = null;
     });
   },

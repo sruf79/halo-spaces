@@ -221,6 +221,7 @@ fi
 FORTSETZ_MAX=4 VD_STATUS=
 VD_FORTSETZ_MAX=${VD_FORTSETZ_MAX:-50} VD_MAX_COMMITS=${VD_MAX_COMMITS:-40}   # Volldampf (17.11.2026, vorher 8 und 12)
 NORMAL_GRENZE=$NACHT_GRENZE NORMAL_MAX_COMMITS=$NACHT_MAX_COMMITS   # Werte aus vorpruefung.zsh (ohne Volldampf)
+NORMAL_ENDE=$ENDE NORMAL_ENDE_TEXT=$NACHT_ENDE_TEXT VD_WAR=
 volldampf_runde() {
   local z
   if volldampf_aktiv >/dev/null; then
@@ -235,9 +236,13 @@ volldampf_runde() {
     # Maintainer 17.11.2026 („volldampf bedeutet maximale produktivität … einfach alles“): Fortsetzungen und nicht
     # gepushte Commits praktisch ohne Grenze (vorher 8 und 12); es bremsen 08:45, HART 09:00 und das Wochenlimit
     NACHT_GRENZE=08:45 NACHT_MAX_COMMITS=$VD_MAX_COMMITS FORTSETZ_MAX=$VD_FORTSETZ_MAX
-    ENDE=$(date -j -v8H -v45M -v0S +%s) NACHT_ENDE_TEXT=08:45
+    ENDE=$(date -j -v8H -v45M -v0S +%s) NACHT_ENDE_TEXT=08:45 VD_WAR=1
   else
+    # ohne Volldampf (aus, abgelaufen, Wochenlimit): sofort alle normalen Grenzen, auch das Ende 08:00 (17.11.2026)
     NACHT_GRENZE=$NORMAL_GRENZE NACHT_MAX_COMMITS=$NORMAL_MAX_COMMITS FORTSETZ_MAX=4
+    ENDE=$NORMAL_ENDE NACHT_ENDE_TEXT=$NORMAL_ENDE_TEXT
+    # war er in dieser Nacht an und ist jetzt ohne Zeile (von Hand aus): Claude im nächsten Prompt sagen, dass Schritt 1c nicht mehr gilt
+    [[ -n $VD_WAR && -z $VD_STATUS ]] && VD_STATUS="Volldampf aus (von Hand ausgeschaltet, $(date +%H:%M)) – ab jetzt gelten alle normalen Regeln, Schritt 1c b) entfällt"
   fi
   [[ -n $VD_STATUS ]] && log "$VD_STATUS"
   return 0

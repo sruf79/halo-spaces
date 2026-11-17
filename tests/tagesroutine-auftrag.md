@@ -219,6 +219,11 @@ dieser Runde nicht gelöst hat. Ob Fable läuft, entscheidet das Skript (nur wei
 Fable-Runde („JETZT: Fable-Runde“) liest zuerst den Abschnitt der Opus-Runde und arbeitet dann wie
 eine Eintragsrunde; „fable“ ist dort kein gültiges Ergebnis.
 
+Alle Abschnitte „… im Volldampf“ und „Parallel (… nur solange Volldampf läuft)“ gelten nur, solange die Zeile
+„Kontingent (Skript): …“ dieser Runde mit „Volldampf aktiv“ beginnt; steht dort etwas anderes (Volldampf aus, beendet,
+angemeldet), gelten sofort die normalen Regeln (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären
+modus laufen.“), auch mitten am Tag.
+
 Zwischen-Release (Volldampf; Maintainer 17.11.2026, Wortlaute in ENTSCHEIDUNGEN.md, u. a. „ich habe auch kein problem
 mit 30 releases untertags während volldampf läuft“): macht der eigenständige Wächter tests/zwischen-schleife.zsh in
 seinem eigenen Worktree (~/halo-zwischen-release), nie du. Für dich heißt das: Fertiges sauber committen, damit es

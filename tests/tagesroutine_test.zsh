@@ -206,4 +206,22 @@ pruefe "Leere Pläne zählen nicht zum Leerlauf: viele leere Runden ohne Ende" \
   "$(o=0; for i in 1 2 3 4 5; do w=(${=$(nach_plan 0 0 $o $(ts 2026-11-14T1${i}:10:00+01:00) $L)}); o=$w[-1]; print -n "$w[1] "; done)" '^(warten ){5}$'
 pruefe "Skript: kein Ende mehr mit „kein Plan in Plan-Runde“" "$(grep -c 'kein Plan in Plan-Runde' $SKRIPT)" '^0$'
 pruefe "Skript: Bericht „Plan-Runde n: 0 Einträge, nächste Planung“" "$(grep -c '0 Einträge, nächste Planung' $SKRIPT)" '^[1-9]'
+# Volldampf aus mitten am Tag (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären modus laufen.“):
+# Zeitgrenzen werden bei jeder Entscheidung und in der Wache jede Minute neu gesetzt, nicht nur beim Start
+GS=$(sed -n '/^grenzen_setzen() {/,/^}/p' $SKRIPT)
+pruefe "Zeitgrenzen folgen Volldampf sofort (an → 23:30/23:59, aus → 20:30/22:00, HART neu)" "$(
+  typeset -A KONF; KONF=(LETZTER_BEGINN 23:30 ENDE 23:59 LETZTER_BEGINN_VOLLDAMPF 23:30 ENDE_VOLLDAMPF 23:59)
+  LB_NORMAL=20:30 ENDE_NORMAL=22:00 TAG=2026-11-17 LOG=/dev/null
+  uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
+  source ${SKRIPT:h}/lauf-hilfen.zsh; eval $GS
+  export HALO_JETZT=2026-11-17T21:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/gs-beendet.txt
+  grenzen_setzen; print "an $KONF[LETZTER_BEGINN] $KONF[ENDE] $(( HART == $(uhr 23:59) ))"
+  HALO_VOLLDAMPF_DATEI=$T/kein-volldampf.txt grenzen_setzen; print "aus $KONF[LETZTER_BEGINN] $KONF[ENDE] $(( HART == $(uhr 22:00) ))"
+  grenzen_setzen ja; print "ja $KONF[ENDE]"; grenzen_setzen nein; print "nein $KONF[ENDE]")" \
+  '^an 23:30 23:59 1' '^aus 20:30 22:00 1' '^ja 23:59' '^nein 22:00'
+pruefe "volldampf_lesen setzt die Zeitgrenzen, Wache liest sie jede Minute neu" "$(<$SKRIPT)" \
+  'grenzen_setzen \$VD' 'while \(\( \$\(date \+%s\) < \$\(grenzen_setzen; print \$HART\) \)\)'
+# Nachtlauf: ohne Volldampf (aus, Ende) sofort wieder alle normalen Grenzen samt Ende 08:00
+pruefe "Nachtlauf: Rückfall setzt auch ENDE auf 08:00 zurück und meldet „Volldampf aus“" "$(<${SKRIPT:h}/nachtlauf.sh)" \
+  'ENDE=\$NORMAL_ENDE NACHT_ENDE_TEXT=\$NORMAL_ENDE_TEXT' 'Volldampf aus \(von Hand ausgeschaltet'
 exit $FEHLER

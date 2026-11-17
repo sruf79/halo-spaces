@@ -462,13 +462,15 @@ Reihenfolge:
       - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
         am Anfang und Ende (Woche, 5 Stunden).
 1d. Redesign-Ablauf – gilt NUR bis zum Ende der Volldampf-Woche (24.11.2026
+   01:00, Ende der Zeile in ~/halo-nacht/volldampf.txt), danach diesen
+   Abschnitt überspringen.
+   Nur bei „Volldampf aktiv“ (Schritt 1c b; ohne Volldampf entfällt beides sofort):
    Prioritäten im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDUNGEN.md): 1. Wochenkontingent so rasch wie möglich verbrauchen, indem die
    token-intensivsten Einträge priorisiert werden; 2. beliebig viele Releases am Tag. Tests, CI und Windows unverändert.
-      Parallel (Maintainer 17.11.2026 „Ja“, nur solange Volldampf läuft): Fortsetzungen führen so viele Opus-Agenten
-      gleichzeitig, wie getrennte Einträge da sind (keine feste Obergrenze, so viele wie möglich und nötig, andere Dateien), nie am selben Baustein, Testläufe nacheinander
-      (je eigener Port ab 2850); Volldampf heißt maximale Produktivität, nicht müßig warten, Bremse nur das Wochenlimit.
-   01:00, Ende der Zeile in ~/halo-nacht/volldampf.txt), danach diesen
-   Abschnitt überspringen. Freigabe des Maintainers (16.11.2026, Gespräch mit
+   Parallel (Maintainer 17.11.2026 „Ja“, nur solange Volldampf läuft): Fortsetzungen führen so viele Opus-Agenten
+   gleichzeitig, wie getrennte Einträge da sind (keine feste Obergrenze, so viele wie möglich und nötig, andere Dateien), nie am selben Baustein, Testläufe nacheinander
+   (je eigener Port ab 2850); Volldampf heißt maximale Produktivität, nicht müßig warten, Bremse nur das Wochenlimit.
+   Freigabe des Maintainers (16.11.2026, Gespräch mit
    dem Designer, Wortlaut in ENTSCHEIDUNGEN.md): „ansonsten bin ich mit deinem
    vorschlag bezüglich ablauf des designumbaus einverstanden. kacheln und
    lichtkegel sind ein paket und abnahmerunde morgen.“ Plan des Designers:

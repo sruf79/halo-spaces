@@ -65,7 +65,7 @@ TROCKEN= ZAEHLEN= NICHTSPASSEND=
 [[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
 REPO=${1:-$HOME/halo-spaces}
 HIER=${0:A:h}
-if [[ ! -d $REPO/.git ]]; then
+if [[ ! -e $REPO/.git ]]; then   # -e: in einem Worktree ist .git eine Datei
   print -u2 "FEHLER: kein halo.spaces-Checkout unter „$REPO“ (Aufruf: ${0:t} [--trocken] [<Repo-Ordner>]) – abgebrochen"
   exit 2
 fi
@@ -104,8 +104,19 @@ HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
 VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf endet ab diesem Wochenwert (lauf-hilfen.zsh)
 source $HILFEN
-# Nur mit Volldampf gelten die späteren Zeiten (Maintainer 17.11.2026: kein Zeitlimit abends außer Nachtlauf); ohne Volldampf die normalen
-if volldampf_aktiv >/dev/null 2>&1; then KONF[LETZTER_BEGINN]=$KONF[LETZTER_BEGINN_VOLLDAMPF]; KONF[ENDE]=$KONF[ENDE_VOLLDAMPF]; fi
+# Nur mit Volldampf gelten die späteren Zeiten (Maintainer 17.11.2026: kein Zeitlimit abends außer Nachtlauf); ohne Volldampf die normalen.
+# Bei jeder Entscheidung neu gesetzt (volldampf_lesen), damit „aus“, Ablauf und Wochenlimit SOFORT wirken (Maintainer 17.11.2026:
+# „wir müssen dann sofort weiter aktiv im regulären modus laufen.“); vorher galt der Stand beim Start für den ganzen Tag.
+LB_NORMAL=$KONF[LETZTER_BEGINN] ENDE_NORMAL=$KONF[ENDE]
+grenzen_setzen() {   # [ja|nein] – Volldampf (ohne Argument: selbst lesen); setzt KONF[LETZTER_BEGINN], KONF[ENDE], LETZTER, HART
+  local vd=$1
+  [[ -n $vd ]] || { volldampf_aktiv >/dev/null 2>&1 && vd=ja || vd=nein }
+  if [[ $vd == ja ]]; then KONF[LETZTER_BEGINN]=$KONF[LETZTER_BEGINN_VOLLDAMPF]; KONF[ENDE]=$KONF[ENDE_VOLLDAMPF]
+  else KONF[LETZTER_BEGINN]=$LB_NORMAL; KONF[ENDE]=$ENDE_NORMAL; fi
+  if [[ -n $TAG ]] && (( $+functions[uhr] )); then LETZTER=$(uhr $KONF[LETZTER_BEGINN]); HART=$(uhr $KONF[ENDE]); fi
+  return 0
+}
+grenzen_setzen
 
 DIR=$HOME/halo-nacht
 BERICHTE=$HOME/halo-berichte
@@ -356,6 +367,7 @@ volldampf_lesen() {
   VD_STATUS=$(volldampf_status)
   VD_BERICHT=${VD_STATUS:#*angemeldet*}   # Bericht, Kurz-Zeile, Auftrag: nur aktiv bzw. beendet
   [[ $VD == ja ]] && MAX_COMMITS=$KONF[MAX_COMMITS_VOLLDAMPF] || MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
+  grenzen_setzen $VD
 }
 tageslimit_text() { (( MAX_COMMITS > 0 )) && print -r -- "Tageslimit $MAX_COMMITS eigene Commits" || print -r -- "kein Tageslimit für Commits (Volldampf)" }
 # Wächter für Zwischen-Releases (tests/zwischen-schleife.zsh, Maintainer 17.11.2026): läuft er?
@@ -612,7 +624,8 @@ done
 runde() {   # <Modell> <Prompt> <Ausgabe>
   local sid=$(uuidgen | tr A-Z a-z) t0=$(date +%s)
   log "Runde mit $1, Sitzung $sid"
-  ( while (( $(date +%s) < HART )); do sleep 60; done; pkill -f -- "--session-id $sid" ) &
+  # harte Grenze jede Minute neu: nach „Volldampf aus“ gilt sofort ENDE ohne Volldampf (22:00)
+  ( while (( $(date +%s) < $(grenzen_setzen; print $HART) )); do sleep 60; done; pkill -f -- "--session-id $sid" ) &
   WACHE=$!
   claude -p --model $1 --session-id $sid --permission-mode auto "$2" > $3 2>&1
   local rc=$?

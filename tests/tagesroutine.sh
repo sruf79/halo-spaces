@@ -81,8 +81,8 @@ KONF=(
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
   FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
-  MAX_COMMITS_TAG 20 BELEGT_WARTEN 60  MAX_COMMITS_VOLLDAMPF 0
-  FABLE_5H_MAX_VOLLDAMPF 60  FABLE_WOCHE_MAX 80  VOLLDAMPF_WOCHE_ENDE 98
+  MAX_COMMITS_TAG 40 BELEGT_WARTEN 60  MAX_COMMITS_VOLLDAMPF 0
+  FABLE_5H_MAX_VOLLDAMPF 100  FABLE_WOCHE_MAX 100  VOLLDAMPF_WOCHE_ENDE 98
 )
 KONF_DATEI=${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf}
 [[ -r $KONF_DATEI ]] || KONF_DATEI=$HIER/tagesroutine.conf
@@ -234,8 +234,8 @@ else:
         # FABLE_WOCHE_MAX. Das 5-Stunden-Fenster bremst weiter (unten).
         aus.update(STUFE="Volldampf (Sollkurve bremst nicht)", ENTSCHEIDUNG="neu", M_KOMPLEX=stark, M_ROUTINE=routine,
                    GRUND="Volldampf aktiv – Sollkurve und Sparmodus ausgesetzt")
-        if not math.isnan(h5) and h5 < zahl("K_FABLE_5H_MAX_VOLLDAMPF", 60) and \
-           (math.isnan(fable_woche) or fable_woche <= zahl("K_FABLE_WOCHE_MAX", 80)):
+        if not math.isnan(h5) and h5 < zahl("K_FABLE_5H_MAX_VOLLDAMPF", 100) and \
+           (math.isnan(fable_woche) or fable_woche <= zahl("K_FABLE_WOCHE_MAX", 100)):
             aus["FABLE"] = "ja"
     elif a > spar_max:
         # Maintainer 12.11.2026 („die risikoärmere variante bitte“): nicht enden, sondern ohne Claude bis zur

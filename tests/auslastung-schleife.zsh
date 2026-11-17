@@ -134,7 +134,7 @@ pruefen() {
     (( a < 0 || f5 < K[FENSTER_MIN] )) || { print -r -- "warten im Soll und 5-Stunden-Fenster ab $K[FENSTER_MIN] % – $lage"; return }
   fi
   fn=$(fable_zahl)
-  if (( a <= -K[FABLE_ABSTAND] && f5 < K[FABLE_5H] && fn == 0 )); then
+  if (( a <= -K[FABLE_ABSTAND] && f5 < K[FABLE_5H] )); then   # Maintainer 17.11.2026: im Volldampf keine Mengengrenze für Fable (kein „nur ein Fable-Lauf“)
     print -r -- "starten $K[MODELL_FABLE] Soll weit verfehlt – $lage"
   else
     print -r -- "starten $K[MODELL] $( (( a < 0 )) && print unter dem Soll || print 5-Stunden-Fenster unter $K[FENSTER_MIN] %) – $lage"

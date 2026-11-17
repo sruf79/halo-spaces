@@ -23,7 +23,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 | Tagesroutine letzter Beginn / Ende | 20:30 / 22:00 | 23:30 / 23:59 | `tagesroutine.conf:12–13`; `grenzen_setzen` `tests/tagesroutine.sh:111`; ENTSCHEIDUNGEN.md:755 |
 | Sollkurve, Sparmodus, Reserve | bremsen | ausgesetzt; Modelle opus/sonnet | `tests/tagesroutine.sh:230–239` |
 | Commits je Tag (Tagesroutine) | `MAX_COMMITS_TAG` | unbegrenzt (`MAX_COMMITS_VOLLDAMPF` 0) | `tagesroutine.conf:43` |
-| Fable Tagesroutine | 5 h < 50 %, nur weit unter Soll | 5 h < 60 %, „Fable only“ ≤ 80 % | `tests/tagesroutine.sh:236–239` |
+| Fable Tagesroutine | 5 h < 50 %, nur weit unter Soll | keine Grenze (17.11.2026: „im volldampf gibt es keine limits für fable nutzung wenn derer einsatz bei komplexen themen oder problemen hilfreich ist und die produktivität erhöht“); `FABLE_5H_MAX_VOLLDAMPF`/`FABLE_WOCHE_MAX` 100 | `tests/tagesroutine.sh:236–239` |
 | Nachtlauf Schritt 5 / Fortsetzungen / Ende | 06:30 · 6 Commits · 4 · 08:00 | 08:45 · 40 · 50 · 08:45 | `tests/nachtlauf.sh:221–243` |
 | Nachtlauf Planung | 70–80 %-Vorsicht, Reserve | volle Kapazität, token-intensivste zuerst | `tests/nachtlauf-auftrag.md` 1c/1d |
 | Auslastungswächter | läuft nicht | Worker auf `pruef/worker-*`, bis `MAX_WORKER` (auslastung.conf), je Worker höchstens 240 Min. | `tests/auslastung-schleife.zsh:52, 115` |

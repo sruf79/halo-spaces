@@ -775,3 +775,7 @@ Maintainer (in neon, 17.11.2026): „in zukunft werden wir vielleicht öfters vo
 ## 17.11.2026 – Volldampf: Fable nur mit Beleg
 
 Maintainer (in neon, 17.11.2026): „bitte vergiss nicht dass du bei allen tasks für maximale produktivität auch fable nutzen kannst während des volldampf modus“ und „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“. Umsetzung: Wächter-Schwellen `FABLE_ABSTAND=5`, `FABLE_5H=75` (`auslastung.conf`); Beleg-Regel in `tests/nachtlauf-auftrag.md`, `tests/tagesroutine-auftrag.md`, `tests/auslastung-auftrag.md`.
+
+## 17.11.2026 – Regelwerk Volldampf und Alltag: Antworten des Maintainers
+
+Maintainer (in neon, 17.11.2026), auf vier Fragen des Regelwerk-Agenten: „1. 40 commits“ (Tageslimit der Tagesroutine im Alltag); „2. im volldampf gibt es keine limits für fable Nutzung wenn derer Einsatz bei komplexen themen oder problemen hilfreich ist und die produktivität erhöht“; „3.ich folge deiner Empfehlung“ (Worker nach „aus“ machen den laufenden Eintrag fertig, nehmen keinen neuen); „4. nein nur tagsüber“ (der Auslastungswächter startet nachts nur Worker, solange die Woche unter dem Soll liegt; keine Ausweitung auf Nächte über dem Soll). Umsetzung: `MAX_COMMITS_TAG` 40 im Skript, Fable-Grenzen im Volldampf aufgehoben (`tests/tagesroutine.sh`, `tests/auslastung-schleife.zsh`, `tests/nachtlauf-auftrag.md`), `docs/alltagsmodus.md`, `docs/volldampf-regelwerk.md`.

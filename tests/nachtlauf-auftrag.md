@@ -453,10 +453,12 @@ Reihenfolge:
         Volldampf): nur für die wirklich schwersten Fälle – belegte Ursache
         fehlt nach einem Opus-Versuch bei einem Eintrag mit hohem Nutzen, oder
         Analyse/Design, die ein starkes Modell braucht; nie für Routine oder
-        Mechanisches (Vorschaubilder, Tests, Doku). Höchstens zwei
-        Fable-Agenten in dieser Nacht, nacheinander, nie parallel; nur bei
-        5-Stunden-Fenster unter 60 % (zsh tests/kontingent.sh); die
-        Soll-Bedingung der Woche entfällt. „Fable only“ (Wochenwert nur für
+        Mechanisches (Vorschaubilder, Tests, Doku). Keine Mengen-
+        oder Fenstergrenze für Fable (Maintainer 17.11.2026: „im volldampf gibt
+        es keine limits für fable nutzung wenn derer einsatz bei komplexen
+        themen oder problemen hilfreich ist und die produktivität erhöht“);
+        es gilt nur die Beleg-Regel unten; die Soll-Bedingung der Woche
+        entfällt. „Fable only“ (Wochenwert nur für
         Fable) ist mit kontingent.sh derzeit nicht lesbar (das
         rate_limit_event enthält nur seven_day und five_hour): im
         Director-Plan „Fable only nicht lesbar, Stopp nur über die Zahl der

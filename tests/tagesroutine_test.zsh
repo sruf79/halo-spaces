@@ -100,7 +100,7 @@ pruefe "Montag 09:05: Werktag ab 09:00" "$(lauf 2026-11-16T09:05:00+01:00 85)" '
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
 JD=2026-11-17T10:00:00+01:00   # 9 h nach dem Reset, Soll 5.4 %
 pruefe "ohne Volldampf: Woche 30 % am Dienstag 10:00 → deutlich über Soll, warten" "$(lauf $JD 30)" \
-  'deutlich darüber' 'Entscheidung: warten bis 11:00' 'Volldampf: +keine Zeile' 'Tageslimit 20 eigene'
+  'deutlich darüber' 'Entscheidung: warten bis 11:00' 'Volldampf: +keine Zeile' 'Tageslimit 40 eigene'
 pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, kein Tageslimit für Commits (17.11.2026)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Volldampf: +Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(endet bei Wochenlimit\)' '→ Volldampf \(Sollkurve bremst nicht\)' \
   'Entscheidung: neu beginnen' 'komplexe Einträge: opus, Routine: sonnet' 'kein Tageslimit für Commits \(Volldampf\)' 'Würde: +Plan-Runde'
@@ -108,12 +108,12 @@ pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, kein Tageslimit fü
 print 'MAX_COMMITS_VOLLDAMPF=100' > $T/vd100.conf
 pruefe "Volldampf: MAX_COMMITS_VOLLDAMPF aus der Konfiguration" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 10 $T/vd100.conf)" 'Tageslimit 100 eigene'
 pruefe "ohne Volldampf: Zwischen-Release aus, Tageslimit unverändert" "$(lauf 2026-11-17T10:00:00+01:00 3)" \
-  'Zwischen-Release: aus \(nur im Volldampf\)' 'Tageslimit 20 eigene'
+  'Zwischen-Release: aus \(nur im Volldampf\)' 'Tageslimit 40 eigene'
 pruefe "Volldampf: Trockenlauf nennt den Wächter tests/zwischen-schleife.zsh" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Zwischen-Release: Wächter tests/zwischen-schleife.zsh läuft'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
 pruefe "Volldampf beendet: Zwischen-Release aus, Tageslimit normal" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
-  'Zwischen-Release: aus' 'Tageslimit 20 eigene'
+  'Zwischen-Release: aus' 'Tageslimit 40 eigene'
 rm -f $T/volldampf-beendet.txt
 pruefe "Skript: Commit-Grenze nur wenn MAX_COMMITS > 0; kein eigener Push nach main, kein Release, keine eigene Zwischen-Release-Runde" \
   "$(grep -c 'MAX_COMMITS > 0 && \$(eigene_commits_zahl)' $SKRIPT; grep -E -c '^[^#]*(push[^|;]* origin[^|;]* HEAD:main|release\.sh|publish\.sh|zwischen-release\.zsh)' $SKRIPT)" '^1$' '^0$'
@@ -124,14 +124,14 @@ pruefe "Auftrag: Abschnitt Zwischen-Release über den Wächter, nie selbst" "$(<
   'Zwischen-Release \(Volldampf' 'tests/zwischen-schleife\.zsh' 'nie du'
 pruefe "Volldampf: Fable bei 5-Stunden-Fenster 55 % erlaubt (unter 60), ohne Soll-Bedingung" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
   'Fable: erlaubt'
-pruefe "Volldampf: Fable bei 5-Stunden-Fenster 65 % nicht erlaubt" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 65)" 'Fable: nein'
+pruefe "Volldampf: Fable bei 5-Stunden-Fenster 65 % erlaubt (keine Fenstergrenze, 17.11.2026)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 65)" 'Fable: erlaubt'
 pruefe "Volldampf: 5-Stunden-Fenster ≥ 80 % bremst weiter" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 85)" \
   'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
 pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-16T12:00:00+01:00 95)" \
-  'Volldampf angemeldet \(ab 2026-11-17T01:00\+01:00, bis 2026-11-24T01:00\+01:00\), nicht aktiv' 'Rate 0\.00' 'Tageslimit 20 eigene'
+  'Volldampf angemeldet \(ab 2026-11-17T01:00\+01:00, bis 2026-11-24T01:00\+01:00\), nicht aktiv' 'Rate 0\.00' 'Tageslimit 40 eigene'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
 pruefe "Volldampf beendet (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
-  'Volldampf beendet: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\)' 'deutlich darüber' 'Tageslimit 20 eigene'
+  'Volldampf beendet: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\)' 'deutlich darüber' 'Tageslimit 40 eigene'
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'
 [[ -e $T/volldampf-beendet.txt ]] && { print "FEHLER Trockenlauf hat volldampf-beendet.txt geschrieben"; FEHLER=1 }

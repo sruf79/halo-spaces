@@ -29,7 +29,7 @@ Zeiten in Wiener Zeit.
 | Wochentage | Mo–So (`WOCHENTAGE 1–7`) | `tests/tagesroutine.sh:78`; ENTSCHEIDUNGEN.md:487/505 |
 | Beginn | 09:00, auch Sa/So | s. o. |
 | Letzter Beginn / Ende | 20:30 / 22:00 | `tagesroutine.conf:10–11` |
-| Commits je Tag | `MAX_COMMITS_TAG`: Skript 20, Konfig 40 (seit 15.11., Sicherung `tagesroutine.conf.vor-limit40-2026-11-15`) | `tests/tagesroutine.sh:84`; **ohne Wortlaut in ENTSCHEIDUNGEN.md, Frage an den Maintainer** |
+| Commits je Tag | `MAX_COMMITS_TAG`: 40 (Maintainer 17.11.2026: „40 commits“; Skript-Standard angeglichen) | `tests/tagesroutine.sh:84`; **ohne Wortlaut in ENTSCHEIDUNGEN.md, Frage an den Maintainer** |
 | Push | nie nach `main`; nur `pruef/tagesroutine-<datum>` (Linux, statisch); Ausnahme Release unter Tage | `docs/testrechner.md` „Tagesroutine“; ENTSCHEIDUNGEN.md ab :612 (15.11.2026) |
 | belegt | wartet bis `BELEGT_WARTEN` 60 Min. (CI, Testlauf, Release) | `tests/tagesroutine.sh:84`; `tests/lauf-hilfen.zsh:478` |
 | Pausen | nur `~/halo-nacht/pausen.txt` mit Ablaufzeit | `tests/lauf-hilfen.zsh:95, 138` |
@@ -87,7 +87,7 @@ Zeiten in Wiener Zeit.
 |---|---|---|
 | `docs/testrechner.md` Auslastungswächter | „nachts eine weniger“ veraltet seit 9d2b9f0 | berichtigt |
 | `docs/testrechner.md` Zwischen-Release | „bis 19:30“, Skript 22:30 (ed43f8d, ENTSCHEIDUNGEN.md:755) | berichtigt |
-| `MAX_COMMITS_TAG` | Skript 20, Konfig 40, kein Wortlaut | **Frage an den Maintainer** |
+| `MAX_COMMITS_TAG` | Skript 20, Konfig 40 | entschieden 17.11.2026: 40 („1. 40 commits“) |
 | ENTSCHEIDUNGEN.md 13.11. Volldampf | „doppeltes Commit-Tageslimit“, „Fortsetzungen bis 08:00“ durch 16./17.11. überholt (neuere gelten) | nur Hinweis |
-| Fable | 13.11. „höchstens zwei je Nacht, einer am Tag“ (bestätigt) gegen 17.11. „bei bedarf auch fable“ | **Frage an den Maintainer** (gilt nur im Volldampf) |
+| Fable | 13.11. „höchstens zwei je Nacht, einer am Tag“ (bestätigt) gegen 17.11. „bei bedarf auch fable“ | entschieden 17.11.2026: im Volldampf keine Limits für Fable, wenn der Einsatz hilfreich ist und die Produktivität erhöht; im Alltag gelten die Grenzen oben |
 | Kopien in `~/.config/halo-spaces/` | `lauf-hilfen.zsh`, `tagesroutine.sh` älter als der Checkout | neon muss sie erneuern |

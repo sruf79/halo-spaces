@@ -759,3 +759,7 @@ Volldampf, automatischer Auslastungswächter (17.11.2026, neon-Sitzung, übermit
 ## 17.11.2026 – Release- und Commit-Auskünfte für github.comm.routine
 
 Maintainer (in neon, 17.11.2026, auf die Frage, ob neon für github.comm.routine nachschlagen soll): „ja mach das, jetzt und auch in zukunft ohne rückfrage“. Gemeint (Deutung): neon liest für github.comm.routine nur lesend im Checkout ~/halo-spaces, ob ein Fix auf origin/main liegt, in welchem Release-Tag er zuerst steht, wo ein Hash liegt und welches Release aktuell ist, und antwortet der Sitzung mit dem Ergebnis. Änderungen, Pushes und Schreibzugriffe gehören nicht dazu.
+
+## 17.11.2026 – Betterbird
+
+Maintainer (in neon, 17.11.2026): „bezüglich punkt 2 - wie unterscheidet sich betterbird von thunderbird? ist das hinsichtlich ui ganz anders? ansonsten können wir nicht gleichzeitig die extension für sowohl thunderbird als auch betterbird designen“, danach auf neons Vorschlag, nur Thunderbird zu unterstützen: „ja ergänze in agents.md“. Wortlaut in `AGENTS.md`.

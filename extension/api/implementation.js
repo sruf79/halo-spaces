@@ -3018,7 +3018,30 @@ const TASK_LISTS = [
   ["progress", "In Progress", "progress", "any"],
   ["completed", "Completed", "done", "any"],
   ["important", "Important", "open", "any", item => item.priority >= 1 && item.priority <= 4],
+  // archivierte Aufgaben (offen wie erledigt) – nur hier, in keiner anderen Ansicht
+  ["archived", "Archived", "any", "any"],
 ];
+
+// Aufgaben archivieren wie Mails: ein Merkmal im Eintrag selbst (eigene
+// X-Eigenschaft im iCalendar) – kein Löschen, keine Kategorie; so reist es über
+// CalDAV mit, andere Programme lassen es stehen und zeigen die Aufgabe weiter
+const TASK_ARCHIVED_PROP = "X-HALO-ARCHIVED";
+function isTaskArchived(item) {
+  try {
+    return !!item?.isTodo?.() && String(item.getProperty(TASK_ARCHIVED_PROP) ?? "") == "1";
+  } catch {
+    return false;
+  }
+}
+// zeigt die Ansicht key eine (nicht) archivierte Aufgabe?
+const taskInList = (key, archived) => (key == "archived") == !!archived;
+// Aktion für die Auswahl: alle archiviert → zurückholen, sonst archivieren
+function archiveAction(flags) {
+  if (!flags?.length) {
+    return null;
+  }
+  return flags.every(Boolean) ? "unarchive" : "archive";
+}
 // Kanban-Ansicht: dieselbe Liste samt Erledigten (sonst bliebe die Spalte
 // „Completed“ leer), als eigener Filter „mcTasks-<key>-board“
 const taskListFilter = (key, board = false) => `mcTasks-${key}${board ? "-board" : ""}`;
@@ -3070,7 +3093,7 @@ function defineTaskLists(win) {
       open: props.FILTER_STATUS_INCOMPLETE | props.FILTER_STATUS_IN_PROGRESS,
       progress: props.FILTER_STATUS_IN_PROGRESS,
       done: props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE,
-    }[status];
+    }[status] ?? null;
     if (board && status == "open") {
       props.status |= props.FILTER_STATUS_COMPLETED_TODAY | props.FILTER_STATUS_COMPLETED_BEFORE;
     }
@@ -3079,9 +3102,10 @@ function defineTaskLists(win) {
       dated: props.FILTER_DUE_PAST | props.FILTER_DUE_TODAY | props.FILTER_DUE_FUTURE,
       any: props.FILTER_DUE_ALL,
     }[due];
-    if (extra) {
-      props.onfilter = (item, result) => result && extra(item);
-    }
+    const accept = (item, result) => result && taskInList(key, isTaskArchived(item)) && (!extra || extra(item));
+    // (Kennung für den Riegel in hideArchivedTasks: nur diese Ansicht zeigt Archiviertes)
+    accept.mcArchived = key == "archived";
+    props.onfilter = accept;
     // die definierten Filter teilen sich alle calFilter (am Prototyp)
     filter.defineFilter(taskListFilter(key, board), props);
    }
@@ -4053,6 +4077,120 @@ async function reopenTasks(win, tasks) {
     }
   }
   return true;
+}
+
+// Aufgaben archivieren bzw. zurückholen (on = true/false): Merkmal setzen oder
+// entfernen, als eine rückgängig machbare Änderung; bei Serien die ganze Serie.
+// Schreibgeschützte Listen bleiben unverändert. Ergebnis: Anzahl geänderter Aufgaben
+async function archiveTasks(win, tasks, on) {
+  const seen = new Set();
+  let n = 0;
+  win.startBatchTransaction?.();
+  try {
+    for (const task of tasks || []) {
+      const item = task?.parentItem || task;
+      if (!item?.isTodo?.() || seen.has(item.hashId) || isTaskArchived(item) == on || item.calendar?.readOnly) {
+        continue;
+      }
+      seen.add(item.hashId);
+      try {
+        const copy = item.clone();
+        if (on) {
+          copy.setProperty(TASK_ARCHIVED_PROP, "1");
+        } else {
+          copy.deleteProperty(TASK_ARCHIVED_PROP);
+        }
+        if (typeof win.doTransaction == "function") {
+          win.doTransaction("modify", copy, copy.calendar, item, null);
+        } else {
+          await item.calendar.modifyItem(copy, item);
+        }
+        n++;
+      } catch (e) {
+        log("archive task error", e);
+      }
+    }
+  } finally {
+    win.endBatchTransaction?.();
+  }
+  return n;
+}
+
+// Archivieren im Bereich Aufgaben wie im Mail-Bereich: Eintrag „Archive“ im
+// Kontextmenü der Aufgaben (bei lauter archivierten „Unarchive“), Taste A in
+// der Liste. Archivierte Aufgaben zeigt nur die Ansicht „Archived“ – auch die
+// Today-Pane und alle übrigen Aufgabenlisten (Thunderbirds calFilter) lassen
+// sie weg, so stehen sie auch im Kanban-Board nicht mehr unter „Completed“
+function hookTaskArchive(win, restorers) {
+  const doc = win.document;
+  const proto = win.calFilter?.prototype;
+  const menu = doc.getElementById("taskitem-context-menu");
+  if (!proto?.propertyFilter || proto.__mcArchive || !menu) {
+    return;
+  }
+  const origFilter = proto.propertyFilter;
+  proto.propertyFilter = function (item) {
+    const result = origFilter.call(this, item);
+    return result && (!isTaskArchived(item) || !!this.mFilterProperties?.onfilter?.mcArchived);
+  };
+  proto.__mcArchive = true;
+  const selected = () => {
+    try {
+      return win.getSelectedTasks?.() || [];
+    } catch {
+      return [];
+    }
+  };
+  const run = tasks => {
+    const action = archiveAction(tasks.map(t => isTaskArchived(t?.parentItem || t)));
+    if (action) {
+      archiveTasks(win, tasks, action == "archive").catch(e => log("archive tasks", e));
+    }
+  };
+  const item = doc.createXULElement("menuitem");
+  item.id = "mcTaskContextArchive";
+  item.addEventListener("command", () => run(selected()));
+  const anchor = doc.getElementById("calendar-context-markcompleted");
+  if (anchor?.parentNode == menu) {
+    anchor.after(item);
+  } else {
+    menu.append(item);
+  }
+  const onShowing = event => {
+    if (event.target != menu) {
+      return;
+    }
+    const tasks = selected();
+    const action = archiveAction(tasks.map(t => isTaskArchived(t?.parentItem || t)));
+    item.hidden = !action;
+    item.setAttribute("label", tr(action == "unarchive" ? "Unarchive" : "Archive"));
+    item.disabled = tasks.every(t => (t?.parentItem || t)?.calendar?.readOnly);
+  };
+  menu.addEventListener("popupshowing", onShowing);
+  // Taste A wie im Mail-Bereich (ohne Umschalt- und Befehlstasten)
+  const tree = doc.getElementById("calendar-task-tree");
+  const onKey = event => {
+    if (event.key != "a" || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat) {
+      return;
+    }
+    const tasks = tree.selectedTasks || [];
+    if (tasks.length) {
+      event.preventDefault();
+      event.stopPropagation();
+      run(tasks);
+    }
+  };
+  tree?.addEventListener("keydown", onKey);
+  // für den automatischen Test
+  win.__mcArchiveTasks = (tasks, on) => archiveTasks(win, tasks, on);
+  restorers?.push(() => {
+    proto.propertyFilter = origFilter;
+    delete proto.__mcArchive;
+    menu.removeEventListener("popupshowing", onShowing);
+    tree?.removeEventListener("keydown", onKey);
+    item.remove();
+    delete win.__mcArchiveTasks;
+  });
 }
 
 // Kartenansicht der Aufgaben wie die Mail-Karten: Thunderbirds Liste (XUL-Baum)
@@ -5813,6 +5951,8 @@ function hookTaskCards(win, restorers) {
           task.dueDate = due;
         } else if (key == "important") {
           task.priority = 1;
+        } else if (key == "archived") {
+          task.setProperty(TASK_ARCHIVED_PROP, "1");
         }
         win.doTransaction("add", task, calendar, null, null);
       } catch (e) {
@@ -11518,6 +11658,7 @@ class CardEnhancer {
         try {
           hookTaskFilter();
           hookTaskLists(w, this.restorers);
+          hookTaskArchive(w, this.restorers);
           relinkTaskTree(w, this.restorers);
           hookTaskView(w, this.restorers);
           hookTaskCards(w, this.restorers);

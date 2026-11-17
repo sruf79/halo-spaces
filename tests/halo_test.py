@@ -5444,6 +5444,49 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Adressbuch: „+“ rechts über der Kontaktliste mit Menü zum Anlegen, „…“ mit eigenem Tooltip, Toolbar ohne Anlegen-Knöpfe", addressbook_plus, results)
 
+    def addressbook_plus_disabled():
+        # Menü „+“: was gerade nicht geht (Adressbuch nur lesbar bzw. ohne Listen wie
+        # LDAP/CardDAV, Kontakt wird bearbeitet), ist ausgegraut – vorher blieb ein
+        # Klick darauf ohne jede Wirkung (Thunderbird führt gesperrte Befehle nicht aus)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          await toMail(); await ruhig(300);
+          const tab = tm.openTab("addressBookTab", {});
+          const cw = await until(() => { const c = tab.browser?.contentWindow; return c?.booksList && c.cardsPane?.cardsList && c; }, 8000);
+          await bis(() => d.getElementById("mcListHeader")?.querySelector(".mc-lh-plus")?.getBoundingClientRect().width, "Adressbuch-Kopf mit „+“", 8000); await ruhig(600);
+          const pop = d.getElementById("mcAbNewPopup"), plus = d.querySelector("#mcListHeader .mc-lh-plus");
+          const state = async () => {
+            plus.click(); await until(() => pop?.state == "open", 3000);
+            const s = Object.fromEntries([...pop.querySelectorAll("menuitem")].map(i => [i.dataset.command, i.disabled]));
+            pop.hidePopup(); await ruhig(200);
+            return s;
+          };
+          const id = MailServices.ab.newAddressBook("Nur Lesen", "ldap://127.0.0.1:1/dc=example,dc=invalid", Ci.nsIAbManager.LDAP_DIRECTORY_TYPE);
+          const ldap = MailServices.ab.getDirectoryFromId(id);
+          const out = {};
+          try {
+            await until(() => cw.booksList.getIndexForUID(ldap.UID) > 0, 3000);
+            cw.booksList.selectedIndex = 0; await ruhig(400);
+            out.all = await state();
+            cw.booksList.selectedIndex = cw.booksList.getIndexForUID(ldap.UID); await ruhig(400);
+            out.readOnly = await state();
+            cw.booksList.selectedIndex = 0; await ruhig(400);
+            cw.detailsPane.editNewContact(); await until(() => cw.detailsPane.isEditing, 3000);
+            out.editing = await state();
+            cw.detailsPane.isDirty = false;
+            cw.detailsPane.cancelEditButton?.click(); await ruhig(300);
+          } finally {
+            MailServices.ab.deleteAddressBook(ldap.URI); await ruhig(300);
+            tm.closeTab(tab); await toMail();
+          }
+          return out;""")
+        a, r, e = res.get("all", {}), res.get("readOnly", {}), res.get("editing", {})
+        ok = (a and not any(a.values())
+              and r.get("cmd_newCard") is True and r.get("cmd_createList") is True and r.get("cmd_createAddressBook") is False
+              and e and all(e.values()))
+        return ok, f"{res}"
+    check("Adressbuch: Menü „+“ graut aus, was gerade nicht geht (nur lesbares Buch, Buch ohne Listen, während des Bearbeitens)", addressbook_plus_disabled, results)
+
     def addressbook_line_straight():
         # Trennlinie rechts der Kontaktliste läuft gerade von der Toolbar-Zeile in die Liste: Linie in der Toolbar-Zeile
         # so breit wie der Rand der Liste (Haarlinie) und an derselben Stelle (vorher 1 px breit, rechts neben dem Rand –

@@ -13398,6 +13398,21 @@ class CardEnhancer {
         mi.dataset.command = command;
         plusPopup.append(mi);
       }
+      // was gerade nicht geht (Buch nur lesbar oder ohne Listen, Kontakt wird
+      // bearbeitet), ausgrauen – Thunderbird führt gesperrte Befehle stumm nicht aus
+      plusPopup.addEventListener("popupshowing", event => {
+        if (event.target != plusPopup) {
+          return;
+        }
+        const ctl = d.getElementById("tabmail")?.currentTabInfo?.browser?.contentWindow?.commandController;
+        for (const mi of plusPopup.querySelectorAll("menuitem")) {
+          let enabled = true;
+          try {
+            enabled = typeof ctl?.isCommandEnabled != "function" || ctl.isCommandEnabled(mi.dataset.command);
+          } catch {} // gewollt: Zustand nicht lesbar, Eintrag bleibt wählbar
+          mi.disabled = !enabled;
+        }
+      });
       plusPopup.addEventListener("command", event => {
         const command = event.target.dataset?.command;
         if (command) {

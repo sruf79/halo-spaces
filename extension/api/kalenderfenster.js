@@ -1133,11 +1133,13 @@ class EnhancerKalender {
     // Verteiler-Hinweis über der geöffneten Mail (#mcListBanner): füllt die Breite des Mailbereichs, der sich nur am
     // Anfang bzw. Ende ändert – Abmelden-Knopf und Kreuz sprangen deshalb am Ende (Einblenden) bzw. Anfang (Ausblenden).
     // Schmale Breite (Pane im Fluss) jetzt messen, breite (Pane darüber) unten; pro Bild dazwischen gleiten
-    const bannerEl = () => {
-      const el = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentWindow?.messageBrowser?.contentDocument?.getElementById("mcListBanner");
+    // (ebenso der Code-Hinweis #mcCodeBanner)
+    const bannerEl = (id = "mcListBanner") => {
+      const el = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentWindow?.messageBrowser?.contentDocument?.getElementById(id);
       return el?.isConnected ? el : null;
     };
     const bannerNarrow = bannerEl()?.getBoundingClientRect().width || null;
+    const codeNarrow = bannerEl("mcCodeBanner")?.getBoundingClientRect().width || null;
     // Mehrfachauswahl-Stapel (#mcConversation.mc-stack): liegt mittig mit Rand in Prozent im Mailbereich und rückte
     // deshalb am Ende des Einblendens (Anfang des Ausblendens) mit dessen neuer Breite um ein paar Pixel – wie den
     // Hinweis pro Bild in der Breite mitführen
@@ -1221,11 +1223,13 @@ class EnhancerKalender {
     };
     const bannerWide = bannerNarrow ? bannerEl()?.getBoundingClientRect().width || null : null;
     const bannerFollow = bannerNarrow && bannerWide && Math.abs(bannerWide - bannerNarrow) >= 1 ? bannerEl() : null;
+    const codeWide = codeNarrow ? bannerEl("mcCodeBanner")?.getBoundingClientRect().width || null : null;
+    const codeFollow = codeNarrow && codeWide && Math.abs(codeWide - codeNarrow) >= 1 ? bannerEl("mcCodeBanner") : null;
     const stackWide = stackNarrow ? stackEl()?.getBoundingClientRect().width || null : null;
     const stackFollow = stackNarrow && stackWide && Math.abs(stackWide - stackNarrow) >= 1 ? stackEl() : null;
     const moveBanner = value => {
       const share = Math.min(1, Math.max(0, value / full));
-      for (const [el, wide, narrow] of [[bannerFollow, bannerWide, bannerNarrow], [stackFollow, stackWide, stackNarrow]]) {
+      for (const [el, wide, narrow] of [[bannerFollow, bannerWide, bannerNarrow], [codeFollow, codeWide, codeNarrow], [stackFollow, stackWide, stackNarrow]]) {
         if (!el?.isConnected) {
           continue;
         }
@@ -1392,7 +1396,7 @@ class EnhancerKalender {
       if (editBlock) {
         editBlock.style.transform = "";
       }
-      for (const el of [bannerFollow, stackFollow]) {
+      for (const el of [bannerFollow, codeFollow, stackFollow]) {
         if (el?.isConnected) {
           el.style.removeProperty("width");
           el.style.removeProperty("box-sizing");

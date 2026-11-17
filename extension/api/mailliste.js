@@ -335,6 +335,7 @@ class EnhancerMailliste {
     const decorate = () => {
       decorateAttachments(mwin.document);
       decorateInvitation(mwin.document);
+      decorateCode(mwin.document);
     };
     const browser = mwin.frameElement;
     browser?.addEventListener("MsgLoaded", decorate, true);

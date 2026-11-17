@@ -1070,6 +1070,7 @@ class EnhancerMailkarten {
       meta?.__mcResize?.disconnect();
       meta?.remove();
       doc.getElementById("mcListBanner")?.remove();
+      doc.getElementById("mcCodeBanner")?.remove();
       for (const box of doc.querySelectorAll(".mc-hdr-avatar")) {
         box.classList.remove("mc-hdr-avatar", "mc-has-img", "mc-small");
         delete box.dataset.mcFor;
@@ -1408,8 +1409,13 @@ class EnhancerMailkarten {
       meta.__mcResize.observe(meta);
     }
 
-    // Hinweis bei Verteilern (List-ID/List-Unsubscribe), nicht im Spam-Ordner
+    // Hinweis bei Verteilern (List-ID/List-Unsubscribe), nicht im Spam-Ordner;
+    // der Code-Hinweis einer anderen Mail geht hier schon (der neue kommt bei „MsgLoaded“)
     doc.getElementById("mcListBanner")?.remove();
+    const codeBanner = doc.getElementById("mcCodeBanner");
+    if (codeBanner && codeBanner.dataset.mcFor != hdr.messageId) {
+      codeBanner.remove();
+    }
     const data = win.currentHeaderData || {};
     const isList = !!(data["list-id"] || data["list-unsubscribe"]);
     let junk = false;

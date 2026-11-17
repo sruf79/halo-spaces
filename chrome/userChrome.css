@@ -128,11 +128,30 @@
   --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
   --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
   --mt-cap-dot-press: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-press) 15.5px, transparent 16px);
+  /* Knopf-Familie (Licht und Zustände, noch ohne Verwendung): Lichtkante
+     oben mit feinem Schlagschatten, gedrückt mit Fläche und innerem
+     Schatten ohne Kante; Hauptknopf mit heller Oberkante, Lichthof in der
+     Systemfarbe (Anteil) und Schlagschatten */
+  --mt-btn-lite: rgba(255, 255, 255, 0.75);
+  --mt-btn-lite-drop: 0 1px 1px rgba(0, 0, 0, 0.07);
+  --mt-btn-press: rgba(0, 0, 0, 0.12);
+  --mt-btn-press-in: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+  --mt-primary-top: rgba(255, 255, 255, 0.42);
+  --mt-primary-halo: 50%;
+  --mt-primary-drop: 0 1px 1.5px rgba(0, 0, 0, 0.16);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    /* Knopf-Familie dunkel: schwächere Lichtkante, kräftigerer Schatten */
+    --mt-btn-lite: rgba(255, 255, 255, 0.14);
+    --mt-btn-lite-drop: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --mt-btn-press: rgba(255, 255, 255, 0.16);
+    --mt-btn-press-in: inset 0 1px 2px rgba(0, 0, 0, 0.14);
+    --mt-primary-top: rgba(255, 255, 255, 0.22);
+    --mt-primary-halo: 60%;
+    --mt-primary-drop: 0 2px 4px rgba(0, 0, 0, 0.5);
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
     --mt-sidebar: #282828;

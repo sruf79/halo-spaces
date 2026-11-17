@@ -15338,6 +15338,10 @@ Neu
             const v = w.getComputedStyle(e).boxShadow; e.remove(); return v; };
           out.ringVar = rcs.getPropertyValue("--mt-focus-ring").trim() ? probe("var(--mt-focus-ring)") : "";
           out.ringOld = probe("0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent)");
+          // Knopf-Familie: Licht- und Zustandsvariablen vorhanden (hell und dunkel eigene Werte)
+          out.dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          out.lite = ["--mt-btn-lite", "--mt-btn-lite-drop", "--mt-btn-press", "--mt-btn-press-in",
+                      "--mt-primary-top", "--mt-primary-halo", "--mt-primary-drop"].map(k => rcs.getPropertyValue(k).trim());
           w.openAddonsMgr("addons://list/extension");
           const ad = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector("addon-page-header .page-options-menu .more-options-button") && x; }, "about:addons", 8000);
           await ruhig(500);
@@ -15347,10 +15351,15 @@ Neu
           tm.closeTab(tm.currentTabInfo); await ruhig(300);
           return out;''')
         want = ["999px", "12px", "7px"]
+        LITE_LIGHT = ["rgba(255, 255, 255, 0.75)", "0 1px 1px rgba(0, 0, 0, 0.07)", "rgba(0, 0, 0, 0.12)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
+                      "rgba(255, 255, 255, 0.42)", "50%", "0 1px 1.5px rgba(0, 0, 0, 0.16)"]
+        LITE_DARK = ["rgba(255, 255, 255, 0.14)", "0 1px 2px rgba(0, 0, 0, 0.45)", "rgba(255, 255, 255, 0.16)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
+                     "rgba(255, 255, 255, 0.22)", "60%", "0 2px 4px rgba(0, 0, 0, 0.5)"]
         ok = (res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
-              and res["btn"] == ["30px", "24px"] and res["ringVar"] and res["ringVar"] == res["ringOld"] and "3px" in res["ringOld"])
+              and res["btn"] == ["30px", "24px"] and res["ringVar"] and res["ringVar"] == res["ringOld"] and "3px" in res["ringOld"]
+              and res["lite"] == (LITE_DARK if res["dark"] else LITE_LIGHT))
         return ok, f"{res}"
-    check("CSS: Radius-Stufen als --mt-Variablen (Kapsel, Popup, Feld), Knopfhöhen 30/24 und Fokusring mit den bisherigen Werten", radius_tiers, results)
+    check("CSS: Radius-Stufen als --mt-Variablen (Kapsel, Popup, Feld), Knopfhöhen 30/24 und Fokusring mit den bisherigen Werten, Licht der Knopf-Familie hell und dunkel", radius_tiers, results)
 
     def addons_buttons():
         # Add-ons-Verwaltung (Liste, Themes, Detail, halo-Einstellungen): sichtbare Fläche jedes moz-button ist seit

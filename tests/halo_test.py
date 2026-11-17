@@ -19943,6 +19943,49 @@ Neu
         return ok, f"{res}"
     check("Einstellungen → Allgemein: Auswahl der Dichte stellt die gewählte Dichte ein und zeigt sie danach weiter an", pref_density_choice, results)
 
+    def pref_tool_toggles(cards):
+        # Kästchen der Karten „Files and Display“ und „Calendar View“: schalten wirklich um und zeigen den wirklichen
+        # Zustand, vor und nach dem Umschalten; cards: [(Bereich, Karte, [Menüeintrag, …])], Kästchen in derselben Folge
+        res = m.js(PREFS_OPEN_JS + r"""
+          const cards = %s;
+          const truth = {
+            menu_fullZoomToggle: () => !Services.prefs.getBoolPref("browser.zoom.full", true),
+            viewAttachmentsInlineMenuitem: () => Services.prefs.getBoolPref("mail.inline_attachments", true),
+          };
+          const viaCmd = id => () => { const mi = d.getElementById(id), c = mi?.getAttribute("command"); const e = c ? d.getElementById(c) : mi;
+            return !!e && e.hasAttribute("checked") && e.getAttribute("checked") != "false"; };
+          for (const id of ["calWorkdaysOnlyMenuitem", "calTasksInViewMenuitem", "calShowCompletedInViewMenuItem", "calViewRotated"]) truth[id] = viaCmd(id);
+          const out = {};
+          try {
+            for (const [pane, card, ids] of cards) {
+              pw.gotoPref(pane);
+              const c = await bis(() => pd.getElementById(card), "Karte " + card, 6000);
+              await ruhig(300);
+              const all = [...c.querySelectorAll("input[type=checkbox]")], labels = [...c.querySelectorAll(".mc-pref-tool label")];
+              // Kästchen zum Menüeintrag über dessen Beschriftung
+              const boxOf = id => all.find(x => labels.find(l => l.contains(x))?.textContent.trim() == (d.getElementById(id)?.getAttribute("label") || "").trim());
+              ids.forEach(id => { out[id] = [[boxOf(id)?.checked, truth[id]()]]; });
+              for (let round = 0; round < 2; round++) {
+                for (const id of ids) {
+                  boxOf(id)?.click();
+                  await until(() => truth[id]() != out[id].at(-1)[1], 2000); await ruhig(200);
+                  c.dispatchEvent(new pw.FocusEvent("focusin", { bubbles: true }));
+                  out[id].push([boxOf(id)?.checked, truth[id]()]);
+                }
+              }
+            }
+            return out;
+          } finally {
+            for (const p of ["browser.zoom.full", "mail.inline_attachments"]) Services.prefs.clearUserPref(p);
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }""" % json.dumps(cards))
+        n = sum(len(ids) for _, _, ids in cards)
+        ok = len(res) == n and all(len(v) == 3 and all(box == real for box, real in v) and v[1][1] != v[0][1] for v in res.values())
+        return ok, f"{res}"
+    check("Einstellungen: Kästchen unter „Files and Display“ und „Calendar View“ zeigen den wirklichen Zustand, auch nach dem Umschalten",
+          lambda: pref_tool_toggles([["paneGeneral", "mcPrefFiles", ["menu_fullZoomToggle", "viewAttachmentsInlineMenuitem"]],
+                                     ["paneCalendar", "mcPrefCalendarView", ["calTasksInViewMenuitem", "calShowCompletedInViewMenuItem"]]]), results)
+
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),
         # unter „General“ vor „Language & Fonts“; nur bei „Allgemein“ sichtbar, die Suche findet sie

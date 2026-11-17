@@ -18866,6 +18866,8 @@ class CardEnhancer {
     pane.__mcConversation?.hide();
     delete pane.displayMessage;
     delete pane.displayMessages;
+    delete pane.clearAll;
+    delete pane.displayWebPage;
     pane.__mcConv = HOOK_OWNER;
     const conv = new ConversationCards(win, pane);
     pane.__mcConversation = conv;
@@ -18897,6 +18899,23 @@ class CardEnhancer {
       });
     }
     const one = pane.displayMessage, many = pane.displayMessages;
+    // Thunderbird leert die Leseansicht auch ohne displayMessage (Ordnerwechsel:
+    // clearAll; Webseite: displayWebPage) – dann auch die Karten weg, sonst
+    // blieb die Konversation des alten Ordners stehen bzw. erschien noch
+    // nachträglich, wenn ihre Abfrage erst danach fertig wurde
+    const clear = pane.clearAll, web = pane.displayWebPage;
+    if (typeof clear == "function") {
+      pane.clearAll = function (...args) {
+        conv.hide();
+        return clear.apply(this, args);
+      };
+    }
+    if (typeof web == "function") {
+      pane.displayWebPage = function (...args) {
+        conv.hide();
+        return web.apply(this, args);
+      };
+    }
     pane.displayMessage = function (uri) {
       conv.hide();
       if (uri && conv.enabled()) {
@@ -18951,6 +18970,8 @@ class CardEnhancer {
       conv.hide();
       delete pane.displayMessage;
       delete pane.displayMessages;
+      delete pane.clearAll;
+      delete pane.displayWebPage;
       delete pane.__mcConv;
       delete pane.__mcConversation;
     });

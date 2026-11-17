@@ -7312,8 +7312,10 @@ const PREF_TOOLS = [
   // [Karte, Bereich, vor/nach Thunderbird-Abschnitt, Überschrift, Einträge]
   ["mcPrefFiles", "paneGeneral", "languageAndFontsCategory", "Files and Display", [
     { button: "menu_openSavedFilesWnd" },
-    { toggle: "menu_fullZoomToggle" },
-    { toggle: "viewAttachmentsInlineMenuitem" },
+    // Zustand aus der Einstellung: Thunderbird setzt „checked“ dieser Einträge
+    // erst beim Öffnen ihres Menüs
+    { toggle: "menu_fullZoomToggle", pref: "browser.zoom.full", def: true, invert: true },
+    { toggle: "viewAttachmentsInlineMenuitem", pref: "mail.inline_attachments", def: true },
     // Dichte über ihre Einstellung: Thunderbirds Menüeinträge kennen ihren Wert
     // (mode, checked) erst, wenn das Menü Ansicht → Dichte einmal offen war –
     // über sie stellte jede Wahl „Compact“ ein und die Auswahl sprang zurück
@@ -7445,7 +7447,15 @@ function addPrefTools(doc, restorers) {
         const lab = doc.createElementNS(X, "label");
         const box = doc.createElementNS(X, "input");
         box.type = "checkbox";
-        const sync = () => (box.checked = item(row.toggle)?.getAttribute("checked") == "true");
+        // Thunderbird setzt „checked“ meist als leeres Attribut (toggleAttribute),
+        // bei Einträgen mit command= am Befehl
+        const checked = el => {
+          const src = (el?.getAttribute("command") && mailWin.document.getElementById(el.getAttribute("command"))) || el;
+          return !!src?.hasAttribute("checked") && src.getAttribute("checked") != "false";
+        };
+        const sync = () => (box.checked = row.pref
+          ? Services.prefs.getBoolPref(row.pref, row.def) != !!row.invert
+          : checked(item(row.toggle)));
         sync();
         box.addEventListener("change", () => {
           item(row.toggle)?.doCommand();

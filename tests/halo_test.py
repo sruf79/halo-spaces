@@ -10793,18 +10793,24 @@ def run_checks(m, version, profile, results):
         # Namen sind dort da (gleiche Liste wie tests/logik/teile.test.mjs)
         teile = {"texte.js": ["TRANSLATIONS"], "mail.js": ["UndoSend"], "bereiche.js": ["Weather"], "import.js": ["PstImport"],
                  "kalender.js": ["parseNatural"], "grundlagen.js": ["LogoCache"],
-                 "unterhaltung.js": ["ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF"]}
+                 "unterhaltung.js": ["ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF"],
+                 "oberflaeche.js": ["EnhancerOberflaeche"], "kalenderfenster.js": ["EnhancerKalender"],
+                 "halofenster.js": ["EnhancerHaloFenster"], "mailliste.js": ["EnhancerMailliste"],
+                 "mailkarten.js": ["EnhancerMailkarten"]}
+        # Methoden aus den CardEnhancer-Teilen am laufenden enhancer
+        methoden = ["styleSearch", "openQuickCreate", "openHaloWindow", "hookConversation", "decorateHeader", "refreshPreviewsNow"]
         res = m.js(r"""
           const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
           const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
           const namen = %s;
           return { geladen: Cu.evalInSandbox("typeof loadedParts == 'undefined' ? null : loadedParts.join(',')", g),
-                   fehlt: namen.filter(n => Cu.evalInSandbox(`typeof ${n}`, g) == "undefined") };""" % (
-            ADDON_ID, json.dumps(sorted({n for v in teile.values() for n in v}))))
+                   fehlt: namen.filter(n => Cu.evalInSandbox(`typeof ${n}`, g) == "undefined"),
+                   ohne: %s.filter(n => Cu.evalInSandbox(`typeof enhancer?.${n}`, g) != "function") };""" % (
+            ADDON_ID, json.dumps(sorted({n for v in teile.values() for n in v})), json.dumps(methoden)))
         geladen = (res["geladen"] or "").split(",")
-        ok = all(t in geladen for t in teile) and not res["fehlt"]
+        ok = all(t in geladen for t in teile) and not res["fehlt"] and not res["ohne"]
         return ok, f"{res}"
-    check("Erweiterung: Teile der Experiment-API (api/unterhaltung.js …) geladen, ihre Namen da", parts_loaded, results)
+    check("Erweiterung: Teile der Experiment-API (api/unterhaltung.js, Teile von CardEnhancer …) geladen, ihre Namen da", parts_loaded, results)
 
     def folder_start_width():
         # Neues Profil, Mail-Tab zuerst offen: Ordnerliste 206 px wie in Apple Mail (und wie nach

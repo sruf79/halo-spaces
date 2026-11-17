@@ -10265,6 +10265,21 @@ addon-card .addon-inline-options {
   background: var(--mt-control-hover) !important;
 }
 
+/* Knopf-Familie: Kapseln mit feiner Lichtkante; unter der Maus etwas dunkler
+   mit Kante, gedrückt dunkler mit innerem Schatten ohne Kante, gesperrt flach */
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater) {
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater, [is="toolbarbutton-menu-button"]):not([disabled]):hover:active {
+  background: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater)[disabled] {
+  box-shadow: none !important;
+}
+
 /* geteilte Knöpfe wie Apple: Trennstrich 1 px, gut die halbe Kapselhöhe, der
    beim Überfahren verschwindet; statt der ganzen Kapsel bekommt nur die Hälfte
    unter der Maus eine Fläche mit 3 px Abstand zum Kapselrand. Thunderbird
@@ -10325,21 +10340,31 @@ addon-card .addon-inline-options {
   background-color: var(--mt-cap-press) !important;
 }
 
-/* Senden in Akzentfarbe wie Apples Papierflieger */
+/* Senden ist der Hauptknopf des Fensters: Systemfarbe mit Licht, Symbol in
+   der Schrift zur Systemfarbe; Maus ohne Änderung, gedrückt dunkler ohne
+   Licht, gesperrt grau und flach mit blassem Symbol */
 #composeToolbar2 > #button-send {
-  background: var(--mt-accent) !important;
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image, none) !important;
+  box-shadow: var(--mt-primary-shadow, none) !important;
   color: var(--mt-accent-text) !important;
   -moz-context-properties: fill, stroke !important;
   fill: var(--mt-accent-text) !important;
   stroke: var(--mt-accent-text) !important;
 }
 
-#composeToolbar2 > #button-send[disabled] {
-  background: color-mix(in srgb, var(--mt-accent) 40%, var(--mt-window)) !important;
+#composeToolbar2 > #button-send:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
 }
 
-#composeToolbar2 > #button-send:not([disabled]):hover {
-  background: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+#composeToolbar2 > #button-send[disabled] {
+  background-color: var(--mt-control) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  fill: color-mix(in srgb, var(--mt-text) 30%, transparent) !important;
+  stroke: color-mix(in srgb, var(--mt-text) 30%, transparent) !important;
 }
 
 #composeToolbar2 > toolbarseparator {

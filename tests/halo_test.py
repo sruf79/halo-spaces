@@ -4018,6 +4018,42 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Verfassen wie Apple Mail: Symbole mittig, Senden rund rechts, „Aa“ für die Formatleiste, Bezeichnungen links, Absender-Menü mit 24-px-Zeilen; Weiterleitung mit Apple-Kopf; Anhänge als Kacheln", apple_compose, results)
 
+    def compose_family():
+        # Knopf-Familie im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Verlauf und Licht), Maus
+        # ohne Änderung, gedrückt dunkler ohne Licht; Kapseln mit Lichtkante, unter der Maus etwas dunkler mit Kante,
+        # gedrückt mit innerem Schatten ohne Kante. Zustände über addPseudoClassLock, nie senden
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({}, async (cw, cd) => {
+            const tb = cd.getElementById("composeToolbar2"), send = cd.getElementById("button-send");
+            const look = el => { const s = csOf(el); return { bg: s.backgroundColor, img: s.backgroundImage, sh: s.boxShadow, h: Math.round(el.getBoundingClientRect().height),
+                                                              w: Math.round(el.getBoundingClientRect().width), r: s.borderTopLeftRadius }; };
+            const lock = async (el, cls, on) => { for (const c of cls) on ? InspectorUtils.addPseudoClassLock(el, c) : InspectorUtils.removePseudoClassLock(el, c); await pause(150); };
+            const out = { accent: colorOf(cd, "AccentColor"), control: colorOf(cd, "var(--mt-control)", "backgroundColor"),
+                          hoverC: colorOf(cd, "var(--mt-control-hover)", "backgroundColor"), pressC: colorOf(cd, "var(--mt-btn-press)", "backgroundColor") };
+            out.send = { ready: look(send) };
+            await lock(send, [":hover"], true); out.send.hover = look(send);
+            await lock(send, [":active"], true); out.send.press = look(send); await lock(send, [":active", ":hover"], false);
+            const pill = [...tb.children].find(b => b.localName == "toolbarbutton" && vis(b) && !b.disabled && !b.hasAttribute("checked")
+              && b.getAttribute("is") != "toolbarbutton-menu-button" && !["button-send", "mcSendLater", "mcFormatToggle"].includes(b.id));
+            out.pillId = pill?.id;
+            if (pill) { out.pill = { ready: look(pill) };
+              await lock(pill, [":hover"], true); out.pill.hover = look(pill);
+              await lock(pill, [":active"], true); out.pill.press = look(pill); await lock(pill, [":active", ":hover"], false); }
+            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient")).map(b => b.id);
+            return out; });""")
+        sd, pl = res.get("send") or {}, res.get("pill") or {}
+        send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and sd["ready"]["img"].startswith("linear-gradient") and "inset" in sd["ready"]["sh"]
+                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [30, 30, "50%"]
+                   and sd["hover"]["bg"] == sd["ready"]["bg"] and sd["hover"]["img"] == sd["ready"]["img"] and sd["hover"]["sh"] == sd["ready"]["sh"]
+                   and sd["press"]["img"] == "none" and luminance(sd["press"]["bg"]) < luminance(sd["ready"]["bg"]) and "inset" in sd["press"]["sh"])
+        pill_ok = (bool(pl) and same_color(pl["ready"]["bg"], res["control"]) and "inset" in pl["ready"]["sh"] and pl["ready"]["sh"].count("rgba") >= 2
+                   and same_color(pl["hover"]["bg"], res["hoverC"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
+                   and same_color(pl["press"]["bg"], res["pressC"]) and "inset" in pl["press"]["sh"] and pl["press"]["sh"].count("rgba") == 1)
+        ok = send_ok and pill_ok and res.get("lit") == ["button-send"]
+        return ok, f"{res}"
+    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 30 × 30 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
+          "Kapseln mit Lichtkante, Maus dunkler, gedrückt ohne Kante", compose_family, results)
+
 
 DIALOG_READING_JS = READING_JS + r"""
   const { setTimeout: modT } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");

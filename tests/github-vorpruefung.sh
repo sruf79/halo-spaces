@@ -121,6 +121,22 @@ if [[ -r ${0:A:h}/inaktivitaet.sh ]]; then
   (( ina_rc == 1 )) && FUNDE+=(${(f)"$(print -r -- $INA | sed -n 's/^\(FEHLER .*\)/Inaktivität: \1/p')"})
   (( ina_rc == 2 )) && HINWEIS+="${HINWEIS:+ }Hinweis: Inaktivitätsregel nicht prüfbar (${${(f)INA}[-1]})"
 fi
+# Ausnahmen der Inaktivitätsregel regelmäßig prüfen (Maintainer 17.11.2026: „ja natürlich. machst du das nicht regelmässig
+# automatisch?“): ein geschlossenes Issue in tests/inaktivitaet-ausnahmen.txt ist ein Fund (Zeile veraltet), offene Ausnahmen
+# stehen mit Alter der letzten Aktivität im Hinweis (kein Fund, damit die Routine nicht ständig geweckt wird).
+AUSN=${HALO_INA_AUSNAHMEN:-${0:A:h}/inaktivitaet-ausnahmen.txt}
+if [[ -r $AUSN ]] && command -v gh >/dev/null; then
+  for n in ${(f)"$(sed -n 's/^\([0-9][0-9]*\) |.*/\1/p' $AUSN)"}; do
+    z=$(gh issue view $n --json state,updatedAt --jq '.state+" "+.updatedAt' 2>/dev/null) || continue
+    if [[ ${z%% *} == CLOSED ]]; then
+      FUNDE+=("Issue #$n: geschlossen, Zeile in tests/inaktivitaet-ausnahmen.txt entfernen (Ausnahme-Prüfung)")
+    else
+      alt=$(( ( $(date +%s) - $(date -j -f %Y-%m-%dT%H:%M:%SZ ${z#* } +%s 2>/dev/null || date +%s) ) / 86400 ))
+      AUSN_TXT+="#$n ($alt T) "
+    fi
+  done
+  [[ -n $AUSN_TXT ]] && HINWEIS+="${HINWEIS:+ }Hinweis: Ausnahmen der Inaktivitätsregel offen, Tage seit letzter Aktivität: ${AUSN_TXT% }, prüfen, ob noch nötig."
+fi
 FUNDE=(${(u)FUNDE:#})
 
 if (( $#FUNDE )); then

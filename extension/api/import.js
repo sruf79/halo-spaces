@@ -400,6 +400,131 @@ const PstImport = {
     });
     return atts.length ? multi("mixed", [main, ...atts]) : main;
   },
+  valid(d) {
+    return !!d && typeof d.getTime == "function" && !isNaN(d.getTime());
+  },
+  // Kalendertag eines Zeitpunkts: Outlook speichert Geburtstage, ganztägige
+  // Termine und Aufgaben als Mitternacht der Ortszeit (in UTC) oder als
+  // Mitternacht UTC – mit 12 Stunden Zuschlag ergibt beides denselben Tag
+  day(d) {
+    const x = new Date(d.getTime() + 12 * 3600e3);
+    return `${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, "0")}${String(x.getUTCDate()).padStart(2, "0")}`;
+  },
+  nextDay(day) {
+    const x = new Date(Date.UTC(+day.slice(0, 4), +day.slice(4, 6) - 1, +day.slice(6, 8) + 1));
+    return `${x.getUTCFullYear()}${String(x.getUTCMonth() + 1).padStart(2, "0")}${String(x.getUTCDate()).padStart(2, "0")}`;
+  },
+  utc(d) {
+    return d.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  },
+  // Text in vCard und iCalendar (Rückstrich, Komma, Semikolon, Zeilenumbruch)
+  esc(v) {
+    return String(v ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  },
+  // Kontakt als vCard 4.0 (wie Thunderbird sie speichert). c: { uid, display,
+  // first, last, middle, prefix, suffix, nick, emails, org, dept, title,
+  // phones: [[Art, Nummer]], adr: { work, home: { pobox, street, city, region,
+  // zip, country } }, birthday, anniversary, url, note }
+  vcard(c) {
+    const e = v => this.esc(v);
+    const L = ["BEGIN:VCARD", "VERSION:4.0"];
+    if (c.uid) {
+      L.push(`UID:${c.uid}`);
+    }
+    const emails = [...new Set((c.emails || []).map(x => this.email(x)).filter(Boolean))];
+    const fn = c.display || [c.prefix, c.first, c.middle, c.last, c.suffix].filter(Boolean).join(" ") || c.org || emails[0] || "";
+    L.push(`FN:${e(fn)}`);
+    if (c.first || c.last || c.middle || c.prefix || c.suffix) {
+      L.push(`N:${[c.last, c.first, c.middle, c.prefix, c.suffix].map(e).join(";")}`);
+    }
+    if (c.nick) {
+      L.push(`NICKNAME:${e(c.nick)}`);
+    }
+    emails.forEach((x, i) => L.push(`EMAIL${i ? "" : ";PREF=1"}:${x}`));
+    for (const [type, num] of c.phones || []) {
+      if (String(num || "").trim()) {
+        L.push(`TEL;TYPE=${type};VALUE=TEXT:${e(String(num).trim())}`);
+      }
+    }
+    for (const type of ["work", "home"]) {
+      const a = c.adr?.[type];
+      if (a && [a.pobox, a.street, a.city, a.region, a.zip, a.country].some(Boolean)) {
+        L.push(`ADR;TYPE=${type}:${[a.pobox, "", a.street, a.city, a.region, a.zip, a.country].map(e).join(";")}`);
+      }
+    }
+    if (c.org || c.dept) {
+      L.push(`ORG:${[c.org, c.dept].filter((x, i) => x || !i).map(e).join(";")}`);
+    }
+    if (c.title) {
+      L.push(`TITLE:${e(c.title)}`);
+    }
+    if (this.valid(c.birthday)) {
+      L.push(`BDAY;VALUE=DATE:${this.day(c.birthday)}`);
+    }
+    if (this.valid(c.anniversary)) {
+      L.push(`ANNIVERSARY;VALUE=DATE:${this.day(c.anniversary)}`);
+    }
+    if (c.url) {
+      L.push(`URL:${e(c.url)}`);
+    }
+    if (c.note) {
+      L.push(`NOTE:${e(c.note)}`);
+    }
+    L.push("END:VCARD");
+    return `${L.join("\r\n")}\r\n`;
+  },
+  // Termin als VEVENT. e: { uid, summary, start, end, allDay, location,
+  // description, free }; ohne gültigen Beginn leer
+  vevent(e) {
+    if (!this.valid(e.start)) {
+      return "";
+    }
+    const L = ["BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${this.utc(e.start)}`, `SUMMARY:${this.esc(e.summary)}`];
+    if (e.allDay) {
+      const start = this.day(e.start);
+      let end = this.valid(e.end) ? this.day(e.end) : "";
+      if (!end || end <= start) {
+        end = this.nextDay(start);
+      }
+      L.push(`DTSTART;VALUE=DATE:${start}`, `DTEND;VALUE=DATE:${end}`);
+    } else {
+      L.push(`DTSTART:${this.utc(e.start)}`, `DTEND:${this.utc(this.valid(e.end) && e.end >= e.start ? e.end : e.start)}`);
+    }
+    if (e.location) {
+      L.push(`LOCATION:${this.esc(e.location)}`);
+    }
+    if (e.description) {
+      L.push(`DESCRIPTION:${this.esc(e.description)}`);
+    }
+    L.push(`TRANSP:${e.free ? "TRANSPARENT" : "OPAQUE"}`, "END:VEVENT");
+    return `${L.join("\r\n")}\r\n`;
+  },
+  // Aufgabe als VTODO. t: { uid, summary, start, due, done, completed,
+  // percent (0–1), description }
+  vtodo(t) {
+    const L = ["BEGIN:VTODO", `UID:${t.uid}`, `SUMMARY:${this.esc(t.summary)}`];
+    const start = this.valid(t.start) ? this.day(t.start) : "";
+    const due = this.valid(t.due) ? this.day(t.due) : "";
+    if (start) {
+      L.push(`DTSTART;VALUE=DATE:${start}`);
+    }
+    if (due && (!start || due >= start)) {
+      L.push(`DUE;VALUE=DATE:${due}`);
+    }
+    if (t.done) {
+      L.push("STATUS:COMPLETED", "PERCENT-COMPLETE:100");
+      if (this.valid(t.completed)) {
+        L.push(`COMPLETED:${this.utc(t.completed)}`);
+      }
+    } else if (t.percent > 0 && t.percent < 1) {
+      L.push(`PERCENT-COMPLETE:${Math.round(t.percent * 100)}`);
+    }
+    if (t.description) {
+      L.push(`DESCRIPTION:${this.esc(t.description)}`);
+    }
+    L.push("END:VTODO");
+    return `${L.join("\r\n")}\r\n`;
+  },
 
   // ---- Lesen aus der PST (Bibliothek) in die einfachen Daten oben
 
@@ -477,13 +602,67 @@ const PstImport = {
       inReplyTo: s(msg.inReplyToId), read: !!msg.isRead, flagged,
     };
   },
+  contactOf(c, store) {
+    if (!/^IPM\.Contact/i.test(c.messageClass || "")) {
+      return null; // (Verteilerlisten u. Ä.)
+    }
+    const s = v => (v == null ? "" : String(v).trim());
+    return {
+      uid: this.uuid(`${store}|contact|${s(c.descriptorNodeId)}|${s(c.displayName)}`),
+      display: s(c.displayName), first: s(c.givenName), last: s(c.surname), middle: s(c.middleName),
+      prefix: s(c.displayNamePrefix), suffix: s(c.generation), nick: s(c.nickname),
+      emails: [c.email1EmailAddress, c.email2EmailAddress, c.email3EmailAddress].map(x => this.email(x)).filter(Boolean),
+      org: s(c.companyName), dept: s(c.departmentName), title: s(c.title),
+      phones: [["work", c.businessTelephoneNumber], ["home", c.homeTelephoneNumber], ["cell", c.mobileTelephoneNumber],
+        ["fax", c.businessFaxNumber || c.homeFaxNumber || c.primaryFaxNumber], ["pager", c.pagerTelephoneNumber],
+        ["voice", c.primaryTelephoneNumber || c.otherTelephoneNumber]].filter(([, n]) => s(n)).map(([t, n]) => [t, s(n)]),
+      adr: {
+        work: { pobox: s(c.workAddressPostOfficeBox || c.businessPoBox), street: s(c.workAddressStreet || c.businessAddressStreet),
+          city: s(c.workAddressCity || c.businessAddressCity), region: s(c.workAddressState || c.businessAddressStateOrProvince),
+          zip: s(c.workAddressPostalCode || c.businessPostalCode), country: s(c.workAddressCountry || c.businessAddressCountry) },
+        home: { pobox: s(c.homeAddressPostOfficeBox), street: s(c.homeAddressStreet), city: s(c.homeAddressCity),
+          region: s(c.homeAddressStateOrProvince), zip: s(c.homeAddressPostalCode), country: s(c.homeAddressCountry) },
+      },
+      birthday: c.birthday, anniversary: c.anniversary, url: s(c.businessHomePage || c.personalHomePage), note: s(c.body),
+    };
+  },
+  eventOf(a, store) {
+    if (!/^IPM\.Appointment/i.test(a.messageClass || "")) {
+      return null; // (Antworten auf Einladungen u. Ä.)
+    }
+    const s = v => (v == null ? "" : String(v));
+    return {
+      uid: this.uuid(`${store}|event|${s(a.descriptorNodeId)}|${s(a.subject)}|${a.startTime?.getTime?.()}`),
+      summary: s(a.subject), start: a.startTime, end: a.endTime, allDay: !!a.subType, location: s(a.location),
+      description: s(a.body), free: a.busyStatus == 0,
+    };
+  },
+  taskOf(t, store) {
+    if (!/^IPM\.Task/i.test(t.messageClass || "")) {
+      return null;
+    }
+    const s = v => (v == null ? "" : String(v));
+    return {
+      uid: this.uuid(`${store}|task|${s(t.descriptorNodeId)}|${s(t.subject)}`), task: true,
+      summary: s(t.subject), start: t.taskStartDate, due: t.taskDueDate, done: !!t.isTaskComplete,
+      completed: t.taskDateCompleted, percent: Number(t.percentComplete) || 0, description: s(t.body),
+    };
+  },
   // was der Assistent und der Import brauchen: { name, mail: [{ name, count,
-  // depth, path, items() }] } – items() liefert die Mails nacheinander
+  // depth, path, items() }], contacts: [{ name, count, items() }], calendar:
+  // [{ name, count, items() }] (Termine und Aufgaben) } – items() liefert die
+  // Einträge nacheinander
   source(pst, name) {
     const plan = this.plan(this.scan(pst));
-    const wrap = list => list.map(f => ({ name: f.name, count: f.count, depth: f.depth, path: f.path,
-      items: () => this.items(f.node.ref, m => this.mailOf(m, name)) }));
-    return { name, mail: wrap(plan.mail) };
+    const wrap = (list, conv) => list.map(f => ({ name: f.name, count: f.count, depth: f.depth, path: f.path,
+      items: () => this.items(f.node.ref, x => conv(x, name)) }));
+    return { name, mail: wrap(plan.mail, (m, n) => this.mailOf(m, n)), contacts: wrap(plan.contacts, (c, n) => this.contactOf(c, n)),
+      calendar: [...wrap(plan.calendar, (a, n) => this.eventOf(a, n)), ...wrap(plan.tasks, (t, n) => this.taskOf(t, n))] };
+  },
+  // Anzahl je Teil (für Übersicht und Auswahl)
+  counts(source) {
+    const sum = list => (list || []).reduce((a, f) => a + (f.count || 0), 0);
+    return { mail: sum(source.mail), contacts: sum(source.contacts), calendar: sum(source.calendar) };
   },
 
   // ---- Import in Lokale Ordner/<Name der Datei>
@@ -518,70 +697,170 @@ const PstImport = {
       }
     }
   },
-  // Mails aus source (siehe source()) als Kopie importieren; ein zweiter Lauf
-  // überspringt Mails, deren Message-ID im Zielordner schon steht
-  async run(source, win, status = () => {}, progress = () => {}) {
+  // Elemente eines Ordners aus source (Funktion oder Liste)
+  list(f) {
+    return typeof f.items == "function" ? f.items() : f.items || [];
+  },
+  // source (siehe source()) als Kopie importieren: Mails nach Lokale Ordner,
+  // Kontakte in ein eigenes Adressbuch, Termine und Aufgaben in einen eigenen
+  // Kalender (je mit dem Namen der Datei). Ein zweiter Lauf überspringt, was
+  // schon da ist (Mails nach Message-ID, Kontakte und Termine nach UID)
+  async run(source, win, status = () => {}, progress = () => {}, parts = { mail: true, contacts: true, calendar: true }) {
     if (this.running) {
       return null;
     }
-    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failedMessages: 0, failed: [], done: [] };
+    const job = { stop: false, folders: 0, copied: 0, skipped: 0, failedMessages: 0, failed: [], done: [],
+      contacts: { added: 0, skipped: 0, failed: 0 }, events: { added: 0, skipped: 0, failed: 0 } };
     this.running = job;
     try {
-      const local = MailServices.accounts.localFoldersServer.rootFolder;
-      const target = await ArchiveAccount.child(local, this.folderName(source.name), win);
-      if (!target) {
-        job.failed.push(source.name);
-        return job;
+      if (parts.mail && source.mail?.length) {
+        await this.runMail(job, source, win, status, progress);
       }
-      job.target = target;
-      const dests = new Map();
-      for (const f of source.mail || []) {
-        if (job.stop) {
-          break;
-        }
-        const parent = f.path.length > 1 ? dests.get(f.path.slice(0, -1).join("\u0000")) : target;
-        const dest = parent && await ArchiveAccount.child(parent, this.folderName(f.name), win);
-        if (!dest) {
-          job.failed.push(f.name);
-          progress(f, { state: "failed", copied: 0, total: f.count });
-          continue;
-        }
-        dests.set(f.path.join("\u0000"), dest);
-        job.folders++;
-        const have = new Set(ArchiveAccount.messages(dest).map(h => h.messageId));
-        let mine = 0, failed = 0;
-        status(tr("Importing {folder}…", { folder: f.name }));
-        progress(f, { state: "busy", copied: 0, total: f.count });
-        for (const d of typeof f.items == "function" ? f.items() : f.items || []) {
-          if (job.stop) {
-            break;
-          }
-          const id = this.bare(d?.messageId);
-          if (!d || d.error) {
-            failed++;
-          } else if (id && have.has(id)) {
-            job.skipped++;
-          } else if (await this.addMessage(d, dest)) {
-            id && have.add(id);
-            job.copied++;
-            mine++;
-          } else {
-            failed++;
-          }
-          progress(f, { state: "busy", copied: mine, total: f.count });
-          // (der Assistent bleibt bedienbar, auch wenn ein Ordner lang ist)
-          await new Promise(r => win.setTimeout(r, 0));
-        }
-        job.failedMessages += failed;
-        if (failed) {
-          job.failed.push(f.name);
-        }
-        job.done.push({ name: f.name, path: f.path, dest, source: f.count });
-        progress(f, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: f.count, imported: dest.getTotalMessages(false) });
+      if (parts.contacts && !job.stop && this.counts(source).contacts) {
+        status(tr("Importing {folder}…", { folder: tr("Contacts") }));
+        await this.runContacts(job, source, win);
+      }
+      if (parts.calendar && !job.stop && this.counts(source).calendar) {
+        status(tr("Importing {folder}…", { folder: tr("Calendar") }));
+        await this.runCalendar(job, source, win);
       }
       return job;
     } finally {
       this.running = null;
+    }
+  },
+  async runMail(job, source, win, status, progress) {
+    const local = MailServices.accounts.localFoldersServer.rootFolder;
+    const target = await ArchiveAccount.child(local, this.folderName(source.name), win);
+    if (!target) {
+      job.failed.push(source.name);
+      return;
+    }
+    job.target = target;
+    const dests = new Map();
+    for (const f of source.mail) {
+      if (job.stop) {
+        break;
+      }
+      const parent = f.path.length > 1 ? dests.get(f.path.slice(0, -1).join("\u0000")) : target;
+      const dest = parent && await ArchiveAccount.child(parent, this.folderName(f.name), win);
+      if (!dest) {
+        job.failed.push(f.name);
+        progress(f, { state: "failed", copied: 0, total: f.count });
+        continue;
+      }
+      dests.set(f.path.join("\u0000"), dest);
+      job.folders++;
+      const have = new Set(ArchiveAccount.messages(dest).map(h => h.messageId));
+      let mine = 0, failed = 0;
+      status(tr("Importing {folder}…", { folder: f.name }));
+      progress(f, { state: "busy", copied: 0, total: f.count });
+      for (const d of this.list(f)) {
+        if (job.stop) {
+          break;
+        }
+        const id = this.bare(d?.messageId);
+        if (!d) {
+          continue;
+        } else if (d.error) {
+          failed++;
+        } else if (id && have.has(id)) {
+          job.skipped++;
+        } else if (await this.addMessage(d, dest)) {
+          id && have.add(id);
+          job.copied++;
+          mine++;
+        } else {
+          failed++;
+        }
+        progress(f, { state: "busy", copied: mine, total: f.count });
+        // (der Assistent bleibt bedienbar, auch wenn ein Ordner lang ist)
+        await new Promise(r => win.setTimeout(r, 0));
+      }
+      job.failedMessages += failed;
+      if (failed) {
+        job.failed.push(f.name);
+      }
+      job.done.push({ name: f.name, path: f.path, dest, source: f.count });
+      progress(f, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: f.count, imported: dest.getTotalMessages(false) });
+    }
+  },
+  // Kontakte in das Adressbuch <Name der Datei> (neu, oder das vom letzten Import)
+  async runContacts(job, source, win) {
+    const { VCardUtils } = ChromeUtils.importESModule("resource:///modules/VCardUtils.sys.mjs");
+    const name = source.name;
+    let book = MailServices.ab.directories.find(d => d.dirName == name && d.dirType == Ci.nsIAbManager.JS_DIRECTORY_TYPE);
+    if (!book) {
+      book = MailServices.ab.getDirectoryFromId(MailServices.ab.newAddressBook(name, "", Ci.nsIAbManager.JS_DIRECTORY_TYPE));
+    }
+    job.book = book;
+    const have = new Set(book.childCards.map(c => c.UID));
+    for (const f of source.contacts || []) {
+      for (const c of this.list(f)) {
+        if (job.stop) {
+          return;
+        }
+        if (!c) {
+          continue;
+        }
+        if (c.error) {
+          job.contacts.failed++;
+        } else if (have.has(c.uid)) {
+          job.contacts.skipped++;
+        } else {
+          try {
+            book.addCard(VCardUtils.vCardToAbCard(this.vcard(c)));
+            have.add(c.uid);
+            job.contacts.added++;
+          } catch (e) {
+            log("pst contact error", String(e).slice(0, 160));
+            job.contacts.failed++;
+          }
+        }
+        await new Promise(r => win.setTimeout(r, 0));
+      }
+    }
+  },
+  // Termine und Aufgaben in den Kalender <Name der Datei> (neu, lokal)
+  async runCalendar(job, source, win) {
+    const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+    const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+    const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+    const name = source.name;
+    let calendar = cal.manager.getCalendars().find(c => c.name == name && c.type == "storage");
+    if (!calendar) {
+      const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+      c.name = name;
+      cal.manager.registerCalendar(c);
+      calendar = cal.manager.getCalendarById(c.id) || c;
+    }
+    job.calendar = calendar;
+    for (const f of source.calendar || []) {
+      for (const x of this.list(f)) {
+        if (job.stop) {
+          return;
+        }
+        if (!x) {
+          continue;
+        }
+        try {
+          const ical = x.error ? "" : x.task ? this.vtodo(x) : this.vevent(x);
+          if (!ical) {
+            job.events.failed++;
+          } else if (await calendar.getItem(x.uid)) {
+            job.events.skipped++;
+          } else {
+            const item = x.task ? new CalTodo() : new CalEvent();
+            item.icalString = ical;
+            await calendar.addItem(item);
+            job.events.added++;
+          }
+        } catch (e) {
+          log("pst event error", String(e).slice(0, 160));
+          job.events.failed++;
+        }
+        await new Promise(r => win.setTimeout(r, 0));
+      }
     }
   },
 
@@ -615,8 +894,9 @@ const PstImport = {
 
 // Assistent „Outlook-Datendatei importieren“ (eigenes kleines Fenster wie
 // „Konto lokal archivieren“ und „Postfächer importieren“ bei Apple Mail):
-// Übersicht (Ordner mit Anzahl), Import, Fortschritt je Ordner, Abbruch,
-// Abschluss mit Anzahl je Ordner. done() schließt die Datei wieder
+// Übersicht (Ordner mit Anzahl, Auswahl Mail/Kontakte/Kalender, wenn die Datei
+// mehr als Mails enthält), Import, Fortschritt je Ordner, Abbruch, Abschluss
+// mit Anzahl je Ordner und Teil. done() schließt die Datei wieder
 PstImport.openWizard = function (mailWin, source, done = () => {}) {
   const hw = mailWin.openDialog("resource://mailcards/about/pst.html", "_blank",
     "chrome,dialog=yes,centerscreen,resizable=yes,width=460,height=480");
@@ -658,14 +938,36 @@ PstImport.openWizard = function (mailWin, source, done = () => {}) {
     const table = el("table");
     list.append(table);
     const target = PstImport.folderName(source.name);
+    const counts = PstImport.counts(source);
     const note = el("p", "note", tr("The messages are copied to Local Folders under {target}. The Outlook data file stays unchanged.", { target }));
+    if (counts.contacts || counts.calendar) {
+      note.textContent += ` ${tr("Contacts go to a new address book, events and tasks to a new calendar, both named {name}.", { name: source.name })}`;
+    }
+    // Auswahl der Teile (nur wenn es mehr als Mails gibt)
+    const parts = el("div", "parts");
+    const boxes = {};
+    for (const [key, label] of [["mail", "Mail"], ["contacts", "Contacts"], ["calendar", "Calendar"]]) {
+      if (!counts[key]) {
+        continue;
+      }
+      const l = el("label");
+      const box = el("input");
+      box.type = "checkbox";
+      box.checked = true;
+      box.dataset.part = key;
+      l.append(box, doc.createTextNode(`${tr(label)} (${counts[key]})`));
+      parts.append(l);
+      boxes[key] = box;
+    }
+    parts.hidden = !counts.contacts && !counts.calendar;
+    list.hidden = !source.mail.length;
     const cancel = el("button", "capsule");
     const start = el("button", "capsule primary");
     cancel.append(el("span", "label", tr("Cancel")));
     start.append(el("span", "label", tr("Import")));
     const buttons = el("div", "buttons");
     buttons.append(cancel, start);
-    doc.body.replaceChildren(h1, summary, list, note, buttons);
+    doc.body.replaceChildren(h1, summary, parts, list, note, buttons);
     const rows = new Map();
     table.replaceChildren(...source.mail.map(f => {
       const tr0 = el("tr");
@@ -676,9 +978,16 @@ PstImport.openWizard = function (mailWin, source, done = () => {}) {
       rows.set(f, { tr: tr0, num });
       return tr0;
     }));
-    const total = source.mail.reduce((a, f) => a + f.count, 0);
-    summary.textContent = tr("{n} messages in {f} folders", { n: total, f: source.mail.length });
-    start.disabled = !total;
+    summary.textContent = [tr("{n} messages in {f} folders", { n: counts.mail, f: source.mail.length }),
+      counts.contacts ? tr("{n} contacts", { n: counts.contacts }) : null,
+      counts.calendar ? tr("{n} events and tasks", { n: counts.calendar }) : null].filter(Boolean).join(" · ");
+    const chosen = () => Object.fromEntries(Object.entries(boxes).map(([k, b]) => [k, b.checked]));
+    const update = () => {
+      start.disabled = !Object.values(chosen()).some(Boolean);
+      list.toggleAttribute("data-off", boxes.mail ? !boxes.mail.checked : false);
+    };
+    parts.addEventListener("change", update);
+    update();
     let phase = "overview";
     const progress = (f, st) => {
       const r = rows.get(f);
@@ -714,17 +1023,37 @@ PstImport.openWizard = function (mailWin, source, done = () => {}) {
       }
       phase = "running";
       start.disabled = true;
+      const want = chosen();
+      for (const b of Object.values(boxes)) {
+        b.disabled = true;
+      }
       cancel.querySelector(".label").textContent = tr("Stop");
-      const job = await PstImport.run(source, mailWin, text => (summary.textContent = text), progress);
+      const job = await PstImport.run(source, mailWin, text => (summary.textContent = text), progress, want);
       phase = "finished";
       finish();
       if (hw.closed || !job) {
         return;
       }
-      const lines = [tr(job.stop ? "Import stopped." : "Import finished."),
-        tr("{n} messages imported in {f} folders.", { n: job.copied, f: job.folders })];
-      if (job.skipped) {
-        lines.push(tr("{n} messages were already there.", { n: job.skipped }));
+      const lines = [tr(job.stop ? "Import stopped." : "Import finished.")];
+      if (want.mail) {
+        lines.push(tr("{n} messages imported in {f} folders.", { n: job.copied, f: job.folders }));
+        if (job.skipped) {
+          lines.push(tr("{n} messages were already there.", { n: job.skipped }));
+        }
+      }
+      if (want.contacts && job.book) {
+        lines.push(tr("{n} contacts added to the address book {name}.", { n: job.contacts.added, name: source.name }));
+        if (job.contacts.skipped) {
+          lines.push(tr("{n} contacts were already there.", { n: job.contacts.skipped }));
+        }
+        job.contacts.failed && job.failed.push(tr("Contacts"));
+      }
+      if (want.calendar && job.calendar) {
+        lines.push(tr("{n} events and tasks added to the calendar {name}.", { n: job.events.added, name: source.name }));
+        if (job.events.skipped) {
+          lines.push(tr("{n} events and tasks were already there.", { n: job.events.skipped }));
+        }
+        job.events.failed && job.failed.push(tr("Calendar"));
       }
       if (job.failed.length) {
         lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));

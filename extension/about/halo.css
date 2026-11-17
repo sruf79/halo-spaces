@@ -428,6 +428,37 @@ body.archive .note {
   margin: 0;
 }
 
+/* Import einer Outlook-Datendatei (pst.html): Auswahl Mail/Kontakte/Kalender */
+body.pst .parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: -4px;
+}
+
+body.pst .parts[hidden] {
+  display: none;
+}
+
+body.pst .parts label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.pst .parts input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+body.pst .folders[data-off] {
+  opacity: 0.5;
+}
+
+body.pst .folders[hidden] {
+  display: none;
+}
+
 body.archive .buttons {
   display: flex;
   justify-content: flex-end;

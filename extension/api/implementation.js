@@ -4439,8 +4439,10 @@ function hookTaskInfo(win, restorers, solo = null) {
       return false;
     }
   };
-  const save = async (mutate, calendar = null) => {
-    const old = tree.currentTask;
+  // series: die ganze Serie ändern (Wiederholung) – die Ansichten zeigen von
+  // einer Serie nur Vorkommen, deren Wiederholung gälte sonst nur einer Ausnahme
+  const save = async (mutate, calendar = null, { series = false } = {}) => {
+    const old = series ? tree.currentTask?.parentItem : tree.currentTask;
     if (!old || !writable(old)) {
       return;
     }
@@ -4747,14 +4749,14 @@ function hookTaskInfo(win, restorers, solo = null) {
       const rules = info ? info.getRecurrenceItems().filter(x => !x.isNegative) : [];
       const curType = rules.length == 1 && rules[0] instanceof Ci.calIRecurrenceRule && rules[0].interval == 1 ? rules[0].type : info ? "custom" : "";
       openMenu(r, [
-        { label: tr("Never"), type: "radio", checked: !curType, run: () => save(it => (it.recurrenceInfo = null)) },
+        { label: tr("Never"), type: "radio", checked: !curType, run: () => save(it => (it.recurrenceInfo = null), null, { series: true }) },
         ...Object.entries(RULES).map(([type, label]) => ({ label: tr(label), type: "radio", checked: curType == type, disabled: !base,
           run: () => save(it => {
             const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
             const ri = new CalRecurrenceInfo(it);
             ri.appendRecurrenceItem(cal.createRecurrenceRule(`RRULE:FREQ=${type}`));
             it.recurrenceInfo = ri;
-          }) })),
+          }, null, { series: true }) })),
       ]);
     });
     on("bell", r => {

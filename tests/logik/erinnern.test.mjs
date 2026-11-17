@@ -50,3 +50,17 @@ test("Erinnern: eine Erinnerung, die während der Prüfung fälliger Mails dazuk
   const ids = JSON.parse(prefs.get(PREF)).map(e => e.id);
   assert.deepEqual(ids, ["neu@x"]);
 });
+
+test("Erinnern: nur für Mails, die man verschieben kann – Kontextmenü und Menüleiste fragen dieselbe Regel", () => {
+  const { Remind, context } = lade();
+  const F = { Drafts: 0x400, Queue: 0x800, Templates: 0x400000 };
+  context.Ci = { nsMsgFolderFlags: F };
+  const mail = (flags = 0, type = "imap") => ({ folder: { isSpecialFolder: f => !!(f & flags), server: { type } } });
+  assert.equal(Remind.canRemind([mail()]), true);
+  assert.equal(Remind.canRemind([]), false);
+  assert.equal(Remind.canRemind([mail(), mail(F.Drafts)]), false);
+  assert.equal(Remind.canRemind([mail(F.Queue)]), false);
+  assert.equal(Remind.canRemind([mail(F.Templates)]), false);
+  assert.equal(Remind.canRemind([mail(0, "nntp")]), false);
+  assert.equal(Remind.canRemind([{ folder: null }]), false);
+});

@@ -181,6 +181,21 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.30.0
+
+- **Toolbar**: Reply, Reply All, Forward, Redirect and Reply to List use a hollow arrow with a round tip in the toolbar, message header, hover actions and menus; toolbar icons take the text colour instead of dark grey; the Trash icon has a taller bin; the magnifier in all search fields is fine and grey
+- **Customize Toolbar**: Get Messages, Move, Tag and Compact use the same icons as the toolbar, so no stock Thunderbird icons remain in any space except the activity indicator
+- **Buttons**: the main button of dialogs, wizards, Import/Export, Print preview, the contact editor, the event window and Quick Add is a blue capsule with a soft highlight; all other buttons are grey with a fine light edge; pressed buttons turn darker, disabled ones are flat grey; Send is the only glowing button in Compose; "Save All" for attachments is a grey capsule
+- **Fields**: text and select fields in Settings, Account Settings, dialogs and contacts are 30 px high like the buttons; labels of fields in windows and settings no longer end in a colon; the repeat dialog and search and filter conditions line up
+- **Sidebars**: the selected item is semi-bold in Mail, Address Book and Chat as it already was in Calendar and Tasks; rows are 13 px everywhere; Chat rows are more compact
+- **Sidebar**: showing the sidebar with its button starts faster
+- **Calendar**: dragging the sidebar divider in the multi-week view is smooth
+- **Attachments**: tile names are smaller; the selected tile is tinted like on hover
+- **Web page space**: the bar above the page takes the colour of the page's top edge, shows only the host name, and a fine line at the bottom replaces the spinner; the name no longer shifts while loading
+- **Chat**: search suggestions are as wide as the search field and no longer cut off
+- **Settings**: "View style" and similar labels no longer end in a colon
+- Tested with Thunderbird 160; requires Thunderbird 153 or newer
+
 ## What's new in 3.29.0
 
 - **Sidebar**: the active space tile catches the light: a calm surface with a fine edge, a soft highlight on top and a gentle glow to the right; inactive tiles are quieter

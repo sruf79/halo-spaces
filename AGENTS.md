@@ -140,7 +140,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Nachtlauf** (`tests/nachtlauf.sh`, jede Nacht 01:30) arbeitet die Liste ab, pusht, wartet auf die CI
   und veröffentlicht bei Grün; danach bis 06:30 weitere Einträge ohne Push (Einzelheiten, Vollrunde,
   „repariert“/„flackert“: `docs/testrechner.md`).
-- **Tagesroutine** (`tests/tagesroutine.sh`, Mo–Fr ab 09:00, Sa und So ab 09:00, jeweils bis 22:00) arbeitet die Liste ab, je Eintrag ein Commit, pusht nie (im Volldampf Zwischen-Release über das Skript)
+- **Tagesroutine** (`tests/tagesroutine.sh`, Mo–Fr ab 09:00, Sa und So ab 09:00, jeweils bis 22:00) arbeitet die Liste ab, je Eintrag ein Commit, pusht nie (im Volldampf Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`)
   (nur das Skript auf `pruef/tagesroutine-<datum>`); Modell nach Sollkurve des Wochenkontingents, Schwellen in
   `~/.config/halo-spaces/tagesroutine.conf`, Bericht `~/halo-berichte/<datum>-tagesroutine.md` (`docs/testrechner.md`).
 - **Volldampf** (`~/halo-nacht/volldampf.txt`, Override für Sollkurve, Sparmodus und Planungsvorsicht in Nachtlauf und
@@ -169,7 +169,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   nur nach grünen Tests bzw. vollständig grüner CI desselben Stands; `publish.sh` veröffentlicht ohne
   passende Marke nicht; `SKIP_TESTS=1` erzeugt keine Marke. Die Sperre nicht umgehen; ist ein Test rot,
   erst beheben. `update_test.py` läuft vor der Marke mit, rot heißt kein Release.
-- **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Release über `tests/zwischen-release.zsh`, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
+- **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
   Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.
 - **Hotfix** nur auf ausdrückliche Anweisung des Maintainers und nur ohne Änderung am Aussehen:
   `HOTFIX="<Muster>" ./release.sh x.y.z`.

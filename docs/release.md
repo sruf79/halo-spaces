@@ -14,11 +14,22 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
 
 - Nur bei aktiver Volldampf-Zeile (`~/halo-nacht/volldampf.txt`, endet beim Wochenlimit): „Höchstens ein reguläres
   Release pro Tag“ gilt nicht. Der Nachtlauf bleibt bei einem Release je Nacht.
-- **Zwischen-Release** tagsüber über `tests/zwischen-release.zsh` (aufgerufen von `tests/tagesroutine.sh`, nie von
-  Claude direkt): Push-Beginn 09:00–13:00, nichts belegt, Prüfzweig zum Stand grün, README-Commit und Notizen
-  vorhanden; dann `git push origin HEAD:main`, Push-Lauf (Linux, Mac) und Windows-Lauf grün abwarten, danach
-  `tests/release-unter-tage.sh --volldampf` (ohne „Nachtlauf ohne Release“ und „ein Release pro Tag“, sonst alle
-  Sperren) mit `NUR_CI=1 ./release.sh` und `./publish.sh`. Rot: kein Release, README-Commit zurück.
+- Dazu (17.11.2026): „nochmals: produktivität steht über allem. ich habe auch kein problem mit 30 releases untertags
+  während volldampf läuft solange wir so viel wie möglich abarbeiten können“.
+- **Zwischen-Release** über den Wächter `tests/zwischen-schleife.zsh`, von Hand im Hintergrund gestartet (kein
+  LaunchAgent): `nohup zsh ~/halo-spaces/tests/zwischen-schleife.zsh >/dev/null 2>&1 &!`; Probe `--trocken`, ein
+  Durchgang `--einmal`, anhalten über `pause_setzen zwischen-release <bis> <Grund>` oder Prozess beenden. Alle 5 Minuten:
+  neuester grüner Stand P auf `pruef/tagesroutine-<JJJJMMTT>`, mindestens 3 Thunderbird-Commits über `origin/main`,
+  Push-Beginn 09:00–19:30, nichts belegt. Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
+  Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde
+  (README-Commit, Notizdatei), `tests/zwischen-release.zsh` (Push, Push-Lauf und Windows-Lauf grün), dann
+  `tests/release-unter-tage.sh --volldampf` mit `NUR_CI=1 ./release.sh` und `./publish.sh` (pusht über den Upstream,
+  `push.default=upstream` nur für diesen Aufruf). Abstand zwischen Releases = Dauer von CI und Windows. Rot: kein
+  Release, derselbe Stand erst wieder nach einem neuen grünen Stand; Protokoll `~/halo-nacht/<datum>-zwischen-schleife.log`.
+- **Worktree statt Checkout:** `~/halo-spaces` wird nie angefasst (kein stash, reset, checkout, merge), fremde
+  ungespeicherte Arbeit stört nicht. Nur Committetes wird veröffentlicht. Den Checkout gleicht der Nachtlauf ab
+  (`git rebase origin/main`; die Commits von main sind dann schon in `origin/main`). Weiter gilt `belegt()`: eine
+  andere arbeitende Claude-Sitzung, CI, Testlauf oder Marionette-Port lässt den Wächter warten.
 - Unverändert: grüne Tests samt Windows und Testmarke als einzige Bedingung, Push-Sperre 01:30–09:00, ab 00:00
   kein Push, Notfall- und Hotfix-Regeln, Hooks.
 

@@ -471,19 +471,25 @@ aktive_sitzung() {
 }
 
 # läuft schon etwas, das den Mac braucht? Gibt den Grund aus (Rückgabe 0 = belegt)
+# Muster (pgrep -f, erweiterte reguläre Ausdrücke) nur für den Programmaufruf am Anfang der Befehlszeile
+BELEGT_TEST_MUSTER='^([^ ]*/)?[Pp]ython[0-9.]*( -[^ ]+)* ([^ ]*/)?tests/(halo_test|ui_tour|update_test|store_shots)\.py'
+BELEGT_RELEASE_MUSTER='^(([^ ]*/)?(ba|z)?sh( -[^ ]+)* )?([^ ]*/)?(release|publish)\.sh( |$)'
+BELEGT_TB_MUSTER='^/.*/(thunderbird|thunderbird-bin) .*-marionette'
 belegt() {
   local s
   s=$(aktive_sitzung) && { print "Claude-Sitzung ${s[1,8]} arbeitet gerade am Repo"; return 0 }
   pgrep -f 'actions-runner/bin[^/ ]*/Runner\.Worker' >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
-  pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
-  pgrep -f -- "-marionette" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }
+  # nur echte Prozesse am Anfang der Befehlszeile, nicht Auftragstexte laufender claude -p-Sitzungen (Worker,
+  # Tagesroutine): die nennen „tests/halo_test.py“ und „release.sh“ und hielten sonst Nachtlauf und Testsperre an (17.11.2026)
+  pgrep -f "$BELEGT_TEST_MUSTER" >/dev/null && { print "Testlauf (halo_test.py o. ä.)"; return 0 }
+  pgrep -f -- "$BELEGT_TB_MUSTER" >/dev/null && { print "Thunderbird mit Marionette"; return 0 }
   local p
   for p in 2839 2845 {2850..2869}; do
     lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null 2>&1 && { print "Marionette-Port $p belegt"; return 0 }
   done
   [[ -e $HOME/halo-vm/lauf.lock ]] && kill -0 $(cut -d' ' -f1 $HOME/halo-vm/lauf.lock) 2>/dev/null \
     && { print "Lauf in der Windows-VM"; return 0 }
-  pgrep -f "release\.sh|publish\.sh" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
+  pgrep -f "$BELEGT_RELEASE_MUSTER" >/dev/null && { print "release.sh/publish.sh läuft"; return 0 }
   # der Nachtlauf (REST_MITNEHMEN=1) übernimmt liegengebliebene Änderungen selbst –
   # ob noch jemand daran arbeitet, sagt schon aktive_sitzung()
   [[ -z $REST_MITNEHMEN && -n $(git -C $REPO status --porcelain --untracked-files=no 2>/dev/null) ]] \

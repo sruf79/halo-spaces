@@ -7850,10 +7850,11 @@ def calendar_checks(m, results):
         idle = res.get("idle", 16.7)
         ok = bool(fr) and (fr.get("median", 99) <= idle * 1.5 + 2 and fr.get("slow", 99) <= 6 and fr.get("max", 99) <= 4 * idle)
         return ok, f"Bildzeiten {fr}, Leerlauf {idle} ms"
-    # Bildzeit nur unter macOS (unter xvfb ohne Grafikkarte schwankt sie mit der Last); bekannt: ein Bild beim
-    # Neuaufbau dauert noch rund 290 ms („nach einiger Zeit ruckelt es“)
+    # Bildzeit nur unter macOS (unter xvfb ohne Grafikkarte schwankt sie mit der Last); früher dauerte ein Bild beim
+    # Neuaufbau rund 160–290 ms („nach einiger Zeit ruckelt es“), auf dem Stand 8dc5777 höchstens 58 ms (CI hell und
+    # dunkel, 17.11.2026; vermutlich durch be052bd, keine volle Auswertung aller Termine bei jeder Größenänderung)
     if sys.platform == "darwin" and mw_many.get("res"):
-        check("Kalender: Mehrwochen-Ansicht scrollen – viele Termine über 40 Wochen ohne Ruckeln (kein Bild über vier Bildwechsel)", multiweek_many_smooth, results, bekannt=True)
+        check("Kalender: Mehrwochen-Ansicht scrollen – viele Termine über 40 Wochen ohne Ruckeln (kein Bild über vier Bildwechsel)", multiweek_many_smooth, results)
 
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),

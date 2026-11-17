@@ -145,6 +145,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   `~/.config/halo-spaces/tagesroutine.conf`, Bericht `~/halo-berichte/<datum>-tagesroutine.md` (`docs/testrechner.md`).
 - **Volldampf** (`~/halo-nacht/volldampf.txt`, Override für Sollkurve, Sparmodus und Planungsvorsicht in Nachtlauf und
   Tagesroutine, endet dauerhaft beim Wochenlimit; Maintainer 13.11.2026): `docs/testrechner.md` „Volldampf“.
+  Auslastungswächter `tests/auslastung-schleife.zsh` (gilt für Tagesroutine und Nachtlauf, solange Volldampf aktiv ist; von Hand gestartet): startet bei Rückstand zur 48-h-Sollkurve zusätzliche Worker auf eigenen Prüfzweigen (`docs/testrechner.md` „Auslastungswächter“).
 
 ## Release (selbstständig auf neon)
 

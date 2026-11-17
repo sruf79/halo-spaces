@@ -4,7 +4,23 @@ Release in voller Länge (Ablauf, Marke, Hotfix, `publish.sh`, Bericht, Issues, 
 
 ## Höchstens ein Release pro Tag
 
-**Höchstens ein reguläres Release pro Tag.** Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern. (Freigabe des Maintainers vom 9.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; gilt zusätzlich zu „Wann“ unten.)
+**Höchstens ein reguläres Release pro Tag** (im Volldampf nicht, Abschnitt „Volldampf“). Was danach fertig wird, wartet auf den nächsten Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern. (Freigabe des Maintainers vom 9.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`; gilt zusätzlich zu „Wann“ unten.)
+
+## Volldampf: mehrere Releases je Tag, Zwischen-Release
+
+Maintainer 17.11.2026 (Wortlaut in `ENTSCHEIDUNGEN.md`): „volldampf bedeutet maximale produktivität. … das betrifft
+die anzahl der gleichzeitigen agents, die anzahl der releases, einfach alles.“ und „wir wollen keine defekten
+releases veröffentlichen mit nicht funktionalen features von daher sollten die tests weiterhin laufen wie bisher.“
+
+- Nur bei aktiver Volldampf-Zeile (`~/halo-nacht/volldampf.txt`, endet beim Wochenlimit): „Höchstens ein reguläres
+  Release pro Tag“ gilt nicht. Der Nachtlauf bleibt bei einem Release je Nacht.
+- **Zwischen-Release** tagsüber über `tests/zwischen-release.zsh` (aufgerufen von `tests/tagesroutine.sh`, nie von
+  Claude direkt): Push-Beginn 09:00–13:00, nichts belegt, Prüfzweig zum Stand grün, README-Commit und Notizen
+  vorhanden; dann `git push origin HEAD:main`, Push-Lauf (Linux, Mac) und Windows-Lauf grün abwarten, danach
+  `tests/release-unter-tage.sh --volldampf` (ohne „Nachtlauf ohne Release“ und „ein Release pro Tag“, sonst alle
+  Sperren) mit `NUR_CI=1 ./release.sh` und `./publish.sh`. Rot: kein Release, README-Commit zurück.
+- Unverändert: grüne Tests samt Windows und Testmarke als einzige Bedingung, Push-Sperre 01:30–09:00, ab 00:00
+  kein Push, Notfall- und Hotfix-Regeln, Hooks.
 
 ## Release unter Tage nach fehlgeschlagenem Nachtlauf
 

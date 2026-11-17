@@ -3,7 +3,6 @@
 # Nur für bewusst offene Issues und Issues, bei denen der Nutzer auf einen Fix bzw. eine Funktion von uns wartet.
 # Allgemeiner Weg ist das Label `keep-open` bzw. `waiting-on-us` am Issue; diese Datei hält die Fälle fest,
 # solange es die Labels nicht gibt. Format: <Nummer> | <Grund>. Erledigte Issues dürfen stehen bleiben.
-45 | Nutzer wartet auf unseren Fix (Dialog „Save Message“ zu breit), Maintainer 15.11.2026
 59 | bewusst offen (Tastenkürzel unter Linux/Windows werden angesehen), Maintainer 12.11. und 15.11.2026
 54 | Nutzer wartet auf eine zugesagte Funktion (Codes in Mails, Antwort vom 09.11.2026); Deutung von neon 15.11.2026, nicht des Maintainers
 65 | Nutzer wartet auf unsere Prüfung (Zahl der ungelesenen Mails an das Maß angleichen, Antwort vom 15.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 16.11.2026, nicht des Maintainers

@@ -763,3 +763,7 @@ Maintainer (in neon, 17.11.2026, auf die Frage, ob neon für github.comm.routine
 ## 17.11.2026 – Betterbird
 
 Maintainer (in neon, 17.11.2026): „bezüglich punkt 2 - wie unterscheidet sich betterbird von thunderbird? ist das hinsichtlich ui ganz anders? ansonsten können wir nicht gleichzeitig die extension für sowohl thunderbird als auch betterbird designen“, danach auf neons Vorschlag, nur Thunderbird zu unterstützen: „ja ergänze in agents.md“. Wortlaut in `AGENTS.md`.
+
+## 17.11.2026 – GitHub #45: Ausnahme entfernt
+
+Maintainer (in neon, 17.11.2026), nach neons Empfehlung (Ausnahme zu #45 in `tests/inaktivitaet-ausnahmen.txt` entfernen, damit die Inaktivitätsregel gilt; #45 beim Release schließen, das den schmalen Fall behebt, mit „Fixed in x.y.z“): „ich folge deinen empfehlungen. wichtig ist, dass github issues nicht ewig lang offen bleiben“. Die Ausnahme vom 15.11.2026 für #45 ist damit aufgehoben.

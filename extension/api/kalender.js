@@ -2528,20 +2528,25 @@ const CalSearch = {
       const local = start.isDate ? start : start.getInTimezone(tz);
       entries.push({ item, key: calDayKey(local.year, local.month, local.day), allDay: start.isDate, time: local.nativeTime, local });
     };
+    const hit = item => calSearchMatch(st.term, ["SUMMARY", "DESCRIPTION", "LOCATION", "URL"].map(p => item.getProperty(p)));
     for (const item of st.items || []) {
-      const fields = ["SUMMARY", "DESCRIPTION", "LOCATION", "URL"].map(p => item.getProperty(p));
-      if (!calSearchMatch(st.term, fields)) {
-        continue;
-      }
       if (item.recurrenceInfo) {
+        // Serie: jedes Vorkommen für sich – ein geändertes Vorkommen (eigener
+        // Titel, Ort …) trifft auch ohne die Serie bzw. fehlt trotz der Serie
         try {
-          for (const occ of item.recurrenceInfo.getOccurrences(from, to, 0)) {
-            add(occ);
+          const info = item.recurrenceInfo;
+          if (!hit(item) && !info.getExceptionIds().some(id => hit(info.getExceptionFor(id)))) {
+            continue;
+          }
+          for (const occ of info.getOccurrences(from, to, 0)) {
+            if (hit(occ)) {
+              add(occ);
+            }
           }
         } catch (e) {
           log("cal search occurrences error", e);
         }
-      } else {
+      } else if (hit(item)) {
         add(item);
       }
     }

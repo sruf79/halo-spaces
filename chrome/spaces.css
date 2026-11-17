@@ -910,6 +910,13 @@ calendar-multiweek-view[mc-mw-scroll] .monthtable calendar-day-label {
   will-change: transform;
 }
 
+/* Puffer-Wochen außerhalb des Bildes, solange sich die Breite der Ansicht ändert (Seitenleiste gleitet, Trennlinie,
+   Fenstergröße): Inhalt aus dem Aufbau, der Tag behält Platz und Lage (kalender.js, park) – sonst wird jeder
+   Termin der Puffer-Wochen mit jedem Bild neu umbrochen */
+calendar-multiweek-view[mc-mw-scroll] calendar-month-day-box[mc-mw-park] > * {
+  display: none !important;
+}
+
 /* Schritt 4/6: Monatsname im Band vor der ersten Woche des Monats, ab der
    Spalte des 1. (liegt frei im Raster auf dem unteren Rand der Woche davor,
    wandert mit dem Raster); Tage anderer Monate als des oben stehenden grau */

@@ -94,6 +94,48 @@ function hookMultiweekScroll(mv, win, B) {
   const rowH = () => rowCache || measure();
   const active = () => !!mv.__mcVisible && mv.isVisible?.();
   const table = () => mv.querySelector(".monthtable");
+  // Puffer-Wochen parken: Solange sich die Breite der Ansicht ändert (Seitenleiste oder Heute-Fenster gleitet,
+  // Trennlinie, Fenstergröße), bricht jeder Bildwechsel alle Tage neu um – auch die Puffer-Wochen über und unter dem
+  // sichtbaren Bereich (bei 5 sichtbaren Wochen 147 von 196 Tagen). Gemessen (Mac mini, 6 Termine je Tag, 120 Bilder
+  // je Sekunde, Seitenleiste ein-/ausblenden): 10 ms Arbeit je Bild statt 5 ms in der Monatsansicht, kein Bild kam
+  // rechtzeitig; ohne den Inhalt der Puffer-Tage 6 ms. Der Inhalt der Tage außerhalb des Bildes (eine Woche Rand)
+  // kommt deshalb solange aus dem Aufbau (mc-mw-park, spaces.css); die Tage selbst behalten Platz und Lage. Zurück
+  // vor jeder Bewegung des Rasters (Scrollen, Einrasten, Neuaufbau) und 300 ms nach der letzten Änderung der Breite
+  let parked = false, parkTimer = 0, lastWidth = 0, lastHeight = 0;
+  const unpark = () => {
+    win.clearTimeout(parkTimer);
+    parkTimer = 0;
+    if (!parked) {
+      return;
+    }
+    parked = false;
+    for (const box of mv.querySelectorAll("calendar-month-day-box[mc-mw-park]")) {
+      box.removeAttribute("mc-mw-park");
+    }
+  };
+  const park = () => {
+    if (!active() || !mv.hasAttribute("mc-mw-scroll") || anim || pending || shifting || mask) {
+      return;
+    }
+    win.clearTimeout(parkTimer);
+    parkTimer = win.setTimeout(unpark, 300);
+    if (parked) {
+      return;
+    }
+    const v = mv.getBoundingClientRect(), h = rowH();
+    if (!v.height) {
+      return;
+    }
+    parked = true;
+    // (erst alle messen, dann schreiben: ein Aufbau statt einer je Tag)
+    const out = [...mv.querySelectorAll("calendar-month-day-box")].filter(box => {
+      const r = box.getBoundingClientRect();
+      return r.bottom < v.top - h || r.top > v.bottom + h;
+    });
+    for (const box of out) {
+      box.setAttribute("mc-mw-park", "");
+    }
+  };
   // Monat oben (Schritt 4/6): der Monat des letzten Tags der obersten
   // sichtbaren Woche – die Woche mit dem 1. trägt den Monatsnamen über sich
   // und löst den vorigen Monat ab, sobald sie oben ankommt. Überschrift und
@@ -129,6 +171,7 @@ function hookMultiweekScroll(mv, win, B) {
   // ihm, ohne Arbeit je Bild. Nach jedem Aufbau neu, Einstellung aus: weg
   const months = () => {
     const t = table();
+    unpark();
     topRow = NaN;
     topKey = -1;
     rowBase = null;
@@ -300,6 +343,7 @@ function hookMultiweekScroll(mv, win, B) {
       (win.cancelIdleCallback || win.clearTimeout).call(win, later);
       later = 0;
     }
+    unpark();
     shifting = true;
     try {
       cover();
@@ -347,6 +391,7 @@ function hookMultiweekScroll(mv, win, B) {
   // einrasten: weich zur nächstgelegenen Woche (mehr als halb im Bild → dorthin),
   // dann nur den sichtbaren Bereich nachziehen – ohne Neuaufbau
   const snap = () => {
+    unpark();
     const h = rowH();
     // Schwung: Geschwindigkeit der letzten Pixel-Bewegungen (Trackpad) trägt
     // die Ansicht weiter, das Ziel ist die nächste Wochengrenze davon
@@ -401,6 +446,7 @@ function hookMultiweekScroll(mv, win, B) {
     }
     event.preventDefault();
     event.stopPropagation();
+    unpark();
     if (anim) {
       win.cancelAnimationFrame(anim);
       anim = 0;
@@ -453,8 +499,21 @@ function hookMultiweekScroll(mv, win, B) {
     }
   };
   mv.addEventListener("wheel", onWheel, { capture: true, passive: false });
-  const ro = new win.ResizeObserver(() => {
+  const ro = new win.ResizeObserver(entries => {
     if (active()) {
+      // (nur bei geänderter Breite: die Höhe ändert den Umbruch der Tage nicht mit jedem Bild)
+      const e = entries[entries.length - 1];
+      const width = Math.round((e?.borderBoxSize?.[0]?.inlineSize ?? e?.contentRect.width ?? 0) * 10) / 10;
+      const height = Math.round((e?.borderBoxSize?.[0]?.blockSize ?? e?.contentRect.height ?? 0) * 10) / 10;
+      // (andere Höhe: andere Wochen im Bild – neu auswählen)
+      if (parked && lastHeight && height && height != lastHeight) {
+        unpark();
+        park();
+      } else if (lastWidth && width && width != lastWidth) {
+        park();
+      }
+      lastWidth = width || lastWidth;
+      lastHeight = height || lastHeight;
       measure();
       paint();
       warm();
@@ -487,6 +546,8 @@ function hookMultiweekScroll(mv, win, B) {
     }
   };
   mv.__mcScrollPos = () => pos;
+  // (für Bewegungen, die die Breite gleich ändern: schon vor dem ersten Bild, siehe toggleSpaceSidebar)
+  mv.__mcPark = park;
   apply();
   return () => {
     mv.removeEventListener("wheel", onWheel, { capture: true });
@@ -502,6 +563,7 @@ function hookMultiweekScroll(mv, win, B) {
       }
     }
     mask?.remove();
+    unpark();
     const t = table();
     if (t) {
       for (const el of t.querySelectorAll(".mc-mw-monthlabel")) {
@@ -519,6 +581,7 @@ function hookMultiweekScroll(mv, win, B) {
     mv.style.removeProperty("--mc-mw-row");
     delete mv.__mcScrollApply;
     delete mv.__mcScrollPos;
+    delete mv.__mcPark;
     delete mv.__mcScrollReset;
     delete mv.__mcScrollShifts;
     delete mv.__mcDir;

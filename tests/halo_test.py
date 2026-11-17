@@ -11031,10 +11031,10 @@ def run_checks(m, version, profile, results):
           const calendar = cal.manager.getCalendars().find(c => c.name == name);
           const cards = book ? book.childCards : [];
           const dora = cards.find(c => c.primaryEmail == "dora@example.invalid");
-          const items = calendar ? await Promise.all(["pst-kc-ev-1", "pst-kc-ev-2", "pst-kc-task-1"].map(u => calendar.getItem(u))) : [];
+          const calItems = calendar ? await Promise.all(["pst-kc-ev-1", "pst-kc-ev-2", "pst-kc-task-1"].map(u => calendar.getItem(u))) : [];
           const out = { first: { contacts: first?.contacts, events: first?.events }, second: { contacts: second?.contacts, events: second?.events },
-            book: !!book, cards: cards.length, dora: dora && [dora.displayName, dora.getProperty("Company", ""), dora.vCardProperties?.getFirstValue("bday")],
-            calType: calendar?.type, items: items.map(i => i && [i.title, "dueDate" in i ? "task" : "event", i.startDate?.isDate ?? null, i.getProperty?.("LOCATION") || null]) };
+            book: !!book, cards: cards.length, dora: dora && [dora.displayName, String(dora.vCardProperties?.getFirstValue("org") ?? ""), dora.vCardProperties?.getFirstValue("bday")],
+            calType: calendar?.type, items: calItems.map(i => i && [i.title, "dueDate" in i ? "task" : "event", i.startDate?.isDate ?? null, i.getProperty?.("LOCATION") || null]) };
           // Assistent: drei Teile zur Auswahl; nur Kontakte und Kalender importieren (alles schon da), Mailordner unberührt
           const hw = w.__mcPstWizard(source());
           const doc = await until(() => hw.document?.querySelector("body.pst .parts input") && hw.document, 8000);

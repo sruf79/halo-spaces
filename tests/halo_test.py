@@ -13962,6 +13962,9 @@ def run_checks(m, version, profile, results):
           await add("Halo L wichtig", t => { t.priority = 1; });
           await add("Halo L halb", t => { t.percentComplete = 50; });
           await add("Halo L fertig", t => { t.isCompleted = true; });
+          // archiviert (offen und erledigt): nur unter „Archived“, in keiner anderen Ansicht
+          await add("Halo L archiv", t => { t.isCompleted = true; t.setProperty("X-HALO-ARCHIVED", "1"); });
+          await add("Halo L archiv offen", t => { t.priority = 1; t.dueDate = day(0); t.setProperty("X-HALO-ARCHIVED", "1"); });
           const out = {};
           const before = Services.prefs.getCharPref("extensions.mailcards.taskList", "");
           try {
@@ -13977,7 +13980,7 @@ def run_checks(m, version, profile, results):
                             progress: csOf(box.querySelector(".mc-tl-progress")).backgroundImage.slice(0, 14) };
             out.views = {};
             for (const row of box.querySelectorAll(".mc-tl-row")) {
-              row.click(); await till(() => tree.getAttribute("filterValue") == "mcTasks-" + row.dataset.list, 3000); await until(() => tree.mTaskArray.filter(t => t.title.startsWith("Halo L ")).length == ({ today: 1, scheduled: 2, all: 4, important: 1, progress: 1, completed: 1 })[row.dataset.list], 4000); await ruhig(900);
+              row.click(); await till(() => tree.getAttribute("filterValue") == "mcTasks-" + row.dataset.list, 3000); await until(() => tree.mTaskArray.filter(t => t.title.startsWith("Halo L ")).length == ({ today: 1, scheduled: 2, all: 4, important: 1, progress: 1, completed: 1, archived: 2 })[row.dataset.list], 4000); await ruhig(900);
               const mine = tree.mTaskArray.map(t => t.title).filter(x => x.startsWith("Halo L ")).map(x => x.slice(7)).sort();
               out.views[row.dataset.list] = { mine, n: tree.mTaskArray.length, count: row.querySelector(".mc-tl-count").textContent,
                 selected: row.classList.contains("selected"), title: d.querySelector("#mcListHeader .mc-lh-title").textContent };
@@ -13992,8 +13995,9 @@ def run_checks(m, version, profile, results):
         sb, v = res.get("sidebar", {}), res.get("views", {})
         # Reihenfolge offen → angefangen → erledigt, Important zuletzt; „All“ heißt „Open“
         want = {"today": ["heute"], "scheduled": ["heute", "später"], "all": ["halb", "heute", "später", "wichtig"],
-                "progress": ["halb"], "completed": ["fertig"], "important": ["wichtig"]}
-        titles = {"today": "Today", "scheduled": "Scheduled", "all": "Open", "important": "Important", "progress": "In Progress", "completed": "Completed"}
+                "progress": ["halb"], "completed": ["fertig"], "important": ["wichtig"], "archived": ["archiv", "archiv offen"]}
+        titles = {"today": "Today", "scheduled": "Scheduled", "all": "Open", "important": "Important", "progress": "In Progress", "completed": "Completed",
+                  "archived": "Archived"}
         ok = (sb.get("lists") and not sb.get("minimonth") and not sb.get("filters") and sb.get("header") == "Task Lists" and not sb.get("filterBtn")
               and sb.get("today") and list(v) == list(want)
               and [i[0] for i in sb.get("icons", [])] == list(want) and all(i[1] == 24 and i[2] == 24 for i in sb.get("icons", []))
@@ -14001,9 +14005,109 @@ def run_checks(m, version, profile, results):
               and sb.get("progress") == "conic-gradient"
               and all(v[k]["mine"] == want[k] and v[k]["selected"] and v[k]["title"] == titles[k] and v[k]["count"] == (str(v[k]["n"]) if v[k]["n"] else "")
                       for k in want)
-              and res.get("pref") == "important")
+              and res.get("pref") == "archived")
         return ok, f"{res}"
-    check("Aufgaben: Ansichten in der Seitenleiste (Today, Scheduled, Open, In Progress, Completed, Important) mit Anzahl, Symbole 24 px, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
+    check("Aufgaben: Ansichten in der Seitenleiste (Today, Scheduled, Open, In Progress, Completed, Important, Archived) mit Anzahl, Symbole 24 px, filtern die Liste, ohne Filterknopf und Minimonat", task_lists, results)
+
+    def task_archive():
+        # Aufgaben archivieren wie Mails: „Archive“ im Kontextmenü (unter „Mark Completed“) und Taste A setzen das Merkmal
+        # X-HALO-ARCHIVED im Eintrag; Archiviertes steht nur unter „Archived“ (nicht unter „Completed“, nicht im Kanban-Board,
+        # nicht in Thunderbirds übrigen Aufgabenlisten wie der Today-Pane); „Unarchive“ holt es zurück
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const c = testCalendar(); const made = {};
+          const add = async (title, fn) => { const t = new CalTodo(); t.title = title; t.calendar = c; fn(t); made[title] = await c.addItem(t); };
+          await add("Halo Archiv fertig", t => { t.isCompleted = true; });
+          await add("Halo Archiv offen", t => { const x = cal.dtz.now(); x.isDate = true; t.dueDate = x; });
+          const stored = async title => (await c.getItem(made[title].id))?.getProperty("X-HALO-ARCHIVED") ?? null;
+          const waitStored = async (title, want) => { for (let i = 0; i < 80 && await stored(title) !== want; i++) await pause(50); return stored(title); };
+          const out = {};
+          const beforeList = Services.prefs.getCharPref("extensions.mailcards.taskList", ""), beforeView = Services.prefs.getCharPref("extensions.mailcards.taskView", "");
+          try {
+            tm.openTab("tasks", {}); await bis(() => d.getElementById("mcTaskLists")?.querySelector(".mc-tl-row"), "Aufgaben-Ansichten", 6000); await ruhig(1200);
+            const box = d.getElementById("mcTaskLists"), tree = d.getElementById("calendar-task-tree"), cards = d.getElementById("mcTaskCards");
+            const cmenu = d.getElementById("taskitem-context-menu");
+            const mine = () => tree.mTaskArray.map(t => t.title).filter(x => x.startsWith("Halo Archiv ")).map(x => x.slice(12)).sort();
+            const row = key => box.querySelector(`.mc-tl-row[data-list="${key}"]`);
+            const show = async key => { row(key).click(); await till(() => (tree.getAttribute("filterValue") || "").startsWith("mcTasks-" + key), 3000); await ruhig(700); };
+            const pick = async titles => { const sel = tree.view.selection; sel.clearSelection();
+              for (const t of titles) { const i = tree.mTaskArray.findIndex(x => x.title == t); if (i >= 0) { sel.toggleSelect(i); tree.currentIndex = i; } }
+              tree.focus(); await ruhig(300); return tree.selectedTasks.length; };
+            const menuFor = async title => {
+              const i = tree.mTaskArray.findIndex(x => x.title == title);
+              const card = await till(() => cards.querySelector(`.mc-tc[data-index="${i}"] .mc-tc-title`), 3000);
+              if (!card) return null;
+              const r = card.getBoundingClientRect();
+              card.dispatchEvent(new w.MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX: r.left + 30, clientY: r.top + 8, screenX: w.mozInnerScreenX + r.left + 30, screenY: w.mozInnerScreenY + r.top + 8 }));
+              await till(() => cmenu.state == "open", 3000); await ruhig(200);
+              const it = d.getElementById("mcTaskContextArchive");
+              return { open: cmenu.state == "open", label: it?.getAttribute("label"), shown: !!it && !it.hidden && it.getBoundingClientRect().height > 0,
+                       disabled: !!it?.disabled, after: it?.previousElementSibling?.id };
+            };
+            const activate = async () => { const it = d.getElementById("mcTaskContextArchive");
+              if (cmenu.state == "open" && cmenu.activateItem) cmenu.activateItem(it); else it?.doCommand();
+              await till(() => cmenu.state == "closed", 2000); if (cmenu.state != "closed") cmenu.hidePopup(); await ruhig(200); };
+            // Reihenfolge der Seitenleiste: „Archived“ direkt unter „Important“
+            out.order = [...box.querySelectorAll(".mc-tl-row")].map(r => r.dataset.list);
+            // 1. Erledigte Aufgabe über das Kontextmenü archivieren
+            await show("completed"); out.completedBefore = mine();
+            await pick(["Halo Archiv fertig"]);
+            out.menu1 = await menuFor("Halo Archiv fertig");
+            await activate();
+            out.stored1 = await waitStored("Halo Archiv fertig", "1");
+            out.ical = /X-HALO-ARCHIVED:1/.test((await c.getItem(made["Halo Archiv fertig"].id))?.icalString || "");
+            await till(() => !mine().includes("fertig"), 3000); await ruhig(400);
+            out.completedAfter = mine();
+            // 2. Offene Aufgabe mit Taste A archivieren
+            await show("all"); out.openBefore = mine();
+            await pick(["Halo Archiv offen"]);
+            tree.dispatchEvent(new w.KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true }));
+            out.stored2 = await waitStored("Halo Archiv offen", "1");
+            await till(() => !mine().includes("offen"), 3000); await ruhig(400);
+            out.openAfter = mine();
+            // 3. Kanban-Board („Open“ samt Erledigten): keine archivierte Aufgabe
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "board"); await ruhig(600);
+            await show("all"); out.board = { filter: tree.getAttribute("filterValue"), mine: mine(),
+              cards: [...cards.querySelectorAll(".mc-tc[data-index]")].map(k => k.querySelector(".mc-tc-title")?.textContent).filter(t => /Halo Archiv/.test(t || "")) };
+            Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(600);
+            // 4. Thunderbirds eigene Filter (Today-Pane, „Alle“): archivierte Aufgaben fehlen
+            const f = new w.calFilter(); f.itemType = Ci.calICalendar.ITEM_FILTER_TYPE_TODO;
+            const fresh = {}; for (const t of Object.keys(made)) fresh[t] = await c.getItem(made[t].id);
+            f.applyFilter("all"); out.tbAll = Object.keys(fresh).filter(t => f.isItemInFilters(fresh[t]));
+            // 5. Ansicht „Archived“ zeigt beide, Anzahl 2; „Unarchive“ holt beide zurück
+            await show("archived"); await till(() => mine().length == 2, 3000);
+            out.archived = { mine: mine(), count: row("archived").querySelector(".mc-tl-count").textContent, title: d.querySelector("#mcListHeader .mc-lh-title")?.textContent };
+            await pick(["Halo Archiv fertig", "Halo Archiv offen"]);
+            out.menu2 = await menuFor("Halo Archiv offen");
+            await activate();
+            out.stored3 = [await waitStored("Halo Archiv fertig", null), await waitStored("Halo Archiv offen", null)];
+            await till(() => mine().length == 0, 3000); await ruhig(400);
+            out.archivedAfter = mine();
+            await show("completed"); out.completedBack = mine();
+            await show("all"); out.openBack = mine();
+          } finally {
+            for (const t of Object.values(made)) { try { await c.deleteItem(await c.getItem(t.id) || t); } catch {} }
+            if (beforeList) Services.prefs.setCharPref("extensions.mailcards.taskList", beforeList); else Services.prefs.clearUserPref("extensions.mailcards.taskList");
+            if (beforeView) Services.prefs.setCharPref("extensions.mailcards.taskView", beforeView); else Services.prefs.clearUserPref("extensions.mailcards.taskView");
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          }
+          return out;""")
+        r = res
+        order = r.get("order") or []
+        m1, m2 = r.get("menu1") or {}, r.get("menu2") or {}
+        ok = ("archived" in order and "important" in order and order.index("archived") == order.index("important") + 1
+              and r.get("completedBefore") == ["fertig"] and m1.get("label") == "Archive" and m1.get("shown") and not m1.get("disabled")
+              and m1.get("after") == "calendar-context-markcompleted"
+              and r.get("stored1") == "1" and r.get("ical") and r.get("completedAfter") == []
+              and r.get("openBefore") == ["offen"] and r.get("stored2") == "1" and r.get("openAfter") == []
+              and (r.get("board") or {}).get("filter") == "mcTasks-all-board" and r["board"].get("mine") == [] and r["board"].get("cards") == []
+              and r.get("tbAll") == []
+              and (r.get("archived") or {}).get("mine") == ["fertig", "offen"] and r["archived"].get("count") == "2" and r["archived"].get("title") == "Archived"
+              and m2.get("label") == "Unarchive" and m2.get("shown")
+              and r.get("stored3") == [None, None] and r.get("archivedAfter") == []
+              and r.get("completedBack") == ["fertig"] and r.get("openBack") == ["offen"])
+        return ok, f"{res}"
+    check("Aufgaben: Archivieren über Kontextmenü und Taste A, Archiviertes nur unter „Archived“ (nicht Completed, Kanban, Today-Pane), „Unarchive“ holt zurück", task_archive, results)
 
     def today_plus_event():
         # „+“ ganz rechts → „New Event“: Schnellfenster ganz auf dem Bildschirm

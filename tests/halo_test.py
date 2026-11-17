@@ -10267,6 +10267,95 @@ def server_checks(m, results):
             return ok, f"{first} 2. Lauf: {second} Assistent: {wiz}"
         check("Testkonto: Konto lokal archivieren – Kontextmenü, Assistent mit Übersicht, Fortschritt und Abschluss, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate", archive_account, results)
 
+        def archive_account_new():
+            # Konto lokal archivieren 3/3: ein weiterer Lauf nach neuen Mails am Server kopiert genau die neuen (Vergleich
+            # über die Message-ID, keine Duplikate); CardDAV-Adressbuch (Benutzername = Adresse des Kontos) und Kalender mit
+            # der Identität des Kontos landen im lokalen Adressbuch bzw. Kalender „<Konto> (Archive)“, auch dort nur Neues
+            setup_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
+              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+              const account = MailServices.accounts.getAccount("%s"), id = account.identities[0];
+              // CardDAV-Buch ohne Server-Adresse (kein Abgleich); Karten ohne Hochladen anlegen
+              const prefId = MailServices.ab.newAddressBook("Halo CardDAV", null, Ci.nsIAbManager.CARDDAV_DIRECTORY_TYPE);
+              const book = MailServices.ab.getDirectoryFromId(prefId);
+              book.setStringValue("carddav.username", id.email);
+              for (const [n, e] of [["Erika Archiv", "erika@example.invalid"], ["Fritz Archiv", "fritz@example.invalid"]]) {
+                const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+                c.displayName = n; c.primaryEmail = e;
+                (book.addCardInternal ? book.addCardInternal(c) : book.addCard(c));
+              }
+              const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+              c.name = "Halo Konto-Kalender"; c.setProperty("imip.identity.key", id.key);
+              cal.manager.registerCalendar(c);
+              const ev = new CalEvent(); ev.title = "Halo Archivtermin"; ev.id = "halo-archiv-termin@example.invalid";
+              ev.startDate = cal.createDateTime("20261120T100000Z"); ev.endDate = cal.createDateTime("20261120T110000Z");
+              await c.addItem(ev);
+              return { book: book.childCards.length, cal: c.id };""" % key
+            run_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer, root = server.rootFolder;
+              const job = await w.__mcArchiveAccount(server);
+              const local = MailServices.accounts.localFoldersServer.rootFolder;
+              const target = local.subFolders.find(f => f.name.startsWith(server.prettyName) && f.name != server.prettyName);
+              const ids = f => { try { return [...f.msgDatabase.enumerateMessages()].map(h => h.messageId); } catch { return []; } };
+              const inbox = target?.subFolders.find(f => f.name.toLowerCase() == "inbox");
+              const name = target?.name;
+              const book = MailServices.ab.directories.find(d => d.dirName == name && d.dirType == Ci.nsIAbManager.JS_DIRECTORY_TYPE);
+              const calendar = cal.manager.getCalendars().find(c => c.name == name && c.type == "storage");
+              const events = calendar ? await calendar.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null) : [];
+              return { copied: job?.copied, skipped: job?.skipped, contacts: job?.contacts, events: job?.events, failed: job?.failed,
+                inbox: inbox ? ids(inbox) : null, archive: Object.fromEntries((target?.subFolders || []).map(f => [f.name, f.getTotalMessages(false)])),
+                cards: book ? book.childCards.map(c => c.displayName).sort() : null, titles: events.map(e => e.title) };""" % key
+            wizard_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer;
+              const hw = w.__mcArchiveWizard(server);
+              const doc = await until(() => hw.document?.querySelector("body.archive tr[data-kind='calendar']") && hw.document, 8000);
+              if (!doc) return { open: false };
+              const row = k => doc.querySelector(`tr[data-kind='${k}']`);
+              await until(() => row("calendar").cells[1].textContent != "…", 5000);
+              const out = { open: true, contacts: [row("contacts")?.cells[0].textContent, row("contacts")?.cells[1].textContent],
+                            calendar: [row("calendar")?.cells[0].textContent, row("calendar")?.cells[1].textContent], note: doc.querySelector(".note")?.textContent };
+              hw.close();
+              return out;""" % key
+            cleanup_js = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+              const server = MailServices.accounts.getAccount("%s").incomingServer;
+              const archiv = n => n.startsWith(server.prettyName + " (");
+              for (const d of MailServices.ab.directories.filter(d => d.dirName == "Halo CardDAV" || archiv(d.dirName))) MailServices.ab.deleteAddressBook(d.URI);
+              for (const c of cal.manager.getCalendars().filter(c => c.name == "Halo Konto-Kalender" || archiv(c.name))) cal.manager.removeCalendar(c);
+              return true;""" % key
+            res = {}
+            try:
+                res["setup"] = m.js(setup_js)
+                res["wizard"] = m.js(wizard_js)
+                res["first"] = m.js(run_js)
+                # zwei neue Mails am Server, dann noch ein Lauf
+                for i in (1, 2):
+                    servers.imap.add("INBOX", f"From: Gerda <gerda@example.invalid>\nTo: Halo Test <halo@example.invalid>\nSubject: Neu nach dem Archiv {i}\n"
+                                     f"Date: Tue, 17 Nov 2026 1{i}:00:00 +0100\nMessage-ID: <srv-arch-neu-{i}@example.invalid>\n\nNeu.\n")
+                res["second"] = m.js(run_js)
+                res["third"] = m.js(run_js)
+            finally:
+                m.js(cleanup_js)
+            first, second, third, wiz = res.get("first") or {}, res.get("second") or {}, res.get("third") or {}, res.get("wizard") or {}
+            ids2 = second.get("inbox") or []
+            neu = [x for x in ids2 if x.startswith("srv-arch-neu-")]
+            ok = (first.get("inbox") is not None and second.get("copied") == 2 and sorted(neu) == ["srv-arch-neu-1@example.invalid", "srv-arch-neu-2@example.invalid"]
+                  and len(ids2) == len(set(ids2)) == len(first["inbox"]) + 2
+                  and third.get("copied") == 0 and third.get("inbox") == ids2 and third.get("archive") == second.get("archive")
+                  and first.get("cards") == ["Erika Archiv", "Fritz Archiv"] and first.get("titles") == ["Halo Archivtermin"]
+                  and first.get("contacts") == 2 and first.get("events") == 1
+                  and second.get("contacts") == 0 and second.get("events") == 0
+                  and third.get("cards") == first.get("cards") and third.get("titles") == first.get("titles") and not third.get("failed")
+                  and wiz.get("open") and wiz.get("contacts") == ["Halo CardDAV (Contacts)", "2"] and wiz.get("calendar") == ["Halo Konto-Kalender (Calendar)", "1"]
+                  and "address book and calendar" in (wiz.get("note") or ""))
+            return ok, f"{res}"
+        check("Testkonto: Konto lokal archivieren – weiterer Lauf kopiert nur neue Mails (Message-ID), Kontakte und Kalender des Kontos in lokales Adressbuch und lokalen Kalender, ohne Duplikate", archive_account_new, results)
+
         def send_error():
             # Server lehnt ab → halo.spaces meldet den Fehler als Dialog mit „Postausgang zeigen“ (statt nur in der
             # Aktivitätsanzeige). Der Dialog selbst unterbräche Marionette – mitgeschnitten wird sein Aufruf. (Unter Windows

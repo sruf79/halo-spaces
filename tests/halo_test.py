@@ -19647,6 +19647,32 @@ Neu
     check("Einstellungen → Kalender: „Workweek days only“ und „Rotate View“ wirken auch, solange der Kalender nicht offen ist",
           lambda: pref_tool_toggles([["paneCalendar", "mcPrefCalendarView", ["calWorkdaysOnlyMenuitem", "calViewRotated"]]]), results)
 
+    def calendar_offline_switch():
+        # „Offline copy for online calendars“ wirkt gleich beim Einschalten, nicht erst nach einem Neustart (der Schalter
+        # sagt nichts von Neustart); Abonnement unter einer nie erreichbaren Adresse (.invalid)
+        res = m.js(r"""
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
+          const api = Cu.evalInSandbox("mailCards.prototype.getAPI({})", g).mailCards;
+          const URL = "https://halo-offline.example.invalid/kalender.ics";
+          const mine = () => cal.manager.getCalendars().filter(c => c.uri?.spec == URL);
+          const c = cal.manager.createCalendar("ics", Services.io.newURI(URL)); c.name = "Halo Offline"; cal.manager.registerCalendar(c);
+          const out = {};
+          try {
+            await bis(() => mine().length == 1, "Abonnement angelegt", 4000);
+            out.before = mine().map(x => !!x.getProperty("cache.enabled"));
+            await api.setSetting("calendarOffline", true);
+            out.on = await until(() => mine().length == 1 && mine()[0].getProperty("cache.enabled") === true, 5000);
+            out.after = mine().map(x => !!x.getProperty("cache.enabled"));
+            return out;
+          } finally {
+            await api.setSetting("calendarOffline", false);
+            for (const x of mine()) { try { cal.manager.removeCalendar(x); } catch {} }
+            await ruhig(300);
+          }""" % ADDON_ID)
+        return res.get("before") == [False] and bool(res.get("on")) and res.get("after") == [True], f"{res}"
+    check("Einstellungen: „Offline copy for online calendars“ wirkt sofort beim Einschalten", calendar_offline_switch, results)
+
     def pref_shortcuts_link():
         # Allgemein: Karte mit Link zu den offiziellen Tastaturkürzeln (Mozilla-Hilfe in der Sprache von Thunderbird),
         # unter „General“ vor „Language & Fonts“; nur bei „Allgemein“ sichtbar, die Suche findet sie

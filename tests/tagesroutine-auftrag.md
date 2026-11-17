@@ -229,6 +229,8 @@ Freigabe „alles“ im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDU
 
 Fable im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „während volldampf dürfen wir bei bedarf auch fable zur problemlösung nutzem um weniger zeit zu verschwenden“): bei roten oder flackernden Prüfungen und unklaren Ursachen darf Fable bei Bedarf schon vor dem zweiten Fehlversuch eingesetzt werden; Ursache belegen und Prüfung nie abschwächen gelten weiter.
 
+Beleg-Regel (Maintainer 17.11.2026: „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“): Fable nur, wenn er es gegenüber Opus belegt besser, schneller oder fehlerfreier macht – etwa ein Opus-Versuch an derselben Sache ohne belegte Ursache, oder Analyse/Design, bei dem Opus nachweislich scheiterte; im Bericht den Beleg nennen (Versuch, Messwert, Fehlerzeile). Fehlt der Beleg, bleibt es bei Opus; nie Fable für Routine oder Mechanisches.
+
 Prioritäten im Volldampf (Maintainer 17.11.2026, Wortlaut: „prioritäten reihenfolge während volldampf: 1. wochenkontingent so rasch wie möglich verbrauchen indem die token-intensivsten tasks priorisiert werden 2.multiple releases ohne limit von halo.spaces innerhalb des tages“): 1. Das Wochenkontingent so rasch wie möglich verbrauchen: in der Plan-Runde die token-intensivsten Einträge zuerst (große, aufwendige, mit Opus/Fable und vielen parallelen Agenten), kleine Einträge danach; 2. beliebig viele Releases am Tag über den Wächter. Tests, CI und Windows bleiben wie bisher.
 
 Volldampf (nur wenn die Zeile „Kontingent (Skript): …“ mit „Volldampf aktiv“ beginnt; Maintainer

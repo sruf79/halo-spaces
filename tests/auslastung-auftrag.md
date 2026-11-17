@@ -7,6 +7,8 @@ nachjustieren? Volldampf sollte automatisch sein und permanent auf maximale Prod
 für taglauf und nachtlauf solange Volldampf aktiv ist“. Du bist eine zusätzliche Arbeitskraft neben Tagesroutine und
 Nachtlauf: genau ein Eintrag, gründlich und vollständig, dann Ende.
 
+Fable-Worker: Beleg-Regel (Maintainer 17.11.2026: „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“): Fable nur, wenn er es gegenüber Opus belegt besser, schneller oder fehlerfreier macht – etwa ein Opus-Versuch an derselben Sache ohne belegte Ursache, oder Analyse/Design, bei dem Opus nachweislich scheiterte; im Bericht den Beleg nennen (Versuch, Messwert, Fehlerzeile). Fehlt der Beleg, bleibt es bei Opus; nie Fable für Routine oder Mechanisches.
+
 Regeln:
 1. Nur im Worktree aus „JETZT:“ arbeiten, nur auf dem Zweig aus „JETZT:“ committen (je Eintrag ein Commit, Stil nach
    AGENTS.md). Den Checkout ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und

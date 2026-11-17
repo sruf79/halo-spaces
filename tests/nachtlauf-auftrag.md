@@ -458,6 +458,7 @@ Reihenfolge:
         lesbar und über 80 %: kein Fable mehr. Nach zwei Fable-Versuchen ohne
         belegte Ursache an derselben Sache: Übergabe an den Maintainer
         (Bericht), wie bisher.
+      - Beleg-Regel (Maintainer 17.11.2026: „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“): Fable nur, wenn er es gegenüber Opus belegt besser, schneller oder fehlerfreier macht – etwa ein Opus-Versuch an derselben Sache ohne belegte Ursache, oder Analyse/Design, bei dem Opus nachweislich scheiterte; im Bericht den Beleg nennen (Versuch, Messwert, Fehlerzeile). Fehlt der Beleg, bleibt es bei Opus; nie Fable für Routine oder Mechanisches.
       - Im Director-Plan nennen: Zahl der Fable-Agenten und wofür, Kontingent
         am Anfang und Ende (Woche, 5 Stunden).
 1d. Redesign-Ablauf – gilt NUR bis zum Ende der Volldampf-Woche (24.11.2026

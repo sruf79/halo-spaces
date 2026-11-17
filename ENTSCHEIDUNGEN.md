@@ -771,3 +771,7 @@ Maintainer (in neon, 17.11.2026), nach neons Empfehlung (Ausnahme zu #45 in `tes
 ## 17.11.2026 – Volldampf: Ein-/Ausschalter
 
 Maintainer (in neon, 17.11.2026): „in zukunft werden wir vielleicht öfters volldampf nutzen. daher müssen wir dieses regelwerk klar absichern um quasi mittels ein- und aus-schalter jederzeit aktivieren und wieder deaktivieren zu können“; davor: „nein wir werden keinen trockenlauf laufen lassen. wir müssen dann sofort weiter aktiv im regulären modus laufen.“ Umsetzung: `tests/volldampf.sh an|aus|status`.
+
+## 17.11.2026 – Volldampf: Fable nur mit Beleg
+
+Maintainer (in neon, 17.11.2026): „bitte vergiss nicht dass du bei allen tasks für maximale produktivität auch fable nutzen kannst während des volldampf modus“ und „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“. Umsetzung: Wächter-Schwellen `FABLE_ABSTAND=5`, `FABLE_5H=75` (`auslastung.conf`); Beleg-Regel in `tests/nachtlauf-auftrag.md`, `tests/tagesroutine-auftrag.md`, `tests/auslastung-auftrag.md`.

@@ -1289,6 +1289,131 @@ function hookPrefLabelColons(cw, restorers = null) {
   });
 }
 
+// Beschriftungen von Feldern ohne Doppelpunkt in Fenstern, Dialogen und
+// Einstellungen („Location“, „Filter name“, „Width“), wie in den Einstellungs-
+// Dialogen und im Termin-Fenster. Beschriftung heißt: Text direkt vor bzw. zu
+// einem Text- oder Auswahlfeld (label control/for, nächstes Geschwister, auch
+// Kästchen und Optionen mit Feld dahinter, Kopfzellen der Infotabellen).
+// Einleitende Sätze vor einer Liste (Legenden, Beschreibungen, Text vor
+// Kästchen oder Optionen) und lange Sätze (Komma oder mehr als acht Wörter)
+// behalten ihn. Der Verfassen-Kopf („To:“, „Subject:“) gehört nicht dazu.
+// Fluent setzt Texte neu (spätes Übersetzen, Sprachwechsel) → beobachten
+const FIELD_SEL = 'input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="button"], [type="submit"], [type="reset"], [type="image"]), menulist, select:not([multiple], [size]), textarea, search-textbox';
+const colonDocs = new Set();
+function colonLabelText(el) {
+  if (el.localName == "checkbox" || el.localName == "radio") {
+    return ["label", el.getAttribute("label")];
+  }
+  if (el.hasAttribute("value")) {
+    return ["value", el.getAttribute("value")];
+  }
+  if (el.childElementCount == 0) {
+    return ["text", el.textContent];
+  }
+  return [null, null];
+}
+function isFieldLabel(el) {
+  const doc = el.ownerDocument;
+  const isField = e => !!e && (e.matches(FIELD_SEL) || !!e.firstElementChild?.matches(FIELD_SEL));
+  const shown = e => !e.hidden && !e.hasAttribute("hidden") && e.ownerDocument.defaultView?.getComputedStyle(e)?.display != "none";
+  const nextOf = e => {
+    let n = e.nextElementSibling;
+    while (n && !shown(n)) {
+      n = n.nextElementSibling;
+    }
+    return n;
+  };
+  const next = nextOf(el);
+  if (el.localName == "th") {
+    return next?.localName == "td";
+  }
+  const target = el.getAttribute("control") || el.getAttribute("for");
+  const ctrl = target ? doc.getElementById(target) : null;
+  if (ctrl && ctrl.matches(FIELD_SEL)) {
+    return true;
+  }
+  // Feld in einer eigenen Spalte, das sich auf diese Beschriftung bezieht
+  // (Bild-Dialog: Option „Alternate text“ links, Feld rechts)
+  const labelled = el.id && doc.querySelector(`[aria-labelledby~="${doc.defaultView.CSS.escape(el.id)}"]`);
+  if (labelled && labelled.matches(FIELD_SEL)) {
+    return true;
+  }
+  // Kästchen bzw. Option mit eigenem Text: zählt nur mit Feld dahinter
+  return isField(next);
+}
+function fixFieldColons(doc, changed) {
+  for (const el of doc.querySelectorAll("label, th, checkbox, radio")) {
+    if (el.closest("menupopup, menulist, tree, richlistitem, #MsgHeadersToolbar") ||
+        (el.localName == "label" && el.parentElement?.closest("checkbox, radio"))) {
+      continue;
+    }
+    const [kind, text] = colonLabelText(el);
+    if (!kind || !text || !/:\s*$/.test(text)) {
+      continue;
+    }
+    const core = text.replace(/\s*:\s*$/, "");
+    if (!core || core.includes(",") || core.trim().split(/\s+/).length > 8 || !isFieldLabel(el)) {
+      continue;
+    }
+    if (!changed.has(el)) {
+      changed.set(el, [kind, text]);
+    }
+    if (kind == "text") {
+      el.textContent = core;
+    } else {
+      el.setAttribute(kind, core);
+    }
+  }
+}
+function hookFieldColons(win) {
+  const doc = win.document;
+  if (!doc?.documentElement || doc.__mcFieldColons) {
+    return;
+  }
+  doc.__mcFieldColons = true;
+  const entry = { doc, changed: new Map(), mo: null };
+  let queued = false;
+  const run = () => {
+    queued = false;
+    try {
+      fixFieldColons(doc, entry.changed);
+    } catch (e) {
+      log("field colons error", String(e).slice(0, 120));
+    }
+  };
+  run();
+  entry.mo = new win.MutationObserver(() => {
+    if (!queued) {
+      queued = true;
+      win.setTimeout(run, 0);
+    }
+  });
+  entry.mo.observe(doc.documentElement, {
+    subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["value", "label"],
+  });
+  colonDocs.add(entry);
+  win.addEventListener("unload", () => {
+    entry.mo.disconnect();
+    colonDocs.delete(entry);
+  }, { once: true });
+}
+function restoreFieldColons() {
+  for (const { doc, changed, mo } of colonDocs) {
+    try {
+      mo.disconnect();
+      for (const [el, [kind, text]] of changed) {
+        if (kind == "text") {
+          el.textContent = text;
+        } else {
+          el.setAttribute(kind, text);
+        }
+      }
+      delete doc.__mcFieldColons;
+    } catch {}
+  }
+  colonDocs.clear();
+}
+
 // Wie Apple Mail ohne Tabs: Inhalte, die Thunderbird als Tab ohne Bereich
 // öffnet, wären bei ausgeblendeter Tab-Leiste nach dem nächsten Wechsel
 // unsichtbar. Darum
@@ -6595,7 +6720,7 @@ function listInfoDialog(dw) {
     d.querySelector("title")?.removeAttribute("data-l10n-id");
     d.title = tr("List Info");
     d.documentElement.setAttribute("mc-list-info", "");
-    set(d.getElementById("calendar-name-label"), "value", tr("Name:"));
+    set(d.getElementById("calendar-name-label"), "value", tr("Name"));
     set(d.getElementById("calendar-enabled-checkbox"), "label", tr("Enable This List"));
     const notes = d.getElementById("calendar-notifications");
     if (notes) {
@@ -8002,6 +8127,12 @@ class CardEnhancer {
             return;
           }
           const win = doc.defaultView;
+          // Beschriftungen ohne Doppelpunkt in Fenstern, Dialogen und Einstellungen
+          // (nicht Hauptfenster, Mailansicht, Adressbuch und Verfassen-Fenster)
+          if (win && /^(chrome:\/\/(messenger|calendar|messenger-newsblog)\/|about:(preferences|accountsettings))/.test(url) &&
+              !/^chrome:\/\/messenger\/content\/(messenger|messageWindow|messengercompose\/messengercompose)\.xhtml/.test(url)) {
+            win.addEventListener("DOMContentLoaded", () => hookFieldColons(win), { once: true });
+          }
           if (/^about:(3pane|message)/.test(url) && win) {
             win.addEventListener("DOMContentLoaded", () => {
               this.hookMailContext(doc);
@@ -8051,6 +8182,7 @@ class CardEnhancer {
     };
     Services.obs.addObserver(docObserver, "document-element-inserted");
     this.restorers.push(() => Services.obs.removeObserver(docObserver, "document-element-inserted"));
+    this.restorers.push(restoreFieldColons);
     const onPhotos = () => this.avatars.byEmail.clear(); // neue Fotos beim nächsten Anzeigen nutzen
     MacPhotos.listeners.add(onPhotos);
     const t1 = setTimeout(() => MacPhotos.sync(), 20000);

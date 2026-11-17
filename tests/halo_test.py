@@ -3519,7 +3519,7 @@ def compose_checks(m, results):
     check("Verfassen: Hinweis „Anhang vergessen?“ – „Später erinnern“ als Kapsel gleich hoch wie „Anhang hinzufügen“, runde Leiste ohne Rand", reminder, results)
 
     def dialog_fields():
-        # Felder in Dialogen 28 px wie die Auswahllisten daneben, Zahlenfelder bleiben breit genug
+        # Felder in Dialogen 30 px wie die Knöpfe und Auswahllisten daneben (Feldhöhe 30/24), Zahlenfelder bleiben breit genug
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, async cw => {
             const out = {};
@@ -3532,9 +3532,9 @@ def compose_checks(m, results):
             out.replace = await dialog(() => cw.goDoCommand("cmd_findReplace"), "EdReplace", async (dw, dd) => dd.getElementById("dialog.findInput").getBoundingClientRect().height);
             return out; });""")
         t = res["table"]
-        ok = t["rows"] <= 29 and abs(t["width"] - t["menulist"]) <= 1 and t["scroll"] <= t["client"] and res["replace"] <= 29
+        ok = abs(t["rows"] - 30) <= 0.5 and abs(t["width"] - t["menulist"]) <= 1 and t["scroll"] <= t["client"] and abs(res["replace"] - 30) <= 0.5
         return ok, f"{res}"
-    check("Dialoge: Eingabefelder 28 px hoch wie die Auswahllisten daneben, „100“ im Zahlenfeld ganz sichtbar", dialog_fields, results)
+    check("Dialoge: Eingabefelder 30 px hoch wie die Knöpfe und Auswahllisten daneben, „100“ im Zahlenfeld ganz sichtbar", dialog_fields, results)
 
     def contacts():
         res = m.js(COMPOSE_CHECK_JS + r"""
@@ -8914,8 +8914,8 @@ def calendar_checks(m, results):
                          "shown": "Halo Umbenannt", "gone": True, "escaped": True}
               and not any(x.startswith(("Export", "Publish")) for x in tl) and "||" not in t.get("seps", "||")
               and {"Delete Calendar…", "Export Calendar…", "Publish Calendar…", "Properties"} <= set(cl) and not {"Delete", "Show List Info", "New List"} & set(cl)
-              and ti == {"title": "List Info", "name": "Name:", "enable": "Enable This List", "value": "Halo Infoliste", "notes": False}
-              and ci.get("title") == "Edit Calendar" and ci.get("name") == "Calendar Name:" and ci.get("enable") == "Enable This Calendar" and ci.get("notes") is True
+              and ti == {"title": "List Info", "name": "Name", "enable": "Enable This List", "value": "Halo Infoliste", "notes": False}
+              and ci.get("title") == "Edit Calendar" and ci.get("name") == "Calendar Name" and ci.get("enable") == "Enable This Calendar" and ci.get("notes") is True
               and a.get("kind") == "delete" and "“Halo Infoliste”" in a.get("text", "") and "2 events" in a.get("text", "") and a.get("button") == "Delete" and res.get("kept"))
         return ok, f"{res}"
     check("Aufgaben: Kontextmenü der Listen ohne Kalender-Befehle („Delete“ nennt Termine, „Show List Info“ mit Dialog „List Info“, „Rename“ direkt in der Zeile), im Kalender unverändert", tasks_list_context, results)
@@ -15045,15 +15045,16 @@ Neu
                      split: [csOf(sp).borderTopWidth, csOf(sp).borderBottomWidth],
                      win: colorOf(sd, "var(--mt-window)", "backgroundColor"), line: colorOf(sd, "var(--mt-pane-line)", "borderTopColor"),
                      buttons: [...sd.querySelectorAll('#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]')].map(b => [Math.round(b.getBoundingClientRect().height), csOf(b).borderTopLeftRadius]),
-                     fields: [...sd.querySelectorAll("menulist")].filter(vis).map(e => [Math.round(e.getBoundingClientRect().height), csOf(e).borderTopWidth, csOf(e).backgroundColor]),
+                     fields: [...sd.querySelectorAll("menulist")].filter(vis).map(e => [Math.round(e.getBoundingClientRect().height), csOf(e).borderTopWidth, csOf(e).backgroundColor, !!e.closest("#searchTermList")]),
                      control: colorOf(sd, "var(--mt-control)", "backgroundColor") };
           } finally { await shut(sw); }""")
         ok = (all(same_color(x[0], res["win"]) and x[1] == "8px" and same_color(x[2], res["line"]) for x in (res["tree"], res["terms"]))
               and res["tree"][0] != "rgb(0, 0, 0)" and res["split"][1] == "0px" and res["split"][0] in ("1px", "0.5px")
               and len(res["buttons"]) == 5 and all(h >= 30 and r == "999px" for h, r in res["buttons"])
-              and len(res["fields"]) >= 3 and all(h >= 28 and bw == "0px" and same_color(bg, res["control"]) for h, bw, bg in res["fields"]))
+              and len(res["fields"]) >= 3 and any(not row for *_, row in res["fields"]) and any(row for *_, row in res["fields"])
+              and all(h == (24 if row else 30) and bw == "0px" and same_color(bg, res["control"]) for h, bw, bg, row in res["fields"]))
         return ok, f"{res}"
-    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie, Knöpfe 30 px als Kapsel, Auswahllisten 28 px als graues Feld ohne Rand (Bauart der Auswahlfelder)", ab_search_dialog, results)
+    check("Adressen suchen: Bedingungen und Ergebnisse als Flächen mit Haarlinie, keine schwarze Liste, Teiler als eine Linie, Knöpfe 30 px als Kapsel, Auswahllisten als graues Feld ohne Rand (Bauart der Auswahlfelder), 30 px, in den Bedingungszeilen 24 px", ab_search_dialog, results)
 
     def ab_edit_dialogs():
         # Bearbeiten gleich nach dem Öffnen: das Layout (Weitere Felder) greift
@@ -18602,6 +18603,72 @@ Neu
               and bool(res.get("accountTwisty")) and bool(res.get("folderTwisty")) and all("resource://mailcards/icons/nav-down-12.svg" in t for t in tw))
         return ok, f"{res}"
     check("Auswahlfelder: eine Bauart (graues Feld, Ecken 7 px, Schrift normal) mit halo-Doppelpfeil in Einstellungen und Kontoeinstellungen; Aufklapp-Pfeile in Ordnerliste und Kontenbaum als halo-Pfeil", select_fields, results)
+
+    def field_heights():
+        # Felder so hoch wie die Knöpfe (Stufen 30/24): Text- und Auswahlfelder in Einstellungen, Kontoeinstellungen,
+        # Dialogen und im Kontakt 30 px mit Ecken 7 px; enge Zeilen (Filterbedingungen und -aktionen, Absender im
+        # Verfassen-Kopf) 24 px. Beschriftungen von Feldern ohne Doppelpunkt („Location“, „Filter name“, „Image
+        # Location“, Option „Alternate text“, Kästchen „Cc these email addresses“); einleitende Sätze vor einer Liste
+        # („Apply filter when:“, „Place a copy in:“) und lange Sätze behalten ihn
+        # (ADDRESS_EDIT_JS ohne seine zweite MailServices-Deklaration – COMPOSE_CHECK_JS hat sie schon)
+        res = m.js(COMPOSE_CHECK_JS + ADDRESS_EDIT_JS.replace('const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");', "", 1) + r"""
+          const H = e => e && vis(e) ? Math.round(e.getBoundingClientRect().height * 2) / 2 : null;
+          const T = e => e ? (e.getAttribute("label") || e.getAttribute("value") || e.textContent || "").trim() : null;
+          const out = {};
+          out.contact = [...ad.querySelectorAll("#editContactForm input:not([type=checkbox], [type=radio]), #editContactForm select")].filter(vis).slice(0, 6)
+            .map(e => [H(e), csOf(e).borderTopLeftRadius]);
+          ad.getElementById("cancelEditButton")?.click(); await ruhig(600); tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          w.openPreferencesTab("paneGeneral");
+          await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("mailnewsStartPageUrl")?.getBoundingClientRect().width > 0, "Einstellungen", 8000); await ruhig(1500);
+          const pd = tm.currentTabInfo.browser.contentDocument, url = pd.getElementById("mailnewsStartPageUrl");
+          url.scrollIntoView({ block: "center" }); await ruhig(400);
+          const restore = [...url.parentElement.querySelectorAll("button")].find(vis);
+          out.prefs = { url: H(url), restore: H(restore), engine: H(pd.getElementById("defaultWebSearch")), font: H(pd.getElementById("defaultFont")),
+                        location: T(url.previousElementSibling?.localName == "label" ? url.previousElementSibling : pd.querySelector('label[control="mailnewsStartPageUrl"]')),
+                        fontLabel: T(pd.querySelector('label[control="defaultFont"]')) };
+          tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          w.MsgAccountManager(null);
+          const aw = await until(() => tm.currentTabInfo.browser?.contentWindow?.document.getElementById("accounttree") && tm.currentTabInfo.browser.contentWindow, 8000);
+          await ruhig(1200); const amd = aw.document, tree = amd.getElementById("accounttree");
+          const li = [...tree.querySelectorAll("li")].find(l => l.getAttribute("PageTag") == "am-copies.xhtml");
+          if (li) { tree.selectedIndex = tree.rows.indexOf(li);
+            const sd = await until(() => { const x = amd.getElementById("contentFrame").contentDocument; return x?.readyState == "complete" && x.location.href.includes("am-copies") && x.getElementById("identity.doCc") && x; }, 8000);
+            await ruhig(800);
+            if (sd) out.account = { cc: T(sd.getElementById("identity.doCc")), fcc: T(sd.getElementById("identity.doFcc")),
+                                    ccList: H(sd.getElementById("identity.doCcList")), picker: H(sd.getElementById("msgFccAccountPicker")) }; }
+          tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          out.compose = await withCompose({}, async (cw, cd) => {
+            const r = { identity: H(cd.getElementById("msgIdentity")) };
+            r.image = await dialog(() => cw.goDoCommand("cmd_image"), "EdImageProps", async (dw, dd) => { await ruhig(400);
+              return { src: H(dd.getElementById("srcInput")), units: H(dd.getElementById("widthUnitsMenulist")) ?? "verborgen", srcLabel: T(dd.getElementById("srcLabel")),
+                       alt: T(dd.getElementById("altTextRadio")), altInput: H(dd.getElementById("altTextInput")), href: T(dd.getElementById("hrefLabel")) }; });
+            return r; });
+          const f = MailServices.accounts.localFoldersServer.rootFolder; w.MsgFilters(null, f);
+          const lw = await winUrl("FilterListDialog"); if (!lw) throw new Error("Filterliste nicht offen");
+          try { await ruhig(800);
+            out.filter = await dialog(() => lw.onNewFilter(), "FilterEditor", async (dw, dd) => { await ruhig(400);
+              const row = sel => [...dd.querySelectorAll(sel)].filter(vis).map(H);
+              return { name: H(dd.getElementById("filterName")), nameLabel: T(dd.getElementById("filterNameLabel")),
+                       legend: T(dd.querySelector("#applyFiltersSettings > legend")),
+                       terms: row("#searchTermList menulist, #searchTermList input:not([type=checkbox], [type=radio])"),
+                       actions: row("#filterActionList menulist") }; });
+          } finally { await shut(lw); }
+          return out;""")
+        def near(h, want):
+            return isinstance(h, (int, float)) and abs(h - want) <= 0.5
+        p, a, c, f = res.get("prefs") or {}, res.get("account") or {}, res.get("compose") or {}, res.get("filter") or {}
+        im = c.get("image") or {}
+        ok = (len(res.get("contact") or []) >= 3 and all(near(h, 30) and r == "7px" for h, r in res["contact"])
+              and near(p.get("url"), 30) and near(p.get("restore"), 30) and near(p.get("engine"), 30) and near(p.get("font"), 30)
+              and p.get("location") == "Location" and p.get("fontLabel") == "Default font"
+              and a.get("cc") == "Cc these email addresses" and a.get("fcc") == "Place a copy in:" and near(a.get("ccList"), 30) and near(a.get("picker"), 30)
+              and near(c.get("identity"), 24)
+              and near(im.get("src"), 30) and im.get("units") in (30, 30.0, "verborgen") and near(im.get("altInput"), 30)
+              and im.get("srcLabel") == "Image Location" and im.get("alt") == "Alternate text" and (im.get("href") or "").endswith(":")
+              and near(f.get("name"), 30) and f.get("nameLabel") == "Filter name" and f.get("legend") == "Apply filter when:"
+              and len(f.get("terms") or []) >= 3 and all(near(h, 24) for h in f["terms"]) and len(f.get("actions") or []) >= 1 and all(near(h, 24) for h in f["actions"]))
+        return ok, f"{res}"
+    check("Felder: Höhe 30 px wie die Knöpfe (Einstellungen, Kontoeinstellungen, Bild-Dialog, Regel, Kontakt), 24 px in engen Zeilen (Bedingungen, Aktionen, Absender), Beschriftungen ohne Doppelpunkt, einleitende Sätze mit", field_heights, results)
 
     def account_sidebar_toggle():
         # Seitenleiste in den Kontoeinstellungen ausblenden: Kontodetails bleiben sichtbar und füllen die Breite

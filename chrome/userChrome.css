@@ -53,6 +53,10 @@
      Umriss in der Systemfarbe) */
   --mt-btn-h: 30px;
   --mt-btn-h-small: 24px;
+  /* Feldhöhen wie die Knöpfe: Text- und Auswahlfelder 30 px, in engen Zeilen
+     (Such- und Filterbedingungen, Absender im Verfassen-Kopf) 24 px */
+  --mt-field-h: var(--mt-btn-h);
+  --mt-field-h-small: var(--mt-btn-h-small);
   --mt-focus-ring: 0 0 0 3px color-mix(in srgb, var(--mt-accent) 22%, transparent);
   --mt-menu-bg: rgba(246, 246, 248, 0.80);
   /* Menüs: eine Textspalte; das Häkchen steht davor im Rand (Feld 9 px,
@@ -9638,7 +9642,8 @@ splitter.splitter:has(+ .conv-bottom) {
 
 /* Knöpfe im Apple-Stil (Auswahlfelder: eigene Bauart weiter unten) */
 #paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead)) {
-  min-height: 28px !important;
+  /* 30 px wie die Felder daneben („Location“ und „Restore default“) */
+  min-height: var(--mt-btn-h, 30px) !important;
   padding-inline: 14px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
@@ -9679,6 +9684,14 @@ splitter.splitter:has(+ .conv-bottom) {
   border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   box-shadow: none !important;
+}
+
+/* einzeilige Felder 30 px wie die Knöpfe daneben (waren 26 bzw. 29) */
+#paneDeck :is(input[type="text"], input[type="number"], input[type="url"], input:not([type])) {
+  box-sizing: border-box !important;
+  min-height: var(--mt-field-h, 30px) !important;
+  height: var(--mt-field-h, 30px) !important;
+  padding-block: 0 !important;
 }
 
 .sticky-container #searchInput,
@@ -9846,7 +9859,8 @@ input[type="number"].size3,
 input[type="number"].size4,
 input[type="number"].size5 {
   appearance: none !important;
-  min-height: 26px !important;
+  box-sizing: border-box !important;
+  min-height: var(--mt-field-h, 30px) !important;
   padding-inline: 8px !important;
   text-align: center !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
@@ -9862,11 +9876,11 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 
 /* ---------- Auswahlfelder (Wert wählen) überall in einer Bauart ----------
    graues Feld (--mt-control) ohne Rand, Ecken wie die Eingabefelder (7 px),
-   26 px hoch, Schrift normal in Textfarbe; rechts der halo-Doppelpfeil
+   30 px hoch, Schrift normal in Textfarbe; rechts der halo-Doppelpfeil
    (parts.css, chevron-updown-14.svg) wie in den Einstellungen des Mac.
    Knöpfe mit Menü (z. B. „Save All“) behalten den einfachen Pfeil.
-   In Formularen mit höheren Feldern (Dialoge 28, Termin 32, Kontakt 34 px)
-   folgt nur die Höhe den Feldern der Zeile; das Termin-Fenster wie Apple
+   Höhe wie die Text- und Eingabefelder 30 px (--mt-field-h), in engen
+   Zeilen (Such- und Filterbedingungen) 24 px; das Termin-Fenster wie Apple
    Kalender, Datum/Uhrzeit und der Absender im Verfassen-Kopf (steht als
    Wert ohne Feld in der Spalte der Kopfzeilen, nur mit Doppelpfeil) bleiben,
    wie sie sind. :where macht die Spezifität null, damit die Regeln dieser
@@ -9874,7 +9888,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 :where(menulist:not([editable]):not(:root[mc-apple-event] #event-grid menulist, datepicker menulist, timepicker menulist, #msgIdentity)) {
   appearance: none !important;
   box-sizing: border-box !important;
-  min-height: 26px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   padding-block: 0 !important;
   padding-inline: 10px 7px !important;
   border: none !important;
@@ -9897,7 +9911,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 :where(select:not([multiple], [size]):not(.account-hub-dialog select, #mcQuickPanel select)) {
   appearance: none !important;
   box-sizing: border-box !important;
-  min-height: 26px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   padding-block: 0 !important;
   padding-inline: 10px 29px !important;
   border: none !important;
@@ -9985,7 +9999,7 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
 /* Kontoeinstellungen: Felder und Listen wie in den Einstellungen (der rote
    Löschen-Knopf bleibt, wie er ist) */
 :is(#containerBox, .account-settings) :is(input:is([type="text"], [type="email"], [type="url"], [type="number"], [type="password"], :not([type])), textarea) {
-  min-height: 26px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   padding-inline: 8px !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
   border-radius: var(--mt-radius-field, 7px) !important;
@@ -10569,6 +10583,8 @@ addon-card .addon-inline-options {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
+  /* enge Zeile: kleine Stufe 24 px */
+  min-height: var(--mt-field-h-small, 24px) !important;
 }
 
 /* Absender-Menü: Zeilen 24 px wie die übrigen Menüs (waren 27) */
@@ -11427,16 +11443,16 @@ addon-card .addon-inline-options {
 }
 
 /* Knöpfe 30 px als Kapsel wie in den übrigen Dialogen (waren 24 bzw. 26),
-   Auswahllisten und Felder 28 px statt 24 px, Felder mit Haarlinie (Auswahl-
-   felder ohne Rand wie überall) */
+   Auswahlliste „Search in“ 30 px, Bedingungszeilen 24 px wie im Suchfenster
+   (enge Zeilen), Felder mit Haarlinie (Auswahlfelder ohne Rand wie überall) */
 #searchAddressBookWindow :is(#search-button, #reset-button, button[data-l10n-id^="ab-search-dialog-"]) {
   min-height: var(--mt-btn-h, 30px) !important;
   padding-inline: 14px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
-#searchAddressBookWindow :is(menulist, #searchTermList input:not([type="checkbox"], [type="radio"])) {
-  min-height: 28px !important;
+#searchAddressBookWindow menulist {
+  min-height: var(--mt-field-h, 30px) !important;
   box-sizing: border-box !important;
 }
 
@@ -11689,10 +11705,10 @@ addon-card .addon-inline-options {
 }
 
 #editContactForm :is(input:not([type="checkbox"], [type="radio"]), textarea) {
-  min-height: 34px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   padding: 0 10px !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  border-radius: 8px !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-window) !important;
   color: var(--mt-text) !important;
   box-shadow: none !important;
@@ -11713,7 +11729,7 @@ addon-card .addon-inline-options {
 #editContactForm select,
 #editContactForm menulist,
 #detailsFooter menulist {
-  min-height: 34px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   border: none !important;
   border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-control) !important;
@@ -12182,10 +12198,10 @@ button.wizard-button[disabled] {
    Beschriftung schwebend in der Rahmenkerbe und brauchen ihre eigene Höhe */
 :is(dialog:not(.account-hub-dialog), wizard) :is(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), textarea),
 :is(dialog:not(.account-hub-dialog), wizard) search-textbox {
-  /* 28 px samt Innenabstand und Rand – so hoch wie Auswahllisten daneben;
-     content-box, weil .narrow-Felder (4em, z. B. Tabelle einfügen) sonst
-     zu schmal würden */
-  min-height: calc(28px - 8px - 2 * var(--mt-hairline)) !important;
+  /* 30 px samt Innenabstand und Rand – so hoch wie die Knöpfe und
+     Auswahllisten daneben; content-box, weil .narrow-Felder (4em, z. B.
+     Tabelle einfügen) sonst zu schmal würden */
+  min-height: calc(var(--mt-field-h, 30px) - 8px - 2 * var(--mt-hairline)) !important;
   padding-block: 4px !important;
   padding-inline: 8px !important;
   border: var(--mt-hairline) solid var(--mt-pane-line) !important;
@@ -12230,7 +12246,7 @@ button.wizard-button[disabled] {
 }
 
 dialog menulist {
-  min-height: 28px !important;
+  min-height: var(--mt-field-h, 30px) !important;
   border: none !important;
   border-radius: var(--mt-radius-field, 7px) !important;
   background-color: var(--mt-control) !important;
@@ -12311,6 +12327,21 @@ dialog menulist {
 richlistbox:is(#searchTermList, #filterActionList) > richlistitem menulist {
   background-color: var(--mt-control) !important;
   background-image: none !important;
+}
+
+/* Bedingungs- und Aktionszeilen (Suchen, Regeln, Adressen suchen) sind enge
+   Zeilen: Auswahl- und Textfelder in der kleinen Stufe 24 px wie die
+   kleinen Knöpfe */
+richlistbox:is(#searchTermList, #filterActionList) > richlistitem menulist {
+  min-height: var(--mt-field-h-small, 24px) !important;
+  height: var(--mt-field-h-small, 24px) !important;
+}
+
+richlistbox:is(#searchTermList, #filterActionList) > richlistitem :is(input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]), search-textbox) {
+  box-sizing: border-box !important;
+  min-height: var(--mt-field-h-small, 24px) !important;
+  height: var(--mt-field-h-small, 24px) !important;
+  padding-block: 0 !important;
 }
 
 richlistbox:is(#searchTermList, #filterActionList) > richlistitem menulist:not([disabled]):is(:hover, [open="true"]) {

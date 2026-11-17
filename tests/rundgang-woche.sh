@@ -114,7 +114,7 @@ belegt_rundgang() {
 # nicht neben CI oder anderen Testläufen
 if [[ -n $ONLY ]]; then
   belegt_rundgang() {
-    pgrep -f Runner.Worker >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
+    pgrep -f 'actions-runner/bin/Runner\.Worker' >/dev/null && { print "CI-Lauf auf dem GitHub-Runner"; return 0 }
     pgrep -f "tests/(halo_test|ui_tour|update_test|store_shots)\.py" >/dev/null && { print "Testlauf"; return 0 }
     return 1
   }

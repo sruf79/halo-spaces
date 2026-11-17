@@ -2903,6 +2903,40 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: ganze Konversation (auch eigene Antwort aus „Gesendet“) als Karten, neueste oben, Karten auf grauem Grund, auch für zugeklappte Fäden (Antworten/Weiterleiten der Toolbar aktiv, auf die neueste bzw. angeklickte Mail, Rahmen folgt dem Klick), Kapsel je Karte; abschaltbar", conversation, results)
 
+    def conversation_folder_switch():
+        # Ordnerwechsel ohne neue Auswahl: Thunderbird leert die Leseansicht (messagePane.clearAll) – die Karten der
+        # Konversation aus dem alten Ordner dürfen dann nicht stehen bleiben (sonst steht dort eine Mail, die in der
+        # Liste gar nicht vorkommt)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const faden = folder("KonvWechselA"), leer = folder("KonvWechselB");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", "Text.", ""].join("\r\n")));
+          if (!faden.getTotalMessages(false)) {
+            faden.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo Wechsel", "halo-wechsel-1", null, 90));
+            faden.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Re: Halo Wechsel", "halo-wechsel-2", "halo-wechsel-1", 80));
+            leer.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo Anderer Ordner", "halo-wechsel-3", null, 70));
+            await bis(() => faden.getTotalMessages(false) >= 2 && leer.getTotalMessages(false) >= 1, "Testmails gespeichert", 5000);
+          }
+          const a3 = await toMail(); a3.displayFolder(faden.URI); await bis(() => a3.gFolder?.URI == faden.URI && a3.gDBView?.rowCount >= 1, "Ordner KonvWechselA", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.goDoCommand?.("cmd_expandAllThreads"); await ruhig(500);
+          const i = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == "halo-wechsel-2@example.invalid");
+          a3.threadTree.selectedIndex = i ?? -1;
+          const out = { before: !!(await until(() => a3.document.getElementById("mcConversation"), 6000)) };
+          a3.displayFolder(leer.URI); await bis(() => a3.gFolder?.URI == leer.URI, "Ordner KonvWechselB", 6000); await ruhig(1200);
+          out.selected = a3.gDBView?.numSelected ?? null;
+          out.after = !!a3.document.getElementById("mcConversation");
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        ok = res.get("before") is True and res.get("selected") == 0 and res.get("after") is False
+        return ok, f"{res}"
+    check("Leseansicht: Konversation verschwindet beim Ordnerwechsel ohne neue Auswahl", conversation_folder_switch, results)
+
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der
         # Uhrzeit nur bei markierten Mails; folgt Änderungen sofort

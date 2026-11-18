@@ -22,7 +22,7 @@
 #      (48) × 100 %; nach einem freien Reset (Anker) Stunden seit dem Anker / Stunden bis zum nächsten automatischen
 #      Reset × 100 % („Soll bis nächster Reset“, Maintainer 18.11.2026). Tags: Woche unter Soll oder
 #      5-Stunden-Fenster unter FENSTER_MIN (60 %) → ein Worker; nachts nur, wenn die Woche unter Soll liegt.
-#      5-Stunden-Fenster ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
+#      5-Stunden-Fenster ab FENSTER_DROSSEL (70 %): nur noch ein Worker gleichzeitig; ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
 #   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> auf eigenem Zweig pruef/<name> (von origin/main), claude -p mit
@@ -52,7 +52,7 @@ source $HIER/lauf-hilfen.zsh
 # --- Schwellen: Standard, dann auslastung.conf (jede Prüfung neu gelesen, also im Betrieb änderbar) ---
 typeset -A K
 konf_lesen() {
-  K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
+  K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 NACHT_BIS 0900 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
@@ -140,6 +140,8 @@ pruefen() {
   a=$(( w - soll ))
   local lage="Woche $w %, Soll $s[2] % ($bezug), 5 Stunden $f5 %, $n von $grenze aktiv${nacht:+, nachts}"
   (( f5 >= K[FENSTER_STOPP] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_STOPP] % – $lage"; return }
+  # Drossel (Maintainer 18.11.2026: „ich folge deinen empfehlungen“): ab FENSTER_DROSSEL % im 5-Stunden-Fenster höchstens ein Worker gleichzeitig, damit das Fenster nicht nach 4,5 h voll ist
+  (( f5 >= K[FENSTER_DROSSEL] && n >= 1 )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_DROSSEL] % (Drossel, höchstens ein Worker) – $lage"; return }
   if (( nacht )); then
     (( a < 0 )) || { print -r -- "warten nachts nur unter dem Soll – $lage"; return }
   else

@@ -20544,8 +20544,8 @@ Neu
           const state = () => ({ cat: pw.gLastCategory.category, input: input.value, found: found(), marked: pw.gSearchResultsPane.getFindSelection(pw).rangeCount > 0 });
           const out = {};
           try {
-            fire("update");
-            await bis(() => pd.getElementById("sorry-message-query")?.textContent == "update", "Suche nach update fertig", 15000);
+            fire("logos");
+            await bis(() => pd.getElementById("sorry-message-query")?.textContent == "logos", "Suche nach logos fertig", 15000);
             await until(() => found().length > 0, 3000);
             out.before = state();
             await pw.selectPrefPane("paneGeneral"); await ruhig(300);
@@ -20554,7 +20554,7 @@ Neu
             fire("");
             await until(() => pw.gLastCategory.category == "paneGeneral", 3000);
             out.cleared = pw.gLastCategory.category;
-            fire("update");
+            fire("logos");
             await bis(() => pw.gLastCategory.category == "paneSearchResults" && found().length > 0, "zweite Suche", 10000);
             pd.getElementById("category-compose").click();
             await until(() => pw.gLastCategory.category == "paneCompose", 3000);
@@ -20563,7 +20563,7 @@ Neu
             tm.closeTab(tm.currentTabInfo); await ruhig(400);
           }
           return out;""")
-        good = lambda s: s and s["cat"] == "paneSearchResults" and s["input"] == "update" and "Install updates at start" in s["found"] and s["marked"]
+        good = lambda s: s and s["cat"] == "paneSearchResults" and s["input"] == "logos" and "Logos from sender websites" in s["found"] and s["marked"]
         ok = good(res.get("before")) and good(res.get("after")) and res.get("cleared") == "paneGeneral" and res.get("clicked") == ["paneCompose", ""]
         return ok, f"{res}"
     check("Einstellungen: Suche bleibt stehen, wenn Thunderbirds verspätete Wahl der Startseite nach dem Tippen ankommt", pref_search_late_start, results)

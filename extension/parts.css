@@ -276,13 +276,14 @@ addon-card .more-options-button::part(button):hover {
 }
 
 /* Add-ons-Verwaltung: Symbolknöpfe im Seitenkopf (Zurück, Zahnrad, Lupe
-   neben der Suche) als runde 28-px-Knöpfe mit der üblichen Knopffläche
-   statt eckig ohne Fläche; die Knöpfe in der Karte bleiben wie oben */
+   neben der Suche) als runde 30-px-Knöpfe mit der üblichen Knopffläche
+   statt eckig ohne Fläche, so hoch wie das Suchfeld daneben; die Knöpfe in
+   der Karte bleiben wie oben */
 :is(addon-page-header .back-button, addon-page-header .page-options-menu .more-options-button, search-addons moz-button)::part(button) {
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
-  min-height: 28px !important;
+  width: var(--mt-btn-h, 30px) !important;
+  height: var(--mt-btn-h, 30px) !important;
+  min-width: var(--mt-btn-h, 30px) !important;
+  min-height: var(--mt-btn-h, 30px) !important;
   padding: 0 !important;
   border: none !important;
   border-radius: 999px !important;

@@ -4544,9 +4544,12 @@ splitter.splitter:has(+ .conv-bottom) {
   padding-block: 0 !important;
 }
 
+/* Suchfelder auf Seiten und in Dialogen 30 px wie die Felder daneben (E28);
+   nur die Suchfelder in den Leisten sind höher (38 px wie die Knöpfe dort) */
 .sticky-container #searchInput,
 #paneDeck input[type="search"] {
-  height: 32px !important;
+  box-sizing: border-box !important;
+  height: var(--mt-field-h, 30px) !important;
   padding-inline: 32px 14px !important;
   background-position: 11px center !important;
   border: none !important;
@@ -5011,7 +5014,7 @@ addon-card .card,
 
 search-addons input,
 .main-search input[type="search"] {
-  height: 32px !important;
+  height: var(--mt-field-h, 30px) !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
@@ -5111,12 +5114,12 @@ search-addons moz-input-search {
   --input-text-border-radius: 999px !important;
   --input-search-border-radius: 999px !important;
   --input-text-background-color: var(--mt-control) !important;
-  --input-text-min-height: 28px !important;
+  --input-text-min-height: var(--mt-field-h, 30px) !important;
   /* Thunderbird 159+: moz-input-text liest dieselben Werte ohne „-text“ */
   --input-border: 1px solid transparent !important;
   --input-border-radius: 999px !important;
   --input-background-color: var(--mt-control) !important;
-  --input-min-height: 28px !important;
+  --input-min-height: var(--mt-field-h, 30px) !important;
   --focus-outline: 3px solid color-mix(in srgb, var(--mt-accent) 30%, transparent) !important;
 }
 
@@ -7060,6 +7063,29 @@ button.wizard-button[disabled] {
   box-shadow: none !important;
 }
 
+/* Suchfelder in Dialogen (Gespeicherte Passwörter, Cookies und weitere
+   Unterdialoge) als graue Kapsel wie alle Suchfelder (G9): ohne Rand, ohne
+   Hover-Zustand, 30 px wie die Felder (E28); die Lupe (Hintergrundbild)
+   bleibt. Passwörter und Cookies haben kein dialog-Element, darum auch über
+   :root[subdialog] und die Fenster-ids */
+:is(dialog:not(.account-hub-dialog), wizard, :root[subdialog], #SignonViewerDialog, #CookiesDialog) input[type="search"],
+:is(dialog:not(.account-hub-dialog), wizard, :root[subdialog], #SignonViewerDialog, #CookiesDialog) input[type="search"]:hover {
+  appearance: none !important;
+  box-sizing: border-box !important;
+  min-height: var(--mt-field-h, 30px) !important;
+  height: var(--mt-field-h, 30px) !important;
+  padding-block: 0 !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+:is(dialog:not(.account-hub-dialog), wizard, :root[subdialog], #SignonViewerDialog, #CookiesDialog) input[type="search"]:focus {
+  outline: none !important;
+  box-shadow: var(--mt-focus-ring) !important;
+}
+
 /* Unterdialoge im Tab (Neue Verteilerliste, Neues Adressbuch, Kontaktbild,
    Einstellungen): neutrale Fläche statt Thunderbirds Blaugrau im Dunkelmodus */
 .dialogBox,
@@ -7130,8 +7156,8 @@ dialog menulist {
 #enigmailKeyManager #filterKey:hover {
   appearance: none !important;
   box-sizing: border-box !important;
-  min-height: 28px !important;
-  height: 28px !important;
+  min-height: var(--mt-field-h, 30px) !important;
+  height: var(--mt-field-h, 30px) !important;
   padding-inline: 12px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;

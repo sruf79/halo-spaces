@@ -4471,10 +4471,10 @@ def dialog_checks(m, results):
         px = res.get("pixel") or [255, 255, 255, 255]
         log_ok = (sum(px[:3]) < 200) if res["dark"] else (min(px[:3]) >= 250)
         ok = (res["list"]["app"] == "none" and hair(res["list"], "8px") and res["search"]["img"] != "none"
-              and res["searchCaps"][:3] == [28, "999px", "0px"] and same_color(res["searchCaps"][3], res["listControl"]) and res["searchCaps"][4] == "none"
+              and res["searchCaps"][:3] == [30, "999px", "0px"] and same_color(res["searchCaps"][3], res["listControl"]) and res["searchCaps"][4] == "none"
               and res["searchCaps"] == res["searchCapsHover"]
               and hair(res["log"], "8px") and log_ok and hair(res["terms"], "8px") and hair(res["field"], "7px") and res["field"]["h"] <= 30
-              and hair(res["keys"], "8px") and res["keySearch"][:3] == [28, "999px", "0px"] and same_color(res["keySearch"][3], res["control"])
+              and hair(res["keys"], "8px") and res["keySearch"][:3] == [30, "999px", "0px"] and same_color(res["keySearch"][3], res["control"])
               and res["keySearch"] == res["keySearchHover"])
         def head_ok(h):
             cols = h["cols"]
@@ -4517,19 +4517,60 @@ def dialog_checks(m, results):
           const t = tm.tabInfo.find(x => x.browser?.currentURI?.spec == "about:downloads"); if (!t) throw new Error("Tab fehlt");
           try { const dd = t.browser.contentDocument; await till(() => dd.getElementById("clearDownloads") && dd.defaultView.__mcTheme, 5000); await ruhig(400);
             const b = csOf(dd.getElementById("clearDownloads")), l = csOf(dd.getElementById("msgDownloadsRichListBox"));
+            const bh = Math.round(dd.getElementById("clearDownloads").getBoundingClientRect().height);
             // Suchfeld als Kapsel ohne Rand mit Knopffläche, ohne Hover-Zustand
             const sb = dd.getElementById("searchBox"), sbs = () => { const s = csOf(sb); return [Math.round(sb.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor, s.boxShadow]; };
             const search = sbs(); InspectorUtils.addPseudoClassLock(sb, ":hover"); const searchHover = sbs(); InspectorUtils.removePseudoClassLock(sb, ":hover");
-            return { theme: !!dd.defaultView.__mcTheme, search, searchHover, radius: b.borderTopLeftRadius, bg: b.backgroundColor, control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
+            return { theme: !!dd.defaultView.__mcTheme, search, searchHover, bh, radius: b.borderTopLeftRadius, bg: b.backgroundColor, control: colorOf(dd, "var(--mt-control)", "backgroundColor"),
                      body: csOf(dd.body).backgroundColor, window: colorOf(dd, "var(--mt-window)", "backgroundColor"), list: [l.borderTopLeftRadius, l.borderTopColor],
                      paneLine: colorOf(dd, "var(--mt-pane-line)") };
           } finally { tm.closeTab(t); await ruhig(300); }""")
         ok = (res["theme"] and res["radius"] == "999px" and same_color(res["bg"], res["control"]) and same_color(res["body"], res["window"])
               and not same_color(res["body"], "rgb(26, 32, 44)") and res["list"][0] == "8px" and same_color(res["list"][1], res["paneLine"])
-              and res["search"][:3] == [28, "999px", "0px"] and same_color(res["search"][3], res["control"]) and res["search"][4] == "none"
-              and res["search"] == res["searchHover"])
+              and res["search"][:3] == [30, "999px", "0px"] and same_color(res["search"][3], res["control"]) and res["search"][4] == "none"
+              and res["search"] == res["searchHover"] and res["bh"] == 30)
         return ok, f"{res}"
-    check("Gespeicherte Dateien: Design auch in about:downloads – Kapsel-Knopf, Fensterfarbe, Liste mit Haarlinie, Suchfeld als Kapsel ohne Hover-Zustand", downloads, results)
+    check("Gespeicherte Dateien: Design auch in about:downloads – Kapsel-Knopf, Fensterfarbe, Liste mit Haarlinie, Suchfeld als Kapsel ohne Hover-Zustand, beide 30 px", downloads, results)
+
+    def search_dialogs():
+        # Suchfelder in den Dialogen „Saved Logins“ und Cookies (Unterdialoge der Einstellungen, ohne dialog-Element):
+        # graue Kapsel 30 px ohne Rand wie alle Suchfelder (G9, E28), Lupe bleibt, kein Hover-Zustand, erst der Fokus
+        # zeigt den Ring; vorher weißes Feld 28 px mit Rahmen und 7 px Ecken. Dazu das Suchfeld „Files & Attachments“
+        # in den Einstellungen (vorher 32 px)
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          tm.switchToTab(0); await ruhig(300);
+          w.openPreferencesTab("paneGeneral");
+          await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("preferencesContainer") && tm.currentTabInfo.browser.contentWindow.gPrivacyPane, "Einstellungen-Tab geladen", 10000);
+          const tab = tm.currentTabInfo, cw = tab.browser.contentWindow, cd = cw.document, out = {};
+          const look = f => { const s = csOf(f); return [Math.round(f.getBoundingClientRect().height), s.borderTopLeftRadius, s.borderTopWidth, s.backgroundColor, s.boxShadow, s.backgroundImage != "none"]; };
+          try {
+            const ff = await bis(() => { const e = cd.getElementById("filter"); return e?.getBoundingClientRect().height && e; }, "Suchfeld „Files & Attachments“ sichtbar", 10000);
+            ff.scrollIntoView({ block: "center" }); await ruhig(300);
+            out.settings = look(ff); out.settingsControl = colorOf(cd, "var(--mt-control)", "backgroundColor");
+            cw.gotoPref("panePrivacy"); await ruhig(1000);
+            for (const [name, open, probe] of [["logins", () => cw.gPrivacyPane.showPasswords(), "signonsTree"], ["cookies", () => cw.gPrivacyPane.showCookies(), "cookiesList"]]) {
+              open();
+              const fr = await bis(() => [...cd.querySelectorAll(".dialogFrame")].find(f => f.contentDocument?.readyState == "complete" && f.contentDocument.getElementById(probe) && csOf(f.contentDocument.getElementById("filter")).backgroundImage.includes("mailcards")), name + " offen mit Design", 8000);
+              await ruhig(500);
+              // der Dialog setzt den Fokus beim Öffnen ins Suchfeld: zuerst ohne Fokus messen
+              const fd = fr.contentDocument, f = fd.getElementById("filter");
+              // (setzt der Dialog den Fokus nach dem Laden noch einmal, erneut abgeben)
+              await until(() => { if (fd.activeElement == f) f.blur(); return fd.activeElement != f && !f.matches(":focus"); }, 3000); await ruhig(200);
+              const o = { field: look(f), control: colorOf(fd, "var(--mt-control)", "backgroundColor"), ring: colorOf(fd, "var(--mt-focus-ring)", "boxShadow") };
+              InspectorUtils.addPseudoClassLock(f, ":hover"); o.hover = look(f); InspectorUtils.removePseudoClassLock(f, ":hover");
+              InspectorUtils.addPseudoClassLock(f, ":focus"); o.focus = look(f); InspectorUtils.removePseudoClassLock(f, ":focus");
+              out[name] = o;
+              cw.gSubDialog._topDialog?.close(); await ruhig(500);
+            }
+          } finally { tm.closeTab(tab); await ruhig(300); }
+          return out;""")
+        def caps(o, control):
+            return o[:3] == [30, "999px", "0px"] and same_color(o[3], control) and o[5]
+        ok = all(caps(res[k]["field"], res[k]["control"]) and res[k]["field"][4] == "none" and res[k]["hover"] == res[k]["field"]
+                 and res[k]["focus"][4] == res[k]["ring"] and res[k]["focus"][4] != "none" for k in ("logins", "cookies"))
+        ok = ok and caps(res["settings"], res["settingsControl"])
+        return ok, f"{res}"
+    check("Suchfelder in Dialogen und Einstellungen: Saved Logins, Cookies und „Files & Attachments“ als graue 30-px-Kapsel mit Lupe, ohne Rand und Hover, Fokusring erst beim Fokus", search_dialogs, results)
 
     def support_page():
         # Fehlerbehebungsseite (about:support): Knöpfe als 28-px-Kapsel mit der üblichen Knopffläche statt eckigem Toolkit-Grau
@@ -4566,10 +4607,10 @@ def dialog_checks(m, results):
           } finally { tm.closeTab(t); Services.prefs.clearUserPref("browser.aboutConfig.showWarning"); await ruhig(300); }""")
         caps = [res["show"]] + res["row"]
         ok = (len(res["row"]) >= 2 and all(h == 28 and r == "999px" and same_color(bg, res["control"]) for _, h, r, bg in caps)
-              and res["field"][0] == 28 and res["field"][1] == "999px" and res["field"][2] == "0px"
+              and res["field"][0] == 30 and res["field"][1] == "999px" and res["field"][2] == "0px"
               and same_color(res["field"][3], res["control"]) and res["field"] == res["hover"])
         return ok, f"{res}"
-    check("Konfiguration: Knöpfe und Suchfeld in about:config als 28-px-Kapsel, Suchfeld ohne Hover", config_page, results)
+    check("Konfiguration: Knöpfe in about:config als 28-px-Kapsel, Suchfeld als 30-px-Kapsel ohne Hover", config_page, results)
 
     def about_dialog():
         # „About Thunderbird“: Kopf und Linkleiste in Fensterfarbe (kein grauer Kopf über weißer Leiste), keine
@@ -16883,10 +16924,11 @@ Neu
           return out;''')
         nav_ok = len(res["nav"]) >= 4 and all(32 <= h <= 36 and f == "13px" and i == 18 for h, f, i in res["nav"]) and res["navSel"]
         s = res.get("search") or [None, 0, False, 0]
-        search_ok = rgba_alpha(s[0]) == 0 and s[1] >= 14 and s[2] and 26 <= s[3] <= 30
+        # Suchfeld 30 px wie die Felder (E28) und so hoch wie die Kopfknöpfe daneben
+        search_ok = rgba_alpha(s[0]) == 0 and s[1] >= 14 and s[2] and s[3] == 30
         knobs_ok = all(k and all(b and b[0] == 24 and b[1] == 24 and b[2] == "rgba(0, 0, 0, 0)" and b[3] == "50%" for b in k) for k in res["knobs"])
         # Kopfknöpfe als einzeln stehende Symbolknöpfe der Knopf-Familie: grau mit Lichtkante
-        head_ok = len(res["head"]) == 3 and all(h and h[:3] == [28, 28, "999px"] and h[3] and h[4] for h in res["head"])
+        head_ok = len(res["head"]) == 3 and all(h and h[:3] == [30, 30, "999px"] and h[3] and h[4] for h in res["head"])
         menus_ok = len(res["menus"]) == 2 and all(mn and mn["radius"] == "12px" and mn["border"] == "0px" and mn["bg"] and not mn["blue"]
                                                    and mn["itemRadius"] == "6px" and mn["itemH"] >= 22 and mn["hover"] and mn["hr"] is not False for mn in res["menus"])
         dt = res.get("detail") or {}
@@ -16943,7 +16985,7 @@ Neu
     def addons_buttons():
         # Add-ons-Verwaltung (Liste, Themes, Detail, halo-Einstellungen): sichtbare Fläche jedes moz-button ist seit
         # Thunderbird 159 das Teil [part=button] im Knopf, der Knopf selbst bleibt eckig ohne Fläche. Textknöpfe
-        # („Enable“ bei den Themes) und die Symbolknöpfe im Kopf als 28-px-Kapsel mit Knopffläche, „…“ in der Karte
+        # („Enable“ bei den Themes) als 28-px-Kapsel, die Symbolknöpfe im Kopf als 30-px-Kapsel mit Knopffläche, „…“ in der Karte
         # 24 px rund ohne Fläche
         res = m.js(r'''
           w.resizeTo(1500, 900);
@@ -16987,12 +17029,13 @@ Neu
           tm.closeTab(tm.currentTabInfo); await ruhig(300);
           return out;''')
         back = res.pop("back", None) or {}
-        want = {"kopf": [28, "999px", "fläche"], "karte-text": [28, "999px", "fläche"], "karte-symbol": [24, "50%", "rgba(0, 0, 0, 0)"]}
+        # Kopfknöpfe 30 px wie das Suchfeld daneben (Felder und Knöpfe 30 px, E28)
+        want = {"kopf": [30, "999px", "fläche"], "karte-text": [28, "999px", "fläche"], "karte-symbol": [24, "50%", "rgba(0, 0, 0, 0)"]}
         ok = all(res.get(k) for k in ("list", "theme", "detail", "pref")) and any(b[0] == "karte-text" for b in res["theme"]) \
             and all(b[1:] == want[b[0]] for v in res.values() for b in v) and set(back) == {"detail", "pref"} \
             and all(v["bg"] == "none" and v["mit"] > 0 and v["ohne"] == 0 for v in back.values())
         return ok, f"{res} zurück={back}"
-    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) und Kopfknöpfe als 28-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche, Zurück mit nur einem Pfeil (auch in den Einstellungen des Add-ons)",
+    check("Add-ons: Knöpfe in Liste, Themes, Detail und halo-Einstellungen – Textknöpfe („Enable“) als 28-px-, Kopfknöpfe als 30-px-Kapsel mit Fläche, „…“ in der Karte 24 px rund ohne Fläche, Zurück mit nur einem Pfeil (auch in den Einstellungen des Add-ons)",
           addons_buttons, results)
 
 

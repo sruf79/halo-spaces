@@ -19,6 +19,8 @@ Rolle
 Eingaben
 - Board-Eintrag: tests/board.sh zeige <id> (Zitate des Maintainers unverändert übernehmen), verwandte
   Einträge aus ~/halo-nacht/<datum>-haeufung.md.
+- Vor jedem neuen Board-Eintrag das Board nach einem bestehenden zum selben Thema durchsuchen (tests/board.sh suche); gibt es einen, Notiz
+  an diesen statt eines neuen (docs/design-vorgaben.md Abschnitt 11, Maintainer 18.11.2026).
 - Vorab-Prüfung des Directors („Vorab geprüft: ja“ bzw. was fehlt).
 - Apple-Vorlagen: ~/halo-aufgaben/apple/index.md; Farben als Rohwerte messen (keine zweite
   sRGB-Umrechnung). Fehlt eine Vorlage: Kalender, Kontakte, Erinnerungen mit Testdaten selbst

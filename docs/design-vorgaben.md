@@ -650,6 +650,14 @@ Quelle in den Abschnitten oben):
 - **Modell:** mindestens Opus; Fable nur nach der Fable-Regel (F11).
 - **Eingaben:** Board-Eintrag mit Zitaten, Vorab-Prüfung des Directors, Apple-Vorlagen
   (`~/halo-aufgaben/apple/index.md`), diese Datei, `ENTSCHEIDUNGEN.md`.
+- **Vor neuen Board-Einträgen:** Bevor der Designer (Gesprächskanal, Nachtlauf oder Tagesroutine) einen neuen
+  Board-Eintrag vorschlägt oder anlegen lässt, durchsucht er das Board nach einem bestehenden Eintrag zum selben
+  Thema (`tests/board.sh suche`). Gibt es einen, kommt eine Notiz an diesen Eintrag statt eines neuen. Gilt für alle
+  Designer-Sitzungen. Maintainer 18.11.2026, Gesprächskanal designer, Wortlaut: „ja merke dir das jetzt und für alle
+  zukünftigen sitzungen“, Antwort auf den Satz des Designers „Bevor ich einen neuen Eintrag vorschlage, suche ich auf
+  dem Board nach einem bestehenden.“ Anlass: Eintrag PVTI_lAHODEPpks4BoBQwzhJ8EFA (Trennung Favoriten/Konten aus
+  einer Reddit-Meldung) überschnitt sich mit PVTI_lAHODEPpks4BoBQwzhJd9ZM Punkt 3 („Luft über Titeln“, entschieden
+  17.11.2026); neon-board hat es bemerkt und abgeglichen. Beschreibung des Designers, kein Wortlaut des Maintainers.
 - **Ablauf:** Abschnitt 6b.
 - **Pflichtprüfungen:** alle Knöpfe und Funktionen vollständig (G1, G2, G10); Maße gemessen gegen
   Vorlage bzw. Abschnitt 4; hell, dunkel bei Farben; Seitenleiste auch schwebend (G7); Animation ohne

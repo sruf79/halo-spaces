@@ -771,8 +771,9 @@ def vm_state(vm):
     return out[-1] if out else "unbekannt"
 
 
-def vm_ready(vm):
-    """Setzt die VM fort bzw. startet sie und wartet auf die angemeldete Sitzung. Liefert den Zustand vorher."""
+def vm_ready(vm, frist=240):
+    """Setzt die VM fort bzw. startet sie und wartet auf die angemeldete Sitzung (höchstens frist Sekunden).
+    Liefert den Zustand vorher."""
     before = vm_state(vm)
     if before in ("suspended", "paused"):
         print(f"VM „{vm}“ wird fortgesetzt …", flush=True)
@@ -785,7 +786,7 @@ def vm_ready(vm):
     # gleich nach dem Fortsetzen klappt ein erster Befehl oft, der nächste scheitert
     # trotzdem („PrlJob … Invalid argument“) – erst drei Antworten in Folge zählen
     start = time.time()
-    end = start + 240
+    end = start + frist
     ok = 0
     while time.time() < end:
         try:
@@ -798,6 +799,109 @@ def vm_ready(vm):
             return before
         time.sleep(3)
     sys.exit(f"VM „{vm}“: keine angemeldete Windows-Sitzung (automatische Anmeldung prüfen)")
+
+
+def vm_bis_zustand(vm, ziel, frist):
+    """Wartet, bis die VM im Zustand ziel ist (höchstens frist Sekunden)."""
+    end = time.time() + frist
+    while True:
+        if vm_state(vm) == ziel:
+            return True
+        if time.time() > end:
+            return False
+        time.sleep(2)  # Abfragetakt, kein festes Warten
+
+
+def vm_kaltstart(vm, frist=300):
+    """Kalter Neustart der VM: herunterfahren (bei Zeitüberschreitung hart mit --kill), neu starten und warten,
+    bis die angemeldete Windows-Sitzung antwortet (höchstens frist Sekunden). Am 18.11.2026 lieferte die VM nach
+    langem Fortsetzen/Pausieren Bilder um 4 bis 12 Bilder verzögert (Prüfungen rot ohne Codefehler); erst
+    prlctl stop und start behoben das. Deshalb beginnt jeder Lauf mit einer frisch gestarteten VM."""
+    state = vm_state(vm)
+    if state in ("suspended", "paused"):
+        # aus der Pause erst fortsetzen: stop greift bei einer pausierten VM nicht zuverlässig
+        prl("resume", vm, check=False, timeout=120)
+        state = vm_state(vm)
+    if state != "stopped":
+        if state != "running":
+            print(f"FEHLER VM gestört: „{vm}“ im Zustand {state} (prlctl list -a)", flush=True)
+            sys.exit(1)
+        print(f"VM „{vm}“ wird kalt neu gestartet (Herunterfahren) …", flush=True)
+        try:
+            ok = prl("stop", vm, check=False, timeout=120).returncode == 0
+        except subprocess.TimeoutExpired:
+            ok = False
+        if not (ok and vm_bis_zustand(vm, "stopped", 30)):
+            print("HINWEIS VM fährt nicht herunter, wird hart beendet (prlctl stop --kill)", flush=True)
+            try:
+                prl("stop", vm, "--kill", check=False, timeout=60)
+            except subprocess.TimeoutExpired:
+                pass
+            if not vm_bis_zustand(vm, "stopped", 60):
+                print(f"FEHLER VM gestört: „{vm}“ lässt sich nicht stoppen (Zustand {vm_state(vm)})", flush=True)
+                sys.exit(1)
+    return vm_ready(vm, frist)
+
+
+# Kurztest Bildtakt nach dem Neustart: tests/win-bildtakt.ps1 zeichnet BILDTAKT_BILDER Bilder (rotes Feld, das je Bild
+# seine Breite ändert) und misst die Abstände. Zu viele lange Bilder = VM gestört
+BILDTAKT_BILDER = 30
+BILDTAKT_FAKTOR = 1.6
+BILDTAKT_MAX_LANG = 3
+
+
+def bildtakt_gestoert(zeiten):
+    """Bewertet die Bildzeiten (ms) des Kurztests. Liefert (gestört, Text); gestört ist None, wenn nichts messbar war.
+    Gestört: mehr als BILDTAKT_MAX_LANG Bilder länger als BILDTAKT_FAKTOR × mittlere Bildzeit."""
+    zeiten = [z for z in zeiten if z > 0]
+    if len(zeiten) < BILDTAKT_BILDER // 2:
+        return None, f"nicht messbar ({len(zeiten)} Bildzeiten)"
+    mittel = sum(zeiten) / len(zeiten)
+    lang = [z for z in zeiten if z > BILDTAKT_FAKTOR * mittel]
+    text = (f"{len(lang)} von {len(zeiten)} Bildern länger als {BILDTAKT_FAKTOR} × Mittel {mittel:.1f} ms"
+            + (f" (längstes {max(lang):.0f} ms)" if lang else ""))
+    return len(lang) > BILDTAKT_MAX_LANG, text
+
+
+def vm_bildtakt(vm, run, win):
+    """Kurztest in der angemeldeten Sitzung, liefert die Bildzeiten in ms (leer, wenn nichts zurückkam)."""
+    aus = os.path.join(run, "bildtakt.txt")
+    if os.path.exists(aus):
+        os.remove(aus)
+    try:
+        vm_exec(vm, "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", win + "\\tests\\win-bildtakt.ps1",
+                win + "\\bildtakt.txt", str(BILDTAKT_BILDER), check=False, timeout=120)
+    except subprocess.TimeoutExpired:
+        return []
+    try:
+        return [float(x) for x in open(aus).read().split()]
+    except (OSError, ValueError):
+        return []
+
+
+def vm_vorbereiten(vm, run, win):
+    """VM für den Lauf: kalt neu starten, Bildschirm 1920 × 1080, Kurztest Bildtakt; ist der Takt gestört, ein
+    zweiter kalter Neustart, danach Abbruch mit „FEHLER VM gestört“. HALO_VM_KEIN_NEUSTART=1 (Läufe von Hand, die
+    VM nicht stören): nur fortsetzen bzw. starten wie früher, ohne Kurztest."""
+    neustart = os.environ.get("HALO_VM_KEIN_NEUSTART") != "1"
+    for versuch in (1, 2) if neustart else (1,):
+        if neustart:
+            vm_kaltstart(vm)
+        else:
+            vm_ready(vm)
+        # Bildschirm 1920 × 1080 (ohne Fenster der VM wählt Parallels 1024 × 768)
+        vm_exec(vm, "powershell", "-ExecutionPolicy", "Bypass", "-File", win + "\\tests\\win-display.ps1", win + "\\display.txt", check=False)
+        if not neustart:
+            break
+        gestoert, text = bildtakt_gestoert(vm_bildtakt(vm, run, win))
+        print(f"VM Bildtakt: {text}", flush=True)
+        if not gestoert:  # (None: Kurztest nicht messbar, der Lauf geht trotzdem weiter)
+            break
+        if versuch == 2:
+            print(f"FEHLER VM gestört: Bildtakt auch nach zwei kalten Neustarts gestört ({text}); "
+                  f"VM von Hand prüfen (prlctl stop/start „{vm}“, Parallels neu starten)", flush=True)
+            sys.exit(1)
+        print("HINWEIS Bildtakt der VM gestört, zweiter kalter Neustart …", flush=True)
 
 
 THEME_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
@@ -852,7 +956,7 @@ def run_in_vm(args, xpi):
     before = theme = None
     try:
         os.makedirs(os.path.join(run, "tests"))
-        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "toolbar_lib.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
+        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "toolbar_lib.py", "perf.js", "win-display.ps1", "win-bildtakt.ps1", "logik/konsole-schluessel.js"):
             os.makedirs(os.path.dirname(os.path.join(run, "tests", f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt
@@ -869,10 +973,9 @@ def run_in_vm(args, xpi):
             inner["compare"] = win + "\\vorher"
         json.dump(inner, open(os.path.join(run, "args.json"), "w"))
 
-        before = vm_ready(vm)
+        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, pausiert finally die VM trotzdem
+        vm_vorbereiten(vm, run, win)
         print(f"Windows-VM „{vm}“ (vorher {before}) · {inner['tb']}", flush=True)
-        # Bildschirm 1920 × 1080 (ohne Fenster der VM wählt Parallels 1024 × 768)
-        vm_exec(vm, "powershell", "-ExecutionPolicy", "Bypass", "-File", win + "\\tests\\win-display.ps1", win + "\\display.txt", check=False)
         try:
             shown = open(os.path.join(run, "display.txt")).read().split()
             if len(shown) == 3 and (int(shown[1]) < 1600 or int(shown[2]) < 1000):
@@ -937,7 +1040,7 @@ def main():
     ap.add_argument("--compare", help="Ordner mit früheren Screenshots: zeigt, wo sich etwas verändert hat (braucht --shots)")
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
-                    "danach wird die VM pausiert")
+                    "startet die VM vorher kalt neu (HALO_VM_KEIN_NEUSTART=1: nur fortsetzen) und pausiert sie danach")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
     ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "

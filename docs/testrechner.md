@@ -245,9 +245,15 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   Selbst-Update; Python `C:\Program Files\Python315-arm64\python.exe`;
   `openssl` aus Git für Windows. Snapshot `sauber` = Grundzustand.
   - Testen: `python3 tests/halo_test.py --vm --port 2851 [--dark] [--beta]
-    [--only …] [--shots …]` – setzt die VM fort, testet darin (Marionette nur
+    [--only …] [--shots …]` – startet die VM kalt neu, testet darin (Marionette nur
     in der VM auf 127.0.0.1), holt Screenshots zurück und pausiert die VM
     (`--vm-weiter`: laufen lassen). Ein Lauf dauert gut 15 Minuten.
+  - Jeder Lauf mit `--vm` (auch CI und Nachtlauf) beginnt mit einem kalten Neustart der VM (`prlctl stop`, bei
+    Zeitüberschreitung `--kill`, dann `start`, bis 5 Minuten Warten auf die Sitzung) und einem Kurztest Bildtakt
+    (`tests/win-bildtakt.ps1`: mehr als 3 von 30 Bildern über 1,6 × Mittel = gestört, dann ein zweiter Neustart,
+    sonst Abbruch „FEHLER VM gestört“), weil eine lange fortgesetzte VM am 18.11.2026 Bilder verzögerte
+    (Maintainer 18.11.2026); `HALO_VM_KEIN_NEUSTART=1` setzt bei Läufen von Hand nur fort. Logiktest ohne VM:
+    `python3 tests/vm_neustart_test.py`.
   - Nie gleichzeitig mit einem Mac-Lauf; das Skript wartet selbst
     (`~/halo-vm/lauf.lock` bzw. laufendes Test-Thunderbird auf dem Mac).
   - Windows-Abweichungen wie Linux behandeln (`sys.platform != "darwin"`, in

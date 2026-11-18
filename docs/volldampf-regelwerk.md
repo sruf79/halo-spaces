@@ -1,6 +1,6 @@
 # Volldampf-Regelwerk
 
-Volldampf ist ein Schalter über dem Alltagsmodus (`docs/alltagsmodus.md`). Maintainer 17.11.2026: „volldampf
+Volldampf ist ein Schalter über dem Alltagsmodus (`docs/alltagsmodus.md`); Überblick über Zustände, Bremsen und Aufgabenzuteilung: `docs/regelwerk-kontingent.md`. Maintainer 17.11.2026: „volldampf
 bedeutet maximale produktivität. … das betrifft die anzahl der gleichzeitigen agents, die anzahl der releases,
 einfach alles.“ und „wir wollen keine defekten releases veröffentlichen … von daher sollten die tests weiterhin
 laufen wie bisher.“ (ENTSCHEIDUNGEN.md ab :743). Einzelheiten und Verlauf: `docs/testrechner.md` „Volldampf“.
@@ -9,7 +9,7 @@ laufen wie bisher.“ (ENTSCHEIDUNGEN.md ab :743). Einzelheiten und Verlauf: `do
 
 | Befehl | Wirkung | Fundstelle |
 |---|---|---|
-| `zsh tests/volldampf.sh an [<bis>] [<Grund>]` | schreibt `~/halo-nacht/volldampf.txt` (bis = nächster Di 01:00), startet Auslastungs- und Zwischen-Release-Wächter; alte Zeile wandert nach `volldampf-alt-<Zeit>.txt`, damit beginnt sauber ein neues Fenster (anderes ab); eine Pausenmarke `volldampf-beendet.txt` hebt sich auch ohne `an` nach dem freien Reset auf | `tests/volldampf.sh:45–58`; `tests/volldampf_test.zsh` |
+| `zsh tests/volldampf.sh an [<bis>] [<Grund>]` | schreibt `~/halo-nacht/volldampf.txt` (bis = nächster automatischer Reset Di 00:00 UTC, 01:00 bzw. im Sommer 02:00 Wiener Zeit), startet Auslastungs- und Zwischen-Release-Wächter; alte Zeile wandert nach `volldampf-alt-<Zeit>.txt`, damit beginnt sauber ein neues Fenster (anderes ab); eine Pausenmarke `volldampf-beendet.txt` hebt sich auch ohne `an` nach dem freien Reset auf | `tests/volldampf.sh:45–58`; `tests/volldampf_test.zsh` |
 | `zsh tests/volldampf.sh aus` | Zeile nach `volldampf-aus-<Zeit>.txt`, beendet beide Wächter | `tests/volldampf.sh:59–65` |
 | `zsh tests/volldampf.sh status` | Regel, Wächter | `tests/volldampf.sh:66` |
 

@@ -1,5 +1,7 @@
 # Alltagsmodus: Tagesroutine, Sparmodus, Nachtlauf
 
+Überblick über alle Zustände, Bremsen und die Aufgabenzuteilung: `docs/regelwerk-kontingent.md`.
+
 Gilt immer, wenn **kein** Volldampf aktiv ist (`volldampf_aktiv` ≠ 0, also keine Zeile, abgelaufen, von Hand
 `aus` oder Pausenmarke `volldampf-beendet.txt` bis zum freien Reset). Was Volldampf daran ändert: `docs/volldampf-regelwerk.md`.
 Nach dem Ende von Volldampf am automatischen Wochenreset (Di 01:00) gilt ab dem Nachtlauf 01:30 wieder dieser Modus (Maintainer

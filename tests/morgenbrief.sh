@@ -55,7 +55,9 @@ KONT_SKRIPT=$HIER/kontingent.sh
 [[ -r $KONT_SKRIPT ]] || KONT_SKRIPT=$REPO/tests/kontingent.sh
 HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
-KONT_NICHTS_NEUES=2      # wie tagesroutine.conf NICHTS_NEUES_UEBER
+# wie SPAR_MAX der Tagesroutine (über dem Soll um mehr als diese Punkte: nichts Neues; vorher 2 = altes NICHTS_NEUES_UEBER)
+KONT_NICHTS_NEUES=$(sed -n 's/^SPAR_MAX=\([0-9]*\).*/\1/p' ${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf} 2>/dev/null | head -1)
+KONT_NICHTS_NEUES=${KONT_NICHTS_NEUES:-10}
 KONT_KNAPP=95            # ab hier und mehr als 24 h bis zum Reset: Entscheidung nötig
 REPO_GH=sruf79/halo-spaces
 
@@ -267,8 +269,12 @@ if [[ -n $KW ]]; then
   if (( KW >= KONT_KNAPP && T[BIS_RESET_H] > 24 )); then
     HANDELN+=("Kontingent $KW % bei $T[BIS_RESET_H] h bis Reset: Empfehlung Tagesroutine pausieren (pause_setzen tagesroutine <bis> …)")
     HANDELN_NEU+=(kontingent)
+  elif HALO_JETZT=$T[JETZT] volldampf_aktiv >/dev/null 2>&1; then
+    :   # Volldampf: Sollkurve und Sparmodus bremsen nicht (die Zeile hieß bis 18.11.2026 trotzdem „nichts Neues“)
   elif (( ${ab%.*} > KONT_NICHTS_NEUES )); then
-    zeile+=" – über Soll, Tagesroutine beginnt nichts Neues (Empfehlung: nichts tun)"
+    zeile+=" – deutlich über Soll, Tagesroutine beginnt nichts Neues (Empfehlung: nichts tun)"
+  elif (( ${ab%.*} > 0 )); then
+    zeile+=" – über Soll, Tagesroutine im Sparmodus (Empfehlung: nichts tun)"
   fi
   INFO+=("$zeile")
   # Tageswert für die Vier-Wochen-Messung (vergleich-6-12.sh): Datum, Woche %, Soll %, 5 h %

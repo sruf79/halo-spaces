@@ -116,6 +116,11 @@ A=$(HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_KONTINGENT_WOCHE=95 lauf $MO $T/v.md)
 pruefe "volldampf.txt aktiv: Volldampf statt Sparmodus/Stopp" 'grep -q "Tagesroutine heute.*Volldampf (ohne Sparmodus)" $T/v.md && grep -q "^- Volldampf: Volldampf aktiv" $T/v.md'
 A=$(HALO_KONTINGENT_WOCHE=95 lauf 2026-11-12T08:30:00+01:00 $T/k.md)   # Do: Soll 33 %, also 62 Punkte darüber
 pruefe "ohne Volldampf und weit über Soll: nichts Neues" 'grep -q "Tagesroutine beginnt heute nichts Neues" $T/k.md'
+A=$(HALO_KONTINGENT_WOCHE=50 lauf 2026-11-12T08:30:00+01:00 $T/k1.md)   # 17 Punkte über Soll (> SPAR_MAX 10)
+pruefe "Kontingentzeile: weit über Soll nennt „nichts Neues“" 'grep -q "deutlich über Soll, Tagesroutine beginnt nichts Neues" $T/k1.md'
+A=$(HALO_KONTINGENT_WOCHE=38 lauf 2026-11-12T08:30:00+01:00 $T/k2.md)   # 5 Punkte über Soll: Sparmodus, nicht „nichts Neues“
+pruefe "Kontingentzeile: wenig über Soll nennt den Sparmodus, nicht „nichts Neues“" 'grep -q "über Soll, Tagesroutine im Sparmodus" $T/k2.md && ! grep -q "beginnt nichts Neues" $T/k2.md'
+pruefe "Kontingentzeile im Volldampf: kein „nichts Neues“" '! grep -q "Tagesroutine beginnt nichts Neues" $T/v.md'
 
 # Wochenende ohne Auffälligkeit: Bericht ja, Meldung nein; Trockenlauf ohne Ausgabe schreibt keinen Bericht
 mv $T/berichte/2026-11-16-nachtlauf.md $T/nl.md

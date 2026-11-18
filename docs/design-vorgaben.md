@@ -659,6 +659,7 @@ Quelle in den Abschnitten oben):
   einer Reddit-Meldung) überschnitt sich mit PVTI_lAHODEPpks4BoBQwzhJd9ZM Punkt 3 („Luft über Titeln“, entschieden
   17.11.2026); neon-board hat es bemerkt und abgeglichen. Beschreibung des Designers, kein Wortlaut des Maintainers.
 - **Ablauf:** Abschnitt 6b.
+- **Abnahme-Markierung** (Maintainer 18.11.2026: „wir folgen den empfehlungen des opus agenten“): Der Designer schreibt beim Commit „zur Abnahme“ (mit Datum) in die Notiz des Eintrags. `tests/board-nach-release.zsh` behandelt den Eintrag dann als Zweifel statt ihn nach dem Release zu schließen, mit Frist von 7 Tagen; geschlossen wird er erst, wenn eine Notiz „abgenommen“ (Designer oder Maintainer, Groß-/Kleinschreibung egal) dasteht, dann gilt der Treffer wie sonst. Nach Ablauf der Frist nennt der Morgenbrief „Abnahme überfällig: <Titel>, seit <Datum>“. Das ist nur eine Markierung, keine neue Regel „Abnahme vor Done“.
 - **Pflichtprüfungen:** alle Knöpfe und Funktionen vollständig (G1, G2, G10); Maße gemessen gegen
   Vorlage bzw. Abschnitt 4; hell, dunkel bei Farben; Seitenleiste auch schwebend (G7); Animation ohne
   Sprung (G8); einheitlich über alle Spaces (G14: dieselbe Stelle in den übrigen Spaces mit prüfen);

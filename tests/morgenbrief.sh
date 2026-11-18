@@ -187,9 +187,15 @@ ina=(${(u)${(f)"$(awk -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT]
 # --- 4b. Board nach Release: Zweifelsfälle seit dem letzten Brief (tests/board-nach-release.zsh, Maintainer 18.11.2026):
 # Zeilen „- <Datum> <Zeit> | v<Version> | <id> | <Titel> | <Grund>“, nichts geschlossen, der Maintainer entscheidet
 bnr=$(awk -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
-  '/^- [0-9-]+ [0-9:]+ [|]/ { z = $2 " " $3; if (z > s && z <= j) n++ } END { print n + 0 }' \
+  '/^- [0-9-]+ [0-9:]+ [|]/ && !/Abnahme überfällig/ { z = $2 " " $3; if (z > s && z <= j) n++ } END { print n + 0 }' \
   ${HALO_BNR_ZWEIFEL:-$HOME/halo-aufgaben/board-nach-release-zweifel.md} 2>/dev/null)
 (( bnr )) && INFO+=("Board nach Release: $bnr Einträge nicht automatisch geschlossen (Zweifel, ~/halo-aufgaben/board-nach-release-zweifel.md)")
+# Design-Einträge „zur Abnahme“ ohne „abgenommen“ nach 7 Tagen: ein Satz je Eintrag (Maintainer 18.11.2026)
+for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  '/^- [0-9-]+ [0-9:]+ [|]/ && /Abnahme überfällig, seit / { split($1, a, " "); z = a[2] " " a[3]; if (z > s && z <= j) { d = $5; sub(/.*seit /, "", d); sub(/ .*/, "", d); print $4 "\t" d } }' \
+  ${HALO_BNR_ZWEIFEL:-$HOME/halo-aufgaben/board-nach-release-zweifel.md} 2>/dev/null)"}; do
+  INFO+=("Abnahme überfällig: $(kurz ${z%%$'\t'*} 60), seit ${z##*$'\t'}")
+done
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---
 if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)

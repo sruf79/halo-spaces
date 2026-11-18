@@ -18,6 +18,10 @@
 # Nie geschlossen:
 #   - Status „Wartet auf OK“ (nicht angefasst, nur in der Ausgabe gezählt)
 #   - Reihen n/m (Titel mit n/m): nur Notiz „Schritt n in vX.Y.Z enthalten“, Status bleibt
+#   - Design-Einträge mit „zur Abnahme“ in der Notiz (Designer, beim Commit) ohne spätere Notiz „abgenommen“ (Groß-/Kleinschreibung
+#     egal): Zweifel mit Frist von 7 Tagen (ab Datum in der Notiz, sonst ab erstem Auftreten im Zweifel-Protokoll), Vorrang
+#     vor dem Hash-Treffer; nach Ablauf Zeile „Abnahme überfällig, seit <Datum>“ (Morgenbrief). Steht „abgenommen“ danach, gilt der
+#     Treffer wie sonst. Keine Regel „Abnahme vor Done“, nur die Markierung. HALO_BNR_HEUTE (Datum) zum Proben.
 #   - Zweifel (Zeile in ~/halo-aufgaben/board-nach-release-zweifel.md für den Morgenbrief, nichts geschrieben):
 #     Teil-Fix (Commit mit „teilweise“), Commit zurückgenommen, Status Todo, offener Rest oder offene Frage ab dem
 #     Absatz mit dem Treffer („offen“, „Rest“, „teilweise“, „Rückfrage“, „kein Fix“, „nicht behoben/gelöst“,
@@ -80,9 +84,10 @@ jq -e '.items | type == "array"' $T/board.json >/dev/null 2>&1 || melde "Board n
 
 # --- Zuordnung (reine Auswertung, nichts geschrieben) ---
 # Ausgabe je Eintrag: schliessen|reihe|zweifel|okwarten \t id \t Hash \t Titel \t Grund bzw. Schritt
-python3 -I - $T/board.json $T/commits $T/patchids $BIS $VERSION > $T/plan <<'PY' || melde "Auswertung gescheitert"
-import json, re, subprocess, sys
-board, commits_f, patch_f, bis, version = sys.argv[1:6]
+HEUTE=${HALO_BNR_HEUTE:-$(TZ=Europe/Vienna date +%F)} python3 -I - $T/board.json $T/commits $T/patchids $BIS $VERSION $ZWEIFEL > $T/plan <<'PY' || melde "Auswertung gescheitert"
+import datetime as dt, json, os, re, subprocess, sys
+board, commits_f, patch_f, bis, version, zweifel_f = sys.argv[1:7]
+heute = dt.date.fromisoformat(os.environ["HEUTE"])
 items = json.load(open(board, encoding="utf-8"))["items"]
 commits, reverted = [], set()          # neueste zuerst
 for z in open(commits_f, encoding="utf-8").read().splitlines():
@@ -138,6 +143,23 @@ def reihe(titel):   # „(2/5)“, „Teil 3/n“ – keine Maße wie „30/24 p
     for m in REIHE.finditer(titel):
         if m.group(2) == "n" or int(m.group(1)) <= int(m.group(2)): return m.group(1)
     return None
+ABN = re.compile(r"zur\s+Abnahme", re.I)
+ABG = re.compile(r"abgenommen", re.I)
+def abnahme_seit(iid, absatz):
+    """Datum, ab dem die Frist läuft: aus der Notiz, sonst erstes Auftreten im Zweifel-Protokoll, sonst heute"""
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", absatz)
+    d = m and (m.group(1), m.group(2), m.group(3))
+    if not d:
+        m = re.search(r"(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4})", absatz)
+        d = m and (m.group(3), m.group(2).zfill(2), m.group(1).zfill(2))
+    if not d:
+        try:
+            for z in open(zweifel_f, encoding="utf-8"):
+                m = re.match(r"- (\d{4}-\d{2}-\d{2}) [0-9:]+ \| v\S+ \| " + re.escape(iid) + r" \|.*Abnahme", z)
+                if m: d = tuple(m.group(1).split("-")); break
+        except OSError: pass
+    try: return dt.date(*map(int, d)) if d else heute
+    except ValueError: return heute
 def aus(*f): print("\t".join(str(x).replace("\t", " ").replace("\n", " ") for x in f))
 
 for it in items:
@@ -162,6 +184,14 @@ for it in items:
     neu = min(treffer, key=lambda s: im_bereich[s])   # neuester Treffer
     kurz = neu[:7]
     if st == "Wartet auf OK": aus("okwarten", iid, kurz, titel, ""); continue
+    # Design-Einträge: „zur Abnahme“ in der Notiz des Designers ohne spätere „abgenommen“ ist ein Zweifel mit Frist von
+    # 7 Tagen und hat Vorrang vor jedem Hash-Treffer (Maintainer 18.11.2026); keine Regel „Abnahme vor Done“, nur die Markierung
+    za = [i for i, a in enumerate(abs_) if ABN.search(a)]
+    if za and not any(ABG.search(a) for a in abs_[za[-1] + 1:]):
+        seit = abnahme_seit(iid, abs_[za[-1]])
+        if (heute - seit).days > 7: aus("zweifel", iid, kurz, titel, "Abnahme überfällig, seit %s" % seit.isoformat())
+        else: aus("zweifel", iid, kurz, titel, "Abnahme steht aus (zur Abnahme seit %s, Frist bis %s)" % (seit.isoformat(), (seit + dt.timedelta(days=7)).isoformat()))
+        continue
     j = max(treffer.values())
     if j < 0: j = max([i for i, _ in commit_abs] or [len(abs_) - 1])
     grund = None

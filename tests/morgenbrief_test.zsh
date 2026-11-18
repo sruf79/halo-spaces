@@ -133,6 +133,9 @@ A=$(lauf $MO "")
 print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Alt | Teil-Fix" "- 2026-11-15 21:10 | v3.27.1 | PVTI_neu | Neu | Status Todo trotz Commit im Release" > $T/zweifel.md
 HALO_BNR_ZWEIFEL=$T/zweifel.md lauf $MO $T/z.md >/dev/null
 pruefe "Board nach Release: nur neue Zweifelsfälle gezählt" 'grep -q "Board nach Release: 1 Einträge nicht automatisch geschlossen" $T/z.md && ! grep -q "Board nach Release" $T/b.md'
+print -l -- "- 2026-11-15 21:10 | v3.27.1 | PVTI_neu | Neu | Status Todo trotz Commit im Release" "- 2026-11-15 21:20 | v3.27.1 | PVTI_a | Optik: Seitenleiste mit sehr langem Titel | Abnahme überfällig, seit 2026-11-05" > $T/zweifel.md
+HALO_BNR_ZWEIFEL=$T/zweifel.md lauf $MO $T/z.md >/dev/null
+pruefe "Abnahme überfällig: eigener Satz, nicht in der Zweifel-Zahl" 'grep -q "Board nach Release: 1 Einträge nicht automatisch geschlossen" $T/z.md && grep -q "Abnahme überfällig: Optik: Seitenleiste mit sehr langem Titel, seit 2026-11-05" $T/z.md'
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
 pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
 

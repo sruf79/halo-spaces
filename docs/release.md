@@ -125,6 +125,8 @@ scheitert daran nie. Idempotent (zweiter Lauf tut nichts). Probe ohne Änderung:
 `zsh tests/board-nach-release.zsh --probe x.y.z` (auch in `./publish.sh --trocken x.y.z`); Test ohne Netz:
 `zsh tests/board_nach_release_test.zsh`.
 
+**Design-Einträge zur Abnahme** (Maintainer 18.11.2026: „wir folgen den empfehlungen des opus agenten“): Steht in einer Notiz „zur Abnahme“ (der Designer schreibt es beim Commit) und danach kein „abgenommen“ (Groß-/Kleinschreibung egal), ist der Eintrag trotz Hash-Treffer ein Zweifel und wird nicht geschlossen. Die Frist von 7 Tagen läuft ab dem Datum in der Notiz, sonst ab dem ersten Auftreten im Zweifel-Protokoll; danach steht „Abnahme überfällig: <Titel>, seit <Datum>“ im Morgenbrief. Mit „abgenommen“ (Designer oder Maintainer) gilt der Treffer wie sonst. Das ist nur eine Markierung, keine neue Regel „Abnahme vor Done“.
+
 ## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
 
 Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.

@@ -104,6 +104,34 @@ jq --arg A ${A[1,7]} '.items += [{id: "PVTI_halb", status: "In Progress", title:
 aus=$(lauf 1.1.0)
 pruefe "Notiz schon da: keine zweite Notiz, Status Done" '! grep -q "^notiz PVTI_halb" $T/folge.log && grep -q "^status PVTI_halb done" $T/folge.log'
 
+# --- Design-Einträge: „zur Abnahme“ (Designer) ohne „abgenommen“ ist ein Zweifel mit Frist von 7 Tagen, Vorrang vor dem Hash ---
+a=${A[1,7]}
+jq --arg A $a '.items += [
+ {id: "PVTI_abn1", status: "In Progress", title: "Optik: eins", body: "Wo: Mail\n\ncommittet, wartet auf Push/CI (\($A)); zur Abnahme, 2026-11-16"},
+ {id: "PVTI_abn2", status: "In Progress", title: "Optik: zwei", body: "committet, wartet auf Push/CI (\($A)); zur Abnahme, 2026-11-10\n\nabgenommen vom Maintainer"},
+ {id: "PVTI_abn3", status: "In Progress", title: "Optik: drei", body: "committet, wartet auf Push/CI (\($A)); zur Abnahme, 2026-11-01"},
+ {id: "PVTI_abn4", status: "In Progress", title: "Optik: vier", body: "committet, wartet auf Push/CI (\($A)); zur Abnahme 2026-11-16\n\nabgenommen\n\nÜberarbeitet, committet (\($A)); zur Abnahme 2026-11-17"},
+ {id: "PVTI_abn5", status: "In Progress", title: "Optik: fünf", body: "committet (\($A)); ZUR ABNAHME 2026-11-01\n\nABGENOMMEN vom Designer"},
+ {id: "PVTI_abn6", status: "In Progress", title: "Optik: sechs (ohne Datum)", body: "committet, wartet auf Push/CI (\($A)); zur Abnahme"},
+ {id: "PVTI_abn7", status: "In Progress", title: "Optik: sieben (Datum deutsch)", body: "committet (\($A)); Zur Abnahme am 3.11.2026"}
+]' $T/board.json > $T/x && mv $T/x $T/board.json
+print -r -- "- 2026-11-05 10:00 | v1.0.5 | PVTI_abn6 | Optik: sechs | Abnahme steht aus (zur Abnahme seit 2026-11-05, Frist bis 2026-11-12) (abc1234)" >> $T/zweifel.md
+: > $T/folge.log
+aus=$(HALO_BNR_HEUTE=2026-11-18 lauf 1.1.0)
+pruefe "Abnahme: zur Abnahme ohne abgenommen, Frist läuft: nicht geschlossen, Zweifel" '! grep -q PVTI_abn1 $T/folge.log && grep -q "| PVTI_abn1 | .*Abnahme steht aus (zur Abnahme seit 2026-11-16, Frist bis 2026-11-23)" $T/zweifel.md'
+pruefe "Abnahme: mit abgenommen danach: normaler Treffer, geschlossen" 'grep -q "^status PVTI_abn2 done ${A[1,7]}$" $T/folge.log && ! grep -q PVTI_abn2 $T/zweifel.md'
+pruefe "Abnahme: Frist abgelaufen: Zweifel „Abnahme überfällig, seit“" '! grep -q PVTI_abn3 $T/folge.log && grep -q "| PVTI_abn3 | .*Abnahme überfällig, seit 2026-11-01" $T/zweifel.md'
+pruefe "Abnahme: Mischfall (abgenommen, dann erneut zur Abnahme): Zweifel, nicht geschlossen" '! grep -q PVTI_abn4 $T/folge.log && grep -q "| PVTI_abn4 | .*Abnahme steht aus (zur Abnahme seit 2026-11-17" $T/zweifel.md'
+pruefe "Abnahme: Groß-/Kleinschreibung egal (ZUR ABNAHME, ABGENOMMEN)" 'grep -q "^status PVTI_abn5 done" $T/folge.log'
+pruefe "Abnahme: ohne Datum in der Notiz zählt das erste Auftreten im Protokoll" '! grep -q PVTI_abn6 $T/folge.log && grep -q "| v1.1.0 | PVTI_abn6 | .*Abnahme überfällig, seit 2026-11-05" $T/zweifel.md'
+pruefe "Abnahme: deutsches Datum in der Notiz (3.11.2026)" 'grep -q "| PVTI_abn7 | .*Abnahme überfällig, seit 2026-11-03" $T/zweifel.md'
+: > $T/folge.log; cp $T/zweifel.md $T/zweifel.vorher
+aus=$(HALO_BNR_HEUTE=2026-11-18 lauf 1.1.0)
+pruefe "Abnahme: Doppellauf schreibt nichts nochmals" '[[ ! -s $T/folge.log ]] && cmp -s $T/zweifel.md $T/zweifel.vorher'
+aus=$(HALO_BNR_HEUTE=2026-11-18 lauf --probe 1.1.0)
+pruefe "Abnahme: Probe zeigt Zweifel, schreibt nichts" 'zeile "^Zweifel: PVTI_abn3 " && [[ ! -s $T/folge.log ]]'
+jq '.items |= map(select(.id | startswith("PVTI_abn") | not))' $T/board.json > $T/x && mv $T/x $T/board.json
+
 # --- Board nicht lesbar: nichts schließen, Meldung an neon, Exitcode 1 ---
 mv $T/board.json $T/board.weg; : > $T/folge.log
 aus=$(lauf 1.1.0); rc=$?

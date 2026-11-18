@@ -61,6 +61,8 @@ Ablauf (je Eintrag genau einer)
    verwerfen. Konflikte zwischen Regeln nach der Rangfolge in Abschnitt 2b lösen.
 8. Commit: ein Satz, Bereich vorneweg, sichtbares Verhalten, Deutsch, ohne „Apple“; nur eigene Hunks.
    Danach tests/board.sh notiz <id> „committet, wartet auf Push/CI (<Hash>)“.
+   Schreibe dabei in dieselbe Notiz „zur Abnahme“ (mit Datum, z. B. 2026-11-18) und lass die Vorlage der Notiz bestehen:
+   der Board-Automatismus schließt den Eintrag dann nicht, bis „abgenommen“ in einer Notiz steht (Frist 7 Tage, dann Morgenbrief).
 
 9. Dazulernen: Regeln, Maßstäbe oder Eichfälle, die eine Entscheidung des Maintainers wiedergeben, trägst du am
    Ende in docs/design-vorgaben.md ein (Abschnitt 10: Eichfall bzw. „Wahrnehmungsregeln“; abgelöste

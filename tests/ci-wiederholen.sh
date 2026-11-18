@@ -106,7 +106,8 @@ rote_pruefungen() {   # <Lauf> <Versuch> <JSON der Jobs>
     if (job != "windows-github") print job "\t" n "\t" substr(t, 1, 300) }'
   for j in ${(f)"$(jq -r '.jobs[] | select(.conclusion == "failure" and .name != "windows-github") | .name' <<< $jobs)"}; do
     [[ -z $j ]] && continue
-    print -r -- $flog | grep -a "^$j	" | grep -aq 'FEHLER  ' && continue
+    # (ein awk statt zweier grep: mit pipefail scheitert die Kette, wenn grep -q früh aufhört)
+    awk -F'\t' -v j=$j '$1 == j && /FEHLER  / { t = 1 } END { exit !t }' <<< $flog && continue
     print -r -- "$j	(Job ohne FEHLER-Zeile: $(jq -r --arg j $j '[.jobs[] | select(.name == $j) | .steps[]? | select(.conclusion == "failure") | .name] | join(", ")' <<< $jobs))	"
   done
   return 0
@@ -182,7 +183,7 @@ print -r -- $LISTE | while read -r run st erg beginn sha ev att br; do
   [[ -z $rot ]] && continue
   # mehr als MAX_ROT rote Prüfungen in einem Job: echter Fehler
   viele=$(print -r -- $rot | awk -F'\t' -v m=$MAX_ROT '{ n[$1]++ } END { for (j in n) if (n[j] > m) { print j ": " n[j]; exit } }')
-  neon=; for j in $NEON_JOBS; do print -r -- $rot | grep -aq "^$j	" && neon=1; done
+  neon=; for j in $NEON_JOBS; do awk -F'\t' -v j=$j '$1 == j { t = 1 } END { exit !t }' <<< $rot && neon=1; done
   grund=
   if [[ -n $viele ]]; then
     grund="mehr als $MAX_ROT rote Prüfungen in einem Job ($viele) – kein Flackern, sondern ein Fehler"

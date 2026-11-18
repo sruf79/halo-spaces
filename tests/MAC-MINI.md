@@ -410,7 +410,8 @@ python3 tests/halo_test.py --vm --port 2851 --dark --shots /tmp/win-dunkel  # du
 python3 tests/halo_test.py --vm --beta --port 2851                          # Thunderbird Beta
 ```
 
-- Ablauf: VM fortsetzen bzw. starten und auf die Windows-Sitzung warten,
+- Ablauf: VM kalt neu starten (stop, start; `HALO_VM_KEIN_NEUSTART=1`: nur
+  fortsetzen) und auf die Windows-Sitzung warten, Kurztest Bildtakt,
   Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
   `~/halo-vm` legen, Farbschema per Registry (`AppsUseLightTheme`,
   `SystemUsesLightTheme`) setzen, in der VM `python halo_test.py` als

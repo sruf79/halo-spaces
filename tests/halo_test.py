@@ -9115,8 +9115,9 @@ def calendar_checks(m, results):
         res = m.js(r"""
           await toMail(); await ruhig(600);
           if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
-          const look = () => { const pane = d.getElementById("today-pane-panel").getBoundingClientRect(), mm = d.getElementById("today-minimonth"), t = d.getElementById("mcAgendaTitle");
-            return { mini: !!mm && mm.getBoundingClientRect().height > 40, font: t && w.getComputedStyle(t.querySelector("b") || t).fontSize,
+          // (Monatstitel: der Monat über dem Mini-Kalender, eine eigene Monatszeile über der Liste gibt es nicht mehr)
+          const look = () => { const pane = d.getElementById("today-pane-panel").getBoundingClientRect(), mm = d.getElementById("today-minimonth"), t = mm?.querySelector(".minimonth-month-name");
+            return { mini: !!mm && mm.getBoundingClientRect().height > 40, font: t && w.getComputedStyle(t).fontSize,
                      top: t ? Math.round(t.getBoundingClientRect().top - pane.top) : null }; };
           const out = { mail: look() };
           tm.openTab("tasks", {}); await ruhig(1200);
@@ -9211,8 +9212,9 @@ def calendar_checks(m, results):
     check("Today-Pane: Heute- und Hover-Kreis im Mini-Kalender rund und mittig um ein- und zweistellige Zahlen", today_minimonth_circles, results)
 
     def agenda_past_month():
-        # ‹ in einen vergangenen Monat: die Liste steht am Ende, die letzten Termine des Monats sind ohne Scrollen
-        # sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
+        # ‹ des Mini-Kalenders in einen vergangenen Monat: die Liste blättert mit und steht am Ende, die letzten Termine
+        # des Monats sind ohne Scrollen sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
+        # (die Pfeile über der Liste gibt es nicht mehr, der Monat steht nur über dem Mini-Kalender)
         res = m.js(CAL_CHECK_JS + r"""
           const c = testCalendar(), added = [];
           const mk = async (title, day) => { const e = new CalEvent(); e.title = title; e.calendar = c;
@@ -9224,18 +9226,18 @@ def calendar_checks(m, results):
             const agenda = d.getElementById("agenda"), rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
             const visible = text => { const li = rows().find(l => l.textContent.includes(text)); if (!li) return null;
               const r = li.getBoundingClientRect(), a = agenda.getBoundingClientRect(); return r.top >= a.top - 1 && r.bottom <= a.bottom + 1; };
-            d.querySelector("#mcAgendaTitle .mc-prev").click();
+            d.querySelector("#today-minimonth .months-back-button").click();
             await bis(() => rows().some(l => l.textContent.includes("Halo Vormonat Ende")), "Termine des Vormonats", 6000); await ruhig(600);
             const out = { month: w.TodayPane.start.month == (new Date().getMonth() + 11) % 12, end: visible("Halo Vormonat Ende"),
                           bottom: agenda.scrollTop >= agenda.scrollHeight - agenda.clientHeight - 1 };
-            d.querySelector("#mcAgendaTitle .mc-next").click(); await ruhig(800);
+            d.querySelector("#today-minimonth .months-forward-button").click(); await ruhig(800);
             const s = w.TodayPane.start, n = new Date();
             out.back = s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate();
             return out;
           } finally { for (const a of added) await c.deleteItem(a); }""")
         ok = res.get("month") is True and res.get("end") is True and res.get("bottom") is True and res.get("back") is True
         return ok, f"{res}"
-    check("Today-Pane: ‹ in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
+    check("Today-Pane: ‹ im Mini-Kalender in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
 
     def agenda_minimonth_click():
         # Klick (echte Maus) auf einen Tag im Mini-Kalender der Today-Pane: die Liste springt zu diesem Tag (erste Zeile
@@ -9349,6 +9351,82 @@ def calendar_checks(m, results):
               and b.get("sel") == ["1"] and b.get("start") == 1 and b.get("off") is not None and abs(b["off"]) <= 2)
         return ok, f"{res}"
     check("Today-Pane: grauer Kreis im Mini-Kalender folgt beim Scrollen dem obersten sichtbaren Tag der Liste, Klick auf den gewählten Tag bringt die Liste zurück", agenda_minimonth_follow, results)
+
+    def today_month_once():
+        # Today-Pane (Board „Monat nur einmal“, Variante A): der Monat steht nur über dem Mini-Kalender, grau und halbfett
+        # wie die Pfeile daneben (keine zweite, große Monatszeile mit eigenen Pfeilen über der Liste); im Mini-Kalender
+        # Samstag und Sonntag grau (Textfarbe 3), Tage anderer Monate noch blasser, Werktage in Textfarbe – bei Wochenbeginn
+        # Sonntag und Montag, in der Today-Pane und in der Kalenderleiste; lange Termintitel einzeilig mit „…“ (auch
+        # ganztägige auf getönter Fläche), der volle Titel steht im Tooltip des Termins
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          const LONG = "Halo Einzeilig ein sehr langer Termintitel, der in keine Zeile der Today-Pane passt und gekürzt werden muss";
+          const mk = async (title, allDay) => { const e = new CalEvent(); e.title = title; e.calendar = c; const s = today();
+            if (!allDay) { s.isDate = false; s.hour = 23; s.minute = 0; }
+            const en = s.clone(); if (allDay) en.day += 1; else en.minute = 30;
+            e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); };
+          const PREF = "calendar.week.start", wsWas = Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : null;
+          // Farbe einer Variable so, wie getComputedStyle sie liefert
+          const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "span"); d.getElementById("today-pane-panel").append(probe);
+          const col = v => { probe.style.color = `var(${v})`; return w.getComputedStyle(probe).color; };
+          try {
+            await mk(LONG, false); await mk(LONG + " ganztags", true);
+            await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+            w.TodayPane.setDay(today());
+            const agenda = d.getElementById("agenda"), rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
+            await bis(() => rows().filter(li => li.textContent.includes("Halo Einzeilig")).length >= 2, "lange Termine in der Liste", 8000); await ruhig(600);
+            const C = { text: col("--mt-text"), second: col("--mt-text-secondary"), third: col("--mt-text-tertiary"), fourth: col("--mt-text-quaternary") };
+            const mm = d.getElementById("today-minimonth"), name = mm.querySelector(".minimonth-month-name"), year = mm.querySelector(".minimonth-year-name");
+            const out = { C, title: !!d.getElementById("mcAgendaTitle"),
+              head: [w.getComputedStyle(name).color, w.getComputedStyle(name).fontWeight, w.getComputedStyle(year).color,
+                     w.getComputedStyle(mm.querySelector(".months-back-button")).color, w.getComputedStyle(mm.querySelector(".months-forward-button")).color],
+              // zwischen Mini-Kalender und Liste steht nichts mehr (die Karte beginnt 8 px unter der Linie)
+              gap: Math.round(agenda.getBoundingClientRect().top - d.getElementById("agenda-container").getBoundingClientRect().top) };
+            // Mini-Kalender: Farben je Spalte bei Wochenbeginn Sonntag (0) und Montag (1); die 2. und 3. Woche liegen
+            // immer ganz im Monat, genommen wird die ohne heute (rot)
+            out.days = {};
+            for (const ws of [0, 1]) {
+              Services.prefs.setIntPref(PREF, ws); await ruhig(400);
+              for (const id of ["today-minimonth", "calMinimonth"]) {
+                const box = d.getElementById(id); box.showMonth?.(new Date()); await ruhig(200);
+                const week = [...box.querySelectorAll("tr.minimonth-row-body")].slice(1, 3).find(tr => !tr.querySelector("td[today]"));
+                const cells = [...week.querySelectorAll("td.minimonth-day")];
+                const other = box.querySelector("td.minimonth-day[othermonth]:not([today])");
+                out.days[id + ws] = { wkst: box.getAttribute("data-mc-wkst"),
+                  ok: cells.every(td => w.getComputedStyle(td).color == ([0, 6].includes(td.date.getDay()) ? C.third : C.text)),
+                  we: cells.filter(td => [0, 6].includes(td.date.getDay())).length, other: other && w.getComputedStyle(other).color,
+                  cols: cells.map(td => td.date.getDay() + ":" + w.getComputedStyle(td).color) };
+              }
+            }
+            // lange Titel: eine Zeile, gekürzt mit „…“, voller Titel im Tooltip
+            const tip = d.getElementById("itemTooltip");
+            out.long = rows().filter(li => li.textContent.includes("Halo Einzeilig")).map(li => {
+              const t = li.querySelector(".agenda-listitem-title"), cs = w.getComputedStyle(t), rg = d.createRange(); rg.selectNodeContents(t);
+              const lines = new Set([...rg.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+              let tipOk = null;
+              if (typeof w.showToolTip == "function") { w.showToolTip(tip, li.item); tipOk = tip.textContent.includes(LONG); }
+              return { allDay: li.classList.contains("agenda-listitem-all-day"), lines, cut: t.scrollWidth > t.clientWidth + 1,
+                       ws: cs.whiteSpace, to: cs.textOverflow, tipOk, tipAttr: li.closest("[tooltip]")?.getAttribute("tooltip") };
+            });
+            return out;
+          } finally {
+            if (wsWas === null) Services.prefs.clearUserPref(PREF); else Services.prefs.setIntPref(PREF, wsWas);
+            probe.remove(); for (const a of added) try { await c.deleteItem(a); } catch {}
+            try { w.TodayPane.setDay(today()); } catch {}
+          }""")
+        C = res.get("C") or {}
+        days = res.get("days") or {}
+        longs = res.get("long") or []
+        ok = (res.get("title") is False and bool(C) and C.get("fourth") not in (C.get("third"), C.get("text"), "")
+              and res.get("head") == [C["second"], "600", C["second"], C["second"], C["second"]]
+              and 0 <= (res.get("gap") or -1) <= 12
+              and len(days) == 4 and all(v["ok"] and v["we"] == 2 and v["other"] == C["fourth"] for v in days.values())
+              and [v["wkst"] for v in days.values()] == ["0", "0", "1", "1"]
+              and sorted(x["allDay"] for x in longs) == [False, True]
+              and all(x["lines"] == 1 and x["cut"] and x["ws"] == "nowrap" and x["to"] == "ellipsis"
+                      and x["tipAttr"] == "itemTooltip" and x["tipOk"] is not False for x in longs))
+        return ok, f"{res}"
+    check("Today-Pane: Monat nur über dem Mini-Kalender (grau, halbfett), Wochenende grau, fremde Tage blasser, lange Termintitel einzeilig mit „…“ und vollem Titel im Tooltip", today_month_once, results)
 
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird

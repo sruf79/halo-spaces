@@ -160,6 +160,7 @@
      kein Schatten: innere Schatten, Haarlinien außen und durchscheinende
      Flächen zeichneten an den Stößen der Kapselstücke bei halben Bildpunkten
      einen Strich bzw. eine Kerbe */
+  /* Bauregel plastische Kapseln, Nachtlauf 18.11.2026 (Designer, 18.11.2026; vorher in docs/design-vorgaben.md Abschnitt 10, auf Wunsch des Maintainers in die Technik verlegt: „Ich folge deiner Empfehlung“): Eine Kapsel aus mehreren Stücken (je Knopf ein Listeneintrag) zeigt an halben Pixeln Stöße: innere Schatten mit Versatz, `clip-path`, halbtransparente Verläufe und seitlich austretende Schatten zeichnen an jedem Stoß einen hellen oder dunklen Strich. Darum Lichtkante und Unterkante als 1-px-Bänder im deckenden Hintergrund, Seitenkanten nur an den Endstücken und Schatten ohne seitlichen Austritt; geprüft wird die Pixelzeile über dem Stoß (Abweichung ≤ 4 Stufen) hell und dunkel */
   --mt-cap-fill: linear-gradient(#FFFFFF 0 1px, transparent 1px), linear-gradient(transparent calc(100% - 1px), color-mix(in srgb, #000 13%, #F7F7F8) calc(100% - 1px)), linear-gradient(#FFFFFF, #F7F7F8);
   --mt-cap-shadow: 0 1px 1px -1px rgba(0, 0, 0, 0.12), 0 4px 6px -6px rgba(0, 0, 0, 0.3);
   --mt-cap-edge: rgba(0, 0, 0, 0.16);

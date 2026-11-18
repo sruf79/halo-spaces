@@ -24324,8 +24324,13 @@ Neu
                 to(700)
                 m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
         finally:
+            # Bei Zeitüberschreitung den Zustand mitschreiben (einmal rot im Job mac, Lauf 44387704672, Ursache offen); Bedingung unverändert
             m.js(f"""Services.prefs.clearUserPref("{P}"); await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
-              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              try {{ await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              catch (e) {{ const a3 = tm.currentAbout3Pane, b = d.getElementById("spacesPinnedButton");
+                throw new Error(e.message + " – Zustand: " + JSON.stringify({{ isHidden: w.gSpacesToolbar.isHidden, spacesAnimating: !!w.__mcSpacesAnimating,
+                  paneAnimating: a3 ? !!a3.__mcAnimating : "kein about3Pane", float: w.__mcSideFloatState?.() ?? null, tab: tm.currentTabInfo?.mode?.name,
+                  knopf: b ? {{ hidden: b.hidden, w: Math.round(b.getBoundingClientRect().width) }} : null, fokus: Services.focus.activeWindow == w }})); }} }}
               while (tm.tabInfo.length > {before}) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
               await toMail(); return 1;""")
         dist = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5

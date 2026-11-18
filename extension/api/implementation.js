@@ -2753,6 +2753,7 @@ function cardWindow(win) {
   root.setAttribute("customtitlebar", "true");
   root.setAttribute("chromemargin", "0,-1,-1,-1");
   root.setAttribute("mc-card-window", "");
+  cardWindowButtons(win);
   // der Streifen oben braucht Platz: Fenster, die sich nach ihrem Inhalt
   // richten, um das Fehlende verlängern statt unten abzuschneiden
   let grown = 0;
@@ -2773,6 +2774,32 @@ function cardWindow(win) {
       win.setTimeout(grow, ms);
     }
   }, { once: true });
+}
+
+// Platzhalter für die Fensterknöpfe (Ampel): Zeichnet ein Fenster seine Titelleiste selbst, setzt macOS die Knöpfe
+// dorthin, wo ein Element mit -moz-window-button-box liegt; fehlt es, schiebt Gecko sie über den Fensterrand und sie
+// sind weg (nsCocoaWindow.mm, FrameView__closeButtonOrigin: „Empty rect. Let's hide the buttons.“). Haupt-, Mail- und
+// Verfassen-Fenster bringen ihn mit (.titlebar-buttonbox), die Kartenfenster nicht – ohne ihn ließen sie sich nicht
+// mit der Maus schließen oder verkleinern. Lage im Streifen oben: spaces.css (.mc-card-buttons)
+function cardWindowButtons(win) {
+  const doc = win.document;
+  // (im Aufgabenfenster ist die Wurzel XUL, document.body dort leer)
+  const body = doc.body || doc.documentElement?.querySelector(":scope > body");
+  if (!body || doc.querySelector(".mc-card-buttons")) {
+    return;
+  }
+  const box = doc.createXULElement("hbox");
+  box.className = "mc-card-buttons";
+  const inner = doc.createXULElement("hbox");
+  inner.className = "mc-card-buttonbox";
+  // (-moz-default-appearance gilt nur in Stilblättern der Stufe AGENT, nicht im Stil des Elements oder im Theme)
+  try {
+    win.windowUtils.loadSheetUsingURIString(`resource://mailcards/window-buttons.css?v=${extensionVersion}`, win.windowUtils.AGENT_SHEET);
+  } catch (e) {
+    log("window buttons sheet", e);
+  }
+  box.append(inner);
+  body.append(box);
 }
 
 // Nachfragen im Fenster statt als eigenes Fenster (wie in Firefox): Thunderbirds

@@ -16548,6 +16548,79 @@ Neu
         return ok, f"{res}"
     check("Dialogfenster: ohne sichtbare Titelleiste (macOS), Ordner-Eigenschaften nicht abgeschnitten, Termin-Knöpfe unten statt neben den Fensterknöpfen", card_windows, results)
 
+    def card_window_buttons():
+        # Kartenfenster ohne Titelleiste (macOS) behalten die Ampel: macOS setzt die Fensterknöpfe nur auf ein Element mit
+        # -moz-window-button-box, fehlt es, schiebt Gecko sie über den Fensterrand (vorher ohne Ampel: Termin bearbeiten,
+        # Termin-Details/Einladung, Aufgabe im eigenen Fenster, Ordner-Eigenschaften). Gemessen wird der Platzhalter: Art,
+        # Größe vom System (> 0), links oben im Streifen bzw. mittig in der Zeile der Symbolleiste; unter Windows/Linux keiner
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const all = () => [...Services.wm.getEnumerator(null)];
+          const waitWin = (test, name) => bis(() => all().find(x => test(x) && x.document?.readyState == "complete"), name, 12000);
+          const rr = e => { const b = e?.getBoundingClientRect(); return b ? { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) } : null; };
+          const probe = (x, row) => {
+            const b = x.document.querySelector(".mc-card-buttons > .mc-card-buttonbox");
+            const o = { card: x.document.documentElement.hasAttribute("mc-card-window"), n: x.document.querySelectorAll(".mc-card-buttons").length };
+            if (b) {
+              o.app = x.getComputedStyle(b).getPropertyValue("-moz-default-appearance");
+              o.box = rr(b); o.vis = x.getComputedStyle(b.parentNode).display != "none";
+              const r = row ? rr(row) : null;
+              if (r) o.row = { t: r.t, h: r.h };
+            }
+            return o;
+          };
+          const out = { mac: Services.appinfo.OS == "Darwin" };
+          const folder = MailServices.accounts.localFoldersServer.rootFolder.subFolders[0];
+          w.openDialog("chrome://messenger/content/folderProps.xhtml", "", "chrome,modal=no,titlebar,resizable=no", { folder, serverType: "none", msgWindow: w.msgWindow, name: folder?.prettyName });
+          let x = await waitWin(x => x.location.href.startsWith("chrome://messenger/content/folderProps.xhtml"), "Ordner-Eigenschaften");
+          await ruhig(600); out.props = probe(x); x.close();
+          const c = testCalendar();
+          const st = cal.dtz.now(); st.hour = 10; st.minute = 0; st.second = 0; const en = st.clone(); en.hour += 1;
+          const e = new CalEvent(); e.title = "Halo Ampel"; e.calendar = c; e.startDate = st; e.endDate = en;
+          const saved = await c.addItem(e); await toCalendar(); await ruhig(400);
+          const isEvent = x => x.location.href.startsWith("chrome://calendar/content/calendar-event-dialog.xhtml");
+          w.modifyEventWithDialog(saved, true);
+          x = await waitWin(isEvent, "Termin bearbeiten"); await ruhig(1200);
+          out.event = probe(x, x.document.documentElement.hasAttribute("mc-event") ? null : x.document.getElementById("event-toolbar"));
+          x.gConfirmCancel = false; x.close(); await bis(() => !all().some(isEvent), "Termin zu", 4000);
+          // nur lesbarer Kalender: Thunderbird öffnet die Termin-Details (Fenster der Einladungen)
+          const isSummary = x => x.location.href.startsWith("chrome://calendar/content/calendar-summary-dialog.xhtml");
+          c.readOnly = true;
+          try {
+            w.modifyEventWithDialog(saved, true);
+            x = await waitWin(isSummary, "Termin-Details"); await ruhig(1200);
+            out.summary = probe(x); x.close(); await bis(() => !all().some(isSummary), "Details zu", 4000);
+          } finally { c.readOnly = false; }
+          // Aufgabe im eigenen Fenster: Knöpfe der Aufgabe in der Zeile der Ampel
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const todo = new CalTodo(); todo.title = "Halo Ampel-Aufgabe"; todo.calendar = c;
+          const savedTodo = await c.addItem(todo);
+          tm.openTab("tasks", {}); await ruhig(1200);
+          w.modifyEventWithDialog(savedTodo, true);
+          x = await waitWin(x => x.document?.documentElement?.hasAttribute("mc-task-window"), "Aufgabenfenster"); await ruhig(1200);
+          out.task = probe(x, x.document.getElementById("other-actions-box")); x.close(); await ruhig(300);
+          try { await c.deleteItem(saved); await c.deleteItem(savedTodo); } catch {}
+          await toMail();
+          return out;""")
+        def gut(o, strip=28):
+            # Platzhalter einmal, vom System bemessen (Breite der drei Knöpfe), 4–14 px vom linken Rand, mittig im
+            # Streifen bzw. in der Zeile der Symbolleiste (± 2 px)
+            b = o.get("box") or {}
+            row = o.get("row") or {"t": 0, "h": strip}
+            mitte = row["t"] + row["h"] / 2
+            # (die Art -moz-window-button-box liest getComputedStyle nicht aus; eine Größe > 0 gibt ihm nur das
+            # System – ohne die Art ist er 0 × 0)
+            return (o.get("card") and o.get("n") == 1 and o.get("vis")
+                    and b.get("w", 0) >= 40 and b.get("h", 0) >= 10 and 4 <= b.get("l", -1) <= 14
+                    and abs(b.get("t", 0) + b.get("h", 0) / 2 - mitte) <= 2)
+        if res["mac"]:
+            ok = all(gut(res.get(k) or {}) for k in ("props", "event", "summary", "task"))
+        else:
+            ok = all((res.get(k) or {}).get("n") == 0 for k in ("props", "event", "summary", "task"))
+        return ok, f"{res}"
+
+    check("Dialogfenster ohne Titelleiste (macOS): Ampel bleibt – Platzhalter der Fensterknöpfe in Termin, Termin-Details, Aufgabenfenster und Ordner-Eigenschaften, links oben mittig im Streifen bzw. in der Zeile der Symbolleiste", card_window_buttons, results)
+
     def task_view_choice():
         # Aufgaben wie die Mailliste: „Listenansicht“ (Details rechts, nur Erledigt/Titel/Fälligkeit) oder „Tabellenansicht“
         # (alle Spalten, Details unten) im Filtermenü; im schmalen Fenster Details auch in der Liste unten

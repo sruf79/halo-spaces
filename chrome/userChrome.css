@@ -17479,8 +17479,10 @@ datepicker[mc-inline] > menulist {
   -moz-window-dragging: drag;
 }
 
-/* großer Termin-Dialog: Ampel mittig in der Zeile der Symbolleiste (38 px) */
-:root[mc-card-window][windowtype="Calendar:EventDialog"]:not([mc-event], [mc-type-switch]) .mc-card-buttons {
+/* großer Termin-Dialog und Aufgabenfenster: Ampel mittig in der Zeile der
+   Symbolleiste bzw. der Knöpfe der Aufgabe (38 px) */
+:root[mc-card-window][windowtype="Calendar:EventDialog"]:not([mc-event], [mc-type-switch]) .mc-card-buttons,
+:root[mc-card-window][mc-task-window] .mc-card-buttons {
   height: 38px;
 }
 

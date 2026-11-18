@@ -12246,6 +12246,28 @@ datepicker[mc-inline] > menulist {
   -moz-window-dragging: no-drag;
 }
 
+/* Platzhalter der Fensterknöpfe (Ampel, Erweiterung: cardWindowButtons):
+   macOS setzt die Knöpfe auf ihn, mittig in den Streifen oben, 7 px vom Rand
+   wie im Mail- und Verfassen-Fenster; ohne ihn zeichnet macOS keine Ampel */
+:root[mc-card-window] .mc-card-buttons {
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  z-index: 10;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding-inline-start: 7px;
+  -moz-window-dragging: drag;
+}
+
+/* großer Termin-Dialog und Aufgabenfenster: Ampel mittig in der Zeile der
+   Symbolleiste bzw. der Knöpfe der Aufgabe (38 px) */
+:root[mc-card-window][windowtype="Calendar:EventDialog"]:not([mc-event], [mc-type-switch]) .mc-card-buttons,
+:root[mc-card-window][mc-task-window] .mc-card-buttons {
+  height: 38px;
+}
+
 /* Termin/Aufgabe: Symbolleiste in der Zeile der Fensterknöpfe (wie die
    vereinheitlichte Symbolleiste der macOS-Apps) statt eines leeren Streifens */
 :root[mc-card-window][windowtype="Calendar:EventDialog"] > body {

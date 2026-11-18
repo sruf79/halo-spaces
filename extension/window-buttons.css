@@ -1,0 +1,8 @@
+/* Platzhalter der Fensterknöpfe (Ampel) in Kartenfenstern ohne Titelleiste
+   (implementation.js, cardWindowButtons): macOS setzt die Knöpfe auf das
+   Element mit -moz-window-button-box. Als AGENT-Stilblatt geladen, nur dort
+   gilt -moz-default-appearance */
+.mc-card-buttons > .mc-card-buttonbox {
+  appearance: auto !important;
+  -moz-default-appearance: -moz-window-button-box !important;
+}

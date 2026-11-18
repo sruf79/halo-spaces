@@ -107,6 +107,7 @@ dann den Maintainer bitten (keine Kennungen als Weg).
 - **Rot bleibt rot → Ursache belegen, dann höheres Modell:** auf der roten Plattform wiederholen (Mac lokal 8× `--only`, Linux/Windows gezielter CI-Lauf; nur im vollen Lauf rot = Abhängigkeit, kein Flackern), Diagnoselauf vor dem Fix, Skill `systematic-debugging`,
   ein belegter Fix, nie die Prüfung abschwächen. Je Fehlversuch an derselben Prüfung höher (1. Opus bzw. Stabilisieren mit Sonnet/Opus, 2. und 3. Fable, höchstens ein Fable-Agent, nur unter 50 % im
   5-Stunden-Fenster); nach zwei Fable-Versuchen ohne belegte Ursache Übergabe an den Maintainer; Schritte 0–6 in `docs/neon-sitzung.md`.
+  Sperrt das Rot ein Release: `docs/release.md` „Rote Änderung auf einen Nebenzweig“ (belegter Verursacher auf einen Nebenzweig, Rest veröffentlichen; Modellstufe aus `rot_stufe` bzw. der Meldung der Wächter, Zähler `~/halo-nacht/rot-zaehler.txt`).
 - Arbeitsweise von neon und neon-board, Antworten, Sitzung unter anderem Namen finden:
   `docs/neon-sitzung.md`.
 
@@ -172,7 +173,9 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Einzige Bedingung: grüne Tests.** `release.sh` schreibt die Marke `dist/release-<version>.ok`
   nur nach grünen Tests bzw. vollständig grüner CI desselben Stands; `publish.sh` veröffentlicht ohne
   passende Marke nicht; `SKIP_TESTS=1` erzeugt keine Marke. Die Sperre nicht umgehen; ist ein Test rot,
-  erst beheben. `update_test.py` läuft vor der Marke mit, rot heißt kein Release.
+  erst beheben. `update_test.py` läuft vor der Marke mit, rot heißt kein Release. Ist ein Release rot: erst
+  Regression belegen, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen;
+  je öfter derselbe Commit rot wird, desto höher das Modell (`docs/release.md` „Rote Änderung auf einen Nebenzweig“).
 - **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
   Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.
 - **Hotfix** nur auf ausdrückliche Anweisung des Maintainers und nur ohne Änderung am Aussehen:

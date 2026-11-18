@@ -55,7 +55,8 @@ Plan-Runde („JETZT: Plan-Runde“):
   „CI rot …“): erster Eintrag, vor Schwere, Häufung und Bereichsfolge (Maintainer 15.11.2026: „wenn ein
   fehler wie das flackern allgemein JEDEN release verhindern würde muss so ein fehler mit höchster
   priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen nach AGENTS.md „Rot bleibt rot“: Ursache
-  belegen, ein belegter Fix.
+  belegen, ein belegter Fix. Sperrt es ein Release: docs/release.md „Rote Änderung auf einen Nebenzweig“
+  (Modell nach rot_stufe bzw. der Zeile „Modellstufe“ in der Meldung des Wächters an neon).
 - Schritt 2: Liste laden (tests/board.sh bzw. gh project item-list 1 --owner sruf79 --limit 200
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,

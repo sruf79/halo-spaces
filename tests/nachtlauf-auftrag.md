@@ -221,7 +221,10 @@ Reihenfolge:
           allgemein JEDEN release verhindern würde muss so ein fehler mit
           höchster priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen
           nach AGENTS.md „Rot bleibt rot“: Ursache belegen, ein belegter
-          Fix, Prüfung nie abschwächen.
+          Fix, Prüfung nie abschwächen. Sperrt es das Release: docs/release.md
+          „Rote Änderung auf einen Nebenzweig“ (belegter Verursacher auf einen
+          Nebenzweig, Rest veröffentlichen; Modell nach rot_stufe aus
+          tests/lauf-hilfen.zsh, Verursacher mit rot_eintragen zählen).
       (a) Schwere (Absturz, Datenverlust, Mail-Grundfunktion gestört oder
           gefährdet; Mail-Grundfunktion = Umfang von Apple Mail, siehe b)
           geht immer vor, auch wenn groß. Die Funktion des

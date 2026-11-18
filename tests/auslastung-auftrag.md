@@ -22,7 +22,7 @@ Regeln:
    anderer Testlauf). Nie halo_test.py direkt, nie Ports außer deinen beiden. Meldet es „BELEGT“: nicht umgehen, den
    Eintrag ohne lokale Prüfung nicht committen, sondern „zurück belegt“. Den Volllauf macht die CI.
 4. Prüfungen nie abschwächen; bei Rot Ursache belegen (AGENTS.md „Rot bleibt rot“, Skill systematic-debugging) oder
-   Änderungen verwerfen. Keine Regeln, Hooks, Rechte, Abläufe (tests/*.sh, *.zsh, *-auftrag.md), AGENTS.md,
+   Änderungen verwerfen; rot gewordene Releases behandelt neon nach docs/release.md „Rote Änderung auf einen Nebenzweig“. Keine Regeln, Hooks, Rechte, Abläufe (tests/*.sh, *.zsh, *-auftrag.md), AGENTS.md,
    ENTSCHEIDUNGEN.md, volldampf.txt, pausen.txt oder Konfiguration unter ~/.config ändern.
 5. Vor 4 Stunden fertig sein (der Wächter beendet dich danach). Unfertiges: Änderungen verwerfen, Eintrag zurück.
 6. Worker gibt es nur im Volldampf. Vor der Wahl des Eintrags prüfen:

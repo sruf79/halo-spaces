@@ -143,6 +143,12 @@ für Nachtlauf und andere Läufe; `neon-board` arbeitet ebenso, nur mit
     Befund (Messwerte, verworfene Hypothesen, Zweige). Der Nachtlauf behält
     seine Grenze von zwei Reparaturrunden; die Zählung läuft in der nächsten
     Sitzung weiter.
+    Sperrt das Rot ein Release, gilt zusätzlich `docs/release.md` „Rote Änderung auf einen Nebenzweig“
+    (Maintainer 18.11.2026): belegter trennbarer Verursacher auf einen
+    Nebenzweig, Rest neu prüfen und veröffentlichen; die Modellstufe nennt
+    `rot_stufe <Prüfung bzw. Hash>` aus dem Zähler `~/halo-nacht/rot-zaehler.txt`
+    (`tests/lauf-hilfen.zsh`), wer einen Verursacher herausnimmt, trägt ihn mit
+    `rot_eintragen <Hash> <Nebenzweig>` ein.
   - **Im Zweifel Opus.** Gilt für jede Einstufung.
   - Scheitert ein Auftrag mit Sonnet einmal, sofort mit Opus wiederholen.
   - Kein `/model`-Wechsel in neon selbst (der Zwischenspeicher ginge

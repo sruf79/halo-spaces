@@ -71,5 +71,9 @@ Bug-Jagd, Reihen oder Features; wird es größer: zurück. Bei Volldampf-Pause s
 Grundsatz: Fenster und Woche unter Takt bzw. Soll → T1/T2 zuerst (im Volldampf die token-intensivsten zuerst);
 Fenster knapp (≥ 85 %) oder Volldampf pausiert → Z-Klassen, die kaum Token brauchen; nachts nur unter Soll.
 
+Rotes Release (Maintainer 18.11.2026, `docs/release.md` „Rote Änderung auf einen Nebenzweig“): das Modell der Untersuchung
+richtet sich nach dem Zähler `~/halo-nacht/rot-zaehler.txt` (`rot_stufe`, 14 Tage; 1 Opus, 2 und 3 Fable unter 50 % im
+5-Stunden-Fenster, ab 4 Maintainer), die Bremsen in Abschnitt 3 gelten unverändert davor.
+
 ## 5. Lücken (Vorschläge, brauchen eine Entscheidung)
 

@@ -22,7 +22,8 @@ export const OFFEN = ["Thanks", "TRANSLATIONS", "DE", "FR", "ES", "IT", "tr", "p
   "PstFs", "PstImport", "ArchiveAccount", "hookArchiveAccount", "overflowPills",
   "hookMultiweekScroll", "hookMultiweekBuffer", "appleEventLayout", "hookDateTimePickers", "EMOJI_RULES",
   "calDayKey", "calSearchMatch", "calSearchGroups",
-  "log", "LogoCache", "MacPhotos", "AvatarResolver", "EarlyTheme", "ThemeSheet"];
+  "log", "LogoCache", "MacPhotos", "AvatarResolver", "EarlyTheme", "ThemeSheet",
+  "ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF", "CONVERSATION_NEWEST_PREF"];
 
 // Attrappe: Funktion (aufrufbar, konstruierbar) hinter einem Proxy
 function attrappe(name = "attrappe") {

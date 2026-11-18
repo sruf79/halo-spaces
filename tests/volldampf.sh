@@ -2,7 +2,7 @@
 # Ein- und Ausschalter für Volldampf (Maintainer 17.11.2026: „in zukunft werden wir vielleicht öfters volldampf nutzen.
 # daher müssen wir dieses regelwerk klar absichern um quasi mittels ein- und aus-schalter jederzeit aktivieren und wieder
 # deaktivieren zu können“). Nur auf neon, nur auf Zuruf des Maintainers.
-#   zsh tests/volldampf.sh an [<bis ISO-Zeit mit Zone>] [<Grund>]   ab jetzt; bis = nächster Wochenreset (Di 01:00 Wien)
+#   zsh tests/volldampf.sh an [<bis ISO-Zeit mit Zone>] [<Grund>]   ab jetzt; bis = nächster Wochenreset (Di 00:00 UTC, Wien 01:00 bzw. 02:00 im Sommer)
 #   zsh tests/volldampf.sh aus                                      sofort aus: Regelzeile weg, Wächter beendet
 #   zsh tests/volldampf.sh status                                   Zustand von Regel, Wächtern und Wochenwert
 # „an“ schreibt die Regelzeile (~/halo-nacht/volldampf.txt, Auswertung wie bisher in lauf-hilfen.zsh) und startet den
@@ -24,15 +24,16 @@ WAECHTER=(auslastung zwischen)
 skript() { case $1 in auslastung) print -r -- $HIER/auslastung-schleife.zsh;; zwischen) print -r -- $HIER/zwischen-schleife.zsh;; esac }
 sperre() { case $1 in auslastung) print -r -- $DIR/auslastung-schleife.lock;; zwischen) print -r -- $DIR/zwischen-schleife.lock;; esac }
 laeuft() { local l=$(sperre $1); [[ -r $l ]] && kill -0 "$(<$l)" 2>/dev/null }
-naechster_reset() {   # nächster Dienstag 01:00 Wiener Zeit nach jetzt, ISO mit Zone
+naechster_reset() {   # nächster automatischer Wochenreset (Di 00:00 UTC = 01:00 Wien im Winter, 02:00 im Sommer) nach jetzt, ISO mit Zone
+  # vorher fest 01:00 Wiener Zeit: im Sommer endete Volldampf eine Stunde vor dem Reset (18.11.2026)
   python3 -I -c '
 import os, datetime as d
 j = os.environ.get("HALO_JETZT")
 n = d.datetime.fromisoformat(j).astimezone() if j else d.datetime.now().astimezone()
-t = n.replace(hour=1, minute=0, second=0, microsecond=0)
-t += d.timedelta(days=(1 - t.weekday()) % 7)
-if t <= n: t += d.timedelta(days=7)
-print(t.isoformat(timespec="minutes"))'
+u = n.astimezone(d.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+u += d.timedelta(days=(1 - u.weekday()) % 7)
+if u <= n: u += d.timedelta(days=7)
+print(u.astimezone().isoformat(timespec="minutes"))'
 }
 jetzt_iso() { python3 -I -c 'import os,datetime as d;j=os.environ.get("HALO_JETZT");print((d.datetime.fromisoformat(j).astimezone() if j else d.datetime.now().astimezone()).isoformat(timespec="minutes"))' }
 zeigen() {

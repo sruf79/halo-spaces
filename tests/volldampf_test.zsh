@@ -135,6 +135,12 @@ neu
 export HALO_VD_KEINE_WAECHTER=1 HALO_NACHT_DIR=$T
 pruefe "schalter: an schreibt eine aktive Zeile" 'zsh $HIER/volldampf.sh an >/dev/null && volldampf_aktiv >/dev/null'
 pruefe "schalter: bis ist ein Dienstag 01:00" 'grep -q "T01:00+0[12]:00 " $HALO_VOLLDAMPF_DATEI && [[ $(date -j -f "%Y-%m-%dT%H:%M" "$(awk "{print substr(\$3,1,16)}" $HALO_VOLLDAMPF_DATEI)" +%u) == 2 ]]'
+NR=$(sed -n '/^naechster_reset() {/,/^}/p' $HIER/volldampf.sh)
+pruefe "schalter: bis = nächster Reset Di 00:00 UTC, im Winter 01:00, im Sommer 02:00 Wiener Zeit" \
+  '[[ $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-18T10:00+01:00 naechster_reset) == 2026-11-24T01:00+01:00 &&
+     $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2027-06-16T10:00+02:00 naechster_reset) == 2027-06-22T02:00+02:00 &&
+     $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T00:59+01:00 naechster_reset) == 2026-11-24T01:00+01:00 &&
+     $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T01:00+01:00 naechster_reset) == 2026-12-01T01:00+01:00 ]]'
 pruefe "schalter: zweites an ändert nichts" '[[ $(zsh $HIER/volldampf.sh an | head -1) == "Volldampf ist schon an." && $(grep -c . $HALO_VOLLDAMPF_DATEI) == 1 ]]'
 pruefe "schalter: aus entfernt die Zeile, Verlauf bleibt" 'zsh $HIER/volldampf.sh aus >/dev/null && ! volldampf_aktiv >/dev/null && ls $T/volldampf-aus-*.txt >/dev/null'
 pruefe "schalter: nach aus gilt Volldampf nicht mehr" '! volldampf_status >/dev/null'

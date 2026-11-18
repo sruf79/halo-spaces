@@ -470,7 +470,7 @@ nur eine Nachlese). Von Hand: `zsh tests/aufraeumen.sh --trocken` (nur auflisten
 Netz). Prüfung: `zsh tests/aufraeumen_test.zsh` (temporäres Repo, kein Eingriff ins echte). Der Wächter für
 Pausen (`tests/pausen_check.sh`) durchsucht `.claude/worktrees` und `dist/` nicht mehr.
 
-## Automatische CI-Wiederholung (`tests/ci-wiederholen.sh`, 18.11.2026 – gebaut, noch nicht eingeschaltet)
+## Automatische CI-Wiederholung (`tests/ci-wiederholen.sh`, 18.11.2026 – eingeschaltet über den CI-Wächter)
 
 Anlass (Maintainer 18.11.2026): „das problem mit dem flackern kostet uns extrem viel zeit“. Das Skript (ohne Claude, nur `gh`)
 wiederholt die fehlgeschlagenen Jobs eines roten Laufs von `test.yml` **einmal** (`gh run rerun --failed`) und schreibt jede
@@ -485,6 +485,11 @@ nicht repariert: der Eintrag bleibt offen, für `main` steht zusätzlich die Zei
 `ci_flackert`). Die Testmarke bleibt unverändert: `release.sh` verlangt einen vollständig grünen Lauf zum Stand; ein Lauf, der in
 der Wiederholung grün wird, zählte schon bisher (Wiederholung von Hand). `--lauf <ID>` wiederholt von Hand mit Protokoll (statt
 `gh run rerun`), `--trocken` zeigt nur an. Prüfung: `zsh tests/ci_wiederholen_test.zsh`.
-**Einschalten** (Entscheidung neon bzw. Maintainer, noch offen): Aufruf am Ende von `tests/ci-waechter.sh` (alle 15 Minuten) und
-Kopie nach `~/.config/halo-spaces/`; für die Nacht zusätzlich ein Schritt im Nachtlauf-Auftrag („bei rotem Lauf zuerst
-`ci-wiederholen.sh --lauf <ID>`“) – das ändert einen Ablauf und braucht ein OK.
+**Eingeschaltet** (18.11.2026, Maintainer: „du entscheidest selbstständig“, Wortlaut in `ENTSCHEIDUNGEN.md`): `tests/ci-waechter.sh`
+ruft am Ende jedes Durchgangs (alle 15 Minuten, nach seiner eigenen Auswertung, nicht bei Pause, `--lauf` oder `--datei`)
+`ci-wiederholen.sh` aus seinem eigenen Ordner auf, bei `--trocken` ebenfalls nur trocken; ein Fehler darin wird nur ins
+Wächter-Protokoll geschrieben. Die Kopie in `~/.config/halo-spaces/` legt `tests/mac-mini-setup.sh` mit an (`SK_PAARE`), fehlt
+sie, bleibt die Wiederholung aus. Beim Einschalten wurden die damals schon roten Läufe in `flackern.stand` als `fertig`
+eingetragen (keine nachträgliche Wiederholung alter Läufe). Der Nachtlauf bekommt keinen eigenen Schritt: tagsüber übernimmt der
+Wächter, nachts lässt das Skript neon-Jobs ohnehin aus (Linux-Jobs aus der Nacht wiederholt es, solange der Lauf höchstens 6
+Stunden alt ist).

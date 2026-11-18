@@ -671,4 +671,12 @@ for run st erg beginn sha in ${=LISTE}; do
   stand=$run
   [[ -z $TROCKEN ]] && print $stand > $STAND
 done
+
+# Automatische Wiederholung roter Läufe (tests/ci-wiederholen.sh, eingeschaltet 18.11.2026, Maintainer: „du entscheidest
+# selbstständig“): einmal „gh run rerun --failed“, zweites Rot bleibt rot, Protokoll ~/halo-nacht/flackern.log. Liegt neben
+# dem Wächter (Kopie in ~/.config/halo-spaces/ über mac-mini-setup.sh); läuft nach der Auswertung oben, damit der Eintrag
+# „Tests: CI rot …“ aus dem roten Versuch entsteht. Ein Fehler darin hält den Wächter nicht auf.
+if [[ -r ${0:A:h}/ci-wiederholen.sh ]]; then
+  zsh ${0:A:h}/ci-wiederholen.sh ${TROCKEN:+--trocken} || log "ci-wiederholen.sh: Exitcode $?"
+fi
 exit 0

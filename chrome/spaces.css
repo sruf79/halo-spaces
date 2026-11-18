@@ -4734,9 +4734,8 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
    Knöpfe mit Menü (z. B. „Save All“) behalten den einfachen Pfeil.
    Höhe wie die Text- und Eingabefelder 30 px (--mt-field-h), in engen
    Zeilen (Such- und Filterbedingungen) 24 px; das Termin-Fenster wie Apple
-   Kalender, Datum/Uhrzeit und der Absender im Verfassen-Kopf (steht als
-   Wert ohne Feld in der Spalte der Kopfzeilen, nur mit Doppelpfeil) bleiben,
-   wie sie sind. :where macht die Spezifität null, damit die Regeln dieser
+   Kalender, Datum/Uhrzeit und der Absender im Verfassen-Kopf (eigene
+   Regel bei #msgIdentity, 24 px in der engen Zeile) bleiben hier außen vor. :where macht die Spezifität null, damit die Regeln dieser
    Formulare (Höhe, Fläche) weiter greifen */
 :where(menulist:not([editable]):not(:root[mc-apple-event] #event-grid menulist, datepicker menulist, timepicker menulist, #msgIdentity)) {
   appearance: none !important;
@@ -5401,16 +5400,61 @@ addon-card .addon-inline-options {
   padding: 0 !important;
 }
 
-#MsgHeadersToolbar > :is(#top-gradient-box, #recipientsContainer, #subject-box) {
-  border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
-  min-height: 40px !important;
-  align-items: center !important;
+/* Kopfzeilen wie beim Mac: To, Cc, Bcc, Reply-To, Newsgroup, Followup-To,
+   dann Subject, ganz unten From über dem Text (nur die Darstellung, die
+   Tab-Reihenfolge bleibt Thunderbirds). Jede Zeile gleich hoch, darunter
+   eine Haarlinie, die bündig mit den Beschriftungen beginnt und bis zum
+   rechten Rand läuft. Thunderbird legt die Kopfzeilen als Raster an (die
+   Empfänger in der schrumpfbaren Zeile) – die Zeilen folgen der neuen
+   Reihenfolge; ältere Versionen (Flex) folgen „order“ */
+#MsgHeadersToolbar {
+  position: relative !important;
+  grid-template-rows: minmax(0, min-content) min-content min-content !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
+#MsgHeadersToolbar > #recipientsContainer {
+  order: 1 !important;
+  grid-row: 1 !important;
+  padding-block: 0 !important;
+  row-gap: 0 !important;
+  border: none !important;
+}
+
+#MsgHeadersToolbar > #subject-box {
+  order: 2 !important;
+  grid-row: 2 !important;
+}
+
+#MsgHeadersToolbar > #top-gradient-box {
+  order: 3 !important;
+  grid-row: 3 !important;
+}
+
+#recipientsContainer > #addressRowTo { order: 1 !important; }
+#recipientsContainer > #addressRowCc { order: 2 !important; }
+#recipientsContainer > #addressRowBcc { order: 3 !important; }
+#recipientsContainer > #addressRowReply { order: 4 !important; }
+#recipientsContainer > #addressRowNewsgroups { order: 5 !important; }
+#recipientsContainer > #addressRowFollowup { order: 6 !important; }
+
+#MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) {
+  box-sizing: border-box !important;
+  min-height: var(--mt-compose-row-h, 37px) !important;
+  margin-inline: var(--mt-compose-inset, 20px) 0 !important;
+  border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
+}
+
+/* Absender und Betreff ohne die leere erste Spalte (Entfernen-Knopf) */
+#MsgHeadersToolbar :is(#top-gradient-box, #subject-box) > .aw-firstColBox {
+  display: none !important;
+}
+
+/* Beschriftungen grau wie beim Mac (secondaryLabelColor) */
 #MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box, .address-label-container) label,
 #MsgHeadersToolbar .address-label-container,
 #MsgHeadersToolbar :is(#identityLabel, #subjectLabel) {
-  color: var(--mt-text-tertiary) !important;
+  color: var(--mt-text-secondary) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
@@ -5427,17 +5471,37 @@ addon-card .addon-inline-options {
   box-shadow: none !important;
 }
 
+/* Betreff in der Schrift der Beschriftung (gleiche Grundlinie), Text 6 px
+   nach „Subject:“; mit Schloss (verschlüsselter Betreff) bleibt der Einzug */
 #msgSubject {
-  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
-  font-weight: 500 !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+  font-weight: 400 !important;
+  margin-inline-start: 0 !important;
 }
 
+#msgSubject:not(.with-icon) {
+  padding-inline-start: 0 !important;
+}
+
+/* Absender als graues Auswahlfeld mit Doppelpfeil wie die übrigen
+   Auswahlfelder, in der engen Zeile 24 px, direkt nach „From:“ */
 #msgIdentity {
+  box-sizing: border-box !important;
   border: none !important;
-  background: transparent !important;
+  border-radius: var(--mt-radius-field, 7px) !important;
+  background-color: var(--mt-control) !important;
   box-shadow: none !important;
+  margin-inline: 0 10px !important;
+  padding-block: 0 !important;
+  padding-inline: 10px 7px !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   /* enge Zeile: kleine Stufe 24 px */
   min-height: var(--mt-field-h-small, 24px) !important;
+  height: var(--mt-field-h-small, 24px) !important;
+}
+
+#msgIdentity:not([disabled]):is(:hover, [open="true"]) {
+  background-color: var(--mt-control-hover) !important;
 }
 
 /* Absender-Menü: Zeilen 24 px wie die übrigen Menüs (waren 27) */
@@ -5553,11 +5617,63 @@ addon-card .addon-inline-options {
   }
 }
 
-/* umbrochene Pillenzeilen beginnen bündig mit der ersten: alle Pillen mit
-   gleichem Abstand vorn, keinem hinten (Thunderbird gibt den Abstand vorn
-   nur der ersten Pille im Feld). Das leere Eingabefeld bleibt unverändert */
+/* umbrochene Pillenzeilen beginnen bündig mit der ersten: alle Pillen ohne
+   Abstand vorn, mit gleichem Abstand hinten (Thunderbird gibt den Abstand
+   vorn nur der ersten Pille im Feld) */
 #MsgHeadersToolbar mail-address-pill {
-  margin-inline: 4px 0 !important;
+  margin-inline: 0 4px !important;
+}
+
+/* Wert direkt hinter der Beschriftung (6 px): Feld ohne eigenen Einzug,
+   leeres Eingabefeld mit dem Text am Anfang */
+#MsgHeadersToolbar .address-container {
+  margin-inline-start: 0 !important;
+  padding-inline-start: 0 !important;
+}
+
+#MsgHeadersToolbar .address-container > .address-input {
+  padding-inline-start: 0 !important;
+}
+
+/* Cc, Bcc und „…“ rechts in der ersten Zeile (To) wie beim Mac statt in der
+   Absender-Zeile; grau wie die Beschriftungen, ohne Trennstrich davor. Die
+   To-Zeile hält rechts Platz für sie frei */
+#MsgHeadersToolbar #extraAddressRowsArea {
+  position: absolute !important;
+  inset-block-start: 0 !important;
+  inset-inline-end: 12px !important;
+  height: var(--mt-compose-row-h, 37px) !important;
+  margin: 0 !important;
+  gap: 4px !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsArea::before {
+  display: none !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button {
+  box-sizing: border-box !important;
+  height: var(--mt-btn-h-small, 24px) !important;
+  padding: 0 6px !important;
+  border: none !important;
+  border-radius: var(--mt-radius-capsule, 999px) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mt-text-secondary) !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button:hover {
+  background: var(--mt-control) !important;
+}
+
+#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button:hover:active {
+  background: var(--mt-control-hover) !important;
+}
+
+#recipientsContainer > #addressRowTo,
+#recipientsContainer:not(:has(> #addressRowTo:not(.hidden))) > #addressRowNewsgroups {
+  padding-inline-end: var(--mt-compose-extra-w, 120px) !important;
 }
 
 /* Empfänger-Pillen dunkel heller als die Fläche wie die übrigen Kapseln
@@ -5623,9 +5739,12 @@ addon-card .addon-inline-options {
    halo-× rechts am Ende der Zeile statt × links vor der Beschriftung, wie
    das Löschen im Suchfeld. Sichtbar wie bisher nur unter der Maus bzw. mit
    Fokus in der Zeile (Thunderbird blendet die Spalte ein); die Beschriftung
-   bleibt an ihrer Stelle (28 px, so breit wie die frühere Spalte) */
+   beginnt wie in den übrigen Zeilen bündig mit der Haarlinie. Oben und
+   unten so viel Luft, dass die erste Zeile Pillen mittig in den 37 px steht
+   (umbrochene Pillen machen die Zeile höher, die Beschriftung bleibt oben) */
 #MsgHeadersToolbar .address-row {
-  padding-inline-start: 28px !important;
+  padding-inline-start: 0 !important;
+  padding-block: var(--mt-compose-row-pad, 5.5px) !important;
 }
 
 #MsgHeadersToolbar .address-row > .aw-firstColBox {
@@ -5851,7 +5970,7 @@ addon-card .addon-inline-options {
    eine feste Spalte von 86 px – hinter „To:“ und „From:“ blieb eine Lücke) */
 #MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box, .address-label-container) {
   justify-content: flex-start !important;
-  padding-inline: 0 6px !important;
+  padding-inline: 0 var(--mt-compose-gap, 6px) !important;
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -5864,6 +5983,10 @@ addon-card .addon-inline-options {
 #MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row):not(.hidden, [hidden], [collapsed]) {
   display: flex !important;
   align-items: flex-start !important;
+}
+
+#MsgHeadersToolbar :is(#top-gradient-box, #subject-box):not(.hidden, [hidden], [collapsed]) {
+  align-items: center !important;
 }
 
 #MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) > :is(#identity-container, #msgSubjectContainer, .address-container) {

@@ -9432,10 +9432,27 @@ class CardEnhancer {
       const orig = Adapter.prototype.sortBy;
       Adapter.prototype.sortBy = function (column, direction, resort = false) {
         let replaced = false;
-        if (Services.prefs.getBoolPref(DEDUPE_PREF, true) && this._rowMap?.length) {
+        // Ausgeblendete Dubletten merkt sich die Liste (__mcHidden) und nimmt sie
+        // bei jedem Sortieren wieder dazu: Thunderbird sortiert nach dem Speichern
+        // eines Kontakts nur die Zeilen der Liste – ohne sie blieb die Dublette
+        // eines umbenannten Kontakts verborgen, bis die Liste neu aufgebaut wurde
+        // (Buchwechsel, Suche), ebenso nach dem Ausschalten des Zusammenführens.
+        // Zeilen, die Thunderbird inzwischen selbst wieder führt, nicht doppelt
+        const shown = new Set((this._rowMap || []).map(r => `${r.card?.directoryUID}\n${r.card?.UID}`));
+        const hidden = (this.__mcHidden || []).filter(r => !shown.has(`${r.card?.directoryUID}\n${r.card?.UID}`));
+        this.__mcHidden = [];
+        if (!Services.prefs.getBoolPref(DEDUPE_PREF, true)) {
+          if (hidden.length) {
+            this._rowMap = this._rowMap.concat(hidden);
+            resort = true;
+          }
+        } else if (this._rowMap?.length || hidden.length) {
           const old = this._rowMap;
-          const rows = dedupeRows(old);
-          if (rows.length != old.length) {
+          const all = hidden.length ? old.concat(hidden) : old;
+          const rows = dedupeRows(all);
+          const visible = new Set(rows);
+          this.__mcHidden = all.filter(r => !visible.has(r));
+          if (rows.length != old.length || hidden.length) {
             // Das Original liest die Auswahl über die Zeilennummern: sie über
             // die Zeilen auf die neuen Nummern übertragen, sonst rutscht die
             // Markierung auf den Nachbarkontakt. War eine weggefallene Dublette
@@ -9463,7 +9480,7 @@ class CardEnhancer {
             this._rowMap = rows;
             // weggefallene Dubletten → stehen gebliebener Eintrag (für getIndexForUID)
             this.__mcMerged ??= new Map();
-            for (const r of old) {
+            for (const r of all) {
               if (!kept.has(r) && r.card?.UID && r.mcBest) {
                 this.__mcMerged.set(r.card.UID, r.mcBest);
               }
@@ -9513,7 +9530,42 @@ class CardEnhancer {
       const origObserve = Adapter.prototype.observe;
       if (typeof origObserve == "function") {
         Adapter.prototype.observe = function (subject, topic, data) {
+          // Ausgeblendete Dubletten (siehe sortBy) wie Thunderbird die Zeilen der
+          // Liste nachführen: geändert, gelöscht, Buch entfernt, Namensformat.
+          // Ändert sich eine ausgeblendete, neu sortieren (eine andere Schreibweise
+          // trennt sie vom stehen gebliebenen Eintrag)
+          let hiddenChanged = false;
+          if (this.__mcHidden?.length && (!this.directory || !data || this.directory.UID == data ||
+            topic == "nsPref:changed")) {
+            try {
+              const same = r => {
+                subject.QueryInterface(Ci.nsIAbCard);
+                return r.card.equals(subject) && r.card.directoryUID == subject.directoryUID;
+              };
+              if (topic == "nsPref:changed" && data == "mail.addr_book.lastnamefirst") {
+                this.__mcHidden.forEach(r => r.forgetCachedName?.());
+              } else if (topic == "addrbook-contact-updated") {
+                this.__mcHidden = this.__mcHidden.map(r => {
+                  if (!same(r)) {
+                    return r;
+                  }
+                  hiddenChanged = true;
+                  return new r.constructor(subject);
+                });
+              } else if (topic == "addrbook-contact-deleted" ||
+                (topic == "addrbook-list-member-removed" && this.directory)) {
+                this.__mcHidden = this.__mcHidden.filter(r => !same(r));
+              } else if (topic == "addrbook-directory-deleted" && !this.directory) {
+                this.__mcHidden = this.__mcHidden.filter(r => r.directory?.UID != subject.UID);
+              }
+            } catch (e) {
+              log("dedupe hidden rows error", e);
+            }
+          }
           const result = origObserve.call(this, subject, topic, data);
+          if (hiddenChanged && this._tree && this.sortColumn) {
+            this.sortBy(this.sortColumn, this.sortDirection, true);
+          }
           if (topic == "addrbook-contact-created" && this._tree && !this._searchesInProgress && this.sortColumn &&
             Services.prefs.getBoolPref(DEDUPE_PREF, true)) {
             try {

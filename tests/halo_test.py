@@ -16543,6 +16543,54 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: neu hinzugekommene Dublette wird sofort zusammengeführt, nach dem Speichern ist der Eintrag gewählt", ab_dedupe_new_contact, results)
 
+    def ab_dedupe_rename():
+        # Die Zusammenführung warf die ausgeblendete Dublette aus der Liste; nach
+        # dem Umbenennen des stehen gebliebenen Eintrags (Thunderbird sortiert dann
+        # nur die übrigen Zeilen) blieb sie verborgen, bis die Liste neu aufgebaut
+        # wurde. Erwartet: sofort beide mit ihrem Namen, auch wenn die ausgeblendete
+        # im Hintergrund (Sync) umbenannt wird; ein gelöschter ausgeblendeter
+        # Eintrag kommt beim nächsten Sortieren nicht zurück
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const add = props => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            for (const [k, v] of Object.entries(props)) c.setProperty(k, v);
+            c.displayName = props.DisplayName; c.primaryEmail = props.PrimaryEmail; return book.addCard(c); };
+          const rename = (card, name) => { const c = book.childCards.find(x => x.UID == card.UID); c.displayName = name; book.modifyCard(c); };
+          // je Paar ist die zweite Karte die vollständigere (bleibt stehen)
+          const pair = name => [add({ DisplayName: name, PrimaryEmail: "rita@example.invalid" }),
+            add({ DisplayName: name, PrimaryEmail: "rita@example.invalid", Company: "Rita AG", JobTitle: "Leitung", WorkPhone: "+43 1 555" })];
+          const a = pair("Rita Rahm"), b = pair("Rudi Rahm"), c = pair("Rosa Rahm");
+          const cards = [...a, ...b, ...c];
+          """ + OPEN_BOOKS_JS + r"""
+          const out = { tab: !!cw };
+          try {
+            const list = cw.document.getElementById("cards");
+            const names = () => [...Array(list.view.rowCount).keys()].map(i => list.view.getCardFromRow(i)?.displayName);
+            const count = n => names().filter(x => x == n).length;
+            await until(() => count("Rita Rahm") == 1 && count("Rudi Rahm") == 1, 5000); await ruhig(500);
+            out.merged = { rita: count("Rita Rahm"), rudi: count("Rudi Rahm"), rosa: count("Rosa Rahm") };
+            // stehen gebliebenen Eintrag umbenennen (wie im Bearbeiten-Formular gespeichert)
+            rename(a[1], "Rita Neu"); await ruhig(600);
+            out.visible = { old: count("Rita Rahm"), neu: count("Rita Neu") };
+            // ausgeblendete Dublette im Hintergrund umbenennen
+            rename(b[0], "Rudi Neu"); await ruhig(600);
+            out.hidden = { old: count("Rudi Rahm"), neu: count("Rudi Neu") };
+            // ausgeblendete Dublette gelöscht, danach umbenannter Eintrag: bleibt weg
+            book.deleteCards([c[0]]); await ruhig(300);
+            rename(c[1], "Rosa Neu"); await ruhig(600);
+            out.deleted = { old: count("Rosa Rahm"), neu: count("Rosa Neu") };
+          } finally {
+            book.deleteCards(book.childCards.filter(x => cards.some(y => y.UID == x.UID))); await ruhig(300);
+            tm.closeTab(abTab); await toMail();
+          }
+          return out;""")
+        mg, vi, hi, de = (res.get(k, {}) for k in ("merged", "visible", "hidden", "deleted"))
+        ok = (res.get("tab") and mg == {"rita": 1, "rudi": 1, "rosa": 1}
+              and vi == {"old": 1, "neu": 1} and hi == {"old": 1, "neu": 1} and de == {"old": 0, "neu": 1})
+        return ok, f"{res}"
+    check("Adressbuch: umbenannte zusammengeführte Dublette steht sofort wieder einzeln in der Liste, gelöschte kommt nicht zurück", ab_dedupe_rename, results)
+
     def ab_open_from_outside():
         # „Kontakt anzeigen“ bzw. „bearbeiten“ von außen (Stern im Mailkopf,
         # Kontakte-Seitenleiste, Adresssuche) öffnet das Adressbuch mit diesem

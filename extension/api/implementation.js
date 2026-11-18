@@ -9221,11 +9221,10 @@ class CardEnhancer {
       const search = content.querySelector(':scope > li[item-id="search-bar"]');
       squeezeToolbar(d, () => {
         const right = rectOf(content).right - (parseFloat(w.getComputedStyle(content).paddingInlineEnd) || 0) + 1;
-        const sw = search ? rectOf(search).width : 0;
         return [...content.children].every(li => {
           const r = rectOf(li);
           return li.getAttribute("item-id") == "spacer" || !r?.width || r.right <= right;
-        }) && (!sw || sw > 41 || content.hasAttribute("mc-search-lupe"));
+        }) && !searchLackOf(content, search);
       });
     };
     const updateSideEdge = () => {
@@ -9240,6 +9239,60 @@ class CardEnhancer {
       }
     };
     this.restorers.push(() => removeOverflowButton(w.document));
+    // Suchfeld, das nur noch die Lupe ist: ein Klick darauf (bzw. der Fokus,
+    // z. B. mit ⌘K) öffnet es wie in Apple Mail auf Lupe + Platzhalter, dafür
+    // weichen Pillen ins Menü „»“ (squeezeToolbar). Verliert es leer den Fokus,
+    // wird es wieder die Lupe. Vorher blieb es 40 px schmal, man tippte
+    // unsichtbar hinein (GitHub #67)
+    const searchLiOf = e => e.target?.closest?.('#unifiedToolbarContent > li[item-id="search-bar"]');
+    const searchInput = li => {
+      const bar = li.querySelector("global-search-bar, search-bar, .search-bar");
+      return bar?.shadowRoot?.querySelector("input") || li.querySelector("input");
+    };
+    const relayoutToolbar = () => {
+      this.sideEdgeUpdaters?.forEach(fn => fn());
+      this.offsetUpdaters?.forEach(fn => fn());
+    };
+    const openSearch = e => {
+      const li = searchLiOf(e);
+      // (nur, wenn es wegen weichender Pillen die Lupe ist; im Kalender und
+      // im Chat begrenzt die Umschaltung bzw. die Chat-Leiste seine Breite –
+      // dort brächte das Weichen der Pillen ihm keinen Platz)
+      if (!li || li.hasAttribute("mc-search-open") || !li.parentNode?.hasAttribute("mc-search-lupe") ||
+          ["calendar", "chat"].includes(w.document.documentElement.getAttribute("mc-tab"))) {
+        return;
+      }
+      li.setAttribute("mc-search-open", "");
+      relayoutToolbar();
+      // (die Lupe ist ein Knopf im Feld – der Klick soll ins Textfeld führen)
+      const input = searchInput(li);
+      if (input && input.getRootNode().activeElement != input) {
+        input.focus();
+      }
+    };
+    const closeSearch = e => {
+      const li = searchLiOf(e);
+      if (!li?.hasAttribute("mc-search-open")) {
+        return;
+      }
+      // (erst nach dem Fokuswechsel: innerhalb des Felds wandert er nur)
+      w.setTimeout(() => {
+        if (!li.hasAttribute("mc-search-open") || li.matches(":focus-within") || searchInput(li)?.value?.trim()) {
+          return;
+        }
+        li.removeAttribute("mc-search-open");
+        relayoutToolbar();
+      }, 0);
+    };
+    w.document.addEventListener("click", openSearch, true);
+    w.document.addEventListener("focusin", openSearch, true);
+    w.document.addEventListener("focusout", closeSearch, true);
+    this.restorers.push(() => {
+      w.document.removeEventListener("click", openSearch, true);
+      w.document.removeEventListener("focusin", openSearch, true);
+      w.document.removeEventListener("focusout", closeSearch, true);
+      w.document.querySelector("#unifiedToolbarContent > li[mc-search-open]")?.removeAttribute("mc-search-open");
+    });
     this.sideEdgeUpdaters ??= new Set();
     this.sideEdgeUpdaters.add(updateSideEdge);
     const sideRO = new w.ResizeObserver(updateSideEdge);
@@ -17320,8 +17373,21 @@ class CardEnhancer {
         // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
-        squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width > 41 || content.hasAttribute("mc-search-lupe")));
+        // Der Abstand nach „Verfassen“ (69 px) schrumpft vor allem anderen bis
+        // auf 12 px, wird aber erst unten nachgeführt: was er noch hergeben
+        // kann, zählt hier als Platz. Sonst wichen nach einem Sprung der
+        // Breite (Start, Today-Pane, geöffnetes Suchfeld wieder zu) mehr
+        // Pillen als nötig, der Abstand blieb dank des frei gewordenen Platzes
+        // bei 69 px, und die Pillen kamen bei gleicher Fensterbreite nicht
+        // zurück (GitHub #67)
+        const writeLi = content.querySelector(':scope > li[item-id="write-message"]');
+        const slack = writeLi && rectOf(writeLi).width
+          ? Math.max(0, (parseFloat(top.getComputedStyle(writeLi).marginInlineEnd) || 0) - 12)
+          : 0;
+        squeezeToolbar(top.document, () => {
+          const lack = searchLackOf(content, search);
+          return lack <= slack && (!firstSpacer || rectOf(firstSpacer).right + slack - lack >= start + offset - 2);
+        });
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail, bzw. so
       // breit wie sein Platzhalter): fehlt dafür Platz, wird zuerst der Abstand

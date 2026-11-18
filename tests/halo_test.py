@@ -3363,6 +3363,13 @@ def reading_checks(m, results):
           out.reply = cards().filter(c => cdoc(c)?.getElementById("mcQuickReply")).map(c => c.dataset.messageId.split("@")[0]);
           // Kapsel in jeder offenen Karte
           out.capsules = cards().filter(c => cdoc(c)?.getElementById("mcHoverActions")).length;
+          // Diagnose (ändert die Bedingung nicht): unter Linux in der CI fehlte gelegentlich in allen drei Karten die
+          // Kapsel (capsules 0, sonst alles richtig; 15.11. Lauf 43658574124 beta, 18.11. Lauf 44383140974 esr) – je Karte
+          // Ladezustand, ob der Mailkopf eingerichtet war (__mcHdrAvatar), Kopf vorhanden und ob die Karte geladen ist
+          if (out.capsules != cards().length)
+            out.capsDiag = cards().map(c => { const x = cdoc(c); return { ready: x?.readyState ?? null, hooked: !!x?.__mcHdrAvatar,
+              header: !!x?.getElementById("messageHeader"), loaded: !!c.__mcLoaded, msg: !!x?.defaultView?.gMessage,
+              theme: Services.prefs.getBoolPref("extensions.mailcards.bundledTheme", true) }; });
           // Toolbar ohne Antworten-Knöpfe: der Kopf einzelner Mails reserviert oben Platz für eigene
           // Knöpfe (mc-standalone) – Konversationskarten nicht, sonst großer Leerraum über „From“
           { const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");

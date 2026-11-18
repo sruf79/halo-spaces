@@ -14362,13 +14362,20 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
-            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
+          // „+“ und Today-Knopf (absolut in der Zeile): Lage und sichtbare Breite – das „+“ ist rechts nur bis zur Kante vor
+          // ≡/Fensterknöpfen (Windows/Linux) bzw. bis zum Fensterrand zu sehen
+          const plus = d.getElementById("mcTodayNew");
+          const pt = () => { const r = plus?.getBoundingClientRect(); if (!r?.width || getComputedStyle(plus).display == "none") return null;
+            const edge = row.getBoundingClientRect().right - Math.max(parseFloat(getComputedStyle(row).getPropertyValue("--mc-caption-w")) || 0, parseFloat(getComputedStyle(row).getPropertyValue("--mc-row-tail")) || 0);
+            return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, edge) - r.left) * 10) / 10]; };
+          const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -14391,8 +14398,10 @@ def run_checks(m, version, profile, results):
             for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
-            const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            const pre = snap(), preW = sWidth(), preP = pt(), preG = gt();
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, pl, tg } = await record(); await ruhig(300);
+            // „+“ und Today-Knopf: Lage vor dem Klick, je Bild, nach der Ruhe
+            pl.unshift(preP); tg.unshift(preG); const finP = pt(), finG = gt(), finK = snap();
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -14415,6 +14424,24 @@ def run_checks(m, version, profile, results):
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            // Nachsprung (Board „Toolbar-Buttons springen am Ende der Animation“): nach dem letzten Bild, in dem sich die Pane
+            // bewegt, rückt kein Knopf der Leiste, weder Today-Knopf noch „+“, noch um mehr als 1 px. Das „+“ gleitet mit
+            // der Pane herein bzw. hinaus wie Today-Knopf und Überschrift: beim Einblenden schon vor dem letzten Bild zu sehen
+            // (sprang früher erst am Ende ins Bild), beim Ausblenden im ersten Bild noch da (war sofort weg), am Ende weg;
+            // kein Schritt größer als der der Pane, Today-Knopf und „+“ überlappen sich nie
+            const iMove = moving.lastIndexOf(true);   // (Index in ws; in kk/pl/tg eins weiter, dort steht vorn die Lage vor dem Klick)
+            const postK = iMove < 0 ? [] : [...kk.slice(iMove + 1), finK];
+            const nachK = Math.max(0, ...Object.keys(finK).map(k => Math.max(0, ...postK.map(f => k in f ? Math.abs(f[k] - finK[k]) : 0))));
+            const postG = iMove < 0 ? [] : [...tg.slice(iMove + 1), finG];
+            const nachG = Math.max(0, ...postG.map(g => Math.abs(g[0] - finG[0])));
+            const postP = iMove < 0 ? [] : [...pl.slice(iMove + 1), finP];
+            const vis = p => (p && p[1] >= 1 ? p : null);   // (ganz abgeschnitten = nicht zu sehen)
+            const nachP = Math.max(0, ...postP.map(p => (!vis(p) != !vis(finP)) ? 99 : vis(p) ? Math.abs(p[0] - finP[0]) + Math.abs(p[1] - finP[1]) : 0));
+            const stepOf = a => Math.max(0, ...a.slice(1).map((v, i) => v && a[i] ? Math.abs(v[0] - a[i][0]) : 0));
+            const seen = pl.slice(1, iMove + 1).filter(p => p && p[1] >= 1).length;
+            const overlap = Math.max(0, ...pl.map((p, i) => p && p[1] >= 1 ? tg[i][1] - p[0] : 0));
+            out[phase].plus = { seen, first: pl[1], fin: finP, step: Math.round(stepOf(pl) * 10) / 10, toggleStep: Math.round(stepOf(tg) * 10) / 10, overlap: Math.round(overlap * 10) / 10 };
+            out[phase].nach = { knoepfe: nachK, today: nachG, plus: nachP };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -14449,17 +14476,20 @@ def run_checks(m, version, profile, results):
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
-        def glatt(v, ende=True):
+        def glatt(v, ende=True, ein=True):
             return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
                     and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
-                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
+                    and v["plus"]["step"] <= v["maxJump"] + 2 and v["plus"]["toggleStep"] <= v["maxJump"] + 2 and v["plus"]["overlap"] <= 0
+                    and v["plus"]["seen"] >= 2 and bool(v["plus"]["fin"]) == ein and (ein or (v["plus"]["first"] or [0, 0])[1] >= 1)
+                    and (not ende or max(v["nach"].values()) <= 1))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
-        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+        ok = all(glatt(res[p], ein=p.startswith("ein")) and all(glatt(x, False, p.startswith("ein")) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck, „+“ gleitet mit der Pane herein und hinaus, nach dem letzten Bild springt kein Knopf nach", today_animation, results)
 
     def today_tasks_end():
         # Aufgaben: am Ende des Ein-/Ausblendens springen Suchfeld (Lage, Breite), „+“ und Überschrift nicht noch einmal –
@@ -14500,7 +14530,8 @@ def run_checks(m, version, profile, results):
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der
         # alten Breite wieder; Mail ohne Thunderbirds blauen Balken an der zugeklappten Trennlinie; Today-Pane fest
-        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (auch beim Klick auf den Knopf); Spaces-Knopf bleibt
+        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (beim Klick auf den Knopf endet der offene Zustand sofort,
+        # das „+“ gleitet dann mit der Pane hinaus – Prüfung „Today-Pane: Ein-/Ausblenden flüssig …“); Spaces-Knopf bleibt
         # stehen und wechselt nur den Pfeil
         V = lambda r: r["value"] if isinstance(r, dict) and "value" in r else r
         def drag(x, y, dx, release=True):

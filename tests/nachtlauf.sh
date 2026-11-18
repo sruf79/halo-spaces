@@ -182,14 +182,13 @@ print $$ > $LOCK
 trap 'rm -f $LOCK; pausen_aufraeumen; volldampf_aufraeumen' EXIT
 
 # --- läuft schon etwas anderes? Der Lauf des Maintainers geht immer vor (belegt) ---
-# ein CI-Lauf dauert knapp eine Stunde – darauf bis zu 90 Minuten warten, auf alles andere nicht
-for i in {1..18}; do
-  GRUND=$(belegt) || break
-  [[ $GRUND == CI-* ]] || break
-  log "warte: $GRUND"
-  sleep 300
-done
-if GRUND=$(belegt); then
+# Warten (Maintainer 18.11.2026, nachtlauf_warten in tests/vorpruefung.zsh; vorher 90 Minuten nur auf die CI):
+# CI bis zu ihrem Ende, längstens 03:30 (dann bleiben bis 06:30 drei Stunden für Arbeit, CI-Runde und Release und
+# die Vollrunde startet noch vor 04:30); Testläufe 60 Minuten, release.sh/publish.sh 20 Minuten; andere Sitzung,
+# Windows-VM und Reste sofort auslassen. Nach 03:30 von Hand gestartet: CI wie früher höchstens 90 Minuten.
+WARTE_GRENZE=$(date -j -v3H -v30M -v0S +%s)
+(( $(date +%s) >= WARTE_GRENZE )) && WARTE_GRENZE=$(( $(date +%s) + 5400 ))
+if ! GRUND=$(nachtlauf_warten $WARTE_GRENZE); then
   log "ausgelassen: $GRUND"
   notbericht "ausgelassen" "$GRUND"
   push "Nachtlauf $TAG ausgelassen: $GRUND"

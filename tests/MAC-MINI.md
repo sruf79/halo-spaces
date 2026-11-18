@@ -784,9 +784,9 @@ nur lesend gegen GitHub; läuft in der Doku-Prüfung).
 - Erster erlaubter Tag: `HALO_NACHT_AB` im Skript (Standard 4.11.2026);
   davor endet jeder Start sofort, ohne Bericht.
 - Vor dem Start prüft das Skript, ob schon etwas läuft: CI-Job (darauf wartet
-  es bis 90 Minuten), `halo_test.py` und Verwandte, Thunderbird mit
-  Marionette, belegte Ports 2839/2845/2850–2869, VM-Lauf, `release.sh`/
-  `publish.sh`, eigener Lauf
+  es bis zu seinem Ende, längstens 03:30), `halo_test.py` und Verwandte, Thunderbird mit
+  Marionette, belegte Ports 2839/2845/2850–2869 (darauf bis 60 Minuten), VM-Lauf, `release.sh`/
+  `publish.sh` (bis 20 Minuten), eigener Lauf
   (`~/halo-nacht/lauf.lock`) und jede andere Claude-Sitzung, die gerade
   mitten in einer Runde am Repo arbeitet – erkennbar am letzten Eintrag ihres
   Gesprächs unter `~/.claude/projects/-Users-<name>-halo*/`: eine Eingabe,
@@ -946,7 +946,7 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   Wirkung früherer Empfehlungen wird an den Zahlen der Woche gemessen (`docs/testrechner.md`).
 - Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
   bis höchstens 09:15 und wertet ihn mit aus.
-- Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`, wartet bis 90 Minuten
+- Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`; wartet (anders als der Nachtlauf seit 18.11.2026) bis 90 Minuten
   auf einen CI-Lauf und lässt sonst aus, wenn etwas läuft oder verfolgte
   Dateien im Repo ungespeicherte Änderungen haben (Bericht
   „ausgelassen“); `claude -p` im Modus `auto`, nach Limit 30 Minuten Pause

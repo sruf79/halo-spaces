@@ -175,3 +175,43 @@ doku_stand_merken() {   # nach einer fertigen Prüfung (auch mit eigenen Commits
   mkdir -p ${DOKU_STAND_DATEI:h}
   git -C $REPO rev-parse main > $DOKU_STAND_DATEI 2>/dev/null
 }
+
+# Nachtlauf: vor dem Start auf Belegung warten (Maintainer 18.11.2026, Wortlaut in ENTSCHEIDUNGEN.md:
+# „warum wartet der nachtlauf bei einer laufenden CI nur 90 minuten und startet einfach dann automatisch wenn
+# die CI fertig ist?“, dann „ja ich folge deinen empfehlungen“; vorher fest 90 Minuten nur auf die CI).
+#   nachtlauf_warten <Grenze-Epoch> [<Test-Sekunden>] [<Release-Sekunden>] [<Takt-Sekunden>]
+# Rückgabe 0 = frei (starten); 1 = belegt, Grund auf stdout (auslassen). Je Art der Belegung:
+#   CI-Lauf auf dem Runner          bis zur Grenze (nachtlauf.sh: 03:30)
+#   Testlauf, Thunderbird, Port     ab dem ersten Sehen höchstens 60 Minuten (Worker, Läufe von Hand)
+#   release.sh/publish.sh           ab dem ersten Sehen höchstens 20 Minuten (dauert wenige Minuten)
+#   alles andere                    sofort auslassen: andere Claude-Sitzung (Maintainer 4.11.2026, sein
+#                                   Lauf geht immer vor), Windows-VM, ungespeicherte Änderungen
+# Keine Wartezeit reicht über die Grenze hinaus. Zeit über nl_jetzt(), Takt über sleep (Tests ersetzen beide).
+nl_jetzt() { date +%s }
+nachtlauf_warten() {
+  local grenze=$1 test_max=${2:-3600} rel_max=${3:-1200} takt=${4:-300} grund art bis jetzt
+  local -A gesehen
+  while true; do
+    grund=$(belegt) || return 0
+    jetzt=$(nl_jetzt)
+    case $grund in
+      CI-*) art=ci ;;
+      Testlauf*|Thunderbird\ mit\ Marionette*|Marionette-Port*) art=test ;;
+      release.sh/publish.sh*) art=release ;;
+      *) print -r -- $grund; return 1 ;;
+    esac
+    [[ -z ${gesehen[$art]} ]] && gesehen[$art]=$jetzt
+    case $art in
+      ci) bis=$grenze ;;
+      test) bis=$(( gesehen[test] + test_max )) ;;
+      release) bis=$(( gesehen[release] + rel_max )) ;;
+    esac
+    (( bis > grenze )) && bis=$grenze
+    if (( jetzt >= bis )); then
+      print -r -- "$grund (gewartet bis $(date -r $bis +%H:%M))"
+      return 1
+    fi
+    [[ -n $LOG ]] && log "warte: $grund"
+    sleep $takt
+  done
+}

@@ -85,6 +85,23 @@ git show HEAD:README.md | grep -qF "What's new in $VERSION" || abbruch "README o
 print -r -- "OK: Bedingungen erfüllt ($G; letztes Release $LETZT)"
 [[ -n $PRUEFEN ]] && exit 0
 
-NUR_CI=1 ./release.sh $VERSION || abbruch "release.sh $VERSION gescheitert (keine vollständig grüne CI samt Windows oder Update-Test rot)"
+# Echtes Rot (Push-Lauf zu origin/main rot, auch nach der Wiederholung durch den CI-Wächter, Versuch ≥ 2): Zähler
+# ~/halo-nacht/rot-zaehler.txt (rot_eintragen, Schlüssel „Stand <Hash>“) und Meldung an neon mit der Modellstufe
+# (Maintainer 18.11.2026, docs/release.md „Rote Änderung auf einen Nebenzweig“). Im Volldampf meldet der Wächter
+# (tests/zwischen-schleife.zsh), hier nichts. Zum Proben: HALO_RUT_CI=„<ergebnis> <versuch>“, HALO_PUSH_TROCKEN=1.
+rot_melden() {   # <Stand>
+  local sha=$1 ci e
+  [[ -n $VOLLDAMPF ]] && return 0
+  ci=${HALO_RUT_CI-$(gh run list -R sruf79/halo-spaces -w test.yml -b main -c $sha -e push -L 1 --json conclusion,attempt \
+        --jq '.[0] | select(. != null) | "\(.conclusion) \(.attempt)"' 2>/dev/null)}
+  [[ $ci == failure\ <2-> ]] || return 0
+  LOG=${LOG:-/dev/null}; (( $+functions[rot_eintragen] )) || source $HIER/lauf-hilfen.zsh
+  e=$(rot_eintragen "Stand ${sha[1,7]}" main $sha) || return 0
+  print -r -- "ROT-STUFE: ${e%% *}. Rot von Stand ${sha[1,7]} in 14 Tagen → ${e#* }"
+  an_neon "[release-unter-tage] ROT: Release $VERSION, Stand ${sha[1,7]} auf main, Push-Lauf auch nach der Wiederholung rot.
+Modellstufe: ${e%% *}. Rot dieses Stands in 14 Tagen → ${e#* } (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher mit rot_eintragen <Hash> <Nebenzweig> zählen).
+neon kümmert sich." release-unter-tage || push "Release unter Tage $VERSION rot, neon nicht erreichbar (Stand ${sha[1,7]}, ${e#* })" release-unter-tage
+}
+NUR_CI=1 ./release.sh $VERSION || { rot_melden $(git rev-parse origin/main); abbruch "release.sh $VERSION gescheitert (keine vollständig grüne CI samt Windows oder Update-Test rot)" }
 grep -q '^test=.*Windows: Lauf' dist/release-$VERSION.ok 2>/dev/null || abbruch "Testmarke ohne grünen Windows-Lauf"
 ./publish.sh $VERSION $NOTIZEN

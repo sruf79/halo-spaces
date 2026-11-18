@@ -572,6 +572,44 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
   return 1
 }
 
+# Zähler roter Releases (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md „Rote Änderung auf einen Nebenzweig“: „je öfter ein
+# commit rot wird und je öfter er deswegen auf einem nebenzweig landet, desto höher muss das untersuchende ki-modell
+# sein (inkl. systematic-debugging)“; Ablauf docs/release.md). ~/halo-nacht/rot-zaehler.txt (HALO_ROT_ZAEHLER), eine
+# Zeile je Ereignis, Felder mit Tab: „<Zeit> <Schlüssel> <Zweig> <Stufe> [<Stand>]“. Schlüssel: der Name der roten
+# Prüfung (Wächter) oder der Hash des Verursachers (Sitzung, die ihn auf einen Nebenzweig legt). Es zählen nur Einträge
+# der letzten 14 Tage (HALO_ROT_TAGE). Nur Zähler und Meldung, nie ein automatisches Herausnehmen von Commits.
+#   rot_stufe <Schlüssel>                       Modell für die (nächste) Untersuchung: Opus (bis 1 Eintrag), Fable (2, 3),
+#                                               Maintainer (ab 4); Fable nur nach den Grenzen aus AGENTS.md „Rot bleibt rot“
+#   rot_anzahl <Schlüssel>                      Zahl der Einträge der letzten 14 Tage
+#   rot_eintragen <Schlüssel> <Zweig> [<Stand>]   trägt ein, gibt „<Stufe> <Modell>“ aus
+# Von Hand: zsh -c 'LOG=/dev/null; source tests/lauf-hilfen.zsh; rot_eintragen <hash> rot/<name>'
+# Zum Proben: HALO_ROT_JETZT=<Epochensekunden>.
+rot_datei() { print -r -- ${HALO_ROT_ZAEHLER:-$HOME/halo-nacht/rot-zaehler.txt} }
+rot_wort() { case $1 in (<0-1>) print -r -- Opus ;; (<2-3>) print -r -- Fable ;; (*) print -r -- Maintainer ;; esac }
+rot_anzahl() {   # <Schlüssel>
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local s=$1 datei=$(rot_datei) t k rest e n=0 jetzt=${HALO_ROT_JETZT:-$EPOCHSECONDS}
+  local grenze=$(( jetzt - ${HALO_ROT_TAGE:-14} * 86400 ))
+  [[ -n $s && -r $datei ]] || { print 0; return 0 }
+  while IFS=$'\t' read -r t k rest; do
+    [[ $k == $s ]] || continue
+    strftime -r -s e '%Y-%m-%d %H:%M:%S' $t 2>/dev/null || continue
+    (( e >= grenze && e <= jetzt )) && (( n++ ))
+  done < $datei
+  print $n
+}
+rot_stufe() { rot_wort $(rot_anzahl "$1") }
+rot_eintragen() {   # <Schlüssel> <Zweig> [<Stand>]
+  zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
+  local s=${1//$'\t'/ } zw=${2:--} datei=$(rot_datei) n t tab=$'\t'
+  [[ -n $s ]] || return 1
+  n=$(( $(rot_anzahl "$s") + 1 ))
+  strftime -s t '%Y-%m-%d %H:%M:%S' ${HALO_ROT_JETZT:-$EPOCHSECONDS}
+  mkdir -p ${datei:h} 2>/dev/null
+  print -r -- "$t$tab$s$tab$zw$tab$n${3:+$tab$3}" >> $datei
+  print -r -- "$n $(rot_wort $n)"
+}
+
 # arbeitet gerade eine andere Claude-Sitzung am Repo? Jede Sitzung schreibt ihr
 # Gespräch nach ~/.claude/projects/<Ordner>/<id>.jsonl. Sie arbeitet, solange
 # ihre Runde nicht beendet ist: der letzte Eintrag ist eine neue Eingabe, ein

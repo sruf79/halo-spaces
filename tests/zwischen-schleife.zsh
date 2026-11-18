@@ -26,6 +26,8 @@
 #      release-unter-tage.sh --volldampf → NUR_CI=1 release.sh (Testmarke nur bei vollständig grüner CI samt Windows)
 #      und publish.sh. Danach lokale Listen-Commits von publish.sh (ohne Thunderbird-Änderung) nach main pushen.
 #   Rot oder ABBRUCH: kein Release; derselbe Stand P wird nicht noch einmal versucht.
+#   Echtes Rot (nach der Wiederholung): je rote Prüfung eine Zeile in ~/halo-nacht/rot-zaehler.txt, die Meldung an neon
+#   nennt die Modellstufe (rot_zaehlen; docs/release.md „Rote Änderung auf einen Nebenzweig“, Maintainer 18.11.2026).
 # Der Abstand zwischen zwei Releases ist nur die Dauer von CI und Windows. Den Checkout ~/halo-spaces gleicht der
 # Nachtlauf ab (git rebase origin/main, Schritt 0 b): die Commits aus main sind dann schon in origin/main.
 # Zum Proben: HALO_JETZT_HM=HHMM, HALO_ZS_STAND=<Zeilen „Commit [Zweig]“|leer> (statt der GitHub-Läufe),
@@ -62,18 +64,36 @@ BELEGT_MAX=${ZS_BELEGT_MAX:-60}                                 # Minuten „bel
 # automatisch.“), und als Zeile nach $ERGEBNIS:
 #   <Zeit> | <Version> | <Stand> | <Zweig> | <Ergebnis> | <Läufe> | <rote Prüfungen bzw. Grund> | Wiederholung <…>
 # Nur wenn neon nicht erreichbar ist (an_neon scheitert), einmal push() aufs iPhone.
-melden() {   # <Ergebnis> <Version> <Stand> <Zweig> <Läufe> <Details, je Zeile eine Prüfung oder ein Grund> <Wiederholung>
-  local erg=$1 v=${2:--} p=${3:--} zw=${4:--} laeufe=${5:--} det=$6 wdh=${7:-nein} text
+melden() {   # <Ergebnis> <Version> <Stand> <Zweig> <Läufe> <Details, je Zeile eine Prüfung oder ein Grund> <Wiederholung> [<Modellstufe>]
+  local erg=$1 v=${2:--} p=${3:--} zw=${4:--} laeufe=${5:--} det=$6 wdh=${7:-nein} stufe=$8 text
   local -a zl=(${(f)det}); zl=("- "${^zl})
   [[ $MODUS == trocken ]] || print -r -- "$(date '+%F %T') | $v | ${p[1,7]} | $zw | $erg | $laeufe | ${${det//$'\n'/; }[1,400]:--} | Wiederholung $wdh" >> $ERGEBNIS
   text="[zwischen-release] $erg: Version $v, Stand ${p[1,7]}, Zweig $zw
 Läufe: $laeufe${det:+
 ${(F)zl}}
-Wiederholung: $wdh
+Wiederholung: $wdh${stufe:+
+$stufe}
 neon kümmert sich."
   log "an neon: ${text//$'\n'/ | }"
   an_neon "$text" zwischen-release && return 0
   push "Zwischen-Release-Wächter konnte neon nicht erreichen ($erg, Version $v, Stand ${p[1,7]})" zwischen-release
+}
+
+# Echtes Rot (rote Prüfungen und Wiederholung gelaufen oder mehr als MAX_ROT rote Prüfungen): je rote Prüfung eine Zeile
+# in rot-zaehler.txt (rot_eintragen, lauf-hilfen.zsh), ausgegeben wird die Zeile „Modellstufe: …“ für die Meldung
+# (höchste Stufe der roten Prüfungen; docs/release.md „Rote Änderung auf einen Nebenzweig“, Maintainer 18.11.2026).
+# Kein Rot im Sinn der Regel: Wiederholung nicht gelaufen oder nicht fertig, keine rote Prüfung (Zeitüberschreitung).
+rot_zaehlen() {   # <Details „<Job>: <Prüfung>“ je Zeile> <Wiederholung> <Stand> <Zweig>
+  local det=$1 wdh=$2 p=$3 zw=$4 z k e n=0 m=Opus
+  [[ -n $det ]] || return 0
+  [[ $wdh == ja* && $wdh != *"nicht fertig"* || $wdh == *"mehr als"* ]] || return 0
+  for z in ${(f)det}; do
+    k=${z#*: }; [[ -n $k ]] || continue
+    e=$(rot_eintragen "$k" $zw ${p[1,12]}) || continue
+    (( ${e%% *} > n )) && { n=${e%% *}; m=${e#* } }
+  done
+  (( n )) || return 0
+  print -r -- "Modellstufe: $n. Rot dieser Prüfung in 14 Tagen → $m (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher mit rot_eintragen <Hash> <Nebenzweig> zählen)"
 }
 
 # Kandidaten „<Commit> <Zweig>“: je Prüfzweig der neueste Stand mit grünem Push-Lauf, neueste zuerst, nicht schon in origin/main
@@ -242,7 +262,7 @@ release_lauf() {   # <P> <Prüfzweig>
 $det}" "$wdh"
   elif [[ $g == ROT* ]]; then
     melden "ROT${wdh:+ nach Wiederholung}" $v $p $zw "$laeufe" "${g#ROT: }${det:+
-$det}" "$wdh"
+$det}" "$wdh" "$(rot_zaehlen "$det" "$wdh" $p $zw)"
   else
     melden "FEHLER" $v $p $zw "$laeufe" "${g:-Exitcode $rc}" "$wdh"
   fi

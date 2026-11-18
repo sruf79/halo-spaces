@@ -192,13 +192,19 @@ Changes take effect right away unless noted.
 - **Calendar**: dragging the sidebar divider in the multi-week view is smooth
 - **Attachments**: tile names are smaller; the selected tile is tinted like on hover
 - **Web page space**: the bar above the page takes the colour of the page's top edge, shows only the host name, and a fine line at the bottom replaces the spinner; the name no longer shifts while loading
-- **Chat**: search suggestions are as wide as the search field and no longer cut off
 - **Settings**: "View style" and similar labels no longer end in a colon
 - **Remind Me**: reminding again about a message already in the Remind Me folder only moves the time; reminders set while due messages come back are no longer lost; Remind Me in the menu bar is only active for messages that can be moved; Remind Me and Send Later keep working when the first main window is closed
 - **Conversations**: the message cards disappear when you switch folders without selecting a new message or open a web page in the reading pane, instead of staying or showing up over the new folder
 - **Sidebar**: the multicolour glow of Settings appears reliably the first time Settings opens
 - **Tasks**: "Cancelled" in the progress menu also cancels a completed task; "Repeat" on one occurrence of a repeating task changes the whole series ("Never" ends it); the window of one occurrence stays on that occurrence after a change
 - **Calendar**: search checks every occurrence of a repeating event, so a renamed occurrence is found under its new title; Quick Add no longer reads an invalid date like "Feb 30" as a date in the next month; scrolling back months in the multi-week view no longer shows empty weeks while events load; "+n more" in Month view and opening a reminder update the view switcher at the top
+- **Send Later**: the internal scheduling header is no longer sent to recipients
+- **Conversations**: a stale search index no longer shows the conversation of a different message; message cards no longer report every card as a displayed message to other add-ons
+- **Search**: the yellow highlight sits on the right characters even when a letter grows in lower case (for example "İ")
+- **Windows**: the event window, event details, the task window and folder properties show the window buttons again on macOS
+- **Calendar**: search also shows an event that is added while the calendar is still loading
+- **Tasks**: the window of one occurrence closes when only that occurrence is deleted
+- **Settings**: a search typed right after opening Settings is no longer cleared
 - Tested with Thunderbird 160; requires Thunderbird 153 or newer
 
 ## What's new in 3.29.0

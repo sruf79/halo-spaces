@@ -7381,6 +7381,14 @@ def calendar_checks(m, results):
             let last = "", calm = 0;
             for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight, dw.screenX, dw.screenY, gap()].join(); calm = st == last ? calm + 1 : 0; last = st; }
             out.normal = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            // Diagnose (nur Ausgabe, ändert das Ergebnis nicht): wo die Höhe beim Öffnen sitzt – unter windows-github
+            // öffnet das Fenster 778 px hoch (Windows-VM 314 px), die Zusatzzeilen passen dann in den Leerraum
+            { const d = dw.document, H = el => el ? Math.round(el.getBoundingClientRect().height) : null;
+              const kids = el => el ? [...el.children].filter(k => H(k) > 0).map(k => [String(k.id || k.className || k.localName).slice(0, 24), H(k)]) : null;
+              const sum = d.getElementById("calendar-item-summary");
+              out.diag = { ih: dw.innerHeight, sh: d.documentElement.scrollHeight, dlg: H(d.querySelector("dialog")), sum: H(sum), sumKids: kids(sum),
+                           box: kids(sum?.querySelector(".item-summary-box")),
+                           cells: [...d.querySelectorAll(".calendar-summary-table td")].filter(t => H(t) > 0).map(t => [String(t.className).slice(0, 20), H(t), Math.round(t.getBoundingClientRect().width)]) }; }
             await till(() => dw.document.readyState == "complete", 6000);
             // Inhalt wird nach dem Laden höher (wie eine erst später umbrochene Zeile)
             const cell = dw.document.querySelector(".repeat-details, .reminder-details, .item-title");
@@ -7391,6 +7399,11 @@ def calendar_checks(m, results):
             out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
             out.root = [dw.innerWidth, dw.outerWidth, dw.document.documentElement.style.minWidth, dw.document.querySelector(".item-title")?.getBoundingClientRect().height];
             out.btns = [...dw.document.querySelectorAll("button")].map(b => { const r = b.getBoundingClientRect(); return [b.id || b.className || b.getAttribute("dlgtype"), Math.round(r.height), Math.round(dw.innerHeight - r.bottom), Math.round(dw.innerWidth - r.right)]; });
+            // Diagnose: Höhe, die sizeToContent jetzt (bei endgültiger Breite) ergäbe – zeigt, ob die Anfangshöhe veraltet war
+            dw.sizeToContent();
+            // (feste Pause: unter macOS und Linux setzt das Fenster die neue Größe erst nach einigen Bildern)
+            await pause(300);
+            out.diag.fit = [dw.outerWidth, dw.outerHeight];
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             // Hauptfenster wieder nach vorn, sonst klappt macOS spätere Menüs sofort zu

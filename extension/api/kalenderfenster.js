@@ -1240,20 +1240,9 @@ class EnhancerKalender {
     }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
-    // „+“ und Today-Knopf gleiten wie die Überschrift mit der Kante der Pane
-    // herein bzw. hinaus, im Abstand ihres Endplatzes (--mc-tp-full, CSS).
-    // Früher erschien das „+“ erst nach dem letzten Bild (sprang ins Bild) und
-    // verschwand beim Ausblenden gleich im ersten; unter Windows rückte der
-    // Today-Knopf am Ende des Einblendens mit ihm nach (gemessen 9 px im
-    // schmalen Fenster; Abstand zum „+“ nur bei data-mc-tp-open). Gleiten
-    // beide, überholt der Knopf das „+“ nie.
+    // „+“ beim Ausblenden gleich zu Beginn weg – sonst gleitet der Today-Knopf darüber
     if (!showing) {
       d.getElementById("unifiedToolbarContainer")?.removeAttribute("data-mc-tp-open");
-    }
-    {
-      const bar = d.getElementById("unifiedToolbarContainer");
-      bar?.style.setProperty("--mc-tp-full", `${Math.round(full)}px`);
-      bar?.setAttribute("data-mc-tp-slide", "");
     }
     // Platz für die Today-Pane in der Toolbar beim Einblenden gleich am Anfang
     // (beim Ausblenden erst am Ende, über todayTopSync) – nicht mittendrin
@@ -1306,7 +1295,7 @@ class EnhancerKalender {
     const editBlock = d.getElementById("tabmail")?.currentTabInfo?.browser?.contentDocument?.querySelector("#detailsActions .edit-block");
     // Überschrift: Endzustand (Breite, nur Sonne oder ganzer Titel) jetzt
     // messen, solange die Pane ihre volle Breite hat, und dort festhalten
-    // (beim Ausblenden gilt er schon; das „+“ gleitet mit, siehe data-mc-tp-slide)
+    // (beim Ausblenden gilt er schon; das „+“ erscheint wie bisher erst am Ende)
     // Die Toolbar-Zeile bekommt gleich ihr Endmaß (einmal neu anordnen),
     // Suchfeld und Knöpfe rechts werden dann vom alten an den neuen Platz
     // geschoben – in beide Richtungen gleich
@@ -1392,12 +1381,6 @@ class EnhancerKalender {
     if (showing) {
       setW(0);
       ride(0);
-      // Fläche, Überschrift, Today-Knopf und „+“ der Toolbar-Zeile schon im
-      // ersten Bild auf Breite 0 (die Bewegung beginnt erst zwei Bilder
-      // später): sync() oben hatte für die Messungen die volle Breite gesetzt,
-      // und bis zum ersten Schritt standen Kopf, Knopf und „+“ ein, zwei
-      // Bilder lang schon am Endplatz und sprangen dann zurück
-      w.__mcTodayTopSync?.(0);
     } else {
       ride(full);
     }
@@ -1468,8 +1451,6 @@ class EnhancerKalender {
       }
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");
-      row?.removeAttribute("data-mc-tp-slide");
-      row?.style.removeProperty("--mc-tp-full");
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)
       for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {
         try {

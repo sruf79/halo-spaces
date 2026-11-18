@@ -11981,6 +11981,87 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Toolbar: Mailliste breiter ziehen blendet nur so viele Knöpfe aus wie nötig, die Suche bleibt klein und zeigt dann nur die Lupe", toolbar_wider_list, results)
 
+    def search_lupe_opens():
+        # Suchfeld als Lupe (schmales Fenster mit Today-Pane, Pillen im Menü „»“): ein Klick auf die Lupe öffnet es wie in
+        # Apple Mail auf Lupe + Platzhalter mit dem Textfeld im Fokus, dafür weichen weitere Pillen; leer verlassen ist es
+        # wieder die Lupe, ebenso nach dem Fokus per Tastatur; wieder breit stehen Pillen und Suchfeld wie vorher (GitHub #67:
+        # vorher blieb das Feld 40 px schmal, man tippte unsichtbar hinein)
+        res = m.js(r"""
+          const a3 = await toMail();
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const opened = !w.TodayPane.isVisible; if (opened) { tpCmd.doCommand(); await ruhig(1500); }
+          const R = e => e.getBoundingClientRect();
+          const content = () => d.getElementById("unifiedToolbarContent");
+          const li = () => content().querySelector(':scope > li[item-id="search-bar"]');
+          const inp = () => li().querySelector("global-search-bar")?.shadowRoot?.querySelector("input");
+          const st = () => { const c = content(), s = li(), i = inp(), ov = d.getElementById("mcToolbarOverflow");
+            const pad = parseFloat(getComputedStyle(c).paddingInlineEnd) || 0;
+            return { iw: w.innerWidth, w: Math.round(R(s).width), inp: i ? Math.round(R(i).width) : -1,
+              fit: Math.round(parseFloat(s.style.getPropertyValue("--mc-search-fit")) || 0),
+              lupe: c.hasAttribute("mc-search-lupe"), offen: s.hasAttribute("mc-search-open"), ov: !!ov && !ov.hasAttribute("mc-squeezed"),
+              hidden: [...c.querySelectorAll(":scope > li[mc-squeezed]")].filter(l => l.id != "mcToolbarOverflow").map(l => l.getAttribute("item-id")),
+              fokus: !!i && i.getRootNode().activeElement == i, drin: Math.round(R(s).right - (R(c).right - pad)) <= 1 }; };
+          const weg = async () => { a3.document.getElementById("threadTree")?.focus(); await ruhig(800); };
+          const out = {};
+          try {
+            const breit = Math.min(1900, w.screen.availWidth);
+            w.resizeTo(breit, 900); await ruhig(1500); out.vorher = st();
+            w.resizeTo(800, 900); await ruhig(1500); out.schmal = st();
+            // Klick auf die Lupe: an das Element an dieser Stelle (windowUtils.sendMouseEvent gibt es nicht mehr)
+            const r = R(li()), cx = r.left + 20, cy = r.top + r.height / 2;
+            const ziel = d.elementFromPoint(cx, cy) || li();
+            for (const type of ["mousedown", "mouseup", "click"]) {
+              ziel.dispatchEvent(new w.MouseEvent(type, { bubbles: true, cancelable: true, composed: true, view: w, button: 0, clientX: cx, clientY: cy }));
+            }
+            await ruhig(800); out.klick = st();
+            await weg(); out.weg = st();
+            inp()?.focus(); await ruhig(800); out.taste = st();
+            await weg(); out.weg2 = st();
+            // bei jeder Breite, nicht nur im schmalsten Fenster: von der ersten Breite an, bei der Pillen weichen, in kleinen
+            // Schritten schmaler (unter Linux blieb das Feld bei 1551 px nach dem Öffnen 42 px breit, weil die Pillen nur
+            // wichen, bis es breiter als die Lupe war)
+            out.stufen = [];
+            let b = breit;
+            w.resizeTo(b, 900); await ruhig(1500);
+            while (b > out.schmal.iw + 40 && !st().lupe) { b -= 40; w.resizeTo(b, 900); await ruhig(1000); }
+            for (let n = 0; n < 8 && b > out.schmal.iw; n++, b -= 14) {
+              w.resizeTo(b, 900); await ruhig(1000);
+              const zu = st();
+              if (!zu.lupe) { continue; }
+              inp()?.focus(); await ruhig(800);
+              const auf = st();
+              await weg();
+              // (wieder zu: dieselben Pillen wie vor dem Öffnen, nicht mehr)
+              out.stufen.push({ b, zu: zu.hidden.length, wiederZu: st().hidden.length, abstand: getComputedStyle(content()).getPropertyValue("--mc-write-gap").trim(), ...auf });
+            }
+            // dieselbe Breite in einem Sprung statt in Schritten: dieselben Pillen (vorher wichen im Sprung mehr, und sie
+            // kamen nicht zurück, weil der Abstand nach „Verfassen“ den frei gewordenen Platz nahm)
+            if (out.stufen.length) {
+              const z = out.stufen.at(-1);
+              w.resizeTo(breit, 900); await ruhig(1500);
+              w.resizeTo(z.b, 900); await ruhig(1500);
+              out.sprung = { soll: z.zu, ...st() };
+            }
+            w.resizeTo(breit, 900); await ruhig(1500); out.nachher = st();
+          } finally {
+            await weg();
+            if (opened) { tpCmd.doCommand(); await ruhig(800); }
+            w.resizeTo(1500, 900); await ruhig(800);
+          }
+          return out;""")
+        s, k, t, v, n = (res.get(x, {}) for x in ("schmal", "klick", "taste", "vorher", "nachher"))
+        voll = lambda z, zu=None: z.get("offen") and z.get("fokus") and z.get("w", 0) >= min(160, z.get("fit") or 160) - 1 and z.get("inp", 0) >= 40 \
+            and z.get("drin") and z.get("ov") and len(z.get("hidden", [])) >= (len(s.get("hidden", [])) if zu is None else zu)
+        lupe = lambda z: not z.get("offen") and z.get("w", 99) <= 41 and z.get("lupe")
+        stufen = res.get("stufen") or []
+        ok = bool(s.get("lupe") and s.get("w", 99) <= 41 and s.get("ov")) and voll(k) and voll(t) and lupe(res.get("weg", {})) \
+            and len(res.get("sprung", {}).get("hidden", [9])) == res.get("sprung", {}).get("soll") \
+            and len(stufen) >= 3 and all(voll(z, z.get("zu", 0)) and z.get("wiederZu") == z.get("zu") for z in stufen) \
+            and lupe(res.get("weg2", {})) and n.get("hidden") == v.get("hidden") and abs(n.get("w", 0) - v.get("w", -9)) <= 1
+        return ok, f"{res}"
+    check("Toolbar: Suchfeld als Lupe öffnet sich per Klick (und per Tastatur) auf Lupe + Platzhalter mit Fokus, dafür weichen Pillen; "
+          "leer verlassen wieder die Lupe; wieder breit alles wie vorher (GitHub #67)", search_lupe_opens, results)
+
     def toolbar_overflow():
         # Symbolleisten-Überlauf wie Apple Mail (alle Bereiche): im schmalen Fenster mit Today-Pane ist das Suchfeld nur noch die
         # Lupe, Pillen weichen ganz (nie einzelne Knöpfe daraus, nichts ragt aus der Zeile), direkt links neben dem Suchfeld steht

@@ -1152,8 +1152,21 @@ class EnhancerOberflaeche {
         // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
         const search = content.querySelector(':scope > li[item-id="search-bar"]');
-        squeezeToolbar(top.document, () => (!firstSpacer || rectOf(firstSpacer).right >= start + offset - 2) &&
-          (!search || rectOf(search).width > 41 || content.hasAttribute("mc-search-lupe")));
+        // Der Abstand nach „Verfassen“ (69 px) schrumpft vor allem anderen bis
+        // auf 12 px, wird aber erst unten nachgeführt: was er noch hergeben
+        // kann, zählt hier als Platz. Sonst wichen nach einem Sprung der
+        // Breite (Start, Today-Pane, geöffnetes Suchfeld wieder zu) mehr
+        // Pillen als nötig, der Abstand blieb dank des frei gewordenen Platzes
+        // bei 69 px, und die Pillen kamen bei gleicher Fensterbreite nicht
+        // zurück (GitHub #67)
+        const writeLi = content.querySelector(':scope > li[item-id="write-message"]');
+        const slack = writeLi && rectOf(writeLi).width
+          ? Math.max(0, (parseFloat(top.getComputedStyle(writeLi).marginInlineEnd) || 0) - 12)
+          : 0;
+        squeezeToolbar(top.document, () => {
+          const lack = searchLackOf(content, search);
+          return lack <= slack && (!firstSpacer || rectOf(firstSpacer).right + slack - lack >= start + offset - 2);
+        });
       }
       // Suchfeld in jedem Bereich gleich breit (333 px wie Apple Mail, bzw. so
       // breit wie sein Platzhalter): fehlt dafür Platz, wird zuerst der Abstand

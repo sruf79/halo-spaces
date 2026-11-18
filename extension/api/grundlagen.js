@@ -1449,7 +1449,11 @@ function squeezeToolbar(doc, fits) {
   // (Mail, 1620 → 1580 px) und sprang beim Ziehen hin und her. Erst wenn alle
   // Pillen wieder passen, gibt die Messung oben das Feld wieder frei
   // (Maintainer 11.11.2026).
-  lockSearch(content, search, true);
+  // Ausnahme: per Klick auf die Lupe geöffnet (mc-search-open, wie Apple Mail)
+  // bleibt es offen, dafür weichen die Pillen (GitHub #67)
+  if (!search?.hasAttribute("mc-search-open")) {
+    lockSearch(content, search, true);
+  }
   if (fits()) {
     return;
   }
@@ -1471,6 +1475,29 @@ function squeezeToolbar(doc, fits) {
       break;
     }
   }
+}
+
+// Wie viele px fehlen dem Suchfeld (0 = genug Platz)? Zu genügt alles über
+// der Lupe (40 px) bzw. die festgehaltene Lupe. Per Klick geöffnet
+// (mc-search-open) braucht es Lupe + Platzhalter (160 px bzw.
+// --mc-search-fit, wenn kürzer) – sonst hörten die Pillen auf zu weichen,
+// sobald es 42 px breit war, und man tippte weiter in ein fast unsichtbares
+// Feld (GitHub #67; reine Funktion, siehe tests/logik/ueberlauf.test.mjs)
+function searchLack(width, open, lupe, fit) {
+  if (open) {
+    return Math.max(0, Math.min(160, fit || 160) - 1 - width);
+  }
+  return lupe || width > 41 ? 0 : 42 - width;
+}
+
+// … gemessen am Suchfeld der Leiste (fehlt es, fehlt ihm nichts)
+function searchLackOf(content, search) {
+  const width = search?.getBoundingClientRect().width;
+  if (!width) {
+    return 0;
+  }
+  return searchLack(width, search.hasAttribute("mc-search-open"), content.hasAttribute("mc-search-lupe"),
+    parseFloat(search.style.getPropertyValue("--mc-search-fit")));
 }
 
 // Suchfeld auf die Lupe festhalten (mc-search-lupe), solange Pillen weichen

@@ -16013,6 +16013,33 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Kontakt bearbeiten in Systemschrift, Überschriften über den Feldern, Wichtiges zuerst, Weiteres auf Wunsch, Initialen mittig über dem Namen", contact_edit, results)
 
+    def contact_edit_fewer_typed():
+        # „Weniger Felder“ darf ein gerade hinzugefügtes und ausgefülltes seltenes Feld (Webseite)
+        # nicht ausblenden – Thunderbird überträgt die Eingabe erst beim Speichern in die Kontaktdaten
+        res = m.js(ADDRESS_EDIT_JS + r"""
+          await until(() => ad.querySelector("vcard-edit + .mc-more-button"), 6000);
+          const ve = ad.querySelector("#editContactForm vcard-edit");
+          const more = ad.querySelector("vcard-edit + .mc-more-button");
+          const fs = ad.getElementById("addr-book-edit-url");
+          const out = { closedBefore: fs.getClientRects().length };
+          more.click(); await ruhig(300);
+          ad.getElementById("vcard-add-url").click();
+          const inp = await until(() => fs.querySelector("vcard-url input[type=url]"), 3000);
+          out.added = !!inp;
+          if (inp) { inp.value = "https://example.invalid/anna"; inp.dispatchEvent(new ab.InputEvent("input", { bubbles: true })); }
+          more.click(); await ruhig(300);
+          out.label = more.getAttribute("aria-expanded");
+          out.shownAfterFewer = fs.getClientRects().length > 0 && !!inp && inp.getClientRects().length > 0;
+          out.value = inp?.value;
+          ab.detailsPane.isDirty = false; // Testeingabe verwerfen, ohne Rückfrage
+          ad.getElementById("cancelEditButton").click(); await ruhig(500);
+          tm.closeTab(tm.currentTabInfo);
+          return out;""")
+        ok = (res.get("closedBefore") == 0 and res.get("added") and res.get("label") == "false"
+              and res.get("shownAfterFewer") and res.get("value") == "https://example.invalid/anna")
+        return ok, f"{res}"
+    check("Adressbuch: Weniger Felder blendet ein gerade ausgefülltes seltenes Feld nicht aus", contact_edit_fewer_typed, results)
+
     ab_views_res = {}
 
     def ab_views():

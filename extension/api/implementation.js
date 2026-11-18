@@ -9269,12 +9269,18 @@ class CardEnhancer {
           b.setAttribute("aria-expanded", String(open));
         }
       };
+      // Thunderbird überträgt Eingaben erst beim Speichern (saveVCard →
+      // fromUIToVCardPropertyEntry) in vCardProperties – gerade Getipptes
+      // steht nur in den Feldern; deshalb auch die Textfelder der Gruppe lesen,
+      // sonst verschwindet sie bei „Weniger Felder“ bis zum Speichern
+      const typed = fs => [...fs.querySelectorAll("input, textarea")]
+        .some(i => !/^(checkbox|radio|button|hidden)$/.test(i.type || "") && filled(i.value));
       const markOptional = ve => {
         const entries = ve.vCardProperties?.entries || [];
         for (const [id, keys] of Object.entries(OPTIONAL)) {
           const fs = ve.querySelector(`#addr-book-edit-${id}`);
           fs?.setAttribute("mc-optional", "");
-          fs?.toggleAttribute("mc-filled", entries.some(e => keys.includes(e.name) && filled(e.value)));
+          fs?.toggleAttribute("mc-filled", entries.some(e => keys.includes(e.name) && filled(e.value)) || (!!fs && typed(fs)));
         }
       };
       const markNames = n => {

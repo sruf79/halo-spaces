@@ -165,7 +165,8 @@ const PstImport = {
 // Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle
 // Ordner samt Unterordnern als Kopie nach Lokale Ordner/<Konto> (Archive).
 // Papierkorb, Spam, Entwürfe, Postausgang und virtuelle Ordner bleiben weg.
-// Ein erneuter Lauf überspringt Ordner, die schon gleich viele Mails haben.
+// Ein erneuter Lauf vergleicht je Ordner über die Message-ID und kopiert nur,
+// was im Archiv noch fehlt (keine Duplikate, auch nach Abbruch in der Mitte).
 const ArchiveAccount = {
   running: null,
   SKIP: Ci.nsMsgFolderFlags.Trash | Ci.nsMsgFolderFlags.Junk | Ci.nsMsgFolderFlags.Drafts |
@@ -228,6 +229,32 @@ const ArchiveAccount = {
     } catch {
       return [...folder.messages];
     }
+  },
+  // Message-IDs, die im Archivordner schon liegen (Thunderbird vergibt Mails
+  // ohne Message-ID eine aus dem Inhalt, die auch die Kopie bekommt)
+  archivedIds(dest) {
+    const ids = new Set();
+    for (const h of this.messages(dest)) {
+      if (h.messageId) {
+        ids.add(h.messageId);
+      }
+    }
+    return ids;
+  },
+  // nur die Mails, deren Message-ID im Archiv noch fehlt; doppelte im Quellordner einmal
+  missing(hdrs, dest) {
+    const ids = this.archivedIds(dest);
+    return hdrs.filter(h => {
+      const id = h.messageId;
+      if (!id) {
+        return true;
+      }
+      if (ids.has(id)) {
+        return false;
+      }
+      ids.add(id);
+      return true;
+    });
   },
   copy(src, hdrs, dest, win) {
     return new Promise(resolve => {
@@ -297,26 +324,24 @@ const ArchiveAccount = {
           progress(sub, { state: "busy", copied: 0 });
           await this.update(sub, win);
           const hdrs = this.messages(sub);
+          const todo = this.missing(hdrs, dest), have = hdrs.length - todo.length;
+          job.skipped += have;
           let mine = 0, failed = false;
-          if (hdrs.length && dest.getTotalMessages(false) >= hdrs.length) {
-            job.skipped += hdrs.length;
-          } else {
-            for (let i = 0; i < hdrs.length && !job.stop; i += 100) {
-              const part = hdrs.slice(i, i + 100);
-              if (await this.copy(sub, part, dest, win)) {
-                job.copied += part.length;
-                mine += part.length;
-              } else {
-                job.failed.push(sub.prettyName);
-                failed = true;
-                break;
-              }
-              status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
-              progress(sub, { state: "busy", copied: mine, total: hdrs.length });
+          for (let i = 0; i < todo.length && !job.stop; i += 100) {
+            const part = todo.slice(i, i + 100);
+            if (await this.copy(sub, part, dest, win)) {
+              job.copied += part.length;
+              mine += part.length;
+            } else {
+              job.failed.push(sub.prettyName);
+              failed = true;
+              break;
             }
+            status(tr("Archiving {folder}… {n} messages", { folder: sub.prettyName, n: job.copied }));
+            progress(sub, { state: "busy", copied: have + mine, total: hdrs.length });
           }
           job.done.push({ folder: sub, dest, source: hdrs.length });
-          progress(sub, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: hdrs.length, archived: dest.getTotalMessages(false) });
+          progress(sub, { state: failed ? "failed" : job.stop ? "stopped" : "done", copied: mine, total: hdrs.length, archived: have + mine });
           await walk(sub, dest);
         }
       };

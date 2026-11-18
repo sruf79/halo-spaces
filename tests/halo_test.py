@@ -10361,6 +10361,7 @@ def server_checks(m, results):
               const target = local.subFolders.find(f => f.name.startsWith(server.prettyName) && f.name != server.prettyName);
               return { copied: job?.copied, skipped: job?.skipped, failed: job?.failed, target: target?.name,
                 folders: target ? Object.fromEntries(target.subFolders.map(f => [f.name, f.getTotalMessages(false)])) : null,
+                ids: target?.getChildNamed("Archive") ? [...target.getChildNamed("Archive").msgDatabase.enumerateMessages()].map(h => h.messageId).sort() : null,
                 source: Object.fromEntries(root.subFolders.map(f => [f.name, f.getTotalMessages(false)])) };""" % key
             # Assistent: Übersicht mit Ordnern und Anzahl, Start, Fortschritt je Ordner, Abschluss (hier: alles schon archiviert)
             wizard_js = r"""
@@ -10382,20 +10383,28 @@ def server_checks(m, results):
             first = m.js(menu_js)
             first.update(m.js(run_js))
             second = m.js(run_js)
+            # nur Neues ergänzen: eine neue Mail im Ordner „Archive“ am Server → der nächste Lauf kopiert genau diese
+            # (Abgleich über die Message-ID; vorher kopierte ein Lauf bei abweichender Anzahl den ganzen Ordner erneut)
+            servers.imap.add("Archive", "From: Dora <dora@example.invalid>\nTo: Halo Test <halo@example.invalid>\nSubject: Neue Rechnung\n"
+                             "Date: Tue, 13 Oct 2026 10:00:00 +0200\nMessage-ID: <srv-arch-2@example.invalid>\n\nZweite Rechnung.\n")
+            third = m.js(run_js)
             wiz = m.js(wizard_js)
             f = first.get("folders") or {}
             src = first.get("source") or {}
             inbox = next((k for k in f if k.lower() == "inbox"), None)
             ok = (first.get("visible") and first.get("target") and inbox and f.get(inbox, 0) >= 1
                   and f.get(inbox) == src.get(inbox) and f.get("Archive") == 1 and "Trash" not in f and "Drafts" not in f
-                  and second.get("folders") == f)
+                  and second.get("folders") == f and second.get("copied") == 0)
+            f3 = third.get("folders") or {}
+            ok = ok and (third.get("copied") == 1 and f3.get("Archive") == 2 and f3.get(inbox) == f.get(inbox)
+                         and third.get("ids") == ["srv-arch-1@example.invalid", "srv-arch-2@example.invalid"])
             we = wiz.get("end") or {}
             ok = ok and (wiz.get("open") and wiz.get("title") == "Archive Account Locally" and wiz.get("account") == first.get("target", "").split(" (")[0]
                          and any("Archiv" in x for x in (wiz.get("folders") or [])) and not wiz.get("trash") and "messages in" in (wiz.get("summary") or "")
                          and we.get("button") == "Done" and we.get("states") and all(x == "done" for x in we["states"])
                          and all(n.endswith("✓") for n in we.get("nums", [])) and "already archived" in (we.get("summary") or ""))
-            return ok, f"{first} 2. Lauf: {second} Assistent: {wiz}"
-        check("Testkonto: Konto lokal archivieren – Kontextmenü, Assistent mit Übersicht, Fortschritt und Abschluss, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate", archive_account, results)
+            return ok, f"{first} 2. Lauf: {second} 3. Lauf (neue Mail): {third} Assistent: {wiz}"
+        check("Testkonto: Konto lokal archivieren – Kontextmenü, Assistent mit Übersicht, Fortschritt und Abschluss, alle Ordner als Kopie in Lokale Ordner, zweiter Lauf ohne Duplikate, neue Mail am Server ergänzt genau diese", archive_account, results)
 
         def send_error():
             # Server lehnt ab → halo.spaces meldet den Fehler als Dialog mit „Postausgang zeigen“ (statt nur in der

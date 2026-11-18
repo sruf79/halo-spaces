@@ -9361,8 +9361,11 @@ def calendar_checks(m, results):
             const out = { C, title: !!d.getElementById("mcAgendaTitle"),
               head: [w.getComputedStyle(name).color, w.getComputedStyle(name).fontWeight, w.getComputedStyle(year).color,
                      w.getComputedStyle(mm.querySelector(".months-back-button")).color, w.getComputedStyle(mm.querySelector(".months-forward-button")).color],
-              // zwischen Mini-Kalender und Liste steht nichts mehr (die Karte beginnt 8 px unter der Linie)
-              gap: Math.round(agenda.getBoundingClientRect().top - d.getElementById("agenda-container").getBoundingClientRect().top) };
+              // zwischen Mini-Kalender und Liste steht nur noch „Today“ (keine Monatszeile), die Karte beginnt
+              // höchstens 12 px darunter bzw. unter der Linie
+              between: [...d.getElementById("agenda-container").children].filter(k => k != agenda && k.compareDocumentPosition(agenda) & 4 && k.getBoundingClientRect().height > 0).map(k => k.id),
+              gap: Math.round(agenda.getBoundingClientRect().top - (d.getElementById("mcTodayTitle")?.closest("#agenda-container")
+                ? d.getElementById("mcTodayTitle").getBoundingClientRect().bottom : d.getElementById("agenda-container").getBoundingClientRect().top)) };
             // Mini-Kalender: Farben je Spalte bei Wochenbeginn Sonntag (0) und Montag (1); die 2. und 3. Woche liegen
             // immer ganz im Monat, genommen wird die ohne heute (rot)
             out.days = {};
@@ -9400,7 +9403,7 @@ def calendar_checks(m, results):
         longs = res.get("long") or []
         ok = (res.get("title") is False and bool(C) and C.get("fourth") not in (C.get("third"), C.get("text"), "")
               and res.get("head") == [C["second"], "600", C["second"], C["second"], C["second"]]
-              and 0 <= (res.get("gap") or -1) <= 12
+              and 0 <= (res.get("gap") or -1) <= 12 and res.get("between") == ["mcTodayTitle"]
               and len(days) == 4 and all(v["ok"] and v["we"] == 2 and v["other"] == C["fourth"] for v in days.values())
               and [v["wkst"] for v in days.values()] == ["0", "0", "1", "1"]
               and sorted(x["allDay"] for x in longs) == [False, True]
@@ -14485,6 +14488,64 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Today-Pane: Fläche oben in der Toolbar-Zeile bündig mit der Pane darunter (linke und rechte Kante)", today_top_flush, results)
 
+    def today_head_tidy():
+        # Today-Pane-Kopf aufgeräumt (Mac und Windows gleich): oben in der Zeile über der Pane nur der Today-Knopf links
+        # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
+        # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
+        # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
+            const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
+          const out = {};
+          try {
+          const cmd = d.getElementById("calendar_toggle_todaypane_command");
+          const go = { mail: toMail, tasks: async () => tm.openTab("tasks", {}), book: async () => tm.openTab("addressBookTab", {}),
+                       chat: async () => tm.openTab("chat", {}), prefs: async () => w.openPreferencesTab() };
+          const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? r : null; };
+          for (const [name, fn] of Object.entries(go)) {
+            await fn(); await ruhig(1200);
+            if (!w.TodayPane?.isVisible) { cmd.doCommand(); await ruhig(1200); }
+            const panel = d.getElementById("today-pane-panel"), row = d.getElementById("unifiedToolbarContainer");
+            const pr = R(panel), rr = R(row), tg = R(d.getElementById("mcTodayToggle")), title = d.getElementById("mcTodayTitle"), ti = R(title);
+            const plus = d.getElementById("mcTodayNew"), pl = R(plus), agenda = d.getElementById("agenda"), ag = R(agenda);
+            const mm = R(d.getElementById("today-minimonth-box"));
+            if (!pr || !rr) { out[name] = { pane: false }; continue; }
+            // eigene Elemente in der Zeile über der Pane (außer der Fläche #mcTodayTop): nur der Today-Knopf
+            const inRow = [...row.querySelectorAll("[id^='mc']")].filter(e => e.id != "mcTodayTop" && !e.closest("#unifiedToolbarContent")
+              && !e.closest("#mcListHeader") && (r => r && r.left >= pr.left - 1 && r.top < rr.bottom && r.bottom > rr.top)(R(e))).map(e => e.id);
+            const v = { inRow, toggle: tg ? Math.round(tg.left - pr.left) : null,
+              title: ti ? { text: title.querySelector(".mc-tt-text")?.textContent, mid: Math.round((ti.left + ti.width / 2 - (pr.left + pr.width / 2)) * 10) / 10,
+                            belowMini: mm ? Math.round(ti.top - mm.bottom) : null, aboveCard: ag ? Math.round(ag.top - ti.bottom) : null,
+                            hit: (el => el == title || title.contains(el))(d.elementFromPoint(ti.left + ti.width / 2, ti.top + ti.height / 2)) } : null,
+              plus: pl ? { mid: Math.round((pl.left + pl.width / 2 - (pr.left + pr.width / 2)) * 10) / 10, size: [Math.round(pl.width), Math.round(pl.height)],
+                           underCard: ag ? Math.round(pl.top - ag.bottom) : null, toBottom: Math.round(pr.bottom - pl.bottom), inPane: pl.top >= pr.top && pl.bottom <= pr.bottom + 0.5,
+                           hit: d.elementFromPoint(pl.left + pl.width / 2, pl.top + pl.height / 2) == plus } : null };
+            // Liste rollen: das „+“ bleibt stehen, die Liste läuft unten aus (Verlauf, solange unten noch Termine verborgen sind)
+            agenda.scrollTop = 0; await ruhig(300);
+            const more = agenda.scrollHeight > agenda.clientHeight + 2;
+            const before = R(plus)?.top; v.fade = !more || agenda.hasAttribute("data-mc-more");
+            agenda.scrollTop = 120; agenda.dispatchEvent(new w.Event("scroll")); await ruhig(300);
+            v.scroll = { more, moved: agenda.scrollTop, plusShift: Math.round(((R(plus)?.top ?? 0) - (before ?? 0)) * 10) / 10 };
+            agenda.scrollTop = 0;
+            out[name] = v;
+          }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail(); await ruhig(600);
+          return out;
+          } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } }""")
+        def gut(v):
+            t, p = v.get("title") or {}, v.get("plus") or {}
+            return (v.get("inRow") == ["mcTodayToggle"] and v.get("toggle") is not None and 0 <= v["toggle"] <= 14
+                    and t.get("text") == "Today" and abs(t.get("mid", 99)) <= 1 and t.get("hit")
+                    and t.get("belowMini") is not None and 0 <= t["belowMini"] <= 12 and t.get("aboveCard") is not None and 4 <= t["aboveCard"] <= 12
+                    and abs(p.get("mid", 99)) <= 1 and p.get("size") == [40, 38] and p.get("inPane") and p.get("hit")
+                    and p.get("underCard") is not None and 8 <= p["underCard"] <= 16 and p.get("toBottom") is not None and 6 <= p["toBottom"] <= 14
+                    and v.get("fade") and v["scroll"]["plusShift"] == 0)
+        ok = len(res) == 5 and all(gut(v) for v in res.values()) and any(v["scroll"]["more"] and v["scroll"]["moved"] > 0 for v in res.values())
+        return ok, f"{res}"
+    check("Today-Pane: Kopf aufgeräumt – oben nur der Today-Knopf, „Today“ mittig zwischen Mini-Kalender und Liste, „+“ fest mittig unten unter der Liste (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)", today_head_tidy, results)
+
     def toolbar_icons_only_any_style():
         # GitHub #62: mit „Symbol und Text“, „Text unter Symbol“ oder „Nur Text“ in „Symbolleiste anpassen“ wurden die
         # Knöpfe breiter bzw. höher und überdeckten den Titel der Today-Pane; jetzt immer nur Symbole (Maintainer
@@ -14812,19 +14873,20 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          // „+“ und Today-Knopf (absolut in der Zeile): Lage und sichtbare Breite – das „+“ ist rechts nur bis zur Kante vor
-          // ≡/Fensterknöpfen (Windows/Linux) bzw. bis zum Fensterrand zu sehen
+          // „+“ (fest unten in der Today-Pane) und Today-Knopf (absolut in der Zeile): Lage und sichtbare Breite – das „+“
+          // ist nur innerhalb der Pane zu sehen (sie schneidet beim Gleiten ab)
           const plus = d.getElementById("mcTodayNew");
-          const pt = () => { const r = plus?.getBoundingClientRect(); if (!r?.width || getComputedStyle(plus).display == "none") return null;
-            const edge = row.getBoundingClientRect().right - Math.max(parseFloat(getComputedStyle(row).getPropertyValue("--mc-caption-w")) || 0, parseFloat(getComputedStyle(row).getPropertyValue("--mc-row-tail")) || 0);
-            return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, edge) - r.left) * 10) / 10]; };
+          const pt = () => { const r = plus?.getBoundingClientRect(); if (!r?.width || getComputedStyle(plus).display == "none" || !w.TodayPane?.isVisible && !panel.__mcAnimating) return null;
+            const pr = panel.getBoundingClientRect();
+            return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, pr.right) - Math.max(r.left, pr.left)) * 10) / 10]; };
           const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
           const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
-            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
+            // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
+            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim")]);
             await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
@@ -20137,15 +20199,15 @@ Neu
           out.books = (await until(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("mcBooksHeader"), 8000))?.textContent;
           await step("settings", async () => { w.openPreferencesTab(); await ruhig(1500); });
           out.attr = bar?.getAttribute("placeholder");
-          out.today = [d.getElementById("mcTodayTitle")?.textContent, d.getElementById("today-pane-header")?.dataset.mcTitle];
+          out.today = [d.getElementById("mcTodayTitle")?.textContent];  // („Today“ zwischen Mini-Kalender und Liste)
           for (const t of [...tm.tabInfo]) { if (!before.has(t)) tm.closeTab(t); }
           await toMail(); await ruhig(300); out.back = text();
           return out;''')
         expect = {
             "de": ["durchsuchen", "Kalender durchsuchen", "Aufgaben durchsuchen", "Kontakte durchsuchen",
-                   "Einstellungen durchsuchen", "Adressbücher", "Heute-Leiste"],
+                   "Einstellungen durchsuchen", "Adressbücher", "Heute"],
             "en": ["Search ", "Search Calendar", "Search Tasks", "Search Contacts", "Search Settings",
-                   "Address Books", "Today Pane"],
+                   "Address Books", "Today"],
         }.get(res["locale"].split("-")[0])
         got = [res["mail"], res["calendar"], res["tasks"], res["addressbook"], res["settings"], res["books"]]
         ok = (res["slotted"] and not res["l10n"] and not res["attr"] and res["back"] == res["mail"]
@@ -20153,7 +20215,7 @@ Neu
         if expect:
             # Mail: je nach Ordner „Search Inbox“ bzw. „Search All Mailboxes“ (eigene Prüfung)
             ok = (ok and expect[0] in (got[0] or "") and got[1:] == expect[1:6]
-                  and all(t in (None, expect[6]) for t in res["today"]) and expect[6] in res["today"])
+                  and res["today"] == [expect[6]])
         else:  # andere Sprache: Thunderbirds eigener Platzhalter, nur Überschrift prüfen
             ok = bool(res["books"])
         return ok, f"{res}"

@@ -72,3 +72,19 @@ test("Natürlich: „nächsten Donnerstag“/„next Thursday“ ist der Tag in 
     assert.equal(us(text, MI).start.getDate(), d, text);
   }
 });
+
+test("Natürlich: „29.2.“ ohne Jahr im Jahr vor einem Schaltjahr → 29. Februar des Schaltjahres, sonst nicht erkannt", () => {
+  const vorSchaltjahr = new Date(2027, 10, 18, 10, 0); // 18. November 2027, nächster 29.2. ist 2028
+  for (const text of ["Schalttag 29.2.", "Schalttag 29. Februar", "Leap day Feb 29"]) {
+    const r = parseNatural(text, vorSchaltjahr);
+    assert.equal(r.start?.getTime(), new Date(2028, 1, 29).getTime(), text);
+  }
+  // im Schaltjahr selbst vor dem 29.2. weiterhin dieses Jahr
+  assert.equal(parseNatural("Schalttag 29.2.", new Date(2028, 0, 10)).start.getTime(), new Date(2028, 1, 29).getTime());
+  // kein Schaltjahr als nächstes Vorkommen: nicht erkannt statt still 1. März
+  for (const now of [NOW, new Date(2027, 0, 15), new Date(2028, 2, 1)]) {
+    const r = parseNatural("Schalttag 29.2.", now);
+    assert.equal(r.start, undefined, String(now));
+    assert.equal(r.title, "Schalttag 29.2.");
+  }
+});

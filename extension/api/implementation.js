@@ -11478,6 +11478,7 @@ class CardEnhancer {
           hookTaskView(w, this.restorers);
           hookTaskCards(w, this.restorers);
           hookTaskInfo(w, this.restorers);
+          hookFollowingOccurrences(w, this.restorers);
           hookTaskOpen(w, this.restorers);
         } catch (e) {
           log("task filter error", e);

@@ -12944,9 +12944,17 @@ dialog tabpanels:not(#event-grid-tabpanels) {
    Kalendersymbole neben den Kapselknöpfen; Text mittig, da ohne Symbol.
    Fenster so hoch wie sein Inhalt: Thunderbird setzt eine feste Höhe von
    34ex (rund 197 px), mit den 30-px-Kapselknöpfen ragte „Abbrechen“ unten
-   hinaus; die alte Höhe bleibt als Mindesthöhe */
+   hinaus; die alte Höhe bleibt als Mindesthöhe. Ebenso die Breite: mit
+   „Dieses und alle zukünftigen …“ (eingeblendet von halo.spaces, bei Terminen)
+   reichte die feste Breite von 25em nicht, der Text stieß an den Knopfrand;
+   25em bleibt Mindestbreite, der Text hält mindestens 12 px Rand */
 #calendar-occurrence-prompt {
   block-size: auto !important;
+  inline-size: auto !important;
+}
+
+#accept-buttons-box > .occurrence-accept-buttons > .button-box {
+  padding-inline: 12px !important;
 }
 
 #occurrence-prompt-header {

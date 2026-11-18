@@ -2899,3 +2899,235 @@ const CalSearch = {
     panel.scrollTop = scrollToToday && todayNode ? todayNode.offsetTop - list.offsetTop : keep;
   },
 };
+
+// Kalender: Rückfrage bei einem Vorkommen einer Serie wie Apple Kalender auch mit
+// „Dieses und alle zukünftigen“ (Bearbeiten und Löschen von Terminen). Thunderbird
+// hat den Knopf in seiner Rückfrage (calendar-occurrence-prompt), blendet ihn aber
+// aus und führt die Antwort nicht aus (promptOccurrenceModification wirft). Hier:
+// Knopf einblenden, die Serie am Vorkommen teilen – die bisherige endet vor ihm,
+// ab ihm gilt eine neue Serie (neue UID) mit denselben Regeln; beim Löschen endet
+// die Serie nur vor dem Vorkommen. Ist das Vorkommen das erste, gilt „alle“.
+// Aufgaben haben ihre eigene Rückfrage (hookTaskInfo) und bleiben unberührt.
+
+// Ende (UNTIL) des vorderen Teils kurz vor dem Vorkommen rid: ganztägig der
+// Vortag, sonst eine Sekunde vorher
+function untilBefore(rid) {
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const u = rid.clone();
+  u.addDuration(cal.createDuration(u.isDate ? "-P1D" : "-PT1S"));
+  return u;
+}
+
+// Serie parent am Vorkommen rid teilen. Rückgabe { head, tail }: head = Kopie der
+// Serie, die vor rid endet (Regeln mit Zahl oder späterem Ende enden vor rid,
+// spätere Zusatztermine und geänderte Vorkommen fallen weg); tail = neue Serie ab
+// rid (neue UID, Dauer wie die Serie, Regeln mit Zahl um die schon gewesenen
+// Vorkommen gekürzt, frühere Zusatz-/Ausnahmedaten und geänderte Vorkommen weg).
+// null, wenn vor rid kein Vorkommen liegt (dann ist „ab hier“ die ganze Serie)
+function splitSeries(parent, rid) {
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const info = parent.recurrenceInfo;
+  const start = parent.startDate;
+  if (!info || !start || !rid) {
+    return null;
+  }
+  const at = rid.getInTimezone(start.timezone);
+  at.isDate = start.isDate;
+  if (!info.getOccurrenceDates(start, at, 0).some(d => d.compare(at) < 0)) {
+    return null;
+  }
+  const until = untilBefore(at);
+  const isRule = r => r instanceof Ci.calIRecurrenceRule;
+  const dropExceptions = (ri, keep) => {
+    for (const exid of ri.getExceptionIds()) {
+      if (!keep(exid.compare(at) < 0)) {
+        ri.removeExceptionFor(exid);
+      }
+    }
+  };
+
+  const head = parent.clone();
+  const hi = head.recurrenceInfo;
+  const headItems = [];
+  for (const r of hi.getRecurrenceItems()) {
+    const c = r.clone();
+    if (isRule(c)) {
+      if (!c.isNegative && (c.isByCount || !c.untilDate || c.untilDate.compare(until) > 0)) {
+        c.count = 0;
+        c.untilDate = until;
+      }
+    } else if (!c.isNegative && c.date.compare(at) >= 0) {
+      continue; // Zusatztermin ab dem Vorkommen gehört zum neuen Teil
+    }
+    headItems.push(c);
+  }
+  hi.setRecurrenceItems(headItems);
+  dropExceptions(hi, before => before);
+
+  const tail = parent.clone();
+  tail.id = cal.getUUID();
+  const ti = tail.recurrenceInfo;
+  // ohne Wiederholung umsetzen: sonst verschiebt Thunderbird Regeln, Ausnahmen und
+  // Ausnahmedaten um dieselbe Spanne mit (onStartDateChange)
+  const duration = parent.duration?.clone?.() ?? parent.endDate.subtractDate(start);
+  tail.recurrenceInfo = null;
+  tail.startDate = at.clone();
+  const end = at.clone();
+  end.addDuration(duration);
+  tail.endDate = end;
+  tail.recurrenceInfo = ti;
+  const tailItems = [];
+  for (const r of ti.getRecurrenceItems()) {
+    const c = r.clone();
+    if (isRule(c)) {
+      if (!c.isNegative && c.isByCount) {
+        const past = r.getOccurrences(start, start, at, 0).filter(d => d.compare(at) < 0).length;
+        if (c.count - past <= 0) {
+          continue;
+        }
+        c.count = c.count - past;
+      }
+    } else if (c.date.compare(at) < 0) {
+      continue;
+    }
+    tailItems.push(c);
+  }
+  ti.setRecurrenceItems(tailItems);
+  dropExceptions(ti, before => !before);
+  return { head, tail };
+}
+
+// Thunderbirds Rückfrage mit eingeblendetem „… und alle zukünftigen“; Antwort
+// 0 Abbrechen, 1 nur dieses, 2 dieses und alle zukünftigen, 3 alle
+function askOccurrenceFollowing(win, item, action) {
+  const rv = { value: 0, items: [item], action, mcFollowing: true };
+  const show = w => {
+    try {
+      if (w.arguments?.[0]?.mcFollowing) {
+        w.document.getElementById("accept-allfollowing-button")?.removeAttribute("hidden");
+      }
+    } catch (e) {
+      log("occurrence following button error", e);
+    }
+  };
+  const observer = {
+    observe(w, topic) {
+      // neues Fenster lädt zuerst about:blank – bis zur Rückfrage weiter horchen
+      if (topic == "domwindowopened") {
+        const onLoad = () => {
+          if (w.location.href.includes("calendar-occurrence-prompt")) {
+            w.removeEventListener("load", onLoad, true);
+            show(w);
+          }
+        };
+        w.addEventListener("load", onLoad, true);
+      }
+    },
+  };
+  Services.ww.registerNotification(observer);
+  try {
+    win.openDialog("chrome://calendar/content/calendar-occurrence-prompt.xhtml", "PromptOccurrenceModification",
+      "centerscreen,chrome,modal,titlebar", rv);
+  } finally {
+    Services.ww.unregisterNotification(observer);
+  }
+  return rv.value;
+}
+
+function hookFollowingOccurrences(win, restorers) {
+  const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
+  const ctrl = win.calendarViewController;
+  const origModify = win.modifyEventWithDialog;
+  // einmal je Fenster (hookTaskOpen legt seine Hülle darüber oder darunter)
+  if (typeof origModify != "function" || win.__mcFollowing || !ctrl?.deleteOccurrences) {
+    return;
+  }
+  win.__mcFollowing = true;
+  // nur ein Vorkommen eines Termins einer beschreibbaren Serie; der neue
+  // Termin-Dialog von Thunderbird (Einstellung, aus) kennt keinen neuen Termin im
+  // Bearbeiten-Modus – dort bleibt alles wie bei Thunderbird
+  const occurrenceOf = item => {
+    try {
+      const one = Array.isArray(item) ? (item.length == 1 ? item[0] : null) : item;
+      return one && one.isEvent() && one.parentItem && one.parentItem != one && one.recurrenceId &&
+        cal.acl.isCalendarWritable(one.calendar) && cal.acl.userCanModifyItem(one.parentItem) &&
+        !Services.prefs.getBoolPref("calendar.event.createEditDialog.enabled", false) ? one : null;
+    } catch {
+      return null; // gewollt: kein Kalenderobjekt – Thunderbird entscheidet
+    }
+  };
+
+  const modify = function (item, prompt, initialDate = null, counter, ...rest) {
+    const occ = prompt !== false && !counter ? occurrenceOf(item) : null;
+    if (!occ) {
+      return origModify.call(this, item, prompt, initialDate, counter, ...rest);
+    }
+    if (cal.item.findWindow(occ) || cal.item.findWindow(occ.parentItem)) {
+      return origModify.call(this, item, prompt, initialDate, counter, ...rest);
+    }
+    const answer = askOccurrenceFollowing(win, occ, "edit");
+    if (answer == 1) {
+      return origModify.call(this, occ, false, initialDate);
+    }
+    const parent = occ.parentItem;
+    const split = answer == 2 ? splitSeries(parent, occ.recurrenceId) : null;
+    if (answer == 3 || (answer == 2 && !split)) {
+      return origModify.call(this, parent, false, initialDate);
+    }
+    if (!split) {
+      return undefined;
+    }
+    // Bearbeiten-Dialog für den neuen Teil; erst beim Speichern endet die alte
+    // Serie vor dem Vorkommen und der neue Teil kommt dazu (ein Schritt zum Rückgängigmachen);
+    // „Speichern“ ohne Schließen ein weiteres Mal ändert nur noch den neuen Teil
+    let added = false;
+    const onSave = (newItem, calendar, originalItem, listener, extResponse = null) => {
+      if (added) {
+        win.doTransaction("modify", newItem, calendar, originalItem, listener, extResponse);
+        return;
+      }
+      added = true;
+      win.startBatchTransaction();
+      try {
+        win.doTransaction("modify", split.head, parent.calendar, parent, null);
+        win.doTransaction("add", newItem, calendar, null, listener, extResponse);
+      } finally {
+        win.endBatchTransaction();
+      }
+    };
+    win.openEventDialog(split.tail, parent.calendar, "modify", onSave, initialDate);
+    return undefined;
+  };
+  win.modifyEventWithDialog = modify;
+
+  const origDelete = ctrl.deleteOccurrences;
+  ctrl.deleteOccurrences = function (items, useParent, noConfirm, ...rest) {
+    const occ = !useParent && !noConfirm ? occurrenceOf(items) : null;
+    if (!occ) {
+      return origDelete.call(this, items, useParent, noConfirm, ...rest);
+    }
+    if (!cal.window.promptDeleteItems([occ])) {
+      return undefined;
+    }
+    const answer = askOccurrenceFollowing(win, occ, "delete");
+    const parent = occ.parentItem;
+    const split = answer == 2 ? splitSeries(parent, occ.recurrenceId) : null;
+    if (answer == 1) {
+      return origDelete.call(this, [occ], false, true, ...rest);
+    }
+    if (answer == 3 || (answer == 2 && !split)) {
+      return origDelete.call(this, [occ], true, true, ...rest);
+    }
+    if (split) {
+      win.doTransaction("modify", split.head, parent.calendar, parent, null);
+    }
+    return undefined;
+  };
+  restorers.push(() => {
+    if (win.modifyEventWithDialog === modify) {
+      win.modifyEventWithDialog = origModify;
+    }
+    ctrl.deleteOccurrences = origDelete;
+    delete win.__mcFollowing;
+  });
+}

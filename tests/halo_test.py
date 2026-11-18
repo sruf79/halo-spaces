@@ -7743,6 +7743,81 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Rückfrage wiederholter Termin: Titelkasten ohne harten Rahmen, Knöpfe ohne alte Kalendersymbole, 30 px, Text mittig, alle Knöpfe samt Abbrechen ganz sichtbar", occurrence_prompt, results)
 
+    def occurrence_following():
+        # Serie wie Apple Kalender ab einem Vorkommen ändern bzw. löschen: Thunderbirds Rückfrage zeigt bei Terminen
+        # „… und alle zukünftigen“ (vorher ausgeblendet, die Antwort war nicht umgesetzt). Löschen: die Serie endet vor
+        # dem Vorkommen. Bearbeiten: die alte Serie endet vor dem Vorkommen, ab ihm gilt eine neue Serie mit der
+        # Änderung (Zahl der Wiederholungen um die schon gewesenen gekürzt). Ab dem ersten Vorkommen gilt die ganze Serie.
+        res = m.js(CAL_CHECK_JS + r"""
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar();
+          const mk = async title => { const e = new CalEvent(); e.title = title; e.calendar = c;
+            const s = cal.dtz.now(); s.day -= 3; s.hour = 10; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1;
+            e.startDate = s; e.endDate = en; e.recurrenceInfo = new CalRecurrenceInfo(e);
+            e.recurrenceInfo.appendRecurrenceItem(cal.createRecurrenceRule("RRULE:FREQ=DAILY;COUNT=10")); return c.addItem(e); };
+          const occAt = (it, n) => { const r = it.startDate.clone(); r.day += n; return it.recurrenceInfo.getOccurrenceFor(r); };
+          const far = it => { const e = it.startDate.clone(); e.day += 60; return e; };
+          const count = it => it ? it.recurrenceInfo.getOccurrenceDates(it.startDate, far(it), 50).length : -1;
+          const all = async () => (await c.getItemsAsArray(Ci.calICalendar.ITEM_FILTER_ALL_ITEMS, 0, null, null)).filter(i => /^Halo Ab Hier/.test(i.title));
+          // eigene Schleife: bis() wartet nicht auf async-Bedingungen
+          const fresh = async (id, cond) => { for (let t = 0; t < 60; t++) { const it = await c.getItem(id); if (it && cond(it)) return it; await wait(100); } return c.getItem(id); };
+          const press = b => (b.doCommand ? b.doCommand() : b.click());
+          const prompt = async () => { const pw = await winUrl("calendar-occurrence-prompt"); if (!pw) return null; await ruhig(600);
+            const pd = pw.document, b = pd.getElementById("accept-allfollowing-button"), r = b.getBoundingClientRect();
+            const cancel = pd.querySelector("dialog").getButton("cancel").getBoundingClientRect();
+            return { pw, b, info: { hooked: !!w.__mcFollowing,  shown: [...pd.querySelectorAll(".occurrence-accept-buttons")].filter(vis).map(x => x.id), vis: vis(b), label: b.label, inWin: r.bottom <= pw.innerHeight && cancel.bottom <= pw.innerHeight - 8 } }; };
+          const out = {};
+          let pw = null, dw = null;
+          try {
+            await toCalendar(); w.switchToView("week"); await ruhig(800);
+            // 1) Löschen ab dem 6. Vorkommen
+            let a = await mk("Halo Ab Hier Loeschen");
+            later(() => w.calendarViewController.deleteOccurrences([occAt(a, 5)], false, false));
+            let p = await prompt(); if (!p) return { prompt: "delete" };
+            pw = p.pw; out.del = p.info; press(p.b); await till(() => pw.closed, 4000);
+            a = await fresh(a.id, it => count(it) != 10);
+            out.delCount = count(a); out.delItems = (await all()).length;
+            // 2) Bearbeiten ab dem 6. Vorkommen: neuer Titel gilt ab dort
+            let b = await mk("Halo Ab Hier Serie");
+            const occ = occAt(b, 5), rid = occ.recurrenceId.clone();
+            later(() => w.modifyEventWithDialog(occ, true));
+            p = await prompt(); if (!p) return { ...out, prompt: "edit" };
+            pw = p.pw; out.edit = p.info; press(p.b); await till(() => pw.closed, 4000);
+            dw = await winUrl("calendar-event-dialog"); if (!dw) return { ...out, dialog: false };
+            const iw = await till(() => { const f = dw.document.getElementById("calendar-item-panel-iframe")?.contentWindow;
+              return f?.document.readyState == "complete" && f.document.getElementById("item-title") && f.gStartTime && f; }, 8000);
+            await ruhig(600);
+            out.dialogStart = iw.gStartTime.compare(rid.getInTimezone(iw.gStartTime.timezone)) == 0;
+            iw.document.getElementById("item-title").value = "Halo Ab Hier Neu";
+            iw.onCommandSave(false);
+            let n = null;
+            for (let t = 0; t < 60 && !n; t++) { n = (await all()).find(i => i.title == "Halo Ab Hier Neu"); if (!n) await wait(100); }
+            b = await fresh(b.id, it => count(it) != 10);
+            out.oldCount = count(b);
+            out.newCount = count(n); out.newId = !!n && n.id != b.id;
+            out.newStart = !!n && n.startDate.compare(rid.getInTimezone(n.startDate.timezone)) == 0;
+            out.lastOld = b ? b.recurrenceInfo.getOccurrenceDates(b.startDate, far(b), 50).at(-1).compare(rid) < 0 : null;
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            // 3) ab dem ersten Vorkommen: ganze Serie
+            const f = await mk("Halo Ab Hier Erstes");
+            later(() => w.calendarViewController.deleteOccurrences([occAt(f, 0)], false, false));
+            p = await prompt(); if (!p) return { ...out, prompt: "first" };
+            pw = p.pw; press(p.b); await till(() => pw.closed, 4000);
+            for (let t = 0; t < 60 && await c.getItem(f.id); t++) await wait(100);
+            out.firstGone = !(await c.getItem(f.id));
+          } finally {
+            for (const x of [pw, dw]) if (x && !x.closed) { x.close(); await till(() => x.closed, 4000); }
+            await ruhig(300);
+            for (const x of await all()) { try { await c.deleteItem(x); } catch {} }
+          }
+          return out;""")
+        ok = (res.get("del", {}).get("vis") and res.get("del", {}).get("inWin") and res.get("delCount") == 5 and res.get("delItems") == 1
+              and res.get("edit", {}).get("vis") and res.get("dialogStart") and res.get("oldCount") == 5 and res.get("newCount") == 5
+              and res.get("newId") and res.get("newStart") and res.get("lastOld") and res.get("firstGone"))
+        return ok, f"{res}"
+    check("Kalender: Vorkommen einer Serie „… und alle zukünftigen“ löschen bzw. bearbeiten teilt die Serie wie Apple Kalender", occurrence_following, results)
+
     def quick_segment():
         # Schnellfenster: gewähltes Segment („Termin“/„Aufgabe“) heller als die Spur – dunkel früher dunkler (#1E1E1E)
         res = m.js(CAL_CHECK_JS + r"""

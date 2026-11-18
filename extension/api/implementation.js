@@ -16682,7 +16682,7 @@ class CardEnhancer {
       for (const f of this.offsetUpdaters || []) {
         try {
           f();
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
       panel.__mcAnimating = true;
     }
@@ -16819,7 +16819,7 @@ class CardEnhancer {
       for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {
         try {
           f();
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Neuanordnung der Toolbar fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
       d.getElementById("agenda")?.dispatchEvent(new w.Event("scroll"));
       onDone?.();
@@ -17679,7 +17679,7 @@ class CardEnhancer {
       let hdrs = [];
       try {
         hdrs = [...(win.gDBView?.getSelectedMsgHdrs() || [])];
-      } catch {}
+      } catch {} // gewollt: ohne Mailliste (z. B. Kontextmenü eines Ordners) gibt es keine gewählten Mails
       const first = hdrs[0];
       const unread = hdrs.some(h => !h.isRead);
       const junk = first?.getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE && hdrs.length == 1;
@@ -17708,7 +17708,7 @@ class CardEnhancer {
         try {
           const thread = first.folder.msgDatabase.getThreadContainingMsgHdr(first);
           reply = thread.numChildren > 1 && thread.getRootHdr().messageKey != first.messageKey;
-        } catch {}
+        } catch {} // gewollt: Mail ohne lesbaren Faden, dann kein Teilfaden
         sub.hidden = !reply;
       }
       open.hidden = !messages || !enabled("cmd_openMessage");
@@ -18011,7 +18011,7 @@ class CardEnhancer {
       await new Promise(r => w.setTimeout(r, 300));
       try {
         w.currentView?.().setSelectedItems([ev]);
-      } catch {}
+      } catch {} // gewollt: Ansicht kann das Element nicht wählen, der Dialog öffnet trotzdem
       w.modifyEventWithDialog?.(ev, true);
     } catch (e) {
       log("alarm open error", String(e).slice(0, 120));
@@ -18195,7 +18195,7 @@ class CardEnhancer {
           if (extra >= 3 && ++passes < 5) {
             dlg.setTimeout(later, 200);
           }
-        } catch {}
+        } catch {} // gewollt: Dialog schon geschlossen, nichts mehr anzupassen
       };
       let queued = false;
       const later = () => {
@@ -18231,7 +18231,7 @@ class CardEnhancer {
     try {
       const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
       version = (await AddonManager.getAddonByID("mail-cards@sebastian.local"))?.version || version;
-    } catch {}
+    } catch {} // gewollt: Version aus dem Manifest genügt für das Feedback
     const osVersion = Services.sysinfo.getProperty("version");
     const os = Services.appinfo.OS == "Darwin" ? `macOS (Darwin ${osVersion})`
       : Services.appinfo.OS == "WINNT" ? `Windows (${osVersion})` : `${Services.appinfo.OS} (${osVersion})`;
@@ -18339,7 +18339,7 @@ class CardEnhancer {
     try {
       const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
       version = (await AddonManager.getAddonByID("mail-cards@sebastian.local"))?.version || version;
-    } catch {}
+    } catch {} // gewollt: Version aus dem Manifest genügt
     const api = {
       german: Services.locale.appLocaleAsBCP47.startsWith("de"),
       version,
@@ -18868,7 +18868,7 @@ class CardEnhancer {
     for (const restore of this.restorers.splice(0)) {
       try {
         restore();
-      } catch {}
+      } catch {} // Kandidat fürs Protokoll: Zurücksetzen beim Entladen fehlgeschlagen (Fenster schon geschlossen ist gewollt)
     }
     this.windows.clear();
     // offenes Info-Fenster schließen: es überlebt sonst ein Update ohne Neustart mit der alten Seite und dem
@@ -18878,7 +18878,7 @@ class CardEnhancer {
       if (win.location?.href.startsWith("resource://mailcards/about/halo.html") && !win.closed) {
         try {
           win.close();
-        } catch {}
+        } catch {} // gewollt: Fenster schließt sich schon
       }
     }
   }
@@ -19140,7 +19140,7 @@ class CardEnhancer {
         let enabled = true;
         try {
           enabled = ctrl ? ctrl.isCommandEnabled(cmd) : true;
-        } catch {}
+        } catch {} // gewollt: Befehl unbekannt, Eintrag bleibt aktiv
         item.disabled = !enabled;
         if (cmd == "cmd_markAsFlagged") {
           item.toggleAttribute("checked", !!mwin.gMessage?.isFlagged);
@@ -19176,7 +19176,7 @@ class CardEnhancer {
       let canMove = !!mwin.gMessage;
       try {
         canMove &&= mwin.commandController?.isCommandEnabled("cmd_moveMessage") ?? true;
-      } catch {}
+      } catch {} // gewollt: Befehle noch nicht bereit, dann zählt nur die angezeigte Mail
       move.disabled = !canMove;
       print.disabled = !mwin.gMessage;
     };
@@ -19411,7 +19411,7 @@ class CardEnhancer {
     try {
       set();
       w.setTimeout(set, 0);
-    } catch {}
+    } catch {} // gewollt: Fenster schon geschlossen, nichts mehr anzuzeigen
   }
 
   // Senden im Hintergrund: Thunderbird legt die Mail in den Postausgang und
@@ -19542,7 +19542,7 @@ class CardEnhancer {
             row?.querySelector(".card-container")?.animate(
               [{ opacity: 0, transform: "translateY(-12px)" }, { opacity: 1, transform: "none" }],
               { duration: 250, easing: "ease-out" });
-          } catch {}
+          } catch {} // gewollt: Einblenden ist nur Zierde, Zeile schon weg
         }, 60);
       },
     };
@@ -19783,7 +19783,7 @@ class CardEnhancer {
         try {
           const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
           base -= Math.round(1.5 * (this.rowCount || 2) * (UIFontSize.size - UIFontSize.osValue));
-        } catch {}
+        } catch {} // gewollt: ohne Schriftgrößen-Modul bleibt die Grundhöhe
       }
       Card.ROW_HEIGHT = Math.max(Math.round((base + extra) * scale), 52);
       this.mcCardHeight = Card.ROW_HEIGHT; // Kontaktkarten im Adressbuch gleich hoch
@@ -20042,7 +20042,7 @@ class CardEnhancer {
         let folder = null;
         try {
           folder = MailServices.folderLookup.getFolderForURL(li.uri);
-        } catch {}
+        } catch {} // gewollt: Zeile ohne gültigen Ordner, dann ohne Ordnerdaten
         const label = li.querySelector(":scope > .container .name");
         const topLevel = li.parentElement?.parentElement === modeLi;
         // der Suchordner ist nur Mittel zum Zweck – nie in der Ordnerliste;
@@ -20188,7 +20188,7 @@ class CardEnhancer {
     const syncActive = () => {
       try {
         setAttr(doc.documentElement, "mc-inactive", Services.focus.activeWindow != top);
-      } catch {}
+      } catch {} // gewollt: Fenster schon geschlossen
     };
     if (top) {
       top.addEventListener("activate", syncActive);
@@ -20245,7 +20245,7 @@ class CardEnhancer {
         }
         try {
           li._setName?.();
-        } catch {}
+        } catch {} // gewollt: Thunderbird setzt den Namen beim nächsten Aufbau selbst
       }
       for (const header of tree.querySelectorAll(":scope > li[data-mode] > .mode-container .mode-name")) {
         doc.l10n?.setAttributes(header, `folder-pane-mode-header-${header.closest("li[data-mode]").dataset.mode}`);
@@ -20367,7 +20367,7 @@ class CardEnhancer {
         const F = Ci.nsMsgFolderFlags;
         return win.gFolder.isSpecialFolder(F.SentMail | F.Drafts | F.Queue | F.Templates, true);
       }
-    } catch {}
+    } catch {} // gewollt: Ordner nicht lesbar, dann entscheidet die Zeile
     return (row.dataset.properties || "").split(" ").includes("outgoing");
   }
 
@@ -20386,7 +20386,7 @@ class CardEnhancer {
     let own = null;
     try {
       own = row.view.getMsgHdrAt(row._index);
-    } catch {}
+    } catch {} // gewollt: Zeile nicht mehr in der Ansicht, dann ohne eigene Mail
     const persons = personsFor(hdr, outgoing);
     const label = persons.map(p => senderLabel(p.name, p.email)).filter(Boolean).join(", ");
     if (own && own != hdr && (own.messageKey != hdr.messageKey || own.folder?.URI != hdr.folder?.URI)) {
@@ -20470,7 +20470,7 @@ class CardEnhancer {
     let root = null;
     try {
       root = MailServices.accounts.localFoldersServer?.rootFolder;
-    } catch {}
+    } catch {} // gewollt: ohne „Lokale Ordner“ kein Merkordner (unten behandelt)
     if (!root) {
       return null;
     }
@@ -20558,7 +20558,7 @@ class CardEnhancer {
     let root = null;
     try {
       root = MailServices.accounts.localFoldersServer?.rootFolder;
-    } catch {}
+    } catch {} // gewollt: ohne „Lokale Ordner“ kein Suchordner (unten behandelt)
     if (!root) {
       return null;
     }
@@ -20656,7 +20656,7 @@ class CardEnhancer {
         let back = null;
         try {
           back = this.searchPrevURI && MailServices.folderLookup.getFolderForURL(this.searchPrevURI);
-        } catch {}
+        } catch {} // gewollt: vorheriger Ordner nicht mehr da, dann zurück zum Standardkonto
         back ??= MailServices.accounts.defaultAccount?.incomingServer?.rootFolder
           ?.getFolderWithFlags(Ci.nsMsgFolderFlags.Inbox);
         if (back) {
@@ -20900,7 +20900,7 @@ class CardEnhancer {
     for (const f of folders) {
       try {
         f.msgDatabase?.refreshCache(searchFolder.URI, []);
-      } catch {}
+      } catch {} // gewollt: Ordner ohne Datenbank, nichts zu leeren
     }
   }
 
@@ -21029,7 +21029,7 @@ class CardEnhancer {
         let entry = null;
         try {
           entry = card.vCardProperties?.getFirstEntry("bday");
-        } catch {}
+        } catch {} // gewollt: Karte ohne lesbare vCard, dann ohne Geburtstag
         const value = String(entry?.value || "");
         const m = value.match(/^(?:(\d{4})|--)-?(\d{2})-?(\d{2})/);
         if (!m) {
@@ -21065,7 +21065,7 @@ class CardEnhancer {
       for (const win of Services.wm.getEnumerator("mail:3pane")) {
         try {
           cal.view.getCompositeCalendar(win).removeCalendar(calendar);
-        } catch {}
+        } catch {} // gewollt: Fenster ohne Kalender oder schon geschlossen
       }
       calendar.deleteProperty("calendar-main-in-composite");
     }
@@ -21388,7 +21388,7 @@ class CardEnhancer {
     let card = null;
     try {
       card = win.frameElement?.classList?.contains("mc-conv-browser") ? win.frameElement.closest(".mc-conv-card") : null;
-    } catch {}
+    } catch {} // gewollt: kein Zugriff auf das Rahmenelement, dann normale Mailansicht
     const X = "http://www.w3.org/1999/xhtml";
     const box = doc.createElementNS(X, "div");
     box.id = "mcHoverActions";
@@ -21439,7 +21439,7 @@ class CardEnhancer {
           } else {
             ok = !!win.commandController?.isCommandEnabled(b.dataset.command);
           }
-        } catch {}
+        } catch {} // gewollt: Befehl nicht prüfbar, Knopf bleibt nutzbar
         b.disabled = !ok;
       }
     };
@@ -21573,7 +21573,7 @@ class CardEnhancer {
     let title = "";
     try {
       title = hdr.folder ? appleFolderTitle(hdr.folder) : "";
-    } catch {}
+    } catch {} // gewollt: Ordner ohne Titel, Kopf ohne Ordnernamen
     // Text in eigenem Element – nur so kürzt ein langer Name mit „…“
     let folderText = folderEl.querySelector(".mc-hdr-folder-text");
     if (!folderText) {
@@ -21591,7 +21591,7 @@ class CardEnhancer {
       if (server && server.type != "none") {
         accColor = accountColor(server.prettyName);
       }
-    } catch {}
+    } catch {} // gewollt: Konto nicht lesbar, dann ohne Farbpunkt
     let accDot = folderEl.querySelector(".mc-hdr-acc");
     if (accColor) {
       if (!accDot) {
@@ -21653,7 +21653,7 @@ class CardEnhancer {
     let junk = false;
     try {
       junk = !!hdr.folder?.getFlag(Ci.nsMsgFolderFlags.Junk);
-    } catch {}
+    } catch {} // gewollt: Ordner nicht lesbar, dann wie kein Spam
     if (!isList || junk) {
       return;
     }
@@ -21709,7 +21709,7 @@ class CardEnhancer {
         try {
           const parsed = MailServices.headerParser.parseDecodedHeader(hdr.mime2DecodedAuthor || hdr.author)[0];
           name = senderLabel(parsed?.name, (parsed?.email || "").toLowerCase());
-        } catch {}
+        } catch {} // gewollt: Absender nicht lesbar, Rückfrage ohne Namen
         // wie Apple Mail erst nachfragen – die Abmeldung geschieht sofort
         // asynchron: ein modaler Dialog hielte sonst die ganze Oberfläche an
         const flags = Services.prompt.BUTTON_POS_0 * Services.prompt.BUTTON_TITLE_IS_STRING +
@@ -21822,7 +21822,7 @@ class CardEnhancer {
       if (hdr.folder?.getFlag(Ci.nsMsgFolderFlags.Junk) || hdr.getStringProperty("junkscore") == "100") {
         return;
       }
-    } catch {}
+    } catch {} // Kandidat fürs Protokoll: Spam-Merkmal nicht lesbar, das Logo wird dann geladen
     this.avatars.resolve(email, { name, messageId: hdr.messageId }).then(show);
   }
 
@@ -22015,7 +22015,7 @@ class CardEnhancer {
           const hdr = this.hdrForRow(row);
           preview.textContent = cleanPreview(hdr?.getStringProperty("preview"));
           this.markSearchHits(win, row);
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Vorschau einer Zeile nicht gesetzt (Zeile schon weg ist gewollt)
       }
     }
   }

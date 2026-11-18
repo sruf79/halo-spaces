@@ -20330,6 +20330,11 @@ Neu
                 Services.prefs.clearUserPref("extensions.mailcards.fifthSpaceIcon"); await ruhig(400);
                 await toMail(); await ruhig(300);
                 out.addon.afterMail = { current: chat.classList.contains("current"), today: shown(d.getElementById("today-pane-panel")) };
+                // gespeicherte Erweiterung fehlt (entfernt): der Platz zeigt die erste vorhandene – wie die Auswahl
+                // in den Einstellungen (vorher blieb er leer, die Auswahl zeigte trotzdem diese Erweiterung)
+                Services.prefs.setStringPref("extensions.mailcards.fifthSpaceAddon", "nicht-installiert"); await ruhig(500);
+                out.addon.missing = { mode: d.documentElement.getAttribute("mc-fifth"), chat: shown(chat), title: chat.title };
+                Services.prefs.setStringPref("extensions.mailcards.fifthSpaceAddon", space.name); await ruhig(300);
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
               }
               // feste Webseite
@@ -20379,6 +20384,7 @@ Neu
               and a.get("heights") == before and a.get("tab") and a.get("url") and a.get("pageTitle") == "Testbereich"
               and a.get("current") and not a.get("today") and not a["afterMail"]["current"]
               and a.get("shadow")
+              and a.get("missing") == {"mode": "addon", "chat": True, "title": "Halo Testbereich"}
               and wb.get("title") == "127.0.0.1" and wb.get("mask") and wb.get("tab") and wb.get("group") == "single-site"
               and wb.get("current") and wb.get("reused") == 1
               and wb.get("pinned") == "hidden" and not wb.get("search") and wb.get("toggle", -1) > 0 and abs(wb.get("toggle", 0) - wb.get("mailToggle", 0)) <= 1

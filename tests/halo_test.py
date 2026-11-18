@@ -20328,7 +20328,7 @@ Neu
           const settings = { mac: true, darkReader: true, fullConversation: true, unreadTint: false, undoSend: 10, senderLogos: true,
             macContactPhotos: false, darkMessages: true, plainTextSystemFont: true, calendarEmoji: true,
             emojiCustom: "", weather: false, weatherPlace: "", calendarOffline: false, fifthSpace: "chat", fifthSpaceAddon: "",
-            fifthSpaceUrl: "", fifthSpaceAddons: [], earlyTheme: false, sidebarGlow: true, debug: false,
+            fifthSpaceUrl: "", fifthSpaceAddons: [], earlyTheme: false, sidebarGlow: true, hideSpacesToolbar: false, debug: false,
             weatherStatus: "Location access is off.", weatherTone: "warn", weatherLink: true, weatherRecent: [{ label: "Graz, Österreich", lat: 47.07, lon: 15.44 }] };
           const obs = { observe(doc) {
             if (!doc.location?.href.startsWith("resource://mailcards/options/options.html")) return;
@@ -20359,6 +20359,11 @@ Neu
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
                         "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
+            const hideSpaces = od.getElementById("s-hideSpacesToolbar");
+            out.hideSpaces = { shown: shown("hideSpacesToolbar"), checked: hideSpaces?.checked,
+              hint: od.querySelector("#row-hideSpacesToolbar .hint")?.textContent };
+            hideSpaces?.click();
+            out.hideSpaces.saved = saved.filter(e => e[0] == "hideSpacesToolbar");
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -20396,6 +20401,8 @@ Neu
               and st.get("bare") == [] and st["empty"] == 0
               and ("Spaces" not in st["heads"] or st.get("glow"))
               and st.get("removed") == [] and "Updates" not in st["heads"]
+              and res.get("hideSpaces") == {"shown": True, "checked": False, "saved": [["hideSpacesToolbar", True]],
+                                            "hint": "Only turn this on if you want to hide the switcher. You can still cycle through open tabs with Ctrl+Tab."}
               and res.get("tsKeys") == ["calendarOffline", "spacesOrderReset", "debug"]
               and res.get("reset") == {"tag": "button", "text": "Reset", "saved": [["spacesOrderReset", True]]}
               and res["weatherOn"] and not res["emojiOff"]
@@ -22774,6 +22781,54 @@ Neu
         return ok, f"{res}"
     check("Seitenleiste wie Dia 2/4: ein Knopf und eine Animation für Bereiche-Leiste und linke Leiste, Umkehr, Bereichswechsel, "
           "Thunderbirds Wege ziehen mit, Zustand gespeichert, Übernahme der alten Zustände", sidebar_column_toggle, results)
+
+    def hide_spaces_toolbar():
+        pref = "extensions.mailcards.hideSpacesToolbar"
+        bar = 'd.getElementById("spacesToolbar").getBoundingClientRect().width'
+        pane = 'd.getElementById("calSidebar")'
+        out = {}
+        try:
+            out["default"] = m.js(f'await toMail(); return [Services.prefs.getBoolPref("{pref}", false), {bar} > 0];')
+            out["calendar"] = m.js(f"""
+              await toCalendar();
+              Services.prefs.setBoolPref("{pref}", true);
+              await bis(() => {bar} == 0, "Bereiche-Leiste weg");
+              return [{pane}.getBoundingClientRect().width > 0,
+                      parseFloat(getComputedStyle(d.getElementById("messengerBody")).marginInlineStart)];""")
+            m.js('await toMail(); tm.currentAbout3Pane.threadTree.focus(); return true;')
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": "\uE009"}, {"type": "keyDown", "value": "\uE004"},
+                {"type": "keyUp", "value": "\uE004"}, {"type": "keyUp", "value": "\uE009"}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+            out["ctrlTab"] = m.js(f"""
+              await bis(() => tm.currentTabInfo != tm.tabInfo[0], "Strg+Tab wechselt Tab");
+              return {bar} == 0;""")
+            m.js("""
+              await toCalendar();
+              d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "Seitenleiste ausgeblendet");
+              return true;""")
+            for x in (400, 1):
+                m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus",
+                    "parameters": {"pointerType": "mouse"},
+                    "actions": [{"type": "pointerMove", "x": x, "y": 420, "origin": "viewport", "duration": 30}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+            out["floating"] = m.js(f"""
+              await bis(() => w.__mcSideFloatState() == "on", "Kalenderliste schwebt");
+              return [{bar} == 0, Math.round({pane}.getBoundingClientRect().left)];""")
+        finally:
+            out["restored"] = m.js(f"""
+              Services.prefs.clearUserPref("{pref}");
+              await toMail();
+              if (w.gSpacesToolbar.isHidden) {{
+                d.getElementById("spacesPinnedButton").click();
+                await bis(() => !w.__mcSpacesAnimating && !w.gSpacesToolbar.isHidden, "Seitenleiste wieder sichtbar");
+              }}
+              return {bar} > 0;""")
+        return out == {"default": [False, True], "calendar": [True, 0], "ctrlTab": True,
+                       "floating": [True, 3], "restored": True}, f"{out}"
+    check("Bereiche-Leiste ausblenden: standardmäßig aus, Kalenderliste bleibt sichtbar und schwebt allein, "
+          "Strg+Tab wechselt offene Tabs, Abschalten stellt die Leiste wieder her", hide_spaces_toolbar, results)
 
     def sidebar_key():
         # ⌃⌘S blendet die Seitenleiste aus und wieder ein wie der Knopf (wie Apple Mail; GitHub #56) – nur macOS;

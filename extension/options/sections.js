@@ -46,6 +46,8 @@ var SECTIONS = t => [
   ]],
   // der fünfte Platz der Bereichsleiste (Chat, Erweiterung, Webseite, nichts) steht in den Einstellungen unter „Chat & More“
   [t("Spaces"), [
+    { key: "hideSpacesToolbar", label: t("Hide the sidebar tab switcher"),
+      hint: t("Only turn this on if you want to hide the switcher. You can still cycle through open tabs with Ctrl+Tab.") },
     { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
       info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
   ]],

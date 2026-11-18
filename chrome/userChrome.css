@@ -3089,7 +3089,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
      ließ Thunderbird beim Ein-/Ausblenden den Stil aller ~3000 Elemente des
      Fensters neu rechnen, 15–25 ms im Klick – das erste Bild kam spät; die
      Werte braucht nur die Zeile mit Seitenleisten-Knopf und Ampel-Fläche) */
-  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer {
+  :root:not([mc-hide-spaces]) #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer {
     --mc-tl-reserve: 12px;
   }
 
@@ -3105,7 +3105,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
     --mc-tl-flow: 84px;
   }
 
-  #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer,
+  :root:not([mc-hide-spaces]) #spacesToolbar:not([hidden], [mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer,
   :root[sizemode="fullscreen"] {
     --mc-tl-flow: 0px;
   }
@@ -3163,11 +3163,13 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
    (ausgeblendet, aber aufgebaut: implementation.js hookSpacesToggle) ist
    unsichtbar und nimmt keinen Platz */
 #spacesToolbar:is([mc-float], [mc-ruht]) ~ #messengerBody,
-#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #titlebar {
+#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #titlebar,
+:root[mc-hide-spaces] :is(#messengerBody, #navigation-toolbox #titlebar) {
   margin-inline-start: 0 !important;
 }
 
-#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer {
+#spacesToolbar:is([mc-float], [mc-ruht]) ~ #navigation-toolbox #unifiedToolbarContainer,
+:root[mc-hide-spaces] #unifiedToolbarContainer {
   inline-size: auto !important;
 }
 
@@ -3181,6 +3183,23 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
    Ein-/Ausblenden den Stil des ganzen Fensters neu rechnen) */
 :root:not([spacestoolbar]) in-app-notification-manager {
   --in-app-notification-offset-inline: var(--in-app-notification-window-padding);
+}
+
+/* Die Einstellung blendet nur den Bereichswechsler aus, auch beim Schweben.
+   Thunderbirds gespeicherter Zustand steuert weiterhin die linke Seitenleiste. */
+:root[mc-hide-spaces] {
+  --mc-spaces-w: 0px;
+}
+
+:root[mc-hide-spaces] #spacesToolbar {
+  display: none !important;
+}
+
+@media (-moz-platform: macos) {
+  :root[mc-hide-spaces] #unifiedToolbarContainer {
+    --mc-tl-reserve: 84px !important;
+    --mc-tl-flow: 84px !important;
+  }
 }
 
 @media (-moz-platform: macos) {

@@ -94,6 +94,7 @@ const TOOLBAR_PREF = "extensions.mailcards.toolbarApplied";
 const PREVIEW_PREF = "extensions.mailcards.previewLines";
 // Lichtschein und gefärbte Trennlinie in der Seitenleiste (Maintainer 13.11.2026), Standard an
 const GLOW_PREF = "extensions.mailcards.sidebarGlow";
+const HIDE_SPACES_TOOLBAR_PREF = "extensions.mailcards.hideSpacesToolbar";
 // Filter über der Mailliste wie Apple Mail: Klick schaltet ihn ein, Halten
 // oder Rechtsklick wählt die Bedingungen (alle müssen zutreffen); Schlüssel
 // sind Thunderbirds Schnellfilter, Standard „Ungelesen“
@@ -11875,6 +11876,7 @@ class CardEnhancer {
       }
       const H = w.innerHeight;
       const I = FLOAT_INSET;
+      const spacesWidth = d.documentElement.hasAttribute("mc-hide-spaces") ? 0 : FLOAT_SPACES;
       let W = 0, topH = 0, bottomH = 0;
       if (el) {
         const off = el.ownerDocument == d ? { left: 0, top: 0 } : win.browsingContext.embedderElement.getBoundingClientRect();
@@ -11890,7 +11892,7 @@ class CardEnhancer {
           bottomH = Math.max(0, Math.round(H - I - (off.top + bottom)));
           const R = "var(--mt-float-radius)";
           const vals = {
-            "--mc-float-left": `${Math.round(I + FLOAT_SPACES - off.left)}px`,
+            "--mc-float-left": `${Math.round(I + spacesWidth - off.left)}px`,
             "--mc-float-top": `${Math.round(top)}px`,
             "--mc-float-h": `${Math.round(bottom - top)}px`,
             "--mc-float-w": `${W}px`,
@@ -11905,13 +11907,16 @@ class CardEnhancer {
           el.classList.add("mc-float-pane");
         }
       }
+      if (!spacesWidth && !el) {
+        return;
+      }
       bar.style.setProperty("--mc-float-w", `${W}px`);
       bar.style.setProperty("--mc-float-top", `${topH}px`);
       bar.style.setProperty("--mc-float-bottom", `${bottomH}px`);
       w.__mcSideFloat = true;
       bar.setAttribute("mc-float", "true");
       bar.hidden = false;
-      const right = I + FLOAT_SPACES + W;
+      const right = I + spacesWidth + W;
       // Fläche rechts der Leiste: Zeiger weiter als FLOAT_KEEP weg oder Klick → weg
       const catcher = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
       catcher.id = "mcSideCatch";
@@ -14483,6 +14488,25 @@ class CardEnhancer {
       });
     };
 
+    const root = w.document.documentElement;
+    const updateSpacesVisibility = () => {
+      sideFloat.end?.(false);
+      root.toggleAttribute("mc-hide-spaces", Services.prefs.getBoolPref(HIDE_SPACES_TOOLBAR_PREF, false));
+      updateSideEdge();
+      placeSideGrip();
+    };
+    Services.prefs.addObserver(HIDE_SPACES_TOOLBAR_PREF, updateSpacesVisibility);
+    const stopWatchingSpaces = () => Services.prefs.removeObserver(HIDE_SPACES_TOOLBAR_PREF, updateSpacesVisibility);
+    w.addEventListener("unload", stopWatchingSpaces, { once: true });
+    this.addWinRestorer(w, () => {
+      stopWatchingSpaces();
+      w.removeEventListener("unload", stopWatchingSpaces);
+      root.removeAttribute("mc-hide-spaces");
+    });
+    if (Services.prefs.getBoolPref(HIDE_SPACES_TOOLBAR_PREF, false)) {
+      updateSpacesVisibility();
+    }
+
     const scan = () => {
       this.styleSearch(w); // vor markTab, damit der Platzhalter des Bereichs gleich gilt
       markTab();
@@ -14634,6 +14658,7 @@ for (const teil of [EnhancerOberflaeche, EnhancerKalender, EnhancerHaloFenster, 
 // (Vorschauzeilen: Menü Ansicht, Geburtstage: Häkchen in der Kalenderliste)
 const SETTINGS = {
   unreadTint: [UNREAD_TINT_PREF, "bool", false],
+  hideSpacesToolbar: [HIDE_SPACES_TOOLBAR_PREF, "bool", false],
   sidebarGlow: [GLOW_PREF, "bool", true],
   earlyTheme: [EARLY_THEME_PREF, "bool", false],
   composeFormatBar: [COMPOSE_FORMAT_PREF, "bool", false],

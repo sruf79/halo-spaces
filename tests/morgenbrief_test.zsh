@@ -66,7 +66,7 @@ VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
 # lauf <Jetzt> [<Ausgabe>]  (weitere Umgebung wie HALO_PAUSEN_DATEI/HALO_VOLLDAMPF_DATEI vom Aufrufer)
 lauf() {
   HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
-  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
+  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
@@ -129,6 +129,10 @@ A=$(HALO_MB_WINDOWS=success lauf 2026-11-15T08:30:00+01:00 $T/w.md)
 pruefe "Sonntag ohne Auffälligkeit: Bericht geschrieben, keine Meldung" '[[ -s $T/w.md ]] && print -r -- $A | grep -q "Bericht ja, keine Meldung" && ! print -r -- $A | grep -q "^TROCKEN: push"'
 pruefe "Sonntag: Heute von dir nichts nötig, Tests grün" 'grep -q "^- \*\*Heute von dir:\*\* nichts nötig." $T/w.md && grep -q "^- \*\*Tests:\*\* alles grün." $T/w.md'
 A=$(lauf $MO "")
+# Board nach Release (tests/board-nach-release.zsh): Zweifelsfälle seit dem letzten Brief als Info-Zeile, ältere nicht
+print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Alt | Teil-Fix" "- 2026-11-15 21:10 | v3.27.1 | PVTI_neu | Neu | Status Todo trotz Commit im Release" > $T/zweifel.md
+HALO_BNR_ZWEIFEL=$T/zweifel.md lauf $MO $T/z.md >/dev/null
+pruefe "Board nach Release: nur neue Zweifelsfälle gezählt" 'grep -q "Board nach Release: 1 Einträge nicht automatisch geschlossen" $T/z.md && ! grep -q "Board nach Release" $T/b.md'
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
 pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
 

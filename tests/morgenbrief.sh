@@ -35,7 +35,7 @@ export HALO_LAUF=morgenbrief
 # HALO_KONTINGENT_5H (Prozent); HALO_MB_RELEASES und HALO_MB_CI (JSON-Dateien wie `gh release list
 # --json tagName,publishedAt` bzw. `gh run list --json databaseId,headSha,status,conclusion,event,createdAt`);
 # HALO_MB_WINDOWS=success|failure|cancelled|läuft|keiner (Ergebnis des Jobs „windows“); HALO_MB_BOARD (JSON wie
-# `board.sh export`), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
+# `board.sh export`), HALO_BNR_ZWEIFEL (Zweifel-Liste von board-nach-release.zsh), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
 # schreiben (sonst schreibt der Trockenlauf keinen Bericht).
 emulate -L zsh
 setopt extendedglob
@@ -183,6 +183,13 @@ done
 ina=(${(u)${(f)"$(awk -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
   '$3 == "geschlossen" { z = $1 " " substr($2, 1, 5); if (z > s && z <= j) print $4 }' $NACHT/inaktivitaet.log 2>/dev/null)"}})
 (( $#ina )) && INFO+=("GitHub: geschlossen wegen Inaktivität: ${(j:, :)ina}")
+
+# --- 4b. Board nach Release: Zweifelsfälle seit dem letzten Brief (tests/board-nach-release.zsh, Maintainer 18.11.2026):
+# Zeilen „- <Datum> <Zeit> | v<Version> | <id> | <Titel> | <Grund>“, nichts geschlossen, der Maintainer entscheidet
+bnr=$(awk -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  '/^- [0-9-]+ [0-9:]+ [|]/ { z = $2 " " $3; if (z > s && z <= j) n++ } END { print n + 0 }' \
+  ${HALO_BNR_ZWEIFEL:-$HOME/halo-aufgaben/board-nach-release-zweifel.md} 2>/dev/null)
+(( bnr )) && INFO+=("Board nach Release: $bnr Einträge nicht automatisch geschlossen (Zweifel, ~/halo-aufgaben/board-nach-release-zweifel.md)")
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---
 if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)

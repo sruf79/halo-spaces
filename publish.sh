@@ -12,6 +12,7 @@
 # Entscheidung des Maintainers vom 7.11.2026). Fehler dabei nur melden, nie zurückrollen.
 # Danach freigegebene Pull Requests schließen (tests/pr-schliessen.sh, nur Einträge aus
 # tests/pr-freigaben.txt; Entscheidung vom 9.11.2026). Fehler ebenso nur melden.
+# Zuletzt das Board: Einträge, deren Commits im Release stecken, auf Done (tests/board-nach-release.zsh, 18.11.2026).
 #   ./publish.sh --trocken 3.21.0   nur diese Schritte proben (vorheriges Tag..v3.21.0), nichts schließen
 set -e
 ROOT="${0:A:h}"
@@ -37,6 +38,8 @@ if [[ "$1" == --trocken ]]; then
   issues_schliessen "$2" --trocken || RC=$?
   echo "Pull Requests (Freigabeliste):"
   HALO_REPO="$ROOT" zsh "$ROOT/tests/pr-schliessen.sh" "$2" --trocken || RC=1
+  echo "Board (tests/board-nach-release.zsh --probe):"
+  HALO_REPO="$ROOT" zsh "$ROOT/tests/board-nach-release.zsh" --probe "$2" || RC=1
   exit $RC
 fi
 VERSION="$1"
@@ -206,4 +209,12 @@ else
   echo "FEHLER: Pull Requests aus tests/pr-freigaben.txt ließen sich nicht (alle) schließen – von Hand nachholen"
   STATUS+=("FEHLER bei den Pull Requests der Freigabeliste (von Hand nachholen): $(echo "$PRS" | tr '\n' ';' | sed 's/;$//; s/;/; /g')")
 fi
+
+# Board: offene Einträge, deren Commits in diesem Release stecken, auf Done setzen und archivieren
+# (tests/board-nach-release.zsh, Maintainer 18.11.2026); Zweifelsfälle nach ~/halo-aufgaben/board-nach-release-zweifel.md.
+# Hält das Release nie auf; Probleme meldet das Skript selbst an neon (im Bericht ohne das Wort FEHLER, sonst hielte
+# der Morgenbrief das Release für gescheitert)
+BNR=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/board-nach-release.zsh" "$VERSION" 2>&1) || true
+echo "$BNR"
+STATUS+=("$(echo "${BNR:-Board nach Release: keine Ausgabe}" | tail -1 | sed 's/FEHLER/Fehler/g')")
 exit 0

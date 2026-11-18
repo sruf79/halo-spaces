@@ -199,6 +199,30 @@ const Weather = {
   enabled() {
     return Services.prefs.getBoolPref(WEATHER_PREF, false);
   },
+  // Einheit der Temperatur nach der Region des Systems, keine eigene Option:
+  // Fahrenheit in den Regionen, für die Unicode (CLDR, Wetter) sie vorsieht,
+  // sonst Celsius; eine ausdrückliche Wahl im Gebietsschema (-u-mu-…) geht vor
+  tempUnit(locale = regionLocale()) {
+    const tag = String(locale || "");
+    const mu = /-u(?:-[a-z0-9]{2,8})*?-mu-(celsius|fahrenhe)\b/i.exec(tag);
+    if (mu) {
+      return mu[1].toLowerCase() == "celsius" ? "C" : "F";
+    }
+    let region = "";
+    try {
+      region = new Intl.Locale(tag).maximize().region || "";
+    } catch {
+      // ungültiges Gebietsschema: Celsius
+    }
+    return ["US", "BS", "BZ", "KY", "PR", "PW"].includes(region) ? "F" : "C";
+  },
+  // Temperatur aus Open-Meteo (immer Celsius) als „12 °C“ bzw. „54 °F“
+  tempText(celsius, locale = regionLocale()) {
+    if (celsius == null || !Number.isFinite(Number(celsius))) {
+      return "";
+    }
+    return this.tempUnit(locale) == "F" ? `${Math.round(celsius * 9 / 5 + 32)} °F` : `${Math.round(celsius)} °C`;
+  },
   // WMO-Wettercode → Symbol
   kind(code, isDay) {
     if (code <= 1) return isDay ? "clear-day" : "clear-night";
@@ -273,7 +297,7 @@ const Weather = {
       return { tone: "", text: "" };
     }
     if (st.status == "ok" && st.kind) {
-      const temp = st.temp != null ? `${Math.round(st.temp)} °C, ` : "";
+      const temp = this.tempText(st.temp) ? `${this.tempText(st.temp)}, ` : "";
       return { tone: "ok", text: `${st.place || tr("Current Location")} · ${temp}${tr(WEATHER_WORDS[st.kind] || "Clear")}` };
     }
     if (st.status == "denied") {

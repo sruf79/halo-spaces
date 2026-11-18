@@ -7585,13 +7585,18 @@ def calendar_checks(m, results):
               const body = url.includes("geocoding") ? { results: [{ name: "Wien", country: "Österreich", latitude: 48.20849, longitude: 16.37208 }] }
                 : { current: { weather_code: 61, is_day: 1, temperature_2m: 12.3 } };
               return { ok: true, status: 200, text: async () => JSON.stringify(body) }; };
-            globalThis.__mcRealLocate = Weather.locate; Weather.locate = async () => ({ error: "denied" });`, g);
+            globalThis.__mcRealLocate = Weather.locate; Weather.locate = async () => ({ error: "denied" });
+            globalThis.__mcRealRegion = regionLocale; regionLocale = () => "de-AT";`, g);
           try {
             await api.setSetting("weatherPlace", "Wien"); await api.setSetting("weather", true); await ruhig(400);
             const st = await api.getSettings();
             const icon = d.getElementById("mcTodayWeather");
             out.city = { attr: title.dataset.weather, tip: title.getAttribute("title"), iconTip: icon?.getAttribute("title"), status: st.weatherStatus,
                          mask: icon ? w.getComputedStyle(icon).maskImage.slice(0, 80) : "", urls: Cu.evalInSandbox("JSON.stringify(__mcUrls)", g) };
+            // Region des Systems USA → Fahrenheit (Open-Meteo liefert Celsius), ohne eigene Option
+            Cu.evalInSandbox(`regionLocale = () => "en-US"; Weather.show();`, g);
+            out.city.tipUS = icon?.getAttribute("title");
+            Cu.evalInSandbox(`regionLocale = () => "de-AT"; Weather.show();`, g);
             await api.setSetting("weatherPlace", ""); await ruhig(400);
             out.city.icon = shown();
             const ls = await api.getSettings();
@@ -7611,7 +7616,7 @@ def calendar_checks(m, results):
             const real = await Promise.race([Cu.waiveXrays(Cu.evalInSandbox("Weather.locateGecko(null)", g)).then(r => JSON.parse(JSON.stringify(r))), wait(25000).then(() => "hängt")]);
             out.realLocate = { answered: real != "hängt" && (real.error || Number.isFinite(real.lat)) ? true : real, ms: Date.now() - t0 };
           } finally {
-            Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate;", g);
+            Cu.evalInSandbox("fetchWithTimeout = __mcRealFetch; Weather.locate = __mcRealLocate; regionLocale = __mcRealRegion;", g);
             for (const p of ["weather", "weatherPlace", "weatherState"]) Services.prefs.clearUserPref("extensions.mailcards." + p);
           }
           return out;""" % ADDON_ID)
@@ -7619,6 +7624,7 @@ def calendar_checks(m, results):
         urls = json.loads(c.get("urls") or "[]")
         ok = (res["start"] == {"attr": None, "setting": False, "icon": False} and c.get("icon") is True and l.get("icon") is True and o.get("icon") is False
               and c.get("attr") == "rain" and c.get("tip") == "Go to Today" and c.get("iconTip") == "Wien, Österreich · 12 °C, Rain" and c.get("status") == c.get("iconTip")
+              and c.get("tipUS") == "Wien, Österreich · 54 °F, Rain"
               and "weather/rain.svg" in c.get("mask", "") and any("latitude=48.21&longitude=16.37" in u for u in urls)
               and l.get("attr") is None and l.get("status") == "Location access is off." and l.get("tone") == "warn"
               and l.get("link") is (sys.platform in ("darwin", "win32")) and l.get("iconTip") == l.get("status")
@@ -7626,7 +7632,7 @@ def calendar_checks(m, results):
               and (res.get("realLocate") or {}).get("answered") is True
               and o.get("attr") is None and o.get("tip") == "Go to Today" and o.get("iconTip") is None)
         return ok, f"{res}"
-    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis mit Link (auch im Tooltip), gewählte Orte im Menü, Standortdienst antwortet, aus → kein Symbol neben dem Titel", today_weather, results)
+    check("Today-Pane: Wetter (Option) – Stadt → Symbol, Temperatur (Region USA in Fahrenheit) und Zustand im Tooltip des Symbols (Titel: „Go to Today“), Standort verweigert → Hinweis mit Link (auch im Tooltip), gewählte Orte im Menü, Standortdienst antwortet, aus → kein Symbol neben dem Titel", today_weather, results)
 
     def agenda_days():
         # Today-Pane: Tagesspalte (ca. 38 px) eines Tags mit nur einem Eintrag ragte bis auf 2–6 px an den nächsten Tag

@@ -1048,9 +1048,18 @@ function hookPrefCategories(cw, restorers = null) {
         doc.getElementById("no-results-message")?.setAttribute("hidden", "true");
       } catch {} // gewollt: Suchanzeige der Einstellungen schon weg
       cw.gotoPref(HALO_PANE);
+      // Die Seite gibt es oft schon, bevor „Show“ kommt: Thunderbirds Suche legt
+      // alle Kategorien an (auch unsere, dann ohne Sprungziel). Hat ihr Laden
+      // begonnen, wird sie mit dem Sprungziel (neu) geladen – auch wenn die erste
+      // Adresse noch nicht angekommen ist (vorher ging „Show“ in diesem Moment
+      // verloren); davor nimmt loadOptionsPane das Sprungziel selbst mit
       const frame = haloBox.querySelector("browser");
-      if (frame?.currentURI?.spec.startsWith(extensionBaseURL)) {
-        frame.fixupAndLoadURIString(`${extensionBaseURL}options/options.html?in=prefs#s-${key}`,
+      if (frame && haloBox.__mcLoadStarted) {
+        // derselbe Anker noch einmal löst kein hashchange aus (Gecko springt nur im
+        // Dokument) – beim zweiten „Show“ für dieselbe Option deshalb mit „~“ abwechseln
+        const hash = haloBox.__mcHash == `s-${key}` ? `s-${key}~` : `s-${key}`;
+        haloBox.__mcHash = hash;
+        frame.fixupAndLoadURIString(`${extensionBaseURL}options/options.html?in=prefs#${hash}`,
           { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
       }
     };
@@ -7259,7 +7268,8 @@ function loadOptionsPane(cw, box) {
   const { E10SUtils } = ChromeUtils.importESModule("resource://gre/modules/E10SUtils.sys.mjs");
   // ?in=prefs: Seite gestaltet sich wie die übrigen Kategorien der Einstellungen;
   // #s-<key>: aus der Suche gewählte Option zeigen
-  const url = extensionBaseURL + "options/options.html?in=prefs" + (box.__mcFocus ? `#s-${box.__mcFocus}` : "");
+  // (das Sprungziel wird erst beim Laden gelesen: „Show“ kann zwischen Anlegen und Laden kommen)
+  const url = extensionBaseURL + "options/options.html?in=prefs";
   const browserEl = doc.createXULElement("browser");
   browserEl.className = "mc-embed-frame";
   for (const [k, v] of [["type", "content"], ["disableglobalhistory", "true"], ["messagemanagergroup", "webext-browsers"],
@@ -7287,7 +7297,10 @@ function loadOptionsPane(cw, box) {
     ExtensionParent.apiManager.emit("extension-browser-inserted", browserEl);
     mm.loadFrameScript("chrome://extensions/content/ext-browser-content.js", false, true);
     mm.sendAsyncMessage("Extension:InitBrowser", { fixedWidth: false, isInline: true });
-    browserEl.fixupAndLoadURIString(url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+    box.__mcHash = box.__mcFocus ? `s-${box.__mcFocus}` : "";
+    box.__mcLoadStarted = true;
+    browserEl.fixupAndLoadURIString(url + (box.__mcHash ? `#${box.__mcHash}` : ""),
+      { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
   }).catch(e => log("halo pane error", e));
 }
 

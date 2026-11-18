@@ -20914,6 +20914,104 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Suche bleibt stehen, wenn Thunderbirds verspätete Wahl der Startseite nach dem Tippen ankommt", pref_search_late_start, results)
 
+    def pref_halo_search_again():
+        # „Show“ zweimal für dieselbe Option (dazwischen weggescrollt, Hervorhebung vorbei): auch beim zweiten Mal zeigt die
+        # Seite die Option und hebt sie hervor (vorher lud halo.spaces dieselbe Adresse mit demselben Anker – Gecko springt
+        # dann nur im Dokument, ohne hashchange, die Seite reagierte nicht)
+        res = m.js(PREFS_OPEN_JS + r"""
+          const input = pd.getElementById("searchInput");
+          const fire = q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true })); };
+          const showLogos = async () => {
+            const hit = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.hidden && !e.classList.contains("visually-hidden")
+              && e.getBoundingClientRect().height > 0 && e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites");
+            fire("logos");
+            if (!await until(hit, 6000)) { fire(""); await ruhig(300); fire("logos"); }
+            (await bis(hit, "Treffer „Logos from sender websites“", 10000)).querySelector(".mc-halo-found-show").click();
+            const got = await until(() => { const x = pd.querySelector("#mcPane-paneMcHalo > browser"); return pd.getElementById("categories").selectedItem?.value == "paneMcHalo"
+              && x?.currentURI?.ref.startsWith("s-senderLogos") && x.messageManager && x; }, 6000);
+            // (bei Zeitüberschreitung den Zustand mitgeben: Kategorie, Adresse der Seite)
+            if (!got) { const x = pd.querySelector("#mcPane-paneMcHalo > browser");
+              throw new Error("Zeitüberschreitung nach 6000 ms: halo.spaces bei der Option – " + JSON.stringify({ sel: pd.getElementById("categories").selectedItem?.value,
+                last: pw.gLastCategory.category, frame: !!x, uri: x?.currentURI?.spec.replace(/^.*\/options\//, ""), skipped: !!pw.gotoPref.__mcSkipped })); }
+            return got;
+          };
+          // die Seite läuft im Prozess der Erweiterung: Zeile per Frame-Skript lesen (wartet bis 3 s auf die Hervorhebung);
+          // reset nimmt die Hervorhebung weg und scrollt nach oben wie ein Nutzer, der weitergelesen hat
+          const read = (b, reset) => new Promise(res => {
+            const mm = b.messageManager, key = "mc:test-show-" + Math.random();
+            mm.addMessageListener(key, msg => res(msg.data));
+            mm.loadFrameScript("data:," + encodeURIComponent(`(() => { let n = 0; const f = () => { const d = content.document, r = d.getElementById("row-senderLogos");
+              if (r && (r.classList.contains("found") || ++n > 15)) { const box = r.getBoundingClientRect(), found = r.classList.contains("found");
+                if (${reset}) { r.classList.remove("found"); content.scrollTo(0, 0); d.scrollingElement && (d.scrollingElement.scrollTop = 0); }
+                sendAsyncMessage("${key}", { found, inView: box.height > 0 && box.top >= 0 && box.bottom <= content.innerHeight, hash: content.location.hash });
+              } else content.setTimeout(f, 200); }; f(); })()`), false);
+            w.setTimeout(() => res("timeout"), 8000);
+          });
+          const out = {};
+          try {
+            out.first = await read(await showLogos(), true);
+            out.reset = await read(pd.querySelector("#mcPane-paneMcHalo > browser"), false);
+            out.second = await read(await showLogos(), false);
+          } finally {
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }
+          return out;""")
+        f, r, s = res.get("first") or {}, res.get("reset") or {}, res.get("second") or {}
+        ok = f.get("found") is True and f.get("inView") is True and r.get("found") is False and s.get("found") is True and s.get("inView") is True
+        return ok, f"{res}"
+    check("Einstellungen: „Show“ für dieselbe Option ein zweites Mal zeigt sie wieder und hebt sie hervor", pref_halo_search_again, results)
+
+    def pref_halo_show_early():
+        # „Show“ kommt, während die halo.spaces-Seite schon angelegt, aber noch nicht geladen ist (Thunderbirds Suche legt
+        # alle Kategorien an, auch unsere – dann ohne Sprungziel): die Option wird trotzdem gezeigt. Vorher ging der Klick
+        # in diesem Moment verloren (Linux-CI: Zeitüberschreitung „halo.spaces bei der Option“). Nachgestellt ohne Wettlauf:
+        # Kategorie anlegen und im selben Zug „Show“ klicken; war die Seite schon da (Leerlauf-Aufruf von Thunderbird),
+        # neuer Tab (bis zu 5 Versuche)
+        res = m.js(r"""
+          w.resizeTo(1500, 900); await wait(400);
+          const out = { tries: [] };
+          for (let i = 0; i < 5 && !out.state; i++) {
+            w.openPreferencesTab("paneGeneral");
+            try {
+              const pw = await bis(() => tm.currentTabInfo.browser?.contentWindow?.document.getElementById("paneDeck") && tm.currentTabInfo.browser.contentWindow, "Einstellungen", 8000);
+              const pd = pw.document;
+              const btn = await bis(() => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites")
+                ?.querySelector(".mc-halo-found-show"), "Trefferzeile „Logos from sender websites“", 8000);
+              const box = pd.getElementById("mcPane-paneMcHalo");
+              const before = box.querySelector("browser")?.currentURI?.spec || "";
+              if (before.includes("options.html")) { out.tries.push("schon geladen"); continue; }
+              // anlegen wie Thunderbirds Suche (ohne Sprungziel), sofort klicken
+              const created = !!box.firstChild;
+              if (!created) pw.init_category_if_required("paneMcHalo");
+              const atClick = box.querySelector("browser")?.currentURI?.spec || null;
+              btn.click();
+              out.tries.push(created ? "lädt gerade" : "eben angelegt");
+              const x = await until(() => { const f = box.querySelector("browser"); return pd.getElementById("categories").selectedItem?.value == "paneMcHalo"
+                && f?.currentURI?.ref.startsWith("s-senderLogos") && f.messageManager && f; }, 6000);
+              const f = box.querySelector("browser");
+              out.state = { atClick, cat: pd.getElementById("categories").selectedItem?.value, url: (f?.currentURI?.spec || "").replace(/^.*\/options\//, "") };
+              if (x) {
+                out.row = await new Promise(res => {
+                  const mm = x.messageManager, key = "mc:test-early-" + Math.random();
+                  mm.addMessageListener(key, msg => res(msg.data));
+                  mm.loadFrameScript("data:," + encodeURIComponent(`(() => { let n = 0; const f = () => { const d = content.document, r = d.getElementById("row-senderLogos");
+                    if (r && (r.classList.contains("found") || ++n > 15)) { const box = r.getBoundingClientRect();
+                      sendAsyncMessage("${key}", { found: r.classList.contains("found"), inView: box.height > 0 && box.top >= 0 && box.bottom <= content.innerHeight });
+                    } else content.setTimeout(f, 200); }; f(); })()`), false);
+                  w.setTimeout(() => res("timeout"), 8000);
+                });
+              }
+            } finally {
+              tm.closeTab(tm.currentTabInfo); await ruhig(400);
+            }
+          }
+          return out;""")
+        st, row = res.get("state") or {}, res.get("row") or {}
+        ok = st.get("cat") == "paneMcHalo" and st.get("url") == "options.html?in=prefs#s-senderLogos" and not (st.get("atClick") or "").endswith("options.html?in=prefs") \
+            and isinstance(row, dict) and row.get("found") is True and row.get("inView") is True
+        return ok, f"{res}"
+    check("Einstellungen: „Show“ zeigt die Option auch, wenn die halo.spaces-Seite gerade erst angelegt und noch nicht geladen ist", pref_halo_show_early, results)
+
     def menubar_new_places():
         # was aus der Menüleiste fällt, steht anderswo: Einstellungen (Saved Files, Zoom nur Text, Anhänge eingebettet, Verlauf
         # löschen, Offline-Abgleich, Kalenderansicht) – die Suche der Einstellungen findet sie; Ordner-Kontextmenü mit Spamfilter

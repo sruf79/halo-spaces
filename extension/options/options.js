@@ -361,9 +361,10 @@ async function render() {
   updateDependent(false);
 }
 
-// Treffer aus der Suche der Einstellungen (#s-<key>): Option zeigen und kurz hervorheben
+// Treffer aus der Suche der Einstellungen (#s-<key>, beim wiederholten „Show“ derselben
+// Option #s-<key>~): Option zeigen und kurz hervorheben
 function showFound() {
-  const row = document.getElementById(`row-${location.hash.slice(3)}`);
+  const row = document.getElementById(`row-${location.hash.slice(3).replace(/~$/, "")}`);
   if (!location.hash.startsWith("#s-") || !row) return;
   // eingeklappter Abschnitt bzw. ausgeblendete Zeile: aufklappen
   const section = row.closest("section");

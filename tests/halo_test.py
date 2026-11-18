@@ -14369,12 +14369,17 @@ def run_checks(m, version, profile, results):
             const edge = row.getBoundingClientRect().right - Math.max(parseFloat(getComputedStyle(row).getPropertyValue("--mc-caption-w")) || 0, parseFloat(getComputedStyle(row).getPropertyValue("--mc-row-tail")) || 0);
             return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, edge) - r.left) * 10) / 10]; };
           const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          let EX = []; const record = async () => { EX = []; const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
+            { const uc = d.getElementById("unifiedToolbarContent"), ucr = uc.getBoundingClientRect(), rr = row.getBoundingClientRect(), cs = getComputedStyle(row), ucs = getComputedStyle(uc);
+              EX.push({ uc: [Math.round(ucr.left * 10) / 10, Math.round(ucr.width * 10) / 10], row: [Math.round(rr.left * 10) / 10, Math.round(rr.width * 10) / 10, cs.paddingInlineStart, cs.paddingInlineEnd, cs.columnGap, ucs.marginInlineStart, ucs.marginInlineEnd, ucs.paddingInlineEnd],
+                kids: [...uc.children].map(li => { const r = li.getBoundingClientRect(); return r.width ? (li.getAttribute("item-id") || li.id) + ":" + Math.round(r.left * 10) / 10 + "+" + Math.round(r.width * 10) / 10 + (li.style.transform ? "T" + li.style.transform.replace(/[^0-9.-]/g, "") : "") : null; }).filter(Boolean),
+                rowKids: [...row.children].filter(c => c != uc).map(c => { const r = c.getBoundingClientRect(); return (c.id || c.localName) + ":" + Math.round(r.left * 10) / 10 + "+" + Math.round(r.width * 10) / 10 + ":" + getComputedStyle(c).position; }),
+                attrs: [...row.attributes].map(a => a.name).filter(n => n.startsWith("data-mc")).join(","), anim: panel.getAttribute("data-mc-anim") }); }
             await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
@@ -14449,7 +14454,7 @@ def run_checks(m, version, profile, results):
                 .map(k => [k, { fin: finK[k], verlauf: kk.slice(Math.max(0, iMove - 2)).map(f => f[k] ?? null),
                   w: [...d.getElementById("unifiedToolbarContent").children].find(li => (li.getAttribute("item-id") || li.id) == k)?.getBoundingClientRect().width }])),
               tail: getComputedStyle(row).getPropertyValue("--mc-row-tail"), cap: getComputedStyle(row).getPropertyValue("--mc-caption-w"),
-              attrs: [...row.attributes].map(a => a.name).filter(n => n.startsWith("data-mc")) };
+              attrs: [...row.attributes].map(a => a.name).filter(n => n.startsWith("data-mc")), ex: EX.slice(Math.max(0, iMove - 1), iMove + 3), pre: pre };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);

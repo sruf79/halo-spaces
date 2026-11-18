@@ -5237,6 +5237,57 @@ def folder_checks(m, results):
         return ok, f"{res}"
     check("Suche: Vorschlagsliste wie die übrigen Menüs (13 px, ohne harten Rand, Adressen grau)", suggestions, results)
 
+    def suggestions_width():
+        # Chat: Vorschläge der Suche oben waren nur so breit wie das (bei wenig Platz schmale) Feld bzw. ein Wort, der
+        # Eintrag abgeschnitten – jetzt so breit wie das Suchfeld in voller Breite (333 px), rechts bündig mit dem Feld,
+        # nichts abgeschnitten. Unter Windows ist das Feld auch bei breitem Fenster nur 113 px breit (8229c2f, Revert
+        # 6c8d2e1): die Liste darf darum links über das Feld hinaus, nie aber über den Fensterrand; „eng“ verlangt mehr
+        # Breite, als bis zum Fensterrand Platz ist, und prüft, dass die Liste dann am Rand (8 px) endet
+        try:
+            res = m.js(FOLDER_JS + r"""
+              w.resizeTo(1500, 900); tm.openTab("chat", {});
+              await bis(() => tm.currentTabInfo?.mode?.name == "chat", "Chat-Tab", 6000); await ruhig(500);
+              const bar = await bis(() => [...d.querySelectorAll("#unifiedToolbarContent global-search-bar")].find(b => b.getBoundingClientRect().width > 0), "Suchfeld", 4000);
+              const inp = bar.shadowRoot.querySelector("input"), p = d.getElementById("PopupGlodaAutocomplete");
+              const R = e => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), w: Math.round(r.width) }; };
+              const out = { fenster: w.innerWidth };
+              for (const [k, fw, min] of [["voll", null, null], ["schmal", 120, null], ["eng", 120, "5000px"]]) {
+                if (fw) { bar.style.setProperty("max-width", fw + "px", "important"); await ruhig(300); }
+                if (min) p.style.setProperty("--mt-suggest-min", min); else p.style.removeProperty("--mt-suggest-min");
+                inp.focus(); inp.value = "Anna"; inp.dispatchEvent(new w.InputEvent("input", { bubbles: true, composed: true }));
+                await bis(() => p.state == "open" && [...p.querySelectorAll("richlistitem")].some(x => x.getBoundingClientRect().height > 0), "Vorschläge offen", 5000);
+                await ruhig(300);
+                const items = [...p.querySelectorAll("richlistitem")].filter(x => x.getBoundingClientRect().height > 0);
+                out[k] = { feld: R(bar), popup: R(p), liste: R(p.querySelector("richlistbox")), items: items.map(x => R(x).w),
+                           cut: items.flatMap(x => [...x.querySelectorAll(".explanation, .ac-comment, .ac-title-text")]).filter(t => t.getBoundingClientRect().width > 0)
+                                .filter(t => t.scrollWidth > t.clientWidth + 1 || t.getBoundingClientRect().right > p.getBoundingClientRect().right).length };
+                inp.value = ""; inp.dispatchEvent(new w.InputEvent("input", { bubbles: true, composed: true })); p.hidePopup(); await ruhig(300);
+              }
+              p.style.removeProperty("--mt-suggest-min"); bar.style.removeProperty("max-width"); inp.blur();
+              return out;""")
+        finally:
+            m.js(FOLDER_JS + r"""for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); await toMail(); return true;""")
+        bad = []
+        win = res.get("fenster") or 0
+        for k in ("voll", "schmal", "eng"):
+            v = res.get(k) or {}
+            f, p, li = v.get("feld") or {}, v.get("popup") or {}, v.get("liste") or {}
+            # Soll-Breite: mindestens das Feld, sonst 333 px, aber nur bis 8 px vor den linken Fensterrand
+            soll = max(f.get("w", 0), min(5000 if k == "eng" else 333, f.get("r", 0) - 8))
+            if abs(p.get("w", 0) - soll) > 1 or abs(p.get("r", 0) - f.get("r", -9)) > 1:
+                bad.append(f"{k}: Breite/bündig (soll {soll})")
+            if p.get("l", -1) < 0 or p.get("r", 1e9) > win:
+                bad.append(f"{k}: ragt über den Fensterrand")
+            # Liste und Einträge füllen die Fläche (Windows: je 5 px Innenabstand von Fläche und Einträgen)
+            if not (li.get("w", 0) >= p.get("w", 0) - 12 and v.get("items") and min(v["items"]) >= li.get("w", 0) - 12):
+                bad.append(f"{k}: Liste füllt die Fläche nicht")
+            if k != "eng" and v.get("cut") != 0:
+                bad.append(f"{k}: abgeschnitten")
+        if (res.get("schmal") or {}).get("feld", {}).get("w", 999) > 130:
+            bad.append("Feld nicht schmal")
+        return not bad, f"{bad} {res}"
+    check("Chat: Vorschlagsliste der Suche oben so breit wie das Suchfeld in voller Breite, rechts bündig mit dem Feld, nie über den Fensterrand, Einträge nicht abgeschnitten (auch bei schmalem Feld)", suggestions_width, results)
+
     def customize_toolbar():
         res = m.js(FOLDER_JS + r"""
           await toMail();

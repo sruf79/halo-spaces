@@ -4021,6 +4021,21 @@ panel {
   --autocomplete-popup-highlight-color: var(--mt-accent-text) !important;
   --autocomplete-popup-url-color: var(--mt-text-secondary) !important;
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
+  /* so breit wie das Suchfeld in voller Breite (333 px), auch wenn das Feld
+     bei wenig Platz schmaler ist, höchstens bis 8 px vor den Fensterrand, und
+     mit dem Feldende bündig: Breite und Verschiebung setzt die Erweiterung
+     beim Öffnen (hookSuggestWidth); sonst nur ein Wort breit und die Einträge
+     abgeschnitten. Thunderbird setzt die Breite der Liste darin über
+     --panel-width auf die Feldbreite, nur width am Panel reicht nicht */
+  --mt-suggest-min: 333px;
+  --mt-suggest-edge: 8px;
+}
+
+#PopupGlodaAutocomplete[mc-suggest-wide] {
+  --panel-width: var(--mc-suggest-width) !important;
+  width: var(--mc-suggest-width) !important;
+  min-width: var(--mc-suggest-width) !important;
+  margin-inline-start: var(--mc-suggest-shift, 0px) !important;
 }
 
 #PopupGlodaAutocomplete .autocomplete-richlistitem[type^="gloda-"] {

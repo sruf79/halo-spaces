@@ -8026,20 +8026,30 @@ var HaloPST = (() => {
               throw new Error("PSTTable::constructor Unable to parse table, bad table type.  Unknown identifier: 0x" + headdata[3].toString(16));
           }
           this.hidUserRoot = pstNodeInputStream.seekAndReadLong(long_1.default.fromValue(4), 4).toNumber();
-          const headerNodeInfo = this.getNodeInfo(32);
+          // halo.spaces (tools/pst-bundle/fix.py): BTHHEADER über den Verweis suchen (MS-PST), nicht fest an HID 0x20
+          const bthAt = (hid) => {
+            if (!hid || (hid & 31) != 0) return null;
+            let info = null;
+            try { info = this.getNodeInfo(hid); } catch (e) { return null; }
+            if (!info || info.length() < 8) return null;
+            info.pstNodeInputStream.seek(long_1.default.fromValue(info.startOffset));
+            return (info.pstNodeInputStream.read() & 255) == 181 ? info : null;
+          };
+          let hidBth = this.hidUserRoot;
+          if (this.tableTypeByte == 124) {
+            hidBth = 0;
+            try {
+              const tcInfo = this.getNodeInfo(this.hidUserRoot);
+              if (tcInfo && tcInfo.length() >= 14) hidBth = tcInfo.seekAndReadLong(long_1.default.fromValue(10), 4).toNumber();
+            } catch (e) {
+              hidBth = 0;
+            }
+          }
+          const headerNodeInfo = bthAt(hidBth) || bthAt(32);
           if (!headerNodeInfo) {
-            throw new Error("PSTTable::constructor headerNodeInfo is null");
+            throw new Error("PSTTable::constructor Unable to parse table, can't find BTHHEADER header information (hid 0x" + hidBth.toString(16) + ")");
           }
-          headerNodeInfo.pstNodeInputStream.seek(long_1.default.fromValue(headerNodeInfo.startOffset));
-          let headerByte = headerNodeInfo.pstNodeInputStream.read() & 255;
-          if (headerByte != 181) {
-            headerNodeInfo.pstNodeInputStream.seek(long_1.default.fromValue(headerNodeInfo.startOffset));
-            headerByte = headerNodeInfo.pstNodeInputStream.read() & 255;
-            headerNodeInfo.pstNodeInputStream.seek(long_1.default.fromValue(headerNodeInfo.startOffset));
-            const tmp = import_buffer.Buffer.alloc(1024);
-            headerNodeInfo.pstNodeInputStream.readCompletely(tmp);
-            throw new Error("PSTTable::constructor Unable to parse table, can't find BTHHEADER header information: " + headerByte);
-          }
+          headerNodeInfo.pstNodeInputStream.seek(long_1.default.fromValue(headerNodeInfo.startOffset + 1));
           this.sizeOfItemKey = headerNodeInfo.pstNodeInputStream.read() & 255;
           this.sizeOfItemValue = headerNodeInfo.pstNodeInputStream.read() & 255;
           this.numberOfIndexLevels = headerNodeInfo.pstNodeInputStream.read() & 255;

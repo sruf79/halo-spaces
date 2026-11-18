@@ -11149,7 +11149,8 @@ def run_checks(m, version, profile, results):
     def pst_read_guard():
         # Outlook-Datendatei (PST) öffnen: eine Datei, an der die Bibliothek scheitert, hält Thunderbird nicht mehr an
         # (vorher endlos im Hauptprozess, Absturz mit einer PST aus Office 365) – Fehler sofort, „keine PST“ von
-        # „PST, aber nicht lesbar“ unterschieden; mit der privaten Beispieldatei des Maintainers, wenn sie da ist
+        # „PST, aber nicht lesbar“ unterschieden; mit der privaten Beispieldatei des Maintainers, wenn sie da ist (nur neon):
+        # sie muss gelesen werden, mit Ordnern und Mails (PST aus Microsoft 365, Tabellenkopf nicht an HID 0x20)
         priv = os.path.expanduser("~/halo-aufgaben/testdaten/text_pst_export.pst")
         res = m.js(r"""
           // absichtlich: die Bibliothek scheitert an kaputten bzw. nicht lesbaren Dateien, unser Code protokolliert das
@@ -11158,7 +11159,7 @@ def run_checks(m, version, profile, results):
           await IOUtils.write(junk, new TextEncoder().encode("keine Outlook-Datei"));
           const bytes = new Uint8Array(4096); bytes.set([0x21, 0x42, 0x44, 0x4e]); await IOUtils.write(head, bytes);
           const out = {};
-          const tryRead = path => { const t0 = Date.now(); try { const r = w.__mcPstRead(path); return { ok: true, folders: r.folders.length, ms: Date.now() - t0 }; }
+          const tryRead = path => { const t0 = Date.now(); try { const r = w.__mcPstRead(path); return { ok: true, folders: r.folders.length, total: r.total, ms: Date.now() - t0 }; }
             catch (e) { return { ok: false, ms: Date.now() - t0 }; } };
           out.junk = { ...tryRead(junk), pst: w.__mcPstIsPst(junk) };
           out.head = { ...tryRead(head), pst: w.__mcPstIsPst(head) };
@@ -11168,7 +11169,8 @@ def run_checks(m, version, profile, results):
           return out;""" % json.dumps(priv if os.path.exists(priv) else None))
         j, h, p_ = res.get("junk") or {}, res.get("head") or {}, res.get("priv")
         ok = (j.get("ok") is False and j.get("pst") is False and h.get("ok") is False and h.get("pst") is True
-              and all(x.get("ms", 1e9) < 10000 for x in (j, h)) and (p_ is None or (p_.get("ms", 1e9) < 10000 and p_.get("pst"))))
+              and all(x.get("ms", 1e9) < 10000 for x in (j, h)) and (p_ is None or (p_.get("ms", 1e9) < 10000 and p_.get("pst") and p_.get("ok") is True
+                                  and p_.get("folders", 0) > 0 and (p_.get("total") or 0) > 0)))
         return ok, f"{res}"
     check("Import: Outlook-PST – nicht lesbare Datei hält Thunderbird nicht an (Fehler sofort), „keine PST“ und „PST, aber nicht lesbar“ unterschieden", pst_read_guard, results)
 

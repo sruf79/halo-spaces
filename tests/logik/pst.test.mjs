@@ -225,3 +225,13 @@ test("PST: Kontakte, Termine und Aufgaben aus Bibliotheksobjekten, Verteilerlist
   assert.equal(t.done, true);
   assert.deepEqual(n(P.counts({ mail: [{ count: 2 }, { count: 3 }], contacts: [{ count: 4 }], calendar: [] })), { mail: 5, contacts: 4, calendar: 0 });
 });
+
+test("PST: Korrekturen an der gebündelten Bibliothek sind drin (tools/pst-bundle/fix.py)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../../extension/vendor/pst/pst-extractor.js", import.meta.url), "utf8");
+  // 1. kein endloses Lesen ohne Daten
+  assert.ok(src.includes("if (numRead === -1 || numRead === 0) {"));
+  // 2. Tabellenkopf über den Verweis (TCINFO.hidRowIndex) statt fest an HID 0x20 – PST aus Microsoft 365
+  assert.ok(src.includes("BTHHEADER über den Verweis suchen"));
+  assert.ok(!src.includes("const headerNodeInfo = this.getNodeInfo(32);"));
+});

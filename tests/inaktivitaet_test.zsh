@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Prüfung der Inaktivitätsregel (tests/inaktivitaet.sh) ohne Claude, ohne Thunderbird, ohne Netz, im
 # Wegwerf-Ordner: gh ist eine Shell-Funktion (Attrappe) mit Issues und Kommentaren als Dateien; das echte
-# gh wird nie aufgerufen. Aufruf: zsh tests/inaktivitaet_test.zsh → je Fall eine Zeile OK/FEHLER,
+# gh wird nie aufgerufen, die Aufgabenliste ist eine Attrappe für tests/board.sh (Export aus $T/board.json). Aufruf: zsh tests/inaktivitaet_test.zsh → je Fall eine Zeile OK/FEHLER,
 # Exitcode 1 bei einem Fehler.
 emulate -L zsh
 HIER=${0:A:h}
@@ -13,6 +13,14 @@ fehler() { print "FEHLER  $1${2:+ – $2}"; FEHLER=1 }
 pruefe() { local n=$1; shift; if eval "$@" >/dev/null 2>&1; then ok $n; else fehler $n; fi }
 
 export HALO_JETZT=2026-11-15T12:00+01:00 HALO_INA_AUSNAHMEN=$T/ausnahmen.txt HALO_INA_LOG=$T/inaktivitaet.log
+# board.sh-Attrappe: zählt Aufrufe, gibt $T/board.json aus; fehlt sie, „Board nicht lesbar“ wie board.sh (Exitcode 1)
+cat > $T/board.sh <<'ENDE'
+print -r -- "board $*" >> ${0:h}/board.log
+[[ $1 == export && -r ${0:h}/board.json ]] || { print -u2 "FEHLER: Board nicht lesbar"; exit 1 }
+cat ${0:h}/board.json
+ENDE
+print -r -- '{"items": []}' > $T/board.json
+export HALO_INA_BOARD="zsh $T/board.sh"
 INA_NUR_FUNKTIONEN=1 source $HIER/inaktivitaet.sh
 JETZT=$(ci_jetzt)
 MARKE='If we do not hear back within a week, we will close this issue due to inactivity.'
@@ -102,6 +110,42 @@ gh_alt=$functions[gh]
 gh() { if [[ "$1 $2" == "api repos/sruf79/halo-spaces/issues/13" ]]; then print closed; else eval "$gh_alt"; fi }
 aus=$(ina_lauf)
 pruefe "schon geschlossen: übersprungen, kein Kommentar" '[[ $aus == *"übersprungen #13 (closed)"* ]] && ! grep -q "^13 " $T/geschlossen.txt'
+
+# --- offener Board-Eintrag (Maintainer 18.11.2026): ausgenommen, solange ein Eintrag nicht Done ist ---
+issue 15 nutzer '[]' < <(k sruf79 8 $MARKE)   # [GitHub #15] im Titel, Todo → ausgenommen
+issue 16 nutzer '[]' < <(k sruf79 8 $MARKE)   # GitHub-Issue #16 im Text, Wartet auf OK → ausgenommen
+issue 17 nutzer '[]' < <(k sruf79 8 $MARKE)   # Eintrag Done → würde schließen
+issue 18 nutzer '[]' < <(k sruf79 8 $MARKE)   # nur „GitHub #180“ und „GitHub: PR #18“ → würde schließen
+cat > $T/board.json <<'ENDE'
+{"items": [
+ {"id": "PVTI_a", "status": "Todo", "title": "Geheimer Titel A [GitHub #15]", "body": "Wo: Mail"},
+ {"id": "PVTI_b", "status": "Wartet auf OK", "title": "Geheimer Titel B", "body": "Referenz: **GitHub-Issue #16** (Nutzer)"},
+ {"id": "PVTI_c", "status": "Done", "title": "Geheimer Titel C [GitHub #17]", "body": ""},
+ {"id": "PVTI_d", "status": "In Progress", "title": "Geheimer Titel D", "body": "siehe GitHub #180 und GitHub: PR #18"}
+]}
+ENDE
+: > $T/board.log
+aus=$(ina_lauf --trocken); rc=$?
+pruefe "Board: [GitHub #n] im Titel → ausgenommen" 'zeile "^ausgenommen #15 (offener Board-Eintrag)$"'
+pruefe "Board: GitHub-Issue #n im Text, Wartet auf OK → ausgenommen" 'zeile "^ausgenommen #16 (offener Board-Eintrag)$"'
+pruefe "Board: Eintrag Done → keine Ausnahme" 'zeile "^würde schließen #17 "'
+pruefe "Board: #180 und PR #18 zählen nicht für #18" 'zeile "^würde schließen #18 "'
+pruefe "Board: einmal je Lauf geladen" '(( $(wc -l < $T/board.log) == 1 )) && grep -q "^board export$" $T/board.log'
+pruefe "Board: keine Inhalte in der Ausgabe" '[[ $aus != *Geheim* && $aus != *PVTI_* ]]'
+aus=$(ina_lauf); rc=$?
+pruefe "Board: ausführen schließt #17 und #18, nicht #15 und #16" '(( rc == 0 )) && grep -q "^17 " $T/geschlossen.txt && grep -q "^18 " $T/geschlossen.txt && ! grep -qE "^1[56] " $T/geschlossen.txt'
+
+# --- Aufgabenliste nicht lesbar: nie schließen, FEHLER-Zeile; trocken nur Hinweis ---
+issue 19 nutzer '[]' < <(k sruf79 8 $MARKE)
+mv $T/board.json $T/board.json.weg
+aus=$(ina_lauf); rc=$?
+pruefe "Board nicht lesbar: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+aus=$(ina_lauf --trocken); rc=$?
+pruefe "Board nicht lesbar, trocken: Hinweis, Exitcode 0" '(( rc == 0 )) && zeile "^Hinweis: Aufgabenliste nicht lesbar" && zeile "^würde schließen #19 "'
+print -r -- '{"fehler": 1}' > $T/board.json
+aus=$(ina_lauf); rc=$?
+pruefe "Board-Export ohne items: FEHLER, nichts geschlossen" '(( rc == 1 )) && [[ $aus == *"FEHLER Aufgabenliste nicht lesbar"* ]] && ! grep -q "^19 " $T/geschlossen.txt'
+mv $T/board.json.weg $T/board.json
 
 # --- ohne Ausnahmedatei: nie schließen ---
 issue 14 nutzer '[]' < <(k sruf79 8 $MARKE)

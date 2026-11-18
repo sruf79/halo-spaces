@@ -17,7 +17,8 @@
 #   wartet #n bis <Wiener Zeit>             Markierung jünger als 7 Tage, keine Antwort danach
 #   anfrage #n <letzter Kommentar>          letzter Kommentar vom Maintainer-Konto ohne Markierung,
 #                                           älter als 7 Tage: Nachfrage fällig (Routine)
-#   ausgenommen #n (<Grund>)                Label keep-open/waiting-on-us oder Zeile in der Ausnahmedatei
+#   ausgenommen #n (<Grund>)                Label keep-open/waiting-on-us, Zeile in der Ausnahmedatei oder
+#                                           offener Board-Eintrag („ausgenommen #n (offener Board-Eintrag)“)
 #   offen #n | eigenes #n | kein-issue #n   nichts zu tun (Nutzer am Zug: wir; eigenes Issue; Pull Request)
 # Beim Ausführen zusätzlich „geschlossen #n“ bzw. „FEHLER #n: …“, am Ende (nur wenn etwas geschlossen
 # wurde) „Inaktivität: geschlossen #a, #b“ (diese Zeile übernimmt der Morgenbrief aus dem Nachtbericht)
@@ -26,7 +27,14 @@
 # Ausnahmen (Maintainer 15.11.2026: Nutzer wartet auf einen Fix von uns, bewusst offene Issues):
 # Label `keep-open` bzw. `waiting-on-us` am Issue, sonst Zeile „<Nummer> | <Grund>“ in
 # tests/inaktivitaet-ausnahmen.txt im Checkout (HALO_REPO, Standard ~/halo-spaces).
-# Proben: HALO_JETZT (Uhr), HALO_INA_AUSNAHMEN, HALO_INA_LOG, HALO_INA_DATEN (issues.json statt gh).
+# Automatische Ausnahme (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md „18.11.2026 – GitHub: Inaktivitätsregel, offener Board-Eintrag …“):
+# ein Issue n ist ausgenommen, solange die Aufgabenliste einen offenen Eintrag (nicht archiviert, Status nicht Done,
+# „Wartet auf OK“ zählt als offen) hat, der im Titel oder Text auf „GitHub #n“ verweist (auch „[GitHub #n]“,
+# „GitHub-Issue #n“); erledigt oder archiviert endet die Ausnahme von selbst. Das Board wird je Lauf einmal über
+# „tests/board.sh export“ geladen; ist es nicht lesbar, schließt das Skript nichts (FEHLER-Zeile). Board-Inhalte
+# erscheinen nie in der Ausgabe, nur die Nummer.
+# Proben: HALO_JETZT (Uhr), HALO_INA_AUSNAHMEN, HALO_INA_LOG, HALO_INA_DATEN (issues.json statt gh),
+# HALO_INA_BOARD (Befehl statt „zsh $HALO_REPO/tests/board.sh“, bekommt „export“ angehängt).
 # Test ohne Netz: zsh tests/inaktivitaet_test.zsh (gh-Attrappe, lädt mit INA_NUR_FUNKTIONEN=1).
 
 INA_R=sruf79/halo-spaces
@@ -34,6 +42,7 @@ INA_EIGENER=sruf79
 INA_REPO=${HALO_REPO:-$HOME/halo-spaces}
 INA_AUSNAHMEN=${HALO_INA_AUSNAHMEN:-$INA_REPO/tests/inaktivitaet-ausnahmen.txt}
 INA_LOG=${HALO_INA_LOG:-$HOME/halo-nacht/inaktivitaet.log}
+INA_BOARD=${HALO_INA_BOARD:-zsh $INA_REPO/tests/board.sh}
 INA_MARKE='we will close this issue due to inactivity'
 INA_LABELS='keep-open waiting-on-us'
 INA_FRIST=$(( 7 * 86400 ))
@@ -49,12 +58,21 @@ ina_ausnahmen_lesen() {   # <Datei>
     gsub(/^[ \t]+|[ \t]+$/, "", g); gsub(/["\\]/, "", g); printf "{\"%s\": \"%s\"}\n", n, g }' $1 | jq -s 'add // {}'
 }
 
+# Export der Aufgabenliste ({"items": [{status, title, body}]}) → JSON {"<n>": true} der Issues, auf die ein
+# offener Eintrag verweist („GitHub #n“, „[GitHub #n]“, „GitHub-Issue #n“; nicht „GitHub: PR #n“)
+ina_board_nummern() {   # <export.json>
+  jq -c 'if (.items | type) != "array" then error("kein Board-Export") else . end
+    | [.items[] | select(.status != "Done") | ((.title // "") + "\n" + (.body // ""))
+       | scan("GitHub(?:-[A-Za-z]+)? #([0-9]+)"; "i") | .[0]] | unique | map({(.): true}) | add // {}' $1
+}
+
 # Zustand je Issue → Zeilen (siehe Kopf)
 # issues.json: [{number, pr, autor, labels: [..], comments: [{login, bot, created_at, body}]}]
-ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch>
+ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json> aus ina_board_nummern]
   TZ=Europe/Vienna jq -r --slurpfile a $2 --argjson jetzt $3 --argjson frist $INA_FRIST \
+      --slurpfile b ${4:-/dev/null} \
       --arg ich $INA_EIGENER --arg marke $INA_MARKE --arg labels $INA_LABELS '
-    ($a[0]) as $aus | ($labels | split(" ")) as $lab
+    ($a[0]) as $aus | ($b[0] // {}) as $board | ($labels | split(" ")) as $lab
     | def zeit: .created_at | fromdate;
       def wien: strflocaltime("%d.%m.%Y-%H:%M");
     sort_by(.number)[] | .number as $n
@@ -64,6 +82,7 @@ ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch>
     | if .pr then "kein-issue #\($n)"
       elif $aus[$n | tostring] then "ausgenommen #\($n) (\($aus[$n | tostring]))"
       elif $label then "ausgenommen #\($n) (Label \($label))"
+      elif $board[$n | tostring] then "ausgenommen #\($n) (offener Board-Eintrag)"
       elif .autor == $ich then "eigenes #\($n)"
       elif $m != null and ([$k[] | select(.login != $ich and zeit > ($m | zeit))] | length) == 0 then
         if $jetzt - ($m | zeit) > $frist then "schliessen #\($n) \($m | zeit | wien)"
@@ -118,7 +137,13 @@ ina_lauf() {   # [--trocken | --anfragen]
       print "Hinweis: Ausnahmedatei $INA_AUSNAHMEN fehlt"
     fi
     ina_ausnahmen_lesen $INA_AUSNAHMEN > $tmp/a.json
-    ina_auswerten $tmp/i.json $tmp/a.json $(ci_jetzt) > $tmp/z.txt || { print "FEHLER Auswertung"; return 2 }
+    # Aufgabenliste einmal je Lauf; nicht lesbar: nie schließen (Issues mit offenem Eintrag wären nicht geschützt)
+    if ! { ${=INA_BOARD} export > $tmp/board.json 2>/dev/null && ina_board_nummern $tmp/board.json > $tmp/b.json 2>/dev/null }; then
+      [[ -z $modus ]] && { print "FEHLER Aufgabenliste nicht lesbar (tests/board.sh export), nichts geschlossen"; return 1 }
+      print "Hinweis: Aufgabenliste nicht lesbar, Ausnahme „offener Board-Eintrag“ nicht geprüft"
+      print '{}' > $tmp/b.json
+    fi
+    ina_auswerten $tmp/i.json $tmp/a.json $(ci_jetzt) $tmp/b.json > $tmp/z.txt || { print "FEHLER Auswertung"; return 2 }
     if [[ $modus == --anfragen ]]; then grep '^anfrage ' $tmp/z.txt; return 0; fi
     print "# Inaktivität $(ci_wien $(ci_jetzt)) (Wiener Zeit)"
     if [[ $modus == --trocken ]]; then

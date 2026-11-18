@@ -18407,6 +18407,51 @@ Neu
         return ok, f"{res}"
     check("Kalender: Suche findet ein umbenanntes Vorkommen einer Serie unter seinem Titel, nicht unter dem der Serie", calendar_search_exception, results)
 
+    def calendar_search_late_add():
+        # Bug-Jagd 17.11.2026: kam während des ersten Ladens der Suche ein Termin hinzu, gab das Neuladen nach der
+        # Änderung nur das noch laufende alte Laden zurück – dessen Ergebnis ohne den neuen Termin blieb bis zur
+        # nächsten Änderung stehen. Langsamer Kalender: Abfrage liest sofort, liefert erst nach 1,2 s
+        res = m.js(CAL_CHECK_JS + r'''
+          w.resizeTo(1500, 900);
+          const c = testCalendar();
+          const { CalReadableStreamFactory } = ChromeUtils.importESModule("resource:///modules/CalReadableStreamFactory.sys.mjs");
+          const sleep = ms => new Promise(r => w.setTimeout(r, ms));
+          const raw = c.wrappedJSObject || c; const origGet = raw.getItems;
+          const out = {}; let neu = null;
+          await toCalendar(); w.switchToView("week"); await ruhig(800);
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
+          const panel = () => d.getElementById("mc-cal-search");
+          const titles = () => [...(panel()?.querySelectorAll(".mc-cal-search-row .mc-cal-search-title") || [])].map(t => t.textContent);
+          try {
+            // was nach Beginn einer Abfrage hinzukommt, fehlt in ihrem Ergebnis (feste Pause: so langsam ist der Kalender gedacht)
+            raw.getItems = function (...a) { const st = origGet.apply(this, a);
+              return CalReadableStreamFactory.createReadableStream({ async start(ctl) { const vals = [];
+                for await (const v of cal.iterate.streamValues(st)) vals.push(v);
+                await sleep(1200); for (const v of vals) ctl.enqueue(v); ctl.close(); } }); };
+            const t0 = Date.now();
+            fire("autocomplete", "halo spaetsuche");
+            const e = new CalEvent(); e.title = "Halo Spaetsuche";
+            const s = cal.dtz.now(); s.day += 1; s.hour = 9; s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1;
+            e.startDate = s; e.endDate = en;
+            neu = await c.addItem(e);
+            out.addedMs = Date.now() - t0;
+            await until(() => panel() && !panel().hidden && (titles().length || !panel().querySelector(".mc-cal-search-empty").hidden), 8000);
+            // spätestens nach der zweiten langsamen Abfrage (200 ms Sammelpause plus 1,2 s) steht der Termin da
+            await until(() => titles().includes("Halo Spaetsuche"), 6000); await ruhig(500);
+            out.titles = titles(); out.ms = Date.now() - t0;
+            fire("autocomplete", ""); await until(() => panel()?.hidden, 4000);
+          } finally {
+            try { delete raw.getItems; } catch {}
+            if (neu) { try { await c.deleteItem(neu); } catch {} }
+            for (const x of await items("Halo Spaetsuche")) { try { await c.deleteItem(x); } catch {} }
+          }
+          return out;''')
+        # addedMs unter 1 s: der Termin kam sicher während der ersten Abfrage hinzu (sonst prüft die Prüfung nichts)
+        ok = (res.get("addedMs", 9999) < 1000 and res.get("titles") == ["Halo Spaetsuche"])
+        return ok, f"{res}"
+    check("Kalender: Suche zeigt einen Termin, der während des ersten Ladens hinzukommt (langsamer Kalender)", calendar_search_late_add, results)
+
     def calendar_alarm_alert():
         # Terminerinnerung als Mitteilung des Systems statt Thunderbirds Erinnerungsfenster (wie Apple Kalender):
         # Vorgabe „Fenster zeigen“ aus, Mitteilung mit Titel, Zeit und Ort, Klick öffnet den Termin, danach erledigt

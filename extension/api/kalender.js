@@ -2591,6 +2591,8 @@ const CalSearch = {
       panel.querySelector(".mc-cal-search-list").replaceChildren();
       w.document.documentElement.removeAttribute("mc-cal-searching");
       this.unwatch(w);
+      // ohne Beobachter sieht ein noch laufendes Laden spätere Änderungen nicht: verwerfen
+      st.gen = (st.gen || 0) + 1;
       st.items = null;
       st.selected = null;
       return;
@@ -2605,28 +2607,41 @@ const CalSearch = {
     });
   },
 
-  // alle Termine (Wiederholungen erst beim Zeichnen aufgelöst) einmal je Suche
+  // alle Termine (Wiederholungen erst beim Zeichnen aufgelöst) einmal je Suche.
+  // st.gen zählt jede Änderung an den Kalendern: eine Abfrage, die vor der
+  // Änderung begann, kennt diese nicht – ihr Ergebnis wird verworfen und eine
+  // neue Abfrage gestartet (vorher gab load() das laufende alte Laden zurück)
   load(w) {
     const st = this.state(w);
     if (st.items) {
       return Promise.resolve();
     }
-    if (!st.loading) {
+    const gen = st.gen || 0;
+    if (!st.loading || st.loadingGen !== gen) {
       const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-      st.loading = cal.view.getCompositeCalendar(w)
+      const loading = cal.view.getCompositeCalendar(w)
         .getItemsAsArray(Ci.calICalendar.ITEM_FILTER_TYPE_EVENT, 0, null, null)
         .then(items => {
-          st.items = items;
+          if ((st.gen || 0) === gen) {
+            st.items = items || [];
+          }
         })
         .catch(e => {
           log("cal search load error", e);
-          st.items = [];
+          if ((st.gen || 0) === gen) {
+            st.items = [];
+          }
         })
         .finally(() => {
-          st.loading = null;
+          if (st.loading === loading) {
+            st.loading = null;
+          }
         });
+      st.loading = loading;
+      st.loadingGen = gen;
     }
-    return st.loading;
+    // veraltetes Ergebnis verworfen: auf die neue Abfrage warten, solange die Suche läuft
+    return st.loading.then(() => (!st.items && st.observer ? this.load(w) : undefined));
   },
 
   // Änderungen an Terminen während der Suche: neu laden und zeichnen
@@ -2644,6 +2659,7 @@ const CalSearch = {
         if (!term || !st.observer) {
           return;
         }
+        st.gen = (st.gen || 0) + 1;
         st.items = null;
         this.load(w).then(() => st.term == term && this.render(w, false));
       }, 200);

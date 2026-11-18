@@ -113,3 +113,16 @@ kommen die Commits nach `main` (Fast-Forward oder Rebase, kein Force), danach wi
 (`git push origin --delete pruef/<name>`). Nicht getestet wird dort: macOS, Windows und der Dunkelmodus der Mac-Jobs; diese
 Prüfung läuft erst mit dem Push auf `main`. Es gelten dieselben Push-Sperren wie für `main` (01:30–09:00, ab 00:00 keine
 Codeänderung); Release und `release.sh` bleiben ausschließlich auf neon.
+
+## Animationen messen: fester Bildtakt (`imTakt`, 18.11.2026)
+
+Prüfungen, die den Verlauf einer Animation beurteilen (kein Sprung, kein Ruck, Endplatz), messen Bild für Bild im festen
+Takt von 60 Hz: `imTakt(dauer, jeBild)` aus `PRELUDE` löst jedes Bild selbst aus (`windowUtils.advanceTimeAndRefresh`), die
+Uhr der Animation läuft je Bild genau 16,7 ms weiter. So sieht jede Messung dieselben Bilder, gleich wie schnell der Rechner
+ist. Anlass: unter xvfb braucht ein Bild der Mail-Seitenleiste je nach CI-Läufer 35–95 ms (Bildabstand in Echtzeit = Aufbauzeit),
+von 250 ms Animation blieben 3–8 Bilder, und einzelne Lastbilder ließen Sprünge erscheinen, die es nicht gab
+(Auswertung `~/halo-berichte/2026-11-18-flackern.md`). Aufruf direkt nach dem Auslöser (Klick), währenddessen kein
+`ruhig()` und kein Warten auf `requestAnimationFrame`. Die Aufbauzeit je Bild (Rückgabe) ist nur Auskunft: „flüssig“ im Sinn
+von Bildzeit misst weiter ein Durchgang in Echtzeit (Today-Pane), denn die Aufbauzeit liegt in der CI zu nah am Takt.
+Umgestellt: „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“, „Today-Pane: Ein-/Ausblenden flüssig“; weitere
+Animationsprüfungen erst umstellen, wenn sie nachweislich an ausgefallenen Bildern scheitern.

@@ -454,3 +454,22 @@ angefasst“ im Bericht; der Morgenbrief nennt die Zahl. Aufruf: Claude in Schri
 nur eine Nachlese). Von Hand: `zsh tests/aufraeumen.sh --trocken` (nur auflisten), `--ohne-zweige` (ohne
 Netz). Prüfung: `zsh tests/aufraeumen_test.zsh` (temporäres Repo, kein Eingriff ins echte). Der Wächter für
 Pausen (`tests/pausen_check.sh`) durchsucht `.claude/worktrees` und `dist/` nicht mehr.
+
+## Automatische CI-Wiederholung (`tests/ci-wiederholen.sh`, 18.11.2026 – gebaut, noch nicht eingeschaltet)
+
+Anlass (Maintainer 18.11.2026): „das problem mit dem flackern kostet uns extrem viel zeit“. Das Skript (ohne Claude, nur `gh`)
+wiederholt die fehlgeschlagenen Jobs eines roten Laufs von `test.yml` **einmal** (`gh run rerun --failed`) und schreibt jede
+rote Prüfung mit Plattform und Fehlerzeile bzw. Messwert sowie das Ergebnis nach `~/halo-nacht/flackern.log`
+(Tabulator-getrennt: Zeit, Ereignis `rot`/`wiederholt`/`flackert`/`bleibt-rot`/`ausgelassen`, Lauf, Versuch, Zweig, Commit, Job,
+Prüfung, Text; Stand `~/halo-nacht/flackern.stand`). Ein zweites Rot bleibt rot, die Prüfungen selbst ändert es nicht.
+Grenzen: nur Push und Start von Hand (nie `pull_request`), nur der erste Versuch, höchstens 6 Stunden alt, keine Läufe mit
+Auswahl von Prüfungen; mehr als 5 rote Prüfungen in einem Job gelten als echter Fehler (keine Wiederholung); rote Jobs auf neon
+(`mac`, `windows`) nur zwischen 09:00 und 00:30 und nicht während Nachtlauf oder Wochenprüfung; Läufe auf `main` erst, wenn der
+CI-Wächter sie ausgewertet hat – sein Eintrag „Tests: CI rot …“ entsteht wie bisher aus dem roten Versuch. Geflackert heißt
+nicht repariert: der Eintrag bleibt offen, für `main` steht zusätzlich die Zeile `flackert:` im Wächter-Protokoll (Kennzahl
+`ci_flackert`). Die Testmarke bleibt unverändert: `release.sh` verlangt einen vollständig grünen Lauf zum Stand; ein Lauf, der in
+der Wiederholung grün wird, zählte schon bisher (Wiederholung von Hand). `--lauf <ID>` wiederholt von Hand mit Protokoll (statt
+`gh run rerun`), `--trocken` zeigt nur an. Prüfung: `zsh tests/ci_wiederholen_test.zsh`.
+**Einschalten** (Entscheidung neon bzw. Maintainer, noch offen): Aufruf am Ende von `tests/ci-waechter.sh` (alle 15 Minuten) und
+Kopie nach `~/.config/halo-spaces/`; für die Nacht zusätzlich ein Schritt im Nachtlauf-Auftrag („bei rotem Lauf zuerst
+`ci-wiederholen.sh --lauf <ID>`“) – das ändert einen Ablauf und braucht ein OK.

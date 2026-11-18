@@ -28,3 +28,19 @@ test("Suchdatum: kein Datum", () => {
     assert.equal(searchDate(text, jetzt), null, String(text));
   }
 });
+
+test("Suchtreffer: Positionen im Originaltext, auch wenn die Kleinschreibung länger ist", () => {
+  const { hitRanges } = lade();
+  const teile = (text, needle) => Array.from(hitRanges(text, needle), ([a, b]) => text.slice(a, b));
+  assert.deepEqual(teile("Ihre Rechnung, rechnung", "rechnung"), ["Rechnung", "rechnung"]);
+  // „İ“ wird klein geschrieben zu „i̇“ (zwei Zeichen) – vorher fehlte das „R“
+  assert.deepEqual(teile("İstanbul Rechnung", "rechnung"), ["Rechnung"]);
+  assert.deepEqual(teile("İİ Rechnung İ rechnung", "rechnung"), ["Rechnung", "rechnung"]);
+  assert.deepEqual(teile("İstanbul", "istanbul"), []);
+  assert.deepEqual(teile("İstanbul", "i̇stanbul"), ["İstanbul"]);
+  assert.deepEqual(teile("İstanbul", "stan"), ["stan"]);
+  // Zeichen außerhalb der BMP (Ersatzpaare) zusammen mit „İ“
+  assert.deepEqual(teile("𝒜 İ Brief", "brief"), ["Brief"]);
+  assert.equal(hitRanges("abc", "").length, 0);
+  assert.equal(hitRanges("abc", "x").length, 0);
+});

@@ -265,6 +265,42 @@ function searchDate(text, now = new Date()) {
   return null;
 }
 
+// Fundstellen von needle (schon klein geschrieben) in text als [Anfang, Ende]
+// im Originaltext. Wird ein Zeichen klein geschrieben länger („İ“ → „i̇“),
+// stimmen die Positionen der Kleinschreibung nicht mehr mit dem Original
+// überein; dann je Zeichen klein schreiben und zurückrechnen.
+function hitRanges(text, needle) {
+  const ranges = [];
+  if (!needle) {
+    return ranges;
+  }
+  let lower = text.toLowerCase();
+  let start = null;
+  let end = null;
+  if (lower.length != text.length) {
+    lower = "";
+    start = [];
+    end = [];
+    let pos = 0;
+    for (const ch of text) {
+      const low = ch.toLowerCase();
+      for (let i = 0; i < low.length; i++) {
+        start.push(pos);
+        end.push(pos + ch.length);
+      }
+      lower += low;
+      pos += ch.length;
+    }
+  }
+  let at = lower.indexOf(needle);
+  while (at >= 0) {
+    const last = at + needle.length;
+    ranges.push(start ? [start[at], end[last - 1]] : [at, last]);
+    at = lower.indexOf(needle, last);
+  }
+  return ranges;
+}
+
 // Suchbegriff in einem Element gelb hinterlegen (nur Text, per DOM)
 function markHits(el, term) {
   if (!el) {
@@ -286,21 +322,19 @@ function markHits(el, term) {
   }
   for (const node of nodes) {
     const text = node.nodeValue;
-    const lower = text.toLowerCase();
-    let at = lower.indexOf(needle);
-    if (at < 0) {
+    const ranges = hitRanges(text, needle);
+    if (!ranges.length) {
       continue;
     }
     const frag = doc.createDocumentFragment();
     let from = 0;
-    while (at >= 0) {
+    for (const [at, to] of ranges) {
       frag.append(text.slice(from, at));
       const mark = doc.createElementNS("http://www.w3.org/1999/xhtml", "mark");
       mark.className = "mc-hit";
-      mark.textContent = text.slice(at, at + needle.length);
+      mark.textContent = text.slice(at, to);
       frag.append(mark);
-      from = at + needle.length;
-      at = lower.indexOf(needle, from);
+      from = to;
     }
     frag.append(text.slice(from));
     node.replaceWith(frag);

@@ -60,11 +60,14 @@ Ablauf (je Eintrag genau einer)
 8. Commit: ein Satz, Bereich vorneweg, sichtbares Verhalten, Deutsch, ohne „Apple“; nur eigene Hunks.
    Danach tests/board.sh notiz <id> „committet, wartet auf Push/CI (<Hash>)“.
 
-9. Dazulernen: Neue Regeln, Maßstäbe oder Entscheidungen des Maintainers aus diesem Lauf trägst du am
+9. Dazulernen: Regeln, Maßstäbe oder Eichfälle, die eine Entscheidung des Maintainers wiedergeben, trägst du am
    Ende in docs/design-vorgaben.md ein (Abschnitt 10: Eichfall bzw. „Wahrnehmungsregeln“; abgelöste
-   Eichfälle mit Verweis markieren), mit Datum und Wortlaut, im selben Commit oder einem eigenen
-   („Designvorgaben: …“). Nichts ohne Beleg, nichts als Wortlaut des Maintainers ausgeben, was seine
-   Deutung ist.
+   Eichfälle mit Verweis markieren), mit Datum und seinem Wortlaut als Beleg, im selben Commit oder einem
+   eigenen („Designvorgaben: …“). Eigene Beobachtungen ohne Entscheidung des Maintainers trägst du nicht ein,
+   sondern schreibst sie in deinen Bericht unter „Vorschlag Abschnitt 10“; der Designer im Gespräch legt sie
+   dem Maintainer vor, eingetragen wird erst nach dessen OK. Technische Bauregeln gehören nicht in
+   Abschnitt 10, sondern als Kommentar an die Stelle im Code. Nichts ohne Beleg, nichts als Wortlaut des
+   Maintainers ausgeben, was seine Deutung ist. (Maintainer 18.11.2026: „Ich folge deiner Empfehlung“)
 
 Ausgabe
 - Ergebnisdatei, genau eine Zeile:

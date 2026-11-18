@@ -18,9 +18,11 @@
 #   anfrage #n <letzter Kommentar>          letzter Kommentar vom Maintainer-Konto ohne Markierung,
 #                                           älter als 7 Tage: Nachfrage fällig (Routine)
 #   ausgenommen #n (<Grund>)                Label keep-open/waiting-on-us, Zeile in der Ausnahmedatei oder
-#                                           offener Board-Eintrag („ausgenommen #n (offener Board-Eintrag)“)
+#                                           offener Board-Eintrag („ausgenommen #n (offener Board-Eintrag)“,
+#                                           nur ohne offene Markierung, siehe unten)
 #   offen #n | eigenes #n | kein-issue #n   nichts zu tun (Nutzer am Zug: wir; eigenes Issue; Pull Request)
-# Beim Ausführen zusätzlich „geschlossen #n“ bzw. „FEHLER #n: …“, am Ende (nur wenn etwas geschlossen
+# Beim Ausführen zusätzlich „abgeräumt #n (Board-Eintrag archiviert)“, „melden #n: verlinkter Board-Eintrag nicht
+# abgeräumt (<Grund>)“, „geschlossen #n“ bzw. „FEHLER #n: …“, am Ende (nur wenn etwas geschlossen
 # wurde) „Inaktivität: geschlossen #a, #b“ (diese Zeile übernimmt der Morgenbrief aus dem Nachtbericht)
 # und je Issue eine Zeile in ~/halo-nacht/inaktivitaet.log. Rückgabe 1 bei einem FEHLER, 2 wenn GitHub
 # nicht lesbar ist.
@@ -30,9 +32,15 @@
 # Automatische Ausnahme (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md „18.11.2026 – GitHub: Inaktivitätsregel, offener Board-Eintrag …“):
 # ein Issue n ist ausgenommen, solange die Aufgabenliste einen offenen Eintrag (nicht archiviert, Status nicht Done,
 # „Wartet auf OK“ zählt als offen) hat, der im Titel oder Text auf „GitHub #n“ verweist (auch „[GitHub #n]“,
-# „GitHub-Issue #n“); erledigt oder archiviert endet die Ausnahme von selbst. Das Board wird je Lauf einmal über
-# „tests/board.sh export“ geladen; ist es nicht lesbar, schließt das Skript nichts (FEHLER-Zeile). Board-Inhalte
-# erscheinen nie in der Ausgabe, nur die Nummer.
+# „GitHub-Issue #n“); erledigt oder archiviert endet die Ausnahme von selbst. Die Ausnahme gilt nur, solange wir
+# nicht auf den Nutzer warten (Maintainer 18.11.2026 zu #31/#52): steht eine Markierung ohne Antwort danach oder
+# ist unser letzter Kommentar eine Rückfrage (enthält „?“ außerhalb von Links; Deutung nach docs/github-komm.md
+# „Wann Ausnahme“), läuft der normale Ablauf (Nachfrage, Frist) trotz Eintrag. Beim Schließen wird zuerst der verlinkte Eintrag (Titel enthält „GitHub #n“,
+# reine Querverweise im Text nie) mit Notiz auf Done gesetzt und archiviert (rückholbar), dann das Issue
+# geschlossen; ein Eintrag In Progress oder mit committetem Fix (Hash in den Notizen) bleibt stehen („melden“),
+# das Issue wird trotzdem geschlossen; scheitert das Abräumen, bleibt das Issue offen (FEHLER, nächste Runde).
+# Das Board wird je Lauf einmal über „tests/board.sh export“ geladen; ist es nicht lesbar, schließt das Skript
+# nichts (FEHLER-Zeile). Board-Inhalte erscheinen nie in der Ausgabe, nur die Nummer.
 # Proben: HALO_JETZT (Uhr), HALO_INA_AUSNAHMEN, HALO_INA_LOG, HALO_INA_DATEN (issues.json statt gh),
 # HALO_INA_BOARD (Befehl statt „zsh $HALO_REPO/tests/board.sh“, bekommt „export“ angehängt).
 # Test ohne Netz: zsh tests/inaktivitaet_test.zsh (gh-Attrappe, lädt mit INA_NUR_FUNKTIONEN=1).
@@ -43,6 +51,7 @@ INA_REPO=${HALO_REPO:-$HOME/halo-spaces}
 INA_AUSNAHMEN=${HALO_INA_AUSNAHMEN:-$INA_REPO/tests/inaktivitaet-ausnahmen.txt}
 INA_LOG=${HALO_INA_LOG:-$HOME/halo-nacht/inaktivitaet.log}
 INA_BOARD=${HALO_INA_BOARD:-zsh $INA_REPO/tests/board.sh}
+INA_BOARD_NOTIZ='Issue wegen Inaktivität geschlossen (Maintainer 18.11.2026)'
 INA_MARKE='we will close this issue due to inactivity'
 INA_LABELS='keep-open waiting-on-us'
 INA_FRIST=$(( 7 * 86400 ))
@@ -66,6 +75,35 @@ ina_board_nummern() {   # <export.json>
        | scan("GitHub(?:-[A-Za-z]+)? #([0-9]+)"; "i") | .[0]] | unique | map({(.): true}) | add // {}' $1
 }
 
+# verlinkte Einträge zu Issue n (Titel enthält „GitHub #n“ bzw. „GitHub-Issue #n“) → Zeilen „<id>\t<Grund>\t<Notiz da>“;
+# Grund leer = abräumbar, sonst „In Progress“ bzw. „Fix committet“ (nur melden)
+ina_board_verlinkt() {   # <export.json> <n>
+  jq -r --arg n $2 --arg notiz $INA_BOARD_NOTIZ '.items[] | select(.status != "Done")
+    | select((.title // "") | test("GitHub(-[A-Za-z]+)? #" + $n + "([^0-9]|$)"; "i"))
+    | (.body // "") as $b
+    | [.id, (if .status == "In Progress" then "In Progress"
+             elif ($b | test("(committet|Commit|Fix)[^\n]*\\b[0-9a-f]{7,40}\\b"; "i")) then "Fix committet" else "" end),
+       (if ($b | contains($notiz)) then "1" else "" end)] | @tsv' $1
+}
+
+# verlinkte Einträge vor dem Schließen abräumen (Notiz, Done = archivieren); Rückgabe 1, wenn das scheitert.
+# HALO_BOARD_NACHTRAG: board.sh legt nichts in die Warteschlange, sondern scheitert (sonst käme es später doppelt)
+ina_board_abraeumen() {   # <export.json> <n>
+  local id grund da
+  while IFS=$'\t' read -r id grund da; do
+    [[ -n $id ]] || continue
+    if [[ -n $grund ]]; then print "melden #$2: verlinkter Board-Eintrag nicht abgeräumt ($grund)"; continue; fi
+    if [[ -z $da ]] && ! HALO_BOARD_NACHTRAG=1 ${=INA_BOARD} notiz $id $INA_BOARD_NOTIZ >/dev/null 2>&1; then
+      print "FEHLER #$2: Board-Eintrag nicht abgeräumt (Notiz), Issue nicht geschlossen"; return 1
+    fi
+    if ! HALO_BOARD_NACHTRAG=1 ${=INA_BOARD} status $id done >/dev/null 2>&1; then
+      print "FEHLER #$2: Board-Eintrag nicht abgeräumt (Done/Archiv), Issue nicht geschlossen"; return 1
+    fi
+    print "abgeräumt #$2 (Board-Eintrag archiviert)"
+  done < <(ina_board_verlinkt $1 $2)
+  return 0
+}
+
 # Zustand je Issue → Zeilen (siehe Kopf)
 # issues.json: [{number, pr, autor, labels: [..], comments: [{login, bot, created_at, body}]}]
 ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json> aus ina_board_nummern]
@@ -82,11 +120,13 @@ ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json>
     | if .pr then "kein-issue #\($n)"
       elif $aus[$n | tostring] then "ausgenommen #\($n) (\($aus[$n | tostring]))"
       elif $label then "ausgenommen #\($n) (Label \($label))"
-      elif $board[$n | tostring] then "ausgenommen #\($n) (offener Board-Eintrag)"
       elif .autor == $ich then "eigenes #\($n)"
       elif $m != null and ([$k[] | select(.login != $ich and zeit > ($m | zeit))] | length) == 0 then
         if $jetzt - ($m | zeit) > $frist then "schliessen #\($n) \($m | zeit | wien)"
         else "wartet #\($n) bis \(($m | zeit) + $frist | wien)" end
+      elif $board[$n | tostring] and ((($k | length) > 0 and $k[-1].login == $ich
+             and ($k[-1].body | gsub("https?://[^\\s)]+"; "") | test("\\?"))) | not)
+        then "ausgenommen #\($n) (offener Board-Eintrag)"
       elif ($k | length) > 0 and ($k[-1].login == $ich) and ($k[-1].body | ascii_downcase | contains($marke) | not)
            and $jetzt - ($k[-1] | zeit) > $frist then "anfrage #\($n) \($k[-1] | zeit | wien)"
       else "offen #\($n)" end' $1
@@ -158,6 +198,8 @@ ina_lauf() {   # [--trocken | --anfragen]
         print "FEHLER #$n: nicht lesbar"; fehler=1; continue
       fi
       [[ $st == open ]] || { print "übersprungen #$n ($st)"; continue }
+      # zuerst den verlinkten Board-Eintrag abräumen, dann schließen (Maintainer 18.11.2026)
+      ina_board_abraeumen $tmp/board.json $n || { fehler=1; continue }
       if gh issue close $n -R $INA_R --reason "not planned" --comment "$(ina_schliess_text)" >/dev/null 2>$tmp/err; then
         print "geschlossen #$n (Nachfrage $wann)"
         zu+=("#$n")

@@ -13,7 +13,7 @@ FEHLER=0
 
 # lauf <Jetzt> <Woche %> [<5h %>] [<Konfig>] [<Spar-Datei>]
 lauf() {
-  HALO_ZS_LOCK=/nonexistent/zs.lock HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
+  HALO_ZS_LOCK=/nonexistent/zs.lock HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE=${TEST_5H_ENDE:-} \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
@@ -127,6 +127,25 @@ pruefe "Volldampf: Fable bei 5-Stunden-Fenster 55 % erlaubt (unter 60), ohne Sol
 pruefe "Volldampf: Fable bei 5-Stunden-Fenster 65 % erlaubt (keine Fenstergrenze, 17.11.2026)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 65)" 'Fable: erlaubt'
 pruefe "Volldampf: 5-Stunden-Fenster ≥ 80 % bremst weiter" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 85)" \
   'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
+# Fenster-Takt im Volldampf (Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“, Empfehlung 3; fenster_takt aus
+# lauf-hilfen.zsh wie im Auslastungswächter): Fenster 10:00–15:00, um 10:00 Fensterbeginn (Takt 25 %), 12:30 Mitte (75 %)
+pruefe "Fenster-Takt: Volldampf, 40 % zu Fensterbeginn (Takt 25) → warten bis der Takt aufholt (10:45)" \
+  "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 40)" \
+  'Entscheidung: warten bis 10:45 – Fenster-Takt: 5-Stunden-Fenster 40 % über 25 %' 'Fenster-Takt mit Reserve 25 Punkte' 'Würde: +kein Claude, warten bis 10:45'
+pruefe "Fenster-Takt: Volldampf, 70 % zur Fenstermitte (Takt 75) → neu beginnen" \
+  "$(TEST_5H_ENDE=2026-11-17T12:30:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 70)" 'Entscheidung: neu beginnen'
+pruefe "Fenster-Takt: weit über dem Takt wartet höchstens bis zur vollen Stunde" \
+  "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 79)" 'Entscheidung: warten bis 11:00 – Fenster-Takt'
+pruefe "Fenster-Takt: Fensterende unbekannt → kein Takt, nur die 80-%-Grenze" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 79)" 'Entscheidung: neu beginnen'
+pruefe "Fenster-Takt: ohne Volldampf kein Takt (Alltag unverändert)" "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 lauf 2026-11-17T10:00:00+01:00 3 40)" \
+  'Entscheidung: neu beginnen'
+pruefe "Fenster-Takt: ab 80 % gilt weiter die harte Grenze (Pause bis Fensterende/volle Stunde)" \
+  "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 85)" 'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
+print 'FENSTER_RESERVE=50' > $T/res50.conf
+pruefe "Fenster-Takt: FENSTER_RESERVE aus der Konfiguration (50)" "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 40 $T/res50.conf)" \
+  'Entscheidung: neu beginnen'
+pruefe "Fenster-Takt: Skript nutzt die gemeinsame Rechnung aus lauf-hilfen.zsh" "$(grep -c 'FENSTER_DEF_PY\$ENTSCHEID_PY' $SKRIPT; grep -c '^FENSTER_DEF_PY=' $REPO/tests/lauf-hilfen.zsh)" '^1
+1$'
 pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-16T12:00:00+01:00 95)" \
   'Volldampf angemeldet \(ab 2026-11-17T01:00\+01:00, bis 2026-11-24T01:00\+01:00\), nicht aktiv' 'Rate 0\.00' 'Tageslimit 40 eigene'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt

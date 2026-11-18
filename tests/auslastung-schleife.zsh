@@ -52,7 +52,7 @@ source $HIER/lauf-hilfen.zsh
 # --- Schwellen: Standard, dann auslastung.conf (jede Prüfung neu gelesen, also im Betrieb änderbar) ---
 typeset -A K
 konf_lesen() {
-  K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE 25 FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
+  K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 NACHT_BIS 0900 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
@@ -98,11 +98,6 @@ kontingent() {   # [<höchstes Alter von kontingent.json in Minuten>]
   python3 -I -c $KONT_PY $j ${1:-$K[KONT_ALTER]} 2>/dev/null && return
   zsh $HIER/kontingent.sh >/dev/null 2>&1 || return 1
   python3 -I -c $KONT_PY $j 5 2>/dev/null
-}
-# Sekunden bis zum Ende des 5-Stunden-Fensters (aus kontingent.json), leer wenn unbekannt; Test: HALO_AS_FENSTER_REST
-fenster_rest() {
-  [[ -n ${HALO_AS_FENSTER_REST+x} ]] && { print -r -- $HALO_AS_FENSTER_REST; return }
-  python3 -I -c 'import json,sys,time;e=json.load(open(sys.argv[1]))["info"]["unifiedWindows"]["five_hour"];print(max(0,int(e["resetsAt"]-time.time())))' $DIR/kontingent.json 2>/dev/null
 }
 # „<HHMM Wiener Zeit> <Unix-Sekunden>“ (Soll: wochen_soll aus lauf-hilfen.zsh)
 UHR_PY='
@@ -150,10 +145,10 @@ pruefen() {
   (( f5 >= K[FENSTER_STOPP] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_STOPP] % – $lage"; return }
   # Fenster-Takt (Maintainer 18.11.2026: „ich möchte nur vermeiden dass die produktivität bei null ist weil wir ständig in das 5h-limit hineinlaufen“):
   # neue Worker nur, solange das Fenster nicht schneller verbraucht ist als die verstrichene Zeit (+ FENSTER_RESERVE Punkte), damit es nicht nach 1 h leer ist
+  # fenster_rest/fenster_takt aus lauf-hilfen.zsh (gemeinsam mit der Tagesroutine, 18.11.2026)
   local rest soll5
-  rest=$(fenster_rest)
-  if [[ $rest == <-> ]] && (( rest <= 18000 )); then
-    soll5=$(( (18000 - rest) * 100 / 18000 + K[FENSTER_RESERVE] ))
+  rest=$(fenster_rest $DIR/kontingent.json)
+  if soll5=$(fenster_takt "$rest" $K[FENSTER_RESERVE]); then
     (( f5 > soll5 )) && { print -r -- "warten Fenster-Takt (5 Stunden $f5 % über ${soll5} %, noch $(( rest / 60 )) Min. bis zum Fensterende) – $lage"; return }
   fi
   # Drossel (Maintainer 18.11.2026: „ich folge deinen empfehlungen“): ab FENSTER_DROSSEL % im 5-Stunden-Fenster höchstens ein Worker gleichzeitig, damit das Fenster nicht nach 4,5 h voll ist

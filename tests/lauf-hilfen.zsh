@@ -390,6 +390,36 @@ print(round(100 * u))
 wochen_soll() {   # [<Stunden>]
   python3 -I -c $VOLLDAMPF_PY /dev/null soll "" $(wochenanker_datei) ${1:-168} 2>/dev/null
 }
+# Fenster-Takt des 5-Stunden-Fensters, eine Stelle für Auslastungswächter und Tagesroutine (Maintainer 18.11.2026: „ich
+# möchte nur vermeiden dass die produktivität bei null ist weil wir ständig in das 5h-limit hineinlaufen“; Tagesroutine
+# im Volldampf seit 18.11.2026, „ich folge allen empfehlungen von dir.“): Neues nur, solange das Fenster nicht schneller
+# verbraucht ist als die verstrichene Zeit plus FENSTER_RESERVE Punkte.
+#   fenster_rest [<kontingent.json>]   Sekunden bis zum Fensterende, leer wenn unbekannt (Probe: HALO_FENSTER_REST)
+#   fenster_takt <Sekunden bis Fensterende> [<Reserve>]   Takt-Grenze in % (ganzzahlig), Rückgabe 1 wenn unbekannt
+# FENSTER_DEF_PY (vor ENTSCHEID_PY der Tagesroutine): fenster_takt(rest, reserve), fenster_takt_frei(ende, h5, reserve)
+FENSTER_RESERVE_STANDARD=25
+FENSTER_DEF_PY='
+def fenster_takt(rest, reserve, dauer=18000):
+    """Takt-Grenze in %: verstrichener Anteil des Fensters + Reserve; None, wenn das Fensterende unbekannt ist"""
+    if rest is None or rest < 0 or rest > dauer: return None
+    return int((dauer - int(rest)) * 100 // dauer + reserve)
+def fenster_takt_frei(ende, h5, reserve, dauer=18000):
+    """Unix-Sekunden, ab denen der Takt den Stand h5 erreicht (ende = Fensterende in Unix-Sekunden)"""
+    return ende - dauer + max(0.0, (h5 - reserve) * dauer / 100.0)
+'
+fenster_rest() {   # [<kontingent.json>]
+  [[ -n ${HALO_FENSTER_REST+x} ]] && { print -r -- $HALO_FENSTER_REST; return }
+  python3 -I -c 'import json,sys,time;e=json.load(open(sys.argv[1]))["info"]["unifiedWindows"]["five_hour"];print(max(0,int(e["resetsAt"]-time.time())))' \
+    ${1:-$HOME/halo-nacht/kontingent.json} 2>/dev/null
+}
+fenster_takt() {   # <Sekunden bis Fensterende> [<Reserve>]
+  [[ $1 == <-> ]] || return 1
+  python3 -I -c "$FENSTER_DEF_PY"'
+import sys
+t = fenster_takt(int(sys.argv[1]), float(sys.argv[2]))
+if t is None: sys.exit(1)
+print(t)' $1 ${2:-$FENSTER_RESERVE_STANDARD} 2>/dev/null
+}
 # freien Reset erkennen (Anker), siehe oben; schreibt nichts bei HALO_PAUSE_TROCKEN
 wochen_reset_erkennen() {   # <Woche %>
   local woche=${1%%.*} stand=${HALO_WOCHENSTAND:-$HOME/halo-nacht/wochenstand.txt} a

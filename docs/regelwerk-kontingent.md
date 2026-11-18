@@ -14,14 +14,14 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | Woche, 5-Stunden-Fenster, Fensterende | `tests/kontingent.sh` → `~/halo-nacht/kontingent.json` | ohne Wochenwert („seven_day“) gilt die Woche als nicht lesbar, nie 0 oder 5-Stunden-Wert |
 | Soll (Sollkurve) | `wochen_soll` in `tests/lauf-hilfen.zsh` | ohne freien Reset: Stunden seit Di 00:00 UTC / 168 (Wächter: / 48) × 100 %; nach freiem Reset (Anker): Stunden seit Anker / Stunden Anker → nächster Reset × 100 % |
 | Freier Reset (Anker) | `wochen_reset_erkennen` | Sturz der Woche um ≥ 20 Punkte ohne automatischen Reset dazwischen; nur echte Messwerte (nie Platzhalter); verfällt am automatischen Reset |
-| Fenster-Takt | `pruefen` in `tests/auslastung-schleife.zsh` | Takt = verstrichener Anteil des 5-Stunden-Fensters + 25 Punkte (`FENSTER_RESERVE`) |
+| Fenster-Takt | `fenster_takt`/`FENSTER_DEF_PY` in `tests/lauf-hilfen.zsh` (Wächter `pruefen`, Tagesroutine `ENTSCHEID_PY`) | Takt = verstrichener Anteil des 5-Stunden-Fensters + 25 Punkte (`FENSTER_RESERVE`); Fensterende unbekannt = kein Takt |
 
 ## 2. Zustände und was je Zustand gilt
 
 | Zustand | Erkennung | Tagesroutine | Nachtlauf | Auslastungswächter | Zwischen-Release-Wächter |
 |---|---|---|---|---|---|
 | **Alltag** | keine aktive Zeile in `volldampf.txt` | 09:00–20:30 (Ende 22:00); Abstand < −8: alles Opus (Fable bei 5 h < 50 %); −8…0: Opus/Sonnet; 0…+10: Sparmodus Haiku; > +10: stündlich warten | 01:30, Director mit 70–80 %-Vorsicht, Schritt 5 bis 06:30, Ende 08:00 | läuft nicht | läuft nicht |
-| **Volldampf aktiv** | Zeile aktiv (`volldampf_aktiv` = 0) | 08:45–23:30 (Ende 23:59); Soll und Sparmodus bremsen nicht; Opus/Sonnet, Fable bei 5 h < 100 % | Fortsetzungen bis 08:45, Grenzen 40 Commits / 50 Fortsetzungen | alle 10 Min., bis `MAX_WORKER` (6); tags Start bei Woche < Soll (48 h) **oder** 5 h < 60 %; nachts (vor 09:00 oder Nachtlauf läuft) nur bei Woche < Soll; Fable bei ≥ 5 Punkte unter Soll | alle 5 Min., Push-Beginn 09:00–22:30 (danach warten), Release bis 24:00; ab 3 Thunderbird-Commits |
+| **Volldampf aktiv** | Zeile aktiv (`volldampf_aktiv` = 0) | 08:45–23:30 (Ende 23:59); Soll und Sparmodus bremsen nicht; Fenster-Takt wie der Wächter (über Takt: warten, bis er aufholt, höchstens volle Stunde); Opus/Sonnet, Fable bei 5 h < 100 % | Fortsetzungen bis 08:45, Grenzen 40 Commits / 50 Fortsetzungen | alle 10 Min., bis `MAX_WORKER` (6); tags Start bei Woche < Soll (48 h) **oder** 5 h < 60 %; nachts (vor 09:00 oder Nachtlauf läuft) nur bei Woche < Soll; Fable bei ≥ 5 Punkte unter Soll | alle 5 Min., Push-Beginn 09:00–22:30 (danach warten), Release bis 24:00; ab 3 Thunderbird-Commits |
 | **Volldampf, Fenster knapp** | 5 h ≥ 70 / 80 / 85 / 90 % | ab 80 %: nichts Neues bis Fensterende | Limit-Pause 30 Min. bei Abbruch | ab 70 %: höchstens eine Arbeits-Sitzung; ab 90 %: kein Start | ab 85 %: Release schon ab 1 Thunderbird-Commit (CI und Windows nutzen die Pause) |
 | **Volldampf pausiert** | Woche ≥ 98 % (Marke `volldampf-beendet.txt`) | Alltagsregeln (meist „nichts Neues“, weit über Soll) | Alltagsgrenzen | wartet, liest Kontingent stündlich | wartet |
 | **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter, Soll bis nächster Reset | wie Volldampf | Soll bis nächster Reset | wie Volldampf |
@@ -34,12 +34,12 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 3. **Belegt** (`belegt()`): CI auf dem Runner, Testlauf, Marionette-Port, Windows-VM, release.sh/publish.sh, andere Sitzung.
 4. **Wochenlimit**: Status nicht „allowed…“ oder Woche ≥ 98 % → Volldampf pausiert, Alltagsregeln.
 5. **5-Stunden-Fenster hart**: Wächter ab 90 %, Tagesroutine ab 80 %.
-6. **Fenster-Takt** (nur Wächter): 5 h über Takt → kein neuer Worker.
+6. **Fenster-Takt** (Wächter; Tagesroutine nur im Volldampf, seit 18.11.2026): 5 h über Takt → kein neuer Worker bzw. Eintrag.
 7. **Drossel** (nur Wächter): 5 h ab 70 % → höchstens eine Arbeits-Sitzung gleichzeitig.
 8. **Sollkurve**: Alltag Tagesroutine (Sparmodus, „nichts Neues“); Wächter nachts nur unter Soll, tags unter Soll oder Fenster < 60 %.
 9. **Modellwahl** (keine Bremse): Abstand und 5 h wählen Haiku/Sonnet/Opus/Fable.
 
-Keine Doppelbremse: 5–7 wirken nur auf den Wächter, 5 (80 %) und 8 nur auf die Tagesroutine; der Nachtlauf bremst nur
+Keine Doppelbremse: 7 wirkt nur auf den Wächter, 5 je Lauf mit eigener Schwelle (Wächter 90 %, Tagesroutine 80 %), 6 auf Wächter und Tagesroutine im Volldampf, 8 auf beide nach eigener Kurve; der Nachtlauf bremst nur
 über 1–4 und die Limit-Pause. Laufende Arbeit wird von 4–8 nie abgebrochen, nur kein neuer Beginn.
 
 ## 4. Aufgabenzuteilung nach Aufwand
@@ -61,4 +61,3 @@ Fenster knapp (≥ 85 %) oder Volldampf pausiert → Z-Klassen, die kaum Token b
 
 - Der Auslastungswächter wählt keine Klasse: jeder Worker nimmt den nächsten Eintrag nach Reihenfolge, auch bei knappem Fenster. Vorschlag: ab Drossel (70 %) nur Z-Klassen bzw. T3/T4 anstoßen.
 - Der Windows-Rundgang bei knappem 5-Stunden-Fenster (Maintainer 18.11.2026) ist nirgends als Auslöser eingebaut.
-- Die Tagesroutine kennt Takt und Drossel nicht (nur 80 %); sie kann das Fenster allein früh füllen.

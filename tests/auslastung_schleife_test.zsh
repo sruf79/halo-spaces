@@ -45,9 +45,15 @@ pruefe "Tag, über Soll, 5 Stunden 60 %: warten" "$(W HALO_AS_WOCHE=35 HALO_AS_5
 pruefe "Tag, unter Soll, 5 Stunden 90 %: warten (FENSTER_STOPP)" "$(W HALO_AS_5H=90)" 'warten 5-Stunden-Fenster ab 90'
 pruefe "Tag, unter Soll, 5 Stunden 70 %, ein Worker läuft: warten (FENSTER_DROSSEL)" "$(W HALO_AS_5H=70)" 'warten 5-Stunden-Fenster ab 70 % \(Drossel'
 pruefe "Tag, unter Soll, 5 Stunden 70 %, kein Worker läuft: starten" "$(W HALO_AS_5H=70 HALO_AS_AKTIV=0)" 'starten opus'
-pruefe "Fenster-Takt: 40 % nach 19 Min. (Reserve 25): warten" "$(W HALO_AS_5H=40 HALO_AS_FENSTER_REST=16860)" 'warten Fenster-Takt'
-pruefe "Fenster-Takt: 20 % nach 19 Min.: starten" "$(W HALO_AS_5H=20 HALO_AS_FENSTER_REST=16860)" 'starten opus'
-pruefe "Fenster-Takt: 60 % nach 3 h (Soll 60+25): starten" "$(W HALO_AS_5H=60 HALO_AS_FENSTER_REST=7200)" 'starten opus'
+pruefe "Fenster-Takt: 40 % nach 19 Min. (Reserve 25): warten" "$(W HALO_AS_5H=40 HALO_FENSTER_REST=16860)" 'warten Fenster-Takt'
+pruefe "Fenster-Takt: 20 % nach 19 Min.: starten" "$(W HALO_AS_5H=20 HALO_FENSTER_REST=16860)" 'starten opus'
+pruefe "Fenster-Takt: 60 % nach 3 h (Soll 60+25): starten" "$(W HALO_AS_5H=60 HALO_FENSTER_REST=7200)" 'starten opus'
+pruefe "Fenster-Takt: gemeinsame Rechnung fenster_takt aus lauf-hilfen.zsh (auch Tagesroutine)" \
+  "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; fenster_takt 16860 25; fenster_takt 7200 25; fenster_takt 20000 25 || print unbekannt; fenster_takt '' || print leer)" '^31
+85
+unbekannt
+leer$'
+pruefe "Fenster-Takt: Wächter rechnet nicht selbst" "$(grep -vE '^[[:space:]]*#' $SKRIPT | grep -cE 'fenster_takt "\$rest"|18000')" '^1$'
 pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'
 pruefe "Fable auch bei laufendem Fable-Lauf (keine Mengengrenze im Volldampf, 17.11.2026)" "$(W HALO_AS_WOCHE=9 HALO_AS_FABLE=1)" 'starten fable'
 pruefe "kein Fable bei 5 Stunden 50 %" "$(W HALO_AS_WOCHE=9 HALO_AS_5H=50)" 'starten opus'

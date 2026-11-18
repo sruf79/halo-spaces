@@ -28,6 +28,8 @@ export HALO_LAUF=tagesroutine
 #   warten; nur SPAR_MODELL, nur Einträge, die es sicher schafft, höchstens SPAR_MAX_EINTRAEGE_TAG je Tag
 #   bis 3 gemessen sind; Messungen in ~/halo-nacht/tagesroutine-spar.tsv (HALO_SPAR_DATEI).
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
+#   Im Volldampf zusätzlich der Fenster-Takt (18.11.2026, fenster_takt in lauf-hilfen.zsh, wie der Auslastungswächter):
+#   5-Stunden-Fenster über verstrichenem Anteil + FENSTER_RESERVE (25) → nichts Neues, bis der Takt aufholt (höchstens volle Stunde).
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
 #   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
@@ -83,7 +85,7 @@ KONF=(
   RESET_WOCHENTAG 2  RESET_ZEIT 00:00
   WEIT_DARUNTER 8  IM_SOLL 3
   SPAR_MAX 10  RESERVE_NACHT 15  SPAR_MAX_EINTRAEGE_TAG 1  SPAR_KOSTEN_JE_EINTRAG 1.0  SPAR_MODELL haiku
-  FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60
+  FUENF_STUNDEN_MAX 80  PAUSE_OHNE_ENDE 60  FENSTER_RESERVE ''
   MODELL_STARK opus  MODELL_ROUTINE sonnet  MODELL_FABLE fable  FABLE_5H_MAX 50  FABLE_JE_LAUF 1
   MAX_COMMITS_TAG 40 BELEGT_WARTEN 60  MAX_COMMITS_VOLLDAMPF 0
   FABLE_5H_MAX_VOLLDAMPF 100  FABLE_WOCHE_MAX 100  VOLLDAMPF_WOCHE_ENDE 98
@@ -108,6 +110,7 @@ HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
 VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf pausiert ab diesem Wochenwert bis zum freien Reset (lauf-hilfen.zsh)
 source $HILFEN
+[[ -n $KONF[FENSTER_RESERVE] ]] || KONF[FENSTER_RESERVE]=$FENSTER_RESERVE_STANDARD   # Fenster-Takt wie im Auslastungswächter (lauf-hilfen.zsh)
 # Nur mit Volldampf gelten die späteren Zeiten (Maintainer 17.11.2026: kein Zeitlimit abends außer Nachtlauf); ohne Volldampf die normalen.
 # Bei jeder Entscheidung neu gesetzt (volldampf_lesen), damit „aus“, Ablauf und Wochenlimit SOFORT wirken (Maintainer 17.11.2026:
 # „wir müssen dann sofort weiter aktiv im regulären modus laufen.“); vorher galt der Stand beim Start für den ganzen Tag.
@@ -288,6 +291,23 @@ else:
     else:
         aus.update(STUFE=("im Soll (±%g)" % band) if abs(a) <= band else "darunter", ENTSCHEIDUNG="neu",
                    M_KOMPLEX=stark, M_ROUTINE=routine, GRUND="im Soll" if abs(a) <= band else "unter dem Soll")
+    # Fenster-Takt nur im Volldampf (Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“, Empfehlung 3: derselbe
+    # Takt wie im Auslastungswächter, fenster_takt aus lauf-hilfen.zsh): nichts Neues, solange das 5-Stunden-Fenster
+    # schneller verbraucht ist als die verstrichene Zeit plus FENSTER_RESERVE; warten, bis der Takt aufholt, höchstens
+    # bis zur vollen Stunde. Fensterende unbekannt: kein Takt (dann bremst nur FUENF_STUNDEN_MAX).
+    if volldampf and not math.isnan(h5) and e.get("K_5H_ENDE"):
+        try:
+            fe_t = dt.datetime.fromisoformat(e["K_5H_ENDE"]).astimezone(W)
+        except ValueError:
+            fe_t = None
+        fres = zahl("K_FENSTER_RESERVE", 25)
+        takt = fenster_takt((fe_t - jetzt).total_seconds(), fres) if fe_t is not None else None
+        if takt is not None and h5 > takt:
+            frei = dt.datetime.fromtimestamp(fenster_takt_frei(fe_t.timestamp(), h5, fres), W)
+            bis = max(jetzt + dt.timedelta(minutes=1), min(frei, volle))
+            aus.update(ENTSCHEIDUNG="warten", M_KOMPLEX="-", M_ROUTINE="-", FABLE="nein", WARTEN_BIS=bis.isoformat(timespec="minutes"),
+                       GRUND="Fenster-Takt: 5-Stunden-Fenster %.0f %% über %d %% (verstrichene Zeit + %g Punkte Reserve), Fensterende %s – nichts Neues, nächster Versuch %s" % (
+                           h5, takt, fres, fe_t.strftime("%H:%M"), bis.strftime("%H:%M")))
     # zweite Bremse: 5-Stunden-Fenster. Warten (Pause über pausen.txt) bis zum Fensterende, höchstens bis
     # zur nächsten vollen Stunde, dann neu entscheiden (Maintainer 12.11.2026)
     if not math.isnan(h5) and h5 >= h5max:
@@ -358,11 +378,11 @@ entscheiden() {
     K_WEIT_DARUNTER=$KONF[WEIT_DARUNTER] K_IM_SOLL=$KONF[IM_SOLL] K_FUENF_STUNDEN_MAX=$KONF[FUENF_STUNDEN_MAX] \
     K_SPAR_MAX=$KONF[SPAR_MAX] K_RESERVE_NACHT=$KONF[RESERVE_NACHT] K_SPAR_MAX_EINTRAEGE_TAG=$KONF[SPAR_MAX_EINTRAEGE_TAG] \
     K_SPAR_KOSTEN_JE_EINTRAG=$KONF[SPAR_KOSTEN_JE_EINTRAG] K_SPAR_MODELL=$KONF[SPAR_MODELL] K_SPAR_DATEI=$SPAR_DATEI \
-    K_PAUSE_OHNE_ENDE=$KONF[PAUSE_OHNE_ENDE] K_FABLE_5H_MAX=$KONF[FABLE_5H_MAX] \
+    K_PAUSE_OHNE_ENDE=$KONF[PAUSE_OHNE_ENDE] K_FABLE_5H_MAX=$KONF[FABLE_5H_MAX] K_FENSTER_RESERVE=$KONF[FENSTER_RESERVE] \
     K_MODELL_STARK=$KONF[MODELL_STARK] K_MODELL_ROUTINE=$KONF[MODELL_ROUTINE] \
     K_VOLLDAMPF=$VD K_FABLE_5H_MAX_VOLLDAMPF=$KONF[FABLE_5H_MAX_VOLLDAMPF] K_FABLE_WOCHE_MAX=$KONF[FABLE_WOCHE_MAX] \
     K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
-    K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$ENTSCHEID_PY")
+    K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$FENSTER_DEF_PY$ENTSCHEID_PY")
   [[ -n $E[SOLL] ]]
 }
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst freien Reset und Wochenlimit prüfen
@@ -502,7 +522,7 @@ if [[ -n $TROCKEN ]]; then
     || print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
   print "Kontingent:   $K_QUELLE"
   print "Soll:         $E[SOLL] %${E[ANKER]:+ (bis nächster Reset, freier Reset $E[ANKER])}   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
-  print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
+  print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %${${VD:#nein}:+, Fenster-Takt mit Reserve $KONF[FENSTER_RESERVE] Punkte})${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; $(tageslimit_text)"
   print -r -- "Zwischen-Release: $(zs_zustand)"
   print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein ); Fable-Woche: ${K_FABLE:-nicht lesbar}"

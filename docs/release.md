@@ -92,6 +92,10 @@ Code-Aufräum-Änderungen; kleine Design-Feinheiten; Unfertiges oder Arbeit, die
 (Lichtschein und Kachel nur zusammen, `ENTSCHEIDUNGEN.md` 14.11.2026). Im Zweifel nein: der nächste Nachtlauf
 veröffentlicht ohnehin.
 
+## Rote Änderung auf einen Nebenzweig (Maintainer 18.11.2026)
+
+Ist eine Prüfung für ein Release rot, wird erst belegt, ob es eine Regression ist (Wiederholung, Gegenprobe mit dem letzten Release, Bisect). Ein belegter, sauber trennbarer Verursacher (Revert ohne Konflikte, Funktion und Test zusammen) kommt auf einen Nebenzweig; der Rest wird als neuer Stand mit voller CI, Windows und neuer Testmarke veröffentlicht, README und Notizen werden neu geschrieben, ein Board-Eintrag hält die Wiederaufnahme fest. Steht der Fehler schon im letzten Release oder hängt er an der Umgebung, wird er mit `check(…, bekannt=True)` samt Board-Eintrag festgehalten oder behoben. Je öfter derselbe Commit rot wird und auf einem Nebenzweig landet, desto höher das untersuchende Modell, immer mit Skill `systematic-debugging` (1. Opus, 2. und 3. Fable nach den Grenzen aus „Rot bleibt rot“, danach Übergabe an den Maintainer). Nie die Sperre umgehen.
+
 ## Pull Requests nach dem Release schließen
 
 Nach dem Schließen der Issues ruft `publish.sh` `tests/pr-schliessen.sh <version>` auf: Es schließt nur

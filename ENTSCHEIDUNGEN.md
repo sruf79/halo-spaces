@@ -831,3 +831,7 @@ Umsetzung (Deutung der umsetzenden Sitzung, nicht Wortlaut des Maintainers; `tes
 
 ## 18.11.2026 – Abgelehnte Pull Requests schließt neon automatisch
 Maintainer (18.11.2026, über github.comm.routine übermittelt, am selben Tag von ihm mit „ja“ bestätigt), sinngemäß: Ist ein Pull Request vom Maintainer abgelehnt und die Ablehnung auf dem PR geschrieben, schließt neon ihn auf Meldung von github.comm.routine automatisch, ohne Merge, mit kurzem englischem Kommentar ohne Apple, Gedankenstriche und Bindestriche, und trägt es in den Stand ein; github.comm.routine schließt selbst nie. Erster Fall: PR #72 (Kommentar 6981723363).
+
+## 18.11.2026 – Rote Änderung auf einen Nebenzweig, je öfter rot desto höheres Modell
+Maintainer (18.11.2026), wörtlich: „warum kommt die rote änderung nicht auf einen nebenzweig, wird vom einem opus angenten untersucht und beim nächsten release dann wieder zu den commits hinzugefügt während die anderen positiv und grün getesteten änderungen für das release ins neue release kommen und dieses dann veröffentlicht wird?“ und nach der Prüfung durch Opus („ja. und natürlich die regel je öfter ein commit rot wird und je öfter er deswegen auf einem nebenzweig landet, desto höher muss das untersuchende ki-modell sein (inkl. systematic-debugging)“).
+Umsetzung (Deutung der umsetzenden Sitzung, nicht Wortlaut des Maintainers; Bedingungen aus der Opus-Prüfung vom selben Tag): `docs/release.md` „Rote Änderung auf einen Nebenzweig“.

@@ -1050,7 +1050,10 @@ function hookPrefCategories(cw, restorers = null) {
       cw.gotoPref(HALO_PANE);
       const frame = haloBox.querySelector("browser");
       if (frame?.currentURI?.spec.startsWith(extensionBaseURL)) {
-        frame.fixupAndLoadURIString(`${extensionBaseURL}options/options.html?in=prefs#s-${key}`,
+        // derselbe Anker noch einmal löst kein hashchange aus (Gecko springt nur im
+        // Dokument) – beim zweiten „Show“ für dieselbe Option deshalb mit „~“ abwechseln
+        const hash = frame.currentURI.ref == `s-${key}` ? `s-${key}~` : `s-${key}`;
+        frame.fixupAndLoadURIString(`${extensionBaseURL}options/options.html?in=prefs#${hash}`,
           { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
       }
     };

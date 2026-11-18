@@ -13670,39 +13670,18 @@ class CardEnhancer {
       this.syncTodayModes(w);
       const locale = Services.locale.appLocaleAsBCP47;
       const wdFmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
-      const monthFmt = new Intl.DateTimeFormat(locale, { month: "long" });
-      const X = "http://www.w3.org/1999/xhtml";
-      const title = d.createElementNS(X, "div");
-      title.id = "mcAgendaTitle";
-      // ‹  Monat Jahr  › – blättert monatsweise; die Liste zeigt die Termine
-      // des gezeigten Monats (im aktuellen ab dem 1., heute ganz oben)
-      const mkChevron = (cls, label, dir) => {
-        const b = d.createElementNS(X, "button");
-        b.className = `mc-agenda-nav ${cls}`;
-        b.type = "button";
-        b.title = label;
-        b.setAttribute("aria-label", label);
-        b.addEventListener("click", () => this.shiftAgendaMonth(w, dir));
-        return b;
-      };
-      const label = d.createElementNS(X, "span");
-      label.className = "mc-agenda-month";
-      title.append(
-        mkChevron("mc-prev", tr("Previous Month"), -1),
-        label,
-        mkChevron("mc-next", tr("Next Month"), 1)
-      );
-      agenda.before(title);
+      // Der Monat steht nur über dem Mini-Kalender (dessen Pfeile blättern
+      // auch die Liste, hookAgendaMonthRange); keine eigene Monatszeile über
+      // der Liste mehr (nichts doppelt)
       this.hookAgendaMonthRange(w);
+      this.markMinimonthWeekStart(w);
       const apply = () => {
         const today = new Date();
         const todayKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-        let firstDate = null;
         for (const li of agenda.querySelectorAll(":scope > li.agenda-listitem")) {
           const key = li.dateString || "";
           if (key.length >= 8) {
             const date = new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8));
-            firstDate ??= date;
             // Tage vor heute blasser (wie vergangene Tage im Kalender)
             li.toggleAttribute("data-mc-past", key.slice(0, 8) < todayKey);
             const header = li.querySelector(".agenda-date-header");
@@ -13729,19 +13708,6 @@ class CardEnhancer {
             li.style.setProperty("--mc-c", color);
           }
         }
-        // Monat der Liste (Starttag der Today-Pane), sonst des ersten Termins
-        let date = firstDate || today;
-        try {
-          const start = w.TodayPane?.start;
-          if (start) {
-            date = new Date(start.year, start.month, start.day);
-          }
-        } catch {} // gewollt: Beginn der Today-Pane nicht lesbar, es gilt heute
-        const month = monthFmt.format(date);
-        label.replaceChildren(
-          Object.assign(d.createElementNS(X, "b"), { textContent: month }),
-          d.createTextNode(` ${date.getFullYear()}`)
-        );
       };
       let pending = false;
       const mo = new w.MutationObserver(() => {
@@ -13757,7 +13723,6 @@ class CardEnhancer {
       apply();
       this.restorers.push(() => {
         mo.disconnect();
-        title.remove();
         delete agenda.__mcAgenda;
       });
     };

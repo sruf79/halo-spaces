@@ -15,8 +15,12 @@
 # Zeilen der Ausgabe:
 #   schliessen #n <Nachfrage Wiener Zeit>   Markierung älter als 7 Tage, keine Antwort danach
 #   wartet #n bis <Wiener Zeit>             Markierung jünger als 7 Tage, keine Antwort danach
-#   anfrage #n <letzter Kommentar>          letzter Kommentar vom Maintainer-Konto ohne Markierung,
-#                                           älter als 7 Tage: Nachfrage fällig (Routine)
+#   anfrage #n <letzter Kommentar>          letzter Kommentar vom Maintainer-Konto ohne Markierung, eine
+#                                           Rückfrage („?“ außerhalb von Links), älter als 7 Tage: Nachfrage fällig
+#   zusage #n <letzter Kommentar>           wie anfrage, aber ohne Rückfrage und ohne offenen Board-Eintrag: der
+#                                           Nutzer wartet auf uns; die Routine verknüpft die Zusage mit einem
+#                                           Board-Eintrag („GitHub #n“) oder schließt selbst, nie Nachfrage
+#   (Markierung: gilt nur, solange sie der letzte Kommentar ist; ein späterer Kommentar, auch ein eigener, hebt sie auf)
 #   ausgenommen #n (<Grund>)                Label keep-open/waiting-on-us, Zeile in der Ausnahmedatei oder
 #                                           offener Board-Eintrag („ausgenommen #n (offener Board-Eintrag)“,
 #                                           nur ohne offene Markierung, siehe unten)
@@ -31,8 +35,8 @@
 # tests/inaktivitaet-ausnahmen.txt im Checkout (HALO_REPO, Standard ~/halo-spaces).
 # Automatische Ausnahme (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md „18.11.2026 – GitHub: Inaktivitätsregel, offener Board-Eintrag …“):
 # ein Issue n ist ausgenommen, solange die Aufgabenliste einen offenen Eintrag (nicht archiviert, Status nicht Done,
-# „Wartet auf OK“ zählt als offen) hat, der im Titel oder Text auf „GitHub #n“ verweist (auch „[GitHub #n]“,
-# „GitHub-Issue #n“); erledigt oder archiviert endet die Ausnahme von selbst. Die Ausnahme gilt nur, solange wir
+# „Wartet auf OK“ zählt als offen) hat, der im Titel oder Text (mit Notizen) auf „GitHub #n“ verweist (auch „[GitHub #n]“,
+# „GitHub-Issue #n“, „GitHub #45 und #67“); erledigt oder archiviert endet die Ausnahme von selbst. Die Ausnahme gilt nur, solange wir
 # nicht auf den Nutzer warten (Maintainer 18.11.2026 zu #31/#52): steht eine Markierung ohne Antwort danach oder
 # ist unser letzter Kommentar eine Rückfrage (enthält „?“ außerhalb von Links; Deutung nach docs/github-komm.md
 # „Wann Ausnahme“), läuft der normale Ablauf (Nachfrage, Frist) trotz Eintrag. Beim Schließen wird zuerst der verlinkte Eintrag (Titel enthält „GitHub #n“,
@@ -68,11 +72,13 @@ ina_ausnahmen_lesen() {   # <Datei>
 }
 
 # Export der Aufgabenliste ({"items": [{status, title, body}]}) → JSON {"<n>": true} der Issues, auf die ein
-# offener Eintrag verweist („GitHub #n“, „[GitHub #n]“, „GitHub-Issue #n“; nicht „GitHub: PR #n“)
+# offener Eintrag verweist („GitHub #n“, „[GitHub #n]“, „GitHub-Issue #n“, auch Aufzählungen wie „GitHub #45 und #67“,
+# „GitHub-Issues #65, #66“; nicht „GitHub: PR #n“). Notizen stehen im Text und zählen mit.
 ina_board_nummern() {   # <export.json>
   jq -c 'if (.items | type) != "array" then error("kein Board-Export") else . end
     | [.items[] | select(.status != "Done") | ((.title // "") + "\n" + (.body // ""))
-       | scan("GitHub(?:-[A-Za-z]+)? #([0-9]+)"; "i") | .[0]] | unique | map({(.): true}) | add // {}' $1
+       | scan("GitHub(?:-[A-Za-z]+)? #[0-9]+(?:(?:, ?| und | and | oder | or |/)#[0-9]+)*"; "i")
+       | scan("[0-9]+")] | unique | map({(.): true}) | add // {}' $1
 }
 
 # verlinkte Einträge zu Issue n (Titel enthält „GitHub #n“ bzw. „GitHub-Issue #n“) → Zeilen „<id>\t<Grund>\t<Notiz da>“;
@@ -113,22 +119,29 @@ ina_auswerten() {   # <issues.json> <ausnahmen.json> <jetzt Epoch> [<board.json>
     ($a[0]) as $aus | ($b[0] // {}) as $board | ($labels | split(" ")) as $lab
     | def zeit: .created_at | fromdate;
       def wien: strflocaltime("%d.%m.%Y-%H:%M");
+      def frage: .body | gsub("https?://[^\\s)]+"; "") | test("\\?");   # Rückfrage: „?“ außerhalb von Links
     sort_by(.number)[] | .number as $n
     | ([.comments[]? | select((.bot | not) and (.login | test("\\[bot\\]$") | not))] | sort_by(zeit)) as $k
     | ([$k[] | select(.login == $ich and (.body | ascii_downcase | contains($marke)))] | last) as $m
     | ([.labels[]? | select(. as $l | $lab | index($l))] | first) as $label
+    | (($k | length) > 0 and $k[-1].login == $ich) as $wir_zuletzt
     | if .pr then "kein-issue #\($n)"
       elif $aus[$n | tostring] then "ausgenommen #\($n) (\($aus[$n | tostring]))"
       elif $label then "ausgenommen #\($n) (Label \($label))"
       elif .autor == $ich then "eigenes #\($n)"
-      elif $m != null and ([$k[] | select(.login != $ich and zeit > ($m | zeit))] | length) == 0 then
+      # Markierung zählt nur als letzter Kommentar: eine Antwort des Nutzers oder ein späterer eigener Kommentar
+      # (z. B. Zusage nach der Nachfrage) hebt sie auf, die Frist beginnt erst mit einer neuen Markierung
+      elif $m != null and ([$k[] | select(zeit > ($m | zeit))] | length) == 0 then
         if $jetzt - ($m | zeit) > $frist then "schliessen #\($n) \($m | zeit | wien)"
         else "wartet #\($n) bis \(($m | zeit) + $frist | wien)" end
-      elif $board[$n | tostring] and ((($k | length) > 0 and $k[-1].login == $ich
-             and ($k[-1].body | gsub("https?://[^\\s)]+"; "") | test("\\?"))) | not)
+      elif $board[$n | tostring] and (($wir_zuletzt and ($k[-1] | frage)) | not)
         then "ausgenommen #\($n) (offener Board-Eintrag)"
-      elif ($k | length) > 0 and ($k[-1].login == $ich) and ($k[-1].body | ascii_downcase | contains($marke) | not)
-           and $jetzt - ($k[-1] | zeit) > $frist then "anfrage #\($n) \($k[-1] | zeit | wien)"
+      elif $wir_zuletzt and ($k[-1].body | ascii_downcase | contains($marke) | not)
+           and $jetzt - ($k[-1] | zeit) > $frist then
+        # nur nach einer Rückfrage warten wir auf den Nutzer (Nachfrage); ohne Rückfrage wartet er auf uns
+        # (docs/github-komm.md „Wann Ausnahme“): Zusage gehört auf die Aufgabenliste, sonst schließen
+        if $k[-1] | frage then "anfrage #\($n) \($k[-1] | zeit | wien)"
+        else "zusage #\($n) \($k[-1] | zeit | wien)" end
       else "offen #\($n)" end' $1
 }
 

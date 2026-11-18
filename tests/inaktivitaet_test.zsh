@@ -51,6 +51,9 @@ issue 9 nutzer '[]'                  < <(k sruf79 8 $MARKE; k "dependabot[bot]" 
 issue 10 nutzer '[]'                 < <(k sruf79 2 "Which version?")                                           # jünger als 7 Tage → nichts
 issue 11 sruf79 '[]'                 < <(k sruf79 9 "Plan")                                                     # eigenes Issue → nichts
 issue 12 nutzer '[]'                 < <(k nutzer 9 "still broken")                                             # Nutzer zuletzt → nichts
+issue 26 nutzer '[]'                 < <(k nutzer 20 "Bug"; k sruf79 9 "Thanks, we will look into it.")         # Zusage ohne Rückfrage, kein Eintrag → zusage
+issue 27 nutzer '[]'                 < <(k sruf79 20 "Which version?"; k sruf79 12 $MARKE; k sruf79 9 "Fix is planned.")  # eigener Kommentar nach Markierung → nicht schließen
+issue 28 nutzer '[]'                 < <(k sruf79 20 "Which version?"; k sruf79 12 $MARKE; k sruf79 9 "Any news?")        # neue Rückfrage nach Markierung → Anfrage
 print -r -- "6 | bewusst offen (Test)" > $HALO_INA_AUSNAHMEN
 
 # --- gh-Attrappe (Funktion, verdrängt jedes gh im PATH) ---
@@ -79,7 +82,7 @@ aus=$(ina_lauf --trocken); rc=$?
 zeile() { print -r -- $aus | grep -q -- "$1" }
 pruefe "trocken: Exitcode 0" '(( rc == 0 ))'
 pruefe "Markierung 8 Tage ohne Antwort → würde schließen" 'zeile "^würde schließen #1 "'
-pruefe "Markierung 6 Tage → wartet" 'zeile "^wartet #2 bis " && ! zeile "schließen #2"'
+pruefe "Markierung 6 Tage → wartet" 'zeile "^wartet #2 bis " && ! zeile "schließen #2 "'
 pruefe "Antwort nach Markierung → nicht schließen" 'zeile "^offen #3$"'
 pruefe "Label keep-open → ausgenommen" 'zeile "^ausgenommen #4 (Label keep-open)"'
 pruefe "Label waiting-on-us → ausgenommen, keine Anfrage" 'zeile "^ausgenommen #5 (Label waiting-on-us)"'
@@ -90,11 +93,14 @@ pruefe "nur Bot nach Markierung → würde schließen" 'zeile "^würde schließe
 pruefe "Rückfrage jünger als 7 Tage → nichts" 'zeile "^offen #10$"'
 pruefe "eigenes Issue → nichts" 'zeile "^eigenes #11$"'
 pruefe "Nutzer zuletzt → nichts" 'zeile "^offen #12$"'
+pruefe "eigene Antwort ohne Rückfrage, kein Eintrag → zusage statt Anfrage" 'zeile "^zusage #26 " && ! zeile "anfrage #26"'
+pruefe "eigener Kommentar nach Markierung hebt sie auf → nicht schließen" '! zeile "schließen #27" && zeile "^zusage #27 "'
+pruefe "neue Rückfrage nach Markierung → Anfrage statt Schließen" '! zeile "schließen #28" && zeile "^anfrage #28 "'
 pruefe "trocken: nichts geschlossen, kein Log" '[[ ! -e $T/geschlossen.txt && ! -e $HALO_INA_LOG ]]'
 
 # --- Anfragen: nur Issues ohne Markierung, letzter Kommentar vom Maintainer-Konto, älter als 7 Tage ---
 aus=$(ina_lauf --anfragen)
-pruefe "anfragen: nur #8" '[[ $aus == "anfrage #8 "* ]] && (( $(print -r -- $aus | wc -l) == 1 ))'
+pruefe "anfragen: nur #8 und #28" '[[ $(print -r -- $aus | cut -d" " -f2 | xargs) == "#8 #28" ]]'
 pruefe "anfragen: schließt nichts" '[[ ! -e $T/geschlossen.txt ]]'
 
 # --- Ausführen: schließt #1 und #9 mit „not planned“ und Kommentar, Log, Summenzeile ---
@@ -104,7 +110,7 @@ pruefe "ausführen: genau #1 und #9 geschlossen" '[[ $(cut -d" " -f1 $T/geschlos
 pruefe "ausführen: Grund not planned, Kommentar inactivity/reopen" 'grep -q -- "--reason not planned --comment Closing due to inactivity.*reopen" $T/geschlossen.txt'
 pruefe "ausführen: Summenzeile für den Morgenbrief" '[[ $aus == *"Inaktivität: geschlossen #1, #9"* ]]'
 pruefe "ausführen: zwei Zeilen im Log" '(( $(grep -c "geschlossen #[19] wegen Inaktivität" $HALO_INA_LOG) == 2 ))'
-pruefe "ausführen: Ausnahmen, PR und Wartende unberührt" '! grep -qE "^(2|3|4|5|6|7|8) " $T/geschlossen.txt'
+pruefe "ausführen: Ausnahmen, PR und Wartende unberührt" '! grep -qE "^(2|3|4|5|6|7|8|26|27|28) " $T/geschlossen.txt'
 
 # --- zweiter Lauf: nichts mehr zu schließen, kein zweiter Kommentar ---
 aus=$(ina_lauf); rc=$?
@@ -125,6 +131,7 @@ issue 17 nutzer '[]' < <(k sruf79 8 $MARKE)   # Eintrag Done → würde schließ
 issue 18 nutzer '[]' < <(k sruf79 8 $MARKE)   # nur „GitHub #180“ und „GitHub: PR #18“ → würde schließen
 issue 24 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Which version? See https://x.org/a?b=1")  # Rückfrage ohne Markierung + Eintrag → Anfrage
 issue 25 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Fix planned, see https://x.org/a?b=1")      # keine Rückfrage (? nur im Link) + Eintrag → ausgenommen
+issue 29 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Thanks, noted.")          # Aufzählung „GitHub-Issues #90, #29“ im Text → ausgenommen
 issue 20 nutzer '[]' < <(k sruf79 8 $MARKE)   # Markierung + verlinkter Eintrag → abräumen, dann schließen; Querverweis bleibt
 issue 21 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag In Progress → nicht abräumen, melden, schließen
 issue 22 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag mit committetem Fix → nicht abräumen, melden, schließen
@@ -139,6 +146,7 @@ cat > $T/board.json <<'ENDE'
  {"id": "PVTI_g", "status": "In Progress", "title": "Geheimer Titel G (GitHub #21)", "body": ""},
  {"id": "PVTI_j", "status": "Todo", "title": "Geheimer Titel J [GitHub #24]", "body": ""},
  {"id": "PVTI_k", "status": "Todo", "title": "Geheimer Titel K [GitHub #25]", "body": ""},
+ {"id": "PVTI_l", "status": "Todo", "title": "Geheimer Titel L", "body": "Notiz: zusammengelegt, betrifft GitHub-Issues #90, #29"},
  {"id": "PVTI_h", "status": "Todo", "title": "Geheimer Titel H [GitHub #22]", "body": "Notiz: committet 1a2b3c4d, wartet auf Push/CI"}
 ]}
 ENDE
@@ -148,6 +156,7 @@ pruefe "Board ohne Markierung: [GitHub #n] im Titel → ausgenommen, keine Anfra
 pruefe "Board ohne Markierung: GitHub-Issue #n im Text, Wartet auf OK → ausgenommen" 'zeile "^ausgenommen #16 (offener Board-Eintrag)$"'
 pruefe "Board, unsere Rückfrage ohne Markierung → Anfrage statt Ausnahme" 'zeile "^anfrage #24 "'
 pruefe "Board, keine Rückfrage (? nur im Link) → ausgenommen" 'zeile "^ausgenommen #25 (offener Board-Eintrag)$"'
+pruefe "Board: Aufzählung „GitHub-Issues #90, #29“ in einer Notiz → ausgenommen" 'zeile "^ausgenommen #29 (offener Board-Eintrag)$"'
 pruefe "Board: Eintrag Done → keine Ausnahme" 'zeile "^würde schließen #17 "'
 pruefe "Board: #180 und PR #18 zählen nicht für #18" 'zeile "^würde schließen #18 "'
 pruefe "Board mit Markierung über 7 Tage → würde schließen (keine Ausnahme)" 'zeile "^würde schließen #20 " && zeile "^würde schließen #21 "'

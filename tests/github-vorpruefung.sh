@@ -110,12 +110,13 @@ else
 fi
 # Inaktivitätsregel (tests/inaktivitaet.sh, Maintainer 15.11.2026, docs/github-komm.md „Inaktivität“): Issues,
 # deren Nachfrage mit Markierung über 7 Tage ohne Antwort ist, schließt das Skript hier selbst (--trocken: nur
-# anzeigen); fällige Nachfragen („anfrage #n …“) und Geschlossenes zählen als Fund (die Routine postet die
+# anzeigen); fällige Nachfragen („anfrage #n …“), Zusagen ohne Board-Eintrag („zusage #n …“) und Geschlossenes zählen als Fund (die Routine postet die
 # Nachfrage bzw. trägt das Schließen in den Stand ein). Nicht möglich: nur ein Hinweis.
 if [[ -r ${0:A:h}/inaktivitaet.sh ]]; then
   INA=$(zsh ${0:A:h}/inaktivitaet.sh ${TROCKEN:+--trocken} 2>&1); ina_rc=$?
   FUNDE+=(${(f)"$(print -r -- $INA | sed -n \
     -e 's/^anfrage \(#[0-9]*\) \(.*\)/Issue \1: letzte Antwort von '$EIGENER' am \2, seit über 7 Tagen keine Antwort – Nachfrage mit „we will close this issue due to inactivity“ fällig (Inaktivitätsregel)/p' \
+    -e 's/^zusage \(#[0-9]*\) \(.*\)/Issue \1: letzte Antwort von '$EIGENER' am \2 ohne Rückfrage und ohne offenen Board-Eintrag – der Nutzer wartet auf uns: Zusage über neon-board mit einem Eintrag „GitHub \1“ verknüpfen, sonst selbst schließen; keine Nachfrage (Inaktivitätsregel)/p' \
     -e 's/^würde schließen \(#[0-9]*\) \(.*\)/Issue \1: würde wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh)/p' \
     -e 's/^geschlossen \(#[0-9]*\) \(.*\)/Issue \1: wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh), im Stand vermerken/p' \
     -e 's/^abgeräumt \(#[0-9]*\) .*/Issue \1: verlinkter Board-Eintrag vor dem Schließen archiviert (Inaktivität), im Stand vermerken/p' \

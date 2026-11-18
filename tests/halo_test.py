@@ -134,6 +134,26 @@ const bis = async (fn, was, ms = 5000) => { const v = await until(fn, ms); if (v
 const stabil = async (fn, ms = 3000) => { const end = Date.now() + ms; let last, same = 0;
   while (Date.now() < end) { const v = JSON.stringify(fn()); same = v === last ? same + 1 : 0; last = v; if (same >= 2) return true; await takt(40); } return false; };
 const tm = d.getElementById("tabmail");
+// imTakt() misst eine Animation Bild für Bild im festen Takt von 60 Hz statt in Echtzeit: der Test selbst löst jedes
+// Bild aus (windowUtils.advanceTimeAndRefresh, die Uhr der Animationen läuft je Bild genau 16,7 ms weiter) und ruft
+// danach jeBild(i). So sieht jede Messung dieselben Bilder, gleich wie schnell der Rechner ist – unter xvfb in der CI
+// braucht ein Bild je nach Läufer 35–95 ms (in Echtzeit blieben von 250 ms Animation 3–7 Bilder, Auswertung
+// ~/halo-berichte/2026-11-18-flackern.md), einzelne Lastspitzen ließen Bilder ausfallen. Zwischen den Bildern laufen
+// Zeitgeber und Zusagen weiter, und die Bilder kommen nicht früher als in Echtzeit (ein langsamer Rechner dehnt die
+// Aufnahme nur). Vor dem Auslöser der Animation aufrufen lassen: imTakt(600, …) direkt nach dem Klick. Liefert je Bild
+// die Zeit, die sein Aufbau gebraucht hat (ms) – das Maß für „flüssig“, unabhängig von Bildwiederholrate und Last
+// zwischen den Bildern. Währenddessen kein ruhig()/requestAnimationFrame abwarten (Bilder kommen nur von hier).
+const BILD_MS = 1000 / 60;
+const imTakt = async (dauer, jeBild, win = w) => { const wu = win.windowUtils, kosten = [];
+  wu.advanceTimeAndRefresh(0);
+  try { const t0 = performance.now();
+    for (let i = 1; i * BILD_MS <= dauer; i++) {
+      await wait(Math.max(0, t0 + i * BILD_MS - performance.now()));
+      const t = performance.now(); wu.advanceTimeAndRefresh(BILD_MS); kosten.push(Math.round((performance.now() - t) * 10) / 10); jeBild?.(i); }
+  } finally { wu.restoreNormalRefresh(); }
+  return kosten; };
+// mittlere Aufbauzeit (Median) der Bilder, in denen sich etwas bewegt hat (bewegt[i] gehört zu kosten[i])
+const bildKosten = (kosten, bewegt) => { const k = kosten.filter((_, i) => bewegt[i]).sort((a, b) => a - b); return k.length ? k[k.length >> 1] : 0; };
 // ruhig() wartet nach einer Bedienung auf Leerlauf: keine laufenden Übergänge/Animationen, kein Dokument lädt, kurze
 // Zeitgeber der Fenster abgelaufen (die Erweiterung reagiert oft verzögert), seit 80 ms keine Änderung am DOM.
 // Höchstens ms – das ist die frühere feste Pause, länger als vorher wird nie gewartet. Beobachtet alle offenen Fenster
@@ -15388,9 +15408,9 @@ Neu
                   const fp = a3.document.getElementById("folderPane"), tp = a3.document.getElementById("threadPane"), mp = a3.document.getElementById("messagePane");
                   const snap = () => [fp, tp, mp].map(e => Math.round(e.getBoundingClientRect().width * 10) / 10);
                   const measure = async () => {
+                    // Bild für Bild im festen Takt (imTakt): 250 ms Animation ergeben auf jedem Rechner dieselben Bilder
                     btn.click();
-                    const frames = [], times = []; const t0 = performance.now();
-                    while (performance.now() - t0 < 600) { await new Promise(r => a3.requestAnimationFrame(r)); frames.push(snap()); times.push(performance.now()); }
+                    const frames = []; const kosten = await imTakt(600, () => frames.push(snap()));
                     await ruhig(500); const end = snap();
                     // Richtungswechsel je Spalte (mehr als 1,5 px gegen die Bewegung) und Abstand des Endes zum letzten Bild vor dem Ende
                     const moving = frames.filter((f, i) => i && f.some((v, j) => Math.abs(v - frames[i - 1][j]) > 0.05));
@@ -15400,21 +15420,12 @@ Neu
                     const lastStep = frames.length > 1 ? Math.max(...[0, 1, 2].map(j => {
                       const ch = frames.map((f, i) => i ? Math.abs(f[j] - frames[i - 1][j]) : 0).filter(x => x > 0.05);
                       return ch.length >= 2 ? ch[ch.length - 1] - Math.max(ch[ch.length - 2], 3) : 0; })) : 0;
-                    // Bildabstand während der Bewegung (xvfb unter Last: 40–60 ms statt 16 ms)
-                    const dts = frames.map((f, i) => i && f.join() != frames[i - 1].join() ? times[i] - times[i - 1] : 0).filter(Boolean).sort((a, b) => a - b);
-                    const frameMs = dts.length ? Math.round(dts[dts.length >> 1]) : 0;
+                    // Aufbauzeit je Bild während der Bewegung (nur zur Auskunft: xvfb in der CI 35–95 ms, Mac rund 7 ms)
+                    const frameMs = Math.round(bildKosten(kosten, frames.map((f, i) => i && f.join() != frames[i - 1].join())));
                     return { frames: frames.filter((f, i) => !i || f.join() != frames[i - 1].join()).map(f => f.join("|")).join(" "), steps: moving.length, frameMs, back, lastStep: Math.round(lastStep * 10) / 10, end, last: frames[frames.length - 1] };
                   };
                   for (const phase of ["aus", "ein"]) {
-                    // Die Animation dauert 250 ms; liefert xvfb unter Last mehr als 62 ms je Bild, passen keine 4 Bilder
-                    // hinein (14.11. Lauf 43534717826: 89 ms, 3 Schritte, sonst einwandfrei) – die Messung sagt dann über
-                    // die Schritte nichts aus. Dann zurückschalten und neu messen (höchstens zweimal); Ruck, Richtung und
-                    // Ende gelten für jede Messung, auch die verworfenen
-                    let r = await measure(); const verworfen = [];
-                    while (r.frameMs > 62 && verworfen.length < 2) {
-                      verworfen.push(r); btn.click(); await ruhig(1000); await wait(300); r = await measure();
-                    }
-                    out[`${name}/${phase}`] = verworfen.length ? { ...r, verworfen } : r;
+                    out[`${name}/${phase}`] = await measure();
                   }
                 }
               } finally {
@@ -15426,18 +15437,14 @@ Neu
             m.cmd("WebDriver:SetTimeouts", {"script": 30000})
         if res.get("visibility") == "hidden":
             return True, f"Testfenster verdeckt – übersprungen {res}"
-        # (Windows-VM: emuliert, dort fallen Einzelbilder aus – der letzte Schritt darf etwas größer sein;
-        # Linux in der CI: Zeitschwankungen unter xvfb, ebenso)
-        # (Linux ESR in der CI am 5.11. einmal 2,4 px)
+        # (Windows-VM und Linux in der CI: der letzte Schritt darf etwas größer sein – Linux ESR am 5.11. einmal 2,4 px)
         last_max = 3 if sys.platform != "darwin" else 0
-        # (Linux ESR in der CI: xvfb liefert unter Last nur jedes dritte Bild – 4.11., 5.11., 8.11., 9.11. mit 5 Schritten
-        # bei rund 50 ms je Bild; dann genügen 4 Schritte, Ruck und Richtungswechsel bleiben streng)
-        def min_steps(v):
-            return 4 if sys.platform != "darwin" and v.get("frameMs", 0) > 30 else 6
+        # Gemessen wird im festen Bildtakt (imTakt, 18.11.2026): 250 ms ergeben überall rund 15 Schritte, die Mindestzahl
+        # gilt deshalb auf jedem System (vorher unter Linux/Windows 4, weil xvfb auf langsamen Läufern nur 3–5 Bilder
+        # schaffte und die Prüfung dann vom Rechner abhing: 11× rot seit 9.11., bis zu drei Messungen je Phase)
         def ruck(v):
             return any(v["back"]) or v["lastStep"] > last_max or any(abs(a - b) > 2 for a, b in zip(v["end"], v["last"]))
-        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < min_steps(v) or ruck(v)
-               or any(ruck(x) for x in v.get("verworfen", [])))]
+        bad = [f"{k}: {v}" for k, v in res.items() if k != "visibility" and (v["steps"] < 6 or ruck(v))]
         return not bad, "; ".join(bad) or f"{res}"
     check("Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck in den letzten Bildern (vertikal und klassisch, enges und breites Fenster)", sidebar_no_jump, results)
 

@@ -13896,7 +13896,17 @@ class CardEnhancer {
             ro.observe(v);
           }
         }
-        const prefObs = { observe: () => { resetEmojiRules(); annotateEmoji(root); } };
+        // eigene Stichwörter kommen aus den Einstellungen bei jedem Tastendruck: erst nach einer Tipp-Pause neu zeichnen
+        let emojiTimer = null;
+        const emojiNow = () => { resetEmojiRules(); annotateEmoji(root); };
+        const prefObs = { observe: (_s, _t, name) => {
+          w.clearTimeout(emojiTimer);
+          if (name == EMOJI_CUSTOM_PREF) {
+            emojiTimer = w.setTimeout(emojiNow, 300);
+          } else {
+            emojiNow();
+          }
+        } };
         Services.prefs.addObserver(EMOJI_PREF, prefObs);
         Services.prefs.addObserver(EMOJI_CUSTOM_PREF, prefObs);
         run();
@@ -13909,6 +13919,7 @@ class CardEnhancer {
           delete root.__mcSpanRuns;
           Services.prefs.removeObserver(EMOJI_PREF, prefObs);
           Services.prefs.removeObserver(EMOJI_CUSTOM_PREF, prefObs);
+          w.clearTimeout(emojiTimer);
           for (const label of root.querySelectorAll("[data-mc-emoji]")) {
             label.removeAttribute("data-mc-emoji");
           }

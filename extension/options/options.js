@@ -293,10 +293,18 @@ async function render() {
         control = input;
       } else if (row.type == "textarea") {
         const area = el("textarea", { id, value: settings[row.key], placeholder: row.placeholder, spellcheck: false });
+        // jede Eingabe sofort an die Erweiterung: werden die Einstellungen gleich nach dem Tippen geschlossen,
+        // kommt beim Schließen der Seite kein Aufruf mehr an, die letzte Eingabe ginge verloren. Nur der Hinweis
+        // „saved“ wartet auf eine Tipp-Pause (der Kalender zeichnet seinerseits erst nach einer Pause neu)
         let timer = null;
         area.addEventListener("input", () => {
+          const value = area.value;
+          api.setSetting(row.key, value).then(() => (settings[row.key] = value), () => {});
           clearTimeout(timer);
-          timer = setTimeout(() => save(area.value), 500);
+          timer = setTimeout(() => {
+            flash(badge);
+            updateDependent();
+          }, 500);
         });
         const node = el("div", { class: "row block", id: `row-${row.key}` }, text, area);
         section.append(node);

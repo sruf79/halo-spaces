@@ -20572,6 +20572,49 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (Add-ons → Einstellungen bleibt)", pref_halo_category, results)
 
+    def options_fast_close():
+        # „Own keywords“ speichert beim Tippen verzögert (500 ms). Werden die Einstellungen schneller geschlossen,
+        # muss die letzte Eingabe trotzdem gespeichert sein (ein Aufruf erst beim Schließen der Seite kommt nicht
+        # mehr an, deshalb geht jede Eingabe sofort an die Erweiterung). Echte Seite im Erweiterungsprozess:
+        # Eingabe per Frame-Skript, das sich meldet, sobald das Feld da ist und getippt wurde
+        res = m.js(PREFS_OPEN_JS + r"""
+          const PREF = "extensions.mailcards.emojiCustom", TEXT = "Schnellschluss = X";
+          Services.prefs.clearUserPref(PREF);
+          let open = true;
+          try {
+            await pick("paneMcHalo", 0);
+            const b = await until(() => pd.querySelector("#mcPane-paneMcHalo > browser"), 5000);
+            if (!b?.messageManager) return { browser: false };
+            const script = "(" + function (text) {
+              const a = content.document.getElementById("s-emojiCustom");
+              if (a) {
+                a.value = text;
+                a.dispatchEvent(new content.Event("input", { bubbles: true }));
+              }
+              sendAsyncMessage("mc-test-typed", !!a);
+            } + ")(" + JSON.stringify(TEXT) + ")";
+            let found = false;
+            const heard = msg => { found = found || msg.data; };
+            b.messageManager.addMessageListener("mc-test-typed", heard);
+            // die Seite lädt noch: Skript wiederholen, bis das Feld da ist
+            for (let i = 0; i < 40 && !found; i++) {
+              b.messageManager.loadFrameScript("data:application/javascript;charset=utf-8," + encodeURIComponent(script), false);
+              await until(() => found, 250);
+            }
+            b.messageManager.removeMessageListener("mc-test-typed", heard);
+            const before = Services.prefs.getStringPref(PREF, "");
+            tm.closeTab(tm.currentTabInfo); open = false;
+            const t0 = Date.now();
+            await until(() => Services.prefs.getStringPref(PREF, "") == TEXT, 3000);
+            return { browser: true, found, before, saved: Services.prefs.getStringPref(PREF, ""), ms: Date.now() - t0 };
+          } finally {
+            if (open) tm.closeTab(tm.currentTabInfo);
+            Services.prefs.clearUserPref(PREF);
+          }""")
+        ok = res.get("browser") and res.get("found") and res.get("saved") == "Schnellschluss = X"
+        return ok, f"{res}"
+    check("Einstellungen: „Own keywords“ bleibt gespeichert, wenn die Einstellungen gleich nach dem Tippen geschlossen werden", options_fast_close, results)
+
     def pref_symbols():
         # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
         # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel

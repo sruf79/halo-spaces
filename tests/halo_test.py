@@ -8039,7 +8039,12 @@ def calendar_checks(m, results):
             let n = 0;
             const week1 = async () => { n++; for (let i = 0; i < 3; i++) { target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); await new Promise(r => w.requestAnimationFrame(r)); }
               await halt(target);
-              await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); await ruhig(300); };
+              // (Diagnose: gelegentlich Zeitüberschreitung unter Linux beta und Windows, CI 15.–18.11.; die Meldung nennt
+              // jetzt die erreichte Woche – mehr als n hieße Schwung durch eine Pause von über 70 ms zwischen den
+              // Brems-Bewegungen, weniger als n ein Zurückschnappen; die Bedingung bleibt unverändert)
+              try { await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); }
+              catch (e) { throw new Error(`${e.message} (erreicht: Woche ${wk(mv.rangeStartDate, first)}, Lage ${Math.round(mv.__mcScrollPos?.() ?? NaN)})`); }
+              await ruhig(300); };
             for (let i = 0; i < 5; i++) await week1();
             out.five = { weeks: wk(mv.rangeStartDate, first), shifts: mv.__mcScrollShifts - s0, aligned: aligned(), label: label() != l0 };
             for (let i = 0; i < 2; i++) await week1();

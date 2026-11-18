@@ -36,6 +36,22 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
   `tests/release-unter-tage.sh --volldampf` mit `NUR_CI=1 ./release.sh` und `./publish.sh` (pusht über den Upstream,
   `push.default=upstream` nur für diesen Aufruf; `HALO_PRUEFZWEIG` = Zweig des Stands, dessen grüner Lauf geprüft wird). Abstand zwischen Releases = Dauer von CI und Windows. Rot: kein
   Release, derselbe Stand erst wieder nach einem neuen grünen Stand; Protokoll `~/halo-nacht/<datum>-zwischen-schleife.log`.
+- **Rot erst nach Wiederholung, jedes Ergebnis an neon** (18.11.2026, nach dem Zwischen-Release 3.31.0, das um 11:25 an
+  einem Flackerer scheiterte, ohne zweiten Versuch und ohne Meldung): `tests/zwischen-release.zsh` wiederholt einen roten
+  Push- oder Windows-Lauf vor dem Urteil ROT einmal (`gh run rerun --failed`, dann bis 100 bzw. 60 Minuten warten); nur ein
+  zweites Rot sperrt den Stand. Keine Wiederholung bei mehr als 5 roten Prüfungen in einem Job (echter Fehler) und nach
+  23:00 (Release bis 24:00); hat schon jemand wiederholt (`tests/ci-wiederholen.sh` über den CI-Wächter, Versuch ≥ 2), wartet
+  es nur auf diesen Versuch. Der Wächter meldet **jedes Ergebnis** (veröffentlicht, ROT nach Wiederholung, ABBRUCH, Fehler
+  nach dem Tag, fälliger Stand über 60 Minuten belegt) an die Sitzung **neon**, nicht aufs iPhone (Maintainer 18.11.2026:
+  „ich möchte hier nicht involviert und informiert werden. der wächter soll solche probleme direkt an dich wenden und du
+  kümmerst dich um die nächsten schritte automatisch.“): `an_neon` in `tests/lauf-hilfen.zsh` (Zustellweg wie `push()`,
+  Haiku mit SendMessage an den Namen `neon`, ohne „PUSH:“). Nachricht ab „[zwischen-release] <Ergebnis>: Version, Stand,
+  Zweig“, Zeile „Läufe:“, je rote Prüfung eine Zeile „- <Job>: <Prüfung>“, „Wiederholung: ja …|nein: <Grund>“, „neon
+  kümmert sich.“ Dazu je Ergebnis eine Zeile in `~/halo-nacht/zwischen-ergebnis.txt` (`tail -1` genügt):
+  `<Zeit> | <Version> | <Stand> | <Zweig> | <Ergebnis> | <Läufe> | <rote Prüfungen bzw. Grund> | Wiederholung <…>`. Nur wenn
+  neon nicht erreichbar ist (Zeile `AN-NEON-FEHLER` in `~/halo-nacht/uebersprungen.log`), einmal `push()` aufs iPhone
+  „Wächter konnte neon nicht erreichen“. Prüfung: `zsh tests/zwischen_schleife_test.zsh`. Der laufende Wächter übernimmt
+  Änderungen an `zwischen-schleife.zsh` erst nach einem Neustart; `zwischen-release.zsh` wird je Release neu gelesen.
 - **Worktree statt Checkout:** `~/halo-spaces` wird nie angefasst (kein stash, reset, checkout, merge), fremde
   ungespeicherte Arbeit stört nicht. Nur Committetes wird veröffentlicht. Den Checkout gleicht der Nachtlauf ab
   (`git rebase origin/main`; die Commits von main sind dann schon in `origin/main`). Weiter gilt `belegt()`: eine

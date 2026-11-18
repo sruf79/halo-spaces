@@ -122,4 +122,58 @@ pruefe "Worktree: Checkout mit fremden Änderungen unberührt (Status, Inhalt, H
   "$( [[ "$(git -C $M status --porcelain; md5 -q $M/a.txt)" == "$VORHER" && $(git -C $M rev-parse HEAD) == $P ]] && print gleich)" '^gleich$'
 pruefe "Worktree: ohne push.default=upstream lehnt git einen anderen Zweignamen ab (darum die Einstellung)" \
   "$(git -C $WTT commit -q --allow-empty -m x -c user.email=t@t 2>/dev/null; git -C $WTT -c user.email=t@t -c user.name=t commit -q --allow-empty -m x; git -C $WTT -c push.default=simple push -q 2>&1; print rc=$?)" 'rc=[1-9]'
+# Ergebnis an neon statt aufs iPhone (Maintainer 18.11.2026), Zeile in zwischen-ergebnis.txt; Funktion aus dem Skript
+FN=$(sed -n '/^melden() {/,/^}/p' $SKRIPT)
+mel() {   # <an_neon-Rückgabe> <Argumente für melden …>
+  ( source $HIER/lauf-hilfen.zsh 2>/dev/null; LOG=/dev/null MODUS= ERGEBNIS=$T/erg.txt HALO_PUSH_TROCKEN=1 HALO_HANDELN_LOG=$T/h.log
+    local rc=$1; shift
+    eval "$FN"
+    an_neon() { print -r -- "AN_NEON<<$1>>"; return $rc }
+    melden "$@" ) 2>&1
+}
+rm -f $T/erg.txt
+A=$(mel 0 "ROT nach Wiederholung" 3.32.0 abcdef1234567 pruef/x "Push 111, Windows 222" $'linux (esr): Today-Pane\nmac: Seitenleiste' "ja (Lauf 111, Versuch 2)")
+pruefe "Meldung an neon: Kopf, Läufe, je rote Prüfung eine Zeile, Wiederholung, „neon kümmert sich“, kein push" "$A" \
+  '^AN_NEON<<\[zwischen-release\] ROT nach Wiederholung: Version 3\.32\.0, Stand abcdef1, Zweig pruef/x$' '^Läufe: Push 111, Windows 222$' \
+  '^- linux \(esr\): Today-Pane$' '^- mac: Seitenleiste$' '^Wiederholung: ja \(Lauf 111, Versuch 2\)$' '^neon kümmert sich\.>>$'
+pruefe "Meldung an neon: ohne iPhone, wenn neon erreicht wurde" "$(print -r -- $A | grep -c 'TROCKEN: push')" '^0$'
+pruefe "Ergebniszeile (tail -1 genügt): Zeit | Version | Stand | Zweig | Ergebnis | Läufe | Prüfungen | Wiederholung" "$(tail -1 $T/erg.txt)" \
+  '^20[0-9-]{8} [0-9:]{8} \| 3\.32\.0 \| abcdef1 \| pruef/x \| ROT nach Wiederholung \| Push 111, Windows 222 \| linux \(esr\): Today-Pane; mac: Seitenleiste \| Wiederholung ja'
+pruefe "neon nicht erreichbar: einmal push() aufs iPhone" "$(mel 1 ABBRUCH 3.32.0 abcdef1234567 pruef/x - Grund nein)" \
+  'TROCKEN: push \[info\] Zwischen-Release-Wächter konnte neon nicht erreichen \(ABBRUCH, Version 3\.32\.0, Stand abcdef1\)'
+pruefe "an_neon mit HALO_PUSH_TROCKEN: kein Claude, ohne „PUSH:“" \
+  "$( (source $HIER/lauf-hilfen.zsh; LOG=/dev/null HALO_PUSH_TROCKEN=1 an_neon '[zwischen-release] Probe') 2>&1)" '^TROCKEN: an_neon \[zwischen-release\] Probe$'
+pruefe "Wächter meldet nicht mehr per push() (nur als Ersatzweg in melden)" "$(print -r -- $S | grep -c '^ *push ')" '^1$'
+pruefe "Wächter meldet jedes Ergebnis: veröffentlicht, ROT, ABBRUCH, belegt über 60 Min." "$S" 'melden veröffentlicht' 'melden "ROT' 'melden ABBRUCH' 'melden "belegt über \$BELEGT_MAX Min\."' 'BELEGT_MAX=\$\{ZS_BELEGT_MAX:-60\}'
+pruefe "belegt: Ausgabe nennt den fälligen Stand" "$(W HALO_BELEGT='CI-Lauf')" 'warten belegt: CI-Lauf \(fällig abcdef1 pruef/'
+
+# Wiederholung in zwischen-release.zsh (Funktionen aus dem Skript, gh als Attrappe)
+ZR=$HIER/zwischen-release.zsh
+ZF=$(sed -n '/^rote_pruefungen() {/,/^}/p;/^wiederholen() {/,/^}/p;/^nach_wiederholung() {/,/^}/p' $ZR)
+wdh() {   # <Zahl roter Prüfungen in einem Job> <Versuch vorher> <Ergebnis der Wiederholung> [HHMM]
+  ( R=x MAX_ROT=5 WDH_BIS=2300 HALO_JETZT=${4:-1000} ROT_TEXT= WDH= N=$1 A=$2 E=$3 RR=$T/rerun
+    rm -f $RR
+    sleep() { : }
+    gh() {
+      case "$*" in
+        *--log-failed*) for (( i = 1; i <= N; i++ )); do print -r -- "linux (esr)	Tests	2026 FEHLER  Prüfung $i – Wert"; done ;;
+        *"--json jobs"*) print -r -- "linux (esr)" ;;
+        *"--json attempt --jq"*) [[ -e $RR ]] && print 2 || print $A ;;
+        *"run rerun"*) touch $RR ;;
+        *"attempt,status"*) print -r -- "2 completed" ;;
+        *conclusion*) print -r -- $E ;;
+      esac
+    }
+    eval "$ZF"
+    nach_wiederholung 4711 3; print "rc=$? erg=$NW_ERG rerun=$([[ -e $RR ]] && print ja || print nein) WDH=$WDH" ) 2>&1
+}
+pruefe "roter Lauf: einmal gh run rerun --failed, Wiederholung grün" "$(wdh 2 1 success)" '^WIEDERHOLT: Lauf 4711' 'erg=success' 'rc=0 erg=success rerun=ja WDH=ja \(Lauf 4711, Versuch 2\)'
+pruefe "zweites Rot bleibt rot (Ergebnis der Wiederholung wird gemeldet, kein dritter Versuch)" "$(wdh 2 1 failure)" 'erg=failure' 'rerun=ja'
+pruefe "mehr als 5 rote Prüfungen in einem Job: keine Wiederholung (echter Fehler)" "$(wdh 6 1 success)" 'rc=1 erg= rerun=nein WDH=nein: mehr als 5 rote Prüfungen'
+pruefe "5 rote Prüfungen: noch Wiederholung" "$(wdh 5 1 success)" 'rc=0 erg=success rerun=ja'
+pruefe "schon wiederholt (Versuch 2, z. B. ci-wiederholen.sh): kein zweites rerun, nur warten" "$(wdh 1 2 failure)" 'rerun=nein WDH=ja \(Lauf 4711, Versuch 2, schon von anderer Stelle' 'erg=failure'
+pruefe "nach 23:00 keine Wiederholung mehr (Release bis 24:00)" "$(wdh 1 1 success 2300)" 'rc=1 erg= rerun=nein WDH=nein: nach 2300'
+pruefe "zwischen-release.zsh: Push- und Windows-Lauf vor ROT einmal wiederholt" "$(grep -vE '^[[:space:]]*#' $ZR)" \
+  'nach_wiederholung \$\{L%% \*\} 100' 'nach_wiederholung \$\{W%% \*\} 60' 'auch in der Wiederholung rot' 'auch in der Wiederholung nicht grün'
+
 exit $FEHLER

@@ -538,6 +538,40 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
   fi
 }
 
+# Meldung an die Sitzung neon statt aufs iPhone (Maintainer 18.11.2026: „ich möchte hier nicht involviert und informiert
+# werden. der wächter soll solche probleme direkt an dich wenden und du kümmerst dich um die nächsten schritte
+# automatisch.“). Gleicher Zustellweg wie push() (Haiku, SendMessage an den Sitzungsnamen, sitzung_finden), aber ohne
+# „PUSH:“ davor (das würde neon aufs iPhone weiterleiten), mehrzeilig erlaubt; push() und die übrigen Routinen bleiben
+# unverändert. Fehler wie bei push() als „AN-NEON-FEHLER <Routine> <Grund>“ in uebersprungen.log und im Lauf-Protokoll.
+#   an_neon <Text> [<Routine>]   Rückgabe 0 = gesendet, 1 = nicht zugestellt (der Aufrufer meldet das dann per push())
+# Ziel HALO_NEON_SITZUNG (Standard neon). HALO_PUSH_TROCKEN=1: nur „TROCKEN: an_neon …“, kein Claude.
+an_neon() {
+  local text=$1 routine=${2:-${ZSH_ARGZERO:t:r}} out grund ziel
+  if [[ -n $HALO_PUSH_TROCKEN ]]; then print -r -- "TROCKEN: an_neon $text"; return 0; fi
+  local fehlerlog=${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  local sollname=${HALO_NEON_SITZUNG:-neon}
+  ziel=$(sitzung_finden $sollname) || {
+    print -r -- "$(zeit) AN-NEON-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden" >> $fehlerlog
+    log "AN-NEON-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden"
+    return 1 }
+  out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „$ziel“ ist (aus ListAgents), genau die Nachricht zwischen den Zeilen ANFANG und ENDE (ohne diese beiden Zeilen, unverändert) und sonst nichts:
+ANFANG
+$text
+ENDE
+Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
+    | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1 \
+    | grep -v '^Permission allow rule')
+  log "an neon: $out"
+  if [[ ${out:l} == gesendet* ]]; then
+    sitzung_merken $sollname $ziel
+    return 0
+  fi
+  grund=${${out#nicht gesendet:}//$'\n'/ }; grund=${grund# }
+  print -r -- "$(zeit) AN-NEON-FEHLER $routine ${grund[1,200]:-keine Antwort}" >> $fehlerlog
+  log "AN-NEON-FEHLER $routine ${grund[1,200]:-keine Antwort}"
+  return 1
+}
+
 # arbeitet gerade eine andere Claude-Sitzung am Repo? Jede Sitzung schreibt ihr
 # Gespräch nach ~/.claude/projects/<Ordner>/<id>.jsonl. Sie arbeitet, solange
 # ihre Runde nicht beendet ist: der letzte Eintrag ist eine neue Eingabe, ein

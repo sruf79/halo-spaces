@@ -54,6 +54,27 @@ REPO=$WT   # belegt() prüft Ungespeichertes nur im eigenen Worktree, nicht im g
 source $HIER/lauf-hilfen.zsh
 GESPERRT=${HALO_ZS_GESPERRT:-}
 GDATEI=${HALO_ZS_GESPERRT_DATEI:-$DIR/zwischen-gesperrt.txt}   # Stände roter Versuche (eine Zeile je Commit)
+ERGEBNIS=${HALO_ZS_ERGEBNIS:-$DIR/zwischen-ergebnis.txt}       # eine Zeile je Ergebnis, neueste unten (tail -1)
+BELEGT_MAX=${ZS_BELEGT_MAX:-60}                                 # Minuten „belegt“ bei fälligem Stand, dann Meldung an neon
+
+# Jedes Ergebnis geht an die Sitzung neon, nicht aufs iPhone (Maintainer 18.11.2026: „ich möchte hier nicht involviert und
+# informiert werden. der wächter soll solche probleme direkt an dich wenden und du kümmerst dich um die nächsten schritte
+# automatisch.“), und als Zeile nach $ERGEBNIS:
+#   <Zeit> | <Version> | <Stand> | <Zweig> | <Ergebnis> | <Läufe> | <rote Prüfungen bzw. Grund> | Wiederholung <…>
+# Nur wenn neon nicht erreichbar ist (an_neon scheitert), einmal push() aufs iPhone.
+melden() {   # <Ergebnis> <Version> <Stand> <Zweig> <Läufe> <Details, je Zeile eine Prüfung oder ein Grund> <Wiederholung>
+  local erg=$1 v=${2:--} p=${3:--} zw=${4:--} laeufe=${5:--} det=$6 wdh=${7:-nein} text
+  local -a zl=(${(f)det}); zl=("- "${^zl})
+  [[ $MODUS == trocken ]] || print -r -- "$(date '+%F %T') | $v | ${p[1,7]} | $zw | $erg | $laeufe | ${${det//$'\n'/; }[1,400]:--} | Wiederholung $wdh" >> $ERGEBNIS
+  text="[zwischen-release] $erg: Version $v, Stand ${p[1,7]}, Zweig $zw
+Läufe: $laeufe${det:+
+${(F)zl}}
+Wiederholung: $wdh
+neon kümmert sich."
+  log "an neon: ${text//$'\n'/ | }"
+  an_neon "$text" zwischen-release && return 0
+  push "Zwischen-Release-Wächter konnte neon nicht erreichen ($erg, Version $v, Stand ${p[1,7]})" zwischen-release
+}
 
 # Kandidaten „<Commit> <Zweig>“: je Prüfzweig der neueste Stand mit grünem Push-Lauf, neueste zuerst, nicht schon in origin/main
 kandidaten() {
@@ -164,25 +185,26 @@ pruefen() {
   z=(${=erster}); p=$z[1] n=$z[2] zw=$z[3]
   if [[ -n ${HALO_BELEGT+x} ]]; then g=$HALO_BELEGT; else g=$(belegt) || g=; fi
   [[ -z $g && -e $DIR/lauf.lock ]] && kill -0 $(<$DIR/lauf.lock) 2>/dev/null && g="Nachtlauf läuft"
-  [[ -n $g ]] && { print -r -- "warten belegt: $g"; return }
+  [[ -n $g ]] && { print -r -- "warten belegt: $g (fällig ${p[1,7]} $zw)"; return }
   print -r -- "fällig $p $n $zw$(fenster_text $f5)"
 }
 
 # ein Zwischen-Release für Stand <P>; Rückgabe 0 = veröffentlicht, 1 = rot (Stand gesperrt), 2 = Abbruch vor dem Push
 release_lauf() {   # <P> <Prüfzweig>
   local p=$1 zw=$2 v notes erg sid aus rc g
-  git -C $MAIN fetch -q --tags origin main 2>>$LOG || { log "git fetch gescheitert"; return 2 }
-  v=$(naechste_version) || { log "keine Version ableitbar"; return 2 }
+  git -C $MAIN fetch -q --tags origin main 2>>$LOG || { log "git fetch gescheitert"; melden ABBRUCH - $p $zw - "git fetch gescheitert"; return 2 }
+  v=$(naechste_version) || { log "keine Version ableitbar"; melden ABBRUCH - $p $zw - "keine Version ableitbar"; return 2 }
   notes=$DIR/$TAG-notes-$v.md erg=$DIR/$TAG-zwischen-release-$v.erg aus=$DIR/$TAG-zwischen-release-$v.log
   log "Zwischen-Release $v für Stand ${p[1,7]} von $zw: Worktree $WT"
   # eigener Worktree: nur dieser Ordner wird ersetzt (enthält nur Dateien dieses Wächters)
-  if [[ -e $WT ]]; then git -C $MAIN worktree remove --force $WT 2>>$LOG || { log "Worktree $WT nicht entfernbar"; return 2 }; fi
-  git -C $MAIN worktree add -q -f -B zr/release $WT $p 2>>$LOG || { log "Worktree nicht angelegt"; return 2 }
+  if [[ -e $WT ]]; then git -C $MAIN worktree remove --force $WT 2>>$LOG || { log "Worktree $WT nicht entfernbar"; melden ABBRUCH $v $p $zw - "Worktree $WT nicht entfernbar"; return 2 }; fi
+  git -C $MAIN worktree add -q -f -B zr/release $WT $p 2>>$LOG || { log "Worktree nicht angelegt"; melden ABBRUCH $v $p $zw - "Worktree nicht angelegt"; return 2 }
   git -C $WT branch -q --set-upstream-to=origin/main 2>>$LOG
-  cp -p $MAIN/repo.conf $WT/ 2>>$LOG || { log "repo.conf fehlt"; return 2 }
+  cp -p $MAIN/repo.conf $WT/ 2>>$LOG || { log "repo.conf fehlt"; melden ABBRUCH $v $p $zw - "repo.conf fehlt"; return 2 }
   if ! git -C $WT merge-base --is-ancestor origin/main HEAD; then
     git -C $WT merge -q --no-edit -m "Volldampf: origin/main für Zwischen-Release $v übernommen" origin/main >>$LOG 2>&1 \
-      || { git -C $WT merge --abort 2>/dev/null; log "Zwischen-Release $v: Konflikt mit origin/main – kein Release"; return 1 }
+      || { git -C $WT merge --abort 2>/dev/null; log "Zwischen-Release $v: Konflikt mit origin/main – kein Release"
+           melden "ABBRUCH (Konflikt, Stand gesperrt)" $v $p $zw - "Konflikt mit origin/main"; return 1 }
   fi
   sid=$(uuidgen | tr A-Z a-z); rm -f $erg
   log "Vorbereitung mit $MODELL, Sitzung $sid"
@@ -192,9 +214,16 @@ release_lauf() {   # <P> <Prüfzweig>
 3. Eigener Commit nur mit README.md, Nachricht „README: Versionshinweise $v“ (Ende: Co-Authored-By-Zeile wie üblich). Keine andere Datei ändern, nicht pushen, kein Release-Skript aufrufen.
 4. Englische Notizdatei mit gleichem Inhalt (ohne Überschrift „What's new“) nach $notes.
 5. Ergebnisdatei $erg mit einer Zeile „bereit“ oder „nein <Grund>“." > $DIR/$TAG-zwischen-release-$v.txt 2>&1 )
-  [[ $(head -1 $erg 2>/dev/null) == bereit ]] || { log "Zwischen-Release $v: Vorbereitung ohne „bereit“ ($(head -1 $erg 2>/dev/null))"; return 2 }
+  [[ $(head -1 $erg 2>/dev/null) == bereit ]] || { log "Zwischen-Release $v: Vorbereitung ohne „bereit“ ($(head -1 $erg 2>/dev/null))"
+    melden ABBRUCH $v $p $zw - "Vorbereitung (README/Notizen) ohne „bereit“: $(head -1 $erg 2>/dev/null)"; return 2 }
   HALO_REPO=$WT HALO_ZR_STAND=$p HALO_PRUEFZWEIG=$zw ZWISCHEN_RELEASE_BIS=$BIS zsh $HIER/zwischen-release.zsh $v $notes > $aus 2>&1; rc=$?
   cat $aus >> $LOG
+  # für die Meldung: Läufe, rote Prüfungen, Wiederholung (Zeilen von zwischen-release.zsh)
+  local laeufe det wdh
+  laeufe=${(j:, :)${(f)"$(sed -n 's/^LAUF: //p' $aus)"}}
+  det=$(sed -n 's/^ROTE-PRÜFUNG: //p' $aus)
+  wdh=$(sed -n 's/^WIEDERHOLUNG: //p' $aus | tail -1)
+  [[ -z $wdh ]] && grep -q '^WIEDERHOLT: ' $aus && wdh="ja ($(sed -n 's/^WIEDERHOLT: //p' $aus | paste -sd ';' -))"
   if (( rc == 0 )); then
     # Listen-Commits von publish.sh (pr-freigaben), nur ohne Thunderbird-Änderung
     git -C $WT fetch -q origin main 2>/dev/null
@@ -202,14 +231,21 @@ release_lauf() {   # <P> <Prüfzweig>
       git -C $WT push -q origin HEAD:main 2>>$LOG && log "Listen-Commits nach main gepusht"
     fi
     log "Zwischen-Release $v veröffentlicht"
-    push "Zwischen-Release $v veröffentlicht (Volldampf) – Bericht ~/halo-berichte/$TAG-halo.spaces-$v.md" zwischen-release
+    melden veröffentlicht $v $p $zw "$laeufe" "$(grep -E 'in der Wiederholung grün' $aus)" "${wdh:-nein (nicht nötig)}"
     return 0
   fi
   g=$(grep -E '^(ABBRUCH|ROT|FEHLER)' $aus | tail -1)
   log "Zwischen-Release $v nicht veröffentlicht: ${g:-Exitcode $rc}"
-  [[ $g == ABBRUCH* ]] && return 2
-  git -C $WT rev-parse -q --verify "refs/tags/v$v" >/dev/null \
-    && push "Zwischen-Release $v getaggt, aber Fehler (${g:-Exitcode $rc}) – bitte prüfen (docs/release.md)" zwischen-release handeln
+  if [[ $g == ABBRUCH* ]]; then melden ABBRUCH $v $p $zw "$laeufe" "${g#ABBRUCH: }" "$wdh"; return 2; fi
+  if git -C $WT rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+    melden "FEHLER nach dem Tag (getaggt, nicht fertig veröffentlicht; docs/release.md)" $v $p $zw "$laeufe" "${g:-Exitcode $rc}${det:+
+$det}" "$wdh"
+  elif [[ $g == ROT* ]]; then
+    melden "ROT${wdh:+ nach Wiederholung}" $v $p $zw "$laeufe" "${g#ROT: }${det:+
+$det}" "$wdh"
+  else
+    melden "FEHLER" $v $p $zw "$laeufe" "${g:-Exitcode $rc}" "$wdh"
+  fi
   return 1
 }
 
@@ -228,9 +264,20 @@ LOCK=$DIR/zwischen-schleife.lock
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
 log "Zwischen-Schleife gestartet (Takt $TAKT Min., alle Prüfzweige pruef/*, ab $AB Thunderbird-Commits, ab $AB_FENSTER bei 5-Stunden-Fenster ab $FENSTER_AB %, Push-Beginn bis $BIS)"
-ALT= ABBRUCH_AN=
+ALT= ABBRUCH_AN= BELEGT_SEIT= BELEGT_GEMELDET=
 while true; do
   z=$(pruefen)
+  # fälliger Stand, aber neon seit über BELEGT_MAX Minuten belegt: einmal je Stand an neon melden
+  if [[ $z == "warten belegt: "* ]]; then
+    BELEGT_SEIT=${BELEGT_SEIT:-$(date +%s)}
+    if (( $(date +%s) - BELEGT_SEIT >= BELEGT_MAX * 60 )) && [[ $BELEGT_GEMELDET != ${z##* \(fällig } ]]; then
+      w=(${=${${z##* \(fällig }%\)}})
+      melden "belegt über $BELEGT_MAX Min." - "$w[1]" "$w[2]" - "${${z#warten belegt: }% \(fällig *}" "nein"
+      BELEGT_GEMELDET=${z##* \(fällig }
+    fi
+  else
+    BELEGT_SEIT=
+  fi
   case $z in
     ende*)   log "Ende: ${z#ende }"; break ;;
     fällig*) w=(${=${z#fällig }}); p=$w[1]

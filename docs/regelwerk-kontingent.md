@@ -60,7 +60,7 @@ Keine Doppelbremse: 7 wirkt nur auf den Wächter, 5 je Lauf mit eigener Schwelle
 | T3 Routine | mittel | kurz | kleine Korrekturen, Texte in Code | Sonnet: „routine“ der Tagesroutine; Haiku im Sparmodus; Wächter ab 70 %: Worker Klasse „tokenarm“ (b) |
 | T4 Text | niedrig | kurz | README, Notizen, Doku | Sonnet (Zwischen-Release-Vorbereitung) |
 | Z1 Prüfen | kaum | lang | CI, Windows-Lauf, Warten auf Tests, Prüfung wiederholen | Zwischen-Release-Wächter (ab 85 % Fenster schon ab 1 Commit), Nachtlauf; Wächter ab 70 %: Worker Klasse „tokenarm“ (a) |
-| Z2 Release | kaum | lang | release.sh, publish.sh | Nachtlauf; Volldampf: Zwischen-Release-Wächter |
+| Z2 Release | kaum | lang | release.sh, publish.sh | Nachtlauf; Volldampf: Zwischen-Release-Wächter (roter Lauf vorher einmal wiederholt, jedes Ergebnis an neon, `docs/release.md`) |
 | Z3 VM, Bilder | kaum | lang | Windows-Rundgang, Bilder | Rundgang-Routine nach Plan; Windows-Rundgang (offener Bildauftrag `RUNDGANG_NR` in `neon-stand.md`): Wächter ab 85 % im 5-Stunden-Fenster, 09:00–22:00, nicht belegt, kein Nachtlauf, einmal je Tag, bis erledigt (Sonnet, Rahmen `tests/auslastung-rundgang.md`) |
 
 Klasse „tokenarm“ (Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“): ab 70 % im 5-Stunden-Fenster startet der

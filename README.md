@@ -181,6 +181,19 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.31.0
+
+- **Import**: "Open Outlook data file (PST)…" imports mail as a copy into Local Folders with the folder tree of the file (subject, sender, text, HTML, attachments, read and flagged state), in its own window with progress and a summary; contacts become a new address book and events and tasks a new local calendar, you choose the parts; importing the same file again adds no duplicates
+- **Account**: "Archive account locally" copies only new mail on each further run, and also keeps contacts and events of the account in a local address book and calendar
+- **Mail**: verification and sign-in codes in messages are shown above the message with a "Copy" button that puts the code on the clipboard as confidential
+- **Conversations**: selecting an older message of a long conversation shows its card at the top of the reading pane instead of jumping to the newest message
+- **Tasks**: tasks can be archived and restored from the context menu ("Archive"/"Unarchive") or with the A key; archived tasks appear only in the new "Archived" view under "Important"
+- **Tasks**: changing one occurrence of a repeating task in the details column asks "This occurrence / All occurrences" like Calendar
+- **Address Book**: items in the "+" menu that do not work right now are greyed out; "Show Contact" and "Edit Contact" from the message header, the Contacts sidebar or address search open that contact, even if it was merged as a duplicate
+- **Calendar**: showing and hiding the sidebar is smoother in the multi-week view
+- **Settings**: the Density choice sets the density you pick and shows the active one; "Zoom Text Only", "Display Attachments Inline" and the calendar view show their real state and work; "Workweek days only", "Rotate View" and "Offline copy for online calendars" take effect right away
+- **Settings**: removed options that no longer fit: "Show On My Mac" (appears by itself once it holds something), "Solid menus", "Dialogs inside the window" and "Install updates at start"; the fifth space tile always uses the single-colour symbol; "Reset" for the order of spaces moved to Troubleshooting; "Collected Addresses" is in the "…" menu of the contact list
+
 ## What's new in 3.30.0
 
 - **Toolbar**: Reply, Reply All, Forward, Redirect and Reply to List use a hollow arrow with a round tip in the toolbar, message header, hover actions and menus; toolbar icons take the text colour instead of dark grey; the Trash icon has a taller bin; the magnifier in all search fields is fine and grey

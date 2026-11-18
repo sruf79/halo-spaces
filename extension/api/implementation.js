@@ -1995,6 +1995,13 @@ class ConversationCards {
         log("conversation display error", e);
       }
     }, true);
+    // Karten sind keine eigene Anzeige: ihr „MsgLoaded“/„MsgsLoaded“ stiege sonst bis zum Fenster auf, und
+    // Thunderbird meldete anderen Erweiterungen je Karte eine angezeigte Mail (messageDisplay.onMessageDisplayed,
+    // onMessagesDisplayed; Hörer am Fenster in der Aufstiegsphase). Eigene Hörer (hier an der Karte und mit
+    // capture weiter oben) laufen trotzdem; die gewählte Mail meldet Thunderbirds Anzeige unter den Karten
+    for (const type of ["MsgLoaded", "MsgsLoaded"]) {
+      browserEl.addEventListener(type, event => event.stopPropagation());
+    }
     browserEl.addEventListener("MsgLoaded", () => {
       decorateAttachments(browserEl.contentDocument);
       decorateInvitation(browserEl.contentDocument);

@@ -3354,6 +3354,118 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Konversation: jede Mail ganz wie Apple Mail (auch ältere gelesene), Karte mit einem Anhang ganz, keine Schnellantwort, Kapsel je Karte für deren Mail, kein Leerraum über dem Kopf, Löschen nur dieser Mail; älteste oben wählbar", conversation_cards, results)
 
+    def conversation_card_events():
+        # Karten sind keine eigene Anzeige: ihr „MsgLoaded“/„MsgsLoaded“ darf das Fenster in der
+        # Aufstiegsphase nicht erreichen – dort hört Thunderbird für messageDisplay.onMessageDisplayed
+        # bzw. onMessagesDisplayed anderer Erweiterungen zu und meldete je Karte eine angezeigte Mail.
+        # Die gewählte Mail (Thunderbirds eigene Anzeige unter den Karten) wird weiter gemeldet.
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvEreignis")) { root.createSubfolder("KonvEreignis", null); await bis(() => root.containsChildNamed("KonvEreignis"), "Ordner KonvEreignis", 4000); }
+          const f = root.getChildNamed("KonvEreignis");
+          const mail = (from, subject, id, refs, minutesAgo) => unescape(encodeURIComponent([`From: ${from}`, `To: Halo Test <halo@example.invalid>`, `Subject: ${subject}`,
+            `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []), "MIME-Version: 1.0",
+            "Content-Type: text/plain; charset=UTF-8", "", `Text von ${from.split(" ")[0]}.`, ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Halo Ereignis", "halo-ereignis-1", null, 30));
+            lf.addMessage(mail("Ida Beispiel <ida@example.invalid>", "Re: Halo Ereignis", "halo-ereignis-2", "halo-ereignis-1", 20));
+            lf.addMessage(mail("Ben Muster <ben@example.invalid>", "Re: Halo Ereignis", "halo-ereignis-3", "halo-ereignis-2", 10));
+            await bis(() => f.getTotalMessages(false) >= 3, "Testmails gespeichert", 5000);
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner KonvEreignis", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500);
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          // mithören wie Thunderbird (Fenster, Aufstiegsphase) und zum Vergleich in der Abstiegsphase
+          const isCard = t => { const el = t?.browsingContext?.embedderElement ?? t?.frameElement; return !!el?.classList?.contains("mc-conv-browser"); };
+          const short = e => { const d = Array.isArray(e.detail) ? e.detail[0] : e.detail; return (d?.messageId || "").split("@")[0]; };
+          const up = [], down = [];
+          const onUp = e => up.push({ type: e.type, card: isCard(e.target), id: short(e) });
+          const onDown = e => { if (isCard(e.target)) down.push({ type: e.type, id: short(e) }); };
+          for (const type of ["MsgLoaded", "MsgsLoaded"]) { w.addEventListener(type, onUp); w.addEventListener(type, onDown, true); }
+          const out = {};
+          try {
+            const i = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == "halo-ereignis-3@example.invalid");
+            a3.threadTree.selectedIndex = i ?? -1;
+            const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
+            if (!box) return { box: false };
+            // alle drei Karten haben ihre Mail fertig geladen (Abstiegsphase am Fenster gesehen)
+            out.loaded = !!(await until(() => new Set(down.filter(e => e.type == "MsgLoaded").map(e => e.id)).size >= 3, 12000));
+            await ruhig(1200);
+            out.cards = box.querySelectorAll(".mc-conv-card .mc-conv-browser").length;
+            out.down = down.length;
+            out.upCards = up.filter(e => e.card);
+            out.upOwn = up.filter(e => !e.card).map(e => `${e.type}:${e.id}`);
+          } finally {
+            for (const type of ["MsgLoaded", "MsgsLoaded"]) { w.removeEventListener(type, onUp); w.removeEventListener(type, onDown, true); }
+            a3.threadTree.selectedIndex = -1; await ruhig(300);
+          }
+          // eigenes Fenster (Doppelklick auf die zugeklappte Konversation): dort trägt jede Karte das Fenster als
+          // tabOrWindow, Thunderbird meldete je Karte eine Mail unter diesem Fenster. Mitgehört wird, sobald das
+          // Dokument des Fensters steht, also vor dem Aufbau der Karten
+          const wins = () => [...Services.wm.getEnumerator("mail:messageWindow")];
+          for (const x of wins()) x.close();
+          const wUp = [], wDown = [];
+          const hooked = new Set();
+          const hook = doc => {
+            const win = doc?.defaultView;
+            if (!win || hooked.has(win) || !/messageWindow\.xhtml/.test(doc.documentURI || "")) return;
+            hooked.add(win);
+            for (const type of ["MsgLoaded", "MsgsLoaded"]) {
+              win.addEventListener(type, e => wUp.push({ type: e.type, card: isCard(e.target), id: short(e) }));
+              win.addEventListener(type, e => { if (isCard(e.target)) wDown.push({ type: e.type, id: short(e) }); }, true);
+            }
+          };
+          const obs = { observe: doc => hook(doc) };
+          Services.obs.addObserver(obs, "chrome-document-interactive");
+          Services.prefs.setBoolPref("mailnews.mark_message_read.auto", false);
+          try {
+            a3.commandController.doCommand("cmd_collapseAllThreads"); await ruhig(800);
+            const v = a3.gDBView;
+            const k = [...Array(v.rowCount).keys()].find(n => v.isContainer(n) && !v.isContainerOpen(n));
+            out.row = k ?? -1;
+            if (k === undefined) return out;
+            a3.threadTree.selectedIndex = k; await ruhig(500);
+            a3.threadTree.getRowAtIndex(k).dispatchEvent(new a3.MouseEvent("dblclick", { bubbles: true, button: 0, detail: 2 }));
+            const mw = await until(() => wins().find(x => x.document.readyState == "complete"), 8000);
+            out.hooked = hooked.size;
+            const wbox = mw && await until(() => mw.document.getElementById("mcConversation"), 6000);
+            out.wBox = !!wbox;
+            if (!wbox) return out;
+            out.wLoaded = !!(await until(() => new Set(wDown.filter(e => e.type == "MsgLoaded").map(e => e.id)).size >= 3, 12000));
+            await ruhig(1200);
+            // andere Karte anklicken: Thunderbirds Anzeige darunter lädt deren Mail und meldet sie, die Karte selbst nicht
+            const other = [...wbox.querySelectorAll(".mc-conv-card")].find(c => !c.classList.contains("mc-selected"));
+            const want = other?.__mcHdr?.messageId;
+            const n0 = wUp.length;
+            other?.dispatchEvent(new mw.MouseEvent("click", { bubbles: true }));
+            await until(() => wUp.slice(n0).some(e => !e.card && e.type == "MsgLoaded" && `${e.id}@example.invalid` == want), 6000); await ruhig(500);
+            out.wClick = wUp.slice(n0).filter(e => !e.card).map(e => `${e.type}:${e.id}`);
+            out.wWant = (want || "").split("@")[0];
+            out.wCards = wbox.querySelectorAll(".mc-conv-card .mc-conv-browser").length;
+            out.wDown = wDown.length;
+            out.wUpCards = wUp.filter(e => e.card);
+            out.wUpOwn = wUp.filter(e => !e.card).map(e => `${e.type}:${e.id}`);
+          } finally {
+            Services.obs.removeObserver(obs, "chrome-document-interactive");
+            for (const x of wins()) x.close();
+            await ruhig(600); a3.threadTree.selectedIndex = -1;
+            Services.prefs.clearUserPref("mailnews.mark_message_read.auto");
+            await ruhig(300);
+          }
+          return out;""")
+        ok = (res.get("loaded") is True and res.get("cards") == 3 and res.get("down", 0) >= 6
+              and res.get("upCards") == []
+              and "MsgLoaded:halo-ereignis-3" in (res.get("upOwn") or [])
+              and res.get("hooked") == 1 and res.get("wLoaded") is True and res.get("wCards") == 3 and res.get("wDown", 0) >= 6
+              and res.get("wUpCards") == [] and len(res.get("wUpOwn") or []) >= 1
+              and bool(res.get("wWant")) and f"MsgLoaded:{res.get('wWant')}" in (res.get("wClick") or []))
+        return ok, f"{res}"
+    check("Konversation: Karten melden anderen Erweiterungen keine angezeigte Mail (nur die gewählte Mail erreicht Thunderbirds Hörer am Fenster)", conversation_card_events, results)
+
 
 # Verfassen-Fenster und seine Dialoge: Test-Identität (example.invalid, kein Server), Fenster öffnen/schließen,
 # Editor-Dialoge (modal) erst nach dem Skript öffnen. Gewartet wird über den Zeitgeber des Moduls –

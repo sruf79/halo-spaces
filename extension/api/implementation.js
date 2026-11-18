@@ -12791,6 +12791,8 @@ class CardEnhancer {
       this.restorers.push(() => {
         plus.remove();
         row?.removeAttribute("data-mc-tp-open");
+        row?.removeAttribute("data-mc-tp-slide");
+        row?.style.removeProperty("--mc-tp-full");
         row?.removeAttribute("data-mc-tp-none");
       });
       // Verlauf am Kartenboden nur, solange unten noch Termine verborgen sind

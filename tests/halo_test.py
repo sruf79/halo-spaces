@@ -17104,6 +17104,48 @@ Neu
         return ok, f"{res}"
     check("Aufgaben: Vorkommen einer Serie im eigenen Fenster bleibt nach „Complete“ das Vorkommen (erledigt)", task_window_occurrence, results)
 
+    def task_window_occurrence_deleted():
+        # Vorkommen einer Serie im eigenen Aufgabenfenster, dann nur dieses Vorkommen löschen (Thunderbirds Weg:
+        # Serie ändern, negatives Datum): das Fenster schließt; vorher blieb es offen und zeigte das gelöschte Vorkommen.
+        # Ein anderes Vorkommen derselben Serie zu löschen lässt das Fenster offen.
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar();
+          const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const r = new CalTodo(); r.title = "Halo Fensterserie weg"; r.calendar = c;
+          const rs = cal.dtz.now(); rs.day -= 1; rs.hour = 9; rs.minute = 0; rs.second = 0; r.entryDate = rs;
+          const ri = new CalRecurrenceInfo(r), rule = cal.createRecurrenceRule(); rule.type = "DAILY"; rule.interval = 1; ri.appendRecurrenceItem(rule); r.recurrenceInfo = ri;
+          const saved = await c.addItem(r);
+          const wins = () => [...Services.wm.getEnumerator(null)].filter(x => x.document?.documentElement?.hasAttribute("mc-task-window"));
+          const out = {};
+          try {
+            const from = rs.clone(); from.day += 1; from.hour = 0; const to = from.clone(); to.day += 2;
+            const [occ, other] = saved.recurrenceInfo.getOccurrences(from, to, 0);
+            out.occurrence = !!occ?.recurrenceId && !!other?.recurrenceId;
+            w.modifyEventWithDialog(occ, true);
+            const nw = await bis(() => wins()[0], "Aufgabenfenster", 6000);
+            const nd = nw.document;
+            await bis(() => nd.querySelector("#mcTaskInfo .mc-ti-row") && nd.getElementById("calendar-task-details-title")?.textContent, "Ansicht gefüllt", 6000);
+            await ruhig(400);
+            // anderes Vorkommen löschen: Fenster bleibt offen
+            w.calendarViewController.deleteOccurrences([other], false, true);
+            for (let i = 0; i < 60; i++) { const p = await c.getItem(saved.id); if (p?.recurrenceInfo?.getRecurrenceItems().some(x => x.isNegative)) break; await wait(100); }
+            out.otherDeleted = !!(await c.getItem(saved.id))?.recurrenceInfo?.getRecurrenceItems().some(x => x.isNegative);
+            await ruhig(400);
+            out.openAfterOther = !nw.closed;
+            // eigenes Vorkommen löschen: Fenster schließt
+            const fresh = (await c.getItem(saved.id)).recurrenceInfo.getOccurrenceFor(occ.recurrenceId);
+            w.calendarViewController.deleteOccurrences([fresh], false, true);
+            out.closed = !!(await bis(() => nw.closed, "Fenster zu", 6000).catch(() => false));
+          } finally {
+            for (const x of wins()) x.close();
+            for (const x of await items("Halo Fensterserie weg")) { try { await c.deleteItem(x); } catch {} }
+          }
+          return out;""")
+        ok = res.get("occurrence") is True and res.get("otherDeleted") is True and res.get("openAfterOther") is True and res.get("closed") is True
+        return ok, f"{res}"
+    check("Aufgaben: Vorkommen einer Serie im eigenen Fenster – nur dieses Vorkommen gelöscht schließt das Fenster", task_window_occurrence_deleted, results)
+
     def task_header_no_overlap():
         # ohne Auswahl (auch ohne Aufgaben) behält die Liste ihre Breite wie in der Mail: Filter und „…“ über der Liste
         # liegen nie auf Plus und Suche der Toolbar

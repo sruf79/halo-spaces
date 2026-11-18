@@ -5448,7 +5448,14 @@ async function openTaskWindow(main, item) {
         if (newItem.id == cur.id && newItem.calendar?.id == cur.calendar?.id) {
           // (Vorkommen einer Serie: Thunderbird meldet die ganze Serie – das Fenster
           // bleibt beim Vorkommen, sonst zeigte es nach dem Ändern die Serie)
-          const occ = cur.recurrenceId && newItem.recurrenceInfo ? newItem.recurrenceInfo.getOccurrenceFor(cur.recurrenceId) : null;
+          const info = cur.recurrenceId ? newItem.recurrenceInfo : null;
+          // Nur dieses Vorkommen gelöscht: Thunderbird ändert die Serie (removeOccurrenceAt → negatives
+          // Datum) statt onDeleteItem zu melden, getOccurrenceFor liefert trotzdem ein Vorkommen – Fenster zu
+          if (info?.getRecurrenceItems().some(r => r.isNegative && r.date?.compare(cur.recurrenceId) == 0)) {
+            nw.close();
+            return;
+          }
+          const occ = info ? info.getOccurrenceFor(cur.recurrenceId) : null;
           solo.tree.currentTask = occ || newItem;
           show();
         }

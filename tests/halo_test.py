@@ -15360,6 +15360,12 @@ Neu
             // Zeigt das Fenster noch die Kontoübersicht (Wurzelordner, z. B. mit --only ohne vorherige Prüfungen), hat
             // die Mailliste keine Breite – dann einen echten Ordner (Papierkorb der Lokalen Ordner) anzeigen
             const a3n = nw.document.getElementById("tabmail").currentAbout3Pane;
+            // about:3pane richtet sich asynchron ein (DOMContentLoaded wartet erst auf Custom Elements, dann
+            // folderPane.init()/threadPane.init()); das Element threadPane steht schon vorher im Markup. Ohne dieses Warten
+            // fand displayFolder() auf langsamen CI-Läufern noch kein folderTree („can't access property "selectedRow",
+            // folderTree is undefined“, Linux, gelegentlich) – darum auf das Ende der Einrichtung warten
+            if (a3n.hasDOMContentLoaded?.promise) await Promise.race([a3n.hasDOMContentLoaded.promise, wait(15000)]);
+            await until(() => a3n.folderTree && a3n.webBrowser, 15000);
             out.root = !a3n.gFolder || a3n.gFolder.isServer;
             if (out.root) {
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");

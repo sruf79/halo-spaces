@@ -9143,9 +9143,13 @@ def calendar_checks(m, results):
           const title = d.documentElement.hasAttribute("mc-task-info") ? d.getElementById("calendar-task-details-box") : d.getElementById("calendar-task-details-title");
           const th = d.querySelector("#calendar-task-details-grid > tr > th");
           // (Kopfkarte: Oberkante wie die Oberkante der ersten Karte der Liste)
-          const cardTop = d.documentElement.hasAttribute("mc-task-info") ? card?.closest(".mc-tc") : card;
+          // Die Kartenliste baut sich bei jeder Meldung des Aufgabenbaums neu auf (invalidate…/rowCountChanged →
+          // replaceChildren); kam eine nach dem Klick (Linux beta, CI 18.11. Lauf 44338606258: card 0, title 55), war die
+          // oben gemerkte Karte schon aus dem Dokument und maß 0 – darum die erste Karte jetzt neu holen
+          const cardNow = d.querySelector("#mcTaskCards .mc-tc-title");
+          const cardTop = d.documentElement.hasAttribute("mc-task-info") ? cardNow?.closest(".mc-tc") : cardNow;
           const out = { side: d.documentElement.hasAttribute("mc-task-side"), card: cardTop ? Math.round(cardTop.getBoundingClientRect().top) : null,
-            title: title ? Math.round(title.getBoundingClientRect().top) : null, label: th?.textContent?.trim(), transform: th ? w.getComputedStyle(th).textTransform : null };
+            title: title ? Math.round(title.getBoundingClientRect().top) : null, neuAufgebaut: !card?.isConnected, label: th?.textContent?.trim(), transform: th ? w.getComputedStyle(th).textTransform : null };
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           if (made) await c.deleteItem(made);
           return out;""")

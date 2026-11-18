@@ -153,6 +153,7 @@ Forks, Nachsehen und die feste Routine: `docs/github-komm.md` (vor jeder Bearbei
   Release mit „Fixed in x.y.z“ schließen (`publish.sh`).
 - Pull Requests mergen, schließen oder Teile übernehmen nur mit Freigabe des Maintainers (Ausnahme:
   Director-Einträge in `tests/pr-freigaben.txt` nach der Dauerfreigabe vom 14.11.2026, oben).
+- Abgelehnte PRs (Maintainer 18.11.2026): Ist die Ablehnung auf dem PR geschrieben, schließt neon ihn auf Meldung von `github.comm.routine` ohne Merge mit kurzem englischem Kommentar (ohne Apple, ohne Gedankenstriche) und trägt es in den Stand ein; die Routine selbst schließt nie.
 - Ton und Inhalt: Englisch, freundlich, knapp; nie auf die private Aufgabenliste verweisen, keine
   Interna (Testrechner, VM, Tokens), keine Zusagen zu Terminen.
 

@@ -152,6 +152,19 @@
   /* Kapselhöhe der Symbolleisten (Mail, Verfassen) und Kreis unter der Maus */
   --mt-cap-h: 38px;
   --mt-cap-dot-d: 32px;
+  /* plastische Kapseln (17.11.2026, Variante B „plastisch, neutral“, in der
+     Stärke wie die Kapseln von Apple Mail gemessen): helle Fläche mit leisem
+     Verlauf, Lichtkante oben, Kante unten etwa 16 %, an den Seiten ein Hauch,
+     kurzer weicher Schatten; keine Farbe, kein Leuchten. Die Lichtkante ist
+     ebenso wie die Kante unten ein Streifen im Hintergrund (deckende Farben),
+     kein Schatten: innere Schatten, Haarlinien außen und durchscheinende
+     Flächen zeichneten an den Stößen der Kapselstücke bei halben Bildpunkten
+     einen Strich bzw. eine Kerbe */
+  --mt-cap-fill: linear-gradient(#FFFFFF 0 1px, transparent 1px), linear-gradient(transparent calc(100% - 1px), color-mix(in srgb, #000 13%, #F7F7F8) calc(100% - 1px)), linear-gradient(#FFFFFF, #F7F7F8);
+  --mt-cap-shadow: 0 1px 1px -1px rgba(0, 0, 0, 0.12), 0 4px 6px -6px rgba(0, 0, 0, 0.3);
+  --mt-cap-edge: rgba(0, 0, 0, 0.16);
+  /* einzeln stehende Kapsel: feine Kante an beiden Enden */
+  --mt-cap-solo-shadow: inset 0.5px 0 0 var(--mt-cap-edge), inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow);
   --mt-cap-hover: rgba(0, 0, 0, 0.045);
   --mt-cap-press: rgba(0, 0, 0, 0.08);
   --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
@@ -175,8 +188,16 @@
   --mt-primary-press: color-mix(in srgb, var(--mt-accent) 86%, #000);
   --mt-primary-press-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 60%, #000);
   --mt-btn-disabled-text: color-mix(in srgb, var(--mt-text) 35%, transparent);
-  /* Textknopf: Lichtkante oben mit feinem Schlagschatten; gedrückt innerer Schatten */
-  --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-lite-drop);
+  /* Lichtkante oben mit feinem Schlagschatten für den Kreis unter der Maus */
+  --mt-btn-ring-drop: var(--mt-btn-lite-drop);
+  --mt-btn-ring: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-ring-drop);
+  /* Textknopf plastisch (17.11.2026, Variante B): heller Schleier über der
+     Knopffläche (die Fläche bleibt, unter der Maus also weiter etwas dunkler),
+     Lichtkante oben, feine Kante und leiser Schatten; gedrückt innerer
+     Schatten ohne Schleier */
+  --mt-btn-veil: rgba(255, 255, 255, 0.5);
+  --mt-btn-rim: rgba(0, 0, 0, 0.1);
+  --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 0.5px 0 0.5px var(--mt-btn-rim), var(--mt-btn-lite-drop);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
 }
 
@@ -200,7 +221,13 @@
     --mt-primary-top: rgba(255, 255, 255, 0.22);
     --mt-primary-halo: 60%;
     --mt-primary-drop: 0 2px 4px rgba(0, 0, 0, 0.5);
-    --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-lite-drop);
+    /* (Schatten des Kreises nur unter seiner Unterkante: der weiche dunkle
+       Schatten der Knöpfe machte den Kreis breiter und lief bis an den Kapselrand) */
+    --mt-btn-ring-drop: 0 1px 1px -1px rgba(0, 0, 0, 0.6);
+    --mt-btn-ring: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-ring-drop);
+    --mt-btn-veil: rgba(255, 255, 255, 0.05);
+    --mt-btn-rim: rgba(0, 0, 0, 0.45);
+    --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 0.5px 0 0.5px var(--mt-btn-rim), var(--mt-btn-lite-drop);
     --mt-primary-shadow: inset 0 1px 0 var(--mt-primary-top), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 70%, #000), var(--mt-primary-drop), 0 6px 12px -5px color-mix(in srgb, var(--mt-accent) var(--mt-primary-halo), transparent);
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
@@ -249,6 +276,13 @@
     --mt-sheet: #1E1E1E;
     --mt-table-stripe: rgba(255, 255, 255, 0.045);
     --mt-cap-line: rgba(255, 255, 255, 0.23);
+    /* plastische Kapseln dunkel wie bei Apple Mail gemessen: Fläche etwas
+       heller als das Fenster, Lichtkante oben, leise helle Kante unten,
+       dunkle Haarlinie darunter, kein weicher Schatten */
+    --mt-cap-fill: linear-gradient(color-mix(in srgb, #FFF 28%, #1E1E1E) 0 1px, transparent 1px), linear-gradient(transparent calc(100% - 1px), color-mix(in srgb, #FFF 16%, #1E1E1E) calc(100% - 1px)), linear-gradient(color-mix(in srgb, #FFF 12%, #1E1E1E), color-mix(in srgb, #FFF 7.5%, #1E1E1E));
+    --mt-cap-shadow: 0 1px 1px -1px rgba(0, 0, 0, 0.45);
+    --mt-cap-edge: rgba(255, 255, 255, 0.08);
+    --mt-cap-solo-shadow: inset 0.5px 0 0 var(--mt-cap-edge), inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow);
     --mt-cap-hover: rgba(255, 255, 255, 0.07);
     --mt-cap-press: rgba(255, 255, 255, 0.12);
     --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
@@ -2702,15 +2736,15 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   height: 38px !important;
   min-height: 38px !important;
   margin: 0 !important;
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-control) !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-cap-fill) !important;
   border: none !important;
   border-radius: 0 !important;
-  box-shadow: none !important;
+  box-shadow: var(--mt-cap-shadow) !important;
 }
 
 /* Anfang und Ende jeder Gruppe rund, ohne Trennstrich; 6 px zwischen den Gruppen */
 :root[mc-standalone] #header-view-toolbar > :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrArchiveButton, #otherActionsButton) {
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
   border-start-start-radius: 999px !important;
   border-end-start-radius: 999px !important;
 }
@@ -2724,7 +2758,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 
 /* „Antworten“ (Absender) und die Antworten-Gruppe teilen sich eine Kapsel */
 :root[mc-standalone] #header-view-toolbar > #hdrReplyToSenderButton:not([hidden]) ~ #hdrSmartReplyButton {
-  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-control) !important;
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) left center / 1px var(--mt-cap-line-h) no-repeat, var(--mt-cap-fill) !important;
   border-start-start-radius: 0 !important;
   border-end-start-radius: 0 !important;
 }
@@ -2807,15 +2841,21 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 :root[mc-standalone] #header-view-toolbar:has(> :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton):hover) > :is(#hdrReplyToSenderButton, #hdrSmartReplyButton, #hdrForwardButton),
 :root[mc-standalone] #header-view-toolbar:has(> :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton):hover) > :is(#hdrArchiveButton, #hdrTrashButton, #hdrJunkButton),
 :root[mc-standalone] #header-view-toolbar:has(> :is(#otherActionsButton, #starMessageButton):hover) > :is(#otherActionsButton, #starMessageButton) {
-  background-image: none !important;
-  background-color: var(--mt-control) !important;
+  background-image: var(--mt-cap-fill) !important;
+  /* (Größe und Lage des Trennstrichs nicht auf die Schichten der Fläche
+     übertragen – die Lichtkante oben schrumpfte sonst auf 1 × 20 px) */
+  background-size: auto !important;
+  background-position: 0 0 !important;
+  /* (die Fläche deckt; eine Farbe darunter schimmerte an den runden Enden
+     durch und änderte beim Überfahren die Kante) */
+  background-color: transparent !important;
 }
 
 /* (mit #header-view-toolbox: die Regel darüber ist durch die Kennungen in
    :has() spezifischer und nahm sonst den Kreis wieder weg – kein Knopf zeigte
    beim Überfahren etwas) */
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:not([disabled]) {
-  background-image: var(--mt-cap-dot) !important;
+  background-image: var(--mt-cap-dot), var(--mt-cap-fill) !important;
   /* Größe und Lage des Trennstrichs (1 × 20 px links) nicht auf den Kreis
      übertragen – er wurde sonst in diesen Streifen gemalt */
   background-size: auto !important;
@@ -2824,7 +2864,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 }
 
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar:has(> :hover) > :is(#hdrReplyToSenderButton, #hdrForwardButton, #hdrArchiveButton, #hdrTrashButton, #hdrJunkButton, #otherActionsButton, #starMessageButton):is(toolbarbutton, button):hover:active:not([disabled]) {
-  background-image: var(--mt-cap-dot-press) !important;
+  background-image: var(--mt-cap-dot-press), var(--mt-cap-fill) !important;
 }
 
 /* Knöpfe der Antworten-Gruppe („Allen antworten“ mit Pfeil): ein Kreis
@@ -2922,7 +2962,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 }
 
 :root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton) {
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar > #mcHdrPrintButton {
@@ -2932,7 +2972,7 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 /* Stern und Pfeil: eine Kapsel, Trennstrich vor dem Pfeil */
 :root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #starMessageButton {
   margin-inline-start: 6px !important;
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
   border-radius: 999px 0 0 999px !important;
 }
 
@@ -2973,27 +3013,92 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 /* Überfahren: Stern bzw. Pfeil bekommen je einen Kreis, der Trennstrich
    verschwindet (wie die Kapseln links) */
 :root[mc-standalone] #header-view-toolbar:has(> :is(#starMessageButton, #mcHdrFlagMenuButton):is(:hover, [open])) > #mcHdrFlagMenuButton {
-  background-image: none !important;
+  background-image: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar > #mcHdrFlagMenuButton:is(:hover, [open]):not([disabled]) {
-  background: var(--mt-cap-dot-narrow), var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar > #mcHdrFlagMenuButton:is(:hover:active, [open]):not([disabled]) {
-  background: var(--mt-cap-dot-narrow-press), var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton):hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbox #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton):is(:hover:active, [open]):not([disabled]) {
-  background: linear-gradient(var(--mt-cap-press), var(--mt-cap-press)), var(--mt-control-hover) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar > .mc-hdr-tool[disabled] {
   opacity: 0.4 !important;
+}
+
+/* Kapseln im eigenen Fenster in derselben Bauart wie die Mail-Symbolleiste
+   (plastische Kapseln, 17.11.2026): Fläche und Schatten je Stück, feine Kante
+   nur an den Enden; unter der Maus Kreis (Drucken, Verschieben: Fläche 3 px
+   innen; Pfeil von Markieren: schmales Oval) mit Lichtkante, gedrückt ohne
+   Licht mit innerem Schatten */
+:root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, toolbaritem, button):not([hidden]) {
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#hdrArchiveButton, #hdrReplyToSenderButton:not([hidden]), #hdrReplyToSenderButton[hidden] ~ #hdrSmartReplyButton, #otherActionsButton):dir(ltr),
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #starMessageButton:dir(ltr),
+:root[mc-standalone] #header-view-toolbar > :is(#hdrForwardButton, #hdrJunkButton, #mcHdrFlagMenuButton):dir(rtl),
+:root[mc-standalone] #header-view-toolbar:not(:has(> #mcHdrPrintButton)) > #starMessageButton:dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#hdrForwardButton, #hdrJunkButton, #mcHdrFlagMenuButton):dir(ltr),
+:root[mc-standalone] #header-view-toolbar:not(:has(> #mcHdrPrintButton)) > #starMessageButton:dir(ltr),
+:root[mc-standalone] #header-view-toolbar > :is(#hdrArchiveButton, #hdrReplyToSenderButton:not([hidden]), #hdrReplyToSenderButton[hidden] ~ #hdrSmartReplyButton, #otherActionsButton):dir(rtl),
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #starMessageButton:dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton),
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #otherActionsButton {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, toolbaritem, button):not([hidden])::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  inset-inline-start: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton, #mcHdrFlagMenuButton)::after {
+  inset-inline-start: 3px !important;
+  width: calc(100% - 6px) !important;
+  background-color: var(--mt-cap-hover) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, button):hover:not([disabled])::after,
+:root[mc-standalone] #header-view-toolbar > toolbaritem:has(> toolbarbutton:hover:not([disabled]))::after,
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton, #mcHdrFlagMenuButton)[open]:not([disabled])::after {
+  opacity: 1 !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(toolbarbutton, button):hover:active:not([disabled])::after,
+:root[mc-standalone] #header-view-toolbar > toolbaritem:has(> toolbarbutton:hover:active:not([disabled]))::after,
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton, #mcHdrFlagMenuButton)[open]:not([disabled])::after {
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > :is(#mcHdrPrintButton, #mcHdrMoveButton, #mcHdrFlagMenuButton):is(:hover:active, [open]):not([disabled])::after {
+  background-color: var(--mt-cap-press) !important;
 }
 
 :root[mc-standalone] #messageHeader .recipient-avatar.mc-hdr-avatar {
@@ -3237,6 +3342,113 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 #unifiedToolbarContent:has(> li:is([item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"]):hover) > li:is([item-id="reply-all"], [item-id="forward-inline"])::before,
 #unifiedToolbarContent:has(> li:is([item-id="archive"], [item-id="delete"], [item-id="junk"]):hover) > li:is([item-id="delete"], [item-id="junk"])::before {
   opacity: 0 !important;
+}
+
+/* Knopf-Familie in der Mail-Symbolleiste (Variante A und plastische Kapseln
+   B, 17.11.2026): die Kapseln heben sich mit heller Fläche, feiner Kante
+   (oben hell, unten dunkler) und leisem Schatten ab, ohne Farbe. Jedes Stück
+   einer Kapsel zeichnet Fläche und Schatten selbst. Sind
+   alle Knöpfe einer Kapsel gesperrt (keine Mail gewählt), ist sie flach ohne
+   Kante und Schatten */
+#unifiedToolbarContent > li:is(
+  [item-id="get-messages"], [item-id="write-message"],
+  [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"],
+  [item-id="archive"], [item-id="delete"], [item-id="junk"],
+  [item-id="move-to"], [item-id="mark-as"]
+) {
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-shadow) !important;
+  z-index: 0 !important;
+}
+
+/* (Seiten nur an den Enden der Kapsel, als feine Kante innen: alle Schatten
+   reichen seitlich nicht über ihr Stück hinaus, an den Stößen scheint nichts
+   durch) */
+#unifiedToolbarContent > li:is([item-id="get-messages"], [item-id="reply"], [item-id="archive"]):dir(ltr),
+#unifiedToolbarContent > li:is([item-id="write-message"], [item-id="forward-inline"], [item-id="junk"]):dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li:is([item-id="write-message"], [item-id="forward-inline"], [item-id="junk"]):dir(ltr),
+#unifiedToolbarContent > li:is([item-id="get-messages"], [item-id="reply"], [item-id="archive"]):dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li:is([item-id="move-to"], [item-id="mark-as"]) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent:not(:has(> li:is([item-id="get-messages"], [item-id="write-message"]) button:not([disabled]))) > li:is([item-id="get-messages"], [item-id="write-message"]),
+#unifiedToolbarContent:not(:has(> li:is([item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"]) button:not([disabled]))) > li:is([item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"]),
+#unifiedToolbarContent:not(:has(> li:is([item-id="archive"], [item-id="delete"], [item-id="junk"]) button:not([disabled]))) > li:is([item-id="archive"], [item-id="delete"], [item-id="junk"]),
+#unifiedToolbarContent > li:is([item-id="move-to"], [item-id="mark-as"]):not(:has(button:not([disabled]))) {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+/* Fläche unter der Maus mit feiner Lichtkante oben (A): Kreis 32 px mittig im
+   Knopf, bei Verschieben eine Kapsel 3 px innen, beim Pfeil von Markieren ein
+   schmales Oval; gedrückt ohne Licht mit innerem Schatten. Die Kante liegt
+   unter dem Knopf (z-index im Stück), die graue Fläche malt der Knopf */
+#unifiedToolbarContent > li:is(
+  [item-id="get-messages"], [item-id="write-message"],
+  [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"],
+  [item-id="archive"], [item-id="delete"], [item-id="junk"],
+  [item-id="move-to"], [item-id="mark-as"]
+)::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  inset-inline-start: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#unifiedToolbarContent > li[item-id="move-to"]::after {
+  inset-inline-start: 3px !important;
+  width: calc(100% - 6px) !important;
+  background-color: var(--mt-cap-hover) !important;
+}
+
+#unifiedToolbarContent > li[item-id="mark-as"]::after {
+  inset-inline-start: calc(20px - var(--mt-cap-dot-d) / 2) !important;
+}
+
+#unifiedToolbarContent > li[item-id="mark-as"][mc-hot="menu"]::after {
+  inset-inline-start: 44px !important;
+  width: 22px !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="get-messages"], [item-id="write-message"],
+  [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"],
+  [item-id="archive"], [item-id="delete"], [item-id="junk"],
+  [item-id="move-to"], [item-id="mark-as"]
+):has(button:hover:not([disabled]))::after {
+  opacity: 1 !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="get-messages"], [item-id="write-message"],
+  [item-id="reply"], [item-id="reply-all"], [item-id="forward-inline"],
+  [item-id="archive"], [item-id="delete"], [item-id="junk"],
+  [item-id="move-to"], [item-id="mark-as"]
+):has(button:hover:active:not([disabled]))::after {
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+/* Verschieben: Fläche 3 px innen statt bis an den Rand */
+#unifiedToolbarContent > li[item-id="move-to"] button:hover:not([disabled]) {
+  background-color: transparent !important;
+}
+
+#unifiedToolbarContent > li[item-id="move-to"]:has(button:hover:active:not([disabled]))::after {
+  background-color: var(--mt-cap-press) !important;
 }
 
 /* Bereiche-Menü an die Stelle von Apples Seitenleisten-Knopf: oben rechts in
@@ -4510,6 +4722,12 @@ unified-toolbar {
   height: 38px !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
   background-color: var(--mt-control) !important;
+}
+
+/* plastisch wie die Kapseln der Mail-Symbolleiste (17.11.2026) */
+#mcListHeader .mc-lh-tools {
+  background-image: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
 }
 
 #mcListHeader .mc-lh-tools > button {

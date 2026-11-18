@@ -14176,6 +14176,67 @@ def run_checks(m, version, profile, results):
                 f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
     check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
 
+    def capsule_plastic():
+        # Knopf-Familie in der Mail-Symbolleiste (Variante A, plastische Kapseln B, 17.11.2026): jedes Kapselstück
+        # mit heller Fläche (Verlauf, Lichtkante oben und Kante unten als deckende Streifen) und leisem Schatten, die
+        # Enden mit feiner Kante innen, Stücke in der Mitte ohne Seitenkante; am Stoß derselbe Farbton wie in der
+        # Kapsel (kein Strich). Unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Licht mit innerem Schatten;
+        # Verschieben eine Fläche 3 px innen; ohne gewählte Mail ist die gesperrte Kapsel flach
+        res = m.js(MESSAGE_JS + """
+          const cs = (e, p) => w.getComputedStyle(e, p);
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          // (Verfassen ist immer bereit; Antworten ist mit --only je nach Fokus noch gesperrt)
+          const ids = ["get-messages", "write-message", "move-to"];
+          if (!ids.every(li)) return { missing: true };
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1920, oldH);
+          await bis(() => !ids.some(id => li(id).hasAttribute("mc-squeezed")) && li("move-to").getBoundingClientRect().width > 0, "Pillen sichtbar", 4000);
+          try {
+            await ruhig(300);
+            const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-control)";
+            d.documentElement.append(probe); const out = { control: cs(probe).backgroundColor }; probe.remove();
+            const look = e => ({ img: cs(e).backgroundImage, sh: cs(e).boxShadow, bg: cs(e).backgroundColor });
+            out.rest = Object.fromEntries(ids.map(id => [id, look(li(id))])); out.mid = look(li("reply-all"));
+            // Stoß Abrufen | Verfassen oberhalb des Trennstrichs: links, am und rechts vom Stoß
+            const ra = li("write-message"), r = ra.getBoundingClientRect();
+            const bmp = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left - 3, r.top + 6, 6, 2), 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height;
+            const ctx = cv.getContext("2d"); ctx.drawImage(bmp, 0, 0);
+            out.seam = [...Array(cv.width).keys()].map(x => ctx.getImageData(x, 1, 1, 1).data[0]);
+            const dot = e => { const a = cs(e, "::after"); return { op: a.opacity, w: a.width, h: a.height, sh: a.boxShadow, bg: a.backgroundColor }; };
+            const lockH = async (l, on, act) => { const b = l.querySelector("button");
+              for (const e of [l, b]) for (const c of act ? [":hover", ":active"] : [":hover"]) on ? InspectorUtils.addPseudoClassLock(e, c) : InspectorUtils.removePseudoClassLock(e, c);
+              await ruhig(200); };
+            const rep = li("write-message"), mv = li("move-to");
+            out.restDot = dot(rep);
+            await lockH(rep, true); out.hover = dot(rep); out.hoverBtn = cs(rep.querySelector("button")).backgroundImage.slice(0, 16); await lockH(rep, false);
+            await lockH(rep, true, true); out.press = dot(rep); await lockH(rep, false, true);
+            await lockH(mv, true); out.move = { ...dot(mv), liW: Math.round(mv.getBoundingClientRect().width), btn: cs(mv.querySelector("button")).backgroundColor }; await lockH(mv, false);
+            // ohne gewählte Mail: Antworten-Kapsel gesperrt und flach, Verfassen bleibt plastisch
+            const a3 = await toMail(); a3.threadTree.selectedIndex = -1;
+            await bis(() => li("reply").querySelector("button").disabled, "Antworten gesperrt", 4000); await ruhig(300);
+            out.off = { reply: look(li("reply")), write: look(li("write-message")) };
+            return out;
+          } finally { w.resizeTo(oldW, oldH); await ruhig(300); }""")
+        if res.get("missing"):
+            return False, f"Toolbar-Knöpfe fehlen {res}"
+        rest, off = res["rest"], res["off"]
+        lit = lambda o: o["img"].count("linear-gradient") >= 3 and o["sh"] != "none" and rgba_alpha(o["bg"]) == 0
+        edges = lambda o: o["sh"].count("inset")
+        ok_rest = (all(lit(o) for o in rest.values()) and edges(rest["get-messages"]) == 1 and edges(rest["write-message"]) == 1
+                   and edges(rest["move-to"]) == 2 and edges(res["mid"]) == 0)
+        seam = res["seam"]
+        ok_seam = bool(seam) and max(seam) - min(seam) <= 4
+        h, pr, mv, rd = res["hover"], res["press"], res["move"], res["restDot"]
+        ok_hover = (rd["op"] == "0" and h["op"] == "1" and h["w"] == "32px" and h["h"] == "32px" and "inset" in h["sh"] and h["sh"].count("rgba") >= 2
+                    and res["hoverBtn"].startswith("radial-gradient") and "inset" in pr["sh"] and pr["sh"].count("rgba") == 1
+                    and mv["op"] == "1" and mv["w"] == f"{mv['liW'] - 6}px" and mv["h"] == "32px" and rgba_alpha(mv["bg"]) > 0 and rgba_alpha(mv["btn"]) == 0)
+        ok_off = (off["reply"]["img"] == "none" and off["reply"]["sh"] == "none" and same_color(off["reply"]["bg"], res["control"])
+                  and lit(off["write"]))
+        return (ok_rest and ok_seam and ok_hover and ok_off,
+                f"ruhe={ok_rest} stoß={ok_seam} maus={ok_hover} gesperrt={ok_off} {res}")
+    check("Kapseln: Mail-Symbolleiste plastisch (helle Fläche, Lichtkante, leiser Schatten, Stöße ohne Strich), unter der Maus Kreis mit Lichtkante, gedrückt ohne Licht, gesperrt flach", capsule_plastic, results)
+
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner
         # ohne Punkt. Feed-Konto ohne Abos (kein Netzzugriff), danach entfernt

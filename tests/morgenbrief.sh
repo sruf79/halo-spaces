@@ -22,7 +22,8 @@ export HALO_LAUF=morgenbrief
 #   ~/halo-berichte/<Datum>-halo.spaces-<Version>.md (FEHLER von publish.sh)
 #   gh release list, gh run list (test.yml auf main; workflow_dispatch = Windows-Lauf der Nacht)
 #   ~/halo-nacht/handeln.log (ohne eigene Zeilen „morgenbrief“), ~/halo-nacht/pausen.txt
-#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %
+#   Kontingent: tests/kontingent.sh; Soll = Stunden seit Reset (Di 00:00 UTC) / 168 × 100 %, nach einem freien Reset
+#   „Soll bis nächster Reset“ (wochen_soll, lauf-hilfen.zsh, Maintainer 18.11.2026)
 #   tests/board.sh export (Vorschau), ~/halo-nacht/volldampf.txt, ~/.config/halo-spaces/tagesroutine.conf (Schwellen)
 # Geschrieben (nur echter Lauf): ~/halo-berichte/<heute>-bericht.md, ~/halo-nacht/<heute>-morgenbrief.log,
 #   ~/halo-nacht/kontingent-tage.tsv (eine Zeile je Tag, Grundlage für vergleich-6-12.sh)
@@ -98,6 +99,10 @@ print("BIS_RESET_H=%.0f" % ((naechster - jetzt).total_seconds() / 3600))
 print("NAECHSTER=" + naechster.strftime("%d.%m. %H:%M"))
 ')
 [[ -n $T[HEUTE] ]] || { print -u2 "FEHLER: Zeitberechnung (python3/zoneinfo?)"; exit 1 }
+# Soll aus dem gemeinsamen Rechenstück (lauf-hilfen.zsh): nach einem freien Reset in dieser Woche „Soll bis nächster
+# Reset“ vom Anker bis zum automatischen Reset (Maintainer 18.11.2026), sonst 168 h ab dem Reset wie oben
+SOLL_TEXT="Soll"
+ws=($(HALO_JETZT=$T[JETZT] wochen_soll 168)) && { T[SOLL]=$ws[2]; [[ $ws[3] == anker ]] && SOLL_TEXT="Soll bis nächster Reset" }
 HEUTE=$T[HEUTE]
 WOCHENENDE=; (( T[WT] > 5 )) && WOCHENENDE=1   # Sa/So: Meldung nur bei [handeln]
 if [[ -z $TROCKEN ]] && g=$(pause_aktiv morgenbrief); then log "ÜBERSPRUNGEN morgenbrief pausiert $g"; exit 0; fi
@@ -251,10 +256,14 @@ if [[ -n $HALO_KONTINGENT_WOCHE ]]; then KW=$HALO_KONTINGENT_WOCHE K5=${HALO_KON
 elif [[ -z $TROCKEN ]]; then
   z=$(zsh $KONT_SKRIPT 2>/dev/null)
   [[ $z == (#b)Woche\ ([0-9]##)\ %*5\ Stunden\ ([0-9]##)\ %* ]] && KW=$match[1] K5=$match[2]
+  # freien Reset erkennen (kein zusätzlicher Haiku-Aufruf); danach Soll neu (Anker)
+  if [[ -n $KW ]] && wochen_reset_erkennen $KW >/dev/null; then
+    ws=($(HALO_JETZT=$T[JETZT] wochen_soll 168)) && { T[SOLL]=$ws[2]; [[ $ws[3] == anker ]] && SOLL_TEXT="Soll bis nächster Reset" }
+  fi
 fi
 if [[ -n $KW ]]; then
   ab=$(python3 -I -c 'import sys; print("%+.1f" % (float(sys.argv[1]) - float(sys.argv[2])))' $KW $T[SOLL])
-  zeile="Kontingent: Woche $KW % (Soll $T[SOLL] %, $ab), 5 h $K5 %"
+  zeile="Kontingent: Woche $KW % ($SOLL_TEXT $T[SOLL] %, $ab), 5 h $K5 %"
   if (( KW >= KONT_KNAPP && T[BIS_RESET_H] > 24 )); then
     HANDELN+=("Kontingent $KW % bei $T[BIS_RESET_H] h bis Reset: Empfehlung Tagesroutine pausieren (pause_setzen tagesroutine <bis> …)")
     HANDELN_NEU+=(kontingent)
@@ -360,7 +369,7 @@ if kw:
     ab = float(kw) - float(soll)
     lage = "im Plan" if ab <= float(E("MB_IM_SOLL") or 3) else "über dem Plan"
     if ab < -float(E("MB_IM_SOLL") or 3): lage = "unter dem Plan, es ist Luft"
-    kont = "Woche %s %% verbraucht, Soll jetzt %.0f %% – %s." % (kw, float(soll), lage)
+    kont = "Woche %s %% verbraucht, %s jetzt %.0f %% – %s." % (kw, E("MB_SOLL_TEXT") or "Soll", float(soll), lage)
 else:
     kont = "nicht gelesen."
 # --- Vorschau Tagesroutine ---
@@ -490,7 +499,7 @@ ART=info; (( $#HANDELN )) && ART=handeln
 AUSGABE=$BERICHTE/$HEUTE-bericht.md
 [[ -n $TROCKEN ]] && AUSGABE=${HALO_MB_AUSGABE:-}
 ZEILEN=(${(f)"$(MB_HEUTE=$HEUTE MB_NB=$NB MB_NACHT_ZUSTAND=$NACHT_ZUSTAND MB_HANDELN=${(F)HANDELN} MB_RF_ZEILE=$RF_ZEILE \
-  MB_INFO=${(F)INFO} MB_TB=${(F)TB_LISTE} MB_KW=$KW MB_K5=$K5 MB_SOLL=$T[SOLL] MB_WIN=$WIN MB_CI=$CI_ZEILE \
+  MB_INFO=${(F)INFO} MB_TB=${(F)TB_LISTE} MB_KW=$KW MB_K5=$K5 MB_SOLL=$T[SOLL] MB_SOLL_TEXT=$SOLL_TEXT MB_WIN=$WIN MB_CI=$CI_ZEILE \
   MB_PAUSE=$TR_PAUSE MB_VOLLDAMPF=$TR_VD MB_BOARD=$BOARD_JSON MB_BOARD_INFO=$BOARD_INFO MB_START=$TR_START \
   MB_IM_SOLL=$(cv IM_SOLL 3) MB_SPAR_MAX=$(cv SPAR_MAX 10) MB_5H_MAX=$(cv FUENF_STUNDEN_MAX 80) \
   python3 -I -c $BERICHT_PY "$AUSGABE")"})

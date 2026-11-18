@@ -152,36 +152,93 @@ pause_setzen() {   # <Routine> <bis ISO-Zeit mit Zone> <Grund>
 # schalter“). Wie die Pausen eine Datei mit Zeitfenster, aber umgekehrt – sie gibt Kontingent frei.
 # ~/halo-nacht/volldampf.txt, eine Zeile je Fenster:
 #   volldampf <ab ISO-Zeit mit Zone> <bis ISO-Zeit mit Zone> <Grund>
-# Aktiv nur zwischen ab und bis (reiner Zeitvergleich) und solange das Fenster nicht beendet ist. Beendet
-# wird es DAUERHAFT, sobald die Woche („alle Modelle“) VOLLDAMPF_WOCHE_ENDE (98 %) erreicht („wenn das
-# wochenlimit erreicht wurde wird Volldampf automatisch deaktiviert“): volldampf_wochenlimit_pruefen schreibt
-# dann „<ab> <bis> <Zeit> <Woche>“ nach ~/halo-nacht/volldampf-beendet.txt. Danach bleibt das Fenster aus,
-# auch wenn der Wert nach dem freien Reset oder dem Wochenreset sinkt; wieder ein schaltet nur der Maintainer
-# mit einer neuen Zeile (anderes ab oder bis). Das 5-Stunden-Limit beendet Volldampf nicht.
+# Aktiv nur zwischen ab und bis (reiner Zeitvergleich) und solange das Fenster nicht pausiert ist. Erreicht die Woche
+# („alle Modelle“) VOLLDAMPF_WOCHE_ENDE (98 %), PAUSIERT Volldampf nur (Maintainer 18.11.2026, Wortlaut in
+# ENTSCHEIDUNGEN.md, löst „endet dauerhaft beim Wochenlimit“ vom 13.11.2026 ab): volldampf_wochenlimit_pruefen schreibt
+# „<ab> <bis> <Zeit> <Woche>“ nach ~/halo-nacht/volldampf-beendet.txt (Name bleibt, Inhalt = Pausenmarke). Die Marke
+# gilt nur bis zum nächsten freien (manuellen) Reset, den wochen_reset_erkennen als Anker in ~/halo-nacht/wochenanker.txt
+# festhält, oder bis zum automatischen Wochenreset (Di 00:00 UTC); danach läuft Volldampf von selbst weiter. Ende bleibt
+# bis (automatischer Wochenreset) bzw. Widerruf des Maintainers. Das 5-Stunden-Limit pausiert Volldampf nicht.
 # Abgelaufene Zeilen zählen nicht (auch nicht als „angemeldet“); unlesbare Zeilen (Tippfehler, ab nicht vor
 # bis) gelten als NICHT aktiv und stehen einmal je Lauf als „VOLLDAMPF UNLESBAR …“ im Protokoll und in
 # uebersprungen.log. Kein Claude (außer der Zustellung von push()).
 #   volldampf_aktiv              0 = aktiv, gibt „bis <Zeit> – <Grund>“ aus (mehrere: spätestes Ende);
-#                                2 = Fenster jetzt, aber beendet, gibt „beendet: Wochenlimit erreicht um
-#                                <TT.MM. HH:MM> (<N> %), Fenster bis <Zeit>“ aus; 1 = kein Fenster jetzt
+#                                2 = Fenster jetzt, aber pausiert, gibt „pausiert: Wochenlimit erreicht um
+#                                <TT.MM. HH:MM> (<N> %), wartet auf den freien Reset, Fenster bis <Zeit>“ aus; 1 = kein Fenster
 #   volldampf_angemeldet         0 = ein künftiges Fenster steht in der Datei, gibt „ab <Zeit>, bis <Zeit>“ aus
-#   volldampf_status             eine Zeile für Berichte: „Volldampf aktiv bis … (endet bei Wochenlimit)“,
-#                                „Volldampf beendet: Wochenlimit erreicht um …“ oder „Volldampf angemeldet
-#                                (ab …, bis …), nicht aktiv“; Rückgabe 1 und keine Ausgabe ohne Fenster
+#   volldampf_status             eine Zeile für Berichte: „Volldampf aktiv bis … (pausiert beim Wochenlimit bis zum
+#                                freien Reset[; Soll bis nächster Reset N %, freier Reset TT.MM. HH:MM])“, „Volldampf
+#                                pausiert: …“ oder „Volldampf angemeldet (ab …, bis …), nicht aktiv“; Rückgabe 1 ohne Fenster
 #   volldampf_wochenlimit_pruefen [<Woche %>]  am Beginn jeder Runde bzw. Schleife: Woche aus dem Argument,
 #                                HALO_VOLLDAMPF_WOCHE oder ~/halo-nacht/kontingent.json (höchstens 3 Stunden
-#                                alt, sonst nichts geprüft); ab VOLLDAMPF_WOCHE_ENDE: Marker, Protokollzeile
-#                                „Volldampf beendet: Wochenlimit erreicht (N %, HH:MM)“, einmal push().
-#                                Rückgabe 0 = gerade beendet
+#                                alt, sonst nichts geprüft); erst wochen_reset_erkennen, dann ab VOLLDAMPF_WOCHE_ENDE:
+#                                Marke, Protokollzeile „Volldampf pausiert: Wochenlimit erreicht (N %, HH:MM)“, einmal
+#                                push(). Rückgabe 0 = gerade pausiert
 #   volldampf_setzen <ab> <bis> <Grund>
 #   volldampf_aufraeumen         entfernt abgelaufene Zeilen, je Zeile „VOLLDAMPF ABGELAUFEN …“ (Ende Nachtlauf)
+# Sollkurve (eine Stelle für Auslastungswächter, Tagesroutine, Morgenbrief, volldampf_status; Maintainer 18.11.2026):
+#   wochen_soll [<Stunden>]      „<Stunden seit Bezug> <Soll %> <reset|anker> <nächster Reset ISO> <Bezug ISO>“. Ohne
+#                                Anker in dieser Woche: Soll = Stunden seit dem Reset (Di 00:00 UTC) / <Stunden> (48 im
+#                                Auslastungswächter, 168 sonst) × 100 %. Nach einem freien Reset (Anker): Soll = Stunden seit
+#                                dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset × 100 % („Soll bis
+#                                nächster Reset“, 100 % am Reset).
+#   wochen_reset_erkennen <Woche %>  vergleicht mit dem letzten gespeicherten Wert (~/halo-nacht/wochenstand.txt, „<ISO>
+#                                <Woche>“): fällt die Woche um mindestens VOLLDAMPF_RESET_SPRUNG (20) Punkte, ohne dass der
+#                                automatische Reset dazwischen lag, ist das der freie Reset: Zeile „anker <ISO> <vorher>
+#                                <nachher>“ in wochenanker.txt, Protokoll, eine [info]-Meldung. Rückgabe 0 = gerade erkannt.
+#                                Kein eigener Haiku-Aufruf: nur Werte, die der Lauf ohnehin gelesen hat.
 # Zum Proben: HALO_JETZT=<ISO-Zeit> ersetzt die Uhr, HALO_VOLLDAMPF_DATEI die Datei, HALO_VOLLDAMPF_BEENDET
-# den Marker, HALO_KONTINGENT_JSON die Kontingent-Datei, HALO_VOLLDAMPF_WOCHE den Wochenwert.
+# die Marke, HALO_KONTINGENT_JSON die Kontingent-Datei, HALO_VOLLDAMPF_WOCHE den Wochenwert, HALO_WOCHENANKER und
+# HALO_WOCHENSTAND die Anker- und Stand-Datei; HALO_PAUSE_TROCKEN=1 schreibt keinen Stand und keinen Anker.
 VOLLDAMPF_WOCHE_ENDE=${VOLLDAMPF_WOCHE_ENDE:-98}   # Vorschlag (neon, 13.11.2026): ab hier gilt das Wochenlimit als erreicht
-VOLLDAMPF_PY='
+VOLLDAMPF_RESET_SPRUNG=${VOLLDAMPF_RESET_SPRUNG:-20}   # Maintainer-Auftrag 18.11.2026: Sturz um ≥ 20 Punkte = freier Reset
+wochenanker_datei() { print -r -- ${HALO_WOCHENANKER:-$HOME/halo-nacht/wochenanker.txt} }
+# gemeinsamer Python-Teil (Reset, Anker, Soll); wird vor VOLLDAMPF_PY und ENTSCHEID_PY (tagesroutine.sh) gesetzt
+WOCHE_DEF_PY='
+import datetime as _dt
+_U = _dt.timezone.utc
+def letzter_reset(jetzt, rt=2, rh=0, rm=0):
+    """letzter automatischer Wochenreset (Wochentag rt, rh:rm UTC) nicht nach jetzt, in UTC"""
+    ju = jetzt.astimezone(_U)
+    d = ju.date() - _dt.timedelta(days=(ju.isoweekday() - rt) % 7)
+    r = _dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=_U)
+    return r - _dt.timedelta(days=7) if r > ju else r
+def anker_liste(datei):
+    a = []
+    try:
+        for z in open(datei, encoding="utf-8"):
+            t = z.split()
+            if len(t) >= 2 and t[0] == "anker":
+                try:
+                    x = _dt.datetime.fromisoformat(t[1])
+                except ValueError:
+                    continue
+                if x.tzinfo:
+                    a.append(x.astimezone(_U))
+    except OSError:
+        pass
+    return a
+def wochen_anker(jetzt, datei, rt=2, rh=0, rm=0):
+    """jüngster Anker (freier Reset) seit dem letzten automatischen Reset und nicht nach jetzt, sonst None"""
+    r, ju = letzter_reset(jetzt, rt, rh, rm), jetzt.astimezone(_U)
+    a = [x for x in anker_liste(datei) if r <= x <= ju]
+    return max(a) if a else None
+def wochen_soll(jetzt, basis, datei, rt=2, rh=0, rm=0):
+    """(Stunden seit Bezug, Soll %, \"anker\"|\"reset\", nächster Reset, Bezug), alle Zeiten UTC"""
+    r, ju = letzter_reset(jetzt, rt, rh, rm), jetzt.astimezone(_U)
+    n = r + _dt.timedelta(days=7)
+    a = wochen_anker(jetzt, datei, rt, rh, rm)
+    if a is not None:
+        std = (ju - a).total_seconds() / 3600
+        return std, min(100.0, 100.0 * std / ((n - a).total_seconds() / 3600)), "anker", n, a
+    std = (ju - r).total_seconds() / 3600
+    return std, min(100.0, std / float(basis) * 100), "reset", n, r
+'
+VOLLDAMPF_PY="$WOCHE_DEF_PY"'
 import sys, os, datetime
 datei, modus = sys.argv[1], sys.argv[2]
 marker = sys.argv[3] if len(sys.argv) > 3 else ""
+anker_datei = sys.argv[4] if len(sys.argv) > 4 else ""
 def jetzt():
     j = os.environ.get("HALO_JETZT")
     return datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.now().astimezone()
@@ -213,16 +270,47 @@ def gueltig():
         except ValueError:
             yield z, None
 n = jetzt()
+# Pausenmarke (Wochenlimit) gilt nur bis zum nächsten freien Reset (Anker nach der Marke, nicht nach jetzt) oder bis
+# zum automatischen Wochenreset (Maintainer 18.11.2026); vorher war sie dauerhaft
+reset_n, anker = letzter_reset(n), [a for a in anker_liste(anker_datei) if a <= n] if anker_datei else []
+def pausiert(w):
+    m = beendet.get((w[2], w[3]))
+    if not m:
+        return False
+    try:
+        um = datetime.datetime.fromisoformat(m[0])
+    except ValueError:
+        return True
+    return um >= reset_n and not any(a > um for a in anker)
 if modus in ("aktiv", "fenster"):
     offen = [w for z, w in gueltig() if w and w[0] <= n < w[1]]
-    an = [w for w in offen if (w[2], w[3]) not in beendet]
+    an = [w for w in offen if not pausiert(w)]
     if an:
         b = max(an, key=lambda w: w[1])
         print(("%s %s" % (b[2], b[3])) if modus == "fenster" else ("bis %s – %s" % (b[3], b[4]))); sys.exit(0)
     if offen and modus == "aktiv":
         b = max(offen, key=lambda w: w[1]); um, wo = beendet[(b[2], b[3])]
         u = datetime.datetime.fromisoformat(um).astimezone()
-        print("beendet: Wochenlimit erreicht um %s (%s %%), Fenster bis %s" % (u.strftime("%d.%m. %H:%M"), wo, b[3])); sys.exit(2)
+        print("pausiert: Wochenlimit erreicht um %s (%s %%), wartet auf den freien Reset, Fenster bis %s" % (u.strftime("%d.%m. %H:%M"), wo, b[3])); sys.exit(2)
+    sys.exit(1)
+if modus == "soll":
+    std, soll, art, nr, bez = wochen_soll(n, float(sys.argv[5]), anker_datei)
+    print("%.1f %.1f %s %s %s" % (std, soll, art, nr.astimezone().isoformat(timespec="minutes"), bez.astimezone().isoformat(timespec="minutes")))
+    sys.exit(0)
+if modus == "erkennen":
+    # argv: datei erkennen marker anker stand woche sprung
+    stand, woche, sprung = sys.argv[5], float(sys.argv[6]), float(sys.argv[7])
+    vor = None
+    try:
+        t = open(stand, encoding="utf-8").read().split()
+        vor = (datetime.datetime.fromisoformat(t[0]), float(t[1]))
+    except (OSError, ValueError, IndexError):
+        pass
+    neu = n.isoformat(timespec="minutes")
+    open(stand + ".neu", "w", encoding="utf-8").write("%s %g\n" % (neu, woche)); os.replace(stand + ".neu", stand)
+    if vor and vor[1] - woche >= sprung and vor[0] >= reset_n and vor[0] <= n:
+        open(anker_datei, "a", encoding="utf-8").write("anker %s %g %g\n" % (neu, vor[1], woche))
+        print("anker %s %g %g" % (neu, vor[1], woche)); sys.exit(0)
     sys.exit(1)
 if modus == "angemeldet":
     k = sorted((w for z, w in gueltig() if w and w[0] > n), key=lambda w: w[0])
@@ -262,7 +350,7 @@ volldampf_aktiv() {
   local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
   [[ -r $datei ]] || return 1
   volldampf_unlesbar_melden
-  python3 -I -c $VOLLDAMPF_PY $datei aktiv $(volldampf_marker) 2>/dev/null
+  python3 -I -c $VOLLDAMPF_PY $datei aktiv $(volldampf_marker) $(wochenanker_datei) 2>/dev/null
 }
 volldampf_angemeldet() {
   local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
@@ -271,9 +359,12 @@ volldampf_angemeldet() {
   python3 -I -c $VOLLDAMPF_PY $datei angemeldet 2>/dev/null
 }
 volldampf_status() {
-  local g rc
+  local g rc s z="pausiert beim Wochenlimit bis zum freien Reset"
   g=$(volldampf_aktiv); rc=$?
-  if (( rc == 0 )); then print -r -- "Volldampf aktiv ${g/ – / (endet bei Wochenlimit) – }"; return 0; fi
+  if (( rc == 0 )); then
+    s=($(wochen_soll 168)) && [[ $s[3] == anker ]] && z+="; Soll bis nächster Reset $s[2] %, freier Reset $(python3 -I -c 'import sys,datetime as d;print(d.datetime.fromisoformat(sys.argv[1]).astimezone().strftime("%d.%m. %H:%M"))' $s[5])"
+    print -r -- "Volldampf aktiv ${g/ – / ($z) – }"; return 0
+  fi
   if (( rc == 2 )); then print -r -- "Volldampf $g"; return 0; fi
   if g=$(volldampf_angemeldet); then print -r -- "Volldampf angemeldet ($g), nicht aktiv"; return 0; fi
   return 1
@@ -293,19 +384,36 @@ w = i.get("unifiedWindows", {}).get("seven_day", {})
 print(round(100 * w.get("utilization", 0)))
 ' $j 2>/dev/null
 }
+# Sollkurve, gemeinsam für alle Läufe (siehe oben); <Stunden> = Länge der Kurve ohne Anker
+wochen_soll() {   # [<Stunden>]
+  python3 -I -c $VOLLDAMPF_PY /dev/null soll "" $(wochenanker_datei) ${1:-168} 2>/dev/null
+}
+# freien Reset erkennen (Anker), siehe oben; schreibt nichts bei HALO_PAUSE_TROCKEN
+wochen_reset_erkennen() {   # <Woche %>
+  local woche=${1%%.*} stand=${HALO_WOCHENSTAND:-$HOME/halo-nacht/wochenstand.txt} a
+  [[ $woche == <-> && -z $HALO_PAUSE_TROCKEN ]] || return 1
+  mkdir -p ${stand:h} ${$(wochenanker_datei):h}
+  a=($(python3 -I -c $VOLLDAMPF_PY /dev/null erkennen "" $(wochenanker_datei) $stand $woche $VOLLDAMPF_RESET_SPRUNG 2>/dev/null)) || return 1
+  [[ -n $LOG ]] && log "Freier Reset erkannt: Woche $a[3] % → $a[4] %, Anker ${a[2][12,16]} – Volldampf läuft weiter, Soll bis nächster Reset"
+  print -r -- "$(zeit) Freier Reset erkannt: Woche $a[3] % → $a[4] %, Anker $a[2]" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  push "Freier Reset erkannt (Woche $a[3] % → $a[4] %): Volldampf läuft weiter, Soll jetzt linear bis zum automatischen Reset Dienstag 01:00" "${HALO_LAUF:-volldampf}"
+  return 0
+}
 volldampf_wochenlimit_pruefen() {   # [<Woche %>]
   local datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt} woche=${1:-$HALO_VOLLDAMPF_WOCHE} f um
-  [[ -r $datei ]] || return 1
   [[ -n $woche ]] || woche=$(volldampf_woche_gespeichert) || return 1
   [[ $woche == <-> ]] || woche=${woche%%.*}
-  [[ $woche == <-> ]] && (( woche >= VOLLDAMPF_WOCHE_ENDE )) || return 1
-  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) 2>/dev/null) || return 1
+  [[ $woche == <-> ]] || return 1
+  wochen_reset_erkennen $woche >/dev/null   # zuerst: ein freier Reset hebt eine Pausenmarke auf
+  [[ -r $datei ]] || return 1
+  (( woche >= VOLLDAMPF_WOCHE_ENDE )) || return 1
+  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) $(wochenanker_datei) 2>/dev/null) || return 1
   um=$(python3 -I -c 'import os,datetime as d;j=os.environ.get("HALO_JETZT");print((d.datetime.fromisoformat(j).astimezone() if j else d.datetime.now().astimezone()).isoformat(timespec="minutes"))')
   mkdir -p ${$(volldampf_marker):h}
   print -r -- "$f $um $woche" >> $(volldampf_marker)
-  [[ -n $LOG ]] && log "Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]})"
-  print -r -- "$(zeit) Volldampf beendet: Wochenlimit erreicht ($woche %, ${um[12,16]}), Fenster $f" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
-  push "Volldampf beendet, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, Volldampf nur auf Zuruf wieder an; Fable-Anteil in Einstellungen > Nutzung mit ansehen" "${HALO_LAUF:-volldampf}" handeln
+  [[ -n $LOG ]] && log "Volldampf pausiert: Wochenlimit erreicht ($woche %, ${um[12,16]}) – keine neuen Einträge, wartet auf den freien Reset"
+  print -r -- "$(zeit) Volldampf pausiert: Wochenlimit erreicht ($woche %, ${um[12,16]}), Fenster $f" >> ${HALO_UEBERSPRUNGEN_LOG:-$HOME/halo-nacht/uebersprungen.log}
+  push "Volldampf pausiert, Wochenlimit erreicht ($woche %) – freien Reset in Einstellungen > Nutzung drücken, danach läuft Volldampf von selbst weiter bis Dienstag 01:00; Fable-Anteil in Einstellungen > Nutzung mit ansehen" "${HALO_LAUF:-volldampf}" handeln
   return 0
 }
 # Erinnerung an den freien Reset (Vorschlag von neon, 13.11.2026, zur Entscheidung des Maintainers; eigener
@@ -318,7 +426,7 @@ volldampf_reset_erinnern() {
   local woche=${1%%.*} f datei=${HALO_VOLLDAMPF_DATEI:-$HOME/halo-nacht/volldampf.txt}
   local merk=${HALO_VOLLDAMPF_ERINNERT:-$HOME/halo-nacht/volldampf-erinnert.txt}
   [[ -r $datei && $woche == <-> ]] || return 1
-  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) 2>/dev/null) || return 1
+  f=$(python3 -I -c $VOLLDAMPF_PY $datei fenster $(volldampf_marker) $(wochenanker_datei) 2>/dev/null) || return 1
   if (( woche < VOLLDAMPF_ERINNERN )); then
     [[ -e $merk ]] && grep -qxF -- $f $merk && { grep -vxF -- $f $merk > $merk.neu; mv -f $merk.neu $merk }
     return 1

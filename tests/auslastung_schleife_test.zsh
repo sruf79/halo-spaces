@@ -27,7 +27,7 @@ W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -80,11 +80,20 @@ rm -f $T/pausen.txt
 pruefe "ohne Volldampf: Ende" "$(W HALO_VOLLDAMPF_DATEI=$T/keine.txt)" 'ende Volldampf nicht aktiv'
 pruefe "nach dem Volldampf-Fenster: Ende" "$(W HALO_JETZT=2026-11-24T02:00+01:00)" 'ende Volldampf nicht aktiv'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-18T08:00+01:00 98" > $T/vd-beendet.txt
-pruefe "Volldampf beendet (Marker): Ende" "$(W)" 'ende Volldampf nicht aktiv'
+# Wochenlimit pausiert nur (Maintainer 18.11.2026): warten statt Ende, nach dem freien Reset (Anker) von selbst weiter
+pruefe "Volldampf pausiert (Marke): warten, kein Ende" "$(W)" 'warten Volldampf pausiert \(Wochenlimit erreicht, wartet auf den freien Reset\) – Woche 27'
+print -r -- "anker 2026-11-18T09:00+01:00 98 2" > $T/anker.txt
+pruefe "Marke vor dem freien Reset (Anker): Volldampf läuft weiter, Worker" "$(W HALO_JETZT=2026-11-18T10:00+01:00 HALO_AS_WOCHE=2)" 'starten'
 rm -f $T/vd-beendet.txt
-pruefe "Status rejected: Ende (Wochenlimit)" "$(W HALO_AS_STATUS=rejected)" 'ende Wochenlimit \(Status rejected'
+pruefe "Status rejected: warten (Wochenlimit), kein Ende" "$(W HALO_AS_STATUS=rejected)" 'warten Wochenlimit \(Status rejected'
 pruefe "Status allowed_warning: weiter" "$(W HALO_AS_STATUS=allowed_warning)" 'starten'
-pruefe "Woche 98 %: Ende" "$(W HALO_AS_WOCHE=98 HALO_JETZT=2026-11-19T12:00+01:00)" 'ende Wochenlimit erreicht \(Woche 98'
+pruefe "Woche 98 %: warten, Volldampf pausiert bis zum freien Reset" "$(W HALO_AS_WOCHE=98 HALO_JETZT=2026-11-19T12:00+01:00)" 'warten Wochenlimit erreicht \(Woche 98 %\) – Volldampf pausiert bis zum freien Reset'
+# Sollkurve nach dem freien Reset: Anker Fr 20.11. 10:00, jetzt Sa 10:00 → 24 h / 87 h = 27,6 % (statt 48-h-Kurve 100 %)
+print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $T/anker.txt
+pruefe "Soll nach Anker: bis nächster Reset 27,6 %" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=20)" 'Soll 27\.6 % \(bis nächster Reset, 24\.0 h seit freiem Reset\)' 'starten opus unter dem Soll'
+pruefe "nach Anker über dem Soll, 5 Stunden 60 %: warten" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=30 HALO_AS_5H=60)" 'warten im Soll'
+pruefe "Übergang Di 24.11. 01:00: Volldampf-Fenster vorbei, Wächter endet" "$(W HALO_JETZT=2026-11-24T01:00+01:00)" 'ende Volldampf nicht aktiv'
+rm -f $T/anker.txt
 pruefe "Grenze erreicht: Kontingent wird nicht gemessen (warten vor Messung)" "$(W HALO_AS_AKTIV=4 HALO_AS_WOCHE=)" 'warten 4 Arbeits-Sitzungen'
 
 # Doppelstart des Wächters: zweite Instanz endet sofort

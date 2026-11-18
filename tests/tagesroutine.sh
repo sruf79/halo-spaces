@@ -18,6 +18,9 @@ export HALO_LAUF=tagesroutine
 #   tests/zwischen-schleife.zsh (von Hand gestartet, eigener Worktree); hier nur sein Zustand in Trockenlauf und Bericht.
 # Kontingent vor jedem neuen Eintrag (tests/kontingent.sh), Sollkurve statt Tagesanteil:
 #   Soll = Stunden seit dem Reset (Di 00:00 UTC, Wiener Zeit 01:00 im Winter, 02:00 im Sommer) / 168 × 100 %, Abstand = Ist − Soll.
+#   Nach einem freien Reset in dieser Woche (Anker, wochen_reset_erkennen in lauf-hilfen.zsh, Maintainer 18.11.2026):
+#   Soll = Stunden seit dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset × 100 % („Soll bis nächster
+#   Reset“); der Anker verfällt mit dem automatischen Reset. Rechenstück wochen_soll aus lauf-hilfen.zsh (WOCHE_DEF_PY).
 #   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
 #   12.11.2026): Rate = (100 − Ist − RESERVE_NACHT) / Stunden bis zum Reset (nie negativ); seit START
 #   angesparte Punkte (Rate × Stunden − heute im Sparmodus verbraucht) müssen die geschätzten Kosten je
@@ -44,8 +47,9 @@ export HALO_LAUF=tagesroutine
 #   lauf-hilfen.zsh): solange aktiv, bremsen Sollkurve und Sparmodus nicht (Modellwahl wie im Normalbetrieb),
 #   statt MAX_COMMITS_TAG gilt MAX_COMMITS_VOLLDAMPF (0 = keine Grenze, Maintainer 17.11.2026), Fable ohne Soll-Bedingung bei 5-Stunden-Fenster unter FABLE_5H_MAX_VOLLDAMPF und
 #   „Fable only“ höchstens FABLE_WOCHE_MAX (nicht lesbar: kein Halt, im Bericht vermerkt); das 5-Stunden-Fenster
-#   bremst wie sonst. Vor jeder Entscheidung beendet volldampf_wochenlimit_pruefen Volldampf dauerhaft, sobald die
-#   Woche VOLLDAMPF_WOCHE_ENDE erreicht. Bericht und „Kurz:“ nennen den Zustand. Probe: HALO_VOLLDAMPF_DATEI.
+#   bremst wie sonst. Vor jeder Entscheidung pausiert volldampf_wochenlimit_pruefen Volldampf, sobald die Woche
+#   VOLLDAMPF_WOCHE_ENDE erreicht (dann normale Regeln); nach dem erkannten freien Reset läuft er von selbst weiter
+#   (Maintainer 18.11.2026, vorher dauerhaftes Ende). Bericht und „Kurz:“ nennen den Zustand. Probe: HALO_VOLLDAMPF_DATEI.
 #   Beginn (Maintainer 16.11.2026: „nur solange volldampf läuft“): der LaunchAgent startet täglich um 08:45; mit
 #   Volldampf beginnt das Zeitfenster um START_VOLLDAMPF (nahtlos nach dem Nachtlauf, der bis 08:45 Fortsetzungen
 #   macht; die Tagesroutine wartet auf sein Ende, lauf.lock), ohne Volldampf wartet das Skript ohne Claude bis
@@ -102,7 +106,7 @@ conf_laden
 # zeit, log, push, belegt, pause_*: gemeinsam mit den anderen Läufen
 HILFEN=$HIER/lauf-hilfen.zsh
 [[ -r $HILFEN ]] || HILFEN=$REPO/tests/lauf-hilfen.zsh
-VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf endet ab diesem Wochenwert (lauf-hilfen.zsh)
+VOLLDAMPF_WOCHE_ENDE=$KONF[VOLLDAMPF_WOCHE_ENDE]   # Volldampf pausiert ab diesem Wochenwert bis zum freien Reset (lauf-hilfen.zsh)
 source $HILFEN
 # Nur mit Volldampf gelten die späteren Zeiten (Maintainer 17.11.2026: kein Zeitlimit abends außer Nachtlauf); ohne Volldampf die normalen.
 # Bei jeder Entscheidung neu gesetzt (volldampf_lesen), damit „aus“, Ablauf und Wochenlimit SOFORT wirken (Maintainer 17.11.2026:
@@ -173,8 +177,9 @@ if reset > ju:
     d -= dt.timedelta(days=7); reset = dt.datetime(d.year, d.month, d.day, rh, rm, tzinfo=UTC)
 d2 = d + dt.timedelta(days=7); naechster = dt.datetime(d2.year, d2.month, d2.day, rh, rm, tzinfo=UTC).astimezone(W)
 reset = reset.astimezone(W)
-std = (jetzt.astimezone(UTC) - reset.astimezone(UTC)).total_seconds() / 3600
-soll = min(100.0, std / 168 * 100)
+# Sollkurve aus lauf-hilfen.zsh (WOCHE_DEF_PY, eine Stelle): 168 h ab dem Reset; nach einem freien Reset (Anker in
+# wochenanker.txt) linear vom Anker bis zum nächsten automatischen Reset (Maintainer 18.11.2026)
+std, soll, soll_art, _n, soll_bezug = wochen_soll(jetzt, 168, e.get("K_WOCHENANKER", ""), rt, rh, rm)
 woche, h5 = zahl("K_WOCHE"), zahl("K_5H")
 weit, band = zahl("K_WEIT_DARUNTER", 8), zahl("K_IM_SOLL", 3)
 h5max, fmax = zahl("K_FUENF_STUNDEN_MAX", 80), zahl("K_FABLE_5H_MAX", 50)
@@ -217,7 +222,8 @@ neu_zeit = fenster and jetzt < heute(e["K_LETZTER_BEGINN"])
 volle = (jetzt + dt.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)   # nächste volle Stunde
 def wt(x): return "MoDiMiDoFrSaSo"[2 * x.isoweekday() - 2:2 * x.isoweekday()] + x.strftime(" %Y-%m-%d %H:%M")
 aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset), "NAECHSTER": wt(naechster),
-       "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "FENSTER": "ja" if fenster else "nein",
+       "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "SOLL_ART": soll_art,
+       "ANKER": wt(soll_bezug.astimezone(W)) if soll_art == "anker" else "", "FENSTER": "ja" if fenster else "nein",
        "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein",
        "WARTE_START": start.isoformat(timespec="minutes") if warte_start else ""}
 fable_woche = zahl("K_FABLE_WOCHE")      # „Fable only“ in Prozent, nan = nicht lesbar
@@ -353,11 +359,11 @@ entscheiden() {
     K_MODELL_STARK=$KONF[MODELL_STARK] K_MODELL_ROUTINE=$KONF[MODELL_ROUTINE] \
     K_VOLLDAMPF=$VD K_FABLE_5H_MAX_VOLLDAMPF=$KONF[FABLE_5H_MAX_VOLLDAMPF] K_FABLE_WOCHE_MAX=$KONF[FABLE_WOCHE_MAX] \
     K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
-    python3 -I -c $ENTSCHEID_PY)
+    K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$ENTSCHEID_PY")
   [[ -n $E[SOLL] ]]
 }
-# Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst Wochenlimit prüfen (beendet
-# Volldampf dauerhaft, nicht im Trockenlauf), dann Zustand lesen. Setzt VD (ja/nein), VD_STATUS (Berichtszeile)
+# Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst freien Reset und Wochenlimit prüfen
+# (pausiert Volldampf bis zum freien Reset, nicht im Trockenlauf), dann Zustand lesen. Setzt VD (ja/nein), VD_STATUS (Berichtszeile)
 # und MAX_COMMITS (im Volldampf MAX_COMMITS_VOLLDAMPF, 0 = keine Grenze; Maintainer 17.11.2026).
 VD=nein VD_STATUS= VD_BERICHT= MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
 volldampf_lesen() {
@@ -387,8 +393,9 @@ entscheidung_text() {
   esac
 }
 kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
-  print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % (Soll $E[SOLL] %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
+  print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % ($(soll_text) %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
 }
+soll_text() { [[ $E[SOLL_ART] == anker ]] && print -r -- "Soll bis nächster Reset $E[SOLL]" || print -r -- "Soll $E[SOLL]" }
 spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
   print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
 }
@@ -486,9 +493,10 @@ if [[ -n $TROCKEN ]]; then
   print "Jetzt:        $E[JETZT] (Wiener Zeit${HALO_JETZT:+, HALO_JETZT})"
   print "Schwellen:    $KONF_DATEI"
   print "Zeitfenster:  Tage $KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE] (Sa/So ab $KONF[START_WOCHENENDE], mit Volldampf ab $KONF[START_VOLLDAMPF]), heute ab $E[START]: $E[FENSTER]; neuer Eintrag (vor $KONF[LETZTER_BEGINN]): $E[NEU_ZEIT]"
-  print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
+  [[ -n $E[ANKER] ]] && print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; freier Reset $E[ANKER], seitdem $E[STUNDEN] h" \
+    || print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
   print "Kontingent:   $K_QUELLE"
-  print "Soll:         $E[SOLL] %   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
+  print "Soll:         $E[SOLL] %${E[ANKER]:+ (bis nächster Reset, freier Reset $E[ANKER])}   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %)${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; $(tageslimit_text)"
   print -r -- "Zwischen-Release: $(zs_zustand)"

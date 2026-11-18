@@ -39,7 +39,7 @@ J=${HALO_JETZT:-$(date +%H%M)}; J=$((10#$J))
 (( J >= 900 && J < 2200 )) || abbruch "nur zwischen 09:00 und 22:00 (jetzt $(printf %04d $J))"
 HEUTE=$(date +%F) BER=${HALO_BERICHTE:-$HOME/halo-berichte}
 if [[ -n $VOLLDAMPF ]]; then
-  # Volldampf: nur mit aktiver Zeile in ~/halo-nacht/volldampf.txt (beendet beim Wochenlimit = normale Regeln)
+  # Volldampf: nur mit aktiver Zeile in ~/halo-nacht/volldampf.txt (pausiert beim Wochenlimit = normale Regeln bis zum freien Reset)
   # HALO_JETZT ist hier HHMM; die Volldampf-Uhr (ISO) nur zum Proben über HALO_VOLLDAMPF_JETZT
   G=$(LOG=/dev/null; source $HIER/lauf-hilfen.zsh; HALO_JETZT=${HALO_VOLLDAMPF_JETZT:-} volldampf_aktiv) || abbruch "Volldampf nicht aktiv (--volldampf nur mit Volldampf-Zeile)"
   G="Volldampf $G"

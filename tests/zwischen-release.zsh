@@ -2,7 +2,7 @@
 # Zwischen-Release im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „volldampf bedeutet maximale
 # produktivität. … das betrifft die anzahl der gleichzeitigen agents, die anzahl der releases, einfach alles.“).
 # Einziger Weg, auf dem tagsüber Thunderbird-Änderungen nach main gehen und veröffentlicht werden (sonst pusht nur
-# der Nachtlauf). Gilt NUR bei aktiver Volldampf-Zeile (~/halo-nacht/volldampf.txt, endet beim Wochenlimit).
+# der Nachtlauf). Gilt NUR bei aktiver Volldampf-Zeile (~/halo-nacht/volldampf.txt, beim Wochenlimit pausiert bis zum freien Reset).
 # Aufgerufen vom Wächter tests/zwischen-schleife.zsh (Maintainer 17.11.2026: „ich habe auch kein problem mit 30 releases
 # untertags während volldampf läuft solange wir so viel wie möglich abarbeiten können“), auf neon, in einem eigenen
 # Worktree (HALO_REPO, Zweig zr/release mit Upstream origin/main): der Checkout ~/halo-spaces bleibt unberührt.

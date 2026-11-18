@@ -22,7 +22,7 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
 # W [VAR=Wert …]: Trockenlauf mit Standardwerten (10:00, Volldampf, grüner Stand, 3 Thunderbird-Commits, frei)
 W() {
-  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
+  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=$T/kein-anker.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_BELEGT= HALO_ZS_STAND=abcdef1234567 HALO_ZS_TB=3 HALO_JETZT_HM=1000 \
     "$@" zsh $SKRIPT --trocken 2>&1
 }
@@ -42,7 +42,10 @@ pruefe "22:29: noch fällig (spätester Push-Beginn 22:30)" "$(W HALO_JETZT_HM=2
 pruefe "22:30: Ende (Release vor 01:00, nichts nach 01:30)" "$(W HALO_JETZT_HM=2230)" 'ende Push-Beginn nur bis 2230'
 pruefe "ohne Volldampf: Ende" "$(W HALO_VOLLDAMPF_DATEI=$T/keine.txt)" 'ende Volldampf nicht aktiv'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/vd-beendet.txt
-pruefe "Volldampf beendet (Wochenlimit): Ende" "$(W)" 'ende Volldampf nicht aktiv'
+pruefe "Volldampf pausiert (Wochenlimit, 18.11.2026): warten statt Ende" "$(W)" 'warten Volldampf pausiert'
+print -r -- "anker 2026-11-17T09:00+01:00 98 1" > $T/anker.txt
+pruefe "nach dem freien Reset (Anker nach der Marke): wieder fällig" "$(W HALO_WOCHENANKER=$T/anker.txt)" 'fällig'
+rm -f $T/anker.txt
 rm -f $T/vd-beendet.txt
 print -r -- "zwischen-release 2099-01-01T00:00+01:00 Probe" > $T/pausen.txt
 pruefe "Pause zwischen-release in pausen.txt: warten" "$(W)" 'warten Pause'

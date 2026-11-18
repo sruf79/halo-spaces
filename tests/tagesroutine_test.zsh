@@ -15,7 +15,7 @@ FEHLER=0
 lauf() {
   HALO_ZS_LOCK=/nonexistent/zs.lock HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE= \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
-  HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt \
+  HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
 }
 # pruefe <Name> <Ausgabe> <Muster …>  (alle Muster müssen vorkommen, grep -E)
@@ -102,7 +102,7 @@ JD=2026-11-17T10:00:00+01:00   # 9 h nach dem Reset, Soll 5.4 %
 pruefe "ohne Volldampf: Woche 30 % am Dienstag 10:00 → deutlich über Soll, warten" "$(lauf $JD 30)" \
   'deutlich darüber' 'Entscheidung: warten bis 11:00' 'Volldampf: +keine Zeile' 'Tageslimit 40 eigene'
 pruefe "Volldampf aktiv: Sollkurve bremst nicht, Plan-Runde, kein Tageslimit für Commits (17.11.2026)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
-  'Volldampf: +Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(endet bei Wochenlimit\)' '→ Volldampf \(Sollkurve bremst nicht\)' \
+  'Volldampf: +Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(pausiert beim Wochenlimit bis zum freien Reset\)' '→ Volldampf \(Sollkurve bremst nicht\)' \
   'Entscheidung: neu beginnen' 'komplexe Einträge: opus, Routine: sonnet' 'kein Tageslimit für Commits \(Volldampf\)' 'Würde: +Plan-Runde'
 # Volldampf = maximale Produktivität (Maintainer 17.11.2026): Commit-Grenze, Zwischen-Release, Nachtlauf-Grenzen
 print 'MAX_COMMITS_VOLLDAMPF=100' > $T/vd100.conf
@@ -112,7 +112,7 @@ pruefe "ohne Volldampf: Zwischen-Release aus, Tageslimit unverändert" "$(lauf 2
 pruefe "Volldampf: Trockenlauf nennt den Wächter tests/zwischen-schleife.zsh" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Zwischen-Release: Wächter tests/zwischen-schleife.zsh läuft'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
-pruefe "Volldampf beendet: Zwischen-Release aus, Tageslimit normal" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+pruefe "Volldampf pausiert: Zwischen-Release aus, Tageslimit normal" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Zwischen-Release: aus' 'Tageslimit 40 eigene'
 rm -f $T/volldampf-beendet.txt
 pruefe "Skript: Commit-Grenze nur wenn MAX_COMMITS > 0; kein eigener Push nach main, kein Release, keine eigene Zwischen-Release-Runde" \
@@ -130,8 +130,14 @@ pruefe "Volldampf: 5-Stunden-Fenster ≥ 80 % bremst weiter" "$(HALO_VOLLDAMPF_D
 pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-16T12:00:00+01:00 95)" \
   'Volldampf angemeldet \(ab 2026-11-17T01:00\+01:00, bis 2026-11-24T01:00\+01:00\), nicht aktiv' 'Rate 0\.00' 'Tageslimit 40 eigene'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
-pruefe "Volldampf beendet (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
-  'Volldampf beendet: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\)' 'deutlich darüber' 'Tageslimit 40 eigene'
+pruefe "Volldampf pausiert (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
+  'Volldampf pausiert: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\), wartet auf den freien Reset' 'deutlich darüber' 'Tageslimit 40 eigene'
+# freier Reset (Maintainer 18.11.2026): Anker nach der Marke → Volldampf läuft weiter, Soll bis nächster Reset
+print -r -- "anker 2026-11-17T09:00+01:00 98 2" > $T/anker.txt
+pruefe "nach dem freien Reset: Volldampf wieder aktiv, Soll bis nächster Reset" "$(HALO_WOCHENANKER=$T/anker.txt HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 3)" \
+  'Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(pausiert beim Wochenlimit bis zum freien Reset; Soll bis nächster Reset 0\.6 %' \
+  'Soll: +0\.6 % \(bis nächster Reset, freier Reset Di 2026-11-17 09:00\)' 'Entscheidung: neu beginnen'
+rm -f $T/anker.txt
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'
 [[ -e $T/volldampf-beendet.txt ]] && { print "FEHLER Trockenlauf hat volldampf-beendet.txt geschrieben"; FEHLER=1 }

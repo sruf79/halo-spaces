@@ -68,7 +68,11 @@ naechste_version() {
 # Prüfung: gibt „fällig <P> <n>“, „warten <Grund>“ oder „ende <Grund>“ aus
 pruefen() {
   local j p n g
-  HALO_JETZT=${HALO_VOLLDAMPF_JETZT:-} volldampf_aktiv >/dev/null || { print -r -- "ende Volldampf nicht aktiv"; return }
+  local vd
+  HALO_JETZT=${HALO_VOLLDAMPF_JETZT:-} volldampf_aktiv >/dev/null; vd=$?
+  (( vd == 1 )) && { print -r -- "ende Volldampf nicht aktiv"; return }
+  # Wochenlimit: Volldampf pausiert nur bis zum freien Reset (Maintainer 18.11.2026) – warten, nicht enden
+  (( vd == 2 )) && { print -r -- "warten Volldampf pausiert (Wochenlimit, wartet auf den freien Reset)"; return }
   j=$((10#${HALO_JETZT_HM:-$(date +%H%M)}))
   (( j >= BIS )) && { print -r -- "ende Push-Beginn nur bis $BIS"; return }
   (( j >= 900 )) || { print -r -- "warten Push-Sperre bis 09:00"; return }

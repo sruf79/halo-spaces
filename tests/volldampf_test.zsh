@@ -16,7 +16,8 @@ neu() {   # frische Umgebung je Fall
   rm -rf $T/n; mkdir -p $T/n
   export HALO_VOLLDAMPF_DATEI=$T/n/volldampf.txt HALO_UEBERSPRUNGEN_LOG=$T/n/uebersprungen.log LOG=$T/lauf.log \
     HALO_KONTINGENT_JSON=$T/n/kontingent.json HALO_VOLLDAMPF_BEENDET=$T/n/volldampf-beendet.txt \
-    HALO_JETZT=2026-11-17T03:00+01:00 HALO_PUSH_TROCKEN=1 HALO_HANDELN_LOG=$T/n/handeln.log
+    HALO_JETZT=2026-11-17T03:00+01:00 HALO_PUSH_TROCKEN=1 HALO_HANDELN_LOG=$T/n/handeln.log \
+    HALO_WOCHENANKER=$T/n/wochenanker.txt HALO_WOCHENSTAND=$T/n/wochenstand.txt
   unset HALO_VOLLDAMPF_WOCHE
   rm -f -- ${TMPDIR:-/tmp}/halo-volldampf-unlesbar.$$.*(N)      # „einmal je Lauf“ gilt je Fall neu
   : > $LOG
@@ -31,7 +32,7 @@ neu
 pruefe "ohne Datei: nicht aktiv, kein Status" '! volldampf_aktiv && ! volldampf_status'
 print -r -- $Z > $HALO_VOLLDAMPF_DATEI
 pruefe "im Fenster: aktiv mit Ende und Grund" '[[ $(volldampf_aktiv) == "bis 2026-11-24T01:00+01:00 – Maintainer 13.11.2026: Test" ]]'
-pruefe "Status im Fenster nennt Ende bei Wochenlimit" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (endet bei Wochenlimit) – Maintainer 13.11.2026: Test" ]]'
+pruefe "Status im Fenster nennt Pause beim Wochenlimit" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset) – Maintainer 13.11.2026: Test" ]]'
 HALO_JETZT=2026-11-17T00:59+01:00 pruefe "vor dem Beginn: nicht aktiv" '! volldampf_aktiv'
 HALO_JETZT=2026-11-17T00:59+01:00 pruefe "vor dem Beginn: Status „angemeldet, nicht aktiv“" \
   '[[ $(volldampf_status) == "Volldampf angemeldet (ab 2026-11-17T01:00+01:00, bis 2026-11-24T01:00+01:00), nicht aktiv" ]]'
@@ -39,28 +40,58 @@ HALO_JETZT=2026-11-17T00:00+00:00 pruefe "Zonen: 00:00 UTC = 01:00 MEZ, genau zu
 HALO_JETZT=2026-11-24T01:00+01:00 pruefe "genau zum Ende: nicht mehr aktiv" '! volldampf_aktiv'
 HALO_JETZT=2026-11-24T02:00+01:00 pruefe "abgelaufen: weder aktiv noch angemeldet, kein Status" '! volldampf_aktiv && ! volldampf_status'
 
-# Wochenlimit (Maintainer 13.11.2026: „wenn das wochenlimit erreicht wurde wird Volldampf automatisch
-# deaktiviert. Nur bei erreichen des wichenlimits und nicht bei erreichen des 5 Stunden Limits“): ab 98 %
-# dauerhaft beendet (Marker), kein Wiederaufnehmen nach dem Reset, nur eine neue Zeile schaltet wieder ein
-pruefe "Woche 97 %: nicht beendet, aktiv" '! volldampf_wochenlimit_pruefen 97 && volldampf_aktiv'
-kjson 0.97 2026-11-17T02:30:00+0100
-print -r -- '{"stand": "2026-11-17T02:30:00+0100", "info": {"unifiedWindows": {"seven_day": {"utilization": 0.40}, "five_hour": {"utilization": 1.0, "status": "rejected"}}}}' > $HALO_KONTINGENT_JSON
-pruefe "5-Stunden-Limit (100 %) beendet Volldampf nicht" '! volldampf_wochenlimit_pruefen && volldampf_aktiv'
+# Wochenlimit (Maintainer 13.11.2026, abgelöst 18.11.2026: „… ab dem manuellen weekly limit reset weiterhin permanent den
+# verbrauch an die vorhandenen token knüpfen …“): ab 98 % nur PAUSIERT (Marke) bis zum freien Reset (Anker) bzw. zum
+# automatischen Reset; danach läuft Volldampf von selbst weiter. Das 5-Stunden-Limit pausiert nicht.
+pruefe "Woche 97 %: nicht pausiert, aktiv" '! volldampf_wochenlimit_pruefen 97 && volldampf_aktiv'
+print -r -- '{"stand": "2026-11-17T02:30:00+0100", "info": {"unifiedWindows": {"seven_day": {"utilization": 0.97}, "five_hour": {"utilization": 1.0, "status": "rejected"}}}}' > $HALO_KONTINGENT_JSON
+pruefe "5-Stunden-Limit (100 %) pausiert Volldampf nicht" '! volldampf_wochenlimit_pruefen && volldampf_aktiv'
 kjson 0.99 2026-11-16T22:00:00+0100
 pruefe "kontingent.json älter als 3 Stunden: nichts geprüft, aktiv" '! volldampf_wochenlimit_pruefen && volldampf_aktiv'
 kjson 0.98 2026-11-17T02:30:00+0100
-pruefe "Woche 98 % aus frischer kontingent.json: beendet" 'volldampf_wochenlimit_pruefen'
-pruefe "beendet: Rückgabe 2" 'volldampf_aktiv; [[ $? == 2 ]]'
-pruefe "beendet: Protokollzeile mit Wert und Uhrzeit" 'grep -q "Volldampf beendet: Wochenlimit erreicht (98 %, 03:00)" $LOG'
-pruefe "beendet: Meldung aufs iPhone ([handeln], handeln.log)" 'grep -q "Volldampf beendet, Wochenlimit erreicht (98 %)" $HALO_HANDELN_LOG'
-pruefe "beendet: Status nennt Uhrzeit und Wert" '[[ $(volldampf_status) == "Volldampf beendet: Wochenlimit erreicht um 17.11. 03:00 (98 %), Fenster bis 2026-11-24T01:00+01:00" ]]'
-pruefe "zweite Prüfung: kein zweiter Marker, keine zweite Meldung" '! volldampf_wochenlimit_pruefen 99 && [[ $(grep -c . $HALO_VOLLDAMPF_BEENDET) == 1 && $(grep -c "Volldampf beendet" $HALO_HANDELN_LOG) == 1 ]]'
-kjson 0.03 2026-11-17T04:00:00+0100
-HALO_JETZT=2026-11-17T05:00+01:00 pruefe "nach dem freien Reset (3 %): bleibt beendet" 'volldampf_aktiv; [[ $? == 2 ]]'
-HALO_JETZT=2026-11-24T00:30+01:00 pruefe "nach dem Wochenreset: bleibt beendet" 'volldampf_aktiv; [[ $? == 2 ]]'
-print -r -- "volldampf 2026-11-17T05:00+01:00 2026-11-24T01:00+01:00 Maintainer: wieder an" >> $HALO_VOLLDAMPF_DATEI
-HALO_JETZT=2026-11-17T05:30+01:00 pruefe "neue Zeile des Maintainers schaltet wieder ein" '[[ $(volldampf_aktiv) == "bis 2026-11-24T01:00+01:00 – Maintainer: wieder an" ]]'
-VOLLDAMPF_WOCHE_ENDE=90 HALO_JETZT=2026-11-17T05:30+01:00 pruefe "Schwelle einstellbar (VOLLDAMPF_WOCHE_ENDE=90, Woche 92)" 'volldampf_wochenlimit_pruefen 92 && ! volldampf_aktiv'
+pruefe "Woche 98 % aus frischer kontingent.json: pausiert" 'volldampf_wochenlimit_pruefen'
+pruefe "pausiert: Rückgabe 2" 'volldampf_aktiv; [[ $? == 2 ]]'
+pruefe "pausiert: Protokollzeile mit Wert und Uhrzeit" 'grep -q "Volldampf pausiert: Wochenlimit erreicht (98 %, 03:00)" $LOG'
+pruefe "pausiert: Meldung aufs iPhone ([handeln], läuft nach dem freien Reset weiter)" 'grep -q "Volldampf pausiert, Wochenlimit erreicht (98 %).*danach läuft Volldampf von selbst weiter" $HALO_HANDELN_LOG'
+pruefe "pausiert: Status nennt Uhrzeit, Wert und freien Reset" '[[ $(volldampf_status) == "Volldampf pausiert: Wochenlimit erreicht um 17.11. 03:00 (98 %), wartet auf den freien Reset, Fenster bis 2026-11-24T01:00+01:00" ]]'
+pruefe "zweite Prüfung: keine zweite Marke, keine zweite Meldung" '! volldampf_wochenlimit_pruefen 99 && [[ $(grep -c . $HALO_VOLLDAMPF_BEENDET) == 1 && $(grep -c "Volldampf pausiert" $HALO_HANDELN_LOG) == 1 ]]'
+pruefe "Woche sinkt nur wenig (99 → 85 %): kein freier Reset, bleibt pausiert" 'HALO_JETZT=2026-11-17T04:00+01:00 volldampf_wochenlimit_pruefen 85; HALO_JETZT=2026-11-17T04:00+01:00 volldampf_aktiv; [[ $? == 2 && ! -s $HALO_WOCHENANKER ]]'
+# freier Reset: Sturz um ≥ 20 Punkte ohne automatischen Reset dazwischen → Anker, Pause aufgehoben
+pruefe "freier Reset (85 → 3 %): Anker erkannt" 'HALO_JETZT=2026-11-17T05:00+01:00 volldampf_wochenlimit_pruefen 3; grep -qx "anker 2026-11-17T05:00+01:00 85 3" $HALO_WOCHENANKER'
+pruefe "freier Reset: Protokoll und [info]-Meldung" 'grep -q "Freier Reset erkannt: Woche 85 % → 3 %" $LOG && grep -q "Freier Reset erkannt" $HALO_UEBERSPRUNGEN_LOG'
+HALO_JETZT=2026-11-17T05:30+01:00 pruefe "nach dem freien Reset: Volldampf von selbst wieder aktiv" '[[ $(volldampf_aktiv) == "bis 2026-11-24T01:00+01:00 – Maintainer 13.11.2026: Test" ]]'
+HALO_JETZT=2026-11-17T04:30+01:00 pruefe "vor dem Anker (Uhr 04:30): noch pausiert" 'volldampf_aktiv; [[ $? == 2 ]]'
+HALO_JETZT=2026-11-20T12:00+01:00 pruefe "nach dem freien Reset wieder 98 %: erneut pausiert (neue Marke)" 'volldampf_wochenlimit_pruefen 98 && { volldampf_aktiv; [[ $? == 2 ]] } && [[ $(grep -c . $HALO_VOLLDAMPF_BEENDET) == 2 ]]'
+HALO_JETZT=2026-11-20T14:00+01:00 pruefe "zweiter freier Reset hebt auch die zweite Pause auf" 'volldampf_wochenlimit_pruefen 1; volldampf_aktiv'
+VOLLDAMPF_WOCHE_ENDE=90 HALO_JETZT=2026-11-20T15:00+01:00 pruefe "Schwelle einstellbar (VOLLDAMPF_WOCHE_ENDE=90, Woche 92)" 'volldampf_wochenlimit_pruefen 92 && ! volldampf_aktiv'
+# kein freier Reset, wenn der automatische Reset (Di 00:00 UTC) zwischen den Werten lag
+neu
+print -r -- "2026-11-23T23:00+01:00 97" > $HALO_WOCHENSTAND
+pruefe "Sturz über den automatischen Reset hinweg: kein Anker" '! HALO_JETZT=2026-11-24T02:00+01:00 wochen_reset_erkennen 1 && [[ ! -s $HALO_WOCHENANKER && $(<$HALO_WOCHENSTAND) == "2026-11-24T02:00+01:00 1" ]]'
+pruefe "Trockenlauf (HALO_PAUSE_TROCKEN) schreibt weder Stand noch Anker" '! HALO_PAUSE_TROCKEN=1 HALO_JETZT=2026-11-24T03:00+01:00 wochen_reset_erkennen 0 && [[ $(<$HALO_WOCHENSTAND) == "2026-11-24T02:00+01:00 1" ]]'
+print -r -- $Z > $HALO_VOLLDAMPF_DATEI
+print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-23T20:00+01:00 98" > $HALO_VOLLDAMPF_BEENDET
+print -r -- "volldampf 2026-11-24T01:00+01:00 2026-12-01T01:00+01:00 Folgewoche" >> $HALO_VOLLDAMPF_DATEI
+HALO_JETZT=2026-11-24T02:00+01:00 pruefe "Folgewoche: alte Pausenmarke wirkt nicht" 'volldampf_aktiv'
+
+# Sollkurve (wochen_soll): ohne Anker ab dem Reset, nach dem freien Reset bis zum nächsten automatischen Reset
+neu
+HALO_JETZT=2026-11-18T13:00+01:00 pruefe "Soll ohne Anker, 48 h: Mi 13:00 = 36 h, 75 %" '[[ $(wochen_soll 48) == "36.0 75.0 reset 2026-11-24T01:00+01:00 2026-11-17T01:00+01:00" ]]'
+HALO_JETZT=2026-11-18T13:00+01:00 pruefe "Soll ohne Anker, 168 h: 21,4 %" '[[ $(wochen_soll 168) == "36.0 21.4 reset "* ]]'
+print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $HALO_WOCHENANKER
+HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Soll nach Anker Fr 10:00, jetzt Sa 10:00: 24 / 87 h = 27,6 %" '[[ $(wochen_soll 48) == "24.0 27.6 anker 2026-11-24T01:00+01:00 2026-11-20T10:00+01:00" ]]'
+HALO_JETZT=2026-11-24T00:30+01:00 pruefe "Soll kurz vor dem automatischen Reset: fast 100 %" '[[ $(wochen_soll 48) == "86.5 99.4 anker "* ]]'
+HALO_JETZT=2026-11-19T10:00+01:00 pruefe "Anker in der Zukunft zählt nicht (48-h-Kurve)" '[[ $(wochen_soll 48) == *" reset "* ]]'
+HALO_JETZT=2026-11-25T10:00+01:00 pruefe "Anker der Vorwoche zählt nicht" '[[ $(wochen_soll 48) == "33.0 68.8 reset "* ]]'
+# Übergang am automatischen Reset Di 24.11. (Maintainer 18.11.2026: „nach dem nächsten automatischen weekly limit reset
+# kommenden dienstag um 01:30 soll wieder der reguläre modus laufen“): Volldampf endet 01:00, Anker verfällt, ab dann
+# 168-h-Kurve ab dem automatischen Reset (Alltagsmodus), auch um 01:30 beim Nachtlauf
+print -r -- $Z > $HALO_VOLLDAMPF_DATEI
+HALO_JETZT=2026-11-24T00:59+01:00 pruefe "Übergang: 00:59 noch Volldampf mit Anker-Soll" 'volldampf_aktiv && [[ $(wochen_soll 168) == *" anker "* ]]'
+HALO_JETZT=2026-11-24T01:00+01:00 pruefe "Übergang: 01:00 Volldampf aus, kein Status, Anker verfallen" '! volldampf_aktiv && ! volldampf_status && [[ $(wochen_soll 168) == "0.0 0.0 reset 2026-12-01T01:00+01:00 2026-11-24T01:00+01:00" ]]'
+HALO_JETZT=2026-11-24T01:30+01:00 pruefe "Übergang: 01:30 (Nachtlauf) normale 168-h-Kurve" '[[ $(wochen_soll 168) == "0.5 0.3 reset "* ]]'
+print -r -- $Z > $HALO_VOLLDAMPF_DATEI
+HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Status nach Anker: Soll bis nächster Reset" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset; Soll bis nächster Reset 27.6 %, freier Reset 20.11. 10:00) – Maintainer 13.11.2026: Test" ]]'
 
 # Erinnerung an den freien Reset ab 90 %: einmal je Fenster, nach dem Reset wieder möglich
 neu

@@ -23,7 +23,7 @@ export HALO_LAUF=nachtlauf
 # Pausieren: nur über ~/halo-nacht/pausen.txt (pause_setzen in tests/lauf-hilfen.zsh, mit Ablaufzeit).
 # HALO_NACHT_AB=JJJJ-MM-TT: vorher kein Lauf (Standard 2026-11-04).
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“, ~/halo-nacht/volldampf.txt): Zeile
-# „Volldampf: …“ im Auftrag, vor jeder Runde Wochenlimit prüfen (beendet Volldampf dauerhaft), solange aktiv
+# „Volldampf: …“ im Auftrag, vor jeder Runde Wochenlimit prüfen (pausiert Volldampf bis zum freien Reset, 18.11.2026), solange aktiv
 # Fortsetzungen bis 08:45 (16.11.2026, vorher 08:00); Grenzen VD_FORTSETZ_MAX Fortsetzungen und VD_MAX_COMMITS nicht
 # gepushte Commits (Maintainer 17.11.2026 „volldampf bedeutet maximale produktivität“: praktisch aufgehoben, Bremse
 # sind 08:45 und das Wochenlimit); Vermerk in „Kurz:“ und Bericht.
@@ -216,15 +216,17 @@ else
 fi
 
 # --- Volldampf: nur mit Zeile in ~/halo-nacht/volldampf.txt. Vor jeder Runde (auch vor dem Director-Plan und
-# vor Fortsetzungen) Wochenlimit prüfen: nur bei offenem Fenster ein kontingent.sh-Aufruf (Haiku); ab
-# VOLLDAMPF_WOCHE_ENDE dauerhaft beendet (lauf-hilfen.zsh). Setzt VD_STATUS und die Fortsetzungs-Grenzen. ---
+# vor Fortsetzungen) Wochenlimit prüfen: nur bei offenem (auch pausiertem) Fenster ein kontingent.sh-Aufruf (Haiku); ab
+# VOLLDAMPF_WOCHE_ENDE pausiert, nach erkanntem freiem Reset von selbst wieder aktiv (lauf-hilfen.zsh, Maintainer
+# 18.11.2026; vorher dauerhaftes Ende). Setzt VD_STATUS und die Fortsetzungs-Grenzen. ---
 FORTSETZ_MAX=4 VD_STATUS=
 VD_FORTSETZ_MAX=${VD_FORTSETZ_MAX:-50} VD_MAX_COMMITS=${VD_MAX_COMMITS:-40}   # Volldampf (17.11.2026, vorher 8 und 12)
 NORMAL_GRENZE=$NACHT_GRENZE NORMAL_MAX_COMMITS=$NACHT_MAX_COMMITS   # Werte aus vorpruefung.zsh (ohne Volldampf)
 NORMAL_ENDE=$ENDE NORMAL_ENDE_TEXT=$NACHT_ENDE_TEXT VD_WAR=
 volldampf_runde() {
   local z
-  if volldampf_aktiv >/dev/null; then
+  volldampf_aktiv >/dev/null
+  if (( $? != 1 )); then   # aktiv oder pausiert (Wochenlimit): Kontingent lesen, freien Reset erkennen
     z=$(zsh $REPO/tests/kontingent.sh 2>/dev/null)
     [[ $z == Woche* ]] && volldampf_wochenlimit_pruefen ${${z#Woche }%% *}
     [[ $z == Woche* ]] && volldampf_reset_erinnern ${${z#Woche }%% *}   # einmal ab 90 % (eigener Commit)
@@ -238,7 +240,7 @@ volldampf_runde() {
     NACHT_GRENZE=08:45 NACHT_MAX_COMMITS=$VD_MAX_COMMITS FORTSETZ_MAX=$VD_FORTSETZ_MAX
     ENDE=$(date -j -v8H -v45M -v0S +%s) NACHT_ENDE_TEXT=08:45 VD_WAR=1
   else
-    # ohne Volldampf (aus, abgelaufen, Wochenlimit): sofort alle normalen Grenzen, auch das Ende 08:00 (17.11.2026)
+    # ohne Volldampf (aus, abgelaufen, pausiert beim Wochenlimit): sofort alle normalen Grenzen, auch das Ende 08:00 (17.11.2026)
     NACHT_GRENZE=$NORMAL_GRENZE NACHT_MAX_COMMITS=$NORMAL_MAX_COMMITS FORTSETZ_MAX=4
     ENDE=$NORMAL_ENDE NACHT_ENDE_TEXT=$NORMAL_ENDE_TEXT
     # war er in dieser Nacht an und ist jetzt ohne Zeile (von Hand aus): Claude im nächsten Prompt sagen, dass Schritt 1c nicht mehr gilt
@@ -315,7 +317,7 @@ while true; do
   if grep -qiE "usage limit|hit your limit|limit reached|resets (at )?[0-9]|rate limit|overloaded" $OUT; then
     log "Limit – Pause 30 Minuten"
     sleep 1800
-    volldampf_runde      # Wochenlimit (nicht das 5-Stunden-Limit) beendet Volldampf
+    volldampf_runde      # Wochenlimit (nicht das 5-Stunden-Limit) pausiert Volldampf bis zum freien Reset
     PROMPT="Weiter nach der Limit-Pause: mach dort weiter, wo du warst (Auftrag oben). Zeitgrenzen beachten, am Ende Bericht und Fertig-Datei.${VD_STATUS:+ Volldampf: $VD_STATUS.}"
   else
     # ohne Fertig-Datei beendet: höchstens zweimal nachfragen

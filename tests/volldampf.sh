@@ -10,7 +10,8 @@
 # jeder Entscheidung selbst; alle Volldampf-Werte (spätere Zeiten, Grenzen, Fable) gelten nur, solange die Zeile aktiv ist.
 # „aus“ verschiebt die Zeile nach ~/halo-nacht/volldampf-aus-<Zeit>.txt (Verlauf), beendet die beiden Wächter und lässt
 # laufende Worker ihre Arbeit fertigmachen (eigene Höchstdauer). Danach gelten sofort wieder die normalen Regeln.
-# Wochenlimit (98 %) beendet Volldampf weiter von selbst (Marker, lauf-hilfen.zsh); „an“ nach dem Marker beginnt ein neues Fenster.
+# Wochenlimit (98 %) pausiert Volldampf nur bis zum freien Reset (Marke, lauf-hilfen.zsh; Maintainer 18.11.2026), danach läuft
+# er von selbst weiter; Ende ist bis (automatischer Wochenreset) oder „aus“.
 # Proben: HALO_VOLLDAMPF_DATEI, HALO_VD_KEINE_WAECHTER=1 (keine Prozesse starten/beenden), HALO_JETZT.
 emulate -L zsh
 export TZ=Europe/Vienna
@@ -55,7 +56,7 @@ case ${1:-status} in
       for w in $WAECHTER; do laeuft $w || { rm -f $(sperre $w); nohup zsh $(skript $w) >/dev/null 2>&1 &! }; done
       sleep 3
     fi
-    print "Volldampf an, bis $bis (oder Wochenlimit)."; zeigen ;;
+    print "Volldampf an, bis $bis (beim Wochenlimit pausiert bis zum freien Reset)."; zeigen ;;
   aus)
     if [[ -s $DATEI ]]; then mv -f $DATEI $DIR/volldampf-aus-$(date +%Y%m%d-%H%M%S).txt; print "Regelzeile entfernt (Verlauf: volldampf-aus-….txt)."; else print "Keine Regelzeile, Volldampf war schon aus."; fi
     if [[ -z $HALO_VD_KEINE_WAECHTER ]]; then

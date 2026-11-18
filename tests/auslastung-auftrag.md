@@ -27,7 +27,7 @@ Regeln:
 5. Vor 4 Stunden fertig sein (der Wächter beendet dich danach). Unfertiges: Änderungen verwerfen, Eintrag zurück.
 6. Worker gibt es nur im Volldampf. Vor der Wahl des Eintrags prüfen:
    zsh -c 'source tests/lauf-hilfen.zsh; LOG=/dev/null volldampf_status' – beginnt die Ausgabe nicht mit „Volldampf aktiv“
-   (aus, beendet, abgelaufen), keinen Eintrag mehr wählen, Ergebnis „nichts_passend Volldampf nicht aktiv“
+   (aus, pausiert beim Wochenlimit, abgelaufen), keinen Eintrag mehr wählen, Ergebnis „nichts_passend Volldampf nicht aktiv“
    (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären modus laufen.“). Einen schon gewählten
    Eintrag sauber abschließen (committen oder zurück), keinen weiteren beginnen.
 

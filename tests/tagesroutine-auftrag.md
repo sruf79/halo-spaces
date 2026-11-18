@@ -222,8 +222,8 @@ Fable-Runde („JETZT: Fable-Runde“) liest zuerst den Abschnitt der Opus-Runde
 eine Eintragsrunde; „fable“ ist dort kein gültiges Ergebnis.
 
 Alle Abschnitte „… im Volldampf“ und „Parallel (… nur solange Volldampf läuft)“ gelten nur, solange die Zeile
-„Kontingent (Skript): …“ dieser Runde mit „Volldampf aktiv“ beginnt; steht dort etwas anderes (Volldampf aus, beendet,
-angemeldet), gelten sofort die normalen Regeln (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären
+„Kontingent (Skript): …“ dieser Runde mit „Volldampf aktiv“ beginnt; steht dort etwas anderes (Volldampf aus, pausiert
+beim Wochenlimit bis zum freien Reset, angemeldet), gelten sofort die normalen Regeln (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären
 modus laufen.“), auch mitten am Tag.
 
 Zwischen-Release (Volldampf; Maintainer 17.11.2026, Wortlaute in ENTSCHEIDUNGEN.md, u. a. „ich habe auch kein problem
@@ -247,7 +247,9 @@ scheuen (reine Umbauten ohne Nutzernutzen nachrangig), alle übrigen Regeln unve
 Commits (MAX_COMMITS_VOLLDAMPF, Maintainer 17.11.2026); Zwischen-Release siehe oben. „fable“ als
 Ergebnis nur für die wirklich schwersten Fälle (belegte Ursache fehlt nach Opus bei hohem Nutzen, oder
 Analyse/Design, die ein starkes Modell braucht), nie für Routine oder Mechanisches. volldampf.txt und
-volldampf-beendet.txt nie selbst ändern.
+volldampf-beendet.txt und wochenanker.txt nie selbst ändern. Beim Wochenlimit (98 %) pausiert Volldampf nur; nach dem
+freien Reset des Maintainers erkennt das Skript den Anker und meldet wieder „Volldampf aktiv …; Soll bis nächster
+Reset N %“ (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md): dann gilt wieder Volldampf bis Dienstag 01:00.
 
 Bericht: ~/halo-berichte/<datum>-tagesroutine.md setzt das Skript aus deinen Abschnitten zusammen
 (mit Kontingent am Anfang und Ende, Modell je Runde, Commits, Prüfzweig, Endegrund, Fable-Zähler).

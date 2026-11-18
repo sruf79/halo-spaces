@@ -67,7 +67,7 @@ VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
 lauf() {
   HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
   HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
-  HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt \
+  HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
   HALO_KONTINGENT_WOCHE=${HALO_KONTINGENT_WOCHE:-40} HALO_KONTINGENT_5H=5 HALO_MB_AUSGABE=$2 \
@@ -164,4 +164,10 @@ class P(html.parser.HTMLParser):
         if s.st and s.st[-1] == t: s.st.pop()
         else: s.f += 1
 p = P(); p.feed(sys.stdin.read()); sys.exit(1 if p.st or p.f else 0)"'
+# Soll nach dem freien Reset (Maintainer 18.11.2026): Anker Fr 20.11. 10:00, Brief Sa 21.11. 08:30 → 22,5 / 87 h = 25,9 %
+print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $T/anker.txt
+A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-21T08:30:00+01:00 $T/anker.md)
+pruefe "Morgenbrief nach freiem Reset: „Soll bis nächster Reset“ ab dem Anker" 'grep -q "Kontingent: Woche 20 % (Soll bis nächster Reset 25.9 %, -5.9)" $T/anker.md && grep -q "Soll bis nächster Reset jetzt 26 %" $T/anker.md'
+A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-24T08:30:00+01:00 $T/anker2.md)
+pruefe "Morgenbrief nach dem automatischen Reset: Anker verfallen, 168-h-Kurve" 'grep -q "Kontingent: Woche 20 % (Soll 4.5 %" $T/anker2.md'
 exit $FEHLER

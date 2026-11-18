@@ -9,7 +9,7 @@ laufen wie bisher.“ (ENTSCHEIDUNGEN.md ab :743). Einzelheiten und Verlauf: `do
 
 | Befehl | Wirkung | Fundstelle |
 |---|---|---|
-| `zsh tests/volldampf.sh an [<bis>] [<Grund>]` | schreibt `~/halo-nacht/volldampf.txt` (bis = nächster Di 01:00), startet Auslastungs- und Zwischen-Release-Wächter; alte Zeile wandert nach `volldampf-alt-<Zeit>.txt`, damit beginnt nach dem Marker `volldampf-beendet.txt` sauber ein neues Fenster (anderes ab) | `tests/volldampf.sh:45–58`; `tests/volldampf_test.zsh` |
+| `zsh tests/volldampf.sh an [<bis>] [<Grund>]` | schreibt `~/halo-nacht/volldampf.txt` (bis = nächster Di 01:00), startet Auslastungs- und Zwischen-Release-Wächter; alte Zeile wandert nach `volldampf-alt-<Zeit>.txt`, damit beginnt sauber ein neues Fenster (anderes ab); eine Pausenmarke `volldampf-beendet.txt` hebt sich auch ohne `an` nach dem freien Reset auf | `tests/volldampf.sh:45–58`; `tests/volldampf_test.zsh` |
 | `zsh tests/volldampf.sh aus` | Zeile nach `volldampf-aus-<Zeit>.txt`, beendet beide Wächter | `tests/volldampf.sh:59–65` |
 | `zsh tests/volldampf.sh status` | Regel, Wächter | `tests/volldampf.sh:66` |
 
@@ -22,6 +22,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 | Tagesroutine Beginn | 09:00 | 08:45 (`START_VOLLDAMPF`) | `tests/tagesroutine.sh:209–211` |
 | Tagesroutine letzter Beginn / Ende | 20:30 / 22:00 | 23:30 / 23:59 | `tagesroutine.conf:12–13`; `grenzen_setzen` `tests/tagesroutine.sh:111`; ENTSCHEIDUNGEN.md:755 |
 | Sollkurve, Sparmodus, Reserve | bremsen | ausgesetzt; Modelle opus/sonnet | `tests/tagesroutine.sh:230–239` |
+| Sollkurve (Anzeige, Auslastungswächter) | 168 h ab Di 00:00 UTC | 48 h ab Di 00:00 UTC; nach freiem Reset „Soll bis nächster Reset“ = Stunden seit Anker / Stunden Anker bis automatischer Reset (Maintainer 18.11.2026; gilt dann auch im Alltag dieser Woche) | `wochen_soll` in `tests/lauf-hilfen.zsh`; `tests/auslastung-schleife.zsh` `pruefen` |
 | Commits je Tag (Tagesroutine) | `MAX_COMMITS_TAG` | unbegrenzt (`MAX_COMMITS_VOLLDAMPF` 0) | `tagesroutine.conf:43` |
 | Fable Tagesroutine | 5 h < 50 %, nur weit unter Soll | keine Grenze (17.11.2026: „im volldampf gibt es keine limits für fable nutzung wenn derer einsatz bei komplexen themen oder problemen hilfreich ist und die produktivität erhöht“); `FABLE_5H_MAX_VOLLDAMPF`/`FABLE_WOCHE_MAX` 100 | `tests/tagesroutine.sh:236–239` |
 | Nachtlauf Schritt 5 / Fortsetzungen / Ende | 06:30 · 6 Commits · 4 · 08:00 | 08:45 · 40 · 50 · 08:45 | `tests/nachtlauf.sh:221–243` |
@@ -36,7 +37,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 |---|---|
 | Nachtlauf 01:30 ungestört; Push-Sperre 01:30–09:00; kein Code-Push ab 00:00 | AGENTS.md; `tests/zwischen-schleife.zsh:74` |
 | Tests, volle CI, Windows je Nacht, Testmarke vor jedem Release | AGENTS.md „Release“; `release.sh`, `publish.sh` |
-| 5-Stunden-Fenster ≥ 80 % bremst; beendet Volldampf nicht | `tests/tagesroutine.sh:287`; ENTSCHEIDUNGEN.md 13.11. |
+| 5-Stunden-Fenster ≥ 80 % bremst; pausiert Volldampf nicht | `tests/tagesroutine.sh:287`; ENTSCHEIDUNGEN.md 13.11. |
 | `belegt`: kein zweiter Testlauf zugleich, Nachtlauf wartet nur auf CI | `tests/lauf-hilfen.zsh:475–478` |
 | Mail-Schutz, „Wartet auf OK“, Designer-Regel, Rot bleibt rot | AGENTS.md |
 
@@ -46,7 +47,8 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 |---|---|---|
 | `aus` | Zeile weg → nächste Entscheidung normal; Wächter beendet | `tests/volldampf.sh:59–65` |
 | `bis` erreicht | `volldampf_aktiv` rc 1; Nachtlauf räumt die Zeile weg | `tests/lauf-hilfen.zsh:261, 332` |
-| Woche ≥ 98 % | Marker `volldampf-beendet.txt`, dauerhaft aus, iPhone-Meldung | `tests/lauf-hilfen.zsh:180, 296` |
+| Woche ≥ 98 % | Pausenmarke `volldampf-beendet.txt`, iPhone-Meldung; keine neuen Einträge/Worker, laufende fertig, Wächter warten; nach erkanntem freiem Reset (Anker `wochenanker.txt`, Sturz ≥ 20 Punkte) von selbst wieder Volldampf (Maintainer 18.11.2026, löst „dauerhaft aus“ vom 13.11. ab) | `volldampf_wochenlimit_pruefen`, `wochen_reset_erkennen` in `tests/lauf-hilfen.zsh` |
+| automatischer Reset Di 01:00 (`bis`) | Volldampf endet, Anker verfällt, Auslastungswächter endet; ab Nachtlauf 01:30 Alltagsmodus mit 168-h-Sollkurve (Maintainer 18.11.2026) | `tests/volldampf_test.zsh` „Übergang …“ |
 | Wächter abgestürzt | keine neuen Worker/Zwischen-Releases; Regeln der Routinen unberührt | `tests/volldampf.sh:25` (`status`) |
 | Tagesroutine läuft gerade | `grenzen_setzen` in der Wache setzt 20:30/22:00 sofort zurück | `tests/tagesroutine.sh:111–119` |
 | Nachtlauf läuft gerade | vor jeder Fortsetzung neu gelesen, Grenzen 06:30/6/4/08:00 | `tests/nachtlauf.sh:241–243` |

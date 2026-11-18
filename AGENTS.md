@@ -144,9 +144,9 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   (nur das Skript auf `pruef/tagesroutine-<datum>`); Modell nach Sollkurve des Wochenkontingents, Schwellen in
   `~/.config/halo-spaces/tagesroutine.conf`, Bericht `~/halo-berichte/<datum>-tagesroutine.md` (`docs/testrechner.md`).
 - **Volldampf** (`~/halo-nacht/volldampf.txt`, Override für Sollkurve, Sparmodus und Planungsvorsicht in Nachtlauf und
-  Tagesroutine, endet dauerhaft beim Wochenlimit; Maintainer 13.11.2026): `docs/testrechner.md` „Volldampf“.
+  Tagesroutine; beim Wochenlimit nur pausiert bis zum freien Reset, danach Sollkurve bis zum automatischen Reset, Ende Di 01:00, ab 01:30 Alltag; Maintainer 13. und 18.11.2026): `docs/testrechner.md` „Volldampf“.
   **Ein-/Ausschalter** `zsh tests/volldampf.sh an|aus|status` (nur auf neon, nur auf Zuruf des Maintainers, 17.11.2026; `docs/testrechner.md`): schreibt bzw. entfernt die Regelzeile und startet bzw. beendet die Wächter; alle Volldampf-Werte gelten nur bei aktiver Zeile.
-  Auslastungswächter `tests/auslastung-schleife.zsh` (gilt für Tagesroutine und Nachtlauf, solange Volldampf aktiv ist; von Hand gestartet): startet bei Rückstand zur 48-h-Sollkurve zusätzliche Worker auf eigenen Prüfzweigen (`docs/testrechner.md` „Auslastungswächter“).
+  Auslastungswächter `tests/auslastung-schleife.zsh` (gilt für Tagesroutine und Nachtlauf, solange Volldampf aktiv ist; von Hand gestartet): startet bei Rückstand zur 48-h-Sollkurve (nach freiem Reset „Soll bis nächster Reset“) zusätzliche Worker auf eigenen Prüfzweigen (`docs/testrechner.md` „Auslastungswächter“).
 
 - **Festlegung Alltag und Volldampf:** Zeiten, Grenzen, Modelle und Push-Regeln ohne Volldampf in `docs/alltagsmodus.md`, was nur bei „an“ gilt und der Rückfall in `docs/volldampf-regelwerk.md`.
 

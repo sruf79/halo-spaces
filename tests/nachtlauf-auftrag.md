@@ -416,13 +416,13 @@ Reihenfolge:
    (keine Ausgabe = keine Zeile in ~/halo-nacht/volldampf.txt).
    a) Pflichtvermerk: Die erste Zeile im Abschnitt „Director-Plan“ ist immer
       die Volldampf-Zeile von oben („Volldampf aktiv bis …“, „Volldampf
-      beendet: Wochenlimit erreicht um …“ oder „Volldampf angemeldet (ab …,
+      pausiert: Wochenlimit erreicht um …“ oder „Volldampf angemeldet (ab …,
       bis …), nicht aktiv“), und die Zeile „Kurz:“ beginnt mit „Volldampf
-      aktiv bis <Zeit>“ bzw. „Volldampf beendet …“ (bei „angemeldet, nicht
+      aktiv bis <Zeit>“ bzw. „Volldampf pausiert …“ (bei „angemeldet, nicht
       aktiv“ nur im Director-Plan). Hat sich der Stand während der Nacht
       geändert (Fortsetzungs- oder Limit-Meldung des Skripts), den letzten
       Stand nennen und die Uhrzeit des Wechsels.
-   b) Nur bei „Volldampf aktiv“ (bei „beendet“ und „angemeldet“ gilt alles
+   b) Nur bei „Volldampf aktiv“ (bei „pausiert“ und „angemeldet“ gilt alles
       wie ohne Volldampf):
       - Planen mit voller Kapazität: Die 70–80 %-Vorsicht (Haltung) und die
         Reserve von einem Drittel (c, Rahmenregel (c)) entfallen. Zuerst die
@@ -443,12 +443,16 @@ Reihenfolge:
         Endegründe wie Schritt 5 d mit 08:45 und „Commit-Grenze“ (40).
         Schritt 5 c (sechs Commits) gilt dann nicht.
       - 5-Stunden-Limit: nicht abbrechen; es gilt die bestehende Limit-Pause
-        des Skripts (warten, dann weiter). Es beendet Volldampf nicht.
-      - Wochenlimit: Das Skript prüft vor jeder Runde; ab 98 % („alle
-        Modelle“) ist Volldampf dauerhaft beendet, ab dann gelten wieder alle
-        normalen Regeln (Vorsicht, Reserve, 06:30). Nicht selbst wieder
-        einschalten, nichts in volldampf.txt oder volldampf-beendet.txt
-        schreiben (nur der Maintainer).
+        des Skripts (warten, dann weiter). Es pausiert Volldampf nicht.
+      - Wochenlimit (Maintainer 18.11.2026, ENTSCHEIDUNGEN.md): Das Skript
+        prüft vor jeder Runde; ab 98 % („alle Modelle“) ist Volldampf
+        pausiert, bis das Skript den freien Reset des Maintainers erkennt;
+        so lange gelten alle normalen Regeln (Vorsicht, Reserve, 06:30),
+        keine neuen Volldampf-Einträge, laufende fertig machen. Nach dem
+        freien Reset meldet das Skript wieder „Volldampf aktiv …; Soll bis
+        nächster Reset N %“: dann wieder b), Ziel ist, bis zum automatischen
+        Reset Dienstag 01:00 kaum noch Kontingent übrig zu haben. Nichts in
+        volldampf.txt, volldampf-beendet.txt oder wochenanker.txt schreiben.
       - Fable (statt der Regel aus AGENTS.md „Rot bleibt rot“, nur im
         Volldampf): nur für die wirklich schwersten Fälle – belegte Ursache
         fehlt nach einem Opus-Versuch bei einem Eintrag mit hohem Nutzen, oder

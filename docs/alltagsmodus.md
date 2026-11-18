@@ -1,7 +1,12 @@
 # Alltagsmodus: Tagesroutine, Sparmodus, Nachtlauf
 
 Gilt immer, wenn **kein** Volldampf aktiv ist (`volldampf_aktiv` ≠ 0, also keine Zeile, abgelaufen, von Hand
-`aus` oder Marker `volldampf-beendet.txt`). Was Volldampf daran ändert: `docs/volldampf-regelwerk.md`.
+`aus` oder Pausenmarke `volldampf-beendet.txt` bis zum freien Reset). Was Volldampf daran ändert: `docs/volldampf-regelwerk.md`.
+Nach dem Ende von Volldampf am automatischen Wochenreset (Di 01:00) gilt ab dem Nachtlauf 01:30 wieder dieser Modus (Maintainer
+18.11.2026: „genau und nach dem nächsten automatischen weekly limit reset kommenden dienstag um 01:30 soll wieder der reguläre
+modus laufen, wo wir aber dennoch automatisch den verbrauch und die intensität permanent an unser token kontingent knüpfen und
+adjustieren“): Sollkurve, Sparmodus und Modellwahl steuern Verbrauch und Intensität fortlaufend nach dem Kontingent; ein Anker
+eines freien Resets verfällt mit dem automatischen Reset, sodass wieder die 168-h-Kurve ab Di 00:00 UTC gilt.
 Soll = Stand vor Volldampf, belegt durch Skript, `~/.config/halo-spaces/tagesroutine.conf` (Sicherungen in
 `~/halo-sicherung/`), git log und `ENTSCHEIDUNGEN.md`. Zeilenangaben beziehen sich auf den Stand dieses Commits.
 Zeiten in Wiener Zeit.
@@ -35,6 +40,10 @@ Zeiten in Wiener Zeit.
 | Pausen | nur `~/halo-nacht/pausen.txt` mit Ablaufzeit | `tests/lauf-hilfen.zsh:95, 138` |
 
 ### Modellwahl nach Sollkurve (Soll = Stunden seit Di 00:00 UTC / 168 · 100 %)
+
+Nach einem freien Reset in derselben Woche (Anker `~/halo-nacht/wochenanker.txt`, Maintainer 18.11.2026): Soll = Stunden seit
+dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset · 100 % („Soll bis nächster Reset“); Rechenstelle
+`wochen_soll` in `tests/lauf-hilfen.zsh`, gemeinsam mit Auslastungswächter und Morgenbrief.
 
 | Lage (Woche − Soll) | Entscheidung | Modell Plan/komplex · Routine | Fundstelle |
 |---|---|---|---|

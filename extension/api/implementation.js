@@ -9356,6 +9356,24 @@ class CardEnhancer {
     // Von mehreren gleichen bleibt der vollständigste Eintrag stehen.
     // Ein-/ausschalten im Darstellungsmenü der Kontaktliste.
     const DEDUPE_PREF = "extensions.mailcards.hideDuplicateContacts";
+    // Name und E-Mail, nach denen zusammengeführt wird (null: Liste oder Zeile ohne Namen, bleibt stehen)
+    const dupKey = row => {
+      const norm = t => (t || "").normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+      const card = row?.card;
+      if (!card || card.isMailList) {
+        return null;
+      }
+      // der Name, den die Liste anzeigt (auch Firma, wenn kein Name gesetzt ist)
+      let shown = "";
+      try {
+        shown = row.getText?.("GeneratedName") || "";
+      } catch {} // gewollt: Zeile ohne Text, Name kommt aus der Karte
+      const name = norm(shown) || norm(card.displayName) ||
+        norm(`${card.firstName || ""} ${card.lastName || ""}`);
+      return name ? { name, email: norm(card.primaryEmail) } : null;
+    };
+    // gleich wie in dedupeRows: derselbe Name, dieselbe E-Mail oder bei einem keine
+    const isDuplicate = (a, b) => a.name == b.name && (!a.email || !b.email || a.email == b.email);
     const dedupeRows = rows => {
       const score = card => {
         let n = 0;
@@ -9366,27 +9384,15 @@ class CardEnhancer {
         const photo = card.photoURL || "";
         return n + (/^(data|file|moz-icon):/.test(photo) ? 6 : photo ? 1 : 0);
       };
-      const norm = t => (t || "").normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
       const groups = new Map(); // Name → Liste von Clustern { email, best, rows }
       const keep = new Set();
       for (const row of rows) {
-        const card = row.card;
-        if (!card || card.isMailList) {
+        const key = dupKey(row);
+        if (!key) {
           keep.add(row);
           continue;
         }
-        // der Name, den die Liste anzeigt (auch Firma, wenn kein Name gesetzt ist)
-        let shown = "";
-        try {
-          shown = row.getText?.("GeneratedName") || "";
-        } catch {} // gewollt: Zeile ohne Text, Name kommt aus der Karte
-        const name = norm(shown) || norm(card.displayName) ||
-          norm(`${card.firstName || ""} ${card.lastName || ""}`);
-        const email = norm(card.primaryEmail);
-        if (!name) {
-          keep.add(row);
-          continue;
-        }
+        const { name, email } = key;
         const clusters = groups.get(name) || [];
         groups.set(name, clusters);
         let cluster = clusters.find(c => !email || !c.email || c.email == email);
@@ -9399,7 +9405,7 @@ class CardEnhancer {
         if (!cluster.email && email) {
           cluster.email = email;
         }
-        if (score(card) > score(cluster.best.card)) {
+        if (score(row.card) > score(cluster.best.card)) {
           cluster.best = row;
         }
       }
@@ -9498,9 +9504,38 @@ class CardEnhancer {
           return best ? this._rowMap.indexOf(best) : index;
         };
       }
+      // Neue Kontakte (angelegt, Import, CardDAV) fügt Thunderbird ohne Sortieren
+      // in die Liste ein – die Zusammenführung oben hängt am Sortieren, eine neue
+      // Dublette stand deshalb doppelt in der Liste, bis etwas anderes neu sortierte.
+      // Nur bei einer echten Dublette neu sortieren (sonst bleibt es beim Einfügen),
+      // nicht während einer laufenden Suche (deren Treffer kommen auf demselben Weg,
+      // Thunderbird sortiert am Ende der Suche ohnehin)
+      const origObserve = Adapter.prototype.observe;
+      if (typeof origObserve == "function") {
+        Adapter.prototype.observe = function (subject, topic, data) {
+          const result = origObserve.call(this, subject, topic, data);
+          if (topic == "addrbook-contact-created" && this._tree && !this._searchesInProgress && this.sortColumn &&
+            Services.prefs.getBoolPref(DEDUPE_PREF, true)) {
+            try {
+              const uid = subject?.UID;
+              const added = this._rowMap.find(r => r.card?.UID == uid && r.card?.directoryUID == subject.directoryUID);
+              const key = dupKey(added);
+              if (key && this._rowMap.some(r => r != added && isDuplicate(key, dupKey(r) || {}))) {
+                this.sortBy(this.sortColumn, this.sortDirection, true);
+              }
+            } catch (e) {
+              log("dedupe new contact error", e);
+            }
+          }
+          return result;
+        };
+      }
       Adapter.prototype.__mcDedupe = true;
       restorers.push(() => {
         Adapter.prototype.sortBy = orig;
+        if (typeof origObserve == "function") {
+          Adapter.prototype.observe = origObserve;
+        }
         if (typeof origIndex == "function") {
           Adapter.prototype.getIndexForUID = origIndex;
         }

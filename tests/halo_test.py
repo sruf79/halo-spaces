@@ -16471,14 +16471,15 @@ Neu
             const touch = async n => { cards[2].setProperty("PopularityIndex", n); book.modifyCard(cards[2]); await ruhig(800); };
             await until(() => list.view?.rowCount >= 3); await ruhig(500);
             pick(c => c?.UID == cards[1].UID); await ruhig(500);
-            cards.push(add({ DisplayName: "Dora Doppel", PrimaryEmail: "dora@example.invalid" })); await ruhig(600);
+            // neue Dubletten werden schon beim Einfügen zusammengeführt, danach sortiert eine Änderung noch einmal neu
             const n = list.view.rowCount;
+            cards.push(add({ DisplayName: "Dora Doppel", PrimaryEmail: "dora@example.invalid" })); await ruhig(600);
             await touch(2);
-            out.neighbor = { merged: list.view.rowCount == n - 1, sel: sel(), want: cards[1].UID };
+            out.neighbor = { merged: list.view.rowCount == n, sel: sel(), want: cards[1].UID };
             pick(c => c?.displayName == "Dora Doppel"); await ruhig(500);
             cards.push(add({ DisplayName: "Dora Doppel", PrimaryEmail: "dora@example.invalid", Company: "Doppel AG", JobTitle: "Leitung", WorkPhone: "+43 1 555" })); await ruhig(600);
             await touch(3);
-            out.dropped = { merged: list.view.rowCount == n - 1, sel: sel(), want: cards[4].UID, shown: cw.detailsPane?.currentCard?.UID };
+            out.dropped = { merged: list.view.rowCount == n, sel: sel(), want: cards[4].UID, shown: cw.detailsPane?.currentCard?.UID };
           } finally {
             book.deleteCards(cards); await ruhig(300);
             tm.closeTab(abTab); await toMail();
@@ -16489,6 +16490,58 @@ Neu
               and dr.get("merged") and dr.get("sel") == [dr.get("want")] and dr.get("shown") == dr.get("want"))
         return ok, f"{res}"
     check("Adressbuch: Zusammenführen von Dubletten lässt die Auswahl beim gewählten Kontakt, Details zeigen den verbliebenen Eintrag", ab_dedupe_selection, results)
+
+    def ab_dedupe_new_contact():
+        # Thunderbird fügt neue Kontakte ohne Sortieren in die Liste ein, die
+        # Zusammenführung hing am Sortieren: eine neue Dublette (Sync, Import oder
+        # „Neuer Kontakt“) stand doppelt in der Liste, bis etwas anderes neu sortierte.
+        # Erwartet: sofort ein Eintrag; nach dem Speichern eines doppelten neuen
+        # Kontakts ist der zusammengeführte Eintrag gewählt und gezeigt (nicht leer);
+        # ein neuer Kontakt ohne Dublette bleibt einzeln stehen
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const add = props => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            for (const [k, v] of Object.entries(props)) c.setProperty(k, v);
+            c.displayName = props.DisplayName; c.primaryEmail = props.PrimaryEmail; return book.addCard(c); };
+          const names = ["Nora Neu", "Zeno Ziel", "Olga Ohne"];
+          add({ DisplayName: "Nora Neu", PrimaryEmail: "nora@example.invalid" });
+          add({ DisplayName: "Zeno Ziel", PrimaryEmail: "zeno@example.invalid" });
+          """ + OPEN_BOOKS_JS + r"""
+          const out = { tab: !!cw };
+          try {
+            const list = cw.document.getElementById("cards");
+            const rows = () => [...Array(list.view.rowCount).keys()].map(i => list.view.getCardFromRow(i));
+            const count = name => rows().filter(c => c?.displayName == name).length;
+            await until(() => list.view?.rowCount >= 2); await ruhig(500);
+            const n = list.view.rowCount;
+            // im Hintergrund (Sync, Import)
+            add({ DisplayName: "Nora Neu", PrimaryEmail: "nora@example.invalid" }); await ruhig(600);
+            out.bg = { nora: count("Nora Neu"), rows: list.view.rowCount, want: n };
+            // „Neuer Kontakt“ im Adressbuch, gespeichert
+            const p = cw.detailsPane;
+            const vcard = name => `BEGIN:VCARD\r\nVERSION:4.0\r\nFN:${name}\r\nN:${name.split(" ")[1]};${name.split(" ")[0]};;;\r\n` +
+              `EMAIL;PREF=1:${name.split(" ")[0].toLowerCase()}@example.invalid\r\nEND:VCARD\r\n`;
+            await p.editNewContact(vcard("Nora Neu")); await ruhig(500);
+            await p.saveCurrentContact(); await ruhig(800);
+            out.ui = { nora: count("Nora Neu"), rows: list.view.rowCount, want: n,
+              selected: list.view.selection.count, shown: p.currentCard?.displayName || "", editing: !!p.isEditing };
+            // ohne Dublette: neuer Eintrag bleibt einzeln stehen und gewählt
+            await p.editNewContact(vcard("Olga Ohne")); await ruhig(500);
+            await p.saveCurrentContact(); await ruhig(800);
+            out.single = { olga: count("Olga Ohne"), rows: list.view.rowCount, want: n + 1, shown: p.currentCard?.displayName || "" };
+          } finally {
+            book.deleteCards(book.childCards.filter(c => names.includes(c.displayName))); await ruhig(300);
+            tm.closeTab(abTab); await toMail();
+          }
+          return out;""")
+        bg, ui, single = res.get("bg", {}), res.get("ui", {}), res.get("single", {})
+        ok = (res["tab"] and bg.get("nora") == 1 and bg.get("rows") == bg.get("want")
+              and ui.get("nora") == 1 and ui.get("rows") == ui.get("want") and ui.get("selected") == 1
+              and ui.get("shown") == "Nora Neu" and not ui.get("editing")
+              and single.get("olga") == 1 and single.get("rows") == single.get("want") and single.get("shown") == "Olga Ohne")
+        return ok, f"{res}"
+    check("Adressbuch: neu hinzugekommene Dublette wird sofort zusammengeführt, nach dem Speichern ist der Eintrag gewählt", ab_dedupe_new_contact, results)
 
     def ab_open_from_outside():
         # „Kontakt anzeigen“ bzw. „bearbeiten“ von außen (Stern im Mailkopf,

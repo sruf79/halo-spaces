@@ -15668,6 +15668,42 @@ Neu
         return ok, f"{res}"
     check("Adressbuch im Hintergrund: Kopfzeile der Mailliste bleibt, wenn sich Kontakte ändern", ab_background_header, results)
 
+    def ab_count_without_lists():
+        # Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten (die stehen bei Thunderbird als Zeilen
+        # zwischen den Kontakten; Apple Kontakte zählt nur Kontakte); in der gewählten Liste ihre Mitglieder
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          tm.openTab("addressBookTab", {});
+          const tab = tm.currentTabInfo;
+          const ab = await until(() => { const c = tab.browser?.contentWindow; return c?.booksList && c?.cardsPane?.cardsList && c; }, 8000);
+          const list = ab.cardsPane.cardsList;
+          const count = () => d.querySelector("#mcListHeader .mc-lh-count")?.textContent;
+          const book = MailServices.ab.getDirectoryFromId(MailServices.ab.newAddressBook("Halo Zählbuch", "", Ci.nsIAbManager.JS_DIRECTORY_TYPE));
+          const out = {};
+          try {
+            const mk = (name, mail) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+              c.displayName = name; c.primaryEmail = mail; return book.addCard(c); };
+            const a = mk("Zora Zählt", "zora@example.invalid"), b = mk("Yann Zählt", "yann@example.invalid");
+            const l = Cc["@mozilla.org/addressbook/directoryproperty;1"].createInstance(Ci.nsIAbDirectory);
+            l.isMailList = true; l.dirName = "Halo Zählliste"; l.listNickName = "halozaehl";
+            const ml = book.addMailList(l); ml.addCard(a);
+            await bis(() => ab.booksList.getIndexForUID(book.UID) >= 0, "neues Adressbuch in der Liste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(book.UID);
+            await bis(() => list.view?.rowCount == 3, "drei Zeilen (zwei Kontakte, eine Liste)", 5000); await ruhig(600);
+            out.rows = list.view.rowCount; out.book = count();
+            await bis(() => ab.booksList.getIndexForUID(ml.UID) >= 0, "Liste in der Adressbuchliste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(ml.UID);
+            await bis(() => list.view?.rowCount == 1, "ein Mitglied", 5000); await ruhig(600);
+            out.list = count();
+          } finally {
+            tm.closeTab(tab); await ruhig(300);
+            MailServices.ab.deleteAddressBook(book.URI); await ruhig(300);
+          }
+          return out;""")
+        ok = res.get("rows") == 3 and res.get("book") == "2 contacts" and res.get("list") == "1 contact"
+        return ok, f"{res}"
+    check("Adressbuch: Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten", ab_count_without_lists, results)
+
     def ab_avatar_recycle():
         # Kontaktzeilen werden beim Scrollen wiederverwendet: lädt das Foto des
         # neuen Kontakts nicht, erscheinen seine Initialen (nicht die des vorigen)

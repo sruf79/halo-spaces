@@ -816,7 +816,7 @@ def vm_kaltstart(vm, frist=300):
     """Kalter Neustart der VM: herunterfahren (bei Zeitüberschreitung hart mit --kill), neu starten und warten,
     bis die angemeldete Windows-Sitzung antwortet (höchstens frist Sekunden). Am 18.11.2026 lieferte die VM nach
     langem Fortsetzen/Pausieren Bilder um 4 bis 12 Bilder verzögert (Prüfungen rot ohne Codefehler); erst
-    prlctl stop und start behoben das. Deshalb beginnt jeder Lauf mit einer frisch gestarteten VM."""
+    prlctl stop und start behoben das. Aufgerufen von vm_frisch() und als Rückfall im Lauf (vm_vorbereiten)."""
     state = vm_state(vm)
     if state in ("suspended", "paused"):
         # aus der Pause erst fortsetzen: stop greift bei einer pausierten VM nicht zuverlässig
@@ -879,29 +879,126 @@ def vm_bildtakt(vm, run, win):
         return []
 
 
-def vm_vorbereiten(vm, run, win):
-    """VM für den Lauf: kalt neu starten, Bildschirm 1920 × 1080, Kurztest Bildtakt; ist der Takt gestört, ein
-    zweiter kalter Neustart, danach Abbruch mit „FEHLER VM gestört“. HALO_VM_KEIN_NEUSTART=1 (Läufe von Hand, die
-    VM nicht stören): nur fortsetzen bzw. starten wie früher, ohne Kurztest."""
-    neustart = os.environ.get("HALO_VM_KEIN_NEUSTART") != "1"
-    for versuch in (1, 2) if neustart else (1,):
-        if neustart:
+def vm_vorbereiten(vm, run, win, frisch=False):
+    """Bereitet die VM vor: Bildschirm 1920 × 1080 und Kurztest Bildtakt.
+    Lauf (frisch=False): VM nur fortsetzen bzw. starten (kalt neu gestartet hat sie vm_frisch() schon vorher, damit
+    der Lauf keine Zeit dafür verliert); ist der Takt gestört, EIN kalter Neustart als Rückfall, danach Abbruch
+    „FEHLER VM gestört“. HALO_VM_KEIN_NEUSTART=1 (Läufe von Hand, die VM nicht stören): kein Neustart, ein gestörter
+    Takt ist nur ein Hinweis. vm_frisch() (frisch=True): erst kalter Neustart, sonst gleich."""
+    neustart = frisch or os.environ.get("HALO_VM_KEIN_NEUSTART") != "1"
+    for versuch in (1, 2):
+        if frisch or versuch == 2:
             vm_kaltstart(vm)
         else:
             vm_ready(vm)
         # Bildschirm 1920 × 1080 (ohne Fenster der VM wählt Parallels 1024 × 768)
         vm_exec(vm, "powershell", "-ExecutionPolicy", "Bypass", "-File", win + "\\tests\\win-display.ps1", win + "\\display.txt", check=False)
-        if not neustart:
-            break
         gestoert, text = bildtakt_gestoert(vm_bildtakt(vm, run, win))
         print(f"VM Bildtakt: {text}", flush=True)
-        if not gestoert:  # (None: Kurztest nicht messbar, der Lauf geht trotzdem weiter)
-            break
+        if not gestoert:  # (None: Kurztest nicht messbar, es geht trotzdem weiter)
+            return
         if versuch == 2:
-            print(f"FEHLER VM gestört: Bildtakt auch nach zwei kalten Neustarts gestört ({text}); "
+            print(f"FEHLER VM gestört: Bildtakt auch nach einem kalten Neustart gestört ({text}); "
                   f"VM von Hand prüfen (prlctl stop/start „{vm}“, Parallels neu starten)", flush=True)
             sys.exit(1)
-        print("HINWEIS Bildtakt der VM gestört, zweiter kalter Neustart …", flush=True)
+        if not neustart:
+            print("HINWEIS Bildtakt der VM gestört, kein Neustart (HALO_VM_KEIN_NEUSTART=1)", flush=True)
+            return
+        print("HINWEIS Bildtakt der VM gestört, kalter Neustart …", flush=True)
+
+
+# Wann vm_frisch() die VM nicht anfassen darf: gleiche Muster wie belegt() in tests/lauf-hilfen.zsh
+BELEGT_MUSTER = [
+    (r"actions-runner/bin[^/ ]*/Runner\.Worker", "CI-Lauf auf dem GitHub-Runner"),
+    (r"^([^ ]*/)?[Pp]ython[0-9.]*( -[^ ]+)* ([^ ]*/)?tests/(halo_test|ui_tour|update_test|store_shots)\.py", "Testlauf (halo_test.py o. ä.)"),
+    (r"^/.*/(thunderbird|thunderbird-bin) .*-marionette", "Thunderbird mit Marionette"),
+]
+
+
+def vm_lock_pid():
+    """PID des Laufs, der die VM gerade benutzt (~/halo-vm/lauf.lock), sonst None."""
+    try:
+        pid = int(open(VM_LOCK).read().split()[0])
+        os.kill(pid, 0)
+        return pid
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def vm_belegt():
+    """Grund, warum die VM gerade nicht neu gestartet werden darf (CI, Testlauf, Lauf in der VM), sonst None."""
+    eigen = {os.getpid(), os.getppid()}
+    if vm_lock_pid() not in (None, *eigen):
+        return "Lauf in der Windows-VM"
+    for muster, grund in BELEGT_MUSTER:
+        r = subprocess.run(["pgrep", "-f", "--", muster], capture_output=True, text=True)
+        if any(int(p) not in eigen for p in r.stdout.split()):
+            return grund
+    return None
+
+
+def vm_frisch(vm, warten=0, nach_pid=None, laufen=False):
+    """Kalter Neustart der VM außerhalb eines Laufs (tests/vm-frisch.sh), damit eine Windows-CI mit einer frischen
+    VM beginnt, ohne selbst Zeit für den Neustart zu verlieren und ohne andere CI zu stören (Maintainer 18.11.2026).
+    Aufrufe: nach jedem Lauf mit --vm im Hintergrund (nach_pid), einmal täglich ab 00:45 aus dem CI-Wächter, von
+    Hand. Belegt (CI, Testlauf, Lauf in der VM): höchstens warten Sekunden warten, sonst auslassen (Exitcode 3).
+    Keine Altersgrenze: auch eine eben gestartete VM wird neu gestartet (Maintainer 18.11.2026).
+    Hält währenddessen ~/halo-vm/lauf.lock (Läufe auf dem Mac und in der VM warten) und pausiert die VM danach
+    wieder (Speicher für die macOS-Tests; laufen=True: laufen lassen)."""
+    if not shutil.which("prlctl"):
+        print("ÜBERSPRUNGEN vm-frisch: prlctl fehlt", flush=True)
+        return 3
+    end = time.time() + warten
+    while True:
+        grund = None
+        if nach_pid:
+            try:
+                os.kill(nach_pid, 0)
+                grund = f"Lauf PID {nach_pid} noch nicht beendet"
+            except OSError:
+                nach_pid = None
+        grund = grund or vm_belegt()
+        if not grund:
+            break
+        if time.time() >= end:
+            print(f"ÜBERSPRUNGEN vm-frisch: {grund}", flush=True)
+            return 3
+        time.sleep(5)  # Abfragetakt
+    os.makedirs(VM_SHARE, exist_ok=True)
+    with open(VM_LOCK, "w") as f:
+        f.write(f"{os.getpid()} {time.strftime('%Y-%m-%d %H:%M:%S')} vm-frisch\n")
+    run = tempfile.mkdtemp(prefix="frisch-", dir=VM_SHARE)
+    win = VM_UNC + "\\" + os.path.basename(run)
+    try:
+        os.makedirs(os.path.join(run, "tests"))
+        for f in ("win-display.ps1", "win-bildtakt.ps1"):
+            shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
+        vm_vorbereiten(vm, run, win, frisch=True)
+        print(f"VM frisch: „{vm}“ kalt neu gestartet, Bildtakt geprüft", flush=True)
+        return 0
+    finally:
+        try:
+            if not laufen and vm_state(vm) == "running":
+                prl("suspend", vm, check=False)
+        finally:
+            shutil.rmtree(run, ignore_errors=True)
+            if vm_lock_pid() in (None, os.getpid()) and os.path.exists(VM_LOCK):
+                os.remove(VM_LOCK)
+
+
+def vm_frisch_danach(vm):
+    """Startet nach einem Lauf mit --vm den kalten Neustart im Hintergrund; er wartet, bis dieser Lauf und sein
+    CI-Job beendet sind. RUNNER_TRACKING_ID leer: der GitHub-Runner beendet sonst am Jobende alle vom Job
+    gestarteten Prozesse."""
+    try:
+        nacht = os.path.expanduser("~/halo-nacht")
+        log = open(os.path.join(nacht, "vm-frisch.log") if os.path.isdir(nacht) else os.devnull, "a")
+        subprocess.Popen([sys.executable, "-u", os.path.abspath(__file__), "--vm-frisch", vm, "--nach-pid", str(os.getpid())],
+                         stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+                         env={**os.environ, "RUNNER_TRACKING_ID": ""}, cwd=ROOT)
+        print("VM wird nach dem Lauf im Hintergrund kalt neu gestartet (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
+    except OSError as e:
+        print(f"HINWEIS Neustart der VM nach dem Lauf nicht gestartet: {e}", flush=True)
 
 
 THEME_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
@@ -923,14 +1020,10 @@ def vm_theme(vm, values=None):
 def wait_turn(mine):
     """Wartet, bis kein Lauf der anderen Plattform mehr läuft (höchstens eine Stunde)."""
     def busy():
-        if mine == "vm":  # Test-Thunderbird auf dem Mac
-            return subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0
-        try:
-            pid = int(open(VM_LOCK).read().split()[0])
-            os.kill(pid, 0)
-            return True
-        except (OSError, ValueError, IndexError):
-            return False
+        if mine == "vm" and subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0:
+            return True  # Test-Thunderbird auf dem Mac
+        # Lauf in der VM bzw. kalter Neustart (vm_frisch): auch ein Lauf in der VM wartet darauf
+        return vm_lock_pid() is not None
     end, said = time.time() + 3600, False
     while busy():
         if time.time() > end:
@@ -1023,6 +1116,9 @@ def run_in_vm(args, xpi):
         finally:
             shutil.rmtree(run, ignore_errors=True)
             os.remove(VM_LOCK)
+            # der nächste Lauf beginnt mit einer frischen VM: kalter Neustart gleich jetzt, nicht erst vor dem Lauf
+            if before and not args.vm_weiter and os.environ.get("HALO_VM_KEIN_NEUSTART") != "1":
+                vm_frisch_danach(vm)
 
 
 def main():
@@ -1040,15 +1136,22 @@ def main():
     ap.add_argument("--compare", help="Ordner mit früheren Screenshots: zeigt, wo sich etwas verändert hat (braucht --shots)")
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
-                    "startet die VM vorher kalt neu (HALO_VM_KEIN_NEUSTART=1: nur fortsetzen) und pausiert sie danach")
+                    "pausiert die VM danach und startet sie im Hintergrund kalt neu (HALO_VM_KEIN_NEUSTART=1: nicht)")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
     ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
                     "Thunderbird in der Fehlerkonsole werden dann nicht verglichen)")
     ap.add_argument("--vergleich-neu", action="store_true", help="Vergleichslauf ohne halo.spaces neu aufnehmen (ergänzt die "
                     f"gespeicherte Liste in {VERGLEICH_ORDNER})")
+    ap.add_argument("--vm-frisch", nargs="?", const=VM_NAME, help="nur die VM kalt neu starten und den Bildtakt prüfen "
+                    "(tests/vm-frisch.sh; lässt aus, wenn CI oder ein Testlauf läuft)")
+    ap.add_argument("--warten", type=int, default=0, help="mit --vm-frisch: so viele Sekunden warten, solange etwas belegt ist")
+    ap.add_argument("--nach-pid", type=int, help=argparse.SUPPRESS)  # mit --vm-frisch: erst nach Ende dieses Laufs
     ap.add_argument("--vm-args", help=argparse.SUPPRESS)  # in der VM: Optionen aus der Datei (prlctl reicht keine Anführungszeichen weiter)
     args = ap.parse_args()
+    if args.vm_frisch:  # nach einem Lauf (--nach-pid): bis 15 Minuten auf das Ende des CI-Jobs warten
+        sys.exit(vm_frisch(args.vm_frisch, warten=max(args.warten, 900 if args.nach_pid else 0), nach_pid=args.nach_pid,
+                           laufen=args.vm_weiter))
     if args.vm_args:
         for k, v in json.load(open(args.vm_args)).items():
             setattr(args, k, v)

@@ -410,14 +410,15 @@ python3 tests/halo_test.py --vm --port 2851 --dark --shots /tmp/win-dunkel  # du
 python3 tests/halo_test.py --vm --beta --port 2851                          # Thunderbird Beta
 ```
 
-- Ablauf: VM kalt neu starten (stop, start; `HALO_VM_KEIN_NEUSTART=1`: nur
-  fortsetzen) und auf die Windows-Sitzung warten, Kurztest Bildtakt,
-  Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
+- Ablauf: VM fortsetzen und auf die Windows-Sitzung warten, Kurztest
+  Bildtakt (gestört: ein kalter Neustart, sonst „FEHLER VM gestört“), Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
   `~/halo-vm` legen, Farbschema per Registry (`AppsUseLightTheme`,
   `SystemUsesLightTheme`) setzen, in der VM `python halo_test.py` als
   angemeldeter Benutzer starten (`prlctl exec --current-user`), Screenshots
   zurückkopieren, Farbschema zurücksetzen, VM pausieren (`prlctl suspend`,
-  gibt die 6 GB frei; `--vm-weiter` lässt sie laufen).
+  gibt die 6 GB frei; `--vm-weiter` lässt sie laufen), danach im Hintergrund
+  kalter Neustart für den nächsten Lauf (`tests/vm-frisch.sh`, auch täglich
+  00:45 aus dem CI-Wächter; `docs/testrechner.md` „Frische VM“).
 - Marionette läuft nur in der VM auf `127.0.0.1`, kein Port ist im VM-Netz offen.
   Die Port-Regeln gelten trotzdem (`--port`, ab 2850 von Hand).
 - Mac- und Windows-Läufe nie gleichzeitig: ein Lauf mit `--vm` wartet, bis kein

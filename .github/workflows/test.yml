@@ -266,8 +266,8 @@ jobs:
     needs: [changes, linux, mac]
     if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, macOS, halo-mac]
-    # ein Lauf rund 19 bis 40 Minuten, dazu kalter Neustart der VM (bis zweimal)
-    timeout-minutes: 70
+    # ein Lauf rund 19 Minuten, dazu Fortsetzen der VM
+    timeout-minutes: 60
     # (ohne concurrency-Gruppe, siehe Job mac)
     steps:
       - uses: actions/checkout@v6
@@ -275,9 +275,10 @@ jobs:
       - name: Paket
         run: echo "XPI=$(./build.sh | tail -n 1)" >> "$GITHUB_ENV"
 
-      # vorerst nur hell; startet die VM kalt neu und pausiert sie danach (gibt den Speicher frei)
+      # vorerst nur hell; setzt die VM fort (kalt neu gestartet nach dem letzten Lauf bzw. um 00:45, tests/vm-frisch.sh),
+      # pausiert sie danach (gibt den Speicher frei) und startet sie im Hintergrund kalt neu
       - name: Test Windows hell
-        timeout-minutes: 55
+        timeout-minutes: 45
         env:
           ONLY: ${{ inputs.only }}
         run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log ${ONLY:+--only "$ONLY"}

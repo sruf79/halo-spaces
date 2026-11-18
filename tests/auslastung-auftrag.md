@@ -48,7 +48,12 @@ Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein �
      lockf -t 60 ~/halo-nacht/auslastung-vergeben.lock zsh -c 'print -r -- "<Datum Zeit> worker-<Nr> <Datei>#<n>" >> ~/halo-nacht/auslastung-vergeben.txt'.
      Belegt: beheben (mit Prüfung) und als Bug eintragen (tests/board.sh neu bug …, dann wie unten), oder, wenn das Beheben
      den Rahmen sprengt, nur eintragen (Todo, mit Beleg). Widerlegt: Begründung in den Bericht. Die Bugjagd-Datei nicht ändern.
-  3. Reihen (n/m), nur der nächste Schritt (im Volldampf auch mehrere hintereinander, AGENTS.md);
+  3. Reihen (n/m), nur der nächste Schritt (im Volldampf auch mehrere hintereinander, AGENTS.md). Im Volldampf
+     ohne Abnahme dazwischen (Maintainer 17.11.2026, Reihen ohne OK des Vorgängers): Steht der Vorgänger-Schritt
+     auf „Wartet auf OK“, aber sein Commit ist auf einem Prüfzweig oder main, darfst du den nächsten Schritt Todo
+     nehmen und auf dessen Stand aufbauen (Zweig vom Vorgänger-Stand), den Vorgänger-Eintrag nie anfassen; die
+     Abnahme des Maintainers bleibt Voraussetzung für Done, nicht für die Arbeit. Reine Optik-Schritte gehen
+     weiter an den Designer;
   4. Features.
 - Sperre: sofort nach der Wahl tests/board.sh status <id> arbeit und
   tests/board.sh notiz <id> "In Arbeit: worker-<Nr> (Auslastungswächter, <Datum Zeit>), Zweig <Zweig>".

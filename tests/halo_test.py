@@ -3082,6 +3082,62 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Konversation zeigt immer die gewählte Mail (GitHub #60)", conversation_right_mail, results)
 
+    def conversation_tb_view_off():
+        # Thunderbird (ab 15x) hat eine eigene Konversationsansicht hinter mail.thread.conversation.enabled
+        # (nur Konfigurationseditor). Ist sie an, baute Thunderbird beim zugeklappten Faden sein Element
+        # <conversation-view> zusätzlich unter den halo-Karten auf. Erwartet: nur die halo-Karten, Thunderbirds
+        # Einstellung danach unverändert wirksam (isConversationView wieder true).
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { GlodaMsgIndexer } = ChromeUtils.importESModule("resource:///modules/gloda/IndexMsg.sys.mjs");
+          const { Gloda } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaPublic.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvTbAnsicht")) root.createSubfolder("KonvTbAnsicht", null);
+          const f = root.getChildNamed("KonvTbAnsicht");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", "Text.", ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo TB Ansicht", "halo-tbconv-1", null, 90));
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Re: Halo TB Ansicht", "halo-tbconv-2", "halo-tbconv-1", 80));
+            await bis(() => f.getTotalMessages(false) >= 2, "Testmails gespeichert", 5000);
+          }
+          const hs = [...f.messages];
+          GlodaMsgIndexer.indexMessages(hs.map(h => [h.folder, h.messageKey]));
+          const indexed = h => new Promise(r => Gloda.getMessageCollectionForHeader(h, { onItemsAdded() {}, onItemsModified() {}, onItemsRemoved() {},
+            onQueryCompleted: c => r(c.items.length > 0) }));
+          for (let i = 0; i < 60 && !(await Promise.all(hs.map(indexed))).every(Boolean); i++) await wait(500);
+          const PREF = "mail.thread.conversation.enabled";
+          const had = Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getBoolPref(PREF) : null;
+          const out = {};
+          const a3 = await toMail();
+          const pane = a3.document.getElementById("messagePane");
+          out.hasPref = "isConversationView" in pane;
+          Services.prefs.setBoolPref(PREF, true);
+          try {
+            a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner KonvTbAnsicht", 6000); await ruhig(900);
+            a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(500);
+            out.rows = a3.gDBView.rowCount;
+            a3.threadTree.selectedIndex = -1; await ruhig(300);
+            a3.threadTree.selectedIndex = 0;
+            await until(() => !pane.classList.contains("mc-conv-pending"), 4000); await ruhig(900);
+            const tb = pane.querySelector("conversation-view");
+            const box = a3.document.getElementById("mcConversation");
+            out.tbVisible = !!(tb && !tb.hidden && tb.getBoundingClientRect().height > 0);
+            out.cards = box ? box.querySelectorAll(".mc-conv-card").length : 0;
+            out.prefAfter = pane.isConversationView;
+            a3.threadTree.selectedIndex = -1; await ruhig(300);
+          } finally {
+            if (had !== null) Services.prefs.setBoolPref(PREF, had); else Services.prefs.clearUserPref(PREF);
+          }
+          return out;""")
+        ok = (res.get("rows") == 1 and res.get("cards") == 2 and res.get("tbVisible") is False
+              and (not res.get("hasPref") or res.get("prefAfter") is True))
+        return ok, f"{res}"
+    check("Leseansicht: Thunderbirds eigene Konversationsansicht (mail.thread.conversation.enabled) baut sich nicht zusätzlich unter den Karten auf", conversation_tb_view_off, results)
+
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der
         # Uhrzeit nur bei markierten Mails; folgt Änderungen sofort

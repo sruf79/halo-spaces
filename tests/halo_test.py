@@ -13761,12 +13761,9 @@ def run_checks(m, version, profile, results):
           const ow = w.outerWidth;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
             if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
-            // Bewegung und Lage sind im festen Bildtakt auf jedem Rechner gleich; vom Rechner hängt nur noch ab, wie lange
-            // der Aufbau eines Bildes dauert. Liegt er über dem Takt, zurückschalten und neu messen (höchstens zweimal):
-            // ein zu teures Bild aus unserem Code ist bei jeder Messung zu teuer, eine Lastspitze des Rechners nicht.
-            // Alle übrigen Bedingungen gelten auch für die verworfenen Messungen
-            const verworfen = [];
-            for (;;) {
+            // Bewegung und Lage: im festen Bildtakt auf jedem Rechner dieselben Bilder (keine Neumessung mehr nötig);
+            // die Bildzeit misst danach ein eigener Durchgang in Echtzeit wie bisher (unten)
+            {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
@@ -13775,10 +13772,7 @@ def run_checks(m, version, profile, results):
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
-            // Bildzeit: so lange hätte das Bild am Bildschirm gestanden – Aufbauzeit auf ganze Takte des Bildschirms
-            // aufgerundet (kosten[i] gehört zu ws[i + 1])
-            const takt = Math.min(out.idleFrameMs, 17);
-            const dts = kosten.filter((_, i) => moving[i + 1]).map(k => Math.max(1, Math.ceil(k / takt)) * takt);
+            // Aufbauzeit je Bild, nur zur Auskunft (kosten[i] gehört zu ws[i + 1]; CI unter xvfb 9–18 ms, Mac rund 6 ms)
             const kostenMs = bildKosten(kosten, moving.slice(1));
             const jumps = ws.slice(1).map((v, i) => Math.abs(v - ws[i]));
             // Suchfeld gleitet mit (kein Sprung um die ganze Breite), Überschrift ist mitten in der Bewegung schon da
@@ -13795,18 +13789,30 @@ def run_checks(m, version, profile, results):
             const gone = Object.keys(kk[0] || {}).filter(k => !(k in (kk.at(-1) || {})));
             const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
-            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0), kostenMs,
+            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), kostenMs,
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
             if (phase.startsWith("ein")) out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
             if (phase.startsWith("ein") && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
-            if (out[phase].medianFrameMs <= takt * 1.5 + 2 || verworfen.length >= 2) break;
-            verworfen.push(out[phase]);
-            btn.click(); await ruhig(1000); await wait(300);   // (zurück: ausblenden, Ruhe abwarten, dann neu einblenden)
             }
-            if (verworfen.length) out[phase].verworfen = verworfen;
+          }
+          // Bildzeit in Echtzeit wie bisher: mittlerer Abstand der Bilder, in denen sich die Breite ändert. Liegt er über
+          // dem Takt, zurückschalten und neu messen (höchstens zweimal): ein zu teures Bild aus unserem Code ist bei
+          // jeder Messung zu teuer, eine Lastspitze des Rechners nicht (CI 17.11. Lauf 44112576488, linux esr: einmal
+          // 31 ms in „ein schmal“, alle übrigen Phasen 17 ms). Fenster ist noch schmal: erst schmal, dann breit
+          const bildzeit = async () => { const ws = [], ts = []; btn.click(); const t0 = performance.now();
+            while (performance.now() - t0 < 600) { ws.push(Math.round(panel.getBoundingClientRect().width)); ts.push(performance.now()); await new Promise(r => w.requestAnimationFrame(r)); }
+            await ruhig(300);
+            const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => ws[i + 1] != ws[i]).sort((a, b) => a - b);
+            return Math.round(dts[dts.length >> 1] || 0); };
+          const grenze = Math.min(out.idleFrameMs, 17) * 1.5 + 2;
+          for (const phase of ["aus schmal", "ein schmal", "aus", "ein"]) {
+            if (phase == "aus") { w.resizeTo(ow, w.outerHeight); await ruhig(1200); }
+            const zeiten = [await bildzeit()];
+            while (zeiten.at(-1) > grenze && zeiten.length < 3) { btn.click(); await ruhig(1000); await wait(300); zeiten.push(await bildzeit()); }
+            out[phase].medianFrameMs = zeiten.at(-1); if (zeiten.length > 1) out[phase].bildzeiten = zeiten;
           }
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
@@ -13826,15 +13832,14 @@ def run_checks(m, version, profile, results):
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
         # (gemessen im festen Bildtakt, imTakt – 18.11.2026: in Echtzeit ließ unter xvfb ein einzelnes Lastbild von
         # 75–110 ms die Pane über die halbe Breite springen oder das letzte Bild ausfallen, 12× rot seit 9.11.)
-        def glatt(v, zeit=True):
+        def glatt(v):
             return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
                     and v["titleMid"] is not False and v.get("titleEnd", 0) <= 1
-                    and (not zeit or v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2))
-        # verworfene Messungen (Bildaufbau zu langsam, neu gemessen): alles außer der Bildzeit gilt weiter
-        ok = all(glatt(res[p]) and all(glatt(x, zeit=False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+        ok = all(glatt(res[p]) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
     check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
 

@@ -100,6 +100,14 @@ pruefe "zweites Rot: „bleibt-rot“ mit dem Messwert der Wiederholung, die and
   'grep -q "	bleibt-rot	110	2	pruef/b	sha110	linux (esr)	$P	zweiter Messwert" $FLOG && grep -q "	flackert	110	2	.*	Andere Prüfung	" $FLOG'
 pruefe "zweites Rot: nur eine Wiederholung, auch nach weiteren Durchgängen" '[[ $(wdh) == 1 ]]'
 
+# 4a. langes Protokoll (grep -q hörte früh auf, die Kette scheiterte mit pipefail): keine erfundene Zeile „Job ohne FEHLER-Zeile“
+neu
+lauf 115 completed failure push 1 pruef/b2 > $T/gh/liste
+jobs 115 1 "linux (esr)=failure:Test"; protokoll 115 1 "linux (esr)" $P "x"
+for i in {1..20000}; do print -r -- "linux (esr)	Test	2026-11-18T13:00:00.0000000Z OK      Prüfung $i – {'wert': $i}"; done >> $T/gh/log-115-1
+los
+pruefe "langes Protokoll: Job mit FEHLER-Zeile bekommt keine Zeile „Job ohne FEHLER-Zeile“" '[[ $(grep -c "	rot	115	" $FLOG) == 1 ]]'
+
 # 5. schon von Hand wiederholt (Versuch 2) und rot: nicht anfassen
 neu
 lauf 120 completed failure push 2 pruef/c > $T/gh/liste

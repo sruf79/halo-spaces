@@ -11086,49 +11086,6 @@ class CardEnhancer {
       });
     };
 
-    // Vorschläge der Suche oben (nur noch im Chat): Thunderbird macht die Liste
-    // nur so breit wie den Inhalt bzw. das Feld – bei wenig Platz ist das Feld
-    // schmal und die Einträge werden abgeschnitten. Die Liste ist darum so breit
-    // wie das Suchfeld in voller Breite (Stilblatt) und schließt mit dem Feld
-    // bündig ab: rechts (links bei Schrift von rechts nach links), denn das Feld
-    // steht am Ende der Leiste
-    const hookSuggestWidth = () => {
-      const d = w.document;
-      if (d.__mcSuggestWidth) {
-        return;
-      }
-      d.__mcSuggestWidth = true;
-      const place = event => {
-        const popup = event.target;
-        if (popup.id != "PopupGlodaAutocomplete") {
-          return;
-        }
-        const bar = globalSearch();
-        const anchor = popup.anchorNode;
-        if (!bar || !anchor) {
-          popup.style.removeProperty("--mc-suggest-width");
-          popup.style.removeProperty("--mc-suggest-shift");
-          return;
-        }
-        const f = bar.getBoundingClientRect();
-        const a = anchor.getBoundingClientRect();
-        const min = parseFloat(w.getComputedStyle(popup).getPropertyValue("--mc-suggest-min")) || 0;
-        const width = Math.round(Math.max(f.width, min));
-        popup.style.setProperty("--mc-suggest-width", `${width}px`);
-        const rtl = w.getComputedStyle(bar).direction == "rtl";
-        const shift = rtl ? a.right - (f.left + width) : f.right - width - a.left;
-        popup.style.setProperty("--mc-suggest-shift", `${Math.round(shift)}px`);
-      };
-      d.addEventListener("popupshowing", place, true);
-      this.restorers.push(() => {
-        d.removeEventListener("popupshowing", place, true);
-        const popup = d.getElementById("PopupGlodaAutocomplete");
-        popup?.style.removeProperty("--mc-suggest-width");
-        popup?.style.removeProperty("--mc-suggest-shift");
-        delete d.__mcSuggestWidth;
-      });
-    };
-
     // Menüleiste → Help: „halo.spaces“ öffnet das Info-Fenster mit
     // Update-Prüfung, Feedback und „Danke sagen“.
     const hookHelpMenu = () => {
@@ -11547,7 +11504,6 @@ class CardEnhancer {
     };
     const markTab = () => {
       hookSearchForwarding();
-      hookSuggestWidth();
       hookHelpMenu();
       hookPreviewMenu();
       hookLightMessage();

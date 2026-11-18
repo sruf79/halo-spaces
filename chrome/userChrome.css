@@ -149,6 +149,9 @@
      Oval mittig im Knopf) */
   --mt-cap-line: rgba(0, 0, 0, 0.2);
   --mt-cap-line-h: 20px;
+  /* Kapselhöhe der Symbolleisten (Mail, Verfassen) und Kreis unter der Maus */
+  --mt-cap-h: 38px;
+  --mt-cap-dot-d: 32px;
   --mt-cap-hover: rgba(0, 0, 0, 0.045);
   --mt-cap-press: rgba(0, 0, 0, 0.08);
   --mt-cap-dot: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-hover) 15.5px, transparent 16px);
@@ -11414,6 +11417,89 @@ addon-card .addon-inline-options {
 
 #composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]):not([disabled]):hover {
   background: color-mix(in srgb, var(--mt-accent) 24%, transparent) !important;
+}
+
+/* Verfassen-Kapseln wie die Mail-Symbolleiste (Entscheidung 17.11.2026,
+   Möglichkeit 2): Kapseln und Senden 38 px hoch; unter der Maus nicht mehr
+   die ganze Kapsel dunkler, sondern ein runder Kreis 32 px (3 px Rand) mit
+   feiner Lichtkante, gedrückt dunklerer Kreis ohne Licht; die Kapsel behält
+   ihre Lichtkante. Gilt für Symbolknöpfe und die linke Hälfte der geteilten
+   Knöpfe, die rechte Hälfte (Pfeil) bekommt ein schmales Oval 3 px innen */
+#composeToolbar2 > toolbarbutton:not(#mcSendLater),
+#composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button {
+  min-height: var(--mt-cap-h) !important;
+  height: var(--mt-cap-h) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater),
+#composeToolbar2[mc-icons-only] > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater) {
+  position: relative !important;
+  padding-inline: 13px !important;
+}
+
+#composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button,
+#composeToolbar2[mc-icons-only] > toolbarbutton > .toolbarbutton-menubutton-button {
+  padding-inline: 12px 10px !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover,
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover:active {
+  background: var(--mt-control) !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+/* (Verschlüsseln/Signieren eingeschaltet behalten unter der Maus ihre
+   getönte Kapsel, der Kreis kommt darüber) */
+#composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]):not([disabled]):is(:hover, :hover:active) {
+  background: color-mix(in srgb, var(--mt-accent) 16%, transparent) !important;
+}
+
+#composeToolbar2 > #mcFormatToggle[checked]:not([disabled]):is(:hover, :hover:active) {
+  background: var(--mt-control-hover) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater)::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: auto !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  left: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 50% !important;
+  background-color: var(--mt-cap-hover) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
+  opacity: 1 !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover:active::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
+  background-color: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#composeToolbar2 > #button-send {
+  width: var(--mt-cap-h) !important;
+  min-width: var(--mt-cap-h) !important;
+  height: var(--mt-cap-h) !important;
+  min-height: var(--mt-cap-h) !important;
+}
+
+#composeToolbar2 > #button-send > .toolbarbutton-icon {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#composeToolbar2 > #mcSendLater {
+  height: var(--mt-cap-h) !important;
+  min-height: var(--mt-cap-h) !important;
 }
 
 :root[mc-format-hidden] #FormatToolbar {

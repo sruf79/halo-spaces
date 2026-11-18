@@ -4617,7 +4617,7 @@ def compose_checks(m, results):
         if not res.get("open"):
             return False, f"{res}"
         fw, at = res["fwd"], res["att"]
-        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
+        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [38, 38, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
               and bool(res.get("idRows")) and all(r == ["24px", "0px"] for r in res["idRows"])
               and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
@@ -4644,23 +4644,40 @@ def compose_checks(m, results):
             const pill = [...tb.children].find(b => b.localName == "toolbarbutton" && vis(b) && !b.disabled && !b.hasAttribute("checked")
               && b.getAttribute("is") != "toolbarbutton-menu-button" && !["button-send", "mcSendLater", "mcFormatToggle"].includes(b.id));
             out.pillId = pill?.id;
-            if (pill) { out.pill = { ready: look(pill) };
-              await lock(pill, [":hover"], true); out.pill.hover = look(pill);
-              await lock(pill, [":active"], true); out.pill.press = look(pill); await lock(pill, [":active", ":hover"], false); }
+            // Kreis unter der Maus (::after): 32 px rund, mittig im 38-px-Knopf
+            const dot = el => { const s = csOf(el, "::after"); return { op: s.opacity, bg: s.backgroundColor, sh: s.boxShadow, w: s.width, h: s.height, r: s.borderTopLeftRadius }; };
+            out.capHover = colorOf(cd, "var(--mt-cap-hover)", "backgroundColor"); out.capPress = colorOf(cd, "var(--mt-cap-press)", "backgroundColor");
+            if (pill) { out.pill = { ready: look(pill), readyDot: dot(pill) };
+              await lock(pill, [":hover"], true); out.pill.hover = look(pill); out.pill.hoverDot = dot(pill);
+              await lock(pill, [":active"], true); out.pill.press = look(pill); out.pill.pressDot = dot(pill); await lock(pill, [":active", ":hover"], false); }
+            // geteilter Knopf: linke Hälfte bekommt denselben Kreis
+            const split = [...tb.children].find(b => vis(b) && !b.disabled && b.getAttribute("is") == "toolbarbutton-menu-button");
+            const half = split?.querySelector(".toolbarbutton-menubutton-button");
+            if (half) { out.split = { h: look(split).h }; await lock(split, [":hover"], true); await lock(half, [":hover"], true); out.split.dot = dot(half);
+              await lock(half, [":hover"], false); await lock(split, [":hover"], false); }
             out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient")).map(b => b.id);
             return out; });""")
         sd, pl = res.get("send") or {}, res.get("pill") or {}
         send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and sd["ready"]["img"].startswith("linear-gradient") and "inset" in sd["ready"]["sh"]
-                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [30, 30, "50%"]
+                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [38, 38, "50%"]
                    and sd["hover"]["bg"] == sd["ready"]["bg"] and sd["hover"]["img"] == sd["ready"]["img"] and sd["hover"]["sh"] == sd["ready"]["sh"]
                    and sd["press"]["img"] == "none" and luminance(sd["press"]["bg"]) < luminance(sd["ready"]["bg"]) and "inset" in sd["press"]["sh"])
+        # Kapsel 38 px mit Lichtkante bleibt unter der Maus und gedrückt gleich; Kreis 32 px: unter der Maus mit
+        # Lichtkante, gedrückt dunkler mit innerem Schatten ohne Licht (Entscheidung 17.11.2026, Möglichkeit 2)
+        hd, pd, rd = pl.get("hoverDot") or {}, pl.get("pressDot") or {}, pl.get("readyDot") or {}
+        circle = lambda o: o.get("w") == "32px" and o.get("h") == "32px" and o.get("r") in ("50%", "16px")
         pill_ok = (bool(pl) and same_color(pl["ready"]["bg"], res["control"]) and "inset" in pl["ready"]["sh"] and pl["ready"]["sh"].count("rgba") >= 2
-                   and same_color(pl["hover"]["bg"], res["hoverC"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
-                   and same_color(pl["press"]["bg"], res["pressC"]) and "inset" in pl["press"]["sh"] and pl["press"]["sh"].count("rgba") == 1)
-        ok = send_ok and pill_ok and res.get("lit") == ["button-send"]
+                   and pl["ready"]["h"] == 38 and rd.get("op") == "0"
+                   and same_color(pl["hover"]["bg"], res["control"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
+                   and same_color(pl["press"]["bg"], res["control"]) and pl["press"]["sh"] == pl["ready"]["sh"]
+                   and circle(hd) and hd["op"] == "1" and same_color(hd["bg"], res["capHover"]) and "inset" in hd["sh"] and hd["sh"].count("rgba") >= 2
+                   and circle(pd) and same_color(pd["bg"], res["capPress"]) and "inset" in pd["sh"] and pd["sh"].count("rgba") == 1)
+        sp = res.get("split") or {}
+        split_ok = bool(sp) and sp["h"] == 38 and circle(sp["dot"]) and sp["dot"]["op"] == "1" and "inset" in sp["dot"]["sh"]
+        ok = send_ok and pill_ok and split_ok and res.get("lit") == ["button-send"]
         return ok, f"{res}"
-    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 30 × 30 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
-          "Kapseln mit Lichtkante, Maus dunkler, gedrückt ohne Kante", compose_family, results)
+    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 38 × 38 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
+          "Kapseln 38 px mit Lichtkante, unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Kante", compose_family, results)
 
 
 DIALOG_READING_JS = READING_JS + r"""

@@ -2356,29 +2356,28 @@ function parseNatural(text, now = new Date()) {
     const plus = /^(morgen|tomorrow)$/i.test(m[1]) ? 1 : 0;
     day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + plus);
   }
+  // Jahr eines Datums ohne Jahr: dieses Jahr, ist Tag und Monat schon vorbei, das
+  // nächste. Erst danach das Datum bilden – sonst wird „29.2.“ im Jahr vor einem
+  // Schaltjahr zum 1. März und fällt durch die Prüfung unten
+  const nextYear = (month, date) =>
+    now.getFullYear() + (month < now.getMonth() || (month == now.getMonth() && date < now.getDate()) ? 1 : 0);
   // Datum 17.10.(2026) / 17/10
   if (!day && (m = take(new RegExp(`${B}(?:am\\s+|on\\s+)?(\\d{1,2})\\.(\\d{1,2})\\.(\\d{2,4})?${E}`, "iu")))) {
-    let y = m[3] ? Number(m[3]) : now.getFullYear();
+    let y = m[3] ? Number(m[3]) : nextYear(Number(m[2]) - 1, Number(m[1]));
     if (y < 100) {
       y += 2000;
     }
     day = new Date(y, Number(m[2]) - 1, Number(m[1]));
     want = [Number(m[2]) - 1, Number(m[1])];
-    if (!m[3] && day < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-      day.setFullYear(y + 1); // ohne Jahr: nächstes Vorkommen
-    }
   }
   // 17. Oktober / Oct 17 / October 17th
   const monthNames = Object.keys(NL_MONTHS).sort((a, b) => b.length - a.length).join("|");
   if (!day && (m = take(new RegExp(`${B}(?:am\\s+|on\\s+)?(\\d{1,2})\\.?\\s*(${monthNames})\\.?(?:\\s+(\\d{4}))?${E}`, "iu")))) {
-    day = new Date(m[3] ? Number(m[3]) : now.getFullYear(), NL_MONTHS[m[2].toLowerCase()], Number(m[1]));
     want = [NL_MONTHS[m[2].toLowerCase()], Number(m[1])];
+    day = new Date(m[3] ? Number(m[3]) : nextYear(...want), ...want);
   } else if (!day && (m = take(new RegExp(`${B}(${monthNames})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?${E}`, "iu")))) {
-    day = new Date(m[3] ? Number(m[3]) : now.getFullYear(), NL_MONTHS[m[1].toLowerCase()], Number(m[2]));
     want = [NL_MONTHS[m[1].toLowerCase()], Number(m[2])];
-  }
-  if (day && !m?.[3] && day < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && !/heute|today/i.test(m?.[0] || "")) {
-    day.setFullYear(day.getFullYear() + 1);
+    day = new Date(m[3] ? Number(m[3]) : nextYear(...want), ...want);
   }
   // Wochentag (nächstes Vorkommen; „nächsten Montag“ = in der nächsten Woche)
   if (!day && (m = take(new RegExp(`${B}(?:(am|on|nächsten|nächste[rn]?|next)\\s+)?(${dayNames})(?:\\s+morgens?)?${E}`, "iu")))) {

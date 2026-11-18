@@ -17235,7 +17235,8 @@ class CardEnhancer {
       } else {
         listRight = (folderRect?.right || 0) + (this.lastListRight ?? 0);
       }
-      const paneRight = rectOf(browserEl).left + listRight;
+      const browserLeft = rectOf(browserEl).left;
+      const paneRight = browserLeft + listRight;
       // für die übrigen Bereiche merken: dort beginnen die Knöpfe an derselben
       // Stelle, und die Kontaktliste im Adressbuch ist so breit wie die Mailliste
       this.mcButtonsLeft = paneRight + 6;
@@ -17244,7 +17245,8 @@ class CardEnhancer {
       }
       // Bezug ist der Anfang des ersten Abstandhalters (die Toolbar hat
       // eigenen Innenabstand); +6 px wie der Einzug in Apple Mail.
-      const start = rectOf(leadSpacer(content) || content).left;
+      const lead = leadSpacer(content);
+      const start = rectOf(lead || content).left;
       let offset = Math.max(0, Math.round(paneRight - start + 6));
       // nie links vom Seitenleisten-Knopf beginnen
       const toggle = top.document.getElementById("spacesPinnedButton");
@@ -17252,14 +17254,31 @@ class CardEnhancer {
       if (tb && tb.width) {
         offset = Math.max(offset, Math.round(tb.right - start + 12));
       }
-      setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
-      setVar(top.document.getElementById("unifiedToolbarContainer"), "--mc-row-tail", `${rowTail(top.document)}px`);
       // auch während die Today-Pane ein-/ausgleitet: sonst blendet das
       // Nachmessen mitten in der Animation Knöpfe um (ein 45-ms-Hänger)
       const animating = !top.__mcDry && (top.__mcSpacesAnimating || win.__mcAnimating ||
         top.document.getElementById("today-pane-panel")?.__mcAnimating);
+      const row = top.document.getElementById("unifiedToolbarContainer");
+      const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
+      // Während einer Ein-/Ausblend-Bewegung alles, was die Kanten weiter unten brauchen, schon hier messen – vor dem
+      // ersten Schreiben an die Toolbar-Zeile. Jede Variable dort lässt Thunderbird alle rund 150 Elemente der Zeile
+      // neu berechnen, sobald danach wieder gemessen wird; mit Messen und Schreiben im Wechsel waren das in der Mail
+      // vier Durchgänge je Bild, jetzt sind es zwei (gemessen im Hauptfenster: rund 580 statt 390 neu berechnete
+      // Elemente je Bild, Stil-Zeit der Bewegung etwa ein Siebtel kleiner). Ordnerliste, Ansicht und Zeile ändern ihre
+      // Lage durch diese Variablen nicht. Der Anfang der Knöpfe (Ende des ersten Abstandhalters) folgt dem Einzug genau, solange der
+      // Abstandhalter vorn steht und nicht gestaucht ist – das zeigt das Bild davor (Ende = Anfang + bisheriger Einzug);
+      // sonst wird wie bisher nach dem Schreiben gemessen
+      let vorab = null;
+      if (animating && row) {
+        const offsetBefore = parseFloat(barTarget(top.document).style.getPropertyValue("--mc-toolbar-offset"));
+        vorab = {
+          rowLeft: rectOf(row).left,
+          leadExact: !!lead && lead == firstSpacer && Math.abs(rectOf(lead).right - (start + offsetBefore)) < 0.75,
+        };
+      }
+      setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
+      setVar(top.document.getElementById("unifiedToolbarContainer"), "--mc-row-tail", `${rowTail(top.document)}px`);
       if (!animating) {
-        const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld
         // noch nicht ganz zur Lupe (40 px) geschrumpft ist – wie Apple Mail
         // wird zuerst die Suche schmaler, erst dann weichen Knöpfe
@@ -17316,20 +17335,18 @@ class CardEnhancer {
       // Rechte Kante der Ordnerliste relativ zur Toolbar-Zeile: damit färbt
       // userChrome.css die Seitenleiste bis ganz nach oben grau wie in Apple Mail.
       const folderPane = win.document.getElementById("folderPane");
-      const row = top.document.getElementById("unifiedToolbarContainer");
       if (folderPane && row) {
-        const fr = rectOf(folderPane);
+        const fr = vorab ? folderRect : rectOf(folderPane);
         const right = fr.width
-          ? rectOf(browserEl).left + fr.right - rectOf(row).left
+          ? (vorab ? browserLeft : rectOf(browserEl).left) + fr.right - (vorab ? vorab.rowLeft : rectOf(row).left)
           : 0;
         setBarVar(top.document, "--mc-sidebar-right", `${Math.max(0, Math.round(right))}px`
         );
         // rechte Kante der Mailliste für die Trennlinie in der Toolbar-Zeile
         // Ist das Fenster für alle Knöpfe zu schmal, schrumpft der Einzug davor –
         // die Kopfzeile über der Liste endet dann vor dem ersten Knopf
-        const firstSpacer = content.querySelector(':scope > li[item-id="spacer"]');
-        const buttonsStart = firstSpacer ? rectOf(firstSpacer).right : paneRight;
-        const rowLeft = rectOf(row).left;
+        const buttonsStart = vorab?.leadExact ? start + offset : firstSpacer ? rectOf(firstSpacer).right : paneRight;
+        const rowLeft = vorab ? vorab.rowLeft : rectOf(row).left;
         // Trennlinie an der echten Kante der Mailliste; reicht der Platz nicht
         // und die Knöpfe beginnen schon links davon, entfällt sie in der
         // Toolbar-Zeile (statt versetzt quer durch die Knöpfe zu laufen)

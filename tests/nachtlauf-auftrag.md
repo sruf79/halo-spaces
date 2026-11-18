@@ -620,6 +620,8 @@ Reihenfolge:
       Status „In Progress“ und der Notiz „wartet auf Push/CI“, dessen letzter Commit-Hash aus der Notiz auf
       origin/main liegt (git merge-base --is-ancestor), mit fertig.sh bzw. bei Reihen (n/m) wie oben
       abschließen. Hash nicht gefunden (z. B. nach Rebase): stehen lassen, nichts raten, im Bericht nennen.
+      publish.sh schließt zugeordnete Einträge schon selbst (tests/board-nach-release.zsh, Zeile „Board nach
+      Release“ im Release-Bericht, Maintainer 18.11.2026): schon archivierte nicht nochmals anfassen.
    Notizen zu Entscheidungen des Maintainers nur mit seinem Wortlaut als
    Zitat und Herkunft; eine Entscheidung im Eintrag nur mit neuem Zitat
    ändern oder aufheben, sonst im Bericht als Rückfrage nennen. Im Bericht

@@ -107,6 +107,24 @@ halten das Release nicht auf. Probe ohne Änderung: `./publish.sh --trocken x.y.
 `zsh tests/pr-schliessen.sh x.y.z --trocken`; Test ohne Netz: `zsh tests/pr_schliessen_test.zsh`
 (Entscheidung vom 9.11.2026, `ENTSCHEIDUNGEN.md`).
 
+## Board nach dem Release (Maintainer 18.11.2026)
+
+Auftrag des Maintainers (18.11.2026): „bitte hier einen opus oder fable agenten einen automatismus für das
+automatische schliessen von tasks nach einem release erstellen lassen“. Als letzten Schritt ruft `publish.sh`
+`tests/board-nach-release.zsh <version>` auf (alle Release-Wege enden dort: Nachtlauf, Release unter Tage,
+Zwischen-Release). Es liest das Board einmal und ordnet die Commits `v<vorheriges Tag>..v<version>` offenen
+Einträgen zu, nur über den Commit-Hash in einem „committet“-Absatz der Notizen (auch derselbe Patch nach einem
+Rebase) und über „(GitHub #n)“ im Commit gegen „GitHub #n“ im Titel, nie über Textähnlichkeit. Treffer bekommen
+die Notiz „erledigt in vX.Y.Z (<Hash>), automatisch geschlossen“ und `board.sh status <id> done <Hash>` (archiviert
+mit). Nie geschlossen: „Wartet auf OK“ (unberührt), Reihen n/m (nur Notiz „Schritt n in vX.Y.Z enthalten“) und
+Zweifel (Teil-Fix „teilweise“, Revert, Status Todo, offener Rest oder Rückfrage ab dem Treffer, neuere Arbeit
+ohne Release-Hash): diese stehen mit Datum, Version, Eintrag und Grund in
+`~/halo-aufgaben/board-nach-release-zweifel.md`, der Morgenbrief nennt ihre Zahl. Board nicht lesbar oder
+Schreiben gescheitert: nichts bzw. nur Fehlendes nicht geschlossen, Meldung an neon (`an_neon`); das Release
+scheitert daran nie. Idempotent (zweiter Lauf tut nichts). Probe ohne Änderung:
+`zsh tests/board-nach-release.zsh --probe x.y.z` (auch in `./publish.sh --trocken x.y.z`); Test ohne Netz:
+`zsh tests/board_nach_release_test.zsh`.
+
 ## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
 
 Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unverändert hierher verschoben; nur die Überschriften stehen eine Ebene tiefer. Verweise wie „oben“, „unten“ oder „dieser Datei“ meinen das damalige `AGENTS.md`. Die Kurzfassung für jede Sitzung steht im Kern `AGENTS.md`; Wortlaute der Entscheidungen: `ENTSCHEIDUNGEN.md`.

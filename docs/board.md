@@ -142,6 +142,14 @@ setzt den Status und archiviert gleich mit (der Hash kommt ins Archivverzeichnis
 und ohne Archivierung bleibt sonst im Board sichtbar. Wer den Status von Hand oder über den Cloud-Weg setzt,
 archiviert im selben Zug.
 
+**Done durch den Release-Weg** (Maintainer 18.11.2026, `docs/release.md` „Board nach dem Release“): Nach jedem
+Release setzt `publish.sh` über `tests/board-nach-release.zsh` die Einträge auf Done und archiviert sie, deren
+Commit-Hash aus einer Notiz „committet, wartet auf Push/CI (<Hash>)“ oder deren „GitHub #n“ im Titel (Commit
+„(GitHub #n)“) im Release steckt. Deshalb den Hash immer in die „committet“-Notiz schreiben; Teil-Fixe mit
+„teilweise“ im Commit kennzeichnen und offene Reste als „Offen: …“ notieren, dann bleibt der Eintrag offen.
+Unberührt bleiben „Wartet auf OK“, Reihen n/m (nur Notiz „Schritt n in vX.Y.Z enthalten“) und Zweifelsfälle
+(`~/halo-aufgaben/board-nach-release-zweifel.md`, Morgenbrief). Sitzungen dürfen Done weiter selbst setzen.
+
 Archivierte Einträge kommen aus der API nicht mehr in der Liste (nur einzeln per id). Deshalb schreibt
 `board.sh archiv <id> [<Hash>]` vor dem Archivieren eine Zeile (Datum | id | Typ | Titel | Hash, keine Texte)
 nach `~/halo-aufgaben/archiv.md` (nicht im Repo; auch der CI-Wächter schreibt sie). `board.sh suche <Begriff>`

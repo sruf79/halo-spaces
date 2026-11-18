@@ -182,7 +182,9 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   `HOTFIX="<Muster>" ./release.sh x.y.z`.
 - Zwischen `release.sh` und `publish.sh` nicht neu bauen (sonst passt der Hash nicht). Meldet
   `publish.sh` „FEHLER“, sofort klären, sonst bekommen Nutzer das Update nicht.
-- Ablauf, Bericht, Store, Issues schließen: `docs/release.md`.
+- Zuletzt setzt `publish.sh` die Board-Einträge, deren Commit im Release steckt, auf Done
+  (`tests/board-nach-release.zsh`, Zweifel nach `~/halo-aufgaben/board-nach-release-zweifel.md`, Maintainer 18.11.2026).
+- Ablauf, Bericht, Store, Issues schließen, Board nach dem Release: `docs/release.md`.
 
 ## Konventionen
 
@@ -240,7 +242,8 @@ Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal d
   automatisch): `docs/dauerfreigaben.md`; im Zweifel wie C behandeln.
 - **Status:** In Progress bei Beginn; nach dem Commit Notiz mit Hash („committet, wartet auf
   Push/CI“); Done und archivieren erst, wenn der Commit auf `main` ist und die CI grün war (macht, wer
-  pusht und die CI prüft). **Done heißt immer auch archivieren** (Entscheidung des Maintainers vom
+  pusht und die CI prüft; seit 18.11.2026 tut es auch der Release-Weg über `tests/board-nach-release.zsh`,
+  Sitzungen dürfen es weiter selbst tun). **Done heißt immer auch archivieren** (Entscheidung des Maintainers vom
   12.11.2026): `tests/board.sh status <id> done [<Hash>]` tut beides; wer den Status anders setzt (von
   Hand, Cloud-Weg), archiviert im selben Zug, sonst bleibt der Eintrag im Board sichtbar. Höchstens drei Einträge in Arbeit je Sitzung (zugleich In Progress,
   ohne „wartet auf Push/CI“); Unfertiges am Ende mit Notiz zurück auf Todo.

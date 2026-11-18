@@ -3530,6 +3530,7 @@ function hookTaskLists(win, restorers) {
     newRow.remove();
     ctxNew.remove();
     ctxDelete.remove();
+    ctxRename.remove(); // (blieb stehen: nach einem Update ohne Neustart stand „Rename“ doppelt im Menü)
     ctx?.removeEventListener("popupshowing", onCtx);
     for (const [id, l10n] of ctxSaved) {
       const item = doc.getElementById(id);
@@ -7748,8 +7749,9 @@ loadPart("grundlagen.js");
 // (extensions.mailcards.calendarOffline = true): Thunderbird legt den
 // Kalender dafür neu an (neue Kennung) – das stört Kalender, die andere
 // Add-ons verwalten (TbSync, Provider), und lädt alles neu herunter.
+const CALENDAR_OFFLINE_PREF = "extensions.mailcards.calendarOffline";
 function enableCalendarOffline() {
-  if (!Services.prefs.getBoolPref("extensions.mailcards.calendarOffline", false)) {
+  if (!Services.prefs.getBoolPref(CALENDAR_OFFLINE_PREF, false)) {
     return 0;
   }
   let changed = 0;
@@ -8079,9 +8081,20 @@ class CardEnhancer {
       }, 6000);
       this.restorers.push(() => clearTimeout(noteTimer));
     }
-    // nach dem Start, wenn der Kalender-Manager bereit ist
+    // nach dem Start, wenn der Kalender-Manager bereit ist; beim Einschalten in den Einstellungen sofort
+    // (galt sonst erst nach einem Neustart, ohne dass die Einstellung das sagte)
     const offlineTimer = setTimeout(() => enableCalendarOffline(), 8000);
-    this.restorers.push(() => clearTimeout(offlineTimer));
+    const offlineObs = { observe: () => enableCalendarOffline() };
+    Services.prefs.addObserver(CALENDAR_OFFLINE_PREF, offlineObs);
+    this.restorers.push(() => {
+      clearTimeout(offlineTimer);
+      Services.prefs.removeObserver(CALENDAR_OFFLINE_PREF, offlineObs);
+    });
+    // Fehlerbehebung (Design bzw. eigene Symbole aus/an) gilt sofort statt erst nach einem Neustart: beide werden
+    // an vielen Stellen nur beim Aufbau gelesen – darum alles abbauen und neu aufbauen wie bei einem Update
+    const rebuildObs = { observe: () => rebuildEnhancerSoon() };
+    REBUILD_PREFS.forEach(pref => Services.prefs.addObserver(pref, rebuildObs));
+    this.restorers.push(() => REBUILD_PREFS.forEach(pref => Services.prefs.removeObserver(pref, rebuildObs)));
     // Update gleich beim Start statt erst bei Thunderbirds täglicher Prüfung
     const updateTimer = setTimeout(() => this.autoUpdate(), 20000);
     this.restorers.push(() => clearTimeout(updateTimer));
@@ -17424,6 +17437,17 @@ class CardEnhancer {
     const res = Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler);
     res.setSubstitution("mailcards", extensionRoot);
     this.restorers.push(() => res.setSubstitution("mailcards", null));
+    // Stilblätter mit fester Adresse (Info-Fenster, Einstellungsseite: <link> ohne Version): nach einem
+    // Paketwechsel ohne Neustart lieferte Thunderbirds Zwischenspeicher dort noch die alte Fassung – leeren
+    try {
+      if (typeof ChromeUtils.clearResourceCache == "function") {
+        ChromeUtils.clearResourceCache({ types: ["stylesheet"] });
+      } else {
+        ChromeUtils.clearStyleSheetCache?.();
+      }
+    } catch (e) {
+      log("stylesheet cache error", String(e).slice(0, 120));
+    }
     // Design in alle offenen Fenster (neue übernimmt der docObserver);
     // die Version in der Adresse umgeht Thunderbirds Stylesheet-Zwischenspeicher
     ThemeSheet.uri = `resource://mailcards/theme.css?v=${extensionVersion}`;
@@ -17730,7 +17754,8 @@ class CardEnhancer {
       doc.removeEventListener("popupshowing", onShowing);
       off.forEach(el => el.removeAttribute("mc-ctx-off"));
       for (const [el, parent, next] of moved.reverse()) {
-        if (el == open || el == filters || el.classList.contains("mc-ctx-sep")) {
+        // (auch „Create Rule from Message…“: blieb sonst stehen und stand nach einem Update ohne Neustart doppelt)
+        if (el == open || el == filters || el == makeFilter || el.classList.contains("mc-ctx-sep")) {
           el.remove();
         } else if (parent) {
           parent.insertBefore(el, next?.parentNode == parent ? next : null);
@@ -22025,6 +22050,8 @@ class CardEnhancer {
 // WebExtension-Experiment
 // ---------------------------------------------------------------------------
 
+// Fehlerbehebung: Design und eigene Symbole aus/an – gelten sofort (rebuildEnhancerSoon)
+const REBUILD_PREFS = ["extensions.mailcards.bundledTheme", "extensions.mailcards.appleIcons"];
 // Einstellungen der Optionsseite: Schlüssel → Pref (Typ), nur diese sind erlaubt
 // (Vorschauzeilen: Menü Ansicht, Geburtstage: Häkchen in der Kalenderliste)
 const SHOW_LOCAL_PREF = "extensions.mailcards.showLocalFolders";
@@ -22045,9 +22072,9 @@ const SETTINGS = {
   plainTextSystemFont: [PLAIN_TEXT_PREF, "bool", true],
   autoUpdate: [AUTO_UPDATE_PREF, "bool", true],
   hideCollectedAddresses: [HIDE_COLLECTED_PREF, "bool", true],
-  calendarOffline: ["extensions.mailcards.calendarOffline", "bool", false],
-  appleIcons: ["extensions.mailcards.appleIcons", "bool", true],
-  bundledTheme: ["extensions.mailcards.bundledTheme", "bool", true],
+  calendarOffline: [CALENDAR_OFFLINE_PREF, "bool", false],
+  appleIcons: [REBUILD_PREFS[1], "bool", true],
+  bundledTheme: [REBUILD_PREFS[0], "bool", true],
   debug: ["extensions.mailcards.debug", "bool", false],
   // Thunderbirds eigene Umfärbung von HTML-Mails im Dunkelmodus (ab Thunderbird 13x);
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
@@ -22072,6 +22099,25 @@ function readSetting([pref, type, def]) {
 }
 
 var enhancer = null;
+// Einstellungen, die an vielen Stellen nur beim Aufbau gelesen werden (Fehlerbehebung: Design, eigene Symbole):
+// eine Änderung baut die Erweiterung in allen offenen Fenstern ab und neu auf – derselbe Weg wie bei einem Update
+// ohne Neustart (stop(), dann ein neuer Start), einmal je Änderung
+let rebuildTimer = null;
+function rebuildEnhancerSoon() {
+  if (rebuildTimer) {
+    return;
+  }
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null;
+    if (!enhancer) {
+      return;
+    }
+    log("rebuild", REBUILD_PREFS.map(pref => Services.prefs.getBoolPref(pref, true)));
+    enhancer.stop();
+    enhancer = new CardEnhancer({});
+    enhancer.start();
+  }, 0);
+}
 var extensionRoot = null; // rootURI der Erweiterung, für resource://mailcards/
 var extensionVersion = ""; // hängt an den Stylesheet-Adressen, damit ein Update sofort greift
 // Projektseite, einzige Quelle ist homepage_url im Manifest (Weiterempfehlen im Info-Fenster)

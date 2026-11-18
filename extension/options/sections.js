@@ -68,8 +68,8 @@ var SECTIONS = t => [
   ]],
   // Fehlerbehebung: nur abschalten, wenn etwas nicht stimmt (eingeklappt)
   [t("Troubleshooting"), [
-    { key: "bundledTheme", label: t("halo.spaces design"), hint: t("After a restart.") },
-    { key: "appleIcons", label: t("Own icons"), hint: t("After a restart.") },
+    { key: "bundledTheme", label: t("halo.spaces design") },
+    { key: "appleIcons", label: t("Own icons") },
     { key: "debug", label: t("Detailed log"),
       hint: t("mail-cards-debug.log in the profile."), info: t("Includes sender addresses.") },
   ], { collapsed: true }],

@@ -85,7 +85,7 @@ function hookMultiweekScroll(mv, win, B) {
   const LINE = 18; // eine Mausrad-Raste: etwa eine Textzeile
   // pos: Verschiebung gegen den geladenen Bereich; moved: alles, was seit
   // dem Öffnen um ganze Wochen weitergerückt wurde (für das Standbild)
-  let pos = 0, moved = 0, idle = 0, anim = 0, frame = 0, rowCache = 0, mask = null;
+  let pos = 0, moved = 0, idle = 0, anim = 0, frame = 0, rowCache = 0, mask = null, wheelAt = -1e9;
   // vis: um so viele Wochen ist der sichtbare Bereich gegen den geladenen
   // (Mitte) schon weitergerückt, ohne Neuaufbau; later: Neuaufbau im Leerlauf
   let vis = 0, later = 0, shifting = false, pending = 0;
@@ -414,6 +414,7 @@ function hookMultiweekScroll(mv, win, B) {
     }
     event.preventDefault();
     event.stopPropagation();
+    wheelAt = win.performance.now();
     if (anim) {
       win.cancelAnimationFrame(anim);
       anim = 0;
@@ -489,6 +490,9 @@ function hookMultiweekScroll(mv, win, B) {
     }
   };
   mv.__mcScrollPos = () => pos;
+  // gerade gescrollt (Rad, Einrasten, Schwung, Neuaufbau steht an): für den
+  // Vorrat, der dann wartet
+  mv.__mcScrollBusy = () => !!(anim || pending) || win.performance.now() - wheelAt < 300;
   apply();
   return () => {
     mv.removeEventListener("wheel", onWheel, { capture: true });
@@ -596,7 +600,7 @@ function hookMultiweekBuffer(mv, restorers) {
   const EVENTS = Ci.calICalendar.ITEM_FILTER_TYPE_EVENT;
   const WEEK_US = 7 * 864e8;
   const store = new Map(), version = new Map();
-  let loading = null, idleLoad = 0;
+  let loading = null, idleLoad = 0, busyLoad = 0;
   const shown = c => !!c && !c.getProperty("disabled") && !!c.getProperty("calendar-main-in-composite");
   const covers = (st, lo, hi) => st && st.s <= lo && st.e >= hi;
   // Kalender, deren Vorrat den geladenen Bereich nicht mehr um ein halbes Jahr
@@ -636,9 +640,21 @@ function hookMultiweekBuffer(mv, restorers) {
     return loading;
   };
   const preloadLater = () => {
-    if (!idleLoad) {
+    if (!idleLoad && !busyLoad) {
       const run = () => {
         idleLoad = 0;
+        // nicht mitten im Scrollen: das Bild mit dem Ergebnis der Abfrage
+        // (zwei Jahre, Aufbereiten rund 12 ms, dazu Häppchen der
+        // Puffer-Wochen) dauerte rund 30 ms und wurde unter Last zu einem
+        // weiteren langen Bild; der Vorrat reicht noch ein halbes Jahr
+        // weiter, also erst, wenn das Scrollen kurz ruht
+        if (mv.__mcScrollBusy?.()) {
+          busyLoad = win.setTimeout(() => {
+            busyLoad = 0;
+            preloadLater();
+          }, 300);
+          return;
+        }
         if (mv.__mcVisible && mv.isVisible?.()) {
           preload();
         }
@@ -716,14 +732,23 @@ function hookMultiweekBuffer(mv, restorers) {
       log("multiweek buffer layout error", String(e).slice(0, 120));
     }
     // nach dem Aufruf (setDateRange setzt danach erst den sichtbaren Bereich,
-    // nach dem sich das Eintragen in Häppchen richtet), noch vor dem Zeichnen
-    Promise.resolve().then(() => {
+    // nach dem sich das Eintragen in Häppchen richtet), noch vor dem Zeichnen.
+    // Neuaufbau beim Scrollen (Standbild liegt darüber): erst im nächsten
+    // Bild – Neuaufbau (rund 22 ms) und Eintragen der sichtbaren Wochen
+    // (rund 25 ms) in einem Bild ergaben über 70 ms Bildzeit; unter dem
+    // Standbild sieht man den Unterschied nicht
+    const run = () => {
       try {
         prefill(this);
       } catch (e) {
         log("multiweek prefill error", String(e).slice(0, 120));
       }
-    });
+    };
+    if (this.querySelector(".mc-mw-mask")) {
+      win.requestAnimationFrame(run);
+    } else {
+      Promise.resolve().then(run);
+    }
     return r;
   };
   proto.setDateRange = function (startDate, endDate) {
@@ -951,8 +976,9 @@ function hookMultiweekBuffer(mv, restorers) {
     if (idleLoad) {
       (win.cancelIdleCallback || win.clearTimeout).call(win, idleLoad);
     }
+    win.clearTimeout(busyLoad);
     store.clear();
-    for (const name of ["__mcPreload", "__mcPre", "__mcSeen", "__mcPreloads", "__mcPrefills"]) {
+    for (const name of ["__mcPreload", "__mcScrollBusy", "__mcPre", "__mcSeen", "__mcPreloads", "__mcPrefills"]) {
       delete mv[name];
     }
     for (const [name, own, fn] of saved) {

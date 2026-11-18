@@ -367,8 +367,10 @@ entscheiden() {
 # und MAX_COMMITS (im Volldampf MAX_COMMITS_VOLLDAMPF, 0 = keine Grenze; Maintainer 17.11.2026).
 VD=nein VD_STATUS= VD_BERICHT= MAX_COMMITS=$KONF[MAX_COMMITS_TAG]
 volldampf_lesen() {
-  [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_wochenlimit_pruefen $K_WOCHE
-  [[ -z $TROCKEN && -n $K_WOCHE ]] && volldampf_reset_erinnern $K_WOCHE   # einmal ab 90 % (eigener Commit)
+  # NUR_ZEIT: Platzhalter-Woche 0 (nur Tag und Zeitfenster) darf weder Wochenstand noch Anker noch Erinnerung schreiben –
+  # sonst galt der Sturz „Woche vorher → 0“ um 08:45 als freier Reset (falscher Anker, falsche Meldung; 18.11.2026)
+  [[ -z $TROCKEN && -z $NUR_ZEIT && -n $K_WOCHE ]] && volldampf_wochenlimit_pruefen $K_WOCHE
+  [[ -z $TROCKEN && -z $NUR_ZEIT && -n $K_WOCHE ]] && volldampf_reset_erinnern $K_WOCHE   # einmal ab 90 % (eigener Commit)
   if volldampf_aktiv >/dev/null; then VD=ja; else VD=nein; fi
   VD_STATUS=$(volldampf_status)
   VD_BERICHT=${VD_STATUS:#*angemeldet*}   # Bericht, Kurz-Zeile, Auftrag: nur aktiv bzw. beendet
@@ -534,7 +536,7 @@ fi
 
 # =================================== echter Lauf ===================================
 mkdir -p $DIR $BERICHTE
-HALO_KONTINGENT_WOCHE=0 entscheiden >/dev/null 2>&1 || true   # nur TAG und Zeitfenster, ohne kontingent.sh
+NUR_ZEIT=1 HALO_KONTINGENT_WOCHE=0 entscheiden >/dev/null 2>&1 || true   # nur TAG und Zeitfenster, ohne kontingent.sh
 TAG=${E[TAG]:-$(date +%F)}
 LOG=$DIR/$TAG-tagesroutine.log
 BERICHT=$BERICHTE/$TAG-tagesroutine.md
@@ -605,7 +607,7 @@ if [[ $E[FENSTER] != ja && -n $E[WARTE_START] ]]; then
   log "vor dem Beginn ${${E[WARTE_START]}[12,16]} (kein Volldampf) – warte ohne Claude"
   bis=$(python3 -I -c 'import sys,datetime as d;print(int(d.datetime.fromisoformat(sys.argv[1]).timestamp()))' $E[WARTE_START])
   while (( $(date +%s) < bis )); do sleep 20; done
-  HALO_KONTINGENT_WOCHE=0 entscheiden >/dev/null 2>&1 || true
+  NUR_ZEIT=1 HALO_KONTINGENT_WOCHE=0 entscheiden >/dev/null 2>&1 || true
 fi
 if [[ $E[FENSTER] != ja ]]; then
   log "außerhalb des Zeitfensters ($KONF[WOCHENTAGE] $KONF[START]–$KONF[ENDE], Sa/So ab $KONF[START_WOCHENENDE]) – kein Lauf"

@@ -227,6 +227,19 @@ pruefe "Zeitgrenzen folgen Volldampf sofort (an → 23:30/23:59, aus → 20:30/2
   '^an 23:30 23:59 1' '^aus 20:30 22:00 1' '^ja 23:59' '^nein 22:00'
 pruefe "volldampf_lesen setzt die Zeitgrenzen, Wache liest sie jede Minute neu" "$(<$SKRIPT)" \
   'grenzen_setzen \$VD' 'while \(\( \$\(date \+%s\) < \$\(grenzen_setzen; print \$HART\) \)\)'
+# Platzhalter-Woche 0 beim Start (08:45, nur Tag und Zeitfenster) ist kein freier Reset (18.11.2026): mit NUR_ZEIT kein
+# Wochenstand, kein Anker; ohne NUR_ZEIT (echter Wert) erkennt derselbe Sturz den Anker
+VL=$(sed -n '/^volldampf_lesen() {/,/^}/p' $SKRIPT)
+print "2026-11-18T08:00+01:00 67" > $T/stand.txt
+pruefe "Start 08:45: Platzhalter-Woche 0 schreibt keinen Anker und keinen Wochenstand" "$(
+  LOG=/dev/null; source ${SKRIPT:h}/lauf-hilfen.zsh; eval $VL; grenzen_setzen() { : }; volldampf_status() { : }
+  export HALO_JETZT=2026-11-18T08:45+01:00 HALO_WOCHENSTAND=$T/stand.txt HALO_WOCHENANKER=$T/fa-anker.txt HALO_PUSH_TROCKEN=1 \
+    HALO_UEBERSPRUNGEN_LOG=/dev/null HALO_HANDELN_LOG=/dev/null HALO_VOLLDAMPF_DATEI=$T/kein-volldampf.txt HALO_VOLLDAMPF_ERINNERT=$T/fa-erinnert.txt
+  TROCKEN= K_WOCHE=0; NUR_ZEIT=1 volldampf_lesen >/dev/null
+  print "nur_zeit anker=$([[ -e $T/fa-anker.txt ]] && print ja || print nein) stand=$(<$T/stand.txt)"
+  volldampf_lesen >/dev/null
+  print "echt anker=$([[ -s $T/fa-anker.txt ]] && print ja || print nein)")" \
+  '^nur_zeit anker=nein stand=2026-11-18T08:00\+01:00 67$' '^echt anker=ja$'
 # Nachtlauf: ohne Volldampf (aus, Ende) sofort wieder alle normalen Grenzen samt Ende 08:00
 pruefe "Nachtlauf: Rückfall setzt auch ENDE auf 08:00 zurück und meldet „Volldampf aus“" "$(<${SKRIPT:h}/nachtlauf.sh)" \
   'ENDE=\$NORMAL_ENDE NACHT_ENDE_TEXT=\$NORMAL_ENDE_TEXT' 'Volldampf aus \(von Hand ausgeschaltet'

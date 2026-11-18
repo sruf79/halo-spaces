@@ -546,7 +546,9 @@
   appearance: none !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
-  color: var(--mt-text) !important;
+  /* grau und halbfett wie die Pfeile daneben: Monat und Pfeile sind
+     Navigation, die Tage darunter der Inhalt */
+  color: var(--mt-text-secondary) !important;
   opacity: 1 !important;
 }
 
@@ -577,7 +579,31 @@
   outline: none !important;
 }
 
+/* Tage anderer Monate noch blasser als das Wochenende */
+:root {
+  --mt-text-quaternary: #B4B4B9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mt-text-quaternary: #5A5A5E;
+  }
+}
+
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[othermonth] {
+  color: var(--mt-text-quaternary) !important;
+}
+
+/* Samstag und Sonntag grau (Textfarbe 3); welche Spalten das sind, hängt vom
+   Wochenbeginn ab (data-mc-wkst = calendar.week.start, setzt die
+   Erweiterung; die erste Zelle jeder Zeile ist die Kalenderwoche) */
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="0"] td.minimonth-day:is(:nth-child(2), :nth-child(8)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="1"] td.minimonth-day:is(:nth-child(7), :nth-child(8)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="2"] td.minimonth-day:is(:nth-child(6), :nth-child(7)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="3"] td.minimonth-day:is(:nth-child(5), :nth-child(6)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="4"] td.minimonth-day:is(:nth-child(4), :nth-child(5)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="5"] td.minimonth-day:is(:nth-child(3), :nth-child(4)):not([othermonth], [today]),
+:is(#calMinimonth, #today-minimonth)[data-mc-wkst="6"] td.minimonth-day:is(:nth-child(2), :nth-child(3)):not([othermonth], [today]) {
   color: var(--mt-text-tertiary) !important;
 }
 
@@ -6709,66 +6735,6 @@ addon-card .addon-inline-options {
   padding: 8px 12px 4px !important;
 }
 
-#mcAgendaTitle {
-  /* ‹  Monat Jahr  › mittig, Pfeile außen wie im Minikalender */
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 6px !important;
-  padding: 8px 14px 6px !important;
-  font-size: calc(18px * var(--mt-font-scale, 1)) !important;
-  font-weight: 400 !important;
-  color: var(--mt-text) !important;
-}
-
-#mcAgendaTitle .mc-agenda-month {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  text-align: center !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-#mcAgendaTitle .mc-agenda-nav {
-  appearance: none !important;
-  flex: none !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 26px !important;
-  height: 26px !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: transparent !important;
-  color: var(--mt-text-secondary) !important;
-}
-
-#mcAgendaTitle .mc-agenda-nav:hover {
-  background: var(--mt-control-hover) !important;
-  color: var(--mt-text) !important;
-}
-
-#mcAgendaTitle .mc-agenda-nav::before {
-  content: "" !important;
-  width: 16px !important;
-  height: 16px !important;
-  background-color: currentColor !important;
-  mask: var(--mi-chevron) center / contain no-repeat !important;
-  transform: rotate(90deg) !important;
-}
-
-#mcAgendaTitle .mc-next::before {
-  transform: rotate(-90deg) !important;
-}
-
-#mcAgendaTitle b {
-  font-weight: 700 !important;
-}
-
 /* Terminliste als weiße, abgerundete Karte in der grauen Today-Pane –
    Inhalt weiß, Navigation (Minikalender, Monat) grau */
 #agenda {
@@ -6778,8 +6744,10 @@ addon-card .addon-inline-options {
      Scrollen läuft der Text unten in einen Verlauf (::after) statt hart
      abgeschnitten zu werden */
   padding: 4.5px 10px 25px 6px !important;
-  /* außen rundum gleich: 8 px wie seitlich, auch unten zur Statusleiste */
-  margin: 0 8px 8px !important;
+  /* außen rundum gleich: 8 px wie seitlich, auch unten zur Statusleiste und
+     oben zur Linie unter dem Minikalender (der Monat steht nur noch über dem
+     Minikalender, eine eigene Monatszeile über der Liste gibt es nicht) */
+  margin: 8px !important;
   border-radius: 12px !important;
   border: none !important;
   box-shadow: 0 0 0 0.5px var(--mt-sidebar-border) !important;
@@ -9904,7 +9872,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* ---------- Today-Pane: jeder Termin gleich aufgebaut ----------
-   links der Titel (immer vollständig, notfalls mehrzeilig), rechts eine
+   links der Titel (einzeilig, mit „…“ gekürzt), rechts eine
    feste Spalte: oben die Uhrzeit – bei laufenden Terminen „now“ in Rot –,
    darunter bei bald beginnenden (≤ 3 Std., data-mc-soon) „in 2 hr“ klein in
    Rot. Keine Pillen, nichts verschiebt sich. */
@@ -9918,13 +9886,15 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   width: 100% !important;
 }
 
+/* Titel einzeilig, am Ende mit „…“ gekürzt (auch ganztägige auf getönter
+   Fläche); den vollen Titel zeigt der Tooltip des Termins (itemTooltip) */
 #agenda .agenda-listitem .agenda-listitem-title {
   grid-column: 1 !important;
   grid-row: 1 / span 2 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  overflow-wrap: anywhere !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  overflow-wrap: normal !important;
   -webkit-line-clamp: none !important;
   display: block !important;
 }
@@ -10527,7 +10497,7 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
    Tastaturfokus: sichtbarer Ring in Akzentfarbe – auch dort, wo das Theme
    den Standardring oben entfernt (nur bei Tastaturbedienung, :focus-visible)
    --------------------------------------------------------------------------- */
-:is(#mcTodayToggle, #mcAgendaTitle .mc-agenda-nav,
+:is(#mcTodayToggle,
     calendar-month-day-box > .mc-more, #mcNewPopup .mc-pop-item,
     #editContactForm .add-property-button, .im-placeholder-screen button,
     #appMenu-uiDensity-controls > .subviewbutton):focus-visible,
@@ -11493,6 +11463,7 @@ datepicker[mc-inline] > menulist {
     --mt-hairline: 1px;
     --mt-text-secondary: #3C3C43;
     --mt-text-tertiary: #545458;
+    --mt-text-quaternary: #8E8E93;
     --mt-separator: rgba(0, 0, 0, 0.30);
     --mt-pane-line: rgba(0, 0, 0, 0.40);
     --mt-sidebar-border: rgba(0, 0, 0, 0.35);
@@ -11520,6 +11491,7 @@ datepicker[mc-inline] > menulist {
   :root {
     --mt-text-secondary: #D1D1D6;
     --mt-text-tertiary: #AEAEB2;
+    --mt-text-quaternary: #7C7C80;
     --mt-separator: rgba(255, 255, 255, 0.30);
     --mt-pane-line: rgba(255, 255, 255, 0.40);
     --mt-sidebar-border: rgba(255, 255, 255, 0.35);

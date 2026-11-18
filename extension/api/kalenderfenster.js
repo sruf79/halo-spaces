@@ -981,6 +981,24 @@ class EnhancerKalender {
     };
     mm?.addEventListener("change", onMmChange);
     mm?.addEventListener("select", onMmSelect);
+    // Pfeile des Mini-Kalenders blättern auch die Liste (eine eigene
+    // Monatszeile über der Liste gibt es nicht mehr): zeigt er einen anderen
+    // Monat als die Liste, wechselt sie in diesen Monat. Klick auf einen Tag
+    // und setDay() stellen Liste und Mini-Kalender selbst auf denselben Monat,
+    // dann ist nichts zu tun. (Die Liste reicht nur bis zum Monatsende, beim
+    // Scrollen verlässt sie den Monat des Mini-Kalenders also nie)
+    const onMmMonth = () => {
+      w.setTimeout(() => {
+        const y = Number(mm.getAttribute("year"));
+        const m = Number(mm.getAttribute("month"));
+        const start = w.TodayPane?.start;
+        if (!start || !mm.hasAttribute("month") || (start.year == y && start.month == m)) {
+          return;
+        }
+        this.showAgendaMonth(w, y, m);
+      }, 0);
+    };
+    mm?.addEventListener("monthchange", onMmMonth);
     // Thunderbird zeigt für andere Tage als heute nur diesen einen Tag –
     // hier immer den Monat des Tags bis zum Monatsende
     agenda.update = async function (date) {
@@ -1023,6 +1041,7 @@ class EnhancerKalender {
       agenda.removeEventListener("scroll", follow);
       mm?.removeEventListener("change", onMmChange);
       mm?.removeEventListener("select", onMmSelect);
+      mm?.removeEventListener("monthchange", onMmMonth);
       pinMo.disconnect();
       pinRo?.disconnect();
       Object.defineProperty(agenda, "numberOfDays", {
@@ -1033,6 +1052,34 @@ class EnhancerKalender {
       try {
         w.TodayPane.updatePeriod();
       } catch {} // gewollt: Today-Pane schon entladen
+    });
+  }
+
+  // Wochenbeginn an den Mini-Kalendern der Today-Pane und der Kalenderleiste:
+  // damit färbt das CSS Samstag und Sonntag grau (data-mc-wkst)
+  markMinimonthWeekStart(w) {
+    const d = w.document;
+    const PREF = "calendar.week.start";
+    const IDS = ["today-minimonth", "calMinimonth"];
+    if (d.documentElement.__mcWkst) {
+      return;
+    }
+    d.documentElement.__mcWkst = true;
+    const set = () => {
+      const ws = ((Services.prefs.getIntPref(PREF, 0) % 7) + 7) % 7;
+      for (const id of IDS) {
+        d.getElementById(id)?.setAttribute("data-mc-wkst", String(ws));
+      }
+    };
+    set();
+    const obs = { observe: set };
+    Services.prefs.addObserver(PREF, obs);
+    this.restorers.push(() => {
+      Services.prefs.removeObserver(PREF, obs);
+      for (const id of IDS) {
+        d.getElementById(id)?.removeAttribute("data-mc-wkst");
+      }
+      delete d.documentElement.__mcWkst;
     });
   }
 
@@ -1060,12 +1107,12 @@ class EnhancerKalender {
     }
   }
 
-  // Monat der Today-Pane wechseln: aktueller Monat ab heute, sonst ab dem 1.
-  shiftAgendaMonth(w, dir) {
+  // Today-Pane auf einen Monat stellen (Pfeile des Mini-Kalenders): im
+  // laufenden Monat ab heute, sonst ab dem 1.
+  showAgendaMonth(w, year, month) {
     try {
       const { cal } = ChromeUtils.importESModule("resource:///modules/calendar/calUtils.sys.mjs");
-      const start = w.TodayPane.start;
-      const target = new Date(start.year, start.month + dir, 1);
+      const target = new Date(year, month, 1);
       const now = new Date();
       const day = target.getFullYear() == now.getFullYear() && target.getMonth() == now.getMonth()
         ? now : target;

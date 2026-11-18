@@ -195,7 +195,12 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   ganz – kein Eintrag, kein Push, auch nicht für ihre KONSOLE-/PROTOKOLL-Zeilen
   (Entscheidung des Maintainers vom 5.11.2026); ihre Fehler sammelt ein
   Eintrag von Hand. `tests/MAC-MINI.md` Abschnitt 14.
-- **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf) wertet `tests/wochenpruefung.sh` die
+- **Wochenprüfung:** sonntags 08:00 (wartet bis 09:15 auf den Nachtlauf, danach wie der Nachtlauf auf eine CI bis zu
+  ihrem Ende, längstens 10:00, auf Testläufe 60 und auf `release.sh`/`publish.sh` 20 Minuten; andere Sitzung,
+  Windows-VM und ungespeicherte Änderungen sofort auslassen; Maintainer 18.11.2026, vorher 90 Minuten nur auf die
+  CI; `woche_warten` in `tests/vorpruefung.zsh`, Prüfung `zsh tests/nachtlauf_warten_test.zsh`; Grenze 10:00, weil
+  eine CI ab dem Ende der Push-Sperre 09:00 auch dunkel vorher fertig ist und die Tagesroutine Sa/So so lange
+  wartet) wertet `tests/wochenpruefung.sh` die
   letzten 7 Tage aus (CI, Nachtläufe, Berichte, Board; auch, ob der Nachtlauf früher als
   möglich – vor 04:30 bzw. nach grüner CI vor 06:30 – aufhört, obwohl noch
   machbare Einträge lagen, dazu `ungenutzt_bis_0630_min`). Kennzahlen stehen je ISO-Woche

@@ -225,30 +225,22 @@ Behobene Issues ohne Antwort: Issue-Abgleich nicht möglich – in wochen-kennza
 fi
 
 # Um 08:00 kann der Nachtlauf noch laufen (hart beendet um 09:00): auf ihn bis
-# 09:15 warten, auf einen CI-Lauf bis zu 90 Minuten, auf alles andere nicht.
+# 09:15 warten. Danach wartet die Wochenprüfung wie der Nachtlauf (woche_warten und
+# nachtlauf_warten in vorpruefung.zsh; Maintainer 18.11.2026: „ja die wochenprüfung
+# ebenfalls“, vorher fest 90 Minuten nur auf die CI): CI bis zu ihrem Ende, längstens
+# 10:00; Testläufe 60, release.sh/publish.sh 20 Minuten; andere Sitzung, Windows-VM und
+# ungespeicherte Änderungen sofort auslassen. Grenze 10:00: eine CI, die mit dem Ende
+# der Push-Sperre um 09:00 beginnt, ist auch dunkel (rund 50 Minuten) vorher fertig;
+# länger hielte die Tagesroutine auf, die Sa/So ab 09:00 wartet, solange die Prüfung
+# läuft oder wartet. Nach 10:00 von Hand gestartet: CI höchstens 90 Minuten.
 # Der Trockenlauf testet nichts und darf neben allem laufen. Die Doku-Prüfung
 # ändert nur .md-Dateien und testet nichts: CI, Testläufe und VM stören sie
 # nicht, nur der Nachtlauf, andere Sitzungen am Repo und release/publish.
-belegt_woche() {
-  [[ -e $DIR/lauf.lock ]] && kill -0 $(<$DIR/lauf.lock) 2>/dev/null && { print "Nachtlauf"; return 0 }
-  belegt
-}
 if [[ -z $TROCKEN ]]; then
-  NACHT_BIS=$(date -j -v9H -v15M -v0S +%s) CI_WARTE=0
-  while GRUND=$(belegt_woche); do
-    if [[ $GRUND == Nachtlauf ]]; then
-      (( $(date +%s) < NACHT_BIS )) || break
-    elif [[ -n $DOKU && $GRUND == (CI-*|Testlauf*|Thunderbird mit Marionette|Marionette-Port*|Lauf in der Windows-VM) ]]; then
-      break
-    elif [[ $GRUND == CI-* ]]; then
-      (( CI_WARTE++ < 18 )) || break
-    else
-      break
-    fi
-    log "warte: $GRUND"
-    sleep 300
-  done
-  if GRUND=$(belegt_woche) && ! [[ -n $DOKU && $GRUND == (CI-*|Testlauf*|Thunderbird mit Marionette|Marionette-Port*|Lauf in der Windows-VM) ]]; then
+  NACHT_BIS=$(date -j -v9H -v15M -v0S +%s)
+  WARTE_GRENZE=$(date -j -v10H -v0M -v0S +%s)
+  (( $(date +%s) >= WARTE_GRENZE )) && WARTE_GRENZE=$(( $(date +%s) + 5400 ))
+  if ! GRUND=$(woche_warten $NACHT_BIS $WARTE_GRENZE $DOKU); then
     log "ausgelassen: $GRUND"
     notbericht "ausgelassen" "$GRUND"
     push "$NAME $TAG ausgelassen: $GRUND"

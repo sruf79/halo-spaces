@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Logik-Test für nachtlauf_warten (tests/vorpruefung.zsh): Warten des Nachtlaufs auf Belegung mit
+# Logik-Test für nachtlauf_warten und woche_warten (tests/vorpruefung.zsh): Warten von Nachtlauf und Wochenprüfung auf Belegung mit
 # gestellter Uhr (belegt, nl_jetzt und sleep ersetzt; kein Warten in Echtzeit, kein Netz).
 # Je Fall eine Zeile OK/FEHLER, Exitcode 0 nur bei Erfolg.
 #   zsh tests/nachtlauf_warten_test.zsh
@@ -77,5 +77,43 @@ fall $G "999999 Lauf in der Windows-VM"
 pruefe "Windows-VM: sofort ausgelassen (unverändert)" '(( RC == 1 && ENDE == 0 ))'
 fall $G "600 CI-Lauf auf dem GitHub-Runner" "999999 Claude-Sitzung abcd1234 arbeitet gerade am Repo"
 pruefe "nach der CI eine andere Sitzung: dann ausgelassen" '(( RC == 1 && ENDE == 600 ))'
+
+# Wochen- und Doku-Prüfung (woche_warten): Start 08:00 = Epoch 0, Nachtlauf-Wartegrenze 09:15 = 4500,
+# CI-Grenze 10:00 = 7200. Nachtlauf läuft, solange die Uhr unter NACHT steht.
+NACHT=0
+nachtlauf_aktiv() { (( $(<$UHR) < NACHT )) }
+wfall() {   # <Nachtlauf bis> <doku oder -> <Belegung …>
+  print 0 > $UHR
+  NACHT=$1; local doku=${2:#-}; shift 2
+  PLAN=("$@")
+  AUS=$(woche_warten 4500 7200 $doku); RC=$?
+  ENDE=$(<$UHR)
+}
+wfall 0 -
+pruefe "Woche frei: sofort Start" '(( RC == 0 && ENDE == 0 ))'
+wfall 6000 -
+pruefe "Woche: Nachtlauf über 09:15 hinaus: ausgelassen um 09:15" '(( RC == 1 && ENDE == 4500 )) && [[ $AUS == Nachtlauf ]]'
+wfall 3000 - "6600 CI-Lauf auf dem GitHub-Runner"
+pruefe "Woche: Nachtlauf bis 08:50, dann CI bis 09:50: Start" '(( RC == 0 && ENDE >= 6600 && ENDE < 7200 ))'
+wfall 0 - "6000 CI-Lauf auf dem GitHub-Runner"
+pruefe "Woche: CI läuft 100 Minuten: Start (nicht mehr nach 90 Minuten ausgelassen)" '(( RC == 0 && ENDE == 6000 ))'
+wfall 0 - "999999 CI-Lauf auf dem GitHub-Runner"
+pruefe "Woche: CI endet nie: ausgelassen um 10:00" '(( RC == 1 && ENDE == 7200 ))'
+wfall 0 - "4200 Testlauf (halo_test.py o. ä.)"
+pruefe "Woche: Testlauf 70 Minuten: ausgelassen nach 60" '(( RC == 1 && ENDE == 3600 ))'
+wfall 0 - "600 release.sh/publish.sh läuft"
+pruefe "Woche: release.sh 10 Minuten: Start" '(( RC == 0 && ENDE == 600 ))'
+wfall 0 - "999999 Lauf in der Windows-VM"
+pruefe "Woche: Windows-VM: sofort ausgelassen" '(( RC == 1 && ENDE == 0 ))'
+wfall 0 - "999999 Claude-Sitzung abcd1234 arbeitet gerade am Repo"
+pruefe "Woche: andere Sitzung: sofort ausgelassen" '(( RC == 1 && ENDE == 0 ))'
+wfall 0 doku "999999 CI-Lauf auf dem GitHub-Runner"
+pruefe "Doku: CI stört nicht: sofort Start (unverändert)" '(( RC == 0 && ENDE == 0 ))'
+wfall 0 doku "999999 Lauf in der Windows-VM"
+pruefe "Doku: Windows-VM stört nicht: sofort Start (unverändert)" '(( RC == 0 && ENDE == 0 ))'
+wfall 0 doku "999999 release.sh/publish.sh läuft"
+pruefe "Doku: release.sh: sofort ausgelassen (unverändert)" '(( RC == 1 && ENDE == 0 ))'
+wfall 3000 doku "999999 CI-Lauf auf dem GitHub-Runner"
+pruefe "Doku: nach dem Nachtlauf CI: Start nach dem Nachtlauf" '(( RC == 0 && ENDE == 3000 ))'
 
 exit $fehler

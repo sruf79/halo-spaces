@@ -179,9 +179,11 @@ doku_stand_merken() {   # nach einer fertigen Prüfung (auch mit eigenen Commits
 # Nachtlauf: vor dem Start auf Belegung warten (Maintainer 18.11.2026, Wortlaut in ENTSCHEIDUNGEN.md:
 # „warum wartet der nachtlauf bei einer laufenden CI nur 90 minuten und startet einfach dann automatisch wenn
 # die CI fertig ist?“, dann „ja ich folge deinen empfehlungen“; vorher fest 90 Minuten nur auf die CI).
+# Dieselbe Logik nutzt die Wochenprüfung über woche_warten (Maintainer 18.11.2026: „ja die wochenprüfung
+# ebenfalls“), nur mit eigener Grenze.
 #   nachtlauf_warten <Grenze-Epoch> [<Test-Sekunden>] [<Release-Sekunden>] [<Takt-Sekunden>]
 # Rückgabe 0 = frei (starten); 1 = belegt, Grund auf stdout (auslassen). Je Art der Belegung:
-#   CI-Lauf auf dem Runner          bis zur Grenze (nachtlauf.sh: 03:30)
+#   CI-Lauf auf dem Runner          bis zur Grenze (nachtlauf.sh: 03:30, wochenpruefung.sh: 10:00)
 #   Testlauf, Thunderbird, Port     ab dem ersten Sehen höchstens 60 Minuten (Worker, Läufe von Hand)
 #   release.sh/publish.sh           ab dem ersten Sehen höchstens 20 Minuten (dauert wenige Minuten)
 #   alles andere                    sofort auslassen: andere Claude-Sitzung (Maintainer 4.11.2026, sein
@@ -214,4 +216,31 @@ nachtlauf_warten() {
     [[ -n $LOG ]] && log "warte: $grund"
     sleep $takt
   done
+}
+
+# Wochen- und Doku-Prüfung (So bzw. Sa 08:00): vor dem Start warten.
+#   woche_warten <Nachtlauf-bis-Epoch> <Grenze-Epoch> [doku]
+# Rückgabe 0 = starten; 1 = auslassen, Grund auf stdout. Zuerst auf einen noch laufenden Nachtlauf bis
+# <Nachtlauf-bis> (09:15, er wird um 09:00 hart beendet). Danach die Wochenprüfung wie der Nachtlauf
+# (nachtlauf_warten bis <Grenze>, Maintainer 18.11.2026: „ja die wochenprüfung ebenfalls“; vorher fest
+# 90 Minuten nur auf die CI). Die Doku-Prüfung (doku) ändert nur .md-Dateien und testet nichts: CI,
+# Testläufe und Windows-VM stören sie nicht, alles andere lässt sie sofort aus (unverändert).
+nachtlauf_aktiv() {
+  local l=$HOME/halo-nacht/lauf.lock
+  [[ -e $l ]] && kill -0 $(<$l) 2>/dev/null
+}
+woche_warten() {
+  local nacht_bis=$1 grenze=$2 doku=$3 grund
+  while nachtlauf_aktiv && (( $(nl_jetzt) < nacht_bis )); do
+    [[ -n $LOG ]] && log "warte: Nachtlauf"
+    sleep 300
+  done
+  nachtlauf_aktiv && { print Nachtlauf; return 1 }
+  if [[ -n $doku ]]; then
+    grund=$(belegt) || return 0
+    [[ $grund == (CI-*|Testlauf*|Thunderbird\ mit\ Marionette|Marionette-Port*|Lauf\ in\ der\ Windows-VM) ]] && return 0
+    print -r -- $grund
+    return 1
+  fi
+  nachtlauf_warten $grenze
 }

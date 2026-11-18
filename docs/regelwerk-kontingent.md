@@ -37,7 +37,10 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
    release.sh/publish.sh bis 20 Minuten (dauert wenige Minuten); andere Claude-Sitzung (der Lauf des Maintainers geht immer
    vor), Windows-VM und ungespeicherte Änderungen: sofort auslassen. Keine Wartezeit über 03:30 hinaus; danach „ausgelassen“
    mit Bericht und Push. Begründung 03:30 (nicht 04:00): bis 06:30 (Alltag; Volldampf 08:45) bleiben drei Stunden für Arbeit,
-   Push, CI-Runde (35–50 Minuten) und Release, die Vollrunde startet noch vor ihrer Grenze 04:30. Andere Läufe warten wie bisher.
+   Push, CI-Runde (35–50 Minuten) und Release, die Vollrunde startet noch vor ihrer Grenze 04:30. Die Wochenprüfung (So 08:00)
+   wartet seit 18.11.2026 genauso (`woche_warten`, Maintainer: „ja die wochenprüfung ebenfalls“), nach dem Nachtlauf (bis 09:15)
+   mit CI-Grenze 10:00 statt fest 90 Minuten (eine CI ab 09:00 ist auch dunkel vorher fertig; die Tagesroutine Sa/So wartet so
+   lange). Andere Läufe warten wie bisher.
 4. **Wochenlimit**: Status nicht „allowed…“ oder Woche ≥ 98 % → Volldampf pausiert, Alltagsregeln.
 5. **5-Stunden-Fenster hart**: Wächter ab 90 %, Tagesroutine ab 80 %.
 6. **Fenster-Takt** (Wächter; Tagesroutine nur im Volldampf, seit 18.11.2026): 5 h über Takt → kein neuer Worker bzw. Eintrag.

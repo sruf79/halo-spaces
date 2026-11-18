@@ -946,8 +946,9 @@ Sonntags um 08:00 wertet Claude Code die letzten 7 Tage aus (LaunchAgent
   Wirkung früherer Empfehlungen wird an den Zahlen der Woche gemessen (`docs/testrechner.md`).
 - Läuft um 08:00 noch der Nachtlauf (`~/halo-nacht/lauf.lock`), wartet sie
   bis höchstens 09:15 und wertet ihn mit aus.
-- Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`; wartet (anders als der Nachtlauf seit 18.11.2026) bis 90 Minuten
-  auf einen CI-Lauf und lässt sonst aus, wenn etwas läuft oder verfolgte
+- Wie der Nachtlauf: Sperre `~/halo-nacht/woche.lock`; wartet wie der Nachtlauf (seit 18.11.2026, `woche_warten`)
+  auf einen CI-Lauf bis zu dessen Ende, längstens 10:00, auf Testläufe 60 und auf release.sh/publish.sh
+  20 Minuten, und lässt sonst aus, wenn etwas anderes läuft oder verfolgte
   Dateien im Repo ungespeicherte Änderungen haben (Bericht
   „ausgelassen“); `claude -p` im Modus `auto`, nach Limit 30 Minuten Pause
   und Fortsetzen, nach 6 Stunden kein Fortsetzen mehr, nach 7 beendet.

@@ -570,12 +570,19 @@ const FifthSpace = {
     return (w?.gSpacesToolbar?.spaces || []).filter(s => s.isExtensionSpace && s.button)
       .map(s => ({ name: s.name, title: s.button.title || s.name, space: s }));
   },
-  // wirksamer Zustand: Erweiterung fehlt oder Adresse ungültig → wie „keiner“
+  // gewählter Bereich; fehlt dessen Erweiterung (entfernt, abgeschaltet), der erste vorhandene – so,
+  // wie ihn die Auswahl in den Einstellungen zeigt (vorher zeigte sie ihn, der Platz blieb aber leer).
+  // Die Wahl bleibt gespeichert und gilt wieder, sobald die Erweiterung zurück ist.
+  addonChoice(w) {
+    const spaces = this.addonSpaces(w);
+    const want = Services.prefs.getStringPref(FIFTH_ADDON_PREF, "");
+    return spaces.find(s => s.name == want) || spaces[0] || null;
+  },
+  // wirksamer Zustand: keine Erweiterung mit Bereich oder Adresse ungültig → wie „keiner“
   target(w) {
     const mode = this.mode();
     if (mode == "addon") {
-      const want = Services.prefs.getStringPref(FIFTH_ADDON_PREF, "");
-      const hit = this.addonSpaces(w).find(s => s.name == want);
+      const hit = this.addonChoice(w);
       return hit ? { mode, space: hit.space, title: hit.title } : { mode: "none" };
     }
     if (mode == "web") {

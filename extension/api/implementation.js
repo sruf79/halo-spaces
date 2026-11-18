@@ -573,15 +573,16 @@ function hookChatCategory(cw, restorers = null) {
     // Auswahl neu aufbauen (Erweiterungen können dazukommen)
     fillMenu(kind, [["chat", tr("Chat")], ["addon", spaces.length ? addonText : `${addonText} (${tr("none installed")})`, !spaces.length],
       ["web", tr("Website")], ["none", tr("Nothing")]], mode);
-    const wanted = getPref(FIFTH_ADDON_PREF, "");
-    fillMenu(addon, spaces.map(a => [a.name, a.title]), spaces.some(a => a.name == wanted) ? wanted : spaces[0]?.name || "");
+    // dieselbe Wahl wie auf der Leiste (fehlt die gespeicherte Erweiterung, die erste vorhandene)
+    const chosen = FifthSpace.addonChoice(Services.wm.getMostRecentWindow("mail:3pane"));
+    fillMenu(addon, spaces.map(a => [a.name, a.title]), chosen?.name || "");
     if (doc.activeElement != url) {
       url.value = getPref(FIFTH_URL_PREF, "");
     }
     rows.addon.hidden = mode != "addon";
     rows.url.hidden = mode != "web";
     // Hinweis, solange Thunderbirds Chat-Einstellungen ausgeblendet sind
-    const current = mode == "addon" ? spaces.find(a => a.name == wanted)?.title || addonText
+    const current = mode == "addon" ? chosen?.title || addonText
       : mode == "web" ? getPref(FIFTH_URL_PREF, "") || tr("Website") : tr("Nothing");
     hint.textContent = tr("The chat settings appear here when Chat is chosen. Shown instead: {what}", { what: current });
     hint.hidden = mode == "chat";

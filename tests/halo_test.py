@@ -12136,7 +12136,7 @@ def run_checks(m, version, profile, results):
           for (const t of ["Lunch für 2h um 12 Uhr", "Workshop für 1.5h morgen um 10 Uhr", "Meeting 14:00 für 2h", "Arzt Freitag morgen 8 Uhr",
                            "Arzt morgen 8 Uhr", "Termin 1.3.25", "Call 11-1pm", "Call 2-4pm", "Party 22-2 Uhr", "Arbeit 9-5",
                            "Schicht 18-7 Uhr", "Standup 11-12am", "Gottesdienst Karfreitag morgen 10 Uhr", "Party 11-1am", "Party 10-2am",
-                           "Meeting morgen für 2h"]) {
+                           "Meeting morgen für 2h", "Lunch next Thursday", "Lunch Thursday", "Essen nächsten Freitag 19 Uhr"]) {
             const r = parse(t, new Date(2026, 9, 20, 15, 0));
             out[t] = `${r.title} | ${f(r.start)} – ${f(r.end)}` + (!r.end && !r.allDay ? ` | ohne Uhrzeit, ${r.duration} min` : "");
           }
@@ -12158,9 +12158,14 @@ def run_checks(m, version, profile, results):
             "Party 11-1am": "Party | 20.10.2026 23:00 – 21.10.2026 01:00",
             "Party 10-2am": "Party | 20.10.2026 22:00 – 21.10.2026 02:00",
             "Meeting morgen für 2h": "Meeting | 21.10.2026 00:00 – - | ohne Uhrzeit, 120 min",
+            # „next“/„nächsten“ = Tag in der nächsten Kalenderwoche (wie macOS), ohne Zusatz das nächste Vorkommen;
+            # von Di 20.10. aus gleich für Wochenbeginn Sonntag und Montag
+            "Lunch next Thursday": "Lunch | 29.10.2026 00:00 – -",
+            "Lunch Thursday": "Lunch | 22.10.2026 00:00 – -",
+            "Essen nächsten Freitag 19 Uhr": "Essen | 30.10.2026 19:00 – 30.10.2026 20:00",
         }
         bad = [f"„{k}“ → {res.get(k)}" for k, v in expected.items() if res.get(k) != v]
-        return not bad, "; ".join(bad) or f"{len(expected)} Eingaben richtig (Dauer, Dauer ohne Uhrzeit, „Freitag morgen“, „Karfreitag morgen“, Jahr „25“, am/pm, „12am“, „11-1am“, über Mitternacht)"
+        return not bad, "; ".join(bad) or f"{len(expected)} Eingaben richtig (Dauer, Dauer ohne Uhrzeit, „Freitag morgen“, „Karfreitag morgen“, Jahr „25“, am/pm, „12am“, „11-1am“, über Mitternacht, „next Thursday“)"
     check("Schnellfenster: Dauer, Wochentag mit „morgen“, zweistelliges Jahr, Zeiträume", natural_rules, results)
 
     def quick_late_allday():

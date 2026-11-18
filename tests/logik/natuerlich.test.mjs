@@ -51,3 +51,24 @@ test("Natürlich: ungültiges Datum („31.02.“, „0.5.“, „17.13.“, „
   assert.equal(parseNatural("Silvester 31.12.", NOW).start.getTime(), new Date(2026, 11, 31).getTime());
   assert.equal(parseNatural("Schalttag 29.2.2028", NOW).start.getTime(), new Date(2028, 1, 29).getTime());
 });
+
+test("Natürlich: „nächsten Donnerstag“/„next Thursday“ ist der Tag in der nächsten Kalenderwoche, ohne Zusatz das nächste Vorkommen", () => {
+  // Woche ab Montag (calendar.week.start = 1); NOW ist Donnerstag, 5.11.: nächste Woche 9.–15.11.
+  const tag = text => parseNatural(text, NOW).start.getDate();
+  assert.equal(tag("Lunch Freitag"), 6);
+  assert.equal(tag("Lunch next Friday"), 13);
+  assert.equal(tag("Lunch nächsten Freitag"), 13);
+  assert.equal(tag("Lunch Donnerstag"), 12);
+  assert.equal(tag("Lunch nächsten Donnerstag"), 12);
+  assert.equal(tag("Lunch next Monday"), 9);
+  assert.equal(tag("Lunch nächster Sonntag"), 15);
+  assert.equal(parseNatural("Lunch next Friday", NOW).title, "Lunch");
+  // Woche ab Sonntag: gemessen mit der Datumserkennung von macOS am Mittwoch, 18.11.2026
+  const us = lade({ prefs: { "calendar.week.start": 0 } }).parseNatural;
+  const MI = new Date(2026, 10, 18, 3, 0);
+  const erwartet = { "Lunch next Thursday": 26, "Lunch Thursday": 19, "Lunch next Saturday": 28, "Lunch Saturday": 21,
+    "Lunch next Wednesday": 25, "Lunch Wednesday": 25, "Lunch next Monday": 23, "Lunch next Sunday": 22, "Lunch next Tuesday": 24 };
+  for (const [text, d] of Object.entries(erwartet)) {
+    assert.equal(us(text, MI).start.getDate(), d, text);
+  }
+});

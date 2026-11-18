@@ -2446,12 +2446,19 @@ function parseNatural(text, now = new Date()) {
   if (day && !m?.[3] && day < new Date(now.getFullYear(), now.getMonth(), now.getDate()) && !/heute|today/i.test(m?.[0] || "")) {
     day.setFullYear(day.getFullYear() + 1);
   }
-  // Wochentag (nächstes Vorkommen; „nächsten Montag“ = in der nächsten Woche)
+  // Wochentag: ohne Zusatz das nächste Vorkommen (am selben Wochentag in einer
+  // Woche); „nächsten Donnerstag“/„next Thursday“ ist der Tag in der Woche nach
+  // der laufenden, wie die Datumserkennung von macOS (Mittwoch: „next Thursday“
+  // = Donnerstag in 8 Tagen, nicht morgen). Wochenbeginn aus dem Kalender.
   if (!day && (m = take(new RegExp(`${B}(?:(am|on|nächsten|nächste[rn]?|next)\\s+)?(${dayNames})(?:\\s+morgens?)?${E}`, "iu")))) {
     const target = NL_WEEKDAYS[m[2].toLowerCase()];
-    let diff = (target - now.getDay() + 7) % 7;
-    if (diff == 0 || /^(nächst|next)/i.test(m[1] || "")) {
-      diff += diff == 0 ? 7 : 0;
+    let diff = (target - now.getDay() + 7) % 7 || 7;
+    if (/^(nächst|next)/i.test(m[1] || "")) {
+      let weekStart = 1;
+      try {
+        weekStart = Services.prefs.getIntPref("calendar.week.start", 1);
+      } catch {}
+      diff = 7 - (now.getDay() - weekStart + 7) % 7 + (target - weekStart + 7) % 7;
     }
     day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
   }

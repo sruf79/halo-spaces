@@ -19079,7 +19079,12 @@ class CardEnhancer {
     };
     pane.displayMessages = function (messages = []) {
       conv.hide();
-      if (messages.length && win.gDBView?.selection?.count == 1 && conv.enabled() && !groupHeadSelected()) {
+      // Thunderbirds eigene Konversationsansicht (mail.thread.conversation.enabled, ab
+      // 15x im Konfigurationseditor) baut sich bei einer gewählten Zeile sonst
+      // zusätzlich unter den Karten auf – solange halo die Konversation zeigt, für
+      // diesen Aufruf abschalten (danach gilt wieder Thunderbirds Einstellung)
+      const ownConv = messages.length && win.gDBView?.selection?.count == 1 && conv.enabled() && !groupHeadSelected();
+      if (ownConv) {
         pane.classList.add("mc-conv-pending");
       }
       // mehrere Zeilen markiert: Stapel statt Zusammenfassung (ohne Aufblitzen)
@@ -19087,7 +19092,21 @@ class CardEnhancer {
       if (stack) {
         pane.classList.add("mc-conv-pending");
       }
-      const result = many.call(this, messages);
+      let result;
+      const own = ownConv && "isConversationView" in this && Object.getOwnPropertyDescriptor(this, "isConversationView");
+      if (ownConv && "isConversationView" in this && (!own || own.configurable)) {
+        Object.defineProperty(this, "isConversationView", { value: false, configurable: true, writable: true });
+        try {
+          result = many.call(this, messages);
+        } finally {
+          delete this.isConversationView;
+          if (own) {
+            Object.defineProperty(this, "isConversationView", own);
+          }
+        }
+      } else {
+        result = many.call(this, messages);
+      }
       if (stack) {
         try {
           // Blätter je markierter Zeile (eine zugeklappte Konversation zählt einmal)

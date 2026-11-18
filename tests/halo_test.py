@@ -15778,6 +15778,30 @@ Neu
         return res["loaded"] and res["hidden"] and res["letters"] == "BN", f"{res}"
     check("Adressbuch: wiederverwendete Kontaktzeile zeigt bei defektem Foto die eigenen Initialen", ab_avatar_recycle, results)
 
+    def ab_focus_hidden_search():
+        # Thunderbird fokussiert sein (bei uns ausgeblendetes) Suchfeld über der Liste,
+        # etwa beim Abbrechen eines neuen Kontakts: der Fokus landet in der
+        # Kontaktliste statt im Nichts (Pfeiltasten wirken ohne Klick)
+        res = m.js(OPEN_BOOKS_JS + r"""
+          const ad = cw.document, body = cw.cardsPane.cardsList.table.body;
+          await until(() => cw.__mcHeaderHook, 5000);
+          const header = ad.getElementById("cardsPaneHeader");
+          const hidden = !header.getClientRects().length;
+          const where = () => ad.activeElement == body ? "list" : (ad.activeElement?.id || ad.activeElement?.localName || "none");
+          // neuer Kontakt aus der Toolbar (Fokus nicht in der Liste), dann Abbrechen
+          cw.detailsPane.editNewContact(); await ruhig(600);
+          cw.detailsPane.isDirty = false;
+          ad.getElementById("cancelEditButton").click(); await ruhig(400);
+          const afterCancel = where();
+          // direkter Aufruf wie bei leerer Liste
+          ad.getElementById("editButton")?.blur(); body.blur();
+          cw.cardsPane.searchInput.focus(); await ruhig(100);
+          const direct = where();
+          tm.closeTab(abTab); await toMail();
+          return { hidden, afterCancel, direct };""")
+        return res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
+    check("Adressbuch: Fokus auf das ausgeblendete Suchfeld über der Liste landet in der Kontaktliste (Abbrechen eines neuen Kontakts)", ab_focus_hidden_search, results)
+
     def ab_dedupe_selection():
         # Dubletten, die per Sync dazukommen, werden beim nächsten Sortieren
         # zusammengeführt: die Auswahl bleibt beim gewählten Kontakt statt auf den

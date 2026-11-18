@@ -24,6 +24,8 @@
 #      5-Stunden-Fenster unter FENSTER_MIN (60 %) → ein Worker; nachts nur, wenn die Woche unter Soll liegt.
 #      5-Stunden-Fenster ab FENSTER_DROSSEL (70 %): nur noch Klasse „tokenarm“ (MODELL_TOKENARM sonnet, höchstens
 #      TOKENARM_MAX 1 gleichzeitig; Maintainer 18.11.2026); ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
+#      Windows-Rundgang (rundgang_pruefen, unten): ab RUNDGANG_5H (85 %) einmal je Tag eine Sitzung mit dem offenen
+#      Bildauftrag RUNDGANG_NR aus neon-stand.md (Maintainer 18.11.2026), vor Stopp, Takt und Drossel.
 #   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> auf eigenem Zweig pruef/<name> (von origin/main), claude -p mit
@@ -54,7 +56,8 @@ source $HIER/lauf-hilfen.zsh
 typeset -A K
 konf_lesen() {
   K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
-     FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
+     FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900
+     RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
     z=${${z%%\#*}//[[:space:]]/}
@@ -115,11 +118,42 @@ UHR_PY='
 import os, datetime as dt
 j = os.environ.get("HALO_JETZT")
 n = dt.datetime.fromisoformat(j).astimezone() if j else dt.datetime.now().astimezone()
-print("%s %d" % (n.strftime("%H%M"), n.timestamp()))
+print("%s %d %s" % (n.strftime("%H%M"), n.timestamp(), n.strftime("%Y-%m-%d")))
 '
 letzter_start() {
   [[ -n ${HALO_AS_LETZTER+x} ]] && { print -r -- ${HALO_AS_LETZTER:-0}; return }
   [[ -r $ZUSTAND/letzter-start ]] && print -r -- $(<$ZUSTAND/letzter-start) || print 0
+}
+
+# Windows-Rundgang bei knappem 5-Stunden-Fenster (Maintainer 18.11.2026 zum Auftrag RUNDGANG_NR in neon-stand.md: „wäre auch
+# ein perfekter task für die Situation wenn wir bereits knapp am 5h-Limit sind“; auf neons Empfehlung, ihn ab 85 % automatisch
+# zu starten: „ich folge allen empfehlungen von dir.“). Fällig, wenn: Auftrag noch offen in neon-stand.md (Zeile „- #<Nr> |“),
+# nicht schon erledigt (Marke rundgang-<Nr>-erledigt) und heute nicht schon gestartet (Marke rundgang-<Nr>-<Datum>),
+# 5-Stunden-Fenster ab RUNDGANG_5H (85) und unter RUNDGANG_5H_BIS (98, sonst scheitert die Sitzung am Limit),
+# RUNDGANG_VON–RUNDGANG_BIS (09:00–22:00), kein Nachtlauf, nicht belegt (CI auf dem Runner, Testlauf, VM, Release).
+# Der Auftrag wird wörtlich übergeben (nichts geändert), Rahmen tests/auslastung-rundgang.md. Probe: HALO_AS_NEON_STAND,
+# HALO_AS_BELEGT (leer = frei, sonst Grund).
+rundgang_auftrag() {   # gibt die Auftragszeile aus, Rückgabe 1 wenn nicht offen
+  local datei=${HALO_AS_NEON_STAND:-$HOME/halo-aufgaben/neon-stand.md}
+  grep -m1 -E "^- #$K[RUNDGANG_NR] \|" $datei 2>/dev/null
+}
+rundgang_belegt() {
+  [[ -n ${HALO_AS_BELEGT+x} ]] && { [[ -n $HALO_AS_BELEGT ]] && print -r -- $HALO_AS_BELEGT; return }
+  # wie tests/auslastung-test.zsh: andere Claude-Sitzungen und Ungespeichertes im Checkout zählen nicht
+  ( aktive_sitzung() { return 1 }; REST_MITNEHMEN=1; belegt )
+}
+rundgang_pruefen() {   # <5h %> <HHMM> – Rückgabe 0 = fällig; gibt sonst den Grund aus
+  local nr=$K[RUNDGANG_NR] g
+  [[ $nr == <1-> ]] || { print -r -- "aus (RUNDGANG_NR 0)"; return 1 }
+  [[ -e $ZUSTAND/rundgang-$nr-erledigt ]] && { print -r -- "Auftrag #$nr erledigt"; return 1 }
+  rundgang_auftrag >/dev/null || { print -r -- "Auftrag #$nr nicht offen in neon-stand.md"; return 1 }
+  (( $1 >= K[RUNDGANG_5H] )) || { print -r -- "5-Stunden-Fenster unter $K[RUNDGANG_5H] %"; return 1 }
+  (( $1 < K[RUNDGANG_5H_BIS] )) || { print -r -- "5-Stunden-Fenster ab $K[RUNDGANG_5H_BIS] % (Limit zu nah)"; return 1 }
+  (( $2 >= 10#$K[RUNDGANG_VON] && $2 < 10#$K[RUNDGANG_BIS] )) || { print -r -- "nur $K[RUNDGANG_VON]–$K[RUNDGANG_BIS]"; return 1 }
+  nachtlauf_laeuft && { print -r -- "Nachtlauf läuft"; return 1 }
+  [[ -e $ZUSTAND/rundgang-$nr-$HEUTE ]] && { print -r -- "heute schon gestartet"; return 1 }
+  g=$(rundgang_belegt) && { print -r -- "belegt: $g"; return 1 }
+  print -r -- "fällig"
 }
 
 # Prüfung: gibt „starten <Modell> <Grund>“, „warten <Grund>“ oder „ende <Grund>“ aus
@@ -136,7 +170,7 @@ pruefen() {
     volldampf_aktiv >/dev/null || { print -r -- "warten Volldampf pausiert (Wochenlimit erreicht, wartet auf den freien Reset) – Woche $kw[1] %"; return }
   fi
   s=($(wochen_soll $K[SOLL_STUNDEN])) && u=($(python3 -I -c $UHR_PY)) || { print -r -- "warten Uhrzeit nicht lesbar"; return }
-  std=$s[1] soll=$s[2] hm=$((10#$u[1])) jetzt=$u[2]
+  std=$s[1] soll=$s[2] hm=$((10#$u[1])) jetzt=$u[2] HEUTE=$u[3]
   [[ $s[3] == anker ]] && bezug="bis nächster Reset, ${std} h seit freiem Reset" || bezug="${std} h seit Reset"
   { (( hm < K[NACHT_BIS] )) || nachtlauf_laeuft } && nacht=1
   grenze=$K[MAX_WORKER]   # Maintainer 17.11.2026: „maximale produktivität während des volldampf modus, egal ob untertags oder im nachtlauf“ – nachts keine Absenkung mehr
@@ -153,6 +187,10 @@ pruefen() {
   fi
   a=$(( w - soll ))
   local lage="Woche $w %, Soll $s[2] % ($bezug), 5 Stunden $f5 %, $n von $grenze aktiv${nacht:+, nachts}"
+  # Windows-Rundgang bei knappem Fenster (vor Stopp und Takt: er braucht kaum Token, nur Zeit und die VM)
+  local rg
+  rg=$(rundgang_pruefen $f5 $hm) && { print -r -- "rundgang $K[MODELL_RUNDGANG] Auftrag #$K[RUNDGANG_NR] (5-Stunden-Fenster $f5 % ab $K[RUNDGANG_5H] %) – $lage"; return }
+  [[ $MODUS == trocken ]] && print -u2 -r -- "Rundgang: nicht fällig – $rg"
   (( f5 >= K[FENSTER_STOPP] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_STOPP] % – $lage"; return }
   # Fenster-Takt (Maintainer 18.11.2026: „ich möchte nur vermeiden dass die produktivität bei null ist weil wir ständig in das 5h-limit hineinlaufen“):
   # neue Worker nur, solange das Fenster nicht schneller verbraucht ist als die verstrichene Zeit (+ FENSTER_RESERVE Punkte), damit es nicht nach 1 h leer ist
@@ -199,17 +237,33 @@ freie_nummer() {
 }
 # beendete Worker einmal protokollieren
 aufraeumen() {
-  local f z
+  local f z e
   for f in $ZUSTAND/worker-<1-8>(N); do
     z=($(<$f))
     kill -0 $z[1] 2>/dev/null && continue
-    log "Worker ${f:t} beendet (Sitzung $z[2], Zweig $z[6]): $(head -1 $z[7] 2>/dev/null || print keine Ergebnisdatei)"
+    e=$(head -1 $z[7] 2>/dev/null) || e="keine Ergebnisdatei"
+    log "Worker ${f:t} beendet (Sitzung $z[2], Zweig $z[6]): $e"
+    if [[ $z[8] == rundgang && $z[9] == <1-> ]]; then
+      # Rundgang: Ergebnis in neon-stand.md vermerken (Stand, Auftrag bleibt), neon meldet dem Designer; erledigt → nie wieder
+      [[ $e == erledigt* ]] && print -r -- "$(date '+%F %H:%M') $e" > $ZUSTAND/rundgang-$z[9]-erledigt
+      zsh $HIER/neon-stand.sh notiz $z[9] "Windows-Rundgang automatisch (Auslastungswächter, 5-Stunden-Fenster knapp) beendet: $e; Bericht ~/halo-berichte/$(date +%F)-rundgang-windows.md – Designer melden" >/dev/null 2>>$LOG \
+        || log "Rundgang: Notiz in neon-stand.md gescheitert"
+    fi
     rm -f $f
   done
 }
-starte_worker() {   # <Modell> <Grund> (Grund beginnt mit „tokenarm“: Klasse tokenarm)
-  local m=$1 klasse=normal nr name wt zweig sid p1 p2 erg aus stamp=$(date +%Y%m%d-%H%M)
+starte_worker() {   # <Modell> <Grund> [rundgang] (Grund beginnt mit „tokenarm“: Klasse tokenarm)
+  local m=$1 klasse=normal nr name wt zweig sid p1 p2 erg aus stamp=$(date +%Y%m%d-%H%M) auftrag max=$K[WORKER_MAX_MIN] rnr=
   [[ $2 == tokenarm* ]] && klasse=tokenarm
+  if [[ $3 == rundgang ]]; then
+    klasse=rundgang rnr=$K[RUNDGANG_NR] max=$K[RUNDGANG_MAX_MIN]
+    auftrag="$(<$HIER/auslastung-rundgang.md)
+
+Auftrag #$rnr (wörtlich aus ${HALO_AS_NEON_STAND:-~/halo-aufgaben/neon-stand.md}, unverändert):
+$(rundgang_auftrag)" || { log "Rundgang: Auftrag #$rnr nicht lesbar – kein Start"; return 1 }
+  else
+    auftrag=$(<$HIER/auslastung-auftrag.md)
+  fi
   nr=$(freie_nummer) || { log "keine freie Worker-Nummer (1–8)"; return 1 }
   name=worker-$stamp-$nr zweig=pruef/worker-$stamp-$nr wt=$WT_BASIS/worker-$stamp-$nr
   p1=$((2874 + 2 * (nr - 1))) p2=$((2875 + 2 * (nr - 1)))
@@ -222,22 +276,27 @@ starte_worker() {   # <Modell> <Grund> (Grund beginnt mit „tokenarm“: Klasse
   log "Worker $nr gestartet: $m, Klasse $klasse, Sitzung $sid, Zweig $zweig, Worktree $wt, Ports $p1/$p2 ($2)"
   local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, Klasse $klasse, $(date '+%F %H:%M'). Name $name, Zweig $zweig,
 Worktree $wt (nur dort arbeiten), Ports $p1 und $p2, Ergebnisdatei $erg, Bericht ~/halo-berichte/$TAG-worker-$nr.md (Abschnitt anhängen).
-Lage (Skript): $2
+Lage (Skript): $2${rnr:+
+Höchstens $max Minuten (danach beendet dich der Wächter).}
 "
   # ohne HALO_LAUF: der Zeitfenster-Hook (Push-Sperre, Tests während der CI) gilt für den Worker
   ( cd $wt && env -u HALO_LAUF HALO_WORKER=$nr claude -p --model $m --session-id $sid --permission-mode auto \
       "$kopf
-$(<$HIER/auslastung-auftrag.md)" > $aus 2>&1 ) </dev/null &!
+$auftrag" > $aus 2>&1 ) </dev/null &!
   local pid=$!
-  ( sleep $(( K[WORKER_MAX_MIN] * 60 )); pkill -f -- "--session-id $sid" ) </dev/null >/dev/null 2>&1 &!
-  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse" > $ZUSTAND/worker-$nr
+  ( sleep $(( max * 60 )); pkill -f -- "--session-id $sid" ) </dev/null >/dev/null 2>&1 &!
+  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse $rnr" > $ZUSTAND/worker-$nr
   date +%s > $ZUSTAND/letzter-start
+  # Marke „heute gestartet“ (nur einmal je Tag und Auftrag)
+  [[ -n $rnr ]] && print -r -- "$(date '+%F %H:%M') $sid" > $ZUSTAND/rundgang-$rnr-$(date +%F)
 }
 
 if [[ $MODUS == trocken ]]; then
+  konf_lesen
   z=$(pruefen)
   print -r -- "Auslastungswächter – Trockenlauf (kein Worker, kein Worktree, nichts geschrieben)"
   print -r -- "Prüfung:  $z"
+  [[ $z == rundgang* ]] && print -r -- "Würde:    Windows-Rundgang mit ${${z#rundgang }%% *} starten (Auftrag #$K[RUNDGANG_NR] wörtlich, Rahmen tests/auslastung-rundgang.md, höchstens $K[RUNDGANG_MAX_MIN] Min.), Marke für heute"
   [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Klasse $( [[ ${z#starten * } == tokenarm* ]] && print tokenarm || print normal), Worktree $WT_BASIS/worker-<Zeit>-<Nr>, Zweig pruef/worker-<Zeit>-<Nr>, Ports ab 2874"
   exit 0
 fi
@@ -255,6 +314,7 @@ while true; do
   case $z in
     ende*)    log "Ende: ${z#ende }"; break ;;
     starten*) starte_worker ${${z#starten }%% *} "${z#starten * }"; ALT= ;;
+    rundgang*) log "Windows-Rundgang fällig: ${z#rundgang * }"; starte_worker ${${z#rundgang }%% *} "${z#rundgang * }" rundgang; ALT= ;;
     *)        [[ $z != $ALT ]] && log "${z#warten }"; ALT=$z ;;
   esac
   [[ $MODUS == einmal ]] && break

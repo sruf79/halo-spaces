@@ -27,7 +27,7 @@ W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -138,7 +138,7 @@ pruefe "Checkout: nur fetch und worktree add" \
 pruefe "Worker ohne HALO_LAUF, gleiche Flags wie die Tagesroutine" "$S" \
   'env -u HALO_LAUF HALO_WORKER=\$nr claude -p --model \$m --session-id \$sid --permission-mode auto'
 pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Klasse \$klasse, Sitzung \$sid'
-pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse" > \$ZUSTAND/worker-\$nr'
+pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$rnr" > \$ZUSTAND/worker-\$nr'
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
@@ -171,6 +171,46 @@ pruefe "belegt: echte Läufe zählen" "$(print -r -- 'python3 /x/tests/halo_test
 NS=$(grep '^nachtschutz()' $HIER/auslastung-test.zsh)
 pruefe "Testhilfe: Nachtlauf-Schutz 01:10–01:45" "$(eval $NS; for h in 0100 0110 0130 0144 0145 2300; do HALO_AS_TEST_HM=$h nachtschutz && print "$h ja" || print "$h nein"; done)" \
   '0100 nein' '0110 ja' '0130 ja' '0144 ja' '0145 nein' '2300 nein'
+# Windows-Rundgang bei knappem 5-Stunden-Fenster (Maintainer 18.11.2026: „wäre auch ein perfekter task …“, „ich folge allen empfehlungen von dir.“)
+print -r -- "# Offene Aufträge an neon
+- #35 | 16.11. 21:44 | von designer | Bildauftrag Probe, Windows-VM, hell und dunkel | Stand: angenommen" > $T/stand.md
+R() { W HALO_AS_NEON_STAND=$T/stand.md HALO_AS_5H=86 "$@" }
+pruefe "Rundgang: 86 %, tagsüber, frei, offen → Rundgang mit sonnet (vor Takt und Drossel)" "$(R HALO_FENSTER_REST=16860)" \
+  '^Prüfung:  rundgang sonnet Auftrag #35 \(5-Stunden-Fenster 86 % ab 85 %\)' 'Würde:    Windows-Rundgang mit sonnet starten \(Auftrag #35 wörtlich, Rahmen tests/auslastung-rundgang\.md, höchstens 120 Min\.\)'
+pruefe "Rundgang: auch ab 90 % (Stopp gilt nur für Worker)" "$(R HALO_AS_5H=92)" 'rundgang sonnet Auftrag #35'
+pruefe "Rundgang: 84 % → nicht fällig, tokenarmer Worker" "$(R HALO_AS_5H=84 HALO_AS_TOKENARM=0)" 'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 %' 'starten sonnet tokenarm'
+pruefe "Rundgang: 98 % → nicht fällig (Limit zu nah)" "$(R HALO_AS_5H=98)" 'Rundgang: nicht fällig – 5-Stunden-Fenster ab 98 %' 'warten 5-Stunden-Fenster ab 90'
+pruefe "Rundgang: 08:59 nicht, 22:00 nicht, 21:59 ja" "$(R HALO_JETZT=2026-11-18T08:59+01:00 HALO_AS_WOCHE=40; R HALO_JETZT=2026-11-17T22:00+01:00; R HALO_JETZT=2026-11-17T21:59+01:00)" \
+  'Rundgang: nicht fällig – nur 0900–2200' 'rundgang sonnet'
+pruefe "Rundgang: Nachtlauf läuft → nicht fällig" "$(R HALO_AS_NACHTLAUF=ja)" 'Rundgang: nicht fällig – Nachtlauf läuft'
+pruefe "Rundgang: belegt (CI) → nicht fällig" "$(R HALO_AS_BELEGT='CI-Lauf auf dem GitHub-Runner')" 'Rundgang: nicht fällig – belegt: CI-Lauf auf dem GitHub-Runner'
+pruefe "Rundgang: Auftrag nicht mehr offen (archiviert) → nicht fällig" "$(R HALO_AS_NEON_STAND=$T/kein-stand.md)" 'Rundgang: nicht fällig – Auftrag #35 nicht offen'
+mkdir -p $T/nacht/auslastung
+print -r -- "2026-11-17 10:00 sid" > $T/nacht/auslastung/rundgang-35-2026-11-17
+pruefe "Rundgang: heute schon gestartet → nicht fällig; am nächsten Tag wieder" \
+  "$(R; R HALO_JETZT=2026-11-18T15:00+01:00 HALO_AS_WOCHE=40)" 'Rundgang: nicht fällig – heute schon gestartet' 'rundgang sonnet Auftrag #35 .*Woche 40'
+print -r -- "2026-11-17 12:00 erledigt /x 30" > $T/nacht/auslastung/rundgang-35-erledigt
+pruefe "Rundgang: erledigt → nie wieder" "$(R HALO_JETZT=2026-11-19T15:00+01:00 HALO_AS_WOCHE=60)" 'Rundgang: nicht fällig – Auftrag #35 erledigt'
+rm -f $T/nacht/auslastung/rundgang-35-*
+print -r -- "RUNDGANG_NR=0" > $T/rg-aus.conf
+pruefe "Rundgang: RUNDGANG_NR=0 → aus" "$(R HALO_AS_CONF=$T/rg-aus.conf)" 'Rundgang: nicht fällig – aus'
+pruefe "Rundgang: Pause auslastung gilt auch für ihn" "$(print -r -- 'auslastung 2099-01-01T00:00+01:00 Probe' > $T/pausen.txt; R; rm -f $T/pausen.txt)" 'warten Pause'
+pruefe "Rundgang: Volldampf pausiert (Wochenlimit) → kein Start" "$(R HALO_AS_WOCHE=98)" 'warten Wochenlimit erreicht'
+pruefe "Rundgang im Skript: Auftrag wörtlich, eigene Zeitgrenze, Marke je Tag, Ergebnis nach neon-stand.md" "$S" \
+  'Auftrag #\$rnr \(wörtlich aus' 'max=\$K\[RUNDGANG_MAX_MIN\]' 'rundgang-\$rnr-\$\(date \+%F\)' 'neon-stand\.sh notiz \$z\[9\]' 'rundgang-\$z\[9\]-erledigt'
+# Ende des Rundgangs: Ergebnis als Stand in neon-stand.md (Auftrag bleibt offen, neon meldet dem Designer), erledigt → Marke
+AR=$(sed -n '/^aufraeumen() {/,/^}/p' $SKRIPT)
+mkdir -p $T/ar/zustand $T/ar/stand; print -r -- "erledigt /ablage 24" > $T/ar/erg
+print -r -- "- #35 | 16.11. 21:44 | von designer | Bildauftrag Probe | Stand: angenommen" > $T/ar/stand/neon-stand.md
+print -r -- "999999 sid sonnet 1 /wt pruef/w $T/ar/erg rundgang 35" > $T/ar/zustand/worker-6
+pruefe "Rundgang beendet: Stand in neon-stand.md, Auftrag bleibt, Marke erledigt" \
+  "$(ZUSTAND=$T/ar/zustand LOG=/dev/null; log() { : }; export HALO_NEON_STAND=$T/ar/stand; eval $AR; aufraeumen; cat $T/ar/stand/neon-stand.md; ls $T/ar/zustand)" \
+  'Bildauftrag Probe \| Stand: [0-9:]+ Windows-Rundgang automatisch .*beendet: erledigt /ablage 24' 'rundgang-35-erledigt' 'Designer melden'
+RG=$(<$HIER/auslastung-rundgang.md)
+pruefe "Rundgang-Rahmen: nichts am Auftrag ändern, Voraussetzungen, belegt und bilder.lock, kein Commit/Push, Ergebnis, Wortlaut" "$RG" \
+  'Der Auftrag gilt unverändert' 'Voraussetzungen des Auftrags prüfen' 'belegt' 'bilder\.lock' 'Nichts committen, nichts pushen' \
+  'erledigt <Ablageordner>' 'wäre auch ein perfekter task' 'ich folge allen empfehlungen von dir'
+pruefe "Rundgang: keine Inhalte der Aufgabenliste im Repo (keine Karten-ID im Rahmen)" "$(print -r -- $RG | grep -cE 'JQN|PVTI_')" '^0$'
 pruefe "Auftrag: ohne Volldampf kein neuer Eintrag (Regel 6)" "$A" 'nichts_passend Volldampf nicht aktiv'
 pruefe "Auftrag: Klasse tokenarm (nur wenig Token, nie Fehlersuche/Analyse/Fable, zurück wenn zu groß)" "$A" \
   'Klasse tokenarm' 'Fehlersuche ohne benannte Ursache' 'kein Fable' 'zurück tokenarm zu groß'

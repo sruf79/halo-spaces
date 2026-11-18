@@ -2717,6 +2717,28 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   }
 }
 
+/* Knöpfe anderer Erweiterungen (z. B. DKIM Verifier) im eigenen Fenster:
+   je eine eigene runde Kapsel hinter „Mehr“ wie Drucken, statt als eckiges
+   Stück ohne Order vor Archivieren (lag dort unter dessen runder Kante,
+   GitHub #69); 6 px nach „Mehr“ bzw. dem Knopf davor über den Abstand am
+   Ende, damit auch im schmalen Fenster 6 px bis Drucken bleiben (dessen
+   automatischer Rand wird dort 0). Ohne Drucken (Mailbereich) hinter dem Stern */
+:root[mc-standalone] #header-view-toolbar > .webextension-action:not([hidden]) {
+  order: 7 !important;
+  margin-inline-end: 6px !important;
+  background: var(--mt-control) !important;
+  border-radius: 999px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #otherActionsButton {
+  margin-inline-end: 6px !important;
+}
+
+:root[mc-standalone] #header-view-toolbar:not(:has(> #mcHdrPrintButton)) > .webextension-action:not([hidden]) {
+  order: 8 !important;
+  margin-inline: 6px 0 !important;
+}
+
 /* Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand
    Drucken | Stern · Pfeil (Markieren) | Ordner · Pfeil (Verschieben); die drei
    Knöpfe (mcHdr…) setzt die Erweiterung nur dort. Links bleibt „Mehr“ als
@@ -15100,13 +15122,15 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 }
 
 /* Hinweise über der Mail als Karte wie der Hinweis über der Mailliste:
-   10 px Abstand links und rechts, Radius 10 px. „Externe Inhalte blockiert“
+   10 px Abstand links und rechts, oben und unten je 8 px (mittig zwischen
+   Mailkopf und Mailtext; unten 0 klebte die Karte am Mailtext, GitHub #69),
+   Radius 10 px. „Externe Inhalte blockiert“
    ist ein Hinweis, keine Warnung: leise graue Fläche, Text in Textfarbe,
    Symbol grau statt kräftig gelber Leiste (im Dunkeln grell). Junk- und
    Betrugswarnungen behalten ihre Warnfarbe. Schließen im Schatten-DOM
    richtet die Erweiterung ein (hookNotificationLayout) */
 #mail-notification-top notification-message {
-  margin: 8px 10px 0 !important;
+  margin: 8px 10px !important;
   border-radius: var(--mt-radius-row, 10px) !important;
   --message-bar-border-radius: var(--mt-radius-row, 10px) !important;
   --message-bar-border-width: 0 !important;

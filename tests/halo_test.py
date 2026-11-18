@@ -22822,6 +22822,85 @@ Neu
         return ok, f"{res}"
     check("Nachrichtenfenster: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten", message_window_reply_all, results)
 
+    def message_window_addon_remote():
+        # GitHub #69: im eigenen Fenster sitzt der Knopf einer anderen Erweiterung (message_display_action, z. B. DKIM
+        # Verifier) als eigene runde Kapsel hinter „Mehr“ und überlappt keine andere Kapsel (lag vorher ohne Order als
+        # eckiges Stück vor Archivieren unter dessen runder Kante); der Hinweis „Externe Inhalte blockiert“ sitzt
+        # mittig zwischen Mailkopf und Mailtext (vorher 8 px oben, 0 px unten) – im Hauptfenster wie im eigenen Fenster
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Extern")) { root.createSubfolder("Extern", null); await bis(() => root.containsChildNamed("Extern"), "Ordner Extern angelegt", 4000); }
+          const f = root.getChildNamed("Extern");
+          if (!f.getTotalMessages(false)) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From: Halo <h@example.invalid>\r\nTo: Halo Test <halo@example.invalid>\r\nSubject: Halo Extern\r\nDate: Sat, 17 Oct 2026 10:05:00 +0200\r\nMessage-ID: <halo-extern-69@example.invalid>\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><body><p>Extern</p><img src='https://example.invalid/bild.png' width='1' height='1'></body></html>\r\n\r\n");
+            await bis(() => f.getTotalMessages(false) >= 1, "Testmail Extern", 4000);
+          }
+          const hdr = [...f.messages].find(h => h.subject == "Halo Extern");
+          const dir = PathUtils.join(PathUtils.profileDir, "halo-action-69");
+          await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+          await IOUtils.writeUTF8(PathUtils.join(dir, "manifest.json"), JSON.stringify({ manifest_version: 2, name: "Halo Knopftest 69", version: "1.0",
+            browser_specific_settings: { gecko: { id: "halo-action-69@example.invalid" } },
+            message_display_action: { default_title: "Halo Knopftest 69", default_icon: "icon.svg" } }));
+          await IOUtils.writeUTF8(PathUtils.join(dir, "icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2 14 L8 2 L14 14 Z" fill="context-fill"/></svg>');
+          const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); file.initWithPath(dir);
+          const addon = await AddonManager.installTemporaryAddon(file);
+          const R = e => { const q = e?.getBoundingClientRect(); return q?.width ? { l: Math.round(q.left * 10) / 10, t: Math.round(q.top * 10) / 10, r: Math.round(q.right * 10) / 10, b: Math.round(q.bottom * 10) / 10 } : null; };
+          const remote = async md => {
+            const n = await until(() => md.querySelector('#mail-notification-top notification-message[value="remoteContent"]'), 8000);
+            await until(() => n?.shadowRoot?.querySelector("style.mc-layout"), 3000); await ruhig(600);
+            return { header: R(md.getElementById("messageHeader")), card: R(n), pane: R(md.getElementById("messagepane")) };
+          };
+          const out = {};
+          try {
+            const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount > 0, "Ordner Extern angezeigt", 5000); await ruhig(500);
+            a3.threadTree.selectedIndex = 0;
+            await bis(() => a3.messageBrowser.contentWindow.gMessage?.messageId == hdr.messageId, "Mail Extern geladen", 8000);
+            out.main = await remote(a3.messageBrowser.contentDocument);
+            MailUtils.openMessageInNewWindow(hdr);
+            const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+            try {
+              const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage ? x : null; }, 8000);
+              out.window = await remote(md);
+              const ext = await until(() => [...md.querySelectorAll("#header-view-toolbar > .webextension-action")].find(b => b.getBoundingClientRect().width > 0), 8000);
+              // schmal wie in „Knöpfe einzeilig … auch schmal“: dort rückt Drucken bis an die linken Kapseln heran
+              mw.resizeTo(560, 600); await ruhig(1000);
+              const cw = md.defaultView, own = [...md.querySelectorAll("#header-view-toolbar > :is(toolbarbutton, toolbaritem, button)")]
+                .filter(e => e != ext && e.getBoundingClientRect().width > 0);
+              out.ext = R(ext);
+              out.radius = ext ? [cw.getComputedStyle(ext).borderTopLeftRadius, cw.getComputedStyle(ext).borderBottomRightRadius] : null;
+              out.over = ext ? own.filter(e => { const a = ext.getBoundingClientRect(), b = e.getBoundingClientRect(); return a.left < b.right - 0.5 && b.left < a.right - 0.5; }).map(e => e.id) : null;
+              out.more = R(md.getElementById("otherActionsButton"));
+              out.archive = R(md.getElementById("hdrArchiveButton"));
+              out.print = R(md.getElementById("mcHdrPrintButton"));
+              out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
+            } finally { mw.close(); }
+          } finally { await addon.uninstall(); }
+          await ruhig(300);
+          return out;""")
+        bad = []
+        for k in ("main", "window"):
+            v = res.get(k) or {}
+            h, c, p = v.get("header") or {}, v.get("card") or {}, v.get("pane") or {}
+            if not (h and c and p):
+                bad.append(f"{k}: Hinweis fehlt {v}")
+                continue
+            top, bottom = c["t"] - h["b"], p["t"] - c["b"]
+            # mittig: oben und unten gleich viel Luft (± 1 px), mindestens 6 px bis zum Mailtext
+            if not (bottom >= 6 and abs(top - bottom) <= 1):
+                bad.append(f"{k}: oben {top} unten {bottom}")
+        e, mo, ar, pr = res.get("ext") or {}, res.get("more") or {}, res.get("archive") or {}, res.get("print") or {}
+        if not (e and mo and ar and res.get("over") == [] and res.get("radius") and all(r not in ("0px", "") for r in res["radius"])
+                and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
+            bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "
+          "Hinweis „Externe Inhalte blockiert“ mittig zwischen Mailkopf und Mailtext, auch im Hauptfenster (GitHub #69)", message_window_addon_remote, results)
+
     def message_window_attachments():
         # Fenster einer geöffneten Mail: Chevron klappt die Anhänge zu – das Fenster wird genau um den frei werdenden Platz
         # der Liste kleiner (auch ein vergrößertes Fenster), beim Aufklappen um diesen Platz wieder größer; die Zeile

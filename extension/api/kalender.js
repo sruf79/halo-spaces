@@ -744,7 +744,10 @@ function hookMultiweekBuffer(mv, restorers) {
         log("multiweek prefill error", String(e).slice(0, 120));
       }
     };
-    if (this.querySelector(".mc-mw-mask")) {
+    // (nicht unter Windows: dort zeigte das Bild nach dem Neuaufbau am Rand
+    // des Standbilds schon leere Tage, gemessen in der Windows-VM; die langen
+    // Bilder traten auf dem Mac auf)
+    if (this.querySelector(".mc-mw-mask") && Services.appinfo.OS != "WINNT") {
       win.requestAnimationFrame(run);
     } else {
       Promise.resolve().then(run);

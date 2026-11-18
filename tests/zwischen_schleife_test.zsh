@@ -151,8 +151,9 @@ pruefe "belegt: Ausgabe nennt den fälligen Stand" "$(W HALO_BELEGT='CI-Lauf')" 
 ZR=$HIER/zwischen-release.zsh
 ZF=$(sed -n '/^rote_pruefungen() {/,/^}/p;/^wiederholen() {/,/^}/p;/^nach_wiederholung() {/,/^}/p' $ZR)
 wdh() {   # <Zahl roter Prüfungen in einem Job> <Versuch vorher> <Ergebnis der Wiederholung> [HHMM]
-  ( R=x MAX_ROT=5 WDH_BIS=2300 HALO_JETZT=${4:-1000} ROT_TEXT= WDH= N=$1 A=$2 E=$3 RR=$T/rerun
-    rm -f $RR
+  ( R=x MAX_ROT=5 WDH_BIS=2300 HALO_JETZT=${4:-1000} ROT_TEXT= WDH= N=$1 A=$2 E=$3 RR=$T/rerun HIER=${ZR_HIER:-$T/ohne-skript}
+    export HALO_FLACKERN_STAND=$T/zr-stand RR
+    rm -f $RR $T/zr-stand $T/zr-aufrufe
     sleep() { : }
     gh() {
       case "$*" in
@@ -172,7 +173,15 @@ pruefe "zweites Rot bleibt rot (Ergebnis der Wiederholung wird gemeldet, kein dr
 pruefe "mehr als 5 rote Prüfungen in einem Job: keine Wiederholung (echter Fehler)" "$(wdh 6 1 success)" 'rc=1 erg= rerun=nein WDH=nein: mehr als 5 rote Prüfungen'
 pruefe "5 rote Prüfungen: noch Wiederholung" "$(wdh 5 1 success)" 'rc=0 erg=success rerun=ja'
 pruefe "schon wiederholt (Versuch 2, z. B. ci-wiederholen.sh): kein zweites rerun, nur warten" "$(wdh 1 2 failure)" 'rerun=nein WDH=ja \(Lauf 4711, Versuch 2, schon von anderer Stelle' 'erg=failure'
-pruefe "nach 23:00 keine Wiederholung mehr (Release bis 24:00)" "$(wdh 1 1 success 2300)" 'rc=1 erg= rerun=nein WDH=nein: nach 2300'
+pruefe "nach 23:00 keine Wiederholung mehr (Release bis 24:00; gemeinsame Startgrenze 09:00 bis 00:00)" "$(wdh 1 1 success 2300)" 'rc=1 erg= rerun=nein WDH=nein: nur 09:00 bis 2300'
+mkdir -p $T/zr; print -r -- 'print -r -- "$*" >> ${HALO_FLACKERN_STAND:h}/zr-aufrufe; [[ -e $RR ]] || { touch $RR; print -r -- "$2 wiederholt" >> $HALO_FLACKERN_STAND }' > $T/zr/ci-wiederholen.sh
+pruefe "mit ci-wiederholen.sh: Start und Auswertung darüber (zwei Aufrufe --lauf), Wiederholung grün" \
+  "$(ZR_HIER=$T/zr wdh 2 1 success; print -r -- "aufrufe=$(paste -sd, $T/zr-aufrufe)")" 'rc=0 erg=success rerun=ja' 'aufrufe=--lauf 4711,--lauf 4711$'
+pruefe "ci-wiederholen.sh wiederholt nicht (z. B. eigene Grenze): kein Rerun, Grund genannt" \
+  "$(print -r -- 'print -r -- "$*" >> ${HALO_FLACKERN_STAND:h}/zr-aufrufe' > $T/zr/ci-wiederholen.sh; ZR_HIER=$T/zr wdh 2 1 success)" 'rc=1 erg= rerun=nein WDH=nein: ci-wiederholen.sh hat nicht wiederholt'
+pruefe "vor 09:00 keine Wiederholung" "$(wdh 1 1 success 0859)" 'rc=1 erg= rerun=nein WDH=nein: nur 09:00'
+pruefe "Wiederholung über ci-wiederholen.sh (flackern.log, Hinweis beim zweiten Flackern), ohne Skript gh run rerun" "$(grep -vE '^[[:space:]]*#' $ZR)" \
+  'zsh \$HIER/ci-wiederholen.sh --lauf \$id' 'zsh \$HIER/ci-wiederholen.sh --lauf \$1' 'gh run rerun \$id -R \$R --failed'
 pruefe "zwischen-release.zsh: Push- und Windows-Lauf vor ROT einmal wiederholt" "$(grep -vE '^[[:space:]]*#' $ZR)" \
   'nach_wiederholung \$\{L%% \*\} 100' 'nach_wiederholung \$\{W%% \*\} 60' 'auch in der Wiederholung rot' 'auch in der Wiederholung nicht grün'
 

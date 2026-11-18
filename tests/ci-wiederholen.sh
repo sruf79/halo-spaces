@@ -8,7 +8,8 @@
 #   - nur Läufe aus Push oder Start von Hand (nie pull_request), abgeschlossen, rot, erster Versuch, höchstens
 #     CI_WDH_STUNDEN (6) alt; Läufe mit Auswahl von Prüfungen (Schritt „Nur Teil der Prüfungen“) nicht
 #   - mehr als CI_WDH_MAX_ROT (5) rote Prüfungen in einem Job gelten als echter Fehler: keine Wiederholung
-#   - rote Jobs auf neon (mac, windows) nur zwischen 09:00 und 00:30 Wiener Zeit (um 01:30 darf nichts mehr laufen,
+#   - rote Jobs auf neon (mac, windows) nur zwischen 09:00 und 00:00 Wiener Zeit (gemeinsame Startgrenze mit dem
+#     Zwischen-Release-Wächter, neon 18.11.2026: eine Wiederholung dauert bis 50 Min., um 01:30 darf nichts mehr laufen,
 #     bis 09:00 gilt die Push-Sperre) und nicht, solange Nachtlauf oder Wochenprüfung laufen – die warten selbst
 #     auf ihre CI; Linux-Jobs laufen bei GitHub und belegen neon nicht
 #   - Läufe auf main erst, wenn der CI-Wächter sie ausgewertet hat (Stand ~/halo-aufgaben/ci-waechter.stand): sein
@@ -53,7 +54,8 @@ WSTAND=${HALO_WAECHTER_STAND:-$HOME/halo-aufgaben/ci-waechter.stand}
 STUNDEN=${CI_WDH_STUNDEN:-6}
 MAX_ROT=${CI_WDH_MAX_ROT:-5}
 NEON_JOBS=(mac windows)
-source ${0:A:h}/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }
+HIER=${0:A:h}
+source $HIER/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }
 mkdir -p $NACHT
 
 jetzt() {   # Epoch; HALO_JETZT (ISO mit Zone) ersetzt die Uhr (Tests)
@@ -113,9 +115,26 @@ rote_pruefungen() {   # <Lauf> <Versuch> <JSON der Jobs>
   return 0
 }
 
+# Zum zweiten Mal in 7 Tagen nur durch Wiederholung grün (neon 18.11.2026: „sofort Hinweis an neon, nicht erst im
+# Wochentakt“): dieselbe Prüfung (Name, gleich auf welcher Plattform) hat schon eine Zeile „flackert“ aus einem
+# anderen Lauf, nicht älter als 7 Tage. Sammelt je Lauf in ZWEIT, auswerten() meldet einmal an neon.
+ZWEIT=()
+zweit() {   # <Lauf> <Job> <Prüfung>
+  local frueher ab=$(date -r $(( JETZT - 7 * 86400 )) '+%F %T')
+  frueher=$(awk -F'\t' -v r=$1 -v n="$3" -v ab="$ab" '$2 == "flackert" && $8 == n && $3 != r && $1 >= ab { print "Lauf " $3 " (" substr($1, 1, 16) ", " $7 ")" }' $FLOG 2>/dev/null | tail -3 | paste -sd ';' -)
+  [[ -n $frueher ]] && ZWEIT+=("$2: $3 – vorher nur durch Wiederholung grün: ${frueher//;/; }")
+  return 0
+}
+# Meldung an die Sitzung neon (an_neon aus lauf-hilfen.zsh, Zustellweg wie push(), ohne „PUSH:“); erreicht sie neon
+# nicht, einmal push() aufs iPhone. Eigene Subshell: lauf-hilfen.zsh bringt eigene zeit()/log() mit.
+neon_melden() {   # <Text>
+  ( LOG=$NACHT/$(date +%F)-ci-wiederholen.log; source $HIER/lauf-hilfen.zsh 2>/dev/null || exit 1
+    an_neon "$1" ci-wiederholen || push "CI-Wiederholung konnte neon nicht erreichen (Prüfung zum zweiten Mal in 7 Tagen nur durch Wiederholung grün)" ci-wiederholen )
+}
 # Wiederholung auswerten: was im ersten Versuch rot war, ist jetzt grün (flackert) oder wieder rot (bleibt-rot)
 auswerten() {   # <Lauf> <Zweig> <Commit>
-  local run=$1 br=$2 sha=$3 jobs rot2 job name text n=0 f=0
+  local run=$1 br=$2 sha=$3 jobs rot2 job name text n=0 f=0 z
+  ZWEIT=()
   jobs=$(gh_wdh run view $run -R $R --json jobs,attempt 2>/dev/null) || return 1
   if jq -e 'any(.jobs[]; .conclusion == "failure" and .name != "windows-github")' <<< $jobs >/dev/null; then
     rot2=$(rote_pruefungen $run $(jq -r .attempt <<< $jobs) $jobs) || return 1
@@ -126,6 +145,7 @@ auswerten() {   # <Lauf> <Zweig> <Commit>
     if [[ $name == "(Job ohne FEHLER-Zeile"* ]]; then
       # Job ohne Prüfungszeile: geflackert, wenn der Job in der Wiederholung grün ist
       if jq -e --arg j $job 'any(.jobs[]; .name == $j and .conclusion == "success")' <<< $jobs >/dev/null; then
+        zweit $run $job $name
         schreibe flackert $run 2 $br $sha $job $name "in der Wiederholung grün"; f=$((f + 1)); wlog $run $sha $job $name
       else
         schreibe bleibt-rot $run 2 $br $sha $job $name "Job auch in der Wiederholung rot"
@@ -133,10 +153,18 @@ auswerten() {   # <Lauf> <Zweig> <Commit>
     elif print -r -- $rot2 | awk -F'\t' -v j=$job -v n=$name '$1 == j && $2 == n { t = 1 } END { exit !t }'; then
       schreibe bleibt-rot $run 2 $br $sha $job $name "$(print -r -- $rot2 | awk -F'\t' -v j=$job -v n=$name '$1 == j && $2 == n { print $3; exit }')"
     else
+      zweit $run $job $name
       schreibe flackert $run 2 $br $sha $job $name "in der Wiederholung grün"; f=$((f + 1)); wlog $run $sha $job $name
     fi
   done < <(awk -F'\t' -v r=$run '$2 == "rot" && $3 == r && $4 == 1 { print $7 "\t" $8 "\t" $9 }' $FLOG 2>/dev/null)
   print -u2 -- "Lauf $run ($br, $sha): Wiederholung fertig – $f von $n geflackert"
+  if (( $#ZWEIT )); then
+    for z in $ZWEIT; do schreibe zweimal $run 2 $br $sha "${z%%: *}" "${${z#*: }%% – vorher*}" "zum zweiten Mal in 7 Tagen nur durch Wiederholung grün, an neon gemeldet"; done
+    local -a zz=("- "${^ZWEIT})
+    [[ -z $TROCKEN ]] && neon_melden "[flackern] Prüfung zum zweiten Mal in 7 Tagen nur durch Wiederholung grün (Lauf $run, Zweig $br, Commit $sha):
+${(F)zz}
+Wiederholung: ja (ci-wiederholen.sh, erste Wiederholung grün). Bitte Board-Eintrag „Tests: … flackert“ anlegen bzw. ergänzen; neon kümmert sich."
+  fi
   stand_setzen $run fertig
 }
 # Zeile im Protokoll des CI-Wächters (nur Läufe auf main; die Wochenprüfung zählt „flackert:“)
@@ -189,8 +217,8 @@ print -r -- $LISTE | while read -r run st erg beginn sha ev att br; do
     grund="mehr als $MAX_ROT rote Prüfungen in einem Job ($viele) – kein Flackern, sondern ein Fehler"
   elif [[ -n $neon && -z $NUR ]] && nacht_laeuft; then
     grund="Nachtlauf/Wochenprüfung läuft – wartet selbst auf die CI"
-  elif [[ -n $neon && -z $NUR ]] && (( WIEN >= 30 && WIEN < 540 )); then
-    grund="rote Jobs auf neon, zwischen 00:30 und 09:00 keine Wiederholung"
+  elif [[ -n $neon && -z $NUR ]] && (( WIEN < 540 )); then
+    grund="rote Jobs auf neon, zwischen 00:00 und 09:00 keine Wiederholung"
   fi
   if [[ -n $grund ]]; then
     # Zeitgründe: später erneut versuchen (kein Stand, keine Zeile); echter Fehler: einmal festhalten

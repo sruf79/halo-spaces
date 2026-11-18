@@ -479,7 +479,8 @@ rote Prüfung mit Plattform und Fehlerzeile bzw. Messwert sowie das Ergebnis nac
 Prüfung, Text; Stand `~/halo-nacht/flackern.stand`). Ein zweites Rot bleibt rot, die Prüfungen selbst ändert es nicht.
 Grenzen: nur Push und Start von Hand (nie `pull_request`), nur der erste Versuch, höchstens 6 Stunden alt, keine Läufe mit
 Auswahl von Prüfungen; mehr als 5 rote Prüfungen in einem Job gelten als echter Fehler (keine Wiederholung); rote Jobs auf neon
-(`mac`, `windows`) nur zwischen 09:00 und 00:30 und nicht während Nachtlauf oder Wochenprüfung; Läufe auf `main` erst, wenn der
+(`mac`, `windows`) nur zwischen 09:00 und 00:00 (gemeinsame Startgrenze mit dem Zwischen-Release-Wächter, neon 18.11.2026: eine
+Wiederholung auf neon dauert bis 50 Minuten, um 01:30 muss neon frei sein) und nicht während Nachtlauf oder Wochenprüfung; Läufe auf `main` erst, wenn der
 CI-Wächter sie ausgewertet hat – sein Eintrag „Tests: CI rot …“ entsteht wie bisher aus dem roten Versuch. Geflackert heißt
 nicht repariert: der Eintrag bleibt offen, für `main` steht zusätzlich die Zeile `flackert:` im Wächter-Protokoll (Kennzahl
 `ci_flackert`). Die Testmarke bleibt unverändert: `release.sh` verlangt einen vollständig grünen Lauf zum Stand; ein Lauf, der in
@@ -493,3 +494,9 @@ sie, bleibt die Wiederholung aus. Beim Einschalten wurden die damals schon roten
 eingetragen (keine nachträgliche Wiederholung alter Läufe). Der Nachtlauf bekommt keinen eigenen Schritt: tagsüber übernimmt der
 Wächter, nachts lässt das Skript neon-Jobs ohnehin aus (Linux-Jobs aus der Nacht wiederholt es, solange der Lauf höchstens 6
 Stunden alt ist).
+**Zweites Flackern in 7 Tagen** (neon 18.11.2026: „sofort Hinweis an neon, nicht erst im Wochentakt“): wird eine Prüfung (gleicher
+Name, gleich auf welcher Plattform) in der Wiederholung grün und hat sie in `flackern.log` schon eine Zeile `flackert` aus einem
+anderen Lauf der letzten 7 Tage, schreibt das Skript die Zeile `zweimal` und meldet einmal je Lauf an die Sitzung neon (`an_neon`
+aus `tests/lauf-hilfen.zsh`, ab „[flackern] …“, je Prüfung eine Zeile mit den früheren Läufen); neon legt den Board-Eintrag an.
+Nur wenn neon nicht erreichbar ist, einmal `push()` aufs iPhone. Der Zwischen-Release-Wächter wiederholt über dasselbe Skript
+(`ci-wiederholen.sh --lauf`, Start und Auswertung), seine Wiederholungen stehen also ebenfalls in `flackern.log`.

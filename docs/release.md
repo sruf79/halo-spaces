@@ -39,8 +39,10 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
 - **Rot erst nach Wiederholung, jedes Ergebnis an neon** (18.11.2026, nach dem Zwischen-Release 3.31.0, das um 11:25 an
   einem Flackerer scheiterte, ohne zweiten Versuch und ohne Meldung): `tests/zwischen-release.zsh` wiederholt einen roten
   Push- oder Windows-Lauf vor dem Urteil ROT einmal (`gh run rerun --failed`, dann bis 100 bzw. 60 Minuten warten); nur ein
-  zweites Rot sperrt den Stand. Keine Wiederholung bei mehr als 5 roten Prüfungen in einem Job (echter Fehler) und nach
-  23:00 (Release bis 24:00); hat schon jemand wiederholt (`tests/ci-wiederholen.sh` über den CI-Wächter, Versuch ≥ 2), wartet
+  zweites Rot sperrt den Stand. Keine Wiederholung bei mehr als 5 roten Prüfungen in einem Job (echter Fehler), vor 09:00 und
+  nach 23:00 (Release bis 24:00; gemeinsame Startgrenze 09:00 bis 00:00 mit `tests/ci-wiederholen.sh`). Gestartet und
+  ausgewertet wird über `ci-wiederholen.sh --lauf` (Zeilen in `~/halo-nacht/flackern.log`, Hinweis an neon beim zweiten
+  Flackern derselben Prüfung in 7 Tagen), ohne das Skript direkt mit `gh run rerun --failed`; hat schon jemand wiederholt (`tests/ci-wiederholen.sh` über den CI-Wächter, Versuch ≥ 2), wartet
   es nur auf diesen Versuch. Der Wächter meldet **jedes Ergebnis** (veröffentlicht, ROT nach Wiederholung, ABBRUCH, Fehler
   nach dem Tag, fälliger Stand über 60 Minuten belegt) an die Sitzung **neon**, nicht aufs iPhone (Maintainer 18.11.2026:
   „ich möchte hier nicht involviert und informiert werden. der wächter soll solche probleme direkt an dich wenden und du

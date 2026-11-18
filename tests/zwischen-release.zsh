@@ -161,8 +161,16 @@ wiederholen() {   # <Lauf> <Minuten>
   a=$(gh run view $id -R $R --json attempt --jq .attempt 2>/dev/null)
   if [[ $a == 1 ]]; then
     j=$((10#${HALO_JETZT:-$(date +%H%M)}))
-    (( j < WDH_BIS )) || { WDH="nein: nach $(printf %04d $WDH_BIS) keine Wiederholung mehr (Release bis 24:00)"; return 1 }
-    gh run rerun $id -R $R --failed >/dev/null 2>&1 || { WDH="nein: gh run rerun gescheitert"; return 1 }
+    (( j >= 900 && j < WDH_BIS )) || { WDH="nein: nur 09:00 bis $(printf %04d $WDH_BIS) eine Wiederholung (Release bis 24:00, neon-Jobs nie nach 00:00)"; return 1 }
+    if [[ -r $HIER/ci-wiederholen.sh ]]; then
+      # über ci-wiederholen.sh: dieselben Grenzen, Zeilen „rot“/„wiederholt“ in ~/halo-nacht/flackern.log (für das
+      # Auswerten nach dem Lauf und den Hinweis bei zweitem Flackern in 7 Tagen)
+      zsh $HIER/ci-wiederholen.sh --lauf $id >/dev/null 2>&1
+      grep -qx "$id wiederholt" ${HALO_FLACKERN_STAND:-$HOME/halo-nacht/flackern.stand} 2>/dev/null \
+        || { WDH="nein: ci-wiederholen.sh hat nicht wiederholt (Grund in ~/halo-nacht/flackern.log)"; return 1 }
+    else
+      gh run rerun $id -R $R --failed >/dev/null 2>&1 || { WDH="nein: gh run rerun gescheitert"; return 1 }
+    fi
     print -r -- "WIEDERHOLT: Lauf $id, rote Jobs einmal ($(date +%H:%M))"
     WDH="ja (Lauf $id, Versuch 2)"
   else
@@ -181,6 +189,8 @@ nach_wiederholung() {   # <Lauf> <Minuten>
   local r; wiederholen $1 $2; r=$?
   (( r == 2 )) && WDH="$WDH, nach $2 Min. nicht fertig"
   (( r == 0 )) || return 1
+  # Ergebnis der Wiederholung in flackern.log (flackert/bleibt-rot, Hinweis an neon beim zweiten Flackern in 7 Tagen)
+  [[ -r $HIER/ci-wiederholen.sh ]] && zsh $HIER/ci-wiederholen.sh --lauf $1 >/dev/null 2>&1
   NW_ERG=$(gh run view $1 -R $R --json conclusion --jq .conclusion 2>/dev/null)
 }
 windows_gruen() { gh run view $1 -R $R --json jobs --jq 'any(.jobs[]; .name == "windows" and .conclusion == "success")' 2>/dev/null | grep -q true }

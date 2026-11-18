@@ -59,7 +59,7 @@ protokoll() {
   local id=$1 att=$2; shift 2; : > $T/gh/log-$id-$att
   while (( $# >= 3 )); do print -r -- "$1	Test	2026-11-18T13:00:00.0000000Z FEHLER  $2 – $3" >> $T/gh/log-$id-$att; shift 3; done
 }
-los() { HALO_JETZT=${JETZT:-$JETZT_ISO} zsh $HIER/ci-wiederholen.sh "$@" 2>$T/err }
+los() { HALO_JETZT=${JETZT:-$JETZT_ISO} HALO_PUSH_TROCKEN=1 zsh $HIER/ci-wiederholen.sh "$@" 2>$T/err >$T/out }
 neu() { rm -f $FLOG $FSTAND $T/aufrufe $T/aufgaben/*(N) $T/gh/liste $T/gh/jobs-*(N) $T/gh/log-*(N) $T/nacht/*.lock(N); print 0 > $T/gh/rerun-rc; JETZT= }
 wdh() { [[ -r $T/aufrufe ]] && wc -l < $T/aufrufe | tr -d ' ' || print 0 }
 P="Today-Pane: Ein-/Ausblenden flüssig (kein Sprung)"
@@ -134,7 +134,10 @@ los
 pruefe "Mac rot um 00:45: keine Wiederholung, kein Stand (später erneut)" '[[ $(wdh) == 0 ]] && [[ ! -s $FSTAND ]]'
 JETZT=2026-11-18T00:20+01:00
 los
-pruefe "Mac rot um 00:20: Wiederholung" '[[ $(wdh) == 1 ]]'
+pruefe "Mac rot um 00:20: keine Wiederholung (Startgrenze 00:00, gemeinsam mit dem Zwischen-Release-Wächter)" '[[ $(wdh) == 0 ]] && [[ ! -s $FSTAND ]]'
+JETZT=2026-11-17T23:50+01:00
+los
+pruefe "Mac rot um 23:50: Wiederholung" '[[ $(wdh) == 1 ]]'
 neu
 JETZT=2026-11-18T03:00+01:00
 lauf 141 completed failure push 1 pruef/e > $T/gh/liste
@@ -206,6 +209,27 @@ jobs 200 1 "linux (esr)=failure:Test"; protokoll 200 1 "linux (esr)" $P "x"
 print 1 > $T/gh/rerun-rc
 los; RC1=$?; los
 pruefe "gh run rerun scheitert: Exitcode 1, „ausgelassen“, kein weiterer Versuch" '(( RC1 == 1 )) && [[ $(wdh) == 1 ]] && grep -q "	ausgelassen	200	.*gh run rerun gescheitert" $FLOG'
+
+# 14. dieselbe Prüfung zum zweiten Mal in 7 Tagen nur durch Wiederholung grün: sofort an neon (an_neon), Zeile „zweimal“
+neu
+print -r -- "2026-11-14 10:00:00	flackert	90	2	pruef/alt	sha90	linux (beta)	$P	in der Wiederholung grün" > $FLOG
+print -r -- "2026-11-05 10:00:00	flackert	80	2	pruef/alt	sha80	linux (esr)	Andere Prüfung	in der Wiederholung grün" >> $FLOG
+lauf 210 completed failure push 1 pruef/m > $T/gh/liste
+jobs 210 1 "linux (esr)=failure:Test"; protokoll 210 1 "linux (esr)" $P "x" "linux (esr)" "Andere Prüfung" "y"
+los
+lauf 210 completed success push 2 pruef/m > $T/gh/liste
+jobs 210 2 "linux (esr)=success"
+los
+pruefe "zweites Flackern in 7 Tagen: Zeile „zweimal“ mit Prüfung, Meldung an neon mit Lauf, Prüfung und früherem Lauf" \
+  'grep -q "	zweimal	210	2	pruef/m	sha210	linux (esr)	$P	" $FLOG && grep -q "^TROCKEN: an_neon \[flackern\] Prüfung zum zweiten Mal in 7 Tagen" $T/out && grep -q "^- linux (esr): $P – vorher nur durch Wiederholung grün: Lauf 90 (2026-11-14 10:00, linux (beta))" $T/out'
+pruefe "älter als 7 Tage zählt nicht (Andere Prüfung, 5.11.)" '! grep -q "	zweimal	210	.*Andere Prüfung" $FLOG && ! grep -q "Andere Prüfung" $T/out'
+pruefe "zweites Flackern: nicht aufs iPhone, solange neon erreichbar" '! grep -q "TROCKEN: push" $T/out'
+# 15. erstes Flackern: keine Meldung
+neu
+lauf 220 completed failure push 1 pruef/n > $T/gh/liste
+jobs 220 1 "linux (esr)=failure:Test"; protokoll 220 1 "linux (esr)" $P "x"
+los; lauf 220 completed success push 2 pruef/n > $T/gh/liste; jobs 220 2 "linux (esr)=success"; los
+pruefe "erstes Flackern: nur „flackert“, keine Meldung an neon" 'grep -q "	flackert	220	" $FLOG && ! grep -q "zweimal" $FLOG && [[ ! -s $T/out ]]'
 
 print "\n$N Prüfungen, $( (( FEHLER )) && print "mit Fehlern" || print "alle OK")"
 exit $FEHLER

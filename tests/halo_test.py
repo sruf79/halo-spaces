@@ -10797,39 +10797,53 @@ def server_checks(m, results):
               const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose), 10000);
               await bis(() => cw.gLoadingComplete, "Verfassen-Fenster fertig geladen", 8000); await ruhig(1500); cw.goDoCommand("cmd_sendNow");
               return 1;""" % (ADDON_ID, key))
+            # Thunderbirds eigene Meldung („Sending of the message failed“, Windows) geht etwa zeitgleich mit dem
+            # halo-Dialog auf – auch erst nach der Abfrage, die den Aufruf schon sieht. Marionette schließt sie dann beim
+            # nächsten Befehl selbst und lässt ihn mit „Unexpected alert dialog detected“ scheitern (CI 44249378415):
+            # Aufräumen darum mit Wiederholung und immer (sonst bliebe die abgelehnte Mail im Postausgang und ginge beim
+            # nächsten Senden zuerst hinaus – die OpenPGP-Prüfung fand dann ihre Mail nicht)
+            def trotz_alarm(body):
+                for i in range(3):
+                    try:
+                        return m.js(body)
+                    except RuntimeError as e:
+                        if "Unexpected alert" not in str(e) or i == 2:
+                            raise
             res = None
-            for _ in range(20):
-                time.sleep(1)
-                try:
-                    m.cmd("WebDriver:DismissAlert", {})
-                except Exception:
-                    pass
-                try:
-                    res = m.js(r"""
-                      const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-                      const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
-                      return { calls: w.__mcErrCalls || [], kept: outbox?.getTotalMessages(false) || 0 };""")
-                except Exception:
-                    res = None
-                if res and res.get("calls"):
-                    break
-            m.js(r"""
-              const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
-              const enh = Cu.evalInSandbox("enhancer", ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global);
-              if (w.__mcErrOrig) enh.showSendError = w.__mcErrOrig; delete w.__mcErrOrig;
-              Services.prefs.clearUserPref("extensions.mailcards.undoSend");
-              for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
-              return 1;""" % ADDON_ID)
+            try:
+                for _ in range(20):
+                    time.sleep(1)
+                    try:
+                        m.cmd("WebDriver:DismissAlert", {})
+                    except Exception:
+                        pass
+                    try:
+                        res = m.js(r"""
+                          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                          const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                          return { calls: w.__mcErrCalls || [], kept: outbox?.getTotalMessages(false) || 0 };""")
+                    except Exception:
+                        res = None
+                    if res and res.get("calls"):
+                        break
+            finally:
+                trotz_alarm(r"""
+                  const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+                  const enh = Cu.evalInSandbox("enhancer", ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global);
+                  if (w.__mcErrOrig) enh.showSendError = w.__mcErrOrig; delete w.__mcErrOrig;
+                  Services.prefs.clearUserPref("extensions.mailcards.undoSend");
+                  for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+                  return 1;""" % ADDON_ID)
+                # Postausgang wieder leeren (die abgelehnte Mail bliebe sonst für die folgenden Prüfungen liegen)
+                trotz_alarm(r"""
+                  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                  const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                  const hdrs = outbox ? [...outbox.msgDatabase.enumerateMessages()] : [];
+                  if (hdrs.length) outbox.deleteMessages(hdrs, null, true, false, null, false);
+                  return 1;""")
             res = res or {}
             c = (res.get("calls") or [{}])[0]
             ok = c.get("subject") == "Halo Fehlerprobe" and res.get("kept", 0) >= 1
-            # Postausgang wieder leeren (die abgelehnte Mail bliebe sonst für die folgenden Prüfungen liegen)
-            m.js(r"""
-              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
-              const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
-              const hdrs = outbox ? [...outbox.msgDatabase.enumerateMessages()] : [];
-              if (hdrs.length) outbox.deleteMessages(hdrs, null, true, false, null, false);
-              return 1;""")
             return ok, f"{res}"
         check("Testkonto: abgelehnte Mail → Fehler-Dialog (mit „Postausgang zeigen“), Mail bleibt im Postausgang", send_error, results)
 

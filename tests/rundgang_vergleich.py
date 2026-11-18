@@ -4,7 +4,8 @@
 Liest aus einem Rundgang-Ordner (~/halo-tour/<datum>/) die Ergebnisse von
 ui_tour.py (<hell|dunkel>-ergebnis.json) und die Messwerte (--messung,
 <hell|dunkel>-messung.json) und vergleicht
-  a) je Kategorie und Maß gegen den häufigsten Wert (Modus) – Ausreißer,
+  a) je Kategorie und Maß gegen den häufigsten Wert (Modus) – Ausreißer;
+     die Rundung von Popups und Panels gegen den Sollwert ihrer Art (SOLL_RADIUS),
   b) mit dem vorigen Rundgang: neue und behobene Ausreißer, geänderte Werte,
      neu nicht erreichte Oberflächen, neue Original-Symbole.
 Bilder werden nur informativ verglichen (geändert ja/nein), daraus entsteht
@@ -20,6 +21,37 @@ import glob
 import hashlib
 import json
 import os
+import re
+
+# Popup-Rundung je nach Art (docs/design-vorgaben.md Abschnitt 10, „Popup-Rundung je nach Art“, 15.11.2026):
+# Menüs, Auswahllisten und Tooltips 12 px (--mt-radius-popup), Popover mit eigenem Inhalt 20 px
+# (--mt-popover-radius), Datumswahl 6 px wie Apple. Die Art steht in ui_tour.py (S(…, art=…)) und im Ergebnis.
+SOLL_RADIUS = {"menue": "12px", "popover": "20px", "datum": "6px"}
+ART_NAME = {"menue": "Menü, Auswahlliste oder Tooltip", "popover": "Popover", "datum": "Datumswahl"}
+_ARTEN = None
+
+
+def arten_aus_tour():
+    """Art je Oberfläche aus ui_tour.py (für Ergebnisse älterer Rundgänge, die sie noch nicht enthalten)."""
+    global _ARTEN
+    if _ARTEN is None:
+        _ARTEN = {}
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui_tour.py")
+        if os.path.exists(p):
+            src = open(p, encoding="utf-8").read()
+            starts = [(m.start(), m.group(1)) for m in re.finditer(r'^\s+S\("([^"]+)",', src, re.M)]
+            for n, (pos, sid) in enumerate(starts):
+                ende = starts[n + 1][0] if n + 1 < len(starts) else len(src)
+                m = re.search(r'\bart="([a-z]+)"', src[pos:ende])
+                if m:
+                    _ARTEN[sid] = m.group(1)
+    return _ARTEN
+
+
+def popup_art(i, e):
+    art = e.get("art") or arten_aus_tour().get(i) or "menue"
+    return art if art in SOLL_RADIUS else "menue"
+
 
 KATEGORIEN = [("popup", "Popups und Kontextmenüs"), ("panel", "Panels und Popover"), ("dialog", "Dialoge und Rückfragen"),
               ("fenster", "Eigene Fenster"), ("bereich", "Bereiche"), ("zustand", "Zustände"), ("suchfeld", "Suchfelder")]
@@ -88,6 +120,7 @@ def text(v):
 def auswerten(ordner):
     """Ausreißer je Schema: {(schema, kategorie, maß, id): wert}, dazu Modus je Maß."""
     aus, modi, nicht, orig, suchfelder, bilder, gemessen = {}, {}, {}, collections.defaultdict(set), {}, {}, {}
+    soll = {}  # (schema, kategorie, maß, id) → Sollwert mit Art, nur für Maße mit festem Soll (Popup-Radius)
     schemata = [s for s in ("hell", "dunkel") if lade(ordner, s, "ergebnis") is not None]
     for sc in schemata:
         erg = lade(ordner, sc, "ergebnis")
@@ -121,6 +154,17 @@ def auswerten(ordner):
             for v in reihen.values():
                 masse += [k for k in v if k not in masse]
             for k in masse:
+                if kat in ("popup", "panel") and k == "Radius":
+                    # nicht gegen den Modus: 6 px und 20 px sind je nach Art richtig, nur Abweichung vom Soll der Art
+                    gem = {i: text(v[k]) for i, v in reihen.items() if v.get(k) not in (None, "")}
+                    falsch = {i: w for i, w in gem.items() if w != SOLL_RADIUS[popup_art(i, erg[i])]}
+                    if gem:
+                        modi[(sc, kat, k)] = {"modus": "Soll je Art", "anteil": f"{len(gem) - len(falsch)}/{len(gem)}"}
+                    for i, w in falsch.items():
+                        art = popup_art(i, erg[i])
+                        aus[(sc, kat, k, i)] = w
+                        soll[(sc, kat, k, i)] = f"{SOLL_RADIUS[art]} ({ART_NAME[art]})"
+                    continue
                 c = collections.Counter(text(v[k]) for v in reihen.values() if v.get(k) not in (None, ""))
                 if not c:
                     continue
@@ -129,7 +173,7 @@ def auswerten(ordner):
                 for i, v in reihen.items():
                     if v.get(k) not in (None, "") and text(v[k]) != modus:
                         aus[(sc, kat, k, i)] = text(v[k])
-    return {"schemata": schemata, "ausreisser": aus, "modi": modi, "nicht": nicht,
+    return {"schemata": schemata, "ausreisser": aus, "modi": modi, "soll": soll, "nicht": nicht,
             "orig": {k: sorted(v) for k, v in orig.items()}, "bilder": bilder, "gemessen": gemessen,
             "messung": any(lade(ordner, s, "messung") for s in schemata)}
 
@@ -180,7 +224,8 @@ def main():
                             "neu": sum(1 for k in neu if k[0] == sc), "behoben": sum(1 for k in behoben if k[0] == sc)}
                        for sc in jetzt["schemata"]},
         "ausreisser": [{"schema": k[0], "kategorie": k[1], "mass": k[2], "id": k[3], "wert": w,
-                        **(jetzt["modi"].get(k[:3]) or {})} for k, w in sorted(a.items())],
+                        **(jetzt["modi"].get(k[:3]) or {}),
+                        **({"soll": jetzt["soll"][k]} if k in jetzt["soll"] else {})} for k, w in sorted(a.items())],
         "neu": [schluessel(k) + " = " + w for k, w in sorted(neu.items())],
         "behoben": [schluessel(k) + " (war " + w + ")" for k, w in sorted(behoben.items())],
         "geaendert": [schluessel(k) + f": {x} → {y}" for k, (x, y) in sorted(geaendert.items())],
@@ -207,7 +252,9 @@ def main():
         zeilen = [x for x in erg["ausreisser"] if x["kategorie"] == kat]
         if zeilen:
             z += ["", f"### {name}", ""] + [
-                f"- {x['schema']} {x['mass']}: {x['id']} = {x['wert']}" + (f" (Modus {x['modus']}, {x['anteil']})" if x.get("modus") else "")
+                f"- {x['schema']} {x['mass']}: {x['id']} = {x['wert']}" + (
+                    f" (Soll {x['soll']}, {x['anteil']} wie Soll)" if x.get("soll")
+                    else f" (Modus {x['modus']}, {x['anteil']})" if x.get("modus") else "")
                 for x in zeilen]
     z += ["", f"Bilder geändert (nur Information): {len(bilder_geaendert)}", ""]
     open(os.path.join(args.ordner, "vergleich.md"), "w").write("\n".join(z) + "\n")

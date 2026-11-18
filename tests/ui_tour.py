@@ -66,6 +66,7 @@ AREAS = [
 AREA_KEYS = [a[0] for a in AREAS]
 
 KINDS = ("bereich", "fenster", "dialog", "menue", "popup", "zustand")
+POPUP_ARTEN = ("popover", "datum")  # S(…, art=…), ohne Angabe Menü/Auswahlliste/Tooltip
 
 
 # Chat-Konto am IRC-Testserver (Raum #halo) und OpenPGP-Testschlüssel für die Identität der Lokalen Ordner
@@ -111,8 +112,12 @@ def S(id, area, kind, title, open=None, cap="main", close=None, **kw):
             deren Hintergrund macOS zeichnet (dunkel sonst nur eine weiße Fläche)
     after: JS nach dem Öffnen (bei Popups nach der Zeigerbewegung, wenn open {pointer: [x, y]} liefert;
            hover = Wartezeit in s), z. B. Tooltip suchen und als w.__tourPopup merken
+    art:  Art eines Popups für die Rundung (rundgang_vergleich.py, docs/design-vorgaben.md „Popup-Rundung je
+          nach Art“): "popover" (eigener Inhalt, 20 px) oder "datum" (Datumswahl, 6 px); ohne Angabe Menü,
+          Auswahlliste oder Tooltip (12 px)
     """
     assert area in AREA_KEYS and kind in KINDS, id
+    assert kw.get("art") in (None,) + POPUP_ARTEN, id
     return {"id": id, "area": area, "kind": kind, "title": title, "open": open, "cap": cap, "close": close, **kw}
 
 
@@ -932,7 +937,7 @@ SURFACES = [
     S("verfassen-anhaenge-anordnen", "verfassen", "popup", "Panel „Anhänge neu anordnen“",
       'const cw = await compose(); await attachFiles(cw, ["Angebot-Entwurf.txt", "Zweiter Anhang mit langem Namen.txt", "Dritter Anhang.txt"]);'
       ' cw.document.getElementById("attachmentBucket").selectedIndex = 1;'
-      ' return await pop(cw.document.getElementById("reorderAttachmentsPanel"), () => cw.goDoCommand("cmd_reorderAttachments"));', cap="popup"),
+      ' return await pop(cw.document.getElementById("reorderAttachmentsPanel"), () => cw.goDoCommand("cmd_reorderAttachments"));', cap="popup", art="popover"),
     S("verfassen-anhang-erinnerung", "verfassen", "zustand", "Hinweisleiste „Anhang vergessen?“ (Schlüsselwort im Text)",
       'const cw = await compose({ body: "<p>Hallo Anna,</p><p>im Anhang findest du das Dokument (attached).</p><p>Viele Grüße<br>Halo</p>" });'
       ' await cw.gAttachmentNotifier.checkForAttachmentKeywords?.(); if (!await until(() => cw.document.querySelector(\'notification-message[value="attachmentReminder"]\'), 6000)) throw new Error("keine Leiste"); await wait(800);',
@@ -1101,19 +1106,19 @@ SURFACES = [
       'await pick("Inbox", "Treffen am Donnerstag"); if (!w.TodayPane.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand(); await wait(1500);'),
     S("kal-schnellfenster", "kalender", "popup", "Kalender: Schnellfenster „Neuer Termin“",
       'await toCalendar(); w.switchCalendarView("week"); await wait(800); const li = toolbarItem("new-event"); if (!li) throw new Error("„+“ fehlt");'
-      ' return await pop("mcQuickPanel", () => li.querySelector("button").click());', cap="popup"),
+      ' return await pop("mcQuickPanel", () => li.querySelector("button").click());', cap="popup", art="popover"),
     # Bild für README und Store (screenshots/quick-event.png, store/shot-quick-event.png): erfundenes Beispiel
     S("kal-schnellfenster-beispiel", "kalender", "popup", "Schnellfenster mit Beispiel (Team Lunch, Café Central, wöchentlich, Erinnerung)",
       'await toCalendar(); w.switchCalendarView("week"); await wait(800); const li = toolbarItem("new-event"); if (!li) throw new Error("„+“ fehlt");'
       ' await pop("mcQuickPanel", () => li.querySelector("button").click()); const p = d.getElementById("mcQuickPanel"), f = p.__mc;'
       ' f.title.value = "Team Lunch"; f.location.value = "Café Central";'
       ' f.repeat.value = "WEEKLY"; f.repeat.dispatchEvent(new Event("change")); f.alert.value = "PT15M"; f.alert.dispatchEvent(new Event("change"));'
-      ' f.title.blur(); await wait(500); w.__tourPopup = p; return p;', cap="popup"),
+      ' f.title.blur(); await wait(500); w.__tourPopup = p; return p;', cap="popup", art="popover"),
     # Schnellfenster: Popups der HTML-Felder (Datum, Auswahlliste) und das eigene Kalendermenü von halo.spaces
     S("kal-schnellfenster-datum", "kalender", "popup", "Schnellfenster: Datum zum Eintippen mit Monatskalender (Klick ins Jahr bei „Beginn“)",
       'const f = await quickPanel(); const s = f.startDate.parentNode.querySelector(\'.mc-date-seg[data-seg="y"]\'); if (!s) throw new Error("Datum zum Eintippen fehlt");'
       ' const p = await until(() => [...d.querySelectorAll(".mc-date-panel")].find(x => x.__mcFor == s.parentNode) || d.querySelector(".mc-date-panel"), 3000);'
-      ' return await pop(p, () => s.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
+      ' return await pop(p, () => s.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup", art="datum"),
     S("kal-schnellfenster-auswahlliste", "kalender", "popup", "Schnellfenster: aufgeklappte Auswahlliste „Wiederholen“",
       'const f = await quickPanel(); const p = d.getElementById("ContentSelectDropdown")?.menupopup; if (!p) throw new Error("Auswahlliste fehlt");'
       ' return await pop(p, () => { d.notifyUserGestureActivation(); f.repeat.showPicker(); });', cap="popup",
@@ -1142,7 +1147,7 @@ SURFACES = [
     S("kal-termin-datum", "kalender", "popup", "Termin-Dialog: Datum zum Eintippen mit Monatskalender (Klick ins Jahr, wie Apple Kalender)",
       'const { iw } = await eventDialog(); const s = iw.document.querySelector(\'#event-starttime .mc-date-seg[data-seg="y"]\'); const p = iw.document.querySelector(".mc-date-panel");'
       ' if (!s || !p) throw new Error("Datum zum Eintippen fehlt");'
-      ' return await pop(p, () => s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup"),
+      ' return await pop(p, () => s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 })));', cap="popup", art="datum"),
     S("kal-termin-uhrzeit", "kalender", "dialog", "Termin-Dialog: Uhrzeit zum Eintippen (Stunden gewählt, wie Apple Kalender)",
       'const { iw } = await eventDialog(); const s = iw.document.querySelector("#event-starttime timepicker .mc-time-seg"); if (!s) throw new Error("Uhrzeitfeld fehlt");'
       ' s.dispatchEvent(new iw.MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));', cap="window", win="calendar-event-dialog"),
@@ -1235,7 +1240,7 @@ SURFACES = [
       'await toTasks(); const it = await anyItem("Präsentation vorbereiten"); w.modifyEventWithDialog(it, true);', cap="window", win="calendar-event-dialog"),
     S("aufg-schnellfenster", "aufgaben", "popup", "Aufgaben: Schnellfenster „Neue Aufgabe“",
       'await toTasks(); const li = toolbarItem("new-event") || toolbarItem("new-task"); if (!li) throw new Error("„+“ fehlt");'
-      ' return await pop("mcQuickPanel", () => li.querySelector("button").click());', cap="popup"),
+      ' return await pop("mcQuickPanel", () => li.querySelector("button").click());', cap="popup", art="popover"),
     S("aufg-kontext", "aufgaben", "popup", "Kontextmenü: Aufgabe",
       'await toTasks(); const t = d.getElementById("calendar-task-tree"); await until(() => t.view?.rowCount > 0, 5000); t.view.selection.select(0); await wait(500);'
       ' const tc = t.querySelector("treechildren"); return await ctxPop("taskitem-context-menu", tc, { oy: 8 });', cap="popup"),
@@ -1828,6 +1833,8 @@ class Tour:
 
     def report(self, s, ok, detail):
         entry = {"id": s["id"], "area": s["area"], "kind": s["kind"], "title": s["title"], "ok": ok}
+        if s.get("art"):
+            entry["art"] = s["art"]
         if ok:
             entry["files"] = [os.path.relpath(f, ROOT) for f in detail]
         else:

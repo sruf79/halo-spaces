@@ -1023,7 +1023,9 @@ die `halo_test.py` nicht sieht.
 - Ablage `~/halo-tour/<datum>/`: Bilder, `<hell|dunkel>-ergebnis.json`,
   `<hell|dunkel>-messung.json`, `commit.txt`, `vergleich.md/json`
   (`tests/rundgang_vergleich.py`: Ausreißer gegen den häufigsten Wert je
-  Kategorie, Suchfelder mit Hover oder ohne Kapsel, neue/behobene/geänderte
+  Kategorie, Popup-Rundung gegen das Soll ihrer Art – Menü, Auswahlliste,
+  Tooltip 12 px, Popover 20 px, Datumswahl 6 px, Art per `art=` in
+  `ui_tour.py`, Test `tests/rundgang_vergleich_test.py` –, Suchfelder mit Hover oder ohne Kapsel, neue/behobene/geänderte
   Ausreißer gegen die Vorwoche, neu nicht erreichte Oberflächen, neue
   Original-Symbole; Bilder nur zur Information). Nach 8 Wochen werden Bilder
   und Logs gelöscht, die JSON-Dateien bleiben (`rundgang_ausduennen` in

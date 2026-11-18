@@ -1766,6 +1766,41 @@ const EarlyTheme = {
       Services.prefs.clearUserPref(EARLY_LEGACY_PREF);
     }
   },
+  // Altes Design aus dem Profil stilllegen, sobald theme.css gilt (ThemeSheet.apply): Thunderbird lädt die Kopie im
+  // Profil nur beim Programmstart und behält sie bis zum Beenden – nach einem Update ohne Neustart galten sonst die
+  // alte und die neue Fassung zugleich, und Regeln, die es in der neuen nicht mehr gibt, griffen weiter (3.30.0: bei
+  // ausgeblendeter Seitenleiste lag der Seitenleisten-Knopf auf den Fensterknöpfen, gemessen 12 statt 84 px).
+  // Thunderbird hält dafür EIN Stilblatt für alle Fenster (auch für später geöffnete); abschalten (disabled) wirkt
+  // an ihm nicht (gemessen), leeren schon. Nur unser eigenes Design (erste Regel setzt --mt-accent) – ein fremdes
+  // Stilblatt des Nutzers bleibt unberührt. Ebenso die Kopie, die die vorige Fassung selbst in Inhaltsseiten
+  // (Adressbuch, Einstellungen) geladen hat (__mcSheet)
+  retire(win) {
+    try {
+      if (win.__mcSheet) {
+        try {
+          win.windowUtils.removeSheetUsingURIString(win.__mcSheet, win.windowUtils.USER_SHEET);
+        } catch {} // gewollt: Kopie schon entfernt
+        delete win.__mcSheet;
+      }
+      const url = (this.url ??= Services.io.newFileURI(this.file()).spec);
+      for (const sheet of win.InspectorUtils.getAllStyleSheets(win.document, false)) {
+        if (sheet.href == url && sheet.cssRules.length && this.ours(sheet)) {
+          win.InspectorUtils.parseStyleSheet(sheet, "");
+          log("early theme: alte Kopie aus dem Profil stillgelegt");
+        }
+      }
+    } catch (e) {
+      log("early theme retire error", e);
+    }
+  },
+  ours(sheet) {
+    for (let i = 0; i < Math.min(sheet.cssRules.length, 3); i++) {
+      if (sheet.cssRules[i].style?.getPropertyValue("--mt-accent")) {
+        return true;
+      }
+    }
+    return false;
+  },
 };
 
 const ThemeSheet = {
@@ -1818,6 +1853,7 @@ const ThemeSheet = {
     if (!this.active || !win || win.__mcTheme == this.uri || !this.wanted(win.document)) {
       return;
     }
+    EarlyTheme.retire(win);
     try {
       // nach einem Update: die alte Fassung in schon offenen Seiten ersetzen
       if (win.__mcTheme) {

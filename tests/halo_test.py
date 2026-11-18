@@ -699,6 +699,18 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             **({"ui.systemUsesDarkTheme": 1} if dark else {}),
         }.items():
             f.write(f"user_pref({json.dumps(pref)}, {json.dumps(value)});\n")
+    # Alte Designkopie im Profil, wie sie „Design ohne Aufblitzen“ einer früheren Fassung hinterlässt: Thunderbird lädt
+    # sie beim Programmstart und behält sie bis zum Beenden (so sieht ein Update ohne Neustart aus). halo.spaces räumt
+    # Datei und Einstellungen beim Start weg (Option ist aus) und muss das schon geladene Stilblatt stilllegen –
+    # Prüfung „Design: alte Kopie aus dem Profil …“. In prefs.js statt user.js, damit es nur für den ersten Start gilt
+    if xpi:
+        os.makedirs(os.path.join(profile, "chrome"))
+        with open(os.path.join(profile, "chrome", "userChrome.css"), "w") as f:
+            f.write("/* halo.spaces: automatisch geschrieben (Start ohne Aufblitzen), Version 0.0.1 Stand 00000000 – nicht von Hand "
+                    "ändern, wird ersetzt */\n:root { --mt-accent: AccentColor; --mc-test-alte-fassung: 1; }\n")
+        with open(os.path.join(profile, "prefs.js"), "w") as f:
+            f.write('user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);\n'
+                    'user_pref("extensions.mailcards.earlyThemeSetLegacy", true);\n')
     return profile
 
 
@@ -21298,6 +21310,32 @@ Neu
               and res["ownOn"] == "/* meine eigene */\n" and res["ownOff"] == "/* meine eigene */\n")
         return ok, f"{res}"
     check("Einstellungen: „Design ohne Aufblitzen“ schreibt userChrome.css ins Profil und räumt beim Ausschalten auf, eigene Datei bleibt", early_theme, results)
+
+    def early_theme_old_copy():
+        # Update ohne Neustart mit „Design ohne Aufblitzen“: die beim Programmstart geladene alte Kopie aus dem Profil galt
+        # neben dem neuen Design weiter (3.30.0: Seitenleisten-Knopf bei ausgeblendeter Seitenleiste auf den Fensterknöpfen,
+        # 12 statt 84 px). create_profile() legt dafür eine alte Kopie mit einer Kennvariable ins Profil; sie muss geladen
+        # worden sein (sonst prüft das hier nichts), darf aber nicht mehr wirken – im Hauptfenster, im Mail-Tab und in
+        # einem neu geöffneten Fenster
+        res = m.js(r"""await toMail();
+          const sheets = doc => w.InspectorUtils.getAllStyleSheets(doc, false).filter(s => (s.href || "").endsWith("/chrome/userChrome.css"));
+          const mark = doc => getComputedStyle(doc.documentElement).getPropertyValue("--mc-test-alte-fassung").trim();
+          const a3 = tm.currentAbout3Pane.document;
+          const out = { geladen: sheets(d).length, regeln: sheets(d).map(s => s.cssRules.length), kenn: mark(d), kenn3p: mark(a3),
+                        design: !!w.__mcTheme, akzent: getComputedStyle(d.documentElement).getPropertyValue("--mt-accent").trim() != "",
+                        datei: await IOUtils.exists(PathUtils.join(PathUtils.profileDir, "chrome", "userChrome.css")),
+                        legacy: Services.prefs.getBoolPref("toolkit.legacyUserProfileCustomizations.stylesheets", false) };
+          const nw = w.openDialog("chrome://messenger/content/messenger.xhtml", "_blank", "chrome,all,dialog=no");
+          try {
+            await bis(() => nw.document.readyState == "complete" && nw.__mcTheme, "zweites Fenster mit Design", 15000);
+            out.kennNeu = mark(nw.document); out.regelnNeu = sheets(nw.document).map(s => s.cssRules.length);
+          } finally { nw.close(); await bis(() => nw.closed, "zweites Fenster zu", 5000); w.focus(); await ruhig(400); }
+          return out;""")
+        ok = (res["geladen"] == 1 and res["regeln"] == [0] and res["kenn"] == "" and res["kenn3p"] == "" and res["design"] and res["akzent"]
+              and res.get("kennNeu") == "" and res.get("regelnNeu") == [0] and not res["datei"] and not res["legacy"])
+        return ok, f"{res}"
+    check("Design: alte Kopie aus dem Profil (Design ohne Aufblitzen einer früheren Fassung, beim Programmstart geladen) gilt nicht neben dem "
+          "neuen Design weiter – Update ohne Neustart, auch in neuen Fenstern", early_theme_old_copy, results)
 
     def pref_embedded_pages():
         # Kontoeinstellungen und Add-ons als Kategorien: Seitenleiste bleibt stehen (gleiche Breite), Inhalt rechts daneben,

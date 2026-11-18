@@ -4532,14 +4532,14 @@ def compose_checks(m, results):
             for (const p of pills) {
               const btn = p.querySelector(".toolbarbutton-menubutton-button"), dm = p.querySelector(".toolbarbutton-menubutton-dropmarker");
               const pr = p.getBoundingClientRect(), br = btn.getBoundingClientRect(), dr = dm.getBoundingClientRect();
-              const o = { left: await ink(btn, 0), right: await ink(dm, 3),
+              const o = { restBg: csOf(p).backgroundImage, left: await ink(btn, 0), right: await ink(dm, 3),
                           fill: [Math.round(br.left - pr.left), Math.round(pr.right - dr.right), Math.round(dr.left - br.right)] };
               // Überfahren: nur die Hälfte unter der Maus bekommt ihre Fläche
               for (const [name, half, other] of [["hoverLeft", btn, dm], ["hoverRight", dm, btn]]) {
                 for (const e of [p, half]) InspectorUtils.addPseudoClassLock(e, ":hover");
                 await ruhig(150);
-                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundColor,
-                            rest: colorOf(cd, "var(--mt-control)", "backgroundColor") };
+                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundImage,
+                            rest: o.restBg };
                 for (const e of [p, half]) InspectorUtils.removePseudoClassLock(e, ":hover");
               }
               await ruhig(150);
@@ -4655,21 +4655,26 @@ def compose_checks(m, results):
             const half = split?.querySelector(".toolbarbutton-menubutton-button");
             if (half) { out.split = { h: look(split).h }; await lock(split, [":hover"], true); await lock(half, [":hover"], true); out.split.dot = dot(half);
               await lock(half, [":hover"], false); await lock(split, [":hover"], false); }
-            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient")).map(b => b.id);
+            // leuchtend = Verlauf in Farbe (Systemfarbe); die plastischen Kapseln tragen einen grauen Verlauf (17.11.2026)
+            const bunt = img => [...img.matchAll(/rgba?\(([^)]*)\)|color\(srgb ([^)]*)\)/g)].some(m => {
+              const v = (m[1] || m[2]).split(/[ ,/]+/).filter(Boolean).slice(0, 3).map(Number).map(x => m[1] ? x / 255 : x);
+              return Math.max(...v) - Math.min(...v) > 0.15; });
+            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient") && bunt(csOf(b).backgroundImage)).map(b => b.id);
             return out; });""")
         sd, pl = res.get("send") or {}, res.get("pill") or {}
         send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and sd["ready"]["img"].startswith("linear-gradient") and "inset" in sd["ready"]["sh"]
                    and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [38, 38, "50%"]
                    and sd["hover"]["bg"] == sd["ready"]["bg"] and sd["hover"]["img"] == sd["ready"]["img"] and sd["hover"]["sh"] == sd["ready"]["sh"]
                    and sd["press"]["img"] == "none" and luminance(sd["press"]["bg"]) < luminance(sd["ready"]["bg"]) and "inset" in sd["press"]["sh"])
-        # Kapsel 38 px mit Lichtkante bleibt unter der Maus und gedrückt gleich; Kreis 32 px: unter der Maus mit
+        # Kapsel 38 px bleibt unter der Maus und gedrückt gleich; Kreis 32 px: unter der Maus mit
         # Lichtkante, gedrückt dunkler mit innerem Schatten ohne Licht (Entscheidung 17.11.2026, Möglichkeit 2)
         hd, pd, rd = pl.get("hoverDot") or {}, pl.get("pressDot") or {}, pl.get("readyDot") or {}
         circle = lambda o: o.get("w") == "32px" and o.get("h") == "32px" and o.get("r") in ("50%", "16px")
-        pill_ok = (bool(pl) and same_color(pl["ready"]["bg"], res["control"]) and "inset" in pl["ready"]["sh"] and pl["ready"]["sh"].count("rgba") >= 2
+        # (Kapsel plastisch: helle Fläche als Verlauf, Kante innen an den Enden, Schatten; 17.11.2026)
+        pill_ok = (bool(pl) and pl["ready"]["img"].count("linear-gradient") >= 3 and pl["ready"]["sh"].count("inset") == 2
                    and pl["ready"]["h"] == 38 and rd.get("op") == "0"
-                   and same_color(pl["hover"]["bg"], res["control"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
-                   and same_color(pl["press"]["bg"], res["control"]) and pl["press"]["sh"] == pl["ready"]["sh"]
+                   and pl["hover"]["img"] == pl["ready"]["img"] and pl["hover"]["sh"] == pl["ready"]["sh"]
+                   and pl["press"]["img"] == pl["ready"]["img"] and pl["press"]["sh"] == pl["ready"]["sh"]
                    and circle(hd) and hd["op"] == "1" and same_color(hd["bg"], res["capHover"]) and "inset" in hd["sh"] and hd["sh"].count("rgba") >= 2
                    and circle(pd) and same_color(pd["bg"], res["capPress"]) and "inset" in pd["sh"] and pd["sh"].count("rgba") == 1)
         sp = res.get("split") or {}
@@ -4677,7 +4682,7 @@ def compose_checks(m, results):
         ok = send_ok and pill_ok and split_ok and res.get("lit") == ["button-send"]
         return ok, f"{res}"
     check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 38 × 38 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
-          "Kapseln 38 px mit Lichtkante, unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Kante", compose_family, results)
+          "Kapseln 38 px plastisch, unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Kante", compose_family, results)
 
 
 DIALOG_READING_JS = READING_JS + r"""
@@ -5127,13 +5132,14 @@ def dialog_checks(m, results):
         def good(r):
             if not r or "c" not in r: return False
             c = r["c"]; rd, hv, pr, off = c["ready"], c["hover"], c["press"], c["off"]
-            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2
+            # (plastisch seit 17.11.2026: heller Schleier über der grauen Fläche als innerer Schatten 999 px)
+            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2 and "999px" in rd["sh"]
                     and same_color(hv["bg"], r["hoverC"]) and hv["sh"] == rd["sh"]
                     and same_color(pr["bg"], r["pressC"]) and "inset" in pr["sh"] and pr["sh"] != rd["sh"] and pr["sh"].count("rgba") == 1
                     and same_color(off["bg"], r["control"]) and off["sh"] == "none" and float(off["op"]) == 1 and not same_color(off["color"], r["text"]))
         ok = bool(res) and good(res.get("folderProps")) and good(res.get("newFolder"))
         return ok, f"{ {k: (v or {}).get('c') for k, v in (res or {}).items()} }"
-    check("Knöpfe: Textknopf der Dialoge grau mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
+    check("Knöpfe: Textknopf der Dialoge plastisch mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
 
     def primary_elsewhere():
         # Hauptknöpfe ohne Standard-Merkmal wie der Hauptknopf der Dialoge: Kontakt sichern (nur „Save“ leuchtet, der

@@ -2109,8 +2109,10 @@ findbar :is(.findbar-find-previous, .findbar-find-next) {
   border: none !important;
   border-radius: 0 !important;
   /* Knopf-Familie: die Kapsel trägt die feine Lichtkante oben (beide
-     Hälften, eine durchgehende Kante) */
-  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+     Hälften, eine durchgehende Kante) und den hellen Schleier der
+     plastischen Knöpfe, aber keine Haarlinie außen (schiene am Stoß der
+     Hälften durch) */
+  box-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 1px 1px -1px rgba(0, 0, 0, 0.25) !important;
   outline-offset: -2px !important;
   justify-content: center !important;
   align-items: center !important;
@@ -11694,7 +11696,7 @@ addon-card .addon-inline-options {
 #composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover::after,
 #composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
   opacity: 1 !important;
-  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  box-shadow: var(--mt-btn-ring) !important;
 }
 
 #composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover:active::after,
@@ -11718,6 +11720,21 @@ addon-card .addon-inline-options {
 #composeToolbar2 > #mcSendLater {
   height: var(--mt-cap-h) !important;
   min-height: var(--mt-cap-h) !important;
+}
+
+/* Verfassen-Kapseln plastisch wie die Mail-Symbolleiste (plastische
+   Kapseln, 17.11.2026): helle Fläche, feine Kante an den Enden, leiser
+   Schatten; bleibt unter der Maus und gedrückt (der Kreis zeigt den
+   Zustand), gesperrt flach ohne Kante und Schatten */
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater),
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater):not([disabled]):is(:hover, :hover:active) {
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater)[disabled] {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
 }
 
 :root[mc-format-hidden] #FormatToolbar {
@@ -13907,6 +13924,37 @@ menupopup menucaption {
   background-color: var(--mt-control) !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* plastisch wie die Kapseln der Mail-Symbolleiste (17.11.2026); gesperrt flach */
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+) {
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-contact"] {
+  box-shadow: var(--mt-cap-solo-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-address-book"]:dir(ltr),
+#unifiedToolbarContent > li[item-id="create-list"]:dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-list"]:dir(ltr),
+#unifiedToolbarContent > li[item-id="create-address-book"]:dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+):not(:has(button:not([disabled]))) {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
 }
 
 /* Kapseln: „Neuer Kontakt“ allein; „Neues Adressbuch | Neue Liste“ und
@@ -17862,14 +17910,21 @@ datepicker[mc-inline] > menulist {
   color: var(--mt-red) !important;
 }
 
-/* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche */
+/* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche (plastisch
+   wie die Mail-Symbolleiste, 17.11.2026; gesperrt flach) */
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton[disabled] {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
+  background: var(--mt-cap-dot), var(--mt-cap-fill) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
@@ -17885,14 +17940,14 @@ datepicker[mc-inline] > menulist {
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
+  background: var(--mt-cap-dot), var(--mt-cap-fill) !important;
   color: var(--mt-text) !important;
 }
 
 /* im geteilten Knopf „Complete“ runde Fläche nur unter der Hälfte unter der
    Maus, mit Abstand zum Kapselrand wie Apple */
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover {

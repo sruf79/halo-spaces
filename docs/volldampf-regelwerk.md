@@ -28,7 +28,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 | Fable Tagesroutine | 5 h < 50 %, nur weit unter Soll | keine Grenze (17.11.2026: „im volldampf gibt es keine limits für fable nutzung wenn derer einsatz bei komplexen themen oder problemen hilfreich ist und die produktivität erhöht“); `FABLE_5H_MAX_VOLLDAMPF`/`FABLE_WOCHE_MAX` 100 | `tests/tagesroutine.sh:236–239` |
 | Nachtlauf Schritt 5 / Fortsetzungen / Ende | 06:30 · 6 Commits · 4 · 08:00 | 08:45 · 40 · 50 · 08:45 | `tests/nachtlauf.sh:221–243` |
 | Nachtlauf Planung | 70–80 %-Vorsicht, Reserve | volle Kapazität, token-intensivste zuerst | `tests/nachtlauf-auftrag.md` 1c/1d |
-| Auslastungswächter | läuft nicht | Worker auf `pruef/worker-*`, bis `MAX_WORKER` (auslastung.conf), je Worker höchstens 240 Min. | `tests/auslastung-schleife.zsh:52, 115` |
+| Auslastungswächter | läuft nicht | Worker auf `pruef/worker-*`, bis `MAX_WORKER` (auslastung.conf), je Worker höchstens 240 Min.; ab 70 % im 5-Stunden-Fenster nur Klasse „tokenarm“ (Sonnet, höchstens einer; Maintainer 18.11.2026) | `tests/auslastung-schleife.zsh` (`pruefen`, `konf_lesen`); `tests/auslastung-auftrag.md` „Klasse tokenarm“ |
 | Worker-Auftrag | – | wählt ohne „Volldampf aktiv“ nichts; kein Testbeginn 01:10–01:45 | `tests/auslastung-test.zsh:22`; `tests/auslastung-auftrag.md` Regel 6 |
 | Zwischen-Releases | eins je Tag (Nachtlauf) | Wächter alle 5 Min., Push-Beginn 09:00–22:30, grüne Stände aller Prüfzweige `pruef/*` (GitHub-Lauf, sauber mit `origin/main` mischbar, roter Stand nie wiederholt), ab 3 Thunderbird-Commits, bei 5-Stunden-Fenster ab 85 % ab 1 (Maintainer 18.11.2026) | `tests/zwischen-schleife.zsh` (`kandidaten`, `pruefen`); `tests/zwischen_schleife_test.zsh`; Commit ed43f8d |
 

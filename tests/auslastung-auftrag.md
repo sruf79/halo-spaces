@@ -31,6 +31,18 @@ Regeln:
    (Maintainer 17.11.2026: „wir müssen dann sofort weiter aktiv im regulären modus laufen.“). Einen schon gewählten
    Eintrag sauber abschließen (committen oder zurück), keinen weiteren beginnen.
 
+Klasse tokenarm (steht als „Klasse tokenarm“ in „JETZT:“; Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“,
+docs/regelwerk-kontingent.md Abschnitt 4): Der Wächter startet dich so, wenn das 5-Stunden-Fenster knapp ist (ab 70 %).
+Dann gilt statt der Reihenfolge unten nur Arbeit mit wenig Token und viel Wartezeit; Regeln 1–6 bleiben.
+- Erlaubt, in dieser Reihenfolge: (a) Prüfaufträge: Eintrag „Tests: …“ oder Flackerverdacht – die genannte Prüfung
+  wiederholen (Regel 3, bis 8× --only, hell), Ergebnis mit OK/FEHLER-Zahl als Board-Notiz, nichts ändern; (b) kleine
+  Routine: ein Eintrag mit benannter Ursache und Stelle, eine Datei, wenige Zeilen (Text, Übersetzung in texte.js,
+  Kommentar, Doku), sonst wie unten „Arbeit“.
+- Nie in Klasse tokenarm: Fehlersuche ohne benannte Ursache, Analysen, Bug-Jagd-Verdachtsfälle, Design, Einträge über mehrere Dateien, Reihen-Schritte,
+  Features, kein Fable und kein Unteragent mit stärkerem Modell. Merkst du unterwegs, dass es größer ist: Änderungen
+  verwerfen, Eintrag zurück auf Todo mit Notiz, Ergebnis „zurück tokenarm zu groß“.
+- Kein passender Eintrag: Ergebnis „nichts_passend tokenarm“.
+
 Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein „export“ genügt):
 - Ausgeschlossen: Status „In Progress“ (egal wessen), „Wartet auf OK“, „Done“; Einträge mit Notiz „In Arbeit:“;
   Design- und Optik-Einträge (Aussehen, Größe, Abstand, Farbe, Symbol, Schrift, Platzierung: sie gehören dem Designer,

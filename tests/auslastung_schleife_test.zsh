@@ -43,8 +43,24 @@ pruefe "Tag, unter Soll: Worker mit opus" "$(W)" '^Prüfung:  starten opus unter
 pruefe "Tag, über Soll, 5 Stunden 40 %: Worker (Fenster unter 60 %)" "$(W HALO_AS_WOCHE=35)" 'starten opus 5-Stunden-Fenster unter 60'
 pruefe "Tag, über Soll, 5 Stunden 60 %: warten" "$(W HALO_AS_WOCHE=35 HALO_AS_5H=60)" 'warten im Soll und 5-Stunden-Fenster ab 60'
 pruefe "Tag, unter Soll, 5 Stunden 90 %: warten (FENSTER_STOPP)" "$(W HALO_AS_5H=90)" 'warten 5-Stunden-Fenster ab 90'
-pruefe "Tag, unter Soll, 5 Stunden 70 %, ein Worker läuft: warten (FENSTER_DROSSEL)" "$(W HALO_AS_5H=70)" 'warten 5-Stunden-Fenster ab 70 % \(Drossel'
-pruefe "Tag, unter Soll, 5 Stunden 70 %, kein Worker läuft: starten" "$(W HALO_AS_5H=70 HALO_AS_AKTIV=0)" 'starten opus'
+# Aufgabenzuteilung nach Aufwand (Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“, Empfehlung 1): ab 70 % nur tokenarm
+pruefe "Tag, unter Soll, 5 Stunden 70 %, ein Worker läuft: tokenarmer Worker mit sonnet" "$(W HALO_AS_5H=70 HALO_AS_TOKENARM=0)" \
+  '^Prüfung:  starten sonnet tokenarm \(5-Stunden-Fenster ab 70 %' 'Würde:    Worker mit sonnet starten, Klasse tokenarm'
+pruefe "Tag, unter Soll, 5 Stunden 70 %, kein Worker läuft: auch dann nur tokenarm (kein opus)" "$(W HALO_AS_5H=70 HALO_AS_AKTIV=0 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm'
+pruefe "5 Stunden 70 %, ein tokenarmer Worker läuft schon: warten (TOKENARM_MAX 1)" "$(W HALO_AS_5H=70 HALO_AS_TOKENARM=1)" \
+  'warten 5-Stunden-Fenster ab 70 % \(Drossel: nur tokenarm, 1 tokenarme Worker aktiv, Grenze 1\)'
+pruefe "5 Stunden 69 %: noch tokenschwer (opus, Klasse normal)" "$(W HALO_AS_5H=69 HALO_AS_TOKENARM=0)" 'starten opus unter dem Soll' 'Klasse normal'
+pruefe "5 Stunden 75 %, Soll weit verfehlt: kein Fable, nur tokenarm" "$(W HALO_AS_5H=75 HALO_AS_WOCHE=5 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm'
+pruefe "5 Stunden 75 %, über dem Soll: warten (Soll gilt auch für tokenarm)" "$(W HALO_AS_5H=75 HALO_AS_WOCHE=35 HALO_AS_TOKENARM=0)" 'warten im Soll'
+pruefe "5 Stunden 75 %, nachts unter Soll: tokenarm" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm .*nachts'
+print -l "MODELL_TOKENARM=haiku" "TOKENARM_MAX=2" > $T/tokenarm.conf
+pruefe "MODELL_TOKENARM und TOKENARM_MAX aus der Datei" "$(W HALO_AS_CONF=$T/tokenarm.conf HALO_AS_5H=75 HALO_AS_TOKENARM=1)" 'starten haiku tokenarm'
+mkdir -p $T/nacht/auslastung
+print -r -- "$$ sid sonnet 1 /wt pruef/x /erg tokenarm" > $T/nacht/auslastung/worker-3
+print -r -- "$$ sid opus 1 /wt pruef/y /erg normal" > $T/nacht/auslastung/worker-4
+print -r -- "999999 sid sonnet 1 /wt pruef/z /erg tokenarm" > $T/nacht/auslastung/worker-5
+pruefe "tokenarme Worker aus den Zustandsdateien gezählt (lebend, Feld 8)" "$(W HALO_AS_5H=75 HALO_AS_TOKENARM=)" 'Drossel: nur tokenarm, 1 tokenarme Worker aktiv'
+rm -f $T/nacht/auslastung/worker-<3-5>
 pruefe "Fenster-Takt: 40 % nach 19 Min. (Reserve 25): warten" "$(W HALO_AS_5H=40 HALO_FENSTER_REST=16860)" 'warten Fenster-Takt'
 pruefe "Fenster-Takt: 20 % nach 19 Min.: starten" "$(W HALO_AS_5H=20 HALO_FENSTER_REST=16860)" 'starten opus'
 pruefe "Fenster-Takt: 60 % nach 3 h (Soll 60+25): starten" "$(W HALO_AS_5H=60 HALO_FENSTER_REST=7200)" 'starten opus'
@@ -121,7 +137,8 @@ pruefe "Checkout: nur fetch und worktree add" \
   "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN fetch git -C \$MAIN worktree $'
 pruefe "Worker ohne HALO_LAUF, gleiche Flags wie die Tagesroutine" "$S" \
   'env -u HALO_LAUF HALO_WORKER=\$nr claude -p --model \$m --session-id \$sid --permission-mode auto'
-pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Sitzung \$sid'
+pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Klasse \$klasse, Sitzung \$sid'
+pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse" > \$ZUSTAND/worker-\$nr'
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
@@ -155,4 +172,6 @@ NS=$(grep '^nachtschutz()' $HIER/auslastung-test.zsh)
 pruefe "Testhilfe: Nachtlauf-Schutz 01:10–01:45" "$(eval $NS; for h in 0100 0110 0130 0144 0145 2300; do HALO_AS_TEST_HM=$h nachtschutz && print "$h ja" || print "$h nein"; done)" \
   '0100 nein' '0110 ja' '0130 ja' '0144 ja' '0145 nein' '2300 nein'
 pruefe "Auftrag: ohne Volldampf kein neuer Eintrag (Regel 6)" "$A" 'nichts_passend Volldampf nicht aktiv'
+pruefe "Auftrag: Klasse tokenarm (nur wenig Token, nie Fehlersuche/Analyse/Fable, zurück wenn zu groß)" "$A" \
+  'Klasse tokenarm' 'Fehlersuche ohne benannte Ursache' 'kein Fable' 'zurück tokenarm zu groß'
 exit $FEHLER

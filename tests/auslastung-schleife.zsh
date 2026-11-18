@@ -22,7 +22,8 @@
 #      (48) × 100 %; nach einem freien Reset (Anker) Stunden seit dem Anker / Stunden bis zum nächsten automatischen
 #      Reset × 100 % („Soll bis nächster Reset“, Maintainer 18.11.2026). Tags: Woche unter Soll oder
 #      5-Stunden-Fenster unter FENSTER_MIN (60 %) → ein Worker; nachts nur, wenn die Woche unter Soll liegt.
-#      5-Stunden-Fenster ab FENSTER_DROSSEL (70 %): nur noch ein Worker gleichzeitig; ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
+#      5-Stunden-Fenster ab FENSTER_DROSSEL (70 %): nur noch Klasse „tokenarm“ (MODELL_TOKENARM sonnet, höchstens
+#      TOKENARM_MAX 1 gleichzeitig; Maintainer 18.11.2026); ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
 #   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> auf eigenem Zweig pruef/<name> (von origin/main), claude -p mit
@@ -53,7 +54,7 @@ source $HIER/lauf-hilfen.zsh
 typeset -A K
 konf_lesen() {
   K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
-     FABLE_ABSTAND 20 FABLE_5H 50 NACHT_BIS 0900 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
+     FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
     z=${${z%%\#*}//[[:space:]]/}
@@ -75,6 +76,16 @@ aktiv_zahl() {
 fable_zahl() {
   [[ -n $HALO_AS_FABLE ]] && { print $HALO_AS_FABLE; return }
   pgrep -f "claude -p --model $K[MODELL_FABLE] --(session-id|resume) " 2>/dev/null | grep -c .
+}
+# lebende Worker der Klasse tokenarm (Feld 8 der Zustandsdatei); Probe: HALO_AS_TOKENARM
+tokenarm_zahl() {
+  [[ -n $HALO_AS_TOKENARM ]] && { print $HALO_AS_TOKENARM; return }
+  local f z c=0
+  for f in $ZUSTAND/worker-<1-8>(N); do
+    z=($(<$f))
+    [[ $z[8] == tokenarm ]] && kill -0 $z[1] 2>/dev/null && (( c++ ))
+  done
+  print $c
 }
 nachtlauf_laeuft() {
   [[ -n $HALO_AS_NACHTLAUF ]] && { [[ $HALO_AS_NACHTLAUF == ja ]]; return }
@@ -151,13 +162,22 @@ pruefen() {
   if soll5=$(fenster_takt "$rest" $K[FENSTER_RESERVE]); then
     (( f5 > soll5 )) && { print -r -- "warten Fenster-Takt (5 Stunden $f5 % über ${soll5} %, noch $(( rest / 60 )) Min. bis zum Fensterende) – $lage"; return }
   fi
-  # Drossel (Maintainer 18.11.2026: „ich folge deinen empfehlungen“): ab FENSTER_DROSSEL % im 5-Stunden-Fenster höchstens ein Worker gleichzeitig, damit das Fenster nicht nach 4,5 h voll ist
-  (( f5 >= K[FENSTER_DROSSEL] && n >= 1 )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_DROSSEL] % (Drossel, höchstens ein Worker) – $lage"; return }
+  # Drossel (Maintainer 18.11.2026: „ich folge deinen empfehlungen“; bis 18.11.2026 ab FENSTER_DROSSEL höchstens ein Worker gleichzeitig)
+  # und Aufgabenzuteilung nach Aufwand (Maintainer 18.11.2026: „ich folge allen empfehlungen von dir.“, Empfehlung 1;
+  # docs/regelwerk-kontingent.md Abschnitt 4): ab FENSTER_DROSSEL % nur noch Klasse „tokenarm“ (Modell MODELL_TOKENARM,
+  # kein Fable, Auftrag „Klasse tokenarm“: Prüfläufe, kleine Routine, nie Fehlersuche, Analyse oder größere Code-Einträge),
+  # höchstens TOKENARM_MAX tokenarme Worker gleichzeitig; tokenschwere Worker beginnen erst wieder unter FENSTER_DROSSEL.
+  local klasse=normal ta
+  if (( f5 >= K[FENSTER_DROSSEL] )); then
+    klasse=tokenarm ta=$(tokenarm_zahl)
+    (( ta >= K[TOKENARM_MAX] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_DROSSEL] % (Drossel: nur tokenarm, $ta tokenarme Worker aktiv, Grenze $K[TOKENARM_MAX]) – $lage"; return }
+  fi
   if (( nacht )); then
     (( a < 0 )) || { print -r -- "warten nachts nur unter dem Soll – $lage"; return }
   else
     (( a < 0 || f5 < K[FENSTER_MIN] )) || { print -r -- "warten im Soll und 5-Stunden-Fenster ab $K[FENSTER_MIN] % – $lage"; return }
   fi
+  [[ $klasse == tokenarm ]] && { print -r -- "starten $K[MODELL_TOKENARM] tokenarm (5-Stunden-Fenster ab $K[FENSTER_DROSSEL] %, nur Aufträge mit wenig Token) – $lage"; return }
   fn=$(fable_zahl)
   if (( a <= -K[FABLE_ABSTAND] && f5 < K[FABLE_5H] )); then   # Maintainer 17.11.2026: im Volldampf keine Mengengrenze für Fable (kein „nur ein Fable-Lauf“)
     print -r -- "starten $K[MODELL_FABLE] Soll weit verfehlt – $lage"
@@ -187,8 +207,9 @@ aufraeumen() {
     rm -f $f
   done
 }
-starte_worker() {   # <Modell> <Grund>
-  local m=$1 nr name wt zweig sid p1 p2 erg aus stamp=$(date +%Y%m%d-%H%M)
+starte_worker() {   # <Modell> <Grund> (Grund beginnt mit „tokenarm“: Klasse tokenarm)
+  local m=$1 klasse=normal nr name wt zweig sid p1 p2 erg aus stamp=$(date +%Y%m%d-%H%M)
+  [[ $2 == tokenarm* ]] && klasse=tokenarm
   nr=$(freie_nummer) || { log "keine freie Worker-Nummer (1–8)"; return 1 }
   name=worker-$stamp-$nr zweig=pruef/worker-$stamp-$nr wt=$WT_BASIS/worker-$stamp-$nr
   p1=$((2874 + 2 * (nr - 1))) p2=$((2875 + 2 * (nr - 1)))
@@ -198,8 +219,8 @@ starte_worker() {   # <Modell> <Grund>
   git -C $MAIN worktree add -q -b $zweig $wt origin/main 2>>$LOG || { log "Worktree $wt nicht angelegt – kein Worker"; return 1 }
   cp -p $MAIN/repo.conf $wt/ 2>/dev/null
   sid=$(uuidgen | tr A-Z a-z)
-  log "Worker $nr gestartet: $m, Sitzung $sid, Zweig $zweig, Worktree $wt, Ports $p1/$p2 ($2)"
-  local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, $(date '+%F %H:%M'). Name $name, Zweig $zweig,
+  log "Worker $nr gestartet: $m, Klasse $klasse, Sitzung $sid, Zweig $zweig, Worktree $wt, Ports $p1/$p2 ($2)"
+  local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, Klasse $klasse, $(date '+%F %H:%M'). Name $name, Zweig $zweig,
 Worktree $wt (nur dort arbeiten), Ports $p1 und $p2, Ergebnisdatei $erg, Bericht ~/halo-berichte/$TAG-worker-$nr.md (Abschnitt anhängen).
 Lage (Skript): $2
 "
@@ -209,7 +230,7 @@ Lage (Skript): $2
 $(<$HIER/auslastung-auftrag.md)" > $aus 2>&1 ) </dev/null &!
   local pid=$!
   ( sleep $(( K[WORKER_MAX_MIN] * 60 )); pkill -f -- "--session-id $sid" ) </dev/null >/dev/null 2>&1 &!
-  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg" > $ZUSTAND/worker-$nr
+  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse" > $ZUSTAND/worker-$nr
   date +%s > $ZUSTAND/letzter-start
 }
 
@@ -217,7 +238,7 @@ if [[ $MODUS == trocken ]]; then
   z=$(pruefen)
   print -r -- "Auslastungswächter – Trockenlauf (kein Worker, kein Worktree, nichts geschrieben)"
   print -r -- "Prüfung:  $z"
-  [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Worktree $WT_BASIS/worker-<Zeit>-<Nr>, Zweig pruef/worker-<Zeit>-<Nr>, Ports ab 2874"
+  [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Klasse $( [[ ${z#starten * } == tokenarm* ]] && print tokenarm || print normal), Worktree $WT_BASIS/worker-<Zeit>-<Nr>, Zweig pruef/worker-<Zeit>-<Nr>, Ports ab 2874"
   exit 0
 fi
 mkdir -p $DIR $ZUSTAND

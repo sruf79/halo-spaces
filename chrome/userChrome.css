@@ -2709,9 +2709,12 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 }
 
 /* im inaktiven Fenster blasser wie die übrigen Knöpfe daneben (Thunderbird
-   blasst nur Symbole von toolbarbutton ab, der Stern ist ein button) */
-:root[mc-standalone] #starMessageButton:not(:hover):-moz-window-inactive > img {
-  opacity: 0.5 !important;
+   blasst nur Symbole von toolbarbutton ab, der Stern ist ein button; nur auf
+   dem Mac – unter Windows/Linux blasst Thunderbird nichts ab) */
+@media (-moz-platform: macos) {
+  :root[mc-standalone] #starMessageButton:not(:hover):-moz-window-inactive > img {
+    opacity: 0.5 !important;
+  }
 }
 
 /* Fenster einer geöffneten Mail wie Apple Mail: rechts am Fensterrand

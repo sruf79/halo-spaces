@@ -21019,9 +21019,14 @@ Neu
             return True, f"Nachrichtenfenster kam nicht nach vorn – übersprungen {res}"
         paint = lambda x: x["bg"] if x["bg"] not in ("rgba(0, 0, 0, 0)", "transparent") else x["color"]
         bad = [k for k, x in btns.items() if x["dis"] or x["alpha"] < 1 or x["alpha"] < ref.get("alpha", 1) or not same_color(x["color"], res["text"])]
-        # inaktives Fenster (nur wenn es wirklich hinten war): blasser als im aktiven, wie macOS
+        # inaktives Fenster (nur wenn es wirklich hinten war): auf dem Mac blasser als im aktiven, wie macOS; Thunderbird
+        # blasst die Knöpfe nur dort ab – unter Windows/Linux bleiben alle gleich kräftig (auch der Stern, einheitlich)
         ina = res.get("inactive") or {}
-        dim = not (ina.get("win") and ina.get("inactiveCss")) or all(x["alpha"] < btns[k]["alpha"] for k, x in (ina.get("btns") or {}).items() if k in btns)
+        inab = [(x["alpha"], btns[k]["alpha"]) for k, x in (ina.get("btns") or {}).items() if k in btns]
+        if sys.platform == "darwin":
+            dim = not (ina.get("win") and ina.get("inactiveCss")) or all(a < b for a, b in inab)
+        else:
+            dim = all(a == b for a, b in inab)
         ok = len(btns) >= 8 and not bad and dim and not ref.get("dis") and ref.get("alpha") == 1 and same_color(paint(ref), res["text"])
         return ok, f"blass/gesperrt: {bad}, inaktiv blasser: {dim} {res}"
     check("Nachrichtenfenster: Knöpfe im Mailkopf im aktiven Fenster bereit und so kräftig wie die Mail-Leiste (Textfarbe, volle Deckkraft)",

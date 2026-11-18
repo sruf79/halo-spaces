@@ -29,7 +29,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 | Nachtlauf Planung | 70–80 %-Vorsicht, Reserve | volle Kapazität, token-intensivste zuerst | `tests/nachtlauf-auftrag.md` 1c/1d |
 | Auslastungswächter | läuft nicht | Worker auf `pruef/worker-*`, bis `MAX_WORKER` (auslastung.conf), je Worker höchstens 240 Min. | `tests/auslastung-schleife.zsh:52, 115` |
 | Worker-Auftrag | – | wählt ohne „Volldampf aktiv“ nichts; kein Testbeginn 01:10–01:45 | `tests/auslastung-test.zsh:22`; `tests/auslastung-auftrag.md` Regel 6 |
-| Zwischen-Releases | eins je Tag (Nachtlauf) | Wächter alle 5 Min., Push-Beginn 09:00–22:30, ab 3 Thunderbird-Commits | `tests/zwischen-schleife.zsh:35, 73–79`; Commit ed43f8d |
+| Zwischen-Releases | eins je Tag (Nachtlauf) | Wächter alle 5 Min., Push-Beginn 09:00–22:30, grüne Stände aller Prüfzweige `pruef/*` (GitHub-Lauf, sauber mit `origin/main` mischbar, roter Stand nie wiederholt), ab 3 Thunderbird-Commits, bei 5-Stunden-Fenster ab 85 % ab 1 (Maintainer 18.11.2026) | `tests/zwischen-schleife.zsh` (`kandidaten`, `pruefen`); `tests/zwischen_schleife_test.zsh`; Commit ed43f8d |
 
 ## Was immer bleibt (auch im Volldampf)
 

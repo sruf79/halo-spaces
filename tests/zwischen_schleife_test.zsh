@@ -24,17 +24,19 @@ print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T
 W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=$T/kein-anker.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_BELEGT= HALO_ZS_STAND=abcdef1234567 HALO_ZS_TB=3 HALO_JETZT_HM=1000 \
+    HALO_ZS_MISCHBAR=ja HALO_ZS_NUR_PRUEF=nein HALO_ZS_GESPERRT_DATEI=$T/gesperrt.txt HALO_ZS_5H=40 HALO_ZS_FENSTER_REST=3600 \
     "$@" zsh $SKRIPT --trocken 2>&1
 }
 L=$(git -C $HIER/.. tag -l 'v[0-9]*' --sort=-v:refname | head -1); L=${L#v}
+S=$(grep -vE '^[[:space:]]*#' $SKRIPT)
 NEU=${L%%.*}.$(( ${${L#*.}%%.*} + 1 )).0
 
-pruefe "fällig: grüner Stand, 3 Thunderbird-Commits, 10:00" "$(W)" '^Prüfung:  fällig abcdef1234567 3$' "Zwischen-Release ${NEU//./\\.} für Stand abcdef1"
+pruefe "fällig: grüner Stand, 3 Thunderbird-Commits, 10:00" "$(W)" '^Prüfung:  fällig abcdef1234567 3 pruef/tagesroutine-[0-9]{8}$' "Zwischen-Release ${NEU//./\\.} für Stand abcdef1"
 pruefe "Version: nächste Minor-Version nach dem letzten Tag ($L → $NEU)" "$(W)" "Release ${NEU//./\\.} "
-pruefe "2 Thunderbird-Commits: warten (ab 3)" "$(W HALO_ZS_TB=2)" 'warten 2 Thunderbird-Commits .*\(ab 3\)'
+pruefe "2 Thunderbird-Commits: warten (ab 3)" "$(W HALO_ZS_TB=2)" 'warten 2 Thunderbird-Commits .*\(ab 3, 5-Stunden-Fenster 40 %\)'
 pruefe "Schwelle einstellbar (ZWISCHEN_RELEASE_AB=1)" "$(W HALO_ZS_TB=1 ZWISCHEN_RELEASE_AB=1)" 'fällig'
-pruefe "kein grüner Stand auf dem Prüfzweig: warten" "$(W HALO_ZS_STAND=)" 'warten kein grüner Stand'
-pruefe "Stand eines roten Versuchs: warten bis zu einem neuen grünen Stand" "$(W HALO_ZS_GESPERRT=abcdef1234567)" 'warten Stand abcdef1 war rot'
+pruefe "kein grüner Stand auf einem Prüfzweig: warten" "$(W HALO_ZS_STAND=)" 'warten kein neuer grüner Stand'
+pruefe "Stand eines roten Versuchs: warten bis zu einem neuen grünen Stand" "$(W HALO_ZS_GESPERRT=abcdef1234567)" 'warten Stand abcdef1 \(pruef/tagesroutine-[0-9]{8}\) war rot'
 pruefe "neuer grüner Stand nach Rot: wieder fällig" "$(W HALO_ZS_GESPERRT=0000000 )" 'fällig'
 pruefe "belegt (CI): warten" "$(W HALO_BELEGT='CI-Lauf auf dem GitHub-Runner')" 'warten belegt: CI-Lauf'
 pruefe "08:59: Push-Sperre" "$(W HALO_JETZT_HM=0859)" 'warten Push-Sperre bis 09:00'
@@ -51,17 +53,52 @@ print -r -- "zwischen-release 2099-01-01T00:00+01:00 Probe" > $T/pausen.txt
 pruefe "Pause zwischen-release in pausen.txt: warten" "$(W)" 'warten Pause'
 rm -f $T/pausen.txt
 
+# Prüfzweige aller Art (Maintainer 18.11.2026), Fenster-Schwelle, Sperrdatei
+pruefe "anderer Prüfzweig grün (pruef/worker-…): fällig mit seinem Zweig" "$(W HALO_ZS_STAND='abcdef1234567 pruef/worker-20261118-0906-1')" \
+  '^Prüfung:  fällig abcdef1234567 3 pruef/worker-20261118-0906-1$' 'von pruef/worker-20261118-0906-1 im Worktree'
+pruefe "roter Versuch (Sperrdatei) nicht wiederholt: nächster Prüfzweig fällig" \
+  "$(print -r -- abcdef1234567 > $T/gesperrt.txt; W HALO_ZS_STAND=$'abcdef1234567 pruef/a\n1234567abcdef pruef/b')" '^Prüfung:  fällig 1234567abcdef 3 pruef/b$'
+pruefe "roter Versuch als einziger Kandidat: warten" "$(W HALO_ZS_STAND='abcdef1234567 pruef/a')" 'warten Stand abcdef1 \(pruef/a\) war rot'
+rm -f $T/gesperrt.txt
+pruefe "Fenster 90 % und 1 Thunderbird-Commit: fällig (Schwelle 1)" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90)" '^Prüfung:  fällig abcdef1234567 1 pruef/.*5-Stunden-Fenster 90 %'
+pruefe "Fenster 85 % (Grenze) und 1 Commit: fällig" "$(W HALO_ZS_TB=1 HALO_ZS_5H=85)" 'fällig'
+pruefe "Fenster 40 % und 1 Thunderbird-Commit: warten (ab 3)" "$(W HALO_ZS_TB=1 HALO_ZS_5H=40)" 'warten 1 Thunderbird-Commits .*\(ab 3, 5-Stunden-Fenster 40 %\)'
+pruefe "Fenster 90 %, aber Fensterende vorbei (alter Wert): warten" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90 HALO_ZS_FENSTER_REST=0)" 'warten 1 Thunderbird-Commits .*ab 3, 5-Stunden-Fenster unbekannt'
+pruefe "Fenster 90 % und 0 Thunderbird-Commits: warten" "$(W HALO_ZS_TB=0 HALO_ZS_5H=90)" 'warten 0 Thunderbird-Commits'
+pruefe "Fenster 90 % ändert nichts an der Push-Sperre" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90 HALO_JETZT_HM=0859)" 'warten Push-Sperre bis 09:00'
+pruefe "Fenster 90 % ändert nichts an belegt (CI)" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90 HALO_BELEGT='CI-Lauf auf dem GitHub-Runner')" 'warten belegt: CI-Lauf'
+pruefe "Stand mit Commit „nicht nach main“: warten" "$(W HALO_ZS_NUR_PRUEF=ja)" 'warten Stand abcdef1 .*nicht nach main'
+pruefe "Kandidaten aus GitHub-Läufen nur pruef/*, neuester grüner Stand je Zweig, ohne Diagnose-/Probezweige" "$S" \
+  "gh run list -R \\\$R -w test.yml -e push -s success" 'startswith\("pruef/"\)' 'gesehen\[\$b\]' 'ZWEIG_AUS'
+pruefe "Release mit dem Prüfzweig des Stands (zwischen-release.zsh prüft dessen Lauf)" "$S" 'HALO_PRUEFZWEIG=\$zw'
+
+# Konflikt mit origin/main (echtes git, Wegwerf-Repo): kein Release; sauber mischbarer Zweig: fällig
+K=$T/k.git KM=$T/km
+git init -q --bare -b main $K; git clone -q $K $KM 2>/dev/null
+git -C $KM config user.email t@t; git -C $KM config user.name t
+print a > $KM/a.txt; git -C $KM add a.txt; git -C $KM commit -qm eins; git -C $KM push -q origin main
+git -C $KM switch -q -c pruef/konflikt; print zweig > $KM/a.txt; git -C $KM commit -qam konflikt; KS=$(git -C $KM rev-parse HEAD)
+git -C $KM switch -q -c pruef/sauber main; print neu > $KM/b.txt; git -C $KM add b.txt; git -C $KM commit -qm sauber; SS=$(git -C $KM rev-parse HEAD)
+git -C $KM switch -q main; print haupt > $KM/a.txt; git -C $KM commit -qam haupt; git -C $KM push -q origin main
+git -C $KM fetch -q origin
+pruefe "Konflikt mit origin/main: kein Release (warten)" "$(W HALO_ZS_MISCHBAR=git HALO_ZS_NUR_PRUEF=git HALO_REPO_MAIN=$KM HALO_ZS_STAND="$KS pruef/konflikt")" 'warten Stand .* \(pruef/konflikt\) lässt sich nicht sauber .*Konflikt'
+ZWEI="$KS pruef/konflikt"$'\n'"$SS pruef/sauber"
+pruefe "Konflikt im ersten Zweig, zweiter sauber mischbar: der zweite ist fällig" \
+  "$(W HALO_ZS_MISCHBAR=git HALO_ZS_NUR_PRUEF=git HALO_REPO_MAIN=$KM HALO_ZS_STAND=$ZWEI)" "^Prüfung:  fällig $SS 3 pruef/sauber\$"
+pruefe "Commit „nicht nach main“ (echtes git): kein Release" \
+  "$(git -C $KM switch -q pruef/sauber; git -C $KM commit -q --allow-empty -m 'Tests: Diagnose (nur Prüfzweig, kommt nicht nach main)'; D=$(git -C $KM rev-parse HEAD); git -C $KM switch -q main
+     W HALO_ZS_MISCHBAR=git HALO_REPO_MAIN=$KM HALO_ZS_NUR_PRUEF=git HALO_ZS_STAND="$D pruef/sauber")" 'nicht nach main'
+
 # feste Regeln im Skript
-S=$(grep -vE '^[[:space:]]*#' $SKRIPT)
 pruefe "gemeinsamer Checkout: kein stash, reset, checkout, merge, rebase, commit, push, clean" \
   "$(print -r -- $S | grep -cE 'git -C \$MAIN (stash|reset|checkout|merge( |$)|rebase|commit|push|clean|restore)')" '^0$'
 pruefe "nur der eigene Worktree wird entfernt" "$(print -r -- $S | grep -E 'worktree remove')" 'worktree remove --force \$WT '
 pruefe "Claude arbeitet im Worktree, Release über zwischen-release.zsh mit HALO_REPO=\$WT und dem geprüften Stand" "$S" \
-  'cd \$WT && claude -p' 'HALO_REPO=\$WT HALO_ZR_STAND=\$p ZWISCHEN_RELEASE_BIS=\$BIS zsh \$HIER/zwischen-release\.zsh'
+  'cd \$WT && claude -p' 'HALO_REPO=\$WT HALO_ZR_STAND=\$p HALO_PRUEFZWEIG=\$zw ZWISCHEN_RELEASE_BIS=\$BIS zsh \$HIER/zwischen-release\.zsh'
 pruefe "nie SKIP_TESTS/FORCE_TESTS/HOTFIX, kein release.sh/publish.sh direkt, kein Force-Push" \
   "$(print -r -- $S | grep -cE 'SKIP_TESTS|FORCE_TESTS|HOTFIX=|push -f|--force-with|release\.sh|publish\.sh| push [^|;]*--force')" '^0$'
 pruefe "Listen-Commits nach dem Release nur ohne Thunderbird-Änderung" "$S" '! zsh \$WT/tests/ci-noetig.sh origin/main HEAD'
-pruefe "Rot sperrt den Stand, Abbruch vor dem Push erst beim zweiten Mal" "$S" 'rc == 1' 'ABBRUCH_AN=\$p' 'GESPERRT=\$p'
+pruefe "Rot sperrt den Stand (auch über Neustarts, Sperrdatei), Abbruch vor dem Push erst beim zweiten Mal" "$S" 'rc == 1' 'ABBRUCH_AN=\$p' 'sperren \$p' 'print -r -- \$1 >> \$GDATEI'
 pruefe "Name ohne „release.sh“ (belegt() sucht release\\.sh|publish\\.sh)" "$(print -r -- zwischen-schleife.zsh | grep -cE 'release\.sh|publish\.sh')" '^0$'
 
 # Worktree-Mechanik mit Wegwerf-Repos (wie release_lauf und publish.sh: „git push“ ohne Ziel)

@@ -19,12 +19,22 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
 - **Zwischen-Release** über den Wächter `tests/zwischen-schleife.zsh`, von Hand im Hintergrund gestartet (kein
   LaunchAgent): `nohup zsh ~/halo-spaces/tests/zwischen-schleife.zsh >/dev/null 2>&1 &!`; Probe `--trocken`, ein
   Durchgang `--einmal`, anhalten über `pause_setzen zwischen-release <bis> <Grund>` oder Prozess beenden. Alle 5 Minuten:
-  neuester grüner Stand P auf `pruef/tagesroutine-<JJJJMMTT>`, mindestens 3 Thunderbird-Commits über `origin/main`,
-  Push-Beginn 09:00–22:30, nichts belegt. Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
+  Kandidaten sind seit 18.11.2026 alle Prüfzweige `pruef/<name>` (Tagesroutine, Worker, Sammelzweige), je Zweig der
+  neueste Stand mit grünem Push-Lauf laut GitHub (Linux-CI, nicht Behauptung), neueste zuerst; übersprungen werden
+  Stände schon in `origin/main`, Stände roter Versuche (`~/halo-nacht/zwischen-gesperrt.txt`, auch über Neustarts),
+  Stände, die weder Vorfahr von `main` sind noch sich sauber mit `origin/main` mischen lassen (`git merge-tree`;
+  Konflikt = kein Release), Diagnose- und Probezweige (Name mit `diagnose`, `flackern`, `probe`) und Stände mit einem
+  Commit „nicht nach main“ bzw. „nur Prüfzweig“ in der Nachricht. Fällig ist der erste Kandidat mit mindestens 3
+  Thunderbird-Commits über `origin/main` (Kopien per cherry-pick zählen nicht, die Mischung muss Thunderbird ändern);
+  **5-Stunden-Fenster ab 85 %** (`kontingent.json`, höchstens 15 Min. alt, sonst `tests/kontingent.sh`; Fensterende
+  über `fenster_rest` noch nicht erreicht): **ab 1 Commit**, damit die volle CI samt Windows die Pause der Agenten
+  nutzt (Maintainer 18.11.2026: „bei Situationen wie dieser wo wir wieder knapp davor sind das 5h-limit mehrmals am tag
+  zu erreichen könnten wir mehrmals ein neues release machen? …“ – „Ja.“). Push-Beginn 09:00–22:30, keine Pause
+  `zwischen-release`, nichts belegt (Runner.Worker u. a.). Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
   Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde
   (README-Commit, Notizdatei), `tests/zwischen-release.zsh` (Push, Push-Lauf und Windows-Lauf grün), dann
   `tests/release-unter-tage.sh --volldampf` mit `NUR_CI=1 ./release.sh` und `./publish.sh` (pusht über den Upstream,
-  `push.default=upstream` nur für diesen Aufruf). Abstand zwischen Releases = Dauer von CI und Windows. Rot: kein
+  `push.default=upstream` nur für diesen Aufruf; `HALO_PRUEFZWEIG` = Zweig des Stands, dessen grüner Lauf geprüft wird). Abstand zwischen Releases = Dauer von CI und Windows. Rot: kein
   Release, derselbe Stand erst wieder nach einem neuen grünen Stand; Protokoll `~/halo-nacht/<datum>-zwischen-schleife.log`.
 - **Worktree statt Checkout:** `~/halo-spaces` wird nie angefasst (kein stash, reset, checkout, merge), fremde
   ungespeicherte Arbeit stört nicht. Nur Committetes wird veröffentlicht. Den Checkout gleicht der Nachtlauf ab

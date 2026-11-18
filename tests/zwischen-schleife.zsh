@@ -7,23 +7,31 @@
 #   zsh tests/zwischen-schleife.zsh --einmal    eine Prüfung (und ggf. ein Zwischen-Release), dann Ende
 #   zsh tests/zwischen-schleife.zsh --trocken   nur zeigen, was jetzt geschähe (kein Claude, kein Push, kein Worktree)
 # Alle TAKT Minuten (5): Volldampf aktiv? (sonst Ende) Push-Beginn 09:00 bis BIS (22:30, danach Ende)? keine Pause
-# „zwischen-release“ in pausen.txt? Neuester grüner Stand P auf dem Prüfzweig pruef/tagesroutine-<JJJJMMTT> (Vorfahr
-# von main), mindestens AB (3) Commits mit Thunderbird-Änderung über origin/main, P nicht der Stand eines roten
-# Versuchs (erst ein neuer grüner Stand nach der Behebung), neon nicht belegt? Dann:
+# „zwischen-release“ in pausen.txt? Kandidaten: je Prüfzweig pruef/<name> (Tagesroutine, Worker, Sammelzweige …) der
+# neueste Stand mit grünem Push-Lauf (Linux-CI, Quelle: GitHub-Lauf des Zweigs), neueste zuerst; übersprungen wird ein
+# Stand, der schon in origin/main liegt, der Stand eines roten Versuchs (~/halo-nacht/zwischen-gesperrt.txt, über Neustarts;
+# erst ein neuer grüner Stand nach der Behebung) und ein Stand, der weder Vorfahr von main ist noch sich sauber mit
+# origin/main mischen lässt (Konflikt = kein Release); nie Diagnose-/Probezweige (ZWEIG_AUS) oder ein Stand mit einem
+# Commit „nicht nach main“/„nur Prüfzweig“ in der Nachricht. Fällig ist der erste Kandidat mit mindestens AB (3) Commits mit
+# Thunderbird-Änderung über origin/main; steht das 5-Stunden-Fenster auf FENSTER_AB (85 %) oder mehr (kontingent.json,
+# höchstens KONT_ALTER Minuten alt, sonst tests/kontingent.sh; Fensterende über fenster_rest noch nicht erreicht), genügt
+# AB_FENSTER (1) Commit (Maintainer 18.11.2026: „mehrmals ein neues release machen? … Ja.“). neon nicht belegt? Dann:
 #   1. Worktree WT (~/halo-zwischen-release, Zweig zr/release, Upstream origin/main) auf P; origin/main dort
 #      hineinmischen (Konflikt: abbrechen, kein Release). Der Checkout ~/halo-spaces wird nie angefasst (kein stash,
 #      kein reset, kein checkout): andere Sitzungen und parallele Agenten arbeiten dort weiter.
 #   2. Version: nächste Minor-Version nach dem letzten Tag (3.27.0 → 3.28.0).
 #   3. Kurze Claude-Runde im Worktree (MODELL, sonnet): README „What's new in <version>“ als eigener Commit, englische
 #      Notizdatei ~/halo-nacht/<datum>-notes-<version>.md, Ergebnisdatei „bereit“.
-#   4. tests/zwischen-release.zsh im Worktree (HALO_ZR_STAND=P): Push nach main, Push-Lauf und Windows-Lauf grün, dann
+#   4. tests/zwischen-release.zsh im Worktree (HALO_ZR_STAND=P, HALO_PRUEFZWEIG=sein Zweig): Push nach main, Push-Lauf und Windows-Lauf grün, dann
 #      release-unter-tage.sh --volldampf → NUR_CI=1 release.sh (Testmarke nur bei vollständig grüner CI samt Windows)
 #      und publish.sh. Danach lokale Listen-Commits von publish.sh (ohne Thunderbird-Änderung) nach main pushen.
 #   Rot oder ABBRUCH: kein Release; derselbe Stand P wird nicht noch einmal versucht.
 # Der Abstand zwischen zwei Releases ist nur die Dauer von CI und Windows. Den Checkout ~/halo-spaces gleicht der
 # Nachtlauf ab (git rebase origin/main, Schritt 0 b): die Commits aus main sind dann schon in origin/main.
-# Zum Proben: HALO_JETZT_HM=HHMM, HALO_ZS_STAND=<Commit|leer>, HALO_ZS_TB=<Zahl>, HALO_BELEGT=<Grund|leer>,
-# HALO_ZS_GESPERRT=<Commit>, HALO_VOLLDAMPF_DATEI/…_BEENDET/HALO_VOLLDAMPF_JETZT, HALO_PAUSEN_DATEI.
+# Zum Proben: HALO_JETZT_HM=HHMM, HALO_ZS_STAND=<Zeilen „Commit [Zweig]“|leer> (statt der GitHub-Läufe),
+# HALO_ZS_TB=<Zahl>, HALO_ZS_MISCHBAR/HALO_ZS_NUR_PRUEF=ja|nein|git (git: echtes git im Repo HALO_REPO_MAIN), HALO_ZS_5H=<%>,
+# HALO_ZS_FENSTER_REST=<Sekunden>, HALO_BELEGT=<Grund|leer>, HALO_ZS_GESPERRT=<Commit>, HALO_ZS_GESPERRT_DATEI,
+# HALO_VOLLDAMPF_DATEI/…_BEENDET/HALO_VOLLDAMPF_JETZT, HALO_PAUSEN_DATEI.
 emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna HALO_LAUF=zwischen-release
@@ -33,6 +41,9 @@ MAIN=${HALO_REPO_MAIN:-${HIER:h}}
 WT=${HALO_ZR_WT:-$HOME/halo-zwischen-release}
 DIR=$HOME/halo-nacht
 TAKT=${ZS_TAKT:-5} AB=${ZWISCHEN_RELEASE_AB:-3} BIS=${ZWISCHEN_RELEASE_BIS:-2230} MODELL=${ZS_MODELL:-sonnet}
+# Diagnose- und Probezweige kommen nie in ein Release (Name), ebenso ein Stand mit einem Commit, der es sagt (Nachricht)
+ZWEIG_AUS=${ZS_ZWEIG_AUS:-'(diagnose|flackern|probe)'} NICHT_MAIN='nicht nach main|nur (auf dem |für den )?Prüfzweig'
+FENSTER_AB=${ZWISCHEN_RELEASE_FENSTER:-85} AB_FENSTER=${ZWISCHEN_RELEASE_AB_FENSTER:-1} KONT_ALTER=${ZS_KONT_ALTER:-15}
 R=sruf79/halo-spaces
 MODUS=
 [[ $1 == --(einmal|trocken) ]] && MODUS=${1#--}
@@ -42,20 +53,73 @@ if [[ $MODUS == trocken ]]; then LOG=/dev/null; export HALO_PAUSE_TROCKEN=1 HALO
 REPO=$WT   # belegt() prüft Ungespeichertes nur im eigenen Worktree, nicht im gemeinsamen Checkout
 source $HIER/lauf-hilfen.zsh
 GESPERRT=${HALO_ZS_GESPERRT:-}
+GDATEI=${HALO_ZS_GESPERRT_DATEI:-$DIR/zwischen-gesperrt.txt}   # Stände roter Versuche (eine Zeile je Commit)
 
-# neuester grüner Stand auf dem Prüfzweig, der in main liegt
-stand() {
-  if [[ -n ${HALO_ZS_STAND+x} ]]; then [[ -n $HALO_ZS_STAND ]] && print -r -- $HALO_ZS_STAND; return; fi
-  local pz=${HALO_PRUEFZWEIG:-pruef/tagesroutine-$(date +%Y%m%d)} s
-  for s in $(gh run list -R $R -w test.yml -b $pz -e push -s success -L 20 --json headSha --jq '.[].headSha' 2>/dev/null); do
-    git -C $MAIN merge-base --is-ancestor $s main 2>/dev/null && { print -r -- $s; return 0 }
-  done
-  return 1
+# Kandidaten „<Commit> <Zweig>“: je Prüfzweig der neueste Stand mit grünem Push-Lauf, neueste zuerst, nicht schon in origin/main
+kandidaten() {
+  if [[ -n ${HALO_ZS_STAND+x} ]]; then
+    local z; for z in ${(f)HALO_ZS_STAND}; do z=(${=z}); print -r -- "$z[1] ${z[2]:-pruef/tagesroutine-$(date +%Y%m%d)}"; done
+    return
+  fi
+  git -C $MAIN fetch -q origin main 2>/dev/null
+  local s b; typeset -A gesehen
+  gh run list -R $R -w test.yml -e push -s success -L 60 --json headSha,headBranch \
+      --jq '.[] | select(.headBranch | startswith("pruef/")) | "\(.headSha) \(.headBranch)"' 2>/dev/null \
+    | while read -r s b; do
+        [[ -n ${HALO_PRUEFZWEIG:-} && $b != $HALO_PRUEFZWEIG ]] && continue
+        [[ ${b#pruef/} =~ $ZWEIG_AUS ]] && continue
+        (( ${+gesehen[$b]} )) && continue; gesehen[$b]=1      # nur der neueste grüne Stand je Zweig
+        git -C $MAIN cat-file -e "$s^{commit}" 2>/dev/null || git -C $MAIN fetch -q origin "refs/heads/$b" 2>/dev/null
+        git -C $MAIN cat-file -e "$s^{commit}" 2>/dev/null || continue
+        git -C $MAIN merge-base --is-ancestor $s origin/main 2>/dev/null && continue
+        print -r -- "$s $b"
+      done
 }
-tb_zahl() {   # Commits in <P>, die nicht in origin/main sind und Thunderbird ändern
+# Vorfahr von main oder sauber mit origin/main mischbar (git merge-tree, ohne Worktree und ohne Checkout)
+mischbar() {
+  [[ -n ${HALO_ZS_MISCHBAR+x} && $HALO_ZS_MISCHBAR != git ]] && { [[ $HALO_ZS_MISCHBAR == ja ]]; return }
+  git -C $MAIN merge-base --is-ancestor $1 main 2>/dev/null && return 0
+  git -C $MAIN merge-tree --write-tree origin/main $1 >/dev/null 2>&1
+}
+nur_pruef() {   # Commit über origin/main, dessen Nachricht sagt, dass er nicht nach main gehört
+  [[ -n ${HALO_ZS_NUR_PRUEF+x} && $HALO_ZS_NUR_PRUEF != git ]] && { [[ $HALO_ZS_NUR_PRUEF == ja ]]; return }
+  git -C $MAIN log --format=%B $1 --not origin/main 2>/dev/null | grep -qiE -- $NICHT_MAIN
+}
+gesperrt() {
+  [[ $1 == $GESPERRT ]] && return 0
+  [[ -r $GDATEI ]] && grep -qxF -- $1 $GDATEI
+}
+sperren() { GESPERRT=$1; [[ $MODUS == trocken ]] || print -r -- $1 >> $GDATEI }
+# Sekunden bis zum Ende des 5-Stunden-Fensters (aus kontingent.json), wie im Auslastungswächter
+fenster_rest() {
+  [[ -n ${HALO_ZS_FENSTER_REST+x} ]] && { print -r -- $HALO_ZS_FENSTER_REST; return }
+  python3 -I -c 'import json,sys,time;e=json.load(open(sys.argv[1]))["info"]["unifiedWindows"]["five_hour"];print(max(0,int(e["resetsAt"]-time.time())))' $DIR/kontingent.json 2>/dev/null
+}
+FENSTER_PY='
+import sys, json, time
+d = json.load(open(sys.argv[1]))
+if time.time() - time.mktime(time.strptime(d["stand"][:19], "%Y-%m-%dT%H:%M:%S")) > float(sys.argv[2]) * 60: sys.exit(1)
+print(round(100 * d["info"]["unifiedWindows"]["five_hour"]["utilization"]))
+'
+# 5-Stunden-Fenster in % (nur wenn das Fenster noch läuft); kontingent.sh nur, wenn kontingent.json älter als KONT_ALTER ist
+fenster5() {
+  local f r
+  if [[ -n ${HALO_ZS_5H+x} ]]; then f=$HALO_ZS_5H
+  else
+    f=$(python3 -I -c $FENSTER_PY $DIR/kontingent.json $KONT_ALTER 2>/dev/null) \
+      || { zsh $HIER/kontingent.sh >/dev/null 2>&1; f=$(python3 -I -c $FENSTER_PY $DIR/kontingent.json 5 2>/dev/null) }
+  fi
+  [[ $f == <-> ]] || return 1
+  r=$(fenster_rest); [[ $r == <-> ]] && (( r > 0 )) || return 1
+  print -r -- $f
+}
+tb_zahl() {   # Commits in <P>, die nicht (auch nicht als Kopie) in origin/main sind und Thunderbird ändern
   [[ -n $HALO_ZS_TB ]] && { print $HALO_ZS_TB; return }
-  local c n=0
-  for c in $(git -C $MAIN rev-list --no-merges $1 --not origin/main 2>/dev/null); do
+  local c n=0 t
+  # bringt die Mischung mit origin/main überhaupt etwas für Thunderbird? (sonst wäre es ein leeres Release)
+  t=$(git -C $MAIN merge-tree --write-tree origin/main $1 2>/dev/null) && ! zsh $MAIN/tests/ci-noetig.sh origin/main $t 2>/dev/null \
+    && { print 0; return }
+  for c in $(git -C $MAIN rev-list --no-merges --cherry-pick --right-only origin/main...$1 2>/dev/null); do
     zsh $MAIN/tests/ci-noetig.sh "${c}^" "$c" 2>/dev/null && n=$((n + 1))
   done
   print $n
@@ -65,7 +129,8 @@ naechste_version() {
   t=${t#v}; [[ $t == <->.<->.<-> ]] || return 1
   print -r -- ${t%%.*}.$(( ${${t#*.}%%.*} + 1 )).0
 }
-# Prüfung: gibt „fällig <P> <n>“, „warten <Grund>“ oder „ende <Grund>“ aus
+fenster_text() { [[ -z $1 ]] && return; [[ $1 == <-> ]] && print -rn -- ", 5-Stunden-Fenster $1 %" || print -rn -- ", 5-Stunden-Fenster unbekannt" }
+# Prüfung: gibt „fällig <P> <n> <Zweig>[, 5-Stunden-Fenster …]“, „warten <Grund>“ oder „ende <Grund>“ aus
 pruefen() {
   local j p n g
   local vd
@@ -77,23 +142,37 @@ pruefen() {
   (( j >= BIS )) && { print -r -- "ende Push-Beginn nur bis $BIS"; return }
   (( j >= 900 )) || { print -r -- "warten Push-Sperre bis 09:00"; return }
   g=$(pause_aktiv zwischen-release) && { print -r -- "warten Pause $g"; return }
-  p=$(stand) || { print -r -- "warten kein grüner Stand auf dem Prüfzweig"; return }
-  [[ $p == $GESPERRT ]] && { print -r -- "warten Stand ${p[1,7]} war rot, erst ein neuer grüner Stand"; return }
-  n=$(tb_zahl $p)
-  (( n >= AB )) || { print -r -- "warten $n Thunderbird-Commits bis ${p[1,7]} über origin/main (ab $AB)"; return }
+  local -a kand; local k z zw ab=$AB f5= grund= erster=
+  kand=(${(f)"$(kandidaten)"})
+  (( $#kand )) || { print -r -- "warten kein neuer grüner Stand auf einem Prüfzweig"; return }
+  for k in $kand; do
+    z=(${=k}); p=$z[1] zw=$z[2]
+    gesperrt $p && { grund=${grund:-"Stand ${p[1,7]} ($zw) war rot, erst ein neuer grüner Stand"}; continue }
+    nur_pruef $p && { grund=${grund:-"Stand ${p[1,7]} ($zw) enthält einen Commit „nicht nach main“"}; continue }
+    mischbar $p || { grund=${grund:-"Stand ${p[1,7]} ($zw) lässt sich nicht sauber mit origin/main mischen (Konflikt)"}; continue }
+    n=$(tb_zahl $p)
+    if (( n < ab && n >= AB_FENSTER && ab != AB_FENSTER )) && [[ -z $f5 ]]; then
+      f5=$(fenster5) || f5=-
+      [[ $f5 == <-> ]] && (( f5 >= FENSTER_AB )) && ab=$AB_FENSTER
+    fi
+    (( n >= ab )) && { erster="$p $n $zw"; break }
+    grund=${grund:-"$n Thunderbird-Commits bis ${p[1,7]} ($zw) über origin/main (ab $ab$(fenster_text $f5))"}
+  done
+  [[ -n $erster ]] || { print -r -- "warten ${grund:-kein fälliger Stand}"; return }
+  z=(${=erster}); p=$z[1] n=$z[2] zw=$z[3]
   if [[ -n ${HALO_BELEGT+x} ]]; then g=$HALO_BELEGT; else g=$(belegt) || g=; fi
   [[ -z $g && -e $DIR/lauf.lock ]] && kill -0 $(<$DIR/lauf.lock) 2>/dev/null && g="Nachtlauf läuft"
   [[ -n $g ]] && { print -r -- "warten belegt: $g"; return }
-  print -r -- "fällig $p $n"
+  print -r -- "fällig $p $n $zw$(fenster_text $f5)"
 }
 
 # ein Zwischen-Release für Stand <P>; Rückgabe 0 = veröffentlicht, 1 = rot (Stand gesperrt), 2 = Abbruch vor dem Push
-release_lauf() {
-  local p=$1 v notes erg sid aus rc g
+release_lauf() {   # <P> <Prüfzweig>
+  local p=$1 zw=$2 v notes erg sid aus rc g
   git -C $MAIN fetch -q --tags origin main 2>>$LOG || { log "git fetch gescheitert"; return 2 }
   v=$(naechste_version) || { log "keine Version ableitbar"; return 2 }
   notes=$DIR/$TAG-notes-$v.md erg=$DIR/$TAG-zwischen-release-$v.erg aus=$DIR/$TAG-zwischen-release-$v.log
-  log "Zwischen-Release $v für Stand ${p[1,7]}: Worktree $WT"
+  log "Zwischen-Release $v für Stand ${p[1,7]} von $zw: Worktree $WT"
   # eigener Worktree: nur dieser Ordner wird ersetzt (enthält nur Dateien dieses Wächters)
   if [[ -e $WT ]]; then git -C $MAIN worktree remove --force $WT 2>>$LOG || { log "Worktree $WT nicht entfernbar"; return 2 }; fi
   git -C $MAIN worktree add -q -f -B zr/release $WT $p 2>>$LOG || { log "Worktree nicht angelegt"; return 2 }
@@ -112,7 +191,7 @@ release_lauf() {
 4. Englische Notizdatei mit gleichem Inhalt (ohne Überschrift „What's new“) nach $notes.
 5. Ergebnisdatei $erg mit einer Zeile „bereit“ oder „nein <Grund>“." > $DIR/$TAG-zwischen-release-$v.txt 2>&1 )
   [[ $(head -1 $erg 2>/dev/null) == bereit ]] || { log "Zwischen-Release $v: Vorbereitung ohne „bereit“ ($(head -1 $erg 2>/dev/null))"; return 2 }
-  HALO_REPO=$WT HALO_ZR_STAND=$p ZWISCHEN_RELEASE_BIS=$BIS zsh $HIER/zwischen-release.zsh $v $notes > $aus 2>&1; rc=$?
+  HALO_REPO=$WT HALO_ZR_STAND=$p HALO_PRUEFZWEIG=$zw ZWISCHEN_RELEASE_BIS=$BIS zsh $HIER/zwischen-release.zsh $v $notes > $aus 2>&1; rc=$?
   cat $aus >> $LOG
   if (( rc == 0 )); then
     # Listen-Commits von publish.sh (pr-freigaben), nur ohne Thunderbird-Änderung
@@ -136,7 +215,9 @@ if [[ $MODUS == trocken ]]; then
   z=$(pruefen)
   print -r -- "Zwischen-Schleife – Trockenlauf (kein Claude, kein Push, kein Worktree)"
   print -r -- "Prüfung:  $z"
-  [[ $z == fällig* ]] && print -r -- "Würde:    Zwischen-Release $(naechste_version) für Stand ${${${z#fällig }%% *}[1,7]} im Worktree $WT"
+  if [[ $z == fällig* ]]; then
+    w=(${=${z#fällig }}); print -r -- "Würde:    Zwischen-Release $(naechste_version) für Stand ${w[1][1,7]} von ${w[3]%,} im Worktree $WT"
+  fi
   exit 0
 fi
 mkdir -p $DIR
@@ -144,17 +225,17 @@ LOCK=$DIR/zwischen-schleife.lock
 [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null && { print -u2 "Zwischen-Schleife läuft schon (PID $(<$LOCK))"; exit 1 }
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
-log "Zwischen-Schleife gestartet (Takt $TAKT Min., ab $AB Thunderbird-Commits, Push-Beginn bis $BIS)"
+log "Zwischen-Schleife gestartet (Takt $TAKT Min., alle Prüfzweige pruef/*, ab $AB Thunderbird-Commits, ab $AB_FENSTER bei 5-Stunden-Fenster ab $FENSTER_AB %, Push-Beginn bis $BIS)"
 ALT= ABBRUCH_AN=
 while true; do
   z=$(pruefen)
   case $z in
     ende*)   log "Ende: ${z#ende }"; break ;;
-    fällig*) p=${${z#fällig }%% *}
-             release_lauf $p; rc=$?
+    fällig*) w=(${=${z#fällig }}); p=$w[1]
+             release_lauf $p ${w[3]%,}; rc=$?
              # rot (oder Konflikt): derselbe Stand erst nach der Behebung (neuer grüner Stand); Abbruch vor dem
              # Push (belegt, Uhrzeit, Vorbereitung): ein zweiter Versuch, dann ebenfalls gesperrt
-             if (( rc == 1 )) || { (( rc == 2 )) && [[ $p == $ABBRUCH_AN ]] }; then GESPERRT=$p; log "Stand ${p[1,7]} gesperrt bis zu einem neuen grünen Stand"
+             if (( rc == 1 )) || { (( rc == 2 )) && [[ $p == $ABBRUCH_AN ]] }; then sperren $p; log "Stand ${p[1,7]} gesperrt bis zu einem neuen grünen Stand"
              elif (( rc == 2 )); then ABBRUCH_AN=$p; fi
              ALT= ;;
     *)       [[ $z != $ALT ]] && log "${z#warten }"; ALT=$z ;;

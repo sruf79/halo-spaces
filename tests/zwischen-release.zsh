@@ -18,8 +18,8 @@
 #     README „What's new in x.y.z“, Notizdatei
 #   - Thunderbird-Änderungen über origin/main: der letzte Lauf auf dem Prüfzweig (pruef/tagesroutine-<JJJJMMTT>,
 #     sonst HALO_PRUEFZWEIG) zu einem Stand, nach dem bis HEAD nichts Thunderbird betrifft, ist grün; mit
-#     HALO_ZR_STAND=<Commit> (Wächter): genau dieser Stand grün, und HEAD bringt darüber nur, was origin/main
-#     seither geändert hat, und README.md
+#     HALO_ZR_STAND=<Commit> (Wächter, mit HALO_PRUEFZWEIG=<sein Prüfzweig pruef/<name>>, Maintainer 18.11.2026):
+#     genau dieser Stand grün, und HEAD bringt darüber nur, was origin/main seither geändert hat, und README.md
 # Danach: git push origin HEAD:main, Push-Lauf (Linux, Mac) grün abwarten, Windows-Lauf starten und grün abwarten,
 # dann release-unter-tage.sh --volldampf (NUR_CI=1 release.sh: ohne vollständig grüne CI samt Windows keine Marke).
 # Rot: kein Release, Ausgabe „ROT: …“, Exitcode 1 (rote CI auf main behandelt Regel 0 des nächsten Laufs).

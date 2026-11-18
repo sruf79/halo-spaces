@@ -11590,6 +11590,36 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Toolbar: Add-on-Hinweis (Puzzle) als runder Knopf links neben dem Today-Knopf, nicht am Fensterrand (GitHub #43)", toolbar_addon_hint, results)
 
+    def toolbar_hint_box_empty():
+        # Thunderbird blendet die Hinweis-Box auch ohne sichtbares Symbol ein (unter Windows beobachtet): dann kein leerer
+        # grauer Kreis am Ende des Suchfelds (Mail, Today-Pane offen und zu) bzw. rechts daneben (Kalender)
+        res = m.js(r"""
+          await toMail(); w.resizeTo(1500, 900); await ruhig(600);
+          const box = d.getElementById("notification-popup-box"), img = d.getElementById("addons-notification-icon");
+          if (!box || !img) return { box: false };
+          const M = () => { const r = box.getBoundingClientRect(), cs = w.getComputedStyle(box);
+            return { w: Math.round(r.width), bg: cs.backgroundColor, shown: cs.display != "none" }; };
+          const out = {};
+          try {
+            img.removeAttribute("showing"); box.hidden = false; await ruhig(400);
+            out.mail = M();
+            d.getElementById("mcTodayToggle").click(); await ruhig(1500);
+            out.mail2 = M();
+            d.getElementById("mcTodayToggle").click(); await ruhig(1500);
+            await toCalendar(); await ruhig(600);
+            out.cal = M();
+            img.setAttribute("showing", "true"); await ruhig(400);
+            out.calIcon = M();
+            await toMail();
+          } finally { box.hidden = true; img.removeAttribute("showing"); }
+          return out;""")
+        if res.get("box") is False:
+            return False, "keine Hinweis-Box im Dokument"
+        leer = lambda x: isinstance(x, dict) and (not x["shown"] or (x["w"] == 0 and x["bg"] in ("transparent", "rgba(0, 0, 0, 0)")))
+        ok = leer(res.get("mail")) and leer(res.get("mail2")) and leer(res.get("cal")) and (res.get("calIcon") or {}).get("w") == 40
+        return ok, f"{res}"
+    check("Toolbar: Hinweis-Box ohne Symbol zeigt keinen leeren grauen Kreis am Suchfeld (Mail, Kalender)", toolbar_hint_box_empty, results)
+
     def message_min_width():
         # Trennlinie zwischen Mailliste und Mail weit nach rechts ziehen: die Mail klappt nicht weg, bleibt mindestens
         # 300 px breit, Knöpfe der Toolbar ragen nicht aus der Zeile

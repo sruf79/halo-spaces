@@ -9482,6 +9482,19 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   background-color: var(--mt-control-hover) !important;
 }
 
+/* Kapsel nur, solange ein Hinweis-Symbol darin steht: Thunderbird blendet
+   die Box auch ohne sichtbares Symbol ein (beobachtet unter Windows), dann
+   stand ein leerer grauer Kreis am Ende des Suchfelds bzw. rechts daneben.
+   Ohne Symbol wie in Thunderbird selbst: 0 px breit und ohne Fläche (die
+   Box bleibt Anker des Hinweis-Panels) */
+:root #unifiedToolbar > #notification-popup-box:not(:has(> [showing])) {
+  width: 0 !important;
+  min-width: 0 !important;
+  margin-inline-end: 0 !important;
+  padding: 0 !important;
+  background-color: transparent !important;
+}
+
 /* Webseite statt Chat: kein Seitenleisten-Knopf (sie hat keine Seitenleiste)
    und kein Suchfeld (es durchsucht nur Mails) – die Today-Pane mit ihrem
    Knopf an derselben Stelle wie in den übrigen Bereichen dagegen schon */

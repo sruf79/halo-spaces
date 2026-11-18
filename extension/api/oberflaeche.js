@@ -532,7 +532,25 @@ class EnhancerOberflaeche {
       search?.addEventListener("autocomplete", update);
       const mo = new cw.MutationObserver(update);
       mo.observe(list, { childList: true, subtree: true });
+      // Thunderbird setzt den Fokus an mehreren Stellen auf sein Suchfeld über der
+      // Liste (Abbrechen eines neuen Kontakts, letzter Kontakt gelöscht, leere
+      // Liste); das ist ausgeblendet (Suche oben in der Toolbar), der Fokus ginge
+      // ins Leere und Pfeiltasten wirkten erst nach einem Klick – dann in die
+      // Kontaktliste wie Apple Kontakte
+      const ownFocus = search && !Object.hasOwn(search, "focus");
+      if (ownFocus) {
+        const focusSearch = search.focus;
+        search.focus = function (...args) {
+          if (!this.getClientRects().length && list.table?.body) {
+            return list.table.body.focus();
+          }
+          return focusSearch.apply(this, args);
+        };
+      }
       this.addWinRestorer(cw, () => {
+        if (ownFocus) {
+          delete search.focus;
+        }
         books.removeEventListener("select", update);
         search?.removeEventListener("autocomplete", update);
         mo.disconnect();

@@ -21488,6 +21488,49 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Konten und Add-on-Bereiche als Unterpunkte in der Seitenleiste statt zweiter grauer Leiste, Klick wählt, erneuter Klick auf die Kategorie klappt sie zu und auf, Konto hinzufügen öffnet das Menü (24-px-Zeilen), „Plugins“ nur mit Plugins", pref_embedded_subnav, results)
 
+    def pref_subnav_released():
+        # Unterpunkte (Konten, Add-ons) beobachten mail.accountmanager.accounts; beim Schließen des Einstellungs-Tabs
+        # verwirft Thunderbird nur das Fenster, die Restorer laufen nicht – der Beobachter blieb angemeldet und hielt die
+        # geschlossene Seite samt eingebetteter Seiten im Speicher, je Öffnen eine mehr (Bug-Jagd Einstellungen #5).
+        # Erwartet: nach dem Schließen ist keine Unterliste mehr angemeldet (Zähler am Hauptfenster), Umsortieren der
+        # Konten danach ohne Fehler. (Freigabe des Speichers selbst ist nicht prüfbar: Thunderbird hält die geschlossene
+        # Einstellungsseite auch ohne halo.spaces noch eine Weile.)
+        res = m.js(r"""
+          const out = { before: w.__mcSubnavLive || 0 };
+          w.resizeTo(1500, 900); await wait(400);
+          for (let round = 0; round < 2; round++) {
+            w.openPreferencesTab("paneGeneral");
+            const pw = await until(() => tm.currentTabInfo.browser?.contentWindow?.document.getElementById("paneDeck") && tm.currentTabInfo.browser.contentWindow, 8000);
+            if (!pw) return { ...out, opened: false };
+            const pd = pw.document;
+            await until(() => pd.getElementById("mcCat-paneMcAccounts") && pd.getElementById("mcCat-paneMcAddons"), 8000);
+            for (const v of ["paneMcAccounts", "paneMcAddons"]) {
+              pd.getElementById("mcCat-" + v)?.click();
+              await until(() => pd.querySelector(`#mcSub-${v} .mc-subcat`), 15000);
+            }
+            out["subs" + round] = ["paneMcAccounts", "paneMcAddons"].map(v => pd.querySelectorAll(`#mcSub-${v} .mc-subcat`).length);
+            out["open" + round] = w.__mcSubnavLive || 0;
+            pd.getElementById("category-general")?.click(); await ruhig(300);
+            tm.closeTab(tm.currentTabInfo);
+            await bis(() => Cu.isDeadWrapper(pd) || !pd.defaultView || pd.defaultView.closed, "Einstellungs-Tab zu", 6000);
+            await until(() => (w.__mcSubnavLive || 0) == out.before, 2000);
+            out["closed" + round] = w.__mcSubnavLive || 0;
+          }
+          // Umsortieren der Konten nach dem Schließen (rief vorher die Beobachter der geschlossenen Tabs)
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const order = MailServices.accounts.accounts.map(a => a.key);
+          if (order.length > 1) {
+            MailServices.accounts.reorderAccounts([...order].reverse());
+            MailServices.accounts.reorderAccounts(order);
+            await ruhig(300);
+          }
+          return out;""")
+        b = res.get("before", 0)
+        ok = (all(res.get(f"open{r}") == b + 2 and res.get(f"closed{r}") == b for r in (0, 1))
+              and all(n > 0 for r in (0, 1) for n in (res.get(f"subs{r}") or [0])))
+        return ok, f"{res}"
+    check("Einstellungen: Schließen des Einstellungs-Tabs meldet die Unterpunkte von Konten und Add-ons ab (kein Beobachter bleibt hängen)", pref_subnav_released, results)
+
     def account_wizards():
         # Konto-Assistenten (Feed, Newsgruppen, Chat): Knöpfe flach ohne Rahmen, 13 px, 28 px hoch und lesbar
         # (dunkel war „Cancel“ weiß auf #8F8F9D), Felder mit 7 px, Chat-Netzliste mit Haarlinie und 8 px

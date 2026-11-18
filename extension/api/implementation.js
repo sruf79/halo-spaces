@@ -6913,6 +6913,9 @@ function attachSubnav(list, browserEl, src) {
   // Konten per Ziehen umsortieren; neue Reihenfolge (auch aus der Ordnerliste) neu zeichnen
   const prefObs = { observe: () => schedule() };
   Services.prefs.addObserver("mail.accountmanager.accounts", prefObs);
+  // angemeldete Unterlisten am Hauptfenster (für den automatischen Test)
+  const mainWin = browserEl.ownerDocument.defaultView;
+  mainWin.__mcSubnavLive = (mainWin.__mcSubnavLive || 0) + 1;
   // Seiten des gewählten Kontos (Stufe 2) zählen als Ziel zu ihrem Konto
   const accountRow = el => {
     let row = el?.closest?.(".mc-subcat");
@@ -6923,13 +6926,33 @@ function attachSubnav(list, browserEl, src) {
   };
   const undrag = accountReorder(list, accountRow, row => row.dataset.account || null);
   schedule();
-  return () => {
+  let done = false;
+  const detach = () => {
+    if (done) {
+      return;
+    }
+    done = true;
+    if (!Cu.isDeadWrapper(mainWin)) {
+      mainWin.__mcSubnavLive--;
+    }
     undrag();
     Services.prefs.removeObserver("mail.accountmanager.accounts", prefObs);
     mo.disconnect();
     browserEl.removeEventListener("load", schedule, true);
     browserEl.removeEventListener("view-selected", onView, true);
     browserEl.removeEventListener("select", onView, true);
+  };
+  // Einstellungs-Tab geschlossen: sofort abmelden – die Restorer des Tabs werden
+  // dann nur verworfen, nicht ausgeführt (addWinRestorer); sonst hielte der
+  // Beobachter am Einstellungsdienst die geschlossene Seite samt eingebetteter
+  // Kontoeinstellungen bzw. Add-ons im Speicher, bei jedem Öffnen eine mehr
+  const win = cdoc.defaultView;
+  win?.addEventListener("unload", detach, { once: true });
+  return () => {
+    if (!Cu.isDeadWrapper(win)) {
+      win?.removeEventListener("unload", detach);
+    }
+    detach();
   };
 }
 

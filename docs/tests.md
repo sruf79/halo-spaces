@@ -122,7 +122,8 @@ Uhr der Animation läuft je Bild genau 16,7 ms weiter. So sieht jede Messung die
 ist. Anlass: unter xvfb braucht ein Bild der Mail-Seitenleiste je nach CI-Läufer 35–95 ms (Bildabstand in Echtzeit = Aufbauzeit),
 von 250 ms Animation blieben 3–8 Bilder, und einzelne Lastbilder ließen Sprünge erscheinen, die es nicht gab
 (Auswertung `~/halo-berichte/2026-11-18-flackern.md`). Aufruf direkt nach dem Auslöser (Klick), währenddessen kein
-`ruhig()` und kein Warten auf `requestAnimationFrame`. Die Aufbauzeit je Bild (Rückgabe) ist nur Auskunft: „flüssig“ im Sinn
-von Bildzeit misst weiter ein Durchgang in Echtzeit (Today-Pane), denn die Aufbauzeit liegt in der CI zu nah am Takt.
-Umgestellt: „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“, „Today-Pane: Ein-/Ausblenden flüssig“; weitere
-Animationsprüfungen erst umstellen, wenn sie nachweislich an ausgefallenen Bildern scheitern.
+`ruhig()` und kein Warten auf `requestAnimationFrame`. Die Aufbauzeit je Bild (Rückgabe) ist nur Auskunft.
+Umgestellt: „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“. Nur für Prüfungen, die Bilder zählen; die Today-Pane-Prüfung
+bleibt in Echtzeit (Maintainer 18.11.2026, über neon: „imTakt nur bei Prüfungen, die Bilder zählen, nicht bei der
+Today-Pane“). Weitere Prüfungen erst umstellen, wenn sie nachweislich an ausgefallenen Bildern scheitern. Wer nur
+prüft, ob Animationen gleichzeitig laufen, nimmt eine Stichprobe je Bild (`requestAnimationFrame`) statt einer festen Pause.

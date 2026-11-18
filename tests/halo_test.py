@@ -22733,12 +22733,23 @@ Neu
           // („Bewegung reduzieren“, z. B. Windows ohne Animationseffekte: beide springen sofort ans Ende)
           const out = { mc: !d.getElementById("mcSpacesToggle"), reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
           const xul = () => Services.xulStore.getValue("chrome://messenger/content/messenger.xhtml", "spacesToolbar", "hidden");
+          // Laufen beide Animationen zugleich? Stichprobe je Bild (requestAnimationFrame, bis zu 6 Bilder), bis beide
+          // im selben Bild laufen. Früher eine Stichprobe 60 ms nach dem Klick in Echtzeit: auf langsamen Linux-Läufern war
+          // die 250-ms-Animation bis dahin schon ganz durch (together [False, False], ESR, 17. und 18.11.2026), obwohl beide
+          // Leisten danach richtig ausgeblendet waren. Die Animation braucht mindestens drei Bilder (zwei bis zum Beginn),
+          // jede Bilddauer sieht sie also. Ohne Bewegung (reduced) wie bisher nach 60 ms: dann läuft nichts mehr.
+          const zugleich = async (a, b) => {
+            btn.click();
+            if (out.reduced) { await wait(60); return [!!a(), !!b()]; }
+            let z = [false, false];
+            for (let i = 0; i < 6 && !(z[0] && z[1]); i++) { await new Promise(r => w.requestAnimationFrame(r)); z = [!!a(), !!b()]; }
+            return z;
+          };
           try {
             if (w.gSpacesToolbar.isHidden || sp().isCollapsed) { await w.__mcColumnMigrate(false, false); await ruhig(600); }
             out.start = mail();
             // ein Klick: beide Animationen laufen zugleich, danach beide aus
-            await press(); await wait(60);
-            out.together = [!!w.__mcSpacesAnimating, !!ab().__mcAnimating];
+            out.together = await zugleich(() => w.__mcSpacesAnimating, () => ab().__mcAnimating);
             await bis(still, "Animation fertig", 3000); await ruhig(300);
             out.hidden = mail(); out.tip = btn.getAttribute("tooltiptext");
             w.gSpacesToolbar.onUnload?.(); out.saved = xul();  // (Thunderbird speichert beim Schließen des Fensters)
@@ -22750,7 +22761,7 @@ Neu
             // Kalender: Kalenderliste mit der Bereiche-Leiste
             await toCalendar(); await ruhig(800);
             out.calStart = calState();
-            await press(); await wait(60); out.calTogether = [!!w.__mcSpacesAnimating, !!d.getElementById("calSidebar").__mcAnimating];
+            out.calTogether = await zugleich(() => w.__mcSpacesAnimating, () => d.getElementById("calSidebar").__mcAnimating);
             await bis(still, "Animation fertig", 3000); await ruhig(300); out.calHidden = calState();
             // Bereichswechsel ändert den Zustand nicht: Mail ebenfalls ausgeblendet
             await toMail(); await ruhig(800); out.mailAfterCal = mail();

@@ -13,6 +13,11 @@ wo=w.get("seven_day",{}); h=w.get("five_hour",{})
 p=os.path.expanduser("~/halo-nacht/kontingent.json")
 os.makedirs(os.path.dirname(p),exist_ok=True)
 json.dump({"stand":time.strftime("%Y-%m-%dT%H:%M:%S%z"),"info":e},open(p,"w"))
+# Woche nur aus seven_day bzw. einem Ereignis, das selbst das Wochenfenster ist; sonst wäre es der 5-Stunden-Wert oder 0
+# und ein Lauf hielte den Sturz für einen freien Reset (falscher Anker, 18.11.2026)
+if "utilization" in wo: u=wo["utilization"]
+elif e.get("rateLimitType")=="seven_day" and "utilization" in e: u=e["utilization"]
+else: print("KONTINGENT: Woche nicht lesbar"); sys.exit(1)
 reset=time.strftime("%H:%M",time.localtime(wo.get("resetsAt",e.get("resetsAt",0))))
-print("Woche %d %% (Zurücksetzen %s), 5 Stunden %d %%, Status %s"%(round(100*wo.get("utilization",e.get("utilization",0))),reset,round(100*h.get("utilization",0)),wo.get("status",e.get("status"))))
+print("Woche %d %% (Zurücksetzen %s), 5 Stunden %d %%, Status %s"%(round(100*u),reset,round(100*h.get("utilization",0)),wo.get("status",e.get("status"))))
 '

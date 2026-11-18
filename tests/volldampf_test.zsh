@@ -46,6 +46,10 @@ HALO_JETZT=2026-11-24T02:00+01:00 pruefe "abgelaufen: weder aktiv noch angemelde
 pruefe "Woche 97 %: nicht pausiert, aktiv" '! volldampf_wochenlimit_pruefen 97 && volldampf_aktiv'
 print -r -- '{"stand": "2026-11-17T02:30:00+0100", "info": {"unifiedWindows": {"seven_day": {"utilization": 0.97}, "five_hour": {"utilization": 1.0, "status": "rejected"}}}}' > $HALO_KONTINGENT_JSON
 pruefe "5-Stunden-Limit (100 %) pausiert Volldampf nicht" '! volldampf_wochenlimit_pruefen && volldampf_aktiv'
+print -r -- '{"stand": "2026-11-17T02:30:00+0100", "info": {"rateLimitType": "five_hour", "utilization": 0.4, "unifiedWindows": {"five_hour": {"utilization": 0.4}}}}' > $HALO_KONTINGENT_JSON
+pruefe "ohne Wochenwert (nur 5 Stunden): kein Wert statt 5-Stunden-Wert oder 0, kein Stand geschrieben" 'st=$(cat $HALO_WOCHENSTAND 2>/dev/null); ! volldampf_woche_gespeichert && ! volldampf_wochenlimit_pruefen && [[ $(cat $HALO_WOCHENSTAND 2>/dev/null) == $st ]]'
+KP=$(sed -n "/^KONT_PY='/,/^'/p" $HIER/auslastung-schleife.zsh); eval $KP
+pruefe "Auslastungswächter: ohne Wochenwert nicht lesbar" '! python3 -I -c $KONT_PY $HALO_KONTINGENT_JSON 999999'
 kjson 0.99 2026-11-16T22:00:00+0100
 pruefe "kontingent.json älter als 3 Stunden: nichts geprüft, aktiv" '! volldampf_wochenlimit_pruefen && volldampf_aktiv'
 kjson 0.98 2026-11-17T02:30:00+0100

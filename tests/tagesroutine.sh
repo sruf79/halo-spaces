@@ -332,7 +332,10 @@ d = json.load(open(sys.argv[1]))["info"]; w = d.get("unifiedWindows", {})
 wo, h = w.get("seven_day", {}), w.get("five_hour", {})
 ende = dt.datetime.fromtimestamp(h["resetsAt"], ZoneInfo("Europe/Vienna")).isoformat(timespec="minutes") if h.get("resetsAt") else ""
 fable = [k for k in w if "fable" in k.lower()]
-print(round(100 * wo.get("utilization", d.get("utilization", 0))), round(100 * h.get("utilization", 0)), ende or "-",
+# Woche nur aus seven_day bzw. einem Wochen-Ereignis (sonst 5-Stunden-Wert oder 0, 18.11.2026): nicht lesbar = Fehler
+u = wo["utilization"] if "utilization" in wo else d["utilization"] if d.get("rateLimitType") == "seven_day" else None
+if u is None: sys.exit(1)
+print(round(100 * u), round(100 * h.get("utilization", 0)), ende or "-",
       ("%s=%d%%" % (fable[0], round(100 * w[fable[0]].get("utilization", 0)))) if fable else "-", d.get("stand", ""))
 ' $KONT_JSON 2>/dev/null) || return 1
   local t=(${=werte})

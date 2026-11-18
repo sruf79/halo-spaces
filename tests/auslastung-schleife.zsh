@@ -87,7 +87,10 @@ d = json.load(open(sys.argv[1])); i = d["info"]; w = i.get("unifiedWindows", {})
 wo, h = w.get("seven_day", {}), w.get("five_hour", {})
 stand = time.mktime(time.strptime(d["stand"][:19], "%Y-%m-%dT%H:%M:%S"))
 if time.time() - stand > float(sys.argv[2]) * 60: sys.exit(1)
-print(round(100 * wo.get("utilization", i.get("utilization", 0))), round(100 * h.get("utilization", 0)), wo.get("status", i.get("status", "?")))
+# Woche nur aus seven_day bzw. einem Wochen-Ereignis, sonst nicht lesbar (nie der 5-Stunden-Wert oder 0, 18.11.2026)
+u = wo["utilization"] if "utilization" in wo else i["utilization"] if i.get("rateLimitType") == "seven_day" else None
+if u is None: sys.exit(1)
+print(round(100 * u), round(100 * h.get("utilization", 0)), wo.get("status", i.get("status", "?")))
 '
 kontingent() {   # [<höchstes Alter von kontingent.json in Minuten>]
   if [[ -n $HALO_AS_WOCHE ]]; then print -r -- "$HALO_AS_WOCHE ${HALO_AS_5H:-0} ${HALO_AS_STATUS:-allowed}"; return; fi

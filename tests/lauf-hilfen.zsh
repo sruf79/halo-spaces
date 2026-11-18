@@ -381,7 +381,9 @@ n = datetime.datetime.fromisoformat(j).astimezone() if j else datetime.datetime.
 stand = datetime.datetime.strptime(d["stand"], "%Y-%m-%dT%H:%M:%S%z")
 if not datetime.timedelta(0) <= n - stand <= datetime.timedelta(hours=3): sys.exit(1)
 w = i.get("unifiedWindows", {}).get("seven_day", {})
-print(round(100 * w.get("utilization", 0)))
+u = w["utilization"] if "utilization" in w else i["utilization"] if i.get("rateLimitType") == "seven_day" else None
+if u is None: sys.exit(1)   # kein Wochenwert: nichts prüfen statt 0 (0 sähe wie ein freier Reset aus, 18.11.2026)
+print(round(100 * u))
 ' $j 2>/dev/null
 }
 # Sollkurve, gemeinsam für alle Läufe (siehe oben); <Stunden> = Länge der Kurve ohne Anker

@@ -690,6 +690,12 @@ def create_profile(xpi, port, dark=False, prefix="halo-test-"):
             # schaltet sie erst danach wieder ein – unter Last (ESR in der CI) zu spät für die Prüfung
             # beim Start nach 20 s. Die Abfrage der updates.json blockt die Vorbereitung weiterhin.
             "extensions.update.enabled": True,
+            # updates.json auf GitHub vom ersten Augenblick an unerreichbar (Name zeigt auf den eigenen Rechner, dort
+            # lauscht nichts auf 443): die Sperre der Vorbereitung (http-on-modify-request) kommt erst nach den ersten
+            # Prüfungen, die Update-Prüfung beim Start läuft nach 20 s – unter Last kam sie zuerst und holte das echte,
+            # gerade veröffentlichte 3.30.0 in ein Paket 3.29.0 (CI 18.11. Lauf 44263445114 linux beta: Prüfung beim Start
+            # 08:02:53, Vorbereitung erst danach; „Updates: bereitliegendes Update …“ fand den roten Punkt schon vorher)
+            "network.dns.localDomains": "raw.githubusercontent.com",
             **({"ui.systemUsesDarkTheme": 1} if dark else {}),
         }.items():
             f.write(f"user_pref({json.dumps(pref)}, {json.dumps(value)});\n")

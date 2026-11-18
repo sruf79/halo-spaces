@@ -16672,6 +16672,52 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Zusammenführen von Dubletten lässt die Auswahl beim gewählten Kontakt, Details zeigen den verbliebenen Eintrag", ab_dedupe_selection, results)
 
+    def ab_dedupe_delete():
+        # Löschen eines zusammengeführten Kontakts löscht auch die ausgeblendeten Dubletten
+        # (in einem anderen Buch und im selben), auch nachdem die Liste mehrmals neu sortiert hat;
+        # sonst stand die Dublette nach dem nächsten Neuaufbau der Liste wieder da (wie Apple Kontakte)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const other = MailServices.ab.getDirectory("jsaddrbook://history.sqlite");
+          const add = (dir, name, mail) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = mail; return dir.addCard(c); };
+          const NAME = "Dupli Kat";
+          const count = () => MailServices.ab.directories.reduce((n, d) => n + d.childCards.filter(c => c.displayName == NAME).length, 0);
+          const cards = [add(book, NAME, "dupli@example.invalid"), add(other, NAME, "dupli@example.invalid"),
+                         add(book, NAME, ""), add(book, "Ella Eins", "ella@example.invalid")];
+          """ + OPEN_BOOKS_JS + r"""
+          const out = { tab: !!cw, before: count() };
+          try {
+            cw.cardsPane.displayBook(null);
+            const list = cw.document.getElementById("cards");
+            const rows = () => [...Array(list.view.rowCount).keys()];
+            const dupRows = () => rows().filter(i => list.view.getCardFromRow(i)?.displayName == NAME).length;
+            await until(() => list.view?.rowCount >= 2 && dupRows() == 1, 5000); await ruhig(500);
+            // eine Änderung an einem anderen Kontakt sortiert neu (zweites Zusammenführen)
+            cards[3].setProperty("PopularityIndex", 2); book.modifyCard(cards[3]); await ruhig(800);
+            out.shown = dupRows();
+            list.selectedIndex = rows().find(i => list.view.getCardFromRow(i)?.displayName == NAME); await ruhig(300);
+            list.view.deleteSelectedCards(); await ruhig(800);
+            out.after = count();
+            // Liste neu aufbauen: die Dublette darf nicht wiederkommen
+            cw.cardsPane.displayBook(null); await ruhig(800);
+            out.rebuilt = dupRows();
+            out.ella = rows().some(i => list.view.getCardFromRow(i)?.displayName == "Ella Eins");
+          } finally {
+            for (const d of MailServices.ab.directories) {
+              const left = d.childCards.filter(c => c.displayName == NAME || c.UID == cards[3].UID);
+              if (left.length) d.deleteCards(left);
+            }
+            await ruhig(300);
+            tm.closeTab(abTab); await toMail();
+          }
+          return out;""")
+        ok = (res["tab"] and res.get("before") == 3 and res.get("shown") == 1 and res.get("after") == 0
+              and res.get("rebuilt") == 0 and res.get("ella"))
+        return ok, f"{res}"
+    check("Adressbuch: Löschen eines zusammengeführten Kontakts löscht auch seine Dubletten, sie kommen nach dem Neuaufbau nicht wieder", ab_dedupe_delete, results)
+
     def ab_dedupe_new_contact():
         # Thunderbird fügt neue Kontakte ohne Sortieren in die Liste ein, die
         # Zusammenführung hing am Sortieren: eine neue Dublette (Sync, Import oder

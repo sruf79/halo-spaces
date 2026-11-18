@@ -433,15 +433,6 @@ class ConversationCards {
     }
   }
 
-  // Karte der Konversation zu einer Mail (nur solange die Karten stehen)
-  cardOf(hdr) {
-    if (!hdr || !this.box?.isConnected || this.box.classList.contains("mc-stack")) {
-      return null;
-    }
-    return [...this.box.querySelectorAll(".mc-conv-card")].find(c => c.__mcHdr == hdr ||
-      (hdr.messageId && c.__mcHdr?.messageId == hdr.messageId)) || null;
-  }
-
   // eigenes Fenster: Karten unter der Knopfzeile der Mailansicht beginnen
   // lassen (sie liegt oben in deren Mailkopf, mc-standalone)
   fitWindowTop() {

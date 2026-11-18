@@ -14899,8 +14899,9 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 }
 
 /* „+“ rechts oben in der Today-Pane: wie der Today-Knopf, am rechten Rand
-   (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
+   (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane
+   und während sie gleitet (data-mc-tp-slide, unten) */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer:is([data-mc-tp-open], [data-mc-tp-slide]) > #mcTodayNew {
   position: absolute !important;
   z-index: 3 !important;
   top: 50% !important;
@@ -14930,6 +14931,26 @@ body:has(> #accountTreeBox.mc-side-hidden) {
    die beiden überlappten (beim Mac ändert das nichts, dort reicht der Platz) */
 :root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayToggle {
   inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-w, 0px) - 50px)) !important;
+}
+
+/* Today-Pane gleitet: „+“ und Today-Knopf hängen an der Kante der Pane, im
+   Abstand ihres Endplatzes (--mc-tp-full = volle Breite, --mc-tp-w = Breite
+   im Bild) – sie gleiten mit ihr herein bzw. hinaus wie die Überschrift und
+   stehen im letzten Bild schon am Endplatz (kein Nachsprung). Das „+“ ist
+   nur links der Fensterknöpfe zu sehen (Windows/Linux), der Today-Knopf
+   bleibt wie sonst nie rechts von seinem Platz bei zugeklappter Pane */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayNew {
+  inset-inline-end: calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + var(--mc-tp-w, 0px) - var(--mc-tp-full, 0px)) !important;
+  clip-path: inset(0 max(0px, calc(var(--mc-tp-full, 0px) - var(--mc-tp-w, 0px) - 12px)) 0 0);
+}
+
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayNew:dir(rtl) {
+  clip-path: inset(0 0 0 max(0px, calc(var(--mc-tp-full, 0px) - var(--mc-tp-w, 0px) - 12px)));
+}
+
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayToggle {
+  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
+                        calc(var(--mc-tp-w, 0px) - var(--mc-tp-full, 0px) + max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-full, 0px) - 50px)))) !important;
 }
 
 #mcTodayNew:hover {

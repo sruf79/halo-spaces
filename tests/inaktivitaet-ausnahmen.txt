@@ -9,3 +9,4 @@
 66 | Nutzer wartet auf unsere Entscheidung bzw. Umsetzung („Search for <Name>“, Antwort vom 16.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Maintainer 16.11.2026: „#66 ist eine ausnahme“
 68 | Nutzer wartet auf unsere Entscheidung (Seitenleiste: Einrückung Favourites/Sammelordner, Antwort vom 17.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 17.11.2026, nicht des Maintainers
 69 | Nutzer wartet auf unseren Fix (Mailfenster: Leiste für Remote-Inhalt, Erweiterungs-Knopf; Antwort vom 17.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 17.11.2026, nicht des Maintainers
+59 | Maintainer 12.11.2026 (Mitteilung github.comm.routine): Issue bleibt offen, wird nicht als abgelehnt geschlossen; Tastenkürzel prüfen (Board …ILCWs); Eintrag trägt keinen Titelzusatz „[GitHub #59]“ mehr, deshalb hier bewusst offen (18.11.2026)

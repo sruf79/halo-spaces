@@ -29,7 +29,7 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
   **5-Stunden-Fenster ab 85 %** (`kontingent.json`, höchstens 15 Min. alt, sonst `tests/kontingent.sh`; Fensterende
   über `fenster_rest` noch nicht erreicht): **ab 1 Commit**, damit die volle CI samt Windows die Pause der Agenten
   nutzt (Maintainer 18.11.2026: „bei Situationen wie dieser wo wir wieder knapp davor sind das 5h-limit mehrmals am tag
-  zu erreichen könnten wir mehrmals ein neues release machen? …“ – „Ja.“). Push-Beginn 09:00–22:30, keine Pause
+  zu erreichen könnten wir mehrmals ein neues release machen? …“ – „Ja.“). Push-Beginn 09:00–22:30 (danach wartet der Wächter bis 09:00, das Release darf bis 24:00 fertig werden), keine Pause
   `zwischen-release`, nichts belegt (Runner.Worker u. a.). Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
   Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde
   (README-Commit, Notizdatei), `tests/zwischen-release.zsh` (Push, Push-Lauf und Windows-Lauf grün), dann

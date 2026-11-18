@@ -6,7 +6,7 @@
 #   nohup zsh ~/halo-spaces/tests/zwischen-schleife.zsh >/dev/null 2>&1 &!
 #   zsh tests/zwischen-schleife.zsh --einmal    eine Prüfung (und ggf. ein Zwischen-Release), dann Ende
 #   zsh tests/zwischen-schleife.zsh --trocken   nur zeigen, was jetzt geschähe (kein Claude, kein Push, kein Worktree)
-# Alle TAKT Minuten (5): Volldampf aktiv? (sonst Ende) Push-Beginn 09:00 bis BIS (22:30, danach Ende)? keine Pause
+# Alle TAKT Minuten (5): Volldampf aktiv? (sonst Ende) Push-Beginn 09:00 bis BIS (22:30, danach warten bis 09:00)? keine Pause
 # „zwischen-release“ in pausen.txt? Kandidaten: je Prüfzweig pruef/<name> (Tagesroutine, Worker, Sammelzweige …) der
 # neueste Stand mit grünem Push-Lauf (Linux-CI, Quelle: GitHub-Lauf des Zweigs), neueste zuerst; übersprungen wird ein
 # Stand, der schon in origin/main liegt, der Stand eines roten Versuchs (~/halo-nacht/zwischen-gesperrt.txt, über Neustarts;
@@ -139,7 +139,9 @@ pruefen() {
   # Wochenlimit: Volldampf pausiert nur bis zum freien Reset (Maintainer 18.11.2026) – warten, nicht enden
   (( vd == 2 )) && { print -r -- "warten Volldampf pausiert (Wochenlimit, wartet auf den freien Reset)"; return }
   j=$((10#${HALO_JETZT_HM:-$(date +%H%M)}))
-  (( j >= BIS )) && { print -r -- "ende Push-Beginn nur bis $BIS"; return }
+  # nach BIS warten statt enden: der Wächter startet nicht von selbst neu, endete er um 22:30, gab es an den folgenden
+  # Volldampf-Tagen keine Zwischen-Releases mehr (18.11.2026); er endet erst mit Volldampf (oben)
+  (( j >= BIS )) && { print -r -- "warten Push-Beginn nur bis $BIS, wieder ab 09:00"; return }
   (( j >= 900 )) || { print -r -- "warten Push-Sperre bis 09:00"; return }
   g=$(pause_aktiv zwischen-release) && { print -r -- "warten Pause $g"; return }
   local -a kand; local k z zw ab=$AB f5= grund= erster=

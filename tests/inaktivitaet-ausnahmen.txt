@@ -1,12 +1,9 @@
 # Ausnahmen von der Inaktivitätsregel (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md „GitHub: Inaktivitätsregel …“):
 # Issues, die tests/inaktivitaet.sh weder zum Nachfragen noch zum Schließen vorschlägt.
-# Nur für bewusst offene Issues und Issues, bei denen der Nutzer auf einen Fix bzw. eine Funktion von uns wartet.
-# Allgemeiner Weg ist das Label `keep-open` bzw. `waiting-on-us` am Issue; diese Datei hält die Fälle fest,
-# solange es die Labels nicht gibt. Format: <Nummer> | <Grund>. Erledigte Issues dürfen stehen bleiben.
-59 | bewusst offen (Tastenkürzel unter Linux/Windows werden angesehen), Maintainer 12.11. und 15.11.2026
-54 | Nutzer wartet auf eine zugesagte Funktion (Codes in Mails, Antwort vom 09.11.2026); Deutung von neon 15.11.2026, nicht des Maintainers
-65 | Nutzer wartet auf unsere Prüfung (Zahl der ungelesenen Mails an das Maß angleichen, Antwort vom 15.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 16.11.2026, nicht des Maintainers
-66 | Nutzer wartet auf unsere Entscheidung bzw. Umsetzung („Search for <Name>“, Antwort vom 16.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Maintainer 16.11.2026: „#66 ist eine ausnahme“
-68 | Nutzer wartet auf unsere Entscheidung (Seitenleiste: Einrückung Favourites/Sammelordner, Antwort vom 17.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 17.11.2026, nicht des Maintainers
-69 | Nutzer wartet auf unseren Fix (Mailfenster: Leiste für Remote-Inhalt, Erweiterungs-Knopf; Antwort vom 17.11.2026 ohne Rückfrage); Angabe der GitHub-Routine, Deutung von neon 17.11.2026, nicht des Maintainers
-59 | Maintainer 12.11.2026 (Mitteilung github.comm.routine): Issue bleibt offen, wird nicht als abgelehnt geschlossen; Tastenkürzel prüfen (Board …ILCWs); Eintrag trägt keinen Titelzusatz „[GitHub #59]“ mehr, deshalb hier bewusst offen (18.11.2026)
+# Nur noch Sonderfall: bewusst offenes Issue ohne offenen Board-Eintrag „GitHub #n“ UND mit offener Rückfrage von uns.
+# Der Normalfall braucht keine Zeile (Maintainer 18.11.2026: „anstelle weitere ausnahmen in die liste einzutragen würde
+# ich lieber die logik … anpassen“): wartet der Nutzer auf uns, verweist ein offener Board-Eintrag auf „GitHub #n“
+# (Titel, Text oder Notiz); ohne Eintrag meldet das Skript „zusage #n“ statt einer Nachfrage.
+# Die Datei muss bestehen bleiben (fehlt sie, schließt das Skript nichts). Format: <Nummer> | <Grund>.
+# Am 18.11.2026 entfernt, weil durch Board-Einträge abgedeckt (Probelauf ohne Liste: ausgenommen): #59, #65, #66, #68, #69;
+# #54 ist geschlossen.

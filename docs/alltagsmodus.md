@@ -38,6 +38,7 @@ Zeiten in Wiener Zeit.
 | Letzter Beginn / Ende | 20:30 / 22:00 | `tagesroutine.conf:10–11` |
 | Commits je Tag | `MAX_COMMITS_TAG`: 40 (Maintainer 17.11.2026: „40 commits“; Skript-Standard angeglichen) | `tests/tagesroutine.sh:84`; **ohne Wortlaut in ENTSCHEIDUNGEN.md, Frage an den Maintainer** |
 | Push | nie nach `main`; nur `pruef/tagesroutine-<datum>` (Linux, statisch); Ausnahme Release unter Tage | `docs/testrechner.md` „Tagesroutine“; ENTSCHEIDUNGEN.md ab :612 (15.11.2026) |
+| Commits | nur in der Arbeitskopie `~/halo-tagesroutine` auf `pruef/tagesroutine-<datum>` (von `origin/main`), nie auf `main`; nach `main` über Zwischen-Release (Volldampf) oder Nachtlauf Schritt 0 b (`git merge`) | `tests/tagesroutine.sh` (`arbeitskopie_bereit`); ENTSCHEIDUNGEN.md „18.11.2026 – Tagesroutine committet auf ihren Prüfzweig“ |
 | belegt | wartet bis `BELEGT_WARTEN` 60 Min. (CI, Testlauf, Release) | `tests/tagesroutine.sh:84`; `tests/lauf-hilfen.zsh:478` |
 | Pausen | nur `~/halo-nacht/pausen.txt` mit Ablaufzeit | `tests/lauf-hilfen.zsh:95, 138` |
 

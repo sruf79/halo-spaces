@@ -8,9 +8,18 @@ Freigabe des Maintainers (10.11.2026, Auftrag „Tagesroutine“): offene Eintr�
 (GitHub-Project 1, sruf79) ohne Rückfrage abarbeiten, je Eintrag committen. Nicht pushen, nicht
 veröffentlichen.
 
+Arbeitsordner (Maintainer 18.11.2026 auf die Frage „Soll die Tagesroutine ihre Commits künftig direkt auf einen
+eigenen Prüfzweig legen statt auf main? Meine Empfehlung: ja, das verhindert dieselbe Blockade beim nächsten
+Release.“: „hier folge ich deiner empfehlung“, ENTSCHEIDUNGEN.md): Du arbeitest und committest nur im Ordner der
+Zeile „Arbeitsordner:“ oben (eigene Arbeitskopie ~/halo-tagesroutine, Zweig pruef/tagesroutine-<datum>, vom Skript
+von origin/main angelegt), nie in ~/halo-spaces auf main; main bleibt frei von Commits der Tagesroutine. Alle Befehle
+(build.sh, Testläufe, git commit) dort ausführen. Einzige Ausnahme: Release unter Tage (Schritte 2–4) in
+~/halo-spaces auf main. Fehlt die Zeile „Arbeitsordner:“ (ältere Kopie des Skripts), gilt noch das Bisherige: in
+~/halo-spaces auf main committen.
+
 Regeln:
-1. Reihenfolge: neue bzw. nicht gepushte Commits durchsehen (git log origin/main..main, Commits seit
-   dem letzten Nachtlauf), dann die Liste laden, zuerst die komplexeren Bugs und Features (die sonst
+1. Reihenfolge: neue bzw. nicht gepushte Commits durchsehen (im Arbeitsordner git log origin/main..HEAD und
+   in ~/halo-spaces git log origin/main..main, Commits seit dem letzten Nachtlauf), dann die Liste laden, zuerst die komplexeren Bugs und Features (die sonst
    liegen bleiben), dann der Rest. „Wartet auf OK“ bleibt liegen. Je Eintrag committen (nur eigene
    Hunks, Stil nach AGENTS.md), nie pushen. Betroffene Prüfungen nur lokal mit
    python3 tests/halo_test.py --port 2850 --only "…" (hell; --dark nur bei Farben), keine Testläufe,
@@ -31,10 +40,13 @@ Regeln:
    kein release.sh/publish.sh. Ausnahmen: Abschnitt „Release unter Tage“ (nur erste Plan-Runde,
    nur über tests/release-unter-tage.sh) und, nur im Volldampf, Abschnitt „Zwischen-Release (Volldampf)“
    (Push und Release macht der Wächter tests/zwischen-schleife.zsh, nicht du). Vor 22:00 enden; nichts darf um 01:30 noch laufen.
-3. Prüfzweig: Fertiges schiebt das Skript selbst (ohne Force) auf pruef/tagesroutine-<datum> und
-   löscht den Zweig am Ende des Tages. Du pushst auch dorthin nicht. Meldet das Skript „Prüfzweig rot“,
+3. Prüfzweig: Fertiges schiebt das Skript selbst (ohne Force) aus dem Arbeitsordner auf den gleichnamigen
+   Prüfzweig pruef/tagesroutine-<datum> auf GitHub. Du pushst auch dorthin nicht. Meldet das Skript „Prüfzweig rot“,
    erst diese Ursache beheben (eigener Commit) oder den schuldigen Commit mit git revert zurücknehmen,
-   Eintrag mit Notiz zurück auf Todo. Bei Grün bleibt der Commit lokal auf main.
+   Eintrag mit Notiz zurück auf Todo. Bei Grün bleibt der Commit auf dem Zweig der Tagesroutine (nie auf main);
+   nach main kommt er im Volldampf über den Wächter tests/zwischen-schleife.zsh (grüner Stand des Prüfzweigs),
+   sonst nimmt ihn der Nachtlauf mit (tests/nachtlauf-auftrag.md Schritt 0 b). Notiz im Eintrag deshalb
+   „committet auf pruef/tagesroutine-<datum>, wartet auf Push/CI“ mit Hash.
 4. Prüfungen nie abschwächen (keine Toleranzen hochsetzen, keine Prüfung entfernen oder als bekannt
    markieren, um Rot zu verdecken). Bei Rot: Ursache beheben oder Änderungen verwerfen (git checkout)
    und den Eintrag mit Notiz zurück auf Todo. Höchstens drei Einträge zugleich in Arbeit (In Progress
@@ -110,7 +122,7 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
 - Entscheidung und Begründung (höchstens 3 Sätze, einfache Worte) als Absatz „Release unter Tage:“ an den Anfang
   des Abschnitts „## Plan“ und als Kommentarzeile „# Release unter Tage: <ja|nein> – <ein Satz>“ in die erste
   Zeile der Plan-Datei.
-- Bei Ja, Schritt für Schritt (nie SKIP_TESTS, FORCE_TESTS, HOTFIX, keine Marke von Hand, Sperren nie umgehen):
+- Bei Ja, Schritt für Schritt in ~/halo-spaces auf main, nicht im Arbeitsordner (nie SKIP_TESTS, FORCE_TESTS, HOTFIX, keine Marke von Hand, Sperren nie umgehen):
   1. Version: Patch des letzten Tags für Korrekturen (3.27.0 → 3.27.1), Minor nur bei neuen Funktionen.
   2. Vorprüfung: zsh tests/release-unter-tage.sh --pruefen <version> /dev/null. Meldet sie ABBRUCH aus einem
      anderen Grund als README oder Notizen: nicht veröffentlichen (weiter bei 6).
@@ -130,8 +142,8 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
 
 Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
 - Status In Progress (~/halo-aufgaben/status.sh <id> progress), Ursache klären, beheben, Prüfung in
-  run_checks() ergänzen, betroffene Prüfungen grün (Regel 1), committen. Danach Notiz in den Eintrag
-  „committet, wartet auf Push/CI“ mit Hash; Status bleibt In Progress (Done erst nach grüner CI des
+  run_checks() ergänzen, betroffene Prüfungen grün (Regel 1), im Arbeitsordner committen. Danach Notiz in den
+  Eintrag „committet auf pruef/tagesroutine-<datum>, wartet auf Push/CI“ mit Hash; Status bleibt In Progress (Done erst nach grüner CI des
   Nachtlaufs).
 - Nur diesen einen Eintrag. Kein weiterer, auch wenn Zeit bleibt – das Skript prüft vorher das
   Kontingent.

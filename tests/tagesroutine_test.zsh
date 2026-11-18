@@ -77,6 +77,37 @@ pruefe "Tageslimit zählt nur eigene Commits, nicht fremde, auch nach Rebase von
   'Eigene Commits: 2$' 'eigen-1' 'eigen-2'
 pruefe "Tageslimit ohne eigene Runde: 0, obwohl main neu geschrieben ist" "$(zaehl '')" 'Eigene Commits: 0$'
 pruefe "Tageslimit mit zwei Runden" "$(zaehl '3000 3150;3400 3600')" 'Eigene Commits: 2$' 'eigen-1' 'fremd-danach'
+
+# Eigener Zweig statt main (Maintainer 18.11.2026, „hier folge ich deiner empfehlung“): Arbeitskopie auf
+# pruef/tagesroutine-<datum> von origin/main, main bleibt unberührt; Zählen auf dem Zweig
+O=$T/origin.git; git init -q --bare -b main $O
+K=$T/klon; git clone -q $O $K 2>/dev/null
+kc() { GIT_AUTHOR_DATE=${2:+"@$2 +0000"} git -C ${3:-$K} -c user.name=t -c user.email=t@t commit -q --allow-empty -m "$1" }
+kc basis; git -C $K push -q origin main 2>/dev/null
+kc lokal-auf-main   # fremder, nicht gepushter Commit auf main: gehört nicht in den Zweig der Tagesroutine
+MAIN_VOR=$(git -C $K rev-parse main)
+ak() { HALO_TR_WT=$T/wt zsh $SKRIPT --arbeitskopie $1 $K 2>&1 }
+pruefe "Arbeitskopie: neu auf pruef/tagesroutine-<datum> von origin/main" "$(ak pruef/tagesroutine-20261118)" \
+  '^Arbeitskopie: .*/wt neu angelegt auf pruef/tagesroutine-20261118$'
+pruefe "Arbeitskopie: Zweig ohne den lokalen Commit auf main, main unverändert" \
+  "$(git -C $T/wt log --format=%s; print main=$([[ $(git -C $K rev-parse main) == $MAIN_VOR ]] && print gleich || print anders); git -C $K branch --show-current)" \
+  '^basis$' '^main=gleich$' '^main$'
+[[ -n $(git -C $T/wt log --format=%s | grep lokal-auf-main) ]] && { print "FEHLER Arbeitskopie enthält den lokalen Commit von main"; FEHLER=1 }
+kc eigen-zweig 3100 $T/wt
+pruefe "Tageslimit zählt auf dem Zweig der Tagesroutine" \
+  "$(HALO_TR_ZWEIG=pruef/tagesroutine-20261118 HALO_RUNDEN_ZEIT='3000 3300' zsh $SKRIPT --zaehlen $K 2>&1)" 'Eigene Commits: 1$' 'eigen-zweig'
+pruefe "Arbeitskopie: zweiter Start am selben Tag bleibt auf dem Zweig" "$(ak pruef/tagesroutine-20261118)" \
+  '^Arbeitskopie: .*/wt auf pruef/tagesroutine-20261118$'
+print x >> $T/wt/datei; git -C $T/wt add datei; git -C $T/wt switch -q --detach 2>/dev/null; print y >> $T/wt/datei
+pruefe "Arbeitskopie: nächster Tag sichert Ungespeichertes mit git stash und beginnt neu von origin/main" \
+  "$(ak pruef/tagesroutine-20261119; git -C $T/wt branch --show-current; git -C $T/wt log --format=%s; git -C $T/wt stash list)" \
+  'mit git stash gesichert' '^pruef/tagesroutine-20261119$' '^basis$' 'Tagesroutine: Ungespeichertes'
+mkdir -p $T/kein-wt/x
+pruefe "Arbeitskopie: fremder Ordner ohne .git wird nicht benutzt (Exitcode 1)" \
+  "$(HALO_TR_WT=$T/kein-wt zsh $SKRIPT --arbeitskopie pruef/tagesroutine-20261120 $K 2>&1; print rc=$?)" 'keine Arbeitskopie' '^rc=1$'
+pruefe "Skript: Claude-Runde im Arbeitsordner, Prüfzweig aus dem Zweig, nie aus main" "$(<$SKRIPT)" \
+  '\( cd \$WT && claude -p' 'push -q origin refs/heads/\$PRUEF:refs/heads/\$PRUEF' '^Arbeitsordner: \$WT'
+grep -q 'push -q origin main:' $SKRIPT && { print "FEHLER Skript schiebt noch main auf den Prüfzweig"; FEHLER=1 }
 # „nichts_passend“ (Sparmodus) beendet den Lauf nicht mehr: warten bis zur nächsten vollen Stunde, nur bis 20:30
 np() { HALO_JETZT=$1 HALO_TAGESROUTINE_CONF=$T/leer.conf HALO_PAUSEN_DATEI=$T/pausen.txt zsh $SKRIPT --nichts-passend $REPO 2>&1 }
 pruefe "nichts_passend um 12:28: warten bis 13:00 statt Ende" "$(np 2026-11-12T12:28:00+01:00)" '^warten [0-9]+$'

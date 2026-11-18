@@ -34,6 +34,16 @@ Reihenfolge:
       lösen; sonst git rebase --abort, die betroffenen lokalen Commits mit
       git branch rest/<datum>-konflikt sichern, main auf origin/main setzen
       (git reset --hard origin/main) und im Bericht nennen.
+      Danach die Zweige der Tagesroutine übernehmen (seit 18.11.2026 committet
+      sie nur auf pruef/tagesroutine-<datum> in ~/halo-tagesroutine, nie auf
+      main; Maintainer: „hier folge ich deiner empfehlung“, ENTSCHEIDUNGEN.md):
+      je lokalem Zweig pruef/tagesroutine-*, der nicht in main steckt (älteste
+      zuerst), git merge --no-edit <Zweig> nach main (Merge statt Rebase: die
+      Hashes in den Board-Notizen bleiben gültig, tests/aufraeumen.sh löscht den
+      Zweig nach dem Push). Konflikt mit klarer Lösung: lösen; sonst git merge
+      --abort, Zweig stehen lassen und im Bericht unter „Mitgenommen“ nennen
+      (seine Einträge mit Notiz zurück auf Todo). Die Commits gehen mit der
+      CI-Runde dieser Nacht hinaus.
    c) Alle so übernommenen und alle seit dem letzten Lauf neuen Commits auf
       main durchsehen (Regeln aus AGENTS.md, offensichtliche Fehler, Doppeltes;
       Gefundenes zuerst beheben) und im Bericht unter „Mitgenommen“ auflisten.

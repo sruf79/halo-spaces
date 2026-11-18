@@ -7,9 +7,16 @@ export HALO_LAUF=tagesroutine
 #   tagesroutine.sh [<Repo-Ordner>]
 #   tagesroutine.sh --trocken [<Repo>]   nur Sollkurve, Modellwahl und Entscheidung zeigen: kein Claude,
 #                                        keine Pause, kein Push, kein Board, nichts geschrieben
-# Regeln (Auftrag): je Eintrag committen, nie nach main pushen – es pusht nur der Nachtlauf. Fertiges
-# schiebt das Skript (nicht Claude) ohne Force auf den Prüfzweig pruef/tagesroutine-<datum> (nur Linux
-# und statisch auf GitHub, belegt neon nicht) und löscht ihn am Ende des Tages. Nichts veröffentlichen.
+# Regeln (Auftrag): je Eintrag committen, nie nach main pushen – es pusht nur der Nachtlauf. Seit 18.11.2026
+# (Maintainer: „hier folge ich deiner empfehlung“, ENTSCHEIDUNGEN.md) arbeitet Claude in einer eigenen Arbeitskopie
+# ~/halo-tagesroutine (HALO_TR_WT) auf dem Zweig pruef/tagesroutine-<datum> (neu von origin/main) und committet nur
+# dort; main in ~/halo-spaces bleibt frei von Commits der Tagesroutine (vorher blockierten sie Release unter Tage).
+# Fertiges schiebt das Skript (nicht Claude) ohne Force auf den gleichnamigen Prüfzweig auf GitHub (nur Linux und
+# statisch, belegt neon nicht). Nach main kommt der Zweig im Volldampf über den Wächter tests/zwischen-schleife.zsh
+# (grüner Stand), sonst nimmt ihn der Nachtlauf mit (Schritt 0 b: git merge nach main). Am Ende des Tages löscht das
+# Skript den Zweig auf GitHub nur, wenn er schon in origin/main steckt, und löst die Arbeitskopie vom Zweig
+# (detached), damit tests/aufraeumen.sh ihn nach der Übernahme löschen kann. Nichts veröffentlichen.
+#   Probe: HALO_TR_WT=<Ordner> tagesroutine.sh --arbeitskopie <Zweig> [<Repo>]   Arbeitskopie anlegen bzw. umschalten
 # Einzige Ausnahme (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md): Release unter Tage nach fehlgeschlagenem Nachtlauf.
 #   Erste Plan-Runde bekommt rut_zeile (tests/release-nachtlauf-gescheitert.sh); bei „ja“ entscheidet der Director
 #   und veröffentlicht nur über tests/release-unter-tage.sh (erzwingt Uhrzeit, ein Release je Tag, belegt, grüne CI
@@ -65,7 +72,8 @@ emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna
 
-TROCKEN= ZAEHLEN= NICHTSPASSEND=
+TROCKEN= ZAEHLEN= NICHTSPASSEND= AK_PROBE=
+[[ $1 == --arbeitskopie ]] && { AK_PROBE=$2; shift 2 }
 [[ $1 == --nichts-passend ]] && { NICHTSPASSEND=1; shift }
 [[ $1 == --trocken ]] && { TROCKEN=1; shift }
 [[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
@@ -425,20 +433,49 @@ spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
   print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
 }
 
-# Commits dieses Laufs: auf main, Autorzeit (%at) innerhalb einer eigenen Runde (RUNDEN_ZEIT: „<von> <bis>“).
+# Commits dieses Laufs: auf dem Zweig COMMIT_ZWEIG (im echten Lauf der Prüfzweig, Probe: HALO_TR_ZWEIG, sonst main), Autorzeit (%at) innerhalb einer eigenen Runde (RUNDEN_ZEIT: „<von> <bis>“).
 # Früher START_KOPF..main: nach einem Rebase von main (12.11.2026, 10:29) war START_KOPF kein Vorfahr mehr,
 # alle neu geschriebenen Commits zählten mit („8 Commits heute erreicht“, ohne eigenen Commit).
 typeset -a RUNDEN_ZEIT
+COMMIT_ZWEIG=${HALO_TR_ZWEIG:-main}
 eigene_commits() {
   (( $#RUNDEN_ZEIT )) || return 0
   local at z iv
-  git -C $REPO log -n 500 main --format='%at %h %s' 2>/dev/null | while read -r at z; do
+  git -C $REPO log -n 500 $COMMIT_ZWEIG --format='%at %h %s' 2>/dev/null | while read -r at z; do
     for iv in $RUNDEN_ZEIT; do
       (( at >= ${iv%% *} && at <= ${iv##* } )) && { print -r -- "- ${z[1,198]}"; break }
     done
   done
 }
 eigene_commits_zahl() { eigene_commits | grep -c . }
+# Arbeitskopie der Tagesroutine (Maintainer 18.11.2026, „hier folge ich deiner empfehlung“): <Ordner> als git worktree auf
+# <Zweig>; gibt es den Zweig noch nicht, neu von origin/main. Ungespeichertes eines abgebrochenen Vortags wird nie
+# verworfen, sondern mit git stash gesichert (Meldung in AK_INFO für den Bericht). Exitcode 1, wenn es nicht geht
+# (dann arbeitet die Tagesroutine nicht, nie ersatzweise auf main).
+AK_INFO=
+arbeitskopie_bereit() {   # <Ordner> <Zweig>
+  local wt=$1 zw=$2 alt
+  git -C $REPO fetch -q origin main 2>>$LOG || log "Arbeitskopie: git fetch gescheitert, origin/main evtl. alt"
+  git -C $REPO worktree prune 2>>$LOG
+  if [[ ! -e $wt/.git ]]; then
+    [[ -e $wt ]] && { AK_INFO="$wt ist keine Arbeitskopie (Ordner ohne .git)"; return 1 }
+    if git -C $REPO show-ref -q --verify refs/heads/$zw; then git -C $REPO worktree add -q $wt $zw 2>>$LOG
+    else git -C $REPO worktree add -q -b $zw $wt origin/main 2>>$LOG; fi \
+      || { AK_INFO="git worktree add $wt ($zw) gescheitert"; return 1 }
+    AK_INFO="$wt neu angelegt auf $zw"; return 0
+  fi
+  [[ $(git -C $wt branch --show-current 2>/dev/null) == $zw ]] && { AK_INFO="$wt auf $zw"; return 0 }
+  if [[ -n $(git -C $wt status --porcelain --untracked-files=no 2>/dev/null) ]]; then
+    alt=$(git -C $wt branch --show-current 2>/dev/null); alt=${alt:-$(git -C $wt rev-parse --short HEAD)}
+    git -C $wt stash push -q -m "Tagesroutine: Ungespeichertes von $alt vor $zw" 2>>$LOG \
+      || { AK_INFO="$wt: Ungespeichertes auf $alt, git stash gescheitert"; return 1 }
+    AK_INFO="Ungespeichertes von $alt mit git stash gesichert ($wt, git stash list); "
+  fi
+  if git -C $REPO show-ref -q --verify refs/heads/$zw; then git -C $wt switch -q $zw 2>>$LOG
+  else git -C $wt switch -q -c $zw origin/main 2>>$LOG; fi \
+    || { AK_INFO+="git switch $zw in $wt gescheitert"; return 1 }
+  AK_INFO+="$wt auf $zw"
+}
 # Nach einer Sparmodus-Runde „nichts_passend“ (Maintainer 12.11.2026, „einfachere variante umsetzen mit jeder
 # stunde“): kein Ende, sondern ohne Claude bis zur nächsten vollen Stunde warten und neu entscheiden; nur
 # solange die nächste volle Stunde vor dem letzten Beginn liegt. Ausgabe: „warten <Unix-Sekunden>“ oder „ende“.
@@ -476,6 +513,11 @@ j=d.datetime.fromisoformat(sys.argv[1]); h,m=map(int,sys.argv[2].split(":"))
 print(int(j.timestamp()), int(j.replace(hour=h,minute=m,second=0).timestamp()))' $HALO_JETZT $KONF[LETZTER_BEGINN] \
     | { read j l; nichts_passend_weiter $j $l }
   exit 0
+fi
+if [[ -n $AK_PROBE ]]; then
+  LOG=/dev/stderr
+  arbeitskopie_bereit ${HALO_TR_WT:?HALO_TR_WT fehlt} $AK_PROBE; rc=$?
+  print -r -- "Arbeitskopie: $AK_INFO"; exit $rc
 fi
 if [[ -n $ZAEHLEN ]]; then
   RUNDEN_ZEIT=(${(s:;:)HALO_RUNDEN_ZEIT})
@@ -544,12 +586,13 @@ if [[ -n $TROCKEN ]]; then
     print "Würde:        kein Claude, ${E[PAUSE_BIS]:+Pause schreiben, }warten bis ${${E[WARTEN_BIS]}[12,16]} (höchstens bis $KONF[LETZTER_BEGINN], sonst Lauf beenden), dann Kontingent neu lesen und neu entscheiden"
   elif [[ $E[ENTSCHEIDUNG] == spar ]]; then
     print "Würde:        eine Sparmodus-Runde mit claude -p --model $E[SPAR_MODELL] (kein Plan-Lauf): Einstufung, höchstens ein passender Eintrag,"
-    print "              Messung vor/nach in $SPAR_DATEI; Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}"
+    print "              Messung vor/nach in $SPAR_DATEI; Arbeitskopie ${HALO_TR_WT:-~/halo-tagesroutine}, Zweig und Prüfzweig pruef/tagesroutine-${E[TAG]//-/}"
   else
     print -r -- "Release:      erste Plan-Runde, Release unter Tage: $(rut_zeile $E[TAG])"
     print "Häufung:      vor jeder Plan-Runde python3 $HAEUFUNG_SKRIPT → ~/halo-nacht/$E[TAG]-haeufung.md (verbindlich im Plan)"
     print "Würde:        Plan-Runde mit $E[M_KOMPLEX], dann je Eintrag Kontingent prüfen und claude -p --model <komplex: $E[M_KOMPLEX] | Routine: $E[M_ROUTINE]>;"
-    print "              Fertiges ohne Force auf pruef/tagesroutine-${E[TAG]//-/}, Zweig am Ende löschen; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
+    print "              Arbeitskopie ${HALO_TR_WT:-~/halo-tagesroutine} auf Zweig pruef/tagesroutine-${E[TAG]//-/} (nie main), Fertiges ohne Force"
+    print "              auf den gleichnamigen Prüfzweig, nach main über Zwischen-Release oder Nachtlauf; Bericht ~/halo-berichte/$E[TAG]-tagesroutine.md"
     print "              Plan abgearbeitet: $(nichts_passend_weiter_text);"
     print "              leerer Plan genauso (warten, neu planen, kein Ende);"
     print "              Ende nur nach $KONF[LETZTER_BEGINN] oder nach 3 Plan-Runden hintereinander mit Einträgen, aber ohne erledigten"
@@ -566,6 +609,8 @@ BERICHT=$BERICHTE/$TAG-tagesroutine.md
 PLAN=$DIR/$TAG-tagesroutine-plan.tsv
 LOCK=$DIR/tagesroutine.lock
 PRUEF=pruef/tagesroutine-${TAG//-/}
+WT=${HALO_TR_WT:-$HOME/halo-tagesroutine}   # Arbeitskopie (Maintainer 18.11.2026), Claude committet nur dort
+COMMIT_ZWEIG=$PRUEF
 uhr() { date -j -f '%F %H:%M' "$TAG $1" +%s }
 LETZTER=$(uhr $KONF[LETZTER_BEGINN])
 HART=$(uhr $KONF[ENDE])
@@ -611,13 +656,14 @@ bericht_schreiben() {
     (( $#MODELLE_GENUTZT )) && print -rl -- "- "${^MODELLE_GENUTZT} || print -r -- "- keine Claude-Runde"
     for f in $ABSCHNITTE; do [[ -s $f ]] && { print; cat $f }; done
     print
-    print "## Commits heute (nicht gepusht, der Nachtlauf nimmt sie mit)"
+    print "## Commits heute (Zweig $PRUEF, Arbeitskopie $WT; nach main über Zwischen-Release oder Nachtlauf)"
     print
     eigene_commits | grep . || print -r -- "- keine"
     print
     print "## Prüfzweig"
     print
     print -r -- "- ${PRUEF_INFO:-nicht benutzt}"
+    print -r -- "- Arbeitskopie: ${AK_INFO:-nicht vorbereitet}"
     print
     print "## Ende"
     print
@@ -653,6 +699,15 @@ for i in {1..30}; do
   (( i == 1 )) && log "warte: Nachtlauf läuft noch"; sleep 60
 done
 
+# Arbeitskopie auf dem Zweig des Tages (Maintainer 18.11.2026); ohne sie keine Runde, nie ersatzweise main
+if ! arbeitskopie_bereit $WT $PRUEF; then
+  log "Arbeitskopie nicht bereit: $AK_INFO – kein Lauf"
+  ENDGRUND="Arbeitskopie nicht bereit ($AK_INFO)"; bericht_schreiben "nicht begonnen"
+  push "Tagesroutine $TAG: nicht begonnen, Arbeitskopie nicht bereit ($AK_INFO)" tagesroutine
+  exit 1
+fi
+log "Arbeitskopie: $AK_INFO"
+
 # eine Claude-Runde mit Wache bis ENDE; Sitzungs-ID ins Protokoll (aktive_sitzung() übergeht eigene Läufe)
 runde() {   # <Modell> <Prompt> <Ausgabe>
   local sid=$(uuidgen | tr A-Z a-z) t0=$(date +%s)
@@ -660,7 +715,7 @@ runde() {   # <Modell> <Prompt> <Ausgabe>
   # harte Grenze jede Minute neu: nach „Volldampf aus“ gilt sofort ENDE ohne Volldampf (22:00)
   ( while (( $(date +%s) < $(grenzen_setzen; print $HART) )); do sleep 60; done; pkill -f -- "--session-id $sid" ) &
   WACHE=$!
-  claude -p --model $1 --session-id $sid --permission-mode auto "$2" > $3 2>&1
+  ( cd $WT && claude -p --model $1 --session-id $sid --permission-mode auto "$2" ) > $3 2>&1
   local rc=$?
   RUNDEN_ZEIT+=("$t0 $(date +%s)")   # für eigene_commits (Tageslimit, Bericht)
   kill $WACHE 2>/dev/null; WACHE=
@@ -671,14 +726,15 @@ runde() {   # <Modell> <Prompt> <Ausgabe>
 kopf() {
   print -r -- "Heute: $TAG. Protokoll: $LOG. Plan: $PLAN. Jetzt: $(date +%H:%M); kein neuer Eintrag nach $KONF[LETZTER_BEGINN], harte Grenze $KONF[ENDE].
 Kontingent (Skript): $(kontingent_zeile)
+Arbeitsordner: $WT (Zweig $PRUEF) – nur hier arbeiten und committen, nie in $REPO auf main; Release unter Tage nur in $REPO auf main.
 
 $(<$AUFTRAG_DATEI)"
 }
-# Prüfzweig ohne Force: lokaler main-Stand dorthin (nur Fertiges; Claude pusht nie selbst)
+# Prüfzweig ohne Force: Stand des Zweigs der Arbeitskopie dorthin (nur Fertiges; Claude pusht nie selbst)
 PRUEF_INFO= ROT_GEMELDET=
 pruef_pushen() {
-  if git -C $REPO push -q origin main:refs/heads/$PRUEF 2>>$LOG; then
-    PRUEF_INFO="$PRUEF zuletzt $(git -C $REPO rev-parse --short main) ($(date +%H:%M))"
+  if git -C $WT push -q origin refs/heads/$PRUEF:refs/heads/$PRUEF 2>>$LOG; then
+    PRUEF_INFO="$PRUEF zuletzt $(git -C $WT rev-parse --short $PRUEF) ($(date +%H:%M))"
     log "Prüfzweig: $PRUEF_INFO"
   else
     log "Prüfzweig: Push abgelehnt (kein Force) – Stand nicht geprüft"
@@ -922,12 +978,25 @@ JETZT: Fable-Runde (Fable-Regel des Auftrags) für $ID „$TITEL“: Opus hat ih
   (( rc == 9 )) && { ENDGRUND="Limit erreicht"; break }
 done
 
-# --- Abschluss: Prüfzweig auswerten und löschen, Kontingent, Bericht, eine Zeile aufs iPhone ---
+# --- Abschluss: Prüfzweig auswerten, Kontingent, Bericht, eine Zeile aufs iPhone ---
+# Den Prüfzweig auf GitHub nur löschen, wenn er schon in origin/main steckt (Zwischen-Release); sonst bleibt er, bis
+# der Nachtlauf ihn übernommen hat (Schritt 0 b), tests/aufraeumen.sh löscht ihn danach.
 if git -C $REPO ls-remote --exit-code -q origin refs/heads/$PRUEF >/dev/null 2>&1; then
   ST=$(gh run list -R sruf79/halo-spaces -b $PRUEF -L 1 --json databaseId,headSha,status,conclusion \
         --jq '.[0] | "Lauf \(.databaseId) \(.headSha[:7]): \(.status) \(.conclusion)"' 2>/dev/null)
-  git -C $REPO push -q origin --delete $PRUEF 2>>$LOG && PRUEF_INFO+="; letzter $ST; Zweig gelöscht" \
-    || PRUEF_INFO+="; letzter $ST; Löschen fehlgeschlagen"
+  git -C $REPO fetch -q origin main 2>>$LOG
+  if git -C $REPO merge-base --is-ancestor refs/heads/$PRUEF origin/main 2>/dev/null; then
+    git -C $REPO push -q origin --delete $PRUEF 2>>$LOG && PRUEF_INFO+="; letzter $ST; in main enthalten, Zweig gelöscht" \
+      || PRUEF_INFO+="; letzter $ST; Löschen fehlgeschlagen"
+  else
+    PRUEF_INFO+="; letzter $ST; Zweig bleibt, der Nachtlauf übernimmt ihn nach main"
+  fi
+fi
+# Arbeitskopie vom Zweig lösen (nur wenn sauber), damit aufraeumen.sh ihn nach der Übernahme löschen kann
+if [[ -z $(git -C $WT status --porcelain --untracked-files=no 2>/dev/null) ]]; then
+  git -C $WT switch -q --detach 2>>$LOG && AK_INFO+="; am Ende vom Zweig gelöst"
+else
+  AK_INFO+="; am Ende Ungespeichertes in $WT (nächster Lauf sichert es mit git stash)"
 fi
 entscheiden; K_ENDE=$(kontingent_zeile)
 log "Kontingent Ende: $K_ENDE"

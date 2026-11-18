@@ -142,7 +142,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   und veröffentlicht bei Grün; danach bis 06:30 weitere Einträge ohne Push (Einzelheiten, Vollrunde,
   „repariert“/„flackert“: `docs/testrechner.md`).
 - **Tagesroutine** (`tests/tagesroutine.sh`, Mo–Fr ab 09:00, Sa und So ab 09:00, jeweils bis 22:00) arbeitet die Liste ab, je Eintrag ein Commit, pusht nie (im Volldampf Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`)
-  (nur das Skript auf `pruef/tagesroutine-<datum>`); Modell nach Sollkurve des Wochenkontingents, Schwellen in
+  (nur das Skript auf `pruef/tagesroutine-<datum>`); committet nur in `~/halo-tagesroutine` auf diesem Zweig, nie auf `main` (Maintainer 18.11.2026), nach `main` über den Wächter oder den Nachtlauf; Modell nach Sollkurve des Wochenkontingents, Schwellen in
   `~/.config/halo-spaces/tagesroutine.conf`, Bericht `~/halo-berichte/<datum>-tagesroutine.md` (`docs/testrechner.md`).
 - **Volldampf** (`~/halo-nacht/volldampf.txt`, Override für Sollkurve, Sparmodus und Planungsvorsicht in Nachtlauf und
   Tagesroutine; beim Wochenlimit nur pausiert bis zum freien Reset, danach Sollkurve bis zum automatischen Reset, Ende Di 01:00, ab 01:30 Alltag; Maintainer 13. und 18.11.2026): `docs/testrechner.md` „Volldampf“.

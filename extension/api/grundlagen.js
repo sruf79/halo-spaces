@@ -1450,11 +1450,7 @@ function squeezeToolbar(doc, fits) {
   // (Mail, 1620 → 1580 px) und sprang beim Ziehen hin und her. Erst wenn alle
   // Pillen wieder passen, gibt die Messung oben das Feld wieder frei
   // (Maintainer 11.11.2026).
-  // Ausnahme: per Klick auf die Lupe geöffnet (mc-search-open, wie Apple Mail)
-  // bleibt es offen, dafür weichen die Pillen (GitHub #67)
-  if (!search?.hasAttribute("mc-search-open")) {
-    lockSearch(content, search, true);
-  }
+  lockSearch(content, search, true);
   if (fits()) {
     return;
   }

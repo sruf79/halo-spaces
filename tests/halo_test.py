@@ -5935,7 +5935,8 @@ def calendar_checks(m, results):
           if (month) { const r = month.getBoundingClientRect(); out.hit = month.contains(d.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
             month.click(); await ruhig(900); out.view = w.currentView()?.id; w.switchToView("week"); await ruhig(600); }
           return out;""")
-        ok = res["btns"] >= 3 and res["drag"] == ["no-drag"] and res.get("hit") and res.get("view") == "month-view"
+        # (seit Variante A öffnet „Month“ die stufenlose Mehrwochen-Ansicht)
+        ok = res["btns"] >= 3 and res["drag"] == ["no-drag"] and res.get("hit") and res.get("view") == "multiweek-view"
         return ok, f"{res}"
     def foreign_toolbar_icons():
         # Knöpfe ohne eigenes halo-Symbol (z. B. Synchronisieren, Heute) behalten Thunderbirds Bild – vorher ersetzte
@@ -7681,6 +7682,10 @@ def calendar_checks(m, results):
             out.bufferItem = boxes.length > 0 && boxes.every(b => b.closest("tr")?.hasAttribute("mc-buffer")) &&
               [...(boxes[0]?.querySelectorAll("calendar-month-day-box-item") || [])].some(i => i.occurrence?.title == "Halo Puffer");
             const start = out.on.range;
+            // seit „Month“ (Variante A) Pfeile um einen Monat: zur Woche mit dem Ersten des nächsten Monats
+            { const s = mv.rangeStartDate, top = new Date(s.year, s.month, s.day + 6), nm = new Date(top.getFullYear(), top.getMonth() + 1, 1);
+              const n1 = s.clone(); n1.isDate = true; n1.day = 1; n1.year = nm.getFullYear(); n1.month = nm.getMonth();
+              out.nextWant = iso(cal.weekInfoService.getStartOfWeek(n1)); }
             mv.moveView(1); await ruhig(600); out.next = look();
             mv.moveView(-1); await ruhig(600); out.back = look();
             mv.moveView(0); await ruhig(600);
@@ -7706,11 +7711,11 @@ def calendar_checks(m, results):
         # (seit der zweiten Nacharbeit an 3/6 zwölf Puffer-Wochen je Seite)
         ok = (on.get("shown") == wp and on.get("buffer") == 2 * 12 and on.get("bufferHidden") and abs(on.get("h", 0) - on.get("area", -9)) <= 3
               and on.get("label") == on.get("top") and nx.get("label") == nx.get("top") and week(on.get("loaded"), on.get("range")) == 84
-              and res.get("bufferItem") and week(nx.get("range"), on.get("range")) == 7 and bk.get("range") == on.get("range") and res.get("today")
+              and res.get("bufferItem") and nx.get("range") == res.get("nextWant") and bk.get("range") == on.get("range") and res.get("today")
               and zm.get("shown") == 3 and zm.get("buffer") == 24 and (res.get("month") or {}).get("buffer") == 0 and ag.get("shown") == wp
               and op.get("buffer") == 24 and op.get("shown") == wp and op.get("range") == on.get("range") and res.get("prefs") == [True, True])
         return ok, f"{res}"
-    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (immer an), sichtbar, Pfeile, Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
+    check("Kalender: Mehrwochen-Ansicht scrollen 2/6 – Puffer-Wochen außerhalb des Sichtbaren (immer an), sichtbar, Pfeile (Monat), Heute, Zoom und Ansichtswechsel unverändert", multiweek_buffer, results)
 
     def multiweek_scroll():
         # Mehrwochen-Ansicht scrollen 3/6: eine Raste verschiebt um ein Stück, nicht um eine Woche; jede
@@ -7879,8 +7884,12 @@ def calendar_checks(m, results):
             for (let i = 0; i < 2; i++) await week1();
             const r9 = mv.rangeStartDate.clone();
             await ruhig(600);
+            // Pfeil (seit „Month“, Variante A): zur Woche mit dem Ersten des Monats nach dem der obersten Woche
+            const t9 = new Date(r9.year, r9.month, r9.day + 6), nm = new Date(t9.getFullYear(), t9.getMonth() + 1, 1);
+            const n1 = r9.clone(); n1.isDate = true; n1.day = 1; n1.year = nm.getFullYear(); n1.month = nm.getMonth();
+            const want = cal.weekInfoService.getStartOfWeek(n1);
             mv.moveView(1); await ruhig(800);
-            out.arrow = { weeks: wk(mv.rangeStartDate, r9), before: wk(r9, r7), aligned: aligned(), pos: Math.round(mv.__mcScrollPos()) };
+            out.arrow = { want: wk(want, r9), weeks: wk(mv.rangeStartDate, r9), before: wk(r9, r7), aligned: aligned(), pos: Math.round(mv.__mcScrollPos()) };
           } finally {
             w.switchToView("week"); await ruhig(400);
           }
@@ -7889,9 +7898,9 @@ def calendar_checks(m, results):
         bündig = lambda x: x.get("aligned") is not None and abs(x["aligned"]) <= 1
         ok = (fv.get("weeks") == 5 and fv.get("shifts") == 0 and bündig(fv) and fv.get("label")
               and sv.get("weeks") == 7 and sv.get("shifts") == 1 and bündig(sv)
-              and ar.get("before") == 2 and ar.get("weeks") == 1 and bündig(ar) and ar.get("pos") == 0)
+              and ar.get("before") == 2 and ar.get("weeks") == ar.get("want") and 1 <= ar.get("weeks", 0) <= 5 and bündig(ar) and ar.get("pos") == 0)
         return ok, f"{res}"
-    check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach an der Wochengrenze", multiweek_refill, results)
+    check("Kalender: Mehrwochen-Ansicht scrollen 3/6 – Einrasten ohne Nachladen, Neuaufbau erst nach halbem Vorrat im Leerlauf, Pfeile danach am nächsten Monatsanfang", multiweek_refill, results)
 
     def multiweek_momentum():
         # Mehrwochen-Ansicht scrollen 5/6 (seit 6/6 immer an, ohne Einstellung): nach einem schnellen Wischer
@@ -8108,7 +8117,7 @@ def calendar_checks(m, results):
           const now = () => [w.currentView().id.replace("-view", ""), sel()];
           const out = {}; const added = []; const c = testCalendar();
           try {
-            const click = async v => { d.querySelector(`.calview-toggle-item[value="${v}"]`).click(); await ruhig(500); };
+            const click = async v => { [...d.querySelectorAll(`.calview-toggle-item[value="${v}"]`)].find(t => !t.hidden).click(); await ruhig(500); };
             await click("multiweek"); out.click = now();
             await click("week"); out.clickWeek = now();
             // Menü Ansicht › Kalender › Mehrwochen (Thunderbird hat dafür kein Tastenkürzel)
@@ -8119,8 +8128,10 @@ def calendar_checks(m, results):
             w.gLastShownCalendarView._lastView = null;
             for (const t of d.querySelectorAll(".calview-toggle-item")) t.ariaSelected = false;
             await toCalendar(); out.restart = now();
-            // „+n more“ in der Monatsansicht öffnet den Tag
+            // Menübefehl „Month“ öffnet seit Variante A die Mehrwochen-Ansicht
             d.getElementById("calendar_month-view_command").doCommand(); await ruhig(600); out.month = now();
+            // „+n more“ in der (nur noch per Skript erreichbaren) Monatsansicht öffnet den Tag
+            w.switchToView("month"); await ruhig(600);
             const { CalEvent } = ChromeUtils.importESModule("resource:///modules/CalEvent.sys.mjs");
             const day = w.currentView().rangeStartDate.clone(); day.day += 9; day.isDate = false;
             for (let i = 0; i < 30; i++) { const ev = new CalEvent(); ev.title = "Halo Umschalter " + i; const a = day.clone(); a.hour = i % 20; a.minute = 0;
@@ -8135,9 +8146,90 @@ def calendar_checks(m, results):
           return out;""")
         same = lambda k, v: res.get(k) == [v, v]
         ok = (same("click", "multiweek") and same("clickWeek", "week") and same("command", "multiweek")
-              and same("restart", "multiweek") and same("month", "month") and same("more", "day") and same("moreBack", "day"))
+              and same("restart", "multiweek") and same("month", "multiweek") and same("more", "day") and same("moreBack", "day"))
         return ok, f"{res}"
     check("Kalender: Umschalter oben zeigt die offene Ansicht (Klick, Menübefehl, Neustart, „+n more“ öffnet den Tag)", view_toggle, results)
+
+    def month_is_multiweek():
+        # Board 17.11.2026, Variante A: Umschalter Day | Week | Month, „Month“ ist die stufenlose Mehrwochen-Ansicht, die
+        # alte Monatsansicht ist über Umschalter, Menü und gemerkte Ansicht nicht mehr zu erreichen; beim Öffnen und mit
+        # „Today“ steht die Woche mit dem Ersten des laufenden Monats oben, Pfeile springen um einen Monat (Überschrift
+        # folgt), ein Tag aus dem Minikalender zeigt seinen Monat; Vorgabe fünf Wochen (eigener Wert bleibt);
+        # „vergangene Wochen“ zählt nicht; Einstellungen: Abschnitt „Month“, „vergangene Wochen“ ausgeblendet
+        res = m.js(CAL_CHECK_JS + r"""
+          await toCalendar();
+          const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
+          const iso = dt => dt ? `${dt.year}-${dt.month + 1}-${dt.day}` : null;
+          const sichtbar = el => !!el && el.getBoundingClientRect().width > 0;
+          const title = () => (d.getElementById("intervalDescription")?.textContent || "").trim();
+          const fmt = (y, mo) => new Intl.DateTimeFormat(Services.locale.appLocalesAsBCP47[0], { month: "long", year: "numeric" }).format(new Date(y, mo, 1));
+          // Woche mit dem Ersten des Monats von js (Date)
+          const monthTop = js => { const c = cal.dtz.now().clone(); c.isDate = true; c.day = 1; c.year = js.getFullYear(); c.month = js.getMonth(); return iso(cal.weekInfoService.getStartOfWeek(c)); };
+          const out = {};
+          const prevPref = Services.prefs.prefHasUserValue("calendar.previousweeks.inview") ? Services.prefs.getIntPref("calendar.previousweeks.inview") : null;
+          try {
+            out.toggle = [...d.querySelectorAll("#viewToggle .calview-toggle-item")].filter(sichtbar).map(t => t.textContent.trim());
+            // (gewählter Tag heute: frühere Prüfungen lassen ihn sonst woanders)
+            d.getElementById("calTabWeek").click(); await ruhig(500); d.getElementById("calendar_view_today_command").doCommand(); await ruhig(500);
+            d.getElementById("calTabMonth").click(); await ruhig(800);
+            out.click = [w.currentView().id, d.getElementById("calTabMonth").getAttribute("aria-selected")];
+            out.weeks = [Services.prefs.getIntPref("calendar.weeks.inview"), Services.prefs.prefHasUserValue("calendar.weeks.inview"), mv.weeksInView];
+            const today = new Date();
+            out.open = [iso(mv.rangeStartDate), monthTop(today), title() == fmt(today.getFullYear(), today.getMonth()), iso(mv.selectedDay) == iso(cal.dtz.now())];
+            // Pfeil vor: Woche mit dem Ersten des nächsten Monats, Überschrift folgt
+            d.getElementById("nextViewButton").click(); await ruhig(800);
+            const nx = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            out.next = [iso(mv.rangeStartDate), monthTop(nx), title() == fmt(nx.getFullYear(), nx.getMonth())];
+            d.getElementById("previousViewButton").click(); d.getElementById("previousViewButton").click(); await ruhig(800);
+            const pv = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            out.prev = [iso(mv.rangeStartDate), monthTop(pv), title() == fmt(pv.getFullYear(), pv.getMonth())];
+            // „Today“ (Befehl wie der Knopf)
+            d.getElementById("calendar_view_today_command").doCommand(); await ruhig(800);
+            out.today = [iso(mv.rangeStartDate), monthTop(today), iso(mv.selectedDay) == iso(cal.dtz.now())];
+            // Tag aus dem Minikalender (goToDate): Monat mit sechs Wochen, Jänner 2027
+            w.goToDate(cal.createDateTime("20270120")); await ruhig(800);
+            out.jan = [iso(mv.rangeStartDate), monthTop(new Date(2027, 0, 1)), iso(mv.selectedDay), title() == fmt(2027, 0)];
+            // „vergangene Wochen“ zählt nicht mehr
+            Services.prefs.setIntPref("calendar.previousweeks.inview", 2); await ruhig(500);
+            d.getElementById("calendar_view_today_command").doCommand(); await ruhig(800);
+            out.prevWeeks = [iso(mv.rangeStartDate), monthTop(today)];
+            // Menü Ansicht › Kalender: „Multiweek“ weg, „Month“ öffnet die Ansicht und trägt den Haken
+            d.getElementById("calendar_week-view_command").doCommand(); await ruhig(500);
+            d.getElementById("calendar_month-view_command").doCommand(); await ruhig(800);
+            out.menu = [w.currentView().id, d.getElementById("calChangeViewMultiweek").hidden, d.getElementById("calendar_month-view_command").hasAttribute("checked"),
+              d.getElementById("calendar_multiweek-view_command").hasAttribute("checked")];
+            // gemerkte alte Monatsansicht (vor dem Update) landet im Monat
+            tm.closeTab(tm.tabInfo.find(t => t.mode?.name == "calendar")); await ruhig(500);
+            const box = d.getElementById("view-box"); const idx = [...box.children].findIndex(c => c.id == "month-view");
+            Services.xulStore.setValue(d.location.href, "view-box", "selectedIndex", String(idx));
+            w.gLastShownCalendarView._lastView = null;
+            await toCalendar(); await ruhig(800);
+            out.restart = [w.currentView().id, d.getElementById("calTabMonth").getAttribute("aria-selected")];
+          } finally {
+            if (prevPref === null) Services.prefs.clearUserPref("calendar.previousweeks.inview"); else Services.prefs.setIntPref("calendar.previousweeks.inview", prevPref);
+            d.getElementById("calendar_week-view_command").doCommand(); await ruhig(400);
+          }
+          // Einstellungen › Kalender
+          w.openPreferencesTab("paneCalendar");
+          await bis(() => tm.currentTabInfo.browser?.contentDocument?.readyState == "complete" && tm.currentTabInfo.browser.contentDocument.getElementById("viewsMultiweekGroupbox"), "Einstellungen › Kalender", 8000); await ruhig(1500);
+          const cd = tm.currentTabInfo.browser.contentDocument;
+          const gb = cd.getElementById("viewsMultiweekGroupbox");
+          gb.scrollIntoView({ block: "center" }); await ruhig(300);
+          out.prefs = [gb.querySelector(":scope > legend")?.textContent.trim(), sichtbar(cd.getElementById("previousWeeksBox")), sichtbar(cd.getElementById("viewsMultiweekTotalWeeks")),
+            cd.getElementById("viewsMultiweekTotalWeeks").value];
+          tm.closeTab(tm.currentTabInfo); await ruhig(500);
+          return out;""")
+        same = lambda k: isinstance(res.get(k), list) and res[k][0] == res[k][1]
+        ok = (res.get("toggle") == ["Day", "Week", "Month"] and res.get("click") == ["multiweek-view", "true"]
+              and res.get("weeks") == [5, False, 5]
+              and same("open") and res["open"][2:] == [True, True] and same("next") and res["next"][2] is True
+              and same("prev") and res["prev"][2] is True and same("today") and res["today"][2] is True
+              and same("jan") and res["jan"][2:] == ["2027-1-20", True] and same("prevWeeks")
+              and res.get("menu") == ["multiweek-view", True, True, True]
+              and res.get("restart") == ["multiweek-view", "true"]
+              and res.get("prefs") == ["Month", False, True, "5"])
+        return ok, f"{res}"
+    check("Kalender: „Month“ ist die stufenlose Mehrwochen-Ansicht (Umschalter Day | Week | Month, Monatsanfang oben, Pfeile je Monat, Today, Minikalender, Menü, gemerkte Ansicht, fünf Wochen, Einstellungen)", month_is_multiweek, results)
 
     def multiweek_months():
         # Mehrwochen-Ansicht scrollen 4/6: Monatsname im Band vor der Woche mit dem 1. (ab dessen Spalte),
@@ -14244,7 +14336,7 @@ def run_checks(m, version, profile, results):
              'tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo?.browser?.contentDocument?.getElementById("booksSplitter")?.getBoundingClientRect().width > 0, "Adressbuch", 8000); await ruhig(2000);'),
             ("Aufgaben", "tasks", ["mc-lh-more", "#task-actions-markcompleted", "[new-event]"],
              'tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks" && d.getElementById("calSidebar")?.getBoundingClientRect().width > 0, "Aufgaben", 8000); await ruhig(1500);'),
-            ("Kalender", "calendar", ["#calTabDay", "#calTabWeek", "#calTabMultiweek", "#calTabMonth", "[new-event]"],
+            ("Kalender", "calendar", ["#calTabDay", "#calTabWeek", "#calTabMonth", "[new-event]"],
              'await toCalendar(); w.switchToView?.("month"); await ruhig(1500);'),
             ("Mail", "mail", ["[write-message]", "[reply]", "[reply-all]", "[forward-inline]", "[archive]", "[delete]", "[junk]", "[move-to]", "[mark-as]"],
              "await toMail();"),
@@ -17262,7 +17354,7 @@ Neu
               and (res.get("note") or {}).get("width") == 346 and res["note"].get("head") == "Halo Test" and res["note"].get("row")
               and res["note"].get("right") == 14 and res["note"].get("open") and res["note"].get("rel") and res["note"].get("details")
               and res["note"].get("headTop") is not None and abs(res["note"]["headTop"] - res["note"].get("bottom", 99)) <= 1
-              and (res.get("open") or {}).get("tab") == "calendar" and res["open"].get("view") == "month-view" and res["open"].get("details")
+              and (res.get("open") or {}).get("tab") == "calendar" and res["open"].get("view") == "multiweek-view" and res["open"].get("details")
               and bool(t.get("gap")) and t["gap"][0] >= 14 and abs(t["gap"][0] - max(16, t["gap"][1])) <= 3)
         return ok, f"{res}"
     check("Kalender: Erinnerung wie die Mitteilung von Apple Kalender (Symbol mit Monat und Tag, Kalender als Kopf, Pfeil, Knöpfe als Kapsel nebeneinander unten rechts, oben und unten gleich viel Luft, „Alle“-Knöpfe nur bei mehreren)", alarm_dialog, results)

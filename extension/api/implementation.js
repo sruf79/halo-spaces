@@ -7365,12 +7365,43 @@ const PREF_TOOLS = [
   ]],
 ];
 
+// Einstellungen › Kalender: Thunderbirds Abschnitt „Multiweek View“ heißt
+// „Month“ wie die Ansicht (hookMonthIsMultiweek); „vergangene Wochen“
+// entfällt, der Monat beginnt immer mit der Woche des Ersten (Board
+// 17.11.2026, Variante A)
+function monthPrefs(doc, restorers) {
+  const box = doc.getElementById("viewsMultiweekGroupbox");
+  const legend = box?.querySelector(":scope > legend");
+  const prev = doc.getElementById("previousWeeksBox");
+  if (!legend || box.__mcMonth) {
+    return;
+  }
+  box.__mcMonth = true;
+  const l10n = legend.getAttribute("data-l10n-id");
+  legend.removeAttribute("data-l10n-id");
+  legend.textContent = tr("Month");
+  const prevHidden = prev?.hidden;
+  if (prev) {
+    prev.hidden = true;
+  }
+  restorers?.push(() => {
+    delete box.__mcMonth;
+    if (l10n) {
+      legend.setAttribute("data-l10n-id", l10n);
+    }
+    if (prev) {
+      prev.hidden = !!prevHidden;
+    }
+  });
+}
+
 function addPrefTools(doc, restorers) {
   const mailWin = Services.wm.getMostRecentWindow("mail:3pane");
   const deck = doc.getElementById("paneDeck");
   if (!mailWin || !deck) {
     return;
   }
+  monthPrefs(doc, restorers);
   // Thunderbird legt manche Bereiche erst beim ersten Öffnen an – dann nachziehen
   if (!deck.__mcPrefTools) {
     deck.__mcPrefTools = true;
@@ -14711,6 +14742,7 @@ class CardEnhancer {
       decorateAgenda();
       hookMonthView();
       hookMultiweekBuffer(w.document.getElementById("multiweek-view"), this.restorers);
+      hookMonthIsMultiweek(w, this.restorers);
       hookMultidayZoom();
       hookNewButton();
       hookCalendarNotes();

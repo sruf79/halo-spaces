@@ -323,7 +323,13 @@ function hookMultiweekScroll(mv, win, B) {
       sel && (sel.day += 7 * (weeks - vis));
       vis = 0;
       mv.__mcScrollShifts++;
-      mv.goToDay(date);
+      // wochenweise (nicht zum Monatsanfang wie goToDay von außen)
+      mv.__mcWeekNav = true;
+      try {
+        mv.goToDay(date);
+      } finally {
+        mv.__mcWeekNav = false;
+      }
       if (sel) {
         mv.selectedDay = sel;
       }
@@ -582,7 +588,7 @@ function hookMultiweekBuffer(mv, restorers) {
       }
     });
   };
-  const saved = ["relayout", "setDateRange", "moveView", "findDayBoxForDate", "addItems", "clearItems", "doRemoveItem", "removeItemsFromCalendar"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
+  const saved = ["relayout", "setDateRange", "goToDay", "moveView", "findDayBoxForDate", "addItems", "clearItems", "doRemoveItem", "removeItemsFromCalendar"].map(name => [name, Object.hasOwn(proto, name), proto[name]]);
   const orig = Object.fromEntries(saved.map(([name, , fn]) => [name, fn]));
   // gewählter Tag in einer Zeile, die Thunderbird beim Neuaufbau geleert hat
   // (Puffer-Zeilen): seine Auswahl zeigte sonst ins Leere
@@ -773,19 +779,52 @@ function hookMultiweekBuffer(mv, restorers) {
     }
     return undefined;
   };
-  // Pfeile: Thunderbird rechnet vom ersten geladenen Tag – mit Puffer zwei
-  // Wochen zu früh; also vom ersten sichtbaren
-  proto.moveView = function (weeksToMove) {
-    if (!weeksToMove || !this.rangeStartDate) {
-      return orig.moveView.call(this, weeksToMove);
+  // Monat (Board 17.11.2026, Variante A: die Mehrwochen-Ansicht ist der Monat
+  // wie in Apple Kalender): ein Tag von außen (Öffnen, „Today“, Minikalender,
+  // Suche) zeigt seinen Monat mit der Woche des Ersten oben, der Tag bleibt
+  // gewählt; „vergangene Wochen“ (calendar.previousweeks.inview) zählt nicht
+  // mehr. Scrollen rückt weiter wochenweise (__mcWeekNav, shift)
+  const prevWeeks = () => Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
+  proto.goToDay = function (date) {
+    if (!date || this.__mcWeekNav) {
+      return orig.goToDay.call(this, date);
     }
-    const date = this.rangeStartDate.clone();
-    const savedSelectedDay = this.selectedDay.clone();
-    const prevWeeks = Services.prefs.getIntPref("calendar.previousweeks.inview", 0);
-    date.day += 7 * (weeksToMove + prevWeeks);
-    this.goToDay(date);
-    savedSelectedDay.day += 7 * weeksToMove;
-    this.selectedDay = savedSelectedDay;
+    const day = this.timezone ? date.getInTimezone(this.timezone) : date.clone();
+    const first = day.clone();
+    first.day = 1;
+    // Thunderbird zieht die vergangenen Wochen ab – hier wieder dazu
+    first.day += 7 * prevWeeks();
+    orig.goToDay.call(this, first);
+    this.selectedDay = day;
+    return undefined;
+  };
+  // Pfeile: um einen Monat (Variante A), vom Monat der obersten sichtbaren
+  // Woche aus (Monat ihres letzten Tags wie die Überschrift); der gewählte
+  // Tag behält seinen Tag im Monat (am Monatsende der letzte). Ohne Zahl
+  // („Today“) wie Thunderbird: heute
+  proto.moveView = function (monthsToMove) {
+    if (!monthsToMove || !this.rangeStartDate) {
+      return orig.moveView.call(this, monthsToMove);
+    }
+    const s = this.rangeStartDate;
+    const top = new Date(s.year, s.month, s.day + 6);
+    const js = new Date(top.getFullYear(), top.getMonth() + monthsToMove, 1);
+    const first = s.clone();
+    first.isDate = true;
+    // erst der Tag (kein „31. Februar“ zwischendurch)
+    first.day = 1;
+    first.year = js.getFullYear();
+    first.month = js.getMonth();
+    const sel = this.selectedDay?.clone();
+    this.goToDay(first);
+    if (sel) {
+      const want = sel.day;
+      sel.day = 1;
+      sel.year = js.getFullYear();
+      sel.month = js.getMonth();
+      sel.day = Math.min(want, new Date(js.getFullYear(), js.getMonth() + 1, 0).getDate());
+      this.selectedDay = sel;
+    }
     return undefined;
   };
   // Tageszelle zu einem Datum über eine Tabelle statt über alle Zellen (mit
@@ -1026,6 +1065,117 @@ function hookMultiweekBuffer(mv, restorers) {
     Services.prefs.clearUserPref(pref);
   }
   rebuild();
+}
+
+// Monat statt Monats- und Mehrwochen-Ansicht (Board 17.11.2026, Variante A):
+// der Umschalter zeigt Day | Week | Month, „Month“ ist die stufenlose
+// Mehrwochen-Ansicht; Thunderbirds Monatsansicht ist über Umschalter, Menü
+// und gemerkte Ansicht nicht mehr zu erreichen (alle Wege laufen über
+// switchCalendarView). Sichtbar fünf Wochen statt vier (nur die Vorgabe –
+// eine eigene Einstellung bleibt)
+const MONTH_WEEKS = 5;
+// Thunderbirds Vorgabe vor der ersten Änderung (mehrere Fenster)
+let monthWeeksDefault = null;
+function hookMonthIsMultiweek(win, restorers) {
+  const raw = win?.wrappedJSObject || win;
+  const doc = win?.document;
+  const tabMulti = doc?.getElementById("calTabMultiweek");
+  const tabMonth = doc?.getElementById("calTabMonth");
+  if (!tabMulti || !tabMonth || raw.__mcMonthIsMultiweek || typeof raw.switchCalendarView != "function") {
+    return;
+  }
+  raw.__mcMonthIsMultiweek = true;
+  const origSwitch = raw.switchCalendarView;
+  const monthCmd = doc.getElementById("calendar_month-view_command");
+  const menuMulti = doc.getElementById("calChangeViewMultiweek");
+  // Menü Ansicht › Kalender: „Month“ zeigt den Haken der offenen Ansicht
+  // (Thunderbird setzt ihn am Befehl der Ansicht, hier der Mehrwochen-Befehl)
+  // (auch wenn Thunderbird die Ansicht ohne switchCalendarView wechselt)
+  const multiCmd = doc.getElementById("calendar_multiweek-view_command");
+  const syncMenu = () => {
+    const on = !!multiCmd?.hasAttribute("checked");
+    if (monthCmd && monthCmd.hasAttribute("checked") != on) {
+      monthCmd.toggleAttribute("checked", on);
+    }
+  };
+  const mo = multiCmd ? new win.MutationObserver(syncMenu) : null;
+  mo?.observe(multiCmd, { attributes: true, attributeFilter: ["checked"] });
+  raw.switchCalendarView = function (type, show) {
+    return origSwitch(type == "month" ? "multiweek" : type, show);
+  };
+  const was = {
+    value: tabMonth.getAttribute("value"),
+    controls: tabMonth.getAttribute("aria-controls"),
+    multiControls: tabMulti.getAttribute("aria-controls"),
+    hidden: tabMulti.hidden,
+    menuHidden: menuMulti?.hidden,
+  };
+  tabMonth.setAttribute("value", "multiweek");
+  tabMonth.setAttribute("aria-controls", "multiweek-view");
+  tabMulti.hidden = true;
+  // ohne Bezug zur Ansicht: Thunderbird markiert sonst beide Knöpfe
+  tabMulti.removeAttribute("aria-controls");
+  tabMulti.ariaSelected = false;
+  if (menuMulti) {
+    menuMulti.hidden = true;
+  }
+  // Markierung des Umschalters gleich richtig (offene Ansicht)
+  const view = raw.currentView?.();
+  if (view?.id == "multiweek-view" || view?.id == "month-view") {
+    for (const tab of doc.querySelectorAll(".calview-toggle-item")) {
+      const on = tab == tabMonth;
+      tab.ariaSelected = on;
+      tab.tabIndex = on ? 0 : -1;
+    }
+  }
+  // offene alte Monatsansicht (gemerkt) gleich in den Monat umstellen
+  if (view?.id == "month-view") {
+    try {
+      raw.switchCalendarView("multiweek");
+    } catch (e) {
+      log("month view switch error", String(e).slice(0, 120));
+    }
+  }
+  syncMenu();
+  const defaults = Services.prefs.getDefaultBranch("");
+  monthWeeksDefault ??= defaults.getIntPref("calendar.weeks.inview", 4);
+  defaults.setIntPref("calendar.weeks.inview", MONTH_WEEKS);
+  // die Ansicht merkt sich die Zahl beim Start und hört nur aktiv auf die
+  // Einstellung – ohne eigenen Wert gleich auf die neue Vorgabe (Messung:
+  // vier statt fünf Wochen sichtbar)
+  const syncWeeks = () => {
+    const mv = doc.getElementById("multiweek-view");
+    const v = mv?.wrappedJSObject || mv;
+    const want = Services.prefs.getIntPref("calendar.weeks.inview", MONTH_WEEKS);
+    if (v && "mWeeksInView" in v && v.mWeeksInView != want) {
+      v.mWeeksInView = want;
+      try {
+        if (v.isActive) {
+          v.refreshView();
+        }
+      } catch (e) {
+        log("month weeks refresh error", String(e).slice(0, 120));
+      }
+    }
+  };
+  syncWeeks();
+  restorers?.push(() => {
+    raw.switchCalendarView = origSwitch;
+    mo?.disconnect();
+    delete raw.__mcMonthIsMultiweek;
+    tabMulti.setAttribute("aria-controls", was.multiControls || "multiweek-view");
+    tabMonth.setAttribute("value", was.value || "month");
+    tabMonth.setAttribute("aria-controls", was.controls || "month-view");
+    tabMulti.hidden = was.hidden;
+    if (menuMulti) {
+      menuMulti.hidden = !!was.menuHidden;
+    }
+    monthCmd?.removeAttribute("checked");
+    try {
+      defaults.setIntPref("calendar.weeks.inview", monthWeeksDefault);
+      syncWeeks();
+    } catch {}
+  });
 }
 
 function appleEventLayout(win) {

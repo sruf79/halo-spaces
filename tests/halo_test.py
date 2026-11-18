@@ -10115,10 +10115,13 @@ def server_checks(m, results):
                     break
                 time.sleep(0.5)
             got = [g for g in servers.smtp.sent[before:] if "Halo Spaeter" in g[2]]
+            # die interne Kopfzeile darf nicht an die Empfänger gehen (Thunderbirds Postausgang entfernt sie nicht)
+            leak = [g for g in got if "x-halo-send-at" in g[2].lower()]
             ok = (res.get("button") and len(res.get("menu", [])) >= 3 and res["menu"][0] == "Send Now" and res["menu"][-1] == "Send Later …"
-                  and res.get("closed") and res.get("draft") == {"at": True} and len(got) == 1)
-            return ok, f"{res} gesendet: {len(got)}"
-        check("Testkonto: Später senden – Menü am Senden-Knopf, geplante Mail als Entwurf, zur Zeit gesendet", send_later, results)
+                  and res.get("closed") and res.get("draft") == {"at": True} and len(got) == 1 and not leak
+                  and "Kommt gleich." in got[0][2])
+            return ok, f"{res} gesendet: {len(got)} mit X-Halo-Send-At: {len(leak)}"
+        check("Testkonto: Später senden – Menü am Senden-Knopf, geplante Mail als Entwurf, zur Zeit gesendet ohne interne Kopfzeile", send_later, results)
 
         def send_later_place():
             # „Später senden“ als kleiner Pfeil gleich rechts neben dem runden Senden-Knopf (war eine leere Kapsel links)

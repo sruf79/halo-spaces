@@ -334,19 +334,24 @@ const SendLater = {
         if (!outbox) {
           break;
         }
-        await new Promise(resolve => {
-          MailServices.copy.copyMessages(folder, due, outbox, true, {
-            QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
-            onStartCopy() {},
-            onProgress() {},
-            setMessageKey() {},
-            getMessageId() {
-              return null;
-            },
-            onStopCopy: () => resolve(),
-          }, null, false);
-        });
-        moved += due.length;
+        // Nicht unverändert verschieben: Thunderbirds Postausgang (nsMsgSendLater)
+        // entfernt beim Senden nur seine eigenen Kopfzeilen, X-Halo-Send-At ginge
+        // mit an die Empfänger. Deshalb jede Mail ohne sie in den Postausgang
+        // schreiben und erst danach den Entwurf löschen.
+        const done = [];
+        for (const hdr of due) {
+          try {
+            if (await this.queueWithoutHeader(hdr, outbox)) {
+              done.push(hdr);
+            }
+          } catch (e) {
+            log("send later queue error", e);
+          }
+        }
+        if (done.length) {
+          folder.deleteMessages(done, null, true, false, null, false);
+        }
+        moved += done.length;
       }
       if (moved) {
         Services.wm.getMostRecentWindow("mail:3pane")?.SendUnsentMessages?.();
@@ -355,6 +360,89 @@ const SendLater = {
       log("send later check error", e);
     } finally {
       this.busy = false;
+    }
+  },
+  // Rohtext einer Mail als Byte-String (auch IMAP-Entwürfe, Thunderbird holt sie)
+  readRaw(hdr) {
+    const uri = hdr.folder.getUriForMsg(hdr);
+    return new Promise((resolve, reject) => {
+      let raw = "";
+      MailServices.messageServiceFromURI(uri).streamMessage(uri, {
+        QueryInterface: ChromeUtils.generateQI(["nsIStreamListener", "nsIRequestObserver"]),
+        onStartRequest() {},
+        onDataAvailable(request, stream, offset, count) {
+          const input = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+          input.setInputStream(stream);
+          raw += input.readBytes(count);
+        },
+        onStopRequest(request, status) {
+          if (Components.isSuccessCode(status)) {
+            resolve(raw);
+          } else {
+            reject(new Error(`stream 0x${(status >>> 0).toString(16)}`));
+          }
+        },
+      }, null, null, false, "", false);
+    });
+  },
+  // Kopfteil ohne X-Halo-Send-At (samt Folgezeilen) und ohne Thunderbirds
+  // Ablagezeilen (Umschlag „From “, X-Mozilla-Status), die neu gesetzt werden
+  stripHeader(raw) {
+    // Kopfteil samt Zeilenende der letzten Kopfzeile, Rumpf ab der Leerzeile
+    const gap = /\r?\n\r?\n/.exec(raw);
+    const end = gap ? gap.index + gap[0].indexOf("\n") + 1 : raw.length;
+    const head = raw.slice(0, end);
+    const body = raw.slice(end);
+    const out = [];
+    let drop = false;
+    for (const line of head.split(/(?<=\n)/)) {
+      if (/^[ \t]/.test(line)) {
+        if (!drop) {
+          out.push(line);
+        }
+        continue;
+      }
+      drop = !out.length && line.startsWith("From ") || /^(x-halo-send-at|x-mozilla-status2?)\s*:/i.test(line);
+      if (!drop) {
+        out.push(line);
+      }
+    }
+    return out.join("") + body;
+  },
+  // eine fällige Mail ohne die eigene Kopfzeile in den Postausgang (wie
+  // Thunderbirds „Später senden“: Umschlag und Flag „Queued“)
+  async queueWithoutHeader(hdr, outbox) {
+    const raw = this.stripHeader(await this.readRaw(hdr));
+    if (!/\n\r?\n/.test(raw)) {
+      return false; // kein vollständiger Kopfteil gelesen, Entwurf bleibt
+    }
+    const date = new Date().toUTCString();
+    const data = `From - ${date}\r\nX-Mozilla-Status: 0800\r\nX-Mozilla-Status2: 00000000\r\n` + raw;
+    const file = Services.dirsvc.get("TmpD", Ci.nsIFile);
+    file.append("halo-sendlater.eml");
+    file.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+    try {
+      const os = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
+      os.init(file, -1, 0o600, 0);
+      os.write(data, data.length);
+      os.close();
+      const ok = await new Promise(resolve => {
+        MailServices.copy.copyFileMessage(file, outbox, null, false, Ci.nsMsgMessageFlags.Queued, "", {
+          QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
+          onStartCopy() {},
+          onProgress() {},
+          setMessageKey() {},
+          getMessageId() {
+            return null;
+          },
+          onStopCopy: status => resolve(Components.isSuccessCode(status)),
+        }, null);
+      });
+      return ok;
+    } finally {
+      try {
+        file.remove(false);
+      } catch {} // gewollt: Datei schon entfernt
     }
   },
   outbox() {

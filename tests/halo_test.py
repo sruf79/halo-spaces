@@ -14442,6 +14442,14 @@ def run_checks(m, version, profile, results):
             const overlap = Math.max(0, ...pl.map((p, i) => p && p[1] >= 1 ? tg[i][1] - p[0] : 0));
             out[phase].plus = { seen, first: pl[1], fin: finP, step: Math.round(stepOf(pl) * 10) / 10, toggleStep: Math.round(stepOf(tg) * 10) / 10, overlap: Math.round(overlap * 10) / 10 };
             out[phase].nach = { knoepfe: nachK, today: nachG, plus: nachP };
+            // DIAGNOSE (nur Zweig pruef/diag-esr-1118): welcher Knopf rückt nach, Lage je Bild ab drei Bilder vor dem Ende
+            out[phase].diag = { iMove, n: ws.length, wsEnd: ws.slice(Math.max(0, iMove - 2)), tlEnd: tl.slice(Math.max(0, iMove - 2)),
+              dtEnd: ts.slice(Math.max(1, iMove - 2)).map((t, j) => Math.round(t - ts[Math.max(1, iMove - 2) + j - 1])),
+              keys: Object.fromEntries(Object.keys(finK).filter(k => postK.some(f => k in f && Math.abs(f[k] - finK[k]) > 1))
+                .map(k => [k, { fin: finK[k], verlauf: kk.slice(Math.max(0, iMove - 2)).map(f => f[k] ?? null),
+                  w: [...d.getElementById("unifiedToolbarContent").children].find(li => (li.getAttribute("item-id") || li.id) == k)?.getBoundingClientRect().width }])),
+              tail: getComputedStyle(row).getPropertyValue("--mc-row-tail"), cap: getComputedStyle(row).getPropertyValue("--mc-caption-w"),
+              attrs: [...row.attributes].map(a => a.name).filter(n => n.startsWith("data-mc")) };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);

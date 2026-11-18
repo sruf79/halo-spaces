@@ -625,10 +625,11 @@ if [[ -z $NUR && -z $TROCKEN ]] && HALO_PAUSE_EINMAL=1 pause_start ci-waechter; 
   exit 0
 fi
 
-# Frische Windows-VM einmal täglich (Maintainer 18.11.2026): 00:45 bis 01:14 im Hintergrund kalt neu starten, wenn
-# nichts läuft (tests/vm-frisch.sh prüft Uhrzeit, Tagesmarke und Belegung selbst); kein eigener Dauerprozess
+# Frische Windows-VM einmal täglich (Maintainer 18.11.2026): 00:45 bis 01:14 kalt neu starten, wenn nichts läuft.
+# tests/vm-frisch.sh prüft Uhrzeit und Tagesmarke, kehrt sofort zurück und startet den Neustart in eigener Sitzung
+# (start_new_session in tests/vm_frisch.py): launchd beendet ihn nicht mit dem Wächter; kein eigener Dauerprozess
 if [[ -z $NUR && -z $TROCKEN && -r $HOME/halo-spaces/tests/vm-frisch.sh ]]; then
-  nohup zsh $HOME/halo-spaces/tests/vm-frisch.sh --taeglich >/dev/null 2>&1 &!
+  zsh $HOME/halo-spaces/tests/vm-frisch.sh --taeglich >/dev/null 2>&1 || log "vm-frisch.sh: Exitcode $?"
 fi
 
 FENSTER=$(nacht_fenster)

@@ -2937,6 +2937,66 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Konversation verschwindet beim Ordnerwechsel ohne neue Auswahl", conversation_folder_switch, results)
 
+    def conversation_stale_index():
+        # GitHub #60: Der Suchindex findet eine Mail über Ordner und Schlüssel. Ist er veraltet (Ordner komprimiert,
+        # Mail verschoben), steht unter dem Schlüssel eine andere Mail – vorher zeigte die Leseansicht dann deren
+        # Konversation statt der gewählten Mail. Nachgestellt: die Index-Abfrage für die Einzelmail liefert den
+        # Eintrag einer Mail aus einem fremden Faden; für die Antwort des Fadens den Eintrag der Einzelmail.
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { GlodaMsgIndexer } = ChromeUtils.importESModule("resource:///modules/gloda/IndexMsg.sys.mjs");
+          const { Gloda } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaPublic.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const f = folder("KonvIndexAlt");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", "Text.", ""].join("\r\n")));
+          if (!f.getTotalMessages(false)) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo Index Faden", "halo-index-1", null, 90));
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Re: Halo Index Faden", "halo-index-2", "halo-index-1", 80));
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo Index Einzeln", "halo-index-3", null, 70));
+            await bis(() => f.getTotalMessages(false) >= 3, "Testmails gespeichert", 5000);
+          }
+          const hdr = id => [...f.messages].find(h => h.messageId == id + "@example.invalid");
+          const [h1, h2, h3] = ["halo-index-1", "halo-index-2", "halo-index-3"].map(hdr);
+          GlodaMsgIndexer.indexMessages([h1, h2, h3].map(h => [h.folder, h.messageKey]));
+          const indexed = h => new Promise(r => Gloda.getMessageCollectionForHeader(h, { onItemsAdded() {}, onItemsModified() {}, onItemsRemoved() {},
+            onQueryCompleted: c => r(c.items.length > 0) }));
+          for (let i = 0; i < 60 && !((await indexed(h1)) && (await indexed(h2)) && (await indexed(h3))); i++) await wait(500);
+          const out = { indexed: (await indexed(h1)) && (await indexed(h3)) };
+          // veralteter Index: Abfrage nach Ordner und Schlüssel trifft eine andere Mail
+          const orig = Gloda.getMessageCollectionForHeader;
+          const swap = new Map([[h3.messageId, h1], [h2.messageId, h3]]);
+          Gloda.getMessageCollectionForHeader = function(h, ...rest) { return orig.call(this, swap.get(h.messageId) || h, ...rest); };
+          try {
+            const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 2, "Ordner KonvIndexAlt", 6000); await ruhig(900);
+            a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.goDoCommand?.("cmd_expandAllThreads"); await ruhig(500);
+            const select = id => { const i = [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == id + "@example.invalid"); a3.threadTree.selectedIndex = i ?? -1; };
+            const pane = a3.document.getElementById("messagePane");
+            const shown = async () => {
+              await until(() => !pane.classList.contains("mc-conv-pending"), 4000); await ruhig(600);
+              const box = a3.document.getElementById("mcConversation");
+              return { cards: box ? [...box.querySelectorAll(".mc-conv-card")].map(c => c.dataset.messageId.split("@")[0]) : [],
+                       selected: box ? [...box.querySelectorAll(".mc-conv-card.mc-selected")].map(c => c.dataset.messageId.split("@")[0]) : [],
+                       single: a3.messageBrowser?.contentWindow?.gMessage?.messageId?.split("@")[0] || null };
+            };
+            // Einzelmail: keine Konversation (vorher die Karten des fremden Fadens halo-index-1/2)
+            a3.threadTree.selectedIndex = -1; await ruhig(300); select("halo-index-3"); out.einzeln = await shown();
+            // Antwort im Faden: ihr eigener Faden mit Rahmen um sie (Index zeigt auf die Einzelmail)
+            a3.threadTree.selectedIndex = -1; await ruhig(300); select("halo-index-2"); out.faden = await shown();
+            a3.threadTree.selectedIndex = -1; await ruhig(300);
+          } finally { Gloda.getMessageCollectionForHeader = orig; }
+          return out;""")
+        e, fa = res.get("einzeln") or {}, res.get("faden") or {}
+        ok = (res.get("indexed") is True
+              and e.get("cards") == [] and e.get("single") == "halo-index-3"
+              and fa.get("cards") == ["halo-index-2", "halo-index-1"] and fa.get("selected") == ["halo-index-2"])
+        return ok, f"{res}"
+    check("Leseansicht: veralteter Suchindex zeigt nie die Konversation einer anderen Mail (GitHub #60)", conversation_stale_index, results)
+
     def star_list_header():
         # Stern wie Apples Fahne: in der Liste einfarbig in --mt-star (gewählt mit Fokus weiß), im Mailkopf vor der
         # Uhrzeit nur bei markierten Mails; folgt Änderungen sofort

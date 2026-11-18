@@ -1593,6 +1593,11 @@ class ConversationCards {
       try {
         list = await this.fromGloda(hdr);
         indexed = list.length > 0;
+        // die gewählte Mail gehört immer dazu (ihr Indexeintrag kann noch auf
+        // eine verschobene Kopie zeigen, deren Ordner-Mail sich nicht auflöst)
+        if (indexed && !list.some(m => m == hdr || (m?.messageId && m.messageId == hdr.messageId))) {
+          list.push(hdr);
+        }
       } catch (e) {
         log("conversation gloda error", e);
       }
@@ -1638,7 +1643,13 @@ class ConversationCards {
       Gloda.getMessageCollectionForHeader(hdr, {
         ...noop,
         onQueryCompleted: collection => {
-          const conversation = collection.items[0]?.conversation;
+          // Der Index sucht nach Ordner und Schlüssel. Ist er nicht auf dem
+          // neuesten Stand (Ordner komprimiert, Mail verschoben, Konto neu
+          // abgeglichen), kann unter diesem Schlüssel eine andere Mail stehen –
+          // dann käme die Konversation dieser fremden Mail (GitHub #60).
+          // Nur nehmen, wenn die Message-ID stimmt, sonst Faden im Ordner.
+          const item = collection.items.find(i => i.headerMessageID == hdr.messageId);
+          const conversation = item?.conversation;
           if (!conversation) {
             done([]);
             return;

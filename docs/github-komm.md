@@ -137,6 +137,9 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   Codes, wo es nicht nötig ist; Rückfragen konkret stellen. Nie auf die
   private Aufgabenliste verweisen, keine Interna (Testrechner, VM, Tokens)
   und keine Zusagen zu Terminen.
+- **Schreibstil** (Maintainer 18.11.2026, über `github.comm.routine` übermittelt und von ihm
+  mit „ja“ als sein Wortlaut bestätigt; gilt für alle Antworten an Nutzer auf GitHub, Issues und
+  PRs; `ENTSCHEIDUNGEN.md`): „1. Wir schreiben wie ein professioneller System Engineer mit hohem Ticket Count. 2. Wir versuchen den Text menschlich aussehen zu lassen, vermeiden aber unnötige Füllwörter. 3. Wir benutzen keine Bindestriche (auch keine Gedankenstriche).“
 
 ## Vollständiger Wortlaut aus `AGENTS.md` (Stand 9.11.2026, vor der Kürzung)
 

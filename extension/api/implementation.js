@@ -2998,6 +2998,7 @@ function hookTaskLists(win, restorers) {
     newRow.remove();
     ctxNew.remove();
     ctxDelete.remove();
+    ctxRename.remove(); // (blieb stehen: nach einem Update ohne Neustart stand „Rename“ doppelt im Menü)
     ctx?.removeEventListener("popupshowing", onCtx);
     for (const [id, l10n] of ctxSaved) {
       const item = doc.getElementById(id);
@@ -7507,8 +7508,9 @@ loadPart("grundlagen.js");
 // (extensions.mailcards.calendarOffline = true): Thunderbird legt den
 // Kalender dafür neu an (neue Kennung) – das stört Kalender, die andere
 // Add-ons verwalten (TbSync, Provider), und lädt alles neu herunter.
+const CALENDAR_OFFLINE_PREF = "extensions.mailcards.calendarOffline";
 function enableCalendarOffline() {
-  if (!Services.prefs.getBoolPref("extensions.mailcards.calendarOffline", false)) {
+  if (!Services.prefs.getBoolPref(CALENDAR_OFFLINE_PREF, false)) {
     return 0;
   }
   let changed = 0;
@@ -7842,9 +7844,20 @@ class CardEnhancer {
       }, 6000);
       this.restorers.push(() => clearTimeout(noteTimer));
     }
-    // nach dem Start, wenn der Kalender-Manager bereit ist
+    // nach dem Start, wenn der Kalender-Manager bereit ist; beim Einschalten (auch über about:config) sofort
+    // (galt sonst erst nach einem Neustart, ohne dass die Einstellung das sagte)
     const offlineTimer = setTimeout(() => enableCalendarOffline(), 8000);
-    this.restorers.push(() => clearTimeout(offlineTimer));
+    const offlineObs = { observe: () => enableCalendarOffline() };
+    Services.prefs.addObserver(CALENDAR_OFFLINE_PREF, offlineObs);
+    this.restorers.push(() => {
+      clearTimeout(offlineTimer);
+      Services.prefs.removeObserver(CALENDAR_OFFLINE_PREF, offlineObs);
+    });
+    // Fehlerbehebung (Design bzw. eigene Symbole aus/an) gilt sofort statt erst nach einem Neustart: beide werden
+    // an vielen Stellen nur beim Aufbau gelesen – darum alles abbauen und neu aufbauen wie bei einem Update
+    const rebuildObs = { observe: () => rebuildEnhancerSoon() };
+    REBUILD_PREFS.forEach(pref => Services.prefs.addObserver(pref, rebuildObs));
+    this.restorers.push(() => REBUILD_PREFS.forEach(pref => Services.prefs.removeObserver(pref, rebuildObs)));
     // Update gleich beim Start statt erst bei Thunderbirds täglicher Prüfung
     const updateTimer = setTimeout(() => this.autoUpdate(), 20000);
     this.restorers.push(() => clearTimeout(updateTimer));
@@ -14885,7 +14898,7 @@ const SETTINGS = {
   macContactPhotos: [MAC_PHOTOS_PREF, "bool", false],
   senderLogos: [SENDER_LOGOS_PREF, "bool", true],
   plainTextSystemFont: [PLAIN_TEXT_PREF, "bool", true],
-  calendarOffline: ["extensions.mailcards.calendarOffline", "bool", false],
+  calendarOffline: [CALENDAR_OFFLINE_PREF, "bool", false],
   debug: ["extensions.mailcards.debug", "bool", false],
   // Thunderbirds eigene Umfärbung von HTML-Mails im Dunkelmodus (ab Thunderbird 13x);
   // ihr Schalter im Mailkopf ist ausgeblendet, eingestellt wird hier wie in Apple Mail
@@ -14909,6 +14922,27 @@ function readSetting([pref, type, def]) {
 }
 
 var enhancer = null;
+// Fehlerbehebung: Design und eigene Symbole aus/an (about:config) – gelten sofort (rebuildEnhancerSoon)
+const REBUILD_PREFS = ["extensions.mailcards.bundledTheme", "extensions.mailcards.appleIcons"];
+// Einstellungen, die an vielen Stellen nur beim Aufbau gelesen werden (Fehlerbehebung: Design, eigene Symbole):
+// eine Änderung baut die Erweiterung in allen offenen Fenstern ab und neu auf – derselbe Weg wie bei einem Update
+// ohne Neustart (stop(), dann ein neuer Start), einmal je Änderung
+let rebuildTimer = null;
+function rebuildEnhancerSoon() {
+  if (rebuildTimer) {
+    return;
+  }
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null;
+    if (!enhancer) {
+      return;
+    }
+    log("rebuild", REBUILD_PREFS.map(pref => Services.prefs.getBoolPref(pref, true)));
+    enhancer.stop();
+    enhancer = new CardEnhancer({});
+    enhancer.start();
+  }, 0);
+}
 var extensionRoot = null; // rootURI der Erweiterung, für resource://mailcards/
 var extensionVersion = ""; // hängt an den Stylesheet-Adressen, damit ein Update sofort greift
 // Projektseite, einzige Quelle ist homepage_url im Manifest (Weiterempfehlen im Info-Fenster)

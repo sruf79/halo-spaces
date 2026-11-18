@@ -15495,6 +15495,57 @@ def run_checks(m, version, profile, results):
         return not bad, f"{bad} {res}"
     check("Seitenleiste: Ein-/Ausblenden in Mail, Chat, Einstellungen und Adressbuch gleich flüssig, Knopf bleibt stehen, Mailliste behält ihre Breite, kein grauer Balken", sidebar_animation, results)
 
+    def sidebar_mail_passes():
+        # Mail, Seitenleiste samt Bereiche-Leiste aus- und einblenden: Je Bild der Bewegung richtet die Erweiterung die
+        # Toolbar-Zeile aus (Kanten als Variablen an #unifiedToolbarContainer). Jedes Messen nach einem Schreiben dort
+        # lässt Thunderbird die rund 150 Elemente der Zeile neu berechnen. Vorher wechselten Schreiben und Messen je Bild
+        # viermal (Mac; ohne die Ampel-Werte dreimal): Kanten der Bereiche-Leiste → Messen, Einzug und Abstände → Messen
+        # der Ordnerliste, Kante der Seitenleiste → Messen des ersten Abstandhalters, Listenkanten → Lichtschein
+        # (gemessen 577 neu berechnete Elemente je Bild, jetzt rund 390). Gezählt wird ohne Zeitmessung: Schreiben an
+        # der Zeile und das nächste Messen (getBoundingClientRect im Hauptfenster oder in der Mailansicht) danach
+        res = m.js(r"""
+          const a3 = await toMail(); await ruhig(800);
+          const btn = d.getElementById("spacesPinnedButton"), row = d.getElementById("unifiedToolbarContainer");
+          const still = () => !w.__mcSpacesAnimating && !a3.__mcAnimating;
+          const out = { visibility: d.visibilityState, reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches, phasen: {} };
+          // Vorbedingung des kurzen Wegs: der erste Abstandhalter steht vorn und ist so breit wie der Einzug (nicht gestaucht)
+          const lead = d.querySelector("#unifiedToolbarContent > li:not([hidden])");
+          const einzug = parseFloat(row.style.getPropertyValue("--mc-toolbar-offset"));
+          out.lead = lead?.getAttribute("item-id") == "spacer" ? Math.round((lead.getBoundingClientRect().width - einzug) * 10) / 10 : null;
+          let dirty = false, wechsel = 0;
+          const st = row.style, origSet = st.setProperty;
+          st.setProperty = function (...a) { dirty = true; return origSet.apply(this, a); };
+          const protos = [w, a3].map(x => [x.Element.prototype, x.Element.prototype.getBoundingClientRect]);
+          for (const [p, orig] of protos) p.getBoundingClientRect = function () { if (dirty) { dirty = false; wechsel++; } return orig.call(this); };
+          try {
+            for (const phase of ["aus", "ein"]) {
+              const je = []; btn.click();
+              // (die Vorabrechnung im Klick zählt nicht, nur die Bilder der Bewegung)
+              wechsel = 0; dirty = false; const t0 = performance.now();
+              while (performance.now() - t0 < 1500 && (!je.length || !still())) { await new Promise(q => w.requestAnimationFrame(q)); if (!still()) je.push(wechsel); wechsel = 0; }
+              await bis(still, "Animation fertig", 3000); await ruhig(400);
+              out.phasen[phase] = je;
+            }
+          } finally {
+            delete st.setProperty;
+            for (const [p, orig] of protos) p.getBoundingClientRect = orig;
+            if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); await ruhig(400); }
+          }
+          return out;""")
+        if res.get("reduced"):
+            return True, f"Bewegung reduziert – übersprungen {res}"
+        if res.get("lead") is None or abs(res["lead"]) > 0.75:
+            return True, f"erster Abstandhalter fehlt oder ist gestaucht (dann wird wie bisher nachgemessen) – übersprungen {res}"
+        med = {}
+        for phase, je in res["phasen"].items():
+            # ohne das letzte Bild (dort räumt die Bewegung auf und richtet einmal ganz aus)
+            mitte = sorted(je[:-1])
+            med[phase] = mitte[len(mitte) // 2] if len(mitte) >= 4 else None
+        ok = all(v is not None and v <= 2 for v in med.values()) and len(med) == 2
+        return ok, f"Wechsel Schreiben→Messen je Bild (Mitte) {med}, Bilder {res['phasen']}, Abstandhalter − Einzug {res['lead']} px"
+    check("Seitenleiste (Mail): Ein-/Ausblenden richtet die Toolbar-Zeile je Bild aus, ohne zwischen Schreiben und Messen zu wechseln "
+          "(höchstens zwei Neuberechnungen der Zeile je Bild statt vier)", sidebar_mail_passes, results)
+
     def sidebar_toolbar_no_jump():
         # Seitenleiste mehrmals ein-/ausblenden (Mail rechts neben der Liste): die Knöpfe der Toolbar-Zeile gleiten in
         # eine Richtung und springen nie zurück – beim Einblenden standen sie ein Bild lang am Endplatz (Flackern oben)

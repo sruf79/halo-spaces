@@ -63,7 +63,9 @@ pruefe "Volldampf ohne Zeile: --volldampf bricht ab" "$(VDD=$T/keine.txt V)" 'AB
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/vd-beendet.txt
 pruefe "Volldampf beendet (Wochenlimit): --volldampf bricht ab" "$(V)" 'ABBRUCH: Volldampf nicht aktiv' 'rc=1'
 rm -f $T/vd-beendet.txt
-pruefe "Volldampf: Sperre 01:30–09:00 bleibt" "$(JZ=0800 V)" 'ABBRUCH: nur zwischen 09:00 und 22:00' 'rc=1'
+pruefe "Volldampf: Sperre 01:30–09:00 bleibt" "$(JZ=0800 V)" 'ABBRUCH: nur zwischen 09:00 und 24:00' 'rc=1'
+# Zwischen-Release mit Push-Beginn bis 22:30: Push-Lauf und Windows enden oft nach 22:00, das Release muss dann noch gehen
+pruefe "Volldampf: 23:15 sperrt die Uhrzeit nicht (weiter bis belegt)" "$(JZ=2315 V)" 'ABBRUCH: neon belegt: Probe-Halt' 'rc=1'
 pruefe "Volldampf: belegt bleibt Sperre" "$(BL='CI-Lauf auf dem GitHub-Runner' V)" 'ABBRUCH: neon belegt: CI-Lauf' 'rc=1'
 
 # --- Zwischen-Release (tests/zwischen-release.zsh), Sperren vor git fetch ---

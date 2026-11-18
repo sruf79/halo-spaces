@@ -12,7 +12,7 @@
 # Bedingungen vor dem Push (eine nicht erfüllt: „ABBRUCH: <Grund>“, Exitcode 1, nichts gepusht):
 #   - Volldampf aktiv (volldampf_aktiv)
 #   - Push-Beginn 09:00 bis 22:30 Wiener Zeit (ZWISCHEN_RELEASE_BIS): nie in der Push-Sperre 01:30–09:00; CI
-#     (~35–50 Min.) und Windows (~30 Min.) sind vor 22:00 durch, neon ist ab 00:00 für den Nachtlauf frei
+#     (~35–50 Min.) und Windows (~30 Min.) sind vor 24:00 durch (release-unter-tage.sh --volldampf bis 24:00)
 #   - nichts belegt (CI, Testlauf, andere Sitzung, Ungespeichertes, release.sh/publish.sh, Nachtlauf)
 #   - Zweig main oder ein Zweig mit Upstream origin/main (Worktree), sauber, origin/main enthalten; Version, Tag,
 #     README „What's new in x.y.z“, Notizdatei

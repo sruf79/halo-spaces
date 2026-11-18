@@ -12,7 +12,7 @@
 #     dann entfallen „letzter Nachtlauf ohne Release“ und „höchstens ein Release pro Tag“. Alles andere unverändert.
 #     Aufruf von tests/zwischen-release.zsh nach Push und grüner CI samt Windows.
 # Bedingungen (eine nicht erfüllt: „ABBRUCH: <Grund>“, Exitcode 1, nichts veröffentlicht):
-#   - 09:00 bis 22:00 Wiener Zeit (nie in der Push-Sperre 01:30–09:00)
+#   - 09:00 bis 22:00 Wiener Zeit, mit --volldampf bis 24:00 (nie in der Push-Sperre 01:30–09:00)
 #   - tests/release-nachtlauf-gescheitert.sh meldet „ja“ (letzter Nachtlauf ohne Release)
 #   - heute noch kein Release (höchstens ein reguläres Release pro Tag)
 #   - kein CI-Lauf (Runner.Worker), kein Testlauf, keine andere Sitzung am Repo, kein Nachtlauf (belegt())
@@ -35,8 +35,14 @@ abbruch() { print -r -- "ABBRUCH: $1 – kein Release unter Tage"; exit 1 }
 cd $REPO || abbruch "kein Checkout unter $REPO"
 
 # Uhrzeit
+# Volldampf bis 24:00: der Zwischen-Release-Wächter beginnt Pushes bis 22:30, Push-Lauf und Windows brauchen danach bis
+# gut eine Stunde („Release vor 01:00“); mit 22:00 scheiterte jeder Push nach etwa 20:45 hier, nachdem er schon auf main war (18.11.2026)
 J=${HALO_JETZT:-$(date +%H%M)}; J=$((10#$J))
-(( J >= 900 && J < 2200 )) || abbruch "nur zwischen 09:00 und 22:00 (jetzt $(printf %04d $J))"
+if [[ -n $VOLLDAMPF ]]; then
+  (( J >= 900 )) || abbruch "nur zwischen 09:00 und 24:00 (Volldampf; jetzt $(printf %04d $J))"
+else
+  (( J >= 900 && J < 2200 )) || abbruch "nur zwischen 09:00 und 22:00 (jetzt $(printf %04d $J))"
+fi
 HEUTE=$(date +%F) BER=${HALO_BERICHTE:-$HOME/halo-berichte}
 if [[ -n $VOLLDAMPF ]]; then
   # Volldampf: nur mit aktiver Zeile in ~/halo-nacht/volldampf.txt (pausiert beim Wochenlimit = normale Regeln bis zum freien Reset)

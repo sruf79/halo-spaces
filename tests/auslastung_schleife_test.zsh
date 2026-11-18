@@ -45,7 +45,7 @@ pruefe "Tag, über Soll, 5 Stunden 60 %: warten" "$(W HALO_AS_WOCHE=35 HALO_AS_5
 pruefe "Tag, unter Soll, 5 Stunden 90 %: warten (FENSTER_STOPP)" "$(W HALO_AS_5H=90)" 'warten 5-Stunden-Fenster ab 90'
 pruefe "Tag, unter Soll, 5 Stunden 70 %, ein Worker läuft: warten (FENSTER_DROSSEL)" "$(W HALO_AS_5H=70)" 'warten 5-Stunden-Fenster ab 70 % \(Drossel'
 pruefe "Tag, unter Soll, 5 Stunden 70 %, kein Worker läuft: starten" "$(W HALO_AS_5H=70 HALO_AS_AKTIV=0)" 'starten opus'
-pruefe "Fenster-Takt: 30 % nach 19 Min. (Reserve 25): warten" "$(W HALO_AS_5H=30 HALO_AS_FENSTER_REST=16860)" 'warten Fenster-Takt'
+pruefe "Fenster-Takt: 40 % nach 19 Min. (Reserve 25): warten" "$(W HALO_AS_5H=40 HALO_AS_FENSTER_REST=16860)" 'warten Fenster-Takt'
 pruefe "Fenster-Takt: 20 % nach 19 Min.: starten" "$(W HALO_AS_5H=20 HALO_AS_FENSTER_REST=16860)" 'starten opus'
 pruefe "Fenster-Takt: 60 % nach 3 h (Soll 60+25): starten" "$(W HALO_AS_5H=60 HALO_AS_FENSTER_REST=7200)" 'starten opus'
 pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'

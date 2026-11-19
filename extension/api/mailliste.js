@@ -1161,6 +1161,58 @@ class EnhancerMailliste {
       setAttr(row, "data-mc-hide", !this.starredAny);
       setText(row.querySelector(":scope > .container .name"), tr("Starred"));
     };
+    // Abschnittstitel („Favourites“, „Tags“, „Unread Folders“ …) lassen sich
+    // einklappen wie die Konten (Maintainer 17.11.2026: „Bezüglich 1 und 2
+    // folge ich deiner Empfehlung“): derselbe Pfeil links vom Titel, nur beim
+    // Überfahren sichtbar; der Zustand bleibt über Neustarts. Eigenes Merkmal
+    // statt Thunderbirds Klasse „collapsed“ – die sucht an jedem eingeklappten
+    // Vorfahren Ordner-Methoden (updateNewMessages), die der Abschnitt nicht hat
+    const COLLAPSED_PREF = "extensions.mailcards.collapsedFolderModes";
+    const collapsedModes = () => Services.prefs.getStringPref(COLLAPSED_PREF, "").split(",").filter(Boolean);
+    const modeTwisties = () => {
+      const zu = collapsedModes();
+      for (const head of tree.querySelectorAll(':scope > li[data-mode]:not([data-mode="all"]) > .mode-container')) {
+        if (!head.querySelector(":scope > .mc-mode-twisty")) {
+          const tw = doc.createElement("div");
+          tw.className = "twisty mc-mode-twisty";
+          const img = doc.createElement("img");
+          img.className = "twisty-icon";
+          img.src = "chrome://messenger/skin/icons/new/nav-down-sm.svg";
+          img.alt = "";
+          tw.append(img);
+          head.prepend(tw);
+        }
+        setAttr(head.parentElement, "mc-collapsed", zu.includes(head.parentElement.dataset.mode));
+      }
+    };
+    const onModeClick = event => {
+      const head = event.target.closest?.(".mode-container");
+      const li = head?.parentElement;
+      if (!li || li.parentElement !== tree || event.button != 0 || event.target.closest(".mode-button")) {
+        return;
+      }
+      const zu = collapsedModes().filter(m => m != li.dataset.mode);
+      if (!li.hasAttribute("mc-collapsed")) {
+        zu.push(li.dataset.mode);
+      }
+      Services.prefs.setStringPref(COLLAPSED_PREF, zu.join(","));
+      modeTwisties();
+    };
+    tree.addEventListener("click", onModeClick);
+    // Pfeiltasten überspringen die Zeilen eingeklappter Abschnitte wie bei
+    // eingeklappten Konten (die gewählte Zeile bleibt erreichbar)
+    let rowsGetter = null;
+    for (let p = Object.getPrototypeOf(tree); p && !rowsGetter; p = Object.getPrototypeOf(p)) {
+      rowsGetter = Object.getOwnPropertyDescriptor(p, "rows")?.get || null;
+    }
+    if (rowsGetter) {
+      Object.defineProperty(tree, "rows", {
+        configurable: true,
+        get() {
+          return rowsGetter.call(this).filter(r => !r.closest("li[mc-collapsed]") || r.classList.contains("selected"));
+        },
+      });
+    }
     const apply = () => {
       try {
         starredRow();
@@ -1176,6 +1228,7 @@ class EnhancerMailliste {
           setText(header, L.favourites);
         }
       }
+      modeTwisties();
       // wie Apple Mail: nur ausgeblendet, solange nichts darin liegt
       const hideLocal = localIsEmpty();
       for (const li of tree.querySelectorAll('li[is="folder-tree-row"]')) {
@@ -1374,6 +1427,10 @@ class EnhancerMailliste {
       tree.removeAttribute("mc-accounts-ordered");
       MailServices.mailSession.RemoveFolderListener(starListener);
       tree.querySelectorAll("li[data-mc-starred]").forEach(li => li.remove());
+      tree.removeEventListener("click", onModeClick);
+      delete tree.rows;
+      tree.querySelectorAll(".mc-mode-twisty").forEach(tw => tw.remove());
+      tree.querySelectorAll(":scope > li[mc-collapsed]").forEach(li => li.removeAttribute("mc-collapsed"));
       for (const li of tree.querySelectorAll("[data-mc-hide], [data-mc-flatten]")) {
         li.removeAttribute("data-mc-hide");
         li.removeAttribute("data-mc-flatten");

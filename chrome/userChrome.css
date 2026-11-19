@@ -118,11 +118,21 @@
      beim Ziehen an der Trennlinie */
   --mt-sidebar-max-width: 360px;
   /* Favoriten der Ordnerliste in den Spalten der Konten (hell und dunkel gleich):
-     Überschrift wie die Kontonamen, Zeilen wie die Kontoordner, je Stufe eine
-     Textspalte (16 px Symbol + Abstand) tiefer */
-  --mt-fav-head-start: 40px;
+     alle Abschnittstitel an einer Kante (x = 37, wo der Punkt der Kontotitel
+     sitzt), Zeilen wie die Kontoordner, je Stufe eine Textspalte (16 px
+     Symbol + Abstand) tiefer */
+  --mt-fav-head-start: 25px;
   --mt-fav-row-start: 16px;
   --mt-fav-level: 33px;
+  /* Luft über den Abschnittstiteln (Favourites, Tags, Kontotitel): über dem
+     Titel mehr als darunter, der Titel rückt an seine Ordner; Titelzeile und
+     Abstand darüber je Dichte (hier „Normal“, 32-px-Zeilen: 38 px Mitte zu
+     Mitte darüber, 27 px darunter); die Kontotitel bleiben so hoch wie die
+     Ordnerzeilen (Auswahl gleich hoch, GitHub #44) und bekommen nur den
+     Abstand darüber */
+  --mt-section-h: 22px;
+  --mt-section-gap: 11px;
+  --mt-section-acc-gap: 6px;
   /* Tabellen (Mailliste als Tabelle, Adressbuch-Tabelle, Aufgabenliste): Schrift,
      Zeilen- und Kopfhöhe, Tönung jeder zweiten Zeile – überall gleich wie die
      Mail-Tabelle. Die Zeilenhöhe rechnet die Erweiterung zusätzlich in
@@ -820,10 +830,24 @@ body.layout-wide {
 }
 
 /* Abschnittstitel wie in Apple Mail („Favoriten“, „Google“, „iCloud“):
-   Ansichtsnamen und Kontozeilen klein, grau, ohne Symbol */
+   Ansichtsnamen und Kontozeilen klein, grau, ohne Symbol; alle an einer
+   Kante (x = 37), über jedem außer dem ersten mehr Luft als darunter */
+:root[uidensity="compact"] {
+  /* „Kompakt“ rückt die Kontozeilen 4 px nach links (Punkt bei 33) */
+  --mt-fav-head-start: 21px;
+  --mt-section-h: 20px;
+  --mt-section-gap: 8px;
+}
+
+:root[uidensity="touch"] {
+  --mt-section-h: 26px;
+  --mt-section-gap: 12px;
+}
+
 #folderTree .mode-container {
-  min-height: 22px !important;
-  margin: 10px 8px 2px 18px !important;
+  min-height: 0 !important;
+  height: var(--mt-section-h) !important;
+  margin: var(--mt-section-gap) 8px 0 var(--mt-fav-head-start) !important;
   padding: 0 !important;
   /* keine Linie über den Abschnitten (Thunderbird zeichnet sie über jedem
      außer dem ersten – mit ausgeblendetem „Alle Ordner“ stand sie nur
@@ -831,23 +855,93 @@ body.layout-wide {
   border-block-start: none !important;
 }
 
-/* Favoriten in den Spalten der Konten (Variante A, Maintainer 11.11.2026; Breite
-   bleibt 206 px, „Local Folders“ darf gekürzt erscheinen, Maintainer 15.11.2026):
-   „Favourites“ beginnt wie die Kontonamen, All Inboxes/All Sent/Starred stehen
-   mit Symbol und Text bündig über den Ordnern der Konten; die Konten darunter je
-   Stufe eine Textspalte tiefer (Symbol unter dem Text der Zeile darüber) */
-#folderTree > li[data-mode="smart"] > .mode-container {
-  margin-inline-start: var(--mt-fav-head-start) !important;
+/* der erste Titel oben auf derselben Höhe wie bisher (Mitte 23 px unter der
+   Kante; die Seitenleisten der übrigen Spaces richten ihren ersten Eintrag
+   daran aus), nur ohne Abstand darunter */
+#folderTree > li:first-child > .mode-container {
+  margin-block-start: calc(23px - var(--mt-section-h) / 2) !important;
 }
 
-#folderTree > li[data-mode="smart"] li > .container {
+/* zwischen den Abschnitten nur die Luft über dem Titel (Thunderbird gibt dem
+   Ende eines Abschnitts noch 3 px mit) */
+#folderTree > li[data-mode],
+#folderTree > li[data-mode] > ul {
+  margin-block-end: 0 !important;
+  padding-block-end: 0 !important;
+}
+
+/* Kontotitel: so hoch wie die Ordnerzeilen (GitHub #44), darüber dieselbe
+   Luft wie über „Favourites“ und „Tags“ (Mitte zu Mitte gleich) */
+#folderTree > li > ul > li[data-server-type] {
+  margin-block-start: var(--mt-section-acc-gap) !important;
+}
+
+/* steht „All Folders“ ganz oben (ohne Favoriten), beginnt das erste Konto
+   oben an derselben Stelle wie bisher */
+#folderTree > li[data-mode="all"]:first-child > ul {
+  margin-block-start: calc(-1 * var(--mt-section-acc-gap)) !important;
+}
+
+/* Favoriten und Schlagwörter in den Spalten der Konten (Variante A, Maintainer
+   11.11.2026; Breite bleibt 206 px, „Local Folders“ darf gekürzt erscheinen,
+   Maintainer 15.11.2026): All Inboxes/All Sent/Starred und die Schlagwörter
+   stehen mit Symbol und Text bündig über den Ordnern der Konten; die Konten
+   darunter je Stufe eine Textspalte tiefer */
+#folderTree > li:is([data-mode="smart"], [data-mode="tags"]) li > .container {
   padding-inline-start: calc(var(--mt-fav-row-start) + var(--depth, 0) * var(--mt-fav-level)) !important;
+}
+
+/* Konten unter All Inboxes/All Sent ohne das wiederholte Ordnersymbol (Maintainer
+   17.11.2026: „ok dann setzen wir A um“): der Kontopunkt steht unter dem Text
+   der Zeile darüber (x = 77), der Name dahinter (x = 92); „Local Folders“ hat
+   keinen Punkt, sein Name steht trotzdem bei 92 */
+#folderTree > li[data-mode="smart"] > ul > li > ul > li > .container .icon {
+  display: none !important;
+}
+
+#folderTree > li[data-mode="smart"] > ul > li > ul > li > .container {
+  /* ohne Symbol fällt auch dessen Abstand weg: 9 px weniger, damit der
+     Punkt bei 77 steht */
+  padding-inline-start: calc(var(--mt-fav-row-start) + var(--mt-fav-level) - 9px) !important;
+}
+
+#folderTree > li[data-mode="smart"] > ul > li > ul > li:not([style*="--mc-acc"]) > .container .name {
+  padding-inline-start: 15px !important;
 }
 
 #folderTree .mode-name {
   font-size: calc(11px * var(--mt-font-scale, 1)) !important;
   font-weight: 600 !important;
   color: var(--mt-text-tertiary) !important;
+}
+
+/* Abschnittstitel einklappbar wie die Konten (Pfeil setzt die Erweiterung,
+   Maintainer 17.11.2026): derselbe Pfeil an derselben Stelle wie bei den
+   Kontotiteln (x = 8 in jeder Dichte), nur beim Überfahren; eingeklappt
+   zeigt er nach rechts und die Ordner darunter verschwinden */
+#folderTree > li > .mode-container {
+  position: relative !important;
+  cursor: default !important;
+}
+
+#folderTree .mc-mode-twisty {
+  position: absolute !important;
+  inset-block: 0 !important;
+  inset-inline-start: calc(8px - var(--mt-fav-head-start)) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+#folderTree > li[mc-collapsed] > .mode-container .twisty-icon {
+  transform: rotate(-90deg) !important;
+}
+
+#folderTree > li[mc-collapsed] > .mode-container .twisty-icon:dir(rtl) {
+  transform: rotate(90deg) !important;
+}
+
+#folderTree > li[mc-collapsed] > ul {
+  display: none !important;
 }
 
 /* Kontozeilen so hoch wie die übrigen Zeilen (Höhe je Dichte von oben):

@@ -10506,8 +10506,9 @@ def server_checks(m, results):
 
         def favourites_columns():
             # wie Apple Mail (Maintainer 11.11.2026, Variante A): Symbole von All Inboxes/All Sent bündig über den
-            # Ordnersymbolen der Konten, „Favourites“ beginnt wie die Kontonamen; aufgeklappt stehen die Konten
-            # unter All Inboxes eine Stufe tiefer, ihr Symbol unter dem Text der Zeile darüber. Breite bleibt
+            # Ordnersymbolen der Konten; „Favourites“, „Tags“ und die Kontotitel an einer Kante (Maintainer 17.11.2026,
+            # „ok dann setzen wir A um“); aufgeklappt stehen die Konten unter All Inboxes ohne eigenes Symbol, ihr
+            # Punkt unter dem Text der Zeile darüber. Breite bleibt
             # 206 px, „Local Folders“ darf dort mit „…“ gekürzt erscheinen (Maintainer 15.11.2026); unter Linux ist
             # die Ordnerliste in diesem Fenster nur 160 px breit, die Spalten müssen trotzdem stimmen
             res = m.js(r"""
@@ -10538,8 +10539,32 @@ def server_checks(m, results):
               // aufgeklappt: Konten unter All Inboxes
               if (inboxRow?.classList.contains("collapsed")) inboxRow.querySelector(":scope > .container .twisty")?.click();
               await until(() => [...inboxRow?.querySelectorAll(":scope > ul > li") || []].some(shown), 4000);
+              // Kontopunkte setzt die Erweiterung kurz nach dem Aufklappen
+              await until(() => [...(inboxRow?.querySelectorAll(":scope > ul > li") || [])].some(l => l.style.getPropertyValue("--mc-acc")), 3000).catch(() => null);
               const kids = [...(inboxRow?.querySelectorAll(":scope > ul > li[is='folder-tree-row']") || [])].filter(shown);
               out.kidIcons = [...new Set(kids.map(icon))]; out.inboxText = inboxRow ? name(inboxRow) : null;
+              // Variante A (Maintainer 17.11.2026): Konten darunter ohne wiederholtes Symbol, Punkt unter dem Text der
+              // Zeile darüber, Name 15 px dahinter, auch ohne Punkt („Local Folders“)
+              const dotX = li => { const n = li.querySelector(":scope > .container .name"), cs = a3.getComputedStyle(n, "::before");
+                                   return cs.content == "none" || !shown(n) ? null : Math.round(n.getBoundingClientRect().left - left0 + parseFloat(cs.marginLeft || 0)); };
+              out.kidDots = [...new Set(kids.map(dotX).filter(v => v != null))]; out.kidText = [...new Set(kids.map(name))];
+              // alle Abschnittstitel an einer Kante: „Favourites“ und „Tags“ dort, wo der Punkt der Kontotitel sitzt;
+              // über jedem Titel außer dem ersten mehr Luft als darunter (Mitte zu Mitte)
+              const fp = a3.folderPane, oldModes = fp.activeModes;
+              if (!oldModes.includes("tags")) { fp.activeModes = [...oldModes, "tags"]; await ruhig(800); }
+              const tagHead = tree.querySelector(':scope > li[data-mode="tags"] > .mode-container .mode-name');
+              out.tagHeader = tx(tagHead); out.accDot = dotX(accRow);
+              const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+              const tagC = tagHead?.closest(".mode-container"), tagFirst = tree.querySelector(':scope > li[data-mode="tags"] > ul > li > .container');
+              // die sichtbare Zeile direkt darüber (nach Lage, nicht nach DOM: „Local Folders“ steht per order vorn)
+              const above = el => { const t = el.getBoundingClientRect().top;
+                return [...tree.querySelectorAll('li[is="folder-tree-row"] > .container')].filter(c => shown(c) && c.getBoundingClientRect().bottom <= t + 1)
+                  .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]; };
+              const before = tagC && above(tagC);
+              out.tagGap = before && tagFirst ? [Math.round(mid(tagC) - mid(before)), Math.round(mid(tagFirst) - mid(tagC))] : null;
+              const accC = accRow.querySelector(":scope > .container"), accPrev = above(accC);
+              out.accGap = accPrev ? Math.round(mid(accC) - mid(accPrev)) : null;
+              fp.activeModes = oldModes; await ruhig(600);
               // der Aufklapp-Pfeil bleibt links vom Symbol in eigener Spalte (sichtbar beim Überfahren)
               const tw = inboxRow?.querySelector(":scope > .container .twisty .twisty-icon")?.getBoundingClientRect();
               out.twisty = tw && tw.width > 0 ? [Math.round(tw.left - left0), Math.round(tw.right - left0)] : null;
@@ -10551,13 +10576,70 @@ def server_checks(m, results):
             fi, ai = res.get("favIcons") or [], res.get("accIcons") or []
             ok = (len(fi) >= 2 and len(ai) == 1 and all(v == ai[0] for v in fi)
                   and len(set(res.get("favText") or [])) == 1 and res.get("favText")[0] == (res.get("accText") or [None])[0]
-                  and res.get("header") is not None and res.get("header") == res.get("accName")
-                  and res.get("kidIcons") and len(res["kidIcons"]) == 1 and abs(res["kidIcons"][0] - res["inboxText"]) <= 2
+                  and res.get("header") is not None
+                  and res.get("kidIcons") == [None] and len(res.get("kidDots") or []) == 1 and abs(res["kidDots"][0] - res["inboxText"]) <= 1
+                  and len(res.get("kidText") or []) == 1 and res["kidText"][0] - res["kidDots"][0] == 15
+                  and res.get("accDot") is not None and abs(res["header"] - res["accDot"]) <= 1 and res.get("tagHeader") == res["header"]
+                  and res.get("tagGap") and res["tagGap"][0] > res["tagGap"][1] and res.get("accGap") == res["tagGap"][0]
                   and res.get("twisty") and res["twisty"][0] >= 0 and res["twisty"][1] <= fi[0]
                   # „Local Folders“ da, ganz oder mit „…“ gekürzt (Maintainer 15.11.2026)
                   and any(n == "Local Folders" and (fits or dots) for n, fits, dots in res.get("kidNames") or []))
             return ok, f"{res}"
-        check("Ordnerliste: Favoriten-Symbole und „Favourites“ bündig mit den Spalten der Konten, Konten unter All Inboxes eine Stufe tiefer", favourites_columns, results)
+        check("Ordnerliste: Favoriten-Symbole bündig mit den Spalten der Konten, „Favourites“, „Tags“ und Kontotitel an einer Kante mit mehr Luft darüber, Konten unter All Inboxes ohne Symbol mit Punkt unter dem Text darüber", favourites_columns, results)
+
+        def favourites_collapse():
+            # Abschnittstitel einklappbar wie die Konten (Maintainer 17.11.2026, „Bezüglich 1 und 2 folge ich deiner
+            # Empfehlung“): Pfeil an derselben Stelle wie bei den Kontotiteln, Klick klappt „Favourites“ zu (Zeilen weg,
+            # Pfeiltasten überspringen sie, Zustand gemerkt) und wieder auf; in „Kompakt“ stehen Titel und Kontopunkt
+            # weiter an einer Kante, über dem Titel 8 px Luft (Titelzeile 20 px), Mitte zu Mitte wie über den Kontotiteln
+            res = m.js(r"""
+              const a3 = await toMail(), ad = a3.document, tree = ad.getElementById("folderTree"), PREF = "extensions.mailcards.collapsedFolderModes";
+              const left0 = ad.getElementById("folderPane").getBoundingClientRect().left;
+              const shown = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+              const X = el => shown(el) ? Math.round(el.getBoundingClientRect().left - left0) : null;
+              const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+              const smart = await until(() => tree.querySelector(':scope > li[data-mode="smart"]'), 8000);
+              const head = smart.querySelector(":scope > .mode-container"), tw = head.querySelector(":scope > .twisty");
+              const accRow = [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type="imap"]')].find(shown);
+              const out = { tw: X(tw), accTw: X(accRow?.querySelector(":scope > .container .twisty")), pref0: Services.prefs.getStringPref(PREF, "") };
+              const favRows = () => [...smart.querySelectorAll(':scope > ul > li[is="folder-tree-row"]')].filter(shown).length;
+              out.rows0 = favRows();
+              // zu: Klick auf den Pfeil
+              const sel = tree.selectedRow;
+              tw.click(); await ruhig(400);
+              out.closed = { rows: favRows(), attr: smart.hasAttribute("mc-collapsed"), pref: Services.prefs.getStringPref(PREF, ""),
+                             rot: getComputedStyle(tw.querySelector(".twisty-icon")).transform,
+                             // Pfeiltasten: keine Zeile der eingeklappten Favoriten (außer einer schon gewählten)
+                             inRows: tree.rows.filter(r => smart.contains(r) && r != sel).length,
+                             // der nächste Titel (oberstes Konto, auch „On My Mac“) rückt direkt unter „Favourites“
+                             accMid: Math.round(Math.min(...[...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type] > .container')]
+                                                              .filter(shown).map(mid)) - mid(head)) };
+              // auf: Klick auf den Titel selbst
+              head.querySelector(".mode-name").click(); await ruhig(400);
+              out.open = { rows: favRows(), attr: smart.hasAttribute("mc-collapsed"), pref: Services.prefs.getStringPref(PREF, "") };
+              // Kompakt
+              const dens = Services.prefs.getIntPref("mail.uidensity", 1);
+              Services.prefs.setIntPref("mail.uidensity", 0); await ruhig(800);
+              const tx = el => { const r = ad.createRange(); r.selectNodeContents(el); return Math.round(r.getBoundingClientRect().left - left0); };
+              const nm = accRow.querySelector(":scope > .container .name");
+              const above = el => { const t = el.getBoundingClientRect().top;
+                return [...tree.querySelectorAll('li[is="folder-tree-row"] > .container')].filter(c => shown(c) && c.getBoundingClientRect().bottom <= t + 1)
+                  .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]; };
+              const accC = accRow.querySelector(":scope > .container");
+              out.compact = { head: tx(head.querySelector(".mode-name")), dot: Math.round(nm.getBoundingClientRect().left - left0), h: Math.round(head.getBoundingClientRect().height),
+                              tw: X(tw), accTw: X(accRow.querySelector(":scope > .container .twisty")),
+                              accGap: above(accC) ? Math.round(mid(accC) - mid(above(accC))) : null };
+              Services.prefs.setIntPref("mail.uidensity", dens); await ruhig(800);
+              return out;""")
+            c, o, k = res.get("closed") or {}, res.get("open") or {}, res.get("compact") or {}
+            ok = (res.get("tw") is not None and abs(res["tw"] - (res.get("accTw") or -99)) <= 1 and res.get("rows0", 0) >= 2
+                  and c.get("rows") == 0 and c.get("attr") and c.get("pref") == "smart" and "matrix" in (c.get("rot") or "") and c.get("inRows") == 0
+                  and 28 <= (c.get("accMid") or 0) <= 40
+                  and o.get("rows") == res["rows0"] and o.get("attr") is False and o.get("pref") == ""
+                  and k.get("head") is not None and abs(k["head"] - k.get("dot", -99)) <= 1 and k.get("h") == 20
+                  and k.get("tw") is not None and abs(k["tw"] - (k.get("accTw") or -99)) <= 1 and k.get("accGap") == 30)
+            return ok, f"{res}"
+        check("Ordnerliste: „Favourites“ einklappbar wie die Konten (Pfeil an derselben Stelle, Zustand gemerkt), in „Kompakt“ Titel und Kontopunkt an einer Kante mit 8 px Luft über dem Titel", favourites_collapse, results)
 
         def sidebar_fonts():
             # Seitenleisten aus einem Guss (Variante A, Maintainer 16.11.2026): Zeilen 13 px, die gewählte Zeile halbfett (600)

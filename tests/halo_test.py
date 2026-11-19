@@ -14462,10 +14462,16 @@ def run_checks(m, version, profile, results):
         # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
         # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
         # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
-        res = m.js(CAL_CHECK_JS + r"""
+        # 36 Termine anlegen und löschen plus fünf Bereiche mit je bis zu 3 s ruhig() – unter Linux (CI) über der
+        # Standardgrenze von 30 s, darum wie andere lange Prüfungen mit 90 s; die Zeiten je Abschnitt stehen im Ergebnis
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        try:
+          res = m.js(CAL_CHECK_JS + r"""
+          const t0 = Date.now(), ms = {};
           const c = testCalendar(), added = [];
           for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
             const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
+          ms.add = Date.now() - t0;
           const out = {};
           try {
           const cmd = d.getElementById("calendar_toggle_todaypane_command");
@@ -14497,12 +14503,17 @@ def run_checks(m, version, profile, results):
             agenda.scrollTop = 120; agenda.dispatchEvent(new w.Event("scroll")); await ruhig(300);
             v.scroll = { more, moved: agenda.scrollTop, plusShift: Math.round(((R(plus)?.top ?? 0) - (before ?? 0)) * 10) / 10 };
             agenda.scrollTop = 0;
-            out[name] = v;
+            out[name] = v; ms[name] = Date.now() - t0;
           }
           for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
           await toMail(); await ruhig(600);
+          out.ms = ms;
           return out;
-          } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } }""")
+          } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } ms.del = Date.now() - t0; }""")
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
+        res = res or {}
+        ms = res.pop("ms", None)
         def gut(v):
             t, p = v.get("title") or {}, v.get("plus") or {}
             return (v.get("inRow") == ["mcTodayToggle"] and v.get("toggle") is not None and 0 <= v["toggle"] <= 14
@@ -14512,7 +14523,7 @@ def run_checks(m, version, profile, results):
                     and p.get("underCard") is not None and 8 <= p["underCard"] <= 16 and p.get("toBottom") is not None and 6 <= p["toBottom"] <= 14
                     and v.get("fade") and v["scroll"]["plusShift"] == 0)
         ok = len(res) == 5 and all(gut(v) for v in res.values()) and any(v["scroll"]["more"] and v["scroll"]["moved"] > 0 for v in res.values())
-        return ok, f"{res}"
+        return ok, f"{res} ms={ms}"
     check("Today-Pane: Kopf aufgeräumt – oben nur der Today-Knopf, „Today“ mittig zwischen Mini-Kalender und Liste, „+“ fest mittig unten unter der Liste (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)", today_head_tidy, results)
 
     def toolbar_icons_only_any_style():

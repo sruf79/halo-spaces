@@ -515,3 +515,14 @@ Board, Issues und Release höchstens alle 15 Minuten (ein jüngerer Zwischenspei
 steht das Feld auf `null`. „Als Nächstes“ kommt aus der neuesten Plandatei des Directors (`<datum>-plan.md` bzw.
 `<datum>-tagesroutine-plan[-n].tsv`), nur Einträge mit Status Todo. Protokoll `~/halo-nacht/leitstand/leitstand.log`; Probe ohne
 Push: `zsh tests/leitstand-status.zsh --ohne-push`; Logik-Prüfung `zsh tests/leitstand_status_test.zsh`.
+
+Agenten (Nachbesserung 19.11.2026): je Lauf und Wächter genau ein Eintrag – zählt nur der Prozess aus der Sperrdatei
+(`lauf.lock`, `tagesroutine.lock`, `auslastung-schleife.lock`, `zwischen-schleife.lock`), sonst jeder passende ohne
+Zeitgeber-Muster (die 4-Stunden-Zeitgeber `sleep 14400` der Worker heißen wie die Schleife). Worker einzeln als `worker` mit
+Zweig im Namen, eine Designer-Runde als eigener Agent. Feld `eintrag` (Maintainer 18.11.2026: „Anzahl gleichzeitiger agents
+sieht man nicht und auch nicht woran diese arbeiten“): Titel aus dem Kopf der Tagesroutine-Runde (ps kodiert ihn nach vis(3),
+der Zubringer dekodiert), sonst aus `~/halo-nacht/in-arbeit.tsv`: `tests/board.sh status <id> arbeit` (auch `in_progress`)
+schreibt dort Zeit, id, Titel, PID-Kette des Aufrufers, Zweig und Ordner; jeder andere Status, `archiv` und eine Notiz
+„wartet auf Push“ räumen die Zeile; zugeordnet wird über die PID-Kette (Lauf bzw. Worker-PID), beim Worker ersatzweise
+über Zweig oder Arbeitskopie; Zeilen älter als 24 Stunden zählen nicht. Schritt-Texte ohne Sitzungs-IDs. `ci_main` kommt
+aus einer eigenen Abfrage der fünf neuesten main-Läufe (abgebrochene zählen nicht), nicht nur aus den 15 neuesten Läufen.

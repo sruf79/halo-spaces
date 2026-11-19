@@ -714,7 +714,7 @@ const PstImport = {
     this.running = job;
     try {
       if (parts.mail && source.mail?.length) {
-        await this.runMail(job, source, win, status, progress);
+        await this.runMail(job, source, win, status, progress, parts.folders);
       }
       if (parts.contacts && !job.stop && this.counts(source).contacts) {
         status(tr("Importing {folder}…", { folder: tr("Contacts") }));
@@ -741,7 +741,12 @@ const PstImport = {
     }
     return server.rootFolder;
   },
-  async runMail(job, source, win, status, progress) {
+  // folders: Pfade der gewählten Ordner (path.join("\u0000")); ohne Angabe alle.
+  // Nicht gewählte Ordner über einem gewählten entstehen leer, damit der Baum stimmt
+  async runMail(job, source, win, status, progress, folders = null) {
+    const chosen = folders && new Set(folders);
+    const key = f => f.path.join("\u0000");
+    const needed = f => !chosen || chosen.has(key(f)) || [...chosen].some(k => k.startsWith(`${key(f)}\u0000`));
     const local = this.localRoot();
     const target = await ArchiveAccount.child(local, this.folderName(source.name), win);
     if (!target) {
@@ -754,6 +759,9 @@ const PstImport = {
       if (job.stop) {
         break;
       }
+      if (!needed(f)) {
+        continue;
+      }
       const parent = f.path.length > 1 ? dests.get(f.path.slice(0, -1).join("\u0000")) : target;
       const dest = parent && await ArchiveAccount.child(parent, this.folderName(f.name), win);
       if (!dest) {
@@ -762,6 +770,9 @@ const PstImport = {
         continue;
       }
       dests.set(f.path.join("\u0000"), dest);
+      if (chosen && !chosen.has(key(f))) {
+        continue;
+      }
       job.folders++;
       const have = new Set(ArchiveAccount.messages(dest).map(h => h.messageId));
       let mine = 0, failed = 0;
@@ -876,214 +887,347 @@ const PstImport = {
     }
   },
 
-  async open(win) {
+  // Datei wählen und lesen: { file, source } oder { error } (Text für die Meldung im Assistenten)
+  async pick(win) {
     const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
     fp.init(win.browsingContext, tr("Open Outlook Data File"), Ci.nsIFilePicker.modeOpen);
     fp.appendFilter(tr("Outlook Data File (PST)"), "*.pst");
     fp.appendFilters(Ci.nsIFilePicker.filterAll);
     const result = await new Promise(resolve => fp.open(resolve));
     if (result != Ci.nsIFilePicker.returnOK || !fp.file) {
-      return;
+      return null;
     }
-    const bc = win.browsingContext;
-    const title = tr("Outlook Data File (PST)");
-    let file, source;
+    let file;
     try {
       file = this.openFile(fp.file.path);
-      source = this.source(file.pst, fp.file.leafName.replace(/\.(pst|ost)$/i, ""));
+      return { file, path: fp.file.path, source: this.source(file.pst, fp.file.leafName.replace(/\.(pst|ost)$/i, "")) };
     } catch (e) {
       file?.close();
       log("pst read error", e);
       // gültige Outlook-Datei, nur nicht lesbar: ehrlich sagen statt „beschädigt“
-      await Services.prompt.asyncAlert(bc, Services.prompt.MODAL_TYPE_WINDOW, title, this.isPst(fp.file.path)
+      return { error: this.isPst(fp.file.path)
         ? tr("{file} is an Outlook data file that halo.spaces can’t read yet (some newer files from Outlook cannot be opened).", { file: fp.file.leafName })
-        : tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }));
-      return;
+        : tr("{file} could not be read. It may be damaged or not an Outlook data file.", { file: fp.file.leafName }) };
     }
-    this.openWizard(win, source, () => file.close());
   },
 };
 
-// Assistent „Outlook-Datendatei importieren“ (eigenes kleines Fenster wie
-// „Konto lokal archivieren“ und „Postfächer importieren“ bei Apple Mail):
-// Übersicht (Ordner mit Anzahl, Auswahl Mail/Kontakte/Kalender, wenn die Datei
-// mehr als Mails enthält), Import, Fortschritt je Ordner, Abbruch, Abschluss
-// mit Anzahl je Ordner und Teil. done() schließt die Datei wieder
-PstImport.openWizard = function (mailWin, source, done = () => {}) {
-  const hw = mailWin.openDialog("resource://mailcards/about/pst.html", "_blank",
-    "chrome,dialog=yes,centerscreen,resizable=yes,width=460,height=480");
-  let tries = 0, closed = false;
-  const finish = () => {
-    if (!closed) {
-      closed = true;
-      done();
+// Outlook-Datendatei im Import-Assistenten von Thunderbird (about:import, wie
+// „Import from Apple Mail“): Schritt 1 eigene Auswahl unter den Quellen,
+// Schritt 2 Datei wählen, Ordnerbaum mit Anzahl und Häkchen je Ordner (dazu
+// Kontakte und Kalender, wenn die Datei welche hat), Schritt 3 Ziel und
+// „Start Import“ mit Fortschritt, Anhalten und Abschluss – Aufbau und Klassen
+// wie Thunderbirds eigene Importe, damit das Design der übrigen Schritte gilt.
+// Der Assistent kennt seine Steuerung nur als let/const im Fensterskript:
+// import-bruecke.js holt sie per loadSubScript in dasselbe Fenster
+PstImport.hookWizard = function (cw) {
+  const doc = cw.document;
+  const sources = doc.getElementById("start-sources");
+  if (cw.__mcPstFlow || !sources || !doc.getElementById("main")) {
+    return cw.__mcPstFlow;
+  }
+  try {
+    Services.scriptloader.loadSubScript("resource://mailcards/about/import-bruecke.js", cw);
+  } catch (e) {
+    log("pst wizard bridge error", e);
+    return null;
+  }
+  const B = cw.__haloImportBridge;
+  const el = (tag, cls, text) => {
+    const e = doc.createElement(tag);
+    if (cls) {
+      e.className = cls;
     }
+    if (text != null) {
+      e.textContent = text;
+    }
+    return e;
   };
-  const wait = () => {
-    if (hw.closed || tries++ > 100) {
-      finish();
+  const l10n = (e, id) => (e.setAttribute("data-l10n-id", id), e);
+  // Schritt 1: Auswahl nach „Import from Apple Mail“, vor „Import from a file“
+  const choice = el("label", "toggle-container-with-text");
+  choice.id = "mcPstSource";
+  const radio = el("input");
+  radio.type = "radio";
+  radio.name = "appSource";
+  radio.value = "halo-pst";
+  choice.append(radio, el("p", null, tr("Import from an Outlook data file (PST)")),
+    el("p", "tip-caption", tr("Import messages, contacts, and calendars from an Outlook data file (PST).")));
+  const list = sources.querySelector(".source-list");
+  const fileChoice = list?.querySelector("input[value=file]")?.closest("label");
+  fileChoice ? list.insertBefore(choice, fileChoice) : list?.append(choice);
+
+  // eigener Bereich wie tabPane-app: Ordner (Schritt 2), Bestätigung (Schritt 3)
+  const pane = el("div", "tabPane");
+  pane.id = "tabPane-halopst";
+  pane.hidden = true;
+  const h1 = () => el("h1", null, tr("Import Outlook Data File"));
+  const fileRow = () => {
+    const dl = el("dl");
+    const dd = el("dd", "mc-pst-file");
+    dl.append(l10n(el("dt"), "addr-book-directories-pane-source"), dd);
+    return [dl, dd];
+  };
+  const items = el("section");
+  items.id = "halopst-items";
+  const [itemsDl, itemsFile] = fileRow();
+  const folderBox = el("div", "option-list indent mc-pst-folders");
+  const partBox = el("div", "option-list indent mc-pst-parts");
+  const invalid = el("p", "center");
+  invalid.append(el("span", null, tr("Choose at least one folder or item to import.")));
+  items.append(h1(), itemsDl, l10n(el("h2", "light-heading"), "items-pane-title2"), folderBox, partBox, invalid);
+  const summary = el("section");
+  summary.id = "halopst-summary";
+  const [sumDl, sumFile] = fileRow();
+  const dest = el("dd", "mc-pst-dest");
+  sumDl.append(el("dt", null, tr("Destination:")), dest);
+  const sumList = el("ul", "summary-items indent");
+  const note = el("p", "description");
+  const startBtn = l10n(el("button", "primary before-progress center-button"), "summary-pane-start");
+  const progressPane = el("div", "progressPane");
+  const progressSec = el("section", "progressPane-progress");
+  const bar = el("progress", "progressPaneProgressBar");
+  const desc = el("p", "progressPaneDesc tip-caption");
+  progressSec.append(bar, desc);
+  const stopBtn = el("button", "center-button btn-link mc-pst-stop", tr("Stop"));
+  progressPane.append(progressSec, stopBtn);
+  const report = el("p", "progressFinish center mc-pst-report");
+  const finishBtn = l10n(el("button", "progressFinish primary center-button"), "button-finish");
+  const againBtn = l10n(el("button", "progressFinish no-restart center-button btn-link"), "summary-pane-start-over");
+  summary.append(h1(), sumDl, l10n(el("h2", "light-heading"), "summary-pane-title"), sumList, note, startBtn, progressPane,
+    report, finishBtn, againBtn);
+  const footer = el("footer", "buttons-container");
+  const backBtn = l10n(el("button", "back"), "button-back");
+  const nextBtn = l10n(el("button", "primary next-button continue"), "button-continue");
+  footer.append(backBtn, nextBtn);
+  pane.append(items, summary, footer);
+  doc.getElementById("main").insertBefore(pane, doc.getElementById("importFooter"));
+
+  const state = { file: null, source: null, fileName: "", running: false };
+  const close = () => {
+    try {
+      state.file?.close?.();
+    } catch {}
+    state.file = null;
+  };
+  cw.addEventListener("unload", () => {
+    PstImport.running && state.running && (PstImport.running.stop = true);
+    close();
+  });
+  const notify = async text => {
+    const box = B.notifications();
+    box.removeAllNotifications();
+    const n = await box.appendNotification("error", { label: text, priority: box.PRIORITY_CRITICAL_HIGH }, null);
+    n.dismissable = false;
+  };
+  const show = id => {
+    for (const s of pane.querySelectorAll(":scope > section")) {
+      s.hidden = s.id != `halopst-${id}`;
+    }
+    pane.dataset.step = id;
+  };
+  const counts = () => PstImport.counts(state.source);
+  const want = () => {
+    const folders = [...folderBox.querySelectorAll("input:checked")].map(b => b.dataset.path);
+    const part = k => !!partBox.querySelector(`input[data-part=${k}]`)?.checked;
+    return { mail: folders.length > 0, folders, contacts: part("contacts"), calendar: part("calendar") };
+  };
+  const update = () => {
+    const w = want();
+    const any = w.mail || w.contacts || w.calendar;
+    nextBtn.disabled = !any;
+    invalid.hidden = any;
+  };
+  folderBox.addEventListener("change", update);
+  partBox.addEventListener("change", update);
+  const box = (label, n, data) => {
+    const l = el("label", "toggle-container-with-text");
+    const b = el("input");
+    b.type = "checkbox";
+    b.checked = true;
+    Object.assign(b.dataset, data);
+    const name = el("span", "mc-pst-name", label);
+    l.append(b, name, el("span", "mc-pst-count", String(n)));
+    return l;
+  };
+  const stepItems = () => ({ returnTo: () => showItems() });
+  // Schritt 2: Ordnerbaum mit Anzahl, alle vorgewählt
+  const showItems = (fresh = false) => {
+    B.showTab("halopst");
+    pane.classList.remove("progress", "complete", "final-step");
+    backBtn.disabled = false;
+    if (fresh) {
+      itemsFile.textContent = sumFile.textContent = state.fileName;
+      folderBox.replaceChildren(...state.source.mail.map(f => {
+        const l = box(f.name, f.count, { path: f.path.join("\u0000") });
+        l.style.marginInlineStart = `${f.depth * 20}px`;
+        return l;
+      }));
+      folderBox.hidden = !state.source.mail.length;
+      const c = counts();
+      partBox.replaceChildren(...[["contacts", "Contacts"], ["calendar", "Calendar"]].filter(([k]) => c[k])
+        .map(([k, label]) => box(tr(label), c[k], { part: k })));
+      partBox.hidden = !partBox.children.length;
+    }
+    B.steps().updateSteps(stepItems(), 1);
+    show("items");
+    update();
+  };
+  // Schritt 3: Ziel, Übersicht, Start
+  const showSummary = () => {
+    const w = want();
+    const target = PstImport.folderName(state.source.name);
+    let local = "Local Folders";
+    try {
+      local = MailServices.accounts.localFoldersServer?.prettyName || local;
+    } catch {}
+    dest.textContent = `${local}/${target}`;
+    const picked = state.source.mail.filter(f => w.folders.includes(f.path.join("\u0000")));
+    const c = counts();
+    sumList.replaceChildren(...[
+      w.mail ? tr("{n} messages in {f} folders", { n: picked.reduce((a, f) => a + (f.count || 0), 0), f: picked.length }) : null,
+      w.contacts ? tr("{n} contacts", { n: c.contacts }) : null,
+      w.calendar ? tr("{n} events and tasks", { n: c.calendar }) : null].filter(Boolean).map(t => el("li", null, t)));
+    note.textContent = [w.mail ? tr("The messages are copied to Local Folders under {target}. The Outlook data file stays unchanged.", { target }) : null,
+      w.contacts || w.calendar ? tr("Contacts go to a new address book, events and tasks to a new calendar, both named {name}.", { name: state.source.name }) : null]
+      .filter(Boolean).join(" ");
+    report.textContent = "";
+    pane.classList.remove("progress", "complete");
+    pane.classList.add("final-step");
+    startBtn.disabled = false;
+    backBtn.disabled = false;
+    B.steps().updateSteps({}, 0);
+    show("summary");
+  };
+  const start = async () => {
+    if (state.running || !state.source) {
       return;
     }
-    const doc = hw.document;
-    if (doc?.documentURI?.startsWith("resource://mailcards/about/pst.html") && doc.readyState == "complete" && doc.body) {
-      build(doc);
-    } else {
-      mailWin.setTimeout(wait, 30);
-    }
-  };
-  mailWin.setTimeout(wait, 30);
-  const build = doc => {
-    doc.title = tr("Import Outlook Data File");
-    const el = (tag, cls, text) => {
-      const e = doc.createElement(tag);
-      if (cls) {
-        e.className = cls;
-      }
-      if (text != null) {
-        e.textContent = text;
-      }
-      return e;
+    const w = want();
+    state.running = true;
+    pane.classList.add("progress");
+    backBtn.disabled = true;
+    stopBtn.hidden = false;
+    // Fortschritt über alle gewählten Teile (Mails je Nachricht, Kontakte und Kalender je Teil)
+    const picked = state.source.mail.filter(f => w.folders.includes(f.path.join("\u0000")));
+    const c = counts();
+    const total = (w.mail ? picked.reduce((a, f) => a + (f.count || 0), 0) : 0) + (w.contacts ? c.contacts : 0) + (w.calendar ? c.calendar : 0);
+    const done = new Map();
+    const setBar = () => {
+      const sum = [...done.values()].reduce((a, b) => a + b, 0);
+      bar.value = total ? Math.min(1, sum / total) : 0;
     };
-    const h1 = el("h1", null, tr("Import “{name}”", { name: source.name }));
-    const summary = el("p", "summary");
-    const list = el("div", "folders");
-    const table = el("table");
-    list.append(table);
-    const target = PstImport.folderName(source.name);
-    const counts = PstImport.counts(source);
-    const note = el("p", "note", tr("The messages are copied to Local Folders under {target}. The Outlook data file stays unchanged.", { target }));
-    if (counts.contacts || counts.calendar) {
-      note.textContent += ` ${tr("Contacts go to a new address book, events and tasks to a new calendar, both named {name}.", { name: source.name })}`;
-    }
-    // Auswahl der Teile (nur wenn es mehr als Mails gibt)
-    const parts = el("div", "parts");
-    const boxes = {};
-    for (const [key, label] of [["mail", "Mail"], ["contacts", "Contacts"], ["calendar", "Calendar"]]) {
-      if (!counts[key]) {
-        continue;
+    bar.value = 0;
+    desc.textContent = "";
+    const status = text => {
+      desc.textContent = text;
+      if (text == tr("Importing {folder}…", { folder: tr("Contacts") })) {
+        picked.forEach(f => done.set(f, f.count || 0));
+      } else if (text == tr("Importing {folder}…", { folder: tr("Calendar") })) {
+        picked.forEach(f => done.set(f, f.count || 0));
+        w.contacts && done.set("contacts", c.contacts);
       }
-      const l = el("label");
-      const box = el("input");
-      box.type = "checkbox";
-      box.checked = true;
-      box.dataset.part = key;
-      l.append(box, doc.createTextNode(`${tr(label)} (${counts[key]})`));
-      parts.append(l);
-      boxes[key] = box;
-    }
-    parts.hidden = !counts.contacts && !counts.calendar;
-    list.hidden = !source.mail.length;
-    const cancel = el("button", "capsule");
-    const start = el("button", "capsule primary");
-    cancel.append(el("span", "label", tr("Cancel")));
-    start.append(el("span", "label", tr("Import")));
-    const buttons = el("div", "buttons");
-    buttons.append(cancel, start);
-    doc.body.replaceChildren(h1, summary, parts, list, note, buttons);
-    const rows = new Map();
-    table.replaceChildren(...source.mail.map(f => {
-      const tr0 = el("tr");
-      const name = el("td", "name", f.name);
-      name.style.paddingInlineStart = `${12 + f.depth * 14}px`;
-      const num = el("td", "num", String(f.count));
-      tr0.append(name, num);
-      rows.set(f, { tr: tr0, num });
-      return tr0;
-    }));
-    summary.textContent = [tr("{n} messages in {f} folders", { n: counts.mail, f: source.mail.length }),
-      counts.contacts ? tr("{n} contacts", { n: counts.contacts }) : null,
-      counts.calendar ? tr("{n} events and tasks", { n: counts.calendar }) : null].filter(Boolean).join(" · ");
-    const chosen = () => Object.fromEntries(Object.entries(boxes).map(([k, b]) => [k, b.checked]));
-    const update = () => {
-      start.disabled = !Object.values(chosen()).some(Boolean);
-      list.toggleAttribute("data-off", boxes.mail ? !boxes.mail.checked : false);
+      setBar();
     };
-    parts.addEventListener("change", update);
-    update();
-    let phase = "overview";
     const progress = (f, st) => {
-      const r = rows.get(f);
-      if (!r) {
-        return;
-      }
-      r.tr.dataset.state = st.state;
-      if (st.state == "busy") {
-        r.num.textContent = st.total ? `${st.copied} / ${st.total}` : "…";
-        r.tr.scrollIntoView({ block: "nearest" });
-      } else if (st.imported != null) {
-        // Abschluss: Anzahl in der Datei und im Zielordner
-        r.num.textContent = st.imported >= st.total ? `${st.total} ✓` : `${st.imported} / ${st.total}`;
-        if (st.imported < st.total && st.state == "done") {
-          r.tr.dataset.state = "failed";
-        }
-      }
+      done.set(f, st.state == "busy" ? st.copied : f.count || 0);
+      setBar();
     };
-    cancel.addEventListener("click", () => {
-      if (phase == "running") {
-        PstImport.running && (PstImport.running.stop = true);
-      } else {
-        hw.close();
-      }
-    });
-    start.addEventListener("click", async () => {
-      if (phase == "finished") {
-        hw.close();
-        return;
-      }
-      if (phase != "overview") {
-        return;
-      }
-      phase = "running";
-      start.disabled = true;
-      const want = chosen();
-      for (const b of Object.values(boxes)) {
-        b.disabled = true;
-      }
-      cancel.querySelector(".label").textContent = tr("Stop");
-      const job = await PstImport.run(source, mailWin, text => (summary.textContent = text), progress, want);
-      phase = "finished";
-      finish();
-      if (hw.closed || !job) {
-        return;
-      }
-      const lines = [tr(job.stop ? "Import stopped." : "Import finished.")];
-      if (want.mail) {
-        lines.push(tr("{n} messages imported in {f} folders.", { n: job.copied, f: job.folders }));
-        if (job.skipped) {
-          lines.push(tr("{n} messages were already there.", { n: job.skipped }));
-        }
-      }
-      if (want.contacts && job.book) {
-        lines.push(tr("{n} contacts added to the address book {name}.", { n: job.contacts.added, name: source.name }));
-        if (job.contacts.skipped) {
-          lines.push(tr("{n} contacts were already there.", { n: job.contacts.skipped }));
-        }
-        job.contacts.failed && job.failed.push(tr("Contacts"));
-      }
-      if (want.calendar && job.calendar) {
-        lines.push(tr("{n} events and tasks added to the calendar {name}.", { n: job.events.added, name: source.name }));
-        if (job.events.skipped) {
-          lines.push(tr("{n} events and tasks were already there.", { n: job.events.skipped }));
-        }
-        job.events.failed && job.failed.push(tr("Calendar"));
-      }
-      if (job.failed.length) {
-        lines.push(tr("Not copied: {list}", { list: [...new Set(job.failed)].join(", ") }));
-      }
-      summary.textContent = lines.join(" ");
-      cancel.hidden = true;
-      start.disabled = false;
-      start.querySelector(".label").textContent = tr("Done");
-    });
-    hw.addEventListener("unload", () => {
-      if (phase == "running" && PstImport.running) {
-        PstImport.running.stop = true;
-      } else {
-        finish();
-      }
-    });
+    let job = null;
+    try {
+      job = await PstImport.run(state.source, cw, status, progress, w);
+    } catch (e) {
+      log("pst import error", e);
+    }
+    state.running = false;
+    if (cw.closed) {
+      return;
+    }
+    bar.value = 1;
+    stopBtn.hidden = true;
+    const lines = [tr(job?.stop ? "Import stopped." : "Import finished.")];
+    if (job && w.mail) {
+      lines.push(tr("{n} messages imported in {f} folders.", { n: job.copied, f: job.folders }));
+      job.skipped && lines.push(tr("{n} messages were already there.", { n: job.skipped }));
+    }
+    if (job && w.contacts && job.book) {
+      lines.push(tr("{n} contacts added to the address book {name}.", { n: job.contacts.added, name: state.source.name }));
+      job.contacts.skipped && lines.push(tr("{n} contacts were already there.", { n: job.contacts.skipped }));
+      job.contacts.failed && job.failed.push(tr("Contacts"));
+    }
+    if (job && w.calendar && job.calendar) {
+      lines.push(tr("{n} events and tasks added to the calendar {name}.", { n: job.events.added, name: state.source.name }));
+      job.events.skipped && lines.push(tr("{n} events and tasks were already there.", { n: job.events.skipped }));
+      job.events.failed && job.failed.push(tr("Calendar"));
+    }
+    if (!job || job.failed.length) {
+      lines.push(tr("Not copied: {list}", { list: [...new Set(job?.failed || [state.source.name])].join(", ") }));
+    }
+    report.textContent = lines.join(" ");
+    desc.textContent = tr(job?.stop ? "Import stopped." : "Import finished.");
+    pane.dataset.result = job?.stop ? "stopped" : job && !job.failed.length ? "done" : "failed";
+    pane.classList.add("complete");
+    close();
   };
-  return hw;
+  // Datei übernehmen (aus der Dateiauswahl oder, im Test, erfundene Daten)
+  const use = (source, fileName, file = null) => {
+    close();
+    state.source = source;
+    state.file = file;
+    state.fileName = fileName;
+    delete pane.dataset.result;
+    B.notifications().removeAllNotifications();
+    showItems(true);
+  };
+  // „Continue“ in Schritt 1: bei der PST-Auswahl Thunderbirds eigenen Weg abfangen
+  doc.getElementById("tabPane-start").addEventListener("click", async event => {
+    const btn = event.target.closest?.("button.continue");
+    if (!btn || !radio.checked || sources.hidden) {
+      return;
+    }
+    event.stopPropagation();
+    event.preventDefault();
+    B.notifications().removeAllNotifications();
+    const got = await PstImport.pick(cw);
+    if (!got) {
+      return;
+    }
+    if (got.error) {
+      notify(got.error);
+      return;
+    }
+    use(got.source, PathUtils.filename(got.path), got.file);
+  }, true);
+  backBtn.addEventListener("click", () => {
+    B.notifications().removeAllNotifications();
+    B.steps().backTo();
+  });
+  nextBtn.addEventListener("click", () => pane.dataset.step == "items" && !nextBtn.disabled && showSummary());
+  startBtn.addEventListener("click", () => start());
+  stopBtn.addEventListener("click", () => PstImport.running && (PstImport.running.stop = true));
+  finishBtn.addEventListener("click", () => cw.close());
+  againBtn.addEventListener("click", () => B.restart());
+  cw.__mcPstFlow = { use, pane, radio };
+  return cw.__mcPstFlow;
+};
+
+// für den Test: Import-Assistenten öffnen und mit source gleich bei Schritt 2 beginnen
+PstImport.openWizard = async function (mailWin, source) {
+  mailWin.openTab("contentTab", { url: "about:import#start" });
+  const tabmail = mailWin.document.getElementById("tabmail");
+  for (let i = 0; i < 200; i++) {
+    const cw = tabmail.tabInfo.map(t => t.browser?.contentWindow).find(c => c?.document?.documentURI?.startsWith("about:import")
+      && c.document.readyState == "complete");
+    const flow = cw && (cw.__mcPstFlow || PstImport.hookWizard(cw));
+    if (flow) {
+      if (source) {
+        flow.use(source, `${source.name}.pst`);
+      }
+      return cw;
+    }
+    await new Promise(r => mailWin.setTimeout(r, 50));
+  }
+  return null;
 };
 
 // Konto lokal archivieren (z. B. vor Ablauf eines befristeten Kontos): alle

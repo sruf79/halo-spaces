@@ -10400,6 +10400,31 @@ categories-box moz-page-nav-button {
   color: var(--mt-btn-disabled-text) !important;
 }
 
+/* Outlook-Datendatei (PST) im Import-Assistenten: Ordner (eingerückt nach
+   Tiefe) und Kontakte/Kalender als Zeilen mit Häkchen, Name und Anzahl
+   rechts in Grau; Abstände wie die übrigen Auswahlen, nur enger, weil
+   eine Datei viele Ordner haben kann */
+#tabPane-halopst :is(.mc-pst-folders, .mc-pst-parts) > label {
+  grid-template-columns: min-content 1fr auto;
+  grid-template-areas: "i text num";
+  margin-block: 0.35em;
+}
+
+#tabPane-halopst .mc-pst-count {
+  grid-area: num;
+  padding-inline-start: 12px;
+  color: var(--mt-text-secondary, GrayText);
+  font-variant-numeric: tabular-nums;
+}
+
+#tabPane-halopst .mc-pst-parts {
+  margin-block-start: 0.8em;
+}
+
+#tabPane-halopst .mc-pst-report {
+  margin-block: 0.8em;
+}
+
 /* Thunderbird malt Suchzeile und Überschrift darin noch einmal in
    --layout-background-0 */
 :root:has(#sidebar > categories-box) :is(.main-search, .main-heading) {

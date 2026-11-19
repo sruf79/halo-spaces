@@ -11510,18 +11510,30 @@ def run_checks(m, version, profile, results):
           const out = { first: { copied: first?.copied, skipped: first?.skipped, failed: first?.failed }, second: { copied: second?.copied, skipped: second?.skipped },
             inbox: inbox?.getTotalMessages(false), q4: q4?.getTotalMessages(false),
             mails: Object.fromEntries(hdrs.map(h => [h.mime2DecodedSubject, [h.isRead, h.isFlagged]])), from: h1?.mime2DecodedAuthor, atts };
-          // Assistent: Übersicht, Import (alles schon da), Abschluss mit Anzahl je Ordner
-          const hw = w.__mcPstWizard(source());
-          const doc = await until(() => hw.document?.querySelector("body.pst table tr") && hw.document, 8000);
+          // Import-Assistent (File → Import…): eigene Auswahl in Schritt 1, Ordner mit Anzahl und Häkchen (Schritt 2),
+          // Ziel und Übersicht (Schritt 3), Import (alles schon da) mit Abschluss; Menü File ohne eigenen PST-Punkt
+          out.menu = !!w.document.getElementById("mcFileImportPst");
+          const cw = await w.__mcPstWizard(source());
+          const doc = cw?.document;
           if (doc) {
-            const rows = () => [...doc.querySelectorAll("table tr")];
-            out.wiz = { title: doc.querySelector("h1")?.textContent, folders: rows().map(r => r.cells[0].textContent), nums: rows().map(r => r.cells[1].textContent),
-              summary: doc.querySelector(".summary")?.textContent, indent: rows().map(r => parseFloat(r.cells[0].style.paddingInlineStart)) };
-            doc.querySelector(".buttons .primary").click();
-            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
-            out.wiz.end = { button: doc.querySelector(".buttons .primary .label")?.textContent, states: rows().map(r => r.dataset.state),
-              nums: rows().map(r => r.cells[1].textContent), summary: doc.querySelector(".summary")?.textContent };
-            hw.close();
+            const vis = e => !!e && !e.closest("[hidden]") && e.getBoundingClientRect().height > 0;
+            const pane = doc.getElementById("tabPane-halopst");
+            const rows = () => [...doc.querySelectorAll("#halopst-items .mc-pst-folders > label")];
+            out.wiz = { sources: [...doc.querySelectorAll("#start-sources input[name=appSource]")].map(i => i.value),
+              choice: [...doc.querySelectorAll("#mcPstSource p")].map(p => p.textContent),
+              items: vis(doc.getElementById("halopst-items")), start: vis(doc.getElementById("tabPane-start")),
+              folders: rows().map(r => r.querySelector(".mc-pst-name").textContent), nums: rows().map(r => r.querySelector(".mc-pst-count").textContent),
+              checked: rows().map(r => r.querySelector("input").checked), indent: rows().map(r => r.getBoundingClientRect().left),
+              file: doc.querySelector("#halopst-items .mc-pst-file")?.textContent, steps: doc.querySelectorAll("#stepNav li").length };
+            pane.querySelector("footer .continue").click();
+            await until(() => vis(doc.getElementById("halopst-summary")), 5000);
+            out.wiz.sum = { dest: doc.querySelector(".mc-pst-dest")?.textContent, list: [...doc.querySelectorAll("#halopst-summary .summary-items li")].map(l => l.textContent),
+              confirm: doc.getElementById("navConfirm")?.classList.contains("current"), start: vis(doc.querySelector("#halopst-summary .before-progress")) };
+            doc.querySelector("#halopst-summary .before-progress").click();
+            await until(() => pane.classList.contains("complete"), 30000);
+            out.wiz.end = { result: pane.dataset.result, report: doc.querySelector(".mc-pst-report")?.textContent,
+              finish: vis(doc.querySelector("#halopst-summary .progressFinish.primary")), bar: doc.querySelector("#halopst-summary progress")?.value };
+            cw.close();
           }
           // echte Datei (nur von Hand mit HALO_PST): Anzahl je Ordner wie in der Datei
           const real = %s;
@@ -11544,16 +11556,21 @@ def run_checks(m, version, profile, results):
               and mails.get("PST-Probe 1 Grüße") == [False, True] and mails.get("PST-Probe 2 Grüße") == [True, False]
               and mails.get("PST-Probe 3 Grüße") == [False, False] and "Dora Müller" in (res.get("from") or "")
               and res.get("atts") == ["Rechnung.txt"]
-              and wiz.get("title") == "Import “Halo PST-Probe”" and wiz.get("folders") == ["Posteingang", "Projekte", "2026/Q4"]
-              and wiz.get("nums") == ["3", "0", "1"] and wiz.get("indent", [0])[2] > wiz.get("indent", [0])[1]
-              and "4 messages in 3 folders" in (wiz.get("summary") or "")
-              and end.get("button") == "Done" and end.get("states") == ["done"] * 3 and end.get("nums") == ["3 ✓", "0 ✓", "1 ✓"]
-              and "4 messages were already there" in (end.get("summary") or ""))
+              and res.get("menu") is False
+              and wiz.get("sources", [])[-2:] == ["halo-pst", "file"]
+              and wiz.get("choice") == ["Import from an Outlook data file (PST)", "Import messages, contacts, and calendars from an Outlook data file (PST)."]
+              and wiz.get("items") and not wiz.get("start") and wiz.get("file") == "Halo PST-Probe.pst" and wiz.get("steps", 0) >= 3
+              and wiz.get("folders") == ["Posteingang", "Projekte", "2026/Q4"] and wiz.get("checked") == [True] * 3
+              and wiz.get("nums") == ["3", "0", "1"] and wiz.get("indent", [0, 0, 0])[2] > wiz.get("indent", [0, 0, 0])[1]
+              and (wiz.get("sum") or {}).get("dest", "").endswith("/Halo PST-Probe") and (wiz.get("sum") or {}).get("list") == ["4 messages in 3 folders"]
+              and (wiz.get("sum") or {}).get("confirm") and (wiz.get("sum") or {}).get("start")
+              and end.get("result") == "done" and end.get("finish") and end.get("bar") == 1
+              and "4 messages were already there" in (end.get("report") or ""))
         if real:
             r = res.get("real") or {}
             ok = ok and r.get("folders") and all(c == d for _, c, d in r["folders"]) and not r.get("failed")
         return ok, f"{res}"
-    check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, Assistent mit Anzahl je Ordner", pst_import_mail, results)
+    check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, im Import-Assistenten eigene Quelle mit Ordnern, Anzahl und Häkchen, Ziel, Abschluss; Menü File ohne eigenen PST-Punkt", pst_import_mail, results)
 
     def pst_import_contacts_calendar():
         # Outlook-Datendatei importieren (Reihe PST 3/3): Kontakte als neues Adressbuch und Termine/Aufgaben als neuer lokaler
@@ -11583,21 +11600,28 @@ def run_checks(m, version, profile, results):
           const out = { first: { contacts: first?.contacts, events: first?.events }, second: { contacts: second?.contacts, events: second?.events },
             book: !!book, cards: cards.length, dora: dora && [dora.displayName, String(dora.vCardProperties?.getFirstValue("org") ?? ""), dora.vCardProperties?.getFirstValue("bday")],
             calType: calendar?.type, items: calItems.map(i => i && [i.title, "dueDate" in i ? "task" : "event", i.startDate?.isDate ?? null, i.getProperty?.("LOCATION") || null]) };
-          // Assistent: drei Teile zur Auswahl; nur Kontakte und Kalender importieren (alles schon da), Mailordner unberührt
-          const hw = w.__mcPstWizard(source());
-          const doc = await until(() => hw.document?.querySelector("body.pst .parts input") && hw.document, 8000);
+          // Import-Assistent: Mailordner und Kontakte/Kalender zur Auswahl; nur Kontakte und Kalender importieren (alles schon da),
+          // ohne Häkchen ist „Continue“ gesperrt, Mailordner bleiben unberührt
+          const cw = await w.__mcPstWizard(source());
+          const doc = cw?.document;
           if (doc) {
-            const boxes = [...doc.querySelectorAll(".parts input")];
-            out.wiz = { parts: [...doc.querySelectorAll(".parts label")].map(l => l.textContent), visible: !doc.querySelector(".parts").hidden,
-              summary: doc.querySelector(".summary")?.textContent };
-            const mailBox = boxes.find(b => b.dataset.part == "mail");
-            mailBox.click();
-            out.wiz.off = doc.querySelector(".folders").hasAttribute("data-off");
-            doc.querySelector(".buttons .primary").click();
-            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
-            out.wiz.end = doc.querySelector(".summary")?.textContent;
+            const pane = doc.getElementById("tabPane-halopst");
+            const next = pane.querySelector("footer .continue");
+            const label = l => [l.querySelector(".mc-pst-name").textContent, l.querySelector(".mc-pst-count").textContent].join(" ");
+            out.wiz = { parts: [...doc.querySelectorAll(".mc-pst-parts > label")].map(label), folders: [...doc.querySelectorAll(".mc-pst-folders > label")].map(label) };
+            const all = [...doc.querySelectorAll("#halopst-items input[type=checkbox]")];
+            all.forEach(b => b.checked && b.click());
+            out.wiz.noneBlocked = next.disabled;
+            all.filter(b => b.dataset.part).forEach(b => b.click());
+            out.wiz.partsOk = !next.disabled;
+            next.click();
+            await until(() => !doc.getElementById("halopst-summary").hidden, 5000);
+            out.wiz.list = [...doc.querySelectorAll("#halopst-summary .summary-items li")].map(l => l.textContent);
+            doc.querySelector("#halopst-summary .before-progress").click();
+            await until(() => pane.classList.contains("complete"), 30000);
+            out.wiz.end = doc.querySelector(".mc-pst-report")?.textContent;
             try { out.wiz.localMail = !!MailServices.accounts.localFoldersServer.rootFolder.getChildNamed(name); } catch { out.wiz.localMail = false; }
-            hw.close();
+            cw.close();
           }
           // aufräumen
           try { book && MailServices.ab.deleteAddressBook(book.URI); } catch (e) { out.cleanup = String(e); }
@@ -11613,12 +11637,12 @@ def run_checks(m, version, profile, results):
               and str((res.get("dora") or [None] * 3)[2] or "").replace("-", "") == "19800504" and res.get("calType") == "storage"
               and len(items) == 3 and all(items) and items[0][:2] == ["Besprechung PST", "event"] and items[0][3] == "Wien"
               and items[1][:3] == ["Feiertag PST", "event", True] and items[2][:2] == ["Aufgabe PST", "task"]
-              and wiz.get("visible") and wiz.get("parts") == ["Mail (1)", "Contacts (2)", "Calendar (3)"] and wiz.get("off")
-              and "2 contacts" in (wiz.get("summary") or "") and "3 events and tasks" in (wiz.get("summary") or "")
+              and wiz.get("parts") == ["Contacts 2", "Calendar 3"] and wiz.get("folders") == ["Posteingang 1"]
+              and wiz.get("noneBlocked") and wiz.get("partsOk") and wiz.get("list") == ["2 contacts", "3 events and tasks"]
               and "2 contacts were already there" in (wiz.get("end") or "") and "3 events and tasks were already there" in (wiz.get("end") or "")
               and "messages imported" not in (wiz.get("end") or "") and not wiz.get("localMail"))
         return ok, f"{res}"
-    check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile im Assistenten", pst_import_contacts_calendar, results)
+    check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile und Ordner im Import-Assistenten", pst_import_contacts_calendar, results)
 
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief

@@ -3128,7 +3128,7 @@ function hookMenubar(win, restorers) {
     }
     win.setTimeout(() => win.__mcStartNewList?.(), 300);
   });
-  const importPst = own("mcFileImportPst", "Open Outlook Data File (PST)…", () => PstImport.open(win).catch(e => log("pst error", e)));
+  // Outlook-Datendatei (PST): im Import-Assistenten (File → Import…), kein eigener Menüpunkt mehr
   // für den automatischen Test
   win.__mcPstRead = path => PstImport.read(path);
   win.__mcPstIsPst = path => PstImport.isPst(path);
@@ -3169,7 +3169,7 @@ function hookMenubar(win, restorers) {
     ["menu_FilePopup", [
       L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"), [newList],
       L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
-      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), [importPst], L("menu_export"), S,
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
       L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
     ]],
     ["menu_EditPopup", [
@@ -7943,6 +7943,17 @@ class CardEnhancer {
             if (lw.opener?.document?.getElementById("tabmail")?.currentTabInfo?.mode?.name == "tasks") {
               lw.addEventListener("DOMContentLoaded", () => listInfoDialog(lw), { once: true });
             }
+          }
+          // Import-Assistent: Outlook-Datendatei (PST) als eigene Quelle
+          if (url.startsWith("about:import") && doc.defaultView) {
+            const iw = doc.defaultView;
+            iw.addEventListener("load", () => {
+              try {
+                PstImport.hookWizard(iw);
+              } catch (e) {
+                log("pst wizard error", e);
+              }
+            }, { once: true });
           }
           // Dialogfenster als ruhige Karte ohne sichtbare Titelleiste (macOS)
           if (CARD_WINDOWS.some(u => url.startsWith(u)) && doc.defaultView) {

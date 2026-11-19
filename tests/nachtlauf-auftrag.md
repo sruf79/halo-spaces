@@ -231,10 +231,11 @@ Reihenfolge:
           allgemein JEDEN release verhindern würde muss so ein fehler mit
           höchster priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen
           nach AGENTS.md „Rot bleibt rot“: Ursache belegen, ein belegter
-          Fix, Prüfung nie abschwächen. Sperrt es das Release: docs/release.md
-          „Rote Änderung auf einen Nebenzweig“ (belegter Verursacher auf einen
-          Nebenzweig, Rest veröffentlichen; Modell nach rot_stufe aus
-          tests/lauf-hilfen.zsh, Verursacher mit rot_eintragen zählen).
+          Fix, Prüfung nie abschwächen. Sperrt es das Release oder wird
+          deswegen etwas zurückgenommen (auch wenn der Rest veröffentlicht
+          wird): docs/release.md „Rote Änderung auf einen Nebenzweig“, immer
+          über tests/rot-nebenzweig.sh (Verursacher auf pruef/rot-<Karte>,
+          Zähler, Board-Notiz, Modellstufe; Rest veröffentlichen).
       (a) Schwere (Absturz, Datenverlust, Mail-Grundfunktion gestört oder
           gefährdet; Mail-Grundfunktion = Umfang von Apple Mail, siehe b)
           geht immer vor, auch wenn groß. Die Funktion des
@@ -661,9 +662,18 @@ Reihenfolge:
       Zeigt ein späterer Lauf derselben Nacht nach deinem Fix die Prüfung grün,
       entsteht kein Eintrag (in derselben Nacht repariert, Entscheidung vom 7.11.2026).
       Kleine, klare Ursache: beheben, mit --only prüfen (Windows-Job: zusätzlich
-      --vm --port 2851), committen, pushen, erneut abwarten. Sonst den Commit,
-      der den Fehler bringt, mit git revert zurücknehmen (Eintrag zurück auf
-      Todo mit Notiz, was im Weg war), pushen, erneut abwarten. Höchstens zwei
+      --vm --port 2851), committen, pushen, erneut abwarten. Sonst ist jede
+      Rücknahme wegen dieser roten CI ein Nebenzweig-Fall, auch wenn danach der
+      Rest veröffentlicht wird (docs/release.md „Rote Änderung auf einen
+      Nebenzweig“, Maintainer 18.11.2026): zsh tests/rot-nebenzweig.sh --lauf <id>
+      (ordnet die roten Prüfungen den Commits zu, nimmt den Verursacher auf main
+      zurück, legt ihn auf pruef/rot-<Karte>, zählt ihn, schreibt die Notiz an
+      die Karte und setzt sie auf Todo, gibt „Modellstufe: …“ aus). Nie von
+      Hand zurücknehmen. Meldet es ZWEIFEL: nur mit belegter Ursache
+      (Diagnoselauf, Bisect) erneut mit --commit <Hash> aufrufen, sonst nichts
+      zurücknehmen. Zeilen NEBENZWEIG und Modellstufe in den Bericht unter
+      „Tests“; die Untersuchung startet nach dem Lauf (nachtlauf.sh meldet
+      neue Zweige pruef/rot-* an neon). Dann pushen, erneut abwarten. Höchstens zwei
       Reparaturrunden und keine neue ab 07:30 – danach kein Release, die
       Commits bleiben gepusht, im Bericht sagen, was rot ist; die Einträge
       bleiben In Progress mit Notiz „CI rot“.

@@ -86,5 +86,17 @@ for f in AGENTS.md docs/neon-sitzung.md tests/nachtlauf-auftrag.md tests/tagesro
   pruefe "Verweis auf die Regel in $f" "$(grep -c 'Rote Änderung auf einen Nebenzweig' $HIER/../$f)" '^[1-9]'
 done
 
+# --- Rot-Absatz im Nachtlauf-Auftrag (Schritt 4c): Rücknahme nur über tests/rot-nebenzweig.sh, kein nacktes git revert
+# (Bericht ~/halo-berichte/2026-11-19-rot-regel.md, L1/L8: 4c sagte „mit git revert zurücknehmen“) ---
+NA=$HIER/nachtlauf-auftrag.md
+ROTABS=$(sed -n '/c) Rot (Exitcode 1)/,/Abgebrochen (Exitcode 3)/p' $NA)
+pruefe "Nachtlauf-Auftrag: Rot-Absatz 4c gefunden" "$(print -r -- $ROTABS | grep -c .)" '^[1-9][0-9]*$'
+pruefe "Nachtlauf-Auftrag 4c: nennt tests/rot-nebenzweig.sh und den Nebenzweig-Fall" "$ROTABS" 'tests/rot-nebenzweig\.sh' 'Nebenzweig-Fall' 'Rote Änderung auf einen'
+pruefe "Nachtlauf-Auftrag 4c: kein nacktes „git revert“" "$(print -r -- $ROTABS | grep -c 'git revert')" '^0$'
+pruefe "Nachtlauf-Auftrag Regel (0): Rücknahme über das Skript" "$(sed -n '/(0) Ein Fehler, der jedes Release/,/(a) Schwere/p' $NA)" 'tests/rot-nebenzweig\.sh'
+for f in AGENTS.md docs/release.md docs/neon-sitzung.md docs/testrechner.md; do
+  pruefe "Verweis auf tests/rot-nebenzweig.sh in $f" "$(grep -c 'rot-nebenzweig' $HIER/../$f)" '^[1-9]'
+done
+
 (( FEHLER )) && exit 1
 exit 0

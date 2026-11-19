@@ -243,19 +243,36 @@ def grund_aus(schritt):
 def schritt_von(name):
     logs = sorted(glob.glob(N + "/" + LOGS[name]), key=os.path.getmtime)
     return letzte_zeile(logs[-1], True) if logs else (None, None)   # ungekürzt: „nächster Versuch“ steht am Ende
+# Wann macht ein wartender Lauf frühestens weiter (Dashboard-Sitzung, Maintainer 19.11.2026 „ja, bitte neon um das feld“)?
+# Nur aus der Zeile, nach der er selbst wartet, nicht geschätzt: „Pause bis <ISO>“ (aus pausen.txt), „Limit – Pause 30
+# Minuten“ (Zeit der Zeile + 30 Min.), sonst die Uhrzeit nach „nächster Versuch“, „warte bis“, „nächste Planung“ bzw. „vor dem
+# Beginn“ (Wiener Zeit am Tag der Zeile; liegt sie davor, am Folgetag); nichts davon → None.
+def weiter_aus(schritt, wann):
+    s = schritt or ""
+    if wann is None: return None
+    m = re.match(r"Pause bis (\S+)", s)
+    if m: return iso(m.group(1))
+    if re.match(r"Limit\b.*Pause 30 Minuten", s): return iso(wann.timestamp() + 1800)
+    m = re.search(r"nächster Versuch (\d\d):(\d\d)|warte bis (\d\d):(\d\d)|nächste Planung (\d\d):(\d\d)|^vor dem Beginn (\d\d):(\d\d)", s)
+    if not m: return None
+    h, mi = [int(g) for g in m.groups() if g is not None]
+    z = wann.replace(hour=h, minute=mi, second=0, microsecond=0)
+    if z < wann.replace(second=0, microsecond=0): z += dt.timedelta(days=1)
+    return iso(z.timestamp())
 def zustand_von(name, p):
-    """(zustand, grund) eines Laufs mit Hauptprozess p"""
-    if name not in LOGS or runde_von(p): return "arbeitet", None
-    return "wartet", grund_aus(schritt_von(name)[0])
+    """(zustand, grund, weiter_um) eines Laufs mit Hauptprozess p"""
+    if name not in LOGS or runde_von(p): return "arbeitet", None, None
+    schritt, wann = schritt_von(name)
+    return "wartet", grund_aus(schritt), weiter_aus(schritt, wann)
 
 def agenten():
     aus = []
     for name, rx in [v for v in LAEUFE.values()] + SONST_LAEUFE:
         for p in haupt(name, rx):
-            zu, gr = zustand_von(name, p)
+            zu, gr, wu = zustand_von(name, p)
             aus.append({"name": name, "art": "lauf", "seit": iso(PROZ[p][1]), "modell": modell_von(p),
                         "eintrag": eintrag_von(p) if name in LOGS and zu == "arbeitet" else None,
-                        "zustand": zu, "grund": gr})
+                        "zustand": zu, "grund": gr, "weiter_um": wu})
             # Designer als Unteragent einer Runde (Auftrag mit „Design-Eintrag:“): eigener Eintrag
             for k in kinder(p):
                 c = PROZ[k][2]
@@ -263,7 +280,7 @@ def agenten():
                     m, mm = KOPF.search(c), re.search(r"--model (\S+)", c)
                     aus.append({"name": "Designer (%s)" % name, "art": "lauf", "seit": iso(PROZ[k][1]),
                                 "modell": mm.group(1) if mm else None, "eintrag": m.group(1) if m else eintrag_aus_liste(k),
-                                "zustand": "arbeitet", "grund": None})
+                                "zustand": "arbeitet", "grund": None, "weiter_um": None})
     # Worker des Auslastungswächters: Zustandsdatei „<pid> <Sitzung> <Modell> <Start> <Arbeitskopie> <Zweig> …“, nur lebende
     for f in sorted(glob.glob(N + "/auslastung/worker-[0-9]*")):
         t = (lies(f) or "").split()
@@ -271,18 +288,18 @@ def agenten():
             wt, zweig = (t[4] if len(t) > 4 else None), (t[5] if len(t) > 5 else None)
             aus.append({"name": "Worker " + f.rsplit("-", 1)[1] + (" (%s)" % zweig if zweig else ""), "art": "worker",
                         "seit": iso(int(t[3])), "modell": t[2], "eintrag": eintrag_aus_liste(int(t[0]), zweig, wt),
-                        "zustand": "arbeitet", "grund": None})
+                        "zustand": "arbeitet", "grund": None, "weiter_um": None})
     for name, rx in WAECHTER:
         for p in haupt(name, rx):
             aus.append({"name": name, "art": "waechter", "seit": iso(PROZ[p][1]), "modell": modell_von(p), "eintrag": None,
-                        "zustand": "läuft", "grund": None})
+                        "zustand": "läuft", "grund": None, "weiter_um": None})
     for p in oberste(r"Runner\.Worker"):
         aus.append({"name": "CI-Runner", "art": "ci", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None,
-                    "zustand": "läuft", "grund": None})
+                    "zustand": "läuft", "grund": None, "weiter_um": None})
     for p in oberste(r"claude remote-control .*--name (\S+)"):
         m = re.search(r"--name (\S+)", PROZ[p][2])
         aus.append({"name": m.group(1), "art": "sitzung", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None,
-                    "zustand": "läuft", "grund": None})
+                    "zustand": "läuft", "grund": None, "weiter_um": None})
     return aus
 
 # Zeilen ohne Aussage über den Schritt (Kontingent-/Volldampf-Stand, Push-Bestätigung, git-Ausgaben ohne Zeit)
@@ -304,9 +321,10 @@ def lauf(schluessel, logmuster):
     # aktiv = Skript läuft (wie bisher), runde = gerade eine Claude-Runde (sonst wartet es)
     if p:
         r = runde_von(p[0])
-        return {"aktiv": True, "runde": r, "schritt": schritt, "eintrag": eintrag_von(p[0]) if r else None, "seit": iso(PROZ[p[0]][1])}
+        return {"aktiv": True, "runde": r, "schritt": schritt, "eintrag": eintrag_von(p[0]) if r else None, "seit": iso(PROZ[p[0]][1]),
+                "weiter_um": None if r else zustand_von(name, p[0])[2]}
     return {"aktiv": False, "runde": False, "schritt": ("zuletzt: " + schritt) if schritt else None, "eintrag": None,
-            "seit": iso(wann.timestamp()) if wann else None}
+            "seit": iso(wann.timestamp()) if wann else None, "weiter_um": None}
 def laeufe():
     return {"nachtlauf": lauf("nachtlauf", "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log"),
             "tagesroutine": lauf("tagesroutine", "*-tagesroutine.log")}

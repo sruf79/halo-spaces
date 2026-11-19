@@ -531,7 +531,10 @@ läuft (Nachfahre `claude -p …` ihres Prozesses; die Kontingent-Messung `claud
 `agenten` hat `zustand` und `grund`: `arbeitet` (Läufe mit Runde, Designer, Worker), `wartet` (Lauf ohne Runde; `grund` kurz aus
 der letzten Protokollzeile, z. B. „Drossel Stufe 3, wartet bis zur vollen Stunde (15:00)“, Pause, Fenster; `eintrag` und `modell`
 dann `null`) oder `läuft` (Wächter, CI-Runner, Sitzungen). `laeufe.*.aktiv` bleibt „Skript läuft“, neu `laeufe.*.runde` (true/false).
-`verlauf.json` `agenten` zählt nur `arbeitet`.
+`verlauf.json` `agenten` zählt nur `arbeitet`. Feld `weiter_um` (Maintainer 19.11.2026 „ja, bitte neon um das feld“) in jedem
+Eintrag von `agenten` und in `laeufe.*`: frühester Weiterlauf eines wartenden Laufs in UTC, nur aus der Protokollzeile, nach der
+er selbst wartet („Pause bis <ISO>“ aus `pausen.txt`, „Limit – Pause 30 Minuten“ = Zeile + 30 Min., Uhrzeit nach „nächster
+Versuch“/„warte bis“/„nächste Planung“/„vor dem Beginn“, Wiener Zeit, vor der Zeile = Folgetag); sonst und wenn er nicht wartet `null`.
 
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,

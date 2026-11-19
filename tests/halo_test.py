@@ -3272,32 +3272,35 @@ def reading_checks(m, results):
     check("Mailliste: Sortiermenü mit neun Sortierungen wie Apple Mail, Richtung je Sortierung benannt, Stern zuerst mit Datum als zweiter Sortierung", sort_menu, results)
 
     def attachment_header():
-        # Anhänge: Kopfzeile als leise Überschrift (12 px, grau, mit Chevron, ohne Büroklammer), „Save All“ als grauer
-        # Textknopf (24-px-Kapsel mit Lichtkante, Schrift in Textfarbe, Maus dunkler mit Kante) mit kleinem ⌄ direkt dahinter; kurze Mail: Liste direkt unter dem Text statt am unteren Rand
+        # Anhänge: Kopfzeile als leise Überschrift (12 px, grau, mit Chevron, ohne Büroklammer); „Save All“ als leiser Hinweis
+        # (Maintainer 18.11.2026: „dezenten hinweis und keinen grossen button“): in Ruhe nur Text und ⌄ in Grau (12 px, 400 wie die
+        # Anzahl), ohne Fläche und Schatten; unter der Maus die 24-px-Kapsel der Knopf-Familie (Lichtkante) mit Trennstrich zwischen
+        # Text und ⌄, Schrift in Textfarbe, Lage und Größe unverändert; gedrückt dunkler ohne Kante; kurze Mail: Liste direkt unter dem Text
         res = m.js(READING_JS + r"""
           const doc = await showMail("Halo Anhänge");
           doc.defaultView.toggleAttachmentList?.(false); await ruhig(600);
           const g = id => doc.getElementById(id);
           const colorOf = (dc, value, prop) => { const e = dc.createElement("div"); e.style[prop] = value; dc.documentElement.append(e); const c = cs(e)[prop]; e.remove(); return c; };
-          const accent = (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })();
           const save = [g("attachmentSaveAllMultiple"), g("attachmentSaveAllSingle")].find(vis);
           const text = save?.querySelector(".toolbarbutton-text");
+          const half = save?.querySelector(".toolbarbutton-menubutton-button");
           const drop = save?.querySelector(".toolbarbutton-menubutton-dropmarker");
-          const name = doc.querySelector("#attachmentList .attachmentItem .attachmentcell-name, #attachmentList .attachmentItem");
           const mp = g("messagepane"), view = g("attachmentView");
           const body = mp.contentDocument.body;
+          const state = () => { const r = save.getBoundingClientRect();
+            return { bg: cs(save).backgroundColor, sh: cs(save).boxShadow, color: text && cs(text).color, size: text && cs(text).fontSize, weight: text && cs(text).fontWeight,
+                     drop: drop && cs(drop).backgroundColor, line: half ? cs(half).backgroundImage : "", rect: [r.left, r.top, r.width, r.height].map(v => Math.round(v * 10) / 10) }; };
           const out = { toggle: vis(g("attachmentToggle")), chevron: cs(g("attachmentInfo"), "::before").width == "12px", icon: vis(g("attachmentIcon")),
             count: { size: cs(g("attachmentCount")).fontSize, color: cs(g("attachmentCount")).color, text: cs(doc.getElementById("messageHeader")).color },
-            save: save && { bg: cs(save).backgroundColor, color: text && cs(text).color, accent, size: text && cs(text).fontSize,
-                            sh: cs(save).boxShadow, h: Math.round(save.getBoundingClientRect().height), r: cs(save).borderTopLeftRadius,
-                            control: colorOf(doc, "var(--mt-control)", "backgroundColor"), hoverC: colorOf(doc, "var(--mt-control-hover)", "backgroundColor"),
-                            textC: colorOf(doc, "var(--mt-text)", "color"),
-                            gap: text && drop && vis(drop) ? Math.round(drop.getBoundingClientRect().left - text.getBoundingClientRect().right) : null,
-                            dropBorder: drop && cs(drop).borderInlineStartWidth },
+            save: save && { rest: state(), h: Math.round(save.getBoundingClientRect().height), r: cs(save).borderTopLeftRadius,
+                            hoverC: colorOf(doc, "var(--mt-control-hover)", "backgroundColor"), pressC: colorOf(doc, "var(--mt-btn-press)", "backgroundColor"),
+                            textC: colorOf(doc, "var(--mt-text)", "color"), secC: colorOf(doc, "var(--mt-text-secondary)", "color"),
+                            gap: text && drop && vis(drop) ? Math.round(drop.getBoundingClientRect().left - text.getBoundingClientRect().right) : null },
             gap: Math.round(view.getBoundingClientRect().top - (mp.getBoundingClientRect().top + body.getBoundingClientRect().bottom)),
             paneH: Math.round(g("messagepanebox").getBoundingClientRect().height) };
-          if (save) { InspectorUtils.addPseudoClassLock(save, ":hover"); await ruhig(200);
-            out.save.hover = [cs(save).backgroundColor, cs(save).boxShadow]; InspectorUtils.removePseudoClassLock(save, ":hover"); await ruhig(100); }
+          if (save) { InspectorUtils.addPseudoClassLock(save, ":hover"); await ruhig(200); out.save.hover = state();
+            InspectorUtils.addPseudoClassLock(save, ":active"); await ruhig(200); out.save.press = state();
+            InspectorUtils.removePseudoClassLock(save, ":active"); InspectorUtils.removePseudoClassLock(save, ":hover"); await ruhig(100); }
           // Menü über ⌄ erreichbar
           // (zählt, ob das Menü aufgeht – ist Thunderbird auf dem Mac nicht vorn, klappt macOS es sofort wieder zu; CI mac 5.11.)
           if (drop && vis(drop)) {
@@ -3307,15 +3310,22 @@ def reading_checks(m, results):
             out.menu = shown ? "open" : pop?.state; pop?.hidePopup(); await ruhig(300); }
           return out;""")
         c, sv = res.get("count") or {}, res.get("save") or {}
+        rest, hov, prs = sv.get("rest") or {}, sv.get("hover") or {}, sv.get("press") or {}
+        clear = lambda col: col in ("transparent", "rgba(0, 0, 0, 0)")
         ok = (res.get("toggle") is False and res.get("chevron") and res.get("icon") is False and c.get("size") == "12px" and not same_color(c.get("color", ""), c.get("text", ""))
-              and sv.get("size") == "12px" and same_color(sv.get("color") or "", sv.get("textC") or "x") and not same_color(sv.get("color") or "", sv.get("accent") or "x")
-              and same_color(sv.get("bg") or "", sv.get("control") or "x") and "inset" in (sv.get("sh") or "") and (sv.get("sh") or "").count("rgba") >= 2
+              # in Ruhe: nur grauer Text und ⌄, so groß wie die Anzahl, ohne Fläche, Schatten und Trennstrich
+              and rest.get("size") == c.get("size") and rest.get("weight") == "400" and same_color(rest.get("color") or "", sv.get("secC") or "x")
+              and same_color(rest.get("drop") or "", sv.get("secC") or "x") and clear(rest.get("bg")) and rest.get("sh") == "none" and "gradient" not in (rest.get("line") or "")
               and sv.get("h") == 24 and sv.get("r") == "999px"
-              and same_color((sv.get("hover") or [""])[0], sv.get("hoverC") or "x") and (sv.get("hover") or ["", ""])[1] == sv.get("sh")
+              # unter der Maus: Kapsel mit Lichtkante und Trennstrich, Text in Textfarbe, an derselben Stelle
+              and same_color(hov.get("bg") or "", sv.get("hoverC") or "x") and "inset" in (hov.get("sh") or "") and (hov.get("sh") or "").count("rgba") >= 2
+              and "gradient" in (hov.get("line") or "") and same_color(hov.get("color") or "", sv.get("textC") or "x") and hov.get("rect") == rest.get("rect")
+              # gedrückt dunkler, ohne Lichtkante
+              and same_color(prs.get("bg") or "", sv.get("pressC") or "x") and (prs.get("sh") or "").count("rgba") == 1 and prs.get("rect") == rest.get("rect")
               and sv.get("gap") is not None and sv["gap"] <= 6 and res.get("menu") in ("open", "showing")
               and res.get("gap", 999) <= 40)
         return ok, f"{res}"
-    check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als grauer Textknopf mit Lichtkante und ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
+    check("Anhänge: Kopfzeile als leise Überschrift, „Save All“ als leiser grauer Hinweis (in Ruhe ohne Fläche, unter der Maus Kapsel mit Trennstrich) und ⌄ zum Menü; kurze Mail: Liste direkt unter dem Text", attachment_header, results)
 
     def no_quick_reply():
         # Schnellantwort entfernt (Entscheidung Maintainer 29.10.2026): kein Feld unter der Mail, keine Einstellung,

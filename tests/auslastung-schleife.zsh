@@ -400,8 +400,9 @@ $(rundgang_auftrag)" || { log "Rundgang: Auftrag #$rnr nicht lesbar – kein Sta
   nr=$(freie_nummer) || { log "keine freie Worker-Nummer (1–8)"; return 1 }
   name=worker-$stamp-$nr zweig=pruef/worker-$stamp-$nr wt=$WT_BASIS/worker-$stamp-$nr
   p1=$((2874 + 2 * (nr - 1))) p2=$((2875 + 2 * (nr - 1)))
-  local basis fp=-
-  erg=$DIR/$TAG-worker-$nr-${stamp#*-}.erg aus=$DIR/$TAG-worker-$nr-${stamp#*-}.txt
+  # Datum je Start (bis 19.11.2026 nur beim Start des Wächters gesetzt: Ergebnisse vom 19.11. hießen 2026-11-18-worker-*)
+  local tag=$(date +%F) basis fp=-
+  erg=$DIR/$tag-worker-$nr-${stamp#*-}.erg aus=$DIR/$tag-worker-$nr-${stamp#*-}.txt
   [[ $klasse != rundgang && -r $ZUSTAND/liste-fp ]] && fp=$(<$ZUSTAND/liste-fp)
   git -C $MAIN fetch -q origin main 2>>$LOG || { log "git fetch gescheitert – kein Worker"; return 1 }
   mkdir -p $WT_BASIS $ZUSTAND
@@ -414,7 +415,7 @@ $(rundgang_auftrag)" || { log "Rundgang: Auftrag #$rnr nicht lesbar – kein Sta
   log "Worker $nr gestartet: $m, Klasse $klasse, Sitzung $sid, Zweig $zweig (erst beim ersten Commit), Worktree $wt, Ports $p1/$p2 ($2)"
   local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, Klasse $klasse, $(date '+%F %H:%M'). Name $name, Zweig $zweig
 (noch nicht angelegt: der Worktree steht ohne Zweig auf origin/main; vor dem ersten Commit git switch -c $zweig),
-Worktree $wt (nur dort arbeiten), Ports $p1 und $p2, Ergebnisdatei $erg, Bericht ~/halo-berichte/$TAG-worker-$nr.md (Abschnitt anhängen).
+Worktree $wt (nur dort arbeiten), Ports $p1 und $p2, Ergebnisdatei $erg, Bericht ~/halo-berichte/$tag-worker-$nr.md (Abschnitt anhängen).
 Lage (Skript): $2${rnr:+
 Höchstens $max Minuten (danach beendet dich der Wächter).}
 "
@@ -451,6 +452,7 @@ konf_lesen
 log "Auslastungswächter gestartet (Takt $K[TAKT] Min., höchstens $K[MAX_WORKER] Arbeits-Sitzungen, Soll in $K[SOLL_STUNDEN] h bzw. nach freiem Reset bis zum nächsten Reset)"
 ALT=
 while true; do
+  TAG=$(date +%F) LOG=$DIR/$(date +%F)-auslastung.log   # je Takt neu (Datum wechselt um Mitternacht)
   aufraeumen
   z=$(pruefen)
   warte=$K[TAKT]

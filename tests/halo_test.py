@@ -9897,11 +9897,16 @@ def calendar_checks(m, results):
             cw.cardsPane.cardsList.selectedIndex = 0; await ruhig(1000);
             for (let i = 0; i < 10; i++) {
               const w0 = bp.getBoundingClientRect().width;
+              // Bild für Bild im festen Takt (imTakt, wie „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“): in Echtzeit
+              // fielen in der Windows-VM auch auf früher grünen Ständen (b9bbcbf, 19.11.2026) 10/10 Läufe mit zwei bis
+              // drei ausgefallenen Bildern durch – die Ausfälle hingen an der Last der VM, nicht am Code; im festen Takt
+              // ist jedes Bild 16,7 ms und ein Sprung der Bücherliste zeigt sich unabhängig vom Rechner
               btn.click();
-              const ts = [], ws = [], wr = [w0]; const t0 = performance.now();
-              while (performance.now() - t0 < 500) { const t = await new Promise(r => w.requestAnimationFrame(r)); ts.push(t); const bw = bp.getBoundingClientRect().width; wr.push(bw); ws.push(Math.round(bw)); }
+              const ws = [], wr = [w0];
+              const kosten = await imTakt(500, () => { const bw = bp.getBoundingClientRect().width; wr.push(bw); ws.push(Math.round(bw)); });
               await bis(still, "Animation fertig", 3000); await ruhig(300);
-              const dts = ts.slice(1).map((t, k) => t - ts[k]), med = [...dts].sort((a, b) => a - b)[dts.length >> 1] || 16;
+              const ts = ws.map((_, k) => k * BILD_MS);
+              const dts = ts.slice(1).map((t, k) => t - ts[k]), med = BILD_MS;
               // nur während der Bewegung (Breite ändert sich noch); das erste Bild der Bewegung trägt den Aufbau der
               // Animation und zählt nicht (steht als „start“ dabei)
               const moving = ws.map((v, k) => k > 0 && v != ws[k - 1]);
@@ -9913,7 +9918,7 @@ def calendar_checks(m, results):
               // Einblenden erscheint vorab nur der 1-px-Rand der Liste (Spalte noch 0 px), das zählt nicht
               const firstStep = wr.findIndex((v, k) => k > 0 && Math.abs(v - wr[k - 1]) > 1.5);
               const pre = w0 < 2 ? 0 : Math.max(0, ...wr.slice(0, firstStep < 0 ? wr.length : firstStep).map(v => Math.abs(v - w0)));
-              out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), pre: Math.round(pre * 100) / 100, med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length });
+              out.runs.push({ start: Math.round(dts[firstMove - 1] || 0), lost, jump: Math.max(0, ...steps), pre: Math.round(pre * 100) / 100, med: Math.round(med), max: Math.round(Math.max(...dts)), n: dts.length, frameMs: Math.round(bildKosten(kosten, moving)) });
             }
           } finally {
             if (w.gSpacesToolbar.isHidden) { btn.click(); await bis(still, "Animation fertig", 3000); }

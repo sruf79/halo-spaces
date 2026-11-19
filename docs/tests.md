@@ -123,7 +123,7 @@ ist. Anlass: unter xvfb braucht ein Bild der Mail-Seitenleiste je nach CI-Läufe
 von 250 ms Animation blieben 3–8 Bilder, und einzelne Lastbilder ließen Sprünge erscheinen, die es nicht gab
 (Auswertung `~/halo-berichte/2026-11-18-flackern.md`). Aufruf direkt nach dem Auslöser (Klick), währenddessen kein
 `ruhig()` und kein Warten auf `requestAnimationFrame`. Die Aufbauzeit je Bild (Rückgabe) ist nur Auskunft.
-Umgestellt: „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“. Nur für Prüfungen, die Bilder zählen; die Today-Pane-Prüfung
+Umgestellt: „Seitenleiste (Mail): Ein-/Ausblenden ohne Ruck“ und (19.11.2026, in der Windows-VM auch auf früher grünen Ständen 10/10 mit ausgefallenen Bildern) „Seitenleiste Adressbuch: Ein-/Ausblenden ohne verlorene Bilder …“. Nur für Prüfungen, die Bilder zählen; die Today-Pane-Prüfung
 bleibt in Echtzeit (Maintainer 18.11.2026, über neon: „imTakt nur bei Prüfungen, die Bilder zählen, nicht bei der
 Today-Pane“). Weitere Prüfungen erst umstellen, wenn sie nachweislich an ausgefallenen Bildern scheitern. Wer nur
 prüft, ob Animationen gleichzeitig laufen, nimmt eine Stichprobe je Bild (`requestAnimationFrame`) statt einer festen Pause.

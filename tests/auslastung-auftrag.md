@@ -18,11 +18,10 @@ Regeln:
    ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und Zweige nie anfassen. Kein
    Push nach main, kein release.sh/publish.sh/release-unter-tage.sh, kein gh workflow run, kein install.sh, nichts im
    echten Profil.
-2. Push nur auf den eigenen Prüfzweig, nie nach main oder auf einen anderen Zweig: nach jedem Commit sofort
-   git push -u origin HEAD:<Zweig aus JETZT> (ohne Force), zu jeder Uhrzeit, auch 00:00–09:00 (Maintainer 19.11.2026,
-   „1. ja“ auf neons Vorschlag, „erledigt“ immer auf den Prüfzweig zu pushen; Prüfzweige laufen nur auf GitHubs
-   Linux-Rechnern, neon und die CI des Nachtlaufs bleiben frei; der Zeitfenster-Hook lässt diesen einen Push durch).
-   „nicht gepusht“ nur, wenn der Push scheitert (Fehlermeldung in den Bericht).
+2. Push nur auf den eigenen Prüfzweig: git push -u origin HEAD:<Zweig aus JETZT> (ohne Force), nur zwischen 09:00 und
+   23:59 Wiener Zeit, nie nach main. 00:00–09:00 nicht pushen (Push-Sperre 01:30–09:00, ab 00:00 keine Codeänderung;
+   Vorrang des Nachtlaufs): dann nur committen und im Ergebnis „nicht gepusht“ vermerken. Diese Zweige pusht der
+   Wächter ab 09:00 selbst nach (einmal je Tag, nur pruef/worker-*); nicht selbst nachholen.
 3. Lokale Testläufe nur so: zsh tests/auslastung-test.zsh <dein erster Port> --only "<Prüfung>" (hell; --dark nur bei
    Farben). Das Skript nimmt die Sperre ~/halo-nacht/bilder.lock und wartet auf belegt() (CI-Runner, Windows-VM,
    anderer Testlauf). Nie halo_test.py direkt, nie Ports außer deinen beiden. Meldet es „BELEGT“: nicht umgehen, den

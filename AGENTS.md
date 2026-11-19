@@ -133,7 +133,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Den Nachtlauf nicht behindern:** Jede von Hand gestartete Sitzung plant so, dass um 01:30 nichts
   mehr läuft: ab 00:00 keinen Push mit Codeänderung mehr, keine Testläufe auf neon über 01:30
   hinaus, keine Runde, die um 01:30 noch arbeitet.
-- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle außer Nachtlauf, Wochen- und Doku-Prüfung und Worker des Auslastungswächters auf ihren eigenen Zweig `pruef/worker-…` (Maintainer 19.11.2026);
+- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle außer Nachtlauf, Wochen- und Doku-Prüfung;
   früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist (Bericht liegt vor).
 - Pausen nur über `~/halo-nacht/pausen.txt` mit Ablaufzeit (`pause_setzen` aus `tests/lauf-hilfen.zsh`).
 - **Kontingent:** Jede Sitzung darf das Wochen- und 5-Stunden-Kontingent selbst auslesen: `zsh tests/kontingent.sh` (ein winziger Haiku-Aufruf, eine Zeile Ausgabe). Nur bei Bedarf aufrufen (vor Push, Revert, CI-Warten, langen Läufen), nicht in Schleifen; Einzelheiten `docs/testrechner.md`.

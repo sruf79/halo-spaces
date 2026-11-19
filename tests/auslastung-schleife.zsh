@@ -33,11 +33,12 @@
 #      ins Protokoll und nächste Prüfung nach LEER_WARTEN (15) Minuten.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> ohne Zweig auf origin/main; den Zweig pruef/<name> legt er erst vor dem
 # ersten Commit an. Ohne Commit wird der Worktree nach dem Lauf sofort entfernt (kopie_nach_lauf). claude -p mit
-# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn, lässt aber
-# Pushes auf pruef/worker-… zu jeder Zeit durch), Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je
+# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn), Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je
 # Worker-Nummer), höchstens WORKER_MAX_MIN Minuten.
-# Der Wächter ändert nie Regeln, Rechte oder Hooks, pusht nie, veröffentlicht nie und fasst den Checkout
-# ~/halo-spaces nicht an (nur „git fetch“, „worktree add/remove“ und das Löschen leerer Worker-Zweige).
+# Nachts (00:00–09:00) pushen Worker nicht; ihre Zweige pusht der Wächter einmal je Tag ab 09:00 nach (zweige_nachpushen).
+# Der Wächter ändert nie Regeln, Rechte oder Hooks, pusht nur dort (nur pruef/worker-*, nie main), veröffentlicht nie und
+# fasst den Checkout ~/halo-spaces nicht an (nur „git fetch“, „worktree add/remove“, das Löschen leerer Worker-Zweige und
+# der Nachpush).
 # Zum Proben: HALO_JETZT=<ISO-Zeit>, HALO_AS_WOCHE/_5H/_STATUS, HALO_AS_AKTIV, HALO_AS_FABLE, HALO_AS_NACHTLAUF=ja|nein,
 # HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET,
 # HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar).
@@ -363,6 +364,25 @@ kopie_nach_lauf() {   # <Worktree> <Zweig> <Basis-Commit>
   fi
   log "leerer Worktree $wt entfernt (kein Commit)"
 }
+# Nachpush (neon 19.11.2026: Worker pushen nachts nicht, Push-Sperre 01:30–09:00 bleibt; ihre Zweige pusht der Wächter):
+# einmal je Tag ab 09:00 jeden lokalen Zweig pruef/worker-* mit Commits vor origin/main, dessen Stand nicht schon auf
+# origin liegt, auf den gleichnamigen Zweig auf origin (ohne Force, nie main); Liste ins Protokoll, Marke nachpush-<Datum>.
+zweige_nachpushen() {   # <HHMM Wiener Zeit>
+  local hm=$((10#$1)) marke=$ZUSTAND/nachpush-$(date +%F) b
+  local -a ok fehl
+  (( hm >= 900 )) || return 0
+  [[ -e $marke ]] && return 0
+  git -C $MAIN fetch -q origin main '+refs/heads/pruef/worker-*:refs/remotes/origin/pruef/worker-*' 2>>$LOG \
+    || { log "Nachpush: git fetch gescheitert, nächster Versuch im nächsten Takt"; return 0 }
+  for b in $(git -C $MAIN for-each-ref --format='%(refname:short)' 'refs/heads/pruef/worker-*'); do
+    [[ $b == pruef/worker-* ]] || continue
+    [[ -n $(git -C $MAIN rev-list -n 1 origin/main..refs/heads/$b 2>/dev/null) ]] || continue
+    [[ $(git -C $MAIN rev-parse -q --verify refs/remotes/origin/$b 2>/dev/null) == $(git -C $MAIN rev-parse refs/heads/$b) ]] && continue
+    if git -C $MAIN push -q origin refs/heads/${b}:refs/heads/${b} 2>>$LOG; then ok+=($b); else fehl+=($b); fi
+  done
+  print -r -- "$(date '+%F %H:%M') ${(j: :)ok}" > $marke
+  log "Nachpush Worker-Zweige (ab 09:00, nur pruef/worker-*, nie main): ${#ok} gepusht${ok:+: ${(j:, :)ok}}${fehl:+; gescheitert: ${(j:, :)fehl}}"
+}
 # beendete Worker einmal protokollieren
 aufraeumen() {
   local f z e
@@ -454,6 +474,7 @@ ALT=
 while true; do
   TAG=$(date +%F) LOG=$DIR/$(date +%F)-auslastung.log   # je Takt neu (Datum wechselt um Mitternacht)
   aufraeumen
+  zweige_nachpushen $(date +%H%M)
   z=$(pruefen)
   warte=$K[TAKT]
   case $z in

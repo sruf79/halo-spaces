@@ -850,3 +850,7 @@ Folge (Deutung der umsetzenden Sitzung, nicht Wortlaut des Maintainers): Das Kon
 ## 19.11.2026 Leitstand: „In Progress“ nur noch über board.sh
 
 Neon fragte, ob Nachtlauf- und Tagesroutine-Auftrag „In Progress“ statt über `~/halo-aufgaben/status.sh` über `tests/board.sh status <id> arbeit` setzen dürfen, damit der Leitstand zeigt, woran jeder Agent arbeitet (Wunsch vom 18.11.: „Anzahl gleichzeitiger agents sieht man nicht und auch nicht woran diese arbeiten“). Maintainer: „ja ist ok“ (19.11.2026, Gespräch mit neon).
+
+## 19.11.2026 – Dashboard: Cloud-Sitzung darf es immer ohne Rückfrage bearbeiten
+Maintainer (19.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich: „du hast ab sofort meine erlaubnis IMMER das dashboard bearbeiten zu dürfen“; auf die Frage, ob der Wortlaut in `ENTSCHEIDUNGEN.md` stehen soll, damit er für alle Sitzungen gilt: „ja, trag es in ENTSCHEIDUNGEN.md ein.“
+Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): betrifft die private Seite „halo.spaces dashboard“ (Seite, Datenquellen, Darstellung); Änderungen dort ohne Rückfrage, danach kurze Meldung, was sich geändert hat. Aufträge an neon, Änderungen im Repo und Einträge auf der Aufgabenliste folgen weiter den Regeln in `AGENTS.md`.

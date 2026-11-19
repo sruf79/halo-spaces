@@ -28,13 +28,17 @@
 #      Bildauftrag RUNDGANG_NR aus neon-stand.md (Maintainer 18.11.2026), vor Stopp, Takt und Drossel.
 #   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
+#   6. Vorprüfung ohne Sprachmodell (passend, unten; Maintainer 19.11.2026): ein Worker nur, wenn die Aufgabenliste (höchstens
+#      alle BOARD_ALTER 15 Minuten geladen) oder die Bug-Jagden einen möglichen Eintrag haben; sonst „kein passender Eintrag“
+#      ins Protokoll und nächste Prüfung nach LEER_WARTEN (15) Minuten.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> auf eigenem Zweig pruef/<name> (von origin/main), claude -p mit
 # denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn),
 # Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je Worker-Nummer), höchstens WORKER_MAX_MIN Minuten.
 # Der Wächter ändert nie Regeln, Rechte oder Hooks, pusht nie, veröffentlicht nie und fasst den Checkout
 # ~/halo-spaces nicht an (nur „git fetch“ und „worktree add“).
 # Zum Proben: HALO_JETZT=<ISO-Zeit>, HALO_AS_WOCHE/_5H/_STATUS, HALO_AS_AKTIV, HALO_AS_FABLE, HALO_AS_NACHTLAUF=ja|nein,
-# HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET.
+# HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET,
+# HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar).
 emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna HALO_LAUF=auslastung
@@ -57,7 +61,8 @@ typeset -A K
 konf_lesen() {
   K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900
-     RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240)
+     RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240
+     BOARD_ALTER 15 LEER_WARTEN 15 LEER_GUELTIG 720)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
     z=${${z%%\#*}//[[:space:]]/}
@@ -156,7 +161,90 @@ rundgang_pruefen() {   # <5h %> <HHMM> – Rückgabe 0 = fällig; gibt sonst den
   print -r -- "fällig"
 }
 
-# Prüfung: gibt „starten <Modell> <Grund>“, „warten <Grund>“ oder „ende <Grund>“ aus
+# --- Vorprüfung ohne Sprachmodell: gibt es überhaupt einen Eintrag für einen Worker? (Maintainer 19.11.2026, „1. ja“ auf neons
+# Vorschlag, Worker nur noch zu starten, wenn ein passender Eintrag in der Liste steht, und leere Läufe sofort zu beenden;
+# Anlass ~/halo-berichte/2026-11-19-pruefzweige.md: 100 von 178 Starts am 17./18.11. endeten mit „nichts_passend“.)
+# Kriterien nur aus tests/auslastung-auftrag.md, soweit ohne Sprachmodell erkennbar: Status Todo (nicht In Progress, Wartet auf
+# OK, Done); letzte Sperr-Notiz nicht „In Arbeit:“ (sondern keine, „In Arbeit beendet:“ oder „In Arbeit aufgegeben:“); keine
+# Design-Einträge (Titel „Design: …“ oder „(Design-Eintrag)“), keine Ablauf-, Release- und Store-Einträge; keine Features mit
+# „GitHub #n“ (Freigabe ist nicht maschinell lesbar, im Zweifel nicht starten); nicht in einem Plan von heute (<Heute>-plan.md des
+# Nachtlaufs, <Heute>-tagesroutine-plan*.tsv; volle oder kurze id, die letzten fünf Zeichen). Dazu freie Verdachtsfälle der
+# Bug-Jagden („## n. …“ in bugjagd-*-JJJJ-MM-TT.md, noch nicht in auslastung-vergeben.txt; nie für Klasse tokenarm).
+# Was sich nur mit Sprachmodell entscheiden lässt (Optik ohne Kennzeichen, Entscheidung des Maintainers nötig), übernimmt der
+# Befund des Workers: endet ein Worker mit „nichts_passend“, merkt sich der Wächter den Fingerabdruck der Kandidaten bei seinem
+# Start (leer-<Klasse>); solange die Kandidaten unverändert sind (höchstens LEER_GUELTIG Minuten), startet kein weiterer.
+# Aufgabenliste höchstens alle BOARD_ALTER (15) Minuten über tests/board.sh export, dazwischen aus $ZUSTAND/board.json.
+# Probe: HALO_AS_BOARD=<JSON wie board.sh export>.
+PASSEND_PY='
+import sys, json, re, glob, os, hashlib
+board, heute, d = sys.argv[1:4]
+items = json.load(open(board, encoding="utf-8"))["items"]
+plan = ""
+for f in [os.path.join(d, heute + "-plan.md")] + sorted(glob.glob(os.path.join(d, heute + "-tagesroutine-plan*.tsv"))):
+    try: plan += open(f, encoding="utf-8").read() + "\n"
+    except OSError: pass
+def geplant(i):
+    for k in (i, i[-5:]):
+        if k and re.search(r"(?<![A-Za-z0-9_-])" + re.escape(k) + r"(?![A-Za-z0-9_-])", plan): return True
+    return False
+AUS = re.compile(r"^\s*(Ablauf|Release|Store|Design)\s*:|\(Design-Eintrag\)", re.I)
+GH = re.compile(r"GitHub(-Issue)? #\d+")
+SPERRE = re.compile(r"In Arbeit( beendet| aufgegeben)?:")
+kand = []
+for e in items:
+    t, b, i = e.get("title") or "", e.get("body") or "", e.get("id") or ""
+    if e.get("status") != "Todo" or AUS.search(t): continue
+    if (e.get("typ") or "") == "Feature" and GH.search(t): continue
+    s = SPERRE.findall(b)
+    if s and s[-1] == "": continue
+    if geplant(i): continue
+    kand.append((i, t, hashlib.sha256(b.encode()).hexdigest()[:12]))
+vergeben = set()
+try:
+    for z in open(os.path.join(d, "auslastung-vergeben.txt"), encoding="utf-8"):
+        if z.split(): vergeben.add(z.split()[-1])
+except OSError: pass
+faelle = []
+for f in sorted(glob.glob(os.path.join(d, "bugjagd-*-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md"))):
+    for n in re.findall(r"^## (\d+)\. ", open(f, encoding="utf-8").read(), re.M):
+        k = os.path.basename(f) + "#" + n
+        if k not in vergeben: faelle.append(k)
+fp = hashlib.sha256("\n".join(sorted("|".join(k) for k in kand) + faelle).encode()).hexdigest()[:16]
+print(len(kand), len(faelle), fp)
+for i, t, _ in sorted(kand, key=lambda k: k[1])[:3]: print(t[:70])
+'
+board_datei() {   # gibt den Pfad einer lesbaren Liste aus (Zwischenspeicher bis BOARD_ALTER Minuten)
+  [[ -n ${HALO_AS_BOARD+x} ]] && { [[ -r $HALO_AS_BOARD ]] && print -r -- $HALO_AS_BOARD; return }
+  local f=$ZUSTAND/board.json neu
+  [[ -s $f && -n $(find $f -mmin -$K[BOARD_ALTER] 2>/dev/null) ]] && { print -r -- $f; return 0 }
+  if [[ $MODUS == trocken ]]; then neu=$(mktemp -t halo-as-board) || return 1   # Trockenlauf: Zwischenspeicher nicht schreiben
+  else mkdir -p $ZUSTAND && neu=$f.neu; fi
+  zsh $HIER/board.sh export > $neu 2>/dev/null && python3 -I -c 'import sys, json; json.load(open(sys.argv[1]))["items"]' $neu 2>/dev/null \
+    || { rm -f $neu; return 1 }
+  [[ $MODUS == trocken ]] && { print -r -- $neu; return 0 }
+  mv -f $neu $f && print -r -- $f
+}
+# <Klasse> – gibt die Auskunft aus; 0 = mindestens ein Kandidat, 1 = keiner, 2 = Liste nicht lesbar.
+# Schreibt den Fingerabdruck nach $ZUSTAND/liste-fp (für die Zustandsdatei des Workers), außer im Trockenlauf.
+passend() {
+  local kl=$1 b erg n nb fp m
+  local -a z t
+  b=$(board_datei) || { print -r -- "Aufgabenliste nicht lesbar"; return 2 }
+  erg=$(python3 -I -c $PASSEND_PY $b $HEUTE $DIR 2>/dev/null) || { print -r -- "Aufgabenliste nicht auswertbar"; return 2 }
+  z=(${(f)erg}) t=(${=z[1]})
+  n=$t[1] nb=$t[2] fp=$t[3]
+  [[ $MODUS == trocken ]] || print -r -- $fp > $ZUSTAND/liste-fp
+  [[ $kl == tokenarm ]] && nb=0   # Bug-Jagd-Fälle nie in Klasse tokenarm (Auftrag)
+  (( n + nb )) || { print -r -- "kein Todo-Eintrag ohne Sperre, Design-, Ablauf-, Release-, Store- oder Tagesplan-Bezug${${t[2]:#0}:+ (Bug-Jagd-Fälle nur für Klasse normal)}"; return 1 }
+  for m in $ZUSTAND/leer-$kl(N) $ZUSTAND/leer-normal(N); do   # Klasse normal ohne Ergebnis heißt auch tokenarm ohne Ergebnis
+    t=($(<$m))   # <Fingerabdruck> <Unix-Sekunden> <HH:MM>
+    [[ $t[1] == $fp ]] && (( jetzt - t[2] < K[LEER_GUELTIG] * 60 )) \
+      && { print -r -- "Kandidaten unverändert seit „nichts_passend“ eines Workers um $t[3] ($n Einträge, $nb Bug-Jagd-Fälle)"; return 1 }
+  done
+  print -r -- "$n Einträge, $nb Bug-Jagd-Fälle möglich${z[2]:+: ${(j:; :)z[2,-1]}}"
+}
+
+# Prüfung: gibt „starten <Modell> <Grund>“, „leer <Grund>“, „warten <Grund>“ oder „ende <Grund>“ aus
 pruefen() {
   local g s u std soll hm jetzt n f grenze nacht= kw w f5 st a fn vd bezug
   konf_lesen
@@ -215,13 +303,23 @@ pruefen() {
   else
     (( a < 0 || f5 < K[FENSTER_MIN] )) || { print -r -- "warten im Soll und 5-Stunden-Fenster ab $K[FENSTER_MIN] % – $lage"; return }
   fi
-  [[ $klasse == tokenarm ]] && { print -r -- "starten $K[MODELL_TOKENARM] tokenarm (5-Stunden-Fenster ab $K[FENSTER_DROSSEL] %, nur Aufträge mit wenig Token) – $lage"; return }
-  fn=$(fable_zahl)
-  if (( a <= -K[FABLE_ABSTAND] && f5 < K[FABLE_5H] )); then   # Maintainer 17.11.2026: im Volldampf keine Mengengrenze für Fable (kein „nur ein Fable-Lauf“)
-    print -r -- "starten $K[MODELL_FABLE] Soll weit verfehlt – $lage"
+  local start vp rc
+  if [[ $klasse == tokenarm ]]; then
+    start="starten $K[MODELL_TOKENARM] tokenarm (5-Stunden-Fenster ab $K[FENSTER_DROSSEL] %, nur Aufträge mit wenig Token) – $lage"
   else
-    print -r -- "starten $K[MODELL] $( (( a < 0 )) && print unter dem Soll || print 5-Stunden-Fenster unter $K[FENSTER_MIN] %) – $lage"
+    fn=$(fable_zahl)
+    if (( a <= -K[FABLE_ABSTAND] && f5 < K[FABLE_5H] )); then   # Maintainer 17.11.2026: im Volldampf keine Mengengrenze für Fable (kein „nur ein Fable-Lauf“)
+      start="starten $K[MODELL_FABLE] Soll weit verfehlt – $lage"
+    else
+      start="starten $K[MODELL] $( (( a < 0 )) && print unter dem Soll || print 5-Stunden-Fenster unter $K[FENSTER_MIN] %) – $lage"
+    fi
   fi
+  # Vorprüfung (Maintainer 19.11.2026): ohne möglichen Eintrag kein Worker
+  vp=$(passend $klasse); rc=$?
+  (( rc == 2 )) && { print -r -- "warten $vp – kein Worker ohne Vorprüfung – $lage"; return }
+  (( rc == 1 )) && { print -r -- "leer kein passender Eintrag ($vp) – $lage"; return }
+  [[ $MODUS == trocken ]] && print -u2 -r -- "Vorprüfung: $vp"
+  print -r -- $start
 }
 
 # erste freie Worker-Nummer 1…8 (Zustandsdatei fehlt oder Prozess beendet)
@@ -243,6 +341,10 @@ aufraeumen() {
     kill -0 $z[1] 2>/dev/null && continue
     e=$(head -1 $z[7] 2>/dev/null) || e="keine Ergebnisdatei"
     log "Worker ${f:t} beendet (Sitzung $z[2], Zweig $z[6]): $e"
+    # „nichts_passend“ (außer ohne Volldampf): Kandidaten bei seinem Start merken, damit bei unveränderter Liste keiner mehr startet
+    if [[ $e == nichts_passend* && $e != *Volldampf* && $z[8] == (normal|tokenarm) && $z[10] == [0-9a-f](#c16) ]]; then
+      print -r -- "$z[10] $(date +%s) $(date +%H:%M)" > $ZUSTAND/leer-$z[8]
+    fi
     if [[ $z[8] == rundgang && $z[9] == <1-> ]]; then
       # Rundgang: Ergebnis in neon-stand.md vermerken (Stand, Auftrag bleibt), neon meldet dem Designer; erledigt → nie wieder
       [[ $e == erledigt* ]] && print -r -- "$(date '+%F %H:%M') $e" > $ZUSTAND/rundgang-$z[9]-erledigt
@@ -267,7 +369,9 @@ $(rundgang_auftrag)" || { log "Rundgang: Auftrag #$rnr nicht lesbar – kein Sta
   nr=$(freie_nummer) || { log "keine freie Worker-Nummer (1–8)"; return 1 }
   name=worker-$stamp-$nr zweig=pruef/worker-$stamp-$nr wt=$WT_BASIS/worker-$stamp-$nr
   p1=$((2874 + 2 * (nr - 1))) p2=$((2875 + 2 * (nr - 1)))
+  local fp=-
   erg=$DIR/$TAG-worker-$nr-${stamp#*-}.erg aus=$DIR/$TAG-worker-$nr-${stamp#*-}.txt
+  [[ $klasse != rundgang && -r $ZUSTAND/liste-fp ]] && fp=$(<$ZUSTAND/liste-fp)
   git -C $MAIN fetch -q origin main 2>>$LOG || { log "git fetch gescheitert – kein Worker"; return 1 }
   mkdir -p $WT_BASIS $ZUSTAND
   git -C $MAIN worktree add -q -b $zweig $wt origin/main 2>>$LOG || { log "Worktree $wt nicht angelegt – kein Worker"; return 1 }
@@ -285,7 +389,9 @@ Höchstens $max Minuten (danach beendet dich der Wächter).}
 $auftrag" > $aus 2>&1 ) </dev/null &!
   local pid=$!
   ( sleep $(( max * 60 )); pkill -f -- "--session-id $sid" ) </dev/null >/dev/null 2>&1 &!
-  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse $rnr" > $ZUSTAND/worker-$nr
+  # Felder: 1 PID, 2 Sitzung, 3 Modell, 4 Start, 5 Worktree, 6 Zweig, 7 Ergebnisdatei, 8 Klasse, 9 Rundgang-Nr. (sonst -),
+  # 10 Fingerabdruck der Vorprüfung (sonst -)
+  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse ${rnr:--} $fp" > $ZUSTAND/worker-$nr
   date +%s > $ZUSTAND/letzter-start
   # Marke „heute gestartet“ (nur einmal je Tag und Auftrag)
   [[ -n $rnr ]] && print -r -- "$(date '+%F %H:%M') $sid" > $ZUSTAND/rundgang-$rnr-$(date +%F)
@@ -298,6 +404,7 @@ if [[ $MODUS == trocken ]]; then
   print -r -- "Prüfung:  $z"
   [[ $z == rundgang* ]] && print -r -- "Würde:    Windows-Rundgang mit ${${z#rundgang }%% *} starten (Auftrag #$K[RUNDGANG_NR] wörtlich, Rahmen tests/auslastung-rundgang.md, höchstens $K[RUNDGANG_MAX_MIN] Min.), Marke für heute"
   [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Klasse $( [[ ${z#starten * } == tokenarm* ]] && print tokenarm || print normal), Worktree $WT_BASIS/worker-<Zeit>-<Nr>, Zweig pruef/worker-<Zeit>-<Nr>, Ports ab 2874"
+  [[ $z == leer* ]] && print -r -- "Würde:    keinen Worker starten (kein passender Eintrag), nächste Prüfung in $K[LEER_WARTEN] Minuten"
   exit 0
 fi
 mkdir -p $DIR $ZUSTAND
@@ -311,13 +418,16 @@ ALT=
 while true; do
   aufraeumen
   z=$(pruefen)
+  warte=$K[TAKT]
   case $z in
     ende*)    log "Ende: ${z#ende }"; break ;;
     starten*) starte_worker ${${z#starten }%% *} "${z#starten * }"; ALT= ;;
     rundgang*) log "Windows-Rundgang fällig: ${z#rundgang * }"; starte_worker ${${z#rundgang }%% *} "${z#rundgang * }" rundgang; ALT= ;;
+    # Vorprüfung ohne Treffer (Maintainer 19.11.2026): kein Worker, jedes Mal mit Zeit ins Protokoll, nächste Prüfung nach LEER_WARTEN
+    leer*)    log "${z#leer }; nächste Prüfung in $K[LEER_WARTEN] Minuten"; warte=$K[LEER_WARTEN]; ALT= ;;
     *)        [[ $z != $ALT ]] && log "${z#warten }"; ALT=$z ;;
   esac
   [[ $MODUS == einmal ]] && break
-  sleep $(( K[TAKT] * 60 ))
+  sleep $(( warte * 60 ))
 done
 exit 0

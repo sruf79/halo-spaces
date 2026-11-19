@@ -21,13 +21,15 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
 }
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
 : > $T/leer.conf
+# Aufgabenliste für die Vorprüfung (Maintainer 19.11.2026): Standard ein freier Bug
+print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title":"Mail: freier Bug","body":"Text"}]}' > $T/board.json
 # W [VAR=Wert …]: Trockenlauf; Standard Di 17.11. 15:00 (14 h nach dem Reset, Soll 29,2 %), Woche 27 %, 5 Stunden 40 %,
 # 1 Arbeits-Sitzung, kein Fable, kein Nachtlauf, letzter Start lange her
 W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -138,7 +140,7 @@ pruefe "Checkout: nur fetch und worktree add" \
 pruefe "Worker ohne HALO_LAUF, gleiche Flags wie die Tagesroutine" "$S" \
   'env -u HALO_LAUF HALO_WORKER=\$nr claude -p --model \$m --session-id \$sid --permission-mode auto'
 pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Klasse \$klasse, Sitzung \$sid'
-pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$rnr" > \$ZUSTAND/worker-\$nr'
+pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei, dazu Fingerabdruck (10)" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$\{rnr:--\} \$fp" > \$ZUSTAND/worker-\$nr'
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
@@ -214,4 +216,77 @@ pruefe "Rundgang: keine Inhalte der Aufgabenliste im Repo (keine Karten-ID im Ra
 pruefe "Auftrag: ohne Volldampf kein neuer Eintrag (Regel 6)" "$A" 'nichts_passend Volldampf nicht aktiv'
 pruefe "Auftrag: Klasse tokenarm (nur wenig Token, nie Fehlersuche/Analyse/Fable, zurück wenn zu groß)" "$A" \
   'Klasse tokenarm' 'Fehlersuche ohne benannte Ursache' 'kein Fable' 'zurück tokenarm zu groß'
+
+# --- Vorprüfung ohne Sprachmodell (Maintainer 19.11.2026, „1. ja“: Worker nur bei passendem Eintrag, leere Läufe sofort beenden) ---
+B() {   # <Datei> <JSON-Einträge, durch Komma getrennt>
+  print -r -- "{\"items\":[$2]}" > $1
+}
+e() { print -r -- "{\"id\":\"$1\",\"typ\":\"$2\",\"status\":\"$3\",\"title\":\"$4\",\"body\":\"${5:-Text}\"}" }
+mkdir -p $T/vp
+B $T/vp/aus.json "$(e PVTI_a1111 Bug 'In Progress' 'Mail: in Arbeit'),$(e PVTI_a2222 Bug 'Wartet auf OK' 'Mail: wartet'),$(e PVTI_a3333 Bug Done 'Mail: fertig'),$(e PVTI_a4444 Bug Todo 'Mail: gesperrt' 'Text\n\nIn Arbeit: worker-2 (Auslastungswächter)'),$(e PVTI_a5555 Feature Todo 'Design: Knöpfe'),$(e PVTI_a6666 Bug Todo 'Anhänge: Kachel (Design-Eintrag)'),$(e PVTI_a7777 Feature Todo 'Ablauf: Regel'),$(e PVTI_a8888 Feature Todo 'Store: Text'),$(e PVTI_a9999 Feature Todo 'Release: Notizen'),$(e PVTI_b1111 Feature Todo 'Fenster: schmaler [GitHub #31]')"
+V() { W HALO_AS_BOARD=$T/vp/aus.json HALO_AS_DIR=$T/vp/nacht "$@" }
+pruefe "Vorprüfung: nur In Progress, Wartet auf OK, Done, In-Arbeit-Sperre, Design, Ablauf, Store, Release, Feature [GitHub #n] → kein Worker" \
+  "$(V)" '^Prüfung:  leer kein passender Eintrag \(kein Todo-Eintrag ohne Sperre' 'Würde:    keinen Worker starten \(kein passender Eintrag\), nächste Prüfung in 15 Minuten'
+pruefe "Vorprüfung: auch Klasse tokenarm ohne Eintrag → kein Worker" "$(V HALO_AS_5H=75 HALO_AS_TOKENARM=0)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: auch Fable nicht" "$(V HALO_AS_WOCHE=9)" '^Prüfung:  leer kein passender Eintrag'
+for f in "$(e PVTI_c1111 Bug Todo 'Mail: nach Rückgabe' 'Text\n\nIn Arbeit: worker-1 (…)\n\nIn Arbeit beendet: worker-1, zurück: belegt')" \
+         "$(e PVTI_c2222 Bug Todo 'Mail: aufgegeben' 'In Arbeit: worker-1\n\nIn Arbeit aufgegeben: worker-1, doppelt')" \
+         "$(e PVTI_c3333 Bug Todo 'Suchfeld klappt zu [GitHub #67]')" \
+         "$(e PVTI_c4444 Feature Todo 'Kalender: neue Ansicht')"; do
+  B $T/vp/eins.json "$f"
+  pruefe "Vorprüfung: passend – ${${f#*title\":\"}%%\"*}" "$(V HALO_AS_BOARD=$T/vp/eins.json)" '^Prüfung:  starten opus' 'Vorprüfung: 1 Einträge, 0 Bug-Jagd-Fälle möglich'
+done
+B $T/vp/plan.json "$(e PVTI_lAHODEPpks4BoBQwzhJwOZw Bug Todo 'Tests: Windows rot'),$(e PVTI_lAHODEPpks4BoBQwzhJ76tE Bug Todo 'Import: PST')"
+mkdir -p $T/vp/nacht
+print -r -- '| 1 | JwOZw | Tests: Windows rot | 5 |' > $T/vp/nacht/2026-11-17-plan.md
+print -r -- 'PVTI_lAHODEPpks4BoBQwzhJ76tE	routine	Import: PST' > $T/vp/nacht/2026-11-17-tagesroutine-plan.tsv
+pruefe "Vorprüfung: Einträge im Plan von heute (kurze id im Nachtlauf-Plan, volle id im Tagesroutine-Plan) → kein Worker" "$(V HALO_AS_BOARD=$T/vp/plan.json)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: Plan von gestern zählt nicht" "$(V HALO_AS_BOARD=$T/vp/plan.json HALO_JETZT=2026-11-18T15:00+01:00 HALO_AS_WOCHE=60 HALO_AS_5H=40)" 'Vorprüfung: 2 Einträge' '^Prüfung:  starten'
+rm -f $T/vp/nacht/2026-11-17-*
+print -r -- "# Bug-Jagd
+## 1. Fall eins
+## 2. Fall zwei" > $T/vp/nacht/bugjagd-mail-2026-11-17.md
+print -r -- "2026-11-18 05:58 worker-x bugjagd-mail-2026-11-17.md#1" > $T/vp/nacht/auslastung-vergeben.txt
+pruefe "Vorprüfung: freier Bug-Jagd-Fall (#2) → Worker" "$(V)" 'Vorprüfung: 0 Einträge, 1 Bug-Jagd-Fälle möglich' '^Prüfung:  starten opus'
+pruefe "Vorprüfung: Bug-Jagd-Fälle nie für Klasse tokenarm" "$(V HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(.*Bug-Jagd-Fälle nur für Klasse normal'
+print -r -- "2026-11-18 06:00 worker-y bugjagd-mail-2026-11-17.md#2" >> $T/vp/nacht/auslastung-vergeben.txt
+pruefe "Vorprüfung: alle Bug-Jagd-Fälle vergeben → kein Worker" "$(V)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: Liste nicht lesbar → warten, kein Worker" "$(W HALO_AS_BOARD=$T/fehlt.json)" '^Prüfung:  warten Aufgabenliste nicht lesbar – kein Worker ohne Vorprüfung'
+print -r -- 'kein json' > $T/vp/kaputt.json
+pruefe "Vorprüfung: Liste nicht auswertbar → warten" "$(W HALO_AS_BOARD=$T/vp/kaputt.json)" '^Prüfung:  warten Aufgabenliste nicht auswertbar'
+pruefe "Vorprüfung erst nach allen Schwellen (Grenze erreicht: Liste nicht geladen)" "$(W HALO_AS_AKTIV=4 HALO_AS_BOARD=$T/fehlt.json)" 'warten 4 Arbeits-Sitzungen'
+pruefe "Vorprüfung: Rundgang braucht keinen Listeneintrag" "$(print -r -- '- #35 | x | Bildauftrag' > $T/vp/stand.md; W HALO_AS_BOARD=$T/fehlt.json HALO_AS_NEON_STAND=$T/vp/stand.md HALO_AS_5H=86)" '^Prüfung:  rundgang sonnet'
+# Befund „nichts_passend“ des Workers: gleiche Kandidaten → kein weiterer Worker, bis sich die Liste ändert (höchstens LEER_GUELTIG)
+eval "$(sed -n "/^PASSEND_PY='/,/^'\$/p" $SKRIPT)"
+FP=$(python3 -I -c $PASSEND_PY $T/board.json 2026-11-17 $T/vp/leer | head -1 | cut -d' ' -f3)
+JETZT_S=$(date -j -f %Y-%m-%dT%H:%M%z 2026-11-17T15:00+0100 +%s)
+mkdir -p $T/vp/leer/auslastung
+L() { W HALO_AS_DIR=$T/vp/leer "$@" }
+print -r -- "$FP $(( JETZT_S - 3600 )) 14:00" > $T/vp/leer/auslastung/leer-normal
+pruefe "nichts_passend vor 1 h, Kandidaten gleich → kein Worker" "$(L)" '^Prüfung:  leer kein passender Eintrag \(Kandidaten unverändert seit „nichts_passend“ eines Workers um 14:00'
+pruefe "nichts_passend der Klasse normal gilt auch für tokenarm" "$(L HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(Kandidaten unverändert'
+print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title":"Mail: freier Bug","body":"Text\n\nneue Notiz"}]}' > $T/vp/geaendert.json
+pruefe "Kandidat hat neue Notiz → Worker" "$(L HALO_AS_BOARD=$T/vp/geaendert.json)" '^Prüfung:  starten opus'
+print -r -- "$FP $(( JETZT_S - 721 * 60 )) 03:00" > $T/vp/leer/auslastung/leer-normal
+pruefe "Befund älter als LEER_GUELTIG (720 Min.) → Worker" "$(L)" '^Prüfung:  starten opus'
+rm -f $T/vp/leer/auslastung/leer-normal
+print -r -- "$FP $(( JETZT_S - 600 )) 14:50" > $T/vp/leer/auslastung/leer-tokenarm
+pruefe "nichts_passend nur tokenarm: Klasse normal startet trotzdem" "$(L)" '^Prüfung:  starten opus'
+pruefe "nichts_passend tokenarm: tokenarm nicht mehr" "$(L HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(Kandidaten unverändert'
+print -r -- "LEER_WARTEN=20" > $T/vp/lw.conf
+pruefe "LEER_WARTEN aus der Datei" "$(V HALO_AS_CONF=$T/vp/lw.conf)" 'nächste Prüfung in 20 Minuten'
+pruefe "Schleife: „leer“ jedes Mal ins Protokoll, Wartezeit LEER_WARTEN" "$S" \
+  'leer\*\) +log "\$\{z#leer \}; nächste Prüfung in \$K\[LEER_WARTEN\] Minuten"; warte=\$K\[LEER_WARTEN\]' 'sleep \$\(\( warte \* 60 \)\)'
+pruefe "Liste höchstens alle BOARD_ALTER Minuten (15) über board.sh export, Zwischenspeicher" "$S" \
+  'BOARD_ALTER 15' "find \\\$f -mmin -\\\$K\\[BOARD_ALTER\\]" 'board\.sh export'
+# aufraeumen: Befund nichts_passend mit Fingerabdruck merken (nicht bei „Volldampf nicht aktiv“)
+mkdir -p $T/np/zustand
+print -r -- "nichts_passend alles Optik" > $T/np/erg1; print -r -- "nichts_passend Volldampf nicht aktiv" > $T/np/erg2
+print -r -- "999999 sid opus 1 /kein-wt pruef/w $T/np/erg1 normal - 0123456789abcdef -" > $T/np/zustand/worker-1
+print -r -- "999998 sid sonnet 1 /kein-wt pruef/w $T/np/erg2 tokenarm - fedcba9876543210 -" > $T/np/zustand/worker-2
+pruefe "aufraeumen: nichts_passend → leer-normal mit Fingerabdruck; „Volldampf nicht aktiv“ → kein Befund" \
+  "$(setopt extendedglob; ZUSTAND=$T/np/zustand; log() { : }; eval $AR; aufraeumen; ls $T/np/zustand; cat $T/np/zustand/leer-normal)" '^leer-normal$' '^0123456789abcdef [0-9]+ [0-9]{2}:[0-9]{2}$'
+pruefe "aufraeumen: kein leer-tokenarm bei „Volldampf nicht aktiv“" "$(ls $T/np/zustand | grep -c tokenarm)" '^0$'
+
+pruefe "Auftrag: Hinweis auf die Vorprüfung" "$A" 'Vorprüfung' 'merkt sich der Wächter'
 exit $FEHLER

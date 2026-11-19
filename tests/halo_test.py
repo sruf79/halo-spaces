@@ -21692,15 +21692,21 @@ Neu
                 last: pw.gLastCategory.category, frame: !!x, uri: x?.currentURI?.spec.replace(/^.*\/options\//, ""), skipped: !!pw.gotoPref.__mcSkipped })); }
             return got;
           };
-          // die Seite läuft im Prozess der Erweiterung: Zeile per Frame-Skript lesen (wartet bis 3 s auf die Hervorhebung);
+          // die Seite läuft im Prozess der Erweiterung: Zeile per Frame-Skript lesen (wartet bis 3 s auf die Hervorhebung, dann auf ruhige Lage);
           // reset nimmt die Hervorhebung weg und scrollt nach oben wie ein Nutzer, der weitergelesen hat
           const read = (b, reset) => new Promise(res => {
             const mm = b.messageManager, key = "mc:test-show-" + Math.random();
             mm.addMessageListener(key, msg => res(msg.data));
             mm.loadFrameScript("data:," + encodeURIComponent(`(() => { let n = 0; const f = () => { const d = content.document, r = d.getElementById("row-senderLogos");
-              if (r && (r.classList.contains("found") || ++n > 15)) { const box = r.getBoundingClientRect(), found = r.classList.contains("found");
-                if (${reset}) { r.classList.remove("found"); content.scrollTo(0, 0); d.scrollingElement && (d.scrollingElement.scrollTop = 0); }
-                sendAsyncMessage("${key}", { found, inView: box.height > 0 && box.top >= 0 && box.bottom <= content.innerHeight, hash: content.location.hash });
+              if (r && (r.classList.contains("found") || ++n > 15)) { const found = r.classList.contains("found");
+                // gemessen, wenn Höhe, Scrollstand und Zeile 300 ms gleich bleiben (Lage, die der Nutzer sieht; bis 3 s)
+                const lage = () => { const x = r.getBoundingClientRect(); return [Math.round(content.innerHeight), Math.round(content.scrollY), Math.round(x.top), Math.round(x.bottom), Math.round(x.height)]; };
+                let last = "", since = Date.now(); const t0 = Date.now();
+                const g = () => { const v = lage(); if (String(v) != last) { last = String(v); since = Date.now(); }
+                  if (Date.now() - since < 300 && Date.now() - t0 < 3000) return content.setTimeout(g, 20);
+                  if (${reset}) { r.classList.remove("found"); content.scrollTo(0, 0); d.scrollingElement && (d.scrollingElement.scrollTop = 0); }
+                  sendAsyncMessage("${key}", { found, inView: v[4] > 0 && v[2] >= 0 && v[3] <= v[0], hash: content.location.hash, ih: v[0], sy: v[1], top: v[2], bottom: v[3] }); };
+                g();
               } else content.setTimeout(f, 200); }; f(); })()`), false);
             w.setTimeout(() => res("timeout"), 8000);
           });
@@ -21717,6 +21723,51 @@ Neu
         ok = f.get("found") is True and f.get("inView") is True and r.get("found") is False and s.get("found") is True and s.get("inView") is True
         return ok, f"{res}"
     check("Einstellungen: „Show“ für dieselbe Option ein zweites Mal zeigt sie wieder und hebt sie hervor", pref_halo_search_again, results)
+
+    def pref_halo_show_late_size():
+        # „Show“ legt die halo.spaces-Seite erst an; kommt ihre Höhe erst nach dem Sprung zur Option an (unter Linux in der
+        # CI ist der neue Browser beim Sprung teils noch nicht bemessen), stand die Zeile danach halb über dem oberen Rand
+        # (CI: first.inView False). Nachgestellt: der neue Browser ist beim Sprung 1 px hoch und wächst erst danach
+        res = m.js(PREFS_OPEN_JS + r"""
+          const input = pd.getElementById("searchInput");
+          const fire = q => { input.value = q; input.dispatchEvent(new pw.Event("command", { bubbles: true })); input.dispatchEvent(new pw.Event("input", { bubbles: true })); };
+          const hit = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.hidden && !e.classList.contains("visually-hidden")
+            && e.getBoundingClientRect().height > 0 && e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites");
+          const box = pd.getElementById("mcPane-paneMcHalo"), out = { fresh: !box.querySelector("browser") };
+          try {
+            fire("logos");
+            if (!await until(hit, 6000)) { fire(""); await ruhig(300); fire("logos"); }
+            (await bis(hit, "Treffer „Logos from sender websites“", 10000)).querySelector(".mc-halo-found-show").click();
+            const b = await bis(() => box.querySelector("browser")?.messageManager && box.querySelector("browser"), "Browser der halo.spaces-Seite", 6000);
+            b.style.setProperty("max-block-size", "1px", "important");
+            // Frame-Skript (Seite läuft im Prozess der Erweiterung): meldet die hervorgehobene Zeile, dann nach dem Wachsen
+            // die Lage, sobald Höhe, Scrollstand und Zeile 300 ms gleich bleiben
+            const key = "mc:test-late-" + Math.random(), msgs = [];
+            b.messageManager.addMessageListener(key, msg => msgs.push(msg.data));
+            b.messageManager.loadFrameScript("data:," + encodeURIComponent(`(() => {
+              const pos = () => { const r = content.document.getElementById("row-senderLogos"), x = r?.getBoundingClientRect();
+                return x && { ih: Math.round(content.innerHeight), sy: Math.round(content.scrollY), top: Math.round(x.top), bottom: Math.round(x.bottom), found: r.classList.contains("found") }; };
+              const wait = () => { const p = pos(); if (p?.found) sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); else content.setTimeout(wait, 10); };
+              addEventListener("DOMContentLoaded", wait, true);
+              addMessageListener("${key}-grown", () => { let last = "", since = Date.now(), t0 = Date.now(); const step = () => { const p = pos(), v = JSON.stringify(p);
+                if (v != last) { last = v; since = Date.now(); } if (Date.now() - since >= 300 || Date.now() - t0 > 3000) sendAsyncMessage("${key}", Object.assign({ tag: "settled" }, p)); else content.setTimeout(step, 20); }; step(); });
+            })()`), true);
+            await bis(() => msgs.length, "Zeile hervorgehoben", 8000);
+            out.atJump = msgs[0];
+            b.style.removeProperty("max-block-size");
+            await bis(() => b.getBoundingClientRect().height > 300, "Browser gewachsen", 3000);
+            b.messageManager.sendAsyncMessage(key + "-grown");
+            await bis(() => msgs.length > 1, "Lage nach dem Wachsen", 6000);
+            out.settled = msgs[1];
+          } finally {
+            tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          }
+          return out;""")
+        j, st = res.get("atJump") or {}, res.get("settled") or {}
+        ok = (res.get("fresh") is True and j.get("ih", 99) <= 2 and st.get("found") is True and st.get("ih", 0) > 300
+              and st.get("top", -1) >= 0 and st.get("bottom", 1e9) <= st.get("ih", 0))
+        return ok, f"{res}"
+    check("Einstellungen: „Show“ zeigt die Option auch, wenn die Höhe der neuen halo.spaces-Seite erst nach dem Sprung ankommt", pref_halo_show_late_size, results)
 
     def pref_halo_show_early():
         # „Show“ kommt, während die halo.spaces-Seite schon angelegt, aber noch nicht geladen ist (Thunderbirds Suche legt

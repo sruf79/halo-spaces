@@ -377,6 +377,32 @@ function showFound() {
   row.classList.remove("found");
   row.offsetWidth; // Hervorhebung neu starten
   row.classList.add("found");
+  keepCentered(row);
+}
+
+// Beim ersten „Show“ legt halo.spaces die Seite gerade erst an; ihre Höhe kann
+// nach dem Sprung ankommen (Linux) – die Zeile stand dann halb über dem oberen
+// Rand. Ändert sich die Höhe kurz danach, die Zeile erneut mittig zeigen, bis
+// der Nutzer selbst scrollt oder klickt
+let stopCentering = null;
+function keepCentered(row) {
+  stopCentering?.();
+  const recenter = () => {
+    const box = row.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > window.innerHeight) {
+      row.scrollIntoView({ block: "center" });
+    }
+  };
+  const user = ["wheel", "keydown", "pointerdown", "touchstart"];
+  const timer = setTimeout(() => stopCentering?.(), 2000);
+  stopCentering = () => {
+    clearTimeout(timer);
+    window.removeEventListener("resize", recenter);
+    user.forEach(type => window.removeEventListener(type, stopCentering, true));
+    stopCentering = null;
+  };
+  window.addEventListener("resize", recenter);
+  user.forEach(type => window.addEventListener(type, stopCentering, true));
 }
 window.addEventListener("hashchange", showFound);
 

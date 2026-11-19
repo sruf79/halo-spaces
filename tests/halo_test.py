@@ -4250,6 +4250,59 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
 
+    def compose_header_rows():
+        # Kopfzeilen wie beim Mac (Variante A, Maintainer 15.11.2026): kein Fenstertitel im Fenster (der Titel bleibt
+        # für Fensterliste und Menü „Window“), Reihenfolge To, Cc, Bcc, Subject, From; jede Zeile 37 px mit Haarlinie
+        # 20 px vom Rand bis zum rechten Rand; Beschriftung und Wert jeder Zeile auf derselben Höhe mittig in der
+        # Zeile; Cc/Bcc rechts in der To-Zeile; ohne Formatleiste keine zweite Linie unter From (nur die Darstellung ist umgestellt, die Reihenfolge im Dokument und
+        # damit Tab bleiben Thunderbirds). Mit HALO_SHOTS zusätzlich Bilder des Fensters ohne und mit Cc/Bcc.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const shots = %s;
+          return await withCompose({ subject: "Halo Entwurf Kopfzeilen" }, async (cw, cd) => {
+            const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; };
+            const r1 = x => Math.round(x * 10) / 10;
+            const shoot = async name => { if (!shots) return;
+              const bmp = await cw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+              const c = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+              const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `verfassen-kopfzeilen-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+            const tl = cd.getElementById("titlebar-title-label"), bar = R(cd.getElementById("MsgHeadersToolbar"));
+            const out = { title: { vis: tl && vis(tl) ? csOf(tl).visibility : null, doc: cd.title } };
+            const extra = cd.getElementById("extraAddressRowsArea"), toRow = cd.getElementById("addressRowTo");
+            out.extra = vis(extra) ? { mid: r1(mid(extra) - (R(toRow).t + R(toRow).h / 2)), inRow: R(extra).l > R(toRow.querySelector(".address-container mail-address-pill")).r } : null;
+            await shoot("ohne-cc");
+            cw.showAndFocusAddressRow("addressRowCc"); cw.showAndFocusAddressRow("addressRowBcc"); await ruhig(600);
+            cd.getElementById("msgSubject").focus(); await ruhig(400);
+            const rowOf = { to: toRow, cc: cd.getElementById("addressRowCc"), bcc: cd.getElementById("addressRowBcc"),
+                            subject: cd.getElementById("subject-box"), from: cd.getElementById("top-gradient-box") };
+            const valOf = { to: toRow.querySelector("mail-address-pill"), cc: cd.querySelector("#ccAddrContainer .address-input"),
+                            bcc: cd.querySelector("#bccAddrContainer .address-input"), subject: cd.getElementById("msgSubject"), from: cd.getElementById("msgIdentity") };
+            const labOf = { to: cd.getElementById("toAddrLabel"), cc: cd.getElementById("ccAddrLabel"), bcc: cd.getElementById("bccAddrLabel"),
+                            subject: cd.getElementById("subjectLabel"), from: cd.getElementById("identityLabel") };
+            out.rows = {};
+            for (const k of Object.keys(rowOf)) { const row = rowOf[k], r = R(row), cs = csOf(row), bw = parseFloat(cs.borderBottomWidth);
+              const rowMid = r.t + (r.h - bw) / 2;
+              out.rows[k] = { top: r1(r.t), h: r1(r.h), line: bw > 0 && cs.borderBottomStyle == "solid", inset: r1(r.l - bar.l), toRight: r1(bar.r - r.r),
+                              lab: r1(mid(labOf[k]) - rowMid), val: r1(mid(valOf[k]) - rowMid), labCol: cs && csOf(labOf[k]).color }; }
+            out.secondary = colorOf(cd, "var(--mt-text-secondary)");
+            // ohne Formatleiste (Standard) keine zweite Linie unter der Haarlinie von From
+            const box = cd.getElementById("FormatToolbox");
+            out.fmtLine = csOf(box).borderBottomStyle == "none" ? 0 : parseFloat(csOf(box).borderBottomWidth);
+            await shoot("mit-cc-bcc");
+            return out; });""" % json.dumps(shots))
+        t, rows = res.get("title", {}), res.get("rows", {})
+        order = [rows.get(k, {}).get("top", 0) for k in ("to", "cc", "bcc", "subject", "from")]
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann nur der Titel des Dokuments
+        title_ok = (t.get("vis") in (None, "hidden")) and "Halo Entwurf Kopfzeilen" in t.get("doc", "")
+        rows_ok = all(abs(r.get("h", 0) - 37) <= 0.5 and r.get("line") and abs(r.get("inset", 0) - 20) <= 0.5 and abs(r.get("toRight", 9)) <= 0.5
+                      and abs(r.get("lab", 9)) <= 1 and abs(r.get("val", 9)) <= 1 and same_color(r.get("labCol"), res.get("secondary"))
+                      for r in rows.values()) and len(rows) == 5
+        ex = res.get("extra") or {}
+        ok = (title_ok and rows_ok and order == sorted(order) and len(set(order)) == 5 and abs(ex.get("mid", 9)) <= 1 and ex.get("inRow")
+              and res.get("fmtLine") == 0)
+        return ok, f"{res}"
+    check("Verfassen: kein Fenstertitel; Kopfzeilen To, Cc, Bcc, Subject, From je 37 px mit Haarlinie ab 20 px, Beschriftung und Wert mittig in der Zeile, Cc/Bcc rechts in der To-Zeile, ohne Formatleiste keine zweite Linie", compose_header_rows, results)
+
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
           return await withCompose({ body: "<p>Hallo Anna,</p><p>das ist ein Testentwurf mit einer Liste.</p>" }, async (cw, cd) => {

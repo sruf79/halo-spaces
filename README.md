@@ -181,6 +181,20 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.32.0
+
+- **Import**: Outlook data files (PST) exported from Microsoft 365 that were rejected as "can't read yet" can now be read
+- **Toolbar**: when space is short, clicking the magnifier opens the search field reliably and other buttons make room; the field grows back once there is space again
+- **Conversations**: Thunderbird's own conversation view is no longer built a second time below the conversation cards
+- **Address Book**: deleting a merged contact also deletes its hidden duplicates, so it does not come back; new or renamed duplicates appear correctly right away; "Fewer fields" keeps a rare field you just filled in
+- **Calendar**: changing or deleting one occurrence of a repeating event offers "This and all future events"; the quick entry understands "next Thursday" as the Thursday of next week and "Feb 29" without a year as the next leap day
+- **Today Pane**: weather shows Fahrenheit in regions that use it
+- **Settings**: "Own keywords" is no longer lost when settings close right after typing; "Show" in the settings search works a second time and while the page is still loading; closing the settings tab releases account and add-on subpages
+- **Updates**: after an update without restart, the old design no longer stays active alongside the new one and the sidebar button no longer overlaps the window buttons
+- **Spaces bar**: if the add-on chosen for the fifth space is removed, the space shows the first available add-on instead of staying empty
+- **Search fields** in Saved Logins, Cookies and other dialogs use the same grey capsule as elsewhere; search fields on pages and in windows match the height of other fields
+- Smoother toolbar alignment while showing or hiding the mail sidebar
+
 ## What's new in 3.31.0
 
 - **Import**: "Open Outlook data file (PST)…" imports mail as a copy into Local Folders with the folder tree of the file (subject, sender, text, HTML, attachments, read and flagged state), in its own window with progress and a summary; contacts become a new address book and events and tasks a new local calendar, you choose the parts; importing the same file again adds no duplicates

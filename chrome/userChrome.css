@@ -79,7 +79,7 @@
   --mt-popover-bg: #F9F9F9;
   --mt-popover-border: #DBDBDB;
   --mt-popover-radius: 20px;
-  /* deckende Menüfläche ohne Unschärfe (Termin-Tooltip, Option „Solid menus“) */
+  /* deckende Menüfläche ohne Unschärfe (Termin-Tooltip, Menüs außerhalb von macOS) */
   --mt-menu-solid: #F6F6F8;
   --mt-tooltip-border: rgba(0, 0, 0, 0.15);
   /* Rand der Farbfelder (Text-/Hintergrundfarbe in der Formatleiste) */
@@ -225,6 +225,16 @@
     --mt-cap-dot-narrow: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-hover) 13.5px, transparent 14px);
     --mt-cap-dot-press: radial-gradient(circle 16px at 50% 50%, var(--mt-cap-press) 15.5px, transparent 16px);
     --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
+  }
+}
+
+/* Menüs nur unter macOS durchscheinend: dort legt das System die Unschärfe
+   darunter. Linux und Windows haben keine, der Inhalt dahinter schien durch
+   und machte den Text schwer lesbar (GitHub #73) – dort und bei „Transparenz
+   reduzieren“ die deckende Menüfläche (hell #F6F6F8, dunkel #3C3C3C) */
+@media not (-moz-platform: macos), (prefers-reduced-transparency: reduce) {
+  :root {
+    --mt-menu-bg: var(--mt-menu-solid);
   }
 }
 

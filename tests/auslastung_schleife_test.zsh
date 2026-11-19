@@ -323,6 +323,8 @@ pruefe "unversionierte Datei → bleibt" "$( [[ -d $G/w6 ]] && print da; cat $G/
 wt w7
 K $G/w7 pruef/worker-7 ""
 pruefe "alter Worker ohne Basis-Commit (Feld 11) → nicht angefasst" "$( [[ -d $G/w7 ]] && print da)" '^da$'
+pruefe "Datum je Start: Ergebnis, Ausgabe und Bericht mit dem Datum des Starts, Protokoll je Takt" "$S" \
+  'local tag=\$\(date \+%F\)' 'erg=\$DIR/\$tag-worker-' 'halo-berichte/\$tag-worker-\$nr\.md' 'LOG=\$DIR/\$\(date \+%F\)-auslastung\.log   # je Takt'
 pruefe "Auftrag: Zweig erst vor dem ersten Commit, Push auf den eigenen Prüfzweig auch nachts" "$A" \
   'git switch -c <Zweig aus JETZT>' 'zu jeder Uhrzeit, auch 00:00–09:00' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
 exit $FEHLER

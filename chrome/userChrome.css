@@ -1640,7 +1640,7 @@ body:has(> #accountCentral),
 
 /* Kopfzeile der Anhänge als leise Überschrift: „4 attachments 239 KB“ klein
    und grau mit Chevron davor (auf- und zuklappen, Liste ist von Anfang an
-   offen), ohne Büroklammer; „Save All“ als Textknopf in Akzentfarbe, das Menü
+   offen), ohne Büroklammer; „Save All“ als leiser grauer Hinweis, das Menü
    (Öffnen, Abtrennen, Löschen) über ein kleines ⌄ direkt dahinter. Bei einem
    einzigen Anhang keine Kopfzeile, nur die Dateizeile (mc-single). Gilt auch
    in den Karten der Konversation */
@@ -1747,12 +1747,17 @@ body:has(> #accountCentral),
   margin-inline-start: 6px !important;
 }
 
-/* „Save All“ als Textknopf der Knopf-Familie: graue Kapsel mit Lichtkante,
-   Maus etwas dunkler mit Kante, gedrückt dunkler ohne Kante */
+/* „Save All“ als leiser Hinweis (Maintainer 18.11.2026: „dezenten hinweis und
+   keinen grossen button“): in Ruhe nur Text und ⌄ in Grau, 12 px wie die
+   Anzahl links, ohne Fläche, Kante und Schatten; unter der Maus (und bei
+   offenem Menü) die Kapsel der Knopf-Familie mit Lichtkante und Trennstrich
+   zwischen Text und ⌄, Schrift in Textfarbe; gedrückt dunkler ohne Kante.
+   Maße bleiben in allen Zuständen gleich (kein Sprung, bündig mit der
+   rechten Kachelspalte) */
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) {
-  background: var(--mt-control) !important;
+  background: transparent !important;
   border: none !important;
-  box-shadow: var(--mt-btn-lite-shadow) !important;
+  box-shadow: none !important;
   padding: 0 6px 0 10px !important;
   margin: 0 !important;
   min-height: var(--mt-btn-h-small, 24px) !important;
@@ -1761,6 +1766,7 @@ body:has(> #accountCentral),
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) {
   background: var(--mt-control-hover) !important;
+  box-shadow: var(--mt-btn-lite-shadow) !important;
 }
 
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):hover:active {
@@ -1778,6 +1784,20 @@ body:has(> #accountCentral),
   border-radius: 4px !important;
 }
 
+/* Platz für den Trennstrich am rechten Rand der Texthälfte, auch in Ruhe
+   (sonst rückte der Text beim Überfahren) */
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) > .toolbarbutton-menubutton-button {
+  padding-inline-end: 4px !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) > .toolbarbutton-menubutton-button {
+  background: linear-gradient(var(--mt-cap-line), var(--mt-cap-line)) right center / 1px 13px no-repeat !important;
+}
+
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) > .toolbarbutton-menubutton-button:-moz-locale-dir(rtl) {
+  background-position: left center !important;
+}
+
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-icon {
   display: none !important;
 }
@@ -1785,34 +1805,38 @@ body:has(> #accountCentral),
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
   font-size: calc(12px * var(--mt-font-scale, 1)) !important;
   font-weight: 400 !important;
-  color: var(--mt-text) !important;
+  color: var(--mt-text-secondary) !important;
   padding: 0 !important;
   margin: 0 !important;
 }
 
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) .toolbarbutton-text {
+  color: var(--mt-text) !important;
+}
+
 /* Thunderbirds Pfeil liegt im Schatten-DOM und ist hier fast durchsichtig –
-   stattdessen ein kleines ⌄ als Maske in Textfarbe */
+   stattdessen ein kleines ⌄ als Maske, gleich grau wie der Text */
 :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-menubutton-dropmarker {
   border-inline-start: none !important;
-  width: 14px !important;
-  min-width: 14px !important;
+  width: 12px !important;
+  min-width: 12px !important;
   padding: 0 !important;
-  margin-inline-start: -2px !important;
+  margin-inline-start: 0 !important;
   list-style-image: none !important;
   -moz-context-properties: none !important;
   fill: transparent !important;
-  background: var(--mt-text) !important;
-  opacity: 0.6 !important;
+  background: var(--mt-text-secondary) !important;
   mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.7%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m6.5 9.5 5.5 5.5 5.5-5.5%22/%3E%3C/svg%3E") center / 10px 10px no-repeat !important;
 }
 
-:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) > .toolbarbutton-menubutton-dropmarker:hover {
-  opacity: 1 !important;
+:is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle):is(:hover, [open]) .toolbarbutton-menubutton-dropmarker {
+  background: var(--mt-text) !important;
 }
 
 @media (prefers-contrast: more) {
   #attachmentCount,
-  #attachmentSize {
+  #attachmentSize,
+  :is(#attachmentSaveAllMultiple, #attachmentSaveAllSingle) .toolbarbutton-text {
     color: var(--mt-text) !important;
   }
 }

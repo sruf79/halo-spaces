@@ -20,7 +20,8 @@ git clone -q $T/origin.git $T/repo 2>/dev/null
 R=$T/repo
 cd $R
 git checkout -q -b main 2>/dev/null
-print 'dist/\n*.xpi\nvorschau-*.png\n.claude/worktrees/' > .gitignore
+print 'dist/\n*.xpi\nvorschau-*.png\n.claude/worktrees/\nrepo.conf' > .gitignore
+print 'repo=probe' > repo.conf
 print a > a.txt
 git add -A && git commit -qm start && git push -q origin main 2>/dev/null
 W=$R/.claude/worktrees
@@ -51,6 +52,25 @@ git worktree add -q -b worktree-agent-a10 $W/agent-a10 main
 (cd $W/agent-a10 && exec sleep 120) &
 SCHLAEFER=$!
 for n in 1 2 3 4 5 6 7 9 10; do alt $W/agent-a$n; done
+# Worker des Auslastungswächters (~/halo-worker, Maintainer 19.11.2026)
+WK=$T/worker; mkdir -p $WK
+# w1 leer auf eigenem Zweig, repo.conf wie im Repo → weg, Zweig weg
+git worktree add -q -b pruef/worker-w1 $WK/worker-w1 main; cp repo.conf $WK/worker-w1/
+# w2 Commit per cherry-pick schon in main → weg, Zweig weg (-D)
+git worktree add -q -b pruef/worker-w2 $WK/worker-w2 main; (cd $WK/worker-w2 && print e > e.txt && git add e.txt && git commit -qm w2)
+# w3 eigener Commit nicht in main → bleibt
+git worktree add -q -b pruef/worker-w3 $WK/worker-w3 main; (cd $WK/worker-w3 && print f > f.txt && git add f.txt && git commit -qm w3)
+# w4 repo.conf anders als im Repo → bleibt
+git worktree add -q -b pruef/worker-w4 $WK/worker-w4 main; print 'repo=anders' > $WK/worker-w4/repo.conf
+# w5 ohne Zweig (neue Worker), leer → weg
+git worktree add -q --detach $WK/worker-w5 main
+# Zweige ohne Arbeitskopie: Worker-Zweig per cherry-pick in main → lokal und auf GitHub weg; anderer Präfix → bleibt
+git branch pruef/worker-gepickt main; git branch pruef/anders-gepickt main
+git worktree add -q $T/tmp-g pruef/worker-gepickt; (cd $T/tmp-g && print g > g.txt && git add g.txt && git commit -qm gepickt-g); git worktree remove $T/tmp-g
+git worktree add -q $T/tmp-h pruef/anders-gepickt; (cd $T/tmp-h && print h > h.txt && git add h.txt && git commit -qm gepickt-h); git worktree remove $T/tmp-h
+git cherry-pick pruef/worker-w2 pruef/worker-gepickt pruef/anders-gepickt >/dev/null && git push -q origin main 2>/dev/null
+git push -q origin pruef/worker-gepickt pruef/worker-w3 2>/dev/null
+for n in 1 2 3 4 5; do alt $WK/worker-w$n; done
 # Zweige: lokal und auf GitHub
 git branch pruef/fertig main
 git branch claude/eigen worktree-agent-a3
@@ -64,7 +84,7 @@ print $pid_tot > $T/nacht/tot-alt.lock; touch -t 202601010000 $T/nacht/tot-alt.l
 print $pid_tot > $T/nacht/tot-jung.lock
 print $$ > $T/nacht/lebt.lock; touch -t 202601010000 $T/nacht/lebt.lock
 
-export HALO_NACHT_DIR=$T/nacht HALO_CLAUDE_PROJEKTE=$T/proj HALO_AUFR_PRS=$T/prs LOG=$T/log
+export HALO_NACHT_DIR=$T/nacht HALO_CLAUDE_PROJEKTE=$T/proj HALO_AUFR_PRS=$T/prs LOG=$T/log HALO_WORKER_DIR=$WK
 vorher=$(git -C $R worktree list | wc -l)
 TR=$(zsh $SKRIPT --trocken $R 2>&1)
 pruefe "Probelauf: nichts entfernt" '[[ $(git -C $R worktree list | wc -l) == $vorher && -e $T/nacht/tot-alt.lock && ! -e $LOG ]]'
@@ -89,6 +109,17 @@ pruefe "GitHub-Zweig in main → gelöscht" '! git -C $T/origin.git rev-parse -q
 pruefe "GitHub-Zweig mit eigenem Commit → bleibt" 'git -C $T/origin.git rev-parse -q --verify claude/eigen >/dev/null'
 pruefe "GitHub-Zweig mit offenem Pull Request → bleibt" 'git -C $T/origin.git rev-parse -q --verify rest/offen-pr >/dev/null'
 pruefe "Protokoll: eine Zeile je Entfernung" '(( $(grep -c "AUFRÄUMEN entfernt" $LOG) == $(print -r -- $AUS | sed -n "/^Aufgeräumt/,/^Rest/p" | grep -c "^- ") ))'
+ ist() { git -C $R rev-parse -q --verify $1 >/dev/null }
+pruefe "Probelauf: listet leere Worker-Kopie" '[[ $TR == *"Arbeitskopie "*worker-w1* ]]'
+pruefe "Worker: leere Kopie (repo.conf wie im Repo) → entfernt, Zweig gelöscht" '[[ ! -d $WK/worker-w1 ]] && ! ist pruef/worker-w1'
+pruefe "Worker: Commit per cherry-pick in main → entfernt, Zweig gelöscht (Patch-Vergleich)" '[[ ! -d $WK/worker-w2 ]] && ! ist pruef/worker-w2 && [[ $AUS == *worker-w2*Patch-Vergleich* ]]'
+pruefe "Worker: eigener Commit → bleibt" '[[ -d $WK/worker-w3 && $AUS == *worker-w3:\ 1\ Commit* ]] && ist pruef/worker-w3'
+pruefe "Worker: repo.conf anders als im Repo → bleibt" '[[ -d $WK/worker-w4 && $AUS == *worker-w4:\ ignorierte\ Datei*repo.conf* ]]'
+pruefe "Worker: Kopie ohne Zweig, leer → entfernt" '[[ ! -d $WK/worker-w5 ]]'
+pruefe "Worker-Zweig ohne Kopie, per cherry-pick in main → lokal gelöscht" '! ist pruef/worker-gepickt'
+pruefe "Worker-Zweig auf GitHub, per cherry-pick in main → gelöscht" '! git -C $T/origin.git rev-parse -q --verify pruef/worker-gepickt >/dev/null'
+pruefe "Worker-Zweig auf GitHub mit eigenem Commit → bleibt" 'git -C $T/origin.git rev-parse -q --verify pruef/worker-w3 >/dev/null'
+pruefe "anderer Präfix per cherry-pick in main → bleibt (nur Vorfahr zählt)" 'ist pruef/anders-gepickt'
 pruefe "Arbeitsbaum von main unverändert" '[[ -z $(git -C $R status --porcelain) ]]'
 (( fehler )) && { print -r -- "--- Ausgabe ---"; print -r -- $AUS }
 exit $fehler

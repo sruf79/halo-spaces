@@ -31,6 +31,7 @@ chmod +x $T/gh
 print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/board.json
 export GH_WDH_BEFEHL=$T/gh GH_WDH_MAX_S=0 HALO_BOARD_WARTESCHLANGE=$T/w.txt HALO_ARCHIV=$T/archiv.md
 export HALO_BOARD_ZWISCHEN=$T/zw.json HALO_BOARD_ZWISCHEN_S=0   # (Zwischenspeicher in Abschnitt 6 eigens geprüft)
+export HALO_IN_ARBEIT=$T/in-arbeit.tsv   # (nie die echte Datei des Leitstands)
 B() { zsh $HIER/board.sh "$@" }
 anzahl() { grep -c "^$1 " $T/aufrufe 2>/dev/null || print 0 }
 
@@ -100,4 +101,21 @@ print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress
 B status PVTI_a todo > $T/aus 2>&1; rc=$?
 pruefe "status mit id ohne Zwischenspeicher: Einzelabfrage, Liste nicht geladen" '(( rc == 0 )) && (( $(anzahl list) == l )) && (( $(anzahl node) == n + 1 )) && grep -q "Status todo: Mail: Test" $T/aus'
 export HALO_BOARD_ZWISCHEN_S=0
+
+# 7. Leitstand: status arbeit merkt sich Eintrag, Titel und Prozesskette; Notiz „wartet auf Push“, todo und Done räumen
+rm -f $T/in-arbeit.tsv $T/w.txt $T/*.limit $T/*.kaputt
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"Todo","typ":"Bug","content":{"id":"DI_a","body":"Text A"}},{"id":"PVTI_b","title":"Kalender: Zwei","status":"Todo","typ":"Bug","content":{"id":"DI_b","body":"Text B"}}]}' > $T/board.json
+B status PVTI_a in_progress > $T/aus 2>&1; rc=$?
+pruefe "in_progress: Status gesetzt, Zeile mit id, Titel, eigener Prozesskette" '(( rc == 0 )) && grep -q "Status arbeit: Mail: Test" $T/aus && [[ $(cut -f2,3 $T/in-arbeit.tsv) == $'"'"'PVTI_a\tMail: Test'"'"' ]] && [[ ,$(cut -f4 $T/in-arbeit.tsv), == *,$$,* ]]'
+B status PVTI_b arbeit >/dev/null 2>&1; B status PVTI_a arbeit >/dev/null 2>&1
+pruefe "arbeit zweimal: eine Zeile je Eintrag" '(( $(wc -l < $T/in-arbeit.tsv) == 2 )) && (( $(grep -c PVTI_a $T/in-arbeit.tsv) == 1 ))'
+B notiz PVTI_a "committet abc1234, wartet auf Push/CI" >/dev/null 2>&1
+pruefe "Notiz „wartet auf Push“ räumt nur diesen Eintrag" '! grep -q PVTI_a $T/in-arbeit.tsv && grep -q PVTI_b $T/in-arbeit.tsv'
+B status PVTI_b todo >/dev/null 2>&1
+pruefe "todo räumt" '! grep -q PVTI_b $T/in-arbeit.tsv'
+B status PVTI_a arbeit >/dev/null 2>&1; B status PVTI_a done abc1234 >/dev/null 2>&1
+pruefe "done räumt" '! grep -q PVTI_a $T/in-arbeit.tsv'
+B status PVTI_b arbeit >/dev/null 2>&1; print 99 > $T/node.limit; print 99 > $T/list.limit
+B status PVTI_b ok >/dev/null 2>&1; rm -f $T/*.limit
+pruefe "Status in der Warteschlange räumt trotzdem" '! grep -q PVTI_b $T/in-arbeit.tsv'
 exit $F

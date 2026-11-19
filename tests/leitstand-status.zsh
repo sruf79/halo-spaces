@@ -3,7 +3,8 @@
 # Tagesroutine, Kontingent, Betriebsschalter, An welchen tasks der Auftragsliste gearbeitet wird und was als nächstes
 # auf der Liste steht“, Takt „Alle 5 Minuten“): schreibt ~/halo-nacht/leitstand/status.json und legt sie als einzigen
 # Commit (force-push) in das PRIVATE Repo sruf79/halo-status (enthält Board-Inhalte, nie öffentlich). Kein Claude-Aufruf
-# außer tests/kontingent.sh (winziger Haiku-Aufruf), und den höchstens alle 15 Minuten.
+# außer tests/kontingent.sh (winziger Haiku-Aufruf), und den höchstens alle 15 Minuten. Im selben Commit verlauf.json
+# (Zahlen für Verlaufskurven, höchstens alle 30 Min. ein Punkt, 7 Tage), Historie lokal ~/halo-nacht/leitstand-verlauf.json.
 # LaunchAgent at.halo-spaces.leitstand alle 5 Minuten (tests/mac-mini-setup.sh), Protokoll ~/Library/Logs/halo-leitstand.log.
 #   zsh tests/leitstand-status.zsh [<Repo>]             sammeln, schreiben, pushen
 #   zsh tests/leitstand-status.zsh --ohne-push [<Repo>] sammeln (mit gh) und JSON ausgeben, kein Push
@@ -17,7 +18,8 @@
 #   board.sh wird mitgenutzt), ~/halo-aufgaben/archiv.md (erledigt in 7 Tagen), Plan des Directors (neueste
 #   ~/halo-nacht/<datum>-plan.md bzw. <datum>-tagesroutine-plan[-n].tsv), offene Issues (alle 15 Min.; wartet = letzter
 #   Kommentar nicht von uns; nur Nummer und Titel), ~/halo-aufgaben/bilder-offen.md, gh run list (15 neueste), letztes
-#   Release und Commits seit dem Tag (alle 15 Min.).
+#   Release und Commits seit dem Tag (alle 15 Min.), gh api rate_limit (je Lauf; zählt selbst nicht gegen das Limit)
+#   → github_limit (REST und GraphQL) und in verlauf.json gh_rest/gh_graphql (verbraucht in Prozent).
 # Zum Proben: HALO_LS_DIR (Arbeitsordner), HALO_NACHT_DIR, HALO_AUFGABEN_DIR, HALO_LS_JETZT (Epochensekunden),
 # HALO_LS_PS (Datei statt ps), HALO_LS_OHNE_NETZ=1 (keine gh-/Claude-Aufrufe), HALO_LS_VOLLDAMPF/HALO_LS_SOLL (statt
 # lauf-hilfen.zsh).
@@ -85,6 +87,11 @@ if netz; then
     holen $Q/vergleich.json gh api "repos/$GH_REPO/compare/$(jq -r .tag $Q/release.json)...main" --jq '{ahead: .ahead_by}'
   fi
   holen $Q/ci.json gh run list -R $GH_REPO -L 15 --json databaseId,number,displayTitle,headBranch,event,status,conclusion,createdAt,updatedAt,url
+  # ci_main gezielt (der neueste main-Lauf ist oft nicht unter den 15 neuesten; 5 für abgebrochene davor)
+  holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 5 --json headBranch,status,conclusion
+  # GitHub-Limit je Lauf frisch (alter Wert gilt nicht weiter: nicht lesbar → github_limit null)
+  rm -f $Q/rate.json
+  holen $Q/rate.json gh api rate_limit --jq '{core: .resources.core, graphql: .resources.graphql}'
 fi
 
 # --- status.json bauen ---
@@ -122,12 +129,27 @@ def etime_s(e):
     teile = [int(x) for x in e.split(":")]
     while len(teile) < 3: teile.insert(0, 0)
     return tage * 86400 + teile[0] * 3600 + teile[1] * 60 + teile[2]
+def unvis(t):
+    """ps unter macOS kodiert Nicht-ASCII und Zeilenumbrüche nach vis(3) („ → M-bM^@M^^, Umbruch → \\012); zurück nach UTF-8"""
+    b, i = bytearray(), 0
+    while i < len(t):
+        if t.startswith("M-", i) and i + 2 < len(t): b.append(ord(t[i + 2]) & 0x7f | 0x80); i += 3
+        elif t.startswith("M^", i) and i + 2 < len(t): b.append(0xff if t[i + 2] == "?" else (ord(t[i + 2]) ^ 0x40) & 0x7f | 0x80); i += 3
+        elif t[i] == "\\" and re.match(r"[0-7]{3}", t[i + 1:i + 4]): b.append(int(t[i + 1:i + 4], 8)); i += 4
+        else: b.extend(t[i].encode("utf-8")); i += 1
+    return b.decode("utf-8", "replace")
 PROZ = {}
 for z in (lies(Q + "/ps.txt") or "").splitlines():
     m = re.match(r"\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)", z)
     if not m: continue
-    try: PROZ[int(m.group(1))] = (int(m.group(2)), JETZT - etime_s(m.group(3)), m.group(4))
+    c = m.group(4)
+    if re.match(r"(\S*/)?claude -p ", c): c = unvis(c)   # (nur die Runden: dort stehen Titel und Auftrag)
+    try: PROZ[int(m.group(1))] = (int(m.group(2)), JETZT - etime_s(m.group(3)), c)
     except ValueError: pass
+# Kopf einer Runde der Tagesroutine (tests/tagesroutine.sh): „JETZT: genau einen Eintrag bearbeiten …: <id> (<Art>) „Titel““
+# bzw. „JETZT: Fable-Runde … für <id> „Titel““; „JETZT:“ allein kommt auch im mitgegebenen Auftragstext vor
+KOPF = re.compile(r"JETZT: (?:genau einen Eintrag bearbeiten|Fable-Runde)[^\n„]*„([^“\n]+)“")
+DESIGNER = re.compile(r"(^|\n)Design-Eintrag: Du bist der Director")
 def kinder(pid):
     aus, offen = [], [pid]
     while offen:
@@ -140,16 +162,46 @@ def oberste(muster):
     rx = re.compile(muster)
     treffer = {p for p, (_, _, c) in PROZ.items() if rx.search(c)}
     return sorted((p for p in treffer if PROZ[p][0] not in treffer), key=lambda p: PROZ[p][1])
+# Hauptprozess statt Zeitgeber: die Schleifen starten je Worker eine Unterschale „( sleep 14400; pkill … ) &!“, die
+# wie die Schleife heißt (am 19.11. erschien „Wächter Auslastung“ 14-mal); zählt nur, wer die Sperrdatei hält, sonst
+# jeder passende Prozess ohne Zeitgeber-Muster (einziges Kind „sleep N“, im selben Augenblick gestartet)
+SPERREN = {"Nachtlauf": "lauf.lock", "Tagesroutine": "tagesroutine.lock",
+           "Wächter Auslastung": "auslastung-schleife.lock", "Wächter Zwischen-Release": "zwischen-schleife.lock"}
+def zeitgeber(p):
+    k = [q for q, (pp, _, _) in PROZ.items() if pp == p]
+    return len(k) == 1 and bool(re.match(r"(\S*/)?sleep \d+\s*$", PROZ[k[0]][2])) and abs(PROZ[k[0]][1] - PROZ[p][1]) <= 2
+def haupt(name, rx):
+    s = (lies(N + "/" + SPERREN[name]) or "").strip() if name in SPERREN else ""
+    if s.isdigit() and int(s) in PROZ and re.search(rx, PROZ[int(s)][2]): return [int(s)]
+    return [p for p in oberste(rx) if not zeitgeber(p)]
+# Woran ein Agent sitzt: tests/board.sh status <id> arbeit schreibt in-arbeit.tsv „<Epoche> <id> <Titel> <PID-Kette>
+# <Zweig> <Ordner>“ (Tab); passt die PID des Agenten in die Kette (oder Zweig/Arbeitskopie des Workers), gilt der Titel
+def _in_arbeit():
+    aus = []
+    for z in (lies(N + "/in-arbeit.tsv") or "").splitlines():
+        t = z.split("\t")
+        if len(t) < 6 or not t[0].isdigit() or JETZT - int(t[0]) > 86400: continue
+        aus.append({"zeit": int(t[0]), "titel": t[2], "kette": {int(x) for x in t[3].split(",") if x.isdigit()},
+                    "zweig": t[4], "ordner": t[5]})
+    return sorted(aus, key=lambda r: -r["zeit"])
+IN_ARBEIT = sicher(_in_arbeit) or []
+def eintrag_aus_liste(pid=None, zweig=None, ordner=None):
+    for r in IN_ARBEIT:
+        if (pid is not None and pid in r["kette"]) or (zweig and r["zweig"] == zweig) \
+           or (ordner and (r["ordner"] == ordner or r["ordner"].startswith(ordner.rstrip("/") + "/"))):
+            return r["titel"]
+    return None
 def modell_von(pid):
     for k in kinder(pid):
         m = re.search(r"claude -p .*?--model (\S+)", PROZ[k][2])
         if m: return m.group(1)
     return None
 def eintrag_von(pid):
+    """Titel aus der laufenden Runde („JETZT: … „Titel““), sonst aus in-arbeit.tsv"""
     for k in kinder(pid):
-        m = re.search(r"JETZT:[^„]*„([^“]+)“", PROZ[k][2])
+        m = KOPF.search(PROZ[k][2])
         if m: return m.group(1)
-    return None
+    return eintrag_aus_liste(pid)
 LAEUFE = {"nachtlauf": ("Nachtlauf", r"/nachtlauf\.sh(\s|$)"), "tagesroutine": ("Tagesroutine", r"/tagesroutine\.sh(\s|$)")}
 SONST_LAEUFE = [("Wochenprüfung", r"/wochenpruefung\.sh(?!.*--doku)"), ("Doku-Prüfung", r"/wochenpruefung\.sh.*--doku"),
                 ("Design-Rundgang", r"/rundgang-woche\.sh"), ("Morgenbrief", r"/morgenbrief\.sh")]
@@ -160,21 +212,31 @@ WAECHTER = [("Wächter Auslastung", r"auslastung-schleife\.zsh"), ("Wächter Zwi
 def agenten():
     aus = []
     for name, rx in [v for v in LAEUFE.values()] + SONST_LAEUFE:
-        for p in oberste(rx):
-            aus.append({"name": name, "art": "lauf", "seit": iso(PROZ[p][1]), "modell": modell_von(p)})
-    # Worker des Auslastungswächters: Zustandsdatei „<pid> <Sitzung> <Modell> <Start> …“, nur lebende
+        for p in haupt(name, rx):
+            aus.append({"name": name, "art": "lauf", "seit": iso(PROZ[p][1]), "modell": modell_von(p),
+                        "eintrag": eintrag_von(p) if name in ("Nachtlauf", "Tagesroutine") else None})
+            # Designer als Unteragent einer Runde (Auftrag mit „Design-Eintrag:“): eigener Eintrag
+            for k in kinder(p):
+                c = PROZ[k][2]
+                if re.match(r"(\S*/)?claude -p ", c) and DESIGNER.search(c):
+                    m, mm = KOPF.search(c), re.search(r"--model (\S+)", c)
+                    aus.append({"name": "Designer (%s)" % name, "art": "lauf", "seit": iso(PROZ[k][1]),
+                                "modell": mm.group(1) if mm else None, "eintrag": m.group(1) if m else eintrag_aus_liste(k)})
+    # Worker des Auslastungswächters: Zustandsdatei „<pid> <Sitzung> <Modell> <Start> <Arbeitskopie> <Zweig> …“, nur lebende
     for f in sorted(glob.glob(N + "/auslastung/worker-[0-9]*")):
         t = (lies(f) or "").split()
         if len(t) >= 4 and t[0].isdigit() and int(t[0]) in PROZ:
-            aus.append({"name": "Worker " + f.rsplit("-", 1)[1], "art": "worker", "seit": iso(int(t[3])), "modell": t[2]})
+            wt, zweig = (t[4] if len(t) > 4 else None), (t[5] if len(t) > 5 else None)
+            aus.append({"name": "Worker " + f.rsplit("-", 1)[1] + (" (%s)" % zweig if zweig else ""), "art": "worker",
+                        "seit": iso(int(t[3])), "modell": t[2], "eintrag": eintrag_aus_liste(int(t[0]), zweig, wt)})
     for name, rx in WAECHTER:
-        for p in oberste(rx):
-            aus.append({"name": name, "art": "waechter", "seit": iso(PROZ[p][1]), "modell": modell_von(p)})
+        for p in haupt(name, rx):
+            aus.append({"name": name, "art": "waechter", "seit": iso(PROZ[p][1]), "modell": modell_von(p), "eintrag": None})
     for p in oberste(r"Runner\.Worker"):
-        aus.append({"name": "CI-Runner", "art": "ci", "seit": iso(PROZ[p][1]), "modell": None})
+        aus.append({"name": "CI-Runner", "art": "ci", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None})
     for p in oberste(r"claude remote-control .*--name (\S+)"):
         m = re.search(r"--name (\S+)", PROZ[p][2])
-        aus.append({"name": m.group(1), "art": "sitzung", "seit": iso(PROZ[p][1]), "modell": None})
+        aus.append({"name": m.group(1), "art": "sitzung", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None})
     return aus
 
 # Zeilen ohne Aussage über den Schritt (Kontingent-/Volldampf-Stand, Push-Bestätigung, git-Ausgaben ohne Zeit)
@@ -183,12 +245,14 @@ def letzte_zeile(datei):
     for z in reversed((lies(datei) or "").splitlines()):
         m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)", z)
         if m and not re.match(LEISE, m.group(2)):
-            t = m.group(2).strip()
+            # keine Sitzungs-IDs im Schritt-Text (Leitstand ist eine Übersicht, die IDs ändern sich je Runde)
+            t = re.sub(r",?\s*Sitzung\s+\S+", "", m.group(2))
+            t = re.sub(r"\s*\b(cse_\w+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b", "", t).strip()
             return (t[:157] + "…") if len(t) > 160 else t, dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=WIEN)
     return None, None
 def lauf(schluessel, logmuster):
     name, rx = LAEUFE[schluessel]
-    p = oberste(rx)
+    p = haupt(name, rx)
     logs = sorted(glob.glob(N + "/" + logmuster), key=os.path.getmtime)
     schritt, wann = letzte_zeile(logs[-1]) if logs else (None, None)
     if p:
@@ -309,14 +373,17 @@ def rueckmeldungen():
     return {"issues_warten": sicher(issues_warten), "bilder_offen": sicher(bilder_offen)}
 
 CI = lies(Q + "/ci.json", True)
+CI_MAIN = lies(Q + "/ci-main.json", True)
 def ci():
     if CI is None: return None
     return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": r["displayTitle"], "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
              "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI]
 def ci_main():
-    if CI is None: return None
-    for r in CI:
+    """neuester main-Lauf (gezielte Abfrage, sonst aus den 15 neuesten); abgebrochene zählen nicht"""
+    quelle = CI_MAIN if CI_MAIN else CI
+    if quelle is None: return None
+    for r in quelle:
         if r["headBranch"] != "main": continue
         if r["status"] in ("queued", "waiting", "pending", "requested"): return "wartet"
         if r["status"] != "completed": return "läuft"
@@ -330,7 +397,7 @@ def release_eta():
     seit = (" %s Commits auf main seit %s." % (ahead, rel["tag"])) if ahead is not None and rel.get("tag") else ""
     if oberste(r"zwischen-release\.zsh|Unbeaufsichtigter Zwischen-Release"):
         return {"zeit": iso(JETZT + 50 * 60), "grund": "Zwischen-Release läuft, wartet auf CI und Windows (etwa 50 Minuten)." + seit}
-    nl = oberste(LAEUFE["nachtlauf"][1])
+    nl = haupt("Nachtlauf", LAEUFE["nachtlauf"][1])
     if nl and not (rel.get("zeit") and iso(rel["zeit"]) >= iso(PROZ[nl[0]][1])):
         return {"zeit": None, "grund": "Nachtlauf läuft; er veröffentlicht nach grüner CI, Zeitpunkt offen." + seit}
     hm = jetzt_w.hour * 100 + jetzt_w.minute
@@ -341,13 +408,62 @@ def release_eta():
     return {"zeit": iso(nacht.timestamp() + 3 * 3600),
             "grund": "Nächster Nachtlauf (01:30 Wiener Zeit) veröffentlicht nach grüner CI; Zeit geschätzt (Start plus 3 Stunden)." + seit}
 
+RATE = lies(Q + "/rate.json", True)
+def github_limit():
+    """aus gh api rate_limit: je Bereich Limit, verbraucht (limit − remaining), rest (verbleibend), Reset; unlesbar → None"""
+    if not isinstance(RATE, dict): return None
+    aus = {}
+    for name, quelle in (("rest", "core"), ("graphql", "graphql")):
+        r = RATE.get(quelle) or {}
+        lim, rest = r.get("limit"), r.get("remaining")
+        if not (isinstance(lim, int) and isinstance(rest, int) and lim > 0): return None
+        aus[name] = {"limit": lim, "verbraucht": lim - rest, "rest": rest, "reset": iso(r.get("reset"))}
+    return aus
+
 st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
-      "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main)}
+      "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
+      "github_limit": sicher(github_limit)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
+
+# --- verlauf.json: höchstens alle 30 Minuten ein Punkt, nur 7 Tage (höchstens 336 Punkte), Historie lokal in HIST ---
+# nur Zahlen aus den schon berechneten Feldern (keine Titel); nicht messbar → null; je Punkt eine Zeile
+HIST, VERLAUF = sys.argv[6], sys.argv[7]
+def punkt():
+    k, b, ci_, ag = st["kontingent"] or {}, st["board"], st["ci"], st["agenten"]
+    z = (b or {}).get("zahlen") or {}
+    def zaehle(f): return None if ci_ is None else sum(1 for r in ci_ if f(r["status"]))
+    gl = st["github_limit"] or {}
+    def anteil(b): return round(100 * gl[b]["verbraucht"] / gl[b]["limit"], 1) if b in gl else None
+    return {"t": iso(JETZT), "woche": k.get("woche_prozent"), "fuenf": k.get("fuenf_stunden_prozent"), "soll": k.get("soll_prozent"),
+            "bugs": z.get("bugs_offen"), "features": z.get("features_offen"),
+            "in_arbeit": None if b is None else len(b.get("in_arbeit") or []),
+            "ci_wartend": zaehle(lambda s: s in ("queued", "waiting", "pending", "requested")),
+            "ci_laufend": zaehle(lambda s: s not in ("completed", "queued", "waiting", "pending", "requested")),
+            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker")),
+            "gh_rest": anteil("rest"), "gh_graphql": anteil("graphql")}
+def epoche(t): return dt.datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
+punkte = []
+roh = lies(HIST)
+if roh is not None:
+    try:
+        punkte = json.loads(roh)["punkte"]
+        assert isinstance(punkte, list)
+        punkte = [p for p in punkte if isinstance(p, dict) and isinstance(p.get("t"), str) and epoche(p["t"]) <= JETZT]
+    except Exception as e:
+        sys.stderr.write("Verlauf defekt, beginnt neu: %s\n" % e); punkte = []
+if not punkte or JETZT - epoche(punkte[-1]["t"]) >= 1800:
+    p = sicher(punkt)
+    if p is not None: punkte.append(p)
+punkte = [p for p in punkte if JETZT - epoche(p["t"]) < 7 * 86400][-336:]
+text = "{\"punkte\":[\n" + "".join(json.dumps(p, ensure_ascii=False, separators=(",", ":")) + ("," if i < len(punkte) - 1 else "") + "\n"
+                              for i, p in enumerate(punkte)) + "]}\n"
+for ziel in (HIST, VERLAUF):
+    with open(ziel + ".neu", "w", encoding="utf-8") as f: f.write(text)
+    os.replace(ziel + ".neu", ziel)
 '
-python3 -I -c $LS_PY $Q $N $A $JETZT $D/status.json 2>>$LOG || { log "FEHLER status.json nicht gebaut"; exit 1 }
+python3 -I -c $LS_PY $Q $N $A $JETZT $D/status.json $N/leitstand-verlauf.json $D/verlauf.json 2>>$LOG || { log "FEHLER status.json nicht gebaut"; exit 1 }
 if [[ -n $TROCKEN$OHNE_PUSH ]]; then cat $D/status.json; exit 0; fi
 [[ -n $HALO_LS_OHNE_NETZ ]] && exit 0
 
@@ -359,7 +475,8 @@ if [[ ! -d $R/.git ]]; then
   rm -rf $R; git init -q -b main $R && git -C $R remote add origin https://github.com/$STATUS_REPO.git || { log "FEHLER Arbeitskopie"; exit 1 }
 fi
 cp $D/status.json $R/status.json
-git -C $R add status.json
+cp $D/verlauf.json $R/verlauf.json
+git -C $R add status.json verlauf.json
 # Verlauf klein: jedes Mal ein neuer Wurzel-Commit statt einer wachsenden Kette
 BAUM=$(git -C $R write-tree) &&
   C=$(git -C $R -c user.name=neon -c user.email=neon@localhost commit-tree $BAUM -m "Leitstand: Stand $(TZ=UTC date -r $JETZT +%FT%TZ)") &&

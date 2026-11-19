@@ -11,6 +11,16 @@ pruefe() {   # <Name> <jq-Ausdruck, der true ergeben muss>
 }
 # 2026-11-19 08:00 Wiener Zeit = 07:00 UTC
 JETZT=$(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-19 07:00:00' +%s)
+pruefe_v() {   # <Name> <jq-Ausdruck über verlauf.json, der true ergeben muss>
+  if [[ $(jq -r "$2" $T/d/verlauf.json 2>/dev/null) == true ]]; then print "OK      $1"; else print "FEHLER  $1"; FEHLER=1; fi
+}
+VH=$T/n/leitstand-verlauf.json
+verlauf_mit() {   # <Abstand in s> <Anzahl> [<Alter des neuesten Punkts in s>]: lokale Historie mit gleichmäßigen Punkten
+  python3 -I -c 'import sys, json, datetime as d
+j, a, n, e = (int(x) for x in sys.argv[1:5])
+t = [d.datetime.fromtimestamp(j - e - a * i, d.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(n)][::-1]
+print(json.dumps({"punkte": [{"t": x, "woche": 1} for x in t]}))' $JETZT $1 $2 ${3:-$1} > $VH
+}
 lauf() {   # [<Epochensekunden>]
   HALO_LS_DIR=$T/d HALO_NACHT_DIR=$T/n HALO_AUFGABEN_DIR=$T/a HALO_LS_JETZT=${1:-$JETZT} HALO_LS_OHNE_NETZ=1 \
     HALO_LS_PS=$T/ps.txt zsh $HIER/leitstand-status.zsh --trocken $T/repo > $T/aus.json 2>$T/fehler.txt
@@ -21,11 +31,14 @@ mkdir -p $T/n $T/a; : > $T/ps.txt
 HALO_LS_VOLLDAMPF= HALO_LS_SOLL= lauf
 print "Exitcode $?" >> $T/fehler.txt
 pruefe "ohne Quellen: gültiges JSON mit Stand" '.stand == "2026-11-19T07:00:00Z"'
-pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder null" \
-  '.kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
+pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder, GitHub-Limit null" \
+  '(has("github_limit") and .github_limit == null) and .kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
+pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
+  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0,"gh_rest":null,"gh_graphql":null}'
+cmp -s $VH $T/d/verlauf.json && print "OK      Verlauf: lokale Historie gleich verlauf.json" || { print "FEHLER  Verlauf: lokale Historie gleich verlauf.json"; FEHLER=1; }
 
 # --- Fall 2: alle Quellen ---
 rm -rf $T/d; mkdir -p $T/d/quellen $T/n/auslastung
@@ -34,15 +47,26 @@ cat > $T/ps.txt <<'EOF'
   101   100 05:29:50 /bin/zsh /x/nachtlauf.sh /Users/x/halo-spaces
   102   101    10:00 claude -p --model opus --resume abc --permission-mode auto Weiter
   200     1    50:00 /bin/zsh /x/tagesroutine.sh /Users/x/halo-spaces
-  201   200    05:00 claude -p --model sonnet --session-id s1 --permission-mode auto Kopf JETZT: genau einen Eintrag bearbeiten (Schritt 3 des Auftrags): PVTI_a (bug) „Mail: Knopf fehlt“. Modell dieser Runde: sonnet.
+  201   200    05:00 claude -p --model sonnet --session-id s1 --permission-mode auto Auftrag: Steht im JETZT:M-bM^@M^\.\012kein Design-Eintrag M-bM^@M^^XM-bM^@M^\\012JETZT: genau einen Eintrag bearbeiten (Schritt 3 des Auftrags): PVTI_a (design) M-bM^@M^^Mail: Knopf fehltM-bM^@M^\. Modell dieser Runde: sonnet.\012Design-Eintrag: Du bist der Director und beauftragst den Designer
   300     1 1-02:00:00 zsh /x/auslastung-schleife.zsh
   301   300    00:05 zsh /x/auslastung-schleife.zsh
+  306   300    00:05 sleep 900
   302     1    00:05 zsh /x/auslastung-schleife.zsh
+  303   302    00:05 sleep 14400
+  304     1 03:00:00 zsh /x/auslastung-schleife.zsh
+  305   304 03:00:00 sleep 14400
   400     1    20:00 claude -p --model opus --session-id w1 --permission-mode auto Worker
   500     1    15:00 /Users/x/actions-runner/bin/Runner.Worker spawnclient 1 2
   600     1 3-12:00:00 /Users/x/.local/bin/claude remote-control --spawn=same-dir --name neon-board --permission-mode auto
 EOF
 print "400 w1 opus $((JETZT - 1200)) /wt pruef/w /e normal" > $T/n/auslastung/worker-1
+print "401 w3 sonnet $((JETZT - 600)) /wt3 pruef/w3 /e normal" > $T/n/auslastung/worker-3
+print "  401     1    10:00 claude -p --model sonnet --session-id w3 Worker" >> $T/ps.txt
+# in-arbeit.tsv von board.sh: Nachtlauf (PID 100 in der Kette), Worker 1 (PID 400), Worker 3 nur über die Arbeitskopie, eine Zeile zu alt
+{ printf '%s\tPVTI_bXYZ1\tKalender: Woche zeigt Feiertage\t9000,9001,102,101,100,1\tmain\t/Users/x/halo-spaces\n' $((JETZT - 300))
+  printf '%s\tPVTI_q\tMail: Worker-Eintrag\t9100,400\tpruef/w\t/wt\n' $((JETZT - 200))
+  printf '%s\tPVTI_r\tAdressbuch: über Ordner\t9200\t-\t/wt3/tests\n' $((JETZT - 100))
+  printf '%s\tPVTI_s\tAlt: zu alt\t9300,400\tpruef/w\t/wt\n' $((JETZT - 90000)) } > $T/n/in-arbeit.tsv
 print "999 w2 opus $((JETZT - 1200)) /wt pruef/w /e normal" > $T/n/auslastung/worker-2   # Prozess tot
 cat > $T/n/2026-11-19.log <<'EOF'
 2026-11-19 01:30:05 Start, Sitzung x
@@ -82,13 +106,20 @@ cat > $T/d/quellen/ci.json <<'EOF'
 EOF
 print '{"tag":"v3.32.0","zeit":"2026-11-18T05:38:00Z"}' > $T/d/quellen/release.json
 print '{"ahead":4}' > $T/d/quellen/vergleich.json
+# gh api rate_limit (--jq auf core/graphql): REST 1234 von 5000 verbraucht, GraphQL 50 von 5000
+print '{"core":{"limit":5000,"used":1234,"remaining":3766,"reset":1795078800},"graphql":{"limit":5000,"used":50,"remaining":4950,"reset":1795080600}}' > $T/d/quellen/rate.json
 HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
 pruefe "Agenten: Nachtlauf mit Modell, Unterschale nicht doppelt" '[.agenten[] | select(.name == "Nachtlauf")] | length == 1 and .[0].modell == "opus" and .[0].seit == "2026-11-19T01:30:00Z"'
-pruefe "Agenten: Auslastungswächter einmal je Schleife (Unterschalen zählen nicht)" '[.agenten[] | select(.name == "Wächter Auslastung")] | length == 2'
-pruefe "Agenten: lebender Worker mit Modell, toter fehlt" '[.agenten[] | select(.art == "worker")] | length == 1 and .[0].name == "Worker 1" and .[0].modell == "opus"'
+pruefe "Agenten: Auslastungswächter einmal (Unterschalen und 4-Stunden-Zeitgeber zählen nicht)" '[.agenten[] | select(.name == "Wächter Auslastung")] | length == 1 and .[0].seit == "2026-11-18T05:00:00Z"'
+pruefe "Agenten: lebende Worker mit Zweig und Modell, toter fehlt" '[.agenten[] | select(.art == "worker") | .name] == ["Worker 1 (pruef/w)", "Worker 3 (pruef/w3)"] and ([.agenten[] | select(.art == "worker")][0].modell == "opus")'
+pruefe "Agenten: Eintrag je Worker (PID-Kette, sonst Arbeitskopie; zu alte Zeile zählt nicht)" '[.agenten[] | select(.art == "worker") | .eintrag] == ["Mail: Worker-Eintrag", "Adressbuch: über Ordner"]'
+pruefe "Agenten: Eintrag von Nachtlauf (in-arbeit.tsv) und Tagesroutine (Runde)" '([.agenten[] | select(.name == "Nachtlauf")][0].eintrag == "Kalender: Woche zeigt Feiertage") and ([.agenten[] | select(.name == "Tagesroutine")][0].eintrag == "Mail: Knopf fehlt")'
+pruefe "Agenten: Designer-Runde als eigener Agent mit Eintrag" '[.agenten[] | select(.name == "Designer (Tagesroutine)")] | length == 1 and .[0].eintrag == "Mail: Knopf fehlt" and .[0].modell == "sonnet"'
+pruefe "Agenten: jeder Eintrag hat das Feld eintrag" '[.agenten[] | has("eintrag")] | all'
+pruefe "Läufe: Eintrag des Nachtlaufs aus in-arbeit.tsv" '.laeufe.nachtlauf.eintrag == "Kalender: Woche zeigt Feiertage"'
 pruefe "Agenten: CI-Runner und Sitzung neon-board" '([.agenten[] | select(.art == "ci")] | length == 1) and ([.agenten[] | select(.art == "sitzung")][0].name == "neon-board")'
 pruefe "Läufe: Nachtlauf-Schritt ohne Volldampf-Zeile" '.laeufe.nachtlauf.aktiv and (.laeufe.nachtlauf.schritt | startswith("Runde 2 beendet"))'
-pruefe "Läufe: Eintrag der Tagesroutine aus der Runde" '.laeufe.tagesroutine.eintrag == "Mail: Knopf fehlt" and .laeufe.tagesroutine.seit == "2026-11-19T06:10:00Z"'
+pruefe "Läufe: Eintrag der Tagesroutine aus der Runde (vis-kodiert wie ps), Schritt ohne Sitzungs-ID" '.laeufe.tagesroutine.eintrag == "Mail: Knopf fehlt" and .laeufe.tagesroutine.seit == "2026-11-19T06:10:00Z" and .laeufe.tagesroutine.schritt == "Runde mit sonnet"'
 pruefe "Kontingent: Werte, Messzeit UTC, Soll" '.kontingent == {"gemessen":"2026-11-19T06:45:00Z","woche_prozent":5,"fuenf_stunden_prozent":18,"soll_prozent":6.0,"reset_woche":"2026-11-24T00:00:00Z","reset_5h":"2026-11-19T09:00:00Z"}'
 pruefe "Schalter: Volldampf, Push-Sperre um 08:00, Rot-Zähler 14 Tage, nur aktive Pause" \
   '.schalter.volldampf and .schalter.push_sperre and .schalter.rot_zaehler == 1 and (.schalter.pausen | length == 1 and .[0].bis == "2026-11-19T08:30:00Z")'
@@ -97,7 +128,69 @@ pruefe "Board: nächste laut Plan, nur Todo, ohne Archiviertes" '[.board.naechst
 pruefe "Board: Zahlen und Bereiche" '.board.zahlen.bugs_offen == 3 and .board.zahlen.features_offen == 2 and .board.zahlen.erledigt_woche == 1 and ([.board.zahlen.je_bereich[] | select(.bereich == "Sonstiges")][0].bugs == 1)'
 pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1}'
 pruefe "CI: Läufe übernommen, main läuft" '(.ci | length == 2) and .ci[0].ergebnis == "failure" and .ci[1].ergebnis == null and .ci_main == "läuft"'
+pruefe "GitHub-Limit: REST und GraphQL mit Limit, verbraucht, Rest, Reset (UTC)" \
+  '.github_limit == {"rest":{"limit":5000,"verbraucht":1234,"rest":3766,"reset":"2026-11-19T09:00:00Z"},"graphql":{"limit":5000,"verbraucht":50,"rest":4950,"reset":"2026-11-19T09:30:00Z"}}'
 pruefe "Release: Nachtlauf läuft, Tag vor dem Start fehlt → offen" '.release_eta.zeit == null and (.release_eta.grund | test("Nachtlauf läuft.*4 Commits"))'
+pruefe_v "Verlauf: im selben Augenblick kein zweiter Punkt (30-Minuten-Grenze)" '(.punkte | length == 1) and .punkte[0].woche == null'
+# Punkt mit allen Quellen; CI: einer wartet, einer läuft, einer fertig
+rm -f $VH
+CI_VORHER=$(<$T/d/quellen/ci.json)
+print '[{"databaseId":5,"number":5,"displayTitle":"w","headBranch":"main","event":"push","status":"queued","conclusion":"","createdAt":"2026-11-19T06:50:00Z","updatedAt":"2026-11-19T06:50:00Z","url":"u5"},
+ {"databaseId":4,"number":4,"displayTitle":"l","headBranch":"pruef/y","event":"push","status":"in_progress","conclusion":"","createdAt":"2026-11-19T06:40:00Z","updatedAt":"2026-11-19T06:45:00Z","url":"u4"},
+ {"databaseId":3,"number":3,"displayTitle":"neu","headBranch":"pruef/x","event":"push","status":"completed","conclusion":"failure","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:30:00Z","url":"u3"}]' > $T/d/quellen/ci.json
+HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
+pruefe_v "Verlauf: Punkt aus den Feldern (Kontingent, Board, CI, Agenten ohne Wächter, CI-Runner und Sitzungen)" \
+  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5,"gh_rest":24.7,"gh_graphql":1.0}]'
+[[ $(wc -l < $T/d/verlauf.json) -eq 3 && $(sed -n 2p $T/d/verlauf.json) == '{"t":'* ]] && ! grep -q 'Mail: Knopf' $T/d/verlauf.json \
+  && print "OK      Verlauf: je Punkt eine Zeile, keine Titel" || { print "FEHLER  Verlauf: je Punkt eine Zeile, keine Titel"; FEHLER=1; }
+lauf $((JETZT + 1799))
+pruefe_v "Verlauf: nach 29:59 Minuten kein neuer Punkt" '.punkte | length == 1'
+lauf $((JETZT + 1800))
+pruefe_v "Verlauf: nach 30 Minuten zweiter Punkt angehängt" '(.punkte | length == 2) and .punkte[1].t == "2026-11-19T07:30:00Z"'
+[[ $(wc -l < $T/d/verlauf.json) -eq 4 ]] && print "OK      Verlauf: zwei Punkte, vier Zeilen" || { print "FEHLER  Verlauf: zwei Punkte, vier Zeilen"; FEHLER=1; }
+# 7-Tage-Kürzung: Punkte vor 8 Tagen und genau 7 Tagen fallen weg, vor 2 Tagen bleibt
+verlauf_mit 86400 1 $((8 * 86400)); jq -c '.punkte += [{"t":"2026-11-12T07:00:00Z"},{"t":"2026-11-17T07:00:00Z"}]' $VH > $VH.x && mv $VH.x $VH
+lauf
+pruefe_v "Verlauf: 7-Tage-Kürzung" '[.punkte[] | .t] == ["2026-11-17T07:00:00Z","2026-11-19T07:00:00Z"]'
+# Obergrenze 336: 8 Tage alle 10 Minuten (neuester vor 30 Min.) → 336 neueste, der neue zuletzt
+verlauf_mit 600 1152 1800
+lauf
+pruefe_v "Verlauf: höchstens 336 Punkte, neuer Punkt zuletzt" '(.punkte | length == 336) and .punkte[-1].t == "2026-11-19T07:00:00Z" and .punkte[-1].woche == 5'
+# defekte lokale Historie → neu beginnen
+print '{kaputt' > $VH; lauf
+pruefe_v "Verlauf: defekte Historie → neu mit einem Punkt" '(.punkte | length == 1) and .punkte[0].bugs == 3'
+print '{"punkte":5}' > $VH; lauf
+pruefe_v "Verlauf: Historie falscher Form → neu mit einem Punkt" '.punkte | length == 1'
+# alte Punkte ohne gh_rest/gh_graphql bleiben gültig, der neue Punkt hat beide
+verlauf_mit 1800 2
+lauf
+pruefe_v "Verlauf: alte Punkte ohne GitHub-Felder bleiben, neuer Punkt mit Prozent" \
+  '(.punkte | length == 3) and (.punkte[0] | has("gh_rest") | not) and .punkte[1] == {"t":"2026-11-19T06:30:00Z","woche":1} and .punkte[2].gh_rest == 24.7 and .punkte[2].gh_graphql == 1.0'
+# GitHub-Limit nicht lesbar: kaputte Antwort bzw. fehlendes Feld → github_limit null, Prozent null, Rest bleibt
+print '{kaputt' > $T/d/quellen/rate.json; rm -f $VH; lauf
+pruefe "GitHub-Limit unlesbar (kaputt): null, Kontingent bleibt" '.github_limit == null and .kontingent.woche_prozent == 5'
+pruefe_v "Verlauf: GitHub-Limit unlesbar → gh_rest und gh_graphql null" '.punkte[0] | has("gh_rest") and .gh_rest == null and .gh_graphql == null and .woche == 5'
+print '{"core":{"limit":5000,"remaining":10},"graphql":null}' > $T/d/quellen/rate.json; lauf
+pruefe "GitHub-Limit ohne GraphQL-Werte: null" '.github_limit == null'
+rm -f $T/d/quellen/rate.json
+print -r -- $CI_VORHER > $T/d/quellen/ci.json
+rm -f $VH
+# Sperrdatei: nur der eingetragene Hauptprozess zählt (auch wenn ein Zeitgeber nicht im selben Augenblick startete)
+print 300 > $T/n/auslastung-schleife.lock
+sed -i '' 's/^  303   302    00:05 sleep 14400/  303   302    00:01 sleep 14400/' $T/ps.txt
+lauf
+pruefe "Agenten: Auslastungswächter laut Sperrdatei einmal" '[.agenten[] | select(.name == "Wächter Auslastung")] | length == 1 and .[0].seit == "2026-11-18T05:00:00Z"'
+# ci_main gezielt: main nicht unter den 15 neuesten, neuester main-Lauf abgebrochen → der davor zählt
+print '[{"headBranch":"main","status":"completed","conclusion":"cancelled"},{"headBranch":"main","status":"completed","conclusion":"success"}]' > $T/d/quellen/ci-main.json
+print '[{"databaseId":3,"number":3,"displayTitle":"neu","headBranch":"pruef/x","event":"push","status":"completed","conclusion":"failure","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:30:00Z","url":"u3"}]' > $T/d/quellen/ci.json
+lauf
+pruefe "ci_main aus der gezielten Abfrage (grün), auch ohne main unter den 15 neuesten" '.ci_main == "grün"'
+print '[{"headBranch":"main","status":"queued","conclusion":""}]' > $T/d/quellen/ci-main.json
+lauf
+pruefe "ci_main wartet" '.ci_main == "wartet"'
+print '[{"headBranch":"main","status":"completed","conclusion":"failure"}]' > $T/d/quellen/ci-main.json
+lauf
+pruefe "ci_main rot" '.ci_main == "rot"'
 lauf $((JETZT + 3 * 3600))
 pruefe "11:00: keine Push-Sperre" '.schalter.push_sperre == false'
 # Plan der Tagesroutine (neuer als der Nachtlauf-Plan), Erledigtes heute ausgeschlossen
@@ -110,6 +203,8 @@ pruefe "Board: Plan der Tagesroutine, heute Erledigtes fehlt" '[.board.naechste[
 print '{kaputt' > $T/d/quellen/board.json
 lauf
 pruefe "kaputtes Board: board null, Kontingent bleibt" '.board == null and .kontingent.woche_prozent == 5'
+rm -f $VH; lauf
+pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.punkte[0].bugs == null and .punkte[0].features == null and .punkte[0].in_arbeit == null and .punkte[0].woche == 5'
 
-(( FEHLER )) && { print "--- stderr:"; cat $T/fehler.txt; }
+(( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

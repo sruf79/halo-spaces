@@ -93,7 +93,7 @@ rot_zaehlen() {   # <Details „<Job>: <Prüfung>“ je Zeile> <Wiederholung> <S
     (( ${e%% *} > n )) && { n=${e%% *}; m=${e#* } }
   done
   (( n )) || return 0
-  print -r -- "Modellstufe: $n. Rot dieser Prüfung in 14 Tagen → $m (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher mit rot_eintragen <Hash> <Nebenzweig> zählen)"
+  print -r -- "Modellstufe: $n. Rot dieser Prüfung in 14 Tagen → $m (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher nur über tests/rot-nebenzweig.sh zurücknehmen, das zählt selbst)"
 }
 
 # Kandidaten „<Commit> <Zweig>“: je Prüfzweig der neueste Stand mit grünem Push-Lauf, neueste zuerst, nicht schon in origin/main

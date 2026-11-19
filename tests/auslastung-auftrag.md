@@ -10,13 +10,18 @@ Nachtlauf: genau ein Eintrag, gründlich und vollständig, dann Ende.
 Fable-Worker: Beleg-Regel (Maintainer 17.11.2026: „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“): Fable nur, wenn er es gegenüber Opus belegt besser, schneller oder fehlerfreier macht – etwa ein Opus-Versuch an derselben Sache ohne belegte Ursache, oder Analyse/Design, bei dem Opus nachweislich scheiterte; im Bericht den Beleg nennen (Versuch, Messwert, Fehlerzeile). Fehlt der Beleg, bleibt es bei Opus; nie Fable für Routine oder Mechanisches.
 
 Regeln:
-1. Nur im Worktree aus „JETZT:“ arbeiten, nur auf dem Zweig aus „JETZT:“ committen (je Eintrag ein Commit, Stil nach
-   AGENTS.md). Den Checkout ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und
-   Zweige nie anfassen. Kein Push nach main, kein release.sh/publish.sh/release-unter-tage.sh, kein gh workflow run,
-   kein install.sh, nichts im echten Profil.
+1. Nur im Worktree aus „JETZT:“ arbeiten. Er steht ohne Zweig auf origin/main (Maintainer 19.11.2026, „1. ja“ auf neons
+   Vorschlag: leere Läufe hinterlassen keine Zweige und Worktrees): erst unmittelbar vor dem ersten Commit
+   git switch -c <Zweig aus JETZT> (Reihen-Schritt auf dem Vorgänger-Stand: git switch -c <Zweig aus JETZT> <Vorgänger-Commit>),
+   dann nur auf diesem Zweig committen (je Eintrag ein Commit, Stil nach AGENTS.md). Ohne Commit keinen Zweig anlegen;
+   den Worktree nicht selbst entfernen (das macht der Wächter nach dem Lauf, ohne Commit sofort). Den Checkout
+   ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und Zweige nie anfassen. Kein
+   Push nach main, kein release.sh/publish.sh/release-unter-tage.sh, kein gh workflow run, kein install.sh, nichts im
+   echten Profil.
 2. Push nur auf den eigenen Prüfzweig: git push -u origin HEAD:<Zweig aus JETZT> (ohne Force), nur zwischen 09:00 und
-   23:59 Wiener Zeit. 00:00–09:00 nicht pushen (Push-Sperre 01:30–09:00, ab 00:00 keine Codeänderung; Vorrang des
-   Nachtlaufs): dann nur committen und im Ergebnis „nicht gepusht“ vermerken.
+   23:59 Wiener Zeit, nie nach main. 00:00–09:00 nicht pushen (Push-Sperre 01:30–09:00, ab 00:00 keine Codeänderung;
+   Vorrang des Nachtlaufs): dann nur committen und im Ergebnis „nicht gepusht“ vermerken. Diese Zweige pusht der
+   Wächter ab 09:00 selbst nach (einmal je Tag, nur pruef/worker-*); nicht selbst nachholen.
 3. Lokale Testläufe nur so: zsh tests/auslastung-test.zsh <dein erster Port> --only "<Prüfung>" (hell; --dark nur bei
    Farben). Das Skript nimmt die Sperre ~/halo-nacht/bilder.lock und wartet auf belegt() (CI-Runner, Windows-VM,
    anderer Testlauf). Nie halo_test.py direkt, nie Ports außer deinen beiden. Meldet es „BELEGT“: nicht umgehen, den
@@ -44,6 +49,10 @@ Dann gilt statt der Reihenfolge unten nur Arbeit mit wenig Token und viel Wartez
 - Kein passender Eintrag: Ergebnis „nichts_passend tokenarm“.
 
 Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein „export“ genügt):
+- Der Wächter startet dich nur, wenn seine Vorprüfung ohne Sprachmodell (Status, Sperr-Notiz, Titel „Design:“,
+  „(Design-Eintrag)“, „Ablauf:“, „Release:“, „Store:“, Features mit „GitHub #n“, Pläne von heute, freie Bug-Jagd-Fälle)
+  mindestens einen möglichen Eintrag fand. Sie kennt nur diese groben Merkmale; die Wahl nach den Regeln unten bleibt
+  bei dir. Dein „nichts_passend“ merkt sich der Wächter: bei unveränderter Liste startet er keinen weiteren Worker.
 - Ausgeschlossen: Status „In Progress“ (egal wessen), „Wartet auf OK“, „Done“; Einträge mit Notiz „In Arbeit:“;
   Design- und Optik-Einträge (Aussehen, Größe, Abstand, Farbe, Symbol, Schrift, Platzierung: sie gehören dem Designer,
   docs/design-vorgaben.md F13); Ablauf-, Release- und Store-Einträge; Features mit „[GitHub #n]“ ohne Freigabe;

@@ -69,6 +69,12 @@ Plan-Runde („JETZT: Plan-Runde“):
   priorität behoben werden.“, ENTSCHEIDUNGEN.md). Vorgehen nach AGENTS.md „Rot bleibt rot“: Ursache
   belegen, ein belegter Fix. Sperrt es ein Release: docs/release.md „Rote Änderung auf einen Nebenzweig“
   (Modell nach rot_stufe bzw. der Zeile „Modellstufe“ in der Meldung des Wächters an neon).
+  Ebenso, auch nach einem Release (19.11.2026, Bericht ~/halo-berichte/2026-11-19-rot-regel.md): jeder lokale Zweig
+  pruef/rot-* (git for-each-ref refs/heads/pruef/rot-*), der nicht in main steckt, ist ein Nebenzweig-Fall und kommt
+  als erster Eintrag („komplex“) in den Plan: Untersuchung auf diesem Zweig mit Skill systematic-debugging, Modell
+  nach der Zählerzeile (rot_stufe mit der Karte aus dem Zweignamen bzw. der Zeile „Modellstufe“ der Meldung von
+  nachtlauf.sh an neon), Fix als Commit auf dem Zweig, mit --only prüfen, dann den Zweig nach main mergen (die Karte
+  aus der Notiz). Zurückgenommen wird wegen roter Release-CI nur über tests/rot-nebenzweig.sh, nie mit git revert.
 - Schritt 2: Liste laden (tests/board.sh bzw. gh project item-list 1 --owner sruf79 --limit 200
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
@@ -141,7 +147,7 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
 - Die iPhone-Meldung ([info]) und die Zeile im Bericht schreibt das Skript aus der Ergebnisdatei.
 
 Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
-- Status In Progress (~/halo-aufgaben/status.sh <id> progress), Ursache klären, beheben, Prüfung in
+- Status In Progress (tests/board.sh status <id> arbeit), Ursache klären, beheben, Prüfung in
   run_checks() ergänzen, betroffene Prüfungen grün (Regel 1), im Arbeitsordner committen. Danach Notiz in den
   Eintrag „committet auf pruef/tagesroutine-<datum>, wartet auf Push/CI“ mit Hash; Status bleibt In Progress (Done erst nach grüner CI des
   Nachtlaufs).

@@ -60,7 +60,8 @@ Bekannte Restwirkungen nach dem Ausschalten (gewollt bzw. offen):
 - Ein Zwischen-Release, das schon läuft, läuft zu Ende (Testmarke bleibt Bedingung).
 - Liegt das Ausschalten nach 22:00, beendet die Wache der Tagesroutine claude sofort; unfertige Arbeit bleibt
   ungespeichert liegen (der Nachtlauf legt sie auf `rest/<datum>`).
-- Worktrees `~/halo-worker/*` und Zweige `pruef/worker-*` räumt `tests/aufraeumen.sh` nicht weg; nicht
-  übernommene Commits holt der Nachtlauf per cherry-pick.
+- Worktrees `~/halo-worker/*` ohne Commit entfernt der Auslastungswächter gleich nach dem Lauf; `tests/aufraeumen.sh`
+  räumt Worker-Worktrees und Zweige `pruef/worker-*` weg, deren Commits (auch per cherry-pick/rebase, Patch-Vergleich)
+  in main stecken (19.11.2026). Nicht übernommene Commits holt der Nachtlauf per cherry-pick.
 - Die Routinen laufen aus den Kopien in `~/.config/halo-spaces/`; Änderungen wirken erst nach dem Erneuern
   der Kopien, die Worker aus `origin/main` erst nach dem Push.

@@ -15,7 +15,8 @@ export HALO_LAUF=nachtlauf
 # (Entscheidung des Maintainers vom 7.11.2026): rote Prüfungen der CI-Läufe dieser Nacht ins Board,
 # Vollrunde (ziel=alle), wenn seit 24 Stunden keine lief und der Lauf nichts CI-Auslösendes gepusht hat,
 # Zeile „Letzte vollständig grüne Runde“ im Bericht. Fehler dort brechen nichts ab (VOLLRUNDE-FEHLER,
-# EINTRAG-FEHLER in Protokoll und uebersprungen.log).
+# EINTRAG-FEHLER in Protokoll und uebersprungen.log). Danach rot_abschluss: neue Zweige pruef/rot-* an neon,
+# Warnung bei Reverts ohne Zählerzeile (19.11.2026).
 # Schreibt immer einen Bericht nach ~/halo-berichte/<datum>-nachtlauf.md – auch
 # wenn ausgelassen, pausiert, nichts zu tun oder die Tests rot – und schickt
 # eine Zeile davon aufs iPhone (Push der Claude-App über die Sitzung
@@ -105,6 +106,62 @@ aufraeumen_abschluss() {
   return 0
 }
 
+# Rote Nebenzweige (docs/release.md „Rote Änderung auf einen Nebenzweig“, Maintainer 18.11.2026: „opus soll hier eine
+# lösung finden damit die regel ab sofort für alle sessions und agents und wächter aktiv ist“; Bericht
+# ~/halo-berichte/2026-11-19-rot-regel.md): mechanischer Auslöser nach Laufende, kein Claude. Neue Zweige pruef/rot-*
+# (von tests/rot-nebenzweig.sh, noch nicht in ~/halo-nacht/rot-gemeldet.txt) gehen mit der Modellstufe aus
+# rot-zaehler.txt an neon (an_neon, kein iPhone-Push), neon startet die Untersuchung. Nachkontrolle: Reverts auf main seit
+# Beginn des Laufs ohne Zählerzeile für den zurückgenommenen Commit → WARNUNG im Bericht (Rücknahme an
+# tests/rot-nebenzweig.sh vorbei). Zeilen auf stdout; nie ein Abbruch. Nicht zugestellt: bleibt offen, nächster Lauf
+# meldet erneut. Zum Proben: HALO_ROT_GEMELDET (Datei), HALO_PUSH_TROCKEN=1, ROT_TROCKEN=1 (nichts vermerkt).
+rot_zweige_abschluss() {   # <Start-Epoch>
+  local start=$1 gemeldet=${HALO_ROT_GEMELDET:-$DIR/rot-gemeldet.txt} zaehler=$(rot_datei) z zw k st c x text= n=0
+  local -a neu
+  for zw in $(git -C $REPO for-each-ref --format='%(refname:short)' 'refs/heads/pruef/rot-*' 2>/dev/null); do
+    [[ -r $gemeldet ]] && grep -qxF -- $zw $gemeldet && continue
+    neu+=($zw)
+  done
+  for zw in $neu; do
+    z=$( [[ -r $zaehler ]] && awk -F'\t' -v z=$zw '$3 == z' $zaehler | tail -1)
+    k=$(print -r -- $z | cut -f2) st=$(print -r -- $z | cut -f4) c=$(print -r -- $z | cut -f5)
+    if [[ -n $st ]]; then st="Modellstufe: $st. Rot in 14 Tagen → $(rot_wort $st)"
+    else st="Modellstufe: unbekannt (keine Zählerzeile) → Opus"; fi
+    text+="- $zw (Commit ${${c:-$(git -C $REPO log -1 --format=%H $zw 2>/dev/null)}[1,7]}${k:+, Schlüssel $k}: $(git -C $REPO log -1 --format=%s $zw 2>/dev/null | cut -c1-100)); $st"$'\n'
+  done
+  if (( ${#neu} )); then
+    print -r -- "- Neue rote Nebenzweige: ${#neu}"
+    print -rn -- $text
+    if an_neon "[nachtlauf] Rote Nebenzweige der Nacht $TAG (tests/rot-nebenzweig.sh):
+${text}Bitte je Zweig die Untersuchung mit dem genannten Modell und Skill systematic-debugging auf dem Zweig starten (docs/release.md „Rote Änderung auf einen Nebenzweig“, AGENTS.md „Rot bleibt rot“); der Fix kommt mit dem Zweig zurück nach main, Board-Karte laut Notiz.
+neon kümmert sich." nachtlauf; then
+      [[ -n $ROT_TROCKEN ]] || print -rl -- $neu >> $gemeldet
+      print -r -- "- an neon gemeldet"
+    else
+      print -r -- "- WARNUNG: Meldung an neon nicht zugestellt (AN-NEON-FEHLER), der nächste Lauf meldet erneut"
+    fi
+  else
+    print -r -- "- Neue rote Nebenzweige: keine"
+  fi
+  # Nachkontrolle: Reverts seit Beginn des Laufs ohne Zählerzeile
+  for z in ${(f)"$(git -C $REPO log main --since=@$start --format='%h%x09%b' --grep='This reverts commit' 2>/dev/null | grep -E '^[0-9a-f]{7,}\t|This reverts commit')"}; do
+    [[ $z == (#b)([0-9a-f](#c7,))$'\t'* ]] && c=$match[1]
+    [[ $z == (#b)*'This reverts commit '([0-9a-f](#c7,40))* ]] || continue
+    x=$match[1]
+    if [[ ! -r $zaehler ]] || ! awk -F'\t' -v x=$x 'index($5, substr(x, 1, 7)) == 1 || index(x, $5) == 1 && length($5) >= 7 { f = 1 } END { exit !f }' $zaehler; then
+      print -r -- "- WARNUNG: Revert $c nimmt ${x[1,7]} zurück, ohne Zählerzeile in rot-zaehler.txt – war es wegen roter CI, lief es an tests/rot-nebenzweig.sh vorbei (Nebenzweig, Zähler und Board-Notiz fehlen; nachholen nach docs/release.md)"
+      n=$((n + 1))
+    fi
+  done
+  (( n )) || print -r -- "- Nachkontrolle: kein Revert seit Beginn des Laufs ohne Zählerzeile"
+  return 0
+}
+rot_abschluss() {
+  local zeilen
+  zeilen=$(rot_zweige_abschluss $START 2>&1)
+  log "Rote Nebenzweige: ${zeilen//$'\n'/ | }"
+  { print; print "## Rote Nebenzweige (nachtlauf.sh)"; print; print -r -- $zeilen } >> $BERICHT
+}
+
 if [[ -n $TROCKEN ]]; then
   # Probelauf: Protokoll in eine Wegwerf-Datei (die echte würde der CI-Wächter als Nachtfenster lesen),
   # Beginn der Nacht = heute 01:30
@@ -113,6 +170,8 @@ if [[ -n $TROCKEN ]]; then
   zsh $AUFR --trocken $REPO
   print "CI-Abschluss (Probelauf, $(zeit)):"
   ci_nacht_abschluss $(date -j -v1H -v30M -v0S +%s) $HART
+  print "Rote Nebenzweige (Probelauf, nichts gemeldet oder vermerkt):"
+  HALO_PUSH_TROCKEN=1 ROT_TROCKEN=1 rot_zweige_abschluss $(date -j -v1H -v30M -v0S +%s)
   print "Protokoll: $(<$LOG)"
   rm -f $LOG
   exit 0
@@ -345,6 +404,7 @@ KURZ=$(bericht_kurz)
 kill $WACHE 2>/dev/null                   # Claude ist fertig; der CI-Abschluss hält selbst die 09:00 ein
 aufraeumen_abschluss
 ci_abschluss
+rot_abschluss
 log "Ende"
 push "Nachtlauf $TAG: $KURZ – Bericht ~/halo-berichte/$TAG-nachtlauf.md"
 exit 0

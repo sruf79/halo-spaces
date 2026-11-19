@@ -5,7 +5,8 @@
       "SendMessage",
       "mcp__claude-code-remote__list_sessions",
       "mcp__claude-code-remote__send_message",
-      "mcp__claude-code-remote__confirm_repository_trust"
+      "mcp__claude-code-remote__confirm_repository_trust",
+      "ArtifactData"
     ]
   },
   "env": {

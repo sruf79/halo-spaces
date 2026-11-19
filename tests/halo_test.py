@@ -16726,9 +16726,13 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Bearbeiten-Layout auch sofort nach dem Öffnen; Kontaktbild-Dialog mit Hinweis; Unterdialoge auf neutraler Fläche", ab_edit_dialogs, results)
 
+    # Buchkopf allein reicht nicht: halo hängt ihn schon in die nur geparste Seite (Durchgänge beim Tabwechsel, nach 400
+    # und 1500 ms), vor Thunderbirds „load“ – dann fehlen cardsPane.cardsList und die übrigen Adressbuch-Hooks noch
+    # (CI 19.11., Lauf 44431090252: „cw.cardsPane.cardsList is null“); hookLastContact kommt im Durchgang als Letzter
     OPEN_BOOKS_JS = r"""
           tm.openTab("addressBookTab", {});
-          const cw = await until(() => { const c = tm.currentTabInfo?.browser?.contentWindow; return c?.document?.getElementById("mcBooksHeader") && c; }, 8000);
+          const cw = await until(() => { const c = tm.currentTabInfo?.browser?.contentWindow; return c?.document?.getElementById("mcBooksHeader") && c.cardsPane?.cardsList && c; }, 8000);
+          await until(() => cw?.detailsPane?.__mcLastContact, 3000);
           const abTab = tm.currentTabInfo;"""
 
     def ab_background_header():

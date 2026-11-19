@@ -33,7 +33,8 @@
 #      ins Protokoll und nächste Prüfung nach LEER_WARTEN (15) Minuten.
 # Ein Worker: eigener Worktree ~/halo-worker/<name> ohne Zweig auf origin/main; den Zweig pruef/<name> legt er erst vor dem
 # ersten Commit an. Ohne Commit wird der Worktree nach dem Lauf sofort entfernt (kopie_nach_lauf). claude -p mit
-# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn), Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je
+# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn, lässt aber
+# Pushes auf pruef/worker-… zu jeder Zeit durch), Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je
 # Worker-Nummer), höchstens WORKER_MAX_MIN Minuten.
 # Der Wächter ändert nie Regeln, Rechte oder Hooks, pusht nie, veröffentlicht nie und fasst den Checkout
 # ~/halo-spaces nicht an (nur „git fetch“, „worktree add/remove“ und das Löschen leerer Worker-Zweige).

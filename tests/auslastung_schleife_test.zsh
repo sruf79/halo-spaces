@@ -148,8 +148,8 @@ pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei, dazu Fingerabdr
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
-pruefe "Auftrag: Board-Sperre, Push nur Prüfzweig ab 09:00, Testlauf über auslastung-test.zsh" "$A" \
-  'board\.sh status <id> arbeit' 'In Arbeit: worker-<Nr>' 'HEAD:<Zweig aus JETZT>' '00:00–09:00 nicht pushen' 'zsh tests/auslastung-test\.zsh'
+pruefe "Auftrag: Board-Sperre, Push nur auf den eigenen Prüfzweig, Testlauf über auslastung-test.zsh" "$A" \
+  'board\.sh status <id> arbeit' 'In Arbeit: worker-<Nr>' 'HEAD:<Zweig aus JETZT>' 'nie nach main' 'zsh tests/auslastung-test\.zsh'
 pruefe "Auftrag: keine Design-Einträge, keine geplanten Einträge von Nachtlauf/Tagesroutine, Gedächtnis" "$A" \
   'Design- und Optik-Einträge' '<Heute>-plan\.md' 'tagesroutine-plan' 'worker-gedaechtnis\.md' 'Rückblick'
 pruefe "Nacht- und Tagesauftrag übergehen Worker-Einträge" \
@@ -323,6 +323,6 @@ pruefe "unversionierte Datei → bleibt" "$( [[ -d $G/w6 ]] && print da; cat $G/
 wt w7
 K $G/w7 pruef/worker-7 ""
 pruefe "alter Worker ohne Basis-Commit (Feld 11) → nicht angefasst" "$( [[ -d $G/w7 ]] && print da)" '^da$'
-pruefe "Auftrag: Zweig erst vor dem ersten Commit, Hinweis auf die Vorprüfung" "$A" \
-  'git switch -c <Zweig aus JETZT>' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
+pruefe "Auftrag: Zweig erst vor dem ersten Commit, Push auf den eigenen Prüfzweig auch nachts" "$A" \
+  'git switch -c <Zweig aus JETZT>' 'zu jeder Uhrzeit, auch 00:00–09:00' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
 exit $FEHLER

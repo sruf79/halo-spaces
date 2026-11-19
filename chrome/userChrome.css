@@ -3428,9 +3428,10 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
    Höhe, Neigung und Farbe setzt implementation.js (mc-glow); nur Anstrich, keine Maße.
    Gleich eingeblendet und schwebend (höhere Spezifität als .mc-float-pane) */
 :root {
-  --mt-glow-g: 16%;
-  --mt-glow-g-hauch: 8%;
-  --mt-glow-line: 35%;
+  /* (hell 22 / 11 / 40 %, Variante C 17.11.2026, vorher 16 / 8 / 35 %) */
+  --mt-glow-g: 22%;
+  --mt-glow-g-hauch: 11%;
+  --mt-glow-line: 40%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -3785,6 +3786,16 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 #spacesToolbar #chatButton { --c: #AF52DE; }
 #spacesToolbar #settingsButton { --c: #8E8E93; }
 
+/* (hell in der P3-Fassung, leuchtender wie im Dunkeln, Variante C, Maintainer 17.11.2026: „ja c ist gut“; Kachel
+   und Schein, Einstellungen bleiben Grau; Bildschirme ohne großen Farbraum zeigen den nächsten sRGB-Wert) */
+@media not (prefers-color-scheme: dark) {
+  #spacesToolbar #mailButton { --c: color(display-p3 0.039 0.518 1); }
+  #spacesToolbar #addressBookButton { --c: color(display-p3 0.188 0.722 0.314); }
+  #spacesToolbar #calendarButton { --c: color(display-p3 1 0.541 0); }
+  #spacesToolbar #tasksButton { --c: color(display-p3 1 0.176 0.471); }
+  #spacesToolbar #chatButton { --c: color(display-p3 0.686 0.322 0.871); }
+}
+
 /* Update liegt bereit: kleiner roter Punkt außen an der Ecke oben rechts der
    Einstellungen-Kachel (Kachel selbst unverändert), abgesetzt mit einem Ring
    in der Farbe der Leiste */
@@ -3848,14 +3859,18 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
    punkt 2 folge ich der empfehlung mit 8%.“). Der Ersatz-Bereich auf dem Platz des Chats wie alle Kacheln */
 :root {
   --mt-tile-idle: 8%;
-  --mt-tile-face: 34%;
+  /* (hell leuchtend statt pastellig, Variante C, Maintainer 17.11.2026: „ja c ist gut“; vorher Fläche 34 %, Kante
+     28 / 55 %, Saum 30 %, Hof 40 %, weißer Glanz .26, Lichtkante .7; dazu ein farbiger Hof rundum) */
+  --mt-tile-face: 54%;
   --mt-tile-face-lift: 0%;
-  --mt-tile-gloss: linear-gradient(to bottom, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 50%);
-  --mt-tile-edge: 28%;
-  --mt-tile-edge-r: 55%;
-  --mt-tile-seam: 30%;
-  --mt-tile-halo: 40%;
-  --mt-tile-top: rgba(255, 255, 255, 0.7);
+  --mt-tile-gloss: none;
+  --mt-tile-edge: 50%;
+  --mt-tile-edge-r: 80%;
+  --mt-tile-seam: 50%;
+  --mt-tile-halo: 60%;
+  /* (Hof rundum 0 0 14px 2px, Deckkraft der Spacefarbe; als Prozent, var(--c) gilt erst an der Kachel) */
+  --mt-tile-ring: 45%;
+  --mt-tile-top: rgba(255, 255, 255, 0.35);
   --mt-tile-drop: 0 1px 1.5px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -3869,6 +3884,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
     --mt-tile-edge-r: 60%;
     --mt-tile-seam: 35%;
     --mt-tile-halo: 45%;
+    --mt-tile-ring: 0%;
     --mt-tile-top: rgba(255, 255, 255, 0.22);
     --mt-tile-drop: 0 2px 4px rgba(0, 0, 0, 0.6);
   }
@@ -3882,6 +3898,7 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
     inset -1px 0 0 color-mix(in srgb, var(--c) var(--mt-tile-edge-r), transparent),
     inset -2px 0 3px -1px color-mix(in srgb, var(--c) var(--mt-tile-seam), transparent),
     var(--mt-tile-drop),
+    0 0 14px 2px color-mix(in display-p3, var(--c) var(--mt-tile-ring), transparent),
     6px 0 12px -4px color-mix(in srgb, var(--c) var(--mt-tile-halo), transparent) !important;
 }
 

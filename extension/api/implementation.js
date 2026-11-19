@@ -12450,21 +12450,15 @@ class CardEnhancer {
       const n = colors.length;
       const at = i => (n > 1 ? Math.round(-160 + (320 * i) / (n - 1)) : 0);
       // Farbe des Verlaufs an einer Stelle (px ab der Mitte des Kegels), für die Flächen der schwebenden Leiste
-      const cx = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
-      const rgb = colors.map(c => {
-        cx.fillStyle = "#000";
-        cx.fillStyle = c;
-        const h = /^#[0-9a-f]{6}$/i.test(cx.fillStyle) ? cx.fillStyle : "#8e8e93";
-        return [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
-      });
+      // (als color-mix aus den Farben selbst: hell sind sie P3, die über den Canvas auf Grau fielen)
       const colorAt = pos => {
         let i = 0;
         while (i < n - 1 && at(i + 1) < pos) {
           i++;
         }
         const t = n > 1 ? Math.min(1, Math.max(0, (pos - at(i)) / (at(i + 1) - at(i) || 1))) : 0;
-        const [a, b] = [rgb[i], rgb[Math.min(n - 1, i + 1)]];
-        return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(", ")})`;
+        const [a, b] = [colors[i], colors[Math.min(n - 1, i + 1)]];
+        return `color-mix(in srgb, ${a} ${+(100 - t * 100).toFixed(1)}%, ${b})`;
       };
       // (Stellen auf die Fläche begrenzt: Farbstellen jenseits ihres Endes verschiebt die Darstellung sonst um bis zu
       // 100 px nach unten, gemessen in den Einstellungen mit der Kachel unten)

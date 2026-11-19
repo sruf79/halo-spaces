@@ -22633,7 +22633,7 @@ Neu
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
     def spaces_current_fill():
-        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche 34 %, dunkel 36 %, als
+        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 36 %, als
         # Farbe, damit der Wechsel weich überblendet, darüber Lichtkante und Restverlauf; Werte am Bild in sidebar_tile_d2h), Kante innen, kurzer Schatten und Lichthof rechts, kein Chevron;
         # inaktive Kacheln 8 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
@@ -22660,7 +22660,8 @@ Neu
         dark = res.pop("dark", False)
         icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
         # Schatten kurz (2 px 4 px – nicht bis in die Nachbarkachel), feine Kante innen, Lichthof 6 px nach rechts
-        ok = all(v["bg"] == (36 if dark else 34) and v["grad"] == 2 and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
+        # (hell Variante C, 17.11.2026: 54 %, ohne weißen Glanz, also nur der Restverlauf)
+        ok = all(v["bg"] == (36 if dark else 54) and v["grad"] == (2 if dark else 1) and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
                  and v["icon"] == icons[k] and v["fill"] and not v["chevron"] and v["tile"] == 48
                  and v["other"]["bg"] == v["other"]["hover"] == 8 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
@@ -24586,8 +24587,10 @@ Neu
       const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
       const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
       const px = (x, yy) => [...ctx.getImageData(Math.round(x), Math.round(yy), 1, 1).data].slice(0, 3);
-      const c = getComputedStyle(tile).getPropertyValue("--c").trim();
-      const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+      // (Spacefarbe über den Canvas in sRGB: hell ist sie P3, Variante C)
+      const sw = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
+      sw.fillStyle = getComputedStyle(tile).getPropertyValue("--c").trim(); sw.fillRect(0, 0, 1, 1);
+      const rgb = [...sw.getImageData(0, 0, 1, 1).data].slice(0, 3);
       const lx = br.right - 1;
       return { mode: tab.mode.name, c: rgb, bar: bar.getAttribute("mc-glow"), pane: pane.getAttribute("mc-glow"), float: pane.classList.contains("mc-float-pane"),
         y: Math.round(y), far: Math.round(far), pt: Math.round(P.t), dist: Math.round(Math.abs(y - far)),
@@ -24743,16 +24746,21 @@ Neu
     tile_measure = r"""
       const bar = d.getElementById("spacesToolbar");
       const tile = bar.querySelector(".spaces-toolbar-button.current");
-      const other = [...bar.querySelectorAll(".spaces-toolbar-button:not(.current)")].find(e => e.getBoundingClientRect().width > 0);
-      const tr = tile.getBoundingClientRect(), orr = other.getBoundingClientRect();
+      // (inaktive Kachel und Grund weit weg von der aktiven: hell reicht der farbige Hof rundum bis in die Nachbarkachel)
+      const tr = tile.getBoundingClientRect();
+      const other = [...bar.querySelectorAll(".spaces-toolbar-button:not(.current)")].filter(e => e.getBoundingClientRect().width > 0)
+        .sort((a, b) => Math.abs(b.getBoundingClientRect().top - tr.top) - Math.abs(a.getBoundingClientRect().top - tr.top))[0];
+      const orr = other.getBoundingClientRect();
       const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
       const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
       const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
       const px = (x, yy) => [...ctx.getImageData(Math.floor(x), Math.floor(yy), 1, 1).data].slice(0, 3);
-      const hex = e => { const c = getComputedStyle(e).getPropertyValue("--c").trim(); return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); };
+      // (Spacefarbe über den Canvas in sRGB: hell ist sie P3, Variante C)
+      const sw = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
+      const hex = e => { sw.fillStyle = getComputedStyle(e).getPropertyValue("--c").trim(); sw.fillRect(0, 0, 1, 1); return [...sw.getImageData(0, 0, 1, 1).data].slice(0, 3); };
       const cy = tr.top + tr.height * 0.55, oy = orr.top + orr.height * 0.55;
       return { id: tile.id, float: bar.hasAttribute("mc-float"), c: hex(tile), oc: hex(other),
-        bg: px(tr.left - 10, cy), obg: px(orr.left - 10, oy),
+        bg: px(tr.left - 10, oy), obg: px(orr.left - 10, oy), ringL: px(tr.left - 3, cy), ringT: px(tr.left + tr.width / 2, tr.top - 2),
         faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
         halo: px(tr.right + 3, cy), idle: px(orr.left + 6, oy) };"""
 
@@ -24805,7 +24813,7 @@ Neu
             a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "edgeL", "edgeR")}
             a["idle"] = alpha(r["idle"], r["obg"], r["oc"])
             werte[k] = a
-            want_l, want_r = (0.37, 0.43) if dark else (0.34, 0.34)
+            want_l, want_r = (0.37, 0.43) if dark else (0.54, 0.54)
             if not (abs(a["faceL"] - want_l) <= 0.05 and abs(a["faceR"] - want_r) <= 0.05):
                 bad.append(f"{k}-Fläche")
             if not (a["edgeR"] >= a["edgeL"] + 0.1 and a["edgeL"] >= a["faceL"] + 0.05):
@@ -24815,6 +24823,10 @@ Neu
             # Lichthof rechts: neben der Kachel zur Spacefarbe hin getönt, links (Grund) nicht
             if not (dist(r["halo"], r["bg"]) >= 4 and dist(r["halo"], r["c"]) < dist(r["bg"], r["c"])):
                 bad.append(f"{k}-Lichthof")
+            # hell (Variante C, 17.11.2026): farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt;
+            ring = [dist(r[n], r["bg"]) >= 4 and dist(r[n], r["c"]) < dist(r["bg"], r["c"]) for n in ("ringL", "ringT")]
+            if not dark and not all(ring):
+                bad.append(f"{k}-Hof rundum")
             if k.startswith("float-") and r.get("float") is not True:
                 bad.append(f"{k}-nicht schwebend")
         for tile in tiles:
@@ -24822,7 +24834,7 @@ Neu
             if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "idle")):
                 bad.append(f"{tile}-schwebend anders")
         return not bad, f"abweichend: {bad} dunkel={dark} {werte}"
-    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 34 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, inaktive Kacheln 8 %, "
+    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, hell farbiger Hof rundum, inaktive Kacheln 8 %, "
           "alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
 
     def sidebar_glow_switch_line():

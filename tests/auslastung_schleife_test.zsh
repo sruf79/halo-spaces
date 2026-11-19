@@ -135,12 +135,16 @@ kill $SP 2>/dev/null
 S=$(grep -vE '^[[:space:]]*#' $SKRIPT)
 pruefe "kein push, kein release.sh/publish.sh, keine Regeln/Hooks" \
   "$(print -r -- $S | grep -cE 'git [^|;]*push|release\.sh|publish\.sh|settings\.json|zeitfenster-hook|volldampf_setzen|pause_setzen')" '^0$'
-pruefe "Checkout: nur fetch und worktree add" \
-  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN fetch git -C \$MAIN worktree $'
+pruefe "Checkout: nur fetch, worktree add/remove, leere Worker-Zweige löschen" \
+  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN branch git -C \$MAIN fetch git -C \$MAIN rev-parse git -C \$MAIN worktree $'
+pruefe "Checkout: worktree nur add --detach und remove, branch nur -D eines Zweigs auf dem Basis-Commit" \
+  "$(print -r -- $S | grep -oE 'git -C \$MAIN (worktree [a-z]+( --?[a-z]+)*|branch [^2]*)' | sort -u)" \
+  '^git -C \$MAIN branch -q -D \$zw $' '^git -C \$MAIN worktree add -q --detach$' '^git -C \$MAIN worktree remove$'
+pruefe "Checkout: Zweig nur weg, wenn er auf den Basis-Commit zeigt" "$S" 'refs/heads/\$zw 2>/dev/null\) == \$basis \]\]'
 pruefe "Worker ohne HALO_LAUF, gleiche Flags wie die Tagesroutine" "$S" \
   'env -u HALO_LAUF HALO_WORKER=\$nr claude -p --model \$m --session-id \$sid --permission-mode auto'
 pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Klasse \$klasse, Sitzung \$sid'
-pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei, dazu Fingerabdruck (10)" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$\{rnr:--\} \$fp" > \$ZUSTAND/worker-\$nr'
+pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei, dazu Fingerabdruck (10) und Basis (11)" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$\{rnr:--\} \$fp \$\{basis:--\}" > \$ZUSTAND/worker-\$nr'
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
@@ -201,7 +205,7 @@ pruefe "Rundgang: Volldampf pausiert (Wochenlimit) → kein Start" "$(R HALO_AS_
 pruefe "Rundgang im Skript: Auftrag wörtlich, eigene Zeitgrenze, Marke je Tag, Ergebnis nach neon-stand.md" "$S" \
   'Auftrag #\$rnr \(wörtlich aus' 'max=\$K\[RUNDGANG_MAX_MIN\]' 'rundgang-\$rnr-\$\(date \+%F\)' 'neon-stand\.sh notiz \$z\[9\]' 'rundgang-\$z\[9\]-erledigt'
 # Ende des Rundgangs: Ergebnis als Stand in neon-stand.md (Auftrag bleibt offen, neon meldet dem Designer), erledigt → Marke
-AR=$(sed -n '/^aufraeumen() {/,/^}/p' $SKRIPT)
+AR=$(sed -n '/^kopie_nach_lauf() {/,/^}/p;/^aufraeumen() {/,/^}/p' $SKRIPT)
 mkdir -p $T/ar/zustand $T/ar/stand; print -r -- "erledigt /ablage 24" > $T/ar/erg
 print -r -- "- #35 | 16.11. 21:44 | von designer | Bildauftrag Probe | Stand: angenommen" > $T/ar/stand/neon-stand.md
 print -r -- "999999 sid sonnet 1 /wt pruef/w $T/ar/erg rundgang 35" > $T/ar/zustand/worker-6
@@ -288,5 +292,37 @@ pruefe "aufraeumen: nichts_passend → leer-normal mit Fingerabdruck; „Volldam
   "$(setopt extendedglob; ZUSTAND=$T/np/zustand; log() { : }; eval $AR; aufraeumen; ls $T/np/zustand; cat $T/np/zustand/leer-normal)" '^leer-normal$' '^0123456789abcdef [0-9]+ [0-9]{2}:[0-9]{2}$'
 pruefe "aufraeumen: kein leer-tokenarm bei „Volldampf nicht aktiv“" "$(ls $T/np/zustand | grep -c tokenarm)" '^0$'
 
-pruefe "Auftrag: Hinweis auf die Vorprüfung" "$A" 'Vorprüfung' 'merkt sich der Wächter'
+# --- Worktree nach dem Lauf (Maintainer 19.11.2026: Zweig erst beim ersten Commit, leere Worktrees und Zweige sofort weg) ---
+export GIT_AUTHOR_NAME=T GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=T GIT_COMMITTER_EMAIL=t@t
+G=$T/git; mkdir -p $G
+git init -q -b main $G/repo && print '/repo.conf\n/dist/' > $G/repo/.gitignore && print a > $G/repo/a.txt
+git -C $G/repo add -A && git -C $G/repo commit -qm start
+BASIS=$(git -C $G/repo rev-parse HEAD)
+KN=$(sed -n '/^kopie_nach_lauf() {/,/^}/p' $SKRIPT)
+K() { (setopt extendedglob; MAIN=$G/repo LOG=$G/log; log() { print -r -- "$*" >> $G/log }; eval $KN; kopie_nach_lauf "$@") }
+wt() { git -C $G/repo worktree add -q --detach $G/$1 $BASIS }
+wt w1; print x > $G/w1/repo.conf; mkdir $G/w1/dist; print x > $G/w1/dist/a.xpi
+K $G/w1 pruef/worker-1 $BASIS
+pruefe "leerer Worktree ohne Zweig (nur repo.conf, dist/) → entfernt" "$( [[ -d $G/w1 ]] && print da || print weg; git -C $G/repo worktree list | grep -c w1)" '^weg$' '^0$'
+wt w2; git -C $G/w2 switch -q -c pruef/worker-2
+K $G/w2 pruef/worker-2 $BASIS
+pruefe "Zweig angelegt, aber kein Commit → Worktree und Zweig weg" "$( [[ -d $G/w2 ]] && print da || print weg; git -C $G/repo branch --list pruef/worker-2 | grep -c .)" '^weg$' '^0$'
+wt w3; git -C $G/w3 switch -q -c pruef/worker-3; print b > $G/w3/b.txt; git -C $G/w3 add b.txt; git -C $G/w3 commit -qm b
+K $G/w3 pruef/worker-3 $BASIS
+pruefe "Commit auf dem Zweig → Worktree und Zweig bleiben" "$( [[ -d $G/w3 ]] && print da; git -C $G/repo branch --list pruef/worker-3 | grep -c .)" '^da$' '^1$'
+wt w4; print c > $G/w4/c.txt; git -C $G/w4 add c.txt; git -C $G/w4 commit -qm c
+K $G/w4 pruef/worker-4 $BASIS
+pruefe "Commit ohne Zweig (git switch -c vergessen) → Zweig nachträglich, nichts verloren" \
+  "$( [[ -d $G/w4 ]] && print da; git -C $G/w4 symbolic-ref --short HEAD; git -C $G/repo log -1 --format=%s pruef/worker-4)" '^da$' '^pruef/worker-4$' '^c$'
+wt w5; print x >> $G/w5/a.txt
+K $G/w5 pruef/worker-5 $BASIS
+pruefe "ungespeicherte Änderung ohne Commit → bleibt, Grund im Protokoll" "$( [[ -d $G/w5 ]] && print da; cat $G/log)" '^da$' 'w5 bleibt: ungespeicherte Änderungen'
+wt w6; print x > $G/w6/vorschau-1.png
+K $G/w6 pruef/worker-6 $BASIS
+pruefe "unversionierte Datei → bleibt" "$( [[ -d $G/w6 ]] && print da; cat $G/log)" '^da$' 'w6 bleibt: ungespeicherte'
+wt w7
+K $G/w7 pruef/worker-7 ""
+pruefe "alter Worker ohne Basis-Commit (Feld 11) → nicht angefasst" "$( [[ -d $G/w7 ]] && print da)" '^da$'
+pruefe "Auftrag: Zweig erst vor dem ersten Commit, Hinweis auf die Vorprüfung" "$A" \
+  'git switch -c <Zweig aus JETZT>' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
 exit $FEHLER

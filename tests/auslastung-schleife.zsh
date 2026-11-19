@@ -31,11 +31,12 @@
 #   6. Vorprüfung ohne Sprachmodell (passend, unten; Maintainer 19.11.2026): ein Worker nur, wenn die Aufgabenliste (höchstens
 #      alle BOARD_ALTER 15 Minuten geladen) oder die Bug-Jagden einen möglichen Eintrag haben; sonst „kein passender Eintrag“
 #      ins Protokoll und nächste Prüfung nach LEER_WARTEN (15) Minuten.
-# Ein Worker: eigener Worktree ~/halo-worker/<name> auf eigenem Zweig pruef/<name> (von origin/main), claude -p mit
-# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn),
-# Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je Worker-Nummer), höchstens WORKER_MAX_MIN Minuten.
+# Ein Worker: eigener Worktree ~/halo-worker/<name> ohne Zweig auf origin/main; den Zweig pruef/<name> legt er erst vor dem
+# ersten Commit an. Ohne Commit wird der Worktree nach dem Lauf sofort entfernt (kopie_nach_lauf). claude -p mit
+# denselben Flags wie die Tagesroutine (--permission-mode auto), ohne HALO_LAUF (der Zeitfenster-Hook gilt für ihn), Auftrag tests/auslastung-auftrag.md, Ports 2874–2889 (zwei je
+# Worker-Nummer), höchstens WORKER_MAX_MIN Minuten.
 # Der Wächter ändert nie Regeln, Rechte oder Hooks, pusht nie, veröffentlicht nie und fasst den Checkout
-# ~/halo-spaces nicht an (nur „git fetch“ und „worktree add“).
+# ~/halo-spaces nicht an (nur „git fetch“, „worktree add/remove“ und das Löschen leerer Worker-Zweige).
 # Zum Proben: HALO_JETZT=<ISO-Zeit>, HALO_AS_WOCHE/_5H/_STATUS, HALO_AS_AKTIV, HALO_AS_FABLE, HALO_AS_NACHTLAUF=ja|nein,
 # HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET,
 # HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar).
@@ -333,6 +334,34 @@ freie_nummer() {
   done
   return 1
 }
+# Worktree nach dem Lauf (Maintainer 19.11.2026, leere Läufe sofort beenden): ohne Commit, ohne Änderungen und nur mit
+# erzeugten ignorierten Dateien sofort entfernen, einen leeren Zweig (git switch -c ohne Commit) mit; Commits ohne Zweig
+# (git switch -c vergessen) bekommen den Zweig nachträglich, damit sie nicht verloren gehen. Sonst bleibt alles stehen
+# (tests/aufraeumen.sh entscheidet später). Alte Worker ohne Basis-Commit (Feld 11) werden nicht angefasst.
+kopie_nach_lauf() {   # <Worktree> <Zweig> <Basis-Commit>
+  local wt=$1 zw=$2 basis=$3 kopf st f
+  [[ -d $wt && $basis == [0-9a-f](#c40) ]] || return 0
+  kopf=$(git -C $wt rev-parse HEAD 2>/dev/null) || { log "Worktree $wt bleibt: git rev-parse scheitert"; return 0 }
+  if [[ $kopf != $basis ]]; then
+    if ! git -C $wt symbolic-ref -q HEAD >/dev/null; then
+      if git -C $wt checkout -q -b $zw 2>>$LOG; then log "Worker-Commits ohne Zweig in $wt: Zweig $zw nachträglich angelegt"
+      else log "Worker-Commits ohne Zweig in $wt: Zweig $zw nicht anlegbar – Worktree bleibt"; fi
+    fi
+    return 0
+  fi
+  st=$(git -C $wt status --porcelain 2>/dev/null) || { log "Worktree $wt bleibt: git status scheitert"; return 0 }
+  [[ -n $st ]] && { log "Worktree $wt bleibt: ungespeicherte Änderungen ohne Commit ($(print -r -- $st | wc -l | tr -d ' ') Dateien)"; return 0 }
+  for f in ${(f)"$(git -C $wt status --porcelain --ignored 2>/dev/null | sed -n 's/^!! //p')"}; do
+    [[ $f == (dist/*|extension/theme.css|(*/|)__pycache__/*|*.xpi|*.pyc|tests/shots/*|(*/|).DS_Store|repo.conf) ]] \
+      || { log "Worktree $wt bleibt: ignorierte Datei $f"; return 0 }
+  done
+  git -C $MAIN worktree remove $wt 2>>$LOG || { log "Worktree $wt bleibt: git worktree remove lehnt ab"; return 0 }
+  # leerer Zweig (zeigt auf den Basis-Commit, also kein eigener Commit): weg
+  if [[ $(git -C $MAIN rev-parse -q --verify refs/heads/$zw 2>/dev/null) == $basis ]]; then
+    git -C $MAIN branch -q -D $zw 2>>$LOG && log "leerer Zweig $zw entfernt"
+  fi
+  log "leerer Worktree $wt entfernt (kein Commit)"
+}
 # beendete Worker einmal protokollieren
 aufraeumen() {
   local f z e
@@ -345,6 +374,7 @@ aufraeumen() {
     if [[ $e == nichts_passend* && $e != *Volldampf* && $z[8] == (normal|tokenarm) && $z[10] == [0-9a-f](#c16) ]]; then
       print -r -- "$z[10] $(date +%s) $(date +%H:%M)" > $ZUSTAND/leer-$z[8]
     fi
+    kopie_nach_lauf $z[5] $z[6] $z[11]
     if [[ $z[8] == rundgang && $z[9] == <1-> ]]; then
       # Rundgang: Ergebnis in neon-stand.md vermerken (Stand, Auftrag bleibt), neon meldet dem Designer; erledigt → nie wieder
       [[ $e == erledigt* ]] && print -r -- "$(date '+%F %H:%M') $e" > $ZUSTAND/rundgang-$z[9]-erledigt
@@ -369,16 +399,20 @@ $(rundgang_auftrag)" || { log "Rundgang: Auftrag #$rnr nicht lesbar – kein Sta
   nr=$(freie_nummer) || { log "keine freie Worker-Nummer (1–8)"; return 1 }
   name=worker-$stamp-$nr zweig=pruef/worker-$stamp-$nr wt=$WT_BASIS/worker-$stamp-$nr
   p1=$((2874 + 2 * (nr - 1))) p2=$((2875 + 2 * (nr - 1)))
-  local fp=-
+  local basis fp=-
   erg=$DIR/$TAG-worker-$nr-${stamp#*-}.erg aus=$DIR/$TAG-worker-$nr-${stamp#*-}.txt
   [[ $klasse != rundgang && -r $ZUSTAND/liste-fp ]] && fp=$(<$ZUSTAND/liste-fp)
   git -C $MAIN fetch -q origin main 2>>$LOG || { log "git fetch gescheitert – kein Worker"; return 1 }
   mkdir -p $WT_BASIS $ZUSTAND
-  git -C $MAIN worktree add -q -b $zweig $wt origin/main 2>>$LOG || { log "Worktree $wt nicht angelegt – kein Worker"; return 1 }
+  # Worktree ohne Zweig (Maintainer 19.11.2026): den Zweig legt der Worker erst vor dem ersten Commit an (git switch -c);
+  # ohne Commit räumt kopie_nach_lauf den Worktree gleich nach dem Lauf weg
+  git -C $MAIN worktree add -q --detach $wt origin/main 2>>$LOG || { log "Worktree $wt nicht angelegt – kein Worker"; return 1 }
+  basis=$(git -C $wt rev-parse HEAD 2>/dev/null)
   cp -p $MAIN/repo.conf $wt/ 2>/dev/null
   sid=$(uuidgen | tr A-Z a-z)
-  log "Worker $nr gestartet: $m, Klasse $klasse, Sitzung $sid, Zweig $zweig, Worktree $wt, Ports $p1/$p2 ($2)"
-  local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, Klasse $klasse, $(date '+%F %H:%M'). Name $name, Zweig $zweig,
+  log "Worker $nr gestartet: $m, Klasse $klasse, Sitzung $sid, Zweig $zweig (erst beim ersten Commit), Worktree $wt, Ports $p1/$p2 ($2)"
+  local kopf="JETZT: Worker $nr des Auslastungswächters, Modell $m, Klasse $klasse, $(date '+%F %H:%M'). Name $name, Zweig $zweig
+(noch nicht angelegt: der Worktree steht ohne Zweig auf origin/main; vor dem ersten Commit git switch -c $zweig),
 Worktree $wt (nur dort arbeiten), Ports $p1 und $p2, Ergebnisdatei $erg, Bericht ~/halo-berichte/$TAG-worker-$nr.md (Abschnitt anhängen).
 Lage (Skript): $2${rnr:+
 Höchstens $max Minuten (danach beendet dich der Wächter).}
@@ -390,8 +424,8 @@ $auftrag" > $aus 2>&1 ) </dev/null &!
   local pid=$!
   ( sleep $(( max * 60 )); pkill -f -- "--session-id $sid" ) </dev/null >/dev/null 2>&1 &!
   # Felder: 1 PID, 2 Sitzung, 3 Modell, 4 Start, 5 Worktree, 6 Zweig, 7 Ergebnisdatei, 8 Klasse, 9 Rundgang-Nr. (sonst -),
-  # 10 Fingerabdruck der Vorprüfung (sonst -)
-  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse ${rnr:--} $fp" > $ZUSTAND/worker-$nr
+  # 10 Fingerabdruck der Vorprüfung (sonst -), 11 Basis-Commit des Worktrees
+  print -r -- "$pid $sid $m $(date +%s) $wt $zweig $erg $klasse ${rnr:--} $fp ${basis:--}" > $ZUSTAND/worker-$nr
   date +%s > $ZUSTAND/letzter-start
   # Marke „heute gestartet“ (nur einmal je Tag und Auftrag)
   [[ -n $rnr ]] && print -r -- "$(date '+%F %H:%M') $sid" > $ZUSTAND/rundgang-$rnr-$(date +%F)
@@ -403,7 +437,7 @@ if [[ $MODUS == trocken ]]; then
   print -r -- "Auslastungswächter – Trockenlauf (kein Worker, kein Worktree, nichts geschrieben)"
   print -r -- "Prüfung:  $z"
   [[ $z == rundgang* ]] && print -r -- "Würde:    Windows-Rundgang mit ${${z#rundgang }%% *} starten (Auftrag #$K[RUNDGANG_NR] wörtlich, Rahmen tests/auslastung-rundgang.md, höchstens $K[RUNDGANG_MAX_MIN] Min.), Marke für heute"
-  [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Klasse $( [[ ${z#starten * } == tokenarm* ]] && print tokenarm || print normal), Worktree $WT_BASIS/worker-<Zeit>-<Nr>, Zweig pruef/worker-<Zeit>-<Nr>, Ports ab 2874"
+  [[ $z == starten* ]] && print -r -- "Würde:    Worker mit ${${z#starten }%% *} starten, Klasse $( [[ ${z#starten * } == tokenarm* ]] && print tokenarm || print normal), Worktree $WT_BASIS/worker-<Zeit>-<Nr> ohne Zweig (pruef/worker-<Zeit>-<Nr> erst beim ersten Commit), Ports ab 2874"
   [[ $z == leer* ]] && print -r -- "Würde:    keinen Worker starten (kein passender Eintrag), nächste Prüfung in $K[LEER_WARTEN] Minuten"
   exit 0
 fi

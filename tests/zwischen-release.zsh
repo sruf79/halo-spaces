@@ -197,11 +197,11 @@ windows_gruen() { gh run view $1 -R $R --json jobs --jq 'any(.jobs[]; .name == "
 if [[ -n $PUSHEN ]]; then
   git push -q origin HEAD:main || abbruch "Push nach main abgelehnt (kein Force)"
   print -r -- "gepusht: ${SHA[1,7]} nach main ($(date +%H:%M))"
-  L=$(warte_lauf push "" 100) || rot "Push-Lauf zu ${SHA[1,7]} nach 100 Min. nicht fertig"
+  L=$(warte_lauf push "" 150) || rot "Push-Lauf zu ${SHA[1,7]} nach 150 Min. nicht fertig"
   print -r -- "LAUF: Push ${L%% *}"
   if [[ $L != *" success" ]]; then
     print -r -- "Push-Lauf ${L%% *} zu ${SHA[1,7]}: ${L##* } – einmal wiederholen"
-    nach_wiederholung ${L%% *} 100 || rot "Push-Lauf ${L%% *} zu ${SHA[1,7]}: ${L##* }${WDH:+ (Wiederholung $WDH)}"
+    nach_wiederholung ${L%% *} 150 || rot "Push-Lauf ${L%% *} zu ${SHA[1,7]}: ${L##* }${WDH:+ (Wiederholung $WDH)}"
     [[ $NW_ERG == success ]] || { ROT_TEXT=$(rote_pruefungen ${L%% *}); rot "Push-Lauf ${L%% *} zu ${SHA[1,7]} auch in der Wiederholung rot" }
     print -r -- "Push-Lauf ${L%% *} in der Wiederholung grün (geflackert: ${(j:; :)${(f)ROT_TEXT}})"
     ROT_TEXT=

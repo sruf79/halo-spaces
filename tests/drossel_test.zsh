@@ -38,11 +38,16 @@ D() {
 }
 # Woche 30 %, bis 98 % fehlen 68 Punkte; Fehlstunden = 108 − 68 / Tempo
 verlauf $T/v.json 30 0.5;  pruefe "reicht: Tempo 0,5 → voll erst nach dem Reset, Stufe 0" "$(D -- 30)" '^0 Stufe 0 \(28 h Reserve\): reicht' 'Tempo 0\.50 Punkte/h über 6\.0 h Verlauf' 'Reset Di 01:00'
-pruefe "Zustandsdatei geschrieben (Stufe, Fehlstunden, Zeit)" "$(cat $T/stufe.txt)" '^0 -28\.0 2026-11-19T12:00\+00:00$'
+pruefe "Zustandsdatei geschrieben (Stufe, Fehlstunden, Zeit, seit; Wirkung; Grund)" "$(cat $T/stufe.txt)" \
+  '^0 -28\.0 2026-11-19T12:00\+00:00 2026-11-19T12:00\+00:00$' '^reicht$' '^reicht bis Mi 05:00, 28 h nach dem Reset Di 01:00$'
 rm -f $T/stufe.txt
 verlauf $T/v.json 30 0.65; pruefe "Stufe 1: 3 Fehlstunden" "$(D -- 30)" '^1 Stufe 1 \(3 Fehlstunden(, vorher 0)?\): keine neuen Worker, Routine Sonnet, kein Fable'
 rm -f $T/stufe.txt
 verlauf $T/v.json 30 0.75; pruefe "Stufe 2: 17 Fehlstunden" "$(D -- 30)" '^2 Stufe 2 \(17 Fehlstunden(, vorher 0)?\): keine neuen Worker, Tagesroutine nur jede zweite Runde'
+rm -f $T/stufe.txt
+print -r -- "3 40.0 2026-11-19T11:50+00:00 2026-11-19T09:00+00:00" > $T/stufe.txt
+verlauf $T/v.json 30 1.0;  pruefe "Stufe 3 unverändert: seit bleibt, Grund mit Fehlstunden" "$(D -- 30 >/dev/null; cat $T/stufe.txt)" \
+  '^3 40\.0 2026-11-19T12:00\+00:00 2026-11-19T09:00\+00:00$' '^keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde$' '^voll So 09:00, 40 Fehlstunden vor dem Reset Di 01:00$'
 rm -f $T/stufe.txt
 verlauf $T/v.json 30 1.0;  pruefe "Stufe 3: 40 Fehlstunden, voll So" "$(D -- 30)" '^3 Stufe 3 \(40 Fehlstunden(, vorher 0)?\): .*nichts Neues bis zur vollen Stunde' 'voll \(98 %\) So 09:00'
 pruefe "Woche schon ab 98 %: alle Stunden bis zum Reset fehlen" "$(D -- 98)" '^3 Stufe 3 \(108 Fehlstunden'

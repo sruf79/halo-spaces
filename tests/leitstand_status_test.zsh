@@ -37,7 +37,7 @@ pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
 pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
-  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0,"gh_rest":null,"gh_graphql":null}'
+  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0,"gh_rest":null,"gh_graphql":null,"drossel":null}'
 cmp -s $VH $T/d/verlauf.json && print "OK      Verlauf: lokale Historie gleich verlauf.json" || { print "FEHLER  Verlauf: lokale Historie gleich verlauf.json"; FEHLER=1; }
 
 # --- Fall 2: alle Quellen ---
@@ -140,7 +140,7 @@ print '[{"databaseId":5,"number":5,"displayTitle":"w","headBranch":"main","event
  {"databaseId":3,"number":3,"displayTitle":"neu","headBranch":"pruef/x","event":"push","status":"completed","conclusion":"failure","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:30:00Z","url":"u3"}]' > $T/d/quellen/ci.json
 HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
 pruefe_v "Verlauf: Punkt aus den Feldern (Kontingent, Board, CI, Agenten ohne Wächter, CI-Runner und Sitzungen)" \
-  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5,"gh_rest":24.7,"gh_graphql":1.0}]'
+  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5,"gh_rest":24.7,"gh_graphql":1.0,"drossel":null}]'
 [[ $(wc -l < $T/d/verlauf.json) -eq 3 && $(sed -n 2p $T/d/verlauf.json) == '{"t":'* ]] && ! grep -q 'Mail: Knopf' $T/d/verlauf.json \
   && print "OK      Verlauf: je Punkt eine Zeile, keine Titel" || { print "FEHLER  Verlauf: je Punkt eine Zeile, keine Titel"; FEHLER=1; }
 lauf $((JETZT + 1799))
@@ -206,14 +206,19 @@ pruefe "kaputtes Board: board null, Kontingent bleibt" '.board == null and .kont
 rm -f $VH; lauf
 pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.punkte[0].bugs == null and .punkte[0].features == null and .punkte[0].in_arbeit == null and .punkte[0].woche == 5'
 
-# Kontingent-Drossel (19.11.2026): Feld drossel aus ~/halo-nacht/drossel-stufe.txt, nur wenn höchstens 2 h alt
-print -r -- "2 17.4 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
-pruefe "Drossel: Stufe, Fehlstunden, Messzeit" '.drossel == {"stufe":2,"fehlstunden":17.4,"gemessen":"2026-11-19T06:40:00Z"}'
-print -r -- "1 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
-pruefe "Drossel: Reserve zählt als 0 Fehlstunden" '.drossel.stufe == 1 and .drossel.fehlstunden == 0'
+# Kontingent-Drossel (19.11.2026, Maintainer: „bitte neon, die drossel-stufe in status.json mitzuliefern“): Feld drossel aus
+# ~/halo-nacht/drossel-stufe.txt (nicht neu gerechnet), nur wenn höchstens 2 h alt; Stufe auch in jedem neuen Verlaufspunkt
+printf '2 17.4 2026-11-19T07:40+01:00 2026-11-19T06:10+01:00\nkeine neuen Worker, Tagesroutine nur jede zweite Runde\nvoll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00\n' > $T/n/drossel-stufe.txt
+rm -f $VH; lauf
+pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe":2,"text":"keine neuen Worker, Tagesroutine nur jede zweite Runde","grund":"voll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00","seit":"2026-11-19T05:10:00Z","max_worker":0}'
+pruefe_v "Drossel: Stufe im neuen Verlaufspunkt" '.punkte[-1].drossel == 2'
+print -r -- "0 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
+pruefe "Drossel: altes Format (ohne seit, Wirkung, Grund): seit = Messzeit, Texte null, Stufe 0 ohne Worker-Grenze" '.drossel == {"stufe":0,"text":null,"grund":null,"seit":"2026-11-19T06:40:00Z","max_worker":null}'
 print -r -- "3 40.0 2026-11-19T05:00+01:00" > $T/n/drossel-stufe.txt; lauf
 pruefe "Drossel: älter als 2 h → null" '.drossel == null'
-print -r -- "Unsinn" > $T/n/drossel-stufe.txt; lauf
+print -r -- "Unsinn" > $T/n/drossel-stufe.txt; rm -f $VH; lauf
 pruefe "Drossel: unlesbar → null, Rest bleibt" '.drossel == null and .kontingent.woche_prozent == 5'
+pruefe_v "Drossel unlesbar: Verlaufspunkt drossel null" '.punkte[-1] | has("drossel") and .drossel == null'
+rm -f $T/n/drossel-stufe.txt
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

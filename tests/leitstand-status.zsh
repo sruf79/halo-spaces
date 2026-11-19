@@ -276,14 +276,19 @@ def kontingent():
             "fuenf_stunden_prozent": round(100 * h["utilization"]) if "utilization" in h else None,
             "soll_prozent": soll, "reset_woche": iso(wo.get("resetsAt")), "reset_5h": iso(h.get("resetsAt"))}
 
-# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026): Stufe 0–3 und Fehlstunden aus drossel-stufe.txt; älter als
-# 2 Stunden (Volldampf aus, Läufe ruhen) oder unlesbar → null
+# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026; Maintainer: „bitte neon, die drossel-stufe in status.json
+# mitzuliefern“): aus drossel-stufe.txt, nach der Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe>
+# <Fehlstunden> <ISO> [<seit ISO>]“, Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
+# unlesbar → null. max_worker: 0 ab Stufe 1 (keine neuen Worker), sonst null (keine Grenze durch die Drossel).
 def drossel():
-    t = (lies(N + "/drossel-stufe.txt") or "").split()
+    z = (lies(N + "/drossel-stufe.txt") or "").splitlines()
+    t = z[0].split() if z else []
     if len(t) < 3 or t[0] not in ("0", "1", "2", "3"): return None
     g = iso(t[2])
     if g is None or JETZT - dt.datetime.strptime(g, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp() > 7200: return None
-    return {"stufe": int(t[0]), "fehlstunden": round(max(0.0, float(t[1])), 1), "gemessen": g}
+    s = int(t[0])
+    return {"stufe": s, "text": (z[1].strip() if len(z) > 1 else "") or None, "grund": (z[2].strip() if len(z) > 2 else "") or None,
+            "seit": iso(t[3]) if len(t) > 3 else g, "max_worker": 0 if s >= 1 else None}
 
 def volldampf():
     v = (lies(Q + "/volldampf.txt") or "").strip()
@@ -451,7 +456,8 @@ def punkt():
             "ci_wartend": zaehle(lambda s: s in ("queued", "waiting", "pending", "requested")),
             "ci_laufend": zaehle(lambda s: s not in ("completed", "queued", "waiting", "pending", "requested")),
             "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker")),
-            "gh_rest": anteil("rest"), "gh_graphql": anteil("graphql")}
+            "gh_rest": anteil("rest"), "gh_graphql": anteil("graphql"),
+            "drossel": (st["drossel"] or {}).get("stufe")}
 def epoche(t): return dt.datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
 punkte = []
 roh = lies(HIST)

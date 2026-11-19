@@ -65,7 +65,7 @@ konf_lesen() {
   K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900
      RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240
-     BOARD_ALTER 15 LEER_WARTEN 15 LEER_GUELTIG 720)
+     BOARD_ALTER 15 LEER_WARTEN 15 LEER_GUELTIG 720 NACHPUSH_STUNDEN 24 NACHPUSH_MAX 3)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
     z=${${z%%\#*}//[[:space:]]/}
@@ -367,21 +367,33 @@ kopie_nach_lauf() {   # <Worktree> <Zweig> <Basis-Commit>
 # Nachpush (neon 19.11.2026: Worker pushen nachts nicht, Push-Sperre 01:30–09:00 bleibt; ihre Zweige pusht der Wächter):
 # einmal je Tag ab 09:00 jeden lokalen Zweig pruef/worker-* mit Commits vor origin/main, dessen Stand nicht schon auf
 # origin liegt, auf den gleichnamigen Zweig auf origin (ohne Force, nie main); Liste ins Protokoll, Marke nachpush-<Datum>.
+# Grenzen (neon 19.11.2026: der erste Durchgang pushte 25 alte Zweige vom 18.11. auf einmal und verstopfte die CI-Schlange):
+# nur Zweige, deren letzter Commit höchstens NACHPUSH_STUNDEN (24) alt ist, höchstens NACHPUSH_MAX (3) je Tag, neueste zuerst;
+# der Rest steht nur im Protokoll („zu alt, nicht gepusht“, „über der Grenze, nicht gepusht“). Die Marke wird VOR dem ersten
+# Push geschrieben (sie entstand bisher erst nach der ganzen Schleife, am 19.11. rund 50 Sekunden nach deren Beginn).
 zweige_nachpushen() {   # <HHMM Wiener Zeit>
-  local hm=$((10#$1)) marke=$ZUSTAND/nachpush-$(date +%F) b
-  local -a ok fehl
+  local hm=$((10#$1)) marke=$ZUSTAND/nachpush-$(date +%F) b t jetzt=$(date +%s) z
+  local -a ok fehl alt zuviel kand
   (( hm >= 900 )) || return 0
   [[ -e $marke ]] && return 0
   git -C $MAIN fetch -q origin main '+refs/heads/pruef/worker-*:refs/remotes/origin/pruef/worker-*' 2>>$LOG \
     || { log "Nachpush: git fetch gescheitert, nächster Versuch im nächsten Takt"; return 0 }
-  for b in $(git -C $MAIN for-each-ref --format='%(refname:short)' 'refs/heads/pruef/worker-*'); do
-    [[ $b == pruef/worker-* ]] || continue
+  mkdir -p $ZUSTAND && print -r -- "$(date '+%F %H:%M') läuft" > $marke
+  # „<Commit-Zeit> <Zweig>“, neueste zuerst
+  for z in ${(f)"$(git -C $MAIN for-each-ref --sort=-committerdate --format='%(committerdate:unix) %(refname:short)' 'refs/heads/pruef/worker-*')"}; do
+    t=${z%% *} b=${z#* }
+    [[ $b == pruef/worker-* && $t == <-> ]] || continue
     [[ -n $(git -C $MAIN rev-list -n 1 origin/main..refs/heads/$b 2>/dev/null) ]] || continue
     [[ $(git -C $MAIN rev-parse -q --verify refs/remotes/origin/$b 2>/dev/null) == $(git -C $MAIN rev-parse refs/heads/$b) ]] && continue
+    (( jetzt - t > ${K[NACHPUSH_STUNDEN]:-24} * 3600 )) && { alt+=($b); continue }
+    (( $#kand >= ${K[NACHPUSH_MAX]:-3} )) && { zuviel+=($b); continue }
+    kand+=($b)
+  done
+  for b in $kand; do
     if git -C $MAIN push -q origin refs/heads/${b}:refs/heads/${b} 2>>$LOG; then ok+=($b); else fehl+=($b); fi
   done
   print -r -- "$(date '+%F %H:%M') ${(j: :)ok}" > $marke
-  log "Nachpush Worker-Zweige (ab 09:00, nur pruef/worker-*, nie main): ${#ok} gepusht${ok:+: ${(j:, :)ok}}${fehl:+; gescheitert: ${(j:, :)fehl}}"
+  log "Nachpush Worker-Zweige (ab 09:00, nur pruef/worker-*, nie main): ${#ok} gepusht${ok:+: ${(j:, :)ok}}${fehl:+; gescheitert: ${(j:, :)fehl}}${alt:+; zu alt, nicht gepusht: ${(j:, :)alt}}${zuviel:+; über der Grenze, nicht gepusht: ${(j:, :)zuviel}}"
 }
 # beendete Worker einmal protokollieren
 aufraeumen() {

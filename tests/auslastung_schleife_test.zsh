@@ -349,4 +349,30 @@ pruefe "Nachpush: lokales main nicht gepusht" "$( [[ $(git -C $G/origin.git rev-
 git -C $G/w3 commit -q --allow-empty -m noch-einer; : > $G/nplog; N 1400
 pruefe "Nachpush: einmal je Tag (Marke)" "$(cat $G/nplog; ls $G/zustand)" '^nachpush-[0-9-]+$'
 pruefe "Schleife: Nachpush je Takt aufgerufen" "$S" 'zweige_nachpushen \$\(date \+%H%M\)'
+# Grenzen (neon 19.11.2026: am 19.11. 25 alte Zweige vom 18.11. auf einmal gepusht): letzter Commit höchstens 24 h alt,
+# höchstens 3 je Tag (neueste zuerst), Rest nur im Protokoll; Marke vor dem ersten Push
+NZ() { (setopt extendedglob; MAIN=$G/repo ZUSTAND=$1 LOG=$G/nplog; shift; log() { print -r -- "$*" >> $G/nplog }; eval $NP; zweige_nachpushen "$@") }
+git -C $G/repo push -q origin pruef/worker-3 2>/dev/null   # (Stand von oben schon auf origin)
+git -C $G/repo checkout -q --detach main
+for i in 1 2 3 4 5; do
+  git -C $G/repo checkout -q -b pruef/worker-frisch$i main
+  GIT_COMMITTER_DATE="$(date -v-${i}H '+%Y-%m-%dT%H:%M:%S')" git -C $G/repo commit -q --allow-empty -m frisch$i
+done
+git -C $G/repo checkout -q -b pruef/worker-uralt main
+GIT_COMMITTER_DATE="$(date -v-25H '+%Y-%m-%dT%H:%M:%S')" git -C $G/repo commit -q --allow-empty -m uralt
+git -C $G/repo checkout -q main
+: > $G/nplog; NZ $G/zustand2 1000
+pruefe "Nachpush: höchstens 3 je Tag, neueste zuerst; älter als 24 h nicht gepusht; Rest im Protokoll" \
+  "$(git -C $G/origin.git branch --list 'pruef/worker-frisch*' 'pruef/worker-uralt' | tr -d ' *' | sort | tr '\n' ' '; print; cat $G/nplog)" \
+  '^pruef/worker-frisch1 pruef/worker-frisch2 pruef/worker-frisch3 $' ': 3 gepusht: pruef/worker-frisch1, pruef/worker-frisch2, pruef/worker-frisch3;' \
+  'zu alt, nicht gepusht: pruef/worker-uralt' 'über der Grenze, nicht gepusht: pruef/worker-frisch4, pruef/worker-frisch5$'
+: > $G/nplog; NZ $G/zustand2 1500
+pruefe "Nachpush: zweiter Durchgang am selben Tag pusht nichts (Marke)" "$(cat $G/nplog; git -C $G/origin.git branch --list 'pruef/worker-frisch4' | grep -c .)" '^0$'
+mv $G/origin.git $G/origin-weg.git
+: > $G/nplog; NZ $G/zustand3 1000
+pruefe "Nachpush: git fetch scheitert → noch keine Marke, nächster Versuch im nächsten Takt (nichts gepusht)" \
+  "$(ls $G/zustand3 2>/dev/null | grep -c nachpush; cat $G/nplog)" '^0$' 'git fetch gescheitert'
+mv $G/origin-weg.git $G/origin.git
+pruefe "Nachpush: Marke wird vor der Push-Schleife geschrieben" \
+  "$(sed -n '/^zweige_nachpushen() {/,/^}/p' $SKRIPT | grep -nE 'läuft" > \$marke|for b in \$kand' | cut -d: -f1 | tr '\n' ' ')" '^[0-9]+ [0-9]+ $'
 exit $FEHLER

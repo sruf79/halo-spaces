@@ -723,6 +723,33 @@ belegt() {
   return 1
 }
 
+# Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): Anlass 3.33.0, Stand fc2701d wartete über
+# 60 Minuten auf „belegt“, weil Worker und Tagesroutine laufend neue Testläufe begannen. Der Wächter
+# tests/zwischen-schleife.zsh schreibt bei fälligem, grünem Stand und belegtem neon die Marke
+# ~/halo-nacht/zwischen-faellig.txt (HALO_ZR_FAELLIG), eine Zeile:
+#   <Unix-Sekunden der letzten Erneuerung> <PID des Wächters|-> <Stand> <Zweig> <seit HH:MM>
+# Er erneuert sie je Takt und während des Release-Laufs, entfernt sie nach Release, Abbruch oder Rot und sobald kein
+# fälliger Stand mehr wartet. Solange sie frisch ist (jünger als ZR_FAELLIG_MAX Minuten und der Wächter lebt), startet der
+# Auslastungswächter keine Worker und der Zeitfenster-Hook weist neue Testläufe ab (eigene Kopie der Prüfung dort).
+# Laufende Testläufe bricht niemand ab; der Wächter wartet auf sie (belegt()).
+# zr_vorrang: Rückgabe 0 = Marke frisch, gibt „Stand <7 Zeichen> (<Zweig>) seit <HH:MM>“ aus. Zum Proben: HALO_ZR_JETZT=<Unix-Sekunden>.
+zr_faellig_datei() { print -r -- ${HALO_ZR_FAELLIG:-$HOME/halo-nacht/zwischen-faellig.txt} }
+zr_vorrang() {
+  local d=$(zr_faellig_datei) jetzt=${HALO_ZR_JETZT:-$(date +%s)} max=${ZR_FAELLIG_MAX:-60}
+  local -a z
+  [[ -r $d ]] || return 1
+  z=(${=$(head -1 $d 2>/dev/null)})
+  (( $#z >= 4 )) && [[ $z[1] == <-> ]] || return 1
+  (( jetzt - z[1] < max * 60 )) || return 1
+  [[ $z[2] == <-> ]] && ! kill -0 $z[2] 2>/dev/null && return 1
+  print -r -- "Stand ${z[3][1,7]} ($z[4]) seit ${z[5]:-?}"
+}
+zr_vorrang_setzen() {   # <Stand> <Zweig> <seit HH:MM> – atomar (.neu, mv); PID = Wächter ($$ auch in Unterschalen)
+  local d=$(zr_faellig_datei)
+  print -r -- "$(date +%s) $$ $1 $2 $3" > $d.neu 2>/dev/null && mv -f $d.neu $d
+}
+zr_vorrang_loeschen() { rm -f $(zr_faellig_datei) }
+
 # Thunderbird unter /Applications auf die aktuelle Version von Mozilla bringen
 # (Nachtlauf, vor der Arbeit). Wie thunderbird_installieren() in
 # mac-mini-setup.sh nur von Mozilla signierte Programme; die alte App wird erst

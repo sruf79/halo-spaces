@@ -9,7 +9,8 @@
 #   zsh tests/auslastung-schleife.zsh --trocken   nur zeigen, was jetzt geschähe (kein Claude außer ggf. kontingent.sh,
 #                                                 kein Worktree, nichts geschrieben)
 # Alle TAKT Minuten (10), Tag und Nacht, solange die Volldampf-Zeile aktiv ist:
-#   1. Volldampf aktiv? (kein Fenster: Ende) Pause „auslastung“ in pausen.txt? (dann warten) Volldampf pausiert
+#   1. Volldampf aktiv? (kein Fenster: Ende) Pause „auslastung“ in pausen.txt? (dann warten) Zwischen-Release fällig
+#      (frische Marke ~/halo-nacht/zwischen-faellig.txt, zr_vorrang in lauf-hilfen.zsh; dann warten)? Volldampf pausiert
 #      (Wochenlimit, Maintainer 18.11.2026)? Dann warten, Kontingent höchstens stündlich lesen (PAUSE_KONT_ALTER 60 Min.,
 #      sonst kontingent.json der anderen Läufe), freien Reset erkennen (wochen_reset_erkennen); danach geht es von selbst weiter.
 #   2. Arbeits-Sitzungen zählen: alle „claude -p --model … --session-id|--resume …“ außer Haiku (Worker, Tagesroutine,
@@ -254,6 +255,9 @@ pruefen() {
   volldampf_aktiv >/dev/null; vd=$?
   (( vd == 1 )) && { print -r -- "ende Volldampf nicht aktiv"; return }
   g=$(pause_aktiv auslastung) && { print -r -- "warten Pause $g"; return }
+  # Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): frische Marke zwischen-faellig.txt des
+  # Wächters tests/zwischen-schleife.zsh → kein neuer Worker und kein Rundgang, laufende machen fertig
+  g=$(zr_vorrang) && { print -r -- "warten Zwischen-Release fällig ($g) – keine neuen Worker"; return }
   if (( vd == 2 )); then
     # Wochenlimit erreicht: Volldampf pausiert nur (Maintainer 18.11.2026), bis der freie Reset erkannt ist
     kw=($(kontingent $K[PAUSE_KONT_ALTER])) || { print -r -- "warten Volldampf pausiert (Wochenlimit), Kontingent nicht lesbar"; return }

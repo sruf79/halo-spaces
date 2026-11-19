@@ -32,6 +32,14 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 1. **Pause** in `~/halo-nacht/pausen.txt` (je Routine, mit Ablauf).
 2. **Zeitregeln**: Push-Sperre 01:30–09:00, ab 00:00 kein Code-Push, Nachtlauf-Schutz (kein Worker-Testbeginn 01:10–01:45), Zeitfenster der Tagesroutine.
 3. **Belegt** (`belegt()`): CI auf dem Runner, Testlauf, Marionette-Port, Windows-VM, release.sh/publish.sh, andere Sitzung.
+   **Vorrang des Zwischen-Release** (neon-Auftrag #48, 19.11.2026; Anlass: 3.33.0 wartete über 60 Minuten auf „belegt“, weil
+   Worker und Tagesroutine laufend neue Testläufe begannen): Hat der Zwischen-Release-Wächter einen fälligen grünen Stand und
+   ist neon belegt, schreibt er `~/halo-nacht/zwischen-faellig.txt` (je Takt erneuert, auch während des ganzen Release-Laufs;
+   frisch = jünger als 60 Minuten und Wächter lebt). Solange sie frisch ist: der Auslastungswächter startet keine Worker (auch
+   keinen Rundgang), der Zeitfenster-Hook weist neue Testläufe ab („Zwischen-Release fällig, bitte warten“), auch mit
+   `HALO_LAUF` (Tagesroutine), nur nicht für `HALO_LAUF=zwischen-release` und `nachtlauf`. Laufende Testläufe brechen nie ab,
+   der Wächter wartet. Die Marke fällt nach Release, Rot oder Abbruch, wenn kein Stand mehr fällig ist, und nach 120 Minuten
+   Warten auf denselben Stand (`ZS_VORRANG_MAX`, Meldung an neon). Die Meldung „belegt über 60 Min.“ an neon bleibt.
    Wartezeiten des Nachtlaufs vor dem Start (Maintainer 18.11.2026, `nachtlauf_warten` in `tests/vorpruefung.zsh`): CI bis zu
    ihrem Ende, längstens 03:30; Testlauf, Thunderbird mit Marionette, Marionette-Port bis 60 Minuten ab dem ersten Sehen;
    release.sh/publish.sh bis 20 Minuten (dauert wenige Minuten); andere Claude-Sitzung (der Lauf des Maintainers geht immer

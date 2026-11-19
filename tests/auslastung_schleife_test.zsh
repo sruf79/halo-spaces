@@ -29,7 +29,7 @@ W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -42,6 +42,15 @@ pruefe "Reset Di 01:00 Wiener Zeit: 0 h" "$(W HALO_JETZT=2026-11-17T01:00+01:00 
 
 # Tag: Schwellen
 pruefe "Tag, unter Soll: Worker mit opus" "$(W)" '^Prüfung:  starten opus unter dem Soll' 'Würde:    Worker mit opus'
+# Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48): frische Marke → kein Worker; alt, tot oder fehlend → wie sonst
+print -r -- "$(( $(date +%s) - 300 )) - fc2701d0000 pruef/sammel-fehler-1119 11:54" > $T/zf.txt
+pruefe "Zwischen-Release fällig (frische Marke): kein neuer Worker" "$(W HALO_ZR_FAELLIG=$T/zf.txt)" \
+  '^Prüfung:  warten Zwischen-Release fällig \(Stand fc2701d \(pruef/sammel-fehler-1119\) seit 11:54\) – keine neuen Worker$'
+pruefe "Zwischen-Release fällig: auch kein Windows-Rundgang (5 Stunden 90 %)" "$(W HALO_ZR_FAELLIG=$T/zf.txt HALO_AS_5H=90)" 'warten Zwischen-Release fällig'
+print -r -- "$(( $(date +%s) - 3700 )) - fc2701d0000 pruef/x 11:54" > $T/zf-alt.txt
+pruefe "Marke älter als 60 Min.: Worker wie sonst" "$(W HALO_ZR_FAELLIG=$T/zf-alt.txt)" '^Prüfung:  starten opus unter dem Soll'
+print -r -- "$(date +%s) 999999 fc2701d0000 pruef/x 11:54" > $T/zf-tot.txt
+pruefe "Marke eines beendeten Wächters (PID tot): Worker wie sonst" "$(W HALO_ZR_FAELLIG=$T/zf-tot.txt)" '^Prüfung:  starten opus unter dem Soll'
 pruefe "Tag, über Soll, 5 Stunden 40 %: Worker (Fenster unter 60 %)" "$(W HALO_AS_WOCHE=35)" 'starten opus 5-Stunden-Fenster unter 60'
 pruefe "Tag, über Soll, 5 Stunden 60 %: warten" "$(W HALO_AS_WOCHE=35 HALO_AS_5H=60)" 'warten im Soll und 5-Stunden-Fenster ab 60'
 pruefe "Tag, unter Soll, 5 Stunden 90 %: warten (FENSTER_STOPP)" "$(W HALO_AS_5H=90)" 'warten 5-Stunden-Fenster ab 90'

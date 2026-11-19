@@ -147,6 +147,21 @@ pruefe "Wächter meldet nicht mehr per push() (nur als Ersatzweg in melden)" "$(
 pruefe "Wächter meldet jedes Ergebnis: veröffentlicht, ROT, ABBRUCH, belegt über 60 Min." "$S" 'melden veröffentlicht' 'melden "ROT' 'melden ABBRUCH' 'melden "belegt über \$BELEGT_MAX Min\."' 'BELEGT_MAX=\$\{ZS_BELEGT_MAX:-60\}'
 pruefe "belegt: Ausgabe nennt den fälligen Stand" "$(W HALO_BELEGT='CI-Lauf')" 'warten belegt: CI-Lauf \(fällig abcdef1 pruef/'
 
+# Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): Marke zwischen-faellig.txt
+ZF=$T/zf.txt
+pruefe "Trockenlauf bei belegt schreibt keine Marke" "$(W HALO_BELEGT='Testlauf (halo_test.py o. ä.)' HALO_ZR_FAELLIG=$ZF; [[ -e $ZF ]] && print da || print weg)" 'warten belegt: Testlauf' '^weg$'
+vr() { ( source $HIER/lauf-hilfen.zsh 2>/dev/null; LOG=/dev/null HALO_ZR_FAELLIG=$ZF; eval "$1" ) 2>&1 }
+pruefe "Marke setzen (atomar, PID des Wächters) und lesen" "$(vr 'zr_vorrang_setzen fc2701d pruef/sammel-fehler-1119 11:54; zr_vorrang; print rc=$?; ls ${ZF:h} | grep -c "\.neu$"; head -1 $ZF')" \
+  '^Stand fc2701d \(pruef/sammel-fehler-1119\) seit 11:54$' '^rc=0$' '^0$' '^[0-9]+ [0-9]+ fc2701d pruef/sammel-fehler-1119 11:54$'
+pruefe "Marke älter als 60 Min.: nicht mehr frisch" "$(vr 'zr_vorrang_setzen fc2701d pruef/x 11:54; HALO_ZR_JETZT=$(( $(date +%s) + 3600 )) zr_vorrang; print rc=$?')" '^rc=1$'
+pruefe "Marke eines beendeten Wächters (PID tot): nicht frisch" "$(print -r -- "$(date +%s) 999999 fc2701d pruef/x 11:54" > $ZF; vr 'zr_vorrang; print rc=$?')" '^rc=1$'
+pruefe "Marke löschen" "$(vr 'zr_vorrang_setzen fc2701d pruef/x 11:54; zr_vorrang_loeschen; zr_vorrang; print rc=$?; [[ -e $ZF ]] && print da || print weg')" '^rc=1$' '^weg$'
+pruefe "Vorrang im Wächter: Marke bei belegt je Takt, während des Release-Laufs erneuert, danach und beim Ende entfernt, nach VORRANG_MAX aufgegeben" "$S" \
+  'zr_vorrang_setzen \$w\[1\] \$w\[2\] \$VORRANG_HM' 'ERNEUERER=\$!' 'kill \$ERNEUERER 2>/dev/null; zr_vorrang_loeschen' \
+  "trap 'zr_vorrang_loeschen; rm -f \\\$LOCK' EXIT" 'VORRANG_MAX=\$\{ZS_VORRANG_MAX:-120\}' 'melden "Vorrang aufgegeben nach \$VORRANG_MAX Min\."' \
+  'if \[\[ \$z != fällig\* \]\]; then'
+pruefe "Abbruch wegen belegt (zwischen-release.zsh) sperrt den Stand nicht" "$S" '"ABBRUCH: neon belegt"\* \]\] && return 3' '\(\( rc == 3 \)\) && \{ log .*rc=0 \}'
+
 # Wiederholung in zwischen-release.zsh (Funktionen aus dem Skript, gh als Attrappe)
 ZR=$HIER/zwischen-release.zsh
 ZF=$(sed -n '/^rote_pruefungen() {/,/^}/p;/^wiederholen() {/,/^}/p;/^nach_wiederholung() {/,/^}/p' $ZR)

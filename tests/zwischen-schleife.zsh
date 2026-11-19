@@ -28,6 +28,15 @@
 #   Rot oder ABBRUCH: kein Release; derselbe Stand P wird nicht noch einmal versucht.
 #   Echtes Rot (nach der Wiederholung): je rote Prüfung eine Zeile in ~/halo-nacht/rot-zaehler.txt, die Meldung an neon
 #   nennt die Modellstufe (rot_zaehlen; docs/release.md „Rote Änderung auf einen Nebenzweig“, Maintainer 18.11.2026).
+# Vorrang (neon-Auftrag #48, 19.11.2026; Anlass: 3.33.0, Stand fc2701d über 60 Minuten „belegt“, weil Worker und
+# Tagesroutine laufend neue Testläufe begannen): Ist ein Stand fällig und neon belegt, schreibt der Wächter die Marke
+# ~/halo-nacht/zwischen-faellig.txt (zr_vorrang_setzen, lauf-hilfen.zsh) und erneuert sie je Takt; ebenso während des
+# ganzen Release-Laufs (Push, CI, Windows, release-unter-tage.sh). Solange sie frisch ist, startet der Auslastungswächter
+# keine Worker und der Zeitfenster-Hook weist neue Testläufe ab (nicht für HALO_LAUF=zwischen-release|nachtlauf);
+# laufende Testläufe werden nie abgebrochen, der Wächter wartet auf sie. Entfernt wird die Marke nach dem Release-Lauf
+# (veröffentlicht, rot, Abbruch), sobald kein fälliger Stand mehr wartet (gesperrt, in main, Uhrzeit, Pause, Ende) und
+# nach VORRANG_MAX (120) Minuten Warten auf denselben Stand (Meldung an neon; dann gilt für ihn wieder nur „belegt“).
+# Ein Abbruch, weil zwischen-release.zsh neon belegt fand, zählt nicht als Fehlversuch (sperrt den Stand nicht).
 # Der Abstand zwischen zwei Releases ist nur die Dauer von CI und Windows. Den Checkout ~/halo-spaces gleicht der
 # Nachtlauf ab (git rebase origin/main, Schritt 0 b): die Commits aus main sind dann schon in origin/main.
 # Zum Proben: HALO_JETZT_HM=HHMM, HALO_ZS_STAND=<Zeilen „Commit [Zweig]“|leer> (statt der GitHub-Läufe),
@@ -58,6 +67,7 @@ GESPERRT=${HALO_ZS_GESPERRT:-}
 GDATEI=${HALO_ZS_GESPERRT_DATEI:-$DIR/zwischen-gesperrt.txt}   # Stände roter Versuche (eine Zeile je Commit)
 ERGEBNIS=${HALO_ZS_ERGEBNIS:-$DIR/zwischen-ergebnis.txt}       # eine Zeile je Ergebnis, neueste unten (tail -1)
 BELEGT_MAX=${ZS_BELEGT_MAX:-60}                                 # Minuten „belegt“ bei fälligem Stand, dann Meldung an neon
+VORRANG_MAX=${ZS_VORRANG_MAX:-120}                              # Minuten Vorrang (Marke) für denselben Stand, dann aufgegeben
 
 # Jedes Ergebnis geht an die Sitzung neon, nicht aufs iPhone (Maintainer 18.11.2026: „ich möchte hier nicht involviert und
 # informiert werden. der wächter soll solche probleme direkt an dich wenden und du kümmerst dich um die nächsten schritte
@@ -256,7 +266,12 @@ release_lauf() {   # <P> <Prüfzweig>
   fi
   g=$(grep -E '^(ABBRUCH|ROT|FEHLER)' $aus | tail -1)
   log "Zwischen-Release $v nicht veröffentlicht: ${g:-Exitcode $rc}"
-  if [[ $g == ABBRUCH* ]]; then melden ABBRUCH $v $p $zw "$laeufe" "${g#ABBRUCH: }" "$wdh"; return 2; fi
+  if [[ $g == ABBRUCH* ]]; then
+    melden ABBRUCH $v $p $zw "$laeufe" "${g#ABBRUCH: }" "$wdh"
+    # neon belegt (Rennen zwischen pruefen und zwischen-release.zsh): kein Fehlversuch, der Stand bleibt offen
+    [[ $g == "ABBRUCH: neon belegt"* ]] && return 3
+    return 2
+  fi
   if git -C $WT rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
     melden "FEHLER nach dem Tag (getaggt, nicht fertig veröffentlicht; docs/release.md)" $v $p $zw "$laeufe" "${g:-Exitcode $rc}${det:+
 $det}" "$wdh"
@@ -282,26 +297,51 @@ mkdir -p $DIR
 LOCK=$DIR/zwischen-schleife.lock
 [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null && { print -u2 "Zwischen-Schleife läuft schon (PID $(<$LOCK))"; exit 1 }
 print $$ > $LOCK
-trap 'rm -f $LOCK' EXIT
+trap 'zr_vorrang_loeschen; rm -f $LOCK' EXIT
 log "Zwischen-Schleife gestartet (Takt $TAKT Min., alle Prüfzweige pruef/*, ab $AB Thunderbird-Commits, ab $AB_FENSTER bei 5-Stunden-Fenster ab $FENSTER_AB %, Push-Beginn bis $BIS)"
-ALT= ABBRUCH_AN= BELEGT_SEIT= BELEGT_GEMELDET=
+ALT= ABBRUCH_AN= BELEGT_SEIT= BELEGT_GEMELDET= VORRANG= VORRANG_SEIT= VORRANG_HM= VORRANG_AUS=
 while true; do
   z=$(pruefen)
-  # fälliger Stand, aber neon seit über BELEGT_MAX Minuten belegt: einmal je Stand an neon melden
+  # fälliger Stand, aber neon belegt: Vorrang (Marke zwischen-faellig.txt), nach BELEGT_MAX Minuten einmal je Stand an neon melden
   if [[ $z == "warten belegt: "* ]]; then
     BELEGT_SEIT=${BELEGT_SEIT:-$(date +%s)}
+    w=(${=${${z##* \(fällig }%\)}})
+    if [[ $VORRANG != "$w[1] $w[2]" ]]; then VORRANG="$w[1] $w[2]" VORRANG_SEIT=$(date +%s) VORRANG_HM=$(date +%H:%M); fi
+    vtext=
+    if [[ $VORRANG_AUS == $VORRANG ]]; then :
+    elif (( $(date +%s) - VORRANG_SEIT >= VORRANG_MAX * 60 )); then
+      zr_vorrang_loeschen; VORRANG_AUS=$VORRANG
+      log "Vorrang für Stand $w[1] ($w[2]) nach $VORRANG_MAX Min. aufgegeben, Worker und Testläufe wieder frei"
+      melden "Vorrang aufgegeben nach $VORRANG_MAX Min." - "$w[1]" "$w[2]" - "${${z#warten belegt: }% \(fällig *}
+Marke zwischen-faellig.txt entfernt, Worker und Testläufe wieder frei; der Stand wartet weiter auf ein freies neon" "nein"
+    else
+      [[ -n $(zr_vorrang) ]] || log "Vorrang: Marke zwischen-faellig.txt für Stand $w[1] ($w[2]) gesetzt, keine neuen Worker, neue Testläufe abgewiesen"
+      zr_vorrang_setzen $w[1] $w[2] $VORRANG_HM
+      vtext="
+Vorrang aktiv seit $VORRANG_HM (Marke zwischen-faellig.txt): keine neuen Worker, neue Testläufe abgewiesen, laufende machen fertig"
+    fi
     if (( $(date +%s) - BELEGT_SEIT >= BELEGT_MAX * 60 )) && [[ $BELEGT_GEMELDET != ${z##* \(fällig } ]]; then
-      w=(${=${${z##* \(fällig }%\)}})
-      melden "belegt über $BELEGT_MAX Min." - "$w[1]" "$w[2]" - "${${z#warten belegt: }% \(fällig *}" "nein"
+      melden "belegt über $BELEGT_MAX Min." - "$w[1]" "$w[2]" - "${${z#warten belegt: }% \(fällig *}$vtext" "nein"
       BELEGT_GEMELDET=${z##* \(fällig }
     fi
   else
     BELEGT_SEIT=
+    # kein fälliger Stand mehr (gesperrt, in main, Uhrzeit, Pause, Ende): Vorrang endet; „fällig“ übernimmt die Marke unten
+    if [[ $z != fällig* ]]; then
+      [[ -n $(zr_vorrang) ]] && log "Vorrang beendet (${z#* })"
+      zr_vorrang_loeschen; VORRANG= VORRANG_AUS=
+    fi
   fi
   case $z in
     ende*)   log "Ende: ${z#ende }"; break ;;
     fällig*) w=(${=${z#fällig }}); p=$w[1]
+             # Vorrang während des ganzen Release-Laufs (Push, CI, Windows, release-unter-tage.sh): Marke je Takt erneuern
+             zr_vorrang_setzen ${p[1,7]} ${w[3]%,} ${VORRANG_HM:-$(date +%H:%M)}
+             ( while sleep $(( TAKT * 60 )); kill -0 $$ 2>/dev/null; do zr_vorrang_setzen ${p[1,7]} ${w[3]%,} ${VORRANG_HM:-$(date +%H:%M)}; done ) &
+             ERNEUERER=$!
              release_lauf $p ${w[3]%,}; rc=$?
+             kill $ERNEUERER 2>/dev/null; zr_vorrang_loeschen; VORRANG= VORRANG_AUS=
+             (( rc == 3 )) && { log "Abbruch wegen belegt: kein Fehlversuch, Stand ${p[1,7]} bleibt offen"; rc=0 }
              # rot (oder Konflikt): derselbe Stand erst nach der Behebung (neuer grüner Stand); Abbruch vor dem
              # Push (belegt, Uhrzeit, Vorbereitung): ein zweiter Versuch, dann ebenfalls gesperrt
              if (( rc == 1 )) || { (( rc == 2 )) && [[ $p == $ABBRUCH_AN ]] }; then sperren $p; log "Stand ${p[1,7]} gesperrt bis zu einem neuen grünen Stand"

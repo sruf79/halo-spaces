@@ -3,7 +3,8 @@
 # Tagesroutine, Kontingent, Betriebsschalter, An welchen tasks der Auftragsliste gearbeitet wird und was als nächstes
 # auf der Liste steht“, Takt „Alle 5 Minuten“): schreibt ~/halo-nacht/leitstand/status.json und legt sie als einzigen
 # Commit (force-push) in das PRIVATE Repo sruf79/halo-status (enthält Board-Inhalte, nie öffentlich). Kein Claude-Aufruf
-# außer tests/kontingent.sh (winziger Haiku-Aufruf), und den höchstens alle 15 Minuten.
+# außer tests/kontingent.sh (winziger Haiku-Aufruf), und den höchstens alle 15 Minuten. Im selben Commit verlauf.json
+# (Zahlen für Verlaufskurven, höchstens alle 30 Min. ein Punkt, 7 Tage), Historie lokal ~/halo-nacht/leitstand-verlauf.json.
 # LaunchAgent at.halo-spaces.leitstand alle 5 Minuten (tests/mac-mini-setup.sh), Protokoll ~/Library/Logs/halo-leitstand.log.
 #   zsh tests/leitstand-status.zsh [<Repo>]             sammeln, schreiben, pushen
 #   zsh tests/leitstand-status.zsh --ohne-push [<Repo>] sammeln (mit gh) und JSON ausgeben, kein Push
@@ -408,8 +409,41 @@ st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
+
+# --- verlauf.json: höchstens alle 30 Minuten ein Punkt, nur 7 Tage (höchstens 336 Punkte), Historie lokal in HIST ---
+# nur Zahlen aus den schon berechneten Feldern (keine Titel); nicht messbar → null; je Punkt eine Zeile
+HIST, VERLAUF = sys.argv[6], sys.argv[7]
+def punkt():
+    k, b, ci_, ag = st["kontingent"] or {}, st["board"], st["ci"], st["agenten"]
+    z = (b or {}).get("zahlen") or {}
+    def zaehle(f): return None if ci_ is None else sum(1 for r in ci_ if f(r["status"]))
+    return {"t": iso(JETZT), "woche": k.get("woche_prozent"), "fuenf": k.get("fuenf_stunden_prozent"), "soll": k.get("soll_prozent"),
+            "bugs": z.get("bugs_offen"), "features": z.get("features_offen"),
+            "in_arbeit": None if b is None else len(b.get("in_arbeit") or []),
+            "ci_wartend": zaehle(lambda s: s in ("queued", "waiting", "pending", "requested")),
+            "ci_laufend": zaehle(lambda s: s not in ("completed", "queued", "waiting", "pending", "requested")),
+            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker"))}
+def epoche(t): return dt.datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
+punkte = []
+roh = lies(HIST)
+if roh is not None:
+    try:
+        punkte = json.loads(roh)["punkte"]
+        assert isinstance(punkte, list)
+        punkte = [p for p in punkte if isinstance(p, dict) and isinstance(p.get("t"), str) and epoche(p["t"]) <= JETZT]
+    except Exception as e:
+        sys.stderr.write("Verlauf defekt, beginnt neu: %s\n" % e); punkte = []
+if not punkte or JETZT - epoche(punkte[-1]["t"]) >= 1800:
+    p = sicher(punkt)
+    if p is not None: punkte.append(p)
+punkte = [p for p in punkte if JETZT - epoche(p["t"]) < 7 * 86400][-336:]
+text = "{\"punkte\":[\n" + "".join(json.dumps(p, ensure_ascii=False, separators=(",", ":")) + ("," if i < len(punkte) - 1 else "") + "\n"
+                              for i, p in enumerate(punkte)) + "]}\n"
+for ziel in (HIST, VERLAUF):
+    with open(ziel + ".neu", "w", encoding="utf-8") as f: f.write(text)
+    os.replace(ziel + ".neu", ziel)
 '
-python3 -I -c $LS_PY $Q $N $A $JETZT $D/status.json 2>>$LOG || { log "FEHLER status.json nicht gebaut"; exit 1 }
+python3 -I -c $LS_PY $Q $N $A $JETZT $D/status.json $N/leitstand-verlauf.json $D/verlauf.json 2>>$LOG || { log "FEHLER status.json nicht gebaut"; exit 1 }
 if [[ -n $TROCKEN$OHNE_PUSH ]]; then cat $D/status.json; exit 0; fi
 [[ -n $HALO_LS_OHNE_NETZ ]] && exit 0
 
@@ -421,7 +455,8 @@ if [[ ! -d $R/.git ]]; then
   rm -rf $R; git init -q -b main $R && git -C $R remote add origin https://github.com/$STATUS_REPO.git || { log "FEHLER Arbeitskopie"; exit 1 }
 fi
 cp $D/status.json $R/status.json
-git -C $R add status.json
+cp $D/verlauf.json $R/verlauf.json
+git -C $R add status.json verlauf.json
 # Verlauf klein: jedes Mal ein neuer Wurzel-Commit statt einer wachsenden Kette
 BAUM=$(git -C $R write-tree) &&
   C=$(git -C $R -c user.name=neon -c user.email=neon@localhost commit-tree $BAUM -m "Leitstand: Stand $(TZ=UTC date -r $JETZT +%FT%TZ)") &&

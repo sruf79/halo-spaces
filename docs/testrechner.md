@@ -516,6 +516,13 @@ steht das Feld auf `null`. „Als Nächstes“ kommt aus der neuesten Plandatei 
 `<datum>-tagesroutine-plan[-n].tsv`), nur Einträge mit Status Todo. Protokoll `~/halo-nacht/leitstand/leitstand.log`; Probe ohne
 Push: `zsh tests/leitstand-status.zsh --ohne-push`; Logik-Prüfung `zsh tests/leitstand_status_test.zsh`.
 
+Verlauf (Wunsch der Dashboard-Sitzung, 19.11.2026): im selben Commit liegt `verlauf.json` mit Punkten
+`{"t","woche","fuenf","soll","bugs","features","in_arbeit","ci_wartend","ci_laufend","agenten"}` (je Punkt eine Zeile, keine
+Titel, nicht messbar = `null`; `agenten` zählt Läufe, Designer und Worker, ohne Wächter, CI-Runner und Sitzungen). Höchstens alle
+30 Minuten ein neuer Punkt, nur die letzten 7 Tage (höchstens 336). Die Historie führt neon lokal in
+`~/halo-nacht/leitstand-verlauf.json` (nie aus dem Repo gelesen); ist sie defekt, beginnt sie neu. Alle Werte stammen aus den
+Feldern von `status.json`, also keine zusätzlichen Abfragen.
+
 Agenten (Nachbesserung 19.11.2026): je Lauf und Wächter genau ein Eintrag – zählt nur der Prozess aus der Sperrdatei
 (`lauf.lock`, `tagesroutine.lock`, `auslastung-schleife.lock`, `zwischen-schleife.lock`), sonst jeder passende ohne
 Zeitgeber-Muster (die 4-Stunden-Zeitgeber `sleep 14400` der Worker heißen wie die Schleife). Worker einzeln als `worker` mit

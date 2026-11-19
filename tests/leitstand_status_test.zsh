@@ -11,6 +11,16 @@ pruefe() {   # <Name> <jq-Ausdruck, der true ergeben muss>
 }
 # 2026-11-19 08:00 Wiener Zeit = 07:00 UTC
 JETZT=$(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-19 07:00:00' +%s)
+pruefe_v() {   # <Name> <jq-Ausdruck über verlauf.json, der true ergeben muss>
+  if [[ $(jq -r "$2" $T/d/verlauf.json 2>/dev/null) == true ]]; then print "OK      $1"; else print "FEHLER  $1"; FEHLER=1; fi
+}
+VH=$T/n/leitstand-verlauf.json
+verlauf_mit() {   # <Abstand in s> <Anzahl> [<Alter des neuesten Punkts in s>]: lokale Historie mit gleichmäßigen Punkten
+  python3 -I -c 'import sys, json, datetime as d
+j, a, n, e = (int(x) for x in sys.argv[1:5])
+t = [d.datetime.fromtimestamp(j - e - a * i, d.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") for i in range(n)][::-1]
+print(json.dumps({"punkte": [{"t": x, "woche": 1} for x in t]}))' $JETZT $1 $2 ${3:-$1} > $VH
+}
 lauf() {   # [<Epochensekunden>]
   HALO_LS_DIR=$T/d HALO_NACHT_DIR=$T/n HALO_AUFGABEN_DIR=$T/a HALO_LS_JETZT=${1:-$JETZT} HALO_LS_OHNE_NETZ=1 \
     HALO_LS_PS=$T/ps.txt zsh $HIER/leitstand-status.zsh --trocken $T/repo > $T/aus.json 2>$T/fehler.txt
@@ -26,6 +36,9 @@ pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder null" \
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
+pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
+  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0}'
+cmp -s $VH $T/d/verlauf.json && print "OK      Verlauf: lokale Historie gleich verlauf.json" || { print "FEHLER  Verlauf: lokale Historie gleich verlauf.json"; FEHLER=1; }
 
 # --- Fall 2: alle Quellen ---
 rm -rf $T/d; mkdir -p $T/d/quellen $T/n/auslastung
@@ -114,6 +127,38 @@ pruefe "Board: Zahlen und Bereiche" '.board.zahlen.bugs_offen == 3 and .board.za
 pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1}'
 pruefe "CI: Läufe übernommen, main läuft" '(.ci | length == 2) and .ci[0].ergebnis == "failure" and .ci[1].ergebnis == null and .ci_main == "läuft"'
 pruefe "Release: Nachtlauf läuft, Tag vor dem Start fehlt → offen" '.release_eta.zeit == null and (.release_eta.grund | test("Nachtlauf läuft.*4 Commits"))'
+pruefe_v "Verlauf: im selben Augenblick kein zweiter Punkt (30-Minuten-Grenze)" '(.punkte | length == 1) and .punkte[0].woche == null'
+# Punkt mit allen Quellen; CI: einer wartet, einer läuft, einer fertig
+rm -f $VH
+CI_VORHER=$(<$T/d/quellen/ci.json)
+print '[{"databaseId":5,"number":5,"displayTitle":"w","headBranch":"main","event":"push","status":"queued","conclusion":"","createdAt":"2026-11-19T06:50:00Z","updatedAt":"2026-11-19T06:50:00Z","url":"u5"},
+ {"databaseId":4,"number":4,"displayTitle":"l","headBranch":"pruef/y","event":"push","status":"in_progress","conclusion":"","createdAt":"2026-11-19T06:40:00Z","updatedAt":"2026-11-19T06:45:00Z","url":"u4"},
+ {"databaseId":3,"number":3,"displayTitle":"neu","headBranch":"pruef/x","event":"push","status":"completed","conclusion":"failure","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:30:00Z","url":"u3"}]' > $T/d/quellen/ci.json
+HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
+pruefe_v "Verlauf: Punkt aus den Feldern (Kontingent, Board, CI, Agenten ohne Wächter, CI-Runner und Sitzungen)" \
+  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5}]'
+[[ $(wc -l < $T/d/verlauf.json) -eq 3 && $(sed -n 2p $T/d/verlauf.json) == '{"t":'* ]] && ! grep -q 'Mail: Knopf' $T/d/verlauf.json \
+  && print "OK      Verlauf: je Punkt eine Zeile, keine Titel" || { print "FEHLER  Verlauf: je Punkt eine Zeile, keine Titel"; FEHLER=1; }
+lauf $((JETZT + 1799))
+pruefe_v "Verlauf: nach 29:59 Minuten kein neuer Punkt" '.punkte | length == 1'
+lauf $((JETZT + 1800))
+pruefe_v "Verlauf: nach 30 Minuten zweiter Punkt angehängt" '(.punkte | length == 2) and .punkte[1].t == "2026-11-19T07:30:00Z"'
+[[ $(wc -l < $T/d/verlauf.json) -eq 4 ]] && print "OK      Verlauf: zwei Punkte, vier Zeilen" || { print "FEHLER  Verlauf: zwei Punkte, vier Zeilen"; FEHLER=1; }
+# 7-Tage-Kürzung: Punkte vor 8 Tagen und genau 7 Tagen fallen weg, vor 2 Tagen bleibt
+verlauf_mit 86400 1 $((8 * 86400)); jq -c '.punkte += [{"t":"2026-11-12T07:00:00Z"},{"t":"2026-11-17T07:00:00Z"}]' $VH > $VH.x && mv $VH.x $VH
+lauf
+pruefe_v "Verlauf: 7-Tage-Kürzung" '[.punkte[] | .t] == ["2026-11-17T07:00:00Z","2026-11-19T07:00:00Z"]'
+# Obergrenze 336: 8 Tage alle 10 Minuten (neuester vor 30 Min.) → 336 neueste, der neue zuletzt
+verlauf_mit 600 1152 1800
+lauf
+pruefe_v "Verlauf: höchstens 336 Punkte, neuer Punkt zuletzt" '(.punkte | length == 336) and .punkte[-1].t == "2026-11-19T07:00:00Z" and .punkte[-1].woche == 5'
+# defekte lokale Historie → neu beginnen
+print '{kaputt' > $VH; lauf
+pruefe_v "Verlauf: defekte Historie → neu mit einem Punkt" '(.punkte | length == 1) and .punkte[0].bugs == 3'
+print '{"punkte":5}' > $VH; lauf
+pruefe_v "Verlauf: Historie falscher Form → neu mit einem Punkt" '.punkte | length == 1'
+print -r -- $CI_VORHER > $T/d/quellen/ci.json
+rm -f $VH
 # Sperrdatei: nur der eingetragene Hauptprozess zählt (auch wenn ein Zeitgeber nicht im selben Augenblick startete)
 print 300 > $T/n/auslastung-schleife.lock
 sed -i '' 's/^  303   302    00:05 sleep 14400/  303   302    00:01 sleep 14400/' $T/ps.txt
@@ -142,6 +187,8 @@ pruefe "Board: Plan der Tagesroutine, heute Erledigtes fehlt" '[.board.naechste[
 print '{kaputt' > $T/d/quellen/board.json
 lauf
 pruefe "kaputtes Board: board null, Kontingent bleibt" '.board == null and .kontingent.woche_prozent == 5'
+rm -f $VH; lauf
+pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.punkte[0].bugs == null and .punkte[0].features == null and .punkte[0].in_arbeit == null and .punkte[0].woche == 5'
 
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

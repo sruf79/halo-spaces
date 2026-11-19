@@ -501,3 +501,15 @@ anderen Lauf der letzten 7 Tage, schreibt das Skript die Zeile `zweimal` und mel
 aus `tests/lauf-hilfen.zsh`, ab „[flackern] …“, je Prüfung eine Zeile mit den früheren Läufen); neon legt den Board-Eintrag an.
 Nur wenn neon nicht erreichbar ist, einmal `push()` aufs iPhone. Der Zwischen-Release-Wächter wiederholt über dasselbe Skript
 (`ci-wiederholen.sh --lauf`, Start und Auswertung), seine Wiederholungen stehen also ebenfalls in `flackern.log`.
+
+## Leitstand-Zubringer (`tests/leitstand-status.zsh`, ab 19.11.2026)
+
+neon-Auftrag #44 (Maintainer 18.11.2026, Takt „Alle 5 Minuten“): LaunchAgent `at.halo-spaces.leitstand` (alle 5 Minuten,
+`tests/mac-mini-setup.sh`) schreibt `~/halo-nacht/leitstand/status.json` (Agenten, Nachtlauf/Tagesroutine, Release-Schätzung,
+Kontingent, Schalter, Board in Arbeit/als Nächstes/Zahlen, wartende Issues, offene Bilder, 15 neueste CI-Läufe) und legt sie als
+jeweils einzigen Commit (force-push) ins **private** Repo `sruf79/halo-status` (Sichtbarkeit wird vor und nach jedem Push geprüft;
+nicht privat = kein Push). Kein Claude außer `tests/kontingent.sh`, und das nur, wenn `kontingent.json` älter als 15 Minuten ist;
+Board, Issues und Release höchstens alle 15 Minuten (ein jüngerer Zwischenspeicher von `board.sh` zählt mit). Fehlt eine Quelle,
+steht das Feld auf `null`. „Als Nächstes“ kommt aus der neuesten Plandatei des Directors (`<datum>-plan.md` bzw.
+`<datum>-tagesroutine-plan[-n].tsv`), nur Einträge mit Status Todo. Protokoll `~/halo-nacht/leitstand/leitstand.log`; Probe ohne
+Push: `zsh tests/leitstand-status.zsh --ohne-push`; Logik-Prüfung `zsh tests/leitstand_status_test.zsh`.

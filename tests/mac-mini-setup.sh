@@ -793,6 +793,12 @@ pruefe_laeufe() {
     '<key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>' \
     morgenbrief "täglich 08:30 der Tagesbericht und eine iPhone-Meldung (am Wochenende nur bei Auffälligkeiten), Bericht in ~/halo-berichte"
+  # Leitstand-Zubringer (neon-Auftrag #44, Maintainer 18.11.2026, Takt „Alle 5 Minuten“): status.json ins private Repo
+  # sruf79/halo-status, ohne Claude außer kontingent.sh (höchstens alle 15 Minuten); keine Pausen-Routine
+  pruefe_agent "Leitstand" at.halo-spaces.leitstand leitstand-status.zsh $HOME/Library/Logs/halo-leitstand.log \
+    '<key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><true/>' \
+    '' "alle 5 Minuten status.json nach sruf79/halo-status (privat), Protokoll ~/halo-nacht/leitstand/leitstand.log"
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.

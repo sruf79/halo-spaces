@@ -198,6 +198,6 @@ pruefe "vor 09:00 keine Wiederholung" "$(wdh 1 1 success 0859)" 'rc=1 erg= rerun
 pruefe "Wiederholung über ci-wiederholen.sh (flackern.log, Hinweis beim zweiten Flackern), ohne Skript gh run rerun" "$(grep -vE '^[[:space:]]*#' $ZR)" \
   'zsh \$HIER/ci-wiederholen.sh --lauf \$id' 'zsh \$HIER/ci-wiederholen.sh --lauf \$1' 'gh run rerun \$id -R \$R --failed'
 pruefe "zwischen-release.zsh: Push- und Windows-Lauf vor ROT einmal wiederholt" "$(grep -vE '^[[:space:]]*#' $ZR)" \
-  'nach_wiederholung \$\{L%% \*\} 100' 'nach_wiederholung \$\{W%% \*\} 60' 'auch in der Wiederholung rot' 'auch in der Wiederholung nicht grün'
+  'nach_wiederholung \$\{L%% \*\} 150' 'nach_wiederholung \$\{W%% \*\} 60' 'auch in der Wiederholung rot' 'auch in der Wiederholung nicht grün'
 
 exit $FEHLER

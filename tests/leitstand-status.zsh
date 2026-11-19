@@ -733,6 +733,95 @@ def release_eta():
     return eta(None, False, "Volldampf: kein Kandidat unterwegs (kein laufender Prüfzweig-Lauf mit mindestens %d Thunderbird-Commits über main)." % ab + seit)
 
 # Commits auf origin/main nach Commit-Datum (quellen/commits.json, höchstens alle 15 Min. neu; älter als 1 Stunde → null)
+# Zuletzt erledigt (Maintainer 19.11.2026: „nicht nur die aktuellen und geplanten tasks sondern auch die letzten paar tasks
+# welche erledigt sind“): höchstens 8 abgeschlossene Ereignisse der letzten 24 Stunden, neueste zuerst, nur aus vorhandenen
+# Quellen (keine neue Abfrage): Board-Einträge auf Done/archiviert (board48.json, Titel aus board.json bzw. archiv.md),
+# Runden und Ende von Tagesroutine und Nachtlauf (ihre Protokolle), beendete Worker (Protokoll des Auslastungswächters),
+# Releases (Versions-Tags im eigenen Klon, releases.txt). Keine CI-Läufe. Fehlt eine Quelle, fehlt nur diese Art.
+def kurz(t, n=100):
+    t = re.sub(r"\s+", " ", t or "").strip()
+    return (t[:n - 1] + "…") if len(t) > n else (t or None)
+def log_zeilen(muster):
+    """(Epoche, Text) aller Zeilen der Protokolle von heute und gestern, die auf <muster> (glob mit {tag}) passen"""
+    aus = []
+    for tag in (jetzt_w.date() - dt.timedelta(days=1), jetzt_w.date()):
+        for z in (lies(N + "/" + muster.format(tag=tag)) or "").splitlines():
+            m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)", z)
+            if m: aus.append((dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=WIEN).timestamp(), m.group(2)))
+    return aus
+def archiv():
+    """id → (Titel, Hash oder None) aus archiv.md"""
+    aus = {}
+    for z in (lies(A + "/archiv.md") or "").splitlines():
+        t = [x.strip() for x in z.split(" | ")]
+        if len(t) >= 5 and t[1].startswith("PVTI_"): aus[t[1]] = (t[3], None if t[4] in ("-", "") else t[4])
+    return aus
+def zuletzt():
+    ev, arch = [], sicher(archiv) or {}
+    titel = {i["id"]: i.get("title") for i in (BOARD or []) if isinstance(i, dict) and "id" in i}
+    nach_hash = {h: t for t, h in arch.values() if h}
+    def neu(t, art, was, erg=None, einzel=None):
+        if t is not None and JETZT - 86400 <= t <= JETZT and was: ev.append({"zeit": iso(t), "art": art, "was": kurz(was), "ergebnis": erg, "einzel": kurz(einzel, 60)})
+    def eintraege():
+        for i in _b48() or []:
+            st = i.get("fieldValueByName") or {}
+            t = st.get("updatedAt") if st.get("name") == "Done" else (i.get("updatedAt") if i.get("isArchived") else None)
+            ti, h = arch.get(i["id"], (None, None))
+            neu(ep(t), "eintrag", titel.get(i["id"]) or ti, "ok" if st.get("name") == "Done" else None, h)
+    def runden():
+        # Ergebnisdatei der Runde (<tag>-tagesroutine-<n>.erg, kurz vor „Runde beendet“ geschrieben) und Eintrag dazu
+        # (<tag>-tagesroutine-erledigt.txt „<id>\t<Ergebnis>“)
+        erg, zu_id = [], {}
+        for tag in (jetzt_w.date() - dt.timedelta(days=1), jetzt_w.date()):
+            for f in glob.glob("%s/%s-tagesroutine-[0-9]*.erg" % (N, tag)):
+                erg.append([os.path.getmtime(f), ((lies(f) or "").strip().splitlines() or [""])[0], False])
+            for z in (lies("%s/%s-tagesroutine-erledigt.txt" % (N, tag)) or "").splitlines():
+                t = z.split("\t", 1)
+                if len(t) == 2: zu_id[t[1].strip()] = t[0]
+        modell = None
+        for t, z in log_zeilen("{tag}-tagesroutine.log"):
+            m = re.match(r"Runde mit (\S+)", z)
+            if m: modell = m.group(1).rstrip(","); continue
+            m = re.match(r"Runde beendet \(Exitcode (\d+)\):?(.*)", z)
+            if m:
+                e = next((e for e in erg if not e[2] and t - 300 <= e[0] <= t + 5), None)
+                if e: e[2] = True
+                text = e[1] if e else ""
+                h = re.match(r"erledigt ([0-9a-f]{7,40})", text)
+                if m.group(1) != "0": ergeb = "abgebrochen" if re.search(r"limit", m.group(2), re.I) else "fehler"
+                else: ergeb = "ok" if h else ("abgebrochen" if text.startswith("zurück") else None)
+                pv = zu_id.get(text) if text else None
+                ti = (titel.get(pv) or arch.get(pv, (None,))[0]) if pv else (nach_hash.get(h.group(1)) if h else None)
+                was = "Tagesroutine-Runde" + (" (%s)" % modell if modell else "") + (": " + ti if ti else "")
+                neu(t, "runde", was, ergeb, h.group(1) if h else None)
+            elif z.startswith("Kontingent Ende"): neu(t, "lauf", "Tagesroutine beendet", "ok")
+        grund = None
+        for t, z in log_zeilen("{tag}.log"):
+            m = re.match(r"Runde (\d+) beendet \(Exitcode (\d+)\)", z)
+            if m: neu(t, "runde", "Nachtlauf-Runde %s" % m.group(1), "ok" if m.group(2) == "0" else "fehler")
+            m = re.match(r"Arbeit beendet: (.*)", z)
+            if m: grund = m.group(1)
+            if z == "Ende" and grund is not None:
+                erg = "fehler" if re.search(r"rot|Fehler", grund) else ("ok" if "laut Fertig-Datei" in grund else "abgebrochen")
+                neu(t, "lauf", "Nachtlauf beendet", erg, grund); grund = None
+    def worker():
+        for t, z in log_zeilen("{tag}-auslastung.log"):
+            m = re.match(r"Worker (\S+) beendet \([^)]*?(?:Zweig (\S+?))?\): (\S+)\s*(.*)", z)
+            if not m: continue
+            w, zw, art, rest = m.groups()
+            erg = {"erledigt": "ok", "widerlegt": "ok", "zurück": "abgebrochen", "abbruch": "abgebrochen", "rot": "fehler", "fehler": "fehler"}.get(art)
+            pv = re.search(r"PVTI_\S+", rest)
+            ti = (titel.get(pv.group(0)) or arch.get(pv.group(0), (None,))[0]) if pv else None
+            h = re.match(r"([0-9a-f]{7,40})\b", rest)
+            was = "Worker %s: %s" % (w.replace("worker-", ""), ti or {"nichts_passend": "nichts Passendes"}.get(art, art))
+            neu(t, "worker", was, erg, " ".join(x for x in (h.group(1) if h else None, zw) if x) or None)
+    def releases():
+        for z in (lies(Q + "/releases.txt") or "").splitlines():
+            t = z.split()
+            if len(t) == 2 and t[1].isdigit(): neu(int(t[1]), "release", "Release " + t[0].lstrip("v"), "ok", t[0])
+    for f in (eintraege, runden, worker, releases): sicher(f)
+    return sorted(ev, key=lambda e: e["zeit"], reverse=True)[:8]
+
 def commits():
     c = lies(Q + "/commits.json", True)
     if not isinstance(c, dict) or not isinstance(c.get("stand"), int) or JETZT - c["stand"] > 3600: return None
@@ -755,7 +844,7 @@ st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
       "github_limit": sicher(github_limit), "drossel": sicher(drossel),
-      "commits": sicher(commits)}
+      "commits": sicher(commits), "zuletzt": sicher(zuletzt)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
 

@@ -34,6 +34,7 @@ pruefe "ohne Quellen: gültiges JSON mit Stand" '.stand == "2026-11-19T07:00:00Z
 pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder, GitHub-Limit null" \
   '(has("github_limit") and .github_limit == null) and .kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
+pruefe "ohne Quellen: zuletzt leere Liste" '.zuletzt == []'
 pruefe "nichts läuft: keine Runde in Nachtlauf und Tagesroutine" '.laeufe.nachtlauf.runde == false and .laeufe.tagesroutine.runde == false and .laeufe.nachtlauf.weiter_um == null and .laeufe.tagesroutine.weiter_um == null'
 pruefe "ohne Quellen: 48-Stunden-Zahlen und offene Issues null" '.rueckmeldungen.issues_neu_48h == null and .rueckmeldungen.issues_geschlossen_48h == null and .rueckmeldungen.issues_offen == null and (.rueckmeldungen | has("issues_offen"))'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
@@ -372,5 +373,35 @@ pruefe "Release: zu wenige Nächte → Faustwert 3 Stunden, geschätzt" '.releas
 print "nachtlauf 2026-11-20T09:00+01:00 Test" > $T/n/pausen.txt; HALO_LS_VOLLDAMPF=0 lauf $MITTAG
 pruefe "Release: Nachtlauf pausiert → zeit null, hält auf" '.release_eta.zeit == null and (.release_eta.haelt_auf | startswith("Pause Nachtlauf"))'
 rm -f $T/n/pausen.txt
+# Zuletzt erledigt (Maintainer 19.11.2026: „auch die letzten paar tasks welche erledigt sind“): frische Ordner, 9 Ereignisse
+# in 24 Stunden → die 8 neuesten; zu alte fehlen, CI-Läufe zählen nicht
+rm -rf $T/n $T/a $T/d; mkdir -p $T/n $T/a $T/d/quellen; : > $T/ps.txt
+print '{"items":[{"id":"PVTI_v","status":"Done","title":"Mail: sichtbar erledigt","typ":"Bug","content":{"body":""}}]}' > $T/d/quellen/board.json
+print '{"stand":0,"sichtbar":[{"id":"PVTI_v","createdAt":"2026-11-10T10:00:00Z","updatedAt":"2026-11-19T06:00:00Z","fieldValueByName":{"name":"Done","updatedAt":"2026-11-19T06:00:00Z"}}],
+"archiviert":[{"id":"PVTI_w","createdAt":"2026-11-10T10:00:00Z","updatedAt":"2026-11-18T20:00:05Z","isArchived":true,"fieldValueByName":{"name":"Done","updatedAt":"2026-11-18T20:00:00Z"}},
+ {"id":"PVTI_alt","createdAt":"2026-11-10T10:00:00Z","updatedAt":"2026-11-17T00:00:00Z","isArchived":true,"fieldValueByName":{"name":"Done","updatedAt":"2026-11-17T00:00:00Z"}}]}' > $T/d/quellen/board48.json
+print '2026-11-18 | PVTI_w | Bug | Kalender: archiviert | abc1234' > $T/a/archiv.md
+printf '2026-11-18 06:00:00 Runde beendet (Exitcode 0): zu alt\n2026-11-18 22:00:00 Kontingent Ende: Woche 20 %%\n' > $T/n/2026-11-18-tagesroutine.log
+printf '2026-11-19 07:10:00 Runde mit opus, Sitzung x\n2026-11-19 07:30:00 Runde beendet (Exitcode 0): fertig\n' > $T/n/2026-11-19-tagesroutine.log
+print 'erledigt abc1234' > $T/n/2026-11-19-tagesroutine-1.erg; touch -t 202611190729.50 $T/n/2026-11-19-tagesroutine-1.erg
+printf 'PVTI_w\terledigt abc1234\n' > $T/n/2026-11-19-tagesroutine-erledigt.txt
+printf '2026-11-19 05:00:00 Runde 1 beendet (Exitcode 1): x\n2026-11-19 06:00:00 Arbeit beendet: Ende laut Fertig-Datei: fertig\n2026-11-19 06:01:00 Ende\n' > $T/n/2026-11-19.log
+printf '2026-11-19 06:30:00 Worker worker-2 beendet (Sitzung s, Zweig pruef/w2): erledigt e178d82 pruef/w2 gepusht PVTI_v\n2026-11-19 06:40:00 Worker worker-1 beendet (Sitzung s, Zweig pruef/w1): nichts_passend kein freier Eintrag\n' > $T/n/2026-11-19-auslastung.log
+print -r -- "v3.40.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-19 05:38:00' +%s)
+v3.39.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-17 05:38:00' +%s)" > $T/d/quellen/releases.txt
+print '[{"databaseId":1,"number":1,"displayTitle":"t","headBranch":"main","event":"push","status":"completed","conclusion":"success","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:50:00Z","url":"u"}]' > $T/d/quellen/ci.json
+HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
+pruefe "zuletzt: 8 neueste der letzten 24 h, neueste zuerst, alle Arten, ohne CI" '[.zuletzt[] | [.zeit, .art, .was, .ergebnis, .einzel]] == [
+ ["2026-11-19T06:30:00Z","runde","Tagesroutine-Runde (opus): Kalender: archiviert","ok","abc1234"],
+ ["2026-11-19T06:00:00Z","eintrag","Mail: sichtbar erledigt","ok",null],
+ ["2026-11-19T05:40:00Z","worker","Worker 1: nichts Passendes",null,"pruef/w1"],
+ ["2026-11-19T05:38:00Z","release","Release 3.40.0","ok","v3.40.0"],
+ ["2026-11-19T05:30:00Z","worker","Worker 2: Mail: sichtbar erledigt","ok","e178d82 pruef/w2"],
+ ["2026-11-19T05:01:00Z","lauf","Nachtlauf beendet","ok","Ende laut Fertig-Datei: fertig"],
+ ["2026-11-19T04:00:00Z","runde","Nachtlauf-Runde 1","fehler",null],
+ ["2026-11-18T21:00:00Z","lauf","Tagesroutine beendet","ok",null]]'
+# ohne Board-Zwischenspeicher und Protokolle: nur Releases
+rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
+pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

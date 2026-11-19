@@ -564,6 +564,14 @@ Kette, der früheste zählt; keiner → „kein Kandidat unterwegs“. 01:30–0
 Median der Veröffentlichungen der letzten Nächte (Versions-Tags zwischen 01:30 und 09:00, `quellen/releases.txt`), unter 3 Nächten
 3 Stunden; Pause `nachtlauf` hält auf. Rot-Zähler und Drossel halten ein Zwischen-Release nicht auf und zählen nicht.
 
+Zuletzt erledigt (Maintainer 19.11.2026: „nicht nur die aktuellen und geplanten tasks sondern auch die letzten paar tasks welche
+erledigt sind“): Feld `zuletzt` = höchstens 8 Ereignisse der letzten 24 Stunden, neueste zuerst, je
+`{"zeit","art","was","ergebnis","einzel"}`; Arten `eintrag` (Done bzw. archiviert laut `board48.json`, Titel aus `board.json` bzw.
+`archiv.md`, Hash aus `archiv.md`), `runde` (Tagesroutine: „Runde beendet“ mit Ergebnisdatei `.erg` und Eintrag aus
+`-tagesroutine-erledigt.txt`; Nachtlauf: „Runde n beendet“), `lauf` (Nachtlauf „Arbeit beendet …“/„Ende“, Tagesroutine „Kontingent
+Ende“), `worker` („Worker … beendet“ im Protokoll des Auslastungswächters), `release` (Versions-Tags aus `releases.txt`). Keine
+CI-Läufe, keine neue Abfrage; fehlt eine Quelle, fehlt nur diese Art; nichts = `[]`.
+
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,
 Grund, Beginn der Stufe in UTC; `max_worker` 0 ab Stufe 1, sonst `null`), gelesen aus `~/halo-nacht/drossel-stufe.txt`, nach der

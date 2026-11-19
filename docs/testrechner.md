@@ -521,10 +521,17 @@ Push: `zsh tests/leitstand-status.zsh --ohne-push`; Logik-Prüfung `zsh tests/le
 
 Verlauf (Wunsch der Dashboard-Sitzung, 19.11.2026): im selben Commit liegt `verlauf.json` mit Punkten
 `{"t","woche","fuenf","soll","bugs","features","in_arbeit","ci_wartend","ci_laufend","agenten"}` (je Punkt eine Zeile, keine
-Titel, nicht messbar = `null`; `agenten` zählt Läufe, Designer und Worker, ohne Wächter, CI-Runner und Sitzungen). Höchstens alle
+Titel, nicht messbar = `null`; `agenten` zählt arbeitende Läufe, Designer und Worker, ohne Wächter, CI-Runner und Sitzungen). Höchstens alle
 30 Minuten ein neuer Punkt, nur die letzten 7 Tage (höchstens 336). Die Historie führt neon lokal in
 `~/halo-nacht/leitstand-verlauf.json` (nie aus dem Repo gelesen); ist sie defekt, beginnt sie neu. Alle Werte stammen aus den
 Feldern von `status.json`, also keine zusätzlichen Abfragen.
+
+Arbeitet oder wartet (Maintainer 19.11.2026 „ja“): Tagesroutine und Nachtlauf zählen nur als arbeitend, solange eine Claude-Runde
+läuft (Nachfahre `claude -p …` ihres Prozesses; die Kontingent-Messung `claude -p ok --model haiku` zählt nicht). Jeder Eintrag in
+`agenten` hat `zustand` und `grund`: `arbeitet` (Läufe mit Runde, Designer, Worker), `wartet` (Lauf ohne Runde; `grund` kurz aus
+der letzten Protokollzeile, z. B. „Drossel Stufe 3, wartet bis zur vollen Stunde (15:00)“, Pause, Fenster; `eintrag` und `modell`
+dann `null`) oder `läuft` (Wächter, CI-Runner, Sitzungen). `laeufe.*.aktiv` bleibt „Skript läuft“, neu `laeufe.*.runde` (true/false).
+`verlauf.json` `agenten` zählt nur `arbeitet`.
 
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,

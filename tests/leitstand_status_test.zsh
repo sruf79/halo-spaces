@@ -34,6 +34,7 @@ pruefe "ohne Quellen: gültiges JSON mit Stand" '.stand == "2026-11-19T07:00:00Z
 pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder, GitHub-Limit null" \
   '(has("github_limit") and .github_limit == null) and .kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
+pruefe "nichts läuft: keine Runde in Nachtlauf und Tagesroutine" '.laeufe.nachtlauf.runde == false and .laeufe.tagesroutine.runde == false'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
 pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
@@ -116,6 +117,9 @@ pruefe "Agenten: Eintrag je Worker (PID-Kette, sonst Arbeitskopie; zu alte Zeile
 pruefe "Agenten: Eintrag von Nachtlauf (in-arbeit.tsv) und Tagesroutine (Runde)" '([.agenten[] | select(.name == "Nachtlauf")][0].eintrag == "Kalender: Woche zeigt Feiertage") and ([.agenten[] | select(.name == "Tagesroutine")][0].eintrag == "Mail: Knopf fehlt")'
 pruefe "Agenten: Designer-Runde als eigener Agent mit Eintrag" '[.agenten[] | select(.name == "Designer (Tagesroutine)")] | length == 1 and .[0].eintrag == "Mail: Knopf fehlt" and .[0].modell == "sonnet"'
 pruefe "Agenten: jeder Eintrag hat das Feld eintrag" '[.agenten[] | has("eintrag")] | all'
+pruefe "arbeitet: Nachtlauf, Tagesroutine, Designer, Worker mit Claude-Runde; Wächter, CI-Runner, Sitzung läuft" \
+  '([.agenten[] | select(.art == "lauf" or .art == "worker") | .zustand] | all(. == "arbeitet")) and ([.agenten[] | select(.art == "waechter" or .art == "ci" or .art == "sitzung") | .zustand] | all(. == "läuft")) and ([.agenten[] | has("zustand") and has("grund")] | all) and ([.agenten[] | .grund] | all(. == null))'
+pruefe "arbeitet: Läufe aktiv mit Runde" '.laeufe.nachtlauf.aktiv and .laeufe.nachtlauf.runde and .laeufe.tagesroutine.aktiv and .laeufe.tagesroutine.runde'
 pruefe "Läufe: Eintrag des Nachtlaufs aus in-arbeit.tsv" '.laeufe.nachtlauf.eintrag == "Kalender: Woche zeigt Feiertage"'
 pruefe "Agenten: CI-Runner und Sitzung neon-board" '([.agenten[] | select(.art == "ci")] | length == 1) and ([.agenten[] | select(.art == "sitzung")][0].name == "neon-board")'
 pruefe "Läufe: Nachtlauf-Schritt ohne Volldampf-Zeile" '.laeufe.nachtlauf.aktiv and (.laeufe.nachtlauf.schritt | startswith("Runde 2 beendet"))'
@@ -223,5 +227,36 @@ print -r -- "Unsinn" > $T/n/drossel-stufe.txt; rm -f $VH; lauf
 pruefe "Drossel: unlesbar → null, Rest bleibt" '.drossel == null and .kontingent.woche_prozent == 5'
 pruefe_v "Drossel unlesbar: Verlaufspunkt drossel null" '.punkte[-1] | has("drossel") and .drossel == null'
 rm -f $T/n/drossel-stufe.txt
+
+# Tagesroutine wartet (Maintainer 19.11.2026 „ja“): Skript läuft, aber nur sleep und die Kontingent-Messung (claude -p ok
+# --model haiku), keine Runde → in agenten mit zustand wartet und Grund aus dem Protokoll, zählt nicht in verlauf.agenten
+cat > $T/ps.txt <<'EOF'
+  200     1    50:00 /bin/zsh /x/tagesroutine.sh /Users/x/halo-spaces
+  210   200    00:18 sleep 120
+  211   200    00:02 zsh /x/kontingent.sh
+  212   211    00:02 claude -p ok --model haiku --output-format stream-json --verbose
+  300     1 1-02:00:00 zsh /x/auslastung-schleife.zsh
+  600     1 3-12:00:00 /Users/x/.local/bin/claude remote-control --spawn=same-dir --name neon-board --permission-mode auto
+EOF
+rm -f $T/n/auslastung-schleife.lock $T/n/auslastung/worker-*
+print "2026-11-19 07:50:00 Drossel Stufe 3 (52 Fehlstunden): keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde – Woche 20 %, Reset Di 01:00 – nächster Versuch 08:00" >> $T/n/2026-11-19-tagesroutine.log
+rm -f $VH; lauf
+pruefe "wartet: Tagesroutine in agenten mit zustand wartet, Grund Drossel, ohne Eintrag und Modell" \
+  '[.agenten[] | select(.name == "Tagesroutine")] == [{"name":"Tagesroutine","art":"lauf","seit":"2026-11-19T06:10:00Z","modell":null,"eintrag":null,"zustand":"wartet","grund":"Drossel Stufe 3, wartet bis zur vollen Stunde (08:00)"}]'
+pruefe "wartet: Lauf aktiv ohne Runde" '.laeufe.tagesroutine.aktiv and (.laeufe.tagesroutine.runde == false) and .laeufe.tagesroutine.eintrag == null'
+pruefe "wartet: Wächter und Sitzung laufen" '[.agenten[] | select(.art != "lauf") | .zustand] == ["läuft", "läuft"]'
+pruefe_v "wartet: Verlauf zählt 0 arbeitende Agenten" '.punkte[-1].agenten == 0'
+print "2026-11-19 07:55:00 Pause bis 2026-11-19T09:30+01:00 (pausen.txt)" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "wartet: Grund Pause" '[.agenten[] | select(.name == "Tagesroutine")][0].grund == "Pause bis 09:30 (pausen.txt)"'
+print "2026-11-19 07:56:00 warte: 5-Stunden-Fenster 91 % ≥ 90 % – nichts Neues, Fensterende 09:00, nächster Versuch 08:30" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "wartet: Grund Kontingent kurz" '[.agenten[] | select(.name == "Tagesroutine")][0].grund == "5-Stunden-Fenster 91 % ≥ 90 %, wartet bis 08:30"'
+# Protokoll mit kaputtem UTF-8 (am 19.11. auf neon: ganze Datei unlesbar, Schritt null) bleibt lesbar
+printf '2026-11-19 07:57:00 kaputt \x9e\n2026-11-19 07:58:00 Plan abgearbeitet: warte bis 09:00, dann neu planen\n' >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "wartet: Protokoll mit kaputtem UTF-8 lesbar, Grund Plan abgearbeitet" '[.agenten[] | select(.name == "Tagesroutine")][0].grund == "Plan abgearbeitet, wartet bis 09:00" and (.laeufe.tagesroutine.schritt | startswith("Plan abgearbeitet"))'
+# dieselbe Tagesroutine mit Runde → arbeitet, zählt
+print "  213   200    01:00 claude -p --model sonnet --session-id s9 --permission-mode auto Auftrag" >> $T/ps.txt
+rm -f $VH; lauf
+pruefe "Runde läuft wieder: Tagesroutine arbeitet" '[.agenten[] | select(.name == "Tagesroutine")][0] | .zustand == "arbeitet" and .grund == null and .modell == "sonnet"'
+pruefe_v "Runde läuft wieder: Verlauf zählt 1" '.punkte[-1].agenten == 1'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

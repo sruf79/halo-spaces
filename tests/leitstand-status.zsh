@@ -113,7 +113,7 @@ def iso(t):
     return dt.datetime.fromtimestamp(int(t), dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 def lies(p, json_=False):
     try:
-        with open(p, encoding="utf-8") as f: return json.load(f) if json_ else f.read()
+        with open(p, encoding="utf-8", errors="replace") as f: return json.load(f) if json_ else f.read()   # Protokolle können kaputtes UTF-8 enthalten
     except Exception: return None
 def sicher(f):
     """Feld einzeln berechnen: Fehler → None statt Abbruch"""
@@ -193,7 +193,7 @@ def eintrag_aus_liste(pid=None, zweig=None, ordner=None):
     return None
 def modell_von(pid):
     for k in kinder(pid):
-        m = re.search(r"claude -p .*?--model (\S+)", PROZ[k][2])
+        m = RUNDE.match(PROZ[k][2]) and re.search(r"claude -p .*?--model (\S+)", PROZ[k][2])   # ohne Kontingent-Messung
         if m: return m.group(1)
     return None
 def eintrag_von(pid):
@@ -209,55 +209,103 @@ WAECHTER = [("Wächter Auslastung", r"auslastung-schleife\.zsh"), ("Wächter Zwi
             ("Wächter CI", r"/ci-waechter\.sh"), ("Wächter Bilder-Eingang", r"/bilder-eingang\.zsh"),
             ("Wächter GitHub-Kommunikation", r"/github-komm-waechter\.sh")]
 
+# Arbeitet ein Lauf gerade? (Maintainer 19.11.2026 „ja“: Tagesroutine und Nachtlauf zählen nur mit laufender Claude-Runde
+# als arbeitender Agent.) Runde = ein Nachfahre „claude -p …“; die Kontingent-Messung (tests/kontingent.sh: „claude -p ok
+# --model haiku“) ist keine Runde. Ohne Runde wartet der Lauf (Drossel, volle Stunde, Pause, kein Kontingent, Planpause);
+# der Grund kommt kurz aus der letzten Zeile seines Protokolls.
+RUNDE = re.compile(r"(\S*/)?claude -p (?!ok --model haiku)")
+def runde_von(pid):
+    return any(RUNDE.match(PROZ[k][2]) for k in kinder(pid))
+LOGS = {"Nachtlauf": "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log", "Tagesroutine": "*-tagesroutine.log"}
+def grund_aus(schritt):
+    """letzte Protokollzeile → kurzer Grund des Wartens"""
+    s = schritt or ""
+    hm = re.search(r"nächster Versuch (\d\d:\d\d)|warte bis (\d\d:\d\d)|nächste Planung (\d\d:\d\d)", s)
+    bis = next((g for g in hm.groups() if g), None) if hm else None
+    m = re.search(r"Drossel Stufe (\d)", s)
+    if m:
+        if m.group(1) == "3": return "Drossel Stufe 3, wartet bis zur vollen Stunde" + (" (%s)" % bis if bis else "")
+        return "Drossel Stufe %s, Runde ausgesetzt" % m.group(1) + (" bis %s" % bis if bis else "")
+    m = re.match(r"Pause bis \S*?(\d\d:\d\d)", s)
+    if m: return "Pause bis %s (pausen.txt)" % m.group(1)
+    if s.startswith("Limit"): return "Limit erreicht, Pause 30 Minuten"
+    m = re.match(r"vor dem Beginn (\d\d:\d\d)", s)
+    if m: return "wartet auf den Beginn um %s" % m.group(1)
+    if s.startswith("Sparmodus"): return "Sparmodus, wartet" + (" bis %s" % bis if bis else "")
+    if s.startswith("Plan abgearbeitet"): return "Plan abgearbeitet, wartet" + (" bis %s" % bis if bis else "")
+    if re.match(r"Plan-Runde \d+: 0 Einträge", s): return "nichts im Plan, wartet" + (" bis %s" % bis if bis else "")
+    m = re.match(r"warte: (.*)", s)
+    if m:
+        kopf = m.group(1).split(" – ")[0]
+        kopf = (kopf[:57] + "…") if len(kopf) > 60 else kopf
+        return kopf + (", wartet bis %s" % bis if bis else "")
+    return "keine Claude-Runde" + (": " + ((s[:77] + "…") if len(s) > 80 else s) if s else "")
+def schritt_von(name):
+    logs = sorted(glob.glob(N + "/" + LOGS[name]), key=os.path.getmtime)
+    return letzte_zeile(logs[-1], True) if logs else (None, None)   # ungekürzt: „nächster Versuch“ steht am Ende
+def zustand_von(name, p):
+    """(zustand, grund) eines Laufs mit Hauptprozess p"""
+    if name not in LOGS or runde_von(p): return "arbeitet", None
+    return "wartet", grund_aus(schritt_von(name)[0])
+
 def agenten():
     aus = []
     for name, rx in [v for v in LAEUFE.values()] + SONST_LAEUFE:
         for p in haupt(name, rx):
+            zu, gr = zustand_von(name, p)
             aus.append({"name": name, "art": "lauf", "seit": iso(PROZ[p][1]), "modell": modell_von(p),
-                        "eintrag": eintrag_von(p) if name in ("Nachtlauf", "Tagesroutine") else None})
+                        "eintrag": eintrag_von(p) if name in LOGS and zu == "arbeitet" else None,
+                        "zustand": zu, "grund": gr})
             # Designer als Unteragent einer Runde (Auftrag mit „Design-Eintrag:“): eigener Eintrag
             for k in kinder(p):
                 c = PROZ[k][2]
                 if re.match(r"(\S*/)?claude -p ", c) and DESIGNER.search(c):
                     m, mm = KOPF.search(c), re.search(r"--model (\S+)", c)
                     aus.append({"name": "Designer (%s)" % name, "art": "lauf", "seit": iso(PROZ[k][1]),
-                                "modell": mm.group(1) if mm else None, "eintrag": m.group(1) if m else eintrag_aus_liste(k)})
+                                "modell": mm.group(1) if mm else None, "eintrag": m.group(1) if m else eintrag_aus_liste(k),
+                                "zustand": "arbeitet", "grund": None})
     # Worker des Auslastungswächters: Zustandsdatei „<pid> <Sitzung> <Modell> <Start> <Arbeitskopie> <Zweig> …“, nur lebende
     for f in sorted(glob.glob(N + "/auslastung/worker-[0-9]*")):
         t = (lies(f) or "").split()
         if len(t) >= 4 and t[0].isdigit() and int(t[0]) in PROZ:
             wt, zweig = (t[4] if len(t) > 4 else None), (t[5] if len(t) > 5 else None)
             aus.append({"name": "Worker " + f.rsplit("-", 1)[1] + (" (%s)" % zweig if zweig else ""), "art": "worker",
-                        "seit": iso(int(t[3])), "modell": t[2], "eintrag": eintrag_aus_liste(int(t[0]), zweig, wt)})
+                        "seit": iso(int(t[3])), "modell": t[2], "eintrag": eintrag_aus_liste(int(t[0]), zweig, wt),
+                        "zustand": "arbeitet", "grund": None})
     for name, rx in WAECHTER:
         for p in haupt(name, rx):
-            aus.append({"name": name, "art": "waechter", "seit": iso(PROZ[p][1]), "modell": modell_von(p), "eintrag": None})
+            aus.append({"name": name, "art": "waechter", "seit": iso(PROZ[p][1]), "modell": modell_von(p), "eintrag": None,
+                        "zustand": "läuft", "grund": None})
     for p in oberste(r"Runner\.Worker"):
-        aus.append({"name": "CI-Runner", "art": "ci", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None})
+        aus.append({"name": "CI-Runner", "art": "ci", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None,
+                    "zustand": "läuft", "grund": None})
     for p in oberste(r"claude remote-control .*--name (\S+)"):
         m = re.search(r"--name (\S+)", PROZ[p][2])
-        aus.append({"name": m.group(1), "art": "sitzung", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None})
+        aus.append({"name": m.group(1), "art": "sitzung", "seit": iso(PROZ[p][1]), "modell": None, "eintrag": None,
+                    "zustand": "läuft", "grund": None})
     return aus
 
 # Zeilen ohne Aussage über den Schritt (Kontingent-/Volldampf-Stand, Push-Bestätigung, git-Ausgaben ohne Zeit)
 LEISE = r"(Volldampf aktiv|Kontingent|Push: gesendet)"
-def letzte_zeile(datei):
+def letzte_zeile(datei, voll=False):
     for z in reversed((lies(datei) or "").splitlines()):
         m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)", z)
         if m and not re.match(LEISE, m.group(2)):
             # keine Sitzungs-IDs im Schritt-Text (Leitstand ist eine Übersicht, die IDs ändern sich je Runde)
             t = re.sub(r",?\s*Sitzung\s+\S+", "", m.group(2))
             t = re.sub(r"\s*\b(cse_\w+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b", "", t).strip()
-            return (t[:157] + "…") if len(t) > 160 else t, dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=WIEN)
+            return (t[:157] + "…") if len(t) > 160 and not voll else t, dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=WIEN)
     return None, None
 def lauf(schluessel, logmuster):
     name, rx = LAEUFE[schluessel]
     p = haupt(name, rx)
     logs = sorted(glob.glob(N + "/" + logmuster), key=os.path.getmtime)
     schritt, wann = letzte_zeile(logs[-1]) if logs else (None, None)
+    # aktiv = Skript läuft (wie bisher), runde = gerade eine Claude-Runde (sonst wartet es)
     if p:
-        return {"aktiv": True, "schritt": schritt, "eintrag": eintrag_von(p[0]), "seit": iso(PROZ[p[0]][1])}
-    return {"aktiv": False, "schritt": ("zuletzt: " + schritt) if schritt else None, "eintrag": None,
+        r = runde_von(p[0])
+        return {"aktiv": True, "runde": r, "schritt": schritt, "eintrag": eintrag_von(p[0]) if r else None, "seit": iso(PROZ[p[0]][1])}
+    return {"aktiv": False, "runde": False, "schritt": ("zuletzt: " + schritt) if schritt else None, "eintrag": None,
             "seit": iso(wann.timestamp()) if wann else None}
 def laeufe():
     return {"nachtlauf": lauf("nachtlauf", "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log"),
@@ -455,7 +503,7 @@ def punkt():
             "in_arbeit": None if b is None else len(b.get("in_arbeit") or []),
             "ci_wartend": zaehle(lambda s: s in ("queued", "waiting", "pending", "requested")),
             "ci_laufend": zaehle(lambda s: s not in ("completed", "queued", "waiting", "pending", "requested")),
-            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker")),
+            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker") and a.get("zustand") == "arbeitet"),
             "gh_rest": anteil("rest"), "gh_graphql": anteil("graphql"),
             "drossel": (st["drossel"] or {}).get("stufe")}
 def epoche(t): return dt.datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()

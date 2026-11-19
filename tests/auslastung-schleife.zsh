@@ -501,6 +501,9 @@ while true; do
   aufraeumen
   zweige_nachpushen $(date +%H%M)
   z=$(pruefen)
+  # Drossel-Zustand frisch halten, auch wenn pruefen vorher zurückkehrte (Leitstand zeigt sonst eine bis 2 h alte Stufe;
+  # Zweitlesung 19.11.2026): Woche aus kontingent.json, kein Claude; nur im Volldampf, Fail-open erneuert nur die Zeit
+  [[ $z == *Drossel* ]] || drossel_stufe >/dev/null 2>&1
   warte=$K[TAKT]
   case $z in
     ende*)    log "Ende: ${z#ende }"; break ;;

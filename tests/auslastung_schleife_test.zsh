@@ -90,6 +90,7 @@ print -r -- '{"punkte":[{"t":"2026-11-17T08:00:00Z","woche":10},{"t":"2026-11-17
 pruefe "Drossel echt gerechnet ((27−10)/6 h, voll lange vor dem Reset): Stufe 3, Zustand geschrieben? nein im Trockenlauf" \
   "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json; ls $T/drossel.txt 2>&1)" \
   'warten Drossel Stufe 3 \([0-9]+ Fehlstunden.*Tempo 2\.83 Punkte/h über 6\.0 h Verlauf' 'No such file'
+pruefe "Drossel: Schleife hält den Zustand frisch, auch wenn pruefen vorher zurückkehrte" "$(grep -c '\[\[ \$z == \*Drossel\* \]\] || drossel_stufe >/dev/null' $SKRIPT)" '^1$'
 pruefe "Drossel nur im Volldampf" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt)" 'ende Volldampf nicht aktiv'
 pruefe "Drossel: 30 Min. nach dem Reset zu wenig Daten → Fail-open, Lage nennt es, Worker startet" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/fehlt.json HALO_JETZT=2026-11-17T01:30+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0)" 'starten opus .*Drossel Fail-open'
 pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'

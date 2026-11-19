@@ -423,17 +423,20 @@ print(t)' $1 ${2:-$FENSTER_RESERVE_STANDARD} 2>/dev/null
 # Kontingent-Drossel im Volldampf (Maintainer 19.11.2026 auf „Soll ich das so bauen?“: „ja umbauen und so rasch wie möglich
 # live schalten“, ENTSCHEIDUNGEN.md „Kontingent-Drossel im Volldampf“): Hochrechnung statt Punkte über Soll. Tempo = Anstieg
 # der Woche über die letzten DROSSEL_TEMPO_STUNDEN (6) aus dem Verlauf des Leitstands (~/halo-nacht/leitstand-verlauf.json,
-# ein Punkt je 30 Min.) plus dem jetzigen Wert, mindestens DROSSEL_TEMPO_MIN (3) Stunden Spanne; sonst Schnitt seit Reset bzw.
-# freiem Reset (Anker), unter 1 Stunde seitdem nicht lesbar. Kein eigener Claude-Aufruf. „Woche voll“ = Zeitpunkt, an dem die
+# ein Punkt je 30 Min.) plus dem jetzigen Wert (ungerundet aus kontingent.json, wenn frisch und passend), mindestens
+# DROSSEL_TEMPO_MIN (5) Stunden Spanne; sonst Schnitt seit Reset bzw. freiem Reset (Anker), aber nur ab DROSSEL_TEMPO_MIN Stunden
+# und DROSSEL_MIN_PUNKTE (3) Punkten Anstieg seitdem, sonst zu wenig Daten (Fail-open; Zweitlesung 19.11.: 1,1 h nach dem Reset
+# ergab Woche 2 % sonst Stufe 3). Kein eigener Claude-Aufruf. „Woche voll“ = Zeitpunkt, an dem die
 # Woche VOLLDAMPF_WOCHE_ENDE (98) erreicht; Fehlstunden = Stunden von „Woche voll“ bis zum nächsten automatischen Reset
 # (wochen_soll; intern mit Vorzeichen, negativ = Reserve). Stufen (Grenzen in Fehlstunden, Entwurf, änderbar):
 #   0  reicht (bis DROSSEL_STUFE1, 0)                  wie bisher
-#   1  über DROSSEL_STUFE1 bis DROSSEL_STUFE2 (12)     keine neuen Worker; Tagesroutine Routine mit Sonnet, kein Fable
+#   1  über DROSSEL_STUFE1 bis DROSSEL_STUFE2 (12)     keine neuen Worker; Tagesroutine kein Fable (Plan, komplex bleiben Opus)
 #   2  über DROSSEL_STUFE2 bis DROSSEL_STUFE3 (30)     zusätzlich Tagesroutine nur jede zweite Runde
 #   3  über DROSSEL_STUFE3                             Tagesroutine nichts Neues bis zur vollen Stunde
 # Steigen sofort; zurück erst, wenn die Fehlstunden mindestens DROSSEL_HYSTERESE (6) unter der Einschaltgrenze der Stufe
 # liegen. Zustand gemeinsam für Wächter und Tagesroutine in ~/halo-nacht/drossel-stufe.txt (Zeile 1 „<Stufe> <Fehlstunden> <ISO>
-# <seit ISO>“, Zeile 2 Wirkung, Zeile 3 Grund; gilt nur in derselben Woche; der Leitstand liest sie). Nur im Volldampf (sonst „aus“); Woche oder Verlauf nicht lesbar: Stufe 0 (Fail-open), Grund in
+# <seit ISO> [offen]“, Zeile 2 Wirkung, Zeile 3 Grund; gilt nur ab dem letzten Reset bzw. freien Reset; „offen“ = zuletzt
+# Fail-open, die Stufe bleibt nur als Gedächtnis der Hysterese, gilt nicht; der Leitstand liest die Datei). Nur im Volldampf (sonst „aus“); Woche oder Verlauf nicht lesbar: Stufe 0 (Fail-open), Grund in
 # der Ausgabe. Schwellen: DROSSEL_* aus auslastung.conf, danach tagesroutine.conf (gleiche Werte für beide Läufe);
 # DROSSEL_AUS=1 schaltet ab. Nie gebremst: Nachtlauf, Zwischen-Release, Tests, Reparatur roter CI, Windows-Rundgang.
 #   drossel_stufe [<Woche %>]   Ausgabe „<Stufe> <Text>“, immer Rückgabe 0; ohne Woche aus kontingent.json (≤ 3 h alt)
@@ -442,12 +445,40 @@ print(t)' $1 ${2:-$FENSTER_RESERVE_STANDARD} 2>/dev/null
 DROSSEL_PY="$WOCHE_DEF_PY"'
 import sys, os, json, datetime as dt
 U = dt.timezone.utc
-woche, verlauf, zustand, anker = float(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+woche_s, verlauf, zustand, anker = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 g = [float(x) for x in sys.argv[5:8]]
 hyst, th, tmin, voll, schreiben = float(sys.argv[8]), float(sys.argv[9]), float(sys.argv[10]), float(sys.argv[11]), sys.argv[12] == "1"
+minp, kont = float(sys.argv[13]), sys.argv[14]
 j = os.environ.get("HALO_JETZT")
 n = (dt.datetime.fromisoformat(j) if j else dt.datetime.now(U)).astimezone(U)
 _s, _soll, art, naechster, bezug = wochen_soll(n, 168, anker)
+# Zustand nur ab dem Bezug (letzter Reset bzw. freier Reset) gültig, sonst verworfen (Zweitlesung 19.11.2026)
+alt, seit, alt_f = 0, None, 0.0
+try:
+    t = open(zustand, encoding="utf-8").readline().split()
+    za = dt.datetime.fromisoformat(t[2]).astimezone(U)
+    if bezug <= za <= n and t[0] in ("0", "1", "2", "3"):
+        alt, alt_f = int(t[0]), float(t[1])
+        seit = t[3] if len(t) > 3 else None
+except Exception:
+    pass
+def offen(grund):
+    """Fail-open: keine Drossel; Zustand nur mit neuer Zeit und Marke offen erneuern (Stufe bleibt Gedächtnis der Hysterese)"""
+    if schreiben:
+        with open(zustand + ".neu", "w", encoding="utf-8") as d:
+            d.write("%d %.1f %s %s offen\nkeine Drossel (Fail-open)\n%s\n" % (alt, alt_f, n.isoformat(timespec="minutes"), seit or n.isoformat(timespec="minutes"), grund))
+        os.replace(zustand + ".neu", zustand)
+    print("0 Fail-open: %s – keine Drossel" % grund); sys.exit(0)
+if woche_s == "-": offen("Woche nicht lesbar")
+woche = float(woche_s)
+# ungerundeter Wochenwert aus kontingent.json, wenn höchstens 30 Min. alt und zum übergebenen Wert passend
+try:
+    k = json.load(open(kont, encoding="utf-8"))
+    st = dt.datetime.strptime(k["stand"], "%Y-%m-%dT%H:%M:%S%z").astimezone(U)
+    u = 100 * k["info"]["unifiedWindows"]["seven_day"]["utilization"]
+    if dt.timedelta(0) <= n - st <= dt.timedelta(minutes=30) and abs(u - woche) < 1: woche = u
+except Exception:
+    pass
 def wien(x): return x.astimezone().strftime("%a %H:%M").replace("Mon", "Mo").replace("Tue", "Di").replace("Wed", "Mi").replace("Thu", "Do").replace("Fri", "Fr").replace("Sat", "Sa").replace("Sun", "So")
 pts = []
 try:
@@ -466,8 +497,6 @@ if span >= tmin:
     tempo, quelle = max(0.0, (pts[-1][1] - pts[0][1]) / span), "über %.1f h Verlauf" % span
 else:
     hb = (n - bezug).total_seconds() / 3600
-    if hb < 1:
-        print("0 Fail-open: zu wenig Daten (%.1f h seit %s, Verlauf %.1f h) – keine Drossel" % (hb, "freiem Reset" if art == "anker" else "Reset", span)); sys.exit(0)
     basis = 0.0
     if art == "anker":
         for z in open(anker, encoding="utf-8"):
@@ -475,6 +504,8 @@ else:
             try:
                 if len(t) >= 4 and t[0] == "anker" and dt.datetime.fromisoformat(t[1]).astimezone(U) == bezug: basis = float(t[3])
             except ValueError: pass
+    if hb < tmin or woche - basis < minp:
+        offen("zu wenig Daten (%.1f h und %.1f Punkte seit %s, Verlauf %.1f h)" % (hb, woche - basis, "freiem Reset" if art == "anker" else "Reset", span))
     tempo, quelle = max(0.0, (woche - basis) / hb), "Schnitt seit %s (%.0f h, Verlauf zu kurz)" % ("freiem Reset" if art == "anker" else "Reset", hb)
 rest = (naechster - n).total_seconds() / 3600
 if woche >= voll: f, vt = rest, n
@@ -482,21 +513,12 @@ elif tempo <= 0: f, vt = -rest, None
 else:
     bis = (voll - woche) / tempo; f, vt = rest - bis, n + dt.timedelta(hours=bis)
 roh = sum(1 for x in g if f > x)
-alt, seit = 0, None
-try:
-    t = open(zustand, encoding="utf-8").readline().split()
-    za = dt.datetime.fromisoformat(t[2]).astimezone(U)
-    if letzter_reset(n) <= za <= n and t[0] in ("0", "1", "2", "3"):
-        alt = int(t[0])
-        seit = t[3] if len(t) > 3 else None
-except Exception:
-    pass
 neu = roh
 if roh < alt:
     neu = alt
     while neu > roh and f <= g[neu - 1] - hyst: neu -= 1
-lage = "Woche %g %%, Tempo %.2f Punkte/h %s, voll (%g %%) %s, Reset %s" % (woche, tempo, quelle, voll, wien(vt) if vt else "nie", wien(naechster))
-was = {0: "reicht", 1: "keine neuen Worker, Routine Sonnet, kein Fable", 2: "keine neuen Worker, Tagesroutine nur jede zweite Runde", 3: "keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde"}[neu]
+lage = "Woche %.4g %%, Tempo %.2f Punkte/h %s, voll (%g %%) %s, Reset %s" % (woche, tempo, quelle, voll, wien(vt) if vt else "nie", wien(naechster))
+was = {0: "reicht", 1: "keine neuen Worker, Tagesroutine kein Fable", 2: "keine neuen Worker, Tagesroutine nur jede zweite Runde", 3: "keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde"}[neu]
 fs = ("%.0f Fehlstunden" % f) if f > 0 else ("%.0f h Reserve" % -f)
 # Zustand: Zeile 1 „<Stufe> <Fehlstunden> <ISO> <seit ISO>“, Zeile 2 Wirkung, Zeile 3 Grund (Leitstand liest sie, rechnet nicht neu)
 if schreiben:
@@ -514,7 +536,7 @@ drossel_stufe() {   # [<Woche %>]
   setopt localoptions extendedglob
   volldampf_aktiv >/dev/null 2>&1 || { print -r -- "0 aus (Volldampf nicht aktiv)"; return 0 }
   local -A d
-  d=(DROSSEL_STUFE1 0 DROSSEL_STUFE2 12 DROSSEL_STUFE3 30 DROSSEL_HYSTERESE 6 DROSSEL_TEMPO_STUNDEN 6 DROSSEL_TEMPO_MIN 3 DROSSEL_AUS 0)
+  d=(DROSSEL_STUFE1 0 DROSSEL_STUFE2 12 DROSSEL_STUFE3 30 DROSSEL_HYSTERESE 6 DROSSEL_TEMPO_STUNDEN 6 DROSSEL_TEMPO_MIN 5 DROSSEL_MIN_PUNKTE 3 DROSSEL_AUS 0)
   local f z k v w=${1%%.*} schreiben=1 a
   for f in ${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} ${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf}; do
     [[ -r $f ]] || continue
@@ -526,13 +548,13 @@ drossel_stufe() {   # [<Woche %>]
     done < $f
   done
   [[ $d[DROSSEL_AUS] == 1 ]] && { print -r -- "0 aus (DROSSEL_AUS=1)"; return 0 }
-  [[ $w == <-> ]] || w=$(volldampf_woche_gespeichert) || { print -r -- "0 Fail-open: Woche nicht lesbar – keine Drossel"; return 0 }
   [[ -n $HALO_PAUSE_TROCKEN$TROCKEN ]] && schreiben=0
+  [[ $w == <-> ]] || w=$(volldampf_woche_gespeichert) || w=-   # „-“: Fail-open, Zustand nur mit neuer Zeit erneuert
   local datei=${HALO_DROSSEL_DATEI:-$HOME/halo-nacht/drossel-stufe.txt}
   mkdir -p ${datei:h} 2>/dev/null
   a=$(python3 -I -c $DROSSEL_PY $w ${HALO_DROSSEL_VERLAUF:-$HOME/halo-nacht/leitstand-verlauf.json} $datei $(wochenanker_datei) \
       $d[DROSSEL_STUFE1] $d[DROSSEL_STUFE2] $d[DROSSEL_STUFE3] $d[DROSSEL_HYSTERESE] $d[DROSSEL_TEMPO_STUNDEN] $d[DROSSEL_TEMPO_MIN] \
-      ${VOLLDAMPF_WOCHE_ENDE:-98} $schreiben 2>/dev/null) && [[ $a == [0-3]\ * ]] \
+      ${VOLLDAMPF_WOCHE_ENDE:-98} $schreiben $d[DROSSEL_MIN_PUNKTE] ${HALO_KONTINGENT_JSON:-$HOME/halo-nacht/kontingent.json} 2>/dev/null) && [[ $a == [0-3]\ * ]] \
     || a="0 Fail-open: Hochrechnung gescheitert – keine Drossel"
   print -r -- $a
 }

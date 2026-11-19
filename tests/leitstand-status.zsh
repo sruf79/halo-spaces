@@ -278,7 +278,7 @@ def kontingent():
 
 # Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026; Maintainer: „bitte neon, die drossel-stufe in status.json
 # mitzuliefern“): aus drossel-stufe.txt, nach der Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe>
-# <Fehlstunden> <ISO> [<seit ISO>]“, Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
+# <Fehlstunden> <ISO> [<seit ISO> [offen]]“ („offen“ = Fail-open, Stufe 0), Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
 # unlesbar → null. max_worker: 0 ab Stufe 1 (keine neuen Worker), sonst null (keine Grenze durch die Drossel).
 def drossel():
     z = (lies(N + "/drossel-stufe.txt") or "").splitlines()
@@ -286,7 +286,7 @@ def drossel():
     if len(t) < 3 or t[0] not in ("0", "1", "2", "3"): return None
     g = iso(t[2])
     if g is None or JETZT - dt.datetime.strptime(g, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp() > 7200: return None
-    s = int(t[0])
+    s = 0 if len(t) > 4 and t[4] == "offen" else int(t[0])   # „offen“: zuletzt Fail-open, keine Drossel (Stufe nur Gedächtnis)
     return {"stufe": s, "text": (z[1].strip() if len(z) > 1 else "") or None, "grund": (z[2].strip() if len(z) > 2 else "") or None,
             "seit": iso(t[3]) if len(t) > 3 else g, "max_worker": 0 if s >= 1 else None}
 

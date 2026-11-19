@@ -38,7 +38,8 @@ export HALO_LAUF=tagesroutine
 #   Im Volldampf zusätzlich der Fenster-Takt (18.11.2026, fenster_takt in lauf-hilfen.zsh, wie der Auslastungswächter):
 #   5-Stunden-Fenster über verstrichenem Anteil + FENSTER_RESERVE (25) → nichts Neues, bis der Takt aufholt (höchstens volle Stunde).
 #   Im Volldampf außerdem die Kontingent-Drossel (19.11.2026, drossel_stufe in lauf-hilfen.zsh, Stufe gemeinsam mit dem
-#   Auslastungswächter): Stufe 1 Routine MODELL_ROUTINE, kein Fable; 2 nur jede zweite Runde; 3 nichts Neues bis zur vollen Stunde.
+#   Auslastungswächter): Stufe 1 kein Fable; 2 nur jede zweite Runde; 3 nichts Neues bis zur vollen Stunde (roter Prüfzweig und
+#   Release unter Tage nie gebremst).
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
 #   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
@@ -396,23 +397,35 @@ entscheiden() {
     K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
     K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$FENSTER_DEF_PY$ENTSCHEID_PY")
   # Kontingent-Drossel (Maintainer 19.11.2026, drossel_stufe in lauf-hilfen.zsh, dieselbe Stufe wie der Auslastungswächter):
-  # nur im Volldampf und mit gelesener Woche; ab Stufe 1 Routine mit MODELL_ROUTINE (Sonnet), kein Fable. Stufe 2 und 3
+  # nur im Volldampf und mit gelesener Woche; ab Stufe 1 kein Fable (Plan und komplexe Einträge bleiben MODELL_STARK, Routine ist
+  # im Volldampf ohnehin MODELL_ROUTINE; Zweitlesung 19.11.2026: die frühere Umschaltung war wirkungslos). Stufe 2 und 3
   # (jede zweite Runde, bis zur vollen Stunde) wirken erst in drossel_anwenden vor einem neuen Eintrag.
   E[DROSSEL]= DROSSEL_STUFE=0
   if [[ $VD == ja && -z $NUR_ZEIT && -n $K_WOCHE ]]; then
     E[DROSSEL]=$(drossel_stufe $K_WOCHE); DROSSEL_STUFE=${E[DROSSEL]%% *}; E[DROSSEL]=${E[DROSSEL]#* }
-    [[ $DROSSEL_STUFE == <1-3> && $E[ENTSCHEIDUNG] == neu ]] && E[M_ROUTINE]=$KONF[MODELL_ROUTINE] E[FABLE]=nein
+    [[ $DROSSEL_STUFE == <1-3> && $E[ENTSCHEIDUNG] == neu ]] && E[FABLE]=nein
   fi
   [[ -n $E[SOLL] ]]
 }
 # Drossel Stufe 2 und 3 vor einem neuen Eintrag (nur bei Entscheidung „neu“; laufende Arbeit bleibt unberührt). Stufe 3: nichts
 # Neues bis zur vollen Stunde (derselbe Warteweg wie „deutlich über dem Soll“). Stufe 2: nur jede zweite Runde; die ausgesetzte
 # Runde wartet ohne Claude so lange, wie die letzte Claude-Runde dauerte (mindestens 10, höchstens 60 Minuten; Deutung der
-# umsetzenden Sitzung: halbiert die Zeit mit Claude). DROSSEL_AUSSETZEN merkt sich, ob die nächste Runde ausfällt.
+# umsetzenden Sitzung: halbiert die Zeit mit Claude). DROSSEL_AUSSETZEN setzt nur runde() nach einem echten Claude-Aufruf bei
+# Stufe 2 (Zweitlesung 19.11.2026: vorher auch ohne Runde, z. B. nach Warten oder übersprungenem Design-Eintrag).
+# Nie gebremst (Bremse 4a): die Reparatur des roten Prüfzweigs (pruef_rot meldet einen neuen roten Lauf) und die erste
+# Plan-Runde, wenn „Release unter Tage“ fällig ist (rut_zeile beginnt mit „ja“).
 DROSSEL_STUFE=0 DROSSEL_AUSSETZEN=
 drossel_anwenden() {
   [[ $E[ENTSCHEIDUNG] == neu ]] || return 0
-  local bis min letzte
+  local bis min letzte r
+  if (( DROSSEL_STUFE >= 2 )); then
+    if [[ -n $PRUEF ]] && (( $+functions[pruef_rot] )); then
+      r=$(pruef_rot); [[ -n $r && $r != $ROT_GEMELDET ]] && { E[GRUND]+="; Drossel $E[DROSSEL] – nicht gebremst: roter Prüfzweig wird repariert"; return 0 }
+    fi
+    if (( ${PLANRUNDE:-0} == 0 )) && [[ -z $GEPLANT && $(rut_zeile ${TAG:-$E[TAG]} 2>/dev/null) == ja* ]]; then
+      E[GRUND]+="; Drossel $E[DROSSEL] – nicht gebremst: Release unter Tage fällig"; return 0
+    fi
+  fi
   if (( DROSSEL_STUFE >= 3 )); then
     E[ENTSCHEIDUNG]=warten E[WARTEN_BIS]=$E[VOLLE] E[M_KOMPLEX]=- E[M_ROUTINE]=- E[FABLE]=nein
     E[GRUND]="Drossel $E[DROSSEL] – nächster Versuch ${${E[VOLLE]}[12,16]}"
@@ -425,8 +438,6 @@ drossel_anwenden() {
       E[ENTSCHEIDUNG]=warten E[WARTEN_BIS]=$bis E[M_KOMPLEX]=- E[M_ROUTINE]=- E[FABLE]=nein
       E[GRUND]="Drossel $E[DROSSEL] – diese Runde ausgesetzt ($min Min. wie die letzte Runde), nächster Versuch ${bis[12,16]}"
       DROSSEL_AUSSETZEN=
-    else
-      DROSSEL_AUSSETZEN=1
     fi
   else
     DROSSEL_AUSSETZEN=
@@ -760,6 +771,7 @@ runde() {   # <Modell> <Prompt> <Ausgabe>
   ( cd $WT && claude -p --model $1 --session-id $sid --permission-mode auto "$2" ) > $3 2>&1
   local rc=$?
   RUNDEN_ZEIT+=("$t0 $(date +%s)")   # für eigene_commits (Tageslimit, Bericht)
+  (( DROSSEL_STUFE == 2 )) && DROSSEL_AUSSETZEN=1   # Drossel Stufe 2: nach einer echten Runde die nächste aussetzen
   kill $WACHE 2>/dev/null; WACHE=
   log "Runde beendet (Exitcode $rc): $(tail -c 300 $3 | tr '\n' ' ')"
   grep -qiE "usage limit|hit your limit|limit reached|rate limit" $3 && return 9

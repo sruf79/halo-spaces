@@ -214,6 +214,9 @@ pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe
 pruefe_v "Drossel: Stufe im neuen Verlaufspunkt" '.punkte[-1].drossel == 2'
 print -r -- "0 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
 pruefe "Drossel: altes Format (ohne seit, Wirkung, Grund): seit = Messzeit, Texte null, Stufe 0 ohne Worker-Grenze" '.drossel == {"stufe":0,"text":null,"grund":null,"seit":"2026-11-19T06:40:00Z","max_worker":null}'
+printf '3 40.0 2026-11-19T07:50+01:00 2026-11-19T06:10+01:00 offen\nkeine Drossel (Fail-open)\nWoche nicht lesbar\n' > $T/n/drossel-stufe.txt; rm -f $VH; lauf
+pruefe "Drossel: zuletzt Fail-open (Marke offen) → Stufe 0, keine Worker-Grenze, Grund" '.drossel.stufe == 0 and .drossel.max_worker == null and .drossel.text == "keine Drossel (Fail-open)" and .drossel.grund == "Woche nicht lesbar"'
+pruefe_v "Drossel Fail-open: Verlaufspunkt 0" '.punkte[-1].drossel == 0'
 print -r -- "3 40.0 2026-11-19T05:00+01:00" > $T/n/drossel-stufe.txt; lauf
 pruefe "Drossel: älter als 2 h → null" '.drossel == null'
 print -r -- "Unsinn" > $T/n/drossel-stufe.txt; rm -f $VH; lauf

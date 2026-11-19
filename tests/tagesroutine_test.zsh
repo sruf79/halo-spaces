@@ -179,10 +179,9 @@ pruefe "Fenster-Takt: FENSTER_RESERVE aus der Konfiguration (50)" "$(TEST_5H_END
 # Kontingent-Drossel im Volldampf (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“, drossel_stufe in lauf-hilfen.zsh)
 pruefe "Drossel Stufe 0: wie bisher (neu, Fable erlaubt)" "$(HALO_DROSSEL_STUFE=0 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
   'Drossel: +Stufe 0' 'Fable: erlaubt' 'Entscheidung: neu beginnen'
-pruefe "Drossel Stufe 1: Routine Sonnet, kein Fable, neu beginnen" "$(HALO_DROSSEL_STUFE=1 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
-  'Routine: sonnet; Fable: nein' 'Drossel: +Stufe 1' 'Entscheidung: neu beginnen'
-print 'MODELL_ROUTINE=haiku' > $T/routine-haiku.conf
-pruefe "Drossel Stufe 1: Routine-Modell aus MODELL_ROUTINE" "$(HALO_DROSSEL_STUFE=1 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55 $T/routine-haiku.conf)" 'Routine: haiku; Fable: nein'
+pruefe "Drossel Stufe 1: kein Fable, Plan/komplex bleiben opus, Routine sonnet, neu beginnen" "$(HALO_DROSSEL_STUFE=1 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
+  'komplexe Einträge: opus, Routine: sonnet; Fable: nein' 'Drossel: +Stufe 1' 'Entscheidung: neu beginnen'
+pruefe "Drossel Stufe 1: keine wirkungslose Modellumschaltung mehr im Skript" "$(grep -c 'E\[M_ROUTINE\]=\$KONF\[MODELL_ROUTINE\]' $SKRIPT)" '^0$'
 pruefe "Drossel Stufe 2: diese Runde läuft, die nächste wird ausgesetzt" "$(HALO_DROSSEL_STUFE=2 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
   'Drossel: +Stufe 2 .*die nächste wird ausgesetzt' 'Entscheidung: neu beginnen'
 pruefe "Drossel Stufe 3: nichts Neues bis zur vollen Stunde" "$(HALO_DROSSEL_STUFE=3 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:20:00+01:00 30 55)" \
@@ -197,13 +196,32 @@ pruefe "Drossel echt gerechnet (Woche 30, (30−5)/6 h): Stufe 3, nichts Neues b
   'Drossel: +Stufe 3 \([0-9]+ Fehlstunden' 'Tempo 4\.17 Punkte/h über 6\.0 h Verlauf' 'Entscheidung: warten bis 11:00'
 # jede zweite Runde (Stufe 2): drossel_anwenden aus dem Skript, ohne Claude
 DA=$(sed -n '/^drossel_anwenden() {/,/^}/p' $SKRIPT)
-pruefe "Drossel Stufe 2: Runde 1 läuft, Runde 2 wartet so lange wie die letzte Runde (25 Min.), Runde 3 läuft; Grenzen 10 und 60 Min." \
-  "$(zsh -c 'eval "$1"; typeset -A E; DROSSEL_STUFE=2 DROSSEL_AUSSETZEN= E[DROSSEL]="Stufe 2 (Probe)"; RUNDEN_ZEIT=("0 1500"); export HALO_JETZT=2026-11-17T10:00+01:00
-    for r in 1 2 3; do E[ENTSCHEIDUNG]=neu E[WARTEN_BIS]=; drossel_anwenden; print "R$r $E[ENTSCHEIDUNG] $E[WARTEN_BIS]"; done
-    RUNDEN_ZEIT=("0 60"); E[ENTSCHEIDUNG]=neu; drossel_anwenden; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "kurz $E[WARTEN_BIS]"
-    RUNDEN_ZEIT=("0 9000"); E[ENTSCHEIDUNG]=neu; drossel_anwenden; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "lang $E[WARTEN_BIS]"
-    DROSSEL_STUFE=0; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "S0 $E[ENTSCHEIDUNG]"' _ "$DA")" \
-  '^R1 neu $' 'R2 warten 2026-11-17T10:25' 'R3 neu' 'kurz 2026-11-17T10:10' 'lang 2026-11-17T11:00' 'S0 neu'
+# Zweitlesung 19.11.2026: Aussetzen nur nach einer echten Claude-Runde (runde() setzt den Merker), nie bei rotem Prüfzweig
+# oder fälligem Release unter Tage in der ersten Plan-Runde
+DS='eval "$1"; typeset -A E; pruef_rot() { print -r -- "$ROT_PROBE" }; rut_zeile() { print -r -- "$RUT_PROBE" }
+  DROSSEL_AUSSETZEN= E[DROSSEL]="Stufe 2 (Probe)"; RUNDEN_ZEIT=("0 1500"); export HALO_JETZT=2026-11-17T10:00+01:00
+  echt() { (( DROSSEL_STUFE == 2 )) && DROSSEL_AUSSETZEN=1 }   # wie in runde()
+  schritt() { E[ENTSCHEIDUNG]=neu E[WARTEN_BIS]= E[GRUND]=g; drossel_anwenden; print -r -- "$1 $E[ENTSCHEIDUNG] $E[WARTEN_BIS] | $E[GRUND]" }'
+pruefe "Drossel Stufe 2: ohne Claude-Runde kein Aussetzen; nach echter Runde wartet die nächste so lange wie sie (25 Min.), danach läuft wieder eine; Grenzen 10 und 60 Min." \
+  "$(zsh -c "$DS"'
+    DROSSEL_STUFE=2 PLANRUNDE=1 GEPLANT=1
+    schritt A; schritt B; echt; schritt C; schritt D
+    RUNDEN_ZEIT=("0 60"); echt; schritt kurz; RUNDEN_ZEIT=("0 9000"); echt; schritt lang
+    echt; DROSSEL_STUFE=0; schritt S0; DROSSEL_STUFE=2; schritt S2' _ "$DA")" \
+  '^A neu  ' '^B neu  ' '^C warten 2026-11-17T10:25' '^D neu  ' 'kurz warten 2026-11-17T10:10' 'lang warten 2026-11-17T11:00' '^S0 neu' '^S2 neu'
+pruefe "Drossel: runde() setzt den Merker nur bei Stufe 2" "$(sed -n '/^runde() {/,/^}/p' $SKRIPT | grep -c '(( DROSSEL_STUFE == 2 )) && DROSSEL_AUSSETZEN=1')" '^1$'
+pruefe "Drossel Stufe 3: roter Prüfzweig wird nicht gebremst, schon gemeldeter schon" \
+  "$(zsh -c "$DS"'
+    DROSSEL_STUFE=3 PLANRUNDE=1 GEPLANT=1 PRUEF=pruef/x E[VOLLE]=2026-11-17T11:00+01:00
+    ROT_PROBE="123 abc1234" schritt rot; ROT_GEMELDET="123 abc1234" ROT_PROBE="123 abc1234" schritt gemeldet; ROT_PROBE= schritt gruen' _ "$DA")" \
+  '^rot neu .*nicht gebremst: roter Prüfzweig' '^gemeldet warten 2026-11-17T11:00' '^gruen warten'
+pruefe "Drossel Stufe 2/3: Release unter Tage in der ersten Plan-Runde nicht gebremst, später schon" \
+  "$(zsh -c "$DS"'
+    DROSSEL_STUFE=3 PLANRUNDE=0 GEPLANT= E[VOLLE]=2026-11-17T11:00+01:00 E[TAG]=2026-11-17
+    RUT_PROBE="ja Nachtlauf ohne Release" schritt rut; RUT_PROBE="nein – nichts zu entscheiden" schritt nein
+    PLANRUNDE=1; RUT_PROBE="ja x" schritt spaeter
+    DROSSEL_STUFE=2 PLANRUNDE=0; echt; RUT_PROBE="ja x" schritt rut2' _ "$DA")" \
+  '^rut neu .*nicht gebremst: Release unter Tage' '^nein warten' '^spaeter warten' '^rut2 neu .*Release unter Tage'
 pruefe "Drossel: Hauptschleife wendet sie vor jedem neuen Eintrag an" "$(grep -c 'entscheiden; drossel_anwenden; log' $SKRIPT)" '^1$'
 pruefe "Fenster-Takt: Skript nutzt die gemeinsame Rechnung aus lauf-hilfen.zsh" "$(grep -c 'FENSTER_DEF_PY\$ENTSCHEID_PY' $SKRIPT; grep -c '^FENSTER_DEF_PY=' $REPO/tests/lauf-hilfen.zsh)" '^1
 1$'

@@ -10,10 +10,14 @@ Nachtlauf: genau ein Eintrag, gründlich und vollständig, dann Ende.
 Fable-Worker: Beleg-Regel (Maintainer 17.11.2026: „bitte auch bei nachtläufen fable für schwierige sachen im volldampf nutzen, aber nur, wenn diese erwiesenermaßen bessere, schnellere oder fehlerfreiere ergebnisse bringen“): Fable nur, wenn er es gegenüber Opus belegt besser, schneller oder fehlerfreier macht – etwa ein Opus-Versuch an derselben Sache ohne belegte Ursache, oder Analyse/Design, bei dem Opus nachweislich scheiterte; im Bericht den Beleg nennen (Versuch, Messwert, Fehlerzeile). Fehlt der Beleg, bleibt es bei Opus; nie Fable für Routine oder Mechanisches.
 
 Regeln:
-1. Nur im Worktree aus „JETZT:“ arbeiten, nur auf dem Zweig aus „JETZT:“ committen (je Eintrag ein Commit, Stil nach
-   AGENTS.md). Den Checkout ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und
-   Zweige nie anfassen. Kein Push nach main, kein release.sh/publish.sh/release-unter-tage.sh, kein gh workflow run,
-   kein install.sh, nichts im echten Profil.
+1. Nur im Worktree aus „JETZT:“ arbeiten. Er steht ohne Zweig auf origin/main (Maintainer 19.11.2026, „1. ja“ auf neons
+   Vorschlag: leere Läufe hinterlassen keine Zweige und Worktrees): erst unmittelbar vor dem ersten Commit
+   git switch -c <Zweig aus JETZT> (Reihen-Schritt auf dem Vorgänger-Stand: git switch -c <Zweig aus JETZT> <Vorgänger-Commit>),
+   dann nur auf diesem Zweig committen (je Eintrag ein Commit, Stil nach AGENTS.md). Ohne Commit keinen Zweig anlegen;
+   den Worktree nicht selbst entfernen (das macht der Wächter nach dem Lauf, ohne Commit sofort). Den Checkout
+   ~/halo-spaces, main, andere Worktrees (~/halo-zwischen-release, ~/halo-worker/*) und Zweige nie anfassen. Kein
+   Push nach main, kein release.sh/publish.sh/release-unter-tage.sh, kein gh workflow run, kein install.sh, nichts im
+   echten Profil.
 2. Push nur auf den eigenen Prüfzweig: git push -u origin HEAD:<Zweig aus JETZT> (ohne Force), nur zwischen 09:00 und
    23:59 Wiener Zeit. 00:00–09:00 nicht pushen (Push-Sperre 01:30–09:00, ab 00:00 keine Codeänderung; Vorrang des
    Nachtlaufs): dann nur committen und im Ergebnis „nicht gepusht“ vermerken.

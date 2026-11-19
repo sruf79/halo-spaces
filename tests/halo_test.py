@@ -17466,6 +17466,35 @@ Neu
         return ok, f"{res}"
     check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol (unter Windows/Linux farbig, 16 px)", help_menu_entry, results)
 
+    def logo_ring():
+        # Logo (Freigabe 16.11.2026 „die neue variante 1 ist gut.“): fünf getrennte Teile in den Space-Farben,
+        # Lichthof mit Filterbereich über die ganze Kachel, Kachel hell/dunkel; in 16 px bleibt die Mitte leer (Kachelfarbe)
+        res = m.js(r"""const lw = d.defaultView;
+          const txt = await (await lw.fetch("resource://mailcards/about/icon.svg")).text();
+          const doc = new lw.DOMParser().parseFromString(txt, "image/svg+xml");
+          const teile = [...doc.querySelectorAll("g[stroke-width='11'] > path")].map(p => p.getAttribute("stroke"));
+          const licht = [...doc.querySelectorAll("g.l > path")].length;
+          const f = doc.querySelector("filter"), fb = f && [f.getAttribute("filterUnits"), f.getAttribute("width")].join(" ");
+          const img = new lw.Image(); img.src = "resource://mailcards/about/icon.svg"; await img.decode();
+          const px = {};
+          for (const s of [16, 24]) {
+            const c = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = s;
+            const g = c.getContext("2d"); g.drawImage(img, 0, 0, s, s);
+            const mid = g.getImageData(s / 2, s / 2, 1, 1).data;
+            // Teile getrennt: an den Lücken liegt die Farbe näher an der Kachel als 20° davor und danach
+            // (24 px alle fünf; 16 px vier von fünf, die obere Lücke fällt dort genau auf eine Pixelkante)
+            const near = (x, y) => { const p = g.getImageData(Math.floor(x * s / 64), Math.floor(y * s / 64), 1, 1).data; return Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]); };
+            const at = deg => { const r = (deg - 90) * Math.PI / 180; return near(32 + 16 * Math.cos(r), 32 + 16 * Math.sin(r)); };
+            px[s] = { mid: [...mid].slice(0, 3), gaps: [0, 72, 144, 216, 288].map(a => [Math.round(at(a)), Math.round(at(a - 20)), Math.round(at(a + 20))]) };
+          }
+          return { teile, licht, fb, dark: /prefers-color-scheme:dark/.test(txt) && txt.includes("#1C1C1E"), px };""")
+        ok = (bool(res) and res["teile"] == ["#0A84FF", "#30B850", "#FF8A00", "#FF2D78", "#AF52DE"] and res["licht"] == 5
+              and res["fb"] == "userSpaceOnUse 84" and res["dark"]
+              and all(max(q["mid"]) - min(q["mid"]) < 20 and sum(gp < min(l, r) for gp, l, r in q["gaps"]) >= n
+                      for q, n in ((res["px"]["16"], 4), (res["px"]["24"], 5))))
+        return ok, f"{res}"
+    check("Logo: Ring aus fünf getrennten Teilen in den Space-Farben mit Lichthof, Mitte in 16 und 24 px leer", logo_ring, results)
+
     def info_install_now():
         # Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort (Thunderbird hält es sonst bis
         # zum nächsten Start zurück) – der Knopf meldet „Installed …“ und das Fenster schließt sich, nie dauerhaft

@@ -13,6 +13,13 @@
   /* Trennlinien: auf Retina ein Bildpunkt (0,5 px) wie bei Apple, sonst 1 px */
   --mt-hairline: 1px;
   --mt-accent-text: AccentColorText;
+  /* Auswahl in Listen mit Fokus (Mailliste, Kontakte, Aufgaben-Rahmen, getönte
+     Seitenleisten): unter macOS die Auswahlfarbe des Systems (tiefer als die
+     Knopffarbe, folgt der gewählten Akzentfarbe, hell #0064E1, dunkel #0059D1
+     bei Blau), sonst die Knopffarbe; Hauptknöpfe und Schalter bleiben in
+     --mt-accent */
+  --mt-selection: var(--mt-accent);
+  --mt-selection-text: var(--mt-accent-text);
   --mt-window: #FFFFFF;
   /* Grund der Konversation: Karten (Fensterfarbe) heben sich davon ab wie in Apple Mail */
   --mt-conv-bg: #F5F5F7;
@@ -158,6 +165,16 @@
   /* Textknopf: Lichtkante oben mit feinem Schlagschatten; gedrückt innerer Schatten */
   --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), var(--mt-btn-lite-drop);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
+}
+
+/* Auswahlfarbe des Systems nur unter macOS: unter Windows ist SelectedItem das
+   feste Highlight-Blau ohne Bezug zur Akzentfarbe, unter Linux gleich der
+   Akzentfarbe des Themas */
+@media (-moz-platform: macos) {
+  :root {
+    --mt-selection: SelectedItem;
+    --mt-selection-text: SelectedItemText;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -739,7 +756,7 @@ body.layout-wide {
 }
 
 #folderTree:focus-within li.selected > .container {
-  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--mt-selection) 22%, transparent) !important;
   color: var(--mt-text) !important;
 }
 
@@ -995,13 +1012,13 @@ hr[is="pane-splitter"]::after {
 /* Fokus in der Liste: Auswahl in Akzentfarbe mit heller Schrift */
 #threadTree:focus-within tr[is="thread-card"].selected .card-container,
 #threadTree:focus-within tr[is="thread-card"][aria-selected="true"] .card-container {
-  background: var(--mt-accent) !important;
+  background: var(--mt-selection) !important;
 }
 
 #threadTree:focus-within tr[is="thread-card"].selected .card-container *,
 #threadTree:focus-within tr[is="thread-card"][aria-selected="true"] .card-container * {
-  color: var(--mt-accent-text) !important;
-  fill: var(--mt-accent-text) !important;
+  color: var(--mt-selection-text) !important;
+  fill: var(--mt-selection-text) !important;
 }
 
 /* Tabellenansicht: wie Absender und Betreff in der Kartenansicht und der
@@ -1182,7 +1199,7 @@ hr[is="pane-splitter"]::after {
 }
 
 #threadTree:focus-within tr[is="thread-card"]:is([data-properties~="replied"], [data-properties~="forwarded"], [data-properties~="redirected"]):not([data-properties~="unread"], [data-properties~="new"]):is(.selected, [aria-selected="true"]) .read-status {
-  background-color: var(--mt-accent-text) !important;
+  background-color: var(--mt-selection-text) !important;
 }
 
 /* (Thunderbirds farbige Pfeile neben dem Datum entfallen – Apple Mail zeigt
@@ -1194,7 +1211,7 @@ hr[is="pane-splitter"]::after {
 /* Ausgewählte Mail mit Fokus: weißer Punkt auf Blau */
 #threadTree:focus-within tr:is([data-properties~="unread"], [data-properties~="new"]):is(.selected, [aria-selected="true"]) .read-status,
 #threadTree:focus-within tr[is="thread-card"].children.collapsed[data-properties~="hasUnread"]:not([data-properties~="dummy"]):is(.selected, [aria-selected="true"]) .read-status {
-  background-color: var(--mt-accent-text) !important;
+  background-color: var(--mt-selection-text) !important;
 }
 
 /* Thread-Knopf (Pfeil zum Auf-/Zuklappen) als ruhige graue Kapsel: ohne
@@ -1245,8 +1262,8 @@ hr[is="pane-splitter"]::after {
 }
 
 #threadTree:focus-within tr[is="thread-card"]:is(.selected, [aria-selected="true"]) button.twisty {
-  background-color: color-mix(in srgb, var(--mt-accent-text) 22%, transparent) !important;
-  color: var(--mt-accent-text) !important;
+  background-color: color-mix(in srgb, var(--mt-selection-text) 22%, transparent) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Tabelle: Ungelesen als voller Punkt in Akzentfarbe statt Thunderbirds
@@ -1311,8 +1328,8 @@ hr[is="pane-splitter"]::after {
 #threadTree:focus-within tr[aria-selected="true"][data-properties~="flagged"] .tree-button-flag > img,
 #threadTree:focus-within tr.selected[data-properties~="flagged"] .button-star,
 #threadTree:focus-within tr[aria-selected="true"][data-properties~="flagged"] .button-star {
-  fill: var(--mt-accent-text) !important;
-  stroke: var(--mt-accent-text) !important;
+  fill: var(--mt-selection-text) !important;
+  stroke: var(--mt-selection-text) !important;
 }
 
 /* Klassische Tabellenansicht (falls verwendet) */
@@ -1323,8 +1340,8 @@ hr[is="pane-splitter"]::after {
 
 #threadTree:focus-within tr:not([is="thread-card"]).selected,
 #threadTree:focus-within tr:not([is="thread-card"])[aria-selected="true"] {
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  background: var(--mt-selection) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 #threadTree thead th,
@@ -7146,7 +7163,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #mcTaskCards[data-focused] .mc-tc[aria-selected] {
-  box-shadow: 0 0 0 2px var(--mt-accent);
+  box-shadow: 0 0 0 2px var(--mt-selection);
 }
 
 /* Suchtreffer gelb hinterlegt wie in der Mail (markHits) */
@@ -8269,9 +8286,9 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   font-weight: var(--mt-sidebar-selected-weight) !important;
 }
 
-/* fokussiert wie die Ordnerliste der Mail: Auswahl in der Akzentfarbe getönt */
+/* fokussiert wie die Ordnerliste der Mail: Auswahl in der Auswahlfarbe getönt */
 #books:focus-within :is(.bookRow, .listRow).selected > :is(.bookRow-container, .listRow-container) {
-  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--mt-selection) 22%, transparent) !important;
   color: var(--mt-text) !important;
 }
 
@@ -8406,11 +8423,11 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #cards:focus-within .card-layout.selected .card-container {
-  background: var(--mt-accent) !important;
+  background: var(--mt-selection) !important;
 }
 
 #cards:focus-within .card-layout.selected :is(.name, .ab-card-second-line, .address) {
-  color: var(--mt-accent-text) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Tabellenansicht der Kontakte wie die Mail-Tabelle: Schrift und Spaltenkopf
@@ -8461,13 +8478,13 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #cards:focus-within tr[is="ab-table-card-row"]:is(.selected, [aria-selected="true"]) {
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  background: var(--mt-selection) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 #cards:focus-within tr[is="ab-table-card-row"]:is(.selected, [aria-selected="true"]) .mc-book {
-  background: color-mix(in srgb, var(--mt-accent-text) 25%, transparent) !important;
-  color: var(--mt-accent-text) !important;
+  background: color-mix(in srgb, var(--mt-selection-text) 25%, transparent) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Kontaktdetails: großes Foto mittig, Name darunter, Daten in Karten */
@@ -8847,14 +8864,14 @@ search-bar {
 }
 
 /* Auswahl wie in der Ordnerliste der Mail (G14): grau, Schrift in Textfarbe;
-   mit Fokus in der Liste in der Akzentfarbe getönt */
+   mit Fokus in der Liste in der Auswahlfarbe getönt */
 #contactlistbox > richlistitem[selected] {
   background: var(--mt-selected-unfocused) !important;
   color: var(--mt-text) !important;
 }
 
 #contactlistbox:focus > richlistitem[selected] {
-  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--mt-selection) 22%, transparent) !important;
   color: var(--mt-text) !important;
 }
 
@@ -11411,8 +11428,8 @@ addon-card .addon-inline-options {
 }
 
 #cards:focus-within .card-layout.selected .mc-book {
-  background: color-mix(in srgb, var(--mt-accent-text) 25%, transparent) !important;
-  color: var(--mt-accent-text) !important;
+  background: color-mix(in srgb, var(--mt-selection-text) 25%, transparent) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Thunderbirds eigene Adressbuch-Angabe wäre doppelt */
@@ -14397,11 +14414,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 /* Akzentfarbe immer wie macOS (wie in Apples Apps): Thunderbirds eigene
    Farbwahl ist ausgeblendet; eine früher gewählte Farbe wird auch in
-   Thunderbirds eigenen Flächen durch die macOS-Farbe ersetzt */
+   Thunderbirds eigenen Flächen durch die macOS-Farbe ersetzt; gewählte
+   Zeilen in Thunderbirds Listen (z. B. Kontakte-Seitenleiste beim Verfassen)
+   in der Auswahlfarbe wie die Mailliste */
 @media not -moz-pref("mail.appearance.accentColor", "accent-color") {
   :root, :host {
-    --selected-item-color: AccentColor !important;
-    --selected-item-text-color: AccentColorText !important;
+    --selected-item-color: var(--mt-selection, AccentColor) !important;
+    --selected-item-text-color: var(--mt-selection-text, AccentColorText) !important;
     accent-color: AccentColor !important;
   }
 }
@@ -16856,6 +16875,8 @@ datepicker[mc-inline] > menulist {
   :root {
     --mt-accent: Highlight;
     --mt-accent-text: HighlightText;
+    --mt-selection: Highlight;
+    --mt-selection-text: HighlightText;
   }
 
   #threadTree tr:is(.selected, [aria-selected="true"]) .card-container,

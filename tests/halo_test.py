@@ -3173,6 +3173,31 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Mailliste und Mailkopf: Stern einfarbig in --mt-star (gewählt mit Fokus weiß), im Kopf rechts unter der Uhrzeit nur bei markierten Mails", star_list_header, results)
 
+    def selection_color():
+        # Gewählte Karte mit Fokus in der Auswahlfarbe des Systems wie in der Mail-App (unter macOS SelectedItem, tiefer als
+        # die Knopffarbe AccentColor, die vor allem dunkel grell wirkte); unter Windows/Linux die Knopffarbe; ohne Fokus grau;
+        # Hauptknöpfe behalten die Knopffarbe (Prüfungen der Knöpfe)
+        res = m.js(READING_JS + r"""
+          const color = (dd, v, prop = "backgroundColor") => { const e = dd.createElement("div"); e.style[prop] = v; dd.documentElement.append(e); const c = cs(e)[prop]; e.remove(); return c; };
+          await showMail("Halo Jetzt");
+          const ad = a3.document;
+          const out = { mac: Services.appinfo.OS == "Darwin", sel: color(ad, "var(--mt-selection)"), selText: color(ad, "var(--mt-selection-text)", "color"),
+                        system: color(ad, "SelectedItem"), accent: color(ad, "AccentColor"), unfocusedWant: color(ad, "var(--mt-selected-unfocused)") };
+          const box = () => ad.querySelector('#threadTree tr.selected .card-container, #threadTree tr[aria-selected="true"] .card-container');
+          const subj = () => box()?.querySelector(".thread-card-subject-container, .subject") || box();
+          a3.threadTree.blur?.(); ad.activeElement?.blur?.(); await ruhig(300);
+          out.unfocused = box() && cs(box()).backgroundColor;
+          w.focus(); a3.threadTree.focus(); await until(() => a3.threadTree.matches(":focus-within") && Services.focus.activeWindow == w, 2000); await ruhig(400);
+          out.focusOk = a3.threadTree.matches(":focus-within");
+          out.focused = box() && cs(box()).backgroundColor; out.text = subj() && cs(subj()).color;
+          return out;""")
+        want = res["system"] if res.get("mac") else res["accent"]
+        ok = (same_color(res["sel"], want) and same_color(res.get("unfocused") or "", res["unfocusedWant"]))
+        if res.get("focusOk"):
+            ok = ok and same_color(res.get("focused") or "", res["sel"]) and same_color(res.get("text") or "", res["selText"])
+        return ok, f"{res}"
+    check("Mailliste: gewählte Karte mit Fokus in der Auswahlfarbe des Systems (macOS SelectedItem, sonst Knopffarbe), ohne Fokus grau", selection_color, results)
+
     def list_icons_edge():
         # Kartenansicht wie Apple: Büroklammer und Stern rechts in der Betreffzeile bündig mit der Uhrzeit; nur ein Symbol
         # steht ganz außen, beide: Stern außen, Büroklammer links daneben (nicht markierter Stern belegt keinen Platz)
@@ -11067,7 +11092,7 @@ def server_checks(m, results):
                 }
                 await ruhig(300);
                 out.itemFocus = { ...look(), focus: listbox.matches(":focus"), active: Services.focus.activeWindow == w,
-                                  wantBg: want("color-mix(in srgb, var(--mt-accent) 22%%, transparent)") };
+                                  wantBg: want("color-mix(in srgb, var(--mt-selection) 22%%, transparent)") };
                 listbox.blur(); await ruhig(200);
               }
               conv?.sendMsg("Hallo zurück");
@@ -16481,7 +16506,7 @@ Neu
     const bgBlur = cs(lc).backgroundColor;
     const tint = ad.createElement("span"); ad.body.append(tint);
     tint.style.backgroundColor = "var(--mt-selected-unfocused)"; const unfocused = cs(tint).backgroundColor;
-    tint.style.backgroundColor = "color-mix(in srgb, var(--mt-accent) 22%, transparent)"; const focused = cs(tint).backgroundColor;
+    tint.style.backgroundColor = "color-mix(in srgb, var(--mt-selection) 22%, transparent)"; const focused = cs(tint).backgroundColor;
     tint.remove();
     // Hauptfenster und Tab nach vorn, sonst gilt :focus-within nicht
     w.focus(); abTab.browser.focus(); ad.getElementById("books").focus(); await wait(300);
@@ -18888,7 +18913,7 @@ Neu
             out.selected = { task: tree.currentTask?.title, card: sel?.textContent.includes("Halo Kartenaufgabe"), bg: sel && csOf(sel).backgroundColor,
                              frame, frameColor: frame && (frame.match(/rgba?\([^)]*\)/) || [null])[0], frameWide: !!frame && /\b2px\b/.test(frame),
                              titleColor: sel && csOf(sel.querySelector(".mc-tc-title")).color, text: colorOf(d, "var(--mt-text)"),
-                             accent: colorOf(d, "var(--mt-accent)"), focused: list.hasAttribute("data-focused"),
+                             accent: colorOf(d, "var(--mt-selection)"), focused: list.hasAttribute("data-focused"),
                              details: d.getElementById("calendar-task-details-title")?.textContent };
             // Rechtsklick auf die Karte: jeder Eintrag des Aufgabenmenüs nur einmal (früher „Open Task…“/„New Task…“ doppelt)
             const cmenu = d.getElementById("taskitem-context-menu");

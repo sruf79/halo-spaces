@@ -404,9 +404,12 @@ pruefe "zuletzt: 8 neueste der letzten 24 h, neueste zuerst, alle Arten, ohne CI
 L150="Mail: $(printf 'a%.0s' {1..144})" L250="Mail: $(printf 'b%.0s' {1..244})"
 jq --arg t "$L150" --arg u "$L250" '.items = [.items[0] + {title: $t}, {"id":"PVTI_l","status":"In Progress","title":$u,"typ":"Bug","content":{"body":""}}]' $T/d/quellen/board.json > $T/b.json && mv $T/b.json $T/d/quellen/board.json
 jq --arg u "$L250" '.[0].displayTitle = ($u + "\nzweite Zeile")' $T/d/quellen/ci.json > $T/c.json && mv $T/c.json $T/d/quellen/ci.json
+print '[{"databaseId":2,"number":2,"displayTitle":"Kurz von GitHub …","headSha":"abc9","headBranch":"main","event":"push","status":"completed","conclusion":"success","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:50:00Z","url":"u"}]' > $T/d/quellen/ci2.json
+jq -s '.[0] + .[1]' $T/d/quellen/ci.json $T/d/quellen/ci2.json > $T/c.json && mv $T/c.json $T/d/quellen/ci.json; rm $T/d/quellen/ci2.json
+printf 'abc9\tTests: der ganze Betreff aus dem eigenen Klon, länger als die Kürzung von GitHub bei etwa siebzig Zeichen\n' > $T/d/quellen/betreffe.tsv
 HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
 pruefe "Titel: 150 Zeichen ungekürzt (zuletzt, Board in Arbeit), 250 auf 200 mit …, CI nur erste Zeile" \
-  '([.zuletzt[] | select(.art == "eintrag")][0].was | length) == 150 and ([.board.in_arbeit[] | select(.titel | startswith("Mail: b"))][0].titel | length == 200 and endswith("…")) and (.ci[0].titel | length == 200 and endswith("…") and (contains("zweite") | not))'
+  '([.zuletzt[] | select(.art == "eintrag")][0].was | length) == 150 and ([.board.in_arbeit[] | select(.titel | startswith("Mail: b"))][0].titel | length == 200 and endswith("…")) and (.ci[0].titel | length == 200 and endswith("…") and (contains("zweite") | not)) and (.ci[1].titel == "Tests: der ganze Betreff aus dem eigenen Klon, länger als die Kürzung von GitHub bei etwa siebzig Zeichen")'
 # ohne Board-Zwischenspeicher und Protokolle: nur Releases
 rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
 pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'

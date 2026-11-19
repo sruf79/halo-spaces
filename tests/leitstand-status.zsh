@@ -155,6 +155,12 @@ if netz; then
     done
     tail -200 $TB > $TB.neu && mv $TB.neu $TB
   fi
+  # ganzer Commit-Betreff je CI-Lauf (GitHub kürzt displayTitle bei etwa 70 Zeichen): aus dem eigenen Klon, ohne Abfrage
+  if [[ -s $Q/ci.json && -d $G/objects ]]; then
+    for sha in ${(u)=$(jq -r '.[].headSha // empty' $Q/ci.json 2>/dev/null)}; do
+      git -C $G cat-file -e "$sha^{commit}" 2>/dev/null && print -r -- "$sha	$(git -C $G log -1 --format=%s $sha 2>/dev/null)"
+    done > $Q/betreffe.tsv.neu 2>>$LOG && mv $Q/betreffe.tsv.neu $Q/betreffe.tsv
+  fi
   # GitHub-Limit je Lauf frisch (alter Wert gilt nicht weiter: nicht lesbar → github_limit null)
   rm -f $Q/rate.json
   holen $Q/rate.json gh api rate_limit --jq '{core: .resources.core, graphql: .resources.graphql}'
@@ -563,10 +569,11 @@ def rueckmeldungen():
             "issues_offen": sicher(issues_offen)}
 
 CI = lies(Q + "/ci.json", True)
+BETREFF = dict(z.split("\t", 1) for z in (lies(Q + "/betreffe.tsv") or "").splitlines() if "\t" in z)
 CI_MAIN = lies(Q + "/ci-main.json", True)
 def ci():
     if CI is None: return None
-    return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": t200(r["displayTitle"]), "zweig": r["headBranch"],
+    return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": t200(BETREFF.get(r.get("headSha")) or r["displayTitle"]), "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
              "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI[:15]]
 def ci_main():

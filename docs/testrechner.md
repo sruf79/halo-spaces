@@ -574,7 +574,8 @@ CI-Läufe, keine neue Abfrage; fehlt eine Quelle, fehlt nur diese Art; nichts = 
 
 Titel (Maintainer 19.11.2026: „wenn weniger abstand wäre müsste man den text nicht abkürzen“): `ci[].titel`, `zuletzt[].was`,
 `board.in_arbeit/naechste[].titel`, `rueckmeldungen.issues_warten[].titel`, `agenten[].eintrag` und `laeufe.*.eintrag` sind die
-erste Zeile, bis 200 Zeichen ungekürzt, darüber mit „…“; `schritt` und `notiz` bleiben bei 160.
+erste Zeile, bis 200 Zeichen ungekürzt, darüber mit „…“; `schritt` und `notiz` bleiben bei 160. GitHub kürzt `displayTitle` bei etwa 70
+Zeichen, daher kommt der CI-Titel aus dem Commit-Betreff im eigenen Klon (`quellen/betreffe.tsv`), sonst aus `displayTitle`.
 
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,

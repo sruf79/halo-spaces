@@ -858,3 +858,7 @@ Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): betr
 ## 19.11.2026 Kontingent-Drossel im Volldampf (Woche gleichmäßig bis Dienstag)
 
 Anlass: Woche 17 % bei Soll rund 10,7 % (19.11. 12:58), bei gleichem Tempo wäre die Woche am Sonntag früh voll und die Arbeit stünde rund 45 Stunden still. Neon schlug eine Drossel nach oben vor, ein Fable-Agent riet zu einer Hochrechnung in Fehlstunden statt Punkten über Soll, die Tagesroutine mitzubremsen und träge zu lösen. Maintainer auf die Frage „Soll ich das so bauen?“: „ja umbauen und so rasch wie möglich live schalten“ (19.11.2026, Gespräch mit neon). Entwurf: Reicht die Woche bis Dienstag 01:00 nicht, bremsen Worker (keine neuen), Tagesroutine (Sonnet, jede zweite Runde, dann nichts Neues bis zur vollen Stunde); Nachtlauf, Releases, Tests, Reparatur roter CI bleiben unberührt; Schwellen in Stunden sind ein erster Entwurf und änderbar.
+
+## 19.11.2026 Windows-Rundgang: Start auch bei knappem Wochenkontingent
+
+Anlass: Frage, ob der Windows-Rundgang (Auftrag #35, bisher nur ab 85 % im 5-Stunden-Fenster) heute starten soll, weil das Kontingent knapp ist. Maintainer (19.11.2026, Gespräch mit neon): „Der start sollte nicht nur das 5h-limit sondern auch das wochenlimit und aktuelle wochenkontingent berücksichtigen“. Deutung (neon, kein Wortlaut): Der Auslastungswächter startet den token-armen Rundgang auch dann, wenn die Drossel wegen der Woche greift (Stufe 1 bis 3); bei erreichtem Wochenlimit oder 5-Stunden-Fenster ab 98 % startet er nicht, weil die Sitzung sonst am Limit scheitert.

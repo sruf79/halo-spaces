@@ -11644,6 +11644,44 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile und Ordner im Import-Assistenten", pst_import_contacts_calendar, results)
 
+    def pst_import_recurring():
+        # Serientermine aus der Outlook-Datendatei kommen als Serie an (vorher nur der erste Termin): wöchentlich Mo 09:00–10:30
+        # über die Umstellung auf Winterzeit bis 30.11., ein Termin gelöscht – jeder Termin um 09:00 in der eingestellten Zone;
+        # Geburtstag im Kalender jährlich ganztägig. Das Lesen der Outlook-Struktur prüfen die Logik-Tests (tests/logik/pst.test.mjs)
+        res = m.js(r"""
+          const name = "Halo PST-Serie";
+          const source = { name, mail: [], contacts: [], calendar: [{ name: "Kalender", count: 2, items: [
+            { uid: "pst-rec-1", summary: "Jour fixe PST", start: new Date(Date.UTC(2026, 9, 19, 7)),
+              recur: { rule: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;WKST=MO", day: "20261019", startMin: 540, endMin: 630, count: 0, until: "20261130", exdays: ["20261109"] } },
+            { uid: "pst-rec-2", summary: "Geburtstag PST", allDay: true, start: null,
+              recur: { rule: "FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=3", day: "19800503", startMin: 0, endMin: 1440, count: 0, until: "", exdays: [] } }] }] };
+          const job = await w.__mcPstImport(source, { calendar: true });
+          const calendar = cal.manager.getCalendars().find(c => c.name == name);
+          const out = { events: job?.events, tz: cal.dtz.defaultTimezone?.tzid };
+          if (calendar) {
+            const dt = s => cal.createDateTime(s);
+            const occ = async (uid, a, b) => {
+              const item = await calendar.getItem(uid);
+              return item?.recurrenceInfo ? item.recurrenceInfo.getOccurrences(dt(a), dt(b), 0) : [];
+            };
+            const local = d => d.getInTimezone(cal.dtz.defaultTimezone);
+            const fmt = d => { const l = local(d); return `${l.year}-${l.month + 1}-${l.day} ${l.hour}:${String(l.minute).padStart(2, "0")}`; };
+            const weekly = await occ("pst-rec-1", "20261001T000000Z", "20270101T000000Z");
+            out.weekly = weekly.map(o => fmt(o.startDate));
+            out.weeklyEnd = weekly.map(o => fmt(o.endDate));
+            const bday = await occ("pst-rec-2", "20260101T000000Z", "20280101T000000Z");
+            out.bday = bday.map(o => [o.startDate.isDate, o.startDate.year, o.startDate.month + 1, o.startDate.day]);
+            cal.manager.removeCalendar(calendar);
+          }
+          return out;""")
+        ev = res.get("events") or {}
+        ok = (ev.get("added") == 2 and not ev.get("failed")
+              and res.get("weekly") == ["2026-10-19 9:00", "2026-10-26 9:00", "2026-11-2 9:00", "2026-11-16 9:00", "2026-11-23 9:00", "2026-11-30 9:00"]
+              and all(e.endswith(" 10:30") for e in res.get("weeklyEnd") or [""])
+              and res.get("bday") == [[True, 2026, 5, 3], [True, 2027, 5, 3]])
+        return ok, f"{res}"
+    check("Import: Outlook-PST – Serientermine als Serie (wöchentlich über die Zeitumstellung zur selben Uhrzeit, gelöschter Termin fehlt, Ende nach Datum; Geburtstag jährlich ganztägig)", pst_import_recurring, results)
+
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief
         # Thunderbird unter Windows/Linux nach dem Schließen des Hauptfensters weiter (GitHub-Issue #15).

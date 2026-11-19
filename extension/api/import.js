@@ -473,14 +473,154 @@ const PstImport = {
     L.push("END:VCARD");
     return `${L.join("\r\n")}\r\n`;
   },
+  // Wiederholung eines Serientermins aus der Outlook-Struktur
+  // (PidLidAppointmentRecur, [MS-OXOCAL] 2.2.1.44): { rule (RRULE ohne Ende),
+  // count, until (letzter Tag), day (erster Tag), startMin, endMin (Minuten ab
+  // Mitternacht des ersten Tages, Ortszeit), exdays (gelöschte Tage) } oder null,
+  // wenn sich die Regel nicht abbilden lässt (dann bleibt es ein einzelner Termin).
+  // Geänderte Einzeltermine bleiben an ihrem ursprünglichen Platz in der Serie
+  recur(bytes) {
+    const b = bytes && bytes.length != null ? bytes : null;
+    if (!b || b.length < 50) {
+      return null;
+    }
+    let pos = 0;
+    const u16 = () => {
+      if (pos + 2 > b.length) {
+        throw new Error("recur: zu kurz");
+      }
+      pos += 2;
+      return b[pos - 2] | (b[pos - 1] << 8);
+    };
+    const u32 = () => (u16() + u16() * 0x10000) >>> 0;
+    const minDay = min => {
+      const d = new Date(min * 60000 - 11644473600000);
+      return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+    };
+    const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const mask = m => DAYS.filter((_, i) => m & (1 << i)).join(",");
+    try {
+      u16(); u16();
+      const freq = u16(), type = u16(), calType = u16();
+      u32();
+      const period = u32();
+      u32();
+      let spec = 0, nth = 0;
+      if ([1, 2, 4].includes(type)) {
+        spec = u32();
+      } else if (type == 3) {
+        spec = u32();
+        nth = u32();
+      } else if (type != 0) {
+        return null; // (Hidschri-Kalender)
+      }
+      const endType = u32(), count = u32(), firstDow = u32();
+      const deleted = Array.from({ length: Math.min(u32(), 5000) }, () => u32());
+      const modified = Array.from({ length: Math.min(u32(), 5000) }, () => u32());
+      const startDate = u32(), endDate = u32();
+      u32(); u32();
+      const startMin = u32(), endMin = u32();
+      // ursprüngliche Tage der geänderten Einzeltermine (ExceptionInfo)
+      const moved = new Set();
+      try {
+        const n = u16();
+        for (let i = 0; i < n; i++) {
+          u32(); u32();
+          moved.add(minDay(u32()));
+          const flags = u16();
+          for (const [bit, kind] of [[1, "s"], [2, 4], [4, 4], [8, 4], [16, "s"], [32, 4], [64, 4], [128, 4], [256, 4]]) {
+            if (flags & bit) {
+              if (kind == "s") {
+                u16();
+                pos += u16();
+              } else {
+                pos += kind;
+              }
+            }
+          }
+        }
+      } catch {
+        modified.forEach(m => moved.add(minDay(m)));
+      }
+      if (calType || !period || startMin > 1440 || endMin < startMin) {
+        return null;
+      }
+      const day = minDay(startDate);
+      const wkst = firstDow < 7 ? `;WKST=${DAYS[firstDow]}` : "";
+      let rule;
+      if (freq == 0x200a && type == 0) {
+        if (period % 1440) {
+          return null;
+        }
+        rule = `FREQ=DAILY;INTERVAL=${period / 1440}`;
+      } else if ((freq == 0x200b || freq == 0x200a) && type == 1 && mask(spec)) {
+        rule = `FREQ=WEEKLY;INTERVAL=${period};BYDAY=${mask(spec)}${wkst}`;
+      } else if ((freq == 0x200c || freq == 0x200d) && [2, 3, 4].includes(type)) {
+        const yearly = freq == 0x200d || period % 12 == 0;
+        const month = yearly ? `;BYMONTH=${+day.slice(4, 6)}` : "";
+        const which = type == 2 ? (spec >= 1 && spec <= 31 ? `;BYMONTHDAY=${spec}` : null)
+          : type == 4 ? ";BYMONTHDAY=-1"
+          : mask(spec) && nth >= 1 && nth <= 5 ? `;BYDAY=${mask(spec)};BYSETPOS=${nth == 5 ? -1 : nth}` : null;
+        if (!which) {
+          return null;
+        }
+        rule = yearly ? `FREQ=YEARLY;INTERVAL=${Math.max(1, period / 12)}${month}${which}` : `FREQ=MONTHLY;INTERVAL=${period}${which}`;
+      } else {
+        return null;
+      }
+      return { rule, day, startMin, endMin,
+        count: endType == 0x2022 && count > 0 ? count : 0,
+        until: endType == 0x2021 ? minDay(endDate) : "",
+        exdays: [...new Set(deleted.map(minDay))].filter(d => !moved.has(d)).sort() };
+    } catch {
+      return null;
+    }
+  },
+  // Ortszeit „YYYYMMDD“ + Minuten als iCalendar-Zeit (ohne Zone)
+  wall(day, min) {
+    const x = new Date(Date.UTC(+day.slice(0, 4), +day.slice(4, 6) - 1, +day.slice(6, 8), 0, min));
+    return x.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "");
+  },
+  // dieselbe Ortszeit in der Zone tz als UTC-Zeitpunkt
+  wallUtc(day, min, tz) {
+    const guess = Date.UTC(+day.slice(0, 4), +day.slice(4, 6) - 1, +day.slice(6, 8), 0, min);
+    const offset = t => {
+      const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit",
+        day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(t)).map(x => [x.type, x.value]));
+      return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - t;
+    };
+    let t = guess - offset(guess);
+    t = guess - offset(t);
+    return new Date(t);
+  },
   // Termin als VEVENT. e: { uid, summary, start, end, allDay, location,
-  // description, free }; ohne gültigen Beginn leer
+  // description, free, recur (siehe recur()), tzid (Zone für Serien) }; ohne
+  // gültigen Beginn leer
   vevent(e) {
-    if (!this.valid(e.start)) {
+    if (!this.valid(e.start) && !e.recur) {
       return "";
     }
-    const L = ["BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${this.utc(e.start)}`, `SUMMARY:${this.esc(e.summary)}`];
-    if (e.allDay) {
+    const L = ["BEGIN:VEVENT", `UID:${e.uid}`, `DTSTAMP:${this.utc(this.valid(e.start) ? e.start : new Date(0))}`, `SUMMARY:${this.esc(e.summary)}`];
+    const r = e.recur;
+    if (r) {
+      const end = r.count ? `;COUNT=${r.count}` : "";
+      if (e.allDay) {
+        const days = Math.max(1, Math.round((r.endMin - r.startMin) / 1440));
+        L.push(`DTSTART;VALUE=DATE:${r.day}`, `DTEND;VALUE=DATE:${this.wall(r.day, days * 1440).slice(0, 8)}`,
+          `RRULE:${r.rule}${end}${r.until ? `;UNTIL=${r.until}` : ""}`);
+        if (r.exdays.length) {
+          L.push(`EXDATE;VALUE=DATE:${r.exdays.join(",")}`);
+        }
+      } else {
+        const tz = e.tzid ? `;TZID=${e.tzid}` : "";
+        const until = !r.until ? "" : e.tzid ? this.utc(this.wallUtc(r.until, r.startMin, e.tzid)) : this.wall(r.until, r.startMin);
+        L.push(`DTSTART${tz}:${this.wall(r.day, r.startMin)}`, `DTEND${tz}:${this.wall(r.day, r.endMin)}`,
+          `RRULE:${r.rule}${end}${until ? `;UNTIL=${until}` : ""}`);
+        if (r.exdays.length) {
+          L.push(`EXDATE${tz}:${r.exdays.map(d => this.wall(d, r.startMin)).join(",")}`);
+        }
+      }
+    } else if (e.allDay) {
       const start = this.day(e.start);
       let end = this.valid(e.end) ? this.day(e.end) : "";
       if (!end || end <= start) {
@@ -634,8 +774,16 @@ const PstImport = {
     return {
       uid: this.uuid(`${store}|event|${s(a.descriptorNodeId)}|${s(a.subject)}|${a.startTime?.getTime?.()}`),
       summary: s(a.subject), start: a.startTime, end: a.endTime, allDay: !!a.subType, location: s(a.location),
-      description: s(a.body), free: a.busyStatus == 0,
+      description: s(a.body), free: a.busyStatus == 0, recur: this.recurOf(a),
     };
+  },
+  recurOf(a) {
+    try {
+      return a.isRecurring ? this.recur(a.recurrenceStructure) : null;
+    } catch (e) {
+      log("pst recurrence error", String(e).slice(0, 160));
+      return null;
+    }
   },
   taskOf(t, store) {
     if (!/^IPM\.Task/i.test(t.messageClass || "")) {
@@ -858,6 +1006,18 @@ const PstImport = {
       calendar = cal.manager.getCalendarById(c.id) || c;
     }
     job.calendar = calendar;
+    // Serientermine in der eingestellten Zeitzone (Outlook speichert ihre Uhrzeit als Ortszeit)
+    // (nur Zonen, die Thunderbird kennt; sonst Ortszeit ohne Zone)
+    let tzid = "";
+    for (const get of [() => cal.dtz.defaultTimezone?.tzid, () => Intl.DateTimeFormat().resolvedOptions().timeZone]) {
+      try {
+        const id = get() || "";
+        if (/^[A-Za-z_]+\/[\w/+-]+$/.test(id) && !/^Etc\//.test(id) && cal.timezoneService.getTimezone(id)) {
+          tzid = id;
+          break;
+        }
+      } catch {}
+    }
     for (const f of source.calendar || []) {
       for (const x of this.list(f)) {
         if (job.stop) {
@@ -867,7 +1027,7 @@ const PstImport = {
           continue;
         }
         try {
-          const ical = x.error ? "" : x.task ? this.vtodo(x) : this.vevent(x);
+          const ical = x.error ? "" : x.task ? this.vtodo(x) : this.vevent(tzid ? { ...x, tzid } : x);
           if (!ical) {
             job.events.failed++;
           } else if (await calendar.getItem(x.uid)) {

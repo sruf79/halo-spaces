@@ -195,6 +195,78 @@ test("PST: Termin als VEVENT – mit Uhrzeit in UTC, ganztägig als Datum mit En
   assert.equal(P.vevent({ uid: "u4", summary: "x", start: null }), "");
 });
 
+// Outlook-Struktur eines Serientermins ([MS-OXOCAL] 2.2.1.44.5) aus Einzelwerten; Tage als „YYYYMMDD“
+const minuten = tag => (Date.UTC(+tag.slice(0, 4), +tag.slice(4, 6) - 1, +tag.slice(6, 8)) + 11644473600000) / 60000;
+function serie({ freq, type, period, spec = [], endType = 0x2023, count = 10, firstDow = 1, deleted = [], modified = [], start, end = null,
+  startMin, endMin, exceptions = [] }) {
+  const out = [];
+  const u16 = v => out.push(v & 255, (v >> 8) & 255);
+  const u32 = v => { u16(v & 0xffff); u16(Math.floor(v / 0x10000) & 0xffff); };
+  u16(0x3004); u16(0x3004); u16(freq); u16(type); u16(0); u32(0); u32(period); u32(0);
+  spec.forEach(u32);
+  u32(endType); u32(count); u32(firstDow);
+  u32(deleted.length); deleted.forEach(d => u32(minuten(d)));
+  u32(modified.length); modified.forEach(d => u32(minuten(d)));
+  u32(minuten(start)); u32(end ? minuten(end) : 0x5ae980df);
+  u32(0x3006); u32(0x3009); u32(startMin); u32(endMin);
+  u16(exceptions.length);
+  for (const x of exceptions) {
+    u32(minuten(x.neu) + 600); u32(minuten(x.neu) + 660); u32(minuten(x.alt) + startMin);
+    u16(x.betreff ? 0x11 : 0x10);
+    if (x.betreff) {
+      u16(x.betreff.length + 1); u16(x.betreff.length); [...x.betreff].forEach(c => out.push(c.charCodeAt(0)));
+    }
+    u16(2); u16(1); out.push(0x52);
+  }
+  u32(0); u32(0);
+  return Uint8Array.from(out);
+}
+
+test("PST: Serientermine – Regel aus der Outlook-Struktur (täglich, Werktage, monatlich, n-ter Wochentag, jährlich), Ende, gelöschte Tage", () => {
+  // wöchentlich Mo und Mi, 09:00–10:30, zehnmal, ein Termin gelöscht, einer verschoben (bleibt in der Serie)
+  const w = P.recur(serie({ freq: 0x200b, type: 1, period: 1, spec: [0b0001010], endType: 0x2022, count: 10, start: "20261102",
+    startMin: 540, endMin: 630, deleted: ["20261109", "20261111"], modified: ["20261112"], exceptions: [{ alt: "20261111", neu: "20261112", betreff: "Neu" }] }));
+  assert.deepEqual(n(w), { rule: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE;WKST=MO", day: "20261102", startMin: 540, endMin: 630, count: 10, until: "", exdays: ["20261109"] });
+  // täglich alle 2 Tage bis zu einem Datum
+  const d = P.recur(serie({ freq: 0x200a, type: 0, period: 2880, endType: 0x2021, start: "20261201", end: "20261231", startMin: 480, endMin: 510 }));
+  assert.equal(d.rule, "FREQ=DAILY;INTERVAL=2");
+  assert.equal(d.until, "20261231");
+  // monatlich am 15., jeden 2. Monat; letzter Tag des Monats; letzter Freitag
+  assert.equal(P.recur(serie({ freq: 0x200c, type: 2, period: 2, spec: [15], start: "20260115", startMin: 0, endMin: 60 })).rule, "FREQ=MONTHLY;INTERVAL=2;BYMONTHDAY=15");
+  assert.equal(P.recur(serie({ freq: 0x200c, type: 4, period: 1, spec: [31], start: "20260131", startMin: 0, endMin: 60 })).rule, "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=-1");
+  assert.equal(P.recur(serie({ freq: 0x200c, type: 3, period: 1, spec: [0b0100000, 5], start: "20260130", startMin: 0, endMin: 60 })).rule,
+    "FREQ=MONTHLY;INTERVAL=1;BYDAY=FR;BYSETPOS=-1");
+  // jährlich (Geburtstag im Kalender, ganztägig): Monat aus dem ersten Tag
+  const y = P.recur(serie({ freq: 0x200d, type: 2, period: 12, spec: [3], start: "19800503", startMin: 0, endMin: 1440 }));
+  assert.equal(y.rule, "FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=3");
+  // nicht abbildbar oder kaputt: kein Serientermin
+  assert.equal(P.recur(serie({ freq: 0x200c, type: 0x0b, period: 1, spec: [1, 1], start: "20260101", startMin: 0, endMin: 60 })), null);
+  assert.equal(P.recur(Uint8Array.from([4, 48, 4, 48, 11, 32])), null);
+  assert.equal(P.recur(null), null);
+  // ohne lesbare Einzeltermine: geänderte Tage aus der Liste bleiben in der Serie
+  const b = serie({ freq: 0x200b, type: 1, period: 1, spec: [2], start: "20261102", startMin: 540, endMin: 600, deleted: ["20261109"], modified: ["20261109"] });
+  assert.deepEqual(n(P.recur(b.slice(0, b.length - 10)).exdays), []);
+});
+
+test("PST: Serientermin als VEVENT – Ortszeit mit Zone, UNTIL in UTC, EXDATE; ganztägig als Datum", () => {
+  const recur = { rule: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO", day: "20261026", startMin: 540, endMin: 630, count: 0, until: "20261130", exdays: ["20261109"] };
+  const L = P.vevent({ uid: "s1", summary: "Jour fixe", start: new Date(Date.UTC(2026, 9, 26, 8)), recur, tzid: "Europe/Vienna" }).split("\r\n");
+  assert.ok(L.includes("DTSTART;TZID=Europe/Vienna:20261026T090000"));
+  assert.ok(L.includes("DTEND;TZID=Europe/Vienna:20261026T103000"));
+  // 30.11. 09:00 Wien (Winterzeit) = 08:00 UTC
+  assert.ok(L.includes("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;UNTIL=20261130T080000Z"));
+  assert.ok(L.includes("EXDATE;TZID=Europe/Vienna:20261109T090000"));
+  // Sommerzeit: 09:00 Wien = 07:00 UTC
+  assert.equal(P.utc(P.wallUtc("20260706", 540, "Europe/Vienna")), "20260706T070000Z");
+  // ganztägig jährlich, ohne Ende
+  const g = P.vevent({ uid: "s2", summary: "Geburtstag", allDay: true, start: null,
+    recur: { rule: "FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=3", day: "19800503", startMin: 0, endMin: 1440, count: 0, until: "", exdays: [] } });
+  assert.ok(g.includes("\r\nDTSTART;VALUE=DATE:19800503\r\nDTEND;VALUE=DATE:19800504\r\nRRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=3\r\n"));
+  // mit Anzahl, ohne Zone: Ortszeit ohne Zone
+  const c = P.vevent({ uid: "s3", summary: "x", recur: { ...recur, until: "", count: 4 } });
+  assert.ok(c.includes("\r\nDTSTART:20261026T090000\r\n") && c.includes(";COUNT=4\r\n"));
+});
+
 test("PST: Aufgabe als VTODO mit Beginn, Fälligkeit, erledigt und Fortschritt", () => {
   const t = P.vtodo({ uid: "t1", summary: "Steuer", start: new Date(Date.UTC(2026, 10, 1)), due: new Date(Date.UTC(2026, 10, 30)), percent: 0.5 });
   assert.ok(t.startsWith("BEGIN:VTODO\r\nUID:t1\r\nSUMMARY:Steuer\r\n"));

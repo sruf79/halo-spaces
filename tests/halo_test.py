@@ -3420,7 +3420,11 @@ def reading_checks(m, results):
             select("halo-karte-3");
             const box = await until(() => a3.document.getElementById("mcConversation"), 6000);
             if (!box) return null;
-            await until(() => [...box.querySelectorAll(".mc-conv-card .mc-conv-browser")].every(x => parseFloat(x.style.height) > 60), 8000);
+            // je Karte ein Browser mit Höhe (die Karten laden erst nach dem nächsten Bildaufbau; vorher gab es keine
+            // Browser, und „alle“ von keinem war sofort erfüllt – Wartezeit 0 ms, 0 Browser, gemessen 19.11.; unter
+            // Linux in der CI dann Kapseln 0, Anhang None). Die Höhe setzt erst die geladene Mail, die Kapsel steht da schon
+            await until(() => { const bs = [...box.querySelectorAll(".mc-conv-card .mc-conv-browser")];
+              return bs.length && bs.length == box.querySelectorAll(".mc-conv-card").length && bs.every(x => parseFloat(x.style.height) > 60); }, 8000);
             await ruhig(1200);
             return box;
           };

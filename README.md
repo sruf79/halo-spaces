@@ -181,6 +181,10 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.33.0
+
+- **Settings**: typing in "Own keywords" after a second mail window was closed no longer causes errors in the background
+
 ## What's new in 3.32.0
 
 - **Import**: Outlook data files (PST) exported from Microsoft 365 that were rejected as "can't read yet" can now be read

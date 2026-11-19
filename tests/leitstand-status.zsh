@@ -276,6 +276,15 @@ def kontingent():
             "fuenf_stunden_prozent": round(100 * h["utilization"]) if "utilization" in h else None,
             "soll_prozent": soll, "reset_woche": iso(wo.get("resetsAt")), "reset_5h": iso(h.get("resetsAt"))}
 
+# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026): Stufe 0–3 und Fehlstunden aus drossel-stufe.txt; älter als
+# 2 Stunden (Volldampf aus, Läufe ruhen) oder unlesbar → null
+def drossel():
+    t = (lies(N + "/drossel-stufe.txt") or "").split()
+    if len(t) < 3 or t[0] not in ("0", "1", "2", "3"): return None
+    g = iso(t[2])
+    if g is None or JETZT - dt.datetime.strptime(g, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp() > 7200: return None
+    return {"stufe": int(t[0]), "fehlstunden": round(max(0.0, float(t[1])), 1), "gemessen": g}
+
 def volldampf():
     v = (lies(Q + "/volldampf.txt") or "").strip()
     return {"1": True, "0": False}.get(v)
@@ -423,7 +432,7 @@ def github_limit():
 st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
-      "github_limit": sicher(github_limit)}
+      "github_limit": sicher(github_limit), "drossel": sicher(drossel)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
 

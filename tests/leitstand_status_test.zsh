@@ -206,5 +206,14 @@ pruefe "kaputtes Board: board null, Kontingent bleibt" '.board == null and .kont
 rm -f $VH; lauf
 pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.punkte[0].bugs == null and .punkte[0].features == null and .punkte[0].in_arbeit == null and .punkte[0].woche == 5'
 
+# Kontingent-Drossel (19.11.2026): Feld drossel aus ~/halo-nacht/drossel-stufe.txt, nur wenn höchstens 2 h alt
+print -r -- "2 17.4 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
+pruefe "Drossel: Stufe, Fehlstunden, Messzeit" '.drossel == {"stufe":2,"fehlstunden":17.4,"gemessen":"2026-11-19T06:40:00Z"}'
+print -r -- "1 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
+pruefe "Drossel: Reserve zählt als 0 Fehlstunden" '.drossel.stufe == 1 and .drossel.fehlstunden == 0'
+print -r -- "3 40.0 2026-11-19T05:00+01:00" > $T/n/drossel-stufe.txt; lauf
+pruefe "Drossel: älter als 2 h → null" '.drossel == null'
+print -r -- "Unsinn" > $T/n/drossel-stufe.txt; lauf
+pruefe "Drossel: unlesbar → null, Rest bleibt" '.drossel == null and .kontingent.woche_prozent == 5'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

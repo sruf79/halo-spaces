@@ -16,7 +16,8 @@ lauf() {
   HALO_ZS_LOCK=/nonexistent/zs.lock HALO_JETZT=$1 HALO_KONTINGENT_WOCHE=$2 HALO_KONTINGENT_5H=${3:-10} HALO_KONTINGENT_5H_ENDE=${TEST_5H_ENDE:-} \
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
-  HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
+  HALO_DROSSEL_STUFE=${HALO_DROSSEL_STUFE-0} HALO_DROSSEL_DATEI=${HALO_DROSSEL_DATEI:-$T/drossel.txt} HALO_DROSSEL_VERLAUF=${HALO_DROSSEL_VERLAUF:-$T/verlauf.json} \
+  HALO_AS_CONF=${HALO_AS_CONF:-$T/leer.conf} HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
 }
 # pruefe <Name> <Ausgabe> <Muster …>  (alle Muster müssen vorkommen, grep -E)
 pruefe() {
@@ -175,6 +176,35 @@ pruefe "Fenster-Takt: ab 80 % gilt weiter die harte Grenze (Pause bis Fensterend
 print 'FENSTER_RESERVE=50' > $T/res50.conf
 pruefe "Fenster-Takt: FENSTER_RESERVE aus der Konfiguration (50)" "$(TEST_5H_ENDE=2026-11-17T15:00:00+01:00 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 40 $T/res50.conf)" \
   'Entscheidung: neu beginnen'
+# Kontingent-Drossel im Volldampf (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“, drossel_stufe in lauf-hilfen.zsh)
+pruefe "Drossel Stufe 0: wie bisher (neu, Fable erlaubt)" "$(HALO_DROSSEL_STUFE=0 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
+  'Drossel: +Stufe 0' 'Fable: erlaubt' 'Entscheidung: neu beginnen'
+pruefe "Drossel Stufe 1: Routine Sonnet, kein Fable, neu beginnen" "$(HALO_DROSSEL_STUFE=1 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
+  'Routine: sonnet; Fable: nein' 'Drossel: +Stufe 1' 'Entscheidung: neu beginnen'
+print 'MODELL_ROUTINE=haiku' > $T/routine-haiku.conf
+pruefe "Drossel Stufe 1: Routine-Modell aus MODELL_ROUTINE" "$(HALO_DROSSEL_STUFE=1 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55 $T/routine-haiku.conf)" 'Routine: haiku; Fable: nein'
+pruefe "Drossel Stufe 2: diese Runde läuft, die nächste wird ausgesetzt" "$(HALO_DROSSEL_STUFE=2 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 55)" \
+  'Drossel: +Stufe 2 .*die nächste wird ausgesetzt' 'Entscheidung: neu beginnen'
+pruefe "Drossel Stufe 3: nichts Neues bis zur vollen Stunde" "$(HALO_DROSSEL_STUFE=3 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:20:00+01:00 30 55)" \
+  'Entscheidung: warten bis 11:00 – Drossel Stufe 3' 'Würde: +kein Claude, warten bis 11:00'
+pruefe "Drossel Stufe 3 ändert ein Warten wegen des 5-Stunden-Fensters nicht" "$(HALO_DROSSEL_STUFE=3 HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30 85)" \
+  'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
+pruefe "Drossel ohne Volldampf: keine Zeile, keine Wirkung" "$(HALO_DROSSEL_STUFE=3 lauf $JD 4)" 'Entscheidung: neu beginnen'
+pruefe "Drossel ohne Volldampf: keine Drossel-Zeile" "$(HALO_DROSSEL_STUFE=3 lauf $JD 4 | grep -c '^Drossel:')" '^0$'
+print -r -- '{"punkte":[{"t":"2026-11-17T03:00:00Z","woche":5},{"t":"2026-11-17T06:00:00Z","woche":20}]}' > $T/verlauf-tr.json
+pruefe "Drossel echt gerechnet (Woche 30, (30−5)/6 h): Stufe 3, nichts Neues bis 11:00" \
+  "$(HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-tr.json HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:00:00+01:00 30 55)" \
+  'Drossel: +Stufe 3 \([0-9]+ Fehlstunden' 'Tempo 4\.17 Punkte/h über 6\.0 h Verlauf' 'Entscheidung: warten bis 11:00'
+# jede zweite Runde (Stufe 2): drossel_anwenden aus dem Skript, ohne Claude
+DA=$(sed -n '/^drossel_anwenden() {/,/^}/p' $SKRIPT)
+pruefe "Drossel Stufe 2: Runde 1 läuft, Runde 2 wartet so lange wie die letzte Runde (25 Min.), Runde 3 läuft; Grenzen 10 und 60 Min." \
+  "$(zsh -c 'eval "$1"; typeset -A E; DROSSEL_STUFE=2 DROSSEL_AUSSETZEN= E[DROSSEL]="Stufe 2 (Probe)"; RUNDEN_ZEIT=("0 1500"); export HALO_JETZT=2026-11-17T10:00+01:00
+    for r in 1 2 3; do E[ENTSCHEIDUNG]=neu E[WARTEN_BIS]=; drossel_anwenden; print "R$r $E[ENTSCHEIDUNG] $E[WARTEN_BIS]"; done
+    RUNDEN_ZEIT=("0 60"); E[ENTSCHEIDUNG]=neu; drossel_anwenden; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "kurz $E[WARTEN_BIS]"
+    RUNDEN_ZEIT=("0 9000"); E[ENTSCHEIDUNG]=neu; drossel_anwenden; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "lang $E[WARTEN_BIS]"
+    DROSSEL_STUFE=0; E[ENTSCHEIDUNG]=neu; drossel_anwenden; print "S0 $E[ENTSCHEIDUNG]"' _ "$DA")" \
+  '^R1 neu $' 'R2 warten 2026-11-17T10:25' 'R3 neu' 'kurz 2026-11-17T10:10' 'lang 2026-11-17T11:00' 'S0 neu'
+pruefe "Drossel: Hauptschleife wendet sie vor jedem neuen Eintrag an" "$(grep -c 'entscheiden; drossel_anwenden; log' $SKRIPT)" '^1$'
 pruefe "Fenster-Takt: Skript nutzt die gemeinsame Rechnung aus lauf-hilfen.zsh" "$(grep -c 'FENSTER_DEF_PY\$ENTSCHEID_PY' $SKRIPT; grep -c '^FENSTER_DEF_PY=' $REPO/tests/lauf-hilfen.zsh)" '^1
 1$'
 pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-16T12:00:00+01:00 95)" \

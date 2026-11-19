@@ -29,7 +29,8 @@ W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt \
+    HALO_DROSSEL_STUFE=0 HALO_DROSSEL_DATEI=$T/drossel.txt HALO_DROSSEL_VERLAUF=$T/verlauf.json HALO_TAGESROUTINE_CONF=$T/leer.conf "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -81,6 +82,16 @@ pruefe "Fenster-Takt: gemeinsame Rechnung fenster_takt aus lauf-hilfen.zsh (auch
 unbekannt
 leer$'
 pruefe "Fenster-Takt: Wächter rechnet nicht selbst" "$(grep -vE '^[[:space:]]*#' $SKRIPT | grep -cE 'fenster_takt "\$rest"|18000')" '^1$'
+# Kontingent-Drossel (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“, drossel_stufe in lauf-hilfen.zsh)
+pruefe "Drossel Stufe 1: kein neuer Worker, auch bei 5 Stunden 40 % (unter FENSTER_MIN)" "$(W HALO_DROSSEL_STUFE=1 HALO_AS_WOCHE=35)" '^Prüfung:  warten Drossel Stufe 1'
+pruefe "Drossel Stufe 2 und 3: kein Worker, auch kein tokenarmer" "$(W HALO_DROSSEL_STUFE=2; W HALO_DROSSEL_STUFE=3 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'warten Drossel Stufe 2' 'warten Drossel Stufe 3'
+pruefe "Drossel Stufe 0: Lage nennt sie, Worker startet" "$(W HALO_DROSSEL_STUFE=0)" 'starten opus .*; Drossel Stufe 0'
+print -r -- '{"punkte":[{"t":"2026-11-17T08:00:00Z","woche":10},{"t":"2026-11-17T11:00:00Z","woche":25}]}' > $T/verlauf-schnell.json
+pruefe "Drossel echt gerechnet ((27−10)/6 h, voll lange vor dem Reset): Stufe 3, Zustand geschrieben? nein im Trockenlauf" \
+  "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json; ls $T/drossel.txt 2>&1)" \
+  'warten Drossel Stufe 3 \([0-9]+ Fehlstunden.*Tempo 2\.83 Punkte/h über 6\.0 h Verlauf' 'No such file'
+pruefe "Drossel nur im Volldampf" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt)" 'ende Volldampf nicht aktiv'
+pruefe "Drossel: 30 Min. nach dem Reset zu wenig Daten → Fail-open, Lage nennt es, Worker startet" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/fehlt.json HALO_JETZT=2026-11-17T01:30+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0)" 'starten opus .*Drossel Fail-open'
 pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'
 pruefe "Fable auch bei laufendem Fable-Lauf (keine Mengengrenze im Volldampf, 17.11.2026)" "$(W HALO_AS_WOCHE=9 HALO_AS_FABLE=1)" 'starten fable'
 pruefe "kein Fable bei 5 Stunden 50 %" "$(W HALO_AS_WOCHE=9 HALO_AS_5H=50)" 'starten opus'
@@ -194,6 +205,7 @@ print -r -- "# Offene Aufträge an neon
 R() { W HALO_AS_NEON_STAND=$T/stand.md HALO_AS_5H=86 "$@" }
 pruefe "Rundgang: 86 %, tagsüber, frei, offen → Rundgang mit sonnet (vor Takt und Drossel)" "$(R HALO_FENSTER_REST=16860)" \
   '^Prüfung:  rundgang sonnet Auftrag #35 \(5-Stunden-Fenster 86 % ab 85 %\)' 'Würde:    Windows-Rundgang mit sonnet starten \(Auftrag #35 wörtlich, Rahmen tests/auslastung-rundgang\.md, höchstens 120 Min\.\)'
+pruefe "Rundgang: auch bei Drossel Stufe 3 (Windows-Rundgang nie gebremst)" "$(R HALO_DROSSEL_STUFE=3)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: auch ab 90 % (Stopp gilt nur für Worker)" "$(R HALO_AS_5H=92)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: 84 % → nicht fällig, tokenarmer Worker" "$(R HALO_AS_5H=84 HALO_AS_TOKENARM=0)" 'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 %' 'starten sonnet tokenarm'
 pruefe "Rundgang: 98 % → nicht fällig (Limit zu nah)" "$(R HALO_AS_5H=98)" 'Rundgang: nicht fällig – 5-Stunden-Fenster ab 98 %' 'warten 5-Stunden-Fenster ab 90'

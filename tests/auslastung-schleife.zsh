@@ -27,6 +27,8 @@
 #      TOKENARM_MAX 1 gleichzeitig; Maintainer 18.11.2026); ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
 #      Windows-Rundgang (rundgang_pruefen, unten): ab RUNDGANG_5H (85 %) einmal je Tag eine Sitzung mit dem offenen
 #      Bildauftrag RUNDGANG_NR aus neon-stand.md (Maintainer 18.11.2026), vor Stopp, Takt und Drossel.
+#      Kontingent-Drossel (drossel_stufe, lauf-hilfen.zsh; Maintainer 19.11.2026): reicht die Woche nach Hochrechnung nicht
+#      bis zum Reset (Stufe ab 1), kein neuer Worker; nach dem Rundgang, vor Stopp und Takt.
 #   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
 #   6. Vorprüfung ohne Sprachmodell (passend, unten; Maintainer 19.11.2026): ein Worker nur, wenn die Aufgabenliste (höchstens
@@ -42,7 +44,7 @@
 # der Nachpush).
 # Zum Proben: HALO_JETZT=<ISO-Zeit>, HALO_AS_WOCHE/_5H/_STATUS, HALO_AS_AKTIV, HALO_AS_FABLE, HALO_AS_NACHTLAUF=ja|nein,
 # HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET,
-# HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar).
+# HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar), HALO_DROSSEL_STUFE/_DATEI/_VERLAUF.
 emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna HALO_LAUF=auslastung
@@ -286,6 +288,13 @@ pruefen() {
   local rg
   rg=$(rundgang_pruefen $f5 $hm) && { print -r -- "rundgang $K[MODELL_RUNDGANG] Auftrag #$K[RUNDGANG_NR] (5-Stunden-Fenster $f5 % ab $K[RUNDGANG_5H] %) – $lage"; return }
   [[ $MODUS == trocken ]] && print -u2 -r -- "Rundgang: nicht fällig – $rg"
+  # Kontingent-Drossel (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“; drossel_stufe in
+  # lauf-hilfen.zsh, gemeinsam mit der Tagesroutine): reicht die Woche bis zum Reset nicht (Stufe ab 1), keine neuen Worker,
+  # auch nicht bei Fenster unter FENSTER_MIN; nach dem Rundgang (nie gebremst), laufende Worker arbeiten weiter
+  local dr
+  dr=$(drossel_stufe $w)
+  (( ${dr%% *} >= 1 )) && { print -r -- "warten Drossel ${dr#* } – $lage"; return }
+  lage+="; Drossel ${dr#* }"
   (( f5 >= K[FENSTER_STOPP] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_STOPP] % – $lage"; return }
   # Fenster-Takt (Maintainer 18.11.2026: „ich möchte nur vermeiden dass die produktivität bei null ist weil wir ständig in das 5h-limit hineinlaufen“):
   # neue Worker nur, solange das Fenster nicht schneller verbraucht ist als die verstrichene Zeit (+ FENSTER_RESERVE Punkte), damit es nicht nach 1 h leer ist

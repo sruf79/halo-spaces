@@ -1919,7 +1919,7 @@ calendar-event-box :is(.alarm-icons-box, .item-classification-icon, .item-recurr
 }
 
 #mcTaskCards[data-focused] .mc-tc[aria-selected] {
-  box-shadow: 0 0 0 2px var(--mt-accent);
+  box-shadow: 0 0 0 2px var(--mt-selection);
 }
 
 /* Suchtreffer gelb hinterlegt wie in der Mail (markHits) */
@@ -3042,9 +3042,9 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
   font-weight: var(--mt-sidebar-selected-weight) !important;
 }
 
-/* fokussiert wie die Ordnerliste der Mail: Auswahl in der Akzentfarbe getönt */
+/* fokussiert wie die Ordnerliste der Mail: Auswahl in der Auswahlfarbe getönt */
 #books:focus-within :is(.bookRow, .listRow).selected > :is(.bookRow-container, .listRow-container) {
-  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--mt-selection) 22%, transparent) !important;
   color: var(--mt-text) !important;
 }
 
@@ -3179,11 +3179,11 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #cards:focus-within .card-layout.selected .card-container {
-  background: var(--mt-accent) !important;
+  background: var(--mt-selection) !important;
 }
 
 #cards:focus-within .card-layout.selected :is(.name, .ab-card-second-line, .address) {
-  color: var(--mt-accent-text) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Tabellenansicht der Kontakte wie die Mail-Tabelle: Schrift und Spaltenkopf
@@ -3234,13 +3234,13 @@ menuitem.percent-100-menuitem > :is(.menu-text, .menu-iconic-text)::before {
 }
 
 #cards:focus-within tr[is="ab-table-card-row"]:is(.selected, [aria-selected="true"]) {
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  background: var(--mt-selection) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 #cards:focus-within tr[is="ab-table-card-row"]:is(.selected, [aria-selected="true"]) .mc-book {
-  background: color-mix(in srgb, var(--mt-accent-text) 25%, transparent) !important;
-  color: var(--mt-accent-text) !important;
+  background: color-mix(in srgb, var(--mt-selection-text) 25%, transparent) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Kontaktdetails: großes Foto mittig, Name darunter, Daten in Karten */
@@ -3620,14 +3620,14 @@ search-bar {
 }
 
 /* Auswahl wie in der Ordnerliste der Mail (G14): grau, Schrift in Textfarbe;
-   mit Fokus in der Liste in der Akzentfarbe getönt */
+   mit Fokus in der Liste in der Auswahlfarbe getönt */
 #contactlistbox > richlistitem[selected] {
   background: var(--mt-selected-unfocused) !important;
   color: var(--mt-text) !important;
 }
 
 #contactlistbox:focus > richlistitem[selected] {
-  background: color-mix(in srgb, var(--mt-accent) 22%, transparent) !important;
+  background: color-mix(in srgb, var(--mt-selection) 22%, transparent) !important;
   color: var(--mt-text) !important;
 }
 
@@ -6184,8 +6184,8 @@ addon-card .addon-inline-options {
 }
 
 #cards:focus-within .card-layout.selected .mc-book {
-  background: color-mix(in srgb, var(--mt-accent-text) 25%, transparent) !important;
-  color: var(--mt-accent-text) !important;
+  background: color-mix(in srgb, var(--mt-selection-text) 25%, transparent) !important;
+  color: var(--mt-selection-text) !important;
 }
 
 /* Thunderbirds eigene Adressbuch-Angabe wäre doppelt */
@@ -9170,11 +9170,13 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 
 /* Akzentfarbe immer wie macOS (wie in Apples Apps): Thunderbirds eigene
    Farbwahl ist ausgeblendet; eine früher gewählte Farbe wird auch in
-   Thunderbirds eigenen Flächen durch die macOS-Farbe ersetzt */
+   Thunderbirds eigenen Flächen durch die macOS-Farbe ersetzt; gewählte
+   Zeilen in Thunderbirds Listen (z. B. Kontakte-Seitenleiste beim Verfassen)
+   in der Auswahlfarbe wie die Mailliste */
 @media not -moz-pref("mail.appearance.accentColor", "accent-color") {
   :root, :host {
-    --selected-item-color: AccentColor !important;
-    --selected-item-text-color: AccentColorText !important;
+    --selected-item-color: var(--mt-selection, AccentColor) !important;
+    --selected-item-text-color: var(--mt-selection-text, AccentColorText) !important;
     accent-color: AccentColor !important;
   }
 }
@@ -11629,6 +11631,8 @@ datepicker[mc-inline] > menulist {
   :root {
     --mt-accent: Highlight;
     --mt-accent-text: HighlightText;
+    --mt-selection: Highlight;
+    --mt-selection-text: HighlightText;
   }
 
   #threadTree tr:is(.selected, [aria-selected="true"]) .card-container,

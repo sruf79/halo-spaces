@@ -20504,6 +20504,70 @@ Neu
         return ok, f"{res}"
     check("Suche: im gewählten Ordner nur dort, in Sammelordnern global, keine Mails ohne den Begriff, Platzhalter je Ordner, Ordnerwechsel sucht weiter", search_scope, results)
 
+    def contact_search():
+        # „Search“ am geöffneten Kontakt: Thunderbird öffnete eine eigene Suchansicht ohne Ordnerliste;
+        # jetzt Mail-Space mit Ordnerliste, Adresse im Suchfeld, Treffer aus allen Postfächern (gesendet und empfangen)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const A = folder("KontaktSucheA"), B = folder("KontaktSucheB"); await ruhig(800);
+          const addr = "kora@kontaktsuche.example.invalid";
+          const mail = (subject, id, from, to) => unescape(encodeURIComponent([`From: ${from}`, `To: ${to}`, `Subject: ${subject}`,
+            "Date: Mon, 19 Oct 2026 10:00:00 +0200", `Message-ID: <${id}@example.invalid>`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", "Hallo.", ""].join("\r\n")));
+          if (!A.getTotalMessages(false)) {
+            A.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo von Kora", "ks-a1", `Kora Kontakt <${addr}>`, "Halo Test <halo@example.invalid>"));
+            A.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo von jemand anderem", "ks-a2", "Otto Fremd <otto@example.invalid>", "Halo Test <halo@example.invalid>"));
+            B.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo an Kora", "ks-b1", "Halo Test <halo@example.invalid>", `Kora Kontakt <${addr}>`));
+            await bis(() => A.getTotalMessages(false) >= 2 && B.getTotalMessages(false) >= 1, "Testmails gespeichert", 4000); await ruhig(1000);
+          }
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = book.childCards.find(c => c.primaryEmail == addr);
+          if (!card) { card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            card.displayName = "Kora Kontakt"; card.primaryEmail = addr; card = book.addCard(card); }
+          const out = {};
+          // Mail im Ordner A: ohne die Regel suchte das Suchfeld nur dort
+          let a3 = await toMail(); a3.displayFolder(A.URI); await ruhig(900);
+          const folderWidth = () => Math.round(a3.document.getElementById("folderPane")?.getBoundingClientRect().width || 0);
+          out.folderBefore = folderWidth();
+          tm.openTab("addressBookTab", {});
+          const cw = await bis(() => tm.currentTabInfo.mode.name == "addressBookTab" && tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList && tm.currentTabInfo.browser.contentWindow, "Adressbuch", 8000);
+          await ruhig(1200);
+          const list = cw.cardsPane.cardsList;
+          const row = await bis(() => { const v = list.view; const i = [...Array(v?.rowCount || 0).keys()].find(k => v.getCardFromRow(k)?.primaryEmail == addr); return i === undefined ? null : { i }; }, "Kontakt in der Liste", 6000);
+          list.selectedIndex = row.i;
+          const button = await bis(() => { const b = cw.document.getElementById("detailsSearchButton"); return b && !b.hidden && cw.detailsPane.currentCard?.primaryEmail == addr && b; }, "Knopf Search am Kontakt", 6000);
+          const tabsBefore = tm.tabInfo.length;
+          button.click();
+          await bis(() => tm.currentTabInfo?.mode?.name == "mail3PaneTab", "Mail-Space nach Search", 6000);
+          a3 = tm.currentAbout3Pane;
+          await bis(() => a3.document.documentElement.getAttribute("mc-search-stage") || tm.currentTabInfo && (d.querySelector("#unifiedToolbarContent global-search-bar")?.value || "") == addr, "Suche gestartet", 6000);
+          await bis(() => !a3.document.documentElement.hasAttribute("mc-search-stage"), "Suche fertig", 10000); await ruhig(2000);
+          out.mode = tm.currentTabInfo.mode.name; out.newTabs = tm.tabInfo.length - tabsBefore;
+          out.gloda = tm.tabInfo.some(t => /^gloda/.test(t.mode?.name || ""));
+          out.folderAfter = folderWidth(); out.folderVisible = a3.paneLayout?.folderPaneVisible;
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          out.term = bar?.value;
+          out.header = d.getElementById("mcListHeader")?.querySelector(".mc-lh-count")?.textContent;
+          try { a3.gDBView?.doCommand(Ci.nsMsgViewCommandType.expandAll); } catch {}
+          out.hits = [...Array(a3.gDBView?.rowCount || 0).keys()].map(i => a3.gDBView.getMsgHdrAt(i)?.messageId?.split("@")[0]).filter(Boolean).sort();
+          // Leeren kehrt zum Ordner davor zurück
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(1200);
+          out.back = a3.gFolder?.URI == A.URI;
+          bar.reset?.();
+          book.deleteCards([card]);
+          for (const t of [...tm.tabInfo]) { if (t.mode?.name == "addressBookTab") tm.closeTab(t); }
+          await ruhig(400);
+          return out;""")
+        hits = set(res.get("hits") or [])
+        ok = (res.get("mode") == "mail3PaneTab" and not res.get("gloda") and res.get("newTabs", 1) <= 0
+              and res.get("folderVisible") is not False and res.get("folderAfter", 0) > 0 and res.get("folderAfter") == res.get("folderBefore")
+              and res.get("term") == "kora@kontaktsuche.example.invalid"
+              and {"ks-a1", "ks-b1"} <= hits and "ks-a2" not in hits
+              and (res.get("header") or "").startswith("All Mailboxes") and res.get("back"))
+        return ok, f"{res}"
+    check("Kontakte: „Search“ am Kontakt sucht im Mail-Space über alle Postfächer, Adresse im Suchfeld, Ordnerliste bleibt", contact_search, results)
+
     def search_stages():
         # zweistufige Suche: erst Betreff/Absender/Empfänger (Treffer sofort), danach der Text – die Treffer der
         # ersten Stufe bleiben stehen, Texttreffer kommen dazu, keine Zeile doppelt; Ordnerwechsel startet neu

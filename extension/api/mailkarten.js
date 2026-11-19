@@ -360,6 +360,10 @@ class EnhancerMailkarten {
 
   // Ordner, in dem gesucht wird (während der Suche: der Ordner davor)
   searchBase(a3) {
+    // Suche aus einem Kontakt („Search“ am Kontakt): immer alle Postfächer
+    if (this.searchAllMailboxes) {
+      return null;
+    }
     let base = a3?.gFolder;
     if (this.isSearchFolder(base)) {
       try {
@@ -411,6 +415,7 @@ class EnhancerMailkarten {
     let folder = this.searchFolder(false);
     if (!term) {
       this.mailSearchTerm = "";
+      this.searchAllMailboxes = false;
       this.searchRun = null;
       a3.document.documentElement.removeAttribute("mc-search-stage");
       a3.document.documentElement.removeAttribute("mc-search-gloda");
@@ -449,6 +454,30 @@ class EnhancerMailkarten {
       });
     }
     this.updateListHeader(top);
+  }
+
+  // „Search“ an einem geöffneten Kontakt: Thunderbird öffnet dafür eine eigene
+  // Suchansicht ohne Ordnerliste (Gloda-Tab). Stattdessen wie Apple Mail in
+  // den Mail-Space wechseln, die Adresse ins Suchfeld oben setzen und über
+  // alle Postfächer suchen, gesendet wie empfangen; die Ordnerliste bleibt
+  contactMailSearch(top, address) {
+    const term = (address || "").trim();
+    const tm = top.document.getElementById("tabmail");
+    const mailTab = tm?.tabInfo.find(t => t.mode?.name == "mail3PaneTab");
+    if (!term || !mailTab) {
+      return false;
+    }
+    tm.switchToTab(mailTab);
+    this.searchAllMailboxes = true;
+    // nach dem Tabwechsel: der Wechsel setzt das Suchfeld auf den Begriff des
+    // Bereichs zurück (syncSearchForTab)
+    top.setTimeout(() => {
+      this.searchAllMailboxes = true;
+      top.document.querySelector("#unifiedToolbarContent global-search-bar")?.overrideSearchTerm?.(term);
+      this.mailSearch(top, term);
+      top.__mcSearchPlaceholder?.();
+    }, 0);
+    return true;
   }
 
   startMailSearch(top, a3, folder, run, hits) {

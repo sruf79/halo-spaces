@@ -9991,6 +9991,30 @@ class CardEnhancer {
       }
     };
 
+    // Knopf „Search“ am geöffneten Kontakt: Suche im Mail-Space statt
+    // Thunderbirds Suchansicht ohne Ordnerliste (contactMailSearch)
+    const hookContactSearch = (cw, restorers) => {
+      const d = cw.document;
+      if (d.__mcContactSearch) {
+        return;
+      }
+      d.__mcContactSearch = true;
+      const click = event => {
+        if (event.button || !event.target.closest?.("#detailsSearchButton")) {
+          return;
+        }
+        const address = cw.detailsPane?.currentCard?.primaryEmail;
+        if (address && this.contactMailSearch(w, address)) {
+          event.stopImmediatePropagation();
+          event.preventDefault();
+        }
+      };
+      d.addEventListener("click", click, true);
+      restorers.push(() => {
+        d.removeEventListener("click", click, true);
+        delete d.__mcContactSearch;
+      });
+    };
     const styleContentPages = () => {
       markSearch();
       const uri = sheetURI();
@@ -10053,6 +10077,11 @@ class CardEnhancer {
             hookCollectedAddresses(cw, winRestorers);
           } catch (e) {
             log("collected addresses error", e);
+          }
+          try {
+            hookContactSearch(cw, winRestorers);
+          } catch (e) {
+            log("contact search error", e);
           }
           try {
             hookPhotoDialog(cw, winRestorers);

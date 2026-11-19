@@ -183,6 +183,10 @@ Changes take effect right away unless noted.
 
 ## What's new in 3.33.0
 
+- **Selection**: on macOS the selected message, contact and task use the system selection colour while the list has focus (follows the accent colour, no longer glaring in dark mode); without focus the selection stays grey
+- **Attachments**: "Save All" is a quiet grey label until you hover it; the capsule appears under the pointer
+- **Menus**: on Linux and Windows menus are opaque again so the text is easy to read; on macOS they stay translucent (opaque with "Reduce transparency") (#73)
+- **Mail**: the "External content blocked" notice sits centred between the message header and the text; in the message window, buttons from other add-ons sit in their own round capsule behind "More" (#69)
 - **Settings**: typing in "Own keywords" after a second mail window was closed no longer causes errors in the background
 
 ## What's new in 3.32.0

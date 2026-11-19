@@ -1311,17 +1311,6 @@ class EnhancerOberflaeche {
     const res = Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler);
     res.setSubstitution("mailcards", extensionRoot);
     this.restorers.push(() => res.setSubstitution("mailcards", null));
-    // Stilblätter mit fester Adresse (Info-Fenster, Einstellungsseite: <link> ohne Version): nach einem
-    // Paketwechsel ohne Neustart lieferte Thunderbirds Zwischenspeicher dort noch die alte Fassung – leeren
-    try {
-      if (typeof ChromeUtils.clearResourceCache == "function") {
-        ChromeUtils.clearResourceCache({ types: ["stylesheet"] });
-      } else {
-        ChromeUtils.clearStyleSheetCache?.();
-      }
-    } catch (e) {
-      log("stylesheet cache error", String(e).slice(0, 120));
-    }
     // Design in alle offenen Fenster (neue übernimmt der docObserver);
     // die Version in der Adresse umgeht Thunderbirds Stylesheet-Zwischenspeicher
     ThemeSheet.uri = `resource://mailcards/theme.css?v=${extensionVersion}`;
@@ -1608,8 +1597,7 @@ class EnhancerOberflaeche {
       doc.removeEventListener("popupshowing", onShowing);
       off.forEach(el => el.removeAttribute("mc-ctx-off"));
       for (const [el, parent, next] of moved.reverse()) {
-        // (auch „Create Rule from Message…“: blieb sonst stehen und stand nach einem Update ohne Neustart doppelt)
-        if (el == open || el == filters || el == makeFilter || el.classList.contains("mc-ctx-sep")) {
+        if (el == open || el == filters || el.classList.contains("mc-ctx-sep")) {
           el.remove();
         } else if (parent) {
           parent.insertBefore(el, next?.parentNode == parent ? next : null);

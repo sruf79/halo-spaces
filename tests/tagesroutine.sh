@@ -733,7 +733,7 @@ $(<$AUFTRAG_DATEI)"
 # Prüfzweig ohne Force: Stand des Zweigs der Arbeitskopie dorthin (nur Fertiges; Claude pusht nie selbst)
 PRUEF_INFO= ROT_GEMELDET=
 pruef_pushen() {
-  if git -C $WT push -q origin refs/heads/$PRUEF:refs/heads/$PRUEF 2>>$LOG; then
+  if git -C $WT push -q origin refs/heads/${PRUEF}:refs/heads/${PRUEF} 2>>$LOG; then
     PRUEF_INFO="$PRUEF zuletzt $(git -C $WT rev-parse --short $PRUEF) ($(date +%H:%M))"
     log "Prüfzweig: $PRUEF_INFO"
   else

@@ -25,6 +25,7 @@ D=$(c a.txt 4 "Aufgaben: Umbau Schritt 2")
 E=$(c a.txt 5 "Mail: Suche")
 F=$(c a.txt 6 "Felder: Höhe")
 git cherry-pick $RB >/dev/null 2>&1; RM=$(git rev-parse HEAD)
+git checkout -q -b worker HEAD~1; WX=$(c w.txt worker "Worker: Ursprung des Cherry-Picks"); git checkout -q main   # (nie im Release)
 git tag v1.1.0
 cd $HIER
 
@@ -103,6 +104,19 @@ pruefe "Doppellauf: Summe ohne Schließen" 'zeile "geschlossen 0, Reihen vermerk
 jq --arg A ${A[1,7]} '.items += [{id: "PVTI_halb", status: "In Progress", title: "Mail: halb", body: "committet \($A), wartet auf Push/CI\n\nerledigt in v1.1.0 (\($A)), automatisch geschlossen"}]' $T/board.json > $T/x && mv $T/x $T/board.json
 aus=$(lauf 1.1.0)
 pruefe "Notiz schon da: keine zweite Notiz, Status Done" '! grep -q "^notiz PVTI_halb" $T/folge.log && grep -q "^status PVTI_halb done" $T/folge.log'
+
+# --- Notiz des Nachtlaufs „committet auf main: <Hash> (cherry-pick von <Hash>), gepusht <Spitze>“ (v3.32.0, 19.11.2026:
+#     die Spitze 63fa6f5 trug „teilweise“ und machte 24 Einträge zu Teil-Fixen) ---
+jq --arg A ${A[1,7]} --arg C ${C[1,7]} --arg W ${WX[1,7]} '.items += [
+ {id: "PVTI_push", status: "In Progress", title: "Mail: Nachtlauf", body: "Wo: Mail\n\nNachtlauf 19.11.2026: committet auf main: \($A) (cherry-pick von \($W), Module-Aufteilung berücksichtigt), --only hell grün, gepusht \($C), wartet auf Push/CI."},
+ {id: "PVTI_pushteil", status: "In Progress", title: "Mail: Codes erkennen Teil 2", body: "Nachtlauf: committet auf main: \($C) (cherry-pick von \($W)), gepusht \($C), wartet auf Push/CI."}
+]' $T/board.json > $T/x && mv $T/x $T/board.json
+: > $T/folge.log
+aus=$(lauf 1.1.0)
+pruefe "gepusht <Hash>: Spitze des Pushs zählt nicht als Commit des Eintrags (kein Teil-Fix), geschlossen mit eigenem Hash" 'grep -q "^status PVTI_push done ${A[1,7]}$" $T/folge.log && ! grep -q "| PVTI_push |" $T/zweifel.md'
+pruefe "cherry-pick von <Hash> außerhalb der Releases: kein „weiterer Commit“" '! grep -q "| PVTI_push | .*weiterer Commit" $T/zweifel.md'
+pruefe "eigener Commit mit „teilweise“ bleibt Teil-Fix, auch wenn er zugleich die Spitze ist" '! grep -q PVTI_pushteil $T/folge.log && grep -q "| PVTI_pushteil | .*Teil-Fix" $T/zweifel.md'
+jq '.items |= map(select(.id != "PVTI_pushteil"))' $T/board.json > $T/x && mv $T/x $T/board.json
 
 # --- Design-Einträge: „zur Abnahme“ (Designer) ohne „abgenommen“ ist ein Zweifel mit Frist von 7 Tagen, Vorrang vor dem Hash ---
 a=${A[1,7]}

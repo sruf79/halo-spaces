@@ -134,6 +134,12 @@ for sha, subj in commits:
             gh.setdefault(n, []).append(sha)
 
 HEX = re.compile(r"(?<![0-9A-Za-z#])[0-9a-f]{7,40}(?![0-9A-Za-z])")
+# Hashes, die nicht der Commit des Eintrags sind (v3.32.0, 19.11.2026: „gepusht 63fa6f5“ in den Notizen des Nachtlaufs
+# ist der Stand von main beim Push; 63fa6f5 trug „(GitHub #67, teilweise)“ und machte 24 Einträge zu Teil-Fixen):
+#   - „gepusht <Hash>“: Spitze des Pushs, nie der Commit des Eintrags → übergangen
+#   - „cherry-pick von <Hash>“: Ursprung auf dem Prüfzweig; außerhalb der Releases kein „weiterer Commit“ → übergangen
+PUSH_HASH = re.compile(r"\bgepusht(?:\s+(?:bis|als|mit|auf))?\s*\(?\s*([0-9a-f]{7,40})(?![0-9A-Za-z])", re.I)
+PICK_HASH = re.compile(r"\bcherry[- ]pick(?:ed)?(?:\s+(?:von|from|aus))?\s*\(?\s*([0-9a-f]{7,40})(?![0-9A-Za-z])", re.I)
 # offener Rest oder offene Frage ab dem Absatz mit dem Treffer: lieber ein Zweifel zu viel als ein Eintrag zu früh zu
 # (18.11.2026: „Rest (gemessen, nicht Teil dieses Fixes)“ stand ohne „Offen:“ in einer Notiz)
 REST = re.compile(r"\boffen(?:e[nrs]?)?\b|\bRest\b|teilweise|Rückfrage|kein Fix|nicht behoben|nicht gelöst|nicht Teil|noch nicht|bleibt (?:In Progress|Todo)(?!\s+bis\b[^.\n]*\b(?:Release|Windows|CI|Push))", re.I)
@@ -172,9 +178,12 @@ for it in items:
     for i, a in enumerate(abs_):
         if not re.search(r"committet", a, re.I): continue
         loes = []
-        for tok in HEX.findall(a):
+        push = {m.start(1) for m in PUSH_HASH.finditer(a)}; pick = {m.start(1) for m in PICK_HASH.finditer(a)}   # Stellen, nicht Werte
+        for m in HEX.finditer(a):      # („committet auf main: X …, gepusht X“: X zählt an der ersten Stelle)
+            tok = m.group(0)
+            if m.start() in push: continue
             art, sha = aufloesen(tok)
-            if art == "fremd" and tok.isdigit(): continue   # Zahlen (Lauf-Nummern) sind keine Hashes
+            if art == "fremd" and (tok.isdigit() or m.start() in pick): continue   # Zahlen (Lauf-Nummern) sind keine Hashes
             loes.append((art, sha))
             if art == "bereich": treffer[sha] = max(treffer.get(sha, -1), i)
         commit_abs.append((i, loes))

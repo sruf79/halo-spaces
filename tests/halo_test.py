@@ -15049,7 +15049,7 @@ def run_checks(m, version, profile, results):
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
-            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim")]);
+            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim"), Math.round(panel.getBoundingClientRect().left * 10) / 10]);
             await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
@@ -15121,7 +15121,16 @@ def run_checks(m, version, profile, results):
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
             if (phase.startsWith("ein")) out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
-            if (phase.startsWith("ein") && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
+            // Die Überschrift liegt in der Pane und gleitet mit ihr: im letzten Bild der Animation fehlt der Pane noch ihr
+            // letzter, kleiner Schritt der Kurve (0,6–1,2 px), die Überschrift steht dort also absolut nie ganz am Endplatz.
+            // Gemessen wird daher ihre Lage in der Pane (kein Ruck, wenn am Ende min-width und data-mc-anim wegfallen) und
+            // dass sie absolut nicht weiter rückt als die Pane in ihrem letzten Schritt
+            if (phase.startsWith("ein") && lastAnim) {
+              const tNow = title?.getBoundingClientRect().left ?? 0, pNow = panel.getBoundingClientRect().left;
+              out[phase].titleEnd = Math.round(Math.abs((lastAnim[0] - lastAnim[2]) - (tNow - pNow)) * 10) / 10;
+              out[phase].titleEndAbs = Math.round(Math.abs(lastAnim[0] - tNow) * 10) / 10;
+              out[phase].paneEnd = Math.round(Math.abs(lastAnim[2] - pNow) * 10) / 10;
+            }
             // Lücke nach dem letzten Bild der Animation (tl und ts gehören zum selben Bild)
             const iLast = tl.findLastIndex(([, a]) => a);
             if (phase.startsWith("ein") && iLast >= 0 && iLast + 1 < ts.length) out[phase].endGapMs = Math.round(ts[iLast + 1] - ts[iLast]);
@@ -15156,7 +15165,7 @@ def run_checks(m, version, profile, results):
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
-                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
+                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1 and v.get("titleEndAbs", 0) <= v.get("paneEnd", 0) + 1)
                     and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
                     and v["plus"]["step"] <= v["maxJump"] + 2 and v["plus"]["toggleStep"] <= v["maxJump"] + 2 and v["plus"]["overlap"] <= 0
                     and v["plus"]["seen"] >= 2 and bool(v["plus"]["fin"]) == ein and (ein or (v["plus"]["first"] or [0, 0])[1] >= 1)

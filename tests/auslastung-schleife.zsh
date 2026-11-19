@@ -67,7 +67,7 @@ typeset -A K
 konf_lesen() {
   K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900
-     RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240
+     RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_BEI_DROSSEL 1 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240
      BOARD_ALTER 15 LEER_WARTEN 15 LEER_GUELTIG 720 NACHPUSH_STUNDEN 24 NACHPUSH_MAX 3)
   local datei=${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} z k v
   [[ -r $datei ]] && while IFS= read -r z; do
@@ -142,6 +142,10 @@ letzter_start() {
 # nicht schon erledigt (Marke rundgang-<Nr>-erledigt) und heute nicht schon gestartet (Marke rundgang-<Nr>-<Datum>),
 # 5-Stunden-Fenster ab RUNDGANG_5H (85) und unter RUNDGANG_5H_BIS (98, sonst scheitert die Sitzung am Limit),
 # RUNDGANG_VON–RUNDGANG_BIS (09:00–22:00), kein Nachtlauf, nicht belegt (CI auf dem Runner, Testlauf, VM, Release).
+# Seit 19.11.2026 (Maintainer: „Der start sollte nicht nur das 5h-limit sondern auch das wochenlimit und aktuelle
+# wochenkontingent berücksichtigen“) auch, wenn die Kontingent-Drossel greift (drossel_stufe ab 1, Woche zu schnell verbraucht;
+# Schalter RUNDGANG_BEI_DROSSEL, Standard 1): tokenarme Arbeit, während teure gedrosselt ist. Wochenlimit (Status nicht
+# „allowed…“ oder Woche ab VOLLDAMPF_WOCHE_ENDE) und Vorrang-Marke des Zwischen-Release prüft pruefen schon davor.
 # Der Auftrag wird wörtlich übergeben (nichts geändert), Rahmen tests/auslastung-rundgang.md. Probe: HALO_AS_NEON_STAND,
 # HALO_AS_BELEGT (leer = frei, sonst Grund).
 rundgang_auftrag() {   # gibt die Auftragszeile aus, Rückgabe 1 wenn nicht offen
@@ -153,18 +157,22 @@ rundgang_belegt() {
   # wie tests/auslastung-test.zsh: andere Claude-Sitzungen und Ungespeichertes im Checkout zählen nicht
   ( aktive_sitzung() { return 1 }; REST_MITNEHMEN=1; belegt )
 }
-rundgang_pruefen() {   # <5h %> <HHMM> – Rückgabe 0 = fällig; gibt sonst den Grund aus
+rundgang_pruefen() {   # <5h %> <HHMM> [<Drossel-Stufe>] – Rückgabe 0 = fällig; gibt dann den Anlass aus, sonst den Grund
   local nr=$K[RUNDGANG_NR] g
   [[ $nr == <1-> ]] || { print -r -- "aus (RUNDGANG_NR 0)"; return 1 }
   [[ -e $ZUSTAND/rundgang-$nr-erledigt ]] && { print -r -- "Auftrag #$nr erledigt"; return 1 }
   rundgang_auftrag >/dev/null || { print -r -- "Auftrag #$nr nicht offen in neon-stand.md"; return 1 }
-  (( $1 >= K[RUNDGANG_5H] )) || { print -r -- "5-Stunden-Fenster unter $K[RUNDGANG_5H] %"; return 1 }
+  local anlass
+  if (( $1 >= K[RUNDGANG_5H] )); then anlass="5 h: 5-Stunden-Fenster $1 % ab $K[RUNDGANG_5H] %"
+  elif [[ $K[RUNDGANG_BEI_DROSSEL] == 1 && ${3:-0} == <1-> ]]; then anlass="Drossel Stufe $3: Woche zu schnell verbraucht"
+  elif [[ $K[RUNDGANG_BEI_DROSSEL] == 1 ]]; then print -r -- "5-Stunden-Fenster unter $K[RUNDGANG_5H] % und keine Drossel"; return 1
+  else print -r -- "5-Stunden-Fenster unter $K[RUNDGANG_5H] % (Start bei Drossel aus)"; return 1; fi
   (( $1 < K[RUNDGANG_5H_BIS] )) || { print -r -- "5-Stunden-Fenster ab $K[RUNDGANG_5H_BIS] % (Limit zu nah)"; return 1 }
   (( $2 >= 10#$K[RUNDGANG_VON] && $2 < 10#$K[RUNDGANG_BIS] )) || { print -r -- "nur $K[RUNDGANG_VON]–$K[RUNDGANG_BIS]"; return 1 }
   nachtlauf_laeuft && { print -r -- "Nachtlauf läuft"; return 1 }
   [[ -e $ZUSTAND/rundgang-$nr-$HEUTE ]] && { print -r -- "heute schon gestartet"; return 1 }
   g=$(rundgang_belegt) && { print -r -- "belegt: $g"; return 1 }
-  print -r -- "fällig"
+  print -r -- $anlass
 }
 
 # --- Vorprüfung ohne Sprachmodell: gibt es überhaupt einen Eintrag für einen Worker? (Maintainer 19.11.2026, „1. ja“ auf neons
@@ -284,15 +292,16 @@ pruefen() {
   fi
   a=$(( w - soll ))
   local lage="Woche $w %, Soll $s[2] % ($bezug), 5 Stunden $f5 %, $n von $grenze aktiv${nacht:+, nachts}"
-  # Windows-Rundgang bei knappem Fenster (vor Stopp und Takt: er braucht kaum Token, nur Zeit und die VM)
-  local rg
-  rg=$(rundgang_pruefen $f5 $hm) && { print -r -- "rundgang $K[MODELL_RUNDGANG] Auftrag #$K[RUNDGANG_NR] (5-Stunden-Fenster $f5 % ab $K[RUNDGANG_5H] %) – $lage"; return }
-  [[ $MODUS == trocken ]] && print -u2 -r -- "Rundgang: nicht fällig – $rg"
   # Kontingent-Drossel (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“; drossel_stufe in
   # lauf-hilfen.zsh, gemeinsam mit der Tagesroutine): reicht die Woche bis zum Reset nicht (Stufe ab 1), keine neuen Worker,
-  # auch nicht bei Fenster unter FENSTER_MIN; nach dem Rundgang (nie gebremst), laufende Worker arbeiten weiter
+  # auch nicht bei Fenster unter FENSTER_MIN; erst nach dem Rundgang (nie gebremst, startet bei Drossel sogar), laufende Worker
+  # arbeiten weiter. Stufe vorher berechnet, weil der Rundgang sie braucht (19.11.2026)
   local dr
   dr=$(drossel_stufe $w)
+  # Windows-Rundgang bei knappem Fenster oder greifender Drossel (vor Stopp und Takt: er braucht kaum Token, nur Zeit und die VM)
+  local rg
+  rg=$(rundgang_pruefen $f5 $hm ${dr%% *}) && { print -r -- "rundgang $K[MODELL_RUNDGANG] Auftrag #$K[RUNDGANG_NR] (Anlass $rg) – $lage"; return }
+  [[ $MODUS == trocken ]] && print -u2 -r -- "Rundgang: nicht fällig – $rg"
   (( ${dr%% *} >= 1 )) && { print -r -- "warten Drossel ${dr#* } – $lage"; return }
   lage+="; Drossel ${dr#* }"
   (( f5 >= K[FENSTER_STOPP] )) && { print -r -- "warten 5-Stunden-Fenster ab $K[FENSTER_STOPP] % – $lage"; return }

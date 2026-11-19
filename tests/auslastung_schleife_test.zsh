@@ -205,7 +205,28 @@ print -r -- "# Offene Aufträge an neon
 - #35 | 16.11. 21:44 | von designer | Bildauftrag Probe, Windows-VM, hell und dunkel | Stand: angenommen" > $T/stand.md
 R() { W HALO_AS_NEON_STAND=$T/stand.md HALO_AS_5H=86 "$@" }
 pruefe "Rundgang: 86 %, tagsüber, frei, offen → Rundgang mit sonnet (vor Takt und Drossel)" "$(R HALO_FENSTER_REST=16860)" \
-  '^Prüfung:  rundgang sonnet Auftrag #35 \(5-Stunden-Fenster 86 % ab 85 %\)' 'Würde:    Windows-Rundgang mit sonnet starten \(Auftrag #35 wörtlich, Rahmen tests/auslastung-rundgang\.md, höchstens 120 Min\.\)'
+  '^Prüfung:  rundgang sonnet Auftrag #35 \(Anlass 5 h: 5-Stunden-Fenster 86 % ab 85 %\)' 'Würde:    Windows-Rundgang mit sonnet starten \(Auftrag #35 wörtlich, Rahmen tests/auslastung-rundgang\.md, höchstens 120 Min\.\)'
+# Rundgang auch bei greifender Drossel (Maintainer 19.11.2026: „Der start sollte nicht nur das 5h-limit sondern auch das
+# wochenlimit und aktuelle wochenkontingent berücksichtigen“)
+pruefe "Rundgang: Fenster 40 % + Drossel Stufe 3 → Start, Anlass Drossel" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3)" \
+  '^Prüfung:  rundgang sonnet Auftrag #35 \(Anlass Drossel Stufe 3: Woche zu schnell verbraucht\)'
+pruefe "Rundgang: Fenster 40 % + Drossel Stufe 1 → Start" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=1)" 'rundgang sonnet .*Anlass Drossel Stufe 1'
+pruefe "Rundgang: Fenster 40 % + Stufe 0 → kein Rundgang, Worker" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=0)" \
+  'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 % und keine Drossel' 'starten opus'
+print -r -- "RUNDGANG_BEI_DROSSEL=0" > $T/rg-aus.conf
+pruefe "Rundgang: RUNDGANG_BEI_DROSSEL=0 → bei Drossel kein Rundgang" "$(R HALO_AS_CONF=$T/rg-aus.conf HALO_AS_5H=40 HALO_DROSSEL_STUFE=3)" \
+  'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 % \(Start bei Drossel aus\)' 'warten Drossel Stufe 3'
+pruefe "Rundgang bei Drossel: Woche ab 98 % → kein Rundgang (Wochenlimit)" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_AS_WOCHE=98)" 'warten Wochenlimit erreicht'
+pruefe "Rundgang bei Drossel: Status nicht allowed → kein Rundgang" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_AS_STATUS=rejected)" 'warten Wochenlimit \(Status rejected'
+pruefe "Rundgang bei Drossel: 5 Stunden 98 % → kein Rundgang (Limit zu nah)" "$(R HALO_AS_5H=98 HALO_DROSSEL_STUFE=3)" 'Rundgang: nicht fällig – 5-Stunden-Fenster ab 98 %' 'warten Drossel'
+pruefe "Rundgang bei Drossel: belegt (CI auf neon) → kein Rundgang" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_AS_BELEGT='CI läuft (Runner.Worker)')" 'Rundgang: nicht fällig – belegt: CI läuft' 'warten Drossel'
+print -r -- "$(( $(date +%s) - 300 )) - fc2701d0000 pruef/x 11:54" > $T/zf-rg.txt
+pruefe "Rundgang bei Drossel: Vorrang-Marke des Zwischen-Release → kein Rundgang" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_ZR_FAELLIG=$T/zf-rg.txt)" '^Prüfung:  warten Zwischen-Release fällig'
+mkdir -p $T/nacht/auslastung; print -r -- "2026-11-17 10:00 sid" > $T/nacht/auslastung/rundgang-35-2026-11-17
+pruefe "Rundgang bei Drossel: heute schon gestartet → kein Rundgang" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3)" 'Rundgang: nicht fällig – heute schon gestartet' 'warten Drossel'
+rm -f $T/nacht/auslastung/rundgang-35-2026-11-17
+pruefe "Rundgang bei Drossel: 08:59 nicht (nur 09:00–22:00)" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_JETZT=2026-11-17T08:59+01:00 HALO_AS_WOCHE=5)" 'Rundgang: nicht fällig – nur 0900–2200'
+pruefe "Rundgang bei Drossel: Nachtlauf läuft → nicht" "$(R HALO_AS_5H=40 HALO_DROSSEL_STUFE=3 HALO_AS_NACHTLAUF=ja)" 'Rundgang: nicht fällig – Nachtlauf läuft'
 pruefe "Rundgang: auch bei Drossel Stufe 3 (Windows-Rundgang nie gebremst)" "$(R HALO_DROSSEL_STUFE=3)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: auch ab 90 % (Stopp gilt nur für Worker)" "$(R HALO_AS_5H=92)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: 84 % → nicht fällig, tokenarmer Worker" "$(R HALO_AS_5H=84 HALO_AS_TOKENARM=0)" 'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 %' 'starten sonnet tokenarm'

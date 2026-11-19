@@ -45,15 +45,6 @@ fi
 if [[ $BEFEHL =~ '(^|[;&|(]|[[:space:]])git([[:space:]]+(-C|-c)[[:space:]]+[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)' ]]; then
   [[ $BEFEHL =~ '(--delete|[[:space:]]-d[[:space:]]|[[:space:]]:[^[:space:]]+)' ]] && exit 0
   [[ $BEFEHL =~ '--tags' && ! $BEFEHL =~ 'push[[:space:]]+[^;&|]*(main|HEAD|claude/|pruef/)' ]] && exit 0
-  # Worker des Auslastungswächters (HALO_WORKER gesetzt): Push auf den eigenen Prüfzweig pruef/worker-… zu jeder Zeit
-  # (Maintainer 19.11.2026, „1. ja“ auf neons Vorschlag, „erledigt“ immer auf den Prüfzweig zu pushen; Prüfzweige laufen
-  # nur auf GitHubs Linux-Rechnern, neon und die CI des Nachtlaufs bleiben frei). Nur ein Push im Befehl, Ziel
-  # pruef/worker-…, nirgends main.
-  if [[ -n ${HALO_WORKER:-} && $BEFEHL =~ 'push[[:space:]][^;&|]*[[:space:]:]pruef/worker-[^[:space:];&|]+' && ! $BEFEHL =~ 'main' ]]; then
-    PUSHES=0
-    for W in ${(z)BEFEHL}; do [[ $W == push ]] && PUSHES=$((PUSHES + 1)); done
-    (( PUSHES == 1 )) && exit 0
-  fi
   if (( JETZT >= 130 && JETZT < 900 )); then
     sperre "Push gesperrt (01:30–09:00 Wiener Zeit)." \
       "Der Nachtlauf wartet auf die CI genau seines Commits; ein weiterer Push verlängert sie um eine Runde." \

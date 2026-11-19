@@ -38,14 +38,5 @@ fall "Testlauf ohne Runner.Worker erlaubt" 0 "python3 tests/halo_test.py" HALO_J
 fall "Testlauf mit Runner und HALO_LAUF erlaubt" 0 "python3 tests/ui_tour.py" HALO_JETZT=1200 HALO_RUNNER=ja HALO_LAUF=rundgang
 fall "grep nach halo_test.py erlaubt" 0 "grep halo_test.py README.md" HALO_JETZT=1200 HALO_RUNNER=ja
 fall "SPERRE_AUS vorhanden erlaubt" 0 $P HALO_JETZT=0200 HALO_SPERRE_AUS=/etc/hosts
-# Worker des Auslastungswächters: Push auf den eigenen Prüfzweig zu jeder Zeit (Maintainer 19.11.2026, „1. ja“)
-WP='git push -u origin HEAD:pruef/worker-20261119-0210-1'
-fall "Worker 02:00 Push auf pruef/worker-… erlaubt" 0 "$WP" HALO_JETZT=0200 HALO_WORKER=1
-fall "Worker 00:10 Push mit Codeänderung auf pruef/worker-… erlaubt" 0 "$WP" HALO_JETZT=0010 HALO_CI_NOETIG=ja HALO_WORKER=1
-fall "ohne HALO_WORKER 02:00 Push auf pruef/worker-… gesperrt" 2 "$WP" HALO_JETZT=0200
-fall "Worker 02:00 Push nach main gesperrt" 2 "git push origin HEAD:main" HALO_JETZT=0200 HALO_WORKER=1
-fall "Worker 02:00 zweiter Push in der Kette gesperrt" 2 "$WP && git push origin HEAD" HALO_JETZT=0200 HALO_WORKER=1
-fall "Worker 02:00 Push auf anderen Prüfzweig gesperrt" 2 "git push origin HEAD:pruef/lokal-1119" HALO_JETZT=0200 HALO_WORKER=1
-fall "Worker 02:00 pruef/worker-… mit main im Befehl gesperrt" 2 "git push origin main:pruef/worker-x" HALO_JETZT=0200 HALO_WORKER=1
 print "Fälle: $ANZ, FEHLER: $FEHL"
 (( FEHL == 0 ))

@@ -107,7 +107,7 @@ dann den Maintainer bitten (keine Kennungen als Weg).
 - **Rot bleibt rot → Ursache belegen, dann höheres Modell:** auf der roten Plattform wiederholen (Mac lokal 8× `--only`, Linux/Windows gezielter CI-Lauf; nur im vollen Lauf rot = Abhängigkeit, kein Flackern), Diagnoselauf vor dem Fix, Skill `systematic-debugging`,
   ein belegter Fix, nie die Prüfung abschwächen. Je Fehlversuch an derselben Prüfung höher (1. Opus bzw. Stabilisieren mit Sonnet/Opus, 2. und 3. Fable, höchstens ein Fable-Agent, nur unter 50 % im
   5-Stunden-Fenster); nach zwei Fable-Versuchen ohne belegte Ursache Übergabe an den Maintainer; Schritte 0–6 in `docs/neon-sitzung.md`.
-  Sperrt das Rot ein Release: `docs/release.md` „Rote Änderung auf einen Nebenzweig“ (belegter Verursacher auf einen Nebenzweig, Rest veröffentlichen; Modellstufe aus `rot_stufe` bzw. der Meldung der Wächter, Zähler `~/halo-nacht/rot-zaehler.txt`).
+  Sperrt das Rot ein Release oder wird deswegen etwas zurückgenommen (auch wenn der Rest veröffentlicht wird): `docs/release.md` „Rote Änderung auf einen Nebenzweig“, Rücknahme nur über `tests/rot-nebenzweig.sh`, nie ein nacktes `git revert` (Verursacher auf `pruef/rot-<Karte>`, Rest veröffentlichen; Modellstufe aus der Ausgabe bzw. der Meldung der Wächter, Zähler `~/halo-nacht/rot-zaehler.txt`).
 - Arbeitsweise von neon und neon-board, Antworten, Sitzung unter anderem Namen finden:
   `docs/neon-sitzung.md`.
 
@@ -133,7 +133,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - **Den Nachtlauf nicht behindern:** Jede von Hand gestartete Sitzung plant so, dass um 01:30 nichts
   mehr läuft: ab 00:00 keinen Push mit Codeänderung mehr, keine Testläufe auf neon über 01:30
   hinaus, keine Runde, die um 01:30 noch arbeitet.
-- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle außer Nachtlauf, Wochen- und Doku-Prüfung und Worker des Auslastungswächters auf ihren eigenen Zweig `pruef/worker-…` (Maintainer 19.11.2026);
+- **Push-Sperre 01:30–09:00** (Wiener Zeit) für alle außer Nachtlauf, Wochen- und Doku-Prüfung;
   früher nur, wenn neon bestätigt, dass der Nachtlauf fertig ist (Bericht liegt vor).
 - Pausen nur über `~/halo-nacht/pausen.txt` mit Ablaufzeit (`pause_setzen` aus `tests/lauf-hilfen.zsh`).
 - **Kontingent:** Jede Sitzung darf das Wochen- und 5-Stunden-Kontingent selbst auslesen: `zsh tests/kontingent.sh` (ein winziger Haiku-Aufruf, eine Zeile Ausgabe). Nur bei Bedarf aufrufen (vor Push, Revert, CI-Warten, langen Läufen), nicht in Schleifen; Einzelheiten `docs/testrechner.md`.
@@ -175,6 +175,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   passende Marke nicht; `SKIP_TESTS=1` erzeugt keine Marke. Die Sperre nicht umgehen; ist ein Test rot,
   erst beheben. `update_test.py` läuft vor der Marke mit, rot heißt kein Release. Ist ein Release rot: erst
   Regression belegen, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen;
+  jede Rücknahme wegen roter Release-CI ist ein Nebenzweig-Fall und läuft über `tests/rot-nebenzweig.sh`;
   je öfter derselbe Commit rot wird, desto höher das Modell (`docs/release.md` „Rote Änderung auf einen Nebenzweig“).
 - **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
   Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.

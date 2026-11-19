@@ -133,10 +133,12 @@ kill $SP 2>/dev/null
 
 # feste Regeln im Skript
 S=$(grep -vE '^[[:space:]]*#' $SKRIPT)
-pruefe "kein push, kein release.sh/publish.sh, keine Regeln/Hooks" \
-  "$(print -r -- $S | grep -cE 'git [^|;]*push|release\.sh|publish\.sh|settings\.json|zeitfenster-hook|volldampf_setzen|pause_setzen')" '^0$'
+pruefe "einziger Push: Nachpush pruef/worker-*; kein release.sh/publish.sh, keine Regeln/Hooks" \
+  "$(print -r -- $S | grep -cE 'release\.sh|publish\.sh|settings\.json|zeitfenster-hook|volldampf_setzen|pause_setzen'; print -r -- $S | grep -E 'git [^|;]*push' | sed 's/^ *//')" \
+  '^0$' '^if git -C \$MAIN push -q origin refs/heads/\$\{b\}:refs/heads/\$\{b\} 2>>\$LOG; then ok\+=\(\$b\); else fehl\+=\(\$b\); fi$'
+pruefe "genau ein Push im Skript" "$(print -r -- $S | grep -cE 'git [^|;]*push')" '^1$'
 pruefe "Checkout: nur fetch, worktree add/remove, leere Worker-Zweige löschen" \
-  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN branch git -C \$MAIN fetch git -C \$MAIN rev-parse git -C \$MAIN worktree $'
+  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN branch git -C \$MAIN fetch git -C \$MAIN for-each-ref git -C \$MAIN push git -C \$MAIN rev-list git -C \$MAIN rev-parse git -C \$MAIN worktree $'
 pruefe "Checkout: worktree nur add --detach und remove, branch nur -D eines Zweigs auf dem Basis-Commit" \
   "$(print -r -- $S | grep -oE 'git -C \$MAIN (worktree [a-z]+( --?[a-z]+)*|branch [^2]*)' | sort -u)" \
   '^git -C \$MAIN branch -q -D \$zw $' '^git -C \$MAIN worktree add -q --detach$' '^git -C \$MAIN worktree remove$'
@@ -325,6 +327,26 @@ K $G/w7 pruef/worker-7 ""
 pruefe "alter Worker ohne Basis-Commit (Feld 11) → nicht angefasst" "$( [[ -d $G/w7 ]] && print da)" '^da$'
 pruefe "Datum je Start: Ergebnis, Ausgabe und Bericht mit dem Datum des Starts, Protokoll je Takt" "$S" \
   'local tag=\$\(date \+%F\)' 'erg=\$DIR/\$tag-worker-' 'halo-berichte/\$tag-worker-\$nr\.md' 'LOG=\$DIR/\$\(date \+%F\)-auslastung\.log   # je Takt'
-pruefe "Auftrag: Zweig erst vor dem ersten Commit, Push auf den eigenen Prüfzweig auch nachts" "$A" \
-  'git switch -c <Zweig aus JETZT>' 'zu jeder Uhrzeit, auch 00:00–09:00' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
+pruefe "Auftrag: Zweig erst vor dem ersten Commit, nachts nicht pushen, Nachpush durch den Wächter" "$A" \
+  'git switch -c <Zweig aus JETZT>' '00:00–09:00 nicht pushen' 'pusht der\s*$' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
+# Nachpush der Worker-Zweige ab 09:00 (neon 19.11.2026), einmal je Tag, nur pruef/worker-*, nie main
+git init -q --bare -b main $G/origin.git
+git -C $G/repo remote add origin $G/origin.git && git -C $G/repo push -q origin main
+git -C $G/repo branch pruef/worker-alt main
+git -C $G/repo push -q origin pruef/worker-4                       # schon auf origin, unverändert
+git -C $G/repo branch pruef/anders pruef/worker-3; git -C $G/repo branch pruef/worker-nacht pruef/worker-3
+git -C $G/w3 commit -q --allow-empty -m nachts                       # w3 hat neuen Commit nach dem Push
+git -C $G/repo checkout -q main; print z > $G/repo/z.txt; git -C $G/repo add z.txt; git -C $G/repo commit -qm lokal-main
+NP=$(sed -n '/^zweige_nachpushen() {/,/^}/p' $SKRIPT)
+N() { (setopt extendedglob; MAIN=$G/repo ZUSTAND=$G/zustand LOG=$G/nplog; mkdir -p $ZUSTAND; log() { print -r -- "$*" >> $G/nplog }; eval $NP; zweige_nachpushen "$@") }
+: > $G/nplog; N 0859
+pruefe "Nachpush: vor 09:00 nichts" "$(git -C $G/origin.git branch --list 'pruef/*' | tr -d ' *' | tr '\n' ' '; cat $G/nplog)" '^pruef/worker-4 $'
+N 0900
+pruefe "Nachpush 09:00: nur pruef/worker-* mit Commits vor origin/main und neuem Stand; nie main, nie andere Präfixe" \
+  "$(git -C $G/origin.git branch --list | tr -d ' *' | sort | tr '\n' ' '; print; git -C $G/origin.git rev-parse main; git -C $G/repo rev-parse origin/main; cat $G/nplog)" \
+  '^main pruef/worker-3 pruef/worker-4 pruef/worker-nacht $' 'Nachpush Worker-Zweige .*: 2 gepusht: pruef/worker-3, pruef/worker-nacht$'
+pruefe "Nachpush: lokales main nicht gepusht" "$( [[ $(git -C $G/origin.git rev-parse main) != $(git -C $G/repo rev-parse main) ]] && print ok)" '^ok$'
+git -C $G/w3 commit -q --allow-empty -m noch-einer; : > $G/nplog; N 1400
+pruefe "Nachpush: einmal je Tag (Marke)" "$(cat $G/nplog; ls $G/zustand)" '^nachpush-[0-9-]+$'
+pruefe "Schleife: Nachpush je Takt aufgerufen" "$S" 'zweige_nachpushen \$\(date \+%H%M\)'
 exit $FEHLER

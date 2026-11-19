@@ -18,7 +18,8 @@
 #   board.sh wird mitgenutzt), ~/halo-aufgaben/archiv.md (erledigt in 7 Tagen), Plan des Directors (neueste
 #   ~/halo-nacht/<datum>-plan.md bzw. <datum>-tagesroutine-plan[-n].tsv), offene Issues (alle 15 Min.; wartet = letzter
 #   Kommentar nicht von uns; nur Nummer und Titel), ~/halo-aufgaben/bilder-offen.md, gh run list (15 neueste), letztes
-#   Release und Commits seit dem Tag (alle 15 Min.).
+#   Release und Commits seit dem Tag (alle 15 Min.), gh api rate_limit (je Lauf; zählt selbst nicht gegen das Limit)
+#   → github_limit (REST und GraphQL) und in verlauf.json gh_rest/gh_graphql (verbraucht in Prozent).
 # Zum Proben: HALO_LS_DIR (Arbeitsordner), HALO_NACHT_DIR, HALO_AUFGABEN_DIR, HALO_LS_JETZT (Epochensekunden),
 # HALO_LS_PS (Datei statt ps), HALO_LS_OHNE_NETZ=1 (keine gh-/Claude-Aufrufe), HALO_LS_VOLLDAMPF/HALO_LS_SOLL (statt
 # lauf-hilfen.zsh).
@@ -88,6 +89,9 @@ if netz; then
   holen $Q/ci.json gh run list -R $GH_REPO -L 15 --json databaseId,number,displayTitle,headBranch,event,status,conclusion,createdAt,updatedAt,url
   # ci_main gezielt (der neueste main-Lauf ist oft nicht unter den 15 neuesten; 5 für abgebrochene davor)
   holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 5 --json headBranch,status,conclusion
+  # GitHub-Limit je Lauf frisch (alter Wert gilt nicht weiter: nicht lesbar → github_limit null)
+  rm -f $Q/rate.json
+  holen $Q/rate.json gh api rate_limit --jq '{core: .resources.core, graphql: .resources.graphql}'
 fi
 
 # --- status.json bauen ---
@@ -404,9 +408,22 @@ def release_eta():
     return {"zeit": iso(nacht.timestamp() + 3 * 3600),
             "grund": "Nächster Nachtlauf (01:30 Wiener Zeit) veröffentlicht nach grüner CI; Zeit geschätzt (Start plus 3 Stunden)." + seit}
 
+RATE = lies(Q + "/rate.json", True)
+def github_limit():
+    """aus gh api rate_limit: je Bereich Limit, verbraucht (limit − remaining), rest (verbleibend), Reset; unlesbar → None"""
+    if not isinstance(RATE, dict): return None
+    aus = {}
+    for name, quelle in (("rest", "core"), ("graphql", "graphql")):
+        r = RATE.get(quelle) or {}
+        lim, rest = r.get("limit"), r.get("remaining")
+        if not (isinstance(lim, int) and isinstance(rest, int) and lim > 0): return None
+        aus[name] = {"limit": lim, "verbraucht": lim - rest, "rest": rest, "reset": iso(r.get("reset"))}
+    return aus
+
 st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
-      "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main)}
+      "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
+      "github_limit": sicher(github_limit)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
 
@@ -417,12 +434,15 @@ def punkt():
     k, b, ci_, ag = st["kontingent"] or {}, st["board"], st["ci"], st["agenten"]
     z = (b or {}).get("zahlen") or {}
     def zaehle(f): return None if ci_ is None else sum(1 for r in ci_ if f(r["status"]))
+    gl = st["github_limit"] or {}
+    def anteil(b): return round(100 * gl[b]["verbraucht"] / gl[b]["limit"], 1) if b in gl else None
     return {"t": iso(JETZT), "woche": k.get("woche_prozent"), "fuenf": k.get("fuenf_stunden_prozent"), "soll": k.get("soll_prozent"),
             "bugs": z.get("bugs_offen"), "features": z.get("features_offen"),
             "in_arbeit": None if b is None else len(b.get("in_arbeit") or []),
             "ci_wartend": zaehle(lambda s: s in ("queued", "waiting", "pending", "requested")),
             "ci_laufend": zaehle(lambda s: s not in ("completed", "queued", "waiting", "pending", "requested")),
-            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker"))}
+            "agenten": None if ag is None else sum(1 for a in ag if a["art"] in ("lauf", "worker")),
+            "gh_rest": anteil("rest"), "gh_graphql": anteil("graphql")}
 def epoche(t): return dt.datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
 punkte = []
 roh = lies(HIST)

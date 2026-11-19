@@ -533,3 +533,9 @@ schreibt dort Zeit, id, Titel, PID-Kette des Aufrufers, Zweig und Ordner; jeder 
 „wartet auf Push“ räumen die Zeile; zugeordnet wird über die PID-Kette (Lauf bzw. Worker-PID), beim Worker ersatzweise
 über Zweig oder Arbeitskopie; Zeilen älter als 24 Stunden zählen nicht. Schritt-Texte ohne Sitzungs-IDs. `ci_main` kommt
 aus einer eigenen Abfrage der fünf neuesten main-Läufe (abgebrochene zählen nicht), nicht nur aus den 15 neuesten Läufen.
+
+GitHub-Limit (Wunsch der Dashboard-Sitzung, 19.11.2026): je Lauf einmal `gh api rate_limit` (zählt selbst nicht gegen das
+Limit), Feld `github_limit` = `{"rest":{"limit","verbraucht","rest","reset"},"graphql":{…}}` aus `resources.core` bzw.
+`resources.graphql` (`verbraucht` = Limit − verbleibend, `rest` = verbleibend, `reset` ISO UTC); nicht lesbar = `null` (kein
+alter Wert). Jeder neue Punkt in `verlauf.json` trägt zusätzlich `gh_rest` und `gh_graphql` (verbraucht in Prozent, eine
+Dezimale, sonst `null`); ältere Punkte ohne die beiden Felder bleiben gültig.

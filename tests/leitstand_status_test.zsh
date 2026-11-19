@@ -31,13 +31,13 @@ mkdir -p $T/n $T/a; : > $T/ps.txt
 HALO_LS_VOLLDAMPF= HALO_LS_SOLL= lauf
 print "Exitcode $?" >> $T/fehler.txt
 pruefe "ohne Quellen: gültiges JSON mit Stand" '.stand == "2026-11-19T07:00:00Z"'
-pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder null" \
-  '.kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
+pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder, GitHub-Limit null" \
+  '(has("github_limit") and .github_limit == null) and .kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
 pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
-  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0}'
+  '(.punkte | length == 1) and .punkte[0] == {"t":"2026-11-19T07:00:00Z","woche":null,"fuenf":null,"soll":null,"bugs":null,"features":null,"in_arbeit":null,"ci_wartend":null,"ci_laufend":null,"agenten":0,"gh_rest":null,"gh_graphql":null}'
 cmp -s $VH $T/d/verlauf.json && print "OK      Verlauf: lokale Historie gleich verlauf.json" || { print "FEHLER  Verlauf: lokale Historie gleich verlauf.json"; FEHLER=1; }
 
 # --- Fall 2: alle Quellen ---
@@ -106,6 +106,8 @@ cat > $T/d/quellen/ci.json <<'EOF'
 EOF
 print '{"tag":"v3.32.0","zeit":"2026-11-18T05:38:00Z"}' > $T/d/quellen/release.json
 print '{"ahead":4}' > $T/d/quellen/vergleich.json
+# gh api rate_limit (--jq auf core/graphql): REST 1234 von 5000 verbraucht, GraphQL 50 von 5000
+print '{"core":{"limit":5000,"used":1234,"remaining":3766,"reset":1795078800},"graphql":{"limit":5000,"used":50,"remaining":4950,"reset":1795080600}}' > $T/d/quellen/rate.json
 HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
 pruefe "Agenten: Nachtlauf mit Modell, Unterschale nicht doppelt" '[.agenten[] | select(.name == "Nachtlauf")] | length == 1 and .[0].modell == "opus" and .[0].seit == "2026-11-19T01:30:00Z"'
 pruefe "Agenten: Auslastungswächter einmal (Unterschalen und 4-Stunden-Zeitgeber zählen nicht)" '[.agenten[] | select(.name == "Wächter Auslastung")] | length == 1 and .[0].seit == "2026-11-18T05:00:00Z"'
@@ -126,6 +128,8 @@ pruefe "Board: nächste laut Plan, nur Todo, ohne Archiviertes" '[.board.naechst
 pruefe "Board: Zahlen und Bereiche" '.board.zahlen.bugs_offen == 3 and .board.zahlen.features_offen == 2 and .board.zahlen.erledigt_woche == 1 and ([.board.zahlen.je_bereich[] | select(.bereich == "Sonstiges")][0].bugs == 1)'
 pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1}'
 pruefe "CI: Läufe übernommen, main läuft" '(.ci | length == 2) and .ci[0].ergebnis == "failure" and .ci[1].ergebnis == null and .ci_main == "läuft"'
+pruefe "GitHub-Limit: REST und GraphQL mit Limit, verbraucht, Rest, Reset (UTC)" \
+  '.github_limit == {"rest":{"limit":5000,"verbraucht":1234,"rest":3766,"reset":"2026-11-19T09:00:00Z"},"graphql":{"limit":5000,"verbraucht":50,"rest":4950,"reset":"2026-11-19T09:30:00Z"}}'
 pruefe "Release: Nachtlauf läuft, Tag vor dem Start fehlt → offen" '.release_eta.zeit == null and (.release_eta.grund | test("Nachtlauf läuft.*4 Commits"))'
 pruefe_v "Verlauf: im selben Augenblick kein zweiter Punkt (30-Minuten-Grenze)" '(.punkte | length == 1) and .punkte[0].woche == null'
 # Punkt mit allen Quellen; CI: einer wartet, einer läuft, einer fertig
@@ -136,7 +140,7 @@ print '[{"databaseId":5,"number":5,"displayTitle":"w","headBranch":"main","event
  {"databaseId":3,"number":3,"displayTitle":"neu","headBranch":"pruef/x","event":"push","status":"completed","conclusion":"failure","createdAt":"2026-11-19T06:00:00Z","updatedAt":"2026-11-19T06:30:00Z","url":"u3"}]' > $T/d/quellen/ci.json
 HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
 pruefe_v "Verlauf: Punkt aus den Feldern (Kontingent, Board, CI, Agenten ohne Wächter, CI-Runner und Sitzungen)" \
-  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5}]'
+  '.punkte == [{"t":"2026-11-19T07:00:00Z","woche":5,"fuenf":18,"soll":6.0,"bugs":3,"features":2,"in_arbeit":1,"ci_wartend":1,"ci_laufend":1,"agenten":5,"gh_rest":24.7,"gh_graphql":1.0}]'
 [[ $(wc -l < $T/d/verlauf.json) -eq 3 && $(sed -n 2p $T/d/verlauf.json) == '{"t":'* ]] && ! grep -q 'Mail: Knopf' $T/d/verlauf.json \
   && print "OK      Verlauf: je Punkt eine Zeile, keine Titel" || { print "FEHLER  Verlauf: je Punkt eine Zeile, keine Titel"; FEHLER=1; }
 lauf $((JETZT + 1799))
@@ -157,6 +161,18 @@ print '{kaputt' > $VH; lauf
 pruefe_v "Verlauf: defekte Historie → neu mit einem Punkt" '(.punkte | length == 1) and .punkte[0].bugs == 3'
 print '{"punkte":5}' > $VH; lauf
 pruefe_v "Verlauf: Historie falscher Form → neu mit einem Punkt" '.punkte | length == 1'
+# alte Punkte ohne gh_rest/gh_graphql bleiben gültig, der neue Punkt hat beide
+verlauf_mit 1800 2
+lauf
+pruefe_v "Verlauf: alte Punkte ohne GitHub-Felder bleiben, neuer Punkt mit Prozent" \
+  '(.punkte | length == 3) and (.punkte[0] | has("gh_rest") | not) and .punkte[1] == {"t":"2026-11-19T06:30:00Z","woche":1} and .punkte[2].gh_rest == 24.7 and .punkte[2].gh_graphql == 1.0'
+# GitHub-Limit nicht lesbar: kaputte Antwort bzw. fehlendes Feld → github_limit null, Prozent null, Rest bleibt
+print '{kaputt' > $T/d/quellen/rate.json; rm -f $VH; lauf
+pruefe "GitHub-Limit unlesbar (kaputt): null, Kontingent bleibt" '.github_limit == null and .kontingent.woche_prozent == 5'
+pruefe_v "Verlauf: GitHub-Limit unlesbar → gh_rest und gh_graphql null" '.punkte[0] | has("gh_rest") and .gh_rest == null and .gh_graphql == null and .woche == 5'
+print '{"core":{"limit":5000,"remaining":10},"graphql":null}' > $T/d/quellen/rate.json; lauf
+pruefe "GitHub-Limit ohne GraphQL-Werte: null" '.github_limit == null'
+rm -f $T/d/quellen/rate.json
 print -r -- $CI_VORHER > $T/d/quellen/ci.json
 rm -f $VH
 # Sperrdatei: nur der eingetragene Hauptprozess zählt (auch wenn ein Zeitgeber nicht im selben Augenblick startete)

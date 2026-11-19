@@ -1318,25 +1318,12 @@ class EnhancerKalender {
     // Platzaufteilung der Toolbar (Suchfeldbreite, eingeklappte Knöpfe) gleich
     // für das Endmaß berechnen, nicht erst nach der Animation (beim Einblenden
     // schon oben, solange die Pane im Fluss lag)
-    // (mehrmals, bis die Aufteilung steht: ein Durchgang holt eingeklappte
-    // Pillen zurück, erst der nächste weitet den Abstand nach „Verfassen“ –
-    // war die Zeile mit offener Pane eng, rückten die Knöpfe über der Mail
-    // sonst nach dem letzten Bild um gut 20 px nach)
     if (!showing) {
       panel.__mcAnimating = false;
-      const toolbarState = () => (row?.getAttribute("style") || "") + "|" +
-        [...(d.getElementById("unifiedToolbarContent")?.children || [])].map(li => `${li.hidden}${li.hasAttribute("mc-squeezed")}`).join();
-      for (let i = 0, before = null; i < 4; i++) {
-        for (const f of this.offsetUpdaters || []) {
-          try {
-            f();
-          } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
-        }
-        const now = toolbarState();
-        if (now == before) {
-          break;
-        }
-        before = now;
+      for (const f of this.offsetUpdaters || []) {
+        try {
+          f();
+        } catch {}
       }
       panel.__mcAnimating = true;
     }

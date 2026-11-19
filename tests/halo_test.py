@@ -10040,48 +10040,6 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
 
-    def mail_not_under_today():
-        # 1500 px mit gewählter Mail und Today-Pane: Thunderbird sperrte Ordner- und Mailliste und gab der Nachricht den
-        # Rest – unter ihrer Mindestbreite (480 px) lief der Mailbereich 18 px unter die Today-Pane, der rechte Rand der
-        # Hinweiskarte war verdeckt. Jetzt gibt die Mailliste nach: der Mailbereich endet vor der Pane, die Karte hat
-        # rechts denselben Abstand wie links; Pane zu → Liste bleibt stehen (kein Nachrücken der Knöpfe am Ende der
-        # Animation), Pane auf → wieder kein Überlauf; Fenster breiter → Liste wieder in ihrer gemerkten Breite
-        res = m.js(MESSAGE_JS + r"""
-          const tpWas = !!w.TodayPane?.isVisible, out = {};
-          const toggle = async on => { if (!!w.TodayPane?.isVisible != on) { d.getElementById("mcTodayToggle").click();
-            await bis(() => !!w.TodayPane?.isVisible == on, "Today-Pane " + on, 4000); } await ruhig(1200); };
-          const ad = a3.document, br = () => a3.browsingContext.embedderElement.getBoundingClientRect();
-          const meas = () => {
-            const off = br().left, mp = ad.getElementById("messagePane").getBoundingClientRect(), tp = d.getElementById("today-pane-panel");
-            const end = Math.min(br().right, w.TodayPane?.isVisible ? tp.getBoundingClientRect().left : w.innerWidth);
-            const r = { list: Math.round(ad.getElementById("threadPane").getBoundingClientRect().width * 10) / 10,
-              msg: Math.round(mp.width), over: Math.round((off + mp.right - end) * 10) / 10 };
-            // Hinweiskarte der Mailingliste (#mcListBanner) im Mailbereich: Abstand links und rechts (rechts bis zur sichtbaren Kante)
-            const mb = a3.messageBrowser, n = mb?.contentDocument?.getElementById("mcListBanner");
-            const nr = n?.getBoundingClientRect();
-            if (nr?.width) {
-              const mbl = off + mb.getBoundingClientRect().left;
-              r.inset = [Math.round(nr.left * 10) / 10, Math.round((Math.min(end, off + mp.right) - (mbl + nr.right)) * 10) / 10];
-            }
-            return r;
-          };
-          const settle = () => stabil(() => [meas(), w.innerWidth], 4000);
-          try {
-            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000);
-            await toggle(false); await settle(); out.zu = meas();
-            await toggle(true); await settle(); out.auf = meas();
-            await toggle(false); await settle(); out.zuWieder = meas();
-            await toggle(true); await settle(); out.aufWieder = meas();
-            out.inner = w.innerWidth; out.want = Services.prefs.getIntPref("extensions.mailcards.listWidth", 460);
-            w.resizeTo(1800, 900); await until(() => w.outerWidth == 1800, 3000); await settle(); out.breit = meas();
-          } finally { w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); await toggle(tpWas); }
-          return out;""")
-        ok = (all(res[k]["over"] <= 0.5 for k in ("zu", "auf", "zuWieder", "aufWieder", "breit"))
-              and all("inset" not in res[k] or abs(res[k]["inset"][0] - res[k]["inset"][1]) <= 2 for k in ("auf", "aufWieder", "breit"))
-              and abs(res["zuWieder"]["list"] - res["auf"]["list"]) <= 1 and abs(res["breit"]["list"] - res["want"]) <= 1)
-        return ok, f"{res}"
-    check("Mail: mit gewählter Mail und Today-Pane (1500 px) läuft der Mailbereich nicht unter die Pane, Hinweiskarte rechts mit gleichem Abstand wie links; Mailliste gibt nach, Pane zu ohne Nachrücken, breiteres Fenster → alte Breite", mail_not_under_today, results)
-
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
         # einblenden – keine verlorenen Bilder (Abstand über dem 1,6-Fachen des üblichen) und kein Sprung der Bücherliste

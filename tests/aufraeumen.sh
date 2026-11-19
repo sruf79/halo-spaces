@@ -16,11 +16,18 @@
 #      kein Protokoll des Hilfsagenten jünger als 6 Stunden, keine Datei darin jünger als 6 Stunden.
 #      Entfernen mit git worktree remove (ohne --force), danach git worktree prune. Der Zweig der Kopie
 #      wird nur mit git branch -d gelöscht (git lehnt ab, wenn er nicht in main enthalten ist).
+#   a2) Arbeitskopien der Worker des Auslastungswächters (~/halo-worker/worker-*, Maintainer 19.11.2026, „1. ja“ auf
+#      neons Vorschlag; bis dahin blieben rund 170 leere Kopien liegen): dieselben Bedingungen wie a), ohne die Protokolle
+#      der Hilfsagenten; repo.conf zählt als ersetzbar, wenn sie der des Repos gleicht. „In main“ heißt auch: jeder
+#      Commit per Patch-Vergleich (git cherry, wie git patch-id) schon in origin/main, etwa nach cherry-pick oder rebase.
+#      Dann wird auch der Zweig der Kopie gelöscht (git branch -D, weil git branch -d übernommene Kopien nicht erkennt).
 #   b) Sperrdateien ~/halo-nacht/*.lock: die Prozessnummer darin existiert nicht (ps) und die Datei ist
 #      älter als 1 Stunde; unmittelbar vor dem Löschen wird der Inhalt erneut verglichen.
 #   c) Zweige claude/…, rest/…, pruef/… (lokal und auf GitHub) und lokale worktree-agent-… ohne
 #      Arbeitskopie: nur ohne Commit über origin/main hinaus (Vorfahr von origin/main), ohne offenen Pull
 #      Request, nicht in einer Arbeitskopie ausgecheckt. Lokal git branch -d, auf GitHub push --delete.
+#      Worker-Zweige pruef/worker-… zählen auch dann als enthalten, wenn jeder Commit per Patch-Vergleich (git cherry)
+#      in origin/main steckt (lokal dann git branch -D).
 #      Ersetzt zweige_aufraeumen aus tests/nachtlauf.sh (Entscheidung vom 7.11.2026, nur claude/…).
 #   Nichts anderes: keine Berichte, Bilder, Sitzungen, Sicherungen, kein dist/, nichts im Arbeitsbaum
 #   von main.
@@ -28,7 +35,7 @@
 # Zeile in $LOG (falls gesetzt). Exitcode 0, außer der Repo-Ordner fehlt (2).
 # Zum Proben: HALO_NACHT_DIR (Sperrdateien), HALO_CLAUDE_PROJEKTE (Protokolle der Hilfsagenten),
 # HALO_AUFR_STUNDEN (Mindestalter Arbeitskopie, Standard 6), HALO_AUFR_LOCK_MIN (Standard 60),
-# HALO_AUFR_PRS (Datei mit Namen offener PR-Zweige statt gh).
+# HALO_AUFR_PRS (Datei mit Namen offener PR-Zweige statt gh), HALO_WORKER_DIR (Arbeitskopien der Worker).
 emulate -L zsh
 setopt extendedglob nullglob
 path=(~/.local/bin /opt/homebrew/bin /usr/local/bin $path)
@@ -51,6 +58,8 @@ NACHT=${HALO_NACHT_DIR:-$HOME/halo-nacht}
 PROJEKTE=${HALO_CLAUDE_PROJEKTE:-$HOME/.claude/projects}
 STUNDEN=${HALO_AUFR_STUNDEN:-6}
 LOCK_MIN=${HALO_AUFR_LOCK_MIN:-60}
+WORKER_DIR=${HALO_WORKER_DIR:-$HOME/halo-worker}
+WORKER_DIR=${WORKER_DIR:A}
 JETZT=$(date +%s)
 
 WEG=() REST=()
@@ -72,7 +81,15 @@ fi
 HAUPT=origin/main
 g rev-parse -q --verify $HAUPT >/dev/null || HAUPT=main
 
-# --- a) Arbeitskopien der Hilfsagenten ---
+# alle Commits von <Ref> schon in main: Vorfahr oder per Patch-Vergleich gleich (git cherry: keine Zeile „+“)
+in_main() {
+  g merge-base --is-ancestor $1 $HAUPT 2>/dev/null && return 0
+  local ch
+  ch=$(g cherry $HAUPT $1 2>/dev/null) || return 1
+  ! print -r -- $ch | grep -q '^+'
+}
+
+# --- a) Arbeitskopien der Hilfsagenten, a2) Arbeitskopien der Worker ---
 # erzeugte, jederzeit ersetzbare Dateien (ignoriert); alles andere Ignorierte = Zweifel
 ersetzbar() {
   [[ $1 == (dist/*|extension/theme.css|(*/|)__pycache__/*|(*/|)node_modules/*|*.xpi|*.pyc|tests/shots/*|(*/|).DS_Store) ]]
@@ -92,7 +109,10 @@ done < <(g worktree list --porcelain 2>/dev/null; print)
 
 entfernt_kopie=0
 for pfad in ${(k)KOPIE_ZWEIG}; do
-  [[ $pfad == */.claude/worktrees/agent-* ]] || continue
+  art=
+  [[ $pfad == */.claude/worktrees/agent-* ]] && art=agent
+  [[ ${pfad:A} == $WORKER_DIR/worker-* ]] && art=worker
+  [[ -n $art ]] || continue
   name=${pfad:t} zweig=$KOPIE_ZWEIG[$pfad] k=$(kurz $pfad) grund=
   admin=$(git -C $pfad rev-parse --absolute-git-dir 2>/dev/null)
   if [[ ! -d $pfad || -z $admin ]]; then
@@ -102,7 +122,9 @@ for pfad in ${(k)KOPIE_ZWEIG}; do
   [[ -z $grund && -n $st ]] && grund="ungespeicherte oder unversionierte Dateien ($(print -r -- $st | wc -l | tr -d ' '))"
   if [[ -z $grund ]]; then
     for f in ${(f)"$(git -C $pfad status --porcelain --ignored 2>/dev/null | sed -n 's/^!! //p')"}; do
-      ersetzbar $f || { grund="ignorierte Datei nicht sicher ersetzbar: $f"; break }
+      ersetzbar $f && continue
+      [[ $art == worker && $f == repo.conf ]] && cmp -s $pfad/repo.conf $REPO/repo.conf && continue   # Kopie aus dem Repo
+      grund="ignorierte Datei nicht sicher ersetzbar: $f"; break
     done
   fi
   if [[ -z $grund ]]; then
@@ -128,7 +150,7 @@ for pfad in ${(k)KOPIE_ZWEIG}; do
       [[ $c == $pfad || $c == $pfad/* ]] && { grund="ein Prozess arbeitet darin ($c)"; break }
     done
   fi
-  if [[ -z $grund ]]; then
+  if [[ -z $grund && $art == agent ]]; then
     prot=($PROJEKTE/*/*/subagents/$name.jsonl(N.mm-$((STUNDEN * 60))))
     (( $#prot )) && grund="Hilfsagent schrieb vor weniger als $STUNDEN Stunden"
   fi
@@ -147,6 +169,8 @@ for pfad in ${(k)KOPIE_ZWEIG}; do
     unset "KOPIE_ZWEIG[$pfad]"
     if [[ -n $zweig ]] && g branch -d $zweig >/dev/null 2>&1; then
       weg "Arbeitskopie $k und Zweig $zweig"
+    elif [[ $art == worker && -n $zweig ]] && in_main $zweig && g branch -D $zweig >/dev/null 2>&1; then
+      weg "Arbeitskopie $k und Zweig $zweig (Inhalt per Patch-Vergleich in main)"
     else
       weg "Arbeitskopie $k${zweig:+ (Zweig $zweig bleibt: nicht als Vorfahr in main, git branch -d lehnt ab)}"
     fi
@@ -192,17 +216,23 @@ elif ! OFFEN=$(gh pr list -R sruf79/halo-spaces --state open -L 200 --json headR
 fi
 [[ -n $OHNE_ZWEIGE ]] || for b in $(g for-each-ref --format='%(refname:short)' refs/heads/claude/ refs/heads/rest/ refs/heads/pruef/ 'refs/heads/worktree-agent-*'); do
   ausgecheckt $b && continue          # gehört zu einer Arbeitskopie: dort entschieden bzw. in Benutzung
-  g merge-base --is-ancestor $b $HAUPT 2>/dev/null || continue    # eigene Commits: kein Rest, ein Zweig
+  patch=
+  if ! g merge-base --is-ancestor $b $HAUPT 2>/dev/null; then
+    [[ $b == pruef/worker-* ]] && in_main $b || continue    # eigene Commits: kein Rest, ein Zweig
+    patch=" per Patch-Vergleich"
+  fi
   if (( ! PRS_OK )); then rest "Zweig $b: offene Pull Requests nicht lesbar"
   elif print -r -- $OFFEN | grep -qxF -- $b; then rest "Zweig $b: offener Pull Request"
-  elif [[ -n $TROCKEN ]]; then weg "Zweig $b (lokal, in main enthalten)"
-  elif g branch -d $b >/dev/null 2>&1; then weg "Zweig $b (lokal, in main enthalten)"
+  elif [[ -n $TROCKEN ]]; then weg "Zweig $b (lokal,$patch in main enthalten)"
+  elif g branch ${${patch:+-D}:--d} $b >/dev/null 2>&1; then weg "Zweig $b (lokal,$patch in main enthalten)"
   else rest "Zweig $b: git branch -d lehnt ab"
   fi
 done
 if (( NETZ )); then
   for b in $(g for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/claude/ refs/remotes/origin/rest/ refs/remotes/origin/pruef/); do
-    [[ -n $(g rev-list -n 1 $HAUPT..origin/$b 2>/dev/null) ]] && continue   # eigene Commits: bleibt
+    if [[ -n $(g rev-list -n 1 $HAUPT..origin/$b 2>/dev/null) ]]; then
+      [[ $b == pruef/worker-* ]] && in_main origin/$b || continue   # eigene Commits: bleibt (Worker: außer per Patch in main)
+    fi
     if (( ! PRS_OK )); then rest "Zweig origin/$b: offene Pull Requests nicht lesbar"
     elif print -r -- $OFFEN | grep -qxF -- $b; then rest "Zweig origin/$b: offener Pull Request"
     elif ausgecheckt $b; then rest "Zweig origin/$b: in einer Arbeitskopie ausgecheckt (wird evtl. noch benutzt)"

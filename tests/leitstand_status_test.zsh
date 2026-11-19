@@ -35,6 +35,7 @@ pruefe "ohne Quellen: Kontingent, Board, CI, Issues, Bilder, GitHub-Limit null" 
   '(has("github_limit") and .github_limit == null) and .kontingent == null and .board == null and .ci == null and .ci_main == null and .rueckmeldungen.issues_warten == null and .rueckmeldungen.bilder_offen == null'
 pruefe "ohne Quellen: keine Agenten, Läufe inaktiv ohne Schritt" '.agenten == [] and .laeufe.nachtlauf.aktiv == false and .laeufe.nachtlauf.schritt == null'
 pruefe "nichts läuft: keine Runde in Nachtlauf und Tagesroutine" '.laeufe.nachtlauf.runde == false and .laeufe.tagesroutine.runde == false and .laeufe.nachtlauf.weiter_um == null and .laeufe.tagesroutine.weiter_um == null'
+pruefe "ohne Quellen: 48-Stunden-Zahlen und offene Issues null" '.rueckmeldungen.issues_neu_48h == null and .rueckmeldungen.issues_geschlossen_48h == null and .rueckmeldungen.issues_offen == null and (.rueckmeldungen | has("issues_offen"))'
 pruefe "ohne Quellen: Volldampf unbekannt (null), Pausen leer, Rot-Zähler 0" '.schalter.volldampf == null and .schalter.pausen == [] and .schalter.rot_zaehler == 0'
 pruefe "ohne Quellen: Release-Schätzung nächster Nachtlauf" '.release_eta.zeit == "2026-11-20T03:30:00Z"'
 pruefe_v "Verlauf ohne Quellen: ein Punkt, Werte null, Agenten 0" \
@@ -109,6 +110,28 @@ print '{"tag":"v3.32.0","zeit":"2026-11-18T05:38:00Z"}' > $T/d/quellen/release.j
 print '{"ahead":4}' > $T/d/quellen/vergleich.json
 # gh api rate_limit (--jq auf core/graphql): REST 1234 von 5000 verbraucht, GraphQL 50 von 5000
 print '{"core":{"limit":5000,"used":1234,"remaining":3766,"reset":1795078800},"graphql":{"limit":5000,"used":50,"remaining":4950,"reset":1795080600}}' > $T/d/quellen/rate.json
+# 48 Stunden (Maintainer 19.11.2026): Grenze 2026-11-17T07:00:00Z; B doppelt (sichtbar und archiviert) zählt einmal
+cat > $T/d/quellen/board48.json <<'EOF'
+{"stand":0,"sichtbar":[
+ {"id":"A","createdAt":"2026-11-18T10:00:00Z","updatedAt":"2026-11-18T10:00:00Z","fieldValueByName":{"name":"Todo","updatedAt":"2026-11-18T10:00:00Z"}},
+ {"id":"B","createdAt":"2026-11-10T10:00:00Z","updatedAt":"2026-11-19T06:00:00Z","fieldValueByName":{"name":"Done","updatedAt":"2026-11-19T06:00:00Z"}},
+ {"id":"C","createdAt":"2026-11-17T06:59:59Z","updatedAt":"2026-11-19T06:00:00Z","fieldValueByName":{"name":"In Progress","updatedAt":"2026-11-19T06:00:00Z"}},
+ {"id":"G","createdAt":"2026-11-01T10:00:00Z","updatedAt":"2026-11-19T06:00:00Z","fieldValueByName":null}],
+"archiviert":[
+ {"id":"B","createdAt":"2026-11-10T10:00:00Z","updatedAt":"2026-11-19T06:00:00Z","isArchived":false,"fieldValueByName":{"name":"Done","updatedAt":"2026-11-19T06:00:00Z"}},
+ {"id":"D","createdAt":"2026-11-18T08:00:00Z","updatedAt":"2026-11-18T09:01:00Z","isArchived":true,"fieldValueByName":{"name":"Done","updatedAt":"2026-11-18T09:00:00Z"}},
+ {"id":"E","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-18T12:00:00Z","isArchived":true,"fieldValueByName":{"name":"Wartet auf OK","updatedAt":"2026-11-02T08:00:00Z"}},
+ {"id":"F","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-18T12:00:00Z","isArchived":true,"fieldValueByName":{"name":"Done","updatedAt":"2026-11-16T00:00:00Z"}}]}
+EOF
+print '[{"nr":1,"offen":true,"eroeffnet":"2026-11-18T10:00:00Z","geschlossen":null},{"nr":2,"offen":false,"eroeffnet":"2026-11-10T10:00:00Z","geschlossen":"2026-11-18T10:00:00Z"},{"nr":3,"offen":false,"eroeffnet":"2026-11-18T11:00:00Z","geschlossen":"2026-11-19T06:00:00Z"},{"nr":4,"offen":false,"eroeffnet":"2026-11-01T10:00:00Z","geschlossen":"2026-11-16T10:00:00Z"}]' > $T/d/quellen/issues48.json
+HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
+pruefe "48 h Board: neu 2 (A, D), erledigt 3 (B Done, D Done, E archiviert; F zu alt, B einmal)" '.board.zahlen.neu_48h == 2 and .board.zahlen.erledigt_48h == 3'
+pruefe "48 h Issues: neu 2, geschlossen 2, offen 2 (aus issues.json)" '.rueckmeldungen.issues_neu_48h == 2 and .rueckmeldungen.issues_geschlossen_48h == 2 and .rueckmeldungen.issues_offen == 2'
+pruefe_v "48 h: keine neuen Felder in verlauf.json" '.punkte[-1] | has("neu_48h") or has("issues_offen") | not'
+print '{kaputt' > $T/d/quellen/board48.json; python3 -I -c 'import json; print(json.dumps([{"nr": i, "offen": True, "eroeffnet": "2026-11-18T10:00:00Z", "geschlossen": None} for i in range(200)]))' > $T/d/quellen/issues48.json
+lauf
+pruefe "48 h: kaputtes board48 bzw. volle Issue-Liste (200) → null, Rest bleibt" '.board.zahlen.neu_48h == null and .board.zahlen.erledigt_48h == null and .rueckmeldungen.issues_neu_48h == null and .rueckmeldungen.issues_geschlossen_48h == null and .rueckmeldungen.issues_offen == 2 and .board.zahlen.bugs_offen == 3'
+rm -f $T/d/quellen/board48.json $T/d/quellen/issues48.json
 HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf
 pruefe "Agenten: Nachtlauf mit Modell, Unterschale nicht doppelt" '[.agenten[] | select(.name == "Nachtlauf")] | length == 1 and .[0].modell == "opus" and .[0].seit == "2026-11-19T01:30:00Z"'
 pruefe "Agenten: Auslastungswächter einmal (Unterschalen und 4-Stunden-Zeitgeber zählen nicht)" '[.agenten[] | select(.name == "Wächter Auslastung")] | length == 1 and .[0].seit == "2026-11-18T05:00:00Z"'
@@ -130,7 +153,7 @@ pruefe "Schalter: Volldampf, Push-Sperre um 08:00, Rot-Zähler 14 Tage, nur akti
 pruefe "Board: in Arbeit mit Bereich und letzter Notizzeile" '.board.in_arbeit == [{"titel":"Mail: Knopf fehlt","typ":"Bug","bereich":"Mail","notiz":"committet, wartet auf Push/CI (abc1234)"}]'
 pruefe "Board: nächste laut Plan, nur Todo, ohne Archiviertes" '[.board.naechste[] | .titel] == ["[GitHub #9] Adressbuch: Liste leer","Kalender: Woche zeigt Feiertage"] and .board.naechste[1].rang == 2'
 pruefe "Board: Zahlen und Bereiche" '.board.zahlen.bugs_offen == 3 and .board.zahlen.features_offen == 2 and .board.zahlen.erledigt_woche == 1 and ([.board.zahlen.je_bereich[] | select(.bereich == "Sonstiges")][0].bugs == 1)'
-pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1}'
+pruefe "Rückmeldungen: nur Issues ohne unsere Antwort, Bilder gezählt" '.rueckmeldungen == {"issues_warten":[{"nr":5,"titel":"Offen","seit":"2026-11-18T10:00:00Z"}],"bilder_offen":1,"issues_neu_48h":null,"issues_geschlossen_48h":null,"issues_offen":2}'
 pruefe "CI: Läufe übernommen, main läuft" '(.ci | length == 2) and .ci[0].ergebnis == "failure" and .ci[1].ergebnis == null and .ci_main == "läuft"'
 pruefe "GitHub-Limit: REST und GraphQL mit Limit, verbraucht, Rest, Reset (UTC)" \
   '.github_limit == {"rest":{"limit":5000,"verbraucht":1234,"rest":3766,"reset":"2026-11-19T09:00:00Z"},"graphql":{"limit":5000,"verbraucht":50,"rest":4950,"reset":"2026-11-19T09:30:00Z"}}'

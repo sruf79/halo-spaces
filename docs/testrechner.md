@@ -536,6 +536,14 @@ Eintrag von `agenten` und in `laeufe.*`: frühester Weiterlauf eines wartenden L
 er selbst wartet („Pause bis <ISO>“ aus `pausen.txt`, „Limit – Pause 30 Minuten“ = Zeile + 30 Min., Uhrzeit nach „nächster
 Versuch“/„warte bis“/„nächste Planung“/„vor dem Beginn“, Wiener Zeit, vor der Zeile = Folgetag); sonst und wenn er nicht wartet `null`.
 
+48 Stunden (Maintainer 19.11.2026: „ob wir mehr einträge erledigen in 48 stunden als hinzugekommen sind“): `board.zahlen.neu_48h`
+(Anlagezeit `createdAt`) und `board.zahlen.erledigt_48h` (Zeit der Statusänderung auf Done, bei archivierten Einträgen ohne Done
+die Zeit des Archivierens) aus `quellen/board48.json`: sichtbare Einträge über die Projektliste (GraphQL), archivierte über ihre
+id aus den `archiv.md`-Zeilen der letzten 3 Tage (`nodes`), weil die Projektliste archivierte nicht liefert; ohne `archiv.md`-Zeile
+archivierte Einträge fehlen. `rueckmeldungen.issues_neu_48h`/`issues_geschlossen_48h` aus `quellen/issues48.json` (Issues ohne
+Pull Requests, in 3 Tagen geändert, höchstens 200, voll = `null`), `issues_offen` aus `issues.json` (100 = `null`). Beide Abfragen
+höchstens alle 15 Minuten; nicht lesbar = `null`; nicht in `verlauf.json`.
+
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,
 Grund, Beginn der Stufe in UTC; `max_worker` 0 ab Stufe 1, sonst `null`), gelesen aus `~/halo-nacht/drossel-stufe.txt`, nach der

@@ -19,7 +19,8 @@
 #   ~/halo-nacht/<datum>-plan.md bzw. <datum>-tagesroutine-plan[-n].tsv), offene Issues (alle 15 Min.; wartet = letzter
 #   Kommentar nicht von uns; nur Nummer und Titel), ~/halo-aufgaben/bilder-offen.md, gh run list (15 neueste), letztes
 #   Release und Commits seit dem Tag (alle 15 Min.), gh api rate_limit (je Lauf; zählt selbst nicht gegen das Limit)
-#   → github_limit (REST und GraphQL) und in verlauf.json gh_rest/gh_graphql (verbraucht in Prozent).
+#   → github_limit (REST und GraphQL) und in verlauf.json gh_rest/gh_graphql (verbraucht in Prozent); Board-Zeiten und Issues
+#   der letzten 48 Stunden (board48.json, issues48.json, alle 15 Min.) → neu_48h/erledigt_48h, issues_neu_48h/_geschlossen_48h.
 # Zum Proben: HALO_LS_DIR (Arbeitsordner), HALO_NACHT_DIR, HALO_AUFGABEN_DIR, HALO_LS_JETZT (Epochensekunden),
 # HALO_LS_PS (Datei statt ps), HALO_LS_OHNE_NETZ=1 (keine gh-/Claude-Aufrufe), HALO_LS_VOLLDAMPF/HALO_LS_SOLL (statt
 # lauf-hilfen.zsh).
@@ -82,6 +83,27 @@ if netz; then
   alt $Q/issues.json 900 && holen $Q/issues.json gh issue list -R $GH_REPO --state open -L 100 --json number,title,createdAt,author,comments \
     --jq '[.[] | ((.comments | last) // {author: .author, createdAt: .createdAt}) as $l
                  | {nr: .number, titel: .title, seit: $l.createdAt, wir: (($l.author.login // "") | test("^sruf79$|\\[bot\\]$|-bot$"))}]'
+  # 48-Stunden-Zahlen (Maintainer 19.11.2026: „ob wir mehr einträge erledigen in 48 stunden als hinzugekommen sind“), höchstens
+  # alle 15 Minuten: Board-Einträge mit Anlage- und Status-Zeit (sichtbare über die Projektliste, archivierte über ihre id aus den
+  # archiv.md-Zeilen der letzten 3 Tage); Issues (ohne Pull Requests), die in 3 Tagen geändert wurden, mit Eröffnung und Schluss
+  if alt $Q/board48.json 900; then
+    b48_sichtbar() {
+      setopt localoptions pipefail   # gh gescheitert → kein leeres [] übernehmen
+      gh api graphql --paginate -f query='query($endCursor:String){user(login:"sruf79"){projectV2(number:1){items(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id createdAt updatedAt fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}}}}}}' \
+        --jq '.data.user.projectV2.items.nodes[]' | jq -s .
+    }
+    holen $Q/board48-sichtbar.json b48_sichtbar
+    ids=(${(f)"$(awk -F' [|] ' -v g=$(date -v-3d +%F) '$1 >= g {print $2}' $A/archiv.md 2>/dev/null | tail -100)"})
+    if (( $#ids )); then
+      liste=${(j:,:)${(@)ids/(#m)*/\"$MATCH\"}}
+      holen $Q/board48-archiv.json gh api graphql -f query="query{nodes(ids:[$liste]){... on ProjectV2Item{id createdAt updatedAt isArchived fieldValueByName(name:\"Status\"){... on ProjectV2ItemFieldSingleSelectValue{name updatedAt}}}}}" --jq '[.data.nodes[] | select(. != null)]'
+    else print '[]' > $Q/board48-archiv.json; fi
+    if [[ -s $Q/board48-sichtbar.json && -s $Q/board48-archiv.json ]] && (( JETZT - $(zstat +mtime $Q/board48-sichtbar.json) < 120 && JETZT - $(zstat +mtime $Q/board48-archiv.json) < 120 )); then
+      jq -n --slurpfile s $Q/board48-sichtbar.json --slurpfile a $Q/board48-archiv.json --argjson t $JETZT '{stand: $t, sichtbar: $s[0], archiviert: $a[0]}' > $Q/board48.json.neu && mv $Q/board48.json.neu $Q/board48.json
+    fi
+  fi
+  alt $Q/issues48.json 900 && holen $Q/issues48.json gh issue list -R $GH_REPO --state all -L 200 --search "updated:>=$(date -v-3d +%F)" \
+    --json number,state,createdAt,closedAt --jq '[.[] | {nr: .number, offen: (.state == "OPEN"), eroeffnet: .createdAt, geschlossen: .closedAt}]'
   alt $Q/release.json 900 && holen $Q/release.json gh api repos/$GH_REPO/releases/latest --jq '{tag: .tag_name, zeit: .published_at}'
   if [[ -s $Q/release.json ]] && alt $Q/vergleich.json 900; then
     holen $Q/vergleich.json gh api "repos/$GH_REPO/compare/$(jq -r .tag $Q/release.json)...main" --jq '{ahead: .ahead_by}'
@@ -408,6 +430,27 @@ def plan():
     for e in glob.glob("%s/%s-tagesroutine-erledigt.txt" % (N, jetzt_w.date())):
         erledigt |= {z.split("\t")[0] for z in (lies(e) or "").splitlines()}
     return zeilen, erledigt
+# 48 Stunden (Maintainer 19.11.2026): aus board48.json (Anlagezeit createdAt; erledigt = Status Done mit Zeit der
+# Statusänderung, archiviert ohne Done mit Zeit der letzten Änderung, also dem Archivieren); fehlt sie → None
+B48 = lies(Q + "/board48.json", True)
+def _b48():
+    if not isinstance(B48, dict) or not isinstance(B48.get("sichtbar"), list) or not isinstance(B48.get("archiviert"), list): return None
+    alle = {}
+    for i in B48["sichtbar"] + B48["archiviert"]: alle[i["id"]] = i
+    return alle.values()
+def _seit48(t):
+    return t is not None and JETZT - 48 * 3600 <= dt.datetime.strptime(iso(t), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp() <= JETZT
+def neu_48h():
+    a = _b48()
+    return None if a is None else sum(1 for i in a if _seit48(i.get("createdAt")))
+def erledigt_48h():
+    a = _b48()
+    if a is None: return None
+    def zeit(i):
+        st = i.get("fieldValueByName") or {}
+        if st.get("name") == "Done": return st.get("updatedAt")
+        return i.get("updatedAt") if i.get("isArchived") else None
+    return sum(1 for i in a if _seit48(zeit(i)))
 def board():
     if BOARD is None: return None
     offen = [i for i in BOARD if i.get("status") != "Done"]
@@ -437,6 +480,7 @@ def board():
     return {"in_arbeit": in_arbeit, "naechste": naechste,
             "zahlen": {"bugs_offen": sum(1 for i in offen if typ(i) == "Bug"),
                        "features_offen": sum(1 for i in offen if typ(i) != "Bug"), "erledigt_woche": erl,
+                       "neu_48h": sicher(neu_48h), "erledigt_48h": sicher(erledigt_48h),
                        "je_bereich": [{"bereich": k, **v} for k, v in sorted(je.items(), key=lambda kv: (-sum(kv[1].values()), kv[0]))]}}
 
 def issues_warten():
@@ -444,13 +488,29 @@ def issues_warten():
     if iss is None: return None
     aus = [{"nr": i["nr"], "titel": i["titel"], "seit": iso(i.get("seit"))} for i in iss if not i.get("wir")]
     return sorted(aus, key=lambda x: x["seit"] or "")
+# Issues in 48 Stunden (ohne Pull Requests): aus issues48.json (in 3 Tagen geändert, höchstens 200; voll → nicht verlässlich)
+I48 = lies(Q + "/issues48.json", True)
+def _i48():
+    return I48 if isinstance(I48, list) and len(I48) < 200 else None
+def issues_neu_48h():
+    i = _i48()
+    return None if i is None else sum(1 for x in i if _seit48(x.get("eroeffnet")))
+def issues_geschlossen_48h():
+    i = _i48()
+    return None if i is None else sum(1 for x in i if not x.get("offen") and _seit48(x.get("geschlossen")))
+def issues_offen():
+    """offene Issues insgesamt aus issues.json (höchstens 100 geladen; voll → nicht verlässlich)"""
+    iss = lies(Q + "/issues.json", True)
+    return len(iss) if isinstance(iss, list) and len(iss) < 100 else None
 def bilder_offen():
     t = lies(A + "/bilder-offen.md")
     if t is None: return None
     zeilen = [z for z in t.splitlines() if z.startswith("|")]
     return max(0, len([z for z in zeilen if not re.match(r"\|[\s|:-]+\|?$", z)]) - 1)   # ohne Kopf und Trennzeile
 def rueckmeldungen():
-    return {"issues_warten": sicher(issues_warten), "bilder_offen": sicher(bilder_offen)}
+    return {"issues_warten": sicher(issues_warten), "bilder_offen": sicher(bilder_offen),
+            "issues_neu_48h": sicher(issues_neu_48h), "issues_geschlossen_48h": sicher(issues_geschlossen_48h),
+            "issues_offen": sicher(issues_offen)}
 
 CI = lies(Q + "/ci.json", True)
 CI_MAIN = lies(Q + "/ci-main.json", True)

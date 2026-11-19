@@ -20952,6 +20952,55 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: „Own keywords“ bleibt gespeichert, wenn die Einstellungen gleich nach dem Tippen geschlossen werden", options_fast_close, results)
 
+    def emoji_pref_closed_window():
+        # Die Stichwörter im Kalender hören auf „Emoji“ und „Own keywords“ in jedem Hauptfenster. Ein geschlossenes zweites
+        # Fenster blieb angemeldet: jeder Tastendruck in „Own keywords“ startete dort einen Zeitgeber im toten Fenster
+        # (Linux-CI: NS_ERROR_NOT_INITIALIZED aus implementation.js). Zweites Fenster öffnen, bis der Kalender eingehängt
+        # ist, schließen, dann die Einstellung ändern: keine Meldung aus halo.spaces, das Hauptfenster zeichnet weiter
+        res = m.js(r"""
+          const PREF = "extensions.mailcards.emojiCustom";
+          const fehler = [];
+          const hor = { observe: msg => { const t = String(msg.message || msg); if (/mailcards|implementation\.js/.test(t + (msg.sourceName || ""))) fehler.push(t.slice(0, 200)); } };
+          const nw = w.openDialog("chrome://messenger/content/messenger.xhtml", "_blank", "chrome,all,dialog=no");
+          const out = {};
+          try {
+            await bis(() => nw.document.readyState == "complete" && nw.document.getElementById("view-box")?.__mcEmoji, "zweites Fenster mit Kalender-Stichwörtern", 15000);
+            out.eingehaengt = true;
+          } finally { nw.close(); await bis(() => nw.closed, "zweites Fenster zu", 5000); w.focus(); }
+          // Linux wirft beim Zeitgeber im abgebauten Fenster, macOS baut das Fenster erst später ab (unload
+          // kommt verzögert) und nimmt ihn still an: deshalb zählen, ob beim Ändern der Einstellung (die Beobachter laufen
+          // gleich mit) noch Zeitgeber im geschlossenen Fenster gestellt werden; was es beim Abbau selbst plant, zählt nicht
+          out.zeitgeber = 0;
+          let imPref = false;
+          try {
+            nw.setTimeout = () => {
+              if (!imPref) return 0;
+              out.zeitgeber++;
+              const st = (new Error().stack || "").split("\n")[1] || "";
+              (out.wer ??= []).length < 3 && out.wer.push(st.replace(/^.*\/api\//, "").slice(0, 60));
+              return 0;
+            };
+          } catch (e) { out.ersetzt = String(e).slice(0, 80); }
+          Services.console.registerListener(hor);
+          try {
+            // wie beim Tippen: mehrere Änderungen hintereinander, dann die Tipp-Pause (300 ms) abwarten
+            imPref = true;
+            try {
+              for (const text of ["P", "Pr", "Probe = X"]) Services.prefs.setStringPref(PREF, text);
+            } finally { imPref = false; }
+            await ruhig(600);
+            out.hauptfenster = !!d.getElementById("view-box")?.__mcEmoji;
+          } finally {
+            Services.prefs.clearUserPref(PREF);
+            await ruhig(600);
+            Services.console.unregisterListener(hor);
+          }
+          out.fehler = fehler;
+          return out;""")
+        ok = res.get("eingehaengt") and res.get("hauptfenster") and not res.get("fehler") and res.get("zeitgeber") == 0
+        return ok, f"{res}"
+    check("Einstellungen: „Own keywords“ ändern nach geschlossenem zweitem Hauptfenster – keine Fehler aus dessen Kalender-Stichwörtern", emoji_pref_closed_window, results)
+
     def pref_symbols():
         # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
         # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel

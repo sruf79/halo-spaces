@@ -14037,6 +14037,11 @@ class CardEnhancer {
         let emojiTimer = null;
         const emojiNow = () => { resetEmojiRules(); annotateEmoji(root); };
         const prefObs = { observe: (_s, _t, name) => {
+          if (w.closed) {
+            // geschlossen, aber noch nicht abgebaut (unload kommt auf macOS erst später): nur abmelden
+            unobserve();
+            return;
+          }
           w.clearTimeout(emojiTimer);
           if (name == EMOJI_CUSTOM_PREF) {
             emojiTimer = w.setTimeout(emojiNow, 300);
@@ -14046,6 +14051,16 @@ class CardEnhancer {
         } };
         Services.prefs.addObserver(EMOJI_PREF, prefObs);
         Services.prefs.addObserver(EMOJI_CUSTOM_PREF, prefObs);
+        // ein geschlossenes zweites Hauptfenster muss sich abmelden: sonst stellt jeder Tastendruck in „Own keywords“
+        // einen Zeitgeber im toten Fenster (Linux: NS_ERROR_NOT_INITIALIZED)
+        const unobserve = () => {
+          Services.prefs.removeObserver(EMOJI_PREF, prefObs);
+          Services.prefs.removeObserver(EMOJI_CUSTOM_PREF, prefObs);
+          try {
+            w.clearTimeout(emojiTimer);
+          } catch {} // abgebautes Fenster: der Zeitgeber ist schon mit ihm weg
+        };
+        w.addEventListener("unload", unobserve, { once: true });
         run();
         this.restorers.push(() => {
           mo.disconnect();
@@ -14054,9 +14069,8 @@ class CardEnhancer {
             delete v.__mcSized;
           }
           delete root.__mcSpanRuns;
-          Services.prefs.removeObserver(EMOJI_PREF, prefObs);
-          Services.prefs.removeObserver(EMOJI_CUSTOM_PREF, prefObs);
-          w.clearTimeout(emojiTimer);
+          w.removeEventListener("unload", unobserve);
+          unobserve();
           for (const label of root.querySelectorAll("[data-mc-emoji]")) {
             label.removeAttribute("data-mc-emoji");
           }

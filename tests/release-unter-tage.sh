@@ -99,7 +99,7 @@ rot_melden() {   # <Stand>
   e=$(rot_eintragen "Stand ${sha[1,7]}" main $sha) || return 0
   print -r -- "ROT-STUFE: ${e%% *}. Rot von Stand ${sha[1,7]} in 14 Tagen → ${e#* }"
   an_neon "[release-unter-tage] ROT: Release $VERSION, Stand ${sha[1,7]} auf main, Push-Lauf auch nach der Wiederholung rot.
-Modellstufe: ${e%% *}. Rot dieses Stands in 14 Tagen → ${e#* } (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher mit rot_eintragen <Hash> <Nebenzweig> zählen).
+Modellstufe: ${e%% *}. Rot dieses Stands in 14 Tagen → ${e#* } (1 Opus, 2 und 3 Fable unter 50 % im 5-Stunden-Fenster, ab 4 Maintainer); Ursache belegen mit Skill systematic-debugging, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen (docs/release.md „Rote Änderung auf einen Nebenzweig“; Verursacher nur über tests/rot-nebenzweig.sh zurücknehmen, das zählt selbst).
 neon kümmert sich." release-unter-tage || push "Release unter Tage $VERSION rot, neon nicht erreichbar (Stand ${sha[1,7]}, ${e#* })" release-unter-tage
 }
 NUR_CI=1 ./release.sh $VERSION || { rot_melden $(git rev-parse origin/main); abbruch "release.sh $VERSION gescheitert (keine vollständig grüne CI samt Windows oder Update-Test rot)" }

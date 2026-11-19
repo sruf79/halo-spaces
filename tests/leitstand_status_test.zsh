@@ -298,5 +298,79 @@ print "  213   200    01:00 claude -p --model sonnet --session-id s9 --permissio
 rm -f $VH; lauf
 pruefe "Runde läuft wieder: Tagesroutine arbeitet" '([.agenten[] | select(.name == "Tagesroutine")][0] | .zustand == "arbeitet" and .grund == null and .modell == "sonnet" and .weiter_um == null) and .laeufe.tagesroutine.weiter_um == null'
 pruefe_v "Runde läuft wieder: Verlauf zählt 1" '.punkte[-1].agenten == 1'
+# Release-Schätzung (Maintainer 19.11.2026: „ja, bestell die bessere release-schätzung bei neon“): Mittag (12:00 Wien = 11:00Z),
+# Volldampf. Dauern: main-Push 60/90/120 Min. (Median 90, der 0-Minuten-Lauf zählt nicht), Windows 30/30/40 (30), Prüfzweig 40/50/60 (50)
+MITTAG=$((JETZT + 4 * 3600))
+lauf_m() { HALO_LS_VOLLDAMPF=1 HALO_LS_SOLL="7.3 6.04 anker x y" lauf ${1:-$MITTAG} }
+rl() { print -r -- "{\"databaseId\":$1,\"number\":$1,\"workflowName\":\"Test\",\"event\":\"$2\",\"headBranch\":\"$3\",\"headSha\":\"$4\",\"status\":\"$5\",\"conclusion\":\"$6\",\"createdAt\":\"$7\",\"updatedAt\":\"$8\",\"displayTitle\":\"t\",\"url\":\"u\"}" }
+ci_main_daten() {
+  print -r -- "[$(rl 50 push main m1 completed success 2026-11-18T08:00:00Z 2026-11-18T09:00:00Z),
+$(rl 51 push main m2 completed success 2026-11-18T10:00:00Z 2026-11-18T11:30:00Z),
+$(rl 52 push main m3 completed success 2026-11-18T12:00:00Z 2026-11-18T14:00:00Z),
+$(rl 53 push main m4 completed success 2026-11-18T15:00:00Z 2026-11-18T15:00:20Z),
+$(rl 54 workflow_dispatch main m1 completed success 2026-11-18T09:00:00Z 2026-11-18T09:30:00Z),
+$(rl 55 workflow_dispatch main m2 completed success 2026-11-18T11:30:00Z 2026-11-18T12:00:00Z),
+$(rl 56 workflow_dispatch main m3 completed success 2026-11-18T14:00:00Z 2026-11-18T14:40:00Z)$1]" > $T/d/quellen/ci-main.json
+}
+ci_pruef() {   # [weitere Läufe]
+  print -r -- "[$(rl 60 push pruef/a p1 completed success 2026-11-18T08:00:00Z 2026-11-18T08:40:00Z),
+$(rl 61 push pruef/b p2 completed success 2026-11-18T08:00:00Z 2026-11-18T08:50:00Z),
+$(rl 62 push pruef/c p3 completed failure 2026-11-18T08:00:00Z 2026-11-18T08:55:00Z),
+$(rl 63 push pruef/d p4 completed success 2026-11-18T08:00:00Z 2026-11-18T09:00:00Z)$1]" > $T/d/quellen/ci.json
+}
+rm -f $T/n/pausen.txt $T/n/zwischen-faellig.txt; ci_main_daten; ci_pruef
+lauf_m
+pruefe "Release: kein Kandidat unterwegs → zeit null, offen, ohne Kandidat" '.release_eta.zeit == null and .release_eta.sicherheit == "offen" and .release_eta.kandidat == null and .release_eta.haelt_auf == null and (.release_eta.grund | test("kein Kandidat unterwegs"))'
+# laufender Prüfzweig-Lauf mit 3 Thunderbird-Commits: Start 10:30Z + 50 + 90 + 30 + 10 Min. = 13:30Z
+ci_pruef ",$(rl 7 push pruef/x S7 in_progress '' 2026-11-19T10:30:00Z 2026-11-19T10:45:00Z),$(rl 8 push pruef/y S8 queued '' 2026-11-19T10:00:00Z 2026-11-19T10:00:00Z),$(rl 9 push pruef/probe-z S9 in_progress '' 2026-11-19T09:00:00Z 2026-11-19T09:00:00Z)"
+printf 'S7 3 1 0\nS8 2 1 0\nS9 5 1 0\n' > $T/d/quellen/tb-zahlen.tsv
+lauf_m
+pruefe "Release: Kandidat mit 3 Thunderbird-Commits, gemessene Dauern (2 zu wenig, Probezweig nie)" '.release_eta == {"zeit":"2026-11-19T13:30:00Z","grund":(.release_eta.grund),"sicherheit":"gemessen","kandidat":"pruef/x #7","haelt_auf":null} and (.release_eta.grund | test("pruef/x .*3 Thunderbird-Commits.*ab 3"))'
+pruefe "Feld ci zeigt weiter höchstens 15 Läufe" '(.ci | length) <= 15'
+# nicht mischbar bzw. „nicht nach main“ zählen nicht
+printf 'S7 3 0 0\nS8 2 1 0\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
+pruefe "Release: nicht mischbarer Stand ist kein Kandidat" '.release_eta.kandidat == null'
+printf 'S7 3 1 1\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
+pruefe "Release: Stand mit „nicht nach main“ ist kein Kandidat" '.release_eta.kandidat == null'
+# 5-Stunden-Fenster ab 85 % (Fenster läuft noch): schon 2 Commits genügen; S8 wartet seit 10:00Z → fertig 10:50, Push frühestens
+# jetzt (11:00Z; Prüfzweig-Läufe belegen neon nicht) → 11:00 + 130 Min. = 13:10Z
+cp $T/n/kontingent.json $T/kont.bak
+print '{"stand": "2026-11-19T11:55:00+0100", "info": {"unifiedWindows": {"five_hour": {"utilization": 0.9, "resetsAt": 1795100000}, "seven_day": {"utilization": 0.05, "resetsAt": 1795478400}}}}' > $T/n/kontingent.json
+printf 'S7 3 1 0\nS8 2 1 0\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
+pruefe "Release: Fenster ab 85 % → ab 1 Commit, frühester Kandidat" '.release_eta.kandidat == "pruef/y #8" and .release_eta.zeit == "2026-11-19T13:10:00Z"'
+mv $T/kont.bak $T/n/kontingent.json
+# belegt: main-Lauf läuft seit 10:00Z (frei 11:30Z) → Kandidat x erst danach: 11:30 + 130 Min. = 13:40Z
+ci_main_daten ",$(rl 57 push main m5 in_progress '' 2026-11-19T10:00:00Z 2026-11-19T10:30:00Z)"; lauf_m
+pruefe "Release: laufende main-CI verschiebt den Kandidaten" '.release_eta.zeit == "2026-11-19T13:40:00Z" and .release_eta.kandidat == "pruef/x #7"'
+# fälliger Stand mit Vorrang-Marke, neon belegt (Grund aus dem Wächter-Protokoll)
+print -r -- "$((MITTAG - 60)) 123 S7 pruef/x 11:59" > $T/n/zwischen-faellig.txt
+print -r -- "2026-11-19 11:59:00 belegt: CI-Lauf auf dem GitHub-Runner (fällig S7abcde pruef/x)" > $T/n/2026-11-19-zwischen-schleife.log
+lauf_m
+pruefe "Release: fällig und belegt → frei ab + Kette, Kandidat mit Lauf, hält auf" '.release_eta.zeit == "2026-11-19T13:40:00Z" and .release_eta.kandidat == "pruef/x #7" and .release_eta.haelt_auf == "belegt: CI-Lauf auf dem GitHub-Runner" and .release_eta.sicherheit == "gemessen"'
+rm -f $T/n/zwischen-faellig.txt
+# Hindernisse: Pause, rote CI auf main, Push-Sperre
+print "zwischen-release 2026-11-19T13:00+01:00 Test" > $T/n/pausen.txt; lauf_m
+pruefe "Release: Pause hält auf → zeit null" '.release_eta.zeit == null and .release_eta.haelt_auf == "Pause bis 13:00" and .release_eta.sicherheit == "offen"'
+rm -f $T/n/pausen.txt
+ci_main_daten; print '[{"headBranch":"main","status":"completed","conclusion":"failure","event":"push","workflowName":"Test"}]' > $T/d/quellen/ci-main.json; lauf_m
+pruefe "Release: rote CI auf main hält auf" '.release_eta.zeit == null and .release_eta.haelt_auf == "CI auf main rot"'
+ci_main_daten; lauf_m $JETZT
+pruefe "Release: 08:00 im Volldampf → Push-Sperre" '.release_eta.zeit == null and .release_eta.haelt_auf == "Push-Sperre bis 09:00"'
+# Faustwerte: keine main-Läufe → geschätzt; 10:30 + 50 + 50 + 30 + 10 = 12:50Z
+print '[]' > $T/d/quellen/ci-main.json; printf 'S7 3 1 0\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
+pruefe "Release: zu wenige main-/Windows-Läufe → Faustwert, geschätzt" '.release_eta.zeit == "2026-11-19T12:50:00Z" and .release_eta.sicherheit == "geschätzt"'
+# Nachtlauf: ohne Volldampf; drei Nächte mit Release um 06:00 Wien (4,5 h ab 01:30), eine Veröffentlichung um 15:00 zählt nicht
+print -r -- "v3.4.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-18 14:00:00' +%s)
+v3.3.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-18 05:00:00' +%s)
+v3.2.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-17 05:00:00' +%s)
+v3.1.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-16 05:00:00' +%s)" > $T/d/quellen/releases.txt
+HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL="7.3 6.04 anker x y" lauf $MITTAG
+pruefe "Release: Nachtlauf 01:30 + gemessene 4,5 Stunden" '.release_eta.zeit == "2026-11-20T05:00:00Z" and .release_eta.sicherheit == "gemessen" and (.release_eta.grund | test("4.5 Stunden"))'
+print -r -- "v3.1.0 $(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-16 05:00:00' +%s)" > $T/d/quellen/releases.txt
+HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL="7.3 6.04 anker x y" lauf $MITTAG
+pruefe "Release: zu wenige Nächte → Faustwert 3 Stunden, geschätzt" '.release_eta.zeit == "2026-11-20T03:30:00Z" and .release_eta.sicherheit == "geschätzt"'
+print "nachtlauf 2026-11-20T09:00+01:00 Test" > $T/n/pausen.txt; HALO_LS_VOLLDAMPF=0 lauf $MITTAG
+pruefe "Release: Nachtlauf pausiert → zeit null, hält auf" '.release_eta.zeit == null and (.release_eta.haelt_auf | startswith("Pause Nachtlauf"))'
+rm -f $T/n/pausen.txt
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
 exit $FEHLER

@@ -549,6 +549,21 @@ Commits (Maintainer 19.11.2026: „bei commits könnten wir vergleichen die letz
 --since --until`) aus einem eigenen Klon ohne Dateiinhalte `~/halo-nacht/leitstand/git` (fetch höchstens alle 15 Minuten, der
 Haupt-Checkout bleibt unberührt), zwischengespeichert in `quellen/commits.json`; fetch gescheitert oder älter als 1 Stunde = `null`.
 
+Release-Schätzung (Maintainer 19.11.2026: „ja, bestell die bessere release-schätzung bei neon“): `release_eta` =
+`{"zeit","grund","sicherheit","kandidat","haelt_auf"}`, `sicherheit` „gemessen“ (alle Dauern gemessen), „geschätzt“ (ein Faustwert
+dabei) oder „offen“ (`zeit` null). Übliche Dauern = Median der letzten (höchstens 7) grünen Läufe ab 5 Minuten aus `ci.json` (jetzt
+40 Läufe, das Feld `ci` zeigt weiter 15) und `ci-main.json` (30): Prüfzweig-Push, main-Push, Windows (von Hand auf main); unter 3
+Läufen Faustwert 60/50/30 Minuten; Abschluss (release-unter-tage.sh, release.sh, publish.sh) fest 10 Minuten. Zwischen-Release läuft:
+Phase aus den main-Läufen seit seinem Start. Volldampf 09:00–22:30: Hindernisse Pause `zwischen-release`/`alle`, CI auf main rot
+(`zeit` null, `haelt_auf`); fälliger Stand mit frischer Marke `zwischen-faellig.txt` = Ende der laufenden main-/Windows-Läufe +
+Push-Lauf + Windows + Abschluss (`haelt_auf` aus der letzten „belegt:“-Zeile des Wächters); sonst laufende oder wartende
+Prüfzweig-Läufe, deren Stand die Bedingung des Wächters erfüllt (Thunderbird-Commits über origin/main ≥ 3, bei 5-Stunden-Fenster ab
+85 % ≥ 1, mischbar, ohne „nicht nach main“, nicht gesperrt, kein Diagnose-/Probezweig; gerechnet wie in `zwischen-schleife.zsh` im
+eigenen Klon, je Stand einmal in `quellen/tb-zahlen.tsv`) = Ende des Prüfzweig-Laufs (frühestens nach den laufenden main-Läufen) +
+Kette, der früheste zählt; keiner → „kein Kandidat unterwegs“. 01:30–09:00 im Volldampf: Push-Sperre. Sonst Nachtlauf: 01:30 +
+Median der Veröffentlichungen der letzten Nächte (Versions-Tags zwischen 01:30 und 09:00, `quellen/releases.txt`), unter 3 Nächten
+3 Stunden; Pause `nachtlauf` hält auf. Rot-Zähler und Drossel halten ein Zwischen-Release nicht auf und zählen nicht.
+
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,
 Grund, Beginn der Stufe in UTC; `max_worker` 0 ab Stufe 1, sonst `null`), gelesen aus `~/halo-nacht/drossel-stufe.txt`, nach der

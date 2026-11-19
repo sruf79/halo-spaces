@@ -105,25 +105,56 @@ if netz; then
   alt $Q/issues48.json 900 && holen $Q/issues48.json gh issue list -R $GH_REPO --state all -L 200 --search "updated:>=$(date -v-3d +%F)" \
     --json number,state,createdAt,closedAt --jq '[.[] | {nr: .number, offen: (.state == "OPEN"), eroeffnet: .createdAt, geschlossen: .closedAt}]'
   # Commits auf main (Maintainer 19.11.2026: „die letzten 7 tags vs. die 7 tage davor“): eigener Klon ohne Dateiinhalte in
-  # $D/git (der Haupt-Checkout bleibt unberührt), höchstens alle 15 Minuten fetch, dann rev-list nach Commit-Datum
+  # $D/git (der Haupt-Checkout bleibt unberührt), höchstens alle 15 Minuten fetch, dann rev-list nach Commit-Datum.
+  # Mit Bäumen (blob:none, für die Thunderbird-Zählung der Release-Schätzung), dazu Prüfzweige und Versions-Tags.
+  G=$D/git
+  gitg() { git -C $G -c credential.helper= -c credential.helper='!gh auth git-credential' "$@" }
+  if [[ ! -d $G/objects || $(git -C $G config remote.origin.partialclonefilter 2>/dev/null) != blob:none ]]; then
+    { rm -rf $G; git init -q --bare $G && git -C $G remote add origin https://github.com/$GH_REPO.git \
+      && git -C $G config remote.origin.promisor true && git -C $G config remote.origin.partialclonefilter blob:none; } 2>>$LOG
+    rm -f $Q/commits.json
+  fi
   if alt $Q/commits.json 900; then
-    G=$D/git
-    [[ -d $G/objects ]] || { rm -rf $G; git init -q --bare $G && git -C $G remote add origin https://github.com/$GH_REPO.git; } 2>>$LOG
-    if git -C $G -c credential.helper= -c credential.helper='!gh auth git-credential' fetch -q --filter=tree:0 origin +main:refs/remotes/origin/main 2>>$LOG; then
+    if gitg fetch -q --prune --filter=blob:none origin +main:refs/remotes/origin/main '+refs/heads/pruef/*:refs/remotes/origin/pruef/*' '+refs/tags/v*:refs/tags/v*' 2>>$LOG; then
       zaehle() { git -C $G rev-list --count --since=$(TZ=UTC date -r $(( JETZT - $1 )) +%FT%TZ) --until=$(TZ=UTC date -r $(( JETZT - $2 )) +%FT%TZ) origin/main }
-      { w=(); for a b in 604800 0 1209600 604800 172800 0 345600 172800; do w+=$(zaehle $a $b) || exit 1; done
-        print -r -- "{\"letzte_7t\":$w[1],\"davor_7t\":$w[2],\"letzte_48h\":$w[3],\"davor_48h\":$w[4],\"stand\":$JETZT}" } > $Q/commits.json.neu 2>>$LOG \
+      ( w=(); for a b in 604800 0 1209600 604800 172800 0 345600 172800; do w+=$(zaehle $a $b) || exit 1; done
+        print -r -- "{\"letzte_7t\":$w[1],\"davor_7t\":$w[2],\"letzte_48h\":$w[3],\"davor_48h\":$w[4],\"stand\":$JETZT}" ) > $Q/commits.json.neu 2>>$LOG \
         && jq -e '[.letzte_7t,.davor_7t,.letzte_48h,.davor_48h] | all(type == "number")' $Q/commits.json.neu >/dev/null 2>&1 \
         && mv $Q/commits.json.neu $Q/commits.json || { rm -f $Q/commits.json.neu; log "Quelle nicht lesbar: commits.json"; }
+      # Veröffentlichungszeiten (Versions-Commit von publish.sh ≈ Release) für die übliche Dauer des Nachtlaufs
+      git -C $G for-each-ref --sort=-creatordate --count=30 --format='%(refname:short) %(creatordate:unix)' 'refs/tags/v*' > $Q/releases.txt.neu 2>>$LOG \
+        && [[ -s $Q/releases.txt.neu ]] && mv $Q/releases.txt.neu $Q/releases.txt || rm -f $Q/releases.txt.neu
     else log "Quelle nicht lesbar: commits.json (fetch)"; fi
   fi
   alt $Q/release.json 900 && holen $Q/release.json gh api repos/$GH_REPO/releases/latest --jq '{tag: .tag_name, zeit: .published_at}'
   if [[ -s $Q/release.json ]] && alt $Q/vergleich.json 900; then
     holen $Q/vergleich.json gh api "repos/$GH_REPO/compare/$(jq -r .tag $Q/release.json)...main" --jq '{ahead: .ahead_by}'
   fi
-  holen $Q/ci.json gh run list -R $GH_REPO -L 15 --json databaseId,number,displayTitle,headBranch,event,status,conclusion,createdAt,updatedAt,url
+  # 40 statt 15 (Feld ci zeigt weiter die 15 neuesten): Laufdauern für die Release-Schätzung aus derselben Abfrage
+  holen $Q/ci.json gh run list -R $GH_REPO -L 40 --json databaseId,number,displayTitle,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,url,workflowName
   # ci_main gezielt (der neueste main-Lauf ist oft nicht unter den 15 neuesten; 5 für abgebrochene davor)
-  holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 5 --json headBranch,status,conclusion
+  # 30 statt 5: auch Dauern der main- und Windows-Läufe (ci_main nimmt weiter den neuesten)
+  holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 30 --json databaseId,number,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,workflowName
+  # Kandidaten der Release-Schätzung: je laufendem bzw. wartendem Push-Lauf eines Prüfzweigs die Thunderbird-Commits über
+  # origin/main wie tb_zahl/nur_pruef/mischbar in tests/zwischen-schleife.zsh (nur gelesen, dort nichts geändert), im eigenen
+  # Klon; je Stand einmal gerechnet (tb-zahlen.tsv „<Stand> <Zahl> <mischbar 1|0> <nur Prüfzweig 1|0>“)
+  if [[ -s $Q/ci.json && -d $G/objects ]]; then
+    TB=$Q/tb-zahlen.tsv; touch $TB
+    for sha zw in ${=$(jq -r '.[] | select(.workflowName == "Test" and .event == "push" and (.headBranch | startswith("pruef/")) and .status != "completed") | "\(.headSha) \(.headBranch)"' $Q/ci.json 2>/dev/null)}; do
+      grep -q "^$sha " $TB && continue
+      git -C $G cat-file -e "$sha^{commit}" 2>/dev/null || gitg fetch -q --filter=blob:none origin "+refs/heads/$zw:refs/remotes/origin/$zw" 2>>$LOG
+      git -C $G cat-file -e "$sha^{commit}" 2>/dev/null || continue
+      ( export GIT_DIR=$G GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.renames GIT_CONFIG_VALUE_0=false
+        n=0 mb=1 np=0
+        git merge-base --is-ancestor $sha origin/main 2>/dev/null || { t=$(git merge-tree --write-tree origin/main $sha 2>/dev/null) || mb=0; }
+        if (( mb )) && [[ -n $t ]] && ! zsh $REPO/tests/ci-noetig.sh origin/main $t 2>/dev/null; then n=0
+        else for c in $(git rev-list --no-merges --cherry-pick --right-only origin/main...$sha 2>/dev/null); do
+          zsh $REPO/tests/ci-noetig.sh "${c}^" "$c" 2>/dev/null && n=$((n + 1)); done; fi
+        git log --format=%B $sha --not origin/main 2>/dev/null | grep -qiE -- 'nicht nach main|nur (auf dem |für den )?Prüfzweig' && np=1
+        print -r -- "$sha $n $mb $np" ) >> $TB 2>>$LOG
+    done
+    tail -200 $TB > $TB.neu && mv $TB.neu $TB
+  fi
   # GitHub-Limit je Lauf frisch (alter Wert gilt nicht weiter: nicht lesbar → github_limit null)
   rm -f $Q/rate.json
   holen $Q/rate.json gh api rate_limit --jq '{core: .resources.core, graphql: .resources.graphql}'
@@ -531,7 +562,7 @@ def ci():
     if CI is None: return None
     return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": r["displayTitle"], "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
-             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI]
+             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI[:15]]
 def ci_main():
     """neuester main-Lauf (gezielte Abfrage, sonst aus den 15 neuesten); abgebrochene zählen nicht"""
     quelle = CI_MAIN if CI_MAIN else CI
@@ -544,22 +575,162 @@ def ci_main():
         return "grün" if r.get("conclusion") == "success" else "rot"
     return None
 
+# --- Release-Schätzung (Maintainer 19.11.2026: „ja, bestell die bessere release-schätzung bei neon“): aus dem Stand statt
+# Faustwerten. Übliche Dauern = Median der letzten grünen Läufe (Wanduhr: Anlage bis letzte Änderung, Warteschlange
+# eingeschlossen) aus ci.json/ci-main.json; Faustwert nur bei weniger als 3 Läufen (dann „geschätzt“). Kette eines
+# Zwischen-Releases wie tests/zwischen-release.zsh: Prüfzweig grün → Push nach main → Push-Lauf → Windows-Lauf →
+# release-unter-tage.sh/release.sh/publish.sh (ABSCHLUSS). Nichts geraten: ohne Beleg zeit null mit Grund.
+FAUST = {"pruef": 60 * 60, "main": 50 * 60, "windows": 30 * 60, "nacht": 3 * 3600}
+ABSCHLUSS = 10 * 60   # release-unter-tage.sh, NUR_CI=1 release.sh und publish.sh nach grüner CI (Faustwert, ohne eigene Messung)
+LAEUFT = ("in_progress", "queued", "waiting", "pending", "requested")
+def ep(t):
+    """ISO oder Epoche → Epochensekunden; None bleibt None"""
+    i = iso(t)
+    return None if i is None else dt.datetime.strptime(i, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc).timestamp()
+def median(werte):
+    w = sorted(werte); n = len(w)
+    return None if not n else (w[n // 2] if n % 2 else (w[n // 2 - 1] + w[n // 2]) / 2)
+def art_von(r):
+    """Art eines Laufs: pruef (Push auf pruef/), main (Push auf main), windows (von Hand auf main), sonst None"""
+    if r.get("workflowName", "Test") != "Test": return None
+    if r.get("event") == "push" and (r.get("headBranch") or "").startswith("pruef/"): return "pruef"
+    if r.get("headBranch") == "main": return {"push": "main", "workflow_dispatch": "windows"}.get(r.get("event"))
+    return None
+def dauern(laeufe, mindest=300, anzahl=7):
+    """{Art: (Sekunden, gemessen?)} aus den letzten grünen Läufen je Art (kürzer als 5 Min. = ohne Thunderbird-Arbeit)"""
+    je = {}
+    for r in laeufe or []:
+        k = art_von(r)
+        if k is None or r.get("status") != "completed" or r.get("conclusion") != "success": continue
+        a, e = ep(r.get("createdAt")), ep(r.get("updatedAt"))
+        if a is None or e is None or e - a < mindest: continue
+        if len(je.setdefault(k, {})) < anzahl: je[k][r.get("databaseId", id(r))] = e - a
+    aus = {}
+    for k in ("pruef", "main", "windows"):
+        w = list(je.get(k, {}).values())
+        aus[k] = (median(w), True) if len(w) >= 3 else (FAUST[k], False)
+    return aus
+def nacht_dauer(releases, tz=WIEN, anzahl=7):
+    """(Sekunden ab 01:30, gemessen?): Median der letzten Veröffentlichungen zwischen 01:30 und 09:00 Wiener Zeit"""
+    w = []
+    for t in releases:
+        d = dt.datetime.fromtimestamp(t, tz)
+        if 130 <= d.hour * 100 + d.minute < 900:
+            w.append(t - d.replace(hour=1, minute=30, second=0, microsecond=0).timestamp())
+        if len(w) >= anzahl: break
+    return (median(w), True) if len(w) >= 3 else (FAUST["nacht"], False)
+def pause_bis(rolle):
+    """Ende der spätesten aktiven Pause für <rolle> oder „alle“ (pausen.txt, wie pause_aktiv in lauf-hilfen.zsh), sonst None"""
+    beste = None
+    for z in (lies(N + "/pausen.txt") or "").splitlines():
+        t = z.split(None, 2)
+        if len(t) < 3 or t[0] not in (rolle, "alle"): continue
+        try: b = dt.datetime.fromisoformat(t[1]).timestamp()
+        except ValueError: continue
+        if b > JETZT and (beste is None or b > beste): beste = b
+    return beste
+def ab_tb():
+    """nötige Thunderbird-Commits wie zwischen-schleife.zsh: 1 bei 5-Stunden-Fenster ab 85 % (Fenster läuft noch), sonst 3"""
+    k = lies(N + "/kontingent.json", True) or {}
+    h = ((k.get("info") or {}).get("unifiedWindows") or {}).get("five_hour") or {}
+    try:
+        if 100 * h["utilization"] >= 85 and h["resetsAt"] > JETZT: return 1
+    except (KeyError, TypeError): pass
+    return 3
+def tb_zahlen():
+    aus = {}
+    for z in (lies(Q + "/tb-zahlen.tsv") or "").splitlines():
+        t = z.split()
+        if len(t) == 4 and all(x.isdigit() for x in t[1:]): aus[t[0]] = (int(t[1]), t[2] == "1", t[3] == "1")
+    return aus
+def frei_ab(laeufe, d):
+    """(Zeitpunkt, an dem die laufenden main-/Windows-Läufe voraussichtlich fertig sind, gemessen?); keiner → (JETZT, True)"""
+    ende, gem = JETZT, True
+    for r in laeufe or []:
+        k = art_von(r)
+        if k in (None, "pruef") or r.get("status") not in LAEUFT: continue   # Prüfzweige laufen auf GitHub, neon bleibt frei
+        e = ep(r.get("createdAt")) + d[k][0]
+        gem = gem and d[k][1]
+        ende = max(ende, e)
+    return ende, gem
+def eta(zeit, gem, grund, kandidat=None, haelt=None):
+    if zeit is None: return {"zeit": None, "grund": grund, "sicherheit": "offen", "kandidat": kandidat, "haelt_auf": haelt}
+    return {"zeit": iso(zeit), "grund": grund, "sicherheit": "gemessen" if gem else "geschätzt", "kandidat": kandidat, "haelt_auf": haelt}
+def hm_text(t): return dt.datetime.fromtimestamp(t, WIEN).strftime("%H:%M")
 def release_eta():
     rel = lies(Q + "/release.json", True) or {}
     ahead = (lies(Q + "/vergleich.json", True) or {}).get("ahead")
     seit = (" %s Commits auf main seit %s." % (ahead, rel["tag"])) if ahead is not None and rel.get("tag") else ""
-    if oberste(r"zwischen-release\.zsh|Unbeaufsichtigter Zwischen-Release"):
-        return {"zeit": iso(JETZT + 50 * 60), "grund": "Zwischen-Release läuft, wartet auf CI und Windows (etwa 50 Minuten)." + seit}
+    laeufe = list({r.get("databaseId", i): r for i, r in enumerate((CI_MAIN or []) + (CI or []))}.values())
+    d = dauern(laeufe)
+    rest_main = d["main"][0] + d["windows"][0] + ABSCHLUSS
+    gem_main = d["main"][1] and d["windows"][1]
+    hm = jetzt_w.hour * 100 + jetzt_w.minute
+    # 1. Zwischen-Release läuft: Phase aus den main-Läufen seit seinem Start
+    zr = oberste(r"zwischen-release\.zsh|Unbeaufsichtigter Zwischen-Release")
+    if zr:
+        start = PROZ[zr[0]][1]
+        nach = [r for r in laeufe if r.get("headBranch") == "main" and (ep(r.get("createdAt")) or 0) >= start - 60]
+        push = next((r for r in sorted(nach, key=lambda r: ep(r["createdAt"])) if art_von(r) == "main"), None)
+        win = next((r for r in sorted(nach, key=lambda r: ep(r["createdAt"])) if art_von(r) == "windows"), None)
+        if win:
+            if win.get("status") in LAEUFT:
+                return eta(ep(win["createdAt"]) + d["windows"][0] + ABSCHLUSS, d["windows"][1], "Zwischen-Release läuft: Windows-Lauf #%s läuft, danach Veröffentlichung." % win.get("number") + seit)
+            return eta(JETZT + ABSCHLUSS, False, "Zwischen-Release läuft: CI grün, Veröffentlichung läuft." + seit)
+        if push and push.get("status") in LAEUFT:
+            return eta(ep(push["createdAt"]) + rest_main, gem_main, "Zwischen-Release läuft: Push-Lauf #%s auf main läuft, danach Windows und Veröffentlichung." % push.get("number") + seit)
+        return eta(JETZT + rest_main, False, "Zwischen-Release läuft (vor dem Push bzw. zwischen zwei Schritten), danach CI, Windows und Veröffentlichung." + seit)
+    # 2. Nachtlauf läuft und hat noch nicht veröffentlicht: 01:30 + übliche Dauer der letzten Nächte
+    rels = [int(z.split()[1]) for z in (lies(Q + "/releases.txt") or "").splitlines() if len(z.split()) == 2 and z.split()[1].isdigit()]
+    nd, ngem = nacht_dauer(rels)
     nl = haupt("Nachtlauf", LAEUFE["nachtlauf"][1])
     if nl and not (rel.get("zeit") and iso(rel["zeit"]) >= iso(PROZ[nl[0]][1])):
-        return {"zeit": None, "grund": "Nachtlauf läuft; er veröffentlicht nach grüner CI, Zeitpunkt offen." + seit}
-    hm = jetzt_w.hour * 100 + jetzt_w.minute
-    if volldampf() and 900 <= hm < 2230:
-        return {"zeit": None, "grund": "Volldampf: Zwischen-Release, sobald ein Prüfzweig mit mindestens 3 Thunderbird-Commits grün ist." + seit}
-    nacht = jetzt_w.replace(hour=1, minute=30, second=0, microsecond=0)
-    if nacht.timestamp() <= JETZT: nacht += dt.timedelta(days=1)
-    return {"zeit": iso(nacht.timestamp() + 3 * 3600),
-            "grund": "Nächster Nachtlauf (01:30 Wiener Zeit) veröffentlicht nach grüner CI; Zeit geschätzt (Start plus 3 Stunden)." + seit}
+        z = dt.datetime.fromtimestamp(PROZ[nl[0]][1], WIEN).replace(hour=1, minute=30, second=0, microsecond=0).timestamp() + nd
+        if z > JETZT:
+            return eta(z, ngem, "Nachtlauf läuft; Veröffentlichung nach grüner CI, übliche Dauer der letzten Nächte %.1f Stunden ab 01:30." % (nd / 3600) + seit)
+        return eta(None, False, "Nachtlauf läuft länger als üblich (%.1f Stunden ab 01:30); Zeitpunkt offen." % (nd / 3600) + seit)
+    def nachtlauf_eta(vorne=""):
+        nacht = jetzt_w.replace(hour=1, minute=30, second=0, microsecond=0)
+        if nacht.timestamp() <= JETZT: nacht += dt.timedelta(days=1)
+        pb = pause_bis("nachtlauf")
+        if pb and pb > nacht.timestamp():
+            return eta(None, False, vorne + "Nachtlauf pausiert bis %s." % hm_text(pb) + seit, haelt="Pause Nachtlauf bis %s" % hm_text(pb))
+        return eta(nacht.timestamp() + nd, ngem, vorne + "Nächster Nachtlauf (01:30 Wiener Zeit) veröffentlicht nach grüner CI; übliche Dauer %s %.1f Stunden." % (
+            "der letzten Nächte" if ngem else "(Faustwert, zu wenige Nächte gemessen)", nd / 3600) + seit)
+    if not volldampf() or hm >= 2230 or hm < 130:
+        return nachtlauf_eta("Volldampf: Zwischen-Releases nur 09:00 bis 22:30. " if volldampf() else "")
+    if hm < 900:
+        return eta(None, False, "Push-Sperre bis 09:00; danach Zwischen-Release, sobald ein Prüfzweig fällig ist." + seit, haelt="Push-Sperre bis 09:00")
+    # 3. Volldampf tagsüber: Hindernisse
+    pb = pause_bis("zwischen-release")
+    if pb: return eta(None, False, "Zwischen-Releases pausiert bis %s." % hm_text(pb) + seit, haelt="Pause bis %s" % hm_text(pb))
+    if ci_main() == "rot": return eta(None, False, "CI auf main rot; erst nach der Behebung." + seit, haelt="CI auf main rot")
+    frei, fgem = frei_ab(laeufe, d)
+    # fälliger Stand, der auf ein freies neon wartet (Vorrang-Marke des Wächters, je Takt erneuert)
+    m = (lies(N + "/zwischen-faellig.txt") or "").split()
+    if len(m) >= 4 and m[0].isdigit() and JETZT - int(m[0]) <= 900:
+        log_z = [z for z in (lies("%s/%s-zwischen-schleife.log" % (N, jetzt_w.date())) or "").splitlines() if " belegt: " in z]
+        haelt = re.sub(r"^\S+ \S+ (belegt: [^(]*?)\s*(\(fällig.*)?$", r"\1", log_z[-1]) if log_z else "neon belegt"
+        lauf_nr = next((r.get("number") for r in laeufe if (r.get("headSha") or "").startswith(m[2]) and art_von(r) == "pruef"), None)
+        k = m[3] + (" #%s" % lauf_nr if lauf_nr else "")
+        return eta(frei + rest_main, fgem and gem_main, "Fällig: %s (Stand %s) wartet auf ein freies neon, dann Push-Lauf, Windows und Veröffentlichung." % (m[3], m[2][:7]) + seit,
+                   kandidat=k, haelt=haelt)
+    # Prüfzweig-Läufe unterwegs, deren Stand die Bedingung des Wächters erfüllen wird
+    ab, tb = ab_tb(), tb_zahlen()
+    gesperrt = set((lies(N + "/zwischen-gesperrt.txt") or "").split())
+    beste = None
+    for r in laeufe:
+        if art_von(r) != "pruef" or r.get("status") not in LAEUFT: continue
+        if re.search(r"(diagnose|flackern|probe)", r["headBranch"][6:]) or r.get("headSha") in gesperrt: continue
+        n, mb, np = tb.get(r.get("headSha"), (None, False, False))
+        if n is None or n < ab or not mb or np: continue
+        z = max(ep(r["createdAt"]) + d["pruef"][0], frei) + rest_main
+        if beste is None or z < beste[0]: beste = (z, r, n)
+    if beste:
+        z, r, n = beste
+        return eta(z, d["pruef"][1] and gem_main and fgem, "Kandidat %s (Lauf #%s, %d Thunderbird-Commits über main, ab %d): Prüfzweig-CI, dann Push-Lauf, Windows und Veröffentlichung." % (
+            r["headBranch"], r.get("number"), n, ab) + seit, kandidat="%s #%s" % (r["headBranch"], r.get("number")))
+    return eta(None, False, "Volldampf: kein Kandidat unterwegs (kein laufender Prüfzweig-Lauf mit mindestens %d Thunderbird-Commits über main)." % ab + seit)
 
 # Commits auf origin/main nach Commit-Datum (quellen/commits.json, höchstens alle 15 Min. neu; älter als 1 Stunde → null)
 def commits():

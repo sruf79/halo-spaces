@@ -23,6 +23,7 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | **Alltag** | keine aktive Zeile in `volldampf.txt` | 09:00–20:30 (Ende 22:00); Abstand < −8: alles Opus (Fable bei 5 h < 50 %); −8…0: Opus/Sonnet; 0…+10: Sparmodus Haiku; > +10: stündlich warten | 01:30, Director mit 70–80 %-Vorsicht, Schritt 5 bis 06:30, Ende 08:00 | läuft nicht | läuft nicht |
 | **Volldampf aktiv** | Zeile aktiv (`volldampf_aktiv` = 0) | 08:45–23:30 (Ende 23:59); Soll und Sparmodus bremsen nicht; Fenster-Takt wie der Wächter (über Takt: warten, bis er aufholt, höchstens volle Stunde); Opus/Sonnet, Fable bei 5 h < 100 % | Fortsetzungen bis 08:45, Grenzen 40 Commits / 50 Fortsetzungen | alle 10 Min., bis `MAX_WORKER` (6); tags Start bei Woche < Soll (48 h) **oder** 5 h < 60 %; nachts (vor 09:00 oder Nachtlauf läuft) nur bei Woche < Soll; Fable bei ≥ 5 Punkte unter Soll | alle 5 Min., Push-Beginn 09:00–22:30 (danach warten), Release bis 24:00; ab 3 Thunderbird-Commits |
 | **Volldampf, Fenster knapp** | 5 h ≥ 70 / 80 / 85 / 90 % | ab 80 %: nichts Neues bis Fensterende | Limit-Pause 30 Min. bei Abbruch | ab 70 %: nur Klasse „tokenarm“ (Sonnet, höchstens ein tokenarmer Worker); ab 85 % (bis unter 98 %): Windows-Rundgang, einmal je Tag; ab 90 %: kein Worker-Start | ab 85 %: Release schon ab 1 Thunderbird-Commit (CI und Windows nutzen die Pause) |
+| **Volldampf, Woche reicht nicht** | Drossel-Stufe 1–3 (`drossel_stufe`, `~/halo-nacht/drossel-stufe.txt`) | Stufe 1: nur kein Fable (Plan und komplexe Einträge bleiben Opus); 2: nur jede zweite Runde nach einer echten Runde; 3: nichts Neues bis zur vollen Stunde; roter Prüfzweig und Release unter Tage nie gebremst | unberührt | kein neuer Worker (Rundgang bleibt) | unberührt |
 | **Volldampf pausiert** | Woche ≥ 98 % (Marke `volldampf-beendet.txt`) | Alltagsregeln (meist „nichts Neues“, weit über Soll) | Alltagsgrenzen | wartet, liest Kontingent stündlich | wartet |
 | **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter, Soll bis nächster Reset | wie Volldampf | Soll bis nächster Reset | wie Volldampf |
 | **Automatischer Reset** | Di 00:00 UTC (01:00 Winter, 02:00 Sommer) = `bis` | ab dann Alltag | ab 01:30 Alltag, räumt Zeile weg | endet beim nächsten Takt | endet beim nächsten Takt |
@@ -32,6 +33,14 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 1. **Pause** in `~/halo-nacht/pausen.txt` (je Routine, mit Ablauf).
 2. **Zeitregeln**: Push-Sperre 01:30–09:00, ab 00:00 kein Code-Push, Nachtlauf-Schutz (kein Worker-Testbeginn 01:10–01:45), Zeitfenster der Tagesroutine.
 3. **Belegt** (`belegt()`): CI auf dem Runner, Testlauf, Marionette-Port, Windows-VM, release.sh/publish.sh, andere Sitzung.
+   **Vorrang des Zwischen-Release** (neon-Auftrag #48, 19.11.2026; Anlass: 3.33.0 wartete über 60 Minuten auf „belegt“, weil
+   Worker und Tagesroutine laufend neue Testläufe begannen): Hat der Zwischen-Release-Wächter einen fälligen grünen Stand und
+   ist neon belegt, schreibt er `~/halo-nacht/zwischen-faellig.txt` (je Takt erneuert, auch während des ganzen Release-Laufs;
+   frisch = jünger als 60 Minuten und Wächter lebt). Solange sie frisch ist: der Auslastungswächter startet keine Worker (auch
+   keinen Rundgang), der Zeitfenster-Hook weist neue Testläufe ab („Zwischen-Release fällig, bitte warten“), auch mit
+   `HALO_LAUF` (Tagesroutine), nur nicht für `HALO_LAUF=zwischen-release` und `nachtlauf`. Laufende Testläufe brechen nie ab,
+   der Wächter wartet. Die Marke fällt nach Release, Rot oder Abbruch, wenn kein Stand mehr fällig ist, und nach 120 Minuten
+   Warten auf denselben Stand (`ZS_VORRANG_MAX`, Meldung an neon). Die Meldung „belegt über 60 Min.“ an neon bleibt.
    Wartezeiten des Nachtlaufs vor dem Start (Maintainer 18.11.2026, `nachtlauf_warten` in `tests/vorpruefung.zsh`): CI bis zu
    ihrem Ende, längstens 03:30; Testlauf, Thunderbird mit Marionette, Marionette-Port bis 60 Minuten ab dem ersten Sehen;
    release.sh/publish.sh bis 20 Minuten (dauert wenige Minuten); andere Claude-Sitzung (der Lauf des Maintainers geht immer
@@ -42,13 +51,14 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
    mit CI-Grenze 10:00 statt fest 90 Minuten (eine CI ab 09:00 ist auch dunkel vorher fertig; die Tagesroutine Sa/So wartet so
    lange). Andere Läufe warten wie bisher.
 4. **Wochenlimit**: Status nicht „allowed…“ oder Woche ≥ 98 % → Volldampf pausiert, Alltagsregeln.
+4a. **Kontingent-Drossel (Woche)** (nur Volldampf, Wächter und Tagesroutine, seit 19.11.2026, Maintainer: „ja umbauen und so rasch wie möglich live schalten“): reicht die Woche nach der Hochrechnung (`drossel_stufe`, Tempo der letzten 6 h) nicht bis zum Reset Di 01:00, Stufe nach Fehlstunden: 1 (> 0) keine neuen Worker, Tagesroutine nur kein Fable (Plan und komplexe Einträge bleiben Opus, Routine ist im Volldampf ohnehin Sonnet); 2 (> 12) Tagesroutine nur jede zweite Runde; 3 (> 30) Tagesroutine nichts Neues bis zur vollen Stunde. Zurück erst 6 Fehlstunden unter der Grenze; unlesbar oder zu wenig Daten (unter 5 h bzw. 3 Punkten seit Reset) = keine Drossel. Nachtlauf, Zwischen-Release, Tests, Reparatur roter CI (auch der rote Prüfzweig der Tagesroutine), Release unter Tage und Windows-Rundgang nie.
 5. **5-Stunden-Fenster hart**: Wächter ab 90 %, Tagesroutine ab 80 %.
 6. **Fenster-Takt** (Wächter; Tagesroutine nur im Volldampf, seit 18.11.2026): 5 h über Takt → kein neuer Worker bzw. Eintrag.
 7. **Drossel** (nur Wächter, seit 18.11.2026 Aufgabenzuteilung): 5 h ab 70 % → kein tokenschwerer Worker mehr, nur Klasse „tokenarm“ (`MODELL_TOKENARM` sonnet, höchstens `TOKENARM_MAX` 1 gleichzeitig; vorher „höchstens eine Arbeits-Sitzung“).
 8. **Sollkurve**: Alltag Tagesroutine (Sparmodus, „nichts Neues“); Wächter nachts nur unter Soll, tags unter Soll oder Fenster < 60 %.
 9. **Modellwahl** (keine Bremse): Abstand und 5 h wählen Haiku/Sonnet/Opus/Fable.
 
-Keine Doppelbremse: 7 wirkt nur auf den Wächter, 5 je Lauf mit eigener Schwelle (Wächter 90 %, Tagesroutine 80 %), 6 auf Wächter und Tagesroutine im Volldampf, 8 auf beide nach eigener Kurve; der Nachtlauf bremst nur
+Keine Doppelbremse: 4a wirkt nur im Volldampf auf Wächter und Tagesroutine (Stufe 1–3 erst nach 1–4), 7 wirkt nur auf den Wächter, 5 je Lauf mit eigener Schwelle (Wächter 90 %, Tagesroutine 80 %), 6 auf Wächter und Tagesroutine im Volldampf, 8 auf beide nach eigener Kurve; der Nachtlauf bremst nur
 über 1–4 und die Limit-Pause. Laufende Arbeit wird von 4–8 nie abgebrochen, nur kein neuer Beginn.
 
 ## 4. Aufgabenzuteilung nach Aufwand

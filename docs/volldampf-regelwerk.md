@@ -29,6 +29,7 @@ Jede Stelle fragt selbst `volldampf_aktiv` (`tests/lauf-hilfen.zsh:261`), bei je
 | Nachtlauf Schritt 5 / Fortsetzungen / Ende | 06:30 · 6 Commits · 4 · 08:00 | 08:45 · 40 · 50 · 08:45 | `tests/nachtlauf.sh:221–243` |
 | Nachtlauf Planung | 70–80 %-Vorsicht, Reserve | volle Kapazität, token-intensivste zuerst | `tests/nachtlauf-auftrag.md` 1c/1d |
 | Auslastungswächter | läuft nicht | Worker auf `pruef/worker-*`, bis `MAX_WORKER` (auslastung.conf), je Worker höchstens 240 Min.; ab 70 % im 5-Stunden-Fenster nur Klasse „tokenarm“ (Sonnet, höchstens einer; Maintainer 18.11.2026); ab 85 % Windows-Rundgang (offener Bildauftrag aus `neon-stand.md`, 09:00–22:00, nicht belegt, einmal je Tag, Rahmen `tests/auslastung-rundgang.md`) | `tests/auslastung-schleife.zsh` (`pruefen`, `konf_lesen`); `tests/auslastung-auftrag.md` „Klasse tokenarm“ |
+| Kontingent-Drossel (Woche bis Dienstag) | – | Hochrechnung aus dem Wochentempo der letzten 6 h (Leitstand-Verlauf, sonst Schnitt seit Reset/Anker): Fehlstunden = Stunden zwischen „Woche voll“ (98 %) und dem automatischen Reset. Stufe 1 (> 0): keine neuen Worker, Tagesroutine nur kein Fable (Plan und komplexe Einträge bleiben Opus); Stufe 2 (> 12): Tagesroutine nur jede zweite Runde; Stufe 3 (> 30): Tagesroutine nichts Neues bis zur vollen Stunde; zurück erst 6 h unter der Grenze; Fail-open (auch bei unter 5 h oder 3 Punkten Daten seit Reset); nie gebremst: Nachtlauf, Zwischen-Release, Tests, rote CI samt rotem Prüfzweig der Tagesroutine, Release unter Tage, Windows-Rundgang (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“) | `drossel_stufe` in `tests/lauf-hilfen.zsh`; `pruefen` in `tests/auslastung-schleife.zsh`; `entscheiden`/`drossel_anwenden` in `tests/tagesroutine.sh`; `tests/drossel_test.zsh`; Zustand `~/halo-nacht/drossel-stufe.txt` |
 | Worker-Auftrag | – | wählt ohne „Volldampf aktiv“ nichts; kein Testbeginn 01:10–01:45 | `tests/auslastung-test.zsh:22`; `tests/auslastung-auftrag.md` Regel 6 |
 | Zwischen-Releases | eins je Tag (Nachtlauf) | Wächter alle 5 Min., Push-Beginn 09:00–22:30, grüne Stände aller Prüfzweige `pruef/*` (GitHub-Lauf, sauber mit `origin/main` mischbar, roter Stand nie wiederholt), ab 3 Thunderbird-Commits, bei 5-Stunden-Fenster ab 85 % ab 1 (Maintainer 18.11.2026) | `tests/zwischen-schleife.zsh` (`kandidaten`, `pruefen`); `tests/zwischen_schleife_test.zsh`; Commit ed43f8d |
 
@@ -60,7 +61,8 @@ Bekannte Restwirkungen nach dem Ausschalten (gewollt bzw. offen):
 - Ein Zwischen-Release, das schon läuft, läuft zu Ende (Testmarke bleibt Bedingung).
 - Liegt das Ausschalten nach 22:00, beendet die Wache der Tagesroutine claude sofort; unfertige Arbeit bleibt
   ungespeichert liegen (der Nachtlauf legt sie auf `rest/<datum>`).
-- Worktrees `~/halo-worker/*` und Zweige `pruef/worker-*` räumt `tests/aufraeumen.sh` nicht weg; nicht
-  übernommene Commits holt der Nachtlauf per cherry-pick.
+- Worktrees `~/halo-worker/*` ohne Commit entfernt der Auslastungswächter gleich nach dem Lauf; `tests/aufraeumen.sh`
+  räumt Worker-Worktrees und Zweige `pruef/worker-*` weg, deren Commits (auch per cherry-pick/rebase, Patch-Vergleich)
+  in main stecken (19.11.2026). Nicht übernommene Commits holt der Nachtlauf per cherry-pick.
 - Die Routinen laufen aus den Kopien in `~/.config/halo-spaces/`; Änderungen wirken erst nach dem Erneuern
   der Kopien, die Worker aus `origin/main` erst nach dem Push.

@@ -1271,7 +1271,7 @@ class EnhancerKalender {
       for (const f of this.offsetUpdaters || []) {
         try {
           f();
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
       panel.__mcAnimating = true;
     }
@@ -1408,7 +1408,7 @@ class EnhancerKalender {
       for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {
         try {
           f();
-        } catch {}
+        } catch {} // Kandidat fürs Protokoll: Neuanordnung der Toolbar fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
       d.getElementById("agenda")?.dispatchEvent(new w.Event("scroll"));
       onDone?.();
@@ -1687,7 +1687,7 @@ class EnhancerKalender {
       await new Promise(r => w.setTimeout(r, 300));
       try {
         w.currentView?.().setSelectedItems([ev]);
-      } catch {}
+      } catch {} // gewollt: Ansicht kann das Element nicht wählen, der Dialog öffnet trotzdem
       w.modifyEventWithDialog?.(ev, true);
     } catch (e) {
       log("alarm open error", String(e).slice(0, 120));
@@ -1871,7 +1871,7 @@ class EnhancerKalender {
           if (extra >= 3 && ++passes < 5) {
             dlg.setTimeout(later, 200);
           }
-        } catch {}
+        } catch {} // gewollt: Dialog schon geschlossen, nichts mehr anzupassen
       };
       let queued = false;
       const later = () => {

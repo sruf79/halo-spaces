@@ -189,6 +189,23 @@ pruefe "späterer Lauf ohne Mac-Job: bleibt rot" '[[ $(rep) == rot ]]'
 pruefe "gezielter Lauf grün: zählt nicht" '[[ $(rep) == rot ]]'
 { lauf 60 80m macrot; lauf 61 40m gruen } | daten
 pruefe "abgebrochener Schritt, Job später grün: repariert" '[[ $(rep x $JETZT sha60 "Schritt „Test hell“ abgebrochen") == "repariert 61 sha61" ]]'
+# Prüfung danach entfernt (Revert über tests/rot-nebenzweig.sh, Bericht 2026-11-19-rot-regel.md L7): späterer Lauf
+# mit grünem Job und anderen Prüfungen im selben Schritt, die rote fehlt → „entfernt“, kein „rot“ (kein Board-Eintrag
+# für eine Prüfung, die es auf main nicht mehr gibt)
+pz 60 $ROT
+{ lauf 60 80m macrot; lauf 69 40m gruen } | daten; pz 69 "mac${TAB}Test hell${TAB}OK${TAB}Mailkopf: Abstand"
+pruefe "Prüfung danach entfernt (Job grün, Schritt lief): entfernt" '[[ $(rep) == "entfernt 69 sha69" ]]'
+{ lauf 60 80m macrot; lauf 69 40m macrot } | daten
+pruefe "Prüfung fehlt, Job rot (Abbruch mittendrin): bleibt rot" '[[ $(rep) == rot ]]'
+{ lauf 60 80m macrot; lauf 69 40m gruen } | daten; pz 69 "linux (release)${TAB}Test${TAB}OK${TAB}Mailkopf: Abstand"
+pruefe "Prüfung fehlt, Schritt lief nicht (keine Zeilen): bleibt rot" '[[ $(rep) == rot ]]'
+pz 69 "mac${TAB}Test hell${TAB}OK${TAB}Mailkopf: Abstand"
+{ lauf 60 80m macrot; lauf 69 40m gruen; lauf 63 20m macrot } | daten; pz 63 $ROT
+pruefe "entfernt, später wieder da und rot: rot" '[[ $(rep) == rot ]]'
+pz 60 $ROT; pz 69 "mac${TAB}Test hell${TAB}OK${TAB}Mailkopf: Abstand"
+{ lauf 60 80m macrot; lauf 69 40m gruen } | daten
+pruefe "ci-waechter.sh: Zustand „entfernt“ ohne Board-Eintrag (nur Zeile, continue)" '[[ $(sed -n "/zustand == entfernt/,/^    fi/p" $HIER/ci-waechter.sh | grep -cE "bericht_zeile|continue") == 2 ]]'
+pruefe "abgebrochener Schritt nie „entfernt“" '[[ $(rep x $JETZT sha60 "Schritt „Test hell“ abgebrochen") == "repariert 69 sha69" ]]'
 
 # --- Daten holen und Abschluss mit gh-Attrappe (Funktion überdeckt das Programm) ---
 FIX=$T/fix; mkdir -p $FIX

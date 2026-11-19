@@ -7437,6 +7437,14 @@ def calendar_checks(m, results):
             let last = "", calm = 0;
             for (let i = 0; i < 40 && calm < 3; i++) { await pause(100); const st = [dw.outerWidth, dw.outerHeight, dw.screenX, dw.screenY, gap()].join(); calm = st == last ? calm + 1 : 0; last = st; }
             out.normal = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
+            // Diagnose (nur Ausgabe, ändert das Ergebnis nicht): wo die Höhe beim Öffnen sitzt – unter windows-github
+            // öffnet das Fenster 778 px hoch (Windows-VM 314 px), die Zusatzzeilen passen dann in den Leerraum
+            { const d = dw.document, H = el => el ? Math.round(el.getBoundingClientRect().height) : null;
+              const kids = el => el ? [...el.children].filter(k => H(k) > 0).map(k => [String(k.id || k.className || k.localName).slice(0, 24), H(k)]) : null;
+              const sum = d.getElementById("calendar-item-summary");
+              out.diag = { ih: dw.innerHeight, sh: d.documentElement.scrollHeight, dlg: H(d.querySelector("dialog")), sum: H(sum), sumKids: kids(sum),
+                           box: kids(sum?.querySelector(".item-summary-box")),
+                           cells: [...d.querySelectorAll(".calendar-summary-table td")].filter(t => H(t) > 0).map(t => [String(t.className).slice(0, 20), H(t), Math.round(t.getBoundingClientRect().width)]) }; }
             await till(() => dw.document.readyState == "complete", 6000);
             // Inhalt wird nach dem Laden höher (wie eine erst später umbrochene Zeile)
             const cell = dw.document.querySelector(".repeat-details, .reminder-details, .item-title");
@@ -7447,6 +7455,11 @@ def calendar_checks(m, results):
             out.after = { h: dw.outerHeight, gap: gap(), x: dw.screenX, y: dw.screenY, w: dw.outerWidth };
             out.root = [dw.innerWidth, dw.outerWidth, dw.document.documentElement.style.minWidth, dw.document.querySelector(".item-title")?.getBoundingClientRect().height];
             out.btns = [...dw.document.querySelectorAll("button")].map(b => { const r = b.getBoundingClientRect(); return [b.id || b.className || b.getAttribute("dlgtype"), Math.round(r.height), Math.round(dw.innerHeight - r.bottom), Math.round(dw.innerWidth - r.right)]; });
+            // Diagnose: Höhe, die sizeToContent jetzt (bei endgültiger Breite) ergäbe – zeigt, ob die Anfangshöhe veraltet war
+            dw.sizeToContent();
+            // (feste Pause: unter macOS und Linux setzt das Fenster die neue Größe erst nach einigen Bildern)
+            await pause(300);
+            out.diag.fit = [dw.outerWidth, dw.outerHeight];
           } finally {
             if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
             // Hauptfenster wieder nach vorn, sonst klappt macOS spätere Menüs sofort zu
@@ -16769,9 +16782,13 @@ Neu
         return ok, f"{res}"
     check("Adressbuch: Bearbeiten-Layout auch sofort nach dem Öffnen; Kontaktbild-Dialog mit Hinweis; Unterdialoge auf neutraler Fläche", ab_edit_dialogs, results)
 
+    # Buchkopf allein reicht nicht: halo hängt ihn schon in die nur geparste Seite (Durchgänge beim Tabwechsel, nach 400
+    # und 1500 ms), vor Thunderbirds „load“ – dann fehlen cardsPane.cardsList und die übrigen Adressbuch-Hooks noch
+    # (CI 19.11., Lauf 44431090252: „cw.cardsPane.cardsList is null“); hookLastContact kommt im Durchgang als Letzter
     OPEN_BOOKS_JS = r"""
           tm.openTab("addressBookTab", {});
-          const cw = await until(() => { const c = tm.currentTabInfo?.browser?.contentWindow; return c?.document?.getElementById("mcBooksHeader") && c; }, 8000);
+          const cw = await until(() => { const c = tm.currentTabInfo?.browser?.contentWindow; return c?.document?.getElementById("mcBooksHeader") && c.cardsPane?.cardsList && c; }, 8000);
+          await until(() => cw?.detailsPane?.__mcLastContact, 3000);
           const abTab = tm.currentTabInfo;"""
 
     def ab_background_header():
@@ -21008,6 +21025,55 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: „Own keywords“ bleibt gespeichert, wenn die Einstellungen gleich nach dem Tippen geschlossen werden", options_fast_close, results)
 
+    def emoji_pref_closed_window():
+        # Die Stichwörter im Kalender hören auf „Emoji“ und „Own keywords“ in jedem Hauptfenster. Ein geschlossenes zweites
+        # Fenster blieb angemeldet: jeder Tastendruck in „Own keywords“ startete dort einen Zeitgeber im toten Fenster
+        # (Linux-CI: NS_ERROR_NOT_INITIALIZED aus implementation.js). Zweites Fenster öffnen, bis der Kalender eingehängt
+        # ist, schließen, dann die Einstellung ändern: keine Meldung aus halo.spaces, das Hauptfenster zeichnet weiter
+        res = m.js(r"""
+          const PREF = "extensions.mailcards.emojiCustom";
+          const fehler = [];
+          const hor = { observe: msg => { const t = String(msg.message || msg); if (/mailcards|implementation\.js/.test(t + (msg.sourceName || ""))) fehler.push(t.slice(0, 200)); } };
+          const nw = w.openDialog("chrome://messenger/content/messenger.xhtml", "_blank", "chrome,all,dialog=no");
+          const out = {};
+          try {
+            await bis(() => nw.document.readyState == "complete" && nw.document.getElementById("view-box")?.__mcEmoji, "zweites Fenster mit Kalender-Stichwörtern", 15000);
+            out.eingehaengt = true;
+          } finally { nw.close(); await bis(() => nw.closed, "zweites Fenster zu", 5000); w.focus(); }
+          // Linux wirft beim Zeitgeber im abgebauten Fenster, macOS baut das Fenster erst später ab (unload
+          // kommt verzögert) und nimmt ihn still an: deshalb zählen, ob beim Ändern der Einstellung (die Beobachter laufen
+          // gleich mit) noch Zeitgeber im geschlossenen Fenster gestellt werden; was es beim Abbau selbst plant, zählt nicht
+          out.zeitgeber = 0;
+          let imPref = false;
+          try {
+            nw.setTimeout = () => {
+              if (!imPref) return 0;
+              out.zeitgeber++;
+              const st = (new Error().stack || "").split("\n")[1] || "";
+              (out.wer ??= []).length < 3 && out.wer.push(st.replace(/^.*\/api\//, "").slice(0, 60));
+              return 0;
+            };
+          } catch (e) { out.ersetzt = String(e).slice(0, 80); }
+          Services.console.registerListener(hor);
+          try {
+            // wie beim Tippen: mehrere Änderungen hintereinander, dann die Tipp-Pause (300 ms) abwarten
+            imPref = true;
+            try {
+              for (const text of ["P", "Pr", "Probe = X"]) Services.prefs.setStringPref(PREF, text);
+            } finally { imPref = false; }
+            await ruhig(600);
+            out.hauptfenster = !!d.getElementById("view-box")?.__mcEmoji;
+          } finally {
+            Services.prefs.clearUserPref(PREF);
+            await ruhig(600);
+            Services.console.unregisterListener(hor);
+          }
+          out.fehler = fehler;
+          return out;""")
+        ok = res.get("eingehaengt") and res.get("hauptfenster") and not res.get("fehler") and res.get("zeitgeber") == 0
+        return ok, f"{res}"
+    check("Einstellungen: „Own keywords“ ändern nach geschlossenem zweitem Hauptfenster – keine Fehler aus dessen Kalender-Stichwörtern", emoji_pref_closed_window, results)
+
     def pref_symbols():
         # Einstellungen: neun neu gezeichnete weiße Symbole (Variante B) auf eigenen Kachelfarben mit Verlauf; „General“ mit
         # Schiebereglern statt Zahnrad; im Dunkeln feine helle Innenkante; halo.spaces-Symbol bleibt ohne Kachel
@@ -22878,6 +22944,85 @@ Neu
         return ok, f"{res}"
     check("Nachrichtenfenster: auch bei nur einem Empfänger Antworten, Allen antworten, Weiterleiten", message_window_reply_all, results)
 
+    def message_window_addon_remote():
+        # GitHub #69: im eigenen Fenster sitzt der Knopf einer anderen Erweiterung (message_display_action, z. B. DKIM
+        # Verifier) als eigene runde Kapsel hinter „Mehr“ und überlappt keine andere Kapsel (lag vorher ohne Order als
+        # eckiges Stück vor Archivieren unter dessen runder Kante); der Hinweis „Externe Inhalte blockiert“ sitzt
+        # mittig zwischen Mailkopf und Mailtext (vorher 8 px oben, 0 px unten) – im Hauptfenster wie im eigenen Fenster
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { MailUtils } = ChromeUtils.importESModule("resource:///modules/MailUtils.sys.mjs");
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Extern")) { root.createSubfolder("Extern", null); await bis(() => root.containsChildNamed("Extern"), "Ordner Extern angelegt", 4000); }
+          const f = root.getChildNamed("Extern");
+          if (!f.getTotalMessages(false)) {
+            f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage("From: Halo <h@example.invalid>\r\nTo: Halo Test <halo@example.invalid>\r\nSubject: Halo Extern\r\nDate: Sat, 17 Oct 2026 10:05:00 +0200\r\nMessage-ID: <halo-extern-69@example.invalid>\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n<html><body><p>Extern</p><img src='https://example.invalid/bild.png' width='1' height='1'></body></html>\r\n\r\n");
+            await bis(() => f.getTotalMessages(false) >= 1, "Testmail Extern", 4000);
+          }
+          const hdr = [...f.messages].find(h => h.subject == "Halo Extern");
+          const dir = PathUtils.join(PathUtils.profileDir, "halo-action-69");
+          await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+          await IOUtils.writeUTF8(PathUtils.join(dir, "manifest.json"), JSON.stringify({ manifest_version: 2, name: "Halo Knopftest 69", version: "1.0",
+            browser_specific_settings: { gecko: { id: "halo-action-69@example.invalid" } },
+            message_display_action: { default_title: "Halo Knopftest 69", default_icon: "icon.svg" } }));
+          await IOUtils.writeUTF8(PathUtils.join(dir, "icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M2 14 L8 2 L14 14 Z" fill="context-fill"/></svg>');
+          const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); file.initWithPath(dir);
+          const addon = await AddonManager.installTemporaryAddon(file);
+          const R = e => { const q = e?.getBoundingClientRect(); return q?.width ? { l: Math.round(q.left * 10) / 10, t: Math.round(q.top * 10) / 10, r: Math.round(q.right * 10) / 10, b: Math.round(q.bottom * 10) / 10 } : null; };
+          const remote = async md => {
+            const n = await until(() => md.querySelector('#mail-notification-top notification-message[value="remoteContent"]'), 8000);
+            await until(() => n?.shadowRoot?.querySelector("style.mc-layout"), 3000); await ruhig(600);
+            return { header: R(md.getElementById("messageHeader")), card: R(n), pane: R(md.getElementById("messagepane")) };
+          };
+          const out = {};
+          try {
+            const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount > 0, "Ordner Extern angezeigt", 5000); await ruhig(500);
+            a3.threadTree.selectedIndex = 0;
+            await bis(() => a3.messageBrowser.contentWindow.gMessage?.messageId == hdr.messageId, "Mail Extern geladen", 8000);
+            out.main = await remote(a3.messageBrowser.contentDocument);
+            MailUtils.openMessageInNewWindow(hdr);
+            const mw = await until(() => [...Services.wm.getEnumerator("mail:messageWindow")].find(x => x.document.readyState == "complete"), 8000);
+            try {
+              const md = await until(() => { const x = mw.document.getElementById("messageBrowser")?.contentDocument; return x?.defaultView?.gMessage ? x : null; }, 8000);
+              out.window = await remote(md);
+              const ext = await until(() => [...md.querySelectorAll("#header-view-toolbar > .webextension-action")].find(b => b.getBoundingClientRect().width > 0), 8000);
+              // schmal wie in „Knöpfe einzeilig … auch schmal“: dort rückt Drucken bis an die linken Kapseln heran
+              mw.resizeTo(560, 600); await ruhig(1000);
+              const cw = md.defaultView, own = [...md.querySelectorAll("#header-view-toolbar > :is(toolbarbutton, toolbaritem, button)")]
+                .filter(e => e != ext && e.getBoundingClientRect().width > 0);
+              out.ext = R(ext);
+              out.radius = ext ? [cw.getComputedStyle(ext).borderTopLeftRadius, cw.getComputedStyle(ext).borderBottomRightRadius] : null;
+              out.over = ext ? own.filter(e => { const a = ext.getBoundingClientRect(), b = e.getBoundingClientRect(); return a.left < b.right - 0.5 && b.left < a.right - 0.5; }).map(e => e.id) : null;
+              out.more = R(md.getElementById("otherActionsButton"));
+              out.archive = R(md.getElementById("hdrArchiveButton"));
+              out.print = R(md.getElementById("mcHdrPrintButton"));
+              out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
+            } finally { mw.close(); }
+          } finally { await addon.uninstall(); }
+          await ruhig(300);
+          return out;""")
+        bad = []
+        for k in ("main", "window"):
+            v = res.get(k) or {}
+            h, c, p = v.get("header") or {}, v.get("card") or {}, v.get("pane") or {}
+            if not (h and c and p):
+                bad.append(f"{k}: Hinweis fehlt {v}")
+                continue
+            top, bottom = c["t"] - h["b"], p["t"] - c["b"]
+            # mittig: oben und unten gleich viel Luft (± 1 px), mindestens 6 px bis zum Mailtext
+            if not (bottom >= 6 and abs(top - bottom) <= 1):
+                bad.append(f"{k}: oben {top} unten {bottom}")
+        e, mo, ar, pr = res.get("ext") or {}, res.get("more") or {}, res.get("archive") or {}, res.get("print") or {}
+        if not (e and mo and ar and res.get("over") == [] and res.get("radius") and all(r not in ("0px", "") for r in res["radius"])
+                and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
+            bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "
+          "Hinweis „Externe Inhalte blockiert“ mittig zwischen Mailkopf und Mailtext, auch im Hauptfenster (GitHub #69)", message_window_addon_remote, results)
+
     def message_window_attachments():
         # Fenster einer geöffneten Mail: Chevron klappt die Anhänge zu – das Fenster wird genau um den frei werdenden Platz
         # der Liste kleiner (auch ein vergrößertes Fenster), beim Aufklappen um diesen Platz wieder größer; die Zeile
@@ -24318,8 +24463,13 @@ Neu
                 to(700)
                 m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
         finally:
+            # Bei Zeitüberschreitung den Zustand mitschreiben (einmal rot im Job mac, Lauf 44387704672, Ursache offen); Bedingung unverändert
             m.js(f"""Services.prefs.clearUserPref("{P}"); await toMail(); if (w.gSpacesToolbar.isHidden) {{ d.getElementById("spacesPinnedButton").click();
-              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              try {{ await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }}
+              catch (e) {{ const a3 = tm.currentAbout3Pane, b = d.getElementById("spacesPinnedButton");
+                throw new Error(e.message + " – Zustand: " + JSON.stringify({{ isHidden: w.gSpacesToolbar.isHidden, spacesAnimating: !!w.__mcSpacesAnimating,
+                  paneAnimating: a3 ? !!a3.__mcAnimating : "kein about3Pane", float: w.__mcSideFloatState?.() ?? null, tab: tm.currentTabInfo?.mode?.name,
+                  knopf: b ? {{ hidden: b.hidden, w: Math.round(b.getBoundingClientRect().width) }} : null, fokus: Services.focus.activeWindow == w }})); }} }}
               while (tm.tabInfo.length > {before}) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
               await toMail(); return 1;""")
         dist = lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5

@@ -1,17 +1,22 @@
 #!/bin/zsh
-# Zeitfenster-Hook (PreToolUse für das Werkzeug Bash, Befund B7, 9.11.2026): setzt zwei Regeln aus AGENTS.md
-# technisch durch. Noch nicht in ~/.claude/settings.json eingetragen (siehe docs/testrechner.md).
+# Zeitfenster-Hook (PreToolUse für das Werkzeug Bash, Befund B7, 9.11.2026): setzt drei Regeln aus AGENTS.md
+# technisch durch. In ~/.claude/settings.json eingetragen (siehe docs/testrechner.md).
 #  1. Push-Sperre: 01:30–09:00 (Wiener Zeit) kein `git push`; 00:00–01:30 nur, wenn
 #     tests/ci-noetig.sh origin/main HEAD Exitcode 0 meldet (Codeänderung). Push von Tags allein und
 #     `--delete` sind nicht gesperrt.
 #  2. Kein Testlauf (halo_test.py, update_test.py, store_shots.py, ui_tour.py), solange Runner.Worker läuft.
-# Ausnahmen: Umgebungsvariable HALO_LAUF gesetzt (Läufe der Routinen) oder Datei ~/halo-nacht/SPERRE_AUS.
+#  3. Kein neuer Testlauf, solange ein Zwischen-Release fällig ist (frische Marke ~/halo-nacht/zwischen-faellig.txt des
+#     Wächters tests/zwischen-schleife.zsh, neon-Auftrag #48, 19.11.2026; Prüfung wie zr_vorrang in lauf-hilfen.zsh). Gilt
+#     auch mit HALO_LAUF (Tagesroutine, Worker), nur nicht für HALO_LAUF=zwischen-release (der Wächter und seine Release-
+#     Skripte) und HALO_LAUF=nachtlauf. Laufende Testläufe sieht der Hook nicht und bricht nichts ab.
+# Ausnahmen: Umgebungsvariable HALO_LAUF gesetzt (Läufe der Routinen; für Regel 3 siehe dort) oder Datei ~/halo-nacht/SPERRE_AUS.
 # Fail open: bei jedem Fehler Exitcode 0 – der Hook darf den Nachtlauf nie blockieren.
 # Eingabe: Hook-JSON auf stdin (tool_input.command). Sperre: Exitcode 2 und Meldung auf stderr.
-# Für Tests: HALO_JETZT=HHMM, HALO_CI_NOETIG=ja|nein, HALO_RUNNER=ja|nein, HALO_SPERRE_AUS=<Datei>.
+# Für Tests: HALO_JETZT=HHMM, HALO_CI_NOETIG=ja|nein, HALO_RUNNER=ja|nein, HALO_SPERRE_AUS=<Datei>,
+# HALO_ZR_FAELLIG=<Marke>, HALO_ZR_JETZT=<Unix-Sekunden>.
 cd ${0:A:h:h} 2>/dev/null || exit 0
-[[ -n ${HALO_LAUF:-} ]] && exit 0
 [[ -e ${HALO_SPERRE_AUS:-$HOME/halo-nacht/SPERRE_AUS} ]] && exit 0
+[[ -n ${HALO_LAUF:-} && $HALO_LAUF == (zwischen-release|nachtlauf) ]] && exit 0
 
 EIN=$(cat 2>/dev/null) || exit 0
 [[ -n $EIN ]] || exit 0
@@ -24,14 +29,32 @@ else
 fi
 [[ -n $BEFEHL ]] || exit 0
 
+sperre() { print -u2 "Zeitfenster-Hook: $1\nGrund: $2\nWie weiter: $3"; exit 2 }
+TESTLAUF=
+[[ $BEFEHL =~ '(halo_test|update_test|store_shots|ui_tour)\.py' && $BEFEHL =~ 'python' ]] && TESTLAUF=1
+
+# --- Regel 3: Vorrang für ein fälliges Zwischen-Release (gilt auch mit HALO_LAUF, außer zwischen-release/nachtlauf) ---
+if [[ -n $TESTLAUF ]]; then
+  ZRD=${HALO_ZR_FAELLIG:-$HOME/halo-nacht/zwischen-faellig.txt}
+  if [[ -r $ZRD ]]; then
+    ZRZ=(${=$(head -1 $ZRD 2>/dev/null)})
+    ZRJ=${HALO_ZR_JETZT:-$(date +%s)}
+    if (( $#ZRZ >= 4 )) && [[ $ZRZ[1] == <-> && $ZRJ == <-> ]] && (( ZRJ - ZRZ[1] < ${ZR_FAELLIG_MAX:-60} * 60 )) \
+       && { [[ $ZRZ[2] != <-> ]] || kill -0 $ZRZ[2] 2>/dev/null }; then
+      sperre "Zwischen-Release fällig, bitte warten (Stand ${ZRZ[3][1,7]}, $ZRZ[4], seit ${ZRZ[5]:-?})." \
+        "Neuer Testlauf gesperrt, bis der Zwischen-Release-Wächter veröffentlicht hat; laufende Testläufe machen fertig (AGENTS.md, Volldampf)." \
+        "Ohne Testlauf weiterarbeiten oder in einigen Minuten erneut versuchen; die Sperre endet von selbst, sobald ~/halo-nacht/zwischen-faellig.txt weg oder älter als 60 Minuten ist."
+    fi
+  fi
+fi
+[[ -n ${HALO_LAUF:-} ]] && exit 0
+
 JETZT=${HALO_JETZT:-$(TZ=Europe/Vienna date +%H%M 2>/dev/null)}
 [[ $JETZT == [0-9][0-9][0-9][0-9] ]] || exit 0
 JETZT=$((10#$JETZT))
 
-sperre() { print -u2 "Zeitfenster-Hook: $1\nGrund: $2\nWie weiter: $3"; exit 2 }
-
 # --- Regel 2: Testläufe während der CI ---
-if [[ $BEFEHL =~ '(halo_test|update_test|store_shots|ui_tour)\.py' && $BEFEHL =~ 'python' ]]; then
+if [[ -n $TESTLAUF ]]; then
   LAEUFT=${HALO_RUNNER:-}
   if [[ -z $LAEUFT ]]; then
     pgrep -f 'actions-runner/bin[^/ ]*/[R]unner\.Worker' >/dev/null 2>&1 && LAEUFT=ja || LAEUFT=nein

@@ -420,6 +420,144 @@ t = fenster_takt(int(sys.argv[1]), float(sys.argv[2]))
 if t is None: sys.exit(1)
 print(t)' $1 ${2:-$FENSTER_RESERVE_STANDARD} 2>/dev/null
 }
+# Kontingent-Drossel im Volldampf (Maintainer 19.11.2026 auf „Soll ich das so bauen?“: „ja umbauen und so rasch wie möglich
+# live schalten“, ENTSCHEIDUNGEN.md „Kontingent-Drossel im Volldampf“): Hochrechnung statt Punkte über Soll. Tempo = Anstieg
+# der Woche über die letzten DROSSEL_TEMPO_STUNDEN (6) aus dem Verlauf des Leitstands (~/halo-nacht/leitstand-verlauf.json,
+# ein Punkt je 30 Min.) plus dem jetzigen Wert (ungerundet aus kontingent.json, wenn frisch und passend), mindestens
+# DROSSEL_TEMPO_MIN (5) Stunden Spanne; sonst Schnitt seit Reset bzw. freiem Reset (Anker), aber nur ab DROSSEL_TEMPO_MIN Stunden
+# und DROSSEL_MIN_PUNKTE (3) Punkten Anstieg seitdem, sonst zu wenig Daten (Fail-open; Zweitlesung 19.11.: 1,1 h nach dem Reset
+# ergab Woche 2 % sonst Stufe 3). Kein eigener Claude-Aufruf. „Woche voll“ = Zeitpunkt, an dem die
+# Woche VOLLDAMPF_WOCHE_ENDE (98) erreicht; Fehlstunden = Stunden von „Woche voll“ bis zum nächsten automatischen Reset
+# (wochen_soll; intern mit Vorzeichen, negativ = Reserve). Stufen (Grenzen in Fehlstunden, Entwurf, änderbar):
+#   0  reicht (bis DROSSEL_STUFE1, 0)                  wie bisher
+#   1  über DROSSEL_STUFE1 bis DROSSEL_STUFE2 (12)     keine neuen Worker; Tagesroutine kein Fable (Plan, komplex bleiben Opus)
+#   2  über DROSSEL_STUFE2 bis DROSSEL_STUFE3 (30)     zusätzlich Tagesroutine nur jede zweite Runde
+#   3  über DROSSEL_STUFE3                             Tagesroutine nichts Neues bis zur vollen Stunde
+# Steigen sofort; zurück erst, wenn die Fehlstunden mindestens DROSSEL_HYSTERESE (6) unter der Einschaltgrenze der Stufe
+# liegen. Zustand gemeinsam für Wächter und Tagesroutine in ~/halo-nacht/drossel-stufe.txt (Zeile 1 „<Stufe> <Fehlstunden> <ISO>
+# <seit ISO> [offen]“, Zeile 2 Wirkung, Zeile 3 Grund; gilt nur ab dem letzten Reset bzw. freien Reset; „offen“ = zuletzt
+# Fail-open, die Stufe bleibt nur als Gedächtnis der Hysterese, gilt nicht; der Leitstand liest die Datei). Nur im Volldampf (sonst „aus“); Woche oder Verlauf nicht lesbar: Stufe 0 (Fail-open), Grund in
+# der Ausgabe. Schwellen: DROSSEL_* aus auslastung.conf, danach tagesroutine.conf (gleiche Werte für beide Läufe);
+# DROSSEL_AUS=1 schaltet ab. Nie gebremst: Nachtlauf, Zwischen-Release, Tests, Reparatur roter CI, Windows-Rundgang.
+#   drossel_stufe [<Woche %>]   Ausgabe „<Stufe> <Text>“, immer Rückgabe 0; ohne Woche aus kontingent.json (≤ 3 h alt)
+# Probe: HALO_DROSSEL_STUFE=<n> (feste Stufe), HALO_DROSSEL_DATEI, HALO_DROSSEL_VERLAUF, HALO_JETZT; schreibt nichts bei
+# HALO_PAUSE_TROCKEN oder TROCKEN.
+DROSSEL_PY="$WOCHE_DEF_PY"'
+import sys, os, json, datetime as dt
+U = dt.timezone.utc
+woche_s, verlauf, zustand, anker = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+g = [float(x) for x in sys.argv[5:8]]
+hyst, th, tmin, voll, schreiben = float(sys.argv[8]), float(sys.argv[9]), float(sys.argv[10]), float(sys.argv[11]), sys.argv[12] == "1"
+minp, kont = float(sys.argv[13]), sys.argv[14]
+j = os.environ.get("HALO_JETZT")
+n = (dt.datetime.fromisoformat(j) if j else dt.datetime.now(U)).astimezone(U)
+_s, _soll, art, naechster, bezug = wochen_soll(n, 168, anker)
+# Zustand nur ab dem Bezug (letzter Reset bzw. freier Reset) gültig, sonst verworfen (Zweitlesung 19.11.2026)
+alt, seit, alt_f = 0, None, 0.0
+try:
+    t = open(zustand, encoding="utf-8").readline().split()
+    za = dt.datetime.fromisoformat(t[2]).astimezone(U)
+    if bezug <= za <= n and t[0] in ("0", "1", "2", "3"):
+        alt, alt_f = int(t[0]), float(t[1])
+        seit = t[3] if len(t) > 3 else None
+except Exception:
+    pass
+def offen(grund):
+    """Fail-open: keine Drossel; Zustand nur mit neuer Zeit und Marke offen erneuern (Stufe bleibt Gedächtnis der Hysterese)"""
+    if schreiben:
+        with open(zustand + ".neu", "w", encoding="utf-8") as d:
+            d.write("%d %.1f %s %s offen\nkeine Drossel (Fail-open)\n%s\n" % (alt, alt_f, n.isoformat(timespec="minutes"), seit or n.isoformat(timespec="minutes"), grund))
+        os.replace(zustand + ".neu", zustand)
+    print("0 Fail-open: %s – keine Drossel" % grund); sys.exit(0)
+if woche_s == "-": offen("Woche nicht lesbar")
+woche = float(woche_s)
+# ungerundeter Wochenwert aus kontingent.json, wenn höchstens 30 Min. alt und zum übergebenen Wert passend
+try:
+    k = json.load(open(kont, encoding="utf-8"))
+    st = dt.datetime.strptime(k["stand"], "%Y-%m-%dT%H:%M:%S%z").astimezone(U)
+    u = 100 * k["info"]["unifiedWindows"]["seven_day"]["utilization"]
+    if dt.timedelta(0) <= n - st <= dt.timedelta(minutes=30) and abs(u - woche) < 1: woche = u
+except Exception:
+    pass
+def wien(x): return x.astimezone().strftime("%a %H:%M").replace("Mon", "Mo").replace("Tue", "Di").replace("Wed", "Mi").replace("Thu", "Do").replace("Fri", "Fr").replace("Sat", "Sa").replace("Sun", "So")
+pts = []
+try:
+    for p in json.load(open(verlauf, encoding="utf-8"))["punkte"]:
+        v = p.get("woche")
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            t = dt.datetime.strptime(p["t"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=U)
+            if bezug <= t < n and (n - t).total_seconds() <= th * 3600: pts.append((t, float(v)))
+except Exception:
+    pts = []
+pts.sort(); pts.append((n, woche))
+for i in range(len(pts) - 1, 0, -1):          # nach einem Sturz (Reset) nur die Punkte danach
+    if pts[i][1] < pts[i - 1][1] - 1: pts = pts[i:]; break
+span = (pts[-1][0] - pts[0][0]).total_seconds() / 3600
+if span >= tmin:
+    tempo, quelle = max(0.0, (pts[-1][1] - pts[0][1]) / span), "über %.1f h Verlauf" % span
+else:
+    hb = (n - bezug).total_seconds() / 3600
+    basis = 0.0
+    if art == "anker":
+        for z in open(anker, encoding="utf-8"):
+            t = z.split()
+            try:
+                if len(t) >= 4 and t[0] == "anker" and dt.datetime.fromisoformat(t[1]).astimezone(U) == bezug: basis = float(t[3])
+            except ValueError: pass
+    if hb < tmin or woche - basis < minp:
+        offen("zu wenig Daten (%.1f h und %.1f Punkte seit %s, Verlauf %.1f h)" % (hb, woche - basis, "freiem Reset" if art == "anker" else "Reset", span))
+    tempo, quelle = max(0.0, (woche - basis) / hb), "Schnitt seit %s (%.0f h, Verlauf zu kurz)" % ("freiem Reset" if art == "anker" else "Reset", hb)
+rest = (naechster - n).total_seconds() / 3600
+if woche >= voll: f, vt = rest, n
+elif tempo <= 0: f, vt = -rest, None
+else:
+    bis = (voll - woche) / tempo; f, vt = rest - bis, n + dt.timedelta(hours=bis)
+roh = sum(1 for x in g if f > x)
+neu = roh
+if roh < alt:
+    neu = alt
+    while neu > roh and f <= g[neu - 1] - hyst: neu -= 1
+lage = "Woche %.4g %%, Tempo %.2f Punkte/h %s, voll (%g %%) %s, Reset %s" % (woche, tempo, quelle, voll, wien(vt) if vt else "nie", wien(naechster))
+was = {0: "reicht", 1: "keine neuen Worker, Tagesroutine kein Fable", 2: "keine neuen Worker, Tagesroutine nur jede zweite Runde", 3: "keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde"}[neu]
+fs = ("%.0f Fehlstunden" % f) if f > 0 else ("%.0f h Reserve" % -f)
+# Zustand: Zeile 1 „<Stufe> <Fehlstunden> <ISO> <seit ISO>“, Zeile 2 Wirkung, Zeile 3 Grund (Leitstand liest sie, rechnet nicht neu)
+if schreiben:
+    if neu != alt or not seit: seit = n.isoformat(timespec="minutes")
+    if vt is None: grund = "reicht, kein Anstieg (Reset %s)" % wien(naechster)
+    elif f > 0: grund = "voll %s, %.0f Fehlstunden vor dem Reset %s" % (wien(vt), f, wien(naechster))
+    else: grund = "reicht bis %s, %.0f h nach dem Reset %s" % (wien(vt), -f, wien(naechster))
+    with open(zustand + ".neu", "w", encoding="utf-8") as d:
+        d.write("%d %.1f %s %s\n%s\n%s\n" % (neu, f, n.isoformat(timespec="minutes"), seit, was, grund))
+    os.replace(zustand + ".neu", zustand)
+print("%d Stufe %d (%s%s): %s – %s" % (neu, neu, fs, (", gehalten, Rohstufe %d" % roh) if neu != roh else (", vorher %d" % alt) if alt != neu else "", was, lage))
+'
+drossel_stufe() {   # [<Woche %>]
+  [[ -n $HALO_DROSSEL_STUFE ]] && { print -r -- "$HALO_DROSSEL_STUFE Stufe $HALO_DROSSEL_STUFE (Probe HALO_DROSSEL_STUFE)"; return 0 }
+  setopt localoptions extendedglob
+  volldampf_aktiv >/dev/null 2>&1 || { print -r -- "0 aus (Volldampf nicht aktiv)"; return 0 }
+  local -A d
+  d=(DROSSEL_STUFE1 0 DROSSEL_STUFE2 12 DROSSEL_STUFE3 30 DROSSEL_HYSTERESE 6 DROSSEL_TEMPO_STUNDEN 6 DROSSEL_TEMPO_MIN 5 DROSSEL_MIN_PUNKTE 3 DROSSEL_AUS 0)
+  local f z k v w=${1%%.*} schreiben=1 a
+  for f in ${HALO_AS_CONF:-$HOME/.config/halo-spaces/auslastung.conf} ${HALO_TAGESROUTINE_CONF:-$HOME/.config/halo-spaces/tagesroutine.conf}; do
+    [[ -r $f ]] || continue
+    while IFS= read -r z; do
+      z=${${z%%\#*}//[[:space:]]/}
+      [[ $z == DROSSEL_[A-Z0-9_]##=?* ]] || continue
+      k=${z%%=*} v=${z#*=}
+      (( ${+d[$k]} )) && [[ $v == <->(.<->|) ]] && d[$k]=$v
+    done < $f
+  done
+  [[ $d[DROSSEL_AUS] == 1 ]] && { print -r -- "0 aus (DROSSEL_AUS=1)"; return 0 }
+  [[ -n $HALO_PAUSE_TROCKEN$TROCKEN ]] && schreiben=0
+  [[ $w == <-> ]] || w=$(volldampf_woche_gespeichert) || w=-   # „-“: Fail-open, Zustand nur mit neuer Zeit erneuert
+  local datei=${HALO_DROSSEL_DATEI:-$HOME/halo-nacht/drossel-stufe.txt}
+  mkdir -p ${datei:h} 2>/dev/null
+  a=$(python3 -I -c $DROSSEL_PY $w ${HALO_DROSSEL_VERLAUF:-$HOME/halo-nacht/leitstand-verlauf.json} $datei $(wochenanker_datei) \
+      $d[DROSSEL_STUFE1] $d[DROSSEL_STUFE2] $d[DROSSEL_STUFE3] $d[DROSSEL_HYSTERESE] $d[DROSSEL_TEMPO_STUNDEN] $d[DROSSEL_TEMPO_MIN] \
+      ${VOLLDAMPF_WOCHE_ENDE:-98} $schreiben $d[DROSSEL_MIN_PUNKTE] ${HALO_KONTINGENT_JSON:-$HOME/halo-nacht/kontingent.json} 2>/dev/null) && [[ $a == [0-3]\ * ]] \
+    || a="0 Fail-open: Hochrechnung gescheitert – keine Drossel"
+  print -r -- $a
+}
 # freien Reset erkennen (Anker), siehe oben; schreibt nichts bei HALO_PAUSE_TROCKEN
 wochen_reset_erkennen() {   # <Woche %>
   local woche=${1%%.*} stand=${HALO_WOCHENSTAND:-$HOME/halo-nacht/wochenstand.txt} a
@@ -576,34 +714,48 @@ Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
 # commit rot wird und je öfter er deswegen auf einem nebenzweig landet, desto höher muss das untersuchende ki-modell
 # sein (inkl. systematic-debugging)“; Ablauf docs/release.md). ~/halo-nacht/rot-zaehler.txt (HALO_ROT_ZAEHLER), eine
 # Zeile je Ereignis, Felder mit Tab: „<Zeit> <Schlüssel> <Zweig> <Stufe> [<Stand>]“. Schlüssel: der Name der roten
-# Prüfung (Wächter) oder der Hash des Verursachers (Sitzung, die ihn auf einen Nebenzweig legt). Es zählen nur Einträge
-# der letzten 14 Tage (HALO_ROT_TAGE). Nur Zähler und Meldung, nie ein automatisches Herausnehmen von Commits.
-#   rot_stufe <Schlüssel>                       Modell für die (nächste) Untersuchung: Opus (bis 1 Eintrag), Fable (2, 3),
+# Prüfung (Wächter), „Stand <Hash>“ (Release unter Tage) oder für den Verursacher auf einem Nebenzweig einheitlich die
+# Board-Karten-ID, ersatzweise „patch:<git patch-id>“ (tests/rot-nebenzweig.sh, 19.11.2026; übersteht Cherry-pick und
+# Rebase). Ältere Zeilen mit dem Hash des Verursachers zählen über Aliasse weiter: Hashes (ab 7 Zeichen) gelten als
+# gleich, wenn einer der Anfang des anderen ist. Es zählen nur Einträge der letzten 14 Tage (HALO_ROT_TAGE). Commits
+# nimmt nur tests/rot-nebenzweig.sh heraus (bei eindeutiger Zuordnung), nie diese Funktionen.
+#   rot_stufe <Schlüssel> [<Alias> …]           Modell für die (nächste) Untersuchung: Opus (bis 1 Eintrag), Fable (2, 3),
 #                                               Maintainer (ab 4); Fable nur nach den Grenzen aus AGENTS.md „Rot bleibt rot“
-#   rot_anzahl <Schlüssel>                      Zahl der Einträge der letzten 14 Tage
-#   rot_eintragen <Schlüssel> <Zweig> [<Stand>]   trägt ein, gibt „<Stufe> <Modell>“ aus
+#   rot_anzahl <Schlüssel> [<Alias> …]          Zahl der Einträge der letzten 14 Tage (Schlüssel oder ein Alias)
+#   rot_eintragen <Schlüssel> <Zweig> [<Stand> [<Alias> …]]   trägt unter <Schlüssel> ein, zählt Aliasse mit, gibt
+#                                               „<Stufe> <Modell>“ aus
 # Von Hand: zsh -c 'LOG=/dev/null; source tests/lauf-hilfen.zsh; rot_eintragen <hash> rot/<name>'
 # Zum Proben: HALO_ROT_JETZT=<Epochensekunden>.
 rot_datei() { print -r -- ${HALO_ROT_ZAEHLER:-$HOME/halo-nacht/rot-zaehler.txt} }
 rot_wort() { case $1 in (<0-1>) print -r -- Opus ;; (<2-3>) print -r -- Fable ;; (*) print -r -- Maintainer ;; esac }
-rot_anzahl() {   # <Schlüssel>
+rot_gleich() {   # <Schlüssel aus der Datei> <Schlüssel oder Alias>: gleich, bei Hashes (ab 7 Zeichen) auch als Anfang
+  setopt localoptions extendedglob
+  [[ $1 == $2 ]] && return 0
+  [[ $1 == [0-9a-f](#c7,40) && $2 == [0-9a-f](#c7,40) ]] || return 1
+  [[ $1 == ${2}* || $2 == ${1}* ]]
+}
+rot_anzahl() {   # <Schlüssel> [<Alias> …]
+  setopt localoptions extendedglob
   zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
-  local s=$1 datei=$(rot_datei) t k rest e n=0 jetzt=${HALO_ROT_JETZT:-$EPOCHSECONDS}
+  local s=$1 datei=$(rot_datei) t k rest e a treffer n=0 jetzt=${HALO_ROT_JETZT:-$EPOCHSECONDS}
+  local -a alle=(${@:#})
   local grenze=$(( jetzt - ${HALO_ROT_TAGE:-14} * 86400 ))
   [[ -n $s && -r $datei ]] || { print 0; return 0 }
   while IFS=$'\t' read -r t k rest; do
-    [[ $k == $s ]] || continue
+    treffer=
+    for a in $alle; do rot_gleich "$k" "$a" && { treffer=1; break }; done
+    [[ -n $treffer ]] || continue
     strftime -r -s e '%Y-%m-%d %H:%M:%S' $t 2>/dev/null || continue
     (( e >= grenze && e <= jetzt )) && (( n++ ))
   done < $datei
   print $n
 }
-rot_stufe() { rot_wort $(rot_anzahl "$1") }
-rot_eintragen() {   # <Schlüssel> <Zweig> [<Stand>]
+rot_stufe() { rot_wort $(rot_anzahl "$@") }
+rot_eintragen() {   # <Schlüssel> <Zweig> [<Stand> [<Alias> …]]
   zmodload -F zsh/datetime b:strftime p:EPOCHSECONDS
   local s=${1//$'\t'/ } zw=${2:--} datei=$(rot_datei) n t tab=$'\t'
   [[ -n $s ]] || return 1
-  n=$(( $(rot_anzahl "$s") + 1 ))
+  n=$(( $(rot_anzahl "$s" "${@[4,-1]}") + 1 ))
   strftime -s t '%Y-%m-%d %H:%M:%S' ${HALO_ROT_JETZT:-$EPOCHSECONDS}
   mkdir -p ${datei:h} 2>/dev/null
   print -r -- "$t$tab$s$tab$zw$tab$n${3:+$tab$3}" >> $datei
@@ -708,6 +860,33 @@ belegt() {
     && { print "ungespeicherte Änderungen in $REPO (eine andere Sitzung arbeitet)"; return 0 }
   return 1
 }
+
+# Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48, 19.11.2026): Anlass 3.33.0, Stand fc2701d wartete über
+# 60 Minuten auf „belegt“, weil Worker und Tagesroutine laufend neue Testläufe begannen. Der Wächter
+# tests/zwischen-schleife.zsh schreibt bei fälligem, grünem Stand und belegtem neon die Marke
+# ~/halo-nacht/zwischen-faellig.txt (HALO_ZR_FAELLIG), eine Zeile:
+#   <Unix-Sekunden der letzten Erneuerung> <PID des Wächters|-> <Stand> <Zweig> <seit HH:MM>
+# Er erneuert sie je Takt und während des Release-Laufs, entfernt sie nach Release, Abbruch oder Rot und sobald kein
+# fälliger Stand mehr wartet. Solange sie frisch ist (jünger als ZR_FAELLIG_MAX Minuten und der Wächter lebt), startet der
+# Auslastungswächter keine Worker und der Zeitfenster-Hook weist neue Testläufe ab (eigene Kopie der Prüfung dort).
+# Laufende Testläufe bricht niemand ab; der Wächter wartet auf sie (belegt()).
+# zr_vorrang: Rückgabe 0 = Marke frisch, gibt „Stand <7 Zeichen> (<Zweig>) seit <HH:MM>“ aus. Zum Proben: HALO_ZR_JETZT=<Unix-Sekunden>.
+zr_faellig_datei() { print -r -- ${HALO_ZR_FAELLIG:-$HOME/halo-nacht/zwischen-faellig.txt} }
+zr_vorrang() {
+  local d=$(zr_faellig_datei) jetzt=${HALO_ZR_JETZT:-$(date +%s)} max=${ZR_FAELLIG_MAX:-60}
+  local -a z
+  [[ -r $d ]] || return 1
+  z=(${=$(head -1 $d 2>/dev/null)})
+  (( $#z >= 4 )) && [[ $z[1] == <-> ]] || return 1
+  (( jetzt - z[1] < max * 60 )) || return 1
+  [[ $z[2] == <-> ]] && ! kill -0 $z[2] 2>/dev/null && return 1
+  print -r -- "Stand ${z[3][1,7]} ($z[4]) seit ${z[5]:-?}"
+}
+zr_vorrang_setzen() {   # <Stand> <Zweig> <seit HH:MM> – atomar (.neu, mv); PID = Wächter ($$ auch in Unterschalen)
+  local d=$(zr_faellig_datei)
+  print -r -- "$(date +%s) $$ $1 $2 $3" > $d.neu 2>/dev/null && mv -f $d.neu $d
+}
+zr_vorrang_loeschen() { rm -f $(zr_faellig_datei) }
 
 # Thunderbird unter /Applications auf die aktuelle Version von Mozilla bringen
 # (Nachtlauf, vor der Arbeit). Wie thunderbird_installieren() in

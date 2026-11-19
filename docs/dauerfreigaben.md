@@ -42,8 +42,8 @@ wird es gemeldet, nicht umgangen).
 
 **Aufräumen unbenötigter Reste mit Risiko null** (Maintainer 14.11.2026, Wortlaut in `ENTSCHEIDUNGEN.md`):
 am Ende des Nachtlaufs (Auftrag Schritt 6a, Rückfall in `tests/nachtlauf.sh`), ohne Nachfrage. Was entfernt
-wird, legen allein die Kriterien in `tests/aufraeumen.sh` fest (Arbeitskopien der Hilfsagenten ohne
-Ungespeichertes und ohne eigene Commits, tote Sperrdateien in `~/halo-nacht`, in `main` enthaltene Zweige
+wird, legen allein die Kriterien in `tests/aufraeumen.sh` fest (Arbeitskopien der Hilfsagenten und, seit 19.11.2026,
+der Worker unter `~/halo-worker` ohne Ungespeichertes und ohne eigene Commits außerhalb von `main`, tote Sperrdateien in `~/halo-nacht`, in `main` enthaltene Zweige
 `claude/…`, `rest/…`, `pruef/…`); alles andere bleibt und steht als „Rest mit Risiko“ im Bericht und im
 Morgenbrief. Sitzungen und Dauerprozesse berührt das nicht (bleibt Stufe C).
 

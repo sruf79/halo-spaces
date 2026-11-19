@@ -37,6 +37,9 @@ export HALO_LAUF=tagesroutine
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
 #   Im Volldampf zusätzlich der Fenster-Takt (18.11.2026, fenster_takt in lauf-hilfen.zsh, wie der Auslastungswächter):
 #   5-Stunden-Fenster über verstrichenem Anteil + FENSTER_RESERVE (25) → nichts Neues, bis der Takt aufholt (höchstens volle Stunde).
+#   Im Volldampf außerdem die Kontingent-Drossel (19.11.2026, drossel_stufe in lauf-hilfen.zsh, Stufe gemeinsam mit dem
+#   Auslastungswächter): Stufe 1 kein Fable; 2 nur jede zweite Runde; 3 nichts Neues bis zur vollen Stunde (roter Prüfzweig und
+#   Release unter Tage nie gebremst).
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
 #   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
@@ -107,6 +110,7 @@ conf_laden() {   # nur SCHLÜSSEL=Wert, kein Code wird ausgeführt
     z=${z%%\#*}; z=${z##[[:space:]]##}; z=${z%%[[:space:]]##}
     [[ $z == (#b)([A-Z0-9_]##)=(*) ]] || continue
     k=$match[1] v=$match[2]
+    [[ $k == DROSSEL_* ]] && continue   # Schwellen der Kontingent-Drossel liest drossel_stufe selbst (lauf-hilfen.zsh)
     (( ${+KONF[$k]} )) || { print -u2 "tagesroutine.conf: unbekannter Schlüssel $k – übergangen"; continue }
     KONF[$k]=$v
   done < $KONF_DATEI
@@ -236,7 +240,8 @@ aus = {"JETZT": wt(jetzt), "TAG": jetzt.strftime("%Y-%m-%d"), "RESET": wt(reset)
        "STUNDEN": "%.1f" % std, "START": start.strftime("%H:%M"), "SOLL": "%.1f" % soll, "SOLL_ART": soll_art,
        "ANKER": wt(soll_bezug.astimezone(W)) if soll_art == "anker" else "", "FENSTER": "ja" if fenster else "nein",
        "NEU_ZEIT": "ja" if neu_zeit else "nein", "PAUSE_BIS": "", "FABLE": "nein",
-       "WARTE_START": start.isoformat(timespec="minutes") if warte_start else ""}
+       "WARTE_START": start.isoformat(timespec="minutes") if warte_start else "",
+       "VOLLE": volle.isoformat(timespec="minutes")}   # nächste volle Stunde (Drossel Stufe 3, drossel_anwenden)
 fable_woche = zahl("K_FABLE_WOCHE")      # „Fable only“ in Prozent, nan = nicht lesbar
 if math.isnan(woche):
     aus.update(ABSTAND="?", STUFE="unbekannt", ENTSCHEIDUNG="nichts", M_KOMPLEX="-", M_ROUTINE="-",
@@ -391,7 +396,53 @@ entscheiden() {
     K_VOLLDAMPF=$VD K_FABLE_5H_MAX_VOLLDAMPF=$KONF[FABLE_5H_MAX_VOLLDAMPF] K_FABLE_WOCHE_MAX=$KONF[FABLE_WOCHE_MAX] \
     K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
     K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$FENSTER_DEF_PY$ENTSCHEID_PY")
+  # Kontingent-Drossel (Maintainer 19.11.2026, drossel_stufe in lauf-hilfen.zsh, dieselbe Stufe wie der Auslastungswächter):
+  # nur im Volldampf und mit gelesener Woche; ab Stufe 1 kein Fable (Plan und komplexe Einträge bleiben MODELL_STARK, Routine ist
+  # im Volldampf ohnehin MODELL_ROUTINE; Zweitlesung 19.11.2026: die frühere Umschaltung war wirkungslos). Stufe 2 und 3
+  # (jede zweite Runde, bis zur vollen Stunde) wirken erst in drossel_anwenden vor einem neuen Eintrag.
+  E[DROSSEL]= DROSSEL_STUFE=0
+  if [[ $VD == ja && -z $NUR_ZEIT && -n $K_WOCHE ]]; then
+    E[DROSSEL]=$(drossel_stufe $K_WOCHE); DROSSEL_STUFE=${E[DROSSEL]%% *}; E[DROSSEL]=${E[DROSSEL]#* }
+    [[ $DROSSEL_STUFE == <1-3> && $E[ENTSCHEIDUNG] == neu ]] && E[FABLE]=nein
+  fi
   [[ -n $E[SOLL] ]]
+}
+# Drossel Stufe 2 und 3 vor einem neuen Eintrag (nur bei Entscheidung „neu“; laufende Arbeit bleibt unberührt). Stufe 3: nichts
+# Neues bis zur vollen Stunde (derselbe Warteweg wie „deutlich über dem Soll“). Stufe 2: nur jede zweite Runde; die ausgesetzte
+# Runde wartet ohne Claude so lange, wie die letzte Claude-Runde dauerte (mindestens 10, höchstens 60 Minuten; Deutung der
+# umsetzenden Sitzung: halbiert die Zeit mit Claude). DROSSEL_AUSSETZEN setzt nur runde() nach einem echten Claude-Aufruf bei
+# Stufe 2 (Zweitlesung 19.11.2026: vorher auch ohne Runde, z. B. nach Warten oder übersprungenem Design-Eintrag).
+# Nie gebremst (Bremse 4a): die Reparatur des roten Prüfzweigs (pruef_rot meldet einen neuen roten Lauf) und die erste
+# Plan-Runde, wenn „Release unter Tage“ fällig ist (rut_zeile beginnt mit „ja“).
+DROSSEL_STUFE=0 DROSSEL_AUSSETZEN=
+drossel_anwenden() {
+  [[ $E[ENTSCHEIDUNG] == neu ]] || return 0
+  local bis min letzte r
+  if (( DROSSEL_STUFE >= 2 )); then
+    if [[ -n $PRUEF ]] && (( $+functions[pruef_rot] )); then
+      r=$(pruef_rot); [[ -n $r && $r != $ROT_GEMELDET ]] && { E[GRUND]+="; Drossel $E[DROSSEL] – nicht gebremst: roter Prüfzweig wird repariert"; return 0 }
+    fi
+    if (( ${PLANRUNDE:-0} == 0 )) && [[ -z $GEPLANT && $(rut_zeile ${TAG:-$E[TAG]} 2>/dev/null) == ja* ]]; then
+      E[GRUND]+="; Drossel $E[DROSSEL] – nicht gebremst: Release unter Tage fällig"; return 0
+    fi
+  fi
+  if (( DROSSEL_STUFE >= 3 )); then
+    E[ENTSCHEIDUNG]=warten E[WARTEN_BIS]=$E[VOLLE] E[M_KOMPLEX]=- E[M_ROUTINE]=- E[FABLE]=nein
+    E[GRUND]="Drossel $E[DROSSEL] – nächster Versuch ${${E[VOLLE]}[12,16]}"
+  elif (( DROSSEL_STUFE == 2 )); then
+    if [[ -n $DROSSEL_AUSSETZEN ]]; then
+      letzte=${RUNDEN_ZEIT[-1]:-}
+      [[ -n $letzte ]] && min=$(( (${letzte##* } - ${letzte%% *} + 59) / 60 )) || min=10
+      (( min < 10 )) && min=10; (( min > 60 )) && min=60
+      bis=$(python3 -I -c 'import os,sys,datetime as d;j=os.environ.get("HALO_JETZT");n=d.datetime.fromisoformat(j).astimezone() if j else d.datetime.now().astimezone();print((n+d.timedelta(minutes=int(sys.argv[1]))).isoformat(timespec="minutes"))' $min)
+      E[ENTSCHEIDUNG]=warten E[WARTEN_BIS]=$bis E[M_KOMPLEX]=- E[M_ROUTINE]=- E[FABLE]=nein
+      E[GRUND]="Drossel $E[DROSSEL] – diese Runde ausgesetzt ($min Min. wie die letzte Runde), nächster Versuch ${bis[12,16]}"
+      DROSSEL_AUSSETZEN=
+    fi
+  else
+    DROSSEL_AUSSETZEN=
+  fi
+  return 0
 }
 # Volldampf (Maintainer 13.11.2026, docs/testrechner.md „Volldampf“): erst freien Reset und Wochenlimit prüfen
 # (pausiert Volldampf bis zum freien Reset, nicht im Trockenlauf), dann Zustand lesen. Setzt VD (ja/nein), VD_STATUS (Berichtszeile)
@@ -426,7 +477,7 @@ entscheidung_text() {
   esac
 }
 kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
-  print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % ($(soll_text) %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
+  print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % ($(soll_text) %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE}${E[DROSSEL]:+; Drossel $E[DROSSEL]} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
 }
 soll_text() { [[ $E[SOLL_ART] == anker ]] && print -r -- "Soll bis nächster Reset $E[SOLL]" || print -r -- "Soll $E[SOLL]" }
 spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
@@ -570,6 +621,8 @@ if [[ -n $TROCKEN ]]; then
   print "Modellwahl:   komplexe Einträge: $E[M_KOMPLEX], Routine: $E[M_ROUTINE]; Fable: $( [[ $E[FABLE] == ja ]] && print "erlaubt ($KONF[MODELL_FABLE], nur nach Opus-Fehlschlag, nacheinander, höchstens $KONF[FABLE_JE_LAUF])" || print nein ); Fable-Woche: ${K_FABLE:-nicht lesbar}"
   print "Designer:     Einträge „design“ $( m=$(designer_modell $E[M_KOMPLEX]) && print "mit $m (Director beauftragt den Designer, Designfragen sofort aufs iPhone)" || print "heute nicht (Modellstufe $E[M_KOMPLEX] unter Opus)" )"
   [[ -n $E[SPAR_RATE] ]] && print -r -- "Sparen:       $(spar_zeile); Modell $E[SPAR_MODELL]; Messungen $SPAR_DATEI"
+  [[ $VD == ja ]] && print -r -- "Drossel:      ${E[DROSSEL]:-Woche nicht lesbar, keine Drossel}$( (( DROSSEL_STUFE == 2 )) && print -r -- " (diese Runde läuft, die nächste wird ausgesetzt)")"
+  drossel_anwenden
   print "Entscheidung: $(entscheidung_text) – $E[GRUND]"
   if [[ -n $E[PAUSE_BIS] ]]; then
     print "Pause:        würde in ${HALO_PAUSEN_DATEI:-~/halo-nacht/pausen.txt} schreiben (Trockenlauf: NICHT geschrieben):"
@@ -718,6 +771,7 @@ runde() {   # <Modell> <Prompt> <Ausgabe>
   ( cd $WT && claude -p --model $1 --session-id $sid --permission-mode auto "$2" ) > $3 2>&1
   local rc=$?
   RUNDEN_ZEIT+=("$t0 $(date +%s)")   # für eigene_commits (Tageslimit, Bericht)
+  (( DROSSEL_STUFE == 2 )) && DROSSEL_AUSSETZEN=1   # Drossel Stufe 2: nach einer echten Runde die nächste aussetzen
   kill $WACHE 2>/dev/null; WACHE=
   log "Runde beendet (Exitcode $rc): $(tail -c 300 $3 | tr '\n' ' ')"
   grep -qiE "usage limit|hit your limit|limit reached|rate limit" $3 && return 9
@@ -733,7 +787,7 @@ $(<$AUFTRAG_DATEI)"
 # Prüfzweig ohne Force: Stand des Zweigs der Arbeitskopie dorthin (nur Fertiges; Claude pusht nie selbst)
 PRUEF_INFO= ROT_GEMELDET=
 pruef_pushen() {
-  if git -C $WT push -q origin refs/heads/$PRUEF:refs/heads/$PRUEF 2>>$LOG; then
+  if git -C $WT push -q origin refs/heads/${PRUEF}:refs/heads/${PRUEF} 2>>$LOG; then
     PRUEF_INFO="$PRUEF zuletzt $(git -C $WT rev-parse --short $PRUEF) ($(date +%H:%M))"
     log "Prüfzweig: $PRUEF_INFO"
   else
@@ -782,7 +836,7 @@ while true; do
     ENDGRUND="$MAX_COMMITS eigene Commits heute erreicht"; break   # Ende, kein Warten
   fi
   # Kontingent vor jedem neuen Eintrag
-  entscheiden; log "Kontingent: $(kontingent_zeile)"
+  entscheiden; drossel_anwenden; log "Kontingent: $(kontingent_zeile)"
   # --- Kontingentgrenzen (über dem Soll > SPAR_MAX, 5-Stunden-Fenster, Sparmodus noch nicht angespart):
   # ohne Claude warten (bis zur vollen Stunde bzw. zum Fensterende), dann neu entscheiden; nur bis LETZTER_BEGINN ---
   if [[ $E[ENTSCHEIDUNG] == (warten|spar_warten) ]]; then

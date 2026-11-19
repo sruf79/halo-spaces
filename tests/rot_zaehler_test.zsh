@@ -34,6 +34,12 @@ pruefe "anderer Schlüssel zählt getrennt" "$(H rot_stufe 'Seitenleiste'; H rot
 print -r -- $'2026-11-01 10:00:00\tAlt\tmain\t1\n2026-11-03 10:00:00\tAlt\tmain\t2\n2026-11-10 10:00:00\tAlt\tmain\t1' >> $T/rot.txt
 pruefe "Einträge älter als 14 Tage zählen nicht (2 von 3 zu alt)" "$(H rot_anzahl Alt)" '^1$'
 pruefe "Schlüssel mit Leerzeichen und Doppelpunkt" "$(H rot_eintragen 'Kalender: Termin ziehen (Woche)' main; H rot_anzahl 'Kalender: Termin ziehen (Woche)')" '^1 Opus$' '^1$'
+# Aliasse (19.11.2026, tests/rot-nebenzweig.sh): Karten-ID als Schlüssel, ältere Zeilen mit Hash bzw. patch-id zählen mit
+pruefe "Alias: alte Hash-Zeile (kurz) zählt für die Karte mit" "$(H rot_eintragen 'abcdef1234' pruef/a; H rot_eintragen 'PVTI_k' pruef/rot-PVTI_k abcdef1234567890 'patch:00ff' abcdef1234567890)" '^1 Opus$' '^2 Fable$'
+pruefe "Alias: Hash-Anfang gleich (7 Zeichen), Karte zählt beide" "$(H rot_anzahl 'PVTI_k' 'abcdef1'; H rot_stufe 'PVTI_k' abcdef1)" '^2$' '^Fable$'
+pruefe "Alias: ohne Alias zählt nur die Karte" "$(H rot_anzahl 'PVTI_k')" '^1$'
+pruefe "Alias: kurze Hex-Folge (unter 7) ist kein Hash-Anfang" "$(H rot_anzahl 'PVTI_x' 'abcde')" '^0$'
+pruefe "Alias: patch:… zählt nur gleich" "$(H rot_eintragen 'patch:00ff' pruef/rot-abc; H rot_anzahl 'patch:00f')" '^1 Opus$' '^0$'
 pruefe "leerer Schlüssel: nichts eingetragen" "$(H rot_eintragen '' main; print rc=$?)" 'rc=1'
 
 # --- Wächter tests/zwischen-schleife.zsh: rot_zaehlen und melden ---
@@ -78,6 +84,18 @@ pruefe "Release unter Tage: rot_melden vor dem Abbruch bei gescheitertem release
 for f in AGENTS.md docs/neon-sitzung.md tests/nachtlauf-auftrag.md tests/tagesroutine-auftrag.md tests/auslastung-auftrag.md \
          docs/testrechner.md docs/regelwerk-kontingent.md; do
   pruefe "Verweis auf die Regel in $f" "$(grep -c 'Rote Änderung auf einen Nebenzweig' $HIER/../$f)" '^[1-9]'
+done
+
+# --- Rot-Absatz im Nachtlauf-Auftrag (Schritt 4c): Rücknahme nur über tests/rot-nebenzweig.sh, kein nacktes git revert
+# (Bericht ~/halo-berichte/2026-11-19-rot-regel.md, L1/L8: 4c sagte „mit git revert zurücknehmen“) ---
+NA=$HIER/nachtlauf-auftrag.md
+ROTABS=$(sed -n '/c) Rot (Exitcode 1)/,/Abgebrochen (Exitcode 3)/p' $NA)
+pruefe "Nachtlauf-Auftrag: Rot-Absatz 4c gefunden" "$(print -r -- $ROTABS | grep -c .)" '^[1-9][0-9]*$'
+pruefe "Nachtlauf-Auftrag 4c: nennt tests/rot-nebenzweig.sh und den Nebenzweig-Fall" "$ROTABS" 'tests/rot-nebenzweig\.sh' 'Nebenzweig-Fall' 'Rote Änderung auf einen'
+pruefe "Nachtlauf-Auftrag 4c: kein nacktes „git revert“" "$(print -r -- $ROTABS | grep -c 'git revert')" '^0$'
+pruefe "Nachtlauf-Auftrag Regel (0): Rücknahme über das Skript" "$(sed -n '/(0) Ein Fehler, der jedes Release/,/(a) Schwere/p' $NA)" 'tests/rot-nebenzweig\.sh'
+for f in AGENTS.md docs/release.md docs/neon-sitzung.md docs/testrechner.md; do
+  pruefe "Verweis auf tests/rot-nebenzweig.sh in $f" "$(grep -c 'rot-nebenzweig' $HIER/../$f)" '^[1-9]'
 done
 
 (( FEHLER )) && exit 1

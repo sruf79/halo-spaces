@@ -21,13 +21,16 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
 }
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd.txt
 : > $T/leer.conf
+# Aufgabenliste für die Vorprüfung (Maintainer 19.11.2026): Standard ein freier Bug
+print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title":"Mail: freier Bug","body":"Text"}]}' > $T/board.json
 # W [VAR=Wert …]: Trockenlauf; Standard Di 17.11. 15:00 (14 h nach dem Reset, Soll 29,2 %), Woche 27 %, 5 Stunden 40 %,
 # 1 Arbeits-Sitzung, kein Fable, kein Nachtlauf, letzter Start lange her
 W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
     HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
-    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt \
+    HALO_DROSSEL_STUFE=0 HALO_DROSSEL_DATEI=$T/drossel.txt HALO_DROSSEL_VERLAUF=$T/verlauf.json HALO_TAGESROUTINE_CONF=$T/leer.conf "$@" zsh $SKRIPT --trocken 2>&1
 }
 
 # Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
@@ -40,6 +43,15 @@ pruefe "Reset Di 01:00 Wiener Zeit: 0 h" "$(W HALO_JETZT=2026-11-17T01:00+01:00 
 
 # Tag: Schwellen
 pruefe "Tag, unter Soll: Worker mit opus" "$(W)" '^Prüfung:  starten opus unter dem Soll' 'Würde:    Worker mit opus'
+# Vorrang für ein fälliges Zwischen-Release (neon-Auftrag #48): frische Marke → kein Worker; alt, tot oder fehlend → wie sonst
+print -r -- "$(( $(date +%s) - 300 )) - fc2701d0000 pruef/sammel-fehler-1119 11:54" > $T/zf.txt
+pruefe "Zwischen-Release fällig (frische Marke): kein neuer Worker" "$(W HALO_ZR_FAELLIG=$T/zf.txt)" \
+  '^Prüfung:  warten Zwischen-Release fällig \(Stand fc2701d \(pruef/sammel-fehler-1119\) seit 11:54\) – keine neuen Worker$'
+pruefe "Zwischen-Release fällig: auch kein Windows-Rundgang (5 Stunden 90 %)" "$(W HALO_ZR_FAELLIG=$T/zf.txt HALO_AS_5H=90)" 'warten Zwischen-Release fällig'
+print -r -- "$(( $(date +%s) - 3700 )) - fc2701d0000 pruef/x 11:54" > $T/zf-alt.txt
+pruefe "Marke älter als 60 Min.: Worker wie sonst" "$(W HALO_ZR_FAELLIG=$T/zf-alt.txt)" '^Prüfung:  starten opus unter dem Soll'
+print -r -- "$(date +%s) 999999 fc2701d0000 pruef/x 11:54" > $T/zf-tot.txt
+pruefe "Marke eines beendeten Wächters (PID tot): Worker wie sonst" "$(W HALO_ZR_FAELLIG=$T/zf-tot.txt)" '^Prüfung:  starten opus unter dem Soll'
 pruefe "Tag, über Soll, 5 Stunden 40 %: Worker (Fenster unter 60 %)" "$(W HALO_AS_WOCHE=35)" 'starten opus 5-Stunden-Fenster unter 60'
 pruefe "Tag, über Soll, 5 Stunden 60 %: warten" "$(W HALO_AS_WOCHE=35 HALO_AS_5H=60)" 'warten im Soll und 5-Stunden-Fenster ab 60'
 pruefe "Tag, unter Soll, 5 Stunden 90 %: warten (FENSTER_STOPP)" "$(W HALO_AS_5H=90)" 'warten 5-Stunden-Fenster ab 90'
@@ -70,6 +82,17 @@ pruefe "Fenster-Takt: gemeinsame Rechnung fenster_takt aus lauf-hilfen.zsh (auch
 unbekannt
 leer$'
 pruefe "Fenster-Takt: Wächter rechnet nicht selbst" "$(grep -vE '^[[:space:]]*#' $SKRIPT | grep -cE 'fenster_takt "\$rest"|18000')" '^1$'
+# Kontingent-Drossel (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“, drossel_stufe in lauf-hilfen.zsh)
+pruefe "Drossel Stufe 1: kein neuer Worker, auch bei 5 Stunden 40 % (unter FENSTER_MIN)" "$(W HALO_DROSSEL_STUFE=1 HALO_AS_WOCHE=35)" '^Prüfung:  warten Drossel Stufe 1'
+pruefe "Drossel Stufe 2 und 3: kein Worker, auch kein tokenarmer" "$(W HALO_DROSSEL_STUFE=2; W HALO_DROSSEL_STUFE=3 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'warten Drossel Stufe 2' 'warten Drossel Stufe 3'
+pruefe "Drossel Stufe 0: Lage nennt sie, Worker startet" "$(W HALO_DROSSEL_STUFE=0)" 'starten opus .*; Drossel Stufe 0'
+print -r -- '{"punkte":[{"t":"2026-11-17T08:00:00Z","woche":10},{"t":"2026-11-17T11:00:00Z","woche":25}]}' > $T/verlauf-schnell.json
+pruefe "Drossel echt gerechnet ((27−10)/6 h, voll lange vor dem Reset): Stufe 3, Zustand geschrieben? nein im Trockenlauf" \
+  "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json; ls $T/drossel.txt 2>&1)" \
+  'warten Drossel Stufe 3 \([0-9]+ Fehlstunden.*Tempo 2\.83 Punkte/h über 6\.0 h Verlauf' 'No such file'
+pruefe "Drossel: Schleife hält den Zustand frisch, auch wenn pruefen vorher zurückkehrte" "$(grep -c '\[\[ \$z == \*Drossel\* \]\] || drossel_stufe >/dev/null' $SKRIPT)" '^1$'
+pruefe "Drossel nur im Volldampf" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt)" 'ende Volldampf nicht aktiv'
+pruefe "Drossel: 30 Min. nach dem Reset zu wenig Daten → Fail-open, Lage nennt es, Worker startet" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/fehlt.json HALO_JETZT=2026-11-17T01:30+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0)" 'starten opus .*Drossel Fail-open'
 pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'
 pruefe "Fable auch bei laufendem Fable-Lauf (keine Mengengrenze im Volldampf, 17.11.2026)" "$(W HALO_AS_WOCHE=9 HALO_AS_FABLE=1)" 'starten fable'
 pruefe "kein Fable bei 5 Stunden 50 %" "$(W HALO_AS_WOCHE=9 HALO_AS_5H=50)" 'starten opus'
@@ -131,19 +154,25 @@ kill $SP 2>/dev/null
 
 # feste Regeln im Skript
 S=$(grep -vE '^[[:space:]]*#' $SKRIPT)
-pruefe "kein push, kein release.sh/publish.sh, keine Regeln/Hooks" \
-  "$(print -r -- $S | grep -cE 'git [^|;]*push|release\.sh|publish\.sh|settings\.json|zeitfenster-hook|volldampf_setzen|pause_setzen')" '^0$'
-pruefe "Checkout: nur fetch und worktree add" \
-  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN fetch git -C \$MAIN worktree $'
+pruefe "einziger Push: Nachpush pruef/worker-*; kein release.sh/publish.sh, keine Regeln/Hooks" \
+  "$(print -r -- $S | grep -cE 'release\.sh|publish\.sh|settings\.json|zeitfenster-hook|volldampf_setzen|pause_setzen'; print -r -- $S | grep -E 'git [^|;]*push' | sed 's/^ *//')" \
+  '^0$' '^if git -C \$MAIN push -q origin refs/heads/\$\{b\}:refs/heads/\$\{b\} 2>>\$LOG; then ok\+=\(\$b\); else fehl\+=\(\$b\); fi$'
+pruefe "genau ein Push im Skript" "$(print -r -- $S | grep -cE 'git [^|;]*push')" '^1$'
+pruefe "Checkout: nur fetch, worktree add/remove, leere Worker-Zweige löschen" \
+  "$(print -r -- $S | grep -oE 'git -C \$MAIN [a-z-]+' | sort -u | tr '\n' ' ')" '^git -C \$MAIN branch git -C \$MAIN fetch git -C \$MAIN for-each-ref git -C \$MAIN push git -C \$MAIN rev-list git -C \$MAIN rev-parse git -C \$MAIN worktree $'
+pruefe "Checkout: worktree nur add --detach und remove, branch nur -D eines Zweigs auf dem Basis-Commit" \
+  "$(print -r -- $S | grep -oE 'git -C \$MAIN (worktree [a-z]+( --?[a-z]+)*|branch [^2]*)' | sort -u)" \
+  '^git -C \$MAIN branch -q -D \$zw $' '^git -C \$MAIN worktree add -q --detach$' '^git -C \$MAIN worktree remove$'
+pruefe "Checkout: Zweig nur weg, wenn er auf den Basis-Commit zeigt" "$S" 'refs/heads/\$zw 2>/dev/null\) == \$basis \]\]'
 pruefe "Worker ohne HALO_LAUF, gleiche Flags wie die Tagesroutine" "$S" \
   'env -u HALO_LAUF HALO_WORKER=\$nr claude -p --model \$m --session-id \$sid --permission-mode auto'
 pruefe "Sitzungs-ID im Protokoll (belegt() übergeht eigene Läufe)" "$S" 'log "Worker \$nr gestartet: \$m, Klasse \$klasse, Sitzung \$sid'
-pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$rnr" > \$ZUSTAND/worker-\$nr'
+pruefe "Klasse im Auftragskopf und als Feld 8 der Zustandsdatei, dazu Fingerabdruck (10) und Basis (11)" "$S" 'Modell \$m, Klasse \$klasse' '\$erg \$klasse \$\{rnr:--\} \$fp \$\{basis:--\}" > \$ZUSTAND/worker-\$nr'
 pruefe "Ports 2874–2889, zwei je Nummer, höchstens 8 Nummern" "$S" '2874 \+ 2 \* \(nr - 1\)' 'for i in \{1\.\.8\}' 'MAX_WORKER\] > 8'
 pruefe "Pause-Name auslastung steht in PAUSEN_ROUTINEN" "$(source $HIER/lauf-hilfen.zsh 2>/dev/null; print ${PAUSEN_ROUTINEN[(Ie)auslastung]})" '^[1-9]'
 A=$(<$HIER/auslastung-auftrag.md)
-pruefe "Auftrag: Board-Sperre, Push nur Prüfzweig ab 09:00, Testlauf über auslastung-test.zsh" "$A" \
-  'board\.sh status <id> arbeit' 'In Arbeit: worker-<Nr>' 'HEAD:<Zweig aus JETZT>' '00:00–09:00 nicht pushen' 'zsh tests/auslastung-test\.zsh'
+pruefe "Auftrag: Board-Sperre, Push nur auf den eigenen Prüfzweig, Testlauf über auslastung-test.zsh" "$A" \
+  'board\.sh status <id> arbeit' 'In Arbeit: worker-<Nr>' 'HEAD:<Zweig aus JETZT>' 'nie nach main' 'zsh tests/auslastung-test\.zsh'
 pruefe "Auftrag: keine Design-Einträge, keine geplanten Einträge von Nachtlauf/Tagesroutine, Gedächtnis" "$A" \
   'Design- und Optik-Einträge' '<Heute>-plan\.md' 'tagesroutine-plan' 'worker-gedaechtnis\.md' 'Rückblick'
 pruefe "Nacht- und Tagesauftrag übergehen Worker-Einträge" \
@@ -177,6 +206,7 @@ print -r -- "# Offene Aufträge an neon
 R() { W HALO_AS_NEON_STAND=$T/stand.md HALO_AS_5H=86 "$@" }
 pruefe "Rundgang: 86 %, tagsüber, frei, offen → Rundgang mit sonnet (vor Takt und Drossel)" "$(R HALO_FENSTER_REST=16860)" \
   '^Prüfung:  rundgang sonnet Auftrag #35 \(5-Stunden-Fenster 86 % ab 85 %\)' 'Würde:    Windows-Rundgang mit sonnet starten \(Auftrag #35 wörtlich, Rahmen tests/auslastung-rundgang\.md, höchstens 120 Min\.\)'
+pruefe "Rundgang: auch bei Drossel Stufe 3 (Windows-Rundgang nie gebremst)" "$(R HALO_DROSSEL_STUFE=3)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: auch ab 90 % (Stopp gilt nur für Worker)" "$(R HALO_AS_5H=92)" 'rundgang sonnet Auftrag #35'
 pruefe "Rundgang: 84 % → nicht fällig, tokenarmer Worker" "$(R HALO_AS_5H=84 HALO_AS_TOKENARM=0)" 'Rundgang: nicht fällig – 5-Stunden-Fenster unter 85 %' 'starten sonnet tokenarm'
 pruefe "Rundgang: 98 % → nicht fällig (Limit zu nah)" "$(R HALO_AS_5H=98)" 'Rundgang: nicht fällig – 5-Stunden-Fenster ab 98 %' 'warten 5-Stunden-Fenster ab 90'
@@ -199,7 +229,7 @@ pruefe "Rundgang: Volldampf pausiert (Wochenlimit) → kein Start" "$(R HALO_AS_
 pruefe "Rundgang im Skript: Auftrag wörtlich, eigene Zeitgrenze, Marke je Tag, Ergebnis nach neon-stand.md" "$S" \
   'Auftrag #\$rnr \(wörtlich aus' 'max=\$K\[RUNDGANG_MAX_MIN\]' 'rundgang-\$rnr-\$\(date \+%F\)' 'neon-stand\.sh notiz \$z\[9\]' 'rundgang-\$z\[9\]-erledigt'
 # Ende des Rundgangs: Ergebnis als Stand in neon-stand.md (Auftrag bleibt offen, neon meldet dem Designer), erledigt → Marke
-AR=$(sed -n '/^aufraeumen() {/,/^}/p' $SKRIPT)
+AR=$(sed -n '/^kopie_nach_lauf() {/,/^}/p;/^aufraeumen() {/,/^}/p' $SKRIPT)
 mkdir -p $T/ar/zustand $T/ar/stand; print -r -- "erledigt /ablage 24" > $T/ar/erg
 print -r -- "- #35 | 16.11. 21:44 | von designer | Bildauftrag Probe | Stand: angenommen" > $T/ar/stand/neon-stand.md
 print -r -- "999999 sid sonnet 1 /wt pruef/w $T/ar/erg rundgang 35" > $T/ar/zustand/worker-6
@@ -214,4 +244,157 @@ pruefe "Rundgang: keine Inhalte der Aufgabenliste im Repo (keine Karten-ID im Ra
 pruefe "Auftrag: ohne Volldampf kein neuer Eintrag (Regel 6)" "$A" 'nichts_passend Volldampf nicht aktiv'
 pruefe "Auftrag: Klasse tokenarm (nur wenig Token, nie Fehlersuche/Analyse/Fable, zurück wenn zu groß)" "$A" \
   'Klasse tokenarm' 'Fehlersuche ohne benannte Ursache' 'kein Fable' 'zurück tokenarm zu groß'
+
+# --- Vorprüfung ohne Sprachmodell (Maintainer 19.11.2026, „1. ja“: Worker nur bei passendem Eintrag, leere Läufe sofort beenden) ---
+B() {   # <Datei> <JSON-Einträge, durch Komma getrennt>
+  print -r -- "{\"items\":[$2]}" > $1
+}
+e() { print -r -- "{\"id\":\"$1\",\"typ\":\"$2\",\"status\":\"$3\",\"title\":\"$4\",\"body\":\"${5:-Text}\"}" }
+mkdir -p $T/vp
+B $T/vp/aus.json "$(e PVTI_a1111 Bug 'In Progress' 'Mail: in Arbeit'),$(e PVTI_a2222 Bug 'Wartet auf OK' 'Mail: wartet'),$(e PVTI_a3333 Bug Done 'Mail: fertig'),$(e PVTI_a4444 Bug Todo 'Mail: gesperrt' 'Text\n\nIn Arbeit: worker-2 (Auslastungswächter)'),$(e PVTI_a5555 Feature Todo 'Design: Knöpfe'),$(e PVTI_a6666 Bug Todo 'Anhänge: Kachel (Design-Eintrag)'),$(e PVTI_a7777 Feature Todo 'Ablauf: Regel'),$(e PVTI_a8888 Feature Todo 'Store: Text'),$(e PVTI_a9999 Feature Todo 'Release: Notizen'),$(e PVTI_b1111 Feature Todo 'Fenster: schmaler [GitHub #31]')"
+V() { W HALO_AS_BOARD=$T/vp/aus.json HALO_AS_DIR=$T/vp/nacht "$@" }
+pruefe "Vorprüfung: nur In Progress, Wartet auf OK, Done, In-Arbeit-Sperre, Design, Ablauf, Store, Release, Feature [GitHub #n] → kein Worker" \
+  "$(V)" '^Prüfung:  leer kein passender Eintrag \(kein Todo-Eintrag ohne Sperre' 'Würde:    keinen Worker starten \(kein passender Eintrag\), nächste Prüfung in 15 Minuten'
+pruefe "Vorprüfung: auch Klasse tokenarm ohne Eintrag → kein Worker" "$(V HALO_AS_5H=75 HALO_AS_TOKENARM=0)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: auch Fable nicht" "$(V HALO_AS_WOCHE=9)" '^Prüfung:  leer kein passender Eintrag'
+for f in "$(e PVTI_c1111 Bug Todo 'Mail: nach Rückgabe' 'Text\n\nIn Arbeit: worker-1 (…)\n\nIn Arbeit beendet: worker-1, zurück: belegt')" \
+         "$(e PVTI_c2222 Bug Todo 'Mail: aufgegeben' 'In Arbeit: worker-1\n\nIn Arbeit aufgegeben: worker-1, doppelt')" \
+         "$(e PVTI_c3333 Bug Todo 'Suchfeld klappt zu [GitHub #67]')" \
+         "$(e PVTI_c4444 Feature Todo 'Kalender: neue Ansicht')"; do
+  B $T/vp/eins.json "$f"
+  pruefe "Vorprüfung: passend – ${${f#*title\":\"}%%\"*}" "$(V HALO_AS_BOARD=$T/vp/eins.json)" '^Prüfung:  starten opus' 'Vorprüfung: 1 Einträge, 0 Bug-Jagd-Fälle möglich'
+done
+B $T/vp/plan.json "$(e PVTI_lAHODEPpks4BoBQwzhJwOZw Bug Todo 'Tests: Windows rot'),$(e PVTI_lAHODEPpks4BoBQwzhJ76tE Bug Todo 'Import: PST')"
+mkdir -p $T/vp/nacht
+print -r -- '| 1 | JwOZw | Tests: Windows rot | 5 |' > $T/vp/nacht/2026-11-17-plan.md
+print -r -- 'PVTI_lAHODEPpks4BoBQwzhJ76tE	routine	Import: PST' > $T/vp/nacht/2026-11-17-tagesroutine-plan.tsv
+pruefe "Vorprüfung: Einträge im Plan von heute (kurze id im Nachtlauf-Plan, volle id im Tagesroutine-Plan) → kein Worker" "$(V HALO_AS_BOARD=$T/vp/plan.json)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: Plan von gestern zählt nicht" "$(V HALO_AS_BOARD=$T/vp/plan.json HALO_JETZT=2026-11-18T15:00+01:00 HALO_AS_WOCHE=60 HALO_AS_5H=40)" 'Vorprüfung: 2 Einträge' '^Prüfung:  starten'
+rm -f $T/vp/nacht/2026-11-17-*
+print -r -- "# Bug-Jagd
+## 1. Fall eins
+## 2. Fall zwei" > $T/vp/nacht/bugjagd-mail-2026-11-17.md
+print -r -- "2026-11-18 05:58 worker-x bugjagd-mail-2026-11-17.md#1" > $T/vp/nacht/auslastung-vergeben.txt
+pruefe "Vorprüfung: freier Bug-Jagd-Fall (#2) → Worker" "$(V)" 'Vorprüfung: 0 Einträge, 1 Bug-Jagd-Fälle möglich' '^Prüfung:  starten opus'
+pruefe "Vorprüfung: Bug-Jagd-Fälle nie für Klasse tokenarm" "$(V HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(.*Bug-Jagd-Fälle nur für Klasse normal'
+print -r -- "2026-11-18 06:00 worker-y bugjagd-mail-2026-11-17.md#2" >> $T/vp/nacht/auslastung-vergeben.txt
+pruefe "Vorprüfung: alle Bug-Jagd-Fälle vergeben → kein Worker" "$(V)" '^Prüfung:  leer kein passender Eintrag'
+pruefe "Vorprüfung: Liste nicht lesbar → warten, kein Worker" "$(W HALO_AS_BOARD=$T/fehlt.json)" '^Prüfung:  warten Aufgabenliste nicht lesbar – kein Worker ohne Vorprüfung'
+print -r -- 'kein json' > $T/vp/kaputt.json
+pruefe "Vorprüfung: Liste nicht auswertbar → warten" "$(W HALO_AS_BOARD=$T/vp/kaputt.json)" '^Prüfung:  warten Aufgabenliste nicht auswertbar'
+pruefe "Vorprüfung erst nach allen Schwellen (Grenze erreicht: Liste nicht geladen)" "$(W HALO_AS_AKTIV=4 HALO_AS_BOARD=$T/fehlt.json)" 'warten 4 Arbeits-Sitzungen'
+pruefe "Vorprüfung: Rundgang braucht keinen Listeneintrag" "$(print -r -- '- #35 | x | Bildauftrag' > $T/vp/stand.md; W HALO_AS_BOARD=$T/fehlt.json HALO_AS_NEON_STAND=$T/vp/stand.md HALO_AS_5H=86)" '^Prüfung:  rundgang sonnet'
+# Befund „nichts_passend“ des Workers: gleiche Kandidaten → kein weiterer Worker, bis sich die Liste ändert (höchstens LEER_GUELTIG)
+eval "$(sed -n "/^PASSEND_PY='/,/^'\$/p" $SKRIPT)"
+FP=$(python3 -I -c $PASSEND_PY $T/board.json 2026-11-17 $T/vp/leer | head -1 | cut -d' ' -f3)
+JETZT_S=$(date -j -f %Y-%m-%dT%H:%M%z 2026-11-17T15:00+0100 +%s)
+mkdir -p $T/vp/leer/auslastung
+L() { W HALO_AS_DIR=$T/vp/leer "$@" }
+print -r -- "$FP $(( JETZT_S - 3600 )) 14:00" > $T/vp/leer/auslastung/leer-normal
+pruefe "nichts_passend vor 1 h, Kandidaten gleich → kein Worker" "$(L)" '^Prüfung:  leer kein passender Eintrag \(Kandidaten unverändert seit „nichts_passend“ eines Workers um 14:00'
+pruefe "nichts_passend der Klasse normal gilt auch für tokenarm" "$(L HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(Kandidaten unverändert'
+print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title":"Mail: freier Bug","body":"Text\n\nneue Notiz"}]}' > $T/vp/geaendert.json
+pruefe "Kandidat hat neue Notiz → Worker" "$(L HALO_AS_BOARD=$T/vp/geaendert.json)" '^Prüfung:  starten opus'
+print -r -- "$FP $(( JETZT_S - 721 * 60 )) 03:00" > $T/vp/leer/auslastung/leer-normal
+pruefe "Befund älter als LEER_GUELTIG (720 Min.) → Worker" "$(L)" '^Prüfung:  starten opus'
+rm -f $T/vp/leer/auslastung/leer-normal
+print -r -- "$FP $(( JETZT_S - 600 )) 14:50" > $T/vp/leer/auslastung/leer-tokenarm
+pruefe "nichts_passend nur tokenarm: Klasse normal startet trotzdem" "$(L)" '^Prüfung:  starten opus'
+pruefe "nichts_passend tokenarm: tokenarm nicht mehr" "$(L HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'leer kein passender Eintrag \(Kandidaten unverändert'
+print -r -- "LEER_WARTEN=20" > $T/vp/lw.conf
+pruefe "LEER_WARTEN aus der Datei" "$(V HALO_AS_CONF=$T/vp/lw.conf)" 'nächste Prüfung in 20 Minuten'
+pruefe "Schleife: „leer“ jedes Mal ins Protokoll, Wartezeit LEER_WARTEN" "$S" \
+  'leer\*\) +log "\$\{z#leer \}; nächste Prüfung in \$K\[LEER_WARTEN\] Minuten"; warte=\$K\[LEER_WARTEN\]' 'sleep \$\(\( warte \* 60 \)\)'
+pruefe "Liste höchstens alle BOARD_ALTER Minuten (15) über board.sh export, Zwischenspeicher" "$S" \
+  'BOARD_ALTER 15' "find \\\$f -mmin -\\\$K\\[BOARD_ALTER\\]" 'board\.sh export'
+# aufraeumen: Befund nichts_passend mit Fingerabdruck merken (nicht bei „Volldampf nicht aktiv“)
+mkdir -p $T/np/zustand
+print -r -- "nichts_passend alles Optik" > $T/np/erg1; print -r -- "nichts_passend Volldampf nicht aktiv" > $T/np/erg2
+print -r -- "999999 sid opus 1 /kein-wt pruef/w $T/np/erg1 normal - 0123456789abcdef -" > $T/np/zustand/worker-1
+print -r -- "999998 sid sonnet 1 /kein-wt pruef/w $T/np/erg2 tokenarm - fedcba9876543210 -" > $T/np/zustand/worker-2
+pruefe "aufraeumen: nichts_passend → leer-normal mit Fingerabdruck; „Volldampf nicht aktiv“ → kein Befund" \
+  "$(setopt extendedglob; ZUSTAND=$T/np/zustand; log() { : }; eval $AR; aufraeumen; ls $T/np/zustand; cat $T/np/zustand/leer-normal)" '^leer-normal$' '^0123456789abcdef [0-9]+ [0-9]{2}:[0-9]{2}$'
+pruefe "aufraeumen: kein leer-tokenarm bei „Volldampf nicht aktiv“" "$(ls $T/np/zustand | grep -c tokenarm)" '^0$'
+
+# --- Worktree nach dem Lauf (Maintainer 19.11.2026: Zweig erst beim ersten Commit, leere Worktrees und Zweige sofort weg) ---
+export GIT_AUTHOR_NAME=T GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=T GIT_COMMITTER_EMAIL=t@t
+G=$T/git; mkdir -p $G
+git init -q -b main $G/repo && print '/repo.conf\n/dist/' > $G/repo/.gitignore && print a > $G/repo/a.txt
+git -C $G/repo add -A && git -C $G/repo commit -qm start
+BASIS=$(git -C $G/repo rev-parse HEAD)
+KN=$(sed -n '/^kopie_nach_lauf() {/,/^}/p' $SKRIPT)
+K() { (setopt extendedglob; MAIN=$G/repo LOG=$G/log; log() { print -r -- "$*" >> $G/log }; eval $KN; kopie_nach_lauf "$@") }
+wt() { git -C $G/repo worktree add -q --detach $G/$1 $BASIS }
+wt w1; print x > $G/w1/repo.conf; mkdir $G/w1/dist; print x > $G/w1/dist/a.xpi
+K $G/w1 pruef/worker-1 $BASIS
+pruefe "leerer Worktree ohne Zweig (nur repo.conf, dist/) → entfernt" "$( [[ -d $G/w1 ]] && print da || print weg; git -C $G/repo worktree list | grep -c w1)" '^weg$' '^0$'
+wt w2; git -C $G/w2 switch -q -c pruef/worker-2
+K $G/w2 pruef/worker-2 $BASIS
+pruefe "Zweig angelegt, aber kein Commit → Worktree und Zweig weg" "$( [[ -d $G/w2 ]] && print da || print weg; git -C $G/repo branch --list pruef/worker-2 | grep -c .)" '^weg$' '^0$'
+wt w3; git -C $G/w3 switch -q -c pruef/worker-3; print b > $G/w3/b.txt; git -C $G/w3 add b.txt; git -C $G/w3 commit -qm b
+K $G/w3 pruef/worker-3 $BASIS
+pruefe "Commit auf dem Zweig → Worktree und Zweig bleiben" "$( [[ -d $G/w3 ]] && print da; git -C $G/repo branch --list pruef/worker-3 | grep -c .)" '^da$' '^1$'
+wt w4; print c > $G/w4/c.txt; git -C $G/w4 add c.txt; git -C $G/w4 commit -qm c
+K $G/w4 pruef/worker-4 $BASIS
+pruefe "Commit ohne Zweig (git switch -c vergessen) → Zweig nachträglich, nichts verloren" \
+  "$( [[ -d $G/w4 ]] && print da; git -C $G/w4 symbolic-ref --short HEAD; git -C $G/repo log -1 --format=%s pruef/worker-4)" '^da$' '^pruef/worker-4$' '^c$'
+wt w5; print x >> $G/w5/a.txt
+K $G/w5 pruef/worker-5 $BASIS
+pruefe "ungespeicherte Änderung ohne Commit → bleibt, Grund im Protokoll" "$( [[ -d $G/w5 ]] && print da; cat $G/log)" '^da$' 'w5 bleibt: ungespeicherte Änderungen'
+wt w6; print x > $G/w6/vorschau-1.png
+K $G/w6 pruef/worker-6 $BASIS
+pruefe "unversionierte Datei → bleibt" "$( [[ -d $G/w6 ]] && print da; cat $G/log)" '^da$' 'w6 bleibt: ungespeicherte'
+wt w7
+K $G/w7 pruef/worker-7 ""
+pruefe "alter Worker ohne Basis-Commit (Feld 11) → nicht angefasst" "$( [[ -d $G/w7 ]] && print da)" '^da$'
+pruefe "Datum je Start: Ergebnis, Ausgabe und Bericht mit dem Datum des Starts, Protokoll je Takt" "$S" \
+  'local tag=\$\(date \+%F\)' 'erg=\$DIR/\$tag-worker-' 'halo-berichte/\$tag-worker-\$nr\.md' 'LOG=\$DIR/\$\(date \+%F\)-auslastung\.log   # je Takt'
+pruefe "Auftrag: Zweig erst vor dem ersten Commit, nachts nicht pushen, Nachpush durch den Wächter" "$A" \
+  'git switch -c <Zweig aus JETZT>' '00:00–09:00 nicht pushen' 'pusht der\s*$' 'HEAD:<Zweig aus JETZT>' 'Vorprüfung'
+# Nachpush der Worker-Zweige ab 09:00 (neon 19.11.2026), einmal je Tag, nur pruef/worker-*, nie main
+git init -q --bare -b main $G/origin.git
+git -C $G/repo remote add origin $G/origin.git && git -C $G/repo push -q origin main
+git -C $G/repo branch pruef/worker-alt main
+git -C $G/repo push -q origin pruef/worker-4                       # schon auf origin, unverändert
+git -C $G/repo branch pruef/anders pruef/worker-3; git -C $G/repo branch pruef/worker-nacht pruef/worker-3
+git -C $G/w3 commit -q --allow-empty -m nachts                       # w3 hat neuen Commit nach dem Push
+git -C $G/repo checkout -q main; print z > $G/repo/z.txt; git -C $G/repo add z.txt; git -C $G/repo commit -qm lokal-main
+NP=$(sed -n '/^zweige_nachpushen() {/,/^}/p' $SKRIPT)
+N() { (setopt extendedglob; MAIN=$G/repo ZUSTAND=$G/zustand LOG=$G/nplog; mkdir -p $ZUSTAND; log() { print -r -- "$*" >> $G/nplog }; eval $NP; zweige_nachpushen "$@") }
+: > $G/nplog; N 0859
+pruefe "Nachpush: vor 09:00 nichts" "$(git -C $G/origin.git branch --list 'pruef/*' | tr -d ' *' | tr '\n' ' '; cat $G/nplog)" '^pruef/worker-4 $'
+N 0900
+pruefe "Nachpush 09:00: nur pruef/worker-* mit Commits vor origin/main und neuem Stand; nie main, nie andere Präfixe" \
+  "$(git -C $G/origin.git branch --list | tr -d ' *' | sort | tr '\n' ' '; print; git -C $G/origin.git rev-parse main; git -C $G/repo rev-parse origin/main; cat $G/nplog)" \
+  '^main pruef/worker-3 pruef/worker-4 pruef/worker-nacht $' 'Nachpush Worker-Zweige .*: 2 gepusht: pruef/worker-3, pruef/worker-nacht$'
+pruefe "Nachpush: lokales main nicht gepusht" "$( [[ $(git -C $G/origin.git rev-parse main) != $(git -C $G/repo rev-parse main) ]] && print ok)" '^ok$'
+git -C $G/w3 commit -q --allow-empty -m noch-einer; : > $G/nplog; N 1400
+pruefe "Nachpush: einmal je Tag (Marke)" "$(cat $G/nplog; ls $G/zustand)" '^nachpush-[0-9-]+$'
+pruefe "Schleife: Nachpush je Takt aufgerufen" "$S" 'zweige_nachpushen \$\(date \+%H%M\)'
+# Grenzen (neon 19.11.2026: am 19.11. 25 alte Zweige vom 18.11. auf einmal gepusht): letzter Commit höchstens 24 h alt,
+# höchstens 3 je Tag (neueste zuerst), Rest nur im Protokoll; Marke vor dem ersten Push
+NZ() { (setopt extendedglob; MAIN=$G/repo ZUSTAND=$1 LOG=$G/nplog; shift; log() { print -r -- "$*" >> $G/nplog }; eval $NP; zweige_nachpushen "$@") }
+git -C $G/repo push -q origin pruef/worker-3 2>/dev/null   # (Stand von oben schon auf origin)
+git -C $G/repo checkout -q --detach main
+for i in 1 2 3 4 5; do
+  git -C $G/repo checkout -q -b pruef/worker-frisch$i main
+  GIT_COMMITTER_DATE="$(date -v-${i}H '+%Y-%m-%dT%H:%M:%S')" git -C $G/repo commit -q --allow-empty -m frisch$i
+done
+git -C $G/repo checkout -q -b pruef/worker-uralt main
+GIT_COMMITTER_DATE="$(date -v-25H '+%Y-%m-%dT%H:%M:%S')" git -C $G/repo commit -q --allow-empty -m uralt
+git -C $G/repo checkout -q main
+: > $G/nplog; NZ $G/zustand2 1000
+pruefe "Nachpush: höchstens 3 je Tag, neueste zuerst; älter als 24 h nicht gepusht; Rest im Protokoll" \
+  "$(git -C $G/origin.git branch --list 'pruef/worker-frisch*' 'pruef/worker-uralt' | tr -d ' *' | sort | tr '\n' ' '; print; cat $G/nplog)" \
+  '^pruef/worker-frisch1 pruef/worker-frisch2 pruef/worker-frisch3 $' ': 3 gepusht: pruef/worker-frisch1, pruef/worker-frisch2, pruef/worker-frisch3;' \
+  'zu alt, nicht gepusht: pruef/worker-uralt' 'über der Grenze, nicht gepusht: pruef/worker-frisch4, pruef/worker-frisch5$'
+: > $G/nplog; NZ $G/zustand2 1500
+pruefe "Nachpush: zweiter Durchgang am selben Tag pusht nichts (Marke)" "$(cat $G/nplog; git -C $G/origin.git branch --list 'pruef/worker-frisch4' | grep -c .)" '^0$'
+mv $G/origin.git $G/origin-weg.git
+: > $G/nplog; NZ $G/zustand3 1000
+pruefe "Nachpush: git fetch scheitert → noch keine Marke, nächster Versuch im nächsten Takt (nichts gepusht)" \
+  "$(ls $G/zustand3 2>/dev/null | grep -c nachpush; cat $G/nplog)" '^0$' 'git fetch gescheitert'
+mv $G/origin-weg.git $G/origin.git
+pruefe "Nachpush: Marke wird vor der Push-Schleife geschrieben" \
+  "$(sed -n '/^zweige_nachpushen() {/,/^}/p' $SKRIPT | grep -nE 'läuft" > \$marke|for b in \$kand' | cut -d: -f1 | tr '\n' ' ')" '^[0-9]+ [0-9]+ $'
 exit $FEHLER

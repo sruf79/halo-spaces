@@ -240,8 +240,12 @@ ci_pruef_ergebnis() {   # <Läufe-Datei> <Lauf-ID> <Job> <Schritt> <Prüfung>
 # Je Paar Job|Schritt, in dem sie rot war, die späteren abgeschlossenen Läufe (nicht gezielt) bis <bis> der Reihe nach:
 # FEHLER → rot (Bezug: dieser Commit); OK nach rot auf anderem Commit → repariert, auf demselben → flackert (bleibt
 # vermerkt, auch wenn später ein anderer Commit grün ist). Repariert nur, wenn alle Paare repariert sind.
+# „entfernt <Lauf> <Commit>“ (19.11.2026, Bericht ~/halo-berichte/2026-11-19-rot-regel.md L7): in einem späteren Lauf
+# fehlt die Prüfung, während derselbe Job grün ist und derselbe Schritt andere Prüfungen zeigt – sie wurde entfernt
+# (Rücknahme über tests/rot-nebenzweig.sh, die Änderung liegt auf pruef/rot-*). Kein „rot“ mehr: sonst entstünde ein
+# Board-Eintrag „CI rot“ für eine Prüfung, die es auf main nicht gibt. Taucht sie später wieder rot auf: rot.
 ci_reparatur() {   # <Läufe-Datei> <Commit des roten Laufs> <Beginn-Epoch des roten Laufs> <bis-Epoch> <Prüfung> <Job|Schritt …>
-  local datei=$1 rsha=$2 von=$3 bis=$4 name=$5 z y ysha p r gid= gsha= fid= fsha=
+  local datei=$1 rsha=$2 von=$3 bis=$4 name=$5 z y ysha p r f gid= gsha= fid= fsha= eid= esha=
   shift 5
   local -a paare=($@) laeufe
   local -A zst bezug flat
@@ -264,11 +268,17 @@ ci_reparatur() {   # <Läufe-Datei> <Commit des roten Laufs> <Beginn-Epoch des r
             else
               zst[$p]=flackert flat[$p]=1 fid=$y fsha=$ysha
             fi ;;
+        "") [[ ${zst[$p]} == rot && $name != "Schritt „"*"“ abgebrochen" ]] || continue
+            [[ $(jq -r --argjson y $y --arg j "${p%%|*}" '[.[] | select(.databaseId == $y) | .jobs[] | select(.name == $j) | .conclusion][0] // ""' $datei) == success ]] || continue
+            f=$(ci_pruef_log $y) || continue
+            J=${p%%|*} S=${p#*|} awk -F'\t' '$1 == ENVIRON["J"] && $2 == ENVIRON["S"] { n++ } END { exit !n }' $f || continue
+            zst[$p]=entfernt eid=$y esha=$ysha ;;
       esac
     done
   done
   for p in $paare; do [[ ${zst[$p]} == rot ]] && { print rot; return }; done
   (( ${#flat} )) && { print "flackert $fid ${fsha[1,7]}"; return }
+  [[ -n $eid && ${(M)${(v)zst}:#entfernt} ]] && { print "entfernt $eid ${esha[1,7]}"; return }
   print "repariert $gid ${gsha[1,7]}"
 }
 

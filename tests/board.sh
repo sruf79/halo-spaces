@@ -8,13 +8,14 @@
 #   tests/board.sh export                        offene Einträge mit Text als JSON {"items":[…]} (für tests/haeufung.py)
 #   tests/board.sh zeige <id|Muster> […]         Einträge mit Text (mehrere in einem Aufruf: Board nur einmal geladen)
 #   tests/board.sh neu <bug|feature> <Titel> <Text> [<Status>]   legt an, gibt die id aus
-#   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis)
+#   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis);
+#                                                arbeit merkt sich, wer daran sitzt (~/halo-nacht/in-arbeit.tsv, Leitstand)
 #   tests/board.sh notiz <id> <Text>             hängt einen Absatz an den Text an
 #   tests/board.sh archiv <id> [<Commit-Hash>]   schreibt eine Zeile ins Archivverzeichnis, dann archiviert
 #   tests/board.sh suche <Begriff>               offene und Done-Einträge sowie archivierte (Verzeichnis), höchstens 10 Zeilen
 #   tests/board.sh archiv-zeige <id>             Status und Text eines (auch archivierten) Eintrags per Board-id
 #   tests/board.sh nachtragen                    Warteschlange (nicht angekommene Notizen/Status) nachtragen, Rest zeigen
-# Status: todo = Todo, arbeit = In Progress, ok = Wartet auf OK, done = Done.
+# Status: todo = Todo, arbeit (auch in_progress) = In Progress, ok = Wartet auf OK, done = Done.
 # Abfragelimit von GitHub: jeder gh-Aufruf wartet und wiederholt (tests/gh-wdh.zsh). Kommt eine Notiz oder ein
 # Status trotzdem nicht an (Limit hält an, Board nicht lesbar), steht er in der Warteschlange
 # ~/halo-nacht/board-warteschlange.txt (Warnung, Exitcode 0 – nicht selbst wiederholen, sonst doppelt); der nächste
@@ -32,7 +33,7 @@ FELD_STATUS=PVTSSF_lAHODEPpks4BoBQwzhmjN5E
 typ_option() { case $1 in bug) print ff678ae2;; feature) print 39bb4253;; *) return 1;; esac }
 status_option() {
   case ${1:l} in
-    todo) print f75ad846;; arbeit|"in progress") print 47fc9ee4;;
+    todo) print f75ad846;; arbeit|"in progress"|in_progress) print 47fc9ee4;;
     ok|"wartet auf ok") print 2327eecc;; done) print 98236657;; *) return 1;;
   esac
 }
@@ -126,6 +127,24 @@ eintrag_direkt() {   # <PVTI_…-id> → Eintrag (JSON wie in der Liste, nur die
 setze() {   # <Item-id> <Feld> <Option>
   gh_wdh project item-edit --project-id $PROJEKT --id $1 --field-id $2 --single-select-option-id $3 >/dev/null
 }
+# Wer sitzt woran (für den Leitstand, Maintainer 18.11.2026: „Anzahl gleichzeitiger agents sieht man nicht und auch
+# nicht woran diese arbeiten“): status arbeit schreibt eine Zeile „<Epoche>\t<id>\t<Titel>\t<Prozesskette>\t<Zweig>\t<Ordner>“
+# (Prozesskette = PIDs der Vorfahren, daran ordnet tests/leitstand-status.zsh Nachtlauf, Tagesroutine und Worker zu);
+# jeder andere Status, archiv und eine Notiz „wartet auf Push“ räumen sie. Fehler hier halten board.sh nie auf.
+IN_ARBEIT=${HALO_IN_ARBEIT:-$HOME/halo-nacht/in-arbeit.tsv}
+in_arbeit_weg() {   # <id>
+  [[ -s $IN_ARBEIT ]] || return 0
+  { grep -v -F -- "	$1	" $IN_ARBEIT > $IN_ARBEIT.neu; mv $IN_ARBEIT.neu $IN_ARBEIT } 2>/dev/null
+  return 0
+}
+in_arbeit_setzen() {   # <id> <Titel>
+  local p=$$ kette=() zweig n=0
+  while (( p > 1 && n++ < 40 )); do kette+=($p); p=$(ps -o ppid= -p $p 2>/dev/null) || break; p=${p// /}; [[ -n $p ]] || break; done
+  zweig=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  in_arbeit_weg $1
+  { mkdir -p ${IN_ARBEIT:h} && print -r -- "$EPOCHSECONDS	$1	${${2//$'\t'/ }//$'\n'/ }	${(j:,:)kette}	${zweig:--}	$PWD" >> $IN_ARBEIT } 2>/dev/null
+  return 0
+}
 
 befehl=$1; (( $# )) && shift
 # einmal laden (im eigenen Prozess, nicht in $(…)): danach liest jeder Schritt dieselbe Liste
@@ -173,8 +192,12 @@ case $befehl in
   status)
     typeset opt e
     opt=$(status_option "$2") || fehler "Aufruf: board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]"
-    set -- $1 ${${${2:l}/in progress/arbeit}/wartet auf ok/ok} $3   # (für die Warteschlange ein Wort)
+    set -- $1 ${${${${2:l}/in progress/arbeit}/in_progress/arbeit}/wartet auf ok/ok} $3   # (für die Warteschlange ein Wort)
+    # (vor dem Lesen: auch ein Status aus der Warteschlange zählt für den Leitstand)
+    [[ $2 != arbeit && $1 == PVTI_* ]] && in_arbeit_weg $1
     e=$(eintrag $1) || { [[ $1 == PVTI_* ]] && in_warteschlange status $1 "$2${3:+ $3}" "Eintrag nicht lesbar, Status $2 für $1 nicht gesetzt"; exit 1 }
+    if [[ $2 == arbeit ]]; then in_arbeit_setzen "$(print -r -- $e | jq -r .id)" "$(print -r -- $e | jq -r .title)"
+    else in_arbeit_weg "$(print -r -- $e | jq -r .id)"; fi
     setze $(print -r -- $e | jq -r .id) $FELD_STATUS $opt \
       || in_warteschlange status $(print -r -- $e | jq -r .id) "$2${3:+ $3}" "Status $2 ließ sich nicht setzen"
     zw_aendern '(.items[] | select(.id == $i) | .status) = $s' --arg i "$(print -r -- $e | jq -r .id)" \
@@ -189,6 +212,7 @@ case $befehl in
   notiz)
     typeset e di body
     [[ -n $2 ]] || fehler "Aufruf: board.sh notiz <id> <Text>"
+    [[ $1 == PVTI_* && ${2:l} == *wartet\ auf\ push* ]] && in_arbeit_weg $1   # (auch wenn die Notiz in die Warteschlange geht)
     if [[ $1 == PVTI_* ]]; then
       e=$(eintrag_direkt $1)
       [[ -n $e ]] || in_warteschlange notiz $1 "$2" "Eintrag nicht lesbar, Notiz für $1 nicht angehängt"
@@ -200,6 +224,7 @@ case $befehl in
     di=$(print -r -- $e | jq -r '.content.id // ""')
     [[ $di == DI_* ]] || fehler "kein Entwurf im Board (content.id $di) – Notiz von Hand"
     body=$(print -r -- $e | jq -r '.content.body // ""')
+    [[ ${2:l} == *wartet\ auf\ push* ]] && in_arbeit_weg $(print -r -- $e | jq -r .id)
     gh_wdh project item-edit --id $di --body "$body
 
 $2" >/dev/null || in_warteschlange notiz $(print -r -- $e | jq -r .id) "$2" "Notiz ließ sich nicht anhängen"
@@ -212,6 +237,7 @@ $2"
     typeset e aid
     e=$(eintrag $1) || exit 1
     aid=$(print -r -- $e | jq -r .id)
+    in_arbeit_weg $aid
     # Zeile VOR dem Archivieren (einmal je id); scheitert das Schreiben, wird nicht archiviert
     if ! grep -qF " | $aid | " $ARCHIV 2>/dev/null; then
       mkdir -p ${ARCHIV:h} && print -r -- "$(date +%F) | $aid | $(print -r -- $e | jq -r '.typ // "-"') | $(print -r -- $e | jq -r .title) | ${2:--}" >> $ARCHIV \

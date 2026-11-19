@@ -4104,7 +4104,9 @@ def compose_checks(m, results):
         dark = res.get("dark")
         tokens = (same_color(res["pop"], "rgb(26, 26, 26)" if dark else "rgb(249, 249, 249)")
                   and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if dark else "rgb(219, 219, 219)")
-                  and same_color(res["menu"], "rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)"))
+                  # Menüfläche nur unter macOS durchscheinend, unter Linux und Windows deckend (--mt-menu-solid, GitHub #73)
+                  and same_color(res["menu"], ("rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)") if sys.platform == "darwin"
+                                 else ("rgb(60, 60, 60)" if dark else "rgb(246, 246, 248)")))
         reorder_ok = (bool(r) and same_color(r["bg"], res["pop"]) and same_color(r["border"], res["rim"]) and r.get("radius") == 20
                       and 0 < (r.get("bw") or 0) <= 1 and not bluish(r["bg"])
                       and dict((i[0], i[1]) for i in res.get("reorderIcons") or []) == {
@@ -14650,7 +14652,10 @@ def run_checks(m, version, profile, results):
         # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
         # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
         # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
-        res = m.js(CAL_CHECK_JS + r"""
+        # (36 Termine anlegen und löschen, fünf Bereiche mit je bis zu 3 s Ruhe: auf dem Mac 11 s, unter Linux über 30 s)
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        try:
+            res = m.js(CAL_CHECK_JS + r"""
           const c = testCalendar(), added = [];
           for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
             const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
@@ -14691,6 +14696,8 @@ def run_checks(m, version, profile, results):
           await toMail(); await ruhig(600);
           return out;
           } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } }""")
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
         def gut(v):
             t, p = v.get("title") or {}, v.get("plus") or {}
             return (v.get("inRow") == ["mcTodayToggle"] and v.get("toggle") is not None and 0 <= v["toggle"] <= 14

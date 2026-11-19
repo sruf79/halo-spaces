@@ -963,6 +963,11 @@ class EnhancerOberflaeche {
           msgSplitter.__mcDragging) {
         return;
       }
+      // (von fitList() unten schmaler gehalten: erst nach einer Änderung von
+      // Fenster oder Ordnerliste wieder auf die gemerkte Breite)
+      if (fitHold()) {
+        return;
+      }
       const pane = win.document.getElementById("messagePane");
       const list = threadPane.getBoundingClientRect();
       const msg = pane.getBoundingClientRect();
@@ -980,6 +985,58 @@ class EnhancerOberflaeche {
       const msgWant = Math.round(msg.width + span - want);
       if (msgWant > 0 && Math.abs(msgWant - msg.width) >= 1) {
         msgSplitter.width = Math.max(msgWant, Math.min(300, minMessageWidth()));
+      }
+    };
+    // Kein Bereich unter der Today-Pane: Thunderbird sperrt Ordnerliste und
+    // Mailliste mit „width: …px !important“ (Teiler „resize-lock-ids“) und gibt
+    // der Nachricht den Rest. Hat sie schon ihre Mindestbreite (480 px), lief
+    // das Raster rechts über seine Breite hinaus – bei 1500 px Fensterbreite mit
+    // Today-Pane 18 px unter die Pane, der rechte Kartenrand war verdeckt. Dann
+    // gibt die Mailliste nach (bis zu ihrer Mindestbreite). Zurück zur gemerkten
+    // Breite wächst sie erst, wenn sich Fenster oder Ordnerliste ändern – nicht
+    // beim Ausblenden der Today-Pane: deren Animation legt den Inhalt erst im
+    // letzten Bild neu an, die Knöpfe über der Mail sprängen dann um bis zu 18 px
+    // (die Mail bekommt den Platz wie ohne Sperre)
+    // Platz, mit dem fitList() die Liste schmaler gemacht hat (Fenster- und Ordnerlistenbreite)
+    const fitRoom = () => ({ top: top.innerWidth, folder: Math.round(win.document.getElementById("folderPane")?.getBoundingClientRect().width || 0) });
+    const fitHold = () => {
+      const shrunk = threadPane.__mcFitShrunk, room = fitRoom();
+      return !!shrunk && Math.abs(room.top - shrunk.top) <= 1 && Math.abs(room.folder - shrunk.folder) <= 1;
+    };
+    const fitList = () => {
+      if (!msgSplitter || msgSplitter.isCollapsed || win.__mcAnimating || top.__mcSpacesAnimating ||
+          msgSplitter.resizeElement?.id != "messagePane" || !win.document.body.classList.contains("layout-vertical") ||
+          msgSplitter.__mcDragging || threadPane.style.getPropertyPriority("width") != "important") {
+        return;
+      }
+      const pane = win.document.getElementById("messagePane");
+      const grid = pane?.parentNode;
+      const list = threadPane.getBoundingClientRect().width;
+      const msg = pane?.getBoundingClientRect();
+      if (!grid || !list || !msg?.width) {
+        return;
+      }
+      const over = msg.right - grid.getBoundingClientRect().right;
+      const listMin = parseFloat(win.getComputedStyle(threadPane).minWidth) || 240;
+      const room = fitRoom();
+      let next = list;
+      if (over > 0.5) {
+        next = Math.max(listMin, list - over);
+      } else if (threadPane.__mcFitShrunk && !fitHold()) {
+        const msgMin = parseFloat(win.getComputedStyle(pane).minWidth) || 0;
+        const want = Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT);
+        next = Math.min(want, list + Math.max(0, msg.width - msgMin));
+        if (next >= want - 0.5) {
+          delete threadPane.__mcFitShrunk;
+        } else {
+          threadPane.__mcFitShrunk = room;
+        }
+      }
+      if (Math.abs(next - list) >= 0.5) {
+        if (next < list) {
+          threadPane.__mcFitShrunk = room;
+        }
+        threadPane.style.setProperty("width", `${Math.floor(next)}px`, "important");
       }
     };
     // gezogen: neue Listenbreite merken
@@ -1039,6 +1096,7 @@ class EnhancerOberflaeche {
       if (!spacesMoving) {
         keepListWidth();
         enforceMessageWidth();
+        fitList();
       }
       // nur der Mail-Tab, der gerade vorne ist, richtet die Toolbar aus –
       // sonst überschreibt ein zweiter Mail-Tab im Hintergrund die Kanten

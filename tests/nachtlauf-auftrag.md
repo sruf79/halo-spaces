@@ -581,7 +581,7 @@ Reihenfolge:
      („- <Titel>: <Frage> (Bilder: <Pfad/Link>)“), zählt zu den höchstens 5.
    Den Berichtsabschnitt des Designers übernimmst du in Schritt 6 unter
    „Designer“ (je Eintrag Ergebnis, Einspruch ja/nein, Urteil).
-2. Je Eintrag (in der Reihenfolge der Plandatei): Status In Progress (~/halo-aufgaben/status.sh <id> progress),
+2. Je Eintrag (in der Reihenfolge der Plandatei): Status In Progress (tests/board.sh status <id> arbeit),
    Ursache klären, beheben, Prüfung in run_checks() ergänzen, nur die
    betroffenen Prüfungen grün (python3 tests/halo_test.py --port 2850
    --only "…", bei Farben auch mit --dark), committen (nur eigene Hunks, Stil nach

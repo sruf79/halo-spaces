@@ -147,7 +147,7 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
 - Die iPhone-Meldung ([info]) und die Zeile im Bericht schreibt das Skript aus der Ergebnisdatei.
 
 Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
-- Status In Progress (~/halo-aufgaben/status.sh <id> progress), Ursache klären, beheben, Prüfung in
+- Status In Progress (tests/board.sh status <id> arbeit), Ursache klären, beheben, Prüfung in
   run_checks() ergänzen, betroffene Prüfungen grün (Regel 1), im Arbeitsordner committen. Danach Notiz in den
   Eintrag „committet auf pruef/tagesroutine-<datum>, wartet auf Push/CI“ mit Hash; Status bleibt In Progress (Done erst nach grüner CI des
   Nachtlaufs).

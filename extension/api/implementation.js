@@ -14885,7 +14885,7 @@ class CardEnhancer {
     for (const restore of this.restorers.splice(0)) {
       try {
         restore();
-      } catch {}
+      } catch {} // Kandidat fürs Protokoll: Zurücksetzen beim Entladen fehlgeschlagen (Fenster schon geschlossen ist gewollt)
     }
     this.windows.clear();
     // offenes Info-Fenster schließen: es überlebt sonst ein Update ohne Neustart mit der alten Seite und dem
@@ -14895,7 +14895,7 @@ class CardEnhancer {
       if (win.location?.href.startsWith("resource://mailcards/about/halo.html") && !win.closed) {
         try {
           win.close();
-        } catch {}
+        } catch {} // gewollt: Fenster schließt sich schon
       }
     }
   }

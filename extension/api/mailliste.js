@@ -281,7 +281,7 @@ class EnhancerMailliste {
         let enabled = true;
         try {
           enabled = ctrl ? ctrl.isCommandEnabled(cmd) : true;
-        } catch {}
+        } catch {} // gewollt: Befehl unbekannt, Eintrag bleibt aktiv
         item.disabled = !enabled;
         if (cmd == "cmd_markAsFlagged") {
           item.toggleAttribute("checked", !!mwin.gMessage?.isFlagged);
@@ -317,7 +317,7 @@ class EnhancerMailliste {
       let canMove = !!mwin.gMessage;
       try {
         canMove &&= mwin.commandController?.isCommandEnabled("cmd_moveMessage") ?? true;
-      } catch {}
+      } catch {} // gewollt: Befehle noch nicht bereit, dann zählt nur die angezeigte Mail
       move.disabled = !canMove;
       print.disabled = !mwin.gMessage;
     };
@@ -553,7 +553,7 @@ class EnhancerMailliste {
     try {
       set();
       w.setTimeout(set, 0);
-    } catch {}
+    } catch {} // gewollt: Fenster schon geschlossen, nichts mehr anzuzeigen
   }
 
   // Senden im Hintergrund: Thunderbird legt die Mail in den Postausgang und
@@ -684,7 +684,7 @@ class EnhancerMailliste {
             row?.querySelector(".card-container")?.animate(
               [{ opacity: 0, transform: "translateY(-12px)" }, { opacity: 1, transform: "none" }],
               { duration: 250, easing: "ease-out" });
-          } catch {}
+          } catch {} // gewollt: Einblenden ist nur Zierde, Zeile schon weg
         }, 60);
       },
     };
@@ -925,7 +925,7 @@ class EnhancerMailliste {
         try {
           const { UIFontSize } = ChromeUtils.importESModule("resource:///modules/UIFontSize.sys.mjs");
           base -= Math.round(1.5 * (this.rowCount || 2) * (UIFontSize.size - UIFontSize.osValue));
-        } catch {}
+        } catch {} // gewollt: ohne Schriftgrößen-Modul bleibt die Grundhöhe
       }
       Card.ROW_HEIGHT = Math.max(Math.round((base + extra) * scale), 52);
       this.mcCardHeight = Card.ROW_HEIGHT; // Kontaktkarten im Adressbuch gleich hoch
@@ -1184,7 +1184,7 @@ class EnhancerMailliste {
         let folder = null;
         try {
           folder = MailServices.folderLookup.getFolderForURL(li.uri);
-        } catch {}
+        } catch {} // gewollt: Zeile ohne gültigen Ordner, dann ohne Ordnerdaten
         const label = li.querySelector(":scope > .container .name");
         const topLevel = li.parentElement?.parentElement === modeLi;
         // der Suchordner ist nur Mittel zum Zweck – nie in der Ordnerliste;
@@ -1330,7 +1330,7 @@ class EnhancerMailliste {
     const syncActive = () => {
       try {
         setAttr(doc.documentElement, "mc-inactive", Services.focus.activeWindow != top);
-      } catch {}
+      } catch {} // gewollt: Fenster schon geschlossen
     };
     if (top) {
       top.addEventListener("activate", syncActive);
@@ -1387,7 +1387,7 @@ class EnhancerMailliste {
         }
         try {
           li._setName?.();
-        } catch {}
+        } catch {} // gewollt: Thunderbird setzt den Namen beim nächsten Aufbau selbst
       }
       for (const header of tree.querySelectorAll(":scope > li[data-mode] > .mode-container .mode-name")) {
         doc.l10n?.setAttributes(header, `folder-pane-mode-header-${header.closest("li[data-mode]").dataset.mode}`);

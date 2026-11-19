@@ -20,7 +20,7 @@ class EnhancerHaloFenster {
     try {
       const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
       version = (await AddonManager.getAddonByID("mail-cards@sebastian.local"))?.version || version;
-    } catch {}
+    } catch {} // gewollt: Version aus dem Manifest genügt für das Feedback
     const osVersion = Services.sysinfo.getProperty("version");
     const os = Services.appinfo.OS == "Darwin" ? `macOS (Darwin ${osVersion})`
       : Services.appinfo.OS == "WINNT" ? `Windows (${osVersion})` : `${Services.appinfo.OS} (${osVersion})`;
@@ -128,7 +128,7 @@ class EnhancerHaloFenster {
     try {
       const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
       version = (await AddonManager.getAddonByID("mail-cards@sebastian.local"))?.version || version;
-    } catch {}
+    } catch {} // gewollt: Version aus dem Manifest genügt
     const api = {
       german: Services.locale.appLocaleAsBCP47.startsWith("de"),
       version,

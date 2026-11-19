@@ -1518,7 +1518,7 @@ class EnhancerOberflaeche {
       let hdrs = [];
       try {
         hdrs = [...(win.gDBView?.getSelectedMsgHdrs() || [])];
-      } catch {}
+      } catch {} // gewollt: ohne Mailliste (z. B. Kontextmenü eines Ordners) gibt es keine gewählten Mails
       const first = hdrs[0];
       const unread = hdrs.some(h => !h.isRead);
       const junk = first?.getStringProperty("junkscore") == Ci.nsIJunkMailPlugin.IS_SPAM_SCORE && hdrs.length == 1;
@@ -1547,7 +1547,7 @@ class EnhancerOberflaeche {
         try {
           const thread = first.folder.msgDatabase.getThreadContainingMsgHdr(first);
           reply = thread.numChildren > 1 && thread.getRootHdr().messageKey != first.messageKey;
-        } catch {}
+        } catch {} // gewollt: Mail ohne lesbaren Faden, dann kein Teilfaden
         sub.hidden = !reply;
       }
       open.hidden = !messages || !enabled("cmd_openMessage");

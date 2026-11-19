@@ -186,6 +186,9 @@ for sc in $SCHEMATA; do
 done
 
 python3 $STAND/tests/rundgang_vergleich.py $OUT ${VORHER:+--vorher} ${VORHER:+$VORHER} >> $LOG 2>&1 || log "Vergleich gescheitert"
+# Gesamtverzeichnis aller Fenster, Dialoge und Seiten mit Abdeckung „x von y“ (außerhalb des Repos)
+python3 $STAND/tests/fenster_verzeichnis.py --rundgang $OUT --aus $OUT/fenster-verzeichnis.md >> $LOG 2>&1 \
+  && cp $OUT/fenster-verzeichnis.md ~/halo-aufgaben/fenster-verzeichnis.md || log "Gesamtverzeichnis gescheitert"
 ZAHLEN=$(python3 -c '
 import json, sys
 v = json.load(open(sys.argv[1]))

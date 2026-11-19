@@ -1040,6 +1040,13 @@ die `halo_test.py` nicht sieht.
   Version); der Löschlauf überspringt solche Ordner und symbolische Links. Wer
   eine Version veröffentlicht, legt `DAUERHAFT` in den ersten Rundgang danach;
   ältere Läufe werden nicht rückwirkend einer Version zugeordnet.
+- Gesamtverzeichnis: `tests/fenster_verzeichnis.py` liest alle Fenster, Dialoge
+  und Seiten aus Thunderbirds `omni.ja` (nur lesen) und gleicht sie mit der
+  Messung des Rundgangs ab (Zahl „x von y abgedeckt“, Zustand halo / teilweise /
+  original, Fehlendes, im Testprofil Unerreichbares mit Grund, Fenster von
+  macOS getrennt). Ablage `<ordner>/fenster-verzeichnis.md` und
+  `~/halo-aufgaben/fenster-verzeichnis.md`, nie ins Repo; Test
+  `tests/fenster_verzeichnis_test.py`.
 - Danach wertet Claude (`claude -p`) den Vergleich aus: neue Ausreißer als
   Bug ins Board (außer Entscheidungen des Maintainers und „Wartet auf OK“),
   Done-Einträge bestätigen bzw. Rückschritte melden, Bericht

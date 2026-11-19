@@ -19304,7 +19304,7 @@ Neu
     def tables_like_mail():
         # Tabellenansichten in Adressbuch und Aufgaben wie die Mail-Tabelle: gleiche Schrift, Zeilen- und Kopfhöhe,
         # Kopf in Fensterfarbe und leiser Schrift, Trennlinie je Zeile, jede zweite Zeile getönt (--mt-table-*);
-        # Auswahl mit Fokus in Akzentfarbe (nur geprüft, wenn das Fenster den Fokus hat)
+        # Auswahl mit Fokus in der Auswahlfarbe --mt-selection (nur geprüft, wenn das Fenster den Fokus hat)
         res = m.js(MAILLIST_JS + r"""
           const out = {};
           const R = el => Math.round(el.getBoundingClientRect().height);
@@ -19336,7 +19336,9 @@ Neu
             w.focus(); tm.currentTabInfo.browser.focus(); list.focus(); list.selectedIndex = 0; await wait(500);
             const sel = rows().find(r => r.classList.contains("selected"));
             out.abFocus = list.matches(":focus-within") && Services.focus.activeWindow == w;
-            out.abSel = sel && [acs(sel).backgroundColor, acs(sel).color, accent];
+            // Auswahlfarbe wie die Mailliste: --mt-selection (macOS SelectedItem, sonst Knopffarbe), Schrift --mt-selection-text
+            const probe = (v, prop) => { const e = abd.createElement("div"); e.style[prop] = v; abd.documentElement.append(e); const c = acs(e)[prop]; e.remove(); return c; };
+            out.abSel = sel && [acs(sel).backgroundColor, acs(sel).color, probe("var(--mt-selection)", "backgroundColor"), probe("var(--mt-selection-text)", "color")];
           } finally { ab.cardsPane.toggleLayout(false); await ruhig(800); tm.closeTab(tm.currentTabInfo); }
           // Aufgaben (Tabellenansicht)
           const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
@@ -19390,7 +19392,7 @@ Neu
         ok_ab = all(ab[k] == mail[k] for k in ("font", "rowH", "headH", "headFont")) and same_color(ab["headColor"], mail["headColor"]) \
             and same_color(ab["headBg"], mail["headBg"]) and ab["line"] == mail["line"] and same_color(ab["odd"], mail["odd"]) and rgba_alpha(ab["even"]) == 0
         sel = res.get("abSel")
-        ok_sel = not res.get("abFocus") or (bool(sel) and same_color(sel[0], sel[2]))
+        ok_sel = not res.get("abFocus") or (bool(sel) and same_color(sel[0], sel[2]) and same_color(sel[1], sel[3]))
         ok_tasks = (not t["list"] and t["rowH"] == mail["rowH"] and t["headFont"] == mail["font"] and abs(t["headH"] - mail["headH"]) <= 1
                     and same_color(t["headColor"], mail["headColor"]) and want is not None
                     and max(abs(a - b) for a, b in zip(t["odd"], want)) <= 3 and max(abs(a - b) for a, b in zip(t["even"], win)) <= 3)

@@ -4087,7 +4087,8 @@ def compose_checks(m, results):
             const val = (el, v) => { const x = csOf(el).getPropertyValue(v).trim(); return x ? colorOf(cd, x, "backgroundColor") : ""; };
             const out = { dark: cw.matchMedia("(prefers-color-scheme: dark)").matches,
                           rim: colorOf(cd, "var(--mt-popover-border)", "backgroundColor"), pop: colorOf(cd, "var(--mt-popover-bg)", "backgroundColor"),
-                          menu: colorOf(cd, "var(--mt-menu-bg)", "backgroundColor") };
+                          menu: colorOf(cd, "var(--mt-menu-bg)", "backgroundColor"), solid: colorOf(cd, "var(--mt-menu-solid)", "backgroundColor"),
+                          mac: Services.appinfo.OS == "Darwin", reduced: cw.matchMedia("(prefers-reduced-transparency: reduce)").matches };
             const look = p => { if (!p) return null; const r = { border: val(p, "--panel-border-color"), bg: val(p, "--panel-background-color"),
                                   radius: parseFloat(csOf(p).getPropertyValue("--panel-border-radius")), appearance: csOf(p).appearance };
               const c = p.shadowRoot?.querySelector('[part~="content"]'); if (c) r.bw = parseFloat(csOf(c).borderTopWidth); return r; };
@@ -4121,9 +4122,14 @@ def compose_checks(m, results):
         bluish = lambda c: any(same_color(rgb(c), t, 4) for t in ["rgb(94, 119, 153)", "rgb(145, 147, 159)", "rgb(38, 45, 59)"])
         r, ac = res.get("reorder") or {}, res.get("autocomplete") or {}
         dark = res.get("dark")
+        # Menüfläche nur unter macOS durchscheinend; unter Linux/Windows und bei „Transparenz reduzieren“ deckend
+        # (--mt-menu-solid, hell #F6F6F8, dunkel #3C3C3C; GitHub #73)
+        translucent = res.get("mac") and not res.get("reduced")
+        menu_want = (("rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)") if translucent
+                     else ("rgb(60, 60, 60)" if dark else "rgb(246, 246, 248)"))
         tokens = (same_color(res["pop"], "rgb(26, 26, 26)" if dark else "rgb(249, 249, 249)")
                   and same_color(res["rim"], "rgba(166, 166, 166, 0.8)" if dark else "rgb(219, 219, 219)")
-                  and same_color(res["menu"], "rgba(90, 90, 90, 0.5)" if dark else "rgba(246, 246, 248, 0.8)"))
+                  and same_color(res["menu"], menu_want) and (translucent or same_color(res["menu"], res.get("solid"))))
         reorder_ok = (bool(r) and same_color(r["bg"], res["pop"]) and same_color(r["border"], res["rim"]) and r.get("radius") == 20
                       and 0 < (r.get("bw") or 0) <= 1 and not bluish(r["bg"])
                       and dict((i[0], i[1]) for i in res.get("reorderIcons") or []) == {

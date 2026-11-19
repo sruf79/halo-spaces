@@ -18,7 +18,8 @@
 # nicht eingetragen hat (~/halo-nacht/<datum>.ci-eingetragen), holt der Wächter nach dem Ende des
 # Nachtlaufs nach (~/halo-aufgaben/ci-waechter.nachholen; Entscheidung des Maintainers vom 7.11.2026).
 # Rote Prüfungen eines Laufs der Nacht, die ein späterer Lauf derselben Nacht auf einem anderen Commit grün zeigt,
-# gelten als repariert (ci_reparatur in tests/ci-runde.zsh): kein neuer Eintrag, nur eine Zeile im Nachtlauf-Bericht;
+# gelten als repariert (ci_reparatur in tests/ci-runde.zsh): kein neuer Eintrag, nur eine Zeile im Nachtlauf-Bericht
+# (ebenso „entfernt“: die Prüfung fehlt in einem späteren grünen Lauf, Rücknahme über tests/rot-nebenzweig.sh; dort nur die Zeile, kein Done);
 # ein offener Eintrag wird mit Notiz auf Done gesetzt und archiviert. Grün nur auf demselben Commit: Eintrag mit
 # Notiz „flackert“ (Entscheidung des Maintainers vom 7.11.2026).
 # Wie der Nachtlauf wird die Datei nach ~/.config/halo-spaces/ kopiert.
@@ -379,6 +380,14 @@ rot() {   # <Lauf-ID>
       melde "  $zeile"
       bericht_zeile "$zeile" $beginn
       repariert_schliessen "$name" "**$(date '+%d.%m.%Y %H:%M'):** in derselben Nacht repariert – rot: Lauf $run (Commit $sha), grün: Lauf $gid (Commit $gsha), Job $jobs. Done (Entscheidung des Maintainers vom 7.11.2026)." || RUN_FEHL=1
+      continue
+    fi
+    if [[ $zustand == entfernt ]]; then
+      # Prüfung später in derselben Nacht entfernt (Rücknahme über tests/rot-nebenzweig.sh, 19.11.2026): kein Eintrag
+      # „CI rot“ für eine Prüfung, die es auf main nicht mehr gibt; Untersuchung über den Zweig pruef/rot-* und die Karte
+      zeile="CI rot, Prüfung danach entfernt (zurückgenommen, Nebenzweig pruef/rot-*): $jobs: ${name[1,150]} (rot: Lauf $run, ohne die Prüfung grün: Lauf $gid, Commit $gsha)"
+      melde "  $zeile"
+      bericht_zeile "$zeile" $beginn
       continue
     fi
     notiz=

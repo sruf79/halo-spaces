@@ -204,6 +204,12 @@ def unvis(t):
         elif t[i] == "\\" and re.match(r"[0-7]{3}", t[i + 1:i + 4]): b.append(int(t[i + 1:i + 4], 8)); i += 4
         else: b.extend(t[i].encode("utf-8")); i += 1
     return b.decode("utf-8", "replace")
+def t200(t):
+    """Titel für die Anzeige (Maintainer 19.11.2026: „wenn weniger abstand wäre müsste man den text nicht abkürzen“): erste
+    Zeile, bis 200 Zeichen ungekürzt, darüber mit „…“"""
+    if t is None: return None
+    t = (str(t).strip().splitlines() or [""])[0].strip()
+    return (t[:199] + "…") if len(t) > 200 else t
 PROZ = {}
 for z in (lies(Q + "/ps.txt") or "").splitlines():
     m = re.match(r"\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)", z)
@@ -337,7 +343,7 @@ def agenten():
         for p in haupt(name, rx):
             zu, gr, wu = zustand_von(name, p)
             aus.append({"name": name, "art": "lauf", "seit": iso(PROZ[p][1]), "modell": modell_von(p),
-                        "eintrag": eintrag_von(p) if name in LOGS and zu == "arbeitet" else None,
+                        "eintrag": t200(eintrag_von(p)) if name in LOGS and zu == "arbeitet" else None,
                         "zustand": zu, "grund": gr, "weiter_um": wu})
             # Designer als Unteragent einer Runde (Auftrag mit „Design-Eintrag:“): eigener Eintrag
             for k in kinder(p):
@@ -345,7 +351,7 @@ def agenten():
                 if re.match(r"(\S*/)?claude -p ", c) and DESIGNER.search(c):
                     m, mm = KOPF.search(c), re.search(r"--model (\S+)", c)
                     aus.append({"name": "Designer (%s)" % name, "art": "lauf", "seit": iso(PROZ[k][1]),
-                                "modell": mm.group(1) if mm else None, "eintrag": m.group(1) if m else eintrag_aus_liste(k),
+                                "modell": mm.group(1) if mm else None, "eintrag": t200(m.group(1) if m else eintrag_aus_liste(k)),
                                 "zustand": "arbeitet", "grund": None, "weiter_um": None})
     # Worker des Auslastungswächters: Zustandsdatei „<pid> <Sitzung> <Modell> <Start> <Arbeitskopie> <Zweig> …“, nur lebende
     for f in sorted(glob.glob(N + "/auslastung/worker-[0-9]*")):
@@ -353,7 +359,7 @@ def agenten():
         if len(t) >= 4 and t[0].isdigit() and int(t[0]) in PROZ:
             wt, zweig = (t[4] if len(t) > 4 else None), (t[5] if len(t) > 5 else None)
             aus.append({"name": "Worker " + f.rsplit("-", 1)[1] + (" (%s)" % zweig if zweig else ""), "art": "worker",
-                        "seit": iso(int(t[3])), "modell": t[2], "eintrag": eintrag_aus_liste(int(t[0]), zweig, wt),
+                        "seit": iso(int(t[3])), "modell": t[2], "eintrag": t200(eintrag_aus_liste(int(t[0]), zweig, wt)),
                         "zustand": "arbeitet", "grund": None, "weiter_um": None})
     for name, rx in WAECHTER:
         for p in haupt(name, rx):
@@ -387,7 +393,7 @@ def lauf(schluessel, logmuster):
     # aktiv = Skript läuft (wie bisher), runde = gerade eine Claude-Runde (sonst wartet es)
     if p:
         r = runde_von(p[0])
-        return {"aktiv": True, "runde": r, "schritt": schritt, "eintrag": eintrag_von(p[0]) if r else None, "seit": iso(PROZ[p[0]][1]),
+        return {"aktiv": True, "runde": r, "schritt": schritt, "eintrag": t200(eintrag_von(p[0])) if r else None, "seit": iso(PROZ[p[0]][1]),
                 "weiter_um": None if r else zustand_von(name, p[0])[2]}
     return {"aktiv": False, "runde": False, "schritt": ("zuletzt: " + schritt) if schritt else None, "eintrag": None,
             "seit": iso(wann.timestamp()) if wann else None, "weiter_um": None}
@@ -498,7 +504,7 @@ def erledigt_48h():
 def board():
     if BOARD is None: return None
     offen = [i for i in BOARD if i.get("status") != "Done"]
-    in_arbeit = [{"titel": i.get("title"), "typ": typ(i), "bereich": bereich(i.get("title") or ""), "notiz": notiz(i)}
+    in_arbeit = [{"titel": t200(i.get("title")), "typ": typ(i), "bereich": bereich(i.get("title") or ""), "notiz": notiz(i)}
                  for i in offen if i.get("status") == "In Progress"]
     naechste = None
     p = sicher(plan)
@@ -510,7 +516,7 @@ def board():
                 i = next((i for i in offen if i["id"] == kurz or i["id"].endswith(kurz)), None)
                 if not i or i["id"] in gesehen or i["id"] in erledigt or i.get("status") != "Todo": continue
                 gesehen.add(i["id"])
-                naechste.append({"rang": len(naechste) + 1, "titel": i.get("title"), "typ": typ(i), "bereich": bereich(i.get("title") or "")})
+                naechste.append({"rang": len(naechste) + 1, "titel": t200(i.get("title")), "typ": typ(i), "bereich": bereich(i.get("title") or "")})
         naechste = naechste[:10]
     je = {}
     for i in offen:
@@ -530,7 +536,7 @@ def board():
 def issues_warten():
     iss = lies(Q + "/issues.json", True)
     if iss is None: return None
-    aus = [{"nr": i["nr"], "titel": i["titel"], "seit": iso(i.get("seit"))} for i in iss if not i.get("wir")]
+    aus = [{"nr": i["nr"], "titel": t200(i["titel"]), "seit": iso(i.get("seit"))} for i in iss if not i.get("wir")]
     return sorted(aus, key=lambda x: x["seit"] or "")
 # Issues in 48 Stunden (ohne Pull Requests): aus issues48.json (in 3 Tagen geändert, höchstens 200; voll → nicht verlässlich)
 I48 = lies(Q + "/issues48.json", True)
@@ -560,7 +566,7 @@ CI = lies(Q + "/ci.json", True)
 CI_MAIN = lies(Q + "/ci-main.json", True)
 def ci():
     if CI is None: return None
-    return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": r["displayTitle"], "zweig": r["headBranch"],
+    return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": t200(r["displayTitle"]), "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
              "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI[:15]]
 def ci_main():
@@ -761,7 +767,7 @@ def zuletzt():
     titel = {i["id"]: i.get("title") for i in (BOARD or []) if isinstance(i, dict) and "id" in i}
     nach_hash = {h: t for t, h in arch.values() if h}
     def neu(t, art, was, erg=None, einzel=None):
-        if t is not None and JETZT - 86400 <= t <= JETZT and was: ev.append({"zeit": iso(t), "art": art, "was": kurz(was), "ergebnis": erg, "einzel": kurz(einzel, 60)})
+        if t is not None and JETZT - 86400 <= t <= JETZT and was: ev.append({"zeit": iso(t), "art": art, "was": t200(re.sub(r"\s+", " ", was)), "ergebnis": erg, "einzel": kurz(einzel, 60)})
     def eintraege():
         for i in _b48() or []:
             st = i.get("fieldValueByName") or {}

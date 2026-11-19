@@ -572,6 +572,10 @@ erledigt sind“): Feld `zuletzt` = höchstens 8 Ereignisse der letzten 24 Stund
 Ende“), `worker` („Worker … beendet“ im Protokoll des Auslastungswächters), `release` (Versions-Tags aus `releases.txt`). Keine
 CI-Läufe, keine neue Abfrage; fehlt eine Quelle, fehlt nur diese Art; nichts = `[]`.
 
+Titel (Maintainer 19.11.2026: „wenn weniger abstand wäre müsste man den text nicht abkürzen“): `ci[].titel`, `zuletzt[].was`,
+`board.in_arbeit/naechste[].titel`, `rueckmeldungen.issues_warten[].titel`, `agenten[].eintrag` und `laeufe.*.eintrag` sind die
+erste Zeile, bis 200 Zeichen ungekürzt, darüber mit „…“; `schritt` und `notiz` bleiben bei 160.
+
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,
 Grund, Beginn der Stufe in UTC; `max_worker` 0 ab Stufe 1, sonst `null`), gelesen aus `~/halo-nacht/drossel-stufe.txt`, nach der

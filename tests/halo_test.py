@@ -13902,6 +13902,62 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def avatars_plastic():
+        # Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026): Mailliste, Mailkopf und
+        # Adressbuch mit Verlauf in drei Stufen, Schatten außen und Auflage (::after) mit Lichtkante oben, Unterkante
+        # und feinem Rand; Fotos mit eigener, neutraler Auflage über dem Bild (Klasse mc-has-img), Initialen ohne
+        res = m.js(MESSAGE_JS + r"""
+          const info = (win, el) => { if (!el) return null; const cs = win.getComputedStyle(el), af = win.getComputedStyle(el, "::after");
+            return { bg: cs.backgroundImage, shadow: cs.boxShadow, after: af.content, afterPos: af.position, rim: af.boxShadow,
+                     w: Math.round(el.getBoundingClientRect().width), afterW: Math.round(parseFloat(af.width) || 0), img: el.classList.contains("mc-has-img") }; };
+          const out = {};
+          out.list = info(a3, a3.document.querySelector('#threadTree tr[is="thread-card"] .mc-avatar'));
+          const md = a3.messageBrowser.contentWindow.document;
+          out.header = info(a3.messageBrowser.contentWindow, await until(() => md.querySelector("#fromRecipient0 .recipient-avatar.mc-hdr-avatar")));
+          // Adressbuch: Kontakt mit Initialen und einer mit Foto (Datei im Profil)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const canvas = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); canvas.width = canvas.height = 64;
+          const ctx = canvas.getContext("2d"); ctx.fillStyle = "#3a7"; ctx.fillRect(0, 0, 64, 64);
+          const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg"));
+          await IOUtils.makeDirectory(PathUtils.join(PathUtils.profileDir, "Photos"), { ignoreExisting: true });
+          await IOUtils.write(PathUtils.join(PathUtils.profileDir, "Photos", "halo-kreis.jpg"), new Uint8Array(await blob.arrayBuffer()));
+          const add = (name, email, photo) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = email; if (photo) c.setProperty("PhotoName", photo); return book.addCard(c); };
+          const cards = [add("Ida Initial", "ida.initial@example.invalid"), add("Paul Plastisch", "paul.plastisch@example.invalid", "halo-kreis.jpg")];
+          try {
+            tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("cards")?.view?.rowCount >= 2, "Kontaktliste", 8000); await ruhig(1500);
+            const ab = tm.currentTabInfo.browser.contentWindow; const ad = ab.document;
+            for (const [key, name] of [["abInitials", "Ida Initial"], ["abPhoto", "Paul Plastisch"]]) {
+              const row = await until(() => [...ad.querySelectorAll("#cards tr")].find(r => r.querySelector(".name")?.textContent == name), 5000);
+              const av = row?.querySelector("contact-avatar");
+              if (key == "abPhoto" && av) await bis(() => av.classList.contains("mc-has-img"), "Foto geladen", 4000).catch(() => {});
+              out[key] = info(ab, av);
+            }
+            tm.closeTab(tm.currentTabInfo);
+          } finally {
+            book.deleteCards(cards);
+          }
+          out.dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          return out;""")
+        dark = res.get("dark")
+        def plastic(v, photo):
+            if not v:
+                return False
+            # Auflage: drei innere Schatten über dem Kreis, so groß wie der Kreis
+            rim_ok = v["after"] in ('""', "''") and v["afterPos"] == "absolute" and v["rim"].count("inset") == 3 and abs(v["afterW"] - v["w"]) <= 1
+            # Schatten außen (ohne inneren Schatten am Kreis selbst)
+            drop_ok = v["shadow"] != "none" and "inset" not in v["shadow"]
+            if photo:
+                # Foto: neutrale Auflage (hell Unterkante schwarz 13 %, dunkel Rand weiß 12 %)
+                fill_ok = v["img"] and ("rgba(255, 255, 255, 0.12)" in v["rim"] if dark else "rgba(0, 0, 0, 0.13)" in v["rim"])
+            else:
+                # Initialen: Verlauf in drei Stufen (heller oben, Mitte #A0B0D6, dunkler unten)
+                fill_ok = not v["img"] and v["bg"].count("rgb") >= 3 and "160, 176, 214" in v["bg"]
+            return rim_ok and drop_ok and fill_ok
+        ok = all(plastic(res.get(k), k == "abPhoto") for k in ("list", "header", "abInitials", "abPhoto"))
+        return ok, f"{res}"
+    check("Absenderkreise: plastisch wie die Knöpfe in Mailliste, Mailkopf und Adressbuch (Verlauf, Lichtkante, Unterkante, Schatten), Fotos mit eigener Auflage", avatars_plastic, results)
+
     def code_banner():
         # Codes in E-Mails (GitHub #54): Bestätigungscode über der Mail mit „Kopieren“ (Baustein des
         # Verteiler-Hinweises), Klick legt genau den Code in die Zwischenablage; keine Anzeige bei einer Mail

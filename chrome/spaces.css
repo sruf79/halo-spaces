@@ -6439,6 +6439,34 @@ addon-card .addon-inline-options {
   background: url("resource://mailcards/icons/company-avatar.svg") center / cover no-repeat !important;
 }
 
+/* Kreise plastisch wie die Knöpfe und die Absenderkreise der Mailliste
+   (Variante A, 18.11.2026): Verlauf, Auflage als ::after über Initialen bzw.
+   Foto (mc-has-img setzt die Erweiterung), Schatten wie die Kapseln */
+:is(#cards, #selectedCards) contact-avatar:not(.mc-company, .mc-has-img),
+#viewContact .list-header .recipient-avatar {
+  background: var(--mt-av-fill) !important;
+}
+
+/* (Liste mit der Spezifität der Kartenregel oben, die den Schatten abschaltet) */
+:is(#cards .card-layout .card-container, #cards, #selectedCards) contact-avatar,
+#viewContact .list-header .recipient-avatar {
+  position: relative !important;
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
+}
+
 /* Seitenleisten der Bereiche ein-/ausblenden (Klasse setzt die Erweiterung) */
 .mc-side-hidden {
   display: none !important;
@@ -10962,7 +10990,29 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img {
   background: #fff !important;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* plastisch wie die Knöpfe (Variante A, 18.11.2026), Auflage über Initialen
+   bzw. Foto als ::after, Werte --mt-av-* */
+#messageHeader .recipient-avatar.mc-hdr-avatar:not(.mc-has-img) {
+  background: var(--mt-av-fill) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar {
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
 }
 
 #messageHeader .recipient-avatar.mc-hdr-avatar img {

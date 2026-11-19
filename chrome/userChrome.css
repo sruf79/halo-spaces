@@ -204,6 +204,14 @@
   --mt-btn-rim: rgba(0, 0, 0, 0.1);
   --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 0.5px 0 0.5px var(--mt-btn-rim), var(--mt-btn-lite-drop);
   --mt-cap-dot-narrow-press: radial-gradient(14px 16px at 50% 50%, var(--mt-cap-press) 13.5px, transparent 14px);
+  /* Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer
+     18.11.2026: „bezüglich knöpfe - variante A bitte“): Verlauf, Auflage
+     (Lichtkante oben, Unterkante, feiner Rand) über Initialen bzw. Foto,
+     Schatten wie die Kapseln, kein farbiger Schein */
+  --mt-av-fill: linear-gradient(to bottom, color-mix(in srgb, #B4CAE4 86%, #fff), #A0B0D6 55%, color-mix(in srgb, #8A97C5 92%, #000));
+  --mt-av-rim: inset 0 1px 0 rgba(255, 255, 255, 0.62), inset 0 -1px 0 color-mix(in srgb, #8A97C5 62%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
+  --mt-av-rim-img: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.13), inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+  --mt-av-shadow: 0 1px 1px rgba(0, 0, 0, 0.14), 0 3px 5px -3px rgba(0, 0, 0, 0.32);
 }
 
 /* Auswahlfarbe des Systems nur unter macOS: unter Windows ist SelectedItem das
@@ -234,6 +242,9 @@
     --mt-btn-veil: rgba(255, 255, 255, 0.05);
     --mt-btn-rim: rgba(0, 0, 0, 0.45);
     --mt-btn-lite-shadow: inset 0 1px 0 var(--mt-btn-lite), inset 0 0 0 999px var(--mt-btn-veil), 0 0.5px 0 0.5px var(--mt-btn-rim), var(--mt-btn-lite-drop);
+    --mt-av-rim: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 color-mix(in srgb, #8A97C5 55%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
+    --mt-av-rim-img: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+    --mt-av-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     --mt-primary-shadow: inset 0 1px 0 var(--mt-primary-top), inset 0 -1px 0 var(--mt-primary-bottom), inset 0 0 0 0.5px color-mix(in srgb, var(--mt-accent) 65%, #000), var(--mt-primary-drop), 0 7px 12px -6px color-mix(in srgb, var(--mt-accent) var(--mt-primary-halo), transparent);
     --mt-window: #1E1E1E;
     --mt-conv-bg: #141416;
@@ -12265,6 +12276,34 @@ addon-card .addon-inline-options {
   background: url("resource://mailcards/icons/company-avatar.svg") center / cover no-repeat !important;
 }
 
+/* Kreise plastisch wie die Knöpfe und die Absenderkreise der Mailliste
+   (Variante A, 18.11.2026): Verlauf, Auflage als ::after über Initialen bzw.
+   Foto (mc-has-img setzt die Erweiterung), Schatten wie die Kapseln */
+:is(#cards, #selectedCards) contact-avatar:not(.mc-company, .mc-has-img),
+#viewContact .list-header .recipient-avatar {
+  background: var(--mt-av-fill) !important;
+}
+
+/* (Liste mit der Spezifität der Kartenregel oben, die den Schatten abschaltet) */
+:is(#cards .card-layout .card-container, #cards, #selectedCards) contact-avatar,
+#viewContact .list-header .recipient-avatar {
+  position: relative !important;
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
+}
+
 /* Seitenleisten der Bereiche ein-/ausblenden (Klasse setzt die Erweiterung) */
 .mc-side-hidden {
   display: none !important;
@@ -16788,7 +16827,29 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img {
   background: #fff !important;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* plastisch wie die Knöpfe (Variante A, 18.11.2026), Auflage über Initialen
+   bzw. Foto als ::after, Werte --mt-av-* */
+#messageHeader .recipient-avatar.mc-hdr-avatar:not(.mc-has-img) {
+  background: var(--mt-av-fill) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar {
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
 }
 
 #messageHeader .recipient-avatar.mc-hdr-avatar img {

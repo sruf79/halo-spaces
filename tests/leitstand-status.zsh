@@ -104,6 +104,19 @@ if netz; then
   fi
   alt $Q/issues48.json 900 && holen $Q/issues48.json gh issue list -R $GH_REPO --state all -L 200 --search "updated:>=$(date -v-3d +%F)" \
     --json number,state,createdAt,closedAt --jq '[.[] | {nr: .number, offen: (.state == "OPEN"), eroeffnet: .createdAt, geschlossen: .closedAt}]'
+  # Commits auf main (Maintainer 19.11.2026: „die letzten 7 tags vs. die 7 tage davor“): eigener Klon ohne Dateiinhalte in
+  # $D/git (der Haupt-Checkout bleibt unberührt), höchstens alle 15 Minuten fetch, dann rev-list nach Commit-Datum
+  if alt $Q/commits.json 900; then
+    G=$D/git
+    [[ -d $G/objects ]] || { rm -rf $G; git init -q --bare $G && git -C $G remote add origin https://github.com/$GH_REPO.git; } 2>>$LOG
+    if git -C $G -c credential.helper= -c credential.helper='!gh auth git-credential' fetch -q --filter=tree:0 origin +main:refs/remotes/origin/main 2>>$LOG; then
+      zaehle() { git -C $G rev-list --count --since=$(TZ=UTC date -r $(( JETZT - $1 )) +%FT%TZ) --until=$(TZ=UTC date -r $(( JETZT - $2 )) +%FT%TZ) origin/main }
+      { w=(); for a b in 604800 0 1209600 604800 172800 0 345600 172800; do w+=$(zaehle $a $b) || exit 1; done
+        print -r -- "{\"letzte_7t\":$w[1],\"davor_7t\":$w[2],\"letzte_48h\":$w[3],\"davor_48h\":$w[4],\"stand\":$JETZT}" } > $Q/commits.json.neu 2>>$LOG \
+        && jq -e '[.letzte_7t,.davor_7t,.letzte_48h,.davor_48h] | all(type == "number")' $Q/commits.json.neu >/dev/null 2>&1 \
+        && mv $Q/commits.json.neu $Q/commits.json || { rm -f $Q/commits.json.neu; log "Quelle nicht lesbar: commits.json"; }
+    else log "Quelle nicht lesbar: commits.json (fetch)"; fi
+  fi
   alt $Q/release.json 900 && holen $Q/release.json gh api repos/$GH_REPO/releases/latest --jq '{tag: .tag_name, zeit: .published_at}'
   if [[ -s $Q/release.json ]] && alt $Q/vergleich.json 900; then
     holen $Q/vergleich.json gh api "repos/$GH_REPO/compare/$(jq -r .tag $Q/release.json)...main" --jq '{ahead: .ahead_by}'
@@ -548,6 +561,13 @@ def release_eta():
     return {"zeit": iso(nacht.timestamp() + 3 * 3600),
             "grund": "Nächster Nachtlauf (01:30 Wiener Zeit) veröffentlicht nach grüner CI; Zeit geschätzt (Start plus 3 Stunden)." + seit}
 
+# Commits auf origin/main nach Commit-Datum (quellen/commits.json, höchstens alle 15 Min. neu; älter als 1 Stunde → null)
+def commits():
+    c = lies(Q + "/commits.json", True)
+    if not isinstance(c, dict) or not isinstance(c.get("stand"), int) or JETZT - c["stand"] > 3600: return None
+    aus = {k: c.get(k) for k in ("letzte_7t", "davor_7t", "letzte_48h", "davor_48h")}
+    return aus if all(isinstance(v, int) for v in aus.values()) else None
+
 RATE = lies(Q + "/rate.json", True)
 def github_limit():
     """aus gh api rate_limit: je Bereich Limit, verbraucht (limit − remaining), rest (verbleibend), Reset; unlesbar → None"""
@@ -563,7 +583,8 @@ def github_limit():
 st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
-      "github_limit": sicher(github_limit), "drossel": sicher(drossel)}
+      "github_limit": sicher(github_limit), "drossel": sicher(drossel),
+      "commits": sicher(commits)}
 with open(OUT + ".neu", "w", encoding="utf-8") as f: json.dump(st, f, ensure_ascii=False, indent=1)
 os.replace(OUT + ".neu", OUT)
 

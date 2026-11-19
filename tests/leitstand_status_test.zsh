@@ -251,6 +251,16 @@ pruefe "Drossel: unlesbar → null, Rest bleibt" '.drossel == null and .kontinge
 pruefe_v "Drossel unlesbar: Verlaufspunkt drossel null" '.punkte[-1] | has("drossel") and .drossel == null'
 rm -f $T/n/drossel-stufe.txt
 
+# Commits auf main (Maintainer 19.11.2026: „die letzten 7 tags vs. die 7 tage davor“) aus quellen/commits.json
+print '{"letzte_7t":513,"davor_7t":463,"letzte_48h":219,"davor_48h":102,"stand":'$((JETZT - 600))'}' > $T/d/quellen/commits.json; lauf
+pruefe "Commits: vier Zahlen, ohne stand" '.commits == {"letzte_7t":513,"davor_7t":463,"letzte_48h":219,"davor_48h":102}'
+lauf $((JETZT + 3601))
+pruefe "Commits: älter als 1 Stunde → null" '.commits == null and has("commits")'
+print '{"letzte_7t":"x","davor_7t":1,"letzte_48h":1,"davor_48h":1,"stand":'$JETZT'}' > $T/d/quellen/commits.json; lauf
+pruefe "Commits: unbrauchbar → null" '.commits == null'
+rm -f $T/d/quellen/commits.json; lauf
+pruefe "Commits: fehlt → null" '.commits == null'
+
 # Tagesroutine wartet (Maintainer 19.11.2026 „ja“): Skript läuft, aber nur sleep und die Kontingent-Messung (claude -p ok
 # --model haiku), keine Runde → in agenten mit zustand wartet und Grund aus dem Protokoll, zählt nicht in verlauf.agenten
 cat > $T/ps.txt <<'EOF'

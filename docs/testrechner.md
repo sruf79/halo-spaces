@@ -544,6 +544,11 @@ archivierte Einträge fehlen. `rueckmeldungen.issues_neu_48h`/`issues_geschlosse
 Pull Requests, in 3 Tagen geändert, höchstens 200, voll = `null`), `issues_offen` aus `issues.json` (100 = `null`). Beide Abfragen
 höchstens alle 15 Minuten; nicht lesbar = `null`; nicht in `verlauf.json`.
 
+Commits (Maintainer 19.11.2026: „bei commits könnten wir vergleichen die letzten 7 tags vs. die 7 tage davor“): Feld `commits` =
+`{"letzte_7t","davor_7t","letzte_48h","davor_48h"}`, Commits auf `origin/main` nach Commit-Datum (`git rev-list --count
+--since --until`) aus einem eigenen Klon ohne Dateiinhalte `~/halo-nacht/leitstand/git` (fetch höchstens alle 15 Minuten, der
+Haupt-Checkout bleibt unberührt), zwischengespeichert in `quellen/commits.json`; fetch gescheitert oder älter als 1 Stunde = `null`.
+
 Kontingent-Drossel (19.11.2026, `drossel_stufe` in `tests/lauf-hilfen.zsh`; Maintainer: „bitte neon, die drossel-stufe in
 status.json mitzuliefern“): Feld `drossel` = `{"stufe","text","grund","seit","max_worker"}` (Stufe 0–3, 0 = keine Drossel; Wirkung,
 Grund, Beginn der Stufe in UTC; `max_worker` 0 ab Stufe 1, sonst `null`), gelesen aus `~/halo-nacht/drossel-stufe.txt`, nach der

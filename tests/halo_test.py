@@ -5914,21 +5914,36 @@ def folder_checks(m, results):
     check("Toolbar: keine Linie unter der Toolbar-Zeile, auch nicht beim Darüberfahren über Mailliste oder Mail (GitHub #55)", hover_line, results)
 
     def solid_menus():
-        # Option „Solid menus“ entfernt (Maintainer 17.11.2026, „19-disablen“): Menüs scheinen immer durch wie unter macOS,
-        # ein alter Wert (beim Start gelöscht) ändert nichts, das Stilblatt dafür gibt es nicht mehr
+        # Option „Solid menus“ entfernt (Maintainer 17.11.2026, „19-disablen“): ein alter Wert (beim Start gelöscht) ändert
+        # nichts, das Stilblatt dafür gibt es nicht mehr. Menüs scheinen nur unter macOS durch (dort liefert das System die
+        # Unschärfe); unter Linux und Windows ohne Unschärfe deckende Menüfläche, sonst schien der Inhalt dahinter durch
+        # und der Text war schwer lesbar (GitHub #73). Bei „Transparenz reduzieren“ (macOS) ebenfalls deckend
         res = m.js(r"""
           const P = "extensions.mailcards.solidMenus";
           const popup = d.getElementById("mcMailFilterPopup") || d.querySelector("menupopup");
-          const look = () => ({ app: w.getComputedStyle(popup).appearance, bg: w.getComputedStyle(popup).getPropertyValue("--panel-background-color").trim() });
-          const out = { before: look(), startPref: Services.prefs.prefHasUserValue(P) };
+          const rgba = v => { const e = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.color = v; d.documentElement.append(e);
+                              const c = w.getComputedStyle(e).color; e.remove(); return c; };
+          const look = () => ({ app: w.getComputedStyle(popup).appearance, bg: rgba(w.getComputedStyle(popup).getPropertyValue("--panel-background-color").trim() || "red") });
+          const out = { mac: Services.appinfo.OS == "Darwin", reduced: w.matchMedia("(prefers-reduced-transparency: reduce)").matches,
+                        solid: rgba("var(--mt-menu-solid)"), before: look(), startPref: Services.prefs.prefHasUserValue(P) };
+          // weitere Menüarten: Vorschlagsliste der Suche und App-Menü
+          out.others = ["PopupGlodaAutocomplete", "appMenu-popup"].map(id => d.getElementById(id)).filter(Boolean)
+                         .map(p => rgba(w.getComputedStyle(p).getPropertyValue("--panel-background-color").trim() || "red"));
           Services.prefs.setBoolPref(P, true); await ruhig(300); out.oldPref = look();
           Services.prefs.clearUserPref(P);
           out.sheet = await fetch("resource://mailcards/solid-menus.css").then(r => r.ok, () => false);
           return out;""")
         before = res.get("before") or {}
-        ok = (res.get("startPref") is False and res.get("oldPref") == before and before.get("app") != "none" and res.get("sheet") is False)
+        bg = before.get("bg") or ""
+        if res.get("mac") and not res.get("reduced"):
+            look_ok = 0 < rgba_alpha(bg) < 1
+        else:
+            look_ok = rgba_alpha(bg) == 1 and same_color(bg, res.get("solid"))
+        others = res.get("others") or []
+        ok = (res.get("startPref") is False and res.get("oldPref") == before and before.get("app") != "none" and res.get("sheet") is False
+              and look_ok and bool(others) and all(same_color(o, bg) and rgba_alpha(o) == rgba_alpha(bg) for o in others))
         return ok, f"{res}"
-    check("Menüs: immer durchscheinend wie unter macOS, die frühere Option „Solid menus“ wirkt nicht mehr", solid_menus, results)
+    check("Menüs: unter macOS durchscheinend, unter Linux und Windows (und bei „Transparenz reduzieren“) deckend und gut lesbar, die frühere Option „Solid menus“ wirkt nicht mehr (GitHub #73)", solid_menus, results)
 
     def starred_scope_gmail():
         # „Markiert“: bei Gmail nur „[Gmail]/Alle Nachrichten“ durchsuchen (jede Mail einmal), sonst fand der Suchordner

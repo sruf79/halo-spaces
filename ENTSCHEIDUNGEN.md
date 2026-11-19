@@ -862,3 +862,7 @@ Anlass: Woche 17 % bei Soll rund 10,7 % (19.11. 12:58), bei gleichem Tempo wäre
 ## 19.11.2026 Windows-Rundgang: Start auch bei knappem Wochenkontingent
 
 Anlass: Frage, ob der Windows-Rundgang (Auftrag #35, bisher nur ab 85 % im 5-Stunden-Fenster) heute starten soll, weil das Kontingent knapp ist. Maintainer (19.11.2026, Gespräch mit neon): „Der start sollte nicht nur das 5h-limit sondern auch das wochenlimit und aktuelle wochenkontingent berücksichtigen“. Deutung (neon, kein Wortlaut): Der Auslastungswächter startet den token-armen Rundgang auch dann, wenn die Drossel wegen der Woche greift (Stufe 1 bis 3); bei erreichtem Wochenlimit oder 5-Stunden-Fenster ab 98 % startet er nicht, weil die Sitzung sonst am Limit scheitert.
+
+## 19.11.2026 Aufgaben, die Testzeiten verkürzen, haben immer höchste Priorität
+
+Anlass: Eintrag „Ablauf: Dunkel-Lauf der Mac-CI verkleinern“ stand auf „Wartet auf OK“. Maintainer (19.11.2026, Gespräch mit neon): „Warum warten auf ok? Grundsätzlich haben alle tasks auf der liste welche unsere testzeiten verkürzen immer höchste Priorität weil davon alle weiteren Läufe profitieren“. Bezug: Reihenfolge eines Laufs in `AGENTS.md`.

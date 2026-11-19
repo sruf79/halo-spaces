@@ -217,6 +217,7 @@ Bugs und Wünsche führt der Maintainer im privaten GitHub-Project „halo.space
 iPhone-Sitzungen immer über `neon-board` (ersatzweise `neon`). Feld-IDs, Befehle, Titelform, Bilder,
 Apple-Vorlagen, Notweg, Archivsuche (`board.sh suche`, „War das schon einmal da?“): `docs/board.md`.
 
+- **Testzeit-Verkürzung geht vor** (Maintainer 19.11.2026, `ENTSCHEIDUNGEN.md`): Einträge, die die Testzeiten verkürzen, haben immer höchste Priorität, kein „Wartet auf OK“; nur ein Fehler nach Punkt 0 geht noch vor.
 - **Reihenfolge eines Laufs:** 0. Ein Fehler, der jedes Release verhindert (rote oder flackernde
   Prüfung, die die Testmarke blockiert), geht in jedem Lauf allem vor, auch Schwere und Bereichsfolge;
   Vorgehen nach „Rot bleibt rot“ (Maintainer 15.11.2026: „muss so ein fehler mit höchster priorität

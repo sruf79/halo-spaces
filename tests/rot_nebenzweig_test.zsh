@@ -131,5 +131,26 @@ pruefe "Revert mit Konflikt: Zweifel, main unverändert, Arbeitsbaum sauber" \
   "$(lauf --commit $X; print rc=$? gleich=$([[ $(ref HEAD) == $KOPF ]] && print ja) sauber=$([[ -z $(git -C $R status --porcelain -uno) ]] && print ja))" \
   '^ZWEIFEL .*Konflikte' 'rc=3 gleich=ja sauber=ja'
 
+# 10. Auslöser in tests/nachtlauf.sh (rot_zweige_abschluss): neue Zweige pruef/rot-* an neon, Nachkontrolle
+neu_repo; rm -f $T/rot.txt $T/gemeldet.txt
+START0=$(( $(date +%s) - 5 ))
+jq -n --arg e ${E[1,7]} '{items: [{id: "PVTI_kon", status: "In Progress", title: "Kontakte", body: "committet \($e)"}]}' > $T/board.json
+lauf --pruefung 'Kontakte: Feld' >/dev/null
+NFN=$(sed -n '/^rot_zweige_abschluss() {/,/^}/p' $HIER/nachtlauf.sh)
+NA() { ( setopt extendedglob; LOG=/dev/null; source $HIER/lauf-hilfen.zsh; REPO=$R DIR=$T TAG=2026-11-19 HALO_ROT_GEMELDET=$T/gemeldet.txt HALO_PUSH_TROCKEN=1
+         eval "$NFN"; rot_zweige_abschluss $START0 ) 2>&1 }
+O=$(NA)
+pruefe "Nachtlauf: neuer Zweig an neon mit Modellstufe aus dem Zähler, kein iPhone-Push" "$O" \
+  '^- Neue rote Nebenzweige: 1$' "^- pruef/rot-PVTI_kon \(Commit ${E[1,7]}, Schlüssel PVTI_kon: .*Modellstufe: 1\. Rot in 14 Tagen → Opus" \
+  '^TROCKEN: an_neon \[nachtlauf\] Rote Nebenzweige' '^- an neon gemeldet$' '^- Nachkontrolle: kein Revert'
+pruefe "Nachtlauf: kein push (iPhone) im Auslöser" "$(print -r -- $NFN | grep -cE '(^|[^_])push ')" '^0$'
+pruefe "Nachtlauf: gemeldeter Zweig nicht noch einmal" "$(NA)" '^- Neue rote Nebenzweige: keine$'
+cd $R; git revert --no-edit $D2 >/dev/null 2>&1; cd $HIER
+pruefe "Nachtlauf: nackter Revert ohne Zählerzeile → WARNUNG im Bericht" "$(NA)" "^- WARNUNG: Revert [0-9a-f]{7,} nimmt ${D2[1,7]} zurück, ohne Zählerzeile"
+pruefe "Nachtlauf: rot_abschluss nach ci_abschluss aufgerufen" "$(grep -A1 -x 'ci_abschluss' $HIER/nachtlauf.sh | tail -1)" '^rot_abschluss$'
+
+pruefe "Tagesroutine-Auftrag: pruef/rot-* als erster Eintrag, auch nach einem Release" "$(sed -n '/Schritt 1b (Vorrang)/,/Schritt 2:/p' $HIER/tagesroutine-auftrag.md)" \
+  'pruef/rot-\*' 'auch nach einem Release' 'erster Eintrag' 'tests/rot-nebenzweig\.sh'
+
 (( FEHLER )) && exit 1
 exit 0

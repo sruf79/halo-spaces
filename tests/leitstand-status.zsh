@@ -334,7 +334,15 @@ def weiter_aus(schritt, wann):
     if m: return iso(m.group(1))
     if re.match(r"Limit\b.*Pause 30 Minuten", s): return iso(wann.timestamp() + 1800)
     m = re.search(r"nächster Versuch (\d\d):(\d\d)|warte bis (\d\d):(\d\d)|nächste Planung (\d\d):(\d\d)|^vor dem Beginn (\d\d):(\d\d)", s)
-    if not m: return None
+    if not m:
+        # ohne Uhrzeit in der Zeile: „bis zur vollen Stunde“ = die nächste volle Stunde nach der Zeile; „warte: …“ (Mac belegt, Lauf
+        # fragt alle 5 Minuten neu, tests/tagesroutine.sh bzw. 60 Sekunden beim Nachtlauf) und „belegt nach … später erneut“ = nächste
+        # Prüfung in 5 (bzw. 1) Minuten; sonst unbekannt
+        if re.search(r"volle[rn]? Stunde", s):
+            return iso((wann.replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)).timestamp())
+        if re.match(r"warte: Nachtlauf läuft noch", s): return iso(wann.timestamp() + 60)
+        if re.match(r"warte: ", s) or re.match(r"belegt nach \d+ Min\.", s): return iso(wann.timestamp() + 300)
+        return None
     h, mi = [int(g) for g in m.groups() if g is not None]
     z = wann.replace(hour=h, minute=mi, second=0, microsecond=0)
     if z < wann.replace(second=0, microsecond=0): z += dt.timedelta(days=1)
@@ -776,6 +784,14 @@ def zuletzt():
     ev, arch = [], sicher(archiv) or {}
     titel = {i["id"]: i.get("title") for i in (BOARD or []) if isinstance(i, dict) and "id" in i}
     nach_hash = {h: t for t, h in arch.values() if h}
+    def titel_von(zeilen):
+        """Titel der Einträge als Text: einer ungekürzt (t200), bei mehreren die ersten zwei und „+ n weitere“"""
+        ts = []
+        for z in sorted(zeilen, key=lambda r: r["zeit"]):
+            if z["titel"] and z["titel"] not in ts: ts.append(z["titel"])
+        if not ts: return None
+        if len(ts) == 1: return ts[0]
+        return kurz(ts[0], 90) + " · " + kurz(ts[1], 90) + (" + %d weitere" % (len(ts) - 2) if len(ts) > 2 else "")
     def neu(t, art, was, erg=None, einzel=None):
         if t is not None and JETZT - 86400 <= t <= JETZT and was: ev.append({"zeit": iso(t), "art": art, "was": t200(re.sub(r"\s+", " ", was)), "ergebnis": erg, "einzel": kurz(einzel, 60)})
     def eintraege():
@@ -794,10 +810,10 @@ def zuletzt():
             for z in (lies("%s/%s-tagesroutine-erledigt.txt" % (N, tag)) or "").splitlines():
                 t = z.split("\t", 1)
                 if len(t) == 2: zu_id[t[1].strip()] = t[0]
-        modell = None
+        modell, start = None, None
         for t, z in log_zeilen("{tag}-tagesroutine.log"):
             m = re.match(r"Runde mit (\S+)", z)
-            if m: modell = m.group(1).rstrip(","); continue
+            if m: modell, start = m.group(1).rstrip(","), t; continue
             m = re.match(r"Runde beendet \(Exitcode (\d+)\):?(.*)", z)
             if m:
                 e = next((e for e in erg if not e[2] and t - 300 <= e[0] <= t + 5), None)
@@ -808,13 +824,21 @@ def zuletzt():
                 else: ergeb = "ok" if h else ("abgebrochen" if text.startswith("zurück") else None)
                 pv = zu_id.get(text) if text else None
                 ti = (titel.get(pv) or arch.get(pv, (None,))[0]) if pv else (nach_hash.get(h.group(1)) if h else None)
+                if not ti and start is not None:   # kein Eintrag aus Ergebnis/Hash: die in dieser Runde als in Arbeit gemeldeten
+                    ti = titel_von([r for r in IN_ARBEIT if start - 60 <= r["zeit"] <= t and "tagesroutine" in r["ordner"]])
                 was = "Tagesroutine-Runde" + (" (%s)" % modell if modell else "") + (": " + ti if ti else "")
                 neu(t, "runde", was, ergeb, h.group(1) if h else None)
             elif z.startswith("Kontingent Ende"): neu(t, "lauf", "Tagesroutine beendet", "ok")
-        grund = None
+        grund, vor = None, None
         for t, z in log_zeilen("{tag}.log"):
+            if vor is None: vor = t
             m = re.match(r"Runde (\d+) beendet \(Exitcode (\d+)\)", z)
-            if m: neu(t, "runde", "Nachtlauf-Runde %s" % m.group(1), "ok" if m.group(2) == "0" else "fehler")
+            if m:
+                # Einträge der Runde: seit Ende der vorigen Runde (bzw. Beginn des Protokolls) als in Arbeit gemeldet, nicht von Workern
+                # oder der Tagesroutine (eigene Arbeitskopien bzw. Prüfzweige)
+                ti = titel_von([r for r in IN_ARBEIT if vor <= r["zeit"] <= t and not re.search(r"worker|tagesroutine", r["ordner"]) and not r["zweig"].startswith("pruef/")])
+                neu(t, "runde", "Nachtlauf-Runde %s" % m.group(1) + (": " + ti if ti else ""), "ok" if m.group(2) == "0" else "fehler")
+                vor = t
             m = re.match(r"Arbeit beendet: (.*)", z)
             if m: grund = m.group(1)
             if z == "Ende" and grund is not None:
@@ -828,6 +852,7 @@ def zuletzt():
             erg = {"erledigt": "ok", "widerlegt": "ok", "zurück": "abgebrochen", "abbruch": "abgebrochen", "rot": "fehler", "fehler": "fehler"}.get(art)
             pv = re.search(r"PVTI_\S+", rest)
             ti = (titel.get(pv.group(0)) or arch.get(pv.group(0), (None,))[0]) if pv else None
+            if not ti and zw: ti = titel_von([r for r in IN_ARBEIT if r["zweig"] == zw and r["zeit"] <= t])   # Eintrag aus in-arbeit.tsv
             h = re.match(r"([0-9a-f]{7,40})\b", rest)
             was = "Worker %s: %s" % (w.replace("worker-", ""), ti or {"nichts_passend": "nichts Passendes"}.get(art, art))
             neu(t, "worker", was, erg, " ".join(x for x in (h.group(1) if h else None, zw) if x) or None)

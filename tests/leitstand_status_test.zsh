@@ -293,6 +293,12 @@ pruefe "weiter_um: Limit-Pause aus der Zeile" '[.agenten[] | select(.name == "Ta
 print "2026-11-19 07:59:30 Drossel Stufe 3 (9 Fehlstunden): nichts Neues – nächster Versuch 00:00" >> $T/n/2026-11-19-tagesroutine.log; lauf
 pruefe "weiter_um: Uhrzeit vor der Zeile gilt am Folgetag" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T23:00:00Z"'
 print "2026-11-19 07:59:40 warte: Nachtlauf läuft noch" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: warte Nachtlauf läuft noch → Zeile + 1 Minute" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T07:00:40Z" and .laeufe.tagesroutine.weiter_um == "2026-11-19T07:00:40Z"'
+print "2026-11-19 08:00:10 warte: Claude-Sitzung abcd1234 arbeitet gerade am Repo" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: warte Mac belegt → Zeile + 5 Minuten" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T07:05:10Z"'
+print "2026-11-19 08:10:10 Drossel Stufe 3 (Rohstufe 3): Tagesroutine nichts Neues bis zur vollen Stunde" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: volle Stunde ohne Uhrzeit → nächste volle Stunde" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T08:00:00Z" and .laeufe.tagesroutine.weiter_um == "2026-11-19T08:00:00Z"'
+print "2026-11-19 08:11:00 Arbeitskopie: /x auf pruef/y" >> $T/n/2026-11-19-tagesroutine.log; lauf
 pruefe "weiter_um: kein Zeitpunkt bekannt → null" '([.agenten[] | select(.name == "Tagesroutine")][0] | .zustand == "wartet" and .weiter_um == null) and .laeufe.tagesroutine.weiter_um == null'
 # dieselbe Tagesroutine mit Runde → arbeitet, zählt
 print "  213   200    01:00 claude -p --model sonnet --session-id s9 --permission-mode auto Auftrag" >> $T/ps.txt
@@ -410,6 +416,18 @@ printf 'abc9\tTests: der ganze Betreff aus dem eigenen Klon, länger als die Kü
 HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
 pruefe "Titel: 150 Zeichen ungekürzt (zuletzt, Board in Arbeit), 250 auf 200 mit …, CI nur erste Zeile" \
   '([.zuletzt[] | select(.art == "eintrag")][0].was | length) == 150 and ([.board.in_arbeit[] | select(.titel | startswith("Mail: b"))][0].titel | length == 200 and endswith("…")) and (.ci[0].titel | length == 200 and endswith("…") and (contains("zweite") | not)) and (.ci[1].titel == "Tests: der ganze Betreff aus dem eigenen Klon, länger als die Kürzung von GitHub bei etwa siebzig Zeichen")'
+# Titel in zuletzt bei Workern und Runden (Eintrag aus in-arbeit.tsv): ein Titel, zwei mit „+ n weitere“, keiner → alter Text
+E0=$(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-19 03:30:00' +%s)
+{ printf '%s\tPVTI_a\tMail: erster Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $E0
+  printf '%s\tPVTI_b\tKalender: zweiter Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $((E0 + 60))
+  printf '%s\tPVTI_c\tAufgaben: dritter Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $((E0 + 120))
+  printf '%s\tPVTI_d\tChat: Eintrag des Workers\t2\tpruef/w1\t/wt1\n' $((E0 + 200))
+  printf '%s\tPVTI_e\tFremd: Worker-Ordner zählt nicht für die Runde\t3\tpruef/w9\t/Users/x/halo-auslastung/worker-9\n' $((E0 + 30)); } > $T/n/in-arbeit.tsv
+printf '2026-11-19 04:00:00 Start\n2026-11-19 05:00:00 Runde 1 beendet (Exitcode 0): x\n' > $T/n/2026-11-19.log
+printf '2026-11-19 06:40:00 Worker worker-1 beendet (Sitzung s, Zweig pruef/w1): nichts_passend kein freier Eintrag\n2026-11-19 06:41:00 Worker worker-4 beendet (Sitzung s, Zweig pruef/w4): rot\n' > $T/n/2026-11-19-auslastung.log
+HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
+pruefe "zuletzt: Runde nennt Einträge (zwei + n weitere), Worker seinen Eintrag, ohne Eintrag alter Text, einzel bleibt" \
+  '([.zuletzt[] | select(.art == "runde" and (.was | startswith("Nachtlauf"))) | .was] == ["Nachtlauf-Runde 1: Mail: erster Eintrag · Kalender: zweiter Eintrag + 1 weitere"]) and ([.zuletzt[] | select(.art == "worker") | [.was, .einzel]] | sort == [["Worker 1: Chat: Eintrag des Workers","pruef/w1"],["Worker 4: rot","pruef/w4"]])'
 # ohne Board-Zwischenspeicher und Protokolle: nur Releases
 rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
 pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'

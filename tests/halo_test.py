@@ -15865,6 +15865,18 @@ def run_checks(m, version, profile, results):
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
           const ow = w.outerWidth;
+          // Speicherbereinigung (GC/CC) während der Messung mitschreiben: im vollen Lauf unter Linux fiel je roter Messung
+          // genau ein Bild von 73–145 ms in eine sonst taktgenaue Phase, jedes Mal in einer anderen der vier Phasen, allein
+          // und in Gruppen von 40 Prüfungen nie (Board-Notizen 19.11.) – Verdacht: Bereinigung des nach 200 Prüfungen
+          // großen Speichers. Vor jeder Messung deshalb selbst bereinigen (Zustand wie im kurzen Lauf), und jede
+          // Bereinigung im Messfenster steht im Ergebnis (gc: [Art, ms ab Messbeginn, längste Pause ms, Dauer ms]).
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
+          const bereinigen = async () => { Cu.forceGC(); Cu.forceCC(); Cu.forceGC(); await ruhig(300); gcLog.length = 0; };
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
             if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
@@ -15875,8 +15887,9 @@ def run_checks(m, version, profile, results):
             for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
+            await bereinigen();
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            tRec = performance.now(); btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); const gcIn = gcLog.splice(0); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -15898,7 +15911,7 @@ def run_checks(m, version, profile, results):
             const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
-                           searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+                           searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null, gc: gcIn };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -15919,6 +15932,8 @@ def run_checks(m, version, profile, results):
           }
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
+          Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+          Services.prefs.setBoolPref(gcPref, gcPrefVorher);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           return out;''')
         if res.get("skipped"):

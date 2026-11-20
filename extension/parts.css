@@ -397,7 +397,7 @@ addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
    nav-down-sm.svg), Schrift normal statt halbfett; Feld in spaces.css.
    Das Termin-Fenster wie Apple Kalender (Zeitkarte ohne Pfeil, oben) und
    Datum/Uhrzeit (editierbar) bleiben ausgenommen; der Absender im
-   Verfassen-Kopf behält den Einzug seines Textes */
+   Verfassen-Kopf ist seit den Kopfzeilen wie beim Mac ebenfalls ein Feld */
 menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(dropmarker) {
   content: url("resource://mailcards/icons/chevron-updown-14.svg") !important;
   width: 14px !important;
@@ -411,6 +411,6 @@ menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))
   font-weight: 400 !important;
 }
 
-menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist, #msgIdentity))::part(label) {
+menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(label) {
   margin-inline: 0 !important;
 }

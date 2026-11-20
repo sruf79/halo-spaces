@@ -8257,6 +8257,13 @@ class CardEnhancer {
     const attExpandedBefore = defaults.getBoolPref(ATT_EXPANDED, false);
     defaults.setBoolPref(ATT_EXPANDED, true);
     this.restorers.push(() => defaults.setBoolPref(ATT_EXPANDED, attExpandedBefore));
+    // Leseansicht ohne Auswahl ruhig leer („No Message Selected“, hookEmptyPane)
+    // statt Thunderbirds Startseite aus dem Netz – nur als Vorgabe: wer sie in
+    // den Einstellungen einschaltet, behält sie; Gehe zu > Startseite bleibt
+    const START_PAGE = "mailnews.start_page.enabled";
+    const startPageBefore = defaults.getBoolPref(START_PAGE, true);
+    defaults.setBoolPref(START_PAGE, false);
+    this.restorers.push(() => defaults.setBoolPref(START_PAGE, startPageBefore));
     // Mailliste nach Datum, neueste zuerst (wie Apple Mail) – nur als Vorgabe:
     // gilt für Ordner, deren Sortierung Thunderbird neu anlegt; eine gewählte
     // Sortierung (im Ordner gespeichert) bleibt, auch bei Updates

@@ -15,6 +15,40 @@
 "use strict";
 
 class EnhancerMailliste {
+  // Leseansicht ohne gewählte Mail: mittig grau „No Message Selected“ (Text in
+  // der Sprache der Oberfläche, gezeichnet vom Stilblatt) statt Thunderbirds
+  // Startseite aus dem Netz. Die Startseite ist nur als Vorgabe aus (siehe
+  // START_PAGE in startup); wer sie in den Einstellungen einschaltet oder über
+  // Gehe zu > Startseite öffnet, sieht sie weiter. Hat Thunderbird sie vor dem
+  // Start der Erweiterung schon geöffnet (erstes Fenster), hier wieder leeren.
+  hookEmptyPane(win) {
+    const pane = win.document.getElementById("messagePane");
+    if (!pane) {
+      return;
+    }
+    pane.setAttribute("data-mc-empty", tr("No Message Selected"));
+    const web = pane.webBrowser;
+    if (!web || web.hidden || Services.prefs.getBoolPref("mailnews.start_page.enabled", false)) {
+      return;
+    }
+    let startHost = "", host = "";
+    try {
+      startHost = new URL(Services.urlFormatter.formatURLPref("mailnews.start_page.url")).host;
+    } catch {
+      // gewollt: keine gültige Adresse eingestellt
+    }
+    const spec = web.currentURI?.spec || "about:blank";
+    try {
+      host = new URL(spec).host;
+    } catch {
+      // gewollt: about:-Seite ohne Rechner
+    }
+    if ((spec == "about:blank" || (startHost && host == startHost)) && !win.gDBView?.numSelected) {
+      pane.clearAll?.({ alwaysClearWebBrowser: true });
+      log("start page cleared", { spec: spec.slice(0, 60) });
+    }
+  }
+
   // Leseansicht: ganze Konversation als Karten (ConversationCards) über
   // Thunderbirds Anzeige von Einzelmail bzw. Faden-Zusammenfassung
   hookConversation(win) {
@@ -860,6 +894,7 @@ class EnhancerMailliste {
       });
     });
     safely("conversation", () => this.hookConversation(win));
+    safely("empty pane", () => this.hookEmptyPane(win));
     safely("scroll watch", () => {
       const onScroll = () => (this.lastListScroll = Date.now());
       win.threadTree.addEventListener("scroll", onScroll, { passive: true, capture: true });

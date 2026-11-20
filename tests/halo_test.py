@@ -2956,6 +2956,91 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Konversation verschwindet beim Ordnerwechsel ohne neue Auswahl", conversation_folder_switch, results)
 
+    def empty_reading_pane():
+        # Leseansicht ohne gewählte Mail: statt Thunderbirds Startseite aus dem Netz mittig grau „No Message Selected“
+        # (wie „No Task Selected“ in den Aufgaben); die Startseite ist nur als Vorgabe aus (Einstellung unverändert,
+        # über Gehe zu > Startseite weiter erreichbar); eine gewählte Mail erscheint wie bisher, ohne den Text darüber
+        ink_js = r"""
+          // Bild der Leseansicht: Pixel, die sich deutlich vom Grund unterscheiden, in der Mitte bzw. oben
+          const ink = async () => {
+            const r = pane.getBoundingClientRect();
+            const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(r.left, r.top, r.width, r.height), 1, "white");
+            const cv = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+            const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
+            const data = ctx.getImageData(0, 0, cv.width, cv.height).data, b0 = (5 * cv.width + Math.floor(cv.width / 2)) * 4, bg = [...data.slice(b0, b0 + 3)];
+            // (Ränder ausgenommen: Trennlinien zur Mailliste und zur Today-Pane)
+            const band = (y0, y1) => { let n = 0, box = null; for (let y = Math.floor(y0); y < y1; y++) for (let x = 24; x < cv.width - 24; x++) {
+              const i = (y * cv.width + x) * 4; if (Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1]) + Math.abs(data[i + 2] - bg[2]) > 40) {
+                n++; box = box ? [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x), Math.max(box[3], y)] : [x, y, x, y]; } } return { n, box }; };
+            return { mid: band(cv.height / 2 - 20, cv.height / 2 + 20), top: band(10, cv.height / 2 - 40), bg, w: Math.round(r.width), h: Math.round(r.height), top0: Math.round(r.top) };
+          };
+"""
+        shots = []
+        def shot(name):
+            if os.environ.get("HALO_SHOTS"):
+                shots.append((name, m.cmd("WebDriver:TakeScreenshot", {})["value"]))
+        res = m.js(r"""
+          const a3 = await toMail(), pane = a3.document.getElementById("messagePane");
+          const web = pane.webBrowser;
+          return { pref: Services.prefs.getBoolPref("mailnews.start_page.enabled"), user: Services.prefs.prefHasUserValue("mailnews.start_page.enabled"),
+            web: web.hidden ? "aus" : web.currentURI?.spec.slice(0, 40) };""")
+        m.js("w.resizeTo(1500, 900); " + MESSAGE_JS + " return 1;")
+        shot("mail")
+        res.update(m.js(r"""
+          const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
+          const pseudo = () => { const s = a3.getComputedStyle(pane, "::before"); return { content: s.content, color: s.color, size: s.fontSize }; };
+          const out = {};
+          out.mail = { subject: (a3.messageBrowser?.contentDocument?.getElementById("expandedsubjectBox")?.textContent || "").trim(), shown: !a3.messageBrowser.hidden, pseudo: pseudo() };
+          a3.threadTree.selectedIndex = -1;
+          await bis(() => a3.messageBrowser.hidden && !a3.gDBView.numSelected, "Auswahl leer", 4000); await ruhig(600);
+          out.empty = { attr: pane.getAttribute("data-mc-empty"), pseudo: pseudo(), web: pane.webBrowser.hidden, ink: await ink() };
+          return out;"""))
+        shot("leer")
+        res.update(m.js(r"""
+          const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
+          const pseudo = () => a3.getComputedStyle(pane, "::before").content;
+          // schmale Leseansicht: der Text passt auch an Thunderbirds Mindestbreite der Leseansicht (300 px) samt Rand
+          // ganz hinein (längere Übersetzungen brechen um: text-align/white-space); gemessen an einem Probetext in
+          // derselben Schrift
+          const ps = a3.getComputedStyle(pane, "::before"), probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+          probe.textContent = pane.getAttribute("data-mc-empty");
+          probe.style.cssText = `position: fixed; left: 0; top: 0; visibility: hidden; white-space: nowrap; font: ${ps.fontWeight} ${ps.fontSize} ${ps.fontFamily};`;
+          a3.document.body.append(probe);
+          const out = { narrow: { min: parseFloat(a3.getComputedStyle(pane).minWidth) || 0, text: Math.ceil(probe.getBoundingClientRect().width),
+            pad: parseFloat(ps.paddingLeft) + parseFloat(ps.paddingRight), align: ps.textAlign, ws: ps.whiteSpace, pseudo: pseudo() } };
+          probe.remove();
+          // Startseite über Gehe zu > Startseite (ohne Netz: eigene Adresse für die Prüfung)
+          Services.prefs.setStringPref("mailnews.start_page.url", "data:text/html,<p>Startseite</p>");
+          try {
+            a3.commandController.doCommand("cmd_goStartPage");
+            await bis(() => !pane.webBrowser.hidden && pane.webBrowser.currentURI?.spec.startsWith("data:"), "Startseite", 4000); await ruhig(300);
+            out.start = { shown: !pane.webBrowser.hidden, pseudo: pseudo() };
+          } finally {
+            Services.prefs.clearUserPref("mailnews.start_page.url");
+            pane.clearAll({ alwaysClearWebBrowser: true }); await ruhig(300);
+          }
+          out.after = pseudo();
+          return out;"""))
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            dark = m.js('return w.matchMedia("(prefers-color-scheme: dark)").matches;')
+            for name, data in shots:
+                path = os.path.join(os.environ["HALO_SHOTS"], f"leseansicht-{name}-{'dunkel' if dark else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(data))
+                print(f"Bild {path}", flush=True)
+        txt = lambda p: (p or {}).get("content") if isinstance(p, dict) else p
+        want = "No Message Selected"  # Testprofil englisch
+        ok = (res.get("pref") is False and res.get("user") is False and res.get("web") == "aus"
+              and "Treffen am Donnerstag" in res.get("mail", {}).get("subject", "") and res["mail"].get("shown") and txt(res["mail"].get("pseudo")) == "none"
+              and want and res["empty"].get("attr") == want and txt(res["empty"].get("pseudo")) == f'"{want}"' and res["empty"].get("web") is True
+              and res["empty"]["ink"]["mid"]["n"] > 30 and res["empty"]["ink"]["top"]["n"] == 0
+              and res.get("narrow", {}).get("pseudo") == f'"{want}"' and res["narrow"]["align"] == "center" and res["narrow"]["ws"] == "normal"
+              and 0 < res["narrow"]["text"] and res["narrow"]["min"] >= 300 and res["narrow"]["text"] + res["narrow"]["pad"] <= res["narrow"]["min"]
+              and res.get("start", {}).get("shown") and res["start"].get("pseudo") == "none" and res.get("after") == f'"{want}"')
+        return ok, f"{res}"
+    check("Leseansicht: ohne gewählte Mail mittig grau „No Message Selected“ statt der Startseite aus dem Netz (Startseite nur als Vorgabe aus, über Gehe zu weiter erreichbar), gewählte Mail wie bisher", empty_reading_pane, results)
+
     def conversation_stale_index():
         # GitHub #60: Der Suchindex findet eine Mail über Ordner und Schlüssel. Ist er veraltet (Ordner komprimiert,
         # Mail verschoben), steht unter dem Schlüssel eine andere Mail – vorher zeigte die Leseansicht dann deren

@@ -5334,6 +5334,25 @@ message-pane {
   position: relative;
 }
 
+/* Leseansicht ohne gewählte Mail: mittig grau „No Message Selected“ wie
+   „No Task Selected“ in den Aufgaben (Text setzt die Erweiterung in der
+   Sprache der Oberfläche); verschwindet, sobald eine Mail, mehrere Mails,
+   eine Konversation oder eine Webseite (Startseite über Gehe zu) zu sehen ist */
+message-pane[data-mc-empty]:not(:has(> :is(browser, conversation-view, #mcConversation):not([hidden])))::before {
+  content: attr(data-mc-empty);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  text-align: center;
+  font-size: calc(20px * var(--mt-font-scale, 1));
+  font-weight: 500;
+  color: var(--mt-text-tertiary);
+  pointer-events: none;
+}
+
 /* während halo.spaces die Konversation abfragt: Thunderbirds Einzelansicht bzw.
    Zusammenfassung unsichtbar (Fläche bleibt), höchstens 400 ms */
 message-pane.mc-conv-pending > :is(#messageBrowser, #multiMessageBrowser) {

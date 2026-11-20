@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3340">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3350">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -186,6 +186,10 @@ in **Settings → halo.spaces** (including the glow of the active space under "L
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
+
+## What's new in 3.35.0
+
+- **Settings**: the "halo.spaces" category shows its ring again instead of an empty white square
 
 ## What's new in 3.34.0
 

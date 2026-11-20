@@ -22901,12 +22901,16 @@ Neu
           const hit = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.hidden && !e.classList.contains("visually-hidden")
             && e.getBoundingClientRect().height > 0 && e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites");
           const box = pd.getElementById("mcPane-paneMcHalo"), out = { fresh: !box.querySelector("browser") };
+          // 1 px schon ab dem Anlegen des Browsers (Regel vor dem Klick): am Element gesetzt kam die Begrenzung in der
+          // Linux-CI teils erst nach dem Sprung an (atJump.ih 826), dann prüfte die Prüfung nichts
+          const klein = pd.createElementNS("http://www.w3.org/1999/xhtml", "style");
+          klein.textContent = "#mcPane-paneMcHalo > browser { max-block-size: 1px !important; }";
+          pd.documentElement.append(klein);
           try {
             fire("logos");
             if (!await until(hit, 6000)) { fire(""); await ruhig(300); fire("logos"); }
             (await bis(hit, "Treffer „Logos from sender websites“", 10000)).querySelector(".mc-halo-found-show").click();
             const b = await bis(() => box.querySelector("browser")?.messageManager && box.querySelector("browser"), "Browser der halo.spaces-Seite", 6000);
-            b.style.setProperty("max-block-size", "1px", "important");
             // Frame-Skript (Seite läuft im Prozess der Erweiterung): meldet die hervorgehobene Zeile, dann nach dem Wachsen
             // die Lage, sobald Höhe, Scrollstand und Zeile 300 ms gleich bleiben
             const key = "mc:test-late-" + Math.random(), msgs = [];
@@ -22914,21 +22918,26 @@ Neu
             b.messageManager.loadFrameScript("data:," + encodeURIComponent(`(() => {
               const pos = () => { const r = content.document.getElementById("row-senderLogos"), x = r?.getBoundingClientRect();
                 return x && { ih: Math.round(content.innerHeight), sy: Math.round(content.scrollY), top: Math.round(x.top), bottom: Math.round(x.bottom), found: r.classList.contains("found") }; };
-              const wait = () => { const p = pos(); if (p?.found) sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); else content.setTimeout(wait, 10); };
-              // ist die Seite beim Laden des Frame-Skripts schon da, kommt DOMContentLoaded nicht mehr: dann gleich warten
-              if (content.document?.readyState && content.document.readyState != "loading" && content.document.getElementById("row-senderLogos")) wait();
-              else addEventListener("DOMContentLoaded", wait, true);
+              let sent = false;
+              const wait = () => { if (sent) return; const p = pos(); if (p?.found) { sent = true; sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); } else content.setTimeout(wait, 10); };
+              // die Zeilen baut render() erst nach DOMContentLoaded (await getSettings, …): ist das Dokument schon geladen,
+              // gleich abfragen, auch wenn die Zeile noch fehlt (sonst wartete das Skript auf ein Ereignis, das nicht mehr kommt;
+              // Beta-CI: Zeitüberschreitung „Zeile hervorgehoben“); DOMContentLoaded zusätzlich für das noch ladende Dokument
+              // (Zeitgeber des leeren Anfangsdokuments enden mit dessen Wechsel)
+              if (content.document?.readyState && content.document.readyState != "loading") wait();
+              addEventListener("DOMContentLoaded", wait, true);
               addMessageListener("${key}-grown", () => { let last = "", since = Date.now(), t0 = Date.now(); const step = () => { const p = pos(), v = JSON.stringify(p);
                 if (v != last) { last = v; since = Date.now(); } if (Date.now() - since >= 300 || Date.now() - t0 > 3000) sendAsyncMessage("${key}", Object.assign({ tag: "settled" }, p)); else content.setTimeout(step, 20); }; step(); });
             })()`), true);
             await bis(() => msgs.length, "Zeile hervorgehoben", 8000);
             out.atJump = msgs[0];
-            b.style.removeProperty("max-block-size");
+            klein.remove();
             await bis(() => b.getBoundingClientRect().height > 300, "Browser gewachsen", 3000);
             b.messageManager.sendAsyncMessage(key + "-grown");
             await bis(() => msgs.length > 1, "Lage nach dem Wachsen", 6000);
             out.settled = msgs[1];
           } finally {
+            klein.remove();
             tm.closeTab(tm.currentTabInfo); await ruhig(400);
           }
           return out;""")

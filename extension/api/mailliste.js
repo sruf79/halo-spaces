@@ -1039,6 +1039,32 @@ class EnhancerMailliste {
     };
     tph.__mcHooked = true;
     win.addEventListener("folderURIChanged", update);
+    // laufende Suche: Thunderbird meldet die Anzahl des Suchordners erst am
+    // Ende der Suche – über viele (IMAP-)Postfächer stand bis dahin „0 results“
+    // über einer Liste voller Treffer. Darum bei jeder Änderung der Zeilen
+    // nachziehen (gesammelt, höchstens alle 150 ms)
+    const jsTree = win.threadPane?._jsTree;
+    let rowsTimer = null;
+    const rowsChanged = () => {
+      if (!rowsTimer && self.isSearchFolder(win.gFolder)) {
+        rowsTimer = win.setTimeout(() => {
+          rowsTimer = null;
+          self.updateListHeader(top);
+        }, 150);
+      }
+    };
+    const origRows = jsTree?.rowCountChanged;
+    const origInvalidate = jsTree?.invalidate;
+    if (origRows && origInvalidate) {
+      jsTree.rowCountChanged = function (...args) {
+        rowsChanged();
+        return origRows.apply(this, args);
+      };
+      jsTree.invalidate = function (...args) {
+        rowsChanged();
+        return origInvalidate.apply(this, args);
+      };
+    }
     // anderen Ordner gewählt, während gesucht wurde: wie Apple Mail dort
     // weitersuchen (Sammelordner: wieder in allen Postfächern)
     const leave = () => {
@@ -1060,6 +1086,11 @@ class EnhancerMailliste {
     this.restorers.push(() => {
       tph.onFolderSelected = origSelected;
       tph.updateMessageCount = origCount;
+      if (origRows && origInvalidate) {
+        jsTree.rowCountChanged = origRows;
+        jsTree.invalidate = origInvalidate;
+      }
+      win.clearTimeout(rowsTimer);
       delete tph.__mcHooked;
       win.removeEventListener("folderURIChanged", update);
     });

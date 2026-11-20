@@ -21527,6 +21527,76 @@ Neu
         return ok, f"{res}"
     check("Suche: Scrollen während einer laufenden Suche flüssig (Suche wartet), danach alle Treffer, Scrollposition bleibt", search_scroll, results)
 
+    def search_count_running():
+        # laufende Suche über viele Postfächer: Thunderbird meldet die Anzahl des Suchordners erst am Ende – der Kopf
+        # zeigte bis dahin „0 results“ über einer Liste voller Treffer. Suche anhalten, dann muss der Kopf die Zeilen zählen
+        NF, NM = 12, 400
+        for start in range(0, NF, 4):
+            m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+              const root = MailServices.accounts.localFoldersServer.rootFolder;
+              const filler = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(150);
+              for (let f = %d; f < %d; f++) {
+                if (!root.containsChildNamed("Zaehl" + f)) { root.createSubfolder("Zaehl" + f, null); await bis(() => root.containsChildNamed("Zaehl" + f), "Ordner Zaehl" + f + " angelegt", 3000); }
+                const folder = root.getChildNamed("Zaehl" + f); if (folder.getTotalMessages(false) >= %d) continue;
+                const msgs = [];
+                for (let i = 0; i < %d; i++) { const k = f * %d + i;
+                  msgs.push(`From - Sat Oct 17 10:00:00 2026\r\nFrom: Shop <shop${k %% 30}@example.invalid>\r\nSubject: Betreff ${k}\r\nDate: ${1 + k %% 28} Sep 2026 ${String(k %% 24).padStart(2, "0")}:${String(k %% 60).padStart(2, "0")}:00 +0200\r\nMessage-ID: <zaehl-${k}@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${filler}${i %% 5 ? "" : " Wombat"}\r\n`); }
+                folder.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessageBatch(msgs); await bis(() => folder.getTotalMessages(false) >= msgs.length, "Mails in " + folder.name + " gespeichert", 10000);
+              }
+              return 1;""" % (start, min(start + 4, NF), NM, NM, NM))
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          await ruhig(1500);
+          // ohne Thunderbirds Index: sonst stünden je nach Fortschritt der Indizierung alle Treffer schon beim Start da
+          const GLODA = "mailnews.database.global.indexer.enabled", glodaBefore = Services.prefs.getBoolPref(GLODA, false);
+          Services.prefs.setBoolPref(GLODA, false);
+          const a3 = await toMail(); a3.displayFolder(root.URI); await ruhig(800);
+          const page = a3.wrappedJSObject || a3; const html = a3.document.documentElement;
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const header = () => d.getElementById("mcListHeader")?.querySelector(".mc-lh-count")?.textContent;
+          const rows = () => a3.gDBView?.rowCount || 0;
+          const out = {};
+          // halo.spaces zieht nach dem Start (Erweiterung geladen) 30 s lang sekündlich alles nach, auch den Kopf –
+          // das verdeckte den Fehler. Darum nur Texte zählen, die nicht aus diesem Nachziehen (scan) stammen
+          const el = d.getElementById("mcListHeader")?.querySelector(".mc-lh-count");
+          const desc = Object.getOwnPropertyDescriptor(w.Node.prototype, "textContent");
+          let ownText = null;
+          Object.defineProperty(el, "textContent", { configurable: true, get() { return desc.get.call(this); },
+            set(v) { if (!/^scan@/m.test(new Error().stack)) ownText = v; desc.set.call(this, v); } });
+          // nur der Text trifft: in der Kopfzeilen-Stufe keine Treffer, alle kommen aus der laufenden Textsuche
+          // angehalten wird nach einigen Postfächern (je 80 Treffer): nach dem ersten stimmte der Kopf zufällig
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "wombat", bubbles: true, composed: true }));
+          let session = null;
+          await until(() => { const v = page.gViewWrapper; if (v?.searching && html.getAttribute("mc-search-stage") == "body" && rows() >= 240) {
+            try { session = v.search.session; session.pauseSearch(); } catch (e) { out.pauseError = String(e); } return true; } return false; }, 10000);
+          out.paused = !!session && page.gViewWrapper?.searching;
+          if (out.paused) {
+            // angehalten: die Zeilen stehen still, der Kopf muss sie gleich nennen (nicht erst am Ende der Suche)
+            out.rows = rows();
+            out.header = await until(() => ownText?.endsWith(`, ${rows().toLocaleString("en-US")} results`) && ownText, 800) || ownText;
+            out.rowsAfter = rows();
+            session.resumeSearch();
+          }
+          await until(() => !page.gViewWrapper?.searching && !html.hasAttribute("mc-search-stage"), 40000); await ruhig(500);
+          out.endRows = rows(); out.endHeader = header();
+          delete el.textContent;
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(1200);
+          const inbox = root.getChildNamed("Inbox"); if (inbox) { a3.displayFolder(inbox.URI); await ruhig(600); }
+          for (const f of [...root.subFolders].filter(f => /^Zaehl\d+$/.test(f.name))) { try { root.propagateDelete(f, true); } catch {} }
+          await until(() => ![...root.subFolders].some(f => /^Zaehl\d+$/.test(f.name)), 5000); await ruhig(1000);
+          Services.prefs.setBoolPref(GLODA, glodaBefore);
+          return out;""")
+        if not res.get("paused"):
+            return True, f"Suche schon vor dem Anhalten fertig – übersprungen {res}"
+        n = res.get("rows") or 0
+        ok = (240 <= n < 960 and res.get("rowsAfter") == n and (res.get("header") or "").endswith(f", {n:,} results")
+              and res.get("endRows") == 960 and (res.get("endHeader") or "").endswith(", 960 results"))
+        return ok, f"{res}"
+    check("Suche: Kopf zählt die Treffer schon während der laufenden Suche über viele Postfächer (nicht „0 results“ bis zum Ende)", search_count_running, results)
+
     def settings_keyboard_scroll():
         # Einstellungen wie ein Nutzer ohne Mausrad: Kategorie anklicken, dann eine freie Stelle der Seite – danach
         # scrollen Bild-ab und Pfeiltasten den Inhalt, die Kategorie bleibt (GitHub #13: Fokus blieb in der

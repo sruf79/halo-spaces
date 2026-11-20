@@ -414,6 +414,31 @@ class EnhancerOberflaeche {
     li.toggleAttribute("mc-starred", starred);
   }
 
+  // Trefferzahl einer Suche: Thunderbirds Zähler der Ansicht läuft beim Start
+  // jeder Suche wieder von 0 an, während die gemerkten Treffer schon in der
+  // Liste stehen – darum mindestens die Zeilen der Liste (ohne Gruppenköpfe)
+  searchHitCount(ab) {
+    const view = ab.gDBView;
+    let n = 0;
+    try {
+      n = view?.numMsgsInView || 0;
+    } catch {} // gewollt: Ansicht ohne Zähler, dann nur die Zeilen
+    const rows = view?.rowCount || 0;
+    if (rows <= n) {
+      return n;
+    }
+    let mails = rows;
+    if (view.viewFlags & Ci.nsMsgViewFlagsType.kGroupBySort) {
+      const DUMMY = 0x20000000; // MSG_VIEW_FLAG_DUMMY: Kopfzeile einer Gruppe
+      for (let i = 0; i < rows; i++) {
+        if (view.getFlagsAt(i) & DUMMY) {
+          mails--;
+        }
+      }
+    }
+    return Math.max(n, mails);
+  }
+
   updateListHeader(w) {
     const d = w.document;
     const box = d.getElementById("mcListHeader");
@@ -447,7 +472,7 @@ class EnhancerOberflaeche {
       const folder = ab.gFolder;
       if (this.isSearchFolder(folder)) {
         // Suche: „Suche“ und „Alle Postfächer, 12 Treffer“ wie Apple Mail
-        const n = ab.gDBView?.numMsgsInView || 0;
+        const n = this.searchHitCount(ab);
         title.textContent = tr("Searching");
         const base = this.searchBase(ab);
         count.textContent = (this.isUnifiedFolder(base) ? tr("All Mailboxes") : appleFolderName(base)) + ", " +

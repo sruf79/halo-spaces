@@ -5,6 +5,8 @@
 #   zsh tests/volldampf.sh an [<bis ISO-Zeit mit Zone>] [<Grund>]   ab jetzt; bis = nächster Wochenreset (Di 00:00 UTC, Wien 01:00 bzw. 02:00 im Sommer)
 #   zsh tests/volldampf.sh aus                                      sofort aus: Regelzeile weg, Wächter beendet
 #   zsh tests/volldampf.sh status                                   Zustand von Regel, Wächtern und Wochenwert
+#   zsh tests/volldampf.sh sicher                                   nur wenn Volldampf aktiv ist: fehlende Wächter starten (LaunchAgent
+#                                                                   at.halo-spaces.volldampf-waechter, beim Anmelden und alle 10 Minuten, z. B. nach einem Neustart von neon)
 # „an“ schreibt die Regelzeile (~/halo-nacht/volldampf.txt, Auswertung wie bisher in lauf-hilfen.zsh) und startet den
 # Auslastungs- und den Zwischen-Release-Wächter, falls sie nicht laufen. Nachtlauf und Tagesroutine lesen die Zeile bei
 # jeder Entscheidung selbst; alle Volldampf-Werte (spätere Zeiten, Grenzen, Fable) gelten nur, solange die Zeile aktiv ist.
@@ -65,6 +67,9 @@ case ${1:-status} in
       sleep 2
     fi
     print "Volldampf aus. Laufende Worker machen ihre Arbeit fertig; Nachtlauf und Tagesroutine gelten sofort wieder normal."; zeigen ;;
+  sicher)   # Selbstheilung: nichts ändern, nur fehlende Wächter starten, solange die Regelzeile gilt (Ausgabe nur bei Start)
+    volldampf_aktiv >/dev/null || exit 0
+    for w in $WAECHTER; do laeuft $w || { print "$(date '+%F %T') Wächter $w läuft nicht, starte ihn"; rm -f $(sperre $w); [[ -z $HALO_VD_KEINE_WAECHTER ]] && { nohup zsh $(skript $w) >/dev/null 2>&1 &! } }; done ;;
   status) zeigen ;;
-  *) print -u2 "Aufruf: tests/volldampf.sh an [<bis>] [<Grund>] | aus | status"; exit 2 ;;
+  *) print -u2 "Aufruf: tests/volldampf.sh an [<bis>] [<Grund>] | aus | status | sicher"; exit 2 ;;
 esac

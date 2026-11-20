@@ -146,6 +146,8 @@ pruefe "schalter: bis = nächster Reset Di 00:00 UTC, im Winter 01:00, im Sommer
      $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T00:59+01:00 naechster_reset) == 2026-11-24T01:00+01:00 &&
      $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T01:00+01:00 naechster_reset) == 2026-12-01T01:00+01:00 ]]'
 pruefe "schalter: zweites an ändert nichts" '[[ $(zsh $HIER/volldampf.sh an | head -1) == "Volldampf ist schon an." && $(grep -c . $HALO_VOLLDAMPF_DATEI) == 1 ]]'
+pruefe "schalter: sicher startet bei aktiver Regel fehlende Wächter (Selbstheilung nach Neustart), ohne Regel nichts" \
+  '[[ $(HALO_VD_KEINE_WAECHTER=1 zsh $HIER/volldampf.sh sicher | grep -c "starte ihn") == 2 ]] && { mv $HALO_VOLLDAMPF_DATEI $HALO_VOLLDAMPF_DATEI.sich; [[ -z $(HALO_VD_KEINE_WAECHTER=1 zsh $HIER/volldampf.sh sicher) ]]; r=$?; mv $HALO_VOLLDAMPF_DATEI.sich $HALO_VOLLDAMPF_DATEI; (( r == 0 )) }'
 pruefe "schalter: aus entfernt die Zeile, Verlauf bleibt" 'zsh $HIER/volldampf.sh aus >/dev/null && ! volldampf_aktiv >/dev/null && ls $T/volldampf-aus-*.txt >/dev/null'
 pruefe "schalter: nach aus gilt Volldampf nicht mehr" '! volldampf_status >/dev/null'
 unset HALO_VD_KEINE_WAECHTER HALO_NACHT_DIR

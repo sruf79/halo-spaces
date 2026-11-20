@@ -619,3 +619,5 @@ Limit), Feld `github_limit` = `{"rest":{"limit","verbraucht","rest","reset"},"gr
 `resources.graphql` (`verbraucht` = Limit − verbleibend, `rest` = verbleibend, `reset` ISO UTC); nicht lesbar = `null` (kein
 alter Wert). Jeder neue Punkt in `verlauf.json` trägt zusätzlich `gh_rest` und `gh_graphql` (verbraucht in Prozent, eine
 Dezimale, sonst `null`); ältere Punkte ohne die beiden Felder bleiben gültig.
+
+- **Wächter nach einem Neustart** (Maintainer 20.11.2026: „Ich brauche einen automatismus für die beiden wächter damit diese automatisch nach einem reboot gestartet werden“): LaunchAgent `at.halo-spaces.volldampf-waechter` (`~/Library/LaunchAgents/`, `AbandonProcessGroup`, beim Anmelden und alle 10 Minuten) ruft `zsh tests/volldampf.sh sicher` auf: ist die Volldampf-Regelzeile aktiv, werden fehlende Auslastungs- und Zwischen-Release-Wächter gestartet (Protokoll `~/Library/Logs/halo-volldampf-waechter.log`), sonst geschieht nichts. Nach einem Mac-Neustart also nichts von Hand tun.

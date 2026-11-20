@@ -24089,7 +24089,9 @@ Neu
               out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
               // Fläche wie Drucken (ohne Fläche wäre die Kapsel nur ein loses Symbol)
               const pb = md.getElementById("mcHdrPrintButton");
-              out.fill = ext ? [cw.getComputedStyle(ext).backgroundColor, pb ? cw.getComputedStyle(pb).backgroundColor : null] : null;
+              // (plastische Kapseln: Fläche als Verlauf im Hintergrundbild, Farbe dann durchsichtig – beides vergleichen)
+              const face = e => `${cw.getComputedStyle(e).backgroundColor} ${cw.getComputedStyle(e).backgroundImage}`;
+              out.fill = ext ? [face(ext), pb ? face(pb) : null] : null;
             } finally { mw.close(); }
           } finally { await addon.uninstall(); }
           await ruhig(300);
@@ -24110,7 +24112,7 @@ Neu
                 and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
             bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
         fl = res.get("fill") or [None, None]
-        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0)" and (fl[1] is None or fl[0] == fl[1])):
+        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0) none" and (fl[1] is None or fl[0] == fl[1])):
             bad.append(f"Erweiterung: Fläche {fl[0]} statt wie Drucken {fl[1]}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "

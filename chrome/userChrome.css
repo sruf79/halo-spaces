@@ -2961,17 +2961,26 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 :root[mc-standalone] #header-view-toolbar > .webextension-action:not([hidden]) {
   order: 7 !important;
   margin-inline-end: 6px !important;
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
   border-radius: 999px !important;
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
 }
 
-/* Zustände wie Drucken: unter der Maus heller, gedrückt dunkler */
-:root[mc-standalone] #header-view-toolbox #header-view-toolbar > .webextension-action:hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
+/* Zustände wie Drucken (plastische Kapsel): die Fläche bleibt, unter der Maus
+   ein Kreis mit Lichtkante, gedrückt dunkler ohne Licht (Regeln für ::after unten) */
+:root[mc-standalone] #header-view-toolbox #header-view-toolbar > .webextension-action:is(:hover, :hover:active, [open]):not([disabled]) {
+  background: var(--mt-cap-fill) !important;
 }
 
-:root[mc-standalone] #header-view-toolbox #header-view-toolbar > .webextension-action:is(:hover:active, [open]):not([disabled]) {
-  background: linear-gradient(var(--mt-cap-press), var(--mt-cap-press)), var(--mt-control-hover) !important;
+:root[mc-standalone] #header-view-toolbar > .webextension-action:not([hidden])::after {
+  inset-inline-start: 3px !important;
+  width: calc(100% - 6px) !important;
+  background-color: var(--mt-cap-hover) !important;
+}
+
+:root[mc-standalone] #header-view-toolbar > .webextension-action:is(:hover:active, [open]):not([disabled])::after {
+  opacity: 1 !important;
+  background-color: var(--mt-cap-press) !important;
 }
 
 :root[mc-standalone] #header-view-toolbar:has(> #mcHdrPrintButton) > #otherActionsButton {

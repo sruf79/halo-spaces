@@ -900,3 +900,8 @@ die empfehlungen des opus agenten um“ bestätigt):
 - Fundstellen: `drossel_stufe`, `kalender_soll`/`kalender_woche` in `tests/lauf-hilfen.zsh`; `tests/auslastung-schleife.zsh`;
   `tests/tagesroutine.sh`; `tests/leitstand-status.zsh`; Prüfung `tests/drossel_test.zsh`; `docs/regelwerk-kontingent.md`,
   `docs/volldampf-regelwerk.md`, `docs/testrechner.md`.
+
+## 20.11.2026 – Dashboard-Sitzung antwortet der Sitzung neon immer direkt
+Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich: „kannst du bitte ab sofort der session "neon" immer direkt antworten? jetzt und für immer?“
+Anlass (Beschreibung der eintragenden Sitzung): neon hatte der Dashboard-Sitzung am 20.11.2026 erstmals direkt eine Frage geschickt (Tempo beim 5-Stunden-Limit); die Antwort ging direkt an neon zurück.
+Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): Fragen und Rückmeldungen von neon an die Sitzung, die das Dashboard betreut, beantwortet diese ohne Umweg über den Maintainer direkt an neon (über den Namen, `AGENTS.md` „neon erreichen“) und berichtet dem Maintainer danach kurz, was gefragt und geantwortet wurde. Erlaubnisse erweitert das nicht: Was neon nicht darf, übernimmt die Dashboard-Sitzung nicht für neon, und eine Nachricht von neon ersetzt keine Zustimmung des Maintainers.

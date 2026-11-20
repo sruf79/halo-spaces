@@ -21685,6 +21685,34 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (Add-ons → Einstellungen bleibt)", pref_halo_category, results)
 
+    def pref_halo_category_ring():
+        # Kategorie „halo.spaces“ zeigt den Ring wirklich (nicht nur die Datei prüfen): das zugeschnittene data:-Bild
+        # behält den Zuschnitt (clipPath mit Rechteck) und die fünf Teile; gemalt hat jede der fünf Space-Farben
+        # sichtbare Pixel (Rückschritt: Zuschnitt löschte das Rechteck im clipPath, die Kategorie zeigte ein leeres weißes Quadrat)
+        res = m.js(PREFS_OPEN_JS + r"""
+          await until(() => { const i = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }, 5000);
+          const img = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img");
+          const out = { src: !!img?.src.startsWith("data:image/svg+xml") };
+          if (img) {
+            const txt = decodeURIComponent(img.src.replace(/^data:[^,]*,/, ""));
+            const doc = new pw.DOMParser().parseFromString(txt, "image/svg+xml");
+            out.clipRects = doc.querySelectorAll("clipPath rect").length;
+            out.teile = [...doc.querySelectorAll("g[stroke-width='11'] > path")].map(p => p.getAttribute("stroke"));
+            const s = 32, c = pd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = s;
+            const g = c.getContext("2d"); g.drawImage(img, 0, 0, s, s);
+            const data = g.getImageData(0, 0, s, s).data;
+            const farben = [[10, 132, 255], [48, 184, 80], [255, 138, 0], [255, 45, 120], [175, 82, 222]];
+            out.px = farben.map(f => { let n = 0; for (let i = 0; i < data.length; i += 4) {
+              if (data[i + 3] > 200 && Math.hypot(data[i] - f[0], data[i + 1] - f[1], data[i + 2] - f[2]) < 60) n++; } return n; });
+          }
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        ok = (res["src"] and res.get("clipRects", 0) >= 1
+              and res.get("teile") == ["#0A84FF", "#30B850", "#FF8A00", "#FF2D78", "#AF52DE"]
+              and all(n >= 3 for n in res.get("px", [])) and len(res.get("px", [])) == 5)
+        return ok, f"{res}"
+    check("Einstellungen: Kategorie „halo.spaces“ zeigt den Ring aus fünf farbigen Teilen, kein leeres Quadrat", pref_halo_category_ring, results)
+
     def options_fast_close():
         # „Own keywords“ speichert beim Tippen verzögert (500 ms). Werden die Einstellungen schneller geschlossen,
         # muss die letzte Eingabe trotzdem gespeichert sein (ein Aufruf erst beim Schließen der Seite kommt nicht

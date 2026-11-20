@@ -280,6 +280,20 @@ Reihenfolge:
           hohem Nutzen (siehe oben); große, die nicht mehr in Zeit oder
           Kontingent passen, bleiben für die nächste Nacht (Grund im Plan).
           (a) und (b) dürfen die Reserve verkleinern (dann nennen).
+          Alters-Platz (Board-Eintrag „Ablauf: Alter der Einträge wirksam
+          machen …“, 20.11.2026; ein Platz je Lauf ist Festlegung des
+          Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): Nach
+          Regel (0), Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der
+          älteste machbare Eintrag laut tests/haeufung.py (Unterabschnitt
+          „Älteste machbare Einträge (Alters-Platz)“, Zeilen „aeltest“) im
+          Plan, Begründung „Alters-Platz“; passt der erste nicht, der nächste
+          der drei. Machbar heißt: nicht „Wartet auf OK“, nicht gesperrt
+          (Worker, wartet auf Push/CI), keine Entscheidung offen; ein
+          Design-Eintrag geht an den Designer (g). Passt keiner in Zeit oder
+          Kontingent, steht der Grund im Plan, und am ältesten steht die Notiz
+          „Entscheidung fehlt seit …“ (Schritt 1a a), wenn eine Entscheidung
+          der Grund ist. Steht er schon aus einem anderen Grund im Plan, zählt
+          das als Alters-Platz.
       (d) Gleichstand: Bugs vor einfachen Features vor Reihen, dann die
           Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben,
           Einstellungen, Chat (Maintainer 11.11.2026); das Alter steckt schon

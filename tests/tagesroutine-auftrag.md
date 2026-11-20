@@ -113,6 +113,13 @@ Plan-Runde („JETZT: Plan-Runde“):
   7 Tage seit Anlage, höchstens +1,5). Innerhalb gleicher Einstufung und gleichen Bereichs kommt ein Eintrag mit
   höherem Alters-Zuschlag zuerst; Schritt 1b, Schwere, Testzeit-Verkürzung, Nutzer-Bugs und Wünsche des Maintainers
   gehen vor. Der Abschnitt „## Plan“ nennt den Zuschlag beim Eintrag.
+- Alters-Platz (gleicher Board-Eintrag; ein Platz je Plan-Runde ist Festlegung des Fable-Agenten, kein Wortlaut): Nach
+  Schritt 1b, Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der älteste machbare Eintrag aus „Älteste machbare
+  Einträge (Alters-Platz)“ derselben Datei (Zeilen „aeltest“ der .tsv) im Plan, im Abschnitt „## Plan“ gekennzeichnet
+  „Alters-Platz“; passt der erste nicht, der nächste der drei. Machbar heißt: nicht „Wartet auf OK“, nicht gesperrt
+  (Worker, wartet auf Push/CI, heute schon bearbeitet), keine Entscheidung offen; Design-Einträge als „design“ (Designer).
+  Passt keiner in Zeit oder Kontingent, steht der Grund im Plan, und bei fehlender Entscheidung die Notiz „Entscheidung
+  fehlt seit …“ (oben) am Eintrag. Steht er schon aus anderem Grund im Plan, zählt das als Alters-Platz.
 - Plan-Datei (Pfad oben), eine Zeile je Eintrag, Tabulator-getrennt, in Bearbeitungsreihenfolge:
     <Item-ID>	<komplex|routine|design>	<Titel>
   „komplex“: mehrere Dateien oder Bereiche, unklare Ursache, Design nach Vorlage, Logik in

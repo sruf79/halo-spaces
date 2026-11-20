@@ -32,6 +32,10 @@ Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): je volle 7 Tage seit 
 tests/board.sh export) +0,5 Nutzenstufe, höchstens +1,5; ohne Datum 0. Wirkt wie die Häufung nur im Nutzen
 (Obergrenze 5 setzt der Planer), unterhalb von Regel 0, Schwere, Testzeit-Verkürzung und Nutzer-Bugs.
 Ausgabe: Abschnitt „Alter (Skript)“ in der .md, Zeilen „alter“ in der .tsv.
+Alters-Platz (gleicher Eintrag, Schritt D): die drei ältesten machbaren Einträge (Todo oder In Progress, nicht „wartet
+auf Push/CI“, keine Notiz „Entscheidung fehlt seit …“, kein laufender Worker, keine Ablauf-, Release- oder Store-Einträge,
+von Reihen nur der kleinste offene Schritt, mit Anlagedatum); Unterabschnitt in der .md, Zeilen „aeltest“ in der .tsv.
+Der Planer setzt den ersten, der in Zeit und Kontingent passt, als „Alters-Platz“ in den Plan.
 
 Aufruf:
   tests/haeufung.py [--eingabe <board.json>] [--aus <Ordner>] [--datum JJJJ-MM-TT] [--stdout]
@@ -286,6 +290,55 @@ def alter_liste(eintraege, datum):
     return sorted(aus, key=lambda x: (-x[1], x[0].id))
 
 
+def _worker_laeuft(text):
+    a = [m.start() for m in re.finditer(r'In Arbeit: worker-', text)]
+    b = [m.start() for m in re.finditer(r'In Arbeit beendet', text)]
+    return bool(a) and (not b or max(a) > max(b))
+
+
+def _reihen_schritt(titel):
+    m = REIHE.search(titel)
+    if not m:
+        return None
+    try:
+        return int(re.match(r'\d+', m.group(1)).group())
+    except (AttributeError, ValueError):
+        return None
+
+
+def aelteste_machbar(items, datum, n=3):
+    """Die n ältesten machbaren Einträge als [(id, Tage, Titel)], älteste zuerst (Gleichstand nach id)."""
+    kandidaten, kleinster = [], {}
+    for d in items:
+        titel = d.get('title') or ''
+        st = d.get('status') or ''
+        stamm = reihen_stamm(titel)
+        k = _reihen_schritt(titel)
+        if stamm and k is not None and st not in ('Done',):
+            kleinster[stamm] = min(k, kleinster.get(stamm, k))
+    for d in items:
+        titel = d.get('title') or ''
+        st = d.get('status') or ''
+        text = d.get('body') if 'body' in d else ((d.get('content') or {}).get('body') or '')
+        text = text or ''
+        if st not in ('Todo', 'In Progress'):
+            continue
+        if st == 'In Progress' and re.search(r'wartet auf Push/CI', text, re.I):
+            continue
+        if re.search(r'Entscheidung fehlt seit', text) or _worker_laeuft(text):
+            continue
+        if re.match(r'\s*(Ablauf|Release|Store)\b', titel):
+            continue
+        stamm, k = reihen_stamm(titel), _reihen_schritt(titel)
+        if stamm and k is not None and kleinster.get(stamm, k) != k:
+            continue
+        t = alter_tage(d.get('createdAt'), datum)
+        if t is None:
+            continue
+        kandidaten.append((d['id'], t, titel))
+    return sorted(kandidaten, key=lambda x: (-x[1], x[0]))[:n]
+
+
 def offen(items):
     return [Eintrag(d) for d in items
             if (d.get('status') or '') not in ('Done', 'Wartet auf OK')]
@@ -305,7 +358,7 @@ def board_lesen():
     raise SystemExit('FEHLER: board.sh export scheiterte (' + ('; '.join(meldungen) or 'board.sh nicht gefunden') + ')')
 
 
-def schreiben(gruppen, zahl, aus, datum, alter=()):
+def schreiben(gruppen, zahl, aus, datum, alter=(), aelteste=()):
     os.makedirs(aus, exist_ok=True)
     md, tsv = os.path.join(aus, f'{datum}-haeufung.md'), os.path.join(aus, f'{datum}-haeufung.tsv')
     jetzt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -339,6 +392,14 @@ def schreiben(gruppen, zahl, aus, datum, alter=()):
     for e, tage, zs in alter:
         z.append(f'- {e.id} {tage} Tage, +{zs:g}: {e.titel}')
         t.append('\t'.join(['alter', e.id, str(tage), f'{zs:g}', '', '', e.titel]))
+    z += ['', '### Älteste machbare Einträge (Alters-Platz)', '',
+          'Ein Platz je Lauf: nach Regel 0, Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der erste davon, der in '
+          'Zeit und Kontingent passt, im Plan, gekennzeichnet „Alters-Platz“ (Design geht an den Designer).', '']
+    if not aelteste:
+        z.append('Kein machbarer Eintrag mit Anlagedatum.')
+    for rang, (i, tage, titel) in enumerate(aelteste, 1):
+        z.append(f'{rang}. {i} {tage} Tage: {titel}')
+        t.append('\t'.join(['aeltest', str(rang), i, str(tage), '', '', titel]))
     z.append('')
     for pfad, zeilen in ((md, z), (tsv, t)):
         with open(pfad + '.neu', 'w') as f:
@@ -362,11 +423,13 @@ def main():
     eintraege = offen(items)
     gruppen = gruppen_bilden(eintraege)
     alter = alter_liste(eintraege, a.datum)
-    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum, alter)
+    aelteste = aelteste_machbar(items, a.datum)
+    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum, alter, aelteste)
     teile = [f'{g["name"]} {len(g["eintraege"])}' for g in gruppen]
     print(f'Häufung: {len(gruppen)} Gruppen aus {len(eintraege)} offenen Einträgen'
           + (f' ({", ".join(teile)})' if teile else '')
-          + f'; Alter: {len(alter)} Einträge mit Zuschlag (Abschnitt „Alter (Skript)“) – {md}')
+          + f'; Alter: {len(alter)} Einträge mit Zuschlag, Alters-Platz: {len(aelteste)} Kandidaten'
+          + f' (Abschnitt „Alter (Skript)“) – {md}')
 
 
 if __name__ == '__main__':

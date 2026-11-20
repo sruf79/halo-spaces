@@ -17023,6 +17023,42 @@ Neu
         return ok, f"{res}"
     check("Adressbuch im Hintergrund: Kopfzeile der Mailliste bleibt, wenn sich Kontakte ändern", ab_background_header, results)
 
+    def ab_count_without_lists():
+        # Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten (die stehen bei Thunderbird als Zeilen
+        # zwischen den Kontakten; Apple Kontakte zählt nur Kontakte); in der gewählten Liste ihre Mitglieder
+        # (über OPEN_BOOKS_JS: erst nach halos Hooks und dem ersten Durchgang von hookLastContact das Buch wechseln, sonst
+        # springt die Rückkehr zum zuletzt gewählten Kontakt ins gemerkte Buch – CI 19.11., Lauf 44431090252: rows 5)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");""" + OPEN_BOOKS_JS + r"""
+          const tab = abTab, ab = cw; await ruhig(300);
+          const list = ab.cardsPane.cardsList;
+          const count = () => d.querySelector("#mcListHeader .mc-lh-count")?.textContent;
+          const book = MailServices.ab.getDirectoryFromId(MailServices.ab.newAddressBook("Halo Zählbuch", "", Ci.nsIAbManager.JS_DIRECTORY_TYPE));
+          const out = {};
+          try {
+            const mk = (name, mail) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+              c.displayName = name; c.primaryEmail = mail; return book.addCard(c); };
+            const a = mk("Zora Zählt", "zora@example.invalid"), b = mk("Yann Zählt", "yann@example.invalid");
+            const l = Cc["@mozilla.org/addressbook/directoryproperty;1"].createInstance(Ci.nsIAbDirectory);
+            l.isMailList = true; l.dirName = "Halo Zählliste"; l.listNickName = "halozaehl";
+            const ml = book.addMailList(l); ml.addCard(a);
+            await bis(() => ab.booksList.getIndexForUID(book.UID) >= 0, "neues Adressbuch in der Liste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(book.UID);
+            await bis(() => list.view?.rowCount == 3, "drei Zeilen (zwei Kontakte, eine Liste)", 5000); await ruhig(600);
+            out.rows = list.view.rowCount; out.book = count();
+            await bis(() => ab.booksList.getIndexForUID(ml.UID) >= 0, "Liste in der Adressbuchliste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(ml.UID);
+            await bis(() => list.view?.rowCount == 1, "ein Mitglied", 5000); await ruhig(600);
+            out.list = count();
+          } finally {
+            tm.closeTab(tab); await ruhig(300);
+            MailServices.ab.deleteAddressBook(book.URI); await ruhig(300);
+          }
+          return out;""")
+        ok = res.get("rows") == 3 and res.get("book") == "2 contacts" and res.get("list") == "1 contact"
+        return ok, f"{res}"
+    check("Adressbuch: Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten", ab_count_without_lists, results)
+
     def ab_avatar_recycle():
         # Kontaktzeilen werden beim Scrollen wiederverwendet: lädt das Foto des
         # neuen Kontakts nicht, erscheinen seine Initialen (nicht die des vorigen)
@@ -17040,6 +17076,30 @@ Neu
           return out;""")
         return res["loaded"] and res["hidden"] and res["letters"] == "BN", f"{res}"
     check("Adressbuch: wiederverwendete Kontaktzeile zeigt bei defektem Foto die eigenen Initialen", ab_avatar_recycle, results)
+
+    def ab_focus_hidden_search():
+        # Thunderbird fokussiert sein (bei uns ausgeblendetes) Suchfeld über der Liste,
+        # etwa beim Abbrechen eines neuen Kontakts: der Fokus landet in der
+        # Kontaktliste statt im Nichts (Pfeiltasten wirken ohne Klick)
+        res = m.js(OPEN_BOOKS_JS + r"""
+          const ad = cw.document, body = cw.cardsPane.cardsList.table.body;
+          await until(() => cw.__mcHeaderHook, 5000);
+          const header = ad.getElementById("cardsPaneHeader");
+          const hidden = !header.getClientRects().length;
+          const where = () => ad.activeElement == body ? "list" : (ad.activeElement?.id || ad.activeElement?.localName || "none");
+          // neuer Kontakt aus der Toolbar (Fokus nicht in der Liste), dann Abbrechen
+          cw.detailsPane.editNewContact(); await ruhig(600);
+          cw.detailsPane.isDirty = false;
+          ad.getElementById("cancelEditButton").click(); await ruhig(400);
+          const afterCancel = where();
+          // direkter Aufruf wie bei leerer Liste
+          ad.getElementById("editButton")?.blur(); body.blur();
+          cw.cardsPane.searchInput.focus(); await ruhig(100);
+          const direct = where();
+          tm.closeTab(abTab); await toMail();
+          return { hidden, afterCancel, direct };""")
+        return res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
+    check("Adressbuch: Fokus auf das ausgeblendete Suchfeld über der Liste landet in der Kontaktliste (Abbrechen eines neuen Kontakts)", ab_focus_hidden_search, results)
 
     def ab_dedupe_selection():
         # Dubletten, die per Sync dazukommen, werden beim nächsten Sortieren

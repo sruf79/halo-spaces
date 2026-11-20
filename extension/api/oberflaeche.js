@@ -532,7 +532,25 @@ class EnhancerOberflaeche {
       search?.addEventListener("autocomplete", update);
       const mo = new cw.MutationObserver(update);
       mo.observe(list, { childList: true, subtree: true });
+      // Thunderbird setzt den Fokus an mehreren Stellen auf sein Suchfeld über der
+      // Liste (Abbrechen eines neuen Kontakts, letzter Kontakt gelöscht, leere
+      // Liste); das ist ausgeblendet (Suche oben in der Toolbar), der Fokus ginge
+      // ins Leere und Pfeiltasten wirkten erst nach einem Klick – dann in die
+      // Kontaktliste wie Apple Kontakte
+      const ownFocus = search && !Object.hasOwn(search, "focus");
+      if (ownFocus) {
+        const focusSearch = search.focus;
+        search.focus = function (...args) {
+          if (!this.getClientRects().length && list.table?.body) {
+            return list.table.body.focus();
+          }
+          return focusSearch.apply(this, args);
+        };
+      }
       this.addWinRestorer(cw, () => {
+        if (ownFocus) {
+          delete search.focus;
+        }
         books.removeEventListener("select", update);
         search?.removeEventListener("autocomplete", update);
         mo.disconnect();
@@ -543,7 +561,17 @@ class EnhancerOberflaeche {
       const row = books.getRowAtIndex?.(books.selectedIndex) || books.selectedRow;
       const name = row?.querySelector(".bookRow-name, .listRow-name, span")?.textContent || row?.textContent || "";
       title.textContent = name.trim();
-      const n = list.view?.rowCount ?? 0;
+      // nur Kontakte zählen: Verteilerlisten stehen bei Thunderbird als eigene Zeilen
+      // zwischen den Kontakten, Apple Kontakte zählt sie nicht mit
+      const view = list.view;
+      let n = view?.rowCount ?? 0;
+      if (view?.getCardFromRow) {
+        for (let i = n - 1; i >= 0; i--) {
+          if (view.getCardFromRow(i)?.isMailList) {
+            n--;
+          }
+        }
+      }
       count.textContent = tr(n == 1 ? "{n} contact" : "{n} contacts", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) });
     } catch (e) {
       log("ab header error", e);

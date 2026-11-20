@@ -4482,6 +4482,21 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
 
+    def compose_no_title():
+        # Kein Titeltext („Write: …“) im Verfassen-Fenster (Maintainer 19.11.2026: „das fenster hat eine überschrift
+        # welche ausgeblendet werden muss“); der Fenstertitel selbst bleibt für Menü „Window“ und Fensterliste.
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann zählt nur der Titel des Dokuments.
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({ subject: "Halo Entwurf Titel" }, async (cw, cd) => {
+            await till(() => cd.title.includes("Halo Entwurf Titel"), 4000);
+            const tl = cd.getElementById("titlebar-title-label");
+            const shown = tl && tl.getBoundingClientRect().width > 0;
+            return { label: tl ? { shown, visibility: cw.getComputedStyle(tl).visibility, text: tl.textContent } : null, doc: cd.title }; });""")
+        lab = res.get("label")
+        ok = (lab is None or not lab.get("shown") or lab.get("visibility") == "hidden") and "Halo Entwurf Titel" in res.get("doc", "")
+        return ok, f"{res}"
+    check("Verfassen: kein Titeltext im Fenster, der Fenstertitel bleibt für Fensterliste und Menü „Window“", compose_no_title, results)
+
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
           return await withCompose({ body: "<p>Hallo Anna,</p><p>das ist ein Testentwurf mit einer Liste.</p>" }, async (cw, cd) => {

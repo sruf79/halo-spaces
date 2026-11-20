@@ -2714,8 +2714,10 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
 }
 
 /* … und ohne Betreff in der Titelleiste – er steht im Mailkopf direkt
-   darunter; der Streifen bleibt zum Verschieben und für die Fensterknöpfe */
-:root[windowtype="mail:messageWindow"] #titlebar-title-label {
+   darunter; der Streifen bleibt zum Verschieben und für die Fensterknöpfe.
+   Im Verfassen-Fenster ebenso kein Titeltext („Write: …“). Nur ausgeblendet,
+   der Fenstertitel bleibt für Menü „Window“ und Fensterliste */
+:root:is([windowtype="mail:messageWindow"], [windowtype="msgcompose"]) #titlebar-title-label {
   visibility: hidden !important;
 }
 

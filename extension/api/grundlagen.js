@@ -301,8 +301,37 @@ function hitRanges(text, needle) {
   return ranges;
 }
 
-// Suchbegriff in einem Element gelb hinterlegen (nur Text, per DOM)
-function markHits(el, term) {
+// Zu markierende Stellen in text: die Fundstellen von needle (klein
+// geschrieben) und dazu jeder Name aus wholes ganz, Wort für Wort (die
+// Lücken bleiben frei). So wird wie in Apple Mail der angezeigte Name
+// markiert, wenn der Suchbegriff nur auf die nicht sichtbare Adresse passt.
+// Sortiert, Überlappungen zusammengelegt
+function markRanges(text, needle, wholes = []) {
+  const ranges = hitRanges(text, needle);
+  for (const whole of wholes) {
+    const name = (whole || "").trim().toLowerCase();
+    for (const [at, to] of name ? hitRanges(text, name) : []) {
+      for (const word of text.slice(at, to).matchAll(/\S+/g)) {
+        ranges.push([at + word.index, at + word.index + word[0].length]);
+      }
+    }
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) {
+      last[1] = Math.max(last[1], range[1]);
+    } else {
+      merged.push([...range]);
+    }
+  }
+  return merged;
+}
+
+// Suchbegriff in einem Element gelb hinterlegen (nur Text, per DOM); Namen
+// in wholes ganz (siehe markRanges)
+function markHits(el, term, wholes = []) {
   if (!el) {
     return;
   }
@@ -322,7 +351,7 @@ function markHits(el, term) {
   }
   for (const node of nodes) {
     const text = node.nodeValue;
-    const ranges = hitRanges(text, needle);
+    const ranges = markRanges(text, needle, wholes);
     if (!ranges.length) {
       continue;
     }

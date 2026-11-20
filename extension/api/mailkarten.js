@@ -118,7 +118,7 @@ class EnhancerMailkarten {
     if (dateEl && hdr.date) {
       dateEl.textContent = appleListDate(hdr.date / 1000);
     }
-    this.markSearchHits(win, row);
+    this.markSearchHits(win, row, hdr, outgoing);
   }
 
   // Zeigt die Karte Empfänger statt Absender? Wie Thunderbird: in Ordnern für
@@ -168,14 +168,34 @@ class EnhancerMailkarten {
   }
 
   // Suchtreffer in Absender, Betreff und Vorschau gelb markieren – nur in der
-  // Suche (Zeilen werden wiederverwendet: sonst alte Markierungen entfernen)
-  markSearchHits(win, row) {
+  // Suche (Zeilen werden wiederverwendet: sonst alte Markierungen entfernen).
+  // Passt der Begriff auf die Adresse einer Person in der Karte, steht die
+  // Adresse dort aber nicht: wie Apple Mail deren angezeigten Namen ganz
+  // markieren (eine Person: der ganze Text, sonst ihr Name bzw. Label)
+  markSearchHits(win, row, hdr = null, outgoing = false) {
     const term = this.isSearchFolder(win.gFolder) ? this.mailSearchTerm : "";
-    for (const el of [row.querySelector(".sender"), row.querySelector(".subject"), row.querySelector(".mc-preview")]) {
+    const sender = row.querySelector(".sender");
+    for (const el of [sender, row.querySelector(".subject"), row.querySelector(".mc-preview")]) {
       if (el && (term || el.querySelector("mark.mc-hit"))) {
-        markHits(el, term);
+        markHits(el, term, el == sender ? this.addressHitNames(el, hdr, outgoing, term) : []);
       }
     }
+  }
+
+  addressHitNames(el, hdr, outgoing, term) {
+    const needle = (term || "").trim().toLowerCase();
+    if (!hdr || needle.length < 2) {
+      return [];
+    }
+    const persons = personsFor(hdr, outgoing);
+    const hits = persons.filter(p => p.email && p.email.includes(needle));
+    if (!hits.length) {
+      return [];
+    }
+    if (persons.length == 1) {
+      return [el.textContent];
+    }
+    return hits.flatMap(p => [p.name, senderLabel(p.name, p.email)]).filter(Boolean);
   }
 
   // Lokale Ordner nur zusammenklappen, wenn darin nichts Eigenes liegt
@@ -1836,7 +1856,8 @@ class EnhancerMailkarten {
         try {
           const hdr = this.hdrForRow(row);
           preview.textContent = cleanPreview(hdr?.getStringProperty("preview"));
-          this.markSearchHits(win, row);
+          // mit Mail, sonst verliert der Name seine Markierung bei Adress-Treffern
+          this.markSearchHits(win, row, hdr, hdr ? this.isOutgoingView(win, row) : false);
         } catch {} // Kandidat fürs Protokoll: Vorschau einer Zeile nicht gesetzt (Zeile schon weg ist gewollt)
       }
     }

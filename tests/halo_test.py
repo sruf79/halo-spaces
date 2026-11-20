@@ -21266,6 +21266,51 @@ Neu
         return ok, f"{res}"
     check("Suche: alle Postfächer, Datum, Trefferzahl, Markierung, zurück zum Ordner", mail_search, results)
 
+    def mail_search_address():
+        # Suche nach einer Adresse, die in der Karte nicht steht: wie Apple Mail ist der angezeigte Name des Absenders
+        # ganz gelb, Wort für Wort (die Lücke bleibt frei); ein Wort aus dem Betreff markiert weiter nur das Wort
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Adresssuche")) { root.createSubfolder("Adresssuche", null); await bis(() => root.containsChildNamed("Adresssuche"), "Ordner Adresssuche angelegt", 3000); await ruhig(800); }
+          const f = root.getChildNamed("Adresssuche"); const lf = f.QueryInterface(Ci.nsIMsgLocalMailFolder);
+          if (!f.getTotalMessages(false)) {
+            lf.addMessage("From: =?UTF-8?Q?Christian_Brandst=C3=A4tter?= <christian.brandstaetter@imba.example.invalid>\r\nTo: Halo <h@example.invalid>\r\nSubject: Projektplan Quartal\r\nDate: Wed, 14 Oct 2026 10:00:00 +0200\r\nMessage-ID: <halo-adresssuche-1@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nBis bald.\r\n");
+            await bis(() => f.getTotalMessages(false) >= 1, "Testmail in Adresssuche gespeichert", 4000); await ruhig(1000);
+          }
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 1, "Ordner Adresssuche angezeigt", 5000); await ruhig(800);
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const fire = (type, text) => bar.dispatchEvent(new CustomEvent(type, { detail: text, cancelable: true }));
+          const card = () => [...a3.document.querySelectorAll('#threadTree tr[is="thread-card"]')].find(r => /Projektplan/.test(r.querySelector(".subject")?.textContent || ""));
+          const marks = sel => [...(card()?.querySelectorAll(sel + " mark.mc-hit") || [])].map(e => e.textContent);
+          const out = {};
+          for (const [key, term] of [["full", "christian.brandstaetter@imba.example.invalid"], ["part", "imba.example"], ["subject", "projektplan"]]) {
+            fire("search", term);
+            await until(() => a3.gDBView?.rowCount == 1 && card() && !a3.document.documentElement.hasAttribute("mc-search-stage"), 8000); await ruhig(600);
+            out[key] = { rows: a3.gDBView?.rowCount, sender: card()?.querySelector(".sender")?.textContent, senderMarks: marks(".sender"), subjectMarks: marks(".subject") };
+            if (key == "full") {
+              // Vorschau kommt erst nach dem Zeichnen der Karte (erste Suche nach neuer Mail, unter Linux die Regel):
+              // der Nachtrag der Vorschau markiert neu und darf den Namen nicht verlieren
+              const pv = card()?.querySelector(".mc-preview"); if (pv) { pv.textContent = ""; }
+              const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+              Cu.evalInSandbox("enhancer.refreshPreviewsNow()", ExtensionParent.GlobalManager.getExtension("__ADDON__").experimentAPIManager.global);
+              out.late = { preview: card()?.querySelector(".mc-preview")?.textContent, senderMarks: marks(".sender") };
+            }
+          }
+          fire("autocomplete", ""); await bis(() => !a3.document.documentElement.hasAttribute("mc-search-stage") && a3.gFolder?.name == "Adresssuche", "zurück im Ordner Adresssuche", 5000); await ruhig(800);
+          const hs = [...f.messages]; if (hs.length) f.deleteMessages(hs, null, true, false, null, false);
+          out.visibility = d.visibilityState;
+          return out;""".replace("__ADDON__", ADDON_ID))
+        if res["visibility"] != "visible":
+            return True, f"Testfenster verdeckt – Markierung braucht gezeichnete Karten, übersprungen {res}"
+        name = ["Christian", "Brandst\u00e4tter"]
+        ok = (res["full"]["senderMarks"] == name and res["late"]["senderMarks"] == name and res["late"]["preview"] and res["part"]["senderMarks"] == name
+              and res["subject"]["senderMarks"] == [] and res["subject"]["subjectMarks"] == ["Projektplan"]
+              and res["full"]["subjectMarks"] == [])
+        return ok, f"{res}"
+    check("Suche: Adresse markiert den angezeigten Namen des Absenders ganz, Wort für Wort", mail_search_address, results)
+
     def calendar_search():
         # Suchfeld oben im Kalender sucht Termine statt Mails (GitHub #53), Treffer wie bei Apple Kalender im rechten
         # Bereich neben der Ansicht (240 px, Terminliste unten bleibt zu): nach Tagen gruppiert mit „Today“ (rot, auch

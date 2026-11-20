@@ -107,6 +107,59 @@ SIDEBAR_JS = r"""
 """
 
 
+# Sortierung im Sammelordner „All Inboxes“ muss Neustart und Update überstehen (zwei Konten, Konversationen an, erst nach
+# Datum, dann nach Stern sortiert): zwei Konten mit Posteingang anlegen, Sammelordner einschalten, dort so sortieren. SORT_JS liest danach die Sortierung der Ansicht
+# und die im Sammelordner gespeicherte (dbFolderInfo)
+SORT_SETUP_JS = r"""
+  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+  const F = Ci.nsMsgFolderFlags, O = Ci.nsMsgViewSortOrder;
+  try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+  for (const host of ["halo-gmail.invalid", "halo-icloud.invalid"]) {
+    let srv = MailServices.accounts.findServer("nobody", host, "none");
+    if (!srv) {
+      srv = MailServices.accounts.createIncomingServer("nobody", host, "none");
+      MailServices.accounts.createAccount().incomingServer = srv;
+    }
+    const root = srv.rootFolder;
+    if (!root.getFolderWithFlags(F.Inbox)) {
+      if (!root.containsChildNamed("Inbox")) root.createSubfolder("Inbox", null);
+      root.getChildNamed("Inbox").setFlag(F.Inbox);
+    }
+  }
+  const a3 = await bis(() => w.gTabmail?.currentAbout3Pane?.folderPane?.isInitialized && w.gTabmail.currentAbout3Pane, "Mail-Tab", 10000);
+  if (!a3.folderPane.activeModes.includes("smart")) a3.folderPane.activeModes = ["smart", ...a3.folderPane.activeModes];
+  const { SmartMailboxUtils } = ChromeUtils.importESModule("resource:///modules/SmartMailboxUtils.sys.mjs");
+  const smart = await bis(() => SmartMailboxUtils.getSmartMailbox().rootFolder.getFolderWithFlags(F.Inbox), "All Inboxes", 8000);
+  for (let i = 0; i < 20 && a3.gViewWrapper?.displayedFolder != smart; i++) { a3.displayFolder(smart.URI); await wait(250); }
+  await bis(() => a3.gDBView && a3.gViewWrapper?.displayedFolder == smart, "All Inboxes gezeigt", 8000);
+  a3.gViewWrapper.showThreaded = true; await wait(300);
+  a3.gViewWrapper.sort("dateCol", O.descending); await wait(300);
+  a3.gViewWrapper.sort("flaggedCol", O.descending); await wait(500);
+  return 1;
+"""
+
+SORT_JS = r"""
+  const F = Ci.nsMsgFolderFlags;
+  const a3 = await bis(() => w.gTabmail?.currentAbout3Pane?.folderPane?.isInitialized && w.gTabmail.currentAbout3Pane, "Mail-Tab", 10000);
+  const { SmartMailboxUtils } = ChromeUtils.importESModule("resource:///modules/SmartMailboxUtils.sys.mjs");
+  const smart = SmartMailboxUtils.getSmartMailbox().rootFolder.getFolderWithFlags(F.Inbox);
+  if (!smart) return { fehlt: "All Inboxes" };
+  const shown = a3.gViewWrapper?.displayedFolder == smart;
+  for (let i = 0; i < 20 && a3.gViewWrapper?.displayedFolder != smart; i++) { a3.displayFolder(smart.URI); await wait(250); }
+  await bis(() => a3.gDBView && a3.gViewWrapper?.displayedFolder == smart, "All Inboxes gezeigt", 8000);
+  await wait(500);
+  const v = a3.gDBView, i = smart.msgDatabase.dBFolderInfo;
+  return { shown, view: [v.sortType, v.sortOrder, v.secondarySortType, v.secondarySortOrder], threaded: a3.gViewWrapper.showThreaded,
+           db: [i.sortType, i.sortOrder], modes: a3.folderPane.activeModes };
+"""
+
+
+def sort_check(results, m, when, want):
+    s = m.js(SORT_JS)
+    ok = not s.get("fehlt") and s["view"] == want["view"] and s["threaded"] == want["threaded"]
+    results.append((f"Sortierung in All Inboxes erhalten ({when})", ok, f"{s} (erwartet {want['view']})"))
+
+
 def sidebar_check(results, m, when):
     s = m.js(SIDEBAR_JS)
     if s.get("fehlt"):
@@ -168,6 +221,18 @@ def start(tb, profile, port):
     # (nach dem Deinstallieren wären Meldungen aus background.js & Co. sonst nicht mehr als unsere erkennbar)
     ht.konsole_start(m)
     return proc, m
+
+
+def quit_normal(m, port, proc):
+    """Beendet Thunderbird wie ein Nutzer (Datei > Beenden): Ordner-Datenbanken werden dabei geschrieben – das erzwungene
+    Beenden von ht.stop_thunderbird lässt z. B. eine geänderte Sortierung im Sammelordner ungespeichert. Klappt es nicht
+    binnen 60 s, doch erzwungen."""
+    try:
+        m.js("w.setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 100); return 1;")
+        proc.wait(60)
+    except Exception as e:  # gewollt: Marionette weg oder Zeit abgelaufen – dann wie bisher erzwungen
+        print(f"Hinweis: normales Beenden gescheitert ({e}), erzwungen", flush=True)
+        ht.stop_thunderbird(port, proc)
 
 
 def konsole(m, wann, board=True):
@@ -283,12 +348,18 @@ def main():
         """ + STATE_JS)
         ok = before.get("version") == args.old and before.get("active")
         results.append(("Ausgangslage: alte Version aktiv", ok, f"{before.get('version')} aktiv={before.get('active')}"))
+        m.js(SORT_SETUP_JS)
+        sort_want = m.js(SORT_JS)
+        # 26 = byFlagged (nsMsgViewSortType); darunter nach Eingang, wie Thunderbird es in Konversationen setzt
+        results.append(("Ausgangslage: All Inboxes nach Stern sortiert, mit Konversationen",
+                        sort_want.get("view", [None])[0] == 26 and sort_want.get("threaded"), str(sort_want)))
         # earlyTheme wirkt erst ab dem nächsten Start (userChrome.css im Profil): wie beim Nutzer einmal neu starten,
         # bevor das Update kommt
-        ht.stop_thunderbird(args.port, proc)
+        quit_normal(m, args.port, proc)
         proc = None
         proc, m = start(args.tb, profile, args.port)
         m.js("await wait(2000); return 1;")  # wie oben: Fenster fertig aufgebaut
+        sort_check(results, m, "Neustart ohne Update", sort_want)
 
         # 2. Update über den Add-on-Manager (wie „Nach Updates suchen“)
         upd = m.js(r"""
@@ -338,11 +409,12 @@ def main():
             results.append(("zurückgestelltes Update ohne Neustart eingespielt (Install Now)",
                             now.get("how") == "ended" and now.get("version") == target, str(now)))
         sidebar_check(results, m, "Update ohne Neustart")
+        sort_check(results, m, "Update ohne Neustart", sort_want)
         # alte Version und Update im laufenden Thunderbird (Abbau der alten, Start der neuen Version)
         konsole(m, "alte Version und Update im laufenden Thunderbird", board=False)
     finally:
         if proc:
-            ht.stop_thunderbird(args.port, proc)
+            quit_normal(m, args.port, proc)
 
     # 3. Neustart: alles noch da?
     proc = None
@@ -351,6 +423,7 @@ def main():
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
         sidebar_check(results, m, "nach Neustart")
+        sort_check(results, m, "nach Neustart", sort_want)
 
         # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
         #    Toolbar bleibt)

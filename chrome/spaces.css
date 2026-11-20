@@ -5492,6 +5492,9 @@ addon-card .addon-inline-options {
 #MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) {
   box-sizing: border-box !important;
   min-height: var(--mt-compose-row-h, 37px) !important;
+  /* ohne Thunderbirds Abstand über und unter den Empfängerzeilen (ESR:
+     margin-block 6px, die Zeilen lagen 43 statt 37 px auseinander) */
+  margin-block: 0 !important;
   margin-inline: var(--mt-compose-inset, 20px) 0 !important;
   border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
 }
@@ -6037,15 +6040,22 @@ addon-card .addon-inline-options {
    ohne Haarlinie (37 px − Linie), Texte, Pillen und das Absender-Feld darin
    senkrecht mittig. Das Empfängerfeld bekommt oben und unten so viel Luft,
    dass eine Zeile Pillen mittig steht (Höhe einer Pillenzeile: Mac 26 px,
-   Windows und Linux 30 px); umbrochene Pillen machen nur das Feld höher, die
-   erste Pillenzeile bleibt auf der Höhe der Beschriftung */
+   Windows 30 px, Linux 25 px – in der Linux-CI gemessen, mit 30 px stand die
+   erste Pille 2,5 px über der Beschriftung); umbrochene Pillen machen nur das
+   Feld höher, die erste Pillenzeile bleibt auf der Höhe der Beschriftung */
 #MsgHeadersToolbar {
   --mt-compose-line-h: 26px;
 }
 
-@media not (-moz-platform: macos) {
+@media (-moz-platform: windows) {
   #MsgHeadersToolbar {
     --mt-compose-line-h: 30px;
+  }
+}
+
+@media (-moz-platform: linux) {
+  #MsgHeadersToolbar {
+    --mt-compose-line-h: 25px;
   }
 }
 

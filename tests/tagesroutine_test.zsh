@@ -17,7 +17,7 @@ lauf() {
   HALO_TAGESROUTINE_CONF=${4:-$T/leer.conf} HALO_SPAR_DATEI=${5:-$T/keine.tsv} HALO_PAUSEN_DATEI=$T/pausen.txt \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/volldampf-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_DROSSEL_STUFE=${HALO_DROSSEL_STUFE-0} HALO_DROSSEL_DATEI=${HALO_DROSSEL_DATEI:-$T/drossel.txt} HALO_DROSSEL_VERLAUF=${HALO_DROSSEL_VERLAUF:-$T/verlauf.json} \
-  HALO_AS_CONF=${HALO_AS_CONF:-$T/leer.conf} HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
+  HALO_AS_CONF=${HALO_AS_CONF:-$T/leer.conf} HALO_KONTINGENT_JSON=${HALO_KONTINGENT_JSON:-$T/kein-kontingent.json} HALO_ZR_TB=${HALO_ZR_TB:-0} zsh $SKRIPT --trocken $REPO 2>&1
 }
 # pruefe <Name> <Ausgabe> <Muster …>  (alle Muster müssen vorkommen, grep -E)
 pruefe() {
@@ -107,7 +107,7 @@ mkdir -p $T/kein-wt/x
 pruefe "Arbeitskopie: fremder Ordner ohne .git wird nicht benutzt (Exitcode 1)" \
   "$(HALO_TR_WT=$T/kein-wt zsh $SKRIPT --arbeitskopie pruef/tagesroutine-20261120 $K 2>&1; print rc=$?)" 'keine Arbeitskopie' '^rc=1$'
 pruefe "Skript: Claude-Runde im Arbeitsordner, Prüfzweig aus dem Zweig, nie aus main" "$(<$SKRIPT)" \
-  '\( cd \$WT && claude -p' 'push -q origin refs/heads/\$PRUEF:refs/heads/\$PRUEF' '^Arbeitsordner: \$WT'
+  '\( cd \$WT && claude -p' 'push -q origin refs/heads/\$\{PRUEF\}:refs/heads/\$\{PRUEF\}' '^Arbeitsordner: \$WT'
 grep -q 'push -q origin main:' $SKRIPT && { print "FEHLER Skript schiebt noch main auf den Prüfzweig"; FEHLER=1 }
 # „nichts_passend“ (Sparmodus) beendet den Lauf nicht mehr: warten bis zur nächsten vollen Stunde, nur bis 20:30
 np() { HALO_JETZT=$1 HALO_TAGESROUTINE_CONF=$T/leer.conf HALO_PAUSEN_DATEI=$T/pausen.txt zsh $SKRIPT --nichts-passend $REPO 2>&1 }
@@ -190,10 +190,16 @@ pruefe "Drossel Stufe 3 ändert ein Warten wegen des 5-Stunden-Fensters nicht" "
   'Entscheidung: warten bis 11:00 – 5-Stunden-Fenster 85 %'
 pruefe "Drossel ohne Volldampf: keine Zeile, keine Wirkung" "$(HALO_DROSSEL_STUFE=3 lauf $JD 4)" 'Entscheidung: neu beginnen'
 pruefe "Drossel ohne Volldampf: keine Drossel-Zeile" "$(HALO_DROSSEL_STUFE=3 lauf $JD 4 | grep -c '^Drossel:')" '^0$'
-print -r -- '{"punkte":[{"t":"2026-11-17T03:00:00Z","woche":5},{"t":"2026-11-17T06:00:00Z","woche":20}]}' > $T/verlauf-tr.json
-pruefe "Drossel echt gerechnet (Woche 30, (30−5)/6 h): Stufe 3, nichts Neues bis 11:00" \
-  "$(HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-tr.json HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:00:00+01:00 30 55)" \
-  'Drossel: +Stufe 3 \([0-9]+ Fehlstunden' 'Tempo 4\.17 Punkte/h über 6\.0 h Verlauf' 'Entscheidung: warten bis 11:00'
+# seit 20.11.2026: Verbrauch gegen vergangene Zeit der Kalenderwoche (Di 10:00: 9 h von 168 h = 5,4 %)
+print -r -- '{"stand":"2026-11-17T09:55:00+0100","info":{"unifiedWindows":{"seven_day":{"utilization":0.30,"resetsAt":1795478400}}}}' > $T/kont-tr.json
+pruefe "Drossel echt gerechnet (Woche 30 % gegen Wochenzeit 5,4 %): Stufe 3, nichts Neues bis 11:00" \
+  "$(HALO_DROSSEL_STUFE= HALO_KONTINGENT_JSON=$T/kont-tr.json HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:00:00+01:00 30 55)" \
+  'Drossel: +Stufe 3 \(24\.6 Punkte über der Zeit' 'Wochenzeit 5\.4 % \(Reset Di 01:00, resetsAt\)' 'Entscheidung: warten bis 11:00'
+pruefe "Drossel echt gerechnet, Woche 4 %: Stufe 0, neu beginnen" \
+  "$(HALO_DROSSEL_STUFE= HALO_KONTINGENT_JSON=$T/kont-tr.json HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:00:00+01:00 4 55)" \
+  'Drossel: +Stufe 0 \(1\.4 Punkte unter der Zeit' 'Entscheidung: neu beginnen'
+pruefe "Drossel ohne kontingent.json: Fail-open" \
+  "$(HALO_DROSSEL_STUFE= HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf 2026-11-17T10:00:00+01:00 30 55)" 'Drossel: +Fail-open: kontingent\.json nicht lesbar' 'Entscheidung: neu beginnen'
 # jede zweite Runde (Stufe 2): drossel_anwenden aus dem Skript, ohne Claude
 DA=$(sed -n '/^drossel_anwenden() {/,/^}/p' $SKRIPT)
 # Zweitlesung 19.11.2026: Aussetzen nur nach einer echten Claude-Runde (runde() setzt den Merker), nie bei rotem Prüfzweig
@@ -230,11 +236,14 @@ pruefe "Volldampf angemeldet (Montag): keine Wirkung, nur Vermerk" "$(HALO_VOLLD
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-17T08:00+01:00 98" > $T/volldampf-beendet.txt
 pruefe "Volldampf pausiert (Wochenlimit): normale Regeln, Vermerk" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 30)" \
   'Volldampf pausiert: Wochenlimit erreicht um 17\.11\. 08:00 \(98 %\), wartet auf den freien Reset' 'deutlich darüber' 'Tageslimit 40 eigene'
-# freier Reset (Maintainer 18.11.2026): Anker nach der Marke → Volldampf läuft weiter, Soll bis nächster Reset
+# freier Reset (Maintainer 18.11.2026): Anker nach der Marke → Volldampf läuft weiter; im Volldampf gilt seit 20.11.2026 das
+# Soll der Kalenderwoche (9 h von 168 h = 5,4 %), auch nach dem freien Reset
 print -r -- "anker 2026-11-17T09:00+01:00 98 2" > $T/anker.txt
-pruefe "nach dem freien Reset: Volldampf wieder aktiv, Soll bis nächster Reset" "$(HALO_WOCHENANKER=$T/anker.txt HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 3)" \
-  'Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(pausiert beim Wochenlimit bis zum freien Reset; Soll bis nächster Reset 0\.6 %' \
-  'Soll: +0\.6 % \(bis nächster Reset, freier Reset Di 2026-11-17 09:00\)' 'Entscheidung: neu beginnen'
+pruefe "nach dem freien Reset: Volldampf wieder aktiv, Soll der Kalenderwoche" "$(HALO_WOCHENANKER=$T/anker.txt HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 3)" \
+  'Volldampf aktiv bis 2026-11-24T01:00\+01:00 \(pausiert beim Wochenlimit bis zum freien Reset; freier Reset 17\.11\. 09:00\)' \
+  'Soll: +5\.4 % \(vergangene Zeit der Kalenderwoche\)' 'Entscheidung: neu beginnen'
+pruefe "ohne Volldampf nach dem freien Reset: weiter Soll bis nächster Reset (Alltag unverändert)" "$(HALO_WOCHENANKER=$T/anker.txt lauf $JD 3)" \
+  'Soll: +0\.6 % \(bis nächster Reset, freier Reset Di 2026-11-17 09:00\)'
 rm -f $T/anker.txt
 rm -f $T/volldampf-beendet.txt
 pruefe "Trockenlauf beendet Volldampf nie (Woche 99 %, kein Marker)" "$(HALO_VOLLDAMPF_DATEI=$T/vd.txt lauf $JD 99)" 'Volldampf aktiv'

@@ -236,9 +236,9 @@ pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.pu
 
 # Kontingent-Drossel (19.11.2026, Maintainer: „bitte neon, die drossel-stufe in status.json mitzuliefern“): Feld drossel aus
 # ~/halo-nacht/drossel-stufe.txt (nicht neu gerechnet), nur wenn höchstens 2 h alt; Stufe auch in jedem neuen Verlaufspunkt
-printf '2 17.4 2026-11-19T07:40+01:00 2026-11-19T06:10+01:00\nkeine neuen Worker, Tagesroutine nur jede zweite Runde\nvoll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00\n' > $T/n/drossel-stufe.txt
+printf '2 6.2 2026-11-19T07:40+01:00 2026-11-19T06:10+01:00\nkeine neuen Worker, Tagesroutine nur jede zweite Runde\n6.2 Punkte über der Zeit: Woche 42 %%, Wochenzeit 35.8 %% (Reset Di 01:00, resetsAt)\n' > $T/n/drossel-stufe.txt
 rm -f $VH; lauf
-pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe":2,"text":"keine neuen Worker, Tagesroutine nur jede zweite Runde","grund":"voll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00","seit":"2026-11-19T05:10:00Z","max_worker":0}'
+pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe":2,"text":"keine neuen Worker, Tagesroutine nur jede zweite Runde","grund":"6.2 Punkte über der Zeit: Woche 42 %, Wochenzeit 35.8 % (Reset Di 01:00, resetsAt)","seit":"2026-11-19T05:10:00Z","max_worker":0}'
 pruefe_v "Drossel: Stufe im neuen Verlaufspunkt" '.punkte[-1].drossel == 2'
 print -r -- "0 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
 pruefe "Drossel: altes Format (ohne seit, Wirkung, Grund): seit = Messzeit, Texte null, Stufe 0 ohne Worker-Grenze" '.drossel == {"stufe":0,"text":null,"grund":null,"seit":"2026-11-19T06:40:00Z","max_worker":null}'
@@ -414,4 +414,7 @@ pruefe "Titel: 150 Zeichen ungekürzt (zuletzt, Board in Arbeit), 250 auf 200 mi
 rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
 pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
+# Soll der Kalenderwoche (Maintainer 20.11.2026): Leitstand nimmt kalender_soll mit kontingent.json, nicht mehr wochen_soll
+if grep -q 'kalender_soll \$KJ' $HIER/leitstand-status.zsh && ! grep -q 'wochen_soll 168' $HIER/leitstand-status.zsh; then print "OK      Soll aus kalender_soll (Kalenderwoche, resetsAt)"
+else print "FEHLER  Soll aus kalender_soll (Kalenderwoche, resetsAt)"; FEHLER=1; fi
 exit $FEHLER

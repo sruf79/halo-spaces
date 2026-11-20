@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Prüft den Auslastungswächter tests/auslastung-schleife.zsh (Volldampf, Maintainer 17.11.2026) ohne Claude, ohne
-# Thunderbird, ohne Netz: Entscheidung im Trockenlauf (Sollkurve 48 h, Schwellen, Tag/Nacht, Pausen, Doppelstart,
+# Thunderbird, ohne Netz: Entscheidung im Trockenlauf (Soll der Kalenderwoche, Schwellen, Tag/Nacht, Pausen, Doppelstart,
 # Ende), feste Regeln im Skript und im Auftrag.
 #   zsh tests/auslastung_schleife_test.zsh   eine Zeile OK/FEHLER je Fall, Exitcode 1 bei einem Fehler
 emulate -L zsh
@@ -23,22 +23,26 @@ print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T
 : > $T/leer.conf
 # Aufgabenliste für die Vorprüfung (Maintainer 19.11.2026): Standard ein freier Bug
 print -r -- '{"items":[{"id":"PVTI_frei12345","typ":"Bug","status":"Todo","title":"Mail: freier Bug","body":"Text"}]}' > $T/board.json
-# W [VAR=Wert …]: Trockenlauf; Standard Di 17.11. 15:00 (14 h nach dem Reset, Soll 29,2 %), Woche 27 %, 5 Stunden 40 %,
+# W [VAR=Wert …]: Trockenlauf; Standard Di 17.11. 15:00 (14 h nach dem Reset, Soll der Kalenderwoche 8,3 %), Woche 5 %, 5 Stunden 40 %,
 # 1 Arbeits-Sitzung, kein Fable, kein Nachtlauf, letzter Start lange her
 W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-17T15:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_AS_CONF=$T/leer.conf HALO_AS_DIR=$T/nacht HALO_AS_WT=$T/wt \
-    HALO_AS_WOCHE=27 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
+    HALO_AS_WOCHE=5 HALO_AS_5H=40 HALO_AS_STATUS=allowed HALO_AS_AKTIV=1 HALO_AS_FABLE=0 HALO_AS_NACHTLAUF=nein \
     HALO_AS_LETZTER=0 HALO_AS_NEON_STAND=$T/kein-stand.md HALO_AS_BELEGT= HALO_AS_BOARD=$T/board.json HALO_WOCHENANKER=$T/anker.txt HALO_WOCHENSTAND=$T/stand.txt HALO_ZR_FAELLIG=$T/kein-zf.txt \
-    HALO_DROSSEL_STUFE=0 HALO_DROSSEL_DATEI=$T/drossel.txt HALO_DROSSEL_VERLAUF=$T/verlauf.json HALO_TAGESROUTINE_CONF=$T/leer.conf "$@" zsh $SKRIPT --trocken 2>&1
+    HALO_DROSSEL_STUFE=0 HALO_DROSSEL_DATEI=$T/drossel.txt HALO_DROSSEL_VERLAUF=$T/verlauf.json HALO_TAGESROUTINE_CONF=$T/leer.conf HALO_KONTINGENT_JSON=$T/kein-kontingent.json "$@" zsh $SKRIPT --trocken 2>&1
 }
 
-# Sollkurve (48 h ab Di 00:00 UTC = 01:00 Wiener Zeit)
-pruefe "Soll 15:00 Di: 14 h seit Reset, 29,2 %" "$(W)" 'Soll 29\.2 % \(14\.0 h seit Reset\)'
-pruefe "Soll Mi 13:00: 36 h, 75 %" "$(W HALO_JETZT=2026-11-18T13:00+01:00)" 'Soll 75\.0 % \(36\.0 h'
-pruefe "Soll Do 01:00 (48 h): 100 %, danach gedeckelt" "$(W HALO_JETZT=2026-11-20T12:00+01:00 HALO_AS_WOCHE=90)" 'Soll 100\.0 %'
+# Soll = vergangene Zeit der Kalenderwoche (Maintainer 20.11.2026; Di 00:00 UTC = 01:00 Wiener Zeit, sonst resetsAt)
+pruefe "Soll 15:00 Di: 14 h seit Reset, 8,3 %" "$(W)" 'Soll 8\.3 % \(Kalenderwoche, 14\.0 h seit Reset\)'
+pruefe "Soll Mi 13:00: 36 h, 21,4 %" "$(W HALO_JETZT=2026-11-18T13:00+01:00)" 'Soll 21\.4 % \(Kalenderwoche, 36\.0 h'
+pruefe "Soll Fr 12:00: 83 h, 49,4 % (keine 48-h-Kurve mehr)" "$(W HALO_JETZT=2026-11-20T12:00+01:00 HALO_AS_WOCHE=40)" 'Soll 49\.4 %' 'starten opus unter dem Soll'
+print -r -- '{"stand":"2026-11-17T14:55:00+0100","info":{"unifiedWindows":{"seven_day":{"utilization":0.05,"resetsAt":1795482000}}}}' > $T/kont-ra.json
+pruefe "Soll aus resetsAt von kontingent.json (Reset Di 02:00 statt 01:00 → 13 h, 7,7 %)" "$(W HALO_KONTINGENT_JSON=$T/kont-ra.json)" 'Soll 7\.7 % \(Kalenderwoche, 13\.0 h seit Reset\)'
+print -r -- '{"stand":"2026-11-17T14:55:00+0100","info":{"unifiedWindows":{"seven_day":{"utilization":0.05,"resetsAt":1794873600}}}}' > $T/kont-alt.json
+pruefe "resetsAt schon vorbei (Di 17.11. 01:00): Rückfall auf die Resetregel" "$(W HALO_KONTINGENT_JSON=$T/kont-alt.json)" 'Soll 8\.3 % \(Kalenderwoche, 14\.0 h seit Reset\)'
 print -r -- "volldampf 2026-11-10T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T/vd2.txt
-pruefe "Reset Di 00:59 Wiener Zeit gehört zur Vorwoche (168,0 h, Soll 100 %)" "$(W HALO_VOLLDAMPF_DATEI=$T/vd2.txt HALO_JETZT=2026-11-17T00:59+01:00 HALO_AS_WOCHE=50)" 'Soll 100\.0 % \(168\.0 h'
+pruefe "Reset Di 00:59 Wiener Zeit gehört zur Vorwoche (168,0 h, Soll 100 %)" "$(W HALO_VOLLDAMPF_DATEI=$T/vd2.txt HALO_JETZT=2026-11-17T00:59+01:00 HALO_AS_WOCHE=50)" 'Soll 100\.0 % \(Kalenderwoche, 168\.0 h'
 pruefe "Reset Di 01:00 Wiener Zeit: 0 h" "$(W HALO_JETZT=2026-11-17T01:00+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0 HALO_AS_AKTIV=0)" '0\.0 h seit Reset'
 
 # Tag: Schwellen
@@ -64,7 +68,7 @@ pruefe "5 Stunden 70 %, ein tokenarmer Worker läuft schon: warten (TOKENARM_MAX
 pruefe "5 Stunden 69 %: noch tokenschwer (opus, Klasse normal)" "$(W HALO_AS_5H=69 HALO_AS_TOKENARM=0)" 'starten opus unter dem Soll' 'Klasse normal'
 pruefe "5 Stunden 75 %, Soll weit verfehlt: kein Fable, nur tokenarm" "$(W HALO_AS_5H=75 HALO_AS_WOCHE=5 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm'
 pruefe "5 Stunden 75 %, über dem Soll: warten (Soll gilt auch für tokenarm)" "$(W HALO_AS_5H=75 HALO_AS_WOCHE=35 HALO_AS_TOKENARM=0)" 'warten im Soll'
-pruefe "5 Stunden 75 %, nachts unter Soll: tokenarm" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm .*nachts'
+pruefe "5 Stunden 75 %, nachts unter Soll: tokenarm" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=10 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'starten sonnet tokenarm .*nachts'
 print -l "MODELL_TOKENARM=haiku" "TOKENARM_MAX=2" > $T/tokenarm.conf
 pruefe "MODELL_TOKENARM und TOKENARM_MAX aus der Datei" "$(W HALO_AS_CONF=$T/tokenarm.conf HALO_AS_5H=75 HALO_AS_TOKENARM=1)" 'starten haiku tokenarm'
 mkdir -p $T/nacht/auslastung
@@ -86,17 +90,18 @@ pruefe "Fenster-Takt: Wächter rechnet nicht selbst" "$(grep -vE '^[[:space:]]*#
 pruefe "Drossel Stufe 1: kein neuer Worker, auch bei 5 Stunden 40 % (unter FENSTER_MIN)" "$(W HALO_DROSSEL_STUFE=1 HALO_AS_WOCHE=35)" '^Prüfung:  warten Drossel Stufe 1'
 pruefe "Drossel Stufe 2 und 3: kein Worker, auch kein tokenarmer" "$(W HALO_DROSSEL_STUFE=2; W HALO_DROSSEL_STUFE=3 HALO_AS_5H=75 HALO_AS_TOKENARM=0)" 'warten Drossel Stufe 2' 'warten Drossel Stufe 3'
 pruefe "Drossel Stufe 0: Lage nennt sie, Worker startet" "$(W HALO_DROSSEL_STUFE=0)" 'starten opus .*; Drossel Stufe 0'
-print -r -- '{"punkte":[{"t":"2026-11-17T08:00:00Z","woche":10},{"t":"2026-11-17T11:00:00Z","woche":25}]}' > $T/verlauf-schnell.json
-pruefe "Drossel echt gerechnet ((27−10)/6 h, voll lange vor dem Reset): Stufe 3, Zustand geschrieben? nein im Trockenlauf" \
-  "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json; ls $T/drossel.txt 2>&1)" \
-  'warten Drossel Stufe 3 \([0-9]+ Fehlstunden.*Tempo 2\.83 Punkte/h über 6\.0 h Verlauf' 'No such file'
+print -r -- '{"stand":"2026-11-17T14:55:00+0100","info":{"unifiedWindows":{"seven_day":{"utilization":0.27,"resetsAt":1795478400}}}}' > $T/kont-27.json
+pruefe "Drossel echt gerechnet (Woche 27 % gegen Wochenzeit 8,3 %): Stufe 3, Zustand geschrieben? nein im Trockenlauf" \
+  "$(W HALO_DROSSEL_STUFE= HALO_KONTINGENT_JSON=$T/kont-27.json HALO_AS_WOCHE=27; ls $T/drossel.txt 2>&1)" \
+  'warten Drossel Stufe 3 \(18\.7 Punkte über der Zeit.*Wochenzeit 8\.3 % \(Reset Di 01:00, resetsAt\)' 'No such file'
 pruefe "Drossel: Schleife hält den Zustand frisch, auch wenn pruefen vorher zurückkehrte" "$(grep -c '\[\[ \$z == \*Drossel\* \]\] || drossel_stufe >/dev/null' $SKRIPT)" '^1$'
-pruefe "Drossel nur im Volldampf" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/verlauf-schnell.json HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt)" 'ende Volldampf nicht aktiv'
-pruefe "Drossel: 30 Min. nach dem Reset zu wenig Daten → Fail-open, Lage nennt es, Worker startet" "$(W HALO_DROSSEL_STUFE= HALO_DROSSEL_VERLAUF=$T/fehlt.json HALO_JETZT=2026-11-17T01:30+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0)" 'starten opus .*Drossel Fail-open'
-pruefe "Fable: 20 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_AS_WOCHE=9)" 'starten fable Soll weit verfehlt'
-pruefe "Fable auch bei laufendem Fable-Lauf (keine Mengengrenze im Volldampf, 17.11.2026)" "$(W HALO_AS_WOCHE=9 HALO_AS_FABLE=1)" 'starten fable'
-pruefe "kein Fable bei 5 Stunden 50 %" "$(W HALO_AS_WOCHE=9 HALO_AS_5H=50)" 'starten opus'
-pruefe "kein Fable bei nur 19 Punkten unter Soll" "$(W HALO_AS_WOCHE=11)" 'starten opus'
+pruefe "Drossel nur im Volldampf" "$(W HALO_DROSSEL_STUFE= HALO_KONTINGENT_JSON=$T/kont-27.json HALO_AS_WOCHE=27 HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt)" 'ende Volldampf nicht aktiv'
+pruefe "Drossel: kontingent.json fehlt → Fail-open, Lage nennt es, Worker startet" "$(W HALO_DROSSEL_STUFE= HALO_JETZT=2026-11-17T01:30+01:00 HALO_AS_WOCHE=0 HALO_AS_5H=0)" 'starten opus .*Drossel Fail-open'
+# Fable erst bei 20 Punkten unter der Kalenderzeit (Do 19.11. 13:00: 60 h, Soll 35,7 %)
+pruefe "Fable: 20,7 Punkte unter Soll, 5 Stunden 40 %, kein Fable-Lauf" "$(W HALO_JETZT=2026-11-19T13:00+01:00 HALO_AS_WOCHE=15)" 'starten fable Soll weit verfehlt'
+pruefe "Fable auch bei laufendem Fable-Lauf (keine Mengengrenze im Volldampf, 17.11.2026)" "$(W HALO_JETZT=2026-11-19T13:00+01:00 HALO_AS_WOCHE=15 HALO_AS_FABLE=1)" 'starten fable'
+pruefe "kein Fable bei 5 Stunden 50 %" "$(W HALO_JETZT=2026-11-19T13:00+01:00 HALO_AS_WOCHE=15 HALO_AS_5H=50)" 'starten opus'
+pruefe "kein Fable bei nur 19,7 Punkten unter Soll" "$(W HALO_JETZT=2026-11-19T13:00+01:00 HALO_AS_WOCHE=16)" 'starten opus'
 
 # Grenze der Arbeits-Sitzungen
 pruefe "4 Arbeits-Sitzungen aktiv: warten (Standard 4)" "$(W HALO_AS_AKTIV=4)" 'warten 4 Arbeits-Sitzungen aktiv \(Grenze 4\)'
@@ -109,7 +114,7 @@ print -l "UNBEKANNT=1" "MODELL=sonnet" > $T/modell.conf
 pruefe "MODELL aus der Datei, unbekannte Schlüssel übergangen" "$(W HALO_AS_CONF=$T/modell.conf)" 'starten sonnet'
 
 # Nacht (00:00–09:00 oder Nachtlauf läuft): Grenze MAX_WORKER − 1, nur unter Soll
-pruefe "Nacht 03:00, unter Soll, 2 aktiv: starten" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_AKTIV=2)" 'starten opus unter dem Soll .*nachts'
+pruefe "Nacht 03:00, unter Soll, 2 aktiv: starten" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=10 HALO_AS_AKTIV=2)" 'starten opus unter dem Soll .*nachts'
 pruefe "Nacht 03:00, 4 aktiv: warten (Grenze 4, keine Nachtabsenkung)" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=40 HALO_AS_AKTIV=4)" 'warten 4 Arbeits-Sitzungen aktiv \(Grenze 4\)'
 pruefe "Nacht 03:00, über Soll, 5 Stunden 10 %: warten (nachts nur unter Soll)" "$(W HALO_JETZT=2026-11-18T03:00+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=10)" 'warten nachts nur unter dem Soll'
 pruefe "08:59 noch Nacht, 09:00 Tag" "$(W HALO_JETZT=2026-11-18T08:59+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=10)" 'nachts nur'
@@ -131,17 +136,17 @@ pruefe "ohne Volldampf: Ende" "$(W HALO_VOLLDAMPF_DATEI=$T/keine.txt)" 'ende Vol
 pruefe "nach dem Volldampf-Fenster: Ende" "$(W HALO_JETZT=2026-11-24T02:00+01:00)" 'ende Volldampf nicht aktiv'
 print -r -- "2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 2026-11-18T08:00+01:00 98" > $T/vd-beendet.txt
 # Wochenlimit pausiert nur (Maintainer 18.11.2026): warten statt Ende, nach dem freien Reset (Anker) von selbst weiter
-pruefe "Volldampf pausiert (Marke): warten, kein Ende" "$(W)" 'warten Volldampf pausiert \(Wochenlimit erreicht, wartet auf den freien Reset\) – Woche 27'
+pruefe "Volldampf pausiert (Marke): warten, kein Ende" "$(W)" 'warten Volldampf pausiert \(Wochenlimit erreicht, wartet auf den freien Reset\) – Woche 5'
 print -r -- "anker 2026-11-18T09:00+01:00 98 2" > $T/anker.txt
 pruefe "Marke vor dem freien Reset (Anker): Volldampf läuft weiter, Worker" "$(W HALO_JETZT=2026-11-18T10:00+01:00 HALO_AS_WOCHE=2)" 'starten'
 rm -f $T/vd-beendet.txt
 pruefe "Status rejected: warten (Wochenlimit), kein Ende" "$(W HALO_AS_STATUS=rejected)" 'warten Wochenlimit \(Status rejected'
 pruefe "Status allowed_warning: weiter" "$(W HALO_AS_STATUS=allowed_warning)" 'starten'
 pruefe "Woche 98 %: warten, Volldampf pausiert bis zum freien Reset" "$(W HALO_AS_WOCHE=98 HALO_JETZT=2026-11-19T12:00+01:00)" 'warten Wochenlimit erreicht \(Woche 98 %\) – Volldampf pausiert bis zum freien Reset'
-# Sollkurve nach dem freien Reset: Anker Fr 20.11. 10:00, jetzt Sa 10:00 → 24 h / 87 h = 27,6 % (statt 48-h-Kurve 100 %)
+# nach dem freien Reset gilt weiter die Kalenderwoche (Maintainer 20.11.2026): Anker Fr 20.11. 10:00, jetzt Sa 10:00 → 105 h, 62,5 %
 print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $T/anker.txt
-pruefe "Soll nach Anker: bis nächster Reset 27,6 %" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=20)" 'Soll 27\.6 % \(bis nächster Reset, 24\.0 h seit freiem Reset\)' 'starten opus unter dem Soll'
-pruefe "nach Anker über dem Soll, 5 Stunden 60 %: warten" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=30 HALO_AS_5H=60)" 'warten im Soll'
+pruefe "Soll nach Anker: Kalenderwoche 62,5 % (kein „bis nächster Reset“ mehr)" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=50)" 'Soll 62\.5 % \(Kalenderwoche, 105\.0 h seit Reset\)' 'starten opus unter dem Soll'
+pruefe "nach Anker über dem Soll, 5 Stunden 60 %: warten" "$(W HALO_JETZT=2026-11-21T10:00+01:00 HALO_AS_WOCHE=70 HALO_AS_5H=60)" 'warten im Soll'
 pruefe "Übergang Di 24.11. 01:00: Volldampf-Fenster vorbei, Wächter endet" "$(W HALO_JETZT=2026-11-24T01:00+01:00)" 'ende Volldampf nicht aktiv'
 rm -f $T/anker.txt
 pruefe "Grenze erreicht: Kontingent wird nicht gemessen (warten vor Messung)" "$(W HALO_AS_AKTIV=4 HALO_AS_WOCHE=)" 'warten 4 Arbeits-Sitzungen'

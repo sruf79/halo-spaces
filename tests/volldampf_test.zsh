@@ -95,7 +95,7 @@ HALO_JETZT=2026-11-24T00:59+01:00 pruefe "Übergang: 00:59 noch Volldampf mit An
 HALO_JETZT=2026-11-24T01:00+01:00 pruefe "Übergang: 01:00 Volldampf aus, kein Status, Anker verfallen" '! volldampf_aktiv && ! volldampf_status && [[ $(wochen_soll 168) == "0.0 0.0 reset 2026-12-01T01:00+01:00 2026-11-24T01:00+01:00" ]]'
 HALO_JETZT=2026-11-24T01:30+01:00 pruefe "Übergang: 01:30 (Nachtlauf) normale 168-h-Kurve" '[[ $(wochen_soll 168) == "0.5 0.3 reset "* ]]'
 print -r -- $Z > $HALO_VOLLDAMPF_DATEI
-HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Status nach Anker: Soll bis nächster Reset" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset; Soll bis nächster Reset 27.6 %, freier Reset 20.11. 10:00) – Maintainer 13.11.2026: Test" ]]'
+HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Status nach Anker: freier Reset genannt, kein „Soll bis nächster Reset“ (Volldampf rechnet mit der Kalenderwoche, 20.11.2026)" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset; freier Reset 20.11. 10:00) – Maintainer 13.11.2026: Test" ]]'
 
 # Erinnerung an den freien Reset ab 90 %: einmal je Fenster, nach dem Reset wieder möglich
 neu

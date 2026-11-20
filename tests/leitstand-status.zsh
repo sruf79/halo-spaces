@@ -13,7 +13,7 @@
 # Quellen (fehlt eine, steht das Feld auf null, kein Abbruch):
 #   Prozessliste (Agenten, Läufe), ~/halo-nacht/<datum>.log und <datum>-tagesroutine.log (Schritt), Prozess-Argumente
 #   der Tagesroutine-Runde (Eintrag „JETZT: … „Titel““), ~/halo-nacht/auslastung/worker-<n> (Worker),
-#   ~/halo-nacht/kontingent.json (älter als 15 Min. → tests/kontingent.sh), wochen_soll/volldampf_aktiv (lauf-hilfen.zsh),
+#   ~/halo-nacht/kontingent.json (älter als 15 Min. → tests/kontingent.sh), kalender_soll/volldampf_aktiv (lauf-hilfen.zsh; Soll = vergangene Zeit der Kalenderwoche, Maintainer 20.11.2026),
 #   pausen.txt, rot-zaehler.txt, Board (gh project item-list, höchstens alle 15 Min.; ein jüngerer Zwischenspeicher von
 #   board.sh wird mitgenutzt), ~/halo-aufgaben/archiv.md (erledigt in 7 Tagen), Plan des Directors (neueste
 #   ~/halo-nacht/<datum>-plan.md bzw. <datum>-tagesroutine-plan[-n].tsv), offene Issues (alle 15 Min.; wartet = letzter
@@ -67,9 +67,11 @@ KJ=$N/kontingent.json
 if netz && alt $KJ 900 && [[ -x $REPO/tests/kontingent.sh || -r $REPO/tests/kontingent.sh ]]; then
   zsh $REPO/tests/kontingent.sh >/dev/null 2>>$LOG || log "Kontingent nicht lesbar (letzter Wert bleibt)"
 fi
-# Soll und Volldampf aus lauf-hilfen.zsh (eine Stelle für die Regeln)
+# Soll und Volldampf aus lauf-hilfen.zsh (eine Stelle für die Regeln); Soll der Kalenderwoche (Maintainer 20.11.2026: „die wochen
+# kontingent grafik stimmt hier nicht oder? es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag
+# 01:00 bis dienstag 01:00 geht“), resetsAt aus kontingent.json, auch nach einem freien Reset
 if [[ -n ${HALO_LS_SOLL+x} ]]; then print -r -- $HALO_LS_SOLL > $Q/soll.txt
-else ( LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null && wochen_soll 168 ) > $Q/soll.txt 2>/dev/null; fi
+else ( LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null && kalender_soll $KJ ) > $Q/soll.txt 2>/dev/null; fi
 if [[ -n ${HALO_LS_VOLLDAMPF+x} ]]; then print -r -- $HALO_LS_VOLLDAMPF > $Q/volldampf.txt
 elif [[ -r $HIER/lauf-hilfen.zsh ]]; then
   ( LOG=/dev/null HALO_UEBERSPRUNGEN_LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null; volldampf_aktiv >/dev/null 2>&1 ) && print 1 > $Q/volldampf.txt || print 0 > $Q/volldampf.txt
@@ -420,9 +422,10 @@ def kontingent():
             "fuenf_stunden_prozent": round(100 * h["utilization"]) if "utilization" in h else None,
             "soll_prozent": soll, "reset_woche": iso(wo.get("resetsAt")), "reset_5h": iso(h.get("resetsAt"))}
 
-# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026; Maintainer: „bitte neon, die drossel-stufe in status.json
-# mitzuliefern“): aus drossel-stufe.txt, nach der Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe>
-# <Fehlstunden> <ISO> [<seit ISO> [offen]]“ („offen“ = Fail-open, Stufe 0), Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
+# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026, seit 20.11.2026 Verbrauch gegen vergangene Zeit der
+# Kalenderwoche; Maintainer: „bitte neon, die drossel-stufe in status.json mitzuliefern“): aus drossel-stufe.txt, nach der
+# Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe> <d = Woche − Wochenzeit in Punkten> <ISO> [<seit ISO> [offen]]“
+# (Feld 2 wird nicht gelesen) („offen“ = Fail-open, Stufe 0), Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
 # unlesbar → null. max_worker: 0 ab Stufe 1 (keine neuen Worker), sonst null (keine Grenze durch die Drossel).
 def drossel():
     z = (lies(N + "/drossel-stufe.txt") or "").splitlines()

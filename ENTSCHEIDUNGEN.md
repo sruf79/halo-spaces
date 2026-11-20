@@ -866,3 +866,37 @@ Anlass: Frage, ob der Windows-Rundgang (Auftrag #35, bisher nur ab 85 % im 5-Stu
 ## 19.11.2026 Aufgaben, die Testzeiten verkürzen, haben immer höchste Priorität
 
 Anlass: Eintrag „Ablauf: Dunkel-Lauf der Mac-CI verkleinern“ stand auf „Wartet auf OK“. Maintainer (19.11.2026, Gespräch mit neon): „Warum warten auf ok? Grundsätzlich haben alle tasks auf der liste welche unsere testzeiten verkürzen immer höchste Priorität weil davon alle weiteren Läufe profitieren“. Bezug: Reihenfolge eines Laufs in `AGENTS.md`.
+
+## 20.11.2026 Kontingent-Drossel nach der Kalenderwoche (Verbrauch gegen vergangene Zeit)
+
+Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich und in dieser Reihenfolge:
+1. „die wochen kontingent grafik stimmt hier nicht oder? es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag 01:00 bis dienstag 01:00 geht“
+2. „aber es geht mir ja immer darum wieviel % token wir noch im vergleich zur verbleibenden restzeit bis zum reset kommenden dienstag um 01:00 haben.“
+3. „frage: warum ist der zustand kritisch wenn wir 48% der wochenzeit aber nur 38% des kontingents verbraucht haben?“
+4. „ja, stell die ampel so um. wäre es nicht alarmierender, wenn wir mehr % token als % woche verbraucht haben?“
+
+Weitergabe an neon angeordnet mit: „gib die regeländerung für die drossel an neon weiter.“ Dazu Maintainer (20.11.2026, Sitzung
+neon), wörtlich: „lass deine vorschäge von opus überprüfen und setze die empfehlungen des opus agenten um. die wächter auf neon
+müssen auch sofort die änderung aktiv setzen.“
+
+Ersetzt die Hochrechnung aus „19.11.2026 Kontingent-Drossel im Volldampf“ (Tempo, Fehlstunden) als Grundlage der Stufe; Wirkungen je
+Stufe und „nie gebremst“ bleiben.
+
+Umsetzung (Deutung von neon, nicht Wortlaut des Maintainers; die Stufengrenzen sind ein Vorschlag von neon, vom Maintainer mit „setze
+die empfehlungen des opus agenten um“ bestätigt):
+- d = Verbrauch der Woche (`seven_day`, %) minus vergangene Wochenzeit (%); Wochenzeit % = 100 − (resetsAt − jetzt) / 6048 s, resetsAt
+  aus `~/halo-nacht/kontingent.json`, ohne lesbares resetsAt die bisherige Resetregel (Di 00:00 UTC).
+- Stufen: 0 bei d ≤ 0; 1 bei 0 < d ≤ 5 (keine neuen Worker, Tagesroutine kein Fable); 2 bei 5 < d ≤ 15 (Tagesroutine nur jede zweite
+  Runde); 3 bei d > 15 (Tagesroutine nichts Neues bis zur vollen Stunde). Hysterese 1 Punkt beim Zurückstufen (statt 6 Fehlstunden).
+- „≥ 90 % verbraucht“ ist nur das Rot des Dashboards; in der Drossel führt es nur zu Stufe 3, wenn zugleich d > 0 (sonst stünde die
+  Tagesroutine nach der Opus-Prüfung bis zu ~17 h still). Die 98-%-Grenze (`VOLLDAMPF_WOCHE_ENDE`) und die Bremsen des
+  5-Stunden-Fensters bleiben unverändert.
+- Keine Drossel (Fail-open), wenn `kontingent.json` fehlt oder unlesbar ist, ihr Stand älter als 3 h ist, jetzt nach resetsAt liegt
+  oder der Stand vor dem Wochenbeginn (resetsAt − 7 Tage) liegt.
+- Gilt auch nach einem freien Reset: nur die Kalenderwoche zählt; Anker, Tempo und Fehlstunden entfallen für die Stufe.
+- Soll des Auslastungswächters und des Leitstands ist die vergangene Zeit der Kalenderwoche (statt 48-h-Kurve bzw. „Soll bis nächster
+  Reset“); Fable im Wächter weiter erst `FABLE_ABSTAND` Punkte unter diesem Soll. Die Tagesroutine zeigt im Volldampf dasselbe Soll;
+  im Alltag (Sparmodus) bleibt ihre Sollkurve unverändert.
+- Fundstellen: `drossel_stufe`, `kalender_soll`/`kalender_woche` in `tests/lauf-hilfen.zsh`; `tests/auslastung-schleife.zsh`;
+  `tests/tagesroutine.sh`; `tests/leitstand-status.zsh`; Prüfung `tests/drossel_test.zsh`; `docs/regelwerk-kontingent.md`,
+  `docs/volldampf-regelwerk.md`, `docs/testrechner.md`.

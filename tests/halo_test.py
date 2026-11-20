@@ -21748,7 +21748,9 @@ Neu
               const pos = () => { const r = content.document.getElementById("row-senderLogos"), x = r?.getBoundingClientRect();
                 return x && { ih: Math.round(content.innerHeight), sy: Math.round(content.scrollY), top: Math.round(x.top), bottom: Math.round(x.bottom), found: r.classList.contains("found") }; };
               const wait = () => { const p = pos(); if (p?.found) sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); else content.setTimeout(wait, 10); };
-              addEventListener("DOMContentLoaded", wait, true);
+              // ist die Seite beim Laden des Frame-Skripts schon da, kommt DOMContentLoaded nicht mehr: dann gleich warten
+              if (content.document?.readyState && content.document.readyState != "loading" && content.document.getElementById("row-senderLogos")) wait();
+              else addEventListener("DOMContentLoaded", wait, true);
               addMessageListener("${key}-grown", () => { let last = "", since = Date.now(), t0 = Date.now(); const step = () => { const p = pos(), v = JSON.stringify(p);
                 if (v != last) { last = v; since = Date.now(); } if (Date.now() - since >= 300 || Date.now() - t0 > 3000) sendAsyncMessage("${key}", Object.assign({ tag: "settled" }, p)); else content.setTimeout(step, 20); }; step(); });
             })()`), true);

@@ -1385,6 +1385,23 @@ function hookLooseTabs(w, restorers = null) {
   };
   const KEEP = /^about:accountsetup/;
   const spec = tab => tab.browser?.currentURI?.spec || "";
+  // Add-on-Seiten (addons.thunderbird.net, addons.mozilla.org und alle mit
+  // Installationsrecht) bleiben Tabs: Thunderbird zeigt die Rückfragen einer
+  // Installation nur für Seiten in Tabs des Hauptfensters an – im eigenen
+  // Fenster blieb „Erweiterung hinzufügen“ beim Herunterladen stehen
+  const ADDON_HOSTS = /^(addons\.thunderbird\.net|addons\.mozilla\.org)$/i;
+  const addonSite = url => {
+    try {
+      const uri = Services.io.newURI(url);
+      if (ADDON_HOSTS.test(uri.host)) {
+        return true;
+      }
+      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
+      return Services.perms.testExactPermissionFromPrincipal(principal, "install") == Services.perms.ALLOW_ACTION;
+    } catch {
+      return false;
+    }
+  };
   // nur Inhalts-Tabs: Termin im Tab, Suchergebnisse usw. könnten
   // ungespeicherte Eingaben bzw. eine laufende Suche halten
   const loose = tab => tab?.mode?.name == "contentTab" && !tab.__mcFifth && !tab.__mcByAddon && tm.tabInfo.includes(tab)
@@ -1401,6 +1418,9 @@ function hookLooseTabs(w, restorers = null) {
       if (tries < 25 && /^about:blank$|^$/.test(url)) {
         w.setTimeout(() => toWindow(tab, tries + 1), 200);
       }
+      return;
+    }
+    if (addonSite(url)) {
       return;
     }
     w.openDialog("chrome://messenger/content/extensionPopup.xhtml", "_blank",

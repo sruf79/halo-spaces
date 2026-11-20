@@ -2692,6 +2692,87 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Tabs: Webseiten ohne Bereich (Anmeldung) im eigenen Fenster, andere Seiten schließen beim Bereichswechsel, Tabs von Add-ons bleiben", loose_tabs, results)
 
+    def addon_site_install():
+        # Add-on-Seite (Installationsrecht wie addons.thunderbird.net), geöffnet wie „Find more add-ons“ im Add-ons-Manager
+        # (openTrustedLinkIn → switchToTabHavingURI): bleibt ein Tab statt eigenes Fenster, und „Erweiterung hinzufügen“
+        # läuft bis zur Berechtigungsfrage durch und installiert. Im eigenen Fenster blieb die Installation beim
+        # Herunterladen stehen (Thunderbird zeigt die Rückfragen nur für Tabs des Hauptfensters); lokaler Server, kleine
+        # Test-Erweiterung
+        import http.server
+        import threading
+        import zipfile
+        tmp = tempfile.mkdtemp(prefix="halo-addonseite-")
+        with zipfile.ZipFile(os.path.join(tmp, "probe.xpi"), "w") as z:
+            z.writestr("manifest.json", json.dumps({"manifest_version": 2, "name": "Halo Probe", "version": "1.0", "permissions": ["storage"],
+                                                    "browser_specific_settings": {"gecko": {"id": "halo-probe@example.invalid"}}}))
+        with open(os.path.join(tmp, "index.html"), "w") as f:
+            f.write("<!doctype html><title>Add-ons</title><a href='probe.xpi'>Add</a>")
+
+        class Seite(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *a, **k):
+                super().__init__(*a, directory=tmp, **k)
+
+            def log_message(self, *args):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Seite)
+        srv.daemon_threads = True
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            res = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const ORIGIN = "http://127.0.0.1:%d", URL = ORIGIN + "/index.html", ID = "halo-probe@example.invalid";
+              const principal = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(ORIGIN), {});
+              const panel = d.getElementById("notification-popup");
+              const popups = () => [...Services.wm.getEnumerator("mail:extensionPopup")];
+              const out = { schritte: [] };
+              let install = null;
+              Services.perms.addFromPrincipal(principal, "install", Services.perms.ALLOW_ACTION);
+              try {
+                await toMail();
+                w.switchToTabHavingURI(URL, true);
+                const tab = await until(() => tm.tabInfo.find(t => t.browser?.currentURI?.spec == URL && !t.browser.webProgress?.isLoadingDocument), 8000);
+                await ruhig(800);
+                out.tab = !!tab && tm.tabInfo.includes(tab) && tm.currentTabInfo == tab;
+                out.fenster = popups().length;
+                if (out.tab) {
+                  install = await AddonManager.getInstallForURL(ORIGIN + "/probe.xpi", { triggeringPrincipal: tab.browser.contentPrincipal });
+                  let ende = null;
+                  install.addListener({ onInstallEnded: () => { ende = "installiert"; }, onInstallFailed: () => { ende = "gescheitert"; },
+                                        onInstallCancelled: () => { ende = "abgebrochen"; }, onDownloadFailed: () => { ende = "Download gescheitert"; } });
+                  AddonManager.installAddonFromWebpage("application/x-xpinstall", tab.browser, tab.browser.contentPrincipal, install);
+                  // Rückfragen der Reihe nach bestätigen (Berechtigungen; je nach Version vorher „Bestätigen“)
+                  for (let i = 0; i < 3 && !ende; i++) {
+                    const n = await until(() => ende ? "ende" : (panel.state == "open" && [...panel.children].find(c => !c.hidden && c.id != "addon-progress-notification"
+                                                                                                        && !out.schritte.includes(c.id))), 10000);
+                    if (!n || n == "ende") break;
+                    out.schritte.push(n.id);
+                    await wait(800); // Sicherheitsverzögerung der Hinweise (500 ms), sonst zählt der Klick nicht
+                    n.button.click();
+                    await until(() => ende || !n.isConnected || n.hidden || panel.state != "open", 5000);
+                  }
+                  await until(() => ende, 8000);
+                  out.ende = ende;
+                }
+              } finally {
+                if (install && install.state != AddonManager.STATE_INSTALLED) { try { install.cancel(); } catch {} }
+                const a = await AddonManager.getAddonByID(ID);
+                out.installiert = !!a;
+                if (a) await a.uninstall();
+                try { panel.hidePopup(); } catch {}
+                Services.perms.removeFromPrincipal(principal, "install");
+                for (const p of popups()) p.close();
+                for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+                await toMail();
+              }
+              return out;""" % srv.server_port)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            shutil.rmtree(tmp, ignore_errors=True)
+        ok = res["tab"] and res["fenster"] == 0 and res.get("ende") == "installiert" and res["installiert"] and "addon-webext-permissions-notification" in res["schritte"]
+        return ok, f"{res}"
+    check("Add-ons: Add-on-Seite bleibt Tab statt eigenes Fenster, „Erweiterung hinzufügen“ fragt nach Berechtigungen und installiert", addon_site_install, results)
+
     def list_date():
         # Uhrzeit in Liste und Kopf im selben Format (Regionaleinstellungen des Systems)
         res = m.js(READING_JS + r"""

@@ -188,6 +188,13 @@ Changes take effect right away unless noted.
 - **Menus**: on Linux and Windows menus are opaque again so the text is easy to read; on macOS they stay translucent (opaque with "Reduce transparency") (#73)
 - **Mail**: the "External content blocked" notice sits centred between the message header and the text; in the message window, buttons from other add-ons sit in their own round capsule behind "More" (#69)
 - **Settings**: typing in "Own keywords" after a second mail window was closed no longer causes errors in the background
+- **Folder list**: all section titles ("Favourites", "Tags", accounts, "On My Mac") line up on one edge with more space above than below; accounts under All Inboxes and All Sent show only their colour dot instead of a repeated folder icon; "Favourites" and the other section titles can be collapsed (#68)
+- **Contacts**: "Search" on an open contact switches to Mail with the folder list visible, puts the address into the search field and shows the messages from and to this contact across all mailboxes; clearing the search returns to the previous folder (#66)
+- **Import**: Outlook data files (PST) are now imported from the Import wizard (File > Import…) as their own source, with a folder tree to choose from, progress and summary like the other imports; repeating events arrive as a series in the new calendar
+- **Today Pane**: the month appears only once, above the mini calendar; event titles stay on one line with the full title in the tooltip; weekends and days of other months are greyed in the mini calendar
+- **Sidebar**: in light mode the active space tile and its glow are brighter and more luminous
+- **Logo**: new symbol, a ring of five parts in the space colours
+- **Settings**: "Show" on a halo.spaces search result now keeps the option centred even when the page is still being sized
 
 ## What's new in 3.32.0
 

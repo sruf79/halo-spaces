@@ -12,7 +12,8 @@
 # Entscheidung des Maintainers vom 7.11.2026). Fehler dabei nur melden, nie zurückrollen.
 # Danach freigegebene Pull Requests schließen (tests/pr-schliessen.sh, nur Einträge aus
 # tests/pr-freigaben.txt; Entscheidung vom 9.11.2026). Fehler ebenso nur melden.
-# Zuletzt das Board: Einträge, deren Commits im Release stecken, auf Done (tests/board-nach-release.zsh, 18.11.2026).
+# Zuletzt das Board: Einträge, deren Commits im Release stecken, auf Done (tests/board-nach-release.zsh, 18.11.2026);
+# danach im Hintergrund die automatische Abnahme der Design-Einträge (tests/abnahme-nach-release.zsh, 20.11.2026).
 #   ./publish.sh --trocken 3.21.0   nur diese Schritte proben (vorheriges Tag..v3.21.0), nichts schließen
 set -e
 ROOT="${0:A:h}"
@@ -40,6 +41,8 @@ if [[ "$1" == --trocken ]]; then
   HALO_REPO="$ROOT" zsh "$ROOT/tests/pr-schliessen.sh" "$2" --trocken || RC=1
   echo "Board (tests/board-nach-release.zsh --probe):"
   HALO_REPO="$ROOT" zsh "$ROOT/tests/board-nach-release.zsh" --probe "$2" || RC=1
+  echo "Abnahme (tests/abnahme-nach-release.zsh, startet nach dem echten Release im Hintergrund; --probe):"
+  HALO_REPO="$ROOT" zsh "$ROOT/tests/abnahme-nach-release.zsh" --probe "$2" || true
   exit $RC
 fi
 VERSION="$1"
@@ -217,4 +220,11 @@ fi
 BNR=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/board-nach-release.zsh" "$VERSION" 2>&1) || true
 echo "$BNR"
 STATUS+=("$(echo "${BNR:-Board nach Release: keine Ausgabe}" | tail -1 | sed 's/FEHLER/Fehler/g')")
+
+# Automatische Abnahme der Design-Einträge „zur Abnahme“ (Maintainer 20.11.2026: „Nein wir brauchen hier eine automatische
+# abnahme nach jedem release.“): läuft abgekoppelt im Hintergrund, publish.sh wartet nicht; Abgenommenes schließt das
+# Skript danach selbst (board-nach-release.zsh --nur-abgenommen). Hält das Release nie auf
+ABN=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/abnahme-nach-release.zsh" --hintergrund "$VERSION" 2>&1) || true
+echo "$ABN"
+STATUS+=("$(echo "${ABN:-Abnahme nach Release: keine Ausgabe}" | tail -1 | sed 's/FEHLER/Fehler/g')")
 exit 0

@@ -35,7 +35,7 @@ export HALO_LAUF=morgenbrief
 # HALO_KONTINGENT_5H (Prozent); HALO_MB_RELEASES und HALO_MB_CI (JSON-Dateien wie `gh release list
 # --json tagName,publishedAt` bzw. `gh run list --json databaseId,headSha,status,conclusion,event,createdAt`);
 # HALO_MB_WINDOWS=success|failure|cancelled|läuft|keiner (Ergebnis des Jobs „windows“); HALO_MB_BOARD (JSON wie
-# `board.sh export`), HALO_BNR_ZWEIFEL (Zweifel-Liste von board-nach-release.zsh), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
+# `board.sh export`), HALO_BNR_ZWEIFEL (Zweifel-Liste von board-nach-release.zsh), HALO_ABN_FRAGEN (Fragen der Abnahme), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
 # schreiben (sonst schreibt der Trockenlauf keinen Bericht).
 emulate -L zsh
 setopt extendedglob
@@ -195,6 +195,15 @@ for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="$
   '/^- [0-9-]+ [0-9:]+ [|]/ && /Abnahme überfällig, seit / { split($1, a, " "); z = a[2] " " a[3]; if (z > s && z <= j) { d = $5; sub(/.*seit /, "", d); sub(/ .*/, "", d); print $4 "\t" d } }' \
   ${HALO_BNR_ZWEIFEL:-$HOME/halo-aufgaben/board-nach-release-zweifel.md} 2>/dev/null)"}; do
   INFO+=("Abnahme überfällig: $(kurz ${z%%$'\t'*} 60), seit ${z##*$'\t'}")
+done
+# Automatische Abnahme nach dem Release (tests/abnahme-nach-release.zsh, Maintainer 20.11.2026): Geschmacksfragen ohne
+# Regelgrundlage, Zeilen „- <Datum> <Zeit> | v<Version> | <id> | <Titel> | <Frage>“ seit dem letzten Brief; der Eintrag
+# bleibt offen, bis der Maintainer entscheidet. „Abnahme überfällig“ oben bleibt der Rückfall, falls die Abnahme nicht lief.
+for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  '/^- [0-9-]+ [0-9:]+ [|]/ { split($1, a, " "); z = a[2] " " a[3]; if (z > s && z <= j) print $4 "\t" $5 }' \
+  ${HALO_ABN_FRAGEN:-$HOME/halo-aufgaben/abnahme-maintainer.md} 2>/dev/null)"}; do
+  HANDELN+=("Abnahme, deine Entscheidung: $(kurz ${z%%$'\t'*} 60): $(kurz ${z#*$'\t'} 160)")
+  HANDELN_NEU+=(abnahme)
 done
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---

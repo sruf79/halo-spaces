@@ -66,7 +66,7 @@ VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
 # lauf <Jetzt> [<Ausgabe>]  (weitere Umgebung wie HALO_PAUSEN_DATEI/HALO_VOLLDAMPF_DATEI vom Aufrufer)
 lauf() {
   HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
-  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
+  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_ABN_FRAGEN=${HALO_ABN_FRAGEN:-$T/keine-fragen.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
@@ -136,6 +136,10 @@ pruefe "Board nach Release: nur neue Zweifelsfälle gezählt" 'grep -q "Board na
 print -l -- "- 2026-11-15 21:10 | v3.27.1 | PVTI_neu | Neu | Status Todo trotz Commit im Release" "- 2026-11-15 21:20 | v3.27.1 | PVTI_a | Optik: Seitenleiste mit sehr langem Titel | Abnahme überfällig, seit 2026-11-05" > $T/zweifel.md
 HALO_BNR_ZWEIFEL=$T/zweifel.md lauf $MO $T/z.md >/dev/null
 pruefe "Abnahme überfällig: eigener Satz, nicht in der Zweifel-Zahl" 'grep -q "Board nach Release: 1 Einträge nicht automatisch geschlossen" $T/z.md && grep -q "Abnahme überfällig: Optik: Seitenleiste mit sehr langem Titel, seit 2026-11-05" $T/z.md'
+# Automatische Abnahme (tests/abnahme-nach-release.zsh): Geschmacksfragen seit dem letzten Brief als [handeln], ältere nicht
+print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Optik: alt | Alte Frage?" "- 2026-11-15 21:30 | v3.27.1 | PVTI_f | Optik: Ungelesen-Zahl | Soll das Grau so blass bleiben wie in der Vorlage?" > $T/fragen.md
+HALO_ABN_FRAGEN=$T/fragen.md lauf $MO $T/f.md >/dev/null
+pruefe "Abnahme: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Abnahme, deine Entscheidung: Optik: Ungelesen-Zahl: Soll das Grau so blass bleiben" $T/f.md && ! grep -q "Alte Frage" $T/f.md'
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
 pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
 

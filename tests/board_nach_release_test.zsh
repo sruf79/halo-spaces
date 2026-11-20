@@ -146,6 +146,34 @@ aus=$(HALO_BNR_HEUTE=2026-11-18 lauf --probe 1.1.0)
 pruefe "Abnahme: Probe zeigt Zweifel, schreibt nichts" 'zeile "^Zweifel: PVTI_abn3 " && [[ ! -s $T/folge.log ]]'
 jq '.items |= map(select(.id | startswith("PVTI_abn") | not))' $T/board.json > $T/x && mv $T/x $T/board.json
 
+# --- Abgenommen mit Commit aus einem früheren Release; --nur-abgenommen (tests/abnahme-nach-release.zsh, 20.11.2026) ---
+S=$(git -C $R rev-parse v1.0.0); s=${S[1,7]}
+jq --arg S $s --arg A $a '.items += [
+ {id: "PVTI_fr_abg", status: "In Progress", title: "Optik: früh abgenommen", body: "committet, wartet auf Push/CI (\($S)); zur Abnahme 2026-11-16\n\nabgenommen 2026-11-19 (automatische Abnahme v1.1.0): Höhe 28 px wie Vorlage, nichts offen"},
+ {id: "PVTI_fr_offen", status: "In Progress", title: "Optik: früh, nicht abgenommen", body: "committet, wartet auf Push/CI (\($S)); zur Abnahme 2026-11-16"},
+ {id: "PVTI_fr_rest", status: "In Progress", title: "Optik: abgenommen mit Rest", body: "committet (\($S)); zur Abnahme 2026-11-16\n\nabgenommen 2026-11-19\n\nOffen: Dunkelmodus"},
+ {id: "PVTI_nur_todo", status: "Todo", title: "Mail: anderes", body: "committet \($A), wartet auf Push/CI"}
+]' $T/board.json > $T/x && mv $T/x $T/board.json
+: > $T/folge.log; cp $T/zweifel.md $T/zweifel.vorher
+aus=$(HALO_BNR_HEUTE=2026-11-20 lauf --probe --nur-abgenommen 1.1.0); rc=$?
+pruefe "nur abgenommen, Probe: zeigt, schreibt nichts" '(( rc == 0 )) && zeile "^würde schließen: PVTI_fr_abg " && [[ ! -s $T/folge.log ]]'
+aus=$(HALO_BNR_HEUTE=2026-11-20 lauf --nur-abgenommen 1.1.0); rc=$?
+pruefe "nur abgenommen: früherer Commit, abgenommen: geschlossen mit Notiz „erledigt bis … nach Abnahme“" '(( rc == 0 )) && grep -q "^notiz PVTI_fr_abg erledigt bis v1.1.0 ($s, nach Abnahme), automatisch geschlossen" $T/folge.log && grep -q "^status PVTI_fr_abg done $s$" $T/folge.log'
+pruefe "nur abgenommen: „offen“ in der Begründung der Abnahme ist kein Rest" '! zeile "Zweifel: PVTI_fr_abg "'
+pruefe "nur abgenommen: ohne „abgenommen“ unberührt" '! grep -q PVTI_fr_offen $T/folge.log && ! zeile PVTI_fr_offen'
+pruefe "nur abgenommen: andere Einträge unberührt (auch Zweifel)" '! grep -q PVTI_nur_todo $T/folge.log && ! zeile PVTI_nur_todo'
+pruefe "nur abgenommen: Rest nach der Abnahme bleibt Zweifel, ohne Zeile im Protokoll" 'zeile "^Zweifel: PVTI_fr_rest .*offener Rest" && ! grep -q PVTI_fr_rest $T/folge.log && cmp -s $T/zweifel.md $T/zweifel.vorher'
+pruefe "nur abgenommen: Summenzeile" 'zeile "^Board nach Abnahme, Release v1.1.0 (v1.0.0..v1.1.0): geschlossen 1, Reihen vermerkt 0, Zweifel 1, Wartet auf OK unberührt 0$"'
+aus=$(HALO_BNR_HEUTE=2026-11-20 lauf --nur-abgenommen 1.1.0)
+pruefe "nur abgenommen: Doppellauf schließt nichts mehr" 'zeile "geschlossen 0, " && [[ $(grep -c PVTI_fr_abg $T/folge.log) == 2 ]]'
+# normaler Lauf: abgenommener Eintrag mit früherem Commit schließt ebenfalls (Abnahme von Hand nach dem Release)
+jq --arg S $s '.items += [{id: "PVTI_fr_hand", status: "In Progress", title: "Optik: von Hand abgenommen", body: "committet (\($S)); zur Abnahme 2026-11-12\n\nabgenommen vom Designer 2026-11-19"}]' $T/board.json > $T/x && mv $T/x $T/board.json
+aus=$(HALO_BNR_HEUTE=2026-11-20 lauf 1.1.0)
+pruefe "normaler Lauf: abgenommen, Commit aus früherem Release: geschlossen" 'grep -q "^status PVTI_fr_hand done $s$" $T/folge.log'
+pruefe "normaler Lauf: früherer Commit ohne Abnahme bleibt unberührt" '! grep -q PVTI_fr_offen $T/folge.log && ! grep -q "| PVTI_fr_offen |" $T/zweifel.md'
+pruefe "falsche Option: Exitcode 2" '( lauf --gibtsnicht 1.1.0 >/dev/null; (( $? == 2 )) )'
+jq '.items |= map(select(.id | test("^PVTI_(fr_|nur_)") | not))' $T/board.json > $T/x && mv $T/x $T/board.json
+
 # --- Board nicht lesbar: nichts schließen, Meldung an neon, Exitcode 1 ---
 mv $T/board.json $T/board.weg; : > $T/folge.log
 aus=$(lauf 1.1.0); rc=$?

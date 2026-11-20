@@ -62,7 +62,10 @@ Ablauf (je Eintrag genau einer)
 8. Commit: ein Satz, Bereich vorneweg, sichtbares Verhalten, Deutsch, ohne „Apple“; nur eigene Hunks.
    Danach tests/board.sh notiz <id> „committet, wartet auf Push/CI (<Hash>)“.
    Schreibe dabei in dieselbe Notiz „zur Abnahme“ (mit Datum, z. B. 2026-11-18) und lass die Vorlage der Notiz bestehen:
-   der Board-Automatismus schließt den Eintrag dann nicht, bis „abgenommen“ in einer Notiz steht (Frist 7 Tage, dann Morgenbrief).
+   der Board-Automatismus schließt den Eintrag dann nicht, bis „abgenommen“ in einer Notiz steht. Das schreibt nach dem
+   nächsten Release die automatische Abnahme (tests/abnahme-nach-release.zsh, Maintainer 20.11.2026) nach deinem Maßstab;
+   bei „Abnahme: Mangel – …“ steht der Eintrag wieder auf Todo, dann nachbessern und erneut „zur Abnahme“ schreiben.
+   Von Hand „abgenommen“ schreiben bleibt möglich; ohne Abnahme nach 7 Tagen nennt der Morgenbrief den Eintrag.
 
 9. Dazulernen: Regeln, Maßstäbe oder Eichfälle, die eine Entscheidung des Maintainers wiedergeben, trägst du am
    Ende in docs/design-vorgaben.md ein (Abschnitt 10: Eichfall bzw. „Wahrnehmungsregeln“; abgelöste

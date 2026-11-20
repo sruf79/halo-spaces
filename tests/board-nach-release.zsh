@@ -7,8 +7,10 @@
 # auf (alle Release-Wege enden dort: Nachtlauf, release-unter-tage.sh, zwischen-release.zsh); Fehler halten das Release
 # nie auf (Aufruf mit || true, Zeile im Release-Bericht).
 #
-#   tests/board-nach-release.zsh [--probe] <version>
+#   tests/board-nach-release.zsh [--probe] [--nur-abgenommen] <version>
 #     Commits v<vorheriges Tag>..v<version> (Tag noch nicht lokal: ..HEAD); --probe zeigt nur, was geschähe
+#     --nur-abgenommen (tests/abnahme-nach-release.zsh nach seinen Notizen, 20.11.2026): nur Design-Einträge mit „abgenommen“
+#       nach dem letzten „zur Abnahme“; schließt sie gleich statt erst beim nächsten Release, schreibt keine Zweifel-Zeilen
 #
 # Zuordnung (nie über Textähnlichkeit):
 #   - Commit-Hash (7 bis 40 Zeichen) in einem Absatz des Eintrags mit „committet“ (Notiz „committet, wartet auf
@@ -22,6 +24,9 @@
 #     egal): Zweifel mit Frist von 7 Tagen (ab Datum in der Notiz, sonst ab erstem Auftreten im Zweifel-Protokoll), Vorrang
 #     vor dem Hash-Treffer; nach Ablauf Zeile „Abnahme überfällig, seit <Datum>“ (Morgenbrief). Steht „abgenommen“ danach, gilt der
 #     Treffer wie sonst. Keine Regel „Abnahme vor Done“, nur die Markierung. HALO_BNR_HEUTE (Datum) zum Proben.
+#     Abgenommene Einträge zählen auch mit einem Commit aus einem früheren Release (Vorfahr von v<version>): Die Abnahme
+#     kommt oft erst nach dem Release, das den Commit brachte (Notiz dann „erledigt bis vX.Y.Z …, nach Abnahme“).
+#     Absätze, die mit „abgenommen“ beginnen, zählen nicht als offener Rest (Begründung der Abnahme).
 #   - Zweifel (Zeile in ~/halo-aufgaben/board-nach-release-zweifel.md für den Morgenbrief, nichts geschrieben):
 #     Teil-Fix (Commit mit „teilweise“), Commit zurückgenommen, Status Todo, offener Rest oder offene Frage ab dem
 #     Absatz mit dem Treffer („offen“, „Rest“, „teilweise“, „Rückfrage“, „kein Fix“, „nicht behoben/gelöst“,
@@ -39,10 +44,17 @@ ZWEIFEL=${HALO_BNR_ZWEIFEL:-$HOME/halo-aufgaben/board-nach-release-zweifel.md}
 LOG=${HALO_BNR_LOG:-$HOME/halo-nacht/board-nach-release.log}
 mkdir -p ${LOG:h} 2>/dev/null || LOG=/dev/null
 source $HIER/lauf-hilfen.zsh   # log, an_neon
-PROBE=
-[[ $1 == --probe ]] && { PROBE=1; shift }
+PROBE= NUR=
+while [[ $1 == --* ]]; do
+  case $1 in
+    --probe) PROBE=1 ;;
+    --nur-abgenommen) NUR=1 ;;
+    *) print -u2 "Aufruf: ${0:t} [--probe] [--nur-abgenommen] <version>"; exit 2 ;;
+  esac
+  shift
+done
 VERSION=$1
-[[ $VERSION == <->.<->.<-> ]] || { print -u2 "Aufruf: ${0:t} [--probe] <version>"; exit 2 }
+[[ $VERSION == <->.<->.<-> ]] || { print -u2 "Aufruf: ${0:t} [--probe] [--nur-abgenommen] <version>"; exit 2 }
 cd $REPO || { print "Board nach Release: kein Checkout unter $REPO, nichts geschlossen"; exit 1 }
 
 melde() {   # <Grund> – nichts geschlossen; an neon (nicht im Probelauf)
@@ -84,10 +96,11 @@ jq -e '.items | type == "array"' $T/board.json >/dev/null 2>&1 || melde "Board n
 
 # --- Zuordnung (reine Auswertung, nichts geschrieben) ---
 # Ausgabe je Eintrag: schliessen|reihe|zweifel|okwarten \t id \t Hash \t Titel \t Grund bzw. Schritt
-HEUTE=${HALO_BNR_HEUTE:-$(TZ=Europe/Vienna date +%F)} python3 -I - $T/board.json $T/commits $T/patchids $BIS $VERSION $ZWEIFEL > $T/plan <<'PY' || melde "Auswertung gescheitert"
+NUR=$NUR HEUTE=${HALO_BNR_HEUTE:-$(TZ=Europe/Vienna date +%F)} python3 -I - $T/board.json $T/commits $T/patchids $BIS $VERSION $ZWEIFEL > $T/plan <<'PY' || melde "Auswertung gescheitert"
 import datetime as dt, json, os, re, subprocess, sys
 board, commits_f, patch_f, bis, version, zweifel_f = sys.argv[1:7]
 heute = dt.date.fromisoformat(os.environ["HEUTE"])
+nur = bool(os.environ.get("NUR"))
 items = json.load(open(board, encoding="utf-8"))["items"]
 commits, reverted = [], set()          # neueste zuerst
 for z in open(commits_f, encoding="utf-8").read().splitlines():
@@ -122,9 +135,14 @@ def aufloesen(tok):
     cache[tok] = erg
     return erg
 
-def teil(sha): return re.search(r"teilweise", betreff.get(sha, ""), re.I) is not None
+def betreff_von(sha):   # Betreff, auch für Commits aus früheren Releases (abgenommene Einträge)
+    if sha not in betreff: betreff[sha] = git("log", "-1", "--format=%s", sha)[1]
+    return betreff[sha]
+def teil(sha): return re.search(r"teilweise", betreff_von(sha), re.I) is not None
 def zurueck(sha):
-    return betreff.get(sha, "").startswith("Revert ") or any(sha.startswith(r) or r.startswith(sha) for r in reverted)
+    if betreff_von(sha).startswith("Revert ") or any(sha.startswith(r) or r.startswith(sha) for r in reverted): return True
+    # früherer Commit: im Verlauf bis zum Release zurückgenommen?
+    return sha not in im_bereich and git("log", "-1", "--format=%H", "-F", "--grep=This reverts commit " + sha, sha + ".." + bis)[1] != ""
 
 # GitHub-Fixe im Release: n → [sha …] (Teil-Fixe mit Kennzeichen)
 gh = {}
@@ -173,6 +191,9 @@ for it in items:
     if st == "Done": continue
     iid, titel, body = it.get("id", ""), it.get("title") or "", it.get("body") or ""
     abs_ = [a for a in re.split(r"\n\s*\n", body)]
+    za = [i for i, a in enumerate(abs_) if ABN.search(a)]
+    abgen = bool(za) and any(ABG.search(a) for a in abs_[za[-1] + 1:])   # abgenommen nach dem letzten „zur Abnahme“
+    if nur and not abgen: continue
     treffer = {}                       # sha → Absatz-Index (-1: nur über GitHub #n)
     commit_abs = []                    # (Index, [Auflösungen]) aller „committet“-Absätze
     for i, a in enumerate(abs_):
@@ -185,18 +206,17 @@ for it in items:
             art, sha = aufloesen(tok)
             if art == "fremd" and (tok.isdigit() or m.start() in pick): continue   # Zahlen (Lauf-Nummern) sind keine Hashes
             loes.append((art, sha))
-            if art == "bereich": treffer[sha] = max(treffer.get(sha, -1), i)
+            if art == "bereich" or (art == "frueher" and abgen): treffer[sha] = max(treffer.get(sha, -1), i)
         commit_abs.append((i, loes))
     for n in set(re.findall(r"GitHub(?:-[A-Za-z]+)? #([0-9]+)(?![0-9])", titel, re.I)):
         for sha in gh.get(n, []): treffer.setdefault(sha, -1)
     if not treffer: continue
-    neu = min(treffer, key=lambda s: im_bereich[s])   # neuester Treffer
+    neu = min(treffer, key=lambda s: (im_bereich.get(s, len(im_bereich)), s))   # neuester Treffer (Release vor früher)
     kurz = neu[:7]
     if st == "Wartet auf OK": aus("okwarten", iid, kurz, titel, ""); continue
     # Design-Einträge: „zur Abnahme“ in der Notiz des Designers ohne spätere „abgenommen“ ist ein Zweifel mit Frist von
     # 7 Tagen und hat Vorrang vor jedem Hash-Treffer (Maintainer 18.11.2026); keine Regel „Abnahme vor Done“, nur die Markierung
-    za = [i for i, a in enumerate(abs_) if ABN.search(a)]
-    if za and not any(ABG.search(a) for a in abs_[za[-1] + 1:]):
+    if za and not abgen:
         seit = abnahme_seit(iid, abs_[za[-1]])
         if (heute - seit).days > 7: aus("zweifel", iid, kurz, titel, "Abnahme überfällig, seit %s" % seit.isoformat())
         else: aus("zweifel", iid, kurz, titel, "Abnahme steht aus (zur Abnahme seit %s, Frist bis %s)" % (seit.isoformat(), (seit + dt.timedelta(days=7)).isoformat()))
@@ -207,7 +227,7 @@ for it in items:
     if any(teil(s) for s in treffer): grund = "Teil-Fix („teilweise“ im Commit)"
     elif any(zurueck(s) for s in treffer): grund = "Commit zurückgenommen (Revert)"
     elif st != "In Progress": grund = "Status %s trotz Commit im Release" % (st or "leer")
-    elif any(REST.search(a) for a in abs_[j:]): grund = "offener Rest oder offene Frage in der Notiz"
+    elif any(REST.search(a) for a in abs_[j:] if not re.match(r"\s*abgenommen", a, re.I)): grund = "offener Rest oder offene Frage in der Notiz"
     else:
         for i, loes in commit_abs:
             if i <= j: continue
@@ -221,7 +241,9 @@ for it in items:
     if n:
         if ("Schritt %s in v%s enthalten" % (n, version)) not in body: aus("reihe", iid, kurz, titel, n)
         continue
-    aus("schliessen", iid, kurz, titel, "erledigt in v%s" % version in body and "notiz-da" or "")
+    frueher = neu not in im_bereich
+    da = ("erledigt %s v%s" % (frueher and "bis" or "in", version)) in body
+    aus("schliessen", iid, kurz, titel, da and "notiz-da" or frueher and "frueher" or "")
 PY
 
 # --- Ausführen bzw. zeigen ---
@@ -239,7 +261,7 @@ while IFS=$'\t' read -r art id hash titel extra; do
     okwarten) OKW+=1; print -r -- "unberührt (Wartet auf OK): $id $titel" ;;
     zweifel)
       ZW+=1; print -r -- "Zweifel: $id $titel – $extra"
-      if [[ -z $PROBE ]] && ! grep -qF "| v$VERSION | $id |" $ZWEIFEL 2>/dev/null; then
+      if [[ -z $PROBE$NUR ]] && ! grep -qF "| v$VERSION | $id |" $ZWEIFEL 2>/dev/null; then
         mkdir -p ${ZWEIFEL:h} && print -r -- "- $DATUM | v$VERSION | $id | $titel | $extra ($hash)" >> $ZWEIFEL
       fi ;;
     reihe)
@@ -249,11 +271,12 @@ while IFS=$'\t' read -r art id hash titel extra; do
     schliessen)
       ZU+=1
       if [[ -n $PROBE ]]; then print -r -- "würde schließen: $id $titel ($hash)"; continue; fi
-      if [[ $extra != notiz-da ]]; then schreibe notiz $id "erledigt in v$VERSION ($hash), automatisch geschlossen" || continue; fi
+      if [[ $extra == frueher ]]; then schreibe notiz $id "erledigt bis v$VERSION ($hash, nach Abnahme), automatisch geschlossen" || continue
+      elif [[ $extra != notiz-da ]]; then schreibe notiz $id "erledigt in v$VERSION ($hash), automatisch geschlossen" || continue; fi
       schreibe status $id done $hash && { print -r -- "geschlossen: $id $titel ($hash)"; log "v$VERSION geschlossen $id ($hash)" } ;;
   esac
 done < $T/plan
-SUMME="Board nach Release v$VERSION ($VON..$BIS): ${PROBE:+Probe, }geschlossen $ZU, Reihen vermerkt $REI, Zweifel $ZW, Wartet auf OK unberührt $OKW"
+SUMME="Board nach ${NUR:+Abnahme, }Release v$VERSION ($VON..$BIS): ${PROBE:+Probe, }geschlossen $ZU, Reihen vermerkt $REI, Zweifel $ZW, Wartet auf OK unberührt $OKW"
 (( FEHL )) && SUMME+=", nicht geschrieben $FEHL"
 print -r -- $SUMME
 log $SUMME

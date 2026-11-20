@@ -772,7 +772,19 @@ async function openRulesSettings(w) {
   return openHaloSettings(w, RULES_PANE);
 }
 const dataURIs = new Map();
-// crop: neuer viewBox („x y b h“) – dann ohne das erste <rect> (Kachel des Symbols)
+// Zuschnitt eines Symbols: neuer viewBox („x y b h“) und ohne die Kachel. Kachel ist das erste <rect>
+// außerhalb von <defs>/<clipPath>/<mask>/<pattern>/<symbol> – nicht das erste beliebige, sonst leert ein
+// Rechteck im clipPath den Zuschnitt und vom Symbol bleibt nur die Kachel (leeres weißes Quadrat)
+function cropSvg(text, crop) {
+  text = text.replace(/viewBox="[^"]*"/, `viewBox="${crop}"`);
+  const inDefs = [...text.matchAll(/<(defs|clipPath|mask|pattern|symbol)\b[^>]*>[^]*?<\/\1>/g)].map(m => [m.index, m.index + m[0].length]);
+  for (const m of text.matchAll(/<rect\b[^>]*\/>/g)) {
+    if (!inDefs.some(([a, b]) => m.index >= a && m.index < b)) {
+      return text.slice(0, m.index) + text.slice(m.index + m[0].length);
+    }
+  }
+  return text;
+}
 function dataURI(url, crop = null) {
   const key = url + (crop || "");
   if (!dataURIs.has(key)) {
@@ -781,7 +793,7 @@ function dataURI(url, crop = null) {
     let text = NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
     stream.close();
     if (crop) {
-      text = text.replace(/viewBox="[^"]*"/, `viewBox="${crop}"`).replace(/<rect\b[^>]*\/>/, "");
+      text = cropSvg(text, crop);
     }
     dataURIs.set(key, "data:image/svg+xml;charset=utf-8," + encodeURIComponent(text));
   }

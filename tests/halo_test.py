@@ -15294,7 +15294,9 @@ def run_checks(m, version, profile, results):
           const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
           // Diagnose: Maße der Toolbar-Zeile je Bild (Innenabstand, Breite, Überlauf, Variablen, Attribute)
           const rowVals = () => { const rowE = d.getElementById("unifiedToolbarContainer"), c = d.getElementById("unifiedToolbarContent"), cs = getComputedStyle(c), rs = getComputedStyle(rowE), cr = c.getBoundingClientRect();
-            return [cs.paddingInlineEnd, cs.paddingInlineStart, Math.round(cr.left * 10) / 10, Math.round(cr.width * 10) / 10, c.scrollWidth, c.clientWidth, cs.justifyContent,
+            const kids = [...c.children].map(li => { const r = li.getBoundingClientRect(), ls = getComputedStyle(li);
+              return [li.getAttribute("item-id") || li.id || li.localName, Math.round(r.left * 10) / 10, Math.round(r.width * 10) / 10, ls.display, li.style.transform || "", ls.marginInlineStart, ls.marginInlineEnd, ls.position, li.hasAttribute("data-mc-vanish") ? "v" : ""]; });
+            return [kids, cs.paddingInlineEnd, cs.paddingInlineStart, Math.round(cr.left * 10) / 10, Math.round(cr.width * 10) / 10, c.scrollWidth, c.clientWidth, cs.justifyContent,
               ...["--mc-tp-room", "--mc-tp-w", "--mc-row-tail", "--mc-caption-w", "--mc-tp-full"].map(v => rs.getPropertyValue(v).trim()),
               ["data-mc-tp-open", "data-mc-tp-slide", "data-mc-tp-none"].filter(a => rowE.hasAttribute(a)).join("+")]; };
           const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], kx = [], rv = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());

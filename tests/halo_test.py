@@ -15048,14 +15048,16 @@ def run_checks(m, version, profile, results):
             const pr = panel.getBoundingClientRect();
             return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, pr.right) - Math.max(r.left, pr.left)) * 10) / 10]; };
           const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], kx = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
+            kx.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
+              .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, [Math.round(r.left * 10) / 10, Math.round(r.width * 10) / 10]])));
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim"), Math.round(panel.getBoundingClientRect().left * 10) / 10]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, kx, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -15069,7 +15071,9 @@ def run_checks(m, version, profile, results):
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
           const ow = w.outerWidth;
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
-            if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
+            if (phase == "aus schmal") { const vor = [w.outerWidth, w.innerWidth, w.screenX, w.windowState]; w.resizeTo(1100, w.outerHeight); await ruhig(1200);
+              out.diagFenster = { vor, nach: [w.outerWidth, w.innerWidth, w.screenX, w.windowState], screen: [w.screen.availLeft, w.screen.availWidth] };
+              out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
             // mitten in der Bewegung und titleEnd sagt nichts über einen Ruck (CI 15.11. Lauf 43707298410, linux esr
             // „ein schmal“: 99 ms Lücke, Titel 2,2 px vor dem Ende, sonst alles im Takt). Dann zurückschalten und neu
@@ -15079,7 +15083,8 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth(), preP = pt(), preG = gt();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, pl, tg } = await record(); await ruhig(300);
+            const sqVor = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id") || li.id);
+            btn.click(); const { ws, ts, ss, tt, tl, kk, kx, sw, op, pl, tg } = await record(); await ruhig(300);
             // „+“ und Today-Knopf: Lage vor dem Klick, je Bild, nach der Ruhe
             pl.unshift(preP); tg.unshift(preG); const finP = pt(), finG = gt(), finK = snap();
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
@@ -15122,6 +15127,14 @@ def run_checks(m, version, profile, results):
             const overlap = Math.max(0, ...pl.map((p, i) => p && p[1] >= 1 ? tg[i][1] - p[0] : 0));
             out[phase].plus = { seen, first: pl[1], fin: finP, step: Math.round(stepOf(pl) * 10) / 10, toggleStep: Math.round(stepOf(tg) * 10) / 10, overlap: Math.round(overlap * 10) / 10 };
             out[phase].nach = { knoepfe: nachK, today: nachG, plus: nachP };
+            // Diagnose (Linux ESR im vollen Lauf: knoepfe 2): welcher Knopf rückt nach, genaue Lage und Breite ab dem
+            // letzten Bild mit Bewegung der Pane, Breiten der Pane dort, eingeklappte Knöpfe vor und nach dem Umschalten
+            if (nachK > 1) { const finX = Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
+                .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, [Math.round(r.left * 10) / 10, Math.round(r.width * 10) / 10]]));
+              const keys = Object.keys(finK).filter(k => postK.some(f => k in f && Math.abs(f[k] - finK[k]) > 1));
+              out[phase].diagNach = { iMove, frames: ws.length, ws: ws.slice(Math.max(0, iMove - 1)), keys: Object.fromEntries(keys.map(k => [k, [...kx.slice(Math.max(0, iMove - 1)).map(f => f[k] ?? null), finX[k]]])),
+                sqVor, sqNach: [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id") || li.id),
+                searchW: sw.slice(Math.max(0, iMove - 1)).concat([sWidth()]) }; }
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);

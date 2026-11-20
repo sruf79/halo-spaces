@@ -3486,8 +3486,13 @@ function hookMenubar(win, restorers) {
         el.setAttribute("accesskey", key);
       }
     }
+    // nur zurück, was noch im Fenster steht: eigene Einträge (halo.spaces im Help-Menü) haben ihre Rücksetzer
+    // schon entfernt; zurückgesetzt blieben sie nach einem Update ohne Neustart mit dem Code der alten Version
+    // stehen (mit 3.34.0 kopierte „Recommend“ so nur den Text, bis zum Neustart)
     for (const [el, parent, next] of moved.reverse()) {
-      parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+      if (el.isConnected) {
+        parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+      }
     }
     created.forEach(e => e.remove());
     delete bar.__mcMenubar;
@@ -11298,9 +11303,14 @@ class CardEnhancer {
     const hookHelpMenu = () => {
       const d = w.document;
       const popup = d.getElementById("menu_HelpPopup");
-      if (!popup || d.getElementById("mcHaloSpaces")) {
+      const old = d.getElementById("mcHaloSpaces");
+      if (!popup || ownHelpItems.has(old)) {
         return;
       }
+      // liegengebliebener Eintrag einer älteren Version (bis 3.35 setzte die Menüleiste ihn beim Entladen
+      // zurück): er öffnete das Info-Fenster mit deren Code, also durch unseren ersetzen
+      old?.remove();
+      d.getElementById("mcCheckUpdatesSeparator")?.remove();
       const sep = d.createXULElement("menuseparator");
       sep.id = "mcCheckUpdatesSeparator";
       const item = d.createXULElement("menuitem");
@@ -11311,6 +11321,7 @@ class CardEnhancer {
       item.classList.add("menuitem-iconic");
       item.setAttribute("image", "resource://mailcards/about/icon.svg");
       item.addEventListener("command", () => this.openHaloWindow(w));
+      ownHelpItems.add(item);
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);
       popup.insertBefore(item, anchor);
@@ -15099,6 +15110,8 @@ function readSetting([pref, type, def]) {
   return Services.prefs.getStringPref(pref, def);
 }
 
+// Einträge „halo.spaces“ im Help-Menü, die diese Version angelegt hat (hookHelpMenu)
+const ownHelpItems = new WeakSet();
 var enhancer = null;
 var extensionRoot = null; // rootURI der Erweiterung, für resource://mailcards/
 var extensionVersion = ""; // hängt an den Stylesheet-Adressen, damit ein Update sofort greift

@@ -107,6 +107,17 @@ rm -f $T/zw.json; l=$(anzahl list); n=$(anzahl node)
 print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"In Progress","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/board.json
 B status PVTI_a todo > $T/aus 2>&1; rc=$?
 pruefe "status mit id ohne Zwischenspeicher: Einzelabfrage, Liste nicht geladen" '(( rc == 0 )) && (( $(anzahl list) == l )) && (( $(anzahl node) == n + 1 )) && grep -q "Status todo: Mail: Test" $T/aus'
+# unbekannte id (Zwischenspeicher kennt den eben angelegten Eintrag nicht): einzeln abfragen statt Warteschlange
+export HALO_BOARD_ZWISCHEN_S=60
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"Todo","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/zw.json
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"Todo","typ":"Bug","content":{"id":"DI_a","body":"Text A"}},{"id":"PVTI_neu","title":"Mail: Frisch","status":"Todo","typ":"Bug","content":{"id":"DI_neu","body":"x"}}]}' > $T/board.json
+rm -f $T/w.txt; l=$(anzahl list); n=$(anzahl node)
+B status PVTI_neu done abc1234 > $T/aus 2>&1; rc=$?
+pruefe "status mit id, die der Zwischenspeicher nicht kennt: Einzelabfrage, nicht in die Warteschlange" '(( rc == 0 )) && (( $(anzahl node) > n )) && (( $(anzahl list) == l )) && [[ ! -s $T/w.txt ]] && grep -q "Status done: Mail: Frisch" $T/aus'
+print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"Todo","typ":"Bug","content":{"id":"DI_a","body":"Text A"}}]}' > $T/board.json
+B status PVTI_nix todo > $T/aus 2>&1; rc=$?
+pruefe "id auch einzeln unbekannt: Meldung „passt auf 0“, Warteschlange wie bisher" 'grep -q "passt auf 0" $T/aus && grep -q PVTI_nix $T/w.txt'
+export HALO_BOARD_ZWISCHEN_S=0; rm -f $T/zw.json $T/w.txt
 export HALO_BOARD_ZWISCHEN_S=0
 
 # 7. Leitstand: status arbeit merkt sich Eintrag, Titel und Prozesskette; Notiz „wartet auf Push“, todo und Done räumen

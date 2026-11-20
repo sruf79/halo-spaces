@@ -150,6 +150,11 @@ eintrag() {
     print -r -- $e; return 0
   fi
   e=$(board | jq -c --arg i $1 '[.items[] | select(.id == $i)]')
+  if [[ $(print -r -- $e | jq length) == 0 && $1 == PVTI_* ]]; then   # unbekannte id (z. B. eben mit „neu“ angelegt, Zwischenspeicher kennt sie nicht): einzeln abfragen
+    e=$(eintrag_direkt $1)
+    if [[ -n $e && $(print -r -- $e | jq -r '.archiviert') != true ]]; then print -r -- $e; return 0; fi
+    e='[]'
+  fi
   if [[ $(print -r -- $e | jq length) == 0 ]]; then
     e=$(board | jq -c --arg m $1 '[.items[] | select(.status != "Done" and (.title | test($m; "i")))]') \
       || fehler "Muster ungültig: $1"

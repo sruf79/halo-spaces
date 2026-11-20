@@ -4760,8 +4760,9 @@ input[type="number"]:is(.size2, .size3, .size4, .size5)::-moz-number-spin-box {
    Knöpfe mit Menü (z. B. „Save All“) behalten den einfachen Pfeil.
    Höhe wie die Text- und Eingabefelder 30 px (--mt-field-h), in engen
    Zeilen (Such- und Filterbedingungen) 24 px; das Termin-Fenster wie Apple
-   Kalender, Datum/Uhrzeit und der Absender im Verfassen-Kopf (eigene
-   Regel bei #msgIdentity, 24 px in der engen Zeile) bleiben hier außen vor. :where macht die Spezifität null, damit die Regeln dieser
+   Kalender, Datum/Uhrzeit und der Absender im Verfassen-Kopf (steht als
+   Wert ohne Feld in der Spalte der Kopfzeilen, nur mit Doppelpfeil) bleiben,
+   wie sie sind. :where macht die Spezifität null, damit die Regeln dieser
    Formulare (Höhe, Fläche) weiter greifen */
 :where(menulist:not([editable]):not(:root[mc-apple-event] #event-grid menulist, datepicker menulist, timepicker menulist, #msgIdentity)) {
   appearance: none !important;
@@ -5451,61 +5452,16 @@ addon-card .addon-inline-options {
   padding: 0 !important;
 }
 
-/* Kopfzeilen wie beim Mac: To, Cc, Bcc, Reply-To, Newsgroup, Followup-To,
-   dann Subject, ganz unten From über dem Text (nur die Darstellung, die
-   Tab-Reihenfolge bleibt Thunderbirds). Jede Zeile gleich hoch, darunter
-   eine Haarlinie, die bündig mit den Beschriftungen beginnt und bis zum
-   rechten Rand läuft. Thunderbird legt die Kopfzeilen als Raster an (die
-   Empfänger in der schrumpfbaren Zeile) – die Zeilen folgen der neuen
-   Reihenfolge; ältere Versionen (Flex) folgen „order“ */
-#MsgHeadersToolbar {
-  position: relative !important;
-  grid-template-rows: minmax(0, min-content) min-content min-content !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
-}
-
-#MsgHeadersToolbar > #recipientsContainer {
-  order: 1 !important;
-  grid-row: 1 !important;
-  padding-block: 0 !important;
-  row-gap: 0 !important;
-  border: none !important;
-}
-
-#MsgHeadersToolbar > #subject-box {
-  order: 2 !important;
-  grid-row: 2 !important;
-}
-
-#MsgHeadersToolbar > #top-gradient-box {
-  order: 3 !important;
-  grid-row: 3 !important;
-}
-
-#recipientsContainer > #addressRowTo { order: 1 !important; }
-#recipientsContainer > #addressRowCc { order: 2 !important; }
-#recipientsContainer > #addressRowBcc { order: 3 !important; }
-#recipientsContainer > #addressRowReply { order: 4 !important; }
-#recipientsContainer > #addressRowNewsgroups { order: 5 !important; }
-#recipientsContainer > #addressRowFollowup { order: 6 !important; }
-
-#MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) {
-  box-sizing: border-box !important;
-  min-height: var(--mt-compose-row-h, 37px) !important;
-  margin-inline: var(--mt-compose-inset, 20px) 0 !important;
+#MsgHeadersToolbar > :is(#top-gradient-box, #recipientsContainer, #subject-box) {
   border-bottom: var(--mt-hairline) solid var(--mt-pane-line) !important;
+  min-height: 40px !important;
+  align-items: center !important;
 }
 
-/* Absender und Betreff ohne die leere erste Spalte (Entfernen-Knopf) */
-#MsgHeadersToolbar :is(#top-gradient-box, #subject-box) > .aw-firstColBox {
-  display: none !important;
-}
-
-/* Beschriftungen grau wie beim Mac (secondaryLabelColor) */
 #MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box, .address-label-container) label,
 #MsgHeadersToolbar .address-label-container,
 #MsgHeadersToolbar :is(#identityLabel, #subjectLabel) {
-  color: var(--mt-text-secondary) !important;
+  color: var(--mt-text-tertiary) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
 }
 
@@ -5522,37 +5478,17 @@ addon-card .addon-inline-options {
   box-shadow: none !important;
 }
 
-/* Betreff in der Schrift der Beschriftung (gleiche Grundlinie), Text 6 px
-   nach „Subject:“; mit Schloss (verschlüsselter Betreff) bleibt der Einzug */
 #msgSubject {
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
-  font-weight: 400 !important;
-  margin-inline-start: 0 !important;
+  font-size: calc(14px * var(--mt-font-scale, 1)) !important;
+  font-weight: 500 !important;
 }
 
-#msgSubject:not(.with-icon) {
-  padding-inline-start: 0 !important;
-}
-
-/* Absender als graues Auswahlfeld mit Doppelpfeil wie die übrigen
-   Auswahlfelder, in der engen Zeile 24 px, direkt nach „From:“ */
 #msgIdentity {
-  box-sizing: border-box !important;
   border: none !important;
-  border-radius: var(--mt-radius-field, 7px) !important;
-  background-color: var(--mt-control) !important;
+  background: transparent !important;
   box-shadow: none !important;
-  margin-inline: 0 10px !important;
-  padding-block: 0 !important;
-  padding-inline: 10px 7px !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   /* enge Zeile: kleine Stufe 24 px */
   min-height: var(--mt-field-h-small, 24px) !important;
-  height: var(--mt-field-h-small, 24px) !important;
-}
-
-#msgIdentity:not([disabled]):is(:hover, [open="true"]) {
-  background-color: var(--mt-control-hover) !important;
 }
 
 /* Absender-Menü: Zeilen 24 px wie die übrigen Menüs (waren 27) */
@@ -5653,66 +5589,26 @@ addon-card .addon-inline-options {
 }
 
 /* Empfänger-Beschriftungen („An“, „Cc“, „Bcc“) auf der Höhe der ersten
-   Pille bzw. des leeren Eingabefelds: siehe „Kopfzeilen: jede Zeile mittig“
-   (Thunderbirds padding-top 7px entfällt dort) */
+   Pille bzw. des leeren Eingabefelds statt 4 px darunter (Thunderbird:
+   padding-top 7px) – wie „Von“ und „Betreff“ */
+#MsgHeadersToolbar .address-label-container {
+  padding-top: 3px !important;
+}
 
-/* umbrochene Pillenzeilen beginnen bündig mit der ersten: alle Pillen ohne
-   Abstand vorn, mit gleichem Abstand hinten (Thunderbird gibt den Abstand
-   vorn nur der ersten Pille im Feld) */
+/* Windows/Linux: Pillen und Eingabefeld sind dort mit den Schriftmaßen des
+   Systems höher (einzeilig 30 statt 26 px), mit 3 px stünde die Beschriftung
+   2 px zu hoch */
+@media not (-moz-platform: macos) {
+  #MsgHeadersToolbar .address-label-container {
+    padding-top: 4.5px !important;
+  }
+}
+
+/* umbrochene Pillenzeilen beginnen bündig mit der ersten: alle Pillen mit
+   gleichem Abstand vorn, keinem hinten (Thunderbird gibt den Abstand vorn
+   nur der ersten Pille im Feld). Das leere Eingabefeld bleibt unverändert */
 #MsgHeadersToolbar mail-address-pill {
-  margin-inline: 0 4px !important;
-}
-
-/* Wert direkt hinter der Beschriftung (6 px): Feld ohne eigenen Einzug,
-   leeres Eingabefeld mit dem Text am Anfang */
-#MsgHeadersToolbar .address-container {
-  margin-inline-start: 0 !important;
-  padding-inline-start: 0 !important;
-}
-
-#MsgHeadersToolbar .address-container > .address-input {
-  padding-inline-start: 0 !important;
-}
-
-/* Cc, Bcc und „…“ rechts in der ersten Zeile (To) wie beim Mac statt in der
-   Absender-Zeile; grau wie die Beschriftungen, ohne Trennstrich davor. Die
-   To-Zeile hält rechts Platz für sie frei */
-#MsgHeadersToolbar #extraAddressRowsArea {
-  position: absolute !important;
-  inset-block-start: 0 !important;
-  inset-inline-end: 12px !important;
-  height: calc(var(--mt-compose-row-h, 37px) - var(--mt-hairline)) !important;
-  margin: 0 !important;
-  gap: 4px !important;
-}
-
-#MsgHeadersToolbar #extraAddressRowsArea::before {
-  display: none !important;
-}
-
-#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button {
-  box-sizing: border-box !important;
-  height: var(--mt-btn-h-small, 24px) !important;
-  padding: 0 6px !important;
-  border: none !important;
-  border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--mt-text-secondary) !important;
-  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
-}
-
-#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button:hover {
-  background: var(--mt-control) !important;
-}
-
-#MsgHeadersToolbar #extraAddressRowsArea > .recipient-button:hover:active {
-  background: var(--mt-control-hover) !important;
-}
-
-#recipientsContainer > #addressRowTo,
-#recipientsContainer:not(:has(> #addressRowTo:not(.hidden))) > #addressRowNewsgroups {
-  padding-inline-end: var(--mt-compose-extra-w, 120px) !important;
+  margin-inline: 4px 0 !important;
 }
 
 /* Empfänger-Pillen dunkel heller als die Fläche wie die übrigen Kapseln
@@ -5778,11 +5674,9 @@ addon-card .addon-inline-options {
    halo-× rechts am Ende der Zeile statt × links vor der Beschriftung, wie
    das Löschen im Suchfeld. Sichtbar wie bisher nur unter der Maus bzw. mit
    Fokus in der Zeile (Thunderbird blendet die Spalte ein); die Beschriftung
-   beginnt wie in den übrigen Zeilen bündig mit der Haarlinie. Die Höhe
-   regeln Beschriftung und Feld (unten bei „Kopfzeilen: jede Zeile mittig“) */
+   bleibt an ihrer Stelle (28 px, so breit wie die frühere Spalte) */
 #MsgHeadersToolbar .address-row {
-  padding-inline-start: 0 !important;
-  padding-block: 0 !important;
+  padding-inline-start: 28px !important;
 }
 
 #MsgHeadersToolbar .address-row > .aw-firstColBox {
@@ -6002,19 +5896,13 @@ addon-card .addon-inline-options {
   display: none !important;
 }
 
-/* ohne Formatleiste keine zweite Linie unter der Haarlinie der letzten
-   Kopfzeile (From) – wie beim Mac folgt dort gleich der Text */
-:root[mc-format-hidden] #FormatToolbox {
-  border-bottom: none !important;
-}
-
 /* Kopfzeilen wie Apple Mail: Bezeichnung grau links mit Doppelpunkt, das
    Konto (z. B. „Google“) nicht neben dem Absender */
 /* jedes Feld direkt hinter seiner Bezeichnung wie in Apple Mail (vorher
    eine feste Spalte von 86 px – hinter „To:“ und „From:“ blieb eine Lücke) */
 #MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box, .address-label-container) {
   justify-content: flex-start !important;
-  padding-inline: 0 var(--mt-compose-gap, 6px) !important;
+  padding-inline: 0 6px !important;
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -6027,45 +5915,6 @@ addon-card .addon-inline-options {
 #MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row):not(.hidden, [hidden], [collapsed]) {
   display: flex !important;
   align-items: flex-start !important;
-}
-
-#MsgHeadersToolbar :is(#top-gradient-box, #subject-box):not(.hidden, [hidden], [collapsed]) {
-  align-items: center !important;
-}
-
-/* Kopfzeilen: jede Zeile mittig. Beschriftung und Feld so hoch wie die Zeile
-   ohne Haarlinie (37 px − Linie), Texte, Pillen und das Absender-Feld darin
-   senkrecht mittig. Das Empfängerfeld bekommt oben und unten so viel Luft,
-   dass eine Zeile Pillen mittig steht (Höhe einer Pillenzeile: Mac 26 px,
-   Windows und Linux 30 px); umbrochene Pillen machen nur das Feld höher, die
-   erste Pillenzeile bleibt auf der Höhe der Beschriftung */
-#MsgHeadersToolbar {
-  --mt-compose-line-h: 26px;
-}
-
-@media not (-moz-platform: macos) {
-  #MsgHeadersToolbar {
-    --mt-compose-line-h: 30px;
-  }
-}
-
-#MsgHeadersToolbar .address-row > :is(.address-label-container, .address-container) {
-  box-sizing: border-box !important;
-  min-height: calc(var(--mt-compose-row-h, 37px) - var(--mt-hairline)) !important;
-  padding-block: 0 !important;
-  margin-block: 0 !important;
-  align-items: center !important;
-}
-
-#MsgHeadersToolbar .address-row > .address-container {
-  padding-block: max(0px, (var(--mt-compose-row-h, 37px) - var(--mt-hairline) - var(--mt-compose-line-h)) / 2) !important;
-}
-
-#MsgHeadersToolbar :is(#identityLabel-box, #subjectLabel-box),
-#MsgHeadersToolbar :is(#identityLabel, #subjectLabel, .address-label-container > label),
-#msgIdentity {
-  margin-block: 0 !important;
-  padding-block: 0 !important;
 }
 
 #MsgHeadersToolbar :is(#top-gradient-box, #subject-box, .address-row) > :is(#identity-container, #msgSubjectContainer, .address-container) {
@@ -9492,7 +9341,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   top: -2px !important;
 }
 
-/* der Titel „Today“ steht zwischen Mini-Kalender und Terminliste (#mcTodayTitle) */
+/* der Titel steht jetzt oben in der Toolbar-Zeile (#mcTodayTitle) */
 #today-pane-header {
   display: none !important;
 }
@@ -9507,8 +9356,8 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   display: none !important;
 }
 
-/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt fest mittig
-   am unteren Rand der Today-Pane (#mcTodayFoot > #mcTodayNew, setzt die Erweiterung) */
+/* Thunderbirds „Neuer Termin“ unten entfällt – das „+“ sitzt oben rechts
+   in der Today-Pane (#mcTodayNew, setzt die Erweiterung) */
 #today-pane-panel > #todaypane-new-event-button {
   display: none !important;
 }
@@ -9547,8 +9396,7 @@ body:has(> #accountTreeBox.mc-side-hidden) {
 #mcNewPopup.mc-up .mc-pop::before {
   top: auto !important;
   bottom: -7px !important;
-  /* über der Mitte des „+“ (gemessen wie oben, sonst die Mitte) */
-  inset-inline-start: var(--mc-arrow-x, calc(50% - 7px)) !important;
+  inset-inline-start: calc(50% - 7px) !important;
   transform: rotate(225deg) !important;
 }
 
@@ -9718,11 +9566,52 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   border-inline-start: 1px solid var(--mt-sidebar-border);
   box-sizing: border-box;
   pointer-events: none;
+  display: flex;
+  align-items: center;
+  /* Titel mittig in der Fläche, links und rechts Platz für den Knopf */
+  justify-content: center;
+  padding-inline: min(62px, var(--mc-tp-w, 0px));
+  /* rechts Platz für „+“ und davor ≡/Fensterknöpfe von Windows/Linux –
+     der Titel rückt nie darunter; zusammen mit der Linie links (1 px) nie
+     mehr als die Breite, sonst wüchse die Fläche trotz border-box über die
+     Today-Pane hinaus (unter Windows um genau diesen Pixel nach links) */
+  padding-inline-end: min(calc(min(62px, var(--mc-tp-w, 0px)) + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
+                          max(0px, calc(var(--mc-tp-w, 0px) - min(62px, var(--mc-tp-w, 0px)) - 1px)));
   overflow: hidden;
 }
 
-/* die leere Fläche der Toolbar-Leiste reicht Klicks durch (darunter zieht
-   die Zeile weiter das Fenster), ihre Knöpfe bleiben bedienbar */
+/* während die Today-Pane gleitet: Überschrift an ihrem Endplatz (gemessen,
+   --mc-tt-off ab der linken Kante der Fläche), die Fläche deckt sie nur auf –
+   sie gleitet so mit der Pane herein bzw. hinaus */
+#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop {
+  justify-content: flex-start !important;
+  padding-inline: 0 !important;
+}
+
+#unifiedToolbarContainer[data-mc-tp-anim] > #mcTodayTop > #mcTodayTitle {
+  flex: none !important;
+  margin-inline-start: var(--mc-tt-off, 0px) !important;
+}
+
+/* (ohne Wetter gibt es kein Symbol: dann der Text, notfalls mit „…“) */
+#mcTodayTitle[data-narrow]:not([data-weather-off]) {
+  font-size: 0;
+  gap: 0;
+}
+
+/* Windows/Linux mit wenig Platz neben ≡ und Fensterknöpfen: Überschrift als
+   eigene Zeile oben in der Today-Pane (setzt die Erweiterung dorthin) */
+#mcTodayTitle[data-below] {
+  flex: none;
+  justify-content: center;
+  padding: 8px 12px 6px;
+  font-size: calc(15px * var(--mt-font-scale, 1));
+  gap: 7px;
+}
+
+/* die Toolbar-Leiste liegt über der Überschrift der Today-Pane: ihre leere
+   Fläche reicht Klicks durch (darunter zieht die Zeile weiter das Fenster),
+   ihre Knöpfe bleiben bedienbar */
 #unifiedToolbar,
 #unifiedToolbarContent {
   pointer-events: none;
@@ -9733,21 +9622,16 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   pointer-events: auto;
 }
 
-/* „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und Liste
-   (unter der Linie, über der Karte); Klick springt zu heute */
 #mcTodayTitle {
+  /* die Fläche darum lässt Klicks durch (Fenster ziehen); der Titel selbst
+     nimmt Klick und Tooltip an, Doppelklick zoomt hier nicht das Fenster */
+  pointer-events: auto;
   -moz-window-dragging: no-drag;
   cursor: default;
-  flex: none;
-  align-self: center;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 7px;
   min-width: 0;
-  max-width: calc(100% - 24px);
-  /* Abstand zur Linie darüber 10 px, zur Karte darunter deren 8 px */
-  padding-top: 10px;
   font-size: calc(15px * var(--mt-font-scale, 1));
   font-weight: 600;
   color: var(--mt-text);
@@ -9848,17 +9732,14 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-/* „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen: die
-   Karte mit der Liste endet darüber (ihr Außenabstand 8 px + 4 px), die
-   Liste rollt in der Karte und läuft unten aus; wie der Today-Knopf 40 × 38 */
-#mcTodayFoot {
-  flex: none;
-  display: flex;
-  justify-content: center;
-  padding: 4px 0 10px;
-}
-
-#mcTodayNew {
+/* „+“ rechts oben in der Today-Pane: wie der Today-Knopf, am rechten Rand
+   (vor den Fensterknöpfen von Windows/Linux); nur bei offener Today-Pane */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayNew {
+  position: absolute !important;
+  z-index: 3 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  inset-inline-end: calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))) !important;
   margin: 0 !important;
   width: 40px !important;
   height: 38px !important;
@@ -9874,14 +9755,15 @@ body:has(> #accountTreeBox.mc-side-hidden) {
   appearance: none !important;
 }
 
-/* Today-Pane gleitet: der Today-Knopf hängt an der Kante der Pane, im
-   Abstand seines Endplatzes (--mc-tp-full = volle Breite, --mc-tp-w = Breite
-   im Bild) – er gleitet mit ihr herein bzw. hinaus und steht im letzten Bild
-   schon am Endplatz (kein Nachsprung); nie rechts von seinem Platz bei
-   zugeklappter Pane */
-:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-slide] > #mcTodayToggle {
-  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))),
-                        calc(var(--mc-tp-w, 0px) - var(--mc-tp-full, 0px) + max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px))), calc(var(--mc-tp-full, 0px) - 50px)))) !important;
+#mcTodayNew {
+  display: none;
+}
+
+/* „+“ sichtbar: der Today-Knopf hält Abstand dazu – unter Windows lassen die
+   breiten Fensterknöpfe in der Today-Pane sonst nur Platz für einen Knopf,
+   die beiden überlappten (beim Mac ändert das nichts, dort reicht der Platz) */
+:root:is([mc-tab="mail3PaneTab"], [mc-tab="mailMessageTab"], [mc-tab="tasks"], [mc-tab="addressBookTab"], [mc-tab="preferencesTab"], [mc-tab="chat"], [mc-tab="contentTab"]):not([mc-fifth-current][mc-fifth="addon"]) #unifiedToolbarContainer[data-mc-tp-open] > #mcTodayToggle {
+  inset-inline-end: max(calc(12px + max(var(--mc-caption-w, 0px), var(--mc-row-tail, 0px)) + 46px), calc(var(--mc-tp-w, 0px) - 50px)) !important;
 }
 
 #mcTodayNew:hover {

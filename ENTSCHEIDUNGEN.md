@@ -972,3 +972,8 @@ Umsetzung: Board-Eintrag „Ablauf: Alter der Einträge wirksam machen – …�
 Herkunft: Gespräch des Maintainers mit dem Designer, 20.11.2026, laut Designer (Nachricht an neon, von neon nicht geprüft). Wortlaut des Maintainers: „ich folge deinen empfehlungen.“ Er antwortet damit auf zwei Empfehlungen des Designers:
 1. Die Knopf-Familie (I6FHI) wird nur als Ganzes veröffentlicht: alle Knöpfe (Mail, Verfassen, Einstellungen, Kalender, Dialoge) werden im selben Release plastisch, keine halb flache, halb plastische Version (G14). Die Frage vom 18.11. ist damit entschieden.
 2. I6FHI wird vorgezogen: im nächsten Nachtlauf die rote CI auf `nacht/designer-knoepfe-1118` (und dem darauf aufbauenden `nacht/designer-remote-69-1118`) beheben, die Familie vervollständigen, Abnahmebilder an den Designer, danach Release. Davon hängen ab: README-Nachaufnahme samt compose (#55), Senden plastisch, Absenderkreise, Save-All-Kapsel.
+
+## Zwischen-Releases nur für Spürbares (20.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 20.11.2026, nach dem Zwischen-Release 3.35.0: „also der zwischen-release mit einer einzigen änderung welche auch nicht kritisch war, war jetzt eigentlich unnötig.“ Auf neons Vorschlag („Ein Zwischen-Release braucht mindestens einen Fehler, den Nutzer bemerken, oder etwas Dringendes. Ein reiner Schönheitsfehler wartet auf den Nachtlauf.“) antwortete er: „ja.“
+Deutung von neon: gilt für Zwischen-Releases (auch im Volldampf); der Nachtlauf veröffentlicht weiter alles, sobald die CI grün ist.

@@ -134,6 +134,13 @@ if netz; then
   fi
   # 40 statt 15 (Feld ci zeigt weiter die 15 neuesten): Laufdauern für die Release-Schätzung aus derselben Abfrage
   holen $Q/ci.json gh run list -R $GH_REPO -L 40 --json databaseId,number,displayTitle,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,url,workflowName
+  # Jobs laufender bzw. wartender Läufe (höchstens die 5 neuesten unter den 15 neuesten; Dashboard-Wunsch 20.11.2026)
+  rm -f $Q/jobs-*.json(N)
+  if [[ -s $Q/ci.json ]]; then
+    for jid in ${=$(jq -r '[.[:15][] | select(.status != "completed")][:5][] | .databaseId' $Q/ci.json 2>/dev/null)}; do
+      holen $Q/jobs-$jid.json gh run view $jid -R $GH_REPO --json jobs
+    done
+  fi
   # ci_main gezielt (der neueste main-Lauf ist oft nicht unter den 15 neuesten; 5 für abgebrochene davor)
   # 30 statt 5: auch Dauern der main- und Windows-Läufe (ci_main nimmt weiter den neuesten)
   holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 30 --json databaseId,number,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,workflowName
@@ -582,11 +589,19 @@ def rueckmeldungen():
 CI = lies(Q + "/ci.json", True)
 BETREFF = dict(z.split("\t", 1) for z in (lies(Q + "/betreffe.tsv") or "").splitlines() if "\t" in z)
 CI_MAIN = lies(Q + "/ci-main.json", True)
+def jobs_von(r):
+    """Jobs eines laufenden oder wartenden Laufs (quellen/jobs-<id>.json), sonst null"""
+    if r.get("status") == "completed": return None
+    j = lies("%s/jobs-%s.json" % (Q, r["databaseId"]), True)
+    if not j: return None
+    return [{"name": x.get("name"), "status": x.get("status"), "ergebnis": x.get("conclusion") or None,
+             "start": iso(x["startedAt"]) if x.get("startedAt", "").startswith("20") else None,
+             "ende": iso(x["completedAt"]) if x.get("completedAt", "").startswith("20") else None} for x in j.get("jobs", [])]
 def ci():
     if CI is None: return None
     return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": t200(BETREFF.get(r.get("headSha")) or r["displayTitle"]), "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
-             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI[:15]]
+             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"], "jobs": jobs_von(r)} for r in CI[:15]]
 def ci_main():
     """neuester main-Lauf (gezielte Abfrage, sonst aus den 15 neuesten); abgebrochene zählen nicht"""
     quelle = CI_MAIN if CI_MAIN else CI
@@ -756,6 +771,20 @@ def release_eta():
             r["headBranch"], r.get("number"), n, ab) + seit, kandidat="%s #%s" % (r["headBranch"], r.get("number")))
     return eta(None, False, "Volldampf: kein Kandidat unterwegs (kein laufender Prüfzweig-Lauf mit mindestens %d Thunderbird-Commits über main)." % ab + seit)
 
+def release_eta_mit():
+    """release_eta plus wartet_auf: noch nicht grüne Jobs des neuesten main-Laufs (und Windows, wenn der Grund es nennt)"""
+    e = release_eta()
+    if not isinstance(e, dict): return e
+    w = []
+    for r in (CI_MAIN or CI or []):
+        if r.get("headBranch") != "main": continue
+        if r.get("status") != "completed":
+            w = [x["name"] for x in (jobs_von(r) or []) if x.get("ergebnis") != "success"]
+        break
+    if "Windows" in (e.get("grund") or "") and "windows" not in w: w.append("windows")
+    e["wartet_auf"] = w
+    return e
+
 # Commits auf origin/main nach Commit-Datum (quellen/commits.json, höchstens alle 15 Min. neu; älter als 1 Stunde → null)
 # Zuletzt erledigt (Maintainer 19.11.2026: „nicht nur die aktuellen und geplanten tasks sondern auch die letzten paar tasks
 # welche erledigt sind“): höchstens 8 abgeschlossene Ereignisse der letzten 24 Stunden, neueste zuerst, nur aus vorhandenen
@@ -881,7 +910,7 @@ def github_limit():
         aus[name] = {"limit": lim, "verbraucht": lim - rest, "rest": rest, "reset": iso(r.get("reset"))}
     return aus
 
-st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
+st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta_mit),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
       "github_limit": sicher(github_limit), "drossel": sicher(drossel),

@@ -4124,6 +4124,91 @@ def compose_checks(m, results):
         return tokens and reorder_ok and ac_ok, f"{res}"
     check("Verfassen: Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie, Radius 20) mit grauen halo-Symbolen, Adressvorschläge als Menü ohne bläulichen Rand", compose_panels, results)
 
+    def compose_suggest_rows():
+        # Empfänger-Vorschläge wie die übrigen Menüzeilen (22 px, 5 px vom Rand, 10 px Innenabstand, Radius 6, 13 px, Auswahl in
+        # Akzentfarbe); je Zeile „Name — Adresse“ mit grauer Adresse (markiert alles weiß), ohne Namen nur die Adresse, kein
+        # Adressbuch-Kärtchen, Verteilerliste mit grauem Gruppen-Symbol; dieselbe Adresse auf einer Karte mit und einer ohne
+        # Namen nur einmal (mit Namen), verschiedene Namen bleiben; Pfeiltasten und Enter fügen weiter „Name <adresse>“ ein
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const pab = MailServices.ab.directories.find(b => b.URI == "jsaddrbook://abook.sqlite") || MailServices.ab.directories[0];
+          const coll = MailServices.ab.directories.find(b => b != pab && !b.readOnly) || pab;
+          const mk = (name, mail, dir) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = mail; return [dir, dir.addCard(c)]; };
+          const cards = [mk("Vera Vorschlag", "vera.vorschlag@example.invalid", pab), mk("", "vera.vorschlag@example.invalid", coll),
+                         mk("", "vorschlag.ohne@example.invalid", pab),
+                         mk("Volker Vorschlag", "volker.vorschlag@example.invalid", pab), mk("Volkmar Vorschlag", "volker.vorschlag@example.invalid", coll)];
+          let list = Cc["@mozilla.org/addressbook/directoryproperty;1"].createInstance(Ci.nsIAbDirectory);
+          list.isMailList = true; list.dirName = "Vorschlag Team"; list = pab.addMailList(list);
+          await ruhig(400);
+          try {
+            return await withCompose({}, async (cw, cd) => {
+              const inp = cd.querySelector(".address-row:not(.hidden) input.address-row-input, #toAddrInput");
+              inp.focus(); inp.value = "vorschlag"; inp.controller.handleText();
+              await till(() => inp.controller.matchCount >= 5, 5000);
+              if (inp.popup.state != "open") inp.openPopup();
+              const ac = await till(() => [...cd.querySelectorAll('panel[type="autocomplete-richlistbox"]')].find(p => p.state == "open"), 4000);
+              if (!ac) return { open: false };
+              await till(() => ac.richlistbox.children[0]?.querySelector("autocomplete-row-item")?.shadowRoot?.querySelector(".label"), 2000);
+              await ruhig(300);
+              const box = ac.richlistbox.getBoundingClientRect();
+              const meas = () => [...ac.richlistbox.children].filter(c => !c.collapsed && c.getBoundingClientRect().height).map(c => {
+                const r = c.querySelector(":scope > autocomplete-row-item"), sr = r?.shadowRoot, b = c.getBoundingClientRect(), cs = csOf(c);
+                const lab = sr?.querySelector(".label"), des = sr?.querySelector(".description");
+                return { h: Math.round(b.height * 10) / 10, l: Math.round(b.left - box.left), r: Math.round(box.right - b.right), font: parseFloat(cs.fontSize),
+                         pad: parseFloat(cs.paddingInlineStart), radius: parseFloat(cs.borderTopLeftRadius), color: cs.color, bg: cs.backgroundColor,
+                         sel: c.hasAttribute("selected"), list: c.hasAttribute("mc-ac-list"), row: !!r,
+                         label: lab?.textContent ?? null, desc: des?.textContent ?? null, dash: des ? getComputedStyle(des, "::before").content : null,
+                         lcol: lab && csOf(lab).color, dcol: des && csOf(des).color,
+                         line: lab && des ? Math.abs(lab.getBoundingClientRect().top - des.getBoundingClientRect().top) < 3 : null,
+                         icon: r ? csOf(r).backgroundImage : null, stroke: r ? csOf(r).stroke : null }; });
+              const out = { open: true, values: [...Array(inp.controller.matchCount).keys()].map(i => inp.controller.getValueAt(i)), rows: meas(),
+                            text: colorOf(cd, "var(--mt-text)"), sec: colorOf(cd, "var(--mt-text-secondary)"), ter: colorOf(cd, "var(--mt-text-tertiary)"),
+                            accent: colorOf(cd, "var(--mt-accent)", "backgroundColor"), accentText: colorOf(cd, "var(--mt-accent-text)"),
+                            mac: Services.appinfo.OS == "Darwin" };
+              const key = (k, code) => inp.dispatchEvent(new cw.KeyboardEvent("keydown", { key: k, keyCode: code, bubbles: true, cancelable: true }));
+              key("ArrowDown", 40); await till(() => ac.selectedIndex == 0, 2000); await ruhig(200);
+              out.selected = meas().filter(x => x.sel);
+              key("ArrowDown", 40); await till(() => ac.selectedIndex == 1, 2000);
+              out.want = inp.controller.getValueAt(1);
+              key("Enter", 13); await till(() => ac.state == "closed", 3000); await ruhig(400);
+              out.pills = [...cd.querySelectorAll("mail-address-pill")].map(p => p.fullAddress);
+              return out; });
+          } finally {
+            for (const [dir, card] of cards) { try { dir.deleteCards([card]); } catch {} }
+            try { pab.deleteDirectory(list); } catch {}
+          }""")
+        if not res.get("open"):
+            return False, f"{res}"
+        rows, vals = res.get("rows") or [], res.get("values") or []
+        # Daten: Vera nur einmal und mit Namen, Volker/Volkmar beide, Adresse ohne Namen, Liste
+        data_ok = (vals.count("Vera Vorschlag <vera.vorschlag@example.invalid>") == 1 and "vera.vorschlag@example.invalid" not in vals
+                   and "Volker Vorschlag <volker.vorschlag@example.invalid>" in vals and "Volkmar Vorschlag <volker.vorschlag@example.invalid>" in vals
+                   and "vorschlag.ohne@example.invalid" in vals and any(v.startswith("Vorschlag Team") for v in vals) and len(rows) >= len(vals) == 5)
+        tol = 0 if res.get("mac") else 2
+        shape_ok = all(abs(r["h"] - 22) <= tol and r["l"] == 5 and r["r"] == 5 and r["font"] == 13 and r["pad"] == 10 and r["radius"] == 6
+                       and not r["sel"] and same_color(r["color"], res["text"]) and rgba_alpha(r["bg"]) == 0 for r in rows)
+        legacy = not any(r["row"] for r in rows)   # ältere Zeilen ohne autocomplete-row-item: nur Form und Daten
+        by = {}
+        for r in rows:
+            by[r["label"]] = r
+        named = [by.get(n) for n in ("Vera Vorschlag", "Volker Vorschlag", "Volkmar Vorschlag")]
+        text_ok = legacy or (
+            all(r and r["desc"] and r["desc"].endswith("@example.invalid") and r["dash"] == '" — "' and r["line"]
+                and same_color(r["lcol"], res["text"]) and same_color(r["dcol"], res["sec"]) and r["icon"] == "none" for r in named)
+            and (by.get("vorschlag.ohne@example.invalid") or {}).get("desc") is None
+            and same_color((by.get("vorschlag.ohne@example.invalid") or {}).get("lcol"), res["text"])
+            and (by.get("Vorschlag Team") or {}).get("list") and "user-list.svg" in ((by.get("Vorschlag Team") or {}).get("icon") or "")
+            and same_color(by["Vorschlag Team"]["stroke"], res["ter"]) and by["Vorschlag Team"]["desc"] is None
+            and sum(1 for r in rows if r["list"]) == 1)
+        sel = res.get("selected") or []
+        sel_ok = (len(sel) == 1 and same_color(sel[0]["bg"], res["accent"]) and same_color(sel[0]["color"], res["accentText"])
+                  and (legacy or (same_color(sel[0]["lcol"], res["accentText"]) and (sel[0]["dcol"] is None or same_color(sel[0]["dcol"], res["accentText"])))))
+        keys_ok = bool(res.get("want")) and "<" in res["want"] and res["want"] in (res.get("pills") or [])
+        return data_ok and shape_ok and text_ok and sel_ok and keys_ok, f"legacy={legacy} {res}"
+    check("Verfassen: Empfänger-Vorschläge wie Menüzeilen (22 px, Einzug 5, 13 px, Radius 6, Auswahl Akzent), „Name — Adresse“ mit grauer Adresse, "
+          "ohne Kärtchen, Verteilerliste mit grauem Symbol, Adresse ohne Namen nicht doppelt, Pfeile und Enter fügen „Name <adresse>“ ein",
+          compose_suggest_rows, results)
+
     def format_toolbox():
         # Reintext: Thunderbird blendet nur die Formatleiste aus – die leere Box darf keine zweite Linie unter den Betreff legen;
         # Farbfelder: dezenter Rand statt Thunderbirds rgba(255, 255, 255, 0.7), Ring in Fensterfarbe trennt Text- und Hintergrundfeld

@@ -4295,6 +4295,88 @@ panel[type="autocomplete-richlistbox"] {
   border: none !important;
 }
 
+/* Zeilen wie in den übrigen Menüs und der Vorschlagsliste der Suche: 22 px,
+   5 px vom Rand, 10 px Innenabstand, Ecken 6 px, 13 px; Auswahl in
+   Akzentfarbe. Neue Zeilen (richlistitem.autocomplete-row-item mit dem
+   Element autocomplete-row-item darin) und ältere (.autocomplete-richlistitem) */
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete) {
+  --autocomplete-popup-highlight-background: var(--mt-accent) !important;
+  --autocomplete-popup-highlight-color: var(--mt-accent-text) !important;
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete) > richlistbox {
+  padding: 0 !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  :is(richlistitem.autocomplete-row-item, .autocomplete-richlistitem) {
+  margin: 0 5px !important;
+  padding: 0 10px !important;
+  min-height: 22px !important;
+  border-radius: 6px !important;
+  align-items: center !important;
+  color: var(--mt-text) !important;
+  background: transparent !important;
+  font-size: calc(13px * var(--mt-font-scale, 1)) !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  :is(richlistitem.autocomplete-row-item, .autocomplete-richlistitem):hover {
+  background: var(--mt-hover) !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  :is(richlistitem.autocomplete-row-item, .autocomplete-richlistitem)[selected] {
+  background: var(--mt-accent) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+/* Innenleben der neuen Zeilen: ohne eigenen Abstand und eigene Hover-Fläche
+   (die Zeile oben trägt beides) und ohne Adressbuch-Kärtchen vor jedem
+   Kontakt; nur Verteilerlisten (mc-ac-list, setzt die Erweiterung) behalten
+   ein kleines graues Gruppen-Symbol. Name, Strich und Adresse ordnet die
+   Erweiterung (hookAddressSuggest) zu einer Zeile, die Adresse in
+   --mt-ac-secondary */
+richlistitem.autocomplete-row-item > autocomplete-row-item {
+  --row-item-padding: 0;
+  --row-item-column-gap: 0;
+  --row-item-border-radius: 0;
+  --button-background-color-hover: transparent !important;
+  --button-text-color-hover: inherit !important;
+  --button-background-color-active: transparent !important;
+  --button-text-color-active: inherit !important;
+  --mt-ac-secondary: var(--mt-text-secondary);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  richlistitem.autocomplete-row-item[originaltype$="-abook"] > autocomplete-row-item {
+  background-image: none !important;
+  padding-inline-start: 0 !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  richlistitem.autocomplete-row-item[mc-ac-list] > autocomplete-row-item {
+  background-image: url("resource://mailcards/icons/user-list.svg") !important;
+  background-size: 14px !important;
+  background-position: left center !important;
+  padding-inline-start: 20px !important;
+  fill: none !important;
+  stroke: var(--mt-text-tertiary) !important;
+}
+
+:is(#PopupAutoComplete, panel[type="autocomplete-richlistbox"]):not(#PopupGlodaAutocomplete)
+  richlistitem.autocomplete-row-item[mc-ac-list] > autocomplete-row-item:-moz-locale-dir(rtl) {
+  background-position: right center !important;
+}
+
+richlistitem.autocomplete-row-item[selected] > autocomplete-row-item {
+  --mt-ac-secondary: currentColor;
+  stroke: currentColor !important;
+}
+
 /* Symbolzeile oben im Nachrichten-Kontextmenü immer ausgeblendet; die
    Erweiterung hängt Thunderbirds Einträge zu einem flachen Menü wie in Apple
    Mail um und blendet Untermenüs, Schlagwörter, Speichern und Drucken aus */

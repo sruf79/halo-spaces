@@ -2027,6 +2027,183 @@ function hookFindbarDone(doc) {
   }
 }
 
+// Empfänger-Vorschläge (Verfassen, Einladungen, Listen-Dialoge): jede Zeile
+// „Name — Adresse“ statt „Name <adresse>“, die Adresse grau (Stilblatt,
+// --mt-ac-secondary); ohne Namen nur die Adresse; Verteilerlisten nur mit
+// Namen und Gruppen-Symbol (mc-ac-list). Ins Feld eingefügt wird weiter der
+// Wert der Zeile („Name <adresse>“), wir ändern nur die Anzeige. Thunderbird
+// schreibt Name und Beschreibung der Zeile bei jeder neuen Eingabe neu
+// (_appendAutocompleteResults, auch in Teilen nacheinander) – darum diese
+// Methode der Liste umhüllen. Die Zeile legt Name und Beschreibung im
+// Schattenbaum untereinander; ein eigenes Stilblatt dort stellt sie
+// nebeneinander. Ältere Zeilen ohne autocomplete-row-item bleiben, wie sie sind.
+const ADDRESS_SUGGEST_SHADOW_CSS = `
+.labels-container { flex: 1 1 auto; flex-direction: row; align-items: baseline; min-width: 0; overflow: hidden; }
+.labels-container > .label { flex: 0 1 auto; min-width: 0; }
+.labels-container > .description { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--mt-ac-secondary, GrayText); }
+.labels-container > .description::before { content: " \\2014  "; white-space: pre; }
+`;
+
+function hookAddressSuggest(win, cleanups) {
+  const doc = win.document;
+  if (doc.__mcAddressSuggest) {
+    return;
+  }
+  doc.__mcAddressSuggest = true;
+  let sheet = null;
+  const adopt = row => {
+    const root = row.shadowRoot;
+    if (!root) {
+      win.customElements.whenDefined("autocomplete-row-item").then(() => row.shadowRoot && adopt(row), () => {});
+      return;
+    }
+    if (!sheet) {
+      sheet = new win.CSSStyleSheet();
+      sheet.replaceSync(ADDRESS_SUGGEST_SHADOW_CSS);
+    }
+    if (!root.adoptedStyleSheets.includes(sheet)) {
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+    }
+  };
+  const listNames = () => {
+    const names = new Set();
+    for (const dir of MailServices.ab.directories) {
+      for (const list of dir.childNodes || []) {
+        names.add(list.dirName);
+      }
+    }
+    return names;
+  };
+  const format = popup => {
+    const controller = popup.mInput?.controller;
+    const items = popup.richlistbox?.children;
+    if (!controller || !items) {
+      return;
+    }
+    let lists = null;
+    const count = Math.min(controller.matchCount, items.length);
+    for (let i = 0; i < count; i++) {
+      const item = items[i];
+      const row = item.querySelector(":scope > autocomplete-row-item");
+      if (!row || !/-abook$/.test(item.getAttribute("originaltype") || "")) {
+        item.removeAttribute("mc-ac-list");
+        continue;
+      }
+      const value = controller.getValueAt(i) || "";
+      const label = controller.getLabelAt(i) || value;
+      // Adressbuchname hinter dem Wert (mail.autoComplete.commentColumn) bleibt
+      const extra = label.startsWith(value) ? label.slice(value.length) : "";
+      const m = value.match(/^\s*(.*?)\s*<([^<>]*)>\s*$/);
+      const name = (m ? m[1] : "").replace(/^"(.*)"$/, "$1").replace(/\\(["\\])/g, "$1");
+      const address = m ? m[2] : value;
+      lists ??= listNames();
+      const isList = !address.includes("@") || (name && lists.has(name) && address == name);
+      item.toggleAttribute("mc-ac-list", isList);
+      if (isList) {
+        row.label = name || address;
+        row.description = extra.replace(/^\s*\u2014\s*/, "") || null;
+      } else {
+        row.label = (name || address) + (name ? "" : extra);
+        row.description = name ? address + extra : null;
+      }
+      adopt(row);
+    }
+  };
+  const onShowing = event => {
+    const popup = event.target;
+    if (popup.localName != "panel" || popup.getAttribute("type") != "autocomplete-richlistbox"
+        || popup.id == "PopupGlodaAutocomplete" || typeof popup._appendAutocompleteResults != "function") {
+      return;
+    }
+    if (!popup.__mcAddressSuggest) {
+      const original = popup._appendAutocompleteResults;
+      popup._appendAutocompleteResults = function (...args) {
+        const result = original.apply(this, args);
+        try {
+          format(this);
+        } catch (e) {
+          log("address suggest error", e);
+        }
+        return result;
+      };
+      popup.__mcAddressSuggest = () => {
+        popup._appendAutocompleteResults = original;
+        delete popup.__mcAddressSuggest;
+      };
+    }
+    // die erste Füllung lief schon vor dem Öffnen
+    try {
+      format(popup);
+    } catch (e) {
+      log("address suggest error", e);
+    }
+  };
+  doc.addEventListener("popupshowing", onShowing, true);
+  cleanups.add(() => {
+    doc.removeEventListener("popupshowing", onShowing, true);
+    for (const popup of doc.querySelectorAll('panel[type="autocomplete-richlistbox"]')) {
+      popup.__mcAddressSuggest?.();
+      for (const item of popup.richlistbox?.children || []) {
+        item.removeAttribute("mc-ac-list");
+        const root = item.querySelector(":scope > autocomplete-row-item")?.shadowRoot;
+        if (root && sheet) {
+          root.adoptedStyleSheets = root.adoptedStyleSheets.filter(s => s != sheet);
+        }
+      }
+    }
+    delete doc.__mcAddressSuggest;
+  });
+}
+
+// Doppelte Empfänger-Vorschläge: Thunderbird fasst nur Karten mit gleichem
+// „Name <adresse>“ zusammen. Liegt dieselbe Adresse auf einer Karte mit
+// Namen und einer ohne (etwa im persönlichen Adressbuch und in „Gesammelte
+// Adressen“), erscheint sie zweimal. Die Zeile ohne Namen fällt dann weg;
+// Karten mit verschiedenen Namen bleiben beide. Rückgabe: Aufräumen.
+function patchAddressDuplicates() {
+  let proto;
+  try {
+    proto = ChromeUtils.importESModule("resource:///modules/AbAutoCompleteSearch.sys.mjs").AbAutoCompleteSearch?.prototype;
+  } catch (e) {
+    log("address duplicates: module", e);
+  }
+  const original = proto?._addToResult;
+  if (typeof original != "function" || original.__mcOriginal) {
+    return () => {};
+  }
+  const named = card => !!(card?.displayName || "").trim();
+  const patched = function (commentColumn, directory, card, emailToUse, isPrimaryEmail, result) {
+    try {
+      const collected = result?._collectedValues;
+      if (collected && card && !card.isMailList && emailToUse) {
+        const key = emailToUse.toLowerCase();
+        for (const [k, entry] of collected) {
+          if (entry.card?.isMailList || (entry.emailToUse || "").toLowerCase() != key) {
+            continue;
+          }
+          if (!named(card) && named(entry.card)) {
+            return undefined;
+          }
+          if (named(card) && !named(entry.card)) {
+            collected.delete(k);
+          }
+        }
+      }
+    } catch (e) {
+      log("address duplicates", e);
+    }
+    return original.apply(this, arguments);
+  };
+  patched.__mcOriginal = original;
+  proto._addToResult = patched;
+  return () => {
+    if (proto._addToResult == patched) {
+      proto._addToResult = original;
+    }
+  };
+}
+
 function hookComposeApple(win, cleanups) {
   const doc = win.document;
   const bar = doc.getElementById("composeToolbar2");
@@ -8126,6 +8303,28 @@ class CardEnhancer {
         try {
           cleanup();
         } catch {} // gewollt: Verfassen-Fenster schon geschlossen, nichts mehr aufzuräumen
+      }
+    });
+    // Empfänger-Vorschläge in jedem Fenster (Verfassen, Einladungen,
+    // Listen-Dialoge) als „Name — Adresse“, jede Adresse nur einmal
+    const suggestCleanups = new Set();
+    ExtensionSupport.registerWindowListener("mail-cards-address-suggest", {
+      onLoadWindow: w => {
+        try {
+          hookAddressSuggest(w, suggestCleanups);
+        } catch (e) {
+          log("address suggest hook error", e);
+        }
+      },
+    });
+    const unpatchDuplicates = patchAddressDuplicates();
+    this.restorers.push(() => {
+      ExtensionSupport.unregisterWindowListener("mail-cards-address-suggest");
+      unpatchDuplicates();
+      for (const cleanup of [...suggestCleanups]) {
+        try {
+          cleanup();
+        } catch {} // gewollt: Fenster schon geschlossen, nichts mehr aufzuräumen
       }
     });
   }

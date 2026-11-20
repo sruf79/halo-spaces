@@ -44,3 +44,20 @@ test("Suchtreffer: Positionen im Originaltext, auch wenn die Kleinschreibung lä
   assert.equal(hitRanges("abc", "").length, 0);
   assert.equal(hitRanges("abc", "x").length, 0);
 });
+
+test("Suchtreffer: Name ganz, Wort für Wort, wenn der Begriff nur auf die Adresse passt", () => {
+  const { markRanges } = lade();
+  const teile = (text, needle, wholes) => Array.from(markRanges(text, needle, wholes), ([a, b]) => text.slice(a, b));
+  // Adresse nicht in der Karte: der Name ganz, die Lücke bleibt frei
+  assert.deepEqual(teile("Christian Brandstätter", "brandstaetter@imba", ["Christian Brandstätter"]),
+    ["Christian", "Brandstätter"]);
+  // mehrere Empfänger: nur der passende Name
+  assert.deepEqual(teile("Anna Berg, Christian Brandstätter", "imba.oeaw", ["Christian Brandstätter"]),
+    ["Christian", "Brandstätter"]);
+  // wörtlicher Treffer und Name überlappen: zusammengelegt, nicht doppelt
+  assert.deepEqual(teile("Christian Brandstätter", "christian", ["Christian Brandstätter"]), ["Christian", "Brandstätter"]);
+  // ohne Namen wie bisher nur die Fundstellen
+  assert.deepEqual(teile("Ihre Rechnung", "rechnung", []), ["Rechnung"]);
+  assert.deepEqual(teile("Ihre Rechnung", "rechnung", ["", null]), ["Rechnung"]);
+  assert.deepEqual(teile("Anna Berg", "x@y", ["Nicht da"]), []);
+});

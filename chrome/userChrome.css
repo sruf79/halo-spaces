@@ -1618,6 +1618,14 @@ body:has(> #accountCentral),
   color: var(--mt-text) !important;
 }
 
+/* Kopfzeile und Liste ohne eigene Fläche: die Fläche und die Haarlinie
+   darüber zeichnet #attachmentView, eine deckende Fläche darin verdeckte die
+   Linie (ab zwei Anhängen links bis hinter „Save All“, bei einem ganz) */
+#attachmentBar,
+#attachmentList {
+  background: transparent !important;
+}
+
 /* Linie über den Anhängen 16 px vor beiden Rändern (bündig mit Mailtext,
    Chevron und „Save All“), damit sie wie ein Teil der Mail wirken; die Linie
    unter dem Mailkopf bleibt durchgehend */

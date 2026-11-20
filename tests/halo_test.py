@@ -2288,12 +2288,14 @@ def reading_checks(m, results):
             doc.documentElement.append(e); const c = [cs(e).backgroundColor, cs(e).color]; e.remove(); return c; };
           const [tileHover, text] = want("--mt-att-tile-hover"), [saveBg] = want("--mt-att-save");
           a3.threadTree.focus(); await ruhig(300);
-          const out = { list: cs(list).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
+          const out = { list: cs(list).backgroundColor, view: cs(doc.getElementById("attachmentView")).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
                         bar: cs(doc.getElementById("attachmentBar")).backgroundColor, focused, unfocused: cs(item).backgroundColor, tileHover, text, saveBg,
                         accent: (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })() };
           doc.defaultView.toggleAttachmentList?.(false); return out;""")
         f = res["focused"]
-        ok = (same_color(res["list"], res["header"]) and same_color(res["bar"], res["header"]) and f["radius"] >= 6
+        # Liste und Kopfzeile ohne eigene Fläche (sonst verdecken sie die Haarlinie darüber), darunter die Fläche der Mail
+        clear = lambda c: c in ("transparent", "rgba(0, 0, 0, 0)")
+        ok = (same_color(res["view"], res["header"]) and clear(res["list"]) and clear(res["bar"]) and f["radius"] >= 6
               and f["outline"] == "none" and not same_color(res["unfocused"], res["accent"]))
         if f["inactive"]:
             # Fenster trotz mehrerer Versuche nicht aktiv: die Akzentfarbe mit Fokus lässt sich nicht messen
@@ -2407,6 +2409,45 @@ def reading_checks(m, results):
               and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
     check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe nur im Tooltip, runder Sichern-Knopf, Akzent beim Überfahren), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
+
+    def attachments_line():
+        # Haarlinie über den Anhängen durchgehend von 16 px links bis 16 px rechts, bei einem und bei mehreren
+        # Anhängen, auf- und zugeklappt (ab zwei Anhängen deckte die Kopfzeile mit eigener Fläche die Linie auf ihrer
+        # Breite zu, links bis hinter „Save All“ fehlte sie). Gemessen an den Pixeln der obersten Zeilen
+        res = m.js(READING_JS + r"""
+          const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+          const line = async doc => {
+            const view = doc.getElementById("attachmentView"), q = view.getBoxQuadsFromWindowOrigin()[0].getBounds();
+            const x0 = q.left + 16, w1 = Math.floor(q.width - 32), h1 = 4;
+            cv.width = w1 * 2; cv.height = h1 * 2;
+            ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(x0, q.top, w1, h1), 2, "white"), 0, 0);
+            const img = ctx.getImageData(0, 0, cv.width, cv.height).data, px = (x, y) => img.slice((y * cv.width + x) * 4, (y * cv.width + x) * 4 + 3);
+            // Fläche der Mail als Bezug: Mitte der untersten Zeile des Streifens (unter der Linie)
+            const ref = px(cv.width >> 1, cv.height - 1);
+            let miss = 0, first = -1, last = -1;
+            for (let x = 0; x < cv.width; x++) {
+              let dmax = 0; for (let y = 0; y < 4; y++) { const p = px(x, y); dmax = Math.max(dmax, ...[0, 1, 2].map(k => Math.abs(p[k] - ref[k]))); }
+              if (dmax < 6) { miss++; if (first < 0) first = x; last = x; }
+            }
+            return { w: w1, miss: Math.round(miss / 2), from: first < 0 ? null : first / 2, to: last < 0 ? null : last / 2 };
+          };
+          const out = {};
+          await showMail("Halo Jetzt");
+          let doc = await showMail("Halo Anhänge");
+          const list = doc.getElementById("attachmentList");
+          await until(() => list.querySelectorAll(".attachmentItem").length == 3, 3000); await ruhig(300);
+          if (list.collapsed) { doc.getElementById("attachmentBar").click(); await ruhig(400); }
+          out.multiOpen = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          out.multiClosed = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          doc = await showMail("Halo Ein Anhang");
+          await until(() => doc.getElementById("attachmentList").querySelectorAll(".attachmentItem").length == 1, 3000); await ruhig(300);
+          out.single = await line(doc);
+          return out;""")
+        ok = all((res.get(k) or {}).get("w", 0) > 100 and res[k]["miss"] <= 1 for k in ("multiOpen", "multiClosed", "single"))
+        return ok, f"{res}"
+    check("Anhänge: Haarlinie über den Anhängen durchgehend 16 px vor beiden Rändern, bei einem und mehreren Anhängen, auf- und zugeklappt", attachments_line, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter

@@ -4211,6 +4211,34 @@ panel {
 #btn_moveAttachmentLast { list-style-image: url("resource://mailcards/icons/move-last.svg") !important; }
 #btn_sortAttachmentsToggle { list-style-image: url("resource://mailcards/icons/sort.svg") !important; }
 
+/* Bild-Dialog beim Verfassen, Reiter „Appearance“: Ausrichtung des Texts
+   zum Bild mit halo-Symbolen statt der alten GIF-Bildchen (16 px, Strich 1.7,
+   das Bild als kleines Quadrat mit zarter Fläche, der Text als Striche).
+   Die Symbole zeichnen nur mit context-fill (Schriftfarbe): im Feld setzt
+   themeableDialog.css auf ::part(icon) „-moz-context-properties: fill“, das
+   sich aus diesem Stilblatt nicht überschreiben lässt; die Deckkraft der
+   Bildfläche (hell 16 %, dunkel 28 %) steht deshalb im SVG selbst.
+   Achtung: „value“ ist das HTML-Attribut und steht absichtlich gegenläufig
+   zur Beschriftung – value="left" heißt „Wrap to the Right“ (Bild links) */
+menuitem.align-menu > .menu-icon {
+  -moz-context-properties: fill !important;
+  fill: currentColor !important;
+}
+/* im Feld 8 px zwischen Symbol und Text (das Symbol hat dort keinen
+   Abstand, ::part(label) ist von hier aus nicht erreichbar, text-indent erbt
+   das Etikett); die Menüzeilen behalten ihren Abstand */
+menulist.align-menu {
+  text-indent: 8px !important;
+}
+menulist.align-menu > menupopup {
+  text-indent: 0 !important;
+}
+.align-menu[value="top"] { list-style-image: url("resource://mailcards/icons/align-top.svg") !important; }
+.align-menu[value="middle"] { list-style-image: url("resource://mailcards/icons/align-middle.svg") !important; }
+.align-menu[value="bottom"] { list-style-image: url("resource://mailcards/icons/align-bottom.svg") !important; }
+.align-menu[value="left"] { list-style-image: url("resource://mailcards/icons/align-image-left.svg") !important; }
+.align-menu[value="right"] { list-style-image: url("resource://mailcards/icons/align-image-right.svg") !important; }
+
 /* Vorschlagsliste der Suche oben (Kalender, Chat, Inhalts-Tabs) wie die
    übrigen Menüs: durchscheinend ohne harten Rand, 13 px, Auswahl in
    Akzentfarbe, Adressen grau statt in Linkblau */

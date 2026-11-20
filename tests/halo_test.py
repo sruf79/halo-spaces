@@ -4117,6 +4117,46 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Dialoge: Reiter als Segment-Kapseln ohne Strich und Linie (Bild einfügen)", tabs, results)
 
+    def image_align_icons():
+        # Ausrichtung im Bild-Dialog (Reiter „Appearance“): halo-Symbole statt der alten GIF-Bildchen, im Feld und in allen
+        # fünf Menüzeilen 16 px in Schriftfarbe (context-fill, im Feld gibt themeableDialog.css nur „fill“ weiter); nichts fällt weg.
+        # Im Feld wird gezeichnet: die Striche rechts neben dem Bild (rechte Hälfte des Symbols) müssen zu sehen sein
+        # (zeichnete das SVG mit context-stroke, stand dort nur das Quadrat)
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({}, cw => dialog(() => cw.goDoCommand("cmd_image"), "EdImageProps", async (dw, dd) => {
+            const tabs = dd.querySelector("tabs"); tabs.selectedItem = [...tabs.querySelectorAll("tab")].find(t => t.id == "imageAppearanceTab" || /Appearance/.test(t.label)); await ruhig(400);
+            const ml = dd.getElementById("alignTypeSelect");
+            const look = i => { const s = csOf(i), q = i.getBoundingClientRect();
+              return { img: (s.listStyleImage.match(/icons\/([\w-]+)\.svg/) || [, s.listStyleImage.slice(0, 60)])[1], w: q.width, h: q.height,
+                       ctx: s.getPropertyValue("-moz-context-properties"), fill: s.fill, color: s.color }; };
+            // Anteil deutlich gezeichneter Punkte in der rechten Hälfte des Symbols (Abstand zur Feldfläche)
+            const ink = async i => { const q = i.getBoundingClientRect();
+              const bm = await dw.browsingContext.currentWindowGlobal.drawSnapshot(new dw.DOMRect(q.left + q.width / 2, q.top, q.width / 2, q.height), 2, "white");
+              const c = dd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bm.width; c.height = bm.height;
+              const x = c.getContext("2d"); x.drawImage(bm, 0, 0); const px = x.getImageData(0, 0, c.width, c.height).data;
+              const field = await dw.browsingContext.currentWindowGlobal.drawSnapshot(new dw.DOMRect(ml.getBoundingClientRect().right - 60, q.top, 2, 2), 1, "white");
+              const c2 = dd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c2.width = 2; c2.height = 2; const x2 = c2.getContext("2d"); x2.drawImage(field, 0, 0);
+              const f = x2.getImageData(0, 0, 1, 1).data; let n = 0;
+              for (let k = 0; k < px.length; k += 4) if (Math.abs(px[k] - f[0]) + Math.abs(px[k + 1] - f[1]) + Math.abs(px[k + 2] - f[2]) > 150) n++;
+              return Math.round(100 * n / (px.length / 4)); };
+            const out = { dark: dw.matchMedia("(prefers-color-scheme: dark)").matches, field: {} };
+            for (const v of ["top", "middle", "bottom", "left", "right"]) { ml.value = v; await ruhig(200);
+              const i = ml.shadowRoot.querySelector("[part~=icon]"); out.field[v] = { ...look(i), ink: await ink(i) }; }
+            // 8 px zwischen Symbol und Text im Feld, die Menüzeilen ohne zusätzlichen Einzug
+            out.indent = csOf(ml.shadowRoot.querySelector("[part~=label]")).textIndent;
+            ml.open = true; await till(() => ml.menupopup.state == "open", 3000); await ruhig(300);
+            out.items = [...ml.menupopup.children].map(mi => ({ v: mi.value, label: mi.label, indent: csOf(mi.querySelector(".menu-text, .menu-iconic-text, label")).textIndent, ...look(mi.querySelector(".menu-icon")) }));
+            ml.open = false; await ruhig(200);
+            return out; }));""")
+        want = {"top": "align-top", "middle": "align-middle", "bottom": "align-bottom", "left": "align-image-left", "right": "align-image-right"}
+        def good(x, v):
+            return (x.get("img") == want[v] and round(x["w"]) == 16 and round(x["h"]) == 16 and same_color(x["fill"], x["color"]))
+        items, field = res.get("items") or [], res.get("field") or {}
+        ok = (all(good(field[v], v) and field[v]["ink"] >= 4 for v in want) and res.get("indent") == "8px"
+              and len(items) == 5 and all(good(x, x["v"]) and x["label"] and x["indent"] == "0px" for x in items))
+        return ok, f"{res}"
+    check("Verfassen: Ausrichtung im Bild-Dialog mit halo-Symbolen (16 px, Striche in Schriftfarbe, Bildfläche zart), im Feld mit 8 px Abstand zum Text und in allen fünf Zeilen", image_align_icons, results)
+
     def customize():
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, async (cw, cd) => {

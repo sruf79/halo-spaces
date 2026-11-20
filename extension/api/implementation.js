@@ -448,11 +448,10 @@ function hookAppearanceChoice(cw, restorers = null) {
   });
 }
 
-// Einstellungen → „Chat & More“ (Kategorie Chat): oben die Wahl für den fünften
-// Platz der Bereichsleiste (Chat, Bereich einer Erweiterung, Webseite, nichts),
-// darunter Thunderbirds Chat-Einstellungen – nur, wenn dort Chat gewählt ist;
-// sonst steht an ihrer Stelle ein Hinweis, was der Platz gerade zeigt.
-// Schreibt dieselben Einstellungen wie früher die halo.spaces-Seite.
+// Einstellungen → „Chat & More“ (Kategorie Chat): Thunderbirds Chat-Einstellungen
+// nur, wenn auf dem fünften Platz der Bereichsleiste Chat steht (gewählt in den
+// halo.spaces-Einstellungen); sonst steht an ihrer Stelle ein Hinweis, was der
+// Platz gerade zeigt.
 function hookChatCategory(cw, restorers = null) {
   const doc = cw.document;
   const X = "http://www.w3.org/1999/xhtml";
@@ -485,102 +484,22 @@ function hookChatCategory(cw, restorers = null) {
     return;
   }
   const el = (tag, props = {}) => Object.assign(doc.createElementNS(X, tag), props);
+  // die Wahl selbst steht seit 20.11.2026 in den halo.spaces-Einstellungen (Gruppe „Fifth space“,
+  // options/sections.js); hier bleibt nur der Hinweis, was der Platz statt Chat zeigt
   const group = el("fieldset", { id: "mcFifthGroup" });
   group.__mcOwner = HOOK_OWNER;
   group.setAttribute("data-category", "paneChat");
-  const rows = {};
-  const row = (key, text, control) => {
-    const box = doc.createXULElement("hbox");
-    box.setAttribute("align", "center");
-    box.className = "mc-fifth-row";
-    const label = doc.createXULElement("label");
-    label.setAttribute("value", text);
-    label.setAttribute("flex", "1");
-    box.append(label, control);
-    rows[key] = box;
-    group.append(box);
-  };
-  const menu = (id, onPick) => {
-    const list = doc.createXULElement("menulist");
-    list.id = id;
-    list.appendChild(doc.createXULElement("menupopup"));
-    list.addEventListener("command", () => onPick(list.value));
-    return list;
-  };
   const getPref = (pref, def) => Services.prefs.getStringPref(pref, def);
-  const setPref = (pref, def, value) => {
-    if (value === def) {
-      Services.prefs.clearUserPref(pref); // Standard: nichts im Profil speichern
-    } else {
-      Services.prefs.setStringPref(pref, value);
-    }
-  };
-  group.append(el("legend", { textContent: tr("Fifth space") }));
-  const spacesOf = () => FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane")) || [];
-  const kind = menu("mcFifthSpace", v => {
-    // Bereich einer Erweiterung: gleich die angezeigte (erste) wählen, sonst bliebe der Platz leer
-    const first = spacesOf()[0]?.name;
-    if (v == "addon" && first && !spacesOf().some(a => a.name == getPref(FIFTH_ADDON_PREF, ""))) {
-      setPref(FIFTH_ADDON_PREF, "", first);
-    }
-    setPref(FIFTH_PREF, "chat", v);
-  });
-  const addon = menu("mcFifthSpaceAddon", v => setPref(FIFTH_ADDON_PREF, "", v));
-  const url = el("input", { id: "mcFifthSpaceUrl", type: "text", placeholder: "https://…", spellcheck: false });
-  url.className = "mc-fifth-url";
-  const saveURL = () => {
-    const normal = FifthSpace.normalizeURL(url.value);
-    if (normal === null) {
-      url.value = getPref(FIFTH_URL_PREF, ""); // keine Webadresse: alte behalten
-    } else {
-      setPref(FIFTH_URL_PREF, "", normal);
-      url.value = normal;
-    }
-  };
-  url.addEventListener("change", saveURL);
-  url.addEventListener("keydown", e => {
-    if (e.key == "Enter") {
-      saveURL();
-    }
-  });
-  row("kind", tr("In the place of Chat"), kind);
-  row("addon", tr("Add-on"), addon);
-  row("url", tr("Address"), url);
   const hint = el("p", { id: "mcFifthHint", className: "mc-fifth-hint" });
   group.append(hint);
   // wie die übrigen Teile der Seite: solange „Chat & More“ nicht gewählt ist, versteckt (Thunderbird
-  // blendet beim Wechsel nur aus, was schon da war – sonst stand die Wahl unten in General)
+  // blendet beim Wechsel nur aus, was schon da war – sonst stand der Hinweis unten in General)
   group.hidden = !!header.hidden;
   header.after(group);
-  const fillMenu = (list, items, value) => {
-    const popup = list.menupopup;
-    popup.textContent = "";
-    for (const [v, text, disabled] of items) {
-      const item = doc.createXULElement("menuitem");
-      item.setAttribute("value", v);
-      item.setAttribute("label", text);
-      if (disabled) {
-        item.setAttribute("disabled", "true");
-      }
-      popup.appendChild(item);
-    }
-    list.value = value;
-  };
   const fill = () => {
     const mode = FifthSpace.mode();
-    const spaces = spacesOf();
     const addonText = tr("Space of an add-on");
-    // Auswahl neu aufbauen (Erweiterungen können dazukommen)
-    fillMenu(kind, [["chat", tr("Chat")], ["addon", spaces.length ? addonText : `${addonText} (${tr("none installed")})`, !spaces.length],
-      ["web", tr("Website")], ["none", tr("Nothing")]], mode);
-    // dieselbe Wahl wie auf der Leiste (fehlt die gespeicherte Erweiterung, die erste vorhandene)
     const chosen = FifthSpace.addonChoice(Services.wm.getMostRecentWindow("mail:3pane"));
-    fillMenu(addon, spaces.map(a => [a.name, a.title]), chosen?.name || "");
-    if (doc.activeElement != url) {
-      url.value = getPref(FIFTH_URL_PREF, "");
-    }
-    rows.addon.hidden = mode != "addon";
-    rows.url.hidden = mode != "web";
     // Hinweis, solange Thunderbirds Chat-Einstellungen ausgeblendet sind
     const current = mode == "addon" ? chosen?.title || addonText
       : mode == "web" ? getPref(FIFTH_URL_PREF, "") || tr("Website") : tr("Nothing");

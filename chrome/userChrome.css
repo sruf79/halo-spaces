@@ -9521,18 +9521,16 @@ splitter.splitter:has(+ .conv-bottom) {
 }
 
 /* „Chat & More“: Thunderbirds Chat-Einstellungen nur, wenn der fünfte Platz
-   Chat zeigt (Attribut mc-fifth setzt die Erweiterung); die Wahl für den
-   fünften Platz und die Überschrift bleiben immer */
+   Chat zeigt (Attribut mc-fifth setzt die Erweiterung); sonst steht an ihrer
+   Stelle unter der Überschrift der Hinweis (#mcFifthGroup). Die Wahl für den
+   fünften Platz steht in den halo.spaces-Einstellungen */
 :root[mc-fifth]:not([mc-fifth="chat"]) [data-category="paneChat"]:not(#mcFifthGroup, #chatPaneCategory) {
   display: none !important;
 }
 
-#mcFifthGroup .mc-fifth-row {
-  min-height: 32px;
-}
-
-#mcFifthGroup .mc-fifth-url {
-  width: 260px;
+/* bei Chat bleibt der Hinweis leer: keine leere Gruppe mit Abstand */
+:root[mc-fifth="chat"] #mcFifthGroup {
+  display: none !important;
 }
 
 #mcFifthGroup .mc-fifth-hint,

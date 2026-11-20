@@ -21825,7 +21825,7 @@ Neu
 
     def options_minimal():
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),
-        # (Wahl für den fünften Platz liegt unter „Chat & More“), Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
+        # Wahl für den fünften Platz als eigene Gruppe nach Kalender, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
         # Die Seite läuft hier in einem Testfenster mit nachgebildeter Schnittstelle (die echte liegt im Erweiterungsprozess)
         res = m.js(r"""
           const saved = [];
@@ -21863,6 +21863,15 @@ Neu
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
                         "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
+            // fünfter Platz (seit 20.11.2026 hier, Maintainer 17.11.2026): eigene Gruppe nach Kalender, Auswahl mit Chat zuerst,
+            // Erweiterung ohne installierte nicht wählbar, Adresse erst bei „Website“
+            const fs = od.getElementById("s-fifthSpace");
+            out.fifth = { options: fs ? [...fs.options].map(o => [o.value, o.disabled]) : [], value: fs?.value,
+                          head: od.getElementById("row-fifthSpace")?.closest("section")?.previousElementSibling?.textContent };
+            if (fs) { fs.value = "web"; fs.dispatchEvent(new ow.Event("change")); await ruhig(400);
+              out.fifth.url = shown("fifthSpaceUrl"); out.fifth.addon = shown("fifthSpaceAddon");
+              fs.value = "chat"; fs.dispatchEvent(new ow.Event("change")); await ruhig(400);
+              out.fifth.urlBack = shown("fifthSpaceUrl"); out.fifth.saved = saved.filter(e => e[0] == "fifthSpace"); }
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -21893,7 +21902,12 @@ Neu
         if not res.get("page"):
             return False, f"{res}"
         st = res["start"]
-        ok = (not st["place"] and st["emoji"] and not st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
+        fifth = res.get("fifth", {})
+        ok = (not st["place"] and st["emoji"] and not st["chat"] and st["instead"] and not st["url"] and not st["debug"]
+              and st["heads"][:4] == ["Spaces", "Mail", "Calendar", "Fifth space"]
+              and fifth.get("options") == [["chat", False], ["addon", True], ["web", False], ["none", False]] and fifth.get("value") == "chat"
+              and fifth.get("head") == "Fifth space" and fifth.get("url") is True and fifth.get("addon") is False and fifth.get("urlBack") is False
+              and fifth.get("saved") == [["fifthSpace", "web"], ["fifthSpace", "chat"]]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
               # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
               # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
@@ -21909,47 +21923,43 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen Spaces, Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
-        # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“) mit der Wahl für den fünften Platz der Bereichsleiste ganz oben;
-        # Thunderbirds Chat-Einstellungen nur bei „Chat“, sonst ein Hinweis; Wahl schreibt die Einstellungen, die Seite von halo.spaces hat sie nicht mehr
+        # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“): Thunderbirds Chat-Einstellungen nur bei „Chat“ auf dem
+        # fünften Platz, sonst darunter ein Hinweis, was der Platz zeigt; die Wahl selbst steht seit 20.11.2026 in den
+        # halo.spaces-Einstellungen (Maintainer 17.11.2026), hier also kein Auswahlmenü mehr
         res = m.js(PREFS_OPEN_JS + r"""
           const P = "extensions.mailcards.fifthSpace";
           const shown = e => !!e && e.getBoundingClientRect().height > 0;
           try {
             pd.getElementById("category-chat").click();
             const grp = await bis(() => pd.getElementById("mcFifthGroup"), "Gruppe fünfter Platz", 6000);
-            await bis(() => shown(grp), "Gruppe sichtbar", 4000);
-            const kind = pd.getElementById("mcFifthSpace");
+            await bis(() => shown(pd.getElementById("chatStartupAction")), "Chat-Einstellungen sichtbar", 4000);
+            const hint = pd.getElementById("mcFifthHint");
             const out = { name: pd.querySelector("#category-chat .category-name").textContent, head: pd.querySelector("#chatPaneCategory h1").textContent,
-                          first: grp.previousElementSibling?.id, value: kind.value, hint: shown(pd.getElementById("mcFifthHint")),
-                          tb: shown(pd.getElementById("chatStartupAction")), search: [] };
-            const set = async (v) => { kind.value = v; kind.dispatchEvent(new pw.Event("command")); await ruhig(300); };
-            await set("web");
-            out.web = { mode: Services.prefs.getStringPref(P, ""), url: shown(pd.getElementById("mcFifthSpaceUrl")), icon: shown(pd.getElementById("mcFifthSpaceIcon")),
-                        hint: shown(pd.getElementById("mcFifthHint")), tb: shown(pd.getElementById("chatStartupAction")), attr: pd.documentElement.getAttribute("mc-fifth") };
-            const url = pd.getElementById("mcFifthSpaceUrl"); url.value = "example.org"; url.dispatchEvent(new pw.Event("change")); await ruhig(300);
-            out.url = Services.prefs.getStringPref(P + "Url", "");
-            await set("none");
-            out.none = { mode: Services.prefs.getStringPref(P, ""), url: shown(url), tb: shown(pd.getElementById("chatStartupAction")) };
-            await set("chat");
-            out.chat = { has: Services.prefs.prefHasUserValue(P), tb: shown(pd.getElementById("chatStartupAction")), hint: shown(pd.getElementById("mcFifthHint")) };
-            // Suche findet die Wahl (Gruppe liegt in der Seite, Thunderbirds Suche liest sie mit)
-            out.inChat = grp.closest("[data-category]")?.getAttribute("data-category") || grp.getAttribute("data-category");
+                          first: grp.previousElementSibling?.id, chooser: grp.querySelectorAll("menulist, input, legend").length,
+                          group: shown(grp), hint: shown(hint), tb: shown(pd.getElementById("chatStartupAction")) };
+            Services.prefs.setStringPref(P + "Url", "https://example.org/"); Services.prefs.setStringPref(P, "web"); await ruhig(300);
+            out.web = { hint: shown(hint), text: hint.textContent.includes("https://example.org/"), tb: shown(pd.getElementById("chatStartupAction")),
+                        attr: pd.documentElement.getAttribute("mc-fifth") };
+            Services.prefs.setStringPref(P, "none"); await ruhig(300);
+            out.none = { hint: shown(hint), tb: shown(pd.getElementById("chatStartupAction")) };
+            Services.prefs.clearUserPref(P); await ruhig(300);
+            out.chat = { group: shown(grp), tb: shown(pd.getElementById("chatStartupAction")), hint: shown(hint) };
+            out.inChat = grp.getAttribute("data-category");
             return out;
           } finally {
             for (const p of [P, P + "Url"]) Services.prefs.clearUserPref(p);
             tm.closeTab(tm.currentTabInfo); await ruhig(400);
           }""")
-        ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["value"] == "chat"
-              and not res["hint"] and res["tb"]
-              and res["web"] == {"mode": "web", "url": True, "icon": False, "hint": True, "tb": False, "attr": "web"}
-              and res["url"] == "https://example.org/"
-              and res["none"] == {"mode": "none", "url": False, "tb": False}
-              and res["chat"] == {"has": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
+        ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["chooser"] == 0
+              and not res["group"] and not res["hint"] and res["tb"]
+              and res["web"] == {"hint": True, "text": True, "tb": False, "attr": "web"}
+              and res["none"] == {"hint": True, "tb": False}
+              and res["chat"] == {"group": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
         return ok, f"{res}"
-    check("Einstellungen: Kategorie „Chat & More“ mit Wahl für den fünften Platz oben, Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
+    check("Einstellungen: Kategorie „Chat & More“ ohne Wahl des fünften Platzes (die steht in den halo.spaces-Einstellungen), Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
 
     def pref_fifth_closed():
         # Wahl des fünften Platzes nach dem Schließen der Einstellungen ändern: kein
@@ -22411,14 +22421,19 @@ Neu
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]
         last = res["sections"][-1][1] if res["sections"] else []
-        ok = (not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
+        # Reihenfolge der Gruppen: Spaces zuerst (Maintainer 17.11.2026), dann die Spaces in der Reihenfolge der Leiste,
+        # danach Übergreifendes, Fehlerbehebung zuletzt
+        titles = [title for title, _ in res["sections"]]
+        ok = (titles == ["Spaces", "Mail", "Calendar", "Fifth space", "Appearance", "Troubleshooting"]
+              and not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
               and last == ["calendarOffline", "spacesOrderReset", "debug"] and keys.count("calendarOffline") == 1
               and not {"bundledTheme", "appleIcons"} & set(keys) and res.get("removedInTable") == [] and res.get("escape") == [True, True, True]
               and not res["missing"] and not res["leftover"] and not res["unknown"] and not res["inTable"]
               and res["emoji"] is True and not res["emojiStored"] and res["width"])
         return ok, f"{res}"
     check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, ohne die am 17.11.2026 entfernten Optionen "
-          "(Design und Symbole nur noch über about:config), Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
+          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting, "
+          "Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
           options_page_slim, results)
 
     def preview_menu():

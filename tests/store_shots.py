@@ -7,12 +7,15 @@ README-Bilder (Standard, Vorgabe des Designers, nur macOS):
     python3 tests/store_shots.py --port 2852 [--out /tmp/halo-readme-bilder] [--only mail-inbox,search]
         [--calendar week|month] [--search-menu] [--today-closed] [--snapshot] [--compose]
 
-- Ganze Fenster 1500 × 940 pt, aufgenommen in 2x (3000 × 1880) einzeln per `screencapture -l <Fenster-ID>`
-  MIT Schatten und durchsichtigen Rändern, Ampel sichtbar, kein Schreibtisch dahinter. Die Fenster-ID kommt
-  aus der Fensterliste der Test-PID (CGWindowListCopyWindowInfo über osascript, wie ui_tour.py).
-  Ausschnitte (sender-pictures, today-pane) aus einer Aufnahme ohne Schatten (`-o`), ebenfalls 2x.
-  2x braucht einen Retina- bzw. HiDPI-Bildschirm; sonst bricht das Skript ab. --snapshot nimmt dann
-  stattdessen drawSnapshot in 2x (nur der Fensterinhalt: ohne Schatten, Ampel und Fensterrand).
+- Ganze Fenster 1500 × 940 pt in der Auflösung des Bildschirms (Testrechner 1x: 1500 × 940 px, Weg A des
+  Designers), einzeln per `screencapture -l <Fenster-ID>` MIT Schatten, Rahmen und durchsichtigen Rändern,
+  Ampel sichtbar, kein Schreibtisch dahinter. Die Fenster-ID kommt aus der Fensterliste der Test-PID
+  (CGWindowListCopyWindowInfo über osascript, wie ui_tour.py). PNGs ohne Verkleinern und ohne Nachschärfen.
+- Ausschnitte (sender-pictures, today-pane) aus derselben Fensteraufnahme wie mail-inbox zugeschnitten (kein
+  zweiter Aufnahmevorgang, kein Skalieren); der Schattenrand wird aus dem Alphakanal gelesen. quick-event: ist
+  das Schnellfenster ein eigenes Fenster, wird es wie die ganzen Fenster samt Schatten aufgenommen, sonst aus
+  der Aufnahme des Hauptfensters zugeschnitten.
+- --snapshot (nicht Standard): drawSnapshot in 2x, nur der Fensterinhalt ohne Schatten, Ampel und Rahmen.
 - Fester Tag: Freitag, 20.11.2026, 09:41. Die Systemuhr bleibt unberührt: im Testprofil wird `Date` in
   den Fenstern, im gemeinsamen Modul-Global (cal.dtz.now) und im Global der Erweiterung um den Abstand
   verschoben (die Uhr läuft ab 09:41 weiter). Mails und Termine hängen an diesem Zeitpunkt.
@@ -310,7 +313,7 @@ def store_main(args):
 # Telefonnummern bleiben im README weg (keine Zahlen über 99); Zeile muss es im Kontaktteil geben
 _TEL = '\n           "TEL;TYPE=cell:+1 555 01" + String(10 + people.findIndex(p => p[0] == first)), `PHOTO:${face(look)}`]);'
 assert _TEL in DATA_CONTACTS_JS, "Kontaktteil geändert: Telefonzeile nicht gefunden"
-WIN_W, WIN_H = 1500, 940  # Fenster in pt, Aufnahme in 2x → 3000 × 1880
+WIN_W, WIN_H = 1500, 940  # Fenster in pt, Aufnahme in der Auflösung des Bildschirms (Testrechner 1x)
 README_OUT = "/tmp/halo-readme-bilder"
 
 # Uhr des Testprofils auf Freitag, 20.11.2026, 09:41 (Ortszeit) stellen, ohne die Systemuhr zu ändern: in jedem
@@ -593,8 +596,70 @@ def save_data_url(data, path):
         f.write(base64.b64decode(data.split(",", 1)[1]))
 
 
-def readme_shot(m, args, name, out):
-    """Eine Szene stellen und aufnehmen; liefert den Pfad."""
+def png_alpha_top(path, x):
+    """Erste Zeile, in der Spalte x deckend ist (Alpha 255) – der obere Schattenrand einer Fensteraufnahme.
+    Nur Standardbibliothek (zlib); ohne Alphakanal 0."""
+    import struct
+    import zlib
+    with open(path, "rb") as f:
+        raw = f.read()
+    pos, idat, ihdr = 8, [], None
+    while pos < len(raw):
+        n, typ = struct.unpack(">I4s", raw[pos:pos + 8])
+        body = raw[pos + 8:pos + 8 + n]
+        if typ == b"IHDR":
+            ihdr = struct.unpack(">IIBBBBB", body)
+        elif typ == b"IDAT":
+            idat.append(body)
+        elif typ == b"IEND":
+            break
+        pos += 12 + n
+    width, height, depth, ctype, _, _, interlace = ihdr
+    if ctype != 6 or depth != 8 or interlace:
+        return 0
+    data, bpp, stride = zlib.decompressobj(), 4, width * 4
+    buf, prev, y, src = b"", bytearray(stride), 0, b"".join(idat)
+    out = data.decompress(src)
+    while y < height and len(out) >= (y + 1) * (stride + 1):
+        line = out[y * (stride + 1):(y + 1) * (stride + 1)]
+        ft, cur = line[0], bytearray(line[1:])
+        for i in range(stride):
+            a = cur[i - bpp] if i >= bpp else 0
+            b = prev[i]
+            c = prev[i - bpp] if i >= bpp else 0
+            if ft == 1:
+                cur[i] = (cur[i] + a) & 255
+            elif ft == 2:
+                cur[i] = (cur[i] + b) & 255
+            elif ft == 3:
+                cur[i] = (cur[i] + ((a + b) >> 1)) & 255
+            elif ft == 4:
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                cur[i] = (cur[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        if cur[x * 4 + 3] == 255:
+            return y
+        prev, y = cur, y + 1
+    return 0
+
+
+def crop_from_window(path, info, win, rect, out):
+    """Rechteck (Fensterkoordinaten in pt bzw. Bildschirm-Rechteck mit screen=True) aus einer Fensteraufnahme
+    MIT Schatten zuschneiden, ohne zu skalieren: links liegt der Schatten gleich breit wie rechts, oben wird er
+    im Alphakanal gemessen."""
+    scale = info.get("dpr") or 1
+    width, _ = _ut().png_size(path)
+    left = round((width - win["w"] * scale) / 2)
+    top = png_alpha_top(path, width // 2)
+    x, y = rect["x"] - win["x"], rect["y"] - win["y"]
+    if not rect.get("screen"):
+        x, y = x + info["ix"], y + info["iy"]
+    sips_crop(path, left + x * scale, top + y * scale, rect["w"] * scale, rect["h"] * scale, out)
+
+
+def readme_shot(m, args, name, out, cache):
+    """Eine Szene stellen und aufnehmen; liefert den Pfad. cache: Fensteraufnahme von mail-inbox in diesem Lauf
+    (Ausschnitte kommen aus derselben Aufnahme)."""
     file, kind, js = SCENES[name]
     path = os.path.join(out, file)
     rect = m.js(SCENE_JS + js.replace("@TODAY_CLOSED@", "true" if args.today_closed else "false") + "\nreturn null;")
@@ -608,9 +673,18 @@ def readme_shot(m, args, name, out):
             time.sleep(0.2)
         if not info or info["state"] != "open":
             raise RuntimeError("Popup nicht offen")
+        info["dpr"] = m.js("return w.devicePixelRatio;") or 1
         win = cg_window(info["pid"], info, popup=True)
-        screencapture(win["id"], path, shadow=False)
-        _ut().crop_to_popup(path, info, _ut().windows_of(info["pid"]), cap=win)
+        screencapture(win["id"], path, shadow=True)
+        width, height = _ut().png_size(path)
+        if width > (info["w"] + 200) * info["dpr"] or height > (info["h"] + 200) * info["dpr"]:
+            # kein eigenes Fenster: screencapture lieferte das Hauptfenster – daraus zuschneiden
+            main = m.js(WIN_INFO_JS.replace("@WHICH@", "null"))
+            mwin = cg_window(main["pid"], main)
+            full = path + ".fenster.png"
+            screencapture(mwin["id"], full, shadow=True)
+            crop_from_window(full, main, mwin, {**info, "screen": True}, path)
+            os.remove(full)
         m.js("w.__shotPopup?.hidePopup?.(); w.__shotPopup = null; await ruhig(600); return 1;")
         return path
     if args.snapshot:
@@ -619,14 +693,17 @@ def readme_shot(m, args, name, out):
         info = m.js(WIN_INFO_JS.replace("@WHICH@", which))
         win = cg_window(info["pid"], info)
         if kind == "crop":
-            tmp = path + ".ganz.png"
-            screencapture(win["id"], tmp, shadow=False)
-            scale = _ut().png_size(tmp)[0] / win["w"]
-            ox, oy = info["ix"] - win["x"], info["iy"] - win["y"]
-            sips_crop(tmp, (rect["x"] + ox) * scale, (rect["y"] + oy) * scale, rect["w"] * scale, rect["h"] * scale, path)
-            os.remove(tmp)
+            full = cache.get("mail-inbox")
+            if not full or not os.path.exists(full):
+                full = path + ".fenster.png"
+                screencapture(win["id"], full, shadow=True)
+            crop_from_window(full, info, win, rect, path)
+            if full.endswith(".fenster.png"):
+                cache["mail-inbox"] = full  # für den nächsten Ausschnitt derselben Szene
         else:
             screencapture(win["id"], path, shadow=True)
+            if name == "mail-inbox":
+                cache["mail-inbox"] = path
     if kind == "other":
         m.js("try { w.__shotWin?.close(); } catch {} w.__shotWin = null; await ruhig(600); return 1;")
     return path
@@ -645,7 +722,7 @@ def readme_run(args, xpi, names, dark):
         f.write(f'user_pref("ui.accentcolor", "{"#0A84FF" if dark else "#007AFF"}");\n'
                 'user_pref("ui.accentcolortext", "#FFFFFF");\n')
     proc = ht.start_thunderbird(ht.DEFAULT_TB, profile)
-    done = []
+    done, cache = [], {}
     try:
         if not ht.wait_port(args.port):
             sys.exit("Thunderbird hat Marionette nicht geöffnet")
@@ -656,15 +733,12 @@ def readme_run(args, xpi, names, dark):
         m.js('await bis(() => tm?.currentAbout3Pane?.document.readyState == "complete", "Mail-Tab", 60000); await ruhig(3000); return 1;')
         data = m.js(README_DATA_JS.replace("@WIN_W@", str(WIN_W)).replace("@WIN_H@", str(WIN_H)))
         print("Daten:", json.dumps(data, ensure_ascii=False), flush=True)
-        if (data or {}).get("dpr", 1) < 2 and not args.snapshot:
-            sys.exit(f"Bildschirm in {data.get('dpr')}x: 2x braucht einen Retina-/HiDPI-Bildschirm "
-                     "(oder --snapshot: drawSnapshot in 2x ohne Schatten, Ampel und Fensterrand)")
         bad = [k for k, v in (data or {}).get("uhr", {}).items() if v != "ok"]
         if bad:
             print("Hinweis: Uhr nicht festgenagelt in", ", ".join(bad), flush=True)
         for name in names:
             scene = "mail-inbox" if name == "mail-dark" else name
-            path = readme_shot(m, args, scene, args.out)
+            path = readme_shot(m, args, scene, args.out, cache)
             if name == "mail-dark":
                 os.replace(path, os.path.join(args.out, "mail-dark.png"))
                 path = os.path.join(args.out, "mail-dark.png")
@@ -682,6 +756,9 @@ def readme_run(args, xpi, names, dark):
     finally:
         ht.stop_thunderbird(args.port, proc)
         shutil.rmtree(profile, ignore_errors=True)
+        for full in cache.values():
+            if full.endswith(".fenster.png") and os.path.exists(full):
+                os.remove(full)  # Zwischenaufnahme für Ausschnitte (ohne mail-inbox im Lauf)
     return done
 
 
@@ -735,7 +812,7 @@ def main():
     ap.add_argument("--search-menu", action="store_true", help="README: search.png mit offenem Vorschlagsmenü statt Trefferliste")
     ap.add_argument("--today-closed", action="store_true", help="README: Today Pane für addressbook-contacts zu")
     ap.add_argument("--compose", action="store_true", help="README: Verfassen-Fenster (noch ohne Bild, wartet auf I6FHI)")
-    ap.add_argument("--snapshot", action="store_true", help="README ohne HiDPI: drawSnapshot in 2x (ohne Schatten und Ampel)")
+    ap.add_argument("--snapshot", action="store_true", help="README: drawSnapshot in 2x statt screencapture (ohne Schatten, Ampel und Rahmen; nicht Standard)")
     ap.add_argument("--ins-repo", action="store_true", help="README: --out im Repo erlauben (nur nach Freigabe des Maintainers)")
     args = ap.parse_args()
     if args.store:

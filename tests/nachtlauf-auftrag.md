@@ -602,8 +602,8 @@ Reihenfolge:
       git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
-      Ein Lauf dauert etwa 35 Minuten, mit Dunkelmodus etwa 50 (erst Linux
-      ~17, danach mac hell ~17 bzw. hell und dunkel ~35; bei Rot unter Linux
+      Ein Lauf dauert etwa 60 Minuten, mit Dunkelmodus etwa 90 (erst Linux
+      ~30, danach mac hell ~30 bzw. hell und dunkel ~60; bei Rot unter Linux
       läuft mac nicht). Der Job windows läuft nicht mehr bei Push.
       Nach grünem Push-Lauf (Exitcode 0, Linux und mac) den Windows-Lauf
       starten: gh workflow run test.yml -f ziel=windows --ref main, dann

@@ -44,10 +44,14 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
   übersprungen. Jede Thunderbird-Änderung testet wie gewohnt.
 - **Dunkelmodus nur bei Farben** (Entscheidung des Maintainers vom
   4.11.2026): Der Job `mac` testet dunkel nur, wenn seit dem zuletzt dunkel
-  getesteten Stand Farben betroffen sind – Stilblätter (`*.css`), Symbole
-  (`*.svg`, `extension/icons/`), Farbwerte im Code oder Prüfungen zu Farben
-  bzw. Dunkelmodus, oder `[dunkel]` in einer Commit-Nachricht; im Zweifel
-  dunkel. Die Regel steht in `tests/farben-betroffen.sh` (CI-Job `changes`
+  getesteten Stand Farben betroffen sind – Symbole (`*.svg`,
+  `extension/icons/`), in Stilblättern nur geänderte Zeilen mit Farbbezug
+  (Farbwerte, Farbvariablen, Hintergrund, Rahmen, Schatten, Filter,
+  Dunkel-Blöcke; geänderte Selektoren, wenn ihr Block Farbe setzt;
+  `tests/farben_css.py`, seit 20.11.2026, Board „Dunkel-Lauf verkleinern“
+  Schritt 1), Farbwerte im Code oder Prüfungen zu Farben bzw. Dunkelmodus,
+  oder `[dunkel]` in einer Commit-Nachricht; im Zweifel dunkel. Reine Maße,
+  Abstände, Schrift und Anzeige testet hell allein. Die Regel steht in `tests/farben-betroffen.sh` (CI-Job `changes`
   und `release.sh`, dort gegen das letzte Release); von Hand gestartete Läufe
   testen immer dunkel.
 - **Gesammelt pushen:** je Eintrag committen, aber erst am Ende eines
@@ -312,8 +316,8 @@ was jede Sitzung beachten muss:
   nur bei Push auf `main` und von Hand – nie bei `pull_request`, weil das Repo
   öffentlich ist. Die `if:`-Bedingung nicht lockern; auf dem Mac weist zusätzlich
   `tests/mac-runner-hook.sh` alles andere ab.
-- Jeder Push auf `main` mit Thunderbird-Änderung belegt neon mit der CI (`mac`) rund 35 Minuten,
-  mit Dunkelmodus rund 50; der Windows-Lauf (~19 Minuten) folgt einmal je Nacht vor dem Release. Solange sie läuft (Prozess `Runner.Worker`), keine eigenen Testläufe
+- Jeder Push auf `main` mit Thunderbird-Änderung belegt neon mit der CI (`mac`) rund 30 Minuten,
+  mit Dunkelmodus rund 60 (hell und dunkel je rund 30, gemessen an 200 Läufen bis 19.11.2026); der Windows-Lauf (~19 Minuten) folgt einmal je Nacht vor dem Release. Solange sie läuft (Prozess `Runner.Worker`), keine eigenen Testläufe
   starten – zwei Testfenster nehmen sich gegenseitig den Fokus. Änderungen an `.md`, `.claude/`,
   Abläufen auf neon und Release-Skripten brauchen keinen CI-Lauf (Entscheidung vom 6.11.2026,
   `ENTSCHEIDUNGEN.md`; Liste in `tests/ci-noetig.sh`).

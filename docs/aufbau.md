@@ -39,6 +39,7 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe (ISO-Wochen, feste Kennzahlenliste) mit höchstens drei Empfehlungen als Board-Einträge „Ablauf: …“, ändert Abläufe nicht selbst, Abschnitt 15 |
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
+| `tests/farben_css.py`, `tests/farben_css_test.py` | Farbbezug geänderter Stilblatt-Zeilen für `farben-betroffen.sh`; Selbsttest |
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/bilder-eingang.zsh`, `tests/bilder_eingang_test.zsh` | Bilder-Eingang: sortiert `~/halo-aufgaben/eingang/` alle 15 Min. ohne Claude nach `bilder/` bzw. `apple/` und indiziert (Claude nur zum Beschreiben), `tests/MAC-MINI.md` Abschnitt 18; Prüfung ohne Claude, läuft in der Doku-Prüfung |
 | `tests/token-bilanz.py` | Token-Bilanz der Claude-Sitzungen auf neon aus den Protokollen (nur Lesen, kein Claude-Aufruf, kein Netz) |

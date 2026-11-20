@@ -17930,6 +17930,83 @@ Neu
           "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeug- und Zahnradsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
+    def addons_menu_icons():
+        # Menüs der Add-ons-Verwaltung mit einzelnen Symbolen wie das Vorbild (Kontextmenü einer Liste mit nur einem
+        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (16 px) beginnt an der Textkante der übrigen
+        # Einträge, sein Text rückt um Symbol und Luft nach rechts; Symbol in Textfarbe, markiert in der Schriftfarbe der
+        # Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü) steht links im Rand, sein Text an der Kante
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const ID = "mail-cards@sebastian.local";
+          w.openAddonsMgr("addons://list/extension");
+          const ad = await until(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector(`addon-card[addon-id="${ID}"] .more-options-button`) && x; }, 8000);
+          await ruhig(800);
+          const aw = ad.defaultView; const cs = (e, p) => aw.getComputedStyle(e, p); const R = e => e.getBoundingClientRect();
+          const probe = v => { const p = ad.createElement("div"); p.style.color = v; ad.body.append(p); const c = cs(p).color; p.remove(); return c; };
+          const out = { menus: [], shots: [] };
+          const snap = async (pl, name) => {
+            const r = R(pl), cv = ad.createElement("canvas"); cv.width = Math.ceil(r.width + 24) * 2; cv.height = Math.ceil(r.height + 24) * 2;
+            const bmp = await aw.browsingContext.currentWindowGlobal.drawSnapshot(new aw.DOMRect(r.left - 12, r.top - 12, r.width + 24, r.height + 24), 2, "white");
+            cv.getContext("2d").drawImage(bmp, 0, 0); out.shots.push([name, cv.toDataURL("image/png")]);
+          };
+          for (const [name, btnSel, listSel] of [["mehr", `addon-card[addon-id="${ID}"] .more-options-button`, `addon-card[addon-id="${ID}"] addon-options > panel-list`],
+                                                 ["zahnrad", "addon-page-header .page-options-menu .more-options-button", "addon-page-options > panel-list"]]) {
+            ad.querySelector(btnSel).click();
+            const pl = await until(() => { const p = ad.querySelector(listSel); return p?.open && R(p).height && p; }, 4000);
+            await ruhig(300);
+            if (!pl) { out.menus.push(null); continue; }
+            // per Klick geöffnet hat der erste Eintrag den Tastaturfokus (markiert) – zum Messen ohne Markierung lösen
+            for (const i of pl.querySelectorAll("panel-item")) i.shadowRoot.querySelector("button")?.blur();
+            await ruhig(100);
+            const items = [...pl.querySelectorAll("panel-item")].filter(i => !i.hidden && R(i).height).map(i => {
+              const b = i.shadowRoot.querySelector("button"), l = b.querySelector('[part="label"]'), c = cs(b);
+              const img = c.backgroundImage, px = parseFloat(c.backgroundPositionX), sz = parseFloat(c.backgroundSize);
+              const icon = img && img != "none" ? { left: Math.round((R(b).left + px - R(pl).left) * 2) / 2, size: sz, gap: Math.round((R(l).left - R(b).left - px - sz) * 2) / 2,
+                                                    fill: c.fill == probe("var(--mt-text)"), check: /check\.svg/.test(img) } : null;
+              let hov = null;
+              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
+                          if (name == "mehr" && i.getAttribute("action") == "remove") out.hoverRemove = true;
+                          InspectorUtils.removePseudoClassLock(b, ":hover"); }
+              return { action: i.getAttribute("action"), text: Math.round((R(l).left - R(pl).left) * 2) / 2, icon, hov };
+            });
+            out.menus.push({ name, items });
+            await snap(pl, name);
+            const rm = name == "mehr" && [...pl.querySelectorAll('panel-item[action="remove"]')][0]?.shadowRoot.querySelector("button");
+            if (rm) { InspectorUtils.addPseudoClassLock(rm, ":hover"); await ruhig(100); await snap(pl, name + "-markiert"); InspectorUtils.removePseudoClassLock(rm, ":hover"); }
+            pl.hide(); await ruhig(300);
+          }
+          tm.closeTab(tm.currentTabInfo); await ruhig(300);
+          return out;''')
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            dark = m.js('return w.matchMedia("(prefers-color-scheme: dark)").matches;')
+            for name, url in res.get("shots", []):
+                path = os.path.join(os.environ["HALO_SHOTS"], f"addons-menue-{name}-{'dunkel' if dark else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(url.split(",", 1)[1]))
+                print(f"Bild {path}", flush=True)
+        res.pop("shots", None)
+        def menu_ok(mn):
+            if not mn or not mn["items"]:
+                return False
+            plain = [i for i in mn["items"] if not i["icon"] or i["icon"]["check"]]
+            edge = plain[0]["text"] if plain else None
+            for i in mn["items"]:
+                ic = i["icon"]
+                if not ic or ic["check"]:
+                    # Text an der gemeinsamen Kante (Menürand 5 + 10 px), Häkchen 9 px davor im Rand
+                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not ic["fill"] or not i["hov"])):
+                        return False
+                elif not (ic["left"] == edge and ic["size"] == 16 and ic["gap"] == 8 and i["text"] == edge + 24 and ic["fill"] and i["hov"]):
+                    return False
+            return edge == 15
+        menus = res.get("menus") or []
+        remove = [i for i in (menus[0]["items"] if menus and menus[0] else []) if i["action"] == "remove"]
+        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and bool(remove) and remove[0]["icon"] is not None
+        return ok, f"{res}"
+    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe",
+          addons_menu_icons, results)
+
     def radius_tiers():
         # Radius-Stufen als --mt-Variablen (Kapsel 999 px, Popup 12 px, Feld 7 px) im Hauptfenster und in der
         # Add-ons-Verwaltung, die Verwendungen ergeben dieselben Werte wie vorher (Kopfknopf Kapsel, Menü 12 px)

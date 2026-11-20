@@ -119,8 +119,7 @@ if [[ -r ${0:A:h}/inaktivitaet.sh ]]; then
     -e 's/^zusage \(#[0-9]*\) \(.*\)/Issue \1: letzte Antwort von '$EIGENER' am \2 ohne Rückfrage und ohne offenen Board-Eintrag – der Nutzer wartet auf uns: Zusage über neon-board mit einem Eintrag „GitHub \1“ verknüpfen, sonst selbst schließen; keine Nachfrage (Inaktivitätsregel)/p' \
     -e 's/^würde schließen \(#[0-9]*\) \(.*\)/Issue \1: würde wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh)/p' \
     -e 's/^geschlossen \(#[0-9]*\) \(.*\)/Issue \1: wegen Inaktivität geschlossen \2 (tests\/inaktivitaet.sh), im Stand vermerken/p' \
-    -e 's/^abgeräumt \(#[0-9]*\) .*/Issue \1: verlinkter Board-Eintrag vor dem Schließen archiviert (Inaktivität), im Stand vermerken/p' \
-    -e 's/^melden \(#[0-9]*\): \(.*\)/Issue \1: \2, Issue trotzdem wegen Inaktivität geschlossen, Eintrag von neon prüfen lassen/p')"})
+    -e 's/^weiter \(#[0-9]*\) .*/Issue \1: wegen Inaktivität geschlossen, verlinkter Board-Eintrag läuft weiter (Maintainer 20.11.2026), im Stand vermerken/p')"})
   (( ina_rc == 1 )) && FUNDE+=(${(f)"$(print -r -- $INA | sed -n 's/^\(FEHLER .*\)/Inaktivität: \1/p')"})
   (( ina_rc == 2 )) && HINWEIS+="${HINWEIS:+ }Hinweis: Inaktivitätsregel nicht prüfbar (${${(f)INA}[-1]})"
 fi

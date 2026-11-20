@@ -84,6 +84,48 @@ STATE_JS = r"""
 """
 
 
+# Seitenleiste ausblenden und Ampel-Abstand messen (Update ohne Neustart mit earlyTheme: der Seitenleisten-Knopf
+# überlappte die Fensterknöpfe). Mac: am #unifiedToolbarContainer --mc-tl-reserve und --mc-tl-flow 84px, linke Kante
+# des Knopfs rechts der Ampel-Fläche; sonst nur, dass dort nicht 84 px Ampel-Platz gilt. Danach wieder einblenden.
+SIDEBAR_JS = r"""
+  const doc = w.document, mac = w.matchMedia("(-moz-platform: macos)").matches;
+  const bar = doc.getElementById("spacesToolbar"), row = doc.getElementById("unifiedToolbarContainer");
+  const btn = doc.getElementById("spacesPinnedButton");
+  if (!btn || !row || !bar) return { mac, fehlt: [!btn && "Knopf", !row && "Zeile", !bar && "Leiste"].filter(Boolean) };
+  const shown = () => !w.gSpacesToolbar?.isHidden;
+  if (shown()) { btn.click(); try { await bis(() => !shown(), "ausgeblendet", 3000); } catch {} }
+  await ruhig(800);
+  // die Ampel selbst (.titlebar-buttonbox); ihr Behälter reicht als Fläche bis an die Trennlinie der Leiste (88 px)
+  const cs = w.getComputedStyle(row), box = doc.querySelector("#unifiedToolbarContainer .titlebar-buttonbox-container");
+  const amp = box?.querySelector(".titlebar-buttonbox"), bR = btn.getBoundingClientRect(), xR = amp?.getBoundingClientRect();
+  const out = { mac, reserve: cs.getPropertyValue("--mc-tl-reserve").trim(), flow: cs.getPropertyValue("--mc-tl-flow").trim(),
+                knopf: Math.round(bR.left), knopfB: Math.round(bR.width), ampel: xR && xR.width ? Math.round(xR.right) : null,
+                flaeche: box ? Math.round(box.getBoundingClientRect().right) : null,
+                ruht: bar.hasAttribute("mc-ruht"), versteckt: !shown() };
+  btn.click(); try { await bis(shown, "eingeblendet", 3000); } catch {} await ruhig(600);
+  return out;
+"""
+
+
+def sidebar_check(results, m, when):
+    s = m.js(SIDEBAR_JS)
+    if s.get("fehlt"):
+        results.append((f"Seitenleiste ausblenden ({when})", False, f"fehlt: {s['fehlt']}"))
+        return
+    results.append((f"Seitenleiste ausgeblendet, Bereiche-Leiste ruht ({when})", s["versteckt"] and s["ruht"],
+                    f"ausgeblendet={s['versteckt']} mc-ruht={s['ruht']}"))
+    if s["mac"]:
+        results.append((f"Ampel-Platz 84px bei ausgeblendeter Seitenleiste ({when})", s["reserve"] == "84px" and s["flow"] == "84px",
+                        f"--mc-tl-reserve={s['reserve']} --mc-tl-flow={s['flow']}"))
+        results.append((f"Seitenleisten-Knopf überlappt die Ampel nicht ({when})",
+                        s["ampel"] is not None and s["knopfB"] > 0 and s["knopf"] >= s["ampel"],
+                        f"Knopf links {s['knopf']} px, Ampel rechts {s['ampel']} px (Fläche bis {s['flaeche']} px)"))
+    else:
+        # Fensterknöpfe rechts: kein Platz von 84 px links
+        results.append((f"kein Ampel-Platz links außerhalb des Mac ({when})", s["reserve"] != "84px",
+                        f"--mc-tl-reserve={s['reserve']}"))
+
+
 def version_of(xpi):
     with zipfile.ZipFile(xpi) as z:
         return json.loads(z.read("manifest.json"))["version"]
@@ -214,6 +256,9 @@ def main():
         # die eigene Update-Prüfung von halo.spaces beim Start nicht dazwischenfunken lassen: alte Versionen
         # haben dafür einen eigenen Schalter, neue prüfen höchstens alle 6 Stunden (gerade eben geprüft)
         f.write('user_pref("extensions.mailcards.autoUpdate", false);\n')
+        # ebenso nicht die Hintergrund-Prüfung des Add-on-Managers (sonst spielt sie das Update beim Neustart vor
+        # Schritt 2 schon ein); „Nach Updates suchen“ von Hand bleibt davon unberührt
+        f.write('user_pref("extensions.update.enabled", false);\n')
         f.write(f'user_pref("extensions.mailcards.autoUpdateLast", {int(time.time())});\n')
     print(f"Update {args.old} → {target} · Profil {profile}", flush=True)
 
@@ -238,6 +283,12 @@ def main():
         """ + STATE_JS)
         ok = before.get("version") == args.old and before.get("active")
         results.append(("Ausgangslage: alte Version aktiv", ok, f"{before.get('version')} aktiv={before.get('active')}"))
+        # earlyTheme wirkt erst ab dem nächsten Start (userChrome.css im Profil): wie beim Nutzer einmal neu starten,
+        # bevor das Update kommt
+        ht.stop_thunderbird(args.port, proc)
+        proc = None
+        proc, m = start(args.tb, profile, args.port)
+        m.js("await wait(2000); return 1;")  # wie oben: Fenster fertig aufgebaut
 
         # 2. Update über den Add-on-Manager (wie „Nach Updates suchen“)
         upd = m.js(r"""
@@ -270,6 +321,23 @@ def main():
         if not postponed:
             after = m.js(STATE_JS)
             compare(results, "nach dem Update", before, after, target)
+        else:
+            # „Install Now“ (bereiche.js installNow): zurückgestelltes Update ohne Neustart einspielen
+            now = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const i = (await AddonManager.getAllInstalls()).find(x => (x.existingAddon?.id == "mail-cards@sebastian.local"
+                || x.addon?.id == "mail-cards@sebastian.local") && x.state == AddonManager.STATE_POSTPONED);
+              if (!i) return { found: false };
+              const ended = new Promise(r => i.addListener({ onInstallEnded: () => r("ended"), onInstallFailed: () => r("failed") }));
+              i.continuePostponedInstall();
+              const how = await Promise.race([ended, wait(60000).then(() => "timeout")]);
+              await wait(8000);  // neue Version startet, Fenster werden neu gestylt (wie oben)
+              const a = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+              return { found: true, how, version: a?.version };
+            """)
+            results.append(("zurückgestelltes Update ohne Neustart eingespielt (Install Now)",
+                            now.get("how") == "ended" and now.get("version") == target, str(now)))
+        sidebar_check(results, m, "Update ohne Neustart")
         # alte Version und Update im laufenden Thunderbird (Abbau der alten, Start der neuen Version)
         konsole(m, "alte Version und Update im laufenden Thunderbird", board=False)
     finally:
@@ -282,6 +350,7 @@ def main():
         proc, m = start(args.tb, profile, args.port)
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
+        sidebar_check(results, m, "nach Neustart")
 
         # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
         #    Toolbar bleibt)

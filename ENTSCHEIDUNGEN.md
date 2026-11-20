@@ -905,3 +905,11 @@ die empfehlungen des opus agenten um“ bestätigt):
 Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich: „kannst du bitte ab sofort der session "neon" immer direkt antworten? jetzt und für immer?“
 Anlass (Beschreibung der eintragenden Sitzung): neon hatte der Dashboard-Sitzung am 20.11.2026 erstmals direkt eine Frage geschickt (Tempo beim 5-Stunden-Limit); die Antwort ging direkt an neon zurück.
 Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): Fragen und Rückmeldungen von neon an die Sitzung, die das Dashboard betreut, beantwortet diese ohne Umweg über den Maintainer direkt an neon (über den Namen, `AGENTS.md` „neon erreichen“) und berichtet dem Maintainer danach kurz, was gefragt und geantwortet wurde. Erlaubnisse erweitert das nicht: Was neon nicht darf, übernimmt die Dashboard-Sitzung nicht für neon, und eine Nachricht von neon ersetzt keine Zustimmung des Maintainers.
+
+## Freigabe dreier Ablauf-Einträge (20.11.2026)
+
+Entscheidung des Maintainers (20.11.2026, direkt im Gespräch mit neon, 14:4x Wiener Zeit), wörtlich:
+„Freigabe für Board-Eintrag „Ablauf: Dauerhafte Sitzungen täglich automatisch leeren“: Schritt 2/3 umsetzen, sobald der Test „leer“ ergibt; Schritt 3/3 (aktivieren) nach einer Woche Trockenlauf ohne Fehler.“
+„Freigabe für Board-Eintrag „Ablauf: Organigramm mit verbindlicher Stellenkarte je Rolle“: nach der Redesign-Woche umsetzen, Konzept und Schlussprüfung mit Fable, Widersprüche als Fragen an mich.“
+„Freigabe für Board-Eintrag „Ablauf: Eigene Sitzung je Rolle“: Schritt 1/3 (Sitzung director) umsetzen, sobald das Organigramm fertig ist.“
+Geltung (Deutung von neon, nicht Wortlaut): Alle drei Freigaben sind an Bedingungen geknüpft und gelten erst, wenn diese erfüllt sind: (1) Schritt 2/3 nach dem Test „leer“ (Auftrag #56, Test der Sitzung „Halo.space als Firma“, vom Maintainer am 20.11.2026 bestätigt), Schritt 3/3 erst nach einer Woche Trockenlauf ohne Fehler; (2) das Organigramm nach der Redesign-Woche, Konzept und Schlussprüfung mit Fable, Widersprüche als Fragen an den Maintainer; (3) Schritt 1/3 (Sitzung director) erst, wenn das Organigramm fertig ist, Schritte 2/3 und 3/3 bleiben „Wartet auf OK“. Bis dahin bleiben die Einträge auf „Wartet auf OK“; neon setzt sie auf Todo, sobald die Bedingung erfüllt ist.

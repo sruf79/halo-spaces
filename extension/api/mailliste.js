@@ -593,7 +593,9 @@ class EnhancerMailliste {
   // Senden im Hintergrund: Thunderbird legt die Mail in den Postausgang und
   // sendet sie selbst – aber nur, wenn es beim Start schon einen Postausgang
   // gab (sonst blieb sie liegen). Darum nach jedem Senden kurz nachsehen und
-  // den Postausgang selbst leeren, falls Thunderbird nicht schon dabei ist.
+  // den Postausgang auf Thunderbirds automatischem Weg senden, falls es nicht
+  // schon dabei ist; mit „Später senden“ zurückgehaltene Mails bleiben liegen
+  // (sendOutboxInBackground in mail.js).
   flushOutbox() {
     const observer = {
       observe: () => setTimeout(() => {
@@ -602,7 +604,7 @@ class EnhancerMailliste {
           const outbox = MailServices.accounts.localFoldersServer?.rootFolder?.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
           if (Services.prefs.getBoolPref("mailnews.sendInBackground", false) && !Services.io.offline &&
               outbox?.getTotalMessages(false) && !sl.sendingMessages) {
-            Services.wm.getMostRecentWindow("mail:3pane")?.SendUnsentMessages?.();
+            sendOutboxInBackground();
           }
         } catch (e) {
           log("flush outbox error", e);

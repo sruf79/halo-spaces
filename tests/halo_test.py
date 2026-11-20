@@ -11240,6 +11240,67 @@ def server_checks(m, results):
             return ok, f"{res} gesendet: {len(got)} mit X-Halo-Send-At: {len(leak)}"
         check("Testkonto: Später senden – Menü am Senden-Knopf, geplante Mail als Entwurf, zur Zeit gesendet ohne interne Kopfzeile", send_later, results)
 
+        def outbox_held():
+            # Thunderbirds „Später senden“ (Datei-Menü, Postausgang) hält die Mail zurück; halo.spaces sendet im Hintergrund
+            # über den Postausgang und leerte ihn dabei ganz – die zurückgehaltene Mail ging mit der nächsten gesendeten
+            # Mail hinaus. Jetzt geht nur die neue Mail, die zurückgehaltene bleibt, bis man den Postausgang selbst sendet
+            before = len(servers.smtp.sent)
+            compose = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const acc = MailServices.accounts.getAccount("%s");
+              Services.prefs.setIntPref("extensions.mailcards.undoSend", 0);
+              const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+              const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+              fields.to = "ziel@example.invalid"; fields.subject = "%s"; fields.body = "Probe.";
+              params.type = Ci.nsIMsgCompType.New; params.format = Ci.nsIMsgCompFormat.PlainText; params.composeFields = fields; params.identity = acc.defaultIdentity;
+              MailServices.compose.OpenComposeWindowWithParams(null, params);
+              const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose), 10000);
+              await bis(() => cw.gLoadingComplete, "Verfassen-Fenster fertig geladen", 8000); await ruhig(1500);
+              cw.goDoCommand("%s");
+              const closed = !!(await until(() => cw.closed, 15000));
+              const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+              const subjects = outbox ? [...outbox.msgDatabase.enumerateMessages()].map(h => h.mime2DecodedSubject) : [];
+              return { closed, outbox: subjects };"""
+            sent = lambda s: [g for g in servers.smtp.sent[before:] if s in g[2]]
+            try:
+                held = m.js(compose % (key, "Halo Zurueckgehalten", "cmd_sendLater"))
+                # Thunderbird sendet einen neu im Postausgang abgelegten Brief im Hintergrund nach rund 1 s, halo.spaces
+                # nach 2 s – 6 s ohne Senden belegen, dass die Mail liegen bleibt (feste Wartezeit: es soll nichts geschehen)
+                time.sleep(6)
+                held_sent = len(sent("Halo Zurueckgehalten"))
+                now = m.js(compose % (key, "Halo Sofortprobe", "cmd_sendButton"))
+                for _ in range(40):
+                    if sent("Halo Sofortprobe"):
+                        break
+                    time.sleep(0.5)
+                time.sleep(6)  # wie oben: halo.spaces leerte den Postausgang 2 s nach dem Senden
+                after = m.js(r"""
+                  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                  const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                  return outbox ? [...outbox.msgDatabase.enumerateMessages()].map(h => h.mime2DecodedSubject) : [];""")
+                held_after = len(sent("Halo Zurueckgehalten"))
+                # „Nicht gesendete Nachrichten senden“ (vom Nutzer ausgelöst) schickt die zurückgehaltene Mail dann hinaus
+                m.js('Services.wm.getMostRecentWindow("mail:3pane").SendUnsentMessages(); return 1;')
+                for _ in range(40):
+                    if sent("Halo Zurueckgehalten"):
+                        break
+                    time.sleep(0.5)
+            finally:
+                m.js(r"""
+                  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                  Services.prefs.clearUserPref("extensions.mailcards.undoSend");
+                  for (const x of [...Services.wm.getEnumerator("msgcompose")]) x.close();
+                  const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                  const hdrs = outbox ? [...outbox.msgDatabase.enumerateMessages()] : [];
+                  if (hdrs.length) outbox.deleteMessages(hdrs, null, true, false, null, false);
+                  return 1;""")
+            ok = (held.get("closed") and "Halo Zurueckgehalten" in held.get("outbox", []) and held_sent == 0
+                  and now.get("closed") and len(sent("Halo Sofortprobe")) == 1 and held_after == 0
+                  and after == ["Halo Zurueckgehalten"] and len(sent("Halo Zurueckgehalten")) == 1)
+            return ok, (f"zurückgehalten {held} gesendet {held_sent}; danach Senden {now} beim Server: Sofortprobe "
+                        f"{len(sent('Halo Sofortprobe'))}, Zurueckgehalten {held_after}; Postausgang danach {after}; nach „Send Unsent“ gesendet {len(sent('Halo Zurueckgehalten'))}")
+        check("Testkonto: mit „Später senden“ im Postausgang zurückgehaltene Mail bleibt liegen, wenn danach eine andere Mail gesendet wird, und geht erst mit „Send Unsent Messages“", outbox_held, results)
+
         def send_later_place():
             # „Später senden“ als kleiner Pfeil gleich rechts neben dem runden Senden-Knopf (war eine leere Kapsel links)
             res = m.js(r"""

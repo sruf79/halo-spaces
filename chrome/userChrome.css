@@ -4007,6 +4007,17 @@ menupopup > :is(menu:not(.menu-iconic), menuitem:not(.menuitem-iconic, [image], 
   display: none !important;
 }
 
+/* Kontextmenü einer Mail ohne Symbole, wie das Vorbild: Steht ein
+   angehakter Eintrag darin (Watch/Ignore Thread), setzt Thunderbird unter
+   macOS „needsgutter“, dessen Regel die von „no-icon-menupopup“ überstimmt;
+   Einträge mit Symbol-Klasse ohne Bild (Edit As New, Forward, Redirect,
+   Archive, Move To, Copy To, Convert To) zeigten dann einen leeren
+   Symbolplatz und eine zweite Textspalte. Symbole von Add-ons kommen mit
+   [image] und bleiben */
+#mailContext > :is(menu, menuitem):not([image], [type="checkbox"], [type="radio"], [checked="true"], [selected="true"]) > .menu-icon {
+  display: none !important;
+}
+
 menupopup > menuitem:is([type="checkbox"], [type="radio"], [checked="true"], [selected="true"]):not(.menuitem-iconic, [image]) > .menu-icon {
   display: flex !important;
   box-sizing: border-box !important;

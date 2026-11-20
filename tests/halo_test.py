@@ -6179,6 +6179,36 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“, Filter aus der Mail anlegen", context_flat, results)
 
+    def context_no_icons():
+        # Kontextmenü der Mailliste ohne Symbole und mit einer Textspalte: Steht ein angehakter Eintrag im Menü (Watch/Ignore
+        # Thread), setzt Thunderbird unter macOS „needsgutter“, dessen Regel die von „no-icon-menupopup“ überstimmt; Einträge mit
+        # Symbol-Klasse ohne Bild (Edit As New, Forward, Redirect, Archive, Move To, Copy To, Convert To) zeigten dann einen leeren
+        # Symbolplatz und begannen weiter rechts. Hier mit gesetztem „needsgutter“ nachgestellt (auf allen Plattformen gleich).
+        res = m.js(MENU_JS + r"""
+          const shown = el => el.getClientRects().length && el.getBoundingClientRect().height > 0;
+          const out = { state: await openContext(), icons: [], xs: [], ids: [] };
+          const gutter = P.hasAttribute("needsgutter");
+          // ohne Konto blendet Thunderbird diese drei aus – für die Messung kurz zeigen
+          const extra = ["mailContext-editAsNew", "mailContext-redirect", "mailContext-archive"].map(id => ad.getElementById(id)).filter(e => e?.hidden);
+          try {
+            extra.forEach(e => (e.hidden = false)); P.setAttribute("needsgutter", ""); await ruhig(200);
+            for (const el of P.children) {
+              if (el.localName == "menuseparator" || !shown(el)) continue;
+              const ic = el.querySelector(":scope > .menu-icon"), tx = el.querySelector(":scope > .menu-text");
+              const box = el.matches('[type="checkbox"], [type="radio"]') ? null : ic?.getBoundingClientRect();
+              if (box && box.width > 0) out.icons.push(el.id);
+              if (tx) { out.xs.push(Math.round(tx.getBoundingClientRect().left)); out.ids.push(el.id); }
+            }
+          } finally { P.hidePopup(); await ruhig(400); extra.forEach(e => (e.hidden = true)); P.toggleAttribute("needsgutter", gutter); }
+          out.xs = [...new Set(out.xs)];
+          return out;""")
+        need = {"mailContext-editAsNew", "mailContext-forward", "mailContext-redirect", "mailContext-archive", "mailContext-moveMenu",
+                "mailContext-copyMenu", "mailContext-calendar-convert-menu"}
+        ok = (res.get("state") == "open" and need <= set(res.get("ids", [])) and res.get("icons") == []
+              and len(res.get("xs", [])) == 1)
+        return ok, f"{res}"
+    check("Kontextmenü Mailliste: keine leeren Symbolplätze, alle Einträge an derselben Textkante (auch mit angehaktem Eintrag, „needsgutter“)", context_no_icons, results)
+
     def tag_menu():
         # Schlagwort-Menü wie die Schlagwort-Ordner (GitHub #50): Name in der normalen Textfarbe ohne „1 “ davor, davor ein
         # Ordnersymbol in der Schlagwortfarbe (Bild, gefüllt = gesetzt), kein Häkchen; markiert in der Schrift der Auswahl

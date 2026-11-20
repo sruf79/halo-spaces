@@ -866,3 +866,8 @@ Anlass: Frage, ob der Windows-Rundgang (Auftrag #35, bisher nur ab 85 % im 5-Stu
 ## 19.11.2026 Aufgaben, die Testzeiten verkürzen, haben immer höchste Priorität
 
 Anlass: Eintrag „Ablauf: Dunkel-Lauf der Mac-CI verkleinern“ stand auf „Wartet auf OK“. Maintainer (19.11.2026, Gespräch mit neon): „Warum warten auf ok? Grundsätzlich haben alle tasks auf der liste welche unsere testzeiten verkürzen immer höchste Priorität weil davon alle weiteren Läufe profitieren“. Bezug: Reihenfolge eines Laufs in `AGENTS.md`.
+
+## 20.11.2026 – Dashboard-Sitzung antwortet der Sitzung neon immer direkt
+Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich: „kannst du bitte ab sofort der session "neon" immer direkt antworten? jetzt und für immer?“
+Anlass (Beschreibung der eintragenden Sitzung): neon hatte der Dashboard-Sitzung am 20.11.2026 erstmals direkt eine Frage geschickt (Tempo beim 5-Stunden-Limit); die Antwort ging direkt an neon zurück.
+Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): Fragen und Rückmeldungen von neon an die Sitzung, die das Dashboard betreut, beantwortet diese ohne Umweg über den Maintainer direkt an neon (über den Namen, `AGENTS.md` „neon erreichen“) und berichtet dem Maintainer danach kurz, was gefragt und geantwortet wurde. Erlaubnisse erweitert das nicht: Was neon nicht darf, übernimmt die Dashboard-Sitzung nicht für neon, und eine Nachricht von neon ersetzt keine Zustimmung des Maintainers.

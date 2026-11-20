@@ -68,6 +68,21 @@ pruefe "Wartet auf OK und Done nicht gezählt" '! grep -qE "	(W1|D1)(,|	)" $TSV 
 pruefe "Zuschlag bei 2 Einträgen 0.5, aufgerundet 1" '[[ $(zeile_von $(gruppe_von G1) | cut -f3-5) == $(print "2\t0.5\t1") ]]'
 pruefe "deterministisch: zweiter Lauf gleiche Gruppen" \
   'cp $TSV $T/erst.tsv; python3 $HIER/haeufung.py --eingabe $T/board.json --aus $T --datum 2026-11-14 >/dev/null && cmp -s $TSV $T/erst.tsv'
+# Alters-Zuschlag (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026): +0,5 je volle 7 Tage, Deckel +1,5
+az() { python3 -c "import sys; sys.path.insert(0, '$HIER'); import haeufung as h; print(h.alters_zuschlag(h.alter_tage($1, '2026-11-20')))" }
+pruefe "Alter 0 Tage → 0" '[[ $(az "\"2026-11-20T08:00:00Z\"") == 0.0 ]]'
+pruefe "Alter 6 Tage → 0" '[[ $(az "\"2026-11-14T23:59:00Z\"") == 0.0 ]]'
+pruefe "Alter 7 Tage → 0,5" '[[ $(az "\"2026-11-13T00:00:00Z\"") == 0.5 ]]'
+pruefe "Alter 14 Tage → 1" '[[ $(az "\"2026-11-06T12:00:00Z\"") == 1.0 ]]'
+pruefe "Alter 21 Tage → 1,5" '[[ $(az "\"2026-10-30T12:00:00Z\"") == 1.5 ]]'
+pruefe "Alter 60 Tage → Deckel 1,5" '[[ $(az "\"2026-09-21T12:00:00Z\"") == 1.5 ]]'
+pruefe "ohne Datum (None, leer, kaputt) → 0" '[[ $(az None) == 0.0 && $(az "\"\"") == 0.0 && $(az "\"kaputt\"") == 0.0 ]]'
+jq '.items[0].createdAt = "2026-10-01T10:00:00Z" | .items[1].createdAt = "2026-11-13T10:00:00Z" | .items[2].createdAt = "2026-11-19T10:00:00Z"' $T/board.json > $T/alt.json
+python3 $HIER/haeufung.py --eingabe $T/alt.json --aus $T/alt --datum 2026-11-20 > $T/alt.aus 2>&1; rc=$?
+pruefe "Alter: Kurzzeile nennt Einträge mit Zuschlag" '(( rc == 0 )) && grep -q "; Alter: 2 Einträge mit Zuschlag" $T/alt.aus'
+pruefe "Alter: .tsv-Zeilen alter (älteste zuerst, Deckel), Abschnitt in der .md" \
+  '[[ $(grep "^alter	" $T/alt/2026-11-20-haeufung.tsv | cut -f2-4) == $(print -l "T1	50	1.5" "T2	7	0.5") ]] && grep -q "^## Alter (Skript)" $T/alt/2026-11-20-haeufung.md'
+pruefe "Alter: ohne createdAt kein Zuschlag, Gruppen unverändert" '! grep -q "^alter	T3" $T/alt/2026-11-20-haeufung.tsv && [[ $(grep "^gruppe" $T/alt/2026-11-20-haeufung.tsv | cut -f3-) == $(grep "^gruppe" $TSV | cut -f3-) ]]'
 print kaputt > $T/kaputt.json
 kaputt=$(python3 $HIER/haeufung.py --eingabe $T/kaputt.json --aus $T/x 2>&1); rc=$?
 pruefe "kaputte Eingabe → Exitcode 1, Meldung FEHLER" '(( rc == 1 )) && [[ $kaputt == FEHLER* ]]'

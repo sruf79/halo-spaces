@@ -410,7 +410,11 @@ def bereich(t):
         if re.search(muster, p): return i
     return 7
 SCHWER = r"absturz|stürzt|abgestürzt|datenverlust|daten.?verlust|crash|falsche mail|nicht (?:senden|empfangen|abrufen)|gelöscht"
-def alter_tage(body):
+def alter_tage(body, created=None):
+    # Anlagedatum aus board.sh export (createdAt), nur ohne dieses das älteste Datum im Text (Rückfall)
+    if created:
+        try: return max(0, (HEUTE - dt.date.fromisoformat(str(created)[:10])).days)
+        except ValueError: pass
     ds = []
     for d, m, j in re.findall(r"\b(\d{1,2})\.(\d{1,2})\.(20\d\d)\b", body):
         try: ds.append(dt.date(int(j), int(m), int(d)))
@@ -444,9 +448,11 @@ else:
         if m and reihen.get((t[:m.start()].strip(" –-:"), m.group(2)), (0, it["id"]))[1] != it["id"]: continue
         schwer = bool(re.search(SCHWER, t + " " + body, re.I))
         stufe = 2 if m else (0 if (it.get("typ") or "") == "Bug" else 1)
-        a = alter_tage(body); b = bereich(t)
-        rang = b - (1 if a is not None and a > 7 and b > 0 else 0)
-        grund = [BEREICHE[b]] + (["schwer"] if schwer else []) + (["über 7 Tage offen"] if a is not None and a > 7 else []) \
+        a = alter_tage(body, it.get("createdAt")); b = bereich(t)
+        # Alters-Zuschlag wie tests/haeufung.py: +0,5 je volle 7 Tage, höchstens +1,5 (hier in Bereichsstufen)
+        za = min(1.5, (a // 7) * 0.5) if a is not None else 0
+        rang = b - za
+        grund = [BEREICHE[b]] + (["schwer"] if schwer else []) + (["%d Tage offen, +%g" % (a, za)] if za else []) \
                 + (["Bug"] if stufe == 0 else ["Reihe, nächster Schritt"] if stufe == 2 else ["Feature"])
         liste.append(((0 if schwer else 1, stufe, rang, t.lower()), t, ", ".join(grund)))
     liste.sort()
@@ -542,7 +548,7 @@ v = ["Unverbindlich: die erste Plan-Runde der Tagesroutine um %s entscheidet. Ä
      "- Pause: " + (pause or "keine"), "- Volldampf: " + (vd or "nicht angemeldet")]
 if rot_zuerst: v.append("- Vorrang: rote Prüfung der Nacht (Tagesroutine Schritt 1b)")
 v += ["", "Reihenfolge nach den Regeln (schwer zuerst; Bugs, Features, Reihen; Bereichsfolge global, Mail, Kalender, Adressbuch, "
-      "Aufgaben, Einstellungen, Chat; über 7 Tage offen eine Stufe vor, Alter aus dem ältesten Datum im Text). Ohne „Wartet auf OK“, "
+      "Aufgaben, Einstellungen, Chat; Alters-Zuschlag +0,5 Stufe je volle 7 Tage, höchstens +1,5, Alter aus dem Anlagedatum, sonst dem ältesten Datum im Text). Ohne „Wartet auf OK“, "
       "Ablauf- und Release-Einträge, ohne Einträge, die auf Push/CI warten; von Reihen nur der nächste Schritt.", ""]
 if items is None: v.append("- " + hinweis_board)
 else: v += ["%d. %s (%s)" % (i + 1, x[1], x[2]) for i, x in enumerate(liste[:30])] + (["", "… und %d weitere." % (len(liste) - 30)] if len(liste) > 30 else [])

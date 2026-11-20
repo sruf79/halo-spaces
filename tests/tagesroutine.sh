@@ -54,6 +54,7 @@ export HALO_LAUF=tagesroutine
 # Häufung (Maintainer 14.11.2026, „der automatismus soll natürlich bei der tagesroutine und auch bei der
 #   nachtroutine automatisch eingesetzt werden“): vor jeder Plan-Runde (auch beim stündlichen Neuplanen)
 #   tests/haeufung.py; Gruppen und Zuschläge aus ~/halo-nacht/<datum>-haeufung.md sind für den Plan verbindlich.
+#   Dieselbe Datei hat den Abschnitt „Alter (Skript)“ (Alters-Zuschlag, Board-Eintrag „Ablauf: Alter der Einträge …“, 20.11.2026).
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]

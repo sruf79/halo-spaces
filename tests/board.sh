@@ -70,6 +70,30 @@ zw_aendern() {   # <jq-Filter> [jq-Argumente]: Zwischenspeicher und BOARD nachf�
   BOARD=$(print -r -- $BOARD | jq -c "$@" "$f") && zw_speichern $BOARD || { BOARD=; rm -f $ZWISCHEN; }
   return 0
 }
+# Anlagedatum und Statuswechsel je Eintrag (gh project item-list liefert sie nicht): eine GraphQL-Abfrage, höchstens alle
+# HALO_BOARD_ALTER_S Sekunden (Standard 900, Abfragelimit); ein jüngerer Stand des Leitstands (tests/leitstand-status.zsh,
+# board48-sichtbar.json, gleiche Abfrage) zählt mit. Gibt [{id, createdAt, statusSeit}] aus, bei Fehler [] (nie Abbruch).
+ALTER_DATEI=${HALO_BOARD_ALTER:-$HOME/halo-nacht/board-alter.json}
+ALTER_S=${HALO_BOARD_ALTER_S:-900}
+LEITSTAND_ALTER=${HALO_BOARD_ALTER_LEITSTAND:-$HOME/halo-nacht/leitstand/quellen/board48-sichtbar.json}
+alter_laden() {
+  local m l roh
+  m=$(zstat +mtime $ALTER_DATEI 2>/dev/null) || m=0
+  if [[ -s $LEITSTAND_ALTER ]] && l=$(zstat +mtime $LEITSTAND_ALTER 2>/dev/null) && (( l > m && EPOCHSECONDS - l < ALTER_S )); then
+    roh=$(jq -c '[.[] | {id, createdAt, statusSeit: .fieldValueByName.updatedAt}]' $LEITSTAND_ALTER 2>/dev/null) \
+      && [[ $roh == \[* ]] && { mkdir -p ${ALTER_DATEI:h} && print -r -- $roh > $ALTER_DATEI.neu && mv $ALTER_DATEI.neu $ALTER_DATEI } 2>/dev/null \
+      && m=$EPOCHSECONDS
+  fi
+  if [[ ! -s $ALTER_DATEI ]] || (( EPOCHSECONDS - m >= ALTER_S )); then
+    roh=$(gh_wdh api graphql --paginate -f query='query($endCursor:String){user(login:"sruf79"){projectV2(number:1){items(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id createdAt fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{updatedAt}}}}}}}' \
+      --jq '.data.user.projectV2.items.nodes[] | {id, createdAt, statusSeit: .fieldValueByName.updatedAt}' 2>/dev/null | jq -cs . 2>/dev/null)
+    if [[ $roh == \[\{* ]]; then { mkdir -p ${ALTER_DATEI:h} && print -r -- $roh > $ALTER_DATEI.neu && mv $ALTER_DATEI.neu $ALTER_DATEI } 2>/dev/null
+    elif [[ -s $ALTER_DATEI ]]; then roh=$(<$ALTER_DATEI)   # (alter Stand ist besser als keiner: Anlagedaten ändern sich nie)
+    else roh='[]'; fi
+    print -r -- $roh; return 0
+  fi
+  jq -c . $ALTER_DATEI 2>/dev/null || print '[]'
+}
 BOARD=
 FRISCH=
 board_laden() {
@@ -180,7 +204,12 @@ case $befehl in
       | sort_by(.title)[] | "\(.id)  \(.typ // "-")  \(.status // "-")  \(.title)"'
     ;;
   export)
-    board | jq -c '{items: [.items[] | select(.status != "Done") | {id, typ, status, title, body: (.content.body // "")}]}'
+    # mit Anlagedatum (createdAt) und Zeit des letzten Statuswechsels (statusSeit) für tests/haeufung.py (Alters-Zuschlag)
+    # und tests/morgenbrief.sh („Überfällig“); fehlen sie, null (Board-Eintrag „Ablauf: Alter der Einträge …“, 20.11.2026)
+    typeset alter; alter=$(alter_laden)
+    board | jq -c --argjson a "${alter:-[]}" '($a | map({key: .id, value: .}) | from_entries) as $m
+      | {items: [.items[] | select(.status != "Done")
+        | {id, typ, status, title, body: (.content.body // ""), createdAt: $m[.id].createdAt, statusSeit: $m[.id].statusSeit}]}'
     ;;
   zeige)
     [[ -n $1 ]] || fehler "Aufruf: board.sh zeige <id|Muster> [<id|Muster> …]"

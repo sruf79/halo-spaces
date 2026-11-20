@@ -27,6 +27,12 @@ Regel (deterministisch, gleiche Liste ergibt gleiche Gruppen):
 - Gruppen = transitive Hülle der Verbindungen. Zuschlag = halbe Nutzenstufe je weiterer Eintrag,
   (n − 1) × 0,5, aufgerundet; die Obergrenze 5 für den Nutzen setzt der Planer.
 
+Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; Werte sind Festlegung des
+Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): je volle 7 Tage seit dem Anlagedatum (createdAt aus
+tests/board.sh export) +0,5 Nutzenstufe, höchstens +1,5; ohne Datum 0. Wirkt wie die Häufung nur im Nutzen
+(Obergrenze 5 setzt der Planer), unterhalb von Regel 0, Schwere, Testzeit-Verkürzung und Nutzer-Bugs.
+Ausgabe: Abschnitt „Alter (Skript)“ in der .md, Zeilen „alter“ in der .tsv.
+
 Aufruf:
   tests/haeufung.py [--eingabe <board.json>] [--aus <Ordner>] [--datum JJJJ-MM-TT] [--stdout]
 Ohne --eingabe (bzw. HALO_HAEUFUNG_EINGABE) liest es die Liste über tests/board.sh export (neben diesem Skript oder im Checkout).
@@ -165,6 +171,7 @@ class Eintrag:
         self.dateien = set(DATEI.findall(self.text + ' ' + self.titel))
         self.ids = set(ID.findall(self.text))
         self.reihe = reihen_stamm(self.titel)
+        self.created = d.get('createdAt')
 
 
 def verbindung(a, b):
@@ -247,6 +254,38 @@ def zuschlag(n):
     return roh, math.ceil(roh)
 
 
+ALTER_SCHRITT_TAGE, ALTER_SCHRITT, ALTER_DECKEL = 7, 0.5, 1.5
+
+
+def alter_tage(created, datum):
+    """Volle Tage vom Anlagedatum (ISO, z. B. 2026-11-02T14:01:41Z) bis datum (JJJJ-MM-TT); ohne/kaputtes Datum None."""
+    if not created:
+        return None
+    try:
+        a = datetime.date.fromisoformat(str(created)[:10])
+        return max(0, (datetime.date.fromisoformat(datum) - a).days)
+    except ValueError:
+        return None
+
+
+def alters_zuschlag(tage):
+    """+0,5 Nutzenstufe je volle 7 Tage offen, Deckel +1,5; ohne Datum 0."""
+    if tage is None:
+        return 0.0
+    return min(ALTER_DECKEL, (tage // ALTER_SCHRITT_TAGE) * ALTER_SCHRITT)
+
+
+def alter_liste(eintraege, datum):
+    """[(Eintrag, Tage, Zuschlag)] für Einträge mit Zuschlag > 0, älteste zuerst (bei Gleichstand nach id)."""
+    aus = []
+    for e in eintraege:
+        t = alter_tage(e.created, datum)
+        z = alters_zuschlag(t)
+        if z > 0:
+            aus.append((e, t, z))
+    return sorted(aus, key=lambda x: (-x[1], x[0].id))
+
+
 def offen(items):
     return [Eintrag(d) for d in items
             if (d.get('status') or '') not in ('Done', 'Wartet auf OK')]
@@ -266,7 +305,7 @@ def board_lesen():
     raise SystemExit('FEHLER: board.sh export scheiterte (' + ('; '.join(meldungen) or 'board.sh nicht gefunden') + ')')
 
 
-def schreiben(gruppen, zahl, aus, datum):
+def schreiben(gruppen, zahl, aus, datum, alter=()):
     os.makedirs(aus, exist_ok=True)
     md, tsv = os.path.join(aus, f'{datum}-haeufung.md'), os.path.join(aus, f'{datum}-haeufung.tsv')
     jetzt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -292,6 +331,15 @@ def schreiben(gruppen, zahl, aus, datum):
                             ' | '.join(e.titel for e in g['eintraege'])]))
         for a, b, p, gr in g['paare']:
             t.append('\t'.join(['paar', g['name'], a.id, b.id, f'{p:g}', '; '.join(gr), '']))
+    z += ['## Alter (Skript)', '',
+          'Zuschlag im Nutzen: +0,5 je volle 7 Tage seit Anlage, höchstens +1,5 (wie die Häufung verbindlich; '
+          'Nutzen mit Häufung zusammen höchstens 5). Festlegung des Fable-Agenten vom 20.11.2026, kein Wortlaut.', '']
+    if not alter:
+        z.append('Kein Eintrag mit Alters-Zuschlag.')
+    for e, tage, zs in alter:
+        z.append(f'- {e.id} {tage} Tage, +{zs:g}: {e.titel}')
+        t.append('\t'.join(['alter', e.id, str(tage), f'{zs:g}', '', '', e.titel]))
+    z.append('')
     for pfad, zeilen in ((md, z), (tsv, t)):
         with open(pfad + '.neu', 'w') as f:
             f.write('\n'.join(zeilen) + '\n')
@@ -313,10 +361,12 @@ def main():
         items = board_lesen()
     eintraege = offen(items)
     gruppen = gruppen_bilden(eintraege)
-    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum)
+    alter = alter_liste(eintraege, a.datum)
+    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum, alter)
     teile = [f'{g["name"]} {len(g["eintraege"])}' for g in gruppen]
     print(f'Häufung: {len(gruppen)} Gruppen aus {len(eintraege)} offenen Einträgen'
-          + (f' ({", ".join(teile)})' if teile else '') + f' – {md}')
+          + (f' ({", ".join(teile)})' if teile else '')
+          + f'; Alter: {len(alter)} Einträge mit Zuschlag (Abschnitt „Alter (Skript)“) – {md}')
 
 
 if __name__ == '__main__':

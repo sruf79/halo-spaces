@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3330">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3340">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -186,6 +186,16 @@ in **Settings → halo.spaces** (including the glow of the active space under "L
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
+
+## What's new in 3.34.0
+
+- **Mail**: with no message selected the reading pane shows a centred grey "No Message Selected" instead of the start page from the web; the start page stays reachable under Go > Start Page and can be switched back on with the "Start Page" setting
+- **Mail list**: the context menu has no empty icon column any more when a ticked entry such as Watch Thread is shown; all entries line up on one text edge
+- **Compose**: recipient suggestions look like the other menus, with each line as "Name — address" and the address in grey, no contact cards, small group icons for mailing lists, and the same address on two cards shown only once; "Align Text to Image" in the image dialog uses halo.spaces icons
+- **Contacts**: after cancelling a new contact, when opening and with an empty list, the focus is in the contact list so the arrow keys work without a click; the count in the list header counts contacts only, not mailing lists
+- **About**: "Recommend" opens a new message with subject and a short text including the link, ready to send (the text is copied to the clipboard if no account is set up)
+- **Add-ons Manager**: the "..." and gear menus have no empty icon column, all texts line up on one edge, and the icons are in the text colour
+- **Settings**: in halo.spaces the groups read Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting; the choice for the fifth space moved from "Chat & More" into its own "Fifth space" group
 
 ## What's new in 3.33.0
 

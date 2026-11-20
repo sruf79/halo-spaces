@@ -126,7 +126,6 @@ B status PVTI_b arbeit >/dev/null 2>&1; print 99 > $T/node.limit; print 99 > $T/
 B status PVTI_b ok >/dev/null 2>&1; rm -f $T/*.limit
 pruefe "Status in der Warteschlange räumt trotzdem" '! grep -q PVTI_b $T/in-arbeit.tsv'
 
-<<<<<<< HEAD
 # 8. titel und text: ersetzen, alter Wert ins Protokoll, Typ und Status bleiben, Sperren, Warteschlange, Nachtragen
 rm -f $T/w.txt $T/*.limit(N) $T/*.kaputt(N) $T/aenderungen.log
 print -r -- '{"items":[{"id":"PVTI_a","title":"Mail: Test","status":"Todo","typ":"Bug","content":{"id":"DI_a","body":"Zeile 1\nZeile 2"}},{"id":"PVTI_b","title":"Kalender: Zwei","status":"Todo","typ":"Bug","content":{"id":"DI_b","body":"Text B"}},{"id":"PVTI_c","title":"Kalender: Drei","status":"Todo","typ":"Bug","content":{"id":"DI_c","body":"Text C"}},{"id":"PVTI_x","title":"Alt: archiviert","status":"Todo","typ":"Bug","archiviert":true,"content":{"id":"DI_x","body":"X"}},{"id":"PVTI_d","title":"Alt: erledigt","status":"Done","typ":"Bug","content":{"id":"DI_d","body":"D"}}]}' > $T/board.json
@@ -177,8 +176,8 @@ B titel PVTI_c "Kalender: Endstand" >/dev/null 2>&1
 export HALO_BOARD_ZWISCHEN_S=0
 pruefe "direkter titel räumt älteren titel derselben id aus der Warteschlange" '[[ ! -e $T/w.txt ]] && [[ $(jq -r ".items[2].title" $T/board.json) == "Kalender: Endstand" ]]'
 pruefe "Aufrufhilfe nennt titel und text" 'B 2>/dev/null | grep -q "board.sh titel <id|Muster>" && B 2>/dev/null | grep -q "board.sh text <id|Muster>"'
-=======
-# 8. export mit Anlagedatum und Statuswechsel (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026)
+
+# 9. export mit Anlagedatum und Statuswechsel (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026)
 export HALO_BOARD_ALTER=$T/alter.json HALO_BOARD_ALTER_LEITSTAND=$T/leitstand.json
 rm -f $T/w.txt $T/alter.json $T/leitstand.json $T/*.limit(N) $T/*.kaputt(N)
 B export > $T/aus 2>&1; rc=$?
@@ -193,5 +192,4 @@ pruefe "export: jüngerer Leitstand-Stand zählt, keine Abfrage" '[[ $(jq -r ".i
 touch -t 202001010000 $T/alter.json $T/leitstand.json
 : > $T/aufrufe; B export > $T/aus 2>&1; rc=$?
 pruefe "export: alter Stand → Abfrage; liefert sie nichts, bleibt der alte Stand" '(( rc == 0 )) && grep -q "api graphql --paginate" $T/aufrufe && [[ $(jq -r ".items[] | select(.id == \"PVTI_b\") | .createdAt" $T/aus) == "2026-11-05T10:00:00Z" ]]'
->>>>>>> fc8d8632 (Ablauf: Alters-Zuschlag per Skript, board.sh export liefert Anlagedatum und Statuswechsel, tests/haeufung.py gibt +0,5 Nutzenstufe je volle 7 Tage (höchstens +1,5) im Abschnitt „Alter (Skript)“ aus; Morgenbrief-Vorschau rechnet das Alter aus dem Anlagedatum)
 exit $F

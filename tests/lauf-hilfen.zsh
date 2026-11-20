@@ -677,9 +677,9 @@ push() {
 PUSH: $text
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
     | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1 \
-    | grep -v '^Permission allow rule')   # Warnzeile zu einer Berechtigungsregel in settings.json steht vor der Antwort (16.11.2026) und hat die Zustellung fälschlich als Fehler gezählt
+    | grep -v -E '^(Permission allow rule|Warning: )')   # Warnzeilen (Berechtigungsregel in settings.json 16.11.2026; „Warning: this sign-in ends …“ 20.11.2026) stehen vor der Antwort und haben die Zustellung fälschlich als Fehler gezählt
   log "Push: $out"
-  if [[ ${out:l} == gesendet* ]]; then
+  if [[ ${out:l} == (gesendet*|*$'\n'gesendet*) ]]; then
     sitzung_merken $sollname $ziel
   else
     grund=${${out#nicht gesendet:}//$'\n'/ }
@@ -704,6 +704,9 @@ an_neon() {
   ziel=$(sitzung_finden $sollname) || {
     print -r -- "$(zeit) AN-NEON-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden" >> $fehlerlog
     log "AN-NEON-FEHLER $routine keine Sitzung „$sollname“ oder ähnlich gefunden"
+    # Meldung nicht verlieren (20.11.2026, Sitzung neon nach dem Netzausfall nicht erreichbar): als offener Auftrag in neon-stand
+    # ablegen, den der Start-Hook jeder neuen neon-Sitzung lädt; der Aufrufer meldet weiter per push() (Rückgabe 1)
+    [[ $sollname == neon && -x ${HALO_NEON_STAND:-$HOME/halo-spaces/tests/neon-stand.sh} ]] && zsh ${HALO_NEON_STAND:-$HOME/halo-spaces/tests/neon-stand.sh} neu "$routine" "$text" >/dev/null 2>&1
     return 1 }
   out=$(print -r -- "Aufgabe ohne Rückfrage: Lade bei Bedarf mit ToolSearch die Werkzeuge ListAgents und SendMessage. Schicke dann mit SendMessage an die Sitzung, deren Name „$ziel“ ist (aus ListAgents), genau die Nachricht zwischen den Zeilen ANFANG und ENDE (ohne diese beiden Zeilen, unverändert) und sonst nichts:
 ANFANG
@@ -711,9 +714,9 @@ $text
 ENDE
 Antworte danach nur mit „gesendet“ oder „nicht gesendet: <Grund>“." \
     | claude -p --model haiku --permission-mode auto --allowedTools ListAgents SendMessage ToolSearch 2>&1 \
-    | grep -v '^Permission allow rule')
+    | grep -v -E '^(Permission allow rule|Warning: )')
   log "an neon: $out"
-  if [[ ${out:l} == gesendet* ]]; then
+  if [[ ${out:l} == (gesendet*|*$'\n'gesendet*) ]]; then
     sitzung_merken $sollname $ziel
     return 0
   fi

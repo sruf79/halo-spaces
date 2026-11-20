@@ -184,7 +184,8 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - Zwischen `release.sh` und `publish.sh` nicht neu bauen (sonst passt der Hash nicht). Meldet
   `publish.sh` „FEHLER“, sofort klären, sonst bekommen Nutzer das Update nicht.
 - Zuletzt setzt `publish.sh` die Board-Einträge, deren Commit im Release steckt, auf Done
-  (`tests/board-nach-release.zsh`, Zweifel nach `~/halo-aufgaben/board-nach-release-zweifel.md`, Maintainer 18.11.2026).
+  (`tests/board-nach-release.zsh`, Zweifel nach `~/halo-aufgaben/board-nach-release-zweifel.md`, Maintainer 18.11.2026);
+  danach nimmt `tests/abnahme-nach-release.zsh` im Hintergrund die Design-Einträge „zur Abnahme“ ab (Maintainer 20.11.2026).
 - Ablauf, Bericht, Store, Issues schließen, Board nach dem Release: `docs/release.md`.
 
 ## Konventionen

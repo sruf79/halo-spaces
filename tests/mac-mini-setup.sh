@@ -799,6 +799,36 @@ pruefe_laeufe() {
     '<key>StartInterval</key><integer>300</integer>
   <key>RunAtLoad</key><true/>' \
     '' "alle 5 Minuten status.json nach sruf79/halo-status (privat), Protokoll ~/halo-nacht/leitstand/leitstand.log"
+  # Volldampf-Wächter nach einem Neustart (Maintainer 20.11.2026): LaunchAgent ruft „volldampf.sh sicher“ auf (Anmeldung und alle
+  # 10 Minuten); das Skript läuft direkt aus dem Checkout, weil es die Wächter-Skripte daneben braucht (keine Kopie in AG_DIR)
+  vd_label=at.halo-spaces.volldampf-waechter; vd_plist=$HOME/Library/LaunchAgents/$vd_label.plist
+  vd_soll() { cat <<VDEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$vd_label</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>$ROOT/tests/volldampf.sh</string><string>sicher</string></array>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>AbandonProcessGroup</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/halo-volldampf-waechter.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/halo-volldampf-waechter.log</string>
+</dict>
+</plist>
+VDEOF
+  }
+  if [[ $(vd_soll | plutil -convert xml1 -o - - 2>/dev/null) == "$(plutil -convert xml1 -o - $vd_plist 2>/dev/null)" ]] && launchctl print gui/$(id -u)/$vd_label >/dev/null 2>&1; then
+    ok "Volldampf-Wächter" "nach einem Neustart startet volldampf.sh sicher fehlende Wächter (Anmeldung und alle 10 Minuten, Protokoll ~/Library/Logs/halo-volldampf-waechter.log)"
+  elif (( CHECK )); then
+    offen "Volldampf-Wächter" "LaunchAgent fehlt, ist veraltet oder nicht geladen"
+    tun "tests/mac-mini-setup.sh --ohne-probelauf ausführen"
+  elif mkdir -p ${vd_plist:h} && vd_soll > $vd_plist; then
+    launchctl bootout gui/$(id -u)/$vd_label 2>/dev/null
+    launchctl bootstrap gui/$(id -u) $vd_plist 2>/dev/null && ok "Volldampf-Wächter" "eingerichtet" || { offen "Volldampf-Wächter" "eingerichtet, ließ sich aber nicht laden"; tun "in der Bildschirmsitzung: launchctl bootstrap gui/$(id -u) $vd_plist" }
+  fi
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.

@@ -450,6 +450,39 @@ else:
                 + (["Bug"] if stufe == 0 else ["Reihe, nächster Schritt"] if stufe == 2 else ["Feature"])
         liste.append(((0 if schwer else 1, stufe, rang, t.lower()), t, ", ".join(grund)))
     liste.sort()
+# Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; Festlegung des
+# Fable-Agenten, kein Wortlaut): Notiz „Entscheidung fehlt seit <Datum>: <Frage>“ (Aufträge von Nachtlauf und
+# Tagesroutine) oder Status „Wartet auf OK“, jeweils über 7 Tage. Seit wann „Wartet auf OK“: statusSeit aus
+# board.sh export, sonst das jüngste Datum einer Notiz „Rückfrage …“; ohne Datum nicht gezählt.
+DATUM = r"(20\d\d-\d\d-\d\d|\d{1,2}\.\d{1,2}\.20\d\d)"
+def datum_lesen(s):
+    try:
+        if "-" in s: return dt.date.fromisoformat(s[:10])
+        d, m, j = s.split("."); return dt.date(int(j), int(m), int(d))
+    except ValueError: return None
+def ueberfaellig(items, heute, grenze=7):
+    aus = []
+    for it in items or []:
+        t, st, body = it.get("title", ""), it.get("status") or "", it.get("body") or ""
+        if st == "Done": continue
+        seit, frage = None, ""
+        m = re.search(r"Entscheidung fehlt seit " + DATUM + r":?\s*([^\n]*)", body)
+        if m: seit, frage = datum_lesen(m.group(1)), m.group(2).strip()
+        if st == "Wartet auf OK":
+            s2 = datum_lesen(it.get("statusSeit") or "") if it.get("statusSeit") else None
+            rf = re.findall(r"Rückfrage[^\n:]*?" + DATUM + r"[^\n:]*:\s*([^\n]*)", body)
+            if s2 is None and rf:
+                ds = [(datum_lesen(d), f) for d, f in rf if datum_lesen(d)]
+                if ds: s2 = max(ds)[0]
+            if not frage and rf: frage = rf[-1][1].strip()
+            if s2 and (seit is None or s2 < seit): seit = s2
+        if seit is None: continue
+        tage = (heute - seit).days
+        if tage > grenze: aus.append((tage, t, frage or "Frage nicht notiert"))
+    return sorted(aus, key=lambda x: (-x[0], x[1].lower()))
+ueber_e = ueberfaellig(items, HEUTE)
+if ueber_e:
+    sonst.append("%d Entscheidung%s seit über 7 Tagen offen, siehe Details „Überfällig“" % (len(ueber_e), "en" if len(ueber_e) != 1 else ""))
 pause, vd = E("MB_PAUSE") or "", E("MB_VOLLDAMPF") or ""
 start = E("MB_START") or "09:00"
 rot_zuerst = bool(rot) and kurz.lower().startswith("kein release")
@@ -514,6 +547,8 @@ v += ["", "Reihenfolge nach den Regeln (schwer zuerst; Bugs, Features, Reihen; B
 if items is None: v.append("- " + hinweis_board)
 else: v += ["%d. %s (%s)" % (i + 1, x[1], x[2]) for i, x in enumerate(liste[:30])] + (["", "… und %d weitere." % (len(liste) - 30)] if len(liste) > 30 else [])
 block("Vorschau Tagesroutine: offene Einträge in Regel-Reihenfolge", "\n".join(v))
+if ueber_e:
+    block("Überfällig: Entscheidungen über 7 Tage offen", "\n".join("- %s – %d Tage – %s" % (t, n, f) for n, t, f in ueber_e))
 if len(sys.argv) > 1 and sys.argv[1]:
     with open(sys.argv[1], "w", encoding="utf-8") as f: f.write("\n".join(B_).rstrip() + "\n")
 # --- iPhone: höchstens 3 Zeilen plus Hinweis, ohne Pfade und Hashes ---

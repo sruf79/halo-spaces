@@ -140,6 +140,27 @@ pruefe "Abnahme überfällig: eigener Satz, nicht in der Zweifel-Zahl" 'grep -q 
 print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Optik: alt | Alte Frage?" "- 2026-11-15 21:30 | v3.27.1 | PVTI_f | Optik: Ungelesen-Zahl | Soll das Grau so blass bleiben wie in der Vorlage?" > $T/fragen.md
 HALO_ABN_FRAGEN=$T/fragen.md lauf $MO $T/f.md >/dev/null
 pruefe "Abnahme: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Abnahme, deine Entscheidung: Optik: Ungelesen-Zahl: Soll das Grau so blass bleiben" $T/f.md && ! grep -q "Alte Frage" $T/f.md'
+# Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026): Notiz
+# „Entscheidung fehlt seit …“ bzw. „Wartet auf OK“ über 7 Tage; statusSeit vor dem Datum einer Rückfrage-Notiz
+cp $T/board.json $T/board-normal.json
+cat > $T/board.json <<'EOF'
+{"items":[
+ {"id":"U1","typ":"Feature","status":"Todo","title":"Mail: Zusage offen","body":"Text\n\nEntscheidung fehlt seit 2026-11-01: Soll der Knopf links stehen?"},
+ {"id":"U2","typ":"Feature","status":"Todo","title":"Mail: frisch übersprungen","body":"Entscheidung fehlt seit 2026-11-12: Noch nicht alt?"},
+ {"id":"U3","typ":"Bug","status":"Wartet auf OK","title":"Kalender: wartet lange","body":"Rückfrage Director 2026-11-05: Welche Farbe?"},
+ {"id":"U4","typ":"Bug","status":"Wartet auf OK","title":"Kalender: Status erst neu","body":"Rückfrage Director 2026-11-01: Alte Frage?","statusSeit":"2026-11-14T10:00:00Z"},
+ {"id":"U5","typ":"Bug","status":"Wartet auf OK","title":"Adressbuch: ohne Datum","body":"nichts"},
+ {"id":"U6","typ":"Feature","status":"Todo","title":"Chat: genau 7 Tage","body":"Entscheidung fehlt seit 9.11.2026: Grenzfall?"},
+ {"id":"U7","typ":"Feature","status":"Done","title":"Mail: erledigt","body":"Entscheidung fehlt seit 2026-10-01: egal"}
+]}
+EOF
+lauf $MO $T/u.md >/dev/null
+U=$(sed -n '/<summary>Überfällig: Entscheidungen über 7 Tage offen</,/<\/details>/p' $T/u.md)
+pruefe "Überfällig: Notiz und Wartet auf OK über 7 Tage, älteste zuerst, mit Frage" '[[ $(print -r -- $U | grep "^- ") == $(print -l -- "- Mail: Zusage offen – 15 Tage – Soll der Knopf links stehen?" "- Kalender: wartet lange – 11 Tage – Welche Farbe?") ]]'
+pruefe "Überfällig: nicht bis 7 Tage, nicht ohne Datum, statusSeit zählt, Done nicht" '! print -r -- $U | grep -qE "frisch|Status erst neu|ohne Datum|genau 7 Tage|erledigt"'
+pruefe "Überfällig: eine Zeile „Zu tun“ in der Kurzfassung" 'grep -q "Zu tun: 2 Entscheidungen seit über 7 Tagen offen, siehe Details „Überfällig“" $T/u.md'
+pruefe "ohne Überfälliges kein Abschnitt" '! grep -q "Überfällig" $T/b.md'
+mv $T/board-normal.json $T/board.json
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
 pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
 

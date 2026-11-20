@@ -105,6 +105,16 @@ Reihenfolge:
       oder Design-Frage des Maintainers offen, GitHub-Features ohne Freigabe,
       siehe oben). Die kommen mit Grund in die Liste „übersprungen“;
       unklare Einträge behandelt f).
+      Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge
+      wirksam machen …“, 20.11.2026; Festlegung des Fable-Agenten auf
+      Weisung des Maintainers, kein Wortlaut): Wer einen Eintrag wegen
+      fehlender Entscheidung oder Antwort überspringt, schreibt
+      tests/board.sh notiz <id> „Entscheidung fehlt seit <Datum>: <Frage>“
+      (Datum JJJJ-MM-TT, einmal je Eintrag: steht die Notiz schon, bleibt sie
+      mit ihrem Datum stehen). Steht sie über 7 Tage, setzt er den Eintrag mit
+      dieser Frage auf „Wartet auf OK“ (Weg f, zählt nicht zu den 5
+      Rückfragen). tests/morgenbrief.sh zeigt solche Einträge und alles über
+      7 Tage in „Wartet auf OK“ im Abschnitt „Überfällig“.
       Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter, Volldampf)
       ohne spätere „In Arbeit beendet“-Notiz gehören diesem Worker: nicht planen
       (Liste „übersprungen“, Grund „Worker“) – aber nur, solange die Notiz jünger

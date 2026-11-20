@@ -79,6 +79,12 @@ Plan-Runde („JETZT: Plan-Runde“):
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
   Features mit „[GitHub #n]“ ohne Freigabe und Reihen über den nächsten Schritt hinaus nicht planen.
+  Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; Festlegung
+  des Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): Wer einen Eintrag wegen fehlender Entscheidung oder
+  Antwort nicht plant, schreibt tests/board.sh notiz <id> „Entscheidung fehlt seit <Datum>: <Frage>“ (Datum
+  JJJJ-MM-TT, einmal je Eintrag: steht die Notiz schon, bleibt sie mit ihrem Datum stehen). Steht sie über 7 Tage,
+  setzt er den Eintrag mit dieser Frage auf „Wartet auf OK“ (tests/board.sh status <id> ok). Der Morgenbrief zeigt
+  solche Einträge im Abschnitt „Überfällig“.
   Ebenso Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter tests/auslastung-schleife.zsh) ohne spätere
   „In Arbeit beendet“-Notiz: sie gehören diesem Worker, solange die Notiz jünger als 5 Stunden ist (Worker enden nach
   4 Stunden). Ältere Notiz ohne „committet auf …“: Eintrag normal planen; mit „committet auf pruef/worker-…“: nicht

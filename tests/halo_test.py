@@ -25077,6 +25077,170 @@ Neu
     check("Updates: Update ohne Neustart schließt ein offenes Info-Fenster und lädt den Code der neuen Version, Info-Fenster danach neu mit „Recommend“",
           update_live_code, results)
 
+    def update_ueberbleibsel():
+        # Update ohne Neustart („Install Now“) bei offenem Verfassen-Fenster: danach steht jede eigene Einfügung genau
+        # einmal da („Rename“ in der Kalenderliste und „Create Rule from Message…“ im Kontextmenü der Mails blieben beim
+        # Abbau stehen und standen doppelt), „Undo Send“ hält das Senden im offen gebliebenen Verfassen-Fenster weiter an
+        # (das Merkmal blieb stehen, die neue Fassung hängte sich nicht ein – die Mail ging ohne Wartezeit hinaus), die
+        # Kanten der Symbolleiste stehen wie davor, und alle Stilblätter gelten in der neuen Fassung – auch das des
+        # Info-Fensters, dessen Adresse keine Version trägt (Thunderbirds Zwischenspeicher lieferte dort nach einem
+        # Paketwechsel noch die alte Fassung). Nachgestellt mit einem Paket höherer Version und einer Marke in jedem
+        # Stilblatt; danach das ursprüngliche Paket zurück (Marken wieder weg)
+        xpi = os.path.join(profile, "extensions", f"{ADDON_ID}.xpi")
+        tmp = tempfile.mkdtemp(prefix="halo-update-")
+        alt, neu = os.path.join(tmp, "alt.xpi"), os.path.join(tmp, "neu.xpi")
+        shutil.copy(xpi, alt)
+        neu_ver = f"{version}.1"
+        marken = {"theme.css": "--mc-test-theme", "icon-vars.css": "--mc-test-icons", "noscroll.css": "--mc-test-noscroll", "parts.css": "--mc-test-parts", "about/halo.css": "--mc-test-halo"}
+        with zipfile.ZipFile(alt) as zin, zipfile.ZipFile(neu, "w", zipfile.ZIP_DEFLATED) as zout:
+            for info in zin.infolist():
+                data = zin.read(info.filename)
+                if info.filename == "manifest.json":
+                    man = json.loads(data)
+                    man["version"] = neu_ver
+                    data = json.dumps(man, ensure_ascii=False, indent=2).encode()
+                elif info.filename in marken:
+                    data = f":root {{ {marken[info.filename]}: neu; }}\n".encode() + data
+                zout.writestr(info, data)
+        hilfen = r"""
+          const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+          const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const ID = %s;
+          const laeuft = ver => { const e = ExtensionParent.GlobalManager.getExtension(ID), g = e?.experimentAPIManager?.global;
+            return e?.version == ver && !!g && Cu.evalInSandbox("typeof enhancer == 'object' && !!enhancer", g); };
+          const einspielen = async (pfad, ver) => {
+            const f = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); f.initWithPath(pfad);
+            const install = await AddonManager.getInstallForFile(f);
+            await new Promise((resolve, reject) => {
+              install.addListener({ onInstallPostponed: () => install.continuePostponedInstall(), onInstallEnded: () => resolve(),
+                onInstallFailed: () => reject(new Error("Installation gescheitert: " + install.error)),
+                onInstallCancelled: () => reject(new Error("Installation abgebrochen")) });
+              install.install().catch(() => {});
+            });
+            const ok = !!(await until(() => laeuft(ver), 20000)); await mailOrdner(); await ruhig(2000); return ok;
+          };
+          // Mailansicht mit gewähltem Ordner (ohne Mailliste merkt sich die Symbolleiste nur die letzte Kante)
+          const mailOrdner = async () => { const a3 = await toMail(); const f = MailServices.accounts.localFoldersServer.rootFolder.descendants.find(x => x.name == "Mailliste");
+            if (f && a3.gFolder?.URI != f.URI) { a3.displayFolder(f.URI); await until(() => a3.gFolder?.URI == f.URI && a3.gDBView, 6000); await ruhig(900); } return a3; };
+          const verfassen = () => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose);
+          const doppelt = () => { const out = []; const a3 = tm.currentAbout3Pane;
+            for (const doc of [d, a3?.document, a3?.messageBrowser?.contentDocument, verfassen()?.document]) { if (!doc) continue; const n = {};
+              for (const el of doc.querySelectorAll("[id^='mc']")) n[el.id] = (n[el.id] || 0) + 1;
+              for (const [k, v] of Object.entries(n)) if (v > 1) out.push(k + "×" + v); } return out.sort(); };
+          const infoFenster = async () => { d.getElementById("mcHaloSpaces")?.doCommand();
+            const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent), 8000);
+            if (!hw) return null; await ruhig(400); const v = hw.getComputedStyle(hw.document.documentElement).getPropertyValue("--mc-test-halo").trim(); hw.close(); await ruhig(300); return v; };
+          const stand = async () => { const a3 = await mailOrdner(), utc = d.getElementById("unifiedToolbarContainer"), cs = getComputedStyle(d.documentElement), out = { marken: {} };
+            for (const v of %s) out.marken[v] = cs.getPropertyValue(v).trim();
+            out.marken["3pane"] = a3.getComputedStyle(a3.document.documentElement).getPropertyValue("--mc-test-theme").trim();
+            out.kanten = ["--mc-list-right", "--mc-toolbar-offset", "--mc-sidebar-right"].map(n => getComputedStyle(utc).getPropertyValue(n).trim());
+            out.merkmale = [...d.documentElement.attributes].filter(a => a.name.startsWith("mc-")).map(a => a.name + "=" + a.value).sort();
+            out.doppelt = doppelt(); out.marken.info = await infoFenster(); return out; };
+        """ % (json.dumps(ADDON_ID), json.dumps([v for k, v in marken.items() if not k.startswith("about/")]))
+        m.cmd("WebDriver:SetTimeouts", {"script": 120000})
+        try:
+            res = m.js(hilfen + r"""
+              const out = {};
+              try {
+                const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+                const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+                fields.to = "ziel@example.invalid"; fields.subject = "Halo Updateprobe"; fields.body = "Nicht senden.";
+                params.type = Ci.nsIMsgCompType.New; params.format = Ci.nsIMsgCompFormat.PlainText; params.composeFields = fields;
+                MailServices.compose.OpenComposeWindowWithParams(null, params);
+                const cw = await bis(verfassen, "Verfassen-Fenster", 10000);
+                await bis(() => cw.gLoadingComplete, "Verfassen-Fenster fertig geladen", 8000); await ruhig(1200);
+                out.vorher = await stand();
+                out.neu = await einspielen(%s, %s);
+                out.nachher = await stand();
+                // „Senden“ nur als Ereignis: die Erweiterung hält es an und zeigt „Undo Send“ – gleich zurücknehmen, nichts geht hinaus
+                const ev = new cw.CustomEvent("compose-send-message", { cancelable: true, detail: { msgType: Ci.nsIMsgCompDeliverMode.Now } });
+                cw.dispatchEvent(ev);
+                const bar = await until(() => d.getElementById("mcUndoSend"), 3000);
+                out.senden = { angehalten: ev.defaultPrevented, leiste: !!bar, knopf: cw.document.querySelectorAll("#mcSendLater").length };
+                bar?.querySelector(".mc-us-undo")?.click(); out.senden.zurueck = !!(await until(() => !d.getElementById("mcUndoSend"), 3000));
+              } finally {
+                out.zurueck = await einspielen(%s, %s);
+                out.danach = await stand();
+                for (const cw of [...Services.wm.getEnumerator("msgcompose")]) { try { cw.SetContentAndBodyAsUnmodified?.(); } catch {} cw.close(); }
+                const offen = await until(() => ![...Services.wm.getEnumerator("msgcompose")].length || [...Services.wm.getEnumerator(null)].find(x => x.location?.href.includes("commonDialog")), 3000);
+                if (offen !== true) { offen?.document?.querySelector("dialog")?.getButton("extra1")?.click(); await until(() => ![...Services.wm.getEnumerator("msgcompose")].length, 3000); }
+                out.zu = ![...Services.wm.getEnumerator("msgcompose")].length;
+                await toMail();
+              }
+              return out;""" % (json.dumps(neu), json.dumps(neu_ver), json.dumps(alt), json.dumps(version)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
+        v, n, z = res.get("vorher") or {}, res.get("nachher") or {}, res.get("danach") or {}
+        leer = {k: "" for k in (v.get("marken") or {})}
+        ok = (res.get("neu") and res.get("zurueck") and v.get("marken") == leer and len(leer) == 6
+              and n.get("marken") == {k: "neu" for k in leer} and z.get("marken") == leer
+              and v.get("doppelt") == [] and n.get("doppelt") == [] and z.get("doppelt") == []
+              and n.get("kanten") == v.get("kanten") and all(v.get("kanten") or [""]) and n.get("merkmale") == v.get("merkmale")
+              and res.get("senden") == {"angehalten": True, "leiste": True, "knopf": 1, "zurueck": True})
+        return ok, f"{res}"
+    check("Updates: Update ohne Neustart bei offenem Verfassen-Fenster – keine doppelten Einfügungen, „Undo Send“ hält weiter an, Kanten der Symbolleiste wie davor, alle Stilblätter in neuer Fassung (auch Info-Fenster)",
+          update_ueberbleibsel, results)
+
+    def settings_sofort():
+        # Fehlerbehebung „halo.spaces design“ und „Own icons“ sowie „Offline copy for online calendars“ gelten sofort:
+        # vorher erst nach einem Neustart (die ersten beiden sagten das dazu, der Offline-Kalender nicht). Aus und
+        # wieder an baut alles ab und neu auf – danach steht jede eigene Einfügung genau einmal da
+        res = m.js(ENH_JS + r"""
+          await toMail();
+          const sss = Cc["@mozilla.org/content/style-sheet-service;1"].getService(Ci.nsIStyleSheetService);
+          const ver = Cu.evalInSandbox("extensionVersion", g);
+          const icons = Services.io.newURI(`resource://mailcards/icon-vars.css?v=${ver}`), parts = Services.io.newURI(`resource://mailcards/parts.css?v=${ver}`);
+          const stand = () => ({ symbole: sss.sheetRegistered(icons, sss.USER_SHEET), symbol: getComputedStyle(d.documentElement).getPropertyValue("--icon-add").includes("mailcards"),
+            design: String(w.__mcTheme || "").includes("theme.css"), teile: sss.sheetRegistered(parts, sss.AUTHOR_SHEET),
+            blatt: w.InspectorUtils.getAllStyleSheets(d, false).filter(x => (x.href || "").includes("mailcards/theme.css")).length,
+            menue: d.querySelectorAll("#mcHaloSpaces").length, heute: d.querySelectorAll("#mcTodayToggle").length });
+          const doppelt = () => { const n = {}; for (const el of d.querySelectorAll("[id^='mc']")) n[el.id] = (n[el.id] || 0) + 1; return Object.entries(n).filter(([, v]) => v > 1).map(([k, v]) => k + "×" + v); };
+          const lauf = () => Cu.evalInSandbox("enhancer", g);
+          const out = { anfang: stand(), doppelt0: doppelt() };
+          const I = "extensions.mailcards.appleIcons", T = "extensions.mailcards.bundledTheme", O = "extensions.mailcards.calendarOffline";
+          try {
+            let e0 = lauf();
+            Services.prefs.setBoolPref(I, false);
+            await until(() => lauf() && lauf() !== e0 && !sss.sheetRegistered(icons, sss.USER_SHEET), 8000); await ruhig(1500); out.symboleAus = stand();
+            e0 = lauf(); Services.prefs.clearUserPref(I);
+            await until(() => lauf() && lauf() !== e0 && sss.sheetRegistered(icons, sss.USER_SHEET), 8000); await ruhig(1500); out.symboleAn = stand();
+            e0 = lauf(); Services.prefs.setBoolPref(T, false);
+            await until(() => lauf() && lauf() !== e0 && !w.__mcTheme, 8000); await ruhig(1500); out.designAus = stand();
+            e0 = lauf(); Services.prefs.clearUserPref(T);
+            await until(() => lauf() && lauf() !== e0 && w.__mcTheme, 8000); await ruhig(2000); out.designAn = stand();
+            out.doppelt1 = doppelt();
+            // Offline-Kalender: echtes Abonnement unter einer nie erreichbaren Adresse (.invalid), Einstellung direkt
+            // gesetzt wie in about:config. (Kein Ersatz von cal.manager.getCalendars: in der ESR ist cal.manager ein
+            // XPCOM-Dienst, die Erweiterung ruft dort weiter die echte Liste auf – die Probe blieb leer)
+            const URL = "https://halo-sofort.example.invalid/kalender.ics";
+            const mine = () => cal.manager.getCalendars().filter(c => c.uri?.spec == URL);
+            const c = cal.manager.createCalendar("ics", Services.io.newURI(URL)); c.name = "Halo Sofort"; cal.manager.registerCalendar(c);
+            try {
+              await bis(() => mine().length == 1, "Abonnement angelegt", 4000);
+              out.offline = { vorher: mine().map(x => !!x.getProperty("cache.enabled")) };
+              Services.prefs.setBoolPref(O, true);
+              out.offline.an = !!(await until(() => mine().length == 1 && mine()[0].getProperty("cache.enabled") === true, 5000));
+              out.offline.nachher = mine().map(x => !!x.getProperty("cache.enabled"));
+            } finally {
+              Services.prefs.clearUserPref(O);
+              for (const x of mine()) { try { cal.manager.removeCalendar(x); } catch {} }
+              await ruhig(300);
+            }
+          } finally {
+            for (const p of [I, T, O]) Services.prefs.clearUserPref(p);
+            await ruhig(1500); await toMail();
+          }
+          return out;""")
+        a = res.get("anfang") or {}
+        voll = {"symbole": True, "symbol": True, "design": True, "teile": True, "blatt": 1, "menue": 1, "heute": 1}
+        ok = (a == voll and res.get("symboleAus") == {**voll, "symbole": False, "symbol": False} and res.get("symboleAn") == voll
+              and res.get("designAus") == {**voll, "design": False, "teile": False, "blatt": 0} and res.get("designAn") == voll
+              and res.get("doppelt1") == res.get("doppelt0") and res.get("offline") == {"vorher": [False], "an": True, "nachher": [True]})
+        return ok, f"{res}"
+    check("Einstellungen: „halo.spaces design“, „Own icons“ und Offline-Kalender gelten sofort, ohne Neustart; danach steht jede Einfügung einmal da", settings_sofort, results)
+
     def errors():
         # Fehlerprotokoll der Erweiterung (mail-cards-debug.log, Fehler, die unser Code selbst abfängt). Nie ein
         # Fehlschlag (Entscheidung des Maintainers vom 5.11.2026, wie die Fehlerkonsole): je Meldung eine Zeile

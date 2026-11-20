@@ -42,7 +42,12 @@ const UndoSend = {
       this.hold(win, msgType);
     };
     win.addEventListener("compose-send-message", onSend, true);
-    cleanups?.add(() => win.removeEventListener("compose-send-message", onSend, true));
+    // (Merkmal mit weg: sonst hängte sich die neue Fassung nach einem Update ohne Neustart in ein offenes
+    // Verfassen-Fenster nicht mehr ein, die Mail ging dort ohne Wartezeit hinaus)
+    cleanups?.add(() => {
+      win.removeEventListener("compose-send-message", onSend, true);
+      delete win.__mcUndoSend;
+    });
   },
   setVisible(win, visible) {
     try {

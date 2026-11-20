@@ -2988,7 +2988,10 @@ def reading_checks(m, results):
         shot("mail")
         res.update(m.js(r"""
           const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
-          const pseudo = () => { const s = a3.getComputedStyle(pane, "::before"); return { content: s.content, color: s.color, size: s.fontSize }; };
+          // ESR liefert für content den Ausdruck „attr(data-mc-empty)“ unaufgelöst, neuere Fassungen den
+          // fertigen Text: beides auf den Text des Attributs bringen (gezeichnet ist er in beiden, siehe ink)
+          const inhalt = c => c == "attr(data-mc-empty)" ? JSON.stringify(pane.getAttribute("data-mc-empty") ?? "") : c;
+          const pseudo = () => { const s = a3.getComputedStyle(pane, "::before"); return { content: inhalt(s.content), color: s.color, size: s.fontSize }; };
           const out = {};
           out.mail = { subject: (a3.messageBrowser?.contentDocument?.getElementById("expandedsubjectBox")?.textContent || "").trim(), shown: !a3.messageBrowser.hidden, pseudo: pseudo() };
           a3.threadTree.selectedIndex = -1;
@@ -2998,7 +3001,8 @@ def reading_checks(m, results):
         shot("leer")
         res.update(m.js(r"""
           const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
-          const pseudo = () => a3.getComputedStyle(pane, "::before").content;
+          const inhalt = c => c == "attr(data-mc-empty)" ? JSON.stringify(pane.getAttribute("data-mc-empty") ?? "") : c;  // ESR, siehe oben
+          const pseudo = () => inhalt(a3.getComputedStyle(pane, "::before").content);
           // schmale Leseansicht: der Text passt auch an Thunderbirds Mindestbreite der Leseansicht (300 px) samt Rand
           // ganz hinein (längere Übersetzungen brechen um: text-align/white-space); gemessen an einem Probetext in
           // derselben Schrift

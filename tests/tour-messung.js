@@ -31,9 +31,12 @@ else {
   let doc = (typeof cur != "undefined" && cur) ? cur : document;
   // offene Unterdialoge (Einstellungen u. a.) bevorzugen
   const docs = [doc, (typeof d != "undefined" ? d : null)].filter(Boolean);
-  let sub = null; for (const dd of docs) { const f = [...dd.querySelectorAll(".dialogFrame, browser.dialogFrame")].filter(isVis).pop(); if (f && f.contentDocument) sub = f.contentDocument; }
+  // leere Rahmen (about:blank) des Unterdialog-Verwalters überspringen, sonst fehlt der Name des Dialogs im Gesamtverzeichnis
+  let sub = null; for (const dd of docs) { const f = [...dd.querySelectorAll(".dialogFrame, browser.dialogFrame")].filter(isVis).filter(x => { try { return x.contentDocument?.location.href != "about:blank"; } catch { return false; } }).pop(); if (f && f.contentDocument) sub = f.contentDocument; }
   if (sub) { doc = sub; P.sub = sub.location.href.split("/").pop(); }
   const a = acc(doc); P.kind = "doc"; P.url = doc.location?.href?.slice(0, 80); P.accent = a;
+  // Seite im Rahmen der Kontoeinstellungen (am-*.xhtml) für das Gesamtverzeichnis (tests/fenster_verzeichnis.py)
+  try { const cf = !sub && doc.getElementById("contentFrame"); if (cf?.contentDocument) P.page = cf.contentDocument.location.href.split("?")[0].slice(0, 80); } catch (e) {}
   const root = doc.documentElement, body = doc.body || root; P.bg = cs(root).backgroundColor + " / " + cs(body).backgroundColor; P.font = cs(body).fontSize + " " + cs(body).fontFamily.split(",")[0];
   P.buttons = buttonsIn(doc, a); P.inputs = inputsIn(doc); P.groups = groupsIn(doc); P.icons = iconsIn(doc);
   try { if (typeof tm != "undefined" && tm.currentAbout3Pane && !sub) P.paneIcons = iconsIn(tm.currentAbout3Pane.document); } catch (e) {}

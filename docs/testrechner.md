@@ -248,6 +248,21 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     [--only …] [--shots …]` – setzt die VM fort, testet darin (Marionette nur
     in der VM auf 127.0.0.1), holt Screenshots zurück und pausiert die VM
     (`--vm-weiter`: laufen lassen). Ein Lauf dauert gut 15 Minuten.
+  - **Frische VM** (Maintainer 18.11.2026: „wir sollten die vm bereits am anfang rebooten vor den CI testläufen, damit
+    der reboot nicht ebenfalls andere CI's stört“): `tests/vm_frisch.py` startet die VM kalt neu (`prlctl stop`,
+    bei Zeitüberschreitung `--kill`, `start`, bis 5 Minuten Warten auf Windows), prüft den Bildtakt
+    (`tests/win-bildtakt.ps1`: mehr als 3 von 30 Bildern über 1,6 × Mittel = gestört, dann ein zweiter Neustart,
+    sonst „FEHLER VM gestört“) und pausiert sie wieder; immer gelöst in eigener Sitzung (launchd und der
+    GitHub-Runner beenden ihn nicht mit). Aufrufe: nach jedem Lauf mit `--vm` (halo_test.py übergibt die Sperre
+    `~/halo-vm/lauf.lock` ohne Lücke, ein Folgelauf wartet auf die frische VM), Nachlauf-Schritt „VM frisch“ im
+    Job `windows` (auch nach Zeitüberschreitung oder Abbruch; `tests/vm-frisch.sh --nach-lauf`) und einmal
+    täglich 00:45–01:14 aus dem CI-Wächter (`--taeglich`, Tagesmarke erst bei Erfolg); läuft CI oder ein Test,
+    lässt der tägliche Aufruf aus. `tests/vm-frisch.sh` nimmt die Dateien aus dem letzten Commit, nicht aus dem
+    Arbeitsbaum. Die Sperre wird atomar genommen (`os.link`). Keine Altersgrenze, kein eigener Aufruf nach einem
+    Neustart des Macs (die VM startet dann ohnehin kalt mit). Im Lauf selbst nur der Kurztest (Sekunden), bei
+    Störung ein kalter Neustart als Rückfall, dann „FEHLER VM gestört“. `HALO_VM_KEIN_NEUSTART=1` (Läufe von Hand):
+    weder Rückfall noch Neustart danach. Protokoll `~/halo-nacht/vm-frisch.log`; Logiktest ohne VM:
+    `python3 tests/vm_neustart_test.py`.
   - Nie gleichzeitig mit einem Mac-Lauf; das Skript wartet selbst
     (`~/halo-vm/lauf.lock` bzw. laufendes Test-Thunderbird auf dem Mac).
   - Windows-Abweichungen wie Linux behandeln (`sys.platform != "darwin"`, in

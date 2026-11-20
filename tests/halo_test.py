@@ -757,47 +757,31 @@ def stop_thunderbird(port, proc):
               flush=True)
 
 
-def prl(*args, check=True, timeout=300):
-    return subprocess.run(["prlctl", *args], capture_output=True, text=True, check=check, timeout=timeout)
+# VM-Funktionen auf dem Mac (prlctl, Sperre, Kurztest Bildtakt, kalter Neustart): tests/vm_frisch.py. In der VM
+# selbst nicht gebraucht (die Datei wird nicht hineinkopiert)
+if os.path.dirname(os.path.abspath(__file__)) not in sys.path:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import vm_frisch as vmf
+    from vm_frisch import prl, vm_exec, vm_state, vm_ready, vm_vorbereiten
+except ImportError:
+    vmf = None
 
 
-def vm_exec(vm, *cmd, check=True, timeout=120):
-    """Befehl in der angemeldeten Windows-Sitzung (Argumente ohne Anführungszeichen – prlctl gibt sie nicht weiter)."""
-    return prl("exec", vm, "--current-user", *cmd, check=check, timeout=timeout)
-
-
-def vm_state(vm):
-    out = prl("status", vm, check=False).stdout.split()
-    return out[-1] if out else "unbekannt"
-
-
-def vm_ready(vm):
-    """Setzt die VM fort bzw. startet sie und wartet auf die angemeldete Sitzung. Liefert den Zustand vorher."""
-    before = vm_state(vm)
-    if before in ("suspended", "paused"):
-        print(f"VM „{vm}“ wird fortgesetzt …", flush=True)
-        prl("resume", vm)
-    elif before == "stopped":
-        print(f"VM „{vm}“ wird gestartet …", flush=True)
-        prl("start", vm)
-    elif before != "running":
-        sys.exit(f"VM „{vm}“ nicht gefunden oder im Zustand {before} (prlctl list -a)")
-    # gleich nach dem Fortsetzen klappt ein erster Befehl oft, der nächste scheitert
-    # trotzdem („PrlJob … Invalid argument“) – erst drei Antworten in Folge zählen
-    start = time.time()
-    end = start + 240
-    ok = 0
-    while time.time() < end:
-        try:
-            ok = ok + 1 if vm_exec(vm, "cmd", "/c", "echo", "bereit", check=False, timeout=30).stdout.strip() == "bereit" else 0
-        except subprocess.TimeoutExpired:
-            ok = 0
-        if ok >= (3 if before != "running" else 1):
-            if before != "running":
-                print(f"VM bereit nach {time.time() - start:.0f} s", flush=True)
-            return before
-        time.sleep(3)
-    sys.exit(f"VM „{vm}“: keine angemeldete Windows-Sitzung (automatische Anmeldung prüfen)")
+def vm_frisch_danach(vm):
+    """Nach einem Lauf mit --vm: kalter Neustart für den nächsten Lauf, gelöst im Hintergrund (tests/vm_frisch.py).
+    Die Sperre geht ohne Lücke an ihn über; ein Folgelauf (auch die Wiederholung durch ci-wiederholen.sh) wartet so
+    auf die frische VM. Liefert True, wenn die Sperre übergeben ist."""
+    try:
+        nacht = os.path.expanduser("~/halo-nacht")
+        p = vmf.hintergrund(["--vm", vm, "--nach-lauf", "--nach-pid", str(os.getpid())],
+                            os.path.join(nacht, "vm-frisch.log") if os.path.isdir(nacht) else None)
+        vmf.lock_uebergeben(p.pid, "vm-frisch nach Lauf")
+        print("VM wird nach dem Lauf im Hintergrund kalt neu gestartet (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
+        return True
+    except OSError as e:
+        print(f"HINWEIS Neustart der VM nach dem Lauf nicht gestartet: {e}", flush=True)
+        return False
 
 
 THEME_KEY = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
@@ -819,14 +803,10 @@ def vm_theme(vm, values=None):
 def wait_turn(mine):
     """Wartet, bis kein Lauf der anderen Plattform mehr läuft (höchstens eine Stunde)."""
     def busy():
-        if mine == "vm":  # Test-Thunderbird auf dem Mac
-            return subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0
-        try:
-            pid = int(open(VM_LOCK).read().split()[0])
-            os.kill(pid, 0)
-            return True
-        except (OSError, ValueError, IndexError):
-            return False
+        if mine == "vm" and subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0:
+            return True  # Test-Thunderbird auf dem Mac
+        # Lauf in der VM bzw. kalter Neustart (vm_frisch.py); ein Lauf in der VM nimmt die Sperre dabei gleich atomar
+        return not vmf.lock_nehmen("lauf") if mine == "vm" else vmf.lock_pid() is not None
     end, said = time.time() + 3600, False
     while busy():
         if time.time() > end:
@@ -844,15 +824,13 @@ def run_in_vm(args, xpi):
         sys.exit("prlctl fehlt – Parallels Desktop (Pro) installieren")
     vm = args.vm
     os.makedirs(VM_SHARE, exist_ok=True)
-    wait_turn("vm")
-    with open(VM_LOCK, "w") as f:
-        f.write(f"{os.getpid()} {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    wait_turn("vm")  # nimmt die Sperre ~/halo-vm/lauf.lock atomar (vm_frisch.lock_nehmen)
     run = tempfile.mkdtemp(prefix="lauf-", dir=VM_SHARE)
     win = VM_UNC + "\\" + os.path.basename(run)
     before = theme = None
     try:
         os.makedirs(os.path.join(run, "tests"))
-        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "toolbar_lib.py", "perf.js", "win-display.ps1", "logik/konsole-schluessel.js"):
+        for f in ("halo_test.py", "testserver.py", "sprung_lib.py", "toolbar_lib.py", "perf.js", "win-display.ps1", "win-bildtakt.ps1", "logik/konsole-schluessel.js"):
             os.makedirs(os.path.dirname(os.path.join(run, "tests", f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, "tests", f), os.path.join(run, "tests", f))
         # manifest.json und Stilblätter (z. B. options/options.css) lesen einzelne Prüfungen direkt
@@ -869,10 +847,9 @@ def run_in_vm(args, xpi):
             inner["compare"] = win + "\\vorher"
         json.dump(inner, open(os.path.join(run, "args.json"), "w"))
 
-        before = vm_ready(vm)
+        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, pausiert finally die VM trotzdem
+        vm_vorbereiten(vm, run, win)
         print(f"Windows-VM „{vm}“ (vorher {before}) · {inner['tb']}", flush=True)
-        # Bildschirm 1920 × 1080 (ohne Fenster der VM wählt Parallels 1024 × 768)
-        vm_exec(vm, "powershell", "-ExecutionPolicy", "Bypass", "-File", win + "\\tests\\win-display.ps1", win + "\\display.txt", check=False)
         try:
             shown = open(os.path.join(run, "display.txt")).read().split()
             if len(shown) == 3 and (int(shown[1]) < 1600 or int(shown[2]) < 1000):
@@ -914,12 +891,16 @@ def run_in_vm(args, xpi):
                     vm_theme(vm, theme)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                     print(f"HINWEIS Farbschema der VM nicht zurückgestellt: {e}", flush=True)
-            # Speicher für die macOS-Tests freigeben: VM nach dem Lauf pausieren (--vm-weiter: laufen lassen)
-            if before and not args.vm_weiter and vm_state(vm) == "running":
+            # der nächste Lauf beginnt mit einer frischen VM: kalter Neustart gleich jetzt im Hintergrund (er pausiert
+            # die VM danach), nicht erst vor dem Lauf; sonst VM pausieren (Speicher für die macOS-Tests;
+            # --vm-weiter: laufen lassen)
+            if before and not args.vm_weiter and os.environ.get("HALO_VM_KEIN_NEUSTART") != "1" and vm_frisch_danach(vm):
+                pass
+            elif before and not args.vm_weiter and vm_state(vm) == "running":
                 prl("suspend", vm, check=False)
         finally:
             shutil.rmtree(run, ignore_errors=True)
-            os.remove(VM_LOCK)
+            vmf.lock_freigeben()  # (nur, wenn sie noch uns gehört; übergeben ist sie dem Neustart)
 
 
 def main():
@@ -937,7 +918,7 @@ def main():
     ap.add_argument("--compare", help="Ordner mit früheren Screenshots: zeigt, wo sich etwas verändert hat (braucht --shots)")
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
-                    "danach wird die VM pausiert")
+                    "pausiert die VM danach und startet sie im Hintergrund kalt neu (HALO_VM_KEIN_NEUSTART=1: nicht)")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
     ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
@@ -4274,6 +4255,59 @@ def compose_checks(m, results):
               and abs(rm.get("labelLeft", 99)) <= 0.5 and rm.get("rest") == "0" and rm.get("hover") == "1" and rm.get("removed"))
         return ok, f"{res}"
     check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
+
+    def compose_header_rows():
+        # Kopfzeilen wie beim Mac (Variante A, Maintainer 15.11.2026): kein Fenstertitel im Fenster (der Titel bleibt
+        # für Fensterliste und Menü „Window“), Reihenfolge To, Cc, Bcc, Subject, From; jede Zeile 37 px mit Haarlinie
+        # 20 px vom Rand bis zum rechten Rand; Beschriftung und Wert jeder Zeile auf derselben Höhe mittig in der
+        # Zeile; Cc/Bcc rechts in der To-Zeile; ohne Formatleiste keine zweite Linie unter From (nur die Darstellung ist umgestellt, die Reihenfolge im Dokument und
+        # damit Tab bleiben Thunderbirds). Mit HALO_SHOTS zusätzlich Bilder des Fensters ohne und mit Cc/Bcc.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const shots = %s;
+          return await withCompose({ subject: "Halo Entwurf Kopfzeilen" }, async (cw, cd) => {
+            const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; };
+            const r1 = x => Math.round(x * 10) / 10;
+            const shoot = async name => { if (!shots) return;
+              const bmp = await cw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+              const c = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+              const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `verfassen-kopfzeilen-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+            const tl = cd.getElementById("titlebar-title-label"), bar = R(cd.getElementById("MsgHeadersToolbar"));
+            const out = { title: { vis: tl && vis(tl) ? csOf(tl).visibility : null, doc: cd.title } };
+            const extra = cd.getElementById("extraAddressRowsArea"), toRow = cd.getElementById("addressRowTo");
+            out.extra = vis(extra) ? { mid: r1(mid(extra) - (R(toRow).t + R(toRow).h / 2)), inRow: R(extra).l > R(toRow.querySelector(".address-container mail-address-pill")).r } : null;
+            await shoot("ohne-cc");
+            cw.showAndFocusAddressRow("addressRowCc"); cw.showAndFocusAddressRow("addressRowBcc"); await ruhig(600);
+            cd.getElementById("msgSubject").focus(); await ruhig(400);
+            const rowOf = { to: toRow, cc: cd.getElementById("addressRowCc"), bcc: cd.getElementById("addressRowBcc"),
+                            subject: cd.getElementById("subject-box"), from: cd.getElementById("top-gradient-box") };
+            const valOf = { to: toRow.querySelector("mail-address-pill"), cc: cd.querySelector("#ccAddrContainer .address-input"),
+                            bcc: cd.querySelector("#bccAddrContainer .address-input"), subject: cd.getElementById("msgSubject"), from: cd.getElementById("msgIdentity") };
+            const labOf = { to: cd.getElementById("toAddrLabel"), cc: cd.getElementById("ccAddrLabel"), bcc: cd.getElementById("bccAddrLabel"),
+                            subject: cd.getElementById("subjectLabel"), from: cd.getElementById("identityLabel") };
+            out.rows = {};
+            for (const k of Object.keys(rowOf)) { const row = rowOf[k], r = R(row), cs = csOf(row), bw = parseFloat(cs.borderBottomWidth);
+              const rowMid = r.t + (r.h - bw) / 2;
+              out.rows[k] = { top: r1(r.t), h: r1(r.h), line: bw > 0 && cs.borderBottomStyle == "solid", inset: r1(r.l - bar.l), toRight: r1(bar.r - r.r),
+                              lab: r1(mid(labOf[k]) - rowMid), val: r1(mid(valOf[k]) - rowMid), labCol: cs && csOf(labOf[k]).color }; }
+            out.secondary = colorOf(cd, "var(--mt-text-secondary)");
+            // ohne Formatleiste (Standard) keine zweite Linie unter der Haarlinie von From
+            const box = cd.getElementById("FormatToolbox");
+            out.fmtLine = csOf(box).borderBottomStyle == "none" ? 0 : parseFloat(csOf(box).borderBottomWidth);
+            await shoot("mit-cc-bcc");
+            return out; });""" % json.dumps(shots))
+        t, rows = res.get("title", {}), res.get("rows", {})
+        order = [rows.get(k, {}).get("top", 0) for k in ("to", "cc", "bcc", "subject", "from")]
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann nur der Titel des Dokuments
+        title_ok = (t.get("vis") in (None, "hidden")) and "Halo Entwurf Kopfzeilen" in t.get("doc", "")
+        rows_ok = all(abs(r.get("h", 0) - 37) <= 0.5 and r.get("line") and abs(r.get("inset", 0) - 20) <= 0.5 and abs(r.get("toRight", 9)) <= 0.5
+                      and abs(r.get("lab", 9)) <= 1 and abs(r.get("val", 9)) <= 1 and same_color(r.get("labCol"), res.get("secondary"))
+                      for r in rows.values()) and len(rows) == 5
+        ex = res.get("extra") or {}
+        ok = (title_ok and rows_ok and order == sorted(order) and len(set(order)) == 5 and abs(ex.get("mid", 9)) <= 1 and ex.get("inRow")
+              and res.get("fmtLine") == 0)
+        return ok, f"{res}"
+    check("Verfassen: kein Fenstertitel; Kopfzeilen To, Cc, Bcc, Subject, From je 37 px mit Haarlinie ab 20 px, Beschriftung und Wert mittig in der Zeile, Cc/Bcc rechts in der To-Zeile, ohne Formatleiste keine zweite Linie", compose_header_rows, results)
 
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
@@ -9134,8 +9168,9 @@ def calendar_checks(m, results):
         res = m.js(r"""
           await toMail(); await ruhig(600);
           if (!w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await ruhig(1200); }
-          const look = () => { const pane = d.getElementById("today-pane-panel").getBoundingClientRect(), mm = d.getElementById("today-minimonth"), t = d.getElementById("mcAgendaTitle");
-            return { mini: !!mm && mm.getBoundingClientRect().height > 40, font: t && w.getComputedStyle(t.querySelector("b") || t).fontSize,
+          // (Monatstitel: der Monat über dem Mini-Kalender, eine eigene Monatszeile über der Liste gibt es nicht mehr)
+          const look = () => { const pane = d.getElementById("today-pane-panel").getBoundingClientRect(), mm = d.getElementById("today-minimonth"), t = mm?.querySelector(".minimonth-month-name");
+            return { mini: !!mm && mm.getBoundingClientRect().height > 40, font: t && w.getComputedStyle(t).fontSize,
                      top: t ? Math.round(t.getBoundingClientRect().top - pane.top) : null }; };
           const out = { mail: look() };
           tm.openTab("tasks", {}); await ruhig(1200);
@@ -9230,8 +9265,9 @@ def calendar_checks(m, results):
     check("Today-Pane: Heute- und Hover-Kreis im Mini-Kalender rund und mittig um ein- und zweistellige Zahlen", today_minimonth_circles, results)
 
     def agenda_past_month():
-        # ‹ in einen vergangenen Monat: die Liste steht am Ende, die letzten Termine des Monats sind ohne Scrollen
-        # sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
+        # ‹ des Mini-Kalenders in einen vergangenen Monat: die Liste blättert mit und steht am Ende, die letzten Termine
+        # des Monats sind ohne Scrollen sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben
+        # (die Pfeile über der Liste gibt es nicht mehr, der Monat steht nur über dem Mini-Kalender)
         res = m.js(CAL_CHECK_JS + r"""
           const c = testCalendar(), added = [];
           const mk = async (title, day) => { const e = new CalEvent(); e.title = title; e.calendar = c;
@@ -9243,18 +9279,18 @@ def calendar_checks(m, results):
             const agenda = d.getElementById("agenda"), rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
             const visible = text => { const li = rows().find(l => l.textContent.includes(text)); if (!li) return null;
               const r = li.getBoundingClientRect(), a = agenda.getBoundingClientRect(); return r.top >= a.top - 1 && r.bottom <= a.bottom + 1; };
-            d.querySelector("#mcAgendaTitle .mc-prev").click();
+            d.querySelector("#today-minimonth .months-back-button").click();
             await bis(() => rows().some(l => l.textContent.includes("Halo Vormonat Ende")), "Termine des Vormonats", 6000); await ruhig(600);
             const out = { month: w.TodayPane.start.month == (new Date().getMonth() + 11) % 12, end: visible("Halo Vormonat Ende"),
                           bottom: agenda.scrollTop >= agenda.scrollHeight - agenda.clientHeight - 1 };
-            d.querySelector("#mcAgendaTitle .mc-next").click(); await ruhig(800);
+            d.querySelector("#today-minimonth .months-forward-button").click(); await ruhig(800);
             const s = w.TodayPane.start, n = new Date();
             out.back = s.year == n.getFullYear() && s.month == n.getMonth() && s.day == n.getDate();
             return out;
           } finally { for (const a of added) await c.deleteItem(a); }""")
         ok = res.get("month") is True and res.get("end") is True and res.get("bottom") is True and res.get("back") is True
         return ok, f"{res}"
-    check("Today-Pane: ‹ in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
+    check("Today-Pane: ‹ im Mini-Kalender in einen vergangenen Monat zeigt dessen letzte Termine zuerst (Liste am Ende), › zurück wieder heute oben", agenda_past_month, results)
 
     def agenda_minimonth_click():
         # Klick (echte Maus) auf einen Tag im Mini-Kalender der Today-Pane: die Liste springt zu diesem Tag (erste Zeile
@@ -9368,6 +9404,85 @@ def calendar_checks(m, results):
               and b.get("sel") == ["1"] and b.get("start") == 1 and b.get("off") is not None and abs(b["off"]) <= 2)
         return ok, f"{res}"
     check("Today-Pane: grauer Kreis im Mini-Kalender folgt beim Scrollen dem obersten sichtbaren Tag der Liste, Klick auf den gewählten Tag bringt die Liste zurück", agenda_minimonth_follow, results)
+
+    def today_month_once():
+        # Today-Pane (Board „Monat nur einmal“, Variante A): der Monat steht nur über dem Mini-Kalender, grau und halbfett
+        # wie die Pfeile daneben (keine zweite, große Monatszeile mit eigenen Pfeilen über der Liste); im Mini-Kalender
+        # Samstag und Sonntag grau (Textfarbe 3), Tage anderer Monate noch blasser, Werktage in Textfarbe – bei Wochenbeginn
+        # Sonntag und Montag, in der Today-Pane und in der Kalenderleiste; lange Termintitel einzeilig mit „…“ (auch
+        # ganztägige auf getönter Fläche), der volle Titel steht im Tooltip des Termins
+        res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          const LONG = "Halo Einzeilig ein sehr langer Termintitel, der in keine Zeile der Today-Pane passt und gekürzt werden muss";
+          const mk = async (title, allDay) => { const e = new CalEvent(); e.title = title; e.calendar = c; const s = today();
+            if (!allDay) { s.isDate = false; s.hour = 23; s.minute = 0; }
+            const en = s.clone(); if (allDay) en.day += 1; else en.minute = 30;
+            e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); };
+          const PREF = "calendar.week.start", wsWas = Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : null;
+          // Farbe einer Variable so, wie getComputedStyle sie liefert
+          const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "span"); d.getElementById("today-pane-panel").append(probe);
+          const col = v => { probe.style.color = `var(${v})`; return w.getComputedStyle(probe).color; };
+          try {
+            await mk(LONG, false); await mk(LONG + " ganztags", true);
+            await toMail(); if (!w.TodayPane?.isVisible) d.getElementById("calendar_toggle_todaypane_command").doCommand();
+            w.TodayPane.setDay(today());
+            const agenda = d.getElementById("agenda"), rows = () => [...agenda.querySelectorAll(":scope > li.agenda-listitem")];
+            await bis(() => rows().filter(li => li.textContent.includes("Halo Einzeilig")).length >= 2, "lange Termine in der Liste", 8000); await ruhig(600);
+            const C = { text: col("--mt-text"), second: col("--mt-text-secondary"), third: col("--mt-text-tertiary"), fourth: col("--mt-text-quaternary") };
+            const mm = d.getElementById("today-minimonth"), name = mm.querySelector(".minimonth-month-name"), year = mm.querySelector(".minimonth-year-name");
+            const out = { C, title: !!d.getElementById("mcAgendaTitle"),
+              head: [w.getComputedStyle(name).color, w.getComputedStyle(name).fontWeight, w.getComputedStyle(year).color,
+                     w.getComputedStyle(mm.querySelector(".months-back-button")).color, w.getComputedStyle(mm.querySelector(".months-forward-button")).color],
+              // zwischen Mini-Kalender und Liste steht nur noch „Today“ (keine Monatszeile), die Karte beginnt
+              // höchstens 12 px darunter bzw. unter der Linie
+              between: [...d.getElementById("agenda-container").children].filter(k => k != agenda && k.compareDocumentPosition(agenda) & 4 && k.getBoundingClientRect().height > 0).map(k => k.id),
+              gap: Math.round(agenda.getBoundingClientRect().top - (d.getElementById("mcTodayTitle")?.closest("#agenda-container")
+                ? d.getElementById("mcTodayTitle").getBoundingClientRect().bottom : d.getElementById("agenda-container").getBoundingClientRect().top)) };
+            // Mini-Kalender: Farben je Spalte bei Wochenbeginn Sonntag (0) und Montag (1); die 2. und 3. Woche liegen
+            // immer ganz im Monat, genommen wird die ohne heute (rot)
+            out.days = {};
+            for (const ws of [0, 1]) {
+              Services.prefs.setIntPref(PREF, ws); await ruhig(400);
+              for (const id of ["today-minimonth", "calMinimonth"]) {
+                const box = d.getElementById(id); box.showMonth?.(new Date()); await ruhig(200);
+                const week = [...box.querySelectorAll("tr.minimonth-row-body")].slice(1, 3).find(tr => !tr.querySelector("td[today]"));
+                const cells = [...week.querySelectorAll("td.minimonth-day")];
+                const other = box.querySelector("td.minimonth-day[othermonth]:not([today])");
+                out.days[id + ws] = { wkst: box.getAttribute("data-mc-wkst"),
+                  ok: cells.every(td => w.getComputedStyle(td).color == ([0, 6].includes(td.date.getDay()) ? C.third : C.text)),
+                  we: cells.filter(td => [0, 6].includes(td.date.getDay())).length, other: other && w.getComputedStyle(other).color,
+                  cols: cells.map(td => td.date.getDay() + ":" + w.getComputedStyle(td).color) };
+              }
+            }
+            // lange Titel: eine Zeile, gekürzt mit „…“, voller Titel im Tooltip
+            const tip = d.getElementById("itemTooltip");
+            out.long = rows().filter(li => li.textContent.includes("Halo Einzeilig")).map(li => {
+              const t = li.querySelector(".agenda-listitem-title"), cs = w.getComputedStyle(t), rg = d.createRange(); rg.selectNodeContents(t);
+              const lines = new Set([...rg.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.top))).size;
+              let tipOk = null;
+              if (typeof w.showToolTip == "function") { w.showToolTip(tip, li.item); tipOk = tip.textContent.includes(LONG); }
+              return { allDay: li.classList.contains("agenda-listitem-all-day"), lines, cut: t.scrollWidth > t.clientWidth + 1,
+                       ws: cs.whiteSpace, to: cs.textOverflow, tipOk, tipAttr: li.closest("[tooltip]")?.getAttribute("tooltip") };
+            });
+            return out;
+          } finally {
+            if (wsWas === null) Services.prefs.clearUserPref(PREF); else Services.prefs.setIntPref(PREF, wsWas);
+            probe.remove(); for (const a of added) try { await c.deleteItem(a); } catch {}
+            try { w.TodayPane.setDay(today()); } catch {}
+          }""")
+        C = res.get("C") or {}
+        days = res.get("days") or {}
+        longs = res.get("long") or []
+        ok = (res.get("title") is False and bool(C) and C.get("fourth") not in (C.get("third"), C.get("text"), "")
+              and res.get("head") == [C["second"], "600", C["second"], C["second"], C["second"]]
+              and 0 <= (res.get("gap") or -1) <= 12 and res.get("between") == ["mcTodayTitle"]
+              and len(days) == 4 and all(v["ok"] and v["we"] == 2 and v["other"] == C["fourth"] for v in days.values())
+              and [v["wkst"] for v in days.values()] == ["0", "0", "1", "1"]
+              and sorted(x["allDay"] for x in longs) == [False, True]
+              and all(x["lines"] == 1 and x["cut"] and x["ws"] == "nowrap" and x["to"] == "ellipsis"
+                      and x["tipAttr"] == "itemTooltip" and x["tipOk"] is not False for x in longs))
+        return ok, f"{res}"
+    check("Today-Pane: Monat nur über dem Mini-Kalender (grau, halbfett), Wochenende grau, fremde Tage blasser, lange Termintitel einzeilig mit „…“ und vollem Titel im Tooltip", today_month_once, results)
 
     def system_date_format():
         # Datumsfelder und Datumsanzeigen im Format des Systems (Region), nicht nach der Sprache von Thunderbird
@@ -10408,8 +10523,9 @@ def server_checks(m, results):
 
         def favourites_columns():
             # wie Apple Mail (Maintainer 11.11.2026, Variante A): Symbole von All Inboxes/All Sent bündig über den
-            # Ordnersymbolen der Konten, „Favourites“ beginnt wie die Kontonamen; aufgeklappt stehen die Konten
-            # unter All Inboxes eine Stufe tiefer, ihr Symbol unter dem Text der Zeile darüber. Breite bleibt
+            # Ordnersymbolen der Konten; „Favourites“, „Tags“ und die Kontotitel an einer Kante (Maintainer 17.11.2026,
+            # „ok dann setzen wir A um“); aufgeklappt stehen die Konten unter All Inboxes ohne eigenes Symbol, ihr
+            # Punkt unter dem Text der Zeile darüber. Breite bleibt
             # 206 px, „Local Folders“ darf dort mit „…“ gekürzt erscheinen (Maintainer 15.11.2026); unter Linux ist
             # die Ordnerliste in diesem Fenster nur 160 px breit, die Spalten müssen trotzdem stimmen
             res = m.js(r"""
@@ -10440,8 +10556,32 @@ def server_checks(m, results):
               // aufgeklappt: Konten unter All Inboxes
               if (inboxRow?.classList.contains("collapsed")) inboxRow.querySelector(":scope > .container .twisty")?.click();
               await until(() => [...inboxRow?.querySelectorAll(":scope > ul > li") || []].some(shown), 4000);
+              // Kontopunkte setzt die Erweiterung kurz nach dem Aufklappen
+              await until(() => [...(inboxRow?.querySelectorAll(":scope > ul > li") || [])].some(l => l.style.getPropertyValue("--mc-acc")), 3000).catch(() => null);
               const kids = [...(inboxRow?.querySelectorAll(":scope > ul > li[is='folder-tree-row']") || [])].filter(shown);
               out.kidIcons = [...new Set(kids.map(icon))]; out.inboxText = inboxRow ? name(inboxRow) : null;
+              // Variante A (Maintainer 17.11.2026): Konten darunter ohne wiederholtes Symbol, Punkt unter dem Text der
+              // Zeile darüber, Name 15 px dahinter, auch ohne Punkt („Local Folders“)
+              const dotX = li => { const n = li.querySelector(":scope > .container .name"), cs = a3.getComputedStyle(n, "::before");
+                                   return cs.content == "none" || !shown(n) ? null : Math.round(n.getBoundingClientRect().left - left0 + parseFloat(cs.marginLeft || 0)); };
+              out.kidDots = [...new Set(kids.map(dotX).filter(v => v != null))]; out.kidText = [...new Set(kids.map(name))];
+              // alle Abschnittstitel an einer Kante: „Favourites“ und „Tags“ dort, wo der Punkt der Kontotitel sitzt;
+              // über jedem Titel außer dem ersten mehr Luft als darunter (Mitte zu Mitte)
+              const fp = a3.folderPane, oldModes = fp.activeModes;
+              if (!oldModes.includes("tags")) { fp.activeModes = [...oldModes, "tags"]; await ruhig(800); }
+              const tagHead = tree.querySelector(':scope > li[data-mode="tags"] > .mode-container .mode-name');
+              out.tagHeader = tx(tagHead); out.accDot = dotX(accRow);
+              const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+              const tagC = tagHead?.closest(".mode-container"), tagFirst = tree.querySelector(':scope > li[data-mode="tags"] > ul > li > .container');
+              // die sichtbare Zeile direkt darüber (nach Lage, nicht nach DOM: „Local Folders“ steht per order vorn)
+              const above = el => { const t = el.getBoundingClientRect().top;
+                return [...tree.querySelectorAll('li[is="folder-tree-row"] > .container')].filter(c => shown(c) && c.getBoundingClientRect().bottom <= t + 1)
+                  .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]; };
+              const before = tagC && above(tagC);
+              out.tagGap = before && tagFirst ? [Math.round(mid(tagC) - mid(before)), Math.round(mid(tagFirst) - mid(tagC))] : null;
+              const accC = accRow.querySelector(":scope > .container"), accPrev = above(accC);
+              out.accGap = accPrev ? Math.round(mid(accC) - mid(accPrev)) : null;
+              fp.activeModes = oldModes; await ruhig(600);
               // der Aufklapp-Pfeil bleibt links vom Symbol in eigener Spalte (sichtbar beim Überfahren)
               const tw = inboxRow?.querySelector(":scope > .container .twisty .twisty-icon")?.getBoundingClientRect();
               out.twisty = tw && tw.width > 0 ? [Math.round(tw.left - left0), Math.round(tw.right - left0)] : null;
@@ -10453,13 +10593,70 @@ def server_checks(m, results):
             fi, ai = res.get("favIcons") or [], res.get("accIcons") or []
             ok = (len(fi) >= 2 and len(ai) == 1 and all(v == ai[0] for v in fi)
                   and len(set(res.get("favText") or [])) == 1 and res.get("favText")[0] == (res.get("accText") or [None])[0]
-                  and res.get("header") is not None and res.get("header") == res.get("accName")
-                  and res.get("kidIcons") and len(res["kidIcons"]) == 1 and abs(res["kidIcons"][0] - res["inboxText"]) <= 2
+                  and res.get("header") is not None
+                  and res.get("kidIcons") == [None] and len(res.get("kidDots") or []) == 1 and abs(res["kidDots"][0] - res["inboxText"]) <= 1
+                  and len(res.get("kidText") or []) == 1 and res["kidText"][0] - res["kidDots"][0] == 15
+                  and res.get("accDot") is not None and abs(res["header"] - res["accDot"]) <= 1 and res.get("tagHeader") == res["header"]
+                  and res.get("tagGap") and res["tagGap"][0] > res["tagGap"][1] and res.get("accGap") == res["tagGap"][0]
                   and res.get("twisty") and res["twisty"][0] >= 0 and res["twisty"][1] <= fi[0]
                   # „Local Folders“ da, ganz oder mit „…“ gekürzt (Maintainer 15.11.2026)
                   and any(n == "Local Folders" and (fits or dots) for n, fits, dots in res.get("kidNames") or []))
             return ok, f"{res}"
-        check("Ordnerliste: Favoriten-Symbole und „Favourites“ bündig mit den Spalten der Konten, Konten unter All Inboxes eine Stufe tiefer", favourites_columns, results)
+        check("Ordnerliste: Favoriten-Symbole bündig mit den Spalten der Konten, „Favourites“, „Tags“ und Kontotitel an einer Kante mit mehr Luft darüber, Konten unter All Inboxes ohne Symbol mit Punkt unter dem Text darüber", favourites_columns, results)
+
+        def favourites_collapse():
+            # Abschnittstitel einklappbar wie die Konten (Maintainer 17.11.2026, „Bezüglich 1 und 2 folge ich deiner
+            # Empfehlung“): Pfeil an derselben Stelle wie bei den Kontotiteln, Klick klappt „Favourites“ zu (Zeilen weg,
+            # Pfeiltasten überspringen sie, Zustand gemerkt) und wieder auf; in „Kompakt“ stehen Titel und Kontopunkt
+            # weiter an einer Kante, über dem Titel 8 px Luft (Titelzeile 20 px), Mitte zu Mitte wie über den Kontotiteln
+            res = m.js(r"""
+              const a3 = await toMail(), ad = a3.document, tree = ad.getElementById("folderTree"), PREF = "extensions.mailcards.collapsedFolderModes";
+              const left0 = ad.getElementById("folderPane").getBoundingClientRect().left;
+              const shown = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
+              const X = el => shown(el) ? Math.round(el.getBoundingClientRect().left - left0) : null;
+              const mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+              const smart = await until(() => tree.querySelector(':scope > li[data-mode="smart"]'), 8000);
+              const head = smart.querySelector(":scope > .mode-container"), tw = head.querySelector(":scope > .twisty");
+              const accRow = [...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type="imap"]')].find(shown);
+              const out = { tw: X(tw), accTw: X(accRow?.querySelector(":scope > .container .twisty")), pref0: Services.prefs.getStringPref(PREF, "") };
+              const favRows = () => [...smart.querySelectorAll(':scope > ul > li[is="folder-tree-row"]')].filter(shown).length;
+              out.rows0 = favRows();
+              // zu: Klick auf den Pfeil
+              const sel = tree.selectedRow;
+              tw.click(); await ruhig(400);
+              out.closed = { rows: favRows(), attr: smart.hasAttribute("mc-collapsed"), pref: Services.prefs.getStringPref(PREF, ""),
+                             rot: getComputedStyle(tw.querySelector(".twisty-icon")).transform,
+                             // Pfeiltasten: keine Zeile der eingeklappten Favoriten (außer einer schon gewählten)
+                             inRows: tree.rows.filter(r => smart.contains(r) && r != sel).length,
+                             // der nächste Titel (oberstes Konto, auch „On My Mac“) rückt direkt unter „Favourites“
+                             accMid: Math.round(Math.min(...[...tree.querySelectorAll(':scope > li[data-mode="all"] > ul > li[data-server-type] > .container')]
+                                                              .filter(shown).map(mid)) - mid(head)) };
+              // auf: Klick auf den Titel selbst
+              head.querySelector(".mode-name").click(); await ruhig(400);
+              out.open = { rows: favRows(), attr: smart.hasAttribute("mc-collapsed"), pref: Services.prefs.getStringPref(PREF, "") };
+              // Kompakt
+              const dens = Services.prefs.getIntPref("mail.uidensity", 1);
+              Services.prefs.setIntPref("mail.uidensity", 0); await ruhig(800);
+              const tx = el => { const r = ad.createRange(); r.selectNodeContents(el); return Math.round(r.getBoundingClientRect().left - left0); };
+              const nm = accRow.querySelector(":scope > .container .name");
+              const above = el => { const t = el.getBoundingClientRect().top;
+                return [...tree.querySelectorAll('li[is="folder-tree-row"] > .container')].filter(c => shown(c) && c.getBoundingClientRect().bottom <= t + 1)
+                  .sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0]; };
+              const accC = accRow.querySelector(":scope > .container");
+              out.compact = { head: tx(head.querySelector(".mode-name")), dot: Math.round(nm.getBoundingClientRect().left - left0), h: Math.round(head.getBoundingClientRect().height),
+                              tw: X(tw), accTw: X(accRow.querySelector(":scope > .container .twisty")),
+                              accGap: above(accC) ? Math.round(mid(accC) - mid(above(accC))) : null };
+              Services.prefs.setIntPref("mail.uidensity", dens); await ruhig(800);
+              return out;""")
+            c, o, k = res.get("closed") or {}, res.get("open") or {}, res.get("compact") or {}
+            ok = (res.get("tw") is not None and abs(res["tw"] - (res.get("accTw") or -99)) <= 1 and res.get("rows0", 0) >= 2
+                  and c.get("rows") == 0 and c.get("attr") and c.get("pref") == "smart" and "matrix" in (c.get("rot") or "") and c.get("inRows") == 0
+                  and 28 <= (c.get("accMid") or 0) <= 40
+                  and o.get("rows") == res["rows0"] and o.get("attr") is False and o.get("pref") == ""
+                  and k.get("head") is not None and abs(k["head"] - k.get("dot", -99)) <= 1 and k.get("h") == 20
+                  and k.get("tw") is not None and abs(k["tw"] - (k.get("accTw") or -99)) <= 1 and k.get("accGap") == 30)
+            return ok, f"{res}"
+        check("Ordnerliste: „Favourites“ einklappbar wie die Konten (Pfeil an derselben Stelle, Zustand gemerkt), in „Kompakt“ Titel und Kontopunkt an einer Kante mit 8 px Luft über dem Titel", favourites_collapse, results)
 
         def sidebar_fonts():
             # Seitenleisten aus einem Guss (Variante A, Maintainer 16.11.2026): Zeilen 13 px, die gewählte Zeile halbfett (600)
@@ -11425,18 +11622,30 @@ def run_checks(m, version, profile, results):
           const out = { first: { copied: first?.copied, skipped: first?.skipped, failed: first?.failed }, second: { copied: second?.copied, skipped: second?.skipped },
             inbox: inbox?.getTotalMessages(false), q4: q4?.getTotalMessages(false),
             mails: Object.fromEntries(hdrs.map(h => [h.mime2DecodedSubject, [h.isRead, h.isFlagged]])), from: h1?.mime2DecodedAuthor, atts };
-          // Assistent: Übersicht, Import (alles schon da), Abschluss mit Anzahl je Ordner
-          const hw = w.__mcPstWizard(source());
-          const doc = await until(() => hw.document?.querySelector("body.pst table tr") && hw.document, 8000);
+          // Import-Assistent (File → Import…): eigene Auswahl in Schritt 1, Ordner mit Anzahl und Häkchen (Schritt 2),
+          // Ziel und Übersicht (Schritt 3), Import (alles schon da) mit Abschluss; Menü File ohne eigenen PST-Punkt
+          out.menu = !!w.document.getElementById("mcFileImportPst");
+          const cw = await w.__mcPstWizard(source());
+          const doc = cw?.document;
           if (doc) {
-            const rows = () => [...doc.querySelectorAll("table tr")];
-            out.wiz = { title: doc.querySelector("h1")?.textContent, folders: rows().map(r => r.cells[0].textContent), nums: rows().map(r => r.cells[1].textContent),
-              summary: doc.querySelector(".summary")?.textContent, indent: rows().map(r => parseFloat(r.cells[0].style.paddingInlineStart)) };
-            doc.querySelector(".buttons .primary").click();
-            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
-            out.wiz.end = { button: doc.querySelector(".buttons .primary .label")?.textContent, states: rows().map(r => r.dataset.state),
-              nums: rows().map(r => r.cells[1].textContent), summary: doc.querySelector(".summary")?.textContent };
-            hw.close();
+            const vis = e => !!e && !e.closest("[hidden]") && e.getBoundingClientRect().height > 0;
+            const pane = doc.getElementById("tabPane-halopst");
+            const rows = () => [...doc.querySelectorAll("#halopst-items .mc-pst-folders > label")];
+            out.wiz = { sources: [...doc.querySelectorAll("#start-sources input[name=appSource]")].map(i => i.value),
+              choice: [...doc.querySelectorAll("#mcPstSource p")].map(p => p.textContent),
+              items: vis(doc.getElementById("halopst-items")), start: vis(doc.getElementById("tabPane-start")),
+              folders: rows().map(r => r.querySelector(".mc-pst-name").textContent), nums: rows().map(r => r.querySelector(".mc-pst-count").textContent),
+              checked: rows().map(r => r.querySelector("input").checked), indent: rows().map(r => r.getBoundingClientRect().left),
+              file: doc.querySelector("#halopst-items .mc-pst-file")?.textContent, steps: doc.querySelectorAll("#stepNav li").length };
+            pane.querySelector("footer .continue").click();
+            await until(() => vis(doc.getElementById("halopst-summary")), 5000);
+            out.wiz.sum = { dest: doc.querySelector(".mc-pst-dest")?.textContent, list: [...doc.querySelectorAll("#halopst-summary .summary-items li")].map(l => l.textContent),
+              confirm: doc.getElementById("navConfirm")?.classList.contains("current"), start: vis(doc.querySelector("#halopst-summary .before-progress")) };
+            doc.querySelector("#halopst-summary .before-progress").click();
+            await until(() => pane.classList.contains("complete"), 30000);
+            out.wiz.end = { result: pane.dataset.result, report: doc.querySelector(".mc-pst-report")?.textContent,
+              finish: vis(doc.querySelector("#halopst-summary .progressFinish.primary")), bar: doc.querySelector("#halopst-summary progress")?.value };
+            cw.close();
           }
           // echte Datei (nur von Hand mit HALO_PST): Anzahl je Ordner wie in der Datei
           const real = %s;
@@ -11459,16 +11668,21 @@ def run_checks(m, version, profile, results):
               and mails.get("PST-Probe 1 Grüße") == [False, True] and mails.get("PST-Probe 2 Grüße") == [True, False]
               and mails.get("PST-Probe 3 Grüße") == [False, False] and "Dora Müller" in (res.get("from") or "")
               and res.get("atts") == ["Rechnung.txt"]
-              and wiz.get("title") == "Import “Halo PST-Probe”" and wiz.get("folders") == ["Posteingang", "Projekte", "2026/Q4"]
-              and wiz.get("nums") == ["3", "0", "1"] and wiz.get("indent", [0])[2] > wiz.get("indent", [0])[1]
-              and "4 messages in 3 folders" in (wiz.get("summary") or "")
-              and end.get("button") == "Done" and end.get("states") == ["done"] * 3 and end.get("nums") == ["3 ✓", "0 ✓", "1 ✓"]
-              and "4 messages were already there" in (end.get("summary") or ""))
+              and res.get("menu") is False
+              and wiz.get("sources", [])[-2:] == ["halo-pst", "file"]
+              and wiz.get("choice") == ["Import from an Outlook data file (PST)", "Import messages, contacts, and calendars from an Outlook data file (PST)."]
+              and wiz.get("items") and not wiz.get("start") and wiz.get("file") == "Halo PST-Probe.pst" and wiz.get("steps", 0) >= 3
+              and wiz.get("folders") == ["Posteingang", "Projekte", "2026/Q4"] and wiz.get("checked") == [True] * 3
+              and wiz.get("nums") == ["3", "0", "1"] and wiz.get("indent", [0, 0, 0])[2] > wiz.get("indent", [0, 0, 0])[1]
+              and (wiz.get("sum") or {}).get("dest", "").endswith("/Halo PST-Probe") and (wiz.get("sum") or {}).get("list") == ["4 messages in 3 folders"]
+              and (wiz.get("sum") or {}).get("confirm") and (wiz.get("sum") or {}).get("start")
+              and end.get("result") == "done" and end.get("finish") and end.get("bar") == 1
+              and "4 messages were already there" in (end.get("report") or ""))
         if real:
             r = res.get("real") or {}
             ok = ok and r.get("folders") and all(c == d for _, c, d in r["folders"]) and not r.get("failed")
         return ok, f"{res}"
-    check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, Assistent mit Anzahl je Ordner", pst_import_mail, results)
+    check("Import: Outlook-PST – Mails als Kopie in Lokale Ordner mit Ordnerbaum, Betreff, gelesen/markiert und Anhang, zweiter Import ohne Duplikate, im Import-Assistenten eigene Quelle mit Ordnern, Anzahl und Häkchen, Ziel, Abschluss; Menü File ohne eigenen PST-Punkt", pst_import_mail, results)
 
     def pst_import_contacts_calendar():
         # Outlook-Datendatei importieren (Reihe PST 3/3): Kontakte als neues Adressbuch und Termine/Aufgaben als neuer lokaler
@@ -11498,21 +11712,28 @@ def run_checks(m, version, profile, results):
           const out = { first: { contacts: first?.contacts, events: first?.events }, second: { contacts: second?.contacts, events: second?.events },
             book: !!book, cards: cards.length, dora: dora && [dora.displayName, String(dora.vCardProperties?.getFirstValue("org") ?? ""), dora.vCardProperties?.getFirstValue("bday")],
             calType: calendar?.type, items: calItems.map(i => i && [i.title, "dueDate" in i ? "task" : "event", i.startDate?.isDate ?? null, i.getProperty?.("LOCATION") || null]) };
-          // Assistent: drei Teile zur Auswahl; nur Kontakte und Kalender importieren (alles schon da), Mailordner unberührt
-          const hw = w.__mcPstWizard(source());
-          const doc = await until(() => hw.document?.querySelector("body.pst .parts input") && hw.document, 8000);
+          // Import-Assistent: Mailordner und Kontakte/Kalender zur Auswahl; nur Kontakte und Kalender importieren (alles schon da),
+          // ohne Häkchen ist „Continue“ gesperrt, Mailordner bleiben unberührt
+          const cw = await w.__mcPstWizard(source());
+          const doc = cw?.document;
           if (doc) {
-            const boxes = [...doc.querySelectorAll(".parts input")];
-            out.wiz = { parts: [...doc.querySelectorAll(".parts label")].map(l => l.textContent), visible: !doc.querySelector(".parts").hidden,
-              summary: doc.querySelector(".summary")?.textContent };
-            const mailBox = boxes.find(b => b.dataset.part == "mail");
-            mailBox.click();
-            out.wiz.off = doc.querySelector(".folders").hasAttribute("data-off");
-            doc.querySelector(".buttons .primary").click();
-            await until(() => /Done|Fertig/.test(doc.querySelector(".buttons .primary .label")?.textContent || ""), 30000);
-            out.wiz.end = doc.querySelector(".summary")?.textContent;
+            const pane = doc.getElementById("tabPane-halopst");
+            const next = pane.querySelector("footer .continue");
+            const label = l => [l.querySelector(".mc-pst-name").textContent, l.querySelector(".mc-pst-count").textContent].join(" ");
+            out.wiz = { parts: [...doc.querySelectorAll(".mc-pst-parts > label")].map(label), folders: [...doc.querySelectorAll(".mc-pst-folders > label")].map(label) };
+            const all = [...doc.querySelectorAll("#halopst-items input[type=checkbox]")];
+            all.forEach(b => b.checked && b.click());
+            out.wiz.noneBlocked = next.disabled;
+            all.filter(b => b.dataset.part).forEach(b => b.click());
+            out.wiz.partsOk = !next.disabled;
+            next.click();
+            await until(() => !doc.getElementById("halopst-summary").hidden, 5000);
+            out.wiz.list = [...doc.querySelectorAll("#halopst-summary .summary-items li")].map(l => l.textContent);
+            doc.querySelector("#halopst-summary .before-progress").click();
+            await until(() => pane.classList.contains("complete"), 30000);
+            out.wiz.end = doc.querySelector(".mc-pst-report")?.textContent;
             try { out.wiz.localMail = !!MailServices.accounts.localFoldersServer.rootFolder.getChildNamed(name); } catch { out.wiz.localMail = false; }
-            hw.close();
+            cw.close();
           }
           // aufräumen
           try { book && MailServices.ab.deleteAddressBook(book.URI); } catch (e) { out.cleanup = String(e); }
@@ -11528,12 +11749,50 @@ def run_checks(m, version, profile, results):
               and str((res.get("dora") or [None] * 3)[2] or "").replace("-", "") == "19800504" and res.get("calType") == "storage"
               and len(items) == 3 and all(items) and items[0][:2] == ["Besprechung PST", "event"] and items[0][3] == "Wien"
               and items[1][:3] == ["Feiertag PST", "event", True] and items[2][:2] == ["Aufgabe PST", "task"]
-              and wiz.get("visible") and wiz.get("parts") == ["Mail (1)", "Contacts (2)", "Calendar (3)"] and wiz.get("off")
-              and "2 contacts" in (wiz.get("summary") or "") and "3 events and tasks" in (wiz.get("summary") or "")
+              and wiz.get("parts") == ["Contacts 2", "Calendar 3"] and wiz.get("folders") == ["Posteingang 1"]
+              and wiz.get("noneBlocked") and wiz.get("partsOk") and wiz.get("list") == ["2 contacts", "3 events and tasks"]
               and "2 contacts were already there" in (wiz.get("end") or "") and "3 events and tasks were already there" in (wiz.get("end") or "")
               and "messages imported" not in (wiz.get("end") or "") and not wiz.get("localMail"))
         return ok, f"{res}"
-    check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile im Assistenten", pst_import_contacts_calendar, results)
+    check("Import: Outlook-PST – Kontakte als eigenes Adressbuch, Termine und Aufgaben als eigener Kalender, zweiter Import ohne Duplikate, Auswahl der Teile und Ordner im Import-Assistenten", pst_import_contacts_calendar, results)
+
+    def pst_import_recurring():
+        # Serientermine aus der Outlook-Datendatei kommen als Serie an (vorher nur der erste Termin): wöchentlich Mo 09:00–10:30
+        # über die Umstellung auf Winterzeit bis 30.11., ein Termin gelöscht – jeder Termin um 09:00 in der eingestellten Zone;
+        # Geburtstag im Kalender jährlich ganztägig. Das Lesen der Outlook-Struktur prüfen die Logik-Tests (tests/logik/pst.test.mjs)
+        res = m.js(r"""
+          const name = "Halo PST-Serie";
+          const source = { name, mail: [], contacts: [], calendar: [{ name: "Kalender", count: 2, items: [
+            { uid: "pst-rec-1", summary: "Jour fixe PST", start: new Date(Date.UTC(2026, 9, 19, 7)),
+              recur: { rule: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;WKST=MO", day: "20261019", startMin: 540, endMin: 630, count: 0, until: "20261130", exdays: ["20261109"] } },
+            { uid: "pst-rec-2", summary: "Geburtstag PST", allDay: true, start: null,
+              recur: { rule: "FREQ=YEARLY;INTERVAL=1;BYMONTH=5;BYMONTHDAY=3", day: "19800503", startMin: 0, endMin: 1440, count: 0, until: "", exdays: [] } }] }] };
+          const job = await w.__mcPstImport(source, { calendar: true });
+          const calendar = cal.manager.getCalendars().find(c => c.name == name);
+          const out = { events: job?.events, tz: cal.dtz.defaultTimezone?.tzid };
+          if (calendar) {
+            const dt = s => cal.createDateTime(s);
+            const occ = async (uid, a, b) => {
+              const item = await calendar.getItem(uid);
+              return item?.recurrenceInfo ? item.recurrenceInfo.getOccurrences(dt(a), dt(b), 0) : [];
+            };
+            const local = d => d.getInTimezone(cal.dtz.defaultTimezone);
+            const fmt = d => { const l = local(d); return `${l.year}-${l.month + 1}-${l.day} ${l.hour}:${String(l.minute).padStart(2, "0")}`; };
+            const weekly = await occ("pst-rec-1", "20261001T000000Z", "20270101T000000Z");
+            out.weekly = weekly.map(o => fmt(o.startDate));
+            out.weeklyEnd = weekly.map(o => fmt(o.endDate));
+            const bday = await occ("pst-rec-2", "20260101T000000Z", "20280101T000000Z");
+            out.bday = bday.map(o => [o.startDate.isDate, o.startDate.year, o.startDate.month + 1, o.startDate.day]);
+            cal.manager.removeCalendar(calendar);
+          }
+          return out;""")
+        ev = res.get("events") or {}
+        ok = (ev.get("added") == 2 and not ev.get("failed")
+              and res.get("weekly") == ["2026-10-19 9:00", "2026-10-26 9:00", "2026-11-2 9:00", "2026-11-16 9:00", "2026-11-23 9:00", "2026-11-30 9:00"]
+              and all(e.endswith(" 10:30") for e in res.get("weeklyEnd") or [""])
+              and res.get("bday") == [[True, 2026, 5, 3], [True, 2027, 5, 3]])
+        return ok, f"{res}"
+    check("Import: Outlook-PST – Serientermine als Serie (wöchentlich über die Zeitumstellung zur selben Uhrzeit, gelöschter Termin fehlt, Ende nach Datum; Geburtstag jährlich ganztägig)", pst_import_recurring, results)
 
     def halo_window_closes_with_main():
         # Fenster „halo.spaces“ (Begrüßung, Hilfe → halo.spaces…) schließt mit seinem Hauptfenster – sonst lief
@@ -14445,6 +14704,69 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Today-Pane: Fläche oben in der Toolbar-Zeile bündig mit der Pane darunter (linke und rechte Kante)", today_top_flush, results)
 
+    def today_head_tidy():
+        # Today-Pane-Kopf aufgeräumt (Mac und Windows gleich): oben in der Zeile über der Pane nur der Today-Knopf links
+        # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
+        # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
+        # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
+        # (36 Termine anlegen und löschen, fünf Bereiche mit je bis zu 3 s Ruhe: auf dem Mac 11 s, unter Linux über 30 s)
+        m.cmd("WebDriver:SetTimeouts", {"script": 90000})
+        try:
+            res = m.js(CAL_CHECK_JS + r"""
+          const c = testCalendar(), added = [];
+          for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
+            const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en; added.push(await c.addItem(e)); }
+          const out = {};
+          try {
+          const cmd = d.getElementById("calendar_toggle_todaypane_command");
+          const go = { mail: toMail, tasks: async () => tm.openTab("tasks", {}), book: async () => tm.openTab("addressBookTab", {}),
+                       chat: async () => tm.openTab("chat", {}), prefs: async () => w.openPreferencesTab() };
+          const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? r : null; };
+          for (const [name, fn] of Object.entries(go)) {
+            await fn(); await ruhig(1200);
+            if (!w.TodayPane?.isVisible) { cmd.doCommand(); await ruhig(1200); }
+            const panel = d.getElementById("today-pane-panel"), row = d.getElementById("unifiedToolbarContainer");
+            const pr = R(panel), rr = R(row), tg = R(d.getElementById("mcTodayToggle")), title = d.getElementById("mcTodayTitle"), ti = R(title);
+            const plus = d.getElementById("mcTodayNew"), pl = R(plus), agenda = d.getElementById("agenda"), ag = R(agenda);
+            const mm = R(d.getElementById("today-minimonth-box"));
+            if (!pr || !rr) { out[name] = { pane: false }; continue; }
+            // eigene Elemente in der Zeile über der Pane (außer der Fläche #mcTodayTop): nur der Today-Knopf
+            const inRow = [...row.querySelectorAll("[id^='mc']")].filter(e => e.id != "mcTodayTop" && !e.closest("#unifiedToolbarContent")
+              && !e.closest("#mcListHeader") && (r => r && r.left >= pr.left - 1 && r.top < rr.bottom && r.bottom > rr.top)(R(e))).map(e => e.id);
+            const v = { inRow, toggle: tg ? Math.round(tg.left - pr.left) : null,
+              title: ti ? { text: title.querySelector(".mc-tt-text")?.textContent, mid: Math.round((ti.left + ti.width / 2 - (pr.left + pr.width / 2)) * 10) / 10,
+                            belowMini: mm ? Math.round(ti.top - mm.bottom) : null, aboveCard: ag ? Math.round(ag.top - ti.bottom) : null,
+                            hit: (el => el == title || title.contains(el))(d.elementFromPoint(ti.left + ti.width / 2, ti.top + ti.height / 2)) } : null,
+              plus: pl ? { mid: Math.round((pl.left + pl.width / 2 - (pr.left + pr.width / 2)) * 10) / 10, size: [Math.round(pl.width), Math.round(pl.height)],
+                           underCard: ag ? Math.round(pl.top - ag.bottom) : null, toBottom: Math.round(pr.bottom - pl.bottom), inPane: pl.top >= pr.top && pl.bottom <= pr.bottom + 0.5,
+                           hit: d.elementFromPoint(pl.left + pl.width / 2, pl.top + pl.height / 2) == plus } : null };
+            // Liste rollen: das „+“ bleibt stehen, die Liste läuft unten aus (Verlauf, solange unten noch Termine verborgen sind)
+            agenda.scrollTop = 0; await ruhig(300);
+            const more = agenda.scrollHeight > agenda.clientHeight + 2;
+            const before = R(plus)?.top; v.fade = !more || agenda.hasAttribute("data-mc-more");
+            agenda.scrollTop = 120; agenda.dispatchEvent(new w.Event("scroll")); await ruhig(300);
+            v.scroll = { more, moved: agenda.scrollTop, plusShift: Math.round(((R(plus)?.top ?? 0) - (before ?? 0)) * 10) / 10 };
+            agenda.scrollTop = 0;
+            out[name] = v;
+          }
+          for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          await toMail(); await ruhig(600);
+          return out;
+          } finally { for (const e of added) { try { await c.deleteItem(e); } catch {} } }""")
+        finally:
+            m.cmd("WebDriver:SetTimeouts", {"script": 30000})
+        def gut(v):
+            t, p = v.get("title") or {}, v.get("plus") or {}
+            return (v.get("inRow") == ["mcTodayToggle"] and v.get("toggle") is not None and 0 <= v["toggle"] <= 14
+                    and t.get("text") == "Today" and abs(t.get("mid", 99)) <= 1 and t.get("hit")
+                    and t.get("belowMini") is not None and 0 <= t["belowMini"] <= 12 and t.get("aboveCard") is not None and 4 <= t["aboveCard"] <= 12
+                    and abs(p.get("mid", 99)) <= 1 and p.get("size") == [40, 38] and p.get("inPane") and p.get("hit")
+                    and p.get("underCard") is not None and 8 <= p["underCard"] <= 16 and p.get("toBottom") is not None and 6 <= p["toBottom"] <= 14
+                    and v.get("fade") and v["scroll"]["plusShift"] == 0)
+        ok = len(res) == 5 and all(gut(v) for v in res.values()) and any(v["scroll"]["more"] and v["scroll"]["moved"] > 0 for v in res.values())
+        return ok, f"{res}"
+    check("Today-Pane: Kopf aufgeräumt – oben nur der Today-Knopf, „Today“ mittig zwischen Mini-Kalender und Liste, „+“ fest mittig unten unter der Liste (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)", today_head_tidy, results)
+
     def toolbar_icons_only_any_style():
         # GitHub #62: mit „Symbol und Text“, „Text unter Symbol“ oder „Nur Text“ in „Symbolleiste anpassen“ wurden die
         # Knöpfe breiter bzw. höher und überdeckten den Titel der Today-Pane; jetzt immer nur Symbole (Maintainer
@@ -14772,13 +15094,21 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
-            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
+          // „+“ (fest unten in der Today-Pane) und Today-Knopf (absolut in der Zeile): Lage und sichtbare Breite – das „+“
+          // ist nur innerhalb der Pane zu sehen (sie schneidet beim Gleiten ab)
+          const plus = d.getElementById("mcTodayNew");
+          const pt = () => { const r = plus?.getBoundingClientRect(); if (!r?.width || getComputedStyle(plus).display == "none" || !w.TodayPane?.isVisible && !panel.__mcAnimating) return null;
+            const pr = panel.getBoundingClientRect();
+            return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, pr.right) - Math.max(r.left, pr.left)) * 10) / 10]; };
+          const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+            ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
-            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
+            // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
+            tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim"), Math.round(panel.getBoundingClientRect().left * 10) / 10]);
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -14801,8 +15131,10 @@ def run_checks(m, version, profile, results):
             for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
-            const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            const pre = snap(), preW = sWidth(), preP = pt(), preG = gt();
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, pl, tg } = await record(); await ruhig(300);
+            // „+“ und Today-Knopf: Lage vor dem Klick, je Bild, nach der Ruhe
+            pl.unshift(preP); tg.unshift(preG); const finP = pt(), finG = gt(), finK = snap();
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -14825,11 +15157,38 @@ def run_checks(m, version, profile, results):
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            // Nachsprung (Board „Toolbar-Buttons springen am Ende der Animation“): nach dem letzten Bild, in dem sich die Pane
+            // bewegt, rückt kein Knopf der Leiste, weder Today-Knopf noch „+“, noch um mehr als 1 px. Das „+“ gleitet mit
+            // der Pane herein bzw. hinaus wie Today-Knopf und Überschrift: beim Einblenden schon vor dem letzten Bild zu sehen
+            // (sprang früher erst am Ende ins Bild), beim Ausblenden im ersten Bild noch da (war sofort weg), am Ende weg;
+            // kein Schritt größer als der der Pane, Today-Knopf und „+“ überlappen sich nie
+            const iMove = moving.lastIndexOf(true);   // (Index in ws; in kk/pl/tg eins weiter, dort steht vorn die Lage vor dem Klick)
+            const postK = iMove < 0 ? [] : [...kk.slice(iMove + 1), finK];
+            const nachK = Math.max(0, ...Object.keys(finK).map(k => Math.max(0, ...postK.map(f => k in f ? Math.abs(f[k] - finK[k]) : 0))));
+            const postG = iMove < 0 ? [] : [...tg.slice(iMove + 1), finG];
+            const nachG = Math.max(0, ...postG.map(g => Math.abs(g[0] - finG[0])));
+            const postP = iMove < 0 ? [] : [...pl.slice(iMove + 1), finP];
+            const vis = p => (p && p[1] >= 1 ? p : null);   // (ganz abgeschnitten = nicht zu sehen)
+            const nachP = Math.max(0, ...postP.map(p => (!vis(p) != !vis(finP)) ? 99 : vis(p) ? Math.abs(p[0] - finP[0]) + Math.abs(p[1] - finP[1]) : 0));
+            const stepOf = a => Math.max(0, ...a.slice(1).map((v, i) => v && a[i] ? Math.abs(v[0] - a[i][0]) : 0));
+            const seen = pl.slice(1, iMove + 1).filter(p => p && p[1] >= 1).length;
+            const overlap = Math.max(0, ...pl.map((p, i) => p && p[1] >= 1 ? tg[i][1] - p[0] : 0));
+            out[phase].plus = { seen, first: pl[1], fin: finP, step: Math.round(stepOf(pl) * 10) / 10, toggleStep: Math.round(stepOf(tg) * 10) / 10, overlap: Math.round(overlap * 10) / 10 };
+            out[phase].nach = { knoepfe: nachK, today: nachG, plus: nachP };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
             if (phase.startsWith("ein")) out[phase].tl = [lastAnim, tl.at(-1), tl.length, getComputedStyle(row).getPropertyValue("--mc-row-tail")];
-            if (phase.startsWith("ein") && lastAnim) out[phase].titleEnd = Math.round(Math.abs(lastAnim[0] - (title?.getBoundingClientRect().left ?? 0)) * 10) / 10;
+            // Die Überschrift liegt in der Pane und gleitet mit ihr: im letzten Bild der Animation fehlt der Pane noch ihr
+            // letzter, kleiner Schritt der Kurve (0,6–1,2 px), die Überschrift steht dort also absolut nie ganz am Endplatz.
+            // Gemessen wird daher ihre Lage in der Pane (kein Ruck, wenn am Ende min-width und data-mc-anim wegfallen) und
+            // dass sie absolut nicht weiter rückt als die Pane in ihrem letzten Schritt
+            if (phase.startsWith("ein") && lastAnim) {
+              const tNow = title?.getBoundingClientRect().left ?? 0, pNow = panel.getBoundingClientRect().left;
+              out[phase].titleEnd = Math.round(Math.abs((lastAnim[0] - lastAnim[2]) - (tNow - pNow)) * 10) / 10;
+              out[phase].titleEndAbs = Math.round(Math.abs(lastAnim[0] - tNow) * 10) / 10;
+              out[phase].paneEnd = Math.round(Math.abs(lastAnim[2] - pNow) * 10) / 10;
+            }
             // Lücke nach dem letzten Bild der Animation (tl und ts gehören zum selben Bild)
             const iLast = tl.findLastIndex(([, a]) => a);
             if (phase.startsWith("ein") && iLast >= 0 && iLast + 1 < ts.length) out[phase].endGapMs = Math.round(ts[iLast + 1] - ts[iLast]);
@@ -14859,17 +15218,20 @@ def run_checks(m, version, profile, results):
         # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
-        def glatt(v, ende=True):
+        def glatt(v, ende=True, ein=True):
             return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
-                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
-                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+                    and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1 and v.get("titleEndAbs", 0) <= v.get("paneEnd", 0) + 1)
+                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
+                    and v["plus"]["step"] <= v["maxJump"] + 2 and v["plus"]["toggleStep"] <= v["maxJump"] + 2 and v["plus"]["overlap"] <= 0
+                    and v["plus"]["seen"] >= 2 and bool(v["plus"]["fin"]) == ein and (ein or (v["plus"]["first"] or [0, 0])[1] >= 1)
+                    and (not ende or max(v["nach"].values()) <= 1))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
-        ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
+        ok = all(glatt(res[p], ein=p.startswith("ein")) and all(glatt(x, False, p.startswith("ein")) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
-    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck", today_animation, results)
+    check("Today-Pane: Ein-/Ausblenden flüssig (kein Sprung), Suchfeld und alle Knöpfe gleiten mit, Suchfeld ändert seine Breite stufenlos, einklappende Knöpfe blenden aus, Überschrift während der Bewegung da und am Ende ohne Ruck, „+“ gleitet mit der Pane herein und hinaus, nach dem letzten Bild springt kein Knopf nach", today_animation, results)
 
     def today_tasks_end():
         # Aufgaben: am Ende des Ein-/Ausblendens springen Suchfeld (Lage, Breite), „+“ und Überschrift nicht noch einmal –
@@ -14910,7 +15272,8 @@ def run_checks(m, version, profile, results):
     def drag_hide():
         # Trennlinien zuziehen: Kalender-Seitenleiste verschwindet schon beim Ziehen (ohne Animation) und kommt mit der
         # alten Breite wieder; Mail ohne Thunderbirds blauen Balken an der zugeklappten Trennlinie; Today-Pane fest
-        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (auch beim Klick auf den Knopf); Spaces-Knopf bleibt
+        # 280 px, nach rechts gezogen sofort aus, „+“ gleich weg (beim Klick auf den Knopf endet der offene Zustand sofort,
+        # das „+“ gleitet dann mit der Pane hinaus – Prüfung „Today-Pane: Ein-/Ausblenden flüssig …“); Spaces-Knopf bleibt
         # stehen und wechselt nur den Pfeil
         V = lambda r: r["value"] if isinstance(r, dict) and "value" in r else r
         def drag(x, y, dx, release=True):
@@ -17123,6 +17486,35 @@ Neu
               and (sys.platform == "darwin" or (ic and ic["w"] == 16 and ic["h"] == 16 and ic["mask"] == "none" and ic["opacity"] == "1")))
         return ok, f"{res}"
     check("Menü Help: Eintrag „halo.spaces“ ohne drei Punkte, mit unserem Symbol (unter Windows/Linux farbig, 16 px)", help_menu_entry, results)
+
+    def logo_ring():
+        # Logo (Freigabe 16.11.2026 „die neue variante 1 ist gut.“): fünf getrennte Teile in den Space-Farben,
+        # Lichthof mit Filterbereich über die ganze Kachel, Kachel hell/dunkel; in 16 px bleibt die Mitte leer (Kachelfarbe)
+        res = m.js(r"""const lw = d.defaultView;
+          const txt = await (await lw.fetch("resource://mailcards/about/icon.svg")).text();
+          const doc = new lw.DOMParser().parseFromString(txt, "image/svg+xml");
+          const teile = [...doc.querySelectorAll("g[stroke-width='11'] > path")].map(p => p.getAttribute("stroke"));
+          const licht = [...doc.querySelectorAll("g.l > path")].length;
+          const f = doc.querySelector("filter"), fb = f && [f.getAttribute("filterUnits"), f.getAttribute("width")].join(" ");
+          const img = new lw.Image(); img.src = "resource://mailcards/about/icon.svg"; await img.decode();
+          const px = {};
+          for (const s of [16, 24]) {
+            const c = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = s;
+            const g = c.getContext("2d"); g.drawImage(img, 0, 0, s, s);
+            const mid = g.getImageData(s / 2, s / 2, 1, 1).data;
+            // Teile getrennt: an den Lücken liegt die Farbe näher an der Kachel als 20° davor und danach
+            // (24 px alle fünf; 16 px vier von fünf, die obere Lücke fällt dort genau auf eine Pixelkante)
+            const near = (x, y) => { const p = g.getImageData(Math.floor(x * s / 64), Math.floor(y * s / 64), 1, 1).data; return Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]); };
+            const at = deg => { const r = (deg - 90) * Math.PI / 180; return near(32 + 16 * Math.cos(r), 32 + 16 * Math.sin(r)); };
+            px[s] = { mid: [...mid].slice(0, 3), gaps: [0, 72, 144, 216, 288].map(a => [Math.round(at(a)), Math.round(at(a - 20)), Math.round(at(a + 20))]) };
+          }
+          return { teile, licht, fb, dark: /prefers-color-scheme:dark/.test(txt) && txt.includes("#1C1C1E"), px };""")
+        ok = (bool(res) and res["teile"] == ["#0A84FF", "#30B850", "#FF8A00", "#FF2D78", "#AF52DE"] and res["licht"] == 5
+              and res["fb"] == "userSpaceOnUse 84" and res["dark"]
+              and all(max(q["mid"]) - min(q["mid"]) < 20 and sum(gp < min(l, r) for gp, l, r in q["gaps"]) >= n
+                      for q, n in ((res["px"]["16"], 4), (res["px"]["24"], 5))))
+        return ok, f"{res}"
+    check("Logo: Ring aus fünf getrennten Teilen in den Space-Farben mit Lichthof, Mitte in 16 und 24 px leer", logo_ring, results)
 
     def info_install_now():
         # Info-Fenster: „Install version …“ setzt das zurückgestellte Update gleich fort (Thunderbird hält es sonst bis
@@ -20070,15 +20462,15 @@ Neu
           out.books = (await until(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("mcBooksHeader"), 8000))?.textContent;
           await step("settings", async () => { w.openPreferencesTab(); await ruhig(1500); });
           out.attr = bar?.getAttribute("placeholder");
-          out.today = [d.getElementById("mcTodayTitle")?.textContent, d.getElementById("today-pane-header")?.dataset.mcTitle];
+          out.today = [d.getElementById("mcTodayTitle")?.textContent];  // („Today“ zwischen Mini-Kalender und Liste)
           for (const t of [...tm.tabInfo]) { if (!before.has(t)) tm.closeTab(t); }
           await toMail(); await ruhig(300); out.back = text();
           return out;''')
         expect = {
             "de": ["durchsuchen", "Kalender durchsuchen", "Aufgaben durchsuchen", "Kontakte durchsuchen",
-                   "Einstellungen durchsuchen", "Adressbücher", "Heute-Leiste"],
+                   "Einstellungen durchsuchen", "Adressbücher", "Heute"],
             "en": ["Search ", "Search Calendar", "Search Tasks", "Search Contacts", "Search Settings",
-                   "Address Books", "Today Pane"],
+                   "Address Books", "Today"],
         }.get(res["locale"].split("-")[0])
         got = [res["mail"], res["calendar"], res["tasks"], res["addressbook"], res["settings"], res["books"]]
         ok = (res["slotted"] and not res["l10n"] and not res["attr"] and res["back"] == res["mail"]
@@ -20086,7 +20478,7 @@ Neu
         if expect:
             # Mail: je nach Ordner „Search Inbox“ bzw. „Search All Mailboxes“ (eigene Prüfung)
             ok = (ok and expect[0] in (got[0] or "") and got[1:] == expect[1:6]
-                  and all(t in (None, expect[6]) for t in res["today"]) and expect[6] in res["today"])
+                  and res["today"] == [expect[6]])
         else:  # andere Sprache: Thunderbirds eigener Platzhalter, nur Überschrift prüfen
             ok = bool(res["books"])
         return ok, f"{res}"
@@ -20161,6 +20553,70 @@ Neu
                                                   and set(res.get("typedSmart") or []) == set(res.get("inSmart") or []))))
         return ok, f"{res}"
     check("Suche: im gewählten Ordner nur dort, in Sammelordnern global, keine Mails ohne den Begriff, Platzhalter je Ordner, Ordnerwechsel sucht weiter", search_scope, results)
+
+    def contact_search():
+        # „Search“ am geöffneten Kontakt: Thunderbird öffnete eine eigene Suchansicht ohne Ordnerliste;
+        # jetzt Mail-Space mit Ordnerliste, Adresse im Suchfeld, Treffer aus allen Postfächern (gesendet und empfangen)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          const folder = name => { if (!root.containsChildNamed(name)) root.createSubfolder(name, null); return root.getChildNamed(name); };
+          const A = folder("KontaktSucheA"), B = folder("KontaktSucheB"); await ruhig(800);
+          const addr = "kora@kontaktsuche.example.invalid";
+          const mail = (subject, id, from, to) => unescape(encodeURIComponent([`From: ${from}`, `To: ${to}`, `Subject: ${subject}`,
+            "Date: Mon, 19 Oct 2026 10:00:00 +0200", `Message-ID: <${id}@example.invalid>`, "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", "Hallo.", ""].join("\r\n")));
+          if (!A.getTotalMessages(false)) {
+            A.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo von Kora", "ks-a1", `Kora Kontakt <${addr}>`, "Halo Test <halo@example.invalid>"));
+            A.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo von jemand anderem", "ks-a2", "Otto Fremd <otto@example.invalid>", "Halo Test <halo@example.invalid>"));
+            B.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail("Halo an Kora", "ks-b1", "Halo Test <halo@example.invalid>", `Kora Kontakt <${addr}>`));
+            await bis(() => A.getTotalMessages(false) >= 2 && B.getTotalMessages(false) >= 1, "Testmails gespeichert", 4000); await ruhig(1000);
+          }
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = book.childCards.find(c => c.primaryEmail == addr);
+          if (!card) { card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            card.displayName = "Kora Kontakt"; card.primaryEmail = addr; card = book.addCard(card); }
+          const out = {};
+          // Mail im Ordner A: ohne die Regel suchte das Suchfeld nur dort
+          let a3 = await toMail(); a3.displayFolder(A.URI); await ruhig(900);
+          const folderWidth = () => Math.round(a3.document.getElementById("folderPane")?.getBoundingClientRect().width || 0);
+          out.folderBefore = folderWidth();
+          tm.openTab("addressBookTab", {});
+          const cw = await bis(() => tm.currentTabInfo.mode.name == "addressBookTab" && tm.currentTabInfo.browser?.contentWindow?.cardsPane?.cardsList && tm.currentTabInfo.browser.contentWindow, "Adressbuch", 8000);
+          await ruhig(1200);
+          const list = cw.cardsPane.cardsList;
+          const row = await bis(() => { const v = list.view; const i = [...Array(v?.rowCount || 0).keys()].find(k => v.getCardFromRow(k)?.primaryEmail == addr); return i === undefined ? null : { i }; }, "Kontakt in der Liste", 6000);
+          list.selectedIndex = row.i;
+          const button = await bis(() => { const b = cw.document.getElementById("detailsSearchButton"); return b && !b.hidden && cw.detailsPane.currentCard?.primaryEmail == addr && b; }, "Knopf Search am Kontakt", 6000);
+          const tabsBefore = tm.tabInfo.length;
+          button.click();
+          await bis(() => tm.currentTabInfo?.mode?.name == "mail3PaneTab", "Mail-Space nach Search", 6000);
+          a3 = tm.currentAbout3Pane;
+          await bis(() => a3.document.documentElement.getAttribute("mc-search-stage") || tm.currentTabInfo && (d.querySelector("#unifiedToolbarContent global-search-bar")?.value || "") == addr, "Suche gestartet", 6000);
+          await bis(() => !a3.document.documentElement.hasAttribute("mc-search-stage"), "Suche fertig", 10000); await ruhig(2000);
+          out.mode = tm.currentTabInfo.mode.name; out.newTabs = tm.tabInfo.length - tabsBefore;
+          out.gloda = tm.tabInfo.some(t => /^gloda/.test(t.mode?.name || ""));
+          out.folderAfter = folderWidth(); out.folderVisible = a3.paneLayout?.folderPaneVisible;
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          out.term = bar?.value;
+          out.header = d.getElementById("mcListHeader")?.querySelector(".mc-lh-count")?.textContent;
+          try { a3.gDBView?.doCommand(Ci.nsMsgViewCommandType.expandAll); } catch {}
+          out.hits = [...Array(a3.gDBView?.rowCount || 0).keys()].map(i => a3.gDBView.getMsgHdrAt(i)?.messageId?.split("@")[0]).filter(Boolean).sort();
+          // Leeren kehrt zum Ordner davor zurück
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(1200);
+          out.back = a3.gFolder?.URI == A.URI;
+          bar.reset?.();
+          book.deleteCards([card]);
+          for (const t of [...tm.tabInfo]) { if (t.mode?.name == "addressBookTab") tm.closeTab(t); }
+          await ruhig(400);
+          return out;""")
+        hits = set(res.get("hits") or [])
+        ok = (res.get("mode") == "mail3PaneTab" and not res.get("gloda") and res.get("newTabs", 1) <= 0
+              and res.get("folderVisible") is not False and res.get("folderAfter", 0) > 0 and res.get("folderAfter") == res.get("folderBefore")
+              and res.get("term") == "kora@kontaktsuche.example.invalid"
+              and {"ks-a1", "ks-b1"} <= hits and "ks-a2" not in hits
+              and (res.get("header") or "").startswith("All Mailboxes") and res.get("back"))
+        return ok, f"{res}"
+    check("Kontakte: „Search“ am Kontakt sucht im Mail-Space über alle Postfächer, Adresse im Suchfeld, Ordnerliste bleibt", contact_search, results)
 
     def search_stages():
         # zweistufige Suche: erst Betreff/Absender/Empfänger (Treffer sofort), danach der Text – die Treffer der
@@ -22247,7 +22703,7 @@ Neu
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
     def spaces_current_fill():
-        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche 34 %, dunkel 36 %, als
+        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 36 %, als
         # Farbe, damit der Wechsel weich überblendet, darüber Lichtkante und Restverlauf; Werte am Bild in sidebar_tile_d2h), Kante innen, kurzer Schatten und Lichthof rechts, kein Chevron;
         # inaktive Kacheln 8 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
@@ -22274,7 +22730,8 @@ Neu
         dark = res.pop("dark", False)
         icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
         # Schatten kurz (2 px 4 px – nicht bis in die Nachbarkachel), feine Kante innen, Lichthof 6 px nach rechts
-        ok = all(v["bg"] == (36 if dark else 34) and v["grad"] == 2 and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
+        # (hell Variante C, 17.11.2026: 54 %, ohne weißen Glanz, also nur der Restverlauf)
+        ok = all(v["bg"] == (36 if dark else 54) and v["grad"] == (2 if dark else 1) and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
                  and v["icon"] == icons[k] and v["fill"] and not v["chevron"] and v["tile"] == 48
                  and v["other"]["bg"] == v["other"]["hover"] == 8 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
@@ -23002,6 +23459,9 @@ Neu
               out.archive = R(md.getElementById("hdrArchiveButton"));
               out.print = R(md.getElementById("mcHdrPrintButton"));
               out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
+              // Fläche wie Drucken (ohne Fläche wäre die Kapsel nur ein loses Symbol)
+              const pb = md.getElementById("mcHdrPrintButton");
+              out.fill = ext ? [cw.getComputedStyle(ext).backgroundColor, pb ? cw.getComputedStyle(pb).backgroundColor : null] : null;
             } finally { mw.close(); }
           } finally { await addon.uninstall(); }
           await ruhig(300);
@@ -23021,6 +23481,9 @@ Neu
         if not (e and mo and ar and res.get("over") == [] and res.get("radius") and all(r not in ("0px", "") for r in res["radius"])
                 and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
             bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
+        fl = res.get("fill") or [None, None]
+        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0)" and (fl[1] is None or fl[0] == fl[1])):
+            bad.append(f"Erweiterung: Fläche {fl[0]} statt wie Drucken {fl[1]}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "
           "Hinweis „Externe Inhalte blockiert“ mittig zwischen Mailkopf und Mailtext, auch im Hauptfenster (GitHub #69)", message_window_addon_remote, results)
@@ -24194,8 +24657,10 @@ Neu
       const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
       const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
       const px = (x, yy) => [...ctx.getImageData(Math.round(x), Math.round(yy), 1, 1).data].slice(0, 3);
-      const c = getComputedStyle(tile).getPropertyValue("--c").trim();
-      const rgb = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+      // (Spacefarbe über den Canvas in sRGB: hell ist sie P3, Variante C)
+      const sw = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
+      sw.fillStyle = getComputedStyle(tile).getPropertyValue("--c").trim(); sw.fillRect(0, 0, 1, 1);
+      const rgb = [...sw.getImageData(0, 0, 1, 1).data].slice(0, 3);
       const lx = br.right - 1;
       return { mode: tab.mode.name, c: rgb, bar: bar.getAttribute("mc-glow"), pane: pane.getAttribute("mc-glow"), float: pane.classList.contains("mc-float-pane"),
         y: Math.round(y), far: Math.round(far), pt: Math.round(P.t), dist: Math.round(Math.abs(y - far)),
@@ -24351,16 +24816,21 @@ Neu
     tile_measure = r"""
       const bar = d.getElementById("spacesToolbar");
       const tile = bar.querySelector(".spaces-toolbar-button.current");
-      const other = [...bar.querySelectorAll(".spaces-toolbar-button:not(.current)")].find(e => e.getBoundingClientRect().width > 0);
-      const tr = tile.getBoundingClientRect(), orr = other.getBoundingClientRect();
+      // (inaktive Kachel und Grund weit weg von der aktiven: hell reicht der farbige Hof rundum bis in die Nachbarkachel)
+      const tr = tile.getBoundingClientRect();
+      const other = [...bar.querySelectorAll(".spaces-toolbar-button:not(.current)")].filter(e => e.getBoundingClientRect().width > 0)
+        .sort((a, b) => Math.abs(b.getBoundingClientRect().top - tr.top) - Math.abs(a.getBoundingClientRect().top - tr.top))[0];
+      const orr = other.getBoundingClientRect();
       const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
       const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
       const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
       const px = (x, yy) => [...ctx.getImageData(Math.floor(x), Math.floor(yy), 1, 1).data].slice(0, 3);
-      const hex = e => { const c = getComputedStyle(e).getPropertyValue("--c").trim(); return [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); };
+      // (Spacefarbe über den Canvas in sRGB: hell ist sie P3, Variante C)
+      const sw = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
+      const hex = e => { sw.fillStyle = getComputedStyle(e).getPropertyValue("--c").trim(); sw.fillRect(0, 0, 1, 1); return [...sw.getImageData(0, 0, 1, 1).data].slice(0, 3); };
       const cy = tr.top + tr.height * 0.55, oy = orr.top + orr.height * 0.55;
       return { id: tile.id, float: bar.hasAttribute("mc-float"), c: hex(tile), oc: hex(other),
-        bg: px(tr.left - 10, cy), obg: px(orr.left - 10, oy),
+        bg: px(tr.left - 10, oy), obg: px(orr.left - 10, oy), ringL: px(tr.left - 3, cy), ringT: px(tr.left + tr.width / 2, tr.top - 2),
         faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
         halo: px(tr.right + 3, cy), idle: px(orr.left + 6, oy) };"""
 
@@ -24413,7 +24883,7 @@ Neu
             a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "edgeL", "edgeR")}
             a["idle"] = alpha(r["idle"], r["obg"], r["oc"])
             werte[k] = a
-            want_l, want_r = (0.37, 0.43) if dark else (0.34, 0.34)
+            want_l, want_r = (0.37, 0.43) if dark else (0.54, 0.54)
             if not (abs(a["faceL"] - want_l) <= 0.05 and abs(a["faceR"] - want_r) <= 0.05):
                 bad.append(f"{k}-Fläche")
             if not (a["edgeR"] >= a["edgeL"] + 0.1 and a["edgeL"] >= a["faceL"] + 0.05):
@@ -24423,6 +24893,10 @@ Neu
             # Lichthof rechts: neben der Kachel zur Spacefarbe hin getönt, links (Grund) nicht
             if not (dist(r["halo"], r["bg"]) >= 4 and dist(r["halo"], r["c"]) < dist(r["bg"], r["c"])):
                 bad.append(f"{k}-Lichthof")
+            # hell (Variante C, 17.11.2026): farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt;
+            ring = [dist(r[n], r["bg"]) >= 4 and dist(r[n], r["c"]) < dist(r["bg"], r["c"]) for n in ("ringL", "ringT")]
+            if not dark and not all(ring):
+                bad.append(f"{k}-Hof rundum")
             if k.startswith("float-") and r.get("float") is not True:
                 bad.append(f"{k}-nicht schwebend")
         for tile in tiles:
@@ -24430,7 +24904,7 @@ Neu
             if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "idle")):
                 bad.append(f"{tile}-schwebend anders")
         return not bad, f"abweichend: {bad} dunkel={dark} {werte}"
-    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 34 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, inaktive Kacheln 8 %, "
+    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, hell farbiger Hof rundum, inaktive Kacheln 8 %, "
           "alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
 
     def sidebar_glow_switch_line():

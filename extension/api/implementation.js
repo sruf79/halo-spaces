@@ -3128,7 +3128,7 @@ function hookMenubar(win, restorers) {
     }
     win.setTimeout(() => win.__mcStartNewList?.(), 300);
   });
-  const importPst = own("mcFileImportPst", "Open Outlook Data File (PST)…", () => PstImport.open(win).catch(e => log("pst error", e)));
+  // Outlook-Datendatei (PST): im Import-Assistenten (File → Import…), kein eigener Menüpunkt mehr
   // für den automatischen Test
   win.__mcPstRead = path => PstImport.read(path);
   win.__mcPstIsPst = path => PstImport.isPst(path);
@@ -3169,7 +3169,7 @@ function hookMenubar(win, restorers) {
     ["menu_FilePopup", [
       L("menu_newNewMsgCmd", "New Message"), L("calendar-new-event-menuitem", "New Event…"), L("calendar-new-task-menuitem", "New Task…"), [newList],
       L("menu_newCard", "New Contact…"), S, L("menu_close"), S, L("menu_saveAsFile", "Save As…"),
-      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), [importPst], L("menu_export"), S,
+      L("menu_saveAsTemplate", "Save as Template"), S, L("menu_import"), L("menu_export"), S,
       L("printMenuItem"), ...(MENUBAR_MAC ? [] : [S]), L("menu_FileQuitItem"),
     ]],
     ["menu_EditPopup", [
@@ -7944,6 +7944,17 @@ class CardEnhancer {
               lw.addEventListener("DOMContentLoaded", () => listInfoDialog(lw), { once: true });
             }
           }
+          // Import-Assistent: Outlook-Datendatei (PST) als eigene Quelle
+          if (url.startsWith("about:import") && doc.defaultView) {
+            const iw = doc.defaultView;
+            iw.addEventListener("load", () => {
+              try {
+                PstImport.hookWizard(iw);
+              } catch (e) {
+                log("pst wizard error", e);
+              }
+            }, { once: true });
+          }
           // Dialogfenster als ruhige Karte ohne sichtbare Titelleiste (macOS)
           if (CARD_WINDOWS.some(u => url.startsWith(u)) && doc.defaultView) {
             const cw = doc.defaultView;
@@ -9980,6 +9991,30 @@ class CardEnhancer {
       }
     };
 
+    // Knopf „Search“ am geöffneten Kontakt: Suche im Mail-Space statt
+    // Thunderbirds Suchansicht ohne Ordnerliste (contactMailSearch)
+    const hookContactSearch = (cw, restorers) => {
+      const d = cw.document;
+      if (d.__mcContactSearch) {
+        return;
+      }
+      d.__mcContactSearch = true;
+      const click = event => {
+        if (event.button || !event.target.closest?.("#detailsSearchButton")) {
+          return;
+        }
+        const address = cw.detailsPane?.currentCard?.primaryEmail;
+        if (address && this.contactMailSearch(w, address)) {
+          event.stopImmediatePropagation();
+          event.preventDefault();
+        }
+      };
+      d.addEventListener("click", click, true);
+      restorers.push(() => {
+        d.removeEventListener("click", click, true);
+        delete d.__mcContactSearch;
+      });
+    };
     const styleContentPages = () => {
       markSearch();
       const uri = sheetURI();
@@ -10042,6 +10077,11 @@ class CardEnhancer {
             hookCollectedAddresses(cw, winRestorers);
           } catch (e) {
             log("collected addresses error", e);
+          }
+          try {
+            hookContactSearch(cw, winRestorers);
+          } catch (e) {
+            log("contact search error", e);
           }
           try {
             hookPhotoDialog(cw, winRestorers);
@@ -12410,21 +12450,15 @@ class CardEnhancer {
       const n = colors.length;
       const at = i => (n > 1 ? Math.round(-160 + (320 * i) / (n - 1)) : 0);
       // Farbe des Verlaufs an einer Stelle (px ab der Mitte des Kegels), für die Flächen der schwebenden Leiste
-      const cx = w.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas").getContext("2d");
-      const rgb = colors.map(c => {
-        cx.fillStyle = "#000";
-        cx.fillStyle = c;
-        const h = /^#[0-9a-f]{6}$/i.test(cx.fillStyle) ? cx.fillStyle : "#8e8e93";
-        return [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
-      });
+      // (als color-mix aus den Farben selbst: hell sind sie P3, die über den Canvas auf Grau fielen)
       const colorAt = pos => {
         let i = 0;
         while (i < n - 1 && at(i + 1) < pos) {
           i++;
         }
         const t = n > 1 ? Math.min(1, Math.max(0, (pos - at(i)) / (at(i + 1) - at(i) || 1))) : 0;
-        const [a, b] = [rgb[i], rgb[Math.min(n - 1, i + 1)]];
-        return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(", ")})`;
+        const [a, b] = [colors[i], colors[Math.min(n - 1, i + 1)]];
+        return `color-mix(in srgb, ${a} ${+(100 - t * 100).toFixed(1)}%, ${b})`;
       };
       // (Stellen auf die Fläche begrenzt: Farbstellen jenseits ihres Endes verschiebt die Darstellung sonst um bis zu
       // 100 px nach unten, gemessen in den Einstellungen mit der Kachel unten)
@@ -12621,7 +12655,7 @@ class CardEnhancer {
       // Einfügungen einer älteren Fassung (Update oder Neustart der Erweiterung,
       // deren Aufräumen nicht lief) ersetzen statt eine zweite Überschrift
       // mit zweiter Sonne daneben zu setzen
-      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayGrip"]) {
+      for (const id of ["mcTodayToggle", "mcTodayTop", "mcTodayTitle", "mcTodayNew", "mcTodayFoot", "mcTodayGrip"]) {
         for (const el of d.querySelectorAll("#" + id)) {
           el.remove();
         }
@@ -12744,25 +12778,31 @@ class CardEnhancer {
       });
       placeTodayGrip = placeGrip;
       // in die Toolbar-Zeile; darüber reicht die Today-Pane bis ganz oben
-      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links
+      // (#mcTodayTop in ihrer Breite) – wie die Seitenleiste links. Oben steht
+      // nur der Today-Knopf (unter Windows/Linux rechts die Fensterknöpfe)
       const row = d.getElementById("unifiedToolbarContainer");
       const top = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
       top.id = "mcTodayTop";
-      // Überschrift „Today Pane“ oben in der Toolbar-Zeile, neben dem Knopf
+      row?.prepend(top);
+      // „Today“ mit Sonne bzw. Wetter mittig zwischen Mini-Kalender und
+      // Terminliste (über der Karte); Klick springt zum heutigen Tag
       const title = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       title.id = "mcTodayTitle";
       // Text und Sonne/Wetter als eigene Elemente: jedes mit eigenem Tooltip
       const titleText = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       titleText.className = "mc-tt-text";
-      titleText.textContent = tr("Today Pane");
+      titleText.textContent = tr("Today");
       const weatherIcon = d.createElementNS("http://www.w3.org/1999/xhtml", "span");
       weatherIcon.id = "mcTodayWeather";
       title.append(titleText, weatherIcon);
-      top.append(title);
-      row?.prepend(top);
+      const agendaList = d.getElementById("agenda");
+      if (agendaList?.parentNode) {
+        agendaList.before(title);
+      } else {
+        panel?.prepend(title);
+      }
       // Wetter statt der festen Sonne (Option, Standard aus)
       Weather.attach(w, title);
-      // Klick auf die Überschrift springt zum heutigen Tag, Liste nach oben
       title.setAttribute("role", "button");
       title.tabIndex = 0;
       title.title = tr("Go to Today");
@@ -12776,8 +12816,11 @@ class CardEnhancer {
       title.addEventListener("click", goToday);
       title.addEventListener("keydown", goToday);
       (row || d.body).append(btn);
-      // „+“ oben rechts in der Today-Pane, gleiche Größe und Höhe wie der
-      // Today-Knopf – fragt nach Termin oder Aufgabe (statt unten unter der Liste)
+      // „+“ fest mittig am unteren Rand der Today-Pane in eigenem Streifen
+      // (#mcTodayFoot): die Liste rollt darüber und läuft aus, das „+“ bewegt
+      // sich nie – fragt nach Termin oder Aufgabe (Popover nach oben)
+      const foot = d.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      foot.id = "mcTodayFoot";
       const plus = d.createElementNS("http://www.w3.org/1999/xhtml", "button");
       plus.id = "mcTodayNew";
       plus.type = "button";
@@ -12785,12 +12828,15 @@ class CardEnhancer {
       plus.setAttribute("aria-label", plus.title);
       plus.addEventListener("click", event => {
         event.stopPropagation();
-        newPopup?.below(plus);
+        newPopup?.above(plus);
       });
-      btn.after(plus);
+      foot.append(plus);
+      (panel || d.body).append(foot);
       this.restorers.push(() => {
-        plus.remove();
+        foot.remove();
         row?.removeAttribute("data-mc-tp-open");
+        row?.removeAttribute("data-mc-tp-slide");
+        row?.style.removeProperty("--mc-tp-full");
         row?.removeAttribute("data-mc-tp-none");
       });
       // Verlauf am Kartenboden nur, solange unten noch Termine verborgen sind
@@ -12843,22 +12889,6 @@ class CardEnhancer {
         setVar(row, "--mc-caption-w", `${caption}px`);
         const tail = rowTail(d);
         setVar(row, "--mc-row-tail", `${tail}px`);
-        // neben Knopf und Fensterknöpfen zu wenig Platz: nur die Sonne
-        // links Today-Knopf (12 + 40 + 8), rechts „+“ (8 + 40 + 12) und ggf. ≡/Fensterknöpfe
-        const room = width - 60 - (60 + Math.max(caption, tail));
-        title.toggleAttribute("data-narrow", room < 110);
-        // nicht einmal für die Sonne Platz (Windows/Linux: ≡ und Fensterknöpfe
-        // liegen über der Today-Pane): Überschrift als eigene Zeile oben in der
-        // Today-Pane statt unsichtbar unter „+“
-        const below = width > 0 && room < 32;
-        if (below != (title.parentNode == panel)) {
-          if (below) {
-            panel.prepend(title);
-          } else {
-            top.append(title);
-          }
-        }
-        title.toggleAttribute("data-below", below);
       };
       w.__mcTodayTopSync = sync;
       const ro = panel ? new w.ResizeObserver(sync) : null;
@@ -13670,39 +13700,18 @@ class CardEnhancer {
       this.syncTodayModes(w);
       const locale = Services.locale.appLocaleAsBCP47;
       const wdFmt = new Intl.DateTimeFormat(locale, { weekday: "short" });
-      const monthFmt = new Intl.DateTimeFormat(locale, { month: "long" });
-      const X = "http://www.w3.org/1999/xhtml";
-      const title = d.createElementNS(X, "div");
-      title.id = "mcAgendaTitle";
-      // ‹  Monat Jahr  › – blättert monatsweise; die Liste zeigt die Termine
-      // des gezeigten Monats (im aktuellen ab dem 1., heute ganz oben)
-      const mkChevron = (cls, label, dir) => {
-        const b = d.createElementNS(X, "button");
-        b.className = `mc-agenda-nav ${cls}`;
-        b.type = "button";
-        b.title = label;
-        b.setAttribute("aria-label", label);
-        b.addEventListener("click", () => this.shiftAgendaMonth(w, dir));
-        return b;
-      };
-      const label = d.createElementNS(X, "span");
-      label.className = "mc-agenda-month";
-      title.append(
-        mkChevron("mc-prev", tr("Previous Month"), -1),
-        label,
-        mkChevron("mc-next", tr("Next Month"), 1)
-      );
-      agenda.before(title);
+      // Der Monat steht nur über dem Mini-Kalender (dessen Pfeile blättern
+      // auch die Liste, hookAgendaMonthRange); keine eigene Monatszeile über
+      // der Liste mehr (nichts doppelt)
       this.hookAgendaMonthRange(w);
+      this.markMinimonthWeekStart(w);
       const apply = () => {
         const today = new Date();
         const todayKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-        let firstDate = null;
         for (const li of agenda.querySelectorAll(":scope > li.agenda-listitem")) {
           const key = li.dateString || "";
           if (key.length >= 8) {
             const date = new Date(+key.slice(0, 4), +key.slice(4, 6) - 1, +key.slice(6, 8));
-            firstDate ??= date;
             // Tage vor heute blasser (wie vergangene Tage im Kalender)
             li.toggleAttribute("data-mc-past", key.slice(0, 8) < todayKey);
             const header = li.querySelector(".agenda-date-header");
@@ -13729,19 +13738,6 @@ class CardEnhancer {
             li.style.setProperty("--mc-c", color);
           }
         }
-        // Monat der Liste (Starttag der Today-Pane), sonst des ersten Termins
-        let date = firstDate || today;
-        try {
-          const start = w.TodayPane?.start;
-          if (start) {
-            date = new Date(start.year, start.month, start.day);
-          }
-        } catch {} // gewollt: Beginn der Today-Pane nicht lesbar, es gilt heute
-        const month = monthFmt.format(date);
-        label.replaceChildren(
-          Object.assign(d.createElementNS(X, "b"), { textContent: month }),
-          d.createTextNode(` ${date.getFullYear()}`)
-        );
       };
       let pending = false;
       const mo = new w.MutationObserver(() => {
@@ -13757,7 +13753,6 @@ class CardEnhancer {
       apply();
       this.restorers.push(() => {
         mo.disconnect();
-        title.remove();
         delete agenda.__mcAgenda;
       });
     };
@@ -14532,6 +14527,8 @@ class CardEnhancer {
         popup.classList.add("mc-up");
         lastAnchor = anchor;
         const width = 294; // Breite des Popovers samt Rand für den Schatten
+        // am Bildschirmrand schiebt Gecko es ein – Pfeil danach nachmessen
+        popup.addEventListener("popupshown", () => aimArrow(anchor), { once: true });
         popup.openPopup(anchor, "before_start", Math.round(anchor.getBoundingClientRect().width / 2 - width / 2), 12);
       };
       // Pfeil über die Mitte des Knopfs – nach dem Öffnen gemessen, so stimmt

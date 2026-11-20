@@ -275,12 +275,20 @@ jobs:
       - name: Paket
         run: echo "XPI=$(./build.sh | tail -n 1)" >> "$GITHUB_ENV"
 
-      # vorerst nur hell; setzt die VM fort und pausiert sie danach (gibt den Speicher frei)
+      # vorerst nur hell; setzt die VM fort (kalt neu gestartet nach dem letzten Lauf bzw. um 00:45, tests/vm-frisch.sh),
+      # danach wird sie im Hintergrund kalt neu gestartet und pausiert (gibt den Speicher frei)
       - name: Test Windows hell
+        id: windows
         timeout-minutes: 45
         env:
           ONLY: ${{ inputs.only }}
         run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log ${ONLY:+--only "$ONLY"}
+
+      # kalter Neustart für den nächsten Lauf auch nach Zeitüberschreitung oder Abbruch (sonst startet ihn schon
+      # halo_test.py; dann tut dieser Schritt nichts), gelöst vom Job im Hintergrund
+      - name: VM frisch
+        if: ${{ always() && steps.windows.outcome != 'skipped' }}
+        run: zsh tests/vm-frisch.sh --nach-lauf
 
       - name: Screenshots
         if: always()

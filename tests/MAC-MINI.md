@@ -410,13 +410,15 @@ python3 tests/halo_test.py --vm --port 2851 --dark --shots /tmp/win-dunkel  # du
 python3 tests/halo_test.py --vm --beta --port 2851                          # Thunderbird Beta
 ```
 
-- Ablauf: VM fortsetzen bzw. starten und auf die Windows-Sitzung warten,
-  Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
+- Ablauf: VM fortsetzen und auf die Windows-Sitzung warten, Kurztest
+  Bildtakt (gestört: ein kalter Neustart, sonst „FEHLER VM gestört“), Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
   `~/halo-vm` legen, Farbschema per Registry (`AppsUseLightTheme`,
   `SystemUsesLightTheme`) setzen, in der VM `python halo_test.py` als
   angemeldeter Benutzer starten (`prlctl exec --current-user`), Screenshots
   zurückkopieren, Farbschema zurücksetzen, VM pausieren (`prlctl suspend`,
-  gibt die 6 GB frei; `--vm-weiter` lässt sie laufen).
+  gibt die 6 GB frei; `--vm-weiter` lässt sie laufen), danach im Hintergrund
+  kalter Neustart für den nächsten Lauf (`tests/vm-frisch.sh`, auch täglich
+  00:45 aus dem CI-Wächter; `docs/testrechner.md` „Frische VM“).
 - Marionette läuft nur in der VM auf `127.0.0.1`, kein Port ist im VM-Netz offen.
   Die Port-Regeln gelten trotzdem (`--port`, ab 2850 von Hand).
 - Mac- und Windows-Läufe nie gleichzeitig: ein Lauf mit `--vm` wartet, bis kein
@@ -1038,6 +1040,13 @@ die `halo_test.py` nicht sieht.
   Version); der Löschlauf überspringt solche Ordner und symbolische Links. Wer
   eine Version veröffentlicht, legt `DAUERHAFT` in den ersten Rundgang danach;
   ältere Läufe werden nicht rückwirkend einer Version zugeordnet.
+- Gesamtverzeichnis: `tests/fenster_verzeichnis.py` liest alle Fenster, Dialoge
+  und Seiten aus Thunderbirds `omni.ja` (nur lesen) und gleicht sie mit der
+  Messung des Rundgangs ab (Zahl „x von y abgedeckt“, Zustand halo / teilweise /
+  original, Fehlendes, im Testprofil Unerreichbares mit Grund, Fenster von
+  macOS getrennt). Ablage `<ordner>/fenster-verzeichnis.md` und
+  `~/halo-aufgaben/fenster-verzeichnis.md`, nie ins Repo; Test
+  `tests/fenster_verzeichnis_test.py`.
 - Danach wertet Claude (`claude -p`) den Vergleich aus: neue Ausreißer als
   Bug ins Board (außer Entscheidungen des Maintainers und „Wartet auf OK“),
   Done-Einträge bestätigen bzw. Rückschritte melden, Bericht

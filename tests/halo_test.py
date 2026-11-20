@@ -15292,8 +15292,14 @@ def run_checks(m, version, profile, results):
             const pr = panel.getBoundingClientRect();
             return [Math.round(r.left * 10) / 10, Math.round(Math.max(0, Math.min(r.right, pr.right) - Math.max(r.left, pr.left)) * 10) / 10]; };
           const gt = () => { const r = btn.getBoundingClientRect(); return [Math.round(r.left * 10) / 10, Math.round(r.right * 10) / 10]; };
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], kx = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          // Diagnose: Maße der Toolbar-Zeile je Bild (Innenabstand, Breite, Überlauf, Variablen, Attribute)
+          const rowVals = () => { const rowE = d.getElementById("unifiedToolbarContainer"), c = d.getElementById("unifiedToolbarContent"), cs = getComputedStyle(c), rs = getComputedStyle(rowE), cr = c.getBoundingClientRect();
+            return [cs.paddingInlineEnd, cs.paddingInlineStart, Math.round(cr.left * 10) / 10, Math.round(cr.width * 10) / 10, c.scrollWidth, c.clientWidth, cs.justifyContent,
+              ...["--mc-tp-room", "--mc-tp-w", "--mc-row-tail", "--mc-caption-w", "--mc-tp-full"].map(v => rs.getPropertyValue(v).trim()),
+              ["data-mc-tp-open", "data-mc-tp-slide", "data-mc-tp-none"].filter(a => rowE.hasAttribute(a)).join("+")]; };
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], kx = [], rv = [], sw = [], op = [], pl = [], tg = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops()); pl.push(pt()); tg.push(gt());
+            rv.push(rowVals());
             kx.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, [Math.round(r.left * 10) / 10, Math.round(r.width * 10) / 10]])));
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
@@ -15301,7 +15307,7 @@ def run_checks(m, version, profile, results):
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             // (Überschrift „Today“ liegt in der Pane und gleitet mit ihr; data-mc-anim: Bild der Animation)
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, panel.hasAttribute("data-mc-anim"), Math.round(panel.getBoundingClientRect().left * 10) / 10]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, kx, sw, op, pl, tg }; };
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, kx, rv, sw, op, pl, tg }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
@@ -15328,7 +15334,7 @@ def run_checks(m, version, profile, results):
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth(), preP = pt(), preG = gt();
             const sqVor = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id") || li.id);
-            btn.click(); const { ws, ts, ss, tt, tl, kk, kx, sw, op, pl, tg } = await record(); await ruhig(300);
+            btn.click(); const { ws, ts, ss, tt, tl, kk, kx, rv, sw, op, pl, tg } = await record(); await ruhig(300);
             // „+“ und Today-Knopf: Lage vor dem Klick, je Bild, nach der Ruhe
             pl.unshift(preP); tg.unshift(preG); const finP = pt(), finG = gt(), finK = snap();
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
@@ -15378,7 +15384,7 @@ def run_checks(m, version, profile, results):
               const keys = Object.keys(finK).filter(k => postK.some(f => k in f && Math.abs(f[k] - finK[k]) > 1));
               out[phase].diagNach = { iMove, frames: ws.length, ws: ws.slice(Math.max(0, iMove - 1)), keys: Object.fromEntries(keys.map(k => [k, [...kx.slice(Math.max(0, iMove - 1)).map(f => f[k] ?? null), finX[k]]])),
                 sqVor, sqNach: [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id") || li.id),
-                searchW: sw.slice(Math.max(0, iMove - 1)).concat([sWidth()]) }; }
+                searchW: sw.slice(Math.max(0, iMove - 1)).concat([sWidth()]), rv: rv.slice(Math.max(0, iMove - 1), iMove + 3).concat([rowVals()]) }; }
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);

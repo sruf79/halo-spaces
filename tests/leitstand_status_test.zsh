@@ -332,8 +332,13 @@ pruefe "Release: kein Kandidat unterwegs → zeit null, offen, ohne Kandidat" '.
 ci_pruef ",$(rl 7 push pruef/x S7 in_progress '' 2026-11-19T10:30:00Z 2026-11-19T10:45:00Z),$(rl 8 push pruef/y S8 queued '' 2026-11-19T10:00:00Z 2026-11-19T10:00:00Z),$(rl 9 push pruef/probe-z S9 in_progress '' 2026-11-19T09:00:00Z 2026-11-19T09:00:00Z)"
 printf 'S7 3 1 0\nS8 2 1 0\nS9 5 1 0\n' > $T/d/quellen/tb-zahlen.tsv
 lauf_m
-pruefe "Release: Kandidat mit 3 Thunderbird-Commits, gemessene Dauern (2 zu wenig, Probezweig nie)" '.release_eta == {"zeit":"2026-11-19T13:30:00Z","grund":(.release_eta.grund),"sicherheit":"gemessen","kandidat":"pruef/x #7","haelt_auf":null} and (.release_eta.grund | test("pruef/x .*3 Thunderbird-Commits.*ab 3"))'
+pruefe "Release: Kandidat mit 3 Thunderbird-Commits, gemessene Dauern (2 zu wenig, Probezweig nie)" '.release_eta == {"zeit":"2026-11-19T13:30:00Z","grund":(.release_eta.grund),"sicherheit":"gemessen","kandidat":"pruef/x #7","haelt_auf":null,"wartet_auf":["windows"]} and (.release_eta.grund | test("pruef/x .*3 Thunderbird-Commits.*ab 3"))'
 pruefe "Feld ci zeigt weiter höchstens 15 Läufe" '(.ci | length) <= 15'
+# Jobs laufender Läufe (Dashboard-Wunsch 20.11.2026): Datei quellen/jobs-<id>.json, abgeschlossene Läufe ohne jobs
+print -r -- '{"jobs":[{"name":"statisch","status":"completed","conclusion":"success","startedAt":"2026-11-19T10:30:00Z","completedAt":"2026-11-19T10:31:00Z"},{"name":"linux (esr)","status":"in_progress","conclusion":"","startedAt":"2026-11-19T10:31:00Z","completedAt":"0001-01-01T00:00:00Z"}]}' > $T/d/quellen/jobs-7.json
+lauf_m
+pruefe "ci: laufender Lauf nennt Jobs (name, status, ergebnis, start, ende), abgeschlossener null" '([.ci[] | select(.nr == 7)][0].jobs | map(.name + ":" + .status + ":" + (.ergebnis // "-") + ":" + (.ende // "-")) == ["statisch:completed:success:2026-11-19T10:31:00Z","linux (esr):in_progress:-:-"]) and ([.ci[] | select(.status == "completed")][0].jobs == null)'
+rm -f $T/d/quellen/jobs-7.json
 # nicht mischbar bzw. „nicht nach main“ zählen nicht
 printf 'S7 3 0 0\nS8 2 1 0\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
 pruefe "Release: nicht mischbarer Stand ist kein Kandidat" '.release_eta.kandidat == null'

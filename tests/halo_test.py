@@ -7930,6 +7930,56 @@ def calendar_checks(m, results):
     check("Termin-Dialog: Häkchen der gewählten Kategorie aus halo (--icon-check, resource:) lädt trotz der CSP des Termin-Rahmens und steht am Eintrag",
           event_dialog_category_check, results)
 
+    def event_dialog_closed_quiet():
+        # Termin-Fenster geschlossen: der Beobachter, der Beschriftungen ohne Doppelpunkt hält (tidyEventDialog), ruft das
+        # geschlossene Fenster nicht mehr auf. Vorher rief er bei späten Änderungen im noch nicht abgeräumten Formular weiter
+        # dlg.setTimeout auf; die ESR wirft dabei NS_ERROR_NOT_INITIALIZED (kalenderfenster.js) in die Fehlerkonsole (CI esr,
+        # während einer Today-Pane-Prüfung, die calendar.week.start umstellt), neuere Fassungen schlucken es still. Darum
+        # zählt die Prüfung die Aufrufe von setTimeout am Fenster ab dem Schließen (muss 0 sein, in jeder Fassung).
+        # Nachgestellt: nach dem Schließen (sofort, nach dem Abbau, später) eine Beschriftung ändern, Wochenbeginn umstellen
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Schließen leise"; e.calendar = c;
+          const s = cal.dtz.now(); s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const saved = await c.addItem(e);
+          const PREF = "calendar.week.start", wsWas = Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : null;
+          const errs = [], out = { errs };
+          const lis = { observe: msg => { try { if (msg instanceof Ci.nsIScriptError && !(msg.flags & Ci.nsIScriptError.warningFlag)
+            && /kalenderfenster\.js/.test(msg.sourceName || "")) errs.push(`${String(msg.errorMessage).slice(0, 120)} (${msg.lineNumber})`); } catch {} } };
+          let dw = null;
+          try {
+            await toCalendar(); w.modifyEventWithDialog(saved, true);
+            dw = await winUrl("calendar-event-dialog"); if (!dw) throw new Error("Termin-Dialog nicht offen");
+            out.tidy = !!(await till(() => dw.__mcTidy, 8000));
+            const idoc = dw.document.getElementById("calendar-item-panel-iframe")?.contentDocument;
+            const lab = idoc?.querySelector("label[value]");
+            out.label = !!lab;
+            Services.console.registerListener(lis);
+            lab?.setAttribute("value", "Halo vorher:"); await ruhig(300); out.before = lab?.getAttribute("value");
+            // ab hier zählt jeder Aufruf von setTimeout am Fenster (Zeit ab dem Schließen bzw. Fehlertext)
+            out.calls = []; const orig = dw.setTimeout, tClose = Date.now(); dw.setTimeout = function (...a) { out.calls.push(Date.now() - tClose); try { return orig.apply(this, a); } catch (ex) { out.calls.push(String(ex).slice(0, 80)); throw ex; } };
+            dw.close(); await till(() => dw.closed, 4000);
+            // sofort, nach dem Abbau des Fensters (ohne docShell) und noch einmal später; dazwischen den Wochenbeginn umstellen
+            out.late = [];
+            for (const wait of [0, -1, 1500]) {
+              if (wait < 0) await till(() => { try { return !dw.docShell; } catch { return true; } }, 6000); else await ruhig(wait);
+              lab?.setAttribute("value", "Halo spät:");
+              for (const ws of [1, 0]) { Services.prefs.setIntPref(PREF, ws); await ruhig(150); }
+              await ruhig(300); out.late.push(lab?.getAttribute("value"));
+            }
+          } finally {
+            try { Services.console.unregisterListener(lis); } catch {}
+            if (wsWas === null) Services.prefs.clearUserPref(PREF); else Services.prefs.setIntPref(PREF, wsWas);
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        ok = (res.get("tidy") is True and res.get("label") is True and res.get("before") == "Halo vorher"
+              and res.get("calls") == [] and res.get("errs") == [])
+        return ok, f"{res}"
+    check("Termin-Dialog: nach dem Schließen keine Fehler aus dem Beobachter der Beschriftungen (NS_ERROR_NOT_INITIALIZED)",
+          event_dialog_closed_quiet, results)
+
     def summary_height_grows():
         # Terminübersicht: war das Fenster beim ersten Öffnen zu niedrig gemessen (Schrift/Zeilenumbruch noch nicht fertig),
         # zieht halo.spaces die Höhe nach dem Zeichnen nach – „Edit“ behält Abstand zum unteren Rand; Breite und Lage bleiben

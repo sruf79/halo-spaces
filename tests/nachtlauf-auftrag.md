@@ -70,7 +70,7 @@ Reihenfolge:
    GitHub-Einträge, Liste nur am Anfang lesen) gelten unverändert.
    Feste Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
    abends; davor seit 15.11.2026 ein Fehler, der jedes Release verhindert,
-   Regel (0) in Schritt 1a): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
+   Regel (0) in Schritt 1a): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; Maintainer 11.11.2026; Alter als Zuschlag im Nutzen aus tests/haeufung.py, Schritt 1a b „Alter“);
    **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
    Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
    wenn in der vorigen nichts Machbares übrig ist – außer ein Feature behebt
@@ -208,6 +208,16 @@ Reihenfolge:
         (Exitcode ≠ 0), gruppiert er selbst nach derselben Regel und
         vermerkt im Plan „Häufung: Skript gescheitert (<Meldung>), Gruppen
         vom Director“.
+      - Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“,
+        20.11.2026; ersetzt „über 7 Tage offen rückt eine Stufe vor“; Werte
+        sind Festlegung des Fable-Agenten auf Weisung des Maintainers, kein
+        Wortlaut): Zuschlag im Nutzen wie die Häufung, +0,5 Stufe je volle
+        7 Tage seit Anlage, höchstens +1,5; zusammen mit der Häufung Nutzen
+        höchstens 5. Verbindlich aus demselben Aufruf von tests/haeufung.py
+        (Abschnitt „Alter (Skript)“ in ~/halo-nacht/<datum>-haeufung.md, Zeilen
+        „alter“ in der .tsv); der Plan nennt den Zuschlag in der Begründung.
+        Er wirkt nur im Nutzen, also unterhalb von Regel (0), Schwere (a),
+        Testzeit-Verkürzung, Nutzer-Bugs und Wünschen des Maintainers (b).
    c) Zeitbudget und Reihenfolge. Große Einträge, die lange ununterbrochene
       Arbeit brauchen, gehören in die Nacht (Zusatzinfo des Maintainers vom
       13.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „… dass ich selbst schlafe
@@ -272,8 +282,9 @@ Reihenfolge:
           (a) und (b) dürfen die Reserve verkleinern (dann nennen).
       (d) Gleichstand: Bugs vor einfachen Features vor Reihen, dann die
           Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben,
-          Einstellungen, Chat; ein Eintrag über 7 Tage offen rückt eine Stufe
-          vor (Maintainer 11.11.2026).
+          Einstellungen, Chat (Maintainer 11.11.2026); das Alter steckt schon
+          im Nutzen (Zuschlag „Alter“ in b), bei sonst gleichem Stand der
+          ältere Eintrag zuerst.
       (e) Dauerfreigaben (docs/dauerfreigaben.md) und „Wartet auf OK“
           unverändert.
       (f) Höchstens drei Einträge zugleich In Progress (ohne „wartet auf

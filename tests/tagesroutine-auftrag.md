@@ -107,6 +107,12 @@ Plan-Runde („JETZT: Plan-Runde“):
   dort „FEHLER“: selbst nach derselben Regel gruppieren (gleicher Bereich und gleiche Stelle der
   Oberfläche, gleiche GitHub-Nummer) und im Abschnitt „Häufung: Skript gescheitert“ vermerken. Keine
   Notizen oder Verknüpfungen in Board-Einträgen nur für die Häufung anlegen.
+- Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; ersetzt „über 7 Tage offen rückt
+  eine Stufe vor“; Werte sind Festlegung des Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): verbindlich wie
+  die Häufung. Derselbe Aufruf von tests/haeufung.py schreibt den Abschnitt „Alter (Skript)“ (+0,5 Nutzenstufe je volle
+  7 Tage seit Anlage, höchstens +1,5). Innerhalb gleicher Einstufung und gleichen Bereichs kommt ein Eintrag mit
+  höherem Alters-Zuschlag zuerst; Schritt 1b, Schwere, Testzeit-Verkürzung, Nutzer-Bugs und Wünsche des Maintainers
+  gehen vor. Der Abschnitt „## Plan“ nennt den Zuschlag beim Eintrag.
 - Plan-Datei (Pfad oben), eine Zeile je Eintrag, Tabulator-getrennt, in Bearbeitungsreihenfolge:
     <Item-ID>	<komplex|routine|design>	<Titel>
   „komplex“: mehrere Dateien oder Bereiche, unklare Ursache, Design nach Vorlage, Logik in

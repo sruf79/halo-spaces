@@ -10586,6 +10586,78 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
 
+    def mail_own_layout_fits():
+        # Eigene Belegung der Mail-Toolbar ohne Abstandhalter vorn (GitHub #52: Nutzer mit vielen Knöpfen von Add-ons):
+        # die Platzprüfung maß am ersten Abstandhalter der Leiste statt am Abstandhalter vorn – war das ein
+        # ausgeblendeter eines anderen Bereichs, wichen alle Knöpfe ins Menü „»“, obwohl Platz war (gemessen: 411 px
+        # frei, 16 Knöpfe weg); war es einer mitten in der Leiste, wich keiner, und die Knöpfe liefen rechts aus der
+        # Leiste. Mit Platz (Today-Pane zu) bleibt jeder Knopf sichtbar; mit Today-Pane ragt keiner aus der Leiste
+        # oder über einen anderen, was weicht, steht im Menü; danach kommen alle zurück. Die Breite mit Platz wird
+        # gesucht (ab 1500 px in Schritten von 100 px bis zur Bildschirmbreite): unter Linux ist die Mailliste breiter
+        # als am Mac, dort fehlten bei 1500 px wirklich 48 px. Mit Today-Pane wird das Fenster so weit verengt, bis
+        # Knöpfe weichen müssen (bis 1100 px). Beide Fehler bleiben rot: mit dem falschen Abstandhalter kommt bei
+        # keiner Breite jeder Knopf zurück, oder es weicht bei keiner Breite einer
+        res = m.js(r"""
+          const out = {};
+          const { getState, storeState } = ChromeUtils.importESModule("resource:///modules/CustomizationState.mjs");
+          const savedState = getState(), tpWas = !!w.TodayPane?.isVisible;
+          const c = () => d.getElementById("unifiedToolbarContent");
+          const shownLis = () => [...c().children].filter(l => !l.hidden && l.getAttribute("item-id") && l.getAttribute("item-id") != "spacer");
+          const squeezed = () => shownLis().filter(l => l.hasAttribute("mc-squeezed")).map(l => l.getAttribute("item-id"));
+          const hits = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          const snap = () => {
+            const cr = c().getBoundingClientRect(), right = cr.right - (parseFloat(w.getComputedStyle(c()).paddingInlineEnd) || 0);
+            const tog = d.getElementById("mcTodayToggle")?.getBoundingClientRect();
+            const bx = [...c().children].filter(l => l.getAttribute("item-id") != "spacer").map(l => [l.getAttribute("item-id") || l.id, l.getBoundingClientRect()]).filter(([, b]) => b.width > 0);
+            const bad = [];
+            bx.forEach(([n1, r1], k) => bx.slice(k + 1).forEach(([n2, r2]) => { if (hits(r1, r2)) bad.push(`${n1} ${Math.round(r1.left)}–${Math.round(r1.right)} × ${n2} ${Math.round(r2.left)}–${Math.round(r2.right)}`); }));
+            for (const [n, b] of bx) {
+              if (b.right > right + 1.5) bad.push(`${n} ${Math.round(b.left)}–${Math.round(b.right)} ragt über die Leiste ${Math.round(right)}`);
+              if (tog?.width && b.right > tog.left + 1) bad.push(`${n} ${Math.round(b.left)}–${Math.round(b.right)} rechts vom Today-Knopf ${Math.round(tog.left)}`);
+            }
+            const ov = d.getElementById("mcToolbarOverflow");
+            return { iw: w.innerWidth, tp: !!w.TodayPane?.isVisible, noLead: c().hasAttribute("mc-no-lead"), squeezed: squeezed(), bad, right: Math.round(right),
+                     ov: !!ov && !ov.hasAttribute("mc-squeezed") && ov.getBoundingClientRect().width > 0,
+                     keep: ["write-message", "get-messages"].every(id => c().querySelector(`:scope > li[item-id="${id}"]`)?.getBoundingClientRect().width > 0),
+                     lis: bx.map(([n, b]) => n + ":" + Math.round(b.left) + "-" + Math.round(b.right)) };
+          };
+          const pane = async on => { if (!!w.TodayPane?.isVisible != on) { d.getElementById("mcTodayToggle").click(); await until(() => !!w.TodayPane?.isVisible == on, 3000); await ruhig(1200); } };
+          try {
+            const size = async px => { w.resizeTo(px, 900); await until(() => w.outerWidth == px, 3000); await ruhig(600); };
+            await pane(false);
+            await size(1500);
+            storeState({ ...savedState, mail: ["write-message", "get-messages", "reply", "delete", "forward-inline", "archive", "junk", "spacer", "quick-filter-bar", "search-bar", "print", "tag-message", "address-book"] });
+            await until(() => c().hasAttribute("mc-no-lead") && shownLis().length == 12, 5000);
+            await ruhig(800);
+            const maxW = Math.min(1920, w.screen.availWidth);
+            let breitW = 1500;
+            while (!(await until(() => !squeezed().length, 2000)) && breitW < maxW) {
+              breitW = Math.min(maxW, breitW + 100); await size(breitW);
+            }
+            out.breit = snap(); out.breitW = breitW;
+            await pane(true);
+            let engW = breitW;
+            while (!(await until(() => squeezed().length, 1500)) && engW > 1100) {
+              engW = Math.max(1100, engW - 100); await size(engW);
+            }
+            out.eng = snap(); out.engW = engW;
+            await pane(false);
+            await size(breitW);
+            await until(() => !squeezed().length, 4000);
+            out.zurueck = snap();
+          } finally {
+            storeState(savedState); await ruhig(500);
+            w.resizeTo(1500, 900); await ruhig(600);
+            await pane(tpWas);
+          }
+          return out;""")
+        b, e, z = (res.get(k) or {} for k in ("breit", "eng", "zurueck"))
+        ok = (all(x.get("noLead") and x.get("keep") and x.get("bad") == [] for x in (b, e, z))
+              and b.get("squeezed") == [] and z.get("squeezed") == []
+              and e.get("tp") is True and e.get("squeezed") and e.get("ov"))
+        return ok, f"{res}"
+    check("Mail: eigene Toolbar-Belegung ohne Abstandhalter vorn – mit Platz bleibt jeder Knopf sichtbar, mit Today-Pane ragt keiner aus der Leiste, was weicht, steht im Menü „»“ und kommt zurück", mail_own_layout_fits, results)
+
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
         # einblenden – keine verlorenen Bilder (Abstand über dem 1,6-Fachen des üblichen) und kein Sprung der Bücherliste

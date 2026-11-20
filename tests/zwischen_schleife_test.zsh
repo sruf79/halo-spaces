@@ -24,7 +24,7 @@ print -r -- "volldampf 2026-11-17T01:00+01:00 2026-11-24T01:00+01:00 Probe" > $T
 W() {
   env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=$T/kein-anker.txt HALO_VOLLDAMPF_JETZT=2026-11-17T10:00+01:00 \
     HALO_PAUSEN_DATEI=$T/pausen.txt HALO_BELEGT= HALO_ZS_STAND=abcdef1234567 HALO_ZS_TB=3 HALO_JETZT_HM=1000 \
-    HALO_ZS_MISCHBAR=ja HALO_ZS_NUR_PRUEF=nein HALO_ZS_GESPERRT_DATEI=$T/gesperrt.txt HALO_ZS_5H=40 HALO_ZS_FENSTER_REST=3600 \
+    HALO_ZS_MISCHBAR=ja HALO_ZS_NUR_PRUEF=nein HALO_ZS_SPUERBAR=ja ZWISCHEN_ERZWINGEN= HALO_ZS_GESPERRT_DATEI=$T/gesperrt.txt HALO_ZS_5H=40 HALO_ZS_FENSTER_REST=3600 \
     "$@" zsh $SKRIPT --trocken 2>&1
 }
 L=$(git -C $HIER/.. tag -l 'v[0-9]*' --sort=-v:refname | head -1); L=${L#v}
@@ -68,6 +68,22 @@ pruefe "Fenster 90 %, aber Fensterende vorbei (alter Wert): warten" "$(W HALO_ZS
 pruefe "Fenster 90 % und 0 Thunderbird-Commits: warten" "$(W HALO_ZS_TB=0 HALO_ZS_5H=90)" 'warten 0 Thunderbird-Commits'
 pruefe "Fenster 90 % ändert nichts an der Push-Sperre" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90 HALO_JETZT_HM=0859)" 'warten Push-Sperre bis 09:00'
 pruefe "Fenster 90 % ändert nichts an belegt (CI)" "$(W HALO_ZS_TB=1 HALO_ZS_5H=90 HALO_BELEGT='CI-Lauf auf dem GitHub-Runner')" 'warten belegt: CI-Lauf'
+# Nur Spürbares (Maintainer 20.11.2026): Nutzer-Fix oder Dringendes unter extension/ oder chrome/, sonst Nachtlauf
+pruefe "nichts Spürbares (nur Optik/Ablauf): warten mit Grund" "$(W HALO_ZS_SPUERBAR=nein)" 'warten Stand abcdef1 .*keinen Fehler, den Nutzer bemerken'
+pruefe "nichts Spürbares, aber ZWISCHEN_ERZWINGEN=1 (Maintainer): fällig" "$(W HALO_ZS_SPUERBAR=nein ZWISCHEN_ERZWINGEN=1)" '^Prüfung:  fällig abcdef1234567 3 '
+pruefe "erster Stand nicht spürbar, ERZWINGEN nur mit 1" "$(W HALO_ZS_SPUERBAR=nein ZWISCHEN_ERZWINGEN=ja)" 'warten .*keinen Fehler'
+G=$T/sp
+git init -q -b main $G; git -C $G config user.email t@t; git -C $G config user.name t
+mkdir -p $G/chrome $G/tests; print a > $G/chrome/a.css; git -C $G add -A; git -C $G commit -qm 'Mail: früherer Fix (GitHub #1)'; git -C $G tag v1.0.0
+print b > $G/tests/t.txt; git -C $G add -A; git -C $G commit -qm 'Tests: Prüfung dringend stabilisiert (GitHub #2)'
+print c > $G/chrome/a.css; git -C $G add -A; git -C $G commit -qm 'Mail: Abstand der Liste wie im Vorbild'
+SP1=$(git -C $G rev-parse HEAD)
+pruefe "git: Nutzer-Fix nur vor dem letzten Tag bzw. außerhalb von extension/chrome: warten" \
+  "$(W HALO_ZS_SPUERBAR=git HALO_REPO_MAIN=$G HALO_ZS_STAND="$SP1 pruef/sp")" 'warten .*keinen Fehler'
+print d > $G/chrome/a.css; git -C $G add -A; git -C $G commit -qm 'Kalender: Absturz beim Öffnen behoben (GitHub #3)'
+SP2=$(git -C $G rev-parse HEAD)
+pruefe "git: Commit unter chrome/ mit (GitHub #n) seit dem letzten Tag: fällig" \
+  "$(W HALO_ZS_SPUERBAR=git HALO_REPO_MAIN=$G HALO_ZS_STAND="$SP2 pruef/sp")" "^Prüfung:  fällig $SP2 3 pruef/sp\$"
 pruefe "Stand mit Commit „nicht nach main“: warten" "$(W HALO_ZS_NUR_PRUEF=ja)" 'warten Stand abcdef1 .*nicht nach main'
 pruefe "Kandidaten aus GitHub-Läufen nur pruef/*, neuester grüner Stand je Zweig, ohne Diagnose-/Probezweige" "$S" \
   "gh run list -R \\\$R -w test.yml -e push -s success" 'startswith\("pruef/"\)' 'gesehen\[\$b\]' 'ZWEIG_AUS'

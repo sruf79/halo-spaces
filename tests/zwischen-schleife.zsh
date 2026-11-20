@@ -15,7 +15,11 @@
 # Commit „nicht nach main“/„nur Prüfzweig“ in der Nachricht. Fällig ist der erste Kandidat mit mindestens AB (3) Commits mit
 # Thunderbird-Änderung über origin/main; steht das 5-Stunden-Fenster auf FENSTER_AB (85 %) oder mehr (kontingent.json,
 # höchstens KONT_ALTER Minuten alt, sonst tests/kontingent.sh; Fensterende über fenster_rest noch nicht erreicht), genügt
-# AB_FENSTER (1) Commit (Maintainer 18.11.2026: „mehrmals ein neues release machen? … Ja.“). neon nicht belegt? Dann:
+# AB_FENSTER (1) Commit (Maintainer 18.11.2026: „mehrmals ein neues release machen? … Ja.“). Zusätzlich nur, wenn der Stand
+# etwas Spürbares bringt (Maintainer 20.11.2026, ENTSCHEIDUNGEN.md „Zwischen-Releases nur für Spürbares“): seit dem letzten
+# Tag mindestens ein Commit unter extension/ oder chrome/, dessen Nachricht SPUERBAR trifft („(GitHub #n“, Absturz,
+# Datenverlust, Crash, Notfall, dringend); sonst warten (Logzeile), der Nachtlauf nimmt es mit. ZWISCHEN_ERZWINGEN=1 (nur
+# auf ausdrücklichen Wunsch des Maintainers) umgeht diese Bedingung. neon nicht belegt? Dann:
 #   1. Worktree WT (~/halo-zwischen-release, Zweig zr/release, Upstream origin/main) auf P; origin/main dort
 #      hineinmischen (Konflikt: abbrechen, kein Release). Der Checkout ~/halo-spaces wird nie angefasst (kein stash,
 #      kein reset, kein checkout): andere Sitzungen und parallele Agenten arbeiten dort weiter.
@@ -54,6 +58,8 @@ DIR=$HOME/halo-nacht
 TAKT=${ZS_TAKT:-5} AB=${ZWISCHEN_RELEASE_AB:-3} BIS=${ZWISCHEN_RELEASE_BIS:-2230} MODELL=${ZS_MODELL:-sonnet}
 # Diagnose- und Probezweige kommen nie in ein Release (Name), ebenso ein Stand mit einem Commit, der es sagt (Nachricht)
 ZWEIG_AUS=${ZS_ZWEIG_AUS:-'(diagnose|flackern|probe)'} NICHT_MAIN='nicht nach main|nur (auf dem |für den )?Prüfzweig'
+# Spürbar für Nutzer (Maintainer 20.11.2026): Nachricht eines Commits unter extension/ oder chrome/ seit dem letzten Tag
+SPUERBAR=${ZS_SPUERBAR:-'\(GitHub #[0-9]+|absturz|abstürz|stürzt|datenverlust|crash|notfall|dringend'}
 FENSTER_AB=${ZWISCHEN_RELEASE_FENSTER:-85} AB_FENSTER=${ZWISCHEN_RELEASE_AB_FENSTER:-1} KONT_ALTER=${ZS_KONT_ALTER:-15}
 R=sruf79/halo-spaces
 MODUS=
@@ -175,6 +181,11 @@ tb_zahl() {   # Commits in <P>, die nicht (auch nicht als Kopie) in origin/main 
   done
   print $n
 }
+spuerbar() {   # bringt <P> seit dem letzten Tag einen Nutzer-Fix oder Dringendes (extension/, chrome/)?
+  [[ -n ${HALO_ZS_SPUERBAR+x} && $HALO_ZS_SPUERBAR != git ]] && { [[ $HALO_ZS_SPUERBAR == ja ]]; return }
+  local t=$(git -C $MAIN tag -l 'v[0-9]*' --sort=-v:refname | head -1)
+  git -C $MAIN log --no-merges --format=%B ${t:+$t..}$1 -- extension chrome 2>/dev/null | grep -qiE -- $SPUERBAR
+}
 naechste_version() {
   local t=$(git -C $MAIN tag -l 'v[0-9]*' --sort=-v:refname | head -1)
   t=${t#v}; [[ $t == <->.<->.<-> ]] || return 1
@@ -207,6 +218,10 @@ pruefen() {
     if (( n < ab && n >= AB_FENSTER && ab != AB_FENSTER )) && [[ -z $f5 ]]; then
       f5=$(fenster5) || f5=-
       [[ $f5 == <-> ]] && (( f5 >= FENSTER_AB )) && ab=$AB_FENSTER
+    fi
+    if (( n >= ab )) && [[ $ZWISCHEN_ERZWINGEN != 1 ]] && ! spuerbar $p; then
+      grund=${grund:-"Stand ${p[1,7]} ($zw) behebt keinen Fehler, den Nutzer bemerken, und nichts Dringendes (wartet auf den Nachtlauf)"}
+      continue
     fi
     (( n >= ab )) && { erster="$p $n $zw"; break }
     grund=${grund:-"$n Thunderbird-Commits bis ${p[1,7]} ($zw) über origin/main (ab $ab$(fenster_text $f5))"}
@@ -298,7 +313,7 @@ LOCK=$DIR/zwischen-schleife.lock
 [[ -e $LOCK ]] && kill -0 $(<$LOCK) 2>/dev/null && { print -u2 "Zwischen-Schleife läuft schon (PID $(<$LOCK))"; exit 1 }
 print $$ > $LOCK
 trap 'zr_vorrang_loeschen; rm -f $LOCK' EXIT
-log "Zwischen-Schleife gestartet (Takt $TAKT Min., alle Prüfzweige pruef/*, ab $AB Thunderbird-Commits, ab $AB_FENSTER bei 5-Stunden-Fenster ab $FENSTER_AB %, Push-Beginn bis $BIS)"
+log "Zwischen-Schleife gestartet (Takt $TAKT Min., alle Prüfzweige pruef/*, ab $AB Thunderbird-Commits, ab $AB_FENSTER bei 5-Stunden-Fenster ab $FENSTER_AB %, Push-Beginn bis $BIS, nur Spürbares$([[ $ZWISCHEN_ERZWINGEN == 1 ]] && print -n ' – erzwungen'))"
 ALT= ABBRUCH_AN= BELEGT_SEIT= BELEGT_GEMELDET= VORRANG= VORRANG_SEIT= VORRANG_HM= VORRANG_AUS=
 while true; do
   z=$(pruefen)

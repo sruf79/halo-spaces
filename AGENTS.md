@@ -177,7 +177,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
   Regression belegen, belegter trennbarer Verursacher auf einen Nebenzweig, Rest neu prüfen und veröffentlichen;
   jede Rücknahme wegen roter Release-CI ist ein Nebenzweig-Fall und läuft über `tests/rot-nebenzweig.sh`;
   je öfter derselbe Commit rot wird, desto höher das Modell (`docs/release.md` „Rote Änderung auf einen Nebenzweig“).
-- **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh`, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
+- **Höchstens ein reguläres Release pro Tag** (im Volldampf nicht; Zwischen-Releases über den Wächter `tests/zwischen-schleife.zsh` nur bei einem Fehler, den Nutzer bemerken, oder Dringendem, Maintainer 20.11.2026, `docs/release.md` „Volldampf“). Was danach fertig wird, wartet auf den nächsten
   Nachtlauf. Notfall-Release nur bei einem schweren Fehler bei Nutzern.
 - **Hotfix** nur auf ausdrückliche Anweisung des Maintainers und nur ohne Änderung am Aussehen:
   `HOTFIX="<Muster>" ./release.sh x.y.z`.

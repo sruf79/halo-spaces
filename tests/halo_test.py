@@ -17518,39 +17518,63 @@ Neu
           "nicht scrollbar, unten 18 px; Emojis in Status und Hinweisen in voller Farbe; ohne Fotos/Emojis, „Settings…“ öffnet Einstellungen → halo.spaces", donate, results)
 
     def recommend():
-        # „Recommend“ neben „Say Thanks“: kopiert einen kurzen Text mit dem Link der Projektseite (aus dem Manifest),
-        # zeigt 2,5 s „Text with link copied ✓“ in Grün und dann wieder „Recommend“; Fenster bleibt ohne Scrollen
+        # „Recommend“ neben „Say Thanks“: öffnet eine neue Mail (Empfänger leer, Betreff „halo.spaces for Thunderbird“,
+        # Text mit dem Link der Projektseite aus dem Manifest, ohne „Apple“), das Info-Fenster schließt. Ohne Konto
+        # (Thunderbird öffnet dann kein Verfassen-Fenster) kopiert der Knopf wie bisher Text mit Link und bestätigt 2,5 s grün
+        # „Text with link copied ✓“. Fenster ohne Scrollen
         res = m.js('''
-          await toMail();
-          d.getElementById("mcHaloSpaces").doCommand();
-          const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent));
-          await ruhig(300);
-          const btn = hw?.document.getElementById("recommend");
-          const label = () => btn?.querySelector(".label")?.textContent;
-          const before = label();
-          const capsule = btn?.classList.contains("capsule");
-          const afterDonate = btn?.previousElementSibling?.id;
+          const open = () => [...Services.wm.getEnumerator("msgcompose")];
+          const haloWin = async () => { await toMail(); d.getElementById("mcHaloSpaces").doCommand();
+            const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent));
+            await ruhig(300); return hw; };
+          const out = {};
+          // ohne Konto: Rückfall Kopieren (nur messbar, solange das Profil noch keine Identität hat)
+          if (!MailServices.accounts.allIdentities.length) {
+            const hw = await haloWin(), btn = hw?.document.getElementById("recommend"), label = () => btn?.querySelector(".label")?.textContent;
+            btn?.click();
+            const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+            trans.init(null); trans.addDataFlavor("text/plain");
+            Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
+            const data = {}; trans.getTransferData("text/plain", data);
+            out.fallback = { label: label(), green: btn ? hw.getComputedStyle(btn).color : null, text: data.value?.QueryInterface(Ci.nsISupportsString).data || "",
+                             compose: open().length, back: !!(await until(() => label() == "Recommend" && !btn.classList.contains("copied"), 5000)) };
+            try { if (hw && !Cu.isDeadWrapper(hw) && !hw.closed) hw.close(); } catch {}
+            const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+            if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          }
+          const had = new Set(open());
+          const hw = await haloWin(), btn = hw?.document.getElementById("recommend");
+          Object.assign(out, { before: btn?.querySelector(".label")?.textContent, capsule: btn?.classList.contains("capsule"), afterDonate: btn?.previousElementSibling?.id,
+                               overflow: hw ? hw.document.documentElement.scrollHeight - hw.innerHeight : null });
           btn?.click();
-          const copiedLabel = label(), green = btn ? hw.getComputedStyle(btn).color : null;
-          const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
-          trans.init(null); trans.addDataFlavor("text/plain");
-          Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
-          const data = {}; trans.getTransferData("text/plain", data);
-          const text = data.value?.QueryInterface(Ci.nsISupportsString).data || "";
-          const back = await until(() => label() == before && !btn.classList.contains("copied"), 5000);
-          const overflow = hw ? hw.document.documentElement.scrollHeight - hw.innerHeight : null;
-          try { if (hw && !hw.closed) hw.close(); } catch {}
-          return { before, capsule, afterDonate, copiedLabel, green, text, back: !!back, overflow };''')
+          const cw = await until(() => open().find(x => !had.has(x) && x.document.readyState == "complete" && x.gMsgCompose && x.GetCurrentEditor?.()), 12000);
+          out.compose = !!cw; out.haloClosed = !!(await until(() => !hw || Cu.isDeadWrapper(hw) || hw.closed, 3000));
+          if (cw) {
+            await until(() => /https:/.test(cw.GetCurrentEditor().outputToString("text/plain", 0) || ""), 5000);
+            out.subject = cw.document.getElementById("msgSubject")?.value;
+            out.to = cw.document.querySelectorAll("#toAddrContainer mail-address-pill").length;
+            out.text = cw.GetCurrentEditor().outputToString("text/plain", 0);
+            cw.gContentChanged = false; if (cw.gMsgCompose) cw.gMsgCompose.bodyModified = false;
+            cw.close(); await until(() => cw.closed, 4000); await ruhig(300);
+          }
+          try { if (hw && !Cu.isDeadWrapper(hw) && !hw.closed) hw.close(); } catch {}
+          return out;''')
         import re
-        rgb = [int(x) for x in re.findall(r"\d+", res.get("green") or "")[:3]]
-        green = len(rgb) == 3 and rgb[1] > rgb[0] + 40 and rgb[1] > rgb[2] + 40
-        text = res.get("text") or ""
-        return (res.get("before") == "Recommend" and res.get("capsule") and res.get("afterDonate") == "donate"
-                and res.get("copiedLabel") == "Text with link copied ✓" and green
-                and text.endswith(" https://github.com/sruf79/halo-spaces") and "Apple" not in text
-                and res.get("back") and res.get("overflow") is not None and res["overflow"] <= 0), f"{res}"
-    check("Info-Fenster: „Recommend“ neben „Say Thanks“ kopiert einen kurzen Text mit Link, bestätigt 2,5 s grün „Text with link copied ✓“, "
-          "Fenster ohne Scrollen", recommend, results)
+        link = " https://github.com/sruf79/halo-spaces"
+        fb = res.get("fallback")
+        if fb is not None:
+            rgb = [int(x) for x in re.findall(r"\d+", fb.get("green") or "")[:3]]
+            fb_ok = (fb.get("label") == "Text with link copied ✓" and len(rgb) == 3 and rgb[1] > rgb[0] + 40 and rgb[1] > rgb[2] + 40
+                     and fb.get("text", "").endswith(link) and "Apple" not in fb.get("text", "") and fb.get("compose") == 0 and fb.get("back"))
+        else:
+            fb_ok = True
+        text = (res.get("text") or "").strip()
+        return (fb_ok and res.get("before") == "Recommend" and res.get("capsule") and res.get("afterDonate") == "donate"
+                and res.get("compose") and res.get("haloClosed") and res.get("subject") == "halo.spaces for Thunderbird" and res.get("to") == 0
+                and text.endswith(link) and "Apple" not in text
+                and res.get("overflow") is not None and res["overflow"] <= 0), f"{res}"
+    check("Info-Fenster: „Recommend“ neben „Say Thanks“ öffnet eine neue Mail ohne Empfänger mit Betreff und kurzem Text samt Link "
+          "(ohne Konto: Text mit Link kopiert, 2,5 s grün bestätigt), Info-Fenster schließt, Fenster ohne Scrollen", recommend, results)
 
     def thanks_reminder():
         # „Danke sagen“ mit leiser Erinnerung: Nutzungstage zählen (frisches Profil: Tag 1, nichts fällig), Plan 14, 35, 67 …;

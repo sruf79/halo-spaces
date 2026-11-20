@@ -38,6 +38,28 @@ class EnhancerHaloFenster {
     MailServices.compose.OpenComposeWindowWithParams(null, params);
   }
 
+  // Weiterempfehlen: neue Mail mit Betreff und kurzem Text samt Link der
+  // Projektseite, Empfänger leer – sofort versandbereit (Thunderbird ist hier
+  // selbst das Mailprogramm). Wirft, wenn es nicht geht; dann kopiert das
+  // Fenster den Text wie bisher in die Zwischenablage
+  recommend() {
+    // ohne Konto öffnet Thunderbird kein Verfassen-Fenster
+    const identity = MailServices.accounts.defaultAccount?.defaultIdentity || MailServices.accounts.allIdentities[0];
+    if (!extensionHomepage || !identity) {
+      throw new Error(identity ? "no homepage" : "no identity");
+    }
+    const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+    const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+    fields.subject = tr("halo.spaces for Thunderbird");
+    fields.body = `${tr("Hi,")}\n\n` +
+      `${tr("halo.spaces gives Thunderbird a calm, modern look on macOS. Free. Screenshots and download:")} ${extensionHomepage}\n`;
+    params.type = Ci.nsIMsgCompType.New;
+    params.format = Ci.nsIMsgCompFormat.PlainText;
+    params.composeFields = fields;
+    params.identity = identity;
+    MailServices.compose.OpenComposeWindowWithParams(null, params);
+  }
+
   // Beim Start nach einem Update suchen und es gleich installieren – höchstens
   // alle 6 Stunden, und nur wenn automatische Updates erlaubt sind
   // (Thunderbirds Einstellung und die des Add-ons im Add-ons-Manager; einen
@@ -139,6 +161,7 @@ class EnhancerHaloFenster {
       themeSwitched,
       openSettings: () => openHaloSettings(w),
       sendFeedback: () => this.sendFeedback(),
+      recommend: () => this.recommend(),
       // Begrüßung: Wetter in der Today-Pane gleich einrichten (dieselben Prefs
       // wie die Einstellungsseite); Ergebnis als Zeile: Ort/Temperatur oder Hinweis
       setWeather: async (on, place = "") => {
@@ -587,12 +610,20 @@ class EnhancerHaloFenster {
     Thanks.listeners.add(ring);
     hw.addEventListener("unload", () => Thanks.listeners.delete(ring), { once: true });
     donate.addEventListener("click", () => api.donate());
-    // Weiterempfehlen: kurzer Text mit Link in die Zwischenablage, 2,5 s
-    // Bestätigung im Knopf (grün), danach wieder „Recommend“
+    // Weiterempfehlen: neue Mail mit Text und Link (api.recommend); geht das
+    // nicht, kurzer Text mit Link in die Zwischenablage, 2,5 s Bestätigung im
+    // Knopf (grün), danach wieder „Recommend“
     const recommend = $("recommend");
     const recLabel = recommend?.querySelector(".label");
     let recTimer = null;
     recommend?.addEventListener("click", () => {
+      try {
+        api.recommend();
+        hw.close();
+        return;
+      } catch (e) {
+        log("recommend mail failed", String(e));
+      }
       let ok = false;
       try {
         if (!extensionHomepage) {

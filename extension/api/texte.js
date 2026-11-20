@@ -221,6 +221,7 @@ const DE = {
   "Send Feedback": "Feedback senden",
   "Say Thanks": "Danke sagen",
   "Recommend": "Weiterempfehlen",
+  "halo.spaces for Thunderbird": "halo.spaces für Thunderbird",
   "halo.spaces gives Thunderbird a calm, modern look on macOS. Free. Screenshots and download:": "halo.spaces gibt Thunderbird unter macOS einen ruhigen, modernen Look. Kostenlos. Bilder und Download:",
   "Text with link copied ✓": "Text mit Link kopiert ✓",
   "Copying not possible": "Kopieren nicht möglich",

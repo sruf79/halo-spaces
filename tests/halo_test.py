@@ -18641,10 +18641,22 @@ Neu
             await dragTo("Halo Kanban halb", 0); await ruhig(300);
             await dragTo("Halo Kanban fertig", 1);
             const after = async s => { const t = await c.getItem(s.id); return t && (t.isCompleted ? "done" : String(t.percentComplete || 0)); };
-            await bis(async () => (await after(saved[0])) == "done" && (await after(saved[1])) == "0" && (await after(saved[2])) == "50", "Fortschritt gesetzt", 5000).catch(() => {});
-            await ruhig(500);
-            out.moved = [await after(saved[0]), await after(saved[1]), await after(saved[2])];
-            out.movedCols = [...list.querySelectorAll(".mc-tb-col")].map(col => [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Kanban/.test(t)));
+            // (bis()/until() werten die Bedingung synchron aus – eine async-Bedingung liefert ein Promise, das gilt
+            // sofort als erfüllt; vorher wartete hier nur ruhig(500), und das kam unter Linux/ESR zurück, bevor die
+            // dritte Änderung gespeichert war: CI-Lauf 44732110066, Versuch 1, „fertig“ noch in Completed)
+            const moved = async () => [await after(saved[0]), await after(saved[1]), await after(saved[2])];
+            for (const end = Date.now() + 5000; Date.now() < end && JSON.stringify(await moved()) != '["done","0","50"]';) await takt(25);
+            out.moved = await moved();
+            // (die Karten zieht erst der nächste Bildwechsel nach Thunderbirds Meldung an die Liste nach – auf den
+            // Stand der Spalten warten statt auf Ruhe)
+            const colsNow = () => [...list.querySelectorAll(".mc-tb-col")].map(col => [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Kanban/.test(t)));
+            const wantCols = JSON.stringify([["Halo Kanban halb"], ["Halo Kanban fertig"], ["Halo Kanban offen"]]);
+            await bis(() => JSON.stringify(colsNow()) == wantCols, "Spalten nachgezogen", 5000).catch(() => {});
+            out.movedCols = colsNow();
+            // (zur Auswertung, falls rot: Stand der Aufgabe in Thunderbirds Liste und noch angemeldete Bildwechsel)
+            const inTree = (tree.mTaskArray || []).find(t => t.title == "Halo Kanban fertig");
+            out.inTree = inTree ? (inTree.isCompleted ? "done" : String(inTree.percentComplete || 0)) : null;
+            out.frames = w.__haloFrames?.size ?? null;
             Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(800);
             out.back = { cols: list.querySelectorAll(".mc-tb-col").length, cards: list.querySelectorAll(":scope > .mc-tc[data-index]").length,
                          board: d.documentElement.hasAttribute("mc-task-board"), details: Math.round(det.getBoundingClientRect().width) };

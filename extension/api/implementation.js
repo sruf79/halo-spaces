@@ -9051,7 +9051,8 @@ class CardEnhancer {
       }
       // (erst nach dem Fokuswechsel: innerhalb des Felds wandert er nur)
       w.setTimeout(() => {
-        if (!li.hasAttribute("mc-search-open") || li.matches(":focus-within") || searchInput(li)?.value?.trim()) {
+        if (!li.hasAttribute("mc-search-open") || li.matches(":focus-within") || searchInput(li)?.value?.trim() ||
+            li.querySelector("global-search-bar[mc-caps]")) {
           return;
         }
         li.removeAttribute("mc-search-open");
@@ -11072,6 +11073,12 @@ class CardEnhancer {
       // des Slots) bliebe unsichtbar. Erst nachdem styleSearch Thunderbirds
       // Text abgekoppelt hat (sonst bleibt dessen Übersetzung stehen).
       setPlaceholder(mode);
+      // Kapseln der Mail-Suche nur im Mail-Space zeigen; beim Wechsel das
+      // Vorschlagsmenü schließen (nicht im Sekundentakt von markTab ohne Wechsel)
+      if (!sameTab) {
+        this.closeSearchSuggest(w);
+      }
+      this.renderSearchCaps(w);
       if (target && !sameTab) {
         const term = target.input(currentTarget()?.cw)?.value || "";
         bar.overrideSearchTerm?.(term);
@@ -11094,6 +11101,10 @@ class CardEnhancer {
           const text = event.type == "search" ? event.detail ?? event.target.value : event.detail;
           w.clearTimeout(w.__mcMailSearchTimer);
           const run = () => this.mailSearch(w, text || "");
+          // ↩: Begriff für die Vorschläge merken (frühere Suchen)
+          if (event.type == "search" && text) {
+            this.rememberSearch(text);
+          }
           // Eingabetaste oder leeres Feld sofort, beim Tippen kurz warten
           if (event.type == "search" || !text) {
             run();
@@ -11587,6 +11598,7 @@ class CardEnhancer {
     const markTab = () => {
       hookSearchForwarding();
       hookSuggestWidth();
+      this.hookSearchSuggest(w);
       hookHelpMenu();
       hookPreviewMenu();
       hookLightMessage();
@@ -14921,7 +14933,8 @@ loadPart("kalenderfenster.js");
 loadPart("halofenster.js");
 loadPart("mailliste.js");
 loadPart("mailkarten.js");
-for (const teil of [EnhancerOberflaeche, EnhancerKalender, EnhancerHaloFenster, EnhancerMailliste, EnhancerMailkarten]) {
+loadPart("suchvorschlag.js");
+for (const teil of [EnhancerOberflaeche, EnhancerKalender, EnhancerHaloFenster, EnhancerMailliste, EnhancerMailkarten, EnhancerSuchvorschlag]) {
   for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(teil.prototype))) {
     if (name == "constructor") {
       continue;

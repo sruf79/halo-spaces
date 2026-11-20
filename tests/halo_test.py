@@ -11890,9 +11890,10 @@ def run_checks(m, version, profile, results):
                  "unterhaltung.js": ["ConversationCards", "foldQuotedHistory", "CONVERSATION_PREF"],
                  "oberflaeche.js": ["EnhancerOberflaeche"], "kalenderfenster.js": ["EnhancerKalender"],
                  "halofenster.js": ["EnhancerHaloFenster"], "mailliste.js": ["EnhancerMailliste"],
-                 "mailkarten.js": ["EnhancerMailkarten"]}
+                 "mailkarten.js": ["EnhancerMailkarten"], "suchvorschlag.js": ["EnhancerSuchvorschlag", "searchSuggestRows"]}
         # Methoden aus den CardEnhancer-Teilen am laufenden enhancer
-        methoden = ["styleSearch", "openQuickCreate", "openHaloWindow", "hookConversation", "decorateHeader", "refreshPreviewsNow"]
+        methoden = ["styleSearch", "openQuickCreate", "openHaloWindow", "hookConversation", "decorateHeader", "refreshPreviewsNow",
+                    "hookSearchSuggest"]
         res = m.js(r"""
           const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
           const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
@@ -20393,6 +20394,125 @@ Neu
                                                   and set(res.get("typedSmart") or []) == set(res.get("inSmart") or []))))
         return ok, f"{res}"
     check("Suche: im gewählten Ordner nur dort, in Sammelordnern global, keine Mails ohne den Begriff, Platzhalter je Ordner, Ordnerwechsel sucht weiter", search_scope, results)
+
+    def search_suggest():
+        # Mail-Suche: beim Tippen ein Vorschlagsmenü unter dem Suchfeld zum Eingrenzen (Personen aus dem Adressbuch,
+        # „Subject contains“, „Message contains“, frühere Suchen); ↓ ↑ wählen, ↩ übernimmt die Wahl als graue Kapsel
+        # ins Feld, ⎋ schließt nur das Menü, ⌫ am Feldanfang und das × entfernen Kapseln; Klick auf die Kapsel wechselt
+        # den Bereich (Subject/Message bzw. From/To/Any). Kapseln und freier Text müssen gemeinsam zutreffen
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("SucheV")) { root.createSubfolder("SucheV", null); }
+          const V = root.getChildNamed("SucheV"); await ruhig(800);
+          const anna = "Vera Suchfeld <vera@suche.example.invalid>", bert = "Bert Vogel <bert@vogel.example.invalid>";
+          const mail = (subject, id, o = {}) => unescape(encodeURIComponent([`From: ${o.from || anna}`,
+            `To: ${o.to || "Halo Test <halo@example.invalid>"}`, `Subject: ${subject}`, "Date: Mon, 19 Oct 2026 10:00:00 +0200", `Message-ID: <${id}@example.invalid>`,
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", o.body || "Nichts Besonderes.", ""].join("\r\n")));
+          if (!V.getTotalMessages(false)) {
+            const lv = V.QueryInterface(Ci.nsIMsgLocalMailFolder);
+            lv.addMessage(mail("Halo Kolibri Rechnung", "sv-1"));
+            lv.addMessage(mail("Halo anderes", "sv-2", { body: "Der Kolibri fliegt." }));
+            lv.addMessage(mail("Halo Kolibri Angebot", "sv-3", { from: bert, to: anna }));
+            lv.addMessage(mail("Halo Gruss", "sv-4", { to: bert }));
+            await bis(() => V.getTotalMessages(false) >= 4, "Testmails gespeichert", 4000); await ruhig(1000);
+          }
+          const a3 = await toMail(); const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const input = bar.shadowRoot.querySelector("input"), html = a3.document.documentElement;
+          const panel = await bis(() => d.getElementById("mcSearchSuggest"), "Vorschlagsmenü angelegt");
+          const fertig = async was => { await bis(() => !html.hasAttribute("mc-search-stage") && !a3.gViewWrapper?.searching, "Suche fertig: " + was, 10000); await ruhig(1500); };
+          const hits = () => a3.gFolder?.name == "SucheV" ? "kein Suchordner" : [...Array(a3.gDBView?.rowCount || 0).keys()].map(i => a3.gDBView.getMsgHdrAt(i)?.messageId?.split("@")[0]).filter(Boolean).sort().join();
+          const type = text => { input.value = text; input.dispatchEvent(new w.Event("input", { bubbles: true, composed: true })); };
+          const key = k => { const e = new w.KeyboardEvent("keydown", { key: k, bubbles: true, composed: true, cancelable: true }); input.dispatchEvent(e); return e.defaultPrevented; };
+          const rows = () => [...panel.querySelectorAll(".mc-sg-row")].map(r => r.dataset.kind + ":" + r.textContent);
+          const caps = () => [...bar.shadowRoot.querySelectorAll("#mc-caps .mc-cap")].map(c => c.querySelector(".mc-cap-k").textContent + "|" + c.querySelector(".mc-cap-v").textContent);
+          const open = (n, was) => bis(() => panel.state == "open" && panel.querySelectorAll(".mc-sg-row").length >= n, was, 6000);
+          const choose = async label => { bar.shadowRoot.querySelector("#mc-caps .mc-cap").click();
+            const menu = await bis(() => (p => p?.state == "open" && p)(d.getElementById("mcSearchCapMenu")), "Menü der Kapsel offen: " + label);
+            const labels = [...menu.children].map(i => i.label + (i.getAttribute("checked") == "true" ? "*" : ""));
+            menu.activateItem([...menu.children].find(i => i.label == label)); await bis(() => menu.state == "closed", "Menü der Kapsel zu"); return labels.join(); };
+          const out = {};
+          // eigener Kontakt für die Personenzeile (am Ende wieder gelöscht: andere Prüfungen zählen die Kontakte)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          let card = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+          card.setProperty("FirstName", "Vera"); card.setProperty("LastName", "Suchfeld"); card.displayName = "Vera Suchfeld"; card.primaryEmail = "vera@suche.example.invalid";
+          card = book.addCard(card);
+          Services.prefs.clearUserPref("extensions.mailcards.searchRecent");
+          try {
+            a3.displayFolder(V.URI); await bis(() => a3.gFolder?.URI == V.URI && a3.gDBView?.rowCount >= 4, "SucheV offen"); await ruhig(600);
+            input.focus();
+            // 1. Tippen: Menü mit „Subject contains“ und „Message contains“, so breit wie das volle Feld, bündig mit dem Feldende
+            type("kolibri"); await open(2, "Vorschlagsmenü offen"); await ruhig(600);
+            out.rows = rows(); out.focus = bar.shadowRoot.activeElement == input;
+            const list = panel.querySelector(".mc-sg-list"), row = panel.querySelector(".mc-sg-row"), icon = row.querySelector(".mc-sg-icon"), term = row.querySelector(".mc-sg-term");
+            const pr = panel.getOuterScreenRect(), br = bar.getBoundingClientRect(), lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
+            out.geo = { width: Math.round(lr.width), field: Math.round(br.width), room: Math.round(br.right - 8), end: Math.round(w.mozInnerScreenX + br.right - (pr.x + pr.width)),
+              below: Math.round(pr.y - (w.mozInnerScreenY + br.bottom)), rowH: Math.round(rr.height), rowIn: Math.round(rr.left - lr.left),
+              icon: Math.round(icon.getBoundingClientRect().left - lr.left), iconW: Math.round(icon.getBoundingClientRect().width),
+              text: Math.round(row.querySelector(".mc-sg-label").getBoundingClientRect().left - lr.left) };
+            out.grey = w.getComputedStyle(row).color != w.getComputedStyle(term).color;
+            // 2. ⎋ schließt nur das Menü, der Text bleibt
+            out.escStop = key("Escape"); await bis(() => panel.state == "closed", "Menü nach Escape zu"); out.escText = input.value;
+            // 3. ↓ wählt die erste Zeile, ↓↓↓ landet wieder ohne Wahl, ↑ auf der letzten; ↩ übernimmt als Kapsel
+            type("kolibri"); await open(2, "Menü wieder offen"); await ruhig(500);
+            key("ArrowDown"); out.sel1 = [...panel.querySelectorAll(".mc-sg-row")].findIndex(r => r.hasAttribute("selected"));
+            out.selColor = w.getComputedStyle(row).color == w.getComputedStyle(term).color;
+            key("ArrowDown"); key("ArrowDown"); out.selNone = panel.querySelectorAll(".mc-sg-row[selected]").length;
+            key("ArrowUp"); out.selLast = [...panel.querySelectorAll(".mc-sg-row")].findIndex(r => r.hasAttribute("selected"));
+            key("ArrowUp"); out.enterStop = key("Enter");
+            await bis(() => caps().length == 1, "Kapsel nach Enter"); await fertig("Betreff-Kapsel");
+            out.cap1 = caps(); out.textAfter = input.value; out.closed = panel.state; out.subject = hits();
+            const cap = bar.shadowRoot.querySelector("#mc-caps .mc-cap"), cr = cap.getBoundingClientRect(), b2 = bar.getBoundingClientRect(), cs = w.getComputedStyle(cap);
+            out.capGeo = { h: Math.round(cr.height), radius: cs.borderTopLeftRadius, inside: cr.left >= b2.left + 24 && cr.right <= b2.right - 24,
+              pad: Math.round(parseFloat(w.getComputedStyle(input).paddingInlineStart) - (cr.right - b2.left)), ph: w.getComputedStyle(bar.shadowRoot.querySelector("div")).display };
+            // 4. freier Text dazu: beides muss zutreffen; ↩ ohne Wahl sucht normal und merkt sich den Begriff
+            type("rechnung"); await open(2, "Menü mit Kapsel offen"); bar.dispatchEvent(new w.CustomEvent("search", { detail: "rechnung", bubbles: true, composed: true }));
+            await fertig("Kapsel und Text"); out.both = hits();
+            input.value = ""; bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await fertig("nur Kapsel"); out.capOnly = hits();
+            // 5. Klick auf die Kapsel: Bereich wechseln (Message: nur der Text der Mail)
+            out.menu1 = await choose("Message"); await fertig("Message-Kapsel"); out.cap2 = caps(); out.body = hits();
+            // 6. ⌫ am Feldanfang entfernt die Kapsel, die Suche endet
+            input.setSelectionRange(0, 0); out.bsStop = key("Backspace");
+            await bis(() => a3.gFolder?.URI == V.URI, "zurück im Ordner nach ⌫", 6000); await ruhig(600); out.capsAfterBs = caps().length; out.attrAfterBs = bar.hasAttribute("mc-caps");
+            // 7. Person aus dem Adressbuch: nur der Name, als Kapsel „From“; To und Any über das Menü der Kapsel
+            type("vera"); await bis(() => panel.state == "open" && rows().some(r => r.startsWith("person:")), "Personenzeile", 6000); await ruhig(400);
+            out.rowsAnna = rows(); key("ArrowDown"); key("Enter");
+            await bis(() => caps().length == 1, "Personen-Kapsel"); await fertig("From"); out.capFrom = caps(); out.from = hits();
+            out.menu2 = await choose("To"); await fertig("To"); out.capTo = caps(); out.to = hits();
+            await choose("Any"); await fertig("Any"); out.any = hits();
+            await choose("From"); await fertig("From 2");
+            // Person und freier Text: (Betreff, Absender, Empfänger oder Text) und zugleich die Person
+            type("kolibri"); bar.dispatchEvent(new w.CustomEvent("search", { detail: "kolibri", bubbles: true, composed: true })); await fertig("From und Text"); out.fromText = hits();
+            // frühere Suche („rechnung“ aus Schritt 4) als Zeile mit Lupe
+            type("rech"); await bis(() => panel.state == "open" && rows().some(r => r.startsWith("recent:")), "frühere Suche", 6000); out.rowsRecent = rows();
+            // 8. × des Felds: Text und Kapseln weg, die Suche endet
+            const x = bar.shadowRoot.getElementById("mc-caps-clear"); out.xShown = w.getComputedStyle(x).display; x.click();
+            await bis(() => a3.gFolder?.URI == V.URI, "zurück im Ordner nach ×", 6000); await ruhig(600);
+            out.end = { caps: caps().length, text: input.value, panel: panel.state, attr: bar.hasAttribute("mc-caps") };
+          } finally {
+            try { book.deleteCards([card]); } catch {}
+            Services.prefs.clearUserPref("extensions.mailcards.searchRecent");
+            try { d.getElementById("mcSearchCapMenu")?.hidePopup(); panel.hidePopup(); } catch {}
+            input.value = ""; bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(600);
+          }
+          return out;""")
+        g, c = res.get("geo") or {}, res.get("capGeo") or {}
+        ok = (res.get("rows") == ["subject:Subject contains:kolibri", "body:Message contains:kolibri"] and res.get("focus")
+              and g.get("width", 0) == max(g.get("field", 9999), min(333, g.get("room", 0))) and abs(g.get("end", 99)) <= 2
+              and 0 <= g.get("below", -1) <= 8 and g.get("rowH") == 22 and g.get("rowIn") == 5 and g.get("icon") == 15 and g.get("iconW") == 16 and g.get("text") == 39
+              and res.get("grey") and res.get("escStop") and res.get("escText") == "kolibri"
+              and res.get("sel1") == 0 and res.get("selColor") and res.get("selNone") == 0 and res.get("selLast") == 1 and res.get("enterStop")
+              and res.get("cap1") == ["Subject|kolibri"] and res.get("textAfter") == "" and res.get("closed") == "closed" and res.get("subject") == "sv-1,sv-3"
+              and c.get("h") == 20 and c.get("radius") == "10px" and c.get("inside") and 0 <= c.get("pad", -1) <= 8 and c.get("ph") == "none"
+              and res.get("both") == "sv-1" and res.get("capOnly") == "sv-1,sv-3"
+              and res.get("menu1") == "Subject*,Message" and res.get("cap2") == ["Message|kolibri"] and res.get("body") == "sv-2"
+              and res.get("bsStop") and res.get("capsAfterBs") == 0 and res.get("attrAfterBs") is False
+              and (res.get("rowsAnna") or [""])[0] == "person:Vera Suchfeld" and res.get("capFrom") == ["From|Vera Suchfeld"] and res.get("from") == "sv-1,sv-2,sv-4"
+              and res.get("menu2") == "From*,To,Any" and res.get("capTo") == ["To|Vera Suchfeld"] and res.get("to") == "sv-3" and res.get("any") == "sv-1,sv-2,sv-3,sv-4"
+              and res.get("fromText") == "sv-1,sv-2" and "recent:rechnung" in (res.get("rowsRecent") or [])
+              and res.get("xShown") == "block" and res.get("end") == {"caps": 0, "text": "", "panel": "closed", "attr": False})
+        return ok, f"{res}"
+    check("Mail-Suche: Vorschlagsmenü zum Eingrenzen (Personen, Betreff, Text, frühere Suchen), Wahl als Kapsel im Feld, Kapseln und Text treffen gemeinsam zu", search_suggest, results)
 
     def contact_search():
         # „Search“ am geöffneten Kontakt: Thunderbird öffnete eine eigene Suchansicht ohne Ordnerliste;

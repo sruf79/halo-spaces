@@ -4263,6 +4263,83 @@ panel {
   color: inherit !important;
 }
 
+/* Vorschlagsmenü der Mail-Suche zum Eingrenzen (Personen, „Subject
+   contains“, „Message contains“, frühere Suchen; suchvorschlag.js): gebaut
+   wie die Vorschlagsliste darüber, dazu eine Symbolspalte. Zeilen 22 px,
+   Symbol 16 px an der Textkante (15 px vom Rand), 8 px Luft zum Text;
+   Bezeichnung, Personen und frühere Suchen grau, der getippte Begriff in
+   Textfarbe; gewählt alles in der Akzentfarbe. Breite setzt die Erweiterung
+   (--mc-suggest-width: Suchfeld in voller Breite, bündig mit dem Feldende) */
+#mcSearchSuggest {
+  appearance: auto !important;
+  -moz-default-appearance: menupopup !important;
+  --panel-background: var(--mt-menu-bg) !important;
+  --panel-color: var(--mt-text) !important;
+  --panel-border-color: transparent !important;
+  --panel-border-radius: 12px !important;
+  --panel-padding: 5px 0 !important;
+  font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;
+}
+
+#mcSearchSuggest .mc-sg-list {
+  box-sizing: border-box;
+  width: var(--mc-suggest-width, 333px);
+}
+
+#mcSearchSuggest .mc-sg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 22px;
+  margin-inline: 5px;
+  padding-inline: 10px;
+  border-radius: 6px;
+  color: var(--mt-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: default;
+}
+
+#mcSearchSuggest .mc-sg-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  -moz-context-properties: fill, stroke, fill-opacity;
+  stroke: currentColor;
+  fill: currentColor;
+  fill-opacity: 0;
+}
+
+#mcSearchSuggest .mc-sg-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#mcSearchSuggest .mc-sg-term {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-inline-start: -4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--mt-text);
+}
+
+#mcSearchSuggest .mc-sg-row:hover {
+  background-color: var(--mt-hover);
+}
+
+#mcSearchSuggest .mc-sg-row[selected] {
+  background: var(--mt-accent);
+  color: var(--mt-accent-text);
+}
+
+#mcSearchSuggest .mc-sg-row[selected] .mc-sg-term {
+  color: inherit;
+}
+
 /* Adressvorschläge im Verfassen-Fenster wie die übrigen Menüs: durchscheinende
    Menüfläche über der Unschärfe von macOS, Rand und Schatten vom System statt
    weißer bzw. bläulicher Fläche mit Haarlinie. Die Empfängerfelder haben kein

@@ -14656,6 +14656,10 @@ def run_checks(m, version, profile, results):
         # (unter Windows/Linux rechts die Fensterknöpfe), kein Titel, kein „+“; „Today“ (mit Sonne bzw. Wetter) mittig
         # zwischen Mini-Kalender und Liste und anklickbar; „+“ fest mittig unten in eigenem Streifen unter der Karte –
         # die Liste rollt darüber, das „+“ bewegt sich dabei nicht (Mail, Aufgaben, Adressbuch, Chat, Einstellungen)
+        # Einstellungen öffnen ohne auf openPreferencesTab() zu warten: seine Zusage erfüllt sich nur beim Laden eines neuen
+        # Tabs – ist aus einer früheren Prüfung schon ein Einstellungen-Tab offen (voller Lauf), wechselt Thunderbird nur
+        # dorthin und die Zusage bleibt für immer offen (unter Linux hing die Prüfung so bis zur Skriptgrenze von 90 s;
+        # mit diesem Warten CI 19.11. Lauf 44567895659 in allen drei Linux-Jobs grün)
         res = m.js(CAL_CHECK_JS + r"""
           const c = testCalendar(), added = [];
           for (let i = 0; i < 36; i++) { const e = new CalEvent(); e.title = "Halo Kopf " + i; e.calendar = c; const s = today(); s.isDate = false; s.hour = 8 + (i % 10); s.day += i % 7;
@@ -14664,7 +14668,8 @@ def run_checks(m, version, profile, results):
           try {
           const cmd = d.getElementById("calendar_toggle_todaypane_command");
           const go = { mail: toMail, tasks: async () => tm.openTab("tasks", {}), book: async () => tm.openTab("addressBookTab", {}),
-                       chat: async () => tm.openTab("chat", {}), prefs: async () => w.openPreferencesTab() };
+                       chat: async () => tm.openTab("chat", {}), prefs: async () => { w.openPreferencesTab();
+                         await bis(() => tm.currentTabInfo?.mode?.name == "preferencesTab" && tm.currentTabInfo.browser?.contentDocument?.getElementById("preferencesContainer"), "Einstellungen", 6000); } };
           const R = e => { const r = e?.getBoundingClientRect(); return r?.width ? r : null; };
           for (const [name, fn] of Object.entries(go)) {
             await fn(); await ruhig(1200);

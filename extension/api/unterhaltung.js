@@ -62,23 +62,22 @@ class ConversationCards {
   // alle Mails der Konversation: Suchindex (alle Ordner), sonst Faden im Ordner
   async collect(hdr) {
     let list = [];
-    let indexed = false;
-    if (Services.prefs.getBoolPref("mailnews.database.global.indexer.enabled", false)) {
+    // Hinweis „nur dieser Ordner“ nur bei ausgeschaltetem Suchindex: eine gerade
+    // eingegangene Mail kennt der Index oft noch nicht (oder legt sie kurz in eine
+    // eigene Konversation) – das ist kein Grund für den Hinweis
+    const indexed = Services.prefs.getBoolPref("mailnews.database.global.indexer.enabled", false);
+    if (indexed) {
       try {
         list = await this.fromGloda(hdr);
-        indexed = list.length > 0;
-        // die gewählte Mail gehört immer dazu (ihr Indexeintrag kann noch auf
-        // eine verschobene Kopie zeigen, deren Ordner-Mail sich nicht auflöst)
-        if (indexed && !list.some(m => m == hdr || (m?.messageId && m.messageId == hdr.messageId))) {
-          list.push(hdr);
-        }
       } catch (e) {
         log("conversation gloda error", e);
       }
     }
-    if (!indexed) {
-      list = this.fromThread(hdr);
-    }
+    // der Faden im Ordner gehört immer dazu (auch die gewählte Mail selbst, deren
+    // Indexeintrag noch auf eine verschobene Kopie zeigen kann): sonst fehlte
+    // einer frisch eingegangenen Mail, die der Index noch nicht kennt, ihre
+    // Konversation, und Thunderbirds Zusammenfassung blieb stehen
+    list.push(...this.fromThread(hdr));
     // gleiche Mail in mehreren Ordnern (Gmail „Alle Nachrichten“, Gesendet) nur
     // einmal – lieber nicht aus Papierkorb/Spam, die gewählte Mail behält ihren Ordner
     const F = Ci.nsMsgFolderFlags;
@@ -155,6 +154,7 @@ class ConversationCards {
 
   hide() {
     this.seq++;
+    this.shown = null;
     this.reveal();
     if (this.box) {
       this.observer?.disconnect();
@@ -212,10 +212,14 @@ class ConversationCards {
   // sonst blitzte kurz die Einzelmail bzw. die Zusammenfassung auf
   async show(hdr, { thread = false } = {}) {
     const token = ++this.seq;
+    this.shown = null;
     if (!hdr || !this.enabled()) {
       this.reveal();
       return;
     }
+    // angezeigte Mail merken: kommt eine Antwort darauf an, wird aus der
+    // Einzelmail eine Konversation (arrived)
+    this.shown = { hdr, thread };
     this.pane.classList.add("mc-conv-pending");
     clearTimeout(this.pendingTimer);
     // Sicherheitsnetz: nie länger als 400 ms leer
@@ -277,24 +281,9 @@ class ConversationCards {
       box.append(note);
     }
     const own = this.ownAddresses();
-    // eigene Mail: in einem Gesendet-Ordner oder von einer eigenen Adresse
-    const ownMail = m => {
-      try {
-        if (m.folder?.getFlag(Ci.nsMsgFolderFlags.SentMail)) {
-          return true;
-        }
-        return own.has((MailServices.headerParser.parseDecodedHeader(m.mime2DecodedAuthor || m.author)[0]?.email || "").toLowerCase());
-      } catch {
-        return false;
-      }
-    };
     const cards = messages.map(m => {
-      const card = doc.createElementNS(X, "div");
-      card.className = "mc-conv-card";
-      card.classList.toggle("mc-own", ownMail(m));
+      const card = this.makeCard(m, own);
       card.classList.toggle("mc-selected", m == selected || m.messageId == selected.messageId);
-      card.dataset.messageId = m.messageId;
-      card.__mcHdr = m;
       // wie Apple Mail: jede Mail der Konversation ganz (geladen wird beim
       // Hineinscrollen, siehe unten)
       box.append(card);
@@ -326,6 +315,85 @@ class ConversationCards {
     if (sel && sel != cards[0]) {
       this.keepInView(box, sel);
     }
+  }
+
+  // Karte einer Mail (noch leer, loadCard füllt sie); eigene Mail: in einem
+  // Gesendet-Ordner oder von einer eigenen Adresse
+  makeCard(m, own = this.ownAddresses()) {
+    const card = this.win.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    card.className = "mc-conv-card";
+    let mine = false;
+    try {
+      mine = !!m.folder?.getFlag(Ci.nsMsgFolderFlags.SentMail) ||
+        own.has((MailServices.headerParser.parseDecodedHeader(m.mime2DecodedAuthor || m.author)[0]?.email || "").toLowerCase());
+    } catch {} // gewollt: Absender nicht lesbar – als fremde Mail zeigen
+    card.classList.toggle("mc-own", mine);
+    card.dataset.messageId = m.messageId;
+    card.__mcHdr = m;
+    return card;
+  }
+
+  // gehört die Mail zu dieser Konversation: sie verweist auf eine ihrer Mails
+  // (References, In-Reply-To) oder steht im selben Faden desselben Ordners
+  related(hdr, known) {
+    const ids = new Set(known.map(m => m?.messageId).filter(Boolean));
+    if (!hdr?.messageId || ids.has(hdr.messageId)) {
+      return false;
+    }
+    try {
+      for (let i = 0; i < hdr.numReferences; i++) {
+        if (ids.has(hdr.getStringReference(i))) {
+          return true;
+        }
+      }
+    } catch {} // gewollt: Verweise nicht lesbar – nur der Faden zählt
+    return known.some(m => m?.folder && m.folder == hdr.folder && m.threadId == hdr.threadId);
+  }
+
+  // Thunderbird zeigt eine neu eingegangene Mail einer gewählten Konversation
+  // nicht von selbst an (die Auswahl bleibt, die Leseansicht wird nicht neu
+  // aufgebaut). Wie Apple Mail: ihre Karte erscheint an ihrem Platz, Auswahl
+  // und Scrollstand bleiben; war nur die Einzelmail zu sehen, wird daraus die
+  // Konversation. Mails in Papierkorb und Spam bleiben draußen
+  arrived(hdr) {
+    const F = Ci.nsMsgFolderFlags;
+    if (!hdr || !this.enabled() || hdr.folder?.getFlag(F.Trash) || hdr.folder?.getFlag(F.Junk)) {
+      return;
+    }
+    const box = this.box;
+    if (box?.isConnected && !box.classList.contains("mc-stack")) {
+      const cards = [...box.querySelectorAll(".mc-conv-card")];
+      if (!this.related(hdr, cards.map(c => c.__mcHdr))) {
+        return;
+      }
+      const card = this.makeCard(hdr);
+      const newest = Services.prefs.getBoolPref(CONVERSATION_NEWEST_PREF, true);
+      const after = cards.find(c => (newest ? c.__mcHdr.date < hdr.date : c.__mcHdr.date > hdr.date));
+      if (after) {
+        after.before(card);
+      } else {
+        cards.at(-1).after(card);
+      }
+      const count = box.querySelector(".mc-conv-count");
+      if (count) {
+        count.textContent = tr("{n} messages", { n: cards.length + 1 });
+      }
+      this.observer?.observe(card);
+      this.refreshToolbar();
+      return;
+    }
+    // Einzelmail zu sehen, jetzt mit Antwort: Konversation nachholen (ohne
+    // Thunderbirds Ansicht zu verdecken – sie bleibt, bis die Karten da sind)
+    const shown = this.shown;
+    if (!shown || !this.related(hdr, [shown.hdr])) {
+      return;
+    }
+    const token = this.seq;
+    this.collect(shown.hdr).then(({ messages, indexed }) => {
+      if (token == this.seq && this.shown == shown && !this.box && messages.length >= 2) {
+        this.render(messages, shown.hdr, { indexed, thread: shown.thread });
+      }
+    }).catch(e => log("conversation arrived error", e));
   }
 
   // gewählte Karte oben halten, bis der Nutzer selbst scrollt: die Karten

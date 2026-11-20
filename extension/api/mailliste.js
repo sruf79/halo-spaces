@@ -67,6 +67,7 @@ class EnhancerMailliste {
     pane.__mcConv = HOOK_OWNER;
     const conv = new ConversationCards(win, pane);
     pane.__mcConversation = conv;
+    const unhookArrivals = this.hookConversationArrivals(win, conv);
     // zugeklappter Faden: Thunderbird graut Antworten und Weiterleiten aus
     // (mehrere Mails gewählt) – wie Apple Mail wirken sie auf die neueste
     // bzw. gewählte Mail der Konversation
@@ -182,6 +183,7 @@ class EnhancerMailliste {
       return result;
     };
     this.addWinRestorer(win, () => {
+      unhookArrivals();
       conv.hide();
       delete pane.displayMessage;
       delete pane.displayMessages;
@@ -190,6 +192,34 @@ class EnhancerMailliste {
       delete pane.__mcConv;
       delete pane.__mcConversation;
     });
+  }
+
+  // neu eingegangene Mails (auch die Kopie einer eigenen Antwort in Gesendet)
+  // an die angezeigte Konversation weitergeben (ConversationCards.arrived);
+  // liefert die Abmeldung
+  hookConversationArrivals(win, conv) {
+    const listener = {
+      msgAdded: hdr => {
+        // erst nach Thunderbirds eigener Verarbeitung (Liste, Faden)
+        win.setTimeout(() => {
+          try {
+            conv.arrived(hdr);
+          } catch (e) {
+            log("conversation arrival error", e);
+          }
+        }, 0);
+      },
+    };
+    MailServices.mfn.addListener(listener, MailServices.mfn.msgAdded);
+    let on = true;
+    const off = () => {
+      if (on) {
+        on = false;
+        MailServices.mfn.removeListener(listener);
+      }
+    };
+    win.addEventListener("unload", off, { once: true });
+    return off;
   }
 
   // Nachricht im eigenen Fenster (Doppelklick, auch auf eine zugeklappte
@@ -213,7 +243,9 @@ class EnhancerMailliste {
       const fit = () => conv.fitWindowTop();
       browser.addEventListener("MsgLoaded", fit, true);
       top.addEventListener("resize", fit);
+      const unhookArrivals = this.hookConversationArrivals(top, conv);
       this.addWinRestorer(top, () => {
+        unhookArrivals();
         browser.removeEventListener("MsgLoaded", fit, true);
         top.removeEventListener("resize", fit);
         conv.hide();

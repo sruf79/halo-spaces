@@ -3146,6 +3146,72 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: veralteter Suchindex zeigt nie die Konversation einer anderen Mail (GitHub #60)", conversation_stale_index, results)
 
+    def conversation_arrival():
+        # Thunderbird baut die Leseansicht nicht neu auf, wenn in eine gewählte (zugeklappte) Konversation eine neue
+        # Mail kommt – vorher blieben die alten Karten stehen; beim erneuten Wählen kannte der Suchindex die neue Mail
+        # noch nicht: Hinweis „Turn on Global Search…“ trotz eingeschalteter Suche bzw. Thunderbirds Zusammenfassung.
+        # Erwartet wie Apple Mail: die Karte der neuen Mail erscheint an ihrem Platz, Auswahl bleibt, eine fremde Mail
+        # kommt nicht dazu; eine Einzelmail mit neuer Antwort wird zur Konversation
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { GlodaMsgIndexer } = ChromeUtils.importESModule("resource:///modules/gloda/IndexMsg.sys.mjs");
+          const { Gloda } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaPublic.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvNeuEin")) root.createSubfolder("KonvNeuEin", null);
+          const f = root.getChildNamed("KonvNeuEin");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", `Text ${id}.`, ""].join("\r\n")));
+          const add = (...a) => f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail(...a));
+          const n0 = f.getTotalMessages(false);
+          add("Halo Ankunft", "halo-ank-1", null, 300); add("Re: Halo Ankunft", "halo-ank-2", "halo-ank-1", 200); add("Halo Ankunft Solo", "halo-ank-s1", null, 100);
+          await bis(() => f.getTotalMessages(false) >= n0 + 3, "Testmails gespeichert", 5000);
+          const hdr = id => [...f.messages].find(h => h.messageId == id + "@example.invalid");
+          GlodaMsgIndexer.indexMessages([...f.messages].map(h => [h.folder, h.messageKey]));
+          const indexed = h => new Promise(r => Gloda.getMessageCollectionForHeader(h, { onItemsAdded() {}, onItemsModified() {}, onItemsRemoved() {}, onQueryCompleted: c => r(c.items.length > 0) }));
+          for (let i = 0; i < 60 && !((await indexed(hdr("halo-ank-1"))) && (await indexed(hdr("halo-ank-2")))); i++) await wait(500);
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 2, "Ordner KonvNeuEin", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.threadTree.selectedIndex = -1; a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(500);
+          const pane = a3.document.getElementById("messagePane");
+          const idx = id => [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == id + "@example.invalid") ?? -1;
+          const box = () => a3.document.getElementById("mcConversation");
+          const ids = () => [...(box()?.querySelectorAll(".mc-conv-card") || [])].map(c => c.dataset.messageId.split("@")[0]);
+          const state = () => ({ cards: ids(), sel: [...(box()?.querySelectorAll(".mc-conv-card.mc-selected") || [])].map(c => c.dataset.messageId.split("@")[0]),
+            count: box()?.querySelector(".mc-conv-count")?.textContent || null, note: !!box()?.querySelector(".mc-conv-note") });
+          const out = {};
+          a3.threadTree.selectedIndex = idx("halo-ank-1");
+          await until(() => !pane.classList.contains("mc-conv-pending") && ids().length == 2, 6000); await ruhig(500);
+          out.vorher = state(); const b0 = box();
+          // neue Antwort in die gewählte Konversation, dazu eine fremde Mail
+          add("Re: Halo Ankunft", "halo-ank-3", "halo-ank-2", 1); add("Halo Fremd", "halo-ank-x", null, 1);
+          await until(() => ids().length >= 3, 4000); await ruhig(600);
+          out.nach = { ...state(), sameBox: box() == b0,
+            loaded: await until(() => parseFloat(box()?.querySelector('.mc-conv-card[data-message-id^="halo-ank-3"] .mc-conv-browser')?.style.height) > 30, 6000) };
+          // neu wählen: die neue Mail kennt der Suchindex noch nicht – trotzdem ganze Konversation, kein Hinweis
+          out.indexiert = await indexed(hdr("halo-ank-3"));
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = idx("halo-ank-1");
+          await until(() => !pane.classList.contains("mc-conv-pending") && ids().length >= 2, 6000); await ruhig(500);
+          out.neu = state();
+          // Einzelmail zu sehen, Antwort kommt: Konversation erscheint
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = idx("halo-ank-s1");
+          await until(() => !pane.classList.contains("mc-conv-pending"), 4000); await ruhig(500);
+          out.solo = state();
+          add("Re: Halo Ankunft Solo", "halo-ank-s2", "halo-ank-s1", 0);
+          await until(() => ids().length >= 2, 4000); await ruhig(500);
+          out.soloNach = state();
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        v, n, nu, so, sn = (res.get(k) or {} for k in ("vorher", "nach", "neu", "solo", "soloNach"))
+        ok = (v.get("cards") == ["halo-ank-2", "halo-ank-1"]
+              and n.get("cards") == ["halo-ank-3", "halo-ank-2", "halo-ank-1"] and n.get("sel") == v.get("sel") and n.get("sameBox") is True
+              and n.get("loaded") and n.get("count") and "3" in n["count"] and n.get("note") is False
+              and nu.get("cards") == ["halo-ank-3", "halo-ank-2", "halo-ank-1"] and nu.get("note") is False
+              and so.get("cards") == [] and sn.get("cards") == ["halo-ank-s2", "halo-ank-s1"] and sn.get("sel") == ["halo-ank-s1"])
+        return ok, f"{res}"
+    check("Leseansicht: neu eingegangene Mail erscheint in der gewählten Konversation, Einzelmail wird mit Antwort zur Konversation, kein Ordner-Hinweis bei eingeschalteter Suche", conversation_arrival, results)
+
     def conversation_right_mail():
         # GitHub #60: die Karten zeigen die gewählte Mail – auch wenn sie in einer langen Konversation weiter unten
         # liegt und die Karten darüber erst nach dem Hinscrollen fertig laden (wachsen)

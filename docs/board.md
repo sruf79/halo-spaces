@@ -135,6 +135,14 @@ ein Status von `board.sh` trotzdem nicht an, landet er in `~/halo-nacht/board-wa
 0 – nicht selbst wiederholen, sonst steht die Notiz doppelt da). Der nächste `board.sh`-Aufruf, der das Board lesen
 kann, trägt ihn nach; `board.sh nachtragen` tut das gezielt und zeigt, was offen bleibt.
 
+**Einträge bearbeiten** (laut neon-board erlaubte der Maintainer am 20.11.2026: „du darfst ab sofort für jetzt und
+später immer vorhandene board-einträge bearbeiten“; Wortlaut nicht selbst geprüft): `board.sh titel <id|Muster>
+<neuer Titel>` ersetzt den Titel, `board.sh text <id|Muster> <neuer Text>` den ganzen Text, nur bei genau einem
+offenen Eintrag (nicht Done, nicht archiviert); Typ und Status bleiben. Titel nicht leer, einzeilig, höchstens 256
+Zeichen; Text nicht leer. Der alte Wert steht vorher einzeilig in `~/halo-nacht/board-aenderungen.log` (Zeit, Befehl,
+id, alter Wert, neuer Wert gekürzt auf 200 Zeichen; Umbrüche als `\n`), damit sich ein Versehen rückgängig machen
+lässt. Scheitert das Schreiben, gilt die Warteschlange wie bei `notiz`; steht der Wert schon, tut der Befehl nichts.
+
 ## Archiv und „War das schon einmal da?“
 
 **Done heißt immer auch archivieren** (Entscheidung des Maintainers vom 12.11.2026): `board.sh status <id> done [<Hash>]`

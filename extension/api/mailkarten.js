@@ -1078,6 +1078,7 @@ class EnhancerMailkarten {
           pending = false;
           run();
           shorten();
+          this.keepDateInMeta(doc);
         }, 0);
       }
     });
@@ -1090,6 +1091,7 @@ class EnhancerMailkarten {
     this.addWinRestorer(win, () => {
       mo.disconnect();
       delete doc.__mcHdrAvatar;
+      delete doc.__mcDateMoves;
       // Datum zurück an seinen Platz, eigene Elemente entfernen
       const meta = doc.getElementById("mcHdrMeta");
       const date = doc.getElementById("dateLabel");
@@ -1341,6 +1343,28 @@ class EnhancerMailkarten {
     });
   }
 
+  // Uhrzeit zurück neben den Ordner, wenn sie jemand aus #mcHdrMeta genommen
+  // hat (GitHub #52: Add-ons, die den Mailkopf umbauen, setzen das Datum an
+  // seinen alten Platz – dort lag es oben rechts genau über dem Ordner).
+  // Höchstens fünfmal kurz hintereinander, damit kein Wechselspiel mit einem
+  // Add-on entsteht, das sie sofort wieder zurücksetzt; dann steht die Uhrzeit
+  // dort, wohin das Add-on sie setzt (userChrome.css: dann ohne feste Lage),
+  // bis sie zwei Sekunden lang niemand mehr versetzt hat
+  keepDateInMeta(doc) {
+    const meta = doc.getElementById("mcHdrMeta");
+    const date = doc.getElementById("dateLabel");
+    if (!meta || !date || date.parentNode == meta) {
+      return;
+    }
+    const now = Date.now();
+    const moves = doc.__mcDateMoves && now - doc.__mcDateMoves.t < 2000 ? doc.__mcDateMoves : { n: 0 };
+    if (moves.n >= 5) {
+      return;
+    }
+    doc.__mcDateMoves = { n: moves.n + 1, t: now };
+    meta.append(date);
+  }
+
   // Mailkopf wie Apple Mail: oben rechts Ordner und Uhrzeit, darüber bei
   // Verteilern ein Hinweis mit „Abmelden“ (statt List-ID-Zeile)
   decorateHeader(doc, hdr) {
@@ -1361,6 +1385,7 @@ class EnhancerMailkarten {
       meta.append(folder, date);
       header.append(meta);
     }
+    this.keepDateInMeta(doc);
     const folderEl = meta.querySelector(".mc-hdr-folder");
     let title = "";
     try {

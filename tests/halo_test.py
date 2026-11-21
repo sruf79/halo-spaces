@@ -14341,6 +14341,45 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def header_date_moved():
+        # GitHub #52 (Windows, viele Add-ons): ein Add-on, das den Mailkopf umbaut, setzt die Uhrzeit an ihren alten
+        # Platz zurück; dort lag sie oben rechts genau über dem Ordner. Erwartet: sie kommt neben den Ordner zurück;
+        # setzt ein Add-on sie immer wieder zurück, gibt halo.spaces nach wenigen Versuchen nach, und die Uhrzeit
+        # bleibt dort, wo das Add-on sie hinsetzt, ohne den Ordner zu überdecken
+        res = m.js(MESSAGE_JS + '''
+          const md = a3.messageBrowser.contentDocument;
+          const meta = await until(() => md.getElementById("mcHdrMeta")), date = md.getElementById("dateLabel");
+          const home = md.getElementById("expandedtoRow");
+          const hits = (a, b) => a.width > 0 && b.width > 0 && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+          const snap = () => { const f = meta.querySelector(".mc-hdr-folder").getBoundingClientRect(), t = date.getBoundingClientRect();
+                               return { inMeta: date.parentNode == meta, hit: hits(f, t), f: [Math.round(f.left), Math.round(f.right), Math.round(f.top)], t: [Math.round(t.left), Math.round(t.right), Math.round(t.top)] }; };
+          const out = { before: snap() };
+          // einmal versetzt (wie beim Aufbau eines Add-ons)
+          home.append(date);
+          await bis(() => date.parentNode == meta, "Uhrzeit zurück neben dem Ordner", 3000); await ruhig(200);
+          out.once = snap();
+          // ein Add-on, das sie immer wieder zurücksetzt
+          const mo = new md.defaultView.MutationObserver(() => { if (date.parentNode != home) home.append(date); });
+          mo.observe(md.getElementById("messageHeader"), { childList: true, subtree: true });
+          try {
+            home.append(date);
+            await ruhig(1500);
+            out.fight = snap();
+            out.fight.pos = md.defaultView.getComputedStyle(date).position;
+          } finally { mo.disconnect(); }
+          // das Wechselspiel ist vorbei (über zwei Sekunden ohne Versetzen, feste Pause gewollt): ein neues Versetzen
+          // wird wieder korrigiert
+          await new Promise(r => md.defaultView.setTimeout(r, 2200));
+          home.append(date);
+          await bis(() => date.parentNode == meta, "Uhrzeit nach dem Wechselspiel wieder neben dem Ordner", 3000); await ruhig(200);
+          out.after = snap();
+          return out;''')
+        ok = (res["before"]["inMeta"] and not res["before"]["hit"] and res["once"]["inMeta"] and not res["once"]["hit"]
+              and not res["fight"]["inMeta"] and not res["fight"]["hit"] and res["fight"]["pos"] == "static"
+              and res["after"]["inMeta"] and not res["after"]["hit"])
+        return ok, f"{res}"
+    check("Mailkopf: setzt ein Add-on die Uhrzeit an ihren alten Platz, liegt sie nie über dem Ordner (GitHub #52)", header_date_moved, results)
+
     def avatars_plastic():
         # Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026): Mailliste, Mailkopf und
         # Adressbuch mit Verlauf in drei Stufen, Schatten außen und Auflage (::after) mit Lichtkante oben, Unterkante

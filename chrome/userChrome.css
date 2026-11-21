@@ -2751,6 +2751,13 @@ findbar .findbar-closebutton[data-mc-label] > .toolbarbutton-icon {
   color: var(--mt-text-tertiary) !important;
 }
 
+/* steht oben rechts schon Ordner und Uhrzeit (#mcHdrMeta) und hat ein Add-on
+   die Uhrzeit trotzdem an einen anderen Platz gesetzt, bleibt sie dort im
+   Fluss, statt oben rechts über dem Ordner zu liegen (GitHub #52) */
+#messageHeader:has(#mcHdrMeta) #dateLabel:not(#mcHdrMeta > #dateLabel) {
+  position: static !important;
+}
+
 /* im eigenen Fenster wie Apple Mail: Knöpfe in einer eigenen Zeile ganz oben
    links, darunter Absender, Ordner und Uhrzeit (vorher brachen sie neben Ordner
    und Uhrzeit auf zwei Zeilen um). Kapseln, Maße und Trennstriche wie in der

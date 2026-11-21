@@ -12409,17 +12409,17 @@ class CardEnhancer {
         keyset.remove();
         commandset.remove();
       });
-      if (IS_MAC) {
-        return;
-      }
-      // Windows und Linux: Thunderbirds Punkt zur Ordnerliste (Ansicht bzw. ☰ › Ansicht › Layout) zeigt das Kürzel –
-      // er schaltet dieselbe Spalte (Thunderbirds Wege ziehen mit, hookSpacesToggle)
+      // Thunderbirds Punkt zur Ordnerliste im Menü „Ansicht“ zeigt das Kürzel (auch macOS, wie der Punkt der Today-Pane
+      // darunter) – er schaltet dieselbe Spalte (Thunderbirds Wege ziehen mit, hookSpacesToggle)
       const item = d.getElementById("menu_showFolderPane");
       if (item && !item.hasAttribute("key")) {
         item.setAttribute("key", key.id);
         this.restorers.push(() => item.removeAttribute("key"));
       }
-      showAppShortcut("appmenu_showFolderPane", key);
+      // App-Menü (☰ › Ansicht › Layout, dort führt Thunderbird beide Punkte): nur Windows und Linux, am Mac ist ☰ ausgeblendet
+      if (!IS_MAC) {
+        showAppShortcut("appmenu_showFolderPane", key);
+      }
     };
 
     // Tastenkürzel blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle (Animation inklusive): macOS ⌃⌘T,

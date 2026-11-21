@@ -27322,7 +27322,8 @@ Neu
 
     def sidebar_key():
         # ⌃⌘S blendet die Seitenleiste aus und wieder ein wie der Knopf (wie Apple Mail; GitHub #56) – nur macOS;
-        # kein anderes Kürzel von Thunderbird liegt auf derselben Kombination
+        # kein anderes Kürzel von Thunderbird liegt auf derselben Kombination; der Punkt zur Ordnerliste im Menü
+        # „Ansicht“ zeigt das Kürzel (wie der Punkt der Today-Pane; fehlte bis 21.11.2026 nur am Mac)
         if sys.platform != "darwin":
             return True, "nur macOS (Windows/Linux: Strg+B und Strg+T, eigene Prüfung)"
         state = r"""await ruhig(300); const pane = tm.currentAbout3Pane?.document.getElementById("folderPane");
@@ -27333,7 +27334,8 @@ Neu
           tm.currentAbout3Pane.threadTree?.focus(); await ruhig(300);
           const keys = [...d.querySelectorAll("key")].filter(k => (k.getAttribute("key") || "").toLowerCase() == "s" && /control/.test(k.getAttribute("modifiers") || "")
             && /accel|meta/.test(k.getAttribute("modifiers") || "")).map(k => k.id || "(ohne id)");
-          return { keys, side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };""")
+          const menu = [d.getElementById("menu_showFolderPane")?.getAttribute("key") ?? "(Menüpunkt fehlt)"];
+          return { keys, items: menu, side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };""")
         def press():
             m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
                 {"type": "keyDown", "value": "\uE009"}, {"type": "keyDown", "value": "\uE03D"}, {"type": "keyDown", "value": "s"},
@@ -27345,7 +27347,8 @@ Neu
         press()
         on = m.js(r"""const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");
           await until(() => fp()?.getBoundingClientRect().width > 100 && !w.gSpacesToolbar.isHidden, 3000);""" + state)
-        ok = (pre["keys"] == ["mcKeyToggleSidebar"] and pre["side"] > 100 and pre["spaces"]
+        ok = (pre["keys"] == ["mcKeyToggleSidebar"] and pre["items"] == ["mcKeyToggleSidebar"]
+              and pre["side"] > 100 and pre["spaces"]
               and off["side"] <= 0 and not off["spaces"] and on["side"] > 100 and on["spaces"])
         return ok, f"vorher={pre} aus={off} ein={on}"
     check("Seitenleiste: ⌃⌘S blendet sie aus und wieder ein wie der Knopf (GitHub #56)", sidebar_key, results)

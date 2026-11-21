@@ -39,6 +39,7 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `tests/wochenpruefung.sh`, `tests/wochenpruefung-auftrag.md` | wöchentliche Auswertung der Läufe (ISO-Wochen, feste Kennzahlenliste) mit höchstens drei Empfehlungen als Board-Einträge „Ablauf: …“, ändert Abläufe nicht selbst, Abschnitt 15 |
 | `tests/dokupruefung-auftrag.md` | wöchentliche Prüfung aller `.md`-Dateien (`wochenpruefung.sh --doku`), Abschnitt 16 |
 | `tests/farben-betroffen.sh` | betrifft eine Änderung Farben? Nur dann testet CI-Job `mac` bzw. `release.sh` auch dunkel |
+| `tests/farben_css.py`, `tests/farben_css_test.py` | Farbbezug geänderter Stilblatt-Zeilen für `farben-betroffen.sh`; Selbsttest |
 | `tests/board.sh`, `tests/kurz.sh`, `tests/neon-stand.sh`, `tests/neon-hook.sh` | neon schlank halten: knapper Board-Zugriff; Befehl mit Kurzfassung statt voller Ausgabe; offene Aufträge als Datei; SessionStart-Hook, der sie nach dem Verdichten wieder lädt (Abschnitt „neon erreichen“) |
 | `tests/bilder-eingang.zsh`, `tests/bilder_eingang_test.zsh` | Bilder-Eingang: sortiert `~/halo-aufgaben/eingang/` alle 15 Min. ohne Claude nach `bilder/` bzw. `apple/` und indiziert (Claude nur zum Beschreiben), `tests/MAC-MINI.md` Abschnitt 18; Prüfung ohne Claude, läuft in der Doku-Prüfung |
 | `tests/token-bilanz.py` | Token-Bilanz der Claude-Sitzungen auf neon aus den Protokollen (nur Lesen, kein Claude-Aufruf, kein Netz) |
@@ -55,6 +56,13 @@ Bei der Kürzung von `AGENTS.md` (9.11.2026, Ablauf-Analyse Stufe 5) unveränder
 | `docs/testrechner.md` | Testrechner-Einzelheiten: Mac-mini-Prüfung, CI-Laufzeiten, Dunkelmodus, Nachtlauf, CI-Wächter, Wochen-/Doku-Prüfung, Rundgang, Windows-VM, Modelle der Routinen; Sperren in `AGENTS.md` |
 | `docs/dauerfreigaben.md` | Stufen A bis D: was neon und die Routinen ohne Rückfrage tun dürfen, was nur der Maintainer entscheidet |
 | `docs/umbau.md` | Umbau der Abläufe (November 2026): Maßnahmen M01–M31, Messplan 6.12.2026, Rücknahme je Stufe |
+| `docs/release.md` | Release in voller Länge: Ablauf, Testmarke, Hotfix, `publish.sh`, Bericht, Store, Issues, rote Änderung auf einen Nebenzweig; Sperre in `AGENTS.md` |
+| `docs/tests.md` | Bauen und testen in voller Länge: CI-Jobs, gezielte CI-Läufe, Update-Test, Fehlerkonsole, Wartehilfen |
+| `docs/notfall.md` | Notfallplan bei Totalausfall (Kopie `~/NOTFALL.md`); Meldung und `notfall.sh stopp` |
+| `docs/design-vorgaben.md` | Regeln für die Rolle Designer: Zuständigkeit, Gruppen, Einspruch, Rückfragen |
+| `docs/alltagsmodus.md` | Alltag ohne Volldampf: Zeiten, Grenzen, Modelle und Push-Regeln von Tagesroutine und Nachtlauf |
+| `docs/volldampf-regelwerk.md` | Was nur bei aktivem Volldampf gilt und der Rückfall in den Alltag |
+| `docs/regelwerk-kontingent.md` | Überblick auf einer Seite: Zustände des Kontingents, Reihenfolge der Bremsen, Aufgaben nach Aufwand |
 | `tests/sitzung-finden.zsh` | `sitzung_finden`/`sitzung_merken`: lokale Sitzung auch bei abweichendem Namen finden (Teil von `lauf-hilfen.zsh`, Sitzungs-IDs in `~/halo-aufgaben/sitzungen.json`) |
 | `tests/pausen_test.zsh`, `tests/pausen_check.sh` | Pausen-Logik (`~/halo-nacht/pausen.txt`, `pause_start`): Einzelfälle ohne Claude; Wächter gegen Reste alter Pausen-Dateien, läuft in der Doku-Prüfung |
 | `tests/doku_kern_check.sh` | Wächter: harte Sperren und Pflichtbegriffe stehen in `AGENTS.md`, keine `@`-Importe; läuft in der Doku-Prüfung (`wochenpruefung.sh --doku`) |

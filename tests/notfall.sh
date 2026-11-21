@@ -23,7 +23,7 @@ SICHERUNG=${HALO_SICHERUNG:-$HOME/halo-sicherung}
 PAUSEN=${HALO_PAUSEN_DATEI:-$HOME/halo-nacht/pausen.txt}
 ENTLADEN=$HOME/halo-nacht/notfall-entladen.txt   # von stopp --hart entladen, lädt weiter wieder
 BLEIBEN=(at.halo-spaces.remote-control at.halo-spaces.neon-board)
-ROUTINEN_SKRIPTE='nachtlauf\.sh|wochenpruefung\.sh|rundgang-woche\.sh|bilder-eingang\.zsh|ci-waechter\.sh|github-vorpruefung\.sh'
+ROUTINEN_SKRIPTE='nachtlauf\.sh|wochenpruefung\.sh|rundgang-woche\.sh|bilder-eingang\.zsh|ci-waechter\.sh|github-vorpruefung\.sh|abnahme-nach-release\.zsh|aufraeumen-nach-release\.zsh'
 mkdir -p ${LOG:h}
 source $HIER/lauf-hilfen.zsh   # zeit, log, pause_aktiv, pause_setzen, push, PAUSEN_ROUTINEN
 

@@ -273,6 +273,13 @@ addon-card .more-options-button::part(button) {
 
 addon-card .more-options-button::part(button):hover {
   background-color: var(--mt-hover) !important;
+  /* Knopf-Familie: Kreis unter der Maus mit feiner Lichtkante */
+  box-shadow: var(--mt-btn-ring, none) !important;
+}
+
+addon-card .more-options-button::part(button):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in, none) !important;
 }
 
 /* Add-ons-Verwaltung: Symbolknöpfe im Seitenkopf (Zurück, Zahnrad, Lupe
@@ -342,8 +349,37 @@ addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
 :is(addon-options, addon-page-options) panel-item::part(button) {
   min-height: 22px !important;
   padding-block: 3px !important;
-  padding-inline-end: 10px !important;
+  padding-inline: 10px !important;
   border-radius: 6px !important;
+  /* Symbole wie das Vorbild (Menü mit einzelnen Symbolen): keine eigene
+     Symbolspalte, alle Texte an der Kante 10 px; ein Symbol (16 px) beginnt
+     an dieser Kante, sein Text rückt um Symbol und 8 px Luft nach rechts
+     (Lücke zwischen Zeichen und Text dann 10 px wie in der Vorlage). Symbol
+     in der Schriftfarbe, markiert also weiß */
+  background-position: 10px center !important;
+  background-size: 16px !important;
+  fill: currentColor !important;
+}
+
+:is(addon-options, addon-page-options) panel-item:is([action="remove"], [action="install-update"], [action="report"])::part(button) {
+  padding-inline-start: calc(10px + 16px + 8px) !important;
+}
+
+/* Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü: Update Add-ons
+   Automatically) wie in den übrigen Menüs links davor im Rand, der Text
+   bleibt an der Kante */
+:is(addon-options, addon-page-options) panel-item[type="checkbox"][checked]::part(button) {
+  background-position: calc(10px - var(--mt-menu-check-size, 9px) - var(--mt-menu-check-gap, 1px)) center !important;
+  background-size: var(--mt-menu-check-size, 9px) !important;
+}
+
+/* Sprachen von rechts nach links: gespiegelt */
+:is(addon-options, addon-page-options) panel-item:dir(rtl)::part(button) {
+  background-position-x: right 10px !important;
+}
+
+:is(addon-options, addon-page-options) panel-item[type="checkbox"][checked]:dir(rtl)::part(button) {
+  background-position-x: right calc(10px - var(--mt-menu-check-size, 9px) - var(--mt-menu-check-gap, 1px)) !important;
 }
 
 :is(addon-options, addon-page-options) panel-item:not([disabled])::part(button):hover {
@@ -368,7 +404,7 @@ addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
    nav-down-sm.svg), Schrift normal statt halbfett; Feld in spaces.css.
    Das Termin-Fenster wie Apple Kalender (Zeitkarte ohne Pfeil, oben) und
    Datum/Uhrzeit (editierbar) bleiben ausgenommen; der Absender im
-   Verfassen-Kopf behält den Einzug seines Textes */
+   Verfassen-Kopf ist seit den Kopfzeilen wie beim Mac ebenfalls ein Feld */
 menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(dropmarker) {
   content: url("resource://mailcards/icons/chevron-updown-14.svg") !important;
   width: 14px !important;
@@ -382,6 +418,6 @@ menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))
   font-weight: 400 !important;
 }
 
-menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist, #msgIdentity))::part(label) {
+menulist:not([editable]):where(:not(:root[mc-apple-event] #event-grid menulist))::part(label) {
   margin-inline: 0 !important;
 }

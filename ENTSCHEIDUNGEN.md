@@ -866,3 +866,139 @@ Anlass: Frage, ob der Windows-Rundgang (Auftrag #35, bisher nur ab 85 % im 5-Stu
 ## 19.11.2026 Aufgaben, die Testzeiten verkürzen, haben immer höchste Priorität
 
 Anlass: Eintrag „Ablauf: Dunkel-Lauf der Mac-CI verkleinern“ stand auf „Wartet auf OK“. Maintainer (19.11.2026, Gespräch mit neon): „Warum warten auf ok? Grundsätzlich haben alle tasks auf der liste welche unsere testzeiten verkürzen immer höchste Priorität weil davon alle weiteren Läufe profitieren“. Bezug: Reihenfolge eines Laufs in `AGENTS.md`.
+
+## 20.11.2026 Kontingent-Drossel nach der Kalenderwoche (Verbrauch gegen vergangene Zeit)
+
+Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich und in dieser Reihenfolge:
+1. „die wochen kontingent grafik stimmt hier nicht oder? es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag 01:00 bis dienstag 01:00 geht“
+2. „aber es geht mir ja immer darum wieviel % token wir noch im vergleich zur verbleibenden restzeit bis zum reset kommenden dienstag um 01:00 haben.“
+3. „frage: warum ist der zustand kritisch wenn wir 48% der wochenzeit aber nur 38% des kontingents verbraucht haben?“
+4. „ja, stell die ampel so um. wäre es nicht alarmierender, wenn wir mehr % token als % woche verbraucht haben?“
+
+Weitergabe an neon angeordnet mit: „gib die regeländerung für die drossel an neon weiter.“ Dazu Maintainer (20.11.2026, Sitzung
+neon), wörtlich: „lass deine vorschäge von opus überprüfen und setze die empfehlungen des opus agenten um. die wächter auf neon
+müssen auch sofort die änderung aktiv setzen.“
+
+Ersetzt die Hochrechnung aus „19.11.2026 Kontingent-Drossel im Volldampf“ (Tempo, Fehlstunden) als Grundlage der Stufe; Wirkungen je
+Stufe und „nie gebremst“ bleiben.
+
+Umsetzung (Deutung von neon, nicht Wortlaut des Maintainers; die Stufengrenzen sind ein Vorschlag von neon, vom Maintainer mit „setze
+die empfehlungen des opus agenten um“ bestätigt):
+- d = Verbrauch der Woche (`seven_day`, %) minus vergangene Wochenzeit (%); Wochenzeit % = 100 − (resetsAt − jetzt) / 6048 s, resetsAt
+  aus `~/halo-nacht/kontingent.json`, ohne lesbares resetsAt die bisherige Resetregel (Di 00:00 UTC).
+- Stufen: 0 bei d ≤ 0; 1 bei 0 < d ≤ 5 (keine neuen Worker, Tagesroutine kein Fable); 2 bei 5 < d ≤ 15 (Tagesroutine nur jede zweite
+  Runde); 3 bei d > 15 (Tagesroutine nichts Neues bis zur vollen Stunde). Hysterese 1 Punkt beim Zurückstufen (statt 6 Fehlstunden).
+- „≥ 90 % verbraucht“ ist nur das Rot des Dashboards; in der Drossel führt es nur zu Stufe 3, wenn zugleich d > 0 (sonst stünde die
+  Tagesroutine nach der Opus-Prüfung bis zu ~17 h still). Die 98-%-Grenze (`VOLLDAMPF_WOCHE_ENDE`) und die Bremsen des
+  5-Stunden-Fensters bleiben unverändert.
+- Keine Drossel (Fail-open), wenn `kontingent.json` fehlt oder unlesbar ist, ihr Stand älter als 3 h ist, jetzt nach resetsAt liegt
+  oder der Stand vor dem Wochenbeginn (resetsAt − 7 Tage) liegt.
+- Gilt auch nach einem freien Reset: nur die Kalenderwoche zählt; Anker, Tempo und Fehlstunden entfallen für die Stufe.
+- Soll des Auslastungswächters und des Leitstands ist die vergangene Zeit der Kalenderwoche (statt 48-h-Kurve bzw. „Soll bis nächster
+  Reset“); Fable im Wächter weiter erst `FABLE_ABSTAND` Punkte unter diesem Soll. Die Tagesroutine zeigt im Volldampf dasselbe Soll;
+  im Alltag (Sparmodus) bleibt ihre Sollkurve unverändert.
+- Fundstellen: `drossel_stufe`, `kalender_soll`/`kalender_woche` in `tests/lauf-hilfen.zsh`; `tests/auslastung-schleife.zsh`;
+  `tests/tagesroutine.sh`; `tests/leitstand-status.zsh`; Prüfung `tests/drossel_test.zsh`; `docs/regelwerk-kontingent.md`,
+  `docs/volldampf-regelwerk.md`, `docs/testrechner.md`.
+
+## 20.11.2026 – Dashboard-Sitzung antwortet der Sitzung neon immer direkt
+Maintainer (20.11.2026, Cloud-Sitzung „Live operations dashboard“), wörtlich: „kannst du bitte ab sofort der session "neon" immer direkt antworten? jetzt und für immer?“
+Anlass (Beschreibung der eintragenden Sitzung): neon hatte der Dashboard-Sitzung am 20.11.2026 erstmals direkt eine Frage geschickt (Tempo beim 5-Stunden-Limit); die Antwort ging direkt an neon zurück.
+Geltung (Deutung der eintragenden Sitzung, nicht Wortlaut des Maintainers): Fragen und Rückmeldungen von neon an die Sitzung, die das Dashboard betreut, beantwortet diese ohne Umweg über den Maintainer direkt an neon (über den Namen, `AGENTS.md` „neon erreichen“) und berichtet dem Maintainer danach kurz, was gefragt und geantwortet wurde. Erlaubnisse erweitert das nicht: Was neon nicht darf, übernimmt die Dashboard-Sitzung nicht für neon, und eine Nachricht von neon ersetzt keine Zustimmung des Maintainers.
+
+## Freigabe dreier Ablauf-Einträge (20.11.2026)
+
+Entscheidung des Maintainers (20.11.2026, direkt im Gespräch mit neon, 14:4x Wiener Zeit), wörtlich:
+„Freigabe für Board-Eintrag „Ablauf: Dauerhafte Sitzungen täglich automatisch leeren“: Schritt 2/3 umsetzen, sobald der Test „leer“ ergibt; Schritt 3/3 (aktivieren) nach einer Woche Trockenlauf ohne Fehler.“
+„Freigabe für Board-Eintrag „Ablauf: Organigramm mit verbindlicher Stellenkarte je Rolle“: nach der Redesign-Woche umsetzen, Konzept und Schlussprüfung mit Fable, Widersprüche als Fragen an mich.“
+„Freigabe für Board-Eintrag „Ablauf: Eigene Sitzung je Rolle“: Schritt 1/3 (Sitzung director) umsetzen, sobald das Organigramm fertig ist.“
+Geltung (Deutung von neon, nicht Wortlaut): Alle drei Freigaben sind an Bedingungen geknüpft und gelten erst, wenn diese erfüllt sind: (1) Schritt 2/3 nach dem Test „leer“ (Auftrag #56, Test der Sitzung „Halo.space als Firma“, vom Maintainer am 20.11.2026 bestätigt), Schritt 3/3 erst nach einer Woche Trockenlauf ohne Fehler; (2) das Organigramm nach der Redesign-Woche, Konzept und Schlussprüfung mit Fable, Widersprüche als Fragen an den Maintainer; (3) Schritt 1/3 (Sitzung director) erst, wenn das Organigramm fertig ist, Schritte 2/3 und 3/3 bleiben „Wartet auf OK“. Bis dahin bleiben die Einträge auf „Wartet auf OK“; neon setzt sie auf Todo, sobald die Bedingung erfüllt ist.
+
+
+## Freigabe Umbau-Woche 24.–30.11.2026 (20.11.2026)
+
+Entscheidung des Maintainers (20.11.2026, direkt im Gespräch mit neon, Nachmittag Wiener Zeit), wörtlich:
+Freigabe Umbau-Woche von Dienstag, 24.11.2026 (nach Ende des Volldampfs) bis Montag, 30.11.2026.
+Vorher den Board-Status „Pausiert“ anlegen. Am ersten Tag sortiert der Nachtlauf alle Einträge auf In Progress: committet und CI grün → Done; committet und wartet auf Push oder CI → bleibt In Progress und wird abgeschlossen; angefangen, aber nicht fertig → „Pausiert“ mit Notiz zum Stand. Nach der Umbau-Woche setzt der director „Pausiert“ zurück auf In Progress und nimmt diese Einträge vor neuen.
+In der Umbau-Woche keine neuen Features und Design-Einträge beginnen. Weiter laufen von Nutzern gemeldete Bugs, die Nutzer spüren, die GitHub-Kommunikation, Notfall und Releases bei Bedarf.
+Reihenfolge: 1. Organigramm mit allen sechs Stellen (director, designer, engineer, orga, inspector, comms; neon und neon-board als Sekretariat) nach meinen Entscheidungen vom 20.11.2026 im Board-Eintrag „Ablauf: Organigramm mit verbindlicher Stellenkarte je Rolle“; noch nicht besetzte Stellen als „geplant“ mit „bis dahin erledigt durch …“; Konzept und Schlussprüfung mit Fable, offene Fragen an mich; „Betrieb verschlanken“, „Gedächtnis für jede Rolle“ und „Director lernt aus Rückblick“ fließen ein. 2. 24-Stunden-Plan mit Zeitfenstern für alle Stellen. 3. Umsetzung: 24-Stunden-Plan, automatisches Leeren der dauerhaften Sitzungen (wenn der Test „leer“ ergibt), Sitzung director, Umbenennung der Sitzung github.comm.routine in comms (die geplante GitHub-Aufgabe behält ihren Namen). Danach je eine Einstellung mit Probewoche: orga, inspector, comms.
+Umgebaut wird tagsüber, der Nachtlauf baut nicht an sich selbst. Am 30.11. entscheide ich, ob die normale Arbeit wieder anläuft.
+Geltung (Deutung von neon, nicht Wortlaut): Sie ersetzt die frühere Bedingung „nach der Redesign-Woche“ der drei Freigaben vom selben Tag („Dauerhafte Sitzungen leeren“, „Organigramm“, „Eigene Sitzung je Rolle“): Die Umbau-Woche beginnt am 24.11.2026 nach Ende des Volldampfs (01:00) und endet am 30.11.2026; an diesem Tag entscheidet der Maintainer, ob die normale Arbeit wieder anläuft. Vor dem Beginn legt neon den Status „Pausiert“ im Board an (ohne die Status-IDs der übrigen Einträge zu ändern, mit Sicherung vorher) und bereitet den Auftrag des Nachtlaufs für den ersten Tag vor (Sortieren der Einträge auf In Progress).
+
+## Automatische Abnahme nach jedem Release (20.11.2026)
+
+Entscheidung des Maintainers (Maintainer in der neon-Sitzung, 20.11.2026), wörtlich:
+„Nein wir brauchen hier eine automatische abnahme nach jedem release. Kümmer dich darum und beauftrage alle tasks auf der liste zu prüfen und abzunehmen was offen ist“
+Anlass (Beschreibung von neon): Design-Einträge mit „zur Abnahme“ blieben offen, bis der Designer oder der Maintainer von Hand „abgenommen“ schrieb (`tests/board-nach-release.zsh`: Zweifel, nach 7 Tagen „Abnahme überfällig“ im Morgenbrief).
+Umsetzung (Beschreibung der umsetzenden Sitzung, nicht Wortlaut): `publish.sh` startet nach jedem Release im Hintergrund `tests/abnahme-nach-release.zsh`; ein Opus-Lauf nach `tests/abnahme-auftrag.md` prüft die offenen Einträge „zur Abnahme“ mit Commit bis zu diesem Release nach dem Maßstab des Designers und schreibt „abgenommen …“ (Eintrag schließt gleich danach) oder „Abnahme: Mangel – …“ mit Status Todo; Geschmacksfragen ohne Regelgrundlage gehen als Frage in den Morgenbrief. Einzelheiten `docs/release.md` „Automatische Abnahme“, `docs/design-vorgaben.md` Abschnitt 11. Die von Hand abzunehmenden Einträge vom 20.11.2026 nimmt eine andere Sitzung ab.
+
+## GitHub-Issues mit mehreren Problemen: ein Boardeintrag je Problem, Issue erst nach allen (20.11.2026)
+
+Entscheidung des Maintainers (Maintainer in der neon-Sitzung, 20.11.2026), wörtlich:
+„nein wenn nur ein teil geschlossen ist wird niemals das issue komplett geschlossen. die an github.comm.routine kommunizierte regel bezog sich nur auf issues mit einem problem und nicht auf issues mit multiplen probleme für die wir multiple fixes benötigen. wir sollten in solchen fällen bei multiplen problemen in einem gemeldeten issue immer auch multiple boardeinträge erstellen und die dann mit der issue # verlinken. diese wird dann erst geschlossen wenn die verlinkten boardeinträge geschlossen oder closed (abgelehnt) sind.“
+Anlass (Beschreibung von neon): Frage von github.comm.routine, wie Teil-Fixes („teilweise“ im Commit, z. B. #67 in 3.32.0) zu behandeln sind, nach der Regel „bei jedem veröffentlichten Fix das Issue schließen“ (Wortlaut laut github.comm.routine, nicht in dieser Datei).
+Geltung (Deutung von neon, nicht Wortlaut): Die Regel „Fix veröffentlicht, Issue schließen“ gilt nur für Issues mit einem Problem. Bei Issues mit mehreren Problemen gibt es einen Boardeintrag je Problem, jeder mit der Issue-Nummer verlinkt („GitHub #n“ im Titel); das Issue wird erst geschlossen, wenn alle verlinkten Einträge Done oder abgelehnt sind. Ein Teil-Fix schließt das Issue nie. Das Skript `tests/issue-abgleich.sh` schließt Teil-Fixe bisher ohnehin nie; die Prüfung „alle verlinkten Einträge erledigt“ für Issues mit mehreren Einträgen ist als Board-Eintrag „Ablauf: …“ angelegt.
+
+## GitHub-Issues: Bug oder Feature, Bewertung, Schließen (20.11.2026, ca. 21:00 Wiener Zeit)
+
+Entscheidung des Maintainers (Maintainer in der neon-Sitzung, 20.11.2026), wörtlich, die Regel:
+„folgende regel für github issues: wenn ein user multiple issues meldet, wird erstmals zwischen bugs und features unterschieden. für jedes feature wird der direktor (technisch) oder der designer (gefragt). bei ablehnung wird das feature abgelehnt, bei annahme kommt ein feature eintrag auf die boardliste und wird mit der github issue # verlinkt. wenn ein gemeldetes issue ein bug ist kommt dieser sofort auf die bugliste aufs board und wird ebenfalls verlinkt mit dem issue #. geschlossen wird das issue wenn a) bei dem ticket die inaktivitäts-regel in kraft tritt (user meldet sich insgesamt 14 tage nach rückfrage nicht). b) alle verlinkten features oder bugs geschlossen wurden. ist hier noch was unklar?“
+Antworten des Maintainers auf die sechs Rückfragen von neon, wörtlich:
+„1. 7 tage nach der ersten rückfrage kommt von uns die zweite rückfrage. danach noch mal 7 tage wartezeit und dann wird das issue bei inaktivität geschlossen.
+2. ja deine regel macht sinn. das issue schliesst und die einträge laufen weiter da von einem guten feature oder einem gefixten bug alle user profitieren.
+3. feature requests werden zuerst grob vom direktor (technisch) oder designer (optik) geprüft und wenn der feature wunsch keinen grossen umbau benötigt und der grundphilosophie von halo.spaces folgt kann der wunsch auf die liste kommen. hierbei ist auch immer zu berücksichtigen wieviele user im endeffekt tatsächlich von diesem feature profitieren würden. abstrakte oder unpopuläre wünsche werden abgelehnt. wirklich grosse umbauten müssen mir vorgelegt werden. wenn sich designer und direktor nicht sicher sind dann auch mir vorlegen
+4. wenn designer oder direktor gemäß den kritierien ablehnen muss ich nicht informiert werden
+5. nein eigentlich brauchen wir den status "abgelehnt" nicht, geschlossen reicht hierbei.
+6. bei grenzfällen wie diesen müsste man überlegen a) wie schwierig ist der einbau dieser option (in dem fall hatten wir bereits das setting in den optionen), wieviele user profitieren davon (alle linux user mit dem wunsch) und wieviel sinn macht der wunsch? in dem fall haben wir uns für den einbau entschieden. bei grenzfällen weiterhin mir direkt vorlegen“
+Anlass (Beschreibung von neon): Mehrfach-Issues (#52, #59, #66, #67), Frage von github.comm.routine, wie Teil-Fixes, abgelehnte Punkte und die Frist zu behandeln sind; ergänzt die Entscheidung „Issues mit mehreren Problemen“ vom selben Tag.
+Geltung (Deutung von neon, nicht Wortlaut):
+- Ablauf je gemeldetem Issue: Punkte in Bugs und Features trennen. Bug: sofort auf die Bugliste, mit „GitHub #n“ verlinkt. Feature: Direktor (Funktion) oder Designer (Optik) prüft grob; angenommen heißt Feature-Eintrag mit „GitHub #n“, abgelehnt heißt kein Eintrag. Angenommen wird nur ohne großen Umbau, im Sinn der Grundphilosophie von halo.spaces und mit erkennbarem Nutzen für viele Nutzer; abstrakte oder unpopuläre Wünsche werden abgelehnt.
+- Dem Maintainer vorgelegt werden: große Umbauten, Unsicherheit von Designer und Direktor, Grenzfälle (Bug oder Feature, Aufwand, Nutzen). Eine Ablehnung nach den Kriterien meldet niemand an den Maintainer.
+- Abgelehnt ist kein Board-Status; ein abgelehnter Punkt zählt für das Schließen als erledigt (kein Eintrag nötig). Die am 20.11. angelegten archivierten „abgelehnt“-Einträge (#66 Chat-Ansicht, #66 Kontaktliste, #59 Knopf) bleiben als Verlauf.
+- Schließen des Issues: (a) Inaktivität: erste Rückfrage, nach 7 Tagen zweite Rückfrage, nach weiteren 7 Tagen Schließen (insgesamt 14 Tage); die Einträge zu bereits zugesagten Punkten laufen weiter. (b) Alle verlinkten Einträge geschlossen (Done). Teil-Fixes schließen nie.
+- Offen für die Umsetzung (Board-Eintrag …KkaHA): `tests/inaktivitaet.sh` hat die Frist schon (Rückfrage, nach 7 Tagen Nachfrage mit Markierung „we will close this issue due to inactivity“, nach weiteren 7 Tagen schließen; Berichtigung von neon, 20.11. 21:15, die ursprüngliche Fassung nannte hier irrtümlich eine Anpassung), die Ausnahme „offener Board-Eintrag“ so lassen oder streichen (Schließen trotz offener Einträge), `tests/issue-abgleich.sh` schließt nur, wenn alle verlinkten Einträge erledigt sind; `docs/github-komm.md` und `AGENTS.md` anpassen.
+
+## Alter der Einträge: Fable-Agent wählt die Varianten (20.11.2026, ca. 21:30 Wiener Zeit)
+
+Entscheidung des Maintainers (Maintainer in der neon-Sitzung, 20.11.2026), wörtlich:
+„2. nein 1. der fable agent soll entscheiden welche umgesetzt werden und dann den opus agenten beauftragen den board-eintrag anzulegen“
+Deutung von neon, kein Wortlaut: Die Variante „Zusage-Stufe“ (Vorrang für zugesagte Features aus GitHub-Issues) ist abgelehnt; über die übrigen Varianten entscheidet der Fable-Agent.
+Entscheidung des Fable-Agenten (kein Wortlaut des Maintainers): E, dann B mit A als Begleittext, dann D. E: Wer einen Eintrag wegen fehlender Entscheidung überspringt, notiert „Entscheidung fehlt seit <Datum>: <Frage>“, nach über 7 Tagen „Wartet auf OK“; der Morgenbrief zeigt Überfälliges im Abschnitt „Überfällig“. B: Alters-Zuschlag im Nutzen aus dem Anlagedatum, vom Skript gerechnet (`tests/haeufung.py`, Abschnitt „Alter (Skript)“), wie die Häufung. A: „über 7 Tage offen rückt eine Stufe vor“ (11.11.2026) wird überall durch die Zuschlagsregel ersetzt. D: ein Platz je Lauf für den ältesten machbaren Eintrag („Alters-Platz“). Die Werte (+0,5 Nutzenstufe je volle 7 Tage, Deckel +1,5, ein Platz je Lauf, 7 Tage Frist) sind Festlegung des Fable-Agenten, kein Wortlaut.
+Unverändert (Festlegung des Fable-Agenten, kein Wortlaut): Regel 0 (Release-Blocker), Schwere, Testzeit-Verkürzung, Nutzer-Bugs, Wünsche des Maintainers, „aus einem Guss“, „Wartet auf OK“, Dauerfreigaben; Zuschlag und Alters-Platz wirken erst danach.
+Umsetzung: Board-Eintrag „Ablauf: Alter der Einträge wirksam machen – …“, Zweig `ablauf/altersregel`.
+
+## Knopf-Familie (I6FHI) nur als Ganzes, vorgezogen im nächsten Nachtlauf (20.11.2026)
+
+Herkunft: Gespräch des Maintainers mit dem Designer, 20.11.2026, laut Designer (Nachricht an neon, von neon nicht geprüft). Wortlaut des Maintainers: „ich folge deinen empfehlungen.“ Er antwortet damit auf zwei Empfehlungen des Designers:
+1. Die Knopf-Familie (I6FHI) wird nur als Ganzes veröffentlicht: alle Knöpfe (Mail, Verfassen, Einstellungen, Kalender, Dialoge) werden im selben Release plastisch, keine halb flache, halb plastische Version (G14). Die Frage vom 18.11. ist damit entschieden.
+2. I6FHI wird vorgezogen: im nächsten Nachtlauf die rote CI auf `nacht/designer-knoepfe-1118` (und dem darauf aufbauenden `nacht/designer-remote-69-1118`) beheben, die Familie vervollständigen, Abnahmebilder an den Designer, danach Release. Davon hängen ab: README-Nachaufnahme samt compose (#55), Senden plastisch, Absenderkreise, Save-All-Kapsel.
+
+## Zwischen-Releases nur für Spürbares (20.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 20.11.2026, nach dem Zwischen-Release 3.35.0: „also der zwischen-release mit einer einzigen änderung welche auch nicht kritisch war, war jetzt eigentlich unnötig.“ Auf neons Vorschlag („Ein Zwischen-Release braucht mindestens einen Fehler, den Nutzer bemerken, oder etwas Dringendes. Ein reiner Schönheitsfehler wartet auf den Nachtlauf.“) antwortete er: „ja.“
+Deutung von neon: gilt für Zwischen-Releases (auch im Volldampf); der Nachtlauf veröffentlicht weiter alles, sobald die CI grün ist.
+
+## VMs: nach jedem Test herunterfahren, vor dem Test starten; Linux-VM mit Regelwerk (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026. Zur Linux-VM auf neon samt Regelwerk (Entwurf von neon im Board-Eintrag „Ablauf: Linux-VM auf neon einrichten und Regelwerk …“) schrieb er: „ok aber dann müssen wir auch ab sofort die windows vm nach ende jeden tests herunterfahren und zu beginn des tests auch starten“. Davor hatte er den Gedanken so begründet: „so würden wir sicherstellen dass immer nur jene vm läuft die auch tatsächlich gebraucht wird und ressourcensparend arbeiten.“
+Deutung von neon: Ab sofort gilt für jede VM auf neon: am Ende eines Tests ganz herunterfahren (nicht mehr pausieren), vor dem nächsten Test starten. Das Regelwerk für die Linux-VM (GitHub-Linux bleibt maßgeblich, Linux-VM nur zur Diagnose) gilt als bestätigt; die Einrichtung der Linux-VM folgt erst nach dem Ergebnis des Fable-Versuchs zur Today-Pane-Prüfung.
+
+Nachtrag 21.11.2026 (Maintainer, Sitzung neon): Die Idee, dass eine grüne Linux-VM ein rotes GitHub-Ergebnis übersteuert („wenn dort grün ist overruled das den roten test auf github“), wurde nach der Analyse eines Opus-Agenten (Empfehlung: ablehnen; ARM-Build und Zeitverhalten weichen von GitHub ab, ein echter ESR-Fehler wäre durchgegangen) nicht eingeführt. Die Linux-VM ist nur noch als Werkzeug für einen Linux-Rundgang und Design-Entscheidungen gedacht: „das bedeutet für design entscheidungen und für einen linux rundgang wäre das ein gutes werkzeug“; auf neons Vorschlag, das Ziel entsprechend zu ändern und sie niedrig zu priorisieren (Linux 1,7 % gegen macOS 4,4 %, laut Designer), antwortete er: „ja ok“. Das Regelwerk „Linux-VM nur zur Diagnose“ oben gilt damit nur noch als Rahmen: GitHub-Linux bleibt die einzige Quelle für grün.
+
+Nachtrag 21.11.2026, ca. 09:30 (Maintainer, Sitzung neon): Auf den Vorschlag, einen Notweg „Release trotz roter GitHub-Linux-Prüfung bei grüner Linux-VM, mehreren Fable-Versuchen ohne Ursache und Gegenprobe“ zu prüfen, ordnete er an: „nochmals von opus prüfen lassen und dann der empfehlung folgen“. Die Empfehlung des zweiten Opus-Agenten: Regel in dieser Form nicht einführen, Linux-VM dafür nicht nötig; zuerst den zweiten Fable-Versuch abwarten, danach entscheidet der Maintainer über HALO_FRAMES_WARN für Bildtakt-Prüfungen unter GitHub-Linux (Board-Eintrag „Ablauf: Bildtakt-Prüfungen unter Linux …“, Wartet auf OK); erst wenn das nicht reicht, ein Ausnahme-Release mit Gegenprobe gegen den letzten Release-Stand (gleiche Fehlerzeile, Prüfung unverändert, nur eine rote Prüfung, Einzelfreigabe, Ablauf nach 7 Tagen). Deutung von neon: Damit gilt unverändert „GitHub-Linux ist die einzige Quelle für grün“.
+
+## Tastenkürzel unter Windows und Linux: Strg+B und Strg+T (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026. Anlass: GitHub #59, Einträge „Seitenleiste: Tastenkürzel zum Ein-/Ausblenden unter Linux und Windows prüfen“ und „Today-Pane: Tastenkürzel Control+Cmd+T …“. Wunsch des Maintainers: „ich möchte nicht in halo.spaces unterschiedliche logiken haben wo die today pane mit f-taste und die sidebar mit anderer kombination genutzt wird“ (die Windows-/Super-Taste scheidet aus, sie gehört dem System).
+Empfehlung eines Opus-Agenten (Quellen: Thunderbird 160, mainKeySet/messenger.xhtml; Windows-/Linux-eigene Kürzel nicht neu geprüft) und neons Frage: „Nehmen wir Paar A, also Strg+B und Strg+T mit F11 zusätzlich und einem Menüpunkt mit Kürzel?“ Antwort des Maintainers: „Ja“.
+Festlegung (Deutung von neon): Unter Windows und Linux: Seitenleiste ein-/ausblenden = Strg+B, Today-Pane ein-/ausblenden = Strg+T; F11 bleibt zusätzlich bestehen; Menüpunkte mit Kürzelanzeige im Menü „Ansicht“ und im App-Menü (☰ › Ansicht). Nur im Hauptfenster, nicht im Verfassen-Fenster (dort Strg+B fett, Strg+T Festbreite); im Notizfeld der Aufgaben bleibt Strg+B fett. Vor der Umsetzung unter Windows prüfen (Windows-VM), dass Strg+B und Strg+T im Hauptfenster frei sind.
+
+## Fable maximal ausnutzen, Reset erst bei vollem Verbrauch (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026. Wortlaut: „Ich habe zwei fable resets und könnte heute einen davon nutzen“; „Ok dann sollten wir weiterhin fable maximal ausnützen damit das fable Kontingent verbraucht wird. Hast du Zugriff auf den wert?“; „Aktuell haben wir 62% vom fable Kontingent verbraucht, ich führe den reset erst beim kompletten Verbrauch durch“; „Maximale fable nutzung gilt aber nur bis zu meinem manuellen reset“.
+Laufender Stand und Umsetzung (Deutung von neon): `docs/regelwerk-kontingent.md` Abschnitt 4a; Maintainer 21.11.2026: solche Zustandsangaben gehören in die Doku, hier nur der Wortlaut.
+
+## Nach jedem Release alle Einträge und Issues prüfen und schließen, was geht (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026, auf die Frage, ob nach dem Release 3.36.0 geprüft wurde, was auf der Aufgabenliste und bei den GitHub-Issues geschlossen werden kann: „wir brauchen einen automatismus der nach jedem release erneut mit einem opus agenten durch alle einträge auf dem board geht und schliesst was geht“.
+Deutung von neon: Nach jedem Release geht ein Opus-Agent automatisch durch alle offenen Board-Einträge und alle offenen GitHub-Issues, belegt je Eintrag gegen den Stand (Commit im Release, CI grün, Verhalten), und schließt, was belegt erledigt ist (Board: Done und archivieren; Issue: Antwort „Fixed in x.y.z“ und schließen). Was eine Entscheidung braucht oder unklar bleibt, schließt er nicht, sondern vermerkt es in einer Notiz bzw. im Bericht. Pull Requests schließt er nie (bleibt beim Maintainer).

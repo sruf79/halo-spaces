@@ -174,6 +174,14 @@ async function render() {
         }
         control.value = String(settings[row.key]);
         if (control.selectedIndex < 0) control.selectedIndex = 0;
+        // fünfter Platz: Bereich einer Erweiterung nur wählbar, wenn eine installiert ist
+        if (row.key == "fifthSpace" && !(settings.fifthSpaceAddons || []).length) {
+          const opt = control.querySelector('option[value="addon"]');
+          if (opt) {
+            opt.disabled = true;
+            opt.textContent += ` (${t("none installed")})`;
+          }
+        }
         const numeric = typeof (row.options || [])[0] == "number";
         control.addEventListener("change", () => save(numeric ? Number(control.value) : control.value));
       } else if (row.type == "place") {

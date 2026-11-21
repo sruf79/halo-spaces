@@ -414,6 +414,31 @@ class EnhancerOberflaeche {
     li.toggleAttribute("mc-starred", starred);
   }
 
+  // Trefferzahl einer Suche: Thunderbirds Zähler der Ansicht läuft beim Start
+  // jeder Suche wieder von 0 an, während die gemerkten Treffer schon in der
+  // Liste stehen – darum mindestens die Zeilen der Liste (ohne Gruppenköpfe)
+  searchHitCount(ab) {
+    const view = ab.gDBView;
+    let n = 0;
+    try {
+      n = view?.numMsgsInView || 0;
+    } catch {} // gewollt: Ansicht ohne Zähler, dann nur die Zeilen
+    const rows = view?.rowCount || 0;
+    if (rows <= n) {
+      return n;
+    }
+    let mails = rows;
+    if (view.viewFlags & Ci.nsMsgViewFlagsType.kGroupBySort) {
+      const DUMMY = 0x20000000; // MSG_VIEW_FLAG_DUMMY: Kopfzeile einer Gruppe
+      for (let i = 0; i < rows; i++) {
+        if (view.getFlagsAt(i) & DUMMY) {
+          mails--;
+        }
+      }
+    }
+    return Math.max(n, mails);
+  }
+
   updateListHeader(w) {
     const d = w.document;
     const box = d.getElementById("mcListHeader");
@@ -447,7 +472,7 @@ class EnhancerOberflaeche {
       const folder = ab.gFolder;
       if (this.isSearchFolder(folder)) {
         // Suche: „Suche“ und „Alle Postfächer, 12 Treffer“ wie Apple Mail
-        const n = ab.gDBView?.numMsgsInView || 0;
+        const n = this.searchHitCount(ab);
         title.textContent = tr("Searching");
         const base = this.searchBase(ab);
         count.textContent = (this.isUnifiedFolder(base) ? tr("All Mailboxes") : appleFolderName(base)) + ", " +
@@ -532,7 +557,25 @@ class EnhancerOberflaeche {
       search?.addEventListener("autocomplete", update);
       const mo = new cw.MutationObserver(update);
       mo.observe(list, { childList: true, subtree: true });
+      // Thunderbird setzt den Fokus an mehreren Stellen auf sein Suchfeld über der
+      // Liste (Abbrechen eines neuen Kontakts, letzter Kontakt gelöscht, leere
+      // Liste); das ist ausgeblendet (Suche oben in der Toolbar), der Fokus ginge
+      // ins Leere und Pfeiltasten wirkten erst nach einem Klick – dann in die
+      // Kontaktliste wie Apple Kontakte
+      const ownFocus = search && !Object.hasOwn(search, "focus");
+      if (ownFocus) {
+        const focusSearch = search.focus;
+        search.focus = function (...args) {
+          if (!this.getClientRects().length && list.table?.body) {
+            return list.table.body.focus();
+          }
+          return focusSearch.apply(this, args);
+        };
+      }
       this.addWinRestorer(cw, () => {
+        if (ownFocus) {
+          delete search.focus;
+        }
         books.removeEventListener("select", update);
         search?.removeEventListener("autocomplete", update);
         mo.disconnect();
@@ -543,7 +586,17 @@ class EnhancerOberflaeche {
       const row = books.getRowAtIndex?.(books.selectedIndex) || books.selectedRow;
       const name = row?.querySelector(".bookRow-name, .listRow-name, span")?.textContent || row?.textContent || "";
       title.textContent = name.trim();
-      const n = list.view?.rowCount ?? 0;
+      // nur Kontakte zählen: Verteilerlisten stehen bei Thunderbird als eigene Zeilen
+      // zwischen den Kontakten, Apple Kontakte zählt sie nicht mit
+      const view = list.view;
+      let n = view?.rowCount ?? 0;
+      if (view?.getCardFromRow) {
+        for (let i = n - 1; i >= 0; i--) {
+          if (view.getCardFromRow(i)?.isMailList) {
+            n--;
+          }
+        }
+      }
       count.textContent = tr(n == 1 ? "{n} contact" : "{n} contacts", { n: n.toLocaleString(Services.locale.appLocaleAsBCP47) });
     } catch (e) {
       log("ab header error", e);
@@ -1117,7 +1170,15 @@ class EnhancerOberflaeche {
           leadExact: !!lead && lead == firstSpacer && Math.abs(rectOf(lead).right - (start + offsetBefore)) < 0.75,
         };
       }
-      setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
+      // Today-Pane gleitet ein: Der Einzug steht seit Beginn der Bewegung am Endmaß (gemessen, solange die Pane im
+      // Fluss lag). Liegt sie über dem Inhalt, ist die Mailliste vorübergehend breiter, wenn sie mit offener Pane
+      // schmaler wird (ESR, 1500 px: 667 statt 650 px) – wer jetzt nachmisst, schöbe alle Knöpfe um diese Differenz
+      // nach rechts und am Ende zurück (Sprung um 17 px im ersten und im letzten Bild)
+      const tpPanel = top.document.getElementById("today-pane-panel");
+      const tpSlidingIn = !top.__mcDry && !!tpPanel?.__mcAnimating && tpPanel.__mcSliding == "in";
+      if (!tpSlidingIn) {
+        setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
+      }
       setVar(top.document.getElementById("unifiedToolbarContainer"), "--mc-row-tail", `${rowTail(top.document)}px`);
       if (!animating) {
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld

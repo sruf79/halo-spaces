@@ -15,6 +15,40 @@
 "use strict";
 
 class EnhancerMailliste {
+  // Leseansicht ohne gewählte Mail: mittig grau „No Message Selected“ (Text in
+  // der Sprache der Oberfläche, gezeichnet vom Stilblatt) statt Thunderbirds
+  // Startseite aus dem Netz. Die Startseite ist nur als Vorgabe aus (siehe
+  // START_PAGE in startup); wer sie in den Einstellungen einschaltet oder über
+  // Gehe zu > Startseite öffnet, sieht sie weiter. Hat Thunderbird sie vor dem
+  // Start der Erweiterung schon geöffnet (erstes Fenster), hier wieder leeren.
+  hookEmptyPane(win) {
+    const pane = win.document.getElementById("messagePane");
+    if (!pane) {
+      return;
+    }
+    pane.setAttribute("data-mc-empty", tr("No Message Selected"));
+    const web = pane.webBrowser;
+    if (!web || web.hidden || Services.prefs.getBoolPref("mailnews.start_page.enabled", false)) {
+      return;
+    }
+    let startHost = "", host = "";
+    try {
+      startHost = new URL(Services.urlFormatter.formatURLPref("mailnews.start_page.url")).host;
+    } catch {
+      // gewollt: keine gültige Adresse eingestellt
+    }
+    const spec = web.currentURI?.spec || "about:blank";
+    try {
+      host = new URL(spec).host;
+    } catch {
+      // gewollt: about:-Seite ohne Rechner
+    }
+    if ((spec == "about:blank" || (startHost && host == startHost)) && !win.gDBView?.numSelected) {
+      pane.clearAll?.({ alwaysClearWebBrowser: true });
+      log("start page cleared", { spec: spec.slice(0, 60) });
+    }
+  }
+
   // Leseansicht: ganze Konversation als Karten (ConversationCards) über
   // Thunderbirds Anzeige von Einzelmail bzw. Faden-Zusammenfassung
   hookConversation(win) {
@@ -33,6 +67,7 @@ class EnhancerMailliste {
     pane.__mcConv = HOOK_OWNER;
     const conv = new ConversationCards(win, pane);
     pane.__mcConversation = conv;
+    const unhookArrivals = this.hookConversationArrivals(win, conv);
     // zugeklappter Faden: Thunderbird graut Antworten und Weiterleiten aus
     // (mehrere Mails gewählt) – wie Apple Mail wirken sie auf die neueste
     // bzw. gewählte Mail der Konversation
@@ -148,6 +183,7 @@ class EnhancerMailliste {
       return result;
     };
     this.addWinRestorer(win, () => {
+      unhookArrivals();
       conv.hide();
       delete pane.displayMessage;
       delete pane.displayMessages;
@@ -156,6 +192,34 @@ class EnhancerMailliste {
       delete pane.__mcConv;
       delete pane.__mcConversation;
     });
+  }
+
+  // neu eingegangene Mails (auch die Kopie einer eigenen Antwort in Gesendet)
+  // an die angezeigte Konversation weitergeben (ConversationCards.arrived);
+  // liefert die Abmeldung
+  hookConversationArrivals(win, conv) {
+    const listener = {
+      msgAdded: hdr => {
+        // erst nach Thunderbirds eigener Verarbeitung (Liste, Faden)
+        win.setTimeout(() => {
+          try {
+            conv.arrived(hdr);
+          } catch (e) {
+            log("conversation arrival error", e);
+          }
+        }, 0);
+      },
+    };
+    MailServices.mfn.addListener(listener, MailServices.mfn.msgAdded);
+    let on = true;
+    const off = () => {
+      if (on) {
+        on = false;
+        MailServices.mfn.removeListener(listener);
+      }
+    };
+    win.addEventListener("unload", off, { once: true });
+    return off;
   }
 
   // Nachricht im eigenen Fenster (Doppelklick, auch auf eine zugeklappte
@@ -179,7 +243,9 @@ class EnhancerMailliste {
       const fit = () => conv.fitWindowTop();
       browser.addEventListener("MsgLoaded", fit, true);
       top.addEventListener("resize", fit);
+      const unhookArrivals = this.hookConversationArrivals(top, conv);
       this.addWinRestorer(top, () => {
+        unhookArrivals();
         browser.removeEventListener("MsgLoaded", fit, true);
         top.removeEventListener("resize", fit);
         conv.hide();
@@ -559,7 +625,9 @@ class EnhancerMailliste {
   // Senden im Hintergrund: Thunderbird legt die Mail in den Postausgang und
   // sendet sie selbst – aber nur, wenn es beim Start schon einen Postausgang
   // gab (sonst blieb sie liegen). Darum nach jedem Senden kurz nachsehen und
-  // den Postausgang selbst leeren, falls Thunderbird nicht schon dabei ist.
+  // den Postausgang auf Thunderbirds automatischem Weg senden, falls es nicht
+  // schon dabei ist; mit „Später senden“ zurückgehaltene Mails bleiben liegen
+  // (sendOutboxInBackground in mail.js).
   flushOutbox() {
     const observer = {
       observe: () => setTimeout(() => {
@@ -568,7 +636,7 @@ class EnhancerMailliste {
           const outbox = MailServices.accounts.localFoldersServer?.rootFolder?.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
           if (Services.prefs.getBoolPref("mailnews.sendInBackground", false) && !Services.io.offline &&
               outbox?.getTotalMessages(false) && !sl.sendingMessages) {
-            Services.wm.getMostRecentWindow("mail:3pane")?.SendUnsentMessages?.();
+            sendOutboxInBackground();
           }
         } catch (e) {
           log("flush outbox error", e);
@@ -860,6 +928,7 @@ class EnhancerMailliste {
       });
     });
     safely("conversation", () => this.hookConversation(win));
+    safely("empty pane", () => this.hookEmptyPane(win));
     safely("scroll watch", () => {
       const onScroll = () => (this.lastListScroll = Date.now());
       win.threadTree.addEventListener("scroll", onScroll, { passive: true, capture: true });
@@ -1002,6 +1071,32 @@ class EnhancerMailliste {
     };
     tph.__mcHooked = true;
     win.addEventListener("folderURIChanged", update);
+    // laufende Suche: Thunderbird meldet die Anzahl des Suchordners erst am
+    // Ende der Suche – über viele (IMAP-)Postfächer stand bis dahin „0 results“
+    // über einer Liste voller Treffer. Darum bei jeder Änderung der Zeilen
+    // nachziehen (gesammelt, höchstens alle 150 ms)
+    const jsTree = win.threadPane?._jsTree;
+    let rowsTimer = null;
+    const rowsChanged = () => {
+      if (!rowsTimer && self.isSearchFolder(win.gFolder)) {
+        rowsTimer = win.setTimeout(() => {
+          rowsTimer = null;
+          self.updateListHeader(top);
+        }, 150);
+      }
+    };
+    const origRows = jsTree?.rowCountChanged;
+    const origInvalidate = jsTree?.invalidate;
+    if (origRows && origInvalidate) {
+      jsTree.rowCountChanged = function (...args) {
+        rowsChanged();
+        return origRows.apply(this, args);
+      };
+      jsTree.invalidate = function (...args) {
+        rowsChanged();
+        return origInvalidate.apply(this, args);
+      };
+    }
     // anderen Ordner gewählt, während gesucht wurde: wie Apple Mail dort
     // weitersuchen (Sammelordner: wieder in allen Postfächern)
     const leave = () => {
@@ -1023,6 +1118,11 @@ class EnhancerMailliste {
     this.restorers.push(() => {
       tph.onFolderSelected = origSelected;
       tph.updateMessageCount = origCount;
+      if (origRows && origInvalidate) {
+        jsTree.rowCountChanged = origRows;
+        jsTree.invalidate = origInvalidate;
+      }
+      win.clearTimeout(rowsTimer);
       delete tph.__mcHooked;
       win.removeEventListener("folderURIChanged", update);
     });

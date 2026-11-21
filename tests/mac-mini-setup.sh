@@ -799,6 +799,36 @@ pruefe_laeufe() {
     '<key>StartInterval</key><integer>300</integer>
   <key>RunAtLoad</key><true/>' \
     '' "alle 5 Minuten status.json nach sruf79/halo-status (privat), Protokoll ~/halo-nacht/leitstand/leitstand.log"
+  # Volldampf-Wächter nach einem Neustart (Maintainer 20.11.2026): LaunchAgent ruft „volldampf.sh sicher“ auf (Anmeldung und alle
+  # 10 Minuten); das Skript läuft direkt aus dem Checkout, weil es die Wächter-Skripte daneben braucht (keine Kopie in AG_DIR)
+  vd_label=at.halo-spaces.volldampf-waechter; vd_plist=$HOME/Library/LaunchAgents/$vd_label.plist
+  vd_soll() { cat <<VDEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$vd_label</string>
+  <key>ProgramArguments</key>
+  <array><string>/bin/zsh</string><string>$ROOT/tests/volldampf.sh</string><string>sicher</string></array>
+  <key>StartInterval</key><integer>600</integer>
+  <key>RunAtLoad</key><true/>
+  <key>AbandonProcessGroup</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/halo-volldampf-waechter.log</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/halo-volldampf-waechter.log</string>
+</dict>
+</plist>
+VDEOF
+  }
+  if [[ $(vd_soll | plutil -convert xml1 -o - - 2>/dev/null) == "$(plutil -convert xml1 -o - $vd_plist 2>/dev/null)" ]] && launchctl print gui/$(id -u)/$vd_label >/dev/null 2>&1; then
+    ok "Volldampf-Wächter" "nach einem Neustart startet volldampf.sh sicher fehlende Wächter (Anmeldung und alle 10 Minuten, Protokoll ~/Library/Logs/halo-volldampf-waechter.log)"
+  elif (( CHECK )); then
+    offen "Volldampf-Wächter" "LaunchAgent fehlt, ist veraltet oder nicht geladen"
+    tun "tests/mac-mini-setup.sh --ohne-probelauf ausführen"
+  elif mkdir -p ${vd_plist:h} && vd_soll > $vd_plist; then
+    launchctl bootout gui/$(id -u)/$vd_label 2>/dev/null
+    launchctl bootstrap gui/$(id -u) $vd_plist 2>/dev/null && ok "Volldampf-Wächter" "eingerichtet" || { offen "Volldampf-Wächter" "eingerichtet, ließ sich aber nicht laden"; tun "in der Bildschirmsitzung: launchctl bootstrap gui/$(id -u) $vd_plist" }
+  fi
   # täglicher Neustart von neon: NICHT eingerichtet (Entscheidung des Maintainers,
   # Cloud-Sitzung global.design.comparison, 6.11.2026, Wortlaut: „ja täglichen neustart nicht aktivieren. clear von hand.“
   # tests/neon-neustart.sh bleibt als Skript liegen). Nur Hinweis, falls geladen.
@@ -824,11 +854,14 @@ pruefe_laeufe() {
 }
 
 # Windows-VM (Parallels Pro, tests/MAC-MINI.md Abschnitt 11): Einstellungen am Mac, Windows-Seite über
-# tests/win-vm-setup.ps1 per prlctl exec. Mit --check wird eine pausierte VM nicht geweckt.
+# tests/win-vm-setup.ps1 per prlctl exec. Mit --check wird eine gestoppte VM nicht gestartet. Jede VM auf neon läuft
+# nur, solange sie gebraucht wird (Maintainer 21.11.2026, ENTSCHEIDUNGEN.md „VMs: nach jedem Test herunterfahren …“):
+# kein Start mit dem Mac, und was die Einrichtung startet, fährt sie am Ende wieder herunter.
 VM=${HALO_VM:-Windows 11}
 VM_SHARE=$HOME/halo-vm
+vm_aus() { prlctl stop "$VM" >/dev/null 2>&1 || prlctl stop "$VM" --kill >/dev/null 2>&1 }
 pruefe_vm() {
-  local info state ed cpu mem tools shf vin
+  local info state ed cpu mem tools shf vin gestartet=0
   if ! command -v prlctl >/dev/null; then
     hinweis "Windows-VM" "kein Parallels Desktop (optional, tests/MAC-MINI.md, Abschnitt 11)"
     return
@@ -854,13 +887,13 @@ pruefe_vm() {
     hinweis "VM-Größe" "Kerne ${cpu:-?}, Speicher ${mem:-?} MB (vorgesehen: 4 Kerne, 6144 MB, fest)"
     tun "bei gestoppter VM: prlctl set \"$VM\" --cpus 4 && prlctl set \"$VM\" --memsize 6144"
   fi
-  if [[ $info == *"Autostart: on"* && $info == *"Autostop: shutdown"* ]]; then
-    ok "VM-Start" "mit dem Mac (start-host), fährt beim Ausschalten herunter"
+  if [[ $info == *"Autostart: off"* && $info == *"Autostop: shutdown"* ]]; then
+    ok "VM-Start" "nur für Tests (kein Start mit dem Mac), fährt beim Ausschalten herunter"
   elif (( CHECK )); then
-    offen "VM-Start" "startet nicht mit dem Mac oder wird beim Ausschalten nicht heruntergefahren"
+    offen "VM-Start" "startet mit dem Mac oder wird beim Ausschalten nicht heruntergefahren (vorgesehen: --autostart off)"
   else
-    prlctl set "$VM" --autostart start-host >/dev/null && prlctl set "$VM" --autostop shutdown >/dev/null &&
-      ok "VM-Start" "eingerichtet (start-host, Herunterfahren mit dem Mac)" || offen "VM-Start" "ließ sich nicht setzen"
+    prlctl set "$VM" --autostart off >/dev/null && prlctl set "$VM" --autostop shutdown >/dev/null &&
+      ok "VM-Start" "eingerichtet (kein Start mit dem Mac, Herunterfahren mit dem Mac)" || offen "VM-Start" "ließ sich nicht setzen"
   fi
   # nur der Austauschordner, nichts vom Benutzerordner
   shf=$(sed -n '/^Host Shared Folders/,/^Host defined sharing/p' <<<$info | sed -n "s/^  \([^ ]*\) (+) path='\([^']*\)'.*/\1=\2/p")
@@ -895,12 +928,15 @@ pruefe_vm() {
       hinweis "Windows-VM" "$state – Windows und Thunderbird-Versionen werden beim nächsten Lauf mit --vm geprüft"
       return
     fi
-    if [[ $state == (suspended|paused) ]]; then prlctl resume "$VM" >/dev/null; else prlctl start "$VM" >/dev/null; fi
-    for _ in {1..60}; do [[ $(prlctl exec "$VM" --current-user cmd /c echo bereit 2>/dev/null) == bereit* ]] && break; sleep 3; done
+    # pausiert aus alter Zeit: erst fortsetzen und herunterfahren (stop greift bei einer pausierten VM nicht zuverlässig)
+    if [[ $state == (suspended|paused) ]]; then prlctl resume "$VM" >/dev/null; vm_aus; fi
+    prlctl start "$VM" >/dev/null; gestartet=1
+    for _ in {1..100}; do [[ $(prlctl exec "$VM" --current-user cmd /c echo bereit 2>/dev/null) == bereit* ]] && break; sleep 3; done
   fi
   if [[ $(prlctl exec "$VM" --current-user cmd /c echo bereit 2>/dev/null) != bereit* ]]; then
     offen "Windows-VM" "$state, aber keine angemeldete Sitzung (prlctl exec --current-user)"
     tun "am Bildschirm: Windows-Benutzer automatisch anmelden lassen (tests/MAC-MINI.md, Abschnitt 11)"
+    (( gestartet )) && vm_aus
     return
   fi
   ok "Windows-VM" "„$VM“ läuft, $(prlctl exec "$VM" --current-user cmd /c whoami 2>/dev/null | tr -d '\r') angemeldet"
@@ -914,6 +950,7 @@ pruefe_vm() {
   fi
   prlctl exec "$VM" --current-user powershell -NoProfile -ExecutionPolicy Bypass -File '\\Mac\halo\setup\win-vm-setup.ps1' -Benutzer ${${CHECK:#0}:+-Check} 2>&1 | tr -d '\r' | vm_zeilen
   rm -rf $VM_SHARE/setup
+  (( gestartet )) && vm_aus   # selbst gestartet: wieder herunterfahren
 }
 
 # Ausgabe von win-vm-setup.ps1 übernehmen: „VM: “ vor den Namen, OFFEN mitzählen

@@ -13,7 +13,7 @@
 # Quellen (fehlt eine, steht das Feld auf null, kein Abbruch):
 #   Prozessliste (Agenten, Läufe), ~/halo-nacht/<datum>.log und <datum>-tagesroutine.log (Schritt), Prozess-Argumente
 #   der Tagesroutine-Runde (Eintrag „JETZT: … „Titel““), ~/halo-nacht/auslastung/worker-<n> (Worker),
-#   ~/halo-nacht/kontingent.json (älter als 15 Min. → tests/kontingent.sh), wochen_soll/volldampf_aktiv (lauf-hilfen.zsh),
+#   ~/halo-nacht/kontingent.json (älter als 15 Min. → tests/kontingent.sh), kalender_soll/volldampf_aktiv (lauf-hilfen.zsh; Soll = vergangene Zeit der Kalenderwoche, Maintainer 20.11.2026),
 #   pausen.txt, rot-zaehler.txt, Board (gh project item-list, höchstens alle 15 Min.; ein jüngerer Zwischenspeicher von
 #   board.sh wird mitgenutzt), ~/halo-aufgaben/archiv.md (erledigt in 7 Tagen), Plan des Directors (neueste
 #   ~/halo-nacht/<datum>-plan.md bzw. <datum>-tagesroutine-plan[-n].tsv), offene Issues (alle 15 Min.; wartet = letzter
@@ -67,9 +67,11 @@ KJ=$N/kontingent.json
 if netz && alt $KJ 900 && [[ -x $REPO/tests/kontingent.sh || -r $REPO/tests/kontingent.sh ]]; then
   zsh $REPO/tests/kontingent.sh >/dev/null 2>>$LOG || log "Kontingent nicht lesbar (letzter Wert bleibt)"
 fi
-# Soll und Volldampf aus lauf-hilfen.zsh (eine Stelle für die Regeln)
+# Soll und Volldampf aus lauf-hilfen.zsh (eine Stelle für die Regeln); Soll der Kalenderwoche (Maintainer 20.11.2026: „die wochen
+# kontingent grafik stimmt hier nicht oder? es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag
+# 01:00 bis dienstag 01:00 geht“), resetsAt aus kontingent.json, auch nach einem freien Reset
 if [[ -n ${HALO_LS_SOLL+x} ]]; then print -r -- $HALO_LS_SOLL > $Q/soll.txt
-else ( LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null && wochen_soll 168 ) > $Q/soll.txt 2>/dev/null; fi
+else ( LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null && kalender_soll $KJ ) > $Q/soll.txt 2>/dev/null; fi
 if [[ -n ${HALO_LS_VOLLDAMPF+x} ]]; then print -r -- $HALO_LS_VOLLDAMPF > $Q/volldampf.txt
 elif [[ -r $HIER/lauf-hilfen.zsh ]]; then
   ( LOG=/dev/null HALO_UEBERSPRUNGEN_LOG=/dev/null; source $HIER/lauf-hilfen.zsh 2>/dev/null; volldampf_aktiv >/dev/null 2>&1 ) && print 1 > $Q/volldampf.txt || print 0 > $Q/volldampf.txt
@@ -132,6 +134,13 @@ if netz; then
   fi
   # 40 statt 15 (Feld ci zeigt weiter die 15 neuesten): Laufdauern für die Release-Schätzung aus derselben Abfrage
   holen $Q/ci.json gh run list -R $GH_REPO -L 40 --json databaseId,number,displayTitle,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,url,workflowName
+  # Jobs laufender bzw. wartender Läufe (höchstens die 5 neuesten unter den 15 neuesten; Dashboard-Wunsch 20.11.2026)
+  rm -f $Q/jobs-*.json(N)
+  if [[ -s $Q/ci.json ]]; then
+    for jid in ${=$(jq -r '[.[:15][] | select(.status != "completed")][:5][] | .databaseId' $Q/ci.json 2>/dev/null)}; do
+      holen $Q/jobs-$jid.json gh run view $jid -R $GH_REPO --json jobs
+    done
+  fi
   # ci_main gezielt (der neueste main-Lauf ist oft nicht unter den 15 neuesten; 5 für abgebrochene davor)
   # 30 statt 5: auch Dauern der main- und Windows-Läufe (ci_main nimmt weiter den neuesten)
   holen $Q/ci-main.json gh run list -R $GH_REPO --branch main -L 30 --json databaseId,number,headBranch,headSha,event,status,conclusion,createdAt,updatedAt,workflowName
@@ -332,7 +341,15 @@ def weiter_aus(schritt, wann):
     if m: return iso(m.group(1))
     if re.match(r"Limit\b.*Pause 30 Minuten", s): return iso(wann.timestamp() + 1800)
     m = re.search(r"nächster Versuch (\d\d):(\d\d)|warte bis (\d\d):(\d\d)|nächste Planung (\d\d):(\d\d)|^vor dem Beginn (\d\d):(\d\d)", s)
-    if not m: return None
+    if not m:
+        # ohne Uhrzeit in der Zeile: „bis zur vollen Stunde“ = die nächste volle Stunde nach der Zeile; „warte: …“ (Mac belegt, Lauf
+        # fragt alle 5 Minuten neu, tests/tagesroutine.sh bzw. 60 Sekunden beim Nachtlauf) und „belegt nach … später erneut“ = nächste
+        # Prüfung in 5 (bzw. 1) Minuten; sonst unbekannt
+        if re.search(r"volle[rn]? Stunde", s):
+            return iso((wann.replace(minute=0, second=0, microsecond=0) + dt.timedelta(hours=1)).timestamp())
+        if re.match(r"warte: Nachtlauf läuft noch", s): return iso(wann.timestamp() + 60)
+        if re.match(r"warte: ", s) or re.match(r"belegt nach \d+ Min\.", s): return iso(wann.timestamp() + 300)
+        return None
     h, mi = [int(g) for g in m.groups() if g is not None]
     z = wann.replace(hour=h, minute=mi, second=0, microsecond=0)
     if z < wann.replace(second=0, microsecond=0): z += dt.timedelta(days=1)
@@ -420,9 +437,10 @@ def kontingent():
             "fuenf_stunden_prozent": round(100 * h["utilization"]) if "utilization" in h else None,
             "soll_prozent": soll, "reset_woche": iso(wo.get("resetsAt")), "reset_5h": iso(h.get("resetsAt"))}
 
-# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026; Maintainer: „bitte neon, die drossel-stufe in status.json
-# mitzuliefern“): aus drossel-stufe.txt, nach der Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe>
-# <Fehlstunden> <ISO> [<seit ISO> [offen]]“ („offen“ = Fail-open, Stufe 0), Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
+# Kontingent-Drossel (drossel_stufe in lauf-hilfen.zsh, 19.11.2026, seit 20.11.2026 Verbrauch gegen vergangene Zeit der
+# Kalenderwoche; Maintainer: „bitte neon, die drossel-stufe in status.json mitzuliefern“): aus drossel-stufe.txt, nach der
+# Wächter und Tagesroutine handeln, nicht neu gerechnet. Zeile 1 „<Stufe> <d = Woche − Wochenzeit in Punkten> <ISO> [<seit ISO> [offen]]“
+# (Feld 2 wird nicht gelesen) („offen“ = Fail-open, Stufe 0), Zeile 2 Wirkung, Zeile 3 Grund. Älter als 2 Stunden (Volldampf aus, Läufe ruhen) oder
 # unlesbar → null. max_worker: 0 ab Stufe 1 (keine neuen Worker), sonst null (keine Grenze durch die Drossel).
 def drossel():
     z = (lies(N + "/drossel-stufe.txt") or "").splitlines()
@@ -571,11 +589,19 @@ def rueckmeldungen():
 CI = lies(Q + "/ci.json", True)
 BETREFF = dict(z.split("\t", 1) for z in (lies(Q + "/betreffe.tsv") or "").splitlines() if "\t" in z)
 CI_MAIN = lies(Q + "/ci-main.json", True)
+def jobs_von(r):
+    """Jobs eines laufenden oder wartenden Laufs (quellen/jobs-<id>.json), sonst null"""
+    if r.get("status") == "completed": return None
+    j = lies("%s/jobs-%s.json" % (Q, r["databaseId"]), True)
+    if not j: return None
+    return [{"name": x.get("name"), "status": x.get("status"), "ergebnis": x.get("conclusion") or None,
+             "start": iso(x["startedAt"]) if x.get("startedAt", "").startswith("20") else None,
+             "ende": iso(x["completedAt"]) if x.get("completedAt", "").startswith("20") else None} for x in j.get("jobs", [])]
 def ci():
     if CI is None: return None
     return [{"id": str(r["databaseId"]), "nr": r["number"], "titel": t200(BETREFF.get(r.get("headSha")) or r["displayTitle"]), "zweig": r["headBranch"],
              "ausloeser": r["event"], "status": r["status"], "ergebnis": r.get("conclusion") or None,
-             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"]} for r in CI[:15]]
+             "start": iso(r["createdAt"]), "stand": iso(r["updatedAt"]), "url": r["url"], "jobs": jobs_von(r)} for r in CI[:15]]
 def ci_main():
     """neuester main-Lauf (gezielte Abfrage, sonst aus den 15 neuesten); abgebrochene zählen nicht"""
     quelle = CI_MAIN if CI_MAIN else CI
@@ -745,6 +771,20 @@ def release_eta():
             r["headBranch"], r.get("number"), n, ab) + seit, kandidat="%s #%s" % (r["headBranch"], r.get("number")))
     return eta(None, False, "Volldampf: kein Kandidat unterwegs (kein laufender Prüfzweig-Lauf mit mindestens %d Thunderbird-Commits über main)." % ab + seit)
 
+def release_eta_mit():
+    """release_eta plus wartet_auf: noch nicht grüne Jobs des neuesten main-Laufs (und Windows, wenn der Grund es nennt)"""
+    e = release_eta()
+    if not isinstance(e, dict): return e
+    w = []
+    for r in (CI_MAIN or CI or []):
+        if r.get("headBranch") != "main": continue
+        if r.get("status") != "completed":
+            w = [x["name"] for x in (jobs_von(r) or []) if x.get("ergebnis") != "success"]
+        break
+    if "Windows" in (e.get("grund") or "") and "windows" not in w: w.append("windows")
+    e["wartet_auf"] = w
+    return e
+
 # Commits auf origin/main nach Commit-Datum (quellen/commits.json, höchstens alle 15 Min. neu; älter als 1 Stunde → null)
 # Zuletzt erledigt (Maintainer 19.11.2026: „nicht nur die aktuellen und geplanten tasks sondern auch die letzten paar tasks
 # welche erledigt sind“): höchstens 8 abgeschlossene Ereignisse der letzten 24 Stunden, neueste zuerst, nur aus vorhandenen
@@ -773,6 +813,14 @@ def zuletzt():
     ev, arch = [], sicher(archiv) or {}
     titel = {i["id"]: i.get("title") for i in (BOARD or []) if isinstance(i, dict) and "id" in i}
     nach_hash = {h: t for t, h in arch.values() if h}
+    def titel_von(zeilen):
+        """Titel der Einträge als Text: einer ungekürzt (t200), bei mehreren die ersten zwei und „+ n weitere“"""
+        ts = []
+        for z in sorted(zeilen, key=lambda r: r["zeit"]):
+            if z["titel"] and z["titel"] not in ts: ts.append(z["titel"])
+        if not ts: return None
+        if len(ts) == 1: return ts[0]
+        return kurz(ts[0], 90) + " · " + kurz(ts[1], 90) + (" + %d weitere" % (len(ts) - 2) if len(ts) > 2 else "")
     def neu(t, art, was, erg=None, einzel=None):
         if t is not None and JETZT - 86400 <= t <= JETZT and was: ev.append({"zeit": iso(t), "art": art, "was": t200(re.sub(r"\s+", " ", was)), "ergebnis": erg, "einzel": kurz(einzel, 60)})
     def eintraege():
@@ -791,10 +839,10 @@ def zuletzt():
             for z in (lies("%s/%s-tagesroutine-erledigt.txt" % (N, tag)) or "").splitlines():
                 t = z.split("\t", 1)
                 if len(t) == 2: zu_id[t[1].strip()] = t[0]
-        modell = None
+        modell, start = None, None
         for t, z in log_zeilen("{tag}-tagesroutine.log"):
             m = re.match(r"Runde mit (\S+)", z)
-            if m: modell = m.group(1).rstrip(","); continue
+            if m: modell, start = m.group(1).rstrip(","), t; continue
             m = re.match(r"Runde beendet \(Exitcode (\d+)\):?(.*)", z)
             if m:
                 e = next((e for e in erg if not e[2] and t - 300 <= e[0] <= t + 5), None)
@@ -805,13 +853,21 @@ def zuletzt():
                 else: ergeb = "ok" if h else ("abgebrochen" if text.startswith("zurück") else None)
                 pv = zu_id.get(text) if text else None
                 ti = (titel.get(pv) or arch.get(pv, (None,))[0]) if pv else (nach_hash.get(h.group(1)) if h else None)
+                if not ti and start is not None:   # kein Eintrag aus Ergebnis/Hash: die in dieser Runde als in Arbeit gemeldeten
+                    ti = titel_von([r for r in IN_ARBEIT if start - 60 <= r["zeit"] <= t and "tagesroutine" in r["ordner"]])
                 was = "Tagesroutine-Runde" + (" (%s)" % modell if modell else "") + (": " + ti if ti else "")
                 neu(t, "runde", was, ergeb, h.group(1) if h else None)
             elif z.startswith("Kontingent Ende"): neu(t, "lauf", "Tagesroutine beendet", "ok")
-        grund = None
+        grund, vor = None, None
         for t, z in log_zeilen("{tag}.log"):
+            if vor is None: vor = t
             m = re.match(r"Runde (\d+) beendet \(Exitcode (\d+)\)", z)
-            if m: neu(t, "runde", "Nachtlauf-Runde %s" % m.group(1), "ok" if m.group(2) == "0" else "fehler")
+            if m:
+                # Einträge der Runde: seit Ende der vorigen Runde (bzw. Beginn des Protokolls) als in Arbeit gemeldet, nicht von Workern
+                # oder der Tagesroutine (eigene Arbeitskopien bzw. Prüfzweige)
+                ti = titel_von([r for r in IN_ARBEIT if vor <= r["zeit"] <= t and not re.search(r"worker|tagesroutine", r["ordner"]) and not r["zweig"].startswith("pruef/")])
+                neu(t, "runde", "Nachtlauf-Runde %s" % m.group(1) + (": " + ti if ti else ""), "ok" if m.group(2) == "0" else "fehler")
+                vor = t
             m = re.match(r"Arbeit beendet: (.*)", z)
             if m: grund = m.group(1)
             if z == "Ende" and grund is not None:
@@ -825,6 +881,7 @@ def zuletzt():
             erg = {"erledigt": "ok", "widerlegt": "ok", "zurück": "abgebrochen", "abbruch": "abgebrochen", "rot": "fehler", "fehler": "fehler"}.get(art)
             pv = re.search(r"PVTI_\S+", rest)
             ti = (titel.get(pv.group(0)) or arch.get(pv.group(0), (None,))[0]) if pv else None
+            if not ti and zw: ti = titel_von([r for r in IN_ARBEIT if r["zweig"] == zw and r["zeit"] <= t])   # Eintrag aus in-arbeit.tsv
             h = re.match(r"([0-9a-f]{7,40})\b", rest)
             was = "Worker %s: %s" % (w.replace("worker-", ""), ti or {"nichts_passend": "nichts Passendes"}.get(art, art))
             neu(t, "worker", was, erg, " ".join(x for x in (h.group(1) if h else None, zw) if x) or None)
@@ -853,7 +910,7 @@ def github_limit():
         aus[name] = {"limit": lim, "verbraucht": lim - rest, "rest": rest, "reset": iso(r.get("reset"))}
     return aus
 
-st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta),
+st = {"stand": iso(JETZT), "agenten": sicher(agenten), "laeufe": sicher(laeufe), "release_eta": sicher(release_eta_mit),
       "kontingent": sicher(kontingent), "schalter": sicher(schalter), "board": sicher(board),
       "rueckmeldungen": sicher(rueckmeldungen), "ci": sicher(ci), "ci_main": sicher(ci_main),
       "github_limit": sicher(github_limit), "drossel": sicher(drossel),

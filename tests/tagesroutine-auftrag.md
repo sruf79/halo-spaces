@@ -79,6 +79,12 @@ Plan-Runde („JETZT: Plan-Runde“):
   --format json), nur „Todo“ und „In Progress“ ohne Notiz „wartet auf Push/CI“. Nach Bereich
   gruppieren, Doppelte zusammenlegen. Einträge, die eine Entscheidung des Maintainers brauchen,
   Features mit „[GitHub #n]“ ohne Freigabe und Reihen über den nächsten Schritt hinaus nicht planen.
+  Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; Festlegung
+  des Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): Wer einen Eintrag wegen fehlender Entscheidung oder
+  Antwort nicht plant, schreibt tests/board.sh notiz <id> „Entscheidung fehlt seit <Datum>: <Frage>“ (Datum
+  JJJJ-MM-TT, einmal je Eintrag: steht die Notiz schon, bleibt sie mit ihrem Datum stehen). Steht sie über 7 Tage,
+  setzt er den Eintrag mit dieser Frage auf „Wartet auf OK“ (tests/board.sh status <id> ok). Der Morgenbrief zeigt
+  solche Einträge im Abschnitt „Überfällig“.
   Ebenso Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter tests/auslastung-schleife.zsh) ohne spätere
   „In Arbeit beendet“-Notiz: sie gehören diesem Worker, solange die Notiz jünger als 5 Stunden ist (Worker enden nach
   4 Stunden). Ältere Notiz ohne „committet auf …“: Eintrag normal planen; mit „committet auf pruef/worker-…“: nicht
@@ -101,6 +107,19 @@ Plan-Runde („JETZT: Plan-Runde“):
   dort „FEHLER“: selbst nach derselben Regel gruppieren (gleicher Bereich und gleiche Stelle der
   Oberfläche, gleiche GitHub-Nummer) und im Abschnitt „Häufung: Skript gescheitert“ vermerken. Keine
   Notizen oder Verknüpfungen in Board-Einträgen nur für die Häufung anlegen.
+- Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; ersetzt „über 7 Tage offen rückt
+  eine Stufe vor“; Werte sind Festlegung des Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): verbindlich wie
+  die Häufung. Derselbe Aufruf von tests/haeufung.py schreibt den Abschnitt „Alter (Skript)“ (+0,5 Nutzenstufe je volle
+  7 Tage seit Anlage, höchstens +1,5). Innerhalb gleicher Einstufung und gleichen Bereichs kommt ein Eintrag mit
+  höherem Alters-Zuschlag zuerst; Schritt 1b, Schwere, Testzeit-Verkürzung, Nutzer-Bugs und Wünsche des Maintainers
+  gehen vor. Der Abschnitt „## Plan“ nennt den Zuschlag beim Eintrag.
+- Alters-Platz (gleicher Board-Eintrag; ein Platz je Plan-Runde ist Festlegung des Fable-Agenten, kein Wortlaut): Nach
+  Schritt 1b, Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der älteste machbare Eintrag aus „Älteste machbare
+  Einträge (Alters-Platz)“ derselben Datei (Zeilen „aeltest“ der .tsv) im Plan, im Abschnitt „## Plan“ gekennzeichnet
+  „Alters-Platz“; passt der erste nicht, der nächste der drei. Machbar heißt: nicht „Wartet auf OK“, nicht gesperrt
+  (Worker, wartet auf Push/CI, heute schon bearbeitet), keine Entscheidung offen; Design-Einträge als „design“ (Designer).
+  Passt keiner in Zeit oder Kontingent, steht der Grund im Plan, und bei fehlender Entscheidung die Notiz „Entscheidung
+  fehlt seit …“ (oben) am Eintrag. Steht er schon aus anderem Grund im Plan, zählt das als Alters-Platz.
 - Plan-Datei (Pfad oben), eine Zeile je Eintrag, Tabulator-getrennt, in Bearbeitungsreihenfolge:
     <Item-ID>	<komplex|routine|design>	<Titel>
   „komplex“: mehrere Dateien oder Bereiche, unklare Ursache, Design nach Vorlage, Logik in

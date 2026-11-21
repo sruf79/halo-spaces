@@ -70,7 +70,7 @@ Reihenfolge:
    GitHub-Einträge, Liste nur am Anfang lesen) gelten unverändert.
    Feste Reihenfolge (Entscheidung des Maintainers vom 4.11.2026,
    abends; davor seit 15.11.2026 ein Fehler, der jedes Release verhindert,
-   Regel (0) in Schritt 1a): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; ein Eintrag über 7 Tage offen rückt eine Stufe vor; Maintainer 11.11.2026);
+   Regel (0) in Schritt 1a): **1. alle Bugs**, Bereich für Bereich, kleine vor großen (Bereichsfolge: global/alle Spaces, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat; Schwere – Absturz, Datenverlust – geht vor Bereich; Maintainer 11.11.2026; Alter als Zuschlag im Nutzen aus tests/haeufung.py, Schritt 1a b „Alter“);
    **2. einfache Features** (ohne n/m); **3. zuletzt die Reihen** (n/m, z. B.
    Mehrwochen-Ansicht), je nur der nächste Schritt. Die nächste Stufe erst,
    wenn in der vorigen nichts Machbares übrig ist – außer ein Feature behebt
@@ -105,6 +105,16 @@ Reihenfolge:
       oder Design-Frage des Maintainers offen, GitHub-Features ohne Freigabe,
       siehe oben). Die kommen mit Grund in die Liste „übersprungen“;
       unklare Einträge behandelt f).
+      Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge
+      wirksam machen …“, 20.11.2026; Festlegung des Fable-Agenten auf
+      Weisung des Maintainers, kein Wortlaut): Wer einen Eintrag wegen
+      fehlender Entscheidung oder Antwort überspringt, schreibt
+      tests/board.sh notiz <id> „Entscheidung fehlt seit <Datum>: <Frage>“
+      (Datum JJJJ-MM-TT, einmal je Eintrag: steht die Notiz schon, bleibt sie
+      mit ihrem Datum stehen). Steht sie über 7 Tage, setzt er den Eintrag mit
+      dieser Frage auf „Wartet auf OK“ (Weg f, zählt nicht zu den 5
+      Rückfragen). tests/morgenbrief.sh zeigt solche Einträge und alles über
+      7 Tage in „Wartet auf OK“ im Abschnitt „Überfällig“.
       Einträge mit Notiz „In Arbeit: worker-<Nr>“ (Auslastungswächter, Volldampf)
       ohne spätere „In Arbeit beendet“-Notiz gehören diesem Worker: nicht planen
       (Liste „übersprungen“, Grund „Worker“) – aber nur, solange die Notiz jünger
@@ -198,6 +208,16 @@ Reihenfolge:
         (Exitcode ≠ 0), gruppiert er selbst nach derselben Regel und
         vermerkt im Plan „Häufung: Skript gescheitert (<Meldung>), Gruppen
         vom Director“.
+      - Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“,
+        20.11.2026; ersetzt „über 7 Tage offen rückt eine Stufe vor“; Werte
+        sind Festlegung des Fable-Agenten auf Weisung des Maintainers, kein
+        Wortlaut): Zuschlag im Nutzen wie die Häufung, +0,5 Stufe je volle
+        7 Tage seit Anlage, höchstens +1,5; zusammen mit der Häufung Nutzen
+        höchstens 5. Verbindlich aus demselben Aufruf von tests/haeufung.py
+        (Abschnitt „Alter (Skript)“ in ~/halo-nacht/<datum>-haeufung.md, Zeilen
+        „alter“ in der .tsv); der Plan nennt den Zuschlag in der Begründung.
+        Er wirkt nur im Nutzen, also unterhalb von Regel (0), Schwere (a),
+        Testzeit-Verkürzung, Nutzer-Bugs und Wünschen des Maintainers (b).
    c) Zeitbudget und Reihenfolge. Große Einträge, die lange ununterbrochene
       Arbeit brauchen, gehören in die Nacht (Zusatzinfo des Maintainers vom
       13.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „… dass ich selbst schlafe
@@ -260,10 +280,25 @@ Reihenfolge:
           hohem Nutzen (siehe oben); große, die nicht mehr in Zeit oder
           Kontingent passen, bleiben für die nächste Nacht (Grund im Plan).
           (a) und (b) dürfen die Reserve verkleinern (dann nennen).
+          Alters-Platz (Board-Eintrag „Ablauf: Alter der Einträge wirksam
+          machen …“, 20.11.2026; ein Platz je Lauf ist Festlegung des
+          Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): Nach
+          Regel (0), Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der
+          älteste machbare Eintrag laut tests/haeufung.py (Unterabschnitt
+          „Älteste machbare Einträge (Alters-Platz)“, Zeilen „aeltest“) im
+          Plan, Begründung „Alters-Platz“; passt der erste nicht, der nächste
+          der drei. Machbar heißt: nicht „Wartet auf OK“, nicht gesperrt
+          (Worker, wartet auf Push/CI), keine Entscheidung offen; ein
+          Design-Eintrag geht an den Designer (g). Passt keiner in Zeit oder
+          Kontingent, steht der Grund im Plan, und am ältesten steht die Notiz
+          „Entscheidung fehlt seit …“ (Schritt 1a a), wenn eine Entscheidung
+          der Grund ist. Steht er schon aus einem anderen Grund im Plan, zählt
+          das als Alters-Platz.
       (d) Gleichstand: Bugs vor einfachen Features vor Reihen, dann die
           Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben,
-          Einstellungen, Chat; ein Eintrag über 7 Tage offen rückt eine Stufe
-          vor (Maintainer 11.11.2026).
+          Einstellungen, Chat (Maintainer 11.11.2026); das Alter steckt schon
+          im Nutzen (Zuschlag „Alter“ in b), bei sonst gleichem Stand der
+          ältere Eintrag zuerst.
       (e) Dauerfreigaben (docs/dauerfreigaben.md) und „Wartet auf OK“
           unverändert.
       (f) Höchstens drei Einträge zugleich In Progress (ohne „wartet auf
@@ -602,8 +637,8 @@ Reihenfolge:
       git push. Den CI-Lauf für genau diesen Commit abwarten:
       tests/ci-warten.sh HEAD 9 – wartet höchstens 9 Minuten und meldet je Job
       Ergebnis und Dauer; Exitcode 2 heißt „läuft noch“, dann erneut aufrufen.
-      Ein Lauf dauert etwa 35 Minuten, mit Dunkelmodus etwa 50 (erst Linux
-      ~17, danach mac hell ~17 bzw. hell und dunkel ~35; bei Rot unter Linux
+      Ein Lauf dauert etwa 60 Minuten, mit Dunkelmodus etwa 90 (erst Linux
+      ~30, danach mac hell ~30 bzw. hell und dunkel ~60; bei Rot unter Linux
       läuft mac nicht). Der Job windows läuft nicht mehr bei Push.
       Nach grünem Push-Lauf (Exitcode 0, Linux und mac) den Windows-Lauf
       starten: gh workflow run test.yml -f ziel=windows --ref main, dann

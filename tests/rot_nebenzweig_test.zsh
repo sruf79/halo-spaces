@@ -145,6 +145,9 @@ pruefe "Nachtlauf: neuer Zweig an neon mit Modellstufe aus dem Zähler, kein iPh
   '^TROCKEN: an_neon \[nachtlauf\] Rote Nebenzweige' '^- an neon gemeldet$' '^- Nachkontrolle: kein Revert'
 pruefe "Nachtlauf: kein push (iPhone) im Auslöser" "$(print -r -- $NFN | grep -cE '(^|[^_])push ')" '^0$'
 pruefe "Nachtlauf: gemeldeter Zweig nicht noch einmal" "$(NA)" '^- Neue rote Nebenzweige: keine$'
+git -C $R branch pruef/rot-arbeit main >/dev/null 2>&1
+pruefe "Nachtlauf: Zweig pruef/rot-*, der ganz in main steckt, ist kein Nebenzweig" "$(NA)" '^- Neue rote Nebenzweige: keine$'
+git -C $R branch -D pruef/rot-arbeit >/dev/null 2>&1
 cd $R; git revert --no-edit $D2 >/dev/null 2>&1; cd $HIER
 pruefe "Nachtlauf: nackter Revert ohne Zählerzeile → WARNUNG im Bericht" "$(NA)" "^- WARNUNG: Revert [0-9a-f]{7,} nimmt ${D2[1,7]} zurück, ohne Zählerzeile"
 pruefe "Nachtlauf: rot_abschluss nach ci_abschluss aufgerufen" "$(grep -A1 -x 'ci_abschluss' $HIER/nachtlauf.sh | tail -1)" '^rot_abschluss$'

@@ -27,6 +27,16 @@ Regel (deterministisch, gleiche Liste ergibt gleiche Gruppen):
 - Gruppen = transitive Hülle der Verbindungen. Zuschlag = halbe Nutzenstufe je weiterer Eintrag,
   (n − 1) × 0,5, aufgerundet; die Obergrenze 5 für den Nutzen setzt der Planer.
 
+Alter (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026; Werte sind Festlegung des
+Fable-Agenten auf Weisung des Maintainers, kein Wortlaut): je volle 7 Tage seit dem Anlagedatum (createdAt aus
+tests/board.sh export) +0,5 Nutzenstufe, höchstens +1,5; ohne Datum 0. Wirkt wie die Häufung nur im Nutzen
+(Obergrenze 5 setzt der Planer), unterhalb von Regel 0, Schwere, Testzeit-Verkürzung und Nutzer-Bugs.
+Ausgabe: Abschnitt „Alter (Skript)“ in der .md, Zeilen „alter“ in der .tsv.
+Alters-Platz (gleicher Eintrag, Schritt D): die drei ältesten machbaren Einträge (Todo oder In Progress, nicht „wartet
+auf Push/CI“, keine Notiz „Entscheidung fehlt seit …“, kein laufender Worker, keine Ablauf-, Release- oder Store-Einträge,
+von Reihen nur der kleinste offene Schritt, mit Anlagedatum); Unterabschnitt in der .md, Zeilen „aeltest“ in der .tsv.
+Der Planer setzt den ersten, der in Zeit und Kontingent passt, als „Alters-Platz“ in den Plan.
+
 Aufruf:
   tests/haeufung.py [--eingabe <board.json>] [--aus <Ordner>] [--datum JJJJ-MM-TT] [--stdout]
 Ohne --eingabe (bzw. HALO_HAEUFUNG_EINGABE) liest es die Liste über tests/board.sh export (neben diesem Skript oder im Checkout).
@@ -165,6 +175,7 @@ class Eintrag:
         self.dateien = set(DATEI.findall(self.text + ' ' + self.titel))
         self.ids = set(ID.findall(self.text))
         self.reihe = reihen_stamm(self.titel)
+        self.created = d.get('createdAt')
 
 
 def verbindung(a, b):
@@ -247,6 +258,87 @@ def zuschlag(n):
     return roh, math.ceil(roh)
 
 
+ALTER_SCHRITT_TAGE, ALTER_SCHRITT, ALTER_DECKEL = 7, 0.5, 1.5
+
+
+def alter_tage(created, datum):
+    """Volle Tage vom Anlagedatum (ISO, z. B. 2026-11-02T14:01:41Z) bis datum (JJJJ-MM-TT); ohne/kaputtes Datum None."""
+    if not created:
+        return None
+    try:
+        a = datetime.date.fromisoformat(str(created)[:10])
+        return max(0, (datetime.date.fromisoformat(datum) - a).days)
+    except ValueError:
+        return None
+
+
+def alters_zuschlag(tage):
+    """+0,5 Nutzenstufe je volle 7 Tage offen, Deckel +1,5; ohne Datum 0."""
+    if tage is None:
+        return 0.0
+    return min(ALTER_DECKEL, (tage // ALTER_SCHRITT_TAGE) * ALTER_SCHRITT)
+
+
+def alter_liste(eintraege, datum):
+    """[(Eintrag, Tage, Zuschlag)] für Einträge mit Zuschlag > 0, älteste zuerst (bei Gleichstand nach id)."""
+    aus = []
+    for e in eintraege:
+        t = alter_tage(e.created, datum)
+        z = alters_zuschlag(t)
+        if z > 0:
+            aus.append((e, t, z))
+    return sorted(aus, key=lambda x: (-x[1], x[0].id))
+
+
+def _worker_laeuft(text):
+    a = [m.start() for m in re.finditer(r'In Arbeit: worker-', text)]
+    b = [m.start() for m in re.finditer(r'In Arbeit beendet', text)]
+    return bool(a) and (not b or max(a) > max(b))
+
+
+def _reihen_schritt(titel):
+    m = REIHE.search(titel)
+    if not m:
+        return None
+    try:
+        return int(re.match(r'\d+', m.group(1)).group())
+    except (AttributeError, ValueError):
+        return None
+
+
+def aelteste_machbar(items, datum, n=3):
+    """Die n ältesten machbaren Einträge als [(id, Tage, Titel)], älteste zuerst (Gleichstand nach id)."""
+    kandidaten, kleinster = [], {}
+    for d in items:
+        titel = d.get('title') or ''
+        st = d.get('status') or ''
+        stamm = reihen_stamm(titel)
+        k = _reihen_schritt(titel)
+        if stamm and k is not None and st not in ('Done',):
+            kleinster[stamm] = min(k, kleinster.get(stamm, k))
+    for d in items:
+        titel = d.get('title') or ''
+        st = d.get('status') or ''
+        text = d.get('body') if 'body' in d else ((d.get('content') or {}).get('body') or '')
+        text = text or ''
+        if st not in ('Todo', 'In Progress'):
+            continue
+        if st == 'In Progress' and re.search(r'wartet auf Push/CI', text, re.I):
+            continue
+        if re.search(r'Entscheidung fehlt seit', text) or _worker_laeuft(text):
+            continue
+        if re.match(r'\s*(Ablauf|Release|Store)\b', titel):
+            continue
+        stamm, k = reihen_stamm(titel), _reihen_schritt(titel)
+        if stamm and k is not None and kleinster.get(stamm, k) != k:
+            continue
+        t = alter_tage(d.get('createdAt'), datum)
+        if t is None:
+            continue
+        kandidaten.append((d['id'], t, titel))
+    return sorted(kandidaten, key=lambda x: (-x[1], x[0]))[:n]
+
+
 def offen(items):
     return [Eintrag(d) for d in items
             if (d.get('status') or '') not in ('Done', 'Wartet auf OK')]
@@ -266,7 +358,7 @@ def board_lesen():
     raise SystemExit('FEHLER: board.sh export scheiterte (' + ('; '.join(meldungen) or 'board.sh nicht gefunden') + ')')
 
 
-def schreiben(gruppen, zahl, aus, datum):
+def schreiben(gruppen, zahl, aus, datum, alter=(), aelteste=()):
     os.makedirs(aus, exist_ok=True)
     md, tsv = os.path.join(aus, f'{datum}-haeufung.md'), os.path.join(aus, f'{datum}-haeufung.tsv')
     jetzt = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -292,6 +384,23 @@ def schreiben(gruppen, zahl, aus, datum):
                             ' | '.join(e.titel for e in g['eintraege'])]))
         for a, b, p, gr in g['paare']:
             t.append('\t'.join(['paar', g['name'], a.id, b.id, f'{p:g}', '; '.join(gr), '']))
+    z += ['## Alter (Skript)', '',
+          'Zuschlag im Nutzen: +0,5 je volle 7 Tage seit Anlage, höchstens +1,5 (wie die Häufung verbindlich; '
+          'Nutzen mit Häufung zusammen höchstens 5). Festlegung des Fable-Agenten vom 20.11.2026, kein Wortlaut.', '']
+    if not alter:
+        z.append('Kein Eintrag mit Alters-Zuschlag.')
+    for e, tage, zs in alter:
+        z.append(f'- {e.id} {tage} Tage, +{zs:g}: {e.titel}')
+        t.append('\t'.join(['alter', e.id, str(tage), f'{zs:g}', '', '', e.titel]))
+    z += ['', '### Älteste machbare Einträge (Alters-Platz)', '',
+          'Ein Platz je Lauf: nach Regel 0, Schwere, Testzeit-Verkürzung und Nutzer-Bugs steht der erste davon, der in '
+          'Zeit und Kontingent passt, im Plan, gekennzeichnet „Alters-Platz“ (Design geht an den Designer).', '']
+    if not aelteste:
+        z.append('Kein machbarer Eintrag mit Anlagedatum.')
+    for rang, (i, tage, titel) in enumerate(aelteste, 1):
+        z.append(f'{rang}. {i} {tage} Tage: {titel}')
+        t.append('\t'.join(['aeltest', str(rang), i, str(tage), '', '', titel]))
+    z.append('')
     for pfad, zeilen in ((md, z), (tsv, t)):
         with open(pfad + '.neu', 'w') as f:
             f.write('\n'.join(zeilen) + '\n')
@@ -313,10 +422,14 @@ def main():
         items = board_lesen()
     eintraege = offen(items)
     gruppen = gruppen_bilden(eintraege)
-    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum)
+    alter = alter_liste(eintraege, a.datum)
+    aelteste = aelteste_machbar(items, a.datum)
+    md, tsv = schreiben(gruppen, len(eintraege), a.aus, a.datum, alter, aelteste)
     teile = [f'{g["name"]} {len(g["eintraege"])}' for g in gruppen]
     print(f'Häufung: {len(gruppen)} Gruppen aus {len(eintraege)} offenen Einträgen'
-          + (f' ({", ".join(teile)})' if teile else '') + f' – {md}')
+          + (f' ({", ".join(teile)})' if teile else '')
+          + f'; Alter: {len(alter)} Einträge mit Zuschlag, Alters-Platz: {len(aelteste)} Kandidaten'
+          + f' (Abschnitt „Alter (Skript)“) – {md}')
 
 
 if __name__ == '__main__':

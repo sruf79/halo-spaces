@@ -769,18 +769,19 @@ except ImportError:
 
 
 def vm_frisch_danach(vm):
-    """Nach einem Lauf mit --vm: kalter Neustart für den nächsten Lauf, gelöst im Hintergrund (tests/vm_frisch.py).
-    Die Sperre geht ohne Lücke an ihn über; ein Folgelauf (auch die Wiederholung durch ci-wiederholen.sh) wartet so
-    auf die frische VM. Liefert True, wenn die Sperre übergeben ist."""
+    """Nach einem Lauf mit --vm: VM herunterfahren, gelöst im Hintergrund (tests/vm_frisch.py --nach-lauf; jede VM
+    auf neon nach dem Test aus, Maintainer 21.11.2026). Die Sperre geht ohne Lücke an ihn über; ein Folgelauf (auch
+    die Wiederholung durch ci-wiederholen.sh) wartet so und startet die VM danach frisch. Liefert True, wenn die
+    Sperre übergeben ist."""
     try:
         nacht = os.path.expanduser("~/halo-nacht")
         p = vmf.hintergrund(["--vm", vm, "--nach-lauf", "--nach-pid", str(os.getpid())],
                             os.path.join(nacht, "vm-frisch.log") if os.path.isdir(nacht) else None)
         vmf.lock_uebergeben(p.pid, "vm-frisch nach Lauf")
-        print("VM wird nach dem Lauf im Hintergrund kalt neu gestartet (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
+        print("VM wird nach dem Lauf im Hintergrund heruntergefahren (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
         return True
     except OSError as e:
-        print(f"HINWEIS Neustart der VM nach dem Lauf nicht gestartet: {e}", flush=True)
+        print(f"HINWEIS Herunterfahren der VM im Hintergrund nicht gestartet: {e}", flush=True)
         return False
 
 
@@ -804,9 +805,12 @@ def wait_turn(mine):
     """Wartet, bis kein Lauf der anderen Plattform mehr läuft (höchstens eine Stunde)."""
     def busy():
         if mine == "vm" and subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0:
+            if vmf:
+                vmf.lauf_warten_ende()  # wartet auf den Mac, nicht auf die Sperre: keine VM übernehmen
             return True  # Test-Thunderbird auf dem Mac
-        # Lauf in der VM bzw. kalter Neustart (vm_frisch.py); ein Lauf in der VM nimmt die Sperre dabei gleich atomar
-        return not vmf.lock_nehmen("lauf") if mine == "vm" else vmf.lock_pid() is not None
+        # Lauf in der VM bzw. Wartung (vm_frisch.py); ein Lauf in der VM nimmt die Sperre dabei gleich atomar und
+        # meldet sich als wartend (übernimmt dann die laufende VM, statt dass die Wartung sie herunterfährt)
+        return not vmf.lauf_lock_nehmen() if mine == "vm" else vmf.lock_pid() is not None
     end, said = time.time() + 3600, False
     while busy():
         if time.time() > end:
@@ -847,7 +851,7 @@ def run_in_vm(args, xpi):
             inner["compare"] = win + "\\vorher"
         json.dump(inner, open(os.path.join(run, "args.json"), "w"))
 
-        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, pausiert finally die VM trotzdem
+        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, fährt finally die VM trotzdem herunter
         vm_vorbereiten(vm, run, win)
         print(f"Windows-VM „{vm}“ (vorher {before}) · {inner['tb']}", flush=True)
         try:
@@ -891,16 +895,15 @@ def run_in_vm(args, xpi):
                     vm_theme(vm, theme)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                     print(f"HINWEIS Farbschema der VM nicht zurückgestellt: {e}", flush=True)
-            # der nächste Lauf beginnt mit einer frischen VM: kalter Neustart gleich jetzt im Hintergrund (er pausiert
-            # die VM danach), nicht erst vor dem Lauf; sonst VM pausieren (Speicher für die macOS-Tests;
-            # --vm-weiter: laufen lassen)
-            if before and not args.vm_weiter and os.environ.get("HALO_VM_KEIN_NEUSTART") != "1" and vm_frisch_danach(vm):
-                pass
-            elif before and not args.vm_weiter and vm_state(vm) == "running":
-                prl("suspend", vm, check=False)
+            # jede VM auf neon nach dem Test ganz herunterfahren, nie pausieren (Maintainer 21.11.2026; Speicher für
+            # die macOS-Tests, der nächste Lauf startet sie frisch): im Hintergrund, sonst hier (--vm-weiter: laufen
+            # lassen für Handarbeit)
+            if before and not args.vm_weiter and not vm_frisch_danach(vm):
+                vmf.vm_stoppen(vm)
         finally:
             shutil.rmtree(run, ignore_errors=True)
-            vmf.lock_freigeben()  # (nur, wenn sie noch uns gehört; übergeben ist sie dem Neustart)
+            vmf.lock_freigeben()  # (nur, wenn sie noch uns gehört; übergeben ist sie dem Herunterfahren)
+            vmf.lauf_warten_ende()
 
 
 def main():
@@ -918,9 +921,9 @@ def main():
     ap.add_argument("--compare", help="Ordner mit früheren Screenshots: zeigt, wo sich etwas verändert hat (braucht --shots)")
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
-                    "pausiert die VM danach und startet sie im Hintergrund kalt neu (HALO_VM_KEIN_NEUSTART=1: nicht)")
+                    "startet die VM vorher und fährt sie danach herunter (HALO_VM_KEIN_NEUSTART=1: kein Neustart bei gestörtem Bildtakt)")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
-    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
+    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf laufen lassen (Handarbeit)")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
                     "Thunderbird in der Fehlerkonsole werden dann nicht verglichen)")
     ap.add_argument("--vergleich-neu", action="store_true", help="Vergleichslauf ohne halo.spaces neu aufnehmen (ergänzt die "
@@ -2288,12 +2291,14 @@ def reading_checks(m, results):
             doc.documentElement.append(e); const c = [cs(e).backgroundColor, cs(e).color]; e.remove(); return c; };
           const [tileHover, text] = want("--mt-att-tile-hover"), [saveBg] = want("--mt-att-save");
           a3.threadTree.focus(); await ruhig(300);
-          const out = { list: cs(list).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
+          const out = { list: cs(list).backgroundColor, view: cs(doc.getElementById("attachmentView")).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
                         bar: cs(doc.getElementById("attachmentBar")).backgroundColor, focused, unfocused: cs(item).backgroundColor, tileHover, text, saveBg,
                         accent: (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })() };
           doc.defaultView.toggleAttachmentList?.(false); return out;""")
         f = res["focused"]
-        ok = (same_color(res["list"], res["header"]) and same_color(res["bar"], res["header"]) and f["radius"] >= 6
+        # Liste und Kopfzeile ohne eigene Fläche (sonst verdecken sie die Haarlinie darüber), darunter die Fläche der Mail
+        clear = lambda c: c in ("transparent", "rgba(0, 0, 0, 0)")
+        ok = (same_color(res["view"], res["header"]) and clear(res["list"]) and clear(res["bar"]) and f["radius"] >= 6
               and f["outline"] == "none" and not same_color(res["unfocused"], res["accent"]))
         if f["inactive"]:
             # Fenster trotz mehrerer Versuche nicht aktiv: die Akzentfarbe mit Fokus lässt sich nicht messen
@@ -2407,6 +2412,45 @@ def reading_checks(m, results):
               and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
     check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe nur im Tooltip, runder Sichern-Knopf, Akzent beim Überfahren), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
+
+    def attachments_line():
+        # Haarlinie über den Anhängen durchgehend von 16 px links bis 16 px rechts, bei einem und bei mehreren
+        # Anhängen, auf- und zugeklappt (ab zwei Anhängen deckte die Kopfzeile mit eigener Fläche die Linie auf ihrer
+        # Breite zu, links bis hinter „Save All“ fehlte sie). Gemessen an den Pixeln der obersten Zeilen
+        res = m.js(READING_JS + r"""
+          const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+          const line = async doc => {
+            const view = doc.getElementById("attachmentView"), q = view.getBoxQuadsFromWindowOrigin()[0].getBounds();
+            const x0 = q.left + 16, w1 = Math.floor(q.width - 32), h1 = 4;
+            cv.width = w1 * 2; cv.height = h1 * 2;
+            ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(x0, q.top, w1, h1), 2, "white"), 0, 0);
+            const img = ctx.getImageData(0, 0, cv.width, cv.height).data, px = (x, y) => img.slice((y * cv.width + x) * 4, (y * cv.width + x) * 4 + 3);
+            // Fläche der Mail als Bezug: Mitte der untersten Zeile des Streifens (unter der Linie)
+            const ref = px(cv.width >> 1, cv.height - 1);
+            let miss = 0, first = -1, last = -1;
+            for (let x = 0; x < cv.width; x++) {
+              let dmax = 0; for (let y = 0; y < 4; y++) { const p = px(x, y); dmax = Math.max(dmax, ...[0, 1, 2].map(k => Math.abs(p[k] - ref[k]))); }
+              if (dmax < 6) { miss++; if (first < 0) first = x; last = x; }
+            }
+            return { w: w1, miss: Math.round(miss / 2), from: first < 0 ? null : first / 2, to: last < 0 ? null : last / 2 };
+          };
+          const out = {};
+          await showMail("Halo Jetzt");
+          let doc = await showMail("Halo Anhänge");
+          const list = doc.getElementById("attachmentList");
+          await until(() => list.querySelectorAll(".attachmentItem").length == 3, 3000); await ruhig(300);
+          if (list.collapsed) { doc.getElementById("attachmentBar").click(); await ruhig(400); }
+          out.multiOpen = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          out.multiClosed = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          doc = await showMail("Halo Ein Anhang");
+          await until(() => doc.getElementById("attachmentList").querySelectorAll(".attachmentItem").length == 1, 3000); await ruhig(300);
+          out.single = await line(doc);
+          return out;""")
+        ok = all((res.get(k) or {}).get("w", 0) > 100 and res[k]["miss"] <= 1 for k in ("multiOpen", "multiClosed", "single"))
+        return ok, f"{res}"
+    check("Anhänge: Haarlinie über den Anhängen durchgehend 16 px vor beiden Rändern, bei einem und mehreren Anhängen, auf- und zugeklappt", attachments_line, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter
@@ -2650,6 +2694,87 @@ def reading_checks(m, results):
               and res["closed"] and res["addonsKept"] and res["addonTabKept"])
         return ok, f"{res}"
     check("Tabs: Webseiten ohne Bereich (Anmeldung) im eigenen Fenster, andere Seiten schließen beim Bereichswechsel, Tabs von Add-ons bleiben", loose_tabs, results)
+
+    def addon_site_install():
+        # Add-on-Seite (Installationsrecht wie addons.thunderbird.net), geöffnet wie „Find more add-ons“ im Add-ons-Manager
+        # (openTrustedLinkIn → switchToTabHavingURI): bleibt ein Tab statt eigenes Fenster, und „Erweiterung hinzufügen“
+        # läuft bis zur Berechtigungsfrage durch und installiert. Im eigenen Fenster blieb die Installation beim
+        # Herunterladen stehen (Thunderbird zeigt die Rückfragen nur für Tabs des Hauptfensters); lokaler Server, kleine
+        # Test-Erweiterung
+        import http.server
+        import threading
+        import zipfile
+        tmp = tempfile.mkdtemp(prefix="halo-addonseite-")
+        with zipfile.ZipFile(os.path.join(tmp, "probe.xpi"), "w") as z:
+            z.writestr("manifest.json", json.dumps({"manifest_version": 2, "name": "Halo Probe", "version": "1.0", "permissions": ["storage"],
+                                                    "browser_specific_settings": {"gecko": {"id": "halo-probe@example.invalid"}}}))
+        with open(os.path.join(tmp, "index.html"), "w") as f:
+            f.write("<!doctype html><title>Add-ons</title><a href='probe.xpi'>Add</a>")
+
+        class Seite(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *a, **k):
+                super().__init__(*a, directory=tmp, **k)
+
+            def log_message(self, *args):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Seite)
+        srv.daemon_threads = True
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            res = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const ORIGIN = "http://127.0.0.1:%d", URL = ORIGIN + "/index.html", ID = "halo-probe@example.invalid";
+              const principal = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(ORIGIN), {});
+              const panel = d.getElementById("notification-popup");
+              const popups = () => [...Services.wm.getEnumerator("mail:extensionPopup")];
+              const out = { schritte: [] };
+              let install = null;
+              Services.perms.addFromPrincipal(principal, "install", Services.perms.ALLOW_ACTION);
+              try {
+                await toMail();
+                w.switchToTabHavingURI(URL, true);
+                const tab = await until(() => tm.tabInfo.find(t => t.browser?.currentURI?.spec == URL && !t.browser.webProgress?.isLoadingDocument), 8000);
+                await ruhig(800);
+                out.tab = !!tab && tm.tabInfo.includes(tab) && tm.currentTabInfo == tab;
+                out.fenster = popups().length;
+                if (out.tab) {
+                  install = await AddonManager.getInstallForURL(ORIGIN + "/probe.xpi", { triggeringPrincipal: tab.browser.contentPrincipal });
+                  let ende = null;
+                  install.addListener({ onInstallEnded: () => { ende = "installiert"; }, onInstallFailed: () => { ende = "gescheitert"; },
+                                        onInstallCancelled: () => { ende = "abgebrochen"; }, onDownloadFailed: () => { ende = "Download gescheitert"; } });
+                  AddonManager.installAddonFromWebpage("application/x-xpinstall", tab.browser, tab.browser.contentPrincipal, install);
+                  // Rückfragen der Reihe nach bestätigen (Berechtigungen; je nach Version vorher „Bestätigen“)
+                  for (let i = 0; i < 3 && !ende; i++) {
+                    const n = await until(() => ende ? "ende" : (panel.state == "open" && [...panel.children].find(c => !c.hidden && c.id != "addon-progress-notification"
+                                                                                                        && !out.schritte.includes(c.id))), 10000);
+                    if (!n || n == "ende") break;
+                    out.schritte.push(n.id);
+                    await wait(800); // Sicherheitsverzögerung der Hinweise (500 ms), sonst zählt der Klick nicht
+                    n.button.click();
+                    await until(() => ende || !n.isConnected || n.hidden || panel.state != "open", 5000);
+                  }
+                  await until(() => ende, 8000);
+                  out.ende = ende;
+                }
+              } finally {
+                if (install && install.state != AddonManager.STATE_INSTALLED) { try { install.cancel(); } catch {} }
+                const a = await AddonManager.getAddonByID(ID);
+                out.installiert = !!a;
+                if (a) await a.uninstall();
+                try { panel.hidePopup(); } catch {}
+                Services.perms.removeFromPrincipal(principal, "install");
+                for (const p of popups()) p.close();
+                for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+                await toMail();
+              }
+              return out;""" % srv.server_port)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            shutil.rmtree(tmp, ignore_errors=True)
+        ok = res["tab"] and res["fenster"] == 0 and res.get("ende") == "installiert" and res["installiert"] and "addon-webext-permissions-notification" in res["schritte"]
+        return ok, f"{res}"
+    check("Add-ons: Add-on-Seite bleibt Tab statt eigenes Fenster, „Erweiterung hinzufügen“ fragt nach Berechtigungen und installiert", addon_site_install, results)
 
     def list_date():
         # Uhrzeit in Liste und Kopf im selben Format (Regionaleinstellungen des Systems)
@@ -2956,6 +3081,95 @@ def reading_checks(m, results):
         return ok, f"{res}"
     check("Leseansicht: Konversation verschwindet beim Ordnerwechsel ohne neue Auswahl", conversation_folder_switch, results)
 
+    def empty_reading_pane():
+        # Leseansicht ohne gewählte Mail: statt Thunderbirds Startseite aus dem Netz mittig grau „No Message Selected“
+        # (wie „No Task Selected“ in den Aufgaben); die Startseite ist nur als Vorgabe aus (Einstellung unverändert,
+        # über Gehe zu > Startseite weiter erreichbar); eine gewählte Mail erscheint wie bisher, ohne den Text darüber
+        ink_js = r"""
+          // Bild der Leseansicht: Pixel, die sich deutlich vom Grund unterscheiden, in der Mitte bzw. oben
+          const ink = async () => {
+            const r = pane.getBoundingClientRect();
+            const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(r.left, r.top, r.width, r.height), 1, "white");
+            const cv = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+            const ctx = cv.getContext("2d"); ctx.drawImage(bm, 0, 0);
+            const data = ctx.getImageData(0, 0, cv.width, cv.height).data, b0 = (5 * cv.width + Math.floor(cv.width / 2)) * 4, bg = [...data.slice(b0, b0 + 3)];
+            // (Ränder ausgenommen: Trennlinien zur Mailliste und zur Today-Pane)
+            const band = (y0, y1) => { let n = 0, box = null; for (let y = Math.floor(y0); y < y1; y++) for (let x = 24; x < cv.width - 24; x++) {
+              const i = (y * cv.width + x) * 4; if (Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1]) + Math.abs(data[i + 2] - bg[2]) > 40) {
+                n++; box = box ? [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x), Math.max(box[3], y)] : [x, y, x, y]; } } return { n, box }; };
+            return { mid: band(cv.height / 2 - 20, cv.height / 2 + 20), top: band(10, cv.height / 2 - 40), bg, w: Math.round(r.width), h: Math.round(r.height), top0: Math.round(r.top) };
+          };
+"""
+        shots = []
+        def shot(name):
+            if os.environ.get("HALO_SHOTS"):
+                shots.append((name, m.cmd("WebDriver:TakeScreenshot", {})["value"]))
+        res = m.js(r"""
+          const a3 = await toMail(), pane = a3.document.getElementById("messagePane");
+          const web = pane.webBrowser;
+          return { pref: Services.prefs.getBoolPref("mailnews.start_page.enabled"), user: Services.prefs.prefHasUserValue("mailnews.start_page.enabled"),
+            web: web.hidden ? "aus" : web.currentURI?.spec.slice(0, 40) };""")
+        m.js("w.resizeTo(1500, 900); " + MESSAGE_JS + " return 1;")
+        shot("mail")
+        res.update(m.js(r"""
+          const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
+          // ESR liefert für content den Ausdruck „attr(data-mc-empty)“ unaufgelöst, neuere Fassungen den
+          // fertigen Text: beides auf den Text des Attributs bringen (gezeichnet ist er in beiden, siehe ink)
+          const inhalt = c => c == "attr(data-mc-empty)" ? JSON.stringify(pane.getAttribute("data-mc-empty") ?? "") : c;
+          const pseudo = () => { const s = a3.getComputedStyle(pane, "::before"); return { content: inhalt(s.content), color: s.color, size: s.fontSize }; };
+          const out = {};
+          out.mail = { subject: (a3.messageBrowser?.contentDocument?.getElementById("expandedsubjectBox")?.textContent || "").trim(), shown: !a3.messageBrowser.hidden, pseudo: pseudo() };
+          a3.threadTree.selectedIndex = -1;
+          await bis(() => a3.messageBrowser.hidden && !a3.gDBView.numSelected, "Auswahl leer", 4000); await ruhig(600);
+          out.empty = { attr: pane.getAttribute("data-mc-empty"), pseudo: pseudo(), web: pane.webBrowser.hidden, ink: await ink() };
+          return out;"""))
+        shot("leer")
+        res.update(m.js(r"""
+          const a3 = tm.currentAbout3Pane, pane = a3.document.getElementById("messagePane");""" + ink_js + r"""
+          const inhalt = c => c == "attr(data-mc-empty)" ? JSON.stringify(pane.getAttribute("data-mc-empty") ?? "") : c;  // ESR, siehe oben
+          const pseudo = () => inhalt(a3.getComputedStyle(pane, "::before").content);
+          // schmale Leseansicht: der Text passt auch an Thunderbirds Mindestbreite der Leseansicht (300 px) samt Rand
+          // ganz hinein (längere Übersetzungen brechen um: text-align/white-space); gemessen an einem Probetext in
+          // derselben Schrift
+          const ps = a3.getComputedStyle(pane, "::before"), probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+          probe.textContent = pane.getAttribute("data-mc-empty");
+          probe.style.cssText = `position: fixed; left: 0; top: 0; visibility: hidden; white-space: nowrap; font: ${ps.fontWeight} ${ps.fontSize} ${ps.fontFamily};`;
+          a3.document.body.append(probe);
+          const out = { narrow: { min: parseFloat(a3.getComputedStyle(pane).minWidth) || 0, text: Math.ceil(probe.getBoundingClientRect().width),
+            pad: parseFloat(ps.paddingLeft) + parseFloat(ps.paddingRight), align: ps.textAlign, ws: ps.whiteSpace, pseudo: pseudo() } };
+          probe.remove();
+          // Startseite über Gehe zu > Startseite (ohne Netz: eigene Adresse für die Prüfung)
+          Services.prefs.setStringPref("mailnews.start_page.url", "data:text/html,<p>Startseite</p>");
+          try {
+            a3.commandController.doCommand("cmd_goStartPage");
+            await bis(() => !pane.webBrowser.hidden && pane.webBrowser.currentURI?.spec.startsWith("data:"), "Startseite", 4000); await ruhig(300);
+            out.start = { shown: !pane.webBrowser.hidden, pseudo: pseudo() };
+          } finally {
+            Services.prefs.clearUserPref("mailnews.start_page.url");
+            pane.clearAll({ alwaysClearWebBrowser: true }); await ruhig(300);
+          }
+          out.after = pseudo();
+          return out;"""))
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            dark = m.js('return w.matchMedia("(prefers-color-scheme: dark)").matches;')
+            for name, data in shots:
+                path = os.path.join(os.environ["HALO_SHOTS"], f"leseansicht-{name}-{'dunkel' if dark else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(data))
+                print(f"Bild {path}", flush=True)
+        txt = lambda p: (p or {}).get("content") if isinstance(p, dict) else p
+        want = "No Message Selected"  # Testprofil englisch
+        ok = (res.get("pref") is False and res.get("user") is False and res.get("web") == "aus"
+              and "Treffen am Donnerstag" in res.get("mail", {}).get("subject", "") and res["mail"].get("shown") and txt(res["mail"].get("pseudo")) == "none"
+              and want and res["empty"].get("attr") == want and txt(res["empty"].get("pseudo")) == f'"{want}"' and res["empty"].get("web") is True
+              and res["empty"]["ink"]["mid"]["n"] > 30 and res["empty"]["ink"]["top"]["n"] == 0
+              and res.get("narrow", {}).get("pseudo") == f'"{want}"' and res["narrow"]["align"] == "center" and res["narrow"]["ws"] == "normal"
+              and 0 < res["narrow"]["text"] and res["narrow"]["min"] >= 300 and res["narrow"]["text"] + res["narrow"]["pad"] <= res["narrow"]["min"]
+              and res.get("start", {}).get("shown") and res["start"].get("pseudo") == "none" and res.get("after") == f'"{want}"')
+        return ok, f"{res}"
+    check("Leseansicht: ohne gewählte Mail mittig grau „No Message Selected“ statt der Startseite aus dem Netz (Startseite nur als Vorgabe aus, über Gehe zu weiter erreichbar), gewählte Mail wie bisher", empty_reading_pane, results)
+
     def conversation_stale_index():
         # GitHub #60: Der Suchindex findet eine Mail über Ordner und Schlüssel. Ist er veraltet (Ordner komprimiert,
         # Mail verschoben), steht unter dem Schlüssel eine andere Mail – vorher zeigte die Leseansicht dann deren
@@ -3015,6 +3229,72 @@ def reading_checks(m, results):
               and fa.get("cards") == ["halo-index-2", "halo-index-1"] and fa.get("selected") == ["halo-index-2"])
         return ok, f"{res}"
     check("Leseansicht: veralteter Suchindex zeigt nie die Konversation einer anderen Mail (GitHub #60)", conversation_stale_index, results)
+
+    def conversation_arrival():
+        # Thunderbird baut die Leseansicht nicht neu auf, wenn in eine gewählte (zugeklappte) Konversation eine neue
+        # Mail kommt – vorher blieben die alten Karten stehen; beim erneuten Wählen kannte der Suchindex die neue Mail
+        # noch nicht: Hinweis „Turn on Global Search…“ trotz eingeschalteter Suche bzw. Thunderbirds Zusammenfassung.
+        # Erwartet wie Apple Mail: die Karte der neuen Mail erscheint an ihrem Platz, Auswahl bleibt, eine fremde Mail
+        # kommt nicht dazu; eine Einzelmail mit neuer Antwort wird zur Konversation
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const { GlodaMsgIndexer } = ChromeUtils.importESModule("resource:///modules/gloda/IndexMsg.sys.mjs");
+          const { Gloda } = ChromeUtils.importESModule("resource:///modules/gloda/GlodaPublic.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("KonvNeuEin")) root.createSubfolder("KonvNeuEin", null);
+          const f = root.getChildNamed("KonvNeuEin");
+          await ruhig(800);
+          const mail = (subject, id, refs, minutesAgo) => unescape(encodeURIComponent(["From: Anna Beispiel <anna@example.invalid>", "To: Halo Test <halo@example.invalid>",
+            `Subject: ${subject}`, `Date: ${new Date(Date.now() - minutesAgo * 60000).toUTCString().replace("GMT", "+0000")}`, `Message-ID: <${id}@example.invalid>`,
+            ...(refs ? [`In-Reply-To: <${refs}@example.invalid>`, `References: <${refs}@example.invalid>`] : []),
+            "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "", `Text ${id}.`, ""].join("\r\n")));
+          const add = (...a) => f.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessage(mail(...a));
+          const n0 = f.getTotalMessages(false);
+          add("Halo Ankunft", "halo-ank-1", null, 300); add("Re: Halo Ankunft", "halo-ank-2", "halo-ank-1", 200); add("Halo Ankunft Solo", "halo-ank-s1", null, 100);
+          await bis(() => f.getTotalMessages(false) >= n0 + 3, "Testmails gespeichert", 5000);
+          const hdr = id => [...f.messages].find(h => h.messageId == id + "@example.invalid");
+          GlodaMsgIndexer.indexMessages([...f.messages].map(h => [h.folder, h.messageKey]));
+          const indexed = h => new Promise(r => Gloda.getMessageCollectionForHeader(h, { onItemsAdded() {}, onItemsModified() {}, onItemsRemoved() {}, onQueryCompleted: c => r(c.items.length > 0) }));
+          for (let i = 0; i < 60 && !((await indexed(hdr("halo-ank-1"))) && (await indexed(hdr("halo-ank-2")))); i++) await wait(500);
+          const a3 = await toMail(); a3.displayFolder(f.URI); await bis(() => a3.gFolder?.URI == f.URI && a3.gDBView?.rowCount >= 2, "Ordner KonvNeuEin", 6000); await ruhig(900);
+          a3.gViewWrapper.showThreaded = true; await ruhig(500); a3.threadTree.selectedIndex = -1; a3.goDoCommand?.("cmd_collapseAllThreads"); await ruhig(500);
+          const pane = a3.document.getElementById("messagePane");
+          const idx = id => [...Array(a3.gDBView.rowCount).keys()].find(k => a3.gDBView.getMsgHdrAt(k)?.messageId == id + "@example.invalid") ?? -1;
+          const box = () => a3.document.getElementById("mcConversation");
+          const ids = () => [...(box()?.querySelectorAll(".mc-conv-card") || [])].map(c => c.dataset.messageId.split("@")[0]);
+          const state = () => ({ cards: ids(), sel: [...(box()?.querySelectorAll(".mc-conv-card.mc-selected") || [])].map(c => c.dataset.messageId.split("@")[0]),
+            count: box()?.querySelector(".mc-conv-count")?.textContent || null, note: !!box()?.querySelector(".mc-conv-note") });
+          const out = {};
+          a3.threadTree.selectedIndex = idx("halo-ank-1");
+          await until(() => !pane.classList.contains("mc-conv-pending") && ids().length == 2, 6000); await ruhig(500);
+          out.vorher = state(); const b0 = box();
+          // neue Antwort in die gewählte Konversation, dazu eine fremde Mail
+          add("Re: Halo Ankunft", "halo-ank-3", "halo-ank-2", 1); add("Halo Fremd", "halo-ank-x", null, 1);
+          await until(() => ids().length >= 3, 4000); await ruhig(600);
+          out.nach = { ...state(), sameBox: box() == b0,
+            loaded: await until(() => parseFloat(box()?.querySelector('.mc-conv-card[data-message-id^="halo-ank-3"] .mc-conv-browser')?.style.height) > 30, 6000) };
+          // neu wählen: die neue Mail kennt der Suchindex noch nicht – trotzdem ganze Konversation, kein Hinweis
+          out.indexiert = await indexed(hdr("halo-ank-3"));
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = idx("halo-ank-1");
+          await until(() => !pane.classList.contains("mc-conv-pending") && ids().length >= 2, 6000); await ruhig(500);
+          out.neu = state();
+          // Einzelmail zu sehen, Antwort kommt: Konversation erscheint
+          a3.threadTree.selectedIndex = -1; await ruhig(300); a3.threadTree.selectedIndex = idx("halo-ank-s1");
+          await until(() => !pane.classList.contains("mc-conv-pending"), 4000); await ruhig(500);
+          out.solo = state();
+          add("Re: Halo Ankunft Solo", "halo-ank-s2", "halo-ank-s1", 0);
+          await until(() => ids().length >= 2, 4000); await ruhig(500);
+          out.soloNach = state();
+          a3.threadTree.selectedIndex = -1; await ruhig(300);
+          return out;""")
+        v, n, nu, so, sn = (res.get(k) or {} for k in ("vorher", "nach", "neu", "solo", "soloNach"))
+        ok = (v.get("cards") == ["halo-ank-2", "halo-ank-1"]
+              and n.get("cards") == ["halo-ank-3", "halo-ank-2", "halo-ank-1"] and n.get("sel") == v.get("sel") and n.get("sameBox") is True
+              and n.get("loaded") and n.get("count") and "3" in n["count"] and n.get("note") is False
+              and nu.get("cards") == ["halo-ank-3", "halo-ank-2", "halo-ank-1"] and nu.get("note") is False
+              and so.get("cards") == [] and sn.get("cards") == ["halo-ank-s2", "halo-ank-s1"] and sn.get("sel") == ["halo-ank-s1"])
+        return ok, f"{res}"
+    check("Leseansicht: neu eingegangene Mail erscheint in der gewählten Konversation, Einzelmail wird mit Antwort zur Konversation, kein Ordner-Hinweis bei eingeschalteter Suche", conversation_arrival, results)
 
     def conversation_right_mail():
         # GitHub #60: die Karten zeigen die gewählte Mail – auch wenn sie in einer langen Konversation weiter unten
@@ -3667,6 +3947,13 @@ FIND_SHAPE_JS = r"""
               sh: fcs(close).boxShadow },
       options: [...fb.querySelectorAll(".findbar-container > checkbox")].filter(e => R(e).w > 0).length,
       replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor, sh: fcs(b).boxShadow } : null; })() });
+    // Pfeil unter der Maus: Kreis 20 px mit Lichtkante (::after), gedrückt ohne Licht mit innerem Schatten
+    InspectorUtils.addPseudoClassLock(prev, ":hover"); await sleep(200);
+    const ha = fcs(prev, "::after");
+    out.arrowHover = { op: ha.opacity, sh: ha.boxShadow, w: parseFloat(ha.width), h: parseFloat(ha.height), line: fcs(next).backgroundImage };
+    InspectorUtils.addPseudoClassLock(prev, ":active"); await sleep(200);
+    out.arrowPress = { sh: fcs(prev, "::after").boxShadow, bg: fcs(prev, "::after").backgroundColor, hoverBg: ha.backgroundColor };
+    InspectorUtils.removePseudoClassLock(prev, ":active"); InspectorUtils.removePseudoClassLock(prev, ":hover"); await sleep(100);
     await type("Xyzzy Qwv");
     const st = fb.querySelector(".findbar-find-status"), s2 = R(st), t2 = R(tb);
     out.notfound = { status: tb.getAttribute("status"), bg: fcs(tb).backgroundColor, text: st.textContent,
@@ -3696,6 +3983,11 @@ def find_shape_ok(s, compose):
           and d.get("w", 0) >= 30 and d.get("icon") == "none" and d.get("right")
           and 23 <= d.get("h", 0) <= 25 and cap(d.get("radius")) and same_color(d.get("bg"), s["control"])
           and s.get("options") == 4
+          # Pfeil unter der Maus: Kreis 20 px mit Lichtkante, Trennstrich weg; gedrückt mit innerem Schatten
+          and (s.get("arrowHover") or {}).get("op") == "1" and s["arrowHover"].get("w") == 20 and s["arrowHover"].get("h") == 20
+          and s["arrowHover"].get("sh", "").startswith("rgba(255, 255, 255") and "inset" in s["arrowHover"].get("sh", "")
+          and s["arrowHover"].get("line") == "none"
+          and "inset" in (s.get("arrowPress") or {}).get("sh", "") and not (s.get("arrowPress") or {}).get("sh", "").startswith("rgba(255, 255, 255")
           and (not compose or (s.get("replace") and s["replace"]["w"] > 30 and cap(s["replace"]["radius"]) and same_color(s["replace"]["bg"], s["control"])))
           and nf.get("status") == "notfound" and nf.get("text") and nf.get("inField") and same_color(nf.get("bg"), s["control"])
           and same_color(nf.get("color"), s["tertiary"]))
@@ -4032,6 +4324,46 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Dialoge: Reiter als Segment-Kapseln ohne Strich und Linie (Bild einfügen)", tabs, results)
 
+    def image_align_icons():
+        # Ausrichtung im Bild-Dialog (Reiter „Appearance“): halo-Symbole statt der alten GIF-Bildchen, im Feld und in allen
+        # fünf Menüzeilen 16 px in Schriftfarbe (context-fill, im Feld gibt themeableDialog.css nur „fill“ weiter); nichts fällt weg.
+        # Im Feld wird gezeichnet: die Striche rechts neben dem Bild (rechte Hälfte des Symbols) müssen zu sehen sein
+        # (zeichnete das SVG mit context-stroke, stand dort nur das Quadrat)
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({}, cw => dialog(() => cw.goDoCommand("cmd_image"), "EdImageProps", async (dw, dd) => {
+            const tabs = dd.querySelector("tabs"); tabs.selectedItem = [...tabs.querySelectorAll("tab")].find(t => t.id == "imageAppearanceTab" || /Appearance/.test(t.label)); await ruhig(400);
+            const ml = dd.getElementById("alignTypeSelect");
+            const look = i => { const s = csOf(i), q = i.getBoundingClientRect();
+              return { img: (s.listStyleImage.match(/icons\/([\w-]+)\.svg/) || [, s.listStyleImage.slice(0, 60)])[1], w: q.width, h: q.height,
+                       ctx: s.getPropertyValue("-moz-context-properties"), fill: s.fill, color: s.color }; };
+            // Anteil deutlich gezeichneter Punkte in der rechten Hälfte des Symbols (Abstand zur Feldfläche)
+            const ink = async i => { const q = i.getBoundingClientRect();
+              const bm = await dw.browsingContext.currentWindowGlobal.drawSnapshot(new dw.DOMRect(q.left + q.width / 2, q.top, q.width / 2, q.height), 2, "white");
+              const c = dd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bm.width; c.height = bm.height;
+              const x = c.getContext("2d"); x.drawImage(bm, 0, 0); const px = x.getImageData(0, 0, c.width, c.height).data;
+              const field = await dw.browsingContext.currentWindowGlobal.drawSnapshot(new dw.DOMRect(ml.getBoundingClientRect().right - 60, q.top, 2, 2), 1, "white");
+              const c2 = dd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c2.width = 2; c2.height = 2; const x2 = c2.getContext("2d"); x2.drawImage(field, 0, 0);
+              const f = x2.getImageData(0, 0, 1, 1).data; let n = 0;
+              for (let k = 0; k < px.length; k += 4) if (Math.abs(px[k] - f[0]) + Math.abs(px[k + 1] - f[1]) + Math.abs(px[k + 2] - f[2]) > 150) n++;
+              return Math.round(100 * n / (px.length / 4)); };
+            const out = { dark: dw.matchMedia("(prefers-color-scheme: dark)").matches, field: {} };
+            for (const v of ["top", "middle", "bottom", "left", "right"]) { ml.value = v; await ruhig(200);
+              const i = ml.shadowRoot.querySelector("[part~=icon]"); out.field[v] = { ...look(i), ink: await ink(i) }; }
+            // 8 px zwischen Symbol und Text im Feld, die Menüzeilen ohne zusätzlichen Einzug
+            out.indent = csOf(ml.shadowRoot.querySelector("[part~=label]")).textIndent;
+            ml.open = true; await till(() => ml.menupopup.state == "open", 3000); await ruhig(300);
+            out.items = [...ml.menupopup.children].map(mi => ({ v: mi.value, label: mi.label, indent: csOf(mi.querySelector(".menu-text, .menu-iconic-text, label")).textIndent, ...look(mi.querySelector(".menu-icon")) }));
+            ml.open = false; await ruhig(200);
+            return out; }));""")
+        want = {"top": "align-top", "middle": "align-middle", "bottom": "align-bottom", "left": "align-image-left", "right": "align-image-right"}
+        def good(x, v):
+            return (x.get("img") == want[v] and round(x["w"]) == 16 and round(x["h"]) == 16 and same_color(x["fill"], x["color"]))
+        items, field = res.get("items") or [], res.get("field") or {}
+        ok = (all(good(field[v], v) and field[v]["ink"] >= 4 for v in want) and res.get("indent") == "8px"
+              and len(items) == 5 and all(good(x, x["v"]) and x["label"] and x["indent"] == "0px" for x in items))
+        return ok, f"{res}"
+    check("Verfassen: Ausrichtung im Bild-Dialog mit halo-Symbolen (16 px, Striche in Schriftfarbe, Bildfläche zart), im Feld mit 8 px Abstand zum Text und in allen fünf Zeilen", image_align_icons, results)
+
     def customize():
         res = m.js(COMPOSE_CHECK_JS + r"""
           return await withCompose({}, async (cw, cd) => {
@@ -4123,6 +4455,91 @@ def compose_checks(m, results):
                  and rgba_alpha(ac.get("list")) == 0)
         return tokens and reorder_ok and ac_ok, f"{res}"
     check("Verfassen: Anhänge-anordnen-Panel als Popover (Fläche, Haarlinie, Radius 20) mit grauen halo-Symbolen, Adressvorschläge als Menü ohne bläulichen Rand", compose_panels, results)
+
+    def compose_suggest_rows():
+        # Empfänger-Vorschläge wie die übrigen Menüzeilen (22 px, 5 px vom Rand, 10 px Innenabstand, Radius 6, 13 px, Auswahl in
+        # Akzentfarbe); je Zeile „Name — Adresse“ mit grauer Adresse (markiert alles weiß), ohne Namen nur die Adresse, kein
+        # Adressbuch-Kärtchen, Verteilerliste mit grauem Gruppen-Symbol; dieselbe Adresse auf einer Karte mit und einer ohne
+        # Namen nur einmal (mit Namen), verschiedene Namen bleiben; Pfeiltasten und Enter fügen weiter „Name <adresse>“ ein
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const pab = MailServices.ab.directories.find(b => b.URI == "jsaddrbook://abook.sqlite") || MailServices.ab.directories[0];
+          const coll = MailServices.ab.directories.find(b => b != pab && !b.readOnly) || pab;
+          const mk = (name, mail, dir) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = mail; return [dir, dir.addCard(c)]; };
+          const cards = [mk("Vera Vorschlag", "vera.vorschlag@example.invalid", pab), mk("", "vera.vorschlag@example.invalid", coll),
+                         mk("", "vorschlag.ohne@example.invalid", pab),
+                         mk("Volker Vorschlag", "volker.vorschlag@example.invalid", pab), mk("Volkmar Vorschlag", "volker.vorschlag@example.invalid", coll)];
+          let list = Cc["@mozilla.org/addressbook/directoryproperty;1"].createInstance(Ci.nsIAbDirectory);
+          list.isMailList = true; list.dirName = "Vorschlag Team"; list = pab.addMailList(list);
+          await ruhig(400);
+          try {
+            return await withCompose({}, async (cw, cd) => {
+              const inp = cd.querySelector(".address-row:not(.hidden) input.address-row-input, #toAddrInput");
+              inp.focus(); inp.value = "vorschlag"; inp.controller.handleText();
+              await till(() => inp.controller.matchCount >= 5, 5000);
+              if (inp.popup.state != "open") inp.openPopup();
+              const ac = await till(() => [...cd.querySelectorAll('panel[type="autocomplete-richlistbox"]')].find(p => p.state == "open"), 4000);
+              if (!ac) return { open: false };
+              await till(() => ac.richlistbox.children[0]?.querySelector("autocomplete-row-item")?.shadowRoot?.querySelector(".label"), 2000);
+              await ruhig(300);
+              const box = ac.richlistbox.getBoundingClientRect();
+              const meas = () => [...ac.richlistbox.children].filter(c => !c.collapsed && c.getBoundingClientRect().height).map(c => {
+                const r = c.querySelector(":scope > autocomplete-row-item"), sr = r?.shadowRoot, b = c.getBoundingClientRect(), cs = csOf(c);
+                const lab = sr?.querySelector(".label"), des = sr?.querySelector(".description");
+                return { h: Math.round(b.height * 10) / 10, l: Math.round(b.left - box.left), r: Math.round(box.right - b.right), font: parseFloat(cs.fontSize),
+                         pad: parseFloat(cs.paddingInlineStart), radius: parseFloat(cs.borderTopLeftRadius), color: cs.color, bg: cs.backgroundColor,
+                         sel: c.hasAttribute("selected"), list: c.hasAttribute("mc-ac-list"), row: !!r,
+                         label: lab?.textContent ?? null, desc: des?.textContent ?? null, dash: des ? getComputedStyle(des, "::before").content : null,
+                         lcol: lab && csOf(lab).color, dcol: des && csOf(des).color,
+                         line: lab && des ? Math.abs(lab.getBoundingClientRect().top - des.getBoundingClientRect().top) < 3 : null,
+                         icon: r ? csOf(r).backgroundImage : null, stroke: r ? csOf(r).stroke : null }; });
+              const out = { open: true, values: [...Array(inp.controller.matchCount).keys()].map(i => inp.controller.getValueAt(i)), rows: meas(),
+                            text: colorOf(cd, "var(--mt-text)"), sec: colorOf(cd, "var(--mt-text-secondary)"), ter: colorOf(cd, "var(--mt-text-tertiary)"),
+                            accent: colorOf(cd, "var(--mt-accent)", "backgroundColor"), accentText: colorOf(cd, "var(--mt-accent-text)"),
+                            mac: Services.appinfo.OS == "Darwin" };
+              const key = (k, code) => inp.dispatchEvent(new cw.KeyboardEvent("keydown", { key: k, keyCode: code, bubbles: true, cancelable: true }));
+              key("ArrowDown", 40); await till(() => ac.selectedIndex == 0, 2000); await ruhig(200);
+              out.selected = meas().filter(x => x.sel);
+              key("ArrowDown", 40); await till(() => ac.selectedIndex == 1, 2000);
+              out.want = inp.controller.getValueAt(1);
+              key("Enter", 13); await till(() => ac.state == "closed", 3000); await ruhig(400);
+              out.pills = [...cd.querySelectorAll("mail-address-pill")].map(p => p.fullAddress);
+              return out; });
+          } finally {
+            for (const [dir, card] of cards) { try { dir.deleteCards([card]); } catch {} }
+            try { pab.deleteDirectory(list); } catch {}
+          }""")
+        if not res.get("open"):
+            return False, f"{res}"
+        rows, vals = res.get("rows") or [], res.get("values") or []
+        # Daten: Vera nur einmal und mit Namen, Volker/Volkmar beide, Adresse ohne Namen, Liste
+        data_ok = (vals.count("Vera Vorschlag <vera.vorschlag@example.invalid>") == 1 and "vera.vorschlag@example.invalid" not in vals
+                   and "Volker Vorschlag <volker.vorschlag@example.invalid>" in vals and "Volkmar Vorschlag <volker.vorschlag@example.invalid>" in vals
+                   and "vorschlag.ohne@example.invalid" in vals and any(v.startswith("Vorschlag Team") for v in vals) and len(rows) >= len(vals) == 5)
+        tol = 0 if res.get("mac") else 2
+        shape_ok = all(abs(r["h"] - 22) <= tol and r["l"] == 5 and r["r"] == 5 and r["font"] == 13 and r["pad"] == 10 and r["radius"] == 6
+                       and not r["sel"] and same_color(r["color"], res["text"]) and rgba_alpha(r["bg"]) == 0 for r in rows)
+        legacy = not any(r["row"] for r in rows)   # ältere Zeilen ohne autocomplete-row-item: nur Form und Daten
+        by = {}
+        for r in rows:
+            by[r["label"]] = r
+        named = [by.get(n) for n in ("Vera Vorschlag", "Volker Vorschlag", "Volkmar Vorschlag")]
+        text_ok = legacy or (
+            all(r and r["desc"] and r["desc"].endswith("@example.invalid") and r["dash"] == '" — "' and r["line"]
+                and same_color(r["lcol"], res["text"]) and same_color(r["dcol"], res["sec"]) and r["icon"] == "none" for r in named)
+            and (by.get("vorschlag.ohne@example.invalid") or {}).get("desc") is None
+            and same_color((by.get("vorschlag.ohne@example.invalid") or {}).get("lcol"), res["text"])
+            and (by.get("Vorschlag Team") or {}).get("list") and "user-list.svg" in ((by.get("Vorschlag Team") or {}).get("icon") or "")
+            and same_color(by["Vorschlag Team"]["stroke"], res["ter"]) and by["Vorschlag Team"]["desc"] is None
+            and sum(1 for r in rows if r["list"]) == 1)
+        sel = res.get("selected") or []
+        sel_ok = (len(sel) == 1 and same_color(sel[0]["bg"], res["accent"]) and same_color(sel[0]["color"], res["accentText"])
+                  and (legacy or (same_color(sel[0]["lcol"], res["accentText"]) and (sel[0]["dcol"] is None or same_color(sel[0]["dcol"], res["accentText"])))))
+        keys_ok = bool(res.get("want")) and "<" in res["want"] and res["want"] in (res.get("pills") or [])
+        return data_ok and shape_ok and text_ok and sel_ok and keys_ok, f"legacy={legacy} {res}"
+    check("Verfassen: Empfänger-Vorschläge wie Menüzeilen (22 px, Einzug 5, 13 px, Radius 6, Auswahl Akzent), „Name — Adresse“ mit grauer Adresse, "
+          "ohne Kärtchen, Verteilerliste mit grauem Symbol, Adresse ohne Namen nicht doppelt, Pfeile und Enter fügen „Name <adresse>“ ein",
+          compose_suggest_rows, results)
 
     def format_toolbox():
         # Reintext: Thunderbird blendet nur die Formatleiste aus – die leere Box darf keine zweite Linie unter den Betreff legen;
@@ -4256,6 +4673,74 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
 
+    def compose_header_rows():
+        # Kopfzeilen wie beim Mac (Variante A, Maintainer 15.11.2026): kein Fenstertitel im Fenster (der Titel bleibt
+        # für Fensterliste und Menü „Window“), Reihenfolge To, Cc, Bcc, Subject, From; jede Zeile 37 px mit Haarlinie
+        # 20 px vom Rand bis zum rechten Rand; Beschriftung und Wert jeder Zeile auf derselben Höhe mittig in der
+        # Zeile; Cc/Bcc rechts in der To-Zeile; ohne Formatleiste keine zweite Linie unter From (nur die Darstellung ist umgestellt, die Reihenfolge im Dokument und
+        # damit Tab bleiben Thunderbirds). Mit HALO_SHOTS zusätzlich Bilder des Fensters ohne und mit Cc/Bcc.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const shots = %s;
+          return await withCompose({ subject: "Halo Entwurf Kopfzeilen" }, async (cw, cd) => {
+            const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; };
+            const r1 = x => Math.round(x * 10) / 10;
+            const shoot = async name => { if (!shots) return;
+              const bmp = await cw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+              const c = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+              const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `verfassen-kopfzeilen-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+            const tl = cd.getElementById("titlebar-title-label"), bar = R(cd.getElementById("MsgHeadersToolbar"));
+            const out = { title: { vis: tl && vis(tl) ? csOf(tl).visibility : null, doc: cd.title } };
+            const extra = cd.getElementById("extraAddressRowsArea"), toRow = cd.getElementById("addressRowTo");
+            out.extra = vis(extra) ? { mid: r1(mid(extra) - (R(toRow).t + R(toRow).h / 2)), inRow: R(extra).l > R(toRow.querySelector(".address-container mail-address-pill")).r } : null;
+            await shoot("ohne-cc");
+            cw.showAndFocusAddressRow("addressRowCc"); cw.showAndFocusAddressRow("addressRowBcc"); await ruhig(600);
+            cd.getElementById("msgSubject").focus(); await ruhig(400);
+            const rowOf = { to: toRow, cc: cd.getElementById("addressRowCc"), bcc: cd.getElementById("addressRowBcc"),
+                            subject: cd.getElementById("subject-box"), from: cd.getElementById("top-gradient-box") };
+            const valOf = { to: toRow.querySelector("mail-address-pill"), cc: cd.querySelector("#ccAddrContainer .address-input"),
+                            bcc: cd.querySelector("#bccAddrContainer .address-input"), subject: cd.getElementById("msgSubject"), from: cd.getElementById("msgIdentity") };
+            const labOf = { to: cd.getElementById("toAddrLabel"), cc: cd.getElementById("ccAddrLabel"), bcc: cd.getElementById("bccAddrLabel"),
+                            subject: cd.getElementById("subjectLabel"), from: cd.getElementById("identityLabel") };
+            out.rows = {};
+            for (const k of Object.keys(rowOf)) { const row = rowOf[k], r = R(row), cs = csOf(row), bw = parseFloat(cs.borderBottomWidth);
+              const rowMid = r.t + (r.h - bw) / 2;
+              out.rows[k] = { top: r1(r.t), h: r1(r.h), line: bw > 0 && cs.borderBottomStyle == "solid", inset: r1(r.l - bar.l), toRight: r1(bar.r - r.r),
+                              lab: r1(mid(labOf[k]) - rowMid), val: r1(mid(valOf[k]) - rowMid), labCol: cs && csOf(labOf[k]).color }; }
+            out.secondary = colorOf(cd, "var(--mt-text-secondary)");
+            // ohne Formatleiste (Standard) keine zweite Linie unter der Haarlinie von From
+            const box = cd.getElementById("FormatToolbox");
+            out.fmtLine = csOf(box).borderBottomStyle == "none" ? 0 : parseFloat(csOf(box).borderBottomWidth);
+            await shoot("mit-cc-bcc");
+            return out; });""" % json.dumps(shots))
+        t, rows = res.get("title", {}), res.get("rows", {})
+        order = [rows.get(k, {}).get("top", 0) for k in ("to", "cc", "bcc", "subject", "from")]
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann nur der Titel des Dokuments
+        title_ok = (t.get("vis") in (None, "hidden")) and "Halo Entwurf Kopfzeilen" in t.get("doc", "")
+        rows_ok = all(abs(r.get("h", 0) - 37) <= 0.5 and r.get("line") and abs(r.get("inset", 0) - 20) <= 0.5 and abs(r.get("toRight", 9)) <= 0.5
+                      and abs(r.get("lab", 9)) <= 1 and abs(r.get("val", 9)) <= 1 and same_color(r.get("labCol"), res.get("secondary"))
+                      for r in rows.values()) and len(rows) == 5
+        ex = res.get("extra") or {}
+        ok = (title_ok and rows_ok and order == sorted(order) and len(set(order)) == 5 and abs(ex.get("mid", 9)) <= 1 and ex.get("inRow")
+              and res.get("fmtLine") == 0)
+        return ok, f"{res}"
+    check("Verfassen: kein Fenstertitel; Kopfzeilen To, Cc, Bcc, Subject, From je 37 px mit Haarlinie ab 20 px, Beschriftung und Wert mittig in der Zeile, Cc/Bcc rechts in der To-Zeile, ohne Formatleiste keine zweite Linie", compose_header_rows, results)
+
+    def compose_no_title():
+        # Kein Titeltext („Write: …“) im Verfassen-Fenster (Maintainer 19.11.2026: „das fenster hat eine überschrift
+        # welche ausgeblendet werden muss“); der Fenstertitel selbst bleibt für Menü „Window“ und Fensterliste.
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann zählt nur der Titel des Dokuments.
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({ subject: "Halo Entwurf Titel" }, async (cw, cd) => {
+            await till(() => cd.title.includes("Halo Entwurf Titel"), 4000);
+            const tl = cd.getElementById("titlebar-title-label");
+            const shown = tl && tl.getBoundingClientRect().width > 0;
+            return { label: tl ? { shown, visibility: cw.getComputedStyle(tl).visibility, text: tl.textContent } : null, doc: cd.title }; });""")
+        lab = res.get("label")
+        ok = (lab is None or not lab.get("shown") or lab.get("visibility") == "hidden") and "Halo Entwurf Titel" in res.get("doc", "")
+        return ok, f"{res}"
+    check("Verfassen: kein Titeltext im Fenster, der Fenstertitel bleibt für Fensterliste und Menü „Window“", compose_no_title, results)
+
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
           return await withCompose({ body: "<p>Hallo Anna,</p><p>das ist ein Testentwurf mit einer Liste.</p>" }, async (cw, cd) => {
@@ -4318,14 +4803,14 @@ def compose_checks(m, results):
             for (const p of pills) {
               const btn = p.querySelector(".toolbarbutton-menubutton-button"), dm = p.querySelector(".toolbarbutton-menubutton-dropmarker");
               const pr = p.getBoundingClientRect(), br = btn.getBoundingClientRect(), dr = dm.getBoundingClientRect();
-              const o = { left: await ink(btn, 0), right: await ink(dm, 3),
+              const o = { restBg: csOf(p).backgroundImage, left: await ink(btn, 0), right: await ink(dm, 3),
                           fill: [Math.round(br.left - pr.left), Math.round(pr.right - dr.right), Math.round(dr.left - br.right)] };
               // Überfahren: nur die Hälfte unter der Maus bekommt ihre Fläche
               for (const [name, half, other] of [["hoverLeft", btn, dm], ["hoverRight", dm, btn]]) {
                 for (const e of [p, half]) InspectorUtils.addPseudoClassLock(e, ":hover");
                 await ruhig(150);
-                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundColor,
-                            rest: colorOf(cd, "var(--mt-control)", "backgroundColor") };
+                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundImage,
+                            rest: o.restBg };
                 for (const e of [p, half]) InspectorUtils.removePseudoClassLock(e, ":hover");
               }
               await ruhig(150);
@@ -4403,7 +4888,7 @@ def compose_checks(m, results):
         if not res.get("open"):
             return False, f"{res}"
         fw, at = res["fwd"], res["att"]
-        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
+        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [38, 38, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
               and bool(res.get("idRows")) and all(r == ["24px", "0px"] for r in res["idRows"])
               and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
@@ -4430,23 +4915,45 @@ def compose_checks(m, results):
             const pill = [...tb.children].find(b => b.localName == "toolbarbutton" && vis(b) && !b.disabled && !b.hasAttribute("checked")
               && b.getAttribute("is") != "toolbarbutton-menu-button" && !["button-send", "mcSendLater", "mcFormatToggle"].includes(b.id));
             out.pillId = pill?.id;
-            if (pill) { out.pill = { ready: look(pill) };
-              await lock(pill, [":hover"], true); out.pill.hover = look(pill);
-              await lock(pill, [":active"], true); out.pill.press = look(pill); await lock(pill, [":active", ":hover"], false); }
-            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient")).map(b => b.id);
+            // Kreis unter der Maus (::after): 32 px rund, mittig im 38-px-Knopf
+            const dot = el => { const s = csOf(el, "::after"); return { op: s.opacity, bg: s.backgroundColor, sh: s.boxShadow, w: s.width, h: s.height, r: s.borderTopLeftRadius }; };
+            out.capHover = colorOf(cd, "var(--mt-cap-hover)", "backgroundColor"); out.capPress = colorOf(cd, "var(--mt-cap-press)", "backgroundColor");
+            if (pill) { out.pill = { ready: look(pill), readyDot: dot(pill) };
+              await lock(pill, [":hover"], true); out.pill.hover = look(pill); out.pill.hoverDot = dot(pill);
+              await lock(pill, [":active"], true); out.pill.press = look(pill); out.pill.pressDot = dot(pill); await lock(pill, [":active", ":hover"], false); }
+            // geteilter Knopf: linke Hälfte bekommt denselben Kreis
+            const split = [...tb.children].find(b => vis(b) && !b.disabled && b.getAttribute("is") == "toolbarbutton-menu-button");
+            const half = split?.querySelector(".toolbarbutton-menubutton-button");
+            if (half) { out.split = { h: look(split).h, w: look(split).w, id: split.id, halves: [...split.children].filter(c => c.getBoundingClientRect().width > 0).map(c => Math.round(c.getBoundingClientRect().width)) }; await lock(split, [":hover"], true); await lock(half, [":hover"], true); out.split.dot = dot(half);
+              await lock(half, [":hover"], false); await lock(split, [":hover"], false); }
+            // leuchtend = Verlauf in Farbe (Systemfarbe); die plastischen Kapseln tragen einen grauen Verlauf (17.11.2026)
+            const bunt = img => [...img.matchAll(/rgba?\(([^)]*)\)|color\(srgb ([^)]*)\)/g)].some(m => {
+              const v = (m[1] || m[2]).split(/[ ,/]+/).filter(Boolean).slice(0, 3).map(Number).map(x => m[1] ? x / 255 : x);
+              return Math.max(...v) - Math.min(...v) > 0.15; });
+            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.match(/^radial-gradient.*linear-gradient/) != null && bunt(csOf(b).backgroundImage)).map(b => b.id);
             return out; });""")
         sd, pl = res.get("send") or {}, res.get("pill") or {}
-        send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and sd["ready"]["img"].startswith("linear-gradient") and "inset" in sd["ready"]["sh"]
-                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [30, 30, "50%"]
+        send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and (sd["ready"]["img"].startswith("radial-gradient") and "linear-gradient" in sd["ready"]["img"]) and "inset" in sd["ready"]["sh"]
+                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [38, 38, "50%"]
                    and sd["hover"]["bg"] == sd["ready"]["bg"] and sd["hover"]["img"] == sd["ready"]["img"] and sd["hover"]["sh"] == sd["ready"]["sh"]
                    and sd["press"]["img"] == "none" and luminance(sd["press"]["bg"]) < luminance(sd["ready"]["bg"]) and "inset" in sd["press"]["sh"])
-        pill_ok = (bool(pl) and same_color(pl["ready"]["bg"], res["control"]) and "inset" in pl["ready"]["sh"] and pl["ready"]["sh"].count("rgba") >= 2
-                   and same_color(pl["hover"]["bg"], res["hoverC"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
-                   and same_color(pl["press"]["bg"], res["pressC"]) and "inset" in pl["press"]["sh"] and pl["press"]["sh"].count("rgba") == 1)
-        ok = send_ok and pill_ok and res.get("lit") == ["button-send"]
+        # Kapsel 38 px bleibt unter der Maus und gedrückt gleich; Kreis 32 px: unter der Maus mit
+        # Lichtkante, gedrückt dunkler mit innerem Schatten ohne Licht (Entscheidung 17.11.2026, Möglichkeit 2)
+        hd, pd, rd = pl.get("hoverDot") or {}, pl.get("pressDot") or {}, pl.get("readyDot") or {}
+        circle = lambda o: o.get("w") == "32px" and o.get("h") == "32px" and o.get("r") in ("50%", "16px")
+        # (Kapsel plastisch: helle Fläche als Verlauf, Kante innen an den Enden, Schatten; 17.11.2026)
+        pill_ok = (bool(pl) and pl["ready"]["img"].count("linear-gradient") >= 3 and pl["ready"]["sh"].count("inset") == 2
+                   and pl["ready"]["h"] == 38 and pl["ready"]["w"] == 63 and rd.get("op") == "0"
+                   and pl["hover"]["img"] == pl["ready"]["img"] and pl["hover"]["sh"] == pl["ready"]["sh"]
+                   and pl["press"]["img"] == pl["ready"]["img"] and pl["press"]["sh"] == pl["ready"]["sh"]
+                   and circle(hd) and hd["op"] == "1" and same_color(hd["bg"], res["capHover"]) and "inset" in hd["sh"] and hd["sh"].count("rgba") >= 2
+                   and circle(pd) and same_color(pd["bg"], res["capPress"]) and "inset" in pd["sh"] and pd["sh"].count("rgba") == 1)
+        sp = res.get("split") or {}
+        split_ok = bool(sp) and sp["h"] == 38 and sp["w"] == 85 and sp.get("halves") == [44, 41] and circle(sp["dot"]) and sp["dot"]["op"] == "1" and "inset" in sp["dot"]["sh"]
+        ok = send_ok and pill_ok and split_ok and res.get("lit") == ["button-send"]
         return ok, f"{res}"
-    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 30 × 30 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
-          "Kapseln mit Lichtkante, Maus dunkler, gedrückt ohne Kante", compose_family, results)
+    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 38 × 38 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
+          "Kapseln 38 px plastisch (einzeln 63 px, geteilt 85 px), unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Kante", compose_family, results)
 
 
 DIALOG_READING_JS = READING_JS + r"""
@@ -4802,7 +5309,7 @@ def dialog_checks(m, results):
             try { if (!pd.defaultView.closed) pd.defaultView.close(); } catch {} await nap(400); }""")
         ok = (res.get("open") and same_color(res["btn"], res["accent"]) and same_color(res["text"], res["accentText"])
               and (same_color(res["root"], res["sheet"]) or same_color(res["root"], res["window"])) and not same_color(res["root"], "rgb(28, 27, 34)")
-              and res["img"].startswith("linear-gradient") and "inset" in res["sh"] and "inset" in res["cancelSh"]
+              and (res["img"].startswith("radial-gradient") and "linear-gradient" in res["img"]) and "inset" in res["sh"] and "inset" in res["cancelSh"]
               and float(res["off"][0]) == 1 and same_color(res["off"][1], res["control"]) and res["off"][2] == "none" and res["off"][3] == "none")
         return ok, f"{res}"
     check("Druckvorschau: Hauptknopf in der Systemakzentfarbe mit Licht statt Proton-Blau/-Türkis, gesperrt grau und flach, „Cancel“ mit Lichtkante, Panel neutral", print_preview, results)
@@ -4854,7 +5361,7 @@ def dialog_checks(m, results):
             InspectorUtils.addPseudoClassLock(ok, ":hover"); await pause(150); out.hover = look();
             InspectorUtils.addPseudoClassLock(ok, ":active"); await pause(150); out.press = look();
             InspectorUtils.removePseudoClassLock(ok, ":active"); InspectorUtils.removePseudoClassLock(ok, ":hover"); await pause(100);
-            out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.startsWith("linear-gradient")).length;
+            out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.match(/^radial-gradient.*linear-gradient/) != null).length;
             ok.disabled = true; await pause(200); out.off = look(); ok.disabled = was;
             // Textknopf „Cancel“: grau mit Lichtkante, Maus dunkler, gedrückt ohne Kante, gesperrt flach
             const cn = dl.getButton("cancel"), lookC = () => { const s = csOf(cn); return { bg: s.backgroundColor, sh: s.boxShadow, op: s.opacity, color: s.color }; };
@@ -4875,7 +5382,7 @@ def dialog_checks(m, results):
         def good(r):
             if not r: return False
             rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
-            return (same_color(rd["bg"], r["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], r["accent"]) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], r["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and not same_color(pr["bg"], r["accent"]) and pr["img"] == "none" and "inset" in pr["sh"]
                     and luminance(pr["bg"]) < luminance(rd["bg"])
@@ -4896,13 +5403,14 @@ def dialog_checks(m, results):
         def good(r):
             if not r or "c" not in r: return False
             c = r["c"]; rd, hv, pr, off = c["ready"], c["hover"], c["press"], c["off"]
-            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2
+            # (plastisch seit 17.11.2026: heller Schleier über der grauen Fläche als innerer Schatten 999 px)
+            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2 and "999px" in rd["sh"]
                     and same_color(hv["bg"], r["hoverC"]) and hv["sh"] == rd["sh"]
                     and same_color(pr["bg"], r["pressC"]) and "inset" in pr["sh"] and pr["sh"] != rd["sh"] and pr["sh"].count("rgba") == 1
                     and same_color(off["bg"], r["control"]) and off["sh"] == "none" and float(off["op"]) == 1 and not same_color(off["color"], r["text"]))
         ok = bool(res) and good(res.get("folderProps")) and good(res.get("newFolder"))
         return ok, f"{ {k: (v or {}).get('c') for k, v in (res or {}).items()} }"
-    check("Knöpfe: Textknopf der Dialoge grau mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
+    check("Knöpfe: Textknopf der Dialoge plastisch mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
 
     def primary_elsewhere():
         # Hauptknöpfe ohne Standard-Merkmal wie der Hauptknopf der Dialoge: Kontakt sichern (nur „Save“ leuchtet, der
@@ -4919,7 +5427,7 @@ def dialog_checks(m, results):
           const out = { accent: accentIn(ad) };
           const foot = [...ad.querySelectorAll("#detailsFooter button")].filter(b => b.getClientRects().length && b.getBoundingClientRect().width);
           out.contact = await states(ad.getElementById("saveEditButton"));
-          out.contactLit = foot.filter(b => look(b).img.startsWith("linear-gradient")).map(b => b.id);
+          out.contactLit = foot.filter(b => look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
           out.contactOthers = foot.filter(b => !["saveEditButton", "detailsDeleteButton"].includes(b.id)).map(b => [b.id, look(b).sh.includes("inset")]);
           ad.getElementById("cancelEditButton")?.click(); await ruhig(600);
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
@@ -4929,20 +5437,20 @@ def dialog_checks(m, results):
           const dw = await bis(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog") && x.document.readyState == "complete"), "Termin-Fenster offen", 8000);
           try { await ruhig(1500); const sv = dw.document.getElementById("button-saveandclose");
             out.event = await states(sv);
-            out.eventLit = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+            out.eventLit = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
           } finally { dw.gConfirmCancel = false; try { dw.document.querySelector("dialog")?.cancelDialog?.(); } catch {} dw.close(); await ruhig(600); }
           const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
           li.querySelector("button").click();
           const p = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
           try { await ruhig(400); const pr = p.querySelector(".mc-qc-primary"); const was = pr.disabled; pr.disabled = false; await ruhig(100);
             out.quick = await states(pr); pr.disabled = was;
-            out.quickLit = [...p.querySelectorAll("button")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).length;
+            out.quickLit = [...p.querySelectorAll("button")].filter(b => b.getBoundingClientRect().width && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).length;
           } finally { p.hidePopup(); await ruhig(400); }
           return out;""")
         def good(r):
             if not r: return False
             rd, hv, pr = r["ready"], r["hover"], r["press"]
-            return (same_color(rd["bg"], res["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], res["accent"]) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], res["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"]))
         ok = (good(res.get("contact")) and res.get("contactLit") == ["saveEditButton"] and all(x[1] for x in res.get("contactOthers") or [])
@@ -4991,7 +5499,7 @@ def dialog_checks(m, results):
             const panel = await bis(() => { const p = doc.getElementById("editContactPanel"); return p?.state == "open" && p; }, "Panel Kontakt bearbeiten", 4000);
             try { await ruhig(400); out.contact = await states(doc.getElementById("editContactPanelDoneButton"));
               out.contactOthers = ["editContactPanelEditDetailsButton", "editContactPanelDeleteContactButton"].map(id => look(doc.getElementById(id)));
-              out.contactLit = [...panel.querySelectorAll("button")].filter(b => shown(b) && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+              out.contactLit = [...panel.querySelectorAll("button")].filter(b => shown(b) && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
             } finally { panel.hidePopup(); await ruhig(300); }
           } finally { book.deleteCards([card]); }
           // Kontoeinstellungen: „Add Account“
@@ -5002,7 +5510,7 @@ def dialog_checks(m, results):
         acc, ctl = res["accent"], res["control"]
         def primary(r):
             rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
-            return (same_color(rd["bg"], acc) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], acc) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], acc) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"])
                     and float(off["op"]) == 1 and same_color(off["bg"], ctl) and off["img"] == "none" and off["sh"] == "none")
@@ -6178,6 +6686,36 @@ def menu_checks(m, results):
               and res.get("flagged") is True and res.get("starLabel") == "Remove Star" and (hs[0] == 0 or hs[1] - hs[0] < 0.5))
         return ok, f"{res}"
     check("Kontextmenü Mailliste: flach wie Apple Mail (Antworten, Stern, Spam, Löschen direkt), Stern wechselt mit „Remove Star“, Filter aus der Mail anlegen", context_flat, results)
+
+    def context_no_icons():
+        # Kontextmenü der Mailliste ohne Symbole und mit einer Textspalte: Steht ein angehakter Eintrag im Menü (Watch/Ignore
+        # Thread), setzt Thunderbird unter macOS „needsgutter“, dessen Regel die von „no-icon-menupopup“ überstimmt; Einträge mit
+        # Symbol-Klasse ohne Bild (Edit As New, Forward, Redirect, Archive, Move To, Copy To, Convert To) zeigten dann einen leeren
+        # Symbolplatz und begannen weiter rechts. Hier mit gesetztem „needsgutter“ nachgestellt (auf allen Plattformen gleich).
+        res = m.js(MENU_JS + r"""
+          const shown = el => el.getClientRects().length && el.getBoundingClientRect().height > 0;
+          const out = { state: await openContext(), icons: [], xs: [], ids: [] };
+          const gutter = P.hasAttribute("needsgutter");
+          // ohne Konto blendet Thunderbird diese drei aus – für die Messung kurz zeigen
+          const extra = ["mailContext-editAsNew", "mailContext-redirect", "mailContext-archive"].map(id => ad.getElementById(id)).filter(e => e?.hidden);
+          try {
+            extra.forEach(e => (e.hidden = false)); P.setAttribute("needsgutter", ""); await ruhig(200);
+            for (const el of P.children) {
+              if (el.localName == "menuseparator" || !shown(el)) continue;
+              const ic = el.querySelector(":scope > .menu-icon"), tx = el.querySelector(":scope > .menu-text");
+              const box = el.matches('[type="checkbox"], [type="radio"]') ? null : ic?.getBoundingClientRect();
+              if (box && box.width > 0) out.icons.push(el.id);
+              if (tx) { out.xs.push(Math.round(tx.getBoundingClientRect().left)); out.ids.push(el.id); }
+            }
+          } finally { P.hidePopup(); await ruhig(400); extra.forEach(e => (e.hidden = true)); P.toggleAttribute("needsgutter", gutter); }
+          out.xs = [...new Set(out.xs)];
+          return out;""")
+        need = {"mailContext-editAsNew", "mailContext-forward", "mailContext-redirect", "mailContext-archive", "mailContext-moveMenu",
+                "mailContext-copyMenu", "mailContext-calendar-convert-menu"}
+        ok = (res.get("state") == "open" and need <= set(res.get("ids", [])) and res.get("icons") == []
+              and len(res.get("xs", [])) == 1)
+        return ok, f"{res}"
+    check("Kontextmenü Mailliste: keine leeren Symbolplätze, alle Einträge an derselben Textkante (auch mit angehaktem Eintrag, „needsgutter“)", context_no_icons, results)
 
     def tag_menu():
         # Schlagwort-Menü wie die Schlagwort-Ordner (GitHub #50): Name in der normalen Textfarbe ohne „1 “ davor, davor ein
@@ -7394,6 +7932,56 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Termin-Dialog: Häkchen der gewählten Kategorie aus halo (--icon-check, resource:) lädt trotz der CSP des Termin-Rahmens und steht am Eintrag",
           event_dialog_category_check, results)
+
+    def event_dialog_closed_quiet():
+        # Termin-Fenster geschlossen: der Beobachter, der Beschriftungen ohne Doppelpunkt hält (tidyEventDialog), ruft das
+        # geschlossene Fenster nicht mehr auf. Vorher rief er bei späten Änderungen im noch nicht abgeräumten Formular weiter
+        # dlg.setTimeout auf; die ESR wirft dabei NS_ERROR_NOT_INITIALIZED (kalenderfenster.js) in die Fehlerkonsole (CI esr,
+        # während einer Today-Pane-Prüfung, die calendar.week.start umstellt), neuere Fassungen schlucken es still. Darum
+        # zählt die Prüfung die Aufrufe von setTimeout am Fenster ab dem Schließen (muss 0 sein, in jeder Fassung).
+        # Nachgestellt: nach dem Schließen (sofort, nach dem Abbau, später) eine Beschriftung ändern, Wochenbeginn umstellen
+        res = m.js(CAL_CHECK_JS + r"""
+          for (const x of [...Services.wm.getEnumerator(null)]) if (!x.location.href.includes("messenger.xhtml")) x.close();
+          const c = testCalendar(); const e = new CalEvent(); e.title = "Halo Schließen leise"; e.calendar = c;
+          const s = cal.dtz.now(); s.minute = 0; s.second = 0; const en = s.clone(); en.hour += 1; e.startDate = s; e.endDate = en;
+          const saved = await c.addItem(e);
+          const PREF = "calendar.week.start", wsWas = Services.prefs.prefHasUserValue(PREF) ? Services.prefs.getIntPref(PREF) : null;
+          const errs = [], out = { errs };
+          const lis = { observe: msg => { try { if (msg instanceof Ci.nsIScriptError && !(msg.flags & Ci.nsIScriptError.warningFlag)
+            && /kalenderfenster\.js/.test(msg.sourceName || "")) errs.push(`${String(msg.errorMessage).slice(0, 120)} (${msg.lineNumber})`); } catch {} } };
+          let dw = null;
+          try {
+            await toCalendar(); w.modifyEventWithDialog(saved, true);
+            dw = await winUrl("calendar-event-dialog"); if (!dw) throw new Error("Termin-Dialog nicht offen");
+            out.tidy = !!(await till(() => dw.__mcTidy, 8000));
+            const idoc = dw.document.getElementById("calendar-item-panel-iframe")?.contentDocument;
+            const lab = idoc?.querySelector("label[value]");
+            out.label = !!lab;
+            Services.console.registerListener(lis);
+            lab?.setAttribute("value", "Halo vorher:"); await ruhig(300); out.before = lab?.getAttribute("value");
+            // ab hier zählt jeder Aufruf von setTimeout am Fenster (Zeit ab dem Schließen bzw. Fehlertext)
+            out.calls = []; const orig = dw.setTimeout, tClose = Date.now(); dw.setTimeout = function (...a) { out.calls.push(Date.now() - tClose); try { return orig.apply(this, a); } catch (ex) { out.calls.push(String(ex).slice(0, 80)); throw ex; } };
+            dw.close(); await till(() => dw.closed, 4000);
+            // sofort, nach dem Abbau des Fensters (ohne docShell) und noch einmal später; dazwischen den Wochenbeginn umstellen
+            out.late = [];
+            for (const wait of [0, -1, 1500]) {
+              if (wait < 0) await till(() => { try { return !dw.docShell; } catch { return true; } }, 6000); else await ruhig(wait);
+              lab?.setAttribute("value", "Halo spät:");
+              for (const ws of [1, 0]) { Services.prefs.setIntPref(PREF, ws); await ruhig(150); }
+              await ruhig(300); out.late.push(lab?.getAttribute("value"));
+            }
+          } finally {
+            try { Services.console.unregisterListener(lis); } catch {}
+            if (wsWas === null) Services.prefs.clearUserPref(PREF); else Services.prefs.setIntPref(PREF, wsWas);
+            if (dw && !dw.closed) { dw.close(); await till(() => dw.closed, 4000); }
+            try { await c.deleteItem(saved); } catch {}
+          }
+          return out;""")
+        ok = (res.get("tidy") is True and res.get("label") is True and res.get("before") == "Halo vorher"
+              and res.get("calls") == [] and res.get("errs") == [])
+        return ok, f"{res}"
+    check("Termin-Dialog: nach dem Schließen keine Fehler aus dem Beobachter der Beschriftungen (NS_ERROR_NOT_INITIALIZED)",
+          event_dialog_closed_quiet, results)
 
     def summary_height_grows():
         # Terminübersicht: war das Fenster beim ersten Öffnen zu niedrig gemessen (Schrift/Zeilenumbruch noch nicht fertig),
@@ -10852,6 +11440,67 @@ def server_checks(m, results):
             return ok, f"{res} gesendet: {len(got)} mit X-Halo-Send-At: {len(leak)}"
         check("Testkonto: Später senden – Menü am Senden-Knopf, geplante Mail als Entwurf, zur Zeit gesendet ohne interne Kopfzeile", send_later, results)
 
+        def outbox_held():
+            # Thunderbirds „Später senden“ (Datei-Menü, Postausgang) hält die Mail zurück; halo.spaces sendet im Hintergrund
+            # über den Postausgang und leerte ihn dabei ganz – die zurückgehaltene Mail ging mit der nächsten gesendeten
+            # Mail hinaus. Jetzt geht nur die neue Mail, die zurückgehaltene bleibt, bis man den Postausgang selbst sendet
+            before = len(servers.smtp.sent)
+            compose = r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              const acc = MailServices.accounts.getAccount("%s");
+              Services.prefs.setIntPref("extensions.mailcards.undoSend", 0);
+              const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+              const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+              fields.to = "ziel@example.invalid"; fields.subject = "%s"; fields.body = "Probe.";
+              params.type = Ci.nsIMsgCompType.New; params.format = Ci.nsIMsgCompFormat.PlainText; params.composeFields = fields; params.identity = acc.defaultIdentity;
+              MailServices.compose.OpenComposeWindowWithParams(null, params);
+              const cw = await until(() => [...Services.wm.getEnumerator("msgcompose")].find(x => x.document.readyState == "complete" && x.gMsgCompose), 10000);
+              await bis(() => cw.gLoadingComplete, "Verfassen-Fenster fertig geladen", 8000); await ruhig(1500);
+              cw.goDoCommand("%s");
+              const closed = !!(await until(() => cw.closed, 15000));
+              const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+              const subjects = outbox ? [...outbox.msgDatabase.enumerateMessages()].map(h => h.mime2DecodedSubject) : [];
+              return { closed, outbox: subjects };"""
+            sent = lambda s: [g for g in servers.smtp.sent[before:] if s in g[2]]
+            try:
+                held = m.js(compose % (key, "Halo Zurueckgehalten", "cmd_sendLater"))
+                # Thunderbird sendet einen neu im Postausgang abgelegten Brief im Hintergrund nach rund 1 s, halo.spaces
+                # nach 2 s – 6 s ohne Senden belegen, dass die Mail liegen bleibt (feste Wartezeit: es soll nichts geschehen)
+                time.sleep(6)
+                held_sent = len(sent("Halo Zurueckgehalten"))
+                now = m.js(compose % (key, "Halo Sofortprobe", "cmd_sendButton"))
+                for _ in range(40):
+                    if sent("Halo Sofortprobe"):
+                        break
+                    time.sleep(0.5)
+                time.sleep(6)  # wie oben: halo.spaces leerte den Postausgang 2 s nach dem Senden
+                after = m.js(r"""
+                  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                  const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                  return outbox ? [...outbox.msgDatabase.enumerateMessages()].map(h => h.mime2DecodedSubject) : [];""")
+                held_after = len(sent("Halo Zurueckgehalten"))
+                # „Nicht gesendete Nachrichten senden“ (vom Nutzer ausgelöst) schickt die zurückgehaltene Mail dann hinaus
+                m.js('Services.wm.getMostRecentWindow("mail:3pane").SendUnsentMessages(); return 1;')
+                for _ in range(40):
+                    if sent("Halo Zurueckgehalten"):
+                        break
+                    time.sleep(0.5)
+            finally:
+                m.js(r"""
+                  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+                  Services.prefs.clearUserPref("extensions.mailcards.undoSend");
+                  for (const x of [...Services.wm.getEnumerator("msgcompose")]) x.close();
+                  const outbox = MailServices.accounts.localFoldersServer.rootFolder.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+                  const hdrs = outbox ? [...outbox.msgDatabase.enumerateMessages()] : [];
+                  if (hdrs.length) outbox.deleteMessages(hdrs, null, true, false, null, false);
+                  return 1;""")
+            ok = (held.get("closed") and "Halo Zurueckgehalten" in held.get("outbox", []) and held_sent == 0
+                  and now.get("closed") and len(sent("Halo Sofortprobe")) == 1 and held_after == 0
+                  and after == ["Halo Zurueckgehalten"] and len(sent("Halo Zurueckgehalten")) == 1)
+            return ok, (f"zurückgehalten {held} gesendet {held_sent}; danach Senden {now} beim Server: Sofortprobe "
+                        f"{len(sent('Halo Sofortprobe'))}, Zurueckgehalten {held_after}; Postausgang danach {after}; nach „Send Unsent“ gesendet {len(sent('Halo Zurueckgehalten'))}")
+        check("Testkonto: mit „Später senden“ im Postausgang zurückgehaltene Mail bleibt liegen, wenn danach eine andere Mail gesendet wird, und geht erst mit „Send Unsent Messages“", outbox_held, results)
+
         def send_later_place():
             # „Später senden“ als kleiner Pfeil gleich rechts neben dem runden Senden-Knopf (war eine leere Kapsel links)
             res = m.js(r"""
@@ -11276,6 +11925,17 @@ def server_checks(m, results):
               out.look = { side: side && cs(side).backgroundColor == sideWant, nicks: nicks.length,
                            circles: nicks.filter(i => i.dataset.mcInitial && parseFloat(cs(i, "::before").width) == 22 && cs(i, "::before").borderTopLeftRadius != "0px").length,
                            box: box && { radius: parseFloat(cs(box).borderTopLeftRadius), border: parseFloat(cs(box).borderTopWidth) } };
+              // Chat-Leiste mit Konto plastisch wie die Kapseln der übrigen Spaces; unter der Maus Kreis bzw. Kapsel 3 px
+              // innen mit Lichtkante, gedrückt ohne Licht (18.11.2026)
+              out.bar = {};
+              for (const id of ["button-add-buddy", "button-join-chat"]) {
+                const b = d.getElementById(id); if (!b) continue;
+                const one = { dis: b.disabled, img: cs(b).backgroundImage.split("linear-gradient").length - 1, sh: cs(b).boxShadow };
+                InspectorUtils.addPseudoClassLock(b, ":hover"); await ruhig(150);
+                const a = cs(b, "::after"); Object.assign(one, { hOp: a.opacity, hSh: a.boxShadow, hW: parseFloat(a.width), bW: b.getBoundingClientRect().width, hImg: cs(b).backgroundImage.split("linear-gradient").length - 1 });
+                InspectorUtils.addPseudoClassLock(b, ":active"); await ruhig(150); one.pSh = cs(b, "::after").boxShadow;
+                InspectorUtils.clearPseudoClassLocks(b); out.bar[id] = one;
+              }
               const acc = IMServices.accounts.getAccountById(w.__mcChatAcc); delete w.__mcChatAcc;
               try { acc.disconnect(); await ruhig(500); IMServices.accounts.deleteAccount(acc.id); } catch {}
               await toMail();
@@ -11292,8 +11952,14 @@ def server_checks(m, results):
             lk = res2.get("look") or {}
             ok = (ok and lk.get("side") and lk.get("nicks", 0) >= 1 and lk.get("circles") == lk.get("nicks")
                   and (lk.get("box") or {}).get("radius", 99) <= 8 and (lk.get("box") or {}).get("border", 0) > 0)
+            bar = res2.get("bar") or {}
+            def plastic_btn(o, wpx):
+                return (bool(o) and not o["dis"] and o["img"] >= 3 and o["hImg"] == o["img"] and "inset" in o["sh"] and o["hOp"] == "1"
+                        and o["hSh"].startswith("rgba(255, 255, 255") and "inset" in o["pSh"] and not o["pSh"].startswith("rgba(255, 255, 255")
+                        and abs(o["hW"] - (wpx if wpx else o["bW"] - 6)) <= 0.5)
+            ok = ok and plastic_btn(bar.get("button-add-buddy"), None) and plastic_btn(bar.get("button-join-chat"), 32)
             return ok, f"{res} {res2} IRC: {servers.irc.log[:8]}"
-        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich; Name 13 px halbfett, Zeile 32 px, Pfeil nur beim Überfahren), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
+        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich; Name 13 px halbfett, Zeile 32 px, Pfeil nur beim Überfahren), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil; Chat-Leiste plastisch mit Kreis unter der Maus", chat_irc, results)
 
         def wrong_password():
             # Server lehnt die Anmeldung ab → Thunderbirds Nachfrage erscheint als Kachel im Fenster (wie ein macOS-Sheet)
@@ -13606,6 +14272,62 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def avatars_plastic():
+        # Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026): Mailliste, Mailkopf und
+        # Adressbuch mit Verlauf in drei Stufen, Schatten außen und Auflage (::after) mit Lichtkante oben, Unterkante
+        # und feinem Rand; Fotos mit eigener, neutraler Auflage über dem Bild (Klasse mc-has-img), Initialen ohne
+        res = m.js(MESSAGE_JS + r"""
+          const info = (win, el) => { if (!el) return null; const cs = win.getComputedStyle(el), af = win.getComputedStyle(el, "::after");
+            return { bg: cs.backgroundImage, shadow: cs.boxShadow, after: af.content, afterPos: af.position, rim: af.boxShadow,
+                     w: Math.round(el.getBoundingClientRect().width), afterW: Math.round(parseFloat(af.width) || 0), img: el.classList.contains("mc-has-img") }; };
+          const out = {};
+          out.list = info(a3, a3.document.querySelector('#threadTree tr[is="thread-card"] .mc-avatar'));
+          const md = a3.messageBrowser.contentWindow.document;
+          out.header = info(a3.messageBrowser.contentWindow, await until(() => md.querySelector("#fromRecipient0 .recipient-avatar.mc-hdr-avatar")));
+          // Adressbuch: Kontakt mit Initialen und einer mit Foto (Datei im Profil)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const canvas = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); canvas.width = canvas.height = 64;
+          const ctx = canvas.getContext("2d"); ctx.fillStyle = "#3a7"; ctx.fillRect(0, 0, 64, 64);
+          const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg"));
+          await IOUtils.makeDirectory(PathUtils.join(PathUtils.profileDir, "Photos"), { ignoreExisting: true });
+          await IOUtils.write(PathUtils.join(PathUtils.profileDir, "Photos", "halo-kreis.jpg"), new Uint8Array(await blob.arrayBuffer()));
+          const add = (name, email, photo) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = email; if (photo) c.setProperty("PhotoName", photo); return book.addCard(c); };
+          const cards = [add("Ida Initial", "ida.initial@example.invalid"), add("Paul Plastisch", "paul.plastisch@example.invalid", "halo-kreis.jpg")];
+          try {
+            tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("cards")?.view?.rowCount >= 2, "Kontaktliste", 8000); await ruhig(1500);
+            const ab = tm.currentTabInfo.browser.contentWindow; const ad = ab.document;
+            for (const [key, name] of [["abInitials", "Ida Initial"], ["abPhoto", "Paul Plastisch"]]) {
+              const row = await until(() => [...ad.querySelectorAll("#cards tr")].find(r => r.querySelector(".name")?.textContent == name), 5000);
+              const av = row?.querySelector("contact-avatar");
+              if (key == "abPhoto" && av) await bis(() => av.classList.contains("mc-has-img"), "Foto geladen", 4000).catch(() => {});
+              out[key] = info(ab, av);
+            }
+            tm.closeTab(tm.currentTabInfo);
+          } finally {
+            book.deleteCards(cards);
+          }
+          out.dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          return out;""")
+        dark = res.get("dark")
+        def plastic(v, photo):
+            if not v:
+                return False
+            # Auflage: drei innere Schatten über dem Kreis, so groß wie der Kreis
+            rim_ok = v["after"] in ('""', "''") and v["afterPos"] == "absolute" and v["rim"].count("inset") == 3 and abs(v["afterW"] - v["w"]) <= 1
+            # Schatten außen (ohne inneren Schatten am Kreis selbst)
+            drop_ok = v["shadow"] != "none" and "inset" not in v["shadow"]
+            if photo:
+                # Foto: neutrale Auflage (hell Unterkante schwarz 13 %, dunkel Rand weiß 12 %)
+                fill_ok = v["img"] and ("rgba(255, 255, 255, 0.12)" in v["rim"] if dark else "rgba(0, 0, 0, 0.13)" in v["rim"])
+            else:
+                # Initialen: Verlauf in drei Stufen (heller oben, Mitte #A0B0D6, dunkler unten)
+                fill_ok = not v["img"] and v["bg"].count("rgb") >= 3 and "160, 176, 214" in v["bg"]
+            return rim_ok and drop_ok and fill_ok
+        ok = all(plastic(res.get(k), k == "abPhoto") for k in ("list", "header", "abInitials", "abPhoto"))
+        return ok, f"{res}"
+    check("Absenderkreise: plastisch wie die Knöpfe in Mailliste, Mailkopf und Adressbuch (Verlauf, Lichtkante, Unterkante, Schatten), Fotos mit eigener Auflage", avatars_plastic, results)
+
     def code_banner():
         # Codes in E-Mails (GitHub #54): Bestätigungscode über der Mail mit „Kopieren“ (Baustein des
         # Verteiler-Hinweises), Klick legt genau den Code in die Zwischenablage; keine Anzeige bei einer Mail
@@ -13887,13 +14609,16 @@ def run_checks(m, version, profile, results):
             const x = fr.left + parseFloat(fa.left);
             out.sep = { content: fa.content, w: fa.width, h: fa.height, color: fa.backgroundColor, op: fa.opacity,
                         dy: Math.round((parseFloat(fa.top) + parseFloat(fa.height) / 2 - fr.height / 2) * 10) / 10,
-                        dx: Math.round((x - mr.left) * 10) / 10 };
+                        // Grenze der Knöpfe: Mitte zwischen den Kreisen (je 32 px mit 4 px Rand)
+                        dx: Math.round((x - (fr.right + mr.left) / 2) * 10) / 10 };
           }
           if (tools) {
             const lock = [cap, tools];
             for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
-            try { await ruhig(200); out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor,
-                                                 sep: filt ? cs(filt, "::after").opacity : null }; }
+            try { await ruhig(200); const tr = tools.getBoundingClientRect(), cr = cap.getBoundingClientRect();
+                  out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor, sh: cs(tools).boxShadow,
+                               w: tr.width, h: tr.height, radius: parseFloat(cs(tools).borderTopLeftRadius), top: tr.top - cr.top,
+                               sep: filt ? cs(filt, "::after").opacity : null }; }
             finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
           }
           return out;
@@ -13906,7 +14631,9 @@ def run_checks(m, version, profile, results):
         # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
         ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
-        ok_list = bool(l) and l["img"].startswith("radial-gradient") and rgba_alpha(l["bg"]) == 0
+        # Listenkopf: Kreis 32 px, 3 px vom Kapselrand, mit Lichtkante (Fläche des Knopfs selbst, 18.11.2026)
+        ok_list = (bool(l) and l["img"] == "none" and rgba_alpha(l["bg"]) > 0 and l["w"] == 32 and l["h"] == 32 and l["radius"] >= 16
+                   and abs(l["top"] - 3) <= 0.5 and l.get("sh", "").startswith("rgba(255, 255, 255") and "inset" in l.get("sh", ""))
         sp = res.get("sep") or {}
         ok_sep = (bool(sp) and sp["content"] not in ("none", "normal") and sp["w"] == "1px" and sp["h"] == "20px"
                   and abs(sp["dy"]) <= 0.5 and abs(sp["dx"]) <= 0.5 and sp["op"] == "1"
@@ -13914,6 +14641,153 @@ def run_checks(m, version, profile, results):
         return (ok_rest and ok_hover and ok_list and ok_sep,
                 f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
     check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+
+    def capsule_plastic():
+        # Knopf-Familie in der Mail-Symbolleiste (Variante A, plastische Kapseln B, 17.11.2026): jedes Kapselstück
+        # mit heller Fläche (Verlauf, Lichtkante oben und Kante unten als deckende Streifen) und leisem Schatten, die
+        # Enden mit feiner Kante innen, Stücke in der Mitte ohne Seitenkante; am Stoß derselbe Farbton wie in der
+        # Kapsel (kein Strich). Unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Licht mit innerem Schatten;
+        # Verschieben eine Fläche 3 px innen; ohne gewählte Mail ist die gesperrte Kapsel flach
+        res = m.js(MESSAGE_JS + """
+          const cs = (e, p) => w.getComputedStyle(e, p);
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          // (Verfassen ist immer bereit; Antworten ist mit --only je nach Fokus noch gesperrt)
+          const ids = ["get-messages", "write-message", "move-to"];
+          if (!ids.every(li)) return { missing: true };
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1920, oldH);
+          await bis(() => !ids.some(id => li(id).hasAttribute("mc-squeezed")) && li("move-to").getBoundingClientRect().width > 0, "Pillen sichtbar", 4000);
+          try {
+            await ruhig(300);
+            const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-control)";
+            d.documentElement.append(probe); const out = { control: cs(probe).backgroundColor }; probe.remove();
+            const look = e => ({ img: cs(e).backgroundImage, sh: cs(e).boxShadow, bg: cs(e).backgroundColor });
+            out.rest = Object.fromEntries(ids.map(id => [id, look(li(id))])); out.mid = look(li("reply-all"));
+            // Stoß Abrufen | Verfassen oberhalb des Trennstrichs: links, am und rechts vom Stoß
+            const ra = li("write-message"), r = ra.getBoundingClientRect();
+            const bmp = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left - 3, r.top + 6, 6, 2), 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height;
+            const ctx = cv.getContext("2d"); ctx.drawImage(bmp, 0, 0);
+            out.seam = [...Array(cv.width).keys()].map(x => ctx.getImageData(x, 1, 1, 1).data[0]);
+            const dot = e => { const a = cs(e, "::after"); return { op: a.opacity, w: a.width, h: a.height, sh: a.boxShadow, bg: a.backgroundColor }; };
+            const lockH = async (l, on, act) => { const b = l.querySelector("button");
+              for (const e of [l, b]) for (const c of act ? [":hover", ":active"] : [":hover"]) on ? InspectorUtils.addPseudoClassLock(e, c) : InspectorUtils.removePseudoClassLock(e, c);
+              await ruhig(200); };
+            const rep = li("write-message"), mv = li("move-to");
+            out.restDot = dot(rep);
+            await lockH(rep, true); out.hover = dot(rep); out.hoverBtn = cs(rep.querySelector("button")).backgroundImage.slice(0, 16); await lockH(rep, false);
+            await lockH(rep, true, true); out.press = dot(rep); await lockH(rep, false, true);
+            await lockH(mv, true); out.move = { ...dot(mv), liW: Math.round(mv.getBoundingClientRect().width), btn: cs(mv.querySelector("button")).backgroundColor }; await lockH(mv, false);
+            // ohne gewählte Mail: Antworten-Kapsel gesperrt und flach, Verfassen bleibt plastisch
+            const a3 = await toMail(); a3.threadTree.selectedIndex = -1;
+            await bis(() => li("reply").querySelector("button").disabled, "Antworten gesperrt", 4000); await ruhig(300);
+            out.off = { reply: look(li("reply")), write: look(li("write-message")) };
+            return out;
+          } finally { w.resizeTo(oldW, oldH); await ruhig(300); }""")
+        if res.get("missing"):
+            return False, f"Toolbar-Knöpfe fehlen {res}"
+        rest, off = res["rest"], res["off"]
+        lit = lambda o: o["img"].count("linear-gradient") >= 3 and o["sh"] != "none" and rgba_alpha(o["bg"]) == 0
+        edges = lambda o: o["sh"].count("inset")
+        ok_rest = (all(lit(o) for o in rest.values()) and edges(rest["get-messages"]) == 1 and edges(rest["write-message"]) == 1
+                   and edges(rest["move-to"]) == 2 and edges(res["mid"]) == 0)
+        seam = res["seam"]
+        ok_seam = bool(seam) and max(seam) - min(seam) <= 4
+        h, pr, mv, rd = res["hover"], res["press"], res["move"], res["restDot"]
+        ok_hover = (rd["op"] == "0" and h["op"] == "1" and h["w"] == "32px" and h["h"] == "32px" and "inset" in h["sh"] and h["sh"].count("rgba") >= 2
+                    and res["hoverBtn"].startswith("radial-gradient") and "inset" in pr["sh"] and pr["sh"].count("rgba") == 1
+                    and mv["op"] == "1" and mv["w"] == f"{mv['liW'] - 6}px" and mv["h"] == "32px" and rgba_alpha(mv["bg"]) > 0 and rgba_alpha(mv["btn"]) == 0)
+        ok_off = (off["reply"]["img"] == "none" and off["reply"]["sh"] == "none" and same_color(off["reply"]["bg"], res["control"])
+                  and lit(off["write"]))
+        return (ok_rest and ok_seam and ok_hover and ok_off,
+                f"ruhe={ok_rest} stoß={ok_seam} maus={ok_hover} gesperrt={ok_off} {res}")
+    check("Kapseln: Mail-Symbolleiste plastisch (helle Fläche, Lichtkante, leiser Schatten, Stöße ohne Strich), unter der Maus Kreis mit Lichtkante, gedrückt ohne Licht, gesperrt flach", capsule_plastic, results)
+
+    def buttons_plastic_spaces():
+        # Plastische Knöpfe in allen Spaces (Knopf-Familie, 18.11.2026: „Unser neues plastisches design muss für alle
+        # knöpfe gelten“): einzelne runde Knöpfe (Seitenleisten-Knopf, Today-Knopf), die Kapseln in Adressbuch,
+        # Kalender (Umschalter Day/Week/Month, ‹ Today ›, „+“) und Aufgaben mit heller Fläche und Schatten; der Zustand
+        # zeigt sich am Kreis (32 px, Lichtkante, gedrückt innerer Schatten ohne Licht), die Kapsel bleibt gleich;
+        # Textknöpfe der Einstellungen mit Schleier und Lichtkante, gesperrt flach; „Get started“ im leeren Chat als
+        # Hauptknopf mit Glanz. Zustände über InspectorUtils.addPseudoClassLock, nie anklicken
+        res = m.js(r"""
+          const cs = (e, p) => (e.ownerGlobal || w).getComputedStyle(e, p);
+          const look = e => e ? { img: cs(e).backgroundImage, sh: cs(e).boxShadow } : null;
+          const dot = (e, p = "::after") => { const a = cs(e, p); return { op: a.opacity, w: a.width, h: a.height, sh: a.boxShadow, bg: a.backgroundColor }; };
+          const own = e => { const s = cs(e); return { op: "1", w: s.width, h: s.height, sh: s.boxShadow, bg: s.backgroundColor }; };
+          const lock = async (els, on, act) => { for (const e of els) for (const c of act ? [":hover", ":active"] : [":hover"])
+            on ? InspectorUtils.addPseudoClassLock(e, c) : InspectorUtils.removePseudoClassLock(e, c); await ruhig(150); };
+          const states = async (els, read) => { const out = { rest: look(els[0]) };
+            await lock(els, true); out.hover = read(); out.hoverBox = look(els[0]); await lock(els, false);
+            await lock(els, true, true); out.press = read(); await lock(els, false, true); return out; };
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          const out = {};
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1600, 900); await ruhig(500);
+          try {
+            await toMail(); await ruhig(400);
+            const pin = d.getElementById("spacesPinnedButton");
+            out.pin = await states([pin], () => dot(pin));
+            // Adressbuch: „+“ über der Kontaktliste (Kreis über ::after)
+            tm.openTab("addressBookTab", {}); const plus = await bis(() => { const x = d.querySelector("#mcListHeader > .mc-lh-plus"); return x?.getBoundingClientRect().width && x; }, "Adressbuch-Plus", 6000); await ruhig(500);
+            out.abPlus = await states([plus], () => dot(plus));
+            const tt = d.getElementById("mcTodayToggle");
+            out.today = tt && tt.getBoundingClientRect().width ? await states([tt], () => dot(tt)) : null;
+            // Kalender: Umschalter und ‹ Today ›
+            tm.openTab("calendar", {}); await bis(() => d.getElementById("viewToggle")?.getBoundingClientRect().width, "Kalenderkopf", 8000); await ruhig(600);
+            const vt = d.getElementById("viewToggle"), grp = d.querySelector("#calendarControls .button-group");
+            const todayB = d.getElementById("todayViewButton"), nextB = d.getElementById("nextViewButton");
+            const sel = vt.querySelector('.calview-toggle-item[aria-selected="true"]'), other = [...vt.querySelectorAll(".calview-toggle-item")].find(x => x != sel);
+            out.cal = { toggle: look(vt), group: look(grp), sel: own(sel) };
+            out.cal.other = await states([other], () => own(other));
+            out.cal.next = await states([nextB], () => own(nextB));
+            out.cal.todayB = await states([todayB], () => own(todayB));
+            out.cal.todayB.h = todayB.getBoundingClientRect().height;
+            const ne = li("new-event"); out.cal.plus = ne ? await states([ne, ne.querySelector("button")], () => dot(ne)) : null;
+            // Aufgaben: Knopf ohne Teilung (Fenster öffnen) – Kreis über ::after
+            tm.openTab("tasks", {}); await ruhig(1200);
+            const tb = d.getElementById("mcTaskOpenWindow");
+            out.task = tb && tb.getBoundingClientRect().width ? await states([tb], () => dot(tb)) : null;
+            // Chat ohne Konto: „Get started“ Hauptknopf mit Glanz
+            tm.openTab("chat", {}); await ruhig(1200);
+            const gs = d.getElementById("openIMAccountWizardButton");
+            out.chat = gs ? { img: cs(gs).backgroundImage, sh: cs(gs).boxShadow } : null;
+            // Einstellungen: Textknöpfe (bereit und gesperrt)
+            w.openPreferencesTab("panePrivacy");
+            const pd = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.getElementById("showPasswords")?.getBoundingClientRect().width && x; }, "Einstellungen Datenschutz", 10000);
+            await ruhig(600);
+            const pb = pd.getElementById("showPasswords"), off = pd.getElementById("changeMasterPassword");
+            out.pref = { ready: look(pb), off: off ? { ...look(off), dis: off.disabled } : null };
+            InspectorUtils.addPseudoClassLock(pb, ":hover"); InspectorUtils.addPseudoClassLock(pb, ":active"); await ruhig(150);
+            out.pref.press = look(pb); InspectorUtils.clearPseudoClassLocks(pb);
+            tm.closeTab(tm.currentTabInfo);
+          } finally { await toMail(); w.resizeTo(oldW, oldH); await ruhig(300); }
+          return out;""")
+        plastic = lambda o: bool(o) and o["img"].count("linear-gradient") >= 3 and "inset" in o["sh"]
+        lite = lambda sh: sh.startswith("rgba(255, 255, 255") and "inset" in sh
+        def circle(st, wpx="32px", hpx="32px"):
+            # Kapsel bleibt unter der Maus gleich, Kreis mit Lichtkante, gedrückt innerer Schatten ohne Licht
+            h, p = st["hover"], st["press"]
+            return (plastic(st["rest"]) and st["hoverBox"] == st["rest"] and h["op"] == "1" and (wpx is None or h["w"] == wpx) and h["h"] == hpx
+                    and lite(h["sh"]) and "inset" in p["sh"] and not lite(p["sh"]))
+        r = res
+        ok = {
+            "pin": circle(r["pin"]),
+            "adressbuch": circle(r["abPlus"]),
+            "today": r["today"] is None or circle(r["today"]),
+            "kalender": (plastic(r["cal"]["toggle"]) and plastic(r["cal"]["group"]) and "inset" in r["cal"]["sel"]["sh"]
+                         and lite(r["cal"]["other"]["hover"]["sh"]) and "inset" in r["cal"]["other"]["press"]["sh"] and not lite(r["cal"]["other"]["press"]["sh"])
+                         and lite(r["cal"]["next"]["hover"]["sh"]) and r["cal"]["next"]["hover"]["w"] == "32px"
+                         and lite(r["cal"]["todayB"]["hover"]["sh"]) and not lite(r["cal"]["todayB"]["press"]["sh"])
+                         and (r["cal"]["plus"] is None or circle(r["cal"]["plus"]))),
+            "aufgaben": r["task"] is None or circle(r["task"]),
+            "chat": bool(r["chat"]) and r["chat"]["img"].startswith("radial-gradient") and "linear-gradient" in r["chat"]["img"] and "inset" in r["chat"]["sh"],
+            "einstellungen": (lite(r["pref"]["ready"]["sh"]) and "inset" in r["pref"]["press"]["sh"] and not lite(r["pref"]["press"]["sh"])
+                              and (not r["pref"]["off"] or not r["pref"]["off"]["dis"] or r["pref"]["off"]["sh"] == "none")),
+        }
+        return all(ok.values()), f"{ok} {res}"
+    check("Knöpfe: plastisch in allen Spaces (Seitenleisten- und Today-Knopf, Adressbuch, Kalender-Umschalter und ‹ Today ›, Aufgaben), "
+          "Zustand am Kreis mit Lichtkante, gedrückt ohne Licht; Textknöpfe der Einstellungen mit Lichtkante, gesperrt flach; „Get started“ als Hauptknopf", buttons_plastic_spaces, results)
 
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner
@@ -14975,14 +15849,26 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          // Neuanordnung (Layout) in Hauptfenster, Mailbereich und geöffneter Mail: Zähler von Thunderbird, auf jedem Rechner gleich
+          const reflows = () => { let n = 0; const a3 = tm.currentAbout3Pane, mb = a3?.messageBrowser?.contentWindow;
+            for (const x of [w, a3, mb, mb?.getMessagePaneBrowser?.()?.contentWindow]) { try { n += x?.windowUtils?.framesReflowed ?? 0; } catch {} } return n; };
+          // bt: Zeit des Bildes, wie sie Thunderbird der Animation übergibt (gleicher Wert für alle Abläufe eines Bildes) –
+          // aus ihr rechnet die Animation ihren Fortschritt; rf: Stand des Zählers der Neuanordnung
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], bt = [], rf = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
-          const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
+            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, bt, rf }; };
+          // Bewegungskurve und Dauer der Animation (animateTodayPane: 250 ms, cubic-bezier(0.25, 0.1, 0.25, 1)): der weiteste
+          // Weg (Anteil der Breite), den die Pane in einer Zeitspanne zurücklegen darf – an der steilsten Stelle der Kurve
+          const kurve = (() => { const X = s => 3 * (1 - s) * (1 - s) * s * 0.25 + 3 * (1 - s) * s * s * 0.25 + s * s * s, Y = s => 3 * (1 - s) * (1 - s) * s * 0.1 + 3 * (1 - s) * s * s + s * s * s;
+            return x => { if (x <= 0 || x >= 1) return Math.min(1, Math.max(0, x)); let lo = 0, hi = 1; for (let n = 0; n < 40; n++) { const s = (lo + hi) / 2; if (X(s) < x) lo = s; else hi = s; } return Y((lo + hi) / 2); }; })();
+          const weitest = ms => { const dk = Math.min(1, Math.max(0, ms) / 250); let m = 0; for (let k = 0; k <= 1 - dk + 1e-9; k += 0.004) m = Math.max(m, kurve(Math.min(1, k + dk)) - kurve(k)); return m; };
+          // Darstellung ohne Grafikkarte (xvfb in der CI: „WebRender (Software)“): dort hängt die Zeit je Bild an der Last des Rechners
+          const layer = String(w.windowUtils.layerManagerType || "");
+          const out = { layer, software: /software|basic/i.test(layer), start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
           const cons = []; const listener = { observe: m => { if (m instanceof Ci.nsIScriptError && /implementation\\.js/.test(m.sourceName)) cons.push(m.errorMessage.slice(0, 200) + " @" + m.lineNumber); } };
@@ -15005,13 +15891,19 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf } = await record(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
             const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => moving[i + 1]);
             const jumps = ws.slice(1).map((v, i) => Math.abs(v - ws[i]));
+            // kein Sprung: je Bild höchstens der Weg, den die Bewegungskurve in der Zeit dieses Bildes zulässt (+2 ms, +2 px
+            // für Rundung). Bei 60 Hz sind das 46 px statt bisher der halben Breite (140 px); braucht ein Bild unter Last
+            // länger (xvfb: einzelne Bilder 60–150 ms), ist der weitere Weg dieses Bildes die Bewegung selbst und kein Sprung
+            const zuWeit = jumps.map((j, i) => [i + 1, j, Math.round(bt[i + 1] - bt[i]), Math.round(out.start * weitest(bt[i + 1] - bt[i] + 2)) + 2]).filter(([, j, , darf]) => j > darf).slice(0, 5);
+            // Neuanordnung je Bild der Bewegung (Median): ordnet ein Bild den ganzen Mailbereich neu an, sind es Tausende
+            const rfs = rf.slice(1).map((v, i) => v - rf[i]).filter((_, i) => moving[i + 1]).sort((a, b) => a - b);
             // Suchfeld gleitet mit (kein Sprung um die ganze Breite), Überschrift ist mitten in der Bewegung schon da
             const sJumps = ss.slice(1).map((v, i) => Math.abs(v - ss[i]));
             // (unter Windows/Linux neben den Fensterknöpfen nur die Sonne – wie am Ende bei offener Pane)
@@ -15026,7 +15918,7 @@ def run_checks(m, version, profile, results):
             const gone = Object.keys(kk[0] || {}).filter(k => !(k in (kk.at(-1) || {})));
             const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
-            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
+            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), zuWeit, reflowMedian: rfs[rfs.length >> 1] ?? 0, maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
@@ -15056,19 +15948,30 @@ def run_checks(m, version, profile, results):
         if res.get("visibility") == "hidden" and all(res[p]["steps"] <= 1 for p in phases):
             # macOS pausiert Bildschritte in verdeckten Fenstern – kein Fehler der Animation
             return True, "Testfenster verdeckt – übersprungen"
-        # flüssig: viele Zwischenschritte, kein Sprung über die halbe Breite und
-        # Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
-        # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens
-        # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
+        # flüssig: viele Zwischenschritte, kein Sprung und Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
+        # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens 60 Hz, falls das Fenster beim Messen
+        # des Leerlaufs verdeckt war
+        # Sprung: je Bild gemessen an der Zeit dieses Bildes (zuWeit, siehe oben) statt an der halben Breite – strenger im
+        # normalen Takt (46 statt 140 px), und ein Bild, das unter Last länger braucht, zählt nicht als Sprung
+        # Aufwand je Bild: Neuanordnung je Bild begrenzt (reflowMedian, heute rund 300, auf jedem Rechner gleich)
+        # Takt in Echtzeit (medianFrameMs, mindestens 6 Schritte): Fehler nur mit Grafikkarte. Ohne (xvfb in der CI,
+        # „WebRender (Software)“) rechnet der Prozessor jedes Bild allein, die Zeit je Bild schwankt mit der Last des
+        # Rechners zwischen 17 und 150 ms (CI 20./21.11., Läufe 44845848214, 44859052001, 44866550451, 44870020168:
+        # dieselbe Bewegung in einer Phase im Takt, in der nächsten nicht) – dort so viele Schritte, wie neben dem
+        # längsten Bild in 250 ms bei der gemessenen Bildzeit möglich sind (im Takt weiter 6); Sprung, Mitgleiten und
+        # Aufwand je Bild gelten überall
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
+        soft = bool(res.get("software"))
         def glatt(v, ende=True):
-            return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
+            takt = v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
+            schritte = 6 if not soft else min(6, max(2, (250 - v["maxFrameMs"]) // max(17, v["medianFrameMs"])))
+            return (v["steps"] >= schritte and not v["zuWeit"] and v["reflowMedian"] <= 1000 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
                     and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
-                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+                    and (soft or takt))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
         ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"
@@ -17023,6 +17926,42 @@ Neu
         return ok, f"{res}"
     check("Adressbuch im Hintergrund: Kopfzeile der Mailliste bleibt, wenn sich Kontakte ändern", ab_background_header, results)
 
+    def ab_count_without_lists():
+        # Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten (die stehen bei Thunderbird als Zeilen
+        # zwischen den Kontakten; Apple Kontakte zählt nur Kontakte); in der gewählten Liste ihre Mitglieder
+        # (über OPEN_BOOKS_JS: erst nach halos Hooks und dem ersten Durchgang von hookLastContact das Buch wechseln, sonst
+        # springt die Rückkehr zum zuletzt gewählten Kontakt ins gemerkte Buch – CI 19.11., Lauf 44431090252: rows 5)
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");""" + OPEN_BOOKS_JS + r"""
+          const tab = abTab, ab = cw; await ruhig(300);
+          const list = ab.cardsPane.cardsList;
+          const count = () => d.querySelector("#mcListHeader .mc-lh-count")?.textContent;
+          const book = MailServices.ab.getDirectoryFromId(MailServices.ab.newAddressBook("Halo Zählbuch", "", Ci.nsIAbManager.JS_DIRECTORY_TYPE));
+          const out = {};
+          try {
+            const mk = (name, mail) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+              c.displayName = name; c.primaryEmail = mail; return book.addCard(c); };
+            const a = mk("Zora Zählt", "zora@example.invalid"), b = mk("Yann Zählt", "yann@example.invalid");
+            const l = Cc["@mozilla.org/addressbook/directoryproperty;1"].createInstance(Ci.nsIAbDirectory);
+            l.isMailList = true; l.dirName = "Halo Zählliste"; l.listNickName = "halozaehl";
+            const ml = book.addMailList(l); ml.addCard(a);
+            await bis(() => ab.booksList.getIndexForUID(book.UID) >= 0, "neues Adressbuch in der Liste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(book.UID);
+            await bis(() => list.view?.rowCount == 3, "drei Zeilen (zwei Kontakte, eine Liste)", 5000); await ruhig(600);
+            out.rows = list.view.rowCount; out.book = count();
+            await bis(() => ab.booksList.getIndexForUID(ml.UID) >= 0, "Liste in der Adressbuchliste", 4000);
+            ab.booksList.selectedIndex = ab.booksList.getIndexForUID(ml.UID);
+            await bis(() => list.view?.rowCount == 1, "ein Mitglied", 5000); await ruhig(600);
+            out.list = count();
+          } finally {
+            tm.closeTab(tab); await ruhig(300);
+            MailServices.ab.deleteAddressBook(book.URI); await ruhig(300);
+          }
+          return out;""")
+        ok = res.get("rows") == 3 and res.get("book") == "2 contacts" and res.get("list") == "1 contact"
+        return ok, f"{res}"
+    check("Adressbuch: Anzahl im Listenkopf zählt nur Kontakte, keine Verteilerlisten", ab_count_without_lists, results)
+
     def ab_avatar_recycle():
         # Kontaktzeilen werden beim Scrollen wiederverwendet: lädt das Foto des
         # neuen Kontakts nicht, erscheinen seine Initialen (nicht die des vorigen)
@@ -17040,6 +17979,30 @@ Neu
           return out;""")
         return res["loaded"] and res["hidden"] and res["letters"] == "BN", f"{res}"
     check("Adressbuch: wiederverwendete Kontaktzeile zeigt bei defektem Foto die eigenen Initialen", ab_avatar_recycle, results)
+
+    def ab_focus_hidden_search():
+        # Thunderbird fokussiert sein (bei uns ausgeblendetes) Suchfeld über der Liste,
+        # etwa beim Abbrechen eines neuen Kontakts: der Fokus landet in der
+        # Kontaktliste statt im Nichts (Pfeiltasten wirken ohne Klick)
+        res = m.js(OPEN_BOOKS_JS + r"""
+          const ad = cw.document, body = cw.cardsPane.cardsList.table.body;
+          await until(() => cw.__mcHeaderHook, 5000);
+          const header = ad.getElementById("cardsPaneHeader");
+          const hidden = !header.getClientRects().length;
+          const where = () => ad.activeElement == body ? "list" : (ad.activeElement?.id || ad.activeElement?.localName || "none");
+          // neuer Kontakt aus der Toolbar (Fokus nicht in der Liste), dann Abbrechen
+          cw.detailsPane.editNewContact(); await ruhig(600);
+          cw.detailsPane.isDirty = false;
+          ad.getElementById("cancelEditButton").click(); await ruhig(400);
+          const afterCancel = where();
+          // direkter Aufruf wie bei leerer Liste
+          ad.getElementById("editButton")?.blur(); body.blur();
+          cw.cardsPane.searchInput.focus(); await ruhig(100);
+          const direct = where();
+          tm.closeTab(abTab); await toMail();
+          return { hidden, afterCancel, direct };""")
+        return res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
+    check("Adressbuch: Fokus auf das ausgeblendete Suchfeld über der Liste landet in der Kontaktliste (Abbrechen eines neuen Kontakts)", ab_focus_hidden_search, results)
 
     def ab_dedupe_selection():
         # Dubletten, die per Sync dazukommen, werden beim nächsten Sortieren
@@ -17458,39 +18421,63 @@ Neu
           "nicht scrollbar, unten 18 px; Emojis in Status und Hinweisen in voller Farbe; ohne Fotos/Emojis, „Settings…“ öffnet Einstellungen → halo.spaces", donate, results)
 
     def recommend():
-        # „Recommend“ neben „Say Thanks“: kopiert einen kurzen Text mit dem Link der Projektseite (aus dem Manifest),
-        # zeigt 2,5 s „Text with link copied ✓“ in Grün und dann wieder „Recommend“; Fenster bleibt ohne Scrollen
+        # „Recommend“ neben „Say Thanks“: öffnet eine neue Mail (Empfänger leer, Betreff „halo.spaces for Thunderbird“,
+        # Text mit dem Link der Projektseite aus dem Manifest, ohne „Apple“), das Info-Fenster schließt. Ohne Konto
+        # (Thunderbird öffnet dann kein Verfassen-Fenster) kopiert der Knopf wie bisher Text mit Link und bestätigt 2,5 s grün
+        # „Text with link copied ✓“. Fenster ohne Scrollen
         res = m.js('''
-          await toMail();
-          d.getElementById("mcHaloSpaces").doCommand();
-          const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent));
-          await ruhig(300);
-          const btn = hw?.document.getElementById("recommend");
-          const label = () => btn?.querySelector(".label")?.textContent;
-          const before = label();
-          const capsule = btn?.classList.contains("capsule");
-          const afterDonate = btn?.previousElementSibling?.id;
+          const open = () => [...Services.wm.getEnumerator("msgcompose")];
+          const haloWin = async () => { await toMail(); d.getElementById("mcHaloSpaces").doCommand();
+            const hw = await until(() => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html") && x.document.getElementById("version")?.textContent));
+            await ruhig(300); return hw; };
+          const out = {};
+          // ohne Konto: Rückfall Kopieren (nur messbar, solange das Profil noch keine Identität hat)
+          if (!MailServices.accounts.allIdentities.length) {
+            const hw = await haloWin(), btn = hw?.document.getElementById("recommend"), label = () => btn?.querySelector(".label")?.textContent;
+            btn?.click();
+            const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
+            trans.init(null); trans.addDataFlavor("text/plain");
+            Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
+            const data = {}; trans.getTransferData("text/plain", data);
+            out.fallback = { label: label(), green: btn ? hw.getComputedStyle(btn).color : null, text: data.value?.QueryInterface(Ci.nsISupportsString).data || "",
+                             compose: open().length, back: !!(await until(() => label() == "Recommend" && !btn.classList.contains("copied"), 5000)) };
+            try { if (hw && !Cu.isDeadWrapper(hw) && !hw.closed) hw.close(); } catch {}
+            const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+            if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+          }
+          const had = new Set(open());
+          const hw = await haloWin(), btn = hw?.document.getElementById("recommend");
+          Object.assign(out, { before: btn?.querySelector(".label")?.textContent, capsule: btn?.classList.contains("capsule"), afterDonate: btn?.previousElementSibling?.id,
+                               overflow: hw ? hw.document.documentElement.scrollHeight - hw.innerHeight : null });
           btn?.click();
-          const copiedLabel = label(), green = btn ? hw.getComputedStyle(btn).color : null;
-          const trans = Cc["@mozilla.org/widget/transferable;1"].createInstance(Ci.nsITransferable);
-          trans.init(null); trans.addDataFlavor("text/plain");
-          Services.clipboard.getData(trans, Services.clipboard.kGlobalClipboard, null);
-          const data = {}; trans.getTransferData("text/plain", data);
-          const text = data.value?.QueryInterface(Ci.nsISupportsString).data || "";
-          const back = await until(() => label() == before && !btn.classList.contains("copied"), 5000);
-          const overflow = hw ? hw.document.documentElement.scrollHeight - hw.innerHeight : null;
-          try { if (hw && !hw.closed) hw.close(); } catch {}
-          return { before, capsule, afterDonate, copiedLabel, green, text, back: !!back, overflow };''')
+          const cw = await until(() => open().find(x => !had.has(x) && x.document.readyState == "complete" && x.gMsgCompose && x.GetCurrentEditor?.()), 12000);
+          out.compose = !!cw; out.haloClosed = !!(await until(() => !hw || Cu.isDeadWrapper(hw) || hw.closed, 3000));
+          if (cw) {
+            await until(() => /https:/.test(cw.GetCurrentEditor().outputToString("text/plain", 0) || ""), 5000);
+            out.subject = cw.document.getElementById("msgSubject")?.value;
+            out.to = cw.document.querySelectorAll("#toAddrContainer mail-address-pill").length;
+            out.text = cw.GetCurrentEditor().outputToString("text/plain", 0);
+            cw.gContentChanged = false; if (cw.gMsgCompose) cw.gMsgCompose.bodyModified = false;
+            cw.close(); await until(() => cw.closed, 4000); await ruhig(300);
+          }
+          try { if (hw && !Cu.isDeadWrapper(hw) && !hw.closed) hw.close(); } catch {}
+          return out;''')
         import re
-        rgb = [int(x) for x in re.findall(r"\d+", res.get("green") or "")[:3]]
-        green = len(rgb) == 3 and rgb[1] > rgb[0] + 40 and rgb[1] > rgb[2] + 40
-        text = res.get("text") or ""
-        return (res.get("before") == "Recommend" and res.get("capsule") and res.get("afterDonate") == "donate"
-                and res.get("copiedLabel") == "Text with link copied ✓" and green
-                and text.endswith(" https://github.com/sruf79/halo-spaces") and "Apple" not in text
-                and res.get("back") and res.get("overflow") is not None and res["overflow"] <= 0), f"{res}"
-    check("Info-Fenster: „Recommend“ neben „Say Thanks“ kopiert einen kurzen Text mit Link, bestätigt 2,5 s grün „Text with link copied ✓“, "
-          "Fenster ohne Scrollen", recommend, results)
+        link = " https://github.com/sruf79/halo-spaces"
+        fb = res.get("fallback")
+        if fb is not None:
+            rgb = [int(x) for x in re.findall(r"\d+", fb.get("green") or "")[:3]]
+            fb_ok = (fb.get("label") == "Text with link copied ✓" and len(rgb) == 3 and rgb[1] > rgb[0] + 40 and rgb[1] > rgb[2] + 40
+                     and fb.get("text", "").endswith(link) and "Apple" not in fb.get("text", "") and fb.get("compose") == 0 and fb.get("back"))
+        else:
+            fb_ok = True
+        text = (res.get("text") or "").strip()
+        return (fb_ok and res.get("before") == "Recommend" and res.get("capsule") and res.get("afterDonate") == "donate"
+                and res.get("compose") and res.get("haloClosed") and res.get("subject") == "halo.spaces for Thunderbird" and res.get("to") == 0
+                and text.endswith(link) and "Apple" not in text
+                and res.get("overflow") is not None and res["overflow"] <= 0), f"{res}"
+    check("Info-Fenster: „Recommend“ neben „Say Thanks“ öffnet eine neue Mail ohne Empfänger mit Betreff und kurzem Text samt Link "
+          "(ohne Konto: Text mit Link kopiert, 2,5 s grün bestätigt), Info-Fenster schließt, Fenster ohne Scrollen", recommend, results)
 
     def thanks_reminder():
         # „Danke sagen“ mit leiser Erinnerung: Nutzungstage zählen (frisches Profil: Tag 1, nichts fällig), Plan 14, 35, 67 …;
@@ -17731,6 +18718,83 @@ Neu
           "Menüs wie macOS, Detailansicht mit Haarlinien ohne Doppellinie, Reiter als Segment-Kapseln, eigenes Werkzeug- und Zahnradsymbol, Einstellungen ohne eigene Fläche, "
           "breite Seitenleiste überdeckt den Inhalt nicht", addons_manager, results)
 
+    def addons_menu_icons():
+        # Menüs der Add-ons-Verwaltung mit einzelnen Symbolen wie das Vorbild (Kontextmenü einer Liste mit nur einem
+        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (16 px) beginnt an der Textkante der übrigen
+        # Einträge, sein Text rückt um Symbol und Luft nach rechts; Symbol in Textfarbe, markiert in der Schriftfarbe der
+        # Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü) steht links im Rand, sein Text an der Kante
+        res = m.js(r'''
+          w.resizeTo(1500, 900);
+          const ID = "mail-cards@sebastian.local";
+          w.openAddonsMgr("addons://list/extension");
+          const ad = await until(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector(`addon-card[addon-id="${ID}"] .more-options-button`) && x; }, 8000);
+          await ruhig(800);
+          const aw = ad.defaultView; const cs = (e, p) => aw.getComputedStyle(e, p); const R = e => e.getBoundingClientRect();
+          const probe = v => { const p = ad.createElement("div"); p.style.color = v; ad.body.append(p); const c = cs(p).color; p.remove(); return c; };
+          const out = { menus: [], shots: [] };
+          const snap = async (pl, name) => {
+            const r = R(pl), cv = ad.createElement("canvas"); cv.width = Math.ceil(r.width + 24) * 2; cv.height = Math.ceil(r.height + 24) * 2;
+            const bmp = await aw.browsingContext.currentWindowGlobal.drawSnapshot(new aw.DOMRect(r.left - 12, r.top - 12, r.width + 24, r.height + 24), 2, "white");
+            cv.getContext("2d").drawImage(bmp, 0, 0); out.shots.push([name, cv.toDataURL("image/png")]);
+          };
+          for (const [name, btnSel, listSel] of [["mehr", `addon-card[addon-id="${ID}"] .more-options-button`, `addon-card[addon-id="${ID}"] addon-options > panel-list`],
+                                                 ["zahnrad", "addon-page-header .page-options-menu .more-options-button", "addon-page-options > panel-list"]]) {
+            ad.querySelector(btnSel).click();
+            const pl = await until(() => { const p = ad.querySelector(listSel); return p?.open && R(p).height && p; }, 4000);
+            await ruhig(300);
+            if (!pl) { out.menus.push(null); continue; }
+            // per Klick geöffnet hat der erste Eintrag den Tastaturfokus (markiert) – zum Messen ohne Markierung lösen
+            for (const i of pl.querySelectorAll("panel-item")) i.shadowRoot.querySelector("button")?.blur();
+            await ruhig(100);
+            const items = [...pl.querySelectorAll("panel-item")].filter(i => !i.hidden && R(i).height).map(i => {
+              const b = i.shadowRoot.querySelector("button"), l = b.querySelector('[part="label"]'), c = cs(b);
+              const img = c.backgroundImage, px = parseFloat(c.backgroundPositionX), sz = parseFloat(c.backgroundSize);
+              const icon = img && img != "none" ? { left: Math.round((R(b).left + px - R(pl).left) * 2) / 2, size: sz, gap: Math.round((R(l).left - R(b).left - px - sz) * 2) / 2,
+                                                    fill: c.fill == probe("var(--mt-text)"), check: /check\.svg/.test(img) } : null;
+              let hov = null;
+              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
+                          if (name == "mehr" && i.getAttribute("action") == "remove") out.hoverRemove = true;
+                          InspectorUtils.removePseudoClassLock(b, ":hover"); }
+              return { action: i.getAttribute("action"), text: Math.round((R(l).left - R(pl).left) * 2) / 2, icon, hov };
+            });
+            out.menus.push({ name, items });
+            await snap(pl, name);
+            const rm = name == "mehr" && [...pl.querySelectorAll('panel-item[action="remove"]')][0]?.shadowRoot.querySelector("button");
+            if (rm) { InspectorUtils.addPseudoClassLock(rm, ":hover"); await ruhig(100); await snap(pl, name + "-markiert"); InspectorUtils.removePseudoClassLock(rm, ":hover"); }
+            pl.hide(); await ruhig(300);
+          }
+          tm.closeTab(tm.currentTabInfo); await ruhig(300);
+          return out;''')
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            dark = m.js('return w.matchMedia("(prefers-color-scheme: dark)").matches;')
+            for name, url in res.get("shots", []):
+                path = os.path.join(os.environ["HALO_SHOTS"], f"addons-menue-{name}-{'dunkel' if dark else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(url.split(",", 1)[1]))
+                print(f"Bild {path}", flush=True)
+        res.pop("shots", None)
+        def menu_ok(mn):
+            if not mn or not mn["items"]:
+                return False
+            plain = [i for i in mn["items"] if not i["icon"] or i["icon"]["check"]]
+            edge = plain[0]["text"] if plain else None
+            for i in mn["items"]:
+                ic = i["icon"]
+                if not ic or ic["check"]:
+                    # Text an der gemeinsamen Kante (Menürand 5 + 10 px), Häkchen 9 px davor im Rand
+                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not ic["fill"] or not i["hov"])):
+                        return False
+                elif not (ic["left"] == edge and ic["size"] == 16 and ic["gap"] == 8 and i["text"] == edge + 24 and ic["fill"] and i["hov"]):
+                    return False
+            return edge == 15
+        menus = res.get("menus") or []
+        remove = [i for i in (menus[0]["items"] if menus and menus[0] else []) if i["action"] == "remove"]
+        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and bool(remove) and remove[0]["icon"] is not None
+        return ok, f"{res}"
+    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe",
+          addons_menu_icons, results)
+
     def radius_tiers():
         # Radius-Stufen als --mt-Variablen (Kapsel 999 px, Popup 12 px, Feld 7 px) im Hauptfenster und in der
         # Add-ons-Verwaltung, die Verwendungen ergeben dieselben Werte wie vorher (Kopfknopf Kapsel, Menü 12 px)
@@ -17759,9 +18823,9 @@ Neu
           return out;''')
         want = ["999px", "12px", "7px"]
         LITE_LIGHT = ["rgba(255, 255, 255, 0.75)", "0 1px 1px rgba(0, 0, 0, 0.07)", "rgba(0, 0, 0, 0.12)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
-                      "rgba(255, 255, 255, 0.42)", "50%", "0 1px 1.5px rgba(0, 0, 0, 0.16)"]
+                      "rgba(255, 255, 255, 0.62)", "40%", "0 1px 1px rgba(0, 0, 0, 0.14), 0 3px 5px -3px rgba(0, 0, 0, 0.32)"]
         LITE_DARK = ["rgba(255, 255, 255, 0.14)", "0 1px 2px rgba(0, 0, 0, 0.45)", "rgba(255, 255, 255, 0.16)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
-                     "rgba(255, 255, 255, 0.22)", "60%", "0 2px 4px rgba(0, 0, 0, 0.5)"]
+                     "rgba(255, 255, 255, 0.4)", "40%", "0 1px 1px rgba(0, 0, 0, 0.5), 0 3px 6px -2px rgba(0, 0, 0, 0.6)"]
         ok = (res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
               and res["btn"] == ["30px", "24px"] and res["ringVar"] and res["ringVar"] == res["ringOld"] and "3px" in res["ringOld"]
               and res["lite"] == (LITE_DARK if res["dark"] else LITE_LIGHT))
@@ -18236,10 +19300,22 @@ Neu
             await dragTo("Halo Kanban halb", 0); await ruhig(300);
             await dragTo("Halo Kanban fertig", 1);
             const after = async s => { const t = await c.getItem(s.id); return t && (t.isCompleted ? "done" : String(t.percentComplete || 0)); };
-            await bis(async () => (await after(saved[0])) == "done" && (await after(saved[1])) == "0" && (await after(saved[2])) == "50", "Fortschritt gesetzt", 5000).catch(() => {});
-            await ruhig(500);
-            out.moved = [await after(saved[0]), await after(saved[1]), await after(saved[2])];
-            out.movedCols = [...list.querySelectorAll(".mc-tb-col")].map(col => [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Kanban/.test(t)));
+            // (bis()/until() werten die Bedingung synchron aus – eine async-Bedingung liefert ein Promise, das gilt
+            // sofort als erfüllt; vorher wartete hier nur ruhig(500), und das kam unter Linux/ESR zurück, bevor die
+            // dritte Änderung gespeichert war: CI-Lauf 44732110066, Versuch 1, „fertig“ noch in Completed)
+            const moved = async () => [await after(saved[0]), await after(saved[1]), await after(saved[2])];
+            for (const end = Date.now() + 5000; Date.now() < end && JSON.stringify(await moved()) != '["done","0","50"]';) await takt(25);
+            out.moved = await moved();
+            // (die Karten zieht erst der nächste Bildwechsel nach Thunderbirds Meldung an die Liste nach – auf den
+            // Stand der Spalten warten statt auf Ruhe)
+            const colsNow = () => [...list.querySelectorAll(".mc-tb-col")].map(col => [...col.querySelectorAll(".mc-tc[data-index] .mc-tc-title")].map(x => x.textContent).filter(t => /Halo Kanban/.test(t)));
+            const wantCols = JSON.stringify([["Halo Kanban halb"], ["Halo Kanban fertig"], ["Halo Kanban offen"]]);
+            await bis(() => JSON.stringify(colsNow()) == wantCols, "Spalten nachgezogen", 5000).catch(() => {});
+            out.movedCols = colsNow();
+            // (zur Auswertung, falls rot: Stand der Aufgabe in Thunderbirds Liste und noch angemeldete Bildwechsel)
+            const inTree = (tree.mTaskArray || []).find(t => t.title == "Halo Kanban fertig");
+            out.inTree = inTree ? (inTree.isCompleted ? "done" : String(inTree.percentComplete || 0)) : null;
+            out.frames = w.__haloFrames?.size ?? null;
             Services.prefs.setCharPref("extensions.mailcards.taskView", "list"); await ruhig(800);
             out.back = { cols: list.querySelectorAll(".mc-tb-col").length, cards: list.querySelectorAll(":scope > .mc-tc[data-index]").length,
                          board: d.documentElement.hasAttribute("mc-task-board"), details: Math.round(det.getBoundingClientRect().width) };
@@ -20665,6 +21741,76 @@ Neu
         return ok, f"{res}"
     check("Suche: Scrollen während einer laufenden Suche flüssig (Suche wartet), danach alle Treffer, Scrollposition bleibt", search_scroll, results)
 
+    def search_count_running():
+        # laufende Suche über viele Postfächer: Thunderbird meldet die Anzahl des Suchordners erst am Ende – der Kopf
+        # zeigte bis dahin „0 results“ über einer Liste voller Treffer. Suche anhalten, dann muss der Kopf die Zeilen zählen
+        NF, NM = 12, 400
+        for start in range(0, NF, 4):
+            m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+              const root = MailServices.accounts.localFoldersServer.rootFolder;
+              const filler = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(150);
+              for (let f = %d; f < %d; f++) {
+                if (!root.containsChildNamed("Zaehl" + f)) { root.createSubfolder("Zaehl" + f, null); await bis(() => root.containsChildNamed("Zaehl" + f), "Ordner Zaehl" + f + " angelegt", 3000); }
+                const folder = root.getChildNamed("Zaehl" + f); if (folder.getTotalMessages(false) >= %d) continue;
+                const msgs = [];
+                for (let i = 0; i < %d; i++) { const k = f * %d + i;
+                  msgs.push(`From - Sat Oct 17 10:00:00 2026\r\nFrom: Shop <shop${k %% 30}@example.invalid>\r\nSubject: Betreff ${k}\r\nDate: ${1 + k %% 28} Sep 2026 ${String(k %% 24).padStart(2, "0")}:${String(k %% 60).padStart(2, "0")}:00 +0200\r\nMessage-ID: <zaehl-${k}@example.invalid>\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${filler}${i %% 5 ? "" : " Wombat"}\r\n`); }
+                folder.QueryInterface(Ci.nsIMsgLocalMailFolder).addMessageBatch(msgs); await bis(() => folder.getTotalMessages(false) >= msgs.length, "Mails in " + folder.name + " gespeichert", 10000);
+              }
+              return 1;""" % (start, min(start + 4, NF), NM, NM, NM))
+        res = m.js(r"""
+          const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          await ruhig(1500);
+          // ohne Thunderbirds Index: sonst stünden je nach Fortschritt der Indizierung alle Treffer schon beim Start da
+          const GLODA = "mailnews.database.global.indexer.enabled", glodaBefore = Services.prefs.getBoolPref(GLODA, false);
+          Services.prefs.setBoolPref(GLODA, false);
+          const a3 = await toMail(); a3.displayFolder(root.URI); await ruhig(800);
+          const page = a3.wrappedJSObject || a3; const html = a3.document.documentElement;
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          const header = () => d.getElementById("mcListHeader")?.querySelector(".mc-lh-count")?.textContent;
+          const rows = () => a3.gDBView?.rowCount || 0;
+          const out = {};
+          // halo.spaces zieht nach dem Start (Erweiterung geladen) 30 s lang sekündlich alles nach, auch den Kopf –
+          // das verdeckte den Fehler. Darum nur Texte zählen, die nicht aus diesem Nachziehen (scan) stammen
+          const el = d.getElementById("mcListHeader")?.querySelector(".mc-lh-count");
+          const desc = Object.getOwnPropertyDescriptor(w.Node.prototype, "textContent");
+          let ownText = null;
+          Object.defineProperty(el, "textContent", { configurable: true, get() { return desc.get.call(this); },
+            set(v) { if (!/^scan@/m.test(new Error().stack)) ownText = v; desc.set.call(this, v); } });
+          // nur der Text trifft: in der Kopfzeilen-Stufe keine Treffer, alle kommen aus der laufenden Textsuche
+          // angehalten wird nach einigen Postfächern (je 80 Treffer): nach dem ersten stimmte der Kopf zufällig
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "wombat", bubbles: true, composed: true }));
+          let session = null;
+          await until(() => { const v = page.gViewWrapper; if (v?.searching && html.getAttribute("mc-search-stage") == "body" && rows() >= 240) {
+            try { session = v.search.session; session.pauseSearch(); } catch (e) { out.pauseError = String(e); } return true; } return false; }, 10000);
+          out.paused = !!session && page.gViewWrapper?.searching;
+          if (out.paused) {
+            // angehalten: die Zeilen stehen still, der Kopf muss sie gleich nennen (nicht erst am Ende der Suche)
+            out.rows = rows();
+            out.header = await until(() => ownText?.endsWith(`, ${rows().toLocaleString("en-US")} results`) && ownText, 800) || ownText;
+            out.rowsAfter = rows();
+            session.resumeSearch();
+          }
+          await until(() => !page.gViewWrapper?.searching && !html.hasAttribute("mc-search-stage"), 40000); await ruhig(500);
+          out.endRows = rows(); out.endHeader = header();
+          delete el.textContent;
+          bar.dispatchEvent(new w.CustomEvent("search", { detail: "", bubbles: true, composed: true })); await ruhig(1200);
+          const inbox = root.getChildNamed("Inbox"); if (inbox) { a3.displayFolder(inbox.URI); await ruhig(600); }
+          for (const f of [...root.subFolders].filter(f => /^Zaehl\d+$/.test(f.name))) { try { root.propagateDelete(f, true); } catch {} }
+          await until(() => ![...root.subFolders].some(f => /^Zaehl\d+$/.test(f.name)), 5000); await ruhig(1000);
+          Services.prefs.setBoolPref(GLODA, glodaBefore);
+          return out;""")
+        if not res.get("paused"):
+            return True, f"Suche schon vor dem Anhalten fertig – übersprungen {res}"
+        n = res.get("rows") or 0
+        ok = (240 <= n < 960 and res.get("rowsAfter") == n and (res.get("header") or "").endswith(f", {n:,} results")
+              and res.get("endRows") == 960 and (res.get("endHeader") or "").endswith(", 960 results"))
+        return ok, f"{res}"
+    check("Suche: Kopf zählt die Treffer schon während der laufenden Suche über viele Postfächer (nicht „0 results“ bis zum Ende)", search_count_running, results)
+
     def settings_keyboard_scroll():
         # Einstellungen wie ein Nutzer ohne Mausrad: Kategorie anklicken, dann eine freie Stelle der Seite – danach
         # scrollen Bild-ab und Pfeiltasten den Inhalt, die Kategorie bleibt (GitHub #13: Fokus blieb in der
@@ -21280,6 +22426,34 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: eigene Kategorie „halo.spaces“ mit der Einstellungsseite der Erweiterung (Add-ons → Einstellungen bleibt)", pref_halo_category, results)
 
+    def pref_halo_category_ring():
+        # Kategorie „halo.spaces“ zeigt den Ring wirklich (nicht nur die Datei prüfen): das zugeschnittene data:-Bild
+        # behält den Zuschnitt (clipPath mit Rechteck) und die fünf Teile; gemalt hat jede der fünf Space-Farben
+        # sichtbare Pixel (Rückschritt: Zuschnitt löschte das Rechteck im clipPath, die Kategorie zeigte ein leeres weißes Quadrat)
+        res = m.js(PREFS_OPEN_JS + r"""
+          await until(() => { const i = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img"); return i && i.complete && i.naturalWidth > 0; }, 5000);
+          const img = pd.getElementById("mcCat-paneMcHalo")?.querySelector("img");
+          const out = { src: !!img?.src.startsWith("data:image/svg+xml") };
+          if (img) {
+            const txt = decodeURIComponent(img.src.replace(/^data:[^,]*,/, ""));
+            const doc = new pw.DOMParser().parseFromString(txt, "image/svg+xml");
+            out.clipRects = doc.querySelectorAll("clipPath rect").length;
+            out.teile = [...doc.querySelectorAll("g[stroke-width='11'] > path")].map(p => p.getAttribute("stroke"));
+            const s = 32, c = pd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = c.height = s;
+            const g = c.getContext("2d"); g.drawImage(img, 0, 0, s, s);
+            const data = g.getImageData(0, 0, s, s).data;
+            const farben = [[10, 132, 255], [48, 184, 80], [255, 138, 0], [255, 45, 120], [175, 82, 222]];
+            out.px = farben.map(f => { let n = 0; for (let i = 0; i < data.length; i += 4) {
+              if (data[i + 3] > 200 && Math.hypot(data[i] - f[0], data[i + 1] - f[1], data[i + 2] - f[2]) < 60) n++; } return n; });
+          }
+          tm.closeTab(tm.currentTabInfo); await ruhig(400);
+          return out;""")
+        ok = (res["src"] and res.get("clipRects", 0) >= 1
+              and res.get("teile") == ["#0A84FF", "#30B850", "#FF8A00", "#FF2D78", "#AF52DE"]
+              and all(n >= 3 for n in res.get("px", [])) and len(res.get("px", [])) == 5)
+        return ok, f"{res}"
+    check("Einstellungen: Kategorie „halo.spaces“ zeigt den Ring aus fünf farbigen Teilen, kein leeres Quadrat", pref_halo_category_ring, results)
+
     def options_fast_close():
         # „Own keywords“ speichert beim Tippen verzögert (500 ms). Werden die Einstellungen schneller geschlossen,
         # muss die letzte Eingabe trotzdem gespeichert sein (ein Aufruf erst beim Schließen der Seite kommt nicht
@@ -21424,7 +22598,7 @@ Neu
 
     def options_minimal():
         # Einstellungsseite minimalistisch: Abhängiges erst bei Bedarf (Ort nur mit Wetter, Stichwörter nur mit Emojis),
-        # (Wahl für den fünften Platz liegt unter „Chat & More“), Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
+        # Wahl für den fünften Platz als eigene Gruppe nach Kalender, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt, keine Gedankenstriche.
         # Die Seite läuft hier in einem Testfenster mit nachgebildeter Schnittstelle (die echte liegt im Erweiterungsprozess)
         res = m.js(r"""
           const saved = [];
@@ -21462,6 +22636,15 @@ Neu
               // entfernte bzw. verlegte Optionen (Maintainer 17.11.2026, „Optionen ausmisten“): keine Zeile mehr
               removed: ["showLocalFolders", "solidMenus", "inlinePrompts", "autoUpdate", "bundledTheme", "appleIcons",
                         "hideCollectedAddresses", "spacesOrderCustom", "fifthSpaceIcon"].filter(k => od.getElementById("row-" + k)) } };
+            // fünfter Platz (seit 20.11.2026 hier, Maintainer 17.11.2026): eigene Gruppe nach Kalender, Auswahl mit Chat zuerst,
+            // Erweiterung ohne installierte nicht wählbar, Adresse erst bei „Website“
+            const fs = od.getElementById("s-fifthSpace");
+            out.fifth = { options: fs ? [...fs.options].map(o => [o.value, o.disabled]) : [], value: fs?.value,
+                          head: od.getElementById("row-fifthSpace")?.closest("section")?.previousElementSibling?.textContent };
+            if (fs) { fs.value = "web"; fs.dispatchEvent(new ow.Event("change")); await ruhig(400);
+              out.fifth.url = shown("fifthSpaceUrl"); out.fifth.addon = shown("fifthSpaceAddon");
+              fs.value = "chat"; fs.dispatchEvent(new ow.Event("change")); await ruhig(400);
+              out.fifth.urlBack = shown("fifthSpaceUrl"); out.fifth.saved = saved.filter(e => e[0] == "fifthSpace"); }
             od.getElementById("s-weather").click(); await ruhig(500);
             out.weatherOn = shown("weatherPlace");
             // Ort als Auswahlmenü wie in den Systemeinstellungen, darunter Zustand mit Punkt und Link
@@ -21492,7 +22675,12 @@ Neu
         if not res.get("page"):
             return False, f"{res}"
         st = res["start"]
-        ok = (not st["place"] and st["emoji"] and not st["chat"] and not st["instead"] and not st["url"] and not st["debug"]
+        fifth = res.get("fifth", {})
+        ok = (not st["place"] and st["emoji"] and not st["chat"] and st["instead"] and not st["url"] and not st["debug"]
+              and st["heads"][:4] == ["Spaces", "Mail", "Calendar", "Fifth space"]
+              and fifth.get("options") == [["chat", False], ["addon", True], ["web", False], ["none", False]] and fifth.get("value") == "chat"
+              and fifth.get("head") == "Fifth space" and fifth.get("url") is True and fifth.get("addon") is False and fifth.get("urlBack") is False
+              and fifth.get("saved") == [["fifthSpace", "web"], ["fifthSpace", "chat"]]
               and not st["dashes"] and st["infos"] >= 8 and st["disclosure"]
               # „Spaces“ steht seit dem Schalter „Light glow in the sidebar“ (Maintainer 13.11.2026: Option in den
               # halo.spaces-Einstellungen) zu Recht da; leer darf sie wie jede Überschrift nicht sein (GitHub #58)
@@ -21508,47 +22696,43 @@ Neu
               and res["place"].get("search") is True and res["place"].get("back") == [True, False, "current"] and res["place"].get("opened")
               and res["troubleshoot"])
         return ok, f"{res}"
-    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, ohne Wahl des fünften Platzes (die liegt unter „Chat & More“), Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
+    check("Einstellungen minimalistisch: Abhängiges erst bei Bedarf, keine leere Überschrift (GitHub #58), ohne die am 17.11.2026 entfernten Optionen, Fehlerbehebung mit Offline-Kopie, Knopf „Reset“ für die Reihenfolge der Bereiche und Protokoll, Gruppen Spaces, Mail, Calendar, Fifth space zuerst, Wahl des fünften Platzes mit Adresse erst bei Website, Ort fürs Wetter als Auswahlmenü mit Zustand, Einzelheiten im ⓘ, Fehlerbehebung eingeklappt", options_minimal, results)
 
     def pref_chat_more():
-        # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“) mit der Wahl für den fünften Platz der Bereichsleiste ganz oben;
-        # Thunderbirds Chat-Einstellungen nur bei „Chat“, sonst ein Hinweis; Wahl schreibt die Einstellungen, die Seite von halo.spaces hat sie nicht mehr
+        # Einstellungen: Kategorie „Chat & More“ (deutsch „Chat & mehr“): Thunderbirds Chat-Einstellungen nur bei „Chat“ auf dem
+        # fünften Platz, sonst darunter ein Hinweis, was der Platz zeigt; die Wahl selbst steht seit 20.11.2026 in den
+        # halo.spaces-Einstellungen (Maintainer 17.11.2026), hier also kein Auswahlmenü mehr
         res = m.js(PREFS_OPEN_JS + r"""
           const P = "extensions.mailcards.fifthSpace";
           const shown = e => !!e && e.getBoundingClientRect().height > 0;
           try {
             pd.getElementById("category-chat").click();
             const grp = await bis(() => pd.getElementById("mcFifthGroup"), "Gruppe fünfter Platz", 6000);
-            await bis(() => shown(grp), "Gruppe sichtbar", 4000);
-            const kind = pd.getElementById("mcFifthSpace");
+            await bis(() => shown(pd.getElementById("chatStartupAction")), "Chat-Einstellungen sichtbar", 4000);
+            const hint = pd.getElementById("mcFifthHint");
             const out = { name: pd.querySelector("#category-chat .category-name").textContent, head: pd.querySelector("#chatPaneCategory h1").textContent,
-                          first: grp.previousElementSibling?.id, value: kind.value, hint: shown(pd.getElementById("mcFifthHint")),
-                          tb: shown(pd.getElementById("chatStartupAction")), search: [] };
-            const set = async (v) => { kind.value = v; kind.dispatchEvent(new pw.Event("command")); await ruhig(300); };
-            await set("web");
-            out.web = { mode: Services.prefs.getStringPref(P, ""), url: shown(pd.getElementById("mcFifthSpaceUrl")), icon: shown(pd.getElementById("mcFifthSpaceIcon")),
-                        hint: shown(pd.getElementById("mcFifthHint")), tb: shown(pd.getElementById("chatStartupAction")), attr: pd.documentElement.getAttribute("mc-fifth") };
-            const url = pd.getElementById("mcFifthSpaceUrl"); url.value = "example.org"; url.dispatchEvent(new pw.Event("change")); await ruhig(300);
-            out.url = Services.prefs.getStringPref(P + "Url", "");
-            await set("none");
-            out.none = { mode: Services.prefs.getStringPref(P, ""), url: shown(url), tb: shown(pd.getElementById("chatStartupAction")) };
-            await set("chat");
-            out.chat = { has: Services.prefs.prefHasUserValue(P), tb: shown(pd.getElementById("chatStartupAction")), hint: shown(pd.getElementById("mcFifthHint")) };
-            // Suche findet die Wahl (Gruppe liegt in der Seite, Thunderbirds Suche liest sie mit)
-            out.inChat = grp.closest("[data-category]")?.getAttribute("data-category") || grp.getAttribute("data-category");
+                          first: grp.previousElementSibling?.id, chooser: grp.querySelectorAll("menulist, input, legend").length,
+                          group: shown(grp), hint: shown(hint), tb: shown(pd.getElementById("chatStartupAction")) };
+            Services.prefs.setStringPref(P + "Url", "https://example.org/"); Services.prefs.setStringPref(P, "web"); await ruhig(300);
+            out.web = { hint: shown(hint), text: hint.textContent.includes("https://example.org/"), tb: shown(pd.getElementById("chatStartupAction")),
+                        attr: pd.documentElement.getAttribute("mc-fifth") };
+            Services.prefs.setStringPref(P, "none"); await ruhig(300);
+            out.none = { hint: shown(hint), tb: shown(pd.getElementById("chatStartupAction")) };
+            Services.prefs.clearUserPref(P); await ruhig(300);
+            out.chat = { group: shown(grp), tb: shown(pd.getElementById("chatStartupAction")), hint: shown(hint) };
+            out.inChat = grp.getAttribute("data-category");
             return out;
           } finally {
             for (const p of [P, P + "Url"]) Services.prefs.clearUserPref(p);
             tm.closeTab(tm.currentTabInfo); await ruhig(400);
           }""")
-        ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["value"] == "chat"
-              and not res["hint"] and res["tb"]
-              and res["web"] == {"mode": "web", "url": True, "icon": False, "hint": True, "tb": False, "attr": "web"}
-              and res["url"] == "https://example.org/"
-              and res["none"] == {"mode": "none", "url": False, "tb": False}
-              and res["chat"] == {"has": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
+        ok = (res["name"] == "Chat & More" and res["head"] == "Chat & More" and res["first"] == "chatPaneCategory" and res["chooser"] == 0
+              and not res["group"] and not res["hint"] and res["tb"]
+              and res["web"] == {"hint": True, "text": True, "tb": False, "attr": "web"}
+              and res["none"] == {"hint": True, "tb": False}
+              and res["chat"] == {"group": False, "tb": True, "hint": False} and res["inChat"] == "paneChat")
         return ok, f"{res}"
-    check("Einstellungen: Kategorie „Chat & More“ mit Wahl für den fünften Platz oben, Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
+    check("Einstellungen: Kategorie „Chat & More“ ohne Wahl des fünften Platzes (die steht in den halo.spaces-Einstellungen), Thunderbirds Chat-Einstellungen nur bei Chat, sonst Hinweis", pref_chat_more, results)
 
     def pref_fifth_closed():
         # Wahl des fünften Platzes nach dem Schließen der Einstellungen ändern: kein
@@ -21734,12 +22918,16 @@ Neu
           const hit = () => [...pd.querySelectorAll("#paneDeck > .mc-halo-found")].find(e => !e.hidden && !e.classList.contains("visually-hidden")
             && e.getBoundingClientRect().height > 0 && e.querySelector(".mc-halo-found-name")?.textContent == "Logos from sender websites");
           const box = pd.getElementById("mcPane-paneMcHalo"), out = { fresh: !box.querySelector("browser") };
+          // 1 px schon ab dem Anlegen des Browsers (Regel vor dem Klick): am Element gesetzt kam die Begrenzung in der
+          // Linux-CI teils erst nach dem Sprung an (atJump.ih 826), dann prüfte die Prüfung nichts
+          const klein = pd.createElementNS("http://www.w3.org/1999/xhtml", "style");
+          klein.textContent = "#mcPane-paneMcHalo > browser { max-block-size: 1px !important; }";
+          pd.documentElement.append(klein);
           try {
             fire("logos");
             if (!await until(hit, 6000)) { fire(""); await ruhig(300); fire("logos"); }
             (await bis(hit, "Treffer „Logos from sender websites“", 10000)).querySelector(".mc-halo-found-show").click();
             const b = await bis(() => box.querySelector("browser")?.messageManager && box.querySelector("browser"), "Browser der halo.spaces-Seite", 6000);
-            b.style.setProperty("max-block-size", "1px", "important");
             // Frame-Skript (Seite läuft im Prozess der Erweiterung): meldet die hervorgehobene Zeile, dann nach dem Wachsen
             // die Lage, sobald Höhe, Scrollstand und Zeile 300 ms gleich bleiben
             const key = "mc:test-late-" + Math.random(), msgs = [];
@@ -21747,21 +22935,26 @@ Neu
             b.messageManager.loadFrameScript("data:," + encodeURIComponent(`(() => {
               const pos = () => { const r = content.document.getElementById("row-senderLogos"), x = r?.getBoundingClientRect();
                 return x && { ih: Math.round(content.innerHeight), sy: Math.round(content.scrollY), top: Math.round(x.top), bottom: Math.round(x.bottom), found: r.classList.contains("found") }; };
-              const wait = () => { const p = pos(); if (p?.found) sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); else content.setTimeout(wait, 10); };
-              // ist die Seite beim Laden des Frame-Skripts schon da, kommt DOMContentLoaded nicht mehr: dann gleich warten
-              if (content.document?.readyState && content.document.readyState != "loading" && content.document.getElementById("row-senderLogos")) wait();
-              else addEventListener("DOMContentLoaded", wait, true);
+              let sent = false;
+              const wait = () => { if (sent) return; const p = pos(); if (p?.found) { sent = true; sendAsyncMessage("${key}", Object.assign({ tag: "found" }, p)); } else content.setTimeout(wait, 10); };
+              // die Zeilen baut render() erst nach DOMContentLoaded (await getSettings, …): ist das Dokument schon geladen,
+              // gleich abfragen, auch wenn die Zeile noch fehlt (sonst wartete das Skript auf ein Ereignis, das nicht mehr kommt;
+              // Beta-CI: Zeitüberschreitung „Zeile hervorgehoben“); DOMContentLoaded zusätzlich für das noch ladende Dokument
+              // (Zeitgeber des leeren Anfangsdokuments enden mit dessen Wechsel)
+              if (content.document?.readyState && content.document.readyState != "loading") wait();
+              addEventListener("DOMContentLoaded", wait, true);
               addMessageListener("${key}-grown", () => { let last = "", since = Date.now(), t0 = Date.now(); const step = () => { const p = pos(), v = JSON.stringify(p);
                 if (v != last) { last = v; since = Date.now(); } if (Date.now() - since >= 300 || Date.now() - t0 > 3000) sendAsyncMessage("${key}", Object.assign({ tag: "settled" }, p)); else content.setTimeout(step, 20); }; step(); });
             })()`), true);
             await bis(() => msgs.length, "Zeile hervorgehoben", 8000);
             out.atJump = msgs[0];
-            b.style.removeProperty("max-block-size");
+            klein.remove();
             await bis(() => b.getBoundingClientRect().height > 300, "Browser gewachsen", 3000);
             b.messageManager.sendAsyncMessage(key + "-grown");
             await bis(() => msgs.length > 1, "Lage nach dem Wachsen", 6000);
             out.settled = msgs[1];
           } finally {
+            klein.remove();
             tm.closeTab(tm.currentTabInfo); await ruhig(400);
           }
           return out;""")
@@ -22010,14 +23203,19 @@ Neu
                    width: Services.prefs.getIntPref("extensions.mailcards.listWidth", -1) > 0 || Cu.evalInSandbox("LIST_WIDTH_DEFAULT", g) > 0 };''' % ADDON_ID)
         keys = [k for _, ks in res["sections"] for k in ks]
         last = res["sections"][-1][1] if res["sections"] else []
-        ok = (not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
+        # Reihenfolge der Gruppen: Spaces zuerst (Maintainer 17.11.2026), dann die Spaces in der Reihenfolge der Leiste,
+        # danach Übergreifendes, Fehlerbehebung zuletzt
+        titles = [title for title, _ in res["sections"]]
+        ok = (titles == ["Spaces", "Mail", "Calendar", "Fifth space", "Appearance", "Troubleshooting"]
+              and not {"listWidth", "hideDuplicateContacts", "previewLines", "birthdays"} & set(keys) and "calendarEmoji" in keys and "macContactPhotos" in keys
               and last == ["calendarOffline", "spacesOrderReset", "debug"] and keys.count("calendarOffline") == 1
               and not {"bundledTheme", "appleIcons"} & set(keys) and res.get("removedInTable") == [] and res.get("escape") == [True, True, True]
               and not res["missing"] and not res["leftover"] and not res["unknown"] and not res["inTable"]
               and res["emoji"] is True and not res["emojiStored"] and res["width"])
         return ok, f"{res}"
     check("Einstellungen: Seite ohne Breite der Mailliste, doppelte Kontakte, Vorschauzeilen und Geburtstage, ohne die am 17.11.2026 entfernten Optionen "
-          "(Design und Symbole nur noch über about:config), Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
+          "(Design und Symbole nur noch über about:config), Gruppen in der Reihenfolge Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting, "
+          "Offline-Kopie/Reihenfolge zurücksetzen/Protokoll unter „Fehlerbehebung“; Kalender-Emojis im frischen Profil an",
           options_page_slim, results)
 
     def preview_menu():
@@ -23354,7 +24552,9 @@ Neu
               out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
               // Fläche wie Drucken (ohne Fläche wäre die Kapsel nur ein loses Symbol)
               const pb = md.getElementById("mcHdrPrintButton");
-              out.fill = ext ? [cw.getComputedStyle(ext).backgroundColor, pb ? cw.getComputedStyle(pb).backgroundColor : null] : null;
+              // (plastische Kapseln: Fläche als Verlauf im Hintergrundbild, Farbe dann durchsichtig – beides vergleichen)
+              const face = e => `${cw.getComputedStyle(e).backgroundColor} ${cw.getComputedStyle(e).backgroundImage}`;
+              out.fill = ext ? [face(ext), pb ? face(pb) : null] : null;
             } finally { mw.close(); }
           } finally { await addon.uninstall(); }
           await ruhig(300);
@@ -23375,7 +24575,7 @@ Neu
                 and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
             bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
         fl = res.get("fill") or [None, None]
-        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0)" and (fl[1] is None or fl[0] == fl[1])):
+        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0) none" and (fl[1] is None or fl[0] == fl[1])):
             bad.append(f"Erweiterung: Fläche {fl[0]} statt wie Drucken {fl[1]}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "
@@ -23589,7 +24789,11 @@ Neu
             for (const e of bar.querySelectorAll("[disabled]")) e.removeAttribute("disabled");
             const cv = mw.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
             const shot = async r => {
-              const o = br.getBoundingClientRect(), x = o.left + r.left, y = o.top + r.top;
+              // auf ganze Bildpunkte gerundet, wie Gecko das Bild malt: unter Windows ist die Leiste über dem Mailbereich
+              // 23,5 px hoch, der Ausschnitt begann sonst einen halben Punkt vor dem Knopf und das Bild lag eine Zeile
+              // tiefer (der leise Schatten unter dem Kreis fiel so in die unteren zwei Zeilen)
+              const o = br.getBoundingClientRect(), dpr = mw.devicePixelRatio || 1, snap = v => Math.round(v * dpr) / dpr;
+              const x = snap(o.left + r.left), y = snap(o.top + r.top);
               cv.width = Math.round(r.width); cv.height = Math.round(r.height); ctx.fillStyle = "white"; ctx.fillRect(0, 0, cv.width, cv.height);
               try { ctx.drawImage(await mw.browsingContext.currentWindowGlobal.drawSnapshot(new mw.DOMRect(x, y, r.width, r.height), 1, "white"), 0, 0); }
               catch { ctx.drawWindow(mw, x, y, r.width, r.height, "white"); }
@@ -24205,7 +25409,7 @@ Neu
         # ⌃⌘S blendet die Seitenleiste aus und wieder ein wie der Knopf (wie Apple Mail; GitHub #56) – nur macOS;
         # kein anderes Kürzel von Thunderbird liegt auf derselben Kombination
         if sys.platform != "darwin":
-            return True, "nur macOS (für Windows/Linux kein Kürzel entschieden)"
+            return True, "nur macOS (Windows/Linux: Strg+B und Strg+T, eigene Prüfung)"
         state = r"""await ruhig(300); const pane = tm.currentAbout3Pane?.document.getElementById("folderPane");
           return { side: Math.round(pane?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };"""
         pre = m.js(r"""await toMail(); await ruhig(400);
@@ -24233,9 +25437,9 @@ Neu
 
     def today_key():
         # ⌃⌘T blendet die Today-Pane ein und aus wie der Knopf #mcTodayToggle; der Menüpunkt zeigt das Kürzel – nur macOS
-        # (für Windows/Linux ist kein Kürzel entschieden)
+        # (Windows/Linux: Strg+T, Prüfung pane_keys_other)
         if sys.platform != "darwin":
-            return True, "nur macOS (für Windows/Linux kein Kürzel entschieden)"
+            return True, "nur macOS (Windows/Linux: Strg+B und Strg+T, eigene Prüfung)"
         state = r"""await ruhig(400); return { shown: !!w.TodayPane?.isVisible };"""
         pre = m.js(r"""await toMail(); await ruhig(400);
           if (w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await bis(() => !w.TodayPane.isVisible, "Today-Pane aus", 3000); await ruhig(400); }
@@ -24257,6 +25461,109 @@ Neu
               and not pre["shown"] and on["shown"] and not off["shown"])
         return ok, f"vorher={pre} ein={on} aus={off}"
     check("Today-Pane: ⌃⌘T blendet sie ein und aus wie der Knopf, der Menüpunkt zeigt das Kürzel", today_key, results)
+
+    def pane_keys_other():
+        # Windows und Linux (Maintainer 21.11.2026, GitHub #59): Strg+B blendet die Seitenleiste, Strg+T die Today-Pane ein und
+        # aus wie die Knöpfe; F11 bleibt; die Menüpunkte (Ansicht und ☰ › Ansicht › Layout) zeigen die Kürzel; kein Kürzel von
+        # Thunderbird liegt auf derselben Kombination. Nur im Hauptfenster: im Verfassen-Fenster (Strg+B fett, Strg+T
+        # Festbreite) und in der Notiz der Aufgaben (Strg+B fett) schaltet nichts um. macOS behält ⌃⌘S und ⌃⌘T (Prüfungen oben)
+        if sys.platform == "darwin":
+            return True, "nur Windows/Linux (macOS behält ⌃⌘S und ⌃⌘T)"
+        def press(taste):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": ""}, {"type": "keyDown", "value": taste},
+                {"type": "keyUp", "value": taste}, {"type": "keyUp", "value": ""}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        state = r"""await ruhig(400); const pane = tm.currentAbout3Pane?.document.getElementById("folderPane");
+          return { side: Math.round(pane?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible };"""
+        fp = r"""const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");"""
+        pre = m.js(fp + r"""await toMail(); await ruhig(400);
+          if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => fp()?.getBoundingClientRect().width > 100, "Seitenleiste da", 3000); }
+          if (w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await bis(() => !w.TodayPane.isVisible, "Today-Pane aus", 3000); await ruhig(400); }
+          tm.currentAbout3Pane.threadTree?.focus(); await ruhig(300);
+          // alle Kürzel des Hauptfensters auf Strg+B bzw. Strg+T (ohne Umschalt/Alt): nur unsere beiden
+          const mods = k => (k.getAttribute("modifiers") || "").split(/[\s,]+/).filter(Boolean).sort().join("+");
+          const keys = [...d.querySelectorAll("key")].filter(k => ["b", "t"].includes((k.getAttribute("key") || "").toLowerCase()) && ["accel", "control"].includes(mods(k)))
+            .map(k => k.id || "(ohne id)").sort();
+          const f11 = d.getElementById("todaypanekey");
+          const attr = (id, name) => d.getElementById(id)?.getAttribute(name) ?? null;
+          return { keys, f11: [f11?.getAttribute("keycode"), f11?.getAttribute("command"), f11?.hasAttribute("disabled")],
+            menu: [attr("menu_showFolderPane", "key"), attr("calShowTodayPane-2", "key")],
+            app: [attr("appmenu_showFolderPane", "shortcut"), attr("appmenu_calShowTodayPane-2", "shortcut")],
+            side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible };""")
+        press("b")
+        off = m.js(fp + r"""await until(() => !(fp()?.getBoundingClientRect().width >= 1) && w.gSpacesToolbar.isHidden, 3000);""" + state)
+        press("b")
+        on = m.js(fp + r"""await until(() => fp()?.getBoundingClientRect().width > 100 && !w.gSpacesToolbar.isHidden, 3000);""" + state)
+        press("t")
+        t_on = m.js(r"""await until(() => w.TodayPane?.isVisible, 3000);""" + state)
+        press("t")
+        t_off = m.js(r"""await until(() => !w.TodayPane?.isVisible, 3000);""" + state)
+        # Notiz der Aufgaben: Strg+B macht fett, die Seitenleiste bleibt
+        note = {}
+        try:
+            note = m.js(r"""
+              tm.openTab("tasks", {}); const tree = await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+              w.taskViewUpdate?.("all"); await ruhig(600);
+              const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+              const t = new CalTodo(); t.title = "Halo Kuerzel"; t.calendar = testCalendar(); t.descriptionText = "Notiz Kuerzel"; await testCalendar().addItem(t);
+              await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Kuerzel"), "Aufgabe in der Liste", 6000);
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == "Halo Kuerzel"));
+              const frame = d.getElementById("calendar-task-details-description");
+              await bis(() => frame.contentDocument?.body?.textContent.includes("Notiz Kuerzel"), "Notiz", 6000); await ruhig(300);
+              const nd = frame.contentDocument, nwin = frame.contentWindow;
+              nd.body.dispatchEvent(new nwin.MouseEvent("click", { bubbles: true }));
+              await bis(() => nd.designMode == "on", "Notiz bearbeitbar", 3000);
+              nwin.focus(); nd.execCommand("selectAll", false, null); await ruhig(300);
+              return { edit: nd.designMode, bold: nd.queryCommandState("bold"), spaces: !w.gSpacesToolbar.isHidden };""")
+            press("b")
+            note["after"] = m.js(r"""const nd = d.getElementById("calendar-task-details-description").contentDocument;
+              const bold = !!(await until(() => nd.queryCommandState("bold"), 3000)); await ruhig(600);
+              return { bold, edit: nd.designMode, spaces: !w.gSpacesToolbar.isHidden, anim: !!w.__mcSpacesAnimating };""")
+        finally:
+            m.js(r"""const frame = d.getElementById("calendar-task-details-description");
+              try { frame?.contentWindow?.dispatchEvent(new frame.contentWindow.FocusEvent("blur")); await until(() => frame.contentDocument.designMode != "on", 3000); } catch {}
+              for (const x of await items("Halo Kuerzel")) { try { await testCalendar().deleteItem(x); } catch {} }
+              for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+              await toMail(); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1200); } return 1;""")
+        # Verfassen-Fenster: die Tasten gehören dem Text, im Hauptfenster schaltet nichts um
+        comp = {}
+        wert = lambda r: r["value"] if isinstance(r, dict) else r
+        main = wert(m.cmd("WebDriver:GetWindowHandle"))
+        before = set(wert(m.cmd("WebDriver:GetWindowHandles")))
+        try:
+            m.js(COMPOSE_JS)
+            new = [h for h in wert(m.cmd("WebDriver:GetWindowHandles")) if h not in before]
+            comp["window"] = len(new)
+            if new:
+                m.cmd("WebDriver:SwitchToWindow", {"handle": new[0]})
+                comp["before"] = m.js(r"""const cw = [...Services.wm.getEnumerator("msgcompose")].pop(); const ed = cw.document.getElementById("messageEditor");
+                  cw.focus(); ed.focus(); cw.SetMsgBodyFrameFocus?.(); await ruhig(400);
+                  return { bold: ed.contentDocument.queryCommandState("bold"), keys: [...cw.document.querySelectorAll("key")].filter(k => /^mcKeyToggle/.test(k.id)).length };""")
+                press("b")
+                press("t")
+                comp["after"] = m.js(r"""const cw = [...Services.wm.getEnumerator("msgcompose")].pop(); const ed = cw.document.getElementById("messageEditor");
+                  const bold = !!(await until(() => ed.contentDocument.queryCommandState("bold"), 3000)); await ruhig(600);
+                  return { bold, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible, anim: !!w.__mcSpacesAnimating };""")
+        finally:
+            # (erst zurück ins Hauptfenster: ein Skript im Fenster, das es selbst schließt, bricht ab)
+            m.cmd("WebDriver:SwitchToWindow", {"handle": main})
+            m.js(r"""for (const cw of [...Services.wm.getEnumerator("msgcompose")]) { try { cw.gContentChanged = false; cw.close(); } catch {} }
+              await until(() => ![...Services.wm.getEnumerator("msgcompose")].length, 4000); return 1;""")
+        na, ca = note.get("after") or {}, comp.get("after") or {}
+        ok = (pre["keys"] == ["mcKeyToggleSidebar", "mcKeyToggleTodayPane"] and pre["f11"] == ["VK_F11", "calendar_toggle_todaypane_command", False]
+              and pre["menu"] == ["mcKeyToggleSidebar", "mcKeyToggleTodayPane"]
+              and len(pre["app"]) == 2 and (pre["app"][0] or "").endswith("+B") and (pre["app"][1] or "").endswith("+T")
+              and pre["side"] > 100 and pre["spaces"] and not pre["today"]
+              and off["side"] <= 0 and not off["spaces"] and on["side"] > 100 and on["spaces"]
+              and t_on["today"] and not t_off["today"] and t_off["spaces"]
+              and note.get("edit") == "on" and note.get("bold") is False and note.get("spaces")
+              and na.get("bold") and na.get("spaces") and not na.get("anim")
+              and comp.get("window") == 1 and (comp.get("before") or {}).get("keys") == 0 and (comp.get("before") or {}).get("bold") is False
+              and ca.get("bold") and ca.get("spaces") and not ca.get("today") and not ca.get("anim"))
+        return ok, f"vorher={pre} aus={off} ein={on} today_ein={t_on} today_aus={t_off} notiz={note} verfassen={comp}"
+    check("Tastenkürzel Windows/Linux: Strg+B blendet die Seitenleiste, Strg+T die Today-Pane ein und aus, Menüs zeigen die Kürzel; "
+          "im Verfassen-Fenster und in der Notiz der Aufgaben schaltet nichts um (GitHub #59)", pane_keys_other, results)
 
     def sidebar_float_edge():
         # Einblenden am linken Fensterrand unter macOS: Die innersten 3 px am Fensterrand gehören dem Größenändern

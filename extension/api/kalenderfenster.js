@@ -1615,9 +1615,19 @@ class EnhancerKalender {
       };
       dlg.__mcTidy = true;
       fixLabels();
-      new dlg.MutationObserver(() => dlg.setTimeout(fixLabels, 0)).observe(idoc.documentElement, {
+      // nach dem Schließen meldet das Formular noch Änderungen (Abbau, Wochenbeginn): das geschlossene Fenster
+      // nicht mehr aufrufen – die ESR wirft dann NS_ERROR_NOT_INITIALIZED in die Fehlerkonsole
+      const labelObserver = new dlg.MutationObserver(() => {
+        if (dlg.closed) {
+          labelObserver.disconnect();
+          return;
+        }
+        dlg.setTimeout(fixLabels, 0);
+      });
+      labelObserver.observe(idoc.documentElement, {
         subtree: true, attributes: true, attributeFilter: ["value", "label"], childList: true, characterData: true,
       });
+      dlg.addEventListener("unload", () => labelObserver.disconnect(), { once: true });
     } catch (e) {
       log("event dialog tidy error", String(e).slice(0, 120));
     }

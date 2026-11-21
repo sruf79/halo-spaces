@@ -66,7 +66,7 @@ VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
 # lauf <Jetzt> [<Ausgabe>]  (weitere Umgebung wie HALO_PAUSEN_DATEI/HALO_VOLLDAMPF_DATEI vom Aufrufer)
 lauf() {
   HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
-  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
+  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_ABN_FRAGEN=${HALO_ABN_FRAGEN:-$T/keine-fragen.md} HALO_AUF_FRAGEN=${HALO_AUF_FRAGEN:-$T/keine-auf-fragen.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
@@ -136,6 +136,41 @@ pruefe "Board nach Release: nur neue Zweifelsfälle gezählt" 'grep -q "Board na
 print -l -- "- 2026-11-15 21:10 | v3.27.1 | PVTI_neu | Neu | Status Todo trotz Commit im Release" "- 2026-11-15 21:20 | v3.27.1 | PVTI_a | Optik: Seitenleiste mit sehr langem Titel | Abnahme überfällig, seit 2026-11-05" > $T/zweifel.md
 HALO_BNR_ZWEIFEL=$T/zweifel.md lauf $MO $T/z.md >/dev/null
 pruefe "Abnahme überfällig: eigener Satz, nicht in der Zweifel-Zahl" 'grep -q "Board nach Release: 1 Einträge nicht automatisch geschlossen" $T/z.md && grep -q "Abnahme überfällig: Optik: Seitenleiste mit sehr langem Titel, seit 2026-11-05" $T/z.md'
+# Automatische Abnahme (tests/abnahme-nach-release.zsh): Geschmacksfragen seit dem letzten Brief als [handeln], ältere nicht
+print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Optik: alt | Alte Frage?" "- 2026-11-15 21:30 | v3.27.1 | PVTI_f | Optik: Ungelesen-Zahl | Soll das Grau so blass bleiben wie in der Vorlage?" > $T/fragen.md
+HALO_ABN_FRAGEN=$T/fragen.md lauf $MO $T/f.md >/dev/null
+pruefe "Abnahme: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Abnahme, deine Entscheidung: Optik: Ungelesen-Zahl: Soll das Grau so blass bleiben" $T/f.md && ! grep -q "Alte Frage" $T/f.md'
+# Aufräumen nach dem Release (tests/aufraeumen-nach-release.zsh): gleiches Format, eigene Datei
+print -l -- "- 2026-11-10 14:05 | v3.26.0 | #9 | Alt | Alte Aufräumfrage?" "- 2026-11-15 21:40 | v3.27.1 | #66 | Wunsch Chat-Ansicht | Soll das Issue trotz offener Einzelpunkte geschlossen werden?" > $T/auf-fragen.md
+HALO_AUF_FRAGEN=$T/auf-fragen.md lauf $MO $T/af.md >/dev/null
+pruefe "Aufräumen: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Aufräumen, deine Entscheidung: Wunsch Chat-Ansicht: Soll das Issue trotz" $T/af.md && ! grep -q "Alte Aufräumfrage" $T/af.md'
+# Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026): Notiz
+# „Entscheidung fehlt seit …“ bzw. „Wartet auf OK“ über 7 Tage; statusSeit vor dem Datum einer Rückfrage-Notiz
+cp $T/board.json $T/board-normal.json
+cat > $T/board.json <<'EOF'
+{"items":[
+ {"id":"U1","typ":"Feature","status":"Todo","title":"Mail: Zusage offen","body":"Text\n\nEntscheidung fehlt seit 2026-11-01: Soll der Knopf links stehen?"},
+ {"id":"U2","typ":"Feature","status":"Todo","title":"Mail: frisch übersprungen","body":"Entscheidung fehlt seit 2026-11-12: Noch nicht alt?"},
+ {"id":"U3","typ":"Bug","status":"Wartet auf OK","title":"Kalender: wartet lange","body":"Rückfrage Director 2026-11-05: Welche Farbe?"},
+ {"id":"U4","typ":"Bug","status":"Wartet auf OK","title":"Kalender: Status erst neu","body":"Rückfrage Director 2026-11-01: Alte Frage?","statusSeit":"2026-11-14T10:00:00Z"},
+ {"id":"U5","typ":"Bug","status":"Wartet auf OK","title":"Adressbuch: ohne Datum","body":"nichts"},
+ {"id":"U6","typ":"Feature","status":"Todo","title":"Chat: genau 7 Tage","body":"Entscheidung fehlt seit 9.11.2026: Grenzfall?"},
+ {"id":"U7","typ":"Feature","status":"Done","title":"Mail: erledigt","body":"Entscheidung fehlt seit 2026-10-01: egal"},
+ {"id":"U8","typ":"Bug","status":"Todo","title":"Chat: altes Anlagedatum","body":"Maintainer 15.11.2026","createdAt":"2026-10-20T10:00:00Z"},
+ {"id":"U9","typ":"Bug","status":"Todo","title":"Chat: Abfrage nur im Text","body":"Maintainer 1.11.2026"},
+ {"id":"U10","typ":"Feature","status":"Wartet auf OK","title":"Ablauf: bewusst wartend","body":"Rückfrage Director 2026-11-01: Frage?\n\nWartet bewusst bis 6.12.2026 (Maintainer 21.11.2026: „empfehlung folgen“)"}
+]}
+EOF
+lauf $MO $T/u.md >/dev/null
+U=$(sed -n '/<summary>Überfällig: Entscheidungen über 7 Tage offen</,/<\/details>/p' $T/u.md)
+pruefe "Überfällig: Notiz und Wartet auf OK über 7 Tage, älteste zuerst, mit Frage" '[[ $(print -r -- $U | grep "^- ") == $(print -l -- "- Mail: Zusage offen – 15 Tage – Soll der Knopf links stehen?" "- Kalender: wartet lange – 11 Tage – Welche Farbe?") ]]'
+pruefe "Überfällig: nicht bis 7 Tage, nicht ohne Datum, statusSeit zählt, Done nicht" '! print -r -- $U | grep -qE "frisch|Status erst neu|ohne Datum|genau 7 Tage|erledigt"'
+pruefe "Überfällig: „Wartet bewusst bis …“ wird nicht gezählt" '! print -r -- $U | grep -q "bewusst wartend"'
+pruefe "Überfällig: eine Zeile „Zu tun“ in der Kurzfassung" 'grep -q "Zu tun: 2 Entscheidungen seit über 7 Tagen offen, siehe Details „Überfällig“" $T/u.md'
+pruefe "Vorschau: Alter aus createdAt vor dem Text, Zuschlag mit Deckel; ohne createdAt das Datum im Text" 'grep -qE "^[0-9]+\. Chat: altes Anlagedatum \(Chat, 27 Tage offen, \+1\.5, Bug\)$" $T/u.md && grep -qE "^[0-9]+\. Chat: Abfrage nur im Text \(Chat, 15 Tage offen, \+1, Bug\)$" $T/u.md'
+pruefe "Vorschau: älterer Chat-Bug vor jüngerem (Zuschlag 1,5 gegen 1, trotz Titel-Reihenfolge)" '(( $(grep -n "Chat: altes Anlagedatum" $T/u.md | tail -1 | cut -d: -f1) < $(grep -n "Chat: Abfrage nur im Text" $T/u.md | tail -1 | cut -d: -f1) ))'
+pruefe "ohne Überfälliges kein Abschnitt" '! grep -q "Überfällig" $T/b.md'
+mv $T/board-normal.json $T/board.json
 pruefe "Trockenlauf ohne HALO_MB_AUSGABE schreibt keinen Bericht" '[[ -z $(ls $T/berichte | grep -- "-bericht") ]]'
 pruefe "nichts in ~/halo-berichte oder ~/halo-nacht geschrieben" '[[ $(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum) == $VOR ]]'
 

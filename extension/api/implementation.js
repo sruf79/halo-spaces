@@ -171,6 +171,18 @@ const MISS_TTL = 7 * DAY;
 const FETCH_TIMEOUT = 6000;
 // Texte mit „Mac“ bzw. „macOS“ nur dort
 const IS_MAC = Services.appinfo.OS == "Darwin";
+// Tastenkürzel zum Ein-/Ausblenden von Seitenleiste ("sidebar") und Today-Pane ("today") je System: macOS ⌃⌘S und
+// ⌃⌘T, Windows und Linux Strg+B und Strg+T (Maintainer 21.11.2026; in Thunderbirds Hauptfenster beide frei, F11 für
+// die Today-Pane bleibt daneben). Reine Funktionen, siehe tests/logik/kuerzel.test.mjs
+function paneShortcut(pane, os) {
+  const mac = os == "Darwin";
+  return { key: pane == "today" ? "t" : mac ? "s" : "b", modifiers: mac ? "accel,control" : "accel" };
+}
+// Gehört die Taste gerade dem Text? Strg+B heißt in einem Feld mit Formatierung (Notiz der Aufgaben) fett – dort
+// schaltet es die Seitenleiste nicht; editing = der Fokus steht in einem solchen Feld
+function paneShortcutBlocked(pane, os, editing) {
+  return os != "Darwin" && pane == "sidebar" && !!editing;
+}
 // Faktor aus Thunderbirds Schriftgröße (≡ → Schriftgröße): gewählte durch
 // Standardgröße des Systems, 1 bei Standardgröße. Die Einstellung direkt
 // lesen: Thunderbirds eigener Beobachter kann nach unserem laufen
@@ -448,11 +460,10 @@ function hookAppearanceChoice(cw, restorers = null) {
   });
 }
 
-// Einstellungen → „Chat & More“ (Kategorie Chat): oben die Wahl für den fünften
-// Platz der Bereichsleiste (Chat, Bereich einer Erweiterung, Webseite, nichts),
-// darunter Thunderbirds Chat-Einstellungen – nur, wenn dort Chat gewählt ist;
-// sonst steht an ihrer Stelle ein Hinweis, was der Platz gerade zeigt.
-// Schreibt dieselben Einstellungen wie früher die halo.spaces-Seite.
+// Einstellungen → „Chat & More“ (Kategorie Chat): Thunderbirds Chat-Einstellungen
+// nur, wenn auf dem fünften Platz der Bereichsleiste Chat steht (gewählt in den
+// halo.spaces-Einstellungen); sonst steht an ihrer Stelle ein Hinweis, was der
+// Platz gerade zeigt.
 function hookChatCategory(cw, restorers = null) {
   const doc = cw.document;
   const X = "http://www.w3.org/1999/xhtml";
@@ -485,102 +496,22 @@ function hookChatCategory(cw, restorers = null) {
     return;
   }
   const el = (tag, props = {}) => Object.assign(doc.createElementNS(X, tag), props);
+  // die Wahl selbst steht seit 20.11.2026 in den halo.spaces-Einstellungen (Gruppe „Fifth space“,
+  // options/sections.js); hier bleibt nur der Hinweis, was der Platz statt Chat zeigt
   const group = el("fieldset", { id: "mcFifthGroup" });
   group.__mcOwner = HOOK_OWNER;
   group.setAttribute("data-category", "paneChat");
-  const rows = {};
-  const row = (key, text, control) => {
-    const box = doc.createXULElement("hbox");
-    box.setAttribute("align", "center");
-    box.className = "mc-fifth-row";
-    const label = doc.createXULElement("label");
-    label.setAttribute("value", text);
-    label.setAttribute("flex", "1");
-    box.append(label, control);
-    rows[key] = box;
-    group.append(box);
-  };
-  const menu = (id, onPick) => {
-    const list = doc.createXULElement("menulist");
-    list.id = id;
-    list.appendChild(doc.createXULElement("menupopup"));
-    list.addEventListener("command", () => onPick(list.value));
-    return list;
-  };
   const getPref = (pref, def) => Services.prefs.getStringPref(pref, def);
-  const setPref = (pref, def, value) => {
-    if (value === def) {
-      Services.prefs.clearUserPref(pref); // Standard: nichts im Profil speichern
-    } else {
-      Services.prefs.setStringPref(pref, value);
-    }
-  };
-  group.append(el("legend", { textContent: tr("Fifth space") }));
-  const spacesOf = () => FifthSpace.addonSpaces(Services.wm.getMostRecentWindow("mail:3pane")) || [];
-  const kind = menu("mcFifthSpace", v => {
-    // Bereich einer Erweiterung: gleich die angezeigte (erste) wählen, sonst bliebe der Platz leer
-    const first = spacesOf()[0]?.name;
-    if (v == "addon" && first && !spacesOf().some(a => a.name == getPref(FIFTH_ADDON_PREF, ""))) {
-      setPref(FIFTH_ADDON_PREF, "", first);
-    }
-    setPref(FIFTH_PREF, "chat", v);
-  });
-  const addon = menu("mcFifthSpaceAddon", v => setPref(FIFTH_ADDON_PREF, "", v));
-  const url = el("input", { id: "mcFifthSpaceUrl", type: "text", placeholder: "https://…", spellcheck: false });
-  url.className = "mc-fifth-url";
-  const saveURL = () => {
-    const normal = FifthSpace.normalizeURL(url.value);
-    if (normal === null) {
-      url.value = getPref(FIFTH_URL_PREF, ""); // keine Webadresse: alte behalten
-    } else {
-      setPref(FIFTH_URL_PREF, "", normal);
-      url.value = normal;
-    }
-  };
-  url.addEventListener("change", saveURL);
-  url.addEventListener("keydown", e => {
-    if (e.key == "Enter") {
-      saveURL();
-    }
-  });
-  row("kind", tr("In the place of Chat"), kind);
-  row("addon", tr("Add-on"), addon);
-  row("url", tr("Address"), url);
   const hint = el("p", { id: "mcFifthHint", className: "mc-fifth-hint" });
   group.append(hint);
   // wie die übrigen Teile der Seite: solange „Chat & More“ nicht gewählt ist, versteckt (Thunderbird
-  // blendet beim Wechsel nur aus, was schon da war – sonst stand die Wahl unten in General)
+  // blendet beim Wechsel nur aus, was schon da war – sonst stand der Hinweis unten in General)
   group.hidden = !!header.hidden;
   header.after(group);
-  const fillMenu = (list, items, value) => {
-    const popup = list.menupopup;
-    popup.textContent = "";
-    for (const [v, text, disabled] of items) {
-      const item = doc.createXULElement("menuitem");
-      item.setAttribute("value", v);
-      item.setAttribute("label", text);
-      if (disabled) {
-        item.setAttribute("disabled", "true");
-      }
-      popup.appendChild(item);
-    }
-    list.value = value;
-  };
   const fill = () => {
     const mode = FifthSpace.mode();
-    const spaces = spacesOf();
     const addonText = tr("Space of an add-on");
-    // Auswahl neu aufbauen (Erweiterungen können dazukommen)
-    fillMenu(kind, [["chat", tr("Chat")], ["addon", spaces.length ? addonText : `${addonText} (${tr("none installed")})`, !spaces.length],
-      ["web", tr("Website")], ["none", tr("Nothing")]], mode);
-    // dieselbe Wahl wie auf der Leiste (fehlt die gespeicherte Erweiterung, die erste vorhandene)
     const chosen = FifthSpace.addonChoice(Services.wm.getMostRecentWindow("mail:3pane"));
-    fillMenu(addon, spaces.map(a => [a.name, a.title]), chosen?.name || "");
-    if (doc.activeElement != url) {
-      url.value = getPref(FIFTH_URL_PREF, "");
-    }
-    rows.addon.hidden = mode != "addon";
-    rows.url.hidden = mode != "web";
     // Hinweis, solange Thunderbirds Chat-Einstellungen ausgeblendet sind
     const current = mode == "addon" ? chosen?.title || addonText
       : mode == "web" ? getPref(FIFTH_URL_PREF, "") || tr("Website") : tr("Nothing");
@@ -853,7 +784,19 @@ async function openRulesSettings(w) {
   return openHaloSettings(w, RULES_PANE);
 }
 const dataURIs = new Map();
-// crop: neuer viewBox („x y b h“) – dann ohne das erste <rect> (Kachel des Symbols)
+// Zuschnitt eines Symbols: neuer viewBox („x y b h“) und ohne die Kachel. Kachel ist das erste <rect>
+// außerhalb von <defs>/<clipPath>/<mask>/<pattern>/<symbol> – nicht das erste beliebige, sonst leert ein
+// Rechteck im clipPath den Zuschnitt und vom Symbol bleibt nur die Kachel (leeres weißes Quadrat)
+function cropSvg(text, crop) {
+  text = text.replace(/viewBox="[^"]*"/, `viewBox="${crop}"`);
+  const inDefs = [...text.matchAll(/<(defs|clipPath|mask|pattern|symbol)\b[^>]*>[^]*?<\/\1>/g)].map(m => [m.index, m.index + m[0].length]);
+  for (const m of text.matchAll(/<rect\b[^>]*\/>/g)) {
+    if (!inDefs.some(([a, b]) => m.index >= a && m.index < b)) {
+      return text.slice(0, m.index) + text.slice(m.index + m[0].length);
+    }
+  }
+  return text;
+}
 function dataURI(url, crop = null) {
   const key = url + (crop || "");
   if (!dataURIs.has(key)) {
@@ -862,7 +805,7 @@ function dataURI(url, crop = null) {
     let text = NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
     stream.close();
     if (crop) {
-      text = text.replace(/viewBox="[^"]*"/, `viewBox="${crop}"`).replace(/<rect\b[^>]*\/>/, "");
+      text = cropSvg(text, crop);
     }
     dataURIs.set(key, "data:image/svg+xml;charset=utf-8," + encodeURIComponent(text));
   }
@@ -1454,6 +1397,23 @@ function hookLooseTabs(w, restorers = null) {
   };
   const KEEP = /^about:accountsetup/;
   const spec = tab => tab.browser?.currentURI?.spec || "";
+  // Add-on-Seiten (addons.thunderbird.net, addons.mozilla.org und alle mit
+  // Installationsrecht) bleiben Tabs: Thunderbird zeigt die Rückfragen einer
+  // Installation nur für Seiten in Tabs des Hauptfensters an – im eigenen
+  // Fenster blieb „Erweiterung hinzufügen“ beim Herunterladen stehen
+  const ADDON_HOSTS = /^(addons\.thunderbird\.net|addons\.mozilla\.org)$/i;
+  const addonSite = url => {
+    try {
+      const uri = Services.io.newURI(url);
+      if (ADDON_HOSTS.test(uri.host)) {
+        return true;
+      }
+      const principal = Services.scriptSecurityManager.createContentPrincipal(uri, {});
+      return Services.perms.testExactPermissionFromPrincipal(principal, "install") == Services.perms.ALLOW_ACTION;
+    } catch {
+      return false;
+    }
+  };
   // nur Inhalts-Tabs: Termin im Tab, Suchergebnisse usw. könnten
   // ungespeicherte Eingaben bzw. eine laufende Suche halten
   const loose = tab => tab?.mode?.name == "contentTab" && !tab.__mcFifth && !tab.__mcByAddon && tm.tabInfo.includes(tab)
@@ -1470,6 +1430,9 @@ function hookLooseTabs(w, restorers = null) {
       if (tries < 25 && /^about:blank$|^$/.test(url)) {
         w.setTimeout(() => toWindow(tab, tries + 1), 200);
       }
+      return;
+    }
+    if (addonSite(url)) {
       return;
     }
     w.openDialog("chrome://messenger/content/extensionPopup.xhtml", "_blank",
@@ -2025,6 +1988,183 @@ function hookFindbarDone(doc) {
   for (const bar of doc.querySelectorAll("findbar")) {
     label(bar);
   }
+}
+
+// Empfänger-Vorschläge (Verfassen, Einladungen, Listen-Dialoge): jede Zeile
+// „Name — Adresse“ statt „Name <adresse>“, die Adresse grau (Stilblatt,
+// --mt-ac-secondary); ohne Namen nur die Adresse; Verteilerlisten nur mit
+// Namen und Gruppen-Symbol (mc-ac-list). Ins Feld eingefügt wird weiter der
+// Wert der Zeile („Name <adresse>“), wir ändern nur die Anzeige. Thunderbird
+// schreibt Name und Beschreibung der Zeile bei jeder neuen Eingabe neu
+// (_appendAutocompleteResults, auch in Teilen nacheinander) – darum diese
+// Methode der Liste umhüllen. Die Zeile legt Name und Beschreibung im
+// Schattenbaum untereinander; ein eigenes Stilblatt dort stellt sie
+// nebeneinander. Ältere Zeilen ohne autocomplete-row-item bleiben, wie sie sind.
+const ADDRESS_SUGGEST_SHADOW_CSS = `
+.labels-container { flex: 1 1 auto; flex-direction: row; align-items: baseline; min-width: 0; overflow: hidden; }
+.labels-container > .label { flex: 0 1 auto; min-width: 0; }
+.labels-container > .description { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; color: var(--mt-ac-secondary, GrayText); }
+.labels-container > .description::before { content: " \\2014  "; white-space: pre; }
+`;
+
+function hookAddressSuggest(win, cleanups) {
+  const doc = win.document;
+  if (doc.__mcAddressSuggest) {
+    return;
+  }
+  doc.__mcAddressSuggest = true;
+  let sheet = null;
+  const adopt = row => {
+    const root = row.shadowRoot;
+    if (!root) {
+      win.customElements.whenDefined("autocomplete-row-item").then(() => row.shadowRoot && adopt(row), () => {});
+      return;
+    }
+    if (!sheet) {
+      sheet = new win.CSSStyleSheet();
+      sheet.replaceSync(ADDRESS_SUGGEST_SHADOW_CSS);
+    }
+    if (!root.adoptedStyleSheets.includes(sheet)) {
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+    }
+  };
+  const listNames = () => {
+    const names = new Set();
+    for (const dir of MailServices.ab.directories) {
+      for (const list of dir.childNodes || []) {
+        names.add(list.dirName);
+      }
+    }
+    return names;
+  };
+  const format = popup => {
+    const controller = popup.mInput?.controller;
+    const items = popup.richlistbox?.children;
+    if (!controller || !items) {
+      return;
+    }
+    let lists = null;
+    const count = Math.min(controller.matchCount, items.length);
+    for (let i = 0; i < count; i++) {
+      const item = items[i];
+      const row = item.querySelector(":scope > autocomplete-row-item");
+      if (!row || !/-abook$/.test(item.getAttribute("originaltype") || "")) {
+        item.removeAttribute("mc-ac-list");
+        continue;
+      }
+      const value = controller.getValueAt(i) || "";
+      const label = controller.getLabelAt(i) || value;
+      // Adressbuchname hinter dem Wert (mail.autoComplete.commentColumn) bleibt
+      const extra = label.startsWith(value) ? label.slice(value.length) : "";
+      const m = value.match(/^\s*(.*?)\s*<([^<>]*)>\s*$/);
+      const name = (m ? m[1] : "").replace(/^"(.*)"$/, "$1").replace(/\\(["\\])/g, "$1");
+      const address = m ? m[2] : value;
+      lists ??= listNames();
+      const isList = !address.includes("@") || (name && lists.has(name) && address == name);
+      item.toggleAttribute("mc-ac-list", isList);
+      if (isList) {
+        row.label = name || address;
+        row.description = extra.replace(/^\s*\u2014\s*/, "") || null;
+      } else {
+        row.label = (name || address) + (name ? "" : extra);
+        row.description = name ? address + extra : null;
+      }
+      adopt(row);
+    }
+  };
+  const onShowing = event => {
+    const popup = event.target;
+    if (popup.localName != "panel" || popup.getAttribute("type") != "autocomplete-richlistbox"
+        || popup.id == "PopupGlodaAutocomplete" || typeof popup._appendAutocompleteResults != "function") {
+      return;
+    }
+    if (!popup.__mcAddressSuggest) {
+      const original = popup._appendAutocompleteResults;
+      popup._appendAutocompleteResults = function (...args) {
+        const result = original.apply(this, args);
+        try {
+          format(this);
+        } catch (e) {
+          log("address suggest error", e);
+        }
+        return result;
+      };
+      popup.__mcAddressSuggest = () => {
+        popup._appendAutocompleteResults = original;
+        delete popup.__mcAddressSuggest;
+      };
+    }
+    // die erste Füllung lief schon vor dem Öffnen
+    try {
+      format(popup);
+    } catch (e) {
+      log("address suggest error", e);
+    }
+  };
+  doc.addEventListener("popupshowing", onShowing, true);
+  cleanups.add(() => {
+    doc.removeEventListener("popupshowing", onShowing, true);
+    for (const popup of doc.querySelectorAll('panel[type="autocomplete-richlistbox"]')) {
+      popup.__mcAddressSuggest?.();
+      for (const item of popup.richlistbox?.children || []) {
+        item.removeAttribute("mc-ac-list");
+        const root = item.querySelector(":scope > autocomplete-row-item")?.shadowRoot;
+        if (root && sheet) {
+          root.adoptedStyleSheets = root.adoptedStyleSheets.filter(s => s != sheet);
+        }
+      }
+    }
+    delete doc.__mcAddressSuggest;
+  });
+}
+
+// Doppelte Empfänger-Vorschläge: Thunderbird fasst nur Karten mit gleichem
+// „Name <adresse>“ zusammen. Liegt dieselbe Adresse auf einer Karte mit
+// Namen und einer ohne (etwa im persönlichen Adressbuch und in „Gesammelte
+// Adressen“), erscheint sie zweimal. Die Zeile ohne Namen fällt dann weg;
+// Karten mit verschiedenen Namen bleiben beide. Rückgabe: Aufräumen.
+function patchAddressDuplicates() {
+  let proto;
+  try {
+    proto = ChromeUtils.importESModule("resource:///modules/AbAutoCompleteSearch.sys.mjs").AbAutoCompleteSearch?.prototype;
+  } catch (e) {
+    log("address duplicates: module", e);
+  }
+  const original = proto?._addToResult;
+  if (typeof original != "function" || original.__mcOriginal) {
+    return () => {};
+  }
+  const named = card => !!(card?.displayName || "").trim();
+  const patched = function (commentColumn, directory, card, emailToUse, isPrimaryEmail, result) {
+    try {
+      const collected = result?._collectedValues;
+      if (collected && card && !card.isMailList && emailToUse) {
+        const key = emailToUse.toLowerCase();
+        for (const [k, entry] of collected) {
+          if (entry.card?.isMailList || (entry.emailToUse || "").toLowerCase() != key) {
+            continue;
+          }
+          if (!named(card) && named(entry.card)) {
+            return undefined;
+          }
+          if (named(card) && !named(entry.card)) {
+            collected.delete(k);
+          }
+        }
+      }
+    } catch (e) {
+      log("address duplicates", e);
+    }
+    return original.apply(this, arguments);
+  };
+  patched.__mcOriginal = original;
+  proto._addToResult = patched;
+  return () => {
+    if (proto._addToResult == patched) {
+      proto._addToResult = original;
+    }
+  };
 }
 
 function hookComposeApple(win, cleanups) {
@@ -3391,8 +3531,13 @@ function hookMenubar(win, restorers) {
         el.setAttribute("accesskey", key);
       }
     }
+    // nur zurück, was noch im Fenster steht: eigene Einträge (halo.spaces im Help-Menü) haben ihre Rücksetzer
+    // schon entfernt; zurückgesetzt blieben sie nach einem Update ohne Neustart mit dem Code der alten Version
+    // stehen (mit 3.34.0 kopierte „Recommend“ so nur den Text, bis zum Neustart)
     for (const [el, parent, next] of moved.reverse()) {
-      parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+      if (el.isConnected) {
+        parent?.insertBefore(el, next?.parentNode == parent ? next : null);
+      }
     }
     created.forEach(e => e.remove());
     delete bar.__mcMenubar;
@@ -7390,6 +7535,41 @@ const CSS = `
   background: #fff;
   box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
 }
+/* Absenderkreis plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026:
+   „bezüglich knöpfe - variante A bitte“): Verlauf mit hellerer Oberkante,
+   Lichtkante oben, dunklere Unterkante und feiner Rand als Auflage über dem
+   Kreis (::after, damit sie auch über Foto und Logo liegt), leiser Schatten
+   wie die Kapseln; kein farbiger Schein (bleibt dem Hauptknopf) */
+#threadTree tr[is="thread-card"] .mc-avatar:not(.mc-has-img) {
+  background: linear-gradient(to bottom, color-mix(in srgb, #B4CAE4 86%, #fff), #A0B0D6 55%, color-mix(in srgb, #8A97C5 92%, #000));
+}
+#threadTree tr[is="thread-card"] .mc-avatar,
+#threadTree tr[is="thread-card"] .mc-avatar.mc-has-img {
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.14), 0 3px 5px -3px rgba(0, 0, 0, 0.32);
+}
+#threadTree tr[is="thread-card"] .mc-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62), inset 0 -1px 0 color-mix(in srgb, #8A97C5 62%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
+}
+#threadTree tr[is="thread-card"] .mc-avatar.mc-has-img::after {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.13), inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  #threadTree tr[is="thread-card"] .mc-avatar,
+  #threadTree tr[is="thread-card"] .mc-avatar.mc-has-img {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  #threadTree tr[is="thread-card"] .mc-avatar::after {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 color-mix(in srgb, #8A97C5 55%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
+  }
+  #threadTree tr[is="thread-card"] .mc-avatar.mc-has-img::after {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  }
+}
 #threadTree tr[is="thread-card"] .mc-avatar img {
   width: 100%;
   height: 100%;
@@ -8093,6 +8273,13 @@ class CardEnhancer {
     const attExpandedBefore = defaults.getBoolPref(ATT_EXPANDED, false);
     defaults.setBoolPref(ATT_EXPANDED, true);
     this.restorers.push(() => defaults.setBoolPref(ATT_EXPANDED, attExpandedBefore));
+    // Leseansicht ohne Auswahl ruhig leer („No Message Selected“, hookEmptyPane)
+    // statt Thunderbirds Startseite aus dem Netz – nur als Vorgabe: wer sie in
+    // den Einstellungen einschaltet, behält sie; Gehe zu > Startseite bleibt
+    const START_PAGE = "mailnews.start_page.enabled";
+    const startPageBefore = defaults.getBoolPref(START_PAGE, true);
+    defaults.setBoolPref(START_PAGE, false);
+    this.restorers.push(() => defaults.setBoolPref(START_PAGE, startPageBefore));
     // Mailliste nach Datum, neueste zuerst (wie Apple Mail) – nur als Vorgabe:
     // gilt für Ordner, deren Sortierung Thunderbird neu anlegt; eine gewählte
     // Sortierung (im Ordner gespeichert) bleibt, auch bei Updates
@@ -8139,6 +8326,28 @@ class CardEnhancer {
         try {
           cleanup();
         } catch {} // gewollt: Verfassen-Fenster schon geschlossen, nichts mehr aufzuräumen
+      }
+    });
+    // Empfänger-Vorschläge in jedem Fenster (Verfassen, Einladungen,
+    // Listen-Dialoge) als „Name — Adresse“, jede Adresse nur einmal
+    const suggestCleanups = new Set();
+    ExtensionSupport.registerWindowListener("mail-cards-address-suggest", {
+      onLoadWindow: w => {
+        try {
+          hookAddressSuggest(w, suggestCleanups);
+        } catch (e) {
+          log("address suggest hook error", e);
+        }
+      },
+    });
+    const unpatchDuplicates = patchAddressDuplicates();
+    this.restorers.push(() => {
+      ExtensionSupport.unregisterWindowListener("mail-cards-address-suggest");
+      unpatchDuplicates();
+      for (const cleanup of [...suggestCleanups]) {
+        try {
+          cleanup();
+        } catch {} // gewollt: Fenster schon geschlossen, nichts mehr aufzuräumen
       }
     });
   }
@@ -9175,6 +9384,7 @@ class CardEnhancer {
         img.hidden = true;
         letters.textContent = initialOf(typeof name == "function" ? name() : name, card);
         letters.hidden = false;
+        el.classList.remove("mc-has-img");
       };
       // kein Ersatztext „Profile picture …“, auch nicht während des Ladens
       img.removeAttribute("data-l10n-id");
@@ -9224,6 +9434,10 @@ class CardEnhancer {
           }
         }
         fixAvatar(this, opts.recipient || name, c);
+        // Foto sichtbar: Klasse für die Auflage des plastischen Kreises (das Bild
+        // liegt im Shadow DOM, CSS sieht es von außen nicht)
+        const shown = this.shadowRoot?.querySelector("img");
+        this.classList.toggle("mc-has-img", !!shown && !shown.hidden && !c?.isMailList);
         // Kartenansicht wie macOS-Kontakte: nur Name bzw. Firma, nie die E-Mail-Adresse
         // (zweite Zeile: Firma; ohne Namen steht die Firma oben, nur ohne beides die Adresse)
         const row = this.closest?.('tr[is="ab-card-row"]');
@@ -9329,6 +9543,8 @@ class CardEnhancer {
         fixAvatar(el, () =>
           el.closest(".card-container")?.querySelector(".name")?.textContent ||
           cw.document.getElementById("viewContactName")?.textContent || "");
+        const shown = el.shadowRoot?.querySelector("img");
+        el.classList.toggle("mc-has-img", !!shown && !shown.hidden && !el.classList.contains("is-mail-list"));
       }
     };
 
@@ -11186,9 +11402,14 @@ class CardEnhancer {
     const hookHelpMenu = () => {
       const d = w.document;
       const popup = d.getElementById("menu_HelpPopup");
-      if (!popup || d.getElementById("mcHaloSpaces")) {
+      const old = d.getElementById("mcHaloSpaces");
+      if (!popup || ownHelpItems.has(old)) {
         return;
       }
+      // liegengebliebener Eintrag einer älteren Version (bis 3.35 setzte die Menüleiste ihn beim Entladen
+      // zurück): er öffnete das Info-Fenster mit deren Code, also durch unseren ersetzen
+      old?.remove();
+      d.getElementById("mcCheckUpdatesSeparator")?.remove();
       const sep = d.createXULElement("menuseparator");
       sep.id = "mcCheckUpdatesSeparator";
       const item = d.createXULElement("menuitem");
@@ -11199,6 +11420,7 @@ class CardEnhancer {
       item.classList.add("menuitem-iconic");
       item.setAttribute("image", "resource://mailcards/about/icon.svg");
       item.addEventListener("command", () => this.openHaloWindow(w));
+      ownHelpItems.add(item);
       const anchor = d.getElementById("aboutName");
       popup.insertBefore(sep, anchor);
       popup.insertBefore(item, anchor);
@@ -11897,25 +12119,64 @@ class CardEnhancer {
       });
     };
 
-    // Tastenkürzel ⌃⌘S wie „Seitenleiste ausblenden/einblenden“ in Apple Mail:
-    // dieselbe Aktion wie der Seitenleisten-Knopf (GitHub #56). Nur macOS –
-    // für Windows/Linux ist noch kein Kürzel entschieden
+    // Tastenkürzel wie „Seitenleiste ausblenden/einblenden“ in Apple Mail: dieselbe Aktion wie der
+    // Seitenleisten-Knopf (GitHub #56). macOS ⌃⌘S, Windows und Linux Strg+B (GitHub #59; paneShortcut) –
+    // nur im Hauptfenster; im Verfassen-Fenster und in der Notiz der Aufgaben bleibt Strg+B fett
+    const OS = Services.appinfo.OS;
+    // steht der Fokus in einem Feld mit Formatierung (designMode bzw. contenteditable)?
+    const richTextFocus = () => {
+      try {
+        const el = Services.focus.focusedElement, fw = Services.focus.focusedWindow;
+        return fw?.document?.designMode == "on" || !!el?.isContentEditable;
+      } catch {
+        return false; // gewollt: ohne Auskunft gilt das Kürzel
+      }
+    };
+    // Kürzel im App-Menü (☰) anzeigen: Thunderbird liest „key“ nur beim ersten Öffnen einer Ansicht
+    const showAppShortcut = (id, key) => {
+      const button = w.document.getElementById(id);
+      if (!button) {
+        return;
+      }
+      const old = [button.getAttribute("key"), button.getAttribute("shortcut")];
+      button.setAttribute("key", key.id);
+      try {
+        const { ShortcutUtils } = ChromeUtils.importESModule("resource://gre/modules/ShortcutUtils.sys.mjs");
+        button.setAttribute("shortcut", ShortcutUtils.prettifyShortcut(key));
+      } catch (e) {
+        log("shortcut label error", e);
+      }
+      this.restorers.push(() => {
+        for (const [i, name] of ["key", "shortcut"].entries()) {
+          if (old[i] === null) {
+            button.removeAttribute(name);
+          } else {
+            button.setAttribute(name, old[i]);
+          }
+        }
+      });
+    };
     const hookSidebarKey = () => {
       const d = w.document;
-      if (!IS_MAC || d.getElementById("mcKeyToggleSidebar")) {
+      if (d.getElementById("mcKeyToggleSidebar")) {
         return;
       }
       // <command> statt oncommand am <key>: kein Skript im Attribut
       const commandset = d.createXULElement("commandset");
       const command = d.createXULElement("command");
       command.id = "mcCmdToggleSidebar";
-      command.addEventListener("command", () => toggleSidebar());
+      command.addEventListener("command", () => {
+        if (!paneShortcutBlocked("sidebar", OS, richTextFocus())) {
+          toggleSidebar();
+        }
+      });
       commandset.append(command);
       const keyset = d.createXULElement("keyset");
       const key = d.createXULElement("key");
+      const combo = paneShortcut("sidebar", OS);
       key.id = "mcKeyToggleSidebar";
-      key.setAttribute("key", "s");
-      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("key", combo.key);
+      key.setAttribute("modifiers", combo.modifiers);
       key.setAttribute("command", "mcCmdToggleSidebar");
       keyset.append(key);
       d.documentElement.append(commandset, keyset);
@@ -11923,21 +12184,34 @@ class CardEnhancer {
         keyset.remove();
         commandset.remove();
       });
+      if (IS_MAC) {
+        return;
+      }
+      // Windows und Linux: Thunderbirds Punkt zur Ordnerliste (Ansicht bzw. ☰ › Ansicht › Layout) zeigt das Kürzel –
+      // er schaltet dieselbe Spalte (Thunderbirds Wege ziehen mit, hookSpacesToggle)
+      const item = d.getElementById("menu_showFolderPane");
+      if (item && !item.hasAttribute("key")) {
+        item.setAttribute("key", key.id);
+        this.restorers.push(() => item.removeAttribute("key"));
+      }
+      showAppShortcut("appmenu_showFolderPane", key);
     };
 
-    // Tastenkürzel ⌃⌘T blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle
-    // (Animation inklusive); im Menü steht das Kürzel am Punkt „Today Pane“
-    // (Thunderbirds F11 bleibt daneben bestehen). Nur macOS – für Windows/Linux
-    // ist noch kein Kürzel entschieden (zusammen mit ⌃⌘S, Maintainer-Entscheidung offen)
+    // Tastenkürzel blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle (Animation inklusive): macOS ⌃⌘T,
+    // Windows und Linux Strg+T (paneShortcut); im Menü steht das Kürzel am Punkt „Today Pane“
+    // (Thunderbirds F11 bleibt daneben bestehen)
     const hookTodayKey = () => {
       const d = w.document;
-      if (!IS_MAC || d.getElementById("mcKeyToggleTodayPane")) {
+      if (d.getElementById("mcKeyToggleTodayPane")) {
         return;
       }
       const commandset = d.createXULElement("commandset");
       const command = d.createXULElement("command");
       command.id = "mcCmdToggleTodayPane";
       command.addEventListener("command", () => {
+        if (paneShortcutBlocked("today", OS, richTextFocus())) {
+          return;
+        }
         const btn = d.getElementById("mcTodayToggle");
         if (btn) {
           btn.click();
@@ -11948,9 +12222,10 @@ class CardEnhancer {
       commandset.append(command);
       const keyset = d.createXULElement("keyset");
       const key = d.createXULElement("key");
+      const combo = paneShortcut("today", OS);
       key.id = "mcKeyToggleTodayPane";
-      key.setAttribute("key", "t");
-      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("key", combo.key);
+      key.setAttribute("modifiers", combo.modifiers);
       key.setAttribute("command", "mcCmdToggleTodayPane");
       keyset.append(key);
       d.documentElement.append(commandset, keyset);
@@ -11971,6 +12246,9 @@ class CardEnhancer {
         keyset.remove();
         commandset.remove();
       });
+      if (!IS_MAC) {
+        showAppShortcut("appmenu_calShowTodayPane-2", key);
+      }
     };
 
     // Bereiche-Leiste: ein eigener Knopf dafür entfällt (die Leiste gehört zur
@@ -12872,7 +13150,12 @@ class CardEnhancer {
           return;
         }
         if (typeof animWidth == "number") {
-          setVar(row, "--mc-tp-w", `${Math.round(animWidth)}px`);
+          // nur an Fläche und Knopf selbst, nicht an der Zeile: ein Wert an der
+          // Zeile vererbt sich an alle Knöpfe der Symbolleiste, die dann in
+          // jedem Bild neu gestaltet wurden (rund 150 Elemente je Bild, auf
+          // langsamen Rechnern reichte die Zeit eines Bildes nicht mehr)
+          setVar(top, "--mc-tp-w", `${Math.round(animWidth)}px`);
+          setVar(btn, "--mc-tp-w", `${Math.round(animWidth)}px`);
           row.toggleAttribute("data-mc-tp-none", Math.round(animWidth) <= 0);
           return;
         }
@@ -12882,6 +13165,8 @@ class CardEnhancer {
         const width = panel && w.TodayPane?.isVisible ? Math.round(panel.getBoundingClientRect().width) : 0;
         const caption = captionWidth(d);
         setVar(row, "--mc-tp-w", `${width}px`);
+        top.style.removeProperty("--mc-tp-w");
+        btn.style.removeProperty("--mc-tp-w");
         setVar(row, "--mc-tp-room", `${width}px`);
         row.toggleAttribute("data-mc-tp-open", width > 0);
         // ohne Today-Pane auch keine Fläche oben (ihr Innenabstand ließe
@@ -14987,6 +15272,8 @@ function readSetting([pref, type, def]) {
   return Services.prefs.getStringPref(pref, def);
 }
 
+// Einträge „halo.spaces“ im Help-Menü, die diese Version angelegt hat (hookHelpMenu)
+const ownHelpItems = new WeakSet();
 var enhancer = null;
 // Fehlerbehebung: Design und eigene Symbole aus/an (about:config) – gelten sofort (rebuildEnhancerSoon)
 const REBUILD_PREFS = ["extensions.mailcards.bundledTheme", "extensions.mailcards.appleIcons"];

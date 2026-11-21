@@ -164,6 +164,19 @@ const UndoSend = {
 // schiebt fällige Mails in den Postausgang, Thunderbird sendet sie dann.
 // Läuft Thunderbird zur Zeit nicht, geht die Mail beim nächsten Start hinaus.
 const SEND_AT = "x-halo-send-at";
+// Postausgang im Hintergrund senden wie Thunderbird selbst: dessen
+// automatischer Weg (nsMsgSendLater, Zeitgeber nach „Nachricht im Postausgang
+// abgelegt“) überspringt Mails mit dem Flag „Queued“, also die mit
+// Thunderbirds „Später senden“ absichtlich zurückgehaltenen. SendUnsentMessages()
+// gilt dagegen als vom Nutzer ausgelöst und sendet den ganzen Postausgang mit.
+function sendOutboxInBackground() {
+  const outbox = MailServices.accounts.localFoldersServer?.rootFolder?.getFolderWithFlags(Ci.nsMsgFolderFlags.Queue);
+  if (!outbox || Services.io.offline) {
+    return;
+  }
+  Cc["@mozilla.org/messengercompose/sendlater;1"].getService(Ci.nsIMsgSendLater)
+    .QueryInterface(Ci.nsIFolderListener).onMessageAdded(outbox, null);
+}
 const SendLater = {
   timer: null,
   ensureHeaderIndexed() {
@@ -359,7 +372,7 @@ const SendLater = {
         moved += done.length;
       }
       if (moved) {
-        Services.wm.getMostRecentWindow("mail:3pane")?.SendUnsentMessages?.();
+        sendOutboxInBackground();
       }
     } catch (e) {
       log("send later check error", e);
@@ -415,14 +428,15 @@ const SendLater = {
     return out.join("") + body;
   },
   // eine fällige Mail ohne die eigene Kopfzeile in den Postausgang (wie
-  // Thunderbirds „Später senden“: Umschlag und Flag „Queued“)
+  // Thunderbirds Senden im Hintergrund: Umschlag, ohne Flag „Queued“ – das
+  // tragen nur mit „Später senden“ zurückgehaltene Mails, die liegen bleiben)
   async queueWithoutHeader(hdr, outbox) {
     const raw = this.stripHeader(await this.readRaw(hdr));
     if (!/\n\r?\n/.test(raw)) {
       return false; // kein vollständiger Kopfteil gelesen, Entwurf bleibt
     }
     const date = new Date().toUTCString();
-    const data = `From - ${date}\r\nX-Mozilla-Status: 0800\r\nX-Mozilla-Status2: 00000000\r\n` + raw;
+    const data = `From - ${date}\r\nX-Mozilla-Status: 0000\r\nX-Mozilla-Status2: 00000000\r\n` + raw;
     const file = Services.dirsvc.get("TmpD", Ci.nsIFile);
     file.append("halo-sendlater.eml");
     file.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
@@ -432,7 +446,7 @@ const SendLater = {
       os.write(data, data.length);
       os.close();
       const ok = await new Promise(resolve => {
-        MailServices.copy.copyFileMessage(file, outbox, null, false, Ci.nsMsgMessageFlags.Queued, "", {
+        MailServices.copy.copyFileMessage(file, outbox, null, false, 0, "", {
           QueryInterface: ChromeUtils.generateQI(["nsIMsgCopyServiceListener"]),
           onStartCopy() {},
           onProgress() {},

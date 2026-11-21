@@ -11,13 +11,15 @@
 #   tests/board.sh status <id> <todo|arbeit|ok|done> [<Commit-Hash>]   done archiviert gleich mit (Hash fürs Archivverzeichnis);
 #                                                arbeit merkt sich, wer daran sitzt (~/halo-nacht/in-arbeit.tsv, Leitstand)
 #   tests/board.sh notiz <id> <Text>             hängt einen Absatz an den Text an
+#   tests/board.sh titel <id|Muster> <neuer Titel>   ersetzt den Titel eines offenen Eintrags (alter Wert ins Protokoll)
+#   tests/board.sh text <id|Muster> <neuer Text>     ersetzt den ganzen Text eines offenen Eintrags (alter Wert ins Protokoll)
 #   tests/board.sh archiv <id> [<Commit-Hash>]   schreibt eine Zeile ins Archivverzeichnis, dann archiviert
 #   tests/board.sh suche <Begriff>               offene und Done-Einträge sowie archivierte (Verzeichnis), höchstens 10 Zeilen
 #   tests/board.sh archiv-zeige <id>             Status und Text eines (auch archivierten) Eintrags per Board-id
 #   tests/board.sh nachtragen                    Warteschlange (nicht angekommene Notizen/Status) nachtragen, Rest zeigen
 # Status: todo = Todo, arbeit (auch in_progress) = In Progress, ok = Wartet auf OK, done = Done.
-# Abfragelimit von GitHub: jeder gh-Aufruf wartet und wiederholt (tests/gh-wdh.zsh). Kommt eine Notiz oder ein
-# Status trotzdem nicht an (Limit hält an, Board nicht lesbar), steht er in der Warteschlange
+# Abfragelimit von GitHub: jeder gh-Aufruf wartet und wiederholt (tests/gh-wdh.zsh). Kommt eine Notiz, ein
+# Status, Titel oder Text trotzdem nicht an (Limit hält an, Board nicht lesbar), steht er in der Warteschlange
 # ~/halo-nacht/board-warteschlange.txt (Warnung, Exitcode 0 – nicht selbst wiederholen, sonst doppelt); der nächste
 # Aufruf, der das Board lesen kann, trägt ihn nach (Wochenprüfung W46: Notiz mit Hash ging am 14.11. verloren).
 # Vor „neu“ mit „liste '^Bereich:'“ prüfen, ob ein offener Eintrag ergänzt werden sollte.
@@ -41,6 +43,10 @@ fehler() { print -u2 "FEHLER: $*"; exit 1 }
 source ${0:A:h}/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }   # (ältere Kopie ohne gh-wdh.zsh: ohne Wiederholen)
 SKRIPT=${0:A}                                  # ($0 ist in Funktionen deren Name)
 WARTESCHLANGE=${HALO_BOARD_WARTESCHLANGE:-$HOME/halo-nacht/board-warteschlange.txt}
+# titel/text: vor jeder Änderung eine Zeile „<Zeit>\t<titel|text>\t<id>\t<alter Wert>\t<neuer Wert, 200 Zeichen>“
+# (Werte einzeilig: \n, \t und \\ als Zeichen), damit sich ein Versehen rückgängig machen lässt
+AENDERUNGEN=${HALO_BOARD_AENDERUNGEN:-${WARTESCHLANGE:h}/board-aenderungen.log}
+einzeilig() { local s=${1//\\/\\\\}; s=${s//$'\n'/\\n}; s=${s//$'\t'/\\t}; print -rn -- $s }
 
 # Zwischenspeicher (Abfragelimit, 15.11.2026: Durchsicht von 17 Einträgen und Schreibbefehle luden das ganze Board
 # je Aufruf und verbrauchten das Stundenkontingent): lesende Befehle sowie status und archiv nehmen die Liste aus
@@ -64,6 +70,30 @@ zw_aendern() {   # <jq-Filter> [jq-Argumente]: Zwischenspeicher und BOARD nachf�
   BOARD=$(print -r -- $BOARD | jq -c "$@" "$f") && zw_speichern $BOARD || { BOARD=; rm -f $ZWISCHEN; }
   return 0
 }
+# Anlagedatum und Statuswechsel je Eintrag (gh project item-list liefert sie nicht): eine GraphQL-Abfrage, höchstens alle
+# HALO_BOARD_ALTER_S Sekunden (Standard 900, Abfragelimit); ein jüngerer Stand des Leitstands (tests/leitstand-status.zsh,
+# board48-sichtbar.json, gleiche Abfrage) zählt mit. Gibt [{id, createdAt, statusSeit}] aus, bei Fehler [] (nie Abbruch).
+ALTER_DATEI=${HALO_BOARD_ALTER:-$HOME/halo-nacht/board-alter.json}
+ALTER_S=${HALO_BOARD_ALTER_S:-900}
+LEITSTAND_ALTER=${HALO_BOARD_ALTER_LEITSTAND:-$HOME/halo-nacht/leitstand/quellen/board48-sichtbar.json}
+alter_laden() {
+  local m l roh
+  m=$(zstat +mtime $ALTER_DATEI 2>/dev/null) || m=0
+  if [[ -s $LEITSTAND_ALTER ]] && l=$(zstat +mtime $LEITSTAND_ALTER 2>/dev/null) && (( l > m && EPOCHSECONDS - l < ALTER_S )); then
+    roh=$(jq -c '[.[] | {id, createdAt, statusSeit: .fieldValueByName.updatedAt}]' $LEITSTAND_ALTER 2>/dev/null) \
+      && [[ $roh == \[* ]] && { mkdir -p ${ALTER_DATEI:h} && print -r -- $roh > $ALTER_DATEI.neu && mv $ALTER_DATEI.neu $ALTER_DATEI } 2>/dev/null \
+      && m=$EPOCHSECONDS
+  fi
+  if [[ ! -s $ALTER_DATEI ]] || (( EPOCHSECONDS - m >= ALTER_S )); then
+    roh=$(gh_wdh api graphql --paginate -f query='query($endCursor:String){user(login:"sruf79"){projectV2(number:1){items(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id createdAt fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{updatedAt}}}}}}}' \
+      --jq '.data.user.projectV2.items.nodes[] | {id, createdAt, statusSeit: .fieldValueByName.updatedAt}' 2>/dev/null | jq -cs . 2>/dev/null)
+    if [[ $roh == \[\{* ]]; then { mkdir -p ${ALTER_DATEI:h} && print -r -- $roh > $ALTER_DATEI.neu && mv $ALTER_DATEI.neu $ALTER_DATEI } 2>/dev/null
+    elif [[ -s $ALTER_DATEI ]]; then roh=$(<$ALTER_DATEI)   # (alter Stand ist besser als keiner: Anlagedaten ändern sich nie)
+    else roh='[]'; fi
+    print -r -- $roh; return 0
+  fi
+  jq -c . $ALTER_DATEI 2>/dev/null || print '[]'
+}
 BOARD=
 FRISCH=
 board_laden() {
@@ -77,9 +107,9 @@ board() {
   board_laden || fehler "Board nicht lesbar (gh project, Scope project?)"
   print -r -- $BOARD
 }
-# Notiz oder Status, der nicht ankam: eine Zeile „<Zeit>\t<notiz|status>\t<id>\t<Wert base64>\t<Vorschau>“;
+# Notiz, Status, Titel oder Text, der nicht ankam: eine Zeile „<Zeit>\t<notiz|status|titel|text>\t<id>\t<Wert base64>\t<Vorschau>“;
 # beim Nachtragen selbst nicht erneut (HALO_BOARD_NACHTRAG gesetzt: Zeile bleibt einfach stehen)
-in_warteschlange() {   # <notiz|status> <id> <Wert> <Grund>
+in_warteschlange() {   # <notiz|status|titel|text> <id> <Wert> <Grund>
   [[ -n $HALO_BOARD_NACHTRAG ]] && fehler "$4"
   [[ $2 == PVTI_* ]] || fehler "$4 (keine Board-id, nicht in die Warteschlange)"
   mkdir -p ${WARTESCHLANGE:h} && print -r -- "$(date '+%F %T')	$1	$2	$(print -rn -- $3 | base64 | tr -d '\n')	${${3//$'\n'/ }[1,60]}" >> $WARTESCHLANGE \
@@ -87,15 +117,23 @@ in_warteschlange() {   # <notiz|status> <id> <Wert> <Grund>
   print -u2 "WARNUNG: $4 – in der Warteschlange ($WARTESCHLANGE), der nächste board.sh-Aufruf trägt es nach; nicht selbst wiederholen"
   exit 0
 }
-# Warteschlange abarbeiten (je Zeile ein eigener Aufruf mit frischem Text); was wieder scheitert, bleibt stehen
+# Warteschlange abarbeiten (je Zeile ein eigener Aufruf mit frischem Text); was wieder scheitert, bleibt stehen;
+# titel/text für einen nicht mehr offenen Eintrag (Exitcode 3) wird verworfen
 nachtragen() {
   [[ -s $WARTESCHLANGE && -z $HALO_BOARD_NACHTRAG ]] || return 0
-  local zeit art id wert rest z bleibt=() n=0
+  local zeit art id wert rest z bleibt=() n=0 rc
   while IFS=$'\t' read -r zeit art id wert rest; do
     z="$zeit	$art	$id	$wert	$rest"
     wert=$(print -r -- $wert | base64 -D 2>/dev/null)
-    if [[ $art == notiz ]] && HALO_BOARD_NACHTRAG=1 zsh $SKRIPT notiz $id "$wert" >/dev/null 2>&1; then n=$((n + 1))
-    elif [[ $art == status ]] && HALO_BOARD_NACHTRAG=1 zsh $SKRIPT status $id ${=wert} >/dev/null 2>&1; then n=$((n + 1))
+    case $art in
+      notiz) HALO_BOARD_NACHTRAG=1 zsh $SKRIPT notiz $id "$wert" >/dev/null 2>&1;;
+      status) HALO_BOARD_NACHTRAG=1 zsh $SKRIPT status $id ${=wert} >/dev/null 2>&1;;
+      titel|text) HALO_BOARD_NACHTRAG=1 zsh $SKRIPT $art $id "$wert" >/dev/null 2>&1;;
+      *) false;;
+    esac
+    rc=$?
+    if (( rc == 0 )); then n=$((n + 1))
+    elif (( rc == 3 )) && [[ $art == (titel|text) ]]; then print -u2 "Warteschlange: $art für $id verworfen (Eintrag nicht mehr offen)"
     else bleibt+=("$z"); fi
   done < $WARTESCHLANGE
   if (( ${#bleibt} )); then print -rl -- $bleibt > $WARTESCHLANGE.neu && mv $WARTESCHLANGE.neu $WARTESCHLANGE
@@ -112,6 +150,11 @@ eintrag() {
     print -r -- $e; return 0
   fi
   e=$(board | jq -c --arg i $1 '[.items[] | select(.id == $i)]')
+  if [[ $(print -r -- $e | jq length) == 0 && $1 == PVTI_* ]]; then   # unbekannte id (z. B. eben mit „neu“ angelegt, Zwischenspeicher kennt sie nicht): einzeln abfragen
+    e=$(eintrag_direkt $1)
+    if [[ -n $e && $(print -r -- $e | jq -r '.archiviert') != true ]]; then print -r -- $e; return 0; fi
+    e='[]'
+  fi
   if [[ $(print -r -- $e | jq length) == 0 ]]; then
     e=$(board | jq -c --arg m $1 '[.items[] | select(.status != "Done" and (.title | test($m; "i")))]') \
       || fehler "Muster ungültig: $1"
@@ -121,8 +164,8 @@ eintrag() {
   print -r -- $e | jq -c '.[0]'
 }
 eintrag_direkt() {   # <PVTI_…-id> → Eintrag (JSON wie in der Liste, nur die genutzten Felder), ohne das Board zu laden
-  gh_wdh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{id st: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}} typ: fieldValueByName(name:"Typ"){... on ProjectV2ItemFieldSingleSelectValue{name}} content{... on DraftIssue{id title body}}}}}' -f i=$1 \
-    --jq '.data.node | select(.id != null) | {id, typ: .typ.name, status: .st.name, title: .content.title, content: {id: .content.id, body: .content.body}}'
+  gh_wdh api graphql -f query='query($i:ID!){node(id:$i){... on ProjectV2Item{id isArchived st: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}} typ: fieldValueByName(name:"Typ"){... on ProjectV2ItemFieldSingleSelectValue{name}} content{... on DraftIssue{id title body}}}}}' -f i=$1 \
+    --jq '.data.node | select(.id != null) | {id, archiviert: .isArchived, typ: .typ.name, status: .st.name, title: .content.title, content: {id: .content.id, body: .content.body}}'
 }
 setze() {   # <Item-id> <Feld> <Option>
   gh_wdh project item-edit --project-id $PROJEKT --id $1 --field-id $2 --single-select-option-id $3 >/dev/null
@@ -149,14 +192,14 @@ in_arbeit_setzen() {   # <id> <Titel>
 befehl=$1; (( $# )) && shift
 # einmal laden (im eigenen Prozess, nicht in $(…)): danach liest jeder Schritt dieselbe Liste
 # (notiz/status mit Board-id: auch ohne lesbares Board weiter – dann in die Warteschlange)
-if [[ $befehl == (liste|export|zeige|neu|status|notiz|archiv|suche|nachtragen) ]]; then
-  [[ $befehl == (notiz|neu|nachtragen) ]] && FRISCH=1
+if [[ $befehl == (liste|export|zeige|neu|status|notiz|titel|text|archiv|suche|nachtragen) ]]; then
+  [[ $befehl == (notiz|titel|text|neu|nachtragen) ]] && FRISCH=1
   # notiz, status und archiv mit Board-id fragen nur den einen Eintrag ab (ein Punkt statt der ganzen Liste, die
   # mehr als 1000 Punkte kosten kann); ein frischer Zwischenspeicher wird nur mitgenutzt
-  if [[ $befehl == (notiz|status|archiv) && $1 == PVTI_* ]]; then
+  if [[ $befehl == (notiz|titel|text|status|archiv) && $1 == PVTI_* ]]; then
     zw_frisch && BOARD=$(<$ZWISCHEN)
   else
-    board_laden || [[ $befehl == (notiz|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
+    board_laden || [[ $befehl == (notiz|titel|text|status) && $1 == PVTI_* ]] || fehler "Board nicht lesbar (gh project, Scope project?)"
     [[ -n $BOARD ]] && nachtragen && board_laden
   fi
 fi
@@ -166,7 +209,12 @@ case $befehl in
       | sort_by(.title)[] | "\(.id)  \(.typ // "-")  \(.status // "-")  \(.title)"'
     ;;
   export)
-    board | jq -c '{items: [.items[] | select(.status != "Done") | {id, typ, status, title, body: (.content.body // "")}]}'
+    # mit Anlagedatum (createdAt) und Zeit des letzten Statuswechsels (statusSeit) für tests/haeufung.py (Alters-Zuschlag)
+    # und tests/morgenbrief.sh („Überfällig“); fehlen sie, null (Board-Eintrag „Ablauf: Alter der Einträge …“, 20.11.2026)
+    typeset alter; alter=$(alter_laden)
+    board | jq -c --argjson a "${alter:-[]}" '($a | map({key: .id, value: .}) | from_entries) as $m
+      | {items: [.items[] | select(.status != "Done")
+        | {id, typ, status, title, body: (.content.body // ""), createdAt: $m[.id].createdAt, statusSeit: $m[.id].statusSeit}]}'
     ;;
   zeige)
     [[ -n $1 ]] || fehler "Aufruf: board.sh zeige <id|Muster> [<id|Muster> …]"
@@ -232,6 +280,50 @@ $2" >/dev/null || in_warteschlange notiz $(print -r -- $e | jq -r .id) "$2" "Not
 
 $2"
     print -r -- "$(print -r -- $e | jq -r .id)  Notiz ergänzt: $(print -r -- $e | jq -r .title)"
+    ;;
+  titel|text)
+    # Vorhandene Einträge bearbeiten (laut neon-board erlaubte der Maintainer am 20.11.2026: „du darfst ab sofort
+    # für jetzt und später immer vorhandene board-einträge bearbeiten“; von uns nicht geprüft). Ersetzt Titel bzw.
+    # ganzen Text genau eines offenen Entwurfs (nicht Done, nicht archiviert); Typ und Status bleiben (Mutation
+    # updateProjectV2DraftIssue nur mit diesem einen Feld). Gleicher Wert: nichts tun (Nachtragen idempotent).
+    # Der alte Wert kommt vorher ins Änderungsprotokoll; scheitert das Schreiben: Warteschlange wie bei notiz.
+    typeset e eid di alt neu=$2 was=${${befehl:/titel/Titel}:/text/Text}
+    [[ -n $1 && $# == 2 ]] || fehler "Aufruf: board.sh $befehl <id|Muster> <neuer $was>"
+    [[ -n ${neu//[[:space:]]/} ]] || fehler "neuer $was leer – nichts geändert"
+    if [[ $befehl == titel ]]; then
+      [[ $neu != *$'\n'* ]] || fehler "Titel mit Zeilenumbruch – nichts geändert"
+      (( ${#neu} <= 256 )) || fehler "Titel länger als 256 Zeichen (${#neu}) – nichts geändert"
+    fi
+    if [[ $1 == PVTI_* ]]; then
+      e=$(eintrag_direkt $1)
+      [[ -n $e ]] || in_warteschlange $befehl $1 "$neu" "Eintrag nicht lesbar, $was für $1 nicht geändert"
+      zw_frisch && BOARD=$(<$ZWISCHEN)   # (Zwischenspeicher nur nachführen, nie dafür laden)
+    else
+      [[ -n $BOARD ]] || fehler "Board nicht lesbar, $was für „$1“ nicht geändert (mit id kommt er in die Warteschlange)"
+      e=$(eintrag $1) || exit 1
+    fi
+    eid=$(print -r -- $e | jq -r .id)
+    # Exitcode 3: endgültig abgelehnt (nachtragen verwirft die Zeile)
+    [[ $(print -r -- $e | jq -r '.archiviert // false') == true ]] && { print -u2 "FEHLER: $eid ist archiviert – nur offene Einträge"; exit 3 }
+    [[ $(print -r -- $e | jq -r '.status // ""') == Done ]] && { print -u2 "FEHLER: $eid ist Done – nur offene Einträge"; exit 3 }
+    di=$(print -r -- $e | jq -r '.content.id // ""')
+    [[ $di == DI_* ]] || fehler "kein Entwurf im Board (content.id $di) – $was von Hand"
+    alt=$(print -r -- $e | jq -r --arg f $befehl 'if $f == "titel" then (.title // "") else (.content.body // "") end')
+    if [[ "$alt" != "$neu" ]]; then
+      { mkdir -p ${AENDERUNGEN:h} && print -r -- "$(date '+%F %T')	$befehl	$eid	$(einzeilig "$alt")	$(einzeilig "${neu[1,200]}")" >> $AENDERUNGEN } 2>/dev/null \
+        || fehler "Änderungsprotokoll nicht beschreibbar ($AENDERUNGEN) – nichts geändert"
+      gh_wdh api graphql -f query="mutation(\$d:ID!,\$v:String!){updateProjectV2DraftIssue(input:{draftIssueId:\$d,${${befehl:/titel/title}:/text/body}:\$v}){draftIssue{id}}}" \
+        -f d=$di -f v="$neu" >/dev/null || in_warteschlange $befehl $eid "$neu" "$was ließ sich nicht ändern"
+      if [[ $befehl == titel ]]; then zw_aendern '(.items[] | select(.id == $i) | .title) = $v' --arg i $eid --arg v "$neu"
+      else zw_aendern '(.items[] | select(.id == $i) | .content.body) = $v' --arg i $eid --arg v "$neu"; fi
+    fi
+    # ältere Werte derselben Art in der Warteschlange würden den neuen sonst beim Nachtragen überschreiben
+    if [[ -z $HALO_BOARD_NACHTRAG && -s $WARTESCHLANGE ]] && grep -qF "	$befehl	$eid	" $WARTESCHLANGE; then
+      { grep -vF "	$befehl	$eid	" $WARTESCHLANGE > $WARTESCHLANGE.neu; mv $WARTESCHLANGE.neu $WARTESCHLANGE
+        [[ -s $WARTESCHLANGE ]] || rm -f $WARTESCHLANGE } 2>/dev/null
+    fi
+    if [[ "$alt" == "$neu" ]]; then print -r -- "$eid  $was unverändert (steht schon so): $(print -r -- $e | jq -r .title)"
+    else print -r -- "$eid  $was geändert: $([[ $befehl == titel ]] && print -r -- $neu || print -r -- $e | jq -r .title)"; fi
     ;;
   archiv)
     typeset e aid

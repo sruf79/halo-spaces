@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/sruf79/halo-spaces/releases/latest"><b>Download the latest version</b></a>
   &nbsp;·&nbsp; <a href="#installation">Installation</a>
-  &nbsp;·&nbsp; <a href="#whats-new-in-3190">What's new</a>
+  &nbsp;·&nbsp; <a href="#whats-new-in-3350">What's new</a>
 </p>
 
 halo.spaces is **one package** for Thunderbird 153 or newer: the design, its own
@@ -53,6 +53,7 @@ Every message gets a round sender picture, **automatically**:
 The list shows calm message cards with a two-line preview, time, star and
 paperclip. Unread mail can get a light accent tint, replied and forwarded
 mail a small arrow. Prefer columns? Switch to a classic table in one menu.
+Attachments sit below the message as tiles with their own save button; verification and sign-in codes appear above the message with a Copy button.
 
 <br clear="right">
 
@@ -63,10 +64,11 @@ mail a small arrow. Prefer columns? Switch to a classic table in one menu.
 </p>
 
 - **Light and dark** follow macOS, the **accent colour** follows your system
-- **Coloured spaces** on the left: Mail, Contacts, Calendar, Tasks and Chat, all with the same toolbar and sidebar edges
+- **Coloured spaces** on the left: Mail, Contacts, Calendar, Tasks and Chat, all with the same toolbar and sidebar edges; the active tile catches the light with a soft glow in its colour (can be turned off)
 - Its **own icons** throughout: toolbar, folders, menus
 - **No scrollbars**: scrolling still works with wheel, trackpad and keyboard
-- Sidebars **slide** in and out; drag a divider all the way to close a sidebar, double-click it to reset
+- Sidebars **slide** in and out: hide the sidebar with its button or ⌃⌘S; when hidden, rest the pointer at the left edge and it floats in; drag a divider all the way to close it, double-click it to reset
+- When the window gets narrow, the search field shrinks to the magnifier and whole button groups move into a » menu
 - Questions appear as a **sheet** at the top of the window, dialogs without a title bar
 - Messages in the **system font**; respects **Increase contrast** in the accessibility settings
 
@@ -79,6 +81,7 @@ The Today pane runs to the top of the window and stays the same in every space:
 - the **current weather** as the symbol next to the title, for your city or your location (optional, data from Open-Meteo)
 - a **mini calendar**
 - an **agenda card** up to the end of the month, with "now" and "in 2 hr" for upcoming events
+- Control-Command-T shows and hides the Today pane
 - a button for a **new event** right in the header
 
 <br clear="right">
@@ -103,11 +106,13 @@ The search field sits top right, like on the Mac:
 - **Send Later**: tonight, tomorrow morning or a time of your choice, from the arrow on the send button
 - **Remind Me**: the message comes back unread in an hour, tonight, tomorrow or next week
 - **Follow Up**: a gentle note about your own messages that got no reply
-- **Whole conversations**: received mail and your own replies from Sent, newest first
+- **Whole conversations**: received mail and your own replies from Sent, newest first; click a card and Reply, Reply All and Forward act on that message; long quoted history folds behind Show More
 - **Filter menu**: hold or right-click the filter button for Unread, Starred, Only from Contacts or Only with Attachments
 - **Quick Look** for attachments: press the space bar in the attachment list or choose Quick Look from its menu (macOS, Thunderbird 158 or newer)
 - **Mailing lists** show a quiet note with Unsubscribe, which disappears once you're out
 - **Unified inboxes**, Inbox always first
+- **Rules**: all rules of all accounts in one list in Settings, each with its own switch
+- **Import Outlook data files (PST)** from File > Import…: mail, contacts, events and tasks, without duplicates; **Archive Account Locally** keeps a local copy of an account, later runs copy only new mail
 - A calm **writing window**: symbols-only toolbar, round send button, format bar on demand, attachments as tiles
 - **Encryption** at a glance: a clear lock while writing, a quiet lock and seal on encrypted or signed mail
 
@@ -120,11 +125,12 @@ The search field sits top right, like on the Mac:
 
 - Day, Week, Multiweek and Month switcher in the title bar, a **month view without scrollbars**
 - **Quick event window**: just type, "tomorrow 12:30 for 90 min" or "Fri 9 to 11"; repeat and alerts with custom rules; a double-click in the calendar opens it too
+- Type date and time right in the fields; change one occurrence or all future events of a series; search shows matches in a panel next to the calendar
 - A clear **event window** with cards for time, location, invitees and calendar, and date and time in one popover
 - **Emojis** before event titles (birthday, dentist, training …), with your own keywords
 - **Birthdays** from your address books as their own calendar
-- **Tasks** as a list with details on the right, filters in a menu
-- Calm **reminders** with a calendar icon showing month and day
+- **Tasks** laid out like Mail: list, card, table or **Kanban** view, details editable right in the column, archive done tasks
+- Calm **reminders** as system notifications with a calendar icon showing month and day; a click opens the event
 
 ### One address book
 
@@ -132,7 +138,7 @@ The search field sits top right, like on the Mac:
   <img src="screenshots/addressbook-contacts.png" alt="Unified address book" width="100%">
 </p>
 
-- All address books in **one list**, duplicates merged, account labels in the account colours
+- All address books in **one list**, duplicates merged, account labels in the account colours; **Search** on a contact shows all mail from and to them
 - Contact photos with a **round crop and zoom slider**
 - Cards with name or company only, the details on the right
 
@@ -140,7 +146,7 @@ The search field sits top right, like on the Mac:
 
 <img src="screenshots/welcome.png" alt="Welcome window: weather and what to show instead of Chat" width="38%" align="right">
 
-- **Drag** a space up or down in the spaces bar to reorder it, the others move out of the way
+- **Drag** a space up or down in the spaces bar to reorder it, the others move out of the way; ⌘1 to ⌘5 follow your order
 - Don't use Chat? Replace it with **the space of another add-on**, for example your favourite chat or notes add-on, or with **a website** you keep open all day, or with nothing at all
 - A short **welcome** after installing asks about weather and Chat, everything else just works
 - All options in one place: **Settings → halo.spaces**, next to Account Settings and Add-ons, and found by the settings search
@@ -176,10 +182,38 @@ No `userChrome.css` is needed. An older copy of this theme in your profile's
 Options that belong to a view are set right there: preview lines under
 **View → Preview Lines**, contact photos and the Collected Addresses book in
 the contact list's **…** menu, and the Birthdays calendar with its checkbox in the calendar list. Everything else is
-in **Settings → halo.spaces** (also via **Help → halo.spaces → Settings…**).
+in **Settings → halo.spaces** (including the glow of the active space under "Light glow in the sidebar"; also via **Help → halo.spaces → Settings…**).
 Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
+
+## What's new in 3.36.0
+
+- **Buttons**: raised capsules in every space like the Mail toolbar (Contacts, Calendar with Day/Week/Month and Today, Tasks, the Chat bar, single round buttons, the "..." menus in the Add-ons Manager), with a light edge on top, a fine edge at the ends and a soft shadow; under the pointer a round 32 px circle shows the state
+- **Sender circles**: initials, contact photos and logos in the message list, the message header and Contacts share the same raised look
+- **Compose**: buttons and Send are 38 px high like the Mail toolbar, the window shows no "Write: ..." title text, and the header lines run To, Cc, Bcc, Subject, From, centred also on Linux
+- **Message window**: buttons of other add-ons behind "More" use the same raised capsule as Print
+- **Reading pane**: a new mail in the selected conversation appears as its card in place and the selection stays; the hairline above attachments runs the full width again
+- **Search**: the list header shows the number of hits while a search across many accounts is still running
+- **Sending**: messages held back with "Send Later" stay in the Outbox until you choose "Send Unsent Messages"
+- **Add-ons**: "Add Extension" on the add-ons page installs again
+- **About**: "Recommend" opens a new message right after an update, without a restart
+- **Today pane**: showing and hiding is lighter on slow computers; the indent of the toolbar buttons stays at its final size while the pane opens
+- **Calendar**: closing the event dialog no longer logs an error in the console
+
+## What's new in 3.35.0
+
+- **Settings**: the "halo.spaces" category shows its ring again instead of an empty white square
+
+## What's new in 3.34.0
+
+- **Mail**: with no message selected the reading pane shows a centred grey "No Message Selected" instead of the start page from the web; the start page stays reachable under Go > Start Page and can be switched back on with the "Start Page" setting
+- **Mail list**: the context menu has no empty icon column any more when a ticked entry such as Watch Thread is shown; all entries line up on one text edge
+- **Compose**: recipient suggestions look like the other menus, with each line as "Name — address" and the address in grey, no contact cards, small group icons for mailing lists, and the same address on two cards shown only once; "Align Text to Image" in the image dialog uses halo.spaces icons
+- **Contacts**: after cancelling a new contact, when opening and with an empty list, the focus is in the contact list so the arrow keys work without a click; the count in the list header counts contacts only, not mailing lists
+- **About**: "Recommend" opens a new message with subject and a short text including the link, ready to send (the text is copied to the clipboard if no account is set up)
+- **Add-ons Manager**: the "..." and gear menus have no empty icon column, all texts line up on one edge, and the icons are in the text colour
+- **Settings**: in halo.spaces the groups read Spaces, Mail, Calendar, Fifth space, Appearance, Troubleshooting; the choice for the fifth space moved from "Chat & More" into its own "Fifth space" group
 
 ## What's new in 3.33.0
 
@@ -431,7 +465,7 @@ Changes take effect right away unless noted.
 
 ## What's new in 3.16.1
 
-- **Fix**: "Install version …" in Help → halo.spaces no longer stays on "Installing …" – the update is installed right away and the window closes
+- **Fix**: "Install version …" in Help → halo.spaces no longer stays on "Installing …": the update is installed right away and the window closes
 
 ## What's new in 3.16.0
 
@@ -455,7 +489,7 @@ See [Releases](https://github.com/sruf79/halo-spaces/releases) for all versions.
 - Made for **macOS**. Windows and Linux work, but they aren't the focus.
   Window buttons and some spacing differ there, and you'll see a short note
   on first start.
-- The compose window and a few dialogs are only partly themed.
+- Some rarely used dialogs and pages of other add-ons are only partly themed.
 - Report issues via [GitHub Issues](https://github.com/sruf79/halo-spaces/issues). Please include your OS, Thunderbird version and a screenshot.
 
 ## Privacy
@@ -489,7 +523,7 @@ python3 tests/halo_test.py       # automated checks in a fresh, temporary profil
 ## Support
 
 halo.spaces is free and made in spare time. If you enjoy it, you can say thanks with a coffee:
-[buymeacoffee.com/diversion](https://buymeacoffee.com/diversion) – or in Thunderbird via
+[buymeacoffee.com/diversion](https://buymeacoffee.com/diversion), or in Thunderbird via
 **Help → halo.spaces → Say Thanks**.
 
 ## Credits

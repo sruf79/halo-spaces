@@ -28,6 +28,8 @@ export HALO_LAUF=tagesroutine
 #   Nach einem freien Reset in dieser Woche (Anker, wochen_reset_erkennen in lauf-hilfen.zsh, Maintainer 18.11.2026):
 #   Soll = Stunden seit dem Anker / Stunden vom Anker bis zum nächsten automatischen Reset × 100 % („Soll bis nächster
 #   Reset“); der Anker verfällt mit dem automatischen Reset. Rechenstück wochen_soll aus lauf-hilfen.zsh (WOCHE_DEF_PY).
+#   Im Volldampf zeigt Soll die vergangene Zeit der Kalenderwoche (Maintainer 20.11.2026, kalender_woche in WOCHE_DEF_PY,
+#   resetsAt aus kontingent.json, auch nach einem freien Reset); es bremst dort nicht (Volldampf ist der Override).
 #   Abstand > SPAR_MAX → nichts Neues, bis zur vollen Stunde warten und neu entscheiden; 0 < Abstand ≤ SPAR_MAX → Sparmodus (Maintainer
 #   12.11.2026): Rate = (100 − Ist − RESERVE_NACHT) / Stunden bis zum Reset (nie negativ); seit START
 #   angesparte Punkte (Rate × Stunden − heute im Sparmodus verbraucht) müssen die geschätzten Kosten je
@@ -37,9 +39,9 @@ export HALO_LAUF=tagesroutine
 #   < −WEIT_DARUNTER → alle mit Opus (Fable nur nach Regel); sonst komplexe Opus, Routine Sonnet.
 #   Im Volldampf zusätzlich der Fenster-Takt (18.11.2026, fenster_takt in lauf-hilfen.zsh, wie der Auslastungswächter):
 #   5-Stunden-Fenster über verstrichenem Anteil + FENSTER_RESERVE (25) → nichts Neues, bis der Takt aufholt (höchstens volle Stunde).
-#   Im Volldampf außerdem die Kontingent-Drossel (19.11.2026, drossel_stufe in lauf-hilfen.zsh, Stufe gemeinsam mit dem
-#   Auslastungswächter): Stufe 1 kein Fable; 2 nur jede zweite Runde; 3 nichts Neues bis zur vollen Stunde (roter Prüfzweig und
-#   Release unter Tage nie gebremst).
+#   Im Volldampf außerdem die Kontingent-Drossel (19.11.2026, seit 20.11.2026 Verbrauch gegen vergangene Zeit der Kalenderwoche,
+#   drossel_stufe in lauf-hilfen.zsh, Stufe gemeinsam mit dem Auslastungswächter): ab 0/5/15 Punkten über der Zeit Stufe 1 kein
+#   Fable; 2 nur jede zweite Runde; 3 nichts Neues bis zur vollen Stunde (roter Prüfzweig und Release unter Tage nie gebremst).
 #   5-Stunden-Fenster ≥ FUENF_STUNDEN_MAX → nichts Neues bis zum Fensterende, höchstens bis zur vollen
 #   Stunde (Pause über pausen.txt), dann neu entscheiden. Jedes Warten ohne Claude, nur bis LETZTER_BEGINN
 #   (danach beginnt kein Eintrag mehr; Maintainer 12.11.2026: warten statt enden, höchstens bis 22:00).
@@ -52,6 +54,7 @@ export HALO_LAUF=tagesroutine
 # Häufung (Maintainer 14.11.2026, „der automatismus soll natürlich bei der tagesroutine und auch bei der
 #   nachtroutine automatisch eingesetzt werden“): vor jeder Plan-Runde (auch beim stündlichen Neuplanen)
 #   tests/haeufung.py; Gruppen und Zuschläge aus ~/halo-nacht/<datum>-haeufung.md sind für den Plan verbindlich.
+#   Dieselbe Datei hat den Abschnitt „Alter (Skript)“ (Alters-Zuschlag, Board-Eintrag „Ablauf: Alter der Einträge …“, 20.11.2026).
 # Tageslimit MAX_COMMITS_TAG zählt nur Commits dieses Laufs: Autorzeit innerhalb einer eigenen Claude-Runde
 #   (übersteht Rebase und Amend, fremde Commits außerhalb der Runden zählen nicht). Probe:
 #   HALO_RUNDEN_ZEIT="<von> <bis>;…" (Unix-Sekunden) tagesroutine.sh --zaehlen [<Repo>]
@@ -195,6 +198,10 @@ reset = reset.astimezone(W)
 # Sollkurve aus lauf-hilfen.zsh (WOCHE_DEF_PY, eine Stelle): 168 h ab dem Reset; nach einem freien Reset (Anker in
 # wochenanker.txt) linear vom Anker bis zum nächsten automatischen Reset (Maintainer 18.11.2026)
 std, soll, soll_art, _n, soll_bezug = wochen_soll(jetzt, 168, e.get("K_WOCHENANKER", ""), rt, rh, rm)
+# Volldampf (Maintainer 20.11.2026: „es sind doch bereits 48% vom wochen rythmus vergangen, welcher immer von dienstag 01:00
+# bis dienstag 01:00 geht“): Soll = vergangene Zeit der Kalenderwoche, ohne Anker (bremst im Volldampf nicht, nur Anzeige)
+if e.get("K_VOLLDAMPF") == "ja":
+    std, soll, _q, _n, soll_bezug = kalender_woche(jetzt, e.get("K_KONT_JSON", ""), rt, rh, rm); soll_art = "kalender"
 woche, h5 = zahl("K_WOCHE"), zahl("K_5H")
 weit, band = zahl("K_WEIT_DARUNTER", 8), zahl("K_IM_SOLL", 3)
 h5max, fmax = zahl("K_FUENF_STUNDEN_MAX", 80), zahl("K_FABLE_5H_MAX", 50)
@@ -395,14 +402,15 @@ entscheiden() {
     K_MODELL_STARK=$KONF[MODELL_STARK] K_MODELL_ROUTINE=$KONF[MODELL_ROUTINE] \
     K_VOLLDAMPF=$VD K_FABLE_5H_MAX_VOLLDAMPF=$KONF[FABLE_5H_MAX_VOLLDAMPF] K_FABLE_WOCHE_MAX=$KONF[FABLE_WOCHE_MAX] \
     K_FABLE_WOCHE=${${K_FABLE##*=}%\%} \
-    K_WOCHENANKER=$(wochenanker_datei) python3 -I -c "$WOCHE_DEF_PY$FENSTER_DEF_PY$ENTSCHEID_PY")
+    K_WOCHENANKER=$(wochenanker_datei) K_KONT_JSON=${HALO_KONTINGENT_JSON:-$KONT_JSON} python3 -I -c "$WOCHE_DEF_PY$FENSTER_DEF_PY$ENTSCHEID_PY")
   # Kontingent-Drossel (Maintainer 19.11.2026, drossel_stufe in lauf-hilfen.zsh, dieselbe Stufe wie der Auslastungswächter):
+  # seit 20.11.2026 Verbrauch gegen vergangene Zeit der Kalenderwoche (kontingent.json dieses Laufs);
   # nur im Volldampf und mit gelesener Woche; ab Stufe 1 kein Fable (Plan und komplexe Einträge bleiben MODELL_STARK, Routine ist
   # im Volldampf ohnehin MODELL_ROUTINE; Zweitlesung 19.11.2026: die frühere Umschaltung war wirkungslos). Stufe 2 und 3
   # (jede zweite Runde, bis zur vollen Stunde) wirken erst in drossel_anwenden vor einem neuen Eintrag.
   E[DROSSEL]= DROSSEL_STUFE=0
   if [[ $VD == ja && -z $NUR_ZEIT && -n $K_WOCHE ]]; then
-    E[DROSSEL]=$(drossel_stufe $K_WOCHE); DROSSEL_STUFE=${E[DROSSEL]%% *}; E[DROSSEL]=${E[DROSSEL]#* }
+    E[DROSSEL]=$(HALO_KONTINGENT_JSON=${HALO_KONTINGENT_JSON:-$KONT_JSON} drossel_stufe $K_WOCHE); DROSSEL_STUFE=${E[DROSSEL]%% *}; E[DROSSEL]=${E[DROSSEL]#* }
     [[ $DROSSEL_STUFE == <1-3> && $E[ENTSCHEIDUNG] == neu ]] && E[FABLE]=nein
   fi
   [[ -n $E[SOLL] ]]
@@ -479,7 +487,13 @@ entscheidung_text() {
 kontingent_zeile() {   # eine Zeile für Protokoll und Bericht
   print -r -- "${VD_BERICHT:+$VD_BERICHT; }Woche ${K_WOCHE:-?} % ($(soll_text) %, Abstand $E[ABSTAND] Punkte, $E[STUFE]), 5 Stunden ${K_5H:-?} %${K_5H_ENDE:+ bis ${K_5H_ENDE[12,16]}}${K_FABLE:+, Fable $K_FABLE}${E[DROSSEL]:+; Drossel $E[DROSSEL]} → $(entscheidung_text)${E[SPAR_RATE]:+; $(spar_zeile)}"
 }
-soll_text() { [[ $E[SOLL_ART] == anker ]] && print -r -- "Soll bis nächster Reset $E[SOLL]" || print -r -- "Soll $E[SOLL]" }
+soll_text() {
+  case $E[SOLL_ART] in
+    anker)    print -r -- "Soll bis nächster Reset $E[SOLL]" ;;
+    kalender) print -r -- "Soll Kalenderwoche $E[SOLL]" ;;
+    *)        print -r -- "Soll $E[SOLL]" ;;
+  esac
+}
 spar_zeile() {   # Messzeile des Sparmodus (Auftrag 12.11.2026)
   print -r -- "Sparmodus: Rate $E[SPAR_RATE] Punkte/h, Rest $E[SPAR_REST], Reserve $E[SPAR_RESERVE] (noch $E[SPAR_STD] h bis zum Reset; angespart $E[SPAR_ANGESPART], Kosten je Eintrag $E[SPAR_KOSTEN] ($E[SPAR_KOSTEN_QUELLE]), heute $E[SPAR_HEUTE] Einträge, Grenze $E[SPAR_GRENZE])"
 }
@@ -614,7 +628,7 @@ if [[ -n $TROCKEN ]]; then
   [[ -n $E[ANKER] ]] && print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; freier Reset $E[ANKER], seitdem $E[STUNDEN] h" \
     || print "Reset:        $E[RESET] → nächster $E[NAECHSTER]; verstrichen $E[STUNDEN] h von 168 h"
   print "Kontingent:   $K_QUELLE"
-  print "Soll:         $E[SOLL] %${E[ANKER]:+ (bis nächster Reset, freier Reset $E[ANKER])}   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
+  print "Soll:         $E[SOLL] %${E[ANKER]:+ (bis nächster Reset, freier Reset $E[ANKER])}$( [[ $E[SOLL_ART] == kalender ]] && print -rn -- " (vergangene Zeit der Kalenderwoche)")   Ist Woche: ${K_WOCHE:-?} %   Abstand: $E[ABSTAND] Punkte → $E[STUFE]"
   print "5 Stunden:    ${K_5H:-?} % (Grenze $KONF[FUENF_STUNDEN_MAX] %${${VD:#nein}:+, Fenster-Takt mit Reserve $KONF[FENSTER_RESERVE] Punkte})${K_5H_ENDE:+, Fensterende $K_5H_ENDE}"
   print "Volldampf:    ${VD_STATUS:-keine Zeile in ${HALO_VOLLDAMPF_DATEI:-~/halo-nacht/volldampf.txt}}; $(tageslimit_text)"
   print -r -- "Zwischen-Release: $(zs_zustand)"

@@ -119,6 +119,9 @@ rot_zweige_abschluss() {   # <Start-Epoch>
   local -a neu
   for zw in $(git -C $REPO for-each-ref --format='%(refname:short)' 'refs/heads/pruef/rot-*' 2>/dev/null); do
     [[ -r $gemeldet ]] && grep -qxF -- $zw $gemeldet && continue
+    # Ganz in main enthalten: keine zurückgenommene Änderung (rot-nebenzweig.sh legt sie als Commit über main hinaus),
+    # sondern ein Arbeitszweig mit passendem Namen (21.11.: pruef/rot-lokal-1119 und pruef/rot-regel-1119 gemeldet)
+    git -C $REPO merge-base --is-ancestor $zw main 2>/dev/null && continue
     neu+=($zw)
   done
   for zw in $neu; do

@@ -13,11 +13,24 @@ if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
   echo "Farben betroffen: kein dunkel getesteter Stand bekannt"
   exit 0
 fi
-# Stilblätter und Symbole
-DATEI=$(git diff --name-only "$BASE" "$ZIEL" | grep -E '\.css$|\.svg$|^extension/icons/' | head -1)
+# Symbole: jede Änderung zählt (Füllung und Kontur folgen dem Modus)
+DATEI=$(git diff --name-only "$BASE" "$ZIEL" | grep -E '\.svg$|^extension/icons/' | head -1)
 if [ -n "$DATEI" ]; then
   echo "Farben betroffen: $DATEI"
   exit 0
+fi
+# Stilblätter: nur geänderte Zeilen mit Farbe (Werte, Farbvariablen, Hintergrund,
+# Rahmen, Schatten, Filter, Dunkel-Blöcke …); reine Maße, Abstände, Schrift und
+# Anzeige testet hell allein (Board „Dunkel-Lauf verkleinern“, Maintainer
+# 19.11.2026). Geänderte Selektoren zählen, wenn ihr Block Farbe setzt; erzeugte
+# Kopien (extension/theme.css, Bereiche-Block) werden über ihre Quelle erkannt.
+# Im Zweifel (Fehler im Prüfer) gilt „betroffen“.
+if CSS=$(git diff --name-only "$BASE" "$ZIEL" -- '*.css' | grep -v '^extension/theme\.css$'); [ -n "$CSS" ]; then
+  ZEILE=$(python3 tests/farben_css.py "$BASE" "$ZIEL" $CSS) || ZEILE="Prüfer gescheitert, im Zweifel betroffen"
+  if [ -n "$ZEILE" ]; then
+    echo "Farben betroffen: $ZEILE"
+    exit 0
+  fi
 fi
 # Farbwerte im Code (Erweiterung samt Einstellungs- und Info-Seite) und
 # Prüfungen, die Farben oder den Dunkelmodus messen

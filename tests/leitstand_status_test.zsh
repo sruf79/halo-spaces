@@ -236,9 +236,9 @@ pruefe_v "Verlauf bei kaputtem Board: Board-Zahlen null, Kontingent bleibt" '.pu
 
 # Kontingent-Drossel (19.11.2026, Maintainer: „bitte neon, die drossel-stufe in status.json mitzuliefern“): Feld drossel aus
 # ~/halo-nacht/drossel-stufe.txt (nicht neu gerechnet), nur wenn höchstens 2 h alt; Stufe auch in jedem neuen Verlaufspunkt
-printf '2 17.4 2026-11-19T07:40+01:00 2026-11-19T06:10+01:00\nkeine neuen Worker, Tagesroutine nur jede zweite Runde\nvoll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00\n' > $T/n/drossel-stufe.txt
+printf '2 6.2 2026-11-19T07:40+01:00 2026-11-19T06:10+01:00\nkeine neuen Worker, Tagesroutine nur jede zweite Runde\n6.2 Punkte über der Zeit: Woche 42 %%, Wochenzeit 35.8 %% (Reset Di 01:00, resetsAt)\n' > $T/n/drossel-stufe.txt
 rm -f $VH; lauf
-pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe":2,"text":"keine neuen Worker, Tagesroutine nur jede zweite Runde","grund":"voll So 04:30, 17 Fehlstunden vor dem Reset Di 01:00","seit":"2026-11-19T05:10:00Z","max_worker":0}'
+pruefe "Drossel: Stufe, Wirkung, Grund, seit, max_worker 0" '.drossel == {"stufe":2,"text":"keine neuen Worker, Tagesroutine nur jede zweite Runde","grund":"6.2 Punkte über der Zeit: Woche 42 %, Wochenzeit 35.8 % (Reset Di 01:00, resetsAt)","seit":"2026-11-19T05:10:00Z","max_worker":0}'
 pruefe_v "Drossel: Stufe im neuen Verlaufspunkt" '.punkte[-1].drossel == 2'
 print -r -- "0 -3.0 2026-11-19T07:40+01:00" > $T/n/drossel-stufe.txt; lauf
 pruefe "Drossel: altes Format (ohne seit, Wirkung, Grund): seit = Messzeit, Texte null, Stufe 0 ohne Worker-Grenze" '.drossel == {"stufe":0,"text":null,"grund":null,"seit":"2026-11-19T06:40:00Z","max_worker":null}'
@@ -293,6 +293,12 @@ pruefe "weiter_um: Limit-Pause aus der Zeile" '[.agenten[] | select(.name == "Ta
 print "2026-11-19 07:59:30 Drossel Stufe 3 (9 Fehlstunden): nichts Neues – nächster Versuch 00:00" >> $T/n/2026-11-19-tagesroutine.log; lauf
 pruefe "weiter_um: Uhrzeit vor der Zeile gilt am Folgetag" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T23:00:00Z"'
 print "2026-11-19 07:59:40 warte: Nachtlauf läuft noch" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: warte Nachtlauf läuft noch → Zeile + 1 Minute" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T07:00:40Z" and .laeufe.tagesroutine.weiter_um == "2026-11-19T07:00:40Z"'
+print "2026-11-19 08:00:10 warte: Claude-Sitzung abcd1234 arbeitet gerade am Repo" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: warte Mac belegt → Zeile + 5 Minuten" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T07:05:10Z"'
+print "2026-11-19 08:10:10 Drossel Stufe 3 (Rohstufe 3): Tagesroutine nichts Neues bis zur vollen Stunde" >> $T/n/2026-11-19-tagesroutine.log; lauf
+pruefe "weiter_um: volle Stunde ohne Uhrzeit → nächste volle Stunde" '[.agenten[] | select(.name == "Tagesroutine")][0].weiter_um == "2026-11-19T08:00:00Z" and .laeufe.tagesroutine.weiter_um == "2026-11-19T08:00:00Z"'
+print "2026-11-19 08:11:00 Arbeitskopie: /x auf pruef/y" >> $T/n/2026-11-19-tagesroutine.log; lauf
 pruefe "weiter_um: kein Zeitpunkt bekannt → null" '([.agenten[] | select(.name == "Tagesroutine")][0] | .zustand == "wartet" and .weiter_um == null) and .laeufe.tagesroutine.weiter_um == null'
 # dieselbe Tagesroutine mit Runde → arbeitet, zählt
 print "  213   200    01:00 claude -p --model sonnet --session-id s9 --permission-mode auto Auftrag" >> $T/ps.txt
@@ -326,8 +332,13 @@ pruefe "Release: kein Kandidat unterwegs → zeit null, offen, ohne Kandidat" '.
 ci_pruef ",$(rl 7 push pruef/x S7 in_progress '' 2026-11-19T10:30:00Z 2026-11-19T10:45:00Z),$(rl 8 push pruef/y S8 queued '' 2026-11-19T10:00:00Z 2026-11-19T10:00:00Z),$(rl 9 push pruef/probe-z S9 in_progress '' 2026-11-19T09:00:00Z 2026-11-19T09:00:00Z)"
 printf 'S7 3 1 0\nS8 2 1 0\nS9 5 1 0\n' > $T/d/quellen/tb-zahlen.tsv
 lauf_m
-pruefe "Release: Kandidat mit 3 Thunderbird-Commits, gemessene Dauern (2 zu wenig, Probezweig nie)" '.release_eta == {"zeit":"2026-11-19T13:30:00Z","grund":(.release_eta.grund),"sicherheit":"gemessen","kandidat":"pruef/x #7","haelt_auf":null} and (.release_eta.grund | test("pruef/x .*3 Thunderbird-Commits.*ab 3"))'
+pruefe "Release: Kandidat mit 3 Thunderbird-Commits, gemessene Dauern (2 zu wenig, Probezweig nie)" '.release_eta == {"zeit":"2026-11-19T13:30:00Z","grund":(.release_eta.grund),"sicherheit":"gemessen","kandidat":"pruef/x #7","haelt_auf":null,"wartet_auf":["windows"]} and (.release_eta.grund | test("pruef/x .*3 Thunderbird-Commits.*ab 3"))'
 pruefe "Feld ci zeigt weiter höchstens 15 Läufe" '(.ci | length) <= 15'
+# Jobs laufender Läufe (Dashboard-Wunsch 20.11.2026): Datei quellen/jobs-<id>.json, abgeschlossene Läufe ohne jobs
+print -r -- '{"jobs":[{"name":"statisch","status":"completed","conclusion":"success","startedAt":"2026-11-19T10:30:00Z","completedAt":"2026-11-19T10:31:00Z"},{"name":"linux (esr)","status":"in_progress","conclusion":"","startedAt":"2026-11-19T10:31:00Z","completedAt":"0001-01-01T00:00:00Z"}]}' > $T/d/quellen/jobs-7.json
+lauf_m
+pruefe "ci: laufender Lauf nennt Jobs (name, status, ergebnis, start, ende), abgeschlossener null" '([.ci[] | select(.nr == 7)][0].jobs | map(.name + ":" + .status + ":" + (.ergebnis // "-") + ":" + (.ende // "-")) == ["statisch:completed:success:2026-11-19T10:31:00Z","linux (esr):in_progress:-:-"]) and ([.ci[] | select(.status == "completed")][0].jobs == null)'
+rm -f $T/d/quellen/jobs-7.json
 # nicht mischbar bzw. „nicht nach main“ zählen nicht
 printf 'S7 3 0 0\nS8 2 1 0\n' > $T/d/quellen/tb-zahlen.tsv; lauf_m
 pruefe "Release: nicht mischbarer Stand ist kein Kandidat" '.release_eta.kandidat == null'
@@ -410,8 +421,23 @@ printf 'abc9\tTests: der ganze Betreff aus dem eigenen Klon, länger als die Kü
 HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
 pruefe "Titel: 150 Zeichen ungekürzt (zuletzt, Board in Arbeit), 250 auf 200 mit …, CI nur erste Zeile" \
   '([.zuletzt[] | select(.art == "eintrag")][0].was | length) == 150 and ([.board.in_arbeit[] | select(.titel | startswith("Mail: b"))][0].titel | length == 200 and endswith("…")) and (.ci[0].titel | length == 200 and endswith("…") and (contains("zweite") | not)) and (.ci[1].titel == "Tests: der ganze Betreff aus dem eigenen Klon, länger als die Kürzung von GitHub bei etwa siebzig Zeichen")'
+# Titel in zuletzt bei Workern und Runden (Eintrag aus in-arbeit.tsv): ein Titel, zwei mit „+ n weitere“, keiner → alter Text
+E0=$(TZ=UTC date -j -f '%Y-%m-%d %H:%M:%S' '2026-11-19 03:30:00' +%s)
+{ printf '%s\tPVTI_a\tMail: erster Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $E0
+  printf '%s\tPVTI_b\tKalender: zweiter Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $((E0 + 60))
+  printf '%s\tPVTI_c\tAufgaben: dritter Eintrag\t1\tmain\t/Users/x/halo-spaces\n' $((E0 + 120))
+  printf '%s\tPVTI_d\tChat: Eintrag des Workers\t2\tpruef/w1\t/wt1\n' $((E0 + 200))
+  printf '%s\tPVTI_e\tFremd: Worker-Ordner zählt nicht für die Runde\t3\tpruef/w9\t/Users/x/halo-auslastung/worker-9\n' $((E0 + 30)); } > $T/n/in-arbeit.tsv
+printf '2026-11-19 04:00:00 Start\n2026-11-19 05:00:00 Runde 1 beendet (Exitcode 0): x\n' > $T/n/2026-11-19.log
+printf '2026-11-19 06:40:00 Worker worker-1 beendet (Sitzung s, Zweig pruef/w1): nichts_passend kein freier Eintrag\n2026-11-19 06:41:00 Worker worker-4 beendet (Sitzung s, Zweig pruef/w4): rot\n' > $T/n/2026-11-19-auslastung.log
+HALO_LS_VOLLDAMPF=0 HALO_LS_SOLL= lauf
+pruefe "zuletzt: Runde nennt Einträge (zwei + n weitere), Worker seinen Eintrag, ohne Eintrag alter Text, einzel bleibt" \
+  '([.zuletzt[] | select(.art == "runde" and (.was | startswith("Nachtlauf"))) | .was] == ["Nachtlauf-Runde 1: Mail: erster Eintrag · Kalender: zweiter Eintrag + 1 weitere"]) and ([.zuletzt[] | select(.art == "worker") | [.was, .einzel]] | sort == [["Worker 1: Chat: Eintrag des Workers","pruef/w1"],["Worker 4: rot","pruef/w4"]])'
 # ohne Board-Zwischenspeicher und Protokolle: nur Releases
 rm -f $T/d/quellen/board48.json $T/n/*.log; lauf
 pruefe "zuletzt: fehlende Quellen → nur diese Arten fehlen" '[.zuletzt[] | .art] == ["release"]'
 (( FEHLER )) && { print -r -- "--- stderr:"; cat $T/fehler.txt; }
+# Soll der Kalenderwoche (Maintainer 20.11.2026): Leitstand nimmt kalender_soll mit kontingent.json, nicht mehr wochen_soll
+if grep -q 'kalender_soll \$KJ' $HIER/leitstand-status.zsh && ! grep -q 'wochen_soll 168' $HIER/leitstand-status.zsh; then print "OK      Soll aus kalender_soll (Kalenderwoche, resetsAt)"
+else print "FEHLER  Soll aus kalender_soll (Kalenderwoche, resetsAt)"; FEHLER=1; fi
 exit $FEHLER

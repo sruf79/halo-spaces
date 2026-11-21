@@ -16,9 +16,7 @@ export HALO_JETZT=2026-11-15T12:00+01:00 HALO_INA_AUSNAHMEN=$T/ausnahmen.txt HAL
 # board.sh-Attrappe: zählt Aufrufe, gibt $T/board.json aus; fehlt sie, „Board nicht lesbar“ wie board.sh (Exitcode 1)
 cat > $T/board.sh <<'ENDE'
 print -r -- "board $*" >> ${0:h}/board.log
-if [[ $1 == (notiz|status) ]]; then   # Schreiben: Reihenfolge festhalten; Fehler, wenn board-schreibfehler existiert
-  [[ -n $HALO_BOARD_NACHTRAG ]] || print -r -- "ohne HALO_BOARD_NACHTRAG" >> ${0:h}/board.log
-  [[ -e ${0:h}/board-schreibfehler ]] && exit 1
+if [[ $1 == (notiz|status) ]]; then   # Schreiben festhalten: seit 20.11.2026 darf das Skript das Board nie beschreiben
   print -r -- "board $1 $2 ${3}" >> ${0:h}/folge.log; exit 0
 fi
 [[ $1 == export && -r ${0:h}/board.json ]] || { print -u2 "FEHLER: Board nicht lesbar"; exit 1 }
@@ -123,8 +121,9 @@ gh() { if [[ "$1 $2" == "api repos/sruf79/halo-spaces/issues/13" ]]; then print 
 aus=$(ina_lauf)
 pruefe "schon geschlossen: übersprungen, kein Kommentar" '[[ $aus == *"übersprungen #13 (closed)"* ]] && ! grep -q "^13 " $T/geschlossen.txt'
 
-# --- offener Board-Eintrag (Maintainer 18.11.2026): ausgenommen, solange keine Markierung offen ist; mit Markierung
-# läuft die Frist, beim Schließen erst den verlinkten Eintrag abräumen (Done/Archiv), dann schließen ---
+# --- offener Board-Eintrag (Maintainer 18.11.2026): ausgenommen, solange wir nicht auf den Nutzer warten (keine offene
+# Markierung, keine Rückfrage); mit Markierung läuft die Frist, das Issue wird geschlossen und die verlinkten Einträge
+# laufen weiter (Maintainer 20.11.2026: „das issue schliesst und die einträge laufen weiter“) ---
 issue 15 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Thanks, we will fix it")  # ohne Markierung, [GitHub #15] im Titel → ausgenommen (keine Anfrage)
 issue 16 nutzer '[]' < <(k nutzer 9 "still broken")                               # GitHub-Issue #16 im Text, Wartet auf OK → ausgenommen
 issue 17 nutzer '[]' < <(k sruf79 8 $MARKE)   # Eintrag Done → würde schließen
@@ -132,9 +131,9 @@ issue 18 nutzer '[]' < <(k sruf79 8 $MARKE)   # nur „GitHub #180“ und „Git
 issue 24 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Which version? See https://x.org/a?b=1")  # Rückfrage ohne Markierung + Eintrag → Anfrage
 issue 25 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Fix planned, see https://x.org/a?b=1")      # keine Rückfrage (? nur im Link) + Eintrag → ausgenommen
 issue 29 nutzer '[]' < <(k nutzer 12 "Bug"; k sruf79 9 "Thanks, noted.")          # Aufzählung „GitHub-Issues #90, #29“ im Text → ausgenommen
-issue 20 nutzer '[]' < <(k sruf79 8 $MARKE)   # Markierung + verlinkter Eintrag → abräumen, dann schließen; Querverweis bleibt
-issue 21 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag In Progress → nicht abräumen, melden, schließen
-issue 22 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag mit committetem Fix → nicht abräumen, melden, schließen
+issue 20 nutzer '[]' < <(k sruf79 20 "Which version?"; k sruf79 8 $MARKE)   # Rückfrage, Markierung, 8 Tage + Eintrag Todo → schließen, Eintrag bleibt
+issue 21 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag In Progress → schließen, Eintrag bleibt
+issue 22 nutzer '[]' < <(k sruf79 8 $MARKE)   # verlinkter Eintrag mit committetem Fix → schließen, Eintrag bleibt
 cat > $T/board.json <<'ENDE'
 {"items": [
  {"id": "PVTI_a", "status": "Todo", "title": "Geheimer Titel A [GitHub #15]", "body": "Wo: Mail"},
@@ -152,36 +151,24 @@ cat > $T/board.json <<'ENDE'
 ENDE
 : > $T/board.log
 aus=$(ina_lauf --trocken); rc=$?
-pruefe "Board ohne Markierung: [GitHub #n] im Titel → ausgenommen, keine Anfrage" 'zeile "^ausgenommen #15 (offener Board-Eintrag)$"'
-pruefe "Board ohne Markierung: GitHub-Issue #n im Text, Wartet auf OK → ausgenommen" 'zeile "^ausgenommen #16 (offener Board-Eintrag)$"'
+pruefe "Board ohne Markierung: [GitHub #n] im Titel → ausgenommen, keine Anfrage" 'zeile "^ausgenommen #15 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
+pruefe "Board ohne Markierung: GitHub-Issue #n im Text, Wartet auf OK → ausgenommen" 'zeile "^ausgenommen #16 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
 pruefe "Board, unsere Rückfrage ohne Markierung → Anfrage statt Ausnahme" 'zeile "^anfrage #24 "'
-pruefe "Board, keine Rückfrage (? nur im Link) → ausgenommen" 'zeile "^ausgenommen #25 (offener Board-Eintrag)$"'
-pruefe "Board: Aufzählung „GitHub-Issues #90, #29“ in einer Notiz → ausgenommen" 'zeile "^ausgenommen #29 (offener Board-Eintrag)$"'
+pruefe "Board, keine Rückfrage (? nur im Link) → ausgenommen" 'zeile "^ausgenommen #25 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
+pruefe "Board: Aufzählung „GitHub-Issues #90, #29“ in einer Notiz → ausgenommen" 'zeile "^ausgenommen #29 (Nutzer wartet auf uns, offener Board-Eintrag)$"'
 pruefe "Board: Eintrag Done → keine Ausnahme" 'zeile "^würde schließen #17 "'
 pruefe "Board: #180 und PR #18 zählen nicht für #18" 'zeile "^würde schließen #18 "'
 pruefe "Board mit Markierung über 7 Tage → würde schließen (keine Ausnahme)" 'zeile "^würde schließen #20 " && zeile "^würde schließen #21 "'
+pruefe "trocken: würde schließen nennt weiterlaufenden Eintrag (nur mit Eintrag)" 'zeile "^würde schließen #20 (Nachfrage .*), offener Board-Eintrag läuft weiter$" && ! zeile "^würde schließen #17 .*läuft weiter"'
 pruefe "Board: einmal je Lauf geladen" '(( $(wc -l < $T/board.log) == 1 )) && grep -q "^board export$" $T/board.log'
 pruefe "trocken: Board nicht verändert" '! grep -q "^board " $T/folge.log'
 pruefe "Board: keine Inhalte in der Ausgabe" '[[ $aus != *Geheim* && $aus != *PVTI_* ]]'
 aus=$(ina_lauf); rc=$?
-pruefe "ausführen: #17, #18, #20, #21, #22 geschlossen, #15/#16 nicht" '(( rc == 0 )) && for i in 17 18 20 21 22; do grep -q "^$i " $T/geschlossen.txt || exit 1; done && ! grep -qE "^1[56] " $T/geschlossen.txt'
-pruefe "abräumen: Notiz, dann Done, dann schließen (#20)" '[[ $(grep -nE "PVTI_e|close 20$" $T/folge.log | cut -d: -f2- | xargs) == "board notiz PVTI_e Issue wegen Inaktivität geschlossen (Maintainer 18.11.2026) board status PVTI_e done close 20" ]]'
-pruefe "abräumen: Meldung ohne Board-Inhalt" 'zeile "^abgeräumt #20 (Board-Eintrag archiviert)$"'
-pruefe "Querverweis nie abgeräumt" '! grep -q PVTI_f $T/folge.log'
-pruefe "In Progress: nicht abgeräumt, gemeldet" '! grep -q PVTI_g $T/folge.log && zeile "^melden #21: verlinkter Board-Eintrag nicht abgeräumt (In Progress)$"'
-pruefe "committeter Fix: nicht abgeräumt, gemeldet" '! grep -q PVTI_h $T/folge.log && zeile "^melden #22: verlinkter Board-Eintrag nicht abgeräumt (Fix committet)$"'
-pruefe "Board-Schreiben ohne Warteschlange (HALO_BOARD_NACHTRAG)" '! grep -q "ohne HALO_BOARD_NACHTRAG" $T/board.log'
+pruefe "ausführen: #17, #18, #20, #21, #22 geschlossen, #15/#16 nicht" '(( rc == 0 )) && (for i in 17 18 20 21 22; do grep -q "^$i " $T/geschlossen.txt || exit 1; done) && ! grep -qE "^1[56] " $T/geschlossen.txt'
+pruefe "offener Eintrag allein keine Ausnahme: geschlossen, Board nie beschrieben" 'grep -q "^board export$" $T/board.log && ! grep -qE "^board (notiz|status)" $T/board.log && ! grep -q "^board " $T/folge.log'
+pruefe "geschlossen mit Eintrag: Zeile weiter, ohne Board-Inhalt" '(for i in 20 21 22; do zeile "^weiter #$i (offener Board-Eintrag läuft weiter)$" || exit 1; done) && ! zeile "^weiter #1[78] "'
+pruefe "keine Abräum-Meldungen mehr" '! print -r -- $aus | grep -qE "^(abgeräumt|melden) "'
 pruefe "ausführen: keine Board-Inhalte in der Ausgabe" '[[ $aus != *Geheim* && $aus != *PVTI_* ]]'
-
-# --- Abräumen scheitert: Issue bleibt offen, FEHLER; nächste Runde klappt ---
-issue 23 nutzer '[]' < <(k sruf79 8 $MARKE)
-jq '.items += [{"id": "PVTI_i", "status": "Todo", "title": "Geheimer Titel I [GitHub #23]", "body": ""}]' $T/board.json > $T/x && mv $T/x $T/board.json
-touch $T/board-schreibfehler
-aus=$(ina_lauf); rc=$?
-pruefe "Abräumen scheitert: nicht geschlossen, FEHLER" '(( rc == 1 )) && [[ $aus == *"FEHLER #23: Board-Eintrag nicht abgeräumt"* ]] && ! grep -q "^23 " $T/geschlossen.txt'
-rm $T/board-schreibfehler
-aus=$(ina_lauf); rc=$?
-pruefe "nächste Runde: abgeräumt, dann geschlossen" '(( rc == 0 )) && zeile "^abgeräumt #23 " && grep -q "^23 " $T/geschlossen.txt'
 
 # --- Aufgabenliste nicht lesbar: nie schließen, FEHLER-Zeile; trocken nur Hinweis ---
 issue 19 nutzer '[]' < <(k sruf79 8 $MARKE)

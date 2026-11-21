@@ -12,7 +12,8 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | Wert | Quelle | Regel |
 |---|---|---|
 | Woche, 5-Stunden-Fenster, Fensterende | `tests/kontingent.sh` → `~/halo-nacht/kontingent.json` | ohne Wochenwert („seven_day“) gilt die Woche als nicht lesbar, nie 0 oder 5-Stunden-Wert |
-| Soll (Sollkurve) | `wochen_soll` in `tests/lauf-hilfen.zsh` | ohne freien Reset: Stunden seit Di 00:00 UTC / 168 (Wächter: / 48) × 100 %; nach freiem Reset (Anker): Stunden seit Anker / Stunden Anker → nächster Reset × 100 % |
+| Soll (Sollkurve) | `wochen_soll` in `tests/lauf-hilfen.zsh` | Alltag (Tagesroutine, Morgenbrief): ohne freien Reset Stunden seit Di 00:00 UTC / 168 × 100 %; nach freiem Reset (Anker): Stunden seit Anker / Stunden Anker → nächster Reset × 100 % |
+| Soll der Kalenderwoche (Wochenzeit) | `kalender_soll`/`kalender_woche` in `tests/lauf-hilfen.zsh` | Auslastungswächter, Leitstand, Tagesroutine im Volldampf und Drossel (Maintainer 20.11.2026): Wochenzeit % = 100 − (resetsAt − jetzt) / 6048 s, resetsAt aus `kontingent.json` (`seven_day`), sonst Di 00:00 UTC; auch nach freiem Reset (kein Anker, keine 48-h-Kurve) |
 | Freier Reset (Anker) | `wochen_reset_erkennen` | Sturz der Woche um ≥ 20 Punkte ohne automatischen Reset dazwischen; nur echte Messwerte (nie Platzhalter); verfällt am automatischen Reset |
 | Fenster-Takt | `fenster_takt`/`FENSTER_DEF_PY` in `tests/lauf-hilfen.zsh` (Wächter `pruefen`, Tagesroutine `ENTSCHEID_PY`) | Takt = verstrichener Anteil des 5-Stunden-Fensters + 25 Punkte (`FENSTER_RESERVE`); Fensterende unbekannt = kein Takt |
 
@@ -21,11 +22,11 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
 | Zustand | Erkennung | Tagesroutine | Nachtlauf | Auslastungswächter | Zwischen-Release-Wächter |
 |---|---|---|---|---|---|
 | **Alltag** | keine aktive Zeile in `volldampf.txt` | 09:00–20:30 (Ende 22:00); Abstand < −8: alles Opus (Fable bei 5 h < 50 %); −8…0: Opus/Sonnet; 0…+10: Sparmodus Haiku; > +10: stündlich warten | 01:30, Director mit 70–80 %-Vorsicht, Schritt 5 bis 06:30, Ende 08:00 | läuft nicht | läuft nicht |
-| **Volldampf aktiv** | Zeile aktiv (`volldampf_aktiv` = 0) | 08:45–23:30 (Ende 23:59); Soll und Sparmodus bremsen nicht; Fenster-Takt wie der Wächter (über Takt: warten, bis er aufholt, höchstens volle Stunde); Opus/Sonnet, Fable bei 5 h < 100 % | Fortsetzungen bis 08:45, Grenzen 40 Commits / 50 Fortsetzungen | alle 10 Min., bis `MAX_WORKER` (6); tags Start bei Woche < Soll (48 h) **oder** 5 h < 60 %; nachts (vor 09:00 oder Nachtlauf läuft) nur bei Woche < Soll; Fable bei ≥ 5 Punkte unter Soll | alle 5 Min., Push-Beginn 09:00–22:30 (danach warten), Release bis 24:00; ab 3 Thunderbird-Commits |
+| **Volldampf aktiv** | Zeile aktiv (`volldampf_aktiv` = 0) | 08:45–23:30 (Ende 23:59); Soll und Sparmodus bremsen nicht; Fenster-Takt wie der Wächter (über Takt: warten, bis er aufholt, höchstens volle Stunde); Opus/Sonnet, Fable bei 5 h < 100 % | Fortsetzungen bis 08:45, Grenzen 40 Commits / 50 Fortsetzungen | alle 10 Min., bis `MAX_WORKER` (6); tags Start bei Woche < Soll der Kalenderwoche **oder** 5 h < 60 %; nachts (vor 09:00 oder Nachtlauf läuft) nur bei Woche < Soll; Fable bei ≥ `FABLE_ABSTAND` Punkten unter Soll (Standard 20, auslastung.conf auf neon 5) | alle 5 Min., Push-Beginn 09:00–22:30 (danach warten), Release bis 24:00; ab 3 Thunderbird-Commits |
 | **Volldampf, Fenster knapp** | 5 h ≥ 70 / 80 / 85 / 90 % | ab 80 %: nichts Neues bis Fensterende | Limit-Pause 30 Min. bei Abbruch | ab 70 %: nur Klasse „tokenarm“ (Sonnet, höchstens ein tokenarmer Worker); ab 85 % (bis unter 98 %): Windows-Rundgang, einmal je Tag; ab 90 %: kein Worker-Start | ab 85 %: Release schon ab 1 Thunderbird-Commit (CI und Windows nutzen die Pause) |
-| **Volldampf, Woche reicht nicht** | Drossel-Stufe 1–3 (`drossel_stufe`, `~/halo-nacht/drossel-stufe.txt`) | Stufe 1: nur kein Fable (Plan und komplexe Einträge bleiben Opus); 2: nur jede zweite Runde nach einer echten Runde; 3: nichts Neues bis zur vollen Stunde; roter Prüfzweig und Release unter Tage nie gebremst | unberührt | kein neuer Worker; Windows-Rundgang startet (einmal je Tag, 09:00–22:00, nicht belegt) | unberührt |
+| **Volldampf, mehr verbraucht als Woche vergangen** | Drossel-Stufe 1–3 (`drossel_stufe`, `~/halo-nacht/drossel-stufe.txt`; d = Woche − Wochenzeit > 0) | Stufe 1: nur kein Fable (Plan und komplexe Einträge bleiben Opus); 2: nur jede zweite Runde nach einer echten Runde; 3: nichts Neues bis zur vollen Stunde; roter Prüfzweig und Release unter Tage nie gebremst | unberührt | kein neuer Worker; Windows-Rundgang startet (einmal je Tag, 09:00–22:00, nicht belegt) | unberührt |
 | **Volldampf pausiert** | Woche ≥ 98 % (Marke `volldampf-beendet.txt`) | Alltagsregeln (meist „nichts Neues“, weit über Soll) | Alltagsgrenzen | wartet, liest Kontingent stündlich | wartet |
-| **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter, Soll bis nächster Reset | wie Volldampf | Soll bis nächster Reset | wie Volldampf |
+| **Nach freiem Reset** | Anker in `wochenanker.txt` | Volldampf läuft von selbst weiter; Soll der Kalenderwoche (Alltag dieser Woche: Soll bis nächster Reset) | wie Volldampf | Soll der Kalenderwoche (seit 20.11.2026) | wie Volldampf |
 | **Automatischer Reset** | Di 00:00 UTC (01:00 Winter, 02:00 Sommer) = `bis` | ab dann Alltag | ab 01:30 Alltag, räumt Zeile weg | endet beim nächsten Takt | endet beim nächsten Takt |
 
 ## 3. Bremsen in fester Reihenfolge (die erste, die greift, entscheidet)
@@ -51,11 +52,11 @@ Prozentpunkte des Wochenkontingents („alle Modelle“). Bei Widerspruch gilt d
    mit CI-Grenze 10:00 statt fest 90 Minuten (eine CI ab 09:00 ist auch dunkel vorher fertig; die Tagesroutine Sa/So wartet so
    lange). Andere Läufe warten wie bisher.
 4. **Wochenlimit**: Status nicht „allowed…“ oder Woche ≥ 98 % → Volldampf pausiert, Alltagsregeln.
-4a. **Kontingent-Drossel (Woche)** (nur Volldampf, Wächter und Tagesroutine, seit 19.11.2026, Maintainer: „ja umbauen und so rasch wie möglich live schalten“): reicht die Woche nach der Hochrechnung (`drossel_stufe`, Tempo der letzten 6 h) nicht bis zum Reset Di 01:00, Stufe nach Fehlstunden: 1 (> 0) keine neuen Worker, Tagesroutine nur kein Fable (Plan und komplexe Einträge bleiben Opus, Routine ist im Volldampf ohnehin Sonnet); 2 (> 12) Tagesroutine nur jede zweite Runde; 3 (> 30) Tagesroutine nichts Neues bis zur vollen Stunde. Zurück erst 6 Fehlstunden unter der Grenze; unlesbar oder zu wenig Daten (unter 5 h bzw. 3 Punkten seit Reset) = keine Drossel. Nachtlauf, Zwischen-Release, Tests, Reparatur roter CI (auch der rote Prüfzweig der Tagesroutine), Release unter Tage und Windows-Rundgang nie.
+4a. **Kontingent-Drossel (Woche)** (nur Volldampf, Wächter und Tagesroutine, seit 19.11.2026; seit 20.11.2026 nach der Kalenderwoche, Maintainer: „aber es geht mir ja immer darum wieviel % token wir noch im vergleich zur verbleibenden restzeit bis zum reset kommenden dienstag um 01:00 haben.“, „ja, stell die ampel so um. wäre es nicht alarmierender, wenn wir mehr % token als % woche verbraucht haben?“): d = Verbrauch der Woche (%) − vergangene Wochenzeit (%, `kalender_woche`, Di 01:00 bis Di 01:00, resetsAt), keine Hochrechnung mehr. Stufe nach d: 0 (d ≤ 0) wie bisher; 1 (0 < d ≤ 5) keine neuen Worker, Tagesroutine nur kein Fable (Plan und komplexe Einträge bleiben Opus, Routine ist im Volldampf ohnehin Sonnet); 2 (5 < d ≤ 15) Tagesroutine nur jede zweite Runde; 3 (d > 15) Tagesroutine nichts Neues bis zur vollen Stunde. Ab 90 % verbraucht Stufe 3 nur, wenn zugleich d > 0 (sonst ist „≥ 90 %“ nur das Rot des Dashboards). Zurück erst 1 Punkt unter der Grenze; keine Drossel (Fail-open), wenn `kontingent.json` fehlt oder unlesbar ist, ihr Stand älter als 3 h ist, jetzt nach resetsAt liegt oder der Stand vor dem Wochenbeginn liegt. Gilt auch nach einem freien Reset (nur die Kalenderwoche zählt). Grenzen 0/5/15 und Hysterese 1 sind eine Deutung von neon (`ENTSCHEIDUNGEN.md` 20.11.2026). Nachtlauf, Zwischen-Release, Tests, Reparatur roter CI (auch der rote Prüfzweig der Tagesroutine), Release unter Tage und Windows-Rundgang nie.
 5. **5-Stunden-Fenster hart**: Wächter ab 90 %, Tagesroutine ab 80 %.
 6. **Fenster-Takt** (Wächter; Tagesroutine nur im Volldampf, seit 18.11.2026): 5 h über Takt → kein neuer Worker bzw. Eintrag.
 7. **Drossel** (nur Wächter, seit 18.11.2026 Aufgabenzuteilung): 5 h ab 70 % → kein tokenschwerer Worker mehr, nur Klasse „tokenarm“ (`MODELL_TOKENARM` sonnet, höchstens `TOKENARM_MAX` 1 gleichzeitig; vorher „höchstens eine Arbeits-Sitzung“).
-8. **Sollkurve**: Alltag Tagesroutine (Sparmodus, „nichts Neues“); Wächter nachts nur unter Soll, tags unter Soll oder Fenster < 60 %.
+8. **Sollkurve**: Alltag Tagesroutine (Sparmodus, „nichts Neues“); Wächter (Soll der Kalenderwoche) nachts nur unter Soll, tags unter Soll oder Fenster < 60 %.
 9. **Modellwahl** (keine Bremse): Abstand und 5 h wählen Haiku/Sonnet/Opus/Fable.
 
 Keine Doppelbremse: 4a wirkt nur im Volldampf auf Wächter und Tagesroutine (Stufe 1–3 erst nach 1–4), 7 wirkt nur auf den Wächter, 5 je Lauf mit eigener Schwelle (Wächter 90 %, Tagesroutine 80 %), 6 auf Wächter und Tagesroutine im Volldampf, 8 auf beide nach eigener Kurve; der Nachtlauf bremst nur
@@ -65,7 +66,7 @@ Keine Doppelbremse: 4a wirkt nur im Volldampf auf Wächter und Tagesroutine (Stu
 
 | Klasse | Token | Zeit | Beispiele | Wer und wann (heute umgesetzt) |
 |---|---|---|---|---|
-| T1 schwer | sehr hoch | mittel | Fehlersuche ohne belegte Ursache, Analyse, Design-Grundsatz | Fable nur mit Beleg; Wächter bei ≥ 5 Punkten unter Soll; Tagesroutine nach Opus-Fehlschlag; Nachtlauf „Rot bleibt rot“ |
+| T1 schwer | sehr hoch | mittel | Fehlersuche ohne belegte Ursache, Analyse, Design-Grundsatz | Fable nur mit Beleg; Wächter bei ≥ `FABLE_ABSTAND` Punkten unter dem Soll der Kalenderwoche; Tagesroutine nach Opus-Fehlschlag; Nachtlauf „Rot bleibt rot“ |
 | T2 Code | hoch | mittel | Bugs, Features, Prüfungen | Opus: Plan und „komplex“ der Tagesroutine, Worker, Nachtlauf |
 | T3 Routine | mittel | kurz | kleine Korrekturen, Texte in Code | Sonnet: „routine“ der Tagesroutine; Haiku im Sparmodus; Wächter ab 70 %: Worker Klasse „tokenarm“ (b) |
 | T4 Text | niedrig | kurz | README, Notizen, Doku | Sonnet (Zwischen-Release-Vorbereitung) |
@@ -84,6 +85,17 @@ Fenster knapp (≥ 85 %) oder Volldampf pausiert → Z-Klassen, die kaum Token b
 Rotes Release (Maintainer 18.11.2026, `docs/release.md` „Rote Änderung auf einen Nebenzweig“): das Modell der Untersuchung
 richtet sich nach dem Zähler `~/halo-nacht/rot-zaehler.txt` (`rot_stufe`, 14 Tage; 1 Opus, 2 und 3 Fable unter 50 % im
 5-Stunden-Fenster, ab 4 Maintainer), die Bremsen in Abschnitt 3 gelten unverändert davor.
+
+## 4a. Fable und manueller Reset (Stand 21.11.2026)
+
+Wortlaut des Maintainers: `ENTSCHEIDUNGEN.md` „Fable maximal ausnutzen“. Hier nur der laufende Stand:
+
+- Der Maintainer hat zwei „Fable reset“ (laut `docs/testrechner.md` bis 9. März) und löst einen **nur von Hand** aus, erst bei vollem Fable-Anteil der Woche. Keine Sitzung löst ihn aus.
+- **Bis zu diesem Reset:** Fable maximal nutzen, wo es Produktivität bringt (Fehlersuche, Analyse, schwierige Umbauten), höchstens ein Fable-Agent zugleich.
+- **Nach dem Reset:** wieder die normalen Obergrenzen (`FABLE_JE_LAUF`, `FABLE_5H_MAX`, Sollkurve), kein Ausreizen und kein Nachladen.
+- Den Fable-Wert kann neon nicht lesen (`tests/kontingent.sh` liefert nur Woche gesamt und 5 Stunden). Der Maintainer meldet ihn; zuletzt 82 % am 21.11.2026 (abends, Woche gesamt 91 %). Wer es für eine Entscheidung braucht, fragt nach dem aktuellen Wert.
+- Die Obergrenzen in `~/.config/halo-spaces/tagesroutine.conf` ändern sich nur auf Zahlen des Maintainers.
+- **Wirkung des Resets (Maintainer 21.11.2026):** „wenn unser fable kontingent bei 100% steht und damit verbraucht ist werde ich einen manuellen fable reset durchführen. dadurch wird auch unser fable verbrauch wieder vom wochenkontingent abgezogen und wir haben wieder mehr zu verbrauchen“. Nach dem Reset sinkt also auch der Wochenwert aus `tests/kontingent.sh`; der Maintainer meldet den Reset, vorher keine Planung darauf.
 
 ## 5. Lücken (Vorschläge, brauchen eine Entscheidung)
 

@@ -68,6 +68,42 @@ pruefe "Wartet auf OK und Done nicht gezählt" '! grep -qE "	(W1|D1)(,|	)" $TSV 
 pruefe "Zuschlag bei 2 Einträgen 0.5, aufgerundet 1" '[[ $(zeile_von $(gruppe_von G1) | cut -f3-5) == $(print "2\t0.5\t1") ]]'
 pruefe "deterministisch: zweiter Lauf gleiche Gruppen" \
   'cp $TSV $T/erst.tsv; python3 $HIER/haeufung.py --eingabe $T/board.json --aus $T --datum 2026-11-14 >/dev/null && cmp -s $TSV $T/erst.tsv'
+# Alters-Zuschlag (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026): +0,5 je volle 7 Tage, Deckel +1,5
+az() { python3 -c "import sys; sys.path.insert(0, '$HIER'); import haeufung as h; print(h.alters_zuschlag(h.alter_tage($1, '2026-11-20')))" }
+pruefe "Alter 0 Tage → 0" '[[ $(az "\"2026-11-20T08:00:00Z\"") == 0.0 ]]'
+pruefe "Alter 6 Tage → 0" '[[ $(az "\"2026-11-14T23:59:00Z\"") == 0.0 ]]'
+pruefe "Alter 7 Tage → 0,5" '[[ $(az "\"2026-11-13T00:00:00Z\"") == 0.5 ]]'
+pruefe "Alter 14 Tage → 1" '[[ $(az "\"2026-11-06T12:00:00Z\"") == 1.0 ]]'
+pruefe "Alter 21 Tage → 1,5" '[[ $(az "\"2026-10-30T12:00:00Z\"") == 1.5 ]]'
+pruefe "Alter 60 Tage → Deckel 1,5" '[[ $(az "\"2026-09-21T12:00:00Z\"") == 1.5 ]]'
+pruefe "ohne Datum (None, leer, kaputt) → 0" '[[ $(az None) == 0.0 && $(az "\"\"") == 0.0 && $(az "\"kaputt\"") == 0.0 ]]'
+jq '.items[0].createdAt = "2026-10-01T10:00:00Z" | .items[1].createdAt = "2026-11-13T10:00:00Z" | .items[2].createdAt = "2026-11-19T10:00:00Z"' $T/board.json > $T/alt.json
+python3 $HIER/haeufung.py --eingabe $T/alt.json --aus $T/alt --datum 2026-11-20 > $T/alt.aus 2>&1; rc=$?
+pruefe "Alter: Kurzzeile nennt Einträge mit Zuschlag" '(( rc == 0 )) && grep -q "; Alter: 2 Einträge mit Zuschlag, Alters-Platz" $T/alt.aus'
+pruefe "Alter: .tsv-Zeilen alter (älteste zuerst, Deckel), Abschnitt in der .md" \
+  '[[ $(grep "^alter	" $T/alt/2026-11-20-haeufung.tsv | cut -f2-4) == $(print -l "T1	50	1.5" "T2	7	0.5") ]] && grep -q "^## Alter (Skript)" $T/alt/2026-11-20-haeufung.md'
+pruefe "Alter: ohne createdAt kein Zuschlag, Gruppen unverändert" '! grep -q "^alter	T3" $T/alt/2026-11-20-haeufung.tsv && [[ $(grep "^gruppe" $T/alt/2026-11-20-haeufung.tsv | cut -f3-) == $(grep "^gruppe" $TSV | cut -f3-) ]]'
+# Alters-Platz: die drei ältesten machbaren Einträge
+cat > $T/platz.json <<'EOF'
+{"items":[
+ {"id":"P1","status":"Todo","title":"Mail: am ältesten, aber Entscheidung offen","body":"Entscheidung fehlt seit 2026-11-01: Welche Farbe?","createdAt":"2026-09-01T10:00:00Z"},
+ {"id":"P2","status":"Wartet auf OK","title":"Mail: wartet","body":"","createdAt":"2026-09-02T10:00:00Z"},
+ {"id":"P3","status":"In Progress","title":"Mail: fertig","body":"committet abc1234, wartet auf Push/CI","createdAt":"2026-09-03T10:00:00Z"},
+ {"id":"P4","status":"Todo","title":"Ablauf: neue Regel","body":"","createdAt":"2026-09-04T10:00:00Z"},
+ {"id":"P5","status":"Todo","title":"Import: PST 3/3 – Kontakte","body":"","createdAt":"2026-09-05T10:00:00Z"},
+ {"id":"P6","status":"Todo","title":"Kalender: Worker dran","body":"In Arbeit: worker-2 (21:00)","createdAt":"2026-09-06T10:00:00Z"},
+ {"id":"P7","status":"Todo","title":"Kalender: Worker fertig","body":"In Arbeit: worker-2 (20:00)\n\nIn Arbeit beendet","createdAt":"2026-10-01T10:00:00Z"},
+ {"id":"P8","status":"Todo","title":"Import: PST 2/3 – Mails","body":"","createdAt":"2026-10-02T10:00:00Z"},
+ {"id":"P9","status":"In Progress","title":"Chat: läuft noch","body":"","createdAt":"2026-10-03T10:00:00Z"},
+ {"id":"P10","status":"Todo","title":"Chat: jünger","body":"","createdAt":"2026-11-10T10:00:00Z"},
+ {"id":"P11","status":"Todo","title":"Chat: ohne Datum","body":""},
+ {"id":"P12","status":"Done","title":"Chat: erledigt","body":"","createdAt":"2026-08-01T10:00:00Z"}
+]}
+EOF
+python3 $HIER/haeufung.py --eingabe $T/platz.json --aus $T/platz --datum 2026-11-20 > $T/platz.aus 2>&1; rc=$?
+pruefe "Alters-Platz: drei älteste machbare (ohne Entscheidung offen, Wartet auf OK, Push/CI, Ablauf, Worker, späteren Reihenschritt)" \
+  '(( rc == 0 )) && [[ $(grep "^aeltest	" $T/platz/2026-11-20-haeufung.tsv | cut -f2-4) == $(print -l "1	P7	50" "2	P8	49" "3	P9	48") ]]'
+pruefe "Alters-Platz: Unterabschnitt in der .md, Kurzzeile nennt Kandidaten" 'grep -q "^### Älteste machbare Einträge (Alters-Platz)" $T/platz/2026-11-20-haeufung.md && grep -q "Alters-Platz: 3 Kandidaten" $T/platz.aus'
 print kaputt > $T/kaputt.json
 kaputt=$(python3 $HIER/haeufung.py --eingabe $T/kaputt.json --aus $T/x 2>&1); rc=$?
 pruefe "kaputte Eingabe → Exitcode 1, Meldung FEHLER" '(( rc == 1 )) && [[ $kaputt == FEHLER* ]]'

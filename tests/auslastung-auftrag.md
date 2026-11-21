@@ -62,7 +62,8 @@ Eintrag wählen (Board über tests/board.sh im Worktree; Abfragen sparsam, ein �
 - Reihenfolge (AGENTS.md „Reihenfolge eines Laufs“, im Volldampf die token-intensivsten wertvollen zuerst):
   0. Fehler, der jedes Release verhindert (rote/flackernde Prüfung, Eintrag „Tests: …“/„CI rot …“), wenn frei;
   1. Bugs, Schwere vor Bereich, Bereichsfolge global, Mail, Kalender, Adressbuch, Aufgaben, Einstellungen, Chat;
-     große, unklare, mehrere Dateien zuerst;
+     große, unklare, mehrere Dateien zuerst; Alter als Zuschlag (Abschnitt „Alter (Skript)“ in
+     ~/halo-nacht/<Heute>-haeufung.md, +0,5 Stufe je volle 7 Tage, höchstens +1,5): bei sonst gleichem Stand der ältere zuerst;
   2. Verdachtsfälle der Bug-Jagden (~/halo-nacht/bugjagd-*-2026-11-*.md, Abschnitte „## n. …“): belegen oder
      widerlegen (Code lesen, nachstellen, Prüfung). Vergabe über ~/halo-nacht/auslastung-vergeben.txt: nur einen Fall
      nehmen, der dort noch nicht steht, und sofort eine Zeile anhängen mit

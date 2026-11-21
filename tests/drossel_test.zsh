@@ -1,7 +1,9 @@
 #!/bin/zsh
-# Prüft die Kontingent-Drossel drossel_stufe aus tests/lauf-hilfen.zsh (Maintainer 19.11.2026: „ja umbauen und so rasch wie
-# möglich live schalten“) ohne Claude und ohne Netz: Hochrechnung aus dem Verlauf, Stufen, Hysterese, zu wenig Daten,
-# Unlesbares (Fail-open), nicht Volldampf, Schwellen aus der Konfiguration, Zustandsdatei.
+# Prüft die Kontingent-Drossel drossel_stufe aus tests/lauf-hilfen.zsh (Maintainer 20.11.2026: „ja, stell die ampel so um.
+# wäre es nicht alarmierender, wenn wir mehr % token als % woche verbraucht haben?“) ohne Claude und ohne Netz: d = Verbrauch
+# der Woche minus vergangene Wochenzeit (resetsAt aus kontingent.json, sonst Resetregel), Stufen an den Grenzen 0/5/15,
+# Hysterese 1 Punkt, ab 90 % nur mit d > 0, Fail-open (kontingent.json fehlt/alt, nach dem Reset, Wert von vor dem Reset),
+# nicht Volldampf, Schwellen aus der Konfiguration, Zustandsdatei.
 #   zsh tests/drossel_test.zsh   eine Zeile OK/FEHLER je Fall, Exitcode 1 bei einem Fehler
 emulate -L zsh
 HIER=${0:A:h}
@@ -20,106 +22,137 @@ pruefe() {   # <Name> <Ausgabe> <Muster …> (grep -E, alle müssen vorkommen)
 }
 print -r -- "volldampf 2026-11-17T01:00+01:00 2026-12-01T01:00+01:00 Probe" > $T/vd.txt
 : > $T/leer.conf
-# verlauf <Datei> <Woche jetzt> <Punkte je Stunde>: Punkte alle 30 Min. über 6 h vor Do 19.11. 12:00 UTC (wie der Leitstand)
-verlauf() {
+# kont <Datei> <utilization> [<stand> [<resetsAt Unix-Sekunden>|-]]: kontingent.json wie tests/kontingent.sh
+# Standard: Stand Do 19.11. 20:10 Wiener Zeit, resetsAt Di 24.11. 00:00 UTC (1795478400)
+kont() {
   python3 -I -c '
-import sys, json, datetime as d
-w, t = float(sys.argv[2]), float(sys.argv[3]); n = d.datetime(2026, 11, 19, 12, 0, tzinfo=d.timezone.utc)
-p = [{"t": (n - d.timedelta(minutes=30 * i)).strftime("%Y-%m-%dT%H:%M:%SZ"), "woche": round(w - t * i / 2, 2), "fuenf": 1} for i in range(12, 0, -1)]
-json.dump({"punkte": p}, open(sys.argv[1], "w"))' $1 $2 $3
+import sys, json
+w = {"utilization": float(sys.argv[2])}
+if sys.argv[4] != "-": w["resetsAt"] = int(sys.argv[4])
+json.dump({"stand": sys.argv[3], "info": {"unifiedWindows": {"seven_day": w}}}, open(sys.argv[1], "w"))' $1 $2 ${3:-2026-11-19T20:10:00+0100} ${4:-1795478400}
 }
-# D [VAR=Wert …] -- <Woche>: Do 19.11.2026 13:00 Wiener Zeit = 12:00 UTC, nächster Reset Di 24.11. 00:00 UTC (108 h)
+kont $T/k.json 0.30
+# D [VAR=Wert …] -- [<Woche>]: Do 19.11.2026 20:12 Wiener Zeit = 19:12 UTC, 100,8 h vor dem Reset → Wochenzeit genau 40,0 %
 D() {
   local -a v; while [[ $1 != -- ]]; do v+=($1); shift; done; shift
-  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-19T13:00+01:00 \
+  env HALO_VOLLDAMPF_DATEI=$T/vd.txt HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_JETZT=2026-11-19T20:12+01:00 \
     HALO_WOCHENANKER=$T/kein-anker.txt HALO_AS_CONF=$T/leer.conf HALO_TAGESROUTINE_CONF=$T/leer.conf \
-    HALO_DROSSEL_DATEI=$T/stufe.txt HALO_DROSSEL_VERLAUF=$T/v.json HALO_KONTINGENT_JSON=$T/kein-kontingent.json $v \
+    HALO_DROSSEL_DATEI=$T/stufe.txt HALO_KONTINGENT_JSON=$T/k.json $v \
     zsh -c 'LOG=/dev/null; source $1/lauf-hilfen.zsh; drossel_stufe $2' _ $HIER "$@" 2>&1
 }
-# Woche 30 %, bis 98 % fehlen 68 Punkte; Fehlstunden = 108 − 68 / Tempo
-verlauf $T/v.json 30 0.5;  pruefe "reicht: Tempo 0,5 → voll erst nach dem Reset, Stufe 0" "$(D -- 30)" '^0 Stufe 0 \(28 h Reserve\): reicht' 'Tempo 0\.50 Punkte/h über 6\.0 h Verlauf' 'Reset Di 01:00'
-pruefe "Zustandsdatei geschrieben (Stufe, Fehlstunden, Zeit, seit; Wirkung; Grund)" "$(cat $T/stufe.txt)" \
-  '^0 -28\.0 2026-11-19T12:00\+00:00 2026-11-19T12:00\+00:00$' '^reicht$' '^reicht bis Mi 05:00, 28 h nach dem Reset Di 01:00$'
-rm -f $T/stufe.txt
-verlauf $T/v.json 30 0.65; pruefe "Stufe 1: 3 Fehlstunden" "$(D -- 30)" '^1 Stufe 1 \(3 Fehlstunden(, vorher 0)?\): keine neuen Worker, Tagesroutine kein Fable'
-rm -f $T/stufe.txt
-verlauf $T/v.json 30 0.75; pruefe "Stufe 2: 17 Fehlstunden" "$(D -- 30)" '^2 Stufe 2 \(17 Fehlstunden(, vorher 0)?\): keine neuen Worker, Tagesroutine nur jede zweite Runde'
-rm -f $T/stufe.txt
-print -r -- "3 40.0 2026-11-19T11:50+00:00 2026-11-19T09:00+00:00" > $T/stufe.txt
-verlauf $T/v.json 30 1.0;  pruefe "Stufe 3 unverändert: seit bleibt, Grund mit Fehlstunden" "$(D -- 30 >/dev/null; cat $T/stufe.txt)" \
-  '^3 40\.0 2026-11-19T12:00\+00:00 2026-11-19T09:00\+00:00$' '^keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde$' '^voll So 09:00, 40 Fehlstunden vor dem Reset Di 01:00$'
-rm -f $T/stufe.txt
-verlauf $T/v.json 30 1.0;  pruefe "Stufe 3: 40 Fehlstunden, voll So" "$(D -- 30)" '^3 Stufe 3 \(40 Fehlstunden(, vorher 0)?\): .*nichts Neues bis zur vollen Stunde' 'voll \(98 %\) So 09:00'
-pruefe "Woche schon ab 98 %: alle Stunden bis zum Reset fehlen" "$(D -- 98)" '^3 Stufe 3 \(108 Fehlstunden'
 
-# Hysterese: zurück erst 6 Stunden unter der Einschaltgrenze
-print -r -- "3 40.0 2026-11-19T11:50+00:00" > $T/stufe.txt
-verlauf $T/v.json 30 0.84; pruefe "Hysterese: Stufe 3 bleibt bei 27 Fehlstunden (Grenze 30 − 6)" "$(D -- 30)" '^3 Stufe 3 \(27 Fehlstunden, gehalten, Rohstufe 2\)'
-verlauf $T/v.json 30 0.77; pruefe "Hysterese: bei 20 Fehlstunden zurück auf Stufe 2" "$(D -- 30)" '^2 Stufe 2 \(20 Fehlstunden, vorher 3\)'
-print -r -- "2 20.0 2026-11-19T11:50+00:00" > $T/stufe.txt
-verlauf $T/v.json 30 0.66; pruefe "Hysterese: Stufe 2 bleibt bei 5 Fehlstunden? nein, 6 unter 12 → Stufe 1" "$(D -- 30)" '^1 Stufe 1 \([0-9]+ Fehlstunden, vorher 2\)'
-print -r -- "2 20.0 2026-11-19T11:50+00:00" > $T/stufe.txt
-verlauf $T/v.json 30 0.7;  pruefe "Hysterese: Stufe 2 bleibt bei 11 Fehlstunden (Rohstufe 1)" "$(D -- 30)" '^2 Stufe 2 \(11 Fehlstunden, gehalten, Rohstufe 1\)'
-print -r -- "1 3.0 2026-11-19T11:50+00:00" > $T/stufe.txt
-verlauf $T/v.json 30 0.61; pruefe "Hysterese: Stufe 1 bleibt bei 3 h Reserve (über −6)" "$(D -- 30)" '^1 Stufe 1 \(3 h Reserve, gehalten, Rohstufe 0\)'
-verlauf $T/v.json 30 0.59; pruefe "Hysterese: Stufe 1 endet bei 7 h Reserve" "$(D -- 30)" '^0 Stufe 0 \(7 h Reserve, vorher 1\): reicht'
-print -r -- "3 40.0 2026-11-16T11:50+00:00" > $T/stufe.txt
-pruefe "Zustand aus der Vorwoche gilt nicht" "$(D -- 30)" '^0 Stufe 0 \(7 h Reserve\): reicht'
+# Stufen an den Grenzen (d = Woche − 40,0)
+pruefe "d = 0: Stufe 0" "$(rm -f $T/stufe.txt; D -- 40)" '^0 Stufe 0 \(0\.0 Punkte unter der Zeit\): reicht – Woche 40 %, Wochenzeit 40\.0 % \(Reset Di 01:00, resetsAt\)$'
+pruefe "d = −10: Stufe 0" "$(rm -f $T/stufe.txt; D -- 30)" '^0 Stufe 0 \(10\.0 Punkte unter der Zeit\): reicht'
+pruefe "d = 1: Stufe 1" "$(rm -f $T/stufe.txt; D -- 41)" '^1 Stufe 1 \(1\.0 Punkte über der Zeit(, vorher 0)?\): keine neuen Worker, Tagesroutine kein Fable'
+pruefe "d = 5: noch Stufe 1" "$(rm -f $T/stufe.txt; D -- 45)" '^1 Stufe 1 \(5\.0 Punkte über der Zeit'
+pruefe "d = 6: Stufe 2" "$(rm -f $T/stufe.txt; D -- 46)" '^2 Stufe 2 \(6\.0 Punkte über der Zeit(, vorher 0)?\): keine neuen Worker, Tagesroutine nur jede zweite Runde'
+pruefe "d = 15: noch Stufe 2" "$(rm -f $T/stufe.txt; D -- 55)" '^2 Stufe 2 \(15\.0 Punkte über der Zeit'
+pruefe "d = 16: Stufe 3" "$(rm -f $T/stufe.txt; D -- 56)" '^3 Stufe 3 \(16\.0 Punkte über der Zeit(, vorher 0)?\): keine neuen Worker, Tagesroutine nichts Neues bis zur vollen Stunde'
+pruefe "Rechenrest an der Grenze zählt nicht (0,45 × 100 aus kontingent.json)" "$(rm -f $T/stufe.txt; kont $T/k45.json 0.45; D HALO_KONTINGENT_JSON=$T/k45.json -- 45)" '^1 Stufe 1 \(5\.0 Punkte'
+
+# Zustandsdatei: Zeile 1 „<Stufe> <d> <ISO> <seit ISO>“, Zeile 2 Wirkung, Zeile 3 Grund
+rm -f $T/stufe.txt; D -- 41 >/dev/null
+pruefe "Zustandsdatei geschrieben (Stufe, d, Zeit, seit; Wirkung; Grund)" "$(cat $T/stufe.txt)" \
+  '^1 1\.0 2026-11-19T19:12\+00:00 2026-11-19T19:12\+00:00$' '^keine neuen Worker, Tagesroutine kein Fable$' \
+  '^1\.0 Punkte über der Zeit: Woche 41 %, Wochenzeit 40\.0 % \(Reset Di 01:00, resetsAt\)$'
+print -r -- "3 20.0 2026-11-19T19:00+00:00 2026-11-19T09:00+00:00" > $T/stufe.txt
+pruefe "Stufe unverändert: seit bleibt" "$(D -- 60 >/dev/null; head -1 $T/stufe.txt)" '^3 20\.0 2026-11-19T19:12\+00:00 2026-11-19T09:00\+00:00$'
+pruefe "Trockenlauf schreibt keinen Zustand" "$(rm -f $T/stufe.txt; D HALO_PAUSE_TROCKEN=1 -- 41 >/dev/null; ls $T/stufe.txt 2>&1)" 'No such file'
+
+# Hysterese: zurück erst 1 Punkt unter der Einschaltgrenze
+print -r -- "3 20.0 2026-11-19T19:00+00:00" > $T/stufe.txt
+pruefe "Hysterese: Stufe 3 bleibt bei d = 14,5 (Grenze 15 − 1)" "$(D -- 54.5)" '^3 Stufe 3 \(14\.5 Punkte über der Zeit, gehalten, Rohstufe 2\)'
+pruefe "Hysterese: bei d = 14 zurück auf Stufe 2" "$(D -- 54)" '^2 Stufe 2 \(14\.0 Punkte über der Zeit, vorher 3\)'
+pruefe "Hysterese: Stufe 2 bleibt bei d = 4,5" "$(D -- 44.5)" '^2 Stufe 2 \(4\.5 Punkte über der Zeit, gehalten, Rohstufe 1\)'
+pruefe "Hysterese: bei d = 4 zurück auf Stufe 1" "$(D -- 44)" '^1 Stufe 1 \(4\.0 Punkte über der Zeit, vorher 2\)'
+pruefe "Hysterese: Stufe 1 bleibt bei d = −0,5" "$(D -- 39.5)" '^1 Stufe 1 \(0\.5 Punkte unter der Zeit, gehalten, Rohstufe 0\)'
+pruefe "Hysterese: Stufe 1 endet bei d = −1" "$(D -- 39)" '^0 Stufe 0 \(1\.0 Punkte unter der Zeit, vorher 1\): reicht'
+print -r -- "3 20.0 2026-11-19T19:00+00:00" > $T/stufe.txt
+pruefe "Hysterese: von Stufe 3 bei d = −5 direkt auf 0" "$(D -- 35)" '^0 Stufe 0 \(5\.0 Punkte unter der Zeit, vorher 3\)'
+print -r -- "3 20.0 2026-11-16T23:50+00:00" > $T/stufe.txt
+pruefe "Zustand aus der Vorwoche gilt nicht (Wochenbeginn Di 00:00 UTC)" "$(D -- 54.5)" '^2 Stufe 2 \(14\.5 Punkte über der Zeit(, vorher 0)?\)'
 print -r -- "Unsinn" > $T/stufe.txt
-pruefe "Zustandsdatei unlesbar: wie ohne Zustand" "$(D -- 30)" '^0 Stufe 0'
-pruefe "Trockenlauf schreibt keinen Zustand" "$(rm -f $T/stufe.txt; D HALO_PAUSE_TROCKEN=1 -- 30 >/dev/null; ls $T/stufe.txt 2>&1)" 'No such file'
-
-# zu wenig Verlauf: Schnitt seit Reset bzw. freiem Reset
+pruefe "Zustandsdatei unlesbar: wie ohne Zustand" "$(D -- 41)" '^1 Stufe 1'
+print -r -- "3 20.0 2026-11-19T10:00+00:00" > $T/stufe.txt
+print -r -- "anker 2026-11-19T11:00+01:00 96 2" > $T/anker.txt
+pruefe "freier Reset ändert nichts: nur die Kalenderwoche zählt (Zustand bleibt gültig)" "$(D HALO_WOCHENANKER=$T/anker.txt -- 54.5)" '^3 Stufe 3 \(14\.5 Punkte über der Zeit, gehalten'
 rm -f $T/stufe.txt
-pruefe "kein Verlauf: Schnitt seit Reset (60 h, Woche 30 → 0,5/h)" "$(D HALO_DROSSEL_VERLAUF=$T/fehlt.json -- 30)" '^0 Stufe 0 \(28 h Reserve\)' 'Schnitt seit Reset \(60 h, Verlauf zu kurz\)'
-print -r -- '{"punkte":[{"t":"2026-11-19T11:00:00Z","woche":25}]}' > $T/kurz.json
-pruefe "Verlauf unter 3 h: Schnitt seit Reset" "$(D HALO_DROSSEL_VERLAUF=$T/kurz.json -- 30)" 'Schnitt seit Reset'
+
+# ab 90 % verbraucht: Stufe 3 nur mit d > 0 (Mo 23.11. 08:12 Wiener Zeit: 16,8 h vor dem Reset, Wochenzeit 90,0 %)
+kont $T/k90.json 0.30 2026-11-23T08:10:00+0100
+pruefe "Woche 92 % bei Wochenzeit 90 %: Stufe 3 (statt 1)" "$(D HALO_JETZT=2026-11-23T08:12+01:00 HALO_KONTINGENT_JSON=$T/k90.json -- 92)" '^3 Stufe 3 \(2\.0 Punkte über der Zeit.*Wochenzeit 90\.0 % .*ab 90 % verbraucht'
+rm -f $T/stufe.txt
+pruefe "Woche 90 % bei Wochenzeit 90 % (d = 0): keine Drossel" "$(D HALO_JETZT=2026-11-23T08:12+01:00 HALO_KONTINGENT_JSON=$T/k90.json -- 90)" '^0 Stufe 0 \(0\.0 Punkte unter der Zeit\)'
+pruefe "Woche 95 % bei Wochenzeit 96 %: keine Drossel" "$(kont $T/k96.json 0.30 2026-11-23T18:15:00+0100; D HALO_JETZT=2026-11-23T18:16:48+01:00 HALO_KONTINGENT_JSON=$T/k96.json -- 95)" '^0 Stufe 0 \(1\.0 Punkte unter der Zeit\)'
+print -r -- "DROSSEL_ROT=95" > $T/rot.conf
+rm -f $T/stufe.txt
+pruefe "DROSSEL_ROT aus der Konfiguration (95): 92 % nur Stufe 1" "$(D HALO_AS_CONF=$T/rot.conf HALO_JETZT=2026-11-23T08:12+01:00 HALO_KONTINGENT_JSON=$T/k90.json -- 92)" '^1 Stufe 1'
+rm -f $T/stufe.txt
+
+# resetsAt, Rückfall auf die Resetregel, Sommerzeit egal
+pruefe "ohne resetsAt: Resetregel Di 00:00 UTC" "$(kont $T/kr.json 0.30 2026-11-19T20:10:00+0100 -; D HALO_KONTINGENT_JSON=$T/kr.json -- 41)" 'Wochenzeit 40\.0 % \(Reset Di 01:00, Resetregel\)'
+rm -f $T/stufe.txt
+pruefe "resetsAt eine Stunde später (Di 01:00 UTC): Wochenzeit 39,4 %" "$(kont $T/k1.json 0.30 2026-11-19T20:10:00+0100 1795482000; D HALO_KONTINGENT_JSON=$T/k1.json -- 41)" 'Wochenzeit 39\.4 % \(Reset Di 02:00, resetsAt\)'
+rm -f $T/stufe.txt
+print -r -- "volldampf 2026-06-30T02:00+02:00 2026-07-14T02:00+02:00 Sommer" > $T/vd-sommer.txt
+pruefe "Sommerzeit: resetsAt Di 07.07. 00:00 UTC (02:00 Wiener Zeit), Do 02.07. 12:00 → 110 h vor dem Reset, 34,5 %" \
+  "$(kont $T/ks.json 0.30 2026-07-02T11:50:00+0200 1783382400; D HALO_VOLLDAMPF_DATEI=$T/vd-sommer.txt HALO_JETZT=2026-07-02T12:00+02:00 HALO_KONTINGENT_JSON=$T/ks.json -- 20)" \
+  '^0 Stufe 0 \(14\.5 Punkte unter der Zeit\).*Wochenzeit 34\.5 % \(Reset Di 02:00, resetsAt\)'
+rm -f $T/stufe.txt
+
+# Woche aus kontingent.json
+pruefe "ohne Woche: Wert aus kontingent.json" "$(kont $T/k41.json 0.41; D HALO_KONTINGENT_JSON=$T/k41.json -- )" '^1 Stufe 1 .*Woche 41 %'
+rm -f $T/stufe.txt
+pruefe "ungerundeter Wochenwert aus kontingent.json bevorzugt" "$(kont $T/k4123.json 0.4123; D HALO_KONTINGENT_JSON=$T/k4123.json -- 41)" 'Woche 41\.23 %'
+rm -f $T/stufe.txt
+pruefe "ungerundeter Wert nur, wenn er zum übergebenen passt" "$(D -- 41)" 'Woche 41 %'
+rm -f $T/stufe.txt
+
+# Fail-open
+pruefe "kontingent.json fehlt: Fail-open" "$(D HALO_KONTINGENT_JSON=$T/fehlt.json -- 60)" '^0 Fail-open: kontingent\.json nicht lesbar – keine Drossel$'
 print -r -- 'kein json' > $T/kaputt.json
-pruefe "Verlauf unlesbar: Schnitt seit Reset" "$(D HALO_DROSSEL_VERLAUF=$T/kaputt.json -- 30)" '^0 Stufe 0 .*Schnitt seit Reset'
-print -r -- "anker 2026-11-19T07:00+01:00 96 2" > $T/anker.txt
-pruefe "nach freiem Reset: Schnitt seit Anker ab dem Wert danach ((30−2)/6 h)" "$(D HALO_WOCHENANKER=$T/anker.txt HALO_DROSSEL_VERLAUF=$T/fehlt.json -- 30)" \
-  'Tempo 4\.67 Punkte/h Schnitt seit freiem Reset \(6 h' '^3 Stufe 3'
-print -r -- '{"punkte":[{"t":"2026-11-19T06:00:00Z","woche":90},{"t":"2026-11-19T06:15:00Z","woche":95},{"t":"2026-11-19T06:30:00Z","woche":3},{"t":"2026-11-19T09:00:00Z","woche":10}]}' > $T/sturz.json
-pruefe "Sturz im Verlauf: nur die Punkte danach (Tempo (30−3)/5,5 h)" "$(D HALO_WOCHENANKER=$T/kein-anker.txt HALO_DROSSEL_VERLAUF=$T/sturz.json -- 30)" 'Tempo 4\.91 Punkte/h über 5\.5 h Verlauf'
-print -r -- "volldampf 2026-11-24T01:00+01:00 2026-12-01T01:00+01:00 Probe" > $T/vd-neu.txt
-pruefe "kurz nach dem Reset (30 Min.): zu wenig Daten → keine Drossel (Fail-open)" \
-  "$(D HALO_VOLLDAMPF_DATEI=$T/vd-neu.txt HALO_JETZT=2026-11-24T01:30+01:00 HALO_DROSSEL_VERLAUF=$T/fehlt.json -- 1)" '^0 Fail-open: zu wenig Daten \(0\.5 h und 1\.0 Punkte seit Reset'
-
-# Zweitlesung 19.11.2026: Ersatzweg erst ab 5 h und 3 Punkten seit Reset, Verlauf erst ab 5 h Spanne
-pruefe "1,1 h nach dem Reset, Woche 2 %: zu wenig Daten (früher Stufe 3)" \
-  "$(D HALO_VOLLDAMPF_DATEI=$T/vd-neu.txt HALO_JETZT=2026-11-24T02:06+01:00 HALO_DROSSEL_VERLAUF=$T/fehlt.json -- 2)" '^0 Fail-open: zu wenig Daten \(1\.1 h'
-pruefe "6 h nach dem Reset, erst 2 Punkte: zu wenig Daten" \
-  "$(D HALO_VOLLDAMPF_DATEI=$T/vd-neu.txt HALO_JETZT=2026-11-24T07:00+01:00 HALO_DROSSEL_VERLAUF=$T/fehlt.json -- 2)" '^0 Fail-open: zu wenig Daten \(6\.0 h und 2\.0 Punkte'
-pruefe "Verlauf mit 4 h Spanne reicht nicht (Mindestspanne 5 h): Schnitt seit Reset" "$(verlauf $T/v4.json 30 1.0; python3 -I -c 'import json,sys;d=json.load(open(sys.argv[1]));d["punkte"]=d["punkte"][4:];json.dump(d,open(sys.argv[1],"w"))' $T/v4.json; D HALO_DROSSEL_VERLAUF=$T/v4.json -- 30)" 'Schnitt seit Reset'
-print -r -- "3 40.0 2026-11-19T11:50+00:00 2026-11-19T09:00+00:00" > $T/stufe.txt
-pruefe "Fail-open erneuert nur die Zeit (Stufe bleibt Gedächtnis, Marke offen)" "$(D -- >/dev/null; cat $T/stufe.txt)" \
-  '^3 40\.0 2026-11-19T12:00\+00:00 2026-11-19T09:00\+00:00 offen$' '^keine Drossel \(Fail-open\)$' '^Woche nicht lesbar$'
-pruefe "nach Fail-open gilt die Stufe als Gedächtnis weiter (Hysterese)" "$(verlauf $T/v.json 30 0.84; D -- 30)" '^3 Stufe 3 \(27 Fehlstunden, gehalten'
-print -r -- "3 40.0 2026-11-19T05:30+00:00 2026-11-19T05:00+00:00" > $T/stufe.txt
-print -r -- "anker 2026-11-19T07:00+01:00 96 2" > $T/anker2.txt
-print -r -- '{"punkte":[{"t":"2026-11-19T06:30:00Z","woche":4}]}' > $T/v-anker.json
-pruefe "Zustand von vor dem freien Reset wird verworfen (keine gehaltene Stufe)" "$(D HALO_WOCHENANKER=$T/anker2.txt HALO_DROSSEL_VERLAUF=$T/v-anker.json -- 8)" '^0 Stufe 0 \([0-9]+ h Reserve\)'
+pruefe "kontingent.json unlesbar: Fail-open" "$(D HALO_KONTINGENT_JSON=$T/kaputt.json -- 60)" '^0 Fail-open: kontingent\.json nicht lesbar'
+pruefe "Stand älter als 3 h: Fail-open" "$(kont $T/kalt.json 0.60 2026-11-19T17:10:00+0100; D HALO_KONTINGENT_JSON=$T/kalt.json -- 60)" '^0 Fail-open: Kontingent-Stand Do 17:10 älter als 3 h'
+pruefe "Stand genau 3 h alt: noch gültig" "$(kont $T/k3.json 0.30 2026-11-19T17:12:00+0100; D HALO_KONTINGENT_JSON=$T/k3.json -- 41)" '^1 Stufe 1'
 rm -f $T/stufe.txt
-print -r -- '{"stand":"2026-11-19T12:55:00+0100","info":{"unifiedWindows":{"seven_day":{"utilization":0.304}}}}' > $T/kont.json
-pruefe "ungerundeter Wochenwert aus kontingent.json bevorzugt" "$(verlauf $T/v.json 30 0.5; D HALO_KONTINGENT_JSON=$T/kont.json -- 30)" 'Woche 30\.4 %'
-pruefe "ungerundeter Wert nur, wenn er zum übergebenen passt" "$(D HALO_KONTINGENT_JSON=$T/kont.json -- 35)" 'Woche 35 %'
+pruefe "Stand in der Zukunft: Fail-open" "$(kont $T/kz.json 0.30 2026-11-19T21:00:00+0100; D HALO_KONTINGENT_JSON=$T/kz.json -- 60)" '^0 Fail-open: Kontingent-Stand'
+print -r -- "DROSSEL_STAND_STUNDEN=4" > $T/stand.conf
+pruefe "DROSSEL_STAND_STUNDEN aus der Konfiguration (4 h)" "$(D HALO_AS_CONF=$T/stand.conf HALO_KONTINGENT_JSON=$T/kalt.json -- 60)" '^3 Stufe 3'
 rm -f $T/stufe.txt
+# Nach dem Dienstag-Reset: alter Wert (95 %) gegen Wochenzeit ~0 ergäbe fälschlich Stufe 3
+pruefe "jetzt nach resetsAt (Wert noch aus der alten Woche): Fail-open" \
+  "$(kont $T/kreset.json 0.95 2026-11-24T00:50:00+0100; D HALO_JETZT=2026-11-24T01:30+01:00 HALO_KONTINGENT_JSON=$T/kreset.json -- 95)" '^0 Fail-open: Reset Di 01:00 vorbei, Wochenwert noch von davor'
+pruefe "Nach-Reset-Lücke: resetsAt schon neu, Stand von vor dem Reset: Fail-open" \
+  "$(kont $T/kluecke.json 0.95 2026-11-23T23:50:00+0100 1796083200; D HALO_JETZT=2026-11-24T01:30+01:00 HALO_KONTINGENT_JSON=$T/kluecke.json -- 95)" '^0 Fail-open: Wochenwert von vor dem Reset Di 01:00'
+pruefe "nach dem Reset mit frischem Wert: rechnet wieder (Wochenzeit 0,3 %)" \
+  "$(kont $T/kneu.json 0.01 2026-11-24T01:25:00+0100 1796083200; D HALO_JETZT=2026-11-24T01:30+01:00 HALO_KONTINGENT_JSON=$T/kneu.json -- 1)" '^1 Stufe 1 \(0\.7 Punkte über der Zeit.*Wochenzeit 0\.3 %'
+rm -f $T/stufe.txt
+print -r -- '{"stand":"2026-11-19T20:10:00+0100","info":{"unifiedWindows":{"seven_day":{"resetsAt":1795478400}}}}' > $T/kohne.json
+pruefe "ohne Woche und ohne Wochenwert in kontingent.json: Fail-open" "$(D HALO_KONTINGENT_JSON=$T/kohne.json -- )" '^0 Fail-open: Woche nicht lesbar'
+print -r -- "3 20.0 2026-11-19T19:00+00:00 2026-11-19T09:00+00:00" > $T/stufe.txt
+pruefe "Fail-open erneuert nur die Zeit (Stufe bleibt Gedächtnis, Marke offen)" "$(D HALO_KONTINGENT_JSON=$T/fehlt.json -- 60 >/dev/null; cat $T/stufe.txt)" \
+  '^3 20\.0 2026-11-19T19:12\+00:00 2026-11-19T09:00\+00:00 offen$' '^keine Drossel \(Fail-open\)$' '^kontingent\.json nicht lesbar$'
+pruefe "nach Fail-open gilt die Stufe als Gedächtnis weiter (Hysterese)" "$(D -- 54.5)" '^3 Stufe 3 \(14\.5 Punkte über der Zeit, gehalten'
+rm -f $T/stufe.txt
+pruefe "Rechnung scheitert (Zustand nicht schreibbar): Fail-open" "$(D HALO_DROSSEL_DATEI=/dev/null/x/stufe.txt -- 41)" '^0 Fail-open: Rechnung gescheitert'
 
-# Unlesbares, nicht Volldampf, abgeschaltet, Schwellen
-pruefe "Woche nicht lesbar: Fail-open" "$(D -- )" '^0 Fail-open: Woche nicht lesbar – keine Drossel'
-pruefe "Rechnung scheitert: Fail-open" "$(D VOLLDAMPF_WOCHE_ENDE=abc -- 30)" '^0 Fail-open: Hochrechnung gescheitert'
-verlauf $T/v.json 30 1.0
-pruefe "nicht Volldampf: aus" "$(D HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt -- 30)" '^0 aus \(Volldampf nicht aktiv\)'
+# nicht Volldampf, abgeschaltet, Schwellen
+pruefe "nicht Volldampf: aus" "$(D HALO_VOLLDAMPF_DATEI=$T/kein-vd.txt -- 60)" '^0 aus \(Volldampf nicht aktiv\)'
 print -r -- "2026-11-17T01:00+01:00 2026-12-01T01:00+01:00 2026-11-19T08:00+01:00 98" > $T/vd-beendet.txt
-pruefe "Volldampf pausiert (Wochenlimit): aus" "$(D -- 30)" '^0 aus'
+pruefe "Volldampf pausiert (Wochenlimit): aus" "$(D -- 60)" '^0 aus'
 rm -f $T/vd-beendet.txt
 print -r -- "DROSSEL_AUS=1" > $T/aus.conf
-pruefe "DROSSEL_AUS=1 schaltet ab" "$(D HALO_AS_CONF=$T/aus.conf -- 30)" '^0 aus \(DROSSEL_AUS=1\)'
-print -l "DROSSEL_STUFE3=50 # Kommentar" "DROSSEL_STUFE2=abc" > $T/s3.conf
+pruefe "DROSSEL_AUS=1 schaltet ab" "$(D HALO_AS_CONF=$T/aus.conf -- 60)" '^0 aus \(DROSSEL_AUS=1\)'
+print -l "DROSSEL_STUFE3=20 # Kommentar" "DROSSEL_STUFE2=abc" "DROSSEL_TEMPO_STUNDEN=6" > $T/s3.conf
 rm -f $T/stufe.txt
-pruefe "Schwelle aus auslastung.conf (Stufe 3 erst über 50), ungültiger Wert übergangen" "$(D HALO_AS_CONF=$T/s3.conf -- 30)" '^2 Stufe 2 \(40 Fehlstunden'
-print -r -- "DROSSEL_STUFE3=20" > $T/tr.conf
+pruefe "Schwelle aus auslastung.conf (Stufe 3 erst über 20), ungültiger und alter Wert übergangen" "$(D HALO_AS_CONF=$T/s3.conf -- 56)" '^2 Stufe 2 \(16\.0 Punkte'
+print -r -- "DROSSEL_STUFE3=10" > $T/tr.conf
 rm -f $T/stufe.txt
-pruefe "tagesroutine.conf gilt nach auslastung.conf" "$(D HALO_AS_CONF=$T/s3.conf HALO_TAGESROUTINE_CONF=$T/tr.conf -- 30)" '^3 Stufe 3'
+pruefe "tagesroutine.conf gilt nach auslastung.conf" "$(D HALO_AS_CONF=$T/s3.conf HALO_TAGESROUTINE_CONF=$T/tr.conf -- 52)" '^3 Stufe 3'
+print -r -- "DROSSEL_HYSTERESE=3" > $T/hy.conf
+print -r -- "2 10.0 2026-11-19T19:00+00:00" > $T/stufe.txt
+pruefe "DROSSEL_HYSTERESE aus der Konfiguration (3): Stufe 2 bleibt bei d = 3" "$(D HALO_AS_CONF=$T/hy.conf -- 43)" '^2 Stufe 2 \(3\.0 Punkte über der Zeit, gehalten'
 pruefe "Probe HALO_DROSSEL_STUFE" "$(D HALO_DROSSEL_STUFE=2 -- 30)" '^2 Stufe 2 \(Probe'
+pruefe "keine Hochrechnung mehr (kein Verlauf, kein Tempo)" "$(sed -n '/^DROSSEL_PY=/,/^drossel_stufe()/p' $HIER/lauf-hilfen.zsh | grep -cE 'verlauf|tempo')" '^0$'
 exit $FEHLER

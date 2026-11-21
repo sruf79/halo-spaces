@@ -2,7 +2,8 @@
 # Auslastungswächter im Volldampf (Maintainer 17.11.2026, Wortlaute in ENTSCHEIDUNGEN.md: „Warum muss ich immer
 # nachfragen und damit manuell nachjustieren? Volldampf sollte automatisch sein und permanent auf maximale
 # Produktivität überprüfen.“; „Das gilt für taglauf und nachtlauf solange Volldampf aktiv ist“; Ziel: Woche in
-# höchstens 48 Stunden nach dem Reset verbraucht, 5-Stunden-Fenster hoch). Von Hand im Hintergrund starten
+# der Kalenderwoche folgend verbraucht, 5-Stunden-Fenster hoch; bis 20.11.2026 Woche in höchstens 48 Stunden nach dem
+# Reset). Von Hand im Hintergrund starten
 # (kein LaunchAgent):
 #   nohup zsh ~/halo-spaces/tests/auslastung-schleife.zsh >/dev/null 2>&1 &!
 #   zsh tests/auslastung-schleife.zsh --einmal    eine Prüfung (und ggf. ein Worker-Start), dann Ende
@@ -19,17 +20,17 @@
 #      Kontingent für den Nachtlauf bleibt. Grenze erreicht: warten, ohne das Kontingent zu messen.
 #   3. Kontingent (kontingent.json, wenn jünger als KONT_ALTER Minuten, sonst tests/kontingent.sh). Status nicht
 #      „allowed…“: warten. Woche ab VOLLDAMPF_WOCHE_ENDE: Volldampf pausiert (Marke wie in den anderen Läufen), warten.
-#   4. Soll aus wochen_soll (lauf-hilfen.zsh): ohne freien Reset Stunden seit dem Reset (Di 00:00 UTC) / SOLL_STUNDEN
-#      (48) × 100 %; nach einem freien Reset (Anker) Stunden seit dem Anker / Stunden bis zum nächsten automatischen
-#      Reset × 100 % („Soll bis nächster Reset“, Maintainer 18.11.2026). Tags: Woche unter Soll oder
+#   4. Soll aus kalender_soll (lauf-hilfen.zsh; Maintainer 20.11.2026, ENTSCHEIDUNGEN.md „Kontingent-Drossel nach der
+#      Kalenderwoche“): vergangene Zeit der Kalenderwoche (Di 01:00 bis Di 01:00) in %, = 100 − (resetsAt − jetzt) / 6048 s,
+#      auch nach einem freien Reset (bis 20.11.2026: 48-h-Kurve bzw. „Soll bis nächster Reset“ ab dem Anker). Tags: Woche unter Soll oder
 #      5-Stunden-Fenster unter FENSTER_MIN (60 %) → ein Worker; nachts nur, wenn die Woche unter Soll liegt.
 #      5-Stunden-Fenster ab FENSTER_DROSSEL (70 %): nur noch Klasse „tokenarm“ (MODELL_TOKENARM sonnet, höchstens
 #      TOKENARM_MAX 1 gleichzeitig; Maintainer 18.11.2026); ab FENSTER_STOPP (90 %): kein neuer Worker. Höchstens ein Start je Takt und START_ABSTAND.
 #      Windows-Rundgang (rundgang_pruefen, unten): ab RUNDGANG_5H (85 %) einmal je Tag eine Sitzung mit dem offenen
 #      Bildauftrag RUNDGANG_NR aus neon-stand.md (Maintainer 18.11.2026), vor Stopp, Takt und Drossel.
-#      Kontingent-Drossel (drossel_stufe, lauf-hilfen.zsh; Maintainer 19.11.2026): reicht die Woche nach Hochrechnung nicht
-#      bis zum Reset (Stufe ab 1), kein neuer Worker; nach dem Rundgang, vor Stopp und Takt.
-#   5. Modell MODELL (opus); fable nur bei Woche mehr als FABLE_ABSTAND (20) Punkte unter Soll, 5-Stunden-Fenster
+#      Kontingent-Drossel (drossel_stufe, lauf-hilfen.zsh; Maintainer 19. und 20.11.2026): mehr von der Woche verbraucht als
+#      Wochenzeit vergangen (Stufe ab 1), kein neuer Worker; nach dem Rundgang, vor Stopp und Takt.
+#   5. Modell MODELL (opus); fable nur bei Woche mindestens FABLE_ABSTAND (20) Punkte unter dem Soll der Kalenderwoche, 5-Stunden-Fenster
 #      unter FABLE_5H (50 %) und keinem anderen Fable-Lauf.
 #   6. Vorprüfung ohne Sprachmodell (passend, unten; Maintainer 19.11.2026): ein Worker nur, wenn die Aufgabenliste (höchstens
 #      alle BOARD_ALTER 15 Minuten geladen) oder die Bug-Jagden einen möglichen Eintrag haben; sonst „kein passender Eintrag“
@@ -44,7 +45,7 @@
 # der Nachpush).
 # Zum Proben: HALO_JETZT=<ISO-Zeit>, HALO_AS_WOCHE/_5H/_STATUS, HALO_AS_AKTIV, HALO_AS_FABLE, HALO_AS_NACHTLAUF=ja|nein,
 # HALO_AS_LETZTER=<Unix-Sekunden des letzten Starts>, HALO_AS_CONF, HALO_PAUSEN_DATEI, HALO_VOLLDAMPF_DATEI/…_BEENDET,
-# HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar), HALO_DROSSEL_STUFE/_DATEI/_VERLAUF.
+# HALO_AS_BOARD=<Aufgabenliste als JSON wie board.sh export> (leer oder fehlend = nicht lesbar), HALO_DROSSEL_STUFE/_DATEI, HALO_KONTINGENT_JSON (sonst $DIR/kontingent.json).
 emulate -L zsh
 setopt extendedglob
 export TZ=Europe/Vienna HALO_LAUF=auslastung
@@ -60,12 +61,13 @@ TAG=$(date +%F)
 LOG=$DIR/$TAG-auslastung.log
 if [[ $MODUS == trocken ]]; then LOG=/dev/null; export HALO_PAUSE_TROCKEN=1 HALO_UEBERSPRUNGEN_LOG=/dev/null; fi
 REPO=$MAIN
+export HALO_KONTINGENT_JSON=${HALO_KONTINGENT_JSON:-$DIR/kontingent.json}   # Soll der Kalenderwoche (resetsAt) und Drossel
 source $HIER/lauf-hilfen.zsh
 
 # --- Schwellen: Standard, dann auslastung.conf (jede Prüfung neu gelesen, also im Betrieb änderbar) ---
 typeset -A K
 konf_lesen() {
-  K=(TAKT 10 MAX_WORKER 4 SOLL_STUNDEN 48 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
+  K=(TAKT 10 MAX_WORKER 4 FENSTER_MIN 60 FENSTER_DROSSEL 70 FENSTER_RESERVE $FENSTER_RESERVE_STANDARD FENSTER_STOPP 90 MODELL opus MODELL_FABLE fable
      FABLE_ABSTAND 20 FABLE_5H 50 MODELL_TOKENARM sonnet TOKENARM_MAX 1 NACHT_BIS 0900
      RUNDGANG_NR 35 RUNDGANG_5H 85 RUNDGANG_5H_BIS 98 RUNDGANG_BEI_DROSSEL 1 RUNDGANG_VON 0900 RUNDGANG_BIS 2200 MODELL_RUNDGANG sonnet RUNDGANG_MAX_MIN 120 START_ABSTAND 10 KONT_ALTER 15 PAUSE_KONT_ALTER 60 WORKER_MAX_MIN 240
      BOARD_ALTER 15 LEER_WARTEN 15 LEER_GUELTIG 720 NACHPUSH_STUNDEN 24 NACHPUSH_MAX 3)
@@ -124,7 +126,7 @@ kontingent() {   # [<höchstes Alter von kontingent.json in Minuten>]
   zsh $HIER/kontingent.sh >/dev/null 2>&1 || return 1
   python3 -I -c $KONT_PY $j 5 2>/dev/null
 }
-# „<HHMM Wiener Zeit> <Unix-Sekunden>“ (Soll: wochen_soll aus lauf-hilfen.zsh)
+# „<HHMM Wiener Zeit> <Unix-Sekunden>“ (Soll: kalender_soll aus lauf-hilfen.zsh)
 UHR_PY='
 import os, datetime as dt
 j = os.environ.get("HALO_JETZT")
@@ -274,9 +276,9 @@ pruefen() {
     wochen_reset_erkennen $kw[1] >/dev/null 2>&1
     volldampf_aktiv >/dev/null || { print -r -- "warten Volldampf pausiert (Wochenlimit erreicht, wartet auf den freien Reset) – Woche $kw[1] %"; return }
   fi
-  s=($(wochen_soll $K[SOLL_STUNDEN])) && u=($(python3 -I -c $UHR_PY)) || { print -r -- "warten Uhrzeit nicht lesbar"; return }
+  s=($(kalender_soll)) && u=($(python3 -I -c $UHR_PY)) || { print -r -- "warten Uhrzeit nicht lesbar"; return }
   std=$s[1] soll=$s[2] hm=$((10#$u[1])) jetzt=$u[2] HEUTE=$u[3]
-  [[ $s[3] == anker ]] && bezug="bis nächster Reset, ${std} h seit freiem Reset" || bezug="${std} h seit Reset"
+  bezug="Kalenderwoche, ${std} h seit Reset"
   { (( hm < K[NACHT_BIS] )) || nachtlauf_laeuft } && nacht=1
   grenze=$K[MAX_WORKER]   # Maintainer 17.11.2026: „maximale produktivität während des volldampf modus, egal ob untertags oder im nachtlauf“ – nachts keine Absenkung mehr
   n=$(aktiv_zahl)
@@ -293,7 +295,8 @@ pruefen() {
   a=$(( w - soll ))
   local lage="Woche $w %, Soll $s[2] % ($bezug), 5 Stunden $f5 %, $n von $grenze aktiv${nacht:+, nachts}"
   # Kontingent-Drossel (Maintainer 19.11.2026: „ja umbauen und so rasch wie möglich live schalten“; drossel_stufe in
-  # lauf-hilfen.zsh, gemeinsam mit der Tagesroutine): reicht die Woche bis zum Reset nicht (Stufe ab 1), keine neuen Worker,
+  # lauf-hilfen.zsh, gemeinsam mit der Tagesroutine; seit 20.11.2026 Verbrauch gegen vergangene Zeit der Kalenderwoche): mehr
+  # verbraucht als Wochenzeit vergangen (Stufe ab 1), keine neuen Worker,
   # auch nicht bei Fenster unter FENSTER_MIN; erst nach dem Rundgang (nie gebremst, startet bei Drossel sogar), laufende Worker
   # arbeiten weiter. Stufe vorher berechnet, weil der Rundgang sie braucht (19.11.2026)
   local dr
@@ -503,7 +506,7 @@ LOCK=$DIR/auslastung-schleife.lock
 print $$ > $LOCK
 trap 'rm -f $LOCK' EXIT
 konf_lesen
-log "Auslastungswächter gestartet (Takt $K[TAKT] Min., höchstens $K[MAX_WORKER] Arbeits-Sitzungen, Soll in $K[SOLL_STUNDEN] h bzw. nach freiem Reset bis zum nächsten Reset)"
+log "Auslastungswächter gestartet (Takt $K[TAKT] Min., höchstens $K[MAX_WORKER] Arbeits-Sitzungen, Soll = vergangene Zeit der Kalenderwoche)"
 ALT=
 while true; do
   TAG=$(date +%F) LOG=$DIR/$(date +%F)-auslastung.log   # je Takt neu (Datum wechselt um Mitternacht)

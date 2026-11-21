@@ -95,7 +95,7 @@ HALO_JETZT=2026-11-24T00:59+01:00 pruefe "Übergang: 00:59 noch Volldampf mit An
 HALO_JETZT=2026-11-24T01:00+01:00 pruefe "Übergang: 01:00 Volldampf aus, kein Status, Anker verfallen" '! volldampf_aktiv && ! volldampf_status && [[ $(wochen_soll 168) == "0.0 0.0 reset 2026-12-01T01:00+01:00 2026-11-24T01:00+01:00" ]]'
 HALO_JETZT=2026-11-24T01:30+01:00 pruefe "Übergang: 01:30 (Nachtlauf) normale 168-h-Kurve" '[[ $(wochen_soll 168) == "0.5 0.3 reset "* ]]'
 print -r -- $Z > $HALO_VOLLDAMPF_DATEI
-HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Status nach Anker: Soll bis nächster Reset" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset; Soll bis nächster Reset 27.6 %, freier Reset 20.11. 10:00) – Maintainer 13.11.2026: Test" ]]'
+HALO_JETZT=2026-11-21T10:00+01:00 pruefe "Status nach Anker: freier Reset genannt, kein „Soll bis nächster Reset“ (Volldampf rechnet mit der Kalenderwoche, 20.11.2026)" '[[ $(volldampf_status) == "Volldampf aktiv bis 2026-11-24T01:00+01:00 (pausiert beim Wochenlimit bis zum freien Reset; freier Reset 20.11. 10:00) – Maintainer 13.11.2026: Test" ]]'
 
 # Erinnerung an den freien Reset ab 90 %: einmal je Fenster, nach dem Reset wieder möglich
 neu
@@ -146,6 +146,8 @@ pruefe "schalter: bis = nächster Reset Di 00:00 UTC, im Winter 01:00, im Sommer
      $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T00:59+01:00 naechster_reset) == 2026-11-24T01:00+01:00 &&
      $(eval $NR; TZ=Europe/Vienna HALO_JETZT=2026-11-24T01:00+01:00 naechster_reset) == 2026-12-01T01:00+01:00 ]]'
 pruefe "schalter: zweites an ändert nichts" '[[ $(zsh $HIER/volldampf.sh an | head -1) == "Volldampf ist schon an." && $(grep -c . $HALO_VOLLDAMPF_DATEI) == 1 ]]'
+pruefe "schalter: sicher startet bei aktiver Regel fehlende Wächter (Selbstheilung nach Neustart), ohne Regel nichts" \
+  '[[ $(HALO_VD_KEINE_WAECHTER=1 zsh $HIER/volldampf.sh sicher | grep -c "starte ihn") == 2 ]] && { mv $HALO_VOLLDAMPF_DATEI $HALO_VOLLDAMPF_DATEI.sich; [[ -z $(HALO_VD_KEINE_WAECHTER=1 zsh $HIER/volldampf.sh sicher) ]]; r=$?; mv $HALO_VOLLDAMPF_DATEI.sich $HALO_VOLLDAMPF_DATEI; (( r == 0 )) }'
 pruefe "schalter: aus entfernt die Zeile, Verlauf bleibt" 'zsh $HIER/volldampf.sh aus >/dev/null && ! volldampf_aktiv >/dev/null && ls $T/volldampf-aus-*.txt >/dev/null'
 pruefe "schalter: nach aus gilt Volldampf nicht mehr" '! volldampf_status >/dev/null'
 unset HALO_VD_KEINE_WAECHTER HALO_NACHT_DIR

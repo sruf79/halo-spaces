@@ -13,7 +13,14 @@
 // (info); Zeilen mit showIf: [Schlüssel, Werte …] erscheinen erst, wenn die
 // Option davor passt; collapsed: Abschnitt eingeklappt. Keine Gedankenstriche
 // in den Texten
+// Reihenfolge (Maintainer 17.11.2026: „in den settings under halo.spaces sollte der punkt "spaces" an
+// oberster stelle gesetzt werden“): zuerst Spaces, dann je Space eine Gruppe in der Reihenfolge der
+// Bereichsleiste (nur Spaces mit eigener Einstellung, keine leeren Gruppen), danach Übergreifendes
 var SECTIONS = t => [
+  [t("Spaces"), [
+    { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
+      info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
+  ]],
   [t("Mail"), [
     { key: "fullConversation", label: t("Show whole conversation"),
       hint: t("Received and sent messages together."), info: t("From all folders. Older read messages are collapsed.") },
@@ -44,10 +51,18 @@ var SECTIONS = t => [
     { key: "weatherPlace", type: "place", showIf: ["weather", true], label: t("Place"),
       info: t("The system asks for permission once."), placeholder: t("City") },
   ]],
-  // der fünfte Platz der Bereichsleiste (Chat, Erweiterung, Webseite, nichts) steht in den Einstellungen unter „Chat & More“
-  [t("Spaces"), [
-    { key: "sidebarGlow", label: t("Light glow in the sidebar"), hint: t("In the colour of the active space."),
-      info: t("Also colours the dividing line next to the spaces. The tiles stay as they are.") },
+  // fünfter Platz der Bereichsleiste (Chat, Bereich einer Erweiterung, Webseite, nichts) in der Reihenfolge der
+  // Spaces nach Kalender (Aufgaben und Adressbuch haben keine Einstellung; Maintainer 17.11.2026: „der punkt "Chat -
+  // Fifth space" in die halo.spaces einstellungen verschoben werden und dort bei den settings in der reihenfolge der
+  // spaces platziert werden“); unter „Chat & More“ bleibt nur der Hinweis, solange dort nicht Chat steht
+  [t("Fifth space"), [
+    { key: "fifthSpace", type: "select", options: ["chat", "addon", "web", "none"],
+      labels: { chat: t("Chat"), addon: t("Space of an add-on"), web: t("Website"), none: t("Nothing") },
+      label: t("In the place of Chat") },
+    { key: "fifthSpaceAddon", type: "select", choices: "fifthSpaceAddons", showIf: ["fifthSpace", "addon"],
+      label: t("Add-on"), hint: t("Opens unchanged in its own tab.") },
+    { key: "fifthSpaceUrl", type: "url", showIf: ["fifthSpace", "web"], label: t("Address"),
+      hint: t("Opens like an app."), placeholder: "https://…" },
   ]],
   [t("Appearance"), [
     { key: "earlyTheme", label: t("Design without flicker at start"),

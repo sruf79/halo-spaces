@@ -1466,6 +1466,90 @@ def maillist_checks(m, results):
         return ok, f"{res}"
     check("Bedienungshilfen: bei „Kontrast erhöhen“ kräftigere Linien und Texte, Auswahl mit Rand; sonst unverändert", increased_contrast, results)
 
+    def folder_unread_count():
+        # Ungelesen-Zahl rechts am Ordner wie in der Vorlage (Entscheidung Variante A, 20.11.2026): 11 px, halbfett (600),
+        # Grau der Vorlage (hell rgba(60, 60, 67, 0.6), dunkel rgba(235, 235, 245, 0.4)); bei „Kontrast erhöhen“ im
+        # kräftigeren Grau der Sekundärtexte; in der schwebenden Seitenleiste gleich. Mit HALO_SHOTS Bilder der Ordnerliste
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        read = r"""
+          const a3 = tm.currentAbout3Pane, ad = a3.document;
+          const row = w.__haloCountRow, cnt = row?.querySelector(":scope > .container .unread-count");
+          const v = name => { const e = ad.createElement("div"); e.style.color = `var(${name})`; ad.documentElement.append(e); const c = a3.getComputedStyle(e).color; e.remove(); return c; };
+          const cs = cnt && a3.getComputedStyle(cnt), r = cnt?.getBoundingClientRect();
+          const out = { text: cnt?.textContent, color: cs?.color, weight: cs?.fontWeight, size: cs?.fontSize, shown: !!r && r.width > 0,
+            secondary: v("--mt-text-secondary"), dark: w.matchMedia("(prefers-color-scheme: dark)").matches,
+            more: w.matchMedia("(prefers-contrast: more)").matches, float: ad.getElementById("folderPane").classList.contains("mc-float-pane") };
+          if (SHOT) {
+            const p = ad.getElementById("folderPane").getBoundingClientRect();
+            const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(p.left, p.top, p.width, Math.min(p.height, 360)), 2, "white");
+            const cv = ad.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+            cv.getContext("2d").drawImage(bm, 0, 0); out.png = cv.toDataURL("image/png").split(",")[1];
+          }
+          return out;"""
+        shot = "true" if os.environ.get("HALO_SHOTS") else "false"
+        out = {}
+        m.js(r"""const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+          try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+          // (derselbe Posteingang wie in „Ordnerliste: im neuen Profil …“, damit es eine gewöhnliche Ordnerzeile gibt)
+          const root = MailServices.accounts.localFoldersServer.rootFolder;
+          if (!root.containsChildNamed("Inbox")) { root.createSubfolder("Inbox", null); }
+          const a3 = await toMail(); await ruhig(500); const ad = a3.document;
+          const named = () => [...ad.querySelectorAll('#folderTree li[is="folder-tree-row"]')].filter(l => l.querySelector(":scope > .container .name")?.clientWidth);
+          await bis(() => named().length, "Ordnerzeilen", 5000);
+          // eine gewöhnliche Ordnerzeile (nicht die Kontozeile): zugeklapptes Konto aufklappen
+          const sub = () => named().filter(l => l.parentElement?.closest("li[is='folder-tree-row']"));
+          if (!sub().length) { named().find(l => l.classList.contains("collapsed"))?.querySelector(":scope > .container .twisty")?.click();
+            try { await bis(() => sub().length, "Unterordner", 3000); } catch {} }
+          const rows = sub().length ? sub() : named();
+          const row = rows.find(l => /Junk|Trash/.test(l.querySelector(":scope > .container .name").textContent)) || rows[0];
+          w.__haloCountRow = row; w.__haloCountOld = row?.unreadCount; if (row) row.unreadCount = 13; await ruhig(300); return 1;""")
+        try:
+            out["normal"] = m.js(f"const SHOT = {shot};" + read)
+            m.js("""Services.prefs.setIntPref("ui.useAccessibilityTheme", 1); await bis(() => w.matchMedia("(prefers-contrast: more)").matches, "Kontrast erhöhen aktiv", 3000); await ruhig(600); return 1;""")
+            try:
+                out["more"] = m.js(f"const SHOT = {shot};" + read)
+            finally:
+                m.js("""Services.prefs.clearUserPref("ui.useAccessibilityTheme"); await bis(() => !w.matchMedia("(prefers-contrast: more)").matches, "Kontrast wieder normal", 3000); await ruhig(600); return 1;""")
+            # schwebend: Seitenleiste ausblenden, Zeiger an den linken Rand
+            m.js("""const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+              if (!w.gSpacesToolbar.isHidden) d.getElementById("spacesPinnedButton").click();
+              await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+              await ruhig(600); return 1;""")
+            to(400); to(1)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(400); return 1;')
+            out["float"] = m.js(f"const SHOT = {shot};" + read)
+            to(900)
+            m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
+        finally:
+            m.js("""await toMail(); await ruhig(300); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              await ruhig(400); const row = w.__haloCountRow; if (row) row.unreadCount = w.__haloCountOld ?? 0;
+              delete w.__haloCountRow; delete w.__haloCountOld; return 1;""")
+        if os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            for name in ("normal", "more", "float"):
+                if (out.get(name) or {}).get("png"):
+                    path = os.path.join(os.environ["HALO_SHOTS"], f"ordnerliste-ungelesen-{name}-{'dunkel' if out[name].get('dark') else 'hell'}.png")
+                    open(path, "wb").write(base64.b64decode(out[name].pop("png")))
+                    print(f"Bild {path}", flush=True)
+        for v in out.values():
+            v.pop("png", None)
+        n, mo, f = out.get("normal") or {}, out.get("more") or {}, out.get("float") or {}
+        want = "rgba(235, 235, 245, 0.4)" if n.get("dark") else "rgba(60, 60, 67, 0.6)"
+        # (Thunderbird skaliert die Schrift minimal, z. B. 11.05px)
+        size_ok = round(float((n.get("size") or "0px")[:-2])) == 11 if sys.platform == "darwin" else bool(n.get("size"))
+        ok = (n.get("text") == "13" and n.get("shown") and n.get("weight") == "600" and size_ok and same_color(n.get("color"), want)
+              and mo.get("more") and mo.get("weight") == "600" and same_color(mo.get("color"), mo.get("secondary"))
+              and not same_color(mo.get("color"), n.get("color")) and rgba_alpha(mo.get("color")) == 1.0
+              and f.get("float") and f.get("shown") and f.get("weight") == "600" and f.get("size") == n.get("size") and same_color(f.get("color"), want))
+        return ok, f"{out}"
+    check("Ordnerliste: Ungelesen-Zahl 11 px halbfett im Grau der Vorlage, bei „Kontrast erhöhen“ kräftiger, schwebend gleich (GitHub #65)", folder_unread_count, results)
+
     def view_choice_menu():
         # Ansicht und Layout als eine Auswahl: Kartenansicht (immer vertikal), Tabelle klassisch – im Drei-Punkte-Menü
         # und unter Ansicht → Layout; „breit“ nirgends wählbar und wird umgestellt (Tabelle → klassisch, Karten bleiben);

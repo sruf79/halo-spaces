@@ -28,6 +28,8 @@
   --mt-text: #1D1D1F;
   --mt-text-secondary: #6E6E73;
   --mt-text-tertiary: #8E8E93;
+  /* Ungelesen-Zahl der Ordnerliste: Grau der Vorlage (blasser als Sekundärtext) */
+  --mt-folder-count: rgba(60, 60, 67, 0.6);
   --mt-separator: rgba(0, 0, 0, 0.08);
   --mt-hover: rgba(0, 0, 0, 0.05);
   --mt-selected-unfocused: rgba(0, 0, 0, 0.08);
@@ -261,6 +263,7 @@
     --mt-text: #F5F5F7;
     --mt-text-secondary: #A1A1A6;
     --mt-text-tertiary: #7C7C80;
+    --mt-folder-count: rgba(235, 235, 245, 0.4);
     --mt-separator: rgba(255, 255, 255, 0.08);
     --mt-hover: rgba(255, 255, 255, 0.06);
     --mt-selected-unfocused: rgba(255, 255, 255, 0.10);
@@ -1040,14 +1043,15 @@ img:is(.twisty-icon, [src="chrome://messenger/skin/icons/new/nav-down-sm.svg"]) 
   opacity: 1 !important;
 }
 
-/* Ungelesen-Zähler: grau und ohne Hintergrund, wie in Apple Mail */
+/* Ungelesen-Zähler: grau, halbfett und ohne Hintergrund, wie in Apple Mail
+   (Größe 11 px; bei „Kontrast erhöhen“ im Grau der Sekundärtexte) */
 #folderTree .unread-count,
 #folderTree .total-count {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: var(--mt-text-secondary) !important;
-  font-weight: 400 !important;
+  color: var(--mt-folder-count) !important;
+  font-weight: 600 !important;
   font-variant-numeric: tabular-nums !important;
   padding: 0 !important;
 }
@@ -18060,6 +18064,8 @@ datepicker[mc-inline] > menulist {
     --mt-text-secondary: #3C3C43;
     --mt-text-tertiary: #545458;
     --mt-text-quaternary: #8E8E93;
+    /* Ungelesen-Zahl der Ordnerliste: im kräftigeren Grau der Sekundärtexte */
+    --mt-folder-count: var(--mt-text-secondary);
     --mt-separator: rgba(0, 0, 0, 0.30);
     --mt-pane-line: rgba(0, 0, 0, 0.40);
     --mt-sidebar-border: rgba(0, 0, 0, 0.35);

@@ -15849,14 +15849,26 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          // Neuanordnung (Layout) in Hauptfenster, Mailbereich und geöffneter Mail: Zähler von Thunderbird, auf jedem Rechner gleich
+          const reflows = () => { let n = 0; const a3 = tm.currentAbout3Pane, mb = a3?.messageBrowser?.contentWindow;
+            for (const x of [w, a3, mb, mb?.getMessagePaneBrowser?.()?.contentWindow]) { try { n += x?.windowUtils?.framesReflowed ?? 0; } catch {} } return n; };
+          // bt: Zeit des Bildes, wie sie Thunderbird der Animation übergibt (gleicher Wert für alle Abläufe eines Bildes) –
+          // aus ihr rechnet die Animation ihren Fortschritt; rf: Stand des Zählers der Neuanordnung
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], bt = [], rf = []; let bild = performance.now(); const t0 = performance.now(); while (performance.now() - t0 < 600) { rf.push(reflows()); bt.push(bild); const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
-          const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
+            bild = await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, bt, rf }; };
+          // Bewegungskurve und Dauer der Animation (animateTodayPane: 250 ms, cubic-bezier(0.25, 0.1, 0.25, 1)): der weiteste
+          // Weg (Anteil der Breite), den die Pane in einer Zeitspanne zurücklegen darf – an der steilsten Stelle der Kurve
+          const kurve = (() => { const X = s => 3 * (1 - s) * (1 - s) * s * 0.25 + 3 * (1 - s) * s * s * 0.25 + s * s * s, Y = s => 3 * (1 - s) * (1 - s) * s * 0.1 + 3 * (1 - s) * s * s + s * s * s;
+            return x => { if (x <= 0 || x >= 1) return Math.min(1, Math.max(0, x)); let lo = 0, hi = 1; for (let n = 0; n < 40; n++) { const s = (lo + hi) / 2; if (X(s) < x) lo = s; else hi = s; } return Y((lo + hi) / 2); }; })();
+          const weitest = ms => { const dk = Math.min(1, Math.max(0, ms) / 250); let m = 0; for (let k = 0; k <= 1 - dk + 1e-9; k += 0.004) m = Math.max(m, kurve(Math.min(1, k + dk)) - kurve(k)); return m; };
+          // Darstellung ohne Grafikkarte (xvfb in der CI: „WebRender (Software)“): dort hängt die Zeit je Bild an der Last des Rechners
+          const layer = String(w.windowUtils.layerManagerType || "");
+          const out = { layer, software: /software|basic/i.test(layer), start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
           const cons = []; const listener = { observe: m => { if (m instanceof Ci.nsIScriptError && /implementation\\.js/.test(m.sourceName)) cons.push(m.errorMessage.slice(0, 200) + " @" + m.lineNumber); } };
@@ -15879,13 +15891,19 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, bt, rf } = await record(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
             const moving = ws.map((v, i) => i > 0 && v != ws[i - 1]);
             const dts = ts.slice(1).map((t, i) => t - ts[i]).filter((_, i) => moving[i + 1]);
             const jumps = ws.slice(1).map((v, i) => Math.abs(v - ws[i]));
+            // kein Sprung: je Bild höchstens der Weg, den die Bewegungskurve in der Zeit dieses Bildes zulässt (+2 ms, +2 px
+            // für Rundung). Bei 60 Hz sind das 46 px statt bisher der halben Breite (140 px); braucht ein Bild unter Last
+            // länger (xvfb: einzelne Bilder 60–150 ms), ist der weitere Weg dieses Bildes die Bewegung selbst und kein Sprung
+            const zuWeit = jumps.map((j, i) => [i + 1, j, Math.round(bt[i + 1] - bt[i]), Math.round(out.start * weitest(bt[i + 1] - bt[i] + 2)) + 2]).filter(([, j, , darf]) => j > darf).slice(0, 5);
+            // Neuanordnung je Bild der Bewegung (Median): ordnet ein Bild den ganzen Mailbereich neu an, sind es Tausende
+            const rfs = rf.slice(1).map((v, i) => v - rf[i]).filter((_, i) => moving[i + 1]).sort((a, b) => a - b);
             // Suchfeld gleitet mit (kein Sprung um die ganze Breite), Überschrift ist mitten in der Bewegung schon da
             const sJumps = ss.slice(1).map((v, i) => Math.abs(v - ss[i]));
             // (unter Windows/Linux neben den Fensterknöpfen nur die Sonne – wie am Ende bei offener Pane)
@@ -15900,7 +15918,7 @@ def run_checks(m, version, profile, results):
             const gone = Object.keys(kk[0] || {}).filter(k => !(k in (kk.at(-1) || {})));
             const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
-            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
+            out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), zuWeit, reflowMedian: rfs[rfs.length >> 1] ?? 0, maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
@@ -15930,19 +15948,30 @@ def run_checks(m, version, profile, results):
         if res.get("visibility") == "hidden" and all(res[p]["steps"] <= 1 for p in phases):
             # macOS pausiert Bildschritte in verdeckten Fenstern – kein Fehler der Animation
             return True, "Testfenster verdeckt – übersprungen"
-        # flüssig: viele Zwischenschritte, kein Sprung über die halbe Breite und
-        # Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
-        # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens
-        # 60 Hz, falls das Fenster beim Messen des Leerlaufs verdeckt war
+        # flüssig: viele Zwischenschritte, kein Sprung und Bilder im normalen Takt – früher ordnete jedes Bild den ganzen
+        # Mailbereich neu an (20–35 ms statt 8 ms bei 120 Hz); Maßstab höchstens 60 Hz, falls das Fenster beim Messen
+        # des Leerlaufs verdeckt war
+        # Sprung: je Bild gemessen an der Zeit dieses Bildes (zuWeit, siehe oben) statt an der halben Breite – strenger im
+        # normalen Takt (46 statt 140 px), und ein Bild, das unter Last länger braucht, zählt nicht als Sprung
+        # Aufwand je Bild: Neuanordnung je Bild begrenzt (reflowMedian, heute rund 300, auf jedem Rechner gleich)
+        # Takt in Echtzeit (medianFrameMs, mindestens 6 Schritte): Fehler nur mit Grafikkarte. Ohne (xvfb in der CI,
+        # „WebRender (Software)“) rechnet der Prozessor jedes Bild allein, die Zeit je Bild schwankt mit der Last des
+        # Rechners zwischen 17 und 150 ms (CI 20./21.11., Läufe 44845848214, 44859052001, 44866550451, 44870020168:
+        # dieselbe Bewegung in einer Phase im Takt, in der nächsten nicht) – dort so viele Schritte, wie neben dem
+        # längsten Bild in 250 ms bei der gemessenen Bildzeit möglich sind (im Takt weiter 6); Sprung, Mitgleiten und
+        # Aufwand je Bild gelten überall
         # Suchfeld: gleitet von Anfang an mit, nie ein größerer Schritt als die Pane selbst (früher sprang es zu Beginn
         # an seine neue Stelle, weil seine Ausgangslage erst nach dem Umschalten gemessen wurde)
+        soft = bool(res.get("software"))
         def glatt(v, ende=True):
-            return (v["steps"] >= 6 and v["maxJump"] < res["start"] / 2 and v["searchJump"] <= v["maxJump"] + 2
+            takt = v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2
+            schritte = 6 if not soft else min(6, max(2, (250 - v["maxFrameMs"]) // max(17, v["medianFrameMs"])))
+            return (v["steps"] >= schritte and not v["zuWeit"] and v["reflowMedian"] <= 1000 and v["searchJump"] <= v["maxJump"] + 2
                     and v.get("buttonJump", 0) <= v["searchJump"] + 2
                     and v["searchWidthJump"] <= v["maxJump"] + 2
                     and all(x["first"] and x["first"][0] <= 2 and x["first"][1] >= 0.5 and x["fading"] for x in v["vanish"].values())
                     and v["titleMid"] is not False and (not ende or v.get("titleEnd", 0) <= 1)
-                    and v["medianFrameMs"] <= min(res["idleFrameMs"], 17) * 1.5 + 2)
+                    and (soft or takt))
         # verworfene Messungen (letztes Bild ausgefallen): alles außer titleEnd gilt weiter
         ok = all(glatt(res[p]) and all(glatt(x, False) for x in res[p].get("verworfen", [])) for p in phases) and res["end"] == res["start"]
         return ok, f"{res}"

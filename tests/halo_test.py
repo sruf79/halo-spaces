@@ -25873,6 +25873,32 @@ Neu
     check("Seitenleiste: Lichtschein und gefärbte Trennlinie in der Spacefarbe auf Höhe der aktiven Kachel (Mail, Adressbuch, Kalender, Aufgaben, Chat, "
           "auch schwebend), Einstellungen mit Mehrfarb-Hauch (auch schwebend), in Mail kein Abbruch an der Oberkante der Ordnerliste", sidebar_glow, results)
 
+    def settings_side_gray_early():
+        # Grau der Toolbar-Zeile und der Statusleiste über und unter der Seitenleiste der Einstellungen steht im selben
+        # (spätestens im nächsten) Bild wie die Seitenleiste selbst. Vorher richtete die Erweiterung nur beim Tabwechsel
+        # und nach 300 bzw. 1200 ms aus: war die Seite auf einem langsamen Rechner erst nach 300 ms aufgebaut, blieben
+        # beide Streifen bis 1,2 s weiß (CI unter Linux, 20./21.11.2026, Prüfung „Lichtschein …“ Unterkante). Drei
+        # Durchgänge, je Bild gemessen
+        out = []
+        for _ in range(3):
+            out.append(m.js("""await toMail(); await ruhig(500); d.getElementById("chatButton").click(); await ruhig(600);
+              const status = d.getElementById("status-bar"), t0 = performance.now(); let n = 0, ready = null, gray = null;
+              const px = (el, v) => parseFloat([el, ...d.querySelectorAll("[style*='" + v + "']")].map(e => e?.style.getPropertyValue(v)).find(x => x)) || 0;
+              d.getElementById("settingsButton").click();
+              while (performance.now() - t0 < 2000 && gray == null) { await new Promise(r => w.requestAnimationFrame(r)); n++;
+                const tab = tm.currentTabInfo, box = tab.browser?.contentDocument?.getElementById("pref-category-box");
+                // Außenkante der Seitenleiste im Fenster, bezogen auf Toolbar-Zeile bzw. Statusleiste (wie die Erweiterung misst)
+                const br = box?.getBoundingClientRect(), right = br?.width ? tab.browser.getBoundingClientRect().left + br.right : 0;
+                if (right && ready == null) ready = n;
+                if (right && px(null, "--mc-side-right") >= right - d.getElementById("unifiedToolbarContainer").getBoundingClientRect().left - 2
+                    && px(status, "--mc-status-side") >= right - status.getBoundingClientRect().left - 2) gray = n; }
+              while (tm.tabInfo.length > 1) tm.closeTab(tm.tabInfo[tm.tabInfo.length - 1]);
+              await toMail(); return { ready, gray, ms: Math.round(performance.now() - t0) };"""))
+        ok = all(r.get("ready") and r.get("gray") is not None and r["gray"] - r["ready"] <= 1 for r in out)
+        return ok, str(out)
+    check("Einstellungen: Toolbar-Zeile und Statusleiste über und unter der Seitenleiste im Seitenleisten-Grau, sobald die "
+          "Seitenleiste aufgebaut ist (kein weißer Streifen bis zum nächsten Zeitgeber)", settings_side_gray_early, results)
+
     def sidebar_glow_switch():
         # Schalter „Light glow in the sidebar“ in den halo.spaces-Einstellungen (Maintainer 13.11.2026: „ja aus schaltet auch
         # die gefärbte trennlinie ab“): aus kein Schein in der Seitenleiste und Trennlinie neutral (Mail, Kalender), die

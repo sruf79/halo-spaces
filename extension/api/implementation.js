@@ -8805,6 +8805,33 @@ class CardEnhancer {
       status?.style.removeProperty("--mc-status-min");
       status?.style.removeProperty("--mc-status-side");
     });
+    // je Bild prüfen, ob die Seitenleiste der Seite Breite hat, dann einmal
+    // ausrichten; endet beim Tabwechsel, wenn die Seite fertig geladen ist und
+    // keine Seitenleiste hat, spätestens nach 5 s
+    const awaitSidebar = tab => {
+      if (tab.__mcSideWait) {
+        return;
+      }
+      tab.__mcSideWait = true;
+      const t0 = Date.now();
+      const poll = () => {
+        const done = () => delete tab.__mcSideWait;
+        if (w.closed || w.document.getElementById("tabmail")?.currentTabInfo != tab || Date.now() - t0 > 5000) {
+          return done();
+        }
+        const el = SIDEBARS[tab.mode?.name]?.(tab);
+        if (el && rectOf(el)?.width) {
+          done();
+          return updateSideEdge();
+        }
+        const doc = tab.browser?.contentDocument;
+        if (!el && doc?.readyState == "complete" && doc.documentURI != "about:blank") {
+          return done();
+        }
+        w.requestAnimationFrame(poll);
+      };
+      w.requestAnimationFrame(poll);
+    };
     const updateSideEdgeLayout = () => {
       // während die Bereiche-Leiste animiert, nichts ans Fenster schreiben –
       // jede Variable dort kostet ein komplettes Neuberechnen (25–40 ms);
@@ -8825,6 +8852,12 @@ class CardEnhancer {
       }
       const el = SIDEBARS[tab?.mode?.name]?.(tab);
       const row = d.getElementById("unifiedToolbarContainer");
+      // Seite im eigenen Browser (Einstellungen, Adressbuch …) noch nicht
+      // aufgebaut: nachmessen, sobald ihre Seitenleiste steht – sonst fehlte das
+      // Grau über und unter ihr bis zum nächsten Zeitgeber (bis 1,2 s weiß)
+      if (tab?.browser && ["preferencesTab", "addressBookTab", "contentTab"].includes(tab.mode?.name) && (!el || !rectOf(el)?.width)) {
+        awaitSidebar(tab);
+      }
       if (!el || !row) {
         barTarget(d).style.removeProperty("--mc-side-right");
         d.getElementById("status-bar")?.style.removeProperty("--mc-status-side");

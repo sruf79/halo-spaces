@@ -13082,6 +13082,53 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Toolbar: Überlauf wie Apple Mail – im schmalen Fenster weichen Pillen ganz, links neben der Lupe erscheint „»“ mit den ausgeblendeten Aktionen", toolbar_overflow, results)
 
+    def toolbar_overflow_back():
+        # GitHub #67 Teil c: wird das Fenster wieder breiter (z. B. größerer Bildschirm), kommen die gewichenen Pillen
+        # zurück in die Leiste und „»“ verschwindet – in der Mail und in den übrigen Bereichen, auch wenn das Fenster in
+        # einem anderen Bereich schmal war und erst danach in der Mail breiter wird (mit und ohne Today-Pane)
+        res = m.js(MESSAGE_JS + r"""
+          const out = {};
+          const tpCmd = d.getElementById("calendar_toggle_todaypane_command");
+          const tpWas = w.TodayPane.isVisible;
+          const st = () => {
+            const content = d.getElementById("unifiedToolbarContent");
+            const ov = d.getElementById("mcToolbarOverflow");
+            return { hidden: [...content.children].filter(l => !l.hidden && l.hasAttribute("mc-squeezed") && l.id != "mcToolbarOverflow").map(l => l.getAttribute("item-id")),
+                     ov: !!(ov && !ov.hasAttribute("mc-squeezed") && ov.getBoundingClientRect().width) };
+          };
+          const breit = Math.min(1900, w.screen.availWidth);
+          try {
+            if (!w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            for (const [name, open] of [["mail", toMail], ["calendar", toCalendar]]) {
+              await open(); await ruhig(1000);
+              w.resizeTo(800, 900); await ruhig(1500);
+              const schmal = st();
+              w.resizeTo(breit, 900); await ruhig(1500);
+              if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+              out[name] = { schmal, breit: st() };
+              tpCmd.doCommand(); await ruhig(1500);
+            }
+            // schmal im Kalender, breit erst nach dem Wechsel in die Mail
+            await toCalendar(); await ruhig(1000);
+            w.resizeTo(800, 900); await ruhig(1500);
+            await toMail(); await ruhig(1500);
+            const schmal = st();
+            w.resizeTo(breit, 900); await ruhig(1500);
+            if (w.TodayPane.isVisible) { tpCmd.doCommand(); await ruhig(1500); }
+            out.wechsel = { schmal, breit: st() };
+            for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
+          } finally {
+            await toMail(); if (w.TodayPane.isVisible != tpWas) { tpCmd.doCommand(); await ruhig(1000); }
+            w.resizeTo(1500, 900); await ruhig(800);
+          }
+          return out;""")
+        # (der Kalender hat wenige Pillen – weicht dort schmal keine, zählt nur „wieder breit nichts gewichen“)
+        cases = [(res.get(k) or {}, k != "calendar") for k in ("mail", "calendar", "wechsel")]
+        ok = all((not muss or (c.get("schmal", {}).get("hidden") and c.get("schmal", {}).get("ov")))
+                 and c.get("breit", {}).get("hidden") == [] and c.get("breit", {}).get("ov") is False for c, muss in cases)
+        return ok, f"{res}"
+    check("Toolbar: Überlauf – wieder breit kommen alle Pillen zurück und „»“ verschwindet (Mail, Kalender, nach Bereichswechsel; GitHub #67)", toolbar_overflow_back, results)
+
     def toolbar_min_window():
         # Mail-Space auf Mindestbreite (Fenster so schmal wie möglich, geöffnete Mail, mit und ohne Today-Pane, mit
         # Ordnerliste): die Knopfleiste über der Mail schneidet nichts ab – keine Pille halb, kein Knopf über einem anderen

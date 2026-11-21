@@ -187,6 +187,20 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.36.0
+
+- **Buttons**: raised capsules in every space like the Mail toolbar (Contacts, Calendar with Day/Week/Month and Today, Tasks, the Chat bar, single round buttons, the "..." menus in the Add-ons Manager), with a light edge on top, a fine edge at the ends and a soft shadow; under the pointer a round 32 px circle shows the state
+- **Sender circles**: initials, contact photos and logos in the message list, the message header and Contacts share the same raised look
+- **Compose**: buttons and Send are 38 px high like the Mail toolbar, the window shows no "Write: ..." title text, and the header lines run To, Cc, Bcc, Subject, From, centred also on Linux
+- **Message window**: buttons of other add-ons behind "More" use the same raised capsule as Print
+- **Reading pane**: a new mail in the selected conversation appears as its card in place and the selection stays; the hairline above attachments runs the full width again
+- **Search**: the list header shows the number of hits while a search across many accounts is still running
+- **Sending**: messages held back with "Send Later" stay in the Outbox until you choose "Send Unsent Messages"
+- **Add-ons**: "Add Extension" on the add-ons page installs again
+- **About**: "Recommend" opens a new message right after an update, without a restart
+- **Today pane**: showing and hiding is lighter on slow computers; the indent of the toolbar buttons stays at its final size while the pane opens
+- **Calendar**: closing the event dialog no longer logs an error in the console
+
 ## What's new in 3.35.0
 
 - **Settings**: the "halo.spaces" category shows its ring again instead of an empty white square

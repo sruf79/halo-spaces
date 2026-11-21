@@ -1170,7 +1170,15 @@ class EnhancerOberflaeche {
           leadExact: !!lead && lead == firstSpacer && Math.abs(rectOf(lead).right - (start + offsetBefore)) < 0.75,
         };
       }
-      setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
+      // Today-Pane gleitet ein: Der Einzug steht seit Beginn der Bewegung am Endmaß (gemessen, solange die Pane im
+      // Fluss lag). Liegt sie über dem Inhalt, ist die Mailliste vorübergehend breiter, wenn sie mit offener Pane
+      // schmaler wird (ESR, 1500 px: 667 statt 650 px) – wer jetzt nachmisst, schöbe alle Knöpfe um diese Differenz
+      // nach rechts und am Ende zurück (Sprung um 17 px im ersten und im letzten Bild)
+      const tpPanel = top.document.getElementById("today-pane-panel");
+      const tpSlidingIn = !top.__mcDry && !!tpPanel?.__mcAnimating && tpPanel.__mcSliding == "in";
+      if (!tpSlidingIn) {
+        setBarVar(top.document, "--mc-toolbar-offset", `${offset}px`);
+      }
       setVar(top.document.getElementById("unifiedToolbarContainer"), "--mc-row-tail", `${rowTail(top.document)}px`);
       if (!animating) {
         // passt, wenn die Knöpfe an der Listenkante beginnen und das Suchfeld

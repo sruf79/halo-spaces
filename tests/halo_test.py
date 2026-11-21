@@ -8861,18 +8861,18 @@ def calendar_checks(m, results):
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
             const target = mv.monthbody.querySelector("calendar-month-day-box");
             const first = mv.rangeStartDate.clone(); const l0 = label(); const s0 = mv.__mcScrollShifts;
-            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – acht Zehntelpixel im
-            // Abstand von 16 ms (feste Pausen wie ein Trackpad, länger als das Messfenster des Schwungs von 100 ms), so
-            // rastet die Ansicht ohne Schwung ein
-            const halt = async el => { for (let i = 0; i < 8; i++) { await new Promise(r => w.setTimeout(r, 16));
-              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); } };
+            // seit 6/6 läuft ein schneller Wischer mit Schwung aus: Finger vor dem Loslassen abbremsen – 13 Zehntelpixel
+            // gleich nach der letzten schnellen Bewegung, ohne Pause dazwischen (halo.spaces misst die Geschwindigkeit an den
+            // letzten 13 Bewegungen, danach zählen nur noch die langsamen, Einrasten ohne Schwung nach 160 ms). Vorher kamen
+            // die Brems-Bewegungen erst ein Bild plus 16 ms später: unter Linux mit Bildern zu rund 57 ms lag das über den
+            // 70 ms, nach denen ein schneller Wischer als losgelassen gilt – Schwung, Woche n+1 (CI 20./21.11.2026)
+            const halt = el => { for (let i = 0; i < 13; i++)
+              el.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 0.1, deltaMode: 0 })); };
             // eine Woche in drei Bildern scrollen, dann warten, bis sie eingerastet ist (Überschrift folgt)
             let n = 0;
-            const week1 = async () => { n++; for (let i = 0; i < 3; i++) { target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); await new Promise(r => w.requestAnimationFrame(r)); }
-              await halt(target);
-              // (Diagnose: gelegentlich Zeitüberschreitung unter Linux beta und Windows, CI 15.–18.11.; die Meldung nennt
-              // jetzt die erreichte Woche – mehr als n hieße Schwung durch eine Pause von über 70 ms zwischen den
-              // Brems-Bewegungen, weniger als n ein Zurückschnappen; die Bedingung bleibt unverändert)
+            const week1 = async () => { n++; for (let i = 0; i < 3; i++) { if (i) await new Promise(r => w.requestAnimationFrame(r)); target.dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: rowH / 3, deltaMode: 0 })); }
+              halt(target);
+              // (die Meldung nennt die erreichte Woche: mehr als n hieße Schwung, weniger als n ein Zurückschnappen)
               try { await bis(() => wk(mv.rangeStartDate, first) == n, "eingerastet in Woche " + n, 3000); }
               catch (e) { throw new Error(`${e.message} (erreicht: Woche ${wk(mv.rangeStartDate, first)}, Lage ${Math.round(mv.__mcScrollPos?.() ?? NaN)})`); }
               await ruhig(300); };

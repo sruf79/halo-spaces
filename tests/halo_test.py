@@ -6697,6 +6697,53 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü (aktiver mit Häkchen), Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 
+    def menubar_find_group():
+        # Edit › Suchen-Gruppe: „Search…“ zeigt Thunderbirds Kürzel fürs Suchfeld (⌘K bzw. Strg+K) und führt wie das
+        # Kürzel ins Suchfeld oben, ohne eine getrennte Suchansicht zu öffnen; „Find Previous“ steht mit Thunderbirds
+        # Kürzel (⇧⌘G) und Befehl nach „Find Again“ und ist ausgegraut wie dieser (fehlte bis 21.11.2026 im Menü,
+        # „Search…“ hatte kein Kürzel)
+        res = m.js(r"""
+          await toMail();
+          // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie vorher
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          const p = d.getElementById("menu_EditPopup");
+          p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
+          const shown = [...p.children].filter(el => !el.hidden && !el.collapsed);
+          const out = { items: shown.map(el => el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id)) };
+          const key = el => { const k = d.getElementById(el?.getAttribute("key") || "-");
+            return k ? [k.id, (k.getAttribute("key") || "").toLowerCase(), (k.getAttribute("modifiers") || "").split(/[\s,]+/).filter(Boolean).sort().join("+")] : null; };
+          const search = d.getElementById("mcEditSearch"), prev = d.getElementById("mcEditFindPrevious"), again = d.getElementById("menu_findAgainCmd");
+          out.searchKey = key(search); out.prevKey = key(prev);
+          out.accel = [search?.getAttribute("acceltext"), prev?.getAttribute("acceltext")];
+          out.prevCmd = [prev?.getAttribute("command"), d.getElementById("cmd_findPrevious")?.getAttribute("oncommand")];
+          out.disabled = [!!prev?.disabled, !!again?.disabled];
+          out.old = shown.some(el => el.id == "glodaSearchCmd");
+          p.dispatchEvent(new w.Event("popuphiding", { bubbles: true }));
+          // „Search…“ wählen: Fokus im Suchfeld der Toolbar, kein neuer Tab
+          const tabmail = d.getElementById("tabmail"), tabs = tabmail.tabInfo.length;
+          const bar = d.querySelector("#unifiedToolbarContent global-search-bar");
+          d.activeElement?.blur?.();
+          out.before = d.activeElement == bar;
+          search?.doCommand();
+          out.focused = !!(await until(() => d.activeElement == bar, 3000));
+          out.tabs = [tabs, tabmail.tabInfo.length, tabmail.currentTabInfo.mode.name];
+          // Fokus wieder aus dem Suchfeld nehmen (spätere Prüfungen erwarten das Suchfeld in Ruhe)
+          const inner = bar?.shadowRoot?.activeElement || bar;
+          inner?.blur?.(); await ruhig(200);
+          if (inactive != null) tbm.setAttribute("inactive", inactive);
+          return out;""")
+        items = res.get("items", [])
+        i = items.index("Search…") if "Search…" in items else -99
+        ok = (items[i:i + 4] == ["Search…", "Find…", "Find Again", "Find Previous"] and i > 0 and items[i - 1] == "|"
+              and res.get("searchKey") == ["key_quickSearchFocus", "k", "accel"]
+              and res.get("prevKey") == ["key_findPrev", "g", "accel+shift"]
+              and res.get("prevCmd") == ["cmd_findPrevious", "goDoCommand('cmd_findPrevious')"]
+              and res.get("disabled", [0, 1])[0] == res.get("disabled", [0, 1])[1] and not res.get("old")
+              and not res.get("before") and res.get("focused")
+              and res.get("tabs", [0, 1, ""])[0] == res["tabs"][1] and res["tabs"][2] == "mail3PaneTab")
+        return ok, f"{res}"
+    check("Menüleiste: Edit zeigt „Search…“ mit dem Kürzel fürs Suchfeld und führt dorthin, „Find Previous“ steht mit Kürzel nach „Find Again“", menubar_find_group, results)
+
     def menubar_status_bar():
         # Ansicht → „Show Status Bar“ direkt unter der Today-Pane, Häkchen nach dem echten Zustand; einmal
         # ausgeblendet, holt derselbe Eintrag die Statusleiste zurück (vorher fehlte er mit dem Untermenü „Toolbars“)

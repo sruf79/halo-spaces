@@ -3346,6 +3346,15 @@ function hookMenubar(win, restorers) {
       Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(`mid:${hdr.messageId}`);
     }
   });
+  // Suchen-Gruppe im Menü „Edit“: „Search…“ führt wie Thunderbirds Kürzel (⌘K bzw. Strg+K) ins Suchfeld oben
+  // und zeigt dieses Kürzel (Thunderbirds eigener Eintrag öffnete eine getrennte Suchansicht und hatte keines);
+  // „Find Previous“ gibt es bei Thunderbird nur als Kürzel (⇧⌘G), hier steht es auch im Menü – Befehl und
+  // Kürzel bleiben die von Thunderbird (ausgegraut wie „Find Again“)
+  const searchItem = own("mcEditSearch", "Search…", () => win.QuickSearchFocus?.());
+  searchItem.setAttribute("key", "key_quickSearchFocus");
+  const findPrev = make("menuitem", "mcEditFindPrevious", "Find Previous");
+  findPrev.setAttribute("command", "cmd_findPrevious");
+  findPrev.setAttribute("key", "key_findPrev");
   const space = (id, label, button) => {
     const item = own(id, label, () => $(button)?.click());
     item.dataset.space = button;
@@ -3374,8 +3383,8 @@ function hookMenubar(win, restorers) {
     ]],
     ["menu_EditPopup", [
       L("menu_undo"), L("menu_redo"), S, L("menu_cut"), L("menu_copy"), [copyLink], L("menu_paste"), L("menu_delete"),
-      L("menu_SelectAll", "Select All"), L("menu_selectThread", "Select Thread"), S, L("glodaSearchCmd", "Search…"),
-      L("menu_findCmd", "Find…"), L("menu_findAgainCmd"),
+      L("menu_SelectAll", "Select All"), L("menu_selectThread", "Select Thread"), S, [searchItem],
+      L("menu_findCmd", "Find…"), L("menu_findAgainCmd"), [findPrev],
       ...(MENUBAR_MAC ? [] : [S, L("menu_preferences")]),
     ]],
     ["menu_View_Popup", [

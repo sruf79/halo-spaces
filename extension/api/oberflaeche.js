@@ -73,8 +73,10 @@ class EnhancerOberflaeche {
       const ctx = canvas.getContext("2d");
       ctx.font = w.getComputedStyle(placeholder).font;
       const dots = ctx.measureText("…").width;
-      // 30 px links (Lupe), 14 px rechts
-      const fit = `${Math.ceil(30 + full + 14)}px`;
+      // 30 px links (Lupe), 14 px rechts; mit Kapseln der Mail-Suche
+      // (renderSearchCaps) kommen deren Breite und Platz zum Tippen dazu
+      const caps = bar.__mcCapsWidth || 0;
+      const fit = `${Math.ceil(caps ? 32 + caps + Math.max(full, 90) + 28 : 30 + full + 14)}px`;
       if (li && li.style.getPropertyValue("--mc-search-fit") != fit) {
         li.style.setProperty("--mc-search-fit", fit);
       }
@@ -89,7 +91,9 @@ class EnhancerOberflaeche {
     const mo = placeholder ? new w.MutationObserver(fitPlaceholder) : null;
     mo?.observe(placeholder, { childList: true, characterData: true, subtree: true });
     fitPlaceholder();
+    bar.__mcFit = fitPlaceholder;
     this.restorers.push(() => {
+      delete bar.__mcFit;
       ro?.disconnect();
       mo?.disconnect();
       li?.style.removeProperty("--mc-search-fit");

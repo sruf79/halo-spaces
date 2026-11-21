@@ -3333,6 +3333,8 @@ function hookMenubar(win, restorers) {
     }));
   });
   const getMail = own("mcMailGetNew", "Get New Mail", () => win.goDoCommand("cmd_getMsgsForAuthAccounts"));
+  // zeigt Thunderbirds Kürzel für denselben Befehl (englisch ⇧⌘Y bzw. Strg+Umschalt+Y, alle Konten abrufen)
+  getMail.setAttribute("key", "key_getAllNewMessages");
   // wie Apple Erinnerungen: File → New List… (wechselt in den Bereich Aufgaben)
   const newList = own("mcFileNewList", "New List…", () => {
     if (win.document.getElementById("tabmail")?.currentTabInfo?.mode?.name != "tasks") {

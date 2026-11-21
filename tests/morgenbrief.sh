@@ -205,6 +205,14 @@ for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="$
   HANDELN+=("Abnahme, deine Entscheidung: $(kurz ${z%%$'\t'*} 60): $(kurz ${z#*$'\t'} 160)")
   HANDELN_NEU+=(abnahme)
 done
+# Aufräumen nach dem Release (tests/aufraeumen-nach-release.zsh, Maintainer 21.11.2026): Fragen zu Einträgen und Issues, die
+# nur der Maintainer entscheiden kann, gleiches Zeilenformat wie oben; Eintrag bzw. Issue bleibt offen.
+for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  '/^- [0-9-]+ [0-9:]+ [|]/ { split($1, a, " "); z = a[2] " " a[3]; if (z > s && z <= j) print $4 "\t" $5 }' \
+  ${HALO_AUF_FRAGEN:-$HOME/halo-aufgaben/aufraeumen-maintainer.md} 2>/dev/null)"}; do
+  HANDELN+=("Aufräumen, deine Entscheidung: $(kurz ${z%%$'\t'*} 60): $(kurz ${z#*$'\t'} 160)")
+  HANDELN_NEU+=(aufraeumen)
+done
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---
 if [[ -n $HALO_MB_RELEASES ]]; then REL_JSON=$(<$HALO_MB_RELEASES)

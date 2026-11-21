@@ -57,6 +57,9 @@ Die Kommunikation mit Nutzern auf GitHub übernimmt der Agent selbstständig.
   - **`publish.sh`** schließt beim Release (Nachtlauf wie tagsüber) alle Issues aus den
     Commits seit dem vorigen Release-Tag mit „Fixed in x.y.z“ (`completed`); Fehler meldet
     es laut und im Bericht, die Veröffentlichung bleibt. Probe: `./publish.sh --trocken x.y.z`.
+  - **`tests/aufraeumen-nach-release.zsh`** (nach jedem Release im Hintergrund, Maintainer 21.11.2026) prüft mit Opus
+    alle offenen Issues gegen das Release und schließt belegt Erledigtes auch ohne „(GitHub #n)“ im Commit mit festem
+    „Fixed in x.y.z“-Text (Commit auf `main` und im Tag); Fragen gehen in den Morgenbrief, nie auf GitHub (`docs/release.md`).
   - Zeilen „board-hinweis“ der Liste: Board-Eintrag erledigt bzw. committet, Issue offen ohne
     Antwort, aber kein Commit mit „(GitHub #n)“ – von Hand nachholen. Die Wochenprüfung
     zählt Issues, die länger als einen Tag ohne Antwort bleiben.

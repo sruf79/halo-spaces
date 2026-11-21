@@ -66,7 +66,7 @@ VOR=$(ls -la ~/halo-berichte ~/halo-nacht 2>/dev/null | cksum)
 # lauf <Jetzt> [<Ausgabe>]  (weitere Umgebung wie HALO_PAUSEN_DATEI/HALO_VOLLDAMPF_DATEI vom Aufrufer)
 lauf() {
   HALO_JETZT=$1 HALO_MB_BERICHTE=$T/berichte HALO_MB_NACHT=$T/nacht HALO_MB_HANDELN=$T/nacht/handeln.log \
-  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_ABN_FRAGEN=${HALO_ABN_FRAGEN:-$T/keine-fragen.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
+  HALO_MB_HANDELN_SCHREIBEN=$T/handeln-schreiben.log HALO_BNR_ZWEIFEL=${HALO_BNR_ZWEIFEL:-$T/kein-zweifel.md} HALO_ABN_FRAGEN=${HALO_ABN_FRAGEN:-$T/keine-fragen.md} HALO_AUF_FRAGEN=${HALO_AUF_FRAGEN:-$T/keine-auf-fragen.md} HALO_PAUSEN_DATEI=${HALO_PAUSEN_DATEI:-$T/keine-pausen.txt} \
   HALO_VOLLDAMPF_DATEI=${HALO_VOLLDAMPF_DATEI:-$T/kein-volldampf.txt} HALO_VOLLDAMPF_BEENDET=$T/vd-beendet.txt HALO_WOCHENANKER=${HALO_WOCHENANKER:-$T/kein-anker.txt} \
   HALO_KONTINGENT_JSON=$T/kein-kontingent.json HALO_TAGESROUTINE_CONF=$T/leer.conf \
   HALO_MB_RELEASES=$T/rel.json HALO_MB_CI=$T/ci.json HALO_MB_WINDOWS=${HALO_MB_WINDOWS:-failure} HALO_MB_BOARD=$T/board.json \
@@ -140,6 +140,10 @@ pruefe "Abnahme überfällig: eigener Satz, nicht in der Zweifel-Zahl" 'grep -q 
 print -l -- "- 2026-11-10 14:05 | v3.26.0 | PVTI_alt | Optik: alt | Alte Frage?" "- 2026-11-15 21:30 | v3.27.1 | PVTI_f | Optik: Ungelesen-Zahl | Soll das Grau so blass bleiben wie in der Vorlage?" > $T/fragen.md
 HALO_ABN_FRAGEN=$T/fragen.md lauf $MO $T/f.md >/dev/null
 pruefe "Abnahme: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Abnahme, deine Entscheidung: Optik: Ungelesen-Zahl: Soll das Grau so blass bleiben" $T/f.md && ! grep -q "Alte Frage" $T/f.md'
+# Aufräumen nach dem Release (tests/aufraeumen-nach-release.zsh): gleiches Format, eigene Datei
+print -l -- "- 2026-11-10 14:05 | v3.26.0 | #9 | Alt | Alte Aufräumfrage?" "- 2026-11-15 21:40 | v3.27.1 | #66 | Wunsch Chat-Ansicht | Soll das Issue trotz offener Einzelpunkte geschlossen werden?" > $T/auf-fragen.md
+HALO_AUF_FRAGEN=$T/auf-fragen.md lauf $MO $T/af.md >/dev/null
+pruefe "Aufräumen: Frage an den Maintainer im Brief, ältere nicht" 'grep -q "Aufräumen, deine Entscheidung: Wunsch Chat-Ansicht: Soll das Issue trotz" $T/af.md && ! grep -q "Alte Aufräumfrage" $T/af.md'
 # Überfällige Entscheidungen (Board-Eintrag „Ablauf: Alter der Einträge wirksam machen …“, 20.11.2026): Notiz
 # „Entscheidung fehlt seit …“ bzw. „Wartet auf OK“ über 7 Tage; statusSeit vor dem Datum einer Rückfrage-Notiz
 cp $T/board.json $T/board-normal.json

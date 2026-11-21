@@ -188,6 +188,7 @@ Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen)
 - Zuletzt setzt `publish.sh` die Board-Einträge, deren Commit im Release steckt, auf Done
   (`tests/board-nach-release.zsh`, Zweifel nach `~/halo-aufgaben/board-nach-release-zweifel.md`, Maintainer 18.11.2026);
   danach nimmt `tests/abnahme-nach-release.zsh` im Hintergrund die Design-Einträge „zur Abnahme“ ab (Maintainer 20.11.2026).
+  Danach prüft `tests/aufraeumen-nach-release.zsh` (Opus) alle offenen Board-Einträge und Issues und schließt nur Belegtes (Commit auf `main` und im Tag; Maintainer 21.11.2026, `docs/release.md`).
 - Ablauf, Bericht, Store, Issues schließen, Board nach dem Release: `docs/release.md`.
 
 ## Konventionen

@@ -13,7 +13,8 @@
 # Danach freigegebene Pull Requests schließen (tests/pr-schliessen.sh, nur Einträge aus
 # tests/pr-freigaben.txt; Entscheidung vom 9.11.2026). Fehler ebenso nur melden.
 # Zuletzt das Board: Einträge, deren Commits im Release stecken, auf Done (tests/board-nach-release.zsh, 18.11.2026);
-# danach im Hintergrund die automatische Abnahme der Design-Einträge (tests/abnahme-nach-release.zsh, 20.11.2026).
+# danach im Hintergrund die automatische Abnahme der Design-Einträge (tests/abnahme-nach-release.zsh, 20.11.2026) und,
+# sobald sie fertig ist, das Aufräumen aller offenen Einträge und Issues (tests/aufraeumen-nach-release.zsh, 21.11.2026).
 #   ./publish.sh --trocken 3.21.0   nur diese Schritte proben (vorheriges Tag..v3.21.0), nichts schließen
 set -e
 ROOT="${0:A:h}"
@@ -43,6 +44,8 @@ if [[ "$1" == --trocken ]]; then
   HALO_REPO="$ROOT" zsh "$ROOT/tests/board-nach-release.zsh" --probe "$2" || RC=1
   echo "Abnahme (tests/abnahme-nach-release.zsh, startet nach dem echten Release im Hintergrund; --probe):"
   HALO_REPO="$ROOT" zsh "$ROOT/tests/abnahme-nach-release.zsh" --probe "$2" || true
+  echo "Aufräumen (tests/aufraeumen-nach-release.zsh, startet nach der Abnahme im Hintergrund; --probe):"
+  HALO_REPO="$ROOT" zsh "$ROOT/tests/aufraeumen-nach-release.zsh" --probe "$2" | tail -1 || true
   exit $RC
 fi
 VERSION="$1"
@@ -227,4 +230,11 @@ STATUS+=("$(echo "${BNR:-Board nach Release: keine Ausgabe}" | tail -1 | sed 's/
 ABN=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/abnahme-nach-release.zsh" --hintergrund "$VERSION" 2>&1) || true
 echo "$ABN"
 STATUS+=("$(echo "${ABN:-Abnahme nach Release: keine Ausgabe}" | tail -1 | sed 's/FEHLER/Fehler/g')")
+
+# Aufräumen nach dem Release (Maintainer 21.11.2026: „wir brauchen einen automatismus der nach jedem release erneut mit
+# einem opus agenten durch alle einträge auf dem board geht und schliesst was geht“): abgekoppelt, wartet selbst, bis die
+# Abnahme fertig ist; Opus belegt je offenem Board-Eintrag und Issue, das Skript schließt nur Belegtes. Hält das Release nie auf
+AUF=$(HALO_REPO="$ROOT" zsh "$ROOT/tests/aufraeumen-nach-release.zsh" --hintergrund "$VERSION" 2>&1) || true
+echo "$AUF"
+STATUS+=("$(echo "${AUF:-Aufräumen nach Release: keine Ausgabe}" | tail -1 | sed 's/FEHLER/Fehler/g')")
 exit 0

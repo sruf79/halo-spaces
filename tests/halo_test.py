@@ -21693,7 +21693,12 @@ Neu
           const wheel = () => { sc.dispatchEvent(new a3.WheelEvent("wheel", { deltaY: 30, deltaMode: 0, bubbles: true, cancelable: true })); sc.scrollTop += 30; };
           wheel(); await frame(); await frame();
           const dts = []; let prev = performance.now(); const t0 = prev; const r0 = a3.gDBView.rowCount;
-          while (performance.now() - t0 < 1500) { wheel(); await frame(); const now = performance.now(); dts.push(now - prev); prev = now; }
+          const slowAt = [];
+          while (performance.now() - t0 < 1500) { wheel(); await frame(); const now = performance.now(); dts.push(now - prev);
+            // Diagnose: welches Bild war langsam (Nummer, Dauer, ms seit Beginn, läuft die Suche, Zeilen im DOM)
+            if (now - prev > 40) slowAt.push([dts.length - 1, Math.round(now - prev), Math.round(now - t0), +!!a3.gViewWrapper?.searching, tree.querySelectorAll('tr[is="thread-card"]').length]);
+            prev = now; }
+          out.slowAt = slowAt;
           dts.sort((x, y) => x - y);
           out.duringScroll = [r0, a3.gDBView.rowCount]; out.frameMedian = Math.round(dts[dts.length >> 1]); out.slow = dts.filter(x => x > 40).length; out.frames = dts.length;
           // losgelassen: die Suche läuft weiter bis zum Ende
@@ -21702,6 +21707,11 @@ Neu
           await until(() => !a3.gViewWrapper?.searching && !html.hasAttribute("mc-search-stage"), 40000); await ruhig(500);
           out.end = a3.gDBView.rowCount; out.done = !a3.gViewWrapper?.searching;
           out.rowH = Math.round(tree.querySelector('tr[is="thread-card"]')?.getBoundingClientRect().height || 0);
+          // Diagnose, Gegenprobe: dieselbe Bewegung ohne laufende Suche (langsame Bilder dort kommen nicht von der Suche)
+          { sc.scrollTop = 0; await frame(); await frame(); const ds = []; let p = performance.now(); const s0 = p; const at = [];
+            while (performance.now() - s0 < 1500) { wheel(); await frame(); const now = performance.now(); ds.push(now - p);
+              if (now - p > 40) at.push([ds.length - 1, Math.round(now - p), Math.round(now - s0)]); p = now; }
+            out.idle = { frames: ds.length, slow: at.length, slowAt: at }; sc.scrollTop = 0; await frame(); }
           // grobe Messung ohne Scrollen: Dauer der Kopfzeilen- und der Text-Stufe, Treffer nach Stufe eins
           const marks = []; const t0s = performance.now();
           const obs = new a3.MutationObserver(() => marks.push([html.getAttribute("mc-search-stage"), Math.round(performance.now() - t0s), a3.gDBView?.rowCount]));
@@ -21738,6 +21748,7 @@ Neu
         ok = (res["duringScroll"][0] == res["duringScroll"][1] and res["done"] and res["end"] >= NF * NM // 2
               and res["frameMedian"] <= 25 and res["slow"] <= slow_max
               and abs(res["scroll"]["end"] - res["scroll"]["after"]) <= max(res["rowH"], 40))
+        print(f"DIAGNOSE Suche-Scrollen: {res}", flush=True)
         return ok, f"{res}"
     check("Suche: Scrollen während einer laufenden Suche flüssig (Suche wartet), danach alle Treffer, Scrollposition bleibt", search_scroll, results)
 

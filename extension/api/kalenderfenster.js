@@ -1426,7 +1426,7 @@ class EnhancerKalender {
       dir = -dir;
     };
     const step = now => {
-      k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / DURATION)));
+      k = Math.min(1, Math.max(0, k + dir * bildAnteil(now, last, DURATION))); // (höchstens BILD_MAX_MS je Bild)
       last = now;
       const value = full * (showing ? curve(k) : 1 - curve(k));
       setW(value);

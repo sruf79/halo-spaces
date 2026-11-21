@@ -1601,6 +1601,18 @@ function motionMs(ms) {
   return ms;
 }
 
+// Anteil der Bewegung, den ein Bild weiterrückt: die Zeit seit dem vorigen Bild, höchstens aber BILD_MAX_MS. Ein
+// einzelnes überlanges Bild (der Rechner hängt, Speicher wird aufgeräumt, die Ansicht baut sich nach dem Klick erst
+// auf) hält die Bewegung so nur an, statt sie zu verschlucken: ohne die Grenze war eine Bewegung von 250 ms nach
+// einem Bild von 250 ms schon am Ende, die Seitenleiste sprang in einem Bild auf volle Breite (unter Linux in der CI
+// beim Einblenden im Kalender: Bildfolge 0, 1, 317 px). 50 ms = drei Bilder bei 60 Hz: bis hinunter zu 20 Bildern je
+// Sekunde bleibt die Dauer unverändert, erst darunter dauert die Bewegung länger. Für alle Taktgeber (animiere,
+// animateSpaces, Today-Pane).
+const BILD_MAX_MS = 50;
+function bildAnteil(now, last, dauer) {
+  return last === null ? 0 : Math.max(0, Math.min(now - last, BILD_MAX_MS)) / dauer;
+}
+
 // Gemeinsamer Takt für die Ein-/Ausblend-Animationen (Stufe 1 der Vereinheitlichung): läuft über Bildwechsel
 // (requestAnimationFrame) von 0 bis 1; bild(p, k, letzt) bekommt den Verlauf p = kurve(k) (k = Fortschritt) und ob es
 // das letzte Bild ist (ende folgt im selben Aufruf), ende(k) den Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer
@@ -1609,7 +1621,7 @@ function motionMs(ms) {
 function animiere(win, { dauer, kurve, bild, ende, beiUmkehr }) {
   let k = 0, dir = 1, last = null;
   const step = now => {
-    k = Math.min(1, Math.max(0, k + (last === null ? 0 : dir * (now - last) / dauer)));
+    k = Math.min(1, Math.max(0, k + dir * bildAnteil(now, last, dauer)));
     last = now;
     const letzt = !(dir > 0 ? k < 1 : k > 0);
     bild(kurve(k), k, letzt);

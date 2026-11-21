@@ -26609,6 +26609,87 @@ Neu
     check("Seitenleiste: Grau, Trennlinie und Seitenleisten-Knopf der Toolbar-Zeile gleiten beim Aus-/Einblenden mit der Spalte, "
           "kein Sprung am Ende (Mail und Kalender)", sidebar_column_edges, results)
 
+    def motion_survives_long_frame():
+        # Ein einzelnes überlanges Bild gleich nach dem Klick (hier 300 ms im zweiten Bild erzwungen, länger als die
+        # ganze Bewegung von 250 ms) darf die Bewegung nur anhalten, nicht verschlucken: danach gleitet sie weiter,
+        # statt in einem Bild am Ende zu stehen. So fiel unter Linux in der CI „Seitenleiste: Grau, Trennlinie …“
+        # aus (calendar/ein: Bildfolge 0, 1, 317 px). Geprüft an allen drei Taktgebern: Bereiche-Leiste und
+        # Ordnerliste (Mail), Seitenleiste des Kalenders, Today-Pane. Unabhängig vom Tempo des Rechners: je Bild
+        # rückt die Bewegung höchstens 50 ms weiter (BILD_MAX_MS), nach dem langen Bild fehlen also mindestens drei
+        res = m.js(r"""
+          const btn = d.getElementById("spacesPinnedButton");
+          const out = { visibility: d.visibilityState, reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
+          const tp = () => d.getElementById("today-pane-panel");
+          const still = () => !w.__mcSpacesAnimating && !tm.currentAbout3Pane?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating
+            && !tp()?.__mcAnimating;
+          // eine Bewegung auslösen, im zweiten Bild danach 300 ms hängen, je Bild die Lage messen
+          const lauf = async (name, click, lage) => {
+            const frames = [lage()];
+            click();
+            let haenger = -1;
+            const t0 = performance.now();
+            while (performance.now() - t0 < 1500 && (frames.length < 4 || !still())) {
+              await new Promise(r => w.requestAnimationFrame(r));
+              if (frames.length == 2) {
+                const t = performance.now();
+                while (performance.now() - t < 300) { /* hängt mit Absicht */ }
+                haenger = frames.length;
+              }
+              frames.push(lage());
+            }
+            await bis(still, "Animation fertig", 3000); await ruhig(400);
+            frames.push(lage());
+            const v0 = frames[0], v1 = frames[frames.length - 1], weg = Math.abs(v1 - v0);
+            const nach = frames.slice(haenger + 1);
+            // Lagen nach dem langen Bild, die sich unterscheiden (samt Endlage)
+            const stufen = new Set(nach.map(v => Math.round(v))).size;
+            out[name] = { weg: Math.round(weg), gleichDanach: weg ? Math.round(Math.abs(nach[0] - v0) / weg * 100) / 100 : null, stufen,
+              frames: frames.filter((v, i) => !i || v != frames[i - 1]).map(v => Math.round(v)).join(" ") };
+          };
+          const todayWar = !!w.TodayPane?.isVisible;
+          try {
+            await toMail(); await ruhig(600);
+            if (w.gSpacesToolbar.isHidden || tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter?.isCollapsed) {
+              w.__mcColumnMigrate(false, false); await ruhig(600);
+            }
+            const body = d.getElementById("messengerBody");
+            const ordner = () => { const ab = tm.currentAbout3Pane, r = ab.document.getElementById("folderPane").getBoundingClientRect();
+              return r.width ? ab.browsingContext.embedderElement.getBoundingClientRect().left + r.right : body.getBoundingClientRect().left; };
+            await lauf("mail/aus Ordnerliste", () => btn.click(), ordner);
+            await lauf("mail/ein Bereiche-Leiste", () => btn.click(), () => body.getBoundingClientRect().left);
+            await lauf("mail/aus Bereiche-Leiste", () => btn.click(), () => body.getBoundingClientRect().left);
+            await lauf("mail/ein Ordnerliste", () => btn.click(), ordner);
+            const toggle = d.getElementById("mcTodayToggle");
+            if (toggle && tp()) {
+              const breite = () => { const r = tp().getBoundingClientRect(); return w.TodayPane?.isVisible || tp().__mcAnimating ? r.width : 0; };
+              await lauf(todayWar ? "today/aus" : "today/ein", () => toggle.click(), breite);
+              await lauf(todayWar ? "today/ein" : "today/aus", () => toggle.click(), breite);
+            }
+            await toCalendar(); await ruhig(800);
+            const kal = () => { const r = d.getElementById("calSidebar").getBoundingClientRect(); return r.width ? r.right : 0; };
+            await lauf("calendar/aus", () => btn.click(), kal);
+            await lauf("calendar/ein", () => btn.click(), kal);
+          } finally {
+            if (w.gSpacesToolbar.isHidden) { w.__mcColumnMigrate(false, false); }
+            await toMail(); await ruhig(600);
+            if (!!w.TodayPane?.isVisible != todayWar) { d.getElementById("mcTodayToggle")?.click(); await ruhig(900); }
+          }
+          return out;""")
+        if res.get("visibility") == "hidden" or res.get("reduced"):
+            return True, f"Testfenster verdeckt oder Bewegung reduziert – übersprungen {res}"
+        bad = []
+        laeufe = {k: v for k, v in res.items() if isinstance(v, dict)}
+        for k, v in laeufe.items():
+            if v["weg"] < 50:
+                bad.append(f"{k}: keine Bewegung gemessen ({v})")
+            elif v["gleichDanach"] > 0.75 or v["stufen"] < 3:
+                bad.append(f"{k}: Bewegung nach einem langen Bild verschluckt ({v})")
+        if len(laeufe) < 8:
+            bad.append(f"nur {len(laeufe)} von 8 Bewegungen gemessen")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Bewegung: ein überlanges Bild nach dem Klick verschluckt das Ein-/Ausblenden nicht, Seitenleiste, Bereiche-Leiste und "
+          "Today-Pane gleiten danach weiter (Mail und Kalender)", motion_survives_long_frame, results)
+
     def sidebar_column_float():
         # Seitenleiste wie Dia 3/4: ausgeblendet schwebt sie beim Zeigen an den linken Fensterrand über dem Inhalt ein
         # (Werte an Dia gemessen: 3 px vom Rand, Radius 10 px, Schatten); Mailliste bzw. Kalender verschieben sich

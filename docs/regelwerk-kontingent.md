@@ -95,6 +95,7 @@ Wortlaut des Maintainers: `ENTSCHEIDUNGEN.md` „Fable maximal ausnutzen“. Hie
 - **Nach dem Reset:** wieder die normalen Obergrenzen (`FABLE_JE_LAUF`, `FABLE_5H_MAX`, Sollkurve), kein Ausreizen und kein Nachladen.
 - Den Fable-Wert kann neon nicht lesen (`tests/kontingent.sh` liefert nur Woche gesamt und 5 Stunden). Der Maintainer meldet ihn; zuletzt 65 % am 21.11.2026 (abends). Wer es für eine Entscheidung braucht, fragt nach dem aktuellen Wert.
 - Die Obergrenzen in `~/.config/halo-spaces/tagesroutine.conf` ändern sich nur auf Zahlen des Maintainers.
+- **Wirkung des Resets (Maintainer 21.11.2026):** „wenn unser fable kontingent bei 100% steht und damit verbraucht ist werde ich einen manuellen fable reset durchführen. dadurch wird auch unser fable verbrauch wieder vom wochenkontingent abgezogen und wir haben wieder mehr zu verbrauchen“. Nach dem Reset sinkt also auch der Wochenwert aus `tests/kontingent.sh`; der Maintainer meldet den Reset, vorher keine Planung darauf.
 
 ## 5. Lücken (Vorschläge, brauchen eine Entscheidung)
 

@@ -651,7 +651,10 @@ Reihenfolge:
       Solange ein Lauf läuft, keine eigenen Testläufe auf diesem Mac (auch
       nicht --vm): die Jobs mac und windows laufen hier.
    b) Grün (Push-Lauf und Windows-Lauf, je Exitcode 0): Versionshinweise im README.md (eigener Commit, nur
-      README.md – zählt nicht als neuer Stand), Notizdatei für den
+      README.md – zählt nicht als neuer Stand; steht oben schon ein Abschnitt „What's new in …“ für eine Version
+      ohne Tag – nie veröffentlicht, z. B. ein abgebrochenes Zwischen-Release –, dessen Punkte in den Abschnitt
+      deiner Version übernehmen und den alten Abschnitt entfernen bzw. bei gleicher Version ergänzen: nie zwei
+      Abschnitte derselben Version, nie ein Abschnitt für eine Version ohne Tag), Notizdatei für den
       GitHub-Release (englisch), ./release.sh x.y.z (überspringt die Tests
       dank grüner CI) und bei Erfolg ./publish.sh x.y.z <notizen>. Die
       Einträge dieses Laufs jetzt abschließen (auch wenn das Release
@@ -794,8 +797,10 @@ Reihenfolge:
    Release (Version, Verweis auf ~/halo-berichte/<datum>-halo.spaces-<version>.md,
    Store-Upload; ohne Release genau eine Zeile „Release unter Tage: Wunsch ja – <Grund>“
    bzw. „Release unter Tage: Wunsch nein – <Grund>“, ein Satz, einfache Worte, Kriterien
-   docs/release.md „Release unter Tage: Kriterien“; Maintainer 15.11.2026, der Morgenbrief
-   liest sie, die Tagesroutine entscheidet um 09:00; nichts auslösen), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
+   docs/release.md „Release am Tag: Kriterien“; Maintainer 15.11.2026, der Morgenbrief
+   liest sie, die Tagesroutine entscheidet um 09:00; nichts auslösen; ein Notfall-Release verordnet allein der
+   Maintainer, 21.11.2026 – bei einem schweren Fehler bei Nutzern, den der normale Weg vermutlich nicht binnen 12 Stunden
+   behebt, nur ein Satz „Möglicher Notfall: …“ unter „## Rückfragen an den Maintainer“), Thunderbird (Zeile „Thunderbird auf neon vor dem Lauf“
    oben; wurde aktualisiert und ist die CI rot, prüfen, ob die neue Version
    der Grund ist, und das im Bericht sagen), Aufgeräumt (Schritt 6a), Probleme. Den Bericht immer schreiben – auch wenn nichts zu
    tun war oder alles gescheitert ist.

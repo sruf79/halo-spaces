@@ -141,7 +141,7 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
 - „nein …“: nichts tun, keine Ergebnisdatei.
 - „ja …“: Du bist der Director und entscheidest jetzt endgültig, vor dem Plan. Commits seit dem letzten Release
   lesen: git fetch origin; git log --format='%h %s' <letztes Tag v…>..origin/main und je Commit die Dateien
-  (git show --stat). Kriterien: docs/release.md „Release unter Tage: Kriterien“ (gleiche Liste wie der Wunsch
+  (git show --stat). Kriterien: docs/release.md „Release am Tag: Kriterien“ (gleiche Liste wie der Wunsch
   des Nachtlaufs). Steht oben ein Wunsch des Nachtlaufs („Release unter Tage: Wunsch ja/nein – …“) und
   entscheidest du anders, nenne den Grund.
 - Entscheidung und Begründung (höchstens 3 Sätze, einfache Worte) als Absatz „Release unter Tage:“ an den Anfang
@@ -163,6 +163,10 @@ Plan-Runde, ältere Kopie des Skripts): nichts tun.
      den vorhandenen Eintrag „Tests: …“ verweisen (Board suchen, z. B. Seitenleiste Adressbuch, Windows) oder
      einen neuen anlegen (Typ Bug, Todo); er kommt nach Schritt 1b als erster Eintrag in den Plan.
 - Bei Nein: Ergebnisdatei „nicht_noetig <ein Satz>“. Die Änderungen nimmt der nächste Nachtlauf mit.
+- Notfall-Release (notfall-release.yml, Hotfix) verordnet und startet allein der Maintainer (21.11.2026: „Ich alleine
+  sollte die Notwendigkeit eines Notfall releases verordnen.“). Siehst du einen schweren Fehler bei Nutzern, den der
+  normale Weg vermutlich nicht binnen 12 Stunden behebt (docs/notfall.md Abschnitt 1 Punkt 4), schreibe nur einen Satz
+  „Möglicher Notfall: …“ in den Bericht; nie auslösen, nie „verordnen“.
 - Die iPhone-Meldung ([info]) und die Zeile im Bericht schreibt das Skript aus der Ergebnisdatei.
 
 Eintragsrunde („JETZT: genau einen Eintrag bearbeiten“):
@@ -267,8 +271,11 @@ modus laufen.“), auch mitten am Tag.
 Zwischen-Release (Volldampf; Maintainer 17.11.2026, Wortlaute in ENTSCHEIDUNGEN.md, u. a. „ich habe auch kein problem
 mit 30 releases untertags während volldampf läuft“): macht der eigenständige Wächter tests/zwischen-schleife.zsh in
 seinem eigenen Worktree (~/halo-zwischen-release), nie du. Für dich heißt das: Fertiges sauber committen, damit es
-über den Prüfzweig grün wird – jeder grüne Stand mit mindestens drei Thunderbird-Commits kann bis 22:30 veröffentlicht
-werden. Den Worktree, den Zweig zr/release und die Datei ~/halo-nacht/zwischen-schleife.lock nicht anfassen.
+über den Prüfzweig grün wird. Veröffentlicht wird ein grüner Stand (ab drei Thunderbird-Commits, bei knappem
+5-Stunden-Fenster ab einem) bis 22:30 nur, wenn er einen Fehler behebt, den Nutzer bemerken (docs/release.md „Release am
+Tag: Kriterien“; ein „(GitHub #n)“ allein genügt nicht, Maintainer 20. und 21.11.2026); darüber urteilt seit 21.11.2026 ein
+Director (zuerst im Schattenbetrieb), sonst nimmt es der Nachtlauf mit. Schreibe Commit-Nachrichten sachlich, nicht so,
+dass sie ein Release auslösen sollen. Den Worktree, den Zweig zr/release und die Datei ~/halo-nacht/zwischen-schleife.lock nicht anfassen.
 
 Freigabe „alles“ im Volldampf (Maintainer 17.11.2026, Wortlaut in ENTSCHEIDUNGEN.md: „du darfst alles um volldampf maximal laufen zu lassen“): Reihen (n/m) dürfen mehrere Schritte nacheinander ohne Abnahme dazwischen bearbeitet werden (Einträge „Wartet auf OK“ nur wegen eines Reihen-Vorschritts zählen als machbar); der Designer darf Bausteine parallel durch Unteragenten bauen lassen; offene Entscheidungen im Zweifel „wie Apple“. Unverändert: Tests, CI, Windows, Testmarke, Dauerfreigaben C und D, Sicherheit/Datenschutz, GitHub-Antworten an Nutzer nur über die Routine, nichts am echten Profil.
 

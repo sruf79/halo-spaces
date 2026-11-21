@@ -32,7 +32,10 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
   zu erreichen könnten wir mehrmals ein neues release machen? …“ – „Ja.“). **Nur Spürbares** (Maintainer 20.11.2026,
   `ENTSCHEIDUNGEN.md` „Zwischen-Releases nur für Spürbares“): zusätzlich muss seit dem letzten Tag mindestens ein Commit
   unter `extension/` oder `chrome/` eine Nachricht mit Absturz, Datenverlust, Crash, Notfall oder
-  „dringend“ haben (ein „(GitHub #n)“ allein reicht nicht mehr, Maintainer 21.11.2026) (`spuerbar`, Muster `SPUERBAR`); sonst wartet der Wächter mit Logzeile und der Nachtlauf nimmt es mit.
+  „dringend“ haben (ein „(GitHub #n)“ allein reicht nicht mehr, Maintainer 21.11.2026) (`spuerbar`, Muster `SPUERBAR`); sonst wartet der Wächter mit Logzeile und der Nachtlauf nimmt es mit. Seit
+  21.11.2026 urteilt daneben ein Director (Opus) nach „Release am Tag: Kriterien“, zuerst im Schattenbetrieb: die Wortliste
+  entscheidet weiter und ist der Rückfall, bis der Maintainer den Wechsel freigibt (Abschnitt „Zwischen-Release: Urteil des
+  Directors“ unten).
   Nur auf ausdrücklichen Wunsch des Maintainers: Wächter mit `ZWISCHEN_ERZWINGEN=1` starten. Push-Beginn 09:00–22:30 (danach wartet der Wächter bis 09:00, das Release darf bis 24:00 fertig werden), keine Pause
   `zwischen-release`, nichts belegt (Runner.Worker u. a.). Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
   Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde
@@ -86,15 +89,63 @@ des direktors im morgenbericht stehen damit ich es weiss“.
   bei vollständig grüner CI samt Windows, keine eigenen Tests als Ersatz) und `./publish.sh`. Rot oder Marke fehlt:
   kein Release, Grund im Bericht, Eintrag „Tests: …“ (vorhanden oder neu).
 
-### Release unter Tage: Kriterien
+### Release am Tag: Kriterien
 
-Gemeinsame Liste für den Wunsch des Nachtlaufs und die Entscheidung der Tagesroutine. **Ja**, wenn unter den
-Commits seit dem letzten Release mindestens einer davon ist: Fehlerkorrektur für einen von Nutzern gemeldeten Bug
-(„(GitHub #n)“); Absturz, Datenverlust oder hängende Oberfläche; Sicherheit oder Datenschutz; eine spürbare
-Verbesserung, die Nutzer täglich merken. **Nicht** (allein kein Grund): reine Ablauf-, Doku-, Test- oder
-Code-Aufräum-Änderungen; kleine Design-Feinheiten; Unfertiges oder Arbeit, die auf einem Paketzweig wartet
-(Lichtschein und Kachel nur zusammen, `ENTSCHEIDUNGEN.md` 14.11.2026). Im Zweifel nein: der nächste Nachtlauf
-veröffentlicht ohnehin.
+Eine gemeinsame Liste für alle Releases am Tag: den Wunsch des Nachtlaufs („Release unter Tage: Wunsch …“), die
+Entscheidung der Tagesroutine über das Release unter Tage und das Urteil des Directors über ein Zwischen-Release im
+Volldampf (`tests/zwischen-director-auftrag.md`). Maintainer 21.11.2026 (`ENTSCHEIDUNGEN.md` „Director statt Wortliste
+für Zwischen-Releases …“): „Ansonsten folge ich den fable Empfehlungen“; die Liste ist die geschärfte Fassung aus dem
+Bericht `~/halo-berichte/2026-11-21-director-zwischenrelease.md`.
+
+**Ja** nur, wenn mindestens ein Commit seit dem letzten Release unter `extension/` oder `chrome/` einen Fehler behebt,
+**den es in der zuletzt veröffentlichten Version gibt**, und der Fehler eines davon ist:
+
+1. Absturz, Datenverlust, hängende oder unbenutzbare Oberfläche;
+2. Mail-Grundfunktion gestört (lesen, schreiben, senden, suchen, Ordner, Konten, Anhänge);
+3. Sicherheit oder Datenschutz;
+4. ein Bedienelement oder eine Anzeige ist für alle Nutzer einer Plattform blockiert, oder derselbe Fehler wurde von
+   mehreren Nutzern unabhängig gemeldet (Maßstab vom 13.11.2026).
+
+**Nein** (allein kein Grund): eine Einzelmeldung mit kleinem Fix, auch mit „(GitHub #n)“ (ein „(GitHub #n)“ allein
+genügt nie, Maintainer 21.11.2026, auch nicht für das Release unter Tage); Tastenkürzel, Optik und Design-Feinheiten;
+neue Funktionen; Ablauf-, Doku-, Test- oder Code-Aufräum-Änderungen; Fehler, die es in keiner veröffentlichten Version
+gab; Unfertiges oder Arbeit, die auf einem Paketzweig wartet (Lichtschein und Kachel nur zusammen, `ENTSCHEIDUNGEN.md`
+14.11.2026). **Im Zweifel nein:** der nächste Nachtlauf veröffentlicht ohnehin.
+
+Grenzen: Ein Release am Tag läuft immer mit vollen Tests samt Windows und Testmarke (`NUR_CI=1 ./release.sh` über
+`tests/release-unter-tage.sh`); nie `HOTFIX`, `SKIP_TESTS`, `FORCE_TESTS` oder eine Marke von Hand. Das
+**Notfall-Release** (`notfall-release.yml`, Hotfix) verordnet und startet allein der Maintainer (21.11.2026: „Ich alleine
+sollte die Notwendigkeit eines Notfall releases verordnen.“); kein Director und keine Sitzung löst es aus oder verordnet
+es, ein Director darf im Bericht nur auf einen möglichen Notfall hinweisen.
+
+### Zwischen-Release: Urteil des Directors (21.11.2026)
+
+- Im Volldampf fragt `tests/zwischen-schleife.zsh` statt (später) der Wortliste `SPUERBAR` einen Director (`claude -p
+  --model opus`, nur lesend: nur `git log/show/diff`, `gh issue view/list`, Read, Grep, Glob; Modus `dontAsk`; höchstens 10
+  Minuten), sobald alle Tatsachen stimmen (Volldampf, 09:00–22:30, keine Pause, grüner Stand auf einem Prüfzweig, mischbar,
+  genug Thunderbird-Commits). Auftrag: `tests/zwischen-director-auftrag.md`. Ausgabe genau eine Zeile `ja <Commit>
+  <Kriterium 1–4> <Satz>` oder `nein <Satz>`, dazu höchstens `LEHRE:` und `NOTFALL-HINWEIS:`.
+- **Zweiter Schlüssel im Skript:** Der Commit muss im Stand liegen, nach dem letzten Tag kommen und `extension/` oder
+  `chrome/` ändern, das Kriterium 1–4 sein; sonst gilt „nein (Beleg ungültig)“. Nach Kriterium 4 höchstens ein
+  Zwischen-Release je Tag (`ZS_K4_MAX`).
+- **Sparen:** Ein Urteil gilt je Schlüssel (Menge der Commits unter `extension/`/`chrome/` seit dem letzten Tag): derselbe
+  Stand und ein Stand ohne neuen Commit dort werden nicht neu beurteilt. Höchstens `ZS_URTEIL_MAX` (6) Director-Aufrufe je
+  Tag; kein Aufruf ab 5-Stunden-Fenster `ZS_URTEIL_FENSTER` (95 %) oder im Trockenlauf; anhalten: Modus `aus` (die Pause
+  `zwischen-release` hält den ganzen Wächter an).
+  `ZWISCHEN_ERZWINGEN=1` (nur der Maintainer) braucht kein Urteil.
+- **Schattenbetrieb (Start, Maintainer-Freigabe für den Wechsel offen):** Modus aus `ZS_URTEIL` bzw. erstes Wort von
+  `~/halo-nacht/zwischen-urteil-modus.txt` (je Takt gelesen, kein Neustart nötig), Standard `schatten`: der Director urteilt
+  und protokolliert, entscheiden tut die Wortliste. `an`: der Director entscheidet, bei Ausfall (Fehler, Zeitgrenze,
+  Tagesgrenze, Kontingent) die Wortliste. `aus`: nur die Wortliste. Umschalten auf `an` nur mit dem Wort des
+  Maintainers.
+- **Protokoll:** je Urteil eine Zeile in `~/halo-nacht/zwischen-urteil.txt`: `<Zeit> | <Stand> | <Zweig> | <Modus> |
+  <ja|nein|ausfall> | <Commit> | <Kriterium> | <Satz> | wortliste <ja|nein> | quelle <director|gemerkt|…> | schlüssel <…>`.
+  Ein „nein“ geht nicht an neon. Der Morgenbrief zeigt „Zwischen-Releases: n veröffentlicht, Director x ja, y nein …“, ein
+  `NOTFALL-HINWEIS` erscheint dort als Punkt für den Maintainer (nur er verordnet ein Notfall-Release).
+- **Gedächtnis:** `~/halo-nacht/zwischen-director-gedaechtnis.md` (außerhalb des Repos). Der Director liest es; er
+  schreibt nichts, seine `LEHRE:`-Zeile trägt das Skript mit Datum und Ablauf (30 Tage) ein, höchstens 40 Zeilen.
+  Korrekturen des Maintainers trägt neon dort ein. Regeländerungen nur als Vorschlag im Bericht.
+- Prüfung: `zsh tests/zwischen_schleife_test.zsh`.
 
 ## Rote Änderung auf einen Nebenzweig (Maintainer 18.11.2026)
 

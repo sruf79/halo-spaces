@@ -2724,7 +2724,11 @@ def reading_checks(m, results):
               const principal = Services.scriptSecurityManager.createContentPrincipal(Services.io.newURI(ORIGIN), {});
               const panel = d.getElementById("notification-popup");
               const popups = () => [...Services.wm.getEnumerator("mail:extensionPopup")];
+              const __diagZ = () => { const a3 = d.getElementById("tabmail")?.currentAbout3Pane; const bw = id => Math.round((a3?.document.getElementById(id)?.getBoundingClientRect().width ?? -1) * 10) / 10; const rowEl = d.getElementById("unifiedToolbarContainer");
+            return { ow: w.outerWidth, iw: w.innerWidth, panes: [bw("folderPane"), bw("threadPane"), bw("messagePane")], tabs: tm.tabInfo.length, rowStyle: rowEl?.getAttribute("style"), rowAttrs: rowEl?.getAttributeNames().filter(n => n != "style").join(","), contentAttrs: d.getElementById("unifiedToolbarContent")?.getAttributeNames().join(","),
+              kids: [...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, Math.round(li.getBoundingClientRect().left * 10) / 10, Math.round(li.getBoundingClientRect().width * 10) / 10, li.hidden ? "h" : "", li.hasAttribute("mc-squeezed") ? "s" : ""].join(":")).join(" ") }; };
               const out = { schritte: [] };
+              out.diagVor = __diagZ();
               let install = null;
               Services.perms.addFromPrincipal(principal, "install", Services.perms.ALLOW_ACTION);
               try {
@@ -2764,6 +2768,7 @@ def reading_checks(m, results):
                 for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t);
                 await toMail();
               }
+              await ruhig(1500); out.diagNach = __diagZ();
               return out;""" % srv.server_port)
         finally:
             srv.shutdown()
@@ -15853,8 +15858,12 @@ def run_checks(m, version, profile, results):
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
             await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
+          const __diagZ = () => { const a3 = d.getElementById("tabmail")?.currentAbout3Pane; const bw = id => Math.round((a3?.document.getElementById(id)?.getBoundingClientRect().width ?? -1) * 10) / 10; const rowEl = d.getElementById("unifiedToolbarContainer");
+            return { ow: w.outerWidth, iw: w.innerWidth, panes: [bw("folderPane"), bw("threadPane"), bw("messagePane")], tabs: tm.tabInfo.length, rowStyle: rowEl?.getAttribute("style"), rowAttrs: rowEl?.getAttributeNames().filter(n => n != "style").join(","), contentAttrs: d.getElementById("unifiedToolbarContent")?.getAttributeNames().join(","),
+              kids: [...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, Math.round(li.getBoundingClientRect().left * 10) / 10, Math.round(li.getBoundingClientRect().width * 10) / 10, li.hidden ? "h" : "", li.hasAttribute("mc-squeezed") ? "s" : ""].join(":")).join(" ") }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
+          out.diagStart = __diagZ();
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
           const cons = []; const listener = { observe: m => { if (m instanceof Ci.nsIScriptError && /implementation\\.js/.test(m.sourceName)) cons.push(m.errorMessage.slice(0, 200) + " @" + m.lineNumber); } };
           Services.console.registerListener(listener);
@@ -15899,6 +15908,7 @@ def run_checks(m, version, profile, results):
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            out[phase].diag = { ws: ws.join(","), dt: ts.slice(1).map((t, i) => Math.round(t - ts[i])).join(","), gm: kk.map(f => f["get-messages"] ?? "-").join(","), rp: kk.map(f => f["reply"] ?? "-").join(","), ar: kk.map(f => f["archive"] ?? "-").join(","), sb: kk.map(f => f["search-bar"] ?? "-").join(","), anim: tl.map(([, a2]) => a2 ? 1 : 0).join(""), z: __diagZ() };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);

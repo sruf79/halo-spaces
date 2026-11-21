@@ -103,6 +103,34 @@ print x >> $T/wt/datei; git -C $T/wt add datei; git -C $T/wt switch -q --detach 
 pruefe "Arbeitskopie: nächster Tag sichert Ungespeichertes mit git stash und beginnt neu von origin/main" \
   "$(ak pruef/tagesroutine-20261119; git -C $T/wt branch --show-current; git -C $T/wt log --format=%s; git -C $T/wt stash list)" \
   'mit git stash gesichert' '^pruef/tagesroutine-20261119$' '^basis$' 'Tagesroutine: Ungespeichertes'
+# main nachziehen (21.11.2026): vor jeder Runde origin/main in den Zweig, als Merge, eigene Commits zählen wie zuvor
+N=$T/nz; git clone -q $O $N 2>/dev/null
+nc() { git -C ${3:-$N} add -A; GIT_AUTHOR_DATE=${2:+"@$2 +0000"} git -C ${3:-$N} -c user.name=t -c user.email=t@t commit -q -m "$1" }
+print a > $N/a; nc main-1; git -C $N push -q origin main 2>/dev/null
+git -C $K config user.name t; git -C $K config user.email t@t   # der Merge-Commit braucht einen Namen
+git -C $K fetch -q origin main; git -C $K worktree add -q -b pruef/tagesroutine-20261121 $T/wt2 origin/main 2>/dev/null
+nz() { HALO_TR_WT=$T/wt2 zsh $SKRIPT --nachziehen pruef/tagesroutine-20261121 $K 2>&1; print rc=$? }
+pruefe "Nachziehen: Zweig frisch von origin/main, nichts zu tun" "$(nz)" '^Nachziehen: main schon enthalten$' '^rc=0$'
+print e > $T/wt2/e; nc eigen-1 5100 $T/wt2
+print b > $N/b; nc main-2 5150; git -C $N push -q origin main 2>/dev/null   # fremder Commit auf main, Autorzeit in der Runde
+pruefe "Nachziehen: neuer Commit von main kommt als Merge in den Zweig" "$(nz; git -C $T/wt2 log --format=%s -1; git -C $T/wt2 log --format=%s)" \
+  '^Nachziehen: 1 Commit\(s\) von main übernommen' '^rc=0$' '^Tagesroutine: origin/main in pruef/tagesroutine-20261121 übernommen$' '^main-2$' '^eigen-1$'
+pruefe "Nachziehen: Commits von main zählen nicht als eigene (Tageslimit)" \
+  "$(HALO_TR_ZWEIG=pruef/tagesroutine-20261121 HALO_RUNDEN_ZEIT='5000 5300' zsh $SKRIPT --zaehlen $K 2>&1)" 'Eigene Commits: 1$' 'eigen-1'
+print b2 > $N/b; nc main-3; git -C $N push -q origin main 2>/dev/null
+print offen >> $T/wt2/e
+pruefe "Nachziehen: Ungespeichertes in der Arbeitskopie – nichts anfassen (Exitcode 1)" "$(nz; git -C $T/wt2 status --porcelain)" \
+  'nicht nachgezogen: Ungespeichertes' '^rc=1$' '^ M e$'
+git -C $T/wt2 checkout -q -- e; print anders > $T/wt2/b; nc eigen-konflikt 5200 $T/wt2
+KOPF_VOR=$(git -C $T/wt2 rev-parse HEAD)
+pruefe "Nachziehen: Konflikt mit main – abgebrochen, Zweig unverändert und sauber (Exitcode 1)" \
+  "$(nz; [[ $(git -C $T/wt2 rev-parse HEAD) == $KOPF_VOR && -z $(git -C $T/wt2 status --porcelain) ]] && print unveraendert)" \
+  'nicht nachgezogen: Konflikt mit origin/main' '^rc=1$' '^unveraendert$'
+pruefe "Nachziehen: anderer Zweig in der Arbeitskopie – nichts tun" \
+  "$(HALO_TR_WT=$T/wt2 zsh $SKRIPT --nachziehen pruef/tagesroutine-20261122 $K 2>&1; print rc=$?)" 'nicht nachgezogen: .* nicht auf pruef/tagesroutine-20261122' '^rc=1$'
+pruefe "Skript: jede Claude-Runde zieht vorher main nach, ohne Rebase und ohne Force" "$(<$SKRIPT)" \
+  '^  main_nachziehen \$WT \$PRUEF; log' 'merge -q --no-ff --no-edit'
+grep -vE '^[[:space:]]*#' $SKRIPT | grep -qE 'git .*(rebase|push .*(--force|-f ))' && { print "FEHLER Skript nutzt Rebase oder Force"; FEHLER=1 }
 mkdir -p $T/kein-wt/x
 pruefe "Arbeitskopie: fremder Ordner ohne .git wird nicht benutzt (Exitcode 1)" \
   "$(HALO_TR_WT=$T/kein-wt zsh $SKRIPT --arbeitskopie pruef/tagesroutine-20261120 $K 2>&1; print rc=$?)" 'keine Arbeitskopie' '^rc=1$'

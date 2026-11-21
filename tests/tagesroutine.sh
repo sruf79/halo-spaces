@@ -17,6 +17,11 @@ export HALO_LAUF=tagesroutine
 # Skript den Zweig auf GitHub nur, wenn er schon in origin/main steckt, und löst die Arbeitskopie vom Zweig
 # (detached), damit tests/aufraeumen.sh ihn nach der Übernahme löschen kann. Nichts veröffentlichen.
 #   Probe: HALO_TR_WT=<Ordner> tagesroutine.sh --arbeitskopie <Zweig> [<Repo>]   Arbeitskopie anlegen bzw. umschalten
+# Vor jeder Claude-Runde zieht das Skript origin/main in den Zweig nach (main_nachziehen: git merge --no-ff, nie Rebase,
+# der Zweig liegt schon auf GitHub; Fable-Agent im Auftrag des Maintainers, 21.11.2026). Anlass: der Zweig entstand
+# morgens von origin/main und lag abends 22 Commits zurück, seine CI-Läufe meldeten Flackern von Prüfungen, die auf
+# main schon behoben waren. Bei Ungespeichertem oder Konflikt bleibt der Zweig, wie er ist (Zeile im Protokoll).
+#   Probe: HALO_TR_WT=<Ordner> tagesroutine.sh --nachziehen <Zweig> [<Repo>]     origin/main in den Zweig übernehmen
 # Einzige Ausnahme (Maintainer 15.11.2026, ENTSCHEIDUNGEN.md): Release unter Tage nach fehlgeschlagenem Nachtlauf.
 #   Erste Plan-Runde bekommt rut_zeile (tests/release-nachtlauf-gescheitert.sh); bei „ja“ entscheidet der Director
 #   und veröffentlicht nur über tests/release-unter-tage.sh (erzwingt Uhrzeit, ein Release je Tag, belegt, grüne CI
@@ -80,6 +85,7 @@ export TZ=Europe/Vienna
 
 TROCKEN= ZAEHLEN= NICHTSPASSEND= AK_PROBE=
 [[ $1 == --arbeitskopie ]] && { AK_PROBE=$2; shift 2 }
+[[ $1 == --nachziehen ]] && { NZ_PROBE=$2; shift 2 }
 [[ $1 == --nichts-passend ]] && { NICHTSPASSEND=1; shift }
 [[ $1 == --trocken ]] && { TROCKEN=1; shift }
 [[ $1 == --zaehlen ]] && { ZAEHLEN=1; shift }
@@ -506,7 +512,8 @@ COMMIT_ZWEIG=${HALO_TR_ZWEIG:-main}
 eigene_commits() {
   (( $#RUNDEN_ZEIT )) || return 0
   local at z iv
-  git -C $REPO log -n 500 $COMMIT_ZWEIG --format='%at %h %s' 2>/dev/null | while read -r at z; do
+  # --first-parent: was main_nachziehen aus main in den Zweig holt (zweiter Elternteil), ist kein eigener Commit
+  git -C $REPO log -n 500 --first-parent $COMMIT_ZWEIG --format='%at %h %s' 2>/dev/null | while read -r at z; do
     for iv in $RUNDEN_ZEIT; do
       (( at >= ${iv%% *} && at <= ${iv##* } )) && { print -r -- "- ${z[1,198]}"; break }
     done
@@ -540,6 +547,27 @@ arbeitskopie_bereit() {   # <Ordner> <Zweig>
   else git -C $wt switch -q -c $zw origin/main 2>>$LOG; fi \
     || { AK_INFO+="git switch $zw in $wt gescheitert"; return 1 }
   AK_INFO+="$wt auf $zw"
+}
+# origin/main in den Zweig der Arbeitskopie nachziehen (vor jeder Claude-Runde, Kopf der Datei). Immer ein Merge mit
+# eigenem Commit (--no-ff): so bleiben die Commits von main zweiter Elternteil und zählen nicht als eigene. Nichts
+# tun bei: anderem Zweig, Ungespeichertem (auch ein laufender Merge), main schon enthalten. Konflikt: abbrechen
+# (git merge --abort), Zweig unverändert; ebenso bei jedem anderen Fehler des Merge. Setzt NZ_INFO; Exitcode 1 nur, wenn nicht nachgezogen werden konnte.
+NZ_INFO=
+main_nachziehen() {   # <Ordner> <Zweig>
+  local wt=$1 zw=$2 n
+  NZ_INFO=
+  [[ $(git -C $wt branch --show-current 2>/dev/null) == $zw ]] || { NZ_INFO="nicht nachgezogen: $wt nicht auf $zw"; return 1 }
+  git -C $wt fetch -q origin main 2>>$LOG || { NZ_INFO="nicht nachgezogen: git fetch gescheitert"; return 1 }
+  git -C $wt merge-base --is-ancestor origin/main HEAD 2>/dev/null && { NZ_INFO="main schon enthalten"; return 0 }
+  [[ -n $(git -C $wt status --porcelain --untracked-files=no 2>/dev/null) ]] \
+    && { NZ_INFO="nicht nachgezogen: Ungespeichertes in $wt"; return 1 }
+  n=$(git -C $wt rev-list --count HEAD..origin/main 2>/dev/null)
+  if git -C $wt merge -q --no-ff --no-edit -m "Tagesroutine: origin/main in $zw übernommen" origin/main >>$LOG 2>&1; then
+    NZ_INFO="${n:-?} Commit(s) von main übernommen ($(git -C $wt rev-parse --short origin/main))"; return 0
+  fi
+  local was="Merge gescheitert"
+  git -C $wt rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && { was="Konflikt mit origin/main"; git -C $wt merge --abort 2>>$LOG }
+  NZ_INFO="nicht nachgezogen: $was ($(git -C $wt rev-parse --short origin/main)), Zweig unverändert"; return 1
 }
 # Nach einer Sparmodus-Runde „nichts_passend“ (Maintainer 12.11.2026, „einfachere variante umsetzen mit jeder
 # stunde“): kein Ende, sondern ohne Claude bis zur nächsten vollen Stunde warten und neu entscheiden; nur
@@ -583,6 +611,11 @@ if [[ -n $AK_PROBE ]]; then
   LOG=/dev/stderr
   arbeitskopie_bereit ${HALO_TR_WT:?HALO_TR_WT fehlt} $AK_PROBE; rc=$?
   print -r -- "Arbeitskopie: $AK_INFO"; exit $rc
+fi
+if [[ -n $NZ_PROBE ]]; then
+  LOG=/dev/stderr
+  main_nachziehen ${HALO_TR_WT:?HALO_TR_WT fehlt} $NZ_PROBE; rc=$?
+  print -r -- "Nachziehen: $NZ_INFO"; exit $rc
 fi
 if [[ -n $ZAEHLEN ]]; then
   RUNDEN_ZEIT=(${(s:;:)HALO_RUNDEN_ZEIT})
@@ -777,6 +810,8 @@ log "Arbeitskopie: $AK_INFO"
 
 # eine Claude-Runde mit Wache bis ENDE; Sitzungs-ID ins Protokoll (aktive_sitzung() übergeht eigene Läufe)
 runde() {   # <Modell> <Prompt> <Ausgabe>
+  # vor der Runde main nachziehen (vor t0: der Merge-Commit liegt in keiner Runde und zählt nicht als eigener)
+  main_nachziehen $WT $PRUEF; log "Prüfzweig: $NZ_INFO"
   local sid=$(uuidgen | tr A-Z a-z) t0=$(date +%s)
   log "Runde mit $1, Sitzung $sid"
   # harte Grenze jede Minute neu: nach „Volldampf aus“ gilt sofort ENDE ohne Volldampf (22:00)

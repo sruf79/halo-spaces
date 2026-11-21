@@ -15,6 +15,13 @@
 #   - Läufe auf main erst, wenn der CI-Wächter sie ausgewertet hat (Stand ~/halo-aufgaben/ci-waechter.stand): sein
 #     Eintrag „Tests: CI rot …“ entsteht wie bisher aus dem roten Versuch, nichts geht verloren
 #   - windows-github (continue-on-error) zählt nicht
+#   - veralteter Stand (Fable-Agent im Auftrag des Maintainers, 21.11.2026): steckt origin/main nicht im Commit des
+#     Laufs und hat main seit dem gemeinsamen Vorfahren etwas an den Prüfungen oder am Thunderbird-Code geändert
+#     (ALT_PFADE: tests/halo_test.py, chrome, extension), dann fehlen dem Lauf evtl. Fixes von main. Wiederholt wird
+#     wie immer (der Zweig braucht seinen grünen Stand), aber ein Grün in der Wiederholung heißt dann „flackert-alt“:
+#     es zählt nicht für „zum zweiten Mal in 7 Tagen“ und löst keine Meldung an neon aus. Anlass: der Zweig der
+#     Tagesroutine lag am 21.11.2026 22 Commits hinter main, vier Läufe meldeten Flackern einer Prüfung, die auf main
+#     schon behoben war. Lässt sich der Stand nicht bestimmen (kein Repo, Commit unbekannt), zählt der Lauf wie bisher.
 # Die Testmarke bleibt, wie sie ist: release.sh verlangt einen vollständig grünen Lauf zum Stand – ein Lauf, der
 # in der Wiederholung grün wird, zählte schon bisher (Wiederholung von Hand). Geflackert heißt nicht repariert:
 # der Eintrag des Wächters bleibt offen, die Zeile „flackert:“ steht zusätzlich in seinem Protokoll (Kennzahl
@@ -26,7 +33,8 @@
 # Protokoll ~/halo-nacht/flackern.log, eine Zeile je Ereignis, Tabulator-getrennt:
 #   Zeit  Ereignis  Lauf  Versuch  Zweig  Commit  Job  Prüfung  Fehlerzeile/Messwert
 #   Ereignisse: rot (Prüfung im ersten Versuch rot), wiederholt (Wiederholung gestartet), flackert (in der
-#   Wiederholung grün), bleibt-rot (auch in der Wiederholung rot), ausgelassen (keine Wiederholung, mit Grund)
+#   Wiederholung grün), flackert-alt (ebenso, aber auf einem Stand ohne die Änderungen von main: zählt nicht),
+#   bleibt-rot (auch in der Wiederholung rot), ausgelassen (keine Wiederholung, mit Grund), zweimal (an neon gemeldet)
 # Stand ~/halo-nacht/flackern.stand: „<Lauf> wiederholt|fertig“ je Zeile.
 # Exitcode: 0, 1 wenn gh nicht lesbar war.
 emulate -L zsh
@@ -37,7 +45,7 @@ while (( $# )); do
   case $1 in
     --trocken) TROCKEN=1 ;;
     --lauf) shift; NUR=$1 ;;
-    -h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) print -u2 "Unbekannte Option: $1"; exit 2 ;;
   esac
   shift
@@ -54,6 +62,8 @@ WSTAND=${HALO_WAECHTER_STAND:-$HOME/halo-aufgaben/ci-waechter.stand}
 STUNDEN=${CI_WDH_STUNDEN:-6}
 MAX_ROT=${CI_WDH_MAX_ROT:-5}
 NEON_JOBS=(mac windows)
+REPO=${HALO_REPO:-$HOME/halo-spaces}        # nur lesend (git fetch, merge-base, diff) für veraltet()
+ALT_PFADE=(tests/halo_test.py chrome extension)
 HIER=${0:A:h}
 source $HIER/gh-wdh.zsh 2>/dev/null || gh_wdh() { gh "$@" }
 mkdir -p $NACHT
@@ -115,6 +125,29 @@ rote_pruefungen() {   # <Lauf> <Versuch> <JSON der Jobs>
   return 0
 }
 
+# Veralteter Stand: origin/main steckt nicht im Commit des Laufs, und main hat seit dem gemeinsamen Vorfahren etwas an
+# ALT_PFADE geändert. Setzt ALT_GRUND (Text fürs Protokoll) und gibt 0 zurück; 1 heißt „zählt wie bisher“ – auch immer
+# dann, wenn es sich nicht belegen lässt (kein Repo, kein Netz, Commit unbekannt): nie ohne Beleg ausnehmen.
+ALT_GRUND= ALT_GEHOLT=
+veraltet() {   # <Zweig> <Commit>
+  local br=$1 sha=$2 basis kopf n rc
+  ALT_GRUND=
+  [[ $br == main ]] && return 1
+  git -C $REPO rev-parse -q --verify HEAD >/dev/null 2>&1 || return 1
+  if [[ -z $ALT_GEHOLT ]]; then ALT_GEHOLT=1; git -C $REPO fetch -q origin main 2>/dev/null; fi
+  git -C $REPO rev-parse -q --verify "$sha^{commit}" >/dev/null 2>&1 \
+    || git -C $REPO fetch -q origin "$br" 2>/dev/null
+  git -C $REPO rev-parse -q --verify "$sha^{commit}" >/dev/null 2>&1 || return 1
+  kopf=$(git -C $REPO rev-parse -q --verify origin/main 2>/dev/null) || return 1
+  basis=$(git -C $REPO merge-base $sha $kopf 2>/dev/null) || return 1
+  [[ $basis == $kopf ]] && return 1            # main steckt ganz im Lauf
+  git -C $REPO diff --quiet $basis $kopf -- $ALT_PFADE 2>/dev/null; rc=$?
+  (( rc == 1 )) || return 1                    # 0: main hat dort nichts geändert, >1: nicht lesbar
+  n=$(git -C $REPO rev-list --count $basis..$kopf -- $ALT_PFADE 2>/dev/null)
+  ALT_GRUND="Stand ohne ${n:-?} Commit(s) von main an Prüfungen bzw. Thunderbird-Code (gemeinsamer Vorfahr ${basis[1,8]}, main ${kopf[1,8]})"
+  return 0
+}
+
 # Zum zweiten Mal in 7 Tagen nur durch Wiederholung grün (neon 18.11.2026: „sofort Hinweis an neon, nicht erst im
 # Wochentakt“): dieselbe Prüfung (Name, gleich auf welcher Plattform) hat schon eine Zeile „flackert“ aus einem
 # anderen Lauf, nicht älter als 7 Tage. Sammelt je Lauf in ZWEIT, auswerten() meldet einmal an neon.
@@ -133,8 +166,10 @@ neon_melden() {   # <Text>
 }
 # Wiederholung auswerten: was im ersten Versuch rot war, ist jetzt grün (flackert) oder wieder rot (bleibt-rot)
 auswerten() {   # <Lauf> <Zweig> <Commit>
-  local run=$1 br=$2 sha=$3 jobs rot2 job name text n=0 f=0 z
+  local run=$1 br=$2 sha=$3 jobs rot2 job name text n=0 f=0 z erg=flackert gruen="in der Wiederholung grün"
   ZWEIT=()
+  # veralteter Stand: Grün in der Wiederholung zählt nicht als Flackern der Prüfung (kein zweit(), keine Meldung)
+  veraltet $br $sha && { erg=flackert-alt; gruen+="; zählt nicht: $ALT_GRUND" }
   jobs=$(gh_wdh run view $run -R $R --json jobs,attempt 2>/dev/null) || return 1
   if jq -e 'any(.jobs[]; .conclusion == "failure" and .name != "windows-github")' <<< $jobs >/dev/null; then
     rot2=$(rote_pruefungen $run $(jq -r .attempt <<< $jobs) $jobs) || return 1
@@ -145,19 +180,19 @@ auswerten() {   # <Lauf> <Zweig> <Commit>
     if [[ $name == "(Job ohne FEHLER-Zeile"* ]]; then
       # Job ohne Prüfungszeile: geflackert, wenn der Job in der Wiederholung grün ist
       if jq -e --arg j $job 'any(.jobs[]; .name == $j and .conclusion == "success")' <<< $jobs >/dev/null; then
-        zweit $run $job $name
-        schreibe flackert $run 2 $br $sha $job $name "in der Wiederholung grün"; f=$((f + 1)); wlog $run $sha $job $name
+        [[ $erg == flackert ]] && zweit $run $job $name
+        schreibe $erg $run 2 $br $sha $job $name $gruen; f=$((f + 1)); wlog $run $sha $job $name
       else
         schreibe bleibt-rot $run 2 $br $sha $job $name "Job auch in der Wiederholung rot"
       fi
     elif print -r -- $rot2 | awk -F'\t' -v j=$job -v n=$name '$1 == j && $2 == n { t = 1 } END { exit !t }'; then
       schreibe bleibt-rot $run 2 $br $sha $job $name "$(print -r -- $rot2 | awk -F'\t' -v j=$job -v n=$name '$1 == j && $2 == n { print $3; exit }')"
     else
-      zweit $run $job $name
-      schreibe flackert $run 2 $br $sha $job $name "in der Wiederholung grün"; f=$((f + 1)); wlog $run $sha $job $name
+      [[ $erg == flackert ]] && zweit $run $job $name
+      schreibe $erg $run 2 $br $sha $job $name $gruen; f=$((f + 1)); wlog $run $sha $job $name
     fi
   done < <(awk -F'\t' -v r=$run '$2 == "rot" && $3 == r && $4 == 1 { print $7 "\t" $8 "\t" $9 }' $FLOG 2>/dev/null)
-  print -u2 -- "Lauf $run ($br, $sha): Wiederholung fertig – $f von $n geflackert"
+  print -u2 -- "Lauf $run ($br, $sha): Wiederholung fertig – $f von $n geflackert${ALT_GRUND:+ (zählt nicht: $ALT_GRUND)}"
   if (( $#ZWEIT )); then
     for z in $ZWEIT; do schreibe zweimal $run 2 $br $sha "${z%%: *}" "${${z#*: }%% – vorher*}" "zum zweiten Mal in 7 Tagen nur durch Wiederholung grün, an neon gemeldet"; done
     local -a zz=("- "${^ZWEIT})

@@ -36,6 +36,7 @@ exit 1
 E
 chmod +x $T/gh-attrappe
 export GH_WDH_BEFEHL=$T/gh-attrappe GH_DATEN=$T/gh
+export HALO_REPO=$T/kein-repo   # ohne Repo zählt jeder Lauf wie bisher (Fälle 16–19 setzen ein Wegwerf-Repo)
 export HALO_NACHT_DIR=$T/nacht HALO_WAECHTER_LOG=$T/aufgaben/ci-waechter.log HALO_WAECHTER_STAND=$T/aufgaben/ci-waechter.stand
 FLOG=$T/nacht/flackern.log FSTAND=$T/nacht/flackern.stand
 print 0 > $T/gh/rerun-rc
@@ -43,7 +44,7 @@ print 0 > $T/gh/rerun-rc
 JETZT_ISO=2026-11-18T15:00+01:00
 BEGINN=$(python3 -I -c 'import sys, datetime; print(int(datetime.datetime.fromisoformat(sys.argv[1]).timestamp()) - 1800)' $JETZT_ISO)
 # lauf <ID> <status> <conclusion> <Ereignis> <Versuch> <Zweig> [<Minuten vor jetzt>]: Zeile für „gh run list“
-lauf() { print -r -- "$1 $2 $3 $(( BEGINN + 1800 - ${7:-30} * 60 )) sha$1 $4 $5 $6"; print $5 > $T/gh/versuch-$1 }
+lauf() { print -r -- "$1 $2 $3 $(( BEGINN + 1800 - ${7:-30} * 60 )) ${SHA:-sha$1} $4 $5 $6"; print $5 > $T/gh/versuch-$1 }
 # jobs <ID> <Versuch> <Job>=<Ergebnis>[:<roter Schritt>] … [teil]
 jobs() {
   local id=$1 att=$2 x teil=skipped j=(); shift 2
@@ -230,6 +231,49 @@ lauf 220 completed failure push 1 pruef/n > $T/gh/liste
 jobs 220 1 "linux (esr)=failure:Test"; protokoll 220 1 "linux (esr)" $P "x"
 los; lauf 220 completed success push 2 pruef/n > $T/gh/liste; jobs 220 2 "linux (esr)=success"; los
 pruefe "erstes Flackern: nur „flackert“, keine Meldung an neon" 'grep -q "	flackert	220	" $FLOG && ! grep -q "zweimal" $FLOG && [[ ! -s $T/out ]]'
+
+# 16.–19. veralteter Stand (21.11.2026): Lauf auf einem Zweig, dem Änderungen von main an Prüfungen oder Code fehlen
+G=$T/origin.git; git init -q --bare -b main $G
+K=$T/klon; git clone -q $G $K 2>/dev/null
+gc() { git -C $K add -A; git -C $K -c user.name=t -c user.email=t@t commit -q -m "$1" }
+mkdir -p $K/tests $K/docs; print a > $K/tests/halo_test.py; print a > $K/docs/x.md; gc basis
+git -C $K push -q origin main 2>/dev/null
+git -C $K switch -q -c pruef/alt-doku; print d > $K/d; gc "Arbeit auf dem Zweig (Doku-Fall)"; SHA_DOKU=$(git -C $K rev-parse --short=7 HEAD)
+git -C $K switch -q -c pruef/alt-code main; print z > $K/z; gc "Arbeit auf dem Zweig"; SHA_ALT=$(git -C $K rev-parse --short=7 HEAD)
+git -C $K switch -q main; print b >> $K/docs/x.md; gc "nur Doku"; git -C $K push -q origin main 2>/dev/null
+# flackern <ID> <Zweig> <Commit>: früheres Flackern derselben Prüfung liegt vor, Lauf rot, Wiederholung grün
+flackern() {
+  neu
+  print -r -- "2026-11-14 10:00:00	flackert	90	2	pruef/alt	sha90	linux (beta)	$P	in der Wiederholung grün" > $FLOG
+  SHA=$3 lauf $1 completed failure push 1 $2 > $T/gh/liste
+  jobs $1 1 "linux (esr)=failure:Test"; protokoll $1 1 "linux (esr)" $P "x"
+  HALO_REPO=$K los
+  SHA=$3 lauf $1 completed success push 2 $2 > $T/gh/liste; jobs $1 2 "linux (esr)=success"
+  HALO_REPO=$K los
+}
+flackern 310 pruef/alt-doku $SHA_DOKU
+pruefe "hinter main, aber main änderte nur Doku: zählt wie bisher („flackert“, „zweimal“, Meldung an neon)" \
+  'grep -q "	flackert	310	" $FLOG && grep -q "	zweimal	310	" $FLOG && grep -q "^TROCKEN: an_neon \[flackern\]" $T/out'
+# jetzt ändert main die Prüfungen; der Klon kennt das erst nach dem git fetch des Skripts (origin/main zurückgesetzt)
+ALT_MAIN=$(git -C $K rev-parse main)
+print fix >> $K/tests/halo_test.py; gc "Fix der Prüfung"; git -C $K push -q origin main 2>/dev/null
+git -C $K switch -q -c pruef/frisch main; print y > $K/y; gc "Arbeit auf frischem Zweig"; SHA_FRISCH=$(git -C $K rev-parse --short=7 HEAD)
+git -C $K switch -q main; git -C $K reset -q --hard $ALT_MAIN; git -C $K update-ref refs/remotes/origin/main $ALT_MAIN
+flackern 300 pruef/alt-code $SHA_ALT
+pruefe "veralteter Stand (main änderte die Prüfungen): trotzdem einmal wiederholt" '[[ $(wdh) == 1 ]]'
+pruefe "veralteter Stand: Zeile „flackert-alt“ mit Grund, keine Zeile „flackert“ oder „zweimal“ zum Lauf, keine Meldung an neon" \
+  'grep -q "	flackert-alt	300	2	pruef/alt-code	$SHA_ALT	linux (esr)	$P	in der Wiederholung grün; zählt nicht: Stand ohne 1 Commit(s) von main" $FLOG && ! grep -q "	flackert	300	" $FLOG && ! grep -q "	zweimal	" $FLOG && [[ ! -s $T/out ]]'
+pruefe "veralteter Stand: main in der Arbeitskopie bleibt unberührt (nur origin/main geholt)" \
+  '[[ $(git -C $K rev-parse main) == $ALT_MAIN && $(git -C $K rev-parse origin/main) != $ALT_MAIN && -z $(git -C $K status --porcelain) ]]'
+flackern 320 pruef/frisch $SHA_FRISCH
+pruefe "Zweig enthält main: zählt wie bisher" 'grep -q "	flackert	320	" $FLOG && grep -q "	zweimal	320	" $FLOG'
+# ein späteres Flackern auf aktuellem Stand zählt „flackert-alt“ nicht als früheres Flackern
+neu
+print -r -- "2026-11-17 10:00:00	flackert-alt	95	2	pruef/alt	sha95	linux (beta)	$P	in der Wiederholung grün; zählt nicht: …" > $FLOG
+lauf 330 completed failure push 1 pruef/q > $T/gh/liste; jobs 330 1 "linux (esr)=failure:Test"; protokoll 330 1 "linux (esr)" $P "x"
+los; lauf 330 completed success push 2 pruef/q > $T/gh/liste; jobs 330 2 "linux (esr)=success"; los
+pruefe "„flackert-alt“ zählt nicht als früheres Flackern; ohne Repo bzw. mit unbekanntem Commit zählt der Lauf wie bisher" \
+  'grep -q "	flackert	330	" $FLOG && ! grep -q "zweimal" $FLOG && [[ ! -s $T/out ]]'
 
 print "\n$N Prüfungen, $( (( FEHLER )) && print "mit Fehlern" || print "alle OK")"
 exit $FEHLER

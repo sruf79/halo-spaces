@@ -16467,16 +16467,26 @@ def run_checks(m, version, profile, results):
                                         bad.append(f"{lage}: {k} nach dem Ende noch {max(x[1] for x in v)} px")
                                 # Mail: Abstand von „Verfassen“ zu „Antworten“ im letzten Bild der Bewegung schon am Endwert – die
                                 # Vorabrechnung des Endzustands sagte im schmalen Fenster 49 statt 69 px voraus (ein Durchgang statt
-                                # zwei), die Knöpfe liefen der Seitenleiste voraus und sprangen am Ende 20 px zurück
+                                # zwei), die Knöpfe liefen der Seitenleiste voraus und sprangen am Ende 20 px zurück.
+                                # Das letzte Bild mit laufender Animation liegt noch vor dem Ende der Kurve: der Abstand darf dort um
+                                # denselben Anteil fehlen wie der Seitenleistenkante (unter Linux mit Bildern zu ~57 ms stand die Kante
+                                # im vorletzten Bild noch 5 % vor dem Ziel, der Abstand damit 4 px – kein Sprung, sondern Gleiten)
                                 if modus == "mail":
                                     def _abstand(f):
                                         wr = next((v for kk, v in f["e"].items() if "[write-message]" in kk), None)
                                         rp = next((v for kk, v in f["e"].items() if kk.startswith("top:[reply]@")), None)
                                         return rp[0] - wr[0] if wr and rp and wr[4] and rp[4] else None
+                                    _kante = lambda f: f["kern"][0] + f["kern"][1] if f.get("kern") else None
                                     bewegt = [f for f in fr if "M" in f.get("flags", "")]
-                                    a_letzt, a_ende = (_abstand(bewegt[-1]) if bewegt else None), _abstand(fr[-1])
-                                    if a_letzt is not None and a_ende is not None and abs(a_ende - a_letzt) > 3:
-                                        bad.append(f"{lage}: Abstand Verfassen–Antworten im letzten Bild {a_letzt:.0f} px, danach {a_ende:.0f} px")
+                                    f_anf = fr[a["i0"] - 1]
+                                    a_anf, a_letzt, a_ende = _abstand(f_anf), (_abstand(bewegt[-1]) if bewegt else None), _abstand(fr[-1])
+                                    k_anf, k_letzt, k_ende = _kante(f_anf), (_kante(bewegt[-1]) if bewegt else None), _kante(fr[-1])
+                                    if None not in (a_anf, a_letzt, a_ende, k_anf, k_letzt, k_ende) and abs(k_ende - k_anf) >= 1:
+                                        rest = (k_ende - k_letzt) / (k_ende - k_anf)
+                                        a_soll = a_ende - (a_ende - a_anf) * rest
+                                        if abs(a_letzt - a_soll) > 3:
+                                            bad.append(f"{lage}: Abstand Verfassen–Antworten im letzten Bild {a_letzt:.0f} px, nach der Kante erwartet"
+                                                       f" {a_soll:.0f} px (Anfang {a_anf:.0f}, Ende {a_ende:.0f}, Kante noch {rest * 100:.0f} % vor dem Ziel)")
                                 # Ampel-Fläche: durchgehend an derselben Stelle (auch beim Zeilenanfang 84 ↔ 0)
                                 if mac:
                                     box = [f["e"][k] for f in fr for k in f["e"] if "titlebar-buttonbox." in k]

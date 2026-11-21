@@ -84,6 +84,202 @@ STATE_JS = r"""
 """
 
 
+# Seitenleiste ausblenden und Ampel-Abstand messen (Update ohne Neustart mit earlyTheme: der Seitenleisten-Knopf
+# überlappte die Fensterknöpfe). Mac: am #unifiedToolbarContainer --mc-tl-reserve und --mc-tl-flow 84px, linke Kante
+# des Knopfs rechts der Ampel-Fläche; sonst nur, dass dort nicht 84 px Ampel-Platz gilt. Danach wieder einblenden.
+SIDEBAR_JS = r"""
+  const doc = w.document, mac = w.matchMedia("(-moz-platform: macos)").matches;
+  const bar = doc.getElementById("spacesToolbar"), row = doc.getElementById("unifiedToolbarContainer");
+  const btn = doc.getElementById("spacesPinnedButton");
+  if (!btn || !row || !bar) return { mac, fehlt: [!btn && "Knopf", !row && "Zeile", !bar && "Leiste"].filter(Boolean) };
+  const shown = () => !w.gSpacesToolbar?.isHidden;
+  if (shown()) { btn.click(); try { await bis(() => !shown(), "ausgeblendet", 3000); } catch {} }
+  await ruhig(800);
+  // die Ampel selbst (.titlebar-buttonbox); ihr Behälter reicht als Fläche bis an die Trennlinie der Leiste (88 px)
+  const cs = w.getComputedStyle(row), box = doc.querySelector("#unifiedToolbarContainer .titlebar-buttonbox-container");
+  const amp = box?.querySelector(".titlebar-buttonbox"), bR = btn.getBoundingClientRect(), xR = amp?.getBoundingClientRect();
+  const out = { mac, reserve: cs.getPropertyValue("--mc-tl-reserve").trim(), flow: cs.getPropertyValue("--mc-tl-flow").trim(),
+                knopf: Math.round(bR.left), knopfB: Math.round(bR.width), ampel: xR && xR.width ? Math.round(xR.right) : null,
+                flaeche: box ? Math.round(box.getBoundingClientRect().right) : null,
+                ruht: bar.hasAttribute("mc-ruht"), versteckt: !shown() };
+  btn.click(); try { await bis(shown, "eingeblendet", 3000); } catch {} await ruhig(600);
+  return out;
+"""
+
+
+# Sortierung im Sammelordner „All Inboxes“ muss Neustart und Update überstehen (zwei Konten, Konversationen an, erst nach
+# Datum, dann nach Stern sortiert): zwei Konten mit Posteingang anlegen, Sammelordner einschalten, dort so sortieren. SORT_JS liest danach die Sortierung der Ansicht
+# und die im Sammelordner gespeicherte (dbFolderInfo)
+SORT_SETUP_JS = r"""
+  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+  const F = Ci.nsMsgFolderFlags, O = Ci.nsMsgViewSortOrder;
+  try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+  for (const host of ["halo-gmail.invalid", "halo-icloud.invalid"]) {
+    let srv = MailServices.accounts.findServer("nobody", host, "none");
+    if (!srv) {
+      srv = MailServices.accounts.createIncomingServer("nobody", host, "none");
+      MailServices.accounts.createAccount().incomingServer = srv;
+    }
+    const root = srv.rootFolder;
+    if (!root.getFolderWithFlags(F.Inbox)) {
+      if (!root.containsChildNamed("Inbox")) root.createSubfolder("Inbox", null);
+      root.getChildNamed("Inbox").setFlag(F.Inbox);
+    }
+  }
+  const a3 = await bis(() => w.gTabmail?.currentAbout3Pane?.folderPane?.isInitialized && w.gTabmail.currentAbout3Pane, "Mail-Tab", 10000);
+  if (!a3.folderPane.activeModes.includes("smart")) a3.folderPane.activeModes = ["smart", ...a3.folderPane.activeModes];
+  const { SmartMailboxUtils } = ChromeUtils.importESModule("resource:///modules/SmartMailboxUtils.sys.mjs");
+  const smart = await bis(() => SmartMailboxUtils.getSmartMailbox().rootFolder.getFolderWithFlags(F.Inbox), "All Inboxes", 8000);
+  for (let i = 0; i < 20 && a3.gViewWrapper?.displayedFolder != smart; i++) { a3.displayFolder(smart.URI); await wait(250); }
+  await bis(() => a3.gDBView && a3.gViewWrapper?.displayedFolder == smart, "All Inboxes gezeigt", 8000);
+  a3.gViewWrapper.showThreaded = true; await wait(300);
+  a3.gViewWrapper.sort("dateCol", O.descending); await wait(300);
+  a3.gViewWrapper.sort("flaggedCol", O.descending); await wait(500);
+  return 1;
+"""
+
+SORT_JS = r"""
+  const F = Ci.nsMsgFolderFlags;
+  const a3 = await bis(() => w.gTabmail?.currentAbout3Pane?.folderPane?.isInitialized && w.gTabmail.currentAbout3Pane, "Mail-Tab", 10000);
+  const { SmartMailboxUtils } = ChromeUtils.importESModule("resource:///modules/SmartMailboxUtils.sys.mjs");
+  const smart = SmartMailboxUtils.getSmartMailbox().rootFolder.getFolderWithFlags(F.Inbox);
+  if (!smart) return { fehlt: "All Inboxes" };
+  const shown = a3.gViewWrapper?.displayedFolder == smart;
+  for (let i = 0; i < 20 && a3.gViewWrapper?.displayedFolder != smart; i++) { a3.displayFolder(smart.URI); await wait(250); }
+  await bis(() => a3.gDBView && a3.gViewWrapper?.displayedFolder == smart, "All Inboxes gezeigt", 8000);
+  await wait(500);
+  const v = a3.gDBView, i = smart.msgDatabase.dBFolderInfo;
+  return { shown, view: [v.sortType, v.sortOrder, v.secondarySortType, v.secondarySortOrder], threaded: a3.gViewWrapper.showThreaded,
+           db: [i.sortType, i.sortOrder], modes: a3.folderPane.activeModes };
+"""
+
+
+def sort_check(results, m, when, want):
+    s = m.js(SORT_JS)
+    ok = not s.get("fehlt") and s["view"] == want["view"] and s["threaded"] == want["threaded"]
+    results.append((f"Sortierung in All Inboxes erhalten ({when})", ok, f"{s} (erwartet {want['view']})"))
+
+
+# Code der Experiment-API im laufenden Thunderbird: jede Funktion im Umfeld der API (auch aus den nachgeladenen
+# Teilen api/…, loadPart) und jede Methode von CardEnhancer muss wörtlich im neuen Paket stehen, keine nur aus dem
+# alten (Zwischenspeicher der Skripte, gleiche Adresse im Paket). Was dagegen die alte Version im Fenster stehen
+# lässt (Menüpunkt mit ihrem Code), prüft recommend_check
+CODE_JS = r"""
+  const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+  const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local")?.experimentAPIManager?.global;
+  if (!g) return { fehlt: "experimentAPIManager.global" };
+  return JSON.parse(Cu.evalInSandbox(`JSON.stringify((() => {
+    const out = {};
+    for (const n of Object.getOwnPropertyNames(globalThis)) {
+      let v;
+      try { v = globalThis[n]; } catch { continue; }
+      if (typeof v == "function") out[n] = String(v);
+    }
+    if (typeof CardEnhancer == "function") {
+      for (const [n, d] of Object.entries(Object.getOwnPropertyDescriptors(CardEnhancer.prototype))) {
+        if (typeof d.value == "function" && n != "constructor") out["CardEnhancer." + n] = String(d.value);
+      }
+    }
+    return { teile: typeof loadedParts == "undefined" ? [] : loadedParts, code: out };
+  })())`, g));
+"""
+
+
+def api_quelle(xpi):
+    with zipfile.ZipFile(xpi) as z:
+        return "\n".join(z.read(n).decode("utf-8", "replace") for n in z.namelist()
+                         if n.startswith("api/") and n.endswith(".js"))
+
+
+def code_check(results, m, when, xpi, old_xpi):
+    quelle, alt_quelle = api_quelle(xpi), api_quelle(old_xpi)
+    s = m.js(CODE_JS)
+    if s.get("fehlt"):
+        results.append((f"Code der Experiment-API aus dem neuen Paket ({when})", False, f"fehlt: {s['fehlt']}"))
+        return
+    # eingebundene Funktionen (Timer, ExtensionAPI …) stehen in keinem der beiden Pakete; veraltet ist, was nur im
+    # alten steht
+    eigen = {n: c for n, c in s["code"].items() if "[native code]" not in c and (c in quelle or c in alt_quelle)}
+    alt = sorted(n for n, c in eigen.items() if c not in quelle)
+    results.append((f"Code der Experiment-API samt Teilen aus dem neuen Paket ({when})",
+                    len(eigen) > 50 and "halofenster.js" in s["teile"] and not alt,
+                    f"{len(eigen)} Funktionen, Teile {len(s['teile'])}, nicht im neuen Paket: {alt[:8]}"
+                    + (f" (+{len(alt) - 8})" if len(alt) > 8 else "")))
+
+
+# „Recommend“ im Info-Fenster öffnet eine neue Mail (Profil mit Identität wie beim Nutzer mit Konto). Mit 3.34.0
+# kopierte der Knopf nach dem Update ohne Neustart nur den Text, erst nach einem Neustart ging die Mail auf
+RECOMMEND_JS = r"""
+  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+  const open = () => [...Services.wm.getEnumerator("msgcompose")];
+  const haloWin = () => [...Services.wm.getEnumerator(null)].find(x => x.location?.href.startsWith("resource://mailcards/about/halo.html")
+                                                                   && x.document.getElementById("version")?.textContent);
+  const out = { ids: MailServices.accounts.allIdentities.length,
+                standard: !!(MailServices.accounts.defaultAccount?.defaultIdentity) };
+  const had = new Set(open());
+  // ein Menüpunkt „halo.spaces“, nicht der der alten Version
+  out.menue = { anzahl: d.querySelectorAll("#mcHaloSpaces").length, alt: !!d.getElementById("mcHaloSpaces")?.__mcAlt };
+  await toMail();
+  d.getElementById("mcHaloSpaces")?.doCommand();
+  const hw = await until(haloWin, 8000);
+  const btn = hw?.document.getElementById("recommend");
+  out.knopf = !!btn;
+  if (!btn) return out;
+  await ruhig(300);
+  btn.click();
+  out.label = Cu.isDeadWrapper(btn) ? null : btn.querySelector(".label")?.textContent;
+  const cw = await until(() => open().find(x => !had.has(x) && x.document.readyState == "complete" && x.gMsgCompose), 12000);
+  out.mail = !!cw;
+  if (cw) {
+    cw.gContentChanged = false; if (cw.gMsgCompose) cw.gMsgCompose.bodyModified = false;
+    cw.close(); await until(() => cw.closed, 4000);
+  }
+  try { if (!Cu.isDeadWrapper(hw) && !hw.closed) hw.close(); } catch {}
+  if (!cw) {
+    // Ursache nennen: Fehler von recommend() in der Experiment-API
+    const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+    const g = ExtensionParent.GlobalManager.getExtension("mail-cards@sebastian.local")?.experimentAPIManager?.global;
+    out.fehler = g ? Cu.evalInSandbox("(() => { try { enhancer.recommend(); return 'kein Fehler'; } catch (e) { return String(e) + ' @' + e.lineNumber; } })()", g) : "kein global";
+    const late = await until(() => open().find(x => !had.has(x)), 3000);
+    if (late) { late.close(); }
+  }
+  await ruhig(300);
+  return out;
+"""
+
+IDENTITY_JS = r"""
+  const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+  try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); }
+  const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+  if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+  return MailServices.accounts.allIdentities.length;
+"""
+
+
+def recommend_check(results, m, when):
+    r = m.js(RECOMMEND_JS)
+    results.append((f"Info-Fenster: „Recommend“ öffnet eine neue Mail ({when})", r.get("mail") and r.get("menue") == {"anzahl": 1, "alt": False}, str(r)))
+
+
+def sidebar_check(results, m, when):
+    s = m.js(SIDEBAR_JS)
+    if s.get("fehlt"):
+        results.append((f"Seitenleiste ausblenden ({when})", False, f"fehlt: {s['fehlt']}"))
+        return
+    results.append((f"Seitenleiste ausgeblendet, Bereiche-Leiste ruht ({when})", s["versteckt"] and s["ruht"],
+                    f"ausgeblendet={s['versteckt']} mc-ruht={s['ruht']}"))
+    if s["mac"]:
+        results.append((f"Ampel-Platz 84px bei ausgeblendeter Seitenleiste ({when})", s["reserve"] == "84px" and s["flow"] == "84px",
+                        f"--mc-tl-reserve={s['reserve']} --mc-tl-flow={s['flow']}"))
+        results.append((f"Seitenleisten-Knopf überlappt die Ampel nicht ({when})",
+                        s["ampel"] is not None and s["knopfB"] > 0 and s["knopf"] >= s["ampel"],
+                        f"Knopf links {s['knopf']} px, Ampel rechts {s['ampel']} px (Fläche bis {s['flaeche']} px)"))
+    else:
+        # Fensterknöpfe rechts: kein Platz von 84 px links
+        results.append((f"kein Ampel-Platz links außerhalb des Mac ({when})", s["reserve"] != "84px",
+                        f"--mc-tl-reserve={s['reserve']}"))
+
+
 def version_of(xpi):
     with zipfile.ZipFile(xpi) as z:
         return json.loads(z.read("manifest.json"))["version"]
@@ -126,6 +322,18 @@ def start(tb, profile, port):
     # (nach dem Deinstallieren wären Meldungen aus background.js & Co. sonst nicht mehr als unsere erkennbar)
     ht.konsole_start(m)
     return proc, m
+
+
+def quit_normal(m, port, proc):
+    """Beendet Thunderbird wie ein Nutzer (Datei > Beenden): Ordner-Datenbanken werden dabei geschrieben – das erzwungene
+    Beenden von ht.stop_thunderbird lässt z. B. eine geänderte Sortierung im Sammelordner ungespeichert. Klappt es nicht
+    binnen 60 s, doch erzwungen."""
+    try:
+        m.js("w.setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 100); return 1;")
+        proc.wait(60)
+    except Exception as e:  # gewollt: Marionette weg oder Zeit abgelaufen – dann wie bisher erzwungen
+        print(f"Hinweis: normales Beenden gescheitert ({e}), erzwungen", flush=True)
+        ht.stop_thunderbird(port, proc)
 
 
 def konsole(m, wann, board=True):
@@ -214,6 +422,9 @@ def main():
         # die eigene Update-Prüfung von halo.spaces beim Start nicht dazwischenfunken lassen: alte Versionen
         # haben dafür einen eigenen Schalter, neue prüfen höchstens alle 6 Stunden (gerade eben geprüft)
         f.write('user_pref("extensions.mailcards.autoUpdate", false);\n')
+        # ebenso nicht die Hintergrund-Prüfung des Add-on-Managers (sonst spielt sie das Update beim Neustart vor
+        # Schritt 2 schon ein); „Nach Updates suchen“ von Hand bleibt davon unberührt
+        f.write('user_pref("extensions.update.enabled", false);\n')
         f.write(f'user_pref("extensions.mailcards.autoUpdateLast", {int(time.time())});\n')
     print(f"Update {args.old} → {target} · Profil {profile}", flush=True)
 
@@ -238,11 +449,26 @@ def main():
         """ + STATE_JS)
         ok = before.get("version") == args.old and before.get("active")
         results.append(("Ausgangslage: alte Version aktiv", ok, f"{before.get('version')} aktiv={before.get('active')}"))
+        m.js(IDENTITY_JS)
+        m.js(SORT_SETUP_JS)
+        sort_want = m.js(SORT_JS)
+        # 26 = byFlagged (nsMsgViewSortType); darunter nach Eingang, wie Thunderbird es in Konversationen setzt
+        results.append(("Ausgangslage: All Inboxes nach Stern sortiert, mit Konversationen",
+                        sort_want.get("view", [None])[0] == 26 and sort_want.get("threaded"), str(sort_want)))
+        # earlyTheme wirkt erst ab dem nächsten Start (userChrome.css im Profil): wie beim Nutzer einmal neu starten,
+        # bevor das Update kommt
+        quit_normal(m, args.port, proc)
+        proc = None
+        proc, m = start(args.tb, profile, args.port)
+        m.js("await wait(2000); return 1;")  # wie oben: Fenster fertig aufgebaut
+        sort_check(results, m, "Neustart ohne Update", sort_want)
 
         # 2. Update über den Add-on-Manager (wie „Nach Updates suchen“)
         upd = m.js(r"""
           const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
           const addon = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+          // Menüpunkt der alten Version markieren: nach dem Update muss es ein neuer sein
+          for (const x of [...Services.wm.getEnumerator(null)]) { const it = x.document?.getElementById("mcHaloSpaces"); if (it) it.__mcAlt = true; }
           const found = await new Promise(done => addon.findUpdates({
             onUpdateAvailable: (a, install) => done({ install }),
             onNoUpdateAvailable: () => done({ none: true }),
@@ -270,11 +496,32 @@ def main():
         if not postponed:
             after = m.js(STATE_JS)
             compare(results, "nach dem Update", before, after, target)
+        else:
+            # „Install Now“ (bereiche.js installNow): zurückgestelltes Update ohne Neustart einspielen
+            now = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const i = (await AddonManager.getAllInstalls()).find(x => (x.existingAddon?.id == "mail-cards@sebastian.local"
+                || x.addon?.id == "mail-cards@sebastian.local") && x.state == AddonManager.STATE_POSTPONED);
+              if (!i) return { found: false };
+              const ended = new Promise(r => i.addListener({ onInstallEnded: () => r("ended"), onInstallFailed: () => r("failed") }));
+              i.continuePostponedInstall();
+              const how = await Promise.race([ended, wait(60000).then(() => "timeout")]);
+              await wait(8000);  // neue Version startet, Fenster werden neu gestylt (wie oben)
+              const a = await AddonManager.getAddonByID("mail-cards@sebastian.local");
+              return { found: true, how, version: a?.version };
+            """)
+            results.append(("zurückgestelltes Update ohne Neustart eingespielt (Install Now)",
+                            now.get("how") == "ended" and now.get("version") == target, str(now)))
+        sidebar_check(results, m, "Update ohne Neustart")
+        sort_check(results, m, "Update ohne Neustart", sort_want)
+        if not args.github:  # mit --github liegt das neue Paket nicht lokal vor
+            code_check(results, m, "Update ohne Neustart", new, old)
+        recommend_check(results, m, "Update ohne Neustart")
         # alte Version und Update im laufenden Thunderbird (Abbau der alten, Start der neuen Version)
         konsole(m, "alte Version und Update im laufenden Thunderbird", board=False)
     finally:
         if proc:
-            ht.stop_thunderbird(args.port, proc)
+            quit_normal(m, args.port, proc)
 
     # 3. Neustart: alles noch da?
     proc = None
@@ -282,6 +529,11 @@ def main():
         proc, m = start(args.tb, profile, args.port)
         restarted = m.js("await wait(2000);" + STATE_JS)
         compare(results, "nach Neustart", before, restarted, target)
+        sidebar_check(results, m, "nach Neustart")
+        sort_check(results, m, "nach Neustart", sort_want)
+        if not args.github:
+            code_check(results, m, "nach Neustart", new, old)
+        recommend_check(results, m, "nach Neustart")
 
         # 4. Deaktivieren lässt die Einstellungen stehen, Deinstallieren räumt sie weg (selbst angepasste
         #    Toolbar bleibt)

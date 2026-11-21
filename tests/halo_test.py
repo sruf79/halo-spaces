@@ -2288,12 +2288,14 @@ def reading_checks(m, results):
             doc.documentElement.append(e); const c = [cs(e).backgroundColor, cs(e).color]; e.remove(); return c; };
           const [tileHover, text] = want("--mt-att-tile-hover"), [saveBg] = want("--mt-att-save");
           a3.threadTree.focus(); await ruhig(300);
-          const out = { list: cs(list).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
+          const out = { list: cs(list).backgroundColor, view: cs(doc.getElementById("attachmentView")).backgroundColor, header: cs(doc.getElementById("messageHeader")).backgroundColor,
                         bar: cs(doc.getElementById("attachmentBar")).backgroundColor, focused, unfocused: cs(item).backgroundColor, tileHover, text, saveBg,
                         accent: (() => { const e = doc.createElement("div"); e.style.color = "AccentColor"; doc.documentElement.append(e); const c = cs(e).color; e.remove(); return c; })() };
           doc.defaultView.toggleAttachmentList?.(false); return out;""")
         f = res["focused"]
-        ok = (same_color(res["list"], res["header"]) and same_color(res["bar"], res["header"]) and f["radius"] >= 6
+        # Liste und Kopfzeile ohne eigene Fläche (sonst verdecken sie die Haarlinie darüber), darunter die Fläche der Mail
+        clear = lambda c: c in ("transparent", "rgba(0, 0, 0, 0)")
+        ok = (same_color(res["view"], res["header"]) and clear(res["list"]) and clear(res["bar"]) and f["radius"] >= 6
               and f["outline"] == "none" and not same_color(res["unfocused"], res["accent"]))
         if f["inactive"]:
             # Fenster trotz mehrerer Versuche nicht aktiv: die Akzentfarbe mit Fokus lässt sich nicht messen
@@ -2407,6 +2409,45 @@ def reading_checks(m, results):
               and sg.get("menu") == 4 and sg.get("ctx") == "attachmentItemContext")
         return ok, f"{res}"
     check("Anhänge: Liste offen, alle Dateien ganz sichtbar (auch im niedrigen Fenster), Chevron klappt ruhig zu und auf, alles bündig 16 px vom Rand, Kacheln wie Apple Mail (Symbol, Name zweizeilig, Größe nur im Tooltip, runder Sichern-Knopf, Akzent beim Überfahren), „Save All“ bündig mit der rechten Kachelspalte, ein Anhang ohne Kopfzeile", attachments_layout, results)
+
+    def attachments_line():
+        # Haarlinie über den Anhängen durchgehend von 16 px links bis 16 px rechts, bei einem und bei mehreren
+        # Anhängen, auf- und zugeklappt (ab zwei Anhängen deckte die Kopfzeile mit eigener Fläche die Linie auf ihrer
+        # Breite zu, links bis hinter „Save All“ fehlte sie). Gemessen an den Pixeln der obersten Zeilen
+        res = m.js(READING_JS + r"""
+          const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
+          const line = async doc => {
+            const view = doc.getElementById("attachmentView"), q = view.getBoxQuadsFromWindowOrigin()[0].getBounds();
+            const x0 = q.left + 16, w1 = Math.floor(q.width - 32), h1 = 4;
+            cv.width = w1 * 2; cv.height = h1 * 2;
+            ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(x0, q.top, w1, h1), 2, "white"), 0, 0);
+            const img = ctx.getImageData(0, 0, cv.width, cv.height).data, px = (x, y) => img.slice((y * cv.width + x) * 4, (y * cv.width + x) * 4 + 3);
+            // Fläche der Mail als Bezug: Mitte der untersten Zeile des Streifens (unter der Linie)
+            const ref = px(cv.width >> 1, cv.height - 1);
+            let miss = 0, first = -1, last = -1;
+            for (let x = 0; x < cv.width; x++) {
+              let dmax = 0; for (let y = 0; y < 4; y++) { const p = px(x, y); dmax = Math.max(dmax, ...[0, 1, 2].map(k => Math.abs(p[k] - ref[k]))); }
+              if (dmax < 6) { miss++; if (first < 0) first = x; last = x; }
+            }
+            return { w: w1, miss: Math.round(miss / 2), from: first < 0 ? null : first / 2, to: last < 0 ? null : last / 2 };
+          };
+          const out = {};
+          await showMail("Halo Jetzt");
+          let doc = await showMail("Halo Anhänge");
+          const list = doc.getElementById("attachmentList");
+          await until(() => list.querySelectorAll(".attachmentItem").length == 3, 3000); await ruhig(300);
+          if (list.collapsed) { doc.getElementById("attachmentBar").click(); await ruhig(400); }
+          out.multiOpen = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          out.multiClosed = await line(doc);
+          doc.getElementById("attachmentBar").click(); await ruhig(400);
+          doc = await showMail("Halo Ein Anhang");
+          await until(() => doc.getElementById("attachmentList").querySelectorAll(".attachmentItem").length == 1, 3000); await ruhig(300);
+          out.single = await line(doc);
+          return out;""")
+        ok = all((res.get(k) or {}).get("w", 0) > 100 and res[k]["miss"] <= 1 for k in ("multiOpen", "multiClosed", "single"))
+        return ok, f"{res}"
+    check("Anhänge: Haarlinie über den Anhängen durchgehend 16 px vor beiden Rändern, bei einem und mehreren Anhängen, auf- und zugeklappt", attachments_line, results)
 
     def attachment_quicklook():
         # Kontextmenü eines Anhangs: „Quick Look“ direkt unter „Öffnen“; öffnet Thunderbirds eigene Vorschau (ab 158 unter
@@ -4469,6 +4510,59 @@ def compose_checks(m, results):
               and abs(rm.get("labelLeft", 99)) <= 0.5 and rm.get("rest") == "0" and rm.get("hover") == "1" and rm.get("removed"))
         return ok, f"{res}"
     check("Verfassen: weitere Kopfzeilen über „…“ als runden Symbolknopf, Entfernen als grauer Kreis mit × rechts am Ende der Zeile (nur unter der Maus), Beschriftungen bündig", compose_header_symbols, results)
+
+    def compose_header_rows():
+        # Kopfzeilen wie beim Mac (Variante A, Maintainer 15.11.2026): kein Fenstertitel im Fenster (der Titel bleibt
+        # für Fensterliste und Menü „Window“), Reihenfolge To, Cc, Bcc, Subject, From; jede Zeile 37 px mit Haarlinie
+        # 20 px vom Rand bis zum rechten Rand; Beschriftung und Wert jeder Zeile auf derselben Höhe mittig in der
+        # Zeile; Cc/Bcc rechts in der To-Zeile; ohne Formatleiste keine zweite Linie unter From (nur die Darstellung ist umgestellt, die Reihenfolge im Dokument und
+        # damit Tab bleiben Thunderbirds). Mit HALO_SHOTS zusätzlich Bilder des Fensters ohne und mit Cc/Bcc.
+        shots = os.environ.get("HALO_SHOTS", "")
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          const shots = %s;
+          return await withCompose({ subject: "Halo Entwurf Kopfzeilen" }, async (cw, cd) => {
+            const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; };
+            const r1 = x => Math.round(x * 10) / 10;
+            const shoot = async name => { if (!shots) return;
+              const bmp = await cw.browsingContext.currentWindowGlobal.drawSnapshot(null, 2, "white");
+              const c = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+              const blob = await new Promise(r => c.toBlob(r)); await IOUtils.write(PathUtils.join(shots, `verfassen-kopfzeilen-${name}-${dark ? "dunkel" : "hell"}.png`), new Uint8Array(await blob.arrayBuffer())); };
+            const tl = cd.getElementById("titlebar-title-label"), bar = R(cd.getElementById("MsgHeadersToolbar"));
+            const out = { title: { vis: tl && vis(tl) ? csOf(tl).visibility : null, doc: cd.title } };
+            const extra = cd.getElementById("extraAddressRowsArea"), toRow = cd.getElementById("addressRowTo");
+            out.extra = vis(extra) ? { mid: r1(mid(extra) - (R(toRow).t + R(toRow).h / 2)), inRow: R(extra).l > R(toRow.querySelector(".address-container mail-address-pill")).r } : null;
+            await shoot("ohne-cc");
+            cw.showAndFocusAddressRow("addressRowCc"); cw.showAndFocusAddressRow("addressRowBcc"); await ruhig(600);
+            cd.getElementById("msgSubject").focus(); await ruhig(400);
+            const rowOf = { to: toRow, cc: cd.getElementById("addressRowCc"), bcc: cd.getElementById("addressRowBcc"),
+                            subject: cd.getElementById("subject-box"), from: cd.getElementById("top-gradient-box") };
+            const valOf = { to: toRow.querySelector("mail-address-pill"), cc: cd.querySelector("#ccAddrContainer .address-input"),
+                            bcc: cd.querySelector("#bccAddrContainer .address-input"), subject: cd.getElementById("msgSubject"), from: cd.getElementById("msgIdentity") };
+            const labOf = { to: cd.getElementById("toAddrLabel"), cc: cd.getElementById("ccAddrLabel"), bcc: cd.getElementById("bccAddrLabel"),
+                            subject: cd.getElementById("subjectLabel"), from: cd.getElementById("identityLabel") };
+            out.rows = {};
+            for (const k of Object.keys(rowOf)) { const row = rowOf[k], r = R(row), cs = csOf(row), bw = parseFloat(cs.borderBottomWidth);
+              const rowMid = r.t + (r.h - bw) / 2;
+              out.rows[k] = { top: r1(r.t), h: r1(r.h), line: bw > 0 && cs.borderBottomStyle == "solid", inset: r1(r.l - bar.l), toRight: r1(bar.r - r.r),
+                              lab: r1(mid(labOf[k]) - rowMid), val: r1(mid(valOf[k]) - rowMid), labCol: cs && csOf(labOf[k]).color }; }
+            out.secondary = colorOf(cd, "var(--mt-text-secondary)");
+            // ohne Formatleiste (Standard) keine zweite Linie unter der Haarlinie von From
+            const box = cd.getElementById("FormatToolbox");
+            out.fmtLine = csOf(box).borderBottomStyle == "none" ? 0 : parseFloat(csOf(box).borderBottomWidth);
+            await shoot("mit-cc-bcc");
+            return out; });""" % json.dumps(shots))
+        t, rows = res.get("title", {}), res.get("rows", {})
+        order = [rows.get(k, {}).get("top", 0) for k in ("to", "cc", "bcc", "subject", "from")]
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann nur der Titel des Dokuments
+        title_ok = (t.get("vis") in (None, "hidden")) and "Halo Entwurf Kopfzeilen" in t.get("doc", "")
+        rows_ok = all(abs(r.get("h", 0) - 37) <= 0.5 and r.get("line") and abs(r.get("inset", 0) - 20) <= 0.5 and abs(r.get("toRight", 9)) <= 0.5
+                      and abs(r.get("lab", 9)) <= 1 and abs(r.get("val", 9)) <= 1 and same_color(r.get("labCol"), res.get("secondary"))
+                      for r in rows.values()) and len(rows) == 5
+        ex = res.get("extra") or {}
+        ok = (title_ok and rows_ok and order == sorted(order) and len(set(order)) == 5 and abs(ex.get("mid", 9)) <= 1 and ex.get("inRow")
+              and res.get("fmtLine") == 0)
+        return ok, f"{res}"
+    check("Verfassen: kein Fenstertitel; Kopfzeilen To, Cc, Bcc, Subject, From je 37 px mit Haarlinie ab 20 px, Beschriftung und Wert mittig in der Zeile, Cc/Bcc rechts in der To-Zeile, ohne Formatleiste keine zweite Linie", compose_header_rows, results)
 
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
@@ -15238,6 +15332,18 @@ def run_checks(m, version, profile, results):
           out.idleFrameMs = Math.round(idle.sort((a, b) => a - b)[idle.length >> 1]);
           // auch im schmalen Fenster, in dem mit Today-Pane Knöpfe einklappen (Junk, Mark)
           const ow = w.outerWidth;
+          // Speicherbereinigung (GC/CC) während der Messung mitschreiben: im vollen Lauf unter Linux fiel je roter Messung
+          // genau ein Bild von 73–145 ms in eine sonst taktgenaue Phase, jedes Mal in einer anderen der vier Phasen, allein
+          // und in Gruppen von 40 Prüfungen nie (Board-Notizen 19.11.) – Verdacht: Bereinigung des nach 200 Prüfungen
+          // großen Speichers. Vor jeder Messung deshalb selbst bereinigen (Zustand wie im kurzen Lauf), und jede
+          // Bereinigung im Messfenster steht im Ergebnis (gc: [Art, ms ab Messbeginn, längste Pause ms, Dauer ms]).
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
+          const bereinigen = async () => { Cu.forceGC(); Cu.forceCC(); Cu.forceGC(); await ruhig(300); gcLog.length = 0; };
           for (const phase of ["aus", "ein", "aus schmal", "ein schmal"]) {
             if (phase == "aus schmal") { w.resizeTo(1100, w.outerHeight); await ruhig(1200); out.squeezed = [...d.querySelectorAll("#unifiedToolbarContent > li[mc-squeezed]")].map(li => li.getAttribute("item-id")); }
             // Einblenden: fiel unter Last (xvfb) gerade das letzte Bild der Animation aus, ist das letzte gemessene Bild
@@ -15248,8 +15354,9 @@ def run_checks(m, version, profile, results):
             for (;;) {
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
+            await bereinigen();
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            tRec = performance.now(); btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); const gcIn = gcLog.splice(0); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -15271,7 +15378,7 @@ def run_checks(m, version, profile, results):
             const vanish = Object.fromEntries(gone.map(k => [k, { first: k in kk[1] ? [Math.abs(kk[1][k] - kk[0][k]), op[0][k]] : null,
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
-                           searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+                           searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null, gc: gcIn };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -15292,6 +15399,8 @@ def run_checks(m, version, profile, results):
           }
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
+          Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+          Services.prefs.setBoolPref(gcPref, gcPrefVorher);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
           return out;''')
         if res.get("skipped"):

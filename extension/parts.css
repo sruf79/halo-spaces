@@ -273,6 +273,13 @@ addon-card .more-options-button::part(button) {
 
 addon-card .more-options-button::part(button):hover {
   background-color: var(--mt-hover) !important;
+  /* Knopf-Familie: Kreis unter der Maus mit feiner Lichtkante */
+  box-shadow: var(--mt-btn-ring, none) !important;
+}
+
+addon-card .more-options-button::part(button):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in, none) !important;
 }
 
 /* Add-ons-Verwaltung: Symbolknöpfe im Seitenkopf (Zurück, Zahnrad, Lupe

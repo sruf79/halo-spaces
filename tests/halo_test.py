@@ -3797,6 +3797,13 @@ FIND_SHAPE_JS = r"""
               sh: fcs(close).boxShadow },
       options: [...fb.querySelectorAll(".findbar-container > checkbox")].filter(e => R(e).w > 0).length,
       replace: (() => { const b = fb.querySelector("#findbar-replaceButton"); return b ? { w: R(b).w, radius: parseFloat(fcs(b).borderTopLeftRadius), bg: fcs(b).backgroundColor, sh: fcs(b).boxShadow } : null; })() });
+    // Pfeil unter der Maus: Kreis 20 px mit Lichtkante (::after), gedrückt ohne Licht mit innerem Schatten
+    InspectorUtils.addPseudoClassLock(prev, ":hover"); await sleep(200);
+    const ha = fcs(prev, "::after");
+    out.arrowHover = { op: ha.opacity, sh: ha.boxShadow, w: parseFloat(ha.width), h: parseFloat(ha.height), line: fcs(next).backgroundImage };
+    InspectorUtils.addPseudoClassLock(prev, ":active"); await sleep(200);
+    out.arrowPress = { sh: fcs(prev, "::after").boxShadow, bg: fcs(prev, "::after").backgroundColor, hoverBg: ha.backgroundColor };
+    InspectorUtils.removePseudoClassLock(prev, ":active"); InspectorUtils.removePseudoClassLock(prev, ":hover"); await sleep(100);
     await type("Xyzzy Qwv");
     const st = fb.querySelector(".findbar-find-status"), s2 = R(st), t2 = R(tb);
     out.notfound = { status: tb.getAttribute("status"), bg: fcs(tb).backgroundColor, text: st.textContent,
@@ -3826,6 +3833,11 @@ def find_shape_ok(s, compose):
           and d.get("w", 0) >= 30 and d.get("icon") == "none" and d.get("right")
           and 23 <= d.get("h", 0) <= 25 and cap(d.get("radius")) and same_color(d.get("bg"), s["control"])
           and s.get("options") == 4
+          # Pfeil unter der Maus: Kreis 20 px mit Lichtkante, Trennstrich weg; gedrückt mit innerem Schatten
+          and (s.get("arrowHover") or {}).get("op") == "1" and s["arrowHover"].get("w") == 20 and s["arrowHover"].get("h") == 20
+          and s["arrowHover"].get("sh", "").startswith("rgba(255, 255, 255") and "inset" in s["arrowHover"].get("sh", "")
+          and s["arrowHover"].get("line") == "none"
+          and "inset" in (s.get("arrowPress") or {}).get("sh", "") and not (s.get("arrowPress") or {}).get("sh", "").startswith("rgba(255, 255, 255")
           and (not compose or (s.get("replace") and s["replace"]["w"] > 30 and cap(s["replace"]["radius"]) and same_color(s["replace"]["bg"], s["control"])))
           and nf.get("status") == "notfound" and nf.get("text") and nf.get("inField") and same_color(nf.get("bg"), s["control"])
           and same_color(nf.get("color"), s["tertiary"]))
@@ -4564,6 +4576,21 @@ def compose_checks(m, results):
         return ok, f"{res}"
     check("Verfassen: kein Fenstertitel; Kopfzeilen To, Cc, Bcc, Subject, From je 37 px mit Haarlinie ab 20 px, Beschriftung und Wert mittig in der Zeile, Cc/Bcc rechts in der To-Zeile, ohne Formatleiste keine zweite Linie", compose_header_rows, results)
 
+    def compose_no_title():
+        # Kein Titeltext („Write: …“) im Verfassen-Fenster (Maintainer 19.11.2026: „das fenster hat eine überschrift
+        # welche ausgeblendet werden muss“); der Fenstertitel selbst bleibt für Menü „Window“ und Fensterliste.
+        # Linux mit Systemrahmen hat kein eigenes Titel-Label – dann zählt nur der Titel des Dokuments.
+        res = m.js(COMPOSE_CHECK_JS + r"""
+          return await withCompose({ subject: "Halo Entwurf Titel" }, async (cw, cd) => {
+            await till(() => cd.title.includes("Halo Entwurf Titel"), 4000);
+            const tl = cd.getElementById("titlebar-title-label");
+            const shown = tl && tl.getBoundingClientRect().width > 0;
+            return { label: tl ? { shown, visibility: cw.getComputedStyle(tl).visibility, text: tl.textContent } : null, doc: cd.title }; });""")
+        lab = res.get("label")
+        ok = (lab is None or not lab.get("shown") or lab.get("visibility") == "hidden") and "Halo Entwurf Titel" in res.get("doc", "")
+        return ok, f"{res}"
+    check("Verfassen: kein Titeltext im Fenster, der Fenstertitel bleibt für Fensterliste und Menü „Window“", compose_no_title, results)
+
     def compose_find_bar():
         res = m.js(COMPOSE_CHECK_JS + FIND_SHAPE_JS + r"""
           return await withCompose({ body: "<p>Hallo Anna,</p><p>das ist ein Testentwurf mit einer Liste.</p>" }, async (cw, cd) => {
@@ -4626,14 +4653,14 @@ def compose_checks(m, results):
             for (const p of pills) {
               const btn = p.querySelector(".toolbarbutton-menubutton-button"), dm = p.querySelector(".toolbarbutton-menubutton-dropmarker");
               const pr = p.getBoundingClientRect(), br = btn.getBoundingClientRect(), dr = dm.getBoundingClientRect();
-              const o = { left: await ink(btn, 0), right: await ink(dm, 3),
+              const o = { restBg: csOf(p).backgroundImage, left: await ink(btn, 0), right: await ink(dm, 3),
                           fill: [Math.round(br.left - pr.left), Math.round(pr.right - dr.right), Math.round(dr.left - br.right)] };
               // Überfahren: nur die Hälfte unter der Maus bekommt ihre Fläche
               for (const [name, half, other] of [["hoverLeft", btn, dm], ["hoverRight", dm, btn]]) {
                 for (const e of [p, half]) InspectorUtils.addPseudoClassLock(e, ":hover");
                 await ruhig(150);
-                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundColor,
-                            rest: colorOf(cd, "var(--mt-control)", "backgroundColor") };
+                o[name] = { on: csOf(half, "::after").opacity, off: csOf(other, "::after").opacity, pill: csOf(p).backgroundImage,
+                            rest: o.restBg };
                 for (const e of [p, half]) InspectorUtils.removePseudoClassLock(e, ":hover");
               }
               await ruhig(150);
@@ -4711,7 +4738,7 @@ def compose_checks(m, results):
         if not res.get("open"):
             return False, f"{res}"
         fw, at = res["fwd"], res["att"]
-        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [30, 30, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
+        ok = (abs(res["center"]) <= 30 and res["send"][:3] == [38, 38, "50%"] and res["send"][3] <= 36 and res["texts"] == ["Aa"]
               and res["fmtHidden"] and res["fmtShown"] and res["pref"] and res["label"][0] <= 30 and res["label"][1] == '":"' and not res["desc"]
               and bool(res.get("idRows")) and all(r == ["24px", "0px"] for r in res["idRows"])
               and all(g is not None and 4 <= g <= 20 for g in res["gaps"].values())
@@ -4738,23 +4765,45 @@ def compose_checks(m, results):
             const pill = [...tb.children].find(b => b.localName == "toolbarbutton" && vis(b) && !b.disabled && !b.hasAttribute("checked")
               && b.getAttribute("is") != "toolbarbutton-menu-button" && !["button-send", "mcSendLater", "mcFormatToggle"].includes(b.id));
             out.pillId = pill?.id;
-            if (pill) { out.pill = { ready: look(pill) };
-              await lock(pill, [":hover"], true); out.pill.hover = look(pill);
-              await lock(pill, [":active"], true); out.pill.press = look(pill); await lock(pill, [":active", ":hover"], false); }
-            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.startsWith("linear-gradient")).map(b => b.id);
+            // Kreis unter der Maus (::after): 32 px rund, mittig im 38-px-Knopf
+            const dot = el => { const s = csOf(el, "::after"); return { op: s.opacity, bg: s.backgroundColor, sh: s.boxShadow, w: s.width, h: s.height, r: s.borderTopLeftRadius }; };
+            out.capHover = colorOf(cd, "var(--mt-cap-hover)", "backgroundColor"); out.capPress = colorOf(cd, "var(--mt-cap-press)", "backgroundColor");
+            if (pill) { out.pill = { ready: look(pill), readyDot: dot(pill) };
+              await lock(pill, [":hover"], true); out.pill.hover = look(pill); out.pill.hoverDot = dot(pill);
+              await lock(pill, [":active"], true); out.pill.press = look(pill); out.pill.pressDot = dot(pill); await lock(pill, [":active", ":hover"], false); }
+            // geteilter Knopf: linke Hälfte bekommt denselben Kreis
+            const split = [...tb.children].find(b => vis(b) && !b.disabled && b.getAttribute("is") == "toolbarbutton-menu-button");
+            const half = split?.querySelector(".toolbarbutton-menubutton-button");
+            if (half) { out.split = { h: look(split).h, w: look(split).w, id: split.id, halves: [...split.children].filter(c => c.getBoundingClientRect().width > 0).map(c => Math.round(c.getBoundingClientRect().width)) }; await lock(split, [":hover"], true); await lock(half, [":hover"], true); out.split.dot = dot(half);
+              await lock(half, [":hover"], false); await lock(split, [":hover"], false); }
+            // leuchtend = Verlauf in Farbe (Systemfarbe); die plastischen Kapseln tragen einen grauen Verlauf (17.11.2026)
+            const bunt = img => [...img.matchAll(/rgba?\(([^)]*)\)|color\(srgb ([^)]*)\)/g)].some(m => {
+              const v = (m[1] || m[2]).split(/[ ,/]+/).filter(Boolean).slice(0, 3).map(Number).map(x => m[1] ? x / 255 : x);
+              return Math.max(...v) - Math.min(...v) > 0.15; });
+            out.lit = [...tb.children].filter(b => vis(b) && csOf(b).backgroundImage.match(/^radial-gradient.*linear-gradient/) != null && bunt(csOf(b).backgroundImage)).map(b => b.id);
             return out; });""")
         sd, pl = res.get("send") or {}, res.get("pill") or {}
-        send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and sd["ready"]["img"].startswith("linear-gradient") and "inset" in sd["ready"]["sh"]
-                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [30, 30, "50%"]
+        send_ok = (bool(sd) and same_color(sd["ready"]["bg"], res["accent"]) and (sd["ready"]["img"].startswith("radial-gradient") and "linear-gradient" in sd["ready"]["img"]) and "inset" in sd["ready"]["sh"]
+                   and [sd["ready"]["w"], sd["ready"]["h"], sd["ready"]["r"]] == [38, 38, "50%"]
                    and sd["hover"]["bg"] == sd["ready"]["bg"] and sd["hover"]["img"] == sd["ready"]["img"] and sd["hover"]["sh"] == sd["ready"]["sh"]
                    and sd["press"]["img"] == "none" and luminance(sd["press"]["bg"]) < luminance(sd["ready"]["bg"]) and "inset" in sd["press"]["sh"])
-        pill_ok = (bool(pl) and same_color(pl["ready"]["bg"], res["control"]) and "inset" in pl["ready"]["sh"] and pl["ready"]["sh"].count("rgba") >= 2
-                   and same_color(pl["hover"]["bg"], res["hoverC"]) and pl["hover"]["sh"] == pl["ready"]["sh"]
-                   and same_color(pl["press"]["bg"], res["pressC"]) and "inset" in pl["press"]["sh"] and pl["press"]["sh"].count("rgba") == 1)
-        ok = send_ok and pill_ok and res.get("lit") == ["button-send"]
+        # Kapsel 38 px bleibt unter der Maus und gedrückt gleich; Kreis 32 px: unter der Maus mit
+        # Lichtkante, gedrückt dunkler mit innerem Schatten ohne Licht (Entscheidung 17.11.2026, Möglichkeit 2)
+        hd, pd, rd = pl.get("hoverDot") or {}, pl.get("pressDot") or {}, pl.get("readyDot") or {}
+        circle = lambda o: o.get("w") == "32px" and o.get("h") == "32px" and o.get("r") in ("50%", "16px")
+        # (Kapsel plastisch: helle Fläche als Verlauf, Kante innen an den Enden, Schatten; 17.11.2026)
+        pill_ok = (bool(pl) and pl["ready"]["img"].count("linear-gradient") >= 3 and pl["ready"]["sh"].count("inset") == 2
+                   and pl["ready"]["h"] == 38 and pl["ready"]["w"] == 63 and rd.get("op") == "0"
+                   and pl["hover"]["img"] == pl["ready"]["img"] and pl["hover"]["sh"] == pl["ready"]["sh"]
+                   and pl["press"]["img"] == pl["ready"]["img"] and pl["press"]["sh"] == pl["ready"]["sh"]
+                   and circle(hd) and hd["op"] == "1" and same_color(hd["bg"], res["capHover"]) and "inset" in hd["sh"] and hd["sh"].count("rgba") >= 2
+                   and circle(pd) and same_color(pd["bg"], res["capPress"]) and "inset" in pd["sh"] and pd["sh"].count("rgba") == 1)
+        sp = res.get("split") or {}
+        split_ok = bool(sp) and sp["h"] == 38 and sp["w"] == 85 and sp.get("halves") == [44, 41] and circle(sp["dot"]) and sp["dot"]["op"] == "1" and "inset" in sp["dot"]["sh"]
+        ok = send_ok and pill_ok and split_ok and res.get("lit") == ["button-send"]
         return ok, f"{res}"
-    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 30 × 30 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
-          "Kapseln mit Lichtkante, Maus dunkler, gedrückt ohne Kante", compose_family, results)
+    check("Knöpfe im Verfassen-Fenster: Senden einziger leuchtender Knopf (Systemfarbe mit Licht, 38 × 38 rund, Maus ohne Änderung, gedrückt dunkler ohne Licht), "
+          "Kapseln 38 px plastisch (einzeln 63 px, geteilt 85 px), unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Kante", compose_family, results)
 
 
 DIALOG_READING_JS = READING_JS + r"""
@@ -5110,7 +5159,7 @@ def dialog_checks(m, results):
             try { if (!pd.defaultView.closed) pd.defaultView.close(); } catch {} await nap(400); }""")
         ok = (res.get("open") and same_color(res["btn"], res["accent"]) and same_color(res["text"], res["accentText"])
               and (same_color(res["root"], res["sheet"]) or same_color(res["root"], res["window"])) and not same_color(res["root"], "rgb(28, 27, 34)")
-              and res["img"].startswith("linear-gradient") and "inset" in res["sh"] and "inset" in res["cancelSh"]
+              and (res["img"].startswith("radial-gradient") and "linear-gradient" in res["img"]) and "inset" in res["sh"] and "inset" in res["cancelSh"]
               and float(res["off"][0]) == 1 and same_color(res["off"][1], res["control"]) and res["off"][2] == "none" and res["off"][3] == "none")
         return ok, f"{res}"
     check("Druckvorschau: Hauptknopf in der Systemakzentfarbe mit Licht statt Proton-Blau/-Türkis, gesperrt grau und flach, „Cancel“ mit Lichtkante, Panel neutral", print_preview, results)
@@ -5162,7 +5211,7 @@ def dialog_checks(m, results):
             InspectorUtils.addPseudoClassLock(ok, ":hover"); await pause(150); out.hover = look();
             InspectorUtils.addPseudoClassLock(ok, ":active"); await pause(150); out.press = look();
             InspectorUtils.removePseudoClassLock(ok, ":active"); InspectorUtils.removePseudoClassLock(ok, ":hover"); await pause(100);
-            out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.startsWith("linear-gradient")).length;
+            out.lit = [...sr.querySelectorAll("button[dlgtype]")].filter(vis).filter(b => csOf(b).backgroundImage.match(/^radial-gradient.*linear-gradient/) != null).length;
             ok.disabled = true; await pause(200); out.off = look(); ok.disabled = was;
             // Textknopf „Cancel“: grau mit Lichtkante, Maus dunkler, gedrückt ohne Kante, gesperrt flach
             const cn = dl.getButton("cancel"), lookC = () => { const s = csOf(cn); return { bg: s.backgroundColor, sh: s.boxShadow, op: s.opacity, color: s.color }; };
@@ -5183,7 +5232,7 @@ def dialog_checks(m, results):
         def good(r):
             if not r: return False
             rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
-            return (same_color(rd["bg"], r["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], r["accent"]) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], r["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and not same_color(pr["bg"], r["accent"]) and pr["img"] == "none" and "inset" in pr["sh"]
                     and luminance(pr["bg"]) < luminance(rd["bg"])
@@ -5204,13 +5253,14 @@ def dialog_checks(m, results):
         def good(r):
             if not r or "c" not in r: return False
             c = r["c"]; rd, hv, pr, off = c["ready"], c["hover"], c["press"], c["off"]
-            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2
+            # (plastisch seit 17.11.2026: heller Schleier über der grauen Fläche als innerer Schatten 999 px)
+            return (same_color(rd["bg"], r["control"]) and "inset" in rd["sh"] and rd["sh"].count("rgba") >= 2 and "999px" in rd["sh"]
                     and same_color(hv["bg"], r["hoverC"]) and hv["sh"] == rd["sh"]
                     and same_color(pr["bg"], r["pressC"]) and "inset" in pr["sh"] and pr["sh"] != rd["sh"] and pr["sh"].count("rgba") == 1
                     and same_color(off["bg"], r["control"]) and off["sh"] == "none" and float(off["op"]) == 1 and not same_color(off["color"], r["text"]))
         ok = bool(res) and good(res.get("folderProps")) and good(res.get("newFolder"))
         return ok, f"{ {k: (v or {}).get('c') for k, v in (res or {}).items()} }"
-    check("Knöpfe: Textknopf der Dialoge grau mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
+    check("Knöpfe: Textknopf der Dialoge plastisch mit Lichtkante (Cancel), Maus dunkler, gedrückt ohne Licht, gesperrt grau und flach", text_button, results)
 
     def primary_elsewhere():
         # Hauptknöpfe ohne Standard-Merkmal wie der Hauptknopf der Dialoge: Kontakt sichern (nur „Save“ leuchtet, der
@@ -5227,7 +5277,7 @@ def dialog_checks(m, results):
           const out = { accent: accentIn(ad) };
           const foot = [...ad.querySelectorAll("#detailsFooter button")].filter(b => b.getClientRects().length && b.getBoundingClientRect().width);
           out.contact = await states(ad.getElementById("saveEditButton"));
-          out.contactLit = foot.filter(b => look(b).img.startsWith("linear-gradient")).map(b => b.id);
+          out.contactLit = foot.filter(b => look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
           out.contactOthers = foot.filter(b => !["saveEditButton", "detailsDeleteButton"].includes(b.id)).map(b => [b.id, look(b).sh.includes("inset")]);
           ad.getElementById("cancelEditButton")?.click(); await ruhig(600);
           tm.closeTab(tm.currentTabInfo); await ruhig(400);
@@ -5237,20 +5287,20 @@ def dialog_checks(m, results):
           const dw = await bis(() => [...Services.wm.getEnumerator(null)].find(x => !known.has(x) && x.location.href.includes("calendar-event-dialog") && x.document.readyState == "complete"), "Termin-Fenster offen", 8000);
           try { await ruhig(1500); const sv = dw.document.getElementById("button-saveandclose");
             out.event = await states(sv);
-            out.eventLit = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+            out.eventLit = [...dw.document.querySelectorAll("#event-toolbar > toolbarbutton")].filter(b => b.getBoundingClientRect().width && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
           } finally { dw.gConfirmCancel = false; try { dw.document.querySelector("dialog")?.cancelDialog?.(); } catch {} dw.close(); await ruhig(600); }
           const li = [...d.querySelectorAll('#unifiedToolbarContent li[item-id="new-event"]')].find(l => l.getBoundingClientRect().width);
           li.querySelector("button").click();
           const p = await bis(() => { const q = d.getElementById("mcQuickPanel"); return q?.state == "open" && q; }, "Schnellfenster offen", 4000);
           try { await ruhig(400); const pr = p.querySelector(".mc-qc-primary"); const was = pr.disabled; pr.disabled = false; await ruhig(100);
             out.quick = await states(pr); pr.disabled = was;
-            out.quickLit = [...p.querySelectorAll("button")].filter(b => b.getBoundingClientRect().width && look(b).img.startsWith("linear-gradient")).length;
+            out.quickLit = [...p.querySelectorAll("button")].filter(b => b.getBoundingClientRect().width && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).length;
           } finally { p.hidePopup(); await ruhig(400); }
           return out;""")
         def good(r):
             if not r: return False
             rd, hv, pr = r["ready"], r["hover"], r["press"]
-            return (same_color(rd["bg"], res["accent"]) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], res["accent"]) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], res["accent"]) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"]))
         ok = (good(res.get("contact")) and res.get("contactLit") == ["saveEditButton"] and all(x[1] for x in res.get("contactOthers") or [])
@@ -5299,7 +5349,7 @@ def dialog_checks(m, results):
             const panel = await bis(() => { const p = doc.getElementById("editContactPanel"); return p?.state == "open" && p; }, "Panel Kontakt bearbeiten", 4000);
             try { await ruhig(400); out.contact = await states(doc.getElementById("editContactPanelDoneButton"));
               out.contactOthers = ["editContactPanelEditDetailsButton", "editContactPanelDeleteContactButton"].map(id => look(doc.getElementById(id)));
-              out.contactLit = [...panel.querySelectorAll("button")].filter(b => shown(b) && look(b).img.startsWith("linear-gradient")).map(b => b.id);
+              out.contactLit = [...panel.querySelectorAll("button")].filter(b => shown(b) && look(b).img.match(/^radial-gradient.*linear-gradient/) != null).map(b => b.id);
             } finally { panel.hidePopup(); await ruhig(300); }
           } finally { book.deleteCards([card]); }
           // Kontoeinstellungen: „Add Account“
@@ -5310,7 +5360,7 @@ def dialog_checks(m, results):
         acc, ctl = res["accent"], res["control"]
         def primary(r):
             rd, hv, pr, off = r["ready"], r["hover"], r["press"], r["off"]
-            return (same_color(rd["bg"], acc) and rd["img"].startswith("linear-gradient") and "inset" in rd["sh"]
+            return (same_color(rd["bg"], acc) and (rd["img"].startswith("radial-gradient") and "linear-gradient" in rd["img"]) and "inset" in rd["sh"]
                     and same_color(hv["bg"], acc) and hv["img"] == rd["img"] and hv["sh"] == rd["sh"]
                     and pr["img"] == "none" and "inset" in pr["sh"] and luminance(pr["bg"]) < luminance(rd["bg"])
                     and float(off["op"]) == 1 and same_color(off["bg"], ctl) and off["img"] == "none" and off["sh"] == "none")
@@ -11614,6 +11664,17 @@ def server_checks(m, results):
               out.look = { side: side && cs(side).backgroundColor == sideWant, nicks: nicks.length,
                            circles: nicks.filter(i => i.dataset.mcInitial && parseFloat(cs(i, "::before").width) == 22 && cs(i, "::before").borderTopLeftRadius != "0px").length,
                            box: box && { radius: parseFloat(cs(box).borderTopLeftRadius), border: parseFloat(cs(box).borderTopWidth) } };
+              // Chat-Leiste mit Konto plastisch wie die Kapseln der übrigen Spaces; unter der Maus Kreis bzw. Kapsel 3 px
+              // innen mit Lichtkante, gedrückt ohne Licht (18.11.2026)
+              out.bar = {};
+              for (const id of ["button-add-buddy", "button-join-chat"]) {
+                const b = d.getElementById(id); if (!b) continue;
+                const one = { dis: b.disabled, img: cs(b).backgroundImage.split("linear-gradient").length - 1, sh: cs(b).boxShadow };
+                InspectorUtils.addPseudoClassLock(b, ":hover"); await ruhig(150);
+                const a = cs(b, "::after"); Object.assign(one, { hOp: a.opacity, hSh: a.boxShadow, hW: parseFloat(a.width), bW: b.getBoundingClientRect().width, hImg: cs(b).backgroundImage.split("linear-gradient").length - 1 });
+                InspectorUtils.addPseudoClassLock(b, ":active"); await ruhig(150); one.pSh = cs(b, "::after").boxShadow;
+                InspectorUtils.clearPseudoClassLocks(b); out.bar[id] = one;
+              }
               const acc = IMServices.accounts.getAccountById(w.__mcChatAcc); delete w.__mcChatAcc;
               try { acc.disconnect(); await ruhig(500); IMServices.accounts.deleteAccount(acc.id); } catch {}
               await toMail();
@@ -11630,8 +11691,14 @@ def server_checks(m, results):
             lk = res2.get("look") or {}
             ok = (ok and lk.get("side") and lk.get("nicks", 0) >= 1 and lk.get("circles") == lk.get("nicks")
                   and (lk.get("box") or {}).get("radius", 99) <= 8 and (lk.get("box") or {}).get("border", 0) > 0)
+            bar = res2.get("bar") or {}
+            def plastic_btn(o, wpx):
+                return (bool(o) and not o["dis"] and o["img"] >= 3 and o["hImg"] == o["img"] and "inset" in o["sh"] and o["hOp"] == "1"
+                        and o["hSh"].startswith("rgba(255, 255, 255") and "inset" in o["pSh"] and not o["pSh"].startswith("rgba(255, 255, 255")
+                        and abs(o["hW"] - (wpx if wpx else o["bW"] - 6)) <= 0.5)
+            ok = ok and plastic_btn(bar.get("button-add-buddy"), None) and plastic_btn(bar.get("button-join-chat"), 32)
             return ok, f"{res} {res2} IRC: {servers.irc.log[:8]}"
-        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich; Name 13 px halbfett, Zeile 32 px, Pfeil nur beim Überfahren), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil", chat_irc, results)
+        check("Testkonto: Chat mit Testserver – anmelden, Raum betreten, Gespräch ausgewählt (grau wie die Ordnerliste, mit Fokus getönt, ohne blauen Strich; Name 13 px halbfett, Zeile 32 px, Pfeil nur beim Überfahren), Nachrichten hin und zurück; Seitenleiste, Teilnehmer-Kreise und Eingabefeld im halo-Stil; Chat-Leiste plastisch mit Kreis unter der Maus", chat_irc, results)
 
         def wrong_password():
             # Server lehnt die Anmeldung ab → Thunderbirds Nachfrage erscheint als Kachel im Fenster (wie ein macOS-Sheet)
@@ -13944,6 +14011,62 @@ def run_checks(m, version, profile, results):
         return ok, f"{res}"
     check("Leseansicht wie Apple: Absenderbild, Ordner, Verteiler-Hinweis statt List-ID", reading, results)
 
+    def avatars_plastic():
+        # Absenderkreise plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026): Mailliste, Mailkopf und
+        # Adressbuch mit Verlauf in drei Stufen, Schatten außen und Auflage (::after) mit Lichtkante oben, Unterkante
+        # und feinem Rand; Fotos mit eigener, neutraler Auflage über dem Bild (Klasse mc-has-img), Initialen ohne
+        res = m.js(MESSAGE_JS + r"""
+          const info = (win, el) => { if (!el) return null; const cs = win.getComputedStyle(el), af = win.getComputedStyle(el, "::after");
+            return { bg: cs.backgroundImage, shadow: cs.boxShadow, after: af.content, afterPos: af.position, rim: af.boxShadow,
+                     w: Math.round(el.getBoundingClientRect().width), afterW: Math.round(parseFloat(af.width) || 0), img: el.classList.contains("mc-has-img") }; };
+          const out = {};
+          out.list = info(a3, a3.document.querySelector('#threadTree tr[is="thread-card"] .mc-avatar'));
+          const md = a3.messageBrowser.contentWindow.document;
+          out.header = info(a3.messageBrowser.contentWindow, await until(() => md.querySelector("#fromRecipient0 .recipient-avatar.mc-hdr-avatar")));
+          // Adressbuch: Kontakt mit Initialen und einer mit Foto (Datei im Profil)
+          const book = MailServices.ab.getDirectory("jsaddrbook://abook.sqlite");
+          const canvas = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); canvas.width = canvas.height = 64;
+          const ctx = canvas.getContext("2d"); ctx.fillStyle = "#3a7"; ctx.fillRect(0, 0, 64, 64);
+          const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg"));
+          await IOUtils.makeDirectory(PathUtils.join(PathUtils.profileDir, "Photos"), { ignoreExisting: true });
+          await IOUtils.write(PathUtils.join(PathUtils.profileDir, "Photos", "halo-kreis.jpg"), new Uint8Array(await blob.arrayBuffer()));
+          const add = (name, email, photo) => { const c = Cc["@mozilla.org/addressbook/cardproperty;1"].createInstance(Ci.nsIAbCard);
+            c.displayName = name; c.primaryEmail = email; if (photo) c.setProperty("PhotoName", photo); return book.addCard(c); };
+          const cards = [add("Ida Initial", "ida.initial@example.invalid"), add("Paul Plastisch", "paul.plastisch@example.invalid", "halo-kreis.jpg")];
+          try {
+            tm.openTab("addressBookTab", {}); await bis(() => tm.currentTabInfo.browser?.contentDocument?.getElementById("cards")?.view?.rowCount >= 2, "Kontaktliste", 8000); await ruhig(1500);
+            const ab = tm.currentTabInfo.browser.contentWindow; const ad = ab.document;
+            for (const [key, name] of [["abInitials", "Ida Initial"], ["abPhoto", "Paul Plastisch"]]) {
+              const row = await until(() => [...ad.querySelectorAll("#cards tr")].find(r => r.querySelector(".name")?.textContent == name), 5000);
+              const av = row?.querySelector("contact-avatar");
+              if (key == "abPhoto" && av) await bis(() => av.classList.contains("mc-has-img"), "Foto geladen", 4000).catch(() => {});
+              out[key] = info(ab, av);
+            }
+            tm.closeTab(tm.currentTabInfo);
+          } finally {
+            book.deleteCards(cards);
+          }
+          out.dark = w.matchMedia("(prefers-color-scheme: dark)").matches;
+          return out;""")
+        dark = res.get("dark")
+        def plastic(v, photo):
+            if not v:
+                return False
+            # Auflage: drei innere Schatten über dem Kreis, so groß wie der Kreis
+            rim_ok = v["after"] in ('""', "''") and v["afterPos"] == "absolute" and v["rim"].count("inset") == 3 and abs(v["afterW"] - v["w"]) <= 1
+            # Schatten außen (ohne inneren Schatten am Kreis selbst)
+            drop_ok = v["shadow"] != "none" and "inset" not in v["shadow"]
+            if photo:
+                # Foto: neutrale Auflage (hell Unterkante schwarz 13 %, dunkel Rand weiß 12 %)
+                fill_ok = v["img"] and ("rgba(255, 255, 255, 0.12)" in v["rim"] if dark else "rgba(0, 0, 0, 0.13)" in v["rim"])
+            else:
+                # Initialen: Verlauf in drei Stufen (heller oben, Mitte #A0B0D6, dunkler unten)
+                fill_ok = not v["img"] and v["bg"].count("rgb") >= 3 and "160, 176, 214" in v["bg"]
+            return rim_ok and drop_ok and fill_ok
+        ok = all(plastic(res.get(k), k == "abPhoto") for k in ("list", "header", "abInitials", "abPhoto"))
+        return ok, f"{res}"
+    check("Absenderkreise: plastisch wie die Knöpfe in Mailliste, Mailkopf und Adressbuch (Verlauf, Lichtkante, Unterkante, Schatten), Fotos mit eigener Auflage", avatars_plastic, results)
+
     def code_banner():
         # Codes in E-Mails (GitHub #54): Bestätigungscode über der Mail mit „Kopieren“ (Baustein des
         # Verteiler-Hinweises), Klick legt genau den Code in die Zwischenablage; keine Anzeige bei einer Mail
@@ -14225,13 +14348,16 @@ def run_checks(m, version, profile, results):
             const x = fr.left + parseFloat(fa.left);
             out.sep = { content: fa.content, w: fa.width, h: fa.height, color: fa.backgroundColor, op: fa.opacity,
                         dy: Math.round((parseFloat(fa.top) + parseFloat(fa.height) / 2 - fr.height / 2) * 10) / 10,
-                        dx: Math.round((x - mr.left) * 10) / 10 };
+                        // Grenze der Knöpfe: Mitte zwischen den Kreisen (je 32 px mit 4 px Rand)
+                        dx: Math.round((x - (fr.right + mr.left) / 2) * 10) / 10 };
           }
           if (tools) {
             const lock = [cap, tools];
             for (const e of lock) InspectorUtils.addPseudoClassLock(e, ":hover");
-            try { await ruhig(200); out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor,
-                                                 sep: filt ? cs(filt, "::after").opacity : null }; }
+            try { await ruhig(200); const tr = tools.getBoundingClientRect(), cr = cap.getBoundingClientRect();
+                  out.list = { img: cs(tools).backgroundImage.slice(0, 16), bg: cs(tools).backgroundColor, sh: cs(tools).boxShadow,
+                               w: tr.width, h: tr.height, radius: parseFloat(cs(tools).borderTopLeftRadius), top: tr.top - cr.top,
+                               sep: filt ? cs(filt, "::after").opacity : null }; }
             finally { for (const e of lock) InspectorUtils.removePseudoClassLock(e, ":hover"); }
           }
           return out;
@@ -14244,7 +14370,9 @@ def run_checks(m, version, profile, results):
         # deaktivierte Knöpfe (keine Mail gewählt) bekommen keine Fläche, die Trennstriche verschwinden trotzdem
         ok_hover = (h["del"] == "0" and h["junk"] == "0" and h["fwd"] == "1"
                     and (h["disabled"] or (h["img"].startswith("radial-gradient") and rgba_alpha(h["bg"]) == 0)))
-        ok_list = bool(l) and l["img"].startswith("radial-gradient") and rgba_alpha(l["bg"]) == 0
+        # Listenkopf: Kreis 32 px, 3 px vom Kapselrand, mit Lichtkante (Fläche des Knopfs selbst, 18.11.2026)
+        ok_list = (bool(l) and l["img"] == "none" and rgba_alpha(l["bg"]) > 0 and l["w"] == 32 and l["h"] == 32 and l["radius"] >= 16
+                   and abs(l["top"] - 3) <= 0.5 and l.get("sh", "").startswith("rgba(255, 255, 255") and "inset" in l.get("sh", ""))
         sp = res.get("sep") or {}
         ok_sep = (bool(sp) and sp["content"] not in ("none", "normal") and sp["w"] == "1px" and sp["h"] == "20px"
                   and abs(sp["dy"]) <= 0.5 and abs(sp["dx"]) <= 0.5 and sp["op"] == "1"
@@ -14252,6 +14380,153 @@ def run_checks(m, version, profile, results):
         return (ok_rest and ok_hover and ok_list and ok_sep,
                 f"ruhe={ok_rest} hover={ok_hover} liste={ok_list} filter|…={ok_sep} {res}")
     check("Kapseln: Trennstriche wie Apple (1 × 20 px, mittig, auch Filter | …), beim Überfahren alle weg, runde Fläche mit Abstand zum Rand", capsule_hover, results)
+
+    def capsule_plastic():
+        # Knopf-Familie in der Mail-Symbolleiste (Variante A, plastische Kapseln B, 17.11.2026): jedes Kapselstück
+        # mit heller Fläche (Verlauf, Lichtkante oben und Kante unten als deckende Streifen) und leisem Schatten, die
+        # Enden mit feiner Kante innen, Stücke in der Mitte ohne Seitenkante; am Stoß derselbe Farbton wie in der
+        # Kapsel (kein Strich). Unter der Maus Kreis 32 px mit Lichtkante, gedrückt ohne Licht mit innerem Schatten;
+        # Verschieben eine Fläche 3 px innen; ohne gewählte Mail ist die gesperrte Kapsel flach
+        res = m.js(MESSAGE_JS + """
+          const cs = (e, p) => w.getComputedStyle(e, p);
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          // (Verfassen ist immer bereit; Antworten ist mit --only je nach Fokus noch gesperrt)
+          const ids = ["get-messages", "write-message", "move-to"];
+          if (!ids.every(li)) return { missing: true };
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1920, oldH);
+          await bis(() => !ids.some(id => li(id).hasAttribute("mc-squeezed")) && li("move-to").getBoundingClientRect().width > 0, "Pillen sichtbar", 4000);
+          try {
+            await ruhig(300);
+            const probe = d.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.backgroundColor = "var(--mt-control)";
+            d.documentElement.append(probe); const out = { control: cs(probe).backgroundColor }; probe.remove();
+            const look = e => ({ img: cs(e).backgroundImage, sh: cs(e).boxShadow, bg: cs(e).backgroundColor });
+            out.rest = Object.fromEntries(ids.map(id => [id, look(li(id))])); out.mid = look(li("reply-all"));
+            // Stoß Abrufen | Verfassen oberhalb des Trennstrichs: links, am und rechts vom Stoß
+            const ra = li("write-message"), r = ra.getBoundingClientRect();
+            const bmp = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left - 3, r.top + 6, 6, 2), 2, "white");
+            const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bmp.width; cv.height = bmp.height;
+            const ctx = cv.getContext("2d"); ctx.drawImage(bmp, 0, 0);
+            out.seam = [...Array(cv.width).keys()].map(x => ctx.getImageData(x, 1, 1, 1).data[0]);
+            const dot = e => { const a = cs(e, "::after"); return { op: a.opacity, w: a.width, h: a.height, sh: a.boxShadow, bg: a.backgroundColor }; };
+            const lockH = async (l, on, act) => { const b = l.querySelector("button");
+              for (const e of [l, b]) for (const c of act ? [":hover", ":active"] : [":hover"]) on ? InspectorUtils.addPseudoClassLock(e, c) : InspectorUtils.removePseudoClassLock(e, c);
+              await ruhig(200); };
+            const rep = li("write-message"), mv = li("move-to");
+            out.restDot = dot(rep);
+            await lockH(rep, true); out.hover = dot(rep); out.hoverBtn = cs(rep.querySelector("button")).backgroundImage.slice(0, 16); await lockH(rep, false);
+            await lockH(rep, true, true); out.press = dot(rep); await lockH(rep, false, true);
+            await lockH(mv, true); out.move = { ...dot(mv), liW: Math.round(mv.getBoundingClientRect().width), btn: cs(mv.querySelector("button")).backgroundColor }; await lockH(mv, false);
+            // ohne gewählte Mail: Antworten-Kapsel gesperrt und flach, Verfassen bleibt plastisch
+            const a3 = await toMail(); a3.threadTree.selectedIndex = -1;
+            await bis(() => li("reply").querySelector("button").disabled, "Antworten gesperrt", 4000); await ruhig(300);
+            out.off = { reply: look(li("reply")), write: look(li("write-message")) };
+            return out;
+          } finally { w.resizeTo(oldW, oldH); await ruhig(300); }""")
+        if res.get("missing"):
+            return False, f"Toolbar-Knöpfe fehlen {res}"
+        rest, off = res["rest"], res["off"]
+        lit = lambda o: o["img"].count("linear-gradient") >= 3 and o["sh"] != "none" and rgba_alpha(o["bg"]) == 0
+        edges = lambda o: o["sh"].count("inset")
+        ok_rest = (all(lit(o) for o in rest.values()) and edges(rest["get-messages"]) == 1 and edges(rest["write-message"]) == 1
+                   and edges(rest["move-to"]) == 2 and edges(res["mid"]) == 0)
+        seam = res["seam"]
+        ok_seam = bool(seam) and max(seam) - min(seam) <= 4
+        h, pr, mv, rd = res["hover"], res["press"], res["move"], res["restDot"]
+        ok_hover = (rd["op"] == "0" and h["op"] == "1" and h["w"] == "32px" and h["h"] == "32px" and "inset" in h["sh"] and h["sh"].count("rgba") >= 2
+                    and res["hoverBtn"].startswith("radial-gradient") and "inset" in pr["sh"] and pr["sh"].count("rgba") == 1
+                    and mv["op"] == "1" and mv["w"] == f"{mv['liW'] - 6}px" and mv["h"] == "32px" and rgba_alpha(mv["bg"]) > 0 and rgba_alpha(mv["btn"]) == 0)
+        ok_off = (off["reply"]["img"] == "none" and off["reply"]["sh"] == "none" and same_color(off["reply"]["bg"], res["control"])
+                  and lit(off["write"]))
+        return (ok_rest and ok_seam and ok_hover and ok_off,
+                f"ruhe={ok_rest} stoß={ok_seam} maus={ok_hover} gesperrt={ok_off} {res}")
+    check("Kapseln: Mail-Symbolleiste plastisch (helle Fläche, Lichtkante, leiser Schatten, Stöße ohne Strich), unter der Maus Kreis mit Lichtkante, gedrückt ohne Licht, gesperrt flach", capsule_plastic, results)
+
+    def buttons_plastic_spaces():
+        # Plastische Knöpfe in allen Spaces (Knopf-Familie, 18.11.2026: „Unser neues plastisches design muss für alle
+        # knöpfe gelten“): einzelne runde Knöpfe (Seitenleisten-Knopf, Today-Knopf), die Kapseln in Adressbuch,
+        # Kalender (Umschalter Day/Week/Month, ‹ Today ›, „+“) und Aufgaben mit heller Fläche und Schatten; der Zustand
+        # zeigt sich am Kreis (32 px, Lichtkante, gedrückt innerer Schatten ohne Licht), die Kapsel bleibt gleich;
+        # Textknöpfe der Einstellungen mit Schleier und Lichtkante, gesperrt flach; „Get started“ im leeren Chat als
+        # Hauptknopf mit Glanz. Zustände über InspectorUtils.addPseudoClassLock, nie anklicken
+        res = m.js(r"""
+          const cs = (e, p) => (e.ownerGlobal || w).getComputedStyle(e, p);
+          const look = e => e ? { img: cs(e).backgroundImage, sh: cs(e).boxShadow } : null;
+          const dot = (e, p = "::after") => { const a = cs(e, p); return { op: a.opacity, w: a.width, h: a.height, sh: a.boxShadow, bg: a.backgroundColor }; };
+          const own = e => { const s = cs(e); return { op: "1", w: s.width, h: s.height, sh: s.boxShadow, bg: s.backgroundColor }; };
+          const lock = async (els, on, act) => { for (const e of els) for (const c of act ? [":hover", ":active"] : [":hover"])
+            on ? InspectorUtils.addPseudoClassLock(e, c) : InspectorUtils.removePseudoClassLock(e, c); await ruhig(150); };
+          const states = async (els, read) => { const out = { rest: look(els[0]) };
+            await lock(els, true); out.hover = read(); out.hoverBox = look(els[0]); await lock(els, false);
+            await lock(els, true, true); out.press = read(); await lock(els, false, true); return out; };
+          const li = id => d.querySelector(`#unifiedToolbarContent > li[item-id="${id}"]`);
+          const out = {};
+          const oldW = w.outerWidth, oldH = w.outerHeight;
+          w.resizeTo(1600, 900); await ruhig(500);
+          try {
+            await toMail(); await ruhig(400);
+            const pin = d.getElementById("spacesPinnedButton");
+            out.pin = await states([pin], () => dot(pin));
+            // Adressbuch: „+“ über der Kontaktliste (Kreis über ::after)
+            tm.openTab("addressBookTab", {}); const plus = await bis(() => { const x = d.querySelector("#mcListHeader > .mc-lh-plus"); return x?.getBoundingClientRect().width && x; }, "Adressbuch-Plus", 6000); await ruhig(500);
+            out.abPlus = await states([plus], () => dot(plus));
+            const tt = d.getElementById("mcTodayToggle");
+            out.today = tt && tt.getBoundingClientRect().width ? await states([tt], () => dot(tt)) : null;
+            // Kalender: Umschalter und ‹ Today ›
+            tm.openTab("calendar", {}); await bis(() => d.getElementById("viewToggle")?.getBoundingClientRect().width, "Kalenderkopf", 8000); await ruhig(600);
+            const vt = d.getElementById("viewToggle"), grp = d.querySelector("#calendarControls .button-group");
+            const todayB = d.getElementById("todayViewButton"), nextB = d.getElementById("nextViewButton");
+            const sel = vt.querySelector('.calview-toggle-item[aria-selected="true"]'), other = [...vt.querySelectorAll(".calview-toggle-item")].find(x => x != sel);
+            out.cal = { toggle: look(vt), group: look(grp), sel: own(sel) };
+            out.cal.other = await states([other], () => own(other));
+            out.cal.next = await states([nextB], () => own(nextB));
+            out.cal.todayB = await states([todayB], () => own(todayB));
+            out.cal.todayB.h = todayB.getBoundingClientRect().height;
+            const ne = li("new-event"); out.cal.plus = ne ? await states([ne, ne.querySelector("button")], () => dot(ne)) : null;
+            // Aufgaben: Knopf ohne Teilung (Fenster öffnen) – Kreis über ::after
+            tm.openTab("tasks", {}); await ruhig(1200);
+            const tb = d.getElementById("mcTaskOpenWindow");
+            out.task = tb && tb.getBoundingClientRect().width ? await states([tb], () => dot(tb)) : null;
+            // Chat ohne Konto: „Get started“ Hauptknopf mit Glanz
+            tm.openTab("chat", {}); await ruhig(1200);
+            const gs = d.getElementById("openIMAccountWizardButton");
+            out.chat = gs ? { img: cs(gs).backgroundImage, sh: cs(gs).boxShadow } : null;
+            // Einstellungen: Textknöpfe (bereit und gesperrt)
+            w.openPreferencesTab("panePrivacy");
+            const pd = await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.getElementById("showPasswords")?.getBoundingClientRect().width && x; }, "Einstellungen Datenschutz", 10000);
+            await ruhig(600);
+            const pb = pd.getElementById("showPasswords"), off = pd.getElementById("changeMasterPassword");
+            out.pref = { ready: look(pb), off: off ? { ...look(off), dis: off.disabled } : null };
+            InspectorUtils.addPseudoClassLock(pb, ":hover"); InspectorUtils.addPseudoClassLock(pb, ":active"); await ruhig(150);
+            out.pref.press = look(pb); InspectorUtils.clearPseudoClassLocks(pb);
+            tm.closeTab(tm.currentTabInfo);
+          } finally { await toMail(); w.resizeTo(oldW, oldH); await ruhig(300); }
+          return out;""")
+        plastic = lambda o: bool(o) and o["img"].count("linear-gradient") >= 3 and "inset" in o["sh"]
+        lite = lambda sh: sh.startswith("rgba(255, 255, 255") and "inset" in sh
+        def circle(st, wpx="32px", hpx="32px"):
+            # Kapsel bleibt unter der Maus gleich, Kreis mit Lichtkante, gedrückt innerer Schatten ohne Licht
+            h, p = st["hover"], st["press"]
+            return (plastic(st["rest"]) and st["hoverBox"] == st["rest"] and h["op"] == "1" and (wpx is None or h["w"] == wpx) and h["h"] == hpx
+                    and lite(h["sh"]) and "inset" in p["sh"] and not lite(p["sh"]))
+        r = res
+        ok = {
+            "pin": circle(r["pin"]),
+            "adressbuch": circle(r["abPlus"]),
+            "today": r["today"] is None or circle(r["today"]),
+            "kalender": (plastic(r["cal"]["toggle"]) and plastic(r["cal"]["group"]) and "inset" in r["cal"]["sel"]["sh"]
+                         and lite(r["cal"]["other"]["hover"]["sh"]) and "inset" in r["cal"]["other"]["press"]["sh"] and not lite(r["cal"]["other"]["press"]["sh"])
+                         and lite(r["cal"]["next"]["hover"]["sh"]) and r["cal"]["next"]["hover"]["w"] == "32px"
+                         and lite(r["cal"]["todayB"]["hover"]["sh"]) and not lite(r["cal"]["todayB"]["press"]["sh"])
+                         and (r["cal"]["plus"] is None or circle(r["cal"]["plus"]))),
+            "aufgaben": r["task"] is None or circle(r["task"]),
+            "chat": bool(r["chat"]) and r["chat"]["img"].startswith("radial-gradient") and "linear-gradient" in r["chat"]["img"] and "inset" in r["chat"]["sh"],
+            "einstellungen": (lite(r["pref"]["ready"]["sh"]) and "inset" in r["pref"]["press"]["sh"] and not lite(r["pref"]["press"]["sh"])
+                              and (not r["pref"]["off"] or not r["pref"]["off"]["dis"] or r["pref"]["off"]["sh"] == "none")),
+        }
+        return all(ok.values()), f"{ok} {res}"
+    check("Knöpfe: plastisch in allen Spaces (Seitenleisten- und Today-Knopf, Adressbuch, Kalender-Umschalter und ‹ Today ›, Aufgaben), "
+          "Zustand am Kreis mit Lichtkante, gedrückt ohne Licht; Textknöpfe der Einstellungen mit Lichtkante, gesperrt flach; „Get started“ als Hauptknopf", buttons_plastic_spaces, results)
 
     def header_account_dot():
         # Mailkopf: Farbpunkt des Kontos links vom Ordnersymbol; Lokale Ordner
@@ -18273,9 +18548,9 @@ Neu
           return out;''')
         want = ["999px", "12px", "7px"]
         LITE_LIGHT = ["rgba(255, 255, 255, 0.75)", "0 1px 1px rgba(0, 0, 0, 0.07)", "rgba(0, 0, 0, 0.12)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
-                      "rgba(255, 255, 255, 0.42)", "50%", "0 1px 1.5px rgba(0, 0, 0, 0.16)"]
+                      "rgba(255, 255, 255, 0.62)", "40%", "0 1px 1px rgba(0, 0, 0, 0.14), 0 3px 5px -3px rgba(0, 0, 0, 0.32)"]
         LITE_DARK = ["rgba(255, 255, 255, 0.14)", "0 1px 2px rgba(0, 0, 0, 0.45)", "rgba(255, 255, 255, 0.16)", "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
-                     "rgba(255, 255, 255, 0.22)", "60%", "0 2px 4px rgba(0, 0, 0, 0.5)"]
+                     "rgba(255, 255, 255, 0.4)", "40%", "0 1px 1px rgba(0, 0, 0, 0.5), 0 3px 6px -2px rgba(0, 0, 0, 0.6)"]
         ok = (res["main"] == want and res["addons"] == want and res["capsule"] == "999px"
               and res["btn"] == ["30px", "24px"] and res["ringVar"] and res["ringVar"] == res["ringOld"] and "3px" in res["ringOld"]
               and res["lite"] == (LITE_DARK if res["dark"] else LITE_LIGHT))
@@ -23923,7 +24198,9 @@ Neu
               out.inside = ext ? ext.getBoundingClientRect().right <= cw.innerWidth : false;
               // Fläche wie Drucken (ohne Fläche wäre die Kapsel nur ein loses Symbol)
               const pb = md.getElementById("mcHdrPrintButton");
-              out.fill = ext ? [cw.getComputedStyle(ext).backgroundColor, pb ? cw.getComputedStyle(pb).backgroundColor : null] : null;
+              // (plastische Kapseln: Fläche als Verlauf im Hintergrundbild, Farbe dann durchsichtig – beides vergleichen)
+              const face = e => `${cw.getComputedStyle(e).backgroundColor} ${cw.getComputedStyle(e).backgroundImage}`;
+              out.fill = ext ? [face(ext), pb ? face(pb) : null] : null;
             } finally { mw.close(); }
           } finally { await addon.uninstall(); }
           await ruhig(300);
@@ -23944,7 +24221,7 @@ Neu
                 and e["l"] >= mo["r"] + 5.5 and e["l"] > ar["r"] and (not pr or e["r"] + 5.5 <= pr["l"]) and res.get("inside")):
             bad.append(f"Erweiterung: {e} über {res.get('over')}, Radius {res.get('radius')}, Mehr {mo}, Drucken {pr}")
         fl = res.get("fill") or [None, None]
-        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0)" and (fl[1] is None or fl[0] == fl[1])):
+        if not (fl[0] and fl[0] != "rgba(0, 0, 0, 0) none" and (fl[1] is None or fl[0] == fl[1])):
             bad.append(f"Erweiterung: Fläche {fl[0]} statt wie Drucken {fl[1]}")
         return not bad, "; ".join(bad) or f"{res}"
     check("Nachrichtenfenster: Knopf einer anderen Erweiterung als eigene runde Kapsel hinter „Mehr“, ohne Überlappung; "

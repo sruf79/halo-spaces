@@ -764,8 +764,9 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   gap: 2px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: var(--mt-control) !important;
-  box-shadow: none !important;
+  /* plastisch wie die Kapseln der Symbolleisten (17.11.2026) */
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
 }
 
 #viewToggle .calview-toggle-item {
@@ -781,12 +782,22 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   font-weight: 500 !important;
 }
 
-#viewToggle .calview-toggle-item:hover {
-  background: var(--mt-control-hover) !important;
+/* unter der Maus eine Kapsel 4 px innen mit Lichtkante, gedrückt dunkler
+   ohne Licht; die gewählte Ansicht liegt tiefer (grau mit innerem Schatten,
+   ohne Licht) wie ein eingeschalteter Knopf */
+#viewToggle .calview-toggle-item:not([aria-selected="true"]):hover {
+  background: var(--mt-cap-hover) !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+#viewToggle .calview-toggle-item:not([aria-selected="true"]):hover:active {
+  background: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 #viewToggle .calview-toggle-item[aria-selected="true"] {
   background: color-mix(in srgb, var(--mt-text) 10%, transparent) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 /* ‹  Today  › wie in Apple Kalender: eine Kapsel, darin Pfeil – „Heute“ – Pfeil */
@@ -804,7 +815,8 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   padding: 3px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
 }
 
 #calendarControls .button-group > button {
@@ -826,9 +838,17 @@ calendar-minimonth:not(#calMinimonth, #today-minimonth, #from-minimonth, #to-min
   font-weight: 500 !important;
 }
 
-#calendarControls .button-group > button:hover {
-  background: var(--mt-control-hover) !important;
+/* Pfeile: Kreis 32 px, „Today“: Kapsel 3 px innen, je mit Lichtkante;
+   gedrückt dunkler ohne Licht */
+#calendarControls .button-group > button:not([disabled]):hover {
+  background: var(--mt-cap-hover) !important;
+  box-shadow: var(--mt-btn-ring) !important;
   color: var(--mt-text) !important;
+}
+
+#calendarControls .button-group > button:not([disabled]):hover:active {
+  background: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 #calendarControls .button-group > :is(#previousViewButton, #nextViewButton)::before,
@@ -3881,12 +3901,21 @@ splitter.splitter:has(+ .conv-bottom) {
   padding: 0 18px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: var(--mt-accent) !important;
+  /* der einzige Knopf der Seite ist ihr Hauptknopf: Systemfarbe plastisch
+     mit Schein (Variante A, 18.11.2026), gedrückt dunkler ohne Licht */
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
   color: var(--mt-accent-text) !important;
   font-size: calc(13px * var(--mt-font-scale, 1)) !important;
   font-weight: 500 !important;
-  box-shadow: none !important;
+  box-shadow: var(--mt-primary-shadow) !important;
   outline: none !important;
+}
+
+.im-placeholder-screen button:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
 }
 
 /* Today-Pane in jedem Bereich gleich: Minikalender und Termine, ohne den
@@ -4529,6 +4558,31 @@ splitter.splitter:has(+ .conv-bottom) {
 
 #paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead)):not([disabled]):hover {
   background-color: var(--mt-control-hover) !important;
+}
+
+/* Textknöpfe der Knopf-Familie, plastisch wie in den Dialogen (17. und
+   18.11.2026: „Unser neues plastisches design muss für alle knöpfe gelten“):
+   grau mit hellem Schleier, Lichtkante und leisem Schatten; unter der Maus
+   etwas dunkler, gedrückt dunkler mit innerem Schatten ohne Licht, gesperrt
+   grau und flach mit blasser Schrift. Gilt in den Einstellungen und auf den
+   Seiten der Kontoeinstellungen („Advanced…“, „Browse…“) */
+#paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead)):not([disabled]),
+:is(#containerBox, .account-settings) button:not(.close-icon, .icon-only, .button-flat, .twisty, [type="checkbox"]):not([disabled]) {
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+#paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead)):not([disabled]):hover:active,
+:is(#containerBox, .account-settings) button:not(.close-icon, .icon-only, .button-flat, .twisty, [type="checkbox"]):not([disabled]):hover:active {
+  background-color: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#paneDeck :is(button:not(.close-icon, .icon-only, [type="checkbox"], .arrowhead))[disabled],
+:is(#containerBox, .account-settings) button:not(.close-icon, .icon-only, .button-flat, .twisty, [type="checkbox"])[disabled] {
+  opacity: 1 !important;
+  background-color: var(--mt-control) !important;
+  box-shadow: none !important;
+  color: var(--mt-btn-disabled-text) !important;
 }
 
 /* Aufklapp-Pfeile beim sicheren DNS: flacher Symbolknopf statt grauer
@@ -5999,6 +6053,114 @@ addon-card .addon-inline-options {
   background: color-mix(in srgb, var(--mt-accent) 24%, transparent) !important;
 }
 
+/* Verfassen-Kapseln wie die Mail-Symbolleiste (Entscheidung 17.11.2026,
+   Möglichkeit 2): Kapseln und Senden 38 px hoch; unter der Maus nicht mehr
+   die ganze Kapsel dunkler, sondern ein runder Kreis 32 px (3 px Rand) mit
+   feiner Lichtkante, gedrückt dunklerer Kreis ohne Licht; die Kapsel behält
+   ihre Lichtkante. Gilt für Symbolknöpfe und die linke Hälfte der geteilten
+   Knöpfe, die rechte Hälfte (Pfeil) bekommt ein schmales Oval 3 px innen */
+#composeToolbar2 > toolbarbutton:not(#mcSendLater),
+#composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button {
+  min-height: var(--mt-cap-h) !important;
+  height: var(--mt-cap-h) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater),
+#composeToolbar2[mc-icons-only] > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater) {
+  position: relative !important;
+  padding-inline: 13px !important;
+  /* einzelne Kapsel 63 px breit wie in der freigegebenen Vorschau (2) vom
+     17.11.2026; Thunderbird gibt nur 55 px Mindestbreite vor */
+  min-width: 63px !important;
+}
+
+#composeToolbar2 > toolbarbutton > .toolbarbutton-menubutton-button,
+#composeToolbar2[mc-icons-only] > toolbarbutton > .toolbarbutton-menubutton-button {
+  /* geteilte Kapsel 85 px wie in der Vorschau (2): linke Hälfte 44 px
+     (Kreis 32 px mittig), Pfeilhälfte 41 px */
+  padding-inline: 14px 12px !important;
+}
+
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-dropmarker {
+  width: 41px !important;
+  min-width: 41px !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover,
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover:active {
+  background: var(--mt-control) !important;
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+}
+
+/* (Verschlüsseln/Signieren eingeschaltet behalten unter der Maus ihre
+   getönte Kapsel, der Kreis kommt darüber) */
+#composeToolbar2 > :is(#button-encryption, #button-signing):is([checked="true"], [checked=""]):not([disabled]):is(:hover, :hover:active) {
+  background: color-mix(in srgb, var(--mt-accent) 16%, transparent) !important;
+}
+
+#composeToolbar2 > #mcFormatToggle[checked]:not([disabled]):is(:hover, :hover:active) {
+  background: var(--mt-control-hover) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater)::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"] > .toolbarbutton-menubutton-button::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: auto !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  left: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 50% !important;
+  background-color: var(--mt-cap-hover) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover::after {
+  opacity: 1 !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not([is="toolbarbutton-menu-button"], #button-send, #mcSendLater):not([disabled]):hover:active::after,
+#composeToolbar2 > toolbarbutton[is="toolbarbutton-menu-button"]:not([disabled]) > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker):not([disabled]):hover:active::after {
+  background-color: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#composeToolbar2 > #button-send {
+  width: var(--mt-cap-h) !important;
+  min-width: var(--mt-cap-h) !important;
+  height: var(--mt-cap-h) !important;
+  min-height: var(--mt-cap-h) !important;
+}
+
+#composeToolbar2 > #button-send > .toolbarbutton-icon {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+#composeToolbar2 > #mcSendLater {
+  height: var(--mt-cap-h) !important;
+  min-height: var(--mt-cap-h) !important;
+}
+
+/* Verfassen-Kapseln plastisch wie die Mail-Symbolleiste (plastische
+   Kapseln, 17.11.2026): helle Fläche, feine Kante an den Enden, leiser
+   Schatten; bleibt unter der Maus und gedrückt (der Kreis zeigt den
+   Zustand), gesperrt flach ohne Kante und Schatten */
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater),
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater):not([disabled]):is(:hover, :hover:active) {
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
+}
+
+#composeToolbar2 > toolbarbutton:not(#button-send, #mcSendLater)[disabled] {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
 :root[mc-format-hidden] #FormatToolbar {
   display: none !important;
 }
@@ -6436,6 +6598,34 @@ addon-card .addon-inline-options {
 /* Firmen ohne Foto: Gebäude auf demselben Verlauf (wie Apple Kontakte) */
 :is(#cards, #selectedCards) contact-avatar.mc-company {
   background: url("resource://mailcards/icons/company-avatar.svg") center / cover no-repeat !important;
+}
+
+/* Kreise plastisch wie die Knöpfe und die Absenderkreise der Mailliste
+   (Variante A, 18.11.2026): Verlauf, Auflage als ::after über Initialen bzw.
+   Foto (mc-has-img setzt die Erweiterung), Schatten wie die Kapseln */
+:is(#cards, #selectedCards) contact-avatar:not(.mc-company, .mc-has-img),
+#viewContact .list-header .recipient-avatar {
+  background: var(--mt-av-fill) !important;
+}
+
+/* (Liste mit der Spezifität der Kartenregel oben, die den Schatten abschaltet) */
+:is(#cards .card-layout .card-container, #cards, #selectedCards) contact-avatar,
+#viewContact .list-header .recipient-avatar {
+  position: relative !important;
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+:is(#cards, #selectedCards) contact-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
 }
 
 /* Seitenleisten der Bereiche ein-/ausblenden (Klasse setzt die Erweiterung) */
@@ -7142,6 +7332,23 @@ wizard {
   --button-primary-shadow: none !important;
   --button-primary-hover-shadow: none !important;
   --button-pressed-shadow: none !important;
+}
+
+/* Hauptknöpfe mit Thunderbirds Klasse „primary“ außerhalb der Dialoge (z. B.
+   „Get started“ im leeren Chat) wie jeder Hauptknopf: Systemfarbe plastisch
+   mit Schein (Variante A, 18.11.2026), Maus ohne Änderung, gedrückt dunkler
+   ohne Licht, gesperrt grau und flach */
+button.primary:not([disabled]) {
+  background-color: var(--mt-accent) !important;
+  background-image: var(--mt-primary-image) !important;
+  box-shadow: var(--mt-primary-shadow) !important;
+  color: var(--mt-accent-text) !important;
+}
+
+button.primary:not([disabled]):hover:active {
+  background-color: var(--mt-primary-press) !important;
+  background-image: none !important;
+  box-shadow: var(--mt-primary-press-shadow) !important;
 }
 
 dialog {
@@ -8240,6 +8447,122 @@ menupopup menucaption {
   padding: 0 !important;
 }
 
+/* plastisch wie die Kapseln der Mail-Symbolleiste (17.11.2026); gesperrt flach */
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+) {
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-contact"],
+#unifiedToolbarContent > li[item-id="new-event"]:not(:has(+ li[item-id="new-task"]:not([hidden]))),
+#unifiedToolbarContent > li[item-id="new-task"]:not(li[item-id="new-event"]:not([hidden]) + li) {
+  box-shadow: var(--mt-cap-solo-shadow) !important;
+}
+
+/* „Neuer Termin | Neue Aufgabe“ zusammen: Kante nur an den Enden */
+#unifiedToolbarContent > li[item-id="new-event"]:has(+ li[item-id="new-task"]:not([hidden])):dir(ltr),
+#unifiedToolbarContent > li[item-id="new-event"]:not([hidden]) + li[item-id="new-task"]:dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="new-event"]:not([hidden]) + li[item-id="new-task"]:dir(ltr),
+#unifiedToolbarContent > li[item-id="new-event"]:has(+ li[item-id="new-task"]:not([hidden])):dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-address-book"]:dir(ltr),
+#unifiedToolbarContent > li[item-id="create-list"]:dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-list"]:dir(ltr),
+#unifiedToolbarContent > li[item-id="create-address-book"]:dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+):not(:has(button:not([disabled]))) {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+/* Zustand am Kreis wie in der Mail-Symbolleiste (Wahrnehmungsregel 18.11.2026):
+   unter der Maus ein Kreis 32 px mit Lichtkante, bei „Neuer Kontakt“ (Symbol
+   mit Text) eine Kapsel 3 px innen; gedrückt dunkler ohne Licht mit innerem
+   Schatten; die Kapsel selbst bleibt plastisch und ändert sich nicht */
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+) {
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+)::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  inset-inline-start: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-contact"]::after {
+  inset-inline-start: 3px !important;
+  width: calc(100% - 6px) !important;
+  background-color: var(--mt-cap-hover) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+) button:hover:not([disabled]) {
+  background-color: transparent !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]
+) button:hover:not([disabled]) {
+  background-image: var(--mt-cap-dot) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-address-book"], [item-id="create-list"], [item-id="new-event"], [item-id="new-task"]
+) button:hover:active:not([disabled]) {
+  background-image: var(--mt-cap-dot-press) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+):has(button:hover:not([disabled]))::after {
+  opacity: 1 !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+#unifiedToolbarContent > li:is(
+  [item-id="create-contact"], [item-id="create-address-book"], [item-id="create-list"],
+  [item-id="new-event"], [item-id="new-task"]
+):has(button:hover:active:not([disabled]))::after {
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+#unifiedToolbarContent > li[item-id="create-contact"]:has(button:hover:active:not([disabled]))::after {
+  background-color: var(--mt-cap-press) !important;
+}
+
 /* Kapseln: „Neuer Kontakt“ allein; „Neues Adressbuch | Neue Liste“ und
    „Neuer Termin | Neue Aufgabe“ zusammen mit Trennstrich */
 #unifiedToolbarContent > li[item-id="create-contact"],
@@ -8504,9 +8827,12 @@ menupopup menucaption {
   opacity: 0.35 !important;
 }
 
-/* Today-Knopf auf der gefärbten Leiste im selben Kontrast */
+/* Today-Knopf auf der gefärbten Leiste im selben Kontrast (ohne die helle
+   plastische Fläche, die auf der Farbe weiß stünde) */
 :root[mc-fifth-current][mc-fifth="web"][mc-web-color] #unifiedToolbarContainer:not([data-mc-tp-open]) > #mcTodayToggle {
   color: var(--mc-web-fg) !important;
+  background-image: none !important;
+  box-shadow: none !important;
   background-color: color-mix(in srgb, var(--mc-web-fg) 12%, transparent) !important;
 }
 
@@ -8602,17 +8928,72 @@ menupopup menucaption {
   color: var(--mt-text) !important;
 }
 
-#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):hover {
-  background-color: var(--mt-control-hover) !important;
+/* plastisch wie die Kapseln der übrigen Spaces (17.11.2026; „Unser neues
+   plastisches design muss für alle knöpfe gelten“, 18.11.2026): helle Fläche,
+   feine Kante an den Enden, leiser Schatten; unter der Maus ein Kreis 32 px
+   (bei „Add Contact“ und dem Status eine Kapsel 3 px innen) mit Lichtkante,
+   gedrückt dunkler ohne Licht; die Kapsel selbst ändert sich nicht.
+   Gesperrt (ohne Chat-Konto) flach ohne Kante und Schatten */
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts, #chat-status-selector) {
+  z-index: 0 !important;
 }
 
-/* „Chat beitreten · Konten“: runde Fläche mit Abstand zum Kapselrand wie Apple */
-#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover {
-  background: var(--mt-cap-dot), var(--mt-control) !important;
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts, #chat-status-selector),
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):is(:hover, :hover:active) {
+  background: var(--mt-cap-fill) !important;
 }
 
-#chat-toolbar > :is(#button-join-chat, #button-chat-accounts):not([disabled]):hover:active {
-  background: var(--mt-cap-dot-press), var(--mt-control) !important;
+#chat-toolbar > :is(#button-add-buddy, #chat-status-selector) {
+  box-shadow: var(--mt-cap-solo-shadow) !important;
+}
+
+#chat-toolbar > #button-join-chat:dir(ltr),
+#chat-toolbar > #button-chat-accounts:dir(rtl) {
+  box-shadow: inset 0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#chat-toolbar > #button-chat-accounts:dir(ltr),
+#chat-toolbar > #button-join-chat:dir(rtl) {
+  box-shadow: inset -0.5px 0 0 var(--mt-cap-edge), var(--mt-cap-shadow) !important;
+}
+
+#chat-toolbar > #button-add-buddy[disabled],
+#chat-toolbar:not(:has(> :is(#button-join-chat, #button-chat-accounts):not([disabled]))) > :is(#button-join-chat, #button-chat-accounts),
+#chat-toolbar > #chat-status-selector:has(> #statusTypeIcon[disabled]) {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
+}
+
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts, #chat-status-selector)::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  inset-inline-start: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+#chat-toolbar > :is(#button-add-buddy, #chat-status-selector)::after {
+  inset-inline-start: 3px !important;
+  width: calc(100% - 6px) !important;
+}
+
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):hover::after,
+#chat-toolbar > #chat-status-selector:not(:has(> #statusTypeIcon[disabled])):hover::after {
+  opacity: 1 !important;
+  background-color: var(--mt-cap-hover) !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+#chat-toolbar > :is(#button-add-buddy, #button-join-chat, #button-chat-accounts):not([disabled]):is(:hover:active, [open])::after,
+#chat-toolbar > #chat-status-selector:not(:has(> #statusTypeIcon[disabled])):is(:hover:active, :has([open]))::after {
+  opacity: 1 !important;
+  background-color: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 #chat-toolbar > #chat-status-selector {
@@ -10770,7 +11151,29 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
 
 #messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img {
   background: #fff !important;
-  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* plastisch wie die Knöpfe (Variante A, 18.11.2026), Auflage über Initialen
+   bzw. Foto als ::after, Werte --mt-av-* */
+#messageHeader .recipient-avatar.mc-hdr-avatar:not(.mc-has-img) {
+  background: var(--mt-av-fill) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar {
+  box-shadow: var(--mt-av-shadow) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: var(--mt-av-rim) !important;
+}
+
+#messageHeader .recipient-avatar.mc-hdr-avatar.mc-has-img::after {
+  box-shadow: var(--mt-av-rim-img) !important;
 }
 
 #messageHeader .recipient-avatar.mc-hdr-avatar img {
@@ -12193,14 +12596,17 @@ datepicker[mc-inline] > menulist {
   color: var(--mt-red) !important;
 }
 
-/* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche */
+/* Kapseln wie in den übrigen Bereichen, je mit eigener Fläche (plastisch
+   wie die Mail-Symbolleiste, 17.11.2026; gesperrt flach) */
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
-  background: var(--mt-control) !important;
+  background: var(--mt-cap-fill) !important;
+  box-shadow: var(--mt-cap-solo-shadow) !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
 }
 
-:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton[disabled] {
+  background: var(--mt-control) !important;
+  box-shadow: none !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton {
@@ -12216,30 +12622,80 @@ datepicker[mc-inline] > menulist {
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:hover:not([disabled]) {
-  background: var(--mt-control-hover) !important;
   color: var(--mt-text) !important;
 }
 
-/* im geteilten Knopf „Complete“ runde Fläche nur unter der Hälfte unter der
-   Maus, mit Abstand zum Kapselrand wie Apple */
-:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:hover:not([disabled]) {
-  background: var(--mt-control) !important;
+/* Zustand am Kreis wie in der Mail-Symbolleiste: unter der Maus Kreis 32 px
+   mit Lichtkante (::after hinter dem Symbol, der Knopf bildet die Ebene),
+   gedrückt dunkler ohne Licht; die plastische Kapsel bleibt unverändert */
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:not(#task-actions-markcompleted) {
+  z-index: 0 !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:not([disabled]):hover {
+  background: var(--mt-cap-fill) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:not(#task-actions-markcompleted)::after {
+  content: "" !important;
+  position: absolute !important;
+  z-index: -1 !important;
+  top: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  inset-inline-start: calc(50% - var(--mt-cap-dot-d) / 2) !important;
+  width: var(--mt-cap-dot-d) !important;
+  height: var(--mt-cap-dot-d) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:not(#task-actions-markcompleted, [disabled]):hover::after {
+  opacity: 1 !important;
+  background-color: var(--mt-cap-hover) !important;
+  box-shadow: var(--mt-btn-ring) !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton:not(#task-actions-markcompleted, [disabled]):is(:hover:active, [open])::after {
+  opacity: 1 !important;
+  background-color: var(--mt-cap-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
+}
+
+/* im geteilten Knopf „Complete“ Kreis bzw. schmales Oval nur unter der Hälfte
+   unter der Maus, 3 px vom Kapselrand wie Apple (Haken 40 px mit Kreis 32 × 32,
+   Pfeil 28 px mit Oval 22 × 32). Der durchsichtige Rand rückt Fläche und
+   Lichtkante (innerer Schatten, folgt der Rundung) nach innen */
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted > :is(.toolbarbutton-menubutton-button, .toolbarbutton-menubutton-dropmarker) {
+  box-sizing: border-box !important;
+  height: 38px !important;
+  border: solid transparent !important;
+  border-width: calc((38px - var(--mt-cap-dot-d)) / 2) !important;
+  border-radius: 999px !important;
+  background-clip: padding-box !important;
+}
+
+:root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted > .toolbarbutton-menubutton-button {
+  border-inline-width: calc((40px - var(--mt-cap-dot-d)) / 2) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover {
-  background: var(--mt-cap-dot) !important;
+  background: var(--mt-cap-dot) padding-box !important;
+  box-shadow: inset 0 1px 0 var(--mt-btn-lite) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:hover {
-  background: var(--mt-cap-dot-narrow) !important;
+  background: var(--mt-cap-dot-narrow) padding-box !important;
+  box-shadow: inset 0 1px 0 var(--mt-btn-lite) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-button:hover:active {
-  background: var(--mt-cap-dot-press) !important;
+  background: var(--mt-cap-dot-press) padding-box !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > #task-actions-markcompleted:not([disabled]) > .toolbarbutton-menubutton-dropmarker:is(:hover:active, [open]) {
-  background: var(--mt-cap-dot-narrow-press) !important;
+  background: var(--mt-cap-dot-narrow-press) padding-box !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 :root[mc-tab="tasks"] #task-actions-toolbar > toolbarbutton :is(.toolbarbutton-text, .toolbarbutton-icon, .toolbarbutton-menu-dropmarker),
@@ -12270,7 +12726,7 @@ datepicker[mc-inline] > menulist {
 
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-button {
   width: 40px !important;
-  height: 38px !important;
+  margin: 0 !important;
   justify-content: center !important;
 }
 
@@ -12281,9 +12737,7 @@ datepicker[mc-inline] > menulist {
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker {
   pointer-events: auto !important; /* sonst bekommt der Knopf den Hover statt des Pfeilteils */
   width: 28px !important;
-  height: 38px !important;
   margin: 0 !important;
-  border: none !important;
   opacity: 1 !important;
   mask: none !important;
   background: none !important;
@@ -12295,7 +12749,7 @@ datepicker[mc-inline] > menulist {
 :root[mc-tab="tasks"] #task-actions-markcompleted .toolbarbutton-menubutton-dropmarker::before {
   content: "" !important;
   position: absolute !important;
-  inset-inline-start: 0 !important;
+  inset-inline-start: calc((var(--mt-cap-dot-d) - 38px) / 2) !important;
   top: calc(50% - var(--mt-cap-line-h) / 2) !important;
   height: var(--mt-cap-line-h) !important;
   width: 1px !important;

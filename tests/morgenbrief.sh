@@ -471,6 +471,7 @@ def ueberfaellig(items, heute, grenze=7):
     for it in items or []:
         t, st, body = it.get("title", ""), it.get("status") or "", it.get("body") or ""
         if st == "Done": continue
+        if re.search(r"Wartet bewusst bis ", body): continue   # Maintainer hat das Warten ausdrücklich bestätigt (Notiz „Wartet bewusst bis …“)
         seit, frage = None, ""
         m = re.search(r"Entscheidung fehlt seit " + DATUM + r":?\s*([^\n]*)", body)
         if m: seit, frage = datum_lesen(m.group(1)), m.group(2).strip()

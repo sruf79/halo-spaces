@@ -153,13 +153,15 @@ cat > $T/board.json <<'EOF'
  {"id":"U6","typ":"Feature","status":"Todo","title":"Chat: genau 7 Tage","body":"Entscheidung fehlt seit 9.11.2026: Grenzfall?"},
  {"id":"U7","typ":"Feature","status":"Done","title":"Mail: erledigt","body":"Entscheidung fehlt seit 2026-10-01: egal"},
  {"id":"U8","typ":"Bug","status":"Todo","title":"Chat: altes Anlagedatum","body":"Maintainer 15.11.2026","createdAt":"2026-10-20T10:00:00Z"},
- {"id":"U9","typ":"Bug","status":"Todo","title":"Chat: Abfrage nur im Text","body":"Maintainer 1.11.2026"}
+ {"id":"U9","typ":"Bug","status":"Todo","title":"Chat: Abfrage nur im Text","body":"Maintainer 1.11.2026"},
+ {"id":"U10","typ":"Feature","status":"Wartet auf OK","title":"Ablauf: bewusst wartend","body":"Rückfrage Director 2026-11-01: Frage?\n\nWartet bewusst bis 6.12.2026 (Maintainer 21.11.2026: „empfehlung folgen“)"}
 ]}
 EOF
 lauf $MO $T/u.md >/dev/null
 U=$(sed -n '/<summary>Überfällig: Entscheidungen über 7 Tage offen</,/<\/details>/p' $T/u.md)
 pruefe "Überfällig: Notiz und Wartet auf OK über 7 Tage, älteste zuerst, mit Frage" '[[ $(print -r -- $U | grep "^- ") == $(print -l -- "- Mail: Zusage offen – 15 Tage – Soll der Knopf links stehen?" "- Kalender: wartet lange – 11 Tage – Welche Farbe?") ]]'
 pruefe "Überfällig: nicht bis 7 Tage, nicht ohne Datum, statusSeit zählt, Done nicht" '! print -r -- $U | grep -qE "frisch|Status erst neu|ohne Datum|genau 7 Tage|erledigt"'
+pruefe "Überfällig: „Wartet bewusst bis …“ wird nicht gezählt" '! print -r -- $U | grep -q "bewusst wartend"'
 pruefe "Überfällig: eine Zeile „Zu tun“ in der Kurzfassung" 'grep -q "Zu tun: 2 Entscheidungen seit über 7 Tagen offen, siehe Details „Überfällig“" $T/u.md'
 pruefe "Vorschau: Alter aus createdAt vor dem Text, Zuschlag mit Deckel; ohne createdAt das Datum im Text" 'grep -qE "^[0-9]+\. Chat: altes Anlagedatum \(Chat, 27 Tage offen, \+1\.5, Bug\)$" $T/u.md && grep -qE "^[0-9]+\. Chat: Abfrage nur im Text \(Chat, 15 Tage offen, \+1, Bug\)$" $T/u.md'
 pruefe "Vorschau: älterer Chat-Bug vor jüngerem (Zuschlag 1,5 gegen 1, trotz Titel-Reihenfolge)" '(( $(grep -n "Chat: altes Anlagedatum" $T/u.md | tail -1 | cut -d: -f1) < $(grep -n "Chat: Abfrage nur im Text" $T/u.md | tail -1 | cut -d: -f1) ))'

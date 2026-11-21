@@ -16465,6 +16465,18 @@ def run_checks(m, version, profile, results):
                                 for k, v in a["ende"].items():
                                     if passt(k) and max(x[1] for x in v) > 1.5:
                                         bad.append(f"{lage}: {k} nach dem Ende noch {max(x[1] for x in v)} px")
+                                # Mail: Abstand von „Verfassen“ zu „Antworten“ im letzten Bild der Bewegung schon am Endwert – die
+                                # Vorabrechnung des Endzustands sagte im schmalen Fenster 49 statt 69 px voraus (ein Durchgang statt
+                                # zwei), die Knöpfe liefen der Seitenleiste voraus und sprangen am Ende 20 px zurück
+                                if modus == "mail":
+                                    def _abstand(f):
+                                        wr = next((v for kk, v in f["e"].items() if "[write-message]" in kk), None)
+                                        rp = next((v for kk, v in f["e"].items() if kk.startswith("top:[reply]@")), None)
+                                        return rp[0] - wr[0] if wr and rp and wr[4] and rp[4] else None
+                                    bewegt = [f for f in fr if "M" in f.get("flags", "")]
+                                    a_letzt, a_ende = (_abstand(bewegt[-1]) if bewegt else None), _abstand(fr[-1])
+                                    if a_letzt is not None and a_ende is not None and abs(a_ende - a_letzt) > 3:
+                                        bad.append(f"{lage}: Abstand Verfassen–Antworten im letzten Bild {a_letzt:.0f} px, danach {a_ende:.0f} px")
                                 # Ampel-Fläche: durchgehend an derselben Stelle (auch beim Zeilenanfang 84 ↔ 0)
                                 if mac:
                                     box = [f["e"][k] for f in fr for k in f["e"] if "titlebar-buttonbox." in k]

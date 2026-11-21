@@ -11997,8 +11997,20 @@ class CardEnhancer {
               w.__mcSpacesJump(show ? 1 : 0);
             }
             ab.__mcJump(1);
-            w.document.documentElement.getBoundingClientRect();
-            this.offsetUpdaters?.forEach(fn => fn());
+            // Endzustand wie nach der Bewegung: Thunderbird verteilt dort mehrmals neu (Größenänderungen der Zeile), der
+            // Abstand nach „Verfassen“ wächst je Durchgang nur um den Platz, den das Suchfeld gerade übrig lässt – erst
+            // im zweiten steht er bei seinem Endwert. Mit nur einem Durchgang lag er im schmalen Fenster ohne Today-Pane
+            // 20 px zu klein (49 statt 69 px): die Knöpfe rechts von „Verfassen“ liefen der Seitenleiste voraus und
+            // sprangen im letzten Bild zurück
+            for (let i = 0, vorher = NaN; i < 4; i++) {
+              w.document.documentElement.getBoundingClientRect();
+              this.offsetUpdaters?.forEach(fn => fn());
+              const jetzt = gapNow();
+              if (Math.abs(jetzt - vorher) < 1) {
+                break;
+              }
+              vorher = jetzt;
+            }
             gapEnd = gapNow();
             midEnd = mid ? mid.getBoundingClientRect().width : NaN;
             leadEnd = leadNow();

@@ -12411,7 +12411,11 @@ class CardEnhancer {
       let W = 0, topH = 0, bottomH = 0;
       if (el) {
         const off = el.ownerDocument == d ? { left: 0, top: 0 } : win.browsingContext.embedderElement.getBoundingClientRect();
-        const pr = el.parentNode.getBoundingClientRect();
+        // Add-on-Tab (about:addons): die Leiste klebt mit Fensterhöhe am Rand (position: sticky), ihr Raster #full
+        // ist aber nur so hoch wie die Liste der Add-ons – schwebend fehlte darunter alles, auch die Fußzeile
+        // (GitHub #64); dort gilt die Höhe des Fensters
+        const pr = tab.mode.name == "contentTab" && win.getComputedStyle(el).position == "sticky" ? { top: 0, bottom: win.innerHeight }
+          : el.parentNode.getBoundingClientRect();
         W = tab.mode.name == "preferencesTab" ? 240 : Math.min(sideMax(el), Services.prefs.getIntPref(WIDTH_PREF, 0) || 206);
         const top = Math.max(pr.top, I - off.top);
         const bottom = Math.min(pr.bottom, H - I - off.top);

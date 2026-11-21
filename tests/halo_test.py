@@ -23418,6 +23418,86 @@ Neu
         return ok, f"{out}"
     check("Einstellungen: ausgeblendete Seitenleiste schwebt auch über der eingebetteten Add-on-Seite sichtbar ein", pref_embedded_float, results)
 
+    def addons_reenable_float():
+        # GitHub #64, Fall 2: Seitenleiste ausgeblendet, halo.spaces in Einstellungen → Add-ons deaktivieren, Mail-Tab,
+        # zurück zum Add-on-Tab, wieder aktivieren: die schwebende Leiste zeigt danach alle Einträge (sichtbar, anwählbar)
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        def state(want, ms=2500):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        info = r"""const tab = tm.currentTabInfo, doc = tab.browser?.contentDocument;
+          const side = doc?.getElementById("pref-category-box") || doc?.getElementById("sidebar");
+          if (!side) return { mode: tab.mode.name, side: null };
+          const cw = doc.defaultView, o = tab.browser.getBoundingClientRect();
+          const ents = [...side.querySelectorAll("richlistitem.category, moz-page-nav-button, .category[viewid]")].filter(e => !e.hidden && (!e.closest(".mc-float-pane") || e.checkVisibility()));
+          const cs = e => cw.getComputedStyle(e);
+          return { mode: tab.mode.name, url: doc.documentURI, state: w.__mcSideFloatState?.(), float: side.classList.contains("mc-float-pane"),
+                   cls: side.className, style: side.getAttribute("style"),
+                   rect: (r => [Math.round(r.top), Math.round(r.height), Math.round(r.width)])(side.getBoundingClientRect()),
+                   par: side.parentNode.id + ":" + (r => [Math.round(r.top), Math.round(r.height)])(side.parentNode.getBoundingClientRect()),
+                   items: ents.map(e => { const r = e.getBoundingClientRect(), c = cs(e);
+                     const hit = r.width > 0 ? doc.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+                     return { id: e.id || e.getAttribute("view") || e.getAttribute("value"), h: Math.round(r.height), w: Math.round(r.width),
+                              op: c.opacity, vis: c.visibility, hit: !!hit && (hit == e || e.contains(hit) || hit.closest?.("moz-page-nav-button") == e
+                                || (hit.getRootNode?.().host && e.contains(hit.getRootNode().host)) || hit.getRootNode?.().host == e),
+                              hitName: hit?.localName + "#" + (hit?.id || ""), sel: e.hasAttribute("selected") || e.selected || false,
+                              st: e.getAttribute("style") }; }) };"""
+        out = {}
+        try:
+            # wie der Nutzer: Seitenleiste im Mail-Tab ausblenden (Ordnerliste zu), dann Einstellungen → Add-ons
+            m.js(r"""await toMail();
+              if (!w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "ausgeblendet", 3000); }
+              await ruhig(600); return 1;""")
+            m.js(PREFS_OPEN_JS + r"""
+              await pick("paneMcAddons", 3500);
+              await until(() => page("about:addons")?.contentDocument?.querySelector("addon-card"), 8000);
+              await ruhig(600); return 1;""")
+            out["vorher"] = {k: v for k, v in m.js(info).items() if k != "style"}
+            out["aus"] = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); await a.disable();
+              await bis(() => !a.isActive, "halo.spaces entladen", 8000); await ruhig(1500);
+              const tab = tm.currentTabInfo, pd = tab.browser?.contentDocument;
+              return { mode: tab.mode.name, url: pd?.documentURI, sel: pd?.getElementById("categories")?.selectedItem?.id, tabs: tm.tabInfo.map(t => t.mode.name) };""" % ADDON_ID)
+            # wie der Nutzer: zum Mail-Tab und zurück, dann Add-on-Seite (Fußzeile der Einstellungen) öffnen
+            out["addons"] = m.js(r"""
+              const prefs = tm.currentTabInfo;
+              tm.switchToTab(0); await ruhig(500); tm.switchToTab(prefs); await ruhig(500);
+              const pd = prefs.browser.contentDocument;
+              pd.getElementById("addonsButton")?.click();
+              await until(() => tm.currentTabInfo.browser?.contentDocument?.querySelector("addon-card"), 8000); await ruhig(800);
+              const t = tm.currentTabInfo; tm.switchToTab(0); await ruhig(500); tm.switchToTab(t); await ruhig(500);
+              return { mode: t.mode.name, url: t.browser?.contentDocument?.documentURI, tabs: tm.tabInfo.map(t => t.mode.name) };""")
+            out["an"] = m.js(r"""
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); await a.enable();
+              await bis(() => typeof w.__mcSideFloatState == "function", "halo.spaces geladen", 10000); await ruhig(1500);
+              return { mode: tm.currentTabInfo.mode.name, hidden: w.gSpacesToolbar.isHidden,
+                       folder: tm.tabInfo[0].chromeBrowser?.contentWindow?.paneLayout?.folderPaneSplitter?.isCollapsed };""" % ADDON_ID)
+            out["ruhend"] = m.js(info)
+            to(500); to(1)
+            out["on"] = state("on")
+            out["float"] = m.js(info)
+            to(700)
+            out["off"] = state("off")
+        finally:
+            m.js("""if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating, "Seitenleiste wieder da", 3000).catch(() => {}); }
+              const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+              const a = await AddonManager.getAddonByID("%s"); if (!a.isActive) await a.enable();
+              for (const t of [...tm.tabInfo].slice(1)) tm.closeTab(t); await ruhig(400); return 1;""" % ADDON_ID)
+        f = out.get("float") or {}
+        items = f.get("items") or []
+        # alle Einträge samt Fußzeile („Thunderbird Settings“) sichtbar und anwählbar (vorher endete die schwebende Leiste
+        # mit der kurzen Add-on-Liste, darunter fehlte alles)
+        ok = (out.get("on") == "on" and f.get("mode") == "contentTab" and f.get("float") and len(items) >= 4
+              and any(i["id"] == "preferencesButton" for i in items)
+              and all(i["h"] > 0 and i["op"] == "1" and i["vis"] == "visible" and i["hit"] for i in items))
+        return ok, f"{out}"
+    check("Add-ons: ausgeblendete Seitenleiste schwebt nach Deaktivieren und Aktivieren von halo.spaces mit allen Einträgen ein", addons_reenable_float, results)
+
     def pref_embedded_late_l10n():
         # langsamer Start (GitHub-Issue #32, Linux-CI): ist die Fußzeile mit „Account Settings“/„Add-ons and Themes“
         # beim Aufbau noch nicht übersetzt, kommen die Kategorien nach, sobald sie es ist – nie halo.spaces allein,

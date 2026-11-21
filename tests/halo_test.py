@@ -13,6 +13,7 @@ Ergebnis: eine Zeile je Prüfung (OK/FEHLER), Rückgabewert 0 nur wenn alles OK 
 """
 
 import argparse
+import base64
 import glob
 import json
 import os
@@ -24116,7 +24117,7 @@ Neu
     check("Bereiche-Leiste: Tooltips nur mit Namen", space_tips, results)
 
     def spaces_current_fill():
-        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 36 %, als
+        # aktiver Bereich: gefülltes Symbol, Fläche als Kachel d2h (Maintainer 14.11.2026; Grundfläche hell 54 % seit Variante C 17.11.2026, dunkel 42 % seit Variante A 20.11.2026, als
         # Farbe, damit der Wechsel weich überblendet, darüber Lichtkante und Restverlauf; Werte am Bild in sidebar_tile_d2h), Kante innen, kurzer Schatten und Lichthof rechts, kein Chevron;
         # inaktive Kacheln 8 % mit Umriss-Symbol, auch beim Überfahren unverändert; Kachel 48 px breit
         res = m.js(r"""
@@ -24143,8 +24144,8 @@ Neu
         dark = res.pop("dark", False)
         icons = {"mail": "envelope-fill", "calendar": "calendar-fill", "addressbook": "contacts-fill", "settings": "settings-fill"}
         # Schatten kurz (2 px 4 px – nicht bis in die Nachbarkachel), feine Kante innen, Lichthof 6 px nach rechts
-        # (hell Variante C, 17.11.2026: 54 %, ohne weißen Glanz, also nur der Restverlauf)
-        ok = all(v["bg"] == (36 if dark else 54) and v["grad"] == (2 if dark else 1) and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
+        # (hell Variante C, 17.11.2026: 54 %; seit Variante A, 20.11.2026, hell und dunkel mit Verlauf und Restverlauf, dunkel 42 %)
+        ok = all(v["bg"] == (42 if dark else 54) and v["grad"] == 2 and "2px 4px" in v["shadow"] and "inset" in v["shadow"] and "6px 0px 12px -4px" in v["shadow"]
                  and v["icon"] == icons[k] and v["fill"] and not v["chevron"] and v["tile"] == 48
                  and v["other"]["bg"] == v["other"]["hover"] == 8 and not v["other"]["fill"] and not v["other"]["shadow"] for k, v in res.items())
         return ok, f"{res}"
@@ -26370,8 +26371,23 @@ Neu
       const cy = tr.top + tr.height * 0.55, oy = orr.top + orr.height * 0.55;
       return { id: tile.id, float: bar.hasAttribute("mc-float"), c: hex(tile), oc: hex(other),
         bg: px(tr.left - 10, oy), obg: px(orr.left - 10, oy), ringL: px(tr.left - 3, cy), ringT: px(tr.left + tr.width / 2, tr.top - 2),
-        faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
+        faceL: px(tr.left + 6, cy), faceR: px(tr.right - 9, cy), faceT: px(tr.left + 6, tr.top + 5), faceB: px(tr.left + 6, tr.bottom - 5), edgeL: px(tr.left, cy), edgeR: px(tr.right - 1, cy),
         halo: px(tr.right + 3, cy), idle: px(orr.left + 6, oy) };"""
+
+    # mit HALO_SHOTS: Ausschnitt der Leiste mit der aktiven Kachel (Faktor 2) für Vorher-/Nachher-Bilder des Designers
+    tile_shot = r"""
+      const bar = d.getElementById("spacesToolbar"), r = bar.getBoundingClientRect();
+      const bm = await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width + 90, Math.min(r.height, 400)), 2, "white");
+      const cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+      cv.getContext("2d").drawImage(bm, 0, 0); return cv.toDataURL("image/png");"""
+
+    def tile_shot_save(name, dark):
+        folder = os.environ.get("HALO_SHOTS")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+            data = m.js(tile_shot).split(",", 1)[1]
+            with open(os.path.join(folder, f"kachel-{name}-{'dunkel' if dark else 'hell'}.png"), "wb") as f:
+                f.write(base64.b64decode(data))
 
     def sidebar_tile_d2h():
         # Aktive Kachel als Lichtquelle (Zielbild d2h, Maintainer 14.11.2026: „d2h ist jetzt zielbild.“), gemessen am Bild
@@ -26395,6 +26411,7 @@ Neu
                 out[tile] = m.js(f"""d.getElementById("{tile}").click();
                   await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000);
                   await ruhig(900); await takt(2);""" + tile_measure)
+                tile_shot_save(tile, out["dark"])
             m.js("""await toMail(); d.getElementById("spacesPinnedButton").click();
               await bis(() => w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
               await ruhig(600); return 1;""")
@@ -26403,6 +26420,7 @@ Neu
                   await bis(() => d.getElementById("{tile}").classList.contains("current"), "Bereich {tile}", 5000); await ruhig(700); return 1;""")
                 to(400); to(1)
                 out[f"float-{tile}"] = m.js("""try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 2500); } catch {} await ruhig(300); await takt(2);""" + tile_measure)
+                tile_shot_save(f"float-{tile}", out["dark"])
                 to(700)
                 m.js('try { await bis(() => w.__mcSideFloatState?.() == "off", "weg", 2500); } catch {} return 1;')
         finally:
@@ -26419,32 +26437,38 @@ Neu
         for k, r in out.items():
             if not r:
                 bad.append(k); continue
-            a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "edgeL", "edgeR")}
+            a = {n: alpha(r[n], r["bg"], r["c"]) for n in ("faceL", "faceR", "faceT", "faceB", "edgeL", "edgeR")}
             a["idle"] = alpha(r["idle"], r["obg"], r["oc"])
             werte[k] = a
-            want_l, want_r = (0.37, 0.43) if dark else (0.54, 0.54)
+            # (Variante A, 20.11.2026: dunkel 42 % links bis rund 49 % rechts, gemessen ~42 / ~47 %; hell 54 %, mit Verlauf in der Mitte ~56 %)
+            want_l, want_r = (0.42, 0.47) if dark else (0.56, 0.56)
             if not (abs(a["faceL"] - want_l) <= 0.05 and abs(a["faceR"] - want_r) <= 0.05):
                 bad.append(f"{k}-Fläche")
             if not (a["edgeR"] >= a["edgeL"] + 0.1 and a["edgeL"] >= a["faceL"] + 0.05):
                 bad.append(f"{k}-Kante")
+            # Körper (Variante A, Maintainer 20.11.2026: „Variante A bitte auf die liste“): hell oben heller, unten satter in der
+            # Spacefarbe (gemessen oben ~46 %, unten ~65 %); dunkel oben heller, unten dunkler (Deckkraft oben über unten)
+            if (a["faceB"] - a["faceT"] if not dark else a["faceT"] - a["faceB"]) < 0.08:
+                bad.append(f"{k}-Verlauf")
             if abs(a["idle"] - 0.08) > 0.03:
                 bad.append(f"{k}-inaktiv")
             # Lichthof rechts: neben der Kachel zur Spacefarbe hin getönt, links (Grund) nicht
             if not (dist(r["halo"], r["bg"]) >= 4 and dist(r["halo"], r["c"]) < dist(r["bg"], r["c"])):
                 bad.append(f"{k}-Lichthof")
-            # hell (Variante C, 17.11.2026): farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt;
+            # farbiger Hof rundum, links und oben neben der Kachel zur Spacefarbe hin getönt: hell seit Variante C (17.11.2026),
+            # dunkel seit Variante A (20.11.2026) leiser mit 28 %
             ring = [dist(r[n], r["bg"]) >= 4 and dist(r[n], r["c"]) < dist(r["bg"], r["c"]) for n in ("ringL", "ringT")]
-            if not dark and not all(ring):
+            if not all(ring):
                 bad.append(f"{k}-Hof rundum")
             if k.startswith("float-") and r.get("float") is not True:
                 bad.append(f"{k}-nicht schwebend")
         for tile in tiles:
             e, f = werte.get(tile), werte.get(f"float-{tile}")
-            if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "idle")):
+            if e and f and any(abs(e[n] - f[n]) > 0.04 for n in ("faceL", "faceR", "faceT", "faceB", "idle")):
                 bad.append(f"{tile}-schwebend anders")
         return not bad, f"abweichend: {bad} dunkel={dark} {werte}"
-    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 36 bis 44 %), Kante rechts kräftiger, Lichthof rechts, hell farbiger Hof rundum, inaktive Kacheln 8 %, "
-          "alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
+    check("Seitenleiste: aktive Kachel d2h am Bild – Fläche 54 % (dunkel 42 bis 49 %) mit Verlauf von oben nach unten, Kante rechts kräftiger, Lichthof rechts, "
+          "farbiger Hof rundum (dunkel leiser), inaktive Kacheln 8 %, alle Spaces, eingeblendet und schwebend gleich", sidebar_tile_d2h, results)
 
     def sidebar_glow_switch_line():
         # Schalter für den Lichtschein aus (Maintainer 14.11.2026: „wenn wir via settings den lichtkegel deaktivieren muss natürlich

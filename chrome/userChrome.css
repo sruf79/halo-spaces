@@ -4181,14 +4181,16 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
    1 px (28 % hell, 35 % dunkel), rechts 1 px kräftiger (55 % / 60 %) mit weichem Saum; Lichtkante oben, leiser
    Schatten unten; gerichteter Lichthof nur nach rechts zur Seitenleiste. Gilt unabhängig vom Lichtschein
    (der Schalter ändert die Kachel nicht), eingeblendet und schwebend gleich. Inaktive Kacheln 8 % („bezüglich
-   punkt 2 folge ich der empfehlung mit 8%.“). Der Ersatz-Bereich auf dem Platz des Chats wie alle Kacheln */
+   punkt 2 folge ich der empfehlung mit 8%.“). Der Ersatz-Bereich auf dem Platz des Chats wie alle Kacheln.
+   Hell und dunkel gleich plastisch und leuchtend (Variante A, Maintainer 20.11.2026: „Variante A bitte auf die liste“):
+   hell mit Verlauf (oben Weiß 14 %, unten satter in der Spacefarbe), dunkel Fläche 42 %, kräftigerer Verlauf,
+   Lichtkante 28 % und leiser farbiger Hof rundum wie hell */
 :root {
   --mt-tile-idle: 8%;
   /* (hell leuchtend statt pastellig, Variante C, Maintainer 17.11.2026: „ja c ist gut“; vorher Fläche 34 %, Kante
      28 / 55 %, Saum 30 %, Hof 40 %, weißer Glanz .26, Lichtkante .7; dazu ein farbiger Hof rundum) */
   --mt-tile-face: 54%;
   --mt-tile-face-lift: 0%;
-  --mt-tile-gloss: none;
   --mt-tile-edge: 50%;
   --mt-tile-edge-r: 80%;
   --mt-tile-seam: 50%;
@@ -4201,17 +4203,28 @@ menupopup > .folderMenuItem:is([_moz-menuactive]:not([disabled]), [disabled]) {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --mt-tile-face: 36%;
-    /* über 36 % gelegt ergibt rechts 44 % */
+    /* (Variante A 20.11.2026; vorher 36 %, Verlauf Weiß 10 % / Schwarz 12 %, Lichtkante .22, kein Hof rundum) */
+    --mt-tile-face: 42%;
+    /* über 42 % gelegt ergibt rechts rund 49 % */
     --mt-tile-face-lift: 12.5%;
-    --mt-tile-gloss: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.12));
     --mt-tile-edge: 35%;
     --mt-tile-edge-r: 60%;
     --mt-tile-seam: 35%;
     --mt-tile-halo: 45%;
-    --mt-tile-ring: 0%;
-    --mt-tile-top: rgba(255, 255, 255, 0.22);
+    --mt-tile-ring: 28%;
+    --mt-tile-top: rgba(255, 255, 255, 0.28);
     --mt-tile-drop: 0 2px 4px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Verlauf über der Fläche: hell zur Spacefarbe hin, darum an der Kachel (var(--c) gilt erst dort) */
+#spacesToolbar .spaces-toolbar-button.current {
+  --mt-tile-gloss: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 45%, color-mix(in srgb, var(--c) 24%, transparent));
+}
+
+@media (prefers-color-scheme: dark) {
+  #spacesToolbar .spaces-toolbar-button.current {
+    --mt-tile-gloss: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.14));
   }
 }
 

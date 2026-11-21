@@ -7522,41 +7522,6 @@ const CSS = `
   background: #fff;
   box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
 }
-/* Absenderkreis plastisch wie die Knöpfe (Variante A, Maintainer 18.11.2026:
-   „bezüglich knöpfe - variante A bitte“): Verlauf mit hellerer Oberkante,
-   Lichtkante oben, dunklere Unterkante und feiner Rand als Auflage über dem
-   Kreis (::after, damit sie auch über Foto und Logo liegt), leiser Schatten
-   wie die Kapseln; kein farbiger Schein (bleibt dem Hauptknopf) */
-#threadTree tr[is="thread-card"] .mc-avatar:not(.mc-has-img) {
-  background: linear-gradient(to bottom, color-mix(in srgb, #B4CAE4 86%, #fff), #A0B0D6 55%, color-mix(in srgb, #8A97C5 92%, #000));
-}
-#threadTree tr[is="thread-card"] .mc-avatar,
-#threadTree tr[is="thread-card"] .mc-avatar.mc-has-img {
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.14), 0 3px 5px -3px rgba(0, 0, 0, 0.32);
-}
-#threadTree tr[is="thread-card"] .mc-avatar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62), inset 0 -1px 0 color-mix(in srgb, #8A97C5 62%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
-}
-#threadTree tr[is="thread-card"] .mc-avatar.mc-has-img::after {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 rgba(0, 0, 0, 0.13), inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
-}
-@media (prefers-color-scheme: dark) {
-  #threadTree tr[is="thread-card"] .mc-avatar,
-  #threadTree tr[is="thread-card"] .mc-avatar.mc-has-img {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-  }
-  #threadTree tr[is="thread-card"] .mc-avatar::after {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 color-mix(in srgb, #8A97C5 55%, #000), inset 0 0 0 0.5px color-mix(in srgb, #8A97C5 70%, #000);
-  }
-  #threadTree tr[is="thread-card"] .mc-avatar.mc-has-img::after {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
-  }
-}
 #threadTree tr[is="thread-card"] .mc-avatar img {
   width: 100%;
   height: 100%;
@@ -9359,7 +9324,6 @@ class CardEnhancer {
         img.hidden = true;
         letters.textContent = initialOf(typeof name == "function" ? name() : name, card);
         letters.hidden = false;
-        el.classList.remove("mc-has-img");
       };
       // kein Ersatztext „Profile picture …“, auch nicht während des Ladens
       img.removeAttribute("data-l10n-id");
@@ -9409,10 +9373,6 @@ class CardEnhancer {
           }
         }
         fixAvatar(this, opts.recipient || name, c);
-        // Foto sichtbar: Klasse für die Auflage des plastischen Kreises (das Bild
-        // liegt im Shadow DOM, CSS sieht es von außen nicht)
-        const shown = this.shadowRoot?.querySelector("img");
-        this.classList.toggle("mc-has-img", !!shown && !shown.hidden && !c?.isMailList);
         // Kartenansicht wie macOS-Kontakte: nur Name bzw. Firma, nie die E-Mail-Adresse
         // (zweite Zeile: Firma; ohne Namen steht die Firma oben, nur ohne beides die Adresse)
         const row = this.closest?.('tr[is="ab-card-row"]');
@@ -9518,8 +9478,6 @@ class CardEnhancer {
         fixAvatar(el, () =>
           el.closest(".card-container")?.querySelector(".name")?.textContent ||
           cw.document.getElementById("viewContactName")?.textContent || "");
-        const shown = el.shadowRoot?.querySelector("img");
-        el.classList.toggle("mc-has-img", !!shown && !shown.hidden && !el.classList.contains("is-mail-list"));
       }
     };
 

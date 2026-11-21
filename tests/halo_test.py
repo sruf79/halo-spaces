@@ -10644,6 +10644,72 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Mail: mit gewählter Mail und Today-Pane überlappt kein Knopf der Toolbar-Zeile einen anderen oder den Today-Kopf, Ordner und Uhrzeit im Mailkopf nicht (maximiert, kleiner Bildschirm)", mail_no_overlap, results)
 
+    def mail_not_under_today():
+        # Mit gewählter Mail und Today-Pane lief der Mailbereich unter die Pane (1500 px: 18 px, der rechte Rand der
+        # Hinweiskarte war verdeckt): Thunderbird hält Ordner- und Mailliste fest und gibt der Mail den Rest, auch unter
+        # ihren 480 px. Jetzt gibt die Mailliste nach (spaces.css), danach die Mail: der Mailbereich endet vor der Pane,
+        # die Karte hat rechts denselben Abstand wie links; Pane zu → Liste wieder in ihrer gemerkten Breite. Beim Ein- und
+        # Ausblenden gleiten Liste, erster Knopf über der Mail und Trennlinie der Toolbar-Zeile (kein Sprung, auch nicht
+        # am Ende). Kleiner Bildschirm (1280 px, vorgetäuscht): auch dann nichts unter der Pane, Liste und Mail ≥ 300 (Thunderbirds Grenzen)
+        res = m.js(MESSAGE_JS + r"""
+          const tpWas = !!w.TodayPane?.isVisible, out = {}, ad = a3.document;
+          const screenDesc = Object.getOwnPropertyDescriptor(w, "screen");
+          const br = () => a3.browsingContext.embedderElement.getBoundingClientRect();
+          const firstBtn = () => [...d.querySelectorAll("#unifiedToolbarContent > li")].find(li => li.getAttribute("item-id") != "spacer" && li.getBoundingClientRect().width > 0);
+          const lineVar = () => parseFloat((d.getElementById("unifiedToolbarContainer") || d.documentElement).style.getPropertyValue("--mc-list-right"));
+          const meas = () => {
+            const off = br().left, mp = ad.getElementById("messagePane").getBoundingClientRect(), tp = d.getElementById("today-pane-panel");
+            const end = Math.min(br().right, w.TodayPane?.isVisible ? tp.getBoundingClientRect().left : w.innerWidth);
+            const r = { list: Math.round(ad.getElementById("threadPane").getBoundingClientRect().width * 10) / 10,
+              msg: Math.round(mp.width), over: Math.round((off + mp.right - end) * 10) / 10 };
+            // Hinweiskarte der Mailingliste (#mcListBanner): Abstand links und rechts (rechts bis zur sichtbaren Kante)
+            const mb = a3.messageBrowser, n = mb?.contentDocument?.getElementById("mcListBanner"), nr = n?.getBoundingClientRect();
+            if (nr?.width) {
+              const mbl = off + mb.getBoundingClientRect().left;
+              r.inset = [Math.round(nr.left * 10) / 10, Math.round((Math.min(end, off + mp.right) - (mbl + nr.right)) * 10) / 10];
+            }
+            return r;
+          };
+          // Ein-/Ausblenden Bild für Bild: rechte Kante der Liste, erster Knopf, Trennlinie der Zeile
+          const toggle = async on => {
+            if (!!w.TodayPane?.isVisible == on) return null;
+            const frames = [], off = br().left, sample = () => frames.push([off + ad.getElementById("threadPane").getBoundingClientRect().right,
+              firstBtn()?.getBoundingClientRect().left ?? 0, lineVar()]);
+            let run = true; const loop = () => { if (!run) return; sample(); w.requestAnimationFrame(loop); };
+            sample(); d.getElementById("mcTodayToggle").click(); w.requestAnimationFrame(loop);
+            await bis(() => !!w.TodayPane?.isVisible == on && !d.getElementById("today-pane-panel").__mcAnimating, "Today-Pane " + on, 4000);
+            await ruhig(1200); run = false; sample();
+            // größter Schritt je Bild (Liste, Knopf, Linie) und Gesamtweg der Liste
+            const step = k => Math.round(Math.max(0, ...frames.slice(1).map((f, i) => Math.abs(f[k] - frames[i][k]))) * 10) / 10;
+            return { n: frames.length, list: step(0), btn: step(1), line: Number.isFinite(frames[0][2]) ? step(2) : 0,
+                     weg: Math.round(Math.abs(frames.at(-1)[0] - frames[0][0]) * 10) / 10 };
+          };
+          const settle = () => stabil(() => [meas(), w.innerWidth], 4000);
+          try {
+            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000);
+            await toggle(false); await settle(); out.zu = meas();
+            out.einAnim = await toggle(true); await settle(); out.auf = meas();
+            out.ausAnim = await toggle(false); await settle(); out.zuWieder = meas();
+            await toggle(true); await settle(); out.aufWieder = meas();
+            out.want = Services.prefs.getIntPref("extensions.mailcards.listWidth", 460);
+            // kleiner Bildschirm: Mindestbreite des Fensters endet am Bildschirm
+            w.screen = { availWidth: 1280, availHeight: 860, availLeft: 0, availTop: 0, width: 1280, height: 900, left: 0, top: 0 };
+            w.dispatchEvent(new w.Event("resize")); await ruhig(300); d.documentElement.style.minWidth = "";
+            w.resizeTo(1280, 860); await until(() => w.outerWidth == 1280, 3000); await settle(); out.klein = meas(); out.kleinIw = w.innerWidth;
+          } finally {
+            if (screenDesc) Object.defineProperty(w, "screen", screenDesc); else delete w.screen;
+            w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); if (!!w.TodayPane?.isVisible != tpWas) await toggle(tpWas);
+          }
+          return out;""")
+        lay = ("zu", "auf", "zuWieder", "aufWieder", "klein")
+        ok = (all(res[k]["over"] <= 0.5 for k in lay)
+              and all("inset" not in res[k] or abs(res[k]["inset"][0] - res[k]["inset"][1]) <= 2 for k in lay)
+              and all(res[k]["list"] >= 299.5 and res[k]["msg"] >= 300 for k in lay)
+              and abs(res["zu"]["list"] - res["want"]) <= 1 and abs(res["zuWieder"]["list"] - res["want"]) <= 1
+              and all(a and a["list"] <= 6 and a["btn"] <= 6 and a["line"] <= 6 for a in (res["einAnim"], res["ausAnim"])))
+        return ok, f"{res}"
+    check("Mail: mit gewählter Mail und Today-Pane (1500 px und kleiner Bildschirm) läuft der Mailbereich nicht unter die Pane, Hinweiskarte rechts mit gleichem Abstand wie links; Mailliste gibt nach und hat ohne Pane wieder ihre Breite, beim Ein-/Ausblenden gleiten Liste, Knöpfe und Trennlinie ohne Sprung", mail_not_under_today, results)
+
     def ab_sidebar_frames():
         # Adressbuch mit gewähltem Kontakt, so schmal wie möglich (bis 1280 px): Seitenleiste (ab Dia 2/4 samt Bereiche-Leiste) zehnmal aus- und
         # einblenden – keine verlorenen Bilder (Abstand über dem 1,6-Fachen des üblichen) und kein Sprung der Bücherliste

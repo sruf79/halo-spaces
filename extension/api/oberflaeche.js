@@ -1023,6 +1023,13 @@ class EnhancerOberflaeche {
         return;
       }
       const want = Services.prefs.getIntPref(LIST_WIDTH_PREF, LIST_WIDTH_DEFAULT);
+      // Liste von spaces.css auf den Platz begrenzt (max-width, z. B. mit
+      // Today-Pane): so lassen – die Mail hat dann schon nur ihre Mindestbreite,
+      // ein Nachführen gäbe ihr hier weniger und danach (Pane zu) eine Lücke
+      const cap = parseFloat(win.getComputedStyle(threadPane).maxWidth);
+      if (Number.isFinite(cap) && list.width < want - 0.5 && list.width >= cap - 0.5) {
+        return;
+      }
       // Platz der Liste bis zum Teiler (nicht nur die Liste selbst: Thunderbird
       // hält sie beim Ändern der Fenstergröße fest, die Spalte wächst trotzdem –
       // daneben bliebe eine Lücke)
@@ -1083,6 +1090,12 @@ class EnhancerOberflaeche {
       const browserEl = win.browsingContext.embedderElement;
       // (schwebende Seitenleiste: die Ordnerliste liegt nur darüber)
       if (!content || !browserEl || win.closed || top.__mcSideFloat) {
+        return;
+      }
+      // Today-Pane gleitet und führt die Mailliste samt Knöpfen und Trennlinie
+      // selbst mit (kalenderfenster.js): hier nichts nachmessen, sonst rückten
+      // die Knöpfe doppelt
+      if (top.document.getElementById("today-pane-panel")?.__mcListRide) {
         return;
       }
       // Bereiche-Leiste animiert: nur die Kanten an der Toolbar-Zeile mitführen (wenige Schreibzugriffe), das

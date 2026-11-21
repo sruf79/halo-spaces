@@ -17371,6 +17371,28 @@ notification-message toolbarbutton.notification-button > .toolbarbutton-menubutt
   min-width: 480px !important;
 }
 
+/* Kein Bereich unter der Today-Pane: Thunderbird hält Ordnerliste und
+   Mailliste mit „width: …px !important“ fest und gibt der Mail den Rest
+   (Teiler „resize-with-window“). Reichte der Rest nicht für die 480 px, lief
+   das Raster rechts aus dem Bild (bei 1500 px Fensterbreite mit Today-Pane
+   18 px, der rechte Kartenrand war verdeckt). Dann gibt zuerst die Mailliste
+   nach (bis 300 px), danach die Mail (bis 300 px, beides Thunderbirds Grenze).
+   --mt-3p-room: Platz für Liste und Mail (Fenster ohne Ordnerliste und die
+   beiden 1-px-Teiler); --mt-list-hold hält die Liste während der Animation
+   der Today-Pane fest (kalenderfenster.js) */
+body.layout-vertical {
+  --mt-list-min: 300px;
+  --mt-3p-room: calc(100vw - var(--folderPaneSplitter-width, 0px) - 2px);
+}
+
+body.layout-vertical #threadPane {
+  max-width: var(--mt-list-hold, max(var(--mt-list-min), calc(var(--mt-3p-room) - 480px))) !important;
+}
+
+body.layout-vertical #messagePane {
+  min-width: max(300px, min(480px, calc(var(--mt-3p-room) - var(--mt-list-min)))) !important;
+}
+
 /* Absendername etwas größer, wie bei Apple – einzeilig, notfalls mit „…“ */
 #expandedfromBox :is(.recipient-multi-line-name, .recipient-single-line) {
   font-size: calc(15px * var(--mt-font-scale, 1)) !important;

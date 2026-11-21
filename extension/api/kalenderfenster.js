@@ -1166,6 +1166,24 @@ class EnhancerKalender {
     const searchLi = kidsAll.find(li => li.getAttribute("item-id") == "search-bar");
     const fromSearchW = searchLi && fromAll[kidsAll.indexOf(searchLi)] != null ? searchLi.getBoundingClientRect().width : null;
     const fromBox = kidsAll.map((li, i) => (fromAll[i] != null ? { top: li.getBoundingClientRect().top, display: w.getComputedStyle(li).display } : null));
+    // Mailliste: spaces.css begrenzt sie auf den Platz neben der Today-Pane
+    // (Mail mindestens 480 px). Ändert sich ihre Breite dadurch, gleitet sie
+    // wie die Knöpfe darüber (--mt-list-hold pro Bild) statt am Anfang bzw.
+    // Ende um bis zu 18 px zu springen; die Trennlinie in der Toolbar-Zeile
+    // gleitet mit
+    const listEl = (() => {
+      const doc = d.getElementById("tabmail")?.currentTabInfo?.chromeBrowser?.contentDocument;
+      return doc?.documentURI?.startsWith("about:3pane") && doc.body?.classList.contains("layout-vertical") ? doc.getElementById("threadPane") : null;
+    })();
+    const listFrom = listEl?.getBoundingClientRect().width || null;
+    const lineVars = ["--mc-list-right", "--mc-lh-right"];
+    const lineOf = () => lineVars.map(v => parseFloat(barTarget(d).style.getPropertyValue(v)));
+    const lineFrom = lineOf();
+    let listTo = null, lineTo = null;
+    const listToNow = () => {
+      listTo = listEl?.isConnected ? listEl.getBoundingClientRect().width || null : null;
+      lineTo = lineOf();
+    };
     if (showing) {
       command.doCommand();
     }
@@ -1237,6 +1255,8 @@ class EnhancerKalender {
           f();
         } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
+      // Endmaß der Mailliste (die Pane liegt noch im Fluss)
+      listToNow();
     }
     panel.__mcAnimating = true;
     panel.setAttribute("data-mc-anim", "true"); // Mindestbreite (CSS) solange aussetzen
@@ -1321,7 +1341,17 @@ class EnhancerKalender {
         } catch {} // Kandidat fürs Protokoll: Aktualisierung eines Abstands fehlgeschlagen (Fenster schon geschlossen ist gewollt)
       }
       panel.__mcAnimating = true;
+      // Endmaß der Mailliste (die Pane liegt schon über dem Inhalt)
+      listToNow();
     }
+    // Liste gleitet nur, wenn sich ihre Breite ändert; solange hält
+    // __mcListRide das Nachmessen der Toolbar-Kanten an (oberflaeche.js) –
+    // Knöpfe und Trennlinie gleiten hier mit derselben Kurve
+    const listRide = listFrom && listTo && Math.abs(listTo - listFrom) >= 0.5;
+    if (listRide) {
+      panel.__mcListRide = true;
+    }
+    const lineRide = listRide && lineFrom.every(Number.isFinite) && lineTo.every(Number.isFinite);
     const toAll = kidsAll.map(place);
     // gleiten: vorher und nachher sichtbar; erscheinen: werden eingeblendet
     const riders = kidsAll.filter((_, i) => fromAll[i] != null && toAll[i] != null);
@@ -1377,6 +1407,12 @@ class EnhancerKalender {
         editBlock.style.transform = value ? `translateX(${-value * rtl}px)` : "";
       }
       moveBanner(value);
+      if (listRide && listEl.isConnected) {
+        listEl.style.setProperty("--mt-list-hold", `${(listFrom + (listTo - listFrom) * p).toFixed(2)}px`);
+        if (lineRide) {
+          lineVars.forEach((v, i) => barTarget(d).style.setProperty(v, `${(lineFrom[i] + (lineTo[i] - lineFrom[i]) * p).toFixed(2)}px`));
+        }
+      }
     };
     if (showing) {
       setW(0);
@@ -1451,6 +1487,8 @@ class EnhancerKalender {
       }
       row?.removeAttribute("data-mc-tp-anim");
       row?.style.removeProperty("--mc-tt-off");
+      listEl?.style.removeProperty("--mt-list-hold");
+      delete panel.__mcListRide;
       // Toolbar einmal neu anordnen (während der Animation ausgesetzt)
       for (const f of [...(this.sideEdgeUpdaters || []), ...(this.offsetUpdaters || [])]) {
         try {

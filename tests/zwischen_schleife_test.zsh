@@ -216,4 +216,76 @@ pruefe "Wiederholung über ci-wiederholen.sh (flackern.log, Hinweis beim zweiten
 pruefe "zwischen-release.zsh: Push- und Windows-Lauf vor ROT einmal wiederholt" "$(grep -vE '^[[:space:]]*#' $ZR)" \
   'nach_wiederholung \$\{L%% \*\} 150' 'nach_wiederholung \$\{W%% \*\} 60' 'auch in der Wiederholung rot' 'auch in der Wiederholung nicht grün'
 
+# Director statt Wortliste (Maintainer 21.11.2026): Urteil, Beleg, Gedächtnis, Schatten/an/aus, Grenzen – ohne Claude
+# (HALO_ZS_DIRECTOR ersetzt den Aufruf), Probe über --urteil in einem Wegwerf-Repo
+D=$T/dir
+git init -q -b main $D; git -C $D config user.email t@t; git -C $D config user.name t
+mkdir -p $D/chrome $D/tests $D/extension; print a > $D/chrome/a.css; git -C $D add -A; git -C $D commit -qm 'Mail: alter Fix'; DALT=$(git -C $D rev-parse --short HEAD); git -C $D tag v1.0.0
+print b > $D/tests/t.txt; git -C $D add -A; git -C $D commit -qm 'Tests: Prüfung stabilisiert'; DTEST=$(git -C $D rev-parse --short HEAD)
+print c > $D/chrome/a.css; git -C $D add -A; git -C $D commit -qm 'Kalender: Absturz beim Öffnen behoben'; DFIX=$(git -C $D rev-parse --short HEAD)
+DS1=$(git -C $D rev-parse HEAD)
+U() {   # <Stand> [VAR=Wert …]: ein Urteil über --urteil (Protokoll, Gedächtnis, Ergebnisse in $T)
+  local st=$1; shift
+  env HALO_REPO_MAIN=$D HALO_ZS_URTEIL_DATEI=$T/u.txt HALO_ZS_URTEIL_MODUS_DATEI=$T/modus.txt HALO_ZS_GEDAECHTNIS=$T/ged.md \
+    HALO_ZS_ERGEBNIS=$T/erg.txt HALO_ZS_LOG=$T/zs.log HALO_PAUSEN_DATEI=$T/p2.txt HALO_ZS_5H=40 HALO_ZS_FENSTER_REST=3600 \
+    ZS_URTEIL= HALO_ZS_SPUERBAR=git "$@" zsh $SKRIPT --urteil $st pruef/d 2>&1
+}
+pruefe "Director: Schatten ist Standard – Director „nein“, Wortliste (Absturz) entscheidet ja, Zeile im Protokoll" \
+  "$(U $DS1 HALO_ZS_DIRECTOR='nein Nur ein kleiner Fix.'; cat $T/u.txt)" 'Director \(schatten\): nein – Nur ein kleiner Fix\. \(Quelle director\); Wortliste ja; Entscheidung ja' \
+  '^Entscheidung: ja$' "\| ${DS1[1,12]} \| pruef/d \| schatten \| nein \| - \| - \| Nur ein kleiner Fix\. \| wortliste ja \| quelle director \| schlüssel [0-9a-f]{12}$"
+pruefe "Director: gleiches Urteil je Schlüssel gemerkt (kein neuer Aufruf, keine neue Zeile)" \
+  "$(U $DS1 HALO_ZS_DIRECTOR="ja $DFIX 1 Absturz."; print -r -- "zeilen=$(wc -l < $T/u.txt | tr -d ' ')")" 'Director \(schatten\): nein .*Quelle gemerkt' 'zeilen=1$'
+git -C $D switch -q -c pruef/d2; git -C $D commit -q --allow-empty -m 'Tests: leer'; DS2=$(git -C $D rev-parse HEAD); git -C $D switch -q main
+pruefe "Director: neuer Stand ohne neuen Commit unter extension/chrome – „nein“ gilt weiter" \
+  "$(U $DS2 HALO_ZS_DIRECTOR="ja $DFIX 1 Absturz.")" 'Quelle gemerkt'
+print -r -- an > $T/modus.txt
+print d > $D/extension/x.js; git -C $D add -A; git -C $D commit -qm 'Mail: Senden scheiterte bei Anhängen'; DFIX2=$(git -C $D rev-parse --short HEAD); DS3=$(git -C $D rev-parse HEAD)
+pruefe "Director an (Modus aus Datei): neuer Commit unter extension/ → neues Urteil, „ja“ mit gültigem Beleg entscheidet gegen die Wortliste" \
+  "$(U $DS3 HALO_ZS_DIRECTOR="Ich lese die Commits.
+ja $DFIX2 2 Senden mit Anhang war kaputt.")" "Director \(an\): ja ${DFIX2} Kriterium 2 – Senden mit Anhang war kaputt\. \(Quelle director\); Wortliste ja; Entscheidung ja"
+rm -f $T/u.txt
+pruefe "Director an: „nein“ schlägt die Wortliste (Absturz im Text)" "$(U $DS3 HALO_ZS_DIRECTOR='nein Einzelmeldung, kleiner Fix.')" 'Entscheidung nein' '^Entscheidung: nein$'
+rm -f $T/u.txt
+pruefe "Director an: Beleg außerhalb von extension/chrome wird „nein“" "$(U $DS3 HALO_ZS_DIRECTOR="ja $DTEST 1 x")" 'nein .*Beleg ungültig \(Commit [0-9a-f]+ ändert nichts unter extension/ oder chrome/\)' '^Entscheidung: nein$'
+rm -f $T/u.txt
+pruefe "Director an: Beleg schon im letzten Tag wird „nein“" "$(U $DS3 HALO_ZS_DIRECTOR="ja $DALT 1 x")" 'Beleg ungültig \(Commit [0-9a-f]+ ist schon in v1\.0\.0\)'
+rm -f $T/u.txt
+pruefe "Director an: Kriterium außerhalb 1–4 wird „nein“" "$(U $DS3 HALO_ZS_DIRECTOR="ja $DFIX2 5 x")" 'Beleg ungültig \(Kriterium „5“ nicht 1–4\)'
+rm -f $T/u.txt
+pruefe "Director an: Commit nicht im Stand wird „nein“" "$(U $DS1 HALO_ZS_DIRECTOR="ja $DFIX2 1 x")" 'Beleg ungültig \(Commit [0-9a-f]+ liegt nicht im Stand\)'
+rm -f $T/u.txt
+pruefe "Director an: ohne Ergebniszeile Ausfall, Rückfall auf die Wortliste" "$(U $DS3 HALO_ZS_DIRECTOR='Fehler: Netz')" 'Director \(an\): ausfall – ohne Ergebniszeile.*Wortliste ja; Entscheidung ja'
+pruefe "Director an: Ausfall ist nicht gemerkt (nächster Takt fragt neu)" "$(U $DS3 HALO_ZS_DIRECTOR='nein jetzt geurteilt.')" 'Director \(an\): nein – jetzt geurteilt\. \(Quelle director\)'
+rm -f $T/u.txt
+pruefe "Director: Tagesgrenze der Aufrufe (ZS_URTEIL_MAX=0) → Ausfall, Wortliste" "$(U $DS3 ZS_URTEIL_MAX=0 HALO_ZS_DIRECTOR='nein x')" 'ausfall – Tagesgrenze 0 Director-Urteile.*Entscheidung ja'
+pruefe "Director: 5-Stunden-Fenster 96 % → kein Aufruf, Wortliste" "$(U $DS3 HALO_ZS_5H=96 HALO_ZS_DIRECTOR='nein x')" 'ausfall – 5-Stunden-Fenster 96 %'
+rm -f $T/u.txt
+pruefe "Director aus (ZS_URTEIL=aus): kein Urteil, kein Protokoll, nur die Wortliste" \
+  "$(U $DS3 ZS_URTEIL=aus HALO_ZS_DIRECTOR='nein x'; print -r -- "protokoll=$([[ -e $T/u.txt ]] && print ja || print nein)")" '^Entscheidung: ja$' 'protokoll=nein'
+pruefe "Director: LEHRE ins Gedächtnis (Datum, Quelle, Ablauf 30 Tage), NOTFALL-HINWEIS nur ins Protokoll" \
+  "$(U $DS3 HALO_ZS_DIRECTOR="LEHRE: Senden-Fehler zählt als Grundfunktion
+NOTFALL-HINWEIS: Senden scheitert für alle seit 3.36.0
+nein Testfall."; cat $T/ged.md $T/u.txt)" "^$(date +%F) \| Senden-Fehler zählt als Grundfunktion \| Quelle: Urteil Stand ${DS3[1,7]} \| Ablauf: $(date -v+30d +%F)\$" \
+  '\| an \| notfall-hinweis \| - \| - \| Senden scheitert für alle seit 3\.36\.0 \|'
+rm -f $T/u.txt
+print -r -- "$(date +%F) 11:00:00 | ${DS1[1,12]} | pruef/x | an | ja | ${DFIX} | 4 | alle Mac-Nutzer | wortliste nein | quelle director | schlüssel aaaaaaaaaaaa" > $T/u.txt
+print -r -- "$(date +%F) 13:00:00 | 3.9.0 | ${DS1[1,7]} | pruef/x | veröffentlicht | - | - | Wiederholung nein" > $T/erg.txt
+pruefe "Director an: höchstens ein Zwischen-Release je Tag nach Kriterium 4" "$(U $DS3 HALO_ZS_DIRECTOR="ja $DFIX2 4 Für alle Windows-Nutzer blockiert.")" 'Tagesgrenze Kriterium 4 \(1 je Tag\) erreicht' '^Entscheidung: nein$'
+pruefe "Director an: Kriterium 1–3 ohne Tagesgrenze" "$(rm -f $T/u.txt; print -r -- "$(date +%F) 11:00:00 | ${DS1[1,12]} | pruef/x | an | ja | ${DFIX} | 4 | x | wortliste nein | quelle director | schlüssel aaaaaaaaaaaa" > $T/u.txt; U $DS3 HALO_ZS_DIRECTOR="ja $DFIX2 1 Absturz.")" '^Entscheidung: ja$'
+rm -f $T/u.txt $T/erg.txt
+git -C $D switch -q -c pruef/nurtests v1.0.0; mkdir -p $D/tests; print t > $D/tests/n.txt; git -C $D add -A; git -C $D commit -qm 'Tests: nur Tests'; DS4=$(git -C $D rev-parse HEAD); git -C $D switch -q main
+pruefe "Director: ohne Commit unter extension/chrome seit dem Tag „nein“ ohne Aufruf (Skript)" "$(U $DS4 HALO_ZS_DIRECTOR="ja $DFIX 1 x")" 'Director \(an\): nein – keine Änderung unter extension/ oder chrome/ seit v1\.0\.0 \(Quelle skript\)'
+pruefe "Trockenlauf: kein Claude (Ausfall), kein Protokoll; Entscheidung nach Wortliste" \
+  "$(rm -f $T/u.txt; W HALO_ZS_SPUERBAR=git HALO_REPO_MAIN=$D HALO_ZS_STAND="$DS3 pruef/d" HALO_ZS_URTEIL_DATEI=$T/u.txt HALO_ZS_URTEIL_MODUS_DATEI=$T/modus.txt; print -r -- "protokoll=$([[ -e $T/u.txt ]] && print ja || print nein)")" \
+  'Director \(an\): ausfall – Trockenlauf \(kein Claude\)' "^Prüfung:  fällig $DS3 3 pruef/d\$" 'protokoll=nein'
+pruefe "ZWISCHEN_ERZWINGEN=1 braucht kein Urteil" \
+  "$(W HALO_ZS_SPUERBAR=nein ZWISCHEN_ERZWINGEN=1 HALO_REPO_MAIN=$D HALO_ZS_STAND="$DS3 pruef/d" HALO_ZS_URTEIL_DATEI=$T/u.txt HALO_ZS_URTEIL_MODUS_DATEI=$T/modus.txt)" '^Prüfung:  fällig ' 
+pruefe "Director nur lesend: Werkzeuge Bash/Read/Grep/Glob, dontAsk, nur git log/show/diff und gh issue, Opus, Zeitgrenze" "$S" \
+  "--tools Bash,Read,Grep,Glob" '--permission-mode dontAsk' "'Bash\(git log:\*\)' 'Bash\(git show:\*\)' 'Bash\(git diff:\*\)'" \
+  'DIRECTOR_MODELL=\$\{ZS_DIRECTOR_MODELL:-opus\}' 'pkill -f -- "--session-id \$sid"' 'zwischen-director-auftrag\.md'
+pruefe "Director löst nie Notfall-Release oder Hotfix aus (kein notfall-release, kein workflow run im Skript)" \
+  "$(print -r -- $S | grep -cE 'notfall-release|workflow run|HOTFIX')" '^0$'
+pruefe "Auftrag des Directors: Ergebniszeile, Notfall nur Hinweis, nur lesen, Dazulernen" "$(<$HIER/zwischen-director-auftrag.md)" \
+  '`ja <Commit-Hash' '`nein <ein Satz' 'NOTFALL-HINWEIS' 'verordnet und startet allein er' 'Nur lesen' 'Dazulernen' 'Release am Tag: Kriterien'
+
 exit $FEHLER

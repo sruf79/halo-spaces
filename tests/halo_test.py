@@ -21655,6 +21655,43 @@ Neu
         return ok, f"{res}"
     check("Suche: Treffer aus Thunderbirds Index sofort, auch nur im Text; Ordnersuche ergänzt neue Mails, keine doppelten, nur im gewählten Ordner", search_gloda, results)
 
+    def compose_freed():
+        # Geschlossene Verfassen-Fenster werden freigegeben (21.11.2026): die Aufräumer der Erweiterung blieben bis zu ihrem
+        # Beenden in einer Sammlung liegen und hielten jedes geschlossene Fenster samt Dokument im Speicher – im vollen
+        # Testlauf wuchs der Speicher so von 260 MB auf 1,7 GB, die Speicherbereinigung hielt Thunderbird am Ende bis zu
+        # 380 ms am Stück an (Ursache der flackernden Bildtakt-Prüfungen unter Linux). Fünf Fenster öffnen und schließen,
+        # Speicher bereinigen: vorher lebten alle weiter, jetzt höchstens die zuletzt benutzten (in den Messungen blieben von
+        # drei Fenstern 0 bis 2 der letzten, Quelle offen; die älteren wurden immer frei). Bisher nur unter Linux gemessen
+        if not sys.platform.startswith("linux"):
+            return True, "übersprungen: bisher nur unter Linux gemessen"
+        # (je Fenster ein eigener Aufruf: Verweise auf das Fenster, die noch im laufenden Prüfskript liegen, hielten es sonst selbst fest)
+        for i in range(5):
+            m.js(r"""
+              const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
+              try { MailServices.accounts.localFoldersServer; } catch { MailServices.accounts.createLocalMailAccount(); await ruhig(500); }
+              const acc = MailServices.accounts.findAccountForServer(MailServices.accounts.localFoldersServer);
+              if (!acc.identities.length) { const id = MailServices.accounts.createIdentity(); id.fullName = "Halo Test"; id.email = "halo@example.invalid"; acc.addIdentity(id); }
+              const offen = () => [...Services.wm.getEnumerator("msgcompose")];
+              const params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+              const fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+              fields.subject = "Halo Speicher"; params.composeFields = fields; params.identity = acc.identities[0]; params.format = Ci.nsIMsgCompFormat.HTML;
+              MailServices.compose.OpenComposeWindowWithParams(null, params);
+              await bis(() => offen().find(x => x.document.readyState == "complete" && x.gMsgCompose), "Verfassen-Fenster offen", 8000); await ruhig(1500);
+              // (ohne Rückfrage „Entwurf sichern?“ schließen)
+              w.__haloSpeicher = w.__haloSpeicher || [];
+              for (const cw of offen()) { w.__haloSpeicher.push(Cu.getWeakReference(cw)); cw.gContentChanged = false; try { cw.gMsgCompose.bodyModified = false; } catch (e) {} cw.close(); }
+              await bis(() => !offen().length, "Verfassen-Fenster zu", 5000); await ruhig(500);
+              return 1;""")
+        res = m.js(r"""
+          await toMail();
+          const refs = w.__haloSpeicher || []; delete w.__haloSpeicher;
+          // Speicher bereinigen, bis höchstens zwei übrig sind (feste Pause: die Bereinigung gibt Fenster erst in späteren Runden frei)
+          let alive = refs.length, runden = 0;
+          for (; runden < 12 && alive > 2; runden++) { Cu.forceGC(); Cu.forceCC(); await wait(250); alive = refs.filter(r => r.get()).length; }
+          return { fenster: refs.length, alive, runden, wer: refs.map(r => r.get() ? 1 : 0) };""")
+        return res["fenster"] == 5 and res["alive"] <= 2, f"{res}"
+    check("Speicher: geschlossene Verfassen-Fenster werden freigegeben (von fünf bleiben höchstens die zwei zuletzt benutzten)", compose_freed, results)
+
     def search_scroll():
         # laufende Suche über viele Postfächer: beim Scrollen hält halo.spaces sie an (sonst kam jedes zweite Bild
         # 50–70 ms zu spät), danach läuft sie weiter und findet alle Treffer

@@ -22187,6 +22187,53 @@ Neu
         return ok, f"{res}"
     check("Einstellungen: Schrift 13 px, Seitenleiste bündig, Listen/DNS/Export als ruhige Karten, leerer DNS-Status verborgen, Unterüberschriften 13 px, OCSP einzeilig, Offline-Dialog untereinander", settings_cards, results)
 
+    def settings_policies_note():
+        # Hinweis „Thunderbird is managed by an organization“ (erscheint nur mit Unternehmensregeln; hier eingeblendet,
+        # wie es Thunderbird bei aktiven Regeln tut): leise graue Karte wie der Hinweis über der Mailliste (E22) statt
+        # kleinem blauem Unterstrich-Link: Fläche --mt-hint-bg ohne Rand, Radius 10, 10 px Innenrand seitlich, Text
+        # 13 px, Symbol grau; Link bleibt (about:policies), Akzentfarbe ohne Unterstrich, unter der Maus unterstrichen.
+        # Mit HALO_SHOTS zusätzlich ein Bild der Karte.
+        res = m.js(r"""
+          w.resizeTo(1500, 950); w.openPreferencesTab("paneGeneral"); await until(() => w.outerWidth == 1500 && w.outerHeight == 950, 2500);
+          await bis(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.readyState == "complete" && x.getElementById("policies-container"); }, "Einstellungen-Tab geladen", 8000);
+          const t = tm.currentTabInfo, cw = t.browser.contentWindow, cd = cw.document, pc = cd.getElementById("policies-container");
+          const a = pc.querySelector("a"), icon = pc.querySelector(".info-icon"), cs = e => cw.getComputedStyle(e);
+          try {
+            pc.removeAttribute("hidden");
+            await cd.l10n.translateElements([a]);
+            await bis(() => a.textContent.trim() && pc.getBoundingClientRect().width > 0 && pc, "Hinweis sichtbar", 4000); await ruhig(300);
+            const probe = cd.createElement("div"); probe.style.cssText = "position:absolute;background-color:var(--mt-hint-bg);color:var(--mt-accent)";
+            cd.documentElement.append(probe); const want = { bg: cs(probe).backgroundColor, accent: cs(probe).color };
+            probe.style.color = "var(--mt-text-secondary)"; want.grey = cs(probe).color; probe.style.color = "var(--mt-text)"; want.text = cs(probe).color; probe.remove();
+            const p = cs(pc), ic = cs(icon), l = cs(a);
+            const out = { want, dark: w.matchMedia("(prefers-color-scheme: dark)").matches, bg: p.backgroundColor, border: p.borderTopWidth, radius: p.borderTopLeftRadius,
+              pad: [p.paddingInlineStart, p.paddingInlineEnd], font: p.fontSize, color: p.color, iconFill: ic.fill, iconW: Math.round(icon.getBoundingClientRect().width),
+              h: Math.round(pc.getBoundingClientRect().height),
+              link: { href: a.getAttribute("href"), color: l.color, deco: l.textDecorationLine, font: l.fontSize, text: a.textContent.trim() } };
+            InspectorUtils.addPseudoClassLock(a, ":hover"); out.hoverDeco = cs(a).textDecorationLine; InspectorUtils.removePseudoClassLock(a, ":hover");
+            if (Services.env.get("HALO_SHOTS")) {
+              const r = pc.getBoundingClientRect(), x0 = Math.max(0, r.left - 20), y0 = Math.max(0, r.top - 20);
+              const bm = await cw.browsingContext.currentWindowGlobal.drawSnapshot(new cw.DOMRect(x0, y0, r.width + 40, r.height + 40), 2, "white");
+              const cv = cd.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height; cv.getContext("2d").drawImage(bm, 0, 0);
+              out.png = cv.toDataURL("image/png");
+            }
+            return out;
+          } finally { pc.setAttribute("hidden", "hidden"); tm.closeTab(t); await ruhig(500); }""")
+        png = res.pop("png", None)
+        if png and os.environ.get("HALO_SHOTS"):
+            import base64
+            os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+            path = os.path.join(os.environ["HALO_SHOTS"], f"einstellungen-policies-{'dunkel' if res.get('dark') else 'hell'}.png")
+            open(path, "wb").write(base64.b64decode(png.split(",", 1)[1]))
+            print(f"Bild {path}", flush=True)
+        wnt, ln = res["want"], res["link"]
+        ok = (same_color(res["bg"], wnt["bg"]) and res["border"] == "0px" and res["radius"] == "10px" and res["pad"] == ["10px", "10px"]
+              and res["font"] == "13px" and same_color(res["color"], wnt["text"]) and same_color(res["iconFill"], wnt["grey"]) and res["iconW"] == 16
+              and ln["href"] == "about:policies" and ln["text"] and same_color(ln["color"], wnt["accent"]) and ln["deco"] == "none"
+              and ln["font"] == "13px" and res["hoverDeco"] == "underline")
+        return ok, f"{res}"
+    check("Einstellungen: Hinweis „managed by an organization“ als leise graue Karte (Radius 10, 13 px, Symbol grau), Link zu den Regeln in Akzentfarbe ohne Unterstrich, unter der Maus unterstrichen", settings_policies_note, results)
+
     def settings_e2ee_cards():
         # Einstellungen: Karte nur mit „Advanced settings“ ohne Fläche (andere Karten behalten sie);
         # Ende-zu-Ende-Texte (html:p) wie Erklärtexte 12 px grau ohne Abstand oben, Linie als Haarlinie,

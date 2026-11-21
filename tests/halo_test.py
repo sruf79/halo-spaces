@@ -15846,19 +15846,33 @@ def run_checks(m, version, profile, results):
           const sWidth = () => Math.round(search()?.querySelector("global-search-bar")?.getBoundingClientRect().width ?? 0);
           const ops = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].filter(li => li.getBoundingClientRect().width)
             .map(li => [li.getAttribute("item-id") || li.id, Math.round(parseFloat(getComputedStyle(li).opacity) * 100) / 100]));
-          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now());
+          // Diagnose (nur beobachten, ändert weder Zustand noch Grenzen; Board: lange Bilder unter Linux, Ursache offen):
+          // je Bild Rechenzeit des Hauptprozesses (cp) und Zahl der Neuanordnungen (rf). Langsames Bild mit wenig
+          // Rechenzeit = Rechner/xvfb ließ Thunderbird warten; mit viel Rechenzeit und vielen Neuanordnungen = Arbeit in
+          // Thunderbird. Dazu Speicherbereinigungen im Messfenster (gc) und Rechenzeit der übrigen Prozesse (proc)
+          const cpuNow = () => { try { const v = ChromeUtils.cpuTimeSinceProcessStart; return typeof v == "number" ? v : null; } catch (e) { return null; } };
+          const wu = w.windowUtils, rfNow = () => { try { return wu.framesReflowed; } catch (e) { return null; } };
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          const procCpu = async () => { try { const i = await ChromeUtils.requestProcInfo(); const o = { main: i.cpuTime };
+            for (const c of i.children || []) o[c.type] = (o[c.type] || 0) + c.cpuTime; return o; } catch (e) { return null; } };
+          const record = async () => { const ws = [], ts = [], ss = [], tt = [], tl = [], kk = [], sw = [], op = [], cp = [], rf = []; const t0 = performance.now(); while (performance.now() - t0 < 600) { const pw = panel.getBoundingClientRect().width; ws.push(Math.round(pw)); ts.push(performance.now()); cp.push(cpuNow()); rf.push(rfNow());
             ss.push(Math.round(search()?.getBoundingClientRect().left ?? 0)); sw.push(sWidth()); op.push(ops());
             kk.push(Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)])));
             const tr = title?.getBoundingClientRect(); tt.push([Math.round(pw), !!tr && tr.width > 0, title?.hasAttribute("data-narrow")]);
             tl.push([tr ? Math.round(tr.left * 10) / 10 : 0, row.hasAttribute("data-mc-tp-anim")]);
-            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op }; };
+            await new Promise(r => w.requestAnimationFrame(r)); } return { ws, ts, ss, tt, tl, kk, sw, op, cp, rf }; };
           const out = { start: Math.round(panel.getBoundingClientRect().width), animating: !!panel.__mcAnimating, tpVisible: w.TodayPane?.isVisible, tab: d.documentElement.getAttribute("mc-tab"), popups: [...d.querySelectorAll("panel, menupopup")].filter(p => p.state == "open").map(p => p.id) };
           if (!out.start) return { skipped: true };
           const errs = []; const onErr = e => errs.push(String(e.message || e.error).slice(0, 200)); w.addEventListener("error", onErr);
           const cons = []; const listener = { observe: m => { if (m instanceof Ci.nsIScriptError && /implementation\\.js/.test(m.sourceName)) cons.push(m.errorMessage.slice(0, 200) + " @" + m.lineNumber); } };
           Services.console.registerListener(listener);
           out.errs = errs; out.cons = cons; out.visibility = d.visibilityState;
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
           // Bildtakt ohne Animation als Maßstab (60 oder 120 Hz)
           const idle = []; const tIdle = performance.now(); let tPrev = tIdle;
           while (performance.now() - tIdle < 300 || idle.length < 2) { await new Promise(r => w.requestAnimationFrame(r)); const t = performance.now(); idle.push(t - tPrev); tPrev = t; if (idle.length > 60) break; }
@@ -15876,7 +15890,8 @@ def run_checks(m, version, profile, results):
             const snap = () => Object.fromEntries([...d.getElementById("unifiedToolbarContent").children].map(li => [li.getAttribute("item-id") || li.id, li.getBoundingClientRect()])
               .filter(([k, r]) => k && k != "spacer" && r.width).map(([k, r]) => [k, Math.round(r.left)]));
             const pre = snap(), preW = sWidth();
-            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op } = await record(); await ruhig(300);
+            const proc0 = await procCpu(); gcLog.length = 0; tRec = performance.now();
+            btn.click(); const { ws, ts, ss, tt, tl, kk, sw, op, cp, rf } = await record(); const gcIn = gcLog.splice(0), proc1 = await procCpu(); await ruhig(300);
             kk.unshift(pre); // (Lage vor dem Klick: sprangen Knöpfe gleich beim Umschalten, fehlte der Sprung sonst)
             sw.unshift(preW);
             // nur Bilder, in denen sich die Breite ändert (die Animation selbst)
@@ -15899,6 +15914,14 @@ def run_checks(m, version, profile, results):
               fading: op.map(o => o[k] ?? 0).every((v, i, a) => !i || v <= a[i - 1] + 0.01) }]));
             out[phase] = { steps: moving.filter(Boolean).length + 1, maxJump: Math.max(...jumps), maxFrameMs: Math.round(Math.max(...dts)), medianFrameMs: Math.round(dts.sort((a, b) => a - b)[dts.length >> 1] || 0),
                            searchJump: Math.max(...sJumps), buttonJump: kJump, searchWidth: [sw[0], sw.at(-1)], searchWidthJump: swJump, vanish, perKey: Object.fromEntries(both.filter(k => kk.some((f, i) => i && k in f && k in kk[i - 1] && Math.abs(f[k] - kk[i - 1][k]) > 2)).map(k => [k, Math.max(0, ...kk.slice(1).map((f, i) => k in f && k in kk[i] ? Math.abs(f[k] - kk[i][k]) : 0))])), titleMid: mid.length ? mid.every(([, ok]) => ok) : null };
+            // Diagnose: Bilder über 25 ms während der Bewegung als [ms seit Klick, Echtzeit ms, Rechenzeit ms, Neuanordnungen],
+            // dazu Summen über alle Bilder der Bewegung (Echtzeit, Rechenzeit) und Rechenzeit je Prozessart im Messfenster
+            const lang = [], sum = [0, 0];
+            ts.forEach((t, i) => { if (!i || !moving[i]) return; const dt = t - ts[i - 1], dc = cp[i] != null && cp[i - 1] != null ? cp[i] - cp[i - 1] : null;
+              sum[0] += dt; if (dc != null) sum[1] += dc;
+              if (dt > 25) lang.push([Math.round(t - tRec), Math.round(dt), dc == null ? null : Math.round(dc), rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
+            out[phase].diag = { lang, wallCpu: sum.map(Math.round), gc: gcIn,
+              proc: proc0 && proc1 ? Object.fromEntries(Object.keys(proc1).map(k => [k, Math.round(((proc1[k] - (proc0[k] || 0)) / 1e6))])) : null };
             // Einblenden: Titel steht im letzten Bild der Animation schon an seinem Endplatz (kein Sprung nach links;
             // im Volllauf bleibt in einem Zustand 1 px – Rest im Board-Eintrag)
             const lastAnim = tl.filter(([, a]) => a).at(-1);
@@ -15920,6 +15943,8 @@ def run_checks(m, version, profile, results):
           w.resizeTo(ow, w.outerHeight); await ruhig(800);
           out.end = Math.round(panel.getBoundingClientRect().width);
           w.removeEventListener("error", onErr); Services.console.unregisterListener(listener);
+          Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+          Services.prefs.setBoolPref(gcPref, gcPrefVorher);
           return out;''')
         if res.get("skipped"):
             return True, "Today-Pane zu – übersprungen"

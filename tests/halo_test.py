@@ -6610,6 +6610,31 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: sieben feste Menüs wie die Apple-Apps, Einträge je Menü, Bereiche im Fenster-Menü (aktiver mit Häkchen), Kalender-Ansichten außerhalb des Kalenders ausgegraut", menubar_layout, results)
 
+    def menubar_get_mail_key():
+        # Mail › „Get New Mail“ zeigt Thunderbirds Kürzel für denselben Befehl (in Englisch ⇧⌘Y bzw. Strg+Umschalt+Y, alle
+        # Konten abrufen; der Buchstabe hängt an der Sprache); bis 21.11.2026 stand der Eintrag ohne Kürzel im Menü
+        res = m.js(r"""
+          await toMail();
+          // die Menüleiste unter Windows/Linux blendet sich bei „popupshowing“ ein (wie mit Alt) – danach wieder wie vorher
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          const p = d.getElementById("messageMenuPopup");
+          p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
+          const item = d.getElementById("mcMailGetNew"), k = d.getElementById(item?.getAttribute("key") || "-");
+          const out = {
+            label: item?.getAttribute("label"), hidden: !!(item?.hidden || item?.collapsed), parent: item?.parentNode?.id,
+            key: k ? [k.id, (k.getAttribute("key") || "").toLowerCase(), (k.getAttribute("modifiers") || "").split(/[\s,]+/).filter(Boolean).sort().join("+"),
+              (k.getAttribute("oncommand") || "").includes("cmd_getMsgsForAuthAccounts")] : null,
+            accel: item?.getAttribute("acceltext") || "",
+          };
+          p.dispatchEvent(new w.Event("popuphiding", { bubbles: true }));
+          if (inactive != null) tbm.setAttribute("inactive", inactive);
+          return out;""")
+        ok = (res.get("label") == "Get New Mail" and not res.get("hidden") and res.get("parent") == "messageMenuPopup"
+              and (res.get("key") or [None] * 4)[0::2] == ["key_getAllNewMessages", "accel+shift"] and res["key"][3]
+              and len(res["key"][1]) == 1 and res["key"][1].upper() in res.get("accel", ""))
+        return ok, f"{res}"
+    check("Menüleiste: Mail › „Get New Mail“ zeigt Thunderbirds Kürzel zum Abrufen aller Konten", menubar_get_mail_key, results)
+
     def menubar_status_bar():
         # Ansicht → „Show Status Bar“ direkt unter der Today-Pane, Häkchen nach dem echten Zustand; einmal
         # ausgeblendet, holt derselbe Eintrag die Statusleiste zurück (vorher fehlte er mit dem Untermenü „Toolbars“)

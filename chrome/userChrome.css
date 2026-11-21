@@ -6481,8 +6481,24 @@ menuseparator[mc-tidy-hidden] {
   background: var(--mc-day-circle) !important;
 }
 
+/* gewählter Tag: deutlich kräftiger als die Maus-Markierung (--mt-control-hover
+   0,09 / 0,12), hell und dunkel gleich deutlich fürs Auge. Gemessen auf dem
+   Grau der Seitenleiste (hell 242, dunkel 40): hell 0,14 Schwarz ergibt 208
+   (Hover 220), dunkel 0,20 Weiß ergibt 83 (Hover 66), in L* jeweils etwa
+   1,6-mal der Abstand der Maus-Markierung. Vorher --mt-control (0,05 / 0,07),
+   schwächer als die Maus-Markierung und dunkel kaum zu sehen */
+:is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) {
+  --mt-minimonth-selected: rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) {
+    --mt-minimonth-selected: rgba(255, 255, 255, 0.20);
+  }
+}
+
 :is(#calMinimonth, #today-minimonth, #from-minimonth, #to-minimonth) td.minimonth-day[selected] {
-  --mc-day-fill: var(--mt-control);
+  --mc-day-fill: var(--mt-minimonth-selected);
   background: var(--mc-day-circle) !important;
 }
 

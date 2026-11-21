@@ -9796,6 +9796,64 @@ def calendar_checks(m, results):
         return ok, f"{res}"
     check("Today-Pane: Heute- und Hover-Kreis im Mini-Kalender rund und mittig um ein- und zweistellige Zahlen", today_minimonth_circles, results)
 
+    def today_minimonth_selected():
+        # Gewählter Tag im Mini-Kalender deutlich kräftiger als die Maus-Markierung, hell wie dunkel (vorher füllte die
+        # Auswahl mit --mt-control 0,05 / 0,07 und war schwächer als der Hover 0,09 / 0,12, dunkel kaum zu sehen).
+        # Gemessen wird die Fläche über der Zahl (8 px über der Mitte, außerhalb der Ziffern) als Helligkeitsabstand
+        # L* zum Hintergrund; die Auswahl muss mindestens das 1,4-fache des Hover-Abstands haben und mindestens 10 L*
+        # (Soll: hell 208 bzw. dunkel 83 auf 242 bzw. 40, Hover 220 bzw. 66, also etwa das 1,6-fache). Heute bleibt rot.
+        res = m.js(r"""
+          await toMail(); await ruhig(600);
+          const mm = d.getElementById("today-minimonth");
+          const vis = () => { const r = mm.getBoundingClientRect(); return r.width > 150 && r.right <= w.innerWidth + 1; };
+          if (!vis()) d.getElementById("mcTodayToggle").click();
+          await bis(vis, "Mini-Kalender der Today-Pane sichtbar", 8000);
+          mm.showMonth?.(new Date()); await ruhig(400);
+          const cells = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")], num = c => +c.textContent.trim();
+          const todayN = num(mm.querySelector("td.minimonth-day[today]"));
+          const free = cells.map(num).filter(n => n >= 10 && Math.abs(n - todayN) > 3);
+          const selN = free[0], hovN = free.find(n => Math.abs(n - selN) > 1);
+          const cell = n => cells.find(c => num(c) == n);
+          w.__mcSelOld = [...mm.querySelectorAll("td.minimonth-day[selected]")];
+          for (const c of w.__mcSelOld) c.removeAttribute("selected");
+          cell(selN).setAttribute("selected", "true"); await ruhig(200);
+          const r = cell(hovN).getBoundingClientRect();
+          return { dark: w.matchMedia("(prefers-color-scheme: dark)").matches, todayN, selN, hovN, hov: [r.left + r.width / 2, r.top + r.height / 2] };""")
+        x, y = res["hov"]
+        m.pointer([{"type": "pointerMove", "duration": 0, "x": int(x), "y": int(y), "origin": "viewport"}])
+        px = m.js(r"""
+          await ruhig(250);
+          const mm = d.getElementById("today-minimonth"), cells = [...mm.querySelectorAll("td.minimonth-day:not([othermonth])")];
+          const cell = n => cells.find(c => +c.textContent.trim() == n);
+          const read = async n => {
+            const td = cell(n), r = td.getBoundingClientRect(), cv = d.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+            cv.width = Math.round(r.width); cv.height = Math.round(r.height); const ctx = cv.getContext("2d");
+            try { ctx.drawImage(await w.browsingContext.currentWindowGlobal.drawSnapshot(new w.DOMRect(r.left, r.top, r.width, r.height), 1, "white"), 0, 0); }
+            catch { ctx.drawWindow(w, r.left, r.top, r.width, r.height, "white"); }
+            const at = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+            const cx = Math.floor(cv.width / 2), cy = Math.floor(cv.height / 2);
+            return { hover: td.matches(":hover"), bg: at(0, 0), fill: at(cx, cy - 8), mid: at(cx - 9, cy) };
+          };
+          const out = { sel: await read(%d), hov: await read(%d), today: await read(%d) };
+          try { for (const c of mm.querySelectorAll("td.minimonth-day[selected]")) c.removeAttribute("selected");
+                for (const c of w.__mcSelOld || []) c.setAttribute("selected", "true"); } finally { delete w.__mcSelOld; }
+          return out;""" % (res["selN"], res["hovN"], res["todayN"]))
+        m.pointer([{"type": "pointerMove", "duration": 0, "x": 5, "y": 5}])
+
+        def lstar(c):
+            lin = [(v / 255 / 12.92) if v / 255 <= 0.04045 else ((v / 255 + 0.055) / 1.055) ** 2.4 for v in c]
+            yy = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+            return 116 * (yy ** (1 / 3) if yy > 0.008856 else 7.787 * yy + 16 / 116) - 16
+        sel, hov, today = px["sel"], px["hov"], px["today"]
+        d_sel = abs(lstar(sel["fill"]) - lstar(sel["bg"]))
+        d_hov = abs(lstar(hov["fill"]) - lstar(hov["bg"]))
+        # links neben der Zahl dieselbe Fläche wie darüber (ganzer Kreis gefüllt, nicht nur ein Rand)
+        same = max(abs(a - b) for a, b in zip(sel["fill"], sel["mid"])) <= 3
+        red = today["fill"][0] > 200 and today["fill"][1] < 110 and today["fill"][2] < 110
+        ok = hov["hover"] and d_hov > 3 and d_sel >= 10 and d_sel >= 1.4 * d_hov and same and red
+        return ok, f"dunkel={res['dark']} Auswahl ΔL*={d_sel:.1f} Hover ΔL*={d_hov:.1f} {px}"
+    check("Today-Pane: gewählter Tag im Mini-Kalender deutlich kräftiger als die Maus-Markierung (hell und dunkel), heute bleibt rot", today_minimonth_selected, results)
+
     def agenda_past_month():
         # ‹ des Mini-Kalenders in einen vergangenen Monat: die Liste blättert mit und steht am Ende, die letzten Termine
         # des Monats sind ohne Scrollen sichtbar (Älteres darüber); › zurück in den laufenden Monat: heute wieder oben

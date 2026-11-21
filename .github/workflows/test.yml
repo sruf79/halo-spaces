@@ -266,7 +266,7 @@ jobs:
     needs: [changes, linux, mac]
     if: ${{ !cancelled() && (needs.linux.result == 'success' || needs.linux.result == 'skipped') && needs.changes.outputs.test == 'true' && needs.changes.outputs.windows == 'true' && github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, macOS, halo-mac]
-    # ein Lauf rund 19 Minuten, dazu Fortsetzen der VM
+    # ein Lauf rund 19 Minuten, dazu Start der VM (bis 5 Minuten)
     timeout-minutes: 60
     # (ohne concurrency-Gruppe, siehe Job mac)
     steps:
@@ -275,8 +275,8 @@ jobs:
       - name: Paket
         run: echo "XPI=$(./build.sh | tail -n 1)" >> "$GITHUB_ENV"
 
-      # vorerst nur hell; setzt die VM fort (kalt neu gestartet nach dem letzten Lauf bzw. um 00:45, tests/vm-frisch.sh),
-      # danach wird sie im Hintergrund kalt neu gestartet und pausiert (gibt den Speicher frei)
+      # vorerst nur hell; startet die VM (sie steht nach jedem Test, Maintainer 21.11.2026), danach wird sie im
+      # Hintergrund heruntergefahren (gibt den Speicher frei)
       - name: Test Windows hell
         id: windows
         timeout-minutes: 45
@@ -284,8 +284,8 @@ jobs:
           ONLY: ${{ inputs.only }}
         run: mkdir -p shots/windows && python3 -u tests/halo_test.py --xpi "$XPI" --vm --port 2845 --shots shots/windows --tb-log shots/windows/thunderbird.log ${ONLY:+--only "$ONLY"}
 
-      # kalter Neustart für den nächsten Lauf auch nach Zeitüberschreitung oder Abbruch (sonst startet ihn schon
-      # halo_test.py; dann tut dieser Schritt nichts), gelöst vom Job im Hintergrund
+      # VM herunterfahren auch nach Zeitüberschreitung oder Abbruch (sonst tut es schon halo_test.py; dann tut dieser
+      # Schritt nichts), gelöst vom Job im Hintergrund
       - name: VM frisch
         if: ${{ always() && steps.windows.outcome != 'skipped' }}
         run: zsh tests/vm-frisch.sh --nach-lauf

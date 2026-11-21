@@ -242,31 +242,38 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
 - **Windows-VM** (Parallels Desktop Pro, Anleitung `tests/MAC-MINI.md`
   Abschnitt 11): VM `Windows 11` (Windows-Hostname `win11`, Windows 11
   Enterprise ARM, Benutzer `neosky.cat` mit automatischer Anmeldung, IP im
-  Parallels-Netz 10.211.55.3). Fest 4 Kerne und 6 GB, startet mit dem Mac
-  (`start-host`), einzige Freigabe `~/halo-vm` = `\\Mac\halo` in Windows.
+  Parallels-Netz 10.211.55.3). Fest 4 Kerne und 6 GB, startet nicht mit dem Mac
+  (`--autostart off`), einzige Freigabe `~/halo-vm` = `\\Mac\halo` in Windows.
   Darin Thunderbird (`C:\Program Files\Mozilla Thunderbird`), Beta
   (`C:\Program Files\Thunderbird Beta`), beide x64 unter Emulation, ohne
   Selbst-Update; Python `C:\Program Files\Python315-arm64\python.exe`;
   `openssl` aus Git für Windows. Snapshot `sauber` = Grundzustand.
+  - **Grundsatz für jede VM auf neon** (Maintainer 21.11.2026: „ab sofort die windows vm nach ende jeden tests
+    herunterfahren und zu beginn des tests auch starten“, `ENTSCHEIDUNGEN.md` „VMs: nach jedem Test herunterfahren …“;
+    gilt auch für die geplante Linux-VM): am Ende jedes Tests und jeder Wartung ganz herunterfahren (`prlctl stop`,
+    bei Zeitüberschreitung `--kill`), nie pausieren; vor dem Test starten. So läuft nur die VM, die gebraucht wird
+    (16 GB auf neon). Ein Zustand „suspended“ aus alter Zeit wird erst fortgesetzt und dann gestoppt.
   - Testen: `python3 tests/halo_test.py --vm --port 2851 [--dark] [--beta]
-    [--only …] [--shots …]` – setzt die VM fort, testet darin (Marionette nur
-    in der VM auf 127.0.0.1), holt Screenshots zurück und pausiert die VM
-    (`--vm-weiter`: laufen lassen). Ein Lauf dauert gut 15 Minuten.
+    [--only …] [--shots …]` – startet die VM (aus „stopped“, bis 5 Minuten Warten auf die angemeldete Sitzung,
+    `VM_START_FRIST`), testet darin (Marionette nur in der VM auf 127.0.0.1), holt Screenshots zurück und fährt die
+    VM herunter (im Hintergrund über `vm_frisch.py --nach-lauf`; `--vm-weiter`: laufen lassen für Handarbeit, der
+    nächste Lauf übernimmt sie ohne Neustart). Ein Lauf dauert gut 15 Minuten plus Start (rund 1 bis 3 Minuten).
   - **Frische VM** (Maintainer 18.11.2026: „wir sollten die vm bereits am anfang rebooten vor den CI testläufen, damit
-    der reboot nicht ebenfalls andere CI's stört“): `tests/vm_frisch.py` startet die VM kalt neu (`prlctl stop`,
-    bei Zeitüberschreitung `--kill`, `start`, bis 5 Minuten Warten auf Windows), prüft den Bildtakt
-    (`tests/win-bildtakt.ps1`: mehr als 3 von 30 Bildern über 1,6 × Mittel = gestört, dann ein zweiter Neustart,
-    sonst „FEHLER VM gestört“) und pausiert sie wieder; immer gelöst in eigener Sitzung (launchd und der
-    GitHub-Runner beenden ihn nicht mit). Aufrufe: nach jedem Lauf mit `--vm` (halo_test.py übergibt die Sperre
-    `~/halo-vm/lauf.lock` ohne Lücke, ein Folgelauf wartet auf die frische VM), Nachlauf-Schritt „VM frisch“ im
-    Job `windows` (auch nach Zeitüberschreitung oder Abbruch; `tests/vm-frisch.sh --nach-lauf`) und einmal
-    täglich 00:45–01:14 aus dem CI-Wächter (`--taeglich`, Tagesmarke erst bei Erfolg); läuft CI oder ein Test,
-    lässt der tägliche Aufruf aus. `tests/vm-frisch.sh` nimmt die Dateien aus dem letzten Commit, nicht aus dem
-    Arbeitsbaum. Die Sperre wird atomar genommen (`os.link`). Keine Altersgrenze, kein eigener Aufruf nach einem
-    Neustart des Macs (die VM startet dann ohnehin kalt mit). Im Lauf selbst nur der Kurztest (Sekunden), bei
-    Störung ein kalter Neustart als Rückfall, dann „FEHLER VM gestört“. `HALO_VM_KEIN_NEUSTART=1` (Läufe von Hand):
-    weder Rückfall noch Neustart danach. Protokoll `~/halo-nacht/vm-frisch.log`; Logiktest ohne VM:
-    `python3 tests/vm_neustart_test.py`.
+    der reboot nicht ebenfalls andere CI's stört“; seit 21.11.2026 nur noch Start, weil die VM nach jedem Test steht):
+    `tests/vm_frisch.py` startet die VM (läuft sie noch, erst herunterfahren; bis 5 Minuten Warten auf Windows),
+    prüft den Bildtakt (`tests/win-bildtakt.ps1`: mehr als 3 von 30 Bildern über 1,6 × Mittel = gestört, dann ein
+    zweiter Start, sonst „FEHLER VM gestört“) und fährt sie wieder herunter, außer ein Lauf mit `--vm` wartet schon
+    auf die Sperre `~/halo-vm/lauf.lock` (Marke `~/halo-vm/wartet-<PID>`): dann geht die laufende VM samt Sperre an
+    ihn („übergeben“, er startet sie nicht neu). Immer gelöst in eigener Sitzung (launchd und der GitHub-Runner
+    beenden ihn nicht mit). Aufrufe: einmal täglich 00:45–01:14 aus dem CI-Wächter (`tests/vm-frisch.sh --taeglich`,
+    Tagesmarke erst bei Erfolg; läuft CI oder ein Test, lässt er aus) und von Hand (`tests/vm-frisch.sh`). Nur
+    herunterfahren (`--nach-lauf`): nach jedem Lauf mit `--vm` (halo_test.py übergibt die Sperre ohne Lücke, ein
+    Folgelauf wartet und startet die VM danach frisch) und im Nachlauf-Schritt „VM frisch“ des Jobs `windows` (auch
+    nach Zeitüberschreitung oder Abbruch; `tests/vm-frisch.sh --nach-lauf`). `tests/vm-frisch.sh` nimmt die Dateien
+    aus dem letzten Commit, nicht aus dem Arbeitsbaum. Die Sperre wird atomar genommen (`os.link`). Keine
+    Altersgrenze. Im Lauf selbst Start und Kurztest, bei Störung ein kalter Neustart als Rückfall, dann „FEHLER VM
+    gestört“. `HALO_VM_KEIN_NEUSTART=1` (Läufe von Hand): kein Rückfall-Neustart, herunterfahren am Ende trotzdem.
+    Protokoll `~/halo-nacht/vm-frisch.log`; Logiktest ohne VM: `python3 tests/vm_neustart_test.py`.
   - Nie gleichzeitig mit einem Mac-Lauf; das Skript wartet selbst
     (`~/halo-vm/lauf.lock` bzw. laufendes Test-Thunderbird auf dem Mac).
   - Windows-Abweichungen wie Linux behandeln (`sys.platform != "darwin"`, in
@@ -277,7 +284,7 @@ Abschnitt 12, Bedienung Abschnitt „Cloud-Sessions“ unten).
     SYSTEM. `prlctl exec` reicht keine Anführungszeichen weiter – Argumente
     ohne Leerzeichen/Quotes übergeben oder über eine Datei in `~/halo-vm`.
   - Die VM darf für Tests umkonfiguriert werden (Speicher, Kerne,
-    Start/Pause/Neustart, Snapshots) – danach kurz sagen, was geändert wurde.
+    Start/Stopp/Neustart, Snapshots) – danach kurz sagen, was geändert wurde; am Ende steht sie wieder.
     Beim Probelauf blieb der Mac bei 6 GB VM über 40 % freiem Speicher ohne
     zusätzliche Auslagerung. Kein Passwort, kein Microsoft-Konto, keine
     echten Mails in der VM.

@@ -769,18 +769,19 @@ except ImportError:
 
 
 def vm_frisch_danach(vm):
-    """Nach einem Lauf mit --vm: kalter Neustart für den nächsten Lauf, gelöst im Hintergrund (tests/vm_frisch.py).
-    Die Sperre geht ohne Lücke an ihn über; ein Folgelauf (auch die Wiederholung durch ci-wiederholen.sh) wartet so
-    auf die frische VM. Liefert True, wenn die Sperre übergeben ist."""
+    """Nach einem Lauf mit --vm: VM herunterfahren, gelöst im Hintergrund (tests/vm_frisch.py --nach-lauf; jede VM
+    auf neon nach dem Test aus, Maintainer 21.11.2026). Die Sperre geht ohne Lücke an ihn über; ein Folgelauf (auch
+    die Wiederholung durch ci-wiederholen.sh) wartet so und startet die VM danach frisch. Liefert True, wenn die
+    Sperre übergeben ist."""
     try:
         nacht = os.path.expanduser("~/halo-nacht")
         p = vmf.hintergrund(["--vm", vm, "--nach-lauf", "--nach-pid", str(os.getpid())],
                             os.path.join(nacht, "vm-frisch.log") if os.path.isdir(nacht) else None)
         vmf.lock_uebergeben(p.pid, "vm-frisch nach Lauf")
-        print("VM wird nach dem Lauf im Hintergrund kalt neu gestartet (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
+        print("VM wird nach dem Lauf im Hintergrund heruntergefahren (Protokoll ~/halo-nacht/vm-frisch.log)", flush=True)
         return True
     except OSError as e:
-        print(f"HINWEIS Neustart der VM nach dem Lauf nicht gestartet: {e}", flush=True)
+        print(f"HINWEIS Herunterfahren der VM im Hintergrund nicht gestartet: {e}", flush=True)
         return False
 
 
@@ -804,9 +805,12 @@ def wait_turn(mine):
     """Wartet, bis kein Lauf der anderen Plattform mehr läuft (höchstens eine Stunde)."""
     def busy():
         if mine == "vm" and subprocess.run(["pgrep", "-f", "--", "-profile .*/halo-test-"], capture_output=True).returncode == 0:
+            if vmf:
+                vmf.lauf_warten_ende()  # wartet auf den Mac, nicht auf die Sperre: keine VM übernehmen
             return True  # Test-Thunderbird auf dem Mac
-        # Lauf in der VM bzw. kalter Neustart (vm_frisch.py); ein Lauf in der VM nimmt die Sperre dabei gleich atomar
-        return not vmf.lock_nehmen("lauf") if mine == "vm" else vmf.lock_pid() is not None
+        # Lauf in der VM bzw. Wartung (vm_frisch.py); ein Lauf in der VM nimmt die Sperre dabei gleich atomar und
+        # meldet sich als wartend (übernimmt dann die laufende VM, statt dass die Wartung sie herunterfährt)
+        return not vmf.lauf_lock_nehmen() if mine == "vm" else vmf.lock_pid() is not None
     end, said = time.time() + 3600, False
     while busy():
         if time.time() > end:
@@ -847,7 +851,7 @@ def run_in_vm(args, xpi):
             inner["compare"] = win + "\\vorher"
         json.dump(inner, open(os.path.join(run, "args.json"), "w"))
 
-        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, pausiert finally die VM trotzdem
+        before = vm_state(vm)  # vor der Vorbereitung gesetzt: bricht sie ab, fährt finally die VM trotzdem herunter
         vm_vorbereiten(vm, run, win)
         print(f"Windows-VM „{vm}“ (vorher {before}) · {inner['tb']}", flush=True)
         try:
@@ -891,16 +895,15 @@ def run_in_vm(args, xpi):
                     vm_theme(vm, theme)
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
                     print(f"HINWEIS Farbschema der VM nicht zurückgestellt: {e}", flush=True)
-            # der nächste Lauf beginnt mit einer frischen VM: kalter Neustart gleich jetzt im Hintergrund (er pausiert
-            # die VM danach), nicht erst vor dem Lauf; sonst VM pausieren (Speicher für die macOS-Tests;
-            # --vm-weiter: laufen lassen)
-            if before and not args.vm_weiter and os.environ.get("HALO_VM_KEIN_NEUSTART") != "1" and vm_frisch_danach(vm):
-                pass
-            elif before and not args.vm_weiter and vm_state(vm) == "running":
-                prl("suspend", vm, check=False)
+            # jede VM auf neon nach dem Test ganz herunterfahren, nie pausieren (Maintainer 21.11.2026; Speicher für
+            # die macOS-Tests, der nächste Lauf startet sie frisch): im Hintergrund, sonst hier (--vm-weiter: laufen
+            # lassen für Handarbeit)
+            if before and not args.vm_weiter and not vm_frisch_danach(vm):
+                vmf.vm_stoppen(vm)
         finally:
             shutil.rmtree(run, ignore_errors=True)
-            vmf.lock_freigeben()  # (nur, wenn sie noch uns gehört; übergeben ist sie dem Neustart)
+            vmf.lock_freigeben()  # (nur, wenn sie noch uns gehört; übergeben ist sie dem Herunterfahren)
+            vmf.lauf_warten_ende()
 
 
 def main():
@@ -918,9 +921,9 @@ def main():
     ap.add_argument("--compare", help="Ordner mit früheren Screenshots: zeigt, wo sich etwas verändert hat (braucht --shots)")
     ap.add_argument("--only", help="nur Prüfungen, deren Name auf diesen regulären Ausdruck passt (z. B. \"Anhänge\")")
     ap.add_argument("--vm", nargs="?", const=VM_NAME, help=f"in der Windows-VM testen (Parallels, Standard „{VM_NAME}“, sonst $HALO_VM); "
-                    "pausiert die VM danach und startet sie im Hintergrund kalt neu (HALO_VM_KEIN_NEUSTART=1: nicht)")
+                    "startet die VM vorher und fährt sie danach herunter (HALO_VM_KEIN_NEUSTART=1: kein Neustart bei gestörtem Bildtakt)")
     ap.add_argument("--beta", action="store_true", help="mit --vm: Thunderbird Beta der VM")
-    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf nicht pausieren")
+    ap.add_argument("--vm-weiter", action="store_true", help="mit --vm: VM nach dem Lauf laufen lassen (Handarbeit)")
     ap.add_argument("--ohne-vergleich", action="store_true", help="ohne Vergleichslauf ohne halo.spaces (Startmeldungen von "
                     "Thunderbird in der Fehlerkonsole werden dann nicht verglichen)")
     ap.add_argument("--vergleich-neu", action="store_true", help="Vergleichslauf ohne halo.spaces neu aufnehmen (ergänzt die "

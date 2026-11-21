@@ -385,7 +385,7 @@ Paket aus `dist/`, hell oder dunkel, Screenshots zurück auf den Mac.
 |---|---|---|
 | VM | Name `Windows 11` (anderer Name: `HALO_VM=…`), Windows-Hostname `win11` | |
 | Größe | fest 4 Kerne, 6 GB | daneben laufen die macOS-Tests (16 GB im Mini) |
-| Start | `--autostart start-host`, `--autostop shutdown` | startet mit dem Mac, auch nach Stromausfall (`pmset autorestart 1`) |
+| Start | `--autostart off`, `--autostop shutdown` | läuft nur während eines Tests: vor dem Test starten, danach herunterfahren (Maintainer 21.11.2026, gilt für jede VM auf neon) |
 | Freigabe | nur `~/halo-vm` (in Windows `\\Mac\halo`), kein geteiltes Profil, keine geteilten Programme | die VM sieht nichts vom Benutzerordner |
 | Windows | automatische Anmeldung, kein Ruhezustand, keine Bildschirmsperre, kein Sperrbildschirm, kein Update-Neustart bei angemeldetem Benutzer | Thunderbird braucht eine Sitzung |
 | Programme | Thunderbird (x64, `C:\Program Files\Mozilla Thunderbird`), Beta (`C:\Program Files\Thunderbird Beta`), Python 3.15 (ARM64), Git für Windows (für `openssl`) | Mozilla baut Thunderbird nicht für ARM64 – läuft unter der Windows-Emulation |
@@ -402,7 +402,8 @@ VM-Einstellungen am Mac und über `tests/win-vm-setup.ps1` die Windows-Seite
 GitHub (Git für Windows) und startet ein Installationsprogramm nur mit gültiger
 Signatur des Herausgebers. Thunderbird aktualisiert sich nicht selbst
 (`distribution/policies.json`); neue Versionen holt ein erneuter Aufruf des
-Skripts. Mit `--check` wird eine pausierte VM nicht geweckt.
+Skripts. Mit `--check` wird eine gestoppte VM nicht gestartet; was die Einrichtung startet, fährt sie am Ende
+wieder herunter.
 
 ```bash
 python3 tests/halo_test.py --vm --port 2851 --shots /tmp/win-hell           # hell
@@ -410,15 +411,18 @@ python3 tests/halo_test.py --vm --port 2851 --dark --shots /tmp/win-dunkel  # du
 python3 tests/halo_test.py --vm --beta --port 2851                          # Thunderbird Beta
 ```
 
-- Ablauf: VM fortsetzen und auf die Windows-Sitzung warten, Kurztest
+- Grundsatz für jede VM auf neon (Maintainer 21.11.2026, `ENTSCHEIDUNGEN.md` „VMs: nach jedem Test
+  herunterfahren …“): am Ende des Tests herunterfahren, vor dem Test starten; nie pausieren.
+- Ablauf: VM starten (aus „stopped“, bis 5 Minuten) und auf die Windows-Sitzung warten, Kurztest
   Bildtakt (gestört: ein kalter Neustart, sonst „FEHLER VM gestört“), Paket, `halo_test.py`, `perf.js` und `extension/` in einen Ordner unter
   `~/halo-vm` legen, Farbschema per Registry (`AppsUseLightTheme`,
   `SystemUsesLightTheme`) setzen, in der VM `python halo_test.py` als
   angemeldeter Benutzer starten (`prlctl exec --current-user`), Screenshots
-  zurückkopieren, Farbschema zurücksetzen, VM pausieren (`prlctl suspend`,
-  gibt die 6 GB frei; `--vm-weiter` lässt sie laufen), danach im Hintergrund
-  kalter Neustart für den nächsten Lauf (`tests/vm-frisch.sh`, auch täglich
-  00:45 aus dem CI-Wächter; `docs/testrechner.md` „Frische VM“).
+  zurückkopieren, Farbschema zurücksetzen, VM im Hintergrund herunterfahren
+  (`prlctl stop`, bei Zeitüberschreitung `--kill`; gibt die 6 GB frei;
+  `--vm-weiter` lässt sie für Handarbeit laufen). Täglich 00:45 startet der
+  CI-Wächter sie einmal zur Probe (`tests/vm-frisch.sh --taeglich`) und fährt
+  sie danach wieder herunter (`docs/testrechner.md` „Frische VM“).
 - Marionette läuft nur in der VM auf `127.0.0.1`, kein Port ist im VM-Netz offen.
   Die Port-Regeln gelten trotzdem (`--port`, ab 2850 von Hand).
 - Mac- und Windows-Läufe nie gleichzeitig: ein Lauf mit `--vm` wartet, bis kein

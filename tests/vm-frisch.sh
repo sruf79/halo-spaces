@@ -1,18 +1,22 @@
 #!/bin/zsh
-# Kalter Neustart der Windows-VM außerhalb eines Testlaufs, damit eine Windows-CI mit einer frischen VM beginnt
-# und keine Zeit für den Neustart verliert (Maintainer 18.11.2026: „wir sollten die vm bereits am anfang rebooten
-# vor den CI testläufen, damit der reboot nicht ebenfalls andere CI's stört“). Die Arbeit macht tests/vm_frisch.py
-# (stop, bei Zeitüberschreitung --kill, start, bis 5 Minuten Warten auf Windows, Kurztest Bildtakt mit
-# tests/win-bildtakt.ps1, bei Störung ein zweiter Neustart, sonst „FEHLER VM gestört“, danach VM pausieren),
-# gelöst in eigener Sitzung: weder launchd beim Ende des CI-Wächters noch der GitHub-Runner beim Jobende beenden es.
+# Wartung der Windows-VM außerhalb eines Testlaufs. Grundsatz für jede VM auf neon (Maintainer 21.11.2026,
+# ENTSCHEIDUNGEN.md „VMs: nach jedem Test herunterfahren …“): am Ende jedes Tests und jeder Wartung ganz herunterfahren,
+# vor dem Test starten. Die Arbeit macht tests/vm_frisch.py, gelöst in eigener Sitzung: weder launchd beim Ende des
+# CI-Wächters noch der GitHub-Runner beim Jobende beenden es. Vorab-Start (von Hand, --taeglich; Maintainer 18.11.2026:
+# „wir sollten die vm bereits am anfang rebooten vor den CI testläufen, damit der reboot nicht ebenfalls andere CI's
+# stört“): starten (läuft sie noch, erst herunterfahren), bis 5 Minuten Warten auf Windows, Kurztest Bildtakt mit
+# tests/win-bildtakt.ps1, bei Störung ein zweiter Start, sonst „FEHLER VM gestört“; danach wieder herunterfahren,
+# außer ein Lauf mit --vm wartet schon auf die Sperre ~/halo-vm/lauf.lock (Marke ~/halo-vm/wartet-<PID>): dann geht
+# die laufende VM samt Sperre an ihn („übergeben“).
 # Die Dateien kommen aus dem letzten Commit (git show HEAD), nicht aus dem oft bearbeiteten Arbeitsbaum.
 # Keine Altersgrenze (Maintainer 18.11.2026). Läuft CI, ein Test oder ein Lauf in der VM: auslassen.
 #   vm-frisch.sh              jetzt (von Hand)
 #   vm-frisch.sh --taeglich   aus dem CI-Wächter: nur 00:45 bis 01:14 und bis zum ersten Erfolg je Tag
 #                             (Tagesmarke ~/halo-nacht/vm-frisch.tag schreibt vm_frisch.py erst bei Erfolg)
 #   vm-frisch.sh --nach-lauf  Nachlauf-Schritt des CI-Jobs windows (auch nach Zeitüberschreitung oder Abbruch):
-#                             ohne Prüfung auf CI; hat halo_test.py den Neustart schon übergeben, tut es nichts
-# Nach einem normalen Lauf mit --vm startet halo_test.py den Neustart selbst. Protokoll ~/halo-nacht/vm-frisch.log.
+#                             nur herunterfahren, ohne Prüfung auf CI; hat halo_test.py das schon übergeben, tut es nichts
+# Nach einem normalen Lauf mit --vm fährt halo_test.py die VM selbst herunter (im Hintergrund über vm_frisch.py
+# --nach-lauf). Protokoll ~/halo-nacht/vm-frisch.log.
 # Testwerte: HALO_JETZT_HM (z. B. 0050), HALO_NACHT, HALO_VM_FRISCH_PY (statt python3, bekommt die Argumente).
 emulate -L zsh
 REPO=${0:A:h:h}

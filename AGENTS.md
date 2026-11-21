@@ -118,6 +118,8 @@ Dunkelmodus-Regel, Nachtlauf, CI-Wächter, Wochen- und Doku-Prüfung, Rundgang, 
 Routinen: `docs/testrechner.md` (vor Arbeit auf neon, an CI oder Routinen lesen). Für jede Sitzung gilt:
 
 - Marionette-Ports: 2839 Standard, 2845 CI, ab 2850 für Läufe von Hand (`--port`).
+- **Jede VM auf neon** (Windows-VM, später Linux-VM; Maintainer 21.11.2026, `ENTSCHEIDUNGEN.md`): am Ende des Tests
+  herunterfahren, vor dem Test starten, nie pausieren (`--vm-weiter` nur für Handarbeit; `docs/testrechner.md` „Windows-VM“).
 - Job `mac` in `test.yml` läuft nur bei Push auf `main` und von Hand, nie bei `pull_request` (Repo
   öffentlich). Die `if:`-Bedingung nicht lockern; `tests/mac-runner-hook.sh` weist alles andere ab.
 - Solange die CI auf neon läuft (Prozess `Runner.Worker`), keine eigenen Testläufe – zwei Testfenster

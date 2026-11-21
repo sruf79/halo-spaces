@@ -211,6 +211,19 @@ class P(html.parser.HTMLParser):
         if s.st and s.st[-1] == t: s.st.pop()
         else: s.f += 1
 p = P(); p.feed(sys.stdin.read()); sys.exit(1 if p.st or p.f else 0)"'
+# Zwischen-Releases und Urteile des Directors (21.11.2026): Zeile in den Briefzeilen, Notfall-Hinweis als Punkt für den Maintainer
+cat > $T/zu.txt <<'EOF2'
+2026-11-15 12:00:00 | abcdef123456 | pruef/a | schatten | ja | abcdef1 | 1 | Absturz beim Öffnen behoben. | wortliste ja | quelle director | schlüssel 111111111111
+2026-11-15 13:00:00 | bcdef1234567 | pruef/b | schatten | nein | - | - | Nur ein kleiner Fix. | wortliste nein | quelle director | schlüssel 222222222222
+2026-11-15 13:00:01 | bcdef1234567 | pruef/b | schatten | notfall-hinweis | - | - | Senden scheitert für alle. | wortliste nein | quelle director | schlüssel 222222222222
+2026-11-10 13:00:00 | cdef12345678 | pruef/c | schatten | nein | - | - | Alt, vor dem letzten Brief. | wortliste nein | quelle director | schlüssel 333333333333
+EOF2
+print -r -- "2026-11-15 14:00:00 | 3.28.0 | abcdef1 | pruef/a | veröffentlicht | - | - | Wiederholung nein" > $T/ze.txt
+HALO_MB_ZURTEIL=$T/zu.txt HALO_MB_ZERGEBNIS=$T/ze.txt lauf $MO $T/z.md >/dev/null
+pruefe "Zwischen-Releases: Zahl, Urteile des Directors mit Modus und Satz der ja-Urteile (nur seit dem letzten Brief)" \
+  'grep -qx "\- Zwischen-Releases: 1 veröffentlicht; Director (schatten): 1 ja, 1 nein, 0 Ausfall; ja: Absturz beim Öffnen behoben." $T/z.md'
+pruefe "Notfall-Hinweis des Directors als Punkt für den Maintainer" 'grep -q "Zu tun: Möglicher Notfall laut Director: Senden scheitert für alle. Ein Notfall-Release verordnest nur du" $T/z.md'
+pruefe "ohne Urteile und Zwischen-Releases keine Zeile" '! grep -q "Zwischen-Releases:" $T/b.md'
 # Soll nach dem freien Reset (Maintainer 18.11.2026): Anker Fr 20.11. 10:00, Brief Sa 21.11. 08:30 → 22,5 / 87 h = 25,9 %
 print -r -- "anker 2026-11-20T10:00+01:00 98 2" > $T/anker.txt
 A=$(HALO_WOCHENANKER=$T/anker.txt HALO_KONTINGENT_WOCHE=20 lauf 2026-11-21T08:30:00+01:00 $T/anker.md)

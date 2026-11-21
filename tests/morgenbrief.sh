@@ -34,7 +34,7 @@ export HALO_LAUF=morgenbrief
 # (Ordner), HALO_MB_HANDELN (handeln.log zum Lesen), HALO_PAUSEN_DATEI; HALO_KONTINGENT_WOCHE /
 # HALO_KONTINGENT_5H (Prozent); HALO_MB_RELEASES und HALO_MB_CI (JSON-Dateien wie `gh release list
 # --json tagName,publishedAt` bzw. `gh run list --json databaseId,headSha,status,conclusion,event,createdAt`);
-# HALO_MB_WINDOWS=success|failure|cancelled|läuft|keiner (Ergebnis des Jobs „windows“); HALO_MB_BOARD (JSON wie
+# HALO_MB_ZURTEIL/HALO_MB_ZERGEBNIS (zwischen-urteil.txt, zwischen-ergebnis.txt); HALO_MB_WINDOWS=success|failure|cancelled|läuft|keiner (Ergebnis des Jobs „windows“); HALO_MB_BOARD (JSON wie
 # `board.sh export`), HALO_BNR_ZWEIFEL (Zweifel-Liste von board-nach-release.zsh), HALO_ABN_FRAGEN (Fragen der Abnahme), HALO_VOLLDAMPF_DATEI, HALO_TAGESROUTINE_CONF; HALO_MB_AUSGABE: im Trockenlauf den Bericht dorthin
 # schreiben (sonst schreibt der Trockenlauf keinen Bericht).
 emulate -L zsh
@@ -212,6 +212,27 @@ for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="$
   ${HALO_AUF_FRAGEN:-$HOME/halo-aufgaben/aufraeumen-maintainer.md} 2>/dev/null)"}; do
   HANDELN+=("Aufräumen, deine Entscheidung: $(kurz ${z%%$'\t'*} 60): $(kurz ${z#*$'\t'} 160)")
   HANDELN_NEU+=(aufraeumen)
+done
+
+# --- 4c. Zwischen-Releases und Urteile des Directors seit dem letzten Brief (tests/zwischen-schleife.zsh, Maintainer
+# 21.11.2026, docs/release.md „Zwischen-Release: Urteil des Directors“): eine Zeile mit Zahl der Veröffentlichungen, den
+# Urteilen (Modus, ja/nein/Ausfall) und den Sätzen der „ja“-Urteile; ein NOTFALL-HINWEIS ist ein Punkt für den Maintainer
+# (nur er verordnet ein Notfall-Release). Zeilen: zwischen-ergebnis.txt „<Zeit> | <Version> | <Stand> | <Zweig> | <Ergebnis> | …“,
+# zwischen-urteil.txt „<Zeit> | <Stand> | <Zweig> | <Modus> | <ja|nein|ausfall|notfall-hinweis> | <Commit> | <Kriterium> | <Satz> | …“
+ZU=${HALO_MB_ZURTEIL:-$NACHT/zwischen-urteil.txt} ZE=${HALO_MB_ZERGEBNIS:-$NACHT/zwischen-ergebnis.txt}
+ZS_AWK_ZEIT='{ z = substr($1, 1, 16); if (!(z > s && z <= j)) next }'
+zr_n=$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  "$ZS_AWK_ZEIT"' $5 == "veröffentlicht" { n++ } END { print n + 0 }' $ZE 2>/dev/null)
+zu=$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  "$ZS_AWK_ZEIT"' $5 == "ja" { ja++; if (ja <= 3) saetze = saetze "; " $8 } $5 == "nein" { nein++ } $5 == "ausfall" { aus++ }
+   $5 ~ /^(ja|nein|ausfall)$/ { m = $4 } END { if (ja + nein + aus) printf "Director (%s): %d ja, %d nein, %d Ausfall%s", m, ja, nein, aus, (saetze ? "; ja: " substr(saetze, 3) : "") }' $ZU 2>/dev/null)
+if [[ -n $zu || ${zr_n:-0} -gt 0 ]]; then
+  INFO+=("Zwischen-Releases: ${zr_n:-0} veröffentlicht${zu:+; $(kurz $zu 300)}")
+fi
+for z in ${(f)"$(awk -F' [|] ' -v s="${T[SEIT][1,10]} ${T[SEIT][12,16]}" -v j="${T[JETZT][1,10]} ${T[JETZT][12,16]}" \
+  "$ZS_AWK_ZEIT"' $5 == "notfall-hinweis" { print $8 }' $ZU 2>/dev/null)"}; do
+  HANDELN+=("Möglicher Notfall laut Director: $(kurz ${z%.} 140). Ein Notfall-Release verordnest nur du")
+  HANDELN_NEU+=(notfall-hinweis)
 done
 
 # --- 5. Releases seit dem letzten Brief, FEHLER von publish.sh ---

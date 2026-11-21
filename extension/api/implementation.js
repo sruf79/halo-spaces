@@ -1613,6 +1613,36 @@ function bildAnteil(now, last, dauer) {
   return last === null ? 0 : Math.max(0, Math.min(now - last, BILD_MAX_MS)) / dauer;
 }
 
+// Aufräumer eines Fensters (Verfassen, Dialoge): laufen beim Schließen des Fensters und fallen dann aus der gemeinsamen
+// Sammlung. Vorher blieben sie bis zum Beenden der Erweiterung darin liegen und hielten jedes geschlossene Fenster
+// samt Dokument im Speicher (jedes Verfassen-Fenster, jeder Termin- und Rückfrage-Dialog; im Verfassen-Fenster
+// zusätzlich über einen Beobachter der Einstellungen) – mit jedem geöffneten Fenster wuchs der Speicher, und die
+// Speicherbereinigung hielt Thunderbird immer länger an
+function fensterAufraeumer(win, alle) {
+  const eigene = new Set();
+  const sammlung = {
+    add(fn) {
+      eigene.add(fn);
+      alle.add(fn);
+      return sammlung;
+    },
+    delete(fn) {
+      eigene.delete(fn);
+      return alle.delete(fn);
+    },
+  };
+  win.addEventListener("unload", () => {
+    for (const fn of [...eigene]) {
+      alle.delete(fn);
+      try {
+        fn();
+      } catch {} // gewollt: Fenster schließt gerade, nichts mehr aufzuräumen
+    }
+    eigene.clear();
+  }, { once: true });
+  return sammlung;
+}
+
 // Gemeinsamer Takt für die Ein-/Ausblend-Animationen (Stufe 1 der Vereinheitlichung): läuft über Bildwechsel
 // (requestAnimationFrame) von 0 bis 1; bild(p, k, letzt) bekommt den Verlauf p = kurve(k) (k = Fortschritt) und ob es
 // das letzte Bild ist (ende folgt im selben Aufruf), ende(k) den Endstand (k >= 1: vorwärts zu Ende, k <= 0: nach einer
@@ -8393,9 +8423,11 @@ class CardEnhancer {
     ExtensionSupport.registerWindowListener("mail-cards-compose", {
       chromeURLs: ["chrome://messenger/content/messengercompose/messengercompose.xhtml"],
       onLoadWindow: w => {
-        this.watchComposeToolbar(w, composeCleanups);
+        // (Aufräumer nur bis zum Schließen dieses Fensters, siehe fensterAufraeumer)
+        const cleanups = fensterAufraeumer(w, composeCleanups);
+        this.watchComposeToolbar(w, cleanups);
         try {
-          hookComposeApple(w, composeCleanups);
+          hookComposeApple(w, cleanups);
         } catch (e) {
           log("compose apple error", e);
         }
@@ -8405,13 +8437,13 @@ class CardEnhancer {
           log("compose find bar error", e);
         }
         try {
-          UndoSend.hook(w, composeCleanups);
-          SendLater.hook(w, composeCleanups);
+          UndoSend.hook(w, cleanups);
+          SendLater.hook(w, cleanups);
         } catch (e) {
           log("undo send hook error", e);
         }
         try {
-          installDialogBox(w, { push: fn => composeCleanups.add(fn) });
+          installDialogBox(w, { push: fn => cleanups.add(fn) });
         } catch (e) {
           log("dialog box error", e);
         }
@@ -8431,7 +8463,7 @@ class CardEnhancer {
     ExtensionSupport.registerWindowListener("mail-cards-address-suggest", {
       onLoadWindow: w => {
         try {
-          hookAddressSuggest(w, suggestCleanups);
+          hookAddressSuggest(w, fensterAufraeumer(w, suggestCleanups));
         } catch (e) {
           log("address suggest hook error", e);
         }

@@ -25107,36 +25107,50 @@ Neu
           "Stern wie in der Mail-Toolbar", message_window_hover_dots, results)
 
     def calendar_list_light():
-        # Kalenderliste wie Apple Kalender: angehakt gefüllt in der Kalenderfarbe, Haken in Thunderbirds Kontrastfarbe
-        # (helle Farbe → dunkler Haken); nicht angehakt leeres Kästchen mit Rand in der Kalenderfarbe
+        # Kalenderliste (Kalender und Aufgaben): Haken je Modus einheitlich, hell weiß und dunkel #1E1E1E, auch bei Gelb und
+        # sehr blassen Farben; nicht angehakt volles Farbkästchen ohne Haken; feiner dunkler Rand bleibt (Vorlagen 20.11.2026)
         res = m.js(r"""
-          const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://")); c.name = "Halo Hell";
-          c.setProperty("color", "#DCEBFB"); cal.manager.registerCalendar(c);
-          await toCalendar(); await ruhig(600);
-          const li = await until(() => d.querySelector(`#calendar-list li[calendar-id="${c.id}"]`), 4000);
-          const box = li?.querySelector(".calendar-color"), input = li?.querySelector("input.calendar-displayed");
-          const lum = s => { const v = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
-            return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-          const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return Math.round((x + 0.05) / (y + 0.05) * 10) / 10; };
-          const look = () => { const cs = w.getComputedStyle(box), af = w.getComputedStyle(box, "::after");
-            return { bg: cs.backgroundColor, border: cs.borderTopColor, bw: cs.borderTopWidth, check: af.content != "none" ? af.backgroundColor : null, op: cs.opacity }; };
-          const out = { row: !!li };
-          if (box) {
-            out.on = look(); out.on.contrast = out.on.check ? ratio(out.on.check, out.on.bg) : 0;
-            input.click(); await ruhig(400);
-            out.off = look();
-            input.click(); await ruhig(300);
+          const farben = { gelb: "#FFCC00", blass: "#DCEBFB" }, cs = {};
+          for (const [n, f] of Object.entries(farben)) { const c = cal.manager.createCalendar("storage", Services.io.newURI("moz-storage-calendar://"));
+            c.name = "Halo " + n; c.setProperty("color", f); cal.manager.registerCalendar(c); cs[n] = c; }
+          const out = { dark: w.matchMedia("(prefers-color-scheme: dark)").matches };
+          const look = box => { const s = w.getComputedStyle(box), af = w.getComputedStyle(box, "::after");
+            return { bg: s.backgroundColor, bw: s.borderTopWidth, check: af.content != "none" ? af.backgroundColor : null, op: s.opacity, sh: s.boxShadow }; };
+          const messen = async space => {
+            const r = {};
+            for (const [n, c] of Object.entries(cs)) {
+              const li = await until(() => d.querySelector(`#calendar-list li[calendar-id="${c.id}"]`), 4000);
+              const box = li?.querySelector(".calendar-color"), input = li?.querySelector("input.calendar-displayed");
+              if (!box || !input) { r[n] = null; continue; }
+              r[n] = { on: look(box) }; input.click(); await ruhig(400);
+              r[n].off = look(box); input.click(); await ruhig(300);
+            }
+            out[space] = r;
+          };
+          try {
+            await toCalendar(); await ruhig(600); await messen("kalender");
+            tm.openTab("tasks", {}); await bis(() => tm.currentTabInfo?.mode?.name == "tasks", "Aufgaben-Tab"); await ruhig(800); await messen("aufgaben");
+          } finally {
+            for (const c of Object.values(cs)) { cal.manager.unregisterCalendar(c); cal.manager.removeCalendar?.(c); }
+            await toMail();
           }
-          cal.manager.unregisterCalendar(c); cal.manager.removeCalendar?.(c);
-          await toMail();
           return out;""")
-        on, off = res.get("on") or {}, res.get("off") or {}
-        light = "rgb(220, 235, 251)"
-        ok = (res.get("row") and on.get("bg") == light and on.get("contrast", 0) >= 4.5
-              and off.get("check") is None and off.get("bg") in ("rgba(0, 0, 0, 0)", "transparent") and off.get("border") == light
-              and off.get("op") == "1")
-        return ok, f"{res}"
-    check("Kalenderliste: helle Kalenderfarbe mit dunklem Haken, nicht angehakt leeres Kästchen mit farbigem Rand (wie Apple Kalender)", calendar_list_light, results)
+        tick = "rgb(30, 30, 30)" if res.get("dark") else "rgb(255, 255, 255)"
+        soll = {"gelb": "rgb(255, 204, 0)", "blass": "rgb(220, 235, 251)"}
+        bad = []
+        for space in ("kalender", "aufgaben"):
+            for n, farbe in soll.items():
+                e = (res.get(space) or {}).get(n)
+                if not e:
+                    bad.append(f"{space}/{n}: Zeile fehlt"); continue
+                on, off = e["on"], e["off"]
+                if not (on["bg"] == farbe and on["check"] == tick and on["op"] == "1" and "inset" in on["sh"]):
+                    bad.append(f"{space}/{n} angehakt: {on}")
+                if not (off["bg"] == farbe and off["check"] is None and off["op"] == "1" and off["bw"] in ("0px", "") and "inset" in off["sh"]):
+                    bad.append(f"{space}/{n} aus: {off}")
+        return not bad, "; ".join(bad) or f"{res}"
+    check("Kalenderliste: Haken hell weiß und dunkel dunkel bei jeder Kalenderfarbe (auch Gelb und blass), nicht angehakt volles "
+          "Farbkästchen ohne Haken, feiner Rand bleibt (Kalender und Aufgaben)", calendar_list_light, results)
 
     def mac_photos_off():
         # Einstellungsseite (setSetting) direkt über das Experiment-Modul; den

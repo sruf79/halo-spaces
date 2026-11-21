@@ -6233,12 +6233,23 @@ menuseparator[mc-tidy-hidden] {
   position: relative !important;
 }
 
+/* Haken einheitlich je Modus, unabhängig von der Kalenderfarbe: hell weiß, dunkel fast schwarz
+   (Wert aus der dunklen Vorlage gemessen, 20.11.2026) */
+#calendar-list {
+  --mt-cal-check: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  #calendar-list {
+    --mt-cal-check: #1E1E1E;
+  }
+}
+
 #calendar-list > li:has(input.calendar-displayed:checked) .calendar-color::after {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
-  /* Haken in Thunderbirds Kontrastfarbe des Kalenders (bei hellen Farben dunkel) */
-  background-color: var(--mc-cal-fore, white) !important;
+  background-color: var(--mt-cal-check) !important;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 8.3 2.6 2.6L12 5.4'/%3E%3C/svg%3E") center / contain no-repeat !important;
 }
 
@@ -6247,12 +6258,8 @@ menuseparator[mc-tidy-hidden] {
   background-color: var(--mt-text-secondary) !important;
 }
 
-/* nicht angehakt wie Apple Kalender: leeres Kästchen mit Rand in der Kalenderfarbe
-   (statt blasser Füllung – bei hellen Farben war kein Unterschied zu sehen) */
-#calendar-list > li:not([calendar-disabled]):has(input.calendar-displayed:not(:checked)) .calendar-color {
-  background-color: transparent !important;
-  border: 1.5px solid var(--mc-cal-back, var(--mt-text-secondary)) !important;
-}
+/* nicht angehakt: volles Farbkästchen ohne Haken (beide Vorlagen, hell und dunkel, 20.11.2026);
+   Thunderbirds Füllung bleibt, der Haken entfällt über :checked oben */
 
 /* sehr helle Kalenderfarben: zusätzlich ein feiner dunkler Rand, damit das Kästchen nicht verschwindet */
 #calendar-list > li .calendar-color {

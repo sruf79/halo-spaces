@@ -977,3 +977,8 @@ Herkunft: Gespräch des Maintainers mit dem Designer, 20.11.2026, laut Designer 
 
 Herkunft: Maintainer in der Sitzung neon, 20.11.2026, nach dem Zwischen-Release 3.35.0: „also der zwischen-release mit einer einzigen änderung welche auch nicht kritisch war, war jetzt eigentlich unnötig.“ Auf neons Vorschlag („Ein Zwischen-Release braucht mindestens einen Fehler, den Nutzer bemerken, oder etwas Dringendes. Ein reiner Schönheitsfehler wartet auf den Nachtlauf.“) antwortete er: „ja.“
 Deutung von neon: gilt für Zwischen-Releases (auch im Volldampf); der Nachtlauf veröffentlicht weiter alles, sobald die CI grün ist.
+
+## VMs: nach jedem Test herunterfahren, vor dem Test starten; Linux-VM mit Regelwerk (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026. Zur Linux-VM auf neon samt Regelwerk (Entwurf von neon im Board-Eintrag „Ablauf: Linux-VM auf neon einrichten und Regelwerk …“) schrieb er: „ok aber dann müssen wir auch ab sofort die windows vm nach ende jeden tests herunterfahren und zu beginn des tests auch starten“. Davor hatte er den Gedanken so begründet: „so würden wir sicherstellen dass immer nur jene vm läuft die auch tatsächlich gebraucht wird und ressourcensparend arbeiten.“
+Deutung von neon: Ab sofort gilt für jede VM auf neon: am Ende eines Tests ganz herunterfahren (nicht mehr pausieren), vor dem nächsten Test starten. Das Regelwerk für die Linux-VM (GitHub-Linux bleibt maßgeblich, Linux-VM nur zur Diagnose) gilt als bestätigt; die Einrichtung der Linux-VM folgt erst nach dem Ergebnis des Fable-Versuchs zur Today-Pane-Prüfung.

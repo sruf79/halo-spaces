@@ -25409,7 +25409,7 @@ Neu
         # ⌃⌘S blendet die Seitenleiste aus und wieder ein wie der Knopf (wie Apple Mail; GitHub #56) – nur macOS;
         # kein anderes Kürzel von Thunderbird liegt auf derselben Kombination
         if sys.platform != "darwin":
-            return True, "nur macOS (für Windows/Linux kein Kürzel entschieden)"
+            return True, "nur macOS (Windows/Linux: Strg+B und Strg+T, eigene Prüfung)"
         state = r"""await ruhig(300); const pane = tm.currentAbout3Pane?.document.getElementById("folderPane");
           return { side: Math.round(pane?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden };"""
         pre = m.js(r"""await toMail(); await ruhig(400);
@@ -25437,9 +25437,9 @@ Neu
 
     def today_key():
         # ⌃⌘T blendet die Today-Pane ein und aus wie der Knopf #mcTodayToggle; der Menüpunkt zeigt das Kürzel – nur macOS
-        # (für Windows/Linux ist kein Kürzel entschieden)
+        # (Windows/Linux: Strg+T, Prüfung pane_keys_other)
         if sys.platform != "darwin":
-            return True, "nur macOS (für Windows/Linux kein Kürzel entschieden)"
+            return True, "nur macOS (Windows/Linux: Strg+B und Strg+T, eigene Prüfung)"
         state = r"""await ruhig(400); return { shown: !!w.TodayPane?.isVisible };"""
         pre = m.js(r"""await toMail(); await ruhig(400);
           if (w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await bis(() => !w.TodayPane.isVisible, "Today-Pane aus", 3000); await ruhig(400); }
@@ -25461,6 +25461,109 @@ Neu
               and not pre["shown"] and on["shown"] and not off["shown"])
         return ok, f"vorher={pre} ein={on} aus={off}"
     check("Today-Pane: ⌃⌘T blendet sie ein und aus wie der Knopf, der Menüpunkt zeigt das Kürzel", today_key, results)
+
+    def pane_keys_other():
+        # Windows und Linux (Maintainer 21.11.2026, GitHub #59): Strg+B blendet die Seitenleiste, Strg+T die Today-Pane ein und
+        # aus wie die Knöpfe; F11 bleibt; die Menüpunkte (Ansicht und ☰ › Ansicht › Layout) zeigen die Kürzel; kein Kürzel von
+        # Thunderbird liegt auf derselben Kombination. Nur im Hauptfenster: im Verfassen-Fenster (Strg+B fett, Strg+T
+        # Festbreite) und in der Notiz der Aufgaben (Strg+B fett) schaltet nichts um. macOS behält ⌃⌘S und ⌃⌘T (Prüfungen oben)
+        if sys.platform == "darwin":
+            return True, "nur Windows/Linux (macOS behält ⌃⌘S und ⌃⌘T)"
+        def press(taste):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "key", "id": "tasten", "actions": [
+                {"type": "keyDown", "value": ""}, {"type": "keyDown", "value": taste},
+                {"type": "keyUp", "value": taste}, {"type": "keyUp", "value": ""}]}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        state = r"""await ruhig(400); const pane = tm.currentAbout3Pane?.document.getElementById("folderPane");
+          return { side: Math.round(pane?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible };"""
+        fp = r"""const fp = () => tm.currentAbout3Pane?.document.getElementById("folderPane");"""
+        pre = m.js(fp + r"""await toMail(); await ruhig(400);
+          if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await bis(() => fp()?.getBoundingClientRect().width > 100, "Seitenleiste da", 3000); }
+          if (w.TodayPane?.isVisible) { d.getElementById("mcTodayToggle").click(); await bis(() => !w.TodayPane.isVisible, "Today-Pane aus", 3000); await ruhig(400); }
+          tm.currentAbout3Pane.threadTree?.focus(); await ruhig(300);
+          // alle Kürzel des Hauptfensters auf Strg+B bzw. Strg+T (ohne Umschalt/Alt): nur unsere beiden
+          const mods = k => (k.getAttribute("modifiers") || "").split(/[\s,]+/).filter(Boolean).sort().join("+");
+          const keys = [...d.querySelectorAll("key")].filter(k => ["b", "t"].includes((k.getAttribute("key") || "").toLowerCase()) && ["accel", "control"].includes(mods(k)))
+            .map(k => k.id || "(ohne id)").sort();
+          const f11 = d.getElementById("todaypanekey");
+          const attr = (id, name) => d.getElementById(id)?.getAttribute(name) ?? null;
+          return { keys, f11: [f11?.getAttribute("keycode"), f11?.getAttribute("command"), f11?.hasAttribute("disabled")],
+            menu: [attr("menu_showFolderPane", "key"), attr("calShowTodayPane-2", "key")],
+            app: [attr("appmenu_showFolderPane", "shortcut"), attr("appmenu_calShowTodayPane-2", "shortcut")],
+            side: Math.round(fp()?.getBoundingClientRect().width ?? -1), spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible };""")
+        press("b")
+        off = m.js(fp + r"""await until(() => !(fp()?.getBoundingClientRect().width >= 1) && w.gSpacesToolbar.isHidden, 3000);""" + state)
+        press("b")
+        on = m.js(fp + r"""await until(() => fp()?.getBoundingClientRect().width > 100 && !w.gSpacesToolbar.isHidden, 3000);""" + state)
+        press("t")
+        t_on = m.js(r"""await until(() => w.TodayPane?.isVisible, 3000);""" + state)
+        press("t")
+        t_off = m.js(r"""await until(() => !w.TodayPane?.isVisible, 3000);""" + state)
+        # Notiz der Aufgaben: Strg+B macht fett, die Seitenleiste bleibt
+        note = {}
+        try:
+            note = m.js(r"""
+              tm.openTab("tasks", {}); const tree = await bis(() => d.getElementById("calendar-task-tree"), "Aufgabenliste", 6000); await ruhig(800);
+              w.taskViewUpdate?.("all"); await ruhig(600);
+              const { CalTodo } = ChromeUtils.importESModule("resource:///modules/CalTodo.sys.mjs");
+              const t = new CalTodo(); t.title = "Halo Kuerzel"; t.calendar = testCalendar(); t.descriptionText = "Notiz Kuerzel"; await testCalendar().addItem(t);
+              await bis(() => (tree.mTaskArray || []).some(x => x.title == "Halo Kuerzel"), "Aufgabe in der Liste", 6000);
+              tree.view.selection.select(tree.mTaskArray.findIndex(x => x.title == "Halo Kuerzel"));
+              const frame = d.getElementById("calendar-task-details-description");
+              await bis(() => frame.contentDocument?.body?.textContent.includes("Notiz Kuerzel"), "Notiz", 6000); await ruhig(300);
+              const nd = frame.contentDocument, nwin = frame.contentWindow;
+              nd.body.dispatchEvent(new nwin.MouseEvent("click", { bubbles: true }));
+              await bis(() => nd.designMode == "on", "Notiz bearbeitbar", 3000);
+              nwin.focus(); nd.execCommand("selectAll", false, null); await ruhig(300);
+              return { edit: nd.designMode, bold: nd.queryCommandState("bold"), spaces: !w.gSpacesToolbar.isHidden };""")
+            press("b")
+            note["after"] = m.js(r"""const nd = d.getElementById("calendar-task-details-description").contentDocument;
+              const bold = !!(await until(() => nd.queryCommandState("bold"), 3000)); await ruhig(600);
+              return { bold, edit: nd.designMode, spaces: !w.gSpacesToolbar.isHidden, anim: !!w.__mcSpacesAnimating };""")
+        finally:
+            m.js(r"""const frame = d.getElementById("calendar-task-details-description");
+              try { frame?.contentWindow?.dispatchEvent(new frame.contentWindow.FocusEvent("blur")); await until(() => frame.contentDocument.designMode != "on", 3000); } catch {}
+              for (const x of await items("Halo Kuerzel")) { try { await testCalendar().deleteItem(x); } catch {} }
+              for (const tb of [...tm.tabInfo].slice(1)) tm.closeTab(tb);
+              await toMail(); if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click(); await ruhig(1200); } return 1;""")
+        # Verfassen-Fenster: die Tasten gehören dem Text, im Hauptfenster schaltet nichts um
+        comp = {}
+        wert = lambda r: r["value"] if isinstance(r, dict) else r
+        main = wert(m.cmd("WebDriver:GetWindowHandle"))
+        before = set(wert(m.cmd("WebDriver:GetWindowHandles")))
+        try:
+            m.js(COMPOSE_JS)
+            new = [h for h in wert(m.cmd("WebDriver:GetWindowHandles")) if h not in before]
+            comp["window"] = len(new)
+            if new:
+                m.cmd("WebDriver:SwitchToWindow", {"handle": new[0]})
+                comp["before"] = m.js(r"""const cw = [...Services.wm.getEnumerator("msgcompose")].pop(); const ed = cw.document.getElementById("messageEditor");
+                  cw.focus(); ed.focus(); cw.SetMsgBodyFrameFocus?.(); await ruhig(400);
+                  return { bold: ed.contentDocument.queryCommandState("bold"), keys: [...cw.document.querySelectorAll("key")].filter(k => /^mcKeyToggle/.test(k.id)).length };""")
+                press("b")
+                press("t")
+                comp["after"] = m.js(r"""const cw = [...Services.wm.getEnumerator("msgcompose")].pop(); const ed = cw.document.getElementById("messageEditor");
+                  const bold = !!(await until(() => ed.contentDocument.queryCommandState("bold"), 3000)); await ruhig(600);
+                  return { bold, spaces: !w.gSpacesToolbar.isHidden, today: !!w.TodayPane?.isVisible, anim: !!w.__mcSpacesAnimating };""")
+        finally:
+            # (erst zurück ins Hauptfenster: ein Skript im Fenster, das es selbst schließt, bricht ab)
+            m.cmd("WebDriver:SwitchToWindow", {"handle": main})
+            m.js(r"""for (const cw of [...Services.wm.getEnumerator("msgcompose")]) { try { cw.gContentChanged = false; cw.close(); } catch {} }
+              await until(() => ![...Services.wm.getEnumerator("msgcompose")].length, 4000); return 1;""")
+        na, ca = note.get("after") or {}, comp.get("after") or {}
+        ok = (pre["keys"] == ["mcKeyToggleSidebar", "mcKeyToggleTodayPane"] and pre["f11"] == ["VK_F11", "calendar_toggle_todaypane_command", False]
+              and pre["menu"] == ["mcKeyToggleSidebar", "mcKeyToggleTodayPane"]
+              and len(pre["app"]) == 2 and (pre["app"][0] or "").endswith("+B") and (pre["app"][1] or "").endswith("+T")
+              and pre["side"] > 100 and pre["spaces"] and not pre["today"]
+              and off["side"] <= 0 and not off["spaces"] and on["side"] > 100 and on["spaces"]
+              and t_on["today"] and not t_off["today"] and t_off["spaces"]
+              and note.get("edit") == "on" and note.get("bold") is False and note.get("spaces")
+              and na.get("bold") and na.get("spaces") and not na.get("anim")
+              and comp.get("window") == 1 and (comp.get("before") or {}).get("keys") == 0 and (comp.get("before") or {}).get("bold") is False
+              and ca.get("bold") and ca.get("spaces") and not ca.get("today") and not ca.get("anim"))
+        return ok, f"vorher={pre} aus={off} ein={on} today_ein={t_on} today_aus={t_off} notiz={note} verfassen={comp}"
+    check("Tastenkürzel Windows/Linux: Strg+B blendet die Seitenleiste, Strg+T die Today-Pane ein und aus, Menüs zeigen die Kürzel; "
+          "im Verfassen-Fenster und in der Notiz der Aufgaben schaltet nichts um (GitHub #59)", pane_keys_other, results)
 
     def sidebar_float_edge():
         # Einblenden am linken Fensterrand unter macOS: Die innersten 3 px am Fensterrand gehören dem Größenändern

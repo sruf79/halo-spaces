@@ -171,6 +171,18 @@ const MISS_TTL = 7 * DAY;
 const FETCH_TIMEOUT = 6000;
 // Texte mit „Mac“ bzw. „macOS“ nur dort
 const IS_MAC = Services.appinfo.OS == "Darwin";
+// Tastenkürzel zum Ein-/Ausblenden von Seitenleiste ("sidebar") und Today-Pane ("today") je System: macOS ⌃⌘S und
+// ⌃⌘T, Windows und Linux Strg+B und Strg+T (Maintainer 21.11.2026; in Thunderbirds Hauptfenster beide frei, F11 für
+// die Today-Pane bleibt daneben). Reine Funktionen, siehe tests/logik/kuerzel.test.mjs
+function paneShortcut(pane, os) {
+  const mac = os == "Darwin";
+  return { key: pane == "today" ? "t" : mac ? "s" : "b", modifiers: mac ? "accel,control" : "accel" };
+}
+// Gehört die Taste gerade dem Text? Strg+B heißt in einem Feld mit Formatierung (Notiz der Aufgaben) fett – dort
+// schaltet es die Seitenleiste nicht; editing = der Fokus steht in einem solchen Feld
+function paneShortcutBlocked(pane, os, editing) {
+  return os != "Darwin" && pane == "sidebar" && !!editing;
+}
 // Faktor aus Thunderbirds Schriftgröße (≡ → Schriftgröße): gewählte durch
 // Standardgröße des Systems, 1 bei Standardgröße. Die Einstellung direkt
 // lesen: Thunderbirds eigener Beobachter kann nach unserem laufen
@@ -12094,25 +12106,64 @@ class CardEnhancer {
       });
     };
 
-    // Tastenkürzel ⌃⌘S wie „Seitenleiste ausblenden/einblenden“ in Apple Mail:
-    // dieselbe Aktion wie der Seitenleisten-Knopf (GitHub #56). Nur macOS –
-    // für Windows/Linux ist noch kein Kürzel entschieden
+    // Tastenkürzel wie „Seitenleiste ausblenden/einblenden“ in Apple Mail: dieselbe Aktion wie der
+    // Seitenleisten-Knopf (GitHub #56). macOS ⌃⌘S, Windows und Linux Strg+B (GitHub #59; paneShortcut) –
+    // nur im Hauptfenster; im Verfassen-Fenster und in der Notiz der Aufgaben bleibt Strg+B fett
+    const OS = Services.appinfo.OS;
+    // steht der Fokus in einem Feld mit Formatierung (designMode bzw. contenteditable)?
+    const richTextFocus = () => {
+      try {
+        const el = Services.focus.focusedElement, fw = Services.focus.focusedWindow;
+        return fw?.document?.designMode == "on" || !!el?.isContentEditable;
+      } catch {
+        return false; // gewollt: ohne Auskunft gilt das Kürzel
+      }
+    };
+    // Kürzel im App-Menü (☰) anzeigen: Thunderbird liest „key“ nur beim ersten Öffnen einer Ansicht
+    const showAppShortcut = (id, key) => {
+      const button = w.document.getElementById(id);
+      if (!button) {
+        return;
+      }
+      const old = [button.getAttribute("key"), button.getAttribute("shortcut")];
+      button.setAttribute("key", key.id);
+      try {
+        const { ShortcutUtils } = ChromeUtils.importESModule("resource://gre/modules/ShortcutUtils.sys.mjs");
+        button.setAttribute("shortcut", ShortcutUtils.prettifyShortcut(key));
+      } catch (e) {
+        log("shortcut label error", e);
+      }
+      this.restorers.push(() => {
+        for (const [i, name] of ["key", "shortcut"].entries()) {
+          if (old[i] === null) {
+            button.removeAttribute(name);
+          } else {
+            button.setAttribute(name, old[i]);
+          }
+        }
+      });
+    };
     const hookSidebarKey = () => {
       const d = w.document;
-      if (!IS_MAC || d.getElementById("mcKeyToggleSidebar")) {
+      if (d.getElementById("mcKeyToggleSidebar")) {
         return;
       }
       // <command> statt oncommand am <key>: kein Skript im Attribut
       const commandset = d.createXULElement("commandset");
       const command = d.createXULElement("command");
       command.id = "mcCmdToggleSidebar";
-      command.addEventListener("command", () => toggleSidebar());
+      command.addEventListener("command", () => {
+        if (!paneShortcutBlocked("sidebar", OS, richTextFocus())) {
+          toggleSidebar();
+        }
+      });
       commandset.append(command);
       const keyset = d.createXULElement("keyset");
       const key = d.createXULElement("key");
+      const combo = paneShortcut("sidebar", OS);
       key.id = "mcKeyToggleSidebar";
-      key.setAttribute("key", "s");
-      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("key", combo.key);
+      key.setAttribute("modifiers", combo.modifiers);
       key.setAttribute("command", "mcCmdToggleSidebar");
       keyset.append(key);
       d.documentElement.append(commandset, keyset);
@@ -12120,21 +12171,34 @@ class CardEnhancer {
         keyset.remove();
         commandset.remove();
       });
+      if (IS_MAC) {
+        return;
+      }
+      // Windows und Linux: Thunderbirds Punkt zur Ordnerliste (Ansicht bzw. ☰ › Ansicht › Layout) zeigt das Kürzel –
+      // er schaltet dieselbe Spalte (Thunderbirds Wege ziehen mit, hookSpacesToggle)
+      const item = d.getElementById("menu_showFolderPane");
+      if (item && !item.hasAttribute("key")) {
+        item.setAttribute("key", key.id);
+        this.restorers.push(() => item.removeAttribute("key"));
+      }
+      showAppShortcut("appmenu_showFolderPane", key);
     };
 
-    // Tastenkürzel ⌃⌘T blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle
-    // (Animation inklusive); im Menü steht das Kürzel am Punkt „Today Pane“
-    // (Thunderbirds F11 bleibt daneben bestehen). Nur macOS – für Windows/Linux
-    // ist noch kein Kürzel entschieden (zusammen mit ⌃⌘S, Maintainer-Entscheidung offen)
+    // Tastenkürzel blendet die Today-Pane ein/aus wie der Knopf #mcTodayToggle (Animation inklusive): macOS ⌃⌘T,
+    // Windows und Linux Strg+T (paneShortcut); im Menü steht das Kürzel am Punkt „Today Pane“
+    // (Thunderbirds F11 bleibt daneben bestehen)
     const hookTodayKey = () => {
       const d = w.document;
-      if (!IS_MAC || d.getElementById("mcKeyToggleTodayPane")) {
+      if (d.getElementById("mcKeyToggleTodayPane")) {
         return;
       }
       const commandset = d.createXULElement("commandset");
       const command = d.createXULElement("command");
       command.id = "mcCmdToggleTodayPane";
       command.addEventListener("command", () => {
+        if (paneShortcutBlocked("today", OS, richTextFocus())) {
+          return;
+        }
         const btn = d.getElementById("mcTodayToggle");
         if (btn) {
           btn.click();
@@ -12145,9 +12209,10 @@ class CardEnhancer {
       commandset.append(command);
       const keyset = d.createXULElement("keyset");
       const key = d.createXULElement("key");
+      const combo = paneShortcut("today", OS);
       key.id = "mcKeyToggleTodayPane";
-      key.setAttribute("key", "t");
-      key.setAttribute("modifiers", "accel,control");
+      key.setAttribute("key", combo.key);
+      key.setAttribute("modifiers", combo.modifiers);
       key.setAttribute("command", "mcCmdToggleTodayPane");
       keyset.append(key);
       d.documentElement.append(commandset, keyset);
@@ -12168,6 +12233,9 @@ class CardEnhancer {
         keyset.remove();
         commandset.remove();
       });
+      if (!IS_MAC) {
+        showAppShortcut("appmenu_calShowTodayPane-2", key);
+      }
     };
 
     // Bereiche-Leiste: ein eigener Knopf dafür entfällt (die Leiste gehört zur

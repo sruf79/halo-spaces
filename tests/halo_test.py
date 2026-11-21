@@ -17999,9 +17999,21 @@ Neu
         # Thunderbird fokussiert sein (bei uns ausgeblendetes) Suchfeld über der Liste,
         # etwa beim Abbrechen eines neuen Kontakts: der Fokus landet in der
         # Kontaktliste statt im Nichts (Pfeiltasten wirken ohne Klick)
-        res = m.js(OPEN_BOOKS_JS + r"""
+        # Eingerichtet wird sie mit der Kopfzeile, sobald Thunderbird die Seite fertig meldet: vorher nur über einen
+        # Zeitgeber nach dem Tabwechsel (~330 ms) – war die Seite dann noch nicht aufgebaut (CI unter Linux, 19. und 20.11.,
+        # Läufe 44431090252 und 44828805100), kam sie nie, der Fokus ging ins Leere
+        res = m.js(r"""
+          tm.openTab("addressBookTab", {});
+          const abTab = tm.currentTabInfo;
+          // gleich nach der Fertig-Meldung (zwei Takte für die Erweiterung, kein fester Zeitgeber): schon eingerichtet?
+          const readyHook = await Promise.race([new Promise(res => abTab.browser.addEventListener("about-addressbook-ready", async () => {
+              for (let i = 0; i < 2; i++) await new Promise(r => w.setTimeout(r, 0));
+              res(!!abTab.browser.contentWindow?.__mcHeaderHook);
+            }, { capture: true, once: true })), wait(8000).then(() => "nicht gemeldet")]);
+          const cw = abTab.browser.contentWindow;
+          await bis(() => cw.cardsPane?.cardsList && cw.__mcHeaderHook, "Kopfzeile und Fokus-Umleitung im Adressbuch eingerichtet", 8000);
+          await until(() => cw?.detailsPane?.__mcLastContact, 3000);
           const ad = cw.document, body = cw.cardsPane.cardsList.table.body;
-          await until(() => cw.__mcHeaderHook, 5000);
           const header = ad.getElementById("cardsPaneHeader");
           const hidden = !header.getClientRects().length;
           const where = () => ad.activeElement == body ? "list" : (ad.activeElement?.id || ad.activeElement?.localName || "none");
@@ -18015,8 +18027,8 @@ Neu
           cw.cardsPane.searchInput.focus(); await ruhig(100);
           const direct = where();
           tm.closeTab(abTab); await toMail();
-          return { hidden, afterCancel, direct };""")
-        return res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
+          return { readyHook, hidden, afterCancel, direct };""")
+        return res["readyHook"] is True and res["hidden"] and res["afterCancel"] == "list" and res["direct"] == "list", f"{res}"
     check("Adressbuch: Fokus auf das ausgeblendete Suchfeld über der Liste landet in der Kontaktliste (Abbrechen eines neuen Kontakts)", ab_focus_hidden_search, results)
 
     def ab_dedupe_selection():

@@ -444,7 +444,19 @@ class EnhancerOberflaeche {
     const box = d.getElementById("mcListHeader");
     const tab = d.getElementById("tabmail")?.currentTabInfo;
     if (box && tab?.mode?.name == "addressBookTab") {
-      this.updateAbHeader(box, tab.browser?.contentWindow);
+      const cw = tab.browser?.contentWindow;
+      this.updateAbHeader(box, cw);
+      // Seite beim Tabwechsel noch nicht aufgebaut (langsamer Rechner, frisch geöffnetes Adressbuch): Titel, Anzahl
+      // und Fokus-Umleitung erst, wenn Thunderbird sie fertig meldet – sonst blieben sie aus, bis man den Tab wechselt
+      // (Pfeiltasten wirkten nach „Abbrechen“ eines neuen Kontakts nicht, die Kopfzeile zeigte die der Mailliste)
+      const browser = tab.browser;
+      if (browser && !cw?.__mcHeaderHook && !browser.__mcAbWait) {
+        browser.__mcAbWait = true;
+        browser.addEventListener("about-addressbook-ready", () => {
+          delete browser.__mcAbWait;
+          w.setTimeout(() => this.updateListHeader(w), 0);
+        }, { capture: true, once: true });
+      }
       return;
     }
     if (box && tab?.mode?.name == "tasks") {

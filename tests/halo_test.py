@@ -6781,6 +6781,51 @@ def menu_checks(m, results):
         return ok, f"{res}"
     check("Menüleiste: Ansicht → „Show Status Bar“ unter der Today-Pane blendet die Statusleiste aus und wieder ein, Häkchen nach dem Zustand", menubar_status_bar, results)
 
+    def menubar_customize_toolbar():
+        # Ansicht → „Customize Toolbar…“ in der Gruppe der Leisten (nach „Show Status Bar“): öffnet Thunderbirds
+        # Anpassung der Symbolleiste (vorher nur über das Kontextmenü der Symbolleiste, das Untermenü „Toolbars“ fehlt);
+        # in Mail und Kalender sichtbar und nicht ausgegraut, genau einmal im Dokument
+        res = m.js(r"""
+          const p = d.getElementById("menu_View_Popup");
+          const state = async () => { p.dispatchEvent(new w.Event("popupshowing", { bubbles: true })); await ruhig(300);
+            const vis = [...p.children].filter(el => !el.hidden && !el.collapsed).map(el => el.localName == "menuseparator" ? "|" : (el.getAttribute("label") || el.id));
+            const item = d.getElementById("mcViewCustomizeToolbar");
+            const r = { vis, label: item?.getAttribute("label"), off: !!item?.disabled, command: item?.getAttribute("command"), count: d.querySelectorAll("#mcViewCustomizeToolbar").length };
+            p.dispatchEvent(new w.Event("popuphiding", { bubbles: true })); return r; };
+          const tbm = d.getElementById("toolbar-menubar"), inactive = tbm?.getAttribute("inactive");
+          const customizing = () => d.documentElement.classList.contains("customizingUnifiedToolbar");
+          const out = {};
+          try {
+            await toMail();
+            out.mail = await state();
+            await toCalendar();
+            out.cal = await state();
+            await toMail();
+            out.before = customizing();
+            d.getElementById("mcViewCustomizeToolbar").doCommand();
+            out.on = !!await until(customizing, 5000);
+            out.pane = !!d.querySelector("unified-toolbar-customization");
+          } finally {
+            if (customizing()) d.querySelector("unified-toolbar-customization").toggle(false);
+            out.closed = !!await until(() => !customizing(), 5000);
+            await ruhig(600);
+            await toMail();
+            if (inactive != null) tbm.setAttribute("inactive", inactive);
+          }
+          return out;""")
+        want = "Customize Toolbar…"
+        ok = True
+        for key in ("mail", "cal"):
+            st = res.get(key, {})
+            vis = st.get("vis", [])
+            i = vis.index(st.get("label")) if st.get("label") in vis else -1
+            ok = ok and st.get("label") == want and st.get("count") == 1 and not st.get("off") \
+                and st.get("command") == "cmd_CustomizeMailToolbar" \
+                and i > 0 and vis[i - 1] != "|" and i + 1 < len(vis) and vis[i + 1] == "|"
+        ok = ok and res.get("before") is False and res.get("on") and res.get("pane") and res.get("closed")
+        return ok, f"{res}"
+    check("Menüleiste: Ansicht → „Customize Toolbar…“ nach „Show Status Bar“ öffnet die Anpassung der Symbolleiste (Mail und Kalender, nicht ausgegraut)", menubar_customize_toolbar, results)
+
     def context_flat():
         # Kontextmenü wie Apple Mail: flach in Blöcken, Antworten/Weiterleiten ohne Untermenü, „Star“ wechselt mit
         # „Remove Star“, nur Gelesen oder Ungelesen, keine Schlagwörter/Speichern/Drucken; Zeilen gleich hoch; Stern per Menü.

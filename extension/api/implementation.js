@@ -3355,6 +3355,11 @@ function hookMenubar(win, restorers) {
   const findPrev = make("menuitem", "mcEditFindPrevious", "Find Previous");
   findPrev.setAttribute("command", "cmd_findPrevious");
   findPrev.setAttribute("key", "key_findPrev");
+  // „Customize Toolbar…“ im Menü „View“: Thunderbirds Eintrag stand im Untermenü „Toolbars“, das hier fehlt –
+  // sonst wäre die Anpassung nur über das Kontextmenü der Symbolleiste erreichbar (und für die Hilfe-Suche von
+  // macOS unsichtbar); Befehl bleibt der von Thunderbird (ausgegraut, solange die Symbolleiste nicht geladen ist)
+  const customize = make("menuitem", "mcViewCustomizeToolbar", "Customize Toolbar…");
+  customize.setAttribute("command", "cmd_CustomizeMailToolbar");
   const space = (id, label, button) => {
     const item = own(id, label, () => $(button)?.click());
     item.dataset.space = button;
@@ -3388,7 +3393,7 @@ function hookMenubar(win, restorers) {
       ...(MENUBAR_MAC ? [] : [S, L("menu_preferences")]),
     ]],
     ["menu_View_Popup", [
-      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), L("menu_showTaskbar", "Show Status Bar"), S,
+      L("menu_showFolderPane", "Show Folder List"), L("calShowTodayPane-2"), L("menu_showTaskbar", "Show Status Bar"), [customize], S,
       L("viewSortMenu"), L("viewMessageViewMenu", "Filter"), L("viewMessagesMenu"), L("menu_FolderViews", "Folder List"), [msgMenu], S,
       L("calChangeViewDay"), L("calChangeViewWeek"), L("calChangeViewMonth"), L("calendar-go-to-today-menuitem", "Go to Today"), S,
       L("menu_fullZoomEnlarge"), L("menu_fullZoomReduce"), L("menu_fullZoomReset", "Actual Size"),

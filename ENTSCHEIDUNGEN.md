@@ -997,3 +997,8 @@ Festlegung (Deutung von neon): Unter Windows und Linux: Seitenleiste ein-/ausble
 
 Herkunft: Maintainer in der Sitzung neon, 21.11.2026. Wortlaut: „Ich habe zwei fable resets und könnte heute einen davon nutzen“; „Ok dann sollten wir weiterhin fable maximal ausnützen damit das fable Kontingent verbraucht wird. Hast du Zugriff auf den wert?“; „Aktuell haben wir 62% vom fable Kontingent verbraucht, ich führe den reset erst beim kompletten Verbrauch durch“; „Maximale fable nutzung gilt aber nur bis zu meinem manuellen reset“.
 Laufender Stand und Umsetzung (Deutung von neon): `docs/regelwerk-kontingent.md` Abschnitt 4a; Maintainer 21.11.2026: solche Zustandsangaben gehören in die Doku, hier nur der Wortlaut.
+
+## Nach jedem Release alle Einträge und Issues prüfen und schließen, was geht (21.11.2026)
+
+Herkunft: Maintainer in der Sitzung neon, 21.11.2026, auf die Frage, ob nach dem Release 3.36.0 geprüft wurde, was auf der Aufgabenliste und bei den GitHub-Issues geschlossen werden kann: „wir brauchen einen automatismus der nach jedem release erneut mit einem opus agenten durch alle einträge auf dem board geht und schliesst was geht“.
+Deutung von neon: Nach jedem Release geht ein Opus-Agent automatisch durch alle offenen Board-Einträge und alle offenen GitHub-Issues, belegt je Eintrag gegen den Stand (Commit im Release, CI grün, Verhalten), und schließt, was belegt erledigt ist (Board: Done und archivieren; Issue: Antwort „Fixed in x.y.z“ und schließen). Was eine Entscheidung braucht oder unklar bleibt, schließt er nicht, sondern vermerkt es in einer Notiz bzw. im Bericht. Pull Requests schließt er nie (bleibt beim Maintainer).

@@ -5340,7 +5340,8 @@ addon-card .addon-inline-options {
 
 /* Menüs der Add-ons-Verwaltung („…“ an der Karte, Zahnrad im Kopf) wie die
    übrigen halo-Menüs: 12 px Radius ohne Rahmen, 22-px-Zeilen mit 6 px Radius,
-   Markierung in Akzentfarbe, Haarlinien-Trenner. Feste Fläche wie die
+   Markierung in Akzentfarbe, Haarlinien-Trenner, Rand und Schatten wie die
+   Menüs des Systems (--mt-menu-shadow). Feste Fläche wie die
    Tooltips – im Inhalt gibt es keine Unschärfe von macOS. Nur diese beiden
    Menüs, panel-list steckt auch in anderen Seiten. Die Zeilen liegen im
    Schatten-DOM: extension/parts.css */
@@ -5352,7 +5353,7 @@ addon-card .addon-inline-options {
   background-color: var(--mt-tooltip-bg) !important;
   border: none !important;
   border-radius: var(--mt-radius-popup, 12px) !important;
-  box-shadow: var(--mt-shadow), 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+  box-shadow: var(--mt-menu-shadow) !important;
   padding: 5px !important;
   color: var(--mt-text) !important;
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;

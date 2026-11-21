@@ -18859,9 +18859,12 @@ Neu
 
     def addons_menu_icons():
         # Menüs der Add-ons-Verwaltung mit einzelnen Symbolen wie das Vorbild (Kontextmenü einer Liste mit nur einem
-        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (16 px) beginnt an der Textkante der übrigen
-        # Einträge, sein Text rückt um Symbol und Luft nach rechts; Symbol in Textfarbe, markiert in der Schriftfarbe der
-        # Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü) steht links im Rand, sein Text an der Kante
+        # Eintrag mit Symbol): keine eigene Symbolspalte, das Symbol (14 px, Feld 2 px vor der Kante) beginnt mit seinem
+        # Zeichen an der Textkante der übrigen Einträge, sein Text rückt um Feld und 8 px Luft nach rechts; Symbol in
+        # Textfarbe, markiert in der Schriftfarbe der Markierung; das Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü)
+        # steht links im Rand, sein Text an der Kante. „Remove“ steht im Menü „…“ wie im Vorbild zuletzt nach einer
+        # Trennlinie (Preferences/Manage oben) mit dem halo-Papierkorb als Linie (Zeichen bis zum Text 10 px wie die
+        # Vorlage); Rand und Schatten des Menüs wie die Menüs des Systems (--mt-menu-shadow)
         res = m.js(r'''
           w.resizeTo(1500, 900);
           const ID = "mail-cards@sebastian.local";
@@ -18869,7 +18872,7 @@ Neu
           const ad = await until(() => { const x = tm.currentTabInfo.browser?.contentDocument; return x?.querySelector(`addon-card[addon-id="${ID}"] .more-options-button`) && x; }, 8000);
           await ruhig(800);
           const aw = ad.defaultView; const cs = (e, p) => aw.getComputedStyle(e, p); const R = e => e.getBoundingClientRect();
-          const probe = v => { const p = ad.createElement("div"); p.style.color = v; ad.body.append(p); const c = cs(p).color; p.remove(); return c; };
+          const probe = (v, k = "color") => { const p = ad.createElement("div"); p.style[k] = v; ad.body.append(p); const c = cs(p)[k]; p.remove(); return c; };
           const out = { menus: [], shots: [] };
           const snap = async (pl, name) => {
             const r = R(pl), cv = ad.createElement("canvas"); cv.width = Math.ceil(r.width + 24) * 2; cv.height = Math.ceil(r.height + 24) * 2;
@@ -18889,14 +18892,28 @@ Neu
               const b = i.shadowRoot.querySelector("button"), l = b.querySelector('[part="label"]'), c = cs(b);
               const img = c.backgroundImage, px = parseFloat(c.backgroundPositionX), sz = parseFloat(c.backgroundSize);
               const icon = img && img != "none" ? { left: Math.round((R(b).left + px - R(pl).left) * 2) / 2, size: sz, gap: Math.round((R(l).left - R(b).left - px - sz) * 2) / 2,
-                                                    fill: c.fill == probe("var(--mt-text)"), check: /check\.svg/.test(img) } : null;
+                                                    fill: c.fill == probe("var(--mt-text)") && c.stroke == probe("var(--mt-text)"), check: /check\.svg/.test(img),
+                                                    trash: /mailcards\/icons\/trash\.svg/.test(img), box: [R(b).left + px, R(b).top + (R(b).height - sz) / 2, sz] } : null;
               let hov = null;
-              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
+              if (icon) { InspectorUtils.addPseudoClassLock(b, ":hover"); hov = cs(b).fill == probe("var(--mt-accent-text)") && cs(b).stroke == probe("var(--mt-accent-text)") && cs(b).backgroundColor == probe("var(--mt-accent)");
                           if (name == "mehr" && i.getAttribute("action") == "remove") out.hoverRemove = true;
                           InspectorUtils.removePseudoClassLock(b, ":hover"); }
               return { action: i.getAttribute("action"), text: Math.round((R(l).left - R(pl).left) * 2) / 2, icon, hov };
             });
-            out.menus.push({ name, items });
+            // sichtbare Reihenfolge samt Trennlinien
+            const seq = [...pl.children].filter(e => !e.hidden && R(e).height).map(e => e.localName == "hr" ? "hr" : e.getAttribute("action"));
+            const shadow = cs(pl).boxShadow, want = probe("var(--mt-menu-shadow)", "boxShadow");
+            // Papierkorb sichtbar gezeichnet (Linie in Schriftfarbe über context-stroke): Pixel im Symbolfeld, die
+            // deutlich von der Menüfläche abweichen
+            for (const it of items.filter(i => i.icon?.trash)) {
+              const [x, y, sz] = it.icon.box, bg = (await aw.browsingContext.currentWindowGlobal.drawSnapshot(new aw.DOMRect(x, y, sz, sz), 2, "white"));
+              const cv = ad.createElement("canvas"); cv.width = cv.height = sz * 2; const cx = cv.getContext("2d"); cx.drawImage(bg, 0, 0);
+              const px = cx.getImageData(0, 0, sz * 2, sz * 2).data, ref = [px[0], px[1], px[2]];
+              let ink = 0; for (let k = 0; k < px.length; k += 4) if (Math.abs(px[k] - ref[0]) + Math.abs(px[k + 1] - ref[1]) + Math.abs(px[k + 2] - ref[2]) > 150) ink++;
+              it.icon.ink = ink; delete it.icon.box;
+            }
+            items.forEach(i => i.icon && delete i.icon.box);
+            out.menus.push({ name, items, seq, shadowOk: shadow == want && want != "none", radius: cs(pl).borderTopLeftRadius });
             await snap(pl, name);
             const rm = name == "mehr" && [...pl.querySelectorAll('panel-item[action="remove"]')][0]?.shadowRoot.querySelector("button");
             if (rm) { InspectorUtils.addPseudoClassLock(rm, ":hover"); await ruhig(100); await snap(pl, name + "-markiert"); InspectorUtils.removePseudoClassLock(rm, ":hover"); }
@@ -18922,16 +18939,25 @@ Neu
                 ic = i["icon"]
                 if not ic or ic["check"]:
                     # Text an der gemeinsamen Kante (Menürand 5 + 10 px), Häkchen 9 px davor im Rand
-                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not ic["fill"] or not i["hov"])):
+                    if i["text"] != edge or (ic and (ic["size"] != 9 or ic["left"] + 9 + 1 != edge or not i["hov"])):
                         return False
-                elif not (ic["left"] == edge and ic["size"] == 16 and ic["gap"] == 8 and i["text"] == edge + 24 and ic["fill"] and i["hov"]):
+                # Feld 14 px 2 px vor der Kante, Text 8 px danach; Papierkorb: Zeichen (2,2 px eingerückt) an der Kante,
+                # vom Zeichen bis zum Text 10 px wie die Vorlage
+                elif not (ic["left"] == edge - 2 and ic["size"] == 14 and ic["gap"] == 8 and i["text"] == edge + 20 and ic["fill"] and i["hov"]):
                     return False
-            return edge == 15
+            return edge == 15 and mn["shadowOk"] and mn["radius"] == "12px"
+        def remove_ok(mn):
+            # Remove zuletzt, davor eine Trennlinie, Preferences/Manage (falls sichtbar) oben; halo-Papierkorb als Linie
+            seq = mn["seq"] if mn else []
+            rm = [i for i in (mn["items"] if mn else []) if i["action"] == "remove"]
+            return (len(seq) >= 3 and seq[-1] == "remove" and seq[-2] == "hr" and seq.count("remove") == 1
+                    and all(seq.index(a) < seq.index("remove") - 1 for a in ("preferences", "expand") if a in seq)
+                    and bool(rm) and rm[0]["icon"] is not None and rm[0]["icon"]["trash"] and rm[0]["icon"].get("ink", 0) >= 40)
         menus = res.get("menus") or []
-        remove = [i for i in (menus[0]["items"] if menus and menus[0] else []) if i["action"] == "remove"]
-        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and bool(remove) and remove[0]["icon"] is not None
+        ok = len(menus) == 2 and all(menu_ok(mn) for mn in menus) and remove_ok(menus[0])
         return ok, f"{res}"
-    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe",
+    check("Add-ons: Menüs mit einzelnen Symbolen (Remove, Häkchen) ohne eigene Symbolspalte, Symbol an der Textkante mit Luft zum Text, markiert in Schriftfarbe; "
+          "Remove zuletzt nach einer Trennlinie mit dem halo-Papierkorb (14 px), Rand und Schatten wie die Menüs des Systems",
           addons_menu_icons, results)
 
     def radius_tiers():

@@ -40,6 +40,11 @@
   --mt-control: rgba(0, 0, 0, 0.05);
   --mt-control-hover: rgba(0, 0, 0, 0.09);
   --mt-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 2px 10px rgba(0, 0, 0, 0.06);
+  /* Rand und Schatten der Menüs, die halo selbst zeichnet (Add-ons-Verwaltung),
+     wie die Menüs des Systems: Rand nach dem UI-Kit („Menus“: 0,5 px Schwarz
+     20 %, 1 px #666 15 %), Schatten am Kontextmenü der Vorlage gemessen (unten
+     am Rand 18 % dunkler, nach 16 px weg; seitlich 14 %, nach 15 px weg) */
+  --mt-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(102, 102, 102, 0.15), 0 4px 14px rgba(0, 0, 0, 0.22);
   --mt-radius-panel: 18px;
   /* schwebende Seitenleiste (Dia 3/4), an Dia gemessen: 3 px vom Fensterrand,
      Radius 10 px, zarter Schatten (am Rand ~9 % dunkler, nach 15 px weg),
@@ -271,6 +276,8 @@
     --mt-control: rgba(255, 255, 255, 0.07);
     --mt-control-hover: rgba(255, 255, 255, 0.12);
     --mt-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.35);
+    /* UI-Kit „Menus“ dunkel: 0,5 px Schwarz 80 %, 1 px #666 40 % */
+    --mt-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(102, 102, 102, 0.4), 0 4px 14px rgba(0, 0, 0, 0.35);
     /* Menüfläche wie macOS 27 („Liquid Glass / Menus“ dunkel: #5A5A5A
        50 %) über der Unschärfe des Systems; hell bleibt sie heller als die
        Vorgabe (#E6E6E6 55 % wirkt über der Unschärfe grauer als die Menüs
@@ -11201,7 +11208,8 @@ addon-card .addon-inline-options {
 
 /* Menüs der Add-ons-Verwaltung („…“ an der Karte, Zahnrad im Kopf) wie die
    übrigen halo-Menüs: 12 px Radius ohne Rahmen, 22-px-Zeilen mit 6 px Radius,
-   Markierung in Akzentfarbe, Haarlinien-Trenner. Feste Fläche wie die
+   Markierung in Akzentfarbe, Haarlinien-Trenner, Rand und Schatten wie die
+   Menüs des Systems (--mt-menu-shadow). Feste Fläche wie die
    Tooltips – im Inhalt gibt es keine Unschärfe von macOS. Nur diese beiden
    Menüs, panel-list steckt auch in anderen Seiten. Die Zeilen liegen im
    Schatten-DOM: extension/parts.css */
@@ -11213,7 +11221,7 @@ addon-card .addon-inline-options {
   background-color: var(--mt-tooltip-bg) !important;
   border: none !important;
   border-radius: var(--mt-radius-popup, 12px) !important;
-  box-shadow: var(--mt-shadow), 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+  box-shadow: var(--mt-menu-shadow) !important;
   padding: 5px !important;
   color: var(--mt-text) !important;
   font: calc(13px * var(--mt-font-scale, 1)) var(--mt-font) !important;

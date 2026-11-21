@@ -352,17 +352,28 @@ addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
   padding-inline: 10px !important;
   border-radius: 6px !important;
   /* Symbole wie das Vorbild (Menü mit einzelnen Symbolen): keine eigene
-     Symbolspalte, alle Texte an der Kante 10 px; ein Symbol (16 px) beginnt
-     an dieser Kante, sein Text rückt um Symbol und 8 px Luft nach rechts
-     (Lücke zwischen Zeichen und Text dann 10 px wie in der Vorlage). Symbol
-     in der Schriftfarbe, markiert also weiß */
-  background-position: 10px center !important;
-  background-size: 16px !important;
+     Symbolspalte, alle Texte an der Kante 10 px; ein Symbol (14 px, so
+     schwer wie die Schrift) beginnt mit seinem Zeichen an dieser Kante
+     (Feld 2 px davor, das Zeichen des Papierkorbs ist 2,2 px eingerückt),
+     sein Text rückt um Feld und 8 px Luft nach rechts (Lücke zwischen
+     Zeichen und Text 10 px wie in der Vorlage). Symbol in der Schriftfarbe,
+     markiert also weiß */
+  background-position: 8px center !important;
+  background-size: 14px !important;
   fill: currentColor !important;
+  stroke: currentColor !important;
 }
 
 :is(addon-options, addon-page-options) panel-item:is([action="remove"], [action="install-update"], [action="report"])::part(button) {
-  padding-inline-start: calc(10px + 16px + 8px) !important;
+  padding-inline-start: calc(8px + 14px + 8px) !important;
+}
+
+/* Remove mit dem halo-Papierkorb (Linie, wie Leiste und Ordnerliste) statt
+   Thunderbirds gefülltem Symbol, das neben der Schrift dunkler und größer
+   wirkte */
+:is(addon-options, addon-page-options) panel-item[action="remove"]::part(button) {
+  background-image: url("resource://mailcards/icons/trash.svg") !important;
+  -moz-context-properties: fill, fill-opacity, stroke !important;
 }
 
 /* Häkchen eines eingeschalteten Eintrags (Zahnrad-Menü: Update Add-ons
@@ -375,7 +386,7 @@ addon-card moz-button:not(.more-options-button)[disabled]::part(button) {
 
 /* Sprachen von rechts nach links: gespiegelt */
 :is(addon-options, addon-page-options) panel-item:dir(rtl)::part(button) {
-  background-position-x: right 10px !important;
+  background-position-x: right 8px !important;
 }
 
 :is(addon-options, addon-page-options) panel-item[type="checkbox"][checked]:dir(rtl)::part(button) {

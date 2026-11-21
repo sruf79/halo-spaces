@@ -12379,7 +12379,18 @@ class CardEnhancer {
     let floatTimer = null;
     const floatPaneHidden = (tab, el) => (tab?.mode?.name == "mail3PaneTab"
       ? el.classList.contains("collapsed-by-splitter") : el.classList.contains("mc-side-hidden"));
-    const floatCleanup = () => {
+    // Bereiche-Leiste wieder ausblenden – nur, wenn die Seitenleiste noch
+    // ausgeblendet ist (sonst hat sie der Knopf inzwischen eingeblendet)
+    const floatBarOff = bar => {
+      if (w.gSpacesToolbar?.isHidden) {
+        bar.hidden = true;
+      }
+      bar.removeAttribute("mc-float");
+      ["--mc-float-w", "--mc-float-top", "--mc-float-bottom"].forEach(p => bar.style.removeProperty(p));
+    };
+    // keepBar: nur für den Bereichswechsel aus der schwebenden Leiste (floatSwitch) – die Bereiche-Leiste bleibt
+    // stehen, gleich danach schwebt die Leiste des neuen Bereichs ohne Bewegung ein
+    const floatCleanup = (keepBar = false) => {
       const f = float;
       float = null;
       if (!f) {
@@ -12392,13 +12403,9 @@ class CardEnhancer {
       });
       f.off.forEach(fn => fn());
       f.catcher.remove();
-      // Bereiche-Leiste wieder ausblenden – nur, wenn die Seitenleiste noch
-      // ausgeblendet ist (sonst hat sie der Knopf inzwischen eingeblendet)
-      if (w.gSpacesToolbar?.isHidden) {
-        f.bar.hidden = true;
+      if (!keepBar) {
+        floatBarOff(f.bar);
       }
-      f.bar.removeAttribute("mc-float");
-      ["--mc-float-w", "--mc-float-top", "--mc-float-bottom"].forEach(p => f.bar.style.removeProperty(p));
       if (f.el) {
         f.el.classList.remove("mc-float-pane");
         FLOAT_VARS.forEach(p => f.el.style.removeProperty(p));
@@ -12447,7 +12454,63 @@ class CardEnhancer {
       }
     };
     const floatPopups = () => float?.popups.size > 0;
-    const floatShow = (drag = false) => {
+    // Bereichswechsel aus der schwebenden Leiste (Maintainer 20.11.2026, Gespräch mit dem Designer: „wäre es nicht
+    // besser der space würde wechseln und die schwebende sidebar bleibt so lange sichtbar bis man mit der maus aus dem
+    // bereich der sidebar weg fährt gemäß der existierenden logik?“): ein Klick auf eine Kachel der schwebenden Leiste
+    // merkt sich die Zeit (hop); kommt der neue Tab kurz danach, schwebt sofort die linke Leiste des neuen Bereichs,
+    // ohne weg- und wieder hereinzugleiten. Jeder andere Wechsel (Tastenkürzel, Tab, Mail im neuen Tab) schließt sie
+    // wie bisher sofort
+    const FLOAT_HOP = 600;
+    const floatHop = () => !!float && float.state != "out" && Date.now() - float.hop < FLOAT_HOP;
+    let floatRetry = null;
+    const floatSwitch = () => {
+      const f = float;
+      const tabmail = w.document.getElementById("tabmail");
+      const tab = tabmail?.currentTabInfo;
+      if (!f || !tab || !columnHidden()) {
+        floatEnd(false);
+        return;
+      }
+      if (f.tab == tab) {
+        // gleicher Tab: nur nachholen, wenn die linke Leiste des Bereichs beim Wechsel noch nicht bereit war
+        // (Adressbuch, Einstellungen bauen sie erst später auf; Thunderbird blendet sie erst danach aus)
+        if (f.el || !f.wantPane) {
+          return;
+        }
+        const [el, , win] = sidebarFor(tab);
+        if (!el || !win || el.__mcAnimating || win.__mcAnimating || !floatPaneHidden(tab, el)) {
+          return;
+        }
+      }
+      const hop = f.hop;
+      floatCleanup(true);
+      floatShow(false, true);
+      if (!float) {
+        // (Ziehen, Animation: geht gerade nicht – dann wie bisher weg)
+        floatBarOff(f.bar);
+        return;
+      }
+      // (Thunderbird meldet beim Öffnen eines Bereichs den Tab mitunter zweimal – der Klick gilt für die neue Leiste
+      // weiter, bis FLOAT_HOP abgelaufen ist)
+      float.hop = hop;
+      float.wantPane = !float.el;
+      if (float.wantPane) {
+        w.clearTimeout(floatRetry);
+        const g = float;
+        let n = 0;
+        const retry = () => {
+          if (float != g || g.el || ++n > 15) {
+            return;
+          }
+          floatSwitch();
+          if (float == g) {
+            floatRetry = w.setTimeout(retry, 100);
+          }
+        };
+        floatRetry = w.setTimeout(retry, 50);
+      }
+    };
+    const floatShow = (drag = false, instant = false) => {
       w.clearTimeout(floatTimer);
       if (float) {
         float.drag ||= drag;
@@ -12513,7 +12576,7 @@ class CardEnhancer {
       catcher.setAttribute("aria-hidden", "true");
       catcher.style.cssText = `position: fixed; z-index: 29; left: ${right}px; top: 0; right: 0; bottom: 0;`;
       d.documentElement.append(catcher);
-      float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set() };
+      float = { state: "in", el, win, bar, tab, right, catcher, drag, anims: [], token: 0, off: [], popups: new Set(), hop: 0 };
       const f = float;
       // Einstellungen mit eingebetteter Seite (Add-ons, Kontoeinstellungen):
       // deren Browser liegt im Hauptfenster über dem Einstellungs-Dokument und
@@ -12574,7 +12637,15 @@ class CardEnhancer {
           floatEnd(false);
         }
       };
-      const onTab = () => floatEnd(false);
+      const onTab = () => (floatHop() ? floatSwitch() : floatEnd(false));
+      // Klick auf eine Kachel der schwebenden Leiste (vor Thunderbirds eigenem Klick, der den Bereich wechselt)
+      const onTile = e => {
+        if (float == f && e.button == 0 && e.target.closest?.("#spacesToolbar button, #spacesToolbar .spaces-toolbar-button")) {
+          f.hop = Date.now();
+        }
+      };
+      bar.addEventListener("click", onTile, true);
+      f.off.push(() => bar.removeEventListener("click", onTile, true));
       for (const target of new Set([w, win].filter(Boolean))) {
         target.addEventListener("popupshown", onPopup, true);
         target.addEventListener("popuphidden", onPopup, true);
@@ -12593,7 +12664,11 @@ class CardEnhancer {
         w.removeEventListener("resize", onResize);
         tabmail.tabContainer?.removeEventListener("TabSelect", onTab);
       });
-      floatAnimate(true);
+      if (instant) {
+        f.state = "on";
+      } else {
+        floatAnimate(true);
+      }
     };
     // Auslösestreifen am linken Fensterrand (über allen Inhalten); Drücken
     // darin zieht die Leiste wie bisher an der Greifzone heraus
@@ -12688,7 +12763,13 @@ class CardEnhancer {
           hot.style.display = on ? "block" : "none";
         }
         if (float && (!columnHidden() || float.tab != w.document.getElementById("tabmail")?.currentTabInfo)) {
-          floatEnd(false);
+          if (columnHidden() && floatHop()) {
+            floatSwitch();
+          } else {
+            floatEnd(false);
+          }
+        } else if (float?.wantPane && !float.el) {
+          floatSwitch();
         }
       };
       sideFloat.place();

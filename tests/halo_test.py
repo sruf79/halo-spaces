@@ -26077,6 +26077,81 @@ Neu
           "nichts verschiebt sich, knapp daneben bleibt sie, weiter weg/Esc/Klick daneben weg, Kontextmenü und Ziehen halten sie offen, "
           "Zustand bleibt ausgeblendet", sidebar_column_float, results)
 
+    def sidebar_float_hop():
+        # Schwebende Seitenleiste: ein Klick auf eine andere Kachel darin wechselt den Bereich, die Leiste bleibt offen
+        # und zeigt gleich die linke Leiste des neuen Bereichs (Kalenderliste, Adressbücher), ohne weg- und wieder
+        # hereinzugleiten; erst der Zeiger weit rechts schließt sie wie bisher; ein Wechsel, der nicht aus der Leiste
+        # kommt (anderer Tab), schließt sie weiter sofort. Echte Klicks (Marionette) auf die Kacheln
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": int(x), "y": int(y), "origin": "viewport", "duration": 30}])
+        def state(want, ms=2000):
+            return m.js(f'try {{ await bis(() => w.__mcSideFloatState?.() == "{want}", "schwebt {want}", {ms}); }} catch {{}} await wait(20); return w.__mcSideFloatState?.();')
+        def tile(tid):
+            r = m.js(f'const r = d.getElementById("{tid}").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width];')
+            # (Bewegung und Klick in einer Folge: nach ReleaseActions stünde der Zeiger wieder bei 0,0 – im Auslösestreifen)
+            act([{"type": "pointerMove", "x": int(r[0]), "y": int(r[1]), "origin": "viewport", "duration": 30},
+                 {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}])
+            return r
+        # Zustände je Bild seit dem Klick (kein „out“/„off“ zwischendurch = nicht weggeglitten)
+        watch = """w.__mcHopSeen = new Set(); const seen = w.__mcHopSeen;
+          const tick = () => { if (w.__mcHopSeen != seen) return; seen.add(w.__mcSideFloatState?.()); w.requestAnimationFrame(tick); }; tick(); return 1;"""
+        info = r"""const tab = tm.currentTabInfo, mode = tab.mode.name;
+          const pane = mode == "calendar" ? d.getElementById("calSidebar") : mode == "addressBookTab" ? tab.browser?.contentDocument?.getElementById("booksPane")
+            : tm.currentAbout3Pane?.document.getElementById("folderPane");
+          const r = pane?.getBoundingClientRect();
+          return { mode, state: w.__mcSideFloatState(), float: !!pane?.classList.contains("mc-float-pane"), w: Math.round(r?.width || 0),
+            seen: [...(w.__mcHopSeen || [])].sort(), hidden: w.gSpacesToolbar.isHidden,
+            right: Math.round(d.getElementById("mcSideCatch")?.getBoundingClientRect().left ?? -1) };"""
+        out = {}
+        m.js("""w.resizeTo(1300, 800); await wait(400); await toMail(); await ruhig(600);
+          const sp = tm.currentAbout3Pane.paneLayout.folderPaneSplitter;
+          if (w.gSpacesToolbar.isHidden || sp.isCollapsed) { w.__mcColumnMigrate(false, false); await ruhig(600); }
+          d.getElementById("spacesPinnedButton").click();
+          await bis(() => w.gSpacesToolbar.isHidden && sp.isCollapsed && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste aus", 3000);
+          await ruhig(600); return 1;""")
+        try:
+            to(400)
+            to(1)
+            out["on"] = state("on")
+            m.js(watch)
+            out["calTile"] = tile("calendarButton")
+            out["cal"] = m.js("""try { await bis(() => tm.currentTabInfo.mode.name == "calendar" && d.getElementById("calSidebar").classList.contains("mc-float-pane"), "Kalender schwebt", 2000); } catch {}
+              await wait(300);""" + info)
+            m.js(watch)
+            out["abTile"] = tile("addressBookButton")
+            out["ab"] = m.js("""try { await bis(() => tm.currentTabInfo.mode.name == "addressBookTab" && tm.currentTabInfo.browser?.contentDocument?.getElementById("booksPane")?.classList.contains("mc-float-pane"), "Adressbuch schwebt", 4000); } catch {}
+              await wait(300);""" + info)
+            right = (out["ab"] or {}).get("right", 0)
+            to(right + 30)
+            out["near"] = m.js("await wait(300); return w.__mcSideFloatState();")
+            to(right + 150)
+            out["away"] = state("off")
+            out["after"] = m.js(info)
+            # Wechsel nicht aus der Leiste (anderer Tab, hier vom Kalender zur Mail): schließt sofort
+            m.js("await toCalendar(); await ruhig(600); return 1;")
+            to(400)
+            to(1)
+            out["on2"] = state("on")
+            out["tab"] = m.js("tm.switchToTab(0); await wait(100); return [tm.currentTabInfo.mode.name, w.__mcSideFloatState()];")
+        finally:
+            m.js("""w.__mcHopSeen = null; await toMail(); await ruhig(300);
+              for (const t of [...tm.tabInfo]) { if (t.mode.name == "addressBookTab") tm.closeTab(t); }
+              if (w.gSpacesToolbar.isHidden) { d.getElementById("spacesPinnedButton").click();
+              await bis(() => !w.gSpacesToolbar.isHidden && !w.__mcSpacesAnimating && !tm.currentAbout3Pane.__mcAnimating, "Seitenleiste wieder da", 3000); }
+              await ruhig(400); return 1;""")
+        cal, ab, af = out.get("cal") or {}, out.get("ab") or {}, out.get("after") or {}
+        stay = lambda v: v.get("state") == "on" and v.get("float") and v.get("w", 0) >= 160 and v.get("seen") == ["on"] and v.get("hidden") is True
+        ok = (out.get("on") == "on" and cal.get("mode") == "calendar" and stay(cal) and ab.get("mode") == "addressBookTab" and stay(ab)
+              and out.get("near") == "on" and out.get("away") == "off" and af.get("float") is False and af.get("hidden") is True
+              and out.get("on2") == "on" and out.get("tab") == ["mail3PaneTab", "off"])
+        return ok, f"{out}"
+    check("Seitenleiste schwebend: Klick auf eine andere Kachel wechselt den Bereich, die Leiste bleibt offen mit der linken Leiste "
+          "des neuen Bereichs (Kalender, Adressbuch), schließt erst mit dem Zeiger weit weg; ein Tab-Wechsel schließt sie sofort",
+          sidebar_float_hop, results)
+
     # Messung des Lichtscheins am Bild (sidebar_glow, sidebar_glow_switch)
     glow_measure = r"""
       const bar = d.getElementById("spacesToolbar"), tab = tm.currentTabInfo;

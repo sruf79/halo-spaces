@@ -16491,6 +16491,105 @@ def run_checks(m, version, profile, results):
     check("Seitenleiste: Ein-/Ausblenden über den Knopf ohne Sprung von Ampel-Fläche, Zeilenanfang und Knöpfen (Adressbuch New/Anzeige, Aufgaben +/Mark/…, Kalender Day…Month) "
           "und der Mail-Toolbar (Verfassen, Antworten … Markieren) in 1280 und 1728 px, mit und ohne Today-Pane, mit und ohne gewählten Kontakt/Aufgabe", sidebar_button_no_jump, results)
 
+    def sidebar_button_gap_target():
+        # Mail mit Today-Pane (gemeldet als „1280 px“, das Fenster war dabei 1500 px breit): beim Ausblenden über den Knopf gleitet der Abstand nach „Verfassen“ je Bild vom
+        # Anfangs- zum vorab gerechneten Endwert. Die Vorabrechnung nahm nur einen Durchgang, der Abstand findet seinen
+        # Wert aber schrittweise (erst wächst er, dann das Suchfeld von der Lupe auf seine Breite, dann wieder er):
+        # die Bewegung lief auf 41 px zu, das Schlussbild stellte 66 px ein, Antworten … Weiterleiten sprangen 23 px
+        # zurück und liefen davor je Bild weiter als erlaubt. Geprüft wird ohne Bildzeiten und ohne das letzte Bild zu
+        # brauchen (unter xvfb dauert ein Bild 35–95 ms, das letzte Bild der Bewegung liegt dort weit vor dem Ende):
+        # in jedem Bild der Bewegung steht der Abstand dort, wo die Breite der Ordnerliste ihn hinstellt – zwischen
+        # seinem Wert bei voller und bei ausgeblendeter Leiste, im selben Verhältnis (höchstens 4 px daneben; mit dem
+        # Fehler bis 25 px). Abstand und Breite setzt dasselbe Bild der Ordnerliste; die Lage der Pillen selbst taugt
+        # nicht als Maß, weil die Bereiche-Leiste mit eigenem Takt ein Bild früher läuft (ESR unter xvfb: 5–6 px am
+        # Anfang). Danach bewegen sich die Pillen nicht mehr; ebenso beim Einblenden und beim Einblenden über den
+        # Knopf, während die Leiste
+        # schwebt (mc-float-pane, __mcSideFloatState – das Schweben endet sofort, die Leiste gleitet normal ein).
+        # Verdecktes Fenster: nicht gemessen (übersprungen, nicht rot)
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        import sprung_lib as S
+        if m.js("return d.visibilityState;") == "hidden":
+            return True, "Testfenster verdeckt – übersprungen"
+        def act(steps):
+            m.cmd("WebDriver:PerformActions", {"actions": [{"type": "pointer", "id": "maus", "parameters": {"pointerType": "mouse"}, "actions": steps}]})
+            m.cmd("WebDriver:ReleaseActions", {})
+        def to(x, y=420):
+            act([{"type": "pointerMove", "x": x, "y": y, "origin": "viewport", "duration": 30}])
+        KLICK = 'd.getElementById("spacesPinnedButton").click();'
+        PILLEN = ("[reply]", "[reply-all]", "[forward-inline]")
+        TP_OFFEN = 'const tp = d.getElementById("today-pane-panel"); const offen = !!(tp && !tp.collapsed && tp.getBoundingClientRect().width > 0);'
+        bad, gemessen, werte = [], 0, []
+        # Ausgangslage: Today-Pane offen, Seitenleiste ausgeblendet; Fensterbreite suchen, bei der der Abstand in Ruhe
+        # zwischen seinen Grenzen steht (12 und 69 px; am Mac 1500 px: 66 px) – nur dort braucht die Vorabrechnung mehr
+        # als einen Durchgang. Das Band ist rund 55 px breit und liegt je nach Schrift der Plattform woanders, und
+        # mit Today-Pane lässt sich das Fenster nicht beliebig schmal machen (resizeTo(1280) ergibt 1400–1500 px)
+        lage = m.js("await toMail(); w.resizeTo(1500, 900); await until(() => w.outerWidth == 1500, 3000); await ruhig(800);" + TP_OFFEN
+                    + 'if (!offen) { d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); }'
+                    + "if (!w.gSpacesToolbar.isHidden) { " + KLICK + " await ruhig(1500); }"
+                    + """const write = d.querySelector('#unifiedToolbarContent > li[item-id="write-message"]');
+                      const gap = () => parseFloat(w.getComputedStyle(write).marginInlineEnd);
+                      let b = w.outerWidth, g = gap();
+                      for (let i = 0; i < 12 && !(g > 14 && g < 67); i++) {
+                        const vorher = w.outerWidth; b += g <= 14 ? 20 : -20;
+                        w.resizeTo(b, 900); await until(() => w.outerWidth == b, 1500); await ruhig(700);
+                        if (w.outerWidth == vorher) break; // schmaler bzw. breiter geht das Fenster nicht
+                        b = w.outerWidth; g = gap();
+                      }
+                      d.getElementById("spacesPinnedButton").click(); await ruhig(1500);
+                      return [offen, w.outerWidth, g];""")
+        tp_vorher = lage[0]
+        try:
+            for label in ("aus", "ein", "aus", "schwebend ein"):
+                if label == "schwebend ein":
+                    # an den linken Rand zeigen, bis die Leiste schwebt
+                    to(400)
+                    to(3)
+                    st = m.js('try { await bis(() => w.__mcSideFloatState?.() == "on", "schwebt", 3000); } catch {} await wait(300);'
+                              'return [w.__mcSideFloatState?.(), tm.currentAbout3Pane.document.getElementById("folderPane").classList.contains("mc-float-pane")];')
+                    if st != ["on", True]:
+                        bad.append(f"Leiste schwebt nicht am linken Rand: {st}")
+                        m.js(KLICK + " await ruhig(1500); return 1;")
+                        continue
+                fr = S.messen(m, "mail", KLICK)
+                lauf = [i for i, f in enumerate(fr[:-1]) if "M" in f["flags"]]
+                if not lauf:
+                    continue
+                gemessen += 1
+                # Abstand je Bild gegen die Breite der Ordnerliste: voll ↔ ausgeblendet, dazwischen im Verhältnis
+                ruhe, voll, null = fr[-1], (fr[0] if label == "aus" else fr[-1]), (fr[-1] if label == "aus" else fr[0])
+                abstand = lambda f: float((f.get("bar", {}).get("--mc-write-gap") or "69px")[:-2])  # ohne Angabe gilt 69 px
+                breit = max(f["kern"][1] for f in fr)
+                a, b = abstand(voll), abstand(null)
+                groesste = 0
+                for i in lauf:
+                    soll = b + (a - b) * fr[i]["kern"][1] / breit
+                    groesste = max(groesste, abs(abstand(fr[i]) - soll))
+                    if abs(abstand(fr[i]) - soll) > 4:
+                        bad.append(f"{label}: Abstand in Bild {i} {abstand(fr[i]):.0f} statt {soll:.1f} px (Ordnerliste {fr[i]['kern'][1]} von {breit} px, Ruhe {a:.0f} ↔ {b:.0f} px)")
+                        break
+                for k in ruhe["e"]:
+                    if not any(x in k for x in PILLEN) or not ruhe["e"][k][2]:
+                        continue
+                    spaeter = max((abs(f["e"][k][0] - ruhe["e"][k][0]) for f in fr[lauf[-1] + 2:-1] if f["e"].get(k)), default=0)
+                    if spaeter > 1.5:
+                        bad.append(f"{label}: {k} nach dem Ende noch {spaeter} px")
+                werte.append(f"{label} {groesste:.1f}")
+                if label == "schwebend ein":
+                    st = m.js('return [w.__mcSideFloatState?.(), tm.currentAbout3Pane.document.getElementById("folderPane").classList.contains("mc-float-pane"),'
+                              "w.gSpacesToolbar.isHidden, tm.currentAbout3Pane.paneLayout.folderPaneSplitter.isCollapsed];")
+                    if st != ["off", False, False, False]:
+                        bad.append(f"nach dem Einblenden aus dem Schweben: {st}")
+        finally:
+            to(900)
+            m.js("if (w.gSpacesToolbar.isHidden) { " + KLICK + " await ruhig(1500); }" + TP_OFFEN
+                 + f'if (offen != {str(bool(tp_vorher)).lower()}) {{ d.getElementById("mcTodayToggle")?.click(); await ruhig(1500); }}'
+                 + "w.resizeTo(1500, 900); await ruhig(800); await toMail(); return 1;")
+        if not gemessen:
+            return True, "nicht gemessen (Fenster verdeckt, Animationen pausieren)"
+        return not bad, f"{gemessen} Messungen; " + ("; ".join(bad[:8]) if bad else f"Fenster {lage[1]} px, Abstand ausgeblendet {lage[2]} px; größte Abweichung des Abstands von seinem Wert nach Breite der Ordnerliste (px): " + ", ".join(werte))
+    check("Seitenleiste (Mail): Ein-/Ausblenden über den Knopf läuft auf die Ruhelage zu – der Abstand nach „Verfassen“ folgt in jedem Bild der Breite der Ordnerliste, Antworten … Weiterleiten springen im Schlussbild nicht zurück "
+          "(Today-Pane offen, Fensterbreite mit Abstand zwischen 12 und 69 px; auch beim Einblenden aus dem Schweben)", sidebar_button_gap_target, results)
+
     def toolbar_shrink_monotone():
         # Fenster wie mit der Maus stetig verkleinern (10-px-Schritte, 40 ms Abstand) und wieder vergrößern (Mail, mit und
         # ohne Seitenleiste; Aufgaben mit Today-Pane): das Suchfeld wird beim Verkleinern nie wieder breiter, keine Pille

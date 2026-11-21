@@ -12000,6 +12000,21 @@ class CardEnhancer {
             w.document.documentElement.getBoundingClientRect();
             this.offsetUpdaters?.forEach(fn => fn());
             gapEnd = gapNow();
+            // Der Abstand nähert sich seinem Endwert schrittweise: ein Durchgang gibt ihm nur den Platz, der vor dem
+            // Suchfeld gerade frei ist. Wächst danach das Suchfeld von der Lupe auf seine Breite oder kommen Pillen
+            // zurück, ändert er sich noch einmal (gemessen beim Ausblenden mit Today-Pane: erster Durchgang 41 px,
+            // zweiter 64 px, dann stabil; unter Linux auch 69 px, dann 60 px) – die Bewegung lief sonst auf den Wert
+            // des ersten Durchgangs zu, und im Schlussbild sprangen Antworten … Weiterleiten bis 23 px zurück.
+            // Darum rechnen, bis er steht (ein Durchgang ohne Änderung, höchstens vier)
+            for (let pass = 0; pass < 4; pass++) {
+              w.document.documentElement.getBoundingClientRect();
+              this.offsetUpdaters?.forEach(fn => fn());
+              const gapNext = gapNow();
+              if (!(Math.abs(gapNext - gapEnd) >= 1)) {
+                break;
+              }
+              gapEnd = gapNext;
+            }
             midEnd = mid ? mid.getBoundingClientRect().width : NaN;
             leadEnd = leadNow();
           } catch (e) {

@@ -24789,7 +24789,11 @@ Neu
             for (const e of bar.querySelectorAll("[disabled]")) e.removeAttribute("disabled");
             const cv = mw.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"), ctx = cv.getContext("2d", { willReadFrequently: true });
             const shot = async r => {
-              const o = br.getBoundingClientRect(), x = o.left + r.left, y = o.top + r.top;
+              // auf ganze Bildpunkte gerundet, wie Gecko das Bild malt: unter Windows ist die Leiste über dem Mailbereich
+              // 23,5 px hoch, der Ausschnitt begann sonst einen halben Punkt vor dem Knopf und das Bild lag eine Zeile
+              // tiefer (der leise Schatten unter dem Kreis fiel so in die unteren zwei Zeilen)
+              const o = br.getBoundingClientRect(), dpr = mw.devicePixelRatio || 1, snap = v => Math.round(v * dpr) / dpr;
+              const x = snap(o.left + r.left), y = snap(o.top + r.top);
               cv.width = Math.round(r.width); cv.height = Math.round(r.height); ctx.fillStyle = "white"; ctx.fillRect(0, 0, cv.width, cv.height);
               try { ctx.drawImage(await mw.browsingContext.currentWindowGlobal.drawSnapshot(new mw.DOMRect(x, y, r.width, r.height), 1, "white"), 0, 0); }
               catch { ctx.drawWindow(mw, x, y, r.width, r.height, "white"); }

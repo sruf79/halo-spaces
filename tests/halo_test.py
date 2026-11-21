@@ -25552,6 +25552,18 @@ Neu
           const row = d.getElementById("unifiedToolbarContainer");
           const out = { visibility: d.visibilityState, reduced: w.matchMedia("(prefers-reduced-motion: reduce)").matches };
           const still = () => !w.__mcSpacesAnimating && !tm.currentAbout3Pane?.__mcAnimating && !d.getElementById("calSidebar")?.__mcAnimating;
+          // Diagnose (nur beobachten, ändert weder Zustand noch Grenzen; Board: flackert unter Linux, beide Fehlversuche
+          // Kalender/Einblenden, ganze Bewegung zwischen zwei Bildern): je Bild Echtzeit, Rechenzeit des Hauptprozesses
+          // und Zahl der Neuanordnungen, dazu Speicherbereinigungen – langes Bild mit wenig Rechenzeit = Rechner/xvfb ließ
+          // Thunderbird warten, mit viel Rechenzeit und vielen Neuanordnungen = Arbeit in Thunderbird
+          const cpuNow = () => { try { const v = ChromeUtils.cpuTimeSinceProcessStart; return typeof v == "number" ? v : null; } catch (e) { return null; } };
+          const rfNow = () => { try { return w.windowUtils.framesReflowed; } catch (e) { return null; } };
+          const gcLog = []; let tRec = 0;
+          const gcObs = { observe: (_s, topic, data) => { let j = {}; try { j = JSON.parse(data); } catch (e) {}
+            gcLog.push([topic.startsWith("garbage") ? "gc" : "cc", Math.round(performance.now() - tRec), Math.round(j.max_pause ?? j.max_slice_pause ?? -1), Math.round(j.total_time ?? j.duration ?? -1)]); } };
+          const gcPref = "javascript.options.mem.notify", gcPrefVorher = Services.prefs.getBoolPref(gcPref, false);
+          Services.prefs.setBoolPref(gcPref, true);
+          Services.obs.addObserver(gcObs, "garbage-collection-statistics"); Services.obs.addObserver(gcObs, "cycle-collection-statistics");
           try {
             await toMail(); await ruhig(600);
             if (w.gSpacesToolbar.isHidden || tm.currentAbout3Pane?.paneLayout?.folderPaneSplitter?.isCollapsed) {
@@ -25575,11 +25587,20 @@ Neu
               };
               for (const phase of ["aus", "ein"]) {
                 const frames = [sample()];
+                gcLog.length = 0; tRec = performance.now();
+                const ts = [tRec], cp = [cpuNow()], rf = [rfNow()];
                 btn.click();
                 const t0 = performance.now();
-                while (performance.now() - t0 < 700) { await new Promise(r => w.requestAnimationFrame(r)); frames.push(sample()); }
+                while (performance.now() - t0 < 700) { await new Promise(r => w.requestAnimationFrame(r)); frames.push(sample()); ts.push(performance.now()); cp.push(cpuNow()); rf.push(rfNow()); }
+                const gcIn = gcLog.splice(0);
                 await bis(still, "Animation fertig", 3000); await ruhig(400);
                 frames.push(sample());
+                // Diagnose: Bilder über 25 ms als [ms seit Klick, Echtzeit ms, Rechenzeit ms, Neuanordnungen] (das erste
+                // enthält den Klick selbst), Zahl der Bilder im Messfenster
+                const lang = [];
+                ts.forEach((t, i) => { if (!i || t - ts[i - 1] <= 25) return;
+                  lang.push([Math.round(t - tRec), Math.round(t - ts[i - 1]), cp[i] != null && cp[i - 1] != null ? Math.round(cp[i] - cp[i - 1]) : null,
+                    rf[i] != null && rf[i - 1] != null ? rf[i] - rf[i - 1] : null]); });
                 const colSteps = frames.map((f, i) => i ? Math.abs(f.col - frames[i - 1].col) : 0);
                 const maxCol = Math.max(...colSteps);
                 const moved = frames.filter((f, i) => i && Math.abs(f.edge - frames[i - 1].edge) > 0.5).length;
@@ -25589,10 +25610,12 @@ Neu
                 out[`${space}/${phase}`] = { moved, off: Math.round(off * 10) / 10, btnStep: Math.round(btnStep * 10) / 10,
                   maxCol: Math.round(maxCol * 10) / 10, first: frames[0], end: frames[frames.length - 1],
                   frames: frames.filter((f, i) => !i || f.col != frames[i - 1].col || f.edge != frames[i - 1].edge || f.btn != frames[i - 1].btn)
-                    .map(f => `${f.col}/${f.edge}/${f.btn}`).join(" ") };
+                    .map(f => `${f.col}/${f.edge}/${f.btn}`).join(" "), diag: { n: ts.length - 1, lang, gc: gcIn } };
               }
             }
           } finally {
+            Services.obs.removeObserver(gcObs, "garbage-collection-statistics"); Services.obs.removeObserver(gcObs, "cycle-collection-statistics");
+            Services.prefs.setBoolPref(gcPref, gcPrefVorher);
             if (w.gSpacesToolbar.isHidden) { w.__mcColumnMigrate(false, false); }
             await toMail(); await ruhig(600);
           }

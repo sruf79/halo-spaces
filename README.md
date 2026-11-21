@@ -187,6 +187,12 @@ Changes take effect right away unless noted.
 
 ---------------------------------------------------------------
 
+## What's new in 3.37.0
+
+- **Shortcuts**: on Windows and Linux Ctrl+B shows and hides the sidebar and Ctrl+T the Today pane, and the View and app menu items show the shortcuts; in the Compose window and in the task notes Ctrl+B stays bold
+- **Updates**: after an update without a restart, "Rename" (calendar list) and "Create Rule from Message..." (message context menu) no longer appear twice, "Undo Send" also holds back sending in a Compose window that stayed open, and the About window shows its new style
+- **Settings**: "halo.spaces design", "Own icons" and the offline copy for online calendars apply immediately instead of after a restart
+
 ## What's new in 3.36.0
 
 - **Buttons**: raised capsules in every space like the Mail toolbar (Contacts, Calendar with Day/Week/Month and Today, Tasks, the Chat bar, single round buttons, the "..." menus in the Add-ons Manager), with a light edge on top, a fine edge at the ends and a soft shadow; under the pointer a round 32 px circle shows the state

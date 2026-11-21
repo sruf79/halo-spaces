@@ -17,8 +17,8 @@
 # höchstens KONT_ALTER Minuten alt, sonst tests/kontingent.sh; Fensterende über fenster_rest noch nicht erreicht), genügt
 # AB_FENSTER (1) Commit (Maintainer 18.11.2026: „mehrmals ein neues release machen? … Ja.“). Zusätzlich nur, wenn der Stand
 # etwas Spürbares bringt (Maintainer 20.11.2026, ENTSCHEIDUNGEN.md „Zwischen-Releases nur für Spürbares“): seit dem letzten
-# Tag mindestens ein Commit unter extension/ oder chrome/, dessen Nachricht SPUERBAR trifft („(GitHub #n“, Absturz,
-# Datenverlust, Crash, Notfall, dringend); sonst warten (Logzeile), der Nachtlauf nimmt es mit. ZWISCHEN_ERZWINGEN=1 (nur
+# Tag mindestens ein Commit unter extension/ oder chrome/, dessen Nachricht SPUERBAR trifft (Absturz,
+# Datenverlust, Crash, Notfall, dringend; „(GitHub #n“ allein reicht nicht, Maintainer 21.11.2026); sonst warten (Logzeile), der Nachtlauf nimmt es mit. ZWISCHEN_ERZWINGEN=1 (nur
 # auf ausdrücklichen Wunsch des Maintainers) umgeht diese Bedingung. neon nicht belegt? Dann:
 #   1. Worktree WT (~/halo-zwischen-release, Zweig zr/release, Upstream origin/main) auf P; origin/main dort
 #      hineinmischen (Konflikt: abbrechen, kein Release). Der Checkout ~/halo-spaces wird nie angefasst (kein stash,
@@ -59,7 +59,7 @@ TAKT=${ZS_TAKT:-5} AB=${ZWISCHEN_RELEASE_AB:-3} BIS=${ZWISCHEN_RELEASE_BIS:-2230
 # Diagnose- und Probezweige kommen nie in ein Release (Name), ebenso ein Stand mit einem Commit, der es sagt (Nachricht)
 ZWEIG_AUS=${ZS_ZWEIG_AUS:-'(diagnose|flackern|probe)'} NICHT_MAIN='nicht nach main|nur (auf dem |für den )?Prüfzweig'
 # Spürbar für Nutzer (Maintainer 20.11.2026): Nachricht eines Commits unter extension/ oder chrome/ seit dem letzten Tag
-SPUERBAR=${ZS_SPUERBAR:-'\(GitHub #[0-9]+|absturz|abstürz|stürzt|datenverlust|crash|notfall|dringend'}
+SPUERBAR=${ZS_SPUERBAR:-'absturz|abstürz|stürzt|datenverlust|crash|notfall|dringend'}
 FENSTER_AB=${ZWISCHEN_RELEASE_FENSTER:-85} AB_FENSTER=${ZWISCHEN_RELEASE_AB_FENSTER:-1} KONT_ALTER=${ZS_KONT_ALTER:-15}
 R=sruf79/halo-spaces
 MODUS=

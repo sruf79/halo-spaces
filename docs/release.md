@@ -31,8 +31,8 @@ releases veröffentlichen mit nicht funktionalen features von daher sollten die 
   nutzt (Maintainer 18.11.2026: „bei Situationen wie dieser wo wir wieder knapp davor sind das 5h-limit mehrmals am tag
   zu erreichen könnten wir mehrmals ein neues release machen? …“ – „Ja.“). **Nur Spürbares** (Maintainer 20.11.2026,
   `ENTSCHEIDUNGEN.md` „Zwischen-Releases nur für Spürbares“): zusätzlich muss seit dem letzten Tag mindestens ein Commit
-  unter `extension/` oder `chrome/` eine Nachricht mit „(GitHub #n“, Absturz, Datenverlust, Crash, Notfall oder
-  „dringend“ haben (`spuerbar`, Muster `SPUERBAR`); sonst wartet der Wächter mit Logzeile und der Nachtlauf nimmt es mit.
+  unter `extension/` oder `chrome/` eine Nachricht mit Absturz, Datenverlust, Crash, Notfall oder
+  „dringend“ haben (ein „(GitHub #n)“ allein reicht nicht mehr, Maintainer 21.11.2026) (`spuerbar`, Muster `SPUERBAR`); sonst wartet der Wächter mit Logzeile und der Nachtlauf nimmt es mit.
   Nur auf ausdrücklichen Wunsch des Maintainers: Wächter mit `ZWISCHEN_ERZWINGEN=1` starten. Push-Beginn 09:00–22:30 (danach wartet der Wächter bis 09:00, das Release darf bis 24:00 fertig werden), keine Pause
   `zwischen-release`, nichts belegt (Runner.Worker u. a.). Dann im eigenen Worktree `~/halo-zwischen-release` (Zweig `zr/release`,
   Upstream `origin/main`, `repo.conf` kopiert): `origin/main` hineinmischen, nächste Minor-Version, kurze Claude-Runde

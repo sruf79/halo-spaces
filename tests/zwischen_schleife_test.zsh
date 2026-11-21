@@ -82,7 +82,7 @@ pruefe "git: Nutzer-Fix nur vor dem letzten Tag bzw. außerhalb von extension/ch
   "$(W HALO_ZS_SPUERBAR=git HALO_REPO_MAIN=$G HALO_ZS_STAND="$SP1 pruef/sp")" 'warten .*keinen Fehler'
 print d > $G/chrome/a.css; git -C $G add -A; git -C $G commit -qm 'Kalender: Absturz beim Öffnen behoben (GitHub #3)'
 SP2=$(git -C $G rev-parse HEAD)
-pruefe "git: Commit unter chrome/ mit (GitHub #n) seit dem letzten Tag: fällig" \
+pruefe "git: Commit unter chrome/ mit Absturz und (GitHub #n) seit dem letzten Tag: fällig" \
   "$(W HALO_ZS_SPUERBAR=git HALO_REPO_MAIN=$G HALO_ZS_STAND="$SP2 pruef/sp")" "^Prüfung:  fällig $SP2 3 pruef/sp\$"
 pruefe "Stand mit Commit „nicht nach main“: warten" "$(W HALO_ZS_NUR_PRUEF=ja)" 'warten Stand abcdef1 .*nicht nach main'
 pruefe "Kandidaten aus GitHub-Läufen nur pruef/*, neuester grüner Stand je Zweig, ohne Diagnose-/Probezweige" "$S" \

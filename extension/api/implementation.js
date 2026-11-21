@@ -13069,7 +13069,12 @@ class CardEnhancer {
           return;
         }
         if (typeof animWidth == "number") {
-          setVar(row, "--mc-tp-w", `${Math.round(animWidth)}px`);
+          // nur an Fläche und Knopf selbst, nicht an der Zeile: ein Wert an der
+          // Zeile vererbt sich an alle Knöpfe der Symbolleiste, die dann in
+          // jedem Bild neu gestaltet wurden (rund 150 Elemente je Bild, auf
+          // langsamen Rechnern reichte die Zeit eines Bildes nicht mehr)
+          setVar(top, "--mc-tp-w", `${Math.round(animWidth)}px`);
+          setVar(btn, "--mc-tp-w", `${Math.round(animWidth)}px`);
           row.toggleAttribute("data-mc-tp-none", Math.round(animWidth) <= 0);
           return;
         }
@@ -13079,6 +13084,8 @@ class CardEnhancer {
         const width = panel && w.TodayPane?.isVisible ? Math.round(panel.getBoundingClientRect().width) : 0;
         const caption = captionWidth(d);
         setVar(row, "--mc-tp-w", `${width}px`);
+        top.style.removeProperty("--mc-tp-w");
+        btn.style.removeProperty("--mc-tp-w");
         setVar(row, "--mc-tp-room", `${width}px`);
         row.toggleAttribute("data-mc-tp-open", width > 0);
         // ohne Today-Pane auch keine Fläche oben (ihr Innenabstand ließe

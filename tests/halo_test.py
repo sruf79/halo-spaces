@@ -6685,6 +6685,8 @@ def menu_checks(m, results):
               and "Show Folder List" in res.get("menu_View_Popup", []) and "Message" in res["menu_View_Popup"]
               and mail[:2] == ["Get New Mail", "Work Offline"] and "Star" in mail and "Mark Folder as Read" in mail and "Remind Me" in mail
               and "Rules…" in mail and not any("Filter" in x for x in mail)
+              # Thunderbird blendet beide beim Öffnen selbst wieder ein (InitMessageMenu, view_init) – sie bleiben ausgeblendet
+              and "Open Message" not in mail and "Message Body As" not in res["menu_View_Popup"]
               and "Troubleshooting" in res.get("menu_HelpPopup", []) and "halo.spaces" in res["menu_HelpPopup"]
               and "Error Console" in res.get("mcHelpTroublePopup", []) and len([x for x in res["mcHelpTroublePopup"] if x != "|"]) == 6
               and res.get("mcViewMessagePopup", [])[:3] == ["Original HTML", "Simple HTML", "Plain Text"]

@@ -93,7 +93,7 @@ Wortlaut des Maintainers: `ENTSCHEIDUNGEN.md` „Fable maximal ausnutzen“. Hie
 - Der Maintainer hat zwei „Fable reset“ (laut `docs/testrechner.md` bis 9. März) und löst einen **nur von Hand** aus, erst bei vollem Fable-Anteil der Woche. Keine Sitzung löst ihn aus.
 - **Bis zu diesem Reset:** Fable maximal nutzen, wo es Produktivität bringt (Fehlersuche, Analyse, schwierige Umbauten), höchstens ein Fable-Agent zugleich.
 - **Nach dem Reset:** wieder die normalen Obergrenzen (`FABLE_JE_LAUF`, `FABLE_5H_MAX`, Sollkurve), kein Ausreizen und kein Nachladen.
-- Den Fable-Wert kann neon nicht lesen (`tests/kontingent.sh` liefert nur Woche gesamt und 5 Stunden). Der Maintainer meldet ihn; zuletzt 62 % am 21.11.2026. Wer es für eine Entscheidung braucht, fragt nach dem aktuellen Wert.
+- Den Fable-Wert kann neon nicht lesen (`tests/kontingent.sh` liefert nur Woche gesamt und 5 Stunden). Der Maintainer meldet ihn; zuletzt 65 % am 21.11.2026 (abends). Wer es für eine Entscheidung braucht, fragt nach dem aktuellen Wert.
 - Die Obergrenzen in `~/.config/halo-spaces/tagesroutine.conf` ändern sich nur auf Zahlen des Maintainers.
 
 ## 5. Lücken (Vorschläge, brauchen eine Entscheidung)

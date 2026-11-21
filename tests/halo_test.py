@@ -8903,7 +8903,9 @@ def calendar_checks(m, results):
         # Mehrwochen-Ansicht scrollen 5/6 (seit 6/6 immer an, ohne Einstellung): nach einem schnellen Wischer
         # (Pixel-Bewegungen) läuft die Ansicht mit Schwung aus, ohne Zucken (nie zurück), und kommt genau auf einer
         # Wochengrenze zur Ruhe, mindestens zwei Wochen weiter als der Wischer selbst (ohne Schwung: nächste Woche zum
-        # gewischten Weg); Mausrad (Zeilen) rastet ohne Schwung ein
+        # gewischten Weg); Mausrad (Zeilen) rastet ohne Schwung ein. lead: Abstand des ersten Bildes des Einrastens zu
+        # seinem Start in ms. late: derselbe Wischer mit Bild-Zeitstempeln 20 ms in der Vergangenheit, wie unter Windows
+        # möglich (dort Zeitstempel des letzten Bildschirmtakts; vermutete Ursache des Flackerns 20.11.2026 mit back=True)
         res = m.js(CAL_CHECK_JS + r"""
           await toCalendar(); w.switchToView("multiweek"); await ruhig(800);
           const mv = d.getElementById("multiweek-view").wrappedJSObject || d.getElementById("multiweek-view");
@@ -8915,19 +8917,24 @@ def calendar_checks(m, results):
             const sleep = ms => new Promise(r => w.setTimeout(r, ms));
             // feste Pause: Wischer mit echtem Zeitabstand (die Geschwindigkeit kommt aus den Zeitstempeln)
             const swipe = async (n, dy, mode) => { for (let i = 0; i < n; i++) { box().dispatchEvent(new w.WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: dy, deltaMode: mode })); await sleep(16); } };
-            const run = async (mode, dy) => {
+            const run = async (mode, dy, late = 0) => {
               const first = mv.rangeStartDate.clone(); first.isDate = true;
-              await swipe(10, dy, mode);
+              const raf = w.requestAnimationFrame;
+              if (late) w.requestAnimationFrame = cb => raf.call(w, t => cb(t - late));
               const track = []; let still = 0;
-              const t0 = w.performance.now();
-              while (w.performance.now() - t0 < 4000 && still < 12) {
-                await new Promise(r => w.requestAnimationFrame(r));
-                const p = mv.__mcScrollPos(); track.push(p);
-                still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0;
-              }
+              try {
+                await swipe(10, dy, mode);
+                const t0 = w.performance.now();
+                while (w.performance.now() - t0 < 4000 && still < 12) {
+                  await new Promise(r => raf.call(w, r));
+                  const p = mv.__mcScrollPos(); track.push(p);
+                  still = track.length > 1 && track[track.length - 2] === p ? still + 1 : 0;
+                }
+              } finally { if (late) w.requestAnimationFrame = raf; }
               await ruhig(900);
               const now = mv.rangeStartDate.clone(); now.isDate = true;
               return { weeks: Math.round((now.nativeTime - first.nativeTime) / 6048e8), aligned: Math.round(top(now) - head()),
+                       lead: Math.round((mv.__mcSnapLead ?? NaN) * 10) / 10,
                        back: track.slice(0, track.indexOf(Math.max(...track)) + 1).some((p, i, a) => i && p < a[i - 1] - 0.5), frames: track.length };
             };
             const rowH = parseFloat(mv.style.getPropertyValue("--mc-mw-row"));
@@ -8935,14 +8942,17 @@ def calendar_checks(m, results):
             out.plain = Math.round(10 * 40 / rowH);
             out.on = await run(0, 40);
             out.wheel = await run(1, 1);
+            out.late = await run(0, 40, 20);
           } finally {
             w.switchToView("week"); await ruhig(400);
           }
           return out;""")
-        on, wh = (res.get(k) or {} for k in ("on", "wheel"))
+        on, wh, lt = (res.get(k) or {} for k in ("on", "wheel", "late"))
         ok = (isinstance(res.get("plain"), int) and abs(on.get("aligned", 9)) <= 1 and abs(wh.get("aligned", 9)) <= 1
               and on.get("weeks", 0) >= res["plain"] + 2 and not on.get("back") and on.get("frames", 0) >= 12
-              and wh.get("weeks", 9) <= 1)
+              and wh.get("weeks", 9) <= 1
+              and abs(lt.get("aligned", 9)) <= 1 and lt.get("weeks", 0) >= res["plain"] + 2 and not lt.get("back")
+              and lt.get("frames", 0) >= 12 and lt.get("lead", 0) < 0)
         return ok, f"{res}"
     check("Kalender: Mehrwochen-Ansicht scrollen 5/6 – Schwung nach dem Wischer (immer an), läuft ohne Zucken aus, Endlage auf einer Wochengrenze, Mausrad ohne Schwung", multiweek_momentum, results)
 

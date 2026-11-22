@@ -5115,16 +5115,22 @@ unified-toolbar {
 
 /* ---------- Nachfassen (wie „Follow Up“ in Apple Mail) ----------
    Hinweis über der Mailliste im Posteingang (#mcFollowUp, setzt die
-   Erweiterung): eigene Mail ohne Antwort, „Nachfassen“ und ✕;
-   unten 8 px Luft bis zur ersten Mail-Kachel (vorher 2 px, klebte daran) */
+   Erweiterung): eigene Mail ohne Antwort, „Follow Up“ und Schließen;
+   unten 8 px Luft bis zur ersten Mail-Kachel (vorher 2 px, klebte daran).
+   Ein Hinweis, keine Aufforderung: leise graue Karte wie der Hinweis
+   „entfernte Inhalte blockiert“ über der Mail (E22, Variante A vom
+   17.11.2026; vorher hellblau mit voll blauem Knopf): Fläche
+   --mt-hint-bg, Radius 10 px, Text in Textfarbe, „Follow Up“ als graue
+   Textkapsel 24 px mit Lichtkante der Knopf-Familie, Schließen als runder
+   grauer Symbolknopf 24 px */
 #mcFollowUp {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin: 6px 8px 8px;
-  padding: 8px 8px 8px 12px;
+  padding: 6px 8px 6px 12px;
   border-radius: var(--mt-radius-row, 10px);
-  background: color-mix(in srgb, var(--mt-accent) 10%, var(--mt-window));
+  background: var(--mt-hint-bg);
   font: calc(12px * var(--mt-font-scale, 1)) var(--mt-font);
   color: var(--mt-text);
 }
@@ -5138,7 +5144,7 @@ unified-toolbar {
 }
 
 /* (!important: Thunderbirds bzw. unsere allgemeinen Knopfregeln machten
-   beide Knöpfe sonst zu breiten grauen Kapseln) */
+   beide Knöpfe sonst zu breiten Kapseln mit eigener Fläche) */
 #mcFollowUp .mc-fu-go {
   appearance: none !important;
   flex: none !important;
@@ -5146,42 +5152,49 @@ unified-toolbar {
   height: var(--mt-btn-h-small, 24px) !important;
   min-height: 0 !important;
   margin: 0 !important;
-  padding: 0 10px !important;
+  padding: 0 12px !important;
   border: none !important;
   border-radius: var(--mt-radius-capsule, 999px) !important;
-  background: var(--mt-accent) !important;
-  color: var(--mt-accent-text) !important;
+  /* Textknopf der Knopf-Familie: grau mit Lichtkante */
+  box-shadow: var(--mt-btn-lite-shadow, none) !important;
+  background: var(--mt-control) !important;
+  color: var(--mt-text) !important;
   font: inherit !important;
-  font-weight: 600 !important;
+  font-weight: 400 !important;
 }
 
 #mcFollowUp .mc-fu-go:hover {
-  background: color-mix(in srgb, var(--mt-accent) 88%, black) !important;
+  background: var(--mt-control-hover) !important;
+}
+
+#mcFollowUp .mc-fu-go:hover:active {
+  background: var(--mt-btn-press) !important;
+  box-shadow: var(--mt-btn-press-in) !important;
 }
 
 #mcFollowUp .mc-fu-close {
   appearance: none !important;
   flex: none !important;
-  width: 22px !important;
+  width: var(--mt-btn-h-small, 24px) !important;
   min-width: 0 !important;
-  height: 22px !important;
+  height: var(--mt-btn-h-small, 24px) !important;
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
   border-radius: 50% !important;
-  background: transparent !important;
+  box-shadow: none !important;
+  /* halo-× (12 px) mittig auf grauem Kreis wie Schließen der Hinweiskarte */
+  background: var(--mt-control) url("resource://mailcards/icons/close-12.svg") center / 12px 12px no-repeat !important;
+  -moz-context-properties: stroke, fill, fill-opacity;
+  stroke: var(--mt-text-secondary);
+  fill: transparent;
   color: var(--mt-text-secondary) !important;
-  position: relative;
-}
-
-#mcFollowUp .mc-fu-close::before {
-  content: "✕";
-  font-size: calc(11px * var(--mt-font-scale, 1));
 }
 
 #mcFollowUp .mc-fu-close:hover {
-  background: var(--mt-control-hover) !important;
+  background-color: var(--mt-control-hover) !important;
+  stroke: var(--mt-text);
 }
 
 /* ---------- Senden rückgängig (wie Apple Mail) ----------

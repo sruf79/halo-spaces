@@ -12037,6 +12037,7 @@ def server_checks(m, results):
             servers.imap.add("Sent", f"From: Halo Test <halo@example.invalid>\nTo: Kunde <kunde@example.invalid>\nSubject: Angebot Fenster\n"
                              f"Date: {five}\nMessage-ID: <srv-follow@example.invalid>\n\nWie besprochen.\n", flags=["\\Seen"])
             res = m.js(r"""
+              const SHOT = %s;
               const { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
               const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
               const g = ExtensionParent.GlobalManager.getExtension("%s").experimentAPIManager.global;
@@ -12050,18 +12051,30 @@ def server_checks(m, results):
               a3.displayFolder(inbox.URI); await ruhig(1200);
               const bar = await until(() => a3.document.getElementById("mcFollowUp"), 5000);
               const out = { bar: bar?.textContent || null };
-              // Aussehen wie unsere übrigen Hinweise: Knopf als Kapsel in Akzentfarbe, ✕ klein und rund ohne Fläche,
-              // Text 12 px (vorher setzten sich Thunderbirds Knöpfe durch: graue breite Kapseln, größere Schrift)
+              // Aussehen wie die Hinweiskarte über der Mail (E22, Variante A 17.11.2026; vorher hellblau mit blauem Knopf):
+              // graue Karte (--mt-hint-bg) Radius 10, Text 12 px in Textfarbe, „Follow Up“ graue Textkapsel 24 px mit
+              // Lichtkante der Knopf-Familie (keine Akzentfarbe), Schließen grauer Kreis 24 px mit halo-×
               if (bar) {
                 const cs = el => a3.getComputedStyle(el), r = el => el.getBoundingClientRect();
                 const go = bar.querySelector(".mc-fu-go"), x = bar.querySelector(".mc-fu-close");
-                const probe = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); probe.style.background = "AccentColor"; bar.append(probe);
-                out.look = { accent: cs(probe).backgroundColor, goBg: cs(go).backgroundColor, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
-                             xBg: cs(x).backgroundColor, xW: Math.round(r(x).width), xH: Math.round(r(x).height),
+                const mk = v => { const e = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "div"); e.style.background = v; e.style.color = v; bar.append(e); return e; };
+                const probe = mk("AccentColor"), pHint = mk("var(--mt-hint-bg)"), pCtl = mk("var(--mt-control)"), pText = mk("var(--mt-text)");
+                out.look = { accent: cs(probe).backgroundColor, hint: cs(pHint).backgroundColor, ctl: cs(pCtl).backgroundColor, textColor: cs(pText).color,
+                             barBg: cs(bar).backgroundColor, barRadius: cs(bar).borderTopLeftRadius,
+                             goBg: cs(go).backgroundColor, goColor: cs(go).color, goShadow: cs(go).boxShadow, goH: Math.round(r(go).height), goRadius: cs(go).borderTopLeftRadius,
+                             xBg: cs(x).backgroundColor, xImg: cs(x).backgroundImage, xW: Math.round(r(x).width), xH: Math.round(r(x).height), xRadius: cs(x).borderTopLeftRadius,
                              text: cs(bar.querySelector(".mc-fu-text")).fontSize, barH: Math.round(r(bar).height),
                              // Luft bis zur Mailliste darunter (vorher 2 px, Hinweis klebte an der ersten Kachel)
                              gap: Math.round(r(a3.document.getElementById("threadTree")).top - r(bar).bottom) };
-                probe.remove();
+                for (const e of [probe, pHint, pCtl, pText]) e.remove();
+                if (SHOT) {
+                  // Bild des Hinweises samt erster Mail-Kachel (nur Testprofil)
+                  const pr = r(a3.document.getElementById("threadPane")), br = r(bar);
+                  const bm = await a3.browsingContext.currentWindowGlobal.drawSnapshot(new a3.DOMRect(pr.left, br.top - 8, Math.min(pr.width, 520), br.height + 80), 2, "white");
+                  const cv = a3.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); cv.width = bm.width; cv.height = bm.height;
+                  cv.getContext("2d").drawImage(bm, 0, 0); out.png = cv.toDataURL("image/png").split(",")[1];
+                  out.dark = a3.matchMedia("(prefers-color-scheme: dark)").matches;
+                }
               }
               // Schalter „Follow-Up Suggestions“ aus: Hinweis sofort weg (ohne Ordnerwechsel), an: wieder da
               Services.prefs.setBoolPref("extensions.mailcards.followUp", false); await ruhig(300);
@@ -12071,15 +12084,23 @@ def server_checks(m, results):
               bar?.querySelector(".mc-fu-close").click(); a3.document.querySelector("#mcFollowUp .mc-fu-close")?.click(); await ruhig(300);
               out.afterDismiss = !!a3.document.getElementById("mcFollowUp") && a3.document.getElementById("mcFollowUp").textContent.includes("Angebot Fenster");
               Services.prefs.clearUserPref("extensions.mailcards.followUpDismissed"); FU.cache = null;
-              return out;""" % (ADDON_ID, key))
+              return out;""" % ("true" if os.environ.get("HALO_SHOTS") else "false", ADDON_ID, key))
+            if res.get("png"):
+                import base64
+                os.makedirs(os.environ["HALO_SHOTS"], exist_ok=True)
+                path = os.path.join(os.environ["HALO_SHOTS"], f"nachfassen-{'dunkel' if res.get('dark') else 'hell'}.png")
+                open(path, "wb").write(base64.b64decode(res.pop("png")))
+                print(f"Bild {path}", flush=True)
             ok = ("Angebot Fenster" in (res.get("bar") or "") and "Follow Up" in (res.get("bar") or "") and not res.get("afterDismiss")
                   and res.get("off") is False and res.get("on") is True)
             lk = res.get("look") or {}
-            ok = ok and (lk.get("goBg") == lk.get("accent") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
-                         and lk.get("xBg") in ("transparent", "rgba(0, 0, 0, 0)") and lk.get("xW", 99) <= 24 and lk.get("xH", 99) <= 24
-                         and lk.get("text") == "12px" and lk.get("gap", 0) >= 8)
+            ok = ok and (lk.get("barBg") == lk.get("hint") and lk.get("barRadius") == "10px"
+                         and lk.get("goBg") == lk.get("ctl") and lk.get("goBg") != lk.get("accent") and lk.get("goColor") == lk.get("textColor")
+                         and "inset" in (lk.get("goShadow") or "") and lk.get("goH") == 24 and lk.get("goRadius") in ("999px", "12px")
+                         and lk.get("xBg") == lk.get("ctl") and "close-12.svg" in (lk.get("xImg") or "") and lk.get("xW") == 24 and lk.get("xH") == 24
+                         and lk.get("xRadius") in ("50%", "12px") and lk.get("text") == "12px" and lk.get("gap", 0) >= 8)
             return ok, f"{res}"
-        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort, Knopf in Akzentfarbe und kleines ✕, 8 px Luft zur Mailliste, ✕ blendet aus, Schalter wirkt sofort", follow_up, results)
+        check("Testkonto: Nachfassen – Hinweis über dem Posteingang zu eigener Mail ohne Antwort als graue Karte wie die Hinweiskarte über der Mail, „Follow Up“ graue Textkapsel 24 px mit Lichtkante, Schließen grauer Kreis 24 px, 8 px Luft zur Mailliste, Schließen blendet aus, Schalter wirkt sofort", follow_up, results)
 
         def subscribe_dialog():
             # Abonnieren-Dialog (nur mit IMAP-Konto): öffnet, zeigt den nicht abonnierten Ordner „Projekte“, ohne harte Rahmen
